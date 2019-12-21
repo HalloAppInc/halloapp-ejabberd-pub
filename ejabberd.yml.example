@@ -214,6 +214,7 @@ modules:
   mod_vcard_xupdate: {}
   mod_version:
     show_os: false
+  mod_phone_number_normalization: {}
 
 ### Local Variables:
 ### mode: yaml
