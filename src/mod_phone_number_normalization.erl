@@ -38,8 +38,8 @@ normalize_contacts([]) ->
 normalize_contacts([First | Rest]) ->
 	[normalize_contact(First) | normalize_contacts(Rest)].
 
-normalize_contact({_, _, Rawnumbers, _}) ->
-	{contact, [], Rawnumbers, normalize(Rawnumbers)}.
+normalize_contact({Rawnumbers, _}) ->
+	{Rawnumbers, normalize(Rawnumbers)}.
 
 normalize([]) ->
 	[];
@@ -54,24 +54,17 @@ normalize([First | Rest]) ->
 	end.
 
 parse(Number) ->
-        Num = re:replace(Number, "[^0-9+]", "", [global, {return,list}]),
+        Num = re:replace(Number, "[^0-9]", "", [global, {return,list}]),
         case string:length(Num) of
-		10 -> unicode:characters_to_list(["+1", Num]);
+		10 -> unicode:characters_to_list(["1", Num]);
 		11 ->
 			Firstdigit = string:slice(Num, 0, 1),
 			if
 				Firstdigit == "1" ->
-					unicode:characters_to_list(["+", Num]);
+					Num;
 				true ->
                                         "" % ignore the number if first digit is not equal to 1 when the number is 11 digits.
                         end;
-		12 ->
-			Firsttwodigits = string:slice(Num, 0, 2),
-                        if
-                                Firsttwodigits == "+1" ->
-                                        Num;
-                                true ->
-                                        "" % ignore the number if first two digits are not equal to +1 when the number is 12 digits.
-                        end;
 		_Else -> ""
         end.
+
