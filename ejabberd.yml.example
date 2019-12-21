@@ -15,6 +15,7 @@
 ###
 
 hosts:
+  - "s.halloapp.net"
   - localhost
 
 loglevel: 4
@@ -36,7 +37,7 @@ listen:
     max_stanza_size: 262144
     shaper: c2s_shaper
     access: c2s
-    starttls_required: true
+#    starttls_required: true
   -
     port: 5269
     ip: "::"
@@ -120,6 +121,8 @@ api_permissions:
     who:
       ip: 127.0.0.1/8
     what:
+      - register
+      - unregister
       - status
       - connected_users_number
 
