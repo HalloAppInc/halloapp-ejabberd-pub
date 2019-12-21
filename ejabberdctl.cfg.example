@@ -134,7 +134,7 @@
 #
 # Default: ejabberd@localhost
 #
-#ERLANG_NODE=ejabberd@localhost
+ERLANG_NODE=ejabberd
 
 #.
 #' EJABBERD_PID_PATH: ejabberd PID file
