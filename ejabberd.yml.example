@@ -25,9 +25,8 @@ log_rotate_count: 1
 log_rate_limit: 100
 
 ## If you already have certificates, list them here
-# certfiles:
-#  - /etc/letsencrypt/live/domain.tld/fullchain.pem
-#  - /etc/letsencrypt/live/domain.tld/privkey.pem
+ certfiles:
+  - /etc/letsencrypt/live/s.halloapp.net/*.pem
 
 listen:
   -
@@ -37,7 +36,7 @@ listen:
     max_stanza_size: 262144
     shaper: c2s_shaper
     access: c2s
-#    starttls_required: true
+    starttls_required: true
   -
     port: 5269
     ip: "::"
