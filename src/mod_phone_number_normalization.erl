@@ -1,3 +1,16 @@
+%%%----------------------------------------------------------------------
+%%% File    : mod_phone_number_normalization.erl
+%%%
+%%% Copyright (C) 2019 halloappinc.
+%%%
+%%% This file handles the iq packet queries with a custom namespace (<<"ns:phonenumber:normalization">>) that we defined.
+%%% We define custom xml records of the following type: "contact_list", "contact", "raw", "normalized" in xmpp/specs/xmpp_codec.spec file.
+%%% The module expects a "contact_list" containing "raw" phone numbers of the "contacts" of the user, normalizes these
+%%% phone numbers using our custom rules and return these "normalized" phone numbers.
+%%% Currently, the normalization rules are specific to work with only US phone numbers.
+%%% TODO(murali@): extend this to other international countries.
+%%%----------------------------------------------------------------------
+
 -module(mod_phone_number_normalization).
 
 -behaviour(gen_mod).
@@ -43,7 +56,6 @@ normalize_contact({Rawnumbers, _}) ->
 
 normalize([]) ->
 	[];
-
 normalize([First | Rest]) ->
 	Result = parse(First),
 	if
