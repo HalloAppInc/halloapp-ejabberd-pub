@@ -67,7 +67,7 @@ listen:
     module: mod_mqtt
     backlog: 1000
 
-s2s_use_starttls: optional
+s2s_use_starttls: required
 
 acl:
   local:
@@ -205,7 +205,7 @@ modules:
     ip_access: trusted_network
   mod_roster:
     versioning: true
-  mod_s2s_dialback: {}
+  ## mod_s2s_dialback: {}
   mod_shared_roster: {}
   mod_stream_mgmt:
     resend_on_timeout: if_offline
