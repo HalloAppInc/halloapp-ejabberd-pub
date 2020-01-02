@@ -122,6 +122,9 @@ api_permissions:
     what:
       - register
       - unregister
+      - enroll
+      - unenroll
+      - get_user_passcode
       - status
       - connected_users_number
 

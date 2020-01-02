@@ -44,6 +44,8 @@
 	 %% Accounts
 	 register/3, unregister/2,
 	 registered_users/1,
+	 enroll/3, unenroll/2,
+	 enrolled_users/1, get_user_passcode/2,
 	 %% Migration jabberd1.4
 	 import_file/1, import_dir/1,
 	 %% Purge DB
@@ -196,6 +198,41 @@ get_commands_spec() ->
 			result_example = [<<"user1">>, <<"user2">>],
 			args = [{host, binary}],
 			result = {users, {list, {username, string}}}},
+
+     #ejabberd_commands{name = enroll, tags = [accounts],
+                        desc = "Enroll a user",
+                        policy = admin,
+                        module = ?MODULE, function = enroll,
+                        args_desc = ["Username", "Local vhost served by ejabberd", "Passcode"],
+                        args_example = [<<"bob">>, <<"example.com">>, <<"442368">>],
+                        args = [{user, binary}, {host, binary}, {passcode, binary}],
+                        result = {res, restuple}},
+     #ejabberd_commands{name = unenroll, tags = [accounts],
+                        desc = "Unenroll a user",
+                        policy = admin,
+                        module = ?MODULE, function = unenroll,
+                        args_desc = ["Username", "Local vhost served by ejabberd"],
+                        args_example = [<<"bob">>, <<"example.com">>],
+                        args = [{user, binary}, {host, binary}],
+                        result = {res, restuple}},
+     #ejabberd_commands{name = enrolled_users, tags = [accounts],
+                        desc = "List all enrolled users in HOST",
+                        module = ?MODULE, function = enrolled_users,
+                        args_desc = ["Local vhost"],
+                        args_example = [<<"example.com">>],
+                        result_desc = "List of enrolled accounts usernames",
+                        result_example = [<<"user1">>, <<"user2">>],
+                        args = [{host, binary}],
+                        result = {users, {list, {username, string}}}},
+     #ejabberd_commands{name = get_user_passcode, tags = [accounts],
+                        desc = "Get the passcode of an enrolled user",
+                        policy = admin,
+                        module = ?MODULE, function = get_user_passcode,
+                        args_desc = ["Username", "Local vhost served by ejabberd"],
+                        args_example = [<<"bob">>, <<"example.com">>],
+                        args = [{user, binary}, {host, binary}],
+                        result = {res, restuple}},
+
      #ejabberd_commands{name = registered_vhosts, tags = [server],
 			desc = "List all registered vhosts in SERVER",
 			module = ?MODULE, function = registered_vhosts,
@@ -535,6 +572,57 @@ registered_users(Host) ->
 	    lists:map(fun({U, _S}) -> U end, SUsers);
 	false ->
 	    {error, "Unknown virtual host"}
+    end.
+
+enroll(User, Host, Passcode) ->
+    case is_my_host(Host) of
+        true ->
+            case ejabberd_auth_mnesia:try_enroll(User, Host, Passcode) of
+                {ok, _} ->
+                    {ok, io_lib:format("User ~ts@~ts successfully enrolled", [User, Host])};
+                {error, Reason} ->
+                    String = io_lib:format("Can't enroll user ~ts@~ts at node ~p: ~ts",
+                                           [User, Host, node(),
+                                            mod_register:format_error(Reason)]),
+                    {error, cannot_enroll, 10001, String}
+            end;
+        false ->
+            {error, cannot_enroll, 10001, "Unknown virtual host"}
+    end.
+
+unenroll(User, Host) ->
+    case is_my_host(Host) of
+        true ->
+            ejabberd_auth_mnesia:remove_enrolled_user(User, Host),
+            {ok, ""};
+        false ->
+            {error, "Unknown virtual host"}
+    end.
+
+enrolled_users(Host) ->
+    case is_my_host(Host) of
+        true ->
+            Users = ejabberd_auth_mnesia:get_enrolled_users(Host),
+            SUsers = lists:sort(Users),
+            lists:map(fun({U, _S}) -> U end, SUsers);
+        false ->
+            {error, "Unknown virtual host"}
+    end.
+
+get_user_passcode(User, Host) ->
+    case is_my_host(Host) of
+        true ->
+            case ejabberd_auth_mnesia:get_passcode(User, Host) of
+                {ok, Passcode} ->
+                    {ok, Passcode};
+                {error, invalid} ->
+                    Msg = io_lib:format("User ~ts@~ts is not enrolled", [User, Host]),
+                    {error, conflict, 10090, Msg};
+                {error, _} ->
+                    {error, "db-failure, unable to obtain passcode"}
+            end;
+        false ->
+            {error, "Unknown virtual host"}
     end.
 
 registered_vhosts() ->

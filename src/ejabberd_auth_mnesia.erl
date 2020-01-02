@@ -33,7 +33,8 @@
 	 get_users/2, init_db/0,
 	 count_users/2, get_password/2,
 	 remove_user/2, store_type/1, import/2,
-	 plain_password_required/1, use_cache/1]).
+	 plain_password_required/1, use_cache/1,
+	 try_enroll/3, get_enrolled_users/1, remove_enrolled_user/2, get_passcode/2]).
 -export([need_transform/1, transform/1]).
 
 -include("logger.hrl").
@@ -42,6 +43,9 @@
 
 -record(reg_users_counter, {vhost = <<"">> :: binary(),
                             count = 0 :: integer() | '$1'}).
+
+-record(enrolled_users, {username = {<<"">>, <<"">>} :: {binary(), binary()},
+                         passcode = <<"">> :: binary()}).
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -58,6 +62,9 @@ init_db() ->
     ejabberd_mnesia:create(?MODULE, passwd,
 			[{disc_only_copies, [node()]},
 			 {attributes, record_info(fields, passwd)}]),
+    ejabberd_mnesia:create(?MODULE, enrolled_users,
+                           [{disc_only_copies, [node()]},
+                            {attributes, record_info(fields, enrolled_users)}]),
     ejabberd_mnesia:create(?MODULE, reg_users_counter,
 			[{ram_copies, [node()]},
 			 {attributes, record_info(fields, reg_users_counter)}]).
@@ -118,6 +125,31 @@ try_register(User, Server, Password) ->
 	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
 	    {nocache, {error, db_failure}}
     end.
+
+try_enroll(User, Server, Passcode) ->
+    US = {User, Server},
+    F = fun () ->
+                case mnesia:read({enrolled_users, US}) of
+                    [] ->
+                        mnesia:write(#enrolled_users{username = US, passcode = Passcode}),
+                        {ok, Passcode};
+                    [_] ->
+                        {error, exists}
+                end
+        end,
+    case mnesia:transaction(F) of
+        {atomic, Res} ->
+            Res;
+        {aborted, Reason} ->
+            ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+            {error, db_failure}
+    end.
+
+
+get_enrolled_users(Server) ->
+        mnesia:dirty_select(enrolled_users,
+                            [{#enrolled_users{username = '$1', _ = '_'},
+                              [{'==', {element, 2, '$1'}, Server}], ['$1']}]).
 
 get_users(Server, []) ->
     mnesia:dirty_select(passwd,
@@ -186,6 +218,24 @@ get_password(User, Server) ->
 	    {cache, error}
     end.
 
+get_passcode(User, Server) ->
+    US = {User, Server},
+    F = fun () ->
+                case mnesia:read({enrolled_users, US}) of
+                    [] ->
+                        {error, invalid};
+                    [#enrolled_users{passcode = Passcode}] ->
+                        {ok, Passcode}
+                end
+        end,
+    case mnesia:transaction(F) of
+        {atomic, Res} ->
+            Res;
+        {aborted, Reason} ->
+            ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+            {error, db_failure}
+    end.
+
 remove_user(User, Server) ->
     US = {User, Server},
     F = fun () ->
@@ -199,6 +249,20 @@ remove_user(User, Server) ->
 	{aborted, Reason} ->
 	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
 	    {error, db_failure}
+    end.
+
+remove_enrolled_user(User, Server) ->
+    US = {User, Server},
+    F = fun () ->
+                mnesia:delete({enrolled_users, US}),
+                ok
+        end,
+    case mnesia:transaction(F) of
+        {atomic, ok} ->
+            ok;
+        {aborted, Reason} ->
+            ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+            {error, db_failure}
     end.
 
 need_transform(#reg_users_counter{}) ->
