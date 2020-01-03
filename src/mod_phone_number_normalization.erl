@@ -70,12 +70,9 @@ parse(Number) ->
         case string:length(Num) of
 		10 -> unicode:characters_to_list(["1", Num]);
 		11 ->
-			Firstdigit = string:slice(Num, 0, 1),
-			if
-				Firstdigit == "1" ->
-					Num;
-				true ->
-                                        "" % ignore the number if first digit is not equal to 1 when the number is 11 digits.
+			case Num of
+                                "1"++_ -> Num;
+                                _Else -> "" % ignore the number if first digit is not equal to 1 when the number is 11 digits.
                         end;
 		_Else -> ""
         end.
