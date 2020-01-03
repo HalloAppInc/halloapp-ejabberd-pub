@@ -4,9 +4,10 @@
 %%% Copyright (C) 2019 halloappinc.
 %%%
 %%% This file handles the iq packet queries with a custom namespace (<<"ns:phonenumber:normalization">>) that we defined.
-%%% We define custom xml records of the following type: "contact_list", "contact", "raw", "normalized" in xmpp/specs/xmpp_codec.spec file.
+%%% We define custom xml records of the following type: "contact_list", "contact", "raw", "role", "normalized" in xmpp/specs/xmpp_codec.spec file.
 %%% The module expects a "contact_list" containing "raw" phone numbers of the "contacts" of the user, normalizes these
-%%% phone numbers using our custom rules and return these "normalized" phone numbers.
+%%% phone numbers using our custom rules and return these "normalized" phone numbers and
+%%% their "roles" indicating if the "contact" is registered on halloapp or not with values "member" and "none" respectively.
 %%% Currently, the normalization rules are specific to work with only US phone numbers.
 %%% TODO(murali@): extend this to other international countries.
 %%%----------------------------------------------------------------------
@@ -18,7 +19,7 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 
--export([start/2, stop/1, depends/2, mod_options/1, process_local_iq/1, normalize/1, parse/1]).
+-export([start/2, stop/1, depends/2, mod_options/1, process_local_iq/1, normalize/1, normalize_contact/1, parse/1, certify/1, validate/1]).
 
 start(Host, Opts) ->
     xmpp:register_codec(phone_number_normalization),
@@ -51,8 +52,10 @@ normalize_contacts([]) ->
 normalize_contacts([First | Rest]) ->
 	[normalize_contact(First) | normalize_contacts(Rest)].
 
-normalize_contact({Rawnumbers, _}) ->
-	{Rawnumbers, normalize(Rawnumbers)}.
+normalize_contact({_, Raw_numbers, _}) ->
+	Norm_numbers = normalize(Raw_numbers),
+	Roles = certify(Norm_numbers),
+	{Roles, Raw_numbers, Norm_numbers}.
 
 normalize([]) ->
 	[];
@@ -77,3 +80,16 @@ parse(Number) ->
 		_Else -> ""
         end.
 
+certify([]) ->
+	[];
+certify([First | Rest]) ->
+	[validate(First)| certify(Rest)].
+
+%% Validates if the contact is registered with halloapp or not by looking up the passwd table.
+validate(Number) ->
+	US = {list_to_binary(Number), <<"s.halloapp.net">>},
+	ValueList = mnesia:dirty_read(passwd, US),
+	case ValueList of
+		[] -> "none";
+		_Else -> "member"
+	end.

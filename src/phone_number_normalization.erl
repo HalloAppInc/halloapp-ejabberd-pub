@@ -21,6 +21,10 @@ do_decode(<<"raw">>, <<"ns:phonenumber:normalization">>,
 	  El, Opts) ->
     decode_raw(<<"ns:phonenumber:normalization">>, Opts,
 	       El);
+do_decode(<<"role">>,
+	  <<"ns:phonenumber:normalization">>, El, Opts) ->
+    decode_role(<<"ns:phonenumber:normalization">>, Opts,
+		El);
 do_decode(Name, <<>>, _, _) ->
     erlang:error({xmpp_codec, {missing_tag_xmlns, Name}});
 do_decode(Name, XMLNS, _, _) ->
@@ -31,7 +35,8 @@ tags() ->
       <<"ns:phonenumber:normalization">>},
      {<<"contact">>, <<"ns:phonenumber:normalization">>},
      {<<"normalized">>, <<"ns:phonenumber:normalization">>},
-     {<<"raw">>, <<"ns:phonenumber:normalization">>}].
+     {<<"raw">>, <<"ns:phonenumber:normalization">>},
+     {<<"role">>, <<"ns:phonenumber:normalization">>}].
 
 do_encode({contact_list, _,
 	   <<"ns:phonenumber:normalization">>, _} =
@@ -134,17 +139,34 @@ decode_contact_list_attr_xmlns(__TopXMLNS, _val) ->
 
 decode_contact(__TopXMLNS, __Opts,
 	       {xmlel, <<"contact">>, _attrs, _els}) ->
-    {Normalized_numbers, Raw_numbers} =
-	decode_contact_els(__TopXMLNS, __Opts, _els, [], []),
-    {Raw_numbers, Normalized_numbers}.
+    {Normalized_numbers, Raw_numbers, Roles} =
+	decode_contact_els(__TopXMLNS, __Opts, _els, [], [],
+			   []),
+    {Roles, Raw_numbers, Normalized_numbers}.
 
 decode_contact_els(__TopXMLNS, __Opts, [],
-		   Normalized_numbers, Raw_numbers) ->
+		   Normalized_numbers, Raw_numbers, Roles) ->
     {lists:reverse(Normalized_numbers),
-     lists:reverse(Raw_numbers)};
+     lists:reverse(Raw_numbers), lists:reverse(Roles)};
+decode_contact_els(__TopXMLNS, __Opts,
+		   [{xmlel, <<"role">>, _attrs, _} = _el | _els],
+		   Normalized_numbers, Raw_numbers, Roles) ->
+    case xmpp_codec:get_attr(<<"xmlns">>, _attrs,
+			     __TopXMLNS)
+	of
+      <<"ns:phonenumber:normalization">> ->
+	  decode_contact_els(__TopXMLNS, __Opts, _els,
+			     Normalized_numbers, Raw_numbers,
+			     [decode_role(<<"ns:phonenumber:normalization">>,
+					  __Opts, _el)
+			      | Roles]);
+      _ ->
+	  decode_contact_els(__TopXMLNS, __Opts, _els,
+			     Normalized_numbers, Raw_numbers, Roles)
+    end;
 decode_contact_els(__TopXMLNS, __Opts,
 		   [{xmlel, <<"raw">>, _attrs, _} = _el | _els],
-		   Normalized_numbers, Raw_numbers) ->
+		   Normalized_numbers, Raw_numbers, Roles) ->
     case xmpp_codec:get_attr(<<"xmlns">>, _attrs,
 			     __TopXMLNS)
 	of
@@ -153,14 +175,15 @@ decode_contact_els(__TopXMLNS, __Opts,
 			     Normalized_numbers,
 			     [decode_raw(<<"ns:phonenumber:normalization">>,
 					 __Opts, _el)
-			      | Raw_numbers]);
+			      | Raw_numbers],
+			     Roles);
       _ ->
 	  decode_contact_els(__TopXMLNS, __Opts, _els,
-			     Normalized_numbers, Raw_numbers)
+			     Normalized_numbers, Raw_numbers, Roles)
     end;
 decode_contact_els(__TopXMLNS, __Opts,
 		   [{xmlel, <<"normalized">>, _attrs, _} = _el | _els],
-		   Normalized_numbers, Raw_numbers) ->
+		   Normalized_numbers, Raw_numbers, Roles) ->
     case xmpp_codec:get_attr(<<"xmlns">>, _attrs,
 			     __TopXMLNS)
 	of
@@ -169,17 +192,17 @@ decode_contact_els(__TopXMLNS, __Opts,
 			     [decode_normalized(<<"ns:phonenumber:normalization">>,
 						__Opts, _el)
 			      | Normalized_numbers],
-			     Raw_numbers);
+			     Raw_numbers, Roles);
       _ ->
 	  decode_contact_els(__TopXMLNS, __Opts, _els,
-			     Normalized_numbers, Raw_numbers)
+			     Normalized_numbers, Raw_numbers, Roles)
     end;
 decode_contact_els(__TopXMLNS, __Opts, [_ | _els],
-		   Normalized_numbers, Raw_numbers) ->
+		   Normalized_numbers, Raw_numbers, Roles) ->
     decode_contact_els(__TopXMLNS, __Opts, _els,
-		       Normalized_numbers, Raw_numbers).
+		       Normalized_numbers, Raw_numbers, Roles).
 
-encode_contact({Raw_numbers, Normalized_numbers},
+encode_contact({Roles, Raw_numbers, Normalized_numbers},
 	       __TopXMLNS) ->
     __NewTopXMLNS =
 	xmpp_codec:choose_top_xmlns(<<"ns:phonenumber:normalization">>,
@@ -189,7 +212,9 @@ encode_contact({Raw_numbers, Normalized_numbers},
 							   __NewTopXMLNS,
 							   'encode_contact_$raw_numbers'(Raw_numbers,
 											 __NewTopXMLNS,
-											 []))),
+											 'encode_contact_$roles'(Roles,
+														 __NewTopXMLNS,
+														 [])))),
     _attrs = xmpp_codec:enc_xmlns_attrs(__NewTopXMLNS,
 					__TopXMLNS),
     {xmlel, <<"contact">>, _attrs, _els}.
@@ -211,6 +236,12 @@ encode_contact({Raw_numbers, Normalized_numbers},
 			      __TopXMLNS, _acc) ->
     'encode_contact_$raw_numbers'(_els, __TopXMLNS,
 				  [encode_raw(Raw_numbers, __TopXMLNS) | _acc]).
+
+'encode_contact_$roles'([], __TopXMLNS, _acc) -> _acc;
+'encode_contact_$roles'([Roles | _els], __TopXMLNS,
+			_acc) ->
+    'encode_contact_$roles'(_els, __TopXMLNS,
+			    [encode_role(Roles, __TopXMLNS) | _acc]).
 
 decode_normalized(__TopXMLNS, __Opts,
 		  {xmlel, <<"normalized">>, _attrs, _els}) ->
@@ -274,4 +305,36 @@ decode_raw_cdata(__TopXMLNS, <<>>) ->
 decode_raw_cdata(__TopXMLNS, _val) -> _val.
 
 encode_raw_cdata(_val, _acc) ->
+    [{xmlcdata, _val} | _acc].
+
+decode_role(__TopXMLNS, __Opts,
+	    {xmlel, <<"role">>, _attrs, _els}) ->
+    Cdata = decode_role_els(__TopXMLNS, __Opts, _els, <<>>),
+    Cdata.
+
+decode_role_els(__TopXMLNS, __Opts, [], Cdata) ->
+    decode_role_cdata(__TopXMLNS, Cdata);
+decode_role_els(__TopXMLNS, __Opts,
+		[{xmlcdata, _data} | _els], Cdata) ->
+    decode_role_els(__TopXMLNS, __Opts, _els,
+		    <<Cdata/binary, _data/binary>>);
+decode_role_els(__TopXMLNS, __Opts, [_ | _els],
+		Cdata) ->
+    decode_role_els(__TopXMLNS, __Opts, _els, Cdata).
+
+encode_role(Cdata, __TopXMLNS) ->
+    __NewTopXMLNS =
+	xmpp_codec:choose_top_xmlns(<<"ns:phonenumber:normalization">>,
+				    [], __TopXMLNS),
+    _els = encode_role_cdata(Cdata, []),
+    _attrs = xmpp_codec:enc_xmlns_attrs(__NewTopXMLNS,
+					__TopXMLNS),
+    {xmlel, <<"role">>, _attrs, _els}.
+
+decode_role_cdata(__TopXMLNS, <<>>) ->
+    erlang:error({xmpp_codec,
+		  {missing_cdata, <<>>, <<"role">>, __TopXMLNS}});
+decode_role_cdata(__TopXMLNS, _val) -> _val.
+
+encode_role_cdata(_val, _acc) ->
     [{xmlcdata, _val} | _acc].
