@@ -25,7 +25,7 @@ log_rotate_count: 1
 log_rate_limit: 100
 
 ## If you already have certificates, list them here
- certfiles:
+certfiles:
   - /etc/letsencrypt/live/s.halloapp.net/*.pem
 
 listen:
