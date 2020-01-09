@@ -193,6 +193,9 @@ modules:
     plugins:
       - flat
       - pep
+    default_node_config:
+      notification_type: normal
+      max_items: 2147483647 ## max-value of 32-bit integer
     force_node_config:
       ## Avoid buggy clients to make their bookmarks public
       storage:bookmarks:
