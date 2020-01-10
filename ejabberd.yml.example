@@ -69,6 +69,9 @@ listen:
 
 s2s_use_starttls: optional
 
+acme:
+  auto: false
+
 acl:
   local:
     user_regexp: ""
