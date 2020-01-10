@@ -131,6 +131,7 @@ api_permissions:
 shaper:
   normal: 1000
   fast: 50000
+  express: 100000
 
 shaper_rules:
   max_user_sessions: 10
@@ -139,7 +140,10 @@ shaper_rules:
     100: all
   c2s_shaper:
     none: admin
-    normal: all
+    ## The previous shaper rule of normal: 1000 bytes/second was very slow for the clients
+    ## in order to send large packets to the server, especially for things like contacts sync.
+    ## Therefore, we added a much higher limit for all the users.
+    express: all
   s2s_shaper: fast
 
 modules:
