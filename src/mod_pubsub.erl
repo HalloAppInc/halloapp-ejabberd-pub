@@ -1137,13 +1137,16 @@ iq_pubsub(Host, Access, #iq{from = From, type = IQType, lang = Lang,
 		      publish_options = XData, configure = _, _ = undefined}} ->
 	    ServerHost = serverhost(Host),
 	    case Items of
-		[#ps_item{id = ItemId, sub_els = Payload}] ->
+		[#ps_item{id = ItemId, timestamp = Timestamp, sub_els = Payload}] ->
 		    case decode_publish_options(XData, Lang) of
 			{error, _} = Err ->
 			    Err;
 			PubOpts ->
-			    publish_item(Host, ServerHost, Node, From, ItemId,
-					 Payload, PubOpts, Access)
+			    case Timestamp of
+				    <<>> -> publish_item(Host, ServerHost, Node, From, ItemId, Payload, PubOpts, Access);
+				    _Else ->
+					    {error, extended_error(xmpp:err_bad_request(), err_timestamp_forbidden())}
+			    end
 		    end;
 		[] ->
 		    publish_item(Host, ServerHost, Node, From, <<>>, [], [], Access);
@@ -1827,6 +1830,7 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload) ->
 publish_item(Host, ServerHost, Node, Publisher, <<>>, Payload, PubOpts, Access) ->
     publish_item(Host, ServerHost, Node, Publisher, uniqid(), Payload, PubOpts, Access);
 publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload, PubOpts, Access) ->
+    Timestamp = cur_timestamp(),
     Action = fun (#pubsub_node{options = Options, type = Type, id = Nidx}) ->
 	    Features = plugin_features(Host, Type),
 	    PublishFeature = lists:member(<<"publish">>, Features),
@@ -1872,10 +1876,10 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload, PubOpts, Access
 		broadcast -> Payload;
 		PluginPayload -> PluginPayload
 	    end,
-	    set_cached_item(Host, Nidx, ItemId, Publisher, BrPayload),
+	    set_cached_item(Host, Nidx, ItemId, Timestamp, Publisher, BrPayload),
 	    case get_option(Options, deliver_notifications) of
 		true ->
-		    broadcast_publish_item(Host, Node, Nidx, Type, Options, ItemId,
+		    broadcast_publish_item(Host, Node, Nidx, Type, Options, ItemId, Timestamp,
 			Publisher, BrPayload, Removed);
 		false ->
 		    ok
@@ -1891,14 +1895,14 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload, PubOpts, Access
 	    Type = TNode#pubsub_node.type,
 	    Options = TNode#pubsub_node.options,
 	    broadcast_retract_items(Host, Node, Nidx, Type, Options, Removed),
-	    set_cached_item(Host, Nidx, ItemId, Publisher, Payload),
+	    set_cached_item(Host, Nidx, ItemId, Timestamp, Publisher, Payload),
 	    {result, Reply};
 	{result, {TNode, {Result, Removed}}} ->
 	    Nidx = TNode#pubsub_node.id,
 	    Type = TNode#pubsub_node.type,
 	    Options = TNode#pubsub_node.options,
 	    broadcast_retract_items(Host, Node, Nidx, Type, Options, Removed),
-	    set_cached_item(Host, Nidx, ItemId, Publisher, Payload),
+	    set_cached_item(Host, Nidx, ItemId, Timestamp, Publisher, Payload),
 	    {result, Result};
 	{result, {_, default}} ->
 	    {result, Reply};
@@ -2755,12 +2759,12 @@ payload_xmlelements([_ | Tail], Count) ->
 items_els(Node, Options, Items) ->
     Els = case get_option(Options, itemreply) of
 	publisher ->
-	    [#ps_item{id = ItemId, sub_els = Payload, publisher = jid:encode(USR)}
-	     || #pubsub_item{itemid = {ItemId, _}, payload = Payload, modification = {_, USR}}
+	    [#ps_item{id = ItemId, timestamp = convert_timestamp_to_binary(Timestamp), sub_els = Payload, publisher = jid:encode(USR)}
+	     || #pubsub_item{itemid = {ItemId, _}, payload = Payload, creation = {Timestamp, _}, modification = {_, USR}}
 		<- Items];
 	_ ->
-	    [#ps_item{id = ItemId, sub_els = Payload}
-	     || #pubsub_item{itemid = {ItemId, _}, payload = Payload}
+	    [#ps_item{id = ItemId, timestamp = convert_timestamp_to_binary(Timestamp), sub_els = Payload}
+	     || #pubsub_item{itemid = {ItemId, _}, payload = Payload, creation = {Timestamp, _}}
 		<- Items]
     end,
     #ps_items{node = Node, items = Els}.
@@ -2768,9 +2772,9 @@ items_els(Node, Options, Items) ->
 %%%%%% broadcast functions
 
 -spec broadcast_publish_item(host(), binary(), nodeIdx(), binary(),
-			     nodeOptions(), binary(), jid(), [xmlel()], _) ->
+			     nodeOptions(), binary(), erlang:timestamp(), jid(), [xmlel()], _) ->
 				    {result, boolean()}.
-broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, From, Payload, Removed) ->
+broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, Timestamp, From, Payload, Removed) ->
     case get_collection_subscriptions(Host, Node) of
 	{result, SubsByDepth} ->
 	    ItemPublisher = case get_option(NodeOptions, itemreply) of
@@ -2783,6 +2787,7 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, From, Payloa
 			  end,
 	    ItemsEls = #ps_items{node = Node,
 				 items = [#ps_item{id = ItemId,
+						   timestamp = convert_timestamp_to_binary(Timestamp),
 						   publisher = ItemPublisher,
 						   sub_els = ItemPayload}]},
 	    Stanza = #message{ sub_els = [#ps_event{items = ItemsEls}]},
@@ -3550,13 +3555,13 @@ get_max_subscriptions_node(Host) ->
 is_last_item_cache_enabled(Host) ->
     config(Host, last_item_cache, false).
 
--spec set_cached_item(host(), nodeIdx(), binary(), jid(), [xmlel()]) -> ok.
-set_cached_item({_, ServerHost, _}, Nidx, ItemId, Publisher, Payload) ->
-    set_cached_item(ServerHost, Nidx, ItemId, Publisher, Payload);
-set_cached_item(Host, Nidx, ItemId, Publisher, Payload) ->
+-spec set_cached_item(host(), nodeIdx(), binary(), erlang:timestamp(), jid(), [xmlel()]) -> ok.
+set_cached_item({_, ServerHost, _}, Nidx, ItemId, Timestamp, Publisher, Payload) ->
+    set_cached_item(ServerHost, Nidx, ItemId, Timestamp, Publisher, Payload);
+set_cached_item(Host, Nidx, ItemId, Timestamp, Publisher, Payload) ->
     case is_last_item_cache_enabled(Host) of
 	true ->
-	    Stamp = {erlang:timestamp(), jid:tolower(jid:remove_resource(Publisher))},
+	    Stamp = {Timestamp, jid:tolower(jid:remove_resource(Publisher))},
 	    Item = #pubsub_last_item{nodeid = {Host, Nidx},
 				     itemid = ItemId,
 				     creation = Stamp,
@@ -4002,6 +4007,17 @@ err_unsupported_access_model() ->
 uniqid() ->
     {T1, T2, T3} = erlang:timestamp(),
     (str:format("~.16B~.16B~.16B", [T1, T2, T3])).
+
+%% Returns current Erlang system time on the format {MegaSecs, Secs, MicroSecs}
+-spec cur_timestamp() -> erlang:timestamp().
+cur_timestamp() ->
+    erlang:timestamp().
+
+%% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
+-spec convert_timestamp_to_binary(erlang:timestamp()) -> binary().
+convert_timestamp_to_binary(Timestamp) ->
+    {T1, T2, _} = Timestamp,
+    list_to_binary(integer_to_list(T1)++integer_to_list(T2)).
 
 -spec add_message_type(message(), message_type()) -> message().
 add_message_type(#message{} = Message, Type) ->
