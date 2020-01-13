@@ -227,6 +227,7 @@ modules:
   mod_version:
     show_os: false
   mod_phone_number_normalization: {}
+  mod_cron: {}
 
 ### Local Variables:
 ### mode: yaml
