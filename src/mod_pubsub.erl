@@ -80,7 +80,7 @@
 %% pubsub#errors
 -export([err_closed_node/0, err_configuration_required/0,
 	 err_invalid_jid/0, err_invalid_options/0, err_invalid_payload/0,
-	 err_invalid_subid/0, err_item_forbidden/0, err_item_required/0,
+	 err_invalid_subid/0, err_item_forbidden/0, err_item_required/0, err_timestamp_forbidden/0,
 	 err_jid_required/0, err_max_items_exceeded/0, err_max_nodes_exceeded/0,
 	 err_nodeid_required/0, err_not_in_roster_group/0, err_not_subscribed/0,
 	 err_payload_too_big/0, err_payload_required/0,
@@ -2000,20 +2000,6 @@ purge_expired_items(Host, NodeId, Timestamp) ->
 			?ERROR_MSG("get_node transaction failed! ~p@~p~n", [NodeId, Host]),
 			{error, []}
 		end.
-
-%% Returns the erlang runtime systems view of POSIX time in seconds.
--spec cur_timestamp() -> erlang:timestamp(). 
-cur_timestamp() ->
-    erlang:timestamp().
-
-%% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
--spec convert_timestamp_to_binary(erlang:timestamp()) -> binary().
-convert_timestamp_to_binary(Timestamp) ->
-    {T1, T2, _} = Timestamp,
-    list_to_binary(integer_to_list(T1)++integer_to_list(T2)).
-
-convert_timestamp_secs_to_integer(Timestamp) ->
-	list_to_integer(binary_to_list(convert_timestamp_to_binary(Timestamp))).
 
 %% @doc <p>Delete item from a PubSub node.</p>
 %% <p>The permission to delete an item must be verified by the plugin implementation.</p>
@@ -4027,6 +4013,10 @@ err_invalid_subid() ->
 err_item_forbidden() ->
     #ps_error{type = 'item-forbidden'}.
 
+-spec err_timestamp_forbidden() -> ps_error().
+err_timestamp_forbidden() ->
+    #ps_error{type = 'timestamp-forbidden'}.
+
 -spec err_item_required() -> ps_error().
 err_item_required() ->
     #ps_error{type = 'item-required'}.
@@ -4106,6 +4096,9 @@ cur_timestamp() ->
 convert_timestamp_to_binary(Timestamp) ->
     {T1, T2, _} = Timestamp,
     list_to_binary(integer_to_list(T1)++integer_to_list(T2)).
+
+convert_timestamp_secs_to_integer(Timestamp) ->
+        list_to_integer(binary_to_list(convert_timestamp_to_binary(Timestamp))).
 
 -spec add_message_type(message(), message_type()) -> message().
 add_message_type(#message{} = Message, Type) ->
