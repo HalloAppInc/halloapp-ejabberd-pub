@@ -202,7 +202,10 @@ modules:
       - pep
     default_node_config:
       notification_type: normal
-      max_items: 2147483647 ## max-value of 32-bit integer
+      ## The event notification from pubsub will now specify the publisher of the pubsub item in the stanza
+      itemreply: publisher
+      ## Using a large value to indicate the number of items that can be stored in a node: max-value of 32-bit integer
+      max_items: 2147483647
     force_node_config:
       ## Avoid buggy clients to make their bookmarks public
       storage:bookmarks:
