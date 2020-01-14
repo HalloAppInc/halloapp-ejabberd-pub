@@ -18,6 +18,7 @@
 -export([pep_mapping/1]).
 -export([plugins/1]).
 -export([vcard/1]).
+-export([purge_expired_items/1]).
 
 -spec access_createnode(gen_mod:opts() | global | binary()) -> 'all' | acl:acl().
 access_createnode(Opts) when is_map(Opts) ->
@@ -109,3 +110,8 @@ vcard(Opts) when is_map(Opts) ->
 vcard(Host) ->
     gen_mod:get_module_opt(Host, mod_pubsub, vcard).
 
+-spec purge_expired_items(gen_mod:opts() | global | binary()) -> atom().
+purge_expired_items(Opts) when is_map(Opts) ->
+    gen_mod:get_opt(purge_expired_items, Opts);
+purge_expired_items(Host) ->
+    gen_mod:get_module_opt(Host, mod_pubsub, purge_expired_items).

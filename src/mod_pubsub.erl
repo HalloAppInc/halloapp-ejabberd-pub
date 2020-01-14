@@ -69,7 +69,8 @@
     subscribe_node/5, unsubscribe_node/5, publish_item/6, publish_item/8,
     delete_item/4, delete_item/5, send_items/7, get_items/2, get_item/3,
     get_cached_item/2, get_configure/5, set_configure/5,
-    tree_action/3, node_action/4, node_call/4]).
+    tree_action/3, node_action/4, node_call/4,
+    purge_expired_items/1, purge_expired_items/3]).
 
 %% general helpers for plugins
 -export([extended_error/2, service_jid/1,
@@ -341,6 +342,11 @@ init([ServerHost|_]) ->
     Plugins = config(ServerHost, plugins),
     PepMapping = config(ServerHost, pep_mapping),
     DBType = mod_pubsub_opt:db_type(ServerHost),
+    lists:foreach(
+    	fun(Host) ->
+    		PurgeExpiredItemsCronTask = mod_pubsub_opt:purge_expired_items(Opts) ++ [{module, mod_pubsub}, {function, purge_expired_items}, {arguments, [Host]}],
+    		mod_cron:add_task(Host, PurgeExpiredItemsCronTask)
+    	end, Hosts),
     {ok, #state{hosts = Hosts, server_host = ServerHost,
 		access = Access, pep_mapping = PepMapping,
 		ignore_pep_from_offline = PepOffline,
@@ -352,13 +358,15 @@ depends(ServerHost, Opts) ->
     [Host|_] = gen_mod:get_opt_hosts(Opts),
     Plugins = mod_pubsub_opt:plugins(Opts),
     Db = mod_pubsub_opt:db_type(Opts),
-    lists:flatmap(
-      fun(Name) ->
-	      Plugin = plugin(Db, Name),
-	      try apply(Plugin, depends, [Host, ServerHost, Opts])
-	      catch _:undef -> []
-	      end
-      end, Plugins).
+    PluginDeps = lists:flatmap(
+    	fun(Name) ->
+    		Plugin = plugin(Db, Name),
+    		try apply(Plugin, depends, [Host, ServerHost, Opts])
+    			catch _:undef -> []
+    		end
+    	end, Plugins),
+    CronTaskDep = [{mod_cron, hard}],
+    PluginDeps ++ CronTaskDep.
 
 %% @doc Call the init/1 function for each plugin declared in the config file.
 %% The default plugin module is implicit.
@@ -452,6 +460,8 @@ disco_identity(Host, Node, From) ->
 			{result, []}
 		end
 	end,
+	Timestamp = cur_timestamp(),
+	purge_expired_items(Host, Node, Timestamp),
     case transaction(Host, Node, Action, sync_dirty) of
 	{result, {_, Result}} -> Result;
 	_ -> []
@@ -485,6 +495,8 @@ disco_features(Host, Node, From) ->
 			{result, []}
 		end
 	end,
+	Timestamp = cur_timestamp(),
+	purge_expired_items(Host, Node, Timestamp),
     case transaction(Host, Node, Action, sync_dirty) of
 	{result, {_, Result}} -> Result;
 	_ -> []
@@ -516,6 +528,7 @@ disco_items(Host, <<>>, From) ->
 			Acc
 		end
 	end,
+	purge_expired_items(Host),
     NodeBloc = fun() ->
 		       case tree_call(Host, get_nodes, [Host]) of
 			   Nodes when is_list(Nodes) ->
@@ -543,6 +556,8 @@ disco_items(Host, Node, From) ->
 			{result, []}
 		end
 	end,
+	Timestamp = cur_timestamp(),
+	purge_expired_items(Host, Node, Timestamp),
     case transaction(Host, Node, Action, sync_dirty) of
 	{result, {_, Result}} -> Result;
 	_ -> []
@@ -1079,6 +1094,8 @@ iq_disco_items(Host, Item, From, RSM) ->
 				     Error
 			     end
 		     end,
+		Timestamp = cur_timestamp(),
+		purge_expired_items(Host, Node, Timestamp),
 	    case transaction(Host, Node, Action, sync_dirty) of
 		{result, {_, Result}} -> {result, Result};
 		Other -> Other
@@ -1197,6 +1214,8 @@ iq_pubsub(Host, Access, #iq{from = From, type = IQType, lang = Lang,
 					items = Items},
 		      rsm = RSM, _ = undefined}} ->
 	    ItemIds = [ItemId || #ps_item{id = ItemId} <- Items, ItemId /= <<>>],
+	    Timestamp = cur_timestamp(),
+	    purge_expired_items(Host, Node, Timestamp),
 	    get_items(Host, Node, From, SubId, MaxItems, ItemIds, RSM);
 	{get, #pubsub{subscriptions = {Node, _}, _ = undefined}} ->
 	    Plugins = config(serverhost(Host), plugins),
@@ -1927,6 +1946,75 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload, PubOpts, Access
 	    Error
     end.
 
+%% Purge expired items on the host.
+%% Iterates over all the nodes in the host, and purge all the qualified items with respect to the timestamp when the function is invoked.
+-spec purge_expired_items(host()) -> {result, undefined} | {error, undefined}.
+purge_expired_items(Host) ->
+	Timestamp = cur_timestamp(),
+	case tree_action(Host, get_nodes, [Host]) of
+		Nodes when is_list(Nodes) ->
+			lists:foldl(
+				fun(Node, {Status, Acc}) ->
+					purge_expired_items_with_pubsub_node(Host, Node, Timestamp)
+				end, {result, []}, Nodes);
+		_ ->
+			?ERROR_MSG("get_nodes transaction failed! ~p~n", [Host]),
+			{error, []}
+	end.
+
+%% Purge expired items on the given pubsub_node on the mentioned host with respect to the given timestamp.
+%% Obtains the Time To Live(TTL) from the node options, compares the creation time of the item with the timestamp and purge qualified items.
+-spec purge_expired_items_with_pubsub_node(host(), #pubsub_node{}, erlang:timestamp()) -> {result, undefined} | {error, undefined}.
+purge_expired_items_with_pubsub_node(Host, PubSub_Node, Timestamp) ->
+	{_, NodeId} = PubSub_Node#pubsub_node.nodeid,
+	Items = get_items(Host, NodeId),
+	Owner = jid:make(lists:nth(1, PubSub_Node#pubsub_node.owners)),
+	TTL = get_option(PubSub_Node#pubsub_node.options, item_expire),
+	Now = convert_timestamp_secs_to_integer(Timestamp),
+	lists:foldl(
+		fun(Item, {Status, Acc}) ->
+			{ItemId, _} = Item#pubsub_item.itemid,
+			{Creationtime, _} = Item#pubsub_item.creation,
+			Then = convert_timestamp_secs_to_integer(Creationtime),
+			if
+				Now - Then > TTL ->
+					delete_item(Host, NodeId, Owner, ItemId);
+				true ->
+					{result, []}
+			end
+		end, {result, []}, Items).
+
+%% Purge expired items on the node with the given nodeId on the mentioned host with respect to the given timestamp.
+%% Obtains the corresponding pubsub_node and then the Time To Live(TTL) from the node options, compares the creation time of the item with the timestamp and purge qualified items.
+-spec purge_expired_items(host(), binary(), erlang:timestamp()) -> {result, undefined} | {error, undefined}.
+purge_expired_items(Host, NodeId, Timestamp) ->
+	case tree_action(Host, get_nodes, [Host]) of
+		Nodes when is_list(Nodes) ->
+			case lists:keyfind({Host, NodeId}, #pubsub_node.nodeid, Nodes) of
+				false ->
+					?ERROR_MSG("get_node transaction failed! ~p@~p~n", [NodeId, Host]),
+					{error, []};
+				Node -> purge_expired_items_with_pubsub_node(Host, Node, Timestamp)
+			end;
+		_ ->
+			?ERROR_MSG("get_node transaction failed! ~p@~p~n", [NodeId, Host]),
+			{error, []}
+		end.
+
+%% Returns the erlang runtime systems view of POSIX time in seconds.
+-spec cur_timestamp() -> erlang:timestamp(). 
+cur_timestamp() ->
+    erlang:timestamp().
+
+%% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
+-spec convert_timestamp_to_binary(erlang:timestamp()) -> binary().
+convert_timestamp_to_binary(Timestamp) ->
+    {T1, T2, _} = Timestamp,
+    list_to_binary(integer_to_list(T1)++integer_to_list(T2)).
+
+convert_timestamp_secs_to_integer(Timestamp) ->
+	list_to_integer(binary_to_list(convert_timestamp_to_binary(Timestamp))).
+
 %% @doc <p>Delete item from a PubSub node.</p>
 %% <p>The permission to delete an item must be verified by the plugin implementation.</p>
 %%<p>There are several reasons why the item retraction request might fail:</p>
@@ -2099,7 +2187,6 @@ get_items(Host, Node, From, SubId, _MaxItems, ItemIds, RSM) ->
 	    Error
     end.
 
-%% Seems like this function broken
 get_items(Host, Node) ->
     Action = fun (#pubsub_node{type = Type, id = Nidx}) ->
 	    node_call(Host, Type, get_items, [Nidx, service_jid(Host), undefined])
@@ -2109,7 +2196,6 @@ get_items(Host, Node) ->
 	Error -> Error
     end.
 
-%% This function is broken too?
 get_item(Host, Node, ItemId) ->
     Action = fun (#pubsub_node{type = Type, id = Nidx}) ->
 	    node_call(Host, Type, get_item, [Nidx, ItemId])
@@ -3057,6 +3143,8 @@ c2s_handle_info(C2SState, _) ->
 send_items(Host, Node, Nidx, Type, Options, LJID, Number) ->
     send_items(Host, Node, Nidx, Type, Options, Host, LJID, LJID, Number).
 send_items(Host, Node, Nidx, Type, Options, Publisher, SubLJID, ToLJID, Number) ->
+	Timestamp = cur_timestamp(),
+	purge_expired_items(Host, Node, Timestamp),
     Items = case max_items(Host, Options) of
 		1 ->
 		    get_only_item(Host, Type, Nidx, SubLJID);
@@ -4158,8 +4246,8 @@ mod_opt_type(default_node_config) ->
     econf:map(
       econf:atom(),
       econf:either(
-	econf:int(),
-	econf:atom()),
+      econf:int(),
+      econf:atom()),
       [unique]);
 mod_opt_type(nodetree) ->
     econf:binary();
@@ -4176,7 +4264,14 @@ mod_opt_type(hosts) ->
 mod_opt_type(db_type) ->
     econf:db_type(?MODULE);
 mod_opt_type(vcard) ->
-    econf:vcard_temp().
+    econf:vcard_temp();
+mod_opt_type(purge_expired_items) ->
+    econf:map(
+      econf:atom(),
+      econf:either(
+      econf:int(),
+      econf:atom()),
+      [unique]).
 
 mod_options(Host) ->
     [{access_createnode, all},
@@ -4193,4 +4288,5 @@ mod_options(Host) ->
      {plugins, [?STDNODE]},
      {max_subscriptions_node, undefined},
      {default_node_config, []},
-     {force_node_config, []}].
+     {force_node_config, []},
+     {purge_expired_items, []}].

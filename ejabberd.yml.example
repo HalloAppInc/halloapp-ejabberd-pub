@@ -206,10 +206,17 @@ modules:
       itemreply: publisher
       ## Using a large value to indicate the number of items that can be stored in a node: max-value of 32-bit integer
       max_items: 2147483647
+      ## uncomment the below line to specify a default config option for items to expire on the node.
+      ## currently, contacts also use pubsub nodes. So, clients need to configure this config option for the feed node.
+      ## item_expire: 2592000      ## number of seconds in 30days.
     force_node_config:
       ## Avoid buggy clients to make their bookmarks public
       storage:bookmarks:
         access_model: whitelist
+    purge_expired_items:        ## run the cron job to purge items every hour.
+      time: 12
+      units: hours
+      timer_type: interval
   mod_push: {}
   mod_push_keepalive: {}
   mod_register:
