@@ -17,8 +17,8 @@
 -export([nodetree/1]).
 -export([pep_mapping/1]).
 -export([plugins/1]).
--export([vcard/1]).
 -export([purge_expired_items/1]).
+-export([vcard/1]).
 
 -spec access_createnode(gen_mod:opts() | global | binary()) -> 'all' | acl:acl().
 access_createnode(Opts) when is_map(Opts) ->
@@ -68,7 +68,7 @@ last_item_cache(Opts) when is_map(Opts) ->
 last_item_cache(Host) ->
     gen_mod:get_module_opt(Host, mod_pubsub, last_item_cache).
 
--spec max_items_node(gen_mod:opts() | global | binary()) -> non_neg_integer().
+-spec max_items_node(gen_mod:opts() | global | binary()) -> 'undefined' | non_neg_integer().
 max_items_node(Opts) when is_map(Opts) ->
     gen_mod:get_opt(max_items_node, Opts);
 max_items_node(Host) ->
@@ -104,14 +104,15 @@ plugins(Opts) when is_map(Opts) ->
 plugins(Host) ->
     gen_mod:get_module_opt(Host, mod_pubsub, plugins).
 
+-spec purge_expired_items(gen_mod:opts() | global | binary()) -> [{atom(),atom() | integer()}].
+purge_expired_items(Opts) when is_map(Opts) ->
+    gen_mod:get_opt(purge_expired_items, Opts);
+purge_expired_items(Host) ->
+    gen_mod:get_module_opt(Host, mod_pubsub, purge_expired_items).
+
 -spec vcard(gen_mod:opts() | global | binary()) -> 'undefined' | tuple().
 vcard(Opts) when is_map(Opts) ->
     gen_mod:get_opt(vcard, Opts);
 vcard(Host) ->
     gen_mod:get_module_opt(Host, mod_pubsub, vcard).
 
--spec purge_expired_items(gen_mod:opts() | global | binary()) -> atom().
-purge_expired_items(Opts) when is_map(Opts) ->
-    gen_mod:get_opt(purge_expired_items, Opts);
-purge_expired_items(Host) ->
-    gen_mod:get_module_opt(Host, mod_pubsub, purge_expired_items).
