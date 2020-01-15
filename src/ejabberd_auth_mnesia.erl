@@ -265,6 +265,8 @@ remove_enrolled_user(User, Server) ->
             {error, db_failure}
     end.
 
+need_transform({enrolled_users, {U, S}, Code}) ->
+    false;
 need_transform(#reg_users_counter{}) ->
     false;
 need_transform({passwd, {U, S}, Pass}) ->
