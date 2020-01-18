@@ -45,7 +45,9 @@ make_signed_url(Method, ExpireTime, Key) ->
     %% TODO(tbd): Compute S3Region depending on the region id present in the
     %% key.
     S3Region = "us-west-2",
-    S3Host = "s3-" ++ S3Region ++ ".amazonaws.com",
+    %% Use accelerated dualstack endpoint.
+    %% Ref: https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html
+    S3Host = "s3-accelerate.dualstack.amazonaws.com",
     Host = lists:flatten([get_bucket_name(), ".", S3Host]),
     URI = "/" ++ Key,
 
