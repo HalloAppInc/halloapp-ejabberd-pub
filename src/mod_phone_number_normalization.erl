@@ -19,7 +19,7 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 
--export([start/2, stop/1, depends/2, mod_options/1, process_local_iq/1, normalize/1, normalize_contact/1, parse/1, certify/1, validate/1]).
+-export([start/2, stop/1, depends/2, mod_options/1, process_local_iq/1, normalize/1, normalize_contacts/2, normalize_contact/2, parse/1, certify/2, validate/2]).
 
 start(Host, Opts) ->
     xmpp:register_codec(phone_number_normalization),
@@ -40,21 +40,21 @@ mod_options(_Host) ->
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
-process_local_iq(#iq{type = get,
+process_local_iq(#iq{type = get, to = Host,
 		     sub_els = [#contact_list{ contacts = Contacts}]} = IQ) ->
 	case Contacts of
 		[] -> xmpp:make_iq_result(IQ);
-		_ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = <<"ns:phonenumber:normalization">>, contacts = normalize_contacts(Contacts)})
+		_ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = <<"ns:phonenumber:normalization">>, contacts = normalize_contacts(Contacts, Host)})
 	end.
 
-normalize_contacts([]) ->
+normalize_contacts([], Host) ->
 	[];
-normalize_contacts([First | Rest]) ->
-	[normalize_contact(First) | normalize_contacts(Rest)].
+normalize_contacts([First | Rest], Host) ->
+	[normalize_contact(First, Host) | normalize_contacts(Rest, Host)].
 
-normalize_contact({_, Raw_numbers, _}) ->
+normalize_contact({_, Raw_numbers, _}, Host) ->
 	Norm_numbers = normalize(Raw_numbers),
-	Roles = certify(Norm_numbers),
+	Roles = certify(Norm_numbers, Host),
 	{Roles, Raw_numbers, Norm_numbers}.
 
 normalize([]) ->
@@ -80,14 +80,14 @@ parse(Number) ->
 		_Else -> ""
         end.
 
-certify([]) ->
+certify([], Host) ->
 	[];
-certify([First | Rest]) ->
-	[validate(First)| certify(Rest)].
+certify([First | Rest], Host) ->
+	[validate(First, Host)| certify(Rest, Host)].
 
 %% Validates if the contact is registered with halloapp or not by looking up the passwd table.
-validate(Number) ->
-	US = {list_to_binary(Number), <<"s.halloapp.net">>},
+validate(Number, Host) ->
+	US = {list_to_binary(Number), jid:to_string(Host)},
 	ValueList = mnesia:dirty_read(passwd, US),
 	case ValueList of
 		[] -> "none";
