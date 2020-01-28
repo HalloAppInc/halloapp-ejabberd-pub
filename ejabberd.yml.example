@@ -243,6 +243,10 @@ modules:
     aws_access_key: AKIAVF4QDF4XGG2RWWGY
     aws_secret_access_key: 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
   mod_push_notifications:
+    apns:
+      gateway: gateway.push.apple.com
+      certfile: /etc/apns_certs/prod.pem
+      port: 2195
     fcm:
       gateway: https://fcm.googleapis.com/fcm/send
       apikey: AAAAvj9GcS4:APA91bG23sLvgswlU5tG6X_Hk1Y8JfSHx_T1M2g6E8O34f2h6tCHmgVQazWQN5rxmwj87n2RfgL8eWSFMxYB7lv6KDwtnbh9vwXg-dhqnzNka3Z9Ox74q-5INdr2QqYOLVvRIlLB9Mnz

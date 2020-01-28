@@ -5,7 +5,7 @@
 %%%
 %%% This module handles all the push notification related queries and hooks. 
 %%% - Capable of sending push notifications for offline messages to android users through FCM
-%%% TODO(murali@): Extend this to iOS as well as soon as possible.
+%%% - Capable of sending push notifications for offline messages to iOS users using the binary API for APNS.
 %%%----------------------------------------------------------------------
 
 -module(mod_push_notifications).
@@ -17,6 +17,10 @@
 -include("translate.hrl").
 
 -define(NS_PUSH, <<"halloapp:push:notifications">>).
+-define(APNS_MESSAGE_PRIORITY, 10).
+-define(SSL_TIMEOUT, 10000).
+-define(HTTP_TIMEOUT, 10000).
+-define(HTTP_CONNECT_TIMEOUT, 10000).
 
 -export([start/2, stop/1, depends/2, mod_opt_type/1, mod_options/1, process_local_iq/1, handle_message/1, handle_push_message/1]).
 
@@ -107,7 +111,7 @@ handle_push_message(#message{from = From, to = To} = Message) ->
             case Os of
                 <<"ios">> ->
                     ?DEBUG("Trying to send an ios push notification for user: ~p through apns", [To]),
-                    ok;
+                    send_apns_push_notification(JFrom, {ToUser, ToServer}, Subject, Body, Token);
                 <<"android">> ->
                     ?DEBUG("Trying to send an android push notification for user: ~p through fcm", [To]),
                     send_fcm_push_notification(JFrom, {ToUser, ToServer}, Subject, Body, Token);
@@ -117,6 +121,57 @@ handle_push_message(#message{from = From, to = To} = Message) ->
             end;
         {error, _} ->
             error
+    end.
+
+%% Sends an apns push notification to the user with a subject and body using that token of the user.
+%% Using the legacy binary API for now: link below for details
+%% [https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/BinaryProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH13-SW1]
+%% TODO(murali@): switch to the modern API soon.
+-spec send_apns_push_notification(binary(), {binary(), binary()}, binary(), binary(), binary()) -> ok.
+send_apns_push_notification(_From, Username, Subject, Body, Token) ->
+    ApnsGateway = get_apns_gateway(),
+    ApnsCertfile = get_apns_certfile(),
+    ApnsPort = get_apns_port(),
+    Options = [{certfile, ApnsCertfile},
+               {mode, binary}],
+    Payload = lists:append(["{\"aps\":",
+                                        "{\"alert\":",
+                                                        "{\"title\":\"", binary_to_list(Subject), "\","
+                                                        "\"body\":\"", binary_to_list(Body), "\"",
+                                                        "},",
+                                        "\"sound\":\"default\",",
+                                        "\"content-available\":\"1\",",
+                            "}}"]),
+    case ssl:connect(ApnsGateway, ApnsPort, Options, ?SSL_TIMEOUT) of
+        {ok, Socket} ->
+            PayloadBin = list_to_binary(Payload),
+            PayloadLength = size(PayloadBin),
+            %% Token length is hardcoded for now.
+            TokenLength = 32,
+            TokenNum = erlang:binary_to_integer(Token, 16),
+            TokenBin = <<TokenNum:TokenLength/integer-unit:8>>,
+            %% Packet structure is described in the link above for binary API in APNS.
+            Frame =
+             <<1:1/unit:8, TokenLength:2/unit:8, TokenBin/binary,
+               2:1/unit:8, PayloadLength:2/unit:8, PayloadBin/binary,
+               5:1/unit:8, 1:16/big, ?APNS_MESSAGE_PRIORITY:8>>,
+            FrameLength = size(Frame),
+            Packet = <<2:1/unit:8, FrameLength:4/unit:8, Frame/binary>>,
+            Result = ssl:send(Socket, Packet),
+            case Result of
+                ok ->
+                    ?DEBUG("Successfully sent payload to the APNS server, result: ~p for the user: ~p", [Result, Username]);
+                {error, Reason} ->
+                    ?ERROR_MSG("Failed sending a push notification to the APNS server: ~p, reason: ~p", [Username, Reason]),
+                    ?DEBUG("No logic to retry yet!!", []),
+            end,
+            ssl:close(Socket);
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %% Add logic to handle errors!!
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        {error, Reason} = Err ->
+            ?ERROR_MSG("Unable to connect to the APNS server: ~s for the user: ~p", [ssl:format_error(Reason), Username]),
+            Err
     end.
 
 %% Sends an fcm push notification to the user with a subject and body using that token of the user.
@@ -139,7 +194,8 @@ send_fcm_push_notification(_From, Username, Subject, Body, Token) ->
     case Response of
         {ok, {{_, StatusCode5xx, _}, _, ResponseBody}} when StatusCode5xx >= 500, StatusCode5xx < 600 ->
             ?DEBUG("recoverable FCM error: ~p", [ResponseBody]),
-            ?ERROR_MSG("Failed sending a push notification to user immediately: ~p, reason: ~p", [Username, ResponseBody]);
+            ?ERROR_MSG("Failed sending a push notification to user immediately: ~p, reason: ~p", [Username, ResponseBody]),
+            ?DEBUG("No logic to retry yet!!", []);
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %% Add logic to retry again!!
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -150,18 +206,21 @@ send_fcm_push_notification(_From, Username, Subject, Body, Token) ->
                     ok;
                 _ ->
                     ?ERROR_MSG("Failed sending a push notification to user: ~p, token: ~p, reason: ~p", [Username, Token, ResponseBody]),
+                    ?DEBUG("No logic to retry yet!!", []),
                     mod_push_notifications:unregister_push(Username)
                     %%%%%%%%%%%%%%%%%%%%%%%%%%%%
                     %% Add logic to retry again if possible!!
                     %%%%%%%%%%%%%%%%%%%%%%%%%%%%
             end;
         {ok, {{_, _, _}, _, ResponseBody}} ->
-            ?DEBUG("non-recoverable FCM error: ~p", [ResponseBody]);
+            ?DEBUG("non-recoverable FCM error: ~p", [ResponseBody]),
+            ?DEBUG("No logic to retry yet!!", []);
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %% Add logic to retry again if possible!!
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
         {error, Reason} ->
-            ?ERROR_MSG("Failed sending a push notification to user immediately: ~p, reason: ~p", [Username, Reason])
+            ?ERROR_MSG("Failed sending a push notification to user immediately: ~p, reason: ~p", [Username, Reason]),
+            ?DEBUG("No logic to retry yet!!", [])
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %% Add logic to retry again if possible!!
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -220,13 +279,22 @@ parse_message(#message{} = Message) ->
 %% Store the necessary options with persistent_term. [https://erlang.org/doc/man/persistent_term.html]
 store_options(Opts) ->
     FcmOptions = mod_push_notifications_opt:fcm(Opts),
-    ApnsOptions = mod_push_notifications_opt:apns(Opts), %% Currently not using them.
+    ApnsOptions = mod_push_notifications_opt:apns(Opts),
 
     %% Store FCM Gateway and APIkey as strings.
     FcmGateway = proplists:get_value(gateway, FcmOptions),
     persistent_term:put({?MODULE, fcm_gateway}, binary_to_list(FcmGateway)),
     FcmApiKey = proplists:get_value(apikey, FcmOptions),
-    persistent_term:put({?MODULE, fcm_apikey}, binary_to_list(FcmApiKey)).
+    persistent_term:put({?MODULE, fcm_apikey}, binary_to_list(FcmApiKey)),
+
+    %% Store APNS Gateway and APIkey as strings.
+    ApnsGateway = proplists:get_value(gateway, ApnsOptions),
+    persistent_term:put({?MODULE, apns_gateway}, binary_to_list(ApnsGateway)),
+    ApnsCertfile = proplists:get_value(certfile, ApnsOptions),
+    persistent_term:put({?MODULE, apns_certfile}, binary_to_list(ApnsCertfile)),
+    %% Store APNS port as int.
+    ApnsPort = proplists:get_value(port, ApnsOptions),
+    persistent_term:put({?MODULE, apns_port}, ApnsPort).
 
 -spec get_fcm_gateway() -> list().
 get_fcm_gateway() ->
@@ -236,6 +304,17 @@ get_fcm_gateway() ->
 get_fcm_apikey() ->
     persistent_term:get({?MODULE, fcm_apikey}).
 
+-spec get_apns_gateway() -> list().
+get_apns_gateway() ->
+    persistent_term:get({?MODULE, apns_gateway}).
+
+-spec get_apns_certfile() -> list().
+get_apns_certfile() ->
+    persistent_term:get({?MODULE, apns_certfile}).
+
+-spec get_apns_port() -> integer().
+get_apns_port() ->
+    persistent_term:get({?MODULE, apns_port}).
 
 %% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
 -spec convert_timestamp_to_binary(erlang:timestamp()) -> binary().
