@@ -163,7 +163,7 @@ send_apns_push_notification(_From, Username, Subject, Body, Token) ->
                     ?DEBUG("Successfully sent payload to the APNS server, result: ~p for the user: ~p", [Result, Username]);
                 {error, Reason} ->
                     ?ERROR_MSG("Failed sending a push notification to the APNS server: ~p, reason: ~p", [Username, Reason]),
-                    ?DEBUG("No logic to retry yet!!", []),
+                    ?DEBUG("No logic to retry yet!!", [])
             end,
             ssl:close(Socket);
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
