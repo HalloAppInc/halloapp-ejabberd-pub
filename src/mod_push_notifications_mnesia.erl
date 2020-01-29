@@ -93,7 +93,7 @@ list_push_registrations(Username) ->
       {error, db_failure}
   end.
 
--spec unregister_push({binary(), binary()}) -> ok | {error, any()}.
+-spec unregister_push({binary(), binary()}) -> {ok, any()} | {error, any()}.
 unregister_push(Username) ->
   F = fun() ->
         Result = mnesia:read({push_registered_users, Username}),
@@ -107,7 +107,7 @@ unregister_push(Username) ->
   case mnesia:transaction(F) of
     {atomic, Res} ->
       ?DEBUG("Mnesia transaction successful for username: ~p", [Username]),
-      Res;
+      {ok, Res};
     {aborted, Reason} ->
       ?ERROR_MSG("Mnesia transaction failed for username: ~p with reason: ~p", [Username, Reason]),
       {error, db_failure}

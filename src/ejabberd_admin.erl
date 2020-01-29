@@ -46,6 +46,7 @@
 	 registered_users/1,
 	 enroll/3, unenroll/2,
 	 enrolled_users/1, get_user_passcode/2,
+	 register_push/4, unregister_push/2,
 	 %% Migration jabberd1.4
 	 import_file/1, import_dir/1,
 	 %% Purge DB
@@ -228,6 +229,23 @@ get_commands_spec() ->
                         desc = "Get the passcode of an enrolled user",
                         policy = admin,
                         module = ?MODULE, function = get_user_passcode,
+                        args_desc = ["Username", "Local vhost served by ejabberd"],
+                        args_example = [<<"bob">>, <<"example.com">>],
+                        args = [{user, binary}, {host, binary}],
+                        result = {res, restuple}},
+
+     #ejabberd_commands{name = register_push, tags = [accounts],
+                        desc = "Register a user for push notifications",
+                        policy = admin,
+                        module = ?MODULE, function = register_push,
+                        args_desc = ["Username", "Local vhost served by ejabberd", "os: either ios or android", "push token"],
+                        args_example = [<<"bob">>, <<"example.com">>, <<"ios">>, <<"3ad47856cbdjfk....48489">>],
+                        args = [{user, binary}, {host, binary}, {os, binary}, {token, binary}],
+                        result = {res, restuple}},
+     #ejabberd_commands{name = unregister_push, tags = [accounts],
+                        desc = "Unregister a user for push notifications",
+                        policy = admin,
+                        module = ?MODULE, function = unregister_push,
                         args_desc = ["Username", "Local vhost served by ejabberd"],
                         args_example = [<<"bob">>, <<"example.com">>],
                         args = [{user, binary}, {host, binary}],
@@ -623,6 +641,42 @@ get_user_passcode(User, Host) ->
             end;
         false ->
             {error, "Unknown virtual host"}
+    end.
+
+register_push(User, Host, Os, Token) ->
+    case is_my_host(Host) of
+        true ->
+            Username = {User, Host},
+            {T1, T2, _} = erlang:timestamp(),
+            Timestamp = list_to_binary(integer_to_list(T1)++integer_to_list(T2)),
+            case mod_push_notifications_mnesia:register_push(Username, Os, Token, Timestamp) of
+                {ok, _} ->
+                    {ok, io_lib:format("User ~ts@~ts successfully registered for push notifications", [User, Host])};
+                {error, Reason} ->
+                    String = io_lib:format("Can't register user ~ts@~ts at node ~p for push notifications: ~ts",
+                                           [User, Host, node(),
+                                            mod_register:format_error(Reason)]),
+                    {error, cannot_register_push, 10001, String}
+            end;
+        false ->
+            {error, cannot_register_push, 10001, "Unknown virtual host"}
+    end.
+
+unregister_push(User, Host) ->
+    case is_my_host(Host) of
+        true ->
+            Username = {User, Host},
+            case mod_push_notifications_mnesia:unregister_push(Username) of
+                {ok, _} ->
+                    {ok, io_lib:format("User ~ts@~ts successfully unregistered for push notifications", [User, Host])};
+                {error, Reason} ->
+                    String = io_lib:format("Can't unregister user ~ts@~ts at node ~p for push notifications: ~ts",
+                                           [User, Host, node(),
+                                            mod_register:format_error(Reason)]),
+                    {error, cannot_unregister_push, 10001, String}
+            end;
+        false ->
+            {error, cannot_unregister_push, 10001, "Unknown virtual host"}
     end.
 
 registered_vhosts() ->

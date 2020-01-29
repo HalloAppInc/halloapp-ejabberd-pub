@@ -130,6 +130,8 @@ api_permissions:
       - get_user_passcode
       - status
       - connected_users_number
+      - register_push
+      - unregister_push
 
 shaper:
   normal: 1000
