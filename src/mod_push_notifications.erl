@@ -7,6 +7,13 @@
 %%% - Handles iq-queries of type set and get for push_tokens for users.
 %%% - Capable of sending push notifications for offline messages to android users through FCM.
 %%% - Capable of sending push notifications for offline messages to iOS users using the binary API for APNS.
+%%% - Capable of retrying to send failed pushed notifications.
+%%% - Currently, the process tries to resend failed push notifications every 30 seconds for the next 1 hour and then discards the push notification.
+%%% We do this, by maintaining a state for the process that contains all the necessary information about pendingMessages that haven't received their status about the notification,
+%%% retryMessages that should be resent again to the user, retryTimer that is triggered based after every specific interval to resend notifications, host of the process and
+%%% the socket for the connection to APNS. Everytime the timer is triggerred, the mod_push_notifications process receives a message called {retry} and
+%%% then we resend the notifications to APNS/FCM based on the messages.
+%%% Currently this interval is set to 30 seconds and hence we retry sending these failed notifications every 30 seconds for the next 1 hour. After that, the notification is discarded.
 %%%----------------------------------------------------------------------
 
 -module(mod_push_notifications).
@@ -19,17 +26,28 @@
 -include("translate.hrl").
 
 -define(NS_PUSH, <<"halloapp:push:notifications">>).
--define(APNS_MESSAGE_PRIORITY, 10).
--define(SSL_TIMEOUT, 10000).
--define(HTTP_TIMEOUT, 10000).
--define(HTTP_CONNECT_TIMEOUT, 10000).
--define(MESSAGE_EXPIRY_TIME, 86400).
+-define(SSL_TIMEOUT_MILLISEC, 10000).              %% 10 seconds.
+-define(HTTP_TIMEOUT_MILLISEC, 10000).             %% 10 seconds.
+-define(HTTP_CONNECT_TIMEOUT_MILLISEC, 10000).     %% 10 seconds.
+-define(MESSAGE_EXPIRY_TIME_SEC, 86400).           %% 1 day.
+-define(MESSAGE_RESPONSE_TIMEOUT_SEC, 60).         %% 1 minute.
+-define(MESSAGE_MAX_RETRY_TIME_SEC, 3600).         %% 1 hour.
+-define(RETRY_INTERVAL_MILLISEC, 30000).           %% 30 seconds.
 
 -export([start/2, stop/1, depends/2, mod_opt_type/1, mod_options/1,
          init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2,
          process_local_iq/1, handle_message/1]).
 
--record(state, {host :: binary(),
+%% state for this process holds the necessary information to retry sending push notifications that couldn't be delivered.
+%% pendingMessageList: This contains the list of messages for which we await a response from APNS. We get no response if it successfull and an error response code if it failed.
+%% retryMessageList: This contains the list of messages that should be resent to the user.
+%% retryTimer: This is the timer that indicates the timer interval after which the retry logic has to be triggered.
+%% host: stores the serverHost of the process.
+%% socket: socket that is returned upon establishing a connection with the apns server.
+-record(state, {pendingMessageList :: [any()],
+                retryMessageList :: [any()],
+                retryTimer :: reference(),
+                host :: binary(),
                 socket :: ssl:socket()}).
 
 start(Host, Opts) ->
@@ -78,7 +96,9 @@ init([Host|_]) ->
     crypto:start(),
     ssl:start(),
     %% The above modules are not ejabberd modules. Hence, we manually start them.
-    {ok, #state{host = Host}}.
+    {ok, #state{pendingMessageList = [],
+                retryMessageList = [],
+                host = Host}}.
 
 terminate(_Reason, #state{host = Host, socket = Socket}) ->
     ?DEBUG("mod_push_notifications: terminate", []),
@@ -99,6 +119,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%    gen_server:call    %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 handle_call({process_iq, IQ}, _From, State) ->
     ?DEBUG("mod_push_notifications: handle_call: process_iq", []),
     {reply, process_iq(IQ), State};
@@ -110,6 +131,7 @@ handle_call(Request, _From, State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%    gen_server:cast       %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 handle_cast({process_message, _Message} = Request, State) ->
     ?DEBUG("mod_push_notifications: handle_cast: process_message", []),
     NewState = process_message(Request, State),
@@ -122,44 +144,92 @@ handle_cast(Request, State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%    other messages      %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 handle_info({ssl, Socket, Data}, State) ->
     ?DEBUG("mod_push_notifications: received a message from ssl: ~p, ~p, ~p", [Socket, Data, State]),
-    NewState =
     try
         <<RCommand:1/unit:8, RStatus:1/unit:8, RId:4/unit:8>> = iolist_to_binary(Data),
         {RCommand, RStatus, RId}
     of
-        {8, Status, _Id} ->
+        {8, Status, Id} ->
             case Status of
                 10 ->
-                    ?INFO_MSG("mod_push_notifications: Failed sending push notification.", []),
-                    ?DEBUG("mod_push_notifications: No logic to retry yet!!", []),
-                    State;
+                    ?INFO_MSG("mod_push_notifications: Failed sending push notification with id: ~p", [Id]),
+                    MessageItem = lists:keyfind(Id, 1, State#state.pendingMessageList),
+                    case MessageItem of
+                        false ->
+                            ?DEBUG("mod_push_notifications: Couldn't find the message with message id: ~p, so ignoring it.", [Id]),
+                            PendingMessageList = State#state.pendingMessageList,
+                            RetryMessageList = State#state.retryMessageList;
+                        _ ->
+                            PendingMessageList = lists:delete(MessageItem, State#state.pendingMessageList),
+                            RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]),
+                            ?DEBUG("mod_push_notifications: Found the message item: ~p, so retrying it.", [MessageItem])
+                    end;
                 7 ->
-                    ?INFO_MSG("mod_push_notifications: Failed sending push notification.", []),
-                    ?DEBUG("mod_push_notifications: No logic to retry yet!!", []),
-                    State;
+                    MessageItem = lists:keyfind(Id, 1, State#state.pendingMessageList),
+                    ?INFO_MSG("mod_push_notifications: Failed sending push notification with id: ~p, ~p, ~p", [Id, State#state.pendingMessageList, MessageItem]),
+                    case MessageItem of
+                        false ->
+                            ?DEBUG("mod_push_notifications: Couldn't find the message with message id: ~p, so ignoring it.", [Id]),
+                            PendingMessageList = State#state.pendingMessageList,
+                            RetryMessageList = State#state.retryMessageList;
+                        _ ->
+                            PendingMessageList = lists:delete(MessageItem, State#state.pendingMessageList),
+                            RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]),
+                            ?DEBUG("mod_push_notifications: Found the message item: ~p, so retrying it: ~p ~n ~p", [MessageItem, PendingMessageList, RetryMessageList])
+                    end;
                 S ->
                     ?INFO_MSG("mod_push_notifications: Failed sending push notification: non-recoverable APNS error: ~p", [S]),
-                    State
-            end;
+                    PendingMessageList = State#state.pendingMessageList,
+                    RetryMessageList = State#state.retryMessageList
+            end,
+            RetryTimer = set_retry_timer_if_undefined(State#state.retryTimer),
+            {noreply, #state{pendingMessageList = PendingMessageList,
+                             retryMessageList = RetryMessageList,
+                             retryTimer = RetryTimer,
+                             host = State#state.host,
+                             socket = State#state.socket}};
         _ ->
             ?ERROR_MSG("mod_push_notifications: invalid APNS response", []),
-            State
-    catch {'EXIT', _} ->
-        ?ERROR_MSG("mod_push_notifications: invalid APNS response", []),
-        State
-    end,
-    {noreply, NewState};
+            {noreply, State}
+    catch
+        {'EXIT', _} ->
+            ?ERROR_MSG("mod_push_notifications: invalid APNS response", []),
+            {noreply, State}
+    end;
 handle_info({ssl_closed, Socket}, State) ->
     ?DEBUG("mod_push_notifications: received a message from ssl_closed: ~p, ~p", [Socket, State]),
-    {noreply, State};
+    {noreply, #state{pendingMessageList = State#state.pendingMessageList,
+                     retryMessageList = State#state.retryMessageList,
+                     retryTimer = State#state.retryTimer,
+                     host = State#state.host,
+                     socket = undefined}};
 handle_info({ssl_error, Socket, Reason}, State) ->
     ?DEBUG("mod_push_notifications: received a message from ssl_error: ~p, ~p, ~p", [Socket, Reason, State]),
     {noreply, State};
 handle_info({ssl_passive, Socket}, State) ->
     ?DEBUG("mod_push_notifications: received a message from ssl_passive: ~p, ~p", [Socket, State]),
     {noreply, State};
+handle_info({retry}, State0) ->
+    ?INFO_MSG("mod_push_notifications: received the retry message: will retry to resend failed messages.", []),
+    CurrentTimestamp = convert_timestamp_to_binary(erlang:timestamp()),
+    State1 = clean_up_messages(State0, CurrentTimestamp),
+    RetryMessageList = State1#state.retryMessageList,
+    State2 = handle_retry_messages(RetryMessageList, State1),
+    if
+        length(State2#state.retryMessageList) > 0 orelse length(State2#state.pendingMessageList) > 0 ->
+            ?DEBUG("mod_push_notifications: resetting the timer to retry again later.", []),
+            NewRetryTimer = restart_retry_timer(State2#state.retryTimer);
+        true ->
+            ?DEBUG("mod_push_notifications: no more messages left to retry!", []),
+            NewRetryTimer = undefined
+    end,
+    {noreply, #state{pendingMessageList = State2#state.pendingMessageList,
+                     retryMessageList = State2#state.retryMessageList,
+                     retryTimer = NewRetryTimer,
+                     host = State2#state.host,
+                     socket = State2#state.socket}};
 handle_info(Request, State) ->
     ?DEBUG("mod_push_notifications: received an unknown request: ~p, ~p", [Request, State]),
     {noreply, State}.
@@ -169,6 +239,36 @@ handle_info(Request, State) ->
 %% internal module functions
 %%====================================================================
 
+-spec handle_retry_messages([any()], #state{}) -> #state{}.
+handle_retry_messages([], State) ->
+    State;
+handle_retry_messages([MessageItem | Rest], State0) ->
+    ?DEBUG("mod_push_notifications: retrying to send this message: ~p", [MessageItem]),
+    {_MessageId, Message, Timestamp} = MessageItem,
+    RetryMessageList = lists:delete(MessageItem, State0#state.retryMessageList),
+    State1 = #state{pendingMessageList = State0#state.pendingMessageList,
+                    retryMessageList = RetryMessageList,
+                    retryTimer = State0#state.retryTimer,
+                    host = State0#state.host,
+                    socket = State0#state.socket},
+    State2 = process_message(Message, State1, Timestamp),
+    handle_retry_messages(Rest, State2).
+
+-spec clean_up_messages(#state{}, binary()) -> #state{}.
+clean_up_messages(State, CurrentTimestamp) ->
+    ?DEBUG("Before cleaning up messages here at timestamp: ~p: PendingMessageList: ~p, ~n, RetryMessageList: ~p", [CurrentTimestamp, State#state.pendingMessageList, State#state.retryMessageList]),
+    PendingMessageList = lists:dropwhile(fun({_, _, Timestamp}) ->
+                                            list_to_integer(binary_to_list(CurrentTimestamp)) - list_to_integer(binary_to_list(Timestamp)) >= ?MESSAGE_RESPONSE_TIMEOUT_SEC end,
+                                         State#state.pendingMessageList),
+    RetryMessageList = lists:dropwhile(fun({_, _, Timestamp}) ->
+                                            list_to_integer(binary_to_list(CurrentTimestamp)) - list_to_integer(binary_to_list(Timestamp)) >= ?MESSAGE_MAX_RETRY_TIME_SEC end,
+                                       State#state.retryMessageList),
+    ?DEBUG("After cleaning up messages here: PendingMessageList: ~p, ~n, RetryMessageList: ~p", [PendingMessageList, RetryMessageList]),
+    #state{pendingMessageList = PendingMessageList,
+           retryMessageList = RetryMessageList,
+           retryTimer = State#state.retryTimer,
+           host = State#state.host,
+           socket = State#state.socket}.
 
 -spec process_iq(#iq{}) -> #iq{}.
 %% iq-stanza with get: retrieves the push token for the user if available and sends it back to the user.
@@ -208,13 +308,17 @@ process_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set, lang = L
 -spec process_message({any(), #message{}}, #state{}) -> #state{}.
 %% Currently ignoring message-types, but probably need to handle different types separately!
 process_message({_, #message{} = Message}, State) ->
+    Timestamp = convert_timestamp_to_binary(erlang:timestamp()),
+    process_message(Message, State, Timestamp).
+
+process_message(#message{} = Message, State, Timestamp) ->
     ?INFO_MSG("mod_push_notifications: Handling Offline message ~p", [Message]),
-    NewState = handle_push_message(Message, State),
+    NewState = handle_push_message(Message, State, Timestamp),
     NewState.
 
 %% Handles the push message: determines the os for the user and sends a request to either fcm or apns accordingly.
--spec handle_push_message(#message{}, #state{}) -> #state{}.
-handle_push_message(#message{from = From, to = To} = Message, #state{host = Host} = State) ->
+-spec handle_push_message(#message{}, #state{}, binary()) -> #state{}.
+handle_push_message(#message{from = From, to = To} = Message, #state{host = _Host} = State, Timestamp) ->
     JFrom = jid:encode(jid:remove_resource(From)),
     _JTo = jid:encode(jid:remove_resource(To)),
     ToUser = To#jid.luser,
@@ -224,21 +328,21 @@ handle_push_message(#message{from = From, to = To} = Message, #state{host = Host
     case mod_push_notifications_mnesia:list_push_registrations({ToUser, ToServer}) of
         {ok, none} ->
             ?DEBUG("mod_push_notifications: No push token available for user: ~p", [To]),
-            ok;
+            State;
         {ok, {{ToUser, ToServer}, Os, Token, _Timestamp}} ->
             case Os of
                 <<"ios">> ->
+                    MessageId = get_new_message_id(),
+                    MessageItem = {MessageId, Message, Timestamp},
                     ?INFO_MSG("mod_push_notifications: Trying to send an ios push notification for user: ~p through apns", [To]),
-                    case send_apns_push_notification(JFrom, {ToUser, ToServer}, Subject, Body, Token) of
-                        {ok, Socket} ->
-                        NewState = #state{host = Host, socket = Socket},
-                        NewState;
-                        _ -> State
-                    end;
+                    NewState = send_apns_push_notification(JFrom, {ToUser, ToServer}, Subject, Body, Token, MessageItem, State),
+                    NewState;
                 <<"android">> ->
+                    MessageId = -1, %% ignoring message id here.
+                    MessageItem = {MessageId, Message, Timestamp},
                     ?INFO_MSG("mod_push_notifications: Trying to send an android push notification for user: ~p through fcm", [To]),
-                    send_fcm_push_notification(JFrom, {ToUser, ToServer}, Subject, Body, Token),
-                    State;
+                    NewState = send_fcm_push_notification(JFrom, {ToUser, ToServer}, Subject, Body, Token, MessageItem, State),
+                    NewState;
                 _ ->
                     ?ERROR_MSG("mod_push_notifications: Invalid OS: ~p and token for the user: ~p ~p", [Os, ToUser, ToServer]),
                     State
@@ -251,11 +355,12 @@ handle_push_message(#message{from = From, to = To} = Message, #state{host = Host
 %% Using the legacy binary API for now: link below for details
 %% [https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/BinaryProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH13-SW1]
 %% TODO(murali@): switch to the modern API soon.
--spec send_apns_push_notification(binary(), {binary(), binary()}, binary(), binary(), binary()) -> ok.
-send_apns_push_notification(_From, Username, Subject, Body, Token) ->
+-spec send_apns_push_notification(binary(), {binary(), binary()}, binary(), binary(), binary(), {binary(), #message{}, binary()}, #state{}) -> #state{}.
+send_apns_push_notification(_From, Username, Subject, Body, Token, MessageItem, State) ->
     ApnsGateway = get_apns_gateway(),
     ApnsCertfile = get_apns_certfile(),
     ApnsPort = get_apns_port(),
+    MessageId = element(1, MessageItem),
     Options = [{certfile, ApnsCertfile},
                {mode, binary}],
     Payload = lists:append(["{\"aps\":",
@@ -266,7 +371,7 @@ send_apns_push_notification(_From, Username, Subject, Body, Token) ->
                                         "\"sound\":\"default\",",
                                         "\"content-available\":\"1\",",
                             "}}"]),
-    case ssl:connect(ApnsGateway, ApnsPort, Options, ?SSL_TIMEOUT) of
+    case ssl:connect(ApnsGateway, ApnsPort, Options, ?SSL_TIMEOUT_MILLISEC) of
         {ok, Socket} ->
             PayloadBin = list_to_binary(Payload),
             PayloadLength = size(PayloadBin),
@@ -274,34 +379,46 @@ send_apns_push_notification(_From, Username, Subject, Body, Token) ->
             TokenLength = 32,
             TokenNum = erlang:binary_to_integer(Token, 16),
             TokenBin = <<TokenNum:TokenLength/integer-unit:8>>,
-            MessageId = get_new_message_id(),
-            ExpiryTime = get_expiry_time(erlang:timestamp()),
+            Timestamp = element(3, MessageItem),
+            ExpiryTime = get_expiry_time(Timestamp),
             %% Packet structure is described in the link above for binary API in APNS.
             Packet = <<1:1/unit:8, MessageId:4/unit:8, ExpiryTime:4/unit:8, TokenLength:2/unit:8, TokenBin/binary, PayloadLength:2/unit:8, PayloadBin/binary>>,
             Result = ssl:send(Socket, Packet),
             case Result of
                 ok ->
-                    ?DEBUG("mod_push_notifications: Successfully sent payload to the APNS server, result: ~p for the user: ~p", [Result, Username]);
+                    ?DEBUG("mod_push_notifications: Successfully sent payload to the APNS server, result: ~p for the user: ~p", [Result, Username]),
+                    PendingMessageList = lists:append([State#state.pendingMessageList, [MessageItem]]),
+                    RetryMessageList = State#state.retryMessageList,
+                    SSLSocket = Socket;
                 {error, Reason} ->
                     ?ERROR_MSG("mod_push_notifications: Failed sending a push notification to the APNS server: ~p, reason: ~p", [Username, Reason]),
-                    ?DEBUG("mod_push_notifications: No logic to retry yet!!", [])
-            end,
-            {ok, Socket};
+                    PendingMessageList = State#state.pendingMessageList,
+                    RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]),
+                    SSLSocket = Socket
+            end;
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %% Add logic to handle errors!!
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        {error, Reason} = Err ->
+        {error, Reason} = _Err ->
             ?ERROR_MSG("mod_push_notifications: Unable to connect to the APNS server: ~s for the user: ~p", [ssl:format_error(Reason), Username]),
-            Err
-    end.
+            PendingMessageList = State#state.pendingMessageList,
+            RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]),
+            SSLSocket = undefined
+    end,
+    RetryTimer = set_retry_timer_if_undefined(State#state.retryTimer),
+    #state{pendingMessageList = PendingMessageList,
+           retryMessageList = RetryMessageList,
+           retryTimer = RetryTimer,
+           host = State#state.host,
+           socket = SSLSocket}.
 
 %% Sends an fcm push notification to the user with a subject and body using that token of the user.
--spec send_fcm_push_notification(binary(), {binary(), binary()}, binary(), binary(), binary()) -> ok.
-send_fcm_push_notification(_From, Username, Subject, Body, Token) ->
+-spec send_fcm_push_notification(binary(), {binary(), binary()}, binary(), binary(), binary(), {binary(), #message{}, binary()}, #state{}) -> #state{}.
+send_fcm_push_notification(_From, Username, Subject, Body, Token, MessageItem, State) ->
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% Set timeout options here.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    HTTPOptions = [],
+    HTTPOptions = [{timeout, ?HTTP_TIMEOUT_MILLISEC}, {connect_timeout, ?HTTP_CONNECT_TIMEOUT_MILLISEC}],
     Options = [],
     FcmGateway = get_fcm_gateway(),
     FcmApiKey = get_fcm_apikey(),
@@ -316,7 +433,7 @@ send_fcm_push_notification(_From, Username, Subject, Body, Token) ->
         {ok, {{_, StatusCode5xx, _}, _, ResponseBody}} when StatusCode5xx >= 500, StatusCode5xx < 600 ->
             ?DEBUG("mod_push_notifications: recoverable FCM error: ~p", [ResponseBody]),
             ?ERROR_MSG("mod_push_notifications: Failed sending a push notification to user immediately: ~p, reason: ~p", [Username, ResponseBody]),
-            ?DEBUG("mod_push_notifications: No logic to retry yet!!", []);
+            RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]);
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %% Add logic to retry again!!
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -324,29 +441,54 @@ send_fcm_push_notification(_From, Username, Subject, Body, Token) ->
             case parse_response(ResponseBody) of
                 ok ->
                     ?DEBUG("mod_push_notifications: Successfully sent a push notification to user: ~p, should receive it soon.", [Username]),
-                    ok;
+                    RetryMessageList = State#state.retryMessageList;
                 _ ->
                     ?ERROR_MSG("mod_push_notifications: Failed sending a push notification to user: ~p, token: ~p, reason: ~p", [Username, Token, ResponseBody]),
-                    ?DEBUG("mod_push_notifications: No logic to retry yet!!", []),
-                    mod_push_notifications_mnesia:unregister_push(Username)
+                    RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]])
                     %%%%%%%%%%%%%%%%%%%%%%%%%%%%
                     %% Add logic to retry again if possible!!
                     %%%%%%%%%%%%%%%%%%%%%%%%%%%%
             end;
         {ok, {{_, _, _}, _, ResponseBody}} ->
             ?DEBUG("mod_push_notifications: non-recoverable FCM error: ~p", [ResponseBody]),
-            ?DEBUG("mod_push_notifications: No logic to retry yet!!", []);
+            RetryMessageList = State#state.retryMessageList;
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %% Add logic to retry again if possible!!
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
         {error, Reason} ->
             ?ERROR_MSG("mod_push_notifications: Failed sending a push notification to user immediately: ~p, reason: ~p", [Username, Reason]),
-            ?DEBUG("mod_push_notifications: No logic to retry yet!!", [])
+            RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]])
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %% Add logic to retry again if possible!!
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    end,
+    RetryTimer = set_retry_timer_if_undefined(State#state.retryTimer),
+    #state{pendingMessageList = State#state.pendingMessageList,
+           retryMessageList = RetryMessageList,
+           retryTimer = RetryTimer,
+           host = State#state.host,
+           socket = State#state.socket}.
+
+-spec set_retry_timer_if_undefined(reference()) -> reference().
+set_retry_timer_if_undefined(OldTimer) ->
+    case OldTimer of
+        undefined ->
+            NewTimer = erlang:send_after(?RETRY_INTERVAL_MILLISEC, self(), {retry}),
+            NewTimer;
+        _ ->
+            OldTimer
     end.
 
+-spec restart_retry_timer(reference()) -> reference().
+restart_retry_timer(OldTimer) ->
+    case OldTimer of
+        undefined ->
+            ok;
+        _ ->
+            erlang:cancel_timer(OldTimer)
+    end,
+    NewTimer = erlang:send_after(?RETRY_INTERVAL_MILLISEC, self(), {retry}),
+    NewTimer.
 
 %% Parses response of the request to check if everything worked successfully.
 -spec parse_response(binary()) -> ok | any().
@@ -442,6 +584,7 @@ get_apns_port() ->
 get_new_message_id() ->
     NewMessageId =
     try persistent_term:get({?MODULE, last_message_id}) of
+        %% Check if it is the max-value of 4-byte unsigned integer and reset if it is.
         MessageId when MessageId == (4294967296 - 1) -> 0;
         MessageId -> MessageId + 1
     catch
@@ -458,10 +601,10 @@ convert_timestamp_to_binary(Timestamp) ->
     list_to_binary(integer_to_list(T1)++integer_to_list(T2)).
 
 %% Converts the timestamp to an integer and then adds the MESSAGE_EXPIRY_TIME(1 day) seconds and returns the integer.
--spec get_expiry_time(erlang:timestamp())  -> integer().
+-spec get_expiry_time(binary())  -> integer().
 get_expiry_time(Timestamp) ->
-    CurrentTime = list_to_integer(binary_to_list(convert_timestamp_to_binary(Timestamp))),
-    ExpiryTime = CurrentTime + ?MESSAGE_EXPIRY_TIME,
+    CurrentTime = list_to_integer(binary_to_list(Timestamp)),
+    ExpiryTime = CurrentTime + ?MESSAGE_EXPIRY_TIME_SEC,
     ExpiryTime.
 
 -spec mod_opt_type(atom()) -> econf:validator().
