@@ -26,7 +26,7 @@ log_rate_limit: 100
 
 ## If you already have certificates, list them here
 certfiles:
-  - /etc/letsencrypt/live/s.halloapp.net/*.pem
+  - /etc/ejabberd_certs/s.halloapp.net/*.pem
 
 listen:
   -
