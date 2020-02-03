@@ -75,7 +75,27 @@ process_local_iq(#iq{to = Host} = IQ) ->
 
 handle_message({_, #message{to = #jid{luser = _, lserver = ServerHost}} = Message} = Acc) ->
     ?DEBUG("mod_push_notifications: handle_message", []),
-    gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE), {process_message, Message}),
+    %% TODO(murali@): Temporary fix for now: handle this in a better way!
+    case Message of
+        #message{sub_els = [#ps_event{items = ItemsEls}]} ->
+            case ItemsEls of
+                #ps_items{node = Node} ->
+                    case re:run(binary_to_list(Node), "feed-.*", [global]) of
+                        {match, _} ->
+                            ?DEBUG("mod_push_notifications: handle_message: sending a push notification for this message: ~p", [Message]),
+                            gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE), {process_message, Message});
+                        _ ->
+                            ?DEBUG("mod_push_notifications: handle_message: ignoring this message for push notifications: ~p", [Message]),
+                            ok
+                    end;
+                _ ->
+                    ?DEBUG("mod_push_notifications: handle_message: ignoring this message for push notifications: ~p", [Message]),
+                    ok
+            end;
+        _ ->
+            ?ERROR_MSG("mod_push_notifications: handle_message: ignoring this message for push notifications: ~p", [Message]),
+            ok
+    end,
     Acc.
 
 %%====================================================================
