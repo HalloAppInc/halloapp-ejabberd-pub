@@ -4095,7 +4095,7 @@ cur_timestamp() ->
 -spec convert_timestamp_to_binary(erlang:timestamp()) -> binary().
 convert_timestamp_to_binary(Timestamp) ->
     {T1, T2, _} = Timestamp,
-    list_to_binary(integer_to_list(T1)++integer_to_list(T2)).
+    list_to_binary(integer_to_list(T1*1000000 + T2)).
 
 convert_timestamp_secs_to_integer(Timestamp) ->
         list_to_integer(binary_to_list(convert_timestamp_to_binary(Timestamp))).
