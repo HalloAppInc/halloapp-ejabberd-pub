@@ -3,6 +3,7 @@
 %%% to parse the xml file.
 %%% We will be adding more relevant functions here to parse a given phone-number,
 %%% format it and return the result.
+%%% TODO(murali@): Avoid nesting more than 3 levels deep acc. to erlang style guide.
 %%%
 %%% File    : phone_number_util.erl
 %%%
@@ -28,6 +29,7 @@
 -define(DIGITS, "\\p{Nd}").
 -define(UNWANTED_END_CHARS, "[\\P{N}]+$").
 -define(SECOND_NUMBER_START_CHARS, "[\\\\/] *x").
+-define(EXTENSION_CHARS, " *x").
 -define(VALID_PUNCTUATION, "-x ().\\[\\]/\\~").
 
 
@@ -78,6 +80,209 @@ create_libPhoneNumber_table() ->
 %% internal functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+
+%% Strips any national prefix (such as 0, 1) present in the #phone_number_state.phone_number
+%% provided and returns the updated phone_number_state.
+-spec maybe_strip_national_prefix_and_carrier_code(#phone_number_state{}, #region_metadata{}) ->
+                                                                        #phone_number_state{}.
+maybe_strip_national_prefix_and_carrier_code(PhoneNumberState, RegionMetadata) ->
+    ?DEBUG("maybe_strip_national_prefix_and_carrier_code: current input:
+            PhoneNumberState: ~p, RegionMetadata: ~p",[PhoneNumberState, RegionMetadata]),
+    PotentialNationalNumber = PhoneNumberState#phone_number_state.phone_number,
+    Attributes = RegionMetadata#region_metadata.attributes,
+    PossibleNationalPrefix = Attributes#attributes.national_prefix_for_parsing,
+    if
+        PotentialNationalNumber == undefined orelse
+            length(PotentialNationalNumber) == 0 orelse
+                PossibleNationalPrefix == undefined orelse
+                    length(PossibleNationalPrefix) == 0 ->
+            NewNationalNumber = PotentialNationalNumber;
+        true ->
+            {ok, Matcher} = re:compile(PossibleNationalPrefix, [caseless]),
+            case re:run(PotentialNationalNumber, Matcher, [notempty]) of
+                {match, Matches} ->
+                    Result0 = match_national_number_pattern(PotentialNationalNumber,
+                                                            RegionMetadata, false),
+                    TransformRule = Attributes#attributes.national_prefix_transform_rule,
+                    if
+                        TransformRule == undefined ->
+                            [{Index, Length} | _Rest] = Matches,
+                            NewNationalNumber = string:slice(PotentialNationalNumber,
+                                                                        Index+Length);
+                        true ->
+                            case Matches of
+                                [{Index, Length}] ->
+                                    NewNationalNumber = string:slice(PotentialNationalNumber,
+                                                                        Index+Length);
+                                [{Index, Length} | _Rest] ->
+                                    %% Handle multiple matches here and test them!!
+                                    TransformedPattern = re:replace(TransformRule, "\\$1", "",
+                                                                    [global, {return,list}]),
+                                    NewPotentialNationalNumber = TransformedPattern ++
+                                                            string:slice(PotentialNationalNumber,
+                                                                            Index+Length),
+                                    Result1 =
+                                        match_national_number_pattern(NewPotentialNationalNumber,
+                                                                        RegionMetadata, false),
+                                    case Result0 of
+                                        true ->
+                                            case Result1 of
+                                                true ->
+                                                    NewNationalNumber = NewPotentialNationalNumber;
+                                                false ->
+                                                    NewNationalNumber = PotentialNationalNumber
+                                            end;
+                                        false ->
+                                            NewNationalNumber = NewPotentialNationalNumber
+                                    end
+                            end
+                    end;
+                _ ->
+                    NewNationalNumber = PotentialNationalNumber
+            end
+    end,
+    NewPhoneNumberState = #phone_number_state {
+        country_code = PhoneNumberState#phone_number_state.country_code,
+        national_number = NewNationalNumber,
+        phone_number = PhoneNumberState#phone_number_state.phone_number,
+        raw = PhoneNumberState#phone_number_state.raw,
+        country_code_source = PhoneNumberState#phone_number_state.country_code_source
+    },
+    ?DEBUG("maybe_strip_national_prefix_and_carrier_code:
+            final output: PhoneNumberState: ~p",[NewPhoneNumberState]),
+    NewPhoneNumberState.
+
+
+%% Extracts country calling code from the given phone_number, returns it and places the
+%% remaining number in national_number. It assumes that the leading plus sign or IDD has
+%% already been removed. Returns 0 as the country code if phone_number doesn't start with
+%% a valid country calling code, and sets national_number to be phone_number's value.
+ -spec extract_country_code(#phone_number_state{}, integer()) -> #phone_number_state{}.
+extract_country_code(PhoneNumberState, Count) ->
+    ?DEBUG("extract_country_code: current input: PhoneNumberState: ~p, Count: ~p",
+            [PhoneNumberState, Count]),
+    PhoneNumber = PhoneNumberState#phone_number_state.phone_number,
+    if
+        Count > ?MAX_LENGTH_COUNTRY_CODE ->
+            NewPhoneNumberState = #phone_number_state {
+                country_code = "0",
+                national_number = PhoneNumberState#phone_number_state.phone_number,
+                phone_number = PhoneNumberState#phone_number_state.phone_number,
+                raw = PhoneNumberState#phone_number_state.raw,
+                country_code_source = PhoneNumberState#phone_number_state.country_code_source
+            },
+            ?DEBUG("extract_country_code: final output: PhoneNumberState: ~p",
+                    [NewPhoneNumberState]),
+            NewPhoneNumberState;
+        true ->
+            PotentialCountryCode = string:slice(PhoneNumber, 0, Count),
+            Res = ets:match(?LIBPHONENUMBER_METADATA_TABLE,
+                            #region_metadata{attributes =
+                            #attributes{country_code = PotentialCountryCode, _='_'}, _='_'}),
+            case Res of
+                [_Match | _Rest] ->
+                    NewPhoneNumberState = #phone_number_state {
+                        country_code = PotentialCountryCode,
+                        national_number = string:slice(PhoneNumber, Count),
+                        phone_number = PhoneNumberState#phone_number_state.phone_number,
+                        raw = PhoneNumberState#phone_number_state.raw,
+                        country_code_source =
+                            PhoneNumberState#phone_number_state.country_code_source
+                    },
+                    ?DEBUG("extract_country_code: final output: PhoneNumberState: ~p",
+                            [NewPhoneNumberState]),
+                    NewPhoneNumberState;
+                _ ->
+                    extract_country_code(PhoneNumberState, Count + 1)
+            end
+    end.
+
+
+%% Strips any international prefix (such as +, 00, 011) present in the number provided, normalizes
+%% the resulting number, and returns the phone_number_state with updated phone_number and
+%% country_code_source.
+-spec maybe_strip_international_prefix_and_normalize(#phone_number_state{}, list()) ->
+                                                        #phone_number_state{}.
+maybe_strip_international_prefix_and_normalize(PhoneNumberState, InternationalPrefix) ->
+    ?DEBUG("maybe_strip_international_prefix_and_normalize: current input:
+            PhoneNumberState: ~p, InternationalPrefix: ~p", [PhoneNumberState,
+                                                                InternationalPrefix]),
+    PhoneNumber0 = PhoneNumberState#phone_number_state.phone_number,
+    case re:run(PhoneNumber0, get_plus_characters_pattern_matcher(), [notempty]) of
+        {match, [{Index, Length} | _Rest]} ->
+            PhoneNumber1 = string:slice(PhoneNumber0, Index+Length),
+            NewPhoneNumber = normalize(PhoneNumber1),
+            NewCountryCodeSource = fromNumberWithPlusSign;
+        _ ->
+            case InternationalPrefix == undefined orelse length(InternationalPrefix) == 0 of
+                true ->
+                    NewPhoneNumber = normalize(PhoneNumber0),
+                    NewCountryCodeSource = fromDefaultCountry;
+                false ->
+                    case re:compile(InternationalPrefix, [caseless]) of
+                        {error, _} ->
+                            NewPhoneNumber = normalize(PhoneNumber0),
+                            NewCountryCodeSource = fromDefaultCountry;
+                        {ok, Pattern} ->
+                            PhoneNumber2 = normalize(PhoneNumber0),
+                            case re:run(PhoneNumber2, Pattern, [notempty]) of
+                                {match, [{Index, Length} | _Rest]} ->
+                                    PhoneNumber3 = string:slice(PhoneNumber2, Index+Length),
+                                    case PhoneNumber3 of
+                                        "0"++_ ->
+                                            NewPhoneNumber = PhoneNumber2,
+                                            NewCountryCodeSource = fromDefaultCountry;
+                                        _ ->
+                                            NewPhoneNumber = PhoneNumber3,
+                                            NewCountryCodeSource = fromNumberWithIdd
+                                    end;
+                                _ ->
+                                    NewPhoneNumber = PhoneNumber2,
+                                    NewCountryCodeSource = fromDefaultCountry
+                            end
+                    end
+            end
+    end,
+    NewPhoneNumberState = #phone_number_state {
+        country_code = PhoneNumberState#phone_number_state.country_code,
+        national_number = PhoneNumberState#phone_number_state.national_number,
+        phone_number = NewPhoneNumber,
+        raw = PhoneNumberState#phone_number_state.raw,
+        country_code_source = NewCountryCodeSource
+    },
+    ?DEBUG("maybe_strip_international_prefix_and_normalize:
+            final output: PhoneNumberState: ~p",[NewPhoneNumberState]),
+    NewPhoneNumberState.
+
+
+%% Matches the phone_number with the pattern in the mobile description and returns true if the
+%% regex matches and false otherwise.
+%% Returns the default value if the phone_number or RegionMetadata is undefined.
+-spec match_national_number_pattern(list(), #region_metadata{}, boolean()) -> boolean().
+match_national_number_pattern(PhoneNumber, RegionMetadata, DefaultValue) ->
+    if
+        PhoneNumber == undefined orelse length(PhoneNumber) == 0 orelse
+            RegionMetadata == undefined ->
+            DefaultValue;
+        true ->
+            Mobile = RegionMetadata#region_metadata.mobile,
+            case Mobile of
+                undefined ->
+                    DefaultValue;
+                _Else ->
+                    Pattern = Mobile#mobile.pattern,
+                    {ok, Matcher} = re:compile(Pattern, [caseless]),
+                    case re:run(PhoneNumber, Matcher, [notempty]) of
+                        {match, _}  ->
+                            true;
+                        _ ->
+                            false
+                    end
+            end
+    end.
+
+
 %% Normalizes a list of characters representing a phone number.
 %% This strips punctuation and non-digit characters.
 %% Currently we do not handle alpha or any other set of characters.
@@ -85,6 +290,110 @@ create_libPhoneNumber_table() ->
 normalize(PhoneNumber) ->
     re:replace(PhoneNumber, "[^0-9]", "", [global, {return,list}]).
 
+
+%% Helper method to check a phone_number length against possible lengths for this region,
+%% based on the metadata being passed in, and determine whether it matches,
+%% or is too short or too long.
+-spec test_number_length(list(), #region_metadata{}) -> atom().
+test_number_length(PhoneNumber, RegionMetadata) ->
+    case RegionMetadata  of
+        undefined ->
+            invalidLength;
+        _ ->
+            Mobile = RegionMetadata#region_metadata.mobile,
+            case Mobile of
+                undefined ->
+                    invalidLength;
+                _ ->
+                    LocalLengths = Mobile#mobile.local_only_lengths,
+                    NationalLengths = Mobile#mobile.national_lengths,
+                    case NationalLengths of
+                        undefined ->
+                            invalidLength;
+                        _ ->
+                            case LocalLengths of
+                                undefined ->
+                                    compare_with_national_lengths(PhoneNumber, NationalLengths);
+                                _ ->
+                                    case length(PhoneNumber) >= get_min_length(LocalLengths)
+                                            andalso length(PhoneNumber) =<
+                                                            get_max_length(LocalLengths) of
+                                        true ->
+                                            isPossibleLocalOnly;
+                                        false ->
+                                            compare_with_national_lengths(PhoneNumber,
+                                                                            NationalLengths)
+                                    end
+                            end
+                    end
+            end
+    end.
+
+
+%% Compares the phone number with the national lengths and returns the relevant atom.
+-spec compare_with_national_lengths(list(), list()) -> atom().
+compare_with_national_lengths(PhoneNumber, NationalLengths) ->
+    case get_min_length(NationalLengths) > length(PhoneNumber) of
+        true ->
+            tooShort;
+        false ->
+            case length(PhoneNumber) >= get_min_length(NationalLengths)
+                    andalso length(PhoneNumber) =< get_max_length(NationalLengths) of
+                true ->
+                    isPossible;
+                false ->
+                    case get_max_length(NationalLengths) < length(PhoneNumber) of
+                        true ->
+                            tooLong;
+                        false ->
+                            invalidLength
+                    end
+            end
+    end.
+
+
+%% Gets the max length from a list indicating the range of lengths possible.
+%% Ex: [7-10] should return 10.
+%% Accepted forms are: "[7-10]", "7,10",  "7".
+-spec get_max_length(list()) -> integer().
+get_max_length(PossibleLengths) ->
+    case string:find(PossibleLengths, "-") of
+        nomatch ->
+            case string:find(PossibleLengths, ",") of
+                nomatch ->
+                    list_to_integer(PossibleLengths);
+                _ ->
+                    Lengths = string:split(PossibleLengths, ","),
+                    list_to_integer(lists:nth(2, Lengths))
+            end;
+        _ ->
+            PossibleLengthString = re:replace(PossibleLengths, "[\\[\\]]",
+                                                "", [global, {return,list}]),
+            Lengths = string:split(PossibleLengthString, "-"),
+            list_to_integer(lists:nth(2, Lengths))
+    end.
+
+
+%% Gets the min length from a list indicating the range of lengths possible.
+%% Ex: [7-10] should return 7.
+%% Accepted forms are: "[7-10]", "7,10",  "7".
+-spec get_min_length(list()) -> integer().
+get_min_length(PossibleLengths) ->
+    case string:find(PossibleLengths, "-") of
+        nomatch ->
+            case string:find(PossibleLengths, ",") of
+                nomatch ->
+                    list_to_integer(PossibleLengths);
+                _ ->
+                    Lengths = string:split(PossibleLengths, ","),
+                    list_to_integer(lists:nth(1, Lengths))
+            end;
+        _ ->
+            PossibleLengthString = re:replace(PossibleLengths, "[\\[\\]]",
+                                                "", [global, {return,list}]),
+            Lengths = string:split(PossibleLengthString, "-"),
+            list_to_integer(lists:nth(1, Lengths))
+    end.
 
 
 %% Checks to see that the region code used is valid, or if it is not valid, that the number to
@@ -109,7 +418,6 @@ check_region_for_parsing(PhoneNumber, DefaultRegionId) ->
     end.
 
 
-
 %% Checks to see if the string of characters could possibly be a phone number at all. At the
 %% moment, checks to see that the string begins with at least 2 digits, ignoring any punctuation
 %% commonly found in phone numbers.
@@ -130,13 +438,11 @@ is_viable_phone_number(PhoneNumber) ->
     end.
 
 
-
 %% Extracts a possible number out of the given number and returns it.
 %% Currently, we do not handle the number if it is written in RFC3966.
 -spec build_national_number_for_parsing(list()) -> list().
 build_national_number_for_parsing(PhoneNumber) ->
     extract_possible_number(PhoneNumber).
-
 
 
 %% Attempts to extract a possible number from the string passed in. This currently strips all
@@ -148,7 +454,7 @@ build_national_number_for_parsing(PhoneNumber) ->
 %% The second extension here makes this actually two phone numbers,
 %% (530) 583-6985 x302 and (530) 583-6985 x2303. We remove the second extension so that the first
 %% number is parsed correctly.
-%% Currently, we do not handle extensions.
+%% Currently, we do not handle extensions, so we strip them off.
 -spec extract_possible_number(list()) -> list().
 extract_possible_number(PhoneNumber0) ->
     StartIndex =
@@ -176,7 +482,15 @@ extract_possible_number(PhoneNumber0) ->
                 length(PhoneNumber2)
         end,
     PhoneNumber3 = string:slice(PhoneNumber2, 0, SecondEndIndex),
-    PhoneNumber3.
+    ThirdEndIndex =
+        case re:run(PhoneNumber3, get_extension_pattern_matcher(), [notempty]) of
+            {match, [{Index3, _}]} ->
+                Index3;
+            _ ->
+                length(PhoneNumber3)
+        end,
+    PhoneNumber4 = string:slice(PhoneNumber3, 0, ThirdEndIndex),
+    PhoneNumber4.
 
 
 %% Regular expression of acceptable characters that may start a phone number for the purposes of
@@ -209,6 +523,13 @@ get_unwanted_end_char_pattern_matcher() ->
 -spec get_second_number_start_pattern_matcher() -> re:mp().
 get_second_number_start_pattern_matcher() ->
     {ok, Matcher} = re:compile(?SECOND_NUMBER_START_CHARS, [caseless]),
+    Matcher.
+
+
+%% Regular expression to help us match the extension in the phone number that start with 'x'.
+-spec get_extension_pattern_matcher() ->re:mp().
+get_extension_pattern_matcher() ->
+    {ok, Matcher} = re:compile(?EXTENSION_CHARS, [caseless]),
     Matcher.
 
 
