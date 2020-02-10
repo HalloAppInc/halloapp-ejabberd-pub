@@ -27,7 +27,8 @@ parse_xml_file(FileName) ->
     {XmlContents, _} ->
       ?INFO_MSG("Parsing xml contents here: ~p", [XmlContents]),
       #xmlElement{content = [_, TerritoryElements, _]} = XmlContents,
-      {ok, parse_territories(TerritoryElements#xmlElement.content)};
+      Result = parse_territories(TerritoryElements#xmlElement.content),
+      {ok, Result};
     _ ->
       {error, failed}
   end.

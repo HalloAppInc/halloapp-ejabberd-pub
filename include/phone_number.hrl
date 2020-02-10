@@ -63,5 +63,7 @@
     national_number :: list(),
     phone_number :: list(),
     raw :: list(),
+    valid :: boolean(),
+    e164_value :: list(),
     country_code_source :: countryCodeSource()
 }).

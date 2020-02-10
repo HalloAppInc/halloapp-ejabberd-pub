@@ -31,6 +31,7 @@
 -define(SECOND_NUMBER_START_CHARS, "[\\\\/] *x").
 -define(EXTENSION_CHARS, " *x").
 -define(VALID_PUNCTUATION, "-x ().\\[\\]/\\~").
+-define(REGION_CODE_FOR_NON_GEO_ENTITY, "001").
 
 
 init(_Host, _Opts) ->
@@ -82,17 +83,18 @@ parse_phone_number(PhoneNumber, DefaultRegionId) ->
             ?ERROR_MSG("Failed when parsing the number: ~p, with reason: ~p",
                                                         [PhoneNumber, Reason]),
             {error, Reason};
-        PhoneNumberState ->
+        PhoneNumberState2 ->
+            PhoneNumberState3 = is_valid_number_internal(PhoneNumberState2),
+            PhoneNumberState4 = format_number_internal(PhoneNumberState3),
             ?INFO_MSG("Finished parsing the number: ~p and obtained the PhoneNumberState: ~p",
-                                                        [PhoneNumber, PhoneNumberState]),
-            {ok, PhoneNumberState}
+                                                        [PhoneNumber, PhoneNumberState4]),
+            {ok, PhoneNumberState4}
     end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% internal functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 %% Parses a phone_number_state and returns a phone_number_state record filling all the
 %% possible details. To do this, it ignores punctuation and white-space, as well as any text
@@ -158,7 +160,7 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
     case ets:member(?LIBPHONENUMBER_METADATA_TABLE, DefaultRegionId) of
         true ->
             %% Currently we are handling only the first RegionMetadata!!
-            [RegionMetadata | _Rest] = ets:lookup(?LIBPHONENUMBER_METADATA_TABLE, DefaultRegionId);
+            [RegionMetadata | _] = ets:lookup(?LIBPHONENUMBER_METADATA_TABLE, DefaultRegionId);
         _ ->
             RegionMetadata = undefined
     end,
@@ -190,9 +192,11 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
             NormalizedNationalNumber = PhoneNumberState2#phone_number_state.national_number,
             NewCountryCodeSource = PhoneNumberState2#phone_number_state.country_code_source,
             NewRegionMetadata =
-            case ets:match(?LIBPHONENUMBER_METADATA_TABLE, #region_metadata{attributes =
-                                                #attributes{country_code = CountryCode}}) of
-                [Match] ->
+            case ets:match_object(?LIBPHONENUMBER_METADATA_TABLE,
+                            #region_metadata{
+                                attributes = #attributes{
+                                    country_code = CountryCode, _ = '_'}, _ = '_'}) of
+                [Match | _Rest] ->
                     Match;
                 _ ->
                     RegionMetadata
@@ -449,16 +453,16 @@ maybe_strip_national_prefix_and_carrier_code(PhoneNumberState, RegionMetadata) -
                             end;
                         true ->
                             case Matches of
-                                [{Index, Length}] ->
+                                [{0, Length}] ->
                                     NewNationalNumber = string:slice(PotentialNationalNumber,
-                                                                        Index+Length);
-                                [{Index, Length} | _Rest] ->
+                                                                        Length);
+                                [{0, Length} | _Rest] ->
                                     %% Handle multiple matches here and test them!!
                                     TransformedPattern = re:replace(TransformRule, "\\$1", "",
                                                                     [global, {return,list}]),
                                     NewPotentialNationalNumber = TransformedPattern ++
                                                             string:slice(PotentialNationalNumber,
-                                                                            Index+Length),
+                                                                            Length),
                                     Result1 =
                                         match_national_number_pattern(NewPotentialNationalNumber,
                                                                         RegionMetadata, false),
@@ -472,7 +476,9 @@ maybe_strip_national_prefix_and_carrier_code(PhoneNumberState, RegionMetadata) -
                                             end;
                                         false ->
                                             NewNationalNumber = NewPotentialNationalNumber
-                                    end
+                                    end;
+                                _ ->
+                                    NewNationalNumber = PotentialNationalNumber
                             end
                     end;
                 _ ->
@@ -514,10 +520,10 @@ extract_country_code(PhoneNumberState, Count) ->
             NewPhoneNumberState;
         true ->
             PotentialCountryCode = string:slice(PhoneNumber, 0, Count),
-            Res = ets:match(?LIBPHONENUMBER_METADATA_TABLE,
+            Res = ets:match_object(?LIBPHONENUMBER_METADATA_TABLE,
                             #region_metadata{
                                 attributes = #attributes{
-                                    country_code = PotentialCountryCode, _='_'}, _='_'}),
+                                    country_code = PotentialCountryCode, _ = '_'}, _ = '_'}),
             case Res of
                 [_Match | _Rest] ->
                     NewPhoneNumberState = #phone_number_state {
@@ -548,8 +554,8 @@ maybe_strip_international_prefix_and_normalize(PhoneNumberState, InternationalPr
                                                                 InternationalPrefix]),
     PhoneNumber0 = PhoneNumberState#phone_number_state.phone_number,
     case re:run(PhoneNumber0, get_plus_characters_pattern_matcher(), [notempty]) of
-        {match, [{Index, Length} | _Rest]} ->
-            PhoneNumber1 = string:slice(PhoneNumber0, Index+Length),
+        {match, [{0, Length} | _Rest]} ->
+            PhoneNumber1 = string:slice(PhoneNumber0, Length),
             NewPhoneNumber = normalize(PhoneNumber1),
             NewCountryCodeSource = fromNumberWithPlusSign;
         _ ->
@@ -565,8 +571,8 @@ maybe_strip_international_prefix_and_normalize(PhoneNumberState, InternationalPr
                         {ok, Pattern} ->
                             PhoneNumber2 = normalize(PhoneNumber0),
                             case re:run(PhoneNumber2, Pattern, [notempty]) of
-                                {match, [{Index, Length} | _Rest]} ->
-                                    PhoneNumber3 = string:slice(PhoneNumber2, Index+Length),
+                                {match, [{0, Length} | _Rest]} ->
+                                    PhoneNumber3 = string:slice(PhoneNumber2, Length),
                                     case PhoneNumber3 of
                                         "0"++_ ->
                                             NewPhoneNumber = PhoneNumber2,
@@ -594,6 +600,159 @@ maybe_strip_international_prefix_and_normalize(PhoneNumberState, InternationalPr
     NewPhoneNumberState.
 
 
+%% Formats the parsed number using the country code and national number in the following format:
+%% e164_value will be + followed by 'CountryCode' followed by the national number.
+-spec format_number_internal(#phone_number_state{}) -> #phone_number_state{}.
+format_number_internal(PhoneNumberState) ->
+    ?DEBUG("format_number_internal:
+            current input: PhoneNumberState: ~p",[PhoneNumberState]),
+    CountryCode = PhoneNumberState#phone_number_state.country_code,
+    NationalNumber = PhoneNumberState#phone_number_state.national_number,
+    case CountryCode of
+        undefined ->
+            NewPhoneNumberState = PhoneNumberState;
+        _ ->
+            case NationalNumber of
+                undefined ->
+                    NewPhoneNumberState = PhoneNumberState;
+                _ ->
+                    NewPhoneNumberState = PhoneNumberState#phone_number_state{
+                                                    e164_value = "+"++CountryCode++NationalNumber}
+            end
+    end,
+    ?DEBUG("format_number_internal:
+            final output: PhoneNumberState: ~p",[NewPhoneNumberState]),
+    NewPhoneNumberState.
+
+
+
+%% Tests whether a phone number matches a valid pattern. Note this doesn't verify the number
+%% is actually in use, which is impossible to tell by just looking at a number itself. It only
+%% verifies whether the parsed, canonicalised number is valid: not whether a particular series of
+%% digits entered by the user is diallable from the region provided when parsing.
+-spec is_valid_number_internal(#phone_number_state{}) -> #phone_number_state{}.
+is_valid_number_internal(PhoneNumberState) ->
+    ?DEBUG("is_valid_number_internal:
+            current input: PhoneNumberState: ~p",[PhoneNumberState]),
+    RegionId = get_region_id_for_number(PhoneNumberState),
+    case RegionId of
+        {error, _} ->
+            NewPhoneNumberState = PhoneNumberState;
+        _ ->
+            Valid = is_valid_number_for_region(PhoneNumberState, RegionId),
+            NewPhoneNumberState = PhoneNumberState#phone_number_state{valid = Valid}
+    end,
+    ?DEBUG("is_valid_number_internal:
+            final output: PhoneNumberState: ~p",[NewPhoneNumberState]),
+    NewPhoneNumberState.
+
+
+
+%% Tests whether a phone number is valid for a certain region. Note this doesn't verify the number
+%% is actually in use, which is impossible to tell by just looking at a number itself. If the
+%% country calling code is not the same as the country calling code for the region, this
+%% immediately exits with false. After this, the specific number pattern rules for the region are
+%% examined. This is useful for determining for example whether a particular number is valid for
+%% Canada, rather than just a valid NANPA number.
+%% Uses the national number mentioned in the phone_number_state.
+-spec is_valid_number_for_region(#phone_number_state{}, binary()) -> boolean().
+is_valid_number_for_region(PhoneNumberState, RegionId) ->
+    PhoneNumber = PhoneNumberState#phone_number_state.national_number,
+    case ets:lookup(?LIBPHONENUMBER_METADATA_TABLE, RegionId) of
+        [] ->
+            false;
+        [RegionMetadata | _Rest] ->
+            CountryCode = PhoneNumberState#phone_number_state.country_code,
+            if
+                RegionMetadata == [] orelse CountryCode == undefined orelse
+                    (RegionId =/= ?REGION_CODE_FOR_NON_GEO_ENTITY andalso
+                        CountryCode =/=
+                            RegionMetadata#region_metadata.attributes#attributes.country_code) ->
+                                %% Either the region code was invalid, or the country calling code
+                                %% for this number does not match that of the region code.
+                                false;
+                true ->
+                    is_number_matching_desc(PhoneNumber, RegionMetadata)
+            end
+    end.
+
+
+
+ %% Returns the region where a phone number is from. This could be used for geocoding at the region
+ %% level. Only guarantees correct results for valid, full numbers (not short-codes, or invalid
+ %% numbers).
+ -spec get_region_id_for_number(#phone_number_state{}) -> binary() | {error, atom()}.
+ get_region_id_for_number(PhoneNumberState) ->
+    CountryCode = PhoneNumberState#phone_number_state.country_code,
+    Matches = ets:match_object(?LIBPHONENUMBER_METADATA_TABLE,
+                        #region_metadata{
+                            attributes = #attributes{country_code = CountryCode, _ = '_'}, _ = '_'}),
+    ?DEBUG("get_region_id_for_number: ~p, ~p, ~p", [PhoneNumberState, CountryCode, Matches]),
+    case Matches of
+        [] ->
+            {error, invalid_phone_number1};
+        [Match] ->
+            Match#region_metadata.id;
+        _ ->
+            get_region_id_for_number_from_regions_list(PhoneNumberState, Matches)
+    end.
+
+
+
+%% Returns the region which has the matching leading digits or when the mobile description matches.
+%% Uses the national number mentioned in the phone_number_state.
+-spec get_region_id_for_number_from_regions_list(#phone_number_state{}, [binary()]) ->
+                                                    binary() | {error, atom()}.
+get_region_id_for_number_from_regions_list(_PhoneNumberState, []) ->
+    {error, invalid_phone_number};
+
+get_region_id_for_number_from_regions_list(PhoneNumberState, [RegionId | Rest]) ->
+    PhoneNumber = PhoneNumberState#phone_number_state.national_number,
+    case ets:lookup(?LIBPHONENUMBER_METADATA_TABLE, RegionId) of
+        [] ->
+            {error, invalid_phone_number};
+        [RegionMetadata | _Rest] ->
+            LeadingDigits = RegionMetadata#region_metadata.attributes#attributes.leading_digits,
+            case LeadingDigits of
+                undefined ->
+                    case is_number_matching_desc(PhoneNumber, RegionMetadata) of
+                        true ->
+                            RegionId;
+                        false ->
+                            get_region_id_for_number_from_regions_list(PhoneNumberState, [Rest])
+                    end;
+                _ ->
+                    case re:run(PhoneNumber, LeadingDigits, [notempty]) of
+                        {match, [{0, _} | _Rest]} ->
+                            RegionId;
+                        _ ->
+                            get_region_id_for_number_from_regions_list(PhoneNumberState, [Rest])
+                    end
+            end
+    end.
+
+
+
+%% Checks if the number is matching the mobile description of the region and returns a boolean.
+-spec is_number_matching_desc(list(), #region_metadata{}) -> boolean().
+is_number_matching_desc(PhoneNumber, RegionMetadata) ->
+
+    if
+        PhoneNumber == undefined orelse length(PhoneNumber) == 0 orelse
+            RegionMetadata == undefined ->
+                false;
+        true ->
+            TestLength = test_number_length(PhoneNumber, RegionMetadata),
+            case TestLength of
+                isPossible ->
+                    match_national_number_pattern(PhoneNumber, RegionMetadata, false);
+                _ ->
+                    false
+            end
+    end.
+
+
+
 %% Matches the phone_number with the pattern in the mobile description and returns true if the
 %% regex matches and false otherwise.
 %% Returns the default value if the phone_number or RegionMetadata is undefined.
@@ -612,7 +771,7 @@ match_national_number_pattern(PhoneNumber, RegionMetadata, DefaultValue) ->
                     Pattern = Mobile#mobile.pattern,
                     {ok, Matcher} = re:compile(Pattern, [caseless]),
                     case re:run(PhoneNumber, Matcher, [notempty]) of
-                        {match, _}  ->
+                        {match, [{0, _} | _Rest]}  ->
                             true;
                         _ ->
                             false
@@ -797,7 +956,7 @@ build_national_number_for_parsing(PhoneNumber) ->
 extract_possible_number(PhoneNumber0) ->
     StartIndex =
         case re:run(PhoneNumber0, get_valid_start_char_pattern_matcher(), [notempty]) of
-            {match, [{Index0, _}]} ->
+            {match, [{Index0, _} | _Rest0]} ->
                 Index0;
             _ ->
                 %% Ignore the entire string if no valid start pattern is found.
@@ -806,7 +965,7 @@ extract_possible_number(PhoneNumber0) ->
     PhoneNumber1 = string:slice(PhoneNumber0, StartIndex),
     EndIndex =
         case re:run(PhoneNumber1, get_unwanted_end_char_pattern_matcher(), [notempty]) of
-            {match, [{Index1, _}]} ->
+            {match, [{Index1, _} | _Rest1]} ->
                 Index1;
             _ ->
                 length(PhoneNumber1)
@@ -814,7 +973,7 @@ extract_possible_number(PhoneNumber0) ->
     PhoneNumber2 = string:slice(PhoneNumber1, 0, EndIndex),
     SecondEndIndex =
         case re:run(PhoneNumber2, get_second_number_start_pattern_matcher(), [notempty]) of
-            {match, [{Index2, _}]} ->
+            {match, [{Index2, _} | _Rest2]} ->
                 Index2;
             _ ->
                 length(PhoneNumber2)
@@ -822,7 +981,7 @@ extract_possible_number(PhoneNumber0) ->
     PhoneNumber3 = string:slice(PhoneNumber2, 0, SecondEndIndex),
     ThirdEndIndex =
         case re:run(PhoneNumber3, get_extension_pattern_matcher(), [notempty]) of
-            {match, [{Index3, _}]} ->
+            {match, [{Index3, _} | _Rest3]} ->
                 Index3;
             _ ->
                 length(PhoneNumber3)
