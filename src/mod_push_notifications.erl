@@ -233,7 +233,7 @@ handle_info({ssl_passive, Socket}, State) ->
     {noreply, State};
 handle_info({retry}, State0) ->
     ?INFO_MSG("mod_push_notifications: received the retry message: will retry to resend failed messages.", []),
-    CurrentTimestamp = convert_timestamp_to_binary(erlang:timestamp()),
+    CurrentTimestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
     State1 = clean_up_messages(State0, CurrentTimestamp),
     RetryMessageList = State1#state.retryMessageList,
     State2 = handle_retry_messages(RetryMessageList, State1),
@@ -313,7 +313,7 @@ process_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set, lang = L
             Txt = ?T("Invalid value for token."),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         _ELse ->
-            Timestamp = convert_timestamp_to_binary(erlang:timestamp()),
+            Timestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
             case mod_push_notifications_mnesia:register_push({User, Server}, Os, Token, Timestamp) of
                 {ok, _} ->
                     xmpp:make_iq_result(IQ);
@@ -328,7 +328,7 @@ process_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set, lang = L
 -spec process_message({any(), #message{}}, #state{}) -> #state{}.
 %% Currently ignoring message-types, but probably need to handle different types separately!
 process_message({_, #message{} = Message}, State) ->
-    Timestamp = convert_timestamp_to_binary(erlang:timestamp()),
+    Timestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
     process_message(Message, State, Timestamp).
 
 process_message(#message{} = Message, State, Timestamp) ->
@@ -612,13 +612,6 @@ get_new_message_id() ->
     end,
     persistent_term:put({?MODULE, last_message_id}, NewMessageId),
     NewMessageId.
-
-
-%% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
--spec convert_timestamp_to_binary(erlang:timestamp()) -> binary().
-convert_timestamp_to_binary(Timestamp) ->
-    {T1, T2, _} = Timestamp,
-    list_to_binary(integer_to_list(T1)++integer_to_list(T2)).
 
 %% Converts the timestamp to an integer and then adds the MESSAGE_EXPIRY_TIME(1 day) seconds and returns the integer.
 -spec get_expiry_time(binary())  -> integer().

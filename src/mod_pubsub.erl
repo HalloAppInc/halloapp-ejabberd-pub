@@ -460,7 +460,7 @@ disco_identity(Host, Node, From) ->
 			{result, []}
 		end
 	end,
-	Timestamp = cur_timestamp(),
+	Timestamp = util:cur_timestamp(),
 	purge_expired_items(Host, Node, Timestamp),
     case transaction(Host, Node, Action, sync_dirty) of
 	{result, {_, Result}} -> Result;
@@ -495,7 +495,7 @@ disco_features(Host, Node, From) ->
 			{result, []}
 		end
 	end,
-	Timestamp = cur_timestamp(),
+	Timestamp = util:cur_timestamp(),
 	purge_expired_items(Host, Node, Timestamp),
     case transaction(Host, Node, Action, sync_dirty) of
 	{result, {_, Result}} -> Result;
@@ -556,7 +556,7 @@ disco_items(Host, Node, From) ->
 			{result, []}
 		end
 	end,
-	Timestamp = cur_timestamp(),
+	Timestamp = util:cur_timestamp(),
 	purge_expired_items(Host, Node, Timestamp),
     case transaction(Host, Node, Action, sync_dirty) of
 	{result, {_, Result}} -> Result;
@@ -1094,7 +1094,7 @@ iq_disco_items(Host, Item, From, RSM) ->
 				     Error
 			     end
 		     end,
-		Timestamp = cur_timestamp(),
+		Timestamp = util:cur_timestamp(),
 		purge_expired_items(Host, Node, Timestamp),
 	    case transaction(Host, Node, Action, sync_dirty) of
 		{result, {_, Result}} -> {result, Result};
@@ -1214,7 +1214,7 @@ iq_pubsub(Host, Access, #iq{from = From, type = IQType, lang = Lang,
 					items = Items},
 		      rsm = RSM, _ = undefined}} ->
 	    ItemIds = [ItemId || #ps_item{id = ItemId} <- Items, ItemId /= <<>>],
-	    Timestamp = cur_timestamp(),
+	    Timestamp = util:cur_timestamp(),
 	    purge_expired_items(Host, Node, Timestamp),
 	    get_items(Host, Node, From, SubId, MaxItems, ItemIds, RSM);
 	{get, #pubsub{subscriptions = {Node, _}, _ = undefined}} ->
@@ -1849,7 +1849,7 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload) ->
 publish_item(Host, ServerHost, Node, Publisher, <<>>, Payload, PubOpts, Access) ->
     publish_item(Host, ServerHost, Node, Publisher, uniqid(), Payload, PubOpts, Access);
 publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload, PubOpts, Access) ->
-    Timestamp = cur_timestamp(),
+    Timestamp = util:cur_timestamp(),
     Action = fun (#pubsub_node{options = Options, type = Type, id = Nidx}) ->
 	    Features = plugin_features(Host, Type),
 	    PublishFeature = lists:member(<<"publish">>, Features),
@@ -1950,7 +1950,7 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload, PubOpts, Access
 %% Iterates over all the nodes in the host, and purge all the qualified items with respect to the timestamp when the function is invoked.
 -spec purge_expired_items(host()) -> {result, undefined} | {error, undefined}.
 purge_expired_items(Host) ->
-	Timestamp = cur_timestamp(),
+	Timestamp = util:cur_timestamp(),
 	case tree_action(Host, get_nodes, [Host]) of
 		Nodes when is_list(Nodes) ->
 			lists:foldl(
@@ -1970,12 +1970,12 @@ purge_expired_items_with_pubsub_node(Host, PubSub_Node, Timestamp) ->
 	Items = get_items(Host, NodeId),
 	Owner = jid:make(lists:nth(1, PubSub_Node#pubsub_node.owners)),
 	TTL = get_option(PubSub_Node#pubsub_node.options, item_expire),
-	Now = convert_timestamp_secs_to_integer(Timestamp),
+	Now = util:convert_timestamp_secs_to_integer(Timestamp),
 	lists:foldl(
 		fun(Item, {Status, Acc}) ->
 			{ItemId, _} = Item#pubsub_item.itemid,
 			{Creationtime, _} = Item#pubsub_item.creation,
-			Then = convert_timestamp_secs_to_integer(Creationtime),
+			Then = util:convert_timestamp_secs_to_integer(Creationtime),
 			if
 				Now - Then > TTL ->
 					delete_item(Host, NodeId, Owner, ItemId);
@@ -2830,7 +2830,7 @@ payload_xmlelements([_ | Tail], Count) ->
 -spec items_els(binary(), nodeOptions(), [#pubsub_item{}]) -> ps_items().
 items_els(Node, Options, Items) ->
 	%% Ignoring the option of 'itemreply' for now, will add it back if needed.
-	Els = [#ps_item{id = ItemId, timestamp = convert_timestamp_to_binary(Timestamp), sub_els = Payload, publisher = jid:encode(USR)}
+	Els = [#ps_item{id = ItemId, timestamp = util:convert_timestamp_to_binary(Timestamp), sub_els = Payload, publisher = jid:encode(USR)}
 	     || #pubsub_item{itemid = {ItemId, _}, payload = Payload, creation = {Timestamp, _}, modification = {_, USR}}
 		<- Items],
     #ps_items{node = Node, items = Els}.
@@ -2853,7 +2853,7 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, Timestamp, F
 			  end,
 	    ItemsEls = #ps_items{node = Node,
 				 items = [#ps_item{id = ItemId,
-						   timestamp = convert_timestamp_to_binary(Timestamp),
+						   timestamp = util:convert_timestamp_to_binary(Timestamp),
 						   publisher = ItemPublisher,
 						   sub_els = ItemPayload}]},
 	    Stanza = #message{ sub_els = [#ps_event{items = ItemsEls}]},
@@ -3123,7 +3123,7 @@ c2s_handle_info(C2SState, _) ->
 send_items(Host, Node, Nidx, Type, Options, LJID, Number) ->
     send_items(Host, Node, Nidx, Type, Options, Host, LJID, LJID, Number).
 send_items(Host, Node, Nidx, Type, Options, Publisher, SubLJID, ToLJID, Number) ->
-	Timestamp = cur_timestamp(),
+	Timestamp = util:cur_timestamp(),
 	purge_expired_items(Host, Node, Timestamp),
     Items = case max_items(Host, Options) of
 		1 ->
@@ -4079,20 +4079,6 @@ err_unsupported_access_model() ->
 uniqid() ->
     {T1, T2, T3} = erlang:timestamp(),
     (str:format("~.16B~.16B~.16B", [T1, T2, T3])).
-
-%% Returns current Erlang system time on the format {MegaSecs, Secs, MicroSecs}
--spec cur_timestamp() -> erlang:timestamp().
-cur_timestamp() ->
-    erlang:timestamp().
-
-%% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
--spec convert_timestamp_to_binary(erlang:timestamp()) -> binary().
-convert_timestamp_to_binary(Timestamp) ->
-    {T1, T2, _} = Timestamp,
-    list_to_binary(integer_to_list(T1*1000000 + T2)).
-
-convert_timestamp_secs_to_integer(Timestamp) ->
-        list_to_integer(binary_to_list(convert_timestamp_to_binary(Timestamp))).
 
 -spec add_message_type(message(), message_type()) -> message().
 add_message_type(#message{} = Message, Type) ->
