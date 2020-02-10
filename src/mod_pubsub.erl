@@ -2843,10 +2843,8 @@ items_els(Node, Options, Items) ->
 broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, Timestamp, From, Payload, Removed) ->
     case get_collection_subscriptions(Host, Node) of
 	{result, SubsByDepth} ->
-	    ItemPublisher = case get_option(NodeOptions, itemreply) of
-				publisher -> jid:encode(From);
-				_ -> <<>>
-			    end,
+		%% Ignoring the option of 'itemreply' for now, will add it back if needed.
+		ItemPublisher = jid:encode(From),
 	    ItemPayload = case get_option(NodeOptions, deliver_payloads) of
 			      true -> Payload;
 			      false -> []
