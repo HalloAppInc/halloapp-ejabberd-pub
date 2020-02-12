@@ -1,5 +1,6 @@
 %%%----------------------------------------------------------------------
-%%% This file creates the ets table to hold all the phonenumber metadata and invokes the parser
+%%% This file uses phone_number_mnesia to create the mnesia table to hold
+%%% all the phonenumber metadata and invokes the parser
 %%% to parse the xml file.
 %%% We will be adding more relevant functions here to parse a given phone-number,
 %%% format it and return the result.
@@ -49,28 +50,23 @@ load_phone_number_metadata() ->
     ?INFO_MSG("Parsing this xml file for regionMetadata: ~p", [FilePhoneNumberMetadata]),
     case phone_number_metadata_parser:parse_xml_file(FilePhoneNumberMetadata) of
         {ok, Reason} ->
-            ?INFO_MSG("Full libPhoneNumber metadata has been inserted into ets: ~p", [Reason]);
+            ?INFO_MSG("Full libPhoneNumber metadata has been inserted into mnesia: ~p", [Reason]);
         {error, Reason} ->
             ?ERROR_MSG("Failed parsing the xml file for some reason: ~p", [Reason])
     end,
     ok.
 
 
-%% Creates an in-memory table using ets to be able to store all the libphonenumber metadata.
+%% Creates a table in mnesia to be able to store all the libphonenumber metadata.
 -spec create_libPhoneNumber_table() -> ok | error.
 create_libPhoneNumber_table() ->
-    try
-        ?INFO_MSG("Trying to create a table for libPhoneNumber ~p",
-                    [?LIBPHONENUMBER_METADATA_TABLE]),
-        ets:new(?LIBPHONENUMBER_METADATA_TABLE,
-                [named_table, public, bag, {keypos, 2},
-                {write_concurrency, true}, {read_concurrency, true}]),
-        ok
-    catch
-        _:badarg -> 
-            ?INFO_MSG("Failed to create a table for libPhoneNumber: ~p",
-                        [?LIBPHONENUMBER_METADATA_TABLE]),
-            error
+    ?INFO_MSG("Trying to create a table for libPhoneNumber ~p in mnesia.",
+                [?LIBPHONENUMBER_METADATA_TABLE]),
+    case phone_number_mnesia:init() of
+        ok ->
+            ?INFO_MSG("Created a table for libPhoneNumber in mnesia.", []);
+        _ ->
+            ?ERROR_MSG("Failed creating a table for libphonenumber in mnesia", [])
     end.
 
 
@@ -157,10 +153,10 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
             PhoneNumberState: ~p, DefaultRegionId: ~p",[PhoneNumberState, DefaultRegionId]),
     PossiblePhoneNumber = PhoneNumberState#phone_number_state.phone_number,
     Raw = PhoneNumberState#phone_number_state.raw,
-    case ets:member(?LIBPHONENUMBER_METADATA_TABLE, DefaultRegionId) of
+    case phone_number_mnesia:member(DefaultRegionId) of
         true ->
             %% Currently we are handling only the first RegionMetadata!!
-            [RegionMetadata | _] = ets:lookup(?LIBPHONENUMBER_METADATA_TABLE, DefaultRegionId);
+            [RegionMetadata | _] = phone_number_mnesia:lookup(DefaultRegionId);
         _ ->
             RegionMetadata = undefined
     end,
@@ -192,10 +188,7 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
             NormalizedNationalNumber = PhoneNumberState2#phone_number_state.national_number,
             NewCountryCodeSource = PhoneNumberState2#phone_number_state.country_code_source,
             NewRegionMetadata =
-            case ets:match_object(?LIBPHONENUMBER_METADATA_TABLE,
-                            #region_metadata{
-                                attributes = #attributes{
-                                    country_code = CountryCode, _ = '_'}, _ = '_'}) of
+            case phone_number_mnesia:match_object_on_country_code(CountryCode) of
                 [Match | _Rest] ->
                     Match;
                 _ ->
@@ -520,10 +513,7 @@ extract_country_code(PhoneNumberState, Count) ->
             NewPhoneNumberState;
         true ->
             PotentialCountryCode = string:slice(PhoneNumber, 0, Count),
-            Res = ets:match_object(?LIBPHONENUMBER_METADATA_TABLE,
-                            #region_metadata{
-                                attributes = #attributes{
-                                    country_code = PotentialCountryCode, _ = '_'}, _ = '_'}),
+            Res = phone_number_mnesia:match_object_on_country_code(PotentialCountryCode),
             case Res of
                 [_Match | _Rest] ->
                     NewPhoneNumberState = #phone_number_state {
@@ -658,7 +648,7 @@ is_valid_number_internal(PhoneNumberState) ->
 -spec is_valid_number_for_region(#phone_number_state{}, binary()) -> boolean().
 is_valid_number_for_region(PhoneNumberState, RegionId) ->
     PhoneNumber = PhoneNumberState#phone_number_state.national_number,
-    case ets:lookup(?LIBPHONENUMBER_METADATA_TABLE, RegionId) of
+    case phone_number_mnesia:lookup(RegionId) of
         [] ->
             false;
         [RegionMetadata | _Rest] ->
@@ -684,9 +674,7 @@ is_valid_number_for_region(PhoneNumberState, RegionId) ->
  -spec get_region_id_for_number(#phone_number_state{}) -> binary() | {error, atom()}.
  get_region_id_for_number(PhoneNumberState) ->
     CountryCode = PhoneNumberState#phone_number_state.country_code,
-    Matches = ets:match_object(?LIBPHONENUMBER_METADATA_TABLE,
-                        #region_metadata{
-                            attributes = #attributes{country_code = CountryCode, _ = '_'}, _ = '_'}),
+    Matches = phone_number_mnesia:match_object_on_country_code(CountryCode),
     ?DEBUG("get_region_id_for_number: ~p, ~p, ~p", [PhoneNumberState, CountryCode, Matches]),
     case Matches of
         [] ->
@@ -701,33 +689,28 @@ is_valid_number_for_region(PhoneNumberState, RegionId) ->
 
 %% Returns the region which has the matching leading digits or when the mobile description matches.
 %% Uses the national number mentioned in the phone_number_state.
--spec get_region_id_for_number_from_regions_list(#phone_number_state{}, [binary()]) ->
+-spec get_region_id_for_number_from_regions_list(#phone_number_state{}, [#region_metadata{}]) ->
                                                     binary() | {error, atom()}.
 get_region_id_for_number_from_regions_list(_PhoneNumberState, []) ->
     {error, invalid_phone_number};
 
-get_region_id_for_number_from_regions_list(PhoneNumberState, [RegionId | Rest]) ->
+get_region_id_for_number_from_regions_list(PhoneNumberState, [RegionMetadata | Rest]) ->
     PhoneNumber = PhoneNumberState#phone_number_state.national_number,
-    case ets:lookup(?LIBPHONENUMBER_METADATA_TABLE, RegionId) of
-        [] ->
-            {error, invalid_phone_number};
-        [RegionMetadata | _Rest] ->
-            LeadingDigits = RegionMetadata#region_metadata.attributes#attributes.leading_digits,
-            case LeadingDigits of
-                undefined ->
-                    case is_number_matching_desc(PhoneNumber, RegionMetadata) of
-                        true ->
-                            RegionId;
-                        false ->
-                            get_region_id_for_number_from_regions_list(PhoneNumberState, [Rest])
-                    end;
+    LeadingDigits = RegionMetadata#region_metadata.attributes#attributes.leading_digits,
+    case LeadingDigits of
+        undefined ->
+            case is_number_matching_desc(PhoneNumber, RegionMetadata) of
+                true ->
+                    RegionMetadata#region_metadata.id;
+                false ->
+                    get_region_id_for_number_from_regions_list(PhoneNumberState, Rest)
+            end;
+        _ ->
+            case re:run(PhoneNumber, LeadingDigits, [notempty]) of
+                {match, [{0, _} | _Rest]} ->
+                    RegionMetadata#region_metadata.id;
                 _ ->
-                    case re:run(PhoneNumber, LeadingDigits, [notempty]) of
-                        {match, [{0, _} | _Rest]} ->
-                            RegionId;
-                        _ ->
-                            get_region_id_for_number_from_regions_list(PhoneNumberState, [Rest])
-                    end
+                    get_region_id_for_number_from_regions_list(PhoneNumberState, Rest)
             end
     end.
 
@@ -750,7 +733,6 @@ is_number_matching_desc(PhoneNumber, RegionMetadata) ->
                     false
             end
     end.
-
 
 
 %% Matches the phone_number with the pattern in the mobile description and returns true if the
@@ -900,7 +882,7 @@ get_min_length(PossibleLengths) ->
                                                     | {error, invalid}.
 check_region_for_parsing(PhoneNumber, DefaultRegionId) ->
     case DefaultRegionId == undefined orelse DefaultRegionId == <<"">> orelse
-            ets:member(?LIBPHONENUMBER_METADATA_TABLE, DefaultRegionId) == false of
+            phone_number_mnesia:member(DefaultRegionId) == false of
         true ->
             case PhoneNumber == undefined orelse PhoneNumber == "" orelse
                     re:run(PhoneNumber, get_plus_characters_pattern_matcher(),

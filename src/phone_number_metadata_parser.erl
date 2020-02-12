@@ -60,7 +60,7 @@ parse_territories([Territory = #xmlElement{name = territory} | Rest]) ->
                                         mobile = RegionMobile},
       ?DEBUG("Extracted metadata for territory with regionId: ~p, with metadata: ~p", [RegionId,
               RegionMetadata]),
-      ets:insert(?LIBPHONENUMBER_METADATA_TABLE, [RegionMetadata])
+      phone_number_mnesia:insert(RegionMetadata)
   end,
   parse_territories(Rest);
 
