@@ -16,6 +16,7 @@
 
 -behaviour(gen_mod).
 
+-include("phone_number.hrl").
 -include("logger.hrl").
 -include("xmpp.hrl").
 
@@ -24,11 +25,13 @@
 start(Host, Opts) ->
     xmpp:register_codec(phone_number_normalization),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, <<"ns:phonenumber:normalization">>, ?MODULE, process_local_iq),
+    phone_number_util:init(Host, Opts),
     ok.
 
 stop(Host) ->
     xmpp:unregister_codec(phone_number_normalization),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, <<"ns:phonenumber:normalization">>),
+    phone_number_util:close(Host),
     ok.
 
 depends(_Host, _Opts) ->
@@ -69,16 +72,18 @@ normalize([First | Rest]) ->
 	end.
 
 parse(Number) ->
-        Num = re:replace(Number, "[^0-9]", "", [global, {return,list}]),
-        case string:length(Num) of
-		10 -> unicode:characters_to_list(["1", Num]);
-		11 ->
-			case Num of
-                                "1"++_ -> Num;
-                                _Else -> "" % ignore the number if first digit is not equal to 1 when the number is 11 digits.
-                        end;
-		_Else -> ""
-        end.
+		case phone_number_util:parse_phone_number(Number, <<"US">>) of
+			{ok, PhoneNumberState} ->
+				case PhoneNumberState#phone_number_state.valid of
+					true ->
+						NewNumber = PhoneNumberState#phone_number_state.e164_value;
+					_ ->
+						NewNumber = "" % Use empty string as normalized number for now.
+				end;
+			_ ->
+				NewNumber = "" % Use empty string as normalized number for now.
+		end,
+		NewNumber.
 
 certify([], Host) ->
 	[];
