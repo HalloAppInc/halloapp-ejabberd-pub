@@ -97,13 +97,13 @@ lookup(RegionId) ->
 %% Look up elements in the table based on the region id and returns a boolean value.
 -spec member(binary()) -> true | false.
 member(RegionId) ->
-  Result = lookup(RegionId),
-  case Result of
-    [] ->
-      false;
-    _Else ->
-      true
-  end.
+  check_status(lookup(RegionId)).
+
+-spec check_status([any()]) -> boolean().
+check_status([]) ->
+  false;
+check_status([_ | _]) ->
+  true.
 
 
 %% Look up elements in the table based on the country code.
