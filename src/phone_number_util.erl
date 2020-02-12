@@ -16,9 +16,7 @@
 -include("phone_number.hrl").
 -include("logger.hrl").
 
--export([init/2, close/1]).
-%% Temporary for testing purposes: TODO(murali@): remove it soon!
--compile(export_all).
+-export([init/2, close/1, parse_phone_number/2]).
 
 -define(MIN_LENGTH_FOR_NSN, 2).
 -define(MAX_LENGTH_FOR_NSN, 17).
@@ -433,16 +431,21 @@ maybe_strip_national_prefix_and_carrier_code(PhoneNumberState, RegionMetadata) -
                     TransformRule = Attributes#attributes.national_prefix_transform_rule,
                     if
                         TransformRule == undefined ->
-                            [{Index, Length} | _Rest] = Matches,
-                            NewPotentialNationalNumber = string:slice(PotentialNationalNumber,
-                                                                        Index+Length),
-                            Result1 = match_national_number_pattern(NewPotentialNationalNumber,
-                                                                    RegionMetadata, false),
-                            case Result0 == true andalso Result1 == false of
-                                true ->
-                                    NewNationalNumber = PotentialNationalNumber;
-                                false ->
-                                    NewNationalNumber = NewPotentialNationalNumber
+                            case Matches of
+                                [{0, Length}| _Rest] ->
+                                    NewPotentialNationalNumber =
+                                            string:slice(PotentialNationalNumber, Length),
+                                    Result1 =
+                                        match_national_number_pattern(NewPotentialNationalNumber,
+                                                                        RegionMetadata, false),
+                                    case Result0 == true andalso Result1 == false of
+                                        true ->
+                                            NewNationalNumber = PotentialNationalNumber;
+                                        false ->
+                                            NewNationalNumber = NewPotentialNationalNumber
+                                    end;
+                                _ ->
+                                    NewNationalNumber = PotentialNationalNumber
                             end;
                         true ->
                             case Matches of
@@ -591,7 +594,7 @@ maybe_strip_international_prefix_and_normalize(PhoneNumberState, InternationalPr
 
 
 %% Formats the parsed number using the country code and national number in the following format:
-%% e164_value will be + followed by 'CountryCode' followed by the national number.
+%% e164_value will be 'CountryCode' followed by the national number. We won't be using + here.
 -spec format_number_internal(#phone_number_state{}) -> #phone_number_state{}.
 format_number_internal(PhoneNumberState) ->
     ?DEBUG("format_number_internal:
@@ -607,7 +610,7 @@ format_number_internal(PhoneNumberState) ->
                     NewPhoneNumberState = PhoneNumberState;
                 _ ->
                     NewPhoneNumberState = PhoneNumberState#phone_number_state{
-                                                    e164_value = "+"++CountryCode++NationalNumber}
+                                                    e164_value = CountryCode++NationalNumber}
             end
     end,
     ?DEBUG("format_number_internal:
@@ -1042,4 +1045,3 @@ get_valid_phone_number_pattern_matcher() ->
                        ++ ?VALID_PUNCTUATION ++ ?STAR_SIGN ++ ?DIGITS ++ "]*",
     {ok, Matcher} = re:compile(ValidPhoneNumber, [caseless]),
     Matcher.
-
