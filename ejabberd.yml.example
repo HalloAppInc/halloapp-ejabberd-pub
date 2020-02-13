@@ -242,8 +242,6 @@ modules:
   mod_cron: {}
   mod_upload_media:
     aws_media_bucket: halloapp-media
-    aws_access_key: AKIAVF4QDF4XGG2RWWGY
-    aws_secret_access_key: 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
   mod_push_notifications:
     apns:
       gateway: gateway.push.apple.com

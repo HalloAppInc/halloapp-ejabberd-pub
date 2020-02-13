@@ -1,7 +1,7 @@
 %%%----------------------------------------------------------------------
 %%% File    : mod_upload_media.erl, to manage upload media metadata.
-%%%           This module expects {aws_media_bucket, aws_access_key,
-%%%           aws_secret_access_key} to be present in ejabberd.yml file.
+%%%           This module expects {aws_media_bucket} to be present
+%%%           in ejabberd.yml file.
 %%            If not specified, loading of this module will fail.
 %%%
 %%%----------------------------------------------------------------------
@@ -21,9 +21,7 @@
 start(Host, Opts) ->
     ?INFO_MSG("------ Starting Media module on:~p", [Host]),
     Bucket = mod_upload_media_opt:aws_media_bucket(Opts),
-    AccessKey = mod_upload_media_opt:aws_access_key(Opts),
-    SecretAccessKey = mod_upload_media_opt:aws_secret_access_key(Opts),
-    s3_signed_url_generator:init(Bucket, AccessKey, SecretAccessKey),
+    s3_signed_url_generator:init(Bucket),
     xmpp:register_codec(upload_media),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, <<"ns:upload_media">>, 
                                   ?MODULE, process_local_iq),
@@ -53,13 +51,7 @@ depends(_Host, _Opts) ->
     [].
 
 mod_opt_type(aws_media_bucket) ->
-    econf:binary();
-mod_opt_type(aws_access_key) ->
-    econf:binary();
-mod_opt_type(aws_secret_access_key) ->
     econf:binary().
 
 mod_options(_Host) ->
-    [{aws_media_bucket, undefined},
-     {aws_access_key, undefined},
-     {aws_secret_access_key, undefined}].
+    [{aws_media_bucket, undefined}].
