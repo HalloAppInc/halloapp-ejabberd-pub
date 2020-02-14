@@ -367,10 +367,33 @@ compare(AckWaitQueueLength, MaxAckWaitItems, strict) ->
 %% id here is an uuid generated using erlang-uuid repo (this is already added as a deps).
 -spec create_packet_id_if_unavailable(binary(), stanza()) -> stanza().
 create_packet_id_if_unavailable(<<>>, Packet) ->
-    Id = list_to_binary(uuid:to_string(uuid:uuid4()));
+    case extract_item_id_if_possible(Packet) of
+        undefined ->
+            Id = list_to_binary(uuid:to_string(uuid:uuid4()));
+        ItemId ->
+            Id = ItemId
+    end,
     xmpp:set_id(Packet, Id);
 create_packet_id_if_unavailable(_Id, Packet) ->
     Packet.
+
+
+
+%% Extract ItemId from the packet if it is a pubsub message, else return 'undefined'.
+-spec extract_item_id_if_possible(message()) -> binary() | undefined.
+extract_item_id_if_possible(Packet) ->
+    case Packet of
+        #message{sub_els = [#ps_event{items = ItemsEls}]} ->
+            case ItemsEls of
+                #ps_items{items = [#ps_item{id = ItemId}]} ->
+                    ItemId;
+                _ ->
+                    undefined
+            end;
+        _ ->
+            undefined
+    end.
+
 
 
 %% Utility function to check if an item is a member in the queue based on the id.
