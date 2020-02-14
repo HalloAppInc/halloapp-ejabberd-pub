@@ -224,7 +224,9 @@ process_info(#{lserver := LServer} = State, {route, Packet}) ->
 			 #message{} ->
 			     process_message_in(State, Packet);
 			 #iq{} ->
-			     process_iq_in(State, Packet)
+			     process_iq_in(State, Packet);
+			 #ack{} ->
+			     {true, State}
 		     end,
     if Pass ->
 	    {Packet1, State2} = ejabberd_hooks:run_fold(
