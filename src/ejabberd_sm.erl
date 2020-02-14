@@ -36,6 +36,7 @@
 -export([start_link/0,
 	 stop/0,
 	 route/1,
+	 route_offline_message/1,
 	 route/2,
 	 open_session/5,
 	 open_session/6,
@@ -146,6 +147,22 @@ route(Packet) ->
 	    do_route(Packet1),
 	    ok
     end.
+
+%% Routes a message specifically through the offline route by invoking the offline_message_hook.
+-spec route_offline_message(message()) -> any().
+route_offline_message(#message{to = To, type = _Type} = Packet) ->
+    LUser = To#jid.luser,
+    LServer = To#jid.lserver,
+    case ejabberd_auth:user_exists(LUser, LServer) andalso
+        is_privacy_allow(Packet) of
+        true ->
+            ejabberd_hooks:run_fold(offline_message_hook,
+                        LServer, {bounce, Packet}, []);
+        false ->
+            Err = xmpp:err_service_unavailable(),
+            ejabberd_router:route_error(Packet, Err)
+    end.
+
 
 -spec open_session(sid(), binary(), binary(), binary(), prio(), info()) -> ok.
 
@@ -786,15 +803,7 @@ route_message(#message{to = To, type = Type} = Packet) ->
 			end,
 			PrioRes);
       _ ->
-	    case ejabberd_auth:user_exists(LUser, LServer) andalso
-		is_privacy_allow(Packet) of
-		true ->
-		    ejabberd_hooks:run_fold(offline_message_hook,
-					    LServer, {bounce, Packet}, []);
-		false ->
-		    Err = xmpp:err_service_unavailable(),
-		    ejabberd_router:route_error(Packet, Err)
-	    end
+	    route_offline_message(Packet)
     end.
 
 -spec maybe_mark_as_copy(message(), binary(), binary(), integer(), integer())
