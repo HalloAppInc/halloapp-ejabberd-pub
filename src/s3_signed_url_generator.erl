@@ -9,7 +9,7 @@
 -export([make_signed_url/1,
          make_signed_url/2,
          make_signed_url/3,
-         init/1,
+         init/3,
          close/0
         ]).
 
@@ -24,15 +24,11 @@
 %% Generates signed url for Http put, returns {Key, SignedUrl}.
 - spec make_signed_url(integer()) -> {string(), string()}.
 make_signed_url(Expires) ->
-    %% Generate uuid, reference: RFC 4122.
-    Key = uuid:to_string(uuid:uuid1()),
-
-    %% We use region specific keys depending on the location of the uploading
-    %% client.
-    %% TODO(tbd): Implement region specific keys.
-    RegionKey = "001-" ++ Key,
-    SignedUrl = make_signed_url(put, Expires, RegionKey),
-    {RegionKey, SignedUrl}.
+    %% Generate uuid, reference: RFC 4122. Do url friendly base64 encoding of
+    %% the uuid.
+    Key = binary_to_list(base64url:encode(uuid:uuid1())),
+    SignedUrl = make_signed_url(put, Expires, Key),
+    {Key, SignedUrl}.
 
 %% Generates signed url for Http get, returns SignedUrl.
 - spec make_signed_url(integer(), string()) -> string().
@@ -41,36 +37,29 @@ make_signed_url(Expires, Key) ->
 
 -spec make_signed_url(atom(), integer(), string()) -> string().
 make_signed_url(Method, ExpireTime, Key) ->
-    %% TODO(tbd): Compute S3Region depending on the region id present in the
-    %% key.
-    S3Region = "us-west-2",
-    %% Use accelerated dualstack endpoint.
-    %% Ref: https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html
-    S3Host = "s3-accelerate.dualstack.amazonaws.com",
-    Host = lists:flatten([get_bucket_name(), ".", S3Host]),
     URI = "/" ++ Key,
 
     case {Method, is_signed_get_needed()} of
-        {get, false} -> lists:flatten(["https://", Host, URI]);
-        {get, true} -> make_signed_url(Method, ExpireTime, S3Region, Host, URI);
-        {put, _} -> make_signed_url(Method, ExpireTime, S3Region, Host, URI);
+        {get, false} -> lists:flatten(["https://", get_get_host(), URI]);
+        {get, true} -> make_signed_url(Method, ExpireTime, get_get_host(), URI);
+        {put, _} -> make_signed_url(Method, ExpireTime, get_put_host(), URI);
         {_, _} -> throw({error, "Works for get/put only at this point."})
     end.
 
-- spec make_signed_url(atom(), integer(), string(), string(), string()) -> string().
-make_signed_url(Method, ExpireTime, S3Region, Host, URI) ->
+- spec make_signed_url(atom(), integer(), string(), string()) -> string().
+make_signed_url(Method, ExpireTime, Host, URI) ->
     %% TODO(tbd): Use erlcloud_aws:auto_config_metadata() after building
     %% awareness, auto_config_metadata() builds specifically from ec2 instance
     %% metadata whereas auto_config() looks at env, user profile, ecs task
     %% profile and then instance metadata.
     {_, AwsConfig} = erlcloud_aws:auto_config(),
     erlcloud_aws:sign_v4_url(Method, URI, AwsConfig,
-                             Host, S3Region, "s3", [], ExpireTime).
+                             Host, get_region(), "s3", [], ExpireTime).
 
-- spec init(string()) -> ok.
-init(Bucket) ->
+- spec init(string(), string(), string()) -> ok.
+init(Region, PutHost, GetHost) ->
     ?INFO_MSG("~p", [init]),
-    internal_init(Bucket),
+    internal_init(Region, PutHost, GetHost),
     ssl:start(),
     erlcloud:start().
 
@@ -83,11 +72,21 @@ close() ->
 %% To keep the env and configuration variables.
 %%-----------------------------------------------------------------------------
 
-internal_init(Bucket) ->
-    ?assert(not is_boolean(Bucket)),
-    BucketStr = binary_to_list(Bucket),
-    ?assert(length(BucketStr) > 0),
-    persistent_term:put({?MODULE, bucket}, BucketStr),
+internal_init(Region, PutHost, GetHost) ->
+    ?assert(not is_boolean(Region)),
+    RegionStr = binary_to_list(Region),
+    ?assert(length(RegionStr) > 0),
+    persistent_term:put({?MODULE, region}, RegionStr),
+
+    ?assert(not is_boolean(PutHost)),
+    PutHostStr = binary_to_list(PutHost),
+    ?assert(length(PutHostStr) > 0),
+    persistent_term:put({?MODULE, put_host}, PutHostStr),
+
+    ?assert(not is_boolean(GetHost)),
+    GetHostStr = binary_to_list(GetHost),
+    ?assert(length(GetHostStr) > 0),
+    persistent_term:put({?MODULE, get_host}, GetHostStr),
 
     % Do we need to generate signed 'GET' from S3, default false.
     Val = os:getenv(?IsSignedGetNeeded),
@@ -96,16 +95,23 @@ internal_init(Bucket) ->
                                       true);
         _ ->  persistent_term:put({?MODULE, is_signed_get_needed}, false)
     end,
-    ?INFO_MSG("S3 Bucket: ~p", [get_bucket_name()]),
     ?INFO_MSG("Need signed get?: ~p", [is_signed_get_needed()]).
 
 %% To clear state kept by this module.
 internal_close() ->
-    persistent_term:erase({?MODULE, bucket}),
+    persistent_term:erase({?MODULE, get_host}),
+    persistent_term:erase({?MODULE, put_host}),
+    persistent_term:erase({?MODULE, region}),
     persistent_term:erase({?MODULE, is_signed_get_needed}).
 
-get_bucket_name() ->
-    persistent_term:get({?MODULE, bucket}).
+get_region() ->
+    persistent_term:get({?MODULE, region}).
+
+get_put_host() ->
+    persistent_term:get({?MODULE, put_host}).
+
+get_get_host() ->
+    persistent_term:get({?MODULE, get_host}).
 
 is_signed_get_needed() ->
     persistent_term:get({?MODULE, is_signed_get_needed}).

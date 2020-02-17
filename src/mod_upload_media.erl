@@ -1,7 +1,7 @@
 %%%----------------------------------------------------------------------
 %%% File    : mod_upload_media.erl, to manage upload media metadata.
-%%%           This module expects {aws_media_bucket} to be present
-%%%           in ejabberd.yml file.
+%%%           This module expects {aws_media_region, aws_media_put_host,
+%%%           aws_media_get_host} to be present in ejabberd.yml file.
 %%            If not specified, loading of this module will fail.
 %%%
 %%%----------------------------------------------------------------------
@@ -20,8 +20,10 @@
 
 start(Host, Opts) ->
     ?INFO_MSG("------ Starting Media module on:~p", [Host]),
-    Bucket = mod_upload_media_opt:aws_media_bucket(Opts),
-    s3_signed_url_generator:init(Bucket),
+    Region = mod_upload_media_opt:aws_media_region(Opts),
+    PutHost = mod_upload_media_opt:aws_media_put_host(Opts),
+    GetHost = mod_upload_media_opt:aws_media_get_host(Opts),
+    s3_signed_url_generator:init(Region, PutHost, GetHost),
     xmpp:register_codec(upload_media),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, <<"ns:upload_media">>, 
                                   ?MODULE, process_local_iq),
@@ -50,8 +52,14 @@ reload(_Host, _NewOpts, _OldOpts) ->
 depends(_Host, _Opts) ->
     [].
 
-mod_opt_type(aws_media_bucket) ->
+mod_opt_type(aws_media_region) ->
+    econf:binary();
+mod_opt_type(aws_media_put_host) ->
+    econf:binary();
+mod_opt_type(aws_media_get_host) ->
     econf:binary().
 
 mod_options(_Host) ->
-    [{aws_media_bucket, undefined}].
+    [{aws_media_region, undefined},
+     {aws_media_put_host, undefined},
+     {aws_media_get_host, undefined}].
