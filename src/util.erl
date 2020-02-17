@@ -8,7 +8,8 @@
 
 -module(util).
 
--export([convert_timestamp_to_binary/1, cur_timestamp/0, convert_timestamp_secs_to_integer/1]).
+-export([convert_timestamp_to_binary/1, cur_timestamp/0,
+			convert_timestamp_secs_to_integer/1, convert_binary_to_integer/1]).
 
 %% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
 %% Expects an erlang timestamp as input.
@@ -28,3 +29,8 @@ cur_timestamp() ->
 -spec convert_timestamp_secs_to_integer(erlang:timestamp()) -> integer().
 convert_timestamp_secs_to_integer(Timestamp) ->
     list_to_integer(binary_to_list(convert_timestamp_to_binary(Timestamp))).
+
+
+-spec convert_binary_to_integer(binary()) -> integer().
+convert_binary_to_integer(BinaryInput) ->
+	list_to_integer(binary_to_list(BinaryInput)).
