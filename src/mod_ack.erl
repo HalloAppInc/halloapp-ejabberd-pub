@@ -15,16 +15,12 @@
 %%%   then acknowledge the ack stanza and drop the corresponding message.
 %%% - user_receive_packet hook is invoked on every packet we send from the server to the user.
 %%%   We check if this packet needs an ack. If it needs an ack:
-%%%   then, we add it to the ack_wait_queue and retry sending after a few seconds.
+%%%   then, we add it to the ack_wait_queue and wait for packet_timeout_sec defined in the config.
 %%%   A packet will be sent to offline_msg if we either hit our wait timeout
 %%%   (max number of retries) or if there are too many pending packets waiting for ack.
-%%%   Retry logic is currently based on a fibonacci series starting with 0, 10 seconds.
-%%%   We currently retry until the wait time is about 300 seconds (5min): so about ~8 times.
-%%%   If the user goes offline for some reason: during retry: then we remove the packet
-%%    from the queue, since the server will attempt to send it using mod_offline.
-%%% - c2s_handle_info hook is invoked for every message for this module
-%%%   This is used to receive messages from the retry timers for corresponding messages.
-%%%    We retry sending these messages. we also update the wait time and the ack_wait_queue.
+%%%   If the user goes offline for some reason: when we send a packet: then we remove the packet
+%%%   from the queue, since the server will attempt to send it using mod_offline
+%%%   using the offline_message_hook.
 %%% - Currently, we only send and receive acks for only stanzas of type #message{}.
 %%%   We make sure that messages have a corresponding-id attribute:
 %%%   if not, we create a uuid and use it.
@@ -44,7 +40,6 @@
 -include("logger.hrl").
 -include("translate.hrl").
 
--define(INITIAL_RETRY_INTERVAL_SEC, 10).
 -define(WAIT_TO_ROUTE_OFFLINE_MSG_SEC, 5).
 -define(needs_ack_packet(Pkt),
         is_record(Pkt, message)).
@@ -114,8 +109,8 @@ user_receive_packet({_Packet, #{lserver := ServerHost} = _State} = Acc) ->
     gen_server:call(gen_mod:get_module_proc(ServerHost, ?MODULE), {user_receive_packet, Acc}).
 
 %% Hook called when the server tries sending a message to the user who is offline.
-%% This is useful, since it could be trigerred by this module when retrying sending something.
-%% So, we can now remove it from our queue: since it is part of the offline_message store.
+%% This is useful, since we can now remove it from our queue:
+%% as it will be a part of the offline_message store.
 offline_message_hook({_, #message{to = #jid{luser = _, lserver = ServerHost}} = Message} = Acc) ->
     ?DEBUG("mod_ack: offline_message_hook", []),
     gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE), {offline_message_hook, Message}),
@@ -150,8 +145,8 @@ handle_call({user_receive_packet,{Packet, State} = _Acc}, _From,
     NewAckState = check_and_add_packet_to_ack_wait_queue(?needs_ack_packet(NewPacket), IsMember,
                                                             TimestampSec,
                                                             NewPacket, AckState),
-    check_if_member_and_restart_timer(?needs_ack_packet(NewPacket), IsMember,
-                                        NewPacket, NewAckState),
+    PacketTimeoutSec = get_packet_timeout_sec(),
+    send_packet_with_id_to_offline(?needs_ack_packet(NewPacket), Id, To, PacketTimeoutSec),
     {reply, {NewPacket, State}, NewAckState};
 %% Handle unknown call requests.
 handle_call(Request, _From, AckState) ->
@@ -179,17 +174,6 @@ handle_cast(Request, AckState) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%    gen_server:info: other messages    %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% When we receive a retry_sending_packet message, we check if the packet is still
-%% available in our queue and retry sending it.
-handle_info({retry_sending_packet, {PrevWaitTimeSec0, PrevWaitTimeSec1}, Id, To},
-                                                    #{ack_wait_queue := AckWaitQueue} = AckState) ->
-    ?INFO_MSG("mod_ack: handle_info:
-                Received a retry_sending_packet message for a packet with id: ~p to: ~p", [Id, To]),
-    IsMember = is_member(Id, To, AckWaitQueue),
-    NewAckState = retry_sending_packet(IsMember, Id, To, AckState,
-                                        PrevWaitTimeSec0, PrevWaitTimeSec1),
-    {noreply, NewAckState};
 handle_info({route_offline_message, Packet}, #{ack_wait_queue := AckWaitQueue} = AckState) ->
     ?INFO_MSG("mod_ack: handle_info:
                 Received a route_offline_message message for a packet: ~p", [Packet]),
@@ -202,9 +186,17 @@ handle_info({route_offline_message, Id, To}, #{ack_wait_queue := AckWaitQueue} =
     ?INFO_MSG("mod_ack: handle_info:
                 Received a route_offline_message message for a packet with id: ~p to: ~p",
                                                                                         [Id, To]),
-    {_, _, _, Packet} = lookup_member(Id, To, AckWaitQueue),
-    NewAckWaitQueue = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
-    route_offline_message(Packet),
+    case lookup_member(Id, To, AckWaitQueue) of
+        {} ->
+            ?INFO_MSG("mod_ack: handle_info: This packet id: ~p to: ~p has already
+                        received an ack/sent to offline already", [Id, To]),
+            NewAckWaitQueue = AckWaitQueue;
+        {_, _, _, Packet} ->
+            ?INFO_MSG("mod_ack: handle_info: This packet id: ~p to: ~p will be sent
+                        to offline_msg to retry again later.", [Id, To]),
+            NewAckWaitQueue = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
+            route_offline_message(Packet)
+    end,
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
 %% Handle unknown info requests.
 handle_info(Request, AckState) ->
@@ -215,23 +207,6 @@ handle_info(Request, AckState) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-%% Retries sending a packet based on the id and to and updates the AckState accordingly.
--spec retry_sending_packet(boolean(), binary(), jid(), state(), integer(), integer()) -> state().
-retry_sending_packet(true, Id, To, #{ack_wait_queue := AckWaitQueue} = AckState,
-                            PrevWaitTimeSec0, PrevWaitTimeSec1) ->
-    {_Id, _To, _TimestampSec, Packet} = lookup_member(Id, To, AckWaitQueue),
-    ?INFO_MSG("mod_ack: Resending this packet: ~p since we haven't received an ack yet.", [Packet]),
-    ejabberd_router:route(Packet),
-    TimestampSec = util:convert_timestamp_secs_to_integer(erlang:timestamp()),
-    CleanAckWaitQueue = clean_up_ack_wait_queue(AckWaitQueue, TimestampSec, lenient),
-    check_and_restart_timer(Packet, AckState, PrevWaitTimeSec0, PrevWaitTimeSec1),
-    AckState#{ack_wait_queue => CleanAckWaitQueue};
-retry_sending_packet(_, Id, To, AckState, _, _) ->
-    ?INFO_MSG("mod_ack: Ignoring this packet id : ~p to: ~p
-                    since we probably already handled it / sent to offline_msg.", [Id, To]),
-    AckState.
-
 
 
 %% When the server receives an ack packet for a specific packet id, we remove that id from 
@@ -285,43 +260,6 @@ add_packet_to_ack_wait_queue(Packet, _, AckState) ->
 
 
 
-%% Checks if the packet is member or not based on the first argument and then restarts timer.
--spec check_if_member_and_restart_timer(boolean(), boolean(), stanza(), state()) -> ok.
-check_if_member_and_restart_timer(true, false, Packet, AckState) ->
-    check_and_restart_timer(Packet, AckState, 0, ?INITIAL_RETRY_INTERVAL_SEC);
-check_if_member_and_restart_timer(_, _, _, _) ->
-    ok.
-
-
-
-%% Checks the NewWaitTime of the packet and restarts timer if necessary.
-%% We use a fibonacci sequence for the wait time sequence starting with 0, 10sec.
--spec check_and_restart_timer(stanza(), state(), integer(), integer()) -> ok.
-check_and_restart_timer(Packet, _AckState,
-                        PrevWaitTimeSec0, PrevWaitTimeSec1) ->
-    Id = xmpp:get_id(Packet),
-    To = jid:remove_resource(xmpp:get_to(Packet)),
-    NewWaitTimeSec = PrevWaitTimeSec0 + PrevWaitTimeSec1,
-    WaitTimeout = NewWaitTimeSec > get_packet_timeout_sec(),
-    restart_timer(WaitTimeout, Id, To, PrevWaitTimeSec1, NewWaitTimeSec).
-
-
-
-%% Restart the timer if the packet time lapse did not hit the timeout.
-%% We use a fibonacci sequence for the wait time sequence starting with 0, 10sec.
--spec restart_timer(boolean(), binary(), jid(), integer(), integer()) -> ok.
-restart_timer(false, Id, To, PrevWaitTimeSec, NewWaitTimeSec) ->
-    ?DEBUG("mod_ack: Restarting timer here for packet id: ~p, to: ~p, NewWaitTimeSec: ~p",
-                                                                    [Id, To, NewWaitTimeSec]),
-    erlang:send_after(NewWaitTimeSec * 1000, self(),
-                        {retry_sending_packet, {PrevWaitTimeSec, NewWaitTimeSec}, Id, To}),
-    ok;
-restart_timer(true, Id, To, _, _) ->
-    send_packet_with_id_to_offline(Id, To),
-    ok.
-
-
-
 %% Send an ack packet if necessary.
 -spec send_ack_if_necessary(boolean(), boolean(), stanza(), state()) -> ok.
 send_ack_if_necessary(true, true, Packet, AckState) ->
@@ -372,6 +310,8 @@ clean_up_ack_wait_queue(AckWaitQueue, TimestampSec, CompareAtom) ->
             NewQueue
     end.
 
+
+
 %% Sends a message to this gen_server process which will then trigger route_offline_message
 %% to store the packet in offline_msg to retry sending later.
 -spec send_packet_to_offline(boolean(), message()) -> ok.
@@ -385,16 +325,21 @@ send_packet_to_offline(false, Pkt) ->
 send_packet_to_offline(true, _Pkt) ->
     ok.
 
-%% Sends a message to this gen_server process which will then trigger
+
+
+%% Sends a message to this gen_server process after the timeout mentioned which will then trigger
 %% route_offline_message to store the packet in offline_msg to retry sending later.
--spec send_packet_with_id_to_offline(binary(), jid()) -> ok.
-send_packet_with_id_to_offline(Id, To) ->
-    %% send to offline_msg after WAIT_TO_ROUTE_OFFLINE_MSG_SEC seconds.
+-spec send_packet_with_id_to_offline(boolean(), binary(), jid(), integer()) -> ok.
+send_packet_with_id_to_offline(true, Id, To, PacketTimeoutSec) ->
+    %% send to offline_msg after PacketTimeoutSec seconds.
     ?DEBUG("mod_ack: will route this packet with id: ~p to: ~p, to offline_msg after ~p sec.",
-                                                        [Id, To, ?WAIT_TO_ROUTE_OFFLINE_MSG_SEC]),
-    erlang:send_after(?WAIT_TO_ROUTE_OFFLINE_MSG_SEC * 1000, self(),
+                                                        [Id, To, PacketTimeoutSec]),
+    erlang:send_after(PacketTimeoutSec * 1000, self(),
                         {route_offline_message, Id, To}),
+    ok;
+send_packet_with_id_to_offline(false, _, _, _) ->
     ok.
+
 
 
 %% Routes a message specifically through the offline route using the function from ejabberd_sm.
@@ -422,7 +367,7 @@ compare(AckWaitQueueLength, MaxAckWaitItems, strict) ->
 %% id here is an uuid generated using erlang-uuid repo (this is already added as a deps).
 -spec create_packet_id_if_unavailable(binary(), stanza()) -> stanza().
 create_packet_id_if_unavailable(<<>>, Packet) ->
-    Id = list_to_binary(uuid:to_string(uuid:uuid4())),
+    Id = list_to_binary(uuid:to_string(uuid:uuid4()));
     xmpp:set_id(Packet, Id);
 create_packet_id_if_unavailable(_Id, Packet) ->
     Packet.
@@ -482,7 +427,7 @@ mod_opt_type(packet_timeout_sec) ->
 
 mod_options(_Host) ->
     [{max_ack_wait_items, 5000},            %% max number of packets waiting for ack.
-     {packet_timeout_sec, 300}].            %% 8 retries and we then send the packet to offline_msg.
+     {packet_timeout_sec, 40}].             %% we then send the packet to offline_msg after this.
 
 
 
