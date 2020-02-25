@@ -66,7 +66,7 @@
 
 %% exports for console debug manual use
 -export([create_node/5, create_node/7, delete_node/3,
-    subscribe_node/5, unsubscribe_node/5, publish_item/6, publish_item/8,
+    publish_item/6, publish_item/8,
     delete_item/4, delete_item/5, send_items/7, get_items/2, get_item/3,
     get_cached_item/2, get_configure/5, set_configure/5,
     tree_action/3, node_action/4, node_call/4,
@@ -92,7 +92,8 @@
 %% API and gen_server callbacks
 -export([start/2, stop/1, init/1,
     handle_call/3, handle_cast/2, handle_info/2,
-    terminate/2, code_change/3, depends/2, mod_opt_type/1, mod_options/1]).
+    terminate/2, code_change/3, depends/2, mod_opt_type/1, mod_options/1,
+    set_affiliations/4, subscribe_node/5, unsubscribe_node/5]).
 
 -export([route/1]).
 
@@ -1954,7 +1955,7 @@ purge_expired_items(Host) ->
 	case tree_action(Host, get_nodes, [Host]) of
 		Nodes when is_list(Nodes) ->
 			lists:foldl(
-				fun(Node, {Status, Acc}) ->
+				fun(Node, {_Status, _Acc}) ->
 					purge_expired_items_with_pubsub_node(Host, Node, Timestamp)
 				end, {result, []}, Nodes);
 		_ ->
@@ -1972,7 +1973,7 @@ purge_expired_items_with_pubsub_node(Host, PubSub_Node, Timestamp) ->
 	TTL = get_option(PubSub_Node#pubsub_node.options, item_expire),
 	Now = util:convert_timestamp_secs_to_integer(Timestamp),
 	lists:foldl(
-		fun(Item, {Status, Acc}) ->
+		fun(Item, {_Status, _Acc}) ->
 			{ItemId, _} = Item#pubsub_item.itemid,
 			{Creationtime, _} = Item#pubsub_item.creation,
 			Then = util:convert_timestamp_secs_to_integer(Creationtime),
@@ -2828,7 +2829,7 @@ payload_xmlelements([_ | Tail], Count) ->
     payload_xmlelements(Tail, Count).
 
 -spec items_els(binary(), nodeOptions(), [#pubsub_item{}]) -> ps_items().
-items_els(Node, Options, Items) ->
+items_els(Node, _Options, Items) ->
 	%% Ignoring the option of 'itemreply' for now, will add it back if needed.
 	Els = [#ps_item{id = ItemId, timestamp = util:convert_timestamp_to_binary(Timestamp), sub_els = Payload, publisher = jid:encode(USR)}
 	     || #pubsub_item{itemid = {ItemId, _}, payload = Payload, creation = {Timestamp, _}, modification = {_, USR}}
