@@ -30,16 +30,21 @@
 -behaviour(ejabberd_auth).
 
 -export([start/1, stop/1, set_password/3, try_register/3,
-	 get_users/2, init_db/0,
+	 get_users/2, init_db/0, get_users_with_passwd/1,
 	 count_users/2, get_password/2,
 	 remove_user/2, store_type/1, import/2,
 	 plain_password_required/1, use_cache/1,
-	 try_enroll/3, get_enrolled_users/1, remove_enrolled_user/2, get_passcode/2]).
+	 try_enroll/3, get_enrolled_users/1, get_enrolled_users_with_code/1,
+	 remove_enrolled_user/2, get_passcode/2,
+	 generate_and_insert_user_id/2, get_user_id/2,
+	 get_user_for_id/1, get_all_user_ids/1,
+	 remove_user_id/2, insert_user_id/3]).
 -export([need_transform/1, transform/1]).
 
 -include("logger.hrl").
 -include("scram.hrl").
 -include("ejabberd_auth.hrl").
+-include("user_info.hrl").
 
 -record(reg_users_counter, {vhost = <<"">> :: binary(),
                             count = 0 :: integer() | '$1'}).
@@ -65,6 +70,9 @@ init_db() ->
     ejabberd_mnesia:create(?MODULE, enrolled_users,
                            [{disc_only_copies, [node()]},
                             {attributes, record_info(fields, enrolled_users)}]),
+    ejabberd_mnesia:create(?MODULE, user_ids,
+                           [{disc_only_copies, [node()]},
+                            {attributes, record_info(fields, user_ids)}]),
     ejabberd_mnesia:create(?MODULE, reg_users_counter,
 			[{ram_copies, [node()]},
 			 {attributes, record_info(fields, reg_users_counter)}]).
@@ -113,6 +121,8 @@ try_register(User, Server, Password) ->
 		    [] ->
 			mnesia:write(#passwd{us = US, password = Password}),
 			mnesia:dirty_update_counter(reg_users_counter, Server, 1),
+			generate_and_insert_user_id(User, Server),
+			create_pubsub_node(User, Server),
 			{ok, Password};
 		    [_] ->
 			{error, exists}
@@ -125,6 +135,54 @@ try_register(User, Server, Password) ->
 	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
 	    {nocache, {error, db_failure}}
     end.
+
+-spec generate_and_insert_user_id(binary(), binary()) -> {ok, any()} | {error, any()}.
+generate_and_insert_user_id(User, Server) ->
+	UserId = util:generate_user_id(),
+	insert_user_id(User, Server, UserId).
+
+
+-spec insert_user_id(binary(), binary(), binary()) -> {ok, any()} | {error, any()}.
+insert_user_id(User, Server, UserId) ->
+	US = {User, Server},
+	F = fun () ->
+		case mnesia:read({user_ids, US}) of
+			[] ->
+				mnesia:write(#user_ids{username = US, id = UserId}),
+				{ok, UserId};
+			[#user_ids{id = Id}] ->
+				{ok, Id}
+		end
+	end,
+	case mnesia:transaction(F) of
+	{atomic, Res} ->
+		Res;
+	{aborted, Reason} ->
+		?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+		{error, db_failure}
+	end.
+
+
+
+-spec create_pubsub_node(binary(), binary()) -> ok.
+create_pubsub_node(User, Server) ->
+	Host = mod_pubsub:host(Server),
+	ServerHost = Server,
+	Node = util:get_feed_pubsub_node_name(User),
+	From = jid:make(User, Server),
+	Type = <<"flat">>,
+	Access = pubsub_createnode,
+	Config = [{send_last_published_item, never}, {itemreply, publisher},
+			{notification_type, normal}, {notify_retract, false}, {notify_delete, false},
+			{publish_model, subscribers}, {access_model, whitelist}],
+	JID = jid:make(User, Server),
+	SubscribeConfig = [],
+	Result1 = mod_pubsub:create_node(Host, ServerHost, Node, From, Type, Access, Config),
+	Result2 = mod_pubsub:subscribe_node(Host, Node, From, JID, SubscribeConfig),
+	?DEBUG("Tried creating a pubsub node for user: ~p, result: ~p, subscribe result: ~p",
+			[From, Result1, Result2]),
+	ok.
+
 
 try_enroll(User, Server, Passcode) ->
     US = {User, Server},
@@ -150,6 +208,20 @@ get_enrolled_users(Server) ->
         mnesia:dirty_select(enrolled_users,
                             [{#enrolled_users{username = '$1', _ = '_'},
                               [{'==', {element, 2, '$1'}, Server}], ['$1']}]).
+
+get_enrolled_users_with_code(Server) ->
+        mnesia:dirty_select(enrolled_users,
+                            [{#enrolled_users{username = '$1', _ = '_'},
+                              [{'==', {element, 2, '$1'}, Server}], ['$_']}]).
+
+get_all_user_ids(Server) ->
+    mnesia:dirty_select(user_ids, [{#user_ids{username = '$1', _ = '_'},
+									[{'==', {element, 2, '$1'}, Server}], ['$_']}]).
+
+get_users_with_passwd(Server) ->
+    mnesia:dirty_select(passwd,
+			[{#passwd{us = '$1', _ = '_'},
+			  [{'==', {element, 2, '$1'}, Server}], ['$_']}]).
 
 get_users(Server, []) ->
     mnesia:dirty_select(passwd,
@@ -236,6 +308,44 @@ get_passcode(User, Server) ->
             {error, db_failure}
     end.
 
+-spec get_user_id(binary(), binary()) -> {ok, binary()} | {error, any()}.
+get_user_id(User, Server) ->
+    US = {User, Server},
+    F = fun () ->
+                case mnesia:read({user_ids, US}) of
+                    [] ->
+                        {error, invalid};
+                    [#user_ids{id = Id}] ->
+                        {ok, Id}
+                end
+        end,
+    case mnesia:transaction(F) of
+        {atomic, Res} ->
+            Res;
+        {aborted, Reason} ->
+            ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+            {error, db_failure}
+    end.
+
+-spec get_user_for_id(binary()) -> {ok, {binary(), binary()}} | {error, invalid}.
+get_user_for_id(Id) ->
+  F = fun () ->
+        MatchHead = #user_ids{id = Id, _ = '_'},
+        case mnesia:select(user_ids, [{MatchHead, [], ['$_']}]) of
+            [] -> {error, invalid};
+            [#user_ids{id = Id, username = US}] -> {ok, US}
+        end
+      end,
+  case mnesia:transaction(F) of
+    {atomic, Result} ->
+        ?DEBUG("Successfully retrieved user: ~p for id: ~p, from user_ids", [Result, Id]),
+        Result;
+    {aborted, _Reason} ->
+        ?ERROR_MSG("Failed retrieving user for id: ~p, from user_ids", [Id]),
+        {error, invalid}
+  end.
+
+
 remove_user(User, Server) ->
     US = {User, Server},
     F = fun () ->
@@ -265,7 +375,23 @@ remove_enrolled_user(User, Server) ->
             {error, db_failure}
     end.
 
-need_transform({enrolled_users, {U, S}, Code}) ->
+remove_user_id(User, Server) ->
+	US = {User, Server},
+    F = fun () ->
+                mnesia:delete({user_ids, US}),
+                ok
+        end,
+    case mnesia:transaction(F) of
+        {atomic, ok} ->
+            ok;
+        {aborted, Reason} ->
+            ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+            {error, db_failure}
+    end.
+
+need_transform({enrolled_users, {_U, _S}, _Code}) ->
+    false;
+need_transform({user_ids, {_U, _S}, _Id}) ->
     false;
 need_transform(#reg_users_counter{}) ->
     false;

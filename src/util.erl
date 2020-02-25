@@ -9,7 +9,8 @@
 -module(util).
 
 -export([convert_timestamp_to_binary/1, cur_timestamp/0,
-			convert_timestamp_secs_to_integer/1, convert_binary_to_integer/1]).
+		convert_timestamp_secs_to_integer/1, convert_binary_to_integer/1,
+		generate_user_id/0, get_feed_pubsub_node_name/1]).
 
 %% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
 %% Expects an erlang timestamp as input.
@@ -34,3 +35,17 @@ convert_timestamp_secs_to_integer(Timestamp) ->
 -spec convert_binary_to_integer(binary()) -> integer().
 convert_binary_to_integer(BinaryInput) ->
 	list_to_integer(binary_to_list(BinaryInput)).
+
+
+-spec generate_user_id() -> binary().
+generate_user_id() ->
+	UUID = uuid:to_string(uuid:uuid4()),
+	UserId = re:replace(UUID, "-", "", [global, {return,list}]),
+	list_to_binary(UserId).
+
+
+%% Using 'feed-' as the start of feed-node's name for now.
+-spec get_feed_pubsub_node_name(binary()) -> binary().
+get_feed_pubsub_node_name(User) ->
+	list_to_binary("feed-" ++ binary_to_list(User)).
+
