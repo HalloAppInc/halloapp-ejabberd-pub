@@ -136,7 +136,7 @@ handle_call({user_send_packet, {Packet, State} = _Acc}, _From, AckState) ->
 %% when we receive an ack for this packet with the same id.
 handle_call({user_receive_packet,{Packet, State} = _Acc}, _From,
                                                 #{ack_wait_queue := AckWaitQueue} = AckState) ->
-    NewPacket = create_packet_id_if_unavailable(xmpp:get_id(Packet), Packet),
+    NewPacket = adjust_packet_id(Packet),
     ?DEBUG("mod_ack: handle_call: Server is sending a packet to the user: ~p", [NewPacket]),
     Id = xmpp:get_id(NewPacket),
     To = jid:remove_resource(xmpp:get_to(NewPacket)),
@@ -362,20 +362,26 @@ compare(AckWaitQueueLength, MaxAckWaitItems, strict) ->
 
 
 
-%% Create a packet id for the stanza if it is empty.
 %% Since, some server generated messages go without id, we add an id ourselves.
 %% id here is an uuid generated using erlang-uuid repo (this is already added as a deps).
--spec create_packet_id_if_unavailable(binary(), stanza()) -> stanza().
-create_packet_id_if_unavailable(<<>>, Packet) ->
+%% We overwrite messages that have pubsub items to have the same id as the item id.
+-spec adjust_packet_id(stanza()) -> stanza().
+adjust_packet_id(Packet) ->
     case extract_item_id_if_possible(Packet) of
         undefined ->
-            Id = list_to_binary(uuid:to_string(uuid:uuid4()));
+            NewId = create_packet_id_if_unavailable(xmpp:get_id(Packet));
         ItemId ->
-            Id = ItemId
+            NewId = ItemId
     end,
-    xmpp:set_id(Packet, Id);
-create_packet_id_if_unavailable(_Id, Packet) ->
-    Packet.
+    xmpp:set_id(Packet, NewId).
+
+
+%% Create a packet id for the stanza if it is empty.
+-spec create_packet_id_if_unavailable(binary()) -> binary().
+create_packet_id_if_unavailable(<<>>) ->
+    list_to_binary(uuid:to_string(uuid:uuid4()));
+create_packet_id_if_unavailable(Id) ->
+    Id.
 
 
 
@@ -383,7 +389,19 @@ create_packet_id_if_unavailable(_Id, Packet) ->
 -spec extract_item_id_if_possible(message()) -> binary() | undefined.
 extract_item_id_if_possible(Packet) ->
     case Packet of
-        #message{sub_els = [#ps_event{items = ItemsEls}]} ->
+        #message{sub_els = [#ps_event{} = SubEls]} ->
+            extract_item_id(SubEls);
+        #message{sub_els = [#xmlel{} = SubXmlEls | _]} ->
+            SubEls = xmpp:decode(SubXmlEls),
+            extract_item_id(SubEls);
+        _ ->
+            undefined
+    end.
+
+-spec extract_item_id(xmpp_element()) ->  binary() | undefined.
+extract_item_id(SubEls) ->
+    case SubEls of
+        #ps_event{items = ItemsEls} ->
             case ItemsEls of
                 #ps_items{items = [#ps_item{id = ItemId}]} ->
                     ItemId;
