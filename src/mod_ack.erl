@@ -34,13 +34,12 @@
 %% gen_server API
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 %% hooks
--export([user_receive_packet/1, user_send_packet/1, offline_message_hook/1]).
+-export([user_receive_packet/1, user_send_packet/1, offline_message_hook/1, c2s_closed/2]).
 
 -include("xmpp.hrl").
 -include("logger.hrl").
 -include("translate.hrl").
 
--define(WAIT_TO_ROUTE_OFFLINE_MSG_SEC, 5).
 -define(needs_ack_packet(Pkt),
         is_record(Pkt, message)).
 -define(is_ack_packet(Pkt),
@@ -80,6 +79,7 @@ init([Host|_]) ->
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 10),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
     ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 50),
+    ejabberd_hooks:add(c2s_closed, Host, ?MODULE, c2s_closed, 10),
     {ok, #{ack_wait_queue => queue:new(),
             host => Host}}.
 
@@ -88,6 +88,7 @@ terminate(_Reason, #{host := Host} = _AckState) ->
     ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 10),
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
     ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 50),
+    ejabberd_hooks:delete(c2s_closed, Host, ?MODULE, c2s_closed, 10),
     ok.
 
 code_change(_OldVsn, AckState, _Extra) ->
@@ -115,6 +116,14 @@ offline_message_hook({_, #message{to = #jid{luser = _, lserver = ServerHost}} = 
     ?DEBUG("mod_ack: offline_message_hook", []),
     gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE), {offline_message_hook, Message}),
     Acc.
+
+%% Hook called when the connection to that particular user is closed.
+%% We now ensure that all packets in our ack_wait_queue to that client
+%% are sent to offline_msg immediately.
+c2s_closed(#{user := User, server := Server, lserver := ServerHost} = State, _Reason) ->
+    To = jid:make(User, Server),
+    gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE), {c2s_closed, To}),
+    State.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -165,6 +174,11 @@ handle_cast({offline_message_hook, Packet}, #{ack_wait_queue := AckWaitQueue} = 
     Id = xmpp:get_id(Packet),
     To = jid:remove_resource(xmpp:get_to(Packet)),
     NewAckWaitQueue = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
+    {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
+handle_cast({c2s_closed, To}, #{ack_wait_queue := AckWaitQueue} = AckState) ->
+    ?DEBUG("mod_ack: handle_cast: Check and remove all packet to: ~p from queue: ~p",
+                                                                    [To, AckWaitQueue]),
+    NewAckWaitQueue = remove_all_packet_with_to_from_ack_wait_queue(To, AckWaitQueue),
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
 handle_cast(Request, AckState) ->
     ?DEBUG("mod_ack: handle_cast: Invalid request received, ignoring it: ~p", [Request]),
@@ -227,6 +241,16 @@ check_and_accept_ack_packet(_, _Packet, AckState) ->
 remove_packet_from_ack_wait_queue(AckId, AckTo, AckWaitQueue) ->
     NewAckWaitQueue = queue:filter(fun({Id, To, _Then, _P}) ->
                                         AckId =/= Id orelse AckTo =/= To
+                                        end, AckWaitQueue),
+    NewAckWaitQueue.
+
+%% Removes a packet based on to from the ack_wait_queue and returns the resulting queue.
+-spec remove_all_packet_with_to_from_ack_wait_queue(jid(), queue()) -> queue().
+remove_all_packet_with_to_from_ack_wait_queue(AckTo, AckWaitQueue) ->
+    NewAckWaitQueue = queue:filter(fun({_Id, To, _Then, Pkt}) ->
+                                        Result = (AckTo =/= To),
+                                        send_packet_to_offline(Result, Pkt),
+                                        Result
                                         end, AckWaitQueue),
     NewAckWaitQueue.
 
@@ -316,11 +340,9 @@ clean_up_ack_wait_queue(AckWaitQueue, TimestampSec, CompareAtom) ->
 %% to store the packet in offline_msg to retry sending later.
 -spec send_packet_to_offline(boolean(), message()) -> ok.
 send_packet_to_offline(false, Pkt) ->
-    %% send to offline_msg after WAIT_TO_ROUTE_OFFLINE_MSG_SEC seconds.
-    ?DEBUG("mod_ack: will route this packet ~p to offline_msg after ~p sec.",
-                                                        [Pkt, ?WAIT_TO_ROUTE_OFFLINE_MSG_SEC]),
-    erlang:send_after(?WAIT_TO_ROUTE_OFFLINE_MSG_SEC * 1000, self(),
-                        {route_offline_message, Pkt}),
+    %% send to offline_msg immediately.
+    ?DEBUG("mod_ack: will route this packet ~p to offline_msg immediately.", [Pkt]),
+    erlang:send(self(), {route_offline_message, Pkt}),
     ok;
 send_packet_to_offline(true, _Pkt) ->
     ok.
