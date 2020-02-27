@@ -27,7 +27,7 @@
 %%% If the type is add, then we just handle these new list of contacts.
 %%% Type = delete
 %%% When a user has been deleted, we delete the user's contact, remove it from the contact
-%%% from user's pubsub nodes list of affiliations, we unsubscribe the user to contact's feed node
+%%% from user's pubsub nodes list of affiliations, we unsubscribe the user to all contact's nodes
 %%% and vice-versa. We delete the contact in the user_contacts mnesia table for the user.
 %%% Currently, phone number normalization has been tested with the US phone numbers.
 %%% Type = get
@@ -56,9 +56,11 @@
 %% exports for console debug manual use
 -export([normalize_verify_and_subscribe/3, normalize_and_verify_contacts/4,
         normalize_and_verify_contact/3, normalize/1, parse/1, insert_contact/3,
-        subscribe_to_each_others_feed/4, subscribe_to_feed/3, certify/3, validate/3,
+        subscribe_to_each_others_nodes/4, subscribe_to_each_others_node/4,
+        subscribe_to_node/3, certify/3, validate/3,
         obtain_user_id/2, delete_all_contacts/2, delete_contact/3,
-        unsubscribe_to_each_others_feed/3, unsubscribe_to_feed/3, remove_affiliation/3,
+        unsubscribe_to_each_others_nodes/3, unsubscribe_to_each_others_node/4,
+        unsubscribe_to_node/3, remove_affiliation_for_all_user_nodes/3, remove_affiliation/4,
         notify_contact_about_user/3, check_and_send_message_to_contact/5]).
 
 start(Host, Opts) ->
@@ -143,7 +145,7 @@ normalize_verify_and_subscribe(_User, _Server, []) ->
 normalize_verify_and_subscribe(User, Server, Contacts) ->
     ContactResults = normalize_and_verify_contacts(User, Server, Contacts, []),
     lists:foreach(fun({_Raw, _UserId, Normalized, Role}) ->
-                    subscribe_to_each_others_feed(User, Server, Normalized, Role),
+                    subscribe_to_each_others_nodes(User, Server, Normalized, Role),
                     ok
                   end, ContactResults),
     ContactResults.
@@ -154,11 +156,15 @@ normalize_verify_and_subscribe(User, Server, Contacts) ->
 %% the final result.
 normalize_and_verify_contacts(User, Server, [], Affs) ->
     Host = mod_pubsub:host(Server),
-    Node = util:get_feed_pubsub_node_name(User),
+    FeedNode = util:get_feed_pubsub_node_name(User),
+    MetadataNode = util:get_metadata_pubsub_node_name(User),
     From = jid:make(User, Server),
-    Result = mod_pubsub:set_affiliations(Host, Node, From, Affs),
+    Result1 = mod_pubsub:set_affiliations(Host, FeedNode, From, Affs),
+    Result2 = mod_pubsub:set_affiliations(Host, MetadataNode, From, Affs),
     ?DEBUG("User: ~p tried to set affs : ~p to pubsub node: ~p, result: ~p",
-                                                        [From, Affs, Node, Result]),
+                                                        [From, Affs, FeedNode, Result1]),
+    ?DEBUG("User: ~p tried to set affs : ~p to pubsub node: ~p, result: ~p",
+                                                        [From, Affs, MetadataNode, Result2]),
     [];
 normalize_and_verify_contacts(User, Server, [First | Rest], Affs) ->
     Result = normalize_and_verify_contact(User, Server, First),
@@ -236,27 +242,43 @@ insert_contact(User, Server, ContactNumber) ->
     end.
 
 
-
-%% Subscribes the User to the feed of the ContactNumber and vice-versa if they are 'friends'.
--spec subscribe_to_each_others_feed(binary(), binary(), binary(), list()) -> ok.
-subscribe_to_each_others_feed(_User, _Server, _ContactNumber, "none") ->
+%% Subscribes the User to the nodes of the ContactNumber and vice-versa if they are 'friends'.
+-spec subscribe_to_each_others_nodes(binary(), binary(), binary(), list()) -> ok.
+subscribe_to_each_others_nodes(_User, _Server, _ContactNumber, "none") ->
     ok;
-subscribe_to_each_others_feed(User, Server, ContactNumber, "friends") ->
-    subscribe_to_feed(User, Server, ContactNumber),
-    subscribe_to_feed(ContactNumber, Server, User),
+subscribe_to_each_others_nodes(User, Server, ContactNumber, "friends") ->
+    subscribe_to_each_others_node(User, Server, ContactNumber, feed),
+    subscribe_to_each_others_node(User, Server, ContactNumber, metadata),
     ok;
-subscribe_to_each_others_feed(User, Server, ContactNumber, Role) ->
+subscribe_to_each_others_nodes(User, Server, ContactNumber, Role) ->
     ?ERROR_MSG("Invalid role:~p for a contact: ~p for user: ~p",
                                                     [Role, ContactNumber, {User, Server}]),
     ok.
 
 
 
-%% subscribes the User to the feed of the ContactNumber.
--spec subscribe_to_feed(binary(), binary(), binary()) -> ok.
-subscribe_to_feed(User, Server, ContactNumber) ->
+%% Subscribes the User to the node of the ContactNumber and vice-versa.
+-spec subscribe_to_each_others_node(binary(), binary(), binary(), atom()) -> ok.
+subscribe_to_each_others_node(User, Server, ContactNumber, feed) ->
+    UserFeedNodeName = util:get_feed_pubsub_node_name(User),
+    ContactFeedNodeName =  util:get_feed_pubsub_node_name(ContactNumber),
+    subscribe_to_node(User, Server, ContactFeedNodeName),
+    subscribe_to_node(ContactNumber, Server, UserFeedNodeName),
+    ok;
+subscribe_to_each_others_node(User, Server, ContactNumber, metadata) ->
+    UserMetadataNodeName = util:get_metadata_pubsub_node_name(User),
+    ContactMetadataNodeName =  util:get_metadata_pubsub_node_name(ContactNumber),
+    subscribe_to_node(User, Server, ContactMetadataNodeName),
+    subscribe_to_node(ContactNumber, Server, UserMetadataNodeName),
+    ok.
+
+
+
+%% subscribes the User to the node.
+-spec subscribe_to_node(binary(), binary(), binary()) -> ok.
+subscribe_to_node(User, Server, NodeName) ->
     Host = mod_pubsub:host(Server),
-    Node = util:get_feed_pubsub_node_name(ContactNumber),
+    Node = NodeName,
     From = jid:make(User, Server),
     JID = jid:make(User, Server),
     Config = [],
@@ -322,27 +344,43 @@ delete_all_contacts(User, Server) ->
 %% Delete all associated info with the contact and the user.
 -spec delete_contact(binary(), binary(), binary()) -> {ok, any()} | {error, any()}.
 delete_contact(User, Server, ContactNumber) ->
-    unsubscribe_to_each_others_feed(User, Server, ContactNumber),
-    remove_affiliation(User, Server, ContactNumber),
+    unsubscribe_to_each_others_nodes(User, Server, ContactNumber),
+    remove_affiliation_for_all_user_nodes(User, Server, ContactNumber),
     mod_contacts_mnesia:delete_contact({User, Server}, {ContactNumber, Server}),
     notify_contact_about_user(User, Server, ContactNumber).
 
 
-
-%% Unsubscribes the User to the feed of the ContactNumber and vice-versa.
--spec unsubscribe_to_each_others_feed(binary(), binary(), binary()) -> ok.
-unsubscribe_to_each_others_feed(User, Server, ContactNumber) ->
-    unsubscribe_to_feed(User, Server, ContactNumber),
-    unsubscribe_to_feed(ContactNumber, Server, User),
+%% Unsubscribes the User to the nodes of the ContactNumber and vice-versa.
+-spec unsubscribe_to_each_others_nodes(binary(), binary(), binary()) -> ok.
+unsubscribe_to_each_others_nodes(User, Server, ContactNumber) ->
+    unsubscribe_to_each_others_node(User, Server, ContactNumber, feed),
+    unsubscribe_to_each_others_node(User, Server, ContactNumber, metadata),
     ok.
 
 
 
-%% Unsubscribes the User to the feed of the ContactNumber.
--spec unsubscribe_to_feed(binary(), binary(), binary()) -> ok.
-unsubscribe_to_feed(User, Server, ContactNumber) ->
+%% Unsubscribes the User to the node of the ContactNumber and vice-versa.
+-spec unsubscribe_to_each_others_node(binary(), binary(), binary(), atom()) -> ok.
+unsubscribe_to_each_others_node(User, Server, ContactNumber, feed) ->
+    UserFeedNodeName = util:get_feed_pubsub_node_name(User),
+    ContactFeedNodeName =  util:get_feed_pubsub_node_name(ContactNumber),
+    unsubscribe_to_node(User, Server, ContactFeedNodeName),
+    unsubscribe_to_node(ContactNumber, Server, UserFeedNodeName),
+    ok;
+unsubscribe_to_each_others_node(User, Server, ContactNumber, metadata) ->
+    UserMetadataNodeName = util:get_metadata_pubsub_node_name(User),
+    ContactMetadataNodeName =  util:get_metadata_pubsub_node_name(ContactNumber),
+    unsubscribe_to_node(User, Server, ContactMetadataNodeName),
+    unsubscribe_to_node(ContactNumber, Server, UserMetadataNodeName),
+    ok.
+
+
+
+%% Unsubscribes the User to the node.
+-spec unsubscribe_to_node(binary(), binary(), binary()) -> ok.
+unsubscribe_to_node(User, Server, NodeName) ->
     Host = mod_pubsub:host(Server),
-    Node = util:get_feed_pubsub_node_name(ContactNumber),
+    Node = NodeName,
     From = jid:make(User, Server),
     JID = jid:make(User, Server),
     SubId = all,
@@ -351,12 +389,22 @@ unsubscribe_to_feed(User, Server, ContactNumber) ->
     ok.
 
 
-%% Remove affiliation for the ContactNumber on the user's feed node.
--spec remove_affiliation(binary(), binary(), binary()) -> ok.
-remove_affiliation(User, Server, ContactNumber) ->
+%% Remove affiliation for the ContactNumber on all user's nodes.
+-spec remove_affiliation_for_all_user_nodes(binary(), binary(), binary()) -> ok.
+remove_affiliation_for_all_user_nodes(User, Server, ContactNumber) ->
+    FeedNodeName = util:get_feed_pubsub_node_name(User),
+    MetadataNodeName = util:get_metadata_pubsub_node_name(User),
+    remove_affiliation(User, Server, ContactNumber, FeedNodeName),
+    remove_affiliation(User, Server, ContactNumber, MetadataNodeName).
+
+
+
+%% Remove affiliation for the ContactNumber on the user's node with the nodename.
+-spec remove_affiliation(binary(), binary(), binary(), binary()) -> ok.
+remove_affiliation(User, Server, ContactNumber, NodeName) ->
     Affs = [#ps_affiliation{jid = jid:make(ContactNumber, Server), type = none}],
     Host = mod_pubsub:host(Server),
-    Node = util:get_feed_pubsub_node_name(User),
+    Node = NodeName,
     From = jid:make(User, Server),
     Result = mod_pubsub:set_affiliations(Host, Node, From, Affs),
     ?DEBUG("User: ~p tried to set affs : ~p to pubsub node: ~p, result: ~p",

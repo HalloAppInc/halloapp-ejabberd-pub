@@ -122,7 +122,7 @@ try_register(User, Server, Password) ->
 			mnesia:write(#passwd{us = US, password = Password}),
 			mnesia:dirty_update_counter(reg_users_counter, Server, 1),
 			generate_and_insert_user_id(User, Server),
-			create_pubsub_node(User, Server),
+			create_pubsub_nodes(User, Server),
 			{ok, Password};
 		    [_] ->
 			{error, exists}
@@ -164,17 +164,26 @@ insert_user_id(User, Server, UserId) ->
 
 
 
--spec create_pubsub_node(binary(), binary()) -> ok.
-create_pubsub_node(User, Server) ->
+-spec create_pubsub_nodes(binary(), binary()) -> ok.
+create_pubsub_nodes(User, Server) ->
+    FeedNodeName = util:get_feed_pubsub_node_name(User),
+    MetadataNodeName =  util:get_metadata_pubsub_node_name(User),
+    create_pubsub_node(User, Server, FeedNodeName, subscribers),
+    create_pubsub_node(User, Server, MetadataNodeName, publishers).
+
+
+
+-spec create_pubsub_node(binary(), binary(), binary(), atom()) -> ok.
+create_pubsub_node(User, Server, NodeName, PublishModel) ->
 	Host = mod_pubsub:host(Server),
 	ServerHost = Server,
-	Node = util:get_feed_pubsub_node_name(User),
+	Node = NodeName,
 	From = jid:make(User, Server),
 	Type = <<"flat">>,
 	Access = pubsub_createnode,
 	Config = [{send_last_published_item, never}, {itemreply, publisher},
-			{notification_type, normal}, {notify_retract, false}, {notify_delete, false},
-			{publish_model, subscribers}, {access_model, whitelist}],
+			{notification_type, normal}, {notify_retract, true}, {notify_delete, true},
+			{publish_model, PublishModel}, {access_model, whitelist}],
 	JID = jid:make(User, Server),
 	SubscribeConfig = [],
 	Result1 = mod_pubsub:create_node(Host, ServerHost, Node, From, Type, Access, Config),

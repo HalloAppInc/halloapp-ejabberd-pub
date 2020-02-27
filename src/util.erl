@@ -10,7 +10,7 @@
 
 -export([convert_timestamp_to_binary/1, cur_timestamp/0,
 		convert_timestamp_secs_to_integer/1, convert_binary_to_integer/1,
-		generate_user_id/0, get_feed_pubsub_node_name/1]).
+		generate_user_id/0, get_feed_pubsub_node_name/1, get_metadata_pubsub_node_name/1]).
 
 %% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
 %% Expects an erlang timestamp as input.
@@ -48,4 +48,9 @@ generate_user_id() ->
 -spec get_feed_pubsub_node_name(binary()) -> binary().
 get_feed_pubsub_node_name(User) ->
 	list_to_binary("feed-" ++ binary_to_list(User)).
+
+%% Using 'metadata-' as the start of feed-node's name for now.
+-spec get_metadata_pubsub_node_name(binary()) -> binary().
+get_metadata_pubsub_node_name(User) ->
+	list_to_binary("metadata-" ++ binary_to_list(User)).
 
