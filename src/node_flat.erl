@@ -187,10 +187,10 @@ subscribe_node(Nidx, Sender, Subscriber, AccessModel,
     SubKey = jid:tolower(Subscriber),
     GenKey = jid:remove_resource(SubKey),
     Authorized = jid:tolower(jid:remove_resource(Sender)) == GenKey,
-    GenState = get_state(Nidx, GenKey),
+    GenState = get_state_internal(Nidx, GenKey),
     SubState = case SubKey of
 	GenKey -> GenState;
-	_ -> get_state(Nidx, SubKey)
+	_ -> get_state_internal(Nidx, SubKey)
     end,
     Affiliation = GenState#pubsub_state.affiliation,
     Subscriptions = SubState#pubsub_state.subscriptions,
@@ -254,10 +254,10 @@ unsubscribe_node(Nidx, Sender, Subscriber, SubId) ->
     SubKey = jid:tolower(Subscriber),
     GenKey = jid:remove_resource(SubKey),
     Authorized = jid:tolower(jid:remove_resource(Sender)) == GenKey,
-    GenState = get_state(Nidx, GenKey),
+    GenState = get_state_internal(Nidx, GenKey),
     SubState = case SubKey of
 	GenKey -> GenState;
-	_ -> get_state(Nidx, SubKey)
+	_ -> get_state_internal(Nidx, SubKey)
     end,
     Subscriptions = lists:filter(fun
 		({_Sub, _SubId}) -> true;
@@ -356,10 +356,10 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, Payload,
 	     _PubOpts) ->
     SubKey = jid:tolower(Publisher),
     GenKey = jid:remove_resource(SubKey),
-    GenState = get_state(Nidx, GenKey),
+    GenState = get_state_internal(Nidx, GenKey),
     SubState = case SubKey of
 	GenKey -> GenState;
-	_ -> get_state(Nidx, SubKey)
+	_ -> get_state_internal(Nidx, SubKey)
     end,
     Affiliation = GenState#pubsub_state.affiliation,
     Subscribed = case PublishModel of
@@ -426,7 +426,7 @@ remove_extra_items(Nidx, MaxItems, ItemIds) ->
 delete_item(Nidx, Publisher, PublishModel, ItemId) ->
     SubKey = jid:tolower(Publisher),
     GenKey = jid:remove_resource(SubKey),
-    GenState = get_state(Nidx, GenKey),
+    GenState = get_state_internal(Nidx, GenKey),
     #pubsub_state{affiliation = Affiliation, items = Items} = GenState,
     Allowed = Affiliation == publisher orelse
 	Affiliation == owner orelse
@@ -480,7 +480,7 @@ delete_item(Nidx, Publisher, PublishModel, ItemId) ->
 purge_node(Nidx, Owner) ->
     SubKey = jid:tolower(Owner),
     GenKey = jid:remove_resource(SubKey),
-    GenState = get_state(Nidx, GenKey),
+    GenState = get_state_internal(Nidx, GenKey),
     case GenState of
 	#pubsub_state{affiliation = owner} ->
 	    {result, States} = get_states(Nidx),
@@ -527,13 +527,13 @@ get_node_affiliations(Nidx) ->
 get_affiliation(Nidx, Owner) ->
     SubKey = jid:tolower(Owner),
     GenKey = jid:remove_resource(SubKey),
-    #pubsub_state{affiliation = Affiliation} = get_state(Nidx, GenKey),
+    #pubsub_state{affiliation = Affiliation} = get_state_internal(Nidx, GenKey),
     {result, Affiliation}.
 
 set_affiliation(Nidx, Owner, Affiliation) ->
     SubKey = jid:tolower(Owner),
     GenKey = jid:remove_resource(SubKey),
-    GenState = get_state(Nidx, GenKey),
+    GenState = get_state_internal(Nidx, GenKey),
     case {Affiliation, GenState#pubsub_state.subscriptions} of
 	{none, []} -> {result, del_state(GenState)};
 	_ -> {result, set_state(GenState#pubsub_state{affiliation = Affiliation})}
@@ -584,12 +584,12 @@ get_node_subscriptions(Nidx) ->
 
 get_subscriptions(Nidx, Owner) ->
     SubKey = jid:tolower(Owner),
-    SubState = get_state(Nidx, SubKey),
+    SubState = get_state_internal(Nidx, SubKey),
     {result, SubState#pubsub_state.subscriptions}.
 
 set_subscriptions(Nidx, Owner, Subscription, SubId) ->
     SubKey = jid:tolower(Owner),
-    SubState = get_state(Nidx, SubKey),
+    SubState = get_state_internal(Nidx, SubKey),
     case {SubId, SubState#pubsub_state.subscriptions} of
 	{_, []} ->
 	    case Subscription of
@@ -697,6 +697,10 @@ get_states(Nidx) ->
 
 %% @doc <p>Returns a state (one state list), given its reference.</p>
 get_state(Nidx, Key) ->
+    State = get_state_internal(Nidx, Key),
+    {result, State}.
+
+get_state_internal(Nidx, Key) ->
     StateId = {Key, Nidx},
     case catch mnesia:read({pubsub_state, StateId}) of
 	[State] when is_record(State, pubsub_state) -> State;
@@ -779,8 +783,8 @@ get_items(Nidx, _From, #rsm_set{max = Max, index = IncIndex,
 get_items(Nidx, JID, AccessModel, PresenceSubscription, RosterGroup, _SubId, RSM) ->
     SubKey = jid:tolower(JID),
     GenKey = jid:remove_resource(SubKey),
-    GenState = get_state(Nidx, GenKey),
-    SubState = get_state(Nidx, SubKey),
+    GenState = get_state_internal(Nidx, GenKey),
+    SubState = get_state_internal(Nidx, SubKey),
     Affiliation = GenState#pubsub_state.affiliation,
     BareSubscriptions = GenState#pubsub_state.subscriptions,
     FullSubscriptions = SubState#pubsub_state.subscriptions,
@@ -833,7 +837,7 @@ get_item(Nidx, ItemId) ->
 get_item(Nidx, ItemId, JID, AccessModel, PresenceSubscription, RosterGroup, _SubId) ->
     SubKey = jid:tolower(JID),
     GenKey = jid:remove_resource(SubKey),
-    GenState = get_state(Nidx, GenKey),
+    GenState = get_state_internal(Nidx, GenKey),
     Affiliation = GenState#pubsub_state.affiliation,
     Subscriptions = GenState#pubsub_state.subscriptions,
     Whitelisted = can_fetch_item(Affiliation, Subscriptions),
