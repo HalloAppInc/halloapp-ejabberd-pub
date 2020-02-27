@@ -16,7 +16,20 @@
 -include("phone_number.hrl").
 -include("logger.hrl").
 
+%% API
 -export([init/2, close/1, parse_phone_number/2]).
+
+%% debug console functions
+-export([create_phone_number_state/1, create_phone_number_state/2, create_phone_number_state/3,
+         parse_helper/2, parse_helper_internal/2, maybe_extract_country_code/2,
+         maybe_strip_national_prefix_and_carrier_code/2,
+         extract_country_code/2, maybe_strip_international_prefix_and_normalize/2,
+         format_number_internal/1, is_valid_number_internal/1, is_valid_number_for_region/2,
+         get_region_id_for_number/1, get_region_id_for_number_from_regions_list/2,
+         is_number_matching_desc/2, match_national_number_pattern/3, normalize/1,
+         test_number_length/2, compare_with_national_lengths/2, get_max_length/1,
+         get_min_length/1, check_region_for_parsing/2, is_viable_phone_number/1,
+         build_national_number_for_parsing/1, extract_possible_number/1]).
 
 -define(MIN_LENGTH_FOR_NSN, 2).
 -define(MAX_LENGTH_FOR_NSN, 17).
@@ -1045,3 +1058,20 @@ get_valid_phone_number_pattern_matcher() ->
                        ++ ?VALID_PUNCTUATION ++ ?STAR_SIGN ++ ?DIGITS ++ "]*",
     {ok, Matcher} = re:compile(ValidPhoneNumber, [caseless]),
     Matcher.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% debug functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+create_phone_number_state(PhoneNumber) ->
+    #phone_number_state{phone_number = PhoneNumber}.
+
+create_phone_number_state(NationalNumber, CountryCode) ->
+    #phone_number_state{national_number = NationalNumber,
+                        country_code = CountryCode}.
+
+create_phone_number_state(PhoneNumber, NationalNumber, CountryCode) ->
+    #phone_number_state{phone_number = PhoneNumber,
+                        national_number = NationalNumber,
+                        country_code = CountryCode}.
