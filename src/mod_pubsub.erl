@@ -2870,7 +2870,7 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, Timestamp, F
 						       items = #ps_items{
 								  node = Node,
 								  retract = Removed}}]},
-			    broadcast_stanza(Host, Node, Nidx, Type,
+			    broadcast_stanza_internal(Host, undefined, Node, Nidx, Type,
 				NodeOptions, SubsByDepth,
 				items, RetractStanza, true);
 			_ ->
@@ -2902,7 +2902,7 @@ broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, ForceNotif
 					items = #ps_items{
 						   node = Node,
 						   retract = ItemIds}}]},
-		    broadcast_stanza(Host, Node, Nidx, Type,
+		    broadcast_stanza_internal(Host, undefined, Node, Nidx, Type,
 			NodeOptions, SubsByDepth, items, Stanza, true),
 		    {result, true};
 		_ ->
@@ -2919,7 +2919,7 @@ broadcast_purge_node(Host, Node, Nidx, Type, NodeOptions) ->
 	    case get_collection_subscriptions(Host, Node) of
 		{result, SubsByDepth} ->
 		    Stanza = #message{sub_els = [#ps_event{purge = Node}]},
-		    broadcast_stanza(Host, Node, Nidx, Type,
+		    broadcast_stanza_internal(Host, undefined, Node, Nidx, Type,
 			NodeOptions, SubsByDepth, nodes, Stanza, false),
 		    {result, true};
 		_ ->
@@ -2939,7 +2939,7 @@ broadcast_removed_node(Host, Node, Nidx, Type, NodeOptions, SubsByDepth) ->
 		    {result, false};
 		_ ->
 		    Stanza = #message{sub_els = [#ps_event{delete = {Node, <<>>}}]},
-		    broadcast_stanza(Host, Node, Nidx, Type,
+		    broadcast_stanza_internal(Host, undefined, Node, Nidx, Type,
 			NodeOptions, SubsByDepth, nodes, Stanza, false),
 		    {result, true}
 	    end;
@@ -2953,7 +2953,8 @@ broadcast_created_node(_, _, _, _, _, []) ->
     {result, false};
 broadcast_created_node(Host, Node, Nidx, Type, NodeOptions, SubsByDepth) ->
     Stanza = #message{sub_els = [#ps_event{create = Node}]},
-    broadcast_stanza(Host, Node, Nidx, Type, NodeOptions, SubsByDepth, nodes, Stanza, true),
+    broadcast_stanza_internal(Host, undefined, Node, Nidx, Type,
+        NodeOptions, SubsByDepth, nodes, Stanza, true),
     {result, true}.
 
 -spec broadcast_config_notification(host(), binary(), nodeIdx(), binary(),
@@ -2974,7 +2975,7 @@ broadcast_config_notification(Host, Node, Nidx, Type, NodeOptions, Lang) ->
 		    Stanza = #message{
 				sub_els = [#ps_event{
 					      configuration = {Node, Content}}]},
-		    broadcast_stanza(Host, Node, Nidx, Type,
+		    broadcast_stanza_internal(Host, undefined, Node, Nidx, Type,
 			NodeOptions, SubsByDepth, nodes, Stanza, false),
 		    {result, true};
 		_ ->
@@ -3043,10 +3044,11 @@ get_options_for_subs(Host, Nidx, Subs, true) ->
 		Acc
 	end, [], Subs).
 
--spec broadcast_stanza(host(), nodeId(), nodeIdx(), binary(),
+-spec broadcast_stanza_internal(host(), jid(), nodeId(), nodeIdx(), binary(),
 		       nodeOptions(), subs_by_depth(),
 		       items | nodes, stanza(), boolean()) -> ok.
-broadcast_stanza(Host, _Node, _Nidx, _Type, NodeOptions, SubsByDepth, NotifyType, BaseStanza, SHIM) ->
+broadcast_stanza_internal(Host, Publisher, _Node, Nidx, Type, NodeOptions,
+							SubsByDepth, NotifyType, BaseStanza, SHIM) ->
     NotificationType = get_option(NodeOptions, notification_type, headline),
     BroadcastAll = get_option(NodeOptions, broadcast_all_resources), %% XXX this is not standard, but useful
     Stanza = add_message_type(
@@ -3055,34 +3057,41 @@ broadcast_stanza(Host, _Node, _Nidx, _Type, NodeOptions, SubsByDepth, NotifyType
     %% Handles explicit subscriptions
     SubIDsByJID = subscribed_nodes_by_jid(NotifyType, SubsByDepth),
     lists:foreach(fun ({LJID, _NodeName, SubIDs}) ->
-		LJIDs = case BroadcastAll of
-		    true ->
-			{U, S, _} = LJID,
-			[{U, S, R} || R <- user_resources(U, S)];
-		    false ->
-			[LJID]
-		end,
-		%% Determine if the stanza should have SHIM ('SubID' and 'name') headers
-		StanzaToSend = case {SHIM, SubIDs} of
-		    {false, _} ->
-			Stanza;
-		    %% If there's only one SubID, don't add it
-		    {true, [_]} ->
-			Stanza;
-		    {true, SubIDs} ->
-			add_shim_headers(Stanza, subid_shim(SubIDs))
-		end,
-		lists:foreach(fun(To) ->
-			    ejabberd_router:route(
-			      xmpp:set_to(StanzaToSend, jid:make(To)))
-		    end, LJIDs)
+		%% Do not send the pubsub message to the pubisher!
+		PublisherLJID = jid:remove_resource(jid:tolower(Publisher)),
+		case PublisherLJID == LJID of
+			true ->
+				ok;
+			false ->
+				LJIDs = case BroadcastAll of
+				    true ->
+					{U, S, _} = LJID,
+					[{U, S, R} || R <- user_resources(U, S)];
+				    false ->
+					[LJID]
+				end,
+				%% Determine if the stanza should have SHIM ('SubID' and 'name') headers
+				StanzaToSend = case {SHIM, SubIDs} of
+				    {false, _} ->
+					Stanza;
+				    %% If there's only one SubID, don't add it
+				    {true, [_]} ->
+					Stanza;
+				    {true, SubIDs} ->
+					add_shim_headers(Stanza, subid_shim(SubIDs))
+				end,
+				lists:foreach(fun(To) ->
+					    ejabberd_router:route(
+					      xmpp:set_to(StanzaToSend, jid:make(To)))
+					    end, LJIDs)
+		end
 	end, SubIDsByJID).
 
 -spec broadcast_stanza(host(), jid(), nodeId(), nodeIdx(), binary(),
 		       nodeOptions(), subs_by_depth(), items | nodes,
 		       stanza(), boolean()) -> ok.
 broadcast_stanza({LUser, LServer, LResource}, Publisher, Node, Nidx, Type, NodeOptions, SubsByDepth, NotifyType, BaseStanza, SHIM) ->
-    broadcast_stanza({LUser, LServer, <<>>}, Node, Nidx, Type, NodeOptions, SubsByDepth, NotifyType, BaseStanza, SHIM),
+    broadcast_stanza_internal({LUser, LServer, <<>>}, Publisher, Node, Nidx, Type, NodeOptions, SubsByDepth, NotifyType, BaseStanza, SHIM),
     %% Handles implicit presence subscriptions
     SenderResource = user_resource(LUser, LServer, LResource),
     NotificationType = get_option(NodeOptions, notification_type, headline),
@@ -3098,8 +3107,8 @@ broadcast_stanza({LUser, LServer, LResource}, Publisher, Node, Nidx, Type, NodeO
     ejabberd_sm:route(jid:make(LUser, LServer, SenderResource),
 		      {pep_message, <<((Node))/binary, "+notify">>, Stanza, Pred}),
     ejabberd_router:route(xmpp:set_to(Stanza, jid:make(LUser, LServer)));
-broadcast_stanza(Host, _Publisher, Node, Nidx, Type, NodeOptions, SubsByDepth, NotifyType, BaseStanza, SHIM) ->
-    broadcast_stanza(Host, Node, Nidx, Type, NodeOptions, SubsByDepth, NotifyType, BaseStanza, SHIM).
+broadcast_stanza(Host, Publisher, Node, Nidx, Type, NodeOptions, SubsByDepth, NotifyType, BaseStanza, SHIM) ->
+    broadcast_stanza_internal(Host, Publisher, Node, Nidx, Type, NodeOptions, SubsByDepth, NotifyType, BaseStanza, SHIM).
 
 -spec c2s_handle_info(ejabberd_c2s:state(), term()) -> ejabberd_c2s:state().
 c2s_handle_info(#{lserver := LServer} = C2SState,
