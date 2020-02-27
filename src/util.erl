@@ -40,8 +40,10 @@ convert_binary_to_integer(BinaryInput) ->
 -spec generate_user_id() -> binary().
 generate_user_id() ->
 	UUID = uuid:to_string(uuid:uuid4()),
-	UserId = re:replace(UUID, "-", "", [global, {return,list}]),
-	list_to_binary(UserId).
+	HexUserId = re:replace(UUID, "-", "", [global, {return,list}]),
+	BinUserId = hex:hexstr_to_bin(HexUserId),
+	Base64UserId = base64:encode(BinUserId),
+	Base64UserId.
 
 
 %% Using 'feed-' as the start of feed-node's name for now.
