@@ -254,6 +254,8 @@ modules:
     ## Ref: https://aws.amazon.com/premiumsupport/knowledge-center/cloudfront-https-requests-s3/
     aws_media_get_host: cdn.halloapp.net
   mod_receipts: {}
+  mod_client_version:
+    max_days: 30
   mod_push_notifications:
     apns:
       gateway: gateway.push.apple.com
