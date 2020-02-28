@@ -3047,7 +3047,7 @@ get_options_for_subs(Host, Nidx, Subs, true) ->
 -spec broadcast_stanza_internal(host(), jid(), nodeId(), nodeIdx(), binary(),
 		       nodeOptions(), subs_by_depth(),
 		       items | nodes, stanza(), boolean()) -> ok.
-broadcast_stanza_internal(Host, Publisher, _Node, Nidx, Type, NodeOptions,
+broadcast_stanza_internal(Host, Publisher, _Node, _Nidx, _Type, NodeOptions,
 							SubsByDepth, NotifyType, BaseStanza, SHIM) ->
     NotificationType = get_option(NodeOptions, notification_type, headline),
     BroadcastAll = get_option(NodeOptions, broadcast_all_resources), %% XXX this is not standard, but useful
@@ -3057,7 +3057,7 @@ broadcast_stanza_internal(Host, Publisher, _Node, Nidx, Type, NodeOptions,
     %% Handles explicit subscriptions
     SubIDsByJID = subscribed_nodes_by_jid(NotifyType, SubsByDepth),
     lists:foreach(fun ({LJID, _NodeName, SubIDs}) ->
-		%% Do not send the pubsub message to the pubisher!
+		%% Do not send the pubsub message to the publisher!
 		PublisherLJID = jid:remove_resource(jid:tolower(Publisher)),
 		case PublisherLJID == LJID of
 			true ->
