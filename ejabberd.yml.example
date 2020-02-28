@@ -243,6 +243,7 @@ modules:
   mod_version:
     show_os: false
   mod_contacts: {}
+  mod_phone_number_normalization: {}
   mod_cron: {}
   mod_upload_media:
     aws_media_region: us-west-2                                                 
