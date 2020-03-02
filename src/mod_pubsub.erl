@@ -720,21 +720,9 @@ remove_user(User, Server) ->
 				   ({#pubsub_node{nodeid = {H, N}, type = Type}, owner})
 				      when N == HomeTreeBase, Type == <<"hometree">> ->
 					delete_node(H, N, Entity);
-				   ({#pubsub_node{id = Nidx}, _}) ->
-					case node_action(Host, PType,
-							 get_state,
-							 [Nidx, jid:tolower(Entity)]) of
-					    {result, State} ->
-						ItemIds = State#pubsub_state.items,
-						node_action(Host, PType,
-							    remove_extra_items,
-							    [Nidx, 0, ItemIds]),
-						node_action(Host, PType,
-							    set_affiliation,
-							    [Nidx, Entity, none]);
-					    _ ->
-						ok
-					end
+				   ({#pubsub_node{id = _Nidx}, _}) ->
+					%% Do not disturb affiliations on other nodes.
+					ok
 				end, Affs);
 			  _ ->
 			      ok

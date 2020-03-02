@@ -50,8 +50,8 @@
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
-%% IQ handlers.
--export([process_local_iq/1]).
+%% IQ handlers and hooks.
+-export([process_local_iq/1, remove_user/2]).
 
 %% exports for console debug manual use
 -export([normalize_verify_and_subscribe/3, normalize_and_verify_contacts/4,
@@ -65,6 +65,7 @@
 
 start(Host, Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NORM, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     phone_number_util:init(Host, Opts),
     mod_contacts_mnesia:init(Host, Opts),
     ok.
@@ -72,6 +73,7 @@ start(Host, Opts) ->
 stop(Host) ->
     mod_contacts_mnesia:close(),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_NORM),
+    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     phone_number_util:close(Host),
     ok.
 
@@ -122,6 +124,11 @@ process_local_iq(#iq{from = #jid{luser = _User, lserver = _Server}, type = set,
                     sub_els = [#contact_list{ type = update, contacts = _Contacts}]} = IQ) ->
     xmpp:make_iq_result(IQ).
 
+
+%% remove_user hook deletes all contacts of the user
+%% which involves removing all the subscriptions and affiliations and notifying the contacts.
+remove_user(User, Server) ->
+    delete_all_contacts(User, Server).
 
 
 %%====================================================================

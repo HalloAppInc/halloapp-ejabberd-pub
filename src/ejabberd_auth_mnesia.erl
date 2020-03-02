@@ -362,6 +362,8 @@ remove_user(User, Server) ->
 		mnesia:dirty_update_counter(reg_users_counter, Server, -1),
 		ok
 	end,
+    remove_enrolled_user(User, Server),
+    remove_user_id(User, Server),
     case mnesia:transaction(F) of
 	{atomic, ok} ->
 	    ok;
@@ -369,6 +371,7 @@ remove_user(User, Server) ->
 	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
 	    {error, db_failure}
     end.
+
 
 remove_enrolled_user(User, Server) ->
     US = {User, Server},
