@@ -38,7 +38,7 @@
 
 -export([init/3, terminate/2, options/0, features/0,
     create_node_permission/6, create_node/2, delete_node/1,
-    purge_node/2, subscribe_node/8, unsubscribe_node/4,
+    purge_node/2, subscribe_node/9, unsubscribe_node/4,
     publish_item/7, delete_item/4, remove_extra_items/3,
     get_entity_affiliations/2, get_node_affiliations/1,
     get_affiliation/2, set_affiliation/3,
@@ -87,6 +87,7 @@ options() ->
 	{notification_type, headline},
 	{max_payload_size, ?MAX_PAYLOAD_SIZE},
 	{send_last_published_item, on_sub_and_presence},
+	{send_published_items, on_subscription},
 	{deliver_notifications, true},
 	{presence_based_delivery, false},
 	{itemreply, none}].
@@ -183,7 +184,7 @@ delete_node(Nodes) ->
 %% </p>
 %% <p>In the default plugin module, the record is unchanged.</p>
 subscribe_node(Nidx, Sender, Subscriber, AccessModel,
-	    SendLast, PresenceSubscription, RosterGroup, _Options) ->
+	    SendLast, SendPublishedItems, PresenceSubscription, RosterGroup, _Options) ->
     SubKey = jid:tolower(Subscriber),
     GenKey = jid:remove_resource(SubKey),
     Authorized = jid:tolower(jid:remove_resource(Sender)) == GenKey,
@@ -239,12 +240,14 @@ subscribe_node(Nidx, Sender, Subscriber, AccessModel,
 			    [{Sub, Id} | Subscriptions]}),
 		    {Sub, Id}
 	    end,
-	    case {NewSub, SendLast} of
-		{subscribed, never} ->
+	    case {NewSub, SendLast, SendPublishedItems} of
+		{subscribed, _, on_subscription} ->
+		    {result, {default, subscribed, SubId, send_all}};
+		{subscribed, never, _} ->
 		    {result, {default, subscribed, SubId}};
-		{subscribed, _} ->
+		{subscribed, _, _} ->
 		    {result, {default, subscribed, SubId, send_last}};
-		{_, _} ->
+		{_, _, _} ->
 		    {result, {default, pending, SubId}}
 	    end
     end.

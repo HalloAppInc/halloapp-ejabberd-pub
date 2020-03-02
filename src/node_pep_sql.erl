@@ -36,7 +36,7 @@
 
 -export([init/3, terminate/2, options/0, features/0,
     create_node_permission/6, create_node/2, delete_node/1,
-    purge_node/2, subscribe_node/8, unsubscribe_node/4,
+    purge_node/2, subscribe_node/9, unsubscribe_node/4,
     publish_item/7, delete_item/4, remove_extra_items/3,
     get_entity_affiliations/2, get_node_affiliations/1,
     get_affiliation/2, set_affiliation/3,
@@ -77,9 +77,9 @@ delete_node(Nodes) ->
     node_flat_sql:delete_node(Nodes).
 
 subscribe_node(Nidx, Sender, Subscriber, AccessModel,
-	    SendLast, PresenceSubscription, RosterGroup, Options) ->
+	    SendLast, SendPublishedItems, PresenceSubscription, RosterGroup, Options) ->
     node_flat_sql:subscribe_node(Nidx, Sender, Subscriber, AccessModel, SendLast,
-	PresenceSubscription, RosterGroup, Options).
+    SendPublishedItems, PresenceSubscription, RosterGroup, Options).
 
 
 unsubscribe_node(Nidx, Sender, Subscriber, SubId) ->

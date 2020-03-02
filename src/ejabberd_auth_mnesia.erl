@@ -168,21 +168,22 @@ insert_user_id(User, Server, UserId) ->
 create_pubsub_nodes(User, Server) ->
     FeedNodeName = util:get_feed_pubsub_node_name(User),
     MetadataNodeName =  util:get_metadata_pubsub_node_name(User),
-    create_pubsub_node(User, Server, FeedNodeName, subscribers),
-    create_pubsub_node(User, Server, MetadataNodeName, publishers).
+    create_pubsub_node(User, Server, FeedNodeName, subscribers, ?MAX_ITEMS),
+    create_pubsub_node(User, Server, MetadataNodeName, publishers, 1).
 
 
 
--spec create_pubsub_node(binary(), binary(), binary(), atom()) -> ok.
-create_pubsub_node(User, Server, NodeName, PublishModel) ->
+-spec create_pubsub_node(binary(), binary(), binary(), atom(), integer()) -> ok.
+create_pubsub_node(User, Server, NodeName, PublishModel, MaxItems) ->
 	Host = mod_pubsub:host(Server),
 	ServerHost = Server,
 	Node = NodeName,
 	From = jid:make(User, Server),
 	Type = <<"flat">>,
 	Access = pubsub_createnode,
-	Config = [{send_last_published_item, never}, {itemreply, publisher},
-			{notification_type, normal}, {notify_retract, true}, {notify_delete, true},
+	Config = [{send_last_published_item, never}, {max_items, MaxItems},
+            {itemreply, publisher}, {notification_type, normal},
+            {notify_retract, true}, {notify_delete, true},
 			{publish_model, PublishModel}, {access_model, whitelist}],
 	JID = jid:make(User, Server),
 	SubscribeConfig = [],

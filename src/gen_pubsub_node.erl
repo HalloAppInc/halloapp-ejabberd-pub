@@ -90,6 +90,7 @@
 	Subscriber :: jid(),
 	AccessModel :: accessModel(),
 	SendLast :: 'never' | 'on_sub' | 'on_sub_and_presence',
+	SendPublishedItems :: 'never' | 'on_subscription',
 	PresenceSubscription :: boolean(),
 	RosterGroup :: boolean(),
 	Options :: subOptions()) ->

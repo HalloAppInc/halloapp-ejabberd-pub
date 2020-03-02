@@ -1717,6 +1717,7 @@ subscribe_node(Host, Node, From, JID, Configuration) ->
 	    SubscribeConfig = get_option(Options, subscribe),
 	    AccessModel = get_option(Options, access_model),
 	    SendLast = get_option(Options, send_last_published_item),
+	    SendPublishedItems = get_option(Options, send_published_items),
 	    AllowedGroups = get_option(Options, roster_groups_allowed, []),
 	    CanSubscribe = case get_max_subscriptions_node(Host) of
 		Max when is_integer(Max) ->
@@ -1755,7 +1756,7 @@ subscribe_node(Host, Node, From, JID, Configuration) ->
 			    Owners, AccessModel, AllowedGroups),
 		    node_call(Host, Type, subscribe_node,
 			[Nidx, From, Subscriber, AccessModel,
-			    SendLast, PS, RG, SubOpts])
+			    SendLast, SendPublishedItems, PS, RG, SubOpts])
 	    end
     end,
     Reply = fun (Subscription) ->
@@ -1768,11 +1769,16 @@ subscribe_node(Host, Node, From, JID, Configuration) ->
 	    #pubsub{subscription = Sub#ps_subscription{node = Node}}
     end,
     case transaction(Host, Node, Action, sync_dirty) of
-	{result, {TNode, {Result, subscribed, SubId, send_last}}} ->
+	{result, {TNode, {Result, subscribed, SubId, SendResult}}}
+		            when SendResult == send_all orelse SendResult == send_last ->
 	    Nidx = TNode#pubsub_node.id,
 	    Type = TNode#pubsub_node.type,
 	    Options = TNode#pubsub_node.options,
-	    send_items(Host, Node, Nidx, Type, Options, Subscriber, last),
+	    Number = case SendResult of
+	                send_all -> max_items(Host, Options);
+	                send_last -> last
+	            end,
+	    send_items(Host, Node, Nidx, Type, Options, Subscriber, Number),
 	    ServerHost = serverhost(Host),
 	    ejabberd_hooks:run(pubsub_subscribe_node, ServerHost,
 		[ServerHost, Host, Node, Subscriber, SubId]),
