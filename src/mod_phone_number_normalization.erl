@@ -55,10 +55,10 @@ normalize_contacts([], Host) ->
 normalize_contacts([First | Rest], Host) ->
 	[normalize_contact(First, Host) | normalize_contacts(Rest, Host)].
 
-normalize_contact({_, Raw_numbers, _}, Host) ->
+normalize_contact({Raw_numbers, _, _}, Host) ->
 	Norm_numbers = normalize(Raw_numbers),
 	Roles = certify(Norm_numbers, Host),
-	{Roles, Raw_numbers, Norm_numbers}.
+	{Raw_numbers, Norm_numbers, Roles}.
 
 normalize([]) ->
 	[];
