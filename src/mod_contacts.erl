@@ -175,9 +175,14 @@ normalize_and_verify_contacts(User, Server, [], Affs) ->
     [];
 normalize_and_verify_contacts(User, Server, [First | Rest], Affs) ->
     Result = normalize_and_verify_contact(User, Server, First),
-    {_, _, Normalized, _} = Result,
-    Aff = #ps_affiliation{jid = jid:make(Normalized, Server), type = member},
-    [Result | normalize_and_verify_contacts(User, Server, Rest, [Aff | Affs])].
+    NewAffs = case Result of
+                {_, _, undefined, _} ->
+                    Affs;
+                {_, _, Normalized, _} ->
+                    Aff = #ps_affiliation{jid = jid:make(Normalized, Server), type = member},
+                    [Aff | Affs]
+              end,
+    [Result | normalize_and_verify_contacts(User, Server, Rest, NewAffs)].
 
 
 
