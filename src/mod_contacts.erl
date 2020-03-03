@@ -30,10 +30,6 @@
 %%% from user's pubsub nodes list of affiliations, we unsubscribe the user to all contact's nodes
 %%% and vice-versa. We delete the contact in the user_contacts mnesia table for the user.
 %%% Currently, phone number normalization has been tested with the US phone numbers.
-%%% Type = get
-%%% yet to be done!
-%%% Type = update
-%%% yet to be done!
 %%% TODO(murali@): test this module for other international countries.
 %%%----------------------------------------------------------------------
 
@@ -58,6 +54,7 @@
         normalize_and_verify_contact/3, normalize/1, parse/1, insert_contact/3,
         subscribe_to_each_others_nodes/4, subscribe_to_each_others_node/4,
         subscribe_to_node/3, certify/3, validate/3,
+        fetch_contacts/2, fetch_contacts/3, fetch_contact_info/3, obtain_contact_tuple/3,
         obtain_user_id/2, delete_all_contacts/2, delete_contact/3,
         unsubscribe_to_each_others_nodes/3, unsubscribe_to_each_others_node/4,
         unsubscribe_to_node/3, remove_affiliation_for_all_user_nodes/3, remove_affiliation/4,
@@ -91,9 +88,14 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% iq handlers
 %%====================================================================
 %% TODO(murali@): Complete this to handle stanzas with type = get.
-process_local_iq(#iq{from = #jid{luser = _User, lserver = _Server}, type = get,
-                    sub_els = [#contact_list{ type = get, contacts = _Contacts}]} = IQ) ->
-    xmpp:make_iq_result(IQ);
+process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = get,
+                    sub_els = [#contact_list{ type = get, contacts = Contacts}]} = IQ) ->
+    case Contacts of
+        [] -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal,
+                                contacts = fetch_contacts(User, Server)});
+        _Else -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal,
+                                contacts = fetch_contacts(User, Server, Contacts)})
+    end;
 
 process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                     sub_els = [#contact_list{ type = set, contacts = Contacts}]} = IQ) ->
@@ -118,11 +120,7 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
         [] -> xmpp:make_iq_result(IQ);
         _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal,
                     contacts = delete_contacts_iq(User, Server, Contacts)})
-    end;
-%% TODO(murali@): Complete this to handle stanzas with type = update.
-process_local_iq(#iq{from = #jid{luser = _User, lserver = _Server}, type = set,
-                    sub_els = [#contact_list{ type = update, contacts = _Contacts}]} = IQ) ->
-    xmpp:make_iq_result(IQ).
+    end.
 
 
 %% remove_user hook deletes all contacts of the user
@@ -134,6 +132,43 @@ remove_user(User, Server) ->
 %%====================================================================
 %% internal functions
 %%====================================================================
+
+-spec fetch_contacts(binary(), binary()) -> [{binary(), binary(), binary(), binary()}].
+fetch_contacts(User, Server) ->
+    case mod_contacts_mnesia:fetch_contacts({User, Server}) of
+        {ok, UserContacts} -> fetch_contact_info(User, Server, UserContacts);
+        {error, _} -> []
+    end.
+
+
+
+-spec fetch_contacts(binary(), binary(), [{binary(), binary(), binary(), binary()}]) ->
+                                                [{binary(), binary(), binary(), binary()}].
+fetch_contacts(_User, _Server, []) ->
+    [];
+fetch_contacts(User, Server, [First | Rest]) ->
+    {_, _, Normalized, _} = First,
+    [obtain_contact_tuple(User, Server, Normalized) | fetch_contacts(User, Server, Rest)].
+
+
+
+-spec fetch_contact_info(binary(), binary(), [#user_contacts{}]) ->
+                                                    [{binary(), binary(), binary(), binary()}].
+fetch_contact_info(_User, _Server, []) ->
+    [];
+fetch_contact_info(User, Server, [First | Rest]) ->
+    {Normalized, _} = First#user_contacts.contact,
+    [obtain_contact_tuple(User, Server, Normalized) | fetch_contact_info(User, Server, Rest)].
+
+
+
+-spec obtain_contact_tuple(binary(), binary(), binary()) ->
+                                                    {binary(), binary(), binary(), binary()}.
+obtain_contact_tuple(User, Server, Normalized) ->
+    UserId = obtain_user_id(Normalized, Server),
+    Role = certify(User, Server, Normalized),
+    {undefined, UserId, Normalized, Role}.
+
 
 
 %% Deletes the contacts obtained in an iq stanza from the user.
