@@ -3052,7 +3052,10 @@ broadcast_stanza_internal(Host, Publisher, _Node, _Nidx, _Type, NodeOptions,
     SubIDsByJID = subscribed_nodes_by_jid(NotifyType, SubsByDepth),
     lists:foreach(fun ({LJID, _NodeName, SubIDs}) ->
 		%% Do not send the pubsub message to the publisher!
-		PublisherLJID = jid:remove_resource(jid:tolower(Publisher)),
+		PublisherLJID = case Publisher of
+			undefined -> undefined;
+			_Else -> jid:remove_resource(jid:tolower(Publisher))
+		end,
 		ReceipientLJID = jid:remove_resource(jid:tolower(LJID)),
 		case PublisherLJID == ReceipientLJID of
 			true ->
