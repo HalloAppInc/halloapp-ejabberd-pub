@@ -23,13 +23,11 @@
 -export([start/2, stop/1, depends/2, mod_options/1, process_local_iq/1, normalize/1, normalize_contacts/2, normalize_contact/2, parse/1, certify/2, validate/2]).
 
 start(Host, Opts) ->
-    xmpp:register_codec(phone_number_normalization),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, <<"ns:phonenumber:normalization">>, ?MODULE, process_local_iq),
     phone_number_util:init(Host, Opts),
     ok.
 
 stop(Host) ->
-    xmpp:unregister_codec(phone_number_normalization),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, <<"ns:phonenumber:normalization">>),
     phone_number_util:close(Host),
     ok.
