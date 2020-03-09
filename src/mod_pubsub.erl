@@ -1165,9 +1165,9 @@ iq_pubsub(Host, Access, #iq{from = From, type = IQType, lang = Lang,
 	{set, #pubsub{retract = #ps_retract{node = Node, notify = Notify, items = Items},
 		      _ = undefined}} ->
 	    case Items of
-		[#ps_item{id = ItemId}] ->
+		[#ps_item{id = ItemId, sub_els = Payload}] ->
 		    if ItemId /= <<>> ->
-			    delete_item(Host, Node, From, ItemId, Notify);
+			    delete_item(Host, Node, From, ItemId, Payload, Notify);
 		       true ->
 			    {error, extended_error(xmpp:err_bad_request(),
 						   err_item_required())}
@@ -2012,11 +2012,16 @@ purge_expired_items(Host, NodeId, Timestamp) ->
 %%</ul>
 -spec delete_item(host(), binary(), jid(), binary()) -> {result, undefined} |
 							{error, stanza_error()}.
-delete_item(Host, Node, Publisher, ItemId) ->
-    delete_item(Host, Node, Publisher, ItemId, false).
-delete_item(_, <<>>, _, _, _) ->
+delete_item(Host, Node, PublisherJID, ItemId) ->
+    delete_item(Host, Node, PublisherJID, ItemId, [], false).
+
+delete_item(Host, Node, PublisherJID, ItemId, ForceNotify) ->
+	delete_item(Host, Node, PublisherJID, ItemId, [], ForceNotify).
+
+delete_item(_, <<>>, _, _, _, _) ->
     {error, extended_error(xmpp:err_bad_request(), err_nodeid_required())};
-delete_item(Host, Node, Publisher, ItemId, ForceNotify) ->
+delete_item(Host, Node, PublisherJID, ItemId, Payload, ForceNotify) ->
+	Timestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
     Action = fun (#pubsub_node{options = Options, type = Type, id = Nidx}) ->
 	    Features = plugin_features(Host, Type),
 	    PersistentFeature = lists:member(<<"persistent-items">>, Features),
@@ -2032,7 +2037,7 @@ delete_item(Host, Node, Publisher, ItemId, ForceNotify) ->
 		    {error, extended_error(xmpp:err_feature_not_implemented(),
 					   err_unsupported('delete-items'))};
 		true ->
-		    node_call(Host, Type, delete_item, [Nidx, Publisher, PublishModel, ItemId])
+		    node_call(Host, Type, delete_item, [Nidx, PublisherJID, PublishModel, ItemId])
 	    end
     end,
     Reply = undefined,
@@ -2041,7 +2046,9 @@ delete_item(Host, Node, Publisher, ItemId, ForceNotify) ->
 	    Nidx = TNode#pubsub_node.id,
 	    Type = TNode#pubsub_node.type,
 	    Options = TNode#pubsub_node.options,
-	    broadcast_retract_items(Host, Node, Nidx, Type, Options, [ItemId], ForceNotify),
+	    Publisher = jid:to_string(PublisherJID),
+	    broadcast_retract_items(Host, Node, Nidx, Type, Options, [ItemId],
+	                            Publisher, Payload, Timestamp, ForceNotify),
 	    case get_cached_item(Host, Nidx) of
 		#pubsub_item{itemid = {ItemId, Nidx}} -> unset_cached_item(Host, Nidx);
 		_ -> ok
@@ -2882,13 +2889,27 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, Timestamp, F
 -spec broadcast_retract_items(host(), binary(), nodeIdx(), binary(),
 			      nodeOptions(), [itemId()]) -> {result, boolean()}.
 broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds) ->
-    broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, false).
+    broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, <<>>, [], <<>>, false).
+
+
 
 -spec broadcast_retract_items(host(), binary(), nodeIdx(), binary(),
 			      nodeOptions(), [itemId()], boolean()) -> {result, boolean()}.
-broadcast_retract_items(_Host, _Node, _Nidx, _Type, _NodeOptions, [], _ForceNotify) ->
-    {result, false};
 broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, ForceNotify) ->
+    broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, <<>>, [], <<>>,
+							ForceNotify).
+
+
+-spec broadcast_retract_items(host(), binary(), nodeIdx(), binary(), nodeOptions(), [itemId()],
+							 binary(), [xmpp_element() | #xmlel{}], binary(), boolean()) ->
+	{result, boolean()}.
+broadcast_retract_items(_Host, _Node, _Nidx, _Type, _NodeOptions, [],
+						_Publisher, _Payload, _Timestamp, _ForceNotify) ->
+    {result, false};
+broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds,
+						Publisher, Payload, Timestamp, ForceNotify) ->
+	%% TODO(murali@): Remove assumption of only one item id!
+	[ItemId] = ItemIds,
     case (get_option(NodeOptions, notify_retract) or ForceNotify) of
 	true ->
 	    case get_collection_subscriptions(Host, Node) of
@@ -2898,8 +2919,13 @@ broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, ForceNotif
 				    [#ps_event{
 					items = #ps_items{
 						   node = Node,
-						   retract = ItemIds}}]},
-		    broadcast_stanza_internal(Host, undefined, Node, Nidx, Type,
+						   retract = #ps_event_retract{
+								   id = ItemId,
+								   publisher = Publisher,
+								   timestamp = Timestamp,
+								   sub_els = Payload }}}]},
+			PublisherJID = jid:from_string(Publisher),
+			broadcast_stanza_internal(Host, PublisherJID, Node, Nidx, Type,
 			NodeOptions, SubsByDepth, items, Stanza, true),
 		    {result, true};
 		_ ->

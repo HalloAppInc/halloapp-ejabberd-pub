@@ -433,7 +433,7 @@ delete_item(Nidx, Publisher, PublishModel, ItemId) ->
     #pubsub_state{affiliation = Affiliation, items = Items} = GenState,
     Allowed = Affiliation == publisher orelse
 	Affiliation == owner orelse
-	(PublishModel == open andalso
+	((PublishModel == open orelse PublishModel == subscribers) andalso
 	  case get_item(Nidx, ItemId) of
 	    {result, #pubsub_item{creation = {_, GenKey}}} -> true;
 	    _ -> false
