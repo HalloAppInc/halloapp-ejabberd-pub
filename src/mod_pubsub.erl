@@ -690,7 +690,10 @@ unsubscribe_user(Host, Entity, Owner) ->
 %%
 
 -spec remove_user(binary(), binary()) -> ok.
-remove_user(User, Server) ->
+remove_user(_User, _Server) ->
+	ok.
+
+remove_user_temp(User, Server) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     Entity = jid:make(LUser, LServer),
