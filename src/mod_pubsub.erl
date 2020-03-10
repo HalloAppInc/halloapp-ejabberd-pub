@@ -1833,7 +1833,7 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload) ->
 publish_item(Host, ServerHost, Node, Publisher, <<>>, Payload, PubOpts, Access) ->
     publish_item(Host, ServerHost, Node, Publisher, uniqid(), Payload, PubOpts, Access);
 publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload, PubOpts, Access) ->
-    Timestamp = util:cur_timestamp(),
+    Timestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
     Action = fun (#pubsub_node{options = Options, type = Type, id = Nidx}) ->
 	    Features = plugin_features(Host, Type),
 	    PublishFeature = lists:member(<<"publish">>, Features),
@@ -1869,7 +1869,7 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload, PubOpts, Access
 	    end
     end,
     Reply = #pubsub{publish = #ps_publish{node = Node,
-					  items = [#ps_item{id = ItemId}]}},
+					  items = [#ps_item{id = ItemId, timestamp = Timestamp}]}},
     case transaction(Host, Node, Action, sync_dirty) of
 	{result, {TNode, {Result, Broadcast, Removed}}} ->
 	    Nidx = TNode#pubsub_node.id,
@@ -2829,7 +2829,7 @@ items_els(Node, _Options, Items) ->
 %%%%%% broadcast functions
 
 -spec broadcast_publish_item(host(), binary(), nodeIdx(), binary(),
-			     nodeOptions(), binary(), erlang:timestamp(), jid(), [xmlel()], _) ->
+			     nodeOptions(), binary(), binary(), jid(), [xmlel()], _) ->
 				    {result, boolean()}.
 broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, Timestamp, From, Payload, Removed) ->
     case get_collection_subscriptions(Host, Node) of
@@ -2842,7 +2842,7 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, Timestamp, F
 			  end,
 	    ItemsEls = #ps_items{node = Node,
 				 items = [#ps_item{id = ItemId,
-						   timestamp = util:convert_timestamp_to_binary(Timestamp),
+						   timestamp = Timestamp,
 						   publisher = ItemPublisher,
 						   sub_els = ItemPayload}]},
 	    Stanza = #message{ sub_els = [#ps_event{items = ItemsEls}]},
