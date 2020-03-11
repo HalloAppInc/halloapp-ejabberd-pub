@@ -1711,7 +1711,7 @@ subscribe_node(Host, Node, From, JID, Configuration) ->
 	{result, GoodSubOpts} -> GoodSubOpts;
 	_ -> invalid
     end,
-    Subscriber = jid:tolower(JID),
+    Subscriber = jid:remove_resource(jid:tolower(JID)),
     Action = fun (#pubsub_node{options = Options, type = Type, id = Nidx, owners = O}) ->
 	    Features = plugin_features(Host, Type),
 	    SubscribeFeature = lists:member(<<"subscribe">>, Features),
@@ -1816,7 +1816,7 @@ subscribe_node(Host, Node, From, JID, Configuration) ->
 -spec unsubscribe_node(host(), binary(), jid(), jid(), binary()) ->
 			      {result, undefined} | {error, stanza_error()}.
 unsubscribe_node(Host, Node, From, JID, SubId) ->
-    Subscriber = jid:tolower(JID),
+    Subscriber = jid:remove_resource(jid:tolower(JID)),
     Action = fun (#pubsub_node{type = Type, id = Nidx}) ->
 	    node_call(Host, Type, unsubscribe_node, [Nidx, From, Subscriber, SubId])
     end,
