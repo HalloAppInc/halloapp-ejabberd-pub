@@ -414,8 +414,12 @@ extract_item_id_if_possible(Packet) ->
         #message{sub_els = [#ps_event{} = SubEls]} ->
             extract_item_id(SubEls);
         #message{sub_els = [#xmlel{} = SubXmlEls | _]} ->
-            SubEls = xmpp:decode(SubXmlEls),
-            extract_item_id(SubEls);
+            try
+		SubEls = xmpp:decode(SubXmlEls),
+		extract_item_id(SubEls)
+            catch
+		_:_ -> undefined
+            end;
         _ ->
             undefined
     end.
