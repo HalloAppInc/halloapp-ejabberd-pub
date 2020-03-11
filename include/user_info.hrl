@@ -4,7 +4,8 @@
 %%%----------------------------------------------------------------------
 
 -record(user_contacts, {username :: {binary(), binary()},
-                        contact :: {binary(), binary()}}).
+                        contact :: {binary(), binary()},
+                        timestamp :: binary()}).
 
 -record(user_ids, {username = {<<"">>, <<"">>} :: {binary(), binary()},
                     id = <<"">> :: binary()}).
