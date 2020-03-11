@@ -53,7 +53,7 @@
 %% exports for hooks
 -export([presence_probe/3, caps_add/3, caps_update/3,
     in_subscription/2, out_subscription/1,
-    on_self_presence/1, on_user_offline/2, remove_user/2,
+    on_user_offline/2, remove_user/2,
     disco_local_identity/5, disco_local_features/5,
     disco_local_items/5, disco_sm_identity/5,
     disco_sm_features/5, disco_sm_items/5,
@@ -300,8 +300,6 @@ init([ServerHost|_]) ->
 						?MODULE, process_commands),
 		  Plugins
 	  end, Hosts),
-    ejabberd_hooks:add(c2s_self_presence, ServerHost,
-	?MODULE, on_self_presence, 75),
     ejabberd_hooks:add(c2s_terminated, ServerHost,
 	?MODULE, on_user_offline, 75),
     ejabberd_hooks:add(disco_local_identity, ServerHost,
@@ -601,16 +599,6 @@ presence_probe(_From, _To, _Pid) ->
     %% ignore presence_probe from remote contacts, those are handled via caps_add
     ok.
 
--spec on_self_presence({presence(), ejabberd_c2s:state()})
-		    -> {presence(), ejabberd_c2s:state()}.
-on_self_presence({_, #{pres_last := _}} = Acc) -> % Just a presence update.
-    Acc;
-on_self_presence({#presence{type = available}, #{jid := JID}} = Acc) ->
-    send_last_items(JID),
-    Acc;
-on_self_presence(Acc) ->
-    Acc.
-
 -spec on_user_offline(ejabberd_c2s:state(), atom()) -> ejabberd_c2s:state().
 on_user_offline(#{jid := JID} = C2SState, _Reason) ->
     purge_offline(jid:tolower(JID)),
@@ -787,8 +775,6 @@ terminate(_Reason,
 	false ->
 	    ok
     end,
-    ejabberd_hooks:delete(c2s_self_presence, ServerHost,
-	?MODULE, on_self_presence, 75),
     ejabberd_hooks:delete(c2s_terminated, ServerHost,
 	?MODULE, on_user_offline, 75),
     ejabberd_hooks:delete(disco_local_identity, ServerHost,
