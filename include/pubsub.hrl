@@ -63,6 +63,8 @@
 -type(itemId() :: binary()).
 %% @type itemId() = string().
 
+-type(itemType() :: 'comment' | 'feedpost' | 'other').
+
 -type(subId() :: binary()).
 %% @type subId() = string().
 
@@ -145,6 +147,7 @@
 -record(pubsub_item,
 {
     itemid                           ,% :: {mod_pubsub:itemId(), mod_pubsub:nodeIdx()},
+    itemtype                         ,% :: mod_pubsub:itemType(),
     nodeidx                          ,% :: mod_pubsub:nodeIdx(),
     creation     = {unknown, unknown},% :: {erlang:timestamp(), jid:ljid()},
     modification = {unknown, unknown},% :: {erlang:timestamp(), jid:ljid()},

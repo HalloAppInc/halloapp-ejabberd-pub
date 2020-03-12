@@ -31,6 +31,7 @@
 -type(nodeId() :: mod_pubsub:nodeId()).
 -type(nodeIdx() :: mod_pubsub:nodeIdx()).
 -type(itemId() :: mod_pubsub:itemId()).
+-type(itemType() :: mod_pubsub:itemType()).
 -type(pubsubNode() :: mod_pubsub:pubsubNode()).
 -type(pubsubState() :: mod_pubsub:pubsubState()).
 -type(pubsubItem() :: mod_pubsub:pubsubItem()).
@@ -111,6 +112,7 @@
 	PublishModel :: publishModel(),
 	Max_Items :: non_neg_integer(),
 	ItemId :: <<>> | itemId(),
+	ItemType :: other | itemType(),
 	Payload :: payload(),
 	Options :: pubOptions()) ->
     {result, {default, broadcast, [itemId()]}} |

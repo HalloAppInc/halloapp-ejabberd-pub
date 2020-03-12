@@ -42,7 +42,7 @@
 -export([init/3, terminate/2, options/0, features/0,
     create_node_permission/6, create_node/2, delete_node/1,
     purge_node/2, subscribe_node/9, unsubscribe_node/4,
-    publish_item/7, delete_item/4, remove_extra_items/3,
+    publish_item/8, delete_item/4, remove_extra_items/3,
     get_entity_affiliations/2, get_node_affiliations/1,
     get_affiliation/2, set_affiliation/3,
     get_entity_subscriptions/2, get_node_subscriptions/1,
@@ -232,7 +232,7 @@ delete_subscription(SubKey, Nidx, {Subscription, SubId}, Affiliation, Subscripti
 	_ -> update_subscription(Nidx, SubKey, NewSubs)
     end.
 
-publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, Payload,
+publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload,
 	     _PubOpts) ->
     SubKey = jid:tolower(Publisher),
     GenKey = jid:remove_resource(SubKey),
@@ -243,10 +243,10 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, Payload,
     end,
     if not ((PublishModel == open) or
 		    (PublishModel == publishers) and
-		    ((Affiliation == owner)
-			or (Affiliation == publisher)
+		    ((Affiliation == publisher)
 			or (Affiliation == publish_only))
-		    or (Subscribed == true)) ->
+			or (Affiliation == owner)
+		    or ((Subscribed == true) and (ItemType == comment))) ->
 	    {error, xmpp:err_forbidden()};
 	true ->
 	    if MaxItems > 0 ->
@@ -255,6 +255,7 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, Payload,
 			{result, #pubsub_item{creation = {_, GenKey}} = OldItem} ->
 			    set_item(OldItem#pubsub_item{
 					modification = {Now, SubKey},
+					itemtype = ItemType,
 					payload = Payload}),
 			    {result, {default, broadcast, []}};
 			{result, _} ->
@@ -264,6 +265,7 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, Payload,
 			    {result, {_NI, OI}} = remove_extra_items(Nidx, MaxItems, Items),
 			    set_item(#pubsub_item{
 					itemid = {ItemId, Nidx},
+					itemtype = ItemType,
 					creation = {Now, GenKey},
 					modification = {Now, SubKey},
 					payload = Payload}),
