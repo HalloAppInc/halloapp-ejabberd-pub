@@ -69,7 +69,7 @@
     publish_item/6, publish_item/8,
     delete_item/4, delete_item/5, send_items/7, get_items/2, get_item/3,
     get_cached_item/2, get_configure/5, set_configure/5,
-    tree_action/3, node_action/4, node_call/4,
+    tree_action/3, node_action/4, node_call/4, send_last_items/1,
     purge_expired_items/1, purge_expired_items/3]).
 
 %% general helpers for plugins
