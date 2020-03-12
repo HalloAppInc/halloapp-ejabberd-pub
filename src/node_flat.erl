@@ -39,7 +39,7 @@
 -export([init/3, terminate/2, options/0, features/0,
     create_node_permission/6, create_node/2, delete_node/1,
     purge_node/2, subscribe_node/9, unsubscribe_node/4,
-    publish_item/7, delete_item/4, remove_extra_items/3,
+    publish_item/8, delete_item/4, remove_extra_items/3,
     get_entity_affiliations/2, get_node_affiliations/1,
     get_affiliation/2, set_affiliation/3,
     get_entity_subscriptions/2, get_node_subscriptions/1,
@@ -355,8 +355,7 @@ delete_subscriptions(SubState, Subscriptions) ->
 %%   to completely disable persistence.</li></ul>
 %% </p>
 %% <p>In the default plugin module, the record is unchanged.</p>
-publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, Payload,
-	     _PubOpts) ->
+publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload, _PubOpts) ->
     SubKey = jid:tolower(Publisher),
     GenKey = jid:remove_resource(SubKey),
     GenState = get_state_internal(Nidx, GenKey),
@@ -372,10 +371,10 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, Payload,
     end,
     if not ((PublishModel == open) or
 		    (PublishModel == publishers) and
-		    ((Affiliation == owner)
-			or (Affiliation == publisher)
+		    ((Affiliation == publisher)
 			or (Affiliation == publish_only))
-		    or (Subscribed == true)) ->
+			or (Affiliation == owner)
+		    or ((Subscribed == true) and (ItemType == comment))) ->
 	    {error, xmpp:err_forbidden()};
 	true ->
 	    if MaxItems > 0 ->
@@ -383,6 +382,7 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, Payload,
 		    case get_item(Nidx, ItemId) of
 			{result, #pubsub_item{creation = {_, GenKey}} = OldItem} ->
 			    set_item(OldItem#pubsub_item{
+					itemtype = ItemType,
 					modification = {Now, SubKey},
 					payload = Payload}),
 			    {result, {default, broadcast, []}};
@@ -394,6 +394,7 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, Payload,
 			    set_state(GenState#pubsub_state{items = NI}),
 			    set_item(#pubsub_item{
 					itemid = {ItemId, Nidx},
+					itemtype = ItemType,
 					nodeidx = Nidx,
 					creation = {Now, GenKey},
 					modification = {Now, SubKey},
@@ -960,6 +961,8 @@ decode_stamp(Stamp) ->
 transform({pubsub_state, {Id, Nidx}, Is, A, Ss}) ->
     {pubsub_state, {Id, Nidx}, Nidx, Is, A, Ss};
 transform({pubsub_item, {Id, Nidx}, C, M, P}) ->
-    {pubsub_item, {Id, Nidx}, Nidx, C, M, P};
+    {pubsub_item, {Id, Nidx}, other, Nidx, C, M, P};
+transform({pubsub_item, {Id, Nidx}, Nidx, C, M, P}) ->
+    {pubsub_item, {Id, Nidx}, other, Nidx, C, M, P};
 transform(Rec) ->
     Rec.
