@@ -18,18 +18,19 @@
 
 -export([init/2, close/1]).
 
--export([insert_keys/4, delete_all_keys/1, fetch_key_set_and_delete/1]).
+-export([insert_keys/4, insert_otp_keys/2, delete_all_keys/1,
+         get_otp_key_count/1, fetch_key_set_and_delete/1]).
 
 init(_Host, _Opts) ->
-  case mnesia:create_table(user_whisper_keys,
-                            [{disc_copies, [node()]},
-                            {type, set},
-                            {attributes, record_info(fields, user_whisper_keys)}]) of
+  case ejabberd_mnesia:create(?MODULE, user_whisper_keys,
+                              [{disc_copies, [node()]},
+                              {type, set},
+                              {attributes, record_info(fields, user_whisper_keys)}]) of
     {atomic, _} ->
-      case mnesia:create_table(user_whisper_otp_keys,
-                            [{disc_copies, [node()]},
-                            {type, bag},
-                            {attributes, record_info(fields, user_whisper_otp_keys)}]) of
+      case ejabberd_mnesia:create(?MODULE, user_whisper_otp_keys,
+                                  [{disc_copies, [node()]},
+                                  {type, bag},
+                                  {attributes, record_info(fields, user_whisper_otp_keys)}]) of
         {atomic, _} -> ok;
         _ -> {error, db_failure}
       end;
@@ -65,6 +66,27 @@ insert_keys(Username, IdentityKey, SignedKey, OneTimeKeys) ->
   end.
 
 
+-spec insert_otp_keys(binary(), [binary()]) -> {ok, any()} | {error, any()}.
+insert_otp_keys(Username, OneTimeKeys) ->
+  F = fun () ->
+        lists:foreach(fun(OneTimeKey) ->
+                        mnesia:write(#user_whisper_otp_keys{username = Username,
+                                                            one_time_key = OneTimeKey})
+                      end, OneTimeKeys),
+        {ok, inserted_keys}
+      end,
+  case mnesia:transaction(F) of
+    {atomic, Result} ->
+        ?DEBUG("insert_keys: Mnesia transaction successful for username: ~p", [Username]),
+        Result;
+    {aborted, Reason} ->
+        ?ERROR_MSG("insert_keys: Mnesia transaction failed for username: ~p with reason: ~p",
+                                                                  [Username, Reason]),
+        {error, db_failure}
+  end.
+
+
+
 -spec delete_all_keys(binary()) -> {ok, any()} | {error, any()}.
 delete_all_keys(Username) ->
   F = fun() ->
@@ -93,6 +115,26 @@ delete_all_keys(Username) ->
       {error, db_failure}
   end.
 
+
+
+
+-spec get_otp_key_count(binary()) -> {ok, integer()} | {error, any()}.
+get_otp_key_count(Username) ->
+  F = fun() ->
+        case mnesia:match_object(#user_whisper_otp_keys{username = Username, _ = '_'}) of
+          [] -> 0;
+          WhisperOtpKeys -> length(WhisperOtpKeys)
+        end
+      end,
+  case mnesia:transaction(F) of
+    {atomic, Result} ->
+      ?DEBUG("get_otp_key_count: Mnesia transaction successful for username: ~p", [Username]),
+      {ok, Result};
+    {aborted, Reason} ->
+      ?ERROR_MSG("get_otp_key_count: Mnesia transaction failed for username: ~p with reason: ~p",
+                                                                          [Username, Reason]),
+      {error, db_failure}
+  end.
 
 
 
