@@ -18,8 +18,8 @@
 
 -export([init/2, close/0]).
 
--export([insert_contact/3, delete_contact/2, delete_contact/3,
-          delete_contacts/1, fetch_contacts/1, check_if_contact_exists/2]).
+-export([insert_contact/3, insert_syncid/2, delete_contact/2, delete_contact/3,
+          delete_contacts/1, fetch_contacts/1, fetch_syncid/1, check_if_contact_exists/2]).
 -export([need_transform/1, transform/1]).
 
 init(_Host, _Opts) ->
@@ -27,7 +27,14 @@ init(_Host, _Opts) ->
                             [{disc_copies, [node()]},
                             {type, bag},
                             {attributes, record_info(fields, user_contacts)}]) of
-    {atomic, _} -> ok;
+    {atomic, _} ->
+      case ejabberd_mnesia:create(?MODULE, user_syncids,
+                            [{disc_copies, [node()]},
+                            {type, set},
+                            {attributes, record_info(fields, user_syncids)}]) of
+        {atomic, _} -> ok;
+        _ -> {error, db_failure}
+      end;
     _ -> {error, db_failure}
   end.
 
@@ -52,6 +59,28 @@ insert_contact(Username, Contact, SyncId) ->
         Result;
     {aborted, Reason} ->
         ?ERROR_MSG("insert_contact:
+                    Mnesia transaction failed for username: ~p with reason: ~p",
+                                                                  [Username, Reason]),
+        {error, db_failure}
+  end.
+
+
+
+-spec insert_syncid({binary(), binary()}, binary()) ->
+                                              {ok, any()} | {error, any()}.
+insert_syncid(Username, SyncId) ->
+  F = fun () ->
+        mnesia:write(#user_syncids{username = Username,
+                                   syncid = SyncId}),
+        {ok, inserted_syncid}
+      end,
+  case mnesia:transaction(F) of
+    {atomic, Result} ->
+        ?DEBUG("insert_syncid:
+                Mnesia transaction successful for username: ~p", [Username]),
+        Result;
+    {aborted, Reason} ->
+        ?ERROR_MSG("insert_syncid:
                     Mnesia transaction failed for username: ~p with reason: ~p",
                                                                   [Username, Reason]),
         {error, db_failure}
@@ -143,6 +172,24 @@ fetch_contacts(Username) ->
       {ok, Result};
     {aborted, Reason} ->
       ?ERROR_MSG("fetch_contacts:
+                  Mnesia transaction failed for username: ~p with reason: ~p", [Username, Reason]),
+      {error, db_failure}
+  end.
+
+
+
+-spec fetch_syncid({binary(), binary()}) -> {ok, [#user_syncids{}]} | {error, any()}.
+fetch_syncid(Username) ->
+  F = fun() ->
+        Result = mnesia:match_object(#user_syncids{username = Username, _ = '_'}),
+        Result
+      end,
+  case mnesia:transaction(F) of
+    {atomic, Result} ->
+      ?DEBUG("fetch_syncid: Mnesia transaction successful for username: ~p", [Username]),
+      {ok, Result};
+    {aborted, Reason} ->
+      ?ERROR_MSG("fetch_syncid:
                   Mnesia transaction failed for username: ~p with reason: ~p", [Username, Reason]),
       {error, db_failure}
   end.

@@ -7,6 +7,9 @@
                         contact :: {binary(), binary()},
                         syncid :: binary()}).
 
+-record(user_syncids, {username :: {binary(), binary()},
+                       syncid :: binary()}).
+
 -record(user_ids, {username = {<<"">>, <<"">>} :: {binary(), binary()},
                     id = <<"">> :: binary()}).
 

@@ -51,9 +51,9 @@
 
 %% exports for console debug manual use
 -export([normalize_verify_and_subscribe/4, normalize_and_verify_contacts/5,
-        normalize_and_verify_contact/4, normalize/1, parse/1, insert_contact/4,
+        normalize_and_verify_contact/4, normalize/1, parse/1, insert_syncid/3, insert_contact/4,
         subscribe_to_each_others_nodes/4, subscribe_to_each_others_node/4,
-        subscribe_to_node/3, certify/3, validate/3,
+        subscribe_to_node/3, certify/3, validate/3, fetch_syncid/2,
         fetch_contacts/2, fetch_contacts/3, fetch_contact_info/3, obtain_contact_tuple/3,
         obtain_user_id/2, delete_all_contacts/2, delete_contact/3,
         unsubscribe_to_each_others_nodes/3, unsubscribe_to_each_others_node/4,
@@ -101,6 +101,7 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = get,
 process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                     sub_els = [#contact_list{type = set, contacts = Contacts,
                                             syncid = SyncId, cont = Cont}]} = IQ) ->
+    insert_syncid(User, Server, SyncId),
     ResultIQ = case Contacts of
         [] -> xmpp:make_iq_result(IQ);
         _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
@@ -116,14 +117,20 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
 process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                     sub_els = [#contact_list{type = add, contacts = Contacts,
                                             syncid = SyncId, cont = Cont}]} = IQ) ->
+    UserSyncId = case fetch_syncid(User, Server) of
+                    undefined ->
+                        insert_syncid(User, Server, SyncId),
+                        SyncId;
+                    Result -> Result
+                end,
     ResultIQ = case Contacts of
         [] -> xmpp:make_iq_result(IQ);
         _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
-                    syncid = SyncId, type = normal,
-                    contacts = normalize_verify_and_subscribe(User, Server, Contacts, SyncId)})
+                    syncid = UserSyncId, type = normal,
+                    contacts = normalize_verify_and_subscribe(User, Server, Contacts, UserSyncId)})
     end,
     case Cont of
-        false -> delete_old_contacts(User, Server, SyncId);
+        false -> delete_old_contacts(User, Server, UserSyncId);
         true -> ok
     end,
     ResultIQ;
@@ -295,6 +302,18 @@ parse(Number) ->
 
 
 
+-spec insert_syncid(binary(), binary(), binary()) -> ok.
+insert_syncid(User, Server, SyncId) ->
+    Username = {User, Server},
+    case mod_contacts_mnesia:insert_syncid(Username, SyncId) of
+        {ok, _} ->
+            ?DEBUG("Successfully inserted syncid: ~p for username: ~p", [SyncId, Username]);
+        {error, _} ->
+            ?ERROR_MSG("Failed to insert syncid: ~p for username: ~p", [SyncId, Username])
+    end.
+
+
+
 %% Insert these contacts as user's contacts in an mnesia table.
 -spec insert_contact(binary(), binary(), binary(), binary()) -> {ok, any()} | {error, any()}.
 insert_contact(_User, _Server, undefined, _SyncId) ->
@@ -315,6 +334,18 @@ insert_contact(User, Server, ContactNumber, SyncId) ->
         {error, _} = Result ->
             Result
     end.
+
+
+-spec fetch_syncid(binary(), binary()) -> binary() | undefined.
+fetch_syncid(User, Server) ->
+    Username = {User, Server},
+    case mod_contacts_mnesia:fetch_syncid(Username) of
+        {ok, [UserSyncIds | _]} ->
+            UserSyncIds#user_syncids.syncid;
+        {error, _} = _Result ->
+            undefined
+    end.
+
 
 
 %% Subscribes the User to the nodes of the ContactNumber and vice-versa if they are 'friends'.
@@ -422,7 +453,7 @@ delete_old_contacts(User, Server, CurSyncId) ->
     case mod_contacts_mnesia:fetch_contacts({User, Server}) of
         {ok, UserContacts} ->
             lists:foreach(fun(#user_contacts{contact = {ContactNumber, _},
-                                            syncId = ThenSyncId}) ->
+                                            syncid = ThenSyncId}) ->
                             case CurSyncId =/= ThenSyncId of
                                 true ->
                                     delete_contact(User, Server, ContactNumber);
