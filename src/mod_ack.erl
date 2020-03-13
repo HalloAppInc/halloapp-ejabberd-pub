@@ -389,12 +389,7 @@ compare(AckWaitQueueLength, MaxAckWaitItems, strict) ->
 %% We overwrite messages that have pubsub items to have the same id as the item id.
 -spec adjust_packet_id(stanza()) -> stanza().
 adjust_packet_id(Packet) ->
-    case extract_item_id_if_possible(Packet) of
-        undefined ->
-            NewId = create_packet_id_if_unavailable(xmpp:get_id(Packet));
-        ItemId ->
-            NewId = ItemId
-    end,
+    NewId = create_packet_id_if_unavailable(xmpp:get_id(Packet)),
     xmpp:set_id(Packet, NewId).
 
 
@@ -405,38 +400,6 @@ create_packet_id_if_unavailable(<<>>) ->
 create_packet_id_if_unavailable(Id) ->
     Id.
 
-
-
-%% Extract ItemId from the packet if it is a pubsub message, else return 'undefined'.
--spec extract_item_id_if_possible(message()) -> binary() | undefined.
-extract_item_id_if_possible(Packet) ->
-    case Packet of
-        #message{sub_els = [#ps_event{} = SubEls]} ->
-            extract_item_id(SubEls);
-        #message{sub_els = [#xmlel{} = SubXmlEls | _]} ->
-            try
-		SubEls = xmpp:decode(SubXmlEls),
-		extract_item_id(SubEls)
-            catch
-		_:_ -> undefined
-            end;
-        _ ->
-            undefined
-    end.
-
--spec extract_item_id(xmpp_element()) ->  binary() | undefined.
-extract_item_id(SubEls) ->
-    case SubEls of
-        #ps_event{items = ItemsEls} ->
-            case ItemsEls of
-                #ps_items{items = [#ps_item{id = ItemId}]} ->
-                    ItemId;
-                _ ->
-                    undefined
-            end;
-        _ ->
-            undefined
-    end.
 
 
 
