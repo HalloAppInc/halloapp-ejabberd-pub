@@ -99,25 +99,33 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = get,
     end;
 
 process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
-                    sub_els = [#contact_list{ type = set, contacts = Contacts}]} = IQ) ->
-    Timestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
+                    sub_els = [#contact_list{type = set, contacts = Contacts,
+                                            syncid = SyncId, cont = Cont}]} = IQ) ->
     ResultIQ = case Contacts of
         [] -> xmpp:make_iq_result(IQ);
-        _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal,
-                    contacts = normalize_verify_and_subscribe(User, Server, Contacts, Timestamp)})
+        _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
+                    syncid = SyncId, type = normal,
+                    contacts = normalize_verify_and_subscribe(User, Server, Contacts, SyncId)})
     end,
-    delete_old_contacts(User, Server, Timestamp),
+    case Cont of
+        false -> delete_old_contacts(User, Server, SyncId);
+        true -> ok
+    end,
     ResultIQ;
 
 process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
-                    sub_els = [#contact_list{ type = add, contacts = Contacts}]} = IQ) ->
-    Timestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
+                    sub_els = [#contact_list{type = add, contacts = Contacts,
+                                            syncid = SyncId, cont = Cont}]} = IQ) ->
     ResultIQ = case Contacts of
         [] -> xmpp:make_iq_result(IQ);
-        _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal,
-                    contacts = normalize_verify_and_subscribe(User, Server, Contacts, Timestamp)})
+        _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
+                    syncid = SyncId, type = normal,
+                    contacts = normalize_verify_and_subscribe(User, Server, Contacts, SyncId)})
     end,
-    delete_old_contacts(User, Server, Timestamp),
+    case Cont of
+        false -> delete_old_contacts(User, Server, SyncId);
+        true -> ok
+    end,
     ResultIQ;
 
 process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
@@ -188,10 +196,10 @@ delete_contacts_iq(User, Server, [First | Rest]) ->
 
 
 %% Normalize, Verify and Subscribe the pubsub nodes for the contacts received in an iq.
-normalize_verify_and_subscribe(_User, _Server, [], _Timestamp) ->
+normalize_verify_and_subscribe(_User, _Server, [], _SyncId) ->
     [];
-normalize_verify_and_subscribe(User, Server, Contacts, Timestamp) ->
-    ContactResults = normalize_and_verify_contacts(User, Server, Contacts, [], Timestamp),
+normalize_verify_and_subscribe(User, Server, Contacts, SyncId) ->
+    ContactResults = normalize_and_verify_contacts(User, Server, Contacts, [], SyncId),
     lists:map(fun({Raw, UserId, Normalized, Role, Notify}) ->
                     case Notify of
                         true ->
@@ -206,7 +214,7 @@ normalize_verify_and_subscribe(User, Server, Contacts, Timestamp) ->
 
 %% Normalizes, verifies the connection between the user and each contact in the list and returns
 %% the final result.
-normalize_and_verify_contacts(User, Server, [], Affs, _Timestamp) ->
+normalize_and_verify_contacts(User, Server, [], Affs, _SyncId) ->
     Host = mod_pubsub:host(Server),
     FeedNode = util:get_feed_pubsub_node_name(User),
     MetadataNode = util:get_metadata_pubsub_node_name(User),
@@ -218,8 +226,8 @@ normalize_and_verify_contacts(User, Server, [], Affs, _Timestamp) ->
     ?DEBUG("User: ~p tried to set affs : ~p to pubsub node: ~p, result: ~p",
                                                         [From, Affs, MetadataNode, Result2]),
     [];
-normalize_and_verify_contacts(User, Server, [First | Rest], Affs, Timestamp) ->
-    Result = normalize_and_verify_contact(User, Server, First, Timestamp),
+normalize_and_verify_contacts(User, Server, [First | Rest], Affs, SyncId) ->
+    Result = normalize_and_verify_contact(User, Server, First, SyncId),
     NewAffs = case Result of
                 {_, _, _, _, false} ->
                     Affs;
@@ -229,17 +237,17 @@ normalize_and_verify_contacts(User, Server, [First | Rest], Affs, Timestamp) ->
                     Aff = #ps_affiliation{jid = jid:make(Normalized, Server), type = member},
                     [Aff | Affs]
               end,
-    [Result | normalize_and_verify_contacts(User, Server, Rest, NewAffs, Timestamp)].
+    [Result | normalize_and_verify_contacts(User, Server, Rest, NewAffs, SyncId)].
 
 
 
 %% Given a user and a contact, we normalize the contact, insert this contact of the user into
 %% our database, check if the user and contact are connected on halloapp (mutual connection)
 %% and return the appropriate result.
-normalize_and_verify_contact(User, Server, {Raw, _, _, _}, Timestamp) ->
+normalize_and_verify_contact(User, Server, {Raw, _, _, _}, SyncId) ->
     Normalized = normalize(Raw),
     UserId = obtain_user_id(Normalized, Server),
-    Notify = case insert_contact(User, Server, Normalized, Timestamp) of
+    Notify = case insert_contact(User, Server, Normalized, SyncId) of
                 {ok, true} ->
                     notify_contact_about_user(User, Server, Normalized),
                     true;
@@ -289,10 +297,10 @@ parse(Number) ->
 
 %% Insert these contacts as user's contacts in an mnesia table.
 -spec insert_contact(binary(), binary(), binary(), binary()) -> {ok, any()} | {error, any()}.
-insert_contact(_User, _Server, undefined, _Timestamp) ->
+insert_contact(_User, _Server, undefined, _SyncId) ->
     ?ERROR_MSG("Expected a number as input: ~p", [undefined]),
     {error, invalid_contact_list};
-insert_contact(User, Server, ContactNumber, Timestamp) ->
+insert_contact(User, Server, ContactNumber, SyncId) ->
     Username = {User, Server},
     Contact = {ContactNumber, Server},
     Notify = case mod_contacts_mnesia:delete_contact(Username, Contact) of
@@ -301,7 +309,7 @@ insert_contact(User, Server, ContactNumber, Timestamp) ->
                 _ ->
                     true
              end,
-    case mod_contacts_mnesia:insert_contact(Username, Contact, Timestamp) of
+    case mod_contacts_mnesia:insert_contact(Username, Contact, SyncId) of
         {ok, _} ->
             {ok, Notify};
         {error, _} = Result ->
@@ -407,15 +415,15 @@ delete_all_contacts(User, Server) ->
     ok.
 
 
-%% Deletes all contacts of the user which are older than the given timestamp.
-delete_old_contacts(User, Server, CurTimestamp) ->
+%% Delete only the old contacts that were probably deleted by the client.
+%% This is invoked only on every full-sync-of-contacts.
+%% TODO(murali@): Handle contacts being sent in batches.
+delete_old_contacts(User, Server, CurSyncId) ->
     case mod_contacts_mnesia:fetch_contacts({User, Server}) of
         {ok, UserContacts} ->
             lists:foreach(fun(#user_contacts{contact = {ContactNumber, _},
-                                            timestamp = ThenTimestamp}) ->
-                            Cur = util:convert_binary_to_integer(CurTimestamp),
-                            Then = util:convert_binary_to_integer(ThenTimestamp),
-                            case Cur - Then > 0 of
+                                            syncId = ThenSyncId}) ->
+                            case CurSyncId =/= ThenSyncId of
                                 true ->
                                     delete_contact(User, Server, ContactNumber);
                                 false ->

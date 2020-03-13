@@ -38,11 +38,11 @@ close() ->
 
 -spec insert_contact({binary(), binary()}, {binary(), binary()}, binary()) ->
                                               {ok, any()} | {error, any()}.
-insert_contact(Username, Contact, Timestamp) ->
+insert_contact(Username, Contact, SyncId) ->
   F = fun () ->
         mnesia:write(#user_contacts{username = Username,
                                     contact = Contact,
-                                    timestamp = Timestamp}),
+                                    syncid = SyncId}),
         {ok, inserted_contact}
       end,
   case mnesia:transaction(F) of
@@ -85,9 +85,9 @@ delete_contact(Username, Contact) ->
 
 -spec delete_contact({binary(), binary()}, {binary(), binary()}, binary()) ->
                                     {ok, any()} | {error, any()}.
-delete_contact(Username, Contact, Timestamp) ->
+delete_contact(Username, Contact, SyncId) ->
   F = fun() ->
-        UserContact = #user_contacts{username = Username, contact = Contact, timestamp = Timestamp},
+        UserContact = #user_contacts{username = Username, contact = Contact, syncid = SyncId},
         Result = mnesia:match_object(UserContact),
         case Result of
           [] ->
@@ -173,7 +173,7 @@ check_if_contact_exists(Username, Contact) ->
 
 
 need_transform({user_contacts, _Username, _Contact}) ->
-  ?INFO_MSG("Mnesia table 'user_contacts' will be modified to include timestamp", []),
+  ?INFO_MSG("Mnesia table 'user_contacts' will be modified to include syncid", []),
   true;
 need_transform(_) ->
   false.
@@ -182,5 +182,5 @@ need_transform(_) ->
 transform({user_contacts, Username, Contact}) ->
     #user_contacts{username = Username,
                     contact = Contact,
-                    timestamp = util:convert_timestamp_to_binary(erlang:timestamp())}.
+                    syncid = <<"old_sync_id">>}.
 
