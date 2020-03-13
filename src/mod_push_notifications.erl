@@ -633,11 +633,16 @@ parse_message(#message{} = Message) ->
                     case ItemsEls of
                         #ps_items{node = _Node,
                                  items = [#ps_item{id = _ItemId,
+                                                   type = ItemType,
                                                    timestamp = _Timestamp,
                                                    publisher = _ItemPublisher,
                                                    sub_els = _ItemPayload}]} ->
                             %% Show only plain notification for now.
-                            {<<"New Message">>, <<"You got a new message.">>};
+                            case ItemType of
+                                comment -> {<<"New Notification">>, <<"New comment">>};
+                                feedpost -> {<<"New Notification">>, <<"New feedpost">>};
+                                _ -> {<<"New Message">>, <<"You got a new message.">>}
+                            end;
                         _ ->
                             {<<"New Message">>, <<"You got a new message.">>}
                     end;
