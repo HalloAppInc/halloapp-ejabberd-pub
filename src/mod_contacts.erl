@@ -100,7 +100,7 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = get,
 
 process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                     sub_els = [#contact_list{type = set, contacts = Contacts,
-                                            syncid = SyncId, cont = Cont}]} = IQ) ->
+                                            syncid = SyncId, last = Last}]} = IQ) ->
     insert_syncid(User, Server, SyncId),
     ResultIQ = case Contacts of
         [] -> xmpp:make_iq_result(IQ);
@@ -108,15 +108,15 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                     syncid = SyncId, type = normal,
                     contacts = normalize_verify_and_subscribe(User, Server, Contacts, SyncId)})
     end,
-    case Cont of
-        false -> delete_old_contacts(User, Server, SyncId);
-        true -> ok
+    case Last of
+        false -> ok;
+        true -> delete_old_contacts(User, Server, SyncId)
     end,
     ResultIQ;
 
 process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                     sub_els = [#contact_list{type = add, contacts = Contacts,
-                                            syncid = SyncId, cont = Cont}]} = IQ) ->
+                                            syncid = SyncId, last = Last}]} = IQ) ->
     UserSyncId = case fetch_syncid(User, Server) of
                     undefined ->
                         insert_syncid(User, Server, SyncId),
@@ -129,9 +129,9 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                     syncid = UserSyncId, type = normal,
                     contacts = normalize_verify_and_subscribe(User, Server, Contacts, UserSyncId)})
     end,
-    case Cont of
-        false -> delete_old_contacts(User, Server, UserSyncId);
-        true -> ok
+    case Last of
+        false -> ok;
+        true -> delete_old_contacts(User, Server, SyncId)
     end,
     ResultIQ;
 
