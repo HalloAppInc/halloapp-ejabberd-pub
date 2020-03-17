@@ -52,9 +52,9 @@
 %% exports for console debug manual use
 -export([normalize_verify_and_subscribe/4, normalize_and_verify_contacts/5,
         normalize_and_verify_contact/4, normalize/1, parse/1, insert_syncid/3, insert_contact/4,
-        subscribe_to_each_others_nodes/4, subscribe_to_each_others_node/4,
+        handle_delta_contacts/4, subscribe_to_each_others_nodes/4, subscribe_to_each_others_node/4,
         subscribe_to_node/3, certify/3, validate/3, fetch_syncid/2,
-        fetch_contacts/2, fetch_contacts/3, fetch_contact_info/3, obtain_contact_tuple/3,
+        fetch_contacts/2, fetch_contacts/3, fetch_contact_info/3, obtain_contact_record/3,
         obtain_user_id/2, delete_all_contacts/2, delete_contact/3,
         unsubscribe_to_each_others_nodes/3, unsubscribe_to_each_others_node/4,
         unsubscribe_to_node/3, remove_affiliation_for_all_user_nodes/3, remove_affiliation/4,
@@ -88,7 +88,42 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %%====================================================================
 %% iq handlers
 %%====================================================================
-%% TODO(murali@): Complete this to handle stanzas with type = get.
+
+process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
+                    sub_els = [#contact_list{type = full, contacts = Contacts,
+                                            syncid = SyncId, index = Index, last = Last}]} = IQ) ->
+    case Index of
+        0 -> insert_syncid(User, Server, SyncId);
+        _ -> ok
+    end,
+    ResultIQ = case Contacts of
+        [] -> xmpp:make_iq_result(IQ);
+        _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
+                    syncid = SyncId, type = normal,
+                    contacts = normalize_verify_and_subscribe(User, Server, Contacts, SyncId)})
+    end,
+    case Last of
+        false -> ok;
+        true -> delete_old_contacts(User, Server, SyncId)
+    end,
+    ResultIQ;
+
+process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
+                    sub_els = [#contact_list{type = delta, contacts = Contacts,
+                                            index = _Index, last = Last}]} = IQ) ->
+    UserSyncId = fetch_syncid(User, Server),
+    ResultIQ = case Contacts of
+        [] -> xmpp:make_iq_result(IQ);
+        _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
+                    syncid = UserSyncId, type = normal,
+                    contacts = handle_delta_contacts(User, Server, Contacts, UserSyncId)})
+    end,
+    case Last of
+        false -> ok;
+        true -> delete_old_contacts(User, Server, UserSyncId)
+    end,
+    ResultIQ;
+
 process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = get,
                     sub_els = [#contact_list{ type = get, contacts = Contacts}]} = IQ) ->
     case Contacts of
@@ -154,6 +189,16 @@ remove_user(User, Server) ->
 %% internal functions
 %%====================================================================
 
+-spec handle_delta_contacts(binary(), binary(), [#contact{}], binary()) -> [#contact{}].
+handle_delta_contacts(User, Server, Contacts, UserSyncId) ->
+    {DeleteContactsList, AddContactsList} = lists:partition(fun(#contact{type = Type}) ->
+                                                                Type == delete
+                                                            end, Contacts),
+    delete_contacts_iq(User, Server, DeleteContactsList),
+    normalize_verify_and_subscribe(User, Server, AddContactsList, UserSyncId).
+
+
+
 -spec fetch_contacts(binary(), binary()) -> [{binary(), binary(), binary(), binary()}].
 fetch_contacts(User, Server) ->
     case mod_contacts_mnesia:fetch_contacts({User, Server}) of
@@ -169,7 +214,7 @@ fetch_contacts(_User, _Server, []) ->
     [];
 fetch_contacts(User, Server, [First | Rest]) ->
     {_, _, Normalized, _} = First,
-    [obtain_contact_tuple(User, Server, Normalized) | fetch_contacts(User, Server, Rest)].
+    [obtain_contact_record(User, Server, Normalized) | fetch_contacts(User, Server, Rest)].
 
 
 
@@ -179,16 +224,18 @@ fetch_contact_info(_User, _Server, []) ->
     [];
 fetch_contact_info(User, Server, [First | Rest]) ->
     {Normalized, _} = First#user_contacts.contact,
-    [obtain_contact_tuple(User, Server, Normalized) | fetch_contact_info(User, Server, Rest)].
+    [obtain_contact_record(User, Server, Normalized) | fetch_contact_info(User, Server, Rest)].
 
 
 
--spec obtain_contact_tuple(binary(), binary(), binary()) ->
+-spec obtain_contact_record(binary(), binary(), binary()) ->
                                                     {binary(), binary(), binary(), binary()}.
-obtain_contact_tuple(User, Server, Normalized) ->
+obtain_contact_record(User, Server, Normalized) ->
     UserId = obtain_user_id(Normalized, Server),
     Role = certify(User, Server, Normalized),
-    {undefined, UserId, Normalized, Role}.
+    #contact{userid = UserId,
+            normalized = Normalized,
+            role = Role}.
 
 
 
@@ -196,7 +243,7 @@ obtain_contact_tuple(User, Server, Normalized) ->
 delete_contacts_iq(_User, _Server, []) ->
     [];
 delete_contacts_iq(User, Server, [First | Rest]) ->
-    {_, _, Normalized, _} = First,
+    Normalized = First#contact.normalized,
     delete_contact(User, Server, Normalized),
     delete_contacts_iq(User, Server, Rest).
 
@@ -214,7 +261,10 @@ normalize_verify_and_subscribe(User, Server, Contacts, SyncId) ->
                         false ->
                             ok
                     end,
-                    {Raw, UserId, Normalized, Role}
+                    #contact{raw = Raw,
+                             userid = UserId,
+                             normalized = Normalized,
+                             role = Role}
                 end, ContactResults).
 
 
@@ -251,7 +301,8 @@ normalize_and_verify_contacts(User, Server, [First | Rest], Affs, SyncId) ->
 %% Given a user and a contact, we normalize the contact, insert this contact of the user into
 %% our database, check if the user and contact are connected on halloapp (mutual connection)
 %% and return the appropriate result.
-normalize_and_verify_contact(User, Server, {Raw, _, _, _}, SyncId) ->
+normalize_and_verify_contact(User, Server, Contact, SyncId) ->
+    Raw = Contact#contact.raw,
     Normalized = normalize(Raw),
     UserId = obtain_user_id(Normalized, Server),
     Notify = case insert_contact(User, Server, Normalized, SyncId) of
