@@ -142,7 +142,7 @@ shaper_rules:
   max_user_sessions: 10
   max_user_offline_messages:
     5000: admin
-    100: all
+    5000: all
   c2s_shaper:
     none: admin
     ## The previous shaper rule of normal: 1000 bytes/second was very slow for the clients
