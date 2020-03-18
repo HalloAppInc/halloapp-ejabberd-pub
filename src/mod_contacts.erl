@@ -151,13 +151,8 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
 
 process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                     sub_els = [#contact_list{type = add, contacts = Contacts,
-                                            syncid = SyncId, last = Last}]} = IQ) ->
-    UserSyncId = case fetch_syncid(User, Server) of
-                    undefined ->
-                        insert_syncid(User, Server, SyncId),
-                        SyncId;
-                    Result -> Result
-                end,
+                                            syncid = _SyncId, last = Last}]} = IQ) ->
+    UserSyncId = fetch_syncid(User, Server),
     ResultIQ = case Contacts of
         [] -> xmpp:make_iq_result(IQ);
         _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
@@ -166,7 +161,7 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
     end,
     case Last of
         false -> ok;
-        true -> delete_old_contacts(User, Server, SyncId)
+        true -> delete_old_contacts(User, Server, UserSyncId)
     end,
     ResultIQ;
 
@@ -218,12 +213,12 @@ fetch_contacts(User, Server, [First | Rest]) ->
 
 
 
--spec fetch_contact_info(binary(), binary(), [#user_contacts{}]) ->
+-spec fetch_contact_info(binary(), binary(), [#user_contacts_new{}]) ->
                                                     [{binary(), binary(), binary(), binary()}].
 fetch_contact_info(_User, _Server, []) ->
     [];
 fetch_contact_info(User, Server, [First | Rest]) ->
-    {Normalized, _} = First#user_contacts.contact,
+    {Normalized, _} = First#user_contacts_new.contact,
     [obtain_contact_record(User, Server, Normalized) | fetch_contact_info(User, Server, Rest)].
 
 
@@ -387,14 +382,14 @@ insert_contact(User, Server, ContactNumber, SyncId) ->
     end.
 
 
--spec fetch_syncid(binary(), binary()) -> binary() | undefined.
+-spec fetch_syncid(binary(), binary()) -> binary().
 fetch_syncid(User, Server) ->
     Username = {User, Server},
     case mod_contacts_mnesia:fetch_syncid(Username) of
         {ok, [UserSyncIds | _]} ->
             UserSyncIds#user_syncids.syncid;
         {error, _} = _Result ->
-            undefined
+            <<"">>
     end.
 
 
@@ -488,7 +483,7 @@ obtain_user_id(User, Server) ->
 delete_all_contacts(User, Server) ->
     case mod_contacts_mnesia:fetch_contacts({User, Server}) of
         {ok, UserContacts} ->
-            lists:foreach(fun(#user_contacts{contact = {ContactNumber, _}}) ->
+            lists:foreach(fun(#user_contacts_new{contact = {ContactNumber, _}}) ->
                             delete_contact(User, Server, ContactNumber)
                           end, UserContacts);
         {error, _} ->
@@ -503,7 +498,7 @@ delete_all_contacts(User, Server) ->
 delete_old_contacts(User, Server, CurSyncId) ->
     case mod_contacts_mnesia:fetch_contacts({User, Server}) of
         {ok, UserContacts} ->
-            lists:foreach(fun(#user_contacts{contact = {ContactNumber, _},
+            lists:foreach(fun(#user_contacts_new{contact = {ContactNumber, _},
                                             syncid = ThenSyncId}) ->
                             case CurSyncId =/= ThenSyncId of
                                 true ->

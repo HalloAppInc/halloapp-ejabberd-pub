@@ -3,9 +3,13 @@
 %%%
 %%%----------------------------------------------------------------------
 
--record(user_contacts, {username :: {binary(), binary()},
+%% Temporarily handle both old and new record types for backwards compatibility.
+-record(user_contacts_new, {username :: {binary(), binary()},
                         contact :: {binary(), binary()},
                         syncid :: binary()}).
+
+-record(user_contacts, {username :: {binary(), binary()},
+                        contact :: {binary(), binary()}}).
 
 -record(user_syncids, {username :: {binary(), binary()},
                        syncid :: binary()}).
