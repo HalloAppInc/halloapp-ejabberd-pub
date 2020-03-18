@@ -611,7 +611,7 @@ check_and_send_message_to_contact(User, Server, ContactNumber, _, undefined) ->
     ok;
 check_and_send_message_to_contact(User, Server, ContactNumber, UserId, _ContactUserId) ->
     Role = certify(ContactNumber, Server, User),
-    Contact = {undefined, UserId, User, Role},
+    Contact = #contact{userid = UserId, normalized = User, role = Role},
     SubEls = [#contact_list{ type = normal, xmlns = ?NS_NORM, contacts = [Contact]}],
     Stanza = #message{from = jid:make(mod_pubsub:host(Server)),
                       to = jid:make(ContactNumber, Server),
