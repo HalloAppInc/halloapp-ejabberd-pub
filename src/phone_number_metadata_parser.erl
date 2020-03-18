@@ -21,7 +21,7 @@
 
 %% Parse the xml file and insert the records obtained into the ets table.
 %% Assumes that the ets table has already been created.
--spec parse_xml_file(list()) -> {ok, any()} | {error, any()}.
+-spec parse_xml_file(file:filename()) -> {ok, any()} | {error, any()}.
 parse_xml_file(FileName) ->
   case xmerl_scan:file(FileName) of
     {XmlContents, _} ->
