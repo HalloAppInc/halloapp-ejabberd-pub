@@ -15,7 +15,7 @@
 -include("logger.hrl").
 -include("translate.hrl").
 
--export([init/2, close/0]).
+-export([init/2, close/1]).
 
 -export([insert_version/2, delete_version/2, delete_version/1,
           fetch_version/1, get_time_left/3, check_if_version_exists/1]).
@@ -31,7 +31,7 @@ init(_Host, _Opts) ->
     _ -> {error, db_failure}
   end.
 
-close() ->
+close(_Host) ->
   ok.
 
 
