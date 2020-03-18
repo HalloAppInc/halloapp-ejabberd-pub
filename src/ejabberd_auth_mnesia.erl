@@ -173,7 +173,7 @@ create_pubsub_nodes(User, Server) ->
 
 
 
--spec create_pubsub_node(binary(), binary(), binary(), atom(), integer()) -> ok.
+-spec create_pubsub_node(binary(), binary(), binary(), atom(), integer(), integer()) -> ok.
 create_pubsub_node(User, Server, NodeName, PublishModel, MaxItems, ItemExpireSec) ->
 	Host = mod_pubsub:host(Server),
 	ServerHost = Server,
