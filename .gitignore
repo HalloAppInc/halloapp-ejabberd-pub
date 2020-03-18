@@ -6,6 +6,11 @@
 .#*
 .edts
 *.dump
+.idea/
+*.iml
+/crash.log
+/error.log
+/ejabberd.log
 /Makefile
 /config.log
 /config.status
