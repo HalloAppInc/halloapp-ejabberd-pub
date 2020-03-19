@@ -97,7 +97,7 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
         _ -> ok
     end,
     ResultIQ = case Contacts of
-        [] -> xmpp:make_iq_result(IQ);
+        [] -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal});
         _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
                     syncid = SyncId, type = normal,
                     contacts = normalize_verify_and_subscribe(User, Server, Contacts, SyncId)})
@@ -113,7 +113,7 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                                             index = _Index, last = Last}]} = IQ) ->
     UserSyncId = fetch_syncid(User, Server),
     ResultIQ = case Contacts of
-        [] -> xmpp:make_iq_result(IQ);
+        [] -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal});
         _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
                     syncid = UserSyncId, type = normal,
                     contacts = handle_delta_contacts(User, Server, Contacts, UserSyncId)})
@@ -138,7 +138,7 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                                             syncid = SyncId, last = Last}]} = IQ) ->
     insert_syncid(User, Server, SyncId),
     ResultIQ = case Contacts of
-        [] -> xmpp:make_iq_result(IQ);
+        [] -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal});
         _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
                     syncid = SyncId, type = normal,
                     contacts = normalize_verify_and_subscribe(User, Server, Contacts, SyncId)})
@@ -154,7 +154,7 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                                             syncid = _SyncId, last = Last}]} = IQ) ->
     UserSyncId = fetch_syncid(User, Server),
     ResultIQ = case Contacts of
-        [] -> xmpp:make_iq_result(IQ);
+        [] -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal});
         _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
                     syncid = UserSyncId, type = normal,
                     contacts = normalize_verify_and_subscribe(User, Server, Contacts, UserSyncId)})
@@ -168,7 +168,7 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
 process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
                     sub_els = [#contact_list{ type = delete, contacts = Contacts}]} = IQ) ->
     case Contacts of
-        [] -> xmpp:make_iq_result(IQ);
+        [] -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal});
         _ELse -> xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal,
                     contacts = delete_contacts_iq(User, Server, Contacts)})
     end.
