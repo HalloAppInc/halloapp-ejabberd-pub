@@ -252,8 +252,8 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload,
 	    if MaxItems > 0 ->
 		    Now = erlang:timestamp(),
 		    case get_item(Nidx, ItemId) of
-			{result, #pubsub_item{creation = {_, GenKey}} = OldItem} ->
-			    set_item(OldItem#pubsub_item{
+			{result, #pubsub_item_new{creation = {_, GenKey}} = OldItem} ->
+			    set_item(OldItem#pubsub_item_new{
 					modification = {Now, SubKey},
 					itemtype = ItemType,
 					payload = Payload}),
@@ -263,7 +263,7 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload,
 			_ ->
 			    Items = [ItemId | itemids(Nidx, GenKey)],
 			    {result, {_NI, OI}} = remove_extra_items(Nidx, MaxItems, Items),
-			    set_item(#pubsub_item{
+			    set_item(#pubsub_item_new{
 					itemid = {ItemId, Nidx},
 					itemtype = ItemType,
 					creation = {Now, GenKey},
@@ -292,7 +292,7 @@ delete_item(Nidx, Publisher, PublishModel, ItemId) ->
 	Affiliation == owner orelse
 	(PublishModel == open andalso
 	  case get_item(Nidx, ItemId) of
-	    {result, #pubsub_item{creation = {_, GenKey}}} -> true;
+	    {result, #pubsub_item_new{creation = {_, GenKey}}} -> true;
 	    _ -> false
           end),
     if not Allowed ->
@@ -642,7 +642,7 @@ get_items(Nidx, _From, undefined) ->
     SNidx = misc:i2l(Nidx),
     case ejabberd_sql:sql_query_t(
 	   [<<"select itemid, publisher, creation, modification, payload",
-	      " from pubsub_item where nodeid='", SNidx/binary, "'",
+	      " from pubsub_item_new where nodeid='", SNidx/binary, "'",
 	      " order by creation asc">>]) of
 	{selected, _, AllItems} ->
 	    {result, {[raw_to_item(Nidx, RItem) || RItem <- AllItems], undefined}};
@@ -652,7 +652,7 @@ get_items(Nidx, _From, undefined) ->
 get_items(Nidx, _From, #rsm_set{max = Max, index = IncIndex,
 				'after' = After, before = Before}) ->
     Count = case catch ejabberd_sql:sql_query_t(
-		    ?SQL("select @(count(itemid))d from pubsub_item"
+		    ?SQL("select @(count(itemid))d from pubsub_item_new"
 		         " where nodeid=%(Nidx)d")) of
 		{selected, [{C}]} -> C;
 		_ -> 0
@@ -670,12 +670,12 @@ get_items(Nidx, _From, #rsm_set{max = Max, index = IncIndex,
 		    ejabberd_sql:sql_query_t(
 		      [<<"select top ", (integer_to_binary(Limit))/binary,
 			 " itemid, publisher, creation, modification, payload",
-			 " from pubsub_item", Filters/binary>>]);
+			 " from pubsub_item_new", Filters/binary>>]);
 			 %OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY;
 	       (_, _) ->
 		    ejabberd_sql:sql_query_t(
 		      [<<"select itemid, publisher, creation, modification, payload",
-			 " from pubsub_item", Filters/binary,
+			 " from pubsub_item_new", Filters/binary,
 			 " limit ", (integer_to_binary(Limit))/binary,
 			 " offset ", (integer_to_binary(Offset))/binary>>])
 	    end,
@@ -729,12 +729,12 @@ get_last_items(Nidx, _From, Limit) ->
 		    ejabberd_sql:sql_query_t(
 		      [<<"select top ", (integer_to_binary(Limit))/binary,
 			 " itemid, publisher, creation, modification, payload",
-			 " from pubsub_item where nodeid='", SNidx/binary,
+			 " from pubsub_item_new where nodeid='", SNidx/binary,
 			 "' order by modification desc">>]);
 	       (_, _) ->
 		    ejabberd_sql:sql_query_t(
 		      [<<"select itemid, publisher, creation, modification, payload",
-			 " from pubsub_item where nodeid='", SNidx/binary,
+			 " from pubsub_item_new where nodeid='", SNidx/binary,
 			 "' order by modification desc ",
 			 " limit ", (integer_to_binary(Limit))/binary>>])
 	    end,
@@ -751,11 +751,11 @@ get_only_item(Nidx, _From) ->
     Query = fun(mssql, _) ->
 	ejabberd_sql:sql_query_t(
 	    [<<"select  itemid, publisher, creation, modification, payload",
-	       " from pubsub_item where nodeid='", SNidx/binary, "'">>]);
+	       " from pubsub_item_new where nodeid='", SNidx/binary, "'">>]);
 	       (_, _) ->
 		   ejabberd_sql:sql_query_t(
 		       [<<"select itemid, publisher, creation, modification, payload",
-			  " from pubsub_item where nodeid='", SNidx/binary, "'">>])
+			  " from pubsub_item_new where nodeid='", SNidx/binary, "'">>])
 	    end,
     case catch ejabberd_sql:sql_query_t(Query) of
 	{selected, [<<"itemid">>, <<"publisher">>, <<"creation">>,
@@ -768,7 +768,7 @@ get_only_item(Nidx, _From) ->
 get_item(Nidx, ItemId) ->
     case catch ejabberd_sql:sql_query_t(
 		 ?SQL("select @(itemid)s, @(publisher)s, @(creation)s,"
-		      " @(modification)s, @(payload)s from pubsub_item"
+		      " @(modification)s, @(payload)s from pubsub_item_new"
 		      " where nodeid=%(Nidx)d and itemid=%(ItemId)s"))
     of
 	{selected, [RItem]} ->
@@ -813,16 +813,16 @@ get_item(Nidx, ItemId, JID, AccessModel, PresenceSubscription, RosterGroup, _Sub
     end.
 
 set_item(Item) ->
-    {ItemId, Nidx} = Item#pubsub_item.itemid,
-    {C, _} = Item#pubsub_item.creation,
-    {M, JID} = Item#pubsub_item.modification,
+    {ItemId, Nidx} = Item#pubsub_item_new.itemid,
+    {C, _} = Item#pubsub_item_new.creation,
+    {M, JID} = Item#pubsub_item_new.modification,
     P = encode_jid(JID),
-    Payload = Item#pubsub_item.payload,
+    Payload = Item#pubsub_item_new.payload,
     XML = str:join([fxml:element_to_binary(X) || X<-Payload], <<>>),
     SM = encode_now(M),
     SC = encode_now(C),
     ?SQL_UPSERT_T(
-       "pubsub_item",
+       "pubsub_item_new",
        ["!nodeid=%(Nidx)d",
         "!itemid=%(ItemId)s",
         "publisher=%(P)s",
@@ -834,7 +834,7 @@ set_item(Item) ->
 
 del_item(Nidx, ItemId) ->
     catch ejabberd_sql:sql_query_t(
-            ?SQL("delete from pubsub_item where itemid=%(ItemId)s"
+            ?SQL("delete from pubsub_item_new where itemid=%(ItemId)s"
                  " and nodeid=%(Nidx)d")).
 
 del_items(_, []) ->
@@ -845,7 +845,7 @@ del_items(Nidx, ItemIds) ->
     I = str:join([[<<"'">>, ejabberd_sql:escape(X), <<"'">>] || X <- ItemIds], <<",">>),
     SNidx = misc:i2l(Nidx),
     catch
-    ejabberd_sql:sql_query_t([<<"delete from pubsub_item where itemid in (">>,
+    ejabberd_sql:sql_query_t([<<"delete from pubsub_item_new where itemid in (">>,
 	    I, <<") and nodeid='">>, SNidx, <<"';">>]).
 
 get_item_name(_Host, _Node, Id) ->
@@ -871,7 +871,7 @@ itemids(Nidx, {_U, _S, _R} = JID) ->
     SJIDLike = <<(encode_jid_like(JID))/binary, "/%">>,
     case catch
 	ejabberd_sql:sql_query_t(
-          ?SQL("select @(itemid)s from pubsub_item where "
+          ?SQL("select @(itemid)s from pubsub_item_new where "
                "nodeid=%(Nidx)d and (publisher=%(SJID)s"
                " or publisher like %(SJIDLike)s escape '^') "
                "order by modification desc"))
@@ -999,7 +999,7 @@ raw_to_item(Nidx, {ItemId, SJID, Creation, Modification, XML}) ->
 	{error, _Reason} -> [];
 	El -> [El]
     end,
-    #pubsub_item{itemid = {ItemId, Nidx},
+    #pubsub_item_new{itemid = {ItemId, Nidx},
 	nodeidx = Nidx,
 	creation = {decode_now(Creation), jid:remove_resource(JID)},
 	modification = {decode_now(Modification), JID},

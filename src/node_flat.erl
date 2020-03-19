@@ -48,7 +48,8 @@
     set_state/1, get_items/7, get_items/3, get_item/7,
     get_last_items/3, get_only_item/2,
     get_item/2, set_item/1, get_item_name/3, node_to_path/1,
-    path_to_node/1, can_fetch_item/2, is_subscribed/1, transform/1]).
+    path_to_node/1, can_fetch_item/2, is_subscribed/1, transform/1,
+    fetch_and_transform_just_old_items/0, copy_items_from_old_into_new_table/0]).
 
 init(_Host, _ServerHost, _Opts) ->
     %pubsub_subscription:init(Host, ServerHost, Opts),
@@ -59,6 +60,9 @@ init(_Host, _ServerHost, _Opts) ->
     ejabberd_mnesia:create(?MODULE, pubsub_item,
 	[{disc_only_copies, [node()]}, {index, [nodeidx]},
 	    {attributes, record_info(fields, pubsub_item)}]),
+    ejabberd_mnesia:create(?MODULE, pubsub_item_new,
+	[{disc_only_copies, [node()]}, {index, [nodeidx]},
+	    {attributes, record_info(fields, pubsub_item_new)}]),
     ejabberd_mnesia:create(?MODULE, pubsub_orphan,
 	[{disc_copies, [node()]},
 	    {attributes, record_info(fields, pubsub_orphan)}]),
@@ -380,8 +384,8 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload,
 	    if MaxItems > 0 ->
 		    Now = erlang:timestamp(),
 		    case get_item(Nidx, ItemId) of
-			{result, #pubsub_item{creation = {_, GenKey}} = OldItem} ->
-			    set_item(OldItem#pubsub_item{
+			{result, #pubsub_item_new{creation = {_, GenKey}} = OldItem} ->
+			    set_item(OldItem#pubsub_item_new{
 					itemtype = ItemType,
 					modification = {Now, SubKey},
 					payload = Payload}),
@@ -392,7 +396,7 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload,
 			    Items = [ItemId | GenState#pubsub_state.items],
 			    {result, {NI, OI}} = remove_extra_items(Nidx, MaxItems, Items),
 			    set_state(GenState#pubsub_state{items = NI}),
-			    set_item(#pubsub_item{
+			    set_item(#pubsub_item_new{
 					itemid = {ItemId, Nidx},
 					itemtype = ItemType,
 					nodeidx = Nidx,
@@ -436,7 +440,7 @@ delete_item(Nidx, Publisher, PublishModel, ItemId) ->
 	Affiliation == owner orelse
 	((PublishModel == open orelse PublishModel == subscribers) andalso
 	  case get_item(Nidx, ItemId) of
-	    {result, #pubsub_item{creation = {_, GenKey}}} -> true;
+	    {result, #pubsub_item_new{creation = {_, GenKey}}} -> true;
 	    _ -> false
           end),
     if not Allowed ->
@@ -740,14 +744,18 @@ del_state(#pubsub_state{stateid = {Key, Nidx}, items = Items}) ->
 %% <p>PubSub plugins can store the items where they wants (for example in a
 %% relational database), or they can even decide not to persist any items.</p>
 get_items(Nidx, _From, undefined) ->
-    RItems = lists:keysort(#pubsub_item.creation,
+	ROldItems = lists:keysort(#pubsub_item.creation,
 			   mnesia:index_read(pubsub_item, Nidx, #pubsub_item.nodeidx)),
-    {result, {RItems, undefined}};
+	ROldItemsTransformed = transform_old_items(ROldItems),
+    RItems = lists:keysort(#pubsub_item_new.creation,
+			   mnesia:index_read(pubsub_item_new, Nidx, #pubsub_item_new.nodeidx)),
+    {result, {sets:to_list(sets:from_list(lists:merge([ROldItemsTransformed, RItems]))), undefined}};
 
-get_items(Nidx, _From, #rsm_set{max = Max, index = IncIndex,
+
+get_items(Nidx, From, #rsm_set{max = Max, index = IncIndex,
 				'after' = After, before = Before}) ->
-    case lists:keysort(#pubsub_item.creation,
-                       mnesia:index_read(pubsub_item, Nidx, #pubsub_item.nodeidx)) of
+	{result, {Result, _}} = get_items(Nidx, From, undefined),
+    case Result of
         [] ->
             {result, {[], #rsm_set{count = 0}}};
         RItems ->
@@ -768,14 +776,14 @@ get_items(Nidx, _From, #rsm_set{max = Max, index = IncIndex,
                     {_, Stamp, undefined} ->
                         BeforeNow = encode_stamp(Stamp),
                         SubList = lists:dropwhile(
-                                    fun(#pubsub_item{creation = {Now, _}}) ->
+                                    fun(#pubsub_item_new{creation = {Now, _}}) ->
                                             Now >= BeforeNow
                                     end, lists:reverse(RItems)),
                         {0, lists:sublist(SubList, Limit)};
                     {_, undefined, Stamp} ->
                         AfterNow = encode_stamp(Stamp),
                         SubList = lists:dropwhile(
-                                    fun(#pubsub_item{creation = {Now, _}}) ->
+                                    fun(#pubsub_item_new{creation = {Now, _}}) ->
                                             Now =< AfterNow
                                     end, RItems),
                         {0, lists:sublist(SubList, Limit)}
@@ -823,9 +831,9 @@ get_items(Nidx, JID, AccessModel, PresenceSubscription, RosterGroup, _SubId, RSM
 get_only_item(Nidx, From) ->
     get_last_items(Nidx, From, 1).
 
-get_last_items(Nidx, _From, Count) when Count > 0 ->
-    Items = mnesia:index_read(pubsub_item, Nidx, #pubsub_item.nodeidx),
-    LastItems = lists:reverse(lists:keysort(#pubsub_item.modification, Items)),
+get_last_items(Nidx, From, Count) when Count > 0 ->
+    {result, {Items, _}} = get_items(Nidx, From, undefined),
+    LastItems = lists:reverse(lists:keysort(#pubsub_item_new.modification, Items)),
     {result, lists:sublist(LastItems, Count)};
 get_last_items(_Nidx, _From, _Count) ->
     {result, []}.
@@ -834,8 +842,12 @@ get_last_items(_Nidx, _From, _Count) ->
 
 get_item(Nidx, ItemId) ->
     case mnesia:read({pubsub_item, {ItemId, Nidx}}) of
-	[Item] when is_record(Item, pubsub_item) -> {result, Item};
-	_ -> {error, xmpp:err_item_not_found()}
+	[Item] when is_record(Item, pubsub_item) -> {result, transform_old_item(Item)};
+	_ ->
+		case mnesia:read({pubsub_item_new, {ItemId, Nidx}}) of
+			[ItemNew] -> {result, ItemNew};
+			_ -> {error, xmpp:err_item_not_found()}
+		end
     end.
 
 get_item(Nidx, ItemId, JID, AccessModel, PresenceSubscription, RosterGroup, _SubId) ->
@@ -872,13 +884,14 @@ get_item(Nidx, ItemId, JID, AccessModel, PresenceSubscription, RosterGroup, _Sub
     end.
 
 %% @doc <p>Write an item into database.</p>
-set_item(Item) when is_record(Item, pubsub_item) ->
+set_item(Item) when is_record(Item, pubsub_item) or is_record(Item, pubsub_item_new) ->
     mnesia:write(Item).
 %set_item(_) -> {error, ?ERR_INTERNAL_SERVER_ERROR}.
 
 %% @doc <p>Delete an item from database.</p>
 del_item(Nidx, ItemId) ->
-    mnesia:delete({pubsub_item, {ItemId, Nidx}}).
+    mnesia:delete({pubsub_item, {ItemId, Nidx}}),
+    mnesia:delete({pubsub_item_new, {ItemId, Nidx}}).
 
 del_items(Nidx, ItemIds) ->
     lists:foreach(fun (ItemId) -> del_item(Nidx, ItemId)
@@ -941,8 +954,8 @@ rsm_page(Count, _, _, []) ->
 rsm_page(Count, Index, Offset, Items) ->
     FirstItem = hd(Items),
     LastItem = lists:last(Items),
-    First = decode_stamp(element(1, FirstItem#pubsub_item.creation)),
-    Last = decode_stamp(element(1, LastItem#pubsub_item.creation)),
+    First = decode_stamp(element(1, FirstItem#pubsub_item_new.creation)),
+    Last = decode_stamp(element(1, LastItem#pubsub_item_new.creation)),
     #rsm_set{count = Count, index = Index,
 	     first = #rsm_first{index = Offset, data = First},
 	     last = Last}.
@@ -957,6 +970,44 @@ decode_stamp(Stamp) ->
 	TimeStamp when is_binary(TimeStamp) -> TimeStamp;
 	_ -> Stamp
     end.
+
+
+-spec transform_old_items([#pubsub_item{}]) -> [#pubsub_item_new{}].
+transform_old_items([]) -> [];
+transform_old_items([ FirstItem | Rest]) ->
+	[transform_old_item(FirstItem) | transform_old_items(Rest)].
+
+
+-spec transform_old_item(#pubsub_item{}) -> #pubsub_item_new{}.
+transform_old_item(#pubsub_item{} = Item) ->
+	#pubsub_item_new{
+		itemid = Item#pubsub_item.itemid,
+		itemtype = other,
+		nodeidx = Item#pubsub_item.nodeidx,
+		creation = Item#pubsub_item.creation,
+		modification = Item#pubsub_item.modification,
+		payload = Item#pubsub_item.payload
+	}.
+
+
+
+-spec fetch_and_transform_just_old_items() -> [#pubsub_item_new{}].
+fetch_and_transform_just_old_items() ->
+  OldItems = mnesia:match_object(#pubsub_item{_ = '_'}),
+  transform_old_items(OldItems).
+
+
+-spec copy_items_from_old_into_new_table() -> {result, ok}.
+copy_items_from_old_into_new_table() ->
+	case fetch_and_transform_just_old_items() of
+		[] -> ok;
+		NewItems ->
+			lists:foreach(fun(#pubsub_item_new{} = Item) ->
+							mnesia:write(Item)
+						end, NewItems),
+			{result, ok}
+	end.
+
 
 transform({pubsub_state, {Id, Nidx}, Is, A, Ss}) ->
     {pubsub_state, {Id, Nidx}, Nidx, Is, A, Ss};

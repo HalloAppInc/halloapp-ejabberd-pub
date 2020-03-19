@@ -70,7 +70,8 @@
     delete_item/5, delete_item/6, delete_item/7, send_items/7, get_items/2, get_item/3,
     get_cached_item/2, get_configure/5, set_configure/5,
     tree_action/3, node_action/4, node_call/4, send_last_items/1,
-    purge_expired_items/1, purge_expired_items/3]).
+    purge_expired_items/1, purge_expired_items/3,
+    copy_items_from_old_into_new_table/1]).
 
 %% general helpers for plugins
 -export([extended_error/2, service_jid/1,
@@ -550,7 +551,7 @@ disco_items(Host, Node, From) ->
 		    {result, Items} ->
 			{result, [#disco_item{jid = jid:make(Host),
 					      name = ItemId}
-				  || #pubsub_item{itemid = {ItemId, _}} <- Items]};
+				  || #pubsub_item_new{itemid = {ItemId, _}} <- Items]};
 		    _ ->
 			{result, []}
 		end
@@ -1058,7 +1059,7 @@ iq_disco_items(Host, Item, From, RSM) ->
 						       end
 					       end, SubNodes),
 				     Items = lists:flatmap(
-					       fun(#pubsub_item{itemid = {RN, _}}) ->
+					       fun(#pubsub_item_new{itemid = {RN, _}}) ->
 						       case node_call(Host, Type, get_item_name, [Host, Node, RN]) of
 							   {result, Name} ->
 							       [#disco_item{jid = jid:make(Host), name = Name}];
@@ -1960,10 +1961,10 @@ purge_expired_items_with_pubsub_node(Host, PubSub_Node, Timestamp) ->
 	Now = util:convert_timestamp_secs_to_integer(Timestamp),
 	lists:foldl(
 		fun(Item, {_Status, _Acc}) ->
-			{ItemId, _} = Item#pubsub_item.itemid,
-			{Creationtime, _} = Item#pubsub_item.creation,
+			{ItemId, _} = Item#pubsub_item_new.itemid,
+			{Creationtime, _} = Item#pubsub_item_new.creation,
 			Then = util:convert_timestamp_secs_to_integer(Creationtime),
-			ItemType = Item#pubsub_item.itemtype,
+			ItemType = Item#pubsub_item_new.itemtype,
 			if
 				Now - Then > TTL ->
 					delete_item(Host, NodeId, Owner, ItemId, ItemType);
@@ -2040,7 +2041,7 @@ delete_item(Host, Node, PublisherJID, ItemId, ItemType, Payload, ForceNotify) ->
 	    broadcast_retract_items(Host, Node, Nidx, Type, Options, [ItemId], [ItemType],
 	                            Publisher, Payload, Timestamp, ForceNotify),
 	    case get_cached_item(Host, Nidx) of
-		#pubsub_item{itemid = {ItemId, Nidx}} -> unset_cached_item(Host, Nidx);
+		#pubsub_item_new{itemid = {ItemId, Nidx}} -> unset_cached_item(Host, Nidx);
 		_ -> ok
 	    end,
 	    case Result of
@@ -2154,7 +2155,7 @@ get_items(Host, Node, From, SubId, _MaxItems, ItemIds, RSM) ->
 				Items;
 			    _ ->
 				lists:filter(
-				  fun(#pubsub_item{itemid = {ItemId, _}}) ->
+				  fun(#pubsub_item_new{itemid = {ItemId, _}}) ->
 					  lists:member(ItemId, ItemIds)
 				  end, Items)
 			end,
@@ -2187,7 +2188,7 @@ get_item(Host, Node, ItemId) ->
     end.
 
 -spec get_allowed_items_call(host(), nodeIdx(), jid(),
-			     binary(), nodeOptions(), [ljid()]) -> {result, [#pubsub_item{}]} |
+			     binary(), nodeOptions(), [ljid()]) -> {result, [#pubsub_item_new{}]} |
 								   {error, stanza_error()}.
 get_allowed_items_call(Host, Nidx, From, Type, Options, Owners) ->
     case get_allowed_items_call(Host, Nidx, From, Type, Options, Owners, undefined) of
@@ -2198,7 +2199,7 @@ get_allowed_items_call(Host, Nidx, From, Type, Options, Owners) ->
 -spec get_allowed_items_call(host(), nodeIdx(), jid(),
 			     binary(), nodeOptions(), [ljid()],
 			     undefined | rsm_set()) ->
-				    {result, {[#pubsub_item{}], undefined | rsm_set()}} |
+				    {result, {[#pubsub_item_new{}], undefined | rsm_set()}} |
 				    {error, stanza_error()}.
 get_allowed_items_call(Host, Nidx, From, Type, Options, Owners, RSM) ->
     AccessModel = get_option(Options, access_model),
@@ -2206,7 +2207,7 @@ get_allowed_items_call(Host, Nidx, From, Type, Options, Owners, RSM) ->
     {PS, RG} = get_presence_and_roster_permissions(Host, From, Owners, AccessModel, AllowedGroups),
     node_call(Host, Type, get_items, [Nidx, From, AccessModel, PS, RG, undefined, RSM]).
 
--spec get_last_items(host(), binary(), nodeIdx(), ljid(), last | integer()) -> [#pubsub_item{}].
+-spec get_last_items(host(), binary(), nodeIdx(), ljid(), last | integer()) -> [#pubsub_item_new{}].
 get_last_items(Host, Type, Nidx, LJID, last) ->
     % hack to handle section 6.1.7 of XEP-0060
     get_last_items(Host, Type, Nidx, LJID, 1);
@@ -2228,7 +2229,7 @@ get_last_items(Host, Type, Nidx, LJID, Count) when Count > 1 ->
 get_last_items(_Host, _Type, _Nidx, _LJID, _Count) ->
     [].
 
--spec get_only_item(host(), binary(), nodeIdx(), ljid()) -> [#pubsub_item{}].
+-spec get_only_item(host(), binary(), nodeIdx(), ljid()) -> [#pubsub_item_new{}].
 get_only_item(Host, Type, Nidx, LJID) ->
     case get_cached_item(Host, Nidx) of
 	undefined ->
@@ -2236,7 +2237,7 @@ get_only_item(Host, Type, Nidx, LJID) ->
 		{result, Items} when length(Items) < 2 ->
 		    Items;
 		{result, Items} ->
-		    [hd(lists:keysort(#pubsub_item.modification, Items))];
+		    [hd(lists:keysort(#pubsub_item_new.modification, Items))];
 		_ -> []
 	    end;
 	LastItem ->
@@ -2826,7 +2827,7 @@ payload_xmlelements([_ | Tail], Count) ->
 items_els(Node, _Options, Items) ->
 	%% Ignoring the option of 'itemreply' for now, will add it back if needed.
 	Els = [#ps_item{id = ItemId, timestamp = util:convert_timestamp_to_binary(Timestamp), sub_els = Payload, publisher = jid:encode(USR)}
-	     || #pubsub_item{itemid = {ItemId, _}, payload = Payload, creation = {Timestamp, _}, modification = {_, USR}}
+	     || #pubsub_item_new{itemid = {ItemId, _}, payload = Payload, creation = {Timestamp, _}, modification = {_, USR}}
 		<- Items],
     #ps_items{node = Node, items = Els}.
 
@@ -3163,7 +3164,7 @@ send_items(Host, Node, Nidx, Type, Options, Publisher, SubLJID, ToLJID, Number) 
 	    Delay = case Number of
 		last -> % handle section 6.1.7 of XEP-0060
 		    [Last] = Items,
-		    {Stamp, _USR} = Last#pubsub_item.modification,
+		    {Stamp, _USR} = Last#pubsub_item_new.modification,
 		    [#delay{stamp = Stamp}];
 		_ ->
 		    []
@@ -3673,7 +3674,7 @@ unset_cached_item(Host, Nidx) ->
 	_ -> ok
     end.
 
--spec get_cached_item(host(), nodeIdx()) -> undefined | #pubsub_item{}.
+-spec get_cached_item(host(), nodeIdx()) -> undefined | #pubsub_item_new{}.
 get_cached_item({_, ServerHost, _}, Nidx) ->
     get_cached_item(ServerHost, Nidx);
 get_cached_item(Host, Nidx) ->
@@ -3681,7 +3682,7 @@ get_cached_item(Host, Nidx) ->
 	true ->
 	    case mnesia:dirty_read({pubsub_last_item, {Host, Nidx}}) of
 		[#pubsub_last_item{itemid = ItemId, creation = Creation, payload = Payload}] ->
-		    #pubsub_item{itemid = {ItemId, Nidx},
+		    #pubsub_item_new{itemid = {ItemId, Nidx}, itemtype = other,
 			payload = Payload, creation = Creation,
 			modification = Creation};
 		_ ->
@@ -3690,6 +3691,22 @@ get_cached_item(Host, Nidx) ->
 	_ ->
 	    undefined
     end.
+
+
+%% Temporary dummy function to be able to copy items from the old table into the new table.
+-spec copy_items_from_old_into_new_table(host()) -> ok.
+copy_items_from_old_into_new_table(Host) ->
+    Action = fun (_) ->
+	    node_call(Host, <<"flat">>, copy_items_from_old_into_new_table, [])
+    end,
+    case tree_action(Host, get_nodes, [Host]) of
+		[PubsubNode | _] ->
+			transaction(Host, element(2, PubsubNode#pubsub_node.nodeid), Action, sync_dirty);
+		_ ->
+			?ERROR_MSG("get_nodes transaction failed! ~p~n", [Host]),
+			{error, []}
+	end.
+
 
 %%%% plugin handling
 -spec host(binary()) -> binary().
@@ -4195,11 +4212,11 @@ purge_offline(Host, LJID, Node) ->
 	    ForceNotify = get_option(Options, notify_retract),
 	    {_, NodeId} = Node#pubsub_node.nodeid,
 	    lists:foreach(
-	      fun(#pubsub_item{itemid = {ItemId, _}, modification = {_, {U, S, R}}})
+	      fun(#pubsub_item_new{itemid = {ItemId, _}, modification = {_, {U, S, R}}})
 		    when (U == User) and (S == Server) and (R == Resource) ->
 		      case get_item(Host, Node, ItemId) of
-					#pubsub_item{} = Item ->
-						ItemType = Item#pubsub_item.itemtype;
+					#pubsub_item_new{} = Item ->
+						ItemType = Item#pubsub_item_new.itemtype;
 					_ ->
 						ItemType = other
 			  end,
@@ -4207,7 +4224,7 @@ purge_offline(Host, LJID, Node) ->
 			  {result, {_, broadcast}} ->
 			      broadcast_retract_items(Host, NodeId, Nidx, Type, Options, [ItemId], [ItemType], ForceNotify),
 			      case get_cached_item(Host, Nidx) of
-				  #pubsub_item{itemid = {ItemId, Nidx}} -> unset_cached_item(Host, Nidx);
+				  #pubsub_item_new{itemid = {ItemId, Nidx}} -> unset_cached_item(Host, Nidx);
 				  _ -> ok
 			      end;
 			  _ ->

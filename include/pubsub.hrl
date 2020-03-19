@@ -147,6 +147,15 @@
 -record(pubsub_item,
 {
     itemid                           ,% :: {mod_pubsub:itemId(), mod_pubsub:nodeIdx()},
+    nodeidx                          ,% :: mod_pubsub:nodeIdx(),
+    creation     = {unknown, unknown},% :: {erlang:timestamp(), jid:ljid()},
+    modification = {unknown, unknown},% :: {erlang:timestamp(), jid:ljid()},
+    payload      = []                % :: mod_pubsub:payload()
+}).
+
+-record(pubsub_item_new,
+{
+    itemid                           ,% :: {mod_pubsub:itemId(), mod_pubsub:nodeIdx()},
     itemtype                         ,% :: mod_pubsub:itemType(),
     nodeidx                          ,% :: mod_pubsub:nodeIdx(),
     creation     = {unknown, unknown},% :: {erlang:timestamp(), jid:ljid()},
