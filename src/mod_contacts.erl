@@ -589,6 +589,8 @@ remove_affiliation(User, Server, ContactNumber, NodeName) ->
 %% Notifies contact number about the user using the UserId and the role element to indicate
 %% if they are now friends or not on halloapp.
 -spec notify_contact_about_user(binary(), binary(), binary()) -> ok.
+notify_contact_about_user(User, _Server, User) ->
+    ok;
 notify_contact_about_user(User, Server, ContactNumber) ->
     UserId = obtain_user_id(User, Server),
     ContactUserId = obtain_user_id(ContactNumber, Server),
