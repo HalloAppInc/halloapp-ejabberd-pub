@@ -777,6 +777,8 @@ set_master(Node) when is_atom(Node) ->
 	    {error, String}
     end.
 
+backup_mnesia(Path) when is_binary(Path) ->
+	backup_mnesia(binary_to_list(Path));
 backup_mnesia(Path) ->
     case mnesia:backup(Path) of
         ok ->

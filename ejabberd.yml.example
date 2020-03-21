@@ -241,7 +241,15 @@ modules:
     show_os: false
   mod_contacts: {}
   mod_phone_number_normalization: {}
-  mod_cron: {}
+  mod_cron:
+    tasks:
+      - time: 1
+        units: hours
+        module: ejabberd_admin
+        function: backup_mnesia
+        arguments:
+          - "/usr/local/var/lib/ejabberd/halloapp.backup"
+        timer_type: interval
   mod_whisper:
     min_otp_key_count: 10
   mod_upload_media:
