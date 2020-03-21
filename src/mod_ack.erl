@@ -146,7 +146,7 @@ handle_call({user_send_packet, {Packet, State} = _Acc}, _From, AckState) ->
 %% when we receive an ack for this packet with the same id.
 handle_call({user_receive_packet,{Packet, State} = _Acc}, _From,
                                                 #{ack_wait_queue := AckWaitQueue} = AckState) ->
-    NewPacket = adjust_packet_id(Packet),
+    NewPacket = adjust_packet_id_and_retry_count(Packet),
     ?DEBUG("mod_ack: handle_call: Server is sending a packet to the user: ~p", [NewPacket]),
     Id = xmpp:get_id(NewPacket),
     To = jid:remove_resource(xmpp:get_to(NewPacket)),
@@ -156,7 +156,8 @@ handle_call({user_receive_packet,{Packet, State} = _Acc}, _From,
                                                             TimestampSec,
                                                             NewPacket, AckState),
     PacketTimeoutSec = get_packet_timeout_sec(),
-    send_packet_with_id_to_offline(?needs_ack_packet(NewPacket), Id, To, PacketTimeoutSec),
+    send_packet_with_id_to_offline(?needs_ack_packet(NewPacket), Id, To,
+                                    TimestampSec, PacketTimeoutSec),
     {reply, {NewPacket, State}, NewAckState};
 %% Handle unknown call requests.
 handle_call(Request, _From, AckState) ->
@@ -197,7 +198,8 @@ handle_info({route_offline_message, Packet}, #{ack_wait_queue := AckWaitQueue} =
     NewAckWaitQueue = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
     route_offline_message(Packet),
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
-handle_info({route_offline_message, Id, To}, #{ack_wait_queue := AckWaitQueue} = AckState) ->
+handle_info({route_offline_message, Id, To, TimestampSec},
+            #{ack_wait_queue := AckWaitQueue} = AckState) ->
     ?INFO_MSG("mod_ack: handle_info:
                 Received a route_offline_message message for a packet with id: ~p to: ~p",
                                                                                         [Id, To]),
@@ -206,11 +208,14 @@ handle_info({route_offline_message, Id, To}, #{ack_wait_queue := AckWaitQueue} =
             ?INFO_MSG("mod_ack: handle_info: This packet id: ~p to: ~p has already
                         received an ack/sent to offline already", [Id, To]),
             NewAckWaitQueue = AckWaitQueue;
-        {_, _, _, Packet} ->
+        {_, _, TimestampSec, Packet} ->
             ?INFO_MSG("mod_ack: handle_info: This packet id: ~p to: ~p will be sent
                         to offline_msg to retry again later.", [Id, To]),
             NewAckWaitQueue = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
-            route_offline_message(Packet)
+            route_offline_message(Packet);
+        _ ->
+            ?INFO_MSG("mod_ack: handle_info: route_offline_message with different timestamp", []),
+            NewAckWaitQueue = AckWaitQueue
     end,
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
 %% Handle unknown info requests.
@@ -262,7 +267,14 @@ remove_all_packet_with_to_from_ack_wait_queue(AckTo, AckWaitQueue) ->
 -spec check_and_add_packet_to_ack_wait_queue(boolean(), boolean(), integer(),
                                                      stanza(), state()) -> state().
 check_and_add_packet_to_ack_wait_queue(true, false, TimestampSec, Packet, AckState) ->
-    add_packet_to_ack_wait_queue(Packet, TimestampSec, AckState);
+    RetryCount = xmpp:get_retry_count(Packet),
+    MaxRetryCount = get_max_retry_count(),
+    case RetryCount < MaxRetryCount of
+        true ->
+            add_packet_to_ack_wait_queue(Packet, TimestampSec, AckState);
+        false ->
+            AckState
+    end;
 check_and_add_packet_to_ack_wait_queue(_, _, _TimestampSec, _Packet, AckState) ->
     AckState.
 
@@ -352,15 +364,15 @@ send_packet_to_offline(true, _Pkt) ->
 
 %% Sends a message to this gen_server process after the timeout mentioned which will then trigger
 %% route_offline_message to store the packet in offline_msg to retry sending later.
--spec send_packet_with_id_to_offline(boolean(), binary(), jid(), integer()) -> ok.
-send_packet_with_id_to_offline(true, Id, To, PacketTimeoutSec) ->
+-spec send_packet_with_id_to_offline(boolean(), binary(), jid(), integer(), integer()) -> ok.
+send_packet_with_id_to_offline(true, Id, To, TimestampSec, PacketTimeoutSec) ->
     %% send to offline_msg after PacketTimeoutSec seconds.
     ?DEBUG("mod_ack: will route this packet with id: ~p to: ~p, to offline_msg after ~p sec.",
                                                         [Id, To, PacketTimeoutSec]),
     erlang:send_after(PacketTimeoutSec * 1000, self(),
-                        {route_offline_message, Id, To}),
+                        {route_offline_message, Id, To, TimestampSec}),
     ok;
-send_packet_with_id_to_offline(false, _, _, _) ->
+send_packet_with_id_to_offline(false, _, _, _, _) ->
     ok.
 
 
@@ -383,6 +395,15 @@ compare(AckWaitQueueLength, MaxAckWaitItems, lenient) ->
 compare(AckWaitQueueLength, MaxAckWaitItems, strict) ->
     AckWaitQueueLength >= MaxAckWaitItems.
 
+
+%% Adjusts both packet id and retry count for messages.
+-spec adjust_packet_id_and_retry_count(stanza()) -> stanza().
+adjust_packet_id_and_retry_count(#message{} = Packet) ->
+    NewPacket = adjust_packet_id(Packet),
+    Count = xmpp:get_retry_count(NewPacket),
+    xmpp:set_retry_count(NewPacket, Count + 1);
+adjust_packet_id_and_retry_count(Packet) ->
+    Packet.
 
 
 %% Since, some server generated messages go without id, we add an id ourselves.
@@ -438,10 +459,16 @@ lookup_member(AckId, AckTo, Queue) ->
 %% [https://erlang.org/doc/man/persistent_term.html]
 store_options(Opts) ->
     MaxAckWaitItems = mod_ack_opt:max_ack_wait_items(Opts),
+    MaxRetryCount = mod_ack_opt:max_retry_count(Opts),
     PacketTimeoutSec = mod_ack_opt:packet_timeout_sec(Opts),
     %% Store MaxAckWaitItems and PacketTimeoutSec.
     persistent_term:put({?MODULE, max_ack_wait_items}, MaxAckWaitItems),
+    persistent_term:put({?MODULE, max_retry_count}, MaxRetryCount),
     persistent_term:put({?MODULE, packet_timeout_sec}, PacketTimeoutSec).
+
+-spec get_max_retry_count() -> 'infinity' | pos_integer().
+get_max_retry_count() ->
+    persistent_term:get({?MODULE, max_retry_count}).
 
 -spec get_max_ack_wait_items() -> 'infinity' | pos_integer().
 get_max_ack_wait_items() ->
@@ -453,12 +480,14 @@ get_packet_timeout_sec() ->
 
 mod_opt_type(max_ack_wait_items) ->
     econf:pos_int(infinity);
+mod_opt_type(max_retry_count) ->
+    econf:pos_int(infinity);
 mod_opt_type(packet_timeout_sec) ->
     econf:pos_int(infinity).
 
 mod_options(_Host) ->
     [{max_ack_wait_items, 5000},            %% max number of packets waiting for ack.
+     {max_retry_count, 5},                  %% max number of retries for sending a packet.
      {packet_timeout_sec, 40}].             %% we then send the packet to offline_msg after this.
-
 
 
