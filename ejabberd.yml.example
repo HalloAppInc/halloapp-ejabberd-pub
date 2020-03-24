@@ -240,7 +240,6 @@ modules:
   mod_version:
     show_os: false
   mod_contacts: {}
-  mod_phone_number_normalization: {}
   mod_cron:
     tasks:
       - time: 1
