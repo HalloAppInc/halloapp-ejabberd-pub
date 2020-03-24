@@ -294,7 +294,7 @@ fetch_and_transform_just_contacts() ->
         lists:map(fun(#user_contacts{username = Username, contact = Contact}) ->
                     UserSyncId = case fetch_syncid(Username) of
                                   {ok, Id} -> Id;
-                                  _ -> undefined
+                                  _ -> <<>>
                                 end,
                     #user_contacts_new{username = Username,
                                       contact = Contact,
@@ -315,13 +315,24 @@ fetch_and_transform_just_contacts() ->
 
 -spec update_contacts_new_table() -> {ok, ok} | {error, any()}.
 update_contacts_new_table() ->
-  case fetch_and_transform_just_contacts() of
-    {ok, TransformedContacts} ->
-      lists:foreach(fun(#user_contacts_new{} = UserContactNew) ->
-                      mnesia:write(UserContactNew)
-                    end, TransformedContacts),
-      {ok, ok};
-    {error, _} ->
+  F = fun() ->
+        case fetch_and_transform_just_contacts() of
+          {ok, TransformedContacts} ->
+            lists:foreach(fun(#user_contacts_new{} = UserContactNew) ->
+                            mnesia:write(UserContactNew)
+                          end, TransformedContacts),
+            {ok, ok};
+          {error, _} ->
+            {error, db_failure}
+        end
+      end,
+  case mnesia:transaction(F) of
+    {atomic, Result} ->
+      ?DEBUG("update_contacts_new_table: Mnesia transaction successful for all contacts", []),
+      {ok, Result};
+    {aborted, Reason} ->
+      ?ERROR_MSG("update_contacts_new_table:
+              Mnesia transaction failed for all contacts with reason: ~p", [Reason]),
       {error, db_failure}
   end.
 
