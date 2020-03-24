@@ -11,7 +11,7 @@
 %%%----------------------------------------------------------------------
 
 -module(mod_push_notifications_mnesia).
-
+-author('murali').
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("translate.hrl").

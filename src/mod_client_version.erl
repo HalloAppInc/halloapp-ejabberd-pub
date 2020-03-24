@@ -12,7 +12,7 @@
 %%%----------------------------------------------------------------------
 
 -module(mod_client_version).
-
+-author('murali').
 -behaviour(gen_mod).
 
 -include("logger.hrl").

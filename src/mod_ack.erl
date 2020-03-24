@@ -26,6 +26,7 @@
 %%%   if not, we create a uuid and use it.
 %%%-------------------------------------------------------------------
 -module(mod_ack).
+-author('murali').
 -behaviour(gen_mod).
 -behaviour(gen_server).
 

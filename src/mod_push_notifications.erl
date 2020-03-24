@@ -28,7 +28,7 @@
 %%%----------------------------------------------------------------------
 
 -module(mod_push_notifications).
-
+-author('murali').
 -behaviour(gen_mod).
 -behaviour(gen_server).
 

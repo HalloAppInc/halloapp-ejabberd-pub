@@ -13,7 +13,7 @@
 %%%----------------------------------------------------------------------
 
 -module(mod_receipts).
-
+-author('murali').
 -behaviour(gen_mod).
 
 -include("logger.hrl").

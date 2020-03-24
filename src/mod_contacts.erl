@@ -34,7 +34,7 @@
 %%%----------------------------------------------------------------------
 
 -module(mod_contacts).
-
+-author('murali').
 -behaviour(gen_mod).
 
 -include("phone_number.hrl").

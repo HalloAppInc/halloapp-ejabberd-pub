@@ -10,7 +10,7 @@
 %%%----------------------------------------------------------------------
 
 -module(mod_whisper_mnesia).
-
+-author('murali').
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("translate.hrl").

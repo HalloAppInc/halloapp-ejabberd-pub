@@ -11,7 +11,7 @@
 %%%----------------------------------------------------------------------
 
 -module(mod_client_version_mnesia).
-
+-author('murali').
 -include("logger.hrl").
 -include("translate.hrl").
 

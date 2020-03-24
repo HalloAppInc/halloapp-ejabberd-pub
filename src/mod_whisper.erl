@@ -17,7 +17,7 @@
 %%%----------------------------------------------------------------------
 
 -module(mod_whisper).
-
+-author('murali').
 -behaviour(gen_mod).
 
 -include("logger.hrl").
