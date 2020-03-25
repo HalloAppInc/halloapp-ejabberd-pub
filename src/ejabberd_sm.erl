@@ -797,35 +797,16 @@ is_privacy_allow(Packet) ->
 route_message(#message{to = To, type = Type} = Packet) ->
     LUser = To#jid.luser,
     LServer = To#jid.lserver,
-    PrioRes = get_user_present_resources(LUser, LServer),
-    case catch lists:max(PrioRes) of
-      {MaxPrio, MaxRes}
-	  when is_integer(MaxPrio), MaxPrio >= 0 ->
-	  lists:foreach(fun ({P, R}) when P == MaxPrio;
-					  (P >= 0) and (Type == headline) ->
-				LResource = jid:resourceprep(R),
-				Mod = get_sm_backend(LServer),
-				case get_sessions(Mod, LUser, LServer,
-						  LResource) of
-				  [] ->
-				      ok; % Race condition
-				  Ss ->
-				      Session = lists:max(Ss),
-				      Pid = element(2, Session#session.sid),
-				      ?DEBUG("Sending to process ~p~n", [Pid]),
-				      LMaxRes = jid:resourceprep(MaxRes),
-				      Packet1 = maybe_mark_as_copy(Packet,
-								   LResource,
-								   LMaxRes,
-								   P, MaxPrio),
-				      ejabberd_c2s:route(Pid, {route, Packet1})
-				end;
-			    %% Ignore other priority:
-			    ({_Prio, _Res}) -> ok
-			end,
-			PrioRes);
-      _ ->
-	    route_offline_message(Packet)
+    Mod = get_sm_backend(LServer),
+    %% Ignore presence information and just rely on the connection state.
+    case get_sessions(Mod, LUser, LServer) of
+        [] ->
+            route_offline_message(Packet);
+        Ss ->
+            Session = lists:max(Ss),
+            Pid = element(2, Session#session.sid),
+            ?DEBUG("Sending to process ~p~n", [Pid]),
+            ejabberd_c2s:route(Pid, {route, Packet})
     end.
 
 -spec maybe_mark_as_copy(message(), binary(), binary(), integer(), integer())
