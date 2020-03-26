@@ -200,13 +200,12 @@ delete_contacts(Username) ->
 -spec fetch_contacts({binary(), binary()}) -> {ok, [#user_contacts_new{}]} | {error, any()}.
 fetch_contacts(Username) ->
   F = fun() ->
+        UserSyncId = case fetch_syncid(Username) of
+                        {ok, [#user_syncids{syncid = SyncId}]} -> SyncId;
+                        _ -> <<"">>
+                      end,
         Result1 = mnesia:match_object(#user_contacts_new{username = Username, _ = '_'}),
         Result2 = lists:map(fun(#user_contacts{username = ActualUsername, contact = Contact}) ->
-                                UserSyncId = case fetch_syncid(ActualUsername) of
-                                                {ok, [#user_syncids{syncid = SyncId}]} -> SyncId;
-                                                _ -> <<"">>
-                                              end,
-
                                 UserContactNewRecord = #user_contacts_new{username = ActualUsername,
                                                                           contact = Contact,
                                                                           syncid = UserSyncId},
@@ -293,9 +292,9 @@ fetch_and_transform_just_contacts() ->
   F = fun() ->
         lists:map(fun(#user_contacts{username = Username, contact = Contact}) ->
                     UserSyncId = case fetch_syncid(Username) of
-                                  {ok, Id} -> Id;
-                                  _ -> <<>>
-                                end,
+                                    {ok, [#user_syncids{syncid = SyncId}]} -> SyncId;
+                                    _ -> <<"">>
+                                  end,
                     #user_contacts_new{username = Username,
                                       contact = Contact,
                                       syncid = UserSyncId}
