@@ -679,8 +679,30 @@ unsubscribe_user(Host, Entity, Owner) ->
 %%
 
 -spec remove_user(binary(), binary()) -> ok.
-remove_user(_User, _Server) ->
-	ok.
+remove_user(User, Server) ->
+	LUser = jid:nodeprep(User),
+	LServer = jid:nameprep(Server),
+	Entity = jid:make(LUser, LServer),
+	Host = host(LServer),
+	lists:foreach(
+	  fun(PType) ->
+	      case node_action(Host, PType,
+			       get_entity_subscriptions,
+			       [Host, Entity]) of
+		  {result, Subs} ->
+		      lists:foreach(
+			fun({#pubsub_node{id = Nidx}, _, _, JID}) ->
+				node_action(Host, PType,
+					    unsubscribe_node,
+					    [Nidx, Entity, JID, all]);
+			   (_) ->
+				ok
+			end, Subs);
+		  _ ->
+		      ok
+	      end
+	  end, plugins(Host)).
+
 
 remove_user_temp(User, Server) ->
     LUser = jid:nodeprep(User),
