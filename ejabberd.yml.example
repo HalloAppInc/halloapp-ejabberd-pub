@@ -240,6 +240,7 @@ modules:
   mod_version:
     show_os: false
   mod_contacts: {}
+  mod_user_activity: {}
   mod_cron:
     tasks:
       - time: 1
