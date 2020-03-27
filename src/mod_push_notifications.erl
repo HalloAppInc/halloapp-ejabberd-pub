@@ -150,7 +150,7 @@ handle_call(Request, _From, State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 handle_cast({process_message, Message} = _Request, State) ->
-    ?DEBUG("mod_push_notifications: handle_cast: process_message", []),
+    ?DEBUG("mod_push_notifications: handle_cast: process_message: ~p", [Message]),
     NewState = process_message(Message, State),
     {noreply, NewState};
 
@@ -245,15 +245,14 @@ handle_message({_, #message{to = #jid{luser = _, lserver = ServerHost}} = Messag
         #message{sub_els = [#ps_event{items = #ps_items{node = Node}}]} ->
             case re:run(binary_to_list(Node), "feed-.*", [global, {capture, none}]) of
                 match ->
-                    ?DEBUG("mod_push_notifications: handle_message:
-                            sending a push notification for this message: ~p", [Message]),
                     gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE),
                                                                 {process_message, Message});
                 _ ->
-                    ?DEBUG("mod_push_notifications: handle_message: ignoring this message
-                                                for push notifications: ~p", [Message]),
                     ok
             end;
+        #message{sub_els = [#chat{}]} ->
+            gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE),
+                                                                {process_message, Message});
         _ ->
             ?ERROR_MSG("mod_push_notifications: handle_message: ignoring this message
                                                         for push notifications: ~p", [Message]),
