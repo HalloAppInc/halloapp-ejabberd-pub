@@ -353,7 +353,7 @@ insert_syncid(User, Server, SyncId) ->
     Username = {User, Server},
     case mod_contacts_mnesia:insert_syncid(Username, SyncId) of
         {ok, _} ->
-            ?DEBUG("Successfully inserted syncid: ~p for username: ~p", [SyncId, Username]);
+            ok;
         {error, _} ->
             ?ERROR_MSG("Failed to insert syncid: ~p for username: ~p", [SyncId, Username])
     end.
@@ -600,11 +600,9 @@ notify_contact_about_user(User, Server, ContactNumber) ->
 
 %% Checks the UserId, ContactUserId if available and sends a message to the contact.
 -spec check_and_send_message_to_contact(binary(), binary(), binary(), binary(), binary()) -> ok.
-check_and_send_message_to_contact(User, Server, ContactNumber, undefined, _) ->
-    ?DEBUG("Ignore notifying contact: ~p about user: ~p", [{ContactNumber, Server}, User]),
+check_and_send_message_to_contact(_User, _Server, _ContactNumber, undefined, _) ->
     ok;
-check_and_send_message_to_contact(User, Server, ContactNumber, _, undefined) ->
-    ?DEBUG("Ignore notifying contact: ~p about user: ~p", [{ContactNumber, Server}, User]),
+check_and_send_message_to_contact(_User, _Server, _ContactNumber, _, undefined) ->
     ok;
 check_and_send_message_to_contact(User, Server, ContactNumber, UserId, _ContactUserId) ->
     Role = certify(ContactNumber, Server, User),

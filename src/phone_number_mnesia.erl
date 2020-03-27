@@ -65,8 +65,6 @@ insert(RegionMetadata) ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-        ?DEBUG("Successfully inserted region_metadata for regionId: ~p, into the table: ~p",
-                [RegionMetadata#region_metadata.id, ?LIBPHONENUMBER_METADATA_TABLE]),
         Result;
     {aborted, _Reason} ->
         ?ERROR_MSG("Failed inserting region_metadata for regionId: ~p, into the table: ~p",
@@ -84,8 +82,6 @@ lookup(RegionId) ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-        ?DEBUG("Successfully retrieved region_metadata for RegionId: ~p, from the table: ~p",
-                [RegionId, ?LIBPHONENUMBER_METADATA_TABLE]),
         Result;
     {aborted, _Reason} ->
         ?ERROR_MSG("Failed retrieving region_metadata for RegionId: ~p, from the table: ~p",
@@ -116,8 +112,6 @@ match_object_on_country_code(CountryCode) ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-        ?DEBUG("Successfully retrieved region_metadata for CountryCode: ~p, from the table: ~p",
-                [CountryCode, ?LIBPHONENUMBER_METADATA_TABLE]),
         Result;
     {aborted, _Reason} ->
         ?ERROR_MSG("Failed retrieving region_metadata for CountryCode: ~p, from the table: ~p",

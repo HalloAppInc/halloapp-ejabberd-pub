@@ -143,7 +143,7 @@ parse_helper(PhoneNumberState, DefaultRegionId) ->
                                                     raw = PhoneNumberState#phone_number_state.raw
                                                 }, DefaultRegionId);
                                         _ ->
-                                            ?DEBUG("parse_helper_internal: final output:
+                                            ?ERROR_MSG("parse_helper_internal: final output:
                                                     failed to parse phone number: ~p",[invalid]),
                                             {error, invalid}
                                     end;
@@ -160,8 +160,6 @@ parse_helper(PhoneNumberState, DefaultRegionId) ->
 -spec parse_helper_internal(#phone_number_state{}, binary()) ->
                                                     #phone_number_state{} | {error, any()}.
 parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
-    ?DEBUG("parse_helper_internal: current input:
-            PhoneNumberState: ~p, DefaultRegionId: ~p",[PhoneNumberState, DefaultRegionId]),
     PossiblePhoneNumber = PhoneNumberState#phone_number_state.phone_number,
     Raw = PhoneNumberState#phone_number_state.raw,
     case phone_number_mnesia:member(DefaultRegionId) of
@@ -210,7 +208,7 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
         undefined ->
             if
                 NormalizedNationalNumber == undefined ->
-                    ?DEBUG("parse_helper_internal: final output:
+                    ?ERROR_MSG("parse_helper_internal: final output:
                             failed to parse phone number: ~p",[invalid_but_retry]),
                     {error, invalid_but_retry};
                 length(NormalizedNationalNumber) >= ?MIN_LENGTH_FOR_NSN andalso
@@ -222,11 +220,9 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
                                             raw = Raw,
                                             country_code_source = NewCountryCodeSource
                                             },
-                    ?DEBUG("parse_helper_internal: final output:
-                            PhoneNumberState: ~p",[NewPhoneNumberState]),
                     NewPhoneNumberState;
                 true ->
-                    ?DEBUG("parse_helper_internal: final output:
+                    ?ERROR_MSG("parse_helper_internal: final output:
                             failed to parse phone number: ~p",[invalid]),
                     {error, invalid}
             end;
@@ -244,8 +240,6 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
             if
                 Res =/= tooShort andalso Res =/= isPossibleLocalOnly andalso
                                                     Res =/= invalidLength ->
-                    ?DEBUG("parse_helper_internal: final output:
-                            PhoneNumberState: ~p",[NewState]),
                     NewState;
                 true ->
                     if
@@ -258,11 +252,9 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
                                                     raw = Raw,
                                                     country_code_source = NewCountryCodeSource
                                                     },
-                            ?DEBUG("parse_helper_internal: final output:
-                            PhoneNumberState: ~p",[NewPhoneNumberState]),
                             NewPhoneNumberState;
                         true ->
-                            ?DEBUG("parse_helper_internal: final output:
+                            ?ERROR_MSG("parse_helper_internal: final output:
                                     failed to parse phone number: ~p",[invalid]),
                             {error, invalid}
                     end
@@ -280,12 +272,10 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
 -spec maybe_extract_country_code(#phone_number_state{}, #region_metadata{}) ->
                                                         #phone_number_state{} | {error, any()}.
 maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
-    ?DEBUG("maybe_extract_country_code: current input: PhoneNumberState: ~p, RegionMetadata: ~p",
-            [PhoneNumberState0, RegionMetadata]),
     PhoneNumber = PhoneNumberState0#phone_number_state.phone_number,
     if
         PhoneNumber == undefined orelse length(PhoneNumber) == 0 ->
-            ?DEBUG("maybe_extract_country_code:final output:
+            ?ERROR_MSG("maybe_extract_country_code:final output:
                     failed to extract country_code: ~p",[invalid_phone_number]),
             {error, invalid_phone_number};
         true ->
@@ -299,7 +289,7 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
                     case length(PhoneNumberState1#phone_number_state.phone_number)
                                 =< ?MIN_LENGTH_FOR_NSN of
                         true ->
-                            ?DEBUG("maybe_extract_country_code: final output:
+                            ?ERROR_MSG("maybe_extract_country_code: final output:
                                     failed to extract country_code: ~p",[invalid_phone_number]),
                             {error, invalid_phone_number};
                         false ->
@@ -308,14 +298,12 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
                                 PhoneNumberState2#phone_number_state.country_code,
                             if
                                 NewCountryCode =/= "0" ->
-                                    ?DEBUG("maybe_extract_country_code: final output:
-                                        PhoneNumberState: ~p",[PhoneNumberState2]),
                                     PhoneNumberState2;
                                 true ->
                                     %% If this fails, they must be using a strange country
                                     %% calling code that we don't recognize,
                                     %% or that doesn't exist.
-                                    ?DEBUG("maybe_extract_country_code: final output:
+                                    ?ERROR_MSG("maybe_extract_country_code: final output:
                                         failed to extract country_code: ~p",[invalid_country_code]),
                                     {error, invalid_country_code}
                             end
@@ -338,8 +326,6 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
                                         country_code_source =
                                             PhoneNumberState1#phone_number_state.country_code_source
                                     },
-                                    ?DEBUG("maybe_extract_country_code: final output:
-                                        PhoneNumberState: ~p",[NewPhoneNumberState]),
                                     NewPhoneNumberState;
                                 PotentialNationalNumber ->
                                     TempPhoneNumberState =
@@ -374,8 +360,6 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
                                                 raw = PhoneNumberState2#phone_number_state.raw,
                                                 country_code_source = fromNumberWithoutPlusSign
                                             },
-                                            ?DEBUG("maybe_extract_country_code: final output:
-                                                    PhoneNumberState: ~p",[NewPhoneNumberState]),
                                             NewPhoneNumberState;
                                         false ->
                                             NewCountryCode = "0",
@@ -389,8 +373,6 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
                                                 country_code_source =
                                                 PhoneNumberState1#phone_number_state.country_code_source
                                             },
-                                            ?DEBUG("maybe_extract_country_code: final output:
-                                                    PhoneNumberState: ~p",[NewPhoneNumberState]),
                                             NewPhoneNumberState
                                     end
                             end;
@@ -405,8 +387,6 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
                                 country_code_source =
                                     PhoneNumberState1#phone_number_state.country_code_source
                             },
-                            ?DEBUG("maybe_extract_country_code: final output:
-                                    PhoneNumberState: ~p",[NewPhoneNumberState]),
                             NewPhoneNumberState
                     end
             end
@@ -418,8 +398,6 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
 -spec maybe_strip_national_prefix_and_carrier_code(#phone_number_state{}, #region_metadata{}) ->
                                                                         #phone_number_state{}.
 maybe_strip_national_prefix_and_carrier_code(PhoneNumberState, RegionMetadata) ->
-    ?DEBUG("maybe_strip_national_prefix_and_carrier_code: current input:
-            PhoneNumberState: ~p, RegionMetadata: ~p",[PhoneNumberState, RegionMetadata]),
     PotentialNationalNumber = PhoneNumberState#phone_number_state.phone_number,
     Attributes = RegionMetadata#region_metadata.attributes,
     PotentialNationalPrefix = Attributes#attributes.national_prefix_for_parsing,
@@ -501,8 +479,6 @@ maybe_strip_national_prefix_and_carrier_code(PhoneNumberState, RegionMetadata) -
         raw = PhoneNumberState#phone_number_state.raw,
         country_code_source = PhoneNumberState#phone_number_state.country_code_source
     },
-    ?DEBUG("maybe_strip_national_prefix_and_carrier_code:
-            final output: PhoneNumberState: ~p",[NewPhoneNumberState]),
     NewPhoneNumberState.
 
 
@@ -512,8 +488,6 @@ maybe_strip_national_prefix_and_carrier_code(PhoneNumberState, RegionMetadata) -
 %% a valid country calling code, and sets national_number to be phone_number's value.
  -spec extract_country_code(#phone_number_state{}, integer()) -> #phone_number_state{}.
 extract_country_code(PhoneNumberState, Count) ->
-    ?DEBUG("extract_country_code: current input: PhoneNumberState: ~p, Count: ~p",
-            [PhoneNumberState, Count]),
     PhoneNumber = PhoneNumberState#phone_number_state.phone_number,
     if
         Count > ?MAX_LENGTH_COUNTRY_CODE ->
@@ -524,8 +498,6 @@ extract_country_code(PhoneNumberState, Count) ->
                 raw = PhoneNumberState#phone_number_state.raw,
                 country_code_source = PhoneNumberState#phone_number_state.country_code_source
             },
-            ?DEBUG("extract_country_code: final output: PhoneNumberState: ~p",
-                    [NewPhoneNumberState]),
             NewPhoneNumberState;
         true ->
             PotentialCountryCode = string:slice(PhoneNumber, 0, Count),
@@ -540,8 +512,6 @@ extract_country_code(PhoneNumberState, Count) ->
                         country_code_source =
                             PhoneNumberState#phone_number_state.country_code_source
                     },
-                    ?DEBUG("extract_country_code: final output: PhoneNumberState: ~p",
-                            [NewPhoneNumberState]),
                     NewPhoneNumberState;
                 _ ->
                     extract_country_code(PhoneNumberState, Count + 1)
@@ -555,9 +525,6 @@ extract_country_code(PhoneNumberState, Count) ->
 -spec maybe_strip_international_prefix_and_normalize(#phone_number_state{}, list()) ->
                                                         #phone_number_state{}.
 maybe_strip_international_prefix_and_normalize(PhoneNumberState, InternationalPrefix) ->
-    ?DEBUG("maybe_strip_international_prefix_and_normalize: current input:
-            PhoneNumberState: ~p, InternationalPrefix: ~p", [PhoneNumberState,
-                                                                InternationalPrefix]),
     PhoneNumber0 = PhoneNumberState#phone_number_state.phone_number,
     case re:run(PhoneNumber0, get_plus_characters_pattern_matcher(), [notempty]) of
         {match, [{0, Length} | _Rest]} ->
@@ -601,8 +568,6 @@ maybe_strip_international_prefix_and_normalize(PhoneNumberState, InternationalPr
         raw = PhoneNumberState#phone_number_state.raw,
         country_code_source = NewCountryCodeSource
     },
-    ?DEBUG("maybe_strip_international_prefix_and_normalize:
-            final output: PhoneNumberState: ~p",[NewPhoneNumberState]),
     NewPhoneNumberState.
 
 
@@ -610,8 +575,6 @@ maybe_strip_international_prefix_and_normalize(PhoneNumberState, InternationalPr
 %% e164_value will be 'CountryCode' followed by the national number. We won't be using + here.
 -spec format_number_internal(#phone_number_state{}) -> #phone_number_state{}.
 format_number_internal(PhoneNumberState) ->
-    ?DEBUG("format_number_internal:
-            current input: PhoneNumberState: ~p",[PhoneNumberState]),
     CountryCode = PhoneNumberState#phone_number_state.country_code,
     NationalNumber = PhoneNumberState#phone_number_state.national_number,
     case CountryCode of
@@ -626,8 +589,6 @@ format_number_internal(PhoneNumberState) ->
                                                     e164_value = CountryCode++NationalNumber}
             end
     end,
-    ?DEBUG("format_number_internal:
-            final output: PhoneNumberState: ~p",[NewPhoneNumberState]),
     NewPhoneNumberState.
 
 
@@ -638,8 +599,6 @@ format_number_internal(PhoneNumberState) ->
 %% digits entered by the user is diallable from the region provided when parsing.
 -spec is_valid_number_internal(#phone_number_state{}) -> #phone_number_state{}.
 is_valid_number_internal(PhoneNumberState) ->
-    ?DEBUG("is_valid_number_internal:
-            current input: PhoneNumberState: ~p",[PhoneNumberState]),
     RegionId = get_region_id_for_number(PhoneNumberState),
     case RegionId of
         {error, _} ->
@@ -648,8 +607,6 @@ is_valid_number_internal(PhoneNumberState) ->
             Valid = is_valid_number_for_region(PhoneNumberState, RegionId),
             NewPhoneNumberState = PhoneNumberState#phone_number_state{valid = Valid}
     end,
-    ?DEBUG("is_valid_number_internal:
-            final output: PhoneNumberState: ~p",[NewPhoneNumberState]),
     NewPhoneNumberState.
 
 
@@ -691,7 +648,6 @@ is_valid_number_for_region(PhoneNumberState, RegionId) ->
  get_region_id_for_number(PhoneNumberState) ->
     CountryCode = PhoneNumberState#phone_number_state.country_code,
     Matches = phone_number_mnesia:match_object_on_country_code(CountryCode),
-    ?DEBUG("get_region_id_for_number: ~p, ~p, ~p", [PhoneNumberState, CountryCode, Matches]),
     case Matches of
         [] ->
             {error, invalid_phone_number1};

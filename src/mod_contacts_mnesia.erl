@@ -56,8 +56,6 @@ insert_contact(Username, Contact, SyncId) ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-        ?DEBUG("insert_contact:
-                Mnesia transaction successful for username: ~p", [Username]),
         Result;
     {aborted, Reason} ->
         ?ERROR_MSG("insert_contact:
@@ -78,8 +76,6 @@ insert_syncid(Username, SyncId) ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-        ?DEBUG("insert_syncid:
-                Mnesia transaction successful for username: ~p", [Username]),
         Result;
     {aborted, Reason} ->
         ?ERROR_MSG("insert_syncid:
@@ -116,7 +112,6 @@ delete_contact(Username, Contact) ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-      ?DEBUG("delete_contact: Mnesia transaction successful for username: ~p", [Username]),
       {ok, Result};
     {aborted, Reason} ->
       ?ERROR_MSG("delete_contact:
@@ -153,7 +148,6 @@ delete_contact(Username, Contact, SyncId) ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-      ?DEBUG("delete_contact: Mnesia transaction successful for username: ~p", [Username]),
       {ok, Result};
     {aborted, Reason} ->
       ?ERROR_MSG("delete_contact:
@@ -187,7 +181,6 @@ delete_contacts(Username) ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-      ?DEBUG("delete_contacts: Mnesia transaction successful for username: ~p", [Username]),
       {ok, Result};
     {aborted, Reason} ->
       ?ERROR_MSG("delete_contacts:
@@ -226,7 +219,6 @@ fetch_contacts(Username) ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-      ?DEBUG("fetch_contacts: Mnesia transaction successful for username: ~p", [Username]),
       {ok, Result};
     {aborted, Reason} ->
       ?ERROR_MSG("fetch_contacts:
@@ -244,7 +236,6 @@ fetch_syncid(Username) ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-      ?DEBUG("fetch_syncid: Mnesia transaction successful for username: ~p", [Username]),
       {ok, Result};
     {aborted, Reason} ->
       ?ERROR_MSG("fetch_syncid:
@@ -277,7 +268,6 @@ check_if_contact_exists(Username, Contact) ->
       end,
   case mnesia:transaction(F) of
     {atomic, Res} ->
-      ?DEBUG("check_if_contact_exists: Mnesia transaction successful for username: ~p", [Username]),
       Res;
     {aborted, Reason} ->
       ?ERROR_MSG("check_if_contact_exists:
@@ -302,7 +292,6 @@ fetch_and_transform_just_contacts() ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-      ?DEBUG("fetch_contacts: Mnesia transaction successful for all contacts", []),
       {ok, Result};
     {aborted, Reason} ->
       ?ERROR_MSG("fetch_contacts:
@@ -327,7 +316,6 @@ update_contacts_new_table() ->
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
-      ?DEBUG("update_contacts_new_table: Mnesia transaction successful for all contacts", []),
       {ok, Result};
     {aborted, Reason} ->
       ?ERROR_MSG("update_contacts_new_table:
