@@ -273,6 +273,8 @@ modules:
   mod_ack:
     max_ack_wait_items: 5000
     packet_timeout_sec: 40
+  mod_redis: {}
+  model_friends: {}
 
 ### Local Variables:
 ### mode: yaml
