@@ -8,9 +8,6 @@
                         contact :: {binary(), binary()},
                         syncid :: binary()}).
 
--record(user_contacts, {username :: {binary(), binary()},
-                        contact :: {binary(), binary()}}).
-
 -record(user_syncids, {username :: {binary(), binary()},
                        syncid :: binary()}).
 

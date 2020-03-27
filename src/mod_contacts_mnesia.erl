@@ -21,14 +21,8 @@
 -export([insert_contact/3, insert_syncid/2, delete_contact/2, delete_contact/3,
           delete_contacts/1, fetch_contacts/1, fetch_syncid/1, check_if_contact_exists/2]).
 
-%% exported debug commands for console use only.
--export([fetch_and_transform_just_contacts/0, update_contacts_new_table/0]).
 
 init(_Host, _Opts) ->
-  ejabberd_mnesia:create(?MODULE, user_contacts,
-                        [{disc_copies, [node()]},
-                        {type, bag},
-                        {attributes, record_info(fields, user_contacts)}]),
   ejabberd_mnesia:create(?MODULE, user_contacts_new,
                         [{disc_copies, [node()]},
                         {type, bag},
@@ -50,8 +44,6 @@ insert_contact(Username, Contact, SyncId) ->
         mnesia:write(#user_contacts_new{username = Username,
                                     contact = Contact,
                                     syncid = SyncId}),
-        mnesia:write(#user_contacts{username = Username,
-                                    contact = Contact}),
         {ok, inserted_contact}
       end,
   case mnesia:transaction(F) of
@@ -90,24 +82,12 @@ insert_syncid(Username, SyncId) ->
 delete_contact(Username, Contact) ->
   F = fun() ->
         UserContactNew = #user_contacts_new{username = Username, contact = Contact, _ = '_'},
-        Result1 = mnesia:match_object(UserContactNew),
-        Return1 = case Result1 of
+        Result = mnesia:match_object(UserContactNew),
+        case Result of
           [] ->
               none;
           [#user_contacts_new{} = ActualContactNew] ->
               mnesia:delete_object(ActualContactNew)
-        end,
-        UserContact = #user_contacts{username = Username, contact = Contact},
-        Result2 = mnesia:match_object(UserContact),
-        Return2 = case Result2 of
-          [] ->
-              none;
-          [#user_contacts{} = ActualContact] ->
-              mnesia:delete_object(ActualContact)
-        end,
-        case {Return1, Return2} of
-          {none, none} -> none;
-          _ -> ok
         end
       end,
   case mnesia:transaction(F) of
@@ -126,24 +106,12 @@ delete_contact(Username, Contact) ->
 delete_contact(Username, Contact, SyncId) ->
   F = fun() ->
         UserContactNew = #user_contacts_new{username = Username, contact = Contact, syncid = SyncId},
-        Result1 = mnesia:match_object(UserContactNew),
-        Return1 = case Result1 of
+        Result = mnesia:match_object(UserContactNew),
+        case Result of
           [] ->
               none;
           [#user_contacts_new{} = ActualContactNew] ->
               mnesia:delete_object(ActualContactNew)
-        end,
-        UserContact = #user_contacts{username = Username, contact = Contact},
-        Result2 = mnesia:match_object(UserContact),
-        Return2 = case Result2 of
-          [] ->
-              none;
-          [#user_contacts{}] ->
-              mnesia:delete_object(UserContact)
-        end,
-        case {Return1, Return2} of
-          {none, none} -> none;
-          _ -> ok
         end
       end,
   case mnesia:transaction(F) of
@@ -160,23 +128,12 @@ delete_contact(Username, Contact, SyncId) ->
 -spec delete_contacts({binary(), binary()}) -> {ok, any()} | {error, any()}.
 delete_contacts(Username) ->
   F = fun() ->
-        Result1 = mnesia:match_object(#user_contacts_new{username = Username, _ = '_'}),
-        Return1 = case Result1 of
+        Result = mnesia:match_object(#user_contacts_new{username = Username, _ = '_'}),
+        case Result of
           [] ->
               none;
           [#user_contacts_new{} | _] ->
               mnesia:delete({user_contacts_new, Username})
-        end,
-        Result2 = mnesia:match_object(#user_contacts{username = Username, _ = '_'}),
-        Return2 = case Result2 of
-          [] ->
-              none;
-          [#user_contacts{} | _] ->
-              mnesia:delete({user_contacts, Username})
-        end,
-        case {Return1, Return2} of
-          {none, none} -> none;
-          _ -> ok
         end
       end,
   case mnesia:transaction(F) of
@@ -193,29 +150,7 @@ delete_contacts(Username) ->
 -spec fetch_contacts({binary(), binary()}) -> {ok, [#user_contacts_new{}]} | {error, any()}.
 fetch_contacts(Username) ->
   F = fun() ->
-        UserSyncId = case fetch_syncid(Username) of
-                        {ok, [#user_syncids{syncid = SyncId}]} -> SyncId;
-                        _ -> <<"">>
-                      end,
-        Result1 = mnesia:match_object(#user_contacts_new{username = Username, _ = '_'}),
-        Result2 = lists:map(fun(#user_contacts{username = ActualUsername, contact = Contact}) ->
-                                UserContactNewRecord = #user_contacts_new{username = ActualUsername,
-                                                                          contact = Contact,
-                                                                          syncid = UserSyncId},
-                                UserContactOldRecord = #user_contacts_new{username = ActualUsername,
-                                                                          contact = Contact,
-                                                                          syncid = <<"undefined">>},
-                                case Result1 of
-                                  [] -> UserContactNewRecord;
-                                  _ ->
-                                    case lists:member(UserContactNewRecord, Result1) of
-                                      true -> UserContactNewRecord;
-                                      false -> UserContactOldRecord
-                                    end
-                                end
-                            end, mnesia:match_object(#user_contacts{username = Username, _ = '_'})),
-        FinalResult = lists:merge([Result1, Result2]),
-        sets:to_list(sets:from_list(FinalResult))
+        mnesia:match_object(#user_contacts_new{username = Username, _ = '_'})
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
@@ -231,8 +166,7 @@ fetch_contacts(Username) ->
 -spec fetch_syncid({binary(), binary()}) -> {ok, [#user_syncids{}]} | {error, any()}.
 fetch_syncid(Username) ->
   F = fun() ->
-        Result = mnesia:match_object(#user_syncids{username = Username, _ = '_'}),
-        Result
+        mnesia:match_object(#user_syncids{username = Username, _ = '_'})
       end,
   case mnesia:transaction(F) of
     {atomic, Result} ->
@@ -249,22 +183,13 @@ fetch_syncid(Username) ->
 check_if_contact_exists(Username, Contact) ->
   F = fun() ->
         UserContactNew = #user_contacts_new{username = Username, contact = Contact, _ = '_'},
-        Result1 = mnesia:match_object(UserContactNew),
-        Boolean1 = case Result1 of
-                    [] ->
-                        false;
-                    [#user_contacts_new{}] ->
-                        true
-                  end,
-        UserContact = #user_contacts{username = Username, contact = Contact},
-        Result2 = mnesia:match_object(UserContact),
-        Boolean2 = case Result2 of
-                    [] ->
-                        false;
-                    [#user_contacts{}] ->
-                        true
-                  end,
-        Boolean1 or Boolean2
+        Result = mnesia:match_object(UserContactNew),
+        case Result of
+          [] ->
+              false;
+          [#user_contacts_new{}] ->
+              true
+        end
       end,
   case mnesia:transaction(F) of
     {atomic, Res} ->
@@ -273,53 +198,5 @@ check_if_contact_exists(Username, Contact) ->
       ?ERROR_MSG("check_if_contact_exists:
                   Mnesia transaction failed for username: ~p with reason: ~p", [Username, Reason]),
       false
-  end.
-
-
-
--spec fetch_and_transform_just_contacts() -> {ok, [#user_contacts_new{}]} | {error, any()}.
-fetch_and_transform_just_contacts() ->
-  F = fun() ->
-        lists:map(fun(#user_contacts{username = Username, contact = Contact}) ->
-                    UserSyncId = case fetch_syncid(Username) of
-                                    {ok, [#user_syncids{syncid = SyncId}]} -> SyncId;
-                                    _ -> <<"">>
-                                  end,
-                    #user_contacts_new{username = Username,
-                                      contact = Contact,
-                                      syncid = UserSyncId}
-                  end, mnesia:match_object(#user_contacts{_ = '_'}))
-      end,
-  case mnesia:transaction(F) of
-    {atomic, Result} ->
-      {ok, Result};
-    {aborted, Reason} ->
-      ?ERROR_MSG("fetch_contacts:
-              Mnesia transaction failed for all contacts with reason: ~p", [Reason]),
-      {error, db_failure}
-  end.
-
-
-
--spec update_contacts_new_table() -> {ok, ok} | {error, any()}.
-update_contacts_new_table() ->
-  F = fun() ->
-        case fetch_and_transform_just_contacts() of
-          {ok, TransformedContacts} ->
-            lists:foreach(fun(#user_contacts_new{} = UserContactNew) ->
-                            mnesia:write(UserContactNew)
-                          end, TransformedContacts),
-            {ok, ok};
-          {error, _} ->
-            {error, db_failure}
-        end
-      end,
-  case mnesia:transaction(F) of
-    {atomic, Result} ->
-      {ok, Result};
-    {aborted, Reason} ->
-      ?ERROR_MSG("update_contacts_new_table:
-              Mnesia transaction failed for all contacts with reason: ~p", [Reason]),
-      {error, db_failure}
   end.
 
