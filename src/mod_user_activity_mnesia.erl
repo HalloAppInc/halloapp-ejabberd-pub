@@ -51,7 +51,7 @@ get_user_activity(User, Server) ->
 -spec store_user_activity(binary(), binary(), binary(), statusType()) ->
                                                          {ok, any()} | {error, any()}.
 store_user_activity(User, Server, LastSeen, Status)
-                                    when Status == available; Status == away ->
+                    when Status == available; Status == away; Status == undefined ->
     Username = {User, Server},
     F = fun() ->
             mnesia:write(#user_activity{username = Username,

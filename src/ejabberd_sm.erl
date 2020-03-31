@@ -707,37 +707,20 @@ do_route(To, Term) ->
     end.
 
 -spec do_route(stanza()) -> any().
-do_route(#presence{to = To, type = T} = Packet)
-  when T == subscribe; T == subscribed; T == unsubscribe; T == unsubscribed ->
-    ?DEBUG("Processing subscription:~n~ts", [xmpp:pp(Packet)]),
-    #jid{luser = LUser, lserver = LServer} = To,
-    case is_privacy_allow(Packet) andalso
-	ejabberd_hooks:run_fold(
-	  roster_in_subscription,
-	  LServer, false, [Packet]) of
-	true ->
-	    Mod = get_sm_backend(LServer),
-	    lists:foreach(
-	      fun(#session{sid = SID, usr = {_, _, R},
-			   priority = Prio}) when is_integer(Prio) ->
-		      Pid = element(2, SID),
-		      Packet1 = Packet#presence{to = jid:replace_resource(To, R)},
-		      ?DEBUG("Sending to process ~p:~n~ts",
-			     [Pid, xmpp:pp(Packet1)]),
-		      ejabberd_c2s:route(Pid, {route, Packet1});
-		 (_) ->
-		      ok
-	      end, get_sessions(Mod, LUser, LServer));
-	false ->
-	    ok
-    end;
-do_route(#presence{to = #jid{lresource = <<"">>} = To} = Packet) ->
+%% route presence stanzas only to the client only when the client is available.
+do_route(#presence{to = #jid{lresource = <<"">>} = To, type = T} = Packet)
+                                            when T == available; T == away ->
     ?DEBUG("Processing presence to bare JID:~n~ts", [xmpp:pp(Packet)]),
     {LUser, LServer, _} = jid:tolower(To),
-    lists:foreach(
-      fun({_, R}) ->
-	      do_route(Packet#presence{to = jid:replace_resource(To, R)})
-      end, get_user_present_resources(LUser, LServer));
+    case check_if_user_is_available(LUser, LServer) of
+        true ->
+            lists:foreach(
+              fun({_, R}) ->
+                  do_route(Packet#presence{to = jid:replace_resource(To, R)})
+              end, get_user_present_resources(LUser, LServer));
+        false ->
+            ok
+    end;
 do_route(#message{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
     ?DEBUG("Processing message to bare JID:~n~ts", [xmpp:pp(Packet)]),
     if T == chat; T == headline; T == normal ->
@@ -794,7 +777,7 @@ is_privacy_allow(Packet) ->
 	       [To, Packet, in]).
 
 -spec route_message(message()) -> any().
-route_message(#message{to = To, type = Type} = Packet) ->
+route_message(#message{to = To, type = _Type} = Packet) ->
     LUser = To#jid.luser,
     LServer = To#jid.lserver,
     Mod = get_sm_backend(LServer),
@@ -817,6 +800,13 @@ maybe_mark_as_copy(Packet, _, _, P, P) ->
     xmpp:put_meta(Packet, sm_copy, true);
 maybe_mark_as_copy(Packet, _, _, _, _) ->
     Packet.
+
+
+-spec check_if_user_is_available(binary(), binary()) -> boolean().
+check_if_user_is_available(User, Server) ->
+    {_, Status} = mod_user_activity:get_user_activity(User, Server),
+    Status == available.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec clean_session_list([#session{}]) -> [#session{}].

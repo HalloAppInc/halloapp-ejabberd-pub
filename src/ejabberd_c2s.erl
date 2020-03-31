@@ -491,7 +491,7 @@ handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
     Pkt1 = xmpp:put_meta(Pkt, ip, IP),
     State1 = ejabberd_hooks:run_fold(c2s_authenticated_packet,
 				     LServer, State, [Pkt1]),
-    #jid{luser = LUser} = JID,
+    #jid{luser = _LUser} = JID,
     {Pkt2, State2} = ejabberd_hooks:run_fold(
 		       user_send_packet, LServer, {Pkt1, State1}, []),
     case Pkt2 of
@@ -509,11 +509,8 @@ handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
 		    Err = xmpp:err_bad_request(Txt, Lang),
 		    send_error(State2, Pkt2, Err)
 	    end;
-	#presence{to = #jid{luser = LUser, lserver = LServer,
-			    lresource = <<"">>}} ->
-	    process_self_presence(State2, Pkt2);
 	#presence{} ->
-	    process_presence_out(State2, Pkt2);
+		process_presence(State2, Pkt2);
 	_ ->
 	    check_privacy_then_route(State2, Pkt2)
     end.
@@ -675,6 +672,16 @@ route_probe_reply(From, #{jid := To,
 route_probe_reply(_, _) ->
     ok.
 
+
+-spec process_presence(state(), presence()) -> state().
+process_presence(#{user := User, server := Server} = State,
+				 #presence{type = Type} = Presence) when Type == subscribe; Type == unsubscribe ->
+	ejabberd_hooks:run(presence_subs_hook, Server, [User, Server, Presence]),
+	State;
+process_presence(State, Presence) ->
+	process_self_presence(State, Presence).
+
+
 -spec process_presence_out(state(), presence()) -> state().
 process_presence_out(#{lserver := LServer, jid := JID,
 		       lang := Lang, pres_a := PresA} = State0,
@@ -742,7 +749,7 @@ process_self_presence(#{lserver := LServer, sid := SID,
     State2 = broadcast_presence_unavailable(State1, Pres1),
     maps:remove(pres_last, maps:remove(pres_timestamp, State2));
 process_self_presence(#{lserver := LServer} = State,
-		      #presence{type = available} = Pres) ->
+		      #presence{type = Type} = Pres) when Type == available; Type == away ->
     PreviousPres = maps:get(pres_last, State, undefined),
     _ = update_priority(State, Pres),
     {Pres1, State1} = ejabberd_hooks:run_fold(
@@ -770,7 +777,7 @@ broadcast_presence_unavailable(#{jid := JID, pres_a := PresA} = State, Pres) ->
 		fun(LJID, Items) ->
 			[#roster{jid = LJID, subscription = from}|Items]
 		end, Items1, PresA),
-    JIDs = lists:foldl(
+    _JIDs = lists:foldl(
 	     fun(#roster{jid = LJID, subscription = Sub}, Tos)
 		   when Sub == both orelse Sub == from ->
 		     To = jid:make(LJID),
@@ -782,7 +789,7 @@ broadcast_presence_unavailable(#{jid := JID, pres_a := PresA} = State, Pres) ->
 		(_, Tos) ->
 		     Tos
 	     end, [BareJID], Items2),
-    route_multiple(State, JIDs, Pres),
+    %%route_multiple(State, JIDs, Pres),
     State#{pres_a => ?SETS:new()}.
 
 -spec broadcast_presence_available(state(), presence(), boolean()) -> state().
@@ -793,7 +800,7 @@ broadcast_presence_available(#{jid := JID} = State,
     BareJID = jid:remove_resource(JID),
     Items = ejabberd_hooks:run_fold(roster_get, LServer,
 				    [], [{LUser, LServer}]),
-    {FJIDs, TJIDs} =
+    {_FJIDs, _TJIDs} =
 	lists:foldl(
 	  fun(#roster{jid = LJID, subscription = Sub}, {F, T}) ->
 		  To = jid:make(LJID),
@@ -815,8 +822,8 @@ broadcast_presence_available(#{jid := JID} = State,
 		       end,
 		  {F1, T1}
 	  end, {[BareJID], [BareJID]}, Items),
-    route_multiple(State, TJIDs, Probe),
-    route_multiple(State, FJIDs, Pres),
+    %%route_multiple(State, TJIDs, Probe),
+    %%route_multiple(State, FJIDs, Pres),
     State;
 broadcast_presence_available(#{jid := JID} = State,
 			     Pres, _FromUnavailable = false) ->

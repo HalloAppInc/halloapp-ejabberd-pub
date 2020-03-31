@@ -48,6 +48,8 @@
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 %% IQ handlers and hooks.
 -export([process_local_iq/1, remove_user/2]).
+%% api
+-export([is_friend/3]).
 
 %% exports for console debug manual use
 -export([normalize_verify_and_subscribe/4, normalize_and_verify_contacts/5,
@@ -178,6 +180,15 @@ process_local_iq(#iq{from = #jid{luser = User, lserver = Server}, type = set,
 %% which involves removing all the subscriptions and affiliations and notifying the contacts.
 remove_user(User, Server) ->
     delete_all_contacts(User, Server).
+
+
+%%====================================================================
+%% API
+%%====================================================================
+
+-spec is_friend(binary(), binary(), binary()) -> boolean().
+is_friend(User, Server, Contact) ->
+    validate(User, Server, Contact) == "friends".
 
 
 %%====================================================================
