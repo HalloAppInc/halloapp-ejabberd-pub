@@ -138,7 +138,8 @@ try_register(User, Server, Password) ->
 
 -spec generate_and_insert_user_id(binary(), binary()) -> {ok, any()} | {error, any()}.
 generate_and_insert_user_id(User, Server) ->
-	UserId = util:generate_user_id(),
+	Uid = util_uid:generate_uid(),
+	UserId = util_uid:uid_to_binary(Uid),
 	insert_user_id(User, Server, UserId).
 
 
