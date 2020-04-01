@@ -77,8 +77,9 @@ init([Host|_]) ->
     process_flag(trap_exit, true),
     Opts = gen_mod:get_module_opts(Host, ?MODULE),
     store_options(Opts),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 10),
-    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
+    %% Run these hooks on the packet at the end.
+    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 100),
+    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 50),
     ejabberd_hooks:add(c2s_closed, Host, ?MODULE, c2s_closed, 10),
     {ok, #{ack_wait_queue => queue:new(),
@@ -86,8 +87,8 @@ init([Host|_]) ->
 
 terminate(_Reason, #{host := Host} = _AckState) ->
     ?DEBUG("mod_ack: terminate", []),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 10),
-    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
+    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 100),
+    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 50),
     ejabberd_hooks:delete(c2s_closed, Host, ?MODULE, c2s_closed, 10),
     ok.
@@ -312,7 +313,8 @@ send_ack_if_necessary(_, _, Packet, _) ->
 send_ack(Packet, #{host := Host} = _AckState) ->
     Id = xmpp:get_id(Packet),
     From = xmpp:get_from(Packet),
-    AckPacket = #ack{id = Id, to = From, from = jid:make(Host)},
+    Timestamp = xmpp:get_timestamp(Packet),
+    AckPacket = #ack{id = Id, to = From, from = jid:make(Host), timestamp = Timestamp},
     ?INFO_MSG("mod_ack: Sending an ack to the user with this packet: ~p ~n for this packet: ~p",
                                                                     [AckPacket, Packet]),
     ejabberd_router:route(AckPacket),
