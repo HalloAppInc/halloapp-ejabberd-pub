@@ -16,7 +16,6 @@
 
 hosts:
   - "s.halloapp.net"
-  - localhost
 
 loglevel: 5
 log_rotate_size: 10485760
