@@ -130,8 +130,8 @@ get_time_left(Version, CurTimestamp, MaxTimeInSec) ->
     {error, _} ->
       {error, invalid_version};
     {ok, #client_version{timestamp = ThenTimestamp}} ->
-      Cur = util:convert_binary_to_integer(CurTimestamp),
-      Then = util:convert_binary_to_integer(ThenTimestamp),
+      Cur = binary_to_integer(CurTimestamp),
+      Then = binary_to_integer(ThenTimestamp),
       SecsLeft = MaxTimeInSec - (Cur - Then),
       {ok, SecsLeft}
   end.

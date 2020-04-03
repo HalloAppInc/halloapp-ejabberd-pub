@@ -201,7 +201,7 @@ handle_info({ssl_passive, Socket}, State) ->
 handle_info({retry, MessageItem}, State0) ->
     ?INFO_MSG("mod_push_notifications:
                  received the retry message: will retry to resend failed messages.", []),
-    CurrentTimestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
+    CurrentTimestamp = util:timestamp_to_binary(erlang:timestamp()),
     State1 = clean_up_messages(State0, CurrentTimestamp),
     State2 = handle_retry_message(MessageItem, State1),
     {noreply, State2};
@@ -209,7 +209,7 @@ handle_info({retry, MessageItem}, State0) ->
 handle_info({clean_up_internal_state}, State) ->
     ?INFO_MSG("mod_push_notifications:
                  clean_up_internal_state: will clean up internal state.", []),
-    CurrentTimestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
+    CurrentTimestamp = util:timestamp_to_binary(erlang:timestamp()),
     State1 = clean_up_messages(State, CurrentTimestamp),
     PendingMessageList = State1#state.pendingMessageList,
     RetryMessageList = State1#state.retryMessageList,
@@ -316,16 +316,16 @@ clean_up_messages(State, CurrentTimestamp) ->
     PendingMessageList = lists:dropwhile(
                             fun(MessageItem) ->
                                 Timestamp = MessageItem#message_item.timestamp,
-                                util:convert_binary_to_integer(CurrentTimestamp) -
-                                        util:convert_binary_to_integer(Timestamp) >=
-                                                ?MESSAGE_RESPONSE_TIMEOUT_SEC
+                                binary_to_integer(CurrentTimestamp) -
+                                    binary_to_integer(Timestamp) >=
+                                            ?MESSAGE_RESPONSE_TIMEOUT_SEC
                             end, State#state.pendingMessageList),
     RetryMessageList = lists:dropwhile(
                             fun(MessageItem) ->
                                 Timestamp = MessageItem#message_item.timestamp,
-                                util:convert_binary_to_integer(CurrentTimestamp) -
-                                        util:convert_binary_to_integer(Timestamp) >=
-                                                ?MESSAGE_MAX_RETRY_TIME_SEC
+                                binary_to_integer(CurrentTimestamp) -
+                                        binary_to_integer(Timestamp) >=
+                                            ?MESSAGE_MAX_RETRY_TIME_SEC
                             end, State#state.retryMessageList),
     ?DEBUG("After cleaning up messages here: PendingMessageList: ~p, ~n, RetryMessageList: ~p",
                                                         [PendingMessageList, RetryMessageList]),
@@ -360,7 +360,7 @@ process_iq(#iq{from = #jid{luser = User, lserver = Server},
             Txt = ?T("Invalid value for token."),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         _ELse ->
-            Timestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
+            Timestamp = util:timestamp_to_binary(erlang:timestamp()),
             case mod_push_notifications_mnesia:register_push({User, Server},
                                                                 Os, Token, Timestamp) of
                 {ok, _} ->
@@ -382,7 +382,7 @@ process_iq(#iq{lang = Lang} = IQ) ->
 -spec process_message(#message{}, #state{}) -> #state{}.
 %% Currently ignoring message-types, but probably need to handle different message types separately!
 process_message(#message{} = Message, State) ->
-    Timestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
+    Timestamp = util:timestamp_to_binary(erlang:timestamp()),
     MessageId = get_new_message_id(),
     MessageItem = #message_item{message_id = MessageId,
                                 message = Message,
@@ -711,7 +711,7 @@ get_new_message_id() ->
 %% seconds and returns the integer.
 -spec get_expiry_time(binary())  -> integer().
 get_expiry_time(Timestamp) ->
-    CurrentTime = util:convert_binary_to_integer(Timestamp),
+    CurrentTime = binary_to_integer(Timestamp),
     ExpiryTime = CurrentTime + ?MESSAGE_EXPIRY_TIME_SEC,
     ExpiryTime.
 

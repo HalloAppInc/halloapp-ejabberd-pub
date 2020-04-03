@@ -48,7 +48,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% We check if the packet has a receipt element (could be delivery/seen) and add a timestamp.
 -spec user_send_packet({stanza(), state()}) -> {stanza(), state()}.
 user_send_packet({Packet, State}) ->
-	TimestampSec = util:convert_timestamp_to_binary(erlang:timestamp()),
+	TimestampSec = util:timestamp_to_binary(erlang:timestamp()),
 	NewPacket = update_timestamp_if_receipts_message(Packet, TimestampSec),
 	{NewPacket, State}.
 

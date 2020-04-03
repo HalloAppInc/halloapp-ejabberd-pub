@@ -10,10 +10,9 @@
 -include("logger.hrl").
 
 -export([
-	convert_timestamp_to_binary/1,
+	timestamp_to_binary/1,
 	cur_timestamp/0,
-	convert_timestamp_secs_to_integer/1,
-	convert_binary_to_integer/1,
+	timestamp_secs_to_integer/1,
 	get_feed_pubsub_node_name/1,
 	get_metadata_pubsub_node_name/1]).
 
@@ -25,8 +24,8 @@
 
 %% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
 %% Expects an erlang timestamp as input.
--spec convert_timestamp_to_binary(erlang:timestamp()) -> binary().
-convert_timestamp_to_binary(Timestamp) ->
+-spec timestamp_to_binary(erlang:timestamp()) -> binary().
+timestamp_to_binary(Timestamp) ->
     {T1, T2, _} = Timestamp,
     list_to_binary(integer_to_list(T1*1000000 + T2)).
 
@@ -38,14 +37,9 @@ cur_timestamp() ->
 
 
 %% Converts an erlang timestamp to seconds in integer.
--spec convert_timestamp_secs_to_integer(erlang:timestamp()) -> integer().
-convert_timestamp_secs_to_integer(Timestamp) ->
-    list_to_integer(binary_to_list(convert_timestamp_to_binary(Timestamp))).
-
-
--spec convert_binary_to_integer(binary()) -> integer().
-convert_binary_to_integer(BinaryInput) ->
-	list_to_integer(binary_to_list(BinaryInput)).
+-spec timestamp_secs_to_integer(erlang:timestamp()) -> integer().
+timestamp_secs_to_integer(Timestamp) ->
+    binary_to_integer(timestamp_to_binary(Timestamp)).
 
 %% Using 'feed-' as the start of feed-node's name for now.
 -spec get_feed_pubsub_node_name(binary()) -> binary().

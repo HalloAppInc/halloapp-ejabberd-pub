@@ -1857,7 +1857,7 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, ItemType, Payload) ->
 publish_item(Host, ServerHost, Node, Publisher, <<>>, ItemType, Payload, PubOpts, Access) ->
     publish_item(Host, ServerHost, Node, Publisher, uniqid(), ItemType, Payload, PubOpts, Access);
 publish_item(Host, ServerHost, Node, Publisher, ItemId, ItemType, Payload, PubOpts, Access) ->
-    Timestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
+    Timestamp = util:timestamp_to_binary(erlang:timestamp()),
     Action = fun (#pubsub_node{options = Options, type = Type, id = Nidx}) ->
 	    Features = plugin_features(Host, Type),
 	    PublishFeature = lists:member(<<"publish">>, Features),
@@ -1980,12 +1980,12 @@ purge_expired_items_with_pubsub_node(Host, PubSub_Node, Timestamp) ->
 	Items = get_items(Host, NodeId),
 	Owner = jid:make(lists:nth(1, PubSub_Node#pubsub_node.owners)),
 	TTL = get_option(PubSub_Node#pubsub_node.options, item_expire),
-	Now = util:convert_timestamp_secs_to_integer(Timestamp),
+	Now = util:timestamp_secs_to_integer(Timestamp),
 	lists:foldl(
 		fun(Item, {_Status, _Acc}) ->
 			{ItemId, _} = Item#pubsub_item_new.itemid,
 			{Creationtime, _} = Item#pubsub_item_new.creation,
-			Then = util:convert_timestamp_secs_to_integer(Creationtime),
+			Then = util:timestamp_secs_to_integer(Creationtime),
 			ItemType = Item#pubsub_item_new.itemtype,
 			if
 				Now - Then > TTL ->
@@ -2034,7 +2034,7 @@ delete_item(Host, Node, PublisherJID, ItemId, ItemType, ForceNotify) ->
 delete_item(_, <<>>, _, _, _, _, _) ->
     {error, extended_error(xmpp:err_bad_request(), err_nodeid_required())};
 delete_item(Host, Node, PublisherJID, ItemId, ItemType, Payload, ForceNotify) ->
-	Timestamp = util:convert_timestamp_to_binary(erlang:timestamp()),
+	Timestamp = util:timestamp_to_binary(erlang:timestamp()),
     Action = fun (#pubsub_node{options = Options, type = Type, id = Nidx}) ->
 	    Features = plugin_features(Host, Type),
 	    PersistentFeature = lists:member(<<"persistent-items">>, Features),
@@ -2848,7 +2848,7 @@ payload_xmlelements([_ | Tail], Count) ->
 -spec items_els(binary(), nodeOptions(), [#pubsub_item{}]) -> ps_items().
 items_els(Node, _Options, Items) ->
 	%% Ignoring the option of 'itemreply' for now, will add it back if needed.
-	Els = [#ps_item{id = ItemId, timestamp = util:convert_timestamp_to_binary(Timestamp),
+	Els = [#ps_item{id = ItemId, timestamp = util:timestamp_to_binary(Timestamp),
 					sub_els = Payload, type = ItemType, publisher = jid:encode(USR)}
 			|| #pubsub_item_new{itemid = {ItemId, _}, itemtype = ItemType, payload = Payload,
 								creation = {Timestamp, _}, modification = {_, USR}}
