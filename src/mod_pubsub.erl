@@ -2848,9 +2848,11 @@ payload_xmlelements([_ | Tail], Count) ->
 -spec items_els(binary(), nodeOptions(), [#pubsub_item{}]) -> ps_items().
 items_els(Node, _Options, Items) ->
 	%% Ignoring the option of 'itemreply' for now, will add it back if needed.
-	Els = [#ps_item{id = ItemId, timestamp = util:convert_timestamp_to_binary(Timestamp), sub_els = Payload, publisher = jid:encode(USR)}
-	     || #pubsub_item_new{itemid = {ItemId, _}, payload = Payload, creation = {Timestamp, _}, modification = {_, USR}}
-		<- Items],
+	Els = [#ps_item{id = ItemId, timestamp = util:convert_timestamp_to_binary(Timestamp),
+					sub_els = Payload, type = ItemType, publisher = jid:encode(USR)}
+			|| #pubsub_item_new{itemid = {ItemId, _}, itemtype = ItemType, payload = Payload,
+								creation = {Timestamp, _}, modification = {_, USR}}
+				<- Items],
     #ps_items{node = Node, items = Els}.
 
 %%%%%% broadcast functions
