@@ -66,6 +66,13 @@ listen:
     module: mod_mqtt
     backlog: 1000
 
+  -
+    port: 5580
+    ip: "127.0.0.1"
+    module: ejabberd_http
+    request_handlers:
+      /api: mod_halloapp_http_api
+
 s2s_use_starttls: optional
 
 acme:
@@ -164,6 +171,7 @@ modules:
   mod_configure: {}
   mod_disco: {}
   mod_fail2ban: {}
+  mod_halloapp_http_api: {}
   mod_http_api: {}
   mod_http_upload:
     put_url: https://@HOST@:5443/upload
@@ -232,6 +240,7 @@ modules:
     versioning: true
   mod_s2s_dialback: {}
   mod_shared_roster: {}
+  mod_sms: {}
   mod_stream_mgmt:
     resend_on_timeout: if_offline
   mod_vcard: {}

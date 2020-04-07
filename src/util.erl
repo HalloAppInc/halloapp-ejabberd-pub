@@ -21,6 +21,10 @@
 -compile(export_all).
 -endif.
 
+-spec get_host() -> binary().
+get_host() ->
+	[H | []] = ejabberd_option:hosts(),
+	H.
 
 %% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
 %% Expects an erlang timestamp as input.
