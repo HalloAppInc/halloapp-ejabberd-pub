@@ -59,35 +59,15 @@ close() ->
 -spec insert(#region_metadata{}) -> {ok, any()} | {error, any()}.
 insert(RegionMetadata) ->
   Record = convert_region_metadata_to_table_record(RegionMetadata),
-  F = fun () ->
-        mnesia:write(?LIBPHONENUMBER_METADATA_TABLE, Record, write),
-        {ok, successful}
-      end,
-  case mnesia:transaction(F) of
-    {atomic, Result} ->
-        Result;
-    {aborted, _Reason} ->
-        ?ERROR_MSG("Failed inserting region_metadata for regionId: ~p, into the table: ~p",
-                [RegionMetadata#region_metadata.id, ?LIBPHONENUMBER_METADATA_TABLE]),
-        {error, db_failure}
-  end.
+  mnesia:dirty_write(?LIBPHONENUMBER_METADATA_TABLE, Record),
+  {ok, successful}.
 
 
 %% Look up elements in the table based on the region id.
 -spec lookup(binary()) -> [] | [#region_metadata{}].
 lookup(RegionId) ->
-  F = fun () ->
-        Result = mnesia:read(?LIBPHONENUMBER_METADATA_TABLE, RegionId),
-        convert_table_records_to_region_metadata(Result)
-      end,
-  case mnesia:transaction(F) of
-    {atomic, Result} ->
-        Result;
-    {aborted, _Reason} ->
-        ?ERROR_MSG("Failed retrieving region_metadata for RegionId: ~p, from the table: ~p",
-                [RegionId, ?LIBPHONENUMBER_METADATA_TABLE]),
-        []
-  end.
+  Result = mnesia:dirty_read(?LIBPHONENUMBER_METADATA_TABLE, RegionId),
+  convert_table_records_to_region_metadata(Result).
 
 
 %% Look up elements in the table based on the region id and returns a boolean value.
@@ -105,19 +85,10 @@ check_status([_ | _]) ->
 %% Look up elements in the table based on the country code.
 -spec match_object_on_country_code(list()) -> [] | [#region_metadata{}].
 match_object_on_country_code(CountryCode) ->
-  F = fun () ->
-        MatchHead = #phonenumber_metadata{attributes_country_code = CountryCode, _ = '_'},
-        Result = mnesia:select(?LIBPHONENUMBER_METADATA_TABLE, [{MatchHead, [], ['$_']}]),
-        convert_table_records_to_region_metadata(Result)
-      end,
-  case mnesia:transaction(F) of
-    {atomic, Result} ->
-        Result;
-    {aborted, _Reason} ->
-        ?ERROR_MSG("Failed retrieving region_metadata for CountryCode: ~p, from the table: ~p",
-                [CountryCode, ?LIBPHONENUMBER_METADATA_TABLE]),
-        []
-  end.
+  Result = mnesia:dirty_match_object(?LIBPHONENUMBER_METADATA_TABLE,
+                                      #phonenumber_metadata{attributes_country_code = CountryCode,
+                                                            _ = '_'}),
+  convert_table_records_to_region_metadata(Result).
 
 
 -spec convert_region_metadata_to_table_record(#region_metadata{}) -> #phonenumber_metadata{}.
