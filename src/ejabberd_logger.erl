@@ -132,18 +132,34 @@ do_start(Level) ->
     LogRotateSize = get_integer_env(log_rotate_size, 10*1024*1024),
     LogRotateCount = get_integer_env(log_rotate_count, 1),
     LogRateLimit = get_integer_env(log_rate_limit, 100),
-    ConsoleLevel = case get_lager_version() >= "3.6.0" of
-		       true -> [{level, Level}];
-		       false -> Level
-		   end,
+
+    % Add the module:function:line
+    HalloappFormatterConfig = [
+        date, " ", time, color, " [",severity,"] ", module, ":", function, ":", line, " ", message, "\e[0m\r\n"],
+    application:set_env(lager, colored, true),
     application:set_env(lager, error_logger_hwm, LogRateLimit),
-    application:set_env(
-      lager, handlers,
-      [{lager_console_backend, ConsoleLevel},
-       {lager_file_backend, [{file, ConsoleLog}, {level, Level}, {date, LogRotateDate},
-                             {count, LogRotateCount}, {size, LogRotateSize}]},
-       {lager_file_backend, [{file, ErrorLog}, {level, error}, {date, LogRotateDate},
-                             {count, LogRotateCount}, {size, LogRotateSize}]}]),
+    application:set_env(lager, handlers,
+        [
+            {lager_console_backend, [
+                {level, Level},
+                {formatter, lager_default_formatter},
+                {formatter_config, HalloappFormatterConfig}]},
+            {lager_file_backend, [
+                {file, ConsoleLog},
+                {level, Level},
+                {formatter, lager_default_formatter},
+                {formatter_config, HalloappFormatterConfig},
+                {date, LogRotateDate},
+                {count, LogRotateCount},
+                {size, LogRotateSize}]},
+            {lager_file_backend, [
+                {file, ErrorLog},
+                {level, error},
+                {formatter, lager_default_formatter},
+                {formatter_config, HalloappFormatterConfig},
+                {date, LogRotateDate},
+                {count, LogRotateCount},
+                {size, LogRotateSize}]}]),
     application:set_env(lager, crash_log, CrashLog),
     application:set_env(lager, crash_log_date, LogRotateDate),
     application:set_env(lager, crash_log_size, LogRotateSize),
