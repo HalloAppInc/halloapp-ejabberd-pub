@@ -136,7 +136,7 @@ store_and_broadcast_presence(User, Server, away) ->
 store_and_broadcast_presence(User, Server, available) ->
     Timestamp = util:timestamp_to_binary(erlang:timestamp()),
     store_user_activity(User, Server, Timestamp, available),
-    broadcast_presence(User, Server, Timestamp, available).
+    broadcast_presence(User, Server, <<>>, available).
 
 
 -spec store_user_activity(binary(), binary(), binary(), atom()) -> {ok, any()} | {error, any()}.
