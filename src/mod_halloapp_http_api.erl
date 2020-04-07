@@ -66,7 +66,6 @@ process([<<"registration">>, <<"register">>],
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
         {ok, Phone, Uid, Password} = finish_registration(Phone),
-        ?DEBUG("uid:~p, password: ~p", [Uid, Password]),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
                 {uid, Uid},
@@ -116,13 +115,17 @@ generate_password() ->
 
 -spec finish_registration(phone()) -> {ok, phone(), binary(), binary()}.
 finish_registration(Phone) ->
-    Uid = util_uid:uid_to_binary(util_uid:generate_uid()),
     Password = generate_password(),
     Host = util:get_host(),
-    {ok, _} = ejabberd_admin:unregister_push(Uid, Host),
+    % TODO: this is templorary during the migration from Phone to Uid
     {ok, _} = ejabberd_admin:unregister_push(Phone, Host),
-    {ok, _} = ejabberd_admin:unregister(Uid, Host),
-    {ok, _} = ejabberd_admin:register(Uid, Host, Password),
+    {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, Password),
+    case Action of
+        login ->
+            % Unregister the push token
+            ejabberd_admin:unregister_push(Uid, Host);
+        register -> ok
+    end,
     {ok, Phone, Uid, Password}.
 
 %% Throws error if the code is wrong

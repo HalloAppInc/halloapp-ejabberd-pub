@@ -10,11 +10,12 @@
 -include("logger.hrl").
 
 -export([
-	timestamp_to_binary/1,
-	cur_timestamp/0,
-	timestamp_secs_to_integer/1,
-	get_feed_pubsub_node_name/1,
-	get_metadata_pubsub_node_name/1]).
+    timestamp_to_binary/1,
+    cur_timestamp/0,
+    timestamp_secs_to_integer/1,
+    get_feed_pubsub_node_name/1,
+    get_host/0,
+    get_metadata_pubsub_node_name/1]).
 
 %% Export all functions for unit tests
 -ifdef(TEST).

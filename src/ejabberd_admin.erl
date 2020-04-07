@@ -42,7 +42,7 @@
 	 %% Erlang
 	 update_list/0, update/1,
 	 %% Accounts
-	 register/3, unregister/2,
+	 register/3, unregister/2, check_and_register/3,
 	 registered_users/1,
 	 enroll/3, unenroll/2,
 	 enrolled_users/1, get_user_passcode/2,
@@ -553,6 +553,25 @@ update_module(ModuleNameString) ->
 %%%
 %%% Account management
 %%%
+
+check_and_register(Phone, Host, Password) ->
+    case is_my_host(Host) of
+        true ->
+            case ejabberd_auth:check_and_register(Phone, Host, Password) of
+                {ok, Uid, login} ->
+                    ?INFO_MSG("Login into existing account uid:~p for phone:~p", [Uid, Phone]),
+
+                    {ok, Uid, login};
+                {ok, Uid, register} ->
+                    ?INFO_MSG("Registering new account uid:~p for phone:~p", [Uid, Phone]),
+                    {ok, Uid, register};
+                {error, Reason} ->
+                    ?INFO_MSG("Login/Registration for phone:~p failed. ~p", [Phone, Reason]),
+                    {error, Reason, 10001, "Login/Registration failed"}
+            end;
+        false ->
+            {error, cannot_register, 10001, "Unknown virtual host"}
+    end.
 
 register(User, Host, Password) ->
     case is_my_host(Host) of

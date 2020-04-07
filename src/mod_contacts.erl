@@ -57,7 +57,7 @@
         handle_delta_contacts/4, subscribe_to_each_others_nodes/4, subscribe_to_each_others_node/4,
         subscribe_to_node/3, certify/3, validate/3, fetch_syncid/2,
         fetch_contacts/2, fetch_contacts/3, fetch_contact_info/3, obtain_contact_record/3,
-        obtain_user_id/2, delete_all_contacts/2, delete_contact/3,
+        obtain_user_id/1, delete_all_contacts/2, delete_contact/3,
         unsubscribe_to_each_others_nodes/3, unsubscribe_to_each_others_node/4,
         unsubscribe_to_node/3, remove_affiliation_for_all_user_nodes/3, remove_affiliation/4,
         notify_contact_about_user/3, check_and_send_message_to_contact/5,
@@ -237,7 +237,7 @@ fetch_contact_info(User, Server, [First | Rest]) ->
 -spec obtain_contact_record(binary(), binary(), binary()) ->
                                                     {binary(), binary(), binary(), binary()}.
 obtain_contact_record(User, Server, Normalized) ->
-    UserId = obtain_user_id(Normalized, Server),
+    UserId = obtain_user_id(Normalized),
     Role = certify(User, Server, Normalized),
     #contact{userid = UserId,
             normalized = Normalized,
@@ -310,7 +310,7 @@ normalize_and_verify_contacts(User, Server, [First | Rest], Affs, SyncId) ->
 normalize_and_verify_contact(User, Server, Contact, SyncId) ->
     Raw = Contact#contact.raw,
     Normalized = normalize(Raw),
-    UserId = obtain_user_id(Normalized, Server),
+    UserId = obtain_user_id(Normalized),
     Notify = case insert_contact(User, Server, Normalized, SyncId) of
                 {ok, true} ->
                     notify_contact_about_user(User, Server, Normalized),
@@ -478,16 +478,11 @@ validate(User, Server, ContactNumber) ->
 
 
 %% Obtains the user for a user: uses the id if it already exists, else creates one.
--spec obtain_user_id(binary(), binary()) -> binary() | undefined.
-obtain_user_id(undefined, _) ->
+-spec obtain_user_id(binary()) -> binary() | undefined.
+obtain_user_id(undefined) ->
     undefined;
-obtain_user_id(User, Server) ->
-    case ejabberd_auth_mnesia:get_user_id(User, Server) of
-        {ok, Id} ->
-            Id;
-        {error, _} ->
-            undefined
-    end.
+obtain_user_id(Phone) ->
+    ejabberd_auth_mnesia:get_uid(Phone).
 
 
 %% Deletes all contacts of the user and all the associated information in pubsub nodes as well.
@@ -603,8 +598,8 @@ remove_affiliation(User, Server, ContactNumber, NodeName) ->
 notify_contact_about_user(User, _Server, User) ->
     ok;
 notify_contact_about_user(User, Server, ContactNumber) ->
-    UserId = obtain_user_id(User, Server),
-    ContactUserId = obtain_user_id(ContactNumber, Server),
+    UserId = obtain_user_id(User),
+    ContactUserId = obtain_user_id(ContactNumber),
     check_and_send_message_to_contact(User, Server, ContactNumber, UserId, ContactUserId).
 
 
