@@ -3261,7 +3261,7 @@ send_all_pubsub_items(JID) ->
     end.
 
 
--spec send_pubsub_node_items(binary(), ljid(), pubsub_node()) -> ok.
+-spec send_pubsub_node_items(binary(), ljid(), pubsubNode()) -> ok.
 send_pubsub_node_items(Host, LJID, #pubsub_node{nodeid = {_, Node},
                                                 id = Nidx, type = PType, options = Options}) ->
     case re:run(binary_to_list(Node), "feed-", [{capture, none}]) of
