@@ -35,7 +35,7 @@
 	 remove_user/2, store_type/1, import/2,
 	 plain_password_required/1, use_cache/1,
 	 try_enroll/3, get_enrolled_users/1, get_enrolled_users_with_code/1,
-	 remove_enrolled_user/2, get_passcode/2, get_uid/1]).
+	 remove_enrolled_user/2, get_passcode/2, get_uid/1, get_phone/1]).
 -export([need_transform/1, transform/1]).
 
 -include("logger.hrl").
@@ -101,14 +101,14 @@ store_type(Server) ->
 set_password(User, Server, Password) ->
     US = {User, Server},
     F = fun () ->
-		mnesia:write(#passwd{us = US, password = Password})
-	end,
+            mnesia:write(#passwd{us = US, password = Password})
+        end,
     case mnesia:transaction(F) of
-	{atomic, ok} ->
-	    {cache, {ok, Password}};
-	{aborted, Reason} ->
-	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
-	    {nocache, {error, db_failure}}
+        {atomic, ok} ->
+            {cache, {ok, Password}};
+        {aborted, Reason} ->
+            ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+            {nocache, {error, db_failure}}
     end.
 
 try_register(Phone, Server, Password) ->
@@ -396,11 +396,10 @@ import(LServer, [LUser, Password, _TimeStamp]) ->
 -spec get_uid(Phone :: binary()) -> undefined | binary().
 get_uid(Phone) ->
     F = fun () ->
-        MatchHead = #user_phone{phone = Phone, _ = '_'},
-        case mnesia:select(user_phone, [{MatchHead, [], ['$_']}]) of
-            [] -> undefined;
-            [#user_phone{phone = Phone, uid = Uid}] -> Uid
-        end
+            case mnesia:index_read(user_phone, Phone, #user_phone.phone) of
+                [] -> undefined;
+                [#user_phone{phone = Phone, uid = Uid}] -> Uid
+            end
         end,
     case mnesia:transaction(F) of
         {atomic, Result} ->
@@ -408,6 +407,23 @@ get_uid(Phone) ->
             Result;
         {aborted, Reason} ->
             ?ERROR_MSG("Failed retrieving user for phone: ~p, from user_phone ~p", [Phone, Reason]),
+            {error, invalid}
+    end.
+
+-spec get_phone(Uid :: binary()) -> undefined | binary().
+get_phone(Uid) ->
+    F = fun () ->
+            case mnesia:read(user_phone, Uid) of
+                [] -> undefined;
+                [#user_phone{phone = Phone, uid = Uid}] -> Phone
+            end
+        end,
+    case mnesia:transaction(F) of
+        {atomic, Result} ->
+            ?DEBUG("Successfully retrieved phone: ~p for uid: ~p, from user_phone", [Result, Uid]),
+            Result;
+        {aborted, Reason} ->
+            ?ERROR_MSG("Failed retrieving phone for uid: ~p, from user_phone ~p", [Uid, Reason]),
             {error, invalid}
     end.
 

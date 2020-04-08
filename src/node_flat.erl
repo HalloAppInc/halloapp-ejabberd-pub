@@ -48,7 +48,8 @@
     set_state/1, get_items/7, get_items/3, get_item/7,
     get_last_items/3, get_only_item/2,
     get_item/2, set_item/1, get_item_name/3, node_to_path/1,
-    path_to_node/1, can_fetch_item/2, is_subscribed/1]).
+    path_to_node/1, can_fetch_item/2, is_subscribed/1,
+    copy_items_from_old_node_into_new_node/2]).
 
 init(_Host, _ServerHost, _Opts) ->
     %pubsub_subscription:init(Host, ServerHost, Opts),
@@ -955,3 +956,40 @@ decode_stamp(Stamp) ->
     end.
 
 
+-spec transform_old_items([#pubsub_item_new{}], nodeIdx(), [#pubsub_item_new{}]) ->
+														[#pubsub_item_new{}].
+transform_old_items([], _NewNodeIdx, Results) -> Results;
+transform_old_items([ FirstItem | Rest], NewNodeIdx, Results) ->
+	Result = transform_old_item(FirstItem, NewNodeIdx),
+	transform_old_items(Rest, NewNodeIdx, [Result | Results]).
+
+
+-spec transform_old_item(#pubsub_item_new{}, nodeIdx()) -> #pubsub_item_new{}.
+transform_old_item(#pubsub_item_new{} = Item, NewNodeIdx) ->
+	#pubsub_item_new{
+		itemid = {element(1,Item#pubsub_item_new.itemid), NewNodeIdx},
+		itemtype = Item#pubsub_item_new.itemtype,
+		nodeidx = NewNodeIdx,
+		creation = Item#pubsub_item_new.creation,
+		modification = Item#pubsub_item_new.modification,
+		payload = Item#pubsub_item_new.payload
+	}.
+
+
+
+-spec fetch_and_transform_old_items(nodeIdx(), nodeIdx()) -> [#pubsub_item_new{}].
+fetch_and_transform_old_items(OldNodeIdx, NewNodeIdx) ->
+  OldNodeItems = mnesia:match_object(#pubsub_item_new{nodeidx = OldNodeIdx, _ = '_'}),
+  transform_old_items(OldNodeItems, NewNodeIdx, []).
+
+
+-spec copy_items_from_old_node_into_new_node(nodeIdx(), nodeIdx()) -> {result, ok}.
+copy_items_from_old_node_into_new_node(OldNodeIdx, NewNodeIdx) ->
+	case fetch_and_transform_old_items(OldNodeIdx, NewNodeIdx) of
+		[] -> {result, ok};
+		NewItems ->
+			lists:foreach(fun(#pubsub_item_new{} = Item) ->
+							mnesia:write(Item)
+						end, NewItems),
+			{result, ok}
+	end.
