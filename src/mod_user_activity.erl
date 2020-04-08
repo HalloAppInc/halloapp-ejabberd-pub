@@ -134,9 +134,20 @@ store_and_broadcast_presence(User, Server, away) ->
             broadcast_presence(User, Server, Timestamp, away)
     end;
 store_and_broadcast_presence(User, Server, available) ->
+    check_for_first_login(User, Server),
     Timestamp = util:timestamp_to_binary(erlang:timestamp()),
     store_user_activity(User, Server, Timestamp, available),
     broadcast_presence(User, Server, <<>>, available).
+
+
+-spec check_for_first_login(binary(), binary()) -> ok.
+check_for_first_login(User, Server) ->
+    case get_user_activity(User, Server) of
+        {_, undefined} ->
+            ejabberd_hooks:run(on_user_first_login, Server, [User, Server]);
+        _ ->
+            ok
+    end.
 
 
 -spec store_user_activity(binary(), binary(), binary(), atom()) -> {ok, any()} | {error, any()}.

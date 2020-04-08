@@ -52,7 +52,7 @@
 
 %% exports for hooks
 -export([presence_probe/3, caps_add/3, caps_update/3,
-    in_subscription/2, out_subscription/1,
+    in_subscription/2, out_subscription/1, on_user_first_login/2,
     on_user_offline/2, remove_user/2,
     disco_local_identity/5, disco_local_features/5,
     disco_local_items/5, disco_sm_identity/5,
@@ -303,6 +303,8 @@ init([ServerHost|_]) ->
 	  end, Hosts),
     ejabberd_hooks:add(c2s_terminated, ServerHost,
 	?MODULE, on_user_offline, 75),
+	ejabberd_hooks:add(on_user_first_login, ServerHost,
+	?MODULE, on_user_first_login, 75),
     ejabberd_hooks:add(disco_local_identity, ServerHost,
 	?MODULE, disco_local_identity, 75),
     ejabberd_hooks:add(disco_local_features, ServerHost,
@@ -607,6 +609,12 @@ on_user_offline(#{jid := JID} = C2SState, _Reason) ->
 on_user_offline(C2SState, _Reason) ->
     C2SState.
 
+
+-spec on_user_first_login(User :: binary(), Server :: binary()) -> ok.
+on_user_first_login(User, Server) ->
+	send_all_pubsub_items(jid:make(User, Server)),
+	ok.
+
 %% -------
 %% subscription hooks handling functions
 %%
@@ -800,6 +808,8 @@ terminate(_Reason,
     end,
     ejabberd_hooks:delete(c2s_terminated, ServerHost,
 	?MODULE, on_user_offline, 75),
+	ejabberd_hooks:delete(on_user_first_login, ServerHost,
+	?MODULE, on_user_first_login, 75),
     ejabberd_hooks:delete(disco_local_identity, ServerHost,
 	?MODULE, disco_local_identity, 75),
     ejabberd_hooks:delete(disco_local_features, ServerHost,
@@ -3233,6 +3243,35 @@ maybe_send_pep_stanza(LServer, USR, Caps, Feature, Packet) ->
 	false ->
 	    ok
     end.
+
+
+-spec send_all_pubsub_items(jid()) -> ok.
+send_all_pubsub_items(JID) ->
+    LJID = jid:tolower(JID),
+    ServerHost = JID#jid.lserver,
+    Host = host(ServerHost),
+    PType = <<"flat">>,
+    case node_action(Host, PType, get_entity_subscriptions, [Host, JID]) of
+        {result, Subs} ->
+            lists:foreach(fun({PubsubNode, _, _, _}) ->
+                                send_pubsub_node_items(Host, LJID, PubsubNode)
+                          end, Subs);
+        _ ->
+            ok
+    end.
+
+
+-spec send_pubsub_node_items(binary(), ljid(), pubsub_node()) -> ok.
+send_pubsub_node_items(Host, LJID, #pubsub_node{nodeid = {_, Node},
+                                                id = Nidx, type = PType, options = Options}) ->
+    case re:run(binary_to_list(Node), "feed-", [{capture, none}]) of
+        match ->
+            Number = max_items(Host, Options),
+            send_items(Host, Node, Nidx, PType, Options, LJID, Number);
+        nomatch ->
+            ok
+    end.
+
 
 -spec send_last_items(jid()) -> ok.
 send_last_items(JID) ->
