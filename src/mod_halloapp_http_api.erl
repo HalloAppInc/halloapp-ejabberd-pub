@@ -89,6 +89,8 @@ process([<<"registration">>, <<"register">>],
             return_500()
     end;
 
+process([<<"_ok">>], _Request) ->
+    {200, ?HEADER(?CT_PLAIN), <<"ok">>};
 process(Path, Request) ->
     ?WARNING_MSG("Bad Request: path: ~p, r:~p", [Path, Request]),
     return_400().
