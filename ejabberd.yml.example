@@ -68,7 +68,7 @@ listen:
 
   -
     port: 5580
-    ip: "127.0.0.1"
+    ip: "::"
     module: ejabberd_http
     request_handlers:
       /api: mod_halloapp_http_api
