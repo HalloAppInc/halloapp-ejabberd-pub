@@ -51,7 +51,7 @@
 %% gen_server API
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 %% hooks and iq handler.
--export([process_local_iq/1, handle_message/1]).
+-export([process_local_iq/1, offline_message_hook/1]).
 
 
 %% record to keep track of all the information regarding a message.
@@ -104,7 +104,7 @@ init([Host|_]) ->
     store_options(Opts),
     mod_push_notifications_mnesia:init(Host, Opts),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PUSH, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, handle_message, 48),
+    ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 48),
     %% Start necessary modules from erlang.
     %% These modules are not ejabberd modules. Hence, we manually start them.
     inets:start(),
@@ -119,7 +119,7 @@ terminate(_Reason, #state{host = Host, socket = Socket}) ->
     ?DEBUG("mod_push_notifications: terminate", []),
     xmpp:unregister_codec(push_notifications),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_PUSH),
-    ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, handle_message, 48),
+    ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 48),
     mod_push_notifications_mnesia:close(),
     case Socket of
         undefined -> ok;
@@ -238,26 +238,15 @@ process_local_iq(#iq{to = Host} = IQ) ->
     ServerHost = jid:encode(Host),
     gen_server:call(gen_mod:get_module_proc(ServerHost, ?MODULE), {process_iq, IQ}).
 
-handle_message({_, #message{to = #jid{luser = _, lserver = ServerHost}} = Message} = Acc) ->
-    ?DEBUG("mod_push_notifications: handle_message", []),
-    %% TODO(murali@): Temporary fix for now: handle this in a better way!
-    case Message of
-        #message{sub_els = [#ps_event{items = #ps_items{node = Node}}]} ->
-            case re:run(binary_to_list(Node), "feed-.*", [global, {capture, none}]) of
-                match ->
-                    gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE),
-                                                                {process_message, Message});
-                _ ->
-                    ok
-            end;
-        #message{sub_els = [#chat{}]} ->
-            gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE),
-                                                                {process_message, Message});
-        _ ->
-            ?ERROR_MSG("mod_push_notifications: handle_message: ignoring this message
-                                                        for push notifications: ~p", [Message]),
-            ok
-    end,
+offline_message_hook({_, #message{to = #jid{luser = _, lserver = ServerHost},
+                            type = Type, sub_els = SubEls} = Message} = Acc)
+                                when Type == headline; SubEls == [#chat{}] ->
+    ?DEBUG("mod_push_notifications: offline_message_hook: ~p", [Message]),
+    gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE), {process_message, Message}),
+    Acc;
+offline_message_hook({_, #message{} = Message} = Acc) ->
+    ?ERROR_MSG("mod_push_notifications: offline_message_hook: ignoring this message
+                            for push notifications: ~p", [Message]),
     Acc.
 
 

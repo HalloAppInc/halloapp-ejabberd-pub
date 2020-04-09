@@ -466,7 +466,7 @@ need_to_store(LServer, #message{type = Type} = Packet) ->
 					groupchat ->
 					    mod_offline_opt:store_groupchat(LServer);
 					headline ->
-					    false;
+					    true;
 					_ ->
 					    true
 				    end,

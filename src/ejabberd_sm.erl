@@ -745,9 +745,9 @@ do_route(Packet) ->
     case get_sessions(Mod, LUser, LServer, LResource) of
 	[] ->
 	    case Packet of
-		#message{type = T} when T == chat; T == normal ->
+		#message{type = T} when T == chat; T == normal; T == headline ->
 		    route_message(Packet);
-		#message{type = T} when T == headline ->
+		#message{} ->
 		    ejabberd_hooks:run_fold(bounce_sm_packet,
 					    LServer, {pass, Packet}, []);
 		#presence{} ->

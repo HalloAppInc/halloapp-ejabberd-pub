@@ -720,7 +720,7 @@ should_archive(#message{body = Body, subject = Subject,
 		no_store ->
 		    false;
 		none when Type == headline ->
-		    false;
+		    true;
 		none ->
 		    case xmpp:get_text(Body) /= <<>> orelse
 			 xmpp:get_text(Subject) /= <<>> of

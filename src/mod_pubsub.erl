@@ -3206,7 +3206,7 @@ send_items(Host, Node, Nidx, Type, Options, Publisher, SubLJID, ToLJID, Number) 
 	    Stanza = #message{
 			sub_els = [#ps_event{items = items_els(Node, Options, Items)}
 				   | Delay]},
-	    NotificationType = get_option(Options, notification_type, headline),
+	    NotificationType = normal,
 	    send_stanza(Publisher, ToLJID, Node,
 			add_message_type(Stanza, NotificationType))
     end.
