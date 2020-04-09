@@ -68,7 +68,18 @@ init([]) ->
         type => worker,
         modules => [dynamic]},
 
-    {ok, {SupFlags, [EredisClusterPool, RedisFriends]}}.
+    {redis_accounts, Host1, Port1} = config:get_service(redis_accounts),
+
+    RedisAccounts = #{
+        id => redis_accounts_client,
+        start => {eredis_cluster_client, start_link, [{redis_accounts_client, [{Host1, Port1}]}]},
+        restart => permanent,
+        shutdown => 5000,
+        type => worker,
+        modules => [dynamic]},
+
+
+    {ok, {SupFlags, [EredisClusterPool, RedisFriends, RedisAccounts]}}.
 
 %%%===================================================================
 %%% Internal functions

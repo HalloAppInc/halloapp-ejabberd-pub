@@ -60,17 +60,19 @@ process([<<"registration">>, <<"register">>],
         ?DEBUG("registration request: r:~p ip:~p", [Data, IP]),
         UserAgent = get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
-        %% TODO: check arguments exists
         Phone = binary_to_list(maps:get(<<"phone">>, Payload)),
         Code = binary_to_list(maps:get(<<"code">>, Payload)),
+        Name = maps:get(<<"name">>, Payload, <<"">>),
+        % TODO: check Name
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
-        {ok, Phone, Uid, Password} = finish_registration(Phone),
+        {ok, Phone, Uid, Password} = finish_registration(Phone, Name),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
                 {uid, Uid},
                 {phone, list_to_binary(Phone)},
                 {password, Password},
+                {name, Name},
                 {result, ok}
             ]})}
     catch
@@ -115,13 +117,13 @@ generate_password() ->
         end end, P),
     list_to_binary(PP).
 
--spec finish_registration(phone()) -> {ok, phone(), binary(), binary()}.
-finish_registration(Phone) ->
+-spec finish_registration(phone(), binary()) -> {ok, phone(), binary(), binary()}.
+finish_registration(Phone, Name) ->
     Password = generate_password(),
     Host = util:get_host(),
     % TODO: this is templorary during the migration from Phone to Uid
     {ok, _} = ejabberd_admin:unregister_push(Phone, Host),
-    {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, Password),
+    {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, Password, Name),
     case Action of
         login ->
             % Unregister the push token

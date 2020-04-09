@@ -11,8 +11,8 @@
 
 %% API
 -export([
-  get_hallo_env/0,
-  get_service/1
+    get_hallo_env/0,
+    get_service/1
 ]).
 -export_type([service/0, hallo_env/0]).
 
@@ -25,20 +25,23 @@
 
 -spec get_hallo_env() -> hallo_env().
 get_hallo_env() ->
-  case os:getenv(?HALLO_ENV_NAME) of
-    ?ENV_LOCALHOST -> localhost;
-    ?ENV_PROD -> prod;
-    ?ENV_TEST -> test;
-    _Else -> prod
-  end.
+    case os:getenv(?HALLO_ENV_NAME) of
+        ?ENV_LOCALHOST -> localhost;
+        ?ENV_PROD -> prod;
+        ?ENV_TEST -> test;
+        _Else -> prod
+    end.
 
 -type host() :: string().
 -type service() :: {term(), host(), port()}.
 -spec get_service(string()) -> {ok, service()} | {error, any()}.
 get_service(Name) ->
-  case {get_hallo_env(), Name} of
-    {localhost, redis_friends} -> {redis_friends, "127.0.0.1", 30001};
-    {test, redis_friends} -> {redis_friends, "127.0.0.1", 30001};
-    {prod, redis_friends} -> {redis_friends, "redisaccountstest.emlvii.clustercfg.use2.cache.amazonaws.com", 6379};
-    _Else -> {error, service_not_found}
+    case {get_hallo_env(), Name} of
+        {localhost, redis_friends} -> {redis_friends, "127.0.0.1", 30001};
+        {test, redis_friends} -> {redis_friends, "127.0.0.1", 30001};
+        {prod, redis_friends} -> {redis_friends, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com:", 6379};
+        {localhost, redis_accounts} -> {redis_accounts, "127.0.0.1", 30001};
+        {test, redis_accounts} -> {redis_accounts, "127.0.0.1", 30001};
+        {prod, redis_accounts} -> {redis_accounts, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        _Else -> {error, service_not_found}
   end.
