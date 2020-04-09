@@ -147,7 +147,7 @@ create_pubsub_nodes(User, Server) ->
 
 
 
--spec create_pubsub_node(binary(), binary(), binary(), atom(), integer(), integer()) -> ok.
+-spec create_pubsub_node(binary(), binary(), binary(), atom(), atom(), integer(), integer()) -> ok.
 create_pubsub_node(User, Server, NodeName, PublishModel,
                     NotificationType, MaxItems, ItemExpireSec) ->
 	Host = mod_pubsub:host(Server),
