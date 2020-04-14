@@ -24,4 +24,4 @@ jobs:
     - name: Compile
       run: make
     - name: Run tests
-      run: ./rebar eunit suite=util_ua
+      run: ./rebar eunit
