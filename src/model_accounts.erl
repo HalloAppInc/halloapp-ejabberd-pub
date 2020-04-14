@@ -32,7 +32,9 @@
 %% API
 -export([
     set_name/2,
-    get_name/1
+    get_name/1,
+    get_name_binary/1,
+    delete_name/1
 ]).
 
 start_link() ->
@@ -74,6 +76,18 @@ set_name(Uid, Name) ->
 get_name(Uid) ->
     gen_server:call(get_proc(), {get_name, Uid}).
 
+-spec delete_name(Uid :: binary()) -> ok  | {error, any()}.
+delete_name(Uid) ->
+    gen_server:call(get_proc(), {delete_name, Uid}).
+
+-spec get_name_binary(Uid :: binary()) -> binary().
+get_name_binary(Uid) ->
+    {ok, Name} = get_name(Uid),
+    case Name of
+        undefined ->  <<>>;
+        _ -> Name
+    end.
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -91,6 +105,10 @@ handle_call({set_name, Uid, Name}, _From, Redis) ->
 
 handle_call({get_name, Uid}, _From, Redis) ->
     {ok, Res} = q(["HGET", key(Uid), ?FIELD_NAME]),
+    {reply, {ok, Res}, Redis};
+
+handle_call({delete_name, Uid}, _From, Redis) ->
+    {ok, Res} = q(["HDEL", key(Uid), ?FIELD_NAME]),
     {reply, {ok, Res}, Redis}.
 
 handle_cast(_Message, Redis) -> {noreply, Redis}.
