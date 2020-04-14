@@ -27,6 +27,10 @@ get_host() ->
 	[H | []] = ejabberd_option:hosts(),
 	H.
 
+-spec now_ms() -> integer().
+now_ms() ->
+    os:system_time(millisecond).
+
 %% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
 %% Expects an erlang timestamp as input.
 -spec timestamp_to_binary(erlang:timestamp()) -> binary().
