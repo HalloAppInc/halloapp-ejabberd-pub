@@ -30,7 +30,7 @@
     generate_code/1
 ]).
 
--type phone() :: [0..9].
+-type phone() :: binary().
 
 %%====================================================================
 %% gen_mod callbacks
@@ -42,7 +42,7 @@ start(Host, Opts) ->
     ?INFO_MSG("here ~p", [X]),
     X.
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO_MSG("start ~w ~p", [?MODULE, self()]),
     gen_mod:stop_child(get_proc()).
 
@@ -147,7 +147,7 @@ get_twilio_auth_token(State) ->
     Message :: string(),
     Body :: uri_string:uri_string().
 compose_twilio_body(Phone, Message) ->
-    PlusPhone = "+" ++ Phone,
+    PlusPhone = "+" ++ binary_to_list(Phone),
     Uri = uri_string:compose_query([{"To", PlusPhone }, {"From", ?FROM_PHONE}, {"Body", Message}], [{encoding, utf8}]),
     Uri.
 

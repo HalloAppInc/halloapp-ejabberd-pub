@@ -31,7 +31,7 @@
 -type http_path() :: [binary()].
 
 % TODO: move this to some header?
--type phone() :: [0..9].
+-type phone() :: binary().
 
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 process([<<"registration">>, <<"request_sms">>], Request) ->
@@ -42,7 +42,7 @@ process([<<"registration">>, <<"request_sms">>], Request) ->
         ?DEBUG("request_sms ~p Data:~p: r:~p", [Method, Data, Request]),
         UserAgent = get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
-        Phone = binary_to_list(maps:get(<<"phone">>, Payload)),
+        Phone = maps:get(<<"phone">>, Payload),
         ?DEBUG("payload ~p phone: ~p, ua: ~p ~p", [Payload, Phone, UserAgent, is_debug(Phone)]),
         case {Method, util_ua:is_hallo_ua(UserAgent)} of
             {'POST', true} -> request_sms(Phone, UserAgent);
@@ -60,8 +60,8 @@ process([<<"registration">>, <<"register">>],
         ?DEBUG("registration request: r:~p ip:~p", [Data, IP]),
         UserAgent = get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
-        Phone = binary_to_list(maps:get(<<"phone">>, Payload)),
-        Code = binary_to_list(maps:get(<<"code">>, Payload)),
+        Phone = maps:get(<<"phone">>, Payload),
+        Code = maps:get(<<"code">>, Payload),
         Name = maps:get(<<"name">>, Payload, <<"">>),
         % TODO: check Name
         check_ua(UserAgent),
@@ -70,7 +70,7 @@ process([<<"registration">>, <<"register">>],
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
                 {uid, Uid},
-                {phone, list_to_binary(Phone)},
+                {phone, Phone},
                 {password, Password},
                 {name, Name},
                 {result, ok}
@@ -136,7 +136,7 @@ finish_registration(Phone, Name) ->
 -spec check_sms_code(phone(), string()) -> ok.
 check_sms_code(Phone, Code) ->
     Host = util:get_host(),
-    case {ejabberd_admin:get_user_passcode(Phone, Host), list_to_binary(Code)} of
+    case {ejabberd_admin:get_user_passcode(Phone, Host), Code} of
         {{ok, MatchingCode}, MatchingCode} when size(MatchingCode) =:= 6 ->
             ?DEBUG("Code match phone:~p code:~p",
                 [Phone, MatchingCode]),
@@ -163,7 +163,7 @@ request_sms(Phone, UserAgent) ->
     case EnrollResult of
         {ok, _Text} ->
             {200, ?HEADER(?CT_JSON), jiffy:encode({[
-                {phone, list_to_binary(Phone)},
+                {phone, Phone},
                 {result, ok}]})};
         {error, cannot_enroll, _, Reason} ->
             ?DEBUG("cannot_enroll ~s", [Reason]),
