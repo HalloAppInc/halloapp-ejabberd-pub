@@ -176,7 +176,7 @@ handle_cast({offline_message_hook, Packet}, #{ack_wait_queue := AckWaitQueue} = 
                                                                     [Packet, AckWaitQueue]),
     Id = xmpp:get_id(Packet),
     To = jid:remove_resource(xmpp:get_to(Packet)),
-    NewAckWaitQueue = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
+    {_, NewAckWaitQueue} = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
 handle_cast({c2s_closed, To}, #{ack_wait_queue := AckWaitQueue} = AckState) ->
     ?DEBUG("mod_ack: handle_cast: Check and remove all packet to: ~p from queue: ~p",
@@ -196,7 +196,7 @@ handle_info({route_offline_message, Packet}, #{ack_wait_queue := AckWaitQueue} =
                 Received a route_offline_message message for a packet: ~p", [Packet]),
     Id = xmpp:get_id(Packet),
     To = jid:remove_resource(xmpp:get_to(Packet)),
-    NewAckWaitQueue = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
+    {_, NewAckWaitQueue} = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
     route_offline_message(Packet),
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
 handle_info({route_offline_message, Id, To, TimestampSec},
@@ -212,7 +212,7 @@ handle_info({route_offline_message, Id, To, TimestampSec},
         {_, _, TimestampSec, Packet} ->
             ?INFO_MSG("mod_ack: handle_info: This packet id: ~p to: ~p will be sent
                         to offline_msg to retry again later.", [Id, To]),
-            NewAckWaitQueue = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
+            {_, NewAckWaitQueue} = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
             route_offline_message(Packet);
         _ ->
             ?INFO_MSG("mod_ack: handle_info: route_offline_message with different timestamp", []),
@@ -234,22 +234,30 @@ handle_info(Request, AckState) ->
 %% the list of packets waiting for an ack.
 -spec check_and_accept_ack_packet(boolean(), stanza(), state()) -> state().
 check_and_accept_ack_packet(true, #ack{id = AckId, from = From} = Ack,
-                            #{ack_wait_queue := AckWaitQueue} = AckState) ->
+                            #{ack_wait_queue := AckWaitQueue, host := ServerHost} = AckState) ->
     AckTo = jid:remove_resource(From),
     ?INFO_MSG("mod_ack: Accepting this ack packet: ~p, ~n AckWaitQueue: ~p", [Ack, AckWaitQueue]),
-    NewAckWaitQueue = remove_packet_from_ack_wait_queue(AckId, AckTo, AckWaitQueue),
+    {PacketList, NewAckWaitQueue} = remove_packet_from_ack_wait_queue(AckId, AckTo, AckWaitQueue),
+    case PacketList of
+        [] -> ok;
+        [{_, _, _, Packet}] -> ejabberd_hooks:run(user_ack_packet, ServerHost,
+                                                            [xmpp:decode_els(Packet)])
+    end,
     AckState#{ack_wait_queue => NewAckWaitQueue};
 check_and_accept_ack_packet(_, _Packet, AckState) ->
     AckState.
 
 
 %% Removes a packet based on Id from the ack_wait_queue and returns the resulting queue.
--spec remove_packet_from_ack_wait_queue(binary(), jid(), queue()) -> queue().
+-spec remove_packet_from_ack_wait_queue(binary(), jid(), queue()) ->
+                                            {[{binary(), jid(), binary(), stanza()}], queue()}.
 remove_packet_from_ack_wait_queue(AckId, AckTo, AckWaitQueue) ->
-    NewAckWaitQueue = queue:filter(fun({Id, To, _Then, _P}) ->
-                                        AckId =/= Id orelse AckTo =/= To
-                                        end, AckWaitQueue),
-    NewAckWaitQueue.
+    AckWaitList = queue:to_list(AckWaitQueue),
+    {PacketList, NewAckWaitList} = lists:partition(fun({Id, To, _Then, _P}) ->
+                                                        AckId == Id andalso AckTo == To
+                                                end, AckWaitList),
+    NewAckWaitQueue = queue:from_list(NewAckWaitList),
+    {PacketList, NewAckWaitQueue}.
 
 %% Removes a packet based on to from the ack_wait_queue and returns the resulting queue.
 -spec remove_all_packet_with_to_from_ack_wait_queue(jid(), queue()) -> queue().
