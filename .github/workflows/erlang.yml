@@ -17,7 +17,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Autogen
+      run: ./autogen.sh
+    - name: Configure
+      run: ./configure
     - name: Compile
       run: make
     - name: Run tests
-      run: /rebar eunit suite=util_ua
+      run: ./rebar eunit suite=util_ua
