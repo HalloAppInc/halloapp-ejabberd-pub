@@ -33,7 +33,7 @@ generate_code_test() ->
 
 twilio_test() ->
     State = mod_sms:make_state(),
-    Body = mod_sms:compose_twilio_body("123", "test"),
+    Body = mod_sms:compose_twilio_body(<<"123">>, "test"),
     ?assertEqual("To=%2B123&From=%2B" ++ string:slice(?FROM_PHONE, 1) ++ "&Body=test", Body),
     ?assertNotEqual("", mod_sms:get_twilio_account_sid(State)),
     ?assertNotEqual("", mod_sms:get_twilio_auth_token(State)),
