@@ -2859,10 +2859,11 @@ payload_xmlelements([_ | Tail], Count) ->
 items_els(Node, _Options, Items) ->
 	%% Ignoring the option of 'itemreply' for now, will add it back if needed.
 	Els = [#ps_item{id = ItemId, timestamp = util:timestamp_to_binary(Timestamp),
-					sub_els = Payload, type = ItemType, publisher = jid:encode(USR)}
+                    sub_els = Payload, type = ItemType, publisher = jid:encode(USR),
+                    publisher_name = model_accounts:get_name_binary(UserId)}
 			|| #pubsub_item_new{itemid = {ItemId, _}, itemtype = ItemType, payload = Payload,
-								creation = {Timestamp, _}, modification = {_, USR}}
-				<- Items],
+                                creation = {Timestamp, _}, modification = {_, {UserId, _, _} = USR}}
+                <- Items],
     #ps_items{node = Node, items = Els}.
 
 %%%%%% broadcast functions
@@ -2879,10 +2880,12 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, ItemType, Ti
 			      true -> Payload;
 			      false -> []
 			  end,
+		PublisherName = model_accounts:get_name_binary(From#jid.user),
 	    ItemsEls = #ps_items{node = Node,
 				 items = [#ps_item{id = ItemId,
 						   timestamp = Timestamp,
 						   publisher = ItemPublisher,
+						   publisher_name = PublisherName,
 						   type = ItemType,
 						   sub_els = ItemPayload}]},
 	    Stanza = #message{ sub_els = [#ps_event{items = ItemsEls}]},
@@ -2915,7 +2918,7 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, ItemType, Ti
 -spec broadcast_retract_items(host(), binary(), nodeIdx(), binary(),
 			      nodeOptions(), [itemId()]) -> {result, boolean()}.
 broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds) ->
-    broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, [other], <<>>, [], <<>>, false).
+    broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, [other], <<>>, [], <<>>, true).
 
 -spec broadcast_retract_items(host(), binary(), nodeIdx(), binary(),
 			      nodeOptions(), [itemId()], [itemType()], boolean()) -> {result, boolean()}.
@@ -2938,6 +2941,8 @@ broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, ItemTypes,
 	true ->
 	    case get_collection_subscriptions(Host, Node) of
 		{result, SubsByDepth} ->
+			PublisherJID = jid:from_string(Publisher),
+			PublisherName = model_accounts:get_name_binary(PublisherJID#jid.user),
 		    Stanza = #message{
 				sub_els =
 				    [#ps_event{
@@ -2946,10 +2951,10 @@ broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, ItemTypes,
 						   retract = #ps_event_retract{
 								   id = ItemId,
 								   publisher = Publisher,
+								   publisher_name = PublisherName,
 								   timestamp = Timestamp,
 								   type = ItemType,
 								   sub_els = Payload }}}]},
-			PublisherJID = jid:from_string(Publisher),
 			broadcast_stanza_internal(Host, PublisherJID, Node, Nidx, Type,
 			NodeOptions, SubsByDepth, items, Stanza, true),
 		    {result, true};
