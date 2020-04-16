@@ -258,7 +258,7 @@ handle_call({get_name, Uid}, _From, Redis) ->
 
 handle_call({delete_name, Uid}, _From, Redis) ->
     {ok, Res} = q(["HDEL", key(Uid), ?FIELD_NAME]),
-    {reply, {ok, Res}, Redis}.
+    {reply, {ok, Res}, Redis};
 
 handle_call({set_last_activity_ts_ms, Uid, Timestamp}, _From, Redis) ->
     {ok, _Res} = q(["HSET", key(Uid), ?FIELD_LAST_ACTIVITY, integer_to_binary(Timestamp)]),
