@@ -42,5 +42,6 @@ get_service(Name) ->
         {prod, redis_friends} -> {redis_friends, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com:", 6379};
         {prod, redis_accounts} -> {redis_accounts, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_contacts} -> {redis_contacts, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        {prod, redis_auth} -> {redis_auth, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         _Else -> {error, service_not_found}
   end.

@@ -70,11 +70,11 @@ while(N, F) ->
 perf_test() ->
   setup(),
   N = 10, %% Set to N=100000 to do
-  StartTime = os:system_time(millisecond),
+  StartTime = util:now_ms(),
   while(N, fun(X) ->
     {ok, true} = model_friends:add_friend(1, X + 1000)
            end),
-  EndTime = os:system_time(millisecond),
+  EndTime = util:now_ms(),
   T = EndTime - StartTime,
 %%  ?debugFmt("~w operations took ~w ms => ~f ops ", [N, T, N / (T / 1000)]),
   {ok, T}.

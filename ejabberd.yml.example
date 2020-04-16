@@ -290,6 +290,7 @@ modules:
   model_friends: {}
   model_accounts: {}
   model_contacts: {}
+  model_auth: {}
 
 ### Local Variables:
 ### mode: yaml

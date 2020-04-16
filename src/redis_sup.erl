@@ -58,40 +58,33 @@ init([]) ->
         type => supervisor,
         modules => [dynamic]},
 
-    {redis_friends, Host, Port} = config:get_service(redis_friends),
+    RedisFriends = create_redis_child_spec(redis_friends, redis_friends_client),
+    RedisAccounts = create_redis_child_spec(redis_accounts, redis_accounts_client),
+    RedisContacts = create_redis_child_spec(redis_contacts, redis_contacts_client),
+    RedisAuth = create_redis_child_spec(redis_auth, redis_auth_client),
 
-    RedisFriends = #{
-        id => redis_friends_client,
-        start => {eredis_cluster_client, start_link, [{redis_friends_client, [{Host, Port}]}]},
-        restart => permanent,
-        shutdown => 5000,
-        type => worker,
-        modules => [dynamic]},
+    {ok, {SupFlags, [
+        EredisClusterPool,
+        RedisFriends,
+        RedisAccounts,
+        RedisContacts,
+        RedisAuth
+    ]}}.
 
-    {redis_accounts, AccountsHost, AccountsPort} = config:get_service(redis_accounts),
-
-    RedisAccounts = #{
-        id => redis_accounts_client,
+%% TODO: can the 2 atoms be the same?
+-spec create_redis_child_spec(
+        RedisService :: atop(), RedisServiceClient :: atom()) -> supervisor:child_spec().
+create_redis_child_spec(RedisService, RedisServiceClient) ->
+    {RedisService, RedisHost, RedisPort} = config:get_service(RedisService),
+    ChildSpec = #{
+        id => RedisServiceClient,
         start => {eredis_cluster_client, start_link,
-                    [{redis_accounts_client, [{AccountsHost, AccountsPort}]}]},
+            [{RedisServiceClient, [{RedisHost, RedisPort}]}]},
         restart => permanent,
         shutdown => 5000,
         type => worker,
         modules => [dynamic]},
-
-    {redis_contacts, ContactsHost, ContactsPort} = config:get_service(redis_contacts),
-
-    RedisContacts = #{
-        id => redis_contacts_client,
-        start => {eredis_cluster_client, start_link,
-                    [{redis_contacts_client, [{ContactsHost, ContactsPort}]}]},
-        restart => permanent,
-        shutdown => 5000,
-        type => worker,
-        modules => [dynamic]},
-
-
-    {ok, {SupFlags, [EredisClusterPool, RedisFriends, RedisAccounts, RedisContacts]}}.
+    ChildSpec.
 
 %%%===================================================================
 %%% Internal functions

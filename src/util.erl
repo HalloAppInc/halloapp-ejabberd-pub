@@ -31,6 +31,10 @@ get_host() ->
 now_ms() ->
     os:system_time(millisecond).
 
+-spec now() -> integer().
+now() ->
+    os:system_time().
+
 %% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
 %% Expects an erlang timestamp as input.
 -spec timestamp_to_binary(erlang:timestamp()) -> binary().
