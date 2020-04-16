@@ -158,6 +158,31 @@ tarball.
 Development
 -----------
 
+### 1. Redis
+
+You need to get a redis cluster running on your local machine to run ejabberd localy
+and also to run the tests. Follow these steps
+
+    git clone https://github.com/antirez/redis.git
+    cd redis
+    make
+    sudo make install
+    cd utils/create-cluster
+    ./create-cluster start
+    ./create-cluster create
+
+After the initial setup next time you will just need to do
+
+    cd utils/create-cluster
+    ./create-cluster start
+
+
+### 2. Tests
+
+Halloapp unit test run like this:
+
+    HALLO_ENV=test ./rebar eunit
+
 In order to assist in the development of ejabberd, and particularly the
 execution of the test suite, a Vagrant environment is available at
 https://github.com/processone/ejabberd-vagrant-dev.
