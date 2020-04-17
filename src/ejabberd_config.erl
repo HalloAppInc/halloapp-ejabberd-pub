@@ -522,7 +522,7 @@ read_erlang_file(File, _) ->
 validate(Y1) ->
     case pre_validate(Y1) of
 	{ok, Y2} ->
-	    set_loglevel(proplists:get_value(loglevel, Y2, 4)),
+	    set_loglevel(proplists:get_value(loglevel, Y2, config:get_default_log_level())),
 	    case ejabberd_config_transformer:map_reduce(Y2) of
 		{ok, Y3} ->
 		    Hosts = proplists:get_value(hosts, Y3),

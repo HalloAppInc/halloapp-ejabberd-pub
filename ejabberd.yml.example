@@ -17,7 +17,8 @@
 hosts:
   - "s.halloapp.net"
 
-loglevel: 5
+### loglevel is now controlled by the environment localhost,test is 5, prod is 4
+### loglevel: 5
 ### 100MB
 log_rotate_size: 104857600
 ### Rotate at midnight
