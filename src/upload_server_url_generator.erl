@@ -6,7 +6,7 @@
 
 -include_lib("stdlib/include/assert.hrl").
 
--export([make_patch_url/1,
+-export([make_patch_url/2,
          init/1,
          close/0
         ]).
@@ -19,63 +19,45 @@
 -define(HTTP_TIMEOUT_MS, 10000).
 -define(MAX_TRIES, 10).
 
-%% Generates signed url for Http patch, returns {Key, PatchUrl}.
-- spec make_patch_url(integer()) -> {string(), string()}.
-make_patch_url(ContentLength) ->
-    case create_with_retry(ContentLength, ?MAX_TRIES, ?BACK_OFF_MS) of
-        {error, _} ->
-            {"", ""};
+%% Generates url for Http patch, returns {Key, PatchUrl} via the callback.
+- spec make_patch_url(integer(), any()) -> ok.
+make_patch_url(ContentLength, CBDetails) ->
+    create_with_retry(ContentLength, CBDetails).
+
+process_location_url(Location, CBDetails) ->
+    {Param, CBModule, CBFunction} = CBDetails,
+    case Location of
+        {error, _} -> CBModule:CBFunction(Param, {"", ""});
         {ok, LocationUrl} ->
             %% Extract the key.
             Key = string:slice(string:find(LocationUrl, get_upload_path()),
                                length(get_upload_path())),
-            {Key, LocationUrl}
+            CBModule:CBFunction(Param, {Key, LocationUrl})
     end.
 
-create_with_retry(ContentLength, MaxRetries, Backoff) ->
-    create_with_retry(ContentLength, 0, MaxRetries, Backoff).
-create_with_retry(ContentLength, Retries, MaxRetries, Backoff) ->
+create_with_retry(ContentLength, CBDetails) ->
+    create_with_retry(ContentLength, 0, CBDetails).
+create_with_retry(ContentLength, Retries, CBDetails) ->
     case create(ContentLength) of
         %% Only retry on timeout errors
-        {error, {http_error, {error,Error}}}
-           when Retries < MaxRetries
+        {error, {http_error, {error, Error}}}
+           when Retries < ?MAX_TRIES
            andalso (Error == 'timeout' orelse Error == 'connect_timeout') ->
-            timer:sleep(round(math:pow(2, Retries)) * Backoff),
-            create_with_retry(ContentLength, Retries+1, MaxRetries, Backoff);
+            timer:apply_after(round(math:pow(2, Retries)) * ?BACK_OFF_MS,
+                              ?MODULE, create_with_retry,
+                              [ContentLength, Retries+1, CBDetails]);
         {error, _} ->
-            {error, ""};
+            process_location_url({error, ""}, CBDetails);
         {ok, {{_, 201, _}, Headers, _}} ->
            %% Extract location headers.
            LocationHdr = [Location || {"location", _} = Location <- Headers],
            [{_, LocationUrl}] = LocationHdr,
-           {ok, LocationUrl}
+           process_location_url({ok, LocationUrl}, CBDetails)
     end.
 
 create(ContentLength) ->
     Req = {url(), get_hdrs(ContentLength), to_list(?CONTENT_TYPE), <<>>},
-    Begin = os:timestamp(),
-    ejabberd_hooks:run(backend_api_call, get_upload_host(),
-                       [get_upload_host(), post, get_upload_path()]),
-    Result = httpc:request(post, Req, get_http_opts(), []),
-    case Result of
-        {error, {http_error, {error, timeout}}} ->
-            ejabberd_hooks:run(backend_api_timeout, get_upload_host(),
-                               [get_upload_host(), post, get_upload_path()]);
-        {error, {http_error, {error, connect_timeout}}} ->
-            ejabberd_hooks:run(backend_api_timeout, get_upload_host(),
-                               [get_upload_host(), post, get_upload_path()]);
-        {error, Error} ->
-            ejabberd_hooks:run(backend_api_error, get_upload_host(),
-                               [get_upload_host(), post, get_upload_path(),
-                                Error]);
-        _ ->
-            End = os:timestamp(),
-            Elapsed = timer:now_diff(End, Begin) div 1000, %% time in ms
-            ejabberd_hooks:run(backend_api_response_time, get_upload_host(),
-                               [get_upload_host(), post, get_upload_path(),
-                                Elapsed])
-    end,
-    Result.
+    httpc:request(post, Req, get_http_opts(), []).
 
 url() ->
     lists:concat([get_protocol() , get_upload_host(), get_upload_path()]).

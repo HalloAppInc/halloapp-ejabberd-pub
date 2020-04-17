@@ -13,7 +13,7 @@
 -behaviour(gen_mod).
 
 -export([start/2, stop/1, reload/3, process_local_iq/1,
-	 mod_opt_type/1, mod_options/1, depends/2]).
+    process_patch_url_result/2, mod_opt_type/1, mod_options/1, depends/2]).
 
 -include("logger.hrl").
 -include("xmpp.hrl").
@@ -27,8 +27,9 @@ start(Host, Opts) ->
     UploadHost = mod_upload_media_opt:upload_host(Opts),
     upload_server_url_generator:init(UploadHost),
     xmpp:register_codec(upload_media),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, <<"ns:upload_media">>, 
-                                  ?MODULE, process_local_iq),
+    gen_iq_handler:add_async_iq_handler(ejabberd_local, Host,
+                                        <<"ns:upload_media">>, 
+                                        ?MODULE, process_local_iq),
     ok.
 
 stop(Host) ->
@@ -47,28 +48,45 @@ generate_s3_urls() ->
     GetUrl = s3_signed_url_generator:make_signed_url(604800, Key),
     {GetUrl, PutUrl}.
 
-generate_resumable_urls(Size) ->
-    %% Urls to use the upload server.
-    {ResumableKey, ResumablePatch} = upload_server_url_generator:make_patch_url(Size),
-
-    %% Url to read content with max expiry.
-    ResumableGet = s3_signed_url_generator:make_signed_url(604800, ResumableKey),
-    {ResumableGet, ResumablePatch}.
+process_patch_url_result(IQ, PatchResult) ->
+    case PatchResult of
+        {"", ""} ->
+            %% Attempt to fetch Resumable Patch URL failed.
+            {GetUrl, PutUrl} = generate_s3_urls(),
+            MediaUrls = #media_urls{get = GetUrl, put = PutUrl},
+            IQResult = xmpp:make_iq_result(
+                IQ, #upload_media{media_urls = [MediaUrls]}),
+            gen_iq_handler:process_iq_result(IQResult);
+        {ResumableKey, ResumablePatch} ->
+            %% Url to read content with max expiry.
+            ResumableGet = s3_signed_url_generator:make_signed_url(604800,
+                                                                   ResumableKey),
+            {GetUrl, PutUrl} = generate_s3_urls(),
+            MediaUrls = #media_urls{get = GetUrl, put = PutUrl,
+                                    resumable_get = ResumableGet,
+                                    resumable_patch = ResumablePatch},
+            IQResult = xmpp:make_iq_result(
+                IQ, #upload_media{media_urls = [MediaUrls]}),
+            gen_iq_handler:process_iq_result(IQResult)
+    end.
+ 
+generate_resumable_urls(Size, IQ) ->
+    %% Generate the patch url. Send in details of what needs to be called when
+    %% patch url is available.
+    upload_server_url_generator:make_patch_url(Size, 
+                                               {IQ, ?MODULE,
+                                                process_patch_url_result}).
 
 process_local_iq(#iq{type = get, sub_els = [#upload_media{size = Size}]} = IQ) ->
     case Size of
         <<>> -> 
           {GetUrl, PutUrl} = generate_s3_urls(),
           MediaUrls = #media_urls{get = GetUrl, put = PutUrl},
-          xmpp:make_iq_result(IQ, #upload_media{media_urls = [MediaUrls]});
+          IQResult = xmpp:make_iq_result(
+              IQ, #upload_media{media_urls = [MediaUrls]}),
+          gen_iq_handler:process_iq_result(IQResult);
         _ ->
-          {GetUrl, PutUrl} = generate_s3_urls(),
-          {ResumableGet, ResumablePatch} =
-              generate_resumable_urls(binary_to_integer(Size)),
-          MediaUrls = #media_urls{get = GetUrl, put = PutUrl,
-                                  resumable_get = ResumableGet,
-                                  resumable_patch = ResumablePatch},
-          xmpp:make_iq_result(IQ, #upload_media{media_urls = [MediaUrls]})
+          generate_resumable_urls(binary_to_integer(Size), IQ)
     end.
 
 reload(_Host, _NewOpts, _OldOpts) ->

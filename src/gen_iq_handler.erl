@@ -28,8 +28,8 @@
 -author('alexey@process-one.net').
 
 %% API
--export([add_iq_handler/5, remove_iq_handler/3, handle/1, handle/2,
-	 start/1, get_features/2]).
+-export([add_async_iq_handler/5, add_iq_handler/5, remove_iq_handler/3,
+         handle/1, handle/2, start/1, get_features/2, process_iq_result/1]).
 %% Deprecated functions
 -export([add_iq_handler/6, handle/5, iqdisc/1]).
 -deprecated([{add_iq_handler, 6}, {handle, 5}, {iqdisc, 1}]).
@@ -49,6 +49,12 @@ start(Component) ->
     catch ets:new(Component, [named_table, public, ordered_set,
 			      {read_concurrency, true},
 			      {heir, erlang:group_leader(), none}]),
+    ok.
+
+-spec add_async_iq_handler(component(), binary(), binary(), module(), atom()) -> ok.
+add_async_iq_handler(Component, Host, NS, Module, Function) ->
+    %% Track async iq using 'true'.
+    ets:insert(Component, {{Host, NS}, Module, Function, true}),
     ok.
 
 -spec add_iq_handler(component(), binary(), binary(), module(), atom()) -> ok.
@@ -76,6 +82,8 @@ handle(Component,
     XMLNS = xmpp:get_ns(El),
     Host = To#jid.lserver,
     case ets:lookup(Component, {Host, XMLNS}) of
+	[{_, Module, Function, true}] ->
+	    process_async_iq(Host, Module, Function, Packet);
 	[{_, Module, Function}] ->
 	    process_iq(Host, Module, Function, Packet);
 	[] ->
@@ -104,11 +112,35 @@ get_features(Component, {Host, XMLNS}, Host, XMLNSs) ->
 get_features(_, _, _, XMLNSs) ->
     XMLNSs.
 
+- spec process_iq_result(iq()) -> ignore.
+process_iq_result(IQ) ->
+  try ejabberd_router:route(IQ) of
+     _ -> ok
+  catch ?EX_RULE(Class, Reason, St) ->
+     StackTrace = ?EX_STACK(St),
+	    ?ERROR_MSG("Failed to process iq result:~n~ts~n** ~ts", [xmpp:pp(IQ),
+			misc:format_exception(2, Class, Reason, StackTrace)])
+    end.
+
+-spec process_async_iq(binary(), atom(), atom(), iq()) -> ok.
+process_async_iq(_Host, Module, Function, IQ) ->
+    try process_iq(Module, Function, IQ) of
+    	  _ -> ok
+    catch ?EX_RULE(Class, Reason, St) ->
+	    StackTrace = ?EX_STACK(St),
+	    ?ERROR_MSG("Failed to process iq:~n~ts~n** ~ts",
+		       [xmpp:pp(IQ),
+			misc:format_exception(2, Class, Reason, StackTrace)]),
+	    Txt = ?T("Module failed to handle the query"),
+	    Err = xmpp:err_internal_server_error(Txt, IQ#iq.lang),
+	    ejabberd_router:route_error(IQ, Err)
+    end.
+
 -spec process_iq(binary(), atom(), atom(), iq()) -> ok.
 process_iq(_Host, Module, Function, IQ) ->
     try process_iq(Module, Function, IQ) of
 	#iq{} = ResIQ ->
-	    ejabberd_router:route(ResIQ);
+	    process_iq_result(ResIQ);
 	ignore ->
 	    ok
     catch ?EX_RULE(Class, Reason, St) ->
