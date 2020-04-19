@@ -18,6 +18,7 @@
 -define(CONTENT_TYPE, "application/json").
 -define(HTTP_TIMEOUT_MS, 10000).
 -define(MAX_TRIES, 10).
+-define(UPLOAD_SERVER_HTTP_POOL_SIZE, 10).
 
 %% Generates url for Http patch, returns {Key, PatchUrl} via the callback.
 - spec make_patch_url(integer(), any()) -> ok.
@@ -84,8 +85,7 @@ internal_init(UploadHost) ->
     persistent_term:put({?MODULE, upload_host}, UploadHostStr),
 
     application:start(inets),
-    Size = ejabberd_option:ext_api_http_pool_size(UploadHost),
-    httpc:set_options([{max_sessions, Size}]).
+    httpc:set_options([{max_sessions, ?UPLOAD_SERVER_HTTP_POOL_SIZE}]).
 
 %% To clear state kept by this module.
 internal_close() ->

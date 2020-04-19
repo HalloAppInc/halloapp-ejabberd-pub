@@ -61,10 +61,10 @@ process_patch_url_result(IQ, PatchResult) ->
             %% Url to read content with max expiry.
             ResumableGet = s3_signed_url_generator:make_signed_url(604800,
                                                                    ResumableKey),
+            Resumable = #resumable{get = ResumableGet, patch = ResumablePatch},
             {GetUrl, PutUrl} = generate_s3_urls(),
             MediaUrls = #media_urls{get = GetUrl, put = PutUrl,
-                                    resumable_get = ResumableGet,
-                                    resumable_patch = ResumablePatch},
+                                    resumable = [Resumable]},
             IQResult = xmpp:make_iq_result(
                 IQ, #upload_media{media_urls = [MediaUrls]}),
             gen_iq_handler:process_iq_result(IQResult)
