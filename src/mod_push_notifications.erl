@@ -423,7 +423,19 @@ send_push_notification_based_on_os(<<"ios">>, Args) ->
     #message{to = To} = MessageItem#message_item.message,
     ?INFO_MSG("mod_push_notifications:
                  Trying to send an ios push notification for user: ~p through apns", [To]),
-    send_apns_push_notification(Args);
+    ApnsGateway = get_apns_gateway(),
+    ApnsCertfile = get_apns_certfile(),
+    ApnsPort = get_apns_port(),
+    send_apns_push_notification(ApnsGateway, ApnsCertfile, ApnsPort, Args);
+send_push_notification_based_on_os(<<"ios_dev">>, Args) ->
+    {_, _, _, _, _, MessageItem, _} = Args,
+    #message{to = To} = MessageItem#message_item.message,
+    ?INFO_MSG("mod_push_notifications:
+                 Trying to send an ios push notification for user: ~p through apns", [To]),
+    ApnsDevGateway = get_apns_dev_gateway(),
+    ApnsDevCertfile = get_apns_dev_certfile(),
+    ApnsDevPort = get_apns_dev_port(),
+    send_apns_push_notification(ApnsDevGateway, ApnsDevCertfile, ApnsDevPort, Args);
 send_push_notification_based_on_os(<<"android">>, Args) ->
     {_, _, _, _, _, MessageItem, _} = Args,
     #message{to = To} = MessageItem#message_item.message,
@@ -443,14 +455,12 @@ send_push_notification_based_on_os(Os, Args) ->
 %% [https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/
 %%RemoteNotificationsPG/BinaryProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH13-SW1]
 %% TODO(murali@): switch to the modern API soon.
--spec send_apns_push_notification({binary(), {binary(), binary()},
+-spec send_apns_push_notification(list(), list(), integer(),
+                                    {binary(), {binary(), binary()},
                                     binary(), binary(), binary(),
                                     #message_item{}, #state{}}) -> #state{}.
-send_apns_push_notification(Args) ->
+send_apns_push_notification(ApnsGateway, ApnsCertfile, ApnsPort, Args) ->
     {_From, Username, Subject, Body, Token, MessageItem, State} = Args,
-    ApnsGateway = get_apns_gateway(),
-    ApnsCertfile = get_apns_certfile(),
-    ApnsPort = get_apns_port(),
     MessageId = MessageItem#message_item.message_id,
     RetryTimeout = MessageItem#message_item.prev_retry_time0 +
                         MessageItem#message_item.prev_retry_time1,
@@ -660,7 +670,16 @@ store_options(Opts) ->
     persistent_term:put({?MODULE, apns_certfile}, binary_to_list(ApnsCertfile)),
     %% Store APNS port as int.
     ApnsPort = proplists:get_value(port, ApnsOptions),
-    persistent_term:put({?MODULE, apns_port}, ApnsPort).
+    persistent_term:put({?MODULE, apns_port}, ApnsPort),
+
+    %% Store APNS DevGateway and API Devkey as strings.
+    ApnsDevGateway = proplists:get_value(dev_gateway, ApnsOptions),
+    persistent_term:put({?MODULE, apns_dev_gateway}, binary_to_list(ApnsDevGateway)),
+    ApnsDevCertfile = proplists:get_value(dev_certfile, ApnsOptions),
+    persistent_term:put({?MODULE, apns_dev_certfile}, binary_to_list(ApnsDevCertfile)),
+    %% Store APNS Devport as int.
+    ApnsDevPort = proplists:get_value(dev_port, ApnsOptions),
+    persistent_term:put({?MODULE, apns_dev_port}, ApnsDevPort).
 
 -spec get_fcm_gateway() -> list().
 get_fcm_gateway() ->
@@ -681,6 +700,18 @@ get_apns_certfile() ->
 -spec get_apns_port() -> integer().
 get_apns_port() ->
     persistent_term:get({?MODULE, apns_port}).
+
+-spec get_apns_dev_gateway() -> list().
+get_apns_dev_gateway() ->
+    persistent_term:get({?MODULE, apns_dev_gateway}).
+
+-spec get_apns_dev_certfile() -> list().
+get_apns_dev_certfile() ->
+    persistent_term:get({?MODULE, apns_dev_certfile}).
+
+-spec get_apns_dev_port() -> integer().
+get_apns_dev_port() ->
+    persistent_term:get({?MODULE, apns_dev_port}).
 
 -spec get_new_message_id() -> integer().
 get_new_message_id() ->
