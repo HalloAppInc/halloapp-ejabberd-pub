@@ -27,9 +27,9 @@ start(Host, Opts) ->
     UploadHost = mod_upload_media_opt:upload_host(Opts),
     upload_server_url_generator:init(UploadHost),
     xmpp:register_codec(upload_media),
-    gen_iq_handler:add_async_iq_handler(ejabberd_local, Host,
-                                        <<"ns:upload_media">>, 
-                                        ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host,
+                                  <<"ns:upload_media">>, 
+                                  ?MODULE, process_local_iq),
     ok.
 
 stop(Host) ->
@@ -56,7 +56,7 @@ process_patch_url_result(IQ, PatchResult) ->
             MediaUrls = #media_urls{get = GetUrl, put = PutUrl},
             IQResult = xmpp:make_iq_result(
                 IQ, #upload_media{media_urls = [MediaUrls]}),
-            gen_iq_handler:process_iq_result(IQResult);
+            ejabberd_router:route(IQResult);
         {ResumableKey, ResumablePatch} ->
             %% Url to read content with max expiry.
             ResumableGet = s3_signed_url_generator:make_signed_url(604800,
@@ -67,7 +67,7 @@ process_patch_url_result(IQ, PatchResult) ->
                                     resumable = [Resumable]},
             IQResult = xmpp:make_iq_result(
                 IQ, #upload_media{media_urls = [MediaUrls]}),
-            gen_iq_handler:process_iq_result(IQResult)
+            ejabberd_router:route(IQResult)
     end.
  
 generate_resumable_urls(Size, IQ) ->
@@ -82,11 +82,12 @@ process_local_iq(#iq{type = get, sub_els = [#upload_media{size = Size}]} = IQ) -
         <<>> -> 
           {GetUrl, PutUrl} = generate_s3_urls(),
           MediaUrls = #media_urls{get = GetUrl, put = PutUrl},
-          IQResult = xmpp:make_iq_result(
-              IQ, #upload_media{media_urls = [MediaUrls]}),
-          gen_iq_handler:process_iq_result(IQResult);
+          xmpp:make_iq_result(IQ, #upload_media{media_urls = [MediaUrls]});
         _ ->
-          generate_resumable_urls(binary_to_integer(Size), IQ)
+          %% Do not return IQ result in this case. IQ result will be sent once
+          %% the resumable urls are ready.
+          generate_resumable_urls(binary_to_integer(Size), IQ),
+          ignore
     end.
 
 reload(_Host, _NewOpts, _OldOpts) ->
