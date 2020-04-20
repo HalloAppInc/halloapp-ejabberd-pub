@@ -73,7 +73,7 @@ init([]) ->
 
 %% TODO: can the 2 atoms be the same?
 -spec create_redis_child_spec(
-        RedisService :: atop(), RedisServiceClient :: atom()) -> supervisor:child_spec().
+        RedisService :: atom(), RedisServiceClient :: atom()) -> supervisor:child_spec().
 create_redis_child_spec(RedisService, RedisServiceClient) ->
     {RedisService, RedisHost, RedisPort} = config:get_service(RedisService),
     ChildSpec = #{
