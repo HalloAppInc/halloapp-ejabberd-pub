@@ -25,7 +25,6 @@
 parse_xml_file(FileName) ->
   case xmerl_scan:file(FileName) of
     {XmlContents, _} ->
-      ?INFO_MSG("Parsing xml contents here: ~p", [XmlContents]),
       #xmlElement{content = [_, TerritoryElements, _]} = XmlContents,
       Result = parse_territories(TerritoryElements#xmlElement.content),
       {ok, Result};
@@ -58,8 +57,6 @@ parse_territories([Territory = #xmlElement{name = territory} | Rest]) ->
     _ ->
       RegionMetadata = #region_metadata{id = RegionId, attributes = RegionAttributes,
                                         mobile = RegionMobile},
-      ?DEBUG("Extracted metadata for territory with regionId: ~p, with metadata: ~p", [RegionId,
-              RegionMetadata]),
       phone_number_mnesia:insert(RegionMetadata)
   end,
   parse_territories(Rest);

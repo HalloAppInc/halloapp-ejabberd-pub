@@ -91,7 +91,7 @@ get_string_env(Name, Default) ->
 
 %% @spec () -> ok
 start() ->
-    start(4).
+    start(config:get_default_log_level()).
 
 -spec start(loglevel()) -> ok.
 start(Level) ->
@@ -134,8 +134,11 @@ do_start(Level) ->
     LogRateLimit = get_integer_env(log_rate_limit, 100),
 
     % Add the module:function:line
-    HalloappFormatterConfig = [
+    HalloappFormatterConfigConsole = [
         date, " ", time, color, " [",severity,"] ", module, ":", function, ":", line, " ", message, "\e[0m\r\n"],
+    HalloappFormatterConfigFile = [
+        date, " ", time, " [",severity,"] ", module, ":", function, ":", line, " ", message, "\n"],
+
     application:set_env(lager, colored, true),
     application:set_env(lager, error_logger_hwm, LogRateLimit),
     application:set_env(lager, handlers,
@@ -143,12 +146,12 @@ do_start(Level) ->
             {lager_console_backend, [
                 {level, Level},
                 {formatter, lager_default_formatter},
-                {formatter_config, HalloappFormatterConfig}]},
+                {formatter_config, HalloappFormatterConfigConsole}]},
             {lager_file_backend, [
                 {file, ConsoleLog},
                 {level, Level},
                 {formatter, lager_default_formatter},
-                {formatter_config, HalloappFormatterConfig},
+                {formatter_config, HalloappFormatterConfigFile},
                 {date, LogRotateDate},
                 {count, LogRotateCount},
                 {size, LogRotateSize}]},
@@ -156,7 +159,7 @@ do_start(Level) ->
                 {file, ErrorLog},
                 {level, error},
                 {formatter, lager_default_formatter},
-                {formatter_config, HalloappFormatterConfig},
+                {formatter_config, HalloappFormatterConfigFile},
                 {date, LogRotateDate},
                 {count, LogRotateCount},
                 {size, LogRotateSize}]}]),

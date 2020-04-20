@@ -12,7 +12,8 @@
 %% API
 -export([
     get_hallo_env/0,
-    get_service/1
+    get_service/1,
+    get_default_log_level/0
 ]).
 -export_type([service/0, hallo_env/0]).
 
@@ -45,3 +46,11 @@ get_service(Name) ->
         {prod, redis_auth} -> {redis_auth, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         _Else -> {error, service_not_found}
   end.
+
+-spec get_default_log_level() -> ejabberd_logger:loglevel().
+get_default_log_level() ->
+    case get_hallo_env() of
+        localhost -> 5;
+        test -> 5;
+        prod -> 4
+    end.
