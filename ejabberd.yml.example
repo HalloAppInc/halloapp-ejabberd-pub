@@ -272,6 +272,8 @@ modules:
     ## Cloudfront based distribution.
     ## Ref: https://aws.amazon.com/premiumsupport/knowledge-center/cloudfront-https-requests-s3/
     aws_media_get_host: cdn.halloapp.net
+    ## Resumable upload server.
+    upload_host: u.halloapp.net
   mod_receipts: {}
   mod_presence_subscription: {}
   mod_client_version:
