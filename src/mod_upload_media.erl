@@ -49,33 +49,30 @@ generate_s3_urls() ->
     {GetUrl, PutUrl}.
 
 process_patch_url_result(IQ, PatchResult) ->
-    case PatchResult of
-        {"", ""} ->
+    {GetUrl, PutUrl} = generate_s3_urls(),
+    MediaUrls = 
+      case PatchResult of
+        error ->
             %% Attempt to fetch Resumable Patch URL failed.
-            {GetUrl, PutUrl} = generate_s3_urls(),
-            MediaUrls = #media_urls{get = GetUrl, put = PutUrl},
-            IQResult = xmpp:make_iq_result(
-                IQ, #upload_media{media_urls = [MediaUrls]}),
-            ejabberd_router:route(IQResult);
+            ?WARNING_MSG("Attempt to fetch resumable patch url failed", []),
+            #media_urls{get = GetUrl, put = PutUrl};
         {ResumableKey, ResumablePatch} ->
             %% Url to read content with max expiry.
             ResumableGet = s3_signed_url_generator:make_signed_url(604800,
                                                                    ResumableKey),
             Resumable = #resumable{get = ResumableGet, patch = ResumablePatch},
-            {GetUrl, PutUrl} = generate_s3_urls(),
-            MediaUrls = #media_urls{get = GetUrl, put = PutUrl,
-                                    resumable = [Resumable]},
-            IQResult = xmpp:make_iq_result(
-                IQ, #upload_media{media_urls = [MediaUrls]}),
-            ejabberd_router:route(IQResult)
-    end.
+            #media_urls{get = GetUrl, put = PutUrl, resumable = [Resumable]}
+      end,
+    IQResult = xmpp:make_iq_result(IQ, #upload_media{media_urls = [MediaUrls]}),
+    ejabberd_router:route(IQResult).
+    
  
 generate_resumable_urls(Size, IQ) ->
     %% Generate the patch url. Send in details of what needs to be called when
     %% patch url is available.
     upload_server_url_generator:make_patch_url(Size, 
-                                               {IQ, ?MODULE,
-                                                process_patch_url_result}).
+                                               {?MODULE,
+                                                process_patch_url_result, IQ}).
 
 process_local_iq(#iq{type = get, sub_els = [#upload_media{size = Size}]} = IQ) ->
     case Size of
