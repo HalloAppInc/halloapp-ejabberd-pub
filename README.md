@@ -3,6 +3,8 @@ ejabberd Community Edition
 
 [![Build Status](https://travis-ci.org/processone/ejabberd.svg?branch=master)](https://travis-ci.org/processone/ejabberd) [![Hex version](https://img.shields.io/hexpm/v/ejabberd.svg "Hex version")](https://hex.pm/packages/ejabberd)
 
+![Ejabberd CI](https://github.com/HalloAppInc/halloapp-ejabberd/workflows/Ejabberd%20CI/badge.svg)
+
 ejabberd is a distributed, fault-tolerant technology that allows the creation
 of large-scale instant messaging applications. The server can reliably support
 thousands of simultaneous users on a single node and has been designed to
