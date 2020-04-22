@@ -27,19 +27,19 @@ jobs:
     - name: Checkout halloapp-xmpp
       uses: actions/checkout@v2
       with:
-            repository: balusu-murali/xmpp
+            repository: HalloAppInc/halloapp-xmpp
             token: ${{ secrets.murali_access_token }}
             path: deps/xmpp
     - name: Checkout halloapp-erlcloud
       uses: actions/checkout@v2
       with:
-            repository: balusu-murali/erlcloud
+            repository: HalloAppInc/halloapp-erlcloud
             token: ${{ secrets.murali_access_token }}
             path: deps/erlcloud
     - name: Checkout halloapp-erlang-uuid
       uses: actions/checkout@v2
       with:
-            repository: balusu-murali/uuid
+            repository: HalloAppInc/halloapp-erlang-uuid
             token: ${{ secrets.murali_access_token }}
             path: deps/uuid
     - name: Run Autogen
