@@ -23,22 +23,22 @@ jobs:
     - name: Checkout ejabberd
       uses: actions/checkout@v2
     - name: Create deps-folder
-        run: mkdir deps
+      run: mkdir deps
     - name: Checkout halloapp-xmpp
-        uses: actions/checkout@v2
-        with:
+      uses: actions/checkout@v2
+      with:
             repository: balusu-murali/xmpp
             token: ${{ secrets.murali_access_token }}
             path: deps/xmpp
     - name: Checkout halloapp-erlcloud
-        uses: actions/checkout@v2
-        with:
+      uses: actions/checkout@v2
+      with:
             repository: balusu-murali/erlcloud
             token: ${{ secrets.murali_access_token }}
             path: deps/erlcloud
     - name: Checkout halloapp-erlang-uuid
-        uses: actions/checkout@v2
-        with:
+      uses: actions/checkout@v2
+      with:
             repository: balusu-murali/uuid
             token: ${{ secrets.murali_access_token }}
             path: deps/uuid
