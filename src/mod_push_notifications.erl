@@ -239,8 +239,8 @@ process_local_iq(#iq{to = Host} = IQ) ->
     gen_server:call(gen_mod:get_module_proc(ServerHost, ?MODULE), {process_iq, IQ}).
 
 offline_message_hook({_, #message{to = #jid{luser = _, lserver = ServerHost},
-                            type = Type, sub_els = SubEls} = Message} = Acc)
-                                when Type == headline; SubEls == [#chat{}] ->
+                            type = Type, sub_els = [SubElement]} = Message} = Acc)
+                                when Type =:= headline; is_record(SubElement, chat) ->
     ?DEBUG("mod_push_notifications: offline_message_hook: ~p", [Message]),
     gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE), {process_message, Message}),
     Acc;
