@@ -57,44 +57,14 @@ user_send_packet({Packet, State}) ->
 
 %% Hook trigerred when user sent the server an ack stanza for this particular packet.
 -spec user_ack_packet(Packet :: stanza()) -> ok.
-user_ack_packet(#message{type = headline} = Packet) ->
-	check_and_send_receipt(Packet),
-    ok;
-user_ack_packet(#message{sub_els = SubEls} = Packet) ->
-	case is_chat_message(SubEls) of
-		true ->
-			check_and_send_receipt(Packet);
-		false ->
-			ok
-	end;
+user_ack_packet(#message{id = MsgId, to = To, from = From, sub_els = [SubElement]})
+		when is_record(SubElement, chat) ->
+	TimestampSec = util:timestamp_to_binary(erlang:timestamp()),
+	FromJID = To,
+	ToJID = From,
+	send_receipt(ToJID, FromJID, MsgId, TimestampSec);
 user_ack_packet(_Packet) ->
 	ok.
-
-
--spec is_chat_message(SubEls :: [xmlel()]) -> boolean().
-is_chat_message([]) -> false;
-is_chat_message([#chat{} | _]) -> true;
-is_chat_message([ _ | Rest]) -> is_chat_message(Rest).
-
-
-%% Checks if the message needs a receipt delivered to the original sender and send it.
--spec check_and_send_receipt(Message :: stanza()) -> ok.
-check_and_send_receipt(#message{id = MsgId, to = To, from = From, sub_els = SubEls}) ->
-    TimestampSec = util:timestamp_to_binary(erlang:timestamp()),
-    FromJID = To,
-    lists:foreach(fun(SubElement) ->
-                    case SubElement of
-                        #ps_event{items = #ps_items{
-                                items = [#ps_item{id = ItemId, publisher = Publisher}]}} ->
-                            ToJID = jid:from_string(Publisher),
-                            send_receipt(ToJID, FromJID, ItemId, TimestampSec);
-                        #chat{} ->
-                            ToJID = From,
-                            send_receipt(ToJID, FromJID, MsgId, TimestampSec);
-                        _ ->
-                            ignore
-                    end
-                  end, SubEls).
 
 
 %% Send a delivery receipt to the ToJID from FromJID using Id and Timestamp.
