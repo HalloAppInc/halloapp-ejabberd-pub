@@ -40,7 +40,7 @@ get_service(Name) ->
     case {get_hallo_env(), Name} of
         {localhost, Name} -> {Name, "127.0.0.1", 30001};
         {test, Name} -> {Name, "127.0.0.1", 30001};
-        {prod, redis_friends} -> {redis_friends, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com:", 6379};
+        {prod, redis_friends} -> {redis_friends, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_accounts} -> {redis_accounts, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_contacts} -> {redis_contacts, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_auth} -> {redis_auth, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
