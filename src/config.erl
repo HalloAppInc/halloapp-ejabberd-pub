@@ -21,6 +21,7 @@
 -define(ENV_LOCALHOST, "localhost").
 -define(ENV_PROD, "prod").
 -define(ENV_TEST, "test").
+-define(ENV_GITHUB, "github").
 
 -type hallo_env() :: prod | localhost | test.
 
@@ -30,6 +31,7 @@ get_hallo_env() ->
         ?ENV_LOCALHOST -> localhost;
         ?ENV_PROD -> prod;
         ?ENV_TEST -> test;
+        ?ENV_GITHUB -> github;
         _Else -> prod
     end.
 
@@ -40,6 +42,7 @@ get_service(Name) ->
     case {get_hallo_env(), Name} of
         {localhost, Name} -> {Name, "127.0.0.1", 30001};
         {test, Name} -> {Name, "127.0.0.1", 30001};
+        {github, Name} -> {Name, "redis", 6379};
         {prod, redis_friends} -> {redis_friends, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_accounts} -> {redis_accounts, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_contacts} -> {redis_contacts, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
@@ -53,5 +56,6 @@ get_default_log_level() ->
     case get_hallo_env() of
         localhost -> 5;
         test -> 5;
-        prod -> 4
+        prod -> 4;
+        github -> 4
     end.

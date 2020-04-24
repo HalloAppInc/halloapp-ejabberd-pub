@@ -17,6 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     container:	
       image: erlang:22.0.7
+    
+    services:
+      redis:
+        image: redis
+        # Set health checks to wait until redis has started
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 120s
+          --health-timeout 5s
+          --health-retries 5
  
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -48,4 +58,8 @@ jobs:
       run: ./configure
     - name: Compile
       run: make
-
+    - name: Run unit tests
+      run: ./rebar eunit
+      # Environment variable used by ejabberd to connect to redis
+      env:
+            HALLO_ENV: github
