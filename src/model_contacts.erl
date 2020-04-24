@@ -175,7 +175,7 @@ handle_call({finish_sync, Uid, Sid}, _From, Redis) ->
 
 handle_call({is_contact, Uid, Contact}, _From, Redis) ->
     {ok, Res} = q(["SISMEMBER", contacts_key(Uid), Contact]),
-    {reply, {ok, binary_to_integer(Res) == 1}, Redis};
+    {reply, binary_to_integer(Res) == 1, Redis};
 
 handle_call({get_contacts, Uid}, _From, Redis) ->
     {ok, Res} = q(["SMEMBERS", contacts_key(Uid)]),

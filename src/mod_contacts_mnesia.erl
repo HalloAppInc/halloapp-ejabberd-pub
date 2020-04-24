@@ -63,7 +63,7 @@ delete_contact(Username, Contact) ->
   case Result of
     [] ->
         {ok, none};
-    [#user_contacts_new{} = ActualContactNew] ->
+    [#user_contacts_new{} = ActualContactNew | _] ->
         mnesia:dirty_delete_object(ActualContactNew),
         {ok, ok}
   end.
@@ -78,7 +78,7 @@ delete_contact(Username, Contact, SyncId) ->
   case Result of
     [] ->
         {ok, none};
-    [#user_contacts_new{} = ActualContactNew] ->
+    [#user_contacts_new{} = ActualContactNew | _] ->
         mnesia:dirty_delete_object(ActualContactNew),
         {ok, ok}
   end.
@@ -119,7 +119,7 @@ check_if_contact_exists(Username, Contact) ->
   case Result of
     [] ->
         false;
-    [#user_contacts_new{}] ->
+    [#user_contacts_new{} | _] ->
         true
   end.
 

@@ -109,7 +109,7 @@ is_contact_test() ->
     setup(),
     ok = model_contacts:add_contact(?UID, ?CONTACT1),
     ok = model_contacts:add_contact(?UID, ?CONTACT2),
-    {ok, true} = model_contacts:is_contact(?UID,  ?CONTACT1),
-    {ok, true} = model_contacts:is_contact(?UID,  ?CONTACT2),
-    {ok, false} = model_contacts:is_contact(?UID,  ?CONTACT3).
+    true = model_contacts:is_contact(?UID,  ?CONTACT1),
+    true = model_contacts:is_contact(?UID,  ?CONTACT2),
+    false = model_contacts:is_contact(?UID,  ?CONTACT3).
 
