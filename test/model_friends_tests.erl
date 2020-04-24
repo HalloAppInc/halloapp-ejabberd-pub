@@ -11,6 +11,10 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-define(UID1, <<"1000000000376503286">>).
+-define(UID2, <<"1000000000789004561">>).
+-define(UID3, <<"1000000000565604444">>).
+
 setup() ->
   redis_sup:start_link(),
   clear(),
@@ -22,45 +26,63 @@ clear() ->
 
 add_friend_test() ->
   setup(),
-  {ok, true} = model_friends:add_friend(1, 2),
-  {ok, false} = model_friends:add_friend(1, 2).
+  ?assertEqual(ok, model_friends:add_friend(?UID1, ?UID2)),
+  ?assertEqual(true, model_friends:is_friend(?UID1, ?UID2)),
+  ?assertEqual(true, model_friends:is_friend(?UID2, ?UID1)),
+  ?assertEqual(false, model_friends:is_friend(?UID3, ?UID1)),
+  ?assertEqual(false, model_friends:is_friend(?UID1, ?UID3)).
 
 is_friend_test() ->
   setup(),
-  {ok, false} = model_friends:is_friend(1, 2),
-  {ok, true} = model_friends:add_friend(1, 2),
-  {ok, true} = model_friends:is_friend(1, 2).
+  ?assertEqual(false, model_friends:is_friend(?UID1, ?UID2)),
+  ?assertEqual(ok, model_friends:add_friend(?UID1, ?UID2)),
+  ?assertEqual(true, model_friends:is_friend(?UID1, ?UID2)),
+  ?assertEqual(true, model_friends:is_friend(?UID2, ?UID1)).
 
 del_friend_test() ->
   setup(),
-  {ok, true} = model_friends:add_friend(1, 2),
-  {ok, true} = model_friends:is_friend(1, 2),
-  {ok, true} = model_friends:remove_friend(1, 2),
-  {ok, false} = model_friends:is_friend(1, 2).
+  ?assertEqual(ok, model_friends:add_friend(?UID1, ?UID2)),
+  ?assertEqual(ok, model_friends:add_friend(?UID1, ?UID3)),
+  ?assertEqual(true, model_friends:is_friend(?UID1, ?UID2)),
+  ?assertEqual(true, model_friends:is_friend(?UID2, ?UID1)),
+  ?assertEqual(true, model_friends:is_friend(?UID3, ?UID1)),
+  ?assertEqual(true, model_friends:is_friend(?UID1, ?UID3)),
+  ?assertEqual(ok, model_friends:remove_friend(?UID1, ?UID2)),
+  ?assertEqual(false, model_friends:is_friend(?UID1, ?UID2)),
+  ?assertEqual(false, model_friends:is_friend(?UID2, ?UID1)),
+  ?assertEqual(true, model_friends:is_friend(?UID1, ?UID3)),
+  ?assertEqual(ok, model_friends:remove_friend(?UID1, ?UID3)),
+  ?assertEqual(false, model_friends:is_friend(?UID1, ?UID3)).
 
 get_friends_test() ->
   setup(),
-  {ok, true} = model_friends:add_friend(1, 2),
-  {ok, true} = model_friends:add_friend(1, 3),
-  {ok, [2, 3]} = model_friends:get_friends(1),
-  {ok, true} = model_friends:remove_friend(1, 3),
-  {ok, [2]} = model_friends:get_friends(1).
+  ?assertEqual(ok, model_friends:add_friend(?UID1, ?UID2)),
+  ?assertEqual(ok, model_friends:add_friend(?UID1, ?UID3)),
+  ?assertEqual({ok, [?UID2, ?UID3]}, model_friends:get_friends(?UID1)),
+  ?assertEqual(ok, model_friends:remove_friend(?UID1, ?UID3)),
+  ?assertEqual({ok, [?UID2]}, model_friends:get_friends(?UID1)).
 
 get_empty_friends_test() ->
   setup(),
-  {ok, []} = model_friends:get_friends(1).
+  ?assertEqual({ok, []}, model_friends:get_friends(?UID1)).
 
 set_friends_test() ->
   setup(),
-  {ok, 2} = model_friends:set_friends(1, [2, 3]),
-  {ok, [2, 3]} = model_friends:get_friends(1).
+  ?assertEqual(ok, model_friends:set_friends(?UID1, [?UID2, ?UID3])),
+  ?assertEqual({ok, [?UID2, ?UID3]}, model_friends:get_friends(?UID1)).
 
 remove_all_friends_test() ->
   setup(),
-  model_friends:add_friend(1, 2),
-  model_friends:add_friend(1, 3),
-  {ok, true} = model_friends:remove_all_friends(1),
-  {ok, false} = model_friends:remove_all_friends(2).
+  ?assertEqual(ok, model_friends:add_friend(?UID1, ?UID2)),
+  ?assertEqual(ok, model_friends:add_friend(?UID1, ?UID3)),
+  ?assertEqual(ok, model_friends:remove_all_friends(?UID1)),
+  ?assertEqual(false, model_friends:is_friend(?UID1, ?UID2)),
+  ?assertEqual(false, model_friends:is_friend(?UID2, ?UID1)),
+  ?assertEqual(false, model_friends:is_friend(?UID1, ?UID3)),
+  ?assertEqual(false, model_friends:is_friend(?UID3, ?UID1)),
+  ?assertEqual(ok, model_friends:remove_all_friends(?UID2)),
+  ?assertEqual(false, model_friends:is_friend(?UID1, ?UID2)),
+  ?assertEqual(false, model_friends:is_friend(?UID2, ?UID1)).
 
 while(0, _F) -> ok;
 while(N, F) ->
@@ -72,7 +94,7 @@ perf_test() ->
   N = 10, %% Set to N=100000 to do
   StartTime = util:now_ms(),
   while(N, fun(X) ->
-    {ok, true} = model_friends:add_friend(1, X + 1000)
+    ok = model_friends:add_friend(integer_to_binary(1), integer_to_binary(X + 1000))
            end),
   EndTime = util:now_ms(),
   T = EndTime - StartTime,

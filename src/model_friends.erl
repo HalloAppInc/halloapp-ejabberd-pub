@@ -35,114 +35,128 @@
   remove_all_friends/1]).
 
 start_link() ->
-  gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+    gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
 
 %%====================================================================
 %% gen_mod callbacks
 %%====================================================================
 
 start(Host, Opts) ->
-  ?INFO_MSG("start ~w", [?MODULE]),
-  gen_mod:start_child(?MODULE, Host, Opts).
+    ?INFO_MSG("start ~w", [?MODULE]),
+    gen_mod:start_child(?MODULE, Host, Opts, get_proc()).
 
 stop(Host) ->
-  ?INFO_MSG("start ~w", [?MODULE]),
-  gen_mod:stop_child(?MODULE, Host).
+    ?INFO_MSG("start ~w", [?MODULE]),
+    gen_mod:stop_child(?MODULE, Host).
 
 depends(_Host, _Opts) ->
-  [{mod_redis, hard}].
+    [{mod_redis, hard}].
 
 mod_options(_Host) ->
-  [].
+    [].
+
+get_proc() ->
+    gen_mod:get_module_proc(global, ?MODULE).
 
 %%====================================================================
 %% API
 %%====================================================================
 
--define(FRIENDS_KEY, "fr:").
--define(USER_VAL, "u").
+-define(FRIENDS_KEY, <<"fr:">>).
+-define(USER_VAL, <<"">>).
 
--spec add_friend(integer(), integer()) -> {ok, boolean()} | {error, any()}.
+-spec add_friend(Uid :: binary(), Buid :: binary()) -> {ok, boolean()} | {error, any()}.
 add_friend(Uid, Buid) ->
-  gen_server:call(?MODULE, {add_friend, Uid, Buid}).
+    gen_server:call(get_proc(), {add_friend, Uid, Buid}).
 
--spec remove_friend(integer(), integer()) -> {ok, boolean()} | {error, any()}.
+
+-spec remove_friend(Uid :: binary(), Buid :: binary()) -> {ok, boolean()} | {error, any()}.
 remove_friend(Uid, Buid) ->
-  gen_server:call(?MODULE, {remove_friend, Uid, Buid}).
+    gen_server:call(get_proc(), {remove_friend, Uid, Buid}).
 
--spec get_friends(integer()) -> {ok, list(integer())} | {error, any()}.
+
+-spec get_friends(Uid :: binary()) -> {ok, list(binary())} | {error, any()}.
 get_friends(Uid) ->
-  gen_server:call(?MODULE, {get_friends, Uid}).
+    gen_server:call(get_proc(), {get_friends, Uid}).
 
--spec is_friend(integer(), integer()) -> {ok, boolean()} | {error, any()}.
+
+-spec is_friend(Uid :: binary(), Buid :: binary()) -> boolean().
 is_friend(Uid, Buid) ->
-  gen_server:call(?MODULE, {is_friend, Uid, Buid}).
+    {ok, Bool} = gen_server:call(get_proc(), {is_friend, Uid, Buid}),
+    Bool.
 
--spec set_friends(integer(), list(integer())) -> {ok, boolean()} | {error, any()}.
+
+-spec set_friends(Uid :: binary(), Contacts ::[binary()]) -> {ok, boolean()} | {error, any()}.
 set_friends(Uid, Contacts) ->
-  gen_server:call(?MODULE, {set_friends, Uid, Contacts}).
+    gen_server:call(get_proc(), {set_friends, Uid, Contacts}).
 
--spec remove_all_friends(integer()) -> {ok, boolean()} | {error, any()}.
+
+-spec remove_all_friends(Uid :: binary()) -> {ok, boolean()} | {error, any()}.
 remove_all_friends(Uid) ->
-  gen_server:call(?MODULE, {remove_all_friends, Uid}).
+    gen_server:call(get_proc(), {remove_all_friends, Uid}).
 
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
 
 init(_Stuff) ->
-  process_flag(trap_exit, true),
-  {ok, redis_friends_client}.
+    process_flag(trap_exit, true),
+    {ok, redis_friends_client}.
+
 
 handle_call({get_connection}, _From, Redis) ->
-  {reply, {ok, Redis}, Redis};
+    {reply, {ok, Redis}, Redis};
 
 handle_call({add_friend, Uid, Buid}, _From, Redis) ->
-  {ok, Res} = q(["HSET", key(Uid), Buid, ?USER_VAL]),
-  {reply, {ok, binary_to_integer(Res) > 0}, Redis};
+    {ok, Res} = q(["HSET", key(Uid), Buid, ?USER_VAL]),
+    {ok, Res} = q(["HSET", key(Buid), Uid, ?USER_VAL]),
+    {reply, ok, Redis};
 
 handle_call({remove_friend, Uid, Buid}, _From, Redis) ->
-  {ok, Res} = q(["HDEL", key(Uid), Buid]),
-  {reply, {ok, binary_to_integer(Res) > 0}, Redis};
+    {ok, Res} = q(["HDEL", key(Uid), Buid]),
+    {ok, Res} = q(["HDEL", key(Buid), Uid]),
+    {reply, ok, Redis};
 
 handle_call({is_friend, Uid, Buid}, _From, Redis) ->
-  {ok, Res} = q(["HEXISTS", key(Uid), Buid]),
-  {reply, {ok, binary_to_integer(Res) == 1}, Redis};
+    {ok, Res} = q(["HEXISTS", key(Uid), Buid]),
+    {reply, {ok, binary_to_integer(Res) == 1}, Redis};
 
 handle_call({get_friends, Uid}, _From, Redis) ->
-  {ok, Contacts} = q(["HKEYS", key(Uid)]),
-  {reply, {ok, map(fun(X) -> binary_to_integer(X) end, Contacts)}, Redis};
+    {ok, Friends} = q(["HKEYS", key(Uid)]),
+    {reply, {ok, Friends}, Redis};
 
 handle_call({set_friends, Uid, Contacts}, _From, Redis) ->
-  Contacts2 = lists:flatmap(fun(X) -> [X, ?USER_VAL] end, Contacts),
-  {ok, Results} = gen_server:call(redis_friends_client, {qp, [
-    ["MULTI"],
-    ["DEL", key(Uid)],
-    ["HSET", key(Uid)] ++ Contacts2,
-    ["EXEC"]]}),
-  [Result|_Rest] = lists:reverse(Results),
-  {ok, [_DelRes, Count]} = Result,
-  {reply, {ok, binary_to_integer(Count)}, Redis};
+    UidKey = key(Uid),
+    {ok, _Res} = q(["DEL", UidKey]),
+    lists:foreach(fun(X) -> q(["HSET", UidKey, X, ?USER_VAL]) end, Contacts),
+    lists:foreach(fun(X) -> q(["HSET", key(X), Uid, ?USER_VAL]) end, Contacts),
+    {reply, ok, Redis};
 
 handle_call({remove_all_friends, Uid}, _From, Redis) ->
-  {ok, Res} = q(["DEL", key(Uid)]),
-  {reply, {ok, binary_to_integer(Res) == 1}, Redis}.
+    {ok, Friends} = q(["HKEYS", key(Uid)]),
+    lists:foreach(fun(X) -> q(["HDEL", key(X), Uid]) end, Friends),
+    {ok, _Res} = q(["DEL", key(Uid)]),
+    {reply, ok, Redis}.
+
 
 handle_cast(_Message, Redis) -> {noreply, Redis}.
 handle_info(_Message, Redis) -> {noreply, Redis}.
 terminate(_Reason, _Redis) -> ok.
 code_change(_OldVersion, Redis, _Extra) -> {ok, Redis}.
 
-q(Command) ->
-  {ok, Result} = gen_server:call(redis_friends_client, {q, Command}),
-  Result.
 
--spec key(integer()) -> string().
+q(Command) ->
+    {ok, Result} = gen_server:call(redis_friends_client, {q, Command}),
+    Result.
+
+
+-spec key(Uid :: binary()) -> binary().
 key(Uid) ->
-  ?FRIENDS_KEY ++ "{" ++ integer_to_list(Uid) ++ "}".
+    <<?FRIENDS_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
 
 -spec get_connection() -> Pid::pid().
 get_connection() ->
-  gen_server:call(?MODULE, {get_connection}).
+    gen_server:call(?MODULE, {get_connection}).
 
 
