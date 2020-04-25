@@ -52,6 +52,12 @@ jobs:
             repository: HalloAppInc/halloapp-erlang-uuid
             token: ${{ secrets.murali_access_token }}
             path: deps/uuid
+    - name: Checkout bcrypt
+      uses: actions/checkout@v2
+      with:
+            repository: HalloAppInc/bcrypt
+            token: ${{ secrets.murali_access_token }}
+            path: deps/bcrypt
     - name: Run Autogen
       run: ./autogen.sh
     - name: Run Configure
