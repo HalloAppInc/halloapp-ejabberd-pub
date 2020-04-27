@@ -511,6 +511,8 @@ handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
 	    end;
 	#presence{} ->
 		process_presence(State2, Pkt2);
+	#ack{} ->
+		State2;
 	_ ->
 	    check_privacy_then_route(State2, Pkt2)
     end.
