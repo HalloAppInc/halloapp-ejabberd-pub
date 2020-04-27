@@ -48,6 +48,8 @@ get_service(Name) ->
         {prod, redis_contacts} -> {redis_contacts, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_auth} -> {redis_auth, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_phone} -> {redis_phone, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        {prod, redis_messages} -> {redis_messages, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        %% TODO(murali@): add staging env.
         _Else -> {error, service_not_found}
   end.
 

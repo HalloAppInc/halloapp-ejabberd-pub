@@ -63,6 +63,7 @@ init([]) ->
     RedisContacts = create_redis_child_spec(redis_contacts, redis_contacts_client),
     RedisAuth = create_redis_child_spec(redis_auth, redis_auth_client),
     RedisPhone = create_redis_child_spec(redis_phone, redis_phone_client),
+    RedisMessages = create_redis_child_spec(redis_messages, redis_messages_client),
 
     {ok, {SupFlags, [
         EredisClusterPool,
@@ -70,7 +71,8 @@ init([]) ->
         RedisAccounts,
         RedisContacts,
         RedisAuth,
-        RedisPhone
+        RedisPhone,
+        RedisMessages
     ]}}.
 
 %% TODO: can the 2 atoms be the same?
