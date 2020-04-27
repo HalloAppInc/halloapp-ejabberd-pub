@@ -17,7 +17,10 @@
     get_host/0,
     get_metadata_pubsub_node_name/1,
     now/0,
-    now_binary/0]).
+    now_binary/0,
+    now_ms/0,
+    random_str/1
+]).
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -72,3 +75,9 @@ get_feed_pubsub_node_name(User) ->
 get_metadata_pubsub_node_name(User) ->
 	list_to_binary("metadata-" ++ binary_to_list(User)).
 
+
+%% Returns random string containing [a-zA-Z0-9] and -_
+-spec random_str(Size :: integer()) -> binary().
+random_str(Size) ->
+    SS = base64url:encode(crypto:strong_rand_bytes(Size)),
+    binary:part(SS, 0, Size).

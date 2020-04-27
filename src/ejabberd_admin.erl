@@ -61,6 +61,7 @@
 	 mnesia_change_nodename/4,
 	 restore/1, % Still used by some modules
 	 clear_cache/0,
+	 migrate_accounts/0,
 	 get_commands_spec/0
 	]).
 %% gen_server callbacks
@@ -444,6 +445,14 @@ get_commands_spec() ->
 			desc = "Clear database cache on all nodes",
 			module = ?MODULE, function = clear_cache,
 			args = [], result = {res, rescode}}
+     #ejabberd_commands{name = migrate_accounts, tags = [server],
+			desc = "Migrate all the accounts from mnesia to redis",
+			module = ?MODULE, function = migrate_accounts,
+			args = [], result = {res, rescode}}
+     #ejabberd_commands{name = verify_migrate_accounts, tags = [server],
+                        desc = "Verify the migration of all the accounts from mnesia to redis",
+                        module = ?MODULE, function = verify_migrate_accounts,
+                        args = [], result = {res, rescode}}
     ].
 
 
@@ -614,7 +623,7 @@ registered_users(Host) ->
 enroll(User, Host, Passcode) ->
     case is_my_host(Host) of
         true ->
-            case ejabberd_auth_mnesia:try_enroll(User, Host, Passcode) of
+            case ejabberd_auth_halloapp:try_enroll(User, Host, Passcode) of
                 {ok, _} ->
                     {ok, io_lib:format("User ~ts@~ts successfully enrolled", [User, Host])};
                 {error, Reason} ->
@@ -630,7 +639,7 @@ enroll(User, Host, Passcode) ->
 unenroll(User, Host) ->
     case is_my_host(Host) of
         true ->
-            ejabberd_auth_mnesia:remove_enrolled_user(User, Host),
+            ejabberd_auth_halloapp:remove_enrolled_user(User, Host),
             {ok, ""};
         false ->
             {error, "Unknown virtual host"}
@@ -639,7 +648,7 @@ unenroll(User, Host) ->
 enrolled_users(Host) ->
     case is_my_host(Host) of
         true ->
-            Users = ejabberd_auth_mnesia:get_enrolled_users(Host),
+            Users = ejabberd_auth_halloapp:get_enrolled_users(Host),
             SUsers = lists:sort(Users),
             lists:map(fun({U, _S}) -> U end, SUsers);
         false ->
@@ -649,7 +658,7 @@ enrolled_users(Host) ->
 get_user_passcode(User, Host) ->
     case is_my_host(Host) of
         true ->
-            case ejabberd_auth_mnesia:get_passcode(User, Host) of
+            case ejabberd_auth_halloapp:get_passcode(User, Host) of
                 {ok, Passcode} ->
                     {ok, Passcode};
                 {error, invalid} ->
@@ -992,6 +1001,15 @@ mnesia_change_nodename(FromString, ToString, Source, Target) ->
 clear_cache() ->
     Nodes = ejabberd_cluster:get_nodes(),
     lists:foreach(fun(T) -> ets_cache:clear(T, Nodes) end, ets_cache:all()).
+
+migrate_accounts() ->
+    ?INFO_MSG("starting migration", []),
+    ejabberd_auth_halloapp:migrate_all().
+
+verify_migrate_accounts() ->
+    ?INFO_MSG("starting migration verification", []),
+    ejabberd_auth_halloapp:verify_migration().
+
 
 -spec is_my_host(binary()) -> boolean().
 is_my_host(Host) ->

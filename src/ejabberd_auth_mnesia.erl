@@ -29,25 +29,25 @@
 
 -behaviour(ejabberd_auth).
 
--export([start/1, stop/1, set_password/3, try_register/3,
+-export([start/1, stop/1, set_password/3, try_register/3, try_register_internal/4,
 	 get_users/2, init_db/0, get_users_with_passwd/1,
-	 count_users/2, get_password/2,
+	 count_users/2, get_password/2, check_password/4,
 	 remove_user/2, store_type/1, import/2,
 	 plain_password_required/1, use_cache/1,
 	 try_enroll/3, get_enrolled_users/1, get_enrolled_users_with_code/1,
-	 remove_enrolled_user/2, get_passcode/2, get_uid/1, get_phone/1]).
+	 remove_enrolled_user/2, get_passcode/2, get_uid/1, get_phone/1
+    ]).
 -export([need_transform/1, transform/1]).
 
 -include("logger.hrl").
 -include("scram.hrl").
 -include("ejabberd_auth.hrl").
 -include("user_info.hrl").
+-include("enrolled_users.hrl").
 
 -record(reg_users_counter, {vhost = <<"">> :: binary(),
                             count = 0 :: integer() | '$1'}).
 
--record(enrolled_users, {username = {<<"">>, <<"">>} :: {binary(), binary()},
-                         passcode = <<"">> :: binary()}).
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -95,8 +95,9 @@ use_cache(_Host) ->
 plain_password_required(Server) ->
     store_type(Server) == scram.
 
-store_type(Server) ->
-    ejabberd_auth:password_format(Server).
+store_type(_Server) ->
+    plain.
+%%    ejabberd_auth:password_format(Server).
 
 set_password(User, Server, Password) ->
     US = {User, Server},
@@ -114,6 +115,9 @@ set_password(User, Server, Password) ->
 try_register(Phone, Server, Password) ->
     {ok, Uid} = util_uid:generate_uid(),
     UserId = util_uid:uid_to_binary(Uid),
+    try_register_internal(Phone, UserId, Server, Password).
+
+try_register_internal(Phone, UserId, Server, Password) ->
     US = {UserId, Server},
     F = fun () ->
         case mnesia:read({passwd, US}) of
@@ -121,7 +125,6 @@ try_register(Phone, Server, Password) ->
                 mnesia:write(#passwd{us = US, password = Password}),
                 mnesia:dirty_update_counter(reg_users_counter, Server, 1),
                 insert_user_phone(UserId, Phone),
-                create_pubsub_nodes(UserId, Server),
                 {ok, Password, UserId};
             [_] ->
                 {error, exists}
@@ -132,41 +135,10 @@ try_register(Phone, Server, Password) ->
             {cache, Res};
         {aborted, Reason} ->
             ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
-            {nocache, {error, db_failure}}
+            {nocache, {error, db_failure, Reason}}
     end.
 
 
--spec create_pubsub_nodes(binary(), binary()) -> ok.
-create_pubsub_nodes(User, Server) ->
-    FeedNodeName = util:get_feed_pubsub_node_name(User),
-    MetadataNodeName =  util:get_metadata_pubsub_node_name(User),
-    create_pubsub_node(User, Server, FeedNodeName, subscribers,
-                        headline, ?MAX_ITEMS, ?EXPIRE_ITEM_SEC),
-    create_pubsub_node(User, Server, MetadataNodeName, publishers,
-                        normal, 1, ?UNEXPIRED_ITEM_SEC).
-
-
-
--spec create_pubsub_node(binary(), binary(), binary(), atom(), atom(), integer(), integer()) -> ok.
-create_pubsub_node(User, Server, NodeName, PublishModel,
-                    NotificationType, MaxItems, ItemExpireSec) ->
-	Host = mod_pubsub:host(Server),
-	ServerHost = Server,
-	Node = NodeName,
-	From = jid:make(User, Server),
-	Type = <<"flat">>,
-	Access = pubsub_createnode,
-	Config = [{send_last_published_item, never}, {max_items, MaxItems},
-            {itemreply, publisher}, {notification_type, NotificationType},
-            {notify_retract, true}, {notify_delete, true}, {item_expire, ItemExpireSec},
-			{publish_model, PublishModel}, {access_model, whitelist}],
-	JID = jid:make(User, Server),
-	SubscribeConfig = [],
-	Result1 = mod_pubsub:create_node(Host, ServerHost, Node, From, Type, Access, Config),
-	Result2 = mod_pubsub:subscribe_node(Host, Node, From, JID, SubscribeConfig),
-	?DEBUG("Tried creating a pubsub node for user: ~p, result: ~p, subscribe result: ~p",
-			[From, Result1, Result2]),
-	ok.
 
 
 try_enroll(User, Server, Passcode) ->
@@ -269,6 +241,14 @@ get_password(User, Server) ->
 	    {cache, {ok, Password}};
 	_ ->
 	    {cache, error}
+    end.
+
+check_password(User, _AuthzId, Server, ProvidedPassword) ->
+    case get_password(User, Server) of
+        {cache, {ok, StoredPassword}} ->
+            {cache, ProvidedPassword == StoredPassword andalso ProvidedPassword /= <<"">>};
+        {cache, error} ->
+            {cache, false}
     end.
 
 get_passcode(User, Server) ->
@@ -394,7 +374,8 @@ transform(#passwd{password = Password} = P)
 
 import(LServer, [LUser, Password, _TimeStamp]) ->
     mnesia:dirty_write(
-      #passwd{us = {LUser, LServer}, password = Password}).
+        #passwd{us = {LUser, LServer}, password = Password}).
+
 
 -spec get_uid(Phone :: binary()) -> undefined | binary().
 get_uid(Phone) ->
@@ -410,7 +391,7 @@ get_uid(Phone) ->
             Result;
         {aborted, Reason} ->
             ?ERROR_MSG("Failed retrieving user for phone: ~p, from user_phone ~p", [Phone, Reason]),
-            {error, invalid}
+            {error, invalid, Reason}
     end.
 
 -spec get_phone(Uid :: binary()) -> undefined | binary().

@@ -120,12 +120,12 @@ get_role_value(false) ->
 %% Obtains the user for a user: uses the id if it already exists, else creates one.
 -spec obtain_user_id(binary()) -> binary() | undefined.
 obtain_user_id(Phone) ->
-    ejabberd_auth_mnesia:get_uid(Phone).
+    ejabberd_auth_halloapp:get_uid(Phone).
 
 
 -spec get_phone(UserId :: binary()) -> binary().
 get_phone(UserId) ->
-    ejabberd_auth_mnesia:get_phone(UserId).
+    ejabberd_auth_halloapp:get_phone(UserId).
 
 
 -spec is_contact(UserId :: binary(), Server :: binary(), ContactNumber :: binary()) -> boolean().

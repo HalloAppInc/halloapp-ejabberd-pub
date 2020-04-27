@@ -106,6 +106,7 @@ check_ua(UserAgent) ->
             error(bad_user_agent)
     end.
 
+% TODO: Use util:random_str
 -spec generate_password() -> binary().
 generate_password() ->
     P = base64:encode_to_string(crypto:strong_rand_bytes(24)),
@@ -146,7 +147,7 @@ check_sms_code(Phone, Code) ->
                 [Phone, StoredCode, UserCode]),
             error(wrong_sms_code);
         Any ->
-            ?INFO_MSG("No stored code in db ", [Any]),
+            ?INFO_MSG("No stored code in db ~p", [Any]),
             error(wrong_sms_code)
     end.
 

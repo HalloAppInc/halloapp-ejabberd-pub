@@ -275,14 +275,14 @@ set_password(User, Server, Password) ->
 -spec check_and_register(binary(), binary(), password(), binary()) ->
     ok |{error, db_failure | not_allowed | exists | invalid_jid | invalid_password}.
 check_and_register(Phone, Server, Password, Name) ->
-    Password1 = case ejabberd_auth_mnesia:store_type(Server) of
+    Password1 = case ejabberd_auth_halloapp:store_type(Server) of
         scram -> password_to_scram(Password);
         _ -> Password
     end,
 
-    case ejabberd_auth_mnesia:get_uid(Phone) of
+    case ejabberd_auth_halloapp:get_uid(Phone) of
         undefined ->
-            case ets_cache:untag(ejabberd_auth_mnesia:try_register(Phone, Server, Password1)) of
+            case ets_cache:untag(ejabberd_auth_halloapp:try_register(Phone, Server, Password1)) of
                 {ok, _, UserId} ->
                     ok = model_accounts:set_name(UserId, Name),
                     ejabberd_hooks:run(register_user, Server, [UserId, Server]),
@@ -290,7 +290,7 @@ check_and_register(Phone, Server, Password, Name) ->
                 Err -> Err
             end;
         UserId ->
-            case ets_cache:untag(ejabberd_auth_mnesia:set_password(UserId, Server, Password1)) of
+            case ets_cache:untag(ejabberd_auth_halloapp:set_password(UserId, Server, Password1)) of
                 {ok, _} ->
                     ok = model_accounts:set_name(UserId, Name),
                     SessionCount = ejabberd_sm:kick_user(UserId, Server),
@@ -865,9 +865,11 @@ auth_modules() ->
 auth_modules(Server) ->
     LServer = jid:nameprep(Server),
     Methods = ejabberd_option:auth_method(LServer),
-    [ejabberd:module_name([<<"ejabberd">>, <<"auth">>,
+    Modules = [ejabberd:module_name([<<"ejabberd">>, <<"auth">>,
 			   misc:atom_to_binary(M)])
-     || M <- Methods].
+     || M <- Methods],
+    ?INFO_MSG("auth_modules ~p", [Modules]),
+    Modules.
 
 -spec match_passwords(password(), password(),
 		      binary(), digest_fun() | undefined) -> boolean().

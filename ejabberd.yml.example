@@ -26,6 +26,8 @@ log_rotate_date: "$D0"
 log_rotate_count: 10
 log_rate_limit: 1000
 
+auth_method: halloapp
+
 ## If you already have certificates, list them here
 certfiles:
   - /etc/ejabberd_certs/s.halloapp.net/*.pem
@@ -230,6 +232,7 @@ modules:
       time: 12
       units: hours
       timer_type: interval
+  mod_pubsub_halloapp: {}
   mod_push: {}
   mod_push_keepalive: {}
   mod_register:
