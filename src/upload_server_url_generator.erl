@@ -29,19 +29,20 @@ process_location_url(Location, CBDetails) ->
     {CBModule, CBFunction, Param} = CBDetails,
     case Location of
         {error, _} -> CBModule:CBFunction(Param, error);
-        {ok, LocationUrl} ->
-            %% Extract the key.
-            Key = string:slice(string:find(LocationUrl, get_upload_path()),
-                               length(get_upload_path())),
-            CBModule:CBFunction(Param, {Key, LocationUrl})
+        {ok, LocationUrl} -> CBModule:CBFunction(Param, {ok, LocationUrl})
     end.
 
 create_with_retry(ContentLength, CBDetails) ->
     create_with_retry(ContentLength, 0, CBDetails).
 create_with_retry(ContentLength, Retries, CBDetails) ->
     case create(ContentLength) of
+        {ok, {{_, 201, _}, Headers, _}} ->
+           %% Extract location headers.
+           LocationHdr = [Location || {"location", _} = Location <- Headers],
+           [{_, LocationUrl}] = LocationHdr,
+           process_location_url({ok, LocationUrl}, CBDetails);
         %% Retry on http errors.
-        {error, Error}
+        {_, Error}
            when Retries < ?MAX_TRIES ->
             BackOff = round(math:pow(2, Retries)) * ?BACK_OFF_MS,
             ?WARNING_MSG("~pth request to: ~p, error: ~p, backoff: ~p",
@@ -49,15 +50,10 @@ create_with_retry(ContentLength, Retries, CBDetails) ->
             timer:apply_after(round(math:pow(2, Retries)) * ?BACK_OFF_MS,
                               ?MODULE, create_with_retry,
                               [ContentLength, Retries+1, CBDetails]);
-        {error, Error} ->
+        {_, Error} ->
             ?ERROR_MSG("Giving up on: ~p, tried: ~p times, error: ~p",
                        [get_upload_host(), Retries, Error]),
-            process_location_url({error, ""}, CBDetails);
-        {ok, {{_, 201, _}, Headers, _}} ->
-           %% Extract location headers.
-           LocationHdr = [Location || {"location", _} = Location <- Headers],
-           [{_, LocationUrl}] = LocationHdr,
-           process_location_url({ok, LocationUrl}, CBDetails)
+            process_location_url({error, ""}, CBDetails)
     end.
 
 create(ContentLength) ->

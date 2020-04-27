@@ -49,19 +49,14 @@ generate_s3_urls() ->
     {GetUrl, PutUrl}.
 
 process_patch_url_result(IQ, PatchResult) ->
-    {GetUrl, PutUrl} = generate_s3_urls(),
     MediaUrls = 
       case PatchResult of
         error ->
             %% Attempt to fetch Resumable Patch URL failed.
             ?WARNING_MSG("Attempt to fetch resumable patch url failed", []),
+            {GetUrl, PutUrl} = generate_s3_urls(),
             #media_urls{get = GetUrl, put = PutUrl};
-        {ResumableKey, ResumablePatch} ->
-            %% Url to read content with max expiry.
-            ResumableGet = s3_signed_url_generator:make_signed_url(604800,
-                                                                   ResumableKey),
-            Resumable = #resumable{get = ResumableGet, patch = ResumablePatch},
-            #media_urls{get = GetUrl, put = PutUrl, resumable = [Resumable]}
+        {ok, ResumablePatch} -> #media_urls{patch = ResumablePatch}
       end,
     IQResult = xmpp:make_iq_result(IQ, #upload_media{media_urls = [MediaUrls]}),
     ejabberd_router:route(IQResult).
