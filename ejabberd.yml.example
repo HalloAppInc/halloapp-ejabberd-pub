@@ -265,13 +265,13 @@ modules:
   mod_whisper:
     min_otp_key_count: 10
   mod_upload_media:
-    aws_media_region: us-west-2                                                 
+    aws_media_region: us-east-1
     ## Accelerated dualstack endpoint.                                          
     ## Ref: https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html
-    aws_media_put_host: halloapp-media.s3-accelerate.dualstack.amazonaws.com
+    aws_media_put_host: us-e-halloapp-media.s3-accelerate.dualstack.amazonaws.com
     ## Cloudfront based distribution.
     ## Ref: https://aws.amazon.com/premiumsupport/knowledge-center/cloudfront-https-requests-s3/
-    aws_media_get_host: cdn.halloapp.net
+    aws_media_get_host: us-e-cdn.halloapp.net
     ## Resumable upload server.
     upload_host: u.halloapp.net
   mod_receipts: {}
