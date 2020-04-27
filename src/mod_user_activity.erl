@@ -66,7 +66,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 -spec register_user(binary(), binary()) -> {ok, any()} | {error, any()}.
 register_user(User, Server) ->
     Status = undefined,
-    Timestamp = util:timestamp_to_binary(erlang:timestamp()),
+    Timestamp = util:now_binary(),
     store_user_activity(User, Server, Timestamp, Status).
 
 
@@ -125,7 +125,7 @@ probe_and_send_presence(User, Server, Friend) ->
 store_and_broadcast_presence(_, _, undefined) ->
     {ok, ignore_undefined_presence};
 store_and_broadcast_presence(User, Server, away) ->
-    Timestamp = util:timestamp_to_binary(erlang:timestamp()),
+    Timestamp = util:now_binary(),
     case get_user_activity(User, Server) of
         {_, away} ->
             {ok, ignore_away_presence};
@@ -135,7 +135,7 @@ store_and_broadcast_presence(User, Server, away) ->
     end;
 store_and_broadcast_presence(User, Server, available) ->
     check_for_first_login(User, Server),
-    Timestamp = util:timestamp_to_binary(erlang:timestamp()),
+    Timestamp = util:now_binary(),
     store_user_activity(User, Server, Timestamp, available),
     broadcast_presence(User, Server, <<>>, available).
 

@@ -15,7 +15,9 @@
     timestamp_secs_to_integer/1,
     get_feed_pubsub_node_name/1,
     get_host/0,
-    get_metadata_pubsub_node_name/1]).
+    get_metadata_pubsub_node_name/1,
+    now/0,
+    now_binary/0]).
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -33,7 +35,13 @@ now_ms() ->
 
 -spec now() -> integer().
 now() ->
-    os:system_time().
+    os:system_time(second).
+
+
+-spec now_binary() -> binary().
+now_binary() ->
+    integer_to_binary(util:now()).
+
 
 %% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
 %% Expects an erlang timestamp as input.

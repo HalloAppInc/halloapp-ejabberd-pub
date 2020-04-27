@@ -482,14 +482,14 @@ c2s_handle_info(State, _) ->
 
 
 user_send_packet({Packet, State} = _Acc) ->
-    Timestamp = util:timestamp_to_binary(erlang:timestamp()),
+    Timestamp = util:now_binary(),
     NewPacket = xmpp:check_and_set_chat_timestamp(Packet, Timestamp),
     ?DEBUG("ejabberd_sm: user_send_packet: check_and_set_chat_timestamp: ~p", [NewPacket]),
     {NewPacket, State}.
 
 
 user_receive_packet({Packet, State} = _Acc) ->
-    Timestamp = util:timestamp_to_binary(erlang:timestamp()),
+    Timestamp = util:now_binary(),
     NewPacket = xmpp:check_and_set_chat_timestamp_if_unavailable(Packet, Timestamp),
     ?DEBUG("ejabberd_sm: user_receive_packet:
              check_and_set_chat_timestamp_if_unavailable: ~p", [NewPacket]),

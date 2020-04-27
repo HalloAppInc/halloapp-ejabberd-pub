@@ -50,7 +50,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 process_local_iq(#iq{type = get, to = _Host, from = From,
                   sub_els = [#client_version{version = Version}]} = IQ) ->
-  CurTimestamp = util:timestamp_to_binary(erlang:timestamp()),
+  CurTimestamp = util:now_binary(),
   TimeLeftSec = get_time_left(Version, CurTimestamp),
   Validity = is_valid_version(Version, TimeLeftSec),
   check_and_close_connection(Version, Validity, From),
@@ -75,7 +75,7 @@ c2s_handle_info(State, _) ->
 %% Checks if a version is valid or not with respect to the current timestamp.
 -spec is_valid_version(binary()) -> boolean().
 is_valid_version(Version) ->
-  CurTimestamp = util:timestamp_to_binary(erlang:timestamp()),
+  CurTimestamp = util:now_binary(),
   TimeLeftSec = get_time_left(Version, CurTimestamp),
   is_valid_version(Version, TimeLeftSec).
 

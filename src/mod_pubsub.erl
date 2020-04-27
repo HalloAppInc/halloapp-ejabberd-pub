@@ -1867,7 +1867,7 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, ItemType, Payload) ->
 publish_item(Host, ServerHost, Node, Publisher, <<>>, ItemType, Payload, PubOpts, Access) ->
     publish_item(Host, ServerHost, Node, Publisher, uniqid(), ItemType, Payload, PubOpts, Access);
 publish_item(Host, ServerHost, Node, Publisher, ItemId, ItemType, Payload, PubOpts, Access) ->
-    Timestamp = util:timestamp_to_binary(erlang:timestamp()),
+    Timestamp = util:now_binary(),
     Action = fun (#pubsub_node{options = Options, type = Type, id = Nidx}) ->
 	    Features = plugin_features(Host, Type),
 	    PublishFeature = lists:member(<<"publish">>, Features),
@@ -2044,7 +2044,7 @@ delete_item(Host, Node, PublisherJID, ItemId, ItemType, ForceNotify) ->
 delete_item(_, <<>>, _, _, _, _, _) ->
     {error, extended_error(xmpp:err_bad_request(), err_nodeid_required())};
 delete_item(Host, Node, PublisherJID, ItemId, ItemType, Payload, ForceNotify) ->
-	Timestamp = util:timestamp_to_binary(erlang:timestamp()),
+	Timestamp = util:now_binary(),
     Action = fun (#pubsub_node{options = Options, type = Type, id = Nidx}) ->
 	    Features = plugin_features(Host, Type),
 	    PersistentFeature = lists:member(<<"persistent-items">>, Features),

@@ -201,7 +201,7 @@ handle_info({ssl_passive, Socket}, State) ->
 handle_info({retry, MessageItem}, State0) ->
     ?INFO_MSG("mod_push_notifications:
                  received the retry message: will retry to resend failed messages.", []),
-    CurrentTimestamp = util:timestamp_to_binary(erlang:timestamp()),
+    CurrentTimestamp = util:now_binary(),
     State1 = clean_up_messages(State0, CurrentTimestamp),
     State2 = handle_retry_message(MessageItem, State1),
     {noreply, State2};
@@ -209,7 +209,7 @@ handle_info({retry, MessageItem}, State0) ->
 handle_info({clean_up_internal_state}, State) ->
     ?INFO_MSG("mod_push_notifications:
                  clean_up_internal_state: will clean up internal state.", []),
-    CurrentTimestamp = util:timestamp_to_binary(erlang:timestamp()),
+    CurrentTimestamp = util:now_binary(),
     State1 = clean_up_messages(State, CurrentTimestamp),
     PendingMessageList = State1#state.pendingMessageList,
     RetryMessageList = State1#state.retryMessageList,
@@ -349,7 +349,7 @@ process_iq(#iq{from = #jid{luser = User, lserver = Server},
             Txt = ?T("Invalid value for token."),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         _ELse ->
-            Timestamp = util:timestamp_to_binary(erlang:timestamp()),
+            Timestamp = util:now_binary(),
             case mod_push_notifications_mnesia:register_push({User, Server},
                                                                 Os, Token, Timestamp) of
                 {ok, _} ->
@@ -371,7 +371,7 @@ process_iq(#iq{lang = Lang} = IQ) ->
 -spec process_message(#message{}, #state{}) -> #state{}.
 %% Currently ignoring message-types, but probably need to handle different message types separately!
 process_message(#message{} = Message, State) ->
-    Timestamp = util:timestamp_to_binary(erlang:timestamp()),
+    Timestamp = util:now_binary(),
     MessageId = get_new_message_id(),
     MessageItem = #message_item{message_id = MessageId,
                                 message = Message,

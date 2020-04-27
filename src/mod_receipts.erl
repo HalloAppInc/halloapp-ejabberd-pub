@@ -50,7 +50,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% We check if the packet has a receipt element (could be delivery/seen) and add a timestamp.
 -spec user_send_packet({stanza(), state()}) -> {stanza(), state()}.
 user_send_packet({Packet, State}) ->
-	TimestampSec = util:timestamp_to_binary(erlang:timestamp()),
+	TimestampSec = util:now_binary(),
 	NewPacket = update_timestamp_if_receipts_message(Packet, TimestampSec),
 	{NewPacket, State}.
 
@@ -59,7 +59,7 @@ user_send_packet({Packet, State}) ->
 -spec user_ack_packet(Packet :: stanza()) -> ok.
 user_ack_packet(#message{id = MsgId, to = To, from = From, sub_els = [SubElement]})
 		when is_record(SubElement, chat) ->
-	TimestampSec = util:timestamp_to_binary(erlang:timestamp()),
+	TimestampSec = util:now_binary(),
 	FromJID = To,
 	ToJID = From,
 	send_receipt(ToJID, FromJID, MsgId, TimestampSec);
