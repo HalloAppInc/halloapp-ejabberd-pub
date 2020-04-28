@@ -21,12 +21,18 @@
 
 -behaviour(gen_mod).
 
--export([start/2, stop/1, reload/3,
-    mod_options/1, depends/2]).
-
-%% API
 -export([
-    create_pubsub_nodes/2
+    start/2,
+    stop/1,
+    reload/3,
+    mod_options/1,
+    depends/2
+]).
+
+%% API and hooks.
+-export([
+    create_pubsub_nodes/2,
+    register_user/2
 ]).
 
 start(Host, _Opts) ->

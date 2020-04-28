@@ -35,7 +35,7 @@
 	 remove_user/2, store_type/1, import/2,
 	 plain_password_required/1, use_cache/1,
 	 try_enroll/3, get_enrolled_users/1, get_enrolled_users_with_code/1,
-	 remove_enrolled_user/2, get_passcode/2, get_uid/1, get_phone/1
+	 remove_enrolled_user/2, get_passcode/2, get_uid/1, get_phone/1, user_exists/2
     ]).
 -export([need_transform/1, transform/1]).
 
@@ -418,3 +418,12 @@ insert_user_phone(Uid, Phone) ->
 -spec remove_user_phone(Uid :: binary()) -> ok.
 remove_user_phone(Uid) ->
     mnesia:dirty_delete({user_phone, Uid}).
+
+
+-spec user_exists(User :: binary(), Server :: binary()) -> boolean().
+user_exists(User, Server) ->
+    case mnesia:dirty_read(passwd, {User, Server}) of
+        [#passwd{password = _Password}] -> true;
+        _ -> false
+    end.
+

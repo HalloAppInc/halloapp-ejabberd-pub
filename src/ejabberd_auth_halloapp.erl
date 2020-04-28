@@ -42,7 +42,8 @@
     plain_password_required/1,
     store_type/1,
     use_cache/1,
-    count_users/2
+    count_users/2,
+    user_exists/2
 ]).
 
 %%% ---------------------------------------------------------------------
@@ -153,7 +154,7 @@ check_password(User, AuthzId, Server, Password) ->
     Res = ejabberd_auth_mnesia:check_password(User, AuthzId, Server, Password),
     try check_password_internal(User, AuthzId, Server, Password) of
         Res2 ->
-            check_result(set_password, User, Res, Res2)
+            check_result(check_password, User, Res, Res2)
     catch
         Class:Reason:Stacktrace ->
             ?ERROR_MSG("~nStacktrace:~s",
@@ -200,11 +201,12 @@ try_register(Phone, Server, Password) ->
     end,
     Res.
 
-try_register_internal(Phone, Uid, _Server, Password) ->
+try_register_internal(Phone, Uid, Server, Password) ->
     Name = <<"">>,
     UserAgent = <<"">>,
     ok = model_accounts:create_account(Uid, Phone, Name, UserAgent),
     ok = model_phone:add_phone(Phone, Uid),
+    set_password_internal(Uid, Server, Password),
     {cache, {ok, Password, Uid}}.
 
 %% TODO: Not sure about the enroll functions. The can go in sms module.
@@ -249,6 +251,20 @@ get_passcode_internal(Phone, _Server) ->
         {ok, undefined} -> {error, invalid};
         {ok, Code} -> {ok, Code}
     end.
+
+
+user_exists(User, Server) ->
+    ?INFO_MSG("UserId:~p", [User]),
+    Res = ejabberd_auth_mnesia:user_exists(User, Server),
+    try model_accounts:account_exists(User) of
+        Res2 -> check_result(user_exists, User, Res, Res2)
+    catch
+        Class:Reason:Stacktrace ->
+            ?ERROR_MSG("~nStacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+    end,
+    {cache, Res}.
+
 
 remove_user(User, Server) ->
     ?INFO_MSG("Uid:~p", [User]),
