@@ -349,5 +349,7 @@ get_phone(Uid) ->
     Res.
 
 get_phone_internal(Uid) ->
-    {ok, Phone} = model_accounts:get_phone(Uid),
-    Phone.
+    case model_accounts:get_phone(Uid) of
+        {ok, Phone} -> Phone;
+        {error, missing} -> undefined
+    end.
