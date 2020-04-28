@@ -444,6 +444,10 @@ get_commands_spec() ->
      #ejabberd_commands{name = clear_cache, tags = [server],
 			desc = "Clear database cache on all nodes",
 			module = ?MODULE, function = clear_cache,
+			args = [], result = {res, rescode}},
+	 #ejabberd_commands{name = migrate_all_contacts, tags = [server],
+			desc = "Migrates all contacts from mnesia to redis",
+			module = ?MODULE, function = migrate_all_contacts,
 			args = [], result = {res, rescode}}
      #ejabberd_commands{name = migrate_accounts, tags = [server],
 			desc = "Migrate all the accounts from mnesia to redis",
@@ -1009,6 +1013,10 @@ migrate_accounts() ->
 verify_migrate_accounts() ->
     ?INFO_MSG("starting migration verification", []),
     ejabberd_auth_halloapp:verify_migration().
+
+%% TODO(murali@): Verify migration of contacts!
+migrate_all_contacts() ->
+	mod_contacts:migrate_all_contacts().
 
 
 -spec is_my_host(binary()) -> boolean().

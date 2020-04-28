@@ -18,8 +18,10 @@
 
 -export([init/2, close/0]).
 
--export([insert_contact/3, insert_syncid/2, delete_contact/2, delete_contact/3,
-          delete_contacts/1, fetch_contacts/1, fetch_syncid/1, check_if_contact_exists/2]).
+-export([
+        insert_contact/3, insert_syncid/2, delete_contact/2, delete_contact/3,
+        delete_contacts/1, fetch_contacts/1, fetch_syncid/1, check_if_contact_exists/2,
+        fetch_all_contacts/0]).
 
 
 init(_Host, _Opts) ->
@@ -122,4 +124,10 @@ check_if_contact_exists(Username, Contact) ->
     [#user_contacts_new{} | _] ->
         true
   end.
+
+
+-spec fetch_all_contacts() -> {ok, [#user_contacts_new{}]} | {error, any()}.
+fetch_all_contacts() ->
+  Result = mnesia:dirty_match_object(mnesia:table_info(user_contacts_new, wild_pattern)),
+  {ok, Result}.
 

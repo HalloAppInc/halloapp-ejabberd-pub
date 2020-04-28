@@ -583,3 +583,26 @@ delete_old_contacts(UserId, Server, CurSyncId) ->
     end,
     ok.
 
+
+-spec migrate_all_contacts() -> ok.
+migrate_all_contacts() ->
+    {ok, AllContacts} = mod_contacts_mnesia:fetch_all_contacts(),
+    ?INFO_MSG("Migrating all contacts from mnesia to redis: ~p", [length(AllContacts)]),
+    lists:foreach(
+            fun(#user_contacts_new{username = {UserId, Server}, contact = {ContactNumber, _}}) ->
+                migrate_contact(UserId, Server, ContactNumber)
+            end, AllContacts).
+
+
+-spec migrate_contact(UserId :: binary(), Server :: binary(), ContactNumber :: binary()) -> ok.
+migrate_contact(UserId, Server, ContactNumber) ->
+    UserNumber = get_phone(UserId),
+    ContactId = obtain_user_id(ContactNumber),
+    model_contacts:add_contact(UserId, ContactNumber),
+    case ContactId of
+        undefined -> ok;
+        _ -> update_friends_table(UserId, ContactId, UserNumber, ContactNumber, Server)
+    end.
+
+
+
