@@ -165,19 +165,28 @@ check_password(User, AuthzId, Server, Password) ->
 check_password_internal(User, _AuthzId, _Server, Password) ->
     {ok, StoredPasswordRecord} = model_auth:get_password(User),
     HashedPassword = StoredPasswordRecord#password.hashed_password,
+    case HashedPassword of
+        undefined  -> ?INFO_MSG("No password stored for Uid:~p", [User]);
+        _ -> ok
+    end,
     {cache, is_password_match(HashedPassword, Password)}.
 
--spec is_password_match(HashedPassword :: binary(), ProvidedPassword :: binary()) -> boolean().
+-spec is_password_match(
+        HashedPassword :: binary() | undefined,
+        ProvidedPassword :: binary() | undefined) -> boolean().
 is_password_match(<<"">>, _ProvidedPassword) ->
     false;
-
+is_password_match(undefined, _ProvidedPassword) ->
+    false;
+is_password_match(_HashedPassword, undefined) ->
+    false;
 is_password_match(HashedPassword, ProvidedPassword)
             when is_binary(HashedPassword) and is_binary(ProvidedPassword) ->
     HashedPasswordStr = binary_to_list(HashedPassword),
     {ok, HashedPassword} =:= hashpw(ProvidedPassword, HashedPasswordStr);
 
-is_password_match(_HashedPassword, _ProvidedPassword) ->
-    erlang:error(badarg).
+is_password_match(HashedPassword, ProvidedPassword) ->
+    erlang:error(badarg, [util:type(HashedPassword), util:type(ProvidedPassword)]).
 
 check_result(Function, Id, Res, Res2) ->
     case Res == Res2 of

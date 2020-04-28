@@ -19,7 +19,8 @@
     now/0,
     now_binary/0,
     now_ms/0,
-    random_str/1
+    random_str/1,
+    type/1
 ]).
 
 %% Export all functions for unit tests
@@ -81,3 +82,24 @@ get_metadata_pubsub_node_name(User) ->
 random_str(Size) ->
     SS = base64url:encode(crypto:strong_rand_bytes(Size)),
     binary:part(SS, 0, Size).
+
+type(X) when is_binary(X) ->
+    "binary";
+type(X) when is_list(X) ->
+    "list";
+type(X) when is_atom(X) ->
+    "atop";
+type(X) when is_bitstring(X) ->
+    "bitstring";
+type(X) when is_boolean(X) ->
+    "boolean";
+type(X) when is_float(X) ->
+    "float";
+type(X) when is_integer(X) ->
+    "integer";
+type(X) when is_map(X) ->
+    "map";
+type(X) when is_tuple(X) ->
+    "tuple";
+type(_X) ->
+    "unknown".
