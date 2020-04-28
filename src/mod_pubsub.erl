@@ -2874,6 +2874,7 @@ items_els(Node, _Options, Items) ->
 broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, ItemType, Timestamp, From, Payload, Removed) ->
     case get_collection_subscriptions(Host, Node) of
 	{result, SubsByDepth} ->
+		NotificationType = get_option(NodeOptions, notification_type, headline),
 		%% Ignoring the option of 'itemreply' for now, will add it back if needed.
 		ItemPublisher = jid:encode(From),
 	    ItemPayload = case get_option(NodeOptions, deliver_payloads) of
@@ -2889,7 +2890,7 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, ItemType, Ti
 						   type = ItemType,
 						   sub_els = ItemPayload}]},
 	    Stanza = #message{ sub_els = [#ps_event{items = ItemsEls}]},
-	    broadcast_stanza(Host, From, Node, Nidx, Type, headline,
+	    broadcast_stanza(Host, From, Node, Nidx, Type, NotificationType,
 			     NodeOptions, SubsByDepth, items, Stanza, true),
 	    case Removed of
 		[] ->
@@ -2903,7 +2904,7 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, ItemType, Ti
 						       items = #ps_items{
 								  node = Node,
 								  retract = Removed}}]},
-			    broadcast_stanza_internal(Host, undefined, Node, Nidx, Type, headline,
+			    broadcast_stanza_internal(Host, undefined, Node, Nidx, Type, NotificationType,
 				NodeOptions, SubsByDepth,
 				items, RetractStanza, true);
 			_ ->
