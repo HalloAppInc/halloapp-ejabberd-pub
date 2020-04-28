@@ -108,13 +108,13 @@ handle_call({get_connection}, _From, Redis) ->
     {reply, {ok, Redis}, Redis};
 
 handle_call({add_friend, Uid, Buid}, _From, Redis) ->
-    {ok, Res} = q(["HSET", key(Uid), Buid, ?USER_VAL]),
-    {ok, Res} = q(["HSET", key(Buid), Uid, ?USER_VAL]),
+    {ok, _Res1} = q(["HSET", key(Uid), Buid, ?USER_VAL]),
+    {ok, _Res2} = q(["HSET", key(Buid), Uid, ?USER_VAL]),
     {reply, ok, Redis};
 
 handle_call({remove_friend, Uid, Buid}, _From, Redis) ->
-    {ok, Res} = q(["HDEL", key(Uid), Buid]),
-    {ok, Res} = q(["HDEL", key(Buid), Uid]),
+    {ok, _Res1} = q(["HDEL", key(Uid), Buid]),
+    {ok, _Res2} = q(["HDEL", key(Buid), Uid]),
     {reply, ok, Redis};
 
 handle_call({is_friend, Uid, Buid}, _From, Redis) ->
