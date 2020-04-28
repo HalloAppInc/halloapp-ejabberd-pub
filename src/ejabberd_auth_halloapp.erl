@@ -140,7 +140,7 @@ set_password_internal(Uid, _Server, Password) ->
     %% TODO: Figure out how to configure the "log rounds"
     {ok, HashedPassword} = bcrypt:hashpw(Password, Salt),
     model_auth:set_password(Uid, Salt, HashedPassword),
-    {ok, Password}.
+    {cache, {ok, Password}}.
 
 -spec hashpw(Password :: binary(), Salt :: string()) -> {ok, binary()}.
 hashpw(Password, Salt) when is_binary(Password) and is_list(Salt) ->

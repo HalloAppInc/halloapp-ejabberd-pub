@@ -195,7 +195,7 @@ handle_call({create_account, Uid, Phone, Name, UserAgent, CreationTsMs}, _From, 
             {ok, Exists} = q(["HSETNX", key(Uid), ?FIELD_PHONE, Phone]),
             case binary_to_integer(Exists) > 0 of
                 true ->
-                    {ok, <<"3">>} = q(["HSET", key(Uid),
+                    {ok, _} = q(["HSET", key(Uid),
                         ?FIELD_NAME, Name,
                         ?FIELD_USER_AGENT, UserAgent,
                         ?FIELD_CREATION_TIME, integer_to_binary(CreationTsMs)]),
