@@ -30,7 +30,7 @@
 %% export this for async use.
 -export([finish_sync/3]).
 %% api
--export([is_friend/3]).
+-export([is_friend/3, migrate_all_contacts/0]).
 
 
 start(Host, Opts) ->

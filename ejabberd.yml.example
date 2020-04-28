@@ -143,6 +143,8 @@ api_permissions:
       - connected_users_number
       - register_push
       - unregister_push
+      - migrate_all_contacts
+      - migrate_accounts
 
 shaper:
   normal: 1000

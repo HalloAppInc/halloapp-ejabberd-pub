@@ -62,6 +62,7 @@
 	 restore/1, % Still used by some modules
 	 clear_cache/0,
 	 migrate_accounts/0,
+	 migrate_all_contacts/0,
 	 get_commands_spec/0
 	]).
 %% gen_server callbacks
