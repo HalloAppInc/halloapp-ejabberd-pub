@@ -90,7 +90,11 @@ migrate_user(#user_phone{uid = Uid, phone = Phone}) ->
 %% TODO: delete the migration code after the migration is successful.
 do_migrate_user(Uid, Phone) ->
     Server = <<"s.halloapp.net">>,
-    ok = model_accounts:create_account(Uid, Phone, "", "HalloApp/Android1.0.0"),
+    Name = case model_accounts:get_name(Uid) of
+               {ok, undefined} -> <<"">>;
+               {ok, N} -> N
+           end,
+    ok = model_accounts:create_account(Uid, Phone, Name, "HalloApp/Android1.0.0"),
     ok = model_phone:add_phone(Phone, Uid),
     {cache, {ok, Password}} = ejabberd_auth_mnesia:get_password(Uid, Server),
     {cache, {ok, Password}} = set_password(Uid, Server, Password),
