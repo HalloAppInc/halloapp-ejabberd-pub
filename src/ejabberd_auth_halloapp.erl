@@ -95,7 +95,7 @@ do_migrate_user(Uid, Phone) ->
                {ok, N} -> N
            end,
     CreateResult = model_accounts:create_account(Uid, Phone, Name, "HalloApp/Android1.0.0"),
-    ?INFO_MSG("create account Uid:~p result:", [Uid, CreateResult]),
+    ?INFO_MSG("create account Uid:~p result:~p", [Uid, CreateResult]),
     ok = model_phone:add_phone(Phone, Uid),
     {cache, {ok, Password}} = ejabberd_auth_mnesia:get_password(Uid, Server),
     {cache, {ok, Password}} = set_password(Uid, Server, Password),
