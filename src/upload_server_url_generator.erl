@@ -7,7 +7,7 @@
 -include_lib("stdlib/include/assert.hrl").
 
 -export([make_patch_url/2, create_with_retry/3,
-         init/1,
+         init/2,
          close/0
         ]).
 
@@ -60,13 +60,17 @@ create(ContentLength) ->
     Req = {url(), get_hdrs(ContentLength), ?CONTENT_TYPE, <<>>},
     httpc:request(post, Req, get_http_opts(), []).
 
-- spec init(string()) -> ok.
-init(UploadHost) ->
-    ?INFO_MSG("init UploadHost: ~p", [UploadHost]),
+- spec init(binary(), integer()) -> ok.
+init(UploadHost, UploadPort) ->
+    ?INFO_MSG("init UploadHost: ~p, UploadPort: ~p", [UploadHost, UploadPort]),
     ?assert(not is_boolean(UploadHost)),
     UploadHostStr = binary_to_list(UploadHost),
     ?assert(length(UploadHostStr) > 0),
     persistent_term:put({?MODULE, upload_host}, UploadHostStr),
+
+    ?assert(UploadPort > 0),
+    ?assert(UploadPort < 65000),
+    persistent_term:put({?MODULE, upload_port}, UploadPort),
 
     application:start(inets),
     httpc:set_options([{max_sessions, ?UPLOAD_SERVER_HTTP_POOL_SIZE}]),
@@ -80,16 +84,23 @@ close() ->
 %%-----------------------------------------------------------------------------
 
 url() ->
-    lists:concat([get_protocol() , get_upload_host(), get_upload_path()]).
+    lists:concat([get_protocol() , get_upload_host(), ":",
+                  integer_to_list(get_upload_port()),
+                  get_upload_path()]).
 
 get_upload_host() ->
     persistent_term:get({?MODULE, upload_host}).
 
+get_upload_port() ->
+    persistent_term:get({?MODULE, upload_port}).
+
 get_upload_path() ->
     "/files/".
 
+%% Call to create the upload object is expected to happen within our VPC and
+%% that is the reason for using http instead of https.
 get_protocol() ->
-    "https://".
+    "http://".
 
 get_hdrs(ContentLength) ->
     [{"connection", "keep-alive"},

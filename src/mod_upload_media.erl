@@ -25,7 +25,8 @@ start(Host, Opts) ->
     GetHost = mod_upload_media_opt:aws_media_get_host(Opts),
     s3_signed_url_generator:init(Region, PutHost, GetHost),
     UploadHost = mod_upload_media_opt:upload_host(Opts),
-    upload_server_url_generator:init(UploadHost),
+    UploadPort = mod_upload_media_opt:upload_port(Opts),
+    upload_server_url_generator:init(UploadHost, UploadPort),
     xmpp:register_codec(upload_media),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host,
                                   <<"ns:upload_media">>, 
@@ -95,10 +96,13 @@ mod_opt_type(aws_media_put_host) ->
 mod_opt_type(aws_media_get_host) ->
     econf:binary();
 mod_opt_type(upload_host) ->
-    econf:binary().
+    econf:binary();
+mod_opt_type(upload_port) ->
+    econf:int().
 
 mod_options(_Host) ->
     [{aws_media_region, undefined},
      {aws_media_put_host, undefined},
      {aws_media_get_host, undefined},
-     {upload_host, undefined}].
+     {upload_host, undefined},
+     {upload_port, undefined}].

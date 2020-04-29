@@ -7,6 +7,7 @@
 -export([aws_media_put_host/1]).
 -export([aws_media_region/1]).
 -export([upload_host/1]).
+-export([upload_port/1]).
 
 -spec aws_media_get_host(gen_mod:opts() | global | binary()) -> 'undefined' | binary().
 aws_media_get_host(Opts) when is_map(Opts) ->
@@ -31,4 +32,10 @@ upload_host(Opts) when is_map(Opts) ->
     gen_mod:get_opt(upload_host, Opts);
 upload_host(Host) ->
     gen_mod:get_module_opt(Host, mod_upload_media, upload_host).
+
+-spec upload_port(gen_mod:opts() | global | binary()) -> 'undefined' | integer().
+upload_port(Opts) when is_map(Opts) ->
+    gen_mod:get_opt(upload_port, Opts);
+upload_port(Host) ->
+    gen_mod:get_module_opt(Host, mod_upload_media, upload_port).
 

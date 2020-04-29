@@ -279,6 +279,8 @@ modules:
     aws_media_get_host: us-e-cdn.halloapp.net
     ## Resumable upload server.
     upload_host: u.halloapp.net
+    ## Resumable upload server port.
+    upload_port: 1080
   mod_receipts: {}
   mod_presence_subscription: {}
   mod_client_version:
