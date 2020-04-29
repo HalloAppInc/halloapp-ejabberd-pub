@@ -37,7 +37,8 @@
     is_contact/2,
     get_contacts/1,
     get_sync_contacts/2,
-    get_contact_uids/1
+    get_contact_uids/1,
+    get_all_uids/0
 ]).
 
 start_link() ->
@@ -126,6 +127,11 @@ get_sync_contacts(Uid, Sid) ->
 get_contact_uids(Contact) ->
     gen_server:call(get_proc(), {get_contact_uids, Contact}).
 
+
+-spec get_all_uids() -> {ok, [binary()]} | {error, any()}.
+get_all_uids() ->
+    gen_server:call(get_proc(), {get_all_uids}).
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -187,7 +193,13 @@ handle_call({get_sync_contacts, Uid, Sid}, _From, Redis) ->
 
 handle_call({get_contact_uids, Contact}, _From, Redis) ->
     {ok, Res} = q(["SMEMBERS", reverse_key(Contact)]),
-    {reply, {ok, Res}, Redis}.
+    {reply, {ok, Res}, Redis};
+
+%% Hardcoding this to 100 for now!
+%% TODO(murali@): remove this function after migration.
+handle_call({get_all_uids}, _From, Redis) ->
+    {ok, [<<"0">>, Uids]} = q(["SCAN", "0", "COUNT", "100"]),
+    {reply, {ok, Uids}, Redis}.
 
 
 handle_cast(_Message, Redis) -> {noreply, Redis}.

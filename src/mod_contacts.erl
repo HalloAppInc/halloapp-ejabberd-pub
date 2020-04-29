@@ -22,6 +22,8 @@
 -include("user_info.hrl").
 
 -define(NS_NORM, <<"halloapp:user:contacts">>).
+%% TODO(murali@:) remove this after migration!
+-define(SERVER, <<"s.halloapp.net">>).
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -30,7 +32,7 @@
 %% export this for async use.
 -export([finish_sync/3]).
 %% api
--export([is_friend/3, migrate_all_contacts/0]).
+-export([is_friend/3, migrate_all_contacts/0, verify_migrate/0]).
 
 
 start(Host, Opts) ->
@@ -603,6 +605,56 @@ migrate_contact(UserId, Server, ContactNumber) ->
         undefined -> ok;
         _ -> update_friends_table(UserId, ContactId, UserNumber, ContactNumber, Server)
     end.
+
+
+%%====================================================================
+%% mnesia-redis migration helpers
+%%====================================================================
+
+verify_migrate() ->
+    {ok, AllContacts} = mod_contacts_mnesia:fetch_all_contacts(),
+    Match1 = lists:foldl(
+            fun(#user_contacts_new{username = {UserId, _}, contact = {ContactNumber, _}}, Match) ->
+                case model_contacts:is_contact(UserId, ContactNumber) of
+                    true -> Match;
+                    false ->
+                        ?ERROR_MSG("Error: this contact is missing on redis:"
+                                "user: ~p: contact number: ~p", [UserId, ContactNumber]),
+                        false
+                end
+            end, true, AllContacts),
+
+    {ok, AllUids} = model_contacts:get_all_uids(),
+    Match2 = lists:foldl(
+            fun(Uid, Match) ->
+                case verify_user_contacts(Uid) of
+                    true -> Match;
+                    false ->
+                        false
+                end
+            end, true, AllUids),
+
+    Match1 and Match2.
+
+
+verify_user_contacts(UserId) ->
+    {ok, AllContacts} = model_contacts:get_contacts(UserId),
+    Match1 = lists:foldl(
+            fun(ContactNumber, Match) ->
+                case mod_contacts_mnesia:check_if_contact_exists(
+                            {UserId, ?SERVER}, {ContactNumber, ?SERVER}) of
+                    true -> Match;
+                    false ->
+                        ?ERROR_MSG("Error: this contact is missing on mnesia:"
+                                "user: ~p: contact number: ~p", [UserId, ContactNumber]),
+                        false
+                end
+            end, true, AllContacts),
+    Match1.
+
+
+
+
 
 
 
