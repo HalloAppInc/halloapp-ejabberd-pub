@@ -13,9 +13,8 @@
     timestamp_to_binary/1,
     cur_timestamp/0,
     timestamp_secs_to_integer/1,
-    get_feed_pubsub_node_name/1,
     get_host/0,
-    get_metadata_pubsub_node_name/1,
+    pubsub_node_name/2,
     now/0,
     now_binary/0,
     now_ms/0,
@@ -66,15 +65,10 @@ cur_timestamp() ->
 timestamp_secs_to_integer(Timestamp) ->
     binary_to_integer(timestamp_to_binary(Timestamp)).
 
-%% Using 'feed-' as the start of feed-node's name for now.
--spec get_feed_pubsub_node_name(binary()) -> binary().
-get_feed_pubsub_node_name(User) ->
-	list_to_binary("feed-" ++ binary_to_list(User)).
 
-%% Using 'metadata-' as the start of feed-node's name for now.
--spec get_metadata_pubsub_node_name(binary()) -> binary().
-get_metadata_pubsub_node_name(User) ->
-	list_to_binary("metadata-" ++ binary_to_list(User)).
+-spec pubsub_node_name(User :: binary(), NodeType :: atom()) -> binary().
+pubsub_node_name(User, NodeType) ->
+    list_to_binary(atom_to_list(NodeType) ++ "-" ++ binary_to_list(User)).
 
 
 %% Returns random string containing [a-zA-Z0-9] and -_

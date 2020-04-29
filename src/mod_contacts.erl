@@ -337,50 +337,10 @@ remove_friend_and_notify(UserId, Server, ContactId) ->
 subscribe_to_each_others_nodes(_UserId, _Server, _ContactId, "none") ->
     ok;
 subscribe_to_each_others_nodes(UserId, Server, ContactId, "friends") ->
-    subscribe_to_each_others_node(UserId, Server, ContactId, feed),
-    subscribe_to_each_others_node(UserId, Server, ContactId, metadata),
-    ok;
+    ejabberd_hooks:run(add_friend, Server, [UserId, Server, ContactId]);
 subscribe_to_each_others_nodes(UserId, Server, ContactId, Role) ->
     ?ERROR_MSG("Invalid role:~p for a contact: ~p for user: ~p",
                                                     [Role, ContactId, {UserId, Server}]),
-    ok.
-
-
-
-%% Subscribes the User to the node of the ContactNumber and vice-versa.
--spec subscribe_to_each_others_node(binary(), binary(), binary(), atom()) -> ok.
-subscribe_to_each_others_node(UserId, Server, ContactId, feed) ->
-    UserFeedNodeName = util:get_feed_pubsub_node_name(UserId),
-    ContactFeedNodeName =  util:get_feed_pubsub_node_name(ContactId),
-    subscribe_to_node(UserId, Server, ContactId, ContactFeedNodeName),
-    subscribe_to_node(ContactId, Server, UserId, UserFeedNodeName),
-    ok;
-subscribe_to_each_others_node(UserId, Server, ContactId, metadata) ->
-    UserMetadataNodeName = util:get_metadata_pubsub_node_name(UserId),
-    ContactMetadataNodeName =  util:get_metadata_pubsub_node_name(ContactId),
-    subscribe_to_node(UserId, Server, ContactId, ContactMetadataNodeName),
-    subscribe_to_node(ContactId, Server, UserId, UserMetadataNodeName),
-    ok.
-
-
-
-%% subscribes the User to the node.
--spec subscribe_to_node(binary(), binary(), binary(), binary()) -> ok.
-subscribe_to_node(SubscriberId, Server, OwnerId, NodeName) ->
-    Host = mod_pubsub:host(Server),
-    Node = NodeName,
-    %% Affiliation
-    Affs = [#ps_affiliation{jid = jid:make(SubscriberId, Server), type = member}],
-    OwnerJID = jid:make(OwnerId, Server),
-    Result1 = mod_pubsub:set_affiliations(Host, Node, OwnerJID, Affs),
-    ?DEBUG("Owner: ~p tried to set affs to pubsub node: ~p, result: ~p",
-                                                        [OwnerJID, Node, Result1]),
-    %% Subscription
-    SubscriberJID = jid:make(SubscriberId, Server),
-    Config = [],
-    Result2 = mod_pubsub:subscribe_node(Host, Node, SubscriberJID, SubscriberJID, Config),
-    ?DEBUG("User: ~p tried to subscribe to pubsub node: ~p, result: ~p",
-                                                        [SubscriberJID, Node, Result2]),
     ok.
 
 
@@ -391,47 +351,8 @@ subscribe_to_node(SubscriberId, Server, OwnerId, NodeName) ->
 %% Unsubscribes the User to the nodes of the ContactNumber and vice-versa.
 -spec unsubscribe_to_each_others_nodes(binary(), binary(), binary()) -> ok.
 unsubscribe_to_each_others_nodes(UserId, Server, ContactId) ->
-    unsubscribe_to_each_others_node(UserId, Server, ContactId, feed),
-    unsubscribe_to_each_others_node(UserId, Server, ContactId, metadata),
-    ok.
+    ejabberd_hooks:run(remove_friend, Server, [UserId, Server, ContactId]).
 
-
-
-%% Unsubscribes the User to the node of the ContactNumber and vice-versa.
--spec unsubscribe_to_each_others_node(binary(), binary(), binary(), atom()) -> ok.
-unsubscribe_to_each_others_node(UserId, Server, ContactId, feed) ->
-    UserFeedNodeName = util:get_feed_pubsub_node_name(UserId),
-    ContactFeedNodeName =  util:get_feed_pubsub_node_name(ContactId),
-    unsubscribe_to_node(UserId, Server, ContactId, ContactFeedNodeName),
-    unsubscribe_to_node(ContactId, Server, UserId, UserFeedNodeName),
-    ok;
-unsubscribe_to_each_others_node(UserId, Server, ContactId, metadata) ->
-    UserMetadataNodeName = util:get_metadata_pubsub_node_name(UserId),
-    ContactMetadataNodeName =  util:get_metadata_pubsub_node_name(ContactId),
-    unsubscribe_to_node(UserId, Server, ContactId, ContactMetadataNodeName),
-    unsubscribe_to_node(ContactId, Server, UserId, UserMetadataNodeName),
-    ok.
-
-
-
-%% Unsubscribes the User to the node.
--spec unsubscribe_to_node(binary(), binary(), binary(), binary()) -> ok.
-unsubscribe_to_node(SubscriberId, Server, OwnerId, NodeName) ->
-    Host = mod_pubsub:host(Server),
-    Node = NodeName,
-    %% Affiliation
-    Affs = [#ps_affiliation{jid = jid:make(SubscriberId, Server), type = none}],
-    OwnerJID = jid:make(OwnerId, Server),
-    Result1 = mod_pubsub:set_affiliations(Host, Node, OwnerJID, Affs),
-    ?DEBUG("Owner: ~p tried to set affs to pubsub node: ~p, result: ~p",
-                                                        [OwnerJID, Node, Result1]),
-    %% Subscription
-    SubscriberJID = jid:make(SubscriberId, Server),
-    SubId = all,
-    Result2 = mod_pubsub:unsubscribe_node(Host, Node, SubscriberJID, SubscriberJID, SubId),
-    ?DEBUG("User: ~p tried to unsubscribe to pubsub node: ~p, result: ~p",
-                                                        [SubscriberJID, Node, Result2]),
-    ok.
 
 %%====================================================================
 %% notify contact
