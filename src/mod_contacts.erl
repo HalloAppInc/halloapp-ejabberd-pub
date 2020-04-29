@@ -638,19 +638,23 @@ verify_migrate() ->
 
 
 verify_user_contacts(UserId) ->
-    {ok, AllContacts} = model_contacts:get_contacts(UserId),
-    Match1 = lists:foldl(
-            fun(ContactNumber, Match) ->
-                case mod_contacts_mnesia:check_if_contact_exists(
-                            {UserId, ?SERVER}, {ContactNumber, ?SERVER}) of
-                    true -> Match;
-                    false ->
-                        ?ERROR_MSG("Error: this contact is missing on mnesia:"
-                                "user: ~p: contact number: ~p", [UserId, ContactNumber]),
-                        false
-                end
-            end, true, AllContacts),
-    Match1.
+    case re:run(UserId, ["con:"], [{capture,none}]) of
+        nomatch -> true;
+        match ->
+            {ok, AllContacts} = model_contacts:get_contacts(UserId),
+            Match1 = lists:foldl(
+                    fun(ContactNumber, Match) ->
+                        case mod_contacts_mnesia:check_if_contact_exists(
+                                    {UserId, ?SERVER}, {ContactNumber, ?SERVER}) of
+                            true -> Match;
+                            false ->
+                                ?ERROR_MSG("Error: this contact is missing on mnesia:"
+                                        "user: ~p: contact number: ~p", [UserId, ContactNumber]),
+                                false
+                        end
+                    end, true, AllContacts),
+            Match1
+    end.
 
 
 

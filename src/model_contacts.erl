@@ -195,11 +195,17 @@ handle_call({get_contact_uids, Contact}, _From, Redis) ->
     {ok, Res} = q(["SMEMBERS", reverse_key(Contact)]),
     {reply, {ok, Res}, Redis};
 
-%% Hardcoding this to 100 for now!
-%% TODO(murali@): remove this function after migration.
 handle_call({get_all_uids}, _From, Redis) ->
-    {ok, [<<"0">>, Uids]} = q(["SCAN", "0", "COUNT", "100"]),
-    {reply, {ok, Uids}, Redis}.
+    {ok, [Cursor, Uids]} = q(["SCAN", "0", "COUNT", "1000"]),
+    AllUids = get_all_uids(Cursor, Uids),
+    {reply, {ok, AllUids}, Redis}.
+
+
+get_all_uids(<<"0">>, Results) ->
+    Results;
+get_all_uids(Cursor, Results) ->
+    {ok, [NewCursor, Uids]} = q(["SCAN", Cursor, "COUNT", "1000"]),
+    get_all_uids(NewCursor, lists:append(Uids, Results)).
 
 
 handle_cast(_Message, Redis) -> {noreply, Redis}.
