@@ -63,6 +63,7 @@
 	 clear_cache/0,
 	 migrate_accounts/0,
 	 migrate_all_contacts/0,
+	 verify_migrate_accounts/0,
 	 get_commands_spec/0
 	]).
 %% gen_server callbacks

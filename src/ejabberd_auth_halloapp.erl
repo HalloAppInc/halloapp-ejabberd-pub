@@ -16,6 +16,7 @@
 -include("password.hrl").
 -include("ejabberd_auth.hrl").
 -include("user_info.hrl").
+-include("account.hrl").
 -include("enrolled_users.hrl").
 
 -define(TWILIO, <<"twilio">>).
@@ -29,6 +30,7 @@
     start/1,
     stop/1,
     migrate_all/0,
+    verify_migration/0,
     try_register/3,
     remove_user/2,
     try_enroll/3,
@@ -50,9 +52,23 @@
 %%% Migration functions : TODO delete later
 %%% ---------------------------------------------------------------------
 
-verify_migration() ->
-    %% TODO: implement
-    ok.
+-define(SERVER, <<"s.halloapp.net">>).
+
+get_all_user_phones() ->
+    {atomic, UserPhones} = mnesia:transaction(
+        fun () ->
+            mnesia:match_object(mnesia:table_info(user_phone, wild_pattern))
+        end),
+    UserPhones.
+
+
+get_all_enrolled_users() ->
+    {atomic, EnrolledUsers} = mnesia:transaction(
+        fun () ->
+            mnesia:match_object(mnesia:table_info(enrolled_users, wild_pattern))
+        end),
+    EnrolledUsers.
+
 
 migrate_all() ->
     ?INFO_MSG("start", []),
@@ -62,19 +78,14 @@ migrate_all() ->
     %%% user_ids
     %%% user_phone
 
-    {atomic, UserPhones} = mnesia:transaction(
-        fun () ->
-            mnesia:match_object(mnesia:table_info(user_phone, wild_pattern))
-        end),
+    UserPhones = get_all_user_phones(),
     lists:foreach(fun migrate_user/1, UserPhones),
 
-    {atomic, EnrolledUsers} = mnesia:transaction(
-        fun () ->
-            mnesia:match_object(mnesia:table_info(enrolled_users, wild_pattern))
-        end),
+    EnrolledUsers = get_all_enrolled_users(),
     lists:foreach(fun migrate_sms_codes/1, EnrolledUsers),
 
     {ok, length(UserPhones), length(EnrolledUsers)}.
+
 
 migrate_user(#user_phone{uid = Uid, phone = Phone}) ->
     ?INFO_MSG("Migrating uid:~p phone: ~p", [Uid, Phone]),
@@ -87,6 +98,7 @@ migrate_user(#user_phone{uid = Uid, phone = Phone}) ->
     end,
     ok.
 
+
 %% TODO: delete the migration code after the migration is successful.
 do_migrate_user(Uid, Phone) ->
     Server = <<"s.halloapp.net">>,
@@ -97,14 +109,92 @@ do_migrate_user(Uid, Phone) ->
     CreateResult = model_accounts:create_account(Uid, Phone, Name, "HalloApp/Android1.0.0"),
     ?INFO_MSG("create account Uid:~p result:~p", [Uid, CreateResult]),
     ok = model_phone:add_phone(Phone, Uid),
-    {cache, {ok, Password}} = ejabberd_auth_mnesia:get_password(Uid, Server),
-    {cache, {ok, Password}} = set_password(Uid, Server, Password),
+    {cache, {ok, Password}} = ejabberd_auth_mnesia:get_password(Uid, ?SERVER),
+    {cache, {ok, Password}} = set_password(Uid, ?SERVER, Password),
     ok.
+
 
 migrate_sms_codes(#enrolled_users{username = {Phone, _Server}, passcode = Passcode}) ->
     ?INFO_MSG("Migrating sms codes for phone:~p code:~p", [Phone, Passcode]),
     ok = model_phone:add_sms_code(Phone, Passcode, util:now(), ?TWILIO),
     ok.
+
+
+verify_migration() ->
+    UserPhones = get_all_user_phones(),
+    ResUsers = lists:map(fun verify_migrated_user/1, UserPhones),
+    UserMigResult = lists:zip(lists:map(fun (X) -> X#user_phone.uid end, UserPhones), ResUsers),
+
+    EnrolledUsers = get_all_enrolled_users(),
+    ResSms = lists:map(fun verify_migrated_sms_codes/1, EnrolledUsers),
+    SmsMigResult = lists:zip(lists:map(fun (X) -> X#enrolled_users.username end, EnrolledUsers), ResSms),
+
+    {ok, UserMigResult, SmsMigResult}.
+
+
+verify_migrated_user(#user_phone{uid = Uid, phone = Phone}) ->
+    Exists = model_accounts:account_exists(Uid),
+    case Exists of
+        false -> ?ERROR_MSG("Uid:~p does not exists", [Uid]);
+        true -> ok
+    end,
+
+    ResAccount = case model_accounts:get_account(Uid) of
+        {ok, Account} ->
+            PhonesMatch = (Account#account.phone =:= Phone),
+            case PhonesMatch of
+                false -> ?ERROR_MSG("Uid:~p phone mismatch ~p:~p",
+                    [Uid, Phone, Account#account.phone]);
+                true -> ok
+            end,
+            PhonesMatch;
+        {error, missing} ->
+            ?ERROR_MSG("Uid:~p account missing", [Uid]),
+            false
+    end,
+
+    ResPassword = case model_auth:get_password() of
+        {ok, Password} ->
+            {cache, {ok, MnesiaPassword}} = ejabberd_auth_mnesia:get_password(Uid, ?SERVER),
+            PasswordMatch = is_password_match(Password#password.hashed_password, MnesiaPassword),
+            case PasswordMatch of
+                false -> ?ERROR_MSG("Uid:~p password mismatch ~p:~p", [Password, MnesiaPassword]);
+                true -> ok
+            end,
+            PasswordMatch;
+        {error, missing} ->
+            ?ERROR_MSG("Uid:~p missing redis password", [Uid]),
+            false
+    end,
+
+    ResPhone = case model_phone:get_uid(Phone) of
+                   {ok, undefined} ->
+                       ?ERROR_MSG("Uid:~p phone to uid map missing: phone:~p", [Uid, Phone]),
+                       false;
+                   {ok, DBPhone} ->
+                       PhonesMatch2 = (DBPhone =:= Phone),
+                       case PhonesMatch2 of
+                           false ->
+                               ?ERROR_MSG("Uid:~p phones mismatch ~p:~p", [Uid, Phone, DBPhone]);
+                           true ->
+                               ok
+                       end,
+                       PhonesMatch2
+               end,
+
+    Exists and ResAccount and ResPassword and ResPhone.
+
+
+verify_migrated_sms_codes(#enrolled_users{username = {Phone, _Server}, passcode = Passcode}) ->
+    {ok, DBCode} = model_phone:get_sms_code(Phone),
+    CodeMatch = DBCode =:= Passcode,
+    case CodeMatch of
+        false -> ?ERROR_MSG("Phone:~p code mismatch ~p:~p", [Phone, Passcode, DBCode]);
+        true -> ok
+    end,
+
+    CodeMatch.
+
 
 %%%----------------------------------------------------------------------
 %%% API
