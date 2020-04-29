@@ -101,7 +101,6 @@ migrate_user(#user_phone{uid = Uid, phone = Phone}) ->
 
 %% TODO: delete the migration code after the migration is successful.
 do_migrate_user(Uid, Phone) ->
-    Server = <<"s.halloapp.net">>,
     Name = case model_accounts:get_name(Uid) of
                {ok, undefined} -> <<"">>;
                {ok, N} -> N
@@ -153,7 +152,7 @@ verify_migrated_user(#user_phone{uid = Uid, phone = Phone}) ->
             false
     end,
 
-    ResPassword = case model_auth:get_password() of
+    ResPassword = case model_auth:get_password(Uid) of
         {ok, Password} ->
             {cache, {ok, MnesiaPassword}} = ejabberd_auth_mnesia:get_password(Uid, ?SERVER),
             PasswordMatch = is_password_match(Password#password.hashed_password, MnesiaPassword),
@@ -167,22 +166,22 @@ verify_migrated_user(#user_phone{uid = Uid, phone = Phone}) ->
             false
     end,
 
-    ResPhone = case model_phone:get_uid(Phone) of
+    ResUid = case model_phone:get_uid(Phone) of
                    {ok, undefined} ->
                        ?ERROR_MSG("Uid:~p phone to uid map missing: phone:~p", [Uid, Phone]),
                        false;
-                   {ok, DBPhone} ->
-                       PhonesMatch2 = (DBPhone =:= Phone),
-                       case PhonesMatch2 of
+                   {ok, DBUid} ->
+                       UidMatch = (DBUid =:= Uid),
+                       case UidMatch of
                            false ->
-                               ?ERROR_MSG("Uid:~p phones mismatch ~p:~p", [Uid, Phone, DBPhone]);
+                               ?ERROR_MSG("Phone:~p uids mismatch ~p:~p", [Phone, Uid, DBUid]);
                            true ->
                                ok
                        end,
-                       PhonesMatch2
+                       UidMatch
                end,
 
-    Exists and ResAccount and ResPassword and ResPhone.
+    Exists and ResAccount and ResPassword and ResUid.
 
 
 verify_migrated_sms_codes(#enrolled_users{username = {Phone, _Server}, passcode = Passcode}) ->
