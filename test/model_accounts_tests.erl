@@ -26,6 +26,7 @@ clear() ->
 -define(NAME1, <<"Name1">>).
 -define(USER_AGENT1, <<"HalloApp/Android1.0">>).
 -define(TS1, 1500000000001).
+-define(AS1, available).
 
 -define(UID2, <<"2">>).
 -define(PHONE2, <<"16505552222">>).
@@ -121,10 +122,16 @@ get_user_agent_test() ->
 last_activity_test() ->
     setup(),
     ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
-    {error, missing} = model_accounts:get_last_activity_ts_ms(?UID1),
+    {ok, LastActivity} = model_accounts:get_last_activity(?UID1),
+    ?assertEqual(?UID1, LastActivity#activity.uid),
+    ?assertEqual(undefined, LastActivity#activity.last_activity_ts_ms),
+    ?assertEqual(undefined, LastActivity#activity.status),
     Now = util:now_ms(),
-    ok = model_accounts:set_last_activity_ts_ms(?UID1, Now),
-    {ok, Now} = model_accounts:get_last_activity_ts_ms(?UID1).
+    ok = model_accounts:set_last_activity(?UID1, Now, ?AS1),
+    {ok, NewLastActivity} = model_accounts:get_last_activity(?UID1),
+    ?assertEqual(?UID1, NewLastActivity#activity.uid),
+    ?assertEqual(Now, NewLastActivity#activity.last_activity_ts_ms),
+    ?assertEqual(?AS1, NewLastActivity#activity.status).
 
 
 subscribe_test() ->

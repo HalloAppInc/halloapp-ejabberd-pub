@@ -24,7 +24,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("mod_user_activity.hrl").
+-include("user_activity.hrl").
 -include("translate.hrl").
 
 %% gen_mod API.

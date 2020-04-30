@@ -19,7 +19,9 @@
     now_binary/0,
     now_ms/0,
     random_str/1,
-    type/1
+    type/1,
+    to_atom/1,
+    to_binary/1
 ]).
 
 %% Export all functions for unit tests
@@ -81,12 +83,12 @@ type(X) when is_binary(X) ->
     "binary";
 type(X) when is_list(X) ->
     "list";
-type(X) when is_atom(X) ->
-    "atop";
 type(X) when is_bitstring(X) ->
     "bitstring";
 type(X) when is_boolean(X) ->
     "boolean";
+type(X) when is_atom(X) ->
+    "atom";
 type(X) when is_float(X) ->
     "float";
 type(X) when is_integer(X) ->
@@ -97,3 +99,24 @@ type(X) when is_tuple(X) ->
     "tuple";
 type(_X) ->
     "unknown".
+
+
+to_atom(Data) ->
+    case type(Data) of
+        "binary" -> binary_to_atom(Data, utf8);
+        "atom" -> Data;
+        "boolean" -> Data;
+        "list" -> list_to_atom(Data);
+        _ -> undefined
+    end.
+
+
+to_binary(Data) ->
+    case type(Data) of
+        "binary" -> Data;
+        "atom" -> atom_to_binary(Data, utf8);
+        "boolean" -> atom_to_binary(Data, utf8);
+        "list" -> list_to_binary(Data);
+        _ -> undefined
+    end.
+

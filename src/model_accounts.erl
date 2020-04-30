@@ -40,8 +40,8 @@
     get_name/1,
     get_name_binary/1,
     delete_name/1,
-    get_last_activity_ts_ms/1,
-    set_last_activity_ts_ms/2,
+    get_last_activity/1,
+    set_last_activity/3,
     get_signup_user_agent/1,
     presence_subscribe/2,
     presence_unsubscribe/2,
@@ -86,6 +86,7 @@ get_proc() ->
 -define(FIELD_NAME, <<"na">>).
 -define(FIELD_CREATION_TIME, <<"ct">>).
 -define(FIELD_LAST_ACTIVITY, <<"la">>).
+-define(FIELD_ACTIVITY_STATUS, <<"st">>).
 -define(FIELD_USER_AGENT, <<"ua">>).
 
 
@@ -139,13 +140,14 @@ get_signup_user_agent(Uid) ->
 get_account(Uid) ->
     gen_server:call(get_proc(), {get_account, Uid}).
 
--spec set_last_activity_ts_ms(Uid :: binary(), TimestampMs :: integer()) -> ok.
-set_last_activity_ts_ms(Uid, TimestampMs) ->
-    gen_server:call(get_proc(), {set_last_activity_ts_ms, Uid, TimestampMs}).
+-spec set_last_activity(Uid :: binary(), TimestampMs :: integer(),
+        ActivityStatus :: activity_status()) -> ok.
+set_last_activity(Uid, TimestampMs, ActivityStatus) ->
+    gen_server:call(get_proc(), {set_last_activity, Uid, TimestampMs, ActivityStatus}).
 
--spec get_last_activity_ts_ms(Uid :: binary()) -> {ok, integer()} | {error, missing}.
-get_last_activity_ts_ms(Uid) ->
-    gen_server:call(get_proc(), {get_last_activity_ts_ms, Uid}).
+-spec get_last_activity(Uid :: binary()) -> {ok, activity()} | {error, missing}.
+get_last_activity(Uid) ->
+    gen_server:call(get_proc(), {get_last_activity, Uid}).
 
 -spec account_exists(Uid :: binary()) -> boolean().
 account_exists(Uid) ->
@@ -226,12 +228,13 @@ handle_call({get_account, Uid}, _From, Redis) ->
     {ok, Res} = q(["HGETALL", key(Uid)]),
     M = list_to_map(Res),
     Account = #account{
-        uid = Uid,
-        phone = maps:get(?FIELD_PHONE, M),
-        name = maps:get(?FIELD_NAME, M),
-        signup_user_agent = maps:get(?FIELD_USER_AGENT, M),
-        creation_ts_ms = ts_decode(maps:get(?FIELD_CREATION_TIME, M)),
-        last_activity_ts_ms = ts_decode(maps:get(?FIELD_LAST_ACTIVITY, M, undefined))
+            uid = Uid,
+            phone = maps:get(?FIELD_PHONE, M),
+            name = maps:get(?FIELD_NAME, M),
+            signup_user_agent = maps:get(?FIELD_USER_AGENT, M),
+            creation_ts_ms = ts_decode(maps:get(?FIELD_CREATION_TIME, M)),
+            last_activity_ts_ms = ts_decode(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
+            activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined))
         },
     {reply, {ok, Account}, Redis};
 
@@ -265,13 +268,24 @@ handle_call({delete_name, Uid}, _From, Redis) ->
     {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_NAME]),
     {reply, ok, Redis};
 
-handle_call({set_last_activity_ts_ms, Uid, Timestamp}, _From, Redis) ->
-    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_LAST_ACTIVITY, integer_to_binary(Timestamp)]),
+handle_call({set_last_activity, Uid, Timestamp, Status}, _From, Redis) ->
+    {ok, _Res} = q(
+            ["HMSET", key(Uid),
+            ?FIELD_LAST_ACTIVITY, integer_to_binary(Timestamp),
+            ?FIELD_ACTIVITY_STATUS, util:to_binary(Status)]),
     {reply, ok, Redis};
 
-handle_call({get_last_activity_ts_ms, Uid}, _From, Redis) ->
-    {ok, Res} = q(["HGET", key(Uid), ?FIELD_LAST_ACTIVITY]),
-    {reply, ts_reply(Res), Redis};
+handle_call({get_last_activity, Uid}, _From, Redis) ->
+    {ok, [TimestampMs, ActivityStatus]} = q(
+            ["HMGET", key(Uid), ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS]),
+    Res = case ts_decode(TimestampMs) of
+            undefined ->
+                #activity{uid = Uid};
+            TsMs ->
+                #activity{uid = Uid, last_activity_ts_ms = TsMs,
+                        status = util:to_atom(ActivityStatus)}
+        end,
+    {reply, {ok, Res}, Redis};
 
 handle_call({presence_subscribe, Uid, Buid}, _From, Redis) ->
     {ok, Res1} = q(["SADD", subscribe_key(Uid), Buid]),

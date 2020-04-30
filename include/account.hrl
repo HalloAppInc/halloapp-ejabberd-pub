@@ -8,6 +8,8 @@
 %%%-------------------------------------------------------------------
 -author("nikola").
 
+-include("user_activity.hrl").
+
 -record(account,
 {
     uid :: binary(),
@@ -15,7 +17,18 @@
     name :: binary(),
     creation_ts_ms :: integer(),
     signup_user_agent :: binary(),
-    last_activity_ts_ms :: integer() | undefined
+    last_activity_ts_ms :: integer() | undefined,
+    activity_status :: activity_status() | undefined
 }).
 
 -type account() :: #account{}.
+
+%% TODO(murali@): rename this record after transition to redis.
+-record(activity,
+{
+	uid :: binary(),
+	last_activity_ts_ms :: integer() | undefined,
+	status :: activity_status() | undefined
+}).
+
+-type activity() :: #activity{}.

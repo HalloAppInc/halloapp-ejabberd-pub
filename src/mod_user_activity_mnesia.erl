@@ -14,7 +14,7 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("translate.hrl").
--include("mod_user_activity.hrl").
+-include("user_activity.hrl").
 
 %% API
 -export([init/2, close/1, get_user_activity/2, store_user_activity/4, remove_user/2]).
@@ -48,7 +48,7 @@ get_user_activity(User, Server) ->
     end.
 
 
--spec store_user_activity(binary(), binary(), binary(), statusType()) ->
+-spec store_user_activity(binary(), binary(), binary(), undefined | activity_status()) ->
                                                          {ok, any()} | {error, any()}.
 store_user_activity(User, Server, LastSeen, Status)
                     when Status == available; Status == away; Status == undefined ->
