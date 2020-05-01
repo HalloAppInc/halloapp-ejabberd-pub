@@ -278,7 +278,7 @@ modules:
     ## Ref: https://aws.amazon.com/premiumsupport/knowledge-center/cloudfront-https-requests-s3/
     aws_media_get_host: us-e-cdn.halloapp.net
     ## Resumable upload server.
-    upload_host: u.halloapp.net
+    upload_host: us-e.halloapp.net
     ## Resumable upload server port.
     upload_port: 1080
   mod_receipts: {}
