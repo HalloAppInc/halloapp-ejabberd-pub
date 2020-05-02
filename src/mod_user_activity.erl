@@ -16,6 +16,7 @@
 %%% Whenever a user's activity is updated, we also broadcast the activity to their friends
 %%% who subscribed to this user. We also fetch the last activity of the friends the
 %%% user subscribed to and route them to the user.
+%%% TODO(murali@): Update specs in this file.
 %%%------------------------------------------------------------------------------------
 
 -module(mod_user_activity).
@@ -24,15 +25,24 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("user_activity.hrl").
+-include("account.hrl").
 -include("translate.hrl").
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 %% hooks.
--export([set_presence_hook/4, unset_presence_hook/4, register_user/2, remove_user/2]).
+-export([
+    set_presence_hook/4,
+    unset_presence_hook/4,
+    register_user/2,
+    remove_user/2
+]).
+
 %% API
--export([get_user_activity/2, probe_and_send_presence/3]).
+-export([
+    get_user_activity/2,
+    probe_and_send_presence/3
+]).
 
 
 start(Host, Opts) ->
@@ -66,8 +76,8 @@ reload(_Host, _NewOpts, _OldOpts) ->
 -spec register_user(binary(), binary()) -> {ok, any()} | {error, any()}.
 register_user(User, Server) ->
     Status = undefined,
-    Timestamp = util:now_binary(),
-    store_user_activity(User, Server, Timestamp, Status).
+    TimestampMs = util:now_ms(),
+    store_user_activity(User, Server, TimestampMs, Status).
 
 
 %% remove_user hook deletes the last known activity of the user.
@@ -102,8 +112,12 @@ unset_presence_hook(User, Server, _Resource, _PStatus) ->
 
 -spec get_user_activity(binary(), binary()) -> {binary(), atom()}.
 get_user_activity(User, Server) ->
-    case mod_user_activity_mnesia:get_user_activity(User, Server) of
-        {ok, #user_activity{last_seen = LastSeen, status = Status}} -> {LastSeen, Status};
+    {ok, Activity} = model_accounts:get_last_activity(User),
+    UserActivityResult = mod_user_activity_mnesia:get_user_activity(User, Server),
+    case UserActivityResult of
+        {ok, #user_activity{last_seen = LastSeen, status = Status} = UserActivity} ->
+            compare_activity_result(Activity, UserActivity),
+            {LastSeen, Status};
         {ok, undefined} -> {<<"">>, away};
         {error, _} -> {<<"">>, away}
     end.
@@ -113,7 +127,7 @@ get_user_activity(User, Server) ->
 probe_and_send_presence(User, Server, Friend) ->
     ToJID = jid:make(User, Server),
     FromJID = jid:make(Friend, Server),
-    {LastSeen, Status} = mod_user_activity:get_user_activity(Friend, Server),
+    {LastSeen, Status} = get_user_activity(Friend, Server),
     check_and_send_presence(FromJID, {LastSeen, Status}, ToJID).
 
 %%====================================================================
@@ -125,19 +139,19 @@ probe_and_send_presence(User, Server, Friend) ->
 store_and_broadcast_presence(_, _, undefined) ->
     {ok, ignore_undefined_presence};
 store_and_broadcast_presence(User, Server, away) ->
-    Timestamp = util:now_binary(),
+    TimestampMs = util:now_ms(),
     case get_user_activity(User, Server) of
         {_, away} ->
             {ok, ignore_away_presence};
         _ ->
-            store_user_activity(User, Server, Timestamp, away),
-            broadcast_presence(User, Server, Timestamp, away)
+            store_user_activity(User, Server, TimestampMs, away),
+            broadcast_presence(User, Server, TimestampMs, away)
     end;
 store_and_broadcast_presence(User, Server, available) ->
     check_for_first_login(User, Server),
-    Timestamp = util:now_binary(),
-    store_user_activity(User, Server, Timestamp, available),
-    broadcast_presence(User, Server, <<>>, available).
+    TimestampMs = util:now_ms(),
+    store_user_activity(User, Server, TimestampMs, available),
+    broadcast_presence(User, Server, undefined, available).
 
 
 -spec check_for_first_login(binary(), binary()) -> ok.
@@ -150,14 +164,19 @@ check_for_first_login(User, Server) ->
     end.
 
 
--spec store_user_activity(binary(), binary(), binary(), atom()) -> {ok, any()} | {error, any()}.
-store_user_activity(User, Server, Timestamp, Status) ->
-    mod_user_activity_mnesia:store_user_activity(User, Server, Timestamp, Status).
+-spec store_user_activity(binary(), binary(),
+        integer(), undefined | activity_status()) -> {ok, any()} | {error, any()}.
+store_user_activity(User, Server, TimestampMs, Status) ->
+    mod_user_activity_mnesia:store_user_activity(User, Server,
+            util:to_binary(TimestampMs), Status),
+    model_accounts:set_last_activity(User, TimestampMs, Status).
 
 
--spec broadcast_presence(binary(), binary(), binary(), atom()) -> ok.
-broadcast_presence(User, Server, Timestamp, Status) ->
-    Presence = #presence{from = jid:make(User, Server), type = Status, last_seen = Timestamp},
+-spec broadcast_presence(binary(), binary(),
+        undefined | integer(), undefined | activity_status()) -> ok.
+broadcast_presence(User, Server, TimestampMs, Status) ->
+    Presence = #presence{from = jid:make(User, Server),
+            type = Status, last_seen = util:to_binary(TimestampMs)},
     BroadcastJIDs = mod_presence_subscription:get_user_broadcast_friends(User, Server),
     route_multiple(Server, BroadcastJIDs, Presence).
 
@@ -170,7 +189,7 @@ route_multiple(Server, JIDs, Packet) ->
     ejabberd_router_multicast:route_multicast(From, Server, JIDs, Packet).
 
 
--spec check_and_probe_friends_presence(binary(), binary(), atom()) -> ok.
+-spec check_and_probe_friends_presence(binary(), binary(), undefined | activity_status()) -> ok.
 check_and_probe_friends_presence(User, Server, available) ->
     SubscribedFriends = mod_presence_subscription:get_user_subscribed_friends(User, Server),
     lists:foreach(fun({Friend, _ServerHost}) ->
@@ -180,7 +199,7 @@ check_and_probe_friends_presence(_User, _Server, _) ->
     ok.
 
 
--spec check_and_send_presence(#jid{}, {binary(), atom()}, #jid{}) -> ok.
+-spec check_and_send_presence(jid(), {binary(), undefined | activity_status()}, jid()) -> ok.
 check_and_send_presence(_, {_, undefined}, _) ->
     ok;
 check_and_send_presence(FromJID, {_, available}, ToJID) ->
@@ -189,5 +208,26 @@ check_and_send_presence(FromJID, {_, available}, ToJID) ->
 check_and_send_presence(FromJID, {LastSeen, away}, ToJID) ->
     Packet = #presence{from = FromJID, to = ToJID, type = away, last_seen = LastSeen},
     ejabberd_router:route(Packet).
+
+
+-spec compare_activity_result(activity(), user_activity()) -> boolean().
+compare_activity_result(Activity, UserActivity) ->
+    ?INFO_MSG("Comparing redis: ~p and mnesia: ~p, here.", [Activity, UserActivity]),
+    case UserActivity#user_activity.last_seen of
+        undefined ->
+            true;
+        _ ->
+            TimestampRes = (Activity#activity.last_activity_ts_ms =:=
+                    binary_to_integer(UserActivity#user_activity.last_seen)),
+            StatusRes = (Activity#activity.status =:= UserActivity#user_activity.status),
+            case TimestampRes andalso StatusRes of
+                false ->
+                    ?ERROR_MSG("UserActivity records dont match on mnesia: ~p and redis: ~p",
+                            [UserActivity, Activity]),
+                    false;
+                true ->
+                    true
+            end
+    end.
 
 

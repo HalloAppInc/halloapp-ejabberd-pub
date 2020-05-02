@@ -110,13 +110,13 @@ to_atom(Data) ->
         _ -> undefined
     end.
 
-
 to_binary(Data) ->
     case type(Data) of
         "binary" -> Data;
         "atom" -> atom_to_binary(Data, utf8);
         "boolean" -> atom_to_binary(Data, utf8);
         "list" -> list_to_binary(Data);
+        "integer" -> integer_to_binary(Data);
         _ -> undefined
     end.
 

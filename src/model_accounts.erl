@@ -46,6 +46,7 @@
     presence_subscribe/2,
     presence_unsubscribe/2,
     presence_unsubscribe_all/1,
+    get_subscribed_uids/1,
     get_broadcast_uids/1
 ]).
 

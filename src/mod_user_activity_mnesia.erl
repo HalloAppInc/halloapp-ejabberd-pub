@@ -74,4 +74,3 @@ remove_user(User, Server) ->
         {atomic, Result} -> {ok, Result};
         {aborted, _} -> {error, db_failure}
     end.
-
