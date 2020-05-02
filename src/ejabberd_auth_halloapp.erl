@@ -218,8 +218,8 @@ store_type(_Server) ->
 
 set_password(User, Server, Password) ->
     ?INFO_MSG("Uid:~p", [User]),
-    Res = ejabberd_auth_mnesia:set_password(User, Server, Password),
-    try set_password_internal(User, Server, Password) of
+    Res = set_password_internal(User, Server, Password),
+    try ejabberd_auth_mnesia:set_password(User, Server, Password) of
         Res2 ->
             check_result(set_password, User, Res, Res2)
     catch
@@ -245,8 +245,8 @@ hashpw(Password, Salt) when is_binary(Password) and is_list(Salt) ->
 
 check_password(User, AuthzId, Server, Password) ->
     ?INFO_MSG("Uid:~p", [User]),
-    Res = ejabberd_auth_mnesia:check_password(User, AuthzId, Server, Password),
-    try check_password_internal(User, AuthzId, Server, Password) of
+    Res = check_password_internal(User, AuthzId, Server, Password),
+    try ejabberd_auth_mnesia:check_password(User, AuthzId, Server, Password) of
         Res2 ->
             check_result(check_password, User, Res, Res2)
     catch
@@ -285,17 +285,17 @@ is_password_match(HashedPassword, ProvidedPassword) ->
 check_result(Function, Id, Res, Res2) ->
     case Res == Res2 of
         true ->
-            ?INFO_MSG("~p check OK id:~p", [Function, Id]);
+            ?INFO_MSG("new ~p check OK id:~p", [Function, Id]);
         false ->
-            ?ERROR_MSG("~p checkfail id:~p, ~p --- ~p", [Function, Id, Res, Res2])
+            ?ERROR_MSG("new ~p checkfail id:~p, ~p --- ~p", [Function, Id, Res, Res2])
     end.
 
 try_register(Phone, Server, Password) ->
     ?INFO_MSG("phone:~p", [Phone]),
     {ok, Uid} = util_uid:generate_uid(),
     UserId = util_uid:uid_to_binary(Uid),
-    Res = ejabberd_auth_mnesia:try_register_internal(Phone, UserId, Server, Password),
-    try try_register_internal(Phone, UserId, Server, Password) of
+    Res = try_register_internal(Phone, UserId, Server, Password),
+    try ejabberd_auth_mnesia:try_register_internal(Phone, UserId, Server, Password) of
         Res2 -> check_result(try_register, UserId, Res, Res2)
     catch
         Class:Reason:Stacktrace ->
@@ -315,8 +315,8 @@ try_register_internal(Phone, Uid, Server, Password) ->
 %% TODO: Not sure about the enroll functions. The can go in sms module.
 try_enroll(User, Server, Passcode) ->
     ?INFO_MSG("phone:~p", [User]),
-    Res = ejabberd_auth_mnesia:try_enroll(User, Server, Passcode),
-    try try_enroll_internal(User, Server, Passcode) of
+    Res = try_enroll_internal(User, Server, Passcode),
+    try ejabberd_auth_mnesia:try_enroll(User, Server, Passcode) of
         Res2 -> check_result(try_enroll, User, Res, Res2)
     catch
         Class:Reason:Stacktrace ->
@@ -339,8 +339,8 @@ count_users(_Server, _) ->
 
 get_passcode(User, Server) ->
     ?INFO_MSG("phone:~p", [User]),
-    Res = ejabberd_auth_mnesia:get_passcode(User, Server),
-    try get_passcode_internal(User, Server) of
+    Res = get_passcode_internal(User, Server),
+    try ejabberd_auth_mnesia:get_passcode(User, Server) of
         Res2 -> check_result(get_passcode, User, Res, Res2)
     catch
         Class:Reason:Stacktrace ->
@@ -358,8 +358,8 @@ get_passcode_internal(Phone, _Server) ->
 
 user_exists(User, Server) ->
     ?INFO_MSG("UserId:~p", [User]),
-    Res = ejabberd_auth_mnesia:user_exists(User, Server),
-    try model_accounts:account_exists(User) of
+    Res = model_accounts:account_exists(User),
+    try ejabberd_auth_mnesia:user_exists(User, Server) of
         Res2 -> check_result(user_exists, User, Res, Res2)
     catch
         Class:Reason:Stacktrace ->
@@ -371,8 +371,8 @@ user_exists(User, Server) ->
 
 remove_user(User, Server) ->
     ?INFO_MSG("Uid:~p", [User]),
-    Res = ejabberd_auth_mnesia:remove_user(User, Server),
-    try remove_user_internal(User, Server) of
+    Res = remove_user_internal(User, Server),
+    try ejabberd_auth_mnesia:remove_user(User, Server) of
         Res2 -> check_result(remove_user, User, Res, Res2)
     catch
         Class:Reason:Stacktrace ->
@@ -394,8 +394,8 @@ remove_user_internal(Uid, _Server) ->
 
 remove_enrolled_user(User, Server) ->
     ?INFO_MSG("Phone:~p", [User]),
-    Res = ejabberd_auth_mnesia:remove_enrolled_user(User, Server),
-    try remove_enrolled_user_internal(User, Server) of
+    Res = remove_enrolled_user_internal(User, Server),
+    try ejabberd_auth_mnesia:remove_enrolled_user(User, Server) of
         Res2 -> check_result(remove_enrolled_user, User, Res, Res2)
     catch
         Class:Reason:Stacktrace ->
@@ -411,8 +411,8 @@ remove_enrolled_user_internal(Phone, _Server) ->
 
 -spec get_uid(Phone :: binary()) -> undefined | binary().
 get_uid(Phone) ->
-    Res = ejabberd_auth_mnesia:get_uid(Phone),
-    try get_uid_internal(Phone) of
+    Res = get_uid_internal(Phone),
+    try ejabberd_auth_mnesia:get_uid(Phone) of
         Res2 -> check_result(get_uid, Phone, Res, Res2)
     catch
         Class:Reason:Stacktrace ->
@@ -427,8 +427,8 @@ get_uid_internal(Phone) ->
 
 -spec get_phone(Uid :: binary()) -> undefined | binary().
 get_phone(Uid) ->
-    Res = ejabberd_auth_mnesia:get_phone(Uid),
-    try get_phone_internal(Uid) of
+    Res = get_phone_internal(Uid),
+    try ejabberd_auth_mnesia:get_phone(Uid) of
         Res2 -> check_result(get_phone, Uid, Res, Res2)
     catch
         Class:Reason:Stacktrace ->
