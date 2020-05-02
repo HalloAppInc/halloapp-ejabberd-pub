@@ -108,7 +108,7 @@ finish_sync(Uid, Sid) ->
     gen_server:call(get_proc(), {finish_sync, Uid, Sid}).
 
 
--spec is_contact(Uid :: binary(), Contact :: binary()) -> {ok, boolean()} | {error, any()}.
+-spec is_contact(Uid :: binary(), Contact :: binary()) -> boolean() | {error, any()}.
 is_contact(Uid, Contact) ->
     gen_server:call(get_proc(), {is_contact, Uid, Contact}).
 

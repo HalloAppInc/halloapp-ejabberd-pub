@@ -130,10 +130,17 @@ get_phone(UserId) ->
     ejabberd_auth_halloapp:get_phone(UserId).
 
 
--spec is_contact(UserId :: binary(), Server :: binary(), ContactNumber :: binary()) -> boolean().
+-spec is_contact(UserId :: binary(), _Server :: binary(), ContactNumber :: binary()) -> boolean().
 is_contact(UserId, Server, ContactNumber) ->
-    %%model_contacts:is_contact(UserId, ContactNumber).
-    mod_contacts_mnesia:check_if_contact_exists({UserId, Server}, {ContactNumber, Server}).
+    Res1 = mod_contacts_mnesia:check_if_contact_exists({UserId, Server}, {ContactNumber, Server}),
+    Res2 = model_contacts:is_contact(UserId, ContactNumber),
+    case Res1 =:= Res2 of
+        true -> ok;
+        false ->
+            ?ERROR_MSG("Contacts do not match for user: ~s, contact number: ~s",
+                    [UserId, ContactNumber])
+    end,
+    Res2.
 
 
 -spec add_contacts(UserId :: binary(), Server :: binary(), ContactList :: [contact()],
@@ -255,7 +262,7 @@ add_contact_number(UserId, Server, Raw, ContactNumber, NotifyUser, SyncId) ->
     NotifyContact = not is_contact(UserId, Server, ContactNumber),
     ContactId = obtain_user_id(ContactNumber),
     model_contacts:add_contact(UserId, ContactNumber),
-    ShouldNotifyContact = insert_contact(UserId, Server, ContactNumber, SyncId),
+    insert_contact(UserId, Server, ContactNumber, SyncId),
     Result = case ContactId of
                 undefined ->
                     false;
@@ -263,7 +270,7 @@ add_contact_number(UserId, Server, Raw, ContactNumber, NotifyUser, SyncId) ->
                     update_friends_table(UserId, ContactId, UserNumber, ContactNumber, Server)
             end,
     Role = get_role_value(Result),
-    case ShouldNotifyContact =:= true andalso ContactId =/= undefined of
+    case NotifyContact =:= true andalso ContactId =/= undefined of
         true ->
             subscribe_to_each_others_nodes(UserId, Server, ContactId, Role),
             check_and_notify_contact_about_user(NotifyContact, UserId, Server, ContactId, Role),
