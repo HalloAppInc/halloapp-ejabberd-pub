@@ -234,19 +234,18 @@ handle_info(Request, State) ->
 %%====================================================================
 
 process_local_iq(#iq{to = Host} = IQ) ->
-    ?DEBUG("mod_push_notifications: process_local_iq", []),
+    ?DEBUG("begin", []),
     ServerHost = jid:encode(Host),
     gen_server:call(gen_mod:get_module_proc(ServerHost, ?MODULE), {process_iq, IQ}).
 
 offline_message_hook({_, #message{to = #jid{luser = _, lserver = ServerHost},
                             type = Type, sub_els = [SubElement]} = Message} = Acc)
                                 when Type =:= headline; is_record(SubElement, chat) ->
-    ?DEBUG("mod_push_notifications: offline_message_hook: ~p", [Message]),
+    ?DEBUG("~p", [Message]),
     gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE), {process_message, Message}),
     Acc;
 offline_message_hook({_, #message{} = Message} = Acc) ->
-    ?ERROR_MSG("mod_push_notifications: offline_message_hook: ignoring this message
-                            for push notifications: ~p", [Message]),
+    ?WARNING_MSG("ignoring push: ~p", [Message]),
     Acc.
 
 
@@ -260,8 +259,7 @@ handle_apns_response_to_message(Status, Id, State) when Status == 10 orelse Stat
     MessageItem = lists:keyfind(Id, #message_item.message_id, State#state.pendingMessageList),
     case MessageItem of
         false ->
-            ?DEBUG("mod_push_notifications:
-                     Couldn't find the message with message id: ~p, so ignoring it.", [Id]),
+            ?DEBUG("Couldn't find the message with message id: ~p, so ignoring it.", [Id]),
             PendingMessageList = State#state.pendingMessageList,
             RetryMessageList = State#state.retryMessageList;
         _ ->
@@ -270,21 +268,18 @@ handle_apns_response_to_message(Status, Id, State) when Status == 10 orelse Stat
             PendingMessageList = lists:delete(MessageItem, State#state.pendingMessageList),
             RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]),
             setup_timer({retry, MessageItem}, RetryTimeout),
-            ?DEBUG("mod_push_notifications:
-                     Found the message item: ~p, so retrying it.", [MessageItem])
+            ?DEBUG("Found the message item: ~p, so retrying it.", [MessageItem])
     end,
     State#state{pendingMessageList = PendingMessageList,
                 retryMessageList = RetryMessageList};
 handle_apns_response_to_message(Status, _Id, State) ->
-    ?ERROR_MSG("mod_push_notifications:
-                 Failed sending push notification: non-recoverable APNS error: ~p", [Status]),
+    ?ERROR_MSG("Failed sending push notification: non-recoverable APNS error: ~p", [Status]),
     State.
-
 
 
 -spec handle_retry_message(#message_item{}, #state{}) -> #state{}.
 handle_retry_message(MessageItem, State0) ->
-    ?DEBUG("mod_push_notifications: retrying to send this message: ~p", [MessageItem]),
+    ?DEBUG("retrying to send this message: ~p", [MessageItem]),
     RetryMessageList = lists:delete(MessageItem, State0#state.retryMessageList),
     State1 = State0#state{retryMessageList = RetryMessageList},
     RetryTimeout = MessageItem#message_item.prev_retry_time0 +
@@ -299,8 +294,8 @@ handle_retry_message(MessageItem, State0) ->
 
 -spec clean_up_messages(#state{}, binary()) -> #state{}.
 clean_up_messages(State, CurrentTimestamp) ->
-    ?DEBUG("Before cleaning up messages here at timestamp: ~p:
-             PendingMessageList: ~p, ~n, RetryMessageList: ~p",
+    ?DEBUG("Before cleaning up messages here at timestamp: ~p:"
+             "PendingMessageList: ~p, ~n, RetryMessageList: ~p",
                  [CurrentTimestamp, State#state.pendingMessageList, State#state.retryMessageList]),
     PendingMessageList = lists:dropwhile(
                             fun(MessageItem) ->
@@ -382,7 +377,7 @@ process_message(#message{} = Message, State) ->
 
 -spec process_message_item(#message_item{}, #state{}) -> #state{}.
 process_message_item(MessageItem, State) ->
-    ?INFO_MSG("mod_push_notifications: Handling Offline message item~p", [MessageItem]),
+    ?INFO_MSG("Handling Offline message item~p", [MessageItem]),
     NewState = handle_push_message(MessageItem, State),
     NewState.
 
@@ -399,10 +394,10 @@ handle_push_message(MessageItem, #state{host = _Host} = State) ->
     ToUser = To#jid.luser,
     ToServer = To#jid.lserver,
     {Subject, Body} = parse_message(Message),
-    ?DEBUG("mod_push_notifications: Obtaining push token for user: ~p", [To]),
+    ?DEBUG("Obtaining push token for user: ~p", [To]),
     case mod_push_notifications_mnesia:list_push_registrations({ToUser, ToServer}) of
         {ok, none} ->
-            ?DEBUG("mod_push_notifications: No push token available for user: ~p", [To]),
+            ?DEBUG("No push token available for user: ~p", [To]),
             State;
         {ok, {{ToUser, ToServer}, Os, Token, _}} ->
             Args = {JFrom, {ToUser, ToServer}, Subject, Body, Token, MessageItem, State},
@@ -421,8 +416,7 @@ handle_push_message(MessageItem, #state{host = _Host} = State) ->
 send_push_notification_based_on_os(<<"ios">>, Args) ->
     {_, _, _, _, _, MessageItem, _} = Args,
     #message{to = To} = MessageItem#message_item.message,
-    ?INFO_MSG("mod_push_notifications:
-                 Trying to send an ios push notification for user: ~p through apns", [To]),
+    ?INFO_MSG("Trying to send an ios push notification for user: ~p through apns", [To]),
     ApnsGateway = get_apns_gateway(),
     ApnsCertfile = get_apns_certfile(),
     ApnsPort = get_apns_port(),
@@ -430,8 +424,7 @@ send_push_notification_based_on_os(<<"ios">>, Args) ->
 send_push_notification_based_on_os(<<"ios_dev">>, Args) ->
     {_, _, _, _, _, MessageItem, _} = Args,
     #message{to = To} = MessageItem#message_item.message,
-    ?INFO_MSG("mod_push_notifications:
-                 Trying to send an ios push notification for user: ~p through apns", [To]),
+    ?INFO_MSG("Trying to send an ios push notification for user: ~p through apns", [To]),
     ApnsDevGateway = get_apns_dev_gateway(),
     ApnsDevCertfile = get_apns_dev_certfile(),
     ApnsDevPort = get_apns_dev_port(),
@@ -439,13 +432,11 @@ send_push_notification_based_on_os(<<"ios_dev">>, Args) ->
 send_push_notification_based_on_os(<<"android">>, Args) ->
     {_, _, _, _, _, MessageItem, _} = Args,
     #message{to = To} = MessageItem#message_item.message,
-    ?INFO_MSG("mod_push_notifications:
-                 Trying to send an android push notification for user: ~p through fcm", [To]),
+    ?INFO_MSG("Trying to send an android push notification for user: ~p through fcm", [To]),
     send_fcm_push_notification(Args);
 send_push_notification_based_on_os(Os, Args) ->
     {_, {ToUser, ToServer}, _, _, _, _, State} = Args,
-    ?ERROR_MSG("mod_push_notifications:
-                 Invalid OS: ~p and token for the user: ~p ~p", [Os, ToUser, ToServer]),
+    ?ERROR_MSG("Invalid OS: ~p and token for the user: ~p ~p", [Os, ToUser, ToServer]),
     State.
 
 
@@ -490,17 +481,15 @@ send_apns_push_notification(ApnsGateway, ApnsCertfile, ApnsPort, Args) ->
             Result = ssl:send(Socket, Packet),
             case Result of
                 ok ->
-                    ?DEBUG("mod_push_notifications:
-                     Successfully sent payload to the APNS server, result: ~p for the user: ~p",
-                    [Result, Username]),
+                    ?DEBUG("Successfully sent payload to the APNS server, result: ~p for the user: ~p",
+                        [Result, Username]),
                     PendingMessageList = lists:append([State#state.pendingMessageList,
                                                         [MessageItem]]),
                     RetryMessageList = State#state.retryMessageList,
                     SSLSocket = Socket;
                 {error, Reason} ->
-                    ?ERROR_MSG("mod_push_notifications:
-                     Failed sending a push notification to the APNS server: ~p, reason: ~p",
-                    [Username, Reason]),
+                    ?ERROR_MSG("Failed sending a push notification to the APNS server: ~p, reason: ~p",
+                        [Username, Reason]),
                     PendingMessageList = State#state.pendingMessageList,
                     RetryMessageList = lists:append([State#state.retryMessageList,
                                                         [MessageItem]]),
@@ -508,9 +497,8 @@ send_apns_push_notification(ApnsGateway, ApnsCertfile, ApnsPort, Args) ->
                     SSLSocket = Socket
             end;
         {error, Reason} = _Err ->
-            ?ERROR_MSG("mod_push_notifications:
-             Unable to connect to the APNS server: ~s for the user: ~p",
-            [ssl:format_error(Reason), Username]),
+            ?ERROR_MSG("Unable to connect to the APNS server: ~s for the user: ~p",
+                [ssl:format_error(Reason), Username]),
             PendingMessageList = State#state.pendingMessageList,
             RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]),
             setup_timer({retry, MessageItem}, RetryTimeout),
@@ -550,32 +538,28 @@ send_fcm_push_notification(Args) ->
     case Response of
         {ok, {{_, StatusCode5xx, _}, _, ResponseBody}} when StatusCode5xx >= 500 andalso
                                                             StatusCode5xx < 600 ->
-            ?DEBUG("mod_push_notifications: recoverable FCM error: ~p", [ResponseBody]),
-            ?ERROR_MSG("mod_push_notifications:
-             Failed sending a push notification to user immediately: ~p, reason: ~p",
+            ?DEBUG("recoverable FCM error: ~p", [ResponseBody]),
+            ?ERROR_MSG("Failed sending a push notification to user immediately: ~p, reason: ~p",
             [Username, ResponseBody]),
             RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]),
             setup_timer({retry, MessageItem}, RetryTimeout);
         {ok, {{_, 200, _}, _, ResponseBody}} ->
             case parse_response(ResponseBody) of
                 ok ->
-                    ?DEBUG("mod_push_notifications:
-                     Successfully sent a push notification to user: ~p, should receive it soon.",
-                    [Username]),
+                    ?DEBUG("Successfully sent a push notification to user: ~p,",
+                        [Username]),
                     RetryMessageList = State#state.retryMessageList;
                 _ ->
-                    ?ERROR_MSG("mod_push_notifications:
-                     Failed sending a push notification to user: ~p, token: ~p, reason: ~p",
+                    ?ERROR_MSG("Failed sending a push notification to user: ~p, token: ~p, reason: ~p",
                     [Username, Token, ResponseBody]),
                     RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]),
                     setup_timer({retry, MessageItem}, RetryTimeout)
             end;
         {ok, {{_, _, _}, _, ResponseBody}} ->
-            ?DEBUG("mod_push_notifications: non-recoverable FCM error: ~p", [ResponseBody]),
+            ?DEBUG("non-recoverable FCM error: ~p", [ResponseBody]),
             RetryMessageList = State#state.retryMessageList;
         {error, Reason} ->
-            ?ERROR_MSG("mod_push_notifications:
-             Failed sending a push notification to user immediately: ~p, reason: ~p",
+            ?ERROR_MSG("Failed sending a push notification to user immediately: ~p, reason: ~p",
             [Username, Reason]),
             RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]),
             setup_timer({retry, MessageItem}, RetryTimeout)

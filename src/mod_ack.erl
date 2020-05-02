@@ -55,11 +55,11 @@
 %%%===================================================================
 
 start(Host, Opts) ->
-    ?DEBUG("mod_ack: start", []),
+    ?DEBUG("start", []),
     gen_mod:start_child(?MODULE, Host, Opts).
 
 stop(Host) ->
-    ?DEBUG("mod_ack: stop", []),
+    ?DEBUG("stop", []),
     gen_mod:stop_child(?MODULE, Host).
 
 depends(_Host, _Opts) ->
@@ -73,7 +73,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %%====================================================================
 
 init([Host|_]) ->
-    ?DEBUG("mod_ack: init", []),
+    ?DEBUG("init", []),
     process_flag(trap_exit, true),
     Opts = gen_mod:get_module_opts(Host, ?MODULE),
     store_options(Opts),
@@ -86,7 +86,7 @@ init([Host|_]) ->
             host => Host}}.
 
 terminate(_Reason, #{host := Host} = _AckState) ->
-    ?DEBUG("mod_ack: terminate", []),
+    ?DEBUG("terminate", []),
     ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 100),
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 50),
@@ -103,19 +103,19 @@ code_change(_OldVsn, AckState, _Extra) ->
 
 %% Hook called when the server receives a packet and invoke the gen_server callback.
 user_send_packet({_Packet, #{lserver := ServerHost} = _State} = Acc) ->
-    ?DEBUG("mod_ack: user_send_packet", []),
+    ?DEBUG(" ", []),
     gen_server:call(gen_mod:get_module_proc(ServerHost, ?MODULE), {user_send_packet, Acc}).
 
 %% Hook called when the server sends a packet and invoke the gen_server callback.
 user_receive_packet({_Packet, #{lserver := ServerHost} = _State} = Acc) ->
-    ?DEBUG("mod_ack: user_receive_packet", []),
+    ?DEBUG(" ", []),
     gen_server:call(gen_mod:get_module_proc(ServerHost, ?MODULE), {user_receive_packet, Acc}).
 
 %% Hook called when the server tries sending a message to the user who is offline.
 %% This is useful, since we can now remove it from our queue:
 %% as it will be a part of the offline_message store.
 offline_message_hook({_, #message{to = #jid{luser = _, lserver = ServerHost}} = Message} = Acc) ->
-    ?DEBUG("mod_ack: offline_message_hook", []),
+    ?DEBUG("offline_message_hook", []),
     gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE), {offline_message_hook, Message}),
     Acc.
 
@@ -137,7 +137,7 @@ c2s_closed(#{user := User, server := Server, lserver := ServerHost} = State, _Re
 %% When the server receives an ack packet, we remove that packet from our ack_wait_queue,
 %% which contains a list of packets waiting for an ack.
 handle_call({user_send_packet, {Packet, State} = _Acc}, _From, AckState) ->
-    ?DEBUG("mod_ack: handle_call: User just sent a packet to the server: ~p", [Packet]),
+    ?DEBUG("User just sent a packet to the server: ~p", [Packet]),
     IsStanza = xmpp:is_stanza(Packet),
     send_ack_if_necessary(IsStanza, ?needs_ack_packet(Packet), Packet, AckState),
     NewAckState = check_and_accept_ack_packet(?is_ack_packet(Packet), Packet, AckState),
@@ -148,7 +148,7 @@ handle_call({user_send_packet, {Packet, State} = _Acc}, _From, AckState) ->
 handle_call({user_receive_packet,{Packet, State} = _Acc}, _From,
                                                 #{ack_wait_queue := AckWaitQueue} = AckState) ->
     NewPacket = adjust_packet_id_and_retry_count(Packet),
-    ?DEBUG("mod_ack: handle_call: Server is sending a packet to the user: ~p", [NewPacket]),
+    ?DEBUG("Server is sending a packet to the user: ~p", [NewPacket]),
     Id = xmpp:get_id(NewPacket),
     To = jid:remove_resource(xmpp:get_to(NewPacket)),
     IsMember = is_member(Id, To, AckWaitQueue),
@@ -162,7 +162,7 @@ handle_call({user_receive_packet,{Packet, State} = _Acc}, _From,
     {reply, {NewPacket, State}, NewAckState};
 %% Handle unknown call requests.
 handle_call(Request, _From, AckState) ->
-    ?DEBUG("mod_ack: handle_call: ~p", [Request]),
+    ?DEBUG("~p", [Request]),
     {reply, {error, bad_arg}, AckState}.
 
 
@@ -172,19 +172,19 @@ handle_call(Request, _From, AckState) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 handle_cast({offline_message_hook, Packet}, #{ack_wait_queue := AckWaitQueue} = AckState) ->
-    ?DEBUG("mod_ack: handle_cast: Check and remove packet: ~p from queue: ~p",
+    ?DEBUG("Check and remove packet: ~p from queue: ~p",
                                                                     [Packet, AckWaitQueue]),
     Id = xmpp:get_id(Packet),
     To = jid:remove_resource(xmpp:get_to(Packet)),
     {_, NewAckWaitQueue} = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
 handle_cast({c2s_closed, To}, #{ack_wait_queue := AckWaitQueue} = AckState) ->
-    ?DEBUG("mod_ack: handle_cast: Check and remove all packet to: ~p from queue: ~p",
+    ?DEBUG("Check and remove all packet to: ~p from queue: ~p",
                                                                     [To, AckWaitQueue]),
     NewAckWaitQueue = remove_all_packet_with_to_from_ack_wait_queue(To, AckWaitQueue),
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
 handle_cast(Request, AckState) ->
-    ?DEBUG("mod_ack: handle_cast: Invalid request received, ignoring it: ~p", [Request]),
+    ?DEBUG("Invalid request received, ignoring it: ~p", [Request]),
     {noreply, AckState}.
 
 
@@ -192,8 +192,7 @@ handle_cast(Request, AckState) ->
 %%    gen_server:info: other messages    %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 handle_info({route_offline_message, Packet}, #{ack_wait_queue := AckWaitQueue} = AckState) ->
-    ?INFO_MSG("mod_ack: handle_info:
-                Received a route_offline_message message for a packet: ~p", [Packet]),
+    ?INFO_MSG("Received a route_offline_message message for a packet: ~p", [Packet]),
     Id = xmpp:get_id(Packet),
     To = jid:remove_resource(xmpp:get_to(Packet)),
     {_, NewAckWaitQueue} = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
@@ -201,27 +200,25 @@ handle_info({route_offline_message, Packet}, #{ack_wait_queue := AckWaitQueue} =
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
 handle_info({route_offline_message, Id, To, TimestampSec},
             #{ack_wait_queue := AckWaitQueue} = AckState) ->
-    ?INFO_MSG("mod_ack: handle_info:
-                Received a route_offline_message message for a packet with id: ~p to: ~p",
-                                                                                        [Id, To]),
+    ?INFO_MSG("Received a route_offline_message message for a packet with id: ~p to: ~p", [Id, To]),
     case lookup_member(Id, To, AckWaitQueue) of
         {} ->
-            ?INFO_MSG("mod_ack: handle_info: This packet id: ~p to: ~p has already
-                        received an ack/sent to offline already", [Id, To]),
+            ?INFO_MSG("This packet id: ~p to: ~p has already received an ack/sent to offline "
+                "already", [Id, To]),
             NewAckWaitQueue = AckWaitQueue;
         {_, _, TimestampSec, Packet} ->
-            ?INFO_MSG("mod_ack: handle_info: This packet id: ~p to: ~p will be sent
-                        to offline_msg to retry again later.", [Id, To]),
+            ?INFO_MSG("This packet id: ~p to: ~p will be sent to offline_msg to retry again later.",
+                [Id, To]),
             {_, NewAckWaitQueue} = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
             route_offline_message(Packet);
         _ ->
-            ?INFO_MSG("mod_ack: handle_info: route_offline_message with different timestamp", []),
+            ?INFO_MSG("route_offline_message with different timestamp", []),
             NewAckWaitQueue = AckWaitQueue
     end,
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
 %% Handle unknown info requests.
 handle_info(Request, AckState) ->
-    ?DEBUG("mod_ack: handle_info: received an unknown request: ~p, ~p", [Request, AckState]),
+    ?DEBUG("received an unknown request: ~p, ~p", [Request, AckState]),
     {noreply, AckState}.
 
 
@@ -236,7 +233,7 @@ handle_info(Request, AckState) ->
 check_and_accept_ack_packet(true, #ack{id = AckId, from = From} = Ack,
                             #{ack_wait_queue := AckWaitQueue, host := ServerHost} = AckState) ->
     AckTo = jid:remove_resource(From),
-    ?INFO_MSG("mod_ack: Accepting this ack packet: ~p, ~n AckWaitQueue: ~p", [Ack, AckWaitQueue]),
+    ?INFO_MSG("Accepting this ack packet: ~p", [Ack]),
     {PacketList, NewAckWaitQueue} = remove_packet_from_ack_wait_queue(AckId, AckTo, AckWaitQueue),
     case PacketList of
         [] -> ok;
@@ -294,14 +291,14 @@ check_and_add_packet_to_ack_wait_queue(_, _, _TimestampSec, _Packet, AckState) -
 -spec add_packet_to_ack_wait_queue(stanza(), integer(), state()) -> state().
 add_packet_to_ack_wait_queue(Packet, TimestampSec,
                             #{ack_wait_queue := AckWaitQueue} = AckState) ->
-    ?DEBUG("mod_ack: Adding the packet to the ack_wait_queue, packet: ~p", [Packet]),
+    ?DEBUG("Adding the packet to the ack_wait_queue, packet: ~p", [Packet]),
     Id = xmpp:get_id(Packet),
     To = jid:remove_resource(xmpp:get_to(Packet)),
     CleanAckWaitQueue = clean_up_ack_wait_queue(AckWaitQueue, TimestampSec, strict),
     NewAckWaitQueue = queue:in({Id, To, TimestampSec, Packet}, CleanAckWaitQueue),
     AckState#{ack_wait_queue => NewAckWaitQueue};
 add_packet_to_ack_wait_queue(Packet, _, AckState) ->
-    ?ERROR_MSG("mod_ack: Invalid input: packet received here: ~p, state: ~p", [Packet, AckState]),
+    ?ERROR_MSG("Invalid input: packet received here: ~p, state: ~p", [Packet, AckState]),
     AckState.
 
 
@@ -311,7 +308,7 @@ add_packet_to_ack_wait_queue(Packet, _, AckState) ->
 send_ack_if_necessary(true, true, Packet, AckState) ->
     send_ack(Packet, AckState);
 send_ack_if_necessary(_, _, Packet, _) ->
-    ?INFO_MSG("mod_ack: Ignoring this packet and not sending an ack: ~p", [Packet]),
+    ?INFO_MSG("Ignoring this packet and not sending an ack: ~p", [Packet]),
     ok.
 
 
@@ -323,12 +320,12 @@ send_ack(Packet, #{host := Host} = _AckState) ->
     From = xmpp:get_from(Packet),
     Timestamp = xmpp:get_timestamp(Packet),
     AckPacket = #ack{id = Id, to = From, from = jid:make(Host), timestamp = Timestamp},
-    ?INFO_MSG("mod_ack: Sending an ack to the user with this packet: ~p ~n for this packet: ~p",
+    ?INFO_MSG("Sending an ack to the user with this packet: ~p ~n for this packet: ~p",
                                                                     [AckPacket, Packet]),
     ejabberd_router:route(AckPacket),
     ok;
 send_ack(Packet, _AckState) ->
-    ?DEBUG("mod_ack: Ignoring this packet and not sending an ack: ~p", [Packet]),
+    ?DEBUG("Ignoring this packet and not sending an ack: ~p", [Packet]),
     ok.
 
 
@@ -377,7 +374,7 @@ send_packet_to_offline(true, _Pkt) ->
 -spec send_packet_with_id_to_offline(boolean(), binary(), jid(), integer(), integer()) -> ok.
 send_packet_with_id_to_offline(true, Id, To, TimestampSec, PacketTimeoutSec) ->
     %% send to offline_msg after PacketTimeoutSec seconds.
-    ?DEBUG("mod_ack: will route this packet with id: ~p to: ~p, to offline_msg after ~p sec.",
+    ?DEBUG("will route this packet with id: ~p to: ~p, to offline_msg after ~p sec.",
                                                         [Id, To, PacketTimeoutSec]),
     erlang:send_after(PacketTimeoutSec * 1000, self(),
                         {route_offline_message, Id, To, TimestampSec}),
@@ -390,7 +387,7 @@ send_packet_with_id_to_offline(false, _, _, _, _) ->
 %% Routes a message specifically through the offline route using the function from ejabberd_sm.
 -spec route_offline_message(message()) -> ok.
 route_offline_message(Pkt) ->
-    ?DEBUG("mod_ack: routing this packet to offline_msg to retry later: ~p", [Pkt]),
+    ?DEBUG("routing this packet to offline_msg to retry later: ~p", [Pkt]),
     ejabberd_sm:route_offline_message(Pkt),
     ok.
 

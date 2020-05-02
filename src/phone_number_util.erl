@@ -87,14 +87,12 @@ parse_phone_number(PhoneNumber, DefaultRegionId) ->
     PhoneNumberState = #phone_number_state{phone_number = Raw, raw = Raw},
     case parse_helper(PhoneNumberState, DefaultRegionId) of
         {error, Reason} ->
-            ?ERROR_MSG("Failed when parsing the number: ~p, with reason: ~p",
-                                                        [PhoneNumber, Reason]),
+            ?WARNING_MSG("Failed parsing |~s|, with reason: ~s", [PhoneNumber, Reason]),
             {error, Reason};
         PhoneNumberState2 ->
             PhoneNumberState3 = is_valid_number_internal(PhoneNumberState2),
             PhoneNumberState4 = format_number_internal(PhoneNumberState3),
-            ?INFO_MSG("Finished parsing the number: ~p and obtained the PhoneNumberState: ~p",
-                                                        [PhoneNumber, PhoneNumberState4]),
+            ?INFO_MSG("parsed |~s| -> ~s", [PhoneNumber, PhoneNumberState4]),
             {ok, PhoneNumberState4}
     end.
 
@@ -303,8 +301,8 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
                                     %% If this fails, they must be using a strange country
                                     %% calling code that we don't recognize,
                                     %% or that doesn't exist.
-                                    ?ERROR_MSG("maybe_extract_country_code: final output:
-                                        failed to extract country_code: ~p",[invalid_country_code]),
+                                    ?ERROR_MSG("failed to extract country_code: ~p",
+                                        [invalid_country_code]),
                                     {error, invalid_country_code}
                             end
                     end;

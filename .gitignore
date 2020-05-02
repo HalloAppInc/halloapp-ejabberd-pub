@@ -11,6 +11,7 @@
 /crash.log
 /error.log
 /ejabberd.log
+/msg_trace.log
 /Makefile
 /config.log
 /config.status
@@ -52,3 +53,4 @@ XmppAddr.hrl
 /_build
 /mnesiadb
 /.rebar
+/Mnesia.nonode@nohost
