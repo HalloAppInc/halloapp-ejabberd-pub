@@ -15,7 +15,6 @@
 -author('murali').
 -behaviour(gen_mod).
 
--include("phone_number.hrl").
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("translate.hrl").
@@ -153,7 +152,12 @@ is_contact(UserId, Server, ContactNumber) ->
 -spec add_contacts(UserId :: binary(), Server :: binary(), ContactList :: [contact()],
                     SyncType :: full | delta, SyncId :: undefined | binary()) -> [contact()].
 add_contacts(UserId, Server, Contacts, SyncType, SyncId) ->
-    lists:map(fun(Contact) -> add_contact(UserId, Server, Contact, SyncType, SyncId) end, Contacts).
+    UserNumber = get_phone(UserId),
+    UserRegionId = mod_libphonenumber:get_region_id(UserNumber),
+    lists:map(
+        fun(Contact) ->
+            add_contact(UserId, UserRegionId, Server, Contact, SyncType, SyncId)
+        end, Contacts).
 
 
 %% Handle delta contact sync requests.
@@ -211,29 +215,33 @@ finish_sync(UserId, Server, SyncId) ->
 %% add_contact
 %%====================================================================
 
+%% TODO(murali@): Avoid getting user-number for each user contact.
 -spec add_contact(
-        UserId :: binary(), Server :: binary(), Contact :: contact(),
+        UserId :: binary(), UserRegionId :: binary(), Server :: binary(), Contact :: contact(),
         SyncType :: full | delta, SyncId :: undefined | binary()) -> contact().
-add_contact(UserId, Server, Contact, full, SyncId) ->
+add_contact(_UserId, _UserRegionId, _Server, #contact{raw = undefined}, _, _SyncId) ->
+    #contact{};
+add_contact(UserId, UserRegionId, Server, Contact, full, SyncId) ->
     Raw = Contact#contact.raw,
-    ContactNumber = normalize(Raw),
     UserNumber = get_phone(UserId),
+    ContactNumber = mod_libphonenumber:normalize(Raw, UserRegionId),
     case ContactNumber of
         undefined ->
             #contact{raw = Raw};
         _ ->
             ContactId = obtain_user_id(ContactNumber),
             model_contacts:sync_contacts(UserId, SyncId, [ContactNumber]),
-            IsFriends = check_if_friends_internal(UserId, ContactId, UserNumber, ContactNumber, Server),
+            IsFriends = check_if_friends_internal(UserId, ContactId,
+                    UserNumber, ContactNumber, Server),
             Role = get_role_value(IsFriends),
             #contact{raw = Raw,
                      userid = ContactId,
                      normalized = ContactNumber,
                      role = Role}
     end;
-add_contact(UserId, Server, Contact, delta, SyncId) ->
+add_contact(UserId, UserRegionId, Server, Contact, delta, SyncId) ->
     Raw = Contact#contact.raw,
-    ContactNumber = normalize(Raw),
+    ContactNumber = mod_libphonenumber:normalize(Raw, UserRegionId),
     %% Server will respond with IQ to user: so no need to notify user.
     NotifyUser = false,
     case ContactNumber of
@@ -418,43 +426,6 @@ check_if_friends_internal(UserId, ContactId, UserNumber, ContactNumber, Server) 
     is_contact(UserId, Server, ContactNumber) andalso is_contact(ContactId, Server, UserNumber).
 
 
-%%====================================================================
-%% normalize phone numbers
-%%====================================================================
-
-%% Normalizes a phone number and returns the final result.
-%% Drops phone numbers that it could not normalize for now.
--spec normalize(binary()) -> binary() | undefined.
-normalize(undefined) ->
-    ?ERROR_MSG("Expected a number as input: ~p", [undefined]),
-    undefined;
-normalize(Number) ->
-    Result = parse(Number),
-    case Result == <<"">> of
-        true ->
-            undefined;
-        false ->
-            Result
-    end.
-
-
-
-%% Parse a phone number using the phone number util and returns a parsed phone number if
-%% it turns out to be valid. Returns the result in binary format.
--spec parse(binary()) -> binary().
-parse(Number) ->
-    case phone_number_util:parse_phone_number(Number, <<"US">>) of
-        {ok, PhoneNumberState} ->
-            case PhoneNumberState#phone_number_state.valid of
-                true ->
-                    NewNumber = PhoneNumberState#phone_number_state.e164_value;
-                _ ->
-                    NewNumber = "" % Use empty string as normalized number for now.
-            end;
-        _ ->
-            NewNumber = "" % Use empty string as normalized number for now.
-    end,
-    list_to_binary(NewNumber).
 
 %%====================================================================
 %% mnesia-related contact sync stuff

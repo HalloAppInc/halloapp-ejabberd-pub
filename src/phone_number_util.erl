@@ -92,7 +92,7 @@ parse_phone_number(PhoneNumber, DefaultRegionId) ->
         PhoneNumberState2 ->
             PhoneNumberState3 = is_valid_number_internal(PhoneNumberState2),
             PhoneNumberState4 = format_number_internal(PhoneNumberState3),
-            ?INFO_MSG("parsed |~s| -> ~s", [PhoneNumber, PhoneNumberState4]),
+            ?INFO_MSG("parsed |~s| -> ~p", [PhoneNumber, PhoneNumberState4]),
             {ok, PhoneNumberState4}
     end.
 
