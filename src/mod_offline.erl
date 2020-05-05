@@ -49,6 +49,7 @@
 	 remove_expired_messages/1,
 	 remove_old_messages/2,
 	 remove_user/2,
+	 re_register_user/2,
 	 import_info/0,
 	 import_start/2,
 	 import/5,
@@ -122,6 +123,7 @@ start(Host, Opts) ->
     ejabberd_hooks:add(c2s_self_presence, Host, ?MODULE, c2s_self_presence, 50),
     ejabberd_hooks:add(remove_user, Host,
 		       ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(disco_sm_features, Host,
 		       ?MODULE, get_sm_features, 50),
     ejabberd_hooks:add(disco_local_features, Host,
@@ -148,6 +150,7 @@ stop(Host) ->
     ejabberd_hooks:delete(c2s_self_presence, Host, ?MODULE, c2s_self_presence, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE,
 			  remove_user, 50),
+    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(disco_sm_features, Host, ?MODULE, get_sm_features, 50),
     ejabberd_hooks:delete(disco_local_features, Host, ?MODULE, get_sm_features, 50),
     ejabberd_hooks:delete(disco_sm_identity, Host, ?MODULE, get_sm_identity, 50),
@@ -701,6 +704,12 @@ remove_user(User, Server) ->
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     Mod:remove_user(LUser, LServer),
     flush_cache(Mod, LUser, LServer).
+
+
+-spec re_register_user(User :: binary(), Server :: binary()) -> ok.
+re_register_user(User, Server) ->
+	remove_user(User, Server).
+
 
 %% Helper functions:
 

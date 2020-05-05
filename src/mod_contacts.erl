@@ -28,7 +28,7 @@
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 %% IQ handlers and hooks.
--export([process_local_iq/1, remove_user/2]).
+-export([process_local_iq/1, remove_user/2, re_register_user/2]).
 %% export this for async use.
 -export([finish_sync/3]).
 %% api
@@ -38,6 +38,7 @@
 start(Host, Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NORM, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
+    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     phone_number_util:init(Host, Opts),
     mod_contacts_mnesia:init(Host, Opts),
     ok.
@@ -46,6 +47,7 @@ stop(Host) ->
     mod_contacts_mnesia:close(),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_NORM),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
+    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
     phone_number_util:close(Host),
     ok.
 
@@ -96,6 +98,11 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
 %% remove_user hook deletes all contacts of the user
 %% which involves removing all the subscriptions and affiliations and notifying the contacts.
 remove_user(UserId, Server) ->
+    delete_all_contacts(UserId, Server).
+
+
+-spec re_register_user(User :: binary(), Server :: binary()) -> ok.
+re_register_user(UserId, Server) ->
     delete_all_contacts(UserId, Server).
 
 

@@ -279,7 +279,6 @@ check_and_register(Phone, Server, Password, Name) ->
         scram -> password_to_scram(Password);
         _ -> Password
     end,
-
     case ejabberd_auth_halloapp:get_uid(Phone) of
         undefined ->
             case ets_cache:untag(ejabberd_auth_halloapp:try_register(Phone, Server, Password1)) of
@@ -290,6 +289,7 @@ check_and_register(Phone, Server, Password, Name) ->
                 Err -> Err
             end;
         UserId ->
+            re_register_user(UserId, Server),
             case ets_cache:untag(ejabberd_auth_halloapp:set_password(UserId, Server, Password1)) of
                 {ok, _} ->
                     ok = model_accounts:set_name(UserId, Name),
@@ -299,6 +299,7 @@ check_and_register(Phone, Server, Password, Name) ->
                 Err -> Err
             end
     end.
+
 
 -spec try_register(binary(), binary(), password()) -> ok | {error,
 							    db_failure | not_allowed | exists |
@@ -501,6 +502,12 @@ remove_user(User, Server) ->
 	_Err ->
 	    ok
     end.
+
+
+-spec re_register_user(User :: binary(), Server :: binary()) -> ok.
+re_register_user(User, Server) ->
+	ejabberd_hooks:run(re_register_user, Server, [User, Server]).
+
 
 -spec remove_user(binary(), binary(), password()) -> ok | {error, atom()}.
 remove_user(User, Server, Password) ->

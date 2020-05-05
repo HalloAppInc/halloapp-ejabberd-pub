@@ -53,7 +53,7 @@
 %% exports for hooks
 -export([presence_probe/3, caps_add/3, caps_update/3,
     in_subscription/2, out_subscription/1, on_user_first_login/2,
-    on_user_offline/2, remove_user/2,
+    on_user_offline/2, remove_user/2, re_register_user/2,
     disco_local_identity/5, disco_local_features/5,
     disco_local_items/5, disco_sm_identity/5,
     disco_sm_features/5, disco_sm_items/5,
@@ -319,6 +319,7 @@ init([ServerHost|_]) ->
 	?MODULE, out_subscription, 50),
     ejabberd_hooks:add(remove_user, ServerHost,
 	?MODULE, remove_user, 50),
+	ejabberd_hooks:add(re_register_user, ServerHost, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(c2s_handle_info, ServerHost,
 	?MODULE, c2s_handle_info, 50),
     case lists:member(?PEPNODE, AllPlugins) of
@@ -688,31 +689,6 @@ unsubscribe_user(Host, Entity, Owner) ->
 
 -spec remove_user(binary(), binary()) -> ok.
 remove_user(User, Server) ->
-	LUser = jid:nodeprep(User),
-	LServer = jid:nameprep(Server),
-	Entity = jid:make(LUser, LServer),
-	Host = host(LServer),
-	lists:foreach(
-	  fun(PType) ->
-	      case node_action(Host, PType,
-			       get_entity_subscriptions,
-			       [Host, Entity]) of
-		  {result, Subs} ->
-		      lists:foreach(
-			fun({#pubsub_node{id = Nidx}, _, _, JID}) ->
-				node_action(Host, PType,
-					    unsubscribe_node,
-					    [Nidx, Entity, JID, all]);
-			   (_) ->
-				ok
-			end, Subs);
-		  _ ->
-		      ok
-	      end
-	  end, plugins(Host)).
-
-
-remove_user_temp(User, Server) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     Entity = jid:make(LUser, LServer),
@@ -753,6 +729,34 @@ remove_user_temp(User, Server) ->
 		      ok
 	      end
       end, plugins(Host)).
+
+
+-spec re_register_user(User :: binary(), Server :: binary()) -> ok.
+re_register_user(User, Server) ->
+	LUser = jid:nodeprep(User),
+	LServer = jid:nameprep(Server),
+	Entity = jid:make(LUser, LServer),
+	Host = host(LServer),
+	lists:foreach(
+	  fun(PType) ->
+	      case node_action(Host, PType,
+			       get_entity_subscriptions,
+			       [Host, Entity]) of
+		  {result, Subs} ->
+		      lists:foreach(
+			fun({#pubsub_node{id = Nidx, owners = Owners}, _, _, JID}) ->
+				case lists:member({User, Server, <<>>}, Owners) of
+					true -> ok;
+					false -> node_action(Host, PType, unsubscribe_node, [Nidx, Entity, JID, all])
+				end;
+			   (_) ->
+				ok
+			end, Subs);
+		  _ ->
+		      ok
+	      end
+	  end, plugins(Host)).
+
 
 handle_call(server_host, _From, State) ->
     {reply, State#state.server_host, State};
@@ -824,6 +828,7 @@ terminate(_Reason,
 	?MODULE, out_subscription, 50),
     ejabberd_hooks:delete(remove_user, ServerHost,
 	?MODULE, remove_user, 50),
+	ejabberd_hooks:delete(re_register_user, ServerHost, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(c2s_handle_info, ServerHost,
 	?MODULE, c2s_handle_info, 50),
     lists:foreach(

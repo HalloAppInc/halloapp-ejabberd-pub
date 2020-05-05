@@ -26,7 +26,7 @@
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 %% hooks.
--export([presence_subs_hook/3, unset_presence_hook/4, remove_user/2]).
+-export([presence_subs_hook/3, unset_presence_hook/4, remove_user/2, re_register_user/2]).
 %% API
 -export([subscribe_user_to_friend/3, unsubscribe_user_to_friend/3,
         get_user_subscribed_friends/2, get_user_broadcast_friends/2]).
@@ -36,13 +36,15 @@ start(Host, Opts) ->
     mod_presence_subscription_mnesia:init(Host, Opts),
     ejabberd_hooks:add(presence_subs_hook, Host, ?MODULE, presence_subs_hook, 1),
     ejabberd_hooks:add(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50).
+    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50).
 
 stop(Host) ->
     mod_presence_subscription_mnesia:close(Host),
     ejabberd_hooks:delete(presence_subs_hook, Host, ?MODULE, presence_subs_hook, 1),
     ejabberd_hooks:delete(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50).
+    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50).
 
 depends(_Host, _Opts) ->
     [].
@@ -60,6 +62,12 @@ reload(_Host, _NewOpts, _OldOpts) ->
 -spec remove_user(binary(), binary()) -> {ok, any()} | {error, any()}.
 remove_user(User, Server) ->
     mod_presence_subscription_mnesia:remove_user(User, Server).
+
+
+-spec re_register_user(User :: binary(), Server :: binary()) -> {ok, any()} | {error, any()}.
+re_register_user(User, Server) ->
+    mod_presence_subscription_mnesia:remove_user(User, Server).
+
 
 -spec unset_presence_hook(binary(), binary(), binary(), binary()) -> {ok, any()} | {error, any()}.
 unset_presence_hook(User, Server, _Resource, _Status) ->

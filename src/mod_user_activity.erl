@@ -35,7 +35,8 @@
     set_presence_hook/4,
     unset_presence_hook/4,
     register_user/2,
-    remove_user/2
+    remove_user/2,
+    re_register_user/2
 ]).
 
 %% API
@@ -50,14 +51,16 @@ start(Host, Opts) ->
     ejabberd_hooks:add(set_presence_hook, Host, ?MODULE, set_presence_hook, 1),
     ejabberd_hooks:add(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50).
+    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50).
 
 stop(Host) ->
     mod_user_activity_mnesia:close(Host),
     ejabberd_hooks:delete(set_presence_hook, Host, ?MODULE, set_presence_hook, 1),
     ejabberd_hooks:delete(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50).
+    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50).
 
 depends(_Host, _Opts) ->
     [].
@@ -84,6 +87,11 @@ register_user(User, Server) ->
 -spec remove_user(binary(), binary()) -> {ok, any()} | {error, any()}.
 remove_user(User, Server) ->
     mod_user_activity_mnesia:remove_user(User, Server).
+
+
+-spec re_register_user(User :: binary(), Server :: binary()) -> ok.
+re_register_user(User, Server) ->
+    register_user(User, Server).
 
 
 %% set_presence_hook checks and stores the user activity, and also broadcast users presence

@@ -392,6 +392,7 @@ remove_user_internal(Uid, _Server) ->
     ok = model_accounts:delete_account(Uid),
     ok.
 
+
 remove_enrolled_user(User, Server) ->
     ?INFO_MSG("Phone:~p", [User]),
     Res = remove_enrolled_user_internal(User, Server),
