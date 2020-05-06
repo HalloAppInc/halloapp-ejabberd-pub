@@ -57,7 +57,7 @@ user_send_packet({Packet, State}) ->
 
 %% Hook trigerred when user sent the server an ack stanza for this particular packet.
 -spec user_ack_packet(Packet :: stanza()) -> ok.
-user_ack_packet(#message{id = MsgId, to = To, from = From, sub_els = [SubElement]})
+user_ack_packet(#message{id = MsgId, to = To, from = From, sub_els = [SubElement | _]})
 		when is_record(SubElement, chat) ->
 	TimestampSec = util:now_binary(),
 	FromJID = To,

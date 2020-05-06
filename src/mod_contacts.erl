@@ -229,15 +229,18 @@ add_contact(UserId, UserRegionId, Server, Contact, full, SyncId) ->
         undefined ->
             #contact{raw = Raw};
         _ ->
-            ContactId = obtain_user_id(ContactNumber),
             model_contacts:sync_contacts(UserId, SyncId, [ContactNumber]),
-            IsFriends = check_if_friends_internal(UserId, ContactId,
-                    UserNumber, ContactNumber, Server),
-            Role = get_role_value(IsFriends),
-            #contact{raw = Raw,
-                     userid = ContactId,
-                     normalized = ContactNumber,
-                     role = Role}
+            ContactId = obtain_user_id(ContactNumber),
+            case ContactId of
+                undefined -> #contact{raw = Raw, normalized = ContactNumber, role = "none"};
+                _ ->
+                    IsFriends = check_if_friends_internal(UserId, ContactId, UserNumber, ContactNumber, Server),
+                    Role = get_role_value(IsFriends),
+                    #contact{raw = Raw,
+                             userid = ContactId,
+                             normalized = ContactNumber,
+                             role = Role}
+            end
     end;
 add_contact(UserId, UserRegionId, Server, Contact, delta, SyncId) ->
     Raw = Contact#contact.raw,

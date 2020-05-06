@@ -237,8 +237,8 @@ check_and_accept_ack_packet(true, #ack{id = AckId, from = From} = Ack,
     {PacketList, NewAckWaitQueue} = remove_packet_from_ack_wait_queue(AckId, AckTo, AckWaitQueue),
     case PacketList of
         [] -> ok;
-        [{_, _, _, Packet}] -> ejabberd_hooks:run(user_ack_packet, ServerHost,
-                                                            [xmpp:decode_els(Packet)])
+        [{_, _, _, Packet}] ->
+            ejabberd_hooks:run(packet_acked, ServerHost, [xmpp:decode_els(xmpp:decode(Packet))])
     end,
     AckState#{ack_wait_queue => NewAckWaitQueue};
 check_and_accept_ack_packet(_, _Packet, AckState) ->
