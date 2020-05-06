@@ -118,11 +118,11 @@ is_friend(UserId, Server, ContactId) ->
 %% internal functions
 %%====================================================================
 
--spec get_role_value(atom()) -> list().
+-spec get_role_value(atom()) -> binary().
 get_role_value(true) ->
-    "friends";
+    <<"friends">>;
 get_role_value(false) ->
-    "none".
+    <<"none">>.
 
 
 %% Obtains the user for a user: uses the id if it already exists, else creates one.
@@ -232,7 +232,7 @@ add_contact(UserId, UserRegionId, Server, Contact, full, SyncId) ->
             model_contacts:sync_contacts(UserId, SyncId, [ContactNumber]),
             ContactId = obtain_user_id(ContactNumber),
             case ContactId of
-                undefined -> #contact{raw = Raw, normalized = ContactNumber, role = "none"};
+                undefined -> #contact{raw = Raw, normalized = ContactNumber, role = <<"none">>};
                 _ ->
                     IsFriends = check_if_friends_internal(UserId, ContactId, UserNumber, ContactNumber, Server),
                     Role = get_role_value(IsFriends),
@@ -350,7 +350,7 @@ delete_contact_number(UserId, Server, ContactNumber) ->
 remove_friend_and_notify(UserId, Server, ContactId) ->
     model_friends:remove_friend(UserId, ContactId),
     unsubscribe_to_each_others_nodes(UserId, Server, ContactId),
-    notify_contact_about_user(UserId, Server, ContactId, "none").
+    notify_contact_about_user(UserId, Server, ContactId, <<"none">>).
 
 
 %%====================================================================
@@ -359,9 +359,9 @@ remove_friend_and_notify(UserId, Server, ContactId) ->
 
 %% Subscribes the User to the nodes of the ContactNumber and vice-versa if they are 'friends'.
 -spec subscribe_to_each_others_nodes(binary(), binary(), binary(), list()) -> ok.
-subscribe_to_each_others_nodes(_UserId, _Server, _ContactId, "none") ->
+subscribe_to_each_others_nodes(_UserId, _Server, _ContactId, <<"none">>) ->
     ok;
-subscribe_to_each_others_nodes(UserId, Server, ContactId, "friends") ->
+subscribe_to_each_others_nodes(UserId, Server, ContactId, <<"friends">>) ->
     ejabberd_hooks:run(add_friend, Server, [UserId, Server, ContactId]);
 subscribe_to_each_others_nodes(UserId, Server, ContactId, Role) ->
     ?ERROR_MSG("Invalid role:~p for a contact: ~p for user: ~p",
