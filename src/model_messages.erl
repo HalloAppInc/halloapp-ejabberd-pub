@@ -6,12 +6,13 @@
 %%%
 %%%------------------------------------------------------------------------------------
 -module(model_messages).
--author("murali").
+-author('murali').
 -behavior(gen_server).
 -behavior(gen_mod).
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("offline_message.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -28,12 +29,12 @@
 %% API
 -export([
     store_message/1,
-    store_message/2,
-    store_message/3,
     ack_message/2,
     remove_all_user_messages/1,
     count_user_messages/1,
     get_message/2,
+    increment_retry_count/2,
+    get_retry_count/2,
     get_all_user_messages/1
 ]).
 
@@ -67,31 +68,40 @@ get_proc() ->
 -define(MESSAGE_QUEUE_KEY, <<"mq:">>).
 -define(MESSAGE_ORDER_KEY, <<"ord:">>).
 -define(FIELD_TO, <<"tuid">>).
+-define(FIELD_FROM, <<"fuid">>).
 -define(FIELD_MESSAGE, <<"m">>).
 -define(FIELD_ORDER, <<"ord">>).
+-define(FIELD_CONTENT_TYPE, <<"ct">>).
+-define(FIELD_RETRY_COUNT, <<"rc">>).
 
 
 -spec store_message(Message :: message()) -> ok | {error, any()}.
 store_message(Message) ->
-    #jid{user = Uid} = Message#message.to,
+    #jid{user = ToUid} = Message#message.to,
+    #jid{user = FromUid} = Message#message.from,
     MsgId = Message#message.id,
-    store_message(Uid, MsgId, Message).
+    ContentType = get_content_type(Message),
+    store_message(ToUid, FromUid, MsgId, ContentType, Message).
 
 
--spec store_message(Uid :: binary(), Message :: message()) -> ok | {error, any()}.
-store_message(Uid, Message) ->
-    MsgId = Message#message.id,
-    store_message(Uid, MsgId, Message).
-
-
--spec store_message(Uid :: binary(), MsgId :: binary(),
-                    Message :: message()) -> ok | {error, any()}.
-store_message(Uid, MsgId, Message) when is_record(Message, message) ->
-    store_message(Uid, MsgId, fxml:element_to_binary(xmpp:encode(Message)));
-store_message(Uid, MsgId, Message) when is_binary(Message)->
-    gen_server:call(get_proc(), {store_message, Uid, MsgId, Message});
-store_message(_Uid, _MsgId, Message) ->
+-spec store_message(ToUid :: binary(), FromUid :: undefined | binary(), MsgId :: binary(),
+                    ContentType :: binary(), Message :: message()) -> ok | {error, any()}.
+store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_record(Message, message) ->
+    store_message(ToUid, FromUid, MsgId, ContentType, fxml:element_to_binary(xmpp:encode(Message)));
+store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_binary(Message)->
+    gen_server:call(get_proc(), {store_message, ToUid, FromUid, MsgId, ContentType, Message});
+store_message(_ToUid, _FromUid, _MsgId, _ContentType, Message) ->
     ?ERROR_MSG("Invalid message format: ~p: use binary format", [Message]).
+
+
+-spec increment_retry_count(Uid :: binary(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
+increment_retry_count(Uid, MsgId) ->
+    gen_server:call(get_proc(), {increment_retry_count, Uid, MsgId}).
+
+
+-spec get_retry_count(Uid :: binary(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
+get_retry_count(Uid, MsgId) ->
+    gen_server:call(get_proc(), {get_retry_count, Uid, MsgId}).
 
 
 -spec get_message(Uid :: binary(), MsgId :: binary()) -> {ok, message()} | {error, any()}.
@@ -128,17 +138,26 @@ init(_Stuff) ->
     process_flag(trap_exit, true),
     {ok, redis_messages_client}.
 
-
-handle_call({store_message, Uid, MsgId, Message}, _From, Redis) ->
-    {ok, OrderId} = q(["INCR", message_order_key(Uid)]),
-    _Results = qp(
-            [["MULTI"],
-            ["HSET", message_key(Uid, MsgId),
-                ?FIELD_TO, Uid,
-                ?FIELD_MESSAGE, Message,
-                ?FIELD_ORDER, OrderId],
-            ["ZADD", message_queue_key(Uid), OrderId, MsgId],
-            ["EXEC"]]),
+handle_call({store_message, ToUid, FromUid, MsgId, ContentType, Message}, _From, Redis) ->
+    {ok, OrderId} = q(["INCR", message_order_key(ToUid)]),
+    MessageKey = message_key(ToUid, MsgId),
+    Fields = [
+        ?FIELD_TO, ToUid,
+        ?FIELD_MESSAGE, Message,
+        ?FIELD_CONTENT_TYPE, ContentType,
+        ?FIELD_RETRY_COUNT, 0,
+        ?FIELD_ORDER, OrderId],
+    Fields2 = case FromUid of
+                undefined -> Fields;
+                _ -> [?FIELD_FROM, FromUid | Fields]
+            end,
+    Fields3 = ["HSET", MessageKey | Fields2],
+    PipeCommands = [
+            ["MULTI"],
+            Fields3,
+            ["ZADD", message_queue_key(ToUid), OrderId, MsgId],
+            ["EXEC"]],
+    _Results = qp(PipeCommands),
     {reply, ok, Redis};
 
 handle_call({ack_message, Uid, MsgId}, _From, Redis) ->
@@ -156,18 +175,26 @@ handle_call({remove_all_user_messages, Uid}, _From, Redis) ->
     {ok, _QRes} = q(["DEL", message_queue_key(Uid)]),
     {reply, ok, Redis};
 
-
 handle_call({count_user_messages, Uid}, _From, Redis) ->
     {ok, Res} = q(["ZCARD", message_queue_key(Uid)]),
     {reply, {ok, binary_to_integer(Res)}, Redis};
 
+handle_call({increment_retry_count, Uid, MsgId}, _From, Redis) ->
+    {ok, RetryCount} = q(["HINCRBY", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT, 1]),
+    {reply, {ok, binary_to_integer(RetryCount)}, Redis};
+
+handle_call({get_retry_count, Uid, MsgId}, _From, Redis) ->
+    {ok, RetryCount} = q(["HGET", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT]),
+    Res = case RetryCount of
+            undefined -> undefined;
+            _ -> binary_to_integer(RetryCount)
+        end,
+    {reply, {ok, Res}, Redis};
+
 handle_call({get_message, Uid, MsgId}, _From, Redis) ->
-    {ok, Res} = q(["HGET", message_key(Uid, MsgId), ?FIELD_MESSAGE]),
-    Message = case Res of
-                undefined -> undefined;
-                _ -> Res
-            end,
-    {reply, {ok, Message}, Redis};
+    Result = q(["HGETALL", message_key(Uid, MsgId)]),
+    OfflineMessage = parse_result(Result),
+    {reply, {ok, OfflineMessage}, Redis};
 
 handle_call({get_all_user_messages, Uid}, _From, Redis) ->
     {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
@@ -182,21 +209,54 @@ get_all_user_messages(Uid, MsgIds) ->
     MessageKeys = message_keys(Uid, MsgIds),
     Commands = get_message_commands(MessageKeys, []),
     MessageResults = qp(Commands),
-    lists:map(
-        fun({ok, [Message]}) ->
-            case Message of
-                undefined -> undefined;
-                _ -> Message
-            end
-        end, MessageResults).
+    lists:map(fun parse_result/1, MessageResults).
 
 
 get_message_commands([], Commands) ->
    lists:reverse(Commands);
 get_message_commands([MessageKey | Rest], Commands) ->
-    Command = ["HMGET", MessageKey, ?FIELD_MESSAGE],
+    Command = ["HGETALL", MessageKey],
     get_message_commands(Rest, [Command | Commands]).
 
+
+-spec parse_result({ok, [binary()]}) -> offline_message().
+parse_result({ok, FieldValuesList}) ->
+    parse_fields(FieldValuesList, #offline_message{}).
+
+
+-spec parse_fields([binary()],
+        OfflineMessage :: offline_message()) -> undefined | offline_message().
+parse_fields([], OfflineMessage) ->
+    case OfflineMessage#offline_message.message of
+        undefined -> undefined;
+        _ -> OfflineMessage
+    end;
+parse_fields([<<"0">>], _OfflineMessage) ->
+    undefined;
+parse_fields(FieldValuesList, OfflineMessage) ->
+    MsgDataMap = util:list_to_map(FieldValuesList),
+    Message = maps:get(?FIELD_MESSAGE, MsgDataMap),
+    case Message of
+        undefined -> undefined;
+        _ ->
+            OfflineMessage#offline_message{
+                message = Message,
+                to_uid = maps:get(?FIELD_TO, MsgDataMap),
+                from_uid = maps:get(?FIELD_FROM, MsgDataMap, undefined),
+                content_type = maps:get(?FIELD_CONTENT_TYPE, MsgDataMap),
+                retry_count = binary_to_integer(maps:get(?FIELD_RETRY_COUNT, MsgDataMap))}
+    end.
+
+
+-spec get_content_type(message()) -> binary().
+get_content_type(#message{sub_els = SubEls}) ->
+    lists:foldl(
+        fun(ChildEl, Acc) ->
+            case Acc of
+                <<>> -> xmpp:get_name(ChildEl);
+                _ -> Acc
+            end
+        end, <<>>, SubEls).
 
 
 handle_cast(_Message, Redis) -> {noreply, Redis}.
@@ -239,7 +299,5 @@ message_queue_key(Uid) ->
 -spec message_order_key(Uid :: binary()) -> binary().
 message_order_key(Uid) ->
     <<?MESSAGE_ORDER_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
-
-
 
 

@@ -226,6 +226,8 @@ process_info(#{lserver := LServer} = State, {route, Packet}) ->
 			 #iq{} ->
 			     process_iq_in(State, Packet);
 			 #ack{} ->
+			     {true, State};
+			 #binary_message{} ->
 			     {true, State}
 		     end,
     if Pass ->

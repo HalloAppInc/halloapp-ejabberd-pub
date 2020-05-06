@@ -89,7 +89,7 @@ get_account_test() ->
 
 list_to_map_test() ->
     L = ["a", 1, "b", 2],
-    M = model_accounts:list_to_map(L),
+    M = util:list_to_map(L),
     ?assertEqual(#{"a" => 1,"b" => 2}, M).
 
 

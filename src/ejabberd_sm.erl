@@ -24,7 +24,7 @@
 %%%----------------------------------------------------------------------
 
 -module(ejabberd_sm).
-
+-author('murali').
 -author('alexey@process-one.net').
 
 -ifndef(GEN_SERVER).
@@ -151,7 +151,11 @@ route(Packet) ->
     end.
 
 %% Routes a message specifically through the offline route by invoking the offline_message_hook.
--spec route_offline_message(message()) -> any().
+-spec route_offline_message(message() | binary_message()) -> any().
+route_offline_message(#binary_message{} = Packet) ->
+    ?WARNING_MSG("ignoring binary_message from_uid: ~s, to_uid: ~s, already stored.",
+            [Packet#binary_message.from, Packet#binary_message.to]),
+    ignore;
 route_offline_message(#message{to = To, type = _Type} = Packet) ->
     LUser = To#jid.luser,
     LServer = To#jid.lserver,
@@ -208,10 +212,9 @@ check_in_subscription(Acc, #presence{to = To}) ->
     end.
 
 -spec bounce_offline_message({bounce, message()} | any()) -> any().
-
 bounce_offline_message({bounce, #message{type = T}} = Acc)
-  when T == chat; T == groupchat; T == normal ->
-    bounce_sm_packet(Acc);
+    when T == chat; T == groupchat; T == normal ->
+        bounce_sm_packet(Acc);
 bounce_offline_message(Acc) ->
     Acc.
 
@@ -737,6 +740,8 @@ do_route(#iq{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
 	    ejabberd_hooks:run_fold(bounce_sm_packet,
 				    To#jid.lserver, {pass, Packet}, [])
     end;
+do_route(#binary_message{} = Packet) ->
+    route_message(Packet);
 do_route(Packet) ->
     ?DEBUG("Processing packet to full JID:~n~ts", [xmpp:pp(Packet)]),
     To = xmpp:get_to(Packet),
@@ -776,8 +781,9 @@ is_privacy_allow(Packet) ->
 	       privacy_check_packet, LServer, allow,
 	       [To, Packet, in]).
 
--spec route_message(message()) -> any().
-route_message(#message{to = To, type = _Type} = Packet) ->
+-spec route_message(message() | binary_message()) -> any().
+route_message(Packet) ->
+    To = xmpp:get_to(Packet),
     LUser = To#jid.luser,
     LServer = To#jid.lserver,
     Mod = get_sm_backend(LServer),

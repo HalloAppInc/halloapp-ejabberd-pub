@@ -7,6 +7,7 @@
 %%%----------------------------------------------------------------------
 
 -module(util).
+-author('murali').
 -include("logger.hrl").
 
 -export([
@@ -21,7 +22,9 @@
     random_str/1,
     type/1,
     to_atom/1,
-    to_binary/1
+    to_binary/1,
+    new_msg_id/0,
+    list_to_map/1
 ]).
 
 %% Export all functions for unit tests
@@ -120,3 +123,16 @@ to_binary(Data) ->
         _ -> undefined
     end.
 
+-spec new_msg_id() -> binary().
+new_msg_id() ->
+    base64:encode(uuid:uuid4()).
+
+
+list_to_map(L) ->
+    list_to_map(L, #{}).
+
+list_to_map([K, V | Rest], Map) ->
+    Map2 = maps:put(K, V, Map),
+    list_to_map(Rest, Map2);
+list_to_map([], Map) ->
+    Map.

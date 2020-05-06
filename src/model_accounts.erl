@@ -227,7 +227,7 @@ handle_call({is_account_deleted, Uid}, _From, Redis) ->
 
 handle_call({get_account, Uid}, _From, Redis) ->
     {ok, Res} = q(["HGETALL", key(Uid)]),
-    M = list_to_map(Res),
+    M = util:list_to_map(Res),
     Account = #account{
             uid = Uid,
             phone = maps:get(?FIELD_PHONE, M),
@@ -336,15 +336,6 @@ ts_decode(Data) ->
         undefined -> undefined;
         Data -> binary_to_integer(Data)
     end.
-
-list_to_map(L) ->
-    list_to_map(L, #{}).
-
-list_to_map([K, V | Rest], Map) ->
-    Map2 = maps:put(K, V, Map),
-    list_to_map(Rest, Map2);
-list_to_map([], Map) ->
-    Map.
 
 % TODO rename to account_key
 -spec key(binary()) -> binary().

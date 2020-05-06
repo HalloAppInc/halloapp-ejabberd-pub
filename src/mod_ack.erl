@@ -145,6 +145,8 @@ handle_call({user_send_packet, {Packet, State} = _Acc}, _From, AckState) ->
 %% When the server tries to send a packet to the client, we store a copy of the packet, its id
 %% and timestamp in the ack_wait_queue. The packet will be removed from here
 %% when we receive an ack for this packet with the same id.
+handle_call({user_receive_packet,{#binary_message{}, _State} = Acc}, _From, AckState) ->
+    {reply, Acc, AckState};
 handle_call({user_receive_packet,{Packet, State} = _Acc}, _From,
                                                 #{ack_wait_queue := AckWaitQueue} = AckState) ->
     NewPacket = adjust_packet_id_and_retry_count(Packet),
@@ -238,7 +240,7 @@ check_and_accept_ack_packet(true, #ack{id = AckId, from = From} = Ack,
     case PacketList of
         [] -> ok;
         [{_, _, _, Packet}] ->
-            ejabberd_hooks:run(user_ack_packet, ServerHost, [xmpp:decode_els(xmpp:decode(Packet))])
+            ejabberd_hooks:run(packet_acked, ServerHost, [xmpp:decode_els(xmpp:decode(Packet))])
     end,
     AckState#{ack_wait_queue => NewAckWaitQueue};
 check_and_accept_ack_packet(_, _Packet, AckState) ->

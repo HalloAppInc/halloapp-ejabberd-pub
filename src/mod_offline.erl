@@ -638,6 +638,7 @@ route_offline_messages(#{jid := #jid{luser = LUser, lserver = LServer}} = State)
 	   end,
     lists:foreach(
 	fun(OffMsg) ->
+	    check_if_message_exists_in_redis(OffMsg),
 	    route_offline_message(State, OffMsg)
 	end, Msgs).
 
@@ -1250,3 +1251,23 @@ mod_options(Host) ->
      {use_cache, ejabberd_option:use_cache(Host)},
      {cache_size, ejabberd_option:cache_size(Host)},
      {cache_life_time, ejabberd_option:cache_life_time(Host)}].
+
+
+-spec check_if_message_exists_in_redis(#offline_msg{}) -> ok.
+check_if_message_exists_in_redis(OffMsg) ->
+	{UserId, _Server} = OffMsg#offline_msg.us,
+	MsgId = xmpp:get_id(OffMsg#offline_msg.packet),
+	case UserId =/= undefined andalso MsgId =/= undefined of
+		false ->
+			?ERROR_MSG("missing uid: ~s or msg_id: ~s", [UserId, MsgId]);
+		true ->
+			{ok, Message} = model_messages:get_message(UserId, MsgId),
+			case Message of
+				undefined ->
+					?ERROR_MSG("uid: ~s, msg_id: ~s is missing on redis: ~p", [UserId, MsgId]);
+				_ ->
+					?INFO_MSG("uid: ~s, msg_id: ~s exists on redis and mnesia", [UserId, MsgId])
+			end
+	end.
+
+

@@ -29,7 +29,8 @@
 -export([init/2, store_message/1, pop_messages/2, remove_expired_messages/1,
 	 remove_old_messages/2, remove_user/2, read_message_headers/2,
 	 read_message/3, remove_message/3, read_all_messages/2,
-	 remove_all_messages/2, count_messages/2, import/1]).
+	 remove_all_messages/2, count_messages/2, import/1,
+	 get_all_offline_messages/0]).
 -export([need_transform/1, transform/1]).
 
 -include("xmpp.hrl").
@@ -230,3 +231,11 @@ integer_to_now(Int) ->
     MSec = Secs div 1000000,
     Sec = Secs rem 1000000,
     {MSec, Sec, USec}.
+
+
+get_all_offline_messages() ->
+    {atomic, OfflineMessages} = mnesia:transaction(
+        fun () ->
+            mnesia:match_object(mnesia:table_info(offline_msg, wild_pattern))
+        end),
+    OfflineMessages.

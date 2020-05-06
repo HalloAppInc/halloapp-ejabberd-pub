@@ -206,6 +206,7 @@ modules:
   mod_muc_admin: {}
   mod_offline:
     access_max_user_messages: max_user_offline_messages
+  mod_offline_halloapp: {}
   mod_ping:
     send_pings: true
     ping_interval: 240
@@ -300,12 +301,14 @@ modules:
   mod_ack:
     max_ack_wait_items: 5000
     packet_timeout_sec: 40
+  mod_ack_halloapp: {}
   mod_redis: {}
   mod_libphonenumber: {}
   model_phone: {}
   model_friends: {}
   model_accounts: {}
   model_contacts: {}
+  model_messages: {}
   model_auth: {}
   stat: {}
 
