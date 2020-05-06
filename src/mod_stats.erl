@@ -38,6 +38,7 @@
 -include("xmpp.hrl").
 -include("translate.hrl").
 
+%% TODO: get data from here exported to our graphs.
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_STATS,
 				  ?MODULE, process_iq).

@@ -62,7 +62,8 @@ user_ack_packet(#message{id = MsgId, to = To, from = From, sub_els = [SubElement
 	TimestampSec = util:now_binary(),
 	FromJID = To,
 	ToJID = From,
-	send_receipt(ToJID, FromJID, MsgId, TimestampSec);
+	send_receipt(ToJID, FromJID, MsgId, TimestampSec),
+	stat:count("HA/im_receipts", "delivered");
 user_ack_packet(_Packet) ->
 	ok.
 
@@ -82,6 +83,7 @@ send_receipt(ToJID, FromJID, Id, Timestamp) ->
 update_timestamp_if_receipts_message(
 				#message{sub_els = [#xmlel{name = <<"seen">>} = SeenXmlEl]} = Packet,
 																					TimestampSec) ->
+	stat:count("HA/im_receipts", "seen"),
 	SeenXmlElement = xmpp:decode(SeenXmlEl),
 	T = SeenXmlElement#receipt_seen.timestamp,
 	case T of
@@ -97,6 +99,7 @@ update_timestamp_if_receipts_message(
 update_timestamp_if_receipts_message(
 				#message{sub_els = [#xmlel{name = <<"received">>} = ReceivedXmlEl]} = Packet,
 																					TimestampSec) ->
+	stat:count("HA/im_receipts", "received"),
 	ReceivedXmlElement = xmpp:decode(ReceivedXmlEl),
 	T = ReceivedXmlElement#receipt_response.timestamp,
 	case T of

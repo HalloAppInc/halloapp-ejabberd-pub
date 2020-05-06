@@ -178,6 +178,7 @@ modules:
   mod_configure: {}
   mod_disco: {}
   mod_fail2ban: {}
+  mode_ha_stats: {}
   mod_halloapp_http_api: {}
   mod_http_api: {}
   mod_http_upload:
@@ -306,6 +307,7 @@ modules:
   model_accounts: {}
   model_contacts: {}
   model_auth: {}
+  stat: {}
 
 ### Local Variables:
 ### mode: yaml

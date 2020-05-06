@@ -326,6 +326,7 @@ try_enroll(User, Server, Passcode) ->
     Res.
 
 try_enroll_internal(User, _Server, Passcode) ->
+    stat:count("HA/account", "enroll"),
     ok = model_phone:add_sms_code(User, Passcode, util:now(), ?TWILIO),
     {ok, Passcode}.
 
