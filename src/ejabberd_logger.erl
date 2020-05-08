@@ -127,6 +127,7 @@ do_start(Level) ->
     ConsoleLog = get_log_path(),
     Dir = filename:dirname(ConsoleLog),
     ErrorLog = filename:join([Dir, "error.log"]),
+    MsgTraceLog = filename:join([Dir, "msg_trace.log"]),
     CrashLog = filename:join([Dir, "crash.log"]),
     LogRotateDate = get_string_env(log_rotate_date, ""),
     LogRotateSize = get_integer_env(log_rotate_size, 10*1024*1024),
@@ -138,6 +139,8 @@ do_start(Level) ->
         date, " ", time, color, " [",severity,"] ", module, ":", function, ":", line, " ", message, "\e[0m\r\n"],
     HalloappFormatterConfigFile = [
         date, " ", time, " [",severity,"] ", module, ":", function, ":", line, " ", message, "\n"],
+    HalloappTraceFormatterConfig = [
+        date, " ", time, ": ", message, "\n"],
 
     application:set_env(lager, colored, true),
     application:set_env(lager, error_logger_hwm, LogRateLimit),
@@ -163,6 +166,25 @@ do_start(Level) ->
                 {date, LogRotateDate},
                 {count, LogRotateCount},
                 {size, LogRotateSize}]}]),
+    application:set_env(lager, extra_sinks, [
+        {xmpp_trace_lager_event, [
+            {handlers, [
+                {lager_file_backend, [
+                    {file, MsgTraceLog},
+                    {level, info},
+                    {formatter, lager_default_formatter},
+                    {formatter_config, HalloappTraceFormatterConfig},
+                    {date, LogRotateDate},
+                    {count, 3},
+                    {size, 0}]
+                }]
+            },
+            {async_threshold, 500},
+            {async_threshold_window, 50}]
+        }]),
+%%    application:set_env(lager, traces, [
+%%        {{lager_file_backend, MsgTraceLog}, [{module, ejabberd_hooks}], debug}
+%%    ]),
     application:set_env(lager, crash_log, CrashLog),
     application:set_env(lager, crash_log_date, LogRotateDate),
     application:set_env(lager, crash_log_size, LogRotateSize),

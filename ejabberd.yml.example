@@ -302,6 +302,7 @@ modules:
     max_ack_wait_items: 5000
     packet_timeout_sec: 40
   mod_ack_halloapp: {}
+  mod_trace: {}
   mod_redis: {}
   mod_libphonenumber: {}
   model_phone: {}
