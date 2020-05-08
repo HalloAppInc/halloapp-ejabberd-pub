@@ -137,7 +137,7 @@ get_user_broadcast_friends(User, Server) ->
 -spec check_and_subscribe_user_to_friend(binary(), binary(),
                                             binary()) -> ok | {ok, any()} | {error, any()}.
 check_and_subscribe_user_to_friend(User, Server, Friend) ->
-    case mod_contacts:is_friend(User, Server, Friend) of
+    case model_friends:is_friend(User, Friend) of
         false ->
             Packet = #presence{type = error, to = jid:make(User, Server)},
             ejabberd_router:route(Packet);
