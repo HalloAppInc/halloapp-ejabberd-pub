@@ -517,6 +517,7 @@ send_apns_push_notification(ApnsGateway, ApnsCertfile, ApnsPort, Args) ->
                                     {binary(), #message{}, binary()}, #state{}}) -> #state{}.
 send_fcm_push_notification(Args) ->
     {_From, Username, Subject, Body, Token, MessageItem, State} = Args,
+    {Uid, Server} = Username,
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% Set timeout options here.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -540,18 +541,17 @@ send_fcm_push_notification(Args) ->
                                                             StatusCode5xx < 600 ->
             ?DEBUG("recoverable FCM error: ~p", [ResponseBody]),
             ?ERROR_MSG("Failed sending a push notification to user immediately: ~p, reason: ~p",
-            [Username, ResponseBody]),
+            [Uid, ResponseBody]),
             RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]),
             setup_timer({retry, MessageItem}, RetryTimeout);
         {ok, {{_, 200, _}, _, ResponseBody}} ->
             case parse_response(ResponseBody) of
                 ok ->
-                    ?DEBUG("Successfully sent a push notification to user: ~p,",
-                        [Username]),
+                    ?DEBUG("uid:~s push successful,", [Uid]),
                     RetryMessageList = State#state.retryMessageList;
-                _ ->
-                    ?ERROR_MSG("Failed sending a push notification to user: ~p, token: ~p, reason: ~p",
-                    [Username, Token, ResponseBody]),
+                Reason ->
+                    ?ERROR_MSG("uid:~s push failed token: ~p, reason: ~p",
+                        [Uid, binary:part(Token, 0, 10), Reason]),
                     RetryMessageList = lists:append([State#state.retryMessageList, [MessageItem]]),
                     setup_timer({retry, MessageItem}, RetryTimeout)
             end;
@@ -587,14 +587,16 @@ parse_response(ResponseBody) ->
             [{Result}] = proplists:get_value(<<"results">>, JsonData),
             case proplists:get_value(<<"error">>, Result) of
                 <<"NotRegistered">> ->
-                    ?ERROR_MSG("mod_push_notifications:
-                                FCM error: NotRegistered, unregistered user", []),
+                    % TODO: we should remove the push token?
+                    ?ERROR_MSG("FCM error: NotRegistered", []),
                     not_registered;
                 <<"InvalidRegistration">> ->
-                    ?ERROR_MSG("mod_push_notifications:
-                                FCM error: InvalidRegistration, unregistered user", []),
+                    % TODO: we should remove the push token?
+                    ?ERROR_MSG("FCM error: InvalidRegistration", []),
                     invalid_registration;
-                _ -> other
+                Error ->
+                    ?ERROR_MSG("FCM error: ~s", [Error]),
+                    other
             end
     end.
 
