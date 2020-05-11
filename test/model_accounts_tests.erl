@@ -27,12 +27,14 @@ clear() ->
 -define(USER_AGENT1, <<"HalloApp/Android1.0">>).
 -define(TS1, 1500000000001).
 -define(AS1, available).
+-define(AVATAR_ID1, <<"CwlRWoG4TduL93Zyrz30Uw">>).
 
 -define(UID2, <<"2">>).
 -define(PHONE2, <<"16505552222">>).
 -define(NAME2, <<"Name2">>).
 -define(USER_AGENT2, <<"HalloApp/iPhone1.0">>).
 -define(TS2, 1500000000002).
+-define(AVATAR_ID2, <<>>).
 
 -define(UID3, <<"3">>).
 
@@ -103,6 +105,19 @@ get_set_name_test() ->
 get_name_missing_test() ->
     setup(),
     {ok, undefined} = model_accounts:get_name(?UID2).
+
+
+get_set_avatar_id_test() ->
+    setup(),
+    ?assertEqual({ok, undefined}, model_accounts:get_avatar_id(?UID1)),
+    ok = model_accounts:set_avatar_id(?UID1, ?AVATAR_ID1),
+    ?assertEqual({ok, ?AVATAR_ID1}, model_accounts:get_avatar_id(?UID1)),
+    ?assertEqual(?AVATAR_ID1, model_accounts:get_avatar_id_binary(?UID1)),
+
+    ?assertEqual(<<>>, model_accounts:get_avatar_id_binary(?UID2)),
+    ok = model_accounts:set_avatar_id(?UID2, ?AVATAR_ID2),
+    ?assertEqual({ok, ?AVATAR_ID2}, model_accounts:get_avatar_id(?UID2)),
+    ?assertEqual(?AVATAR_ID2, model_accounts:get_avatar_id_binary(?UID2)).
 
 
 get_phone_test() ->

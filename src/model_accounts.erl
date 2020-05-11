@@ -40,6 +40,9 @@
     get_name/1,
     get_name_binary/1,
     delete_name/1,
+    set_avatar_id/2,
+    get_avatar_id/1,
+    get_avatar_id_binary/1,
     get_last_activity/1,
     set_last_activity/3,
     get_signup_user_agent/1,
@@ -85,6 +88,7 @@ get_proc() ->
 
 -define(FIELD_PHONE, <<"ph">>).
 -define(FIELD_NAME, <<"na">>).
+-define(FIELD_AVATAR_ID, <<"av">>).
 -define(FIELD_CREATION_TIME, <<"ct">>).
 -define(FIELD_LAST_ACTIVITY, <<"la">>).
 -define(FIELD_ACTIVITY_STATUS, <<"st">>).
@@ -123,6 +127,22 @@ get_name_binary(Uid) ->
     case Name of
         undefined ->  <<>>;
         _ -> Name
+    end.
+
+-spec set_avatar_id(Uid :: binary(), AvatarId :: binary()) -> ok  | {error, any()}.
+set_avatar_id(Uid, AvatarId) ->
+    gen_server:call(get_proc(), {set_avatar_id, Uid, AvatarId}).
+
+-spec get_avatar_id(Uid :: binary()) -> binary() | {ok, binary() | undefined} | {error, any()}.
+get_avatar_id(Uid) ->
+    gen_server:call(get_proc(), {get_avatar_id, Uid}).
+
+-spec get_avatar_id_binary(Uid :: binary()) -> binary().
+get_avatar_id_binary(Uid) ->
+    {ok, AvatarId} = get_avatar_id(Uid),
+    case AvatarId of
+        undefined ->  <<>>;
+        _ -> AvatarId
     end.
 
 -spec get_phone(Uid :: binary()) -> {ok, binary()} | {error, missing}.
@@ -268,6 +288,14 @@ handle_call({get_name, Uid}, _From, Redis) ->
 handle_call({delete_name, Uid}, _From, Redis) ->
     {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_NAME]),
     {reply, ok, Redis};
+
+handle_call({set_avatar_id, Uid, AvatarId}, _From, Redis) ->
+    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_AVATAR_ID, AvatarId]),
+    {reply, ok, Redis};
+
+handle_call({get_avatar_id, Uid}, _From, Redis) ->
+    {ok, Res} = q(["HGET", key(Uid), ?FIELD_AVATAR_ID]),
+    {reply, {ok, Res}, Redis};
 
 handle_call({set_last_activity, Uid, Timestamp, Status}, _From, Redis) ->
     {ok, _Res} = q(
