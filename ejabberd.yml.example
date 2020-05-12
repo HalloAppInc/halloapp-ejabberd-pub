@@ -276,9 +276,9 @@ modules:
     aws_media_put_host: us-e-halloapp-media.s3-accelerate.dualstack.amazonaws.com
     ## Cloudfront based distribution.
     ## Ref: https://aws.amazon.com/premiumsupport/knowledge-center/cloudfront-https-requests-s3/
-    aws_media_get_host: us-e-cdn.halloapp.net
-    ## Resumable upload server.
-    upload_host: us-e.internal.halloapp.net
+    aws_media_get_host: u-cdn.halloapp.net
+    ## Resumable upload server internal host name.
+    upload_host: u1.ha
     ## Resumable upload server port.
     upload_port: 1080
   mod_receipts: {}
