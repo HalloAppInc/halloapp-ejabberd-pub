@@ -1,14 +1,13 @@
 %%%----------------------------------------------------------------------
 %%% File    : mod_contacts.erl
 %%%
-%%% Copyright (C) 2020 halloappinc.
+%%% Copyright (C) 2020 HalloApp Inc.
 %%%
 %%% This file handles the iq packet queries with a custom namespace
 %%% (<<"halloapp:user:contacts">>) that we defined.
 %%% We define custom xml records of the following type:
 %%% "contact_list", "contact", "raw", "uuid", role", "normalized" in
 %%% xmpp/specs/xmpp_codec.spec file.
-%%% TODO(murali@): test this module for other international countries.
 %%%----------------------------------------------------------------------
 
 -module(mod_contacts).
@@ -66,19 +65,23 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
                                             syncid = SyncId, index = Index, last = Last}]} = IQ) ->
     ?INFO_MSG("Full contact sync Uid: ~p, syncid: ~p, index: ~p, last: ~p, num_contacts: ~p",
             [UserId, SyncId, Index, Last, length(Contacts)]),
+    stat:count("HA/contacts", "sync_full_contacts", length(Contacts)),
     case SyncId of
         undefined ->
             Txt = ?T("Invalid syncid in the request"),
             ?WARNING_MSG("process_local_iq: ~p, ~p", [IQ, Txt]),
             ResultIQ = xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         _ ->
+            count_full_sync(Index),
             ResultIQ = xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
                     syncid = SyncId, type = normal,
                     contacts = normalize_and_sync_contacts(UserId, Server, Contacts, SyncId)})
     end,
     case Last of
         false -> ok;
-        true -> spawn(?MODULE, finish_sync, [UserId, Server, SyncId])
+        true ->
+            stat:count("HA/contacts", "sync_full_finish"),
+            spawn(?MODULE, finish_sync, [UserId, Server, SyncId])
     end,
     ResultIQ;
 
@@ -101,6 +104,17 @@ re_register_user(UserId, Server) ->
 %%====================================================================
 %% internal functions
 %%====================================================================
+
+
+-spec count_full_sync(Index :: non_neg_integer()) -> ok.
+count_full_sync(0) ->
+    stat:count("HA/contacts", "sync_full_start"),
+    stat:count("HA/contacts", "sync_full_part"),
+    ok;
+count_full_sync(_Index) ->
+    stat:count("HA/contacts", "sync_full_part"),
+    ok.
+
 
 -spec get_role_value(atom()) -> list().
 get_role_value(true) ->
@@ -191,8 +205,10 @@ normalize_and_sync_contact(UserId, UserRegionId, _Server, Contact, SyncId) ->
     ContactPhone = mod_libphonenumber:normalize(RawPhone, UserRegionId),
     case ContactPhone of
         undefined ->
+            stat:count("HA/contacts", "normalize_fail"),
             #contact{raw = RawPhone};
         _ ->
+            stat:count("HA/contacts", "normalize_success"),
             ContactId = obtain_user_id(ContactPhone),
             model_contacts:sync_contacts(UserId, SyncId, [ContactPhone]),
             case ContactId of
@@ -228,8 +244,10 @@ normalize_and_add_contact(UserId, UserRegionId, Server, Contact) ->
     ContactPhone = mod_libphonenumber:normalize(RawPhone, UserRegionId),
     NewContact = case ContactPhone of
                 undefined ->
+                    stat:count("HA/contacts", "normalize_fail"),
                     #contact{};
                 _ ->
+                    stat:count("HA/contacts", "normalize_success"),
                     add_contact_phone(UserId, Server, ContactPhone)
             end,
     NewContact#contact{raw = RawPhone}.
@@ -241,6 +259,7 @@ add_contact_phone(UserId, Server, ContactPhone) ->
     UserPhone = get_phone(UserId),
     NotifyContact = not is_contact(UserId, ContactPhone),
     ContactId = obtain_user_id(ContactPhone),
+    stat:count("HA/contacts", "add_contact"),
     model_contacts:add_contact(UserId, ContactPhone),
     case ContactId of
         undefined ->
@@ -307,6 +326,7 @@ delete_contact_phones(UserId, Server, ContactPhones) ->
         Server :: binary(), ContactPhones :: binary()) -> {ok, any()} | {error, any()}.
 delete_contact_phone(UserId, Server, ContactPhone) ->
     ContactId = obtain_user_id(ContactPhone),
+    stat:count("HA/contacts", "remove_contact"),
     model_contacts:remove_contact(UserId, ContactPhone),
     case ContactId of
         undefined ->
