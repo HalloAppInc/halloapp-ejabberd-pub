@@ -23,19 +23,17 @@
 %% gen_mod API.
 -export([start/2, stop/1, depends/2, mod_options/1, reload/3]).
 %% Hooks.
--export([user_send_packet/1, user_ack_packet/1, packet_acked/1]).
+-export([user_send_packet/1, user_ack_packet/1]).
 
 -type state() :: ejabberd_c2s:state().
 
 start(Host, _Opts) ->
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 10),
-    ejabberd_hooks:add(user_ack_packet, Host, ?MODULE, user_ack_packet, 10),
-    ejabberd_hooks:add(packet_acked, Host, ?MODULE, packet_acked, 10).
+    ejabberd_hooks:add(user_ack_packet, Host, ?MODULE, user_ack_packet, 10).
 
 stop(Host) ->
     ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 10),
-    ejabberd_hooks:delete(user_ack_packet, Host, ?MODULE, user_ack_packet, 10),
-    ejabberd_hooks:delete(packet_acked, Host, ?MODULE, packet_acked, 10).
+    ejabberd_hooks:delete(user_ack_packet, Host, ?MODULE, user_ack_packet, 10).
 
 depends(_Host, _Opts) ->
     [].
@@ -54,17 +52,6 @@ user_send_packet({Packet, State}) ->
 	TimestampSec = util:now_binary(),
 	NewPacket = update_timestamp_if_receipts_message(Packet, TimestampSec),
 	{NewPacket, State}.
-
-
--spec packet_acked(message()) -> ok.
-packet_acked(#message{id = MsgId, to = To, from = From, sub_els = [SubElement | _]})
-		when is_record(SubElement, chat) ->
-	TimestampSec = util:now_binary(),
-	FromJID = To,
-	ToJID = From,
-	send_receipt(ToJID, FromJID, MsgId, TimestampSec);
-packet_acked(_Packet) ->
-	ok.
 
 
 %% Hook trigerred when user sent the server an ack stanza for this particular packet.

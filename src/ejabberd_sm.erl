@@ -213,7 +213,7 @@ check_in_subscription(Acc, #presence{to = To}) ->
 
 -spec bounce_offline_message({bounce, message()} | any()) -> any().
 bounce_offline_message({bounce, #message{type = T}} = Acc)
-    when T == chat; T == groupchat; T == normal ->
+    when T == chat; T == groupchat ->
         bounce_sm_packet(Acc);
 bounce_offline_message(Acc) ->
     Acc.
