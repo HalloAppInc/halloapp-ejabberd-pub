@@ -12,14 +12,9 @@
 -behaviour(ejabberd_auth).
 
 -include("logger.hrl").
--include("scram.hrl").
 -include("password.hrl").
--include("ejabberd_auth.hrl").
--include("user_info.hrl").
 -include("account.hrl").
--include("enrolled_users.hrl").
-
--define(TWILIO, <<"twilio">>).
+-include("sms.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -29,8 +24,6 @@
 -export([
     start/1,
     stop/1,
-    migrate_all/0,
-    verify_migration/0,
     try_register/3,
     remove_user/2,
     try_enroll/3,
@@ -48,341 +41,107 @@
     user_exists/2
 ]).
 
-%%% ---------------------------------------------------------------------
-%%% Migration functions : TODO delete later
-%%% ---------------------------------------------------------------------
-
--define(SERVER, <<"s.halloapp.net">>).
-
-get_all_user_phones() ->
-    {atomic, UserPhones} = mnesia:transaction(
-        fun () ->
-            mnesia:match_object(mnesia:table_info(user_phone, wild_pattern))
-        end),
-    UserPhones.
-
-
-get_all_enrolled_users() ->
-    {atomic, EnrolledUsers} = mnesia:transaction(
-        fun () ->
-            mnesia:match_object(mnesia:table_info(enrolled_users, wild_pattern))
-        end),
-    EnrolledUsers.
-
-
-migrate_all() ->
-    ?INFO_MSG("start", []),
-    %%% Tables to migrate:
-    %%% passwd
-    %%% enrolled_users
-    %%% user_ids
-    %%% user_phone
-
-    UserPhones = get_all_user_phones(),
-    lists:foreach(fun migrate_user/1, UserPhones),
-
-    EnrolledUsers = get_all_enrolled_users(),
-    lists:foreach(fun migrate_sms_codes/1, EnrolledUsers),
-
-    {ok, length(UserPhones), length(EnrolledUsers)}.
-
-
-migrate_user(#user_phone{uid = Uid, phone = Phone}) ->
-    ?INFO_MSG("Migrating uid:~p phone: ~p", [Uid, Phone]),
-    Exists = model_accounts:account_exists(Uid),
-    case Exists of
-        true ->
-            ?INFO_MSG("account ~p exists, skipping", [Uid]);
-        false ->
-            do_migrate_user(Uid, Phone)
-    end,
-    ok.
-
-
-%% TODO: delete the migration code after the migration is successful.
-do_migrate_user(Uid, Phone) ->
-    Name = case model_accounts:get_name(Uid) of
-               {ok, undefined} -> <<"">>;
-               {ok, N} -> N
-           end,
-    CreateResult = model_accounts:create_account(Uid, Phone, Name, "HalloApp/Android1.0.0"),
-    ?INFO_MSG("create account Uid:~p result:~p", [Uid, CreateResult]),
-    ok = model_phone:add_phone(Phone, Uid),
-    {cache, {ok, Password}} = ejabberd_auth_mnesia:get_password(Uid, ?SERVER),
-    {cache, {ok, Password}} = set_password(Uid, ?SERVER, Password),
-    ok.
-
-
-migrate_sms_codes(#enrolled_users{username = {Phone, _Server}, passcode = Passcode}) ->
-    ?INFO_MSG("Migrating sms codes for phone:~p code:~p", [Phone, Passcode]),
-    ok = model_phone:add_sms_code(Phone, Passcode, util:now(), ?TWILIO),
-    ok.
-
-
-verify_migration() ->
-    UserPhones = get_all_user_phones(),
-    ResUsers = lists:map(fun verify_migrated_user/1, UserPhones),
-    UserMigResult = lists:zip(lists:map(fun (X) -> X#user_phone.uid end, UserPhones), ResUsers),
-
-    EnrolledUsers = get_all_enrolled_users(),
-    ResSms = lists:map(fun verify_migrated_sms_codes/1, EnrolledUsers),
-    SmsMigResult = lists:zip(lists:map(fun (X) -> X#enrolled_users.username end, EnrolledUsers), ResSms),
-
-    {ok, UserMigResult, SmsMigResult}.
-
-
-verify_migrated_user(#user_phone{uid = Uid, phone = Phone}) ->
-    Exists = model_accounts:account_exists(Uid),
-    case Exists of
-        false -> ?ERROR_MSG("Uid:~p does not exists", [Uid]);
-        true -> ok
-    end,
-
-    ResAccount = case model_accounts:get_account(Uid) of
-        {ok, Account} ->
-            PhonesMatch = (Account#account.phone =:= Phone),
-            case PhonesMatch of
-                false -> ?ERROR_MSG("Uid:~p phone mismatch ~p:~p",
-                    [Uid, Phone, Account#account.phone]);
-                true -> ok
-            end,
-            PhonesMatch;
-        {error, missing} ->
-            ?ERROR_MSG("Uid:~p account missing", [Uid]),
-            false
-    end,
-
-    ResPassword = case model_auth:get_password(Uid) of
-        {ok, Password} ->
-            {cache, {ok, MnesiaPassword}} = ejabberd_auth_mnesia:get_password(Uid, ?SERVER),
-            PasswordMatch = is_password_match(Password#password.hashed_password, MnesiaPassword),
-            case PasswordMatch of
-                false -> ?ERROR_MSG("Uid:~p password mismatch ~p:~p", [Password, MnesiaPassword]);
-                true -> ok
-            end,
-            PasswordMatch;
-        {error, missing} ->
-            ?ERROR_MSG("Uid:~p missing redis password", [Uid]),
-            false
-    end,
-
-    ResUid = case model_phone:get_uid(Phone) of
-                   {ok, undefined} ->
-                       ?ERROR_MSG("Uid:~p phone to uid map missing: phone:~p", [Uid, Phone]),
-                       false;
-                   {ok, DBUid} ->
-                       UidMatch = (DBUid =:= Uid),
-                       case UidMatch of
-                           false ->
-                               ?ERROR_MSG("Phone:~p uids mismatch ~p:~p", [Phone, Uid, DBUid]);
-                           true ->
-                               ok
-                       end,
-                       UidMatch
-               end,
-
-    Exists and ResAccount and ResPassword and ResUid.
-
-
-verify_migrated_sms_codes(#enrolled_users{username = {Phone, _Server}, passcode = Passcode}) ->
-    {ok, DBCode} = model_phone:get_sms_code(Phone),
-    CodeMatch = DBCode =:= Passcode,
-    case CodeMatch of
-        false -> ?ERROR_MSG("Phone:~p code mismatch ~p:~p", [Phone, Passcode, DBCode]);
-        true -> ok
-    end,
-
-    CodeMatch.
+%%% TODO: cleanup old Mnesia tables:
+%%% passwd,
+%%% enrolled_users,
+%%% user_ids,
+%%% reg_users_counter,
+%%% user_phone,
 
 
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
-start(Host) ->
-    ejabberd_auth_mnesia:start(Host),
+start(_Host) ->
     ok.
 
-stop(Host) ->
-    ejabberd_auth_mnesia:stop(Host),
+stop(_Host) ->
     ok.
 
 use_cache(_Host) ->
     false.
 
-%% TODO: Those 2 functions don't make much sense
 plain_password_required(_Server) ->
     true.
 
 store_type(_Server) ->
     external.
 
-set_password(User, Server, Password) ->
-    ?INFO_MSG("Uid:~p", [User]),
-    Res = set_password_internal(User, Server, Password),
-    try ejabberd_auth_mnesia:set_password(User, Server, Password) of
-        Res2 ->
-            check_result(set_password, User, Res, Res2)
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR_MSG("~nStacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end,
-    Res.
 
-set_password_internal(Uid, _Server, Password) ->
+set_password(Uid, _Server, Password) ->
+    ?INFO_MSG("uid:~s", [Uid]),
     {ok, Salt} = bcrypt:gen_salt(),
-    %% TODO: Figure out how to configure the "log rounds"
-    {ok, HashedPassword} = bcrypt:hashpw(Password, Salt),
+    {ok, HashedPassword} = hashpw(Password, Salt),
     model_auth:set_password(Uid, Salt, HashedPassword),
     {cache, {ok, Password}}.
 
--spec hashpw(Password :: binary(), Salt :: string()) -> {ok, binary()}.
-hashpw(Password, Salt) when is_binary(Password) and is_list(Salt) ->
-    case bcrypt:hashpw(binary_to_list(Password), Salt) of
-        {ok, Hash} -> {ok, list_to_binary(Hash)};
-        Error -> Error
-    end.
 
-check_password(User, AuthzId, Server, Password) ->
-    ?INFO_MSG("Uid:~p", [User]),
-    Res = check_password_internal(User, AuthzId, Server, Password),
-    try ejabberd_auth_mnesia:check_password(User, AuthzId, Server, Password) of
-        Res2 ->
-            check_result(check_password, User, Res, Res2)
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR_MSG("~nStacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end,
-    Res.
-
-check_password_internal(User, _AuthzId, _Server, Password) ->
-    {ok, StoredPasswordRecord} = model_auth:get_password(User),
+check_password(Uid, _AuthzId, _Server, Password) ->
+    ?INFO_MSG("uid:~s", [Uid]),
+    {ok, StoredPasswordRecord} = model_auth:get_password(Uid),
     HashedPassword = StoredPasswordRecord#password.hashed_password,
     case HashedPassword of
-        undefined  -> ?INFO_MSG("No password stored for Uid:~p", [User]);
+        undefined  -> ?INFO_MSG("No password stored for uid:~p", [Uid]);
         _ -> ok
     end,
     {cache, is_password_match(HashedPassword, Password)}.
 
--spec is_password_match(
-        HashedPassword :: binary() | undefined,
-        ProvidedPassword :: binary() | undefined) -> boolean().
-is_password_match(<<"">>, _ProvidedPassword) ->
-    false;
-is_password_match(undefined, _ProvidedPassword) ->
-    false;
-is_password_match(_HashedPassword, undefined) ->
-    false;
-is_password_match(HashedPassword, ProvidedPassword)
-            when is_binary(HashedPassword) and is_binary(ProvidedPassword) ->
-    HashedPasswordStr = binary_to_list(HashedPassword),
-    {ok, HashedPassword} =:= hashpw(ProvidedPassword, HashedPasswordStr);
-
-is_password_match(HashedPassword, ProvidedPassword) ->
-    erlang:error(badarg, [util:type(HashedPassword), util:type(ProvidedPassword)]).
-
-check_result(Function, Id, Res, Res2) ->
-    case Res == Res2 of
-        true ->
-            ?INFO_MSG("new ~p check OK id:~p", [Function, Id]);
-        false ->
-            ?ERROR_MSG("new ~p checkfail id:~p, ~p --- ~p", [Function, Id, Res, Res2])
-    end.
 
 try_register(Phone, Server, Password) ->
-    ?INFO_MSG("phone:~p", [Phone]),
-    {ok, Uid} = util_uid:generate_uid(),
-    UserId = util_uid:uid_to_binary(Uid),
-    Res = try_register_internal(Phone, UserId, Server, Password),
-    try ejabberd_auth_mnesia:try_register_internal(Phone, UserId, Server, Password) of
-        Res2 -> check_result(try_register, UserId, Res, Res2)
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR_MSG("~nStacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end,
-    Res.
-
-try_register_internal(Phone, Uid, Server, Password) ->
+    ?INFO_MSG("phone:~s", [Phone]),
+    {ok, UidInt} = util_uid:generate_uid(),
+    Uid = util_uid:uid_to_binary(UidInt),
+    % TODO: This is kind of stupid, but the name is set a bit later.
+    % This will get fixed when we merge this code with ejabberd_auth.
     Name = <<"">>,
     UserAgent = <<"">>,
     ok = model_accounts:create_account(Uid, Phone, Name, UserAgent),
     ok = model_phone:add_phone(Phone, Uid),
-    set_password_internal(Uid, Server, Password),
+    {cache, {ok, Password}} = set_password(Uid, Server, Password),
     {cache, {ok, Password, Uid}}.
 
-%% TODO: Not sure about the enroll functions. The can go in sms module.
-try_enroll(User, Server, Passcode) ->
-    ?INFO_MSG("phone:~p", [User]),
-    Res = try_enroll_internal(User, Server, Passcode),
-    try ejabberd_auth_mnesia:try_enroll(User, Server, Passcode) of
-        Res2 -> check_result(try_enroll, User, Res, Res2)
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR_MSG("~nStacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end,
-    Res.
 
-try_enroll_internal(User, _Server, Passcode) ->
+-spec try_enroll(Phone :: binary(), Server :: binary(), Passcode :: binary()) -> {ok, binary()}.
+try_enroll(Phone, _Server, Passcode) ->
+    ?INFO_MSG("phone:~s code:~s", [Phone, Passcode]),
+    ok = model_phone:add_sms_code(Phone, Passcode, util:now(), ?TWILIO),
     stat:count("HA/account", "enroll"),
-    ok = model_phone:add_sms_code(User, Passcode, util:now(), ?TWILIO),
     {ok, Passcode}.
 
+
+% TODO: delete
 get_users(_Server, _Opt) ->
     ?ERROR_MSG("Unimplemented", []),
     [].
 
+
+-spec count_users(Server :: binary(), Options :: any()) -> integer().
 count_users(_Server, _) ->
+    % TODO: implement user counter in redis
     ?ERROR_MSG("Unimplemented", []),
     0.
 
-get_passcode(User, Server) ->
-    ?INFO_MSG("phone:~p", [User]),
-    Res = get_passcode_internal(User, Server),
-    try ejabberd_auth_mnesia:get_passcode(User, Server) of
-        Res2 -> check_result(get_passcode, User, Res, Res2)
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR_MSG("~nStacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end,
-    Res.
 
-get_passcode_internal(Phone, _Server) ->
+% TODO: API is not great. The model return makes more sense
+-spec get_passcode(Phone :: binary(), _Server :: binary()) -> {ok, binary()} | {error, invalid}.
+get_passcode(Phone, _Server) ->
+    ?INFO_MSG("phone:~s", [Phone]),
     case model_phone:get_sms_code(Phone) of
         {ok, undefined} -> {error, invalid};
         {ok, Code} -> {ok, Code}
     end.
 
 
-user_exists(User, Server) ->
-    ?INFO_MSG("UserId:~p", [User]),
-    Res = model_accounts:account_exists(User),
-    try ejabberd_auth_mnesia:user_exists(User, Server) of
-        Res2 -> check_result(user_exists, User, Res, Res2)
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR_MSG("~nStacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end,
+-spec user_exists(Uid :: binary(), Server :: binary()) -> {cache, boolean()}.
+user_exists(Uid, _Server) ->
+    Res = model_accounts:account_exists(Uid),
+    ?INFO_MSG("uid:~s result: ~p", [Uid, Res]),
     {cache, Res}.
 
 
-remove_user(User, Server) ->
-    ?INFO_MSG("Uid:~p", [User]),
-    Res = remove_user_internal(User, Server),
-    try ejabberd_auth_mnesia:remove_user(User, Server) of
-        Res2 -> check_result(remove_user, User, Res, Res2)
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR_MSG("~nStacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end,
-    Res.
-
-remove_user_internal(Uid, _Server) ->
+-spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
+remove_user(Uid, _Server) ->
+    ?INFO_MSG("uid:~s", [Uid]),
     case model_accounts:get_phone(Uid) of
         {ok, Phone} ->
             ok = model_phone:delete_phone(Phone);
@@ -394,53 +153,51 @@ remove_user_internal(Uid, _Server) ->
     ok.
 
 
-remove_enrolled_user(User, Server) ->
-    ?INFO_MSG("Phone:~p", [User]),
-    Res = remove_enrolled_user_internal(User, Server),
-    try ejabberd_auth_mnesia:remove_enrolled_user(User, Server) of
-        Res2 -> check_result(remove_enrolled_user, User, Res, Res2)
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR_MSG("~nStacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end,
-    Res.
-
-remove_enrolled_user_internal(Phone, _Server) ->
-    ?INFO_MSG("phone:~p", [Phone]),
+-spec remove_enrolled_user(Phone :: binary(), Server :: binary()) -> ok.
+remove_enrolled_user(Phone, _Server) ->
+    ?INFO_MSG("phone:~s", [Phone]),
     ok = model_phone:delete_sms_code(Phone),
     ok.
 
+
 -spec get_uid(Phone :: binary()) -> undefined | binary().
 get_uid(Phone) ->
-    Res = get_uid_internal(Phone),
-    try ejabberd_auth_mnesia:get_uid(Phone) of
-        Res2 -> check_result(get_uid, Phone, Res, Res2)
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR_MSG("~nStacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end,
-    Res.
-
-get_uid_internal(Phone) ->
     {ok, Uid} = model_phone:get_uid(Phone),
     Uid.
 
+
 -spec get_phone(Uid :: binary()) -> undefined | binary().
 get_phone(Uid) ->
-    Res = get_phone_internal(Uid),
-    try ejabberd_auth_mnesia:get_phone(Uid) of
-        Res2 -> check_result(get_phone, Uid, Res, Res2)
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR_MSG("~nStacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end,
-    Res.
-
-get_phone_internal(Uid) ->
     case model_accounts:get_phone(Uid) of
         {ok, Phone} -> Phone;
         {error, missing} -> undefined
     end.
+
+%%% ----------------------------------------------------------------
+%%% Internal
+%%% ----------------------------------------------------------------
+
+
+-spec hashpw(Password :: binary(), Salt :: string()) -> {ok, binary()}.
+hashpw(Password, Salt) when is_binary(Password) and is_list(Salt) ->
+    case bcrypt:hashpw(binary_to_list(Password), Salt) of
+        {ok, Hash} -> {ok, list_to_binary(Hash)};
+        Error -> Error
+    end.
+
+
+-spec is_password_match(
+        HashedPassword :: binary() | undefined,
+        ProvidedPassword :: binary() | undefined) -> boolean().
+is_password_match(<<"">>, _ProvidedPassword) ->
+    false;
+is_password_match(undefined, _ProvidedPassword) ->
+    false;
+is_password_match(_HashedPassword, undefined) ->
+    false;
+is_password_match(HashedPassword, ProvidedPassword)
+    when is_binary(HashedPassword) and is_binary(ProvidedPassword) ->
+    HashedPasswordStr = binary_to_list(HashedPassword),
+    {ok, HashedPassword} =:= hashpw(ProvidedPassword, HashedPasswordStr);
+is_password_match(HashedPassword, ProvidedPassword) ->
+    erlang:error(badarg, [util:type(HashedPassword), util:type(ProvidedPassword)]).

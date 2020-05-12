@@ -12,7 +12,6 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("translate.hrl").
--include("user_info.hrl").
 
 -define(US_REGION_ID, <<"US">>).
 

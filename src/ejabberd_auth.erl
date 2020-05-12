@@ -943,12 +943,10 @@ untag_stop(Val) -> Val.
 import_info() ->
     [{<<"users">>, 3}].
 
-import_start(_LServer, mnesia) ->
-    ejabberd_auth_mnesia:init_db();
 import_start(_LServer, _) ->
     ok.
 
-import(Server, {sql, _}, mnesia, <<"users">>, Fields) ->
-    ejabberd_auth_mnesia:import(Server, Fields);
+import(_LServer, {sql, _}, mnesia, <<"users">>, _) ->
+    ok;
 import(_LServer, {sql, _}, sql, <<"users">>, _) ->
     ok.

@@ -13,3 +13,5 @@
 
 -define(ANDROID_DEBUG_HASH, <<"/TwOjtaTNFA">>).
 -define(ANDROID_RELEASE_HASH, <<"05IyxZs5b3I">>).
+
+-define(TWILIO, <<"twilio">>).
