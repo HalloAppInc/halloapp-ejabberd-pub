@@ -156,11 +156,17 @@ check_sms_code(Phone, Code) ->
 -spec request_sms(Phone :: phone(), UserAgent :: binary()) -> http_response().
 request_sms(Phone, UserAgent) ->
     Code = mod_sms:generate_code(is_debug(Phone)),
-    Msg = mod_sms:prepare_registration_sms(Code, UserAgent),
-    ?DEBUG("code generated phone:~p : code:~p msg: ~s", [Phone, Code, Msg]),
-    EnrollResult = case mod_sms:send_sms(Phone, Msg) of
-        ok -> finish_enroll(Phone, Code);
-        X -> X
+    ?DEBUG("code generated phone:~p : code:~p", [Phone, Code]),
+    SendSMSResult = case is_debug(Phone) of
+        true -> ok;
+        false ->
+            Msg = mod_sms:prepare_registration_sms(Code, UserAgent),
+            ?DEBUG("preparing to send sms, phone:~p : msg: ~s", [Phone, Msg]),
+            mod_sms:send_sms(Phone, Msg)
+    end,
+    EnrollResult = case SendSMSResult of
+         ok -> finish_enroll(Phone, Code);
+         X -> X
     end,
     case EnrollResult of
         {ok, _Text} ->
