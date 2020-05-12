@@ -164,7 +164,7 @@ handle_cast(Request, State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 handle_info({ssl, Socket, Data}, State) ->
-    ?DEBUG("mod_push_notifications: received a message from ssl: ~p, ~p, ~p",
+    ?DEBUG("ssl: received a message from ssl: ~p, ~p, ~p",
                                                                             [Socket, Data, State]),
     try
         <<RCommand:1/unit:8, RStatus:1/unit:8, RId:4/unit:8>> = iolist_to_binary(Data),
@@ -185,30 +185,26 @@ handle_info({ssl, Socket, Data}, State) ->
     end;
 
 handle_info({ssl_closed, Socket}, State) ->
-    ?DEBUG("mod_push_notifications: received a message from ssl_closed: ~p, ~p", [Socket, State]),
+    ?DEBUG("ssl_closed: received a message from ssl_closed: ~p, ~p", [Socket, State]),
     {noreply, State#state{socket = undefined}};
 
 handle_info({ssl_error, Socket, Reason}, State) ->
-    ?DEBUG("mod_push_notifications:
-             received a message from ssl_error: ~p, ~p, ~p", [Socket, Reason, State]),
+    ?DEBUG("ssl_error: received a message from ssl_error: ~p, ~p, ~p", [Socket, Reason, State]),
     {noreply, State};
 
 handle_info({ssl_passive, Socket}, State) ->
-    ?DEBUG("mod_push_notifications:
-             received a message from ssl_passive: ~p, ~p", [Socket, State]),
+    ?DEBUG("ssl_passive: received a message from ssl_passive: ~p, ~p", [Socket, State]),
     {noreply, State};
 
 handle_info({retry, MessageItem}, State0) ->
-    ?INFO_MSG("mod_push_notifications:
-                 received the retry message: will retry to resend failed messages.", []),
+    ?INFO_MSG("retry: retrying failed messages", []),
     CurrentTimestamp = util:now_binary(),
     State1 = clean_up_messages(State0, CurrentTimestamp),
     State2 = handle_retry_message(MessageItem, State1),
     {noreply, State2};
 
 handle_info({clean_up_internal_state}, State) ->
-    ?INFO_MSG("mod_push_notifications:
-                 clean_up_internal_state: will clean up internal state.", []),
+    ?INFO_MSG("clean_up_internal_state start", []),
     CurrentTimestamp = util:now_binary(),
     State1 = clean_up_messages(State, CurrentTimestamp),
     PendingMessageList = State1#state.pendingMessageList,
