@@ -84,6 +84,7 @@ trigger_send() ->
 init(_Stuff) ->
     process_flag(trap_exit, true),
     % TODO: The initial configuration of erlcloud should probably move
+    {ok, _} = application:ensure_all_started(erlcloud),
     {ok, Config} = erlcloud_aws:auto_config(),
     erlcloud_aws:configure(Config),
 
