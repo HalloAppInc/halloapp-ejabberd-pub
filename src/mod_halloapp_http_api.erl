@@ -43,7 +43,7 @@ process([<<"registration">>, <<"request_sms">>], Request) ->
         UserAgent = get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
-        ?DEBUG("payload ~p phone: ~p, ua: ~p ~p", [Payload, Phone, UserAgent, is_debug(Phone)]),
+        ?INFO_MSG("payload ~p phone: ~p, ua: ~p ~p", [Payload, Phone, UserAgent, is_debug(Phone)]),
         case {Method, util_ua:is_hallo_ua(UserAgent)} of
             {'POST', true} -> request_sms(Phone, UserAgent);
             _  -> return_400()
@@ -57,7 +57,7 @@ process([<<"registration">>, <<"request_sms">>], Request) ->
 process([<<"registration">>, <<"register">>],
         #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
     try
-        ?DEBUG("registration request: r:~p ip:~p", [Data, IP]),
+        ?INFO_MSG("registration request: r:~p ip:~p", [Data, IP]),
         UserAgent = get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
@@ -67,6 +67,7 @@ process([<<"registration">>, <<"register">>],
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
         {ok, Phone, Uid, Password} = finish_registration(Phone, Name),
+        ?INFO_MSG("registration complete uid:~s, phone:~s", [Uid, Phone]),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
                 {uid, Uid},
@@ -183,7 +184,7 @@ finish_enroll(Phone, Code) ->
 
 -spec return_400(term()) -> http_response().
 return_400(Error) ->
-    ?DEBUG("400 ~p", [Error]),
+    ?WARNING_MSG("400 ~p", [Error]),
     {400, ?HEADER(?CT_JSON), jiffy:encode({[
         {result, fail},
         {error, Error}]})}.

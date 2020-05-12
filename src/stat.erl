@@ -73,6 +73,7 @@ count(Namespace, Metric) ->
 
 -spec count(Namespace :: string(), Metric :: string(), Value :: integer()) -> ok.
 count(Namespace, Metric, Value) ->
+    ?INFO_MSG("Namespace:~s, Metric:~s, Value:~p", [Namespace, Metric, Value]),
     gen_server:cast(get_proc(), {count, Namespace, Metric, Value}).
 
 -spec trigger_send() -> ok.

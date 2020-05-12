@@ -44,30 +44,35 @@ mod_options(_Host) ->
 
 -spec pubsub_publish_item(Server :: binary(), Node :: binary(), Publisher :: jid(),
         Host :: jid(), ItemId :: binary(), Payloads :: [xmlel()]) -> ok.
-pubsub_publish_item(_Server, _Node, _Publisher, _Host, _ItemId, _Payloads) ->
+pubsub_publish_item(_Server, _Node, Publisher, _Host, _ItemId, _Payloads) ->
+    ?INFO_MSG("counting uid:~p", [Publisher]),
     stat:count("HA/feed", "post"),
     ok.
 
 
 -spec register_user(Uid :: binary(), Server :: binary()) -> ok.
-register_user(_Uid, _Server) ->
+register_user(Uid, _Server) ->
+    ?INFO_MSG("counting uid:~s", [Uid]),
     stat:count("HA/account", "registration"),
     ok.
 
 
 -spec re_register_user(Uid :: binary(), Server :: binary()) -> ok.
-re_register_user(_Uid, _Server) ->
+re_register_user(Uid, _Server) ->
+    ?INFO_MSG("counting uid:~s", [Uid]),
     stat:count("HA/account", "re_register"),
     ok.
 
 
 -spec add_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
-add_friend(_Uid, _Server, _ContactId) ->
+add_friend(Uid, _Server, _ContactId) ->
+    ?INFO_MSG("counting uid:~s", [Uid]),
     stat:count("HA/graph", "add_friend"),
     ok.
 
 
 -spec remove_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
-remove_friend(_Uid, _Server, _ContactId) ->
+remove_friend(Uid, _Server, _ContactId) ->
+    ?INFO_MSG("counting uid:~s", [Uid]),
     stat:count("HA/graph", "remove_friend"),
     ok.
