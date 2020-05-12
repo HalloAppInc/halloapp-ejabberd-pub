@@ -16,8 +16,8 @@
 %% Name of env variable to decide if we need signed Http GET.
 -define(IsSignedGetNeeded, "HALLO_MEDIA_IS_SIGNED_GET").
 
--include("deps/erlcloud/include/erlcloud.hrl").
--include("deps/erlcloud/include/erlcloud_aws.hrl").
+-include("erlcloud.hrl").
+-include("erlcloud_aws.hrl").
 -include_lib("lhttpc/include/lhttpc_types.hrl").
 -include("logger.hrl").
 

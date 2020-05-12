@@ -16,9 +16,10 @@
     timestamp_secs_to_integer/1,
     get_host/0,
     pubsub_node_name/2,
+    now_ms/0,
     now/0,
     now_binary/0,
-    now_ms/0,
+    round_to_minute/1,
     random_str/1,
     type/1,
     to_atom/1,
@@ -49,6 +50,11 @@ now() ->
 -spec now_binary() -> binary().
 now_binary() ->
     integer_to_binary(util:now()).
+
+
+-spec round_to_minute(TimestampInSeconds :: non_neg_integer()) -> non_neg_integer().
+round_to_minute(TimestampInSeconds) ->
+    (TimestampInSeconds div 60) * 60.
 
 
 %% Combines the MegaSec and Seconds part of the timestamp into a binary and returns it.
