@@ -495,10 +495,10 @@ which_users_exists(USPairs) ->
 remove_user(User, Server) ->
     case validate_credentials(User, Server) of
 	{ok, LUser, LServer} ->
-	    lists:foreach(
-	      fun(Mod) -> db_remove_user(LUser, LServer, Mod) end,
-	      auth_modules(LServer)),
-	    ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]);
+        ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]),
+        lists:foreach(
+                fun(Mod) -> db_remove_user(LUser, LServer, Mod) end,
+                auth_modules(LServer));
 	_Err ->
 	    ok
     end.
