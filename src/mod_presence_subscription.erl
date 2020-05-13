@@ -100,34 +100,20 @@ unsubscribe_user_to_friend(User, Server, Friend) ->
     mod_presence_subscription_mnesia:unsubscribe_user_to_friend(User, Server, Friend).
 
 
--spec get_user_subscribed_friends(binary(), binary()) -> [{binary(), binary()}].
+-spec get_user_subscribed_friends(binary(), binary()) -> [binary()].
 get_user_subscribed_friends(User, Server) ->
     {ok, RedisResult} = model_accounts:get_subscribed_uids(User),
     MnesiaResult = mod_presence_subscription_mnesia:get_user_subscribed_friends(User, Server),
     compare_presence_subs(RedisResult, MnesiaResult),
-    case MnesiaResult of
-        {ok, []} -> [];
-        {ok, UserSubscriptions} ->
-            lists:map(fun(PresenceSubsRecord) ->
-                            PresenceSubsRecord#presence_subs.userid
-                          end, UserSubscriptions);
-        {error, _} -> []
-    end.
+    RedisResult.
 
 
--spec get_user_broadcast_friends(binary(), binary()) -> [#jid{}].
+-spec get_user_broadcast_friends(binary(), binary()) -> [binary()].
 get_user_broadcast_friends(User, Server) ->
     {ok, RedisResult} = model_accounts:get_broadcast_uids(User),
     MnesiaResult = mod_presence_subscription_mnesia:get_user_broadcast_friends(User, Server),
     compare_broadcast_subs(RedisResult, MnesiaResult),
-    case mod_presence_subscription_mnesia:get_user_broadcast_friends(User, Server) of
-        {ok, []} -> [];
-        {ok, PresenceSubscriptions} ->
-            lists:map(fun(#presence_subs{subscriberid = {Friend, ServerHost}}) ->
-                            jid:make(Friend, ServerHost)
-                          end, PresenceSubscriptions);
-        {error, _} -> []
-    end.
+    RedisResult.
 
 
 %%====================================================================

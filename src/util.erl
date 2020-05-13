@@ -26,7 +26,8 @@
     to_binary/1,
     new_msg_id/0,
     new_avatar_id/0,
-    list_to_map/1
+    list_to_map/1,
+    ms_to_sec/1
 ]).
 
 %% Export all functions for unit tests
@@ -153,3 +154,9 @@ list_to_map([K, V | Rest], Map) ->
     list_to_map(Rest, Map2);
 list_to_map([], Map) ->
     Map.
+
+
+-spec ms_to_sec(MilliSeconds :: integer()) -> integer().
+ms_to_sec(MilliSeconds) when is_integer(MilliSeconds) ->
+    MilliSeconds div 1000.
+

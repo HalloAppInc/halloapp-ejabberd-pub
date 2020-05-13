@@ -118,25 +118,20 @@ unset_presence_hook(User, Server, _Resource, _PStatus) ->
 %% API
 %%====================================================================
 
--spec get_user_activity(binary(), binary()) -> {binary(), atom()}.
+-spec get_user_activity(binary(), binary()) -> activity().
 get_user_activity(User, Server) ->
     {ok, Activity} = model_accounts:get_last_activity(User),
-    UserActivityResult = mod_user_activity_mnesia:get_user_activity(User, Server),
-    case UserActivityResult of
-        {ok, #user_activity{last_seen = LastSeen, status = Status} = UserActivity} ->
-            compare_activity_result(Activity, UserActivity),
-            {LastSeen, Status};
-        {ok, undefined} -> {<<"">>, away};
-        {error, _} -> {<<"">>, away}
-    end.
+    {ok, UserActivity} = mod_user_activity_mnesia:get_user_activity(User, Server),
+    compare_activity_result(Activity, UserActivity),
+    Activity.
 
 
 -spec probe_and_send_presence(binary(), binary(), binary()) -> ok.
 probe_and_send_presence(User, Server, Friend) ->
     ToJID = jid:make(User, Server),
     FromJID = jid:make(Friend, Server),
-    {LastSeen, Status} = get_user_activity(Friend, Server),
-    check_and_send_presence(FromJID, {LastSeen, Status}, ToJID).
+    Activity = get_user_activity(Friend, Server),
+    check_and_send_presence(FromJID, Activity, ToJID).
 
 %%====================================================================
 %% Internal functions
@@ -183,9 +178,14 @@ store_user_activity(User, Server, TimestampMs, Status) ->
 -spec broadcast_presence(binary(), binary(),
         undefined | integer(), undefined | activity_status()) -> ok.
 broadcast_presence(User, Server, TimestampMs, Status) ->
+    LastSeen = case TimestampMs of
+        undefined -> undefined;
+        _ -> util:to_binary(util:ms_to_sec(TimestampMs))
+    end,
     Presence = #presence{from = jid:make(User, Server),
-            type = Status, last_seen = util:to_binary(TimestampMs)},
-    BroadcastJIDs = mod_presence_subscription:get_user_broadcast_friends(User, Server),
+            type = Status, last_seen = util:to_binary(LastSeen)},
+    BroadcastUIDs = mod_presence_subscription:get_user_broadcast_friends(User, Server),
+    BroadcastJIDs = lists:map(fun(Uid) -> jid:make(Uid, Server) end, BroadcastUIDs),
     route_multiple(Server, BroadcastJIDs, Presence).
 
 
@@ -200,25 +200,29 @@ route_multiple(Server, JIDs, Packet) ->
 -spec check_and_probe_friends_presence(binary(), binary(), undefined | activity_status()) -> ok.
 check_and_probe_friends_presence(User, Server, available) ->
     SubscribedFriends = mod_presence_subscription:get_user_subscribed_friends(User, Server),
-    lists:foreach(fun({Friend, _ServerHost}) ->
+    lists:foreach(fun(Friend) ->
                     probe_and_send_presence(User, Server, Friend)
                  end, SubscribedFriends);
 check_and_probe_friends_presence(_User, _Server, _) ->
     ok.
 
 
--spec check_and_send_presence(jid(), {binary(), undefined | activity_status()}, jid()) -> ok.
-check_and_send_presence(_, {_, undefined}, _) ->
+-spec check_and_send_presence(jid(), activity(), jid()) -> ok.
+check_and_send_presence(_, #activity{status = undefined}, _) ->
     ok;
-check_and_send_presence(FromJID, {_, available}, ToJID) ->
+check_and_send_presence(FromJID, #activity{status = available}, ToJID) ->
     Packet = #presence{from = FromJID, to = ToJID, type = available},
     ejabberd_router:route(Packet);
-check_and_send_presence(FromJID, {LastSeen, away}, ToJID) ->
-    Packet = #presence{from = FromJID, to = ToJID, type = away, last_seen = LastSeen},
+check_and_send_presence(FromJID, #activity{last_activity_ts_ms = LastSeen, status = away}, ToJID) ->
+    Packet = #presence{from = FromJID, to = ToJID,
+            type = away, last_seen = util:to_binary(util:ms_to_sec(LastSeen))},
     ejabberd_router:route(Packet).
 
 
+%% TODO(murali@): remove this after migration.
 -spec compare_activity_result(activity(), user_activity()) -> boolean().
+compare_activity_result(Activity, undefined) ->
+    ?WARNING_MSG("Comparing redis: ~p and mnesia: ~p, here.", [Activity, undefined]);
 compare_activity_result(Activity, UserActivity) ->
     ?INFO_MSG("Comparing redis: ~p and mnesia: ~p, here.", [Activity, UserActivity]),
     case UserActivity#user_activity.last_seen of

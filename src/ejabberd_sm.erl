@@ -93,6 +93,7 @@
 -include("ejabberd_sm.hrl").
 -include("ejabberd_stacktrace.hrl").
 -include("translate.hrl").
+-include ("account.hrl").
 
 -callback init() -> ok | {error, any()}.
 -callback set_session(#session{}) -> ok | {error, any()}.
@@ -810,8 +811,8 @@ maybe_mark_as_copy(Packet, _, _, _, _) ->
 
 -spec check_if_user_is_available(binary(), binary()) -> boolean().
 check_if_user_is_available(User, Server) ->
-    {_, Status} = mod_user_activity:get_user_activity(User, Server),
-    Status == available.
+    Activity = mod_user_activity:get_user_activity(User, Server),
+    Activity#activity.status =:= available.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
