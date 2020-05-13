@@ -136,9 +136,9 @@ do_start(Level) ->
 
     % Add the module:function:line
     HalloappFormatterConfigConsole = [
-        date, " ", time, color, " [",severity,"] ", module, ":", function, ":", line, " ", message, "\e[0m\r\n"],
+        date, " ", time, color, " [",severity,"] ", pid, " ", module, ":", function, ":", line, " ", message, "\e[0m\r\n"],
     HalloappFormatterConfigFile = [
-        date, " ", time, " [",severity,"] ", module, ":", function, ":", line, " ", message, "\n"],
+        date, " ", time, " [",severity,"] ", pid, " ", module, ":", function, ":", line, " ", message, "\n"],
     HalloappTraceFormatterConfig = [
         date, " ", time, ": ", message, "\n"],
 
