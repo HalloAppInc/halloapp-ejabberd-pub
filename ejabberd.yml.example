@@ -285,6 +285,7 @@ modules:
   mod_presence_subscription: {}
   mod_client_version:
     max_days: 30
+  mod_push_tokens: {}
   mod_push_notifications:
     apns:
       gateway: gateway.push.apple.com

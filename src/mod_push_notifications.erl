@@ -35,8 +35,8 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("translate.hrl").
+-include("account.hrl").
 
--define(NS_PUSH, <<"halloapp:push:notifications">>).
 -define(SSL_TIMEOUT_MILLISEC, 10000).              %% 10 seconds.
 -define(HTTP_TIMEOUT_MILLISEC, 10000).             %% 10 seconds.
 -define(HTTP_CONNECT_TIMEOUT_MILLISEC, 10000).     %% 10 seconds.
@@ -50,8 +50,8 @@
 -export([start/2, stop/1, reload/3, depends/2, mod_opt_type/1, mod_options/1]).
 %% gen_server API
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
-%% hooks and iq handler.
--export([process_local_iq/1, offline_message_hook/1]).
+%% hooks
+-export([offline_message_hook/1]).
 
 
 %% record to keep track of all the information regarding a message.
@@ -102,8 +102,6 @@ init([Host|_]) ->
     Opts = gen_mod:get_module_opts(Host, ?MODULE),
     xmpp:register_codec(push_notifications),
     store_options(Opts),
-    mod_push_notifications_mnesia:init(Host, Opts),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PUSH, ?MODULE, process_local_iq),
     ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 48),
     %% Start necessary modules from erlang.
     %% These modules are not ejabberd modules. Hence, we manually start them.
@@ -118,9 +116,7 @@ init([Host|_]) ->
 terminate(_Reason, #state{host = Host, socket = Socket}) ->
     ?DEBUG("mod_push_notifications: terminate", []),
     xmpp:unregister_codec(push_notifications),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_PUSH),
     ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 48),
-    mod_push_notifications_mnesia:close(),
     case Socket of
         undefined -> ok;
         _ -> ssl:close(Socket)
@@ -135,10 +131,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%    gen_server:call    %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-handle_call({process_iq, IQ}, _From, State) ->
-    ?DEBUG("mod_push_notifications: handle_call: process_iq", []),
-    {reply, process_iq(IQ), State};
 
 handle_call(Request, _From, State) ->
     ?DEBUG("mod_push_notifications: handle_call: ~p", [Request]),
@@ -229,11 +221,6 @@ handle_info(Request, State) ->
 %% module hooks and iq handlers.
 %%====================================================================
 
-process_local_iq(#iq{to = Host} = IQ) ->
-    ?DEBUG("begin", []),
-    ServerHost = jid:encode(Host),
-    gen_server:call(gen_mod:get_module_proc(ServerHost, ?MODULE), {process_iq, IQ}).
-
 offline_message_hook({_, #message{to = #jid{luser = _, lserver = ServerHost},
                             type = Type, sub_els = [SubElement]} = Message} = Acc)
                                 when Type =:= headline; is_record(SubElement, chat) ->
@@ -313,50 +300,6 @@ clean_up_messages(State, CurrentTimestamp) ->
                 retryMessageList = RetryMessageList}.
 
 
-
--spec process_iq(#iq{}) -> #iq{}.
-%% iq-stanza with get: retrieves the push token for the user if available and
-%% sends it back to the user.
-process_iq(#iq{from = #jid{luser = User, lserver = Server},
-                        type = get, lang = Lang, to = _Host} = IQ) ->
-    ?INFO_MSG("mod_push_notifications: Processing local iq ~p", [IQ]),
-    case mod_push_notifications_mnesia:list_push_registrations({User, Server}) of
-        {ok, none} ->
-            xmpp:make_iq_result(IQ);
-        {ok, {{User, Server}, Os, Token, _Timestamp}} ->
-            xmpp:make_iq_result(IQ, #push_register{push_token = {Os, Token}});
-        {error, _} ->
-            Txt = ?T("Database failure"),
-            xmpp:make_error(IQ, xmpp:err_internal_server_error(Txt, Lang))
-    end;
-
-%% iq-stanza with set: inserts the push token for the user into the table.
-process_iq(#iq{from = #jid{luser = User, lserver = Server},
-                        type = set, lang = Lang, to = _Host,
-                            sub_els = [#push_register{push_token = {Os, Token}}]} = IQ) ->
-    ?INFO_MSG("mod_push_notifications: Processing local iq ~p", [IQ]),
-    case Token of
-        <<>> ->
-            Txt = ?T("Invalid value for token."),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-        _ELse ->
-            Timestamp = util:now_binary(),
-            case mod_push_notifications_mnesia:register_push({User, Server},
-                                                                Os, Token, Timestamp) of
-                {ok, _} ->
-                    xmpp:make_iq_result(IQ);
-                {error, _} ->
-                    Txt = ?T("Database failure"),
-                    xmpp:make_error(IQ, xmpp:err_internal_server_error(Txt, Lang))
-            end
-    end;
-
-process_iq(#iq{lang = Lang} = IQ) ->
-    Txt = ?T("Unable to handle this IQ"),
-    xmpp:make_error(IQ, xmpp:err_internal_server_error(Txt, Lang)).
-
-
-
 %% process_message is the function that would be eventually invoked on the event
 %% 'offline_message_hook'.
 -spec process_message(#message{}, #state{}) -> #state{}.
@@ -391,16 +334,14 @@ handle_push_message(MessageItem, #state{host = _Host} = State) ->
     ToServer = To#jid.lserver,
     {Subject, Body} = parse_message(Message),
     ?DEBUG("Obtaining push token for user: ~p", [To]),
-    case mod_push_notifications_mnesia:list_push_registrations({ToUser, ToServer}) of
-        {ok, none} ->
+    case mod_push_tokens:get_push_info(ToUser, ToServer) of
+        undefined ->
             ?DEBUG("No push token available for user: ~p", [To]),
             State;
-        {ok, {{ToUser, ToServer}, Os, Token, _}} ->
+        #push_info{os = Os, token = Token} ->
             Args = {JFrom, {ToUser, ToServer}, Subject, Body, Token, MessageItem, State},
             NewState = send_push_notification_based_on_os(Os, Args),
-            NewState;
-        {error, _} ->
-            State
+            NewState
     end.
 
 
@@ -513,7 +454,7 @@ send_apns_push_notification(ApnsGateway, ApnsCertfile, ApnsPort, Args) ->
                                     {binary(), #message{}, binary()}, #state{}}) -> #state{}.
 send_fcm_push_notification(Args) ->
     {_From, Username, Subject, Body, Token, MessageItem, State} = Args,
-    {Uid, Server} = Username,
+    {Uid, _Server} = Username,
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% Set timeout options here.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%

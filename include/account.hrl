@@ -32,3 +32,13 @@
 }).
 
 -type activity() :: #activity{}.
+
+-record(push_info,
+{
+    uid :: binary(),
+    os :: binary(),
+    token :: binary(),
+    timestamp_ms :: integer()
+}).
+
+-type push_info() :: #push_info{}.

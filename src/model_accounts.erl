@@ -46,6 +46,9 @@
     get_last_activity/1,
     set_last_activity/3,
     get_signup_user_agent/1,
+    set_push_info/1,
+    set_push_info/4,
+    get_push_info/1,
     presence_subscribe/2,
     presence_unsubscribe/2,
     presence_unsubscribe_all/1,
@@ -93,6 +96,9 @@ get_proc() ->
 -define(FIELD_LAST_ACTIVITY, <<"la">>).
 -define(FIELD_ACTIVITY_STATUS, <<"st">>).
 -define(FIELD_USER_AGENT, <<"ua">>).
+-define(FIELD_PUSH_OS, <<"pos">>).
+-define(FIELD_PUSH_TOKEN, <<"ptk">>).
+-define(FIELD_PUSH_TIMESTAMP, <<"pts">>).
 
 
 -spec create_account(Uid :: binary(), Phone :: binary(), Name :: binary(),
@@ -169,6 +175,24 @@ set_last_activity(Uid, TimestampMs, ActivityStatus) ->
 -spec get_last_activity(Uid :: binary()) -> {ok, activity()} | {error, missing}.
 get_last_activity(Uid) ->
     gen_server:call(get_proc(), {get_last_activity, Uid}).
+
+
+-spec set_push_info(PushInfo :: push_info()) -> ok.
+set_push_info(PushInfo) ->
+    set_push_info(PushInfo#push_info.uid, PushInfo#push_info.os,
+            PushInfo#push_info.token, PushInfo#push_info.timestamp_ms).
+
+
+-spec set_push_info(Uid :: binary(), Os :: binary(), PushToken :: binary(),
+        TimestampMs :: integer()) -> ok.
+set_push_info(Uid, Os, PushToken, TimestampMs) ->
+    gen_server:call(get_proc(), {set_push_info, Uid, Os, PushToken, TimestampMs}).
+
+
+-spec get_push_info(Uid :: binary()) -> {ok, undefined | push_info()} | {error, missing}.
+get_push_info(Uid) ->
+    gen_server:call(get_proc(), {get_push_info, Uid}).
+
 
 -spec account_exists(Uid :: binary()) -> boolean().
 account_exists(Uid) ->
@@ -313,6 +337,25 @@ handle_call({get_last_activity, Uid}, _From, Redis) ->
             TsMs ->
                 #activity{uid = Uid, last_activity_ts_ms = TsMs,
                         status = util:to_atom(ActivityStatus)}
+        end,
+    {reply, {ok, Res}, Redis};
+
+handle_call({set_push_info, Uid, Os, Token, TimestampMs}, _From, Redis) ->
+    {ok, _Res} = q(
+            ["HMSET", key(Uid),
+            ?FIELD_PUSH_OS, Os,
+            ?FIELD_PUSH_TOKEN, Token,
+            ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs)]),
+    {reply, ok, Redis};
+
+handle_call({get_push_info, Uid}, _From, Redis) ->
+    {ok, [Os, Token, TimestampMs]} = q(
+            ["HMGET", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    Res = case ts_decode(TimestampMs) of
+            undefined ->
+                undefined;
+            TsMs ->
+                #push_info{uid = Uid, os = Os, token = Token, timestamp_ms = TsMs}
         end,
     {reply, {ok, Res}, Redis};
 

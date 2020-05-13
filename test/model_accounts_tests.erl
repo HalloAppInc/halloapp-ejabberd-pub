@@ -28,6 +28,11 @@ clear() ->
 -define(TS1, 1500000000001).
 -define(AS1, available).
 -define(AVATAR_ID1, <<"CwlRWoG4TduL93Zyrz30Uw">>).
+-define(PUSH_TOKEN_OS1, <<"android">>).
+-define(PUSH_TOKEN1, <<"eXh2yYFZShGXzpobZEc5kg">>).
+-define(PUSH_TOKEN_TIMESTAMP1, 1589300000082).
+-define(PUSH_INFO1, #push_info{uid = ?UID1, os = ?PUSH_TOKEN_OS1,
+        token = ?PUSH_TOKEN1, timestamp_ms = ?PUSH_TOKEN_TIMESTAMP1}).
 
 -define(UID2, <<"2">>).
 -define(PHONE2, <<"16505552222">>).
@@ -35,6 +40,11 @@ clear() ->
 -define(USER_AGENT2, <<"HalloApp/iPhone1.0">>).
 -define(TS2, 1500000000002).
 -define(AVATAR_ID2, <<>>).
+-define(PUSH_TOKEN_OS2, <<"ios">>).
+-define(PUSH_TOKEN2, <<"pu7YCnjPQpa4yHm0gJRJ1g">>).
+-define(PUSH_TOKEN_TIMESTAMP2, 1570300000148).
+-define(PUSH_INFO2, #push_info{uid = ?UID2, os = ?PUSH_TOKEN_OS2,
+        token = ?PUSH_TOKEN2, timestamp_ms = ?PUSH_TOKEN_TIMESTAMP2}).
 
 -define(UID3, <<"3">>).
 
@@ -182,3 +192,18 @@ clear_subscriptions_test() ->
     {ok, []} = model_accounts:get_broadcast_uids(?UID2),
     {ok, []} = model_accounts:get_broadcast_uids(?UID3),
     ok.
+
+
+push_token_test() ->
+    setup(),
+    ?assertEqual({ok, undefined}, model_accounts:get_push_info(?UID1)),
+    ?assertEqual(ok, model_accounts:set_push_info(?UID1, ?PUSH_TOKEN_OS1,
+            ?PUSH_TOKEN1, ?PUSH_TOKEN_TIMESTAMP1)),
+    ?assertEqual({ok, ?PUSH_INFO1}, model_accounts:get_push_info(?UID1)),
+
+    ?assertEqual({ok, undefined}, model_accounts:get_push_info(?UID2)),
+    ?assertEqual(ok, model_accounts:set_push_info(?PUSH_INFO2)),
+    ?assertEqual({ok, ?PUSH_INFO2}, model_accounts:get_push_info(?UID2)).
+
+
+
