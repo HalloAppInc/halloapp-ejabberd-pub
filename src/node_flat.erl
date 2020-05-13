@@ -39,7 +39,7 @@
 -export([init/3, terminate/2, options/0, features/0,
     create_node_permission/6, create_node/2, delete_node/1,
     purge_node/2, subscribe_node/9, unsubscribe_node/4,
-    publish_item/8, delete_item/4, remove_extra_items/3,
+    publish_item/9, delete_item/4, remove_extra_items/3,
     get_entity_affiliations/2, get_node_affiliations/1,
     get_affiliation/2, set_affiliation/3,
     get_entity_subscriptions/2, get_node_subscriptions/1,
@@ -351,7 +351,7 @@ delete_subscriptions(SubState, Subscriptions) ->
 %%   to completely disable persistence.</li></ul>
 %% </p>
 %% <p>In the default plugin module, the record is unchanged.</p>
-publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload, _PubOpts) ->
+publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload, Now, _PubOpts) ->
     SubKey = jid:tolower(Publisher),
     GenKey = jid:remove_resource(SubKey),
     GenState = get_state_internal(Nidx, GenKey),
@@ -374,14 +374,9 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload,
 	    {error, xmpp:err_forbidden()};
 	true ->
 	    if MaxItems > 0 ->
-		    Now = erlang:timestamp(),
 		    case get_item(Nidx, ItemId) of
-			{result, #pubsub_item_new{creation = {_, GenKey}} = OldItem} ->
-			    set_item(OldItem#pubsub_item_new{
-					itemtype = ItemType,
-					modification = {Now, SubKey},
-					payload = Payload}),
-			    {result, {default, broadcast, []}};
+			{result, #pubsub_item_new{creation = {Then, GenKey}} = _OldItem} ->
+			    {result, {exists, ignore, [Then]}};
 			{result, _} ->
 			    {error, xmpp:err_forbidden()};
 			_ ->

@@ -114,6 +114,7 @@
 	ItemId :: <<>> | itemId(),
 	ItemType :: other | itemType(),
 	Payload :: payload(),
+	Now :: erlang:timestamp(),
 	Options :: pubOptions()) ->
     {result, {default, broadcast, [itemId()]}} |
     {error, stanza_error()}.

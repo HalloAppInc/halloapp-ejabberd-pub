@@ -1872,7 +1872,8 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, ItemType, Payload) ->
 publish_item(Host, ServerHost, Node, Publisher, <<>>, ItemType, Payload, PubOpts, Access) ->
     publish_item(Host, ServerHost, Node, Publisher, uniqid(), ItemType, Payload, PubOpts, Access);
 publish_item(Host, ServerHost, Node, Publisher, ItemId, ItemType, Payload, PubOpts, Access) ->
-    Timestamp = util:now_binary(),
+    Now = erlang:timestamp(),
+    Timestamp = util:timestamp_to_binary(Now),
     Action = fun (#pubsub_node{options = Options, type = Type, id = Nidx}) ->
 	    Features = plugin_features(Host, Type),
 	    PublishFeature = lists:member(<<"publish">>, Features),
@@ -1904,13 +1905,18 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, ItemType, Payload, PubOp
 					   err_item_forbidden())};
 		true ->
 		    node_call(Host, Type, publish_item,
-			[Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload, PubOpts])
+			[Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload, Now, PubOpts])
 	    end
     end,
     Reply = #pubsub{publish = #ps_publish{node = Node,
-					  items = [#ps_item{id = ItemId, type = ItemType, timestamp = Timestamp}]}},
+            items = [#ps_item{id = ItemId, type = ItemType, timestamp = Timestamp}]}},
     case transaction(Host, Node, Action, sync_dirty) of
-	{result, {TNode, {Result, Broadcast, Removed}}} ->
+    {result, {_TNode, {exists, ignore, [Then]}}} ->
+        OldTimestampSec = util:timestamp_to_binary(Then),
+        OldReply = #pubsub{publish = #ps_publish{node = Node,
+                items = [#ps_item{id = ItemId, type = ItemType, timestamp = OldTimestampSec}]}},
+        {result, OldReply};
+    {result, {TNode, {Result, Broadcast, Removed}}} ->
 	    Nidx = TNode#pubsub_node.id,
 	    Type = TNode#pubsub_node.type,
 	    Options = TNode#pubsub_node.options,
