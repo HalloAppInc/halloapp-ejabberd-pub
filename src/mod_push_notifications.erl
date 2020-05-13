@@ -357,7 +357,7 @@ send_push_notification_based_on_os(<<"ios">>, Args) ->
     ApnsGateway = get_apns_gateway(),
     ApnsCertfile = get_apns_certfile(),
     ApnsPort = get_apns_port(),
-    send_apns_push_notification(ApnsGateway, ApnsCertfile, ApnsPort, Args);
+    send_apns_push_notification(ApnsGateway, ApnsCertfile, ApnsPort, alert, Args);
 send_push_notification_based_on_os(<<"ios_dev">>, Args) ->
     {_, _, _, _, _, MessageItem, _} = Args,
     #message{to = To} = MessageItem#message_item.message,
@@ -365,7 +365,7 @@ send_push_notification_based_on_os(<<"ios_dev">>, Args) ->
     ApnsDevGateway = get_apns_dev_gateway(),
     ApnsDevCertfile = get_apns_dev_certfile(),
     ApnsDevPort = get_apns_dev_port(),
-    send_apns_push_notification(ApnsDevGateway, ApnsDevCertfile, ApnsDevPort, Args);
+    send_apns_push_notification(ApnsDevGateway, ApnsDevCertfile, ApnsDevPort, silent, Args);
 send_push_notification_based_on_os(<<"android">>, Args) ->
     {_, _, _, _, _, MessageItem, _} = Args,
     #message{to = To} = MessageItem#message_item.message,
@@ -383,25 +383,25 @@ send_push_notification_based_on_os(Os, Args) ->
 %% [https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/
 %%RemoteNotificationsPG/BinaryProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH13-SW1]
 %% TODO(murali@): switch to the modern API soon.
--spec send_apns_push_notification(list(), list(), integer(),
+-spec send_apns_push_notification(list(), list(), integer(), atom(),
                                     {binary(), {binary(), binary()},
                                     binary(), binary(), binary(),
                                     #message_item{}, #state{}}) -> #state{}.
-send_apns_push_notification(ApnsGateway, ApnsCertfile, ApnsPort, Args) ->
+send_apns_push_notification(ApnsGateway, ApnsCertfile, ApnsPort, PushType, Args) ->
     {_From, Username, Subject, Body, Token, MessageItem, State} = Args,
     MessageId = MessageItem#message_item.message_id,
     RetryTimeout = MessageItem#message_item.prev_retry_time0 +
                         MessageItem#message_item.prev_retry_time1,
     Options = [{certfile, ApnsCertfile},
                {mode, binary}],
-    Payload = lists:append(["{\"aps\":",
-                                    "{\"alert\":",
-                                                    "{\"title\":\"", binary_to_list(Subject), "\","
-                                                    "\"body\":\"", binary_to_list(Body), "\"",
-                                                    "},",
-                                    "\"sound\":\"default\",",
-                                    "\"content-available\":\"1\"",
-                            "}}"]),
+    Payload = case PushType of
+        silent -> lists:append(["{\"aps\":", "{\"content-available\":\"1\"", "}}"]);
+        alert ->
+            lists:append(["{\"aps\":", "{\"alert\":",
+                    "{\"title\":\"", binary_to_list(Subject), "\"," "\"body\":\"",
+                    binary_to_list(Body), "\"", "},", "\"sound\":\"default\",",
+                    "\"content-available\":\"1\"", "}}"])
+    end,
     case ssl:connect(ApnsGateway, ApnsPort, Options, ?SSL_TIMEOUT_MILLISEC) of
         {ok, Socket} ->
             PayloadBin = list_to_binary(Payload),
