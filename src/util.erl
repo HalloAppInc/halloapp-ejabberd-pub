@@ -25,6 +25,7 @@
     to_atom/1,
     to_binary/1,
     new_msg_id/0,
+    new_avatar_id/0,
     list_to_map/1
 ]).
 
@@ -131,7 +132,17 @@ to_binary(Data) ->
 
 -spec new_msg_id() -> binary().
 new_msg_id() ->
-    base64:encode(uuid:uuid4()).
+    new_base64_uuid().
+
+
+-spec new_avatar_id() -> binary().
+new_avatar_id() ->
+    new_base64_uuid().
+
+
+-spec new_base64_uuid() -> binary().
+new_base64_uuid() ->
+    base64url:encode(uuid:uuid1()).
 
 
 list_to_map(L) ->

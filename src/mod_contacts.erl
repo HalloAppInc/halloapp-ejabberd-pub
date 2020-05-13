@@ -201,7 +201,8 @@ normalize_and_sync_contact(UserId, UserRegionId, _Server, Contact, SyncId) ->
                 _ ->
                     IsFriends = model_friends:is_friend(UserId, ContactId),
                     Role = get_role_value(IsFriends),
-                    #contact{raw = RawPhone, userid = ContactId,
+                    AvatarId = model_accounts:get_avatar_id_binary(ContactId),
+                    #contact{raw = RawPhone, userid = ContactId, avatarid = AvatarId,
                             normalized = ContactPhone, role = Role}
             end
     end.
@@ -251,7 +252,9 @@ add_contact_phone(UserId, Server, ContactPhone) ->
                 true -> notify_contact_about_user(UserId, Server, ContactId, Role);
                 false -> ok
             end,
-            #contact{userid = ContactId, normalized = ContactPhone, role = Role}
+            AvatarId = model_accounts:get_avatar_id_binary(ContactId),
+            #contact{userid = ContactId, avatarid = AvatarId,
+                    normalized = ContactPhone, role = Role}
     end.
 
 
@@ -332,7 +335,8 @@ notify_contact_about_user(UserId, _Server, UserId, _Role) ->
     ok;
 notify_contact_about_user(UserId, Server, ContactId, Role) ->
     Normalized = get_phone(UserId),
-    Contact = #contact{userid = UserId, normalized = Normalized, role = Role},
+    AvatarId = model_accounts:get_avatar_id_binary(UserId),
+    Contact = #contact{userid = UserId, avatarid = AvatarId, normalized = Normalized, role = Role},
     SubEls = [#contact_list{type = normal, xmlns = ?NS_NORM, contacts = [Contact]}],
     Stanza = #message{from = jid:make(Server),
                       to = jid:make(ContactId, Server),

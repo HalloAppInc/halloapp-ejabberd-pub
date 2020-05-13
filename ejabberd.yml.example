@@ -169,7 +169,7 @@ modules:
   mod_admin_extra: {}
   mod_announce:
     access: announce
-  mod_avatar: {}
+  mod_user_avatar: {}
   mod_blocking: {}
   mod_bosh: {}
   mod_caps: {}
