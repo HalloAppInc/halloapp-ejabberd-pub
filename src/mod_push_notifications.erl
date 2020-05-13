@@ -221,9 +221,20 @@ handle_info(Request, State) ->
 %% module hooks and iq handlers.
 %%====================================================================
 
+%% Send push notifications to user only for new posts and comments on user's posts.
+offline_message_hook({_, #message{to = #jid{lserver = ServerHost},
+        type = Type} = Message} = Acc) when Type =:= headline ->
+    ?DEBUG("~p", [Message]),
+    case should_push(Message) of
+        true ->
+            gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE), {process_message, Message});
+        false ->
+            ?WARNING_MSG("ignoring push: ~p", [Message])
+    end,
+    Acc;
 offline_message_hook({_, #message{to = #jid{luser = _, lserver = ServerHost},
-                            type = Type, sub_els = [SubElement]} = Message} = Acc)
-                                when Type =:= headline; is_record(SubElement, chat) ->
+                            type = _Type, sub_els = [SubElement]} = Message} = Acc)
+                                when is_record(SubElement, chat) ->
     ?DEBUG("~p", [Message]),
     gen_server:cast(gen_mod:get_module_proc(ServerHost, ?MODULE), {process_message, Message}),
     Acc;
@@ -231,6 +242,27 @@ offline_message_hook({_, #message{} = Message} = Acc) ->
     ?WARNING_MSG("ignoring push: ~p", [Message]),
     Acc.
 
+
+-spec should_push(Message :: message()) -> boolean().
+should_push(#message{to = #jid{luser = User, lserver = Server}, sub_els = [#ps_event{
+        items = #ps_items{node = Node, items = [#ps_item{type = ItemType}]}}]}) ->
+    case mod_push_tokens:get_push_info(User, Server) of
+        undefined -> false;
+        #push_info{os = <<"android">>} -> true;
+        #push_info{os = <<"ios_dev">>} -> true;
+        #push_info{os = <<"ios">>} ->
+            case ItemType of
+                feedpost ->
+                    true;
+                comment ->
+                    case Node of
+                        <<"feed-", OwnerId/binary>> ->
+                            User =:= OwnerId;
+                        _ ->
+                            false
+                    end
+            end
+    end.
 
 
 %%====================================================================
