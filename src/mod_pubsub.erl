@@ -1933,7 +1933,7 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, ItemType, Payload, PubOp
 		    ok
 	    end,
 	    ejabberd_hooks:run(pubsub_publish_item, ServerHost,
-		[ServerHost, Node, Publisher, service_jid(Host), ItemId, BrPayload]),
+		        [ServerHost, Node, Publisher, service_jid(Host), ItemId, ItemType, BrPayload]),
 	    case Result of
 		default -> {result, Reply};
 		_ -> {result, Result}

@@ -27,7 +27,7 @@
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_opt_type/1, mod_options/1]).
 %% Hooks
--export([pubsub_publish_item/6, vcard_iq_convert/1, vcard_iq_publish/1,
+-export([pubsub_publish_item/7, vcard_iq_convert/1, vcard_iq_publish/1,
 	 get_sm_features/5]).
 
 -include("xmpp.hrl").
@@ -68,11 +68,11 @@ depends(_Host, _Opts) ->
 %%%===================================================================
 %%% Hooks
 %%%===================================================================
--spec pubsub_publish_item(binary(), binary(), jid(), jid(), binary(), [xmlel()]) -> ok.
+-spec pubsub_publish_item(binary(), binary(), jid(), jid(), binary(), binary(), [xmlel()]) -> ok.
 pubsub_publish_item(LServer, ?NS_AVATAR_METADATA,
 		    #jid{luser = LUser, lserver = LServer} = From,
 		    #jid{luser = LUser, lserver = LServer} = Host,
-		    ItemId, [Payload|_]) ->
+		    ItemId, ItemType, [Payload|_]) ->
     try xmpp:decode(Payload) of
 	#avatar_meta{info = []} ->
 	    delete_vcard_avatar(From);
@@ -103,7 +103,7 @@ pubsub_publish_item(LServer, ?NS_AVATAR_METADATA,
 	    ?WARNING_MSG("Failed to decode avatar metadata of ~ts@~ts: ~ts",
 			 [LUser, LServer, xmpp:format_error(Why)])
     end;
-pubsub_publish_item(_, _, _, _, _, _) ->
+pubsub_publish_item(_, _, _, _, _, _, _) ->
     ok.
 
 -spec vcard_iq_convert(iq()) -> iq() | {stop, stanza_error()}.

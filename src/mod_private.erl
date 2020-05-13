@@ -35,7 +35,7 @@
 -export([start/2, stop/1, reload/3, process_sm_iq/1, import_info/0,
 	 remove_user/2, get_data/2, get_data/3, export/1,
 	 import/5, import_start/2, mod_opt_type/1, set_data/2,
-	 mod_options/1, depends/2, get_sm_features/5, pubsub_publish_item/6]).
+	 mod_options/1, depends/2, get_sm_features/5, pubsub_publish_item/7]).
 
 -export([get_commands_spec/0, bookmarks_to_pep/2]).
 
@@ -269,13 +269,13 @@ publish_data(JID, Data) ->
     end.
 
 -spec pubsub_publish_item(binary(), binary(), jid(), jid(),
-			  binary(), [xmlel()]) -> any().
+			  binary(), binary(), [xmlel()]) -> any().
 pubsub_publish_item(LServer, ?NS_STORAGE_BOOKMARKS,
 		    #jid{luser = LUser, lserver = LServer} = From,
 		    #jid{luser = LUser, lserver = LServer},
-		    _ItemId, [Payload|_]) ->
+		    _ItemId, _ItemType, [Payload|_]) ->
     set_data(From, [{?NS_STORAGE_BOOKMARKS, Payload}], false);
-pubsub_publish_item(_, _, _, _, _, _) ->
+pubsub_publish_item(_, _, _, _, _, _, _) ->
     ok.
 
 %%%===================================================================
