@@ -176,15 +176,19 @@ publish_user_avatar(UserId, Server, BinaryData) ->
 
 -spec delete_user_avatar(UserId :: binary(), Server :: binary()) -> ok.
 delete_user_avatar(UserId, Server) ->
-    OldAvatarId = model_accounts:get_avatar_id_binary(UserId),
-    try
-        Result = erlcloud_s3:delete_object(
-                binary_to_list(?AWS_BUCKET_NAME), binary_to_list(OldAvatarId)),
-        ?INFO_MSG("Uid: ~s, Result: ~p", [UserId, Result])
-    catch ?EX_RULE(Class, Reason, St) ->
-        StackTrace = ?EX_STACK(St),
-        ?ERROR_MSG("Uid: ~s, Error deleting object on s3: response:~n~ts",
-               [UserId, misc:format_exception(2, Class, Reason, StackTrace)])
+    case model_accounts:get_avatar_id_binary(UserId) of
+        <<>> ->
+            ok;
+        OldAvatarId ->
+            try
+                Result = erlcloud_s3:delete_object(
+                        binary_to_list(?AWS_BUCKET_NAME), binary_to_list(OldAvatarId)),
+                ?INFO_MSG("Uid: ~s, Result: ~p", [UserId, Result])
+            catch ?EX_RULE(Class, Reason, St) ->
+                StackTrace = ?EX_STACK(St),
+                ?ERROR_MSG("Uid: ~s, Error deleting object on s3: response:~n~ts",
+                       [UserId, misc:format_exception(2, Class, Reason, StackTrace)])
+            end
     end,
     AvatarId = <<>>,
     update_user_avatar(UserId, Server, AvatarId),
