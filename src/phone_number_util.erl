@@ -141,8 +141,6 @@ parse_helper(PhoneNumberState, DefaultRegionId) ->
                                                     raw = PhoneNumberState#phone_number_state.raw
                                                 }, DefaultRegionId);
                                         _ ->
-                                            ?ERROR_MSG("parse_helper_internal: final output:
-                                                    failed to parse phone number: ~p",[invalid]),
                                             {error, invalid}
                                     end;
                                 Result ->
@@ -206,8 +204,6 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
         undefined ->
             if
                 NormalizedNationalNumber == undefined ->
-                    ?ERROR_MSG("parse_helper_internal: final output:
-                            failed to parse phone number: ~p",[invalid_but_retry]),
                     {error, invalid_but_retry};
                 length(NormalizedNationalNumber) >= ?MIN_LENGTH_FOR_NSN andalso
                                 length(NormalizedNationalNumber) =< ?MAX_LENGTH_FOR_NSN ->
@@ -220,8 +216,6 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
                                             },
                     NewPhoneNumberState;
                 true ->
-                    ?ERROR_MSG("parse_helper_internal: final output:
-                            failed to parse phone number: ~p",[invalid]),
                     {error, invalid}
             end;
         _ ->
@@ -252,8 +246,6 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
                                                     },
                             NewPhoneNumberState;
                         true ->
-                            ?ERROR_MSG("parse_helper_internal: final output:
-                                    failed to parse phone number: ~p",[invalid]),
                             {error, invalid}
                     end
             end
@@ -273,8 +265,6 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
     PhoneNumber = PhoneNumberState0#phone_number_state.phone_number,
     if
         PhoneNumber == undefined orelse length(PhoneNumber) == 0 ->
-            ?ERROR_MSG("maybe_extract_country_code:final output:
-                    failed to extract country_code: ~p",[invalid_phone_number]),
             {error, invalid_phone_number};
         true ->
             Attributes = RegionMetadata#region_metadata.attributes,
@@ -287,8 +277,6 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
                     case length(PhoneNumberState1#phone_number_state.phone_number)
                                 =< ?MIN_LENGTH_FOR_NSN of
                         true ->
-                            ?ERROR_MSG("maybe_extract_country_code: final output:
-                                    failed to extract country_code: ~p",[invalid_phone_number]),
                             {error, invalid_phone_number};
                         false ->
                             PhoneNumberState2 = extract_country_code(PhoneNumberState1, 1),
@@ -301,8 +289,6 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
                                     %% If this fails, they must be using a strange country
                                     %% calling code that we don't recognize,
                                     %% or that doesn't exist.
-                                    ?ERROR_MSG("failed to extract country_code: ~p",
-                                        [invalid_country_code]),
                                     {error, invalid_country_code}
                             end
                     end;
