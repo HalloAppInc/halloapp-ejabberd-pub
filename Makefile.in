@@ -210,9 +210,11 @@ install: all copy-files
 	#
 	# Configuration files
 	$(INSTALL) -d -m 750 $(G_USER) $(ETCDIR)
-	[ -f $(ETCDIR)/ejabberd.yml ] \
-		&& $(INSTALL) -b -m 640 $(G_USER) ejabberd.yml.example $(ETCDIR)/ejabberd.yml-new \
-		|| $(INSTALL) -b -m 640 $(G_USER) ejabberd.yml.example $(ETCDIR)/ejabberd.yml
+	# TODO: switch away from .example
+	$(INSTALL) -b -S .bak -m 640 $(G_USER) ejabberd.yml.example $(ETCDIR)/ejabberd.yml
+	#[ -f $(ETCDIR)/ejabberd.yml ] \
+	#	&& $(INSTALL) -b -m 640 $(G_USER) ejabberd.yml.example $(ETCDIR)/ejabberd.yml-new \
+	#	|| $(INSTALL) -b -m 640 $(G_USER) ejabberd.yml.example $(ETCDIR)/ejabberd.yml
 	$(SED) -e "s*{{rootdir}}*@prefix@*g" \
 		-e "s*{{installuser}}*@INSTALLUSER@*g" \
 		-e "s*{{bindir}}*@bindir@*g" \
@@ -223,10 +225,11 @@ install: all copy-files
 		-e "s*{{erl}}*@ERL@*g" \
 		-e "s*{{epmd}}*@EPMD@*g" ejabberdctl.template \
 		> ejabberdctl.example
-	[ -f $(ETCDIR)/ejabberdctl.cfg ] \
-		&& $(INSTALL) -b -m 640 $(G_USER) ejabberdctl.cfg.example $(ETCDIR)/ejabberdctl.cfg-new \
-		|| $(INSTALL) -b -m 640 $(G_USER) ejabberdctl.cfg.example $(ETCDIR)/ejabberdctl.cfg
-	$(INSTALL) -b -m 644 $(G_USER) inetrc $(ETCDIR)/inetrc
+	$(INSTALL) -b -S .bak -m 640 $(G_USER) ejabberdctl.cfg.example $(ETCDIR)/ejabberdctl.cfg
+	#[ -f $(ETCDIR)/ejabberdctl.cfg ] \
+	#	&& $(INSTALL) -b -m 640 $(G_USER) ejabberdctl.cfg.example $(ETCDIR)/ejabberdctl.cfg-new \
+	#	|| $(INSTALL) -b -m 640 $(G_USER) ejabberdctl.cfg.example $(ETCDIR)/ejabberdctl.cfg
+	$(INSTALL) -b -S .bak -m 644 $(G_USER) inetrc $(ETCDIR)/inetrc
 	#
 	# Administration script
 	[ -d $(SBINDIR) ] || $(INSTALL) -d -m 755 $(SBINDIR)
