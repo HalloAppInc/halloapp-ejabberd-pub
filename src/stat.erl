@@ -14,6 +14,7 @@
 
 -include("logger.hrl").
 -include("erlcloud_mon.hrl").
+-include("erlcloud_aws.hrl").
 
 -export([start_link/0]).
 %% gen_mod callbacks
@@ -151,7 +152,10 @@ send_to_cloudwatch(Data) when is_map(Data) ->
 -spec cloudwatch_put_metric_data(Namespace :: string(), Metrics :: [metric_datum()]) -> ok.
 cloudwatch_put_metric_data(Namespace, Metrics)
         when is_list(Namespace), is_list(Metrics)->
-    try erlcloud_mon:put_metric_data(Namespace, Metrics) of
+    try
+        update_aws_config(),
+        erlcloud_mon:put_metric_data(Namespace, Metrics)
+    of
         {error, Reason} ->
             ?ERROR_MSG("failed ~s ~w Reason: ~p",
                 [Namespace, length(Metrics), Reason]);
@@ -162,6 +166,34 @@ cloudwatch_put_metric_data(Namespace, Metrics)
             ?ERROR_MSG("~nStacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
     end.
+
+-spec update_aws_config() -> ok.
+update_aws_config() ->
+    update_aws_config(erlcloud_aws:default_config()).
+
+% TODO: delete this code if our change in erlcloud auto refreshing works
+-spec update_aws_config(Config :: aws_config()) -> ok.
+update_aws_config(#aws_config{access_key_id = _AccessKeyId, expiration = undefined}) ->
+    ok;
+update_aws_config(#aws_config{access_key_id = AccessKeyId, expiration = Expiration}) ->
+    ?DEBUG("check refresh id:~p exp:~p", [AccessKeyId, Expiration]),
+    Now = util:now(),
+    ExpiresIn = Expiration - Now,
+    %% Tokens are usually expire in 3h, refresh the token if it expires in less then 5 minutes
+    %% Also refresh the token if somehow the times is too much in the future.
+    %% (Maybe the clock was off)
+    case (ExpiresIn < 5 * 60) or (ExpiresIn > 24 * 60 * 60) of
+        false -> ok;
+        true ->
+            %% This gets a new config with refreshed tokens
+            NewConfig = erlcloud_aws:auto_config(),
+            NewAccessKeyId = NewConfig#aws_config.access_key_id,
+            NewExpiration = NewConfig#aws_config.expiration,
+            erlcloud_aws:configure(NewConfig),
+            ?INFO_MSG("refreshed aws config id:~p exp:~p new_id:~p exp:~p",
+                [AccessKeyId, Expiration, NewAccessKeyId, NewExpiration])
+    end,
+    ok.
 
 -spec prepare_data(MetricsMap :: map(), TimestampMs :: non_neg_integer()) -> map().
 prepare_data(MetricsMap, TimestampMs)
