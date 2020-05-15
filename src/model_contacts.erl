@@ -38,6 +38,7 @@
     get_contacts/1,
     get_sync_contacts/2,
     get_contact_uids/1,
+    get_contact_uids_size/1,
     get_all_uids/0
 ]).
 
@@ -127,6 +128,9 @@ get_sync_contacts(Uid, Sid) ->
 get_contact_uids(Contact) ->
     gen_server:call(get_proc(), {get_contact_uids, Contact}).
 
+-spec get_contact_uids_size(Contact :: binary()) -> non_neg_integer() | {error, any()}.
+get_contact_uids_size(Contact) ->
+    gen_server:call(get_proc(), {get_contact_uids_size, Contact}).
 
 -spec get_all_uids() -> {ok, [binary()]} | {error, any()}.
 get_all_uids() ->
@@ -195,6 +199,10 @@ handle_call({get_contact_uids, Contact}, _From, Redis) ->
     {ok, Res} = q(["SMEMBERS", reverse_key(Contact)]),
     {reply, {ok, Res}, Redis};
 
+handle_call({get_contact_uids_size, Contact}, _From, Redis) ->
+    {ok, Res} = q(["SCARD", reverse_key(Contact)]),
+    {reply, binary_to_integer(Res), Redis};
+
 handle_call({get_all_uids}, _From, Redis) ->
     {ok, [Cursor, Uids]} = q(["SCAN", "0", "COUNT", "1000"]),
     AllUids = get_all_uids(Cursor, Uids),
@@ -230,6 +238,7 @@ sync_key(Uid, Sid) ->
 
 -spec reverse_key(Phone :: binary()) -> binary().
 reverse_key(Phone) ->
+    % TODO: use the REVERCE_KEY here, run migration
     <<?SYNC_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
 
 

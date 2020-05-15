@@ -8,6 +8,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -define(UID, <<"1000000000376503286">>).
+-define(UID2, <<"1000000000376503287">>).
 -define(CONTACT1, <<"14705551473">>).
 -define(CONTACT2, <<"16502241748">>).
 -define(CONTACT3, <<"14703381473">>).
@@ -113,3 +114,12 @@ is_contact_test() ->
     true = model_contacts:is_contact(?UID,  ?CONTACT2),
     false = model_contacts:is_contact(?UID,  ?CONTACT3).
 
+
+get_contact_uids_size_test() ->
+    setup(),
+    ?assertEqual(0, model_contacts:get_contact_uids_size(?CONTACT1)),
+    ok = model_contacts:add_contacts(?UID, [?CONTACT1, ?CONTACT2]),
+    ?assertEqual(1, model_contacts:get_contact_uids_size(?CONTACT1)),
+    ok = model_contacts:add_contacts(?UID2, [?CONTACT1, ?CONTACT2]),
+    ?assertEqual(2, model_contacts:get_contact_uids_size(?CONTACT1)),
+    ok.

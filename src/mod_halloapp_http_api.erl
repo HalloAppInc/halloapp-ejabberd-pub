@@ -33,24 +33,37 @@
 % TODO: move this to some header?
 -type phone() :: binary().
 
+
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
-process([<<"registration">>, <<"request_sms">>], Request) ->
+process([<<"registration">>, <<"request_sms">>],
+        #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
     try
-        Data = Request#request.data,
-        Method = Request#request.method,
-        Headers = Request#request.headers,
-        ?DEBUG("request_sms ~p Data:~p: r:~p", [Method, Data, Request]),
+        ?DEBUG("Data:~p", [Data]),
         UserAgent = get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
-        ?INFO_MSG("payload ~p phone: ~p, ua: ~p ~p", [Payload, Phone, UserAgent, is_debug(Phone)]),
-        case {Method, util_ua:is_hallo_ua(UserAgent)} of
-            {'POST', true} -> request_sms(Phone, UserAgent);
-            _  -> return_400()
-        end
+        ?INFO_MSG("payload ~p phone:~p, ua:~p ip:~s ~p",
+            [Payload, Phone, UserAgent, IP, is_debug(Phone)]),
+        check_ua(UserAgent),
+        request_sms(Phone, UserAgent),
+        {200, ?HEADER(?CT_JSON),
+            jiffy:encode({[
+                {phone, Phone},
+                {result, ok}
+            ]})}
     catch
-        _:Error:Stacktrace ->
-            ?ERROR_MSG("request_sms error: ~p ~p", [Error, Stacktrace]),
+        error : bad_user_agent ->
+            ?ERROR_MSG("register error: bad_user_agent ~p", [Headers]),
+            return_400();
+        error : no_friends ->
+            ?INFO_MSG("request_sms error: phone not in anyones contacts ~p", [Data]),
+            return_400(no_friends);
+        error : sms_fail ->
+            ?INFO_MSG("request_sms error: sms_failed ~p", [Data]),
+            return_400(sms_fail);
+        Class : Reason : Stacktrace  ->
+            ?ERROR_MSG("request_sms crash: ~s\nStacktrace:~s",
+                [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             return_500()
     end;
 
@@ -98,6 +111,7 @@ process(Path, Request) ->
     ?WARNING_MSG("Bad Request: path: ~p, r:~p", [Path, Request]),
     return_400().
 
+
 -spec check_ua(binary()) -> boolean().
 check_ua(UserAgent) ->
     case util_ua:is_hallo_ua(UserAgent) of
@@ -107,21 +121,10 @@ check_ua(UserAgent) ->
             error(bad_user_agent)
     end.
 
-% TODO: Use util:random_str
--spec generate_password() -> binary().
-generate_password() ->
-    P = base64:encode_to_string(crypto:strong_rand_bytes(24)),
-    PP = lists:map(fun (C) ->
-        case C of
-            $+ -> $_;
-            $/ -> $-;
-            X -> X
-        end end, P),
-    list_to_binary(PP).
 
 -spec finish_registration(phone(), binary()) -> {ok, phone(), binary(), binary()}.
 finish_registration(Phone, Name) ->
-    Password = generate_password(),
+    Password = util:generate_password(),
     Host = util:get_host(),
     % TODO: this is templorary during the migration from Phone to Uid
     {ok, _} = ejabberd_admin:unregister_push(Phone, Host),
@@ -140,11 +143,10 @@ check_sms_code(Phone, Code) ->
     Host = util:get_host(),
     case {ejabberd_admin:get_user_passcode(Phone, Host), Code} of
         {{ok, MatchingCode}, MatchingCode} when size(MatchingCode) =:= 6 ->
-            ?DEBUG("Code match phone:~p code:~p",
-                [Phone, MatchingCode]),
+            ?DEBUG("Code match phone:~s code:~s", [Phone, MatchingCode]),
             ok;
         {{ok, StoredCode}, UserCode}->
-            ?INFO_MSG("Codes mismatch, phone:~p, StoredCode:~p UserCode:~p",
+            ?INFO_MSG("Codes mismatch, phone:~s, StoredCode:~s UserCode:~s",
                 [Phone, StoredCode, UserCode]),
             error(wrong_sms_code);
         Any ->
@@ -153,40 +155,47 @@ check_sms_code(Phone, Code) ->
     end.
 
 
--spec request_sms(Phone :: phone(), UserAgent :: binary()) -> http_response().
+-spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok.
 request_sms(Phone, UserAgent) ->
     Code = mod_sms:generate_code(is_debug(Phone)),
-    ?DEBUG("code generated phone:~p : code:~p", [Phone, Code]),
-    SendSMSResult = case is_debug(Phone) of
+    ?DEBUG("code generated phone:~s code:~s", [Phone, Code]),
+    case is_debug(Phone) of
         true -> ok;
         false ->
-            Msg = mod_sms:prepare_registration_sms(Code, UserAgent),
-            ?DEBUG("preparing to send sms, phone:~p : msg: ~s", [Phone, Msg]),
-            mod_sms:send_sms(Phone, Msg)
+            ok = check_phone_in_contacts(Phone),
+            ok = send_sms(Phone, Code, UserAgent)
     end,
-    EnrollResult = case SendSMSResult of
-         ok -> finish_enroll(Phone, Code);
-         X -> X
-    end,
-    case EnrollResult of
-        {ok, _Text} ->
-            {200, ?HEADER(?CT_JSON), jiffy:encode({[
-                {phone, Phone},
-                {result, ok}]})};
-        {error, cannot_enroll, _, Reason} ->
-            ?DEBUG("cannot_enroll ~s", [Reason]),
-            return_400(cannot_enroll);
-        {error, sms_fail} ->
-            return_400(sms_fail)
+    finish_enroll(Phone, Code).
+
+
+-spec check_phone_in_contacts(Phone :: phone()) -> ok.
+check_phone_in_contacts(Phone) ->
+    Count = model_contacts:get_contact_uids_size(Phone),
+    ?INFO_MSG("phone:~s in %p phonebooks", [Phone, Count]),
+    case Count > 0 of
+        true -> ok;
+        false -> error(no_friends)
     end.
+
+
+-spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary()) -> ok.
+send_sms(Phone, Code, UserAgent) ->
+    Msg = mod_sms:prepare_registration_sms(Code, UserAgent),
+    ?DEBUG("preparing to send sms, phone:~p msg:~s", [Phone, Msg]),
+    case mod_sms:send_sms(Phone, Msg) of
+        ok -> ok;
+        {error, Error} -> erlang:error(Error)
+    end.
+
 
 -spec finish_enroll(phone(), binary()) -> any().
 finish_enroll(Phone, Code) ->
     Host = util:get_host(),
-    %% This seems to be an security issue.
-    ejabberd_admin:unregister_push(Phone, Host),
-    ejabberd_admin:unenroll(Phone, Host),
-    ejabberd_admin:enroll(Phone, Host, Code).
+
+    {ok, _} = ejabberd_admin:unenroll(Phone, Host),
+    {ok, _} = ejabberd_admin:enroll(Phone, Host, Code),
+    ok.
+
 
 -spec return_400(term()) -> http_response().
 return_400(Error) ->

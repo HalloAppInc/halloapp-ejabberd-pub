@@ -21,6 +21,7 @@
     now_binary/0,
     round_to_minute/1,
     random_str/1,
+    generate_password/0,
     type/1,
     to_atom/1,
     to_binary/1,
@@ -34,6 +35,8 @@
 -ifdef(TEST).
 -compile(export_all).
 -endif.
+
+-define(PASSWORD_SIZE, 24).
 
 -spec get_host() -> binary().
 get_host() ->
@@ -89,6 +92,12 @@ pubsub_node_name(User, NodeType) ->
 random_str(Size) ->
     SS = base64url:encode(crypto:strong_rand_bytes(Size)),
     binary:part(SS, 0, Size).
+
+
+-spec generate_password() -> binary().
+generate_password() ->
+    random_str(?PASSWORD_SIZE).
+
 
 type(X) when is_binary(X) ->
     "binary";
