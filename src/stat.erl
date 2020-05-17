@@ -142,10 +142,11 @@ send_data(MetricsMap) when is_map(MetricsMap) ->
 send_to_cloudwatch(Data) when is_map(Data) ->
     ?INFO_MSG("sending ~p Namespaces", [maps:size(Data)]),
     update_aws_config(),
+    Fun = get_recorder(),
     maps:map(
         fun (Namespace, Metrics) ->
             ?DEBUG("~s ~p", [Namespace, length(Metrics)]),
-            cloudwatch_put_metric_data(Namespace, Metrics)
+            Fun(Namespace, Metrics)
         end, Data),
     ok.
 
@@ -237,6 +238,17 @@ merge(A, B) ->
         maximum = erlang:max(A#statistic_set.maximum, B#statistic_set.maximum),
         minimum = erlang:min(A#statistic_set.minimum, B#statistic_set.minimum)
     }.
+
+
+get_recorder() ->
+    case config:get_hallo_env() of
+        localhost -> fun record_locally/2;
+        _ -> fun cloudwatch_put_metric_data/2
+    end.
+
+
+record_locally(Namespace, Metrics) ->
+  ?INFO_MSG("Recording ~s metrics ~p", [Namespace, Metrics]).
 
 
 make_statistic_set(Value) when is_integer(Value) ->
