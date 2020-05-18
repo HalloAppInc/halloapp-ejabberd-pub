@@ -10,9 +10,10 @@
 %%%
 %%%  This module handles all the ack-stanza related code.
 %%% - user_send_packet hook is invoked for every packet received from the user.
-%%%   We check if this packet need an ack stanza and if yes, we send an immediately to the user.
+%%%   We check if this packet need an ack stanza and if yes, we send an ack immediately to the user.
 %%%   If this is an ack stanza itself:
 %%%   then acknowledge the ack stanza and drop the corresponding message.
+%%%
 %%% - user_receive_packet hook is invoked on every packet we send from the server to the user.
 %%%   We check if this packet needs an ack. If it needs an ack:
 %%%   then, we add it to the ack_wait_queue and wait for packet_timeout_sec defined in the config.
@@ -21,6 +22,7 @@
 %%%   If the user goes offline for some reason: when we send a packet: then we remove the packet
 %%%   from the queue, since the server will attempt to send it using mod_offline
 %%%   using the offline_message_hook.
+%%%
 %%% - Currently, we only send and receive acks for only stanzas of type #message{}.
 %%%   We make sure that messages have a corresponding-id attribute:
 %%%   if not, we create a uuid and use it.
@@ -82,8 +84,7 @@ init([Host|_]) ->
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 50),
     ejabberd_hooks:add(c2s_closed, Host, ?MODULE, c2s_closed, 10),
-    {ok, #{ack_wait_queue => queue:new(),
-            host => Host}}.
+    {ok, #{ack_wait_queue => queue:new(), host => Host}}.
 
 terminate(_Reason, #{host := Host} = _AckState) ->
     ?DEBUG("terminate", []),
@@ -132,7 +133,7 @@ c2s_closed(#{user := User, server := Server, lserver := ServerHost} = State, _Re
 %%    gen_server:call    %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% When the server receives a packet from the server, we immediately check if the packet needs 
+%% When the server receives a packet from the user, we immediately check if the packet needs 
 %% an ack and then send it to the client. Currently, we only send acks to messages.
 %% When the server receives an ack packet, we remove that packet from our ack_wait_queue,
 %% which contains a list of packets waiting for an ack.
@@ -174,15 +175,13 @@ handle_call(Request, _From, AckState) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 handle_cast({offline_message_hook, Packet}, #{ack_wait_queue := AckWaitQueue} = AckState) ->
-    ?DEBUG("Check and remove packet: ~p from queue: ~p",
-                                                                    [Packet, AckWaitQueue]),
+    ?DEBUG("Check and remove packet: ~p from queue: ~p", [Packet, AckWaitQueue]),
     Id = xmpp:get_id(Packet),
     To = jid:remove_resource(xmpp:get_to(Packet)),
     {_, NewAckWaitQueue} = remove_packet_from_ack_wait_queue(Id, To, AckWaitQueue),
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
 handle_cast({c2s_closed, To}, #{ack_wait_queue := AckWaitQueue} = AckState) ->
-    ?DEBUG("Check and remove all packet to: ~p from queue: ~p",
-                                                                    [To, AckWaitQueue]),
+    ?DEBUG("Check and remove all packet to: ~p from queue: ~p", [To, AckWaitQueue]),
     NewAckWaitQueue = remove_all_packet_with_to_from_ack_wait_queue(To, AckWaitQueue),
     {noreply, AckState#{ack_wait_queue => NewAckWaitQueue}};
 handle_cast(Request, AckState) ->
@@ -269,7 +268,6 @@ remove_all_packet_with_to_from_ack_wait_queue(AckTo, AckWaitQueue) ->
     NewAckWaitQueue.
 
 
-
 %% Checks if the packet already exists in the ack_wait_queue and adds it if it does not exist yet.
 %% Add the packet to the ack_wait_queue.
 -spec check_and_add_packet_to_ack_wait_queue(boolean(), boolean(), integer(),
@@ -285,7 +283,6 @@ check_and_add_packet_to_ack_wait_queue(true, false, TimestampSec, Packet, AckSta
     end;
 check_and_add_packet_to_ack_wait_queue(_, _, _TimestampSec, _Packet, AckState) ->
     AckState.
-
 
 
 %% TODO(murali@): Write ack_wait_queue to file if necessary maybe??
@@ -304,7 +301,6 @@ add_packet_to_ack_wait_queue(Packet, _, AckState) ->
     AckState.
 
 
-
 %% Send an ack packet if necessary.
 -spec send_ack_if_necessary(boolean(), boolean(), stanza(), state()) -> ok.
 send_ack_if_necessary(true, true, Packet, AckState) ->
@@ -312,7 +308,6 @@ send_ack_if_necessary(true, true, Packet, AckState) ->
 send_ack_if_necessary(_, _, Packet, _) ->
     ?INFO_MSG("Ignoring this packet and not sending an ack: ~p", [Packet]),
     ok.
-
 
 
 %% Sends an ack packet.
@@ -329,7 +324,6 @@ send_ack(Packet, #{host := Host} = _AckState) ->
 send_ack(Packet, _AckState) ->
     ?DEBUG("Ignoring this packet and not sending an ack: ~p", [Packet]),
     ok.
-
 
 
 %% Cleans up the ack_wait_queue by going through all the packets and sends packets that are timed
@@ -357,7 +351,6 @@ clean_up_ack_wait_queue(AckWaitQueue, TimestampSec, CompareAtom) ->
     end.
 
 
-
 %% Sends a message to this gen_server process which will then trigger route_offline_message
 %% to store the packet in offline_msg to retry sending later.
 -spec send_packet_to_offline(boolean(), message()) -> ok.
@@ -368,7 +361,6 @@ send_packet_to_offline(false, Pkt) ->
     ok;
 send_packet_to_offline(true, _Pkt) ->
     ok.
-
 
 
 %% Sends a message to this gen_server process after the timeout mentioned which will then trigger
@@ -383,7 +375,6 @@ send_packet_with_id_to_offline(true, Id, To, TimestampSec, PacketTimeoutSec) ->
     ok;
 send_packet_with_id_to_offline(false, _, _, _, _) ->
     ok.
-
 
 
 %% Routes a message specifically through the offline route using the function from ejabberd_sm.
@@ -427,11 +418,9 @@ adjust_packet_id(Packet) ->
 %% Create a packet id for the stanza if it is empty.
 -spec create_packet_id_if_unavailable(binary()) -> binary().
 create_packet_id_if_unavailable(<<>>) ->
-    list_to_binary(uuid:to_string(uuid:uuid4()));
+    util:new_msg_id();
 create_packet_id_if_unavailable(Id) ->
     Id.
-
-
 
 
 %% Utility function to check if an item is a member in the queue based on the id.
@@ -498,5 +487,3 @@ mod_options(_Host) ->
     [{max_ack_wait_items, 5000},            %% max number of packets waiting for ack.
      {max_retry_count, 5},                  %% max number of retries for sending a packet.
      {packet_timeout_sec, 40}].             %% we then send the packet to offline_msg after this.
-
-
