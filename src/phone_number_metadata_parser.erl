@@ -57,7 +57,7 @@ parse_territories([Territory = #xmlElement{name = territory} | Rest]) ->
     _ ->
       RegionMetadata = #region_metadata{id = RegionId, attributes = RegionAttributes,
                                         mobile = RegionMobile},
-      phone_number_mnesia:insert(RegionMetadata)
+      libphonenumber_ets:insert(RegionMetadata)
   end,
   parse_territories(Rest);
 

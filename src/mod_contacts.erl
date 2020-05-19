@@ -36,14 +36,12 @@ start(Host, Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NORM, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
-    phone_number_util:init(Host, Opts),
     ok.
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_NORM),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
-    phone_number_util:close(Host),
     ok.
 
 depends(_Host, _Opts) ->
