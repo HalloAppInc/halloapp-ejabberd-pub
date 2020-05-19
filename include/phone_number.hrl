@@ -11,7 +11,7 @@
 -define(FILE_PHONE_NUMBER_METADATA, "PhoneNumberMetadata.xml").
 
 %% name of the table to hold all the country code information.
--define(LIBPHONENUMBER_METADATA_TABLE, libphonenumber_metadata).
+-define(LIBPHONENUMBER_METADATA_TABLE, phonenumber_metadata).
 
 
 %% Necessary attributes of the xml element territory in the phonenumbermetadata xml file.
