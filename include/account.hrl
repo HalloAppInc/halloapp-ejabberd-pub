@@ -8,8 +8,6 @@
 %%%-------------------------------------------------------------------
 -author("nikola").
 
--include("user_activity.hrl").
-
 -record(account,
 {
     uid :: binary(),
@@ -22,6 +20,8 @@
 }).
 
 -type account() :: #account{}.
+
+-type(activity_status() :: available | away).
 
 %% TODO(murali@): rename this record after transition to redis.
 -record(activity,

@@ -25,25 +25,27 @@
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
-%% hooks.
--export([presence_subs_hook/3, unset_presence_hook/4, remove_user/2, re_register_user/2]).
-%% API
--export([subscribe_user_to_friend/3, unsubscribe_user_to_friend/3,
-        get_user_subscribed_friends/2, get_user_broadcast_friends/2]).
+
+%% API and hooks.
+-export([
+    presence_subs_hook/3,
+    unset_presence_hook/4,
+    re_register_user/2,
+    subscribe_user_to_friend/3,
+    unsubscribe_user_to_friend/3,
+    get_user_subscribed_friends/2,
+    get_user_broadcast_friends/2
+]).
 
 
-start(Host, Opts) ->
-    mod_presence_subscription_mnesia:init(Host, Opts),
+start(Host, _Opts) ->
     ejabberd_hooks:add(presence_subs_hook, Host, ?MODULE, presence_subs_hook, 1),
     ejabberd_hooks:add(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50).
 
 stop(Host) ->
-    mod_presence_subscription_mnesia:close(Host),
     ejabberd_hooks:delete(presence_subs_hook, Host, ?MODULE, presence_subs_hook, 1),
     ejabberd_hooks:delete(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50).
 
 depends(_Host, _Opts) ->
@@ -59,26 +61,28 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% hooks
 %%====================================================================
 
--spec remove_user(binary(), binary()) -> {ok, any()} | {error, any()}.
-remove_user(User, Server) ->
-    mod_presence_subscription_mnesia:remove_user(User, Server).
-
-
 -spec re_register_user(User :: binary(), Server :: binary()) -> {ok, any()} | {error, any()}.
-re_register_user(User, Server) ->
-    mod_presence_subscription_mnesia:remove_user(User, Server).
+re_register_user(User, _Server) ->
+    ?INFO_MSG("Uid: ~s, unsubscribe_all", [User]),
+    model_accounts:presence_unsubscribe_all(User).
 
 
--spec unset_presence_hook(binary(), binary(), binary(), binary()) -> {ok, any()} | {error, any()}.
-unset_presence_hook(User, Server, _Resource, _Status) ->
-    model_accounts:presence_unsubscribe_all(User),
-    mod_presence_subscription_mnesia:unsubscribe_user_to_all(User, Server).
+-spec unset_presence_hook(User :: binary(), Server :: binary(),
+        Resource :: binary(), Status :: binary()) -> {ok, any()} | {error, any()}.
+unset_presence_hook(User, _Server, _Resource, _Status) ->
+    ?INFO_MSG("Uid: ~s, unsubscribe_all", [User]),
+    model_accounts:presence_unsubscribe_all(User).
 
--spec presence_subs_hook(binary(), binary(), stanza()) -> {ok, any()} | {error, any()}.
+
+-spec presence_subs_hook(User :: binary(), Server :: binary(),
+        Presence :: presence()) -> {ok, any()} | {error, any()}.
 presence_subs_hook(User, Server, #presence{to = #jid{user = Friend}, type = Type}) ->
     case Type of
-        subscribe -> check_and_subscribe_user_to_friend(User, Server, Friend);
-        unsubscribe -> unsubscribe_user_to_friend(User, Server, Friend)
+        subscribe ->
+            check_and_subscribe_user_to_friend(User, Server, Friend);
+        unsubscribe ->
+            ?INFO_MSG("Uid: ~s, unsubscribe_all", [User]),
+            unsubscribe_user_to_friend(User, Server, Friend)
     end.
 
 
@@ -86,42 +90,40 @@ presence_subs_hook(User, Server, #presence{to = #jid{user = Friend}, type = Type
 %% API
 %%====================================================================
 
--spec subscribe_user_to_friend(binary(), binary(), binary()) -> {ok, any()} | {error, any()}.
+-spec subscribe_user_to_friend(User :: binary(), Server :: binary(),
+        Friend :: binary()) -> {ok, any()} | {error, any()}.
 subscribe_user_to_friend(User, _, User) ->
     {ok, ignore_self_subscribe};
-subscribe_user_to_friend(User, Server, Friend) ->
-    model_accounts:presence_subscribe(User, Friend),
-    mod_presence_subscription_mnesia:subscribe_user_to_friend(User, Server, Friend).
+subscribe_user_to_friend(User, _Server, Friend) ->
+    ?INFO_MSG("Uid: ~s, Friend: ~s", [User, Friend]),
+    model_accounts:presence_subscribe(User, Friend).
 
 
--spec unsubscribe_user_to_friend(binary(), binary(), binary()) -> {ok, any()} | {error, any()}.
-unsubscribe_user_to_friend(User, Server, Friend) ->
-    model_accounts:presence_unsubscribe(User, Friend),
-    mod_presence_subscription_mnesia:unsubscribe_user_to_friend(User, Server, Friend).
+-spec unsubscribe_user_to_friend(User :: binary(), Server :: binary(),
+        Friend :: binary()) -> {ok, any()} | {error, any()}.
+unsubscribe_user_to_friend(User, _Server, Friend) ->
+    ?INFO_MSG("Uid: ~s, Friend: ~s", [User, Friend]),
+    model_accounts:presence_unsubscribe(User, Friend).
 
 
--spec get_user_subscribed_friends(binary(), binary()) -> [binary()].
-get_user_subscribed_friends(User, Server) ->
-    {ok, RedisResult} = model_accounts:get_subscribed_uids(User),
-    MnesiaResult = mod_presence_subscription_mnesia:get_user_subscribed_friends(User, Server),
-    compare_presence_subs(RedisResult, MnesiaResult),
-    RedisResult.
+-spec get_user_subscribed_friends(User :: binary(), Server :: binary()) -> [binary()].
+get_user_subscribed_friends(User, _Server) ->
+    {ok, Result} = model_accounts:get_subscribed_uids(User),
+    Result.
 
 
--spec get_user_broadcast_friends(binary(), binary()) -> [binary()].
-get_user_broadcast_friends(User, Server) ->
-    {ok, RedisResult} = model_accounts:get_broadcast_uids(User),
-    MnesiaResult = mod_presence_subscription_mnesia:get_user_broadcast_friends(User, Server),
-    compare_broadcast_subs(RedisResult, MnesiaResult),
-    RedisResult.
+-spec get_user_broadcast_friends(User :: binary(), Server :: binary()) -> [binary()].
+get_user_broadcast_friends(User, _Server) ->
+    {ok, Result} = model_accounts:get_broadcast_uids(User),
+    Result.
 
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
-%% TODO(murali@): Update this after full transition to redis.
--spec check_and_subscribe_user_to_friend(binary(), binary(),
-                                            binary()) -> ok | {ok, any()} | {error, any()}.
+
+-spec check_and_subscribe_user_to_friend(User :: binary(), Server :: binary(),
+        Friend :: binary()) -> ok | {ok, any()} | {error, any()}.
 check_and_subscribe_user_to_friend(User, Server, Friend) ->
     case model_friends:is_friend(User, Friend) of
         false ->
@@ -130,32 +132,6 @@ check_and_subscribe_user_to_friend(User, Server, Friend) ->
         true ->
             subscribe_user_to_friend(User, Server, Friend),
             mod_user_activity:probe_and_send_presence(User, Server, Friend)
-    end.
-
-%%TODO(murali@): remove these functions after transitions.
-compare_presence_subs(RedisResult, {ok, MnesiaSubs}) ->
-    MnesiaResult = lists:map(
-            fun(#presence_subs{userid = {User, _Server}}) ->
-                User
-            end, MnesiaSubs),
-    case sets:from_list(MnesiaResult) =:= sets:from_list(RedisResult) of
-        true -> ok;
-        false ->
-            ?ERROR_MSG("Presence subscription uids do not match on mnesia: ~p and redis: ~p",
-                    [MnesiaSubs, RedisResult])
-    end.
-
-
-compare_broadcast_subs(RedisResult, {ok, MnesiaSubs}) ->
-    MnesiaResult = lists:map(
-            fun(#presence_subs{subscriberid = {User, _Server}}) ->
-                User
-            end, MnesiaSubs),
-    case sets:from_list(MnesiaResult) == sets:from_list(RedisResult) of
-        true -> ok;
-        false ->
-            ?ERROR_MSG("Presence subscription uids do not match on mnesia: ~p and redis: ~p",
-                    [MnesiaSubs, RedisResult])
     end.
 
 
