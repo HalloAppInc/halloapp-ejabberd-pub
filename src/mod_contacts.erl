@@ -75,7 +75,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
             count_full_sync(Index),
             ResultIQ = xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
                     syncid = SyncId, type = normal,
-                    contacts = normalize_and_sync_contacts(UserId, Server, Contacts, SyncId)})
+                    contacts = normalize_and_insert_contacts(UserId, Server, Contacts, SyncId)})
     end,
     case Last of
         false -> ok;
@@ -150,7 +150,7 @@ handle_delta_contacts(UserId, Server, Contacts) ->
                 Contact#contact.normalized
             end, DeleteContactsList),
     delete_contact_phones(UserId, Server, DeleteContactPhones),
-    normalize_and_add_contacts(UserId, Server, AddContactsList).
+    normalize_and_insert_contacts(UserId, Server, AddContactsList, undefined).
 
 
 -spec delete_all_contacts(UserId :: binary(), Server :: binary()) -> ok.
@@ -185,72 +185,54 @@ finish_sync(UserId, Server, SyncId) ->
 %% add_contact
 %%====================================================================
 
--spec normalize_and_sync_contacts(UserId :: binary(), Server :: binary(),
-        Contacts :: [contact()], SyncId :: binary()) -> [contact()].
-normalize_and_sync_contacts(UserId, Server, Contacts, SyncId) ->
+
+-spec normalize_and_insert_contacts(UserId :: binary(), Server :: binary(),
+        Contacts :: [contact()], SyncId :: undefined | binary()) -> [contact()].
+normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
     UserNumber = get_phone(UserId),
     UserRegionId = mod_libphonenumber:get_region_id(UserNumber),
     lists:map(
             fun(Contact) ->
-                normalize_and_sync_contact(UserId, UserRegionId, Server, Contact, SyncId)
+                normalize_and_insert_contact(UserId, UserRegionId, Server, Contact, SyncId)
             end, Contacts).
 
 
--spec normalize_and_sync_contact(UserId :: binary(), UserRegionId :: binary(),
+-spec normalize_and_insert_contact(UserId :: binary(), UserRegionId :: binary(),
         Server :: binary(), Contact :: contact(), SyncId :: binary()) -> contact().
-normalize_and_sync_contact(_UserId, _UserRegionId, _Server, #contact{raw = undefined}, _SyncId) ->
+normalize_and_insert_contact(_UserId, _UserRegionId, _Server, #contact{raw = undefined}, _SyncId) ->
     #contact{};
-normalize_and_sync_contact(UserId, UserRegionId, _Server, Contact, SyncId) ->
-    RawPhone = Contact#contact.raw,
-    ContactPhone = mod_libphonenumber:normalize(RawPhone, UserRegionId),
-    case ContactPhone of
-        undefined ->
-            stat:count("HA/contacts", "normalize_fail"),
-            #contact{raw = RawPhone};
-        _ ->
-            stat:count("HA/contacts", "normalize_success"),
-            ContactId = obtain_user_id(ContactPhone),
-            model_contacts:sync_contacts(UserId, SyncId, [ContactPhone]),
-            case ContactId of
-                undefined ->
-                    #contact{raw = RawPhone, normalized = ContactPhone, role = <<"none">>};
-                _ ->
-                    IsFriends = model_friends:is_friend(UserId, ContactId),
-                    Role = get_role_value(IsFriends),
-                    AvatarId = model_accounts:get_avatar_id_binary(ContactId),
-                    #contact{raw = RawPhone, userid = ContactId, avatarid = AvatarId,
-                            normalized = ContactPhone, role = Role}
-            end
-    end.
-
-
--spec normalize_and_add_contacts(UserId :: binary(), Server :: binary(),
-        Contacts :: [contact()]) -> [contact()].
-normalize_and_add_contacts(UserId, Server, Contacts) ->
-    UserNumber = get_phone(UserId),
-    UserRegionId = mod_libphonenumber:get_region_id(UserNumber),
-    lists:map(
-            fun(Contact) ->
-                normalize_and_add_contact(UserId, UserRegionId, Server, Contact)
-            end, Contacts).
-
-
--spec normalize_and_add_contact(UserId :: binary(), UserRegionId :: binary(),
-        Server :: binary(), Contact :: contact()) -> contact().
-normalize_and_add_contact(_UserId, _UserRegionId, _Server, #contact{raw = undefined}) ->
-    #contact{};
-normalize_and_add_contact(UserId, UserRegionId, Server, Contact) ->
+normalize_and_insert_contact(UserId, UserRegionId, Server, Contact, SyncId) ->
     RawPhone = Contact#contact.raw,
     ContactPhone = mod_libphonenumber:normalize(RawPhone, UserRegionId),
     NewContact = case ContactPhone of
-                undefined ->
-                    stat:count("HA/contacts", "normalize_fail"),
-                    #contact{};
-                _ ->
-                    stat:count("HA/contacts", "normalize_success"),
-                    add_contact_phone(UserId, Server, ContactPhone)
-            end,
+        undefined ->
+            stat:count("HA/contacts", "normalize_fail"),
+            #contact{};
+        _ ->
+            stat:count("HA/contacts", "normalize_success"),
+            case SyncId of
+                undefined -> add_contact_phone(UserId, Server, ContactPhone);
+                _ -> sync_contact_phone(UserId, Server, ContactPhone, SyncId)
+            end
+    end,
     NewContact#contact{raw = RawPhone}.
+
+
+-spec sync_contact_phone(UserId :: binary(), Server :: binary(),
+        ContactPhone :: binary(), SyncId :: binary()) -> contact().
+sync_contact_phone(UserId, _Server, ContactPhone, SyncId) ->
+    ContactId = obtain_user_id(ContactPhone),
+    model_contacts:sync_contacts(UserId, SyncId, [ContactPhone]),
+    case ContactId of
+        undefined ->
+            #contact{normalized = ContactPhone, role = <<"none">>};
+        _ ->
+            IsFriends = model_friends:is_friend(UserId, ContactId),
+            Role = get_role_value(IsFriends),
+            AvatarId = model_accounts:get_avatar_id_binary(ContactId),
+            #contact{userid = ContactId, avatarid = AvatarId,
+                    normalized = ContactPhone, role = Role}
+    end.
 
 
 -spec add_contact_phone(UserId :: binary(), Server :: binary(),
