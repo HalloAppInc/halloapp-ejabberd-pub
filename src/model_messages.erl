@@ -171,7 +171,10 @@ handle_call({ack_message, Uid, MsgId}, _From, Redis) ->
 handle_call({remove_all_user_messages, Uid}, _From, Redis) ->
     {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
     MessageKeys = message_keys(Uid, MsgIds),
-    {ok, _MRes} = q(["DEL" | MessageKeys]),
+    case MessageKeys of
+        [] -> ok;
+        _ -> {ok, _MRes} = q(["DEL" | MessageKeys])
+    end,
     {ok, _QRes} = q(["DEL", message_queue_key(Uid)]),
     {reply, ok, Redis};
 

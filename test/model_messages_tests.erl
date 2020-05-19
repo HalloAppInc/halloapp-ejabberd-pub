@@ -69,6 +69,7 @@ store_message_test() ->
 
 message_order_test() ->
     setup(),
+    ?assertEqual(ok, model_messages:remove_all_user_messages(?UID1)),
     ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
     ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE2)),
     ?assertEqual({ok, [?OFFLINE_MESSAGE1, ?OFFLINE_MESSAGE2]},
