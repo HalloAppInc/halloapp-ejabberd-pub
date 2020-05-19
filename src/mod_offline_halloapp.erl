@@ -106,26 +106,28 @@ count_user_messages(User) ->
 
 %% TODO(murali@): Add logic to increment retry count.
 -spec route_offline_messages(JID :: jid()) -> ok.
-route_offline_messages(#jid{luser = UserId, lserver = ServerHost}) ->
+route_offline_messages(#jid{luser = UserId, lserver = _ServerHost}) ->
     {ok, OfflineMessages} = model_messages:get_all_user_messages(UserId),
-    lists:foreach(
-        fun(OfflineMessage) ->
-            case OfflineMessage of
-                undefined ->
-                    ok;
-                _ ->
-                    FromUid = OfflineMessage#offline_message.from_uid,
-                    ToUid = OfflineMessage#offline_message.to_uid,
-                    ?INFO_MSG("sending offline message from_uid: ~s to_uid: ~s", [FromUid, ToUid]),
-                    To = jid:make(ToUid, ServerHost),
-                    From = case FromUid of
-                                undefined -> jid:make(ServerHost);
-                                FromUid -> jid:make(FromUid, ServerHost)
-                            end,
-                    ejabberd_router:route(#binary_message{to = To, from = From,
-                            message = OfflineMessage#offline_message.message})
+    lists:foreach(fun route_offline_message/1, OfflineMessages).
+
+
+-spec route_offline_message(OfflineMessage :: undefined | offline_message()) -> ok.
+route_offline_message(undefined) ->
+    ok;
+route_offline_message(#offline_message{from_uid = FromUid, to_uid = ToUid, message = Message}) ->
+    ?INFO_MSG("sending offline message from_uid: ~s to_uid: ~s", [FromUid, ToUid]),
+    case fxml_stream:parse_element(Message) of
+        {error, Reason} -> ?ERROR_MSG("failed to parse: ~p, reason: ~s", [Message, Reason]);
+        MessageXmlEl ->
+            try
+                Packet = xmpp:decode(MessageXmlEl, ?NS_CLIENT, [ignore_els]),
+                ejabberd_router:route(Packet)
+            catch
+                Class : Reason : Stacktrace ->
+                    ?ERROR_MSG("failed routing: ~s", [
+                            lager:pr_stacktrace(Stacktrace, {Class, Reason})])
             end
-        end, OfflineMessages).
+    end.
 
 
 -spec adjust_id_and_store_message(message()) -> message().
