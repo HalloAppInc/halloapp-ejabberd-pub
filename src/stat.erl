@@ -87,9 +87,7 @@ init(_Stuff) ->
     % TODO: The initial configuration of erlcloud should probably move
     {ok, _} = application:ensure_all_started(erlcloud),
     {ok, Config} = erlcloud_aws:auto_config(),
-    Config1 = Config#aws_config{expiration = util:now() + 400},
-    erlcloud_aws:configure(Config1),
-%%    erlcloud_aws:configure(Config),
+    erlcloud_aws:configure(Config),
     {ok, _Tref} = timer:apply_interval(1000, ?MODULE, trigger_send, []),
     CurrentMinute = util:round_to_minute(util:now()),
     {ok, #{minute => CurrentMinute}}.
