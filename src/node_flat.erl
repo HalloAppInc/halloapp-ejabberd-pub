@@ -375,6 +375,12 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, ItemType, Payload,
 	true ->
 	    if MaxItems > 0 ->
 		    case get_item(Nidx, ItemId) of
+		    {result, #pubsub_item_new{itemtype = other, creation = {_, GenKey}} = OldItem} ->
+			    set_item(OldItem#pubsub_item_new{
+						itemtype = ItemType,
+						modification = {Now, SubKey},
+						payload = Payload}),
+			    {result, {default, broadcast, []}};
 			{result, #pubsub_item_new{creation = {Then, GenKey}} = _OldItem} ->
 			    {result, {exists, ignore, [Then]}};
 			{result, _} ->
