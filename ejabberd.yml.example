@@ -207,8 +207,8 @@ modules:
   mod_offline_halloapp: {}
   mod_ping:
     send_pings: true
-    ping_interval: 240
-    ping_ack_timeout: 40
+    ping_interval: 120
+    ping_ack_timeout: 30
     timeout_action: kill
   mod_privacy: {}
   mod_private: {}
