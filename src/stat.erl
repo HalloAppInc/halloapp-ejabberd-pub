@@ -88,7 +88,6 @@ init(_Stuff) ->
     {ok, _} = application:ensure_all_started(erlcloud),
     {ok, Config} = erlcloud_aws:auto_config(),
     erlcloud_aws:configure(Config),
-
     {ok, _Tref} = timer:apply_interval(1000, ?MODULE, trigger_send, []),
     CurrentMinute = util:round_to_minute(util:now()),
     {ok, #{minute => CurrentMinute}}.
@@ -186,7 +185,9 @@ update_aws_config(#aws_config{access_key_id = AccessKeyId, expiration = Expirati
         false -> ok;
         true ->
             %% This gets a new config with refreshed tokens
-            NewConfig = erlcloud_aws:auto_config(),
+            {ok, NewConfig0} = erlcloud_aws:auto_config(),
+            %% Debug code to force early expiration
+            NewConfig = NewConfig0#aws_config{expiration = util:now() + 600},
             NewAccessKeyId = NewConfig#aws_config.access_key_id,
             NewExpiration = NewConfig#aws_config.expiration,
             erlcloud_aws:configure(NewConfig),
