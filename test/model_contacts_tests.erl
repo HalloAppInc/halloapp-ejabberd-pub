@@ -114,7 +114,6 @@ is_contact_test() ->
     true = model_contacts:is_contact(?UID,  ?CONTACT2),
     false = model_contacts:is_contact(?UID,  ?CONTACT3).
 
-
 get_contact_uids_size_test() ->
     setup(),
     ?assertEqual(0, model_contacts:get_contact_uids_size(?CONTACT1)),
@@ -123,3 +122,35 @@ get_contact_uids_size_test() ->
     ok = model_contacts:add_contacts(?UID2, [?CONTACT1, ?CONTACT2]),
     ?assertEqual(2, model_contacts:get_contact_uids_size(?CONTACT1)),
     ok.
+
+
+while(0, _F) -> ok;
+while(N, F) ->
+  erlang:apply(F, [N]),
+  while(N -1, F).
+
+perf_test1(N) ->
+  StartTime = os:system_time(microsecond),
+  while(N, fun(X) ->
+            ok = model_contacts:add_contact(integer_to_binary(10), integer_to_binary(X))
+           end),
+  EndTime = os:system_time(microsecond),
+  T = EndTime - StartTime,
+  ?debugFmt("~w operations took ~w us => ~f ops/sec", [N, T, N / (T / 1000000)]),
+
+  Contacts = [integer_to_binary(X) || X <- lists:seq(1,N,1)],
+  StartTime1 = os:system_time(microsecond),
+  ok = model_contacts:add_contacts(integer_to_binary(10), Contacts),
+  EndTime1 = os:system_time(microsecond),
+  T1 = EndTime1 - StartTime1,
+  ?debugFmt("Batched ~w operations took ~w us => ~f ops/sec", [N, T1, N / (T1 / 1000000)]).
+
+perf_test() ->
+  ?debugFmt("Func starting", []),
+  setup(),
+  N = 50,
+  while(N, fun(X) ->
+            perf_test1(X)
+           end),
+  ?debugFmt("Func finishing", []),
+  {ok, N}.
