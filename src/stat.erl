@@ -89,6 +89,7 @@ init(_Stuff) ->
     {ok, Config} = erlcloud_aws:auto_config(),
     Config1 = Config#aws_config{expiration = util:now() + 400},
     erlcloud_aws:configure(Config1),
+%%    erlcloud_aws:configure(Config),
     {ok, _Tref} = timer:apply_interval(1000, ?MODULE, trigger_send, []),
     CurrentMinute = util:round_to_minute(util:now()),
     {ok, #{minute => CurrentMinute}}.
@@ -142,6 +143,7 @@ send_data(MetricsMap) when is_map(MetricsMap) ->
 -spec send_to_cloudwatch(Data :: map()) -> ok.
 send_to_cloudwatch(Data) when is_map(Data) ->
     ?INFO_MSG("sending ~p Namespaces", [maps:size(Data)]),
+    update_aws_config(),
     maps:map(
         fun (Namespace, Metrics) ->
             ?DEBUG("~s ~p", [Namespace, length(Metrics)]),
@@ -153,7 +155,6 @@ send_to_cloudwatch(Data) when is_map(Data) ->
 cloudwatch_put_metric_data(Namespace, Metrics)
         when is_list(Namespace), is_list(Metrics)->
     try
-        update_aws_config(),
         erlcloud_mon:put_metric_data(Namespace, Metrics)
     of
         {error, Reason} ->
@@ -163,22 +164,28 @@ cloudwatch_put_metric_data(Namespace, Metrics)
             ?DEBUG("success ~s ~w", [Namespace, length(Metrics)])
     catch
         Class:Reason:Stacktrace ->
-            ?ERROR_MSG("~nStacktrace:~s",
+            ?ERROR_MSG("Stacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
     end.
 
 -spec update_aws_config() -> ok.
 update_aws_config() ->
-    C = erlcloud_aws:default_config(),
-    ?INFO_MSG("key_id:~s expiration:~p", [C#aws_config.access_key_id, C#aws_config.expiration]),
-    update_aws_config(C).
+    try
+        C = erlcloud_aws:default_config(),
+        ?DEBUG("key_id:~s expiration:~p", [C#aws_config.access_key_id, C#aws_config.expiration]),
+        update_aws_config(C)
+    catch
+        Class:Reason:Stacktrace ->
+            ?ERROR_MSG("Stacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+    end.
+
 
 % TODO: delete this code if our change in erlcloud auto refreshing works
 -spec update_aws_config(Config :: aws_config()) -> ok.
 update_aws_config(#aws_config{access_key_id = _AccessKeyId, expiration = undefined}) ->
     ok;
 update_aws_config(#aws_config{access_key_id = AccessKeyId, expiration = Expiration}) ->
-    ?DEBUG("check refresh id:~p exp:~p", [AccessKeyId, Expiration]),
     Now = util:now(),
     ExpiresIn = Expiration - Now,
     %% Tokens are usually expire in 3h, refresh the token if it expires in less then 5 minutes
