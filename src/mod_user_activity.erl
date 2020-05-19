@@ -160,7 +160,7 @@ store_user_activity(User, _Server, TimestampMs, Status) ->
         TimestampMs :: undefined | integer(), Status :: undefined | activity_status()) -> ok.
 broadcast_presence(User, Server, TimestampMs, Status) ->
     LastSeen = case TimestampMs of
-        undefined -> undefined;
+        undefined -> <<>>;
         _ -> util:to_binary(util:ms_to_sec(TimestampMs))
     end,
     Presence = #presence{from = jid:make(User, Server),
