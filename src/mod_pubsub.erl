@@ -2000,7 +2000,10 @@ purge_expired_items_with_pubsub_node(Host, PubSub_Node, Timestamp) ->
 	{_, NodeId} = PubSub_Node#pubsub_node.nodeid,
 	Items = get_items(Host, NodeId),
 	Owner = jid:make(lists:nth(1, PubSub_Node#pubsub_node.owners)),
-	TTL = get_option(PubSub_Node#pubsub_node.options, item_expire),
+	TTL = case get_option(PubSub_Node#pubsub_node.options, item_expire) of
+		infinity -> infinity;
+		_ -> ?EXPIRE_ITEM_SEC
+	end,
 	Now = util:timestamp_secs_to_integer(Timestamp),
 	lists:foldl(
 		fun(Item, {_Status, _Acc}) ->
@@ -2930,26 +2933,27 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, ItemType, Ti
 -spec broadcast_retract_items(host(), binary(), nodeIdx(), binary(),
 			      nodeOptions(), [itemId()]) -> {result, boolean()}.
 broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds) ->
-    broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, [other], <<>>, [], <<>>, true).
+    broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions,
+            ItemIds, [other], <<>>, [], <<>>, true).
 
 -spec broadcast_retract_items(host(), binary(), nodeIdx(), binary(),
 			      nodeOptions(), [itemId()], [itemType()], boolean()) -> {result, boolean()}.
-broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, ItemTypes, ForceNotify) ->
-    broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, ItemTypes, <<>>, [], <<>>,
-							ForceNotify).
+broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, ItemTypes, Notify) ->
+    broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions,
+            ItemIds, ItemTypes, <<>>, [], <<>>, Notify).
 
 -spec broadcast_retract_items(host(), binary(), nodeIdx(), binary(), nodeOptions(), [itemId()],
 						[itemType()], binary(), [xmpp_element() | #xmlel{}], binary(), boolean()) ->
 	{result, boolean()}.
 broadcast_retract_items(_Host, _Node, _Nidx, _Type, _NodeOptions, [], _ItemTypes,
-						_Publisher, _Payload, _Timestamp, _ForceNotify) ->
+						_Publisher, _Payload, _Timestamp, _Notify) ->
     {result, false};
 broadcast_retract_items(Host, Node, Nidx, Type, NodeOptions, ItemIds, ItemTypes,
-						Publisher, Payload, Timestamp, ForceNotify) ->
+						Publisher, Payload, Timestamp, Notify) ->
 	%% TODO(murali@): Remove assumption of only one item id!
 	[ItemId] = ItemIds,
 	[ItemType] = ItemTypes,
-    case (get_option(NodeOptions, notify_retract) or ForceNotify) of
+    case Notify of
 	true ->
 	    case get_collection_subscriptions(Host, Node) of
 		{result, SubsByDepth} ->

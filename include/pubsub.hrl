@@ -29,6 +29,9 @@
 %% Would be nice to have it configurable.
 -define(MAX_PAYLOAD_SIZE, 250000).
 
+%% Number of seconds in 7days.
+-define(EXPIRE_ITEM_SEC, 604800).
+
 %% -------------------------------
 %% Pubsub types
 
