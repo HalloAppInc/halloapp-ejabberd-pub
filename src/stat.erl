@@ -87,7 +87,8 @@ init(_Stuff) ->
     % TODO: The initial configuration of erlcloud should probably move
     {ok, _} = application:ensure_all_started(erlcloud),
     {ok, Config} = erlcloud_aws:auto_config(),
-    erlcloud_aws:configure(Config),
+    Config1 = Config#aws_config{expiration = util:now() + 400},
+    erlcloud_aws:configure(Config1),
     {ok, _Tref} = timer:apply_interval(1000, ?MODULE, trigger_send, []),
     CurrentMinute = util:round_to_minute(util:now()),
     {ok, #{minute => CurrentMinute}}.
@@ -168,7 +169,9 @@ cloudwatch_put_metric_data(Namespace, Metrics)
 
 -spec update_aws_config() -> ok.
 update_aws_config() ->
-    update_aws_config(erlcloud_aws:default_config()).
+    C = erlcloud_aws:default_config(),
+    ?INFO_MSG("key_id:~s expiration:~p", [C#aws_config.access_key_id, C#aws_config.expiration]),
+    update_aws_config(C).
 
 % TODO: delete this code if our change in erlcloud auto refreshing works
 -spec update_aws_config(Config :: aws_config()) -> ok.
