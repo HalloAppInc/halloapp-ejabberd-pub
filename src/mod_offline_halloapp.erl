@@ -96,7 +96,7 @@ handle_call(Request, _From, State) ->
 
 
 handle_cast({setup_push_timer, Message}, State) ->
-    util:send_after({push_offline_message, Message}, ?MESSAGE_RESPONSE_TIMEOUT_MILLISEC),
+    util:send_after(?MESSAGE_RESPONSE_TIMEOUT_MILLISEC, {push_offline_message, Message}),
     {noreply, State};
 
 handle_cast(Request, State) ->
