@@ -9,14 +9,19 @@
 -module(mod_offline_halloapp).
 -author('murali').
 -behaviour(gen_mod).
+-behaviour(gen_server).
 
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("translate.hrl").
 -include("offline_message.hrl").
 
+-define(MESSAGE_RESPONSE_TIMEOUT_MILLISEC, 30000).  %% 30 seconds.
+
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
+%% gen_server API
+-export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 %% API and hooks.
 -export([
@@ -29,28 +34,91 @@
 ]).
 
 
-start(Host, _Opts) ->
-    ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
-    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
-    ejabberd_hooks:add(user_send_ack, Host, ?MODULE, user_send_ack, 50),
-    ejabberd_hooks:add(c2s_self_presence, Host, ?MODULE, c2s_self_presence, 50),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50).
+%%%===================================================================
+%%% gen_mod API
+%%%===================================================================
 
-stop(Host) ->
-    ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
-    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
-    ejabberd_hooks:delete(user_send_ack, Host, ?MODULE, user_send_ack, 50),
-    ejabberd_hooks:delete(c2s_self_presence, Host, ?MODULE, c2s_self_presence, 50),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50).
+start(Host, Opts) ->
+    ?INFO_MSG("mod_offline_halloapp: start", []),
+    gen_mod:start_child(?MODULE, Host, Opts, get_proc()).
+
+stop(_Host) ->
+    ?INFO_MSG("mod_offline_halloapp: stop", []),
+    gen_mod:stop_child(get_proc()).
 
 depends(_Host, _Opts) ->
     [].
 
+reload(_Host, _NewOpts, _OldOpts) ->
+    ok.
+
 mod_options(_Host) ->
     [].
 
-reload(_Host, _NewOpts, _OldOpts) ->
+get_proc() ->
+    gen_mod:get_module_proc(global, ?MODULE).
+
+
+
+%%%===================================================================
+%%% gen_server callbacks
+%%%===================================================================
+
+init([Host|_]) ->
+    ?DEBUG("mod_offline_halloapp: init", []),
+    process_flag(trap_exit, true),
+    ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
+    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
+    ejabberd_hooks:add(user_send_ack, Host, ?MODULE, user_send_ack, 50),
+    ejabberd_hooks:add(c2s_self_presence, Host, ?MODULE, c2s_self_presence, 50),
+    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
+    {ok, #{host => Host}}.
+
+
+terminate(_Reason, #{host := Host} = _State) ->
+    ?DEBUG("mod_offline_halloapp: terminate", []),
+    ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
+    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
+    ejabberd_hooks:delete(user_send_ack, Host, ?MODULE, user_send_ack, 50),
+    ejabberd_hooks:delete(c2s_self_presence, Host, ?MODULE, c2s_self_presence, 50),
+    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
+
+
+code_change(_OldVsn, State, _Extra) ->
+    ?DEBUG("mod_offline_halloapp: code_change", []),
+    {ok, State}.
+
+
+handle_call(Request, _From, State) ->
+    ?DEBUG("invalid request: ~p", [Request]),
+    {reply, {error, bad_arg}, State}.
+
+
+handle_cast({setup_push_timer, Message}, State) ->
+    util:send_after({push_offline_message, Message}, ?MESSAGE_RESPONSE_TIMEOUT_MILLISEC),
+    {noreply, State};
+
+handle_cast(Request, State) ->
+    ?DEBUG("invalid request: ~p", [Request]),
+    {noreply, State}.
+
+
+handle_info({push_offline_message, Message}, #{host := _ServerHost} = State) ->
+    MsgId = xmpp:get_id(Message),
+    #jid{user = Uid} = xmpp:get_to(Message),
+    case model_messages:get_message(Uid, MsgId) of
+        {ok, undefined} ->
+            ?INFO_MSG("Uid: ~s, message has been acked, Id: ~s", [Uid, MsgId]);
+        _ ->
+            ?INFO_MSG("Uid: ~s, no ack for message Id: ~s, trying a push", [Uid, MsgId]),
+            ejabberd_sm:route_offline_message(Message)
+    end,
+    {noreply, State};
+
+handle_info(Request, State) ->
+    ?DEBUG("invalid request: ~p", [Request]),
+    {noreply, State}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -81,6 +149,7 @@ offline_message_hook({Action, #message{} = Message} = _Acc) ->
 user_receive_packet({Packet, #{lserver := _ServerHost} = State} = _Acc)
         when is_record(Packet, message) ->
     NewMessage = adjust_id_and_store_message(Packet),
+    setup_push_timer(NewMessage),
     {NewMessage, State};
 user_receive_packet(Acc) ->
     Acc.
@@ -135,4 +204,10 @@ adjust_id_and_store_message(Message) ->
     NewMessage = xmpp:set_id_if_missing(Message, util:new_msg_id()),
     ok = model_messages:store_message(NewMessage),
     NewMessage.
+
+
+-spec setup_push_timer(Message :: message()) -> ok.
+setup_push_timer(Message) ->
+    gen_server:cast(get_proc(), {setup_push_timer, Message}).
+
 

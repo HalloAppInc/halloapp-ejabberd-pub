@@ -28,7 +28,8 @@
     new_msg_id/0,
     new_avatar_id/0,
     list_to_map/1,
-    ms_to_sec/1
+    ms_to_sec/1,
+    send_after/2
 ]).
 
 %% Export all functions for unit tests
@@ -169,3 +170,8 @@ list_to_map([], Map) ->
 ms_to_sec(MilliSeconds) when is_integer(MilliSeconds) ->
     MilliSeconds div 1000.
 
+
+-spec send_after(TimeoutMs :: integer(), Msg :: any()) -> reference().
+send_after(TimeoutMs, Msg) ->
+    NewTimer = erlang:send_after(TimeoutMs, self(), Msg),
+    NewTimer.
