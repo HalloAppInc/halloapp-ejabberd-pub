@@ -49,6 +49,7 @@
     set_push_info/1,
     set_push_info/4,
     get_push_info/1,
+    remove_push_info/1,
     presence_subscribe/2,
     presence_unsubscribe/2,
     presence_unsubscribe_all/1,
@@ -192,6 +193,11 @@ set_push_info(Uid, Os, PushToken, TimestampMs) ->
 -spec get_push_info(Uid :: binary()) -> {ok, undefined | push_info()} | {error, missing}.
 get_push_info(Uid) ->
     gen_server:call(get_proc(), {get_push_info, Uid}).
+
+
+-spec remove_push_info(Uid :: binary()) -> ok | {error, missing}.
+remove_push_info(Uid) ->
+    gen_server:call(get_proc(), {remove_push_info, Uid}).
 
 
 -spec account_exists(Uid :: binary()) -> boolean().
@@ -358,6 +364,10 @@ handle_call({get_push_info, Uid}, _From, Redis) ->
                 #push_info{uid = Uid, os = Os, token = Token, timestamp_ms = TsMs}
         end,
     {reply, {ok, Res}, Redis};
+
+handle_call({remove_push_info, Uid}, _From, Redis) ->
+    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    {reply, ok, Redis};
 
 handle_call({presence_subscribe, Uid, Buid}, _From, Redis) ->
     {ok, Res1} = q(["SADD", subscribe_key(Uid), Buid]),

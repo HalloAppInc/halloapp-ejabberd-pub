@@ -23,7 +23,8 @@
 %% iq handler and API.
 -export([
     process_local_iq/1,
-    get_push_info/2
+    get_push_info/2,
+    remove_push_info/2
 ]).
 
 
@@ -107,6 +108,14 @@ get_push_info(Uid, Server) ->
             end,
     compare_push_info_result(Uid, RedisPushInfo, MnesiaPushInfo),
     MnesiaPushInfo.
+
+
+-spec remove_push_info(Uid :: binary(), Server :: binary()) -> ok.
+remove_push_info(Uid, Server) ->
+    ok = model_accounts:remove_push_info(Uid),
+    {ok, _} = mod_push_notifications_mnesia:unregister_push({Uid, Server}),
+    stat:count("HA/push_tokens", "remove_push_token"),
+    ok.
 
 
 %% TODO(murali@): remove this function after successful migration.

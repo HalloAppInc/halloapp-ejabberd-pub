@@ -200,6 +200,8 @@ push_token_test() ->
     ?assertEqual(ok, model_accounts:set_push_info(?UID1, ?PUSH_TOKEN_OS1,
             ?PUSH_TOKEN1, ?PUSH_TOKEN_TIMESTAMP1)),
     ?assertEqual({ok, ?PUSH_INFO1}, model_accounts:get_push_info(?UID1)),
+    ?assertEqual(ok, model_accounts:remove_push_info(?UID1)),
+    ?assertEqual({ok, undefined}, model_accounts:get_push_info(?UID1)),
 
     ?assertEqual({ok, undefined}, model_accounts:get_push_info(?UID2)),
     ?assertEqual(ok, model_accounts:set_push_info(?PUSH_INFO2)),
