@@ -156,11 +156,12 @@ route(Packet) ->
 route_offline_message(#message{to = To, type = _Type} = Packet) ->
     LUser = To#jid.luser,
     LServer = To#jid.lserver,
+    DecodedPacket = xmpp:decode_els(Packet),
     case ejabberd_auth:user_exists(LUser, LServer) andalso
-        is_privacy_allow(Packet) of
+        is_privacy_allow(DecodedPacket) of
         true ->
             ejabberd_hooks:run_fold(offline_message_hook,
-                        LServer, {bounce, Packet}, []);
+                        LServer, {bounce, DecodedPacket}, []);
         false ->
             Err = xmpp:err_service_unavailable(),
             ejabberd_router:route_error(Packet, Err)
