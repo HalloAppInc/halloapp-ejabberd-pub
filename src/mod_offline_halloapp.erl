@@ -28,7 +28,7 @@
     offline_message_hook/1,
     user_receive_packet/1,
     user_send_ack/1,
-    c2s_self_presence/1,
+    sm_register_connection_hook/3,
     remove_user/2,
     count_user_messages/1
 ]).
@@ -70,7 +70,7 @@ init([Host|_]) ->
     ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:add(user_send_ack, Host, ?MODULE, user_send_ack, 50),
-    ejabberd_hooks:add(c2s_self_presence, Host, ?MODULE, c2s_self_presence, 50),
+    ejabberd_hooks:add(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     {ok, #{host => Host}}.
 
@@ -80,7 +80,7 @@ terminate(_Reason, #{host := Host} = _State) ->
     ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
     ejabberd_hooks:delete(user_send_ack, Host, ?MODULE, user_send_ack, 50),
-    ejabberd_hooks:delete(c2s_self_presence, Host, ?MODULE, c2s_self_presence, 50),
+    ejabberd_hooks:delete(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
@@ -155,11 +155,8 @@ user_receive_packet(Acc) ->
     Acc.
 
 
-c2s_self_presence({#presence{type = available}, #{jid := JID}} = Acc) ->
-    route_offline_messages(JID),
-    Acc;
-c2s_self_presence(Acc) ->
-    Acc.
+sm_register_connection_hook(_SID, JID, _Info) ->
+    route_offline_messages(JID).
 
 
 remove_user(User, _Server) ->
