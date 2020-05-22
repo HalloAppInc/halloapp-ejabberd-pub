@@ -79,7 +79,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 
 depends(_Host, _Opts) ->
-    [].
+    [{model_accounts, hard}].
 
 
 mod_options(_Host) ->
@@ -89,7 +89,11 @@ mod_options(_Host) ->
 init() ->
     xmpp_trace:notice("Start"),
     ets:new(trace_uids, [set, named_table, public]),
-    lists:foreach(fun start_trace/1, ?UIDS),
+    %% TODO: delete this line after the runs once, and the data is in redis.
+    lists:foreach(fun model_accounts:add_uid_to_trace/1, ?UIDS),
+    {ok, Uids} = model_accounts:get_traced_uids(),
+    lists:foreach(fun start_trace/1, Uids),
+    ?INFO_MSG("tracing ~p uids", [length(Uids)]),
     ok.
 
 
@@ -106,12 +110,12 @@ user_receive_packet({Packet, #{lserver := ServerHost, jid := JID} = State}) ->
 
 
 start_trace(Uid) ->
-    ?INFO_MSG("start tracing Uid:~p", [Uid]),
+    ?DEBUG("start tracing Uid:~s", [Uid]),
     ets:insert(trace_uids, {Uid}).
 
 
 stop_trace(Uid) ->
-    ?INFO_MSG("stop tracing Uid:~p", [Uid]),
+    ?DEBUG("stop tracing Uid:~s", [Uid]),
     ets:delete(trace_uids, Uid).
 
 

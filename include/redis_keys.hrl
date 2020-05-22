@@ -17,6 +17,10 @@
 -define(BROADCAST_KEY, <<"bro:">>).
 -define(COUNT_REGISTRATIONS_KEY, <<"c_reg:">>).
 -define(COUNT_ACCOUNTS_KEY, <<"c_acc:">>).
+%% set -> {uid}
+-define(TRACED_UIDS_KEY, <<"traced_uids:">>).
+%% set -> {phone}
+-define(TRACED_PHONES_KEY, <<"traced_phones:">>).
 
 %% RedisAuth
 -define(PASSWORD_KEY, <<"pas:">>).

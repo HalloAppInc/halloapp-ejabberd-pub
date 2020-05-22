@@ -250,3 +250,16 @@ count_test() ->
 %     ?assertEqual(2, model_accounts:count_registrations()),
 %     ?assertEqual(1, model_accounts:count_accounts()),
 %     ok.
+
+
+traced_uids_test() ->
+    setup(),
+    ?assertEqual({ok, []}, model_accounts:get_traced_uids()),
+    model_accounts:add_uid_to_trace(?UID1),
+    ?assertEqual({ok, [?UID1]}, model_accounts:get_traced_uids()),
+    model_accounts:add_uid_to_trace(?UID2),
+    ?assertEqual({ok, [?UID1, ?UID2]}, model_accounts:get_traced_uids()),
+    model_accounts:remove_uid_from_trace(?UID2),
+    model_accounts:remove_uid_from_trace(?UID1),
+    ?assertEqual({ok, []}, model_accounts:get_traced_uids()),
+    ok.

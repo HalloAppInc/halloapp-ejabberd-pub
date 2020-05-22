@@ -61,7 +61,10 @@
     count_registrations/1,
     count_accounts/1,
     count_accounts/0,
-    fix_counters/0
+    fix_counters/0,
+    get_traced_uids/0,
+    add_uid_to_trace/1,
+    remove_uid_from_trace/1
 ]).
 
 -export([
@@ -322,6 +325,18 @@ process_key(<<"dac:{", Rest/binary>>) ->
 process_key(_Any) ->
     skip.
 
+-spec get_traced_uids() -> {ok, [binary()]}.
+get_traced_uids() ->
+    gen_server:call(get_proc(), {get_traced_uids}).
+
+-spec add_uid_to_trace(Uid :: binary()) -> ok.
+add_uid_to_trace(Uid) ->
+    gen_server:call(get_proc(), {add_uid_to_trace, Uid}).
+
+-spec remove_uid_from_trace(Uid :: binary()) -> ok.
+remove_uid_from_trace(Uid) ->
+    gen_server:call(get_proc(), {remove_uid_from_trace, Uid}).
+
 
 %%====================================================================
 %% gen_server callbacks
@@ -519,7 +534,23 @@ handle_call({count_accounts, Slot}, _From, Redis) ->
                 undefined -> 0;
                 CountBin -> binary_to_integer(CountBin)
             end,
-    {reply, Count, Redis}.
+    {reply, Count, Redis};
+
+handle_call({get_traced_uids}, _From, Redis) ->
+    {ok, Uids} = q(["SMEMBERS", ?TRACED_UIDS_KEY]),
+    {reply, {ok, Uids}, Redis};
+
+handle_call({add_uid_to_trace, Uid}, _From, Redis) ->
+    {ok, _Res} = q(["SADD", ?TRACED_UIDS_KEY, Uid]),
+    {reply, ok, Redis};
+
+handle_call({remove_uid_from_trace, Uid}, _From, Redis) ->
+    {ok, _Res} = q(["SREM", ?TRACED_UIDS_KEY, Uid]),
+    {reply, ok, Redis};
+
+handle_call(Any, From, Redis) ->
+    ?ERROR_MSG("Unhandled message: ~p from: ~p", [Any, From]),
+    {reply, ignore, Redis}.
 
 
 handle_cast(_Message, Redis) -> {noreply, Redis}.
