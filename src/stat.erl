@@ -76,7 +76,7 @@ count(Namespace, Metric) ->
 
 -spec count(Namespace :: string(), Metric :: string(), Value :: integer()) -> ok.
 count(Namespace, Metric, Value) ->
-    ?INFO_MSG("Namespace:~s, Metric:~s, Value:~p", [Namespace, Metric, Value]),
+    ?DEBUG("Namespace:~s, Metric:~s, Value:~p", [Namespace, Metric, Value]),
     gen_server:cast(get_proc(), {count, Namespace, Metric, Value}).
 
 -spec trigger_send() -> ok.
@@ -162,17 +162,23 @@ send_data(MetricsMap) when is_map(MetricsMap) ->
 send_to_cloudwatch(Data) when is_map(Data) ->
     ?INFO_MSG("sending ~p Namespaces", [maps:size(Data)]),
     update_aws_config(),
-    Fun = get_recorder(),
-    maps:map(
-        fun (Namespace, Metrics) ->
+    maps:fold(
+        fun (Namespace, Metrics, _Acc) ->
             ?DEBUG("~s ~p", [Namespace, length(Metrics)]),
-            Fun(Namespace, Metrics)
-        end, Data),
+            cloudwatch_put_metric_data(Namespace, Metrics)
+        end,
+        ok,
+        Data),
     ok.
 
--spec cloudwatch_put_metric_data(Namespace :: string(), Metrics :: [metric_datum()]) -> ok.
+
+-spec cloudwatch_put_metric_data(EnvNamespace :: string(), Metrics :: [metric_datum()]) -> ok.
 cloudwatch_put_metric_data(Namespace, Metrics)
         when is_list(Namespace), is_list(Metrics)->
+    cloudwatch_put_metric_data_env(config:get_hallo_env(), Namespace, Metrics).
+
+
+cloudwatch_put_metric_data_env(prod, Namespace, Metrics) ->
     try
         erlcloud_mon:put_metric_data(Namespace, Metrics)
     of
@@ -185,7 +191,10 @@ cloudwatch_put_metric_data(Namespace, Metrics)
         Class:Reason:Stacktrace ->
             ?ERROR_MSG("Stacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end.
+    end;
+cloudwatch_put_metric_data_env(_Env, Namespace, Metrics) ->
+    ?DEBUG("would send: ~s metrics: ~p", [Namespace, Metrics]).
+
 
 -spec update_aws_config() -> ok.
 update_aws_config() ->
@@ -210,9 +219,11 @@ update_aws_config(#aws_config{access_key_id = AccessKeyId, expiration = Expirati
     %% Tokens are usually expire in 3h, refresh the token if it expires in less then 5 minutes
     %% Also refresh the token if somehow the times is too much in the future.
     %% (Maybe the clock was off)
-    case (ExpiresIn < 5 * 60) or (ExpiresIn > 24 * 60 * 60) of
+    case (ExpiresIn < 2 * 60) or (ExpiresIn > 24 * 60 * 60) of
         false -> ok;
         true ->
+            ?ERROR_MSG("erlcloud update_config failed to refresh our tokens: "
+                "AccessKeyId: ~s Expiration: ~p", [AccessKeyId, Expiration]),
             %% This gets a new config with refreshed tokens
             {ok, NewConfig0} = erlcloud_aws:auto_config(),
             %% Debug code to force early expiration
@@ -258,17 +269,6 @@ merge(A, B) ->
         maximum = erlang:max(A#statistic_set.maximum, B#statistic_set.maximum),
         minimum = erlang:min(A#statistic_set.minimum, B#statistic_set.minimum)
     }.
-
-
-get_recorder() ->
-    case config:get_hallo_env() of
-        localhost -> fun record_locally/2;
-        _ -> fun cloudwatch_put_metric_data/2
-    end.
-
-
-record_locally(Namespace, Metrics) ->
-  ?INFO_MSG("Recording ~s metrics ~p", [Namespace, Metrics]).
 
 
 make_statistic_set(Value) when is_integer(Value) ->
