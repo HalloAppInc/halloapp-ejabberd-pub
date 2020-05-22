@@ -10,6 +10,7 @@
 -behavior(gen_mod).
 
 -include("logger.hrl").
+-include("redis_keys.hrl").
 -include("whisper.hrl").
 
 %% Export all functions for unit tests
@@ -56,9 +57,6 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
--define(WHISPER_KEY, <<"wk:">>).
--define(OTP_KEY, <<"wotp:">>).
--define(SUBSCRIBERS_KEY, <<"wsub:">>).
 
 -define(FIELD_IDENTITY_KEY, <<"idk">>).
 -define(FIELD_SIGNEDPRE_KEY, <<"spk">>).

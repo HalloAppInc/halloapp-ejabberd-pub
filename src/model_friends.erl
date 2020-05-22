@@ -12,6 +12,7 @@
 -behavior(gen_mod).
 
 -include("logger.hrl").
+-include("redis_keys.hrl").
 
 -import(lists, [map/2]).
 
@@ -62,7 +63,7 @@ get_proc() ->
 %% API
 %%====================================================================
 
--define(FRIENDS_KEY, <<"fr:">>).
+
 -define(USER_VAL, <<"">>).
 
 -spec add_friend(Uid :: binary(), Buid :: binary()) -> {ok, boolean()} | {error, any()}.

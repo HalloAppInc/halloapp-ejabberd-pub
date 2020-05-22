@@ -11,6 +11,7 @@
 -behavior(gen_mod).
 
 -include("logger.hrl").
+-include("redis_keys.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -67,11 +68,6 @@ get_proc() ->
 %%====================================================================
 %% API
 %%====================================================================
-
--define(CONTACTS_KEY, <<"con:">>).
--define(SYNC_KEY, <<"sync:">>).
--define(REVERSE_KEY, <<"rev:">>).
-
 
 -spec add_contact(Uid :: binary(), Contact :: binary()) -> ok  | {error, any()}.
 add_contact(Uid, Contact) ->

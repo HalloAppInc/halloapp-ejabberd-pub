@@ -13,6 +13,7 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("offline_message.hrl").
+-include("redis_keys.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -64,9 +65,7 @@ get_proc() ->
 %% API
 %%====================================================================
 
--define(MESSAGE_KEY, <<"msg:">>).
--define(MESSAGE_QUEUE_KEY, <<"mq:">>).
--define(MESSAGE_ORDER_KEY, <<"ord:">>).
+
 -define(FIELD_TO, <<"tuid">>).
 -define(FIELD_FROM, <<"fuid">>).
 -define(FIELD_MESSAGE, <<"m">>).

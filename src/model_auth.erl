@@ -13,6 +13,7 @@
 
 -include("logger.hrl").
 -include("password.hrl").
+-include("redis_keys.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -59,8 +60,6 @@ get_proc() ->
 %%====================================================================
 %% API
 %%====================================================================
-
--define(PASSWORD_KEY, <<"pas:">>).
 
 -define(FIELD_SALT, <<"sal">>).
 -define(FIELD_HASHED_PASSWORD, <<"hpw">>).

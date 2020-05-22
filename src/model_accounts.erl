@@ -14,6 +14,7 @@
 -include("logger.hrl").
 -include("account.hrl").
 -include("eredis_cluster.hrl").
+-include("redis_keys.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -96,12 +97,6 @@ get_proc() ->
 %% API
 %%====================================================================
 
--define(ACCOUNT_KEY, <<"acc:">>).
--define(DELETED_ACCOUNT_KEY, <<"dac:">>).
--define(SUBSCRIBE_KEY, <<"sub:">>).
--define(BROADCAST_KEY, <<"bro:">>).
--define(COUNT_REGISTRATIONS_KEY, <<"c_reg:">>).
--define(COUNT_ACCOUNTS_KEY, <<"c_acc:">>).
 
 -define(FIELD_PHONE, <<"ph">>).
 -define(FIELD_NAME, <<"na">>).

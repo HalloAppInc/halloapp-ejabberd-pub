@@ -11,6 +11,7 @@
 -behavior(gen_mod).
 
 -include("logger.hrl").
+-include("redis_keys.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -33,7 +34,11 @@
     add_phone/2,
     delete_phone/1,
     get_uid/1,
-    get_uids/1
+    get_uids/1,
+    get_sms_code_sender/1,
+    get_sms_code_timestamp/1,
+    get_sms_code_receipt/1,
+    get_sms_code_ttl/1
 ]).
 
 start_link() ->
@@ -62,8 +67,7 @@ get_proc() ->
 %% API
 %%====================================================================
 
--define(PHONE_KEY, <<"pho:">>).
--define(CODE_KEY, <<"cod:">>).
+
 -define(FIELD_CODE, <<"cod">>).
 -define(FIELD_TIMESTAMP, <<"ts">>).
 -define(FIELD_SENDER, <<"sen">>).
