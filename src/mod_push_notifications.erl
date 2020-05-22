@@ -54,10 +54,7 @@ mod_options(_Host) ->
 offline_message_hook({_, #message{type = Type} = Message} = Acc)
         when Type =:= headline ->
     ?DEBUG("~p", [Message]),
-    case should_push(Message) of
-        {true, PushInfo} -> push_message(Message, PushInfo);
-        {false, _} -> ?WARNING_MSG("ignoring push: ~p", [Message])
-    end,
+    push_message(Message),
     Acc;
 
 offline_message_hook({_, #message{sub_els = [SubEl]} = Message} = Acc)
@@ -71,6 +68,7 @@ offline_message_hook({_, #message{} = Message} = Acc) ->
     Acc.
 
 
+%% TODO(murali@): delete this function if unnecessary.
 -spec should_push(Message :: message()) -> {ShouldPush :: boolean(), PushInfo :: push_info()}.
 should_push(#message{to = #jid{luser = User, lserver = Server}, sub_els = [#ps_event{
         items = #ps_items{node = Node, items = [#ps_item{type = ItemType}]}}]}) ->

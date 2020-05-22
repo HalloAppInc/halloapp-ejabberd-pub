@@ -299,7 +299,9 @@ push_message_item(PushMessageItem, State) ->
     end,
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
-    PayloadBin = get_payload(PushMessageItem, BuildType),
+    PushType = get_push_type(PushMessageItem#push_message_item.message),
+    PayloadBin = get_payload(PushMessageItem, PushType),
+    Priority = get_priority(PushType),
     PayloadLength = size(PayloadBin),
     %% Token length is hardcoded for now. TODO(murali@): move away from this!
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
@@ -307,9 +309,13 @@ push_message_item(PushMessageItem, State) ->
     TokenNum = erlang:binary_to_integer(Token, 16),
     TokenBin = <<TokenNum:TokenLength/integer-unit:8>>,
     ExpiryTime = PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC,
-    %% Packet structure is described in the link above for legacy binary API in APNS.
-    Packet = <<1:1/unit:8, Id:4/binary, ExpiryTime:4/unit:8, TokenLength:2/unit:8,
-            TokenBin/binary, PayloadLength:2/unit:8, PayloadBin/binary>>,
+    Frame = <<1:1/unit:8, TokenLength:2/unit:8, TokenBin/binary,
+            2:1/unit:8, PayloadLength:2/unit:8, PayloadBin/binary,
+            3:1/unit:8, 4:2/unit:8, Id:4/binary,
+            4:1/unit:8, 4:16/big, ExpiryTime:4/unit:8,
+            5:1/unit:8, 1:16/big, Priority:8>>,
+    FrameLength = size(Frame),
+    Packet = <<2:1/unit:8, FrameLength:4/unit:8, Frame/binary>>,
     {NewState, SocketToSend} = get_socket_to_send(BuildType, State),
     FinalState = case SocketToSend of
         undefined ->
@@ -358,7 +364,7 @@ get_socket_to_send(dev, State) ->
     {State, State#push_state.dev_socket}.
 
 
--spec parse_message(#message{}) -> {binary(), binary()}.
+-spec parse_message(Message :: message()) -> {binary(), binary()}.
 parse_message(#message{sub_els = [SubElement]}) when is_record(SubElement, chat) ->
     {<<"New Message">>, <<"You got a new message.">>};
 parse_message(#message{sub_els = [#ps_event{items = #ps_items{
@@ -372,20 +378,48 @@ parse_message(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]).
 
 
--spec get_payload(PushMessageItem :: push_message_item(), BuildType :: build_type()) -> binary().
-get_payload(PushMessageItem, BuildType) ->
-    BuildTypeMap = case BuildType of
-        prod ->
+-spec parse_metadata(Message :: message()) -> {binary(), binary(), binary()}.
+parse_metadata(#message{id = Id, sub_els = [SubElement],
+        from = #jid{luser = FromUid}}) when is_record(SubElement, chat) ->
+    {Id, <<"chat">>, FromUid};
+parse_metadata(#message{sub_els = [#ps_event{items = #ps_items{
+        items = [#ps_item{id = Id, publisher = FromId, type = ItemType}]}}]}) ->
+%% TODO(murali@): Change the fromId to be just userid instead of jid.
+    {Id, util:to_binary(ItemType), FromId};
+parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
+    ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
+    {<<>>, <<>>, <<>>}.
+
+
+-spec get_payload(PushMessageItem :: push_message_item(), PushType :: silent | alert) -> binary().
+get_payload(PushMessageItem, PushType) ->
+    {ContentId, ContentType, FromId} = parse_metadata(PushMessageItem#push_message_item.message),
+    MetadataMap = #{
+        <<"content-id">> => ContentId,
+        <<"content-type">> => ContentType,
+        <<"from-id">> => FromId
+    },
+    BuildTypeMap = case PushType of
+        alert ->
             {Subject, Body} = parse_message(PushMessageItem#push_message_item.message),
             DataMap = #{<<"title">> => Subject, <<"body">> => Body},
             #{<<"alert">> => DataMap, <<"sound">> => <<"default">>};
-        dev ->
+        silent ->
             #{}
     end,
     ApsMap = BuildTypeMap#{<<"content-available">> => <<"1">>},
-    PayloadMap = #{<<"aps">> => ApsMap},
+    PayloadMap = #{<<"aps">> => ApsMap, <<"metadata">> => MetadataMap},
     jiffy:encode(PayloadMap).
 
+
+-spec get_priority(PushType :: silent | alert) -> integer().
+get_priority(silent) -> 5;
+get_priority(alert) -> 10.
+
+
+-spec get_push_type(Message :: message()) -> silent | alert.
+get_push_type(#message{type = headline}) -> silent;
+get_push_type(_) -> alert.
 
 %%====================================================================
 %% setup timers
