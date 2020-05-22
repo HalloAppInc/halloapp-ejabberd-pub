@@ -310,6 +310,7 @@ modules:
   model_contacts: {}
   model_messages: {}
   model_auth: {}
+  model_whisper_keys: {}
   stat: {}
 
 ### Local Variables:

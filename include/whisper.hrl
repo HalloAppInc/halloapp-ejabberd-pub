@@ -10,8 +10,13 @@
 -record(user_whisper_otp_keys, {username :: binary(),
 						   		one_time_key :: binary()}).
 
--record(user_whisper_key_set, {username :: binary(),
-						  	   identity_key :: binary(),
-						  	   signed_key :: binary(),
-						  	   one_time_key :: binary()}).
+%% TODO(murali@): rename this to uid soon!
+-record(user_whisper_key_set, {
+	username :: binary(),
+	identity_key :: binary(),
+	signed_key :: binary(),
+	one_time_key :: binary()
+}).
+
+-type user_whisper_key_set() :: #user_whisper_key_set{}.
 
