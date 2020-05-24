@@ -125,7 +125,7 @@ store_and_broadcast_presence(_, _, undefined) ->
 store_and_broadcast_presence(User, Server, away) ->
     TimestampMs = util:now_ms(),
     case get_user_activity(User, Server) of
-        {_, away} ->
+        #activity{status = away} ->
             {ok, ignore_away_presence};
         _ ->
             store_user_activity(User, Server, TimestampMs, away),
@@ -141,7 +141,7 @@ store_and_broadcast_presence(User, Server, available) ->
 -spec check_for_first_login(User :: binary(), Server :: binary()) -> ok.
 check_for_first_login(User, Server) ->
     case get_user_activity(User, Server) of
-        {_, undefined} ->
+        #activity{status = undefined} ->
             ?INFO_MSG("Uid: ~s, on_user_first_login", [User]),
             ejabberd_hooks:run(on_user_first_login, Server, [User, Server]);
         _ ->
