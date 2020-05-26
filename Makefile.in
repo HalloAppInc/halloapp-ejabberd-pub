@@ -46,6 +46,9 @@ SODIR = $(PRIVDIR)/lib
 # /usr/lib/ejabberd/priv/xml
 XMLDIR = $(PRIVDIR)/xml
 
+# /usr/lib/ejabberd/priv/data
+DATADIR = $(PRIVDIR)/data
+
 # /usr/lib/ejabberd/priv/msgs
 MSGSDIR = $(PRIVDIR)/msgs
 
@@ -159,7 +162,7 @@ BINARIES=deps/epam/priv/bin/epam deps/eimp/priv/bin/eimp deps/fs/priv/mac_listen
 DEPS_FILES_FILTERED=$(filter-out $(BINARIES) deps/elixir/ebin/elixir.app,$(DEPS_FILES))
 DEPS_DIRS=$(sort deps/ $(foreach DEP,$(DEPS),deps/$(DEP)/) $(dir $(DEPS_FILES)))
 
-MAIN_FILES=$(filter-out %/configure.beam,$(call FILES_WILDCARD,ebin/*.beam ebin/*.app priv/xml/*.xml priv/msgs/*.msg priv/css/*.css priv/img/*.png priv/js/*.js priv/lib/* include/*.hrl COPYING))
+MAIN_FILES=$(filter-out %/configure.beam,$(call FILES_WILDCARD,ebin/*.beam ebin/*.app priv/xml/*.xml priv/data/*.data priv/msgs/*.msg priv/css/*.css priv/img/*.png priv/js/*.js priv/lib/* include/*.hrl COPYING))
 MAIN_DIRS=$(sort $(dir $(MAIN_FILES)) priv/bin priv/sql priv/lua)
 
 define DEP_VERSION_template
@@ -292,6 +295,8 @@ uninstall-binary:
 	rm -fr $(SODIR)
 	rm -f  $(XMLDIR)/*.xml
 	rm -fr $(XMLDIR)
+	rm -f  $(DATADIR)/*.data
+	rm -fr $(DATADIR)
 	rm -f  $(MSGSDIR)/*.msg
 	rm -fr $(MSGSDIR)
 	rm -f  $(CSSDIR)/*.css
