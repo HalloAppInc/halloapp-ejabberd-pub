@@ -297,12 +297,12 @@ scan_server(Pool, Cursor, Map) ->
                 skip -> M;
                 {account, Uid} ->
                     CounterKey = count_registrations_key(Uid),
-                    maps:update_with(CounterKey, Fun, 1, M);
-                {deleted_account, Uid} ->
-                    CounterKey = count_registrations_key(Uid),
                     M2 = maps:update_with(CounterKey, Fun, 1, M),
                     CounterKey2 = count_accounts_key(Uid),
-                    maps:update_with(CounterKey2, Fun, 1, M2)
+                    maps:update_with(CounterKey2, Fun, 1, M2);
+                {deleted_account, Uid} ->
+                    CounterKey = count_registrations_key(Uid),
+                    maps:update_with(CounterKey, Fun, 1, M)
             end
         end,
         Map,
