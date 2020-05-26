@@ -64,6 +64,7 @@
 	 migrate_accounts/0,
 	 migrate_all_contacts/0,
 	 verify_migrate_accounts/0,
+	 fix_account_counters/0,
 	 get_commands_spec/0
 	]).
 %% gen_server callbacks
@@ -450,15 +451,19 @@ get_commands_spec() ->
 	 #ejabberd_commands{name = migrate_all_contacts, tags = [server],
 			desc = "Migrates all contacts from mnesia to redis",
 			module = ?MODULE, function = migrate_all_contacts,
-			args = [], result = {res, rescode}}
+			args = [], result = {res, rescode}},
      #ejabberd_commands{name = migrate_accounts, tags = [server],
 			desc = "Migrate all the accounts from mnesia to redis",
 			module = ?MODULE, function = migrate_accounts,
-			args = [], result = {res, rescode}}
-     #ejabberd_commands{name = verify_migrate_accounts, tags = [server],
+			args = [], result = {res, rescode}},
+    #ejabberd_commands{name = verify_migrate_accounts, tags = [server],
                         desc = "Verify the migration of all the accounts from mnesia to redis",
                         module = ?MODULE, function = verify_migrate_accounts,
-                        args = [], result = {res, rescode}}
+                        args = [], result = {res, rescode}},
+    #ejabberd_commands{name = fix_account_counters, tags = [server],
+            desc = "Fix Redis counters",
+            module = ?MODULE, function = fix_account_counters,
+            args = [], result = {res, rescode}}
     ].
 
 
@@ -1015,6 +1020,10 @@ migrate_accounts() ->
 verify_migrate_accounts() ->
     ?INFO_MSG("starting migration verification", []),
     ejabberd_auth_halloapp:verify_migration().
+
+fix_account_counters() ->
+    ?INFO_MSG("fixing account counters", []),
+    model_accounts:fix_counters().
 
 %% TODO(murali@): Verify migration of contacts!
 migrate_all_contacts() ->

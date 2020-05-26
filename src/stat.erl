@@ -31,7 +31,9 @@
 
 % Trigger funcitons
 -export([
-    trigger_send/0
+    trigger_send/0,
+    trigger_count_users/0,
+    compute_counts/0
 ]).
 
 
@@ -81,6 +83,23 @@ count(Namespace, Metric, Value) ->
 trigger_send() ->
     gen_server:cast(get_proc(), {trigger_send}).
 
+-spec trigger_count_users() -> ok.
+trigger_count_users() ->
+    Pid = spawn(?MODULE, compute_counts, []).
+
+compute_counts() ->
+    Start = util:now_ms(),
+    ?INFO_MSG("start", []),
+    CountAccounts = model_accounts:count_accounts(),
+    ?INFO_MSG("Number of accounts: ~p", [CountAccounts]),
+    stat:count("HA/account", "total_accounts", CountAccounts),
+    CountRegistrations = model_accounts:count_registrations(),
+    ?INFO_MSG("Number of registrations: ~p", [CountRegistrations]),
+    stat:count("HA/account", "total_registrations", CountRegistrations),
+    End = util:now_ms(),
+    ?INFO_MSG("Counting took ~p ms", [End - Start]),
+    ok.
+
 
 init(_Stuff) ->
     process_flag(trap_exit, true),
@@ -88,7 +107,8 @@ init(_Stuff) ->
     {ok, _} = application:ensure_all_started(erlcloud),
     {ok, Config} = erlcloud_aws:auto_config(),
     erlcloud_aws:configure(Config),
-    {ok, _Tref} = timer:apply_interval(1000, ?MODULE, trigger_send, []),
+    {ok, _Tref1} = timer:apply_interval(1000, ?MODULE, trigger_send, []),
+    {ok, _Tref2} = timer:apply_interval(5 * 60 * 1000, ?MODULE, trigger_count_users, []),
     CurrentMinute = util:round_to_minute(util:now()),
     {ok, #{minute => CurrentMinute}}.
 

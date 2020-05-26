@@ -13,6 +13,7 @@
 
 -include("logger.hrl").
 -include("account.hrl").
+-include("eredis_cluster.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -54,7 +55,17 @@
     presence_unsubscribe/2,
     presence_unsubscribe_all/1,
     get_subscribed_uids/1,
-    get_broadcast_uids/1
+    get_broadcast_uids/1,
+    count_registrations/0,
+    count_registrations/1,
+    count_accounts/1,
+    count_accounts/0,
+    fix_counters/0
+]).
+
+-export([
+    get_all_pools/0,
+    qs/2
 ]).
 
 start_link() ->
@@ -89,6 +100,8 @@ get_proc() ->
 -define(DELETED_ACCOUNT_KEY, <<"dac:">>).
 -define(SUBSCRIBE_KEY, <<"sub:">>).
 -define(BROADCAST_KEY, <<"bro:">>).
+-define(COUNT_REGISTRATIONS_KEY, <<"c_reg:">>).
+-define(COUNT_ACCOUNTS_KEY, <<"c_acc:">>).
 
 -define(FIELD_PHONE, <<"ph">>).
 -define(FIELD_NAME, <<"na">>).
@@ -228,6 +241,92 @@ get_subscribed_uids(Uid) ->
 get_broadcast_uids(Uid) ->
     gen_server:call(get_proc(), {get_broadcast_uids, Uid}).
 
+-spec count_registrations() -> non_neg_integer().
+count_registrations() ->
+    count_fold(fun model_accounts:count_registrations/1, "count_registrations").
+
+-spec count_registrations(Slot :: non_neg_integer()) -> non_neg_integer().
+count_registrations(Slot) ->
+    gen_server:call(get_proc(), {count_registrations, Slot}).
+
+-spec count_accounts() -> non_neg_integer().
+count_accounts() ->
+    count_fold(fun model_accounts:count_accounts/1, "count_accounts").
+
+-spec count_accounts(Slot :: non_neg_integer()) -> non_neg_integer().
+count_accounts(Slot) ->
+    gen_server:call(get_proc(), {count_accounts, Slot}).
+
+count_fold(Fun, Name) ->
+    lists:foldl(
+        fun (Slot, Acc) ->
+            C = Fun(Slot),
+            case C > 0 of
+                true -> ?DEBUG("name: ~s, slot ~p count ~p", [Name, Slot, C]);
+                false -> ok
+            end,
+            Acc + C
+        end,
+        0,
+        lists:seq(0, ?REDIS_CLUSTER_HASH_SLOTS -1)).
+
+fix_counters() ->
+    ?INFO_MSG("start", []),
+    {ok, Pools} = get_all_pools(),
+    ?INFO_MSG("pools: ~p", [Pools]),
+    ResultMap = compute_counters(Pools),
+    ?INFO_MSG("result map ~p", [ResultMap]),
+    maps:map(
+        fun (K, V) ->
+            {ok, _} = q(["SET", K, V])
+        end,
+        ResultMap),
+    ?INFO_MSG("finished setting ~p counters", [maps:size(ResultMap)]),
+    ok.
+
+compute_counters(Pools) ->
+    ResultMap = lists:foldl(
+        fun (Pool, Map) ->
+            scan_server(Pool, <<"0">>, Map)
+        end,
+        #{},
+        Pools).
+
+
+scan_server(Pool, Cursor, Map) ->
+    {ok, [NewCursor, Results]} = qs(Pool, ["SCAN", Cursor, "COUNT", 500]),
+    Fun = fun (V) -> V + 1 end,
+    NewMap = lists:foldl(
+        fun (Key, M) ->
+            case process_key(Key) of
+                skip -> M;
+                {account, Uid} ->
+                    CounterKey = count_registrations_key(Uid),
+                    maps:update_with(CounterKey, Fun, 1, M);
+                {deleted_account, Uid} ->
+                    CounterKey = count_registrations_key(Uid),
+                    M2 = maps:update_with(CounterKey, Fun, 1, M),
+                    CounterKey2 = count_accounts_key(Uid),
+                    maps:update_with(CounterKey2, Fun, 1, M2)
+            end
+        end,
+        Map,
+        Results),
+    case NewCursor of
+        <<"0">> -> NewMap;
+        _ -> scan_server(Pool, NewMap, NewMap)
+    end.
+
+
+process_key(<<"acc:{", Rest/binary>>) ->
+    [Uid, <<"">>] = binary:split(Rest, <<"}">>),
+    {account, Uid};
+process_key(<<"dac:{", Rest/binary>>) ->
+    [Uid, <<"">>] = binary:split(Rest, <<"}">>),
+    {deleted_account, Uid};
+process_key(_Any) ->
+    skip.
+
 
 %%====================================================================
 %% gen_server callbacks
@@ -248,10 +347,15 @@ handle_call({create_account, Uid, Phone, Name, UserAgent, CreationTsMs}, _From, 
             {ok, Exists} = q(["HSETNX", key(Uid), ?FIELD_PHONE, Phone]),
             case binary_to_integer(Exists) > 0 of
                 true ->
-                    {ok, _} = q(["HSET", key(Uid),
-                        ?FIELD_NAME, Name,
-                        ?FIELD_USER_AGENT, UserAgent,
-                        ?FIELD_CREATION_TIME, integer_to_binary(CreationTsMs)]),
+                    Res = qp([
+                        ["HSET", key(Uid),
+                            ?FIELD_NAME, Name,
+                            ?FIELD_USER_AGENT, UserAgent,
+                            ?FIELD_CREATION_TIME, integer_to_binary(CreationTsMs)],
+                        ["INCR", count_registrations_key(Uid)],
+                        ["INCR", count_accounts_key(Uid)]
+                    ]),
+                    [{ok, _FieldCount}, {ok, <<"1">>}, {ok, <<"1">>}] = Res,
                     {reply, ok, Redis};
                 false ->
                     {reply, {error, exists}, Redis}
@@ -261,7 +365,17 @@ handle_call({create_account, Uid, Phone, Name, UserAgent, CreationTsMs}, _From, 
 handle_call({delete_account, Uid}, _From, Redis) ->
     case q(["HEXISTS", key(Uid), ?FIELD_PHONE]) of
         {ok, <<"1">>} ->
-            {ok, <<"OK">>} = q(["RENAME", key(Uid), deleted_account_key(Uid)]);
+            [RenameResult, DecrResult] = qp([
+                ["RENAME", key(Uid), deleted_account_key(Uid)],
+                ["DECR", count_accounts_key(Uid)]
+            ]),
+            case RenameResult of
+                {ok, <<"OK">>} ->
+                    ?INFO_MSG("Uid: ~s deleted", [Uid]);
+                {error, Error} ->
+                    ?ERROR_MSG("Uid: ~s account delete failed ~p", [Uid, Error])
+            end,
+            {ok, _} = DecrResult;
         {ok, <<"0">>} ->
             ok
     end,
@@ -394,7 +508,23 @@ handle_call({get_subscribed_uids, Uid}, _From, Redis) ->
 
 handle_call({get_broadcast_uids, Uid}, _From, Redis) ->
     {ok, Buids} = q(["SMEMBERS", broadcast_key(Uid)]),
-    {reply, {ok, Buids}, Redis}.
+    {reply, {ok, Buids}, Redis};
+
+handle_call({count_registrations, Slot}, _From, Redis) ->
+    {ok, CountBin} = q(["GET", count_registrations_key_slot(Slot)]),
+    Count = case CountBin of
+                undefined -> 0;
+                CountBin -> binary_to_integer(CountBin)
+            end,
+    {reply, Count, Redis};
+
+handle_call({count_accounts, Slot}, _From, Redis) ->
+    {ok, CountBin} = q(["GET", count_accounts_key_slot(Slot)]),
+    Count = case CountBin of
+                undefined -> 0;
+                CountBin -> binary_to_integer(CountBin)
+            end,
+    {reply, Count, Redis}.
 
 
 handle_cast(_Message, Redis) -> {noreply, Redis}.
@@ -405,6 +535,19 @@ code_change(_OldVersion, Redis, _Extra) -> {ok, Redis}.
 q(Command) ->
     {ok, Result} = gen_server:call(redis_accounts_client, {q, Command}),
     Result.
+
+qp(Commands) ->
+    {ok, Results} = gen_server:call(redis_accounts_client, {qp, Commands}),
+    Results.
+
+
+get_all_pools() ->
+    gen_server:call(redis_accounts_client, {get_all_pools}).
+
+qs(Pool, Command) ->
+    Result = gen_server:call(redis_accounts_client, {qs, Pool, Command}),
+    Result.
+
 
 ts_reply(Res) ->
     case ts_decode(Res) of
@@ -432,3 +575,23 @@ subscribe_key(Uid) ->
 
 broadcast_key(Uid) ->
     <<?BROADCAST_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+count_registrations_key(Uid) ->
+    Slot = eredis_cluster_hash:hash(binary_to_list(Uid)),
+    count_registrations_key_slot(Slot).
+
+count_registrations_key_slot(Slot) ->
+    count_key(Slot, ?COUNT_REGISTRATIONS_KEY).
+
+count_accounts_key(Uid) ->
+    Slot = eredis_cluster_hash:hash(binary_to_list(Uid)),
+    count_accounts_key_slot(Slot).
+
+count_accounts_key_slot(Slot) ->
+    count_key(Slot, ?COUNT_ACCOUNTS_KEY).
+
+count_key(Slot, Prefix) when is_integer(Slot), is_binary(Prefix) ->
+    SlotKey = mod_redis:get_slot_key(Slot),
+    SlotBinary = integer_to_binary(Slot),
+    <<Prefix/binary, <<"{">>/binary, SlotKey/binary, <<"}.">>/binary,
+        SlotBinary/binary>>.

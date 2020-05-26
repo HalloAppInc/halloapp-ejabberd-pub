@@ -13,10 +13,11 @@
 -include_lib("eunit/include/eunit.hrl").
 
 setup() ->
-  redis_sup:start_link(),
-  clear(),
-  model_accounts:start_link(),
-  ok.
+    mod_redis:start(undefined, []),
+%%  redis_sup:start_link(),
+    clear(),
+    model_accounts:start_link(),
+    ok.
 
 clear() ->
   ok = gen_server:cast(redis_accounts_client, flushdb).
@@ -54,7 +55,29 @@ empty_test() ->
 
 
 key_test() ->
-    ?assertEqual(<<"acc:{1}">>, model_accounts:key(<<"1">>)).
+    ?assertEqual(<<"acc:{1}">>, model_accounts:key(?UID1)).
+
+
+deleted_account_key_test() ->
+    ?assertEqual(<<"dac:{1}">>, model_accounts:deleted_account_key(?UID1)).
+
+
+subscribe_key_test() ->
+    ?assertEqual(<<"sub:{1}">>, model_accounts:subscribe_key(?UID1)).
+
+
+broadcast_key_test() ->
+    ?assertEqual(<<"bro:{1}">>, model_accounts:broadcast_key(?UID1)).
+
+
+count_registrations_key_test() ->
+    setup(),
+    ?assertEqual(<<"c_reg:{1}.9842">>, model_accounts:count_registrations_key(?UID1)).
+
+
+count_accounts_key_test() ->
+    setup(),
+    ?assertEqual(<<"c_acc:{1}.9842">>, model_accounts:count_accounts_key(?UID1)).
 
 
 create_account_test() ->
@@ -208,4 +231,22 @@ push_token_test() ->
     ?assertEqual({ok, ?PUSH_INFO2}, model_accounts:get_push_info(?UID2)).
 
 
+count_test() ->
+    setup(),
+    Slot = eredis_cluster_hash:hash(binary_to_list(?UID1)),
+    ?assertEqual(0, model_accounts:count_accounts(Slot)),
+    ?assertEqual(0, model_accounts:count_registrations(Slot)),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(1, model_accounts:count_accounts(Slot)),
+    ?assertEqual(1, model_accounts:count_registrations(Slot)),
+    ok.
 
+
+counts_test() ->
+    setup(),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
+    ?assertEqual(ok, model_accounts:delete_account(?UID1)),
+    ?assertEqual(2, model_accounts:count_registrations()),
+    ?assertEqual(1, model_accounts:count_accounts()),
+    ok.

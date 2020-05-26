@@ -12,6 +12,8 @@
 %% API
 -export([
     get_hallo_env/0,
+    is_testing_env/0,
+    is_prod_env/0,
     get_service/1,
     get_default_log_level/0
 ]).
@@ -23,7 +25,7 @@
 -define(ENV_TEST, "test").
 -define(ENV_GITHUB, "github").
 
--type hallo_env() :: prod | localhost | test.
+-type hallo_env() :: prod | localhost | test | github.
 
 -spec get_hallo_env() -> hallo_env().
 get_hallo_env() ->
@@ -34,6 +36,21 @@ get_hallo_env() ->
         ?ENV_GITHUB -> github;
         _Else -> prod
     end.
+
+
+-spec is_testing_env() -> boolean().
+is_testing_env() ->
+    case get_hallo_env() of
+        test -> true;
+        github -> true;
+        _ -> false
+    end.
+
+
+-spec is_prod_env() -> boolean().
+is_prod_env() ->
+    get_hallo_env() =:= prod.
+
 
 -type host() :: string().
 -type service() :: {term(), host(), port()}.
