@@ -267,8 +267,7 @@ modules:
         arguments:
           - "/usr/local/var/lib/ejabberd/halloapp.backup"
         timer_type: interval
-  mod_whisper:
-    min_otp_key_count: 10
+  mod_whisper: {}
   mod_upload_media:
     aws_media_region: us-east-1
     ## Accelerated dualstack endpoint.                                          

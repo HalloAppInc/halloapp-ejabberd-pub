@@ -10,10 +10,9 @@
 %%%
 %%% The module handles both set and get iq stanzas.
 %%% iq-set stanza is used to set all the user keys for a particular user.
-%%% iq-get stanza is used to get a key_set for a username.
+%%% iq-get stanza is used to get a key_set for a uid.
 %%% Client needs to set its own keys using the iq-set stanza.
-%%% Client can fetch its friends keys using the iq-set stanza.
-%%% TODO(murali@): Allow clients to only fetch keys of their friends.
+%%% Client can fetch someone else's keys using the iq-set stanza.
 %%%----------------------------------------------------------------------
 
 -module(mod_whisper).
@@ -26,25 +25,24 @@
 -include("whisper.hrl").
 
 -define(NS_WHISPER, <<"halloapp:whisper:keys">>).
+-define(MIN_OTP_KEY_COUNT, 10).
 
 %% gen_mod API.
--export([start/2, stop/1, reload/3, depends/2, mod_opt_type/1, mod_options/1]).
+-export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 %% IQ handlers and hooks.
--export([process_local_iq/1, remove_user/2]).
-%% exports for console debug manual use
--export([delete_all_keys/1, check_keys_left_and_notify_user/2,
-         notify_key_count/4]).
+-export([
+    process_local_iq/1,
+    remove_user/2,
+    migrate_all_keys/0
+]).
 
 
-start(Host, Opts) ->
+start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_WHISPER, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
-    mod_whisper_mnesia:init(Host, Opts),
-    store_options(Opts),
     ok.
 
 stop(Host) ->
-    mod_whisper_mnesia:close(Host),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_WHISPER),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ok.
@@ -55,149 +53,150 @@ depends(_Host, _Opts) ->
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
+mod_options(_Host) ->
+    [].
+
 
 %%====================================================================
 %% iq handlers
 %%====================================================================
 
-process_local_iq(#iq{from = From, lang = Lang, type = set,
+process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, type = set,
                     sub_els = [#whisper_keys{type = set} = WhisperKeys]} = IQ) ->
-    Username = jid:to_string(jid:remove_resource(From)),
-    delete_all_keys(Username),
+    ?INFO_MSG("set_keys Uid: ~s", [Uid]),
     IdentityKey = WhisperKeys#whisper_keys.identity_key,
     SignedKey = WhisperKeys#whisper_keys.signed_key,
     OneTimeKeys = WhisperKeys#whisper_keys.one_time_keys,
-    case IdentityKey =/= undefined andalso SignedKey =/= undefined andalso
-         OneTimeKeys =/= [] of
-         true ->
-             mod_whisper_mnesia:insert_keys(Username, IdentityKey, SignedKey, OneTimeKeys),
-             xmpp:make_iq_result(IQ);
-         false ->
-            Txt = ?T("Invalid request"),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang))
+    if
+        IdentityKey =:= undefined ->
+            ?INFO_MSG("Uid: ~s, undefined identity_key", [Uid]),
+            Txt = ?T("undefined IdentityKey"),
+            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+        SignedKey =:= undefined ->
+            ?INFO_MSG("Uid: ~s, undefined signed_key", [Uid]),
+            Txt = ?T("undefined SignedKey"),
+            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+        OneTimeKeys =:= [] ->
+            ?INFO_MSG("Uid: ~s, empty one_time_keys", [Uid]),
+            Txt = ?T("empty OneTimeKeys"),
+            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+        true ->
+            ?INFO_MSG("Uid: ~s, set_keys", [Uid]),
+            ok = model_whisper_keys:set_keys(Uid, IdentityKey, SignedKey, OneTimeKeys),
+            notify_key_subscribers(Uid, Server),
+            xmpp:make_iq_result(IQ)
     end;
 
-process_local_iq(#iq{from = From, lang = Lang, type = set,
+process_local_iq(#iq{from = #jid{luser = Uid}, lang = Lang, type = set,
                     sub_els = [#whisper_keys{type = add} = WhisperKeys]} = IQ) ->
-    Username = jid:to_string(jid:remove_resource(From)),
+    ?INFO_MSG("add_otp_keys Uid: ~s", [Uid]),
     IdentityKey = WhisperKeys#whisper_keys.identity_key,
     SignedKey = WhisperKeys#whisper_keys.signed_key,
     OneTimeKeys = WhisperKeys#whisper_keys.one_time_keys,
-    case IdentityKey == undefined andalso SignedKey == undefined andalso
-         OneTimeKeys =/= [] of
-         true ->
-             mod_whisper_mnesia:insert_otp_keys(Username, OneTimeKeys),
-             xmpp:make_iq_result(IQ);
-         false ->
-            Txt = ?T("Invalid request"),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang))
+    if
+        IdentityKey =/= undefined ->
+            ?INFO_MSG("Uid: ~s, undefined identity_key", [Uid]),
+            Txt = ?T("undefined IdentityKey"),
+            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+        SignedKey =/= undefined ->
+            ?INFO_MSG("Uid: ~s, undefined signed_key", [Uid]),
+            Txt = ?T("undefined SignedKey"),
+            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+        OneTimeKeys =:= [] ->
+            ?INFO_MSG("Uid: ~s, empty one_time_keys", [Uid]),
+            Txt = ?T("empty OneTimeKeys"),
+            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+        true ->
+            ?INFO_MSG("Uid: ~s, add_otp_keys", [Uid]),
+            model_whisper_keys:add_otp_keys(Uid, OneTimeKeys),
+            xmpp:make_iq_result(IQ)
     end;
 
-process_local_iq(#iq{from = From, lang = Lang, type = get,
+process_local_iq(#iq{from = #jid{luser = Uid}, lang = _Lang, type = get,
                     sub_els = [#whisper_keys{type = count}]} = IQ) ->
-    Username = jid:to_string(jid:remove_resource(From)),
-    case mod_whisper_mnesia:get_otp_key_count(Username) of
-      {ok, Count} ->
-        xmpp:make_iq_result(IQ, #whisper_keys{username = Username,
-                                              otp_key_count = integer_to_binary(Count)});
-      {error, _} ->
-        Txt = ?T("Internal server error"),
-        xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang))
-    end;
+    {ok, Count} = model_whisper_keys:count_otp_keys(Uid),
+    xmpp:make_iq_result(IQ, #whisper_keys{uid = Uid, otp_key_count = integer_to_binary(Count)});
 
-process_local_iq(#iq{from = #jid{lserver = ServerHost}, lang = Lang, type = get,
-                    sub_els = [#whisper_keys{username = Username, type = get}]} = IQ) ->
+process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, type = get,
+                    sub_els = [#whisper_keys{uid = Ouid, type = get}]} = IQ) ->
     %%TODO(murali@): check if user is allowed to access keys of username.
-    case Username of
+    ?INFO_MSG("get_keys Uid: ~s, Ouid: ~s", [Uid, Ouid]),
+    case Ouid of
         undefined ->
-            Txt = ?T("Invalid request"),
+            Txt = ?T("undefined uid"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         _ ->
-            case mod_whisper_mnesia:fetch_key_set_and_delete(Username) of
-              {ok, WhisperKeySet} ->
-                check_keys_left_and_notify_user(Username, ServerHost),
-                IdentityKey = WhisperKeySet#user_whisper_key_set.identity_key,
-                SignedKey = WhisperKeySet#user_whisper_key_set.signed_key,
-                OneTimeKey = WhisperKeySet#user_whisper_key_set.one_time_key,
-                xmpp:make_iq_result(IQ, #whisper_keys{username = Username,
-                                                      identity_key = IdentityKey,
-                                                      signed_key = SignedKey,
-                                                      one_time_keys = [OneTimeKey]});
-              {error, _} ->
-                Txt = ?T("Internal server error"),
-                xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang))
+            {ok, WhisperKeySet} = model_whisper_keys:get_key_set(Ouid),
+            case WhisperKeySet of
+                undefined ->
+                    xmpp:make_iq_result(IQ, #whisper_keys{uid = Ouid});
+                _ ->
+                    ok = model_whisper_keys:add_key_subscriber(Ouid, Uid),
+                    check_count_and_notify_user(Ouid, Server),
+                    IdentityKey = WhisperKeySet#user_whisper_key_set.identity_key,
+                    SignedKey = WhisperKeySet#user_whisper_key_set.signed_key,
+                    OneTimeKey = WhisperKeySet#user_whisper_key_set.one_time_key,
+                    xmpp:make_iq_result(IQ, #whisper_keys{uid = Ouid, identity_key = IdentityKey,
+                            signed_key = SignedKey, one_time_keys = [OneTimeKey]})
             end
     end.
 
 
-%% remove_user hook deletes all keys of the user.
-remove_user(User, Server) ->
-    Username = jid:to_string(jid:make(User, Server)),
-    mod_whisper_mnesia:delete_all_keys(Username).
+-spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
+remove_user(Uid, _Server) ->
+    ?INFO_MSG("Uid: ~s", [Uid]),
+    model_whisper_keys:remove_all_keys(Uid),
+    model_whisper_keys:remove_all_key_subscribers(Uid).
 
 
 %%====================================================================
 %% internal functions
 %%====================================================================
 
--spec delete_all_keys(binary()) -> ok.
-delete_all_keys(Username) ->
-  mod_whisper_mnesia:delete_all_keys(Username),
-  ok.
+
+-spec check_count_and_notify_user(Uid :: binary(), Server :: binary()) -> ok.
+check_count_and_notify_user(Uid, Server) ->
+    {ok, Count} = model_whisper_keys:count_otp_keys(Uid),
+    ?INFO_MSG("Uid: ~s, Count: ~p, MinCount: ~p", [Uid, Count, ?MIN_OTP_KEY_COUNT]),
+    case Count < ?MIN_OTP_KEY_COUNT of
+        true ->
+            Message = #message{from = jid:make(Server), to = jid:make(Uid, Server),
+                    sub_els = [#whisper_keys{uid = Uid, otp_key_count = integer_to_binary(Count)}]},
+            ejabberd_router:route(Message);
+        false ->
+            ok
+    end.
 
 
-
--spec check_keys_left_and_notify_user(binary(), binary()) -> ok.
-check_keys_left_and_notify_user(Username, ServerHost) ->
-  case mod_whisper_mnesia:get_otp_key_count(Username) of
-      {ok, Count} ->
-        MinCount = get_min_otp_key_count(),
-        notify_key_count(Username, ServerHost, Count, MinCount);
-      {error, _} ->
-        ok
-  end.
+-spec notify_key_subscribers(Uid :: binary(), Server :: binary()) -> ok.
+notify_key_subscribers(Uid, Server) ->
+    ?INFO_MSG("Uid: ~s", [Uid]),
+    {ok, Ouids} = model_whisper_keys:get_all_key_subscribers(Uid),
+    Ojids = util:uids_to_jids(Ouids, Server),
+    From = jid:make(Server),
+    Packet = #message{from = From, sub_els = [#whisper_keys{type = update, uid = Uid}]},
+    ejabberd_router_multicast:route_multicast(From, Server, Ojids, Packet).
 
 
-
--spec notify_key_count(binary(), binary(), integer(), integer()) -> ok.
-notify_key_count(Username, ServerHost, Count, MinCount) when Count < MinCount ->
-  Stanza = #message{
-         from = jid:make(ServerHost),
-         to = jid:from_string(Username),
-         sub_els = [#whisper_keys{username = Username,
-                                  otp_key_count = integer_to_binary(Count)}]},
-  ?DEBUG("mod_whisper: notify_key_count: Notifying user: ~p about the count: ~p",
-                                                                [Username, Count]),
-  ejabberd_router:route(Stanza),
-  ok;
-notify_key_count(Username, _ServerHost, _Count, _MinCount) ->
-  ?DEBUG("mod_whisper: Ignore notifying to user: ~p since we have enough keys", [Username]),
-  ok.
+migrate_all_keys() ->
+    UserWhisperKeys = mnesia:dirty_match_object(mnesia:table_info(user_whisper_keys, wild_pattern)),
+    lists:foreach(
+            fun(#user_whisper_keys{username = Username} = UserWhisperKey) ->
+                UserOtpKeys = mnesia:dirty_match_object(#user_whisper_otp_keys{username = Username, _ = '_'}),
+                migrate_all_user_keys(UserWhisperKey, UserOtpKeys)
+            end, UserWhisperKeys).
 
 
-%%%===================================================================
-%%% Configuration processing
-%%%===================================================================
-
-store_options(Opts) ->
-    MinOtpKeyCount = mod_whisper_opt:min_otp_key_count(Opts),
-    %% Store MinOtpKeyCount.
-    persistent_term:put({?MODULE, min_otp_key_count}, MinOtpKeyCount).
-
-
--spec get_min_otp_key_count() -> 'infinity' | pos_integer().
-get_min_otp_key_count() ->
-    persistent_term:get({?MODULE, min_otp_key_count}).
-
-
-mod_opt_type(min_otp_key_count) ->
-    econf:pos_int(infinity).
-
-
-mod_options(_Host) ->
-    [{min_otp_key_count, 10}].
-%% minimum number of otp keys after which we sent notifications to the client about low keys.
-
+migrate_all_user_keys(UserWhisperKey, UserOtpKeys) ->
+    Username = UserWhisperKey#user_whisper_keys.username,
+    #jid{luser = Uid} = jid:from_string(Username),
+    IdentityKey = UserWhisperKey#user_whisper_keys.identity_key,
+    SignedKey = UserWhisperKey#user_whisper_keys.signed_key,
+    OtpKeys = lists:map(
+            fun(#user_whisper_otp_keys{one_time_key = OtpKey}) ->
+                OtpKey
+            end, UserOtpKeys),
+    model_whisper_keys:set_keys(Uid, IdentityKey, SignedKey, OtpKeys).
 
 
 

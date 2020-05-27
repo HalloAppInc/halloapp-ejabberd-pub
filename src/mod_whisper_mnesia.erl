@@ -157,7 +157,7 @@ fetch_key_set_and_delete(Username) ->
             OneTimeKey = WhisperOtpKey#user_whisper_otp_keys.one_time_key,
             mnesia:delete_object(WhisperOtpKey)
         end,
-        #user_whisper_key_set{username = Username,
+        #user_whisper_key_set{uid = Username,
                          identity_key = IdentityKey,
                          signed_key = SignedKey,
                          one_time_key = OneTimeKey}

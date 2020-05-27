@@ -67,6 +67,7 @@ mod_options(_Host) ->
 set_keys(Uid, IdentityKey, SignedPreKey, OtpKeys) ->
     PipeCommands = [
             ["MULTI"],
+            ["DEL", whisper_key(Uid), otp_key(Uid)],
             ["HSET", whisper_key(Uid),
                 ?FIELD_IDENTITY_KEY, IdentityKey,
                 ?FIELD_SIGNEDPRE_KEY, SignedPreKey],
@@ -90,8 +91,12 @@ get_key_set(Uid) ->
     Result = case IdentityKey =:= undefined orelse SignedPreKey =:= undefined of
         true -> undefined;
         false ->
-            #user_whisper_key_set{username = Uid,
-                    identity_key = IdentityKey, signed_key = SignedPreKey, one_time_key = OtpKey}
+            #user_whisper_key_set{
+                uid = Uid,
+                identity_key = IdentityKey,
+                signed_key = SignedPreKey,
+                one_time_key = OtpKey
+            }
     end,
     {ok, Result}.
 

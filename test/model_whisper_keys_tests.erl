@@ -27,26 +27,26 @@
 -define(OTP2_KEY2, <<"_sSNsppDEeq7_goOKynmRg">>).
 -define(OTP2_KEY3, <<"Aa0OZJpEEeqKfgoOKynmRg">>).
 
--define(UID1_KEY_SET1, #user_whisper_key_set{username = ?UID1,
+-define(UID1_KEY_SET1, #user_whisper_key_set{uid = ?UID1,
         identity_key = ?IDENTITY_KEY1, signed_key = ?SIGNED_KEY1, one_time_key = ?OTP1_KEY1}).
--define(UID1_KEY_SET2, #user_whisper_key_set{username = ?UID1,
+-define(UID1_KEY_SET2, #user_whisper_key_set{uid = ?UID1,
         identity_key = ?IDENTITY_KEY1, signed_key = ?SIGNED_KEY1, one_time_key = ?OTP1_KEY2}).
--define(UID1_KEY_SET3, #user_whisper_key_set{username = ?UID1,
+-define(UID1_KEY_SET3, #user_whisper_key_set{uid = ?UID1,
         identity_key = ?IDENTITY_KEY1, signed_key = ?SIGNED_KEY1, one_time_key = ?OTP1_KEY3}).
--define(UID1_KEY_SET4, #user_whisper_key_set{username = ?UID1,
+-define(UID1_KEY_SET4, #user_whisper_key_set{uid = ?UID1,
         identity_key = ?IDENTITY_KEY1, signed_key = ?SIGNED_KEY1, one_time_key = ?OTP1_KEY4}).
--define(UID1_KEY_SET5, #user_whisper_key_set{username = ?UID1,
+-define(UID1_KEY_SET5, #user_whisper_key_set{uid = ?UID1,
         identity_key = ?IDENTITY_KEY1, signed_key = ?SIGNED_KEY1, one_time_key = ?OTP1_KEY5}).
--define(UID1_KEY_SET6, #user_whisper_key_set{username = ?UID1,
+-define(UID1_KEY_SET6, #user_whisper_key_set{uid = ?UID1,
         identity_key = ?IDENTITY_KEY1, signed_key = ?SIGNED_KEY1, one_time_key = undefined}).
 
--define(UID2_KEY_SET1, #user_whisper_key_set{username = ?UID2,
+-define(UID2_KEY_SET1, #user_whisper_key_set{uid = ?UID2,
         identity_key = ?IDENTITY_KEY2, signed_key = ?SIGNED_KEY2, one_time_key = ?OTP2_KEY1}).
--define(UID2_KEY_SET2, #user_whisper_key_set{username = ?UID2,
+-define(UID2_KEY_SET2, #user_whisper_key_set{uid = ?UID2,
         identity_key = ?IDENTITY_KEY2, signed_key = ?SIGNED_KEY2, one_time_key = ?OTP2_KEY2}).
--define(UID2_KEY_SET3, #user_whisper_key_set{username = ?UID2,
+-define(UID2_KEY_SET3, #user_whisper_key_set{uid = ?UID2,
         identity_key = ?IDENTITY_KEY2, signed_key = ?SIGNED_KEY2, one_time_key = ?OTP2_KEY3}).
--define(UID2_KEY_SET4, #user_whisper_key_set{username = ?UID2,
+-define(UID2_KEY_SET4, #user_whisper_key_set{uid = ?UID2,
         identity_key = ?IDENTITY_KEY2, signed_key = ?SIGNED_KEY2, one_time_key = undefined}).
 
 
