@@ -7,11 +7,12 @@
 .edts
 *.dump
 .idea/
+.eunit/
 *.iml
-/crash.log
-/error.log
-/ejabberd.log
-/msg_trace.log
+/crash.log*
+/error.log*
+/ejabberd.log*
+/msg_trace.log*
 /Makefile
 /config.log
 /config.status
