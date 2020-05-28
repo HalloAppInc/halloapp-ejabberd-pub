@@ -17,7 +17,6 @@
 setup() ->
     redis_sup:start_link(),
     clear(),
-    model_contacts:start_link(),
     ok.
 
 
@@ -38,6 +37,8 @@ add_contact_test() ->
 
 add_contacts_test() ->
     setup(),
+    ok = model_contacts:add_contacts(?UID, []),
+    {ok, []} = model_contacts:get_contacts(?UID),
     ok = model_contacts:add_contacts(?UID, [?CONTACT1, ?CONTACT2]),
     %% Test con:{uid}
     {ok, [?CONTACT1, ?CONTACT2]} = model_contacts:get_contacts(?UID),
@@ -64,6 +65,8 @@ remove_contacts_test() ->
     setup(),
     ok = model_contacts:add_contact(?UID, ?CONTACT1),
     ok = model_contacts:add_contact(?UID, ?CONTACT2),
+    ok = model_contacts:remove_contacts(?UID, []),
+    {ok, [?CONTACT1, ?CONTACT2]} = model_contacts:get_contacts(?UID),
     ok = model_contacts:remove_contacts(?UID, [?CONTACT1, ?CONTACT2]),
     %% Test con:{uid}
     {ok, []} = model_contacts:get_contacts(?UID),

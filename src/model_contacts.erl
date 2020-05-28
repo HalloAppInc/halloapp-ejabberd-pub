@@ -7,7 +7,6 @@
 %%%------------------------------------------------------------------------------------
 -module(model_contacts).
 -author("murali").
--behavior(gen_server).
 -behavior(gen_mod).
 
 -include("logger.hrl").
@@ -20,8 +19,6 @@
 
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
 -export([contacts_key/1, sync_key/2, reverse_key/1]).
 
@@ -43,27 +40,21 @@
     get_all_uids/0
 ]).
 
-start_link() ->
-    gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
-
 %%====================================================================
 %% gen_mod callbacks
 %%====================================================================
 
-start(Host, Opts) ->
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()).
+start(_Host, _Opts) ->
+    ok.
 
 stop(_Host) ->
-    gen_mod:stop_child(get_proc()).
+    ok.
 
 depends(_Host, _Opts) ->
     [{mod_redis, hard}].
 
 mod_options(_Host) ->
     [].
-
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
 
 %%====================================================================
 %% API
@@ -75,8 +66,15 @@ add_contact(Uid, Contact) ->
 
 
 -spec add_contacts(Uid :: binary(), ContactList :: [binary()]) -> ok  | {error, any()}.
+add_contacts(_Uid, []) ->
+    ok;
 add_contacts(Uid, ContactList) ->
-    gen_server:call(get_proc(), {add_contacts, Uid, ContactList}).
+    {ok, _Res} = q(["SADD", contacts_key(Uid) | ContactList]),
+    lists:foreach(
+        fun(Contact) ->
+            {ok, _} = q(["SADD", reverse_key(Contact), Uid])
+        end, ContactList),
+    ok.
 
 
 -spec remove_contact(Uid :: binary(), Contact :: binary()) -> ok  | {error, any()}.
@@ -85,137 +83,90 @@ remove_contact(Uid, Contact) ->
 
 
 -spec remove_contacts(Uid :: binary(), ContactList :: [binary()]) -> ok  | {error, any()}.
+remove_contacts(_Uid, []) ->
+    ok;
 remove_contacts(Uid, ContactList) ->
-    gen_server:call(get_proc(), {remove_contacts, Uid, ContactList}).
+    {ok, _Res} = q(["SREM", contacts_key(Uid) | ContactList]),
+    lists:foreach(
+        fun(Contact) ->
+            {ok, _} = q(["SREM", reverse_key(Contact), Uid])
+        end, ContactList),
+    ok.
 
 
 -spec remove_all_contacts(Uid :: binary()) -> ok  | {error, any()}.
 remove_all_contacts(Uid) ->
-    gen_server:call(get_proc(), {remove_all_contacts, Uid}).
+    {ok, ContactList} = q(["SMEMBERS", contacts_key(Uid)]),
+    lists:foreach(
+        fun(Contact) ->
+            {ok, _} = q(["SREM", reverse_key(Contact), Uid])
+        end, ContactList),
+    {ok, _Res} = q(["DEL", contacts_key(Uid)]),
+    ok.
 
 
 -spec sync_contacts(Uid :: binary(), Sid :: binary(),
                     ContactList :: [binary()]) -> ok  | {error, any()}.
 sync_contacts(Uid, Sid, ContactList) ->
-    gen_server:call(get_proc(), {sync_contacts, Uid, Sid, ContactList}).
+    {ok, _Res} = q(["SADD", sync_key(Uid, Sid) | ContactList]),
+    ok.
 
 
 -spec finish_sync(Uid :: binary(), Sid :: binary()) -> ok  | {error, any()}.
 finish_sync(Uid, Sid) ->
-    gen_server:call(get_proc(), {finish_sync, Uid, Sid}).
+    {ok, RemovedContactList} = q(["SDIFF", contacts_key(Uid), sync_key(Uid, Sid)]),
+    {ok, AddedContactList} = q(["SDIFF", sync_key(Uid, Sid), contacts_key(Uid)]),
+    lists:foreach(
+        fun(Contact) ->
+            {ok, _} = q(["SREM", reverse_key(Contact), Uid])
+        end, RemovedContactList),
+    lists:foreach(
+        fun(Contact) ->
+            {ok, _} = q(["SADD", reverse_key(Contact), Uid])
+        end, AddedContactList),
+    {ok, _Res} = q(["RENAME", sync_key(Uid, Sid), contacts_key(Uid)]),
+    ok.
 
 
 -spec is_contact(Uid :: binary(), Contact :: binary()) -> boolean() | {error, any()}.
 is_contact(Uid, Contact) ->
-    gen_server:call(get_proc(), {is_contact, Uid, Contact}).
+    {ok, Res} = q(["SISMEMBER", contacts_key(Uid), Contact]),
+    binary_to_integer(Res) == 1.
 
 
 -spec get_contacts(Uid :: binary()) -> {ok, [binary()]} | {error, any()}.
 get_contacts(Uid) ->
-    gen_server:call(get_proc(), {get_contacts, Uid}).
+    {ok, Res} = q(["SMEMBERS", contacts_key(Uid)]),
+    {ok, Res}.
 
 
 -spec get_sync_contacts(Uid :: binary(), Sid :: binary()) -> {ok, [binary()]} | {error, any()}.
 get_sync_contacts(Uid, Sid) ->
-    gen_server:call(get_proc(), {get_sync_contacts, Uid, Sid}).
+    {ok, Res} = q(["SMEMBERS", sync_key(Uid, Sid)]),
+    {ok, Res}.
 
 
 -spec get_contact_uids(Contact :: binary()) -> {ok, [binary()]} | {error, any()}.
 get_contact_uids(Contact) ->
-    gen_server:call(get_proc(), {get_contact_uids, Contact}).
+    {ok, Res} = q(["SMEMBERS", reverse_key(Contact)]),
+    {ok, Res}.
 
 -spec get_contact_uids_size(Contact :: binary()) -> non_neg_integer() | {error, any()}.
 get_contact_uids_size(Contact) ->
-    gen_server:call(get_proc(), {get_contact_uids_size, Contact}).
+    {ok, Res} = q(["SCARD", reverse_key(Contact)]),
+    binary_to_integer(Res).
 
 -spec get_all_uids() -> {ok, [binary()]} | {error, any()}.
 get_all_uids() ->
-    gen_server:call(get_proc(), {get_all_uids}).
-
-%%====================================================================
-%% gen_server callbacks
-%%====================================================================
-
-init(_Stuff) ->
-    process_flag(trap_exit, true),
-    {ok, redis_contacts_client}.
-
-
-handle_call({add_contacts, Uid, ContactList}, _From, Redis) ->
-    {ok, _Res} = q(["SADD", contacts_key(Uid) | ContactList]),
-    lists:foreach(fun(Contact) ->
-                    {ok, _} = q(["SADD", reverse_key(Contact), Uid])
-                  end, ContactList),
-    {reply, ok, Redis};
-
-handle_call({remove_contacts, Uid, ContactList}, _From, Redis) ->
-    {ok, _Res} = q(["SREM", contacts_key(Uid) | ContactList]),
-    lists:foreach(fun(Contact) ->
-                    {ok, _} = q(["SREM", reverse_key(Contact), Uid])
-                  end, ContactList),
-    {reply, ok, Redis};
-
-handle_call({remove_all_contacts, Uid}, _From, Redis) ->
-    {ok, ContactList} = q(["SMEMBERS", contacts_key(Uid)]),
-    lists:foreach(fun(Contact) ->
-                    {ok, _} = q(["SREM", reverse_key(Contact), Uid])
-                  end, ContactList),
-    {ok, _Res} = q(["DEL", contacts_key(Uid)]),
-    {reply, ok, Redis};
-
-handle_call({sync_contacts, Uid, Sid, ContactList}, _From, Redis) ->
-    {ok, _Res} = q(["SADD", sync_key(Uid, Sid) | ContactList]),
-    {reply, ok, Redis};
-
-handle_call({finish_sync, Uid, Sid}, _From, Redis) ->
-    {ok, RemovedContactList} = q(["SDIFF", contacts_key(Uid), sync_key(Uid, Sid)]),
-    {ok, AddedContactList} = q(["SDIFF", sync_key(Uid, Sid), contacts_key(Uid)]),
-    lists:foreach(fun(Contact) ->
-                    {ok, _} = q(["SREM", reverse_key(Contact), Uid])
-                  end, RemovedContactList),
-    lists:foreach(fun(Contact) ->
-                    {ok, _} = q(["SADD", reverse_key(Contact), Uid])
-                  end, AddedContactList),
-    {ok, _Res} = q(["RENAME", sync_key(Uid, Sid), contacts_key(Uid)]),
-    {reply, ok, Redis};
-
-handle_call({is_contact, Uid, Contact}, _From, Redis) ->
-    {ok, Res} = q(["SISMEMBER", contacts_key(Uid), Contact]),
-    {reply, binary_to_integer(Res) == 1, Redis};
-
-handle_call({get_contacts, Uid}, _From, Redis) ->
-    {ok, Res} = q(["SMEMBERS", contacts_key(Uid)]),
-    {reply, {ok, Res}, Redis};
-
-handle_call({get_sync_contacts, Uid, Sid}, _From, Redis) ->
-    {ok, Res} = q(["SMEMBERS", sync_key(Uid, Sid)]),
-    {reply, {ok, Res}, Redis};
-
-handle_call({get_contact_uids, Contact}, _From, Redis) ->
-    {ok, Res} = q(["SMEMBERS", reverse_key(Contact)]),
-    {reply, {ok, Res}, Redis};
-
-handle_call({get_contact_uids_size, Contact}, _From, Redis) ->
-    {ok, Res} = q(["SCARD", reverse_key(Contact)]),
-    {reply, binary_to_integer(Res), Redis};
-
-handle_call({get_all_uids}, _From, Redis) ->
     {ok, [Cursor, Uids]} = q(["SCAN", "0", "COUNT", "1000"]),
     AllUids = get_all_uids(Cursor, Uids),
-    {reply, {ok, AllUids}, Redis}.
-
+    {ok, AllUids}.
 
 get_all_uids(<<"0">>, Results) ->
     Results;
 get_all_uids(Cursor, Results) ->
     {ok, [NewCursor, Uids]} = q(["SCAN", Cursor, "COUNT", "1000"]),
     get_all_uids(NewCursor, lists:append(Uids, Results)).
-
-
-handle_cast(_Message, Redis) -> {noreply, Redis}.
-handle_info(_Message, Redis) -> {noreply, Redis}.
-terminate(_Reason, _Redis) -> ok.
-code_change(_OldVersion, Redis, _Extra) -> {ok, Redis}.
 
 
 q(Command) ->
@@ -236,7 +187,5 @@ sync_key(Uid, Sid) ->
 reverse_key(Phone) ->
     % TODO: use the REVERCE_KEY here, run migration
     <<?SYNC_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
-
-
 
 
