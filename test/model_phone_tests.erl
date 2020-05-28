@@ -32,6 +32,20 @@ clear() ->
     ok = gen_server:cast(redis_phone_client, flushdb).
 
 
+phone_key_test() ->
+    setup(),
+    % TODO: This is what we wanted
+%%    ?assertEqual(
+%%        <<<<"pho:{5}">>/binary, ?PHONE1/binary>>,
+%%        model_phone:phone_key(?PHONE1)),
+    ?assertEqual(
+        <<<<"pho:{">>/binary, 5/integer, <<"}:">>/binary, ?PHONE1/binary>>,
+        model_phone:phone_key(?PHONE1)),
+    ?assertEqual(
+        <<<<"pho:{">>/binary, 2/integer, <<"}:">>/binary, ?PHONE2/binary>>,
+        model_phone:phone_key(?PHONE2)),
+    ok.
+
 add_sms_code_test() ->
     setup(),
     %% Test cod:{phone}

@@ -8,7 +8,7 @@
 %% API.
 -spec hash(string()) -> integer().
 hash(Key) ->
-    crc16_2:crc16(Key) rem ?REDIS_CLUSTER_HASH_SLOTS.
+    crc16_redis:crc16(Key) rem ?REDIS_CLUSTER_HASH_SLOTS.
 
 main([]) ->
     true = code:add_pathz(filename:dirname(escript:script_name()) ++ "/../ebin"),

@@ -6,10 +6,10 @@
 %%% @end
 %%% Created : 26. May 2020 11:47 AM
 %%%-------------------------------------------------------------------
--module(crc16_2).
+-module(crc16_redis).
 -author("nikola").
 
--include("crc16_2.hrl").
+-include("crc16_redis.hrl").
 %% API
 -export([
     crc16/1
