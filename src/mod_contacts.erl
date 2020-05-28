@@ -19,8 +19,6 @@
 -include("translate.hrl").
 
 -define(NS_NORM, <<"halloapp:user:contacts">>).
-%% TODO(murali@:) remove this after migration!
--define(SERVER, <<"s.halloapp.net">>).
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -34,11 +32,10 @@
 ]).
 
 -export([
-    is_bidirectional_contact/2,
     finish_sync/3
 ]).
 
-start(Host, Opts) ->
+start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NORM, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
@@ -69,6 +66,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, lang = Lang,
         sub_els = [#contact_list{type = full, contacts = Contacts, syncid = SyncId, index = Index, 
                 last = Last}]} = IQ) ->
+    StartTime = os:system_time(microsecond), 
     ?INFO_MSG("Full contact sync Uid: ~p, syncid: ~p, index: ~p, last: ~p, num_contacts: ~p",
             [UserId, SyncId, Index, Last, length(Contacts)]),
     stat:count("HA/contacts", "sync_full_contacts", length(Contacts)),
@@ -87,8 +85,13 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
         false -> ok;
         true ->
             stat:count("HA/contacts", "sync_full_finish"),
+            %% Unfinished finish_sync will need the next full sync to send all the relevant
+            %% notifications (some might be sent more than once).
             spawn(?MODULE, finish_sync, [UserId, Server, SyncId])
     end,
+    EndTime = os:system_time(microsecond),
+    T = EndTime - StartTime,
+    ?INFO_MSG("Time taken: ~w us", [T]),
     ResultIQ;
 
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
@@ -99,12 +102,12 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
 
 
 remove_user(UserId, Server) ->
-    delete_all_contacts(UserId, Server).
+    remove_all_contacts(UserId, Server).
 
 
 -spec re_register_user(User :: binary(), Server :: binary()) -> ok.
 re_register_user(UserId, Server) ->
-    delete_all_contacts(UserId, Server).
+    remove_all_contacts(UserId, Server).
 
 
 %% TODO: Delay notifying the users about their contact to reduce unnecessary messages to clients.
@@ -113,7 +116,7 @@ register_user(UserId, Server, Phone) ->
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
     lists:foreach(
         fun(ContactId) ->
-            notify_contact_about_user(UserId, Server, ContactId, <<"none">>)
+            notify_contact_about_user(UserId, Phone, Server, ContactId, <<"none">>)
         end, ContactUids).
 
 
@@ -165,36 +168,44 @@ handle_delta_contacts(UserId, Server, Contacts) ->
             fun(Contact) ->
                 Contact#contact.normalized
             end, DeleteContactsList),
-    delete_contact_phones(UserId, Server, DeleteContactPhones),
+    remove_contact_phones(UserId, Server, DeleteContactPhones),
     normalize_and_insert_contacts(UserId, Server, AddContactsList, undefined).
 
 
--spec delete_all_contacts(UserId :: binary(), Server :: binary()) -> ok.
-delete_all_contacts(UserId, Server) ->
+-spec remove_all_contacts(UserId :: binary(), Server :: binary()) -> ok.
+remove_all_contacts(UserId, Server) ->
     {ok, ContactPhones} = model_contacts:get_contacts(UserId),
-    delete_contact_phones(UserId, Server, ContactPhones).
+    remove_contact_phones(UserId, Server, ContactPhones).
 
 
 -spec finish_sync(UserId :: binary(), Server :: binary(), SyncId :: binary()) -> ok.
 finish_sync(UserId, Server, SyncId) ->
+    StartTime = os:system_time(microsecond), 
+    UserPhone = get_phone(UserId),
     {ok, OldContactList} = model_contacts:get_contacts(UserId),
     {ok, NewContactList} = model_contacts:get_sync_contacts(UserId, SyncId),
     OldContactSet = sets:from_list(OldContactList),
     NewContactSet = sets:from_list(NewContactList),
     DeleteContactSet = sets:subtract(OldContactSet, NewContactSet),
     AddContactSet = sets:subtract(NewContactSet, OldContactSet),
-    ?INFO_MSG("Full contact sync stats: uid: ~p, old_contacts: ~p, new_contacts: ~p"
+    ?INFO_MSG("Full contact sync stats: uid: ~p, old_contacts: ~p, new_contacts: ~p, "
             "add_contacts: ~p, delete_contacts: ~p", [UserId, sets:size(OldContactSet),
             sets:size(NewContactSet), sets:size(AddContactSet), sets:size(DeleteContactSet)]),
     ?INFO_MSG("Full contact sync: uid: ~p, add_contacts: ~p, delete_contacts: ~p",
                 [UserId, AddContactSet, DeleteContactSet]),
     %% TODO(murali@): Update this after moving pubsub to redis.
-    delete_contact_phones(UserId, Server, sets:to_list(DeleteContactSet)),
+    remove_contacts_and_notify(UserId, Server, sets:to_list(DeleteContactSet)),
+    %% TODO(vipin): newness of contacts in AddContactSet needs to be used in update_and_...(...).
     lists:foreach(
         fun(ContactPhone) ->
-            add_contact_phone_and_notify_user(UserId, Server, ContactPhone)
+            update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, yes)
         end, sets:to_list(AddContactSet)),
-    model_contacts:finish_sync(UserId, SyncId).
+    %% finish_sync will add various contacts and their reverse mapping in the db.
+    model_contacts:finish_sync(UserId, SyncId),
+    EndTime = os:system_time(microsecond),
+    T = EndTime - StartTime,
+    ?INFO_MSG("Time taken: ~w us", [T]),
+    ok.
 
 
 %%====================================================================
@@ -205,19 +216,35 @@ finish_sync(UserId, Server, SyncId) ->
 -spec normalize_and_insert_contacts(UserId :: binary(), Server :: binary(),
         Contacts :: [contact()], SyncId :: undefined | binary()) -> [contact()].
 normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
-    UserNumber = get_phone(UserId),
-    UserRegionId = mod_libphonenumber:get_region_id(UserNumber),
-    lists:map(
-            fun(Contact) ->
-                normalize_and_insert_contact(UserId, UserRegionId, Server, Contact, SyncId)
-            end, Contacts).
+    UserPhone = get_phone(UserId),
+    UserRegionId = mod_libphonenumber:get_region_id(UserPhone),
+    %% Construct the list of new contact records to be returned and filter out the phone numbers
+    %% that couldn't be normalized.
+    {NewContacts, NormalizedPhoneNumbers} = lists:mapfoldr(
+            fun(Contact, PhoneAcc) ->
+                NewContact = normalize_and_update_contact(
+                    UserId, UserRegionId, UserPhone, Server, Contact, SyncId),
+                NewPhoneAcc = case NewContact#contact.normalized of
+                                  undefined -> PhoneAcc;
+                                  NormalizedPhone -> [NormalizedPhone | PhoneAcc]
+                              end,
+                {NewContact, NewPhoneAcc}
+            end, [], Contacts),
+    %% Call the batched API to insert the normalized phone numbers.
+    case SyncId of
+        undefined -> model_contacts:add_contacts(UserId, NormalizedPhoneNumbers);
+        _ -> model_contacts:sync_contacts(UserId, SyncId, NormalizedPhoneNumbers)
+    end,
+    NewContacts. 
 
 
--spec normalize_and_insert_contact(UserId :: binary(), UserRegionId :: binary(),
-        Server :: binary(), Contact :: contact(), SyncId :: binary()) -> contact().
-normalize_and_insert_contact(_UserId, _UserRegionId, _Server, #contact{raw = undefined}, _SyncId) ->
+-spec normalize_and_update_contact(UserId :: binary(), UserRegionId :: binary(),
+        UserPhone :: binary(), Server :: binary(), Contact :: contact(),
+        SyncId :: binary()) -> contact().
+normalize_and_update_contact(_UserId, _UserRegionId, _UserPhone, _Server,
+        #contact{raw = undefined}, _SyncId) ->
     #contact{};
-normalize_and_insert_contact(UserId, UserRegionId, Server, Contact, SyncId) ->
+normalize_and_update_contact(UserId, UserRegionId, UserPhone, Server, Contact, SyncId) ->
     RawPhone = Contact#contact.raw,
     ContactPhone = mod_libphonenumber:normalize(RawPhone, UserRegionId),
     NewContact = case ContactPhone of
@@ -227,82 +254,50 @@ normalize_and_insert_contact(UserId, UserRegionId, Server, Contact, SyncId) ->
         _ ->
             stat:count("HA/contacts", "normalize_success"),
             case SyncId of
-                undefined -> add_contact_phone(UserId, Server, ContactPhone);
-                _ -> sync_contact_phone(UserId, Server, ContactPhone, SyncId)
+                undefined -> update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, yes);
+                _ -> update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, no)
             end
     end,
     NewContact#contact{raw = RawPhone}.
 
 
--spec sync_contact_phone(UserId :: binary(), Server :: binary(),
-        ContactPhone :: binary(), SyncId :: binary()) -> contact().
-sync_contact_phone(UserId, _Server, ContactPhone, SyncId) ->
+-spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
+        ContactPhone :: binary(), ShouldNotify :: atom()) -> contact().
+update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, ShouldNotify) ->
+    IsNewContact = not is_contact(UserId, ContactPhone),
     ContactId = obtain_user_id(ContactPhone),
-    model_contacts:sync_contacts(UserId, SyncId, [ContactPhone]),
-    case ContactId of
-        undefined ->
-            #contact{normalized = ContactPhone, role = <<"none">>};
-        _ ->
-            IsFriends = model_friends:is_friend(UserId, ContactId),
-            Role = get_role_value(IsFriends),
-            AvatarId = model_accounts:get_avatar_id_binary(ContactId),
-            #contact{userid = ContactId, avatarid = AvatarId,
-                    normalized = ContactPhone, role = Role}
-    end.
-
-
--spec add_contact_phone(UserId :: binary(), Server :: binary(),
-        ContactPhone :: binary()) -> contact().
-add_contact_phone(UserId, Server, ContactPhone) ->
-    UserPhone = get_phone(UserId),
-    NotifyContact = not is_contact(UserId, ContactPhone),
-    ContactId = obtain_user_id(ContactPhone),
+    %% TODO(vipin): Need to fix the stat below.
     stat:count("HA/contacts", "add_contact"),
-    model_contacts:add_contact(UserId, ContactPhone),
     case ContactId of
-        undefined ->
-            #contact{normalized = ContactPhone, role = <<"none">>};
+        undefined -> #contact{normalized = ContactPhone, role = <<"none">>};
         _ ->
-            IsFriends = update_friends_table(UserId, ContactId, UserPhone, ContactPhone, Server),
+            IsFriends = is_contact(ContactId, UserPhone),
             Role = get_role_value(IsFriends),
-            case NotifyContact of
-                true -> notify_contact_about_user(UserId, Server, ContactId, Role);
-                false -> ok
+            %% Notify the new contact and update its friends table.
+            case {ShouldNotify, IsNewContact, IsFriends} of
+                {yes, true, true} -> 
+                    add_friend(UserId, ContactId, Server),
+                    notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role);
+                {yes, true, false} ->
+                    notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role);
+                {_, _, _} -> ok
             end,
-            AvatarId = model_accounts:get_avatar_id_binary(ContactId),
-            #contact{userid = ContactId, avatarid = AvatarId,
-                    normalized = ContactPhone, role = Role}
+            %% Send AvatarId only if ContactId and UserPhone are friends.
+            AvatarId = case IsFriends of
+                true -> model_accounts:get_avatar_id_binary(ContactId);
+                false -> undefined
+            end,
+            #contact{userid = ContactId, avatarid = AvatarId, normalized = ContactPhone,
+                     role = Role}
     end.
 
 
--spec add_contact_phone_and_notify_user(UserId :: binary(), Server :: binary(),
-        ContactPhone :: binary()) -> contact().
-add_contact_phone_and_notify_user(UserId, Server, ContactPhone) ->
-    Contact = add_contact_phone(UserId, Server, ContactPhone),
-    case Contact#contact.userid of
-        undefined -> ok;
-        _ ->
-            notify_contact_about_user(Contact#contact.userid, Server, UserId, Contact#contact.role)
-    end,
-    Contact.
-
-
--spec update_friends_table(
-        UserId :: binary(), ContactId :: binary(), UserPhone :: binary(),
-        ContactPhone :: binary(), Server :: binary()) -> boolean().
-update_friends_table(UserId, ContactId, UserPhone, ContactPhone, Server) ->
-    case is_bidirectional_contact_internal(UserId, ContactId, UserPhone, ContactPhone) of
-        true ->
-            ?INFO_MSG("~p is friends with ~p", [UserId, ContactId]),
-            model_friends:add_friend(UserId, ContactId),
-            ejabberd_hooks:run(add_friend, Server, [UserId, Server, ContactId]),
-            true;
-        false ->
-            ?INFO_MSG("~p is no longer friends with ~p", [UserId, ContactId]),
-            model_friends:remove_friend(UserId, ContactId),
-            ejabberd_hooks:run(remove_friend, Server, [UserId, Server, ContactId]),
-            false
-    end.
+-spec add_friend(UserId :: binary(), ContactId :: binary(), Server :: binary()) -> ok.
+add_friend(UserId, ContactId, Server) ->
+    ?INFO_MSG("~p is friends with ~p", [UserId, ContactId]),
+    model_friends:add_friend(UserId, ContactId),
+    ejabberd_hooks:run(add_friend, Server, [UserId, Server, ContactId]),
+    ok.
 
 
 %%====================================================================
@@ -310,35 +305,42 @@ update_friends_table(UserId, ContactId, UserPhone, ContactPhone, Server) ->
 %%====================================================================
 
 
--spec delete_contact_phones(
+-spec remove_contact_phones(
         UserId :: binary(), Server :: binary(), ContactPhones :: [binary()]) -> ok.
-delete_contact_phones(UserId, Server, ContactPhones) ->
+remove_contact_phones(UserId, Server, ContactPhones) ->
+    model_contacts:remove_contacts(UserId, ContactPhones),
+    remove_contacts_and_notify(UserId, Server, ContactPhones).
+
+
+-spec remove_contacts_and_notify(UserId :: binary(), Server :: binary(),
+        ContactPhones :: [binary()]) ->ok.
+remove_contacts_and_notify(UserId, Server, ContactPhones) ->
     lists:foreach(
             fun(ContactPhone) ->
-                delete_contact_phone(UserId, Server, ContactPhone)
+                remove_contact_and_notify(UserId, Server, ContactPhone)
             end, ContactPhones).
 
 
 %% Delete all associated info with the contact and the user.
--spec delete_contact_phone(UserId :: binary(),
+-spec remove_contact_and_notify(UserId :: binary(),
         Server :: binary(), ContactPhones :: binary()) -> {ok, any()} | {error, any()}.
-delete_contact_phone(UserId, Server, ContactPhone) ->
+remove_contact_and_notify(UserId, Server, ContactPhone) ->
+    UserPhone = get_phone(UserId),
     ContactId = obtain_user_id(ContactPhone),
     stat:count("HA/contacts", "remove_contact"),
-    model_contacts:remove_contact(UserId, ContactPhone),
     case ContactId of
         undefined ->
             ok;
         _ ->
-            remove_friend_and_notify(UserId, Server, ContactId)
+            remove_friend(UserId, Server, ContactId),
+            notify_contact_about_user(UserId, UserPhone, Server, ContactId, <<"none">>)
     end.
 
 
--spec remove_friend_and_notify(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
-remove_friend_and_notify(UserId, Server, ContactId) ->
+-spec remove_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
+remove_friend(UserId, Server, ContactId) ->
     model_friends:remove_friend(UserId, ContactId),
-    ejabberd_hooks:run(remove_friend, Server, [UserId, Server, ContactId]),
-    notify_contact_about_user(UserId, Server, ContactId, <<"none">>).
+    ejabberd_hooks:run(remove_friend, Server, [UserId, Server, ContactId]).
 
 
 %%====================================================================
@@ -348,17 +350,16 @@ remove_friend_and_notify(UserId, Server, ContactId) ->
 
 %% Notifies contact about the user using the UserId and the role element to indicate
 %% if they are now friends or not on halloapp.
--spec notify_contact_about_user(UserId :: binary(), Server :: binary(),
+-spec notify_contact_about_user(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
         ContactId :: binary(), Role :: list()) -> ok.
-notify_contact_about_user(UserId, _Server, UserId, _Role) ->
+notify_contact_about_user(UserId, _UserPhone, _Server, UserId, _Role) ->
     ok;
-notify_contact_about_user(UserId, Server, ContactId, Role) ->
-    Normalized = get_phone(UserId),
+notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role) ->
     AvatarId = case Role of
         <<"none">> -> undefined;
         <<"friends">> -> model_accounts:get_avatar_id_binary(UserId)
     end,
-    Contact = #contact{userid = UserId, avatarid = AvatarId, normalized = Normalized, role = Role},
+    Contact = #contact{userid = UserId, avatarid = AvatarId, normalized = UserPhone, role = Role},
     SubEls = [#contact_list{type = normal, xmlns = ?NS_NORM, contacts = [Contact]}],
     Stanza = #message{from = jid:make(Server),
                       to = jid:make(ContactId, Server),
@@ -367,24 +368,4 @@ notify_contact_about_user(UserId, Server, ContactId, Role) ->
                                                 [{ContactId, Server}, UserId, Stanza]),
     ejabberd_router:route(Stanza).
 
-
-%%====================================================================
-%% check for friends
-%%====================================================================
-
-
-%% Checks if the both the user and the contact are connected on halloapp or not.
--spec is_bidirectional_contact(UserId :: binary(), ContactId :: binary()) -> boolean().
-is_bidirectional_contact(UserId, ContactId) ->
-    UserPhone = get_phone(UserId),
-    ContactPhone = get_phone(ContactId),
-    is_bidirectional_contact_internal(UserId, ContactId, UserPhone, ContactPhone).
-
-
-%% Checks if the both the user and the contact are connected on halloapp or not.
--spec is_bidirectional_contact_internal(
-        UserId :: binary(), ContactId :: binary(),
-        UserPhone :: binary(), ContactPhone :: binary()) -> boolean().
-is_bidirectional_contact_internal(UserId, ContactId, UserPhone, ContactPhone) ->
-    is_contact(UserId, ContactPhone) andalso is_contact(ContactId, UserPhone).
 
