@@ -5,8 +5,6 @@
 
 -include("account.hrl").
 
--type sslsocket() :: ssl:socket().
-
 -record(push_message_item, {
 	id :: binary(),
 	uid :: binary(),
@@ -20,10 +18,12 @@
 
 %% TODO(murali@): Store this pending/retry list info in ets tables/redis and keep the state simple.
 -record(push_state, {
-	pendingList :: [#push_message_item{}],
+	pendingMap :: #{},
 	host :: binary(),
-	socket :: sslsocket(),
-	dev_socket :: sslsocket()
+	conn :: pid(),
+	mon :: reference(),
+	dev_conn :: pid(),
+	dev_mon :: reference()
 }).
 
 -type push_state() :: #push_state{}.

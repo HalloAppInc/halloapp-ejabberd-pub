@@ -288,12 +288,12 @@ modules:
   mod_push_notifications: {}
   mod_ios_push:
     apns:
-      gateway: gateway.push.apple.com
+      gateway: api.push.apple.com
       certfile: /etc/apns_certs/prod.pem
-      port: 2195
-      dev_gateway: gateway.sandbox.push.apple.com
+      port: 443
+      dev_gateway: api.sandbox.push.apple.com
       dev_certfile: /etc/apns_certs/dev.pem
-      dev_port: 2195
+      dev_port: 443
   ## TODO(murali@): move the api key to secrets manager
   mod_android_push:
     fcm:

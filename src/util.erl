@@ -31,7 +31,8 @@
     list_to_map/1,
     ms_to_sec/1,
     send_after/2,
-    uids_to_jids/2
+    uids_to_jids/2,
+    uuid_binary/0
 ]).
 
 %% Export all functions for unit tests
@@ -182,5 +183,11 @@ send_after(TimeoutMs, Msg) ->
 -spec uids_to_jids(Uids :: list(binary()), Server :: binary()) -> list(jid()).
 uids_to_jids(Uids, Server) ->
     lists:map(fun(Uid) -> jid:make(Uid, Server) end, Uids).
+
+
+-spec uuid_binary() -> binary().
+uuid_binary() ->
+    list_to_binary(uuid:to_string(uuid:uuid1())).
+
 
 

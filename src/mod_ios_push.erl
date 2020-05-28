@@ -24,12 +24,15 @@
 -type build_type() :: prod | dev.
 
 %% TODO(murali@): convert everything to 1 timeunit.
--define(SSL_TIMEOUT_MILLISEC, 10000).              %% 10 seconds.
--define(MESSAGE_EXPIRY_TIME_SEC, 86400).           %% 1 day.
--define(MESSAGE_RESPONSE_TIMEOUT_SEC, 60).         %% 1 minute.
--define(STATE_CLEANUP_TIMEOUT_MILLISEC, 120000).   %% 2 minutes.
--define(MESSAGE_MAX_RETRY_TIME_SEC, 600).          %% 10 minutes.
+%% TODO(murali@): move basic timeunits to one header and use it to calculate.
+-define(MESSAGE_EXPIRY_TIME_SEC, 86400).           %% seconds in 1 day.
 -define(RETRY_INTERVAL_MILLISEC, 30000).           %% 30 seconds.
+-define(MESSAGE_MAX_RETRY_TIME_SEC, 600).          %% 10 minutes.
+
+-define(APNS_ID, <<"apns-id">>).
+-define(APNS_PRIORITY, <<"apns-priority">>).
+-define(APNS_EXPIRY, <<"apns-expiration">>).
+-define(APNS_PUSH_TYPE, <<"apns-push-type">>).
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_opt_type/1, mod_options/1]).
@@ -99,14 +102,23 @@ init([Host|_]) ->
     process_flag(trap_exit, true),
     Opts = gen_mod:get_module_opts(Host, ?MODULE),
     store_options(Opts),
-    Socket = connect_to_apns(prod),
-    DevSocket = connect_to_apns(dev),
-    {ok, #push_state{pendingList = [], host = Host, socket = Socket, dev_socket = DevSocket}}.
+    {Pid, Mon} = connect_to_apns(prod),
+    {DevPid, DevMon} = connect_to_apns(dev),
+    {ok, #push_state{
+            pendingMap = #{},
+            host = Host,
+            conn = Pid,
+            mon = Mon,
+            dev_conn = DevPid,
+            dev_mon = DevMon}}.
 
 
-terminate(_Reason, #push_state{host = _Host, socket = Socket, dev_socket = DevSocket}) ->
-    close_socket(Socket),
-    close_socket(DevSocket),
+terminate(_Reason, #push_state{host = _Host, conn = Pid,
+        mon = Mon, dev_conn = DevPid, dev_mon = DevMon}) ->
+    demonitor(Mon),
+    gun:close(Pid),
+    demonitor(DevMon),
+    gun:close(DevPid),
     ok.
 
 
@@ -128,27 +140,30 @@ handle_cast(_Request, State) ->
     {noreply, State}.
 
 
--spec close_socket(Socket :: undefined | sslsocket()) -> ok | {error, any()}.
-close_socket(undefined) ->
-    ok;
-close_socket(Socket) ->
-    ssl:close(Socket).
-
-
--spec connect_to_apns(BuildType :: build_type()) -> sslsocket() | undefined.
+-spec connect_to_apns(BuildType :: build_type()) -> {pid(), reference()} | {undefined, undefined}.
 connect_to_apns(BuildType) ->
     ApnsGateway = get_apns_gateway(BuildType),
     ApnsCertfile = get_apns_certfile(BuildType),
     ApnsPort = get_apns_port(BuildType),
-    Options = [{certfile, ApnsCertfile}, {mode, binary}],
+    RetryFun = fun retry_function/2,
+    Options = #{
+        protocols => [http2],
+        tls_opts => [{certfile, ApnsCertfile}],
+        retry => 5,                         %% gun will retry connecting 5 times before giving up!
+        retry_timeout => 5000,              %% Time between retries in milliseconds.
+        retry_fun => RetryFun
+    },
     ?INFO_MSG("BuildType: ~s, Gateway: ~s, Port: ~p", [BuildType, ApnsGateway, ApnsPort]),
-    case ssl:connect(ApnsGateway, ApnsPort, Options, ?SSL_TIMEOUT_MILLISEC) of
-        {ok, Socket} ->
-            ?INFO_MSG("BuildType: ~s, connection successful: ~p", [BuildType, Socket]),
-            Socket;
+    case gun:open(ApnsGateway, ApnsPort, Options) of
+        {ok, Pid} ->
+            Mon = monitor(process, Pid),
+            {ok, Protocol} = gun:await_up(Pid, Mon),
+            ?INFO_MSG("BuildType: ~s, connection successful pid: ~p, protocol: ~p, monitor: ~p",
+                    [BuildType, Pid, Protocol, Mon]),
+            {Pid, Mon};
         {error, Reason} ->
             ?ERROR_MSG("BuildType: ~s, Failed to connect to apns: ~p", [BuildType, Reason]),
-            undefined
+            {undefined, undefined}
     end.
 
 
@@ -182,63 +197,27 @@ handle_info({retry, PushMessageItem}, State) ->
     end,
     {noreply, NewState};
 
-handle_info({ssl, Socket, Data}, State) ->
-    ?INFO_MSG("ssl: socket: ~p, message: ~p", [Socket, Data]),
-    try
-        <<RCommand:1/unit:8, RStatus:1/unit:8, RId:4/unit:8>> = iolist_to_binary(Data),
-        {RCommand, RStatus, RId}
-    of
-        {8, Status, Id} ->
-            ?ERROR_MSG("Failed sending push for with id: ~s, status: ~s", [Id, Status]),
-            NewState = handle_apns_response(Status, Id, State),
-            {noreply, NewState};
-        _ ->
-            ?ERROR_MSG("invalid APNS response", []),
-            {noreply, State}
-    catch
-        {'EXIT', _} ->
-            ?ERROR_MSG("invalid APNS response", []),
-            {noreply, State}
-    end;
+handle_info({'DOWN', Mon, process, Pid, Reason},
+        #push_state{conn = Pid, mon = Mon} = State) ->
+    ?INFO_MSG("prod gun_down pid: ~p, mon: ~p, reason: ~p", [Pid, Mon, Reason]),
+    {NewPid, NewMon} = connect_to_apns(prod),
+    {noreply, State#push_state{conn = NewPid, mon = NewMon}};
 
-handle_info({ssl_closed, Socket}, #push_state{socket = Socket} = State) ->
-    ?INFO_MSG("prod: ssl_closed: ~p", [Socket]),
-    NewSocket = connect_to_apns(prod),
-    {noreply, State#push_state{socket = NewSocket}};
+handle_info({'DOWN', DevMon, process, DevPid, Reason},
+        #push_state{dev_conn = DevPid, mon = DevMon} = State) ->
+    ?INFO_MSG("dev gun_down pid: ~p, mon: ~p, reason: ~p", [DevPid, DevMon, Reason]),
+    {NewDevPid, NewDevMon} = connect_to_apns(dev),
+    {noreply, State#push_state{dev_conn = NewDevPid, dev_mon = NewDevMon}};
 
-handle_info({ssl_closed, DevSocket}, #push_state{dev_socket = DevSocket} = State) ->
-    ?INFO_MSG("dev: ssl_closed: ~p", [DevSocket]),
-    NewDevSocket = connect_to_apns(dev),
-    {noreply, State#push_state{dev_socket = NewDevSocket}};
-
-handle_info({ssl_error, Socket, Reason}, #push_state{socket = Socket} = State) ->
-    ?INFO_MSG("prod: ssl_error: ~p, reason: ~p", [Socket, Reason]),
-    NewSocket = connect_to_apns(prod),
-    {noreply, State#push_state{socket = NewSocket}};
-
-handle_info({ssl_error, DevSocket, Reason}, #push_state{dev_socket = DevSocket} = State) ->
-    ?INFO_MSG("dev: ssl_error: ~p, reason: ~p", [DevSocket, Reason]),
-    NewDevSocket = connect_to_apns(dev),
-    {noreply, State#push_state{dev_socket = NewDevSocket}};
-
-handle_info({ssl_passive, Socket}, State) ->
-    ?ERROR_MSG("unexpected ssl_passive message: ~p, state: ~p", [Socket, State]),
+handle_info({'DOWN', _Mon, process, Pid, Reason}, State) ->
+    ?ERROR_MSG("down message from gun pid: ~p, reason: ~p, state: ~p", [Pid, Reason, State]),
     {noreply, State};
 
-handle_info({clean_up_state}, State) ->
-    OldPendingList = State#push_state.pendingList,
-    ?INFO_MSG("clean_up_state, pending messages: ~p", [length(OldPendingList)]),
-    CurTimestamp = util:now(),
-    NewPendingList = lists:dropwhile(
-            fun(PushMessageItem) ->
-                ThenTimestamp = PushMessageItem#push_message_item.timestamp,
-                CurTimestamp - ThenTimestamp  >= ?MESSAGE_RESPONSE_TIMEOUT_SEC
-            end, OldPendingList),
-    NewState = State#push_state{pendingList = NewPendingList},
-    case length(NewPendingList) > 0 of
-        false -> ok;
-        true -> setup_cleanup_timer()
-    end,
+handle_info({gun_response, ConnPid, StreamRef, fin, StatusCode, Headers}, State) ->
+    ?DEBUG("gun_response: conn_pid: ~p, streamref: ~p, status: ~p, headers: ~p",
+            [ConnPid, StreamRef, StatusCode, Headers]),
+    ApnsId = proplists:get_value(?APNS_ID, Headers, undefined),
+    NewState = handle_apns_response(StatusCode, ApnsId, State),
     {noreply, NewState};
 
 handle_info(Request, State) ->
@@ -246,24 +225,60 @@ handle_info(Request, State) ->
     {noreply, State}.
 
 
--spec handle_apns_response(Status :: integer(),
-        Id :: integer(), State :: push_state()) -> push_state().
-handle_apns_response(Status, Id, State) when Status == 10 orelse Status == 7 ->
-    PushMessageItem = lists:keyfind(Id, #push_message_item.id, State#push_state.pendingList),
-    NewState = case PushMessageItem of
-        false ->
-            ?INFO_MSG("Could not find the message, id: ~s, ignoring it.", [Id]),
-            State;
-        _ ->
-            ?INFO_MSG("retrying message item: ~p", [Id]),
-            PendingList = lists:delete(PushMessageItem, State#push_state.pendingList),
-            retry_message_item(PushMessageItem),
-            State#push_state{pendingList = PendingList}
+
+-spec handle_apns_response(StatusCode :: integer(), ApnsId :: binary() | undefined,
+        State :: push_state()) -> push_state().
+handle_apns_response(_, undefined, State) ->
+    %% This should never happen, since apns always responds with the apns-id.
+    ?ERROR_MSG("unexpected response from apns!!", []),
+    State;
+handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) ->
+    FinalPendingMap = case maps:take(ApnsId, PendingMap) of
+        error ->
+            ?ERROR_MSG("Message not found in our map: apns-id: ~p", [ApnsId]),
+            PendingMap;
+        {PushMessageItem, NewPendingMap} ->
+            Id = PushMessageItem#push_message_item.id,
+            Uid = PushMessageItem#push_message_item.uid,
+            ?INFO_MSG("Uid: ~s, apns push successful: msg_id: ~s", [Uid, Id]),
+            NewPendingMap
     end,
-    NewState;
-handle_apns_response(Status, _Id, State) ->
-    ?ERROR_MSG("non-recoverable APNS error: ~p", [Status]),
+    State#push_state{pendingMap = FinalPendingMap};
+
+handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = State)
+        when StatusCode =:= 429; StatusCode >= 500 ->
+    FinalPendingMap = case maps:take(ApnsId, PendingMap) of
+        error ->
+            ?ERROR_MSG("Message not found in our map: apns-id: ~p", [ApnsId]),
+            State;
+        {PushMessageItem, NewPendingMap} ->
+            Id = PushMessageItem#push_message_item.id,
+            Uid = PushMessageItem#push_message_item.uid,
+            ?WARNING_MSG("Uid: ~s, apns push error: msg_id: ~s, will retry", [Uid, Id]),
+            retry_message_item(PushMessageItem),
+            NewPendingMap
+    end,
+    State#push_state{pendingMap = FinalPendingMap};
+
+handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = State)
+        when StatusCode >= 400; StatusCode < 500 ->
+    FinalPendingMap = case maps:take(ApnsId, PendingMap) of
+        error ->
+            ?ERROR_MSG("Message not found in our map: apns-id: ~p", [ApnsId]),
+            State;
+        {PushMessageItem, NewPendingMap} ->
+            Id = PushMessageItem#push_message_item.id,
+            Uid = PushMessageItem#push_message_item.uid,
+            ?ERROR_MSG("Uid: ~s, apns push error: msg_id: ~s, needs to be fixed!", [Uid, Id]),
+            NewPendingMap
+    end,
+    State#push_state{pendingMap = FinalPendingMap};
+
+handle_apns_response(StatusCode, ApnsId, State) ->
+    ?ERROR_MSG("Invalid status code : ~p, from apns, apns-id: ~p", [StatusCode, ApnsId]),
     State.
+
+
 
 
 %%====================================================================
@@ -285,11 +300,6 @@ push_message(Message, PushInfo, State) ->
             push_info = PushInfo},
     push_message_item(PushMessageItem, State).
 
-
-%% Sends an apns push notification to the user with a subject and body using that token of the user.
-%% Using the legacy binary API for now: link below for details
-%% [https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/BinaryProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH13-SW1]
-%% TODO(murali@): switch to the modern API soon.
 -spec push_message_item(PushMessageItem :: push_message_item(),
         State :: push_state()) -> push_state().
 push_message_item(PushMessageItem, State) ->
@@ -297,51 +307,31 @@ push_message_item(PushMessageItem, State) ->
         <<"ios">> -> prod;
         <<"ios_dev">> -> dev
     end,
-    Id = PushMessageItem#push_message_item.id,
-    Uid = PushMessageItem#push_message_item.uid,
+    Token = PushMessageItem#push_message_item.push_info#push_info.token,
+    ExpiryTime = PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC,
     PushType = get_push_type(PushMessageItem#push_message_item.message),
     PayloadBin = get_payload(PushMessageItem, PushType),
     Priority = get_priority(PushType),
-    PayloadLength = size(PayloadBin),
-    %% Token length is hardcoded for now. TODO(murali@): move away from this!
-    Token = PushMessageItem#push_message_item.push_info#push_info.token,
-    TokenLength = 32,
-    TokenNum = erlang:binary_to_integer(Token, 16),
-    TokenBin = <<TokenNum:TokenLength/integer-unit:8>>,
-    ExpiryTime = PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC,
-    Frame = <<1:1/unit:8, TokenLength:2/unit:8, TokenBin/binary,
-            2:1/unit:8, PayloadLength:2/unit:8, PayloadBin/binary,
-            3:1/unit:8, 4:2/unit:8, Id:4/binary,
-            4:1/unit:8, 4:16/big, ExpiryTime:4/unit:8,
-            5:1/unit:8, 1:16/big, Priority:8>>,
-    FrameLength = size(Frame),
-    Packet = <<2:1/unit:8, FrameLength:4/unit:8, Frame/binary>>,
-    {NewState, SocketToSend} = get_socket_to_send(BuildType, State),
-    FinalState = case SocketToSend of
-        undefined ->
-            retry_message_item(PushMessageItem),
-            NewState;
-        _ ->
-            Result = ssl:send(SocketToSend, Packet),
-            case Result of
-                ok ->
-                    ?DEBUG("sent to apns, Uid: ~s, id: ~p", [Uid, Id]),
-                    add_to_pending_list(PushMessageItem, NewState);
-                {error, Reason} ->
-                    ?ERROR_MSG("failure: Uid: ~s, id: ~p, reason: ~p", [Uid, Id, Reason]),
-                    retry_message_item(PushMessageItem),
-                    NewState
-            end
-    end,
+    DevicePath = get_device_path(Token),
+    ApnsId = util:uuid_binary(),
+    HeadersList = [
+        {?APNS_ID, ApnsId},
+        {?APNS_PRIORITY, integer_to_binary(Priority)},
+        {?APNS_EXPIRY, integer_to_binary(ExpiryTime)},
+        {?APNS_PUSH_TYPE, get_apns_push_type(PushType)}
+    ],
+
+    {Pid, NewState} = get_pid_to_send(BuildType, State),
+    _StreamRef = gun:post(Pid, DevicePath, HeadersList, PayloadBin),
+    FinalState = add_to_pending_map(ApnsId, PushMessageItem, NewState),
     FinalState.
 
 
--spec add_to_pending_list(PushMessageItem :: push_message_item(),
+-spec add_to_pending_map(ApnsId :: binary(), PushMessageItem :: push_message_item(),
         State :: push_state()) -> push_state().
-add_to_pending_list(PushMessageItem, State) ->
-    setup_cleanup_timer(),
-    PendingList = [PushMessageItem | State#push_state.pendingList],
-    State#push_state{pendingList = PendingList}.
+add_to_pending_map(ApnsId, PushMessageItem, #push_state{pendingMap = PendingMap} = State) ->
+    NewPendingMap = PendingMap#{ApnsId => PushMessageItem},
+    State#push_state{pendingMap = NewPendingMap}.
 
 
 -spec retry_message_item(PushMessageItem :: push_message_item()) -> reference().
@@ -350,18 +340,18 @@ retry_message_item(PushMessageItem) ->
     setup_timer({retry, PushMessageItem}, RetryTime).
 
 
--spec get_socket_to_send(BuildType :: build_type(),
-        State :: push_state()) -> {push_state(), sslsocket() | undefined}.
-get_socket_to_send(prod = BuildType, #push_state{socket = undefined} = State) ->
-    Socket = connect_to_apns(BuildType),
-    {State#push_state{socket = Socket}, Socket};
-get_socket_to_send(prod, State) ->
-    {State, State#push_state.socket};
-get_socket_to_send(dev = BuildType, #push_state{dev_socket = undefined} = State) ->
-    DevSocket = connect_to_apns(BuildType),
-    {State#push_state{dev_socket = DevSocket}, DevSocket};
-get_socket_to_send(dev, State) ->
-    {State, State#push_state.dev_socket}.
+-spec get_pid_to_send(BuildType :: build_type(),
+        State :: push_state()) -> {pid() | undefined, push_state()}.
+get_pid_to_send(prod = BuildType, #push_state{conn = undefined} = State) ->
+    {Pid, Mon} = connect_to_apns(BuildType),
+    {Pid, State#push_state{conn = Pid, mon = Mon}};
+get_pid_to_send(prod, State) ->
+    {State#push_state.conn, State};
+get_pid_to_send(dev = BuildType, #push_state{dev_conn = undefined} = State) ->
+    {DevPid, DevMon} = connect_to_apns(BuildType),
+    {DevPid, State#push_state{dev_conn = DevPid, dev_mon = DevMon}};
+get_pid_to_send(dev, State) ->
+    {State#push_state.dev_conn, State}.
 
 
 -spec parse_message(Message :: message()) -> {binary(), binary()}.
@@ -421,14 +411,27 @@ get_priority(alert) -> 10.
 get_push_type(#message{type = headline}) -> silent;
 get_push_type(_) -> alert.
 
+
+-spec get_apns_push_type(PushType :: silent | alert) -> binary().
+get_apns_push_type(silent) -> <<"background">>;
+get_apns_push_type(alert) -> <<"alert">>.
+
+-spec get_device_path(DeviceId :: binary()) -> binary().
+get_device_path(DeviceId) ->
+  <<"/3/device/", DeviceId/binary>>.
+
+
+-spec retry_function(Retries :: non_neg_integer(), Opts :: map()) -> map().
+retry_function(Retries, Opts) ->
+    Timeout = maps:get(retry_timeout, Opts, 5000),
+    #{
+        retries => Retries - 1,
+        timeout => Timeout * ?GOLDEN_RATIO
+    }.
+
 %%====================================================================
 %% setup timers
 %%====================================================================
-
--spec setup_cleanup_timer() -> reference().
-setup_cleanup_timer() ->
-    setup_timer({clean_up_state}, ?STATE_CLEANUP_TIMEOUT_MILLISEC).
-
 
 -spec setup_timer({any() | _}, integer()) -> reference().
 setup_timer(Msg, TimeoutSec) ->
