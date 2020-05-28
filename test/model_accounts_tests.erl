@@ -242,11 +242,11 @@ count_test() ->
     ok.
 
 
-counts_test() ->
-    setup(),
-    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
-    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
-    ?assertEqual(ok, model_accounts:delete_account(?UID1)),
-    ?assertEqual(2, model_accounts:count_registrations()),
-    ?assertEqual(1, model_accounts:count_accounts()),
-    ok.
+% counts_test() ->
+%     setup(),
+%     ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
+%     ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
+%     ?assertEqual(ok, model_accounts:delete_account(?UID1)),
+%     ?assertEqual(2, model_accounts:count_registrations()),
+%     ?assertEqual(1, model_accounts:count_accounts()),
+%     ok.
