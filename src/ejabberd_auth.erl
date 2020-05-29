@@ -284,7 +284,7 @@ check_and_register(Phone, Server, Password, Name) ->
             case ets_cache:untag(ejabberd_auth_halloapp:try_register(Phone, Server, Password1)) of
                 {ok, _, UserId} ->
                     ok = model_accounts:set_name(UserId, Name),
-                    ejabberd_hooks:run(register_user, Server, [UserId, Server]),
+                    ejabberd_hooks:run(register_user, Server, [UserId, Server, Phone]),
                     {ok, UserId, register};
                 Err -> Err
             end;

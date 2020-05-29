@@ -37,7 +37,7 @@
          sm_register_connection_hook/3, sm_remove_connection_hook/3,
          user_send_packet/1, user_receive_packet/1,
          s2s_send_packet/1, s2s_receive_packet/1,
-         remove_user/2, register_user/2]).
+         remove_user/2, register_user/3]).
 
 -define(SOCKET_NAME, mod_metrics_udp_socket).
 -define(SOCKET_REGISTER_RETRIES, 10).
@@ -119,8 +119,8 @@ s2s_receive_packet({Packet, S2SState}) ->
 remove_user(_User, Server) ->
     push(jid:nameprep(Server), remove_user).
 
--spec register_user(binary(), binary()) -> any().
-register_user(_User, Server) ->
+-spec register_user(binary(), binary(), binary()) -> any().
+register_user(_User, Server, _Phone) ->
     push(jid:nameprep(Server), register_user).
 
 %%====================================================================

@@ -35,7 +35,7 @@
 -export([
     set_presence_hook/4,
     unset_presence_hook/4,
-    register_user/2,
+    register_user/3,
     re_register_user/2,
     get_user_activity/2,
     probe_and_send_presence/3
@@ -68,8 +68,9 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %%====================================================================
 
 %% register_user sets some default undefined activity for the user until they login.
--spec register_user(User :: binary(), Server :: binary()) -> {ok, any()} | {error, any()}.
-register_user(User, Server) ->
+-spec register_user(User :: binary(), Server :: binary(), Phone :: binary()) ->
+        {ok, any()} | {error, any()}.
+register_user(User, Server, _Phone) ->
     Status = undefined,
     TimestampMs = util:now_ms(),
     store_user_activity(User, Server, TimestampMs, Status).
@@ -77,7 +78,7 @@ register_user(User, Server) ->
 
 -spec re_register_user(User :: binary(), Server :: binary()) -> ok.
 re_register_user(User, Server) ->
-    register_user(User, Server).
+    register_user(User, Server, undefined).
 
 
 %% set_presence_hook checks and stores the user activity, and also broadcast users presence

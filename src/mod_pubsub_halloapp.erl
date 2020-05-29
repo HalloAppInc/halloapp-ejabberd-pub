@@ -31,7 +31,7 @@
 
 %% Hooks.
 -export([
-    register_user/2,
+    register_user/3,
     add_friend/3,
     remove_friend/3
 ]).
@@ -58,8 +58,8 @@ depends(_Host, _Opts) ->
 mod_options(_Host) ->
     [].
 
--spec register_user(Uid :: binary(), Server :: binary()) -> ok.
-register_user(Uid, Server) ->
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
+register_user(Uid, Server, _Phone) ->
     create_pubsub_nodes(Uid, Server).
 
 

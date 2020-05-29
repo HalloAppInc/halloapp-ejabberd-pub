@@ -119,7 +119,7 @@ register_connection(_SID,
 	    % Register user only if we are first resource
 	    case ejabberd_sm:get_user_resources(LUser, LServer) of
 		[LResource] ->
-		    ejabberd_hooks:run(register_user, LServer, [LUser, LServer]);
+		    ejabberd_hooks:run(register_user, LServer, [LUser, LServer, undefined]);
 		_ ->
 		    ok
 	    end;

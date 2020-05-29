@@ -35,7 +35,7 @@
 	 process_sm_iq/1, on_presence_update/4, import_info/0,
 	 import/5, import_start/2, store_last_info/4, get_last_info/2,
 	 remove_user/2, mod_opt_type/1, mod_options/1,
-	 register_user/2, depends/2, privacy_check_packet/4]).
+	 register_user/3, depends/2, privacy_check_packet/4]).
 
 -include("logger.hrl").
 -include("xmpp.hrl").
@@ -213,8 +213,8 @@ get_last_iq(#iq{lang = Lang} = IQ, LUser, LServer) ->
 	  xmpp:make_iq_result(IQ, #last{seconds = 0})
     end.
 
--spec register_user(binary(), binary()) -> any().
-register_user(User, Server) ->
+-spec register_user(binary(), binary(), binary()) -> any().
+register_user(User, Server, _Phone) ->
     on_presence_update(
        User,
        Server,

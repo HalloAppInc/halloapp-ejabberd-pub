@@ -34,7 +34,7 @@
 	 get_user_roster/2,
 	 get_jid_info/4, import/5, process_item/2, import_start/2,
 	 in_subscription/2, out_subscription/1, c2s_self_presence/1,
-	 unset_presence/4, register_user/2, remove_user/2,
+	 unset_presence/4, register_user/3, remove_user/2,
 	 list_groups/1, create_group/2, create_group/3,
 	 delete_group/2, get_group_opts/2, set_group_opts/3,
 	 get_group_users/2, get_group_explicit_users/2,
@@ -620,8 +620,8 @@ push_members_to_user(LUser, LServer, Group, Host,
 		  end,
 		  Members).
 
--spec register_user(binary(), binary()) -> ok.
-register_user(User, Server) ->
+-spec register_user(binary(), binary(), binary()) -> ok.
+register_user(User, Server, _Phone) ->
     Groups = get_user_groups({User, Server}),
     [push_user_to_displayed(User, Server, Group, Server,
 			    both, displayed_to_groups(Group, Server))

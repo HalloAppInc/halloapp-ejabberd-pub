@@ -10,7 +10,7 @@
 
 -export([
     pubsub_publish_item/7,
-    register_user/2,
+    register_user/3,
     re_register_user/2,
     add_friend/3,
     remove_friend/3,
@@ -64,8 +64,8 @@ pubsub_publish_item(_Server, _Node, Publisher, _Host, _ItemId, ItemType, _Payloa
     ok.
 
 
--spec register_user(Uid :: binary(), Server :: binary()) -> ok.
-register_user(Uid, _Server) ->
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
+register_user(Uid, _Server, _Phone) ->
     ?INFO_MSG("counting uid:~s", [Uid]),
     stat:count("HA/account", "registration"),
     ok.
