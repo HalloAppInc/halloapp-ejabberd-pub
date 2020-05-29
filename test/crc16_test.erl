@@ -25,7 +25,9 @@ while(N, F) ->
     erlang:apply(F, [N]),
     while(N -1, F).
 
-
+% Here is what we got.
+% crc16 200000 operations took 144 ms => 1388888 ops
+% crc16_redis: 200000 operations took 891 ms => 224466 ops
 crc16_perf_test() ->
     StartTime = util:now_ms(),
     N = 2000,

@@ -175,6 +175,7 @@ phone_key(Phone) ->
 
 
 % TODO: migrate the data to make the keys take look like pho:{5}:1555555555
+% TODO: also migrate to the crc16_redis
 -spec phone_key(Phone :: binary(), Slot :: integer()) -> binary().
 phone_key(Phone, Slot) ->
     <<?PHONE_KEY/binary, <<"{">>/binary, Slot/integer, <<"}:">>/binary, Phone/binary>>.
