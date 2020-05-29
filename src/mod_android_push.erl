@@ -177,10 +177,12 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
     PushMessage = #{<<"to">> => Token, <<"priority">> => <<"high">>, <<"data">> => Payload},
     Request = {FcmGateway, [{"Authorization", "key=" ++ FcmApiKey}],
             "application/json", jiffy:encode(PushMessage)},
+    %% TODO(murali@): Switch to using an asynchronous http client.
     Response = httpc:request(post, Request, HTTPOptions, Options),
     case Response of
         {ok, {{_, StatusCode5xx, _}, _, ResponseBody}}
                 when StatusCode5xx >= 500 andalso StatusCode5xx < 600 ->
+            stat:count(?FCM, "fcm_error"),
             ?ERROR_MSG("Push failed, Uid: ~s, Token: ~p, recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
             retry_message_item(PushMessageItem);
@@ -188,14 +190,17 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
         {ok, {{_, 200, _}, _, ResponseBody}} ->
             case parse_response(ResponseBody) of
                 ok ->
+                    stat:count(?FCM, "success"),
                     ?INFO_MSG("Uid:~s push successful for msg-id: ~s", [Uid, Id]);
                 Reason ->
+                    stat:count(?FCM, "failure"),
                     ?ERROR_MSG("Push failed, Uid:~s, token: ~p, reason: ~p",
                             [Uid, binary:part(Token, 0, 10), Reason]),
                     remove_push_info(Uid, ServerHost)
             end;
 
         {ok, {{_, _, _}, _, ResponseBody}} ->
+            stat:count(?FCM, "failure"),
             ?ERROR_MSG("Push failed, Uid:~s, token: ~p, non-recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
             remove_push_info(Uid, ServerHost);

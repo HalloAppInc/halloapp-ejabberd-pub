@@ -237,6 +237,7 @@ handle_apns_response(_, undefined, State) ->
     ?ERROR_MSG("unexpected response from apns!!", []),
     State;
 handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) ->
+    stat:count(?APNS, "success"),
     FinalPendingMap = case maps:take(ApnsId, PendingMap) of
         error ->
             ?ERROR_MSG("Message not found in our map: apns-id: ~p", [ApnsId]),
@@ -251,6 +252,7 @@ handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) 
 
 handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = State)
         when StatusCode =:= 429; StatusCode >= 500 ->
+    stat:count(?APNS, "apns_error"),
     FinalPendingMap = case maps:take(ApnsId, PendingMap) of
         error ->
             ?ERROR_MSG("Message not found in our map: apns-id: ~p", [ApnsId]),
@@ -266,6 +268,7 @@ handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = 
 
 handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = State)
         when StatusCode >= 400; StatusCode < 500 ->
+    stat:count(?APNS, "failure"),
     FinalPendingMap = case maps:take(ApnsId, PendingMap) of
         error ->
             ?ERROR_MSG("Message not found in our map: apns-id: ~p", [ApnsId]),

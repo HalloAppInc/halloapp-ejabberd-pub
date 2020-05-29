@@ -30,3 +30,7 @@
 
 
 -define(GOLDEN_RATIO, 1.618).
+
+-define(FCM, "HA/fcm").
+-define(APNS, "HA/apns").
+
