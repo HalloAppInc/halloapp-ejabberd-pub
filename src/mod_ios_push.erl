@@ -32,7 +32,11 @@
 -define(APNS_ID, <<"apns-id">>).
 -define(APNS_PRIORITY, <<"apns-priority">>).
 -define(APNS_EXPIRY, <<"apns-expiration">>).
+-define(APNS_TOPIC, <<"apns-topic">>).
 -define(APNS_PUSH_TYPE, <<"apns-push-type">>).
+-define(APNS_COLLAPSE_ID, <<"apns-collapse-id">>).
+
+-define(APP_BUNDLE_ID, <<"com.halloapp.hallo">>).
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_opt_type/1, mod_options/1]).
@@ -318,7 +322,9 @@ push_message_item(PushMessageItem, State) ->
         {?APNS_ID, ApnsId},
         {?APNS_PRIORITY, integer_to_binary(Priority)},
         {?APNS_EXPIRY, integer_to_binary(ExpiryTime)},
-        {?APNS_PUSH_TYPE, get_apns_push_type(PushType)}
+        {?APNS_TOPIC, ?APP_BUNDLE_ID},
+        {?APNS_PUSH_TYPE, get_apns_push_type(PushType)},
+        {?APNS_COLLAPSE_ID, get_collapse_id(PushMessageItem)}
     ],
 
     {Pid, NewState} = get_pid_to_send(BuildType, State),
@@ -419,6 +425,12 @@ get_apns_push_type(alert) -> <<"alert">>.
 -spec get_device_path(DeviceId :: binary()) -> binary().
 get_device_path(DeviceId) ->
   <<"/3/device/", DeviceId/binary>>.
+
+
+-spec get_collapse_id(PushMessageItem :: push_message_item()) -> binary().
+get_collapse_id(PushMessageItem) ->
+    {ContentId, _, _} = parse_metadata(PushMessageItem#push_message_item.message),
+    ContentId.
 
 
 -spec retry_function(Retries :: non_neg_integer(), Opts :: map()) -> map().
