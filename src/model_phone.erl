@@ -7,7 +7,6 @@
 %%%------------------------------------------------------------------------------------
 -module(model_phone).
 -author("murali").
--behavior(gen_server).
 -behavior(gen_mod).
 
 -include("logger.hrl").
@@ -18,11 +17,8 @@
 -compile(export_all).
 -endif.
 
--export([start_link/0]).
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
 
 %% API
@@ -41,27 +37,22 @@
     get_sms_code_ttl/1
 ]).
 
-start_link() ->
-    gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
 
 %%====================================================================
 %% gen_mod callbacks
 %%====================================================================
 
-start(Host, Opts) ->
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()).
+start(_Host, _Opts) ->
+    ok.
 
 stop(_Host) ->
-    gen_mod:stop_child(get_proc()).
+    ok.
 
 depends(_Host, _Opts) ->
     [{mod_redis, hard}].
 
 mod_options(_Host) ->
     [].
-
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
 
 %%====================================================================
 %% API
@@ -79,74 +70,6 @@ get_proc() ->
 -spec add_sms_code(Phone :: binary(), Code :: binary(), Timestamp :: integer(),
                 Sender :: binary()) -> ok  | {error, any()}.
 add_sms_code(Phone, Code, Timestamp, Sender) ->
-    gen_server:call(get_proc(), {add_sms_code, Phone, Code, Timestamp, Sender}).
-
-
--spec add_sms_code_receipt(Phone :: binary(), Receipt :: binary()) -> ok  | {error, any()}.
-add_sms_code_receipt(Phone, Receipt) ->
-    gen_server:call(get_proc(), {add_sms_code_receipt, Phone, Receipt}).
-
-
--spec delete_sms_code(Phone :: binary()) -> ok  | {error, any()}.
-delete_sms_code(Phone) ->
-    gen_server:call(get_proc(), {delete_sms_code, Phone}).
-
-
--spec add_phone(Phone :: binary(), Uid :: binary()) -> ok  | {error, any()}.
-add_phone(Phone, Uid) ->
-    gen_server:call(get_proc(), {add_phone, Phone, Uid}).
-
-
--spec delete_phone(Phone :: binary()) -> ok  | {error, any()}.
-delete_phone(Phone) ->
-    gen_server:call(get_proc(), {delete_phone, Phone}).
-
-
--spec get_sms_code(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
-get_sms_code(Phone) ->
-    gen_server:call(get_proc(), {get_sms_code, Phone}).
-
-
--spec get_sms_code_timestamp(Phone :: binary()) -> {ok, undefined | integer()} | {error, any()}.
-get_sms_code_timestamp(Phone) ->
-    gen_server:call(get_proc(), {get_sms_code_timestamp, Phone}).
-
-
--spec get_sms_code_sender(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
-get_sms_code_sender(Phone) ->
-    gen_server:call(get_proc(), {get_sms_code_sender, Phone}).
-
-
--spec get_sms_code_receipt(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
-get_sms_code_receipt(Phone) ->
-    gen_server:call(get_proc(), {get_sms_code_receipt, Phone}).
-
-
--spec get_sms_code_ttl(Phone :: binary()) -> {ok, undefined | integer()} | {error, any()}.
-get_sms_code_ttl(Phone) ->
-    gen_server:call(get_proc(), {get_sms_code_ttl, Phone}).
-
-
--spec get_uid(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
-get_uid(Phone) ->
-    gen_server:call(get_proc(), {get_uid, Phone}).
-
-
--spec get_uids(Phones :: [binary()]) -> {ok, [binary()]} | {error, any()}.
-get_uids(Phones) ->
-    gen_server:call(get_proc(), {get_uids, Phones}).
-
-
-%%====================================================================
-%% gen_server callbacks
-%%====================================================================
-
-init(_Stuff) ->
-    process_flag(trap_exit, true),
-    {ok, redis_phone_client}.
-
-
-handle_call({add_sms_code, Phone, Code, Timestamp, Sender}, _From, Redis) ->
     _Results = q([["MULTI"],
                     ["HSET", code_key(Phone),
                     ?FIELD_CODE, Code,
@@ -154,49 +77,71 @@ handle_call({add_sms_code, Phone, Code, Timestamp, Sender}, _From, Redis) ->
                     ?FIELD_SENDER, Sender],
                     ["EXPIRE", code_key(Phone), ?TTL_SMS_CODE],
                     ["EXEC"]]),
-    {reply, ok, Redis};
+    ok.
 
-handle_call({add_sms_code_receipt, Phone, Receipt}, _From, Redis) ->
+
+-spec add_sms_code_receipt(Phone :: binary(), Receipt :: binary()) -> ok  | {error, any()}.
+add_sms_code_receipt(Phone, Receipt) ->
     _Results = q(["HSET", code_key(Phone), ?FIELD_RECEIPT, Receipt]),
-    {reply, ok, Redis};
+    ok.
 
-handle_call({delete_sms_code, Phone}, _From, Redis) ->
+
+-spec delete_sms_code(Phone :: binary()) -> ok  | {error, any()}.
+delete_sms_code(Phone) ->
     {ok, _Res} = q(["DEL", code_key(Phone)]),
-    {reply, ok, Redis};
+    ok.
 
-handle_call({get_sms_code, Phone}, _From, Redis) ->
+
+-spec get_sms_code(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
+get_sms_code(Phone) ->
     {ok, Res} = q(["HGET", code_key(Phone), ?FIELD_CODE]),
-    {reply, {ok, Res}, Redis};
+    {ok, Res}.
 
-handle_call({get_sms_code_timestamp, Phone}, _From, Redis) ->
+
+-spec get_sms_code_timestamp(Phone :: binary()) -> {ok, undefined | integer()} | {error, any()}.
+get_sms_code_timestamp(Phone) ->
     {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_TIMESTAMP]),
-    {reply, {ok, binary_to_integer(Res)}, Redis};
+    {ok, binary_to_integer(Res)}.
 
-handle_call({get_sms_code_sender, Phone}, _From, Redis) ->
+
+-spec get_sms_code_sender(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
+get_sms_code_sender(Phone) ->
     {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_SENDER]),
-    {reply, {ok, Res}, Redis};
+    {ok, Res}.
 
-handle_call({get_sms_code_receipt, Phone}, _From, Redis) ->
+
+-spec get_sms_code_receipt(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
+get_sms_code_receipt(Phone) ->
     {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_RECEIPT]),
-    {reply, {ok, Res}, Redis};
+    {ok, Res}.
 
-handle_call({get_sms_code_ttl, Phone}, _From, Redis) ->
+
+-spec get_sms_code_ttl(Phone :: binary()) -> {ok, undefined | integer()} | {error, any()}.
+get_sms_code_ttl(Phone) ->
     {ok, Res} = q(["TTL" , code_key(Phone)]),
-    {reply, {ok, binary_to_integer(Res)}, Redis};
+    {ok, binary_to_integer(Res)}.
 
-handle_call({add_phone, Phone, Uid}, _From, Redis) ->
+
+-spec add_phone(Phone :: binary(), Uid :: binary()) -> ok  | {error, any()}.
+add_phone(Phone, Uid) ->
     {ok, _Res} = q(["SET", phone_key(Phone), Uid]),
-    {reply, ok, Redis};
+    ok.
 
-handle_call({delete_phone, Phone}, _From, Redis) ->
+
+-spec delete_phone(Phone :: binary()) -> ok  | {error, any()}.
+delete_phone(Phone) ->
     {ok, _Res} = q(["DEL", phone_key(Phone)]),
-    {reply, ok, Redis};
+    ok.
 
-handle_call({get_uid, Phone}, _From, Redis) ->
+
+-spec get_uid(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
+get_uid(Phone) ->
     {ok, Res} = q(["GET" , phone_key(Phone)]),
-    {reply, {ok, Res}, Redis};
+    {ok, Res}.
 
-handle_call({get_uids, Phones}, _From, Redis) ->
+
+-spec get_uids(Phones :: [binary()]) -> {ok, [binary()]} | {error, any()}.
+get_uids(Phones) ->
     {PhoneKeysList, PhonesList} = order_phones_by_keys(Phones),
     UidsList = lists:map(
             fun(PhoneKeys) ->
@@ -209,13 +154,7 @@ handle_call({get_uids, Phones}, _From, Redis) ->
             end, PhoneKeysList),
     Result = lists:zip(lists:flatten(PhonesList), lists:flatten(UidsList)),
     PhonesUidsMap = maps:from_list(Result),
-    {reply, {ok, PhonesUidsMap}, Redis}.
-
-
-handle_cast(_Message, Redis) -> {noreply, Redis}.
-handle_info(_Message, Redis) -> {noreply, Redis}.
-terminate(_Reason, _Redis) -> ok.
-code_change(_OldVersion, Redis, _Extra) -> {ok, Redis}.
+    {ok, PhonesUidsMap}.
 
 
 q(Command) ->

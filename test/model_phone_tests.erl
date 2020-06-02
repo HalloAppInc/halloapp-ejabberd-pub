@@ -25,7 +25,6 @@
 setup() ->
     redis_sup:start_link(),
     clear(),
-    model_phone:start_link(),
     ok.
 
 
