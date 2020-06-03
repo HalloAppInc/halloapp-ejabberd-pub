@@ -40,6 +40,8 @@
 	 route/2,
 	 open_session/5,
 	 open_session/6,
+	 activate_session/1,
+	 is_active_session/1,
 	 close_session/4,
 	 check_in_subscription/2,
 	 bounce_offline_message/1,
@@ -83,6 +85,8 @@
 	 clean_cache/1,
 	 config_reloaded/0
 	]).
+
+%% TODO(murali@): This module has to be refactored soon!!
 
 -export([init/1, handle_call/3, handle_cast/2,
 	 handle_info/2, terminate/2, code_change/3]).
@@ -661,6 +665,28 @@ get_sessions(Mod, LUser, LServer, LResource) ->
     Sessions = get_sessions(Mod, LUser, LServer),
     [S || S <- Sessions, element(3, S#session.usr) == LResource].
 
+
+-spec get_active_sessions(Mod :: module(), LUser :: binary(), LServer :: binary()) -> [session()].
+get_active_sessions(Mod, LUser, LServer) ->
+    Sessions = get_sessions(Mod, LUser, LServer),
+    lists:filter(fun is_active_session/1, Sessions).
+
+
+-spec is_active_session(Session :: session()) -> boolean().
+is_active_session(Session) ->
+    proplists:get_value(mode, Session#session.info) =:= active.
+
+
+-spec activate_session(Session :: session()) -> ok.
+activate_session(Session) ->
+    Info = Session#session.info,
+    {Uid, Server} = Session#session.us,
+    NewInfo = lists:keyreplace(mode, 1, Info, {mode, active}),
+    NewSession = Session#session{info = NewInfo},
+    set_session(NewSession),
+    ejabberd_hooks:run(user_session_activated, Server, [Uid, Server]).
+
+
 -spec delete_session(module(), #session{}) -> ok.
 delete_session(Mod, #session{usr = {LUser, LServer, _}} = Session) ->
     Mod:delete_session(Session),
@@ -784,7 +810,7 @@ route_message(Packet) ->
     LServer = To#jid.lserver,
     Mod = get_sm_backend(LServer),
     %% Ignore presence information and just rely on the connection state.
-    case get_sessions(Mod, LUser, LServer) of
+    case get_active_sessions(Mod, LUser, LServer) of
         [] ->
             route_offline_message(Packet);
         Ss ->

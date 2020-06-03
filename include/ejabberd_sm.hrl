@@ -33,4 +33,6 @@
 		 | {atom(), term()}].
 -type prio() :: undefined | integer().
 
+-type session() :: #session{}.
+
 -endif.

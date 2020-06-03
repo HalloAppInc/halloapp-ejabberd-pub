@@ -15,6 +15,7 @@
 -include("xmpp.hrl").
 -include("translate.hrl").
 -include("offline_message.hrl").
+-include("ejabberd_sm.hrl").
 
 -define(MESSAGE_RESPONSE_TIMEOUT_MILLISEC, 30000).  %% 30 seconds.
 
@@ -29,6 +30,7 @@
     user_receive_packet/1,
     user_send_ack/1,
     sm_register_connection_hook/3,
+    user_session_activated/2,
     remove_user/2,
     count_user_messages/1
 ]).
@@ -71,6 +73,7 @@ init([Host|_]) ->
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:add(user_send_ack, Host, ?MODULE, user_send_ack, 50),
     ejabberd_hooks:add(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
+    ejabberd_hooks:add(user_session_activated, Host, ?MODULE, user_session_activated, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     {ok, #{host => Host}}.
 
@@ -81,6 +84,7 @@ terminate(_Reason, #{host := Host} = _State) ->
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
     ejabberd_hooks:delete(user_send_ack, Host, ?MODULE, user_send_ack, 50),
     ejabberd_hooks:delete(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
+    ejabberd_hooks:delete(user_session_activated, Host, ?MODULE, user_session_activated, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
@@ -155,7 +159,19 @@ user_receive_packet(Acc) ->
     Acc.
 
 
-sm_register_connection_hook(_SID, JID, _Info) ->
+sm_register_connection_hook(SID, JID, Info) ->
+    #jid{luser = LUser, lserver = LServer, lresource = LResource} = JID,
+    US = {LUser, LServer},
+    USR = {LUser, LServer, LResource},
+    Session = #session{sid = SID, usr = USR, us = US, info = Info},
+    case ejabberd_sm:is_active_session(Session) of
+        true -> route_offline_messages(JID);
+        false -> ok
+    end.
+
+
+user_session_activated(User, Server) ->
+    JID = jid:make(User, Server),
     route_offline_messages(JID).
 
 

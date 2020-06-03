@@ -200,8 +200,8 @@ copy_state(#{owner := Owner} = NewState,
     ejabberd_hooks:run_fold(c2s_copy_session, LServer, State2, [OldState]).
 
 -spec open_session(state()) -> {ok, state()} | state().
-open_session(#{user := U, server := S, resource := R,
-	       sid := SID, ip := IP, auth_module := AuthModule} = State) ->
+open_session(#{user := U, server := S, resource := R, sid := SID,
+		ip := IP, auth_module := AuthModule, mode := Mode} = State) ->
     JID = jid:make(U, S, R),
     State1 = change_shaper(State),
     Conn = get_conn_type(State1),
@@ -210,7 +210,7 @@ open_session(#{user := U, server := S, resource := R,
 	       undefined -> undefined;
 	       Pres -> get_priority_from_presence(Pres)
 	   end,
-    Info = [{ip, IP}, {conn, Conn}, {auth_module, AuthModule}],
+    Info = [{ip, IP}, {conn, Conn}, {auth_module, AuthModule}, {mode, Mode}],
     ejabberd_sm:open_session(SID, U, S, R, Prio, Info),
     xmpp_stream_in:establish(State2).
 
