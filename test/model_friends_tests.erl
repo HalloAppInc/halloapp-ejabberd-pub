@@ -18,7 +18,6 @@
 setup() ->
   redis_sup:start_link(),
   clear(),
-  model_friends:start_link(),
   ok.
 
 clear() ->
@@ -100,3 +99,4 @@ perf_test() ->
   T = EndTime - StartTime,
 %%  ?debugFmt("~w operations took ~w ms => ~f ops ", [N, T, N / (T / 1000)]),
   {ok, T}.
+

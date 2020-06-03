@@ -7,7 +7,6 @@
 %%%------------------------------------------------------------------------------------
 -module(model_messages).
 -author('murali').
--behavior(gen_server).
 -behavior(gen_mod).
 
 -include("logger.hrl").
@@ -20,11 +19,8 @@
 -compile(export_all).
 -endif.
 
--export([start_link/0]).
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
 
 %% API
@@ -39,18 +35,17 @@
     get_all_user_messages/1
 ]).
 
-start_link() ->
-    gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
 
 %%====================================================================
 %% gen_mod callbacks
 %%====================================================================
 
-start(Host, Opts) ->
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()).
+
+start(_Host, _Opts) ->
+    ok.
 
 stop(_Host) ->
-    gen_mod:stop_child(get_proc()).
+    ok.
 
 depends(_Host, _Opts) ->
     [{mod_redis, hard}].
@@ -58,8 +53,6 @@ depends(_Host, _Opts) ->
 mod_options(_Host) ->
     [].
 
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
 
 %%====================================================================
 %% API
@@ -87,57 +80,8 @@ store_message(Message) ->
                     ContentType :: binary(), Message :: message()) -> ok | {error, any()}.
 store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_record(Message, message) ->
     store_message(ToUid, FromUid, MsgId, ContentType, fxml:element_to_binary(xmpp:encode(Message)));
+
 store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_binary(Message)->
-    gen_server:call(get_proc(), {store_message, ToUid, FromUid, MsgId, ContentType, Message});
-store_message(_ToUid, _FromUid, _MsgId, _ContentType, Message) ->
-    ?ERROR_MSG("Invalid message format: ~p: use binary format", [Message]).
-
-
--spec increment_retry_count(Uid :: binary(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
-increment_retry_count(Uid, MsgId) ->
-    gen_server:call(get_proc(), {increment_retry_count, Uid, MsgId}).
-
-
--spec get_retry_count(Uid :: binary(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
-get_retry_count(Uid, MsgId) ->
-    gen_server:call(get_proc(), {get_retry_count, Uid, MsgId}).
-
-
--spec get_message(Uid :: binary(), MsgId :: binary()) -> {ok, message()} | {error, any()}.
-get_message(Uid, MsgId) ->
-    gen_server:call(get_proc(), {get_message, Uid, MsgId}).
-
-
--spec get_all_user_messages(Uid :: binary()) -> {ok, [message()]} | {error, any()}.
-get_all_user_messages(Uid) ->
-    gen_server:call(get_proc(), {get_all_user_messages, Uid}).
-
-
--spec ack_message(Uid :: binary(), MsgId :: binary()) -> ok | {error, any()}.
-ack_message(Uid, MsgId) ->
-    gen_server:call(get_proc(), {ack_message, Uid, MsgId}).
-
-
-%%TODO(murali@): Update this to use a lua script.
--spec remove_all_user_messages(Uid :: binary()) -> ok | {error, any()}.
-remove_all_user_messages(Uid) ->
-    gen_server:call(get_proc(), {remove_all_user_messages, Uid}).
-
-
--spec count_user_messages(Uid :: binary()) -> {ok, integer()} | {error, any()}.
-count_user_messages(Uid) ->
-    gen_server:call(get_proc(), {count_user_messages, Uid}).
-
-
-%%====================================================================
-%% gen_server callbacks
-%%====================================================================
-
-init(_Stuff) ->
-    process_flag(trap_exit, true),
-    {ok, redis_messages_client}.
-
-handle_call({store_message, ToUid, FromUid, MsgId, ContentType, Message}, _From, Redis) ->
     {ok, OrderId} = q(["INCR", message_order_key(ToUid)]),
     MessageKey = message_key(ToUid, MsgId),
     Fields = [
@@ -147,27 +91,65 @@ handle_call({store_message, ToUid, FromUid, MsgId, ContentType, Message}, _From,
         ?FIELD_RETRY_COUNT, 0,
         ?FIELD_ORDER, OrderId],
     Fields2 = case FromUid of
-                undefined -> Fields;
-                _ -> [?FIELD_FROM, FromUid | Fields]
-            end,
+        undefined -> Fields;
+        _ -> [?FIELD_FROM, FromUid | Fields]
+    end,
     Fields3 = ["HSET", MessageKey | Fields2],
     PipeCommands = [
-            ["MULTI"],
-            Fields3,
-            ["ZADD", message_queue_key(ToUid), OrderId, MsgId],
-            ["EXEC"]],
+        ["MULTI"],
+        Fields3,
+        ["ZADD", message_queue_key(ToUid), OrderId, MsgId],
+        ["EXEC"]],
     _Results = qp(PipeCommands),
-    {reply, ok, Redis};
+    ok;
 
-handle_call({ack_message, Uid, MsgId}, _From, Redis) ->
+store_message(_ToUid, _FromUid, _MsgId, _ContentType, Message) ->
+    ?ERROR_MSG("Invalid message format: ~p: use binary format", [Message]).
+
+
+-spec increment_retry_count(Uid :: binary(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
+increment_retry_count(Uid, MsgId) ->
+    {ok, RetryCount} = q(["HINCRBY", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT, 1]),
+    {ok, binary_to_integer(RetryCount)}.
+
+
+-spec get_retry_count(Uid :: binary(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
+get_retry_count(Uid, MsgId) ->
+    {ok, RetryCount} = q(["HGET", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT]),
+    Res = case RetryCount of
+        undefined -> undefined;
+        _ -> binary_to_integer(RetryCount)
+    end,
+    {ok, Res}.
+
+
+-spec get_message(Uid :: binary(), MsgId :: binary()) -> {ok, message()} | {error, any()}.
+get_message(Uid, MsgId) ->
+    Result = q(["HGETALL", message_key(Uid, MsgId)]),
+    OfflineMessage = parse_result(Result),
+    {ok, OfflineMessage}.
+
+
+-spec get_all_user_messages(Uid :: binary()) -> {ok, [message()]} | {error, any()}.
+get_all_user_messages(Uid) ->
+    {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
+    Messages = get_all_user_messages(Uid, MsgIds),
+    {ok, Messages}.
+
+
+-spec ack_message(Uid :: binary(), MsgId :: binary()) -> ok | {error, any()}.
+ack_message(Uid, MsgId) ->
     _Results = qp(
             [["MULTI"],
             ["ZREM", message_queue_key(Uid), MsgId],
             ["DEL", message_key(Uid, MsgId)],
             ["EXEC"]]),
-    {reply, ok, Redis};
+    ok.
 
-handle_call({remove_all_user_messages, Uid}, _From, Redis) ->
+
+%%TODO(murali@): Update this to use a lua script.
+-spec remove_all_user_messages(Uid :: binary()) -> ok | {error, any()}.
+remove_all_user_messages(Uid) ->
     {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
     MessageKeys = message_keys(Uid, MsgIds),
     case MessageKeys of
@@ -175,33 +157,13 @@ handle_call({remove_all_user_messages, Uid}, _From, Redis) ->
         _ -> {ok, _MRes} = q(["DEL" | MessageKeys])
     end,
     {ok, _QRes} = q(["DEL", message_queue_key(Uid)]),
-    {reply, ok, Redis};
+    ok.
 
-handle_call({count_user_messages, Uid}, _From, Redis) ->
+
+-spec count_user_messages(Uid :: binary()) -> {ok, integer()} | {error, any()}.
+count_user_messages(Uid) ->
     {ok, Res} = q(["ZCARD", message_queue_key(Uid)]),
-    {reply, {ok, binary_to_integer(Res)}, Redis};
-
-handle_call({increment_retry_count, Uid, MsgId}, _From, Redis) ->
-    {ok, RetryCount} = q(["HINCRBY", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT, 1]),
-    {reply, {ok, binary_to_integer(RetryCount)}, Redis};
-
-handle_call({get_retry_count, Uid, MsgId}, _From, Redis) ->
-    {ok, RetryCount} = q(["HGET", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT]),
-    Res = case RetryCount of
-            undefined -> undefined;
-            _ -> binary_to_integer(RetryCount)
-        end,
-    {reply, {ok, Res}, Redis};
-
-handle_call({get_message, Uid, MsgId}, _From, Redis) ->
-    Result = q(["HGETALL", message_key(Uid, MsgId)]),
-    OfflineMessage = parse_result(Result),
-    {reply, {ok, OfflineMessage}, Redis};
-
-handle_call({get_all_user_messages, Uid}, _From, Redis) ->
-    {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
-    Messages = get_all_user_messages(Uid, MsgIds),
-    {reply, {ok, Messages}, Redis}.
+    {ok, binary_to_integer(Res)}.
 
 
 -spec get_all_user_messages(Uid :: binary(), MsgIds :: [binary()]) -> [binary()].
@@ -261,12 +223,6 @@ get_content_type(#message{sub_els = SubEls}) ->
         end, <<>>, SubEls).
 
 
-handle_cast(_Message, Redis) -> {noreply, Redis}.
-handle_info(_Message, Redis) -> {noreply, Redis}.
-terminate(_Reason, _Redis) -> ok.
-code_change(_OldVersion, Redis, _Extra) -> {ok, Redis}.
-
-
 q(Command) ->
     {ok, Result} = gen_server:call(redis_messages_client, {q, Command}),
     Result.
@@ -301,5 +257,4 @@ message_queue_key(Uid) ->
 -spec message_order_key(Uid :: binary()) -> binary().
 message_order_key(Uid) ->
     <<?MESSAGE_ORDER_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
-
 

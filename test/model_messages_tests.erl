@@ -37,7 +37,6 @@
 setup() ->
     redis_sup:start_link(),
     clear(),
-    model_messages:start_link(),
     ok.
 
 
