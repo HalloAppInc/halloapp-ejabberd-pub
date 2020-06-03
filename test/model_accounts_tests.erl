@@ -242,16 +242,6 @@ count_test() ->
     ok.
 
 
-% counts_test() ->
-%     setup(),
-%     ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
-%     ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
-%     ?assertEqual(ok, model_accounts:delete_account(?UID1)),
-%     ?assertEqual(2, model_accounts:count_registrations()),
-%     ?assertEqual(1, model_accounts:count_accounts()),
-%     ok.
-
-
 traced_uids_test() ->
     setup(),
     ?assertEqual({ok, []}, model_accounts:get_traced_uids()),
@@ -263,3 +253,28 @@ traced_uids_test() ->
     model_accounts:remove_uid_from_trace(?UID1),
     ?assertEqual({ok, []}, model_accounts:get_traced_uids()),
     ok.
+
+
+traced_phones_test() ->
+    setup(),
+    ?assertEqual({ok, []}, model_accounts:get_traced_phones()),
+    model_accounts:add_phone_to_trace(?PHONE1),
+    ?assertEqual({ok, [?PHONE1]}, model_accounts:get_traced_phones()),
+    model_accounts:add_phone_to_trace(?PHONE2),
+    model_accounts:add_phone_to_trace(?PHONE2),  % should have no effect
+    ?assertEqual({ok, [?PHONE1, ?PHONE2]}, model_accounts:get_traced_phones()),
+    model_accounts:remove_phone_from_trace(?PHONE2),
+    model_accounts:remove_phone_from_trace(?PHONE1),
+    ?assertEqual({ok, []}, model_accounts:get_traced_phones()),
+    ok.
+
+
+%%counts_test() ->
+%%    setup(),
+%%    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
+%%    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
+%%    ?assertEqual(ok, model_accounts:delete_account(?UID1)),
+%%    ?assertEqual(2, model_accounts:count_registrations()),
+%%    ?assertEqual(1, model_accounts:count_accounts()),
+%%    ok.
+

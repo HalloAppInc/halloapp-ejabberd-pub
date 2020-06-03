@@ -65,6 +65,10 @@
 	 migrate_all_contacts/0,
 	 verify_migrate_accounts/0,
 	 fix_account_counters/0,
+	 add_uid_trace/1,
+	 remove_uid_trace/1,
+	 add_phone_trace/1,
+	 remove_phone_trace/1,
 	 get_commands_spec/0
 	]).
 %% gen_server callbacks
@@ -460,6 +464,30 @@ get_commands_spec() ->
                         desc = "Verify the migration of all the accounts from mnesia to redis",
                         module = ?MODULE, function = verify_migrate_accounts,
                         args = [], result = {res, rescode}},
+    #ejabberd_commands{name = add_uid_trace, tags = [server],
+            desc = "Start tracing uid",
+            module = ?MODULE, function = add_uid_trace,
+            args_desc = ["Uid to be traced"],
+            args_example = ["1000000000951769287"],
+            args = [{uid, string}], result = {res, rescode}},
+    #ejabberd_commands{name = remove_uid_trace, tags = [server],
+            desc = "Stop tracing uid",
+            module = ?MODULE, function = remove_uid_trace,
+            args_desc = ["Uid to be traced"],
+            args_example = ["1000000000951769287"],
+            args = [{uid, string}], result = {res, rescode}}
+    #ejabberd_commands{name = add_phone_trace, tags = [server],
+            desc = "Start tracing phone",
+            module = ?MODULE, function = add_phone_trace,
+            args_desc = ["Phone to be traced"],
+            args_example = ["12066585586"],
+            args = [{phone, string}], result = {res, rescode}},
+    #ejabberd_commands{name = remove_phone_trace, tags = [server],
+            desc = "Stop tracing phone",
+            module = ?MODULE, function = remove_phone_trace,
+            args_desc = ["Phone to be traced"],
+            args_example = ["12066585586"],
+            args = [{phone, string}], result = {res, rescode}}
     #ejabberd_commands{name = fix_account_counters, tags = [server],
             desc = "Fix Redis counters",
             module = ?MODULE, function = fix_account_counters,
@@ -1028,6 +1056,33 @@ fix_account_counters() ->
 %% TODO(murali@): Verify migration of contacts!
 migrate_all_contacts() ->
 	mod_contacts:migrate_all_contacts().
+
+add_uid_trace(Uid) ->
+    UidBin = list_to_binary(Uid),
+    % TODO: check if it looks like uid
+    ?INFO_MSG("Uid: ~s", [UidBin]),
+    mod_trace:add_uid(UidBin),
+    ok.
+
+remove_uid_trace(Uid) ->
+    UidBin = list_to_binary(Uid),
+    % TODO: check if it looks like uid
+    ?INFO_MSG("Uid: ~s", [UidBin]),
+    mod_trace:remove_uid(UidBin),
+    ok.
+
+add_phone_trace(Phone) ->
+    PhoneBin = list_to_binary(Phone),
+    ?INFO_MSG("Phone: ~s", [PhoneBin]),
+    mod_trace:add_phone(PhoneBin),
+    ok.
+
+
+remove_phone_trace(Phone) ->
+    PhoneBin = list_to_binary(Phone),
+    ?INFO_MSG("Phone: ~s", [PhoneBin]),
+    mod_trace:remove_phone(PhoneBin),
+    ok.
 
 
 -spec is_my_host(binary()) -> boolean().

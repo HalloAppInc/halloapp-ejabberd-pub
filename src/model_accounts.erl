@@ -64,7 +64,10 @@
     fix_counters/0,
     get_traced_uids/0,
     add_uid_to_trace/1,
-    remove_uid_from_trace/1
+    remove_uid_from_trace/1,
+    get_traced_phones/0,
+    add_phone_to_trace/1,
+    remove_phone_from_trace/1
 ]).
 
 -export([
@@ -337,6 +340,18 @@ add_uid_to_trace(Uid) ->
 remove_uid_from_trace(Uid) ->
     gen_server:call(get_proc(), {remove_uid_from_trace, Uid}).
 
+-spec get_traced_phones() -> {ok, [binary()]}.
+get_traced_phones() ->
+    gen_server:call(get_proc(), {get_traced_phones}).
+
+-spec add_phone_to_trace(Phone :: binary()) -> ok.
+add_phone_to_trace(Phone) ->
+    gen_server:call(get_proc(), {add_phone_to_trace, Phone}).
+
+-spec remove_phone_from_trace(Phone :: binary()) -> ok.
+remove_phone_from_trace(Phone) ->
+    gen_server:call(get_proc(), {remove_phone_from_trace, Phone}).
+
 
 %%====================================================================
 %% gen_server callbacks
@@ -546,6 +561,18 @@ handle_call({add_uid_to_trace, Uid}, _From, Redis) ->
 
 handle_call({remove_uid_from_trace, Uid}, _From, Redis) ->
     {ok, _Res} = q(["SREM", ?TRACED_UIDS_KEY, Uid]),
+    {reply, ok, Redis};
+
+handle_call({get_traced_phones}, _From, Redis) ->
+    {ok, Phones} = q(["SMEMBERS", ?TRACED_PHONES_KEY]),
+    {reply, {ok, Phones}, Redis};
+
+handle_call({add_phone_to_trace, Phone}, _From, Redis) ->
+    {ok, _Res} = q(["SADD", ?TRACED_PHONES_KEY, Phone]),
+    {reply, ok, Redis};
+
+handle_call({remove_phone_from_trace, Phone}, _From, Redis) ->
+    {ok, _Res} = q(["SREM", ?TRACED_PHONES_KEY, Phone]),
     {reply, ok, Redis};
 
 handle_call(Any, From, Redis) ->

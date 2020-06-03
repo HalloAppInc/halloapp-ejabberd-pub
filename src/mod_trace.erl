@@ -5,15 +5,26 @@
 
 -include("logger.hrl").
 -include("jid.hrl").
+-include("time.hrl").
 
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
 
+% API
 -export([
-    user_send_packet/1,
-    user_receive_packet/1,
+    add_uid/1,
+    remove_uid/1,
+    add_phone/1,
+    remove_phone/1,
     start_trace/1,
     stop_trace/1,
-    is_uid_traced/1
+    is_uid_traced/1,
+    refresh_traced/0
+]).
+
+% hooks
+-export([
+    user_send_packet/1,
+    user_receive_packet/1
 ]).
 
 % TODO: In the future this data can be loaded from redis on startup and synced
@@ -63,6 +74,7 @@
 
 start(Host, _Opts) ->
     init(),
+    % TODO: register for the hook 'register_user' and check if the phone should be traced.
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 100),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ok.
@@ -91,31 +103,74 @@ init() ->
     ets:new(trace_uids, [set, named_table, public]),
     %% TODO: delete this line after the runs once, and the data is in redis.
     lists:foreach(fun model_accounts:add_uid_to_trace/1, ?UIDS),
-    {ok, Uids} = model_accounts:get_traced_uids(),
-    lists:foreach(fun start_trace/1, Uids),
-    ?INFO_MSG("tracing ~p uids", [length(Uids)]),
+    timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, refresh_traced, []),
+    init_ets(),
     ok.
 
 
-user_send_packet({Packet, #{lserver := ServerHost, jid := JID} = State}) ->
+-spec add_uid(Uid :: binary()) -> ok.
+add_uid(Uid) when is_binary(Uid) ->
+    ?INFO_MSG("Uid: ~s", [Uid]),
+    model_accounts:add_uid_to_trace(Uid),
+    ejabberd_cluster:multicall(?MODULE, start_trace, [Uid]),
+    ok.
+
+
+-spec remove_uid(Uid :: binary()) -> ok.
+remove_uid(Uid) when is_binary(Uid) ->
+    ?INFO_MSG("Uid: ~s", [Uid]),
+    model_accounts:remove_uid_to_trace(Uid),
+    ejabberd_cluster:multicall(?MODULE, stop_trace, [Uid]),
+    ok.
+
+
+-spec add_phone(Phone :: binary()) -> ok.
+add_phone(Phone) ->
+    ?INFO_MSG("Phone: ~s", [Phone]),
+    {ok, Uid} = model_phone:get_uid(Phone),
+    ?INFO_MSG("currently we have Uid: ~s registered with Phone: ~s", [Uid, Phone]),
+    model_accounts:add_phone_to_trace(Phone),
+    case Uid of
+        undefined -> ok;
+        Uid ->
+            model_accounts:add_uid_to_trace(Uid),
+            ejabberd_cluster:multicall(?MODULE, start_trace, [Uid])
+    end,
+    ok.
+
+
+-spec remove_phone(Phone :: binary()) -> ok.
+remove_phone(Phone) ->
+    ?INFO_MSG("Phone: ~s", [Phone]),
+    {ok, Uid} = model_phone:get_uid(Phone),
+    ?INFO_MSG("currently we have Uid: ~s registered with Phone: ~s", [Uid, Phone]),
+    model_accounts:remove_phone_to_trace(Phone),
+    case Uid of
+        undefined -> ok;
+        Uid ->
+            model_accounts:remove_uid_from_trace(Uid),
+            ejabberd_cluster:multicall(?MODULE, stop_trace, [Uid])
+    end,
+    ok.
+
+
+user_send_packet({Packet, #{jid := JID} = State}) ->
     #jid{luser = Uid} = JID,
     trace_packet(Uid, send, Packet),
     {Packet, State}.
 
 
-user_receive_packet({Packet, #{lserver := ServerHost, jid := JID} = State}) ->
+user_receive_packet({Packet, #{jid := JID} = State}) ->
     #jid{luser = Uid} = JID,
     trace_packet(Uid, recv, Packet),
     {Packet, State}.
 
 
 start_trace(Uid) ->
-    ?DEBUG("start tracing Uid:~s", [Uid]),
     ets:insert(trace_uids, {Uid}).
 
 
 stop_trace(Uid) ->
-    ?DEBUG("stop tracing Uid:~s", [Uid]),
     ets:delete(trace_uids, Uid).
 
 
@@ -134,3 +189,33 @@ trace_packet(Uid, Direction, Packet) ->
         false -> ok
     end.
 
+
+init_ets() ->
+    {ok, RedisUids} = model_accounts:get_traced_uids(),
+    init_ets(RedisUids).
+
+
+init_ets(Uids) ->
+    ets:delete_all_objects(trace_uids),
+    lists:foreach(fun start_trace/1, Uids),
+    ?INFO_MSG("tracing ~p Uids", [length(Uids)]).
+
+
+refresh_traced() ->
+    ?INFO_MSG("refreshing traced", []),
+    CurrentUids = lists:map(fun ([Uid]) -> Uid end, ets:match(trace_uids, {'$1'})),
+    CurrentSet = sets:from_list(CurrentUids),
+    {ok, RedisUids} = model_accounts:get_traced_uids(),
+    FutureSet = sets:from_list(RedisUids),
+    RemoveList = sets:to_list(sets:subtract(CurrentSet, FutureSet)),
+    AddList = sets:to_list(sets:subtract(FutureSet, CurrentSet)),
+    case {RemoveList, AddList} of
+        {[], []} ->
+            ?INFO_MSG("all in sync", []);
+        _ ->
+            ?ERROR_MSG("uids removed ~p", [RemoveList]),
+            ?ERROR_MSG("uids added ~p", [AddList]),
+            % TODO: We should check if those accounts still exist
+            init_ets(RedisUids)
+    end,
+    ok.
