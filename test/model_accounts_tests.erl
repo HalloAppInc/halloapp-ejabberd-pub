@@ -278,3 +278,24 @@ traced_phones_test() ->
 %%    ?assertEqual(1, model_accounts:count_accounts()),
 %%    ok.
 
+
+is_uid_traced_test() ->
+    setup(),
+    ?assertEqual(false, model_accounts:is_uid_traced(?UID1)),
+    model_accounts:add_uid_to_trace(?UID1),
+    ?assertEqual(true, model_accounts:is_uid_traced(?UID1)),
+    ?assertEqual(false, model_accounts:is_uid_traced(?UID2)),
+    model_accounts:remove_uid_from_trace(?UID1),
+    ?assertEqual(false, model_accounts:is_uid_traced(?UID1)),
+    ok.
+
+
+is_phone_traced_test() ->
+    setup(),
+    ?assertEqual(false, model_accounts:is_phone_traced(?PHONE1)),
+    model_accounts:add_phone_to_trace(?PHONE1),
+    ?assertEqual(true, model_accounts:is_phone_traced(?PHONE1)),
+    ?assertEqual(false, model_accounts:is_phone_traced(?PHONE2)),
+    model_accounts:remove_phone_from_trace(?PHONE1),
+    ?assertEqual(false, model_accounts:is_phone_traced(?PHONE1)),
+    ok.

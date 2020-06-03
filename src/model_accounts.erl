@@ -65,9 +65,11 @@
     get_traced_uids/0,
     add_uid_to_trace/1,
     remove_uid_from_trace/1,
+    is_uid_traced/1,
     get_traced_phones/0,
     add_phone_to_trace/1,
-    remove_phone_from_trace/1
+    remove_phone_from_trace/1,
+    is_phone_traced/1
 ]).
 
 -export([
@@ -286,7 +288,7 @@ fix_counters() ->
     ok.
 
 compute_counters(Pools) ->
-    ResultMap = lists:foldl(
+    lists:foldl(
         fun (Pool, Map) ->
             scan_server(Pool, <<"0">>, Map)
         end,
@@ -340,6 +342,10 @@ add_uid_to_trace(Uid) ->
 remove_uid_from_trace(Uid) ->
     gen_server:call(get_proc(), {remove_uid_from_trace, Uid}).
 
+-spec is_uid_traced(Uid :: binary()) -> boolean().
+is_uid_traced(Uid) ->
+    gen_server:call(get_proc(), {is_uid_traced, Uid}).
+
 -spec get_traced_phones() -> {ok, [binary()]}.
 get_traced_phones() ->
     gen_server:call(get_proc(), {get_traced_phones}).
@@ -351,6 +357,10 @@ add_phone_to_trace(Phone) ->
 -spec remove_phone_from_trace(Phone :: binary()) -> ok.
 remove_phone_from_trace(Phone) ->
     gen_server:call(get_proc(), {remove_phone_from_trace, Phone}).
+
+-spec is_phone_traced(Phone :: binary()) -> boolean().
+is_phone_traced(Phone) ->
+    gen_server:call(get_proc(), {is_phone_traced, Phone}).
 
 
 %%====================================================================
@@ -563,6 +573,10 @@ handle_call({remove_uid_from_trace, Uid}, _From, Redis) ->
     {ok, _Res} = q(["SREM", ?TRACED_UIDS_KEY, Uid]),
     {reply, ok, Redis};
 
+handle_call({is_uid_traced, Uid}, _From, Redis) ->
+    {ok, Res} = q(["SISMEMBER", ?TRACED_UIDS_KEY, Uid]),
+    {reply, binary_to_integer(Res) == 1, Redis};
+
 handle_call({get_traced_phones}, _From, Redis) ->
     {ok, Phones} = q(["SMEMBERS", ?TRACED_PHONES_KEY]),
     {reply, {ok, Phones}, Redis};
@@ -574,6 +588,10 @@ handle_call({add_phone_to_trace, Phone}, _From, Redis) ->
 handle_call({remove_phone_from_trace, Phone}, _From, Redis) ->
     {ok, _Res} = q(["SREM", ?TRACED_PHONES_KEY, Phone]),
     {reply, ok, Redis};
+
+handle_call({is_phone_traced, Phone}, _From, Redis) ->
+    {ok, Res} = q(["SISMEMBER", ?TRACED_PHONES_KEY, Phone]),
+    {reply, binary_to_integer(Res) == 1, Redis};
 
 handle_call(Any, From, Redis) ->
     ?ERROR_MSG("Unhandled message: ~p from: ~p", [Any, From]),

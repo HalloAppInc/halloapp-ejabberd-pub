@@ -24,7 +24,9 @@
 % hooks
 -export([
     user_send_packet/1,
-    user_receive_packet/1
+    user_receive_packet/1,
+    register_user/3,
+    remove_user/2
 ]).
 
 % TODO: In the future this data can be loaded from redis on startup and synced
@@ -77,10 +79,14 @@ start(Host, _Opts) ->
     % TODO: register for the hook 'register_user' and check if the phone should be traced.
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 100),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
+    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 10),
+    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
 
 stop(Host) ->
+    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 10),
     ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 100),
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ok.
@@ -153,6 +159,33 @@ remove_phone(Phone) ->
     end,
     ok.
 
+
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
+register_user(Uid, _Server, Phone) ->
+    % TODO: Build ets table for phones traced,
+    % Otherwise every registration is being checked agains this key.
+    case model_accounts:is_phone_traced(Phone) of
+        false -> ok;
+        true ->
+            ?INFO_MSG("activiating trace for Uid: ~s because Phone: ~s is traced", [Uid, Phone]),
+            % spawn new process because we don't want to block the register_user hook
+            % while we wait for all nodes in the cluster to ack
+            spawn(fun () -> add_uid(Uid) end),
+            ok
+    end.
+
+
+-spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
+remove_user(Uid, _Server) ->
+    case is_uid_traced(Uid) of
+        false -> ok;
+        true ->
+            ?INFO_MSG("traced Uid: ~s is being deleted", [Uid]),
+            % spawn new process because we don't want to block the remove_user hook
+            % while we wait for all nodes in the cluster to ack
+            spawn(fun () -> remove_uid(Uid) end),
+            ok
+    end.
 
 user_send_packet({Packet, #{jid := JID} = State}) ->
     #jid{luser = Uid} = JID,
