@@ -24,8 +24,14 @@
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
+
 %% IQ handlers and hooks.
--export([process_local_iq/1, remove_user/2, re_register_user/2]).
+-export([
+    process_local_iq/1, 
+    remove_user/2, 
+    register_user/3, 
+    re_register_user/2
+]).
 
 -export([
     is_bidirectional_contact/2,
@@ -36,12 +42,14 @@ start(Host, Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NORM, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
     ok.
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_NORM),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -59,8 +67,8 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %%====================================================================
 
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, lang = Lang,
-                    sub_els = [#contact_list{type = full, contacts = Contacts,
-                                            syncid = SyncId, index = Index, last = Last}]} = IQ) ->
+        sub_els = [#contact_list{type = full, contacts = Contacts, syncid = SyncId, index = Index, 
+                last = Last}]} = IQ) ->
     ?INFO_MSG("Full contact sync Uid: ~p, syncid: ~p, index: ~p, last: ~p, num_contacts: ~p",
             [UserId, SyncId, Index, Last, length(Contacts)]),
     stat:count("HA/contacts", "sync_full_contacts", length(Contacts)),
@@ -97,6 +105,16 @@ remove_user(UserId, Server) ->
 -spec re_register_user(User :: binary(), Server :: binary()) -> ok.
 re_register_user(UserId, Server) ->
     delete_all_contacts(UserId, Server).
+
+
+%% TODO: Delay notifying the users about their contact to reduce unnecessary messages to clients.
+-spec register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
+register_user(UserId, Server, Phone) ->
+    {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+    lists:foreach(
+        fun(ContactId) ->
+            notify_contact_about_user(UserId, Server, ContactId, <<"none">>)
+        end, ContactUids).
 
 
 %%====================================================================
@@ -327,6 +345,7 @@ remove_friend_and_notify(UserId, Server, ContactId) ->
 %% notify contact
 %%====================================================================
 
+
 %% Notifies contact about the user using the UserId and the role element to indicate
 %% if they are now friends or not on halloapp.
 -spec notify_contact_about_user(UserId :: binary(), Server :: binary(),
@@ -335,7 +354,10 @@ notify_contact_about_user(UserId, _Server, UserId, _Role) ->
     ok;
 notify_contact_about_user(UserId, Server, ContactId, Role) ->
     Normalized = get_phone(UserId),
-    AvatarId = model_accounts:get_avatar_id_binary(UserId),
+    AvatarId = case Role of
+        <<"none">> -> undefined;
+        <<"friends">> -> model_accounts:get_avatar_id_binary(UserId)
+    end,
     Contact = #contact{userid = UserId, avatarid = AvatarId, normalized = Normalized, role = Role},
     SubEls = [#contact_list{type = normal, xmlns = ?NS_NORM, contacts = [Contact]}],
     Stanza = #message{from = jid:make(Server),
