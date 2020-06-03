@@ -316,8 +316,8 @@ push_message_item(PushMessageItem, State) ->
     end,
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
     ExpiryTime = PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC,
-    PushType = get_push_type(PushMessageItem#push_message_item.message),
-    PayloadBin = get_payload(PushMessageItem, PushType),
+    PushType = get_push_type(PushMessageItem#push_message_item.message, BuildType),
+    PayloadBin = get_payload(PushMessageItem, BuildType, PushType),
     Priority = get_priority(PushType),
     DevicePath = get_device_path(Token),
     ApnsId = util:uuid_binary(),
@@ -384,19 +384,35 @@ parse_metadata(#message{id = Id, sub_els = [SubElement],
 parse_metadata(#message{sub_els = [#ps_event{items = #ps_items{
         items = [#ps_item{id = Id, publisher = FromId, type = ItemType}]}}]}) ->
 %% TODO(murali@): Change the fromId to be just userid instead of jid.
-    {Id, util:to_binary(ItemType), FromId};
+    #jid{luser = FromUid} = jid:from_string(FromId),
+    {Id, util:to_binary(ItemType), FromUid};
 parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     {<<>>, <<>>, <<>>}.
 
 
--spec get_payload(PushMessageItem :: push_message_item(), PushType :: silent | alert) -> binary().
-get_payload(PushMessageItem, PushType) ->
+%% TODO(murali@): This is only a temporary change to test Igor's push notifications.
+%% Need to clean all this parsing stuff logic.
+-spec parse_actual_data(Message :: message()) -> binary().
+parse_actual_data(#message{sub_els = [#chat{sub_els = [SubEl]}]}) ->
+    fxml:get_tag_cdata(SubEl);
+parse_actual_data(#message{sub_els = [#ps_event{items = #ps_items{
+        items = [#ps_item{sub_els = [SubEl]}]}}]}) ->
+    fxml:get_subtag_cdata(SubEl, <<"s1">>);
+parse_actual_data(#message{}) ->
+    <<>>.
+
+
+-spec get_payload(PushMessageItem :: push_message_item(), BuildType :: build_type(),
+        PushType :: silent | alert) -> binary().
+get_payload(PushMessageItem, BuildType, PushType) ->
     {ContentId, ContentType, FromId} = parse_metadata(PushMessageItem#push_message_item.message),
+    Data = parse_actual_data(PushMessageItem#push_message_item.message),
     MetadataMap = #{
         <<"content-id">> => ContentId,
         <<"content-type">> => ContentType,
-        <<"from-id">> => FromId
+        <<"from-id">> => FromId,
+        <<"data">> => Data
     },
     BuildTypeMap = case PushType of
         alert ->
@@ -406,7 +422,10 @@ get_payload(PushMessageItem, PushType) ->
         silent ->
             #{}
     end,
-    ApsMap = BuildTypeMap#{<<"content-available">> => <<"1">>},
+    ApsMap = case BuildType of
+        prod -> BuildTypeMap#{<<"content-available">> => <<"1">>};
+        dev -> BuildTypeMap#{<<"mutable-content">> => <<"1">>}
+    end,
     PayloadMap = #{<<"aps">> => ApsMap, <<"metadata">> => MetadataMap},
     jiffy:encode(PayloadMap).
 
@@ -416,9 +435,10 @@ get_priority(silent) -> 5;
 get_priority(alert) -> 10.
 
 
--spec get_push_type(Message :: message()) -> silent | alert.
-get_push_type(#message{type = headline}) -> silent;
-get_push_type(_) -> alert.
+-spec get_push_type(Message :: message(), BuildType :: build_type() ) -> silent | alert.
+get_push_type(_, dev) -> alert;
+get_push_type(#message{type = headline}, prod) -> silent;
+get_push_type(_, prod) -> alert.
 
 
 -spec get_apns_push_type(PushType :: silent | alert) -> binary().
