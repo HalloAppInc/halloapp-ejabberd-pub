@@ -72,7 +72,10 @@ add_contacts(Uid, ContactList) ->
     {ok, _Res} = q(["SADD", contacts_key(Uid) | ContactList]),
     lists:foreach(
         fun(Contact) ->
-            {ok, _} = q(["SADD", reverse_key(Contact), Uid])
+            [{ok, _}, {ok, _}] = qp([
+                ["SADD", reverse_key(Contact), Uid],
+                ["SADD", reverse_key_fixed(Contact), Uid]
+            ])
         end, ContactList),
     ok.
 
@@ -89,7 +92,10 @@ remove_contacts(Uid, ContactList) ->
     {ok, _Res} = q(["SREM", contacts_key(Uid) | ContactList]),
     lists:foreach(
         fun(Contact) ->
-            {ok, _} = q(["SREM", reverse_key(Contact), Uid])
+            [{ok, _}, {ok, _}] = qp([
+                ["SREM", reverse_key(Contact), Uid],
+                ["SREM", reverse_key_fixed(Contact), Uid]
+            ])
         end, ContactList),
     ok.
 
@@ -99,7 +105,10 @@ remove_all_contacts(Uid) ->
     {ok, ContactList} = q(["SMEMBERS", contacts_key(Uid)]),
     lists:foreach(
         fun(Contact) ->
-            {ok, _} = q(["SREM", reverse_key(Contact), Uid])
+            [{ok, _}, {ok, _}] = qp([
+                ["SREM", reverse_key(Contact), Uid],
+                ["SREM", reverse_key_fixed(Contact), Uid]
+            ])
         end, ContactList),
     {ok, _Res} = q(["DEL", contacts_key(Uid)]),
     ok.
@@ -118,11 +127,17 @@ finish_sync(Uid, Sid) ->
     {ok, AddedContactList} = q(["SDIFF", sync_key(Uid, Sid), contacts_key(Uid)]),
     lists:foreach(
         fun(Contact) ->
-            {ok, _} = q(["SREM", reverse_key(Contact), Uid])
+            [{ok, _}, {ok, _}] = qp([
+                ["SREM", reverse_key(Contact), Uid],
+                ["SREM", reverse_key_fixed(Contact), Uid]
+            ])
         end, RemovedContactList),
     lists:foreach(
         fun(Contact) ->
-            {ok, _} = q(["SADD", reverse_key(Contact), Uid])
+            [{ok, _}, {ok, _}] = qp([
+                ["SADD", reverse_key(Contact), Uid],
+                ["SADD", reverse_key_fixed(Contact), Uid]
+            ])
         end, AddedContactList),
     {ok, _Res} = q(["RENAME", sync_key(Uid, Sid), contacts_key(Uid)]),
     ok.
@@ -149,11 +164,15 @@ get_sync_contacts(Uid, Sid) ->
 -spec get_contact_uids(Contact :: binary()) -> {ok, [binary()]} | {error, any()}.
 get_contact_uids(Contact) ->
     {ok, Res} = q(["SMEMBERS", reverse_key(Contact)]),
+    {ok, Res2} = q(["SMEMBERS", reverse_key_fixed(Contact)]),
+    check_result(?FUNCTION_NAME, Res, Res2),
     {ok, Res}.
 
 -spec get_contact_uids_size(Contact :: binary()) -> non_neg_integer() | {error, any()}.
 get_contact_uids_size(Contact) ->
     {ok, Res} = q(["SCARD", reverse_key(Contact)]),
+    {ok, Res2} = q(["SCARD", reverse_key_fixed(Contact)]),
+    check_result(?FUNCTION_NAME, Res, Res2),
     binary_to_integer(Res).
 
 -spec get_all_uids() -> {ok, [binary()]} | {error, any()}.
@@ -173,6 +192,10 @@ q(Command) ->
     {ok, Result} = gen_server:call(redis_contacts_client, {q, Command}),
     Result.
 
+qp(Commands) ->
+    {ok, Result} = gen_server:call(redis_contacts_client, {qp, Commands}),
+    Result.
+
 
 -spec contacts_key(Uid :: binary()) -> binary().
 contacts_key(Uid) ->
@@ -189,3 +212,15 @@ reverse_key(Phone) ->
     <<?SYNC_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
 
 
+-spec reverse_key_fixed(Phone :: binary()) -> binary().
+reverse_key_fixed(Phone) ->
+    <<?REVERSE_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
+
+
+check_result(FunctionName, Res1, Res2) ->
+    case Res1 == Res2 of
+        true ->
+            ?INFO_MSG("~p check ok", [FunctionName]);
+        false ->
+            ?WARNING_MSG("~p check failed ~p | ~p", [FunctionName, Res1, Res2])
+    end.
