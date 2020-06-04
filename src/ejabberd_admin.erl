@@ -729,7 +729,7 @@ register_push(User, Host, Os, Token) ->
 unregister_push(User, Host) ->
     case is_my_host(Host) of
         true ->
-            case mod_push_tokens:remove_pusqh_info(User, Host) of
+            case mod_push_tokens:remove_push_info(User, Host) of
                 ok ->
                     {ok, io_lib:format("User ~ts@~ts successfully unregistered for push notifications", [User, Host])};
                 {error, Reason} ->
