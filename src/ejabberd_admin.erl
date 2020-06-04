@@ -713,10 +713,7 @@ get_user_passcode(User, Host) ->
 register_push(User, Host, Os, Token) ->
     case is_my_host(Host) of
         true ->
-            Username = {User, Host},
-            {T1, T2, _} = erlang:timestamp(),
-            Timestamp = list_to_binary(integer_to_list(T1)++integer_to_list(T2)),
-            case mod_push_notifications_mnesia:register_push(Username, Os, Token, Timestamp) of
+            case mod_push_tokens:register_push_info(User, Host, Os, Token) of
                 {ok, _} ->
                     {ok, io_lib:format("User ~ts@~ts successfully registered for push notifications", [User, Host])};
                 {error, Reason} ->
@@ -732,8 +729,7 @@ register_push(User, Host, Os, Token) ->
 unregister_push(User, Host) ->
     case is_my_host(Host) of
         true ->
-            Username = {User, Host},
-            case mod_push_notifications_mnesia:unregister_push(Username) of
+            case mod_push_tokens:remove_push_info(User, Host) of
                 {ok, _} ->
                     {ok, io_lib:format("User ~ts@~ts successfully unregistered for push notifications", [User, Host])};
                 {error, Reason} ->

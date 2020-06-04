@@ -35,14 +35,12 @@
 start(Host, Opts) ->
     ?INFO_MSG("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PUSH, ?MODULE, process_local_iq),
-    mod_push_notifications_mnesia:init(Host, Opts),
     ok.
 
 
 stop(Host) ->
     ?INFO_MSG("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_PUSH),
-    mod_push_notifications_mnesia:close(),
     ok.
 
 
@@ -91,8 +89,6 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
 register_push_info(Uid, Server, Os, Token) ->
     TimestampMs = util:now_ms(),
     ok = model_accounts:set_push_info(Uid, Os, Token, TimestampMs),
-    {ok, _} = mod_push_notifications_mnesia:register_push({Uid, Server},
-            Os, Token, integer_to_binary(TimestampMs)),
     stat:count("HA/push_tokens", "set_push_token"),
     ok.
 
@@ -100,20 +96,12 @@ register_push_info(Uid, Server, Os, Token) ->
 -spec get_push_info(Uid :: binary(), Server :: binary()) -> undefined | push_info().
 get_push_info(Uid, Server) ->
     {ok, RedisPushInfo} = model_accounts:get_push_info(Uid),
-    {ok, MnesiaPushData} = mod_push_notifications_mnesia:list_push_registrations({Uid, Server}),
-    MnesiaPushInfo = case MnesiaPushData of
-                none -> undefined;
-                {_, Os, Token, TsMs} -> #push_info{uid = Uid, os = Os,
-                        token = Token, timestamp_ms = binary_to_integer(TsMs)}
-            end,
-    compare_push_info_result(Uid, RedisPushInfo, MnesiaPushInfo),
-    MnesiaPushInfo.
+    RedisPushInfo.
 
 
 -spec remove_push_info(Uid :: binary(), Server :: binary()) -> ok.
 remove_push_info(Uid, Server) ->
     ok = model_accounts:remove_push_info(Uid),
-    {ok, _} = mod_push_notifications_mnesia:unregister_push({Uid, Server}),
     stat:count("HA/push_tokens", "remove_push_token"),
     ok.
 
