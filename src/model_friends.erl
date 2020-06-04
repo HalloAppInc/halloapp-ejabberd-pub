@@ -23,13 +23,14 @@
 
 %% API
 -export([
-  get_connection/0,
-  add_friend/2,
-  remove_friend/2,
-  get_friends/1,
-  is_friend/2,
-  set_friends/2,
-  remove_all_friends/1]).
+    get_connection/0,
+    add_friend/2,
+    remove_friend/2,
+    get_friends/1,
+    is_friend/2,
+    set_friends/2,
+    remove_all_friends/1
+]).
 
 
 %%====================================================================
