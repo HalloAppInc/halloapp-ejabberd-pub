@@ -261,8 +261,8 @@ init([ServerHost|_]) ->
 	lists:flatmap(
 	  fun(Host) ->
 		  DBMod:init(Host, ServerHost, Opts),
-		  ejabberd_router:register_route(
-		    Host, ServerHost, {apply, ?MODULE, route}),
+		  % ejabberd_router:register_route(
+		  %   Host, ServerHost, {apply, ?MODULE, route}),
 		  {Plugins, NodeTree, PepMapping} = init_plugins(Host, ServerHost, Opts),
 		  DefaultModule = plugin(Host, hd(Plugins)),
 		  DefaultNodeCfg = merge_config(

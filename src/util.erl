@@ -179,7 +179,6 @@ send_after(TimeoutMs, Msg) ->
     NewTimer = erlang:send_after(TimeoutMs, self(), Msg),
     NewTimer.
 
-
 -spec uids_to_jids(Uids :: list(binary()), Server :: binary()) -> list(jid()).
 uids_to_jids(Uids, Server) ->
     lists:map(fun(Uid) -> jid:make(Uid, Server) end, Uids).
