@@ -66,8 +66,7 @@ get_service(Name) ->
         {prod, redis_auth} -> {redis_auth, "redisauth.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_phone} -> {redis_phone, "redisphone.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_messages} -> {redis_messages, "redismessages.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
-        %% temporary: (murali@): update this!
-        {prod, redis_whisper} -> {redis_whisper, "redismessages.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        {prod, redis_whisper} -> {redis_whisper, "rediswhisper.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         _Else -> {error, service_not_found}
   end.
 
