@@ -316,8 +316,8 @@ push_message_item(PushMessageItem, State) ->
     end,
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
     ExpiryTime = PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC,
-    PushType = get_push_type(PushMessageItem#push_message_item.message, BuildType),
-    PayloadBin = get_payload(PushMessageItem, BuildType, PushType),
+    PushType = get_push_type(PushMessageItem#push_message_item.message),
+    PayloadBin = get_payload(PushMessageItem, PushType),
     Priority = get_priority(PushType),
     DevicePath = get_device_path(Token),
     ApnsId = util:uuid_binary(),
@@ -403,9 +403,10 @@ parse_actual_data(#message{}) ->
     <<>>.
 
 
--spec get_payload(PushMessageItem :: push_message_item(), BuildType :: build_type(),
-        PushType :: silent | alert) -> binary().
-get_payload(PushMessageItem, BuildType, PushType) ->
+%% Details about the content inside the apns push payload are here:
+%% [https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification]
+-spec get_payload(PushMessageItem :: push_message_item(), PushType :: silent | alert) -> binary().
+get_payload(PushMessageItem, PushType) ->
     {ContentId, ContentType, FromId} = parse_metadata(PushMessageItem#push_message_item.message),
     Data = parse_actual_data(PushMessageItem#push_message_item.message),
     MetadataMap = #{
@@ -417,16 +418,16 @@ get_payload(PushMessageItem, BuildType, PushType) ->
     BuildTypeMap = case PushType of
         alert ->
             {Subject, Body} = parse_message(PushMessageItem#push_message_item.message),
-            DataMap = #{<<"title">> => Subject, <<"body">> => Body},
-            #{<<"alert">> => DataMap, <<"sound">> => <<"default">>};
+            DataMap = #{
+                <<"title">> => Subject,
+                <<"body">> => Body
+            },
+            %% Setting mutable-content flag allows the ios client to modify the push notification.
+            #{<<"alert">> => DataMap, <<"sound">> => <<"default">>, <<"mutable-content">> => <<"1">>};
         silent ->
-            #{}
+            #{<<"content-available">> => <<"1">>}
     end,
-    ApsMap = case BuildType of
-        prod -> BuildTypeMap#{<<"content-available">> => <<"1">>};
-        dev -> BuildTypeMap#{<<"mutable-content">> => <<"1">>}
-    end,
-    PayloadMap = #{<<"aps">> => ApsMap, <<"metadata">> => MetadataMap},
+    PayloadMap = #{<<"aps">> => BuildTypeMap, <<"metadata">> => MetadataMap},
     jiffy:encode(PayloadMap).
 
 
@@ -435,10 +436,19 @@ get_priority(silent) -> 5;
 get_priority(alert) -> 10.
 
 
--spec get_push_type(Message :: message(), BuildType :: build_type() ) -> silent | alert.
-get_push_type(_, dev) -> alert;
-get_push_type(#message{type = headline}, prod) -> silent;
-get_push_type(_, prod) -> alert.
+-spec get_push_type(Message :: message()) -> silent | alert.
+get_push_type(#message{type = headline, to = #jid{luser = User}, sub_els = [#ps_event{
+        items = #ps_items{node = Node, items = [#ps_item{type = ItemType}]}}]}) ->
+    case ItemType of
+        feedpost -> alert;
+        comment ->
+            case Node of
+                <<"feed-", User/binary>> -> alert;
+                _ -> silent
+            end
+    end;
+get_push_type(_) -> alert.
+
 
 
 -spec get_apns_push_type(PushType :: silent | alert) -> binary().
