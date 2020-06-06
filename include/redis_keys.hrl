@@ -53,3 +53,7 @@
 -define(WHISPER_KEY, <<"wk:">>).
 -define(OTP_KEY, <<"wotp:">>).
 -define(SUBSCRIBERS_KEY, <<"wsub:">>).
+
+%% RedisGroups
+-define(GROUP_KEY, <<"g:">>).
+-define(GROUP_MEMBERS_KEY, <<"gm:">>).

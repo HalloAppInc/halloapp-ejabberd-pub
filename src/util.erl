@@ -23,6 +23,7 @@
     round_to_minute/1,
     random_str/1,
     generate_password/0,
+    generate_gid/0,
     type/1,
     to_atom/1,
     to_binary/1,
@@ -41,6 +42,7 @@
 -endif.
 
 -define(PASSWORD_SIZE, 24).
+-define(GID_SIZE, 22).
 
 -spec get_host() -> binary().
 get_host() ->
@@ -101,6 +103,11 @@ random_str(Size) ->
 -spec generate_password() -> binary().
 generate_password() ->
     random_str(?PASSWORD_SIZE).
+
+-spec generate_gid() -> binary().
+generate_gid() ->
+    GidPart = random_str(?GID_SIZE - 1),
+    <<"g", GidPart/binary>>.
 
 
 type(X) when is_binary(X) ->

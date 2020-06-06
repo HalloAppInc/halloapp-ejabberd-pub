@@ -112,7 +112,7 @@ handle_call({get_password, Uid}, _From, Redis) ->
     {reply, {ok, #password{
         salt = Salt,
         hashed_password = HashedPassword,
-        ts_ms = decode_ts(TsMsBinary),
+        ts_ms = util_redis:decode_ts(TsMsBinary),
         uid = Uid
     }}, Redis};
 
@@ -125,11 +125,6 @@ handle_info(_Message, Redis) -> {noreply, Redis}.
 terminate(_Reason, _Redis) -> ok.
 code_change(_OldVersion, Redis, _Extra) -> {ok, Redis}.
 
-decode_ts(TsMsBinary) ->
-    case TsMsBinary of
-        undefined -> undefined;
-        X -> binary_to_integer(X)
-    end.
 
 q(Command) ->
     {ok, Result} = gen_server:call(redis_auth_client, {q, Command}),
