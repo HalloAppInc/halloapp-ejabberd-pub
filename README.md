@@ -240,10 +240,13 @@ In order to assist in the development of ejabberd, and particularly the
 execution of the test suite, a Vagrant environment is available at
 https://github.com/processone/ejabberd-vagrant-dev.
 
+
+### 3. Running
+
 To start ejabberd in development mode from the repository directory, you can
 type a command like:
 
-    EJABBERD_CONFIG_PATH=ejabberd.yml erl -pa ebin -pa deps/*/ebin -pa test -pa deps/elixir/lib/*/ebin/ -s ejabberd
+    EJABBERD_CONFIG_PATH=ejabberd.yml erl -kernel shell_history enabled -pa ebin -pa deps/*/ebin -pa test -pa deps/elixir/lib/*/ebin/ -s ejabberd
 
 Links
 -----
