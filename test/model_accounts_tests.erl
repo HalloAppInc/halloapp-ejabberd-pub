@@ -16,7 +16,6 @@ setup() ->
     mod_redis:start(undefined, []),
 %%  redis_sup:start_link(),
     clear(),
-    model_accounts:start_link(),
     ok.
 
 clear() ->
@@ -184,20 +183,20 @@ last_activity_test() ->
 
 subscribe_test() ->
     setup(),
-    true = model_accounts:presence_subscribe(?UID1, ?UID2),
-    false = model_accounts:presence_subscribe(?UID1, ?UID2),
+    ok = model_accounts:presence_subscribe(?UID1, ?UID2),
+    ok = model_accounts:presence_subscribe(?UID1, ?UID2),
     {ok, [?UID2]} = model_accounts:get_subscribed_uids(?UID1),
     {ok, [?UID1]} = model_accounts:get_broadcast_uids(?UID2).
 
 
 unsubscribe_test() ->
     setup(),
-    true = model_accounts:presence_subscribe(?UID1, ?UID2),
-    true = model_accounts:presence_subscribe(?UID1, ?UID3),
+    ok = model_accounts:presence_subscribe(?UID1, ?UID2),
+    ok = model_accounts:presence_subscribe(?UID1, ?UID3),
     {ok, [?UID2, ?UID3]} = model_accounts:get_subscribed_uids(?UID1),
     {ok, [?UID1]} = model_accounts:get_broadcast_uids(?UID2),
     {ok, [?UID1]} = model_accounts:get_broadcast_uids(?UID3),
-    true = model_accounts:presence_unsubscribe(?UID1, ?UID2),
+    ok = model_accounts:presence_unsubscribe(?UID1, ?UID2),
     {ok, []} = model_accounts:get_broadcast_uids(?UID2),
     {ok, [?UID1]} = model_accounts:get_broadcast_uids(?UID3),
     ok.
@@ -205,8 +204,8 @@ unsubscribe_test() ->
 
 clear_subscriptions_test() ->
     setup(),
-    true = model_accounts:presence_subscribe(?UID1, ?UID2),
-    true = model_accounts:presence_subscribe(?UID1, ?UID3),
+    ok = model_accounts:presence_subscribe(?UID1, ?UID2),
+    ok = model_accounts:presence_subscribe(?UID1, ?UID3),
     {ok, [?UID2, ?UID3]} = model_accounts:get_subscribed_uids(?UID1),
     {ok, [?UID1]} = model_accounts:get_broadcast_uids(?UID2),
     {ok, [?UID1]} = model_accounts:get_broadcast_uids(?UID3),

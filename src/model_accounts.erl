@@ -8,7 +8,6 @@
 %%%-------------------------------------------------------------------
 -module(model_accounts).
 -author("nikola").
--behavior(gen_server).
 -behavior(gen_mod).
 
 -include("logger.hrl").
@@ -21,11 +20,8 @@
 -compile(export_all).
 -endif.
 
--export([start_link/0]).
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
 -export([key/1]).
 
@@ -41,6 +37,7 @@
     set_name/2,
     get_name/1,
     get_name_binary/1,
+    get_creation_ts_ms/1,
     delete_name/1,
     set_avatar_id/2,
     get_avatar_id/1,
@@ -77,29 +74,23 @@
     qs/2
 ]).
 
-start_link() ->
-    gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
-
 %%====================================================================
 %% gen_mod callbacks
 %%====================================================================
 
-start(Host, Opts) ->
+start(_Host, _Opts) ->
     ?INFO_MSG("start ~w", [?MODULE]),
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()).
+    ok.
 
 stop(_Host) ->
     ?INFO_MSG("stop ~w", [?MODULE]),
-    gen_mod:stop_child(get_proc()).
+    ok.
 
 depends(_Host, _Opts) ->
     [{mod_redis, hard}].
 
 mod_options(_Host) ->
     [].
-
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
 
 %%====================================================================
 %% API
@@ -118,31 +109,80 @@ get_proc() ->
 -define(FIELD_PUSH_TIMESTAMP, <<"pts">>).
 
 
+%%====================================================================
+%% Account related API
+%%====================================================================
+
 -spec create_account(Uid :: binary(), Phone :: binary(), Name :: binary(),
         UserAgent :: binary()) -> ok | {error, exists}.
 create_account(Uid, Phone, Name, UserAgent) ->
     create_account(Uid, Phone, Name, UserAgent, util:now_ms()).
 
+
 -spec create_account(Uid :: binary(), Phone :: binary(), Name :: binary(),
         UserAgent :: binary(), CreationTsMs :: integer()) -> ok | {error, exists | deleted}.
 create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
-    gen_server:call(get_proc(), {create_account, Uid, Phone, Name, UserAgent, CreationTsMs}).
+    {ok, Deleted} = q(["EXISTS", deleted_account_key(Uid)]),
+    case binary_to_integer(Deleted) == 1 of
+        true -> {error, deleted};
+        false ->
+            {ok, Exists} = q(["HSETNX", key(Uid), ?FIELD_PHONE, Phone]),
+            case binary_to_integer(Exists) > 0 of
+                true ->
+                    Res = qp([
+                        ["HSET", key(Uid),
+                            ?FIELD_NAME, Name,
+                            ?FIELD_USER_AGENT, UserAgent,
+                            ?FIELD_CREATION_TIME, integer_to_binary(CreationTsMs)],
+                        ["INCR", count_registrations_key(Uid)],
+                        ["INCR", count_accounts_key(Uid)]
+                    ]),
+                    [{ok, _FieldCount}, {ok, <<"1">>}, {ok, <<"1">>}] = Res,
+                    ok;
+                false ->
+                    {error, exists}
+            end
+    end.
+
 
 -spec delete_account(Uid :: binary()) -> ok.
 delete_account(Uid) ->
-    gen_server:call(get_proc(), {delete_account, Uid}).
+    case q(["HEXISTS", key(Uid), ?FIELD_PHONE]) of
+        {ok, <<"1">>} ->
+            [RenameResult, DecrResult] = qp([
+                ["RENAME", key(Uid), deleted_account_key(Uid)],
+                ["DECR", count_accounts_key(Uid)]
+            ]),
+            case RenameResult of
+                {ok, <<"OK">>} ->
+                    ?INFO_MSG("Uid: ~s deleted", [Uid]);
+                {error, Error} ->
+                    ?ERROR_MSG("Uid: ~s account delete failed ~p", [Uid, Error])
+            end,
+            {ok, _} = DecrResult;
+        {ok, <<"0">>} ->
+            ok
+    end,
+    ok.
+
 
 -spec set_name(Uid :: binary(), Name :: binary()) -> ok  | {error, any()}.
 set_name(Uid, Name) ->
-    gen_server:call(get_proc(), {set_name, Uid, Name}).
+    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_NAME, Name]),
+    ok.
+
 
 -spec get_name(Uid :: binary()) -> binary() | {ok, binary() | undefined} | {error, any()}.
 get_name(Uid) ->
-    gen_server:call(get_proc(), {get_name, Uid}).
+    {ok, Res} = q(["HGET", key(Uid), ?FIELD_NAME]),
+    {ok, Res}.
+
 
 -spec delete_name(Uid :: binary()) -> ok  | {error, any()}.
 delete_name(Uid) ->
-    gen_server:call(get_proc(), {delete_name, Uid}).
+    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_NAME]),
+    ok.
+
 
 -spec get_name_binary(Uid :: binary()) -> binary().
 get_name_binary(Uid) ->
@@ -152,13 +192,18 @@ get_name_binary(Uid) ->
         _ -> Name
     end.
 
+
 -spec set_avatar_id(Uid :: binary(), AvatarId :: binary()) -> ok  | {error, any()}.
 set_avatar_id(Uid, AvatarId) ->
-    gen_server:call(get_proc(), {set_avatar_id, Uid, AvatarId}).
+    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_AVATAR_ID, AvatarId]),
+    ok.
+
 
 -spec get_avatar_id(Uid :: binary()) -> binary() | {ok, binary() | undefined} | {error, any()}.
 get_avatar_id(Uid) ->
-    gen_server:call(get_proc(), {get_avatar_id, Uid}).
+    {ok, Res} = q(["HGET", key(Uid), ?FIELD_AVATAR_ID]),
+    {ok, Res}.
+
 
 -spec get_avatar_id_binary(Uid :: binary()) -> binary().
 get_avatar_id_binary(Uid) ->
@@ -168,31 +213,50 @@ get_avatar_id_binary(Uid) ->
         _ -> AvatarId
     end.
 
+
 -spec get_phone(Uid :: binary()) -> {ok, binary()} | {error, missing}.
 get_phone(Uid) ->
-    gen_server:call(get_proc(), {get_phone, Uid}).
+    {ok, Res} = q(["HGET", key(Uid), ?FIELD_PHONE]),
+    case Res of
+        undefined -> {error, missing};
+        Res -> {ok, Res}
+    end.
+
 
 -spec get_creation_ts_ms(Uid :: binary()) -> {ok, integer()} | {error, missing}.
 get_creation_ts_ms(Uid) ->
-    gen_server:call(get_proc(), {get_creation_ts_ms, Uid}).
+    {ok, Res} = q(["HGET", key(Uid), ?FIELD_CREATION_TIME]),
+    ts_reply(Res).
+
 
 -spec get_signup_user_agent(Uid :: binary()) -> {ok, binary()} | {error, missing}.
 get_signup_user_agent(Uid) ->
-    gen_server:call(get_proc(), {get_signup_user_agent, Uid}).
+    {ok, Res} = q(["HGET", key(Uid), ?FIELD_USER_AGENT]),
+    case Res of
+        undefined -> {error, missing};
+        Res -> {ok, Res}
+    end.
+
 
 -spec get_account(Uid :: binary()) -> {ok, account()} | {error, missing}.
 get_account(Uid) ->
-    gen_server:call(get_proc(), {get_account, Uid}).
+    {ok, Res} = q(["HGETALL", key(Uid)]),
+    M = util:list_to_map(Res),
+    Account = #account{
+            uid = Uid,
+            phone = maps:get(?FIELD_PHONE, M),
+            name = maps:get(?FIELD_NAME, M),
+            signup_user_agent = maps:get(?FIELD_USER_AGENT, M),
+            creation_ts_ms = ts_decode(maps:get(?FIELD_CREATION_TIME, M)),
+            last_activity_ts_ms = ts_decode(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
+            activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined))
+        },
+    {ok, Account}.
 
--spec set_last_activity(Uid :: binary(), TimestampMs :: integer(),
-        ActivityStatus :: activity_status()) -> ok.
-set_last_activity(Uid, TimestampMs, ActivityStatus) ->
-    gen_server:call(get_proc(), {set_last_activity, Uid, TimestampMs, ActivityStatus}).
 
--spec get_last_activity(Uid :: binary()) -> {ok, activity()} | {error, missing}.
-get_last_activity(Uid) ->
-    gen_server:call(get_proc(), {get_last_activity, Uid}).
-
+%%====================================================================
+%% Push-tokens related API
+%%====================================================================
 
 -spec set_push_info(PushInfo :: push_info()) -> ok.
 set_push_info(PushInfo) ->
@@ -203,62 +267,145 @@ set_push_info(PushInfo) ->
 -spec set_push_info(Uid :: binary(), Os :: binary(), PushToken :: binary(),
         TimestampMs :: integer()) -> ok.
 set_push_info(Uid, Os, PushToken, TimestampMs) ->
-    gen_server:call(get_proc(), {set_push_info, Uid, Os, PushToken, TimestampMs}).
+    {ok, _Res} = q(
+            ["HMSET", key(Uid),
+            ?FIELD_PUSH_OS, Os,
+            ?FIELD_PUSH_TOKEN, PushToken,
+            ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs)]),
+    ok.
 
 
 -spec get_push_info(Uid :: binary()) -> {ok, undefined | push_info()} | {error, missing}.
 get_push_info(Uid) ->
-    gen_server:call(get_proc(), {get_push_info, Uid}).
+    {ok, [Os, Token, TimestampMs]} = q(
+            ["HMGET", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    Res = case ts_decode(TimestampMs) of
+            undefined ->
+                undefined;
+            TsMs ->
+                #push_info{uid = Uid, os = Os, token = Token, timestamp_ms = TsMs}
+        end,
+    {ok, Res}.
 
 
 -spec remove_push_info(Uid :: binary()) -> ok | {error, missing}.
 remove_push_info(Uid) ->
-    gen_server:call(get_proc(), {remove_push_info, Uid}).
+    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    ok.
 
 
 -spec account_exists(Uid :: binary()) -> boolean().
 account_exists(Uid) ->
-    gen_server:call(get_proc(), {account_exists, Uid}).
+    {ok, Res} = q(["HEXISTS", key(Uid), ?FIELD_PHONE]),
+    binary_to_integer(Res) > 0.
+
 
 -spec is_account_deleted(Uid :: binary()) -> boolean().
 is_account_deleted(Uid) ->
-    gen_server:call(get_proc(), {is_account_deleted, Uid}).
+    {ok, Res} = q(["EXISTS", deleted_account_key(Uid)]),
+    binary_to_integer(Res) > 0.
 
--spec presence_subscribe(Uid :: binary(), Buid :: binary()) -> boolean().
+
+%%====================================================================
+%% Presence related API
+%%====================================================================
+
+
+-spec set_last_activity(Uid :: binary(), TimestampMs :: integer(),
+        ActivityStatus :: activity_status()) -> ok.
+set_last_activity(Uid, TimestampMs, ActivityStatus) ->
+    {ok, _Res} = q(
+            ["HMSET", key(Uid),
+            ?FIELD_LAST_ACTIVITY, integer_to_binary(TimestampMs),
+            ?FIELD_ACTIVITY_STATUS, util:to_binary(ActivityStatus)]),
+    ok.
+
+
+-spec get_last_activity(Uid :: binary()) -> {ok, activity()} | {error, missing}.
+get_last_activity(Uid) ->
+    {ok, [TimestampMs, ActivityStatus]} = q(
+            ["HMGET", key(Uid), ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS]),
+    Res = case ts_decode(TimestampMs) of
+            undefined ->
+                #activity{uid = Uid};
+            TsMs ->
+                #activity{uid = Uid, last_activity_ts_ms = TsMs,
+                        status = util:to_atom(ActivityStatus)}
+        end,
+    {ok, Res}.
+
+
+-spec presence_subscribe(Uid :: binary(), Buid :: binary()) -> ok.
 presence_subscribe(Uid, Buid) ->
-    gen_server:call(get_proc(), {presence_subscribe, Uid, Buid}).
+    {ok, _Res1} = q(["SADD", subscribe_key(Uid), Buid]),
+    {ok, _Res2} = q(["SADD", broadcast_key(Buid), Uid]),
+    ok.
+
 
 -spec presence_unsubscribe(Uid :: binary(), Buid :: binary()) -> boolean().
 presence_unsubscribe(Uid, Buid) ->
-    gen_server:call(get_proc(), {presence_unsubscribe, Uid, Buid}).
+    {ok, _Res1} = q(["SREM", subscribe_key(Uid), Buid]),
+    {ok, _Res2} = q(["SREM", broadcast_key(Buid), Uid]),
+    ok.
+
 
 -spec presence_unsubscribe_all(Uid :: binary()) -> ok.
 presence_unsubscribe_all(Uid) ->
-    gen_server:call(get_proc(), {presence_unsubscribe_all, Uid}).
+    {ok, Buids} = q(["SMEMBERS", subscribe_key(Uid)]),
+    lists:foreach(fun (Buid) ->
+            {ok, _Res} = q(["SREM", broadcast_key(Buid), Uid])
+        end,
+        Buids),
+    {ok, _} = q(["DEL", subscribe_key(Uid)]),
+    ok.
+
 
 -spec get_subscribed_uids(Uid :: binary()) -> {ok, [binary()]}.
 get_subscribed_uids(Uid) ->
-    gen_server:call(get_proc(), {get_subscribed_uids, Uid}).
+    {ok, Buids} = q(["SMEMBERS", subscribe_key(Uid)]),
+    {ok, Buids}.
+
 
 -spec get_broadcast_uids(Uid :: binary()) -> {ok, [binary()]}.
 get_broadcast_uids(Uid) ->
-    gen_server:call(get_proc(), {get_broadcast_uids, Uid}).
+    {ok, Buids} = q(["SMEMBERS", broadcast_key(Uid)]),
+    {ok, Buids}.
+
+
+%%====================================================================
+%% Counts related API
+%%====================================================================
+
 
 -spec count_registrations() -> non_neg_integer().
 count_registrations() ->
     count_fold(fun model_accounts:count_registrations/1, "count_registrations").
 
+
 -spec count_registrations(Slot :: non_neg_integer()) -> non_neg_integer().
 count_registrations(Slot) ->
-    gen_server:call(get_proc(), {count_registrations, Slot}).
+    {ok, CountBin} = q(["GET", count_registrations_key_slot(Slot)]),
+    Count = case CountBin of
+                undefined -> 0;
+                CountBin -> binary_to_integer(CountBin)
+            end,
+    Count.
+
 
 -spec count_accounts() -> non_neg_integer().
 count_accounts() ->
     count_fold(fun model_accounts:count_accounts/1, "count_accounts").
 
+
 -spec count_accounts(Slot :: non_neg_integer()) -> non_neg_integer().
 count_accounts(Slot) ->
-    gen_server:call(get_proc(), {count_accounts, Slot}).
+    {ok, CountBin} = q(["GET", count_accounts_key_slot(Slot)]),
+    Count = case CountBin of
+                undefined -> 0;
+                CountBin -> binary_to_integer(CountBin)
+            end,
+    Count.
+
 
 count_fold(Fun, Name) ->
     lists:foldl(
@@ -273,6 +420,7 @@ count_fold(Fun, Name) ->
         0,
         lists:seq(0, ?REDIS_CLUSTER_HASH_SLOTS -1)).
 
+
 fix_counters() ->
     ?INFO_MSG("start", []),
     {ok, Pools} = get_all_pools(),
@@ -286,6 +434,7 @@ fix_counters() ->
         ResultMap),
     ?INFO_MSG("finished setting ~p counters", [maps:size(ResultMap)]),
     ok.
+
 
 compute_counters(Pools) ->
     lists:foldl(
@@ -330,278 +479,63 @@ process_key(<<"dac:{", Rest/binary>>) ->
 process_key(_Any) ->
     skip.
 
+%%====================================================================
+%% Tracing related API
+%%====================================================================
+
+
 -spec get_traced_uids() -> {ok, [binary()]}.
 get_traced_uids() ->
-    gen_server:call(get_proc(), {get_traced_uids}).
+    {ok, Uids} = q(["SMEMBERS", ?TRACED_UIDS_KEY]),
+    {ok, Uids}.
+
 
 -spec add_uid_to_trace(Uid :: binary()) -> ok.
 add_uid_to_trace(Uid) ->
-    gen_server:call(get_proc(), {add_uid_to_trace, Uid}).
+    {ok, _Res} = q(["SADD", ?TRACED_UIDS_KEY, Uid]),
+    ok.
+
 
 -spec remove_uid_from_trace(Uid :: binary()) -> ok.
 remove_uid_from_trace(Uid) ->
-    gen_server:call(get_proc(), {remove_uid_from_trace, Uid}).
+    {ok, _Res} = q(["SREM", ?TRACED_UIDS_KEY, Uid]),
+    ok.
+
 
 -spec is_uid_traced(Uid :: binary()) -> boolean().
 is_uid_traced(Uid) ->
-    gen_server:call(get_proc(), {is_uid_traced, Uid}).
+    {ok, Res} = q(["SISMEMBER", ?TRACED_UIDS_KEY, Uid]),
+    binary_to_integer(Res) == 1.
+
 
 -spec get_traced_phones() -> {ok, [binary()]}.
 get_traced_phones() ->
-    gen_server:call(get_proc(), {get_traced_phones}).
+    {ok, Phones} = q(["SMEMBERS", ?TRACED_PHONES_KEY]),
+    {ok, Phones}.
+
 
 -spec add_phone_to_trace(Phone :: binary()) -> ok.
 add_phone_to_trace(Phone) ->
-    gen_server:call(get_proc(), {add_phone_to_trace, Phone}).
+    {ok, _Res} = q(["SADD", ?TRACED_PHONES_KEY, Phone]),
+    ok.
+
 
 -spec remove_phone_from_trace(Phone :: binary()) -> ok.
 remove_phone_from_trace(Phone) ->
-    gen_server:call(get_proc(), {remove_phone_from_trace, Phone}).
+    {ok, _Res} = q(["SREM", ?TRACED_PHONES_KEY, Phone]),
+    ok.
+
 
 -spec is_phone_traced(Phone :: binary()) -> boolean().
 is_phone_traced(Phone) ->
-    gen_server:call(get_proc(), {is_phone_traced, Phone}).
-
-
-%%====================================================================
-%% gen_server callbacks
-%%====================================================================
-
-init(_Stuff) ->
-    process_flag(trap_exit, true),
-    {ok, redis_accounts_client}.
-
-handle_call({get_connection}, _From, Redis) ->
-    {reply, {ok, Redis}, Redis};
-
-handle_call({create_account, Uid, Phone, Name, UserAgent, CreationTsMs}, _From, Redis) ->
-    {ok, Deleted} = q(["EXISTS", deleted_account_key(Uid)]),
-    case binary_to_integer(Deleted) == 1 of
-        true -> {reply, {error, deleted}, Redis};
-        false ->
-            {ok, Exists} = q(["HSETNX", key(Uid), ?FIELD_PHONE, Phone]),
-            case binary_to_integer(Exists) > 0 of
-                true ->
-                    Res = qp([
-                        ["HSET", key(Uid),
-                            ?FIELD_NAME, Name,
-                            ?FIELD_USER_AGENT, UserAgent,
-                            ?FIELD_CREATION_TIME, integer_to_binary(CreationTsMs)],
-                        ["INCR", count_registrations_key(Uid)],
-                        ["INCR", count_accounts_key(Uid)]
-                    ]),
-                    [{ok, _FieldCount}, {ok, <<"1">>}, {ok, <<"1">>}] = Res,
-                    {reply, ok, Redis};
-                false ->
-                    {reply, {error, exists}, Redis}
-            end
-    end;
-
-handle_call({delete_account, Uid}, _From, Redis) ->
-    case q(["HEXISTS", key(Uid), ?FIELD_PHONE]) of
-        {ok, <<"1">>} ->
-            [RenameResult, DecrResult] = qp([
-                ["RENAME", key(Uid), deleted_account_key(Uid)],
-                ["DECR", count_accounts_key(Uid)]
-            ]),
-            case RenameResult of
-                {ok, <<"OK">>} ->
-                    ?INFO_MSG("Uid: ~s deleted", [Uid]);
-                {error, Error} ->
-                    ?ERROR_MSG("Uid: ~s account delete failed ~p", [Uid, Error])
-            end,
-            {ok, _} = DecrResult;
-        {ok, <<"0">>} ->
-            ok
-    end,
-    {reply, ok, Redis};
-
-handle_call({account_exists, Uid}, _From, Redis) ->
-    {ok, Res} = q(["HEXISTS", key(Uid), ?FIELD_PHONE]),
-    {reply, binary_to_integer(Res) > 0, Redis};
-
-handle_call({is_account_deleted, Uid}, _From, Redis) ->
-    {ok, Res} = q(["EXISTS", deleted_account_key(Uid)]),
-    {reply, binary_to_integer(Res) > 0, Redis};
-
-handle_call({get_account, Uid}, _From, Redis) ->
-    {ok, Res} = q(["HGETALL", key(Uid)]),
-    M = util:list_to_map(Res),
-    Account = #account{
-            uid = Uid,
-            phone = maps:get(?FIELD_PHONE, M),
-            name = maps:get(?FIELD_NAME, M),
-            signup_user_agent = maps:get(?FIELD_USER_AGENT, M),
-            creation_ts_ms = ts_decode(maps:get(?FIELD_CREATION_TIME, M)),
-            last_activity_ts_ms = ts_decode(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
-            activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined))
-        },
-    {reply, {ok, Account}, Redis};
-
-handle_call({get_phone, Uid}, _From, Redis) ->
-    {ok, Res} = q(["HGET", key(Uid), ?FIELD_PHONE]),
-    case Res of
-        undefined -> {reply, {error, missing}, Redis};
-        Res -> {reply, {ok, Res}, Redis}
-    end;
-
-handle_call({get_signup_user_agent, Uid}, _From, Redis) ->
-    {ok, Res} = q(["HGET", key(Uid), ?FIELD_USER_AGENT]),
-    case Res of
-        undefined -> {reply, {error, missing}, Redis};
-        Res -> {reply, {ok, Res}, Redis}
-    end;
-
-handle_call({get_creation_ts_ms, Uid}, _From, Redis) ->
-    {ok, Res} = q(["HGET", key(Uid), ?FIELD_CREATION_TIME]),
-    {reply, ts_reply(Res), Redis};
-
-handle_call({set_name, Uid, Name}, _From, Redis) ->
-    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_NAME, Name]),
-    {reply, ok, Redis};
-
-handle_call({get_name, Uid}, _From, Redis) ->
-    {ok, Res} = q(["HGET", key(Uid), ?FIELD_NAME]),
-    {reply, {ok, Res}, Redis};
-
-handle_call({delete_name, Uid}, _From, Redis) ->
-    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_NAME]),
-    {reply, ok, Redis};
-
-handle_call({set_avatar_id, Uid, AvatarId}, _From, Redis) ->
-    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_AVATAR_ID, AvatarId]),
-    {reply, ok, Redis};
-
-handle_call({get_avatar_id, Uid}, _From, Redis) ->
-    {ok, Res} = q(["HGET", key(Uid), ?FIELD_AVATAR_ID]),
-    {reply, {ok, Res}, Redis};
-
-handle_call({set_last_activity, Uid, Timestamp, Status}, _From, Redis) ->
-    {ok, _Res} = q(
-            ["HMSET", key(Uid),
-            ?FIELD_LAST_ACTIVITY, integer_to_binary(Timestamp),
-            ?FIELD_ACTIVITY_STATUS, util:to_binary(Status)]),
-    {reply, ok, Redis};
-
-handle_call({get_last_activity, Uid}, _From, Redis) ->
-    {ok, [TimestampMs, ActivityStatus]} = q(
-            ["HMGET", key(Uid), ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS]),
-    Res = case ts_decode(TimestampMs) of
-            undefined ->
-                #activity{uid = Uid};
-            TsMs ->
-                #activity{uid = Uid, last_activity_ts_ms = TsMs,
-                        status = util:to_atom(ActivityStatus)}
-        end,
-    {reply, {ok, Res}, Redis};
-
-handle_call({set_push_info, Uid, Os, Token, TimestampMs}, _From, Redis) ->
-    {ok, _Res} = q(
-            ["HMSET", key(Uid),
-            ?FIELD_PUSH_OS, Os,
-            ?FIELD_PUSH_TOKEN, Token,
-            ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs)]),
-    {reply, ok, Redis};
-
-handle_call({get_push_info, Uid}, _From, Redis) ->
-    {ok, [Os, Token, TimestampMs]} = q(
-            ["HMGET", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
-    Res = case ts_decode(TimestampMs) of
-            undefined ->
-                undefined;
-            TsMs ->
-                #push_info{uid = Uid, os = Os, token = Token, timestamp_ms = TsMs}
-        end,
-    {reply, {ok, Res}, Redis};
-
-handle_call({remove_push_info, Uid}, _From, Redis) ->
-    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
-    {reply, ok, Redis};
-
-handle_call({presence_subscribe, Uid, Buid}, _From, Redis) ->
-    {ok, Res1} = q(["SADD", subscribe_key(Uid), Buid]),
-    {ok, _Res2} = q(["SADD", broadcast_key(Buid), Uid]),
-    {reply, binary_to_integer(Res1) == 1, Redis};
-
-handle_call({presence_unsubscribe, Uid, Buid}, _From, Redis) ->
-    {ok, Res1} = q(["SREM", subscribe_key(Uid), Buid]),
-    {ok, _Res2} = q(["SREM", broadcast_key(Buid), Uid]),
-    {reply, binary_to_integer(Res1) == 1, Redis};
-
-handle_call({presence_unsubscribe_all, Uid}, _From, Redis) ->
-    {ok, Buids} = q(["SMEMBERS", subscribe_key(Uid)]),
-    lists:foreach(fun (Buid) ->
-            {ok, _Res} = q(["SREM", broadcast_key(Buid), Uid])
-        end,
-        Buids),
-    {ok, _} = q(["DEL", subscribe_key(Uid)]),
-    {reply, ok, Redis};
-
-handle_call({get_subscribed_uids, Uid}, _From, Redis) ->
-    {ok, Buids} = q(["SMEMBERS", subscribe_key(Uid)]),
-    {reply, {ok, Buids}, Redis};
-
-handle_call({get_broadcast_uids, Uid}, _From, Redis) ->
-    {ok, Buids} = q(["SMEMBERS", broadcast_key(Uid)]),
-    {reply, {ok, Buids}, Redis};
-
-handle_call({count_registrations, Slot}, _From, Redis) ->
-    {ok, CountBin} = q(["GET", count_registrations_key_slot(Slot)]),
-    Count = case CountBin of
-                undefined -> 0;
-                CountBin -> binary_to_integer(CountBin)
-            end,
-    {reply, Count, Redis};
-
-handle_call({count_accounts, Slot}, _From, Redis) ->
-    {ok, CountBin} = q(["GET", count_accounts_key_slot(Slot)]),
-    Count = case CountBin of
-                undefined -> 0;
-                CountBin -> binary_to_integer(CountBin)
-            end,
-    {reply, Count, Redis};
-
-handle_call({get_traced_uids}, _From, Redis) ->
-    {ok, Uids} = q(["SMEMBERS", ?TRACED_UIDS_KEY]),
-    {reply, {ok, Uids}, Redis};
-
-handle_call({add_uid_to_trace, Uid}, _From, Redis) ->
-    {ok, _Res} = q(["SADD", ?TRACED_UIDS_KEY, Uid]),
-    {reply, ok, Redis};
-
-handle_call({remove_uid_from_trace, Uid}, _From, Redis) ->
-    {ok, _Res} = q(["SREM", ?TRACED_UIDS_KEY, Uid]),
-    {reply, ok, Redis};
-
-handle_call({is_uid_traced, Uid}, _From, Redis) ->
-    {ok, Res} = q(["SISMEMBER", ?TRACED_UIDS_KEY, Uid]),
-    {reply, binary_to_integer(Res) == 1, Redis};
-
-handle_call({get_traced_phones}, _From, Redis) ->
-    {ok, Phones} = q(["SMEMBERS", ?TRACED_PHONES_KEY]),
-    {reply, {ok, Phones}, Redis};
-
-handle_call({add_phone_to_trace, Phone}, _From, Redis) ->
-    {ok, _Res} = q(["SADD", ?TRACED_PHONES_KEY, Phone]),
-    {reply, ok, Redis};
-
-handle_call({remove_phone_from_trace, Phone}, _From, Redis) ->
-    {ok, _Res} = q(["SREM", ?TRACED_PHONES_KEY, Phone]),
-    {reply, ok, Redis};
-
-handle_call({is_phone_traced, Phone}, _From, Redis) ->
     {ok, Res} = q(["SISMEMBER", ?TRACED_PHONES_KEY, Phone]),
-    {reply, binary_to_integer(Res) == 1, Redis};
-
-handle_call(Any, From, Redis) ->
-    ?ERROR_MSG("Unhandled message: ~p from: ~p", [Any, From]),
-    {reply, ignore, Redis}.
+    binary_to_integer(Res) == 1.
 
 
-handle_cast(_Message, Redis) -> {noreply, Redis}.
-handle_info(_Message, Redis) -> {noreply, Redis}.
-terminate(_Reason, _Redis) -> ok.
-code_change(_OldVersion, Redis, _Extra) -> {ok, Redis}.
+%%====================================================================
+%% Internal redis functions.
+%%====================================================================
+
 
 q(Command) ->
     {ok, Result} = gen_server:call(redis_accounts_client, {q, Command}),
