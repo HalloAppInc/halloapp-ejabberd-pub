@@ -24,6 +24,14 @@ clear() ->
     ok = gen_server:cast(redis_contacts_client, flushdb).
 
 
+keys_test() ->
+    ?assertEqual(<<"con:{1000000000376503286}">>, model_contacts:contacts_key(?UID)),
+    ?assertEqual(<<"sync:{1000000000376503286}:dbd22016">>, model_contacts:sync_key(?UID, ?SID)),
+    ?assertEqual(<<"sync:{14705551473}">>, model_contacts:reverse_key(?CONTACT1)),
+    ?assertEqual(<<"rev:{14705551473}">>, model_contacts:reverse_key_fixed(?CONTACT1)),
+    ok.
+
+
 add_contact_test() ->
     setup(),
     {ok, []} = model_contacts:get_contacts(?UID),
