@@ -82,7 +82,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
                     Txt = ?T("Avatar size is too large, limit < 50KB."),
                     ?WARNING_MSG("Uid: ~s, Avatar is too large, size: ~s", [UserId, BytesSize]),
                     xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-                MaxDim >= ?MAX_AVATAR_DIM ->
+                MaxDim > ?MAX_AVATAR_DIM ->
                     Txt = ?T("Avatar must have a max dimension of 256."),
                     ?WARNING_MSG("Uid: ~s, Avatar has wrong dimensions: ~s x ~s",
                             [UserId, Width, Height]),
