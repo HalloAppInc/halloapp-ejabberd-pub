@@ -95,8 +95,7 @@ start(Name, Job) ->
     gen_server:start({global, Name}, ?MODULE, Job, []).
 
 
-% TODO: I'm not sure what the return value is
--spec stop(ServerRef :: gen_server:start_ref()) -> any().
+-spec stop(ServerRef :: gen_server:start_ref()) -> ok.
 stop(ServerRef) ->
     gen_server:stop(ServerRef).
 
