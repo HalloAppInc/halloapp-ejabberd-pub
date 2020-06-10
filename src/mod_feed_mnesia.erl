@@ -13,6 +13,7 @@
 -include("xmpp.hrl").
 -include("logger.hrl").
 -include("feed.hrl").
+-include("pubsub.hrl").
 
 -export([
     start/2,
@@ -33,7 +34,10 @@
     publish_item/1,
     get_item/1,
     retract_item/1,
-    get_all_items/1
+    get_all_items/1,
+    %% TODO(murali@): remove after migration
+    migrate_old_pubsub_data/0,
+    get_node_type/1
 ]).
 
 start(_Host, _Opts) ->
@@ -138,4 +142,55 @@ get_all_items(NodeId) ->
         Items -> Items
     end,
     {ok, Result}.
+
+
+%% TODO(murali@): remove migration functions after use.
+migrate_old_pubsub_data() ->
+    case mnesia:dirty_match_object(mnesia:table_info(pubsub_node, wild_pattern)) of
+        [] -> ok;
+        PubsubNodes ->
+            lists:foreach(
+                fun(#pubsub_node{
+                        nodeid = {_Host, NodeId},
+                        id = NodeIdx,
+                        owners = [{Uid, _, _}]
+                    }) ->
+                    NodeType = get_node_type(NodeId),
+                    CTsMs = util:now_ms(),
+                    Node = #psnode{
+                        id = NodeId,
+                        uid = Uid,
+                        type = NodeType,
+                        creation_ts_ms = CTsMs
+                    },
+                    ok = create_node(Node),
+                    migrate_old_pubsub_items(NodeId, NodeIdx)
+                end, PubsubNodes)
+    end.
+
+
+migrate_old_pubsub_items(NodeId, NodeIdx) ->
+    case mnesia:dirty_match_object(#pubsub_item_new{nodeidx = NodeIdx, _ = '_'}) of
+        [] -> ok;
+        Items ->
+            lists:foreach(
+                fun(#pubsub_item_new{
+                        itemid = {ItemId, _},
+                        itemtype = ItemType,
+                        creation = {ErlTimestamp, {PublisherUid, _, _}},
+                        payload = ItemPayload
+                    }) ->
+                    Item = #item{
+                        key = {ItemId, NodeId},
+                        type = ItemType,
+                        uid = PublisherUid,
+                        creation_ts_ms = binary_to_integer(util:timestamp_to_binary(ErlTimestamp)) * 1000,
+                        payload = ItemPayload
+                    },
+                    ok = mod_feed_mnesia:publish_item(Item)
+                end, Items)
+    end.
+
+get_node_type(<<"feed-", _Rest/binary>>) -> feed;
+get_node_type(_) -> metadata.
 

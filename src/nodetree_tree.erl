@@ -40,6 +40,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 
 -include("pubsub.hrl").
+-include("feed.hrl").
 -include("xmpp.hrl").
 -include("translate.hrl").
 
@@ -154,6 +155,7 @@ get_subnodes_tree(Host, Node) ->
 
 create_node(Host, Node, Type, Owner, Options, Parents) ->
     BJID = jid:tolower(jid:remove_resource(Owner)),
+    {Uid, _, _} = BJID,
     case mnesia:read({pubsub_node, {Host, Node}}) of
 	[] ->
 	    ParentExists = case Host of
@@ -185,6 +187,10 @@ create_node(Host, Node, Type, Owner, Options, Parents) ->
 			    id = Nidx, parents = Parents,
 			    type = Type, owners = [BJID],
 			    options = Options}),
+		    mnesia:write(#psnode{id = Node,
+			    uid = Uid,
+			    type = mod_feed_mnesia:get_node_type(Node),
+			    creation_ts_ms = util:now_ms()}),
 		    {ok, Nidx};
 		false ->
 		    {error, xmpp:err_forbidden()}
@@ -194,6 +200,7 @@ create_node(Host, Node, Type, Owner, Options, Parents) ->
     end.
 
 delete_node(Host, Node) ->
+    mnesia:delete(#psnode{id = Node}),
     Removed = get_subnodes_tree(Host, Node),
     lists:foreach(fun (#pubsub_node{nodeid = {_, SubNode}, id = SubNidx}) ->
 		pubsub_index:free(node, SubNidx),

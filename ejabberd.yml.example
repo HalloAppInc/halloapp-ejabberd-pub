@@ -234,6 +234,7 @@ modules:
       time: 12
       units: hours
       timer_type: interval
+  mod_feed_mnesia: {}
   mod_pubsub_halloapp: {}
   mod_push: {}
   mod_push_keepalive: {}

@@ -35,6 +35,8 @@
 
 -include("pubsub.hrl").
 -include("xmpp.hrl").
+-include("logger.hrl").
+-include("feed.hrl").
 
 -export([init/3, terminate/2, options/0, features/0,
     create_node_permission/6, create_node/2, delete_node/1,
@@ -48,8 +50,7 @@
     set_state/1, get_items/7, get_items/3, get_item/7,
     get_last_items/3, get_only_item/2,
     get_item/2, set_item/1, get_item_name/3, node_to_path/1,
-    path_to_node/1, can_fetch_item/2, is_subscribed/1,
-    copy_items_from_old_node_into_new_node/2]).
+    path_to_node/1, can_fetch_item/2, is_subscribed/1]).
 
 init(_Host, _ServerHost, _Opts) ->
     %pubsub_subscription:init(Host, ServerHost, Opts),
@@ -870,13 +871,34 @@ get_item(Nidx, ItemId, JID, AccessModel, PresenceSubscription, RosterGroup, _Sub
     end.
 
 %% @doc <p>Write an item into database.</p>
-set_item(Item) when is_record(Item, pubsub_item_new) ->
-    mnesia:write(Item).
+set_item(#pubsub_item_new{
+		itemid = {ItemId, Nidx},
+		itemtype = ItemType,
+		creation = {ErlTs, {Uid, _, _}},
+		payload = Payload} = Item) when is_record(Item, pubsub_item_new) ->
+	mnesia:write(Item),
+	TsMs = util:timestamp_secs_to_integer(ErlTs) * 1000,
+	[PubsubNode] = mnesia:index_read(pubsub_node, Nidx, #pubsub_node.id),
+	NodeId = element(2, PubsubNode#pubsub_node.nodeid),
+	mod_feed_mnesia:publish_item(#item{
+		key = {ItemId, NodeId},
+		type = ItemType,
+		uid = Uid,
+		creation_ts_ms = TsMs,
+		payload = Payload
+	}).
 %set_item(_) -> {error, ?ERR_INTERNAL_SERVER_ERROR}.
 
 %% @doc <p>Delete an item from database.</p>
 del_item(Nidx, ItemId) ->
-    mnesia:delete({pubsub_item_new, {ItemId, Nidx}}).
+	mnesia:delete({pubsub_item_new, {ItemId, Nidx}}),
+	case mnesia:index_read(pubsub_node, Nidx, #pubsub_node.id) of
+		[PubsubNode] ->
+			NodeId = element(2, PubsubNode#pubsub_node.nodeid),
+			mod_feed_mnesia:retract_item({ItemId, NodeId});
+		_ ->
+			?WARNING_MSG("Error finding pubsub node: ~p", [Nidx])
+	end.
 
 del_items(Nidx, ItemIds) ->
     lists:foreach(fun (ItemId) -> del_item(Nidx, ItemId)
@@ -956,41 +978,3 @@ decode_stamp(Stamp) ->
 	_ -> Stamp
     end.
 
-
--spec transform_old_items([#pubsub_item_new{}], nodeIdx(), [#pubsub_item_new{}]) ->
-														[#pubsub_item_new{}].
-transform_old_items([], _NewNodeIdx, Results) -> Results;
-transform_old_items([ FirstItem | Rest], NewNodeIdx, Results) ->
-	Result = transform_old_item(FirstItem, NewNodeIdx),
-	transform_old_items(Rest, NewNodeIdx, [Result | Results]).
-
-
--spec transform_old_item(#pubsub_item_new{}, nodeIdx()) -> #pubsub_item_new{}.
-transform_old_item(#pubsub_item_new{} = Item, NewNodeIdx) ->
-	#pubsub_item_new{
-		itemid = {element(1,Item#pubsub_item_new.itemid), NewNodeIdx},
-		itemtype = Item#pubsub_item_new.itemtype,
-		nodeidx = NewNodeIdx,
-		creation = Item#pubsub_item_new.creation,
-		modification = Item#pubsub_item_new.modification,
-		payload = Item#pubsub_item_new.payload
-	}.
-
-
-
--spec fetch_and_transform_old_items(nodeIdx(), nodeIdx()) -> [#pubsub_item_new{}].
-fetch_and_transform_old_items(OldNodeIdx, NewNodeIdx) ->
-  OldNodeItems = mnesia:match_object(#pubsub_item_new{nodeidx = OldNodeIdx, _ = '_'}),
-  transform_old_items(OldNodeItems, NewNodeIdx, []).
-
-
--spec copy_items_from_old_node_into_new_node(nodeIdx(), nodeIdx()) -> {result, ok}.
-copy_items_from_old_node_into_new_node(OldNodeIdx, NewNodeIdx) ->
-	case fetch_and_transform_old_items(OldNodeIdx, NewNodeIdx) of
-		[] -> {result, ok};
-		NewItems ->
-			lists:foreach(fun(#pubsub_item_new{} = Item) ->
-							mnesia:write(Item)
-						end, NewItems),
-			{result, ok}
-	end.
