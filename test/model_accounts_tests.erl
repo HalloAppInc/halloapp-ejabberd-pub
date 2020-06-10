@@ -303,3 +303,4 @@ is_phone_traced_test() ->
     model_accounts:remove_phone_from_trace(?PHONE1),
     ?assertEqual(false, model_accounts:is_phone_traced(?PHONE1)),
     ok.
+

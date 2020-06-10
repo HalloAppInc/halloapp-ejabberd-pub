@@ -22,6 +22,13 @@
 %% set -> {phone}
 -define(TRACED_PHONES_KEY, <<"traced_phones:">>).
 
+%% PrivacyKeys
+-define(WHITELIST_KEY, <<"whi:">>).
+-define(BLACKLIST_KEY, <<"bla:">>).
+-define(MUTE_KEY, <<"mut:">>).
+-define(BLOCK_KEY, <<"blo:">>).
+-define(REVERSE_BLOCK_KEY, <<"rbl:">>).
+
 %% RedisAuth
 -define(PASSWORD_KEY, <<"pas:">>).
 
