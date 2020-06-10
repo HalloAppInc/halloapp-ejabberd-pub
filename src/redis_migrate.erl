@@ -27,8 +27,12 @@
     start/2,
     stop/1,
     reset/1,
+    get_progress/1,
     iterate/1,
-    count_accounts/2
+    count_accounts/2,
+    rename_reverse_contacts_run/2,
+    rename_reverse_contacts_verify/2,
+    rename_reverse_contacts_cleanup/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -67,6 +71,7 @@ start_migration(Name, RedisService, Function, Options) ->
 
     EnumNodes = lists:zip(lists:seq(0, length(RedisMasters) - 1), RedisMasters),
     Job = #{
+        service => RedisService,
         function_name => Function,
         interval => proplists:get_value(interval, Options, 1000)
     },
@@ -138,7 +143,7 @@ init(#{redis_host := RedisHost, redis_port := RedisPort, interval := Interval} =
     {ok, State}.
 
 
-handle_call({get_progress}, From, State) ->
+handle_call({get_progress}, _From, State) ->
 %%    _Cursor = State#{cursor},
     % TODO: compute the migration progress based on the cursor.
     {reply, 0.0, State};
@@ -253,3 +258,81 @@ rehash_phones(Key, State) ->
     ?INFO_MSG("Key: ~p", [Key]),
     % TODO: implement
     State.
+
+
+%%% Stage 1. Move the data.
+rename_reverse_contacts_run(Key, State) ->
+    ?INFO_MSG("Key: ~p", [Key]),
+    DryRun = maps:get(State, dry_run, false),
+    Result = re:run(Key, "^sync:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Phone]]} ->
+            NewKey = list_to_binary("rev:{" ++ binary_to_list(Phone) ++ "}"),
+            ?INFO_MSG("Migrating ~s -> ~s phone: ~s", [Key, NewKey, Phone]),
+            Command = ["SUNIONSTORE", NewKey, Key, NewKey],
+            case DryRun of
+                true ->
+                    ?INFO_MSG("would do: ~p", [Command]);
+                false ->
+                    {ok, NumItems} = q(redis_contacts_client, Command),
+                    ?INFO_MSG("stored ~p uids", [NumItems])
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%% Stage 2. Check if the migrated data is in sync
+rename_reverse_contacts_verify(Key, State) ->
+    ?INFO_MSG("Key: ~p", [Key]),
+    Result = re:run(Key, "^(sync|rev):{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Prefix, Phone]]} ->
+            OldKey = list_to_binary("sync:{" ++ binary_to_list(Phone) ++ "}"),
+            NewKey = list_to_binary("rev:{" ++ binary_to_list(Phone) ++ "}"),
+            ?INFO_MSG("Checking ~s vs ~s phone: ~s", [OldKey, NewKey, Phone]),
+            [{ok, OldItems}, {ok, NewItems}] = qp(redis_contacts_client, [
+                ["SMEMBERS", OldKey],
+                ["SMEMBERS", NewKey]
+            ]),
+            case OldItems =:= NewItems of
+                true ->
+                    ?INFO_MSG("match ~s ~s items: ~p", [OldKey, NewKey, length(NewItems)]);
+                false ->
+                    ?ERROR_MSG("NO match ~s : ~p, vs ~s : ~p", [OldKey, OldItems, NewKey, NewItems])
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%% Stage 3. Delete the old data
+rename_reverse_contacts_cleanup(Key, State) ->
+    ?INFO_MSG("Key: ~p", [Key]),
+    DryRun = maps:get(State, dry_run, false),
+    Result = re:run(Key, "^sync:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Phone]]} ->
+            ?INFO_MSG("Cleaning ~s phone: ~s", [Key, Phone]),
+            Command = ["DEL", Key],
+            case DryRun of
+                true ->
+                    ?INFO_MSG("would do: ~p", [Command]);
+                false ->
+                    DelResult = q(redis_contacts_client, Command),
+                    ?INFO_MSG("delete result ~p", [DelResult])
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+q(Client, Command) ->
+    {ok, Result} = gen_server:call(Client, {q, Command}),
+    Result.
+
+
+qp(Client, Commands) ->
+    {ok, Result} = gen_server:call(Client, {qp, Commands}),
+    Result.
+
