@@ -229,8 +229,7 @@ finish_sync(UserId, Server, SyncId) ->
     %% TODO(vipin): newness of contacts in AddContactSet needs to be used in update_and_...(...).
     lists:foreach(
         fun(ContactPhone) ->
-            UserContacts = sets:from_list(model_contacts:get_contacts(UserId)),
-            update_and_notify_contact(UserId, UserPhone, UserContacts,
+            update_and_notify_contact(UserId, UserPhone, NewContactSet,
                     Server, ContactPhone, yes)
         end, sets:to_list(AddContactSet)),
     %% finish_sync will add various contacts and their reverse mapping in the db.
@@ -251,12 +250,13 @@ finish_sync(UserId, Server, SyncId) ->
 normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
     UserPhone = get_phone(UserId),
     UserRegionId = mod_libphonenumber:get_region_id(UserPhone),
+    UserContacts = sets:from_list(model_contacts:get_contacts(UserId)),
     %% Construct the list of new contact records to be returned and filter out the phone numbers
     %% that couldn't be normalized.
     {NewContacts, NormalizedPhoneNumbers} = lists:mapfoldr(
             fun(Contact, PhoneAcc) ->
                 NewContact = normalize_and_update_contact(
-                    UserId, UserRegionId, UserPhone, Server, Contact, SyncId),
+                    UserId, UserRegionId, UserPhone, UserContacts, Server, Contact, SyncId),
                 NewPhoneAcc = case NewContact#contact.normalized of
                                   undefined -> PhoneAcc;
                                   NormalizedPhone -> [NormalizedPhone | PhoneAcc]
@@ -272,12 +272,13 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
 
 
 -spec normalize_and_update_contact(UserId :: binary(), UserRegionId :: binary(),
-        UserPhone :: binary(), Server :: binary(), Contact :: contact(),
-        SyncId :: binary()) -> contact().
-normalize_and_update_contact(_UserId, _UserRegionId, _UserPhone, _Server,
-        #contact{raw = undefined}, _SyncId) ->
+        UserPhone :: binary(), UserContacts :: [binary()], Server :: binary(),
+        Contact :: contact(), SyncId :: binary()) -> contact().
+normalize_and_update_contact(_UserId, _UserRegionId, _UserPhone, _UserContact,
+        _Server, #contact{raw = undefined}, _SyncId) ->
     #contact{};
-normalize_and_update_contact(UserId, UserRegionId, UserPhone, Server, Contact, SyncId) ->
+normalize_and_update_contact(UserId, UserRegionId, UserPhone, UserContacts,
+        Server, Contact, SyncId) ->
     RawPhone = Contact#contact.raw,
     ContactPhone = mod_libphonenumber:normalize(RawPhone, UserRegionId),
     NewContact = case ContactPhone of
@@ -286,7 +287,6 @@ normalize_and_update_contact(UserId, UserRegionId, UserPhone, Server, Contact, S
             #contact{};
         _ ->
             stat:count("HA/contacts", "normalize_success"),
-            UserContacts = sets:from_list(model_contacts:get_contacts(UserId)),
             case SyncId of
                 undefined -> update_and_notify_contact(UserId, UserPhone, UserContacts,
                         Server, ContactPhone, yes);
