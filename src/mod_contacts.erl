@@ -295,6 +295,8 @@ normalize_and_update_contact(UserId, UserRegionId, UserPhone, Server, Contact, S
 -spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
         ContactPhone :: binary(), ShouldNotify :: atom()) -> contact().
 update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, ShouldNotify) ->
+    %% TODO(ethan): load UserId's contacts in memory and use the in-memory struct to do the lookup
+    %% instead of sending this call to redis everytime.
     IsNewContact = not is_contact(UserId, ContactPhone),
     ContactId = obtain_user_id(ContactPhone),
     %% TODO(vipin): Need to fix the stat below.
