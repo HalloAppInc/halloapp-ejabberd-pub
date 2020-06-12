@@ -229,7 +229,7 @@ finish_sync(UserId, Server, SyncId) ->
     %% TODO(vipin): newness of contacts in AddContactSet needs to be used in update_and_...(...).
     lists:foreach(
         fun(ContactPhone) ->
-            update_and_notify_contact(UserId, UserPhone, NewContactSet,
+            update_and_notify_contact(UserId, UserPhone, OldContactSet,
                     Server, ContactPhone, yes)
         end, sets:to_list(AddContactSet)),
     %% finish_sync will add various contacts and their reverse mapping in the db.
