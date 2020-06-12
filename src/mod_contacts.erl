@@ -229,7 +229,9 @@ finish_sync(UserId, Server, SyncId) ->
     %% TODO(vipin): newness of contacts in AddContactSet needs to be used in update_and_...(...).
     lists:foreach(
         fun(ContactPhone) ->
-            update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, yes)
+            UserContacts = sets:from_list(model_contacts:get_contacts(UserId)),
+            update_and_notify_contact(UserId, UserPhone, UserContacts,
+                    Server, ContactPhone, yes)
         end, sets:to_list(AddContactSet)),
     %% finish_sync will add various contacts and their reverse mapping in the db.
     model_contacts:finish_sync(UserId, SyncId),
@@ -284,20 +286,23 @@ normalize_and_update_contact(UserId, UserRegionId, UserPhone, Server, Contact, S
             #contact{};
         _ ->
             stat:count("HA/contacts", "normalize_success"),
+            UserContacts = sets:from_list(model_contacts:get_contacts(UserId)),
             case SyncId of
-                undefined -> update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, yes);
-                _ -> update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, no)
+                undefined -> update_and_notify_contact(UserId, UserPhone, UserContacts,
+                        Server, ContactPhone, yes);
+                _ -> update_and_notify_contact(UserId, UserPhone, UserContacts,
+                        Server, ContactPhone, no)
             end
     end,
     NewContact#contact{raw = RawPhone}.
 
 
--spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
-        ContactPhone :: binary(), ShouldNotify :: atom()) -> contact().
-update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, ShouldNotify) ->
+-spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(), UserContacts :: [binary()],
+        Server :: binary(), ContactPhone :: binary(), ShouldNotify :: atom()) -> contact().
+update_and_notify_contact(UserId, UserPhone, UserContacts, Server, ContactPhone, ShouldNotify) ->
     %% TODO(ethan): load UserId's contacts in memory and use the in-memory struct to do the lookup
     %% instead of sending this call to redis everytime.
-    IsNewContact = not is_contact(UserId, ContactPhone),
+    IsNewContact = not sets:is_element(ContactPhone, UserContacts),
     ContactId = obtain_user_id(ContactPhone),
     %% TODO(vipin): Need to fix the stat below.
     stat:count("HA/contacts", "add_contact"),
