@@ -309,6 +309,7 @@ modules:
   model_phone: {}
   model_friends: {}
   model_accounts: {}
+  model_privacy: {}
   model_contacts: {}
   model_messages: {}
   model_auth: {}
