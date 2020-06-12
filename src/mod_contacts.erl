@@ -28,7 +28,9 @@
     process_local_iq/1, 
     remove_user/2, 
     register_user/3, 
-    re_register_user/2
+    re_register_user/2,
+    block_uids/3,
+    unblock_uids/3
 ]).
 
 -export([
@@ -40,6 +42,8 @@ start(Host, _Opts) ->
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
+    ejabberd_hooks:add(block_uids, Host, ?MODULE, block_uids, 50),
+    ejabberd_hooks:add(unblock_uids, Host, ?MODULE, unblock_uids, 50),
     ok.
 
 stop(Host) ->
@@ -47,6 +51,8 @@ stop(Host) ->
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
+    ejabberd_hooks:delete(block_uids, Host, ?MODULE, block_uids, 50),
+    ejabberd_hooks:delete(unblock_uids, Host, ?MODULE, unblock_uids, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -118,6 +124,31 @@ register_user(UserId, Server, Phone) ->
         fun(ContactId) ->
             notify_contact_about_user(UserId, Phone, Server, ContactId, <<"none">>)
         end, ContactUids).
+
+
+-spec block_uids(Uid :: binary(), Server :: binary(), Ouids :: list(binary())) -> ok.
+block_uids(Uid, Server, Ouids) ->
+    %% TODO(murali@): Add batched api for friends.
+    lists:foreach(fun(Ouid) -> remove_friend(Uid, Server, Ouid) end, Ouids),
+    ok.
+
+
+-spec unblock_uids(Uid :: binary(), Server :: binary(), Ouids :: list(binary())) -> ok.
+unblock_uids(Uid, Server, Ouids) ->
+    {ok, Phone} = model_accounts:get_phone(Uid),
+    lists:foreach(
+        fun(Ouid) ->
+            case model_accounts:get_phone(Ouid) of
+                {ok, OPhone} ->
+                    case model_contacts:is_contact(Uid, OPhone) andalso
+                            model_contacts:is_contact(Ouid, Phone) of
+                        true -> add_friend(Uid, Server, Ouid);
+                        false -> ok
+                    end;
+                {error, missing} -> ok
+            end
+        end, Ouids),
+    ok.
 
 
 %%====================================================================
@@ -271,12 +302,15 @@ update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, ShouldNotify)
     case ContactId of
         undefined -> #contact{normalized = ContactPhone, role = <<"none">>};
         _ ->
-            IsFriends = is_contact(ContactId, UserPhone),
+            %% TODO(murali@): update this to load block-uids once for this request
+            %% and use it instead of every redis call.
+            IsFriends = is_contact(ContactId, UserPhone) andalso
+                    not model_privacy:is_blocked(UserId, ContactId),
             Role = get_role_value(IsFriends),
             %% Notify the new contact and update its friends table.
             case {ShouldNotify, IsNewContact, IsFriends} of
                 {yes, true, true} -> 
-                    add_friend(UserId, ContactId, Server),
+                    add_friend(UserId, Server, ContactId),
                     notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role);
                 {yes, true, false} ->
                     notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role);
@@ -292,12 +326,18 @@ update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, ShouldNotify)
     end.
 
 
--spec add_friend(UserId :: binary(), ContactId :: binary(), Server :: binary()) -> ok.
-add_friend(UserId, ContactId, Server) ->
-    ?INFO_MSG("~p is friends with ~p", [UserId, ContactId]),
-    model_friends:add_friend(UserId, ContactId),
-    ejabberd_hooks:run(add_friend, Server, [UserId, Server, ContactId]),
-    ok.
+-spec add_friend(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.
+add_friend(Uid, Server, Ouid) ->
+    ?INFO_MSG("~p is friends with ~p", [Uid, Ouid]),
+    model_friends:add_friend(Uid, Ouid),
+    ejabberd_hooks:run(add_friend, Server, [Uid, Server, Ouid]).
+
+
+-spec remove_friend(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.
+remove_friend(Uid, Server, Ouid) ->
+    ?INFO_MSG("~p is no longer friends with ~p", [Uid, Ouid]),
+    model_friends:remove_friend(Uid, Ouid),
+    ejabberd_hooks:run(remove_friend, Server, [Uid, Server, Ouid]).
 
 
 %%====================================================================
@@ -335,12 +375,6 @@ remove_contact_and_notify(UserId, Server, ContactPhone) ->
             remove_friend(UserId, Server, ContactId),
             notify_contact_about_user(UserId, UserPhone, Server, ContactId, <<"none">>)
     end.
-
-
--spec remove_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
-remove_friend(UserId, Server, ContactId) ->
-    model_friends:remove_friend(UserId, ContactId),
-    ejabberd_hooks:run(remove_friend, Server, [UserId, Server, ContactId]).
 
 
 %%====================================================================

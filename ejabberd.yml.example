@@ -305,6 +305,7 @@ modules:
   mod_trace: {}
   mod_redis: {}
   mod_libphonenumber: {}
+  mod_user_privacy: {}
   model_phone: {}
   model_friends: {}
   model_accounts: {}
