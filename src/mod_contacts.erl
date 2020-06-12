@@ -272,7 +272,7 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
 
 
 -spec normalize_and_update_contact(UserId :: binary(), UserRegionId :: binary(),
-        UserPhone :: binary(), UserContacts :: [binary()], Server :: binary(),
+        UserPhone :: binary(), UserContacts :: sets:set(binary()), Server :: binary(),
         Contact :: contact(), SyncId :: binary()) -> contact().
 normalize_and_update_contact(_UserId, _UserRegionId, _UserPhone, _UserContact,
         _Server, #contact{raw = undefined}, _SyncId) ->
@@ -297,7 +297,7 @@ normalize_and_update_contact(UserId, UserRegionId, UserPhone, UserContacts,
     NewContact#contact{raw = RawPhone}.
 
 
--spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(), UserContacts :: [binary()],
+-spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(), UserContacts :: sets:set(binary()),
         Server :: binary(), ContactPhone :: binary(), ShouldNotify :: atom()) -> contact().
 update_and_notify_contact(UserId, UserPhone, UserContacts, Server, ContactPhone, ShouldNotify) ->
     %% TODO(ethan): load UserId's contacts in memory and use the in-memory struct to do the lookup
