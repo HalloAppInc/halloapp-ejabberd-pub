@@ -200,7 +200,7 @@ create_node(Host, Node, Type, Owner, Options, Parents) ->
     end.
 
 delete_node(Host, Node) ->
-    mnesia:delete(#psnode{id = Node}),
+    mnesia:delete_object(#psnode{id = Node}),
     Removed = get_subnodes_tree(Host, Node),
     lists:foreach(fun (#pubsub_node{nodeid = {_, SubNode}, id = SubNidx}) ->
 		pubsub_index:free(node, SubNidx),
