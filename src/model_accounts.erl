@@ -137,7 +137,7 @@ create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
                         ["INCR", count_registrations_key(Uid)],
                         ["INCR", count_accounts_key(Uid)]
                     ]),
-                    [{ok, _FieldCount}, {ok, <<"1">>}, {ok, <<"1">>}] = Res,
+                    [{ok, _FieldCount}, {ok, _}, {ok, _}] = Res,
                     ok;
                 false ->
                     {error, exists}
