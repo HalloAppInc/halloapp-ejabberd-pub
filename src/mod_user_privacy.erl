@@ -15,6 +15,7 @@
 -include("translate.hrl").
 
 -define(NS_USER_PRIVACY, <<"halloapp:user:privacy">>).
+-define(STAT_PRIVACY, "HA/Privacy").
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -95,13 +96,18 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
 %%====================================================================
 
 
+%% TODO(murali@): counts for switching privacy modes will involve another redis call.
 -spec update_privacy_type(Uid :: binary(),
         Type :: privacy_list_type(), UidEls :: list(binary())) -> ok | {error, any()}.
 update_privacy_type(Uid, all = Type, []) ->
-    set_privacy_type(Uid, Type);
+    set_privacy_type(Uid, Type),
+    stat:count(?STAT_PRIVACY, Type),
+    ok;
 update_privacy_type(Uid, Type, UidEls) when Type =:= except; Type =:= only ->
     update_privacy_list(Uid, Type, UidEls),
-    set_privacy_type(Uid, Type);
+    set_privacy_type(Uid, Type),
+    stat:count(?STAT_PRIVACY, Type),
+    ok;
 update_privacy_type(Uid, Type, UidEls) when Type =:= mute; Type =:= block ->
     update_privacy_list(Uid, Type, UidEls);
 update_privacy_type(_Uid, all, _) ->
@@ -152,13 +158,20 @@ extract_uid(#uid_el{uid = Uid}) -> Uid.
 -spec remove_uids_from_privacy_list(Uid :: binary(),
         Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
 remove_uids_from_privacy_list(Uid, except, Ouids) ->
-    model_accounts:unblacklist_uids(Uid, Ouids);
+    model_accounts:unblacklist_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, unblacklist, length(Ouids)),
+    ok;
 remove_uids_from_privacy_list(Uid, only, Ouids) ->
-    model_accounts:unwhitelist_uids(Uid, Ouids);
+    model_accounts:unwhitelist_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, unwhitelist, length(Ouids)),
+    ok;
 remove_uids_from_privacy_list(Uid, mute, Ouids) ->
-    model_accounts:unmute_uids(Uid, Ouids);
+    model_accounts:unmute_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, unmute, length(Ouids)),
+    ok;
 remove_uids_from_privacy_list(Uid, block, Ouids) ->
     model_accounts:unblock_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, unblock, length(Ouids)),
     Server = util:get_host(),
     ejabberd_hooks:run(unblock_uids, Server, [Uid, Server, Ouids]).
 
@@ -166,16 +179,24 @@ remove_uids_from_privacy_list(Uid, block, Ouids) ->
 -spec add_uids_to_privacy_list(Uid :: binary(),
         Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
 add_uids_to_privacy_list(Uid, except, Ouids) ->
-    model_accounts:blacklist_uids(Uid, Ouids);
+    model_accounts:blacklist_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, blacklist, length(Ouids)),
+    ok;
 add_uids_to_privacy_list(Uid, only, Ouids) ->
-    model_accounts:whitelist_uids(Uid, Ouids);
+    model_accounts:whitelist_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, whitelist, length(Ouids)),
+    ok;
 add_uids_to_privacy_list(Uid, mute, Ouids) ->
-    model_accounts:mute_uids(Uid, Ouids);
+    model_accounts:mute_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, mute, length(Ouids)),
+    ok;
 add_uids_to_privacy_list(Uid, block, Ouids) ->
     model_accounts:unwhitelist_uids(Uid, Ouids),
     Server = util:get_host(),
     ejabberd_hooks:run(block_uids, Server, [Uid, Server, Ouids]),
-    model_accounts:block_uids(Uid, Ouids).
+    model_accounts:block_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, block, length(Ouids)),
+    ok.
 
 
 -spec get_privacy_lists(Uid :: binary(),
