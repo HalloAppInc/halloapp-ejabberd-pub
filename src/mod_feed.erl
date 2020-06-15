@@ -47,6 +47,8 @@
 
 
 start(Host, _Opts) ->
+    %% TODO(murali@): remove this line after successful migration.
+    ejabberd_router:unregister_route(?PUBSUB_HOST),
     ejabberd_router:register_route(?PUBSUB_HOST, Host, {apply, ?MODULE, route}),
     gen_iq_handler:add_iq_handler(ejabberd_local, ?PUBSUB_HOST, ?NS_PUBSUB, ?MODULE, process_local_iq),
     ejabberd_hooks:add(on_user_first_login, Host, ?MODULE, on_user_first_login, 75),

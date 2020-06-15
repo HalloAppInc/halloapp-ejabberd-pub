@@ -215,27 +215,8 @@ modules:
   mod_proxy65:
     access: local
     max_connections: 5
-  mod_pubsub:
-    access_createnode: pubsub_createnode
-    plugins:
-      - flat
-      - pep
-    default_node_config:
-      notification_type: normal
-      ## The event notification from pubsub will now specify the publisher of the pubsub item in the stanza
-      itemreply: publisher
-      ## Using a large value to indicate the number of items that can be stored in a node: max-value of 32-bit integer
-      max_items: 2147483647
-    force_node_config:
-      ## Avoid buggy clients to make their bookmarks public
-      storage:bookmarks:
-        access_model: whitelist
-    purge_expired_items:        ## run the cron job to purge items every hour.
-      time: 12
-      units: hours
-      timer_type: interval
   mod_feed_mnesia: {}
-  mod_pubsub_halloapp: {}
+  mod_feed: {}
   mod_push: {}
   mod_push_keepalive: {}
   mod_register:
