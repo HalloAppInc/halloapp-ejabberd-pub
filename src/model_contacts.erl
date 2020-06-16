@@ -116,6 +116,8 @@ remove_all_contacts(Uid) ->
 
 -spec sync_contacts(Uid :: binary(), Sid :: binary(),
                     ContactList :: [binary()]) -> ok  | {error, any()}.
+sync_contacts(Uid, Sid, []) ->
+    ok;
 sync_contacts(Uid, Sid, ContactList) ->
     {ok, _Res} = q(["SADD", sync_key(Uid, Sid) | ContactList]),
     ok.
