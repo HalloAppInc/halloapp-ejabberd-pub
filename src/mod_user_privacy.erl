@@ -22,9 +22,11 @@
 
 %% iq handler and API.
 -export([
-    process_local_iq/1
+    process_local_iq/1,
+    privacy_check_packet/4
 ]).
 
+-type c2s_state() :: ejabberd_c2s:state().
 
 %%====================================================================
 %% gen_mod API.
@@ -33,11 +35,13 @@
 start(Host, _Opts) ->
     ?INFO_MSG("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_USER_PRIVACY, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
     ok.
 
 stop(Host) ->
     ?INFO_MSG("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_USER_PRIVACY),
+    ejabberd_hooks:delete(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
     ok.
 
 depends(_Host, _Opts) ->
@@ -90,6 +94,30 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
     Txt = ?T("Unable to handle this IQ"),
     xmpp:make_error(IQ, xmpp:err_internal_server_error(Txt, Lang)).
 
+
+%% TODO(murali@): refactor this hook and its arguments later.
+%% The call to model_privacy:is_blocked() could involve multiple redis calls and might be expensive.
+%% Will need to use qp() and cache it.
+-spec privacy_check_packet(Acc :: allow | deny, State :: c2s_state(),
+        Pkt :: stanza(), Dir :: in | out) -> allow | deny | {stop, deny}.
+privacy_check_packet(allow, _State, Pkt, _Dir)
+        when is_record(Pkt, message); is_record(Pkt, presence) ->
+    #jid{luser = FromUid} = xmpp:get_from(Pkt),
+    #jid{luser = ToUid} = xmpp:get_to(Pkt),
+    if
+        FromUid =:= undefined -> allow;
+        ToUid =:= undefined -> allow;
+        true ->
+            case model_privacy:is_blocked(FromUid, ToUid) of
+                true ->
+                    ?INFO_MSG("Packet from-uid: ~s to-uid: ~s is blocked", [FromUid, ToUid]),
+                    {stop, deny};
+                false ->
+                    allow
+            end
+    end;
+privacy_check_packet(Acc, _, _, _) ->
+    Acc.
 
 %%====================================================================
 %% internal functions.
