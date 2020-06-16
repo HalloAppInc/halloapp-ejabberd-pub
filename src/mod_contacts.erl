@@ -182,11 +182,11 @@ obtain_user_id(Phone) ->
 get_phone(UserId) ->
     ejabberd_auth_halloapp:get_phone(UserId).
 
-
--spec is_contact(UserId :: binary(), ContactPhone :: binary()) -> boolean().
-is_contact(UserId, ContactPhone) ->
-    model_contacts:is_contact(UserId, ContactPhone).
-
+-spec make_contact_set({Status :: atom, ContactList :: [binary()]}) -> sets:set(binary()).
+make_contact_set({ok, ContactList}) ->
+    sets:from_list(ContactList);
+make_contact_set({error, _}) ->
+    sets:new().
 
 -spec handle_delta_contacts(UserId :: binary(), Server :: binary(),
         Contacts :: [contact()]) -> [contact()].
@@ -219,7 +219,7 @@ finish_sync(UserId, Server, SyncId) ->
     NewContactSet = sets:from_list(NewContactList),
     DeleteContactSet = sets:subtract(OldContactSet, NewContactSet),
     AddContactSet = sets:subtract(NewContactSet, OldContactSet),
-    UserReverse = sets:from_list(model_contacts:get_contact_uids(UserPhone)),
+    UserReverse = make_contact_set(model_contacts:get_contact_uids(UserPhone)),
     ?INFO_MSG("Full contact sync stats: uid: ~p, old_contacts: ~p, new_contacts: ~p, "
             "add_contacts: ~p, delete_contacts: ~p", [UserId, sets:size(OldContactSet),
             sets:size(NewContactSet), sets:size(AddContactSet), sets:size(DeleteContactSet)]),
@@ -251,8 +251,8 @@ finish_sync(UserId, Server, SyncId) ->
 normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
     UserPhone = get_phone(UserId),
     UserRegionId = mod_libphonenumber:get_region_id(UserPhone),
-    UserContacts = sets:from_list(model_contacts:get_contacts(UserId)),
-    UserReverse = sets:from_list(model_contacts:get_contact_uids(UserPhone)),
+    UserContacts = make_contact_set(model_contacts:get_contacts(UserId)),
+    UserReverse = make_contact_set(model_contacts:get_contact_uids(UserPhone)),
     %% Construct the list of new contact records to be returned and filter out the phone numbers
     %% that couldn't be normalized.
     {NewContacts, NormalizedPhoneNumbers} = lists:mapfoldr(
@@ -300,9 +300,9 @@ normalize_and_update_contact(UserId, UserRegionId, UserPhone, UserContacts, User
     NewContact#contact{raw = RawPhone}.
 
 
--spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(), UserContacts :: sets:set(binary()),
-        UserReverse :: sets:set(binary()), Server :: binary(),
-        ContactPhone :: binary(), ShouldNotify :: atom()) -> contact().
+-spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(),
+        UserContacts :: sets:set(binary()), UserReverse :: sets:set(binary()),
+        Server :: binary(), ContactPhone :: binary(), ShouldNotify :: atom()) -> contact().
 update_and_notify_contact(UserId, UserPhone, UserContacts, UserReverse,
         Server, ContactPhone, ShouldNotify) ->
     %% TODO(ethan): load UserId's contacts in memory and use the in-memory struct to do the lookup
