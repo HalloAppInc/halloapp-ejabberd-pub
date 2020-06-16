@@ -283,7 +283,11 @@ broadcast_items(Uid, Server, Node, ItemsEls, EventType) ->
     MsgType = get_message_type(Node, EventType),
     Packet = #message{type = MsgType, sub_els = [#ps_event{items = ItemsEls}]},
     {ok, FriendUids} = model_friends:get_friends(OwnerUid),
-    BroadcastUids = lists:delete(Uid, [OwnerUid | FriendUids]),
+    TempList = lists:delete(OwnerUid, FriendUids),
+    BroadcastUids = case OwnerUid =:= Uid of
+        true -> TempList;
+        false -> lists:delete(Uid, [OwnerUid | TempList])
+    end,
     BroadcastJids = util:uids_to_jids(BroadcastUids, Server),
     From = jid:make(?PUBSUB_HOST),
     ?INFO_MSG("Node: ~p, ItemsEls: ~p, FriendUids: ~p", [Node, ItemsEls, BroadcastUids]),
