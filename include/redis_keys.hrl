@@ -21,6 +21,8 @@
 -define(TRACED_UIDS_KEY, <<"traced_uids:">>).
 %% set -> {phone}
 -define(TRACED_PHONES_KEY, <<"traced_phones:">>).
+%% store for each phone the last person to invite this phone number and timestamp
+-define(INVITES_KEY, <<"inv:">>).
 
 %% PrivacyKeys
 -define(WHITELIST_KEY, <<"whi:">>).
@@ -48,6 +50,8 @@
 %% RedisPhone
 -define(PHONE_KEY, <<"pho:">>).
 -define(CODE_KEY, <<"cod:">>).
+-define(INVITED_BY_KEY, <<"inb:">>).
+
 
 %% RedisWhisperKeys
 -define(WHISPER_KEY, <<"wk:">>).
