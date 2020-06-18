@@ -52,8 +52,12 @@ send_invites_error2_test() ->
     Result = mod_invites:process_local_iq(create_big_invite_iq(?UID1)),
     ?assertEqual(ok, check_invites_iq_correctness(Result, 0)),
     Oks = [#invite{phone = integer_to_binary(Ph), result = ok} ||
-        Ph <- lists:seq(16175283000,16175283000 + ?MAX_NUM_INVITES - 1)],
-    Expected = lists:append(Oks, [#invite{phone = integer_to_binary(16175283000 + ?MAX_NUM_INVITES), result = failed, reason = no_invites_left}]),
+        Ph <- lists:seq(16175289000,16175289000 + ?MAX_NUM_INVITES - 1)],
+    Expected = lists:append(Oks,
+        [#invite{
+            phone = integer_to_binary(16175289000 + ?MAX_NUM_INVITES),
+            result = failed, reason = no_invites_left
+        }]),
     ?assertEqual(Expected, get_invite_subel_list(Result)).
 
 % tests existing_user error
@@ -119,7 +123,8 @@ request_invite_error1_test() ->
 % tests the no_invites_left error of the request_invite function
 request_invite_error2_test() ->
     setup(),
-    [mod_invites:request_invite(?UID1, integer_to_binary(Phone)) || Phone <- lists:seq(16175283000, 16175283000 + ?MAX_NUM_INVITES)],
+    [mod_invites:request_invite(?UID1, integer_to_binary(Phone)) ||
+        Phone <- lists:seq(16175289000, 16175289000 + ?MAX_NUM_INVITES)],
     ?assertEqual({?PHONE2, failed, no_invites_left}, mod_invites:request_invite(?UID1, ?PHONE2)),
     ?assertEqual(0, mod_invites:get_invites_remaining(?UID1)).
 
@@ -220,7 +225,7 @@ create_big_invite_iq(Uid) ->
         from = #jid{luser = Uid},
         type = set,
         sub_els = [#invites{invites = [
-            #invite{phone = integer_to_binary(Ph)} || Ph <- lists:seq(16175283000,16175283000 + ?MAX_NUM_INVITES)
+            #invite{phone = integer_to_binary(Ph)} || Ph <- lists:seq(16175289000,16175289000 + ?MAX_NUM_INVITES)
         ]}]
     }.
 

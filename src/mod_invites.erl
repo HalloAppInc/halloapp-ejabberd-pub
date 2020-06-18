@@ -28,6 +28,7 @@
 ]).
 
 -define(NS_INVITE, <<"halloapp:invites">>).
+-define(NS_INVITE_STATS, "HA/invite").
 
 %%====================================================================
 %% gen_mod functions
@@ -77,6 +78,7 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
     case AccExists of
         false -> xmpp:make_error(IQ, err(no_account));
         true ->
+            stat:count(?NS_INVITE_STATS, "requests"),
             PhoneList = [P#invite.phone || P <- InviteList],
             Results = lists:map(fun(Phone) -> request_invite(Uid, Phone) end, PhoneList),
             NewInviteList = [#invite{phone = Ph, result = Res, reason = Rea} || {Ph, Res, Rea} <- Results],
@@ -118,8 +120,11 @@ get_time_until_refresh(CurrEpochTime) ->
     {ToPhoneNum :: binary(), ok | error, undefined | no_invites_left | existing_user | invalid_number }.
 request_invite(FromUid, ToPhoneNum) ->
     case can_send_invite(FromUid, ToPhoneNum) of
-        {error, Reason} -> {ToPhoneNum, failed, Reason};
+        {error, Reason} ->
+            stat:count(?NS_INVITE_STATS, "invite_error_" ++ atom_to_list(Reason)),
+            {ToPhoneNum, failed, Reason};
         {ok, InvitesLeft, NormalizedPhone} ->
+            stat:count(?NS_INVITE_STATS, "invite_success"),
             model_invites:record_invite(FromUid, NormalizedPhone, InvitesLeft - 1),
             {ToPhoneNum, ok, undefined}
     end.
