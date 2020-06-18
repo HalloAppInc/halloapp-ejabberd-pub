@@ -7,8 +7,8 @@
 -author("josh").
 
 -include("invites.hrl").
+-include("xmpp.hrl").
 -include_lib("eunit/include/eunit.hrl").
-
 
 -define(UID1, <<"1">>).
 -define(PHONE1, <<"16505551111">>).
@@ -20,25 +20,72 @@
 -define(NAME2, <<"Name2">>).
 -define(USER_AGENT2, <<"HalloApp/Android1.0">>).
 
-setup() ->
-    mod_redis:start(undefined, []),
-    clear(),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1),
-    ok.
+%% -------------------------------------------- %%
+%% Tests for IQ API
+%% --------------------------------------------	%%
 
-setup_bare() ->
-    mod_redis:start(undefined, []),
-    clear(),
-    ok.
+get_invites_test() ->
+    setup(),
+    Result = mod_invites:process_local_iq(create_get_iq(?UID1)),
+    ?assertEqual(ok, check_invites_iq_correctness(Result, ?MAX_NUM_INVITES)).
 
+get_invites_error_test() ->
+    setup_bare(),
+    Actual = mod_invites:process_local_iq(create_get_iq(?UID1)),
+    Expected = #iq{type = error, to = #jid{luser = ?UID1}, sub_els = [
+        #stanza_error{reason = no_account}
+    ]},
+    ?assertEqual(Expected, Actual).
 
-clear() ->
-    ok = gen_server:cast(redis_accounts_client, flushdb),
-    ok = gen_server:cast(redis_phone_client, flushdb).
+% tests no_account error
+send_invites_error1_test() ->
+    setup_bare(),
+    Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
+    Expected = #iq{type = error, to = #jid{luser = ?UID1}, sub_els = [
+        #stanza_error{reason = no_account}
+    ]},
+    ?assertEqual(Expected, Actual).
 
+% tests no_invites_left error
+send_invites_error2_test() ->
+    setup(),
+    Result = mod_invites:process_local_iq(create_big_invite_iq(?UID1)),
+    ?assertEqual(ok, check_invites_iq_correctness(Result, 0)),
+    Oks = [#invite{phone = integer_to_binary(Ph), result = ok} ||
+        Ph <- lists:seq(16175283000,16175283000 + ?MAX_NUM_INVITES - 1)],
+    Expected = lists:append(Oks, [#invite{phone = integer_to_binary(16175283000 + ?MAX_NUM_INVITES), result = failed, reason = no_invites_left}]),
+    ?assertEqual(Expected, get_invite_subel_list(Result)).
+
+% tests existing_user error
+send_invites_error3_test() ->
+    setup(),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2),
+    ok = model_phone:add_phone(?PHONE2, ?UID2),
+    Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
+    Expected = [
+        #invite{phone = ?PHONE2, result = failed, reason = existing_user},
+        #invite{phone = <<"16175283002">>, result = ok},
+        #invite{phone = <<"16175283002">>, result = ok},
+        #invite{phone = <<"212">>, result = failed, reason = invalid_number}
+    ],
+    ?assertEqual(Expected, get_invite_subel_list(Actual)),
+    ?assertEqual(ok, check_invites_iq_correctness(Actual, ?MAX_NUM_INVITES - 2)).
+
+% tests invalid_phone error
+send_invites_error4_test() ->
+    setup(),
+    Result = mod_invites:process_local_iq(create_invite_iq(?UID1)),
+    ?assertEqual(ok, check_invites_iq_correctness(Result, ?MAX_NUM_INVITES - 3)),
+    Expected = [
+        #invite{phone = ?PHONE2, result = ok},
+        #invite{phone = <<"16175283002">>, result = ok},
+        #invite{phone = <<"16175283002">>, result = ok},
+        #invite{phone = <<"212">>, result = failed, reason = invalid_number}
+    ],
+    ?assertEqual(Expected, get_invite_subel_list(Result)).
 
 %% -------------------------------------------- %%
-%% Tests for public API calls
+%% Tests for API functions
 %% --------------------------------------------	%%
 
 % tests setting the invite limit for the first time (i.e., a user that has not yet sent an invite)
@@ -50,8 +97,7 @@ reset_invs_for_first_time_test() ->
 get_invites_remaining1_test() ->
     setup(),
     ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
-    {ok, NumLeft} = mod_invites:request_invite(?UID1, ?PHONE2),
-    ?assertEqual(?MAX_NUM_INVITES - 1, NumLeft),
+    ?assertEqual({?PHONE2, ok, undefined}, mod_invites:request_invite(?UID1, ?PHONE2)),
     ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)).
 
 % tests get_time_until_refresh function on a randomly chosen timestamp
@@ -62,38 +108,26 @@ time_until_refresh1_test() ->
 time_until_refresh2_test() ->
     ?assertEqual(604800, mod_invites:get_time_until_refresh(1593907200)).
 
-% tests the no_account error when the from_uid of request_invite is invalid
-request_invite_error1_test() ->
-    setup_bare(),
-    {Status, Desc} = mod_invites:request_invite(?UID1, ?PHONE1),
-    ?assertEqual(error, Status),
-    ?assertEqual(no_account, Desc).
-
 % tests the existing_user error of the request_invite function
-request_invite_error2_test() ->
+request_invite_error1_test() ->
     setup(),
     ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2),
     ok = model_phone:add_phone(?PHONE2, ?UID2),
-    ?assertEqual({error, existing_user}, mod_invites:request_invite(?UID1, ?PHONE2)).
+    ?assertEqual({?PHONE2, failed, existing_user}, mod_invites:request_invite(?UID1, ?PHONE2)),
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)).
 
-
-% tests the exceeded_invite_limit error of the request_invite function
-% also tests whether request_invite is returning the correct number of invites remaining
-request_invite_error3_test() ->
+% tests the no_invites_left error of the request_invite function
+request_invite_error2_test() ->
     setup(),
-    Nums = [?PHONE2 || _ <- lists:seq(1,?MAX_NUM_INVITES + 1)],
-    Results = [mod_invites:request_invite(?UID1, X) || X <- Nums],
-    Oks = [Msg || {Msg,ActualNum} <- Results, ExpectedNum <- lists:seq(?MAX_NUM_INVITES-1, 0, -1),
-        Msg == ok, ActualNum == ExpectedNum ],
-    Errs = [Msg || {Msg,Desc} <- Results, Msg == error, Desc == no_invites_left],
-    ?assertEqual(?MAX_NUM_INVITES, length(Oks)),
-    ?assertEqual(1, length(Errs)).
+    [mod_invites:request_invite(?UID1, integer_to_binary(Phone)) || Phone <- lists:seq(16175283000, 16175283000 + ?MAX_NUM_INVITES)],
+    ?assertEqual({?PHONE2, failed, no_invites_left}, mod_invites:request_invite(?UID1, ?PHONE2)),
+    ?assertEqual(0, mod_invites:get_invites_remaining(?UID1)).
 
 % tests is_invited
 is_invited__test() ->
     setup(),
     ?assertNot(model_invites:is_invited(?PHONE2)),
-    {ok, _} = mod_invites:request_invite(?UID1, ?PHONE2),
+    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
     ?assert(model_invites:is_invited(?PHONE2)).
 
 % tests who_invited
@@ -101,7 +135,7 @@ who_invited_test() ->
     setup_bare(),
     ?assertEqual({ok, undefined}, model_invites:get_inviter(?PHONE2)),
     setup(),
-    {ok, _} = mod_invites:request_invite(?UID1, ?PHONE2),
+    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
     {ok, Uid, _Ts} = model_invites:get_inviter(?PHONE2),
     ?assertEqual(Uid, ?UID1).
 
@@ -109,7 +143,7 @@ who_invited_test() ->
 invite_set_test() ->
     setup(),
     ?assertEqual({ok, []}, model_invites:q_accounts(["SMEMBERS", model_invites:acc_invites_key(?UID1)])),
-    {ok, _} = mod_invites:request_invite(?UID1, ?PHONE2),
+    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
     ?assertEqual({ok, [?PHONE2]}, model_invites:q_accounts(["SMEMBERS", model_invites:acc_invites_key(?UID1)])).
 
 
@@ -117,7 +151,7 @@ invite_set_test() ->
 %% Tests for internal functions
 %% -------------------------------------------- %%
 
-% tests the ability to get the next sunday at midnight for a randomly chosen time
+% tests the ability to get the next sunday at midnight for a chosen time
 next_sunday1_test() ->
     TestTime = 1585045819,
     Expected = 1585440000,
@@ -129,7 +163,7 @@ next_sunday2_test() ->
     Expected = 1594512000,
     ?assertEqual(Expected, mod_invites:get_next_sunday_midnight(TestTime)).
 
-% tests the ability to get the previous sunday at midnight for a randomly chosen time
+% tests the ability to get the previous sunday at midnight for a chosen time
 prev_sunday1_test() ->
     TestTime = 1585045819,
     Expected = 1584835200,
@@ -140,4 +174,79 @@ prev_sunday2_test() ->
     TestTime = 1593907200,
     Expected = 1593907200,
     ?assertEqual(Expected, mod_invites:get_last_sunday_midnight(TestTime)).
+
+%% --------------------------------------------	%%
+%% Internal functions
+%% -------------------------------------------- %%
+
+setup() ->
+    mod_redis:start(undefined, []),
+    phone_number_util:init(undefined, undefined),
+    clear(),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1),
+    ok.
+
+setup_bare() ->
+    mod_redis:start(undefined, []),
+    clear(),
+    ok.
+
+clear() ->
+    ok = gen_server:cast(redis_accounts_client, flushdb),
+    ok = gen_server:cast(redis_phone_client, flushdb).
+
+create_get_iq(Uid) ->
+    #iq{
+        from = #jid{luser = Uid},
+        type = get,
+        sub_els = [#invites{}]
+    }.
+
+create_invite_iq(Uid) ->
+    #iq{
+        from = #jid{luser = Uid},
+        type = set,
+        sub_els = [#invites{invites = [
+            #invite{phone = ?PHONE2},
+            #invite{phone = <<"16175283002">>},
+            #invite{phone = <<"16175283002">>},
+            #invite{phone = <<"212">>}
+        ]}]
+    }.
+
+% creates an iq with (MAX_NUM_INVITES + 1) phone numbers
+create_big_invite_iq(Uid) ->
+    #iq{
+        from = #jid{luser = Uid},
+        type = set,
+        sub_els = [#invites{invites = [
+            #invite{phone = integer_to_binary(Ph)} || Ph <- lists:seq(16175283000,16175283000 + ?MAX_NUM_INVITES)
+        ]}]
+    }.
+
+get_invites_subel(#iq{} = IQ) ->
+    [Res] = IQ#iq.sub_els,
+    Res.
+
+get_invite_subel_list(#iq{} = IQ) ->
+    Invites = get_invites_subel(IQ),
+    Invites#invites.invites.
+
+% function to verify the refresh time in the iq result is close enough to assume its correctness
+% the refresh time function itself is tested elsewhere
+check_refresh_time_tolerance(Time) ->
+    Tolerance = 5,
+    CurrTime = mod_invites:get_time_until_refresh(),
+    if
+        (Time >= (CurrTime - Tolerance)) or (Time =< (CurrTime + Tolerance)) ->
+            ok;
+        true -> {error_bad_refresh_time, Time}
+    end.
+
+-spec check_invites_iq_correctness(IQ :: iq(), ExpectedInvsLeft :: integer()) -> ok.
+check_invites_iq_correctness(IQ, ExpectedInvsLeft) ->
+    #invites{invites_left = InvLeft, time_until_refresh = TimeLeft} = get_invites_subel(IQ),
+    ?assertEqual(ExpectedInvsLeft, InvLeft),
+    ?assertEqual(ok, check_refresh_time_tolerance(TimeLeft)),
+    ok.
 

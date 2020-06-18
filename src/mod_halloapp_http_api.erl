@@ -78,6 +78,8 @@ process([<<"registration">>, <<"register">>],
         Code = maps:get(<<"code">>, Payload),
         Name = maps:get(<<"name">>, Payload),
 
+        mod_invites:check_invited(Phone),
+
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
         LName = check_name(Name),
@@ -106,6 +108,8 @@ process([<<"registration">>, <<"register">>],
             return_400(missing_name);
         error: invalid_name ->
             return_400(invalid_name);
+        error: not_invited ->
+            return_400(not_invited);
         error : Reason : Stacktrace  ->
             ?ERROR_MSG("register error: ~p, ~p", [Reason, Stacktrace]),
             return_500()
