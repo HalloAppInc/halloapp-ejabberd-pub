@@ -67,35 +67,35 @@ privacy_type_test() ->
 whitelist_test() ->
     setup(),
     ?assertEqual({ok, []}, model_privacy:get_whitelist_uids(?UID1)),
-    ?assertEqual(false, model_privacy:is_uid_whitelisted(?UID1, ?UID2)),
+    ?assertEqual(false, model_privacy:is_whitelisted(?UID1, ?UID2)),
     ?assertEqual(ok, model_privacy:whitelist_uid(?UID1, ?UID2)),
     ?assertEqual({ok, [?UID2]}, model_privacy:get_whitelist_uids(?UID1)),
-    ?assertEqual(true, model_privacy:is_uid_whitelisted(?UID1, ?UID2)),
+    ?assertEqual(true, model_privacy:is_whitelisted(?UID1, ?UID2)),
     ?assertEqual(ok, model_privacy:unwhitelist_uid(?UID1, ?UID2)),
     ?assertEqual({ok, []}, model_privacy:get_whitelist_uids(?UID1)),
 
     ?assertEqual(ok, model_privacy:whitelist_uids(?UID1, [])),
     ?assertEqual(ok, model_privacy:whitelist_uids(?UID1, [?UID2, ?UID3])),
     ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_whitelist_uids(?UID1)),
-    ?assertEqual(true, model_privacy:is_uid_whitelisted(?UID1, ?UID2)),
-    ?assertEqual(true, model_privacy:is_uid_whitelisted(?UID1, ?UID3)).
+    ?assertEqual(true, model_privacy:is_whitelisted(?UID1, ?UID2)),
+    ?assertEqual(true, model_privacy:is_whitelisted(?UID1, ?UID3)).
 
 
 blacklist_test() ->
     setup(),
     ?assertEqual({ok, []}, model_privacy:get_blacklist_uids(?UID1)),
-    ?assertEqual(false, model_privacy:is_uid_blacklisted(?UID1, ?UID2)),
+    ?assertEqual(false, model_privacy:is_blacklisted(?UID1, ?UID2)),
     ?assertEqual(ok, model_privacy:blacklist_uid(?UID1, ?UID2)),
     ?assertEqual({ok, [?UID2]}, model_privacy:get_blacklist_uids(?UID1)),
-    ?assertEqual(true, model_privacy:is_uid_blacklisted(?UID1, ?UID2)),
+    ?assertEqual(true, model_privacy:is_blacklisted(?UID1, ?UID2)),
     ?assertEqual(ok, model_privacy:unblacklist_uid(?UID1, ?UID2)),
     ?assertEqual({ok, []}, model_privacy:get_blacklist_uids(?UID1)),
 
     ?assertEqual(ok, model_privacy:blacklist_uids(?UID1, [])),
     ?assertEqual(ok, model_privacy:blacklist_uids(?UID1, [?UID2, ?UID3])),
     ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_blacklist_uids(?UID1)),
-    ?assertEqual(true, model_privacy:is_uid_blacklisted(?UID1, ?UID2)),
-    ?assertEqual(true, model_privacy:is_uid_blacklisted(?UID1, ?UID3)).
+    ?assertEqual(true, model_privacy:is_blacklisted(?UID1, ?UID2)),
+    ?assertEqual(true, model_privacy:is_blacklisted(?UID1, ?UID3)).
 
 
 mute_test() ->
@@ -114,12 +114,12 @@ mute_test() ->
 block_test() ->
     setup(),
     ?assertEqual({ok, []}, model_privacy:get_blocked_uids(?UID1)),
-    ?assertEqual(false, model_privacy:is_uid_blocked(?UID1, ?UID2)),
-    ?assertEqual(false, model_privacy:is_uid_blocked_by(?UID2, ?UID1)),
+    ?assertEqual(false, model_privacy:is_blocked(?UID1, ?UID2)),
+    ?assertEqual(false, model_privacy:is_blocked_by(?UID2, ?UID1)),
     ?assertEqual(ok, model_privacy:block_uid(?UID1, ?UID2)),
     ?assertEqual({ok, [?UID2]}, model_privacy:get_blocked_uids(?UID1)),
-    ?assertEqual(true, model_privacy:is_uid_blocked(?UID1, ?UID2)),
-    ?assertEqual(true, model_privacy:is_uid_blocked_by(?UID2, ?UID1)),
+    ?assertEqual(true, model_privacy:is_blocked(?UID1, ?UID2)),
+    ?assertEqual(true, model_privacy:is_blocked_by(?UID2, ?UID1)),
     ?assertEqual(ok, model_privacy:unblock_uid(?UID1, ?UID2)),
     ?assertEqual({ok, []}, model_privacy:get_blocked_uids(?UID1)),
 
@@ -128,21 +128,21 @@ block_test() ->
     ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_blocked_uids(?UID1)),
     ?assertEqual({ok, [?UID1]}, model_privacy:get_blocked_by_uids(?UID2)),
     ?assertEqual({ok, [?UID1]}, model_privacy:get_blocked_by_uids(?UID3)),
-    ?assertEqual(true, model_privacy:is_uid_blocked(?UID1, ?UID2)),
-    ?assertEqual(true, model_privacy:is_uid_blocked_by(?UID2, ?UID1)),
-    ?assertEqual(true, model_privacy:is_uid_blocked(?UID1, ?UID3)),
-    ?assertEqual(true, model_privacy:is_uid_blocked_by(?UID3, ?UID1)).
+    ?assertEqual(true, model_privacy:is_blocked(?UID1, ?UID2)),
+    ?assertEqual(true, model_privacy:is_blocked_by(?UID2, ?UID1)),
+    ?assertEqual(true, model_privacy:is_blocked(?UID1, ?UID3)),
+    ?assertEqual(true, model_privacy:is_blocked_by(?UID3, ?UID1)).
 
 
 is_blocked_test() ->
     setup(),
     ?assertEqual({ok, []}, model_privacy:get_blocked_uids(?UID1)),
-    ?assertEqual(false, model_privacy:is_blocked(?UID1, ?UID2)),
+    ?assertEqual(false, model_privacy:is_blocked_any(?UID1, ?UID2)),
     ?assertEqual(ok, model_privacy:block_uid(?UID1, ?UID2)),
-    ?assertEqual(true, model_privacy:is_blocked(?UID1, ?UID2)),
+    ?assertEqual(true, model_privacy:is_blocked_any(?UID1, ?UID2)),
 
     ?assertEqual(ok, model_privacy:unblock_uid(?UID1, ?UID2)),
-    ?assertEqual(false, model_privacy:is_blocked(?UID1, ?UID2)),
+    ?assertEqual(false, model_privacy:is_blocked_any(?UID1, ?UID2)),
     ?assertEqual(ok, model_privacy:block_uid(?UID2, ?UID1)),
-    ?assertEqual(true, model_privacy:is_blocked(?UID1, ?UID2)).
+    ?assertEqual(true, model_privacy:is_blocked_any(?UID1, ?UID2)).
 

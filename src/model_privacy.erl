@@ -47,11 +47,11 @@
     get_mutelist_uids/1,
     get_blocked_uids/1,
     get_blocked_by_uids/1,
-    is_uid_whitelisted/2,
-    is_uid_blacklisted/2,
-    is_uid_blocked/2,
-    is_uid_blocked_by/2,
-    is_blocked/2
+    is_whitelisted/2,
+    is_blacklisted/2,
+    is_blocked/2,
+    is_blocked_by/2,
+    is_blocked_any/2
 ]).
 
 %%====================================================================
@@ -230,33 +230,35 @@ get_blocked_by_uids(Uid) ->
     {ok, Res}.
 
 
--spec is_uid_whitelisted(Uid :: binary(), Ouid :: binary()) -> boolean().
-is_uid_whitelisted(Uid, Ouid) ->
+-spec is_whitelisted(Uid :: binary(), Ouid :: binary()) -> boolean().
+is_whitelisted(Uid, Ouid) ->
     {ok, Res} = q(["SISMEMBER", whitelist_key(Uid), Ouid]),
     binary_to_integer(Res) == 1.
 
 
--spec is_uid_blacklisted(Uid :: binary(), Ouid :: binary()) -> boolean().
-is_uid_blacklisted(Uid, Ouid) ->
+-spec is_blacklisted(Uid :: binary(), Ouid :: binary()) -> boolean().
+is_blacklisted(Uid, Ouid) ->
     {ok, Res} = q(["SISMEMBER", blacklist_key(Uid), Ouid]),
-    binary_to_integer(Res) == 1.
-
-
--spec is_uid_blocked(Uid :: binary(), Ouid :: binary()) -> boolean().
-is_uid_blocked(Uid, Ouid) ->
-    {ok, Res} = q(["SISMEMBER", block_key(Uid), Ouid]),
-    binary_to_integer(Res) == 1.
-
-
--spec is_uid_blocked_by(Uid :: binary(), Ouid :: binary()) -> boolean().
-is_uid_blocked_by(Uid, Ouid) ->
-    {ok, Res} = q(["SISMEMBER", reverse_block_key(Uid), Ouid]),
     binary_to_integer(Res) == 1.
 
 
 -spec is_blocked(Uid :: binary(), Ouid :: binary()) -> boolean().
 is_blocked(Uid, Ouid) ->
-    is_uid_blocked(Uid, Ouid) orelse is_uid_blocked_by(Uid, Ouid).
+    {ok, Res} = q(["SISMEMBER", block_key(Uid), Ouid]),
+    binary_to_integer(Res) == 1.
+
+
+-spec is_blocked_by(Uid :: binary(), Ouid :: binary()) -> boolean().
+is_blocked_by(Uid, Ouid) ->
+    {ok, Res} = q(["SISMEMBER", reverse_block_key(Uid), Ouid]),
+    binary_to_integer(Res) == 1.
+
+
+%% Returns true if Uid blocked Ouid (or) if Uid is blocked by Ouid.
+%% Checks if there is a block-relationship between these uids in any direction.
+-spec is_blocked_any(Uid :: binary(), Ouid :: binary()) -> boolean().
+is_blocked_any(Uid, Ouid) ->
+    is_blocked(Uid, Ouid) orelse is_blocked_by(Uid, Ouid).
 
 
 %%====================================================================

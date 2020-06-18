@@ -96,7 +96,7 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
 
 
 %% TODO(murali@): refactor this hook and its arguments later.
-%% The call to model_privacy:is_blocked() could involve multiple redis calls and might be expensive.
+%% The call to model_privacy:is_blocked_any() could involve multiple redis calls and might be expensive.
 %% Will need to use qp() and cache it.
 -spec privacy_check_packet(Acc :: allow | deny, State :: c2s_state(),
         Pkt :: stanza(), Dir :: in | out) -> allow | deny | {stop, deny}.
@@ -108,7 +108,7 @@ privacy_check_packet(allow, _State, Pkt, _Dir)
         FromUid =:= undefined -> allow;
         ToUid =:= undefined -> allow;
         true ->
-            case model_privacy:is_blocked(FromUid, ToUid) of
+            case model_privacy:is_blocked_any(FromUid, ToUid) of
                 true ->
                     ?INFO_MSG("Packet from-uid: ~s to-uid: ~s is blocked", [FromUid, ToUid]),
                     {stop, deny};
