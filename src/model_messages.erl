@@ -82,25 +82,22 @@ store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_record(Messag
     store_message(ToUid, FromUid, MsgId, ContentType, fxml:element_to_binary(xmpp:encode(Message)));
 
 store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_binary(Message)->
-    {ok, OrderId} = q(["INCR", message_order_key(ToUid)]),
-    MessageKey = message_key(ToUid, MsgId),
-    Fields = [
-        ?FIELD_TO, ToUid,
-        ?FIELD_MESSAGE, Message,
-        ?FIELD_CONTENT_TYPE, ContentType,
-        ?FIELD_RETRY_COUNT, 0,
-        ?FIELD_ORDER, OrderId],
-    Fields2 = case FromUid of
-        undefined -> Fields;
-        _ -> [?FIELD_FROM, FromUid | Fields]
-    end,
-    Fields3 = ["HSET", MessageKey | Fields2],
-    PipeCommands = [
-        ["MULTI"],
-        Fields3,
-        ["ZADD", message_queue_key(ToUid), OrderId, MsgId],
-        ["EXEC"]],
-    _Results = qp(PipeCommands),
+    MessageOrderKey = binary_to_list(message_order_key(ToUid)),
+    MessageKey = binary_to_list(message_key(ToUid, MsgId)),
+    MessageQueueKey = binary_to_list(message_queue_key(ToUid)),
+    LuaScript = "local OrderId = redis.call('INCR', KEYS[1]) " ++
+            "redis.call('HSET', KEYS[2], '" ++
+            binary_to_list(?FIELD_TO) ++ "', ARGV[1], '" ++
+            binary_to_list(?FIELD_MESSAGE) ++ "', ARGV[2], '" ++
+            binary_to_list(?FIELD_CONTENT_TYPE) ++ "', ARGV[3], '" ++
+            binary_to_list(?FIELD_RETRY_COUNT) ++ "', 0, '" ++
+            binary_to_list(?FIELD_ORDER) ++ "', OrderId) " ++
+            "if ARGV[4] == 'undefined' then else " ++
+            "redis.call('HSET', KEYS[2], '" ++
+            binary_to_list(?FIELD_FROM) ++ "', ARGV[4]) end " ++
+            "redis.call('ZADD', KEYS[3], OrderId, ARGV[5])",
+    {ok, _Res} = q(["EVAL", LuaScript, 3, MessageOrderKey, MessageKey, MessageQueueKey,
+            ToUid, Message, ContentType, FromUid, MsgId]),
     ok;
 
 store_message(_ToUid, _FromUid, _MsgId, _ContentType, Message) ->
