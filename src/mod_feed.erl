@@ -21,6 +21,7 @@
 
 %% Number of milliseconds in 7days.
 -define(EXPIRE_ITEM_MS, 7 * ?DAYS_MS).
+-type set() :: sets:set().
 
 -behaviour(gen_mod).
 
@@ -155,22 +156,30 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lan
             Txt = ?T("Invalid node"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         true ->
-            case is_allowed_to_publish(Uid, Node#psnode.uid, Node#psnode.type, ItemType) of
-                false ->
+            FeedAudienceSet = get_feed_audience_set(Node#psnode.uid),
+            case check_permissions(Uid, Node#psnode.uid, Node#psnode.type,
+                    ItemType, FeedAudienceSet) of
+                error ->
                     ?INFO_MSG("Uid: ~s, Unauthorized to publish", [Uid]),
                     Txt = ?T("Unauthorized to publish"),
                     xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-                true ->
-                    ?INFO_MSG("Uid: ~s, publish_item", [Uid]),
-                    Item = publish_item(Uid, Server, ItemId, ItemType, Payload, Node),
-                    Timestamp = util:ms_to_sec(Item#item.creation_ts_ms),
+                Res ->
+                    TimestampMs = util:now_ms(),
+                    case Res of
+                        ignore -> ?INFO_MSG("Uid: ~s, ignoring item: ~s", [Uid, ItemId]);
+                        accept ->
+                            ?INFO_MSG("Uid: ~s, publish_item", [Uid]),
+                            _Item = publish_item(
+                                    Uid, Server, ItemId, ItemType, Payload, Node,
+                                    TimestampMs, FeedAudienceSet)
+                    end,
                     xmpp:make_iq_result(IQ,
                         #pubsub{publish = #ps_publish{
                             node = NodeId,
                             items = [#ps_item{
                                 id = ItemId,
                                 type = ItemType,
-                                timestamp = integer_to_binary(Timestamp)
+                                timestamp = integer_to_binary(util:ms_to_sec(TimestampMs))
                         }]}})
             end
     end;
@@ -196,16 +205,17 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lan
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         true ->
             ?INFO_MSG("Uid: ~s, retract_item", [Uid]),
-            retract_item(Uid, Server, Item, Payload, Node, Notify),
+            FeedAudienceSet = get_feed_audience_set(Node#psnode.uid),
+            retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet),
             xmpp:make_iq_result(IQ)
     end.
 
 
 -spec publish_item(Uid :: binary(), Server :: binary(), ItemId :: binary(),
-        ItemType :: item_type(), Payload :: xmpp_element(), Node :: psnode()) -> item().
-publish_item(Uid, Server, ItemId, ItemType, Payload, Node) ->
+        ItemType :: item_type(), Payload :: xmpp_element(), Node :: psnode(),
+        TimestampMs :: integer(), FeedAudienceSet :: set()) -> item().
+publish_item(Uid, Server, ItemId, ItemType, Payload, Node, TimestampMs, FeedAudienceSet) ->
     ?INFO_MSG("Uid: ~s, ItemId: ~p", [Uid, ItemId]),
-    TimestampMs = util:now_ms(),
     NodeId = Node#psnode.id,
     NodeType = Node#psnode.type,
     NewItem = #item{
@@ -219,7 +229,7 @@ publish_item(Uid, Server, ItemId, ItemType, Payload, Node) ->
     FinalItem = case {ItemResult, NodeType} of
         {IRes, NType} when IRes =:= undefined; NType =:= metadata->
             ok = mod_feed_mnesia:publish_item(NewItem),
-            broadcast_event(Uid, Server, Node, NewItem, Payload, publish),
+            broadcast_event(Uid, Server, Node, NewItem, Payload, publish, FeedAudienceSet),
             NewItem;
         {Item, feed} ->
             Item
@@ -227,20 +237,20 @@ publish_item(Uid, Server, ItemId, ItemType, Payload, Node) ->
     FinalItem.
 
 
--spec retract_item(Uid :: binary(), Server :: binary(), Item :: item(),
-        Payload :: xmpp_element(), Node :: psnode(), Notify :: boolean()) -> ok.
-retract_item(Uid, Server, Item, Payload, Node, Notify) ->
+-spec retract_item(Uid :: binary(), Server :: binary(), Item :: item(), Payload :: xmpp_element(),
+        Node :: psnode(), Notify :: boolean(), FeedAudienceSet :: set()) -> ok.
+retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet) ->
     ?INFO_MSG("Uid: ~s, Item: ~p", [Uid, Item]),
     ok = mod_feed_mnesia:retract_item(Item#item.key),
-    case Notify of
-        true -> broadcast_event(Uid, Server, Node, Item, Payload, retract);
+    case Notify andalso sets:is_element(Uid, FeedAudienceSet) of
+        true -> broadcast_event(Uid, Server, Node, Item, Payload, retract, FeedAudienceSet);
         false -> ok
     end.
 
 
 -spec broadcast_event(Uid :: binary(), Server :: binary(), Node :: psnode(), Item :: item(),
-        Payload :: xmpp_element(), EventType :: event_type()) -> ok.
-broadcast_event(Uid, Server, Node, Item, Payload, EventType) ->
+        Payload :: xmpp_element(), EventType :: event_type(), FeedAudienceSet :: set()) -> ok.
+broadcast_event(Uid, Server, Node, Item, Payload, EventType, FeedAudienceSet) ->
     ?INFO_MSG("Node: ~p, Item: ~p", [Node, Item]),
     {ItemId, NodeId} = Item#item.key,
     Timestamp = util:ms_to_sec(Item#item.creation_ts_ms),
@@ -271,23 +281,17 @@ broadcast_event(Uid, Server, Node, Item, Payload, EventType) ->
                     sub_els = ItemPayload
                     }}
     end,
-    broadcast_items(Uid, Server, Node, ItemsEls, EventType),
+    broadcast_items(Uid, Server, Node, ItemsEls, EventType, FeedAudienceSet),
     ok.
 
 
 -spec broadcast_items(Uid :: binary(), Server :: binary(), Node :: psnode(),
-        ItemsEls :: ps_items(), EventType :: event_type()) -> ok.
-broadcast_items(Uid, Server, Node, ItemsEls, EventType) ->
+        ItemsEls :: ps_items(), EventType :: event_type(), FeedAudienceSet :: set()) -> ok.
+broadcast_items(Uid, Server, Node, ItemsEls, EventType, FeedAudienceSet) ->
     ?INFO_MSG("Node: ~p, ItemsEls: ~p", [Node, ItemsEls]),
-    OwnerUid = Node#psnode.uid,
     MsgType = get_message_type(Node, EventType),
     Packet = #message{type = MsgType, sub_els = [#ps_event{items = ItemsEls}]},
-    {ok, FriendUids} = model_friends:get_friends(OwnerUid),
-    TempList = lists:delete(OwnerUid, FriendUids),
-    BroadcastUids = case OwnerUid =:= Uid of
-        true -> TempList;
-        false -> lists:delete(Uid, [OwnerUid | TempList])
-    end,
+    BroadcastUids = sets:to_list(sets:del_element(Uid, FeedAudienceSet)),
     BroadcastJids = util:uids_to_jids(BroadcastUids, Server),
     From = jid:make(?PUBSUB_HOST),
     ?INFO_MSG("Node: ~p, ItemsEls: ~p, FriendUids: ~p", [Node, ItemsEls, BroadcastUids]),
@@ -295,14 +299,20 @@ broadcast_items(Uid, Server, Node, ItemsEls, EventType) ->
     ok.
 
 
--spec is_allowed_to_publish(PublisherUid :: binary(), OwnerUid :: binary(),
-        NodeType :: node_type(), ItemType :: item_type()) -> boolean().
-is_allowed_to_publish(Uid, Uid, _NodeType, _ItemType) ->
-    true;
-is_allowed_to_publish(PublisherUid, OwnerUid, feed, comment) ->
-    model_friends:is_friend(PublisherUid, OwnerUid);
-is_allowed_to_publish(_, _, _, _) ->
-    false.
+-spec check_permissions(PublisherUid :: binary(), OwnerUid :: binary(), NodeType :: node_type(),
+        ItemType :: item_type(), FeedAudienceSet :: set()) -> atom().
+check_permissions(Uid, Uid, _NodeType, _ItemType, _FeedAudienceSet) ->
+    %% Accept user publishing their own feedposts / comments.
+    accept;
+check_permissions(PublisherUid, _OwnerUid, feed, comment, FeedAudienceSet) ->
+    %% Accept comments on a feedpost: if that user is in the audience list, else ignore.
+    case sets:is_element(PublisherUid, FeedAudienceSet) of
+        true -> accept;
+        false -> ignore
+    end;
+check_permissions(_, _, _, _, _) ->
+    %% Throw error on feed items with wrong item types or wrong permissions.
+    error.
 
 
 -spec get_message_type(Node :: psnode(), EventType :: event_type()) -> headline | normal.
@@ -438,6 +448,19 @@ purge_expired_items(#psnode{id = NodeId} = _Node, TimestampMs) ->
         end, Items).
 
 
-%% TODO(murali@): Add migration functions.
-
+-spec get_feed_audience_set(Uid :: binary()) -> set().
+get_feed_audience_set(Uid) ->
+    AudienceUidSet = case mod_user_privacy:get_privacy_type(Uid) of
+        all ->
+            {ok, FriendUids} = model_friends:get_friends(Uid),
+            sets:from_list(FriendUids);
+        except ->
+            {ok, FriendUids} = model_friends:get_friends(Uid),
+            {ok, BlacklistedUids} = model_accounts:get_blacklist_uids(Uid),
+            sets:subtract(sets:from_list(FriendUids), sets:from_list(BlacklistedUids));
+        only ->
+            {ok, WhitelistedUids} = model_accounts:get_blacklist_uids(Uid),
+            sets:from_list(WhitelistedUids)
+    end,
+    sets:add_element(Uid, AudienceUidSet).
 

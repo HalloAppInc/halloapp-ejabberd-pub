@@ -23,7 +23,8 @@
 %% iq handler and API.
 -export([
     process_local_iq/1,
-    privacy_check_packet/4
+    privacy_check_packet/4,
+    get_privacy_type/1
 ]).
 
 -type c2s_state() :: ejabberd_c2s:state().
