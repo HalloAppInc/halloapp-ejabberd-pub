@@ -148,12 +148,12 @@ update_privacy_type(_Uid, _, _) ->
 -spec set_privacy_type(Uid :: binary(), Type :: privacy_type()) -> ok.
 set_privacy_type(Uid, Type) ->
     ?INFO_MSG("Uid: ~s, privacy_type: ~p", [Uid, Type]),
-    model_accounts:set_privacy_type(Uid, Type).
+    model_privacy:set_privacy_type(Uid, Type).
 
 
 -spec get_privacy_type(Uid :: binary()) -> privacy_type().
 get_privacy_type(Uid) ->
-    {ok, Type} = model_accounts:get_privacy_type(Uid),
+    {ok, Type} = model_privacy:get_privacy_type(Uid),
     ?INFO_MSG("Uid: ~s, privacy_type: ~p", [Uid, Type]),
     Type.
 
@@ -187,19 +187,19 @@ extract_uid(#uid_el{uid = Uid}) -> Uid.
 -spec remove_uids_from_privacy_list(Uid :: binary(),
         Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
 remove_uids_from_privacy_list(Uid, except, Ouids) ->
-    model_accounts:unblacklist_uids(Uid, Ouids),
+    model_privacy:unblacklist_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, unblacklist, length(Ouids)),
     ok;
 remove_uids_from_privacy_list(Uid, only, Ouids) ->
-    model_accounts:unwhitelist_uids(Uid, Ouids),
+    model_privacy:unwhitelist_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, unwhitelist, length(Ouids)),
     ok;
 remove_uids_from_privacy_list(Uid, mute, Ouids) ->
-    model_accounts:unmute_uids(Uid, Ouids),
+    model_privacy:unmute_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, unmute, length(Ouids)),
     ok;
 remove_uids_from_privacy_list(Uid, block, Ouids) ->
-    model_accounts:unblock_uids(Uid, Ouids),
+    model_privacy:unblock_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, unblock, length(Ouids)),
     Server = util:get_host(),
     ejabberd_hooks:run(unblock_uids, Server, [Uid, Server, Ouids]).
@@ -208,22 +208,22 @@ remove_uids_from_privacy_list(Uid, block, Ouids) ->
 -spec add_uids_to_privacy_list(Uid :: binary(),
         Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
 add_uids_to_privacy_list(Uid, except, Ouids) ->
-    model_accounts:blacklist_uids(Uid, Ouids),
+    model_privacy:blacklist_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, blacklist, length(Ouids)),
     ok;
 add_uids_to_privacy_list(Uid, only, Ouids) ->
-    model_accounts:whitelist_uids(Uid, Ouids),
+    model_privacy:whitelist_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, whitelist, length(Ouids)),
     ok;
 add_uids_to_privacy_list(Uid, mute, Ouids) ->
-    model_accounts:mute_uids(Uid, Ouids),
+    model_privacy:mute_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, mute, length(Ouids)),
     ok;
 add_uids_to_privacy_list(Uid, block, Ouids) ->
-    model_accounts:unwhitelist_uids(Uid, Ouids),
+    model_privacy:unwhitelist_uids(Uid, Ouids),
     Server = util:get_host(),
     ejabberd_hooks:run(block_uids, Server, [Uid, Server, Ouids]),
-    model_accounts:block_uids(Uid, Ouids),
+    model_privacy:block_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, block, length(Ouids)),
     ok.
 
@@ -241,10 +241,10 @@ get_privacy_lists(_Uid, [], Result) ->
     Result;
 get_privacy_lists(Uid, [Type | Rest], Result) ->
     {ok, Ouids} = case Type of
-        except -> model_accounts:get_blacklist_uids(Uid);
-        only -> model_accounts:get_whitelist_uids(Uid);
-        mute -> model_accounts:get_mutelist_uids(Uid);
-        block -> model_accounts:get_blocked_uids(Uid)
+        except -> model_privacy:get_blacklist_uids(Uid);
+        only -> model_privacy:get_whitelist_uids(Uid);
+        mute -> model_privacy:get_mutelist_uids(Uid);
+        block -> model_privacy:get_blocked_uids(Uid)
     end,
     UidEls = lists:map(
         fun(Ouid) ->
