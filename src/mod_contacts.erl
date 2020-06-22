@@ -182,12 +182,6 @@ obtain_user_id(Phone) ->
 get_phone(UserId) ->
     ejabberd_auth_halloapp:get_phone(UserId).
 
-
--spec is_contact(UserId :: binary(), ContactPhone :: binary()) -> boolean().
-is_contact(UserId, ContactPhone) ->
-    model_contacts:is_contact(UserId, ContactPhone).
-
-
 -spec handle_delta_contacts(UserId :: binary(), Server :: binary(),
         Contacts :: [contact()]) -> [contact()].
 handle_delta_contacts(UserId, Server, Contacts) ->
@@ -215,10 +209,12 @@ finish_sync(UserId, Server, SyncId) ->
     UserPhone = get_phone(UserId),
     {ok, OldContactList} = model_contacts:get_contacts(UserId),
     {ok, NewContactList} = model_contacts:get_sync_contacts(UserId, SyncId),
+    {ok, OldReverseContactList} = model_contacts:get_contact_uids(UserPhone),
     OldContactSet = sets:from_list(OldContactList),
     NewContactSet = sets:from_list(NewContactList),
     DeleteContactSet = sets:subtract(OldContactSet, NewContactSet),
     AddContactSet = sets:subtract(NewContactSet, OldContactSet),
+    OldReverseContactSet = sets:from_list(OldReverseContactList),
     ?INFO_MSG("Full contact sync stats: uid: ~p, old_contacts: ~p, new_contacts: ~p, "
             "add_contacts: ~p, delete_contacts: ~p", [UserId, sets:size(OldContactSet),
             sets:size(NewContactSet), sets:size(AddContactSet), sets:size(DeleteContactSet)]),
@@ -229,7 +225,8 @@ finish_sync(UserId, Server, SyncId) ->
     %% TODO(vipin): newness of contacts in AddContactSet needs to be used in update_and_...(...).
     lists:foreach(
         fun(ContactPhone) ->
-            update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, yes)
+            update_and_notify_contact(UserId, UserPhone, OldContactSet,
+                    OldReverseContactSet, Server, ContactPhone, yes)
         end, sets:to_list(AddContactSet)),
     %% finish_sync will add various contacts and their reverse mapping in the db.
     model_contacts:finish_sync(UserId, SyncId),
@@ -249,12 +246,16 @@ finish_sync(UserId, Server, SyncId) ->
 normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
     UserPhone = get_phone(UserId),
     UserRegionId = mod_libphonenumber:get_region_id(UserPhone),
+    {ok, OldContactList} = model_contacts:get_contacts(UserId),
+    {ok, OldReverseContactList} = model_contacts:get_contact_uids(UserPhone),
+    OldContactSet = sets:from_list(OldContactList),
+    OldReverseContactSet = sets:from_list(OldReverseContactList),
     %% Construct the list of new contact records to be returned and filter out the phone numbers
     %% that couldn't be normalized.
     {NewContacts, NormalizedPhoneNumbers} = lists:mapfoldr(
             fun(Contact, PhoneAcc) ->
                 NewContact = normalize_and_update_contact(
-                    UserId, UserRegionId, UserPhone, Server, Contact, SyncId),
+                    UserId, UserRegionId, UserPhone, OldContactSet, OldReverseContactSet, Server, Contact, SyncId),
                 NewPhoneAcc = case NewContact#contact.normalized of
                                   undefined -> PhoneAcc;
                                   NormalizedPhone -> [NormalizedPhone | PhoneAcc]
@@ -270,12 +271,14 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
 
 
 -spec normalize_and_update_contact(UserId :: binary(), UserRegionId :: binary(),
-        UserPhone :: binary(), Server :: binary(), Contact :: contact(),
-        SyncId :: binary()) -> contact().
-normalize_and_update_contact(_UserId, _UserRegionId, _UserPhone, _Server,
-        #contact{raw = undefined}, _SyncId) ->
+        UserPhone :: binary(), OldContactSet :: sets:set(binary()),
+        OldReverseContactSet :: sets:set(binary()), Server :: binary(),
+        Contact :: contact(), SyncId :: binary()) -> contact().
+normalize_and_update_contact(_UserId, _UserRegionId, _UserPhone, _OldContactSet,
+        _OldReverseContactSet, _Server, #contact{raw = undefined}, _SyncId) ->
     #contact{};
-normalize_and_update_contact(UserId, UserRegionId, UserPhone, Server, Contact, SyncId) ->
+normalize_and_update_contact(UserId, UserRegionId, UserPhone, OldContactSet,
+        OldReverseContactSet, Server, Contact, SyncId) ->
     RawPhone = Contact#contact.raw,
     ContactPhone = mod_libphonenumber:normalize(RawPhone, UserRegionId),
     NewContact = case ContactPhone of
@@ -285,17 +288,21 @@ normalize_and_update_contact(UserId, UserRegionId, UserPhone, Server, Contact, S
         _ ->
             stat:count("HA/contacts", "normalize_success"),
             case SyncId of
-                undefined -> update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, yes);
-                _ -> update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, no)
+                undefined -> update_and_notify_contact(UserId, UserPhone, OldContactSet,
+                        OldReverseContactSet, Server, ContactPhone, yes);
+                _ -> update_and_notify_contact(UserId, UserPhone, OldContactSet,
+                        OldReverseContactSet, Server, ContactPhone, no)
             end
     end,
     NewContact#contact{raw = RawPhone}.
 
 
--spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
-        ContactPhone :: binary(), ShouldNotify :: atom()) -> contact().
-update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, ShouldNotify) ->
-    IsNewContact = not is_contact(UserId, ContactPhone),
+-spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(),
+        OldContactSet :: sets:set(binary()), OldReverseContactSet :: sets:set(binary()),
+        Server :: binary(), ContactPhone :: binary(), ShouldNotify :: atom()) -> contact().
+update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet,
+        Server, ContactPhone, ShouldNotify) ->
+    IsNewContact = not sets:is_element(ContactPhone, OldContactSet),
     ContactId = obtain_user_id(ContactPhone),
     %% TODO(vipin): Need to fix the stat below.
     stat:count("HA/contacts", "add_contact"),
@@ -304,7 +311,7 @@ update_and_notify_contact(UserId, UserPhone, Server, ContactPhone, ShouldNotify)
         _ ->
             %% TODO(murali@): update this to load block-uids once for this request
             %% and use it instead of every redis call.
-            IsFriends = is_contact(ContactId, UserPhone) andalso
+            IsFriends = sets:is_element(ContactId, OldReverseContactSet) andalso
                     not model_privacy:is_blocked(UserId, ContactId),
             Role = get_role_value(IsFriends),
             %% Notify the new contact and update its friends table.
