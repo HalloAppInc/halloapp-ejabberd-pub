@@ -15,4 +15,7 @@
 -type uid() :: binary().
 -type gid() :: binary().
 
+-type names_map() :: #{uid() := binary()}.
+
 -endif.
+

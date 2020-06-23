@@ -14,6 +14,7 @@
 -include("account.hrl").
 -include("eredis_cluster.hrl").
 -include("redis_keys.hrl").
+-include("ha_types.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -66,7 +67,8 @@
     get_traced_phones/0,
     add_phone_to_trace/1,
     remove_phone_from_trace/1,
-    is_phone_traced/1
+    is_phone_traced/1,
+    get_names/1
 ]).
 
 -export([
@@ -530,6 +532,19 @@ remove_phone_from_trace(Phone) ->
 is_phone_traced(Phone) ->
     {ok, Res} = q(["SISMEMBER", ?TRACED_PHONES_KEY, Phone]),
     binary_to_integer(Res) == 1.
+
+
+-spec get_names(Uids :: [uid()]) -> names_map().
+get_names(Uids) ->
+    lists:foldl(
+        fun (Uid, M) ->
+            case model_accounts:get_name(Uid) of
+                {ok, undefined} -> M;
+                {ok, Name} -> maps:put(Uid, Name, M)
+            end
+        end,
+        #{},
+        Uids).
 
 
 %%====================================================================

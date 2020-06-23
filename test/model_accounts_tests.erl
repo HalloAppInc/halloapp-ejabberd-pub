@@ -11,6 +11,7 @@
 
 -include("account.hrl").
 -include_lib("eunit/include/eunit.hrl").
+-include("ha_types.hrl").
 
 setup() ->
     mod_redis:start(undefined, []),
@@ -302,5 +303,16 @@ is_phone_traced_test() ->
     ?assertEqual(false, model_accounts:is_phone_traced(?PHONE2)),
     model_accounts:remove_phone_from_trace(?PHONE1),
     ?assertEqual(false, model_accounts:is_phone_traced(?PHONE1)),
+    ok.
+
+
+get_names_test() ->
+    setup(),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
+    ProfilesMap = model_accounts:get_names([?UID1, ?UID2, ?UID3]),
+    ?assertEqual(2, maps:size(ProfilesMap)),
+    ?assertEqual(?NAME1, maps:get(?UID1, ProfilesMap)),
+    ?assertEqual(?NAME2, maps:get(?UID2, ProfilesMap)),
     ok.
 
