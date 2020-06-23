@@ -23,16 +23,14 @@
 %% gen_mod API.
 -export([start/2, stop/1, depends/2, mod_options/1, reload/3]).
 %% Hooks.
--export([user_send_packet/1, user_ack_packet/1]).
+-export([user_ack_packet/1]).
 
 -type state() :: ejabberd_c2s:state().
 
 start(Host, _Opts) ->
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 10),
     ejabberd_hooks:add(user_ack_packet, Host, ?MODULE, user_ack_packet, 10).
 
 stop(Host) ->
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 10),
     ejabberd_hooks:delete(user_ack_packet, Host, ?MODULE, user_ack_packet, 10).
 
 depends(_Host, _Opts) ->
@@ -45,13 +43,8 @@ reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
 
-%% This hook is invoked on every packet received from the user.
-%% We check if the packet has a receipt element (could be delivery/seen) and add a timestamp.
--spec user_send_packet({stanza(), state()}) -> {stanza(), state()}.
-user_send_packet({Packet, State}) ->
-	TimestampSec = util:now_binary(),
-	NewPacket = update_timestamp_if_receipts_message(Packet, TimestampSec),
-	{NewPacket, State}.
+%% TODO(murali@):
+%% Add counts separately for all types of received stanzas instead of adding this in various hooks.
 
 
 %% Hook trigerred when user sent the server an ack stanza for this particular packet.
@@ -72,48 +65,9 @@ user_ack_packet({#ack{id = Id, from = #jid{user = Uid}} = _Ack, _OfflineMessage}
 -spec send_receipt(ToJID :: jid(), FromJID :: jid(),
                     Id :: binary(), Timestamp :: binary()) -> ok.
 send_receipt(ToJID, FromJID, Id, Timestamp) ->
-    MessageReceipt = #message{to = ToJID, from = FromJID,
-                                sub_els = [#receipt_response{id = Id, timestamp = Timestamp}]},
+    MessageReceipt = #message{
+            to = ToJID,
+            from = FromJID,
+            sub_els = [#receipt_response{id = Id, timestamp = Timestamp}]},
     ejabberd_router:route(MessageReceipt).
-
-
-%% Update timestamp if the packet is message with a receipt subelement within the stanza.
-%% Currently, we handle both delivery and seen receipts.
--spec update_timestamp_if_receipts_message(stanza(), binary()) -> stanza().
-update_timestamp_if_receipts_message(
-				#message{sub_els = [#xmlel{name = <<"seen">>} = SeenXmlEl]} = Packet,
-																					TimestampSec) ->
-	stat:count("HA/im_receipts", "seen"),
-	SeenXmlElement = xmpp:decode(SeenXmlEl),
-	T = SeenXmlElement#receipt_seen.timestamp,
-	case T of
-		<<>> ->
-			NewPacket = xmpp:set_els(Packet,
-										[SeenXmlElement#receipt_seen{timestamp = TimestampSec}]);
-		_ ->
-			NewPacket = Packet
-	end,
-	?DEBUG("mod_receipts: user_send_packet: updated the timestamp on this packet: ~p", [NewPacket]),
-	NewPacket;
-
-update_timestamp_if_receipts_message(
-				#message{sub_els = [#xmlel{name = <<"received">>} = ReceivedXmlEl]} = Packet,
-																					TimestampSec) ->
-	stat:count("HA/im_receipts", "received"),
-	ReceivedXmlElement = xmpp:decode(ReceivedXmlEl),
-	T = ReceivedXmlElement#receipt_response.timestamp,
-	case T of
-		<<>> ->
-			NewPacket = xmpp:set_els(Packet,
-								[ReceivedXmlElement#receipt_response{timestamp = TimestampSec}]);
-		_ ->
-			NewPacket = Packet
-	end,
-	?DEBUG("mod_receipts: user_send_packet: updated the timestamp on this packet: ~p", [NewPacket]),
-	NewPacket;
-
-update_timestamp_if_receipts_message(Packet, _TimestampSec) ->
-	?DEBUG("mod_receipts: user_send_packet: this packet: ~p is not modified at all.", [Packet]),
-	Packet.
-
 

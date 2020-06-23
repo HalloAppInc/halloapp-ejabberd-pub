@@ -78,7 +78,6 @@
 	 get_commands_spec/0,
 	 c2s_handle_info/2,
      user_send_packet/1,
-     user_receive_packet/1,
 	 host_up/1,
 	 host_down/1,
 	 make_sid/0,
@@ -487,17 +486,9 @@ c2s_handle_info(State, _) ->
 
 
 user_send_packet({Packet, State} = _Acc) ->
-    Timestamp = util:now_binary(),
-    NewPacket = xmpp:check_and_set_chat_timestamp(Packet, Timestamp),
-    ?DEBUG("ejabberd_sm: user_send_packet: check_and_set_chat_timestamp: ~p", [NewPacket]),
-    {NewPacket, State}.
-
-
-user_receive_packet({Packet, State} = _Acc) ->
-    Timestamp = util:now_binary(),
-    NewPacket = xmpp:check_and_set_chat_timestamp_if_unavailable(Packet, Timestamp),
-    ?DEBUG("ejabberd_sm: user_receive_packet:
-             check_and_set_chat_timestamp_if_unavailable: ~p", [NewPacket]),
+    TimestampSec = util:now_binary(),
+    NewPacket = xmpp:set_timestamp_if_missing(Packet, TimestampSec),
+    ?DEBUG("set_timestamp_if_missing for packet: ~p", [NewPacket]),
     {NewPacket, State}.
 
 
@@ -567,7 +558,6 @@ host_up(Host) ->
     ejabberd_hooks:add(remove_user, Host,
 		       ejabberd_sm, disconnect_removed_user, 100),
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 10),
-    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
     ejabberd_c2s:host_up(Host).
 
 -spec host_down(binary()) -> ok.
@@ -595,7 +585,6 @@ host_down(Host) ->
     ejabberd_hooks:delete(remove_user, Host,
 			  ejabberd_sm, disconnect_removed_user, 100),
     ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 10),
-    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
     ejabberd_c2s:host_down(Host).
 
 -spec set_session(sid(), binary(), binary(), binary(),

@@ -67,7 +67,16 @@ user_send_packet({Packet, #{lserver := ServerHost} = _State} = Acc) ->
 %% Sends an ack packet.
 -spec send_ack(message()) -> ok.
 send_ack(#message{id = MsgId, from = #jid{user = User, server = ServerHost} = From} = Packet) ->
-    Timestamp = xmpp:get_timestamp(Packet),
+    PacketTs = xmpp:get_timestamp(Packet),
+    Timestamp = case PacketTs of
+        undefined ->
+            ?WARNING_MSG("Uid: ~s, timestamp is undefined, msg_id: ~s", [User, MsgId]),
+            util:now_binary();
+        <<>> ->
+            ?WARNING_MSG("Uid: ~s, timestamp is empty, msg_id: ~s", [User, MsgId]),
+            util:now_binary();
+        PacketTs -> PacketTs
+    end,
     AckPacket = #ack{id = MsgId, to = From, from = jid:make(ServerHost), timestamp = Timestamp},
     ?INFO_MSG("uid: ~s, msg_id: ~s", [User, MsgId]),
     ejabberd_router:route(AckPacket).
