@@ -12,13 +12,13 @@
 -define(SECONDS_MS, 1000).
 
 -define(MINUTES, 60).
--define(MINUTES_MS, 60 * 1000).
+-define(MINUTES_MS, (60 * 1000)).
 
--define(HOURS, 60 * 60).
--define(HOURS_MS, 60 * 60 * 1000).
+-define(HOURS, (60 * 60)).
+-define(HOURS_MS, (60 * 60 * 1000)).
 
--define(DAYS, 24 * 60 * 60).
--define(DAYS_MS, 24 * 60 * 60 * 1000).
+-define(DAYS, (24 * ?HOURS)).
+-define(DAYS_MS, (24 * ?HOURS_MS)).
 
--define(WEEKS, 7 * 24 * 60 * 60).
--define(WEEKS_MS, 7 * 24 * 60 * 60 * 1000).
+-define(WEEKS, (7 * ?DAYS)).
+-define(WEEKS_MS, (7 * ?DAYS_MS)).
