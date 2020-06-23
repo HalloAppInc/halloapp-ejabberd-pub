@@ -11,11 +11,11 @@
 -define(SECONDS, 1).
 -define(SECONDS_MS, 1000).
 
--define(MINUTES, 60).
--define(MINUTES_MS, (60 * 1000)).
+-define(MINUTES, (60 * ?SECONDS)).
+-define(MINUTES_MS, (60 * ?SECONDS_MS)).
 
--define(HOURS, (60 * 60)).
--define(HOURS_MS, (60 * 60 * 1000)).
+-define(HOURS, (60 * ?MINUTES)).
+-define(HOURS_MS, (60 * ?MINUTES_MS)).
 
 -define(DAYS, (24 * ?HOURS)).
 -define(DAYS_MS, (24 * ?HOURS_MS)).
