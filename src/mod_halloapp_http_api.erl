@@ -15,6 +15,7 @@
 -include("xmpp.hrl").
 -include("ejabberd_http.hrl").
 -include("bosh.hrl").
+-include("account.hrl").
 
 %% API
 -export([start/2, stop/1, reload/3, init/1, depends/2, mod_options/1]).
@@ -75,18 +76,19 @@ process([<<"registration">>, <<"register">>],
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
         Code = maps:get(<<"code">>, Payload),
-        Name = maps:get(<<"name">>, Payload, <<"">>),
-        % TODO: check Name
+        Name = maps:get(<<"name">>, Payload),
+
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
-        {ok, Phone, Uid, Password} = finish_registration(Phone, Name),
+        LName = check_name(Name),
+        {ok, Phone, Uid, Password} = finish_registration(Phone, LName),
         ?INFO_MSG("registration complete uid:~s, phone:~s", [Uid, Phone]),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
                 {uid, Uid},
                 {phone, Phone},
                 {password, Password},
-                {name, Name},
+                {name, LName},
                 {result, ok}
             ]})}
     catch
@@ -100,6 +102,10 @@ process([<<"registration">>, <<"register">>],
             return_400(missing_phone);
         error: {badkey, <<"code">>} ->
             return_400(missing_code);
+        error: {badkey, <<"name">>} ->
+            return_400(missing_name);
+        error: invalid_name ->
+            return_400(invalid_name);
         error : Reason : Stacktrace  ->
             ?ERROR_MSG("register error: ~p, ~p", [Reason, Stacktrace]),
             return_500()
@@ -120,6 +126,22 @@ check_ua(UserAgent) ->
             ?ERROR_MSG("Invalid UserAgent:~p", [UserAgent]),
             error(bad_user_agent)
     end.
+
+
+-spec check_name(Name :: binary()) -> binary() | any().
+check_name(<<"">>) ->
+    error(invalid_name);
+check_name(Name) when is_binary(Name) ->
+    LName = string:slice(Name, 0, ?MAX_NAME_SIZE),
+    case LName =:= Name of
+        false ->
+            ?WARNING_MSG("Truncating user name to |~s| size was: ~p", [LName, length(Name)]);
+        true ->
+            ok
+    end,
+    LName;
+check_name(_) ->
+    error(invalid_name).
 
 
 -spec finish_registration(phone(), binary()) -> {ok, phone(), binary(), binary()}.

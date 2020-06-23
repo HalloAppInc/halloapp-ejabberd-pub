@@ -42,3 +42,5 @@
 }).
 
 -type push_info() :: #push_info{}.
+
+-define(MAX_NAME_SIZE, 25).
