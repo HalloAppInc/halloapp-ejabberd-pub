@@ -85,18 +85,8 @@ store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_binary(Messag
     MessageOrderKey = binary_to_list(message_order_key(ToUid)),
     MessageKey = binary_to_list(message_key(ToUid, MsgId)),
     MessageQueueKey = binary_to_list(message_queue_key(ToUid)),
-    LuaScript = "local OrderId = redis.call('INCR', KEYS[1]) " ++
-            "redis.call('HSET', KEYS[2], '" ++
-            binary_to_list(?FIELD_TO) ++ "', ARGV[1], '" ++
-            binary_to_list(?FIELD_MESSAGE) ++ "', ARGV[2], '" ++
-            binary_to_list(?FIELD_CONTENT_TYPE) ++ "', ARGV[3], '" ++
-            binary_to_list(?FIELD_RETRY_COUNT) ++ "', 0, '" ++
-            binary_to_list(?FIELD_ORDER) ++ "', OrderId) " ++
-            "if ARGV[4] == 'undefined' then else " ++
-            "redis.call('HSET', KEYS[2], '" ++
-            binary_to_list(?FIELD_FROM) ++ "', ARGV[4]) end " ++
-            "redis.call('ZADD', KEYS[3], OrderId, ARGV[5])",
-    {ok, _Res} = q(["EVAL", LuaScript, 3, MessageOrderKey, MessageKey, MessageQueueKey,
+    Script = get_script(),
+    {ok, _Res} = q(["EVAL", Script, 3, MessageOrderKey, MessageKey, MessageQueueKey,
             ToUid, Message, ContentType, FromUid, MsgId]),
     ok;
 
@@ -218,6 +208,20 @@ get_content_type(#message{sub_els = SubEls}) ->
                 _ -> Acc
             end
         end, <<>>, SubEls).
+
+
+-spec get_script() -> string().
+get_script() ->
+    Script = persistent_term:get("luaScript", default),
+    {ok, Res} = case Script of
+        default ->
+            persistent_term:put("luaScript", file:read_file("../priv/lua/store_message.lua")),
+            persistent_term:get("luaScript");
+        _ ->
+            Script
+    end,
+    binary_to_list(Res).
+
 
 
 q(Command) ->
