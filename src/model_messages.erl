@@ -42,6 +42,7 @@
 
 
 start(_Host, _Opts) ->
+    _Res = get_script(),
     ok.
 
 stop(_Host) ->
@@ -58,7 +59,7 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
-
+-define(LUA_SCRIPT, <<"store_message.lua">>).
 -define(FIELD_TO, <<"tuid">>).
 -define(FIELD_FROM, <<"fuid">>).
 -define(FIELD_MESSAGE, <<"m">>).
@@ -212,16 +213,15 @@ get_content_type(#message{sub_els = SubEls}) ->
 
 -spec get_script() -> string().
 get_script() ->
-    Script = persistent_term:get("luaScript", default),
+    Script = persistent_term:get(?LUA_SCRIPT, default),
     {ok, Res} = case Script of
         default ->
-            persistent_term:put("luaScript", file:read_file("../priv/lua/store_message.lua")),
-            persistent_term:get("luaScript");
+            persistent_term:put(?LUA_SCRIPT, file:read_file("../priv/lua/store_message.lua")),
+            persistent_term:get(?LUA_SCRIPT);
         _ ->
             Script
     end,
-    binary_to_list(Res).
-
+    Res.
 
 
 q(Command) ->
