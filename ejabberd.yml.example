@@ -242,6 +242,7 @@ modules:
   mod_user_session: {}
   mod_contacts: {}
   mod_names: {}
+  mod_chat: {}
   mod_user_activity: {}
   mod_cron:
     tasks:
