@@ -216,7 +216,7 @@ get_script() ->
     Script = persistent_term:get(?LUA_SCRIPT, default),
     {ok, Res} = case Script of
         default ->
-            persistent_term:put(?LUA_SCRIPT, file:read_file("../priv/lua/store_message.lua")),
+            persistent_term:put(?LUA_SCRIPT, misc:read_lua("store_message.lua")),
             persistent_term:get(?LUA_SCRIPT);
         _ ->
             Script
