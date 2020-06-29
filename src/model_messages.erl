@@ -211,7 +211,7 @@ get_content_type(#message{sub_els = SubEls}) ->
         end, <<>>, SubEls).
 
 
--spec get_script() -> string().
+-spec get_script() -> binary().
 get_script() ->
     Script = persistent_term:get(?LUA_SCRIPT, default),
     {ok, Res} = case Script of
