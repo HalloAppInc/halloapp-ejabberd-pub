@@ -214,14 +214,14 @@ get_content_type(#message{sub_els = SubEls}) ->
 -spec get_script() -> binary().
 get_script() ->
     Script = persistent_term:get(?LUA_SCRIPT, default),
-    {ok, Res} = case Script of
+    case Script of
         default ->
-            persistent_term:put(?LUA_SCRIPT, misc:read_lua("store_message.lua")),
-            persistent_term:get(?LUA_SCRIPT);
+            {ok, Script2} = misc:read_lua("store_message.lua"),
+            ok = persistent_term:put(?LUA_SCRIPT, Script2),
+            Script2;
         _ ->
             Script
-    end,
-    Res.
+    end.
 
 
 q(Command) ->
