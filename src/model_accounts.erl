@@ -103,6 +103,8 @@ mod_options(_Host) ->
 -define(FIELD_NAME, <<"na">>).
 -define(FIELD_AVATAR_ID, <<"av">>).
 -define(FIELD_CREATION_TIME, <<"ct">>).
+-define(FIELD_NUM_INV, <<"in">>).  % from model_invites, but is part of the account structure
+-define(FIELD_SINV_TS, <<"it">>).  % from model_invites, but is part of the account structure
 -define(FIELD_LAST_ACTIVITY, <<"la">>).
 -define(FIELD_ACTIVITY_STATUS, <<"st">>).
 -define(FIELD_USER_AGENT, <<"ua">>).
