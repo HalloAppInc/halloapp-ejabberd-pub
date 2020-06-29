@@ -29,7 +29,6 @@
 -export([
     process_local_iq/1,
     remove_user/2,
-    re_register_user/2,
     user_avatar_published/3
 ]).
 
@@ -38,14 +37,12 @@ start(Host, _Opts) ->
     ?INFO_MSG("start ~w", [?MODULE]),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_USER_AVATAR, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
-    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(user_avatar_published, Host, ?MODULE, user_avatar_published, 50),
     ok.
 
 stop(Host) ->
     ?INFO_MSG("stop ~w", [?MODULE]),
     ejabberd_hooks:delete(user_avatar_published, Host, ?MODULE, user_avatar_published, 50),
-    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_USER_AVATAR),
     ok.
@@ -119,7 +116,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
 
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
         lang = Lang, sub_els = [#avatar{userid = FriendId}]} = IQ) ->
-        case get_avatar_id_if_friends(UserId, FriendId) of
+        case check_and_get_avatar_id(UserId, FriendId) of
             undefined ->
                 Txt = ?T("Invalid friend_uid"),
                 ?WARNING_MSG("Uid: ~s, Invalid friend_uid: ~s", [UserId, FriendId]),
@@ -132,7 +129,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
         lang = _Lang, sub_els = [#avatars{} = Avatars]} = IQ) ->
         NewAvatars = lists:foreach(
                 fun(#avatar{userid = FriendId} = Avatar) ->
-                    Avatar#avatar{id = get_avatar_id_if_friends(UserId, FriendId)}
+                    Avatar#avatar{id = check_and_get_avatar_id(UserId, FriendId)}
                 end, Avatars),
         xmpp:make_iq_result(IQ, NewAvatars).
 
@@ -141,16 +138,14 @@ remove_user(UserId, Server) ->
     delete_user_avatar(UserId, Server).
 
 
-re_register_user(UserId, Server) ->
-    delete_user_avatar(UserId, Server).
-
-
 %%====================================================================
 %% internal functions
 %%====================================================================
 
--spec get_avatar_id_if_friends(UserId :: binary(), FriendId :: binary()) -> undefined | binary().
-get_avatar_id_if_friends(UserId, FriendId) ->
+-spec check_and_get_avatar_id(UserId :: binary(), FriendId :: binary()) -> undefined | binary().
+check_and_get_avatar_id(UserId, UserId) ->
+    model_accounts:get_avatar_id_binary(UserId);
+check_and_get_avatar_id(UserId, FriendId) ->
     case model_friends:is_friend(UserId, FriendId) of
         false ->
             undefined;
