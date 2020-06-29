@@ -59,6 +59,8 @@ start_migration(Name, RedisService, Function) ->
             Options :: [Option],
             Option ::
                 {execute, parallel | sequential} |
+                {dry_run, true | false} |
+                {scan_count, non_neg_integer()} |
                 {interval, non_neg_integer()}.
 start_migration(Name, RedisService, Function, Options) ->
     ?INFO_MSG("Name: ~s RedisService: ~p, Function: ~p", [Name, RedisService, Function]),
@@ -73,7 +75,9 @@ start_migration(Name, RedisService, Function, Options) ->
     Job = #{
         service => RedisService,
         function_name => Function,
-        interval => proplists:get_value(interval, Options, 1000)
+        interval => proplists:get_value(interval, Options, 1000),
+        scan_count => proplists:get_value(scan_count, Options, 100),
+        dry_run => proplists:get_value(dry_run, Options, false)
     },
     Pids = lists:map(
         fun ({Index, {RedisHost, RedisPort}}) ->
@@ -127,18 +131,20 @@ iterate(Name) ->
 
 
 -spec init(Job :: #{}) -> {ok, any()}.
-init(#{redis_host := RedisHost, redis_port := RedisPort, interval := Interval} = Job) ->
+init(#{redis_host := RedisHost, redis_port := RedisPort,
+        interval := Interval, dry_run := DryRun, scan_count := ScanCount} = Job) ->
     ?INFO_MSG("Migration started: pid: ~p, Job: ~p", [self(), Job]),
     process_flag(trap_exit, true),
     {ok, C} = eredis:start_link(RedisHost, RedisPort),
     ?INFO_MSG("connection ok: ~p", [C]),
 
-    % TODO: maybe we should cancel this timer on stop/terminate?
     TRef = erlang:send_after(Interval, self(), {'$gen_cast', {iterate}}),
     State = Job#{
         cursor => <<"0">>,
         c => C,
-        tref => TRef
+        tref => TRef,
+        dry_run => DryRun,
+        scan_count => integer_to_binary(ScanCount)
     },
     {ok, State}.
 
@@ -165,7 +171,8 @@ handle_cast({iterate}, State) ->
     Function = maps:get(function_name, State),
     Interval = maps:get(interval, State),
     C = maps:get(c, State),
-    {ok, [NextCursor, Items]} = eredis:q(C, ["SCAN", Cursor]),
+    Count = maps:get(scan_count, State),
+    {ok, [NextCursor, Items]} = eredis:q(C, ["SCAN", Cursor, "COUNT", Count]),
     ?DEBUG("NextCursor: ~p, items: ~p", [NextCursor, length(Items)]),
     NewState1 = lists:foldl(
         fun (Key, Acc) ->
@@ -263,7 +270,7 @@ rehash_phones(Key, State) ->
 %%% Stage 1. Move the data.
 rename_reverse_contacts_run(Key, State) ->
     ?INFO_MSG("Key: ~p", [Key]),
-    DryRun = maps:get(State, dry_run, false),
+    DryRun = maps:get(dry_run, State, false),
     Result = re:run(Key, "^sync:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[_FullKey, Phone]]} ->
@@ -309,7 +316,7 @@ rename_reverse_contacts_verify(Key, State) ->
 %%% Stage 3. Delete the old data
 rename_reverse_contacts_cleanup(Key, State) ->
     ?INFO_MSG("Key: ~p", [Key]),
-    DryRun = maps:get(State, dry_run, false),
+    DryRun = maps:get(dry_run, State, false),
     Result = re:run(Key, "^sync:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[_FullKey, Phone]]} ->
