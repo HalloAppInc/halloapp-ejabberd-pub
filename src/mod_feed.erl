@@ -38,6 +38,7 @@
 -export([
     route/1,
     register_user/3,
+    re_register_user/2,
     add_friend/3,
     remove_friend/3,
     remove_user/2,
@@ -54,6 +55,7 @@ start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, ?PUBSUB_HOST, ?NS_PUBSUB, ?MODULE, process_local_iq),
     ejabberd_hooks:add(on_user_first_login, Host, ?MODULE, on_user_first_login, 75),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
+    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:add(remove_friend, Host, ?MODULE, remove_friend, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
@@ -71,6 +73,7 @@ start(Host, _Opts) ->
 stop(Host) ->
     ejabberd_hooks:delete(on_user_first_login, Host, ?MODULE, on_user_first_login, 75),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
+    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:delete(remove_friend, Host, ?MODULE, remove_friend, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
@@ -89,6 +92,11 @@ mod_options(_Host) ->
 
 -spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
 register_user(Uid, Server, _Phone) ->
+    create_pubsub_nodes(Uid, Server).
+
+
+-spec re_register_user(Uid :: binary(), Server :: binary()) -> ok.
+re_register_user(Uid, Server) ->
     create_pubsub_nodes(Uid, Server).
 
 

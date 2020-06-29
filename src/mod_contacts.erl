@@ -40,7 +40,7 @@
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NORM, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
-    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 100),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
     ejabberd_hooks:add(block_uids, Host, ?MODULE, block_uids, 50),
     ejabberd_hooks:add(unblock_uids, Host, ?MODULE, unblock_uids, 50),
@@ -49,7 +49,7 @@ start(Host, _Opts) ->
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_NORM),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
-    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 100),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
     ejabberd_hooks:delete(block_uids, Host, ?MODULE, block_uids, 50),
     ejabberd_hooks:delete(unblock_uids, Host, ?MODULE, unblock_uids, 50),
