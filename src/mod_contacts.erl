@@ -319,8 +319,6 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
                 {yes, true, true} -> 
                     add_friend(UserId, Server, ContactId),
                     notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role);
-                {yes, true, false} ->
-                    notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role);
                 {_, _, _} -> ok
             end,
             %% Send AvatarId only if ContactId and UserPhone are friends.
@@ -379,8 +377,13 @@ remove_contact_and_notify(UserId, Server, ContactPhone) ->
         undefined ->
             ok;
         _ ->
-            remove_friend(UserId, Server, ContactId),
-            notify_contact_about_user(UserId, UserPhone, Server, ContactId, <<"none">>)
+            case model_friends:is_friend(UserId, ContactId) of
+                true ->
+                    remove_friend(UserId, Server, ContactId),
+                    notify_contact_about_user(UserId, UserPhone, Server, ContactId, <<"none">>);
+                false -> ok
+            end,
+            ejabberd_hooks:run(remove_contact, Server, [UserId, Server, ContactId])
     end.
 
 
