@@ -42,7 +42,7 @@
 
 
 start(_Host, _Opts) ->
-    _Res = get_script(),
+    _Res = get_store_message_script(),
     ok.
 
 stop(_Host) ->
@@ -86,7 +86,7 @@ store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_binary(Messag
     MessageOrderKey = binary_to_list(message_order_key(ToUid)),
     MessageKey = binary_to_list(message_key(ToUid, MsgId)),
     MessageQueueKey = binary_to_list(message_queue_key(ToUid)),
-    Script = get_script(),
+    Script = get_store_message_script(),
     {ok, _Res} = q(["EVAL", Script, 3, MessageOrderKey, MessageKey, MessageQueueKey,
             ToUid, Message, ContentType, FromUid, MsgId]),
     ok;
@@ -211,18 +211,28 @@ get_content_type(#message{sub_els = SubEls}) ->
         end, <<>>, SubEls).
 
 
--spec get_script() -> binary().
-get_script() ->
+-spec get_store_message_script() -> binary().
+get_store_message_script() ->
     Script = persistent_term:get(?LUA_SCRIPT, default),
     case Script of
         default ->
-            {ok, Script2} = misc:read_lua("store_message.lua"),
+            {ok, Script2} = read_lua(),
             ok = persistent_term:put(?LUA_SCRIPT, Script2),
             Script2;
         _ ->
             Script
     end.
 
+-spec read_lua() -> {ok, binary()} | {error, file:posix()}.
+read_lua() ->
+    File = filename:join(misc:lua_dir(), ?LUA_SCRIPT),
+    FileName = case config:is_testing_env() of
+        true ->
+            filename:join("../", File);
+        false ->
+            File
+    end,
+    file:read_file(FileName).
 
 q(Command) ->
     {ok, Result} = gen_server:call(redis_messages_client, {q, Command}),
