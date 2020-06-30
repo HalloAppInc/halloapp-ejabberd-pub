@@ -78,9 +78,8 @@ create_group_with_members_test() ->
     ?assertEqual(#group_member{uid = ?UID2, type = member}, M2),
     ?assertEqual(#group_member{uid = ?UID3, type = member}, M3),
     ExpectedAddMemberResult = [
-        {?UID1, ok},
-        {?UID2, ok},
-        {?UID3, ok}
+        {?UID2, add, ok},
+        {?UID3, add, ok}
     ],
     ?assertEqual(ExpectedAddMemberResult, AddMemberResult),
     ok.
@@ -93,9 +92,8 @@ create_group_member_has_no_account_test() ->
     ?assertEqual(#group_member{uid = ?UID1, type = admin}, M1),
     ?assertEqual(#group_member{uid = ?UID2, type = member}, M2),
     ExpectedAddMemberResult = [
-        {?UID1, ok},
-        {?UID2, ok},
-        {?UID5, no_account}
+        {?UID2, add, ok},
+        {?UID5, add, no_account}
     ],
     ?assertEqual(ExpectedAddMemberResult, AddMemberResult),
     ok.
@@ -108,10 +106,10 @@ add_members_test() ->
     Gid = Group#group.gid,
     ?assertEqual({ok, []}, mod_groups:add_members(Gid, ?UID1, [])),
     ?assertEqual(
-        {ok, [{?UID2, ok}, {?UID3, ok}]},
+        {ok, [{?UID2, add, ok}, {?UID3, add, ok}]},
         mod_groups:add_members(Gid, ?UID1, [?UID2, ?UID3])),
     ?assertEqual(
-        {ok, [{?UID4, ok}, {?UID5, no_account}]},
+        {ok, [{?UID4, add, ok}, {?UID5, add, no_account}]},
         mod_groups:add_members(Gid, ?UID1, [?UID4, ?UID5])),
     ok.
 
@@ -129,11 +127,13 @@ remove_members_test() ->
     Gid = Group#group.gid,
     mod_groups:add_members(Gid, ?UID1, [?UID2, ?UID3]),
     ?assertEqual(3, model_groups:get_group_size(Gid)),
-    ?assertEqual(ok, mod_groups:remove_members(Gid, ?UID1, [])),
+    ?assertEqual({ok, []}, mod_groups:remove_members(Gid, ?UID1, [])),
     ?assertEqual(3, model_groups:get_group_size(Gid)),
-    ?assertEqual(ok, mod_groups:remove_members(Gid, ?UID1, [?UID3])),
+    ?assertEqual({ok, [{?UID3, remove, ok}]},
+        mod_groups:remove_members(Gid, ?UID1, [?UID3])),
     ?assertEqual(2, model_groups:get_group_size(Gid)),
-    ?assertEqual(ok, mod_groups:remove_members(Gid, ?UID1, [?UID2, ?UID3])),
+    ?assertEqual({ok, [{?UID2, remove, ok}, {?UID3, remove, ok}]},
+        mod_groups:remove_members(Gid, ?UID1, [?UID2, ?UID3])),
     ?assertEqual(1, model_groups:get_group_size(Gid)),
     ok.
 
@@ -167,7 +167,7 @@ promote_admins_test() ->
     ?assertEqual(false, model_groups:is_admin(Gid, ?UID2)),
     ?assertEqual(true, model_groups:is_admin(Gid, ?UID1)),
     ?assertEqual(
-        {ok, [{?UID2, ok}, {?UID3, ok}, {?UID4, not_member}]},
+        {ok, [{?UID2, promote, ok}, {?UID3, promote, ok}, {?UID4, promote, not_member}]},
         mod_groups:promote_admins(Gid, ?UID1, [?UID2, ?UID3, ?UID4])),
     ?assertEqual(true, model_groups:is_admin(Gid, ?UID2)),
     ?assertEqual(true, model_groups:is_admin(Gid, ?UID3)),
@@ -188,12 +188,12 @@ demote_admins_test() ->
     Gid = Group#group.gid,
     mod_groups:add_members(Gid, ?UID1, [?UID2, ?UID3]),
     ?assertEqual(
-        {ok, [{?UID2, ok}, {?UID3, ok}]},
+        {ok, [{?UID2, promote, ok}, {?UID3, promote, ok}]},
         mod_groups:promote_admins(Gid, ?UID1, [?UID2, ?UID3])),
     ?assertEqual(true, model_groups:is_admin(Gid, ?UID2)),
     ?assertEqual(true, model_groups:is_admin(Gid, ?UID3)),
     ?assertEqual(
-        {ok, [{?UID1, ok}, {?UID4, not_member}]},
+        {ok, [{?UID1, demote, ok}, {?UID4, demote, not_member}]},
         mod_groups:demote_admins(Gid, ?UID2, [?UID1, ?UID4])),
     ?assertEqual(false, model_groups:is_admin(Gid, ?UID1)),
     ?assertEqual(true, model_groups:is_member(Gid, ?UID1)),
@@ -242,16 +242,19 @@ get_groups_test() ->
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
     mod_groups:add_members(Gid, ?UID1, [?UID2, ?UID3]),
-    ?assertEqual([Gid], mod_groups:get_groups(?UID1)),
-    ?assertEqual([Gid], mod_groups:get_groups(?UID2)),
-    ?assertEqual([Gid], mod_groups:get_groups(?UID3)),
+    GroupInfo1 = #group_info{gid = Gid, name = ?GROUP_NAME1},
+
+    ?assertEqual([GroupInfo1], mod_groups:get_groups(?UID1)),
+    ?assertEqual([GroupInfo1], mod_groups:get_groups(?UID2)),
+    ?assertEqual([GroupInfo1], mod_groups:get_groups(?UID3)),
     {ok, Group2} = mod_groups:create_group(?UID2, ?GROUP_NAME2),
     Gid2 = Group2#group.gid,
+    GroupInfo2 = #group_info{gid = Gid2, name = ?GROUP_NAME2},
     mod_groups:add_members(Gid2, ?UID2, [?UID1, ?UID4]),
-    ?assertEqual(lists:sort([Gid, Gid2]), lists:sort(mod_groups:get_groups(?UID1))),
-    ?assertEqual(lists:sort([Gid, Gid2]), lists:sort(mod_groups:get_groups(?UID2))),
-    ?assertEqual(lists:sort([Gid]), lists:sort(mod_groups:get_groups(?UID3))),
-    ?assertEqual(lists:sort([Gid2]), lists:sort(mod_groups:get_groups(?UID4))),
+    ?assertEqual(lists:sort([GroupInfo1, GroupInfo2]), lists:sort(mod_groups:get_groups(?UID1))),
+    ?assertEqual(lists:sort([GroupInfo1, GroupInfo2]), lists:sort(mod_groups:get_groups(?UID2))),
+    ?assertEqual(lists:sort([GroupInfo1]), lists:sort(mod_groups:get_groups(?UID3))),
+    ?assertEqual(lists:sort([GroupInfo2]), lists:sort(mod_groups:get_groups(?UID4))),
     mod_groups:leave_group(Gid2, ?UID4),
     ?assertEqual(lists:sort([]), lists:sort(mod_groups:get_groups(?UID4))),
     ok.
@@ -277,3 +280,16 @@ set_avatar_test() ->
     ?assertEqual(TestAvatar, GroupNew#group.avatar),
     ok.
 
+modify_members_test() ->
+    setup(),
+    {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
+    Gid = Group#group.gid,
+    ?assertEqual({ok, []}, mod_groups:modify_members(Gid, ?UID1, [])),
+    ?assertEqual(
+        {ok, [{?UID2, add, ok}, {?UID3, add, ok}]},
+        mod_groups:modify_members(Gid, ?UID1, [{?UID2, add}, {?UID3, add}])),
+    ?assertEqual(
+        {ok, [{?UID3, remove, ok}, {?UID4, add, ok}, {?UID5, add, no_account}]},
+        mod_groups:modify_members(Gid, ?UID1, [{?UID4, add}, {?UID3, remove}, {?UID5, add}])),
+    ?assertEqual(lists:sort([?UID1, ?UID2, ?UID4]), lists:sort(model_groups:get_member_uids(Gid))),
+    ok.

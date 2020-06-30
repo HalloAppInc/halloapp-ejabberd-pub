@@ -30,8 +30,7 @@
 -record(group_info, {
     gid :: gid(),
     name :: binary(),
-    avatar :: binary(),
-    creation_ts_ms :: integer()
+    avatar :: binary()
 }).
 
 -type group_info() :: #group_info{}.

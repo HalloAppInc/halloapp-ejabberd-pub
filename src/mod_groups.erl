@@ -26,10 +26,13 @@
     create_group/3,
     add_members/3,
     remove_members/3,
+    modify_members/3,
     leave_group/2,
     promote_admins/3,
     demote_admins/3,
+    modify_admins/3,
     get_group/2,
+    get_group_info/2,
     get_groups/1,
     set_name/3,
     set_avatar/3,
@@ -73,9 +76,9 @@ mod_options(_Host) ->
 %%%   API                                                                                      %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--type add_member_result() :: {uid(), ok | no_account | max_groups_size}.
--type add_member_results() :: [add_member_result()].
--type modify_admin_result() :: {uid(), ok | no_member}.
+-type modify_member_result() :: {uid(), add | remove, ok | no_account | max_group_size}.
+-type modify_member_results() :: [modify_member_result()].
+-type modify_admin_result() :: {uid(), promote | demote, ok | no_member}.
 -type modify_admin_results() :: [modify_admin_result()].
 
 
@@ -91,7 +94,7 @@ create_group(Uid, GroupName) ->
 
 
 -spec create_group(Uid :: uid(), GroupName :: binary(), MemberUids :: [uid()])
-            -> {ok, group(), add_member_results()} | {error, any()}.
+            -> {ok, group(), modify_member_results()} | {error, any()}.
 create_group(Uid, GroupName, MemberUids) ->
     case create_group_internal(Uid, GroupName) of
         {error, Reason} -> {error, Reason};
@@ -100,31 +103,36 @@ create_group(Uid, GroupName, MemberUids) ->
             Results = add_members_unsafe(Gid, Uid, MemberUids),
 
             Group = model_groups:get_group(Gid),
-            {ok, Group, [{Uid, ok} | Results]}
+            % TODO: work for future MR about sending events to other members.
+            % TODO move this code into another MR
+%%            NamesMap = get_names([Uid | MemberUids]),
+%%            broadcast_update(Gid, Uid, modify_members, Group, Results, NamesMap),
+            {ok, Group, Results}
     end.
 
 
 -spec add_members(Gid :: gid(), Uid :: uid(), MemberUids :: [uid()])
-            -> {ok, add_member_results()} | {error, not_admin}.
+            -> {ok, modify_member_results()} | {error, not_admin}.
 add_members(Gid, Uid, MemberUids) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s Members: ~p", [Gid, Uid, MemberUids]),
-    case model_groups:is_admin(Gid, Uid) of
-        false -> {error, not_admin};
-        true ->
-            Results = add_members_unsafe(Gid, Uid, MemberUids),
-            {ok, Results}
-    end.
+    modify_members(Gid, Uid, [{Ouid, add} || Ouid <- MemberUids]).
 
 
-%TODO: Maybe change the result to match add_members even thought there are no failure cases
--spec remove_members(Gid :: gid(), Uid :: uid(), MemberUids :: [uid()]) -> ok | {error, not_admin}.
+-spec remove_members(Gid :: gid(), Uid :: uid(), MemberUids :: [uid()])
+            -> {ok, modify_member_results()} | {error, not_admin}.
 remove_members(Gid, Uid, MemberUids) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s Members: ~p", [Gid, Uid, MemberUids]),
+    modify_members(Gid, Uid, [{Ouid, remove} || Ouid <- MemberUids]).
+
+
+-spec modify_members(Gid :: gid(), Uid :: uid(), Changes :: [{uid(), add | remove}])
+            -> {ok, modify_member_results()} | {error, not_admin}.
+modify_members(Gid, Uid, Changes) ->
     case model_groups:is_admin(Gid, Uid) of
         false -> {error, not_admin};
         true ->
-            {ok, _} = model_groups:remove_members(Gid, MemberUids),
-            ok
+            {RemoveUids, AddUids} = split_changes(Changes, remove),
+            RemoveResults = remove_members_unsafe(Gid, RemoveUids),
+            AddResults = add_members_unsafe(Gid, Uid, AddUids),
+            {ok, RemoveResults ++ AddResults}
     end.
 
 
@@ -144,46 +152,62 @@ leave_group(Gid, Uid) ->
 -spec promote_admins(Gid :: gid(), Uid :: uid(), AdminUids :: [uid()])
             -> {ok, modify_admin_results()} | {error, not_admin}.
 promote_admins(Gid, Uid, AdminUids) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s Admins: ~p", [Gid, Uid, AdminUids]),
-    case model_groups:is_admin(Gid, Uid) of
-        false -> {error, not_admin};
-        true ->
-            Results = [{OUid, promote_admin_unsafe(Gid, OUid)} || OUid <- AdminUids],
-            {ok, Results}
-    end.
+    modify_admins(Gid, Uid, [{Ouid, promote} || Ouid <- AdminUids]).
 
 
 -spec demote_admins(Gid :: gid(), Uid :: uid(), AdminUids :: [uid()])
             -> {ok, modify_admin_results()} | {error, not_admin}.
 demote_admins(Gid, Uid, AdminUids) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s Admins: ~p", [Gid, Uid, AdminUids]),
+    modify_admins(Gid, Uid, [{Ouid, demote} || Ouid <- AdminUids]).
+
+
+-spec modify_admins(Gid :: gid(), Uid :: uid(), Changes :: [{uid(), promote | demote}])
+            -> {ok, modify_admin_results()} | {error, not_admin}.
+modify_admins(Gid, Uid, Changes) ->
+    ?INFO_MSG("Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
     case model_groups:is_admin(Gid, Uid) of
         false -> {error, not_admin};
         true ->
-            Results = [{OUid, demote_admin_unsafe(Gid, OUid)} || OUid <- AdminUids],
-            {ok, Results}
+            {DemoteUids, PromoteUids} = split_changes(Changes, demote),
+            DemoteResults = demote_admins_unsafe(Gid, DemoteUids),
+            PromoteResults = promote_admins_unsafe(Gid, PromoteUids),
+            {ok, DemoteResults ++ PromoteResults}
     end.
 
 
--spec get_group(Gid :: gid(), Uid :: uid()) -> {ok, group()} | {error, not_member | no_group}.
+-spec get_group(Gid :: gid(), Uid :: uid()) -> {ok, group()} | {error, not_member}.
 get_group(Gid, Uid) ->
     case model_groups:is_member(Gid, Uid) of
         false -> {error, not_member};
         true ->
             case model_groups:get_group(Gid) of
-                undefined -> {error, no_group};
+                undefined ->
+                    ?ERROR_MSG("could not find the group: ~p uid: ~p", [Gid, Uid]),
+                    {error, not_member};
                 Group -> {ok, Group}
             end
     end.
 
 
-% TODO: we need to return groups with no members here.
--spec get_groups(Uid :: uid()) -> [group()].
+-spec get_group_info(Gid :: gid(), Uid :: uid())
+            -> {ok, group_info()} | {error, not_member | no_group}.
+get_group_info(Gid, Uid) ->
+    case model_groups:is_member(Gid, Uid) of
+        false -> {error, not_member};
+        true ->
+            case model_groups:get_group_info(Gid) of
+                undefined -> {error, no_group};
+                GroupInfo -> {ok, GroupInfo}
+            end
+    end.
+
+
+-spec get_groups(Uid :: uid()) -> [group_info()].
 get_groups(Uid) ->
-    model_groups:get_groups(Uid).
+    [model_groups:get_group_info(Gid) || Gid <- model_groups:get_groups(Uid)].
 
 
--spec set_name(Gid :: gid(), Uid :: uid(), Name :: binary()) -> ok | {error, any()}.
+-spec set_name(Gid :: gid(), Uid :: uid(), Name :: binary()) -> ok | {error, invalid_name | not_member}.
 set_name(Gid, Uid, Name) ->
     ?INFO_MSG("Gid: ~s Uid: ~s Name: |~s|", [Gid, Uid, Name]),
     case validate_group_name(Name) of
@@ -260,18 +284,20 @@ create_group_internal(Uid, GroupName) ->
 
 
 -spec add_members_unsafe(Gid :: gid(), Uid :: uid(), MemberUids :: [uid()])
-            -> [{uid(), ok | no_account | max_groups_size}].
+            -> modify_member_results().
 add_members_unsafe(Gid, Uid, MemberUids) ->
     GroupSize = model_groups:get_group_size(Gid),
     case GroupSize + length(MemberUids) > ?MAX_GROUP_SIZE of
         true ->
             % Group size will be exceeded.
-            [{Ouid, max_group_size} || Ouid <- MemberUids];
+            [{Ouid, add, max_group_size} || Ouid <- MemberUids];
         false ->
             add_members_unsafe_2(Gid, Uid, MemberUids)
     end.
 
 
+-spec add_members_unsafe_2(Gid :: gid(), Uid :: uid(), MemberUids :: [uid()])
+            -> modify_member_results().
 add_members_unsafe_2(Gid, Uid, MemberUids) ->
     GoodUids = check_accounts_exists(MemberUids),
     model_groups:add_members(Gid, GoodUids, Uid),
@@ -279,12 +305,28 @@ add_members_unsafe_2(Gid, Uid, MemberUids) ->
         fun (OUid) ->
             case lists:member(OUid, GoodUids) of
                 false ->
-                    {OUid, no_account};
+                    {OUid, add, no_account};
                 true ->
-                    {OUid, ok}
+                    {OUid, add, ok}
             end
         end,
         MemberUids).
+
+
+-spec remove_members_unsafe(Gid :: gid(), MemberUids :: [uid()]) -> modify_member_results().
+remove_members_unsafe(Gid, MemberUids) ->
+    {ok, _} = model_groups:remove_members(Gid, MemberUids),
+    [{Uid, remove, ok} || Uid <- MemberUids].
+
+
+-spec split_changes(Changes :: [{uid(), atom()}], FirstListAction :: atom()) -> {[uid()], [uid()]}.
+split_changes(Changes, FirstListAction) ->
+    {L1, L2} = lists:partition(
+        fun ({_Uid, Action}) ->
+            Action == FirstListAction
+        end,
+        Changes),
+    {[Uid || {Uid, _Action} <- L1], [Uid || {Uid, _Action} <- L2]}.
 
 
 -spec validate_group_name(Name :: binary()) -> {ok, binary()} | {error, invalid_name}.
@@ -301,17 +343,29 @@ validate_group_name(_Name) ->
     {error, invalid_name}.
 
 
--spec promote_admin_unsafe(Gid :: gid(), Uid :: uid()) -> {uid(), ok | not_member}.
+-spec promote_admins_unsafe(Gid :: gid(), Uids :: [uid()])
+            -> modify_admin_results().
+promote_admins_unsafe(Gid, Uids) ->
+    [{Uid, promote, promote_admin_unsafe(Gid, Uid)} || Uid <- Uids].
+
+
+-spec promote_admin_unsafe(Gid :: gid(), Uid :: uid()) -> ok | not_member.
 promote_admin_unsafe(Gid, Uid) ->
     case model_groups:promote_admin(Gid, Uid) of
-        {error, Reason} ->
-            Reason;
+        {error, not_member} ->
+            not_member;
         {ok, _} ->
             ok
     end.
 
 
--spec demote_admin_unsafe(Gid :: gid(), Uid :: uid()) -> {uid(), ok | not_member}.
+-spec demote_admins_unsafe(Gid :: gid(), Uids :: [uid()])
+            -> modify_admin_results().
+demote_admins_unsafe(Gid, Uids) ->
+    [{Uid, demote, demote_admin_unsafe(Gid, Uid)} || Uid <- Uids].
+
+
+-spec demote_admin_unsafe(Gid :: gid(), Uid :: uid()) -> ok | not_member.
 demote_admin_unsafe(Gid, Uid) ->
     case model_groups:demote_admin(Gid, Uid) of
         {ok, not_member} ->
@@ -335,7 +389,7 @@ check_accounts_exists(Uids) ->
         Uids).
 
 
-make_message(Gid, Uid, MessageIn, Ts) ->
+make_message(_Gid, _Uid, _MessageIn, _Ts) ->
     % TODO: implement
     undefined.
 %%    #group_message{

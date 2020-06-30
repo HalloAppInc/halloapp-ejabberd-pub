@@ -144,9 +144,7 @@ get_group_info(Gid) ->
             #group_info{
                 gid = Gid,
                 name = maps:get(?FIELD_NAME, GroupMap, undefined),
-                avatar = maps:get(?FIELD_AVATAR_ID, GroupMap, undefined),
-                creation_ts_ms = util_redis:decode_ts(
-                    maps:get(?FIELD_CREATION_TIME, GroupMap, undefined))
+                avatar = maps:get(?FIELD_AVATAR_ID, GroupMap, undefined)
             }
     end.
 
