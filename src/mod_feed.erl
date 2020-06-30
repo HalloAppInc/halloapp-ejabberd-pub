@@ -44,7 +44,8 @@
     remove_user/2,
     process_local_iq/1,
     on_user_first_login/2,
-    purge_expired_items/0
+    purge_expired_items/0,
+    remove_metadata_nodes/0
 ]).
 
 
@@ -333,14 +334,12 @@ get_message_type(#psnode{type = _ }, retract) -> normal.
 %% pubsub: create
 %%====================================================================
 
-
+%% TODO(murali@): remove metadata node remains as you migrate away from using node-type.
 -spec create_pubsub_nodes(Uid :: binary(), Server :: binary()) -> ok.
 create_pubsub_nodes(Uid, _Server) ->
     ?INFO_MSG("Uid: ~s", [Uid]),
     FeedNodeName = util:pubsub_node_name(Uid, feed),
-    MetadataNodeName = util:pubsub_node_name(Uid, metadata),
-    create_pubsub_node(Uid, FeedNodeName, feed),
-    create_pubsub_node(Uid, MetadataNodeName, metadata).
+    create_pubsub_node(Uid, FeedNodeName, feed).
 
 
 -spec create_pubsub_node(Uid :: binary(), NodeName :: binary(), NodeType :: node_type()) -> ok.
@@ -437,8 +436,7 @@ item_els(#item{key = {ItemId, _}, type = ItemType, uid = PublisherUid,
 purge_expired_items(TimestampMs) ->
     {ok, Nodes} = mod_feed_mnesia:get_all_nodes(),
     lists:foreach(
-        fun(#psnode{type = metadata}) -> ok;
-            (Node) ->  purge_expired_items(Node, TimestampMs)
+        fun (Node) ->  purge_expired_items(Node, TimestampMs)
         end, Nodes).
 
 
@@ -471,4 +469,22 @@ get_feed_audience_set(Uid) ->
             sets:from_list(WhitelistedUids)
     end,
     sets:add_element(Uid, AudienceUidSet).
+
+
+-spec remove_metadata_nodes() -> ok.
+remove_metadata_nodes() ->
+    {ok, Nodes} = mod_feed_mnesia:get_all_nodes(),
+    lists:foreach(
+        fun (#psnode{type = feed}) -> ok;
+            (#psnode{id = NodeId, type = metadata}) ->
+                {ok, Items} = mod_feed_mnesia:get_all_items(NodeId),
+                lists:foreach(fun remove_item/1, Items),
+                mod_feed_mnesia:delete_node(NodeId)
+        end, Nodes),
+    ok.
+
+-spec remove_item(Item :: item()) -> ok.
+remove_item(#item{key = ItemKey}) ->
+    mod_feed_mnesia:retract_item(ItemKey),
+    ok.
 
