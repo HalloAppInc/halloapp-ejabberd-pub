@@ -465,7 +465,7 @@ get_feed_audience_set(Uid) ->
             {ok, BlacklistedUids} = model_privacy:get_blacklist_uids(Uid),
             sets:subtract(sets:from_list(FriendUids), sets:from_list(BlacklistedUids));
         only ->
-            {ok, WhitelistedUids} = model_privacy:get_blacklist_uids(Uid),
+            {ok, WhitelistedUids} = model_privacy:get_whitelist_uids(Uid),
             sets:from_list(WhitelistedUids)
     end,
     sets:add_element(Uid, AudienceUidSet).
