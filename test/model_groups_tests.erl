@@ -179,9 +179,9 @@ get_groups_test() ->
     ?assertEqual([], model_groups:get_groups(?UID4)),
     {ok, Gid2} = model_groups:create_group(?GROUP_NAME2, ?UID2),
     ?assertEqual([true, true], model_groups:add_members(Gid2, [?UID1, ?UID4], ?UID2)),
-    ?assertEqual(sets:from_list([Gid, Gid2]), sets:from_list(model_groups:get_groups(?UID1))),
-    ?assertEqual(sets:from_list([Gid, Gid2]), sets:from_list(model_groups:get_groups(?UID2))),
-    ?assertEqual(sets:from_list([Gid]), sets:from_list(model_groups:get_groups(?UID3))),
-    ?assertEqual(sets:from_list([Gid2]), sets:from_list(model_groups:get_groups(?UID4))),
+    ?assertEqual(lists:sort([Gid, Gid2]), lists:sort(model_groups:get_groups(?UID1))),
+    ?assertEqual(lists:sort([Gid, Gid2]), lists:sort(model_groups:get_groups(?UID2))),
+    ?assertEqual(lists:sort([Gid]), lists:sort(model_groups:get_groups(?UID3))),
+    ?assertEqual(lists:sort([Gid2]), lists:sort(model_groups:get_groups(?UID4))),
     ok.
 

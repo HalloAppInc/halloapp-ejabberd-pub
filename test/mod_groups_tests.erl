@@ -248,12 +248,12 @@ get_groups_test() ->
     {ok, Group2} = mod_groups:create_group(?UID2, ?GROUP_NAME2),
     Gid2 = Group2#group.gid,
     mod_groups:add_members(Gid2, ?UID2, [?UID1, ?UID4]),
-    ?assertEqual(sets:from_list([Gid, Gid2]), sets:from_list(mod_groups:get_groups(?UID1))),
-    ?assertEqual(sets:from_list([Gid, Gid2]), sets:from_list(mod_groups:get_groups(?UID2))),
-    ?assertEqual(sets:from_list([Gid]), sets:from_list(mod_groups:get_groups(?UID3))),
-    ?assertEqual(sets:from_list([Gid2]), sets:from_list(mod_groups:get_groups(?UID4))),
+    ?assertEqual(lists:sort([Gid, Gid2]), lists:sort(mod_groups:get_groups(?UID1))),
+    ?assertEqual(lists:sort([Gid, Gid2]), lists:sort(mod_groups:get_groups(?UID2))),
+    ?assertEqual(lists:sort([Gid]), lists:sort(mod_groups:get_groups(?UID3))),
+    ?assertEqual(lists:sort([Gid2]), lists:sort(mod_groups:get_groups(?UID4))),
     mod_groups:leave_group(Gid2, ?UID4),
-    ?assertEqual(sets:from_list([]), sets:from_list(mod_groups:get_groups(?UID4))),
+    ?assertEqual(lists:sort([]), lists:sort(mod_groups:get_groups(?UID4))),
     ok.
 
 set_name_test() ->
