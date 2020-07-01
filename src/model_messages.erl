@@ -42,6 +42,7 @@
 
 
 start(_Host, _Opts) ->
+    _Res = get_store_message_script(),
     ok.
 
 stop(_Host) ->
@@ -58,7 +59,7 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
-
+-define(LUA_SCRIPT, <<"store_message.lua">>).
 -define(FIELD_TO, <<"tuid">>).
 -define(FIELD_FROM, <<"fuid">>).
 -define(FIELD_MESSAGE, <<"m">>).
@@ -82,25 +83,12 @@ store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_record(Messag
     store_message(ToUid, FromUid, MsgId, ContentType, fxml:element_to_binary(xmpp:encode(Message)));
 
 store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_binary(Message)->
-    {ok, OrderId} = q(["INCR", message_order_key(ToUid)]),
-    MessageKey = message_key(ToUid, MsgId),
-    Fields = [
-        ?FIELD_TO, ToUid,
-        ?FIELD_MESSAGE, Message,
-        ?FIELD_CONTENT_TYPE, ContentType,
-        ?FIELD_RETRY_COUNT, 0,
-        ?FIELD_ORDER, OrderId],
-    Fields2 = case FromUid of
-        undefined -> Fields;
-        _ -> [?FIELD_FROM, FromUid | Fields]
-    end,
-    Fields3 = ["HSET", MessageKey | Fields2],
-    PipeCommands = [
-        ["MULTI"],
-        Fields3,
-        ["ZADD", message_queue_key(ToUid), OrderId, MsgId],
-        ["EXEC"]],
-    _Results = qp(PipeCommands),
+    MessageOrderKey = binary_to_list(message_order_key(ToUid)),
+    MessageKey = binary_to_list(message_key(ToUid, MsgId)),
+    MessageQueueKey = binary_to_list(message_queue_key(ToUid)),
+    Script = get_store_message_script(),
+    {ok, _Res} = q(["EVAL", Script, 3, MessageOrderKey, MessageKey, MessageQueueKey,
+            ToUid, Message, ContentType, FromUid, MsgId]),
     ok;
 
 store_message(_ToUid, _FromUid, _MsgId, _ContentType, Message) ->
@@ -222,6 +210,29 @@ get_content_type(#message{sub_els = SubEls}) ->
             end
         end, <<>>, SubEls).
 
+
+-spec get_store_message_script() -> binary().
+get_store_message_script() ->
+    Script = persistent_term:get(?LUA_SCRIPT, default),
+    case Script of
+        default ->
+            {ok, Script2} = read_lua(),
+            ok = persistent_term:put(?LUA_SCRIPT, Script2),
+            Script2;
+        _ ->
+            Script
+    end.
+
+-spec read_lua() -> {ok, binary()} | {error, file:posix()}.
+read_lua() ->
+    File = filename:join(misc:lua_dir(), ?LUA_SCRIPT),
+    FileName = case config:is_testing_env() of
+        true ->
+            filename:join("../", File);
+        false ->
+            File
+    end,
+    file:read_file(FileName).
 
 q(Command) ->
     {ok, Result} = gen_server:call(redis_messages_client, {q, Command}),
