@@ -78,7 +78,8 @@ process([<<"registration">>, <<"register">>],
         Code = maps:get(<<"code">>, Payload),
         Name = maps:get(<<"name">>, Payload),
 
-        mod_invites:check_invited(Phone),
+        % TODO: incomment when we are ready to enforce it
+        % check_invited(Phone),
 
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
@@ -146,6 +147,15 @@ check_name(Name) when is_binary(Name) ->
     LName;
 check_name(_) ->
     error(invalid_name).
+
+
+-spec check_invited(PhoneNum :: binary()) -> ok | erlang:error().
+check_invited(PhoneNum) ->
+    Invited = model_invites:is_invited(PhoneNum),
+    case Invited of
+        true -> ok;
+        false -> erlang:error(not_invited)
+    end.
 
 
 -spec finish_registration(phone(), binary()) -> {ok, phone(), binary(), binary()}.

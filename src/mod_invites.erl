@@ -157,15 +157,6 @@ get_next_sunday_midnight() ->
 get_next_sunday_midnight(CurrTime) ->
     get_last_sunday_midnight(CurrTime) + ?WEEKS.
 
-% use this to check during registration
--spec check_invited(PhoneNum :: binary()) -> ok | erlang:error().
-check_invited(PhoneNum) ->
-    Invited = model_invites:is_invited(PhoneNum),
-    case Invited of
-        true -> ok;
-        false -> erlang:error(not_invited)
-    end.
-
 
 %%% IQ helper functions %%%
 
