@@ -23,6 +23,7 @@
 -define(TRACED_PHONES_KEY, <<"traced_phones:">>).
 %% store for each phone the last person to invite this phone number and timestamp
 -define(INVITES_KEY, <<"inv:">>).
+-define(ACTIVE_USERS_KEY, <<"active_users_all:">>).
 
 %% PrivacyKeys
 -define(WHITELIST_KEY, <<"whi:">>).
