@@ -185,6 +185,7 @@ modules:
   mod_http_api: {}
   mod_http_upload:
     put_url: https://@HOST@:5443/upload
+  mod_invites: {}
   mod_last: {}
   ## mod_mam:
     ## Mnesia is limited to 2GB, better to use an SQL backend
