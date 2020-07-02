@@ -221,7 +221,8 @@ finish_sync(UserId, Server, SyncId) ->
     ?INFO_MSG("Full contact sync: uid: ~p, add_contacts: ~p, delete_contacts: ~p",
                 [UserId, AddContactSet, DeleteContactSet]),
     %% TODO(murali@): Update this after moving pubsub to redis.
-    remove_contacts_and_notify(UserId, Server, sets:to_list(DeleteContactSet)),
+    remove_contacts_and_notify(UserId, Server, UserPhone,
+            sets:to_list(DeleteContactSet), OldReverseContactSet),
     %% TODO(vipin): newness of contacts in AddContactSet needs to be used in update_and_...(...).
     lists:foreach(
         fun(ContactPhone) ->
@@ -255,7 +256,8 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
     {NewContacts, NormalizedPhoneNumbers} = lists:mapfoldr(
             fun(Contact, PhoneAcc) ->
                 NewContact = normalize_and_update_contact(
-                    UserId, UserRegionId, UserPhone, OldContactSet, OldReverseContactSet, Server, Contact, SyncId),
+                        UserId, UserRegionId, UserPhone, OldContactSet,
+                        OldReverseContactSet, Server, Contact, SyncId),
                 NewPhoneAcc = case NewContact#contact.normalized of
                                   undefined -> PhoneAcc;
                                   NormalizedPhone -> [NormalizedPhone | PhoneAcc]
@@ -267,7 +269,7 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
         undefined -> model_contacts:add_contacts(UserId, NormalizedPhoneNumbers);
         _ -> model_contacts:sync_contacts(UserId, SyncId, NormalizedPhoneNumbers)
     end,
-    NewContacts. 
+    NewContacts.
 
 
 -spec normalize_and_update_contact(UserId :: binary(), UserRegionId :: binary(),
@@ -353,31 +355,34 @@ remove_friend(Uid, Server, Ouid) ->
 -spec remove_contact_phones(
         UserId :: binary(), Server :: binary(), ContactPhones :: [binary()]) -> ok.
 remove_contact_phones(UserId, Server, ContactPhones) ->
+    UserPhone = get_phone(UserId),
+    {ok, ReverseContactList} = model_contacts:get_contact_uids(UserPhone),
+    ReverseContactSet = sets:from_list(ReverseContactList),
     model_contacts:remove_contacts(UserId, ContactPhones),
-    remove_contacts_and_notify(UserId, Server, ContactPhones).
+    remove_contacts_and_notify(UserId, Server, UserPhone, ContactPhones, ReverseContactSet).
 
 
--spec remove_contacts_and_notify(UserId :: binary(), Server :: binary(),
-        ContactPhones :: [binary()]) ->ok.
-remove_contacts_and_notify(UserId, Server, ContactPhones) ->
+-spec remove_contacts_and_notify(UserId :: binary(), Server :: binary(), UserPhone :: binary(),
+        ContactPhones :: [binary()], ReverseContactSet :: sets:set(binary())) ->ok.
+remove_contacts_and_notify(UserId, Server, UserPhone, ContactPhones, ReverseContactSet) ->
     lists:foreach(
             fun(ContactPhone) ->
-                remove_contact_and_notify(UserId, Server, ContactPhone)
+                remove_contact_and_notify(UserId, Server, UserPhone, ContactPhone, ReverseContactSet)
             end, ContactPhones).
 
 
 %% Delete all associated info with the contact and the user.
--spec remove_contact_and_notify(UserId :: binary(),
-        Server :: binary(), ContactPhones :: binary()) -> {ok, any()} | {error, any()}.
-remove_contact_and_notify(UserId, Server, ContactPhone) ->
-    UserPhone = get_phone(UserId),
+-spec remove_contact_and_notify(UserId :: binary(), Server :: binary(),
+        UserPhone :: binary(), ContactPhone :: binary(),
+        ReverseContactSet :: sets:set(binary())) -> {ok, any()} | {error, any()}.
+remove_contact_and_notify(UserId, Server, UserPhone, ContactPhone, ReverseContactSet) ->
     ContactId = obtain_user_id(ContactPhone),
     stat:count("HA/contacts", "remove_contact"),
     case ContactId of
         undefined ->
             ok;
         _ ->
-            case model_friends:is_friend(UserId, ContactId) of
+            case sets:is_element(ContactId, ReverseContactSet) of
                 true ->
                     remove_friend(UserId, Server, ContactId),
                     notify_contact_about_user(UserId, UserPhone, Server, ContactId, <<"none">>);
