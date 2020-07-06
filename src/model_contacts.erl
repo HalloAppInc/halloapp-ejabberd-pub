@@ -12,6 +12,10 @@
 -include("logger.hrl").
 -include("redis_keys.hrl").
 
+-define(SQUEEZE_LENGTH_BITS, 5).
+-define(STORE_HASH_LENGTH_BYTES, 8).
+-define(DUMMY_SALT, <<"y2c8wq3bvMIQNLlghqsXAS7bwEetE0Q=">>).
+
 %% Export all functions for unit tests
 -ifdef(TEST).
 -compile(export_all).
@@ -27,6 +31,8 @@
 -export([
     add_contact/2,
     add_contacts/2,
+    add_reverse_hash_contact/2,
+    add_reverse_hash_contacts/2,
     remove_contact/2,
     remove_contacts/2,
     remove_all_contacts/1,
@@ -37,7 +43,9 @@
     get_sync_contacts/2,
     get_contact_uids/1,
     get_contact_uids_size/1,
-    get_all_uids/0
+    get_potential_reverse_contact_uids/1,
+    hash_phone/1,
+    get_contact_hash_salt/0
 ]).
 
 %%====================================================================
@@ -45,6 +53,10 @@
 %%====================================================================
 
 start(_Host, _Opts) ->
+    create_ets_options_table(),
+    fetch_and_store_salt(),
+     % Making sure we have salt
+    {ok, _Salt} = model_contacts:get_contact_hash_salt(),
     ok.
 
 stop(_Host) ->
@@ -73,6 +85,20 @@ add_contacts(Uid, ContactList) ->
     lists:foreach(
         fun(Contact) ->
             {ok, _} = q(["SADD", reverse_key(Contact), Uid])
+        end, ContactList),
+    ok.
+
+
+-spec add_reverse_hash_contact(Uid :: binary(), Contact :: binary()) -> ok | {error, any()}.
+add_reverse_hash_contact(Uid, Contact) ->
+    add_reverse_hash_contacts(Uid, [Contact]).
+
+
+-spec add_reverse_hash_contacts(Uid :: binary(), ContactList :: [binary()]) -> ok | {error, any()}.
+add_reverse_hash_contacts(Uid, ContactList) ->
+    lists:foreach(
+        fun(Contact) ->
+            {ok, _} = q(["SADD", reverse_phone_hash_key(Contact), Uid])
         end, ContactList),
     ok.
 
@@ -158,17 +184,35 @@ get_contact_uids_size(Contact) ->
     {ok, Res} = q(["SCARD", reverse_key(Contact)]),
     binary_to_integer(Res).
 
--spec get_all_uids() -> {ok, [binary()]} | {error, any()}.
-get_all_uids() ->
-    {ok, [Cursor, Uids]} = q(["SCAN", "0", "COUNT", "1000"]),
-    AllUids = get_all_uids(Cursor, Uids),
-    {ok, AllUids}.
 
-get_all_uids(<<"0">>, Results) ->
-    Results;
-get_all_uids(Cursor, Results) ->
-    {ok, [NewCursor, Uids]} = q(["SCAN", Cursor, "COUNT", "1000"]),
-    get_all_uids(NewCursor, lists:append(Uids, Results)).
+-spec get_potential_reverse_contact_uids(Contact :: binary()) -> {ok, [binary()]} | {error, any()}.
+get_potential_reverse_contact_uids(Contact) ->
+    {ok, Res} = q(["SMEMBERS", reverse_phone_hash_key(Contact)]),
+    {ok, Res}.
+
+
+%%====================================================================
+%% Internal functions
+%%====================================================================
+
+-spec create_ets_options_table() -> atom().
+create_ets_options_table() ->
+    ets:new(contact_options, [named_table, set, public, {read_concurrency, true}]).
+
+
+-spec fetch_and_store_salt() -> ok.
+fetch_and_store_salt() ->
+    Salt = get_salt_secret_from_aws(),
+    ets:insert(contact_options, {contact_hash_salt, Salt}),
+    ok.
+
+
+-spec get_salt_secret_from_aws() -> binary().
+get_salt_secret_from_aws() ->
+    %% Should have a better way to do this: using erlcloud.
+    SecretString = os:cmd("aws --region us-east-1 secretsmanager get-secret-value --secret-id contact_hash_salt --output text --query SecretString"),
+    Salt = string:trim(SecretString),
+    list_to_binary(Salt).
 
 
 q(Command) ->
@@ -192,4 +236,30 @@ sync_key(Uid, Sid) ->
 -spec reverse_key(Phone :: binary()) -> binary().
 reverse_key(Phone) ->
     <<?REVERSE_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
+
+
+-spec reverse_phone_hash_key(Phone :: binary()) -> binary().
+reverse_phone_hash_key(Phone) ->
+    SqueezedPhoneHash = hash_phone(Phone),
+    <<?PHONE_HASH_KEY/binary, "{", SqueezedPhoneHash/binary, "}">>.
+
+
+-spec hash_phone(Phone :: binary()) -> binary().
+hash_phone(Phone) ->
+    SqueezedPhone = integer_to_binary(binary_to_integer(Phone) bsr ?SQUEEZE_LENGTH_BITS),
+    {ok, Salt} = get_contact_hash_salt(),
+    SaltedSqueezedPhone = <<SqueezedPhone/binary, Salt/binary>>,
+    <<HashKey:?STORE_HASH_LENGTH_BYTES/binary, _Rest/binary>> = crypto:hash(sha256, SaltedSqueezedPhone),
+    base64url:encode(HashKey).
+
+
+-spec get_contact_hash_salt() -> {ok, binary()} | {error, any()}.
+get_contact_hash_salt() ->
+    case config:get_hallo_env() of
+        prod ->
+            Result = ets:lookup_element(contact_options, contact_hash_salt, 2),
+            {ok, Result};
+        _ ->
+            {ok, ?DUMMY_SALT}
+    end.
 

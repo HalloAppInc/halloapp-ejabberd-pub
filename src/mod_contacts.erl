@@ -19,6 +19,13 @@
 -include("translate.hrl").
 
 -define(NS_NORM, <<"halloapp:user:contacts">>).
+-define(SALT_LENGTH_BYTES, 32).
+-define(PROBE_HASH_LENGTH_BYTES, 2).
+
+%% Export all functions for unit tests
+-ifdef(TEST).
+-compile(export_all).
+-endif.
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -119,6 +126,13 @@ re_register_user(UserId, Server) ->
 %% TODO: Delay notifying the users about their contact to reduce unnecessary messages to clients.
 -spec register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
 register_user(UserId, Server, Phone) ->
+    {ok, PotentialContactUids} = model_contacts:get_potential_reverse_contact_uids(Phone),
+    lists:foreach(
+        fun(ContactId) ->
+            probe_contact_about_user(UserId, Phone, Server, ContactId)
+        end, PotentialContactUids),
+
+    %% TODO(murali@): Remove this after clients switch over to use contact hashing.
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
     lists:foreach(
         fun(ContactId) ->
@@ -253,17 +267,21 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
     OldReverseContactSet = sets:from_list(OldReverseContactList),
     %% Construct the list of new contact records to be returned and filter out the phone numbers
     %% that couldn't be normalized.
-    {NewContacts, NormalizedPhoneNumbers} = lists:mapfoldr(
-            fun(Contact, PhoneAcc) ->
+    {NewContacts, {NormalizedPhoneNumbers, UnregisteredPhoneNumbers}} = lists:mapfoldr(
+            fun(Contact, {PhoneAcc, UnregisteredPhoneAcc}) ->
                 NewContact = normalize_and_update_contact(
                         UserId, UserRegionId, UserPhone, OldContactSet,
                         OldReverseContactSet, Server, Contact, SyncId),
-                NewPhoneAcc = case NewContact#contact.normalized of
-                                  undefined -> PhoneAcc;
-                                  NormalizedPhone -> [NormalizedPhone | PhoneAcc]
-                              end,
-                {NewContact, NewPhoneAcc}
-            end, [], Contacts),
+                NewAcc = case {NewContact#contact.normalized, NewContact#contact.userid} of
+                    {undefined, _} -> {PhoneAcc, UnregisteredPhoneAcc};
+                    %% TODO(murali@): Revert this after clients switch over to use contact hashing.
+                    {NormPhone, undefined} -> {[NormPhone | PhoneAcc], [NormPhone | UnregisteredPhoneAcc]};
+                    {NormPhone, _} -> {[NormPhone | PhoneAcc], UnregisteredPhoneAcc}
+                end,
+                {NewContact, NewAcc}
+            end, {[], []}, Contacts),
+    %% Call the batched API to insert UserId for the unregistered phone numbers.
+    model_contacts:add_reverse_hash_contacts(UserId, UnregisteredPhoneNumbers),
     %% Call the batched API to insert the normalized phone numbers.
     case SyncId of
         undefined -> model_contacts:add_contacts(UserId, NormalizedPhoneNumbers);
@@ -414,7 +432,25 @@ notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role) ->
                       to = jid:make(ContactId, Server),
                       sub_els = SubEls},
     ?DEBUG("Notifying contact: ~p about user: ~p using stanza: ~p",
-                                                [{ContactId, Server}, UserId, Stanza]),
+            [{ContactId, Server}, UserId, Stanza]),
+    ejabberd_router:route(Stanza).
+
+
+-spec probe_contact_about_user(UserId :: binary(), UserPhone :: binary(),
+        Server :: binary(), ContactId :: binary()) -> ok.
+probe_contact_about_user(UserId, UserPhone, Server, ContactId) ->
+    ?INFO_MSG("UserId: ~s, ContactId: ~s", [UserId, ContactId]),
+    <<HashValue:?PROBE_HASH_LENGTH_BYTES/binary, _Rest/binary>> = crypto:hash(sha256, UserPhone),
+    SubEl = #contact_list{
+        type = normal,
+        xmlns = ?NS_NORM,
+        contact_hash = [base64:encode(HashValue)]},
+    Stanza = #message{
+        from = jid:make(Server),
+        to = jid:make(ContactId, Server),
+        sub_els = [SubEl]},
+    ?DEBUG("Probing contact: ~p about user: ~p using stanza: ~p",
+            [{ContactId, Server}, UserId, Stanza]),
     ejabberd_router:route(Stanza).
 
 

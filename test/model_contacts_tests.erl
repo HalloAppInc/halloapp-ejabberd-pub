@@ -28,6 +28,7 @@ keys_test() ->
     ?assertEqual(<<"con:{1000000000376503286}">>, model_contacts:contacts_key(?UID)),
     ?assertEqual(<<"sync:{1000000000376503286}:dbd22016">>, model_contacts:sync_key(?UID, ?SID)),
     ?assertEqual(<<"rev:{14705551473}">>, model_contacts:reverse_key(?CONTACT1)),
+    ?assertNotEqual(<<"rph:{14705551473}">>, model_contacts:reverse_phone_hash_key(?CONTACT1)),
     ok.
 
 
@@ -132,6 +133,51 @@ get_contact_uids_size_test() ->
     ok = model_contacts:add_contacts(?UID2, [?CONTACT1, ?CONTACT2]),
     ?assertEqual(2, model_contacts:get_contact_uids_size(?CONTACT1)),
     ok.
+
+
+add_reverse_hash_contacts_test() ->
+    setup(),
+    ok = model_contacts:add_reverse_hash_contacts(?UID, [?CONTACT1, ?CONTACT2]),
+    {ok, []} = model_contacts:get_contacts(?UID),
+    {ok, [?UID]} = model_contacts:get_potential_reverse_contact_uids(?CONTACT1),
+    {ok, [?UID]} = model_contacts:get_potential_reverse_contact_uids(?CONTACT2),
+    {ok, []} = model_contacts:get_potential_reverse_contact_uids(?CONTACT3).
+
+
+hash_phone_test() ->
+    setup(),
+    Hash1 = model_contacts:hash_phone(<<"14703381472">>),
+    Hash2 = model_contacts:hash_phone(<<"14703381473">>),
+    Hash3 = model_contacts:hash_phone(<<"14703381474">>),
+    Hash4 = model_contacts:hash_phone(<<"14703381503">>),
+    ?assertEqual(Hash1, Hash2),
+    ?assertEqual(Hash1, Hash3),
+    ?assertEqual(Hash1, Hash4),
+
+    Hash5 = model_contacts:hash_phone(<<"14703381504">>),
+    Hash6 = model_contacts:hash_phone(<<"14703381505">>),
+    ?assertNotEqual(Hash1, Hash5),
+    ?assertEqual(Hash5, Hash6),
+    ok.
+
+
+sequence_loop(To, To, Fun, MapAcc) -> maps:size(MapAcc);
+sequence_loop(From, To, Fun, MapAcc) ->
+    NewMapAcc = erlang:apply(Fun, [From, MapAcc]),
+    sequence_loop(From + 1, To, Fun, NewMapAcc).
+
+
+%% Tests the lossiness of the hash function by hashing a large sequence of phone numbers.
+%% We ensure that the different hash value is of the order of total numbers / 32.
+%% which is our expected rate of collisions.
+test_hash_lossiness(From, To) ->
+    Fun = fun(Number, Map) ->
+        Hash = model_contacts:hash_phone(integer_to_binary(Number)),
+        maps:put(Hash, 1, Map)
+    end,
+    ActualSize = sequence_loop(From, To, Fun, #{}),
+    ExpectedSize = (To - From) / 32,
+    ?assert(ActualSize < ExpectedSize + 3) andalso ?assert(ActualSize > ExpectedSize - 3).
 
 
 while(0, _F) -> ok;
