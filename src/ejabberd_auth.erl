@@ -289,7 +289,7 @@ check_and_register(Phone, Server, Password, Name) ->
                 Err -> Err
             end;
         UserId ->
-            re_register_user(UserId, Server),
+            re_register_user(UserId, Server, Phone),
             case ets_cache:untag(ejabberd_auth_halloapp:set_password(UserId, Server, Password1)) of
                 {ok, _} ->
                     ok = model_accounts:set_name(UserId, Name),
@@ -504,9 +504,9 @@ remove_user(User, Server) ->
     end.
 
 
--spec re_register_user(User :: binary(), Server :: binary()) -> ok.
-re_register_user(User, Server) ->
-	ejabberd_hooks:run(re_register_user, Server, [User, Server]).
+-spec re_register_user(User :: binary(), Server :: binary(), Phone :: binary()) -> ok.
+re_register_user(User, Server, Phone) ->
+	ejabberd_hooks:run(re_register_user, Server, [User, Server, Phone]).
 
 
 -spec remove_user(binary(), binary(), password()) -> ok | {error, atom()}.

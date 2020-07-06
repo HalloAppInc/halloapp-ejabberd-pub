@@ -36,7 +36,7 @@
     set_presence_hook/4,
     unset_presence_hook/4,
     register_user/3,
-    re_register_user/2,
+    re_register_user/3,
     get_user_activity/2,
     probe_and_send_presence/3
 ]).
@@ -76,9 +76,9 @@ register_user(User, Server, _Phone) ->
     store_user_activity(User, Server, TimestampMs, Status).
 
 
--spec re_register_user(User :: binary(), Server :: binary()) -> ok.
-re_register_user(User, Server) ->
-    register_user(User, Server, undefined).
+-spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
+re_register_user(Uid, Server, Phone) ->
+    register_user(Uid, Server, Phone).
 
 
 %% set_presence_hook checks and stores the user activity, and also broadcast users presence

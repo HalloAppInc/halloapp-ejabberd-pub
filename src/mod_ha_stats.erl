@@ -11,7 +11,7 @@
 -export([
     publish_feed_item/5,
     register_user/3,
-    re_register_user/2,
+    re_register_user/3,
     add_friend/3,
     remove_friend/3,
     user_send_packet/1,
@@ -71,8 +71,8 @@ register_user(Uid, _Server, _Phone) ->
     ok.
 
 
--spec re_register_user(Uid :: binary(), Server :: binary()) -> ok.
-re_register_user(Uid, _Server) ->
+-spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
+re_register_user(Uid, _Server, _Phone) ->
     ?INFO_MSG("counting uid:~s", [Uid]),
     stat:count("HA/account", "re_register"),
     ok.

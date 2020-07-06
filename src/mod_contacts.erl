@@ -35,7 +35,7 @@
     process_local_iq/1, 
     remove_user/2, 
     register_user/3, 
-    re_register_user/2,
+    re_register_user/3,
     block_uids/3,
     unblock_uids/3
 ]).
@@ -118,8 +118,8 @@ remove_user(UserId, Server) ->
     remove_all_contacts(UserId, Server).
 
 
--spec re_register_user(User :: binary(), Server :: binary()) -> ok.
-re_register_user(UserId, Server) ->
+-spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
+re_register_user(UserId, Server, _Phone) ->
     remove_all_contacts(UserId, Server).
 
 

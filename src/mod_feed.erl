@@ -38,7 +38,7 @@
 -export([
     route/1,
     register_user/3,
-    re_register_user/2,
+    re_register_user/3,
     add_friend/3,
     remove_friend/3,
     remove_user/2,
@@ -96,8 +96,8 @@ register_user(Uid, Server, _Phone) ->
     create_pubsub_nodes(Uid, Server).
 
 
--spec re_register_user(Uid :: binary(), Server :: binary()) -> ok.
-re_register_user(Uid, Server) ->
+-spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
+re_register_user(Uid, Server, _Phone) ->
     create_pubsub_nodes(Uid, Server).
 
 

@@ -30,7 +30,7 @@
 -export([
     presence_subs_hook/3,
     unset_presence_hook/4,
-    re_register_user/2,
+    re_register_user/3,
     subscribe_user_to_friend/3,
     unsubscribe_user_to_friend/3,
     get_user_subscribed_friends/2,
@@ -61,10 +61,11 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% hooks
 %%====================================================================
 
--spec re_register_user(User :: binary(), Server :: binary()) -> {ok, any()} | {error, any()}.
-re_register_user(User, _Server) ->
-    ?INFO_MSG("Uid: ~s, unsubscribe_all", [User]),
-    model_accounts:presence_unsubscribe_all(User).
+-spec re_register_user(Uid :: binary(), Server :: binary(),
+        Phone :: binary()) -> {ok, any()} | {error, any()}.
+re_register_user(Uid, _Server, _Phone) ->
+    ?INFO_MSG("Uid: ~s, unsubscribe_all", [Uid]),
+    model_accounts:presence_unsubscribe_all(Uid).
 
 
 -spec unset_presence_hook(User :: binary(), Server :: binary(),
