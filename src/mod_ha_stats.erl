@@ -121,6 +121,13 @@ count_send_packet(_Packet) ->
 user_receive_packet({#binary_message{} = _BinMessage, _State} = Acc) ->
     stat:count("HA/user_receive_packet", "binary_message"),
     Acc;
+user_receive_packet({#message{sub_els = [#receipt_seen{}]}, _State} = Acc) ->
+    stat:count("HA/im_receipts", "seen"),
+    Acc;
+user_receive_packet({#message{sub_els = [#receipt_response{}]}, _State} = Acc) ->
+    stat:count("HA/im_receipts", "received"),
+    Acc;
 user_receive_packet({_Packet, _State} = Acc) ->
-    % TODO: implement
+    % TODO: implement other types
     Acc.
+

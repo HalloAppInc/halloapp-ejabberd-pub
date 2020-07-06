@@ -43,10 +43,6 @@ reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
 
-%% TODO(murali@):
-%% Add counts separately for all types of received stanzas instead of adding this in various hooks.
-
-
 %% Hook trigerred when user sent the server an ack stanza for this particular packet.
 -spec user_ack_packet({Ack :: ack(), OfflineMessage :: offline_message()}) -> ok.
 user_ack_packet({#ack{id = Id, from = #jid{server = ServerHost} = AckFrom},
