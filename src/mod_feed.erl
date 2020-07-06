@@ -239,6 +239,7 @@ publish_item(Uid, Server, ItemId, ItemType, Payload, Node, TimestampMs, FeedAudi
         {IRes, NType} when IRes =:= undefined; NType =:= metadata->
             ok = mod_feed_mnesia:publish_item(NewItem),
             broadcast_event(Uid, Server, Node, NewItem, Payload, publish, FeedAudienceSet),
+            ejabberd_hooks:run(publish_feed_item, Server, [Uid, Node, ItemId, ItemType, Payload]),
             NewItem;
         {Item, feed} ->
             Item

@@ -9,7 +9,7 @@
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
 
 -export([
-    pubsub_publish_item/7,
+    publish_feed_item/5,
     register_user/3,
     re_register_user/2,
     add_friend/3,
@@ -20,7 +20,7 @@
 
 
 start(Host, _Opts) ->
-    ejabberd_hooks:add(pubsub_publish_item, Host, ?MODULE, pubsub_publish_item, 50),
+    ejabberd_hooks:add(publish_feed_item, Host, ?MODULE, publish_feed_item, 50),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
     ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:add(remove_friend, Host, ?MODULE, remove_friend, 50),
@@ -35,7 +35,7 @@ stop(Host) ->
     ejabberd_hooks:delete(remove_friend, Host, ?MODULE, remove_friend, 50),
     ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
-    ejabberd_hooks:delete(pubsub_publish_item, Host, ?MODULE, pubsub_publish_item, 50),
+    ejabberd_hooks:delete(publish_feed_item, Host, ?MODULE, publish_feed_item, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -48,10 +48,10 @@ mod_options(_Host) ->
     [].
 
 
--spec pubsub_publish_item(Server :: binary(), Node :: binary(), Publisher :: jid(),
-        Host :: jid(), ItemId :: binary(), ItemType :: binary(), Payloads :: [xmlel()]) -> ok.
-pubsub_publish_item(_Server, _Node, Publisher, _Host, _ItemId, ItemType, _Payloads) ->
-    ?INFO_MSG("counting uid:~p ItemType:~p", [Publisher, ItemType]),
+-spec publish_feed_item(Uid :: binary(), Node :: binary(),
+        ItemId :: binary(), ItemType :: atom(), Payloads :: [xmlel()]) -> ok.
+publish_feed_item(Uid, Node, ItemId, ItemType, _Payload) ->
+    ?INFO_MSG("counting Uid:~p, Node: ~p, ItemId: ~p, ItemType:~p", [Uid, Node, ItemId, ItemType]),
     case ItemType of
         feedpost ->
             ?INFO_MSG("post",[]),
