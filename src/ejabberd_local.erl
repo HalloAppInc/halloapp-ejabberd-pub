@@ -32,14 +32,16 @@
 %% API
 -export([start/0, start_link/0]).
 
--export([route/1,
-	 get_features/1,
-	 bounce_resource_packet/1,
-	 host_up/1, host_down/1]).
+-export([
+    route/1,
+    get_features/1,
+    bounce_resource_packet/1,
+    host_up/1,
+    host_down/1
+]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2,
-	 handle_info/2, terminate/2, code_change/3]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 %% deprecated functions: use ejabberd_router:route_iq/3,4
 -export([route_iq/2, route_iq/3]).
@@ -61,28 +63,27 @@
 %% Description: Starts the server
 %%--------------------------------------------------------------------
 start() ->
-    ChildSpec = {?MODULE, {?MODULE, start_link, []},
-		 transient, 1000, worker, [?MODULE]},
+    ChildSpec = {?MODULE, {?MODULE, start_link, []}, transient, 1000, worker, [?MODULE]},
     supervisor:start_child(ejabberd_sup, ChildSpec).
 
 start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [],
-			  []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec route(stanza()) -> ok.
 route(Packet) ->
     ?DEBUG("Local route:~n~ts", [xmpp:pp(Packet)]),
     Type = xmpp:get_type(Packet),
     To = xmpp:get_to(Packet),
-    if To#jid.luser /= <<"">> ->
-	    ejabberd_sm:route(Packet);
-       is_record(Packet, iq), To#jid.lresource == <<"">> ->
-	    gen_iq_handler:handle(?MODULE, Packet);
-       Type == result; Type == error ->
-	    ok;
-       true ->
-	    ejabberd_hooks:run(local_send_to_resource_hook,
-			       To#jid.lserver, [Packet])
+    if
+        To#jid.luser /= <<"">> ->
+            ejabberd_sm:route(Packet);
+        is_record(Packet, iq), To#jid.lresource == <<"">> ->
+            gen_iq_handler:handle(?MODULE, Packet);
+        Type == result; Type == error ->
+            ok;
+        true ->
+            ejabberd_hooks:run(local_send_to_resource_hook,
+                    To#jid.lserver, [Packet])
     end.
 
 -spec route_iq(iq(), function()) -> ok.
@@ -156,18 +157,16 @@ update_table() ->
 
 host_up(Host) ->
     Owner = case whereis(?MODULE) of
-		undefined -> self();
-		Pid -> Pid
-	    end,
+        undefined -> self();
+        Pid -> Pid
+    end,
     ejabberd_router:register_route(Host, Host, {apply, ?MODULE, route}, Owner),
-    ejabberd_hooks:add(local_send_to_resource_hook, Host,
-		       ?MODULE, bounce_resource_packet, 100).
+    ejabberd_hooks:add(local_send_to_resource_hook, Host, ?MODULE, bounce_resource_packet, 100).
 
 host_down(Host) ->
     Owner = case whereis(?MODULE) of
-		undefined -> self();
-		Pid -> Pid
-	    end,
+        undefined -> self();
+        Pid -> Pid
+    end,
     ejabberd_router:unregister_route(Host, Owner),
-    ejabberd_hooks:delete(local_send_to_resource_hook, Host,
-			  ?MODULE, bounce_resource_packet, 100).
+    ejabberd_hooks:delete(local_send_to_resource_hook, Host, ?MODULE, bounce_resource_packet, 100).
