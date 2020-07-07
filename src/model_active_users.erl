@@ -21,7 +21,8 @@
     count_active_users_30day/0,
     count_recent_active_users/1,
     count_active_users_between/2,
-    get_active_users_key/1
+    get_active_users_key/1,
+    cleanup/0
 ]).
 
 -define(NUM_SLOTS, 256).
@@ -67,6 +68,21 @@ count_active_users_between(LowerBound, UpperBound) ->
 get_active_users_key(Uid) ->
     Slot = hash(binary_to_list(Uid)),
     get_active_users_key_slot(Slot).
+
+
+cleanup() ->
+    ?INFO_MSG("Cleaning up active user zsets...", []),
+    OldTs = util:now_ms() - (30 * ?DAYS_MS) - (1 * ?SECONDS_MS),
+    TotalNumRemoved = lists:foldl(
+        fun (Slot, Acc) ->
+            {ok, NumRemoved} = q(["ZREMRANGEBYSCORE", get_active_users_key_slot(Slot), 0, OldTs]),
+            Acc + binary_to_integer(NumRemoved)
+        end,
+        0,
+        lists:seq(0, ?NUM_SLOTS - 1)
+    ),
+    ?INFO_MSG("Removed active user zset data for ~p users", [TotalNumRemoved]),
+    ok.
 
 %%====================================================================
 %% Internal functions

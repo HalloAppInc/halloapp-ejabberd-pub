@@ -33,6 +33,7 @@
 -export([
     trigger_send/0,
     trigger_count_users/0,
+    trigger_zset_cleanup/0,
     compute_counts/0
 ]).
 
@@ -87,6 +88,10 @@ trigger_send() ->
 trigger_count_users() ->
     Pid = spawn(?MODULE, compute_counts, []).
 
+-spec trigger_zset_cleanup() -> ok.
+trigger_zset_cleanup() ->
+    _Pid = spawn(model_active_users, cleanup, []).
+
 compute_counts() ->
     Start = util:now_ms(),
     ?INFO_MSG("start", []),
@@ -121,6 +126,7 @@ init(_Stuff) ->
     erlcloud_aws:configure(Config),
     {ok, _Tref1} = timer:apply_interval(1000, ?MODULE, trigger_send, []),
     {ok, _Tref2} = timer:apply_interval(5 * 60 * 1000, ?MODULE, trigger_count_users, []),
+    {ok, _Tref3} = timer:apply_interval(10 * 60 * 1000, ?MODULE, trigger_zset_cleanup, []),
     CurrentMinute = util:round_to_minute(util:now()),
     {ok, #{minute => CurrentMinute}}.
 

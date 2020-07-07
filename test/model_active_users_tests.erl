@@ -29,7 +29,6 @@ set_test() ->
 
 count_test() ->
     setup(),
-    ok = create_accounts(100),
     Now = util:now_ms(),
     Days1 = length([model_accounts:set_last_activity(
         integer_to_binary(?UID + Num), Now - random:uniform(?DAYS_MS), available
@@ -54,6 +53,22 @@ count_test() ->
     ?assertEqual(100, model_active_users:count_active_users_between(0, inf)).
 
 
+cleanup_test() ->
+    setup(),
+    Now = util:now_ms(),
+    ActiveUsers = length([model_accounts:set_last_activity(
+        integer_to_binary(?UID + Num), Now - random:uniform(30 * ?DAYS_MS), available
+    ) || Num <- lists:seq(1, 50)
+    ]),
+    _InactiveUsers = [model_accounts:set_last_activity(
+        integer_to_binary(?UID + Num), Now - (30 * ?DAYS_MS) - random:uniform(?WEEKS_MS), available
+    ) || Num <- lists:seq(51, 100)
+    ],
+    ?assertEqual(100, model_active_users:count_active_users_between(0, inf)),
+    model_active_users:cleanup(),
+    ?assertEqual(ActiveUsers, model_active_users:count_active_users_between(0, inf)).
+
+
 %% -------------------------------------------- %%
 %% Internal functions
 %% -------------------------------------------- %%
@@ -61,6 +76,7 @@ count_test() ->
 setup() ->
     mod_redis:start(undefined, []),
     clear(),
+    ok = create_accounts(100),
     ok.
 
 
