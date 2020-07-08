@@ -68,12 +68,13 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %%====================================================================
 
 %% register_user sets some default undefined activity for the user until they login.
+%% TODO: figure out how to get resource/user agent here
 -spec register_user(User :: binary(), Server :: binary(), Phone :: binary()) ->
         {ok, any()} | {error, any()}.
 register_user(User, Server, _Phone) ->
     Status = undefined,
     TimestampMs = util:now_ms(),
-    store_user_activity(User, Server, TimestampMs, Status).
+    store_user_activity(User, Server, undefined, TimestampMs, Status).
 
 
 -spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
@@ -86,15 +87,15 @@ re_register_user(Uid, Server, Phone) ->
 %% and sends it to the user.
 -spec set_presence_hook(User :: binary(), Server :: binary(),
         Resource :: binary(), Presence :: presence()) -> ok.
-set_presence_hook(User, Server, _Resource, #presence{type = StatusType}) ->
-    store_and_broadcast_presence(User, Server, StatusType),
+set_presence_hook(User, Server, Resource, #presence{type = StatusType}) ->
+    store_and_broadcast_presence(User, Server, Resource, StatusType),
     check_and_probe_friends_presence(User, Server, StatusType).
 
 
 -spec unset_presence_hook(User :: binary(), Server :: binary(),
         Resource :: binary(), PStatus :: binary()) -> ok.
-unset_presence_hook(User, Server, _Resource, _PStatus) ->
-    store_and_broadcast_presence(User, Server, away).
+unset_presence_hook(User, Server, Resource, _PStatus) ->
+    store_and_broadcast_presence(User, Server, Resource, away).
 
 
 %%====================================================================
@@ -119,23 +120,23 @@ probe_and_send_presence(User, Server, Friend) ->
 %%====================================================================
 
 
--spec store_and_broadcast_presence(User :: binary(), Server :: binary(),
+-spec store_and_broadcast_presence(User :: binary(), Server :: binary(), Resource :: binary() | undefined,
         Status :: undefined | activity_status()) -> ok | {ok, any()}.
-store_and_broadcast_presence(_, _, undefined) ->
+store_and_broadcast_presence(_, _, _, undefined) ->
     {ok, ignore_undefined_presence};
-store_and_broadcast_presence(User, Server, away) ->
+store_and_broadcast_presence(User, Server, Resource, away) ->
     TimestampMs = util:now_ms(),
     case get_user_activity(User, Server) of
         #activity{status = away} ->
             {ok, ignore_away_presence};
         _ ->
-            store_user_activity(User, Server, TimestampMs, away),
+            store_user_activity(User, Server, Resource, TimestampMs, away),
             broadcast_presence(User, Server, TimestampMs, away)
     end;
-store_and_broadcast_presence(User, Server, available) ->
+store_and_broadcast_presence(User, Server, Resource, available) ->
     check_for_first_login(User, Server),
     TimestampMs = util:now_ms(),
-    store_user_activity(User, Server, TimestampMs, available),
+    store_user_activity(User, Server, Resource, TimestampMs, available),
     broadcast_presence(User, Server, undefined, available).
 
 
@@ -151,9 +152,10 @@ check_for_first_login(User, Server) ->
 
 
 -spec store_user_activity(User :: binary(), Server :: binary(), TimestampMs :: integer(),
-        Status :: undefined | activity_status()) -> {ok, any()} | {error, any()}.
-store_user_activity(User, _Server, TimestampMs, Status) ->
+        Resource :: binary() | undefined, Status :: undefined | activity_status()) -> {ok, any()} | {error, any()}.
+store_user_activity(User, _Server, Resource, TimestampMs, Status) ->
     ?INFO_MSG("Uid: ~s, tsms: ~p, Status: ~p", [User, TimestampMs, Status]),
+    mod_active_users:update_last_activity(User, TimestampMs, Resource),
     model_accounts:set_last_activity(User, TimestampMs, Status).
 
 

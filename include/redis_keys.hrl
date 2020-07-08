@@ -23,7 +23,9 @@
 -define(TRACED_PHONES_KEY, <<"traced_phones:">>).
 %% store for each phone the last person to invite this phone number and timestamp
 -define(INVITES_KEY, <<"inv:">>).
--define(ACTIVE_USERS_KEY, <<"active_users_all:">>).
+-define(ACTIVE_USERS_ALL_KEY, <<"active_users_all:">>).
+-define(ACTIVE_USERS_IOS_KEY, <<"active_users_ios:">>).
+-define(ACTIVE_USERS_ANDROID_KEY, <<"active_users_android:">>).
 
 %%RedisFeed (model_feed)
 -define(POST_KEY, <<"fp:">>).

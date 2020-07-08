@@ -325,12 +325,10 @@ is_account_deleted(Uid) ->
 -spec set_last_activity(Uid :: binary(), TimestampMs :: integer(),
         ActivityStatus :: activity_status()) -> ok.
 set_last_activity(Uid, TimestampMs, ActivityStatus) ->
-    ActiveUserKey = model_active_users:get_active_users_key(Uid),
     {ok, _Res1} = q(
             ["HMSET", key(Uid),
             ?FIELD_LAST_ACTIVITY, integer_to_binary(TimestampMs),
             ?FIELD_ACTIVITY_STATUS, util:to_binary(ActivityStatus)]),
-    {ok, _Res2} = q(["ZADD", ActiveUserKey, TimestampMs, Uid]),
     ok.
 
 

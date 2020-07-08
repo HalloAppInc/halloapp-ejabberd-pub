@@ -13,8 +13,12 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(UID, 1000000024384563984).
+-define(PHONE, 16175280000).
 -define(NAME, <<"Name">>).
--define(USER_AGENT, <<"HalloApp/Android1.0">>).
+-define(UA_ANDROID, <<"HalloApp/Android1.0">>).
+-define(UA_IOS, <<"HalloApp/iPhone1.0">>).
+-define(RESOURCE_ANDROID, <<"android">>).
+-define(RESOURCE_IOS, <<"iphone">>).
 
 %% -------------------------------------------- %%
 %% Tests
@@ -22,52 +26,58 @@
 
 set_test() ->
     setup(),
-    ?assertEqual(0, model_active_users:count_active_users_between(0, inf)),
-    ok = model_accounts:set_last_activity(integer_to_binary(?UID), util:now_ms(), available),
-    ?assertEqual(1, model_active_users:count_active_users_between(0, inf)).
+    ?assertEqual(0, model_active_users:count_active_users_between(all, 0, inf)),
+    ok = mod_active_users:update_last_activity(integer_to_binary(?UID + 1), util:now_ms(), ?RESOURCE_ANDROID),
+    ?assertEqual(1, model_active_users:count_active_users_between(all, 0, inf)).
 
 
 count_test() ->
     setup(),
     Now = util:now_ms(),
-    Days1 = length([model_accounts:set_last_activity(
-        integer_to_binary(?UID + Num), Now - random:uniform(?DAYS_MS), available
-        ) || Num <- lists:seq(1,25)
+    Days1 = length([mod_active_users:update_last_activity(
+        integer_to_binary(?UID + Num), Now - random:uniform(?DAYS_MS), ?RESOURCE_ANDROID
+        ) || Num <- lists:seq(1,3)
     ]),
-    Days7 = length([model_accounts:set_last_activity(
-        integer_to_binary(?UID + Num), Now - ?WEEKS_MS + random:uniform(6 * ?DAYS_MS), available
-    ) || Num <- lists:seq(26,50)
+    Days7 = Days1 + length([mod_active_users:update_last_activity(
+        integer_to_binary(?UID + Num), Now - ?WEEKS_MS + random:uniform(6 * ?DAYS_MS), ?RESOURCE_IOS
+    ) || Num <- lists:seq(4,6)
     ]),
-    Days28 = length([model_accounts:set_last_activity(
-        integer_to_binary(?UID + Num), Now - (28 * ?DAYS_MS) + random:uniform(14 * ?DAYS_MS), available
-    ) || Num <- lists:seq(51,75)
+    Days28 = Days7 + length([mod_active_users:update_last_activity(
+        integer_to_binary(?UID + Num), Now - (28 * ?DAYS_MS) + random:uniform(14 * ?DAYS_MS), ?RESOURCE_ANDROID
+    ) || Num <- lists:seq(7,9)
     ]),
-    Days30 = length([model_accounts:set_last_activity(
-        integer_to_binary(?UID + Num), Now - (30 * ?DAYS_MS) + random:uniform(2 * ?DAYS_MS), available
-    ) || Num <- lists:seq(76,100)
+    Days30 = Days28 + length([mod_active_users:update_last_activity(
+        integer_to_binary(?UID + Num), Now - (30 * ?DAYS_MS) + random:uniform(2 * ?DAYS_MS), ?RESOURCE_IOS
+    ) || Num <- lists:seq(10,12)
     ]),
-    ?assertEqual(Days1, model_active_users:count_active_users_1day()),
-    ?assertEqual(Days1 + Days7, model_active_users:count_active_users_7day()),
-    ?assertEqual(Days1 + Days7 + Days28, model_active_users:count_active_users_28day()),
-    ?assertEqual(Days1 + Days7 + Days28 + Days30, model_active_users:count_active_users_30day()),
-    ?assertEqual(100, model_active_users:count_active_users_between(0, inf)).
+    Day1Count = [mod_active_users:count_active_users_1day(Type) || Type <- [all, android, ios]],
+    ?assertEqual([Days1, Days1, 0], Day1Count),
+    Day7Count = [mod_active_users:count_active_users_7day(Type) || Type <- [all, android, ios]],
+    ?assertEqual([Days7, Days1, Days7 - Days1],  Day7Count),
+    Day28Count = [mod_active_users:count_active_users_28day(Type) || Type <- [all, android, ios]],
+    ?assertEqual([Days28, Days28 - Days7 + Days1, Days7 - Days1], Day28Count),
+    Day30Count = [mod_active_users:count_active_users_30day(Type) || Type <- [all, android, ios]],
+    ?assertEqual([Days30, Days28 - Days7 + Days1, Days30 - Days28 + Days7 - Days1], Day30Count),
+    Day30Count = [model_active_users:count_active_users_between(Type, 0, inf) || Type <- [all, android, ios]],
+    ?assertEqual([12, 6, 6], Day30Count).
 
 
 cleanup_test() ->
     setup(),
     Now = util:now_ms(),
-    ActiveUsers = length([model_accounts:set_last_activity(
-        integer_to_binary(?UID + Num), Now - random:uniform(30 * ?DAYS_MS), available
-    ) || Num <- lists:seq(1, 50)
+    ActiveUsers = length([mod_active_users:update_last_activity(
+        integer_to_binary(?UID + Num), Now - random:uniform(30 * ?DAYS_MS), ?RESOURCE_ANDROID
+    ) || Num <- lists:seq(1, 6)
     ]),
-    _InactiveUsers = [model_accounts:set_last_activity(
-        integer_to_binary(?UID + Num), Now - (30 * ?DAYS_MS) - random:uniform(?WEEKS_MS), available
-    ) || Num <- lists:seq(51, 100)
-    ],
-    ?assertEqual(100, model_active_users:count_active_users_between(0, inf)),
-    model_active_users:cleanup(),
-    ?assertEqual(ActiveUsers, model_active_users:count_active_users_between(0, inf)).
-
+    InactiveUsers = length([mod_active_users:update_last_activity(
+        integer_to_binary(?UID + Num), Now - (30 * ?DAYS_MS) - random:uniform(?WEEKS_MS), ?RESOURCE_IOS
+    ) || Num <- lists:seq(7, 12)
+    ]),
+    Before = [model_active_users:count_active_users_between(Type, 0, inf) || Type <- [all, android, ios]],
+    ?assertEqual([ActiveUsers + InactiveUsers, ActiveUsers, InactiveUsers], Before),
+    ok = model_active_users:cleanup(),
+    After = [model_active_users:count_active_users_between(Type, 0, inf) || Type <- [all, android, ios]],
+    ?assertEqual([ActiveUsers, ActiveUsers, 0], After).
 
 %% -------------------------------------------- %%
 %% Internal functions
@@ -76,7 +86,7 @@ cleanup_test() ->
 setup() ->
     mod_redis:start(undefined, []),
     clear(),
-    ok = create_accounts(100),
+    ok = create_accounts(12),
     ok.
 
 
@@ -89,7 +99,10 @@ create_accounts(0) ->
 
 create_accounts(Num) ->
     Uid = integer_to_binary(?UID + Num),
-    Phone = integer_to_binary(16175280000 + Num),
-    ok = model_accounts:create_account(Uid, Phone, ?NAME, ?USER_AGENT),
+    Phone = integer_to_binary(?PHONE + Num),
+    case Num rem 2 of
+        0 -> ok = model_accounts:create_account(Uid, Phone, ?NAME, ?UA_IOS);
+        1 -> ok = model_accounts:create_account(Uid, Phone, ?NAME, ?UA_ANDROID)
+    end,
     create_accounts(Num - 1).
 

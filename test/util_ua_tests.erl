@@ -41,3 +41,8 @@ is_hallo_ua_test() ->
     ?assertEqual(true, util_ua:is_hallo_ua("HalloApp/other")),
     ?assertEqual(false, util_ua:is_hallo_ua("Not")),
     ok.
+
+get_client_type_test() ->
+    ?assertEqual(android, util_ua:get_client_type(<<"HalloApp/Android1.0">>)),
+    ?assertEqual(ios, util_ua:get_client_type(<<"HalloApp/iPhone1.0">>)).
+

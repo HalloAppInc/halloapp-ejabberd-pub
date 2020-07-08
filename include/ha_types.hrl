@@ -17,5 +17,7 @@
 
 -type names_map() :: #{uid() := binary()}.
 
+-type client_type() :: android | ios.
+
 -endif.
 
