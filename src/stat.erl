@@ -13,6 +13,7 @@
 -behavior(gen_mod).
 
 -include("logger.hrl").
+-include("time.hrl").
 -include("erlcloud_mon.hrl").
 -include("erlcloud_aws.hrl").
 
@@ -124,9 +125,9 @@ init(_Stuff) ->
     {ok, _} = application:ensure_all_started(erlcloud),
     {ok, Config} = erlcloud_aws:auto_config(),
     erlcloud_aws:configure(Config),
-    {ok, _Tref1} = timer:apply_interval(1000, ?MODULE, trigger_send, []),
-    {ok, _Tref2} = timer:apply_interval(5 * 60 * 1000, ?MODULE, trigger_count_users, []),
-    {ok, _Tref3} = timer:apply_interval(10 * 60 * 1000, ?MODULE, trigger_zset_cleanup, []),
+    {ok, _Tref1} = timer:apply_interval(1 * ?SECONDS_MS, ?MODULE, trigger_send, []),
+    {ok, _Tref2} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, trigger_count_users, []),
+    {ok, _Tref3} = timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, trigger_zset_cleanup, []),
     CurrentMinute = util:round_to_minute(util:now()),
     {ok, #{minute => CurrentMinute}}.
 
@@ -172,7 +173,7 @@ maybe_rotate_data(State) ->
 -spec send_data(MetricsMap :: map()) -> ok.
 send_data(MetricsMap) when is_map(MetricsMap) ->
     {TimeSeconds, MetricsMap2} = maps:take(minute, MetricsMap),
-    Data = prepare_data(MetricsMap2, TimeSeconds * 1000),
+    Data = prepare_data(MetricsMap2, TimeSeconds * ?SECONDS_MS),
     send_to_cloudwatch(Data).
 
 
@@ -237,7 +238,7 @@ update_aws_config(#aws_config{access_key_id = AccessKeyId, expiration = Expirati
     %% Tokens are usually expire in 3h, refresh the token if it expires in less then 5 minutes
     %% Also refresh the token if somehow the times is too much in the future.
     %% (Maybe the clock was off)
-    case (ExpiresIn < 2 * 60) or (ExpiresIn > 24 * 60 * 60) of
+    case (ExpiresIn < 2 * ?MINUTES) or (ExpiresIn > 1 * ?DAYS) of
         false -> ok;
         true ->
             ?ERROR_MSG("erlcloud update_config failed to refresh our tokens: "
@@ -275,7 +276,7 @@ prepare_data(MetricsMap, TimestampMs)
 % O M G converting time 4 ways
 -spec convert_time(TimestampMs :: non_neg_integer()) -> calendar:datetime1970().
 convert_time(TimestampMs) ->
-    Seconds = TimestampMs div 1000,
+    Seconds = TimestampMs div ?SECONDS_MS,
     TS = {Seconds div 1000000, Seconds rem 1000000, 0},
     calendar:now_to_datetime(TS).
 
