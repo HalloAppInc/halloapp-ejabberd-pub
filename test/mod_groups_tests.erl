@@ -293,3 +293,12 @@ modify_members_test() ->
         mod_groups:modify_members(Gid, ?UID1, [{?UID4, add}, {?UID3, remove}, {?UID5, add}])),
     ?assertEqual(lists:sort([?UID1, ?UID2, ?UID4]), lists:sort(model_groups:get_member_uids(Gid))),
     ok.
+
+send_message_test() ->
+    setup(),
+    {ok, Group, _Res} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    Gid = Group#group.gid,
+    % TODO: enable test after util:get_host is fixed to work in tests
+%%    {ok, _Ts} = mod_groups:send_message(Gid, ?UID1, <<"TestMessage">>),
+    ok.
+

@@ -14,14 +14,13 @@
 -export([start/2, stop/1, mod_options/1, depends/2]).
 
 -export([
+    send_group_message/1,
     process_local_iq/1
 ]).
 
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("groups.hrl").
-
--define(NS_GROUPS, <<"halloapp:groups">>).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -32,12 +31,14 @@
 start(Host, _Opts) ->
     ?INFO_MSG("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_GROUPS, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(group_message, Host, ?MODULE, send_group_message, 50),
     ok.
 
 
 stop(Host) ->
     ?INFO_MSG("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_GROUPS),
+    ejabberd_hooks:delete(group_message, Host, ?MODULE, send_group_message, 50),
     ok.
 
 
@@ -52,6 +53,21 @@ mod_options(_Host) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%   API                                                                                      %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% group_message %%%
+send_group_message(#message{from = #jid{luser = Uid}, type = groupchat,
+        sub_els = [#group_chat{gid = Gid} = GroupChatSt]} = Msg) ->
+    ?INFO_MSG("Gid: ~s, Uid: ~s", [Gid, Uid]),
+    MessagePayload = GroupChatSt#group_chat.cdata,
+    case mod_groups:send_message(Gid, Uid, MessagePayload) of
+        {error, Reason} ->
+            ErrorMsg = xmpp:make_error(Msg, err(Reason)),
+            ejabberd_router:route(ErrorMsg);
+        {ok, _Ts} ->
+            ok
+    end,
+    ok.
+
 
 %%% create_group %%%
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,

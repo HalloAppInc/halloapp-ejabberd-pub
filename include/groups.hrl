@@ -10,6 +10,8 @@
 
 -include("ha_types.hrl").
 
+-define(NS_GROUPS, <<"halloapp:groups">>).
+
 -record(group_member, {
     uid :: uid(),
     type :: member | admin

@@ -33,6 +33,7 @@
 
 setup() ->
     gen_iq_handler:start(ejabberd_local),
+    ejabberd_hooks:start_link(),
     mod_redis:start(undefined, []),
     clear(),
     setup_accounts(),

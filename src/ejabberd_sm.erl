@@ -739,7 +739,7 @@ do_route(#presence{to = #jid{lresource = <<"">>} = To, type = T} = Packet)
     end;
 do_route(#message{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
     ?DEBUG("Processing message to bare JID:~n~ts", [xmpp:pp(Packet)]),
-    if T == chat; T == headline; T == normal ->
+    if T == chat; T == headline; T == normal; T == groupchat ->
 	    route_message(Packet);
        true ->
 	    ejabberd_hooks:run_fold(bounce_sm_packet,

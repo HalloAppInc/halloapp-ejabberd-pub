@@ -43,7 +43,8 @@
     is_member/2,
     is_admin/2,
     set_name/2,
-    set_avatar/2
+    set_avatar/2,
+    check_member/2
 ]).
 
 

@@ -239,30 +239,27 @@ set_avatar(Gid, Uid, AvatarId) ->
     end.
 
 
--spec send_message(Gid :: gid(), Uid :: uid(), MessageIn :: binary())
+-spec send_message(Gid :: gid(), Uid :: uid(), MessagePayload :: binary())
             -> {ok, Ts} | {error, atom()}
             when Ts :: non_neg_integer().
-send_message(Gid, Uid, MessageIn) ->
+send_message(Gid, Uid, MessagePayload) ->
     ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
             {error, not_member};
         true ->
-            %% TODO: use util:uid_to_jids and ejabberd_router_multicast:route_multicast
-            Ts = util:now_ms(),
-            GroupMessage = make_message(Gid, Uid, MessageIn, Ts),
+            Ts = util:now(),
+            GroupInfo = model_groups:get_group_info(Gid),
+            {ok, SenderName} = model_accounts:get_name(Uid),
+            GroupMessage = make_message(GroupInfo, Uid, SenderName, MessagePayload, Ts),
             MUids = model_groups:get_member_uids(Gid),
+            ReceiverUids = lists:delete(Uid, MUids),
             Server = util:get_host(),
-            lists:foreach(
-                fun (OUid) ->
-                    MessageOut = #message{
-                        from = jid:make(Server),
-                        to = jid:make(OUid, Server),
-                        sub_els = [GroupMessage]},
-                    ejabberd_router:route(MessageOut)
-                end,
-                MUids),
+            Jids = util:uids_to_jids(ReceiverUids, Server),
+            From = jid:make(Server),
+            Packet = #message{type = groupchat, sub_els = [GroupMessage]},
+            ejabberd_router_multicast:route_multicast(From, Server, Jids, Packet),
             {ok, Ts}
     end.
 
@@ -389,11 +386,18 @@ check_accounts_exists(Uids) ->
         Uids).
 
 
-make_message(_Gid, _Uid, _MessageIn, _Ts) ->
-    % TODO: implement
-    undefined.
-%%    #group_message{
-%%
-%%    }
-
+-spec make_message(GroupInfo :: group_info(), Uid :: uid(), SenderName :: binary(),
+        MessagePayload :: binary(), Ts :: integer()) -> group_chat().
+make_message(GroupInfo, Uid, SenderName, MessagePayload, Ts) ->
+    #group_chat{
+        xmlns = ?NS_GROUPS,
+        gid = GroupInfo#group_info.gid,
+        name = GroupInfo#group_info.name,
+        % TODO: figure out how to deal with avatar set to undefined.
+%%        avatar = GroupInfo#group_info.avatar,
+        sender = Uid,
+        sender_name = SenderName,
+        timestamp = integer_to_binary(Ts),
+        cdata = MessagePayload
+    }.
 
