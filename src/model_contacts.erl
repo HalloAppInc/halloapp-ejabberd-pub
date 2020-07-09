@@ -152,7 +152,11 @@ finish_sync(Uid, Sid) ->
         fun(Contact) ->
             {ok, _} = q(["SADD", reverse_key(Contact), Uid])
         end, AddedContactList),
-    {ok, _Res} = q(["RENAME", sync_key(Uid, Sid), contacts_key(Uid)]),
+    %% Empty contact sync should still work fine, so check if sync_key exists or not.
+    {ok, _Res} = case q(["EXISTS", sync_key(Uid, Sid)]) of
+        {ok, <<"0">>} -> q(["DEL", contacts_key(Uid)]);
+        {ok, <<"1">>} -> q(["RENAME", sync_key(Uid, Sid), contacts_key(Uid)])
+    end,
     ok.
 
 
