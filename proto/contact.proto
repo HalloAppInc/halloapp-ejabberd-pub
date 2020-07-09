@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+
+// Contact-Sync
+
+message contact {
+    enum Action {
+        add = 0;
+        delete = 1;
+    }
+    Action action = 1;
+    string raw = 2;
+    string normalized = 3;
+    int64 uid = 4;
+    string avatarid = 5;
+    enum Role {
+        friend = 0;
+        none = 1;
+    }
+    Role role = 6;
+}
+
+message contact_list {
+    enum Type {
+        full = 0;
+        delta = 1;
+    }
+    Type type = 1;
+    string syncid = 2;
+    int32 index = 3;
+    bool is_last = 4;
+    repeated contact contacts = 5;
+}
+

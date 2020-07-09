@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+
+// Avatar
+
+message avatar {
+    string id = 1;
+    int64 uid = 2;
+    bytes data = 3;
+}
+
+message avatars {
+    repeated avatar avatars = 1;
+}
+

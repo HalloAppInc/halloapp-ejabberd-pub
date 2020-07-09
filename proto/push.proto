@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+
+// Push Tokens
+
+message push_token {
+    enum Os {
+        android = 0;
+        ios = 1;
+        ios_dev = 2;
+    }
+    Os os = 1;
+    string token = 2;
+}
+
+message push_register {
+    push_token push_token = 1;
+}
+

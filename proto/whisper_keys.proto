@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+
+// Whisper Encryption
+
+message whisper_keys {
+    int64 uid = 1;
+    enum Action {
+        normal = 0;
+        add = 1;
+        count = 2;
+        get = 3;
+        set = 4;
+        update = 5;
+    }
+    Action action = 2;
+    bytes identity_key = 3;
+    bytes signed_key = 4;
+    int32 otp_key_count = 5;
+    repeated bytes one_time_keys = 6;
+}
+

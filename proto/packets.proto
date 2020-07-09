@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+
+import "auth.proto";
+import "avatar.proto";
+import "media_upload.proto";
+import "contact.proto";
+import "receipts.proto";
+import "feed_items.proto";
+import "whisper_keys.proto";
+import "push.proto";
+import "client_info.proto";
+
+
+// Chat
+
+message chat {
+  int64 timestamp = 1;
+  bytes payload = 2;
+}
+
+
+// Ping
+
+message ping {
+}
+
+
+// Payload for iq/message
+
+message iq_payload {
+    oneof content {
+        upload_media um = 1;
+        contact_list cl = 2;
+        avatar a = 3;
+        avatars as = 4;
+        client_mode cm = 5;
+        client_version cv = 6;
+        push_register pr = 7;
+        whisper_keys wk = 8;
+        ping p = 9;
+        feed_item fi = 10;
+        feed_node_items fni = 11;
+    }
+}
+
+message msg_payload {
+    oneof content {
+        contact_list cl = 1;
+        avatar a = 2;
+        whisper_keys wk = 3;
+        seen s = 4;
+        received r = 5;
+        chat c = 6;
+        feed_item fi = 7;
+        feed_node_items fni = 8;
+    }
+}
+
+
+// IQ
+
+message ha_iq {
+    string id = 1;
+    enum Type {
+        get = 0;
+        set = 1;
+        result = 2;
+        error = 3;
+    }
+    Type type = 2;
+    iq_payload payload = 3;
+}
+
+
+// Message
+
+message ha_message {
+    string id = 1;
+    enum Type {
+        chat = 0;
+        error = 1;
+        groupchat = 2;
+        headline = 3;
+        normal = 4;
+    }
+    Type type = 2;
+    int64 to_uid = 3;
+    int64 from_uid = 4;
+    msg_payload payload = 5;
+}
+
+
+// Presence
+
+message ha_presence {
+    string id = 1;
+    enum Type {
+        available = 0;
+        away = 1;
+    }
+    Type type = 2;
+    int64 uid = 3;
+    int64 last_seen = 4;
+}
+
+
+// Ack
+
+message ha_ack {
+    string id = 1;
+    int64 timestamp = 2;
+}
+
+
+// Error packet: Only to be sent by the server to the client.
+
+message ha_error {
+    string reason = 1;
+    packet p = 2;
+}
+
+
+// Super Packet
+
+message packet {
+    oneof stanza {
+        ha_message msg = 1;
+        ha_iq iq = 2;
+        ha_ack ack = 3;
+        ha_presence presence = 4;
+        ha_error error = 5;
+    }
+}
+
+
+

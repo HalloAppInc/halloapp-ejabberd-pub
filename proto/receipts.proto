@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+
+// Seen and Delivery Receipts
+
+message seen {
+    string id = 1;
+    string thread_id = 2;
+    int64 timestamp = 3;
+}
+
+message received {
+    string id = 1;
+    string thread_id = 2;
+    int64 timestamp = 3;
+}
+
