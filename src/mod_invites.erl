@@ -116,10 +116,13 @@ get_time_until_refresh(CurrEpochTime) ->
     get_next_sunday_midnight(CurrEpochTime) - CurrEpochTime.
 
 % this function should return {ok, NumInvitesRemaining}
--spec request_invite(FromUid :: binary(), ToPhoneNum :: binary()) ->
-    {ToPhoneNum :: binary(), ok | error, undefined | no_invites_left | existing_user | invalid_number }.
+-spec request_invite(FromUid :: binary(), ToPhoneNum :: binary()) -> {ToPhoneNum :: binary(),
+        ok | error, undefined | no_invites_left | existing_user | invalid_number}.
 request_invite(FromUid, ToPhoneNum) ->
     case can_send_invite(FromUid, ToPhoneNum) of
+        {error, already_invited} ->
+            stat:count(?NS_INVITE_STATS, "invite_duplicate"),
+            {ToPhoneNum, ok, undefined};
         {error, Reason} ->
             stat:count(?NS_INVITE_STATS, "invite_error_" ++ atom_to_list(Reason)),
             {ToPhoneNum, failed, Reason};
@@ -136,14 +139,19 @@ can_send_invite(FromUid, ToPhone) ->
     case NormPhone of
         undefined -> {error, invalid_number};
         _ ->
-            InvsRem = get_invites_remaining(FromUid),
-            case InvsRem of
-                0 -> {error, no_invites_left};
-                _ ->
-                    case model_phone:get_uid(ToPhone) of
-                        {ok, undefined} -> {ok, InvsRem, NormPhone};
-                        {ok, _} -> {error, existing_user}
-                    end
+            case model_phone:get_uid(NormPhone) of
+                {ok, undefined} ->
+                    IsInvited = model_invites:is_invited_by(NormPhone, FromUid),
+                    case IsInvited of
+                        true -> {error, already_invited};
+                        false ->
+                            InvsRem = get_invites_remaining(FromUid),
+                            case InvsRem of
+                                0 -> {error, no_invites_left};
+                                _ -> {ok, InvsRem, NormPhone}
+                            end
+                    end;
+                {ok, _} -> {error, existing_user}
             end
     end.
 

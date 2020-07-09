@@ -69,7 +69,7 @@ send_invites_error3_test() ->
     Expected = [
         #invite{phone = ?PHONE2, result = failed, reason = existing_user},
         #invite{phone = <<"16175283002">>, result = ok},
-        #invite{phone = <<"16175283002">>, result = ok},
+        #invite{phone = <<"16175283003">>, result = ok},
         #invite{phone = <<"212">>, result = failed, reason = invalid_number}
     ],
     ?assertEqual(Expected, get_invite_subel_list(Actual)),
@@ -83,7 +83,7 @@ send_invites_error4_test() ->
     Expected = [
         #invite{phone = ?PHONE2, result = ok},
         #invite{phone = <<"16175283002">>, result = ok},
-        #invite{phone = <<"16175283002">>, result = ok},
+        #invite{phone = <<"16175283003">>, result = ok},
         #invite{phone = <<"212">>, result = failed, reason = invalid_number}
     ],
     ?assertEqual(Expected, get_invite_subel_list(Result)).
@@ -126,7 +126,18 @@ request_invite_error2_test() ->
     [mod_invites:request_invite(?UID1, integer_to_binary(Phone)) ||
         Phone <- lists:seq(16175289000, 16175289000 + ?MAX_NUM_INVITES)],
     ?assertEqual({?PHONE2, failed, no_invites_left}, mod_invites:request_invite(?UID1, ?PHONE2)),
+    ?assertEqual(0, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual({<<"16175289000">>, ok, undefined}, mod_invites:request_invite(?UID1, <<"16175289000">>)),
     ?assertEqual(0, mod_invites:get_invites_remaining(?UID1)).
+
+% tests that a duplicate invite will not decrease invite limit
+request_invite_error3_test() ->
+    setup(),
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual({?PHONE2, ok, undefined}, mod_invites:request_invite(?UID1, ?PHONE2)),
+    ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual({?PHONE2, ok, undefined}, mod_invites:request_invite(?UID1, ?PHONE2)),
+    ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)).
 
 % tests is_invited
 is_invited__test() ->
@@ -214,7 +225,7 @@ create_invite_iq(Uid) ->
         sub_els = [#invites{invites = [
             #invite{phone = ?PHONE2},
             #invite{phone = <<"16175283002">>},
-            #invite{phone = <<"16175283002">>},
+            #invite{phone = <<"16175283003">>},
             #invite{phone = <<"212">>}
         ]}]
     }.

@@ -26,6 +26,7 @@
     get_invites_remaining/1,
     record_invite/3,
     is_invited/1,
+    is_invited_by/2,
     get_inviter/1
 ]).
 
@@ -76,6 +77,12 @@ record_invite(FromUid, ToPhoneNum, NumInvsLeft) ->
 -spec is_invited(PhoneNum :: binary()) -> boolean().
 is_invited(PhoneNum) ->
     {ok, Res} = q_phones(["EXISTS", ph_invited_by_key(PhoneNum)]),
+    binary_to_integer(Res) == 1.
+
+
+-spec is_invited_by(Phone :: binary(), Uid :: binary()) -> boolean().
+is_invited_by(Phone, Uid) ->
+    {ok, Res} = q_accounts(["SISMEMBER", acc_invites_key(Uid), Phone]),
     binary_to_integer(Res) == 1.
 
 
