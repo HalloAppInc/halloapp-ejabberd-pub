@@ -468,7 +468,9 @@ broadcast_update(Gid, Uid, Event, Group, Results, NamesMap) ->
     GroupSt = #group_st{
         gid = Group#group.gid,
         name = Group#group.name,
-        avatar = Group#group.avatar,
+        %TODO: fix later
+%%        avatar = Group#group.avatar,
+        avatar = <<"">>,
         sender = Uid,
         sender_name = maps:get(Uid, NamesMap, undefined),
         action = Event,
