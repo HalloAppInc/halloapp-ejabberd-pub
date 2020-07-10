@@ -478,7 +478,7 @@ broadcast_update(Gid, Uid, Event, Group, Results, NamesMap) ->
     Members = [M#group_member.uid || M <- Group#group.members],
     Server = util:get_host(),
     Jids = util:uids_to_jids(Members, Server),
-    From = Server,
+    From = jid:make(Server),
     Packet = #message{type = groupchat, sub_els = [GroupSt]},
     ejabberd_router_multicast:route_multicast(From, Server, Jids, Packet),
     ok.
