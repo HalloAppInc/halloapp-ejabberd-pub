@@ -64,10 +64,11 @@ mod_options(_Host) ->
 
 %% TODO(murali@): we should not rely on metadata info from the client.
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, lang = Lang,
-        sub_els = [#avatar{bytes = BytesSize, width = Width, height = Height,
+        sub_els = [#avatar{width = Width, height = Height,
         userid = Uid, id = Id, cdata = Data}]} = IQ) ->
         try
             BinaryData = base64:decode(Data),
+            BytesSize = byte_size(BinaryData),
             IsJpeg = is_jpeg(BinaryData),
             MaxDim = max(Width, Height),
             if
@@ -79,7 +80,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
                     Txt = ?T("Avatar size is too large, limit < 50KB."),
                     ?WARNING_MSG("Uid: ~s, Avatar is too large, size: ~s", [UserId, BytesSize]),
                     xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-                MaxDim > ?MAX_AVATAR_DIM ->
+                MaxDim > ?MAX_AVATAR_DIM andalso MaxDim =/= undefined ->
                     Txt = ?T("Avatar must have a max dimension of 256."),
                     ?WARNING_MSG("Uid: ~s, Avatar has wrong dimensions: ~s x ~s",
                             [UserId, Width, Height]),
@@ -88,7 +89,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
                     Txt = ?T("Invalid uid in the request."),
                     ?WARNING_MSG("Uid: ~s, Invalid user id: ~s in the request", [UserId, Uid]),
                     xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-                IsJpeg =:= false ->
+                IsJpeg =:= false andalso BytesSize > 0 ->
                     Txt = ?T("Invalid image format in the request, accepts only jpeg."),
                     ?WARNING_MSG("Uid: ~s, Invalid image format in the request", [UserId]),
                     xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
