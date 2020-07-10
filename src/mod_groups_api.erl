@@ -291,16 +291,17 @@ make_member_st(MemberUid, Result, Type, Action) ->
 
 
 make_member_st(MemberUid, Result, Type) ->
-    {Result2, Reason} = case Result of
-        ok -> {ok, <<>>};
-        Result -> {failed, Result}
-    end,
-    #member_st{
+    M = #member_st{
         uid = MemberUid,
-        result = Result2,
-        reason = Reason,
         type = Type
-    }.
+    },
+    M2 = case Result of
+        ok ->
+            M#member_st{result = ok};
+        Result ->
+            M#member_st{result = failed, reason = Result}
+    end,
+    M2.
 
 
 -spec err(Reason :: atom()) -> stanza_error().
