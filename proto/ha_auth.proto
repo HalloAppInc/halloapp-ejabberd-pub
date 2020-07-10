@@ -6,7 +6,7 @@ import "client_info.proto";
 
 // Definitions for authentication packet.
 
-message auth {
+message auth_request {
     int64 uid = 1;
     string pwd = 2;
     client_mode cm = 3;

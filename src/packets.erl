@@ -19,7 +19,7 @@
 -export(['enum_symbol_by_value_pb_ha_iq.Type'/1, 'enum_value_by_symbol_pb_ha_iq.Type'/1]).
 -export(['enum_symbol_by_value_pb_ha_message.Type'/1, 'enum_value_by_symbol_pb_ha_message.Type'/1]).
 -export(['enum_symbol_by_value_pb_ha_presence.Type'/1, 'enum_value_by_symbol_pb_ha_presence.Type'/1]).
--export(['enum_symbol_by_value_pb_auth.Resource'/1, 'enum_value_by_symbol_pb_auth.Resource'/1]).
+-export(['enum_symbol_by_value_pb_auth_request.Resource'/1, 'enum_value_by_symbol_pb_auth_request.Resource'/1]).
 -export(['enum_symbol_by_value_pb_client_mode.Mode'/1, 'enum_value_by_symbol_pb_client_mode.Mode'/1]).
 -export(['enum_symbol_by_value_pb_contact.Action'/1, 'enum_value_by_symbol_pb_contact.Action'/1]).
 -export(['enum_symbol_by_value_pb_contact.Role'/1, 'enum_value_by_symbol_pb_contact.Role'/1]).
@@ -62,7 +62,7 @@
 -type 'pb_ha_iq.Type'() :: get | set | result | error.
 -type 'pb_ha_message.Type'() :: chat | error | groupchat | headline | normal.
 -type 'pb_ha_presence.Type'() :: available | away.
--type 'pb_auth.Resource'() :: android | ios.
+-type 'pb_auth_request.Resource'() :: android | ios.
 -type 'pb_client_mode.Mode'() :: active | passive.
 -type 'pb_contact.Action'() :: add | delete.
 -type 'pb_contact.Role'() :: friend | none.
@@ -70,7 +70,7 @@
 -type 'pb_feed_item.Action'() :: publish | retract.
 -type 'pb_whisper_keys.Action'() :: normal | add | count | get | set | update.
 -type 'pb_push_token.Os'() :: android | ios | ios_dev.
--export_type(['pb_ha_iq.Type'/0, 'pb_ha_message.Type'/0, 'pb_ha_presence.Type'/0, 'pb_auth.Resource'/0, 'pb_client_mode.Mode'/0, 'pb_contact.Action'/0, 'pb_contact.Role'/0, 'pb_contact_list.Type'/0, 'pb_feed_item.Action'/0, 'pb_whisper_keys.Action'/0, 'pb_push_token.Os'/0]).
+-export_type(['pb_ha_iq.Type'/0, 'pb_ha_message.Type'/0, 'pb_ha_presence.Type'/0, 'pb_auth_request.Resource'/0, 'pb_client_mode.Mode'/0, 'pb_contact.Action'/0, 'pb_contact.Role'/0, 'pb_contact_list.Type'/0, 'pb_feed_item.Action'/0, 'pb_whisper_keys.Action'/0, 'pb_push_token.Os'/0]).
 
 %% message types
 -type pb_chat() :: #pb_chat{}.
@@ -93,7 +93,7 @@
 
 -type pb_packet() :: #pb_packet{}.
 
--type pb_auth() :: #pb_auth{}.
+-type pb_auth_request() :: #pb_auth_request{}.
 
 -type pb_auth_result() :: #pb_auth_result{}.
 
@@ -131,16 +131,16 @@
 
 -type pb_push_register() :: #pb_push_register{}.
 
--export_type(['pb_chat'/0, 'pb_ping'/0, 'pb_iq_payload'/0, 'pb_msg_payload'/0, 'pb_ha_iq'/0, 'pb_ha_message'/0, 'pb_ha_presence'/0, 'pb_ha_ack'/0, 'pb_ha_error'/0, 'pb_packet'/0, 'pb_auth'/0, 'pb_auth_result'/0, 'pb_client_mode'/0, 'pb_client_version'/0, 'pb_avatar'/0, 'pb_avatars'/0, 'pb_media_urls'/0, 'pb_upload_media'/0, 'pb_contact'/0, 'pb_contact_list'/0, 'pb_seen'/0, 'pb_received'/0, 'pb_feedpost'/0, 'pb_comment'/0, 'pb_feed_item'/0, 'pb_feed_node_items'/0, 'pb_whisper_keys'/0, 'pb_push_token'/0, 'pb_push_register'/0]).
+-export_type(['pb_chat'/0, 'pb_ping'/0, 'pb_iq_payload'/0, 'pb_msg_payload'/0, 'pb_ha_iq'/0, 'pb_ha_message'/0, 'pb_ha_presence'/0, 'pb_ha_ack'/0, 'pb_ha_error'/0, 'pb_packet'/0, 'pb_auth_request'/0, 'pb_auth_result'/0, 'pb_client_mode'/0, 'pb_client_version'/0, 'pb_avatar'/0, 'pb_avatars'/0, 'pb_media_urls'/0, 'pb_upload_media'/0, 'pb_contact'/0, 'pb_contact_list'/0, 'pb_seen'/0, 'pb_received'/0, 'pb_feedpost'/0, 'pb_comment'/0, 'pb_feed_item'/0, 'pb_feed_node_items'/0, 'pb_whisper_keys'/0, 'pb_push_token'/0, 'pb_push_register'/0]).
 
--spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_avatar{} | #pb_avatars{} | #pb_media_urls{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_seen{} | #pb_received{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}) -> binary().
+-spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_avatar{} | #pb_avatars{} | #pb_media_urls{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_seen{} | #pb_received{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}) -> binary().
 encode_msg(Msg) when tuple_size(Msg) >= 1 -> encode_msg(Msg, element(1, Msg), []).
 
--spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_avatar{} | #pb_avatars{} | #pb_media_urls{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_seen{} | #pb_received{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}, atom() | list()) -> binary().
+-spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_avatar{} | #pb_avatars{} | #pb_media_urls{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_seen{} | #pb_received{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}, atom() | list()) -> binary().
 encode_msg(Msg, MsgName) when is_atom(MsgName) -> encode_msg(Msg, MsgName, []);
 encode_msg(Msg, Opts) when tuple_size(Msg) >= 1, is_list(Opts) -> encode_msg(Msg, element(1, Msg), Opts).
 
--spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_avatar{} | #pb_avatars{} | #pb_media_urls{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_seen{} | #pb_received{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}, atom(), list()) -> binary().
+-spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_avatar{} | #pb_avatars{} | #pb_media_urls{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_seen{} | #pb_received{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}, atom(), list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
     case proplists:get_bool(verify, Opts) of
       true -> verify_msg(Msg, MsgName, Opts);
@@ -158,7 +158,7 @@ encode_msg(Msg, MsgName, Opts) ->
       pb_ha_ack -> encode_msg_pb_ha_ack(id(Msg, TrUserData), TrUserData);
       pb_ha_error -> encode_msg_pb_ha_error(id(Msg, TrUserData), TrUserData);
       pb_packet -> encode_msg_pb_packet(id(Msg, TrUserData), TrUserData);
-      pb_auth -> encode_msg_pb_auth(id(Msg, TrUserData), TrUserData);
+      pb_auth_request -> encode_msg_pb_auth_request(id(Msg, TrUserData), TrUserData);
       pb_auth_result -> encode_msg_pb_auth_result(id(Msg, TrUserData), TrUserData);
       pb_client_mode -> encode_msg_pb_client_mode(id(Msg, TrUserData), TrUserData);
       pb_client_version -> encode_msg_pb_client_version(id(Msg, TrUserData), TrUserData);
@@ -425,10 +425,10 @@ encode_msg_pb_packet(#pb_packet{stanza = F1}, Bin, TrUserData) ->
 	   end
     end.
 
-encode_msg_pb_auth(Msg, TrUserData) -> encode_msg_pb_auth(Msg, <<>>, TrUserData).
+encode_msg_pb_auth_request(Msg, TrUserData) -> encode_msg_pb_auth_request(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_auth(#pb_auth{uid = F1, pwd = F2, cm = F3, cv = F4, resource = F5}, Bin, TrUserData) ->
+encode_msg_pb_auth_request(#pb_auth_request{uid = F1, pwd = F2, cm = F3, cv = F4, resource = F5}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -453,7 +453,7 @@ encode_msg_pb_auth(#pb_auth{uid = F1, pwd = F2, cm = F3, cv = F4, resource = F5}
 		begin
 		  TrF3 = id(F3, TrUserData),
 		  if TrF3 =:= undefined -> B2;
-		     true -> e_mfield_pb_auth_cm(TrF3, <<B2/binary, 26>>, TrUserData)
+		     true -> e_mfield_pb_auth_request_cm(TrF3, <<B2/binary, 26>>, TrUserData)
 		  end
 		end
 	 end,
@@ -462,7 +462,7 @@ encode_msg_pb_auth(#pb_auth{uid = F1, pwd = F2, cm = F3, cv = F4, resource = F5}
 		begin
 		  TrF4 = id(F4, TrUserData),
 		  if TrF4 =:= undefined -> B3;
-		     true -> e_mfield_pb_auth_cv(TrF4, <<B3/binary, 34>>, TrUserData)
+		     true -> e_mfield_pb_auth_request_cv(TrF4, <<B3/binary, 34>>, TrUserData)
 		  end
 		end
 	 end,
@@ -471,7 +471,7 @@ encode_msg_pb_auth(#pb_auth{uid = F1, pwd = F2, cm = F3, cv = F4, resource = F5}
 	   begin
 	     TrF5 = id(F5, TrUserData),
 	     if TrF5 =:= android; TrF5 =:= 0 -> B4;
-		true -> 'e_enum_pb_auth.Resource'(TrF5, <<B4/binary, 40>>, TrUserData)
+		true -> 'e_enum_pb_auth_request.Resource'(TrF5, <<B4/binary, 40>>, TrUserData)
 	     end
 	   end
     end.
@@ -1103,9 +1103,9 @@ e_mfield_pb_packet_presence(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_ha_p
 
 e_mfield_pb_packet_error(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_ha_error(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
-e_mfield_pb_auth_cm(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_client_mode(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
+e_mfield_pb_auth_request_cm(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_client_mode(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
-e_mfield_pb_auth_cv(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_client_version(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
+e_mfield_pb_auth_request_cv(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_client_version(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_pb_avatars_avatars(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_avatar(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
@@ -1153,9 +1153,9 @@ e_mfield_pb_push_register_push_token(Msg, Bin, TrUserData) -> SubBin = encode_ms
 'e_enum_pb_ha_presence.Type'(away, Bin, _TrUserData) -> <<Bin/binary, 1>>;
 'e_enum_pb_ha_presence.Type'(V, Bin, _TrUserData) -> e_varint(V, Bin).
 
-'e_enum_pb_auth.Resource'(android, Bin, _TrUserData) -> <<Bin/binary, 0>>;
-'e_enum_pb_auth.Resource'(ios, Bin, _TrUserData) -> <<Bin/binary, 1>>;
-'e_enum_pb_auth.Resource'(V, Bin, _TrUserData) -> e_varint(V, Bin).
+'e_enum_pb_auth_request.Resource'(android, Bin, _TrUserData) -> <<Bin/binary, 0>>;
+'e_enum_pb_auth_request.Resource'(ios, Bin, _TrUserData) -> <<Bin/binary, 1>>;
+'e_enum_pb_auth_request.Resource'(V, Bin, _TrUserData) -> e_varint(V, Bin).
 
 'e_enum_pb_client_mode.Mode'(active, Bin, _TrUserData) -> <<Bin/binary, 0>>;
 'e_enum_pb_client_mode.Mode'(passive, Bin, _TrUserData) -> <<Bin/binary, 1>>;
@@ -1291,7 +1291,7 @@ decode_msg_2_doit(pb_ha_presence, Bin, TrUserData) -> id(decode_msg_pb_ha_presen
 decode_msg_2_doit(pb_ha_ack, Bin, TrUserData) -> id(decode_msg_pb_ha_ack(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_ha_error, Bin, TrUserData) -> id(decode_msg_pb_ha_error(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_packet, Bin, TrUserData) -> id(decode_msg_pb_packet(Bin, TrUserData), TrUserData);
-decode_msg_2_doit(pb_auth, Bin, TrUserData) -> id(decode_msg_pb_auth(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(pb_auth_request, Bin, TrUserData) -> id(decode_msg_pb_auth_request(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_auth_result, Bin, TrUserData) -> id(decode_msg_pb_auth_result(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_client_mode, Bin, TrUserData) -> id(decode_msg_pb_client_mode(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_client_version, Bin, TrUserData) -> id(decode_msg_pb_client_version(Bin, TrUserData), TrUserData);
@@ -2059,79 +2059,80 @@ skip_32_pb_packet(<<_:32, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_f
 
 skip_64_pb_packet(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_packet(Rest, Z1, Z2, F@_1, TrUserData).
 
-decode_msg_pb_auth(Bin, TrUserData) -> dfp_read_field_def_pb_auth(Bin, 0, 0, id(0, TrUserData), id([], TrUserData), id(undefined, TrUserData), id(undefined, TrUserData), id(android, TrUserData), TrUserData).
+decode_msg_pb_auth_request(Bin, TrUserData) -> dfp_read_field_def_pb_auth_request(Bin, 0, 0, id(0, TrUserData), id([], TrUserData), id(undefined, TrUserData), id(undefined, TrUserData), id(android, TrUserData), TrUserData).
 
-dfp_read_field_def_pb_auth(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dfp_read_field_def_pb_auth(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_pwd(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dfp_read_field_def_pb_auth(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_cm(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dfp_read_field_def_pb_auth(<<34, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_cv(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dfp_read_field_def_pb_auth(<<40, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_resource(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dfp_read_field_def_pb_auth(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> #pb_auth{uid = F@_1, pwd = F@_2, cm = F@_3, cv = F@_4, resource = F@_5};
-dfp_read_field_def_pb_auth(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dg_read_field_def_pb_auth(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
+dfp_read_field_def_pb_auth_request(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_pb_auth_request(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_pwd(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_pb_auth_request(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_cm(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_pb_auth_request(<<34, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_cv(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_pb_auth_request(<<40, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_resource(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_pb_auth_request(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> #pb_auth_request{uid = F@_1, pwd = F@_2, cm = F@_3, cv = F@_4, resource = F@_5};
+dfp_read_field_def_pb_auth_request(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dg_read_field_def_pb_auth_request(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-dg_read_field_def_pb_auth(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_auth(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dg_read_field_def_pb_auth(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
+dg_read_field_def_pb_auth_request(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_auth_request(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dg_read_field_def_pb_auth_request(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-      8 -> d_field_pb_auth_uid(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-      18 -> d_field_pb_auth_pwd(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-      26 -> d_field_pb_auth_cm(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-      34 -> d_field_pb_auth_cv(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-      40 -> d_field_pb_auth_resource(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+      8 -> d_field_pb_auth_request_uid(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+      18 -> d_field_pb_auth_request_pwd(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+      26 -> d_field_pb_auth_request_cm(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+      34 -> d_field_pb_auth_request_cv(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+      40 -> d_field_pb_auth_request_resource(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
       _ ->
 	  case Key band 7 of
-	    0 -> skip_varint_pb_auth(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-	    1 -> skip_64_pb_auth(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-	    2 -> skip_length_delimited_pb_auth(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-	    3 -> skip_group_pb_auth(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-	    5 -> skip_32_pb_auth(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData)
+	    0 -> skip_varint_pb_auth_request(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+	    1 -> skip_64_pb_auth_request(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+	    2 -> skip_length_delimited_pb_auth_request(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+	    3 -> skip_group_pb_auth_request(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+	    5 -> skip_32_pb_auth_request(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_auth(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> #pb_auth{uid = F@_1, pwd = F@_2, cm = F@_3, cv = F@_4, resource = F@_5}.
+dg_read_field_def_pb_auth_request(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> #pb_auth_request{uid = F@_1, pwd = F@_2, cm = F@_3, cv = F@_4, resource = F@_5}.
 
-d_field_pb_auth_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-d_field_pb_auth_uid(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
-    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_auth(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, F@_5, TrUserData).
+d_field_pb_auth_request_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_request_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_pb_auth_request_uid(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
+    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_auth_request(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-d_field_pb_auth_pwd(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_pwd(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-d_field_pb_auth_pwd(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_auth(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, TrUserData).
+d_field_pb_auth_request_pwd(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_request_pwd(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_pb_auth_request_pwd(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
+    dfp_read_field_def_pb_auth_request(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, TrUserData).
 
-d_field_pb_auth_cm(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_cm(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-d_field_pb_auth_cm(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, Prev, F@_4, F@_5, TrUserData) ->
+d_field_pb_auth_request_cm(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_request_cm(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_pb_auth_request_cm(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, Prev, F@_4, F@_5, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_client_mode(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_auth(RestF, 0, 0, F@_1, F@_2,
-			       if Prev == undefined -> NewFValue;
-				  true -> merge_msg_pb_client_mode(Prev, NewFValue, TrUserData)
-			       end,
-			       F@_4, F@_5, TrUserData).
+    dfp_read_field_def_pb_auth_request(RestF, 0, 0, F@_1, F@_2,
+				       if Prev == undefined -> NewFValue;
+					  true -> merge_msg_pb_client_mode(Prev, NewFValue, TrUserData)
+				       end,
+				       F@_4, F@_5, TrUserData).
 
-d_field_pb_auth_cv(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_cv(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-d_field_pb_auth_cv(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, Prev, F@_5, TrUserData) ->
+d_field_pb_auth_request_cv(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_request_cv(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_pb_auth_request_cv(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, Prev, F@_5, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_client_version(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_auth(RestF, 0, 0, F@_1, F@_2, F@_3,
-			       if Prev == undefined -> NewFValue;
-				  true -> merge_msg_pb_client_version(Prev, NewFValue, TrUserData)
-			       end,
-			       F@_5, TrUserData).
+    dfp_read_field_def_pb_auth_request(RestF, 0, 0, F@_1, F@_2, F@_3,
+				       if Prev == undefined -> NewFValue;
+					  true -> merge_msg_pb_client_version(Prev, NewFValue, TrUserData)
+				       end,
+				       F@_5, TrUserData).
 
-d_field_pb_auth_resource(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_resource(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-d_field_pb_auth_resource(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, TrUserData) ->
-    {NewFValue, RestF} = {id('d_enum_pb_auth.Resource'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
-    dfp_read_field_def_pb_auth(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, TrUserData).
+d_field_pb_auth_request_resource(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_request_resource(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_pb_auth_request_resource(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, TrUserData) ->
+    {NewFValue, RestF} = {id('d_enum_pb_auth_request.Resource'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
+    dfp_read_field_def_pb_auth_request(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, TrUserData).
 
-skip_varint_pb_auth(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> skip_varint_pb_auth(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-skip_varint_pb_auth(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_auth(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
+skip_varint_pb_auth_request(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> skip_varint_pb_auth_request(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+skip_varint_pb_auth_request(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_auth_request(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-skip_length_delimited_pb_auth(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> skip_length_delimited_pb_auth(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-skip_length_delimited_pb_auth(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
-    Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_auth(Rest2, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
+skip_length_delimited_pb_auth_request(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> skip_length_delimited_pb_auth_request(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+skip_length_delimited_pb_auth_request(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
+    Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_auth_request(Rest2, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-skip_group_pb_auth(Bin, FNum, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_auth(Rest, 0, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
+skip_group_pb_auth_request(Bin, FNum, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_auth_request(Rest, 0, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-skip_32_pb_auth(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_auth(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
+skip_32_pb_auth_request(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_auth_request(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-skip_64_pb_auth(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_auth(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
+skip_64_pb_auth_request(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_auth_request(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
 decode_msg_pb_auth_result(Bin, TrUserData) -> dfp_read_field_def_pb_auth_result(Bin, 0, 0, id([], TrUserData), id([], TrUserData), TrUserData).
 
@@ -3090,9 +3091,9 @@ skip_64_pb_push_register(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp
 'd_enum_pb_ha_presence.Type'(1) -> away;
 'd_enum_pb_ha_presence.Type'(V) -> V.
 
-'d_enum_pb_auth.Resource'(0) -> android;
-'d_enum_pb_auth.Resource'(1) -> ios;
-'d_enum_pb_auth.Resource'(V) -> V.
+'d_enum_pb_auth_request.Resource'(0) -> android;
+'d_enum_pb_auth_request.Resource'(1) -> ios;
+'d_enum_pb_auth_request.Resource'(V) -> V.
 
 'd_enum_pb_client_mode.Mode'(0) -> active;
 'd_enum_pb_client_mode.Mode'(1) -> passive;
@@ -3203,7 +3204,7 @@ merge_msgs(Prev, New, MsgName, Opts) ->
       pb_ha_ack -> merge_msg_pb_ha_ack(Prev, New, TrUserData);
       pb_ha_error -> merge_msg_pb_ha_error(Prev, New, TrUserData);
       pb_packet -> merge_msg_pb_packet(Prev, New, TrUserData);
-      pb_auth -> merge_msg_pb_auth(Prev, New, TrUserData);
+      pb_auth_request -> merge_msg_pb_auth_request(Prev, New, TrUserData);
       pb_auth_result -> merge_msg_pb_auth_result(Prev, New, TrUserData);
       pb_client_mode -> merge_msg_pb_client_mode(Prev, New, TrUserData);
       pb_client_version -> merge_msg_pb_client_version(Prev, New, TrUserData);
@@ -3363,30 +3364,30 @@ merge_msg_pb_packet(#pb_packet{stanza = PFstanza}, #pb_packet{stanza = NFstanza}
 		     _ -> NFstanza
 		   end}.
 
--compile({nowarn_unused_function,merge_msg_pb_auth/3}).
-merge_msg_pb_auth(#pb_auth{uid = PFuid, pwd = PFpwd, cm = PFcm, cv = PFcv, resource = PFresource}, #pb_auth{uid = NFuid, pwd = NFpwd, cm = NFcm, cv = NFcv, resource = NFresource}, TrUserData) ->
-    #pb_auth{uid =
-		 if NFuid =:= undefined -> PFuid;
-		    true -> NFuid
-		 end,
-	     pwd =
-		 if NFpwd =:= undefined -> PFpwd;
-		    true -> NFpwd
-		 end,
-	     cm =
-		 if PFcm /= undefined, NFcm /= undefined -> merge_msg_pb_client_mode(PFcm, NFcm, TrUserData);
-		    PFcm == undefined -> NFcm;
-		    NFcm == undefined -> PFcm
-		 end,
-	     cv =
-		 if PFcv /= undefined, NFcv /= undefined -> merge_msg_pb_client_version(PFcv, NFcv, TrUserData);
-		    PFcv == undefined -> NFcv;
-		    NFcv == undefined -> PFcv
-		 end,
-	     resource =
-		 if NFresource =:= undefined -> PFresource;
-		    true -> NFresource
-		 end}.
+-compile({nowarn_unused_function,merge_msg_pb_auth_request/3}).
+merge_msg_pb_auth_request(#pb_auth_request{uid = PFuid, pwd = PFpwd, cm = PFcm, cv = PFcv, resource = PFresource}, #pb_auth_request{uid = NFuid, pwd = NFpwd, cm = NFcm, cv = NFcv, resource = NFresource}, TrUserData) ->
+    #pb_auth_request{uid =
+			 if NFuid =:= undefined -> PFuid;
+			    true -> NFuid
+			 end,
+		     pwd =
+			 if NFpwd =:= undefined -> PFpwd;
+			    true -> NFpwd
+			 end,
+		     cm =
+			 if PFcm /= undefined, NFcm /= undefined -> merge_msg_pb_client_mode(PFcm, NFcm, TrUserData);
+			    PFcm == undefined -> NFcm;
+			    NFcm == undefined -> PFcm
+			 end,
+		     cv =
+			 if PFcv /= undefined, NFcv /= undefined -> merge_msg_pb_client_version(PFcv, NFcv, TrUserData);
+			    PFcv == undefined -> NFcv;
+			    NFcv == undefined -> PFcv
+			 end,
+		     resource =
+			 if NFresource =:= undefined -> PFresource;
+			    true -> NFresource
+			 end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_auth_result/3}).
 merge_msg_pb_auth_result(#pb_auth_result{result = PFresult, reason = PFreason}, #pb_auth_result{result = NFresult, reason = NFreason}, _) ->
@@ -3688,7 +3689,7 @@ verify_msg(Msg, MsgName, Opts) ->
       pb_ha_ack -> v_msg_pb_ha_ack(Msg, [MsgName], TrUserData);
       pb_ha_error -> v_msg_pb_ha_error(Msg, [MsgName], TrUserData);
       pb_packet -> v_msg_pb_packet(Msg, [MsgName], TrUserData);
-      pb_auth -> v_msg_pb_auth(Msg, [MsgName], TrUserData);
+      pb_auth_request -> v_msg_pb_auth_request(Msg, [MsgName], TrUserData);
       pb_auth_result -> v_msg_pb_auth_result(Msg, [MsgName], TrUserData);
       pb_client_mode -> v_msg_pb_client_mode(Msg, [MsgName], TrUserData);
       pb_client_version -> v_msg_pb_client_version(Msg, [MsgName], TrUserData);
@@ -3857,9 +3858,9 @@ v_msg_pb_packet(#pb_packet{stanza = F1}, Path, TrUserData) ->
     ok;
 v_msg_pb_packet(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_packet}, X, Path).
 
--compile({nowarn_unused_function,v_msg_pb_auth/3}).
--dialyzer({nowarn_function,v_msg_pb_auth/3}).
-v_msg_pb_auth(#pb_auth{uid = F1, pwd = F2, cm = F3, cv = F4, resource = F5}, Path, TrUserData) ->
+-compile({nowarn_unused_function,v_msg_pb_auth_request/3}).
+-dialyzer({nowarn_function,v_msg_pb_auth_request/3}).
+v_msg_pb_auth_request(#pb_auth_request{uid = F1, pwd = F2, cm = F3, cv = F4, resource = F5}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_int64(F1, [uid | Path], TrUserData)
     end,
@@ -3873,10 +3874,10 @@ v_msg_pb_auth(#pb_auth{uid = F1, pwd = F2, cm = F3, cv = F4, resource = F5}, Pat
        true -> v_msg_pb_client_version(F4, [cv | Path], TrUserData)
     end,
     if F5 == undefined -> ok;
-       true -> 'v_enum_pb_auth.Resource'(F5, [resource | Path], TrUserData)
+       true -> 'v_enum_pb_auth_request.Resource'(F5, [resource | Path], TrUserData)
     end,
     ok;
-v_msg_pb_auth(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_auth}, X, Path).
+v_msg_pb_auth_request(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_auth_request}, X, Path).
 
 -compile({nowarn_unused_function,v_msg_pb_auth_result/3}).
 -dialyzer({nowarn_function,v_msg_pb_auth_result/3}).
@@ -4174,12 +4175,12 @@ v_msg_pb_push_register(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_
 'v_enum_pb_ha_presence.Type'(V, Path, TrUserData) when is_integer(V) -> v_type_sint32(V, Path, TrUserData);
 'v_enum_pb_ha_presence.Type'(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'pb_ha_presence.Type'}, X, Path).
 
--compile({nowarn_unused_function,'v_enum_pb_auth.Resource'/3}).
--dialyzer({nowarn_function,'v_enum_pb_auth.Resource'/3}).
-'v_enum_pb_auth.Resource'(android, _Path, _TrUserData) -> ok;
-'v_enum_pb_auth.Resource'(ios, _Path, _TrUserData) -> ok;
-'v_enum_pb_auth.Resource'(V, Path, TrUserData) when is_integer(V) -> v_type_sint32(V, Path, TrUserData);
-'v_enum_pb_auth.Resource'(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'pb_auth.Resource'}, X, Path).
+-compile({nowarn_unused_function,'v_enum_pb_auth_request.Resource'/3}).
+-dialyzer({nowarn_function,'v_enum_pb_auth_request.Resource'/3}).
+'v_enum_pb_auth_request.Resource'(android, _Path, _TrUserData) -> ok;
+'v_enum_pb_auth_request.Resource'(ios, _Path, _TrUserData) -> ok;
+'v_enum_pb_auth_request.Resource'(V, Path, TrUserData) when is_integer(V) -> v_type_sint32(V, Path, TrUserData);
+'v_enum_pb_auth_request.Resource'(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'pb_auth_request.Resource'}, X, Path).
 
 -compile({nowarn_unused_function,'v_enum_pb_client_mode.Mode'/3}).
 -dialyzer({nowarn_function,'v_enum_pb_client_mode.Mode'/3}).
@@ -4315,7 +4316,7 @@ cons(Elem, Acc, _TrUserData) -> [Elem | Acc].
 
 get_msg_defs() ->
     [{{enum, 'pb_ha_iq.Type'}, [{get, 0}, {set, 1}, {result, 2}, {error, 3}]}, {{enum, 'pb_ha_message.Type'}, [{chat, 0}, {error, 1}, {groupchat, 2}, {headline, 3}, {normal, 4}]}, {{enum, 'pb_ha_presence.Type'}, [{available, 0}, {away, 1}]},
-     {{enum, 'pb_auth.Resource'}, [{android, 0}, {ios, 1}]}, {{enum, 'pb_client_mode.Mode'}, [{active, 0}, {passive, 1}]}, {{enum, 'pb_contact.Action'}, [{add, 0}, {delete, 1}]}, {{enum, 'pb_contact.Role'}, [{friend, 0}, {none, 1}]},
+     {{enum, 'pb_auth_request.Resource'}, [{android, 0}, {ios, 1}]}, {{enum, 'pb_client_mode.Mode'}, [{active, 0}, {passive, 1}]}, {{enum, 'pb_contact.Action'}, [{add, 0}, {delete, 1}]}, {{enum, 'pb_contact.Role'}, [{friend, 0}, {none, 1}]},
      {{enum, 'pb_contact_list.Type'}, [{full, 0}, {delta, 1}]}, {{enum, 'pb_feed_item.Action'}, [{publish, 0}, {retract, 1}]}, {{enum, 'pb_whisper_keys.Action'}, [{normal, 0}, {add, 1}, {count, 2}, {get, 3}, {set, 4}, {update, 5}]},
      {{enum, 'pb_push_token.Os'}, [{android, 0}, {ios, 1}, {ios_dev, 2}]},
      {{msg, pb_chat}, [#field{name = timestamp, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = payload, fnum = 2, rnum = 3, type = bytes, occurrence = optional, opts = []}]}, {{msg, pb_ping}, []},
@@ -4353,10 +4354,10 @@ get_msg_defs() ->
 		      [#field{name = msg, fnum = 1, rnum = 2, type = {msg, pb_ha_message}, occurrence = optional, opts = []}, #field{name = iq, fnum = 2, rnum = 2, type = {msg, pb_ha_iq}, occurrence = optional, opts = []},
 		       #field{name = ack, fnum = 3, rnum = 2, type = {msg, pb_ha_ack}, occurrence = optional, opts = []}, #field{name = presence, fnum = 4, rnum = 2, type = {msg, pb_ha_presence}, occurrence = optional, opts = []},
 		       #field{name = error, fnum = 5, rnum = 2, type = {msg, pb_ha_error}, occurrence = optional, opts = []}]}]},
-     {{msg, pb_auth},
+     {{msg, pb_auth_request},
       [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = pwd, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = cm, fnum = 3, rnum = 4, type = {msg, pb_client_mode}, occurrence = optional, opts = []}, #field{name = cv, fnum = 4, rnum = 5, type = {msg, pb_client_version}, occurrence = optional, opts = []},
-       #field{name = resource, fnum = 5, rnum = 6, type = {enum, 'pb_auth.Resource'}, occurrence = optional, opts = []}]},
+       #field{name = resource, fnum = 5, rnum = 6, type = {enum, 'pb_auth_request.Resource'}, occurrence = optional, opts = []}]},
      {{msg, pb_auth_result}, [#field{name = result, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = reason, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}]},
      {{msg, pb_client_mode}, [#field{name = mode, fnum = 1, rnum = 2, type = {enum, 'pb_client_mode.Mode'}, occurrence = optional, opts = []}]},
      {{msg, pb_client_version}, [#field{name = version, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = expires_in_seconds, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}]},
@@ -4402,7 +4403,7 @@ get_msg_defs() ->
 
 
 get_msg_names() ->
-    [pb_chat, pb_ping, pb_iq_payload, pb_msg_payload, pb_ha_iq, pb_ha_message, pb_ha_presence, pb_ha_ack, pb_ha_error, pb_packet, pb_auth, pb_auth_result, pb_client_mode, pb_client_version, pb_avatar, pb_avatars, pb_media_urls, pb_upload_media,
+    [pb_chat, pb_ping, pb_iq_payload, pb_msg_payload, pb_ha_iq, pb_ha_message, pb_ha_presence, pb_ha_ack, pb_ha_error, pb_packet, pb_auth_request, pb_auth_result, pb_client_mode, pb_client_version, pb_avatar, pb_avatars, pb_media_urls, pb_upload_media,
      pb_contact, pb_contact_list, pb_seen, pb_received, pb_feedpost, pb_comment, pb_feed_item, pb_feed_node_items, pb_whisper_keys, pb_push_token, pb_push_register].
 
 
@@ -4410,12 +4411,12 @@ get_group_names() -> [].
 
 
 get_msg_or_group_names() ->
-    [pb_chat, pb_ping, pb_iq_payload, pb_msg_payload, pb_ha_iq, pb_ha_message, pb_ha_presence, pb_ha_ack, pb_ha_error, pb_packet, pb_auth, pb_auth_result, pb_client_mode, pb_client_version, pb_avatar, pb_avatars, pb_media_urls, pb_upload_media,
+    [pb_chat, pb_ping, pb_iq_payload, pb_msg_payload, pb_ha_iq, pb_ha_message, pb_ha_presence, pb_ha_ack, pb_ha_error, pb_packet, pb_auth_request, pb_auth_result, pb_client_mode, pb_client_version, pb_avatar, pb_avatars, pb_media_urls, pb_upload_media,
      pb_contact, pb_contact_list, pb_seen, pb_received, pb_feedpost, pb_comment, pb_feed_item, pb_feed_node_items, pb_whisper_keys, pb_push_token, pb_push_register].
 
 
 get_enum_names() ->
-    ['pb_ha_iq.Type', 'pb_ha_message.Type', 'pb_ha_presence.Type', 'pb_auth.Resource', 'pb_client_mode.Mode', 'pb_contact.Action', 'pb_contact.Role', 'pb_contact_list.Type', 'pb_feed_item.Action', 'pb_whisper_keys.Action', 'pb_push_token.Os'].
+    ['pb_ha_iq.Type', 'pb_ha_message.Type', 'pb_ha_presence.Type', 'pb_auth_request.Resource', 'pb_client_mode.Mode', 'pb_contact.Action', 'pb_contact.Role', 'pb_contact_list.Type', 'pb_feed_item.Action', 'pb_whisper_keys.Action', 'pb_push_token.Os'].
 
 
 fetch_msg_def(MsgName) ->
@@ -4468,10 +4469,10 @@ find_msg_def(pb_packet) ->
 		    [#field{name = msg, fnum = 1, rnum = 2, type = {msg, pb_ha_message}, occurrence = optional, opts = []}, #field{name = iq, fnum = 2, rnum = 2, type = {msg, pb_ha_iq}, occurrence = optional, opts = []},
 		     #field{name = ack, fnum = 3, rnum = 2, type = {msg, pb_ha_ack}, occurrence = optional, opts = []}, #field{name = presence, fnum = 4, rnum = 2, type = {msg, pb_ha_presence}, occurrence = optional, opts = []},
 		     #field{name = error, fnum = 5, rnum = 2, type = {msg, pb_ha_error}, occurrence = optional, opts = []}]}];
-find_msg_def(pb_auth) ->
+find_msg_def(pb_auth_request) ->
     [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = pwd, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = cm, fnum = 3, rnum = 4, type = {msg, pb_client_mode}, occurrence = optional, opts = []}, #field{name = cv, fnum = 4, rnum = 5, type = {msg, pb_client_version}, occurrence = optional, opts = []},
-     #field{name = resource, fnum = 5, rnum = 6, type = {enum, 'pb_auth.Resource'}, occurrence = optional, opts = []}];
+     #field{name = resource, fnum = 5, rnum = 6, type = {enum, 'pb_auth_request.Resource'}, occurrence = optional, opts = []}];
 find_msg_def(pb_auth_result) -> [#field{name = result, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = reason, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}];
 find_msg_def(pb_client_mode) -> [#field{name = mode, fnum = 1, rnum = 2, type = {enum, 'pb_client_mode.Mode'}, occurrence = optional, opts = []}];
 find_msg_def(pb_client_version) -> [#field{name = version, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = expires_in_seconds, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}];
@@ -4520,7 +4521,7 @@ find_msg_def(_) -> error.
 find_enum_def('pb_ha_iq.Type') -> [{get, 0}, {set, 1}, {result, 2}, {error, 3}];
 find_enum_def('pb_ha_message.Type') -> [{chat, 0}, {error, 1}, {groupchat, 2}, {headline, 3}, {normal, 4}];
 find_enum_def('pb_ha_presence.Type') -> [{available, 0}, {away, 1}];
-find_enum_def('pb_auth.Resource') -> [{android, 0}, {ios, 1}];
+find_enum_def('pb_auth_request.Resource') -> [{android, 0}, {ios, 1}];
 find_enum_def('pb_client_mode.Mode') -> [{active, 0}, {passive, 1}];
 find_enum_def('pb_contact.Action') -> [{add, 0}, {delete, 1}];
 find_enum_def('pb_contact.Role') -> [{friend, 0}, {none, 1}];
@@ -4534,7 +4535,7 @@ find_enum_def(_) -> error.
 enum_symbol_by_value('pb_ha_iq.Type', Value) -> 'enum_symbol_by_value_pb_ha_iq.Type'(Value);
 enum_symbol_by_value('pb_ha_message.Type', Value) -> 'enum_symbol_by_value_pb_ha_message.Type'(Value);
 enum_symbol_by_value('pb_ha_presence.Type', Value) -> 'enum_symbol_by_value_pb_ha_presence.Type'(Value);
-enum_symbol_by_value('pb_auth.Resource', Value) -> 'enum_symbol_by_value_pb_auth.Resource'(Value);
+enum_symbol_by_value('pb_auth_request.Resource', Value) -> 'enum_symbol_by_value_pb_auth_request.Resource'(Value);
 enum_symbol_by_value('pb_client_mode.Mode', Value) -> 'enum_symbol_by_value_pb_client_mode.Mode'(Value);
 enum_symbol_by_value('pb_contact.Action', Value) -> 'enum_symbol_by_value_pb_contact.Action'(Value);
 enum_symbol_by_value('pb_contact.Role', Value) -> 'enum_symbol_by_value_pb_contact.Role'(Value);
@@ -4547,7 +4548,7 @@ enum_symbol_by_value('pb_push_token.Os', Value) -> 'enum_symbol_by_value_pb_push
 enum_value_by_symbol('pb_ha_iq.Type', Sym) -> 'enum_value_by_symbol_pb_ha_iq.Type'(Sym);
 enum_value_by_symbol('pb_ha_message.Type', Sym) -> 'enum_value_by_symbol_pb_ha_message.Type'(Sym);
 enum_value_by_symbol('pb_ha_presence.Type', Sym) -> 'enum_value_by_symbol_pb_ha_presence.Type'(Sym);
-enum_value_by_symbol('pb_auth.Resource', Sym) -> 'enum_value_by_symbol_pb_auth.Resource'(Sym);
+enum_value_by_symbol('pb_auth_request.Resource', Sym) -> 'enum_value_by_symbol_pb_auth_request.Resource'(Sym);
 enum_value_by_symbol('pb_client_mode.Mode', Sym) -> 'enum_value_by_symbol_pb_client_mode.Mode'(Sym);
 enum_value_by_symbol('pb_contact.Action', Sym) -> 'enum_value_by_symbol_pb_contact.Action'(Sym);
 enum_value_by_symbol('pb_contact.Role', Sym) -> 'enum_value_by_symbol_pb_contact.Role'(Sym);
@@ -4588,12 +4589,12 @@ enum_value_by_symbol('pb_push_token.Os', Sym) -> 'enum_value_by_symbol_pb_push_t
 'enum_value_by_symbol_pb_ha_presence.Type'(available) -> 0;
 'enum_value_by_symbol_pb_ha_presence.Type'(away) -> 1.
 
-'enum_symbol_by_value_pb_auth.Resource'(0) -> android;
-'enum_symbol_by_value_pb_auth.Resource'(1) -> ios.
+'enum_symbol_by_value_pb_auth_request.Resource'(0) -> android;
+'enum_symbol_by_value_pb_auth_request.Resource'(1) -> ios.
 
 
-'enum_value_by_symbol_pb_auth.Resource'(android) -> 0;
-'enum_value_by_symbol_pb_auth.Resource'(ios) -> 1.
+'enum_value_by_symbol_pb_auth_request.Resource'(android) -> 0;
+'enum_value_by_symbol_pb_auth_request.Resource'(ios) -> 1.
 
 'enum_symbol_by_value_pb_client_mode.Mode'(0) -> active;
 'enum_symbol_by_value_pb_client_mode.Mode'(1) -> passive.
@@ -4708,7 +4709,7 @@ fqbin_to_msg_name(<<"ha_presence">>) -> pb_ha_presence;
 fqbin_to_msg_name(<<"ha_ack">>) -> pb_ha_ack;
 fqbin_to_msg_name(<<"ha_error">>) -> pb_ha_error;
 fqbin_to_msg_name(<<"packet">>) -> pb_packet;
-fqbin_to_msg_name(<<"auth">>) -> pb_auth;
+fqbin_to_msg_name(<<"auth_request">>) -> pb_auth_request;
 fqbin_to_msg_name(<<"auth_result">>) -> pb_auth_result;
 fqbin_to_msg_name(<<"client_mode">>) -> pb_client_mode;
 fqbin_to_msg_name(<<"client_version">>) -> pb_client_version;
@@ -4740,7 +4741,7 @@ msg_name_to_fqbin(pb_ha_presence) -> <<"ha_presence">>;
 msg_name_to_fqbin(pb_ha_ack) -> <<"ha_ack">>;
 msg_name_to_fqbin(pb_ha_error) -> <<"ha_error">>;
 msg_name_to_fqbin(pb_packet) -> <<"packet">>;
-msg_name_to_fqbin(pb_auth) -> <<"auth">>;
+msg_name_to_fqbin(pb_auth_request) -> <<"auth_request">>;
 msg_name_to_fqbin(pb_auth_result) -> <<"auth_result">>;
 msg_name_to_fqbin(pb_client_mode) -> <<"client_mode">>;
 msg_name_to_fqbin(pb_client_version) -> <<"client_version">>;
@@ -4765,7 +4766,7 @@ msg_name_to_fqbin(E) -> error({gpb_error, {badmsg, E}}).
 fqbin_to_enum_name(<<"ha_iq.Type">>) -> 'pb_ha_iq.Type';
 fqbin_to_enum_name(<<"ha_message.Type">>) -> 'pb_ha_message.Type';
 fqbin_to_enum_name(<<"ha_presence.Type">>) -> 'pb_ha_presence.Type';
-fqbin_to_enum_name(<<"auth.Resource">>) -> 'pb_auth.Resource';
+fqbin_to_enum_name(<<"auth_request.Resource">>) -> 'pb_auth_request.Resource';
 fqbin_to_enum_name(<<"client_mode.Mode">>) -> 'pb_client_mode.Mode';
 fqbin_to_enum_name(<<"contact.Action">>) -> 'pb_contact.Action';
 fqbin_to_enum_name(<<"contact.Role">>) -> 'pb_contact.Role';
@@ -4779,7 +4780,7 @@ fqbin_to_enum_name(E) -> error({gpb_error, {badenum, E}}).
 enum_name_to_fqbin('pb_ha_iq.Type') -> <<"ha_iq.Type">>;
 enum_name_to_fqbin('pb_ha_message.Type') -> <<"ha_message.Type">>;
 enum_name_to_fqbin('pb_ha_presence.Type') -> <<"ha_presence.Type">>;
-enum_name_to_fqbin('pb_auth.Resource') -> <<"auth.Resource">>;
+enum_name_to_fqbin('pb_auth_request.Resource') -> <<"auth_request.Resource">>;
 enum_name_to_fqbin('pb_client_mode.Mode') -> <<"client_mode.Mode">>;
 enum_name_to_fqbin('pb_contact.Action') -> <<"contact.Action">>;
 enum_name_to_fqbin('pb_contact.Role') -> <<"contact.Role">>;
@@ -4806,7 +4807,7 @@ source_basename() -> "packets.proto".
 %% source file. The files are returned with extension,
 %% see get_all_proto_names/0 for a version that returns
 %% the basenames sans extension
-get_all_source_basenames() -> ["packets.proto", "auth.proto", "client_info.proto", "avatar.proto", "media_upload.proto", "contact.proto", "receipts.proto", "feed_items.proto", "whisper_keys.proto", "push.proto"].
+get_all_source_basenames() -> ["packets.proto", "ha_auth.proto", "client_info.proto", "avatar.proto", "media_upload.proto", "contact.proto", "receipts.proto", "feed_items.proto", "whisper_keys.proto", "push.proto"].
 
 
 %% Retrieve all proto file names, also imported ones.
@@ -4814,11 +4815,11 @@ get_all_source_basenames() -> ["packets.proto", "auth.proto", "client_info.proto
 %% source file. The files are returned sans .proto extension,
 %% to make it easier to use them with the various get_xyz_containment
 %% functions.
-get_all_proto_names() -> ["packets", "auth", "client_info", "avatar", "media_upload", "contact", "receipts", "feed_items", "whisper_keys", "push"].
+get_all_proto_names() -> ["packets", "ha_auth", "client_info", "avatar", "media_upload", "contact", "receipts", "feed_items", "whisper_keys", "push"].
 
 
 get_msg_containment("packets") -> [pb_chat, pb_ha_ack, pb_ha_error, pb_ha_iq, pb_ha_message, pb_ha_presence, pb_iq_payload, pb_msg_payload, pb_packet, pb_ping];
-get_msg_containment("auth") -> [pb_auth, pb_auth_result];
+get_msg_containment("ha_auth") -> [pb_auth_request, pb_auth_result];
 get_msg_containment("client_info") -> [pb_client_mode, pb_client_version];
 get_msg_containment("avatar") -> [pb_avatar, pb_avatars];
 get_msg_containment("media_upload") -> [pb_media_urls, pb_upload_media];
@@ -4831,7 +4832,7 @@ get_msg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
 get_pkg_containment("packets") -> undefined;
-get_pkg_containment("auth") -> undefined;
+get_pkg_containment("ha_auth") -> undefined;
 get_pkg_containment("client_info") -> undefined;
 get_pkg_containment("avatar") -> undefined;
 get_pkg_containment("media_upload") -> undefined;
@@ -4844,7 +4845,7 @@ get_pkg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
 get_service_containment("packets") -> [];
-get_service_containment("auth") -> [];
+get_service_containment("ha_auth") -> [];
 get_service_containment("client_info") -> [];
 get_service_containment("avatar") -> [];
 get_service_containment("media_upload") -> [];
@@ -4857,7 +4858,7 @@ get_service_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
 get_rpc_containment("packets") -> [];
-get_rpc_containment("auth") -> [];
+get_rpc_containment("ha_auth") -> [];
 get_rpc_containment("client_info") -> [];
 get_rpc_containment("avatar") -> [];
 get_rpc_containment("media_upload") -> [];
@@ -4870,7 +4871,7 @@ get_rpc_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
 get_enum_containment("packets") -> ['pb_ha_iq.Type', 'pb_ha_message.Type', 'pb_ha_presence.Type'];
-get_enum_containment("auth") -> ['pb_auth.Resource'];
+get_enum_containment("ha_auth") -> ['pb_auth_request.Resource'];
 get_enum_containment("client_info") -> ['pb_client_mode.Mode'];
 get_enum_containment("avatar") -> [];
 get_enum_containment("media_upload") -> [];
@@ -4896,7 +4897,8 @@ get_proto_by_msg_name_as_fqbin(<<"comment">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"received">>) -> "receipts";
 get_proto_by_msg_name_as_fqbin(<<"contact_list">>) -> "contact";
 get_proto_by_msg_name_as_fqbin(<<"contact">>) -> "contact";
-get_proto_by_msg_name_as_fqbin(<<"auth_result">>) -> "auth";
+get_proto_by_msg_name_as_fqbin(<<"auth_result">>) -> "ha_auth";
+get_proto_by_msg_name_as_fqbin(<<"auth_request">>) -> "ha_auth";
 get_proto_by_msg_name_as_fqbin(<<"packet">>) -> "packets";
 get_proto_by_msg_name_as_fqbin(<<"msg_payload">>) -> "packets";
 get_proto_by_msg_name_as_fqbin(<<"iq_payload">>) -> "packets";
@@ -4905,7 +4907,6 @@ get_proto_by_msg_name_as_fqbin(<<"client_mode">>) -> "client_info";
 get_proto_by_msg_name_as_fqbin(<<"ha_presence">>) -> "packets";
 get_proto_by_msg_name_as_fqbin(<<"ha_message">>) -> "packets";
 get_proto_by_msg_name_as_fqbin(<<"ping">>) -> "packets";
-get_proto_by_msg_name_as_fqbin(<<"auth">>) -> "auth";
 get_proto_by_msg_name_as_fqbin(<<"ha_ack">>) -> "packets";
 get_proto_by_msg_name_as_fqbin(<<"feed_item">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"push_token">>) -> "push";
@@ -4922,7 +4923,7 @@ get_proto_by_enum_name_as_fqbin(<<"push_token.Os">>) -> "push";
 get_proto_by_enum_name_as_fqbin(<<"contact_list.Type">>) -> "contact";
 get_proto_by_enum_name_as_fqbin(<<"contact.Role">>) -> "contact";
 get_proto_by_enum_name_as_fqbin(<<"client_mode.Mode">>) -> "client_info";
-get_proto_by_enum_name_as_fqbin(<<"auth.Resource">>) -> "auth";
+get_proto_by_enum_name_as_fqbin(<<"auth_request.Resource">>) -> "ha_auth";
 get_proto_by_enum_name_as_fqbin(<<"ha_presence.Type">>) -> "packets";
 get_proto_by_enum_name_as_fqbin(<<"ha_message.Type">>) -> "packets";
 get_proto_by_enum_name_as_fqbin(<<"ha_iq.Type">>) -> "packets";

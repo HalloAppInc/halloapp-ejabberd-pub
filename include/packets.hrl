@@ -88,14 +88,14 @@
         }).
 -endif.
 
--ifndef('PB_AUTH_PB_H').
--define('PB_AUTH_PB_H', true).
--record(pb_auth,
+-ifndef('PB_AUTH_REQUEST_PB_H').
+-define('PB_AUTH_REQUEST_PB_H', true).
+-record(pb_auth_request,
         {uid = 0                :: integer() | undefined, % = 1, 64 bits
          pwd = []               :: iodata() | undefined, % = 2
          cm = undefined         :: packets:pb_client_mode() | undefined, % = 3
          cv = undefined         :: packets:pb_client_version() | undefined, % = 4
-         resource = android     :: android | ios | integer() | undefined % = 5, enum pb_auth.Resource
+         resource = android     :: android | ios | integer() | undefined % = 5, enum pb_auth_request.Resource
         }).
 -endif.
 
