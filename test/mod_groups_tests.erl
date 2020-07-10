@@ -29,6 +29,7 @@
 
 
 setup() ->
+    stringprep:start(),
     mod_redis:start(undefined, []),
     clear(),
     setup_accounts(),

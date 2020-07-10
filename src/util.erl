@@ -46,8 +46,13 @@
 
 -spec get_host() -> binary().
 get_host() ->
-	[H | []] = ejabberd_option:hosts(),
-	H.
+    case config:is_testing_env() of
+        true ->
+            <<"s.halloapp.net">>;
+        false ->
+            [H | []] = ejabberd_option:hosts(),
+            H
+    end.
 
 -spec now_ms() -> integer().
 now_ms() ->

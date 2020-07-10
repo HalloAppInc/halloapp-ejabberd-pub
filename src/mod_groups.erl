@@ -103,10 +103,8 @@ create_group(Uid, GroupName, MemberUids) ->
             Results = add_members_unsafe(Gid, Uid, MemberUids),
 
             Group = model_groups:get_group(Gid),
-            % TODO: work for future MR about sending events to other members.
-            % TODO move this code into another MR
-%%            NamesMap = get_names([Uid | MemberUids]),
-%%            broadcast_update(Gid, Uid, modify_members, Group, Results, NamesMap),
+
+            send_create_group_event(Gid, Uid, Group, Results),
             {ok, Group, Results}
     end.
 
@@ -132,7 +130,9 @@ modify_members(Gid, Uid, Changes) ->
             {RemoveUids, AddUids} = split_changes(Changes, remove),
             RemoveResults = remove_members_unsafe(Gid, RemoveUids),
             AddResults = add_members_unsafe(Gid, Uid, AddUids),
-            {ok, RemoveResults ++ AddResults}
+            Results = RemoveResults ++ AddResults,
+            send_modify_members_event(Gid, Uid, Results),
+            {ok, Results}
     end.
 
 
@@ -144,7 +144,8 @@ leave_group(Gid, Uid) ->
         {ok, false} ->
             ?INFO_MSG("Gid: ~s Uid: ~s not a member already", [Gid, Uid]);
         {ok, true} ->
-            ?INFO_MSG("Gid: ~s Uid: ~s left", [Gid, Uid])
+            ?INFO_MSG("Gid: ~s Uid: ~s left", [Gid, Uid]),
+            send_leave_group_event(Gid, Uid)
     end,
     Res.
 
@@ -171,7 +172,9 @@ modify_admins(Gid, Uid, Changes) ->
             {DemoteUids, PromoteUids} = split_changes(Changes, demote),
             DemoteResults = demote_admins_unsafe(Gid, DemoteUids),
             PromoteResults = promote_admins_unsafe(Gid, PromoteUids),
-            {ok, DemoteResults ++ PromoteResults}
+            Results = DemoteResults ++ PromoteResults,
+            send_modify_admins_event(Gid, Uid, Results),
+            {ok, Results}
     end.
 
 
@@ -220,6 +223,7 @@ set_name(Gid, Uid, Name) ->
                 true ->
                     ok = model_groups:set_name(Gid, LName),
                     ?INFO_MSG("Gid: ~s Uid: ~s set name to |~s|", [Gid, Uid, LName]),
+                    send_change_name_event(Gid, Uid),
                     ok
             end
     end.
@@ -235,6 +239,7 @@ set_avatar(Gid, Uid, AvatarId) ->
         true ->
             ok = model_groups:set_avatar(Gid, AvatarId),
             ?INFO_MSG("Gid: ~s Uid: ~s set avatar to ~s", [Gid, Uid, AvatarId]),
+            send_change_avatar_event(Gid, Uid),
             ok
     end.
 
@@ -400,4 +405,115 @@ make_message(GroupInfo, Uid, SenderName, MessagePayload, Ts) ->
         timestamp = integer_to_binary(Ts),
         cdata = MessagePayload
     }.
+
+-spec send_create_group_event(Gid :: gid(), Uid :: uid(),
+        Group :: group(), ModifyMemberResults :: modify_member_results()) -> ok.
+send_create_group_event(Gid, Uid, Group, AddMemberResults) ->
+    Uids = [M#group_member.uid || M <-Group#group.members],
+    NamesMap = model_accounts:get_names(Uids),
+    broadcast_update(Gid, Uid, create, Group, AddMemberResults, NamesMap),
+    ok.
+
+
+-spec send_modify_members_event(Gid :: gid(), Uid :: uid(),
+        MemberResult :: modify_member_results()) -> ok.
+send_modify_members_event(Gid, Uid, MemberResults) ->
+    Uids = [Uid | [Ouid || {Ouid, _, _} <- MemberResults]],
+    Group = model_groups:get_group(Gid),
+    NamesMap = model_accounts:get_names(Uids),
+    broadcast_update(Gid, Uid, modify_members, Group, MemberResults, NamesMap),
+    ok.
+
+
+-spec send_modify_admins_event(Gid :: gid(), Uid :: uid(),
+        MemberResult :: modify_member_results()) -> ok.
+send_modify_admins_event(Gid, Uid, MemberResults) ->
+    Uids = [Uid | [Ouid || {Ouid, _, _} <- MemberResults]],
+    Group = model_groups:get_group(Gid),
+    NamesMap = model_accounts:get_names(Uids),
+    broadcast_update(Gid, Uid, modify_admins, Group, MemberResults, NamesMap),
+    ok.
+
+
+-spec send_leave_group_event(Gid :: gid(), Uid :: uid()) -> ok.
+send_leave_group_event(Gid, Uid) ->
+    Group = model_groups:get_group(Gid),
+    NamesMap = model_accounts:get_names([Uid]),
+    broadcast_update(Gid, Uid, leave, Group, [{Uid, leave, ok}], NamesMap),
+    ok.
+
+
+-spec send_change_name_event(Gid :: gid(), Uid :: uid()) -> ok.
+send_change_name_event(Gid, Uid) ->
+    Group = model_groups:get_group(Gid),
+    NamesMap = model_accounts:get_names([Uid]),
+    broadcast_update(Gid, Uid, change_name, Group, [], NamesMap),
+    ok.
+
+
+-spec send_change_avatar_event(Gid :: gid(), Uid :: uid()) -> ok.
+send_change_avatar_event(Gid, Uid) ->
+    Group = model_groups:get_group(Gid),
+    NamesMap = model_accounts:get_names([Uid]),
+    broadcast_update(Gid, Uid, change_avatar, Group, [], NamesMap),
+    ok.
+
+
+% Broadcast the event to all members of the group
+-spec broadcast_update(Gid :: gid(), Uid :: uid(), Event :: atom(), Group :: group(),
+        Results :: modify_member_results(), NamesMap :: names_map()) -> ok.
+broadcast_update(Gid, Uid, Event, Group, Results, NamesMap) ->
+    MembersSt = make_members_st(Event, Results, NamesMap),
+
+    GroupSt = #group_st{
+        gid = Group#group.gid,
+        name = Group#group.name,
+        avatar = Group#group.avatar,
+        sender = Uid,
+        sender_name = maps:get(Uid, NamesMap, undefined),
+        action = Event,
+        members = MembersSt
+    },
+
+    Members = [M#group_member.uid || M <- Group#group.members],
+    Server = util:get_host(),
+    Jids = util:uids_to_jids(Members, Server),
+    From = Server,
+    Packet = #message{type = groupchat, sub_els = [GroupSt]},
+    ejabberd_router_multicast:route_multicast(From, Server, Jids, Packet),
+    ok.
+
+
+make_members_st(Event, Results, NamesMap) ->
+    MembersSt = [make_member_st(R, Event, NamesMap) || R <- Results],
+    MembersSt2 = lists:filter(fun (X) -> X =/= undefined end, MembersSt),
+    MembersSt2.
+
+
+make_member_st({Uid, Action, Result}, Event, NamesMap) ->
+    Type = case {Event, Action} of
+        {create, add} -> member;
+        {leave, leave} -> member;
+        {modify_members, add} -> member;
+        {modify_members, remove} -> member;
+        {modify_admins, promote} -> admin;
+        {modify_admins, demote} -> member
+    end,
+    Name = maps:get(Uid, NamesMap, undefined),
+    if
+        % When we don't have an Name we don't send the update... Maybe we should...
+
+        Result =/= ok -> undefined;
+        Name =:= undefined ->
+            ?ERROR_MSG("Missing name Uid: ~s, Event: ~p Action: ~p Result ~p",
+                [Uid, Event, Action, Result]),
+            undefined;
+        true ->
+            #member_st{
+                uid = Uid,
+                type = Type,
+                name = Name,
+                action = Action
+            }
+    end.
 
