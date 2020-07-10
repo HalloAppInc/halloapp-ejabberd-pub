@@ -58,18 +58,29 @@ init([]) ->
         type => supervisor,
         modules => [dynamic]},
 
-    RedisFriends = create_redis_child_spec(redis_friends, redis_friends_client),
-    RedisAccounts = create_redis_child_spec(redis_accounts, redis_accounts_client),
-    RedisContacts = create_redis_child_spec(redis_contacts, redis_contacts_client),
-    RedisAuth = create_redis_child_spec(redis_auth, redis_auth_client),
-    RedisPhone = create_redis_child_spec(redis_phone, redis_phone_client),
-    RedisMessages = create_redis_child_spec(redis_messages, redis_messages_client),
-    RedisWhisper = create_redis_child_spec(redis_whisper, redis_whisper_client),
-    RedisGroups = create_redis_child_spec(redis_groups, redis_groups_client),
+    RedisFriends = create_redis_child_spec(redis_friends, eredis_cluster_client, 
+                                           redis_friends_client),
+    RedisAccounts = create_redis_child_spec(redis_accounts, eredis_cluster_client,
+                                            redis_accounts_client),
+    RedisContacts = create_redis_child_spec(redis_contacts, eredis_cluster_client,
+                                            redis_contacts_client),
+    RedisAuth = create_redis_child_spec(redis_auth, eredis_cluster_client,
+                                        redis_auth_client),
+    RedisPhone = create_redis_child_spec(redis_phone, eredis_cluster_client,
+                                         redis_phone_client),
+    RedisMessages = create_redis_child_spec(redis_messages, eredis_cluster_client,
+                                            redis_messages_client),
+    RedisWhisper = create_redis_child_spec(redis_whisper, eredis_cluster_client,
+                                           redis_whisper_client),
+    RedisGroups = create_redis_child_spec(redis_groups, eredis_cluster_client,
+                                          redis_groups_client),
+
+    ECRedisFriends = create_redis_child_spec(redis_friends, ecredis, ecredis_friends),
 
     {ok, {SupFlags, [
         EredisClusterPool,
         RedisFriends,
+        ECRedisFriends,
         RedisAccounts,
         RedisContacts,
         RedisAuth,
@@ -79,14 +90,14 @@ init([]) ->
         RedisGroups
     ]}}.
 
-%% TODO: can the 2 atoms be the same?
--spec create_redis_child_spec(
-        RedisService :: atom(), RedisServiceClient :: atom()) -> supervisor:child_spec().
-create_redis_child_spec(RedisService, RedisServiceClient) ->
+%% TODO: can the 1 atoms be the same?
+-spec create_redis_child_spec(RedisService :: atom(),
+    RedisClientImpl :: atom(), RediserviceClient :: atom()) -> supervisor:child_spec().
+create_redis_child_spec(RedisService, RedisClientImpl, RedisServiceClient) ->
     {RedisService, RedisHost, RedisPort} = config:get_service(RedisService),
     ChildSpec = #{
         id => RedisServiceClient,
-        start => {eredis_cluster_client, start_link,
+        start => {RedisClientImpl, start_link,
             [{RedisServiceClient, [{RedisHost, RedisPort}]}]},
         restart => permanent,
         shutdown => 5000,

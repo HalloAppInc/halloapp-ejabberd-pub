@@ -21,7 +21,7 @@ setup() ->
   ok.
 
 clear() ->
-  ok = gen_server:cast(redis_friends_client, flushdb).
+  {ok, ok} = gen_server:call(redis_friends_client, flushdb).
 
 add_friend_test() ->
   setup(),

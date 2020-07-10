@@ -103,7 +103,7 @@ remove_all_friends(Uid) ->
     ok.
 
 
-q(Command) -> util_redis:q(redis_friends_client, Command).
+q(Command) -> ecredis:q(ecredis_friends, Command).
 
 
 -spec key(Uid :: binary()) -> binary().
