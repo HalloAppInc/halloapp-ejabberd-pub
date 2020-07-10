@@ -398,23 +398,14 @@ encode_msg_pb_ha_ack(#pb_ha_ack{id = F1, timestamp = F2}, Bin, TrUserData) ->
 encode_msg_pb_ha_error(Msg, TrUserData) -> encode_msg_pb_ha_error(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_ha_error(#pb_ha_error{reason = F1, p = F2}, Bin, TrUserData) ->
-    B1 = if F1 == undefined -> Bin;
-	    true ->
-		begin
-		  TrF1 = id(F1, TrUserData),
-		  case is_empty_string(TrF1) of
-		    true -> Bin;
-		    false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
-		  end
-		end
-	 end,
-    if F2 == undefined -> B1;
+encode_msg_pb_ha_error(#pb_ha_error{reason = F1}, Bin, TrUserData) ->
+    if F1 == undefined -> Bin;
        true ->
 	   begin
-	     TrF2 = id(F2, TrUserData),
-	     if TrF2 =:= undefined -> B1;
-		true -> e_mfield_pb_ha_error_p(TrF2, <<B1/binary, 18>>, TrUserData)
+	     TrF1 = id(F1, TrUserData),
+	     case is_empty_string(TrF1) of
+	       true -> Bin;
+	       false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
 	     end
 	   end
     end.
@@ -1101,8 +1092,6 @@ e_mfield_pb_msg_payload_fni(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_feed
 e_mfield_pb_ha_iq_payload(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_iq_payload(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_pb_ha_message_payload(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_msg_payload(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
-
-e_mfield_pb_ha_error_p(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_packet(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_pb_packet_msg(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_ha_message(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
@@ -1935,54 +1924,43 @@ skip_32_pb_ha_ack(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_
 
 skip_64_pb_ha_ack(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_ha_ack(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-decode_msg_pb_ha_error(Bin, TrUserData) -> dfp_read_field_def_pb_ha_error(Bin, 0, 0, id([], TrUserData), id(undefined, TrUserData), TrUserData).
+decode_msg_pb_ha_error(Bin, TrUserData) -> dfp_read_field_def_pb_ha_error(Bin, 0, 0, id([], TrUserData), TrUserData).
 
-dfp_read_field_def_pb_ha_error(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_ha_error_reason(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-dfp_read_field_def_pb_ha_error(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_ha_error_p(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-dfp_read_field_def_pb_ha_error(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_ha_error{reason = F@_1, p = F@_2};
-dfp_read_field_def_pb_ha_error(Other, Z1, Z2, F@_1, F@_2, TrUserData) -> dg_read_field_def_pb_ha_error(Other, Z1, Z2, F@_1, F@_2, TrUserData).
+dfp_read_field_def_pb_ha_error(<<10, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_ha_error_reason(Rest, Z1, Z2, F@_1, TrUserData);
+dfp_read_field_def_pb_ha_error(<<>>, 0, 0, F@_1, _) -> #pb_ha_error{reason = F@_1};
+dfp_read_field_def_pb_ha_error(Other, Z1, Z2, F@_1, TrUserData) -> dg_read_field_def_pb_ha_error(Other, Z1, Z2, F@_1, TrUserData).
 
-dg_read_field_def_pb_ha_error(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_ha_error(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-dg_read_field_def_pb_ha_error(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) ->
+dg_read_field_def_pb_ha_error(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_ha_error(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
+dg_read_field_def_pb_ha_error(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-      10 -> d_field_pb_ha_error_reason(Rest, 0, 0, F@_1, F@_2, TrUserData);
-      18 -> d_field_pb_ha_error_p(Rest, 0, 0, F@_1, F@_2, TrUserData);
+      10 -> d_field_pb_ha_error_reason(Rest, 0, 0, F@_1, TrUserData);
       _ ->
 	  case Key band 7 of
-	    0 -> skip_varint_pb_ha_error(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    1 -> skip_64_pb_ha_error(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    2 -> skip_length_delimited_pb_ha_error(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    3 -> skip_group_pb_ha_error(Rest, Key bsr 3, 0, F@_1, F@_2, TrUserData);
-	    5 -> skip_32_pb_ha_error(Rest, 0, 0, F@_1, F@_2, TrUserData)
+	    0 -> skip_varint_pb_ha_error(Rest, 0, 0, F@_1, TrUserData);
+	    1 -> skip_64_pb_ha_error(Rest, 0, 0, F@_1, TrUserData);
+	    2 -> skip_length_delimited_pb_ha_error(Rest, 0, 0, F@_1, TrUserData);
+	    3 -> skip_group_pb_ha_error(Rest, Key bsr 3, 0, F@_1, TrUserData);
+	    5 -> skip_32_pb_ha_error(Rest, 0, 0, F@_1, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_ha_error(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_ha_error{reason = F@_1, p = F@_2}.
+dg_read_field_def_pb_ha_error(<<>>, 0, 0, F@_1, _) -> #pb_ha_error{reason = F@_1}.
 
-d_field_pb_ha_error_reason(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_ha_error_reason(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-d_field_pb_ha_error_reason(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_ha_error(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+d_field_pb_ha_error_reason(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> d_field_pb_ha_error_reason(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
+d_field_pb_ha_error_reason(<<0:1, X:7, Rest/binary>>, N, Acc, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_ha_error(RestF, 0, 0, NewFValue, TrUserData).
 
-d_field_pb_ha_error_p(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_ha_error_p(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-d_field_pb_ha_error_p(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_packet(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_ha_error(RestF, 0, 0, F@_1,
-				   if Prev == undefined -> NewFValue;
-				      true -> merge_msg_pb_packet(Prev, NewFValue, TrUserData)
-				   end,
-				   TrUserData).
+skip_varint_pb_ha_error(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> skip_varint_pb_ha_error(Rest, Z1, Z2, F@_1, TrUserData);
+skip_varint_pb_ha_error(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_ha_error(Rest, Z1, Z2, F@_1, TrUserData).
 
-skip_varint_pb_ha_error(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_ha_error(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-skip_varint_pb_ha_error(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_ha_error(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+skip_length_delimited_pb_ha_error(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> skip_length_delimited_pb_ha_error(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
+skip_length_delimited_pb_ha_error(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_ha_error(Rest2, 0, 0, F@_1, TrUserData).
 
-skip_length_delimited_pb_ha_error(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_pb_ha_error(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-skip_length_delimited_pb_ha_error(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_ha_error(Rest2, 0, 0, F@_1, F@_2, TrUserData).
+skip_group_pb_ha_error(Bin, FNum, Z2, F@_1, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_ha_error(Rest, 0, Z2, F@_1, TrUserData).
 
-skip_group_pb_ha_error(Bin, FNum, Z2, F@_1, F@_2, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_ha_error(Rest, 0, Z2, F@_1, F@_2, TrUserData).
+skip_32_pb_ha_error(<<_:32, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_ha_error(Rest, Z1, Z2, F@_1, TrUserData).
 
-skip_32_pb_ha_error(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_ha_error(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
-
-skip_64_pb_ha_error(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_ha_error(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+skip_64_pb_ha_error(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_ha_error(Rest, Z1, Z2, F@_1, TrUserData).
 
 decode_msg_pb_packet(Bin, TrUserData) -> dfp_read_field_def_pb_packet(Bin, 0, 0, id(undefined, TrUserData), TrUserData).
 
@@ -3366,15 +3344,10 @@ merge_msg_pb_ha_ack(#pb_ha_ack{id = PFid, timestamp = PFtimestamp}, #pb_ha_ack{i
 		   end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_ha_error/3}).
-merge_msg_pb_ha_error(#pb_ha_error{reason = PFreason, p = PFp}, #pb_ha_error{reason = NFreason, p = NFp}, TrUserData) ->
+merge_msg_pb_ha_error(#pb_ha_error{reason = PFreason}, #pb_ha_error{reason = NFreason}, _) ->
     #pb_ha_error{reason =
 		     if NFreason =:= undefined -> PFreason;
 			true -> NFreason
-		     end,
-		 p =
-		     if PFp /= undefined, NFp /= undefined -> merge_msg_pb_packet(PFp, NFp, TrUserData);
-			PFp == undefined -> NFp;
-			NFp == undefined -> PFp
 		     end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_packet/3}).
@@ -3862,12 +3835,9 @@ v_msg_pb_ha_ack(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_ha_ack}
 
 -compile({nowarn_unused_function,v_msg_pb_ha_error/3}).
 -dialyzer({nowarn_function,v_msg_pb_ha_error/3}).
-v_msg_pb_ha_error(#pb_ha_error{reason = F1, p = F2}, Path, TrUserData) ->
+v_msg_pb_ha_error(#pb_ha_error{reason = F1}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_string(F1, [reason | Path], TrUserData)
-    end,
-    if F2 == undefined -> ok;
-       true -> v_msg_pb_packet(F2, [p | Path], TrUserData)
     end,
     ok;
 v_msg_pb_ha_error(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_ha_error}, X, Path).
@@ -4376,7 +4346,7 @@ get_msg_defs() ->
       [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = type, fnum = 2, rnum = 3, type = {enum, 'pb_ha_presence.Type'}, occurrence = optional, opts = []},
        #field{name = uid, fnum = 3, rnum = 4, type = int64, occurrence = optional, opts = []}, #field{name = last_seen, fnum = 4, rnum = 5, type = int64, occurrence = optional, opts = []}]},
      {{msg, pb_ha_ack}, [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = timestamp, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}]},
-     {{msg, pb_ha_error}, [#field{name = reason, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = p, fnum = 2, rnum = 3, type = {msg, pb_packet}, occurrence = optional, opts = []}]},
+     {{msg, pb_ha_error}, [#field{name = reason, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]},
      {{msg, pb_packet},
       [#gpb_oneof{name = stanza, rnum = 2,
 		  fields =
@@ -4491,7 +4461,7 @@ find_msg_def(pb_ha_presence) ->
     [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = type, fnum = 2, rnum = 3, type = {enum, 'pb_ha_presence.Type'}, occurrence = optional, opts = []},
      #field{name = uid, fnum = 3, rnum = 4, type = int64, occurrence = optional, opts = []}, #field{name = last_seen, fnum = 4, rnum = 5, type = int64, occurrence = optional, opts = []}];
 find_msg_def(pb_ha_ack) -> [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = timestamp, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}];
-find_msg_def(pb_ha_error) -> [#field{name = reason, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = p, fnum = 2, rnum = 3, type = {msg, pb_packet}, occurrence = optional, opts = []}];
+find_msg_def(pb_ha_error) -> [#field{name = reason, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}];
 find_msg_def(pb_packet) ->
     [#gpb_oneof{name = stanza, rnum = 2,
 		fields =

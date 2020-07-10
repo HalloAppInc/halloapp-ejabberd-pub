@@ -77,8 +77,7 @@
 -ifndef('PB_HA_ERROR_PB_H').
 -define('PB_HA_ERROR_PB_H', true).
 -record(pb_ha_error,
-        {reason = []            :: iodata() | undefined, % = 1
-         p = undefined          :: packets:pb_packet() | undefined % = 2
+        {reason = []            :: iodata() | undefined % = 1
         }).
 -endif.
 
