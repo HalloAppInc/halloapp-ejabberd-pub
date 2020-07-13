@@ -11,7 +11,9 @@
 
 %% API
 -export([
-    decode_ts/1
+    decode_ts/1,
+    q/2,
+    qp/2
 ]).
 
 decode_ts(TsMsBinary) ->
@@ -19,4 +21,13 @@ decode_ts(TsMsBinary) ->
         undefined -> undefined;
         X -> binary_to_integer(X)
     end.
+
+q(Client, Command) ->
+    {ok, Result} = gen_server:call(Client, {q, Command}),
+    Result.
+
+
+qp(Client, Commands) ->
+    {ok, Result} = gen_server:call(Client, {qp, Commands}),
+    Result.
 

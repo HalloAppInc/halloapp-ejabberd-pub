@@ -136,13 +136,8 @@ remove_all_key_subscribers(Uid) ->
     ok.
 
 
-q(Command) ->
-    {ok, Result} = gen_server:call(redis_whisper_client, {q, Command}),
-    Result.
-
-qp(Commands) ->
-    {ok, Results} = gen_server:call(redis_whisper_client, {qp, Commands}),
-    Results.
+q(Command) -> util_redis:q(redis_whisper_client, Command).
+qp(Commands) -> util_redis:qp(redis_whisper_client, Commands).
 
 
 -spec whisper_key(Uid :: binary()) -> binary().

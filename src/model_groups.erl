@@ -380,13 +380,6 @@ user_groups_key(Uid) ->
     <<?USER_GROUPS_KEY/binary, "{", Uid/binary, "}">>.
 
 
-%% TODO: This code is kind of copied in all the models...
-q(Command) ->
-    {ok, Result} = gen_server:call(redis_groups_client, {q, Command}),
-    Result.
-
-
-qp(Commands) ->
-    {ok, Results} = gen_server:call(redis_groups_client, {qp, Commands}),
-    Results.
+q(Command) -> util_redis:q(redis_groups_client, Command).
+qp(Commands) -> util_redis:qp(redis_groups_client, Commands).
 

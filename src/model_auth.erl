@@ -126,13 +126,9 @@ terminate(_Reason, _Redis) -> ok.
 code_change(_OldVersion, Redis, _Extra) -> {ok, Redis}.
 
 
-q(Command) ->
-    {ok, Result} = gen_server:call(redis_auth_client, {q, Command}),
-    Result.
+q(Command) -> util_redis:q(redis_auth_client, Command).
+qp(Commands) -> util_redis:qp(redis_auth_client, Commands).
 
-qp(Commands) ->
-    {ok, Results} = gen_server:call(redis_auth_client, {qp, Commands}),
-    Results.
 
 multi_exec(Commands) ->
     WrappedCommands = lists:append([[["MULTI"]], Commands, [["EXEC"]]]),

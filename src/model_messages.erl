@@ -234,13 +234,9 @@ read_lua() ->
     end,
     file:read_file(FileName).
 
-q(Command) ->
-    {ok, Result} = gen_server:call(redis_messages_client, {q, Command}),
-    Result.
 
-qp(Commands) ->
-    {ok, Results} = gen_server:call(redis_messages_client, {qp, Commands}),
-    Results.
+q(Command) -> util_redis:q(redis_messages_client, Command).
+qp(Commands) -> util_redis:qp(redis_messages_client, Commands).
 
 
 -spec message_keys(Uid :: binary(), MsgIds :: [binary()]) -> [binary()].

@@ -556,13 +556,8 @@ get_names(Uids) ->
 %%====================================================================
 
 
-q(Command) ->
-    {ok, Result} = gen_server:call(redis_accounts_client, {q, Command}),
-    Result.
-
-qp(Commands) ->
-    {ok, Results} = gen_server:call(redis_accounts_client, {qp, Commands}),
-    Results.
+q(Command) -> util_redis:q(redis_accounts_client, Command).
+qp(Commands) -> util_redis:qp(redis_accounts_client, Commands).
 
 
 get_all_pools() ->

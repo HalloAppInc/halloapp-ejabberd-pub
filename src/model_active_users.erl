@@ -105,7 +105,5 @@ get_active_users_key_slot(Slot) ->
 
 
 % borrowed from model_accounts.erl
-q(Command) ->
-    {ok, Result} = gen_server:call(redis_accounts_client, {q, Command}),
-    Result.
+q(Command) -> util_redis:q(redis_accounts_client, Command).
 

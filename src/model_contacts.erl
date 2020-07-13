@@ -219,13 +219,8 @@ get_salt_secret_from_aws() ->
     list_to_binary(Salt).
 
 
-q(Command) ->
-    {ok, Result} = gen_server:call(redis_contacts_client, {q, Command}),
-    Result.
-
-qp(Commands) ->
-    {ok, Result} = gen_server:call(redis_contacts_client, {qp, Commands}),
-    Result.
+q(Command) -> util_redis:q(redis_contacts_client, Command).
+qp(Commands) -> util_redis:qp(redis_contacts_client, Commands).
 
 
 -spec contacts_key(Uid :: binary()) -> binary().

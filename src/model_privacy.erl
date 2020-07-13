@@ -285,13 +285,9 @@ decode_feed_privacy_list_type(undefined) -> all. %% default option is all.
 %%====================================================================
 
 
-q(Command) ->
-    {ok, Result} = gen_server:call(redis_accounts_client, {q, Command}),
-    Result.
+q(Command) -> util_redis:q(redis_accounts_client, Command).
+qp(Commands) -> util_redis:qp(redis_accounts_client, Commands).
 
-qp(Commands) ->
-    {ok, Results} = gen_server:call(redis_accounts_client, {qp, Commands}),
-    Results.
 
 whitelist_key(Uid) ->
     <<?WHITELIST_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.

@@ -103,9 +103,7 @@ remove_all_friends(Uid) ->
     ok.
 
 
-q(Command) ->
-    {ok, Result} = gen_server:call(redis_friends_client, {q, Command}),
-    Result.
+q(Command) -> util_redis:q(redis_friends_client, Command).
 
 
 -spec key(Uid :: binary()) -> binary().

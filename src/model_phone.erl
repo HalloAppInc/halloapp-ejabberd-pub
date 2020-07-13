@@ -157,9 +157,7 @@ get_uids(Phones) ->
     {ok, PhonesUidsMap}.
 
 
-q(Command) ->
-    {ok, Result} = gen_server:call(redis_phone_client, {q, Command}),
-    Result.
+q(Command) -> util_redis:q(redis_phone_client, Command).
 
 
 -spec order_phones_by_keys(Phones :: binary()) -> {[binary()], [binary()]}.

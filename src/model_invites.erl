@@ -102,18 +102,11 @@ get_inviter(PhoneNum) ->
 %%====================================================================
 
 % borrowed from model_accounts.erl
-q_accounts(Command) ->
-    {ok, Result} = gen_server:call(redis_accounts_client, {q, Command}),
-    Result.
-
+q_accounts(Command) -> util_redis:q(redis_accounts_client, Command).
 % borrowed from model_accounts.erl
-qp_accounts(Commands) ->
-    {ok, Results} = gen_server:call(redis_accounts_client, {qp, Commands}),
-    Results.
+qp_accounts(Commands) -> util_redis:qp(redis_accounts_client, Commands).
+q_phones(Command) -> util_redis:q(redis_phone_client, Command).
 
-q_phones(Command) ->
-    {ok, Result} = gen_server:call(redis_phone_client, {q, Command}),
-    Result.
 
 -spec acc_invites_key(Uid :: binary()) -> binary().
 acc_invites_key(Uid) ->
