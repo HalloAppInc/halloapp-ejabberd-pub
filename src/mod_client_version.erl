@@ -54,6 +54,7 @@ process_local_iq(#iq{type = get, to = _Host, from = From,
   TimeLeftSec = get_time_left(Version, CurTimestamp),
   Validity = is_valid_version(Version, TimeLeftSec),
   check_and_close_connection(Version, Validity, From),
+  check_and_set_user_agent(Version, From#jid.luser),
   ?INFO_MSG("mod_client_version: Received an IQ for this version: ~p, validity: ~p, time left: ~p",
                                                               [Version, Validity, TimeLeftSec]),
   xmpp:make_iq_result(IQ, #client_version{version = Version, seconds_left = TimeLeftSec}).
@@ -83,10 +84,20 @@ is_valid_version(Version) ->
 %% internal functions
 %%====================================================================
 
+%% Temp code to repair missing data during signup process
+check_and_set_user_agent(Version, Uid) ->
+    CurrUserAgent = model_accounts:get_signup_user_agent(Uid),
+    case CurrUserAgent =:= <<>> of
+        true ->
+            model_accounts:set_user_agent(Uid, Version),
+            ?INFO_MSG("User agent for uid:~p updated to ~p",[Uid, Version]);
+        false -> ok
+    end.
+
 
 %% Checks if the version is valid or not based on the boolean value.
 %% If it's not valid, then kill the connection.
-check_and_close_connection(_Version, true, _From) ->
+check_and_close_connection(Version, true, From) ->
   ok;
 check_and_close_connection(_Version, false, From) ->
   erlang:send(self(), {kill_connection, expired_app_version, From}),
