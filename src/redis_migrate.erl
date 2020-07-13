@@ -34,7 +34,10 @@
     rename_reverse_contacts_verify/2,
     rename_reverse_contacts_cleanup/2,
     remove_unregistered_numbers_run/2,
-    remove_unregistered_numbers_verify/2
+    remove_unregistered_numbers_verify/2,
+    rename_privacy_list_run/2,
+    rename_privacy_list_verify/2,
+    rename_privacy_list_cleanup/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -382,6 +385,25 @@ remove_unregistered_numbers_verify(Key, State) ->
         _ -> ok
     end,
     State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                           Rename privacy lists                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Stage 1. Rename the privacylists.
+rename_privacy_list_run(Key, State) ->
+    migrate_privacy_data:run(Key, State).
+
+
+%%% Stage 2. Check if the migrated data is in sync
+rename_privacy_list_verify(Key, State) ->
+    migrate_privacy_data:verify(Key, State).
+
+
+%%% Stage 3. Delete the old data
+rename_privacy_list_cleanup(Key, State) ->
+    migrate_privacy_data:cleanup(Key, State).
 
 
 q(Client, Command) ->
