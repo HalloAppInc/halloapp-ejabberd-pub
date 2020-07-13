@@ -92,6 +92,7 @@ try_register(Phone, Server, Password) ->
     {ok, UidInt} = util_uid:generate_uid(),
     Uid = util_uid:uid_to_binary(UidInt),
     % TODO: This is kind of stupid, but the name is set a bit later.
+    % User agent is also set later, with the name.
     % This will get fixed when we merge this code with ejabberd_auth.
     Name = <<"">>,
     UserAgent = <<"">>,

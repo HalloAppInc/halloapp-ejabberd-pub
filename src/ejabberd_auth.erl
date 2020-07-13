@@ -32,7 +32,7 @@
 -export([start_link/0, host_up/1, host_down/1, config_reloaded/0,
 	 set_password/3, check_password/4,
 	 check_password/6, check_password_with_authmodule/4,
-	 check_password_with_authmodule/6, try_register/3, check_and_register/4,
+	 check_password_with_authmodule/6, try_register/3, check_and_register/5,
 	 get_users/0, get_users/1, password_to_scram/1,
 	 get_users/2, import_info/0,
 	 count_users/1, import/5, import_start/2,
@@ -272,9 +272,9 @@ set_password(User, Server, Password) ->
 	    Err
     end.
 
--spec check_and_register(binary(), binary(), password(), binary()) ->
+-spec check_and_register(binary(), binary(), password(), binary(), binary()) ->
     ok |{error, db_failure | not_allowed | exists | invalid_jid | invalid_password}.
-check_and_register(Phone, Server, Password, Name) ->
+check_and_register(Phone, Server, Password, Name, UserAgent) ->
     Password1 = case ejabberd_auth_halloapp:store_type(Server) of
         scram -> password_to_scram(Password);
         _ -> Password
@@ -284,6 +284,7 @@ check_and_register(Phone, Server, Password, Name) ->
             case ets_cache:untag(ejabberd_auth_halloapp:try_register(Phone, Server, Password1)) of
                 {ok, _, UserId} ->
                     ok = model_accounts:set_name(UserId, Name),
+                    ok = model_accounts:set_user_agent(UserId, UserAgent),
                     ejabberd_hooks:run(register_user, Server, [UserId, Server, Phone]),
                     {ok, UserId, register};
                 Err -> Err
@@ -293,6 +294,7 @@ check_and_register(Phone, Server, Password, Name) ->
             case ets_cache:untag(ejabberd_auth_halloapp:set_password(UserId, Server, Password1)) of
                 {ok, _} ->
                     ok = model_accounts:set_name(UserId, Name),
+                    ok = model_accounts:set_user_agent(UserId, UserAgent),
                     SessionCount = ejabberd_sm:kick_user(UserId, Server),
                     ?INFO_MSG("~p removed from ~p sessions", [UserId, SessionCount]),
                     {ok, UserId, login};

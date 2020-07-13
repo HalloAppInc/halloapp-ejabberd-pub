@@ -122,6 +122,14 @@ get_account_test() ->
     ok.
 
 
+get_signup_user_agent_test() ->
+    setup(),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1),
+    ?assertEqual({ok, ?USER_AGENT1}, model_accounts:get_signup_user_agent(?UID1)),
+    ok = model_accounts:set_user_agent(?UID1, ?USER_AGENT2),
+    ?assertEqual({ok, ?USER_AGENT2}, model_accounts:get_signup_user_agent(?UID1)).
+
+
 list_to_map_test() ->
     L = ["a", 1, "b", 2],
     M = util:list_to_map(L),

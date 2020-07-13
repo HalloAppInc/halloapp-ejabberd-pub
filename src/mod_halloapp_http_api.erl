@@ -84,7 +84,7 @@ process([<<"registration">>, <<"register">>],
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
         LName = check_name(Name),
-        {ok, Phone, Uid, Password} = finish_registration(Phone, LName),
+        {ok, Phone, Uid, Password} = finish_registration(Phone, LName, UserAgent),
         ?INFO_MSG("registration complete uid:~s, phone:~s", [Uid, Phone]),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
@@ -158,13 +158,13 @@ check_invited(PhoneNum) ->
     end.
 
 
--spec finish_registration(phone(), binary()) -> {ok, phone(), binary(), binary()}.
-finish_registration(Phone, Name) ->
+-spec finish_registration(phone(), binary(), binary()) -> {ok, phone(), binary(), binary()}.
+finish_registration(Phone, Name, UserAgent) ->
     Password = util:generate_password(),
     Host = util:get_host(),
     % TODO: this is templorary during the migration from Phone to Uid
     {ok, _} = ejabberd_admin:unregister_push(Phone, Host),
-    {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, Password, Name),
+    {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, Password, Name, UserAgent),
     case Action of
         login ->
             % Unregister the push token

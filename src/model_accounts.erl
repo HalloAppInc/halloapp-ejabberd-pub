@@ -45,6 +45,7 @@
     get_avatar_id_binary/1,
     get_last_activity/1,
     set_last_activity/3,
+    set_user_agent/2,
     get_signup_user_agent/1,
     set_push_info/1,
     set_push_info/4,
@@ -231,6 +232,12 @@ get_phone(Uid) ->
 get_creation_ts_ms(Uid) ->
     {ok, Res} = q(["HGET", key(Uid), ?FIELD_CREATION_TIME]),
     ts_reply(Res).
+
+
+-spec set_user_agent(Uid :: binary(), UserAgent :: binary()) -> ok.
+set_user_agent(Uid, UserAgent) ->
+    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_USER_AGENT, UserAgent]),
+    ok.
 
 
 -spec get_signup_user_agent(Uid :: binary()) -> {ok, binary()} | {error, missing}.

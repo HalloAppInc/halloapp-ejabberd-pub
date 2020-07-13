@@ -42,7 +42,7 @@
 	 %% Erlang
 	 update_list/0, update/1,
 	 %% Accounts
-	 register/3, unregister/2, check_and_register/4,
+	 register/3, unregister/2, check_and_register/5,
 	 registered_users/1,
 	 enroll/3, unenroll/2,
 	 enrolled_users/1, get_user_passcode/2,
@@ -602,10 +602,10 @@ update_module(ModuleNameString) ->
 %%% Account management
 %%%
 
-check_and_register(Phone, Host, Password, Name) ->
+check_and_register(Phone, Host, Password, Name, UserAgent) ->
     case is_my_host(Host) of
         true ->
-            case ejabberd_auth:check_and_register(Phone, Host, Password, Name) of
+            case ejabberd_auth:check_and_register(Phone, Host, Password, Name, UserAgent) of
                 {ok, Uid, login} ->
                     ?INFO_MSG("Login into existing account uid:~p for phone:~p", [Uid, Phone]),
 
