@@ -26,29 +26,29 @@
     set_privacy_type/2,
     get_privacy_type/1,
     get_privacy_type_atom/1,
-    whitelist_uid/2,
-    whitelist_uids/2,
-    blacklist_uid/2,
-    blacklist_uids/2,
+    add_only_uid/2,
+    add_only_uids/2,
+    add_except_uid/2,
+    add_except_uids/2,
     mute_uid/2,
     mute_uids/2,
     block_uid/2,
     block_uids/2,
-    unwhitelist_uid/2,
-    unwhitelist_uids/2,
-    unblacklist_uid/2,
-    unblacklist_uids/2,
+    remove_only_uid/2,
+    remove_only_uids/2,
+    remove_except_uid/2,
+    remove_except_uids/2,
     unmute_uid/2,
     unmute_uids/2,
     unblock_uid/2,
     unblock_uids/2,
-    get_whitelist_uids/1,
-    get_blacklist_uids/1,
+    get_only_uids/1,
+    get_except_uids/1,
     get_mutelist_uids/1,
     get_blocked_uids/1,
     get_blocked_by_uids/1,
-    is_whitelisted/2,
-    is_blacklisted/2,
+    is_only_uid/2,
+    is_except_uid/2,
     is_blocked/2,
     is_blocked_by/2,
     is_blocked_any/2
@@ -101,27 +101,31 @@ get_privacy_type_atom(Uid) ->
     Res.
 
 
--spec whitelist_uid(Uid :: binary(), Ouid :: binary()) -> ok.
-whitelist_uid(Uid, Ouid) ->
-    whitelist_uids(Uid, [Ouid]).
+-spec add_only_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+add_only_uid(Uid, Ouid) ->
+    add_only_uids(Uid, [Ouid]).
 
 
--spec whitelist_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
-whitelist_uids(_Uid, []) -> ok;
-whitelist_uids(Uid, Ouids) ->
-    {ok, _Res} = q(["SADD", whitelist_key(Uid) | Ouids]),
+-spec add_only_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+add_only_uids(_Uid, []) -> ok;
+add_only_uids(Uid, Ouids) ->
+    [{ok, _Res1}, {ok, _Res2}] = qp([
+            ["SADD", whitelist_key(Uid) | Ouids],
+            ["SADD", only_key(Uid) | Ouids]]),
     ok.
 
 
--spec blacklist_uid(Uid :: binary(), Ouid :: binary()) -> ok.
-blacklist_uid(Uid, Ouid) ->
-    blacklist_uids(Uid, [Ouid]).
+-spec add_except_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+add_except_uid(Uid, Ouid) ->
+    add_except_uids(Uid, [Ouid]).
 
 
--spec blacklist_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
-blacklist_uids(_Uid, []) -> ok;
-blacklist_uids(Uid, Ouids) ->
-    {ok, _Res} = q(["SADD", blacklist_key(Uid) | Ouids]),
+-spec add_except_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+add_except_uids(_Uid, []) -> ok;
+add_except_uids(Uid, Ouids) ->
+    [{ok, _Res1}, {ok, _Res2}] = qp([
+            ["SADD", blacklist_key(Uid) | Ouids],
+            ["SADD", except_key(Uid) | Ouids]]),
     ok.
 
 
@@ -152,27 +156,31 @@ block_uids(Uid, Ouids) ->
     ok.
 
 
--spec unwhitelist_uid(Uid :: binary(), Ouid :: binary()) -> ok.
-unwhitelist_uid(Uid, Ouid) ->
-    unwhitelist_uids(Uid, [Ouid]).
+-spec remove_only_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+remove_only_uid(Uid, Ouid) ->
+    remove_only_uids(Uid, [Ouid]).
 
 
--spec unwhitelist_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
-unwhitelist_uids(_Uid, []) -> ok;
-unwhitelist_uids(Uid, Ouids) ->
-    {ok, _Res} = q(["SREM", whitelist_key(Uid) | Ouids]),
+-spec remove_only_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+remove_only_uids(_Uid, []) -> ok;
+remove_only_uids(Uid, Ouids) ->
+    [{ok, _Res1}, {ok, _Res2}] = qp([
+            ["SREM", whitelist_key(Uid) | Ouids],
+            ["SREM", only_key(Uid) | Ouids]]),
     ok.
 
 
--spec unblacklist_uid(Uid :: binary(), Ouid :: binary()) -> ok.
-unblacklist_uid(Uid, Ouid) ->
-    unblacklist_uids(Uid, [Ouid]).
+-spec remove_except_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+remove_except_uid(Uid, Ouid) ->
+    remove_except_uids(Uid, [Ouid]).
 
 
--spec unblacklist_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
-unblacklist_uids(_Uid, []) -> ok;
-unblacklist_uids(Uid, Ouids) ->
-    {ok, _Res} = q(["SREM", blacklist_key(Uid) | Ouids]),
+-spec remove_except_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+remove_except_uids(_Uid, []) -> ok;
+remove_except_uids(Uid, Ouids) ->
+    [{ok, _Res1}, {ok, _Res2}] = qp([
+            ["SREM", blacklist_key(Uid) | Ouids],
+            ["SREM", except_key(Uid) | Ouids]]),
     ok.
 
 
@@ -200,16 +208,22 @@ unblock_uids(Uid, Ouids) ->
     lists:foreach(fun(Ouid) -> q(["SREM", reverse_block_key(Ouid), Uid]) end, Ouids),
     ok.
 
--spec get_whitelist_uids(Uid :: binary()) -> {ok, list(binary())}.
-get_whitelist_uids(Uid) ->
-    {ok, Res} = q(["SMEMBERS", whitelist_key(Uid)]),
-    {ok, Res}.
+-spec get_only_uids(Uid :: binary()) -> {ok, list(binary())}.
+get_only_uids(Uid) ->
+    [{ok, Res1}, {ok, Res2}] = qp([
+            ["SMEMBERS", whitelist_key(Uid)],
+            ["SMEMBERS", only_key(Uid)]]),
+    check_result(?FUNCTION_NAME, Res1, Res2),
+    {ok, Res1}.
 
 
--spec get_blacklist_uids(Uid :: binary()) -> {ok, list(binary())}.
-get_blacklist_uids(Uid) ->
-    {ok, Res} = q(["SMEMBERS", blacklist_key(Uid)]),
-    {ok, Res}.
+-spec get_except_uids(Uid :: binary()) -> {ok, list(binary())}.
+get_except_uids(Uid) ->
+    [{ok, Res1}, {ok, Res2}] = qp([
+            ["SMEMBERS", blacklist_key(Uid)],
+            ["SMEMBERS", except_key(Uid)]]),
+    check_result(?FUNCTION_NAME, Res1, Res2),
+    {ok, Res1}.
 
 
 -spec get_mutelist_uids(Uid :: binary()) -> {ok, list(binary())}.
@@ -230,16 +244,22 @@ get_blocked_by_uids(Uid) ->
     {ok, Res}.
 
 
--spec is_whitelisted(Uid :: binary(), Ouid :: binary()) -> boolean().
-is_whitelisted(Uid, Ouid) ->
-    {ok, Res} = q(["SISMEMBER", whitelist_key(Uid), Ouid]),
-    binary_to_integer(Res) == 1.
+-spec is_only_uid(Uid :: binary(), Ouid :: binary()) -> boolean().
+is_only_uid(Uid, Ouid) ->
+    [{ok, Res1}, {ok, Res2}] = qp([
+            ["SISMEMBER", whitelist_key(Uid), Ouid],
+            ["SISMEMBER", only_key(Uid), Ouid]]),
+    check_result(?FUNCTION_NAME, Res1, Res2),
+    binary_to_integer(Res1) == 1.
 
 
--spec is_blacklisted(Uid :: binary(), Ouid :: binary()) -> boolean().
-is_blacklisted(Uid, Ouid) ->
-    {ok, Res} = q(["SISMEMBER", blacklist_key(Uid), Ouid]),
-    binary_to_integer(Res) == 1.
+-spec is_except_uid(Uid :: binary(), Ouid :: binary()) -> boolean().
+is_except_uid(Uid, Ouid) ->
+    [{ok, Res1}, {ok, Res2}] = qp([
+            ["SISMEMBER", blacklist_key(Uid), Ouid],
+            ["SISMEMBER", except_key(Uid), Ouid]]),
+    check_result(?FUNCTION_NAME, Res1, Res2),
+    binary_to_integer(Res1) == 1.
 
 
 -spec is_blocked(Uid :: binary(), Ouid :: binary()) -> boolean().
@@ -295,6 +315,12 @@ whitelist_key(Uid) ->
 blacklist_key(Uid) ->
     <<?BLACKLIST_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
+only_key(Uid) ->
+    <<?ONLY_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+except_key(Uid) ->
+    <<?EXCEPT_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
 mute_key(Uid) ->
     <<?MUTE_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
@@ -303,4 +329,13 @@ block_key(Uid) ->
 
 reverse_block_key(Uid) ->
     <<?REVERSE_BLOCK_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+
+check_result(FunctionName, Res1, Res2) ->
+    case Res1 =:= Res2 of
+        true ->
+            ?INFO_MSG("~p check ok", [FunctionName]);
+        false ->
+            ?WARNING_MSG("~p check failed ~p | ~p", [FunctionName, Res1, Res2])
+    end.
 

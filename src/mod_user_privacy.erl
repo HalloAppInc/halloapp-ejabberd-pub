@@ -127,7 +127,7 @@ privacy_check_packet(Acc, _, _, _) ->
 -spec remove_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
 remove_friend(UserId, _Server, ContactId) ->
     ?INFO_MSG("Uid: ~s, ContactId: ~s", [UserId, ContactId]),
-    model_privacy:unwhitelist_uid(UserId, ContactId),
+    model_privacy:remove_only_uid(UserId, ContactId),
     ok.
 
 %%====================================================================
@@ -197,12 +197,12 @@ extract_uid(#uid_el{uid = Uid}) -> Uid.
 -spec remove_uids_from_privacy_list(Uid :: binary(),
         Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
 remove_uids_from_privacy_list(Uid, except, Ouids) ->
-    model_privacy:unblacklist_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, unblacklist, length(Ouids)),
+    model_privacy:remove_except_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, remove_except, length(Ouids)),
     ok;
 remove_uids_from_privacy_list(Uid, only, Ouids) ->
-    model_privacy:unwhitelist_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, unwhitelist, length(Ouids)),
+    model_privacy:remove_only_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, remove_only, length(Ouids)),
     ok;
 remove_uids_from_privacy_list(Uid, mute, Ouids) ->
     model_privacy:unmute_uids(Uid, Ouids),
@@ -218,19 +218,19 @@ remove_uids_from_privacy_list(Uid, block, Ouids) ->
 -spec add_uids_to_privacy_list(Uid :: binary(),
         Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
 add_uids_to_privacy_list(Uid, except, Ouids) ->
-    model_privacy:blacklist_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, blacklist, length(Ouids)),
+    model_privacy:add_except_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, add_except, length(Ouids)),
     ok;
 add_uids_to_privacy_list(Uid, only, Ouids) ->
-    model_privacy:whitelist_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, whitelist, length(Ouids)),
+    model_privacy:add_only_uids(Uid, Ouids),
+    stat:count(?STAT_PRIVACY, add_only, length(Ouids)),
     ok;
 add_uids_to_privacy_list(Uid, mute, Ouids) ->
     model_privacy:mute_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, mute, length(Ouids)),
     ok;
 add_uids_to_privacy_list(Uid, block, Ouids) ->
-    model_privacy:unwhitelist_uids(Uid, Ouids),
+    model_privacy:remove_only_uids(Uid, Ouids),
     Server = util:get_host(),
     ejabberd_hooks:run(block_uids, Server, [Uid, Server, Ouids]),
     model_privacy:block_uids(Uid, Ouids),
@@ -251,8 +251,8 @@ get_privacy_lists(_Uid, [], Result) ->
     Result;
 get_privacy_lists(Uid, [Type | Rest], Result) ->
     {ok, Ouids} = case Type of
-        except -> model_privacy:get_blacklist_uids(Uid);
-        only -> model_privacy:get_whitelist_uids(Uid);
+        except -> model_privacy:get_except_uids(Uid);
+        only -> model_privacy:get_only_uids(Uid);
         mute -> model_privacy:get_mutelist_uids(Uid);
         block -> model_privacy:get_blocked_uids(Uid)
     end,

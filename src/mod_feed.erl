@@ -463,11 +463,11 @@ get_feed_audience_set(Uid) ->
             sets:from_list(FriendUids);
         except ->
             {ok, FriendUids} = model_friends:get_friends(Uid),
-            {ok, BlacklistedUids} = model_privacy:get_blacklist_uids(Uid),
-            sets:subtract(sets:from_list(FriendUids), sets:from_list(BlacklistedUids));
+            {ok, ExceptUidsList} = model_privacy:get_except_uids(Uid),
+            sets:subtract(sets:from_list(FriendUids), sets:from_list(ExceptUidsList));
         only ->
-            {ok, WhitelistedUids} = model_privacy:get_whitelist_uids(Uid),
-            sets:from_list(WhitelistedUids)
+            {ok, OnlyUidsList} = model_privacy:get_only_uids(Uid),
+            sets:from_list(OnlyUidsList)
     end,
     sets:add_element(Uid, AudienceUidSet).
 

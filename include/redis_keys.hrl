@@ -27,7 +27,9 @@
 
 %% PrivacyKeys
 -define(WHITELIST_KEY, <<"whi:">>).
+-define(ONLY_KEY, <<"onl:">>).
 -define(BLACKLIST_KEY, <<"bla:">>).
+-define(EXCEPT_KEY, <<"exc:">>).
 -define(MUTE_KEY, <<"mut:">>).
 -define(BLOCK_KEY, <<"blo:">>).
 -define(REVERSE_BLOCK_KEY, <<"rbl:">>).

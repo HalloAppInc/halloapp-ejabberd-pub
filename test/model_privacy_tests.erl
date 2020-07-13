@@ -28,12 +28,12 @@ clear() ->
 -define(ONLY, only).
 
 
-whitelist_key_test() ->
-    ?assertEqual(<<"whi:{1}">>, model_privacy:whitelist_key(?UID1)).
+only_key_test() ->
+    ?assertEqual(<<"onl:{1}">>, model_privacy:only_key(?UID1)).
 
 
-blacklist_key_test() ->
-    ?assertEqual(<<"bla:{1}">>, model_privacy:blacklist_key(?UID1)).
+except_key_test() ->
+    ?assertEqual(<<"exc:{1}">>, model_privacy:except_key(?UID1)).
 
 
 mute_key_test() ->
@@ -64,38 +64,38 @@ privacy_type_test() ->
     ?assertEqual(?ALL, model_privacy:get_privacy_type_atom(?UID3)).
 
 
-whitelist_test() ->
+only_list_test() ->
     setup(),
-    ?assertEqual({ok, []}, model_privacy:get_whitelist_uids(?UID1)),
-    ?assertEqual(false, model_privacy:is_whitelisted(?UID1, ?UID2)),
-    ?assertEqual(ok, model_privacy:whitelist_uid(?UID1, ?UID2)),
-    ?assertEqual({ok, [?UID2]}, model_privacy:get_whitelist_uids(?UID1)),
-    ?assertEqual(true, model_privacy:is_whitelisted(?UID1, ?UID2)),
-    ?assertEqual(ok, model_privacy:unwhitelist_uid(?UID1, ?UID2)),
-    ?assertEqual({ok, []}, model_privacy:get_whitelist_uids(?UID1)),
+    ?assertEqual({ok, []}, model_privacy:get_only_uids(?UID1)),
+    ?assertEqual(false, model_privacy:is_only_uid(?UID1, ?UID2)),
+    ?assertEqual(ok, model_privacy:add_only_uid(?UID1, ?UID2)),
+    ?assertEqual({ok, [?UID2]}, model_privacy:get_only_uids(?UID1)),
+    ?assertEqual(true, model_privacy:is_only_uid(?UID1, ?UID2)),
+    ?assertEqual(ok, model_privacy:remove_only_uid(?UID1, ?UID2)),
+    ?assertEqual({ok, []}, model_privacy:get_only_uids(?UID1)),
 
-    ?assertEqual(ok, model_privacy:whitelist_uids(?UID1, [])),
-    ?assertEqual(ok, model_privacy:whitelist_uids(?UID1, [?UID2, ?UID3])),
-    ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_whitelist_uids(?UID1)),
-    ?assertEqual(true, model_privacy:is_whitelisted(?UID1, ?UID2)),
-    ?assertEqual(true, model_privacy:is_whitelisted(?UID1, ?UID3)).
+    ?assertEqual(ok, model_privacy:add_only_uids(?UID1, [])),
+    ?assertEqual(ok, model_privacy:add_only_uids(?UID1, [?UID2, ?UID3])),
+    ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_only_uids(?UID1)),
+    ?assertEqual(true, model_privacy:is_only_uid(?UID1, ?UID2)),
+    ?assertEqual(true, model_privacy:is_only_uid(?UID1, ?UID3)).
 
 
-blacklist_test() ->
+except_list_test_test() ->
     setup(),
-    ?assertEqual({ok, []}, model_privacy:get_blacklist_uids(?UID1)),
-    ?assertEqual(false, model_privacy:is_blacklisted(?UID1, ?UID2)),
-    ?assertEqual(ok, model_privacy:blacklist_uid(?UID1, ?UID2)),
-    ?assertEqual({ok, [?UID2]}, model_privacy:get_blacklist_uids(?UID1)),
-    ?assertEqual(true, model_privacy:is_blacklisted(?UID1, ?UID2)),
-    ?assertEqual(ok, model_privacy:unblacklist_uid(?UID1, ?UID2)),
-    ?assertEqual({ok, []}, model_privacy:get_blacklist_uids(?UID1)),
+    ?assertEqual({ok, []}, model_privacy:get_except_uids(?UID1)),
+    ?assertEqual(false, model_privacy:is_except_uid(?UID1, ?UID2)),
+    ?assertEqual(ok, model_privacy:add_except_uid(?UID1, ?UID2)),
+    ?assertEqual({ok, [?UID2]}, model_privacy:get_except_uids(?UID1)),
+    ?assertEqual(true, model_privacy:is_except_uid(?UID1, ?UID2)),
+    ?assertEqual(ok, model_privacy:remove_except_uid(?UID1, ?UID2)),
+    ?assertEqual({ok, []}, model_privacy:get_except_uids(?UID1)),
 
-    ?assertEqual(ok, model_privacy:blacklist_uids(?UID1, [])),
-    ?assertEqual(ok, model_privacy:blacklist_uids(?UID1, [?UID2, ?UID3])),
-    ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_blacklist_uids(?UID1)),
-    ?assertEqual(true, model_privacy:is_blacklisted(?UID1, ?UID2)),
-    ?assertEqual(true, model_privacy:is_blacklisted(?UID1, ?UID3)).
+    ?assertEqual(ok, model_privacy:add_except_uids(?UID1, [])),
+    ?assertEqual(ok, model_privacy:add_except_uids(?UID1, [?UID2, ?UID3])),
+    ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_except_uids(?UID1)),
+    ?assertEqual(true, model_privacy:is_except_uid(?UID1, ?UID2)),
+    ?assertEqual(true, model_privacy:is_except_uid(?UID1, ?UID3)).
 
 
 mute_test() ->
