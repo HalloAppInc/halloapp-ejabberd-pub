@@ -61,7 +61,7 @@
 %% enumerated types
 -type 'pb_ha_iq.Type'() :: get | set | result | error.
 -type 'pb_ha_message.Type'() :: chat | error | groupchat | headline | normal.
--type 'pb_ha_presence.Type'() :: available | away.
+-type 'pb_ha_presence.Type'() :: available | away | subscribe | unsubscribe.
 -type 'pb_auth_request.Resource'() :: android | ios.
 -type 'pb_client_mode.Mode'() :: active | passive.
 -type 'pb_contact.Action'() :: add | delete.
@@ -1151,6 +1151,8 @@ e_mfield_pb_push_register_push_token(Msg, Bin, TrUserData) -> SubBin = encode_ms
 
 'e_enum_pb_ha_presence.Type'(available, Bin, _TrUserData) -> <<Bin/binary, 0>>;
 'e_enum_pb_ha_presence.Type'(away, Bin, _TrUserData) -> <<Bin/binary, 1>>;
+'e_enum_pb_ha_presence.Type'(subscribe, Bin, _TrUserData) -> <<Bin/binary, 2>>;
+'e_enum_pb_ha_presence.Type'(unsubscribe, Bin, _TrUserData) -> <<Bin/binary, 3>>;
 'e_enum_pb_ha_presence.Type'(V, Bin, _TrUserData) -> e_varint(V, Bin).
 
 'e_enum_pb_auth_request.Resource'(android, Bin, _TrUserData) -> <<Bin/binary, 0>>;
@@ -3089,6 +3091,8 @@ skip_64_pb_push_register(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp
 
 'd_enum_pb_ha_presence.Type'(0) -> available;
 'd_enum_pb_ha_presence.Type'(1) -> away;
+'d_enum_pb_ha_presence.Type'(2) -> subscribe;
+'d_enum_pb_ha_presence.Type'(3) -> unsubscribe;
 'd_enum_pb_ha_presence.Type'(V) -> V.
 
 'd_enum_pb_auth_request.Resource'(0) -> android;
@@ -4172,6 +4176,8 @@ v_msg_pb_push_register(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_
 -dialyzer({nowarn_function,'v_enum_pb_ha_presence.Type'/3}).
 'v_enum_pb_ha_presence.Type'(available, _Path, _TrUserData) -> ok;
 'v_enum_pb_ha_presence.Type'(away, _Path, _TrUserData) -> ok;
+'v_enum_pb_ha_presence.Type'(subscribe, _Path, _TrUserData) -> ok;
+'v_enum_pb_ha_presence.Type'(unsubscribe, _Path, _TrUserData) -> ok;
 'v_enum_pb_ha_presence.Type'(V, Path, TrUserData) when is_integer(V) -> v_type_sint32(V, Path, TrUserData);
 'v_enum_pb_ha_presence.Type'(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'pb_ha_presence.Type'}, X, Path).
 
@@ -4315,10 +4321,10 @@ cons(Elem, Acc, _TrUserData) -> [Elem | Acc].
 
 
 get_msg_defs() ->
-    [{{enum, 'pb_ha_iq.Type'}, [{get, 0}, {set, 1}, {result, 2}, {error, 3}]}, {{enum, 'pb_ha_message.Type'}, [{chat, 0}, {error, 1}, {groupchat, 2}, {headline, 3}, {normal, 4}]}, {{enum, 'pb_ha_presence.Type'}, [{available, 0}, {away, 1}]},
-     {{enum, 'pb_auth_request.Resource'}, [{android, 0}, {ios, 1}]}, {{enum, 'pb_client_mode.Mode'}, [{active, 0}, {passive, 1}]}, {{enum, 'pb_contact.Action'}, [{add, 0}, {delete, 1}]}, {{enum, 'pb_contact.Role'}, [{friend, 0}, {none, 1}]},
-     {{enum, 'pb_contact_list.Type'}, [{full, 0}, {delta, 1}]}, {{enum, 'pb_feed_item.Action'}, [{publish, 0}, {retract, 1}]}, {{enum, 'pb_whisper_keys.Action'}, [{normal, 0}, {add, 1}, {count, 2}, {get, 3}, {set, 4}, {update, 5}]},
-     {{enum, 'pb_push_token.Os'}, [{android, 0}, {ios, 1}, {ios_dev, 2}]},
+    [{{enum, 'pb_ha_iq.Type'}, [{get, 0}, {set, 1}, {result, 2}, {error, 3}]}, {{enum, 'pb_ha_message.Type'}, [{chat, 0}, {error, 1}, {groupchat, 2}, {headline, 3}, {normal, 4}]},
+     {{enum, 'pb_ha_presence.Type'}, [{available, 0}, {away, 1}, {subscribe, 2}, {unsubscribe, 3}]}, {{enum, 'pb_auth_request.Resource'}, [{android, 0}, {ios, 1}]}, {{enum, 'pb_client_mode.Mode'}, [{active, 0}, {passive, 1}]},
+     {{enum, 'pb_contact.Action'}, [{add, 0}, {delete, 1}]}, {{enum, 'pb_contact.Role'}, [{friend, 0}, {none, 1}]}, {{enum, 'pb_contact_list.Type'}, [{full, 0}, {delta, 1}]}, {{enum, 'pb_feed_item.Action'}, [{publish, 0}, {retract, 1}]},
+     {{enum, 'pb_whisper_keys.Action'}, [{normal, 0}, {add, 1}, {count, 2}, {get, 3}, {set, 4}, {update, 5}]}, {{enum, 'pb_push_token.Os'}, [{android, 0}, {ios, 1}, {ios_dev, 2}]},
      {{msg, pb_chat}, [#field{name = timestamp, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = payload, fnum = 2, rnum = 3, type = bytes, occurrence = optional, opts = []}]}, {{msg, pb_ping}, []},
      {{msg, pb_iq_payload},
       [#gpb_oneof{name = content, rnum = 2,
@@ -4520,7 +4526,7 @@ find_msg_def(_) -> error.
 
 find_enum_def('pb_ha_iq.Type') -> [{get, 0}, {set, 1}, {result, 2}, {error, 3}];
 find_enum_def('pb_ha_message.Type') -> [{chat, 0}, {error, 1}, {groupchat, 2}, {headline, 3}, {normal, 4}];
-find_enum_def('pb_ha_presence.Type') -> [{available, 0}, {away, 1}];
+find_enum_def('pb_ha_presence.Type') -> [{available, 0}, {away, 1}, {subscribe, 2}, {unsubscribe, 3}];
 find_enum_def('pb_auth_request.Resource') -> [{android, 0}, {ios, 1}];
 find_enum_def('pb_client_mode.Mode') -> [{active, 0}, {passive, 1}];
 find_enum_def('pb_contact.Action') -> [{add, 0}, {delete, 1}];
@@ -4583,11 +4589,15 @@ enum_value_by_symbol('pb_push_token.Os', Sym) -> 'enum_value_by_symbol_pb_push_t
 'enum_value_by_symbol_pb_ha_message.Type'(normal) -> 4.
 
 'enum_symbol_by_value_pb_ha_presence.Type'(0) -> available;
-'enum_symbol_by_value_pb_ha_presence.Type'(1) -> away.
+'enum_symbol_by_value_pb_ha_presence.Type'(1) -> away;
+'enum_symbol_by_value_pb_ha_presence.Type'(2) -> subscribe;
+'enum_symbol_by_value_pb_ha_presence.Type'(3) -> unsubscribe.
 
 
 'enum_value_by_symbol_pb_ha_presence.Type'(available) -> 0;
-'enum_value_by_symbol_pb_ha_presence.Type'(away) -> 1.
+'enum_value_by_symbol_pb_ha_presence.Type'(away) -> 1;
+'enum_value_by_symbol_pb_ha_presence.Type'(subscribe) -> 2;
+'enum_value_by_symbol_pb_ha_presence.Type'(unsubscribe) -> 3.
 
 'enum_symbol_by_value_pb_auth_request.Resource'(0) -> android;
 'enum_symbol_by_value_pb_auth_request.Resource'(1) -> ios.

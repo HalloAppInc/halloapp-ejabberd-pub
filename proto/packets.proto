@@ -98,6 +98,8 @@ message ha_presence {
     enum Type {
         available = 0;
         away = 1;
+        subscribe = 2;
+        unsubscribe = 3;
     }
     Type type = 2;
     int64 uid = 3;

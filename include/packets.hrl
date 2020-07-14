@@ -60,7 +60,7 @@
 -define('PB_HA_PRESENCE_PB_H', true).
 -record(pb_ha_presence,
         {id = []                :: iodata() | undefined, % = 1
-         type = available       :: available | away | integer() | undefined, % = 2, enum pb_ha_presence.Type
+         type = available       :: available | away | subscribe | unsubscribe | integer() | undefined, % = 2, enum pb_ha_presence.Type
          uid = 0                :: integer() | undefined, % = 3, 64 bits
          last_seen = 0          :: integer() | undefined % = 4, 64 bits
         }).
