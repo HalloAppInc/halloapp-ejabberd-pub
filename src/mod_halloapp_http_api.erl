@@ -45,6 +45,10 @@ process([<<"registration">>, <<"request_sms">>],
         Phone = maps:get(<<"phone">>, Payload),
         ?INFO_MSG("payload ~p phone:~p, ua:~p ip:~p ~p",
             [Payload, Phone, UserAgent, IP, is_debug(Phone)]),
+
+        % TODO: incomment when we are ready to enforce it
+        % check_invited(Phone),
+
         check_ua(UserAgent),
         request_sms(Phone, UserAgent),
         {200, ?HEADER(?CT_JSON),
@@ -59,6 +63,9 @@ process([<<"registration">>, <<"request_sms">>],
         error : no_friends ->
             ?INFO_MSG("request_sms error: phone not in anyones contacts ~p", [Data]),
             return_400(no_friends);
+        error: not_invited ->
+            ?INFO_MSG("request_sms error: phone not invited ~p", [Data]),
+            return_400(not_invited);
         error : sms_fail ->
             ?INFO_MSG("request_sms error: sms_failed ~p", [Data]),
             return_400(sms_fail);
@@ -77,9 +84,6 @@ process([<<"registration">>, <<"register">>],
         Phone = maps:get(<<"phone">>, Payload),
         Code = maps:get(<<"code">>, Payload),
         Name = maps:get(<<"name">>, Payload),
-
-        % TODO: incomment when we are ready to enforce it
-        % check_invited(Phone),
 
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
@@ -109,8 +113,6 @@ process([<<"registration">>, <<"register">>],
             return_400(missing_name);
         error: invalid_name ->
             return_400(invalid_name);
-        error: not_invited ->
-            return_400(not_invited);
         error : Reason : Stacktrace  ->
             ?ERROR_MSG("register error: ~p, ~p", [Reason, Stacktrace]),
             return_500()
