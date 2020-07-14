@@ -26,6 +26,7 @@
 %% API
 -export([
     create_group/2,
+    delete_group/1,
     group_exists/1,
     get_member_uids/1,
     get_group_size/1,
@@ -93,6 +94,12 @@ create_group(Name, Uid, Ts) ->
         ["HSET", members_key(Gid), Uid, MemberValue]]),
     {ok, _} = q(["SADD", user_groups_key(Uid), Gid]),
     {ok, Gid}.
+
+
+-spec delete_group(Gid :: gid()) -> ok.
+delete_group(Gid) ->
+    {ok, _Res} = q(["DEL", group_key(Gid), members_key(Gid)]),
+    ok.
 
 
 -spec group_exists(Gid :: gid()) -> boolean().

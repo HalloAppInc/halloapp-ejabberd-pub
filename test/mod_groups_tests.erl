@@ -316,3 +316,12 @@ send_message_test() ->
     {ok, _Ts} = mod_groups:send_message(Gid, ?UID1, <<"TestMessage">>),
     ok.
 
+cleanup_empty_groups_test() ->
+    setup(),
+    {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
+    Gid = Group#group.gid,
+    ?assertEqual(true, model_groups:group_exists(Gid)),
+    ?assertEqual({ok, true}, mod_groups:leave_group(Gid, ?UID1)),
+    ?assertEqual(false, model_groups:group_exists(Gid)),
+    ok.
+

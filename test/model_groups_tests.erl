@@ -50,6 +50,15 @@ create_group_test() ->
     ?assertEqual([?UID1], model_groups:get_member_uids(Gid)),
     ok.
 
+delete_group_test() ->
+    setup(),
+    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    ?assertEqual(true, model_groups:group_exists(Gid)),
+    ?assertEqual(ok, model_groups:delete_group(Gid)),
+    ?assertEqual(false, model_groups:group_exists(Gid)),
+    ?assertEqual(0, model_groups:get_group_size(Gid)),
+    ok.
+
 add_member_test() ->
     setup(),
     {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),

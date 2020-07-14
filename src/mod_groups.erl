@@ -133,6 +133,7 @@ modify_members(Gid, Uid, Changes) ->
             AddResults = add_members_unsafe(Gid, Uid, AddUids),
             Results = RemoveResults ++ AddResults,
             send_modify_members_event(Gid, Uid, Results),
+            maybe_delete_empty_group(Gid),
             {ok, Results}
     end.
 
@@ -148,6 +149,7 @@ leave_group(Gid, Uid) ->
             ?INFO_MSG("Gid: ~s Uid: ~s left", [Gid, Uid]),
             send_leave_group_event(Gid, Uid)
     end,
+    maybe_delete_empty_group(Gid),
     Res.
 
 
@@ -346,6 +348,17 @@ split_changes(Changes, FirstListAction) ->
         end,
         Changes),
     {[Uid || {Uid, _Action} <- L1], [Uid || {Uid, _Action} <- L2]}.
+
+
+-spec maybe_delete_empty_group(Gid :: gid()) -> ok.
+maybe_delete_empty_group(Gid) ->
+    Size = model_groups:get_group_size(Gid),
+    if
+        Size =:= 0 ->
+            model_groups:delete_group(Gid);
+        true ->
+            ok
+    end.
 
 
 -spec validate_group_name(Name :: binary()) -> {ok, binary()} | {error, invalid_name}.
