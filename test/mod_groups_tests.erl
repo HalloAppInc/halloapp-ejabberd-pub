@@ -325,3 +325,20 @@ cleanup_empty_groups_test() ->
     ?assertEqual(false, model_groups:group_exists(Gid)),
     ok.
 
+admin_leave_test() ->
+    setup(),
+    {ok, Group, _Res} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    Gid = Group#group.gid,
+    mod_groups:leave_group(Gid, ?UID1),
+    IsUid2Admin = model_groups:is_admin(Gid, ?UID2),
+    IsUid3Admin = model_groups:is_admin(Gid, ?UID3),
+    % make sure at least one of 2 or 3 is now admin.
+    ?assertEqual(true, IsUid2Admin or IsUid3Admin),
+
+    {ok, Group2} = mod_groups:get_group(Gid, ?UID2),
+    Members = Group2#group.members,
+    ?assertEqual(2, length(Members)),
+    Admins = lists:filter(fun (M) -> M#group_member.type =:= admin end, Members),
+    % check that there is only one admin
+    ?assertEqual(1, length(Admins)),
+    ok.

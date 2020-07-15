@@ -147,7 +147,8 @@ leave_group(Gid, Uid) ->
             ?INFO_MSG("Gid: ~s Uid: ~s not a member already", [Gid, Uid]);
         {ok, true} ->
             ?INFO_MSG("Gid: ~s Uid: ~s left", [Gid, Uid]),
-            send_leave_group_event(Gid, Uid)
+            send_leave_group_event(Gid, Uid),
+            ensure_group_has_admins(Gid)
     end,
     maybe_delete_empty_group(Gid),
     Res.
@@ -177,6 +178,7 @@ modify_admins(Gid, Uid, Changes) ->
             PromoteResults = promote_admins_unsafe(Gid, PromoteUids),
             Results = DemoteResults ++ PromoteResults,
             send_modify_admins_event(Gid, Uid, Results),
+            ensure_group_has_admins(Gid),
             {ok, Results}
     end.
 
@@ -407,6 +409,33 @@ demote_admin_unsafe(Gid, Uid) ->
             not_member;
         {ok, _} ->
             ok
+    end.
+
+
+-spec ensure_group_has_admins(Gid :: gid()) -> ok.
+ensure_group_has_admins(Gid) ->
+    Group = model_groups:get_group(Gid),
+    case Group of
+        undefined -> ok;
+        _ ->
+            HasAdmins = lists:any(
+                fun (M) ->
+                    M#group_member.type =:= admin
+                end,
+                Group#group.members),
+            if
+                HasAdmins -> ok;
+                length(Group#group.members) =:= 0 -> ok;
+                true ->
+                    [Member | Rest] = lists:filter(
+                        fun(M) ->
+                            M#group_member.type =:= member
+                        end,
+                        Group#group.members),
+                    ?INFO_MSG("Gid: ~s automatically promoting Uid: ~s to admin",
+                        [Gid, Member#group_member.uid]),
+                    ok = promote_admin_unsafe(Gid, Member#group_member.uid)
+            end
     end.
 
 
