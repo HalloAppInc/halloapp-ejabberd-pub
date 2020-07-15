@@ -17,7 +17,7 @@
 
 -define(AVATAR_OPTIONS_ETS, user_avatar_options).
 -define(NS_USER_AVATAR, <<"halloapp:user:avatar">>).
--define(AWS_BUCKET_NAME, <<"halloapp-user-avatars">>).
+-define(AWS_BUCKET_NAME, <<"halloapp-avatars">>).
 -define(MAX_AVATAR_SIZE, 51200).    %% 50KB
 -define(MAX_AVATAR_DIM, 256).
 -type(avatar_id() :: binary()).
