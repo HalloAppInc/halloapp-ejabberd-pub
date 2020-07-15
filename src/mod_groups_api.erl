@@ -22,6 +22,10 @@
 -include("xmpp.hrl").
 -include("groups.hrl").
 
+% TODO: duplicate constant with mod_user_avatar.
+% TODO: unify the avatar upload logic with users
+-define(MAX_AVATAR_SIZE, 51200).    %% 50KB
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%   gen_mod API                                                                              %%%
@@ -109,6 +113,12 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = get,
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
         sub_els = [#group_st{action = set_name, gid = Gid, name = Name} = _ReqGroupSt]} = IQ) ->
     process_set_name(IQ, Gid, Uid, Name);
+
+
+%%% set_avatar
+process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
+        sub_els = [#group_avatar{gid = Gid, cdata = Base64Bytes}]} = IQ) ->
+    process_set_avatar(IQ, Gid, Uid, Base64Bytes);
 
 
 %%% leave_group %%%
@@ -246,6 +256,62 @@ process_set_name(IQ, Gid, Uid, Name) ->
         ok ->
             {ok, GroupInfo} = mod_groups:get_group_info(Gid, Uid),
             xmpp:make_iq_result(IQ, group_info_to_group_st(GroupInfo))
+    end.
+
+
+process_set_avatar(IQ, Gid, Uid, Data) ->
+    ?INFO_MSG("set_avatar Gid: ~s Uid: Base64Size: ~s", [Gid, Uid, byte_size(Data)]),
+    try
+        BinaryData = base64:decode(Data),
+        BinaryDataSize = byte_size(BinaryData),
+        if
+            % TODO: refactor this code to move both upload logic for user and group photos together
+            BinaryDataSize > ?MAX_AVATAR_SIZE ->
+                xmpp:make_error(IQ, err(max_size));
+            BinaryData =:= <<>> ->
+                delete_avatar(IQ, Gid, Uid);
+            true ->
+                set_avatar(IQ, Gid, Uid, BinaryData)
+        end
+    catch Class : Reason : St ->
+        ?ERROR_MSG("Uid: ~s Gid: ~s Stacktrace:~p",
+            [Uid, Gid, lager:pr_stacktrace(St, {Class, Reason})]),
+        xmpp:make_error(IQ, err(bad_request))
+    end.
+
+
+-spec delete_avatar(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
+delete_avatar(IQ, Gid, Uid) ->
+    case mod_groups:delete_avatar(Gid, Uid) of
+        {error, Reason} ->
+            xmpp:make_error(IQ, err(Reason));
+        ok ->
+            xmpp:make_iq_result(IQ)
+    end.
+
+
+-spec set_avatar(IQ :: iq(), Gid :: gid(), Uid :: uid(), BinaryData :: binary()) -> iq().
+set_avatar(IQ, Gid, Uid, BinaryData) ->
+    AvatarId = util:new_avatar_id(),
+    case mod_user_avatar:upload_group_avatar(AvatarId, BinaryData) of
+        error ->
+            ?ERROR_MSG("failed to upload group avatar: Gid: ~s Uid: ~s", [Gid, Uid]),
+            xmpp:make_error(IQ, err(failed));
+        ok ->
+            case mod_groups:set_avatar(Gid, Uid, AvatarId) of
+                {error, Reason} ->
+                    ?ERROR_MSG("Gid: ~s seting avatar failed: ~p Uid: ~s AvatarId: ~s",
+                        [Gid, Reason, Uid, Reason]),
+                    xmpp:make_error(IQ, err(Reason));
+                ok ->
+                    ?INFO_MSG("Gid: ~s Uid: ~s Successfully set avatar ~s",
+                        [Gid, Uid, AvatarId]),
+                    GroupSt = #group_st{
+                        gid = Gid,
+                        avatar = AvatarId
+                    },
+                    xmpp:make_iq_result(IQ, GroupSt)
+            end
     end.
 
 

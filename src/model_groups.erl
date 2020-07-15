@@ -44,6 +44,7 @@
     is_admin/2,
     set_name/2,
     set_avatar/2,
+    delete_avatar/1,
     check_member/2
 ]).
 
@@ -292,6 +293,12 @@ set_name(Gid, Name) ->
 -spec set_avatar(Gid :: gid(), AvatarId :: binary()) -> ok.
 set_avatar(Gid, AvatarId) ->
     {ok, _Res} = q(["HSET", group_key(Gid), ?FIELD_AVATAR_ID, AvatarId]),
+    ok.
+
+
+-spec delete_avatar(Gid :: gid()) -> ok.
+delete_avatar(Gid) ->
+    {ok, _Res} = q(["HDEL", group_key(Gid), ?FIELD_AVATAR_ID]),
     ok.
 
 

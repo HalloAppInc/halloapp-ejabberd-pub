@@ -18,6 +18,7 @@
 -define(UID4, <<"4">>).
 -define(GID1, <<"g9kljfdl39kfsljlsfj03">>).
 -define(GID2, <<"g09fdsjffKSDLJFkfsdjd">>).
+-define(AVATAR1, <<"fDSLKDJLKFklf">>).
 
 
 setup() ->
@@ -183,5 +184,23 @@ get_groups_test() ->
     ?assertEqual(lists:sort([Gid, Gid2]), lists:sort(model_groups:get_groups(?UID2))),
     ?assertEqual(lists:sort([Gid]), lists:sort(model_groups:get_groups(?UID3))),
     ?assertEqual(lists:sort([Gid2]), lists:sort(model_groups:get_groups(?UID4))),
+    ok.
+
+set_avatar_test() ->
+    setup(),
+    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    Group1 = model_groups:get_group(Gid),
+    ?assertEqual(undefined, Group1#group.avatar),
+
+    ?assertEqual(ok, model_groups:set_avatar(Gid, ?AVATAR1)),
+    Group2 = model_groups:get_group(Gid),
+    ?assertEqual(?AVATAR1, Group2#group.avatar),
+    Gid.
+
+delete_avatar_test() ->
+    Gid = set_avatar_test(),
+    ?assertEqual(ok, model_groups:delete_avatar(Gid)),
+    Group1 = model_groups:get_group(Gid),
+    ?assertEqual(undefined, Group1#group.avatar),
     ok.
 

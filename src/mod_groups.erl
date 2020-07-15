@@ -36,6 +36,7 @@
     get_groups/1,
     set_name/3,
     set_avatar/3,
+    delete_avatar/2,
     send_message/3
 ]).
 
@@ -229,17 +230,33 @@ set_name(Gid, Uid, Name) ->
     end.
 
 
--spec set_avatar(Gid :: gid(), Uid :: uid(), AvatarId :: binary()) -> ok | {error, any()}.
+-spec set_avatar(Gid :: gid(), Uid :: uid(), AvatarId :: binary()) -> ok | {error, not_member}.
 set_avatar(Gid, Uid, AvatarId) ->
     ?INFO_MSG("Gid: ~s Uid: ~s setting avatar to ~s", [Gid, Uid, AvatarId]),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
+            ?WARNING_MSG("Gid: ~s, Uid: ~s is not member", [Gid, Uid]),
             {error, not_member};
         true ->
             ok = model_groups:set_avatar(Gid, AvatarId),
             ?INFO_MSG("Gid: ~s Uid: ~s set avatar to ~s", [Gid, Uid, AvatarId]),
             send_change_avatar_event(Gid, Uid),
+            ok
+    end.
+
+
+-spec delete_avatar(Gid :: gid(), Uid :: uid()) -> ok | {error, not_member}.
+delete_avatar(Gid, Uid) ->
+    ?INFO_MSG("Gid: ~s Uid: ~s deleting avatar", [Gid, Uid]),
+    case model_groups:check_member(Gid, Uid) of
+        false ->
+            %% also possible the group does not exists
+            ?WARNING_MSG("Gid: ~s, Uid: ~s is not member", [Gid, Uid]),
+            {error, not_member};
+        true ->
+            ok = model_groups:delete_avatar(Gid),
+            ?INFO_MSG("Gid: ~s Uid: ~s deleted avatar", [Gid, Uid]),
             ok
     end.
 

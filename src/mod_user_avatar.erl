@@ -29,7 +29,8 @@
 -export([
     process_local_iq/1,
     remove_user/2,
-    user_avatar_published/3
+    user_avatar_published/3,
+    upload_group_avatar/2
 ]).
 
 
@@ -208,12 +209,25 @@ user_avatar_published(UserId, Server, AvatarId) ->
         end, Friends).
 
 
+% TODO: maybe we should rename mod_user_avatar to mod_avatar since it now has group functions
+% TODO: both funcitons are the same now...
+-spec upload_group_avatar(AvatarId :: binary(), BinaryData :: binary()) -> ok | error.
+upload_group_avatar(AvatarId, BinaryData) ->
+    upload_avatar(?AWS_BUCKET_NAME, AvatarId, BinaryData).
+
+
 -spec upload_user_avatar(AvatarId :: binary(), BinaryData :: binary()) -> ok | error.
 upload_user_avatar(AvatarId, BinaryData) ->
+    upload_avatar(?AWS_BUCKET_NAME, AvatarId, BinaryData).
+
+
+-spec upload_avatar(BucketName :: binary(), AvatarId :: binary(), BinaryData :: binary())
+        -> ok | error.
+upload_avatar(BucketName, AvatarId, BinaryData) ->
     Headers = [{"content-type", "image/jpeg"}],
     try
         Result = erlcloud_s3:put_object(binary_to_list(
-                ?AWS_BUCKET_NAME), binary_to_list(AvatarId), BinaryData, [], Headers),
+                BucketName), binary_to_list(AvatarId), BinaryData, [], Headers),
         ?INFO_MSG("AvatarId: ~s, Result: ~p", [AvatarId, Result]),
         ok
     catch ?EX_RULE(Class, Reason, St) ->
