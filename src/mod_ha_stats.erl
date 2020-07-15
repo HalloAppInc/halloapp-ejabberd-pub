@@ -93,7 +93,6 @@ remove_friend(Uid, _Server, _ContactId) ->
 
 -spec user_send_packet({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
 user_send_packet({Packet, _State} = Acc) ->
-    ?INFO_MSG("Packet: ~p", [Packet]),
     stat:count("HA/user_send_packet", "packet"),
     count_send_packet(Packet),
     Acc.
