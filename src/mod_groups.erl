@@ -47,6 +47,8 @@
 -define(MAX_GROUP_SIZE, 25).
 -define(MAX_GROUP_NAME_SIZE, 25).
 
+-define(STAT_NS, "HA/groups").
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%   gen_mod API                                                                              %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -81,6 +83,8 @@ mod_options(_Host) ->
 -type modify_member_results() :: [modify_member_result()].
 -type modify_admin_result() :: {uid(), promote | demote, ok | no_member}.
 -type modify_admin_results() :: [modify_admin_result()].
+
+-type modify_results() :: modify_member_results() | modify_admin_results().
 
 
 -spec create_group(Uid :: uid(), GroupName :: binary()) -> {ok, group()} | {error, invalid_name}.
@@ -132,6 +136,7 @@ modify_members(Gid, Uid, Changes) ->
             RemoveResults = remove_members_unsafe(Gid, RemoveUids),
             AddResults = add_members_unsafe(Gid, Uid, AddUids),
             Results = RemoveResults ++ AddResults,
+            log_stats(modify_members, Results),
             send_modify_members_event(Gid, Uid, Results),
             maybe_delete_empty_group(Gid),
             {ok, Results}
@@ -147,6 +152,7 @@ leave_group(Gid, Uid) ->
             ?INFO_MSG("Gid: ~s Uid: ~s not a member already", [Gid, Uid]);
         {ok, true} ->
             ?INFO_MSG("Gid: ~s Uid: ~s left", [Gid, Uid]),
+            stat:count(?STAT_NS, "leave"),
             send_leave_group_event(Gid, Uid),
             maybe_assign_admin(Gid)
     end,
@@ -177,6 +183,7 @@ modify_admins(Gid, Uid, Changes) ->
             DemoteResults = demote_admins_unsafe(Gid, DemoteUids),
             PromoteResults = promote_admins_unsafe(Gid, PromoteUids),
             Results = DemoteResults ++ PromoteResults,
+            log_stats(modify_admins, Results),
             send_modify_admins_event(Gid, Uid, Results),
             maybe_assign_admin(Gid),
             {ok, Results}
@@ -228,6 +235,7 @@ set_name(Gid, Uid, Name) ->
                 true ->
                     ok = model_groups:set_name(Gid, LName),
                     ?INFO_MSG("Gid: ~s Uid: ~s set name to |~s|", [Gid, Uid, LName]),
+                    stat:count(?STAT_NS, "set_name"),
                     send_change_name_event(Gid, Uid),
                     ok
             end
@@ -245,6 +253,7 @@ set_avatar(Gid, Uid, AvatarId) ->
         true ->
             ok = model_groups:set_avatar(Gid, AvatarId),
             ?INFO_MSG("Gid: ~s Uid: ~s set avatar to ~s", [Gid, Uid, AvatarId]),
+            stat:count(?STAT_NS, "set_avatar"),
             send_change_avatar_event(Gid, Uid),
             ok
     end.
@@ -261,6 +270,7 @@ delete_avatar(Gid, Uid) ->
         true ->
             ok = model_groups:delete_avatar(Gid),
             ?INFO_MSG("Gid: ~s Uid: ~s deleted avatar", [Gid, Uid]),
+            stat:count(?STAT_NS, "delete_avatar"),
             ok
     end.
 
@@ -285,6 +295,8 @@ send_message(Gid, Uid, MessagePayload) ->
             Jids = util:uids_to_jids(ReceiverUids, Server),
             From = jid:make(Server),
             Packet = #message{type = groupchat, sub_els = [GroupMessage]},
+            stat:count(?STAT_NS, "send_im"),
+            stat:count(?STAT_NS, "recv_im", length(ReceiverUids)),
             ejabberd_router_multicast:route_multicast(From, Server, Jids, Packet),
             {ok, Ts}
     end.
@@ -302,6 +314,7 @@ create_group_internal(Uid, GroupName) ->
             % TODO: switch arguments around in the model
             {ok, Gid} = model_groups:create_group(LGroupName, Uid),
             ?INFO_MSG("group created Gid: ~s Uid: ~s GroupName: |~s|", [Gid, Uid, LGroupName]),
+            stat:count(?STAT_NS, "create"),
             {ok, Gid}
     end.
 
@@ -590,4 +603,22 @@ make_member_st({Uid, Action, Result}, Event, NamesMap) ->
                 action = Action
             }
     end.
+
+
+-spec log_stats(API :: atom(), Results :: modify_results()) -> ok.
+log_stats(API, Results) ->
+    MetricBase = atom_to_list(API),
+    lists:foreach(
+        fun ({_Ouid, Action, Result}) ->
+            Metric = MetricBase ++ "_" ++ atom_to_list(Action),
+            case Result of
+                ok ->
+                    stat:count(?STAT_NS, Metric);
+                Reason ->
+                    % TODO: uncomment when stat module supports metrics with dimentions
+%%                    stat:count_d(?STAT_NS, Metric ++ "_error", [{error, Reason}])
+                    ok
+            end
+        end,
+        Results).
 
