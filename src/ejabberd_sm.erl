@@ -549,6 +549,8 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 host_up(Host) ->
     ejabberd_hooks:add(c2s_handle_info, Host,
 		       ejabberd_sm, c2s_handle_info, 50),
+    ejabberd_hooks:add(pb_c2s_handle_info, Host,
+		       ejabberd_sm, c2s_handle_info, 50),
     ejabberd_hooks:add(roster_in_subscription, Host,
 		       ejabberd_sm, check_in_subscription, 20),
     ejabberd_hooks:add(offline_message_hook, Host,
@@ -558,7 +560,8 @@ host_up(Host) ->
     ejabberd_hooks:add(remove_user, Host,
 		       ejabberd_sm, disconnect_removed_user, 100),
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 10),
-    ejabberd_c2s:host_up(Host).
+    ejabberd_c2s:host_up(Host),
+    halloapp_c2s:host_up(Host).
 
 -spec host_down(binary()) -> ok.
 host_down(Host) ->
@@ -576,6 +579,8 @@ host_down(Host) ->
       end, get_sessions(Mod, Host)),
     ejabberd_hooks:delete(c2s_handle_info, Host,
 			  ejabberd_sm, c2s_handle_info, 50),
+    ejabberd_hooks:delete(pb_c2s_handle_info, Host,
+			  ejabberd_sm, c2s_handle_info, 50),
     ejabberd_hooks:delete(roster_in_subscription, Host,
 			  ejabberd_sm, check_in_subscription, 20),
     ejabberd_hooks:delete(offline_message_hook, Host,
@@ -585,7 +590,8 @@ host_down(Host) ->
     ejabberd_hooks:delete(remove_user, Host,
 			  ejabberd_sm, disconnect_removed_user, 100),
     ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 10),
-    ejabberd_c2s:host_down(Host).
+    ejabberd_c2s:host_down(Host),
+    halloapp_c2s:host_down(Host).
 
 -spec set_session(sid(), binary(), binary(), binary(),
                   prio(), info()) -> ok | {error, any()}.

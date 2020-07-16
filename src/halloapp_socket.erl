@@ -92,11 +92,11 @@ new(SockMod, Socket, Opts) ->
     MaxStanzaSize = proplists:get_value(max_stanza_size, Opts, infinity),
     SockPeer =  proplists:get_value(sock_peer_name, Opts, none),
     XMLStream = case get_owner(SockMod, Socket) of
-            Pid when Pid == self() ->
-            fxml_stream:new(self(), MaxStanzaSize);
-            _ ->
-            undefined
-        end,
+        Pid when Pid == self() ->
+        fxml_stream:new(self(), MaxStanzaSize);
+        _ ->
+        undefined
+    end,
     #socket_state{
         sockmod = SockMod,
         socket = Socket,
@@ -147,27 +147,6 @@ starttls(#socket_state{sockmod = gen_tcp, socket = Socket} = SocketData, TLSOpts
             Err
     end;
 starttls(_, _) ->
-    erlang:error(badarg).
-
-
-compress(SocketData) -> compress(SocketData, undefined).
-
-
-compress(#socket_state{sockmod = SockMod,
-        socket = Socket} = SocketData, Data)
-        when SockMod == gen_tcp orelse SockMod == fast_tls ->
-    {ok, ZlibSocket} = ezlib:enable_zlib(SockMod, Socket),
-    case Data of
-        undefined -> ok;
-        _ -> send(SocketData, Data)
-    end,
-    SocketData1 = SocketData#socket_state{socket = ZlibSocket, sockmod = ezlib},
-    SocketData2 = reset_stream(SocketData1),
-    case ezlib:recv_data(ZlibSocket, <<"">>) of
-        {ok, ZlibData} -> parse(SocketData2, ZlibData);
-        {error, _} = Err -> Err
-    end;
-compress(_, _) ->
     erlang:error(badarg).
 
 
@@ -307,8 +286,7 @@ get_owner(SockMod, Socket) ->
 
 -spec get_peer_certificate(socket_state(), plain|otp) -> {ok, cert()} | error;
         (socket_state(), der) -> {ok, binary()} | error.
-get_peer_certificate(#socket_state{sockmod = SockMod,
-                   socket = Socket}, Type) ->
+get_peer_certificate(#socket_state{sockmod = SockMod, socket = Socket}, Type) ->
     case erlang:function_exported(SockMod, get_peer_certificate, 2) of
         true -> SockMod:get_peer_certificate(Socket, Type);
         false -> error
@@ -324,9 +302,7 @@ close(#socket_state{sockmod = SockMod, socket = Socket}) ->
 
 
 -spec sockname(socket_state()) -> {ok, endpoint()} | {error, inet:posix()}.
-sockname(#socket_state{sockmod = SockMod,
-               socket = Socket,
-               sock_peer_name = SockPeer}) ->
+sockname(#socket_state{sockmod = SockMod, socket = Socket, sock_peer_name = SockPeer}) ->
     case SockPeer of
         none ->
             case SockMod of
@@ -339,9 +315,7 @@ sockname(#socket_state{sockmod = SockMod,
 
 
 -spec peername(socket_state()) -> {ok, endpoint()} | {error, inet:posix()}.
-peername(#socket_state{sockmod = SockMod,
-               socket = Socket,
-               sock_peer_name = SockPeer}) ->
+peername(#socket_state{sockmod = SockMod, socket = Socket, sock_peer_name = SockPeer}) ->
     case SockPeer of
         none ->
             case SockMod of

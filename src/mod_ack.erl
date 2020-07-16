@@ -84,6 +84,7 @@ init([Host|_]) ->
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 50),
     ejabberd_hooks:add(c2s_closed, Host, ?MODULE, c2s_closed, 10),
+    ejabberd_hooks:add(pb_c2s_closed, Host, ?MODULE, c2s_closed, 10),
     {ok, #{ack_wait_queue => queue:new(), host => Host}}.
 
 terminate(_Reason, #{host := Host} = _AckState) ->
@@ -92,6 +93,7 @@ terminate(_Reason, #{host := Host} = _AckState) ->
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 50),
     ejabberd_hooks:delete(c2s_closed, Host, ?MODULE, c2s_closed, 10),
+    ejabberd_hooks:delete(pb_c2s_closed, Host, ?MODULE, c2s_closed, 10),
     ok.
 
 code_change(_OldVsn, AckState, _Extra) ->

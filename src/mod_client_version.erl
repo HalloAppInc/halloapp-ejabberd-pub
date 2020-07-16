@@ -30,6 +30,7 @@
 
 start(Host, Opts) ->
     ejabberd_hooks:add(c2s_handle_info, Host, ?MODULE, c2s_handle_info, 10),
+    ejabberd_hooks:add(pb_c2s_handle_info, Host, ?MODULE, c2s_handle_info, 10),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_CLIENT_VER, ?MODULE, process_local_iq),
     mod_client_version_mnesia:init(Host, Opts),
     store_options(Opts),
@@ -37,6 +38,7 @@ start(Host, Opts) ->
 
 stop(Host) ->
     ejabberd_hooks:delete(c2s_handle_info, Host, ?MODULE, c2s_handle_info, 10),
+    ejabberd_hooks:delete(pb_c2s_handle_info, Host, ?MODULE, c2s_handle_info, 10),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_CLIENT_VER),
     mod_client_version_mnesia:close(Host),
     ok.
