@@ -15,7 +15,6 @@
 -include("logger.hrl").
 -include("feed.hrl").
 -include("pubsub.hrl").
--include("time.hrl").
 
 -define(PUBSUB_HOST, <<"pubsub.s.halloapp.net">>).
 

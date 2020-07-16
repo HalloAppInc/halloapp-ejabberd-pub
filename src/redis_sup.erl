@@ -74,6 +74,7 @@ init([]) ->
                                            redis_whisper_client),
     RedisGroups = create_redis_child_spec(redis_groups, eredis_cluster_client,
                                           redis_groups_client),
+    RedisFeed = create_redis_child_spec(redis_feed, eredis_cluster_client, redis_feed_client),
 
     ECRedisFriends = create_redis_child_spec(redis_friends, ecredis, ecredis_friends),
 
@@ -87,7 +88,8 @@ init([]) ->
         RedisPhone,
         RedisMessages,
         RedisWhisper,
-        RedisGroups
+        RedisGroups,
+        RedisFeed
     ]}}.
 
 %% TODO: can the 1 atoms be the same?

@@ -68,6 +68,7 @@ get_service(Name) ->
         {prod, redis_messages} -> {redis_messages, "redismessages.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_whisper} -> {redis_whisper, "rediswhisper.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_groups} -> {redis_groups, "redisgroups.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        {prod, redis_feed} -> {redis_feed, "redisfeed.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         _Else -> {error, service_not_found}
   end.
 

@@ -250,6 +250,7 @@ modules:
   model_messages: {}
   model_auth: {}
   model_whisper_keys: {}
+  model_feed: {}
   stat: {}
 
 ### Local Variables:

@@ -25,6 +25,12 @@
 -define(INVITES_KEY, <<"inv:">>).
 -define(ACTIVE_USERS_KEY, <<"active_users_all:">>).
 
+%%RedisFeed (model_feed)
+-define(POST_KEY, <<"fp:">>).
+-define(POST_COMMENTS_KEY, <<"fpc:">>).
+-define(COMMENT_KEY, <<"fc:">>).
+-define(REVERSE_POST_KEY, <<"rfp:">>).
+
 %% PrivacyKeys
 -define(WHITELIST_KEY, <<"whi:">>).
 -define(ONLY_KEY, <<"onl:">>).

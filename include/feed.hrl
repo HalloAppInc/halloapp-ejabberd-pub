@@ -3,6 +3,9 @@
 %%%
 %%%----------------------------------------------------------------------
 
+-include("ha_types.hrl").
+-include("time.hrl").
+
 -type node_type() :: feed | metadata.
 -type item_type() :: feedpost | comment | other.
 -type event_type() :: publish | retract.
@@ -25,3 +28,30 @@
 }).
 
 -type item() :: #item{}.
+
+-record(post, {
+	id :: binary(),
+	uid :: uid(),
+	payload :: binary(),
+	ts_ms :: integer()
+}).
+
+-type post() :: #post{}.
+
+
+-record(comment, {
+	id :: binary(),
+	post_id :: binary(),
+	publisher_uid :: uid(),
+	payload :: binary(),
+	ts_ms :: integer()
+}).
+
+-type comment() :: #comment{}.
+
+-type feed_item() :: post() | comment().
+-type feed_items() :: [feed_item()].
+
+-define(POST_EXPIRATION, (30 * ?DAYS)).
+-define(POST_TTL_MS, (30 * ?DAYS_MS)).
+
