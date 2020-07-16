@@ -73,7 +73,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
             IsJpeg = is_jpeg(BinaryData),
             MaxDim = max(Width, Height),
             if
-                Id =/= <<>> ->
+                Id =/= <<>> andalso Id =/= undefined ->
                     Txt = ?T("Invalid id in the avatar xml element"),
                     ?WARNING_MSG("Uid: ~s, Invalid id: ~s in the avatar xml element", [UserId, Id]),
                     xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
