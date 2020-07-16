@@ -109,9 +109,7 @@ add_only_uid(Uid, Ouid) ->
 -spec add_only_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
 add_only_uids(_Uid, []) -> ok;
 add_only_uids(Uid, Ouids) ->
-    [{ok, _Res1}, {ok, _Res2}] = qp([
-            ["SADD", whitelist_key(Uid) | Ouids],
-            ["SADD", only_key(Uid) | Ouids]]),
+    {ok, _Res1} = q(["SADD", only_key(Uid) | Ouids]),
     ok.
 
 
@@ -123,9 +121,7 @@ add_except_uid(Uid, Ouid) ->
 -spec add_except_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
 add_except_uids(_Uid, []) -> ok;
 add_except_uids(Uid, Ouids) ->
-    [{ok, _Res1}, {ok, _Res2}] = qp([
-            ["SADD", blacklist_key(Uid) | Ouids],
-            ["SADD", except_key(Uid) | Ouids]]),
+    {ok, _Res1} = q(["SADD", except_key(Uid) | Ouids]),
     ok.
 
 
@@ -164,9 +160,7 @@ remove_only_uid(Uid, Ouid) ->
 -spec remove_only_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
 remove_only_uids(_Uid, []) -> ok;
 remove_only_uids(Uid, Ouids) ->
-    [{ok, _Res1}, {ok, _Res2}] = qp([
-            ["SREM", whitelist_key(Uid) | Ouids],
-            ["SREM", only_key(Uid) | Ouids]]),
+    {ok, _Res1} = q(["SREM", only_key(Uid) | Ouids]),
     ok.
 
 
@@ -178,9 +172,7 @@ remove_except_uid(Uid, Ouid) ->
 -spec remove_except_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
 remove_except_uids(_Uid, []) -> ok;
 remove_except_uids(Uid, Ouids) ->
-    [{ok, _Res1}, {ok, _Res2}] = qp([
-            ["SREM", blacklist_key(Uid) | Ouids],
-            ["SREM", except_key(Uid) | Ouids]]),
+    {ok, _Res1} = q(["SREM", except_key(Uid) | Ouids]),
     ok.
 
 
@@ -210,19 +202,13 @@ unblock_uids(Uid, Ouids) ->
 
 -spec get_only_uids(Uid :: binary()) -> {ok, list(binary())}.
 get_only_uids(Uid) ->
-    [{ok, Res1}, {ok, Res2}] = qp([
-            ["SMEMBERS", whitelist_key(Uid)],
-            ["SMEMBERS", only_key(Uid)]]),
-    check_result(?FUNCTION_NAME, Res1, Res2),
+    {ok, Res1} = q(["SMEMBERS", only_key(Uid)]),
     {ok, Res1}.
 
 
 -spec get_except_uids(Uid :: binary()) -> {ok, list(binary())}.
 get_except_uids(Uid) ->
-    [{ok, Res1}, {ok, Res2}] = qp([
-            ["SMEMBERS", blacklist_key(Uid)],
-            ["SMEMBERS", except_key(Uid)]]),
-    check_result(?FUNCTION_NAME, Res1, Res2),
+    {ok, Res1} = q(["SMEMBERS", except_key(Uid)]),
     {ok, Res1}.
 
 
@@ -246,19 +232,13 @@ get_blocked_by_uids(Uid) ->
 
 -spec is_only_uid(Uid :: binary(), Ouid :: binary()) -> boolean().
 is_only_uid(Uid, Ouid) ->
-    [{ok, Res1}, {ok, Res2}] = qp([
-            ["SISMEMBER", whitelist_key(Uid), Ouid],
-            ["SISMEMBER", only_key(Uid), Ouid]]),
-    check_result(?FUNCTION_NAME, Res1, Res2),
+    {ok, Res1} = q(["SISMEMBER", only_key(Uid), Ouid]),
     binary_to_integer(Res1) == 1.
 
 
 -spec is_except_uid(Uid :: binary(), Ouid :: binary()) -> boolean().
 is_except_uid(Uid, Ouid) ->
-    [{ok, Res1}, {ok, Res2}] = qp([
-            ["SISMEMBER", blacklist_key(Uid), Ouid],
-            ["SISMEMBER", except_key(Uid), Ouid]]),
-    check_result(?FUNCTION_NAME, Res1, Res2),
+    {ok, Res1} = q(["SISMEMBER", except_key(Uid), Ouid]),
     binary_to_integer(Res1) == 1.
 
 
@@ -308,12 +288,6 @@ decode_feed_privacy_list_type(undefined) -> all. %% default option is all.
 q(Command) -> util_redis:q(redis_accounts_client, Command).
 qp(Commands) -> util_redis:qp(redis_accounts_client, Commands).
 
-
-whitelist_key(Uid) ->
-    <<?WHITELIST_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
-
-blacklist_key(Uid) ->
-    <<?BLACKLIST_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 only_key(Uid) ->
     <<?ONLY_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
