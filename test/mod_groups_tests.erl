@@ -342,3 +342,4 @@ admin_leave_test() ->
     % check that there is only one admin
     ?assertEqual(1, length(Admins)),
     ok.
+

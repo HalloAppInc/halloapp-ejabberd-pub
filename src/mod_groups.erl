@@ -148,7 +148,7 @@ leave_group(Gid, Uid) ->
         {ok, true} ->
             ?INFO_MSG("Gid: ~s Uid: ~s left", [Gid, Uid]),
             send_leave_group_event(Gid, Uid),
-            ensure_group_has_admins(Gid)
+            maybe_assign_admin(Gid)
     end,
     maybe_delete_empty_group(Gid),
     Res.
@@ -178,7 +178,7 @@ modify_admins(Gid, Uid, Changes) ->
             PromoteResults = promote_admins_unsafe(Gid, PromoteUids),
             Results = DemoteResults ++ PromoteResults,
             send_modify_admins_event(Gid, Uid, Results),
-            ensure_group_has_admins(Gid),
+            maybe_assign_admin(Gid),
             {ok, Results}
     end.
 
@@ -412,8 +412,8 @@ demote_admin_unsafe(Gid, Uid) ->
     end.
 
 
--spec ensure_group_has_admins(Gid :: gid()) -> ok.
-ensure_group_has_admins(Gid) ->
+-spec maybe_assign_admin(Gid :: gid()) -> ok.
+maybe_assign_admin(Gid) ->
     Group = model_groups:get_group(Gid),
     case Group of
         undefined -> ok;
@@ -427,14 +427,13 @@ ensure_group_has_admins(Gid) ->
                 HasAdmins -> ok;
                 length(Group#group.members) =:= 0 -> ok;
                 true ->
-                    [Member | Rest] = lists:filter(
-                        fun(M) ->
-                            M#group_member.type =:= member
-                        end,
-                        Group#group.members),
+                    % everyone in the group is member, pick first one
+                    [Member | _Rest] = Group#group.members,
                     ?INFO_MSG("Gid: ~s automatically promoting Uid: ~s to admin",
                         [Gid, Member#group_member.uid]),
-                    ok = promote_admin_unsafe(Gid, Member#group_member.uid)
+                    Res = promote_admins_unsafe(Gid, [Member#group_member.uid]),
+                    send_auto_promote_admin_event(Gid, Res),
+                    ok
             end
     end.
 
@@ -478,7 +477,7 @@ send_create_group_event(Gid, Uid, Group, AddMemberResults) ->
 
 
 -spec send_modify_members_event(Gid :: gid(), Uid :: uid(),
-        MemberResult :: modify_member_results()) -> ok.
+        MemberResults :: modify_member_results()) -> ok.
 send_modify_members_event(Gid, Uid, MemberResults) ->
     Uids = [Uid | [Ouid || {Ouid, _, _} <- MemberResults]],
     Group = model_groups:get_group(Gid),
@@ -488,12 +487,21 @@ send_modify_members_event(Gid, Uid, MemberResults) ->
 
 
 -spec send_modify_admins_event(Gid :: gid(), Uid :: uid(),
-        MemberResult :: modify_member_results()) -> ok.
+        MemberResults :: modify_member_results()) -> ok.
 send_modify_admins_event(Gid, Uid, MemberResults) ->
     Uids = [Uid | [Ouid || {Ouid, _, _} <- MemberResults]],
     Group = model_groups:get_group(Gid),
     NamesMap = model_accounts:get_names(Uids),
     broadcast_update(Gid, Uid, modify_admins, Group, MemberResults, NamesMap),
+    ok.
+
+
+-spec send_auto_promote_admin_event(Gid :: gid(), MemberResults :: modify_member_results()) -> ok.
+send_auto_promote_admin_event(Gid, MemberResults) ->
+    Uids = [Ouid || {Ouid, _, _} <- MemberResults],
+    Group = model_groups:get_group(Gid),
+    NamesMap = model_accounts:get_names(Uids),
+    broadcast_update(Gid, undefined, auto_promote_admins, Group, MemberResults, NamesMap),
     ok.
 
 
@@ -533,7 +541,8 @@ broadcast_update(Gid, Uid, Event, Group, Results, NamesMap) ->
         %TODO: fix later
 %%        avatar = Group#group.avatar,
         avatar = <<"">>,
-        sender = Uid,
+        % TODO: make the default in xmpp be undefined
+        sender = if Uid =:= undefined -> <<>>; true -> Uid end,
         sender_name = maps:get(Uid, NamesMap, undefined),
         action = Event,
         members = MembersSt
@@ -561,7 +570,8 @@ make_member_st({Uid, Action, Result}, Event, NamesMap) ->
         {modify_members, add} -> member;
         {modify_members, remove} -> member;
         {modify_admins, promote} -> admin;
-        {modify_admins, demote} -> member
+        {modify_admins, demote} -> member;
+        {auto_promote_admins, promote} -> admin
     end,
     Name = maps:get(Uid, NamesMap, undefined),
     if
