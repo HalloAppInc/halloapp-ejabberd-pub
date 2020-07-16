@@ -40,6 +40,12 @@ jobs:
             repository: HalloAppInc/halloapp-xmpp
             token: ${{ secrets.murali_access_token }}
             path: deps/xmpp
+    - name: Checkout ecredis
+      uses: actions/checkout@v2
+      with:
+            repository: HalloAppInc/ecredis
+            token: ${{ secrets.murali_access_token }}
+            path: deps/ecredis
     - name: Checkout halloapp-erlcloud
       uses: actions/checkout@v2
       with:
