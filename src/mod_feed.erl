@@ -362,9 +362,18 @@ create_pubsub_node(Uid, NodeName, NodeType) ->
 add_friend(UserId, Server, ContactId) ->
     ?INFO_MSG("Uid: ~s, ContactId: ~s", [UserId, ContactId]),
     purge_expired_items(),
-    %% Send their non-expired pubsub items to each other.
-    send_old_items_to_user(UserId, Server, ContactId),
-    send_old_items_to_user(ContactId, Server, UserId),
+    {ok, TsMs1} = model_accounts:get_creation_ts_ms(UserId),
+    {ok, TsMs2} = model_accounts:get_creation_ts_ms(UserId),
+    NowMs = util:now_ms(),
+    TimeDiff = 10 * ?MINUTES_MS,
+    case NowMs - TsMs1 < TimeDiff orelse NowMs - TsMs2 < TimeDiff of
+        true ->
+            %% Send their non-expired pubsub items to each other.
+            send_old_items_to_user(UserId, Server, ContactId),
+            send_old_items_to_user(ContactId, Server, UserId);
+        false ->
+            ?INFO_MSG("Ignoring add_friend here, Uid: ~s, ContactId: ~s", [UserId, ContactId])
+    end,
     ok.
 
 
