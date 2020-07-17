@@ -78,18 +78,35 @@ init([]) ->
 
     ECRedisFriends = create_redis_child_spec(redis_friends, ecredis, ecredis_friends),
 
+    ECRedisAccounts = create_redis_child_spec(redis_accounts, ecredis, ecredis_accounts),
+    ECRedisContacts = create_redis_child_spec(redis_contacts, ecredis, ecredis_contacts),
+    ECRedisAuth = create_redis_child_spec(redis_auth, ecredis, ecredis_auth),
+    ECRedisPhone = create_redis_child_spec(redis_phone, ecredis, ecredis_phone),
+    ECRedisMessages = create_redis_child_spec(redis_messages, ecredis, ecredis_messages),
+    ECRedisWhisper = create_redis_child_spec(redis_whisper, ecredis, ecredis_whisper),
+    ECRedisGroups = create_redis_child_spec(redis_groups, ecredis, ecredis_groups),
+    ECRedisFeed = create_redis_child_spec(redis_feed, ecredis, ecredis_feed),
+
     {ok, {SupFlags, [
         EredisClusterPool,
         RedisFriends,
         ECRedisFriends,
         RedisAccounts,
+        ECRedisAccounts,
         RedisContacts,
+        ECRedisContacts,
         RedisAuth,
+        ECRedisAuth,
         RedisPhone,
+        ECRedisPhone,
         RedisMessages,
+        ECRedisMessages,
         RedisWhisper,
+        ECRedisWhisper,
         RedisGroups,
-        RedisFeed
+        ECRedisGroups,
+        RedisFeed,
+        ECRedisFeed
     ]}}.
 
 %% TODO: can the 1 atoms be the same?

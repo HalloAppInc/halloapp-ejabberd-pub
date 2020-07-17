@@ -126,8 +126,8 @@ terminate(_Reason, _Redis) -> ok.
 code_change(_OldVersion, Redis, _Extra) -> {ok, Redis}.
 
 
-q(Command) -> util_redis:q(redis_auth_client, Command).
-qp(Commands) -> util_redis:qp(redis_auth_client, Commands).
+q(Command) -> ecredis:q(ecredis_auth, Command).
+qp(Commands) -> ecredis:qp(ecredis_auth, Commands).
 
 
 multi_exec(Commands) ->

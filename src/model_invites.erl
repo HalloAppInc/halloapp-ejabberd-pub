@@ -102,10 +102,10 @@ get_inviter(PhoneNum) ->
 %%====================================================================
 
 % borrowed from model_accounts.erl
-q_accounts(Command) -> util_redis:q(redis_accounts_client, Command).
+q_accounts(Command) -> ecredis:q(ecredis_accounts, Command).
 % borrowed from model_accounts.erl
-qp_accounts(Commands) -> util_redis:qp(redis_accounts_client, Commands).
-q_phones(Command) -> util_redis:q(redis_phone_client, Command).
+qp_accounts(Commands) -> ecredis:qp(ecredis_accounts, Commands).
+q_phones(Command) -> ecredis:q(ecredis_phone, Command).
 
 
 -spec acc_invites_key(Uid :: binary()) -> binary().

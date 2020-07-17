@@ -136,8 +136,8 @@ remove_all_key_subscribers(Uid) ->
     ok.
 
 
-q(Command) -> util_redis:q(redis_whisper_client, Command).
-qp(Commands) -> util_redis:qp(redis_whisper_client, Commands).
+q(Command) -> ecredis:q(ecredis_whisper, Command).
+qp(Commands) -> ecredis:qp(ecredis_whisper, Commands).
 
 
 -spec whisper_key(Uid :: binary()) -> binary().

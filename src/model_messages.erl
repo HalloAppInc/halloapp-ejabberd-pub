@@ -235,8 +235,8 @@ read_lua() ->
     file:read_file(FileName).
 
 
-q(Command) -> util_redis:q(redis_messages_client, Command).
-qp(Commands) -> util_redis:qp(redis_messages_client, Commands).
+q(Command) -> ecredis:q(ecredis_messages, Command).
+qp(Commands) -> ecredis:qp(ecredis_messages, Commands).
 
 
 -spec message_keys(Uid :: binary(), MsgIds :: [binary()]) -> [binary()].

@@ -21,7 +21,7 @@ setup() ->
 
 
 clear() ->
-    ok = gen_server:cast(redis_contacts_client, flushdb).
+    {ok, ok} = gen_server:call(redis_contacts_client, flushdb).
 
 
 keys_test() ->

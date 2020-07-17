@@ -157,7 +157,7 @@ get_uids(Phones) ->
     {ok, PhonesUidsMap}.
 
 
-q(Command) -> util_redis:q(redis_phone_client, Command).
+q(Command) -> ecredis:q(ecredis_phone, Command).
 
 
 -spec order_phones_by_keys(Phones :: binary()) -> {[binary()], [binary()]}.

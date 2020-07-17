@@ -285,8 +285,8 @@ decode_feed_privacy_list_type(undefined) -> all. %% default option is all.
 %%====================================================================
 
 
-q(Command) -> util_redis:q(redis_accounts_client, Command).
-qp(Commands) -> util_redis:qp(redis_accounts_client, Commands).
+q(Command) -> ecredis:q(ecredis_accounts, Command).
+qp(Commands) -> ecredis:qp(ecredis_accounts, Commands).
 
 
 only_key(Uid) ->

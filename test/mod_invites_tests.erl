@@ -214,8 +214,8 @@ setup_bare() ->
     ok.
 
 clear() ->
-    ok = gen_server:cast(redis_accounts_client, flushdb),
-    ok = gen_server:cast(redis_phone_client, flushdb).
+    {ok, ok} = gen_server:call(redis_accounts_client, flushdb),
+    {ok, ok} = gen_server:call(redis_phone_client, flushdb).
 
 create_get_iq(Uid) ->
     #iq{

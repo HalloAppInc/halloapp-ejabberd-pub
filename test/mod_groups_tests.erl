@@ -26,8 +26,8 @@ setup_accounts() ->
     ok.
 
 clear() ->
-    ok = gen_server:cast(redis_groups_client, flushdb),
-    ok = gen_server:cast(redis_accounts_client, flushdb).
+    {ok, ok} = gen_server:call(redis_groups_client, flushdb),
+    {ok, ok} = gen_server:call(redis_accounts_client, flushdb).
 
 create_empty_group_test() ->
     setup(),

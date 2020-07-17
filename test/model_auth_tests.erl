@@ -19,7 +19,7 @@ setup() ->
   ok.
 
 clear() ->
-  ok = gen_server:cast(redis_auth_client, flushdb).
+  {ok, ok} = gen_server:call(redis_auth_client, flushdb).
 
 -define(UID1, <<"1">>).
 -define(SALT1, <<"DE76yR5bKC3bEbN">>).

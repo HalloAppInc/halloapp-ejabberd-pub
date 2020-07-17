@@ -91,7 +91,7 @@ setup() ->
 
 
 clear() ->
-    ok = gen_server:cast(redis_accounts_client, flushdb).
+    {ok, ok} = gen_server:call(redis_accounts_client, flushdb).
 
 
 create_accounts(0) ->

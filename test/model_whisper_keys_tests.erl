@@ -57,7 +57,7 @@ setup() ->
 
 
 clear() ->
-    ok = gen_server:cast(redis_whisper_client, flushdb).
+    {ok, ok} = gen_server:call(redis_whisper_client, flushdb).
 
 
 key_test() ->

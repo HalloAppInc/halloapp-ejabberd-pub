@@ -296,8 +296,8 @@ get_posts_comments(PostIds) ->
 %% Internal functions
 %%====================================================================
 
-q(Command) -> util_redis:q(redis_feed_client, Command).
-qp(Commands) -> util_redis:qp(redis_feed_client, Commands).
+q(Command) -> ecredis:q(ecredis_feed, Command).
+qp(Commands) -> ecredis:qp(ecredis_feed, Commands).
 
 
 -spec post_key(PostId :: binary()) -> binary().

@@ -219,8 +219,8 @@ get_salt_secret_from_aws() ->
     list_to_binary(Salt).
 
 
-q(Command) -> util_redis:q(redis_contacts_client, Command).
-qp(Commands) -> util_redis:qp(redis_contacts_client, Commands).
+q(Command) -> ecredis:q(ecredis_contacts, Command).
+qp(Commands) -> ecredis:qp(ecredis_contacts, Commands).
 
 
 -spec contacts_key(Uid :: binary()) -> binary().

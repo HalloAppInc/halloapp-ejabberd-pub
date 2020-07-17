@@ -113,11 +113,11 @@ get_active_users_key_slot(Slot, UserAgent) ->
 
 
 % borrowed from model_accounts.erl
-q(Command) -> util_redis:q(redis_accounts_client, Command).
+q(Command) -> ecredis:q(ecredis_accounts, Command).
 
 
 % borrowed from model_accounts.erl
 qp(Commands) ->
-    {ok, Results} = gen_server:call(redis_accounts_client, {qp, Commands}),
-    Results.
+    ecredis:qp(ecredis_accounts, Commands).
+
 

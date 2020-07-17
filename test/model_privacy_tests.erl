@@ -17,7 +17,7 @@ setup() ->
     ok.
 
 clear() ->
-  ok = gen_server:cast(redis_accounts_client, flushdb).
+  {ok, ok} = gen_server:call(redis_accounts_client, flushdb).
 
 -define(UID1, <<"1">>).
 -define(UID2, <<"2">>).

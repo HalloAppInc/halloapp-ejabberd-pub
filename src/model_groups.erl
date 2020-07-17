@@ -394,6 +394,6 @@ user_groups_key(Uid) ->
     <<?USER_GROUPS_KEY/binary, "{", Uid/binary, "}">>.
 
 
-q(Command) -> util_redis:q(redis_groups_client, Command).
-qp(Commands) -> util_redis:qp(redis_groups_client, Commands).
+q(Command) -> ecredis:q(ecredis_groups, Command).
+qp(Commands) -> ecredis:qp(ecredis_groups, Commands).
 
