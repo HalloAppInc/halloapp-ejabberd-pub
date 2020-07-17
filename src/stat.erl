@@ -27,7 +27,8 @@
 %% API
 -export([
     count/2,
-    count/3
+    count/3,
+    count_d/3
 ]).
 
 % Trigger funcitons
@@ -38,6 +39,13 @@
     compute_counts/0
 ]).
 
+-type tag_value() :: atom() | string() | binary().
+-type tag() :: {Name :: atom(), Value :: tag_value()}.
+
+-export_type([
+    tag/0,
+    tag_value/0
+]).
 
 start_link() ->
     gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
@@ -81,14 +89,25 @@ count(Namespace, Metric, Value) ->
     ?DEBUG("Namespace:~s, Metric:~s, Value:~p", [Namespace, Metric, Value]),
     gen_server:cast(get_proc(), {count, Namespace, Metric, Value}).
 
+-spec count_d(Namespace :: string(), Metric :: string(),
+        Tags :: [tag()]) -> ok.
+count_d(Namespace, Metric, Tags) ->
+    ?DEBUG("Namesapce:~s, Metric:~s Tags:~p", [Namespace, Metric, Tags]),
+    Tags1 = fix_tags(Tags),
+    Tags2 = [#dimension{name = N, value = V} || {N, V} <- Tags1],
+    gen_server:cast(get_proc(), {count_d, Namespace, Metric, 1, Tags2}).
+
+
 -spec trigger_send() -> ok.
 trigger_send() ->
     gen_server:cast(get_proc(), {trigger_send}).
 
+% TODO: this logic should move to new module mod_counters
 -spec trigger_count_users() -> ok.
 trigger_count_users() ->
-    Pid = spawn(?MODULE, compute_counts, []).
+    spawn(?MODULE, compute_counts, []).
 
+% TODO: this logic should move to new module mod_active_users
 -spec trigger_zset_cleanup() -> ok.
 trigger_zset_cleanup() ->
     _Pid = spawn(model_active_users, cleanup, []).
@@ -127,12 +146,12 @@ handle_call(_Message, _From, State) ->
 
 
 handle_cast({count, Namespace, Metric, Value}, State) ->
-    NewState1 = maybe_rotate_data(State),
-    DataPoint = make_statistic_set(Value),
-    Key = make_key(Namespace, Metric, "Count"),
-    NewState2 = update_state(Key, DataPoint, NewState1),
-    {noreply, NewState2};
+    NewState = count_internal(State, Namespace, Metric, Value, []),
+    {noreply, NewState};
 
+handle_cast({count_d, Namespace, Metric, Value, Tags}, State) ->
+    NewState = count_internal(State, Namespace, Metric, Value, Tags),
+    {noreply, NewState};
 
 handle_cast({trigger_send}, State) ->
     NewState = maybe_rotate_data(State),
@@ -144,6 +163,13 @@ handle_cast(_Message, State) -> {noreply, State}.
 handle_info(_Message, State) -> {noreply, State}.
 terminate(_Reason, _State) -> ok.
 code_change(_OldVersion, State, _Extra) -> {ok, State}.
+
+count_internal(State, Namespace, Metric, Value, Tags) ->
+    NewState1 = maybe_rotate_data(State),
+    DataPoint = make_statistic_set(Value),
+    Key = make_key(Namespace, Metric, Tags, "Count"),
+    NewState2 = update_state(Key, DataPoint, NewState1),
+    NewState2.
 
 
 -spec maybe_rotate_data(State :: map()) -> map().
@@ -200,6 +226,9 @@ cloudwatch_put_metric_data_env(prod, Namespace, Metrics) ->
             ?ERROR_MSG("Stacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
     end;
+cloudwatch_put_metric_data_env(localhost, "HA/test" = Namespace, Metrics) ->
+    ?DEBUG("would send: ~s metrics: ~p", [Namespace, Metrics]),
+    erlcloud_mon:put_metric_data(Namespace, Metrics);
 cloudwatch_put_metric_data_env(_Env, Namespace, Metrics) ->
     ?DEBUG("would send: ~s metrics: ~p", [Namespace, Metrics]).
 
@@ -249,10 +278,10 @@ prepare_data(MetricsMap, TimestampMs)
         when is_map(MetricsMap), is_integer(TimestampMs) ->
     maps:fold(
         fun (K, V, Ac) ->
-            {metric, Namespace, Metric, Unit} = K,
+            {metric, Namespace, Metric, Dimensions, Unit} = K,
             M = #metric_datum{
                 metric_name = Metric,
-                dimensions = [],
+                dimensions = Dimensions,
                 statistic_values = V,
                 timestamp = convert_time(TimestampMs),
                 unit = Unit,
@@ -290,8 +319,8 @@ make_statistic_set(Value) when is_float(Value) ->
     }.
 
 
-make_key(Namespace, Metric, Unit) ->
-    {metric, Namespace, Metric, Unit}.
+make_key(Namespace, Metric, Dimensions, Unit) ->
+    {metric, Namespace, Metric, Dimensions, Unit}.
 
 
 -spec update_state(Key :: term(), DataPoint :: statistic_set(), State :: map()) -> map().
@@ -303,3 +332,17 @@ update_state(Key, DataPoint, State) ->
             NewDP = merge(CurrentDP, DataPoint),
             maps:put(Key, NewDP, State)
     end.
+
+
+% make sure tag values are atoms
+-spec fix_tags(Tags :: [tag()]) -> [tag()].
+fix_tags(Tags) ->
+    [fix_tag(T) || T <- Tags].
+
+
+-spec fix_tag(Tag :: tag()) -> tag().
+fix_tag({Name, Value} = T) when is_atom(Value); is_list(Value); is_binary(Value) ->
+    {Name, util:to_atom(Value)};
+fix_tag(_) ->
+    error(badarg).
+
