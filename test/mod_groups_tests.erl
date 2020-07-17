@@ -206,7 +206,6 @@ get_group_test() ->
         gid = Gid,
         name = ?GROUP_NAME1,
         creation_ts_ms = Group2#group.creation_ts_ms,
-        avatar = undefined,
         members = [
             #group_member{uid = ?UID1, type = admin},
             #group_member{uid = ?UID2, type = member},

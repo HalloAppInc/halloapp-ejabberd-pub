@@ -290,7 +290,6 @@ get_group_test() ->
     ExpectedGroupSt = #group_st{
         gid = Gid,
         name = ?GROUP_NAME1,
-        avatar = undefined,
         members = [
             #member_st{uid = ?UID1, type = admin},
             #member_st{uid = ?UID2, type = member},
@@ -326,9 +325,8 @@ get_groups_test() ->
 %%    ?debugVal(GroupsSt, 1000),
     GroupsSet = lists:sort(GroupsSt#groups.groups),
     ExpectedGroupsSet = lists:sort([
-        % TODO: figure out the default value for this avatar field.
-            #group_st{gid = Gid1, name = ?GROUP_NAME1, avatar = undefined},
-            #group_st{gid = Gid2, name = ?GROUP_NAME2, avatar = undefined}
+        #group_st{gid = Gid1, name = ?GROUP_NAME1},
+        #group_st{gid = Gid2, name = ?GROUP_NAME2}
     ]),
 %%    ?debugVal(ExpectedGroupsSet, 1000),
     ?assertEqual(ExpectedGroupsSet, GroupsSet),
@@ -344,8 +342,7 @@ set_name_test() ->
 %%    ?debugVal(GroupSt, 1000),
     ExpectedGroupSt = #group_st{
         gid = Gid,
-        name = ?GROUP_NAME3,
-        avatar = undefined
+        name = ?GROUP_NAME3
     },
 %%    ?debugVal(ExpectedGroupSt, 1000),
     ?assertEqual(ExpectedGroupSt, GroupSt),
