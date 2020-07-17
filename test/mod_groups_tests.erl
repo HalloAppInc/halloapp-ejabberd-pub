@@ -7,25 +7,8 @@
 -author("nikola").
 
 -include("groups.hrl").
+-include("groups_test_data.hrl").
 -include_lib("eunit/include/eunit.hrl").
-
--define(GROUP_NAME1, <<"Test Group 1">>).
--define(GROUP_NAME2, <<"Test Group 2">>).
--define(GROUP_NAME3, <<"Test Group 3">>).
--define(UID1, <<"1">>).
--define(UID2, <<"2">>).
--define(UID3, <<"3">>).
--define(UID4, <<"4">>).
--define(UID5, <<"5">>).
--define(PHONE1, <<"12065550001">>).
--define(PHONE2, <<"12065550002">>).
--define(PHONE3, <<"12065550003">>).
--define(PHONE4, <<"12065550004">>).
--define(NAME1, <<"Name1">>).
--define(NAME2, <<"Name2">>).
--define(NAME3, <<"Name3">>).
--define(NAME4, <<"Name4">>).
--define(UA, <<"HalloApp/Android1.0">>).
 
 
 setup() ->
@@ -42,11 +25,9 @@ setup_accounts() ->
     model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?UA),
     ok.
 
-
 clear() ->
     ok = gen_server:cast(redis_groups_client, flushdb),
     ok = gen_server:cast(redis_accounts_client, flushdb).
-
 
 create_empty_group_test() ->
     setup(),
@@ -275,10 +256,9 @@ set_avatar_test() ->
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
     ?assertEqual(undefined, Group#group.avatar),
-    TestAvatar = <<"test_avatar">>,
-    ?assertEqual(ok, mod_groups:set_avatar(Gid, ?UID1, TestAvatar)),
+    ?assertEqual(ok, mod_groups:set_avatar(Gid, ?UID1, ?AVATAR1)),
     {ok, GroupNew} = mod_groups:get_group(Gid, ?UID1),
-    ?assertEqual(TestAvatar, GroupNew#group.avatar),
+    ?assertEqual(?AVATAR1, GroupNew#group.avatar),
     ok.
 
 delete_avatar_test() ->
@@ -286,10 +266,9 @@ delete_avatar_test() ->
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
     ?assertEqual(undefined, Group#group.avatar),
-    TestAvatar = <<"test_avatar">>,
-    ?assertEqual(ok, mod_groups:set_avatar(Gid, ?UID1, TestAvatar)),
+    ?assertEqual(ok, mod_groups:set_avatar(Gid, ?UID1, ?AVATAR1)),
     {ok, GroupNew} = mod_groups:get_group(Gid, ?UID1),
-    ?assertEqual(TestAvatar, GroupNew#group.avatar),
+    ?assertEqual(?AVATAR1, GroupNew#group.avatar),
     ?assertEqual(ok, mod_groups:delete_avatar(Gid, ?UID1)),
     {ok, GroupNew2} = mod_groups:get_group(Gid, ?UID1),
     ?assertEqual(undefined, GroupNew2#group.avatar),

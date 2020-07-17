@@ -7,29 +7,16 @@
 -author("nikola").
 
 -include("groups.hrl").
+-include("groups_test_data.hrl").
 -include_lib("eunit/include/eunit.hrl").
-
--define(GROUP_NAME1, <<"Test Group 1">>).
--define(GROUP_NAME2, <<"Test Group 2">>).
--define(GROUP_NAME3, <<"Test Group 3">>).
--define(UID1, <<"1">>).
--define(UID2, <<"2">>).
--define(UID3, <<"3">>).
--define(UID4, <<"4">>).
--define(GID1, <<"g9kljfdl39kfsljlsfj03">>).
--define(GID2, <<"g09fdsjffKSDLJFkfsdjd">>).
--define(AVATAR1, <<"fDSLKDJLKFklf">>).
-
 
 setup() ->
     redis_sup:start_link(),
     clear(),
     ok.
 
-
 clear() ->
     ok = gen_server:cast(redis_groups_client, flushdb).
-
 
 group_key_test() ->
     ?assertEqual(<<"g:{g9kljfdl39kfsljlsfj03}">>, model_groups:group_key(?GID1)).
