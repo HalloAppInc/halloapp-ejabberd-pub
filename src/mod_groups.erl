@@ -456,7 +456,6 @@ make_message(GroupInfo, Uid, SenderName, MessagePayload, Ts) ->
         xmlns = ?NS_GROUPS,
         gid = GroupInfo#group_info.gid,
         name = GroupInfo#group_info.name,
-        % TODO: figure out how to deal with avatar set to undefined.
         avatar = GroupInfo#group_info.avatar,
         sender = Uid,
         sender_name = SenderName,
@@ -535,9 +534,7 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     GroupSt = #group_st{
         gid = Group#group.gid,
         name = Group#group.name,
-        %TODO: fix later
         avatar = Group#group.avatar,
-%%        avatar = <<"">>,
         % TODO: make the default in xmpp be undefined
         sender = if Uid =:= undefined -> <<>>; true -> Uid end,
         sender_name = maps:get(Uid, NamesMap, undefined),
