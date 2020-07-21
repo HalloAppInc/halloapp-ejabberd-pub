@@ -526,7 +526,7 @@ send_change_avatar_event(Gid, Uid) ->
 
 
 % Broadcast the event to all members of the group
--spec broadcast_update(Group :: group(), Uid :: uid(), Event :: atom(),
+-spec broadcast_update(Group :: group(), Uid :: uid() | undefined, Event :: atom(),
         Results :: modify_member_results(), NamesMap :: names_map()) -> ok.
 broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     MembersSt = make_members_st(Event, Results, NamesMap),
@@ -535,8 +535,7 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
         gid = Group#group.gid,
         name = Group#group.name,
         avatar = Group#group.avatar,
-        % TODO: make the default in xmpp be undefined
-        sender = if Uid =:= undefined -> <<>>; true -> Uid end,
+        sender = Uid,
         sender_name = maps:get(Uid, NamesMap, undefined),
         action = Event,
         members = MembersSt
