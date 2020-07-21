@@ -36,7 +36,6 @@
     get_users/2,
     plain_password_required/1,
     store_type/1,
-    use_cache/1,
     count_users/2,
     user_exists/2
 ]).
@@ -58,9 +57,6 @@ start(_Host) ->
 stop(_Host) ->
     ok.
 
-use_cache(_Host) ->
-    false.
-
 plain_password_required(_Server) ->
     true.
 
@@ -73,7 +69,7 @@ set_password(Uid, _Server, Password) ->
     {ok, Salt} = bcrypt:gen_salt(),
     {ok, HashedPassword} = hashpw(Password, Salt),
     model_auth:set_password(Uid, Salt, HashedPassword),
-    {cache, {ok, Password}}.
+    {ok, Password}.
 
 
 check_password(Uid, _AuthzId, _Server, Password) ->
@@ -84,7 +80,7 @@ check_password(Uid, _AuthzId, _Server, Password) ->
         undefined  -> ?INFO_MSG("No password stored for uid:~p", [Uid]);
         _ -> ok
     end,
-    {cache, is_password_match(HashedPassword, Password)}.
+    is_password_match(HashedPassword, Password).
 
 
 try_register(Phone, Server, Password) ->
@@ -98,8 +94,8 @@ try_register(Phone, Server, Password) ->
     UserAgent = <<"">>,
     ok = model_accounts:create_account(Uid, Phone, Name, UserAgent),
     ok = model_phone:add_phone(Phone, Uid),
-    {cache, {ok, Password}} = set_password(Uid, Server, Password),
-    {cache, {ok, Password, Uid}}.
+    {ok, Password} = set_password(Uid, Server, Password),
+    {ok, Password, Uid}.
 
 
 -spec try_enroll(Phone :: binary(), Server :: binary(), Passcode :: binary()) -> {ok, binary()}.
@@ -133,11 +129,11 @@ get_passcode(Phone, _Server) ->
     end.
 
 
--spec user_exists(Uid :: binary(), Server :: binary()) -> {cache, boolean()}.
+-spec user_exists(Uid :: binary(), Server :: binary()) -> boolean().
 user_exists(Uid, _Server) ->
     Res = model_accounts:account_exists(Uid),
     ?INFO_MSG("uid:~s result: ~p", [Uid, Res]),
-    {cache, Res}.
+    Res.
 
 
 -spec remove_user(Uid :: binary(), Server :: binary()) -> ok.

@@ -30,7 +30,6 @@
 
 -export([start/1,
 	 stop/1,
-         use_cache/1,
 	 allow_anonymous/1,
 	 is_sasl_anonymous_enabled/1,
 	 is_login_anonymous_enabled/1,
@@ -60,8 +59,6 @@ stop(Host) ->
     ejabberd_hooks:delete(sm_remove_connection_hook, Host,
 			  ?MODULE, unregister_connection, 100).
 
-use_cache(_) ->
-    false.
 
 %% Return true if anonymous is allowed for host or false otherwise
 allow_anonymous(Host) ->
@@ -148,13 +145,12 @@ unregister_connection(_SID,
 %% Specific anonymous auth functions
 %% ---------------------------------
 check_password(User, _AuthzId, Server, _Password) ->
-    {nocache,
-     case ejabberd_auth:user_exists_in_other_modules(?MODULE, User, Server) of
-	 %% If user exists in other module, reject anonnymous authentication
-	 true -> false;
-	 %% If we are not sure whether the user exists in other module, reject anon auth
-	 maybe -> false;
-	 false -> login(User, Server)
+    {case ejabberd_auth:user_exists_in_other_modules(?MODULE, User, Server) of
+		 %% If user exists in other module, reject anonnymous authentication
+		 true -> false;
+		 %% If we are not sure whether the user exists in other module, reject anon auth
+		 maybe -> false;
+		 false -> login(User, Server)
      end}.
 
 login(User, Server) ->
@@ -178,7 +174,7 @@ count_users(Server, Opts) ->
     length(get_users(Server, Opts)).
 
 user_exists(User, Server) ->
-    {nocache, anonymous_user_exist(User, Server)}.
+    anonymous_user_exist(User, Server).
 
 plain_password_required(_) ->
     false.
