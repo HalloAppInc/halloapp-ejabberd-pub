@@ -10,6 +10,8 @@
 
 -export([
     publish_feed_item/5,
+    feed_item_published/3,
+    feed_item_retracted/3,
     register_user/3,
     re_register_user/3,
     add_friend/3,
@@ -21,6 +23,8 @@
 
 start(Host, _Opts) ->
     ejabberd_hooks:add(publish_feed_item, Host, ?MODULE, publish_feed_item, 50),
+    ejabberd_hooks:add(feed_item_published, Host, ?MODULE, feed_item_published, 50),
+    ejabberd_hooks:add(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
     ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:add(remove_friend, Host, ?MODULE, remove_friend, 50),
@@ -36,6 +40,8 @@ stop(Host) ->
     ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
     ejabberd_hooks:delete(publish_feed_item, Host, ?MODULE, publish_feed_item, 50),
+    ejabberd_hooks:delete(feed_item_published, Host, ?MODULE, feed_item_published, 50),
+    ejabberd_hooks:delete(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -61,6 +67,20 @@ publish_feed_item(Uid, Node, ItemId, ItemType, _Payload) ->
             stat:count("HA/feed", "comment");
         _ -> ok
     end,
+    ok.
+
+
+-spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: binary()) -> ok.
+feed_item_published(Uid, ItemId, ItemType) ->
+    ?INFO_MSG("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
+    stat:count("HA/feed", atom_to_list(ItemType)),
+    ok.
+
+
+-spec feed_item_retracted(Uid :: binary(), ItemId :: binary(), ItemType :: binary()) -> ok.
+feed_item_retracted(Uid, ItemId, ItemType) ->
+    ?INFO_MSG("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
+    stat:count("HA/feed", "retract_" ++ atom_to_list(ItemType)),
     ok.
 
 

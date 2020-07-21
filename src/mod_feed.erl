@@ -20,7 +20,6 @@
 
 %% Number of milliseconds in 7days.
 -define(EXPIRE_ITEM_MS, 7 * ?DAYS_MS).
--type set() :: sets:set().
 
 -behaviour(gen_mod).
 
@@ -43,8 +42,7 @@
     remove_user/2,
     process_local_iq/1,
     on_user_first_login/2,
-    purge_expired_items/0,
-    remove_metadata_nodes/0
+    purge_expired_items/0
 ]).
 
 
@@ -407,22 +405,37 @@ send_all_node_items(#psnode{id = NodeId} = _Node, ContactId, Server) ->
     {ok, Items} = mod_feed_mnesia:get_all_items(NodeId),
     MsgType = normal,
     From = jid:make(?PUBSUB_HOST),
+    PsItems1 = items_els(Items, Server),
+    FinalItems = case NodeId of
+        <<"feed-", OwnerUid/binary>> ->
+            {ok, FeedItems} = model_feed:get_7day_user_feed(OwnerUid),
+            PsItems2 = feed_items_to_items_els(FeedItems, Server),
+            PsItems1 ++ PsItems2;
+        _ ->
+            PsItems1
+    end,
     Packet = #message{
         to = jid:make(ContactId, Server),
         from = From,
         type = MsgType,
-        sub_els = [#ps_event{items = items_els(NodeId, Items, Server)}]
+        sub_els = [#ps_event{items = #ps_items{node = NodeId, items = FinalItems}}]
     },
     ejabberd_router:route(Packet).
 
 
 -spec items_els(NodeId :: binary(), Items :: list(item()), Server :: binary()) -> ps_items().
 items_els(NodeId, Items, Server) ->
+    ItemEls = items_els(Items, Server),
+    #ps_items{node = NodeId, items = ItemEls}.
+
+
+-spec items_els(Items :: list(item()), Server :: binary()) -> [ps_item()].
+items_els(Items, Server) ->
     ItemEls = lists:map(
         fun(Item) ->
             item_els(Item, Server)
         end, Items),
-    #ps_items{node = NodeId, items = ItemEls}.
+    ItemEls.
 
 
 -spec item_els(Item :: item(), Server :: binary()) -> ps_item().
@@ -480,20 +493,28 @@ get_feed_audience_set(Uid) ->
     sets:add_element(Uid, AudienceUidSet).
 
 
--spec remove_metadata_nodes() -> ok.
-remove_metadata_nodes() ->
-    {ok, Nodes} = mod_feed_mnesia:get_all_nodes(),
-    lists:foreach(
-        fun (#psnode{type = feed}) -> ok;
-            (#psnode{id = NodeId, type = metadata}) ->
-                {ok, Items} = mod_feed_mnesia:get_all_items(NodeId),
-                lists:foreach(fun remove_item/1, Items),
-                mod_feed_mnesia:delete_node(NodeId)
-        end, Nodes),
-    ok.
-
--spec remove_item(Item :: item()) -> ok.
-remove_item(#item{key = ItemKey}) ->
-    mod_feed_mnesia:retract_item(ItemKey),
-    ok.
+feed_items_to_items_els(FeedItems, Server) ->
+    lists:map(
+        fun(Item) ->
+            case Item of
+                #post{} ->
+                    #ps_item{
+                        id = Item#post.id,
+                        timestamp = integer_to_binary(util:ms_to_sec(Item#post.ts_ms)),
+                        type = feedpost,
+                        publisher = jid:encode(jid:make(Item#post.uid, Server)),
+                        publisher_name = model_accounts:get_name_binary(Item#post.uid),
+                        sub_els = Item#post.payload
+                    };
+                #comment{} ->
+                    #ps_item{
+                        id = Item#comment.id,
+                        timestamp = integer_to_binary(util:ms_to_sec(Item#comment.ts_ms)),
+                        type = comment,
+                        publisher = jid:encode(jid:make(Item#comment.publisher_uid, Server)),
+                        publisher_name = model_accounts:get_name_binary(Item#comment.publisher_uid),
+                        sub_els = Item#comment.payload
+                    }
+            end
+        end, FeedItems).
 

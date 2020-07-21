@@ -190,6 +190,7 @@ modules:
     timeout_action: kill
   mod_feed_mnesia: {}
   mod_feed: {}
+  mod_ha_feed: {}
   mod_sms: {}
   mod_user_session: {}
   mod_contacts: {}

@@ -53,6 +53,9 @@
 -type feed_item() :: post() | comment().
 -type feed_items() :: [feed_item()].
 
+-type action_type() :: publish | retract.
+-type set() :: sets:set().
+
 -define(POST_EXPIRATION, (30 * ?DAYS)).
 -define(POST_TTL_MS, (30 * ?DAYS_MS)).
 
