@@ -65,75 +65,75 @@ mod_options(_Host) ->
 
 %% TODO(murali@): we should not rely on metadata info from the client.
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, lang = Lang,
-        sub_els = [#avatar{width = Width, height = Height,
-        userid = Uid, id = Id, cdata = Data}]} = IQ) ->
-        try
-            BinaryData = base64:decode(Data),
-            BytesSize = byte_size(BinaryData),
-            IsJpeg = is_jpeg(BinaryData),
-            MaxDim = max(Width, Height),
-            if
-                Id =/= <<>> andalso Id =/= undefined ->
-                    Txt = ?T("Invalid id in the avatar xml element"),
-                    ?WARNING_MSG("Uid: ~s, Invalid id: ~s in the avatar xml element", [UserId, Id]),
-                    xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-                BytesSize > ?MAX_AVATAR_SIZE ->
-                    Txt = ?T("Avatar size is too large, limit < 50KB."),
-                    ?WARNING_MSG("Uid: ~s, Avatar is too large, size: ~s", [UserId, BytesSize]),
-                    xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-                MaxDim > ?MAX_AVATAR_DIM andalso MaxDim =/= undefined ->
-                    Txt = ?T("Avatar must have a max dimension of 256."),
-                    ?WARNING_MSG("Uid: ~s, Avatar has wrong dimensions: ~s x ~s",
-                            [UserId, Width, Height]),
-                    xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-                Uid =/= UserId andalso Uid =/= <<>> ->
-                    Txt = ?T("Invalid uid in the request."),
-                    ?WARNING_MSG("Uid: ~s, Invalid user id: ~s in the request", [UserId, Uid]),
-                    xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-                IsJpeg =:= false andalso BytesSize > 0 ->
-                    Txt = ?T("Invalid image format in the request, accepts only jpeg."),
-                    ?WARNING_MSG("Uid: ~s, Invalid image format in the request", [UserId]),
-                    xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-                true ->
-                    case publish_user_avatar(UserId, Server, BinaryData) of
-                        error ->
-                            Txt = ?T("Internal server error: failed to set avatar"),
-                            ?ERROR_MSG("Userid: ~s, Failed to set avatar", [UserId]),
-                            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-                        AvatarId ->
-                            xmpp:make_iq_result(IQ, #avatar{id = AvatarId})
-                    end
-            end
-        catch ?EX_RULE(Class, Reason, St) ->
-            StackTrace = ?EX_STACK(St),
-            ?ERROR_MSG("Userid: ~s, Invalid image data, response:~n~ts",
-                    [UserId, misc:format_exception(2, Class, Reason, StackTrace)]),
-            Text = ?T("Invalid image data: expected base64 encoded jpeg image data"),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Text, Lang))
-        end;
+    sub_els = [#avatar{width = Width, height = Height,
+    userid = Uid, id = Id, cdata = Data}]} = IQ) ->
+    try
+        BinaryData = base64:decode(Data),
+        BytesSize = byte_size(BinaryData),
+        IsJpeg = is_jpeg(BinaryData),
+        MaxDim = max(Width, Height),
+        if
+            Id =/= <<>> andalso Id =/= undefined ->
+                Txt = ?T("Invalid id in the avatar xml element"),
+                ?WARNING_MSG("Uid: ~s, Invalid id: ~s in the avatar xml element", [UserId, Id]),
+                xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            BytesSize > ?MAX_AVATAR_SIZE ->
+                Txt = ?T("Avatar size is too large, limit < 50KB."),
+                ?WARNING_MSG("Uid: ~s, Avatar is too large, size: ~s", [UserId, BytesSize]),
+                xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            MaxDim > ?MAX_AVATAR_DIM andalso MaxDim =/= undefined ->
+                Txt = ?T("Avatar must have a max dimension of 256."),
+                ?WARNING_MSG("Uid: ~s, Avatar has wrong dimensions: ~s x ~s",
+                        [UserId, Width, Height]),
+                xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            Uid =/= UserId andalso Uid =/= <<>> ->
+                Txt = ?T("Invalid uid in the request."),
+                ?WARNING_MSG("Uid: ~s, Invalid user id: ~s in the request", [UserId, Uid]),
+                xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            IsJpeg =:= false andalso BytesSize > 0 ->
+                Txt = ?T("Invalid image format in the request, accepts only jpeg."),
+                ?WARNING_MSG("Uid: ~s, Invalid image format in the request", [UserId]),
+                xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            true ->
+                case publish_user_avatar(UserId, Server, BinaryData) of
+                    error ->
+                        Txt = ?T("Internal server error: failed to set avatar"),
+                        ?ERROR_MSG("Userid: ~s, Failed to set avatar", [UserId]),
+                        xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+                    AvatarId ->
+                        xmpp:make_iq_result(IQ, #avatar{id = AvatarId})
+                end
+        end
+    catch ?EX_RULE(Class, Reason, St) ->
+        StackTrace = ?EX_STACK(St),
+        ?ERROR_MSG("Userid: ~s, Invalid image data, response:~n~ts",
+                [UserId, misc:format_exception(2, Class, Reason, StackTrace)]),
+        Text = ?T("Invalid image data: expected base64 encoded jpeg image data"),
+        xmpp:make_error(IQ, xmpp:err_bad_request(Text, Lang))
+    end;
 
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
         lang = _Lang, sub_els = [#avatar{userid = UserId}]} = IQ) ->
-        xmpp:make_iq_result(IQ, #avatar{id = model_accounts:get_avatar_id_binary(UserId)});
+    xmpp:make_iq_result(IQ, #avatar{id = model_accounts:get_avatar_id_binary(UserId)});
 
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
         lang = Lang, sub_els = [#avatar{userid = FriendId}]} = IQ) ->
-        case check_and_get_avatar_id(UserId, FriendId) of
-            undefined ->
-                Txt = ?T("Invalid friend_uid"),
-                ?WARNING_MSG("Uid: ~s, Invalid friend_uid: ~s", [UserId, FriendId]),
-                xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
-            AvatarId ->
-                xmpp:make_iq_result(IQ, #avatar{userid = FriendId, id = AvatarId})
-        end;
+    case check_and_get_avatar_id(UserId, FriendId) of
+        undefined ->
+            Txt = ?T("Invalid friend_uid"),
+            ?WARNING_MSG("Uid: ~s, Invalid friend_uid: ~s", [UserId, FriendId]),
+            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+        AvatarId ->
+            xmpp:make_iq_result(IQ, #avatar{userid = FriendId, id = AvatarId})
+    end;
 
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
         lang = _Lang, sub_els = [#avatars{} = Avatars]} = IQ) ->
-        NewAvatars = lists:foreach(
-                fun(#avatar{userid = FriendId} = Avatar) ->
-                    Avatar#avatar{id = check_and_get_avatar_id(UserId, FriendId)}
-                end, Avatars),
-        xmpp:make_iq_result(IQ, NewAvatars).
+    NewAvatars = lists:foreach(
+            fun(#avatar{userid = FriendId} = Avatar) ->
+                Avatar#avatar{id = check_and_get_avatar_id(UserId, FriendId)}
+            end, Avatars),
+    xmpp:make_iq_result(IQ, NewAvatars).
 
 
 remove_user(UserId, Server) ->
@@ -243,6 +243,4 @@ is_jpeg(<<255, 216, _/binary>>) ->
     true;
 is_jpeg(_) ->
     false.
-
-
 
