@@ -4,6 +4,15 @@
 %%%
 %%% This model handles all the redis queries related to feedposts and comments.
 %%%
+%%% There could be some race conditions when requests occur on separate c2s processes.
+%%% - When 2 requests simultaneously arrive to delete a post and publish a comment.
+%%% To delete a post, We first check if the post exists and then delete it.
+%%% To publish a comment, we first check if post and comment exist (get_post_and_comment)
+%%%  and then publish it.
+%%% It is possible that at the end: comment be inserted into the redis and the post be deleted.
+%%% Data wont be accumulated: since all this data will anyways expire.
+%%% But we should fix these issues later.
+%%%
 %%%------------------------------------------------------------------------------------
 -module(model_feed).
 -author('murali').
@@ -27,10 +36,12 @@
 %% API
 -export([
     publish_post/4,
-    publish_comment/5,
+    publish_comment/6,
     retract_post/2,
     retract_comment/2,
     get_post/1,
+    get_comment/2,
+    get_post_and_comment/2,
     get_7day_user_feed/1,
     get_entire_user_feed/1,
     is_post_owner/2,
@@ -67,6 +78,7 @@ mod_options(_Host) ->
 -define(FIELD_PAYLOAD, <<"pl">>).
 -define(FIELD_TIMESTAMP_MS, <<"ts">>).
 -define(FIELD_PUBLISHER_UID, <<"pbu">>).
+-define(FIELD_PARENT_COMMENT_ID, <<"pc">>).
 
 -spec publish_post(PostId :: binary(), Uid :: uid(),
         Payload :: binary(), TimestampMs :: integer()) -> ok | {error, any()}.
@@ -87,14 +99,15 @@ publish_post(PostId, Uid, Payload, TimestampMs) ->
 
 
 %% TODO(murali@): Write lua scripts for some functions in this module.
-
--spec publish_comment(CommentId :: binary(), PostId :: binary(), PublisherUid :: uid(),
+-spec publish_comment(CommentId :: binary(), PostId :: binary(),
+        PublisherUid :: uid(), ParentCommentId :: binary(),
         Payload :: binary(), TimestampMs :: integer()) -> ok | {error, any()}.
-publish_comment(CommentId, PostId, PublisherUid, Payload, TimestampMs) ->
+publish_comment(CommentId, PostId, PublisherUid, ParentCommentId, Payload, TimestampMs) ->
     {ok, TTL} = q(["TTL", post_key(PostId)]),
     [{ok, _}, {ok, _}] = qp([
             ["HSET", comment_key(CommentId, PostId),
                 ?FIELD_PUBLISHER_UID, PublisherUid,
+                ?FIELD_PARENT_COMMENT_ID, ParentCommentId,
                 ?FIELD_PAYLOAD, Payload,
                 ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)],
             ["EXPIRE", comment_key(CommentId, PostId), TTL]]),
@@ -150,18 +163,60 @@ get_post(PostId) ->
     case Uid =:= undefined orelse Payload =:= undefined orelse TimestampMs =:= undefined of
         true -> {error, missing};
         false -> {ok, #post{id = PostId, uid = Uid,
-                payload = Payload, ts_ms = binary_to_integer(TimestampMs)}}
+                payload = Payload, ts_ms = util_redis:decode_ts(TimestampMs)}}
     end.
 
 
 -spec get_comment(CommentId :: binary(), PostId :: binary()) -> {ok, comment()} | {error, any()}.
 get_comment(CommentId, PostId) ->
-    {ok, [PublisherUid, Payload, TimestampMs]} = q(
-        ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS]),
+    {ok, [PublisherUid, ParentCommentId, Payload, TimestampMs]} = q(
+        ["HMGET", comment_key(CommentId, PostId),
+            ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS]),
     case PublisherUid =:= undefined orelse Payload =:= undefined orelse TimestampMs =:= undefined of
         true -> {error, missing};
-        false -> {ok, #comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
-                payload = Payload, ts_ms = binary_to_integer(TimestampMs)}}
+        false -> {ok, #comment{
+            id = CommentId,
+            post_id = PostId,
+            publisher_uid = PublisherUid, parent_id = ParentCommentId,
+            payload = Payload,
+            ts_ms = util_redis:decode_ts(TimestampMs)}}
+    end.
+
+
+-spec get_post_and_comment(PostId :: binary(),
+        CommentId :: binary()) -> [{ok, feed_item()}] | [{error, any()}].
+get_post_and_comment(PostId, CommentId) ->
+    [{ok, Res1}, {ok, Res2}] = qp([
+        ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS],
+        ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID,
+                ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS]]),
+    [PostUid, PostPayload, PostTsMs] = Res1,
+    [CommentPublisherUid, ParentCommentId, CommentPayload, CommentTsMs] = Res2,
+
+    Post = #post{
+        id = PostId,
+        uid = PostUid,
+        payload = PostPayload,
+        ts_ms = util_redis:decode_ts(PostTsMs)
+    },
+    Comment = #comment{
+        id = CommentId,
+        post_id = PostId,
+        publisher_uid = CommentPublisherUid,
+        parent_id = ParentCommentId,
+        payload = CommentPayload,
+        ts_ms = util_redis:decode_ts(CommentTsMs)
+    },
+    if
+        PostUid =:= undefined andalso CommentPublisherUid =:= undefined ->
+            [{error, missing}, {error, missing}];
+        PostUid =/= undefined andalso CommentPublisherUid =:= undefined ->
+            [{ok, Post}, {error, missing}];
+        PostUid =:= undefined andalso CommentPublisherUid =/= undefined ->
+            ?ERROR_MSG("Invalid internal state: postid: ~p, commentid: ~p", [PostId, CommentId]),
+            [{error, missing}, {error, missing}];
+        true ->
+            [{ok, Post}, {ok, Comment}]
     end.
 
 
@@ -263,5 +318,4 @@ post_comments_key(PostId) ->
 -spec reverse_post_key(Uid :: uid()) -> binary().
 reverse_post_key(Uid) ->
     <<?REVERSE_POST_KEY/binary, "{", Uid/binary, "}">>.
-
 

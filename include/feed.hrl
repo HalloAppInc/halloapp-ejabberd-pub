@@ -43,6 +43,7 @@
 	id :: binary(),
 	post_id :: binary(),
 	publisher_uid :: uid(),
+	parent_id :: binary(),
 	payload :: binary(),
 	ts_ms :: integer()
 }).
