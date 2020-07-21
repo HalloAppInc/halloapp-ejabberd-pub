@@ -173,6 +173,8 @@ finish_registration(Phone, Name, UserAgent) ->
             ejabberd_admin:unregister_push(Uid, Host);
         register -> ok
     end,
+    stat:count_d("HA/account", "registration_by_client_type",
+        [{client_type, util_ua:get_client_type(UserAgent)}]),
     {ok, Phone, Uid, Password}.
 
 %% Throws error if the code is wrong
