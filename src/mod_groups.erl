@@ -370,7 +370,6 @@ maybe_delete_empty_group(Gid) ->
     if
         Size =:= 0 ->
             ?INFO_MSG("Group ~s is now empty. Deleting it.", [Gid]),
-            % TODO: add counts to groups.
             stat:count("HA/groups", "auto_delete_empty"),
             model_groups:delete_group(Gid);
         true ->
