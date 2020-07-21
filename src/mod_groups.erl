@@ -109,7 +109,7 @@ create_group(Uid, GroupName, MemberUids) ->
 
             Group = model_groups:get_group(Gid),
 
-            send_create_group_event(Gid, Uid, Group, Results),
+            send_create_group_event(Group, Uid, Results),
             {ok, Group, Results}
     end.
 
@@ -464,12 +464,12 @@ make_message(GroupInfo, Uid, SenderName, MessagePayload, Ts) ->
         cdata = MessagePayload
     }.
 
--spec send_create_group_event(Gid :: gid(), Uid :: uid(),
-        Group :: group(), ModifyMemberResults :: modify_member_results()) -> ok.
-send_create_group_event(Gid, Uid, Group, AddMemberResults) ->
+-spec send_create_group_event(Group :: group(), Uid :: uid(),
+        ModifyMemberResults :: modify_member_results()) -> ok.
+send_create_group_event(Group, Uid, AddMemberResults) ->
     Uids = [M#group_member.uid || M <-Group#group.members],
     NamesMap = model_accounts:get_names(Uids),
-    broadcast_update(Gid, Uid, create, Group, AddMemberResults, NamesMap),
+    broadcast_update(Group, Uid, create, AddMemberResults, NamesMap),
     ok.
 
 
@@ -479,7 +479,7 @@ send_modify_members_event(Gid, Uid, MemberResults) ->
     Uids = [Uid | [Ouid || {Ouid, _, _} <- MemberResults]],
     Group = model_groups:get_group(Gid),
     NamesMap = model_accounts:get_names(Uids),
-    broadcast_update(Gid, Uid, modify_members, Group, MemberResults, NamesMap),
+    broadcast_update(Group, Uid, modify_members, MemberResults, NamesMap),
     ok.
 
 
@@ -489,7 +489,7 @@ send_modify_admins_event(Gid, Uid, MemberResults) ->
     Uids = [Uid | [Ouid || {Ouid, _, _} <- MemberResults]],
     Group = model_groups:get_group(Gid),
     NamesMap = model_accounts:get_names(Uids),
-    broadcast_update(Gid, Uid, modify_admins, Group, MemberResults, NamesMap),
+    broadcast_update(Group, Uid, modify_admins, MemberResults, NamesMap),
     ok.
 
 
@@ -498,7 +498,7 @@ send_auto_promote_admin_event(Gid, MemberResults) ->
     Uids = [Ouid || {Ouid, _, _} <- MemberResults],
     Group = model_groups:get_group(Gid),
     NamesMap = model_accounts:get_names(Uids),
-    broadcast_update(Gid, undefined, auto_promote_admins, Group, MemberResults, NamesMap),
+    broadcast_update(Group, undefined, auto_promote_admins, MemberResults, NamesMap),
     ok.
 
 
@@ -506,7 +506,7 @@ send_auto_promote_admin_event(Gid, MemberResults) ->
 send_leave_group_event(Gid, Uid) ->
     Group = model_groups:get_group(Gid),
     NamesMap = model_accounts:get_names([Uid]),
-    broadcast_update(Gid, Uid, leave, Group, [{Uid, leave, ok}], NamesMap),
+    broadcast_update(Group, Uid, leave, [{Uid, leave, ok}], NamesMap),
     ok.
 
 
@@ -514,7 +514,7 @@ send_leave_group_event(Gid, Uid) ->
 send_change_name_event(Gid, Uid) ->
     Group = model_groups:get_group(Gid),
     NamesMap = model_accounts:get_names([Uid]),
-    broadcast_update(Gid, Uid, change_name, Group, [], NamesMap),
+    broadcast_update(Group, Uid, change_name, [], NamesMap),
     ok.
 
 
@@ -522,14 +522,14 @@ send_change_name_event(Gid, Uid) ->
 send_change_avatar_event(Gid, Uid) ->
     Group = model_groups:get_group(Gid),
     NamesMap = model_accounts:get_names([Uid]),
-    broadcast_update(Gid, Uid, change_avatar, Group, [], NamesMap),
+    broadcast_update(Group, Uid, change_avatar, [], NamesMap),
     ok.
 
 
 % Broadcast the event to all members of the group
--spec broadcast_update(Gid :: gid(), Uid :: uid(), Event :: atom(), Group :: group(),
+-spec broadcast_update(Group :: group(), Uid :: uid(), Event :: atom(),
         Results :: modify_member_results(), NamesMap :: names_map()) -> ok.
-broadcast_update(Gid, Uid, Event, Group, Results, NamesMap) ->
+broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     MembersSt = make_members_st(Event, Results, NamesMap),
 
     GroupSt = #group_st{
