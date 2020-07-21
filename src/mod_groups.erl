@@ -334,7 +334,7 @@ add_members_unsafe(Gid, Uid, MemberUids) ->
 -spec add_members_unsafe_2(Gid :: gid(), Uid :: uid(), MemberUids :: [uid()])
             -> modify_member_results().
 add_members_unsafe_2(Gid, Uid, MemberUids) ->
-    GoodUids = check_accounts_exists(MemberUids),
+    GoodUids = model_accounts:filter_nonexisting_uids(MemberUids),
     model_groups:add_members(Gid, GoodUids, Uid),
     lists:map(
         fun (OUid) ->
@@ -447,20 +447,6 @@ maybe_assign_admin(Gid) ->
                     ok
             end
     end.
-
-
-% TODO: maybe this function should be in model_accounts
--spec check_accounts_exists(Uids :: [uid()]) -> [uid()].
-check_accounts_exists(Uids) ->
-    lists:foldr(
-        fun (Uid, Acc) ->
-            case model_accounts:account_exists(Uid) of
-                true -> [Uid | Acc];
-                false -> Acc
-            end
-        end,
-        [],
-        Uids).
 
 
 -spec make_message(GroupInfo :: group_info(), Uid :: uid(), SenderName :: binary(),

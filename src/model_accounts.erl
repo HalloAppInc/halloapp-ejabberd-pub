@@ -32,6 +32,7 @@
     create_account/4,
     delete_account/1,
     account_exists/1,
+    filter_nonexisting_uids/1,
     is_account_deleted/1,
     get_account/1,
     get_phone/1,
@@ -309,6 +310,19 @@ remove_push_info(Uid) ->
 account_exists(Uid) ->
     {ok, Res} = q(["HEXISTS", key(Uid), ?FIELD_PHONE]),
     binary_to_integer(Res) > 0.
+
+
+-spec filter_nonexisting_uids(Uids :: [uid()]) -> [uid()].
+filter_nonexisting_uids(Uids) ->
+    lists:foldr(
+        fun (Uid, Acc) ->
+            case model_accounts:account_exists(Uid) of
+                true -> [Uid | Acc];
+                false -> Acc
+            end
+        end,
+        [],
+        Uids).
 
 
 -spec is_account_deleted(Uid :: binary()) -> boolean().

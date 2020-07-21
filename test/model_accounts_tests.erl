@@ -324,3 +324,11 @@ get_names_test() ->
     ?assertEqual(?NAME2, maps:get(?UID2, ProfilesMap)),
     ok.
 
+
+check_accounts_exists_test() ->
+    setup(),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
+    ?assertEqual([?UID1, ?UID2], model_accounts:filter_nonexisting_uids([?UID1, ?UID3, ?UID2])),
+    ok.
+
