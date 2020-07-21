@@ -76,13 +76,13 @@ mod_options(_Host) ->
 -define(FIELD_CREATED_BY, <<"crb">>).
 
 
--spec create_group(Name :: binary(), Uid :: uid()) -> {ok, Gid :: gid()}.
-create_group(Name, Uid) ->
-    create_group(Name, Uid, util:now_ms()).
+-spec create_group(Uid :: uid(), Name :: binary()) -> {ok, Gid :: gid()}.
+create_group(Uid, Name) ->
+    create_group(Uid, Name, util:now_ms()).
 
 
--spec create_group(Name :: binary(), Uid :: uid(), Ts :: integer()) -> {ok, Gid :: gid()}.
-create_group(Name, Uid, Ts) ->
+-spec create_group(Uid :: uid(), Name :: binary(), Ts :: integer()) -> {ok, Gid :: gid()}.
+create_group(Uid, Name, Ts) ->
     Gid = util:generate_gid(),
     MemberValue = encode_member_value(admin, util:now_ms(), Uid),
     [{ok, _}, {ok, _}] = qp([

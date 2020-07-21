@@ -311,8 +311,7 @@ create_group_internal(Uid, GroupName) ->
     case validate_group_name(GroupName) of
         {error, Reason} -> {error, Reason};
         {ok, LGroupName} ->
-            % TODO: switch arguments around in the model
-            {ok, Gid} = model_groups:create_group(LGroupName, Uid),
+            {ok, Gid} = model_groups:create_group(Uid, LGroupName),
             ?INFO_MSG("group created Gid: ~s Uid: ~s GroupName: |~s|", [Gid, Uid, LGroupName]),
             stat:count(?STAT_NS, "create"),
             {ok, Gid}

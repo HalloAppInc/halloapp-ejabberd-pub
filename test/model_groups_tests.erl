@@ -32,14 +32,14 @@ user_groups_key_test() ->
 
 create_group_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     ?assertEqual(true, model_groups:group_exists(Gid)),
     ?assertEqual([?UID1], model_groups:get_member_uids(Gid)),
     ok.
 
 delete_group_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     ?assertEqual(true, model_groups:group_exists(Gid)),
     ?assertEqual(ok, model_groups:delete_group(Gid)),
     ?assertEqual(false, model_groups:group_exists(Gid)),
@@ -48,7 +48,7 @@ delete_group_test() ->
 
 add_member_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     ?assertEqual([?UID1], model_groups:get_member_uids(Gid)),
     {ok, true} = model_groups:add_member(Gid, ?UID2, ?UID1),
     {ok, false} = model_groups:add_member(Gid, ?UID2, ?UID1),
@@ -65,7 +65,7 @@ encode_member_test() ->
 
 remove_member_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     ?assertEqual([?UID1], model_groups:get_member_uids(Gid)),
     {ok, true} = model_groups:add_member(Gid, ?UID2, ?UID1),
     {ok, true} = model_groups:add_member(Gid, ?UID3, ?UID1),
@@ -78,7 +78,7 @@ remove_member_test() ->
 get_group_test() ->
     setup(),
     Ts = util:now_ms(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1, Ts),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1, Ts),
     Group = model_groups:get_group(Gid),
     ?assertEqual(?GROUP_NAME1, Group#group.name),
     ?assertEqual(undefined, Group#group.avatar),
@@ -88,7 +88,7 @@ get_group_test() ->
 
 get_member_uids_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     {ok, true} = model_groups:add_member(Gid, ?UID2, ?UID1),
     {ok, true} = model_groups:add_member(Gid, ?UID3, ?UID1),
     ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
@@ -96,7 +96,7 @@ get_member_uids_test() ->
 
 get_group_size_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     ?assertEqual(1, model_groups:get_group_size(Gid)),
     {ok, true} = model_groups:add_member(Gid, ?UID2, ?UID1),
     ?assertEqual(2, model_groups:get_group_size(Gid)),
@@ -109,7 +109,7 @@ get_group_size_test() ->
 
 is_member_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     ?assertEqual(true, model_groups:is_member(Gid, ?UID1)),
     ?assertEqual(false, model_groups:is_member(Gid, ?UID2)),
     ?assertEqual(false, model_groups:is_member(Gid, ?UID3)),
@@ -122,7 +122,7 @@ is_member_test() ->
 
 is_admin_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     ?assertEqual(true, model_groups:is_admin(Gid, ?UID1)),
     ?assertEqual(false, model_groups:is_admin(Gid, ?UID2)),
     {ok, true} = model_groups:add_member(Gid, ?UID2, ?UID1),
@@ -136,7 +136,7 @@ is_admin_test() ->
 
 promote_admin_not_member_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     ?assertEqual({error, not_member}, model_groups:promote_admin(Gid, ?UID2)),
     {ok, true} = model_groups:add_member(Gid, ?UID2, ?UID1),
     ?assertEqual({ok, true}, model_groups:promote_admin(Gid, ?UID2)),
@@ -152,14 +152,14 @@ decode_member_test() ->
 
 add_members_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     [true, true] = model_groups:add_members(Gid, [?UID2, ?UID3], ?UID1),
     ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
     ok.
 
 remove_members_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     ?assertEqual([true, true], model_groups:add_members(Gid, [?UID2, ?UID3], ?UID1)),
     ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
     ?assertEqual({ok, 2}, model_groups:remove_members(Gid, [?UID2, ?UID3])),
@@ -169,12 +169,12 @@ remove_members_test() ->
 get_groups_test() ->
     setup(),
     [] = model_groups:get_groups(?UID1),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     ?assertEqual([true, true], model_groups:add_members(Gid, [?UID2, ?UID3], ?UID1)),
     ?assertEqual([Gid], model_groups:get_groups(?UID1)),
     ?assertEqual([Gid], model_groups:get_groups(?UID2)),
     ?assertEqual([], model_groups:get_groups(?UID4)),
-    {ok, Gid2} = model_groups:create_group(?GROUP_NAME2, ?UID2),
+    {ok, Gid2} = model_groups:create_group(?UID2, ?GROUP_NAME2),
     ?assertEqual([true, true], model_groups:add_members(Gid2, [?UID1, ?UID4], ?UID2)),
     ?assertEqual(lists:sort([Gid, Gid2]), lists:sort(model_groups:get_groups(?UID1))),
     ?assertEqual(lists:sort([Gid, Gid2]), lists:sort(model_groups:get_groups(?UID2))),
@@ -184,7 +184,7 @@ get_groups_test() ->
 
 set_avatar_test() ->
     setup(),
-    {ok, Gid} = model_groups:create_group(?GROUP_NAME1, ?UID1),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     Group1 = model_groups:get_group(Gid),
     ?assertEqual(undefined, Group1#group.avatar),
 
