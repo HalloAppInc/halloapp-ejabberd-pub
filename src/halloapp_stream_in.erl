@@ -554,7 +554,11 @@ process_auth_request(#halloapp_auth{uid = Uid, pwd = Pwd, client_mode = Mode,
                     end
             end
     end,
-    AuthResultPkt = #halloapp_auth_result{result = Result, reason = Reason},
+    AuthResultPkt = #halloapp_auth_result{
+        result = Result,
+        reason = Reason,
+        props_hash = mod_props:get_hash()
+    },
     FinalState = send_pkt(NewState, AuthResultPkt),
     case Result of
         <<"failure">> -> stop(FinalState);
