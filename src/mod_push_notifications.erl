@@ -51,14 +51,22 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
+%% Push pubsub messages with type=headline, all new published posts and comments.
 offline_message_hook({_, #message{type = Type} = Message} = Acc)
         when Type =:= headline ->
     ?DEBUG("~p", [Message]),
     push_message(Message),
     Acc;
 
+%% Push chat messages: all messages with chat as the subelement.
 offline_message_hook({_, #message{sub_els = [SubEl]} = Message} = Acc)
         when is_record(SubEl, chat) ->
+    ?DEBUG("~p", [Message]),
+    push_message(Message),
+    Acc;
+
+%% Push new feed messages: all messages with action=publish.
+offline_message_hook({_, #message{sub_els = [#feed_st{action = publish}]} = Message} = Acc) ->
     ?DEBUG("~p", [Message]),
     push_message(Message),
     Acc;

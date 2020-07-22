@@ -20,6 +20,7 @@
 -include("xmpp.hrl").
 -include("translate.hrl").
 -include ("push_message.hrl").
+-include("feed.hrl").
 
 -type build_type() :: prod | dev.
 
@@ -363,17 +364,21 @@ get_pid_to_send(dev, State) ->
     {State#push_state.dev_conn, State}.
 
 
--spec parse_message(Message :: message()) -> {binary(), binary()}.
-parse_message(#message{sub_els = [SubElement]}) when is_record(SubElement, chat) ->
+-spec parse_subject_and_body(Message :: message()) -> {binary(), binary()}.
+parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubElement, chat) ->
     {<<"New Message">>, <<"You got a new message.">>};
-parse_message(#message{sub_els = [#ps_event{items = #ps_items{
+parse_subject_and_body(#message{sub_els = [#ps_event{items = #ps_items{
         items = [#ps_item{type = ItemType}]}}]}) ->
     case ItemType of
         comment -> {<<"New Notification">>, <<"New comment">>};
         feedpost -> {<<"New Notification">>, <<"New feedpost">>};
         _ -> {<<"New Message">>, <<"You got a new message.">>}
     end;
-parse_message(#message{to = #jid{luser = Uid}, id = Id}) ->
+parse_subject_and_body(#message{sub_els = [#feed_st{posts = [#post_st{}]}]}) ->
+    {<<"New Notification">>, <<"New post">>};
+parse_subject_and_body(#message{sub_els = [#feed_st{comments = [#comment_st{}]}]}) ->
+    {<<"New Notification">>, <<"New comment">>};
+parse_subject_and_body(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]).
 
 
@@ -386,20 +391,27 @@ parse_metadata(#message{sub_els = [#ps_event{items = #ps_items{
 %% TODO(murali@): Change the fromId to be just userid instead of jid.
     #jid{luser = FromUid} = jid:from_string(FromId),
     {Id, util:to_binary(ItemType), FromUid};
+parse_metadata(#message{sub_els = [#feed_st{posts = [Post]}]}) ->
+    {Post#post_st.id, <<"post">>, Post#post_st.uid};
+parse_metadata(#message{sub_els = [#feed_st{comments = [Comment]}]}) ->
+    {Comment#comment_st.id, <<"comment">>, Comment#comment_st.publisher_uid};
 parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     {<<>>, <<>>, <<>>}.
 
 
-%% TODO(murali@): This is only a temporary change to test Igor's push notifications.
-%% Need to clean all this parsing stuff logic.
--spec parse_actual_data(Message :: message()) -> binary().
-parse_actual_data(#message{sub_els = [#chat{sub_els = [SubEl]}]}) ->
+%% TODO(murali@): Need to clean all this parsing stuff logic.
+-spec parse_payload(Message :: message()) -> binary().
+parse_payload(#message{sub_els = [#chat{sub_els = [SubEl]}]}) ->
     fxml:get_tag_cdata(SubEl);
-parse_actual_data(#message{sub_els = [#ps_event{items = #ps_items{
+parse_payload(#message{sub_els = [#ps_event{items = #ps_items{
         items = [#ps_item{sub_els = [SubEl]}]}}]}) ->
     fxml:get_subtag_cdata(SubEl, <<"s1">>);
-parse_actual_data(#message{}) ->
+parse_payload(#message{sub_els = [#feed_st{posts = [#post_st{payload = Payload}]}]}) ->
+    Payload;
+parse_payload(#message{sub_els = [#feed_st{comments = [#comment_st{payload = Payload}]}]}) ->
+    Payload;
+parse_payload(#message{}) ->
     <<>>.
 
 
@@ -408,7 +420,7 @@ parse_actual_data(#message{}) ->
 -spec get_payload(PushMessageItem :: push_message_item(), PushType :: silent | alert) -> binary().
 get_payload(PushMessageItem, PushType) ->
     {ContentId, ContentType, FromId} = parse_metadata(PushMessageItem#push_message_item.message),
-    Data = parse_actual_data(PushMessageItem#push_message_item.message),
+    Data = parse_payload(PushMessageItem#push_message_item.message),
     MetadataMap = #{
         <<"content-id">> => ContentId,
         <<"content-type">> => ContentType,
@@ -417,7 +429,7 @@ get_payload(PushMessageItem, PushType) ->
     },
     BuildTypeMap = case PushType of
         alert ->
-            {Subject, Body} = parse_message(PushMessageItem#push_message_item.message),
+            {Subject, Body} = parse_subject_and_body(PushMessageItem#push_message_item.message),
             DataMap = #{
                 <<"title">> => Subject,
                 <<"body">> => Body
@@ -447,6 +459,8 @@ get_push_type(#message{type = headline, to = #jid{luser = User}, sub_els = [#ps_
                 _ -> silent
             end
     end;
+get_push_type(#message{type = headline, sub_els = [#feed_st{}]}) -> alert;
+get_push_type(#message{type = normal, sub_els = [#feed_st{}]}) -> silent;
 get_push_type(_) -> alert.
 
 
