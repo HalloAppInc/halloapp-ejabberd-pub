@@ -299,13 +299,14 @@ add_friend(UserId, Server, ContactId) ->
     {ok, TsMs2} = model_accounts:get_creation_ts_ms(ContactId),
     NowMs = util:now_ms(),
     TimeDiff = 10 * ?MINUTES_MS,
-
+    %% Temporary hack to send old posts to new accounts with new friend relationships.
+    %% This will be fixed in the new_feed_api once we start storing the audience.
     case NowMs - TsMs1 < TimeDiff of
         true ->
             ?INFO_MSG("sending old items of ~s, to ~s", [ContactId, UserId]),
             send_old_items_to_contact(ContactId, Server, UserId);
         false ->
-            ok
+            ?INFO_MSG("Ignoring add_friend here, ContactId: ~s, Uid: ~s", [ContactId, UserId])
     end,
     case NowMs - TsMs2 < TimeDiff of
         true ->

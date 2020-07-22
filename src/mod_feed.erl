@@ -358,16 +358,24 @@ create_pubsub_node(Uid, NodeName, NodeType) ->
 -spec add_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
 add_friend(UserId, Server, ContactId) ->
     ?INFO_MSG("Uid: ~s, ContactId: ~s", [UserId, ContactId]),
-    purge_expired_items(),
     {ok, TsMs1} = model_accounts:get_creation_ts_ms(UserId),
-    {ok, TsMs2} = model_accounts:get_creation_ts_ms(UserId),
+    {ok, TsMs2} = model_accounts:get_creation_ts_ms(ContactId),
     NowMs = util:now_ms(),
+    %% Temporary hack to send old posts to new accounts with new friend relationships.
+    %% This will be fixed in the new_feed_api once we start storing the audience.
     TimeDiff = 10 * ?MINUTES_MS,
-    case NowMs - TsMs1 < TimeDiff orelse NowMs - TsMs2 < TimeDiff of
+
+    case NowMs - TsMs1 < TimeDiff of
         true ->
-            %% Send their non-expired pubsub items to each other.
-            send_old_items_to_user(UserId, Server, ContactId),
+            ?INFO_MSG("sending old items of ~s, to ~s", [ContactId, UserId]),
             send_old_items_to_user(ContactId, Server, UserId);
+        false ->
+            ?INFO_MSG("Ignoring add_friend here, ContactId: ~s, Uid: ~s", [ContactId, UserId])
+    end,
+    case NowMs - TsMs2 < TimeDiff of
+        true ->
+            ?INFO_MSG("sending old items of ~s, to ~s", [UserId, ContactId]),
+            send_old_items_to_user(UserId, Server, ContactId);
         false ->
             ?INFO_MSG("Ignoring add_friend here, Uid: ~s, ContactId: ~s", [UserId, ContactId])
     end,
