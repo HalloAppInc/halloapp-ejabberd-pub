@@ -93,13 +93,6 @@ get_buddy_privacy_key(<<"bla">>, Uid) ->
     list_to_binary("exc:{" ++ binary_to_list(Uid) ++ "}").
 
 
-%% Same copy of the function in multiple places: we should use a util_redis for this.
-q(Client, Command) ->
-    {ok, Result} = gen_server:call(Client, {q, Command}),
-    Result.
-
-
-qp(Client, Commands) ->
-    {ok, Result} = gen_server:call(Client, {qp, Commands}),
-    Result.
+q(Client, Command) -> util_redis:q(Client, Command).
+qp(Client, Commands) -> util_redis:qp(Client, Commands).
 
