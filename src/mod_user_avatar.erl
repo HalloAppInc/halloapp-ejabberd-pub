@@ -173,15 +173,19 @@ check_and_get_avatar_id(UserId, FriendId) ->
 
 -spec delete_user_avatar_internal(UserId :: binary(), Server :: binary()) -> ok.
 delete_user_avatar_internal(UserId, Server) ->
+    delete_user_old_avatar(UserId),
+    update_user_avatar(UserId, Server, <<>>),
+    ok.
+
+
+-spec delete_user_old_avatar(UserId :: binary()) -> ok | error.
+delete_user_old_avatar(UserId) ->
     case model_accounts:get_avatar_id_binary(UserId) of
         <<>> ->
             ok;
         OldAvatarId ->
             delete_avatar_s3(OldAvatarId)
-    end,
-    AvatarId = <<>>,
-    update_user_avatar(UserId, Server, AvatarId),
-    AvatarId.
+    end.
 
 
 -spec delete_avatar_s3(AvatarId :: binary()) -> ok | error.
