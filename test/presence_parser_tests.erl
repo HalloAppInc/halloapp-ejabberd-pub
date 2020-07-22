@@ -65,7 +65,8 @@
     #pb_ha_presence{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         type = available, 
-        uid = <<"1000000000045484920">>
+        uid = 1000000000045484920,
+        last_seen = undefined
     }
 ).
 
@@ -73,7 +74,8 @@
     #pb_ha_presence{
         id = <<"ID2">>,
         type = subscribe,
-        uid = <<"1000000000519345762">>
+        uid = 1000000000519345762,
+        last_seen = undefined
     }
 ).
 
@@ -81,8 +83,8 @@
     #pb_ha_presence{
         id = <<"ID3">>,
         type = unsubscribe,
-        last_seen = <<"1585013887">>,
-        uid = <<"1000000000519345762">>
+        last_seen = 1585013887,
+        uid = 1000000000519345762
     }
 ).
 
