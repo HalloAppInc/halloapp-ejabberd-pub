@@ -40,6 +40,12 @@ jobs:
             repository: HalloAppInc/halloapp-xmpp
             token: ${{ secrets.murali_access_token }}
             path: deps/xmpp
+    - name: Checkout ecredis_crc16
+      uses: actions/checkout@v2
+      with:
+            repository: HalloAppInc/ecredis-crc16
+            token: ${{ secrets.murali_access_token }}
+            path: deps/ecredis_crc16
     - name: Checkout ecredis
       uses: actions/checkout@v2
       with:
