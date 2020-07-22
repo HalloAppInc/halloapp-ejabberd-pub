@@ -143,7 +143,9 @@ to_atom(Data) ->
         "atom" -> Data;
         "boolean" -> Data;
         "list" -> list_to_atom(Data);
-        _ -> undefined
+        _ ->
+            ?ERROR_MSG("Failed converting data to atom: ~p", [Data]),
+            undefined
     end.
 
 to_binary(Data) ->
@@ -153,7 +155,9 @@ to_binary(Data) ->
         "boolean" -> atom_to_binary(Data, utf8);
         "list" -> list_to_binary(Data);
         "integer" -> integer_to_binary(Data);
-        _ -> undefined
+        _ ->
+            ?ERROR_MSG("Failed converting data to binary: ~p", [Data]),
+            <<>>
     end.
 
 -spec new_msg_id() -> binary().
