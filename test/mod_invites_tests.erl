@@ -162,10 +162,16 @@ invite_set_test() ->
     {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
     ?assertEqual({ok, [?PHONE2]}, model_invites:q_accounts(["SMEMBERS", model_invites:acc_invites_key(?UID1)])).
 
-
 %% --------------------------------------------	%%
 %% Tests for internal functions
 %% -------------------------------------------- %%
+
+% tests that a + is put in front of phone numbers, if needed
+prepend_plus_test() ->
+    Number = <<"359 (88) 558 6764">>,
+    NumberWithPlus = <<"+359 (88) 558 6764">>,
+    ?assertEqual(NumberWithPlus, mod_invites:prepend_plus(Number)),
+    ?assertEqual(NumberWithPlus, mod_invites:prepend_plus(NumberWithPlus)).
 
 % tests the ability to get the next sunday at midnight for a chosen time
 next_sunday1_test() ->

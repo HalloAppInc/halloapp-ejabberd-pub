@@ -135,7 +135,7 @@ request_invite(FromUid, ToPhoneNum) ->
 can_send_invite(FromUid, ToPhone) ->
     {ok, UserPhone} = model_accounts:get_phone(FromUid),
     RegionId = mod_libphonenumber:get_region_id(UserPhone),
-    NormPhone = mod_libphonenumber:normalize(ToPhone, RegionId),
+    NormPhone = mod_libphonenumber:normalize(prepend_plus(ToPhone), RegionId),
     case NormPhone of
         undefined -> {error, invalid_number};
         _ ->
@@ -180,4 +180,11 @@ get_next_sunday_midnight(CurrTime) ->
 -spec err(Reason :: atom()) -> stanza_error().
 err(Reason) ->
     #stanza_error{reason = Reason}.
+
+
+prepend_plus(RawPhone) ->
+    case RawPhone of
+        <<"+", _Rest/binary>> ->  RawPhone;
+        _ -> <<"+", RawPhone/binary>>
+    end.
 
