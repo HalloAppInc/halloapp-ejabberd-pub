@@ -14,12 +14,13 @@
 
 
 %% ejabberd_listener callbacks
--export([start/3, start_link/3, accept/1, listen_options/0]).
+-export([start/3, start_link/3, accept/1, listen_opt_type/1, listen_options/0]).
 
 %% halloapp_stream_in callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([
     tls_options/1,
+    noise_options/1,
     bind/2,
     check_password_fun/2,
     is_valid_client_version/2,
@@ -285,6 +286,9 @@ tls_options(#{lserver := LServer, tls_options := DefaultOpts}) ->
     end,
     TLSOpts.
 
+noise_options(#{lserver := _LServer, noise_options := DefaultOpts}) ->
+    DefaultOpts.
+
 
 check_password_fun(_Mech, #{lserver := LServer}) ->
     fun(U, AuthzId, P) ->
@@ -388,21 +392,41 @@ handle_send(Pkt, Result, #{lserver := LServer} = State) ->
 init([State, Opts]) ->
     Access = proplists:get_value(access, Opts, all),
     Shaper = proplists:get_value(shaper, Opts, none),
-    TLSOpts1 = lists:filter(
-        fun({certfile, _}) -> true;
-            (_) -> false
-        end, Opts),
-    Timeout = ejabberd_option:negotiation_timeout(),
+    Crypto = proplists:get_value(crypto, Opts, tls),
     State1 = State#{
-        tls_options => TLSOpts1,
         lang => ejabberd_option:language(),
         server => ejabberd_config:get_myname(),
         lserver => ejabberd_config:get_myname(),
         access => Access,
-        shaper => Shaper
+        shaper => Shaper,
+        crypto => Crypto
     },
-    State2 = halloapp_stream_in:set_timeout(State1, Timeout),
-    ejabberd_hooks:run_fold(c2s_init, {ok, State2}, [Opts]).
+    State2 = case Crypto of
+        tls ->
+            TLSOpts1 = lists:filter(
+                fun({certfile, _}) -> true;
+                    (_) -> false
+                end, Opts),
+            State1#{tls_options => TLSOpts1};
+        noise ->
+            %% TODO(vipin): Cache the Noise keys.
+
+            NoiseStaticKeyFilename = proplists:get_value(noise_static_key, Opts, none),
+            NoiseCertificateFilename = proplists:get_value(noise_server_certificate, Opts, none),
+            {ok, FileContent} = file:read_file(NoiseStaticKeyFilename),
+            [{_, ServerPublic, _}, {_, ServerSecret, _}] = public_key:pem_decode(FileContent),
+            ServerKeypair = enoise_keypair:new(dh25519, ServerSecret, ServerPublic),
+        
+            {ok, FileContent2} = file:read_file(NoiseCertificateFilename),
+            [{_, Certificate, _}] = public_key:pem_decode(FileContent2),
+        
+            NoiseOpts = [{noise_static_key, ServerKeypair},
+                         {noise_server_certificate, Certificate}],
+            State1#{noise_options => NoiseOpts}
+    end,
+    Timeout = ejabberd_option:negotiation_timeout(),
+    State3 = halloapp_stream_in:set_timeout(State2, Timeout),
+    ejabberd_hooks:run_fold(c2s_init, {ok, State3}, [Opts]).
 
 
 handle_call(Request, From, #{lserver := LServer} = State) ->
@@ -633,10 +657,19 @@ format_reason(_, {shutdown, _}) ->
 format_reason(_, _) ->
     <<"internal server error">>.
 
+listen_opt_type(noise_static_key) ->
+    econf:any();
+listen_opt_type(noise_server_certificate) ->
+    econf:any();
+listen_opt_type(crypto) ->
+    econf:enum([tls, noise]).
 
 listen_options() ->
     [{access, all},
     {shaper, none},
     {max_stanza_size, infinity},
-    {max_fsm_queue, 5000}].
+    {max_fsm_queue, 5000},
+    {noise_static_key, undefined},
+    {noise_server_certificate, undefined},
+    {crypto, tls}].
 

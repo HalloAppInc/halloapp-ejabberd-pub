@@ -63,6 +63,7 @@
     stream_id => binary(),
     stream_version => {non_neg_integer(), non_neg_integer()},
     stream_authenticated => boolean(),
+    crypto => tls | noise,
     ip => {inet:ip_address(), inet:port_number()},
     codec_options => [xmpp:decode_option()],
     xmlns => binary(),
@@ -103,6 +104,7 @@
 -callback bind(binary(), state()) -> {ok, state()} | {error, stanza_error(), state()}.
 -callback is_valid_client_version(binary(), state()) -> true | false.
 -callback tls_options(state()) -> [proplists:property()].
+-callback noise_options(state()) -> [proplists:property()].
 
 
 %% Some callbacks are optional
@@ -361,6 +363,33 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := established} = St
             end
         end);
 
+handle_info({'$gen_event', {stream_validation, Bin}}, State) ->
+    noreply(
+        try enif_protobuf:decode(Bin, pb_packet) of
+        Pkt ->
+            ?DEBUG("recv: protobuf: ~p", [Pkt]),
+            FinalPkt = ha_auth_parser:proto_to_xmpp(Pkt),
+            ?DEBUG("recv: translated xmpp: ~p", [FinalPkt]),
+            %% Change stream state.
+            State1 = process_stream_authentication(FinalPkt, State),
+            State2 = try callback(handle_recv, Bin, FinalPkt, State1)
+               catch _:{?MODULE, undef} -> State1
+               end,
+            case is_disconnected(State2) of
+                true -> State2;
+                false -> process_element(FinalPkt, State2)
+            end
+        catch _:_ ->
+            Why = <<"failed_codec">>,
+            State1 = try callback(handle_recv, Bin, {error, Why}, State)
+               catch _:{?MODULE, undef} -> State
+               end,
+            case is_disconnected(State1) of
+                true -> State1;
+                false -> process_invalid_protobuf(State1, Bin, Why)
+            end
+        end);
+
 handle_info(timeout, State) ->
     Disconnected = is_disconnected(State),
     noreply(try callback(handle_timeout, State)
@@ -426,11 +455,13 @@ code_change(OldVsn, State, Extra) ->
 
 -spec init_state(state(), [proplists:property()]) -> state().
 init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
+    Crypto = proplists:get_value(crypto, Opts, tls),
     State1 = State#{stream_direction => in,
             stream_id => xmpp_stream:new_id(),
             stream_state => wait_for_authentication,
             stream_version => {1,0},
             stream_authenticated => false,
+            crypto => Crypto,
             codec_options => [ignore_els],
             xmlns => ?NS_CLIENT,
             lang => <<"">>,
@@ -441,7 +472,7 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
     case try Mod:init([State1, Opts])
     catch _:undef -> {ok, State1}
     end of
-        {ok, State2} ->
+        {ok, State2} when Crypto =:= tls ->
             TLSOpts = try callback(tls_options, State2)
                 catch _:{?MODULE, undef} -> []
                 end,
@@ -450,6 +481,17 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
                     State2#{socket => TLSSocket, tls_options => TLSOpts};
                 {error, Reason} ->
                     process_stream_end({tls, Reason}, State2)
+            end;
+         {ok, State2} when Crypto =:= noise ->
+            NoiseOpts = try callback(noise_options, State2)
+                catch _:{?MODULE, undef} -> []
+                end,
+            ?INFO_MSG("NoiseOpts : ~p", [NoiseOpts]),
+            case halloapp_socket:startnoise(Socket, NoiseOpts) of
+                {ok, NoiseSocket} ->
+                    State2#{socket => NoiseSocket};
+                {error, Reason} ->
+                    process_stream_end({noise, Reason}, State2)
             end;
         {error, Reason} ->
             process_stream_end(Reason, State1);
@@ -513,6 +555,38 @@ process_authenticated_packet(Pkt, State) ->
             end;
         {error, Err} ->
             process_stream_end(Err, State)
+    end.
+
+
+%% Noise based stream authentication - indicated by successful completion of the handshake.
+-spec process_stream_authentication(halloapp_auth(), state()) -> state().
+process_stream_authentication(#halloapp_auth{uid = Uid, client_mode = Mode,
+        client_version = ClientVersion, resource = Resource}, State) ->
+    State1 = State#{user => Uid, client_version => ClientVersion, resource => Resource, mode => Mode},
+    State2 = try callback(handle_auth_success, Uid, <<>>, <<>>, State1)
+         catch _:{?MODULE, undef} -> State1
+    end,
+    %% Check client_version
+    {NewState, Result, Reason} = case callback(is_valid_client_version, ClientVersion, State2) of
+        false -> {State2, <<"failure">>, <<"invalid client version">>};
+        true ->
+            %% Bind resource callback
+            case callback(bind, Resource, State2) of
+                {ok, #{resource := NewR} = State3} when NewR /= <<"">> ->
+                    {State3,  <<"success">>, <<"welcome to halloapp">>};
+                {error, _, State3} ->
+                    {State3, <<"failure">>, <<"invalid resource">>}
+            end
+    end,
+    AuthResultPkt = #halloapp_auth_result{
+        result = Result,
+        reason = Reason,
+        props_hash = mod_props:get_hash(Uid)
+    },
+    FinalState = send_pkt(NewState, AuthResultPkt),
+    case Result of
+        <<"failure">> -> stop(FinalState);
+        <<"success">> -> FinalState
     end.
 
 
@@ -624,13 +698,25 @@ set_from_to(Pkt, #{lang := Lang}) ->
 send_pkt(State, XmppPkt) ->
     Pkt = xmpp_to_proto(XmppPkt),
     Result = socket_send(State, Pkt),
-    State1 = try callback(handle_send, Pkt, Result, State)
-         catch _:{?MODULE, undef} -> State
+    Socket1 = case Result of
+        {ok, noise, SocketData} ->
+            SocketData;
+        {ok, fast_tls} ->
+            #{socket := SocketData} = State,
+            SocketData
+    end,
+    NewState = State#{socket => Socket1},
+    State1 = try callback(handle_send, Pkt, Result, NewState)
+         catch _:{?MODULE, undef} -> NewState
          end,
     case Result of
         _ when is_record(Pkt, stream_error) ->
             process_stream_end({stream, {out, Pkt}}, State1);
         ok ->
+            State1;
+        {ok, noise, _} ->
+            State1;
+        {ok, fast_tls} ->
             State1;
         {error, _Why} ->
             % Queue process_stream_end instead of calling it directly,
@@ -647,7 +733,8 @@ send_error(State, _Pkt, Err) ->
     process_stream_end(Err, State).
 
 
--spec socket_send(state(), xmpp_element() | xmlel()) -> ok | {error, inet:posix()}.
+-spec socket_send(state(), xmpp_element() | xmlel()) -> {ok, noise, halloapp_socket:socket()} | 
+                                                        {ok, fast_tls} | {error, inet:posix()}.
 socket_send(#{socket := Sock, stream_state := StateName}, Pkt) ->
     case Pkt of
         _ when StateName /= disconnected ->

@@ -57,7 +57,7 @@ jobs:
       with:
             repository: HalloAppInc/halloapp_enoise
             token: ${{ secrets.murali_access_token }}
-            path: deps/halloapp_enoise
+            path: deps/enoise
     - name: Checkout ha_enoise
       uses: actions/checkout@v2
       with:

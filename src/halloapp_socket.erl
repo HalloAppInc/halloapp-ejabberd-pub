@@ -18,6 +18,7 @@
     connect/4,
     connect/5,
     starttls/2,
+    startnoise/2,
     reset_stream/1,
     send_element/2,
     send/2,
@@ -40,8 +41,8 @@
 -include("packets.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--type sockmod() :: gen_tcp | fast_tls | ext_mod().
--type socket() :: inet:socket() | fast_tls:tls_socket() | ext_socket().
+-type sockmod() :: gen_tcp | fast_tls | enoise | ext_mod().
+-type socket() :: inet:socket() | fast_tls:tls_socket() | ha_enoise:noise_socket() | ext_socket().
 -type ext_mod() :: module().
 -type ext_socket() :: any().
 -type endpoint() :: {inet:ip_address(), inet:port_number()}.
@@ -141,6 +142,31 @@ starttls(_, _) ->
     erlang:error(badarg).
 
 
+-spec startnoise(socket_state(), [proplists:property()]) -> {ok, socket_state()} |
+        {error, inet:posix() | atom() | binary()}.
+startnoise(#socket_state{sockmod = gen_tcp, socket = Socket} = SocketData, NoiseOpts) ->
+    {StaticKey, Certificate} = extract_noise_keys(NoiseOpts),
+    %% TODO(vipin): Need a valid verify function.
+    VerifyFun = fun (_A, _B) -> {error, "wip"} end,
+    case ha_enoise:tcp_to_noise(Socket, StaticKey, Certificate, VerifyFun) of
+        {ok, NoiseSocket} ->
+            SocketData1 = SocketData#socket_state{socket = NoiseSocket, sockmod = ha_enoise},
+            SocketData2 = reset_stream(SocketData1),
+            {ok, SocketData2};
+        {error, _} = Err ->
+            ?ERROR_MSG("Failed to start noise, key: ~p, cert: ~p", [StaticKey, Certificate]),
+            Err
+    end;
+startnoise(_, _) ->
+    erlang:error(badarg).
+
+
+extract_noise_keys(NoiseOpts) ->
+    ServerStaticKey = proplists:get_value(noise_static_key, NoiseOpts, <<>>),
+    ServerCertificate = proplists:get_value(noise_server_certificate, NoiseOpts, <<>>),
+    {ServerStaticKey, ServerCertificate}.
+
+
 reset_stream(#socket_state{pb_stream = PBStream, sockmod = SockMod,
         socket = Socket, max_stanza_size = _MaxStanzaSize} = SocketData) ->
     if
@@ -153,29 +179,42 @@ reset_stream(#socket_state{pb_stream = PBStream, sockmod = SockMod,
     end.
 
 
--spec send_element(SocketData :: socket_state(), Pkt :: pb_packet()) -> ok | {error, inet:posix()}.
-send_element(SocketData, Pkt) ->
+-spec send_element(SocketData :: socket_state(), Pkt :: pb_packet()) -> 
+    {ok, fast_tls} | {ok, noise, #socket_state{}} | ok | {error, inet:posix()}.
+send_element(#socket_state{sockmod = SockMod} = SocketData, Pkt) ->
     ?DEBUG("send: xmpp: ~p", [Pkt]),
     FinalPkt = enif_protobuf:encode(Pkt),
     stat:count("HA/pb_packet", "encode_success"),
     ?DEBUG("send: protobuf: ~p", [FinalPkt]),
-    PktSize = byte_size(FinalPkt),
-    %% TODO(murali@): remove this code after noise integration.
-    FinalData = <<PktSize:32/integer, FinalPkt/binary>>,
-    ?DEBUG("send: protobuf with size: ~p", [FinalData]),
-    send(SocketData, FinalData).
+    FinalData1 = case SockMod of
+        fast_tls -> 
+            PktSize = byte_size(FinalPkt),
+            FinalData = <<PktSize:32/big, FinalPkt/binary>>,
+            ?DEBUG("send: protobuf with size: ~p, via tls", [FinalData]);
+        ha_enoise -> 
+            ?DEBUG("send: protobuf: ~p, via noise (size will be added by ha_enoise)", [FinalPkt]),
+            FinalPkt
+    end,
+    send(SocketData, FinalData1).
 
 
--spec send(socket_state(), iodata()) -> ok | {error, closed | inet:posix()}.
+-spec send(socket_state(), iodata()) -> {ok, fast_tls} | {ok, noise, #socket_state{}} |
+                                        {error, closed | inet:posix()}.
 send(#socket_state{sockmod = SockMod, socket = Socket} = SocketData, Data) ->
     ?DEBUG("(~s) Sending pb bytes on stream = ~p", [pp(SocketData), Data]),
-    try SockMod:send(Socket, Data) of
-        {error, einval} -> {error, closed};
-        Result -> Result
-    catch _:badarg ->
-        %% Some modules throw badarg exceptions on closed sockets
-        %% TODO: their code should be improved
-        {error, closed}
+    case SockMod of
+         ha_enoise ->
+             case ha_enoise:send(Socket, Data) of
+                 {ok, NoiseSocket} ->
+                     {ok, noise, SocketData#socket_state{socket = NoiseSocket}};
+                 {error, _} = Err ->
+                     Err
+             end;
+         fast_tls ->
+             case fast_tls:send(Socket, Data) of
+                 ok -> {ok, fast_tls};
+                 {error, einval} -> {error, closed}
+             end
     end.
 
 
@@ -183,13 +222,39 @@ recv(#socket_state{sockmod = SockMod, socket = Socket} = SocketData, Data) ->
     case SockMod of
         fast_tls ->
             case fast_tls:recv_data(Socket, Data) of
-            {ok, TLSData} ->
-                parse(SocketData, TLSData);
-            {error, _} = Err ->
-                Err
+                {ok, TLSData} -> parse(SocketData, TLSData);
+                {error, _} = Err -> Err
             end;
-        _ ->
-            parse(SocketData, Data)
+         ha_enoise ->
+            case ha_enoise_recv_data(Socket, Data) of
+                {ok, NoiseSocket, NoiseData, Payload} ->
+                    SocketData1 = SocketData#socket_state{socket = NoiseSocket},
+                    noise_parse(SocketData1, NoiseData, Payload);
+                {error, _} = Err -> Err
+            end
+    end.
+
+%% NoiseSocket returns a list of messages.
+noise_parse(SocketData, Data, Payload)  when Data == <<>>; Data == [] ->
+    {ok, SocketData1} = parse(SocketData, Data),
+    case Payload of
+        <<>> -> {ok, SocketData1};
+        Payload1 -> process_stream_validation(SocketData1, Payload)
+    end;
+
+noise_parse(SocketData1, [DecryptedMsg | Msgs], _Payload) ->
+    {ok, SocketData2} = parse_message(SocketData1, DecryptedMsg),
+    noise_parse(SocketData2, Msgs, <<>>).
+
+process_stream_validation(SocketData, Bin) ->
+    ?DEBUG("(~s) Received pb payload during noise handshake:  ~p", [pp(SocketData), Bin]),
+    self() ! {'$gen_event', {stream_validation, Bin}},
+    {ok, SocketData}.
+
+ ha_enoise_recv_data(Socket, Data) ->
+    case Data of
+        <<>> -> {ok, Socket, Data, <<>>};
+        _ -> ha_enoise:recv_data(Socket, Data)
     end.
 
 
@@ -224,11 +289,13 @@ get_transport(#socket_state{sockmod = SockMod, socket = Socket}) ->
     case SockMod of
         gen_tcp -> tcp;
         fast_tls -> tls;
+        ha_enoise -> noise;
         _ -> SockMod:get_transport(Socket)
     end.
 
 
-get_owner(SockMod, _) when SockMod == gen_tcp orelse SockMod == fast_tls ->
+get_owner(SockMod, _) when SockMod == gen_tcp orelse SockMod == fast_tls
+                           orelse SockMod == ha_enoise ->
     self();
 get_owner(SockMod, Socket) ->
     SockMod:get_owner(Socket).
@@ -312,7 +379,7 @@ parse(#socket_state{pb_stream = PBStream, socket = _Socket,
         shaper = _ShaperState} = SocketData, Data) when is_binary(Data) ->
     %% TODO(murali@): add shaper rules here.
     ?DEBUG("(~s) Received pb bytes on stream = ~p", [pp(SocketData), Data]),
-    %% TODO(murali@): remove this code after noise integration.
+
     FinalData = <<PBStream/binary, Data/binary>>,
     case byte_size(FinalData) > 4 of
         true ->
@@ -329,6 +396,11 @@ parse(#socket_state{pb_stream = PBStream, socket = _Socket,
             {ok, SocketData#socket_state{pb_stream = FinalData}}
     end.
 
+parse_message(SocketData, Data) when is_binary(Data) ->
+    %% TODO(murali@): add shaper rules here.
+    ?DEBUG("(~s) Received pb bytes on noise stream = ~p", [pp(SocketData), Data]),
+    self() ! {'$gen_event', {protobuf, Data}},
+    {ok, SocketData}.
 
 shaper_update(none, _) ->
     {none, 0};
