@@ -251,6 +251,7 @@ set_avatar(Gid, Uid, AvatarId) ->
             ?WARNING_MSG("Gid: ~s, Uid: ~s is not member", [Gid, Uid]),
             {error, not_member};
         true ->
+            ok = clean_old_avatar(Gid),
             ok = model_groups:set_avatar(Gid, AvatarId),
             ?INFO_MSG("Gid: ~s Uid: ~s set avatar to ~s", [Gid, Uid, AvatarId]),
             stat:count(?STAT_NS, "set_avatar"),
@@ -268,6 +269,7 @@ delete_avatar(Gid, Uid) ->
             ?WARNING_MSG("Gid: ~s, Uid: ~s is not member", [Gid, Uid]),
             {error, not_member};
         true ->
+            ok = clean_old_avatar(Gid),
             ok = model_groups:delete_avatar(Gid),
             ?INFO_MSG("Gid: ~s Uid: ~s deleted avatar", [Gid, Uid]),
             stat:count(?STAT_NS, "delete_avatar"),
@@ -601,3 +603,22 @@ log_stats(API, Results) ->
         end,
         Results).
 
+
+-spec clean_old_avatar(Gid :: gid()) -> ok.
+clean_old_avatar(Gid) ->
+    case model_groups:get_group_info(Gid) of
+        undefined -> ok;
+        GroupInfo ->
+            case GroupInfo#group_info.avatar of
+                undefined -> ok;
+                AvatarId ->
+                    case mod_user_avatar:delete_avatar_s3(AvatarId) of
+                        ok ->
+                            ?INFO_MSG("Gid: ~s deleted old AvatarId: ~s from S3", [Gid, AvatarId]);
+                        error ->
+                            ?ERROR_MSG("Gid: ~s failed to deleted old AvatarId: ~s from S3",
+                                [Gid, AvatarId])
+                    end,
+                    ok
+            end
+    end.

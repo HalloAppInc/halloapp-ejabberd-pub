@@ -261,7 +261,6 @@ process_set_name(IQ, Gid, Uid, Name) ->
     end.
 
 
-% TODO: we need to delete the asset from S3.
 process_delete_avatar(IQ, Gid, Uid) ->
     ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:delete_avatar(Gid, Uid) of

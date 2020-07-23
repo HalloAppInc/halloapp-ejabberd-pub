@@ -155,7 +155,7 @@ decode_base_64(Base64Data) ->
     try
         {ok, base64:decode(Base64Data)}
     catch
-        {error, badarg} -> {error, bad_data}
+        error:badarg -> {error, bad_data}
     end.
 
 
