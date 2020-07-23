@@ -67,12 +67,12 @@ mod_options(_Host) ->
 %%% delete_user_avatar %%%
 process_local_iq(#iq{from = #jid{luser = UserId}, type = set,
         sub_els = [#avatar{cdata = <<>>}]} = IQ) ->
-    delete_user_avatar(IQ, UserId);
+    process_delete_user_avatar(IQ, UserId);
 
 %%% set_user_avatar %%%
 process_local_iq(#iq{from = #jid{luser = UserId}, type = set,
         sub_els = [#avatar{cdata = Data}]} = IQ) ->
-    set_user_avatar(IQ, UserId, Data);
+    processe_set_user_avatar(IQ, UserId, Data);
 
 %%% get_avatar (own) %%%
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
@@ -106,6 +106,7 @@ remove_user(UserId, Server) ->
     delete_user_avatar_internal(UserId, Server).
 
 
+% TODO: get the W and H from the image data and make sure they are <= 256
 -spec check_and_upload_avatar(Base64Data :: binary()) -> ok.
 check_and_upload_avatar(Base64Data) ->
     case decode_base_64(Base64Data) of
@@ -130,13 +131,13 @@ check_and_upload_avatar(Base64Data) ->
 %%====================================================================
 
 
-delete_user_avatar(IQ, Uid) ->
+process_delete_user_avatar(IQ, Uid) ->
     ?INFO_MSG("Uid: ~s deleting avatar", [Uid]),
     delete_user_avatar_internal(Uid, util:get_host()),
     xmpp:make_iq_result(IQ, #avatar{id = <<>>}).
 
 
-set_user_avatar(IQ, Uid, Base64Data) ->
+processe_set_user_avatar(IQ, Uid, Base64Data) ->
     ?INFO_MSG("Uid: ~s uploading avatar base64_size: ~p", [Uid, byte_size(Base64Data)]),
     case check_and_upload_avatar(Base64Data) of
         {error, Reason} ->

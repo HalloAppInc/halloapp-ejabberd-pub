@@ -604,21 +604,21 @@ log_stats(API, Results) ->
         Results).
 
 
+% TODO: remember to delete the avatar when the group gets deleted
 -spec clean_old_avatar(Gid :: gid()) -> ok.
 clean_old_avatar(Gid) ->
-    case model_groups:get_group_info(Gid) of
+    GroupInfo = model_groups:get_group_info(Gid),
+    case GroupInfo#group_info.avatar of
         undefined -> ok;
-        GroupInfo ->
-            case GroupInfo#group_info.avatar of
-                undefined -> ok;
-                AvatarId ->
-                    case mod_user_avatar:delete_avatar_s3(AvatarId) of
-                        ok ->
-                            ?INFO_MSG("Gid: ~s deleted old AvatarId: ~s from S3", [Gid, AvatarId]);
-                        error ->
-                            ?ERROR_MSG("Gid: ~s failed to deleted old AvatarId: ~s from S3",
-                                [Gid, AvatarId])
-                    end,
-                    ok
-            end
+        AvatarId ->
+            case mod_user_avatar:delete_avatar_s3(AvatarId) of
+                ok ->
+                    ?INFO_MSG("Gid: ~s deleted old AvatarId: ~s from S3",
+                        [Gid, AvatarId]);
+                error ->
+                    ?ERROR_MSG("Gid: ~s failed to deleted old AvatarId: ~s from S3",
+                        [Gid, AvatarId])
+            end,
+            ok
     end.
+
