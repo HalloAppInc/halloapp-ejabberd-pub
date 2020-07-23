@@ -332,7 +332,7 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
             %% TODO(murali@): update this to load block-uids once for this request
             %% and use it instead of every redis call.
             IsFriends = sets:is_element(ContactId, OldReverseContactSet) andalso
-                    not model_privacy:is_blocked(UserId, ContactId),
+                    not model_privacy:is_blocked_any(UserId, ContactId),
             Role = get_role_value(IsFriends),
             %% Notify the new contact and update its friends table.
             case {ShouldNotify, IsNewContact, IsFriends} of
