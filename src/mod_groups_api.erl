@@ -55,11 +55,11 @@ mod_options(_Host) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% group_message %%%
-send_group_message(#message{from = #jid{luser = Uid}, type = groupchat,
+send_group_message(#message{id = MsgId, from = #jid{luser = Uid}, type = groupchat,
         sub_els = [#group_chat{gid = Gid} = GroupChatSt]} = Msg) ->
     ?INFO_MSG("Gid: ~s, Uid: ~s", [Gid, Uid]),
     MessagePayload = GroupChatSt#group_chat.cdata,
-    case mod_groups:send_message(Gid, Uid, MessagePayload) of
+    case mod_groups:send_message(MsgId, Gid, Uid, MessagePayload) of
         {error, Reason} ->
             ErrorMsg = xmpp:make_error(Msg, err(Reason)),
             ejabberd_router:route(ErrorMsg);

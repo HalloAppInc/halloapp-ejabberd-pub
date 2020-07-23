@@ -140,6 +140,9 @@ user_send_ack(#ack{id = MsgId, from = #jid{user = UserId, server = Server}} = Ac
             case OfflineMessage#offline_message.content_type of
                 <<"chat">> ->
                     ejabberd_hooks:run(user_ack_packet, Server, [{Ack, OfflineMessage}]);
+                <<"group_chat">> ->
+                    % TODO: change this code to fire always
+                    ejabberd_hooks:run(user_ack_packet, Server, [{Ack, OfflineMessage}]);
                 _ -> ok
             end
     end.

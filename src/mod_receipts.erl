@@ -44,14 +44,20 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% Hook trigerred when user sent the server an ack stanza for this particular packet.
 -spec user_ack_packet({Ack :: ack(), OfflineMessage :: offline_message()}) -> ok.
 user_ack_packet({#ack{id = Id, from = #jid{server = ServerHost} = AckFrom},
-        #offline_message{content_type = <<"chat">>, from_uid = MsgFromId}}) ->
+        #offline_message{content_type = ContentType, from_uid = MsgFromId}})
+        when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">> ->
     TimestampSec = util:now_binary(),
     FromJID = AckFrom,
     ToJID = jid:make(MsgFromId, ServerHost),
     send_receipt(ToJID, FromJID, Id, TimestampSec),
-    stat:count("HA/im_receipts", "delivered");
+    case ContentType of
+        <<"chat">> -> stat:count("HA/im_receipts", "delivered");
+        <<"group_chat">> -> stat:count("HA/group_im_receipts", "delivered")
+    end;
 
 user_ack_packet({#ack{id = Id, from = #jid{user = Uid}} = _Ack, _OfflineMessage}) ->
+    % TODO: why is this an error, Is it not normal to get acks for packets that are not
+    % chat or groupchat?
     ?ERROR_MSG("Invalid packet: ack_id: ~p, ack_from: ~p", [Id, Uid]),
     ok.
 

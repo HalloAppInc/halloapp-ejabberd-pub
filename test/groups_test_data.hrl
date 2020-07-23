@@ -35,3 +35,5 @@
 
 -define(UA, <<"HalloApp/Android1.0">>).
 
+-define(MSG_ID1, <<"MessageId1">>).
+

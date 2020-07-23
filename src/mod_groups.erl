@@ -37,7 +37,7 @@
     set_name/3,
     set_avatar/3,
     delete_avatar/2,
-    send_message/3
+    send_message/4
 ]).
 
 -include("logger.hrl").
@@ -277,10 +277,10 @@ delete_avatar(Gid, Uid) ->
     end.
 
 
--spec send_message(Gid :: gid(), Uid :: uid(), MessagePayload :: binary())
+-spec send_message(MsgId :: binary(), Gid :: gid(), Uid :: uid(), MessagePayload :: binary())
             -> {ok, Ts} | {error, atom()}
             when Ts :: non_neg_integer().
-send_message(Gid, Uid, MessagePayload) ->
+send_message(MsgId, Gid, Uid, MessagePayload) ->
     ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
     case model_groups:check_member(Gid, Uid) of
         false ->
@@ -295,8 +295,12 @@ send_message(Gid, Uid, MessagePayload) ->
             ReceiverUids = lists:delete(Uid, MUids),
             Server = util:get_host(),
             Jids = util:uids_to_jids(ReceiverUids, Server),
-            From = jid:make(Server),
-            Packet = #message{type = groupchat, sub_els = [GroupMessage]},
+            From = jid:make(Uid, Server),
+            Packet = #message{
+                id = MsgId,
+                type = groupchat,
+                sub_els = [GroupMessage]
+            },
             stat:count(?STAT_NS, "send_im"),
             stat:count(?STAT_NS, "recv_im", length(ReceiverUids)),
             ejabberd_router_multicast:route_multicast(From, Server, Jids, Packet),
