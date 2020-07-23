@@ -204,6 +204,7 @@ delete_avatar_s3(AvatarId) ->
 
 -spec update_user_avatar(UserId :: binary(), Server :: binary(), AvatarId :: binary()) -> ok.
 update_user_avatar(UserId, Server, AvatarId) ->
+    delete_user_old_avatar(UserId),
     model_accounts:set_avatar_id(UserId, AvatarId),
     ejabberd_hooks:run(user_avatar_published, Server, [UserId, Server, AvatarId]).
 
