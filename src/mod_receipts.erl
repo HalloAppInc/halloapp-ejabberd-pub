@@ -25,8 +25,6 @@
 %% Hooks.
 -export([user_ack_packet/1]).
 
--type state() :: ejabberd_c2s:state().
-
 start(Host, _Opts) ->
     ejabberd_hooks:add(user_ack_packet, Host, ?MODULE, user_ack_packet, 10).
 
@@ -46,20 +44,20 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% Hook trigerred when user sent the server an ack stanza for this particular packet.
 -spec user_ack_packet({Ack :: ack(), OfflineMessage :: offline_message()}) -> ok.
 user_ack_packet({#ack{id = Id, from = #jid{server = ServerHost} = AckFrom},
-		#offline_message{content_type = <<"chat">>, from_uid = MsgFromId}}) ->
-	TimestampSec = util:now_binary(),
-	FromJID = AckFrom,
-	ToJID = jid:make(MsgFromId, ServerHost),
-	send_receipt(ToJID, FromJID, Id, TimestampSec),
-	stat:count("HA/im_receipts", "delivered");
+        #offline_message{content_type = <<"chat">>, from_uid = MsgFromId}}) ->
+    TimestampSec = util:now_binary(),
+    FromJID = AckFrom,
+    ToJID = jid:make(MsgFromId, ServerHost),
+    send_receipt(ToJID, FromJID, Id, TimestampSec),
+    stat:count("HA/im_receipts", "delivered");
+
 user_ack_packet({#ack{id = Id, from = #jid{user = Uid}} = _Ack, _OfflineMessage}) ->
-	?ERROR_MSG("Invalid packet: ack_id: ~p, ack_from: ~p", [Id, Uid]),
-	ok.
+    ?ERROR_MSG("Invalid packet: ack_id: ~p, ack_from: ~p", [Id, Uid]),
+    ok.
 
 
 %% Send a delivery receipt to the ToJID from FromJID using Id and Timestamp.
--spec send_receipt(ToJID :: jid(), FromJID :: jid(),
-                    Id :: binary(), Timestamp :: binary()) -> ok.
+-spec send_receipt(ToJID :: jid(), FromJID :: jid(), Id :: binary(), Timestamp :: binary()) -> ok.
 send_receipt(ToJID, FromJID, Id, Timestamp) ->
     MessageReceipt = #message{
             to = ToJID,
