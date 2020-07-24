@@ -32,6 +32,7 @@
 -define(POST_COMMENTS_KEY, <<"fpc:">>).
 -define(COMMENT_KEY, <<"fc:">>).
 -define(REVERSE_POST_KEY, <<"rfp:">>).
+-define(COMMENT_PUSH_LIST_KEY, <<"fcp:">>).
 
 %% PrivacyKeys
 -define(WHITELIST_KEY, <<"whi:">>).

@@ -121,7 +121,8 @@ publish_post(Uid, PostId, Payload) ->
             ok = model_feed:publish_post(PostId, Uid, Payload, TimestampMs),
             ResultStanza = make_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs),
             FeedAudienceSet = get_feed_audience_set(Uid),
-            broadcast_event(Uid, FeedAudienceSet, ResultStanza),
+            PushSet = FeedAudienceSet,
+            broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza),
             ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
@@ -135,27 +136,31 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, Payload) ->
     ?INFO_MSG("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = publish,
-    case model_feed:get_post_and_comment(PostId, CommentId) of
-        [{error, missing}, _] ->
+    case model_feed:get_new_comment_data(PostId, CommentId, ParentCommentId) of
+        [{error, missing}, _, _] ->
+            %% Post is missing, so we reject the comment with an error.
             {error, invalid_post_id};
-        [{ok, Post}, {error, _}] ->
+        [{ok, _Post}, {ok, Comment}, _] ->
+            %% Comment with same id already exists: duplicate request from the client.
+            {ok, Comment#comment.ts_ms};
+        [{ok, Post}, {error, _}, {ok, ParentPushList}] ->
             TimestampMs = util:now_ms(),
             PostOwnerUid = Post#post.uid,
             FeedAudienceSet = get_feed_audience_set(PostOwnerUid),
             case sets:is_element(PublisherUid, FeedAudienceSet) of
                 false -> ok;
                 true ->
+                    NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
-                            ParentCommentId, Payload, TimestampMs),
+                            ParentCommentId, NewPushList, Payload, TimestampMs),
                     ResultStanza = make_feed_comment_stanza(Action, CommentId,
                             PostId, ParentCommentId, PublisherUid, Payload, TimestampMs),
-                    broadcast_event(PublisherUid, PostOwnerUid, FeedAudienceSet, ResultStanza),
+                    PushSet = sets:from_list(NewPushList),
+                    broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
                     ejabberd_hooks:run(feed_item_published, Server,
                             [PublisherUid, CommentId, comment])
             end,
-            {ok, TimestampMs};
-        [{ok, _Post}, {ok, Comment}] ->
-            {ok, Comment#comment.ts_ms}
+            {ok, TimestampMs}
     end.
 
 
@@ -175,7 +180,8 @@ retract_post(Uid, PostId) ->
                     ok = model_feed:retract_post(PostId, Uid),
                     ResultStanza = make_feed_post_stanza(Action, PostId, Uid, <<>>, TimestampMs),
                     FeedAudienceSet = get_feed_audience_set(Uid),
-                    broadcast_event(Uid, FeedAudienceSet, ResultStanza),
+                    PushSet = sets:new(),
+                    broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza),
                     ejabberd_hooks:run(feed_item_retracted, Server, [Uid, PostId, post]),
                     {ok, TimestampMs}
             end
@@ -188,12 +194,12 @@ retract_comment(PublisherUid, CommentId, PostId) ->
     ?INFO_MSG("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = retract,
-    case model_feed:get_post_and_comment(PostId, CommentId) of
-        [{error, missing}, _] ->
+    case model_feed:get_new_comment_data(PostId, CommentId, <<>>) of
+        [{error, missing}, _, _] ->
             {error, invalid_post_id};
-        [{ok, _Post}, {error, _}] ->
+        [{ok, _Post}, {error, _}, _] ->
             {error, invalid_comment_id};
-        [{ok, Post}, {ok, Comment}] ->
+        [{ok, Post}, {ok, Comment}, _] ->
             case PublisherUid =:= Comment#comment.publisher_uid of
                 false -> {error, not_authorized};
                 true ->
@@ -203,9 +209,9 @@ retract_comment(PublisherUid, CommentId, PostId) ->
                     FeedAudienceSet = get_feed_audience_set(PostOwnerUid),
                     ResultStanza = make_feed_comment_stanza(Action, CommentId, PostId, <<>>,
                             PublisherUid, <<>>, TimestampMs),
-                    broadcast_event(PublisherUid, PostOwnerUid, FeedAudienceSet, ResultStanza),
-                    ejabberd_hooks:run(feed_item_retracted, Server,
-                            [PublisherUid, CommentId, comment]),
+                    PushSet = sets:new(),
+                    broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
+                    ejabberd_hooks:run(feed_item_retracted, Server, [PublisherUid, CommentId, comment]),
                     {ok, TimestampMs}
             end
     end.
@@ -244,19 +250,15 @@ make_feed_comment_stanza(Action, CommentId, PostId,
     }]}.
 
 
--spec broadcast_event(Uid :: uid(), FeedAudienceSet :: set(), ResultStanza :: feed_st()) -> ok.
-broadcast_event(Uid, FeedAudienceSet, ResultStanza) ->
-    broadcast_event(Uid, Uid, FeedAudienceSet, ResultStanza).
-
--spec broadcast_event(Uid :: uid(), PostOwnerUid :: uid(),
-        FeedAudienceSet :: set(), ResultStanza :: feed_st()) -> ok.
-broadcast_event(Uid, PostOwnerUid, FeedAudienceSet, ResultStanza) ->
+-spec broadcast_event(Uid :: uid(), FeedAudienceSet :: set(),
+        PushSet :: set(), ResultStanza :: feed_st()) -> ok.
+broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza) ->
     Server = util:get_host(),
     BroadcastUids = sets:to_list(sets:del_element(Uid, FeedAudienceSet)),
     From = jid:make(Server),
     lists:foreach(
         fun(ToUid) ->
-            MsgType = get_message_type(ResultStanza, PostOwnerUid, ToUid),
+            MsgType = get_message_type(ResultStanza, PushSet, ToUid),
             Packet = #message{
                 to = jid:make(ToUid, Server),
                 from = From,
@@ -273,13 +275,14 @@ broadcast_event(Uid, PostOwnerUid, FeedAudienceSet, ResultStanza) ->
 %% This will improve over the next diffs:
 %% For now: the logic is as follows:
 %% publish-post: headline for everyone.
-%% publish-comment: headline for post-owner, normal for everyone else.
+%% publish-comment: headline for parent_comment notifylist
+%%   this list includes post-owner; normal for everyone else.
 %% retract-anything: normal for all of them. No push is sent here.
--spec get_message_type(FeedStanza :: feed_st(), PostOwnerUid :: uid(),
+-spec get_message_type(FeedStanza :: feed_st(), PushSet :: set(),
         ToUid :: uid()) -> headline | normal.
 get_message_type(#feed_st{action = publish, posts = [#post_st{}]}, _, _) -> headline;
-get_message_type(#feed_st{action = publish, comments = [#comment_st{}]}, PostOwnerUid, Uid) ->
-    case PostOwnerUid =:= Uid of
+get_message_type(#feed_st{action = publish, comments = [#comment_st{}]}, PushSet, Uid) ->
+    case sets:is_element(Uid, PushSet) of
         true -> headline;
         false -> normal
     end;

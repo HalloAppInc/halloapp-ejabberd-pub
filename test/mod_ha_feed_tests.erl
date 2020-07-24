@@ -267,7 +267,7 @@ retract_comment_test() ->
     %% publish post and comment and then retract comment.
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, util:now_ms()),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, ?COMMENT_PAYLOAD1, util:now_ms()),
+            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, util:now_ms()),
     RetractIQ = get_comment_retract_iq(?COMMENT_ID1, ?POST_ID1, ?UID1, ?SERVER),
     ResultIQ = mod_ha_feed:process_local_iq(RetractIQ),
     Timestamp = get_timestamp(ResultIQ),
@@ -282,7 +282,7 @@ retract_not_authorized_comment_test() ->
     %% publish post and then retract by different user.
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, util:now_ms()),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
-            ?UID2, <<>>, ?COMMENT_PAYLOAD2, util:now_ms()),
+            ?UID2, <<>>, [?UID1, ?UID2], ?COMMENT_PAYLOAD2, util:now_ms()),
     RetractIQ = get_comment_retract_iq(?COMMENT_ID2, ?POST_ID1, ?UID1, ?SERVER),
     ResultIQ = mod_ha_feed:process_local_iq(RetractIQ),
     ExpectedResultIQ = get_error_iq_result(not_authorized, ?UID1, ?SERVER),

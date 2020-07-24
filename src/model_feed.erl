@@ -36,12 +36,12 @@
 %% API
 -export([
     publish_post/4,
-    publish_comment/6,
+    publish_comment/7,
     retract_post/2,
     retract_comment/2,
     get_post/1,
     get_comment/2,
-    get_post_and_comment/2,
+    get_new_comment_data/3,
     get_7day_user_feed/1,
     get_entire_user_feed/1,
     is_post_owner/2,
@@ -100,16 +100,19 @@ publish_post(PostId, Uid, Payload, TimestampMs) ->
 
 %% TODO(murali@): Write lua scripts for some functions in this module.
 -spec publish_comment(CommentId :: binary(), PostId :: binary(),
-        PublisherUid :: uid(), ParentCommentId :: binary(),
+        PublisherUid :: uid(), ParentCommentId :: binary(), PushList :: [binary()],
         Payload :: binary(), TimestampMs :: integer()) -> ok | {error, any()}.
-publish_comment(CommentId, PostId, PublisherUid, ParentCommentId, Payload, TimestampMs) ->
+publish_comment(CommentId, PostId, PublisherUid,
+        ParentCommentId, PushList, Payload, TimestampMs) ->
     {ok, TTL} = q(["TTL", post_key(PostId)]),
-    [{ok, _}, {ok, _}] = qp([
+    [{ok, _}, {ok, _}, {ok, _}, {ok, _}] = qp([
             ["HSET", comment_key(CommentId, PostId),
                 ?FIELD_PUBLISHER_UID, PublisherUid,
                 ?FIELD_PARENT_COMMENT_ID, ParentCommentId,
                 ?FIELD_PAYLOAD, Payload,
                 ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)],
+            ["SADD", comment_push_list_key(CommentId, PostId) | PushList],
+            ["EXPIRE", comment_push_list_key(CommentId, PostId), TTL],
             ["EXPIRE", comment_key(CommentId, PostId), TTL]]),
     [{ok, _}, {ok, _}] = qp([
             ["ZADD", post_comments_key(PostId), TimestampMs, CommentId],
@@ -135,16 +138,18 @@ retract_post(PostId, Uid) ->
 -spec delete_post(PostId :: binary(), Uid :: uid()) -> ok | {error, any()}.
 delete_post(PostId, Uid) ->
     {ok, CommentIds} = q(["ZRANGEBYSCORE", post_comments_key(PostId), "-inf", "+inf"]),
-    CommentKeys = [ comment_key(CommentId, PostId) || CommentId <- CommentIds],
-    {ok, _} = q(["DEL", post_key(PostId), post_comments_key(PostId) | CommentKeys]),
+    CommentKeys = [[comment_key(CommentId, PostId), comment_push_list_key(CommentId, PostId)] || CommentId <- CommentIds],
+    FinalKeys = lists:flatten(CommentKeys),
+    {ok, _} = q(["DEL", post_key(PostId), post_comments_key(PostId) | FinalKeys]),
     {ok, _} = q(["ZREM", reverse_post_key(Uid), PostId]),
     ok.
 
 
 -spec retract_comment(CommentId :: binary(), PostId :: binary()) -> ok | {error, any()}.
 retract_comment(CommentId, PostId) ->
-    [{ok, _}, {ok, _}] = qp([
+    [{ok, _}, {ok, _}, {ok, _}] = qp([
             ["DEL", comment_key(CommentId, PostId)],
+            ["DEL", comment_push_list_key(CommentId, PostId)],
             ["ZREM", post_comments_key(PostId), CommentId]]),
     ok.
 
@@ -183,16 +188,28 @@ get_comment(CommentId, PostId) ->
     end.
 
 
--spec get_post_and_comment(PostId :: binary(),
-        CommentId :: binary()) -> [{ok, feed_item()}] | [{error, any()}].
-get_post_and_comment(PostId, CommentId) ->
-    [{ok, Res1}, {ok, Res2}] = qp([
+%% We dont check if the given ParentId here is correct or not.
+%% We only use it to fetch the PushList of uids.
+%% Check with team about renaming this function..
+-spec get_new_comment_data(PostId :: binary(), CommentId :: binary(),
+        ParentId :: binary()) -> [{ok, feed_item()}] | {error, any()}.
+get_new_comment_data(PostId, CommentId, ParentId) ->
+    PushListCommands = case ParentId of
+        <<>> -> [];
+        _ -> [["SMEMBERS", comment_push_list_key(ParentId, PostId)]]
+    end,
+    [{ok, Res1}, {ok, Res2} | Rest] = qp([
         ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS],
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID,
-                ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS]]),
+                ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS] | PushListCommands]),
     [PostUid, PostPayload, PostTsMs] = Res1,
     [CommentPublisherUid, ParentCommentId, CommentPayload, CommentTsMs] = Res2,
-
+    ParentPushList = case PushListCommands of
+        [] -> [];
+        _ ->
+            [{ok, Res3}] = Rest,
+            Res3
+    end,
     Post = #post{
         id = PostId,
         uid = PostUid,
@@ -209,14 +226,14 @@ get_post_and_comment(PostId, CommentId) ->
     },
     if
         PostUid =:= undefined andalso CommentPublisherUid =:= undefined ->
-            [{error, missing}, {error, missing}];
+            [{error, missing}, {error, missing}, {error, missing}];
         PostUid =/= undefined andalso CommentPublisherUid =:= undefined ->
-            [{ok, Post}, {error, missing}];
+            [{ok, Post}, {error, missing}, {ok, ParentPushList}];
         PostUid =:= undefined andalso CommentPublisherUid =/= undefined ->
             ?ERROR_MSG("Invalid internal state: postid: ~p, commentid: ~p", [PostId, CommentId]),
-            [{error, missing}, {error, missing}];
+            [{error, missing}, {error, missing}, {error, missing}];
         true ->
-            [{ok, Post}, {ok, Comment}]
+            [{ok, Post}, {ok, Comment}, {ok, ParentPushList}]
     end.
 
 
@@ -308,6 +325,11 @@ post_key(PostId) ->
 -spec comment_key(CommentId :: binary(), PostId :: binary()) -> binary().
 comment_key(CommentId, PostId) ->
     <<?COMMENT_KEY/binary, "{", PostId/binary, "}:", CommentId/binary>>.
+
+
+-spec comment_push_list_key(CommentId :: binary(), PostId :: binary()) -> binary().
+comment_push_list_key (CommentId, PostId) ->
+    <<?COMMENT_PUSH_LIST_KEY/binary, "{", PostId/binary, "}:", CommentId/binary>>.
 
 
 -spec post_comments_key(PostId :: binary()) -> binary().
