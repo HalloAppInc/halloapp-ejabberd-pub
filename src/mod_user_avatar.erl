@@ -146,8 +146,7 @@ processe_set_user_avatar(IQ, Uid, Base64Data) ->
             ?INFO_MSG("Uid: ~s AvatarId: ~s", [Uid, AvatarId]),
             update_user_avatar(Uid, util:get_host(), AvatarId),
             xmpp:make_iq_result(IQ, #avatar{id = AvatarId})
-    end,
-    ok.
+    end.
 
 
 % TODO: move this function to util
