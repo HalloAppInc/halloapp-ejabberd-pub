@@ -383,8 +383,7 @@ sasl_mechanisms(Mechs, #{lserver := LServer} = State) ->
     %% I re-created it from cyrsasl ets magic, but I think it's wrong
     %% TODO: need to check before 18.09 release
     lists:filter(
-      fun(<<"ANONYMOUS">>) ->
-	      ejabberd_auth_anonymous:is_sasl_anonymous_enabled(LServer);
+      fun(<<"ANONYMOUS">>) -> false;
 	 (<<"DIGEST-MD5">>) -> Type == plain;
 	 (<<"SCRAM-SHA-1">>) -> Type /= external;
 	 (<<"PLAIN">>) -> true;
