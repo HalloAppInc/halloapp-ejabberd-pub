@@ -181,6 +181,7 @@ delete_user_avatar_internal(UserId, Server) ->
 
 -spec delete_user_old_avatar(UserId :: binary()) -> ok | error.
 delete_user_old_avatar(UserId) ->
+    % TODO: get rid of the _binary part if possible.
     case model_accounts:get_avatar_id_binary(UserId) of
         <<>> ->
             ok;

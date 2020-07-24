@@ -616,7 +616,7 @@ clean_old_avatar(Gid) ->
                     ?INFO_MSG("Gid: ~s deleted old AvatarId: ~s from S3",
                         [Gid, AvatarId]);
                 error ->
-                    ?ERROR_MSG("Gid: ~s failed to deleted old AvatarId: ~s from S3",
+                    ?ERROR_MSG("Gid: ~s failed to delete old AvatarId: ~s from S3",
                         [Gid, AvatarId])
             end,
             ok
