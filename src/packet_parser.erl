@@ -15,19 +15,19 @@
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto(XmppStanza) -> 
+xmpp_to_proto(XmppStanza) ->
     PbStanza = case element(1, XmppStanza) of
-        ack -> 
+        ack ->
             {ack, ack_parser:xmpp_to_proto(XmppStanza)};
-        iq -> 
+        iq ->
             {iq, iq_parser:xmpp_to_proto(XmppStanza)};
-        presence -> 
+        presence ->
             {presence, presence_parser:xmpp_to_proto(XmppStanza)};
-        message -> 
+        message ->
             {msg, message_parser:xmpp_to_proto(XmppStanza)};
         %% TODO: add error parser
         _ -> undefined
-    end, 
+    end,
     #pb_packet{stanza = PbStanza}.
 
 
@@ -37,7 +37,7 @@ xmpp_to_proto(XmppStanza) ->
 
 
 proto_to_xmpp(PbPacket) ->
-    XmppStanza = case PbPacket#pb_packet.stanza of 
+    XmppStanza = case PbPacket#pb_packet.stanza of
         {ack, AckRecord} ->
             ack_parser:proto_to_xmpp(AckRecord);
         {iq, IqRecord} ->
@@ -48,6 +48,6 @@ proto_to_xmpp(PbPacket) ->
             message_parser:proto_to_xmpp(MsgRecord);
         %% TODO: add error parser
         _ -> undefined
-    end, 
+    end,
     XmppStanza.
 

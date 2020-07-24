@@ -19,7 +19,7 @@ xmpp_to_proto(SubEl) ->
     ProtoContent = case element(1, SubEl) of
         client_mode -> xmpp_to_proto_client_mode(SubEl);
         client_version -> xmpp_to_proto_client_version(SubEl)
-    end, 
+    end,
     ProtoContent.
 
 xmpp_to_proto_client_mode(SubEl) ->
@@ -44,7 +44,7 @@ proto_to_xmpp(ProtoPayload) ->
     SubEl = case element(1, ProtoPayload) of
         pb_client_mode -> proto_to_xmpp_client_mode(ProtoPayload);
         pb_client_version -> proto_to_xmpp_client_version(ProtoPayload)
-    end, 
+    end,
     SubEl.
 
 
@@ -54,7 +54,7 @@ proto_to_xmpp_client_mode(ProtoPayload) ->
     }.
 
 
-proto_to_xmpp_client_version(ProtoPayload) -> 
+proto_to_xmpp_client_version(ProtoPayload) ->
     #client_version{
         version = ProtoPayload#pb_client_version.version,
         seconds_left = integer_to_binary(ProtoPayload#pb_client_version.expires_in_seconds)

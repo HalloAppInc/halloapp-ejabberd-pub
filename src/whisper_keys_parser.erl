@@ -24,7 +24,7 @@ xmpp_to_proto(SubEl) ->
 proto_to_xmpp(ProtoPayload) ->
     #whisper_keys{
         uid = integer_to_binary(ProtoPayload#pb_whisper_keys.uid),
-        type = ProtoPayload#pb_whisper_keys.action, 
+        type = ProtoPayload#pb_whisper_keys.action,
         identity_key = ProtoPayload#pb_whisper_keys.identity_key,
         signed_key = ProtoPayload#pb_whisper_keys.signed_key,
         otp_key_count = integer_to_binary(ProtoPayload#pb_whisper_keys.otp_key_count),

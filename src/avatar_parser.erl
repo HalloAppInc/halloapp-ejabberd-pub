@@ -19,11 +19,11 @@ xmpp_to_proto(SubEl) ->
     ProtoContent = case element(1, SubEl) of
         avatar -> xmpp_to_proto_avatar(SubEl);
         avatars -> xmpp_to_proto_avatars(SubEl)
-    end, 
+    end,
     ProtoContent.
 
 
-xmpp_to_proto_avatar(SubEl) -> 
+xmpp_to_proto_avatar(SubEl) ->
     #pb_avatar{
         id = SubEl#avatar.id,
         uid = binary_to_integer(SubEl#avatar.userid),
@@ -31,7 +31,7 @@ xmpp_to_proto_avatar(SubEl) ->
     }.
 
 
-xmpp_to_proto_avatars(SubEl) -> 
+xmpp_to_proto_avatars(SubEl) ->
     Avatars = SubEl#avatars.avatars,
     ProtoAvatars = lists:map(fun xmpp_to_proto_avatar/1, Avatars),
     #pb_avatars{
@@ -48,11 +48,11 @@ proto_to_xmpp(ProtoPayload) ->
     SubEl = case element(1, ProtoPayload) of
         pb_avatar -> proto_to_xmpp_avatar(ProtoPayload);
         pb_avatars -> proto_to_xmpp_avatars(ProtoPayload)
-    end, 
+    end,
     SubEl.
 
 
-proto_to_xmpp_avatar(ProtoPayload) -> 
+proto_to_xmpp_avatar(ProtoPayload) ->
     #avatar{
         id = ProtoPayload#pb_avatar.id,
         userid = integer_to_binary(ProtoPayload#pb_avatar.uid),
@@ -60,7 +60,7 @@ proto_to_xmpp_avatar(ProtoPayload) ->
     }.
 
 
-proto_to_xmpp_avatars(ProtoPayload) ->   
+proto_to_xmpp_avatars(ProtoPayload) ->
     PbAvatars = ProtoPayload#pb_avatars.avatars,
     XmppAvatars = lists:map(fun proto_to_xmpp_avatar/1, PbAvatars),
     #avatars{

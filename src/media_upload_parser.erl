@@ -28,7 +28,7 @@ xmpp_to_proto(SubEl) ->
 proto_to_xmpp(ProtoPayload) ->
     [MediaURL] = ProtoPayload#pb_upload_media.urls,
     XmppUrls = #media_urls{
-        get = MediaURL#pb_media_urls.get, 
+        get = MediaURL#pb_media_urls.get,
         put = MediaURL#pb_media_urls.put,
         patch = MediaURL#pb_media_urls.patch
     },

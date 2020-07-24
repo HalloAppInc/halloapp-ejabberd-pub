@@ -9,7 +9,7 @@
 ]).
 
 
-xmpp_to_proto(XmppPresence) -> 
+xmpp_to_proto(XmppPresence) ->
     FromJID = XmppPresence#presence.from,
     ProtoPresence = #pb_ha_presence{
         id = XmppPresence#presence.id,
@@ -23,7 +23,7 @@ xmpp_to_proto(XmppPresence) ->
     ProtoPresence.
 
 
-proto_to_xmpp(ProtoPresence) -> 
+proto_to_xmpp(ProtoPresence) ->
     ToJID = #jid{
         user = integer_to_binary(ProtoPresence#pb_ha_presence.uid),
         server =  util:get_host()
@@ -31,18 +31,18 @@ proto_to_xmpp(ProtoPresence) ->
     XmppPresence = #presence{
         id = ProtoPresence#pb_ha_presence.id,
         type = ProtoPresence#pb_ha_presence.type,
-        last_seen = case ProtoPresence#pb_ha_presence.last_seen of 
+        last_seen = case ProtoPresence#pb_ha_presence.last_seen of
             undefined -> <<>>;
             _ -> integer_to_binary(ProtoPresence#pb_ha_presence.last_seen)
         end
     },
-    Result = case ProtoPresence#pb_ha_presence.type of 
-        subscribe -> 
+    Result = case ProtoPresence#pb_ha_presence.type of
+        subscribe ->
             XmppPresence#presence{to = ToJID};
-        unsubscribe -> 
+        unsubscribe ->
             XmppPresence#presence{to = ToJID};
-        _ -> 
+        _ ->
             XmppPresence
-        end, 
+        end,
     Result.
 

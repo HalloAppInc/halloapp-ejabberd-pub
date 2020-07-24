@@ -15,17 +15,17 @@
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto(XmppMSG) -> 
+xmpp_to_proto(XmppMSG) ->
     ToJid = XmppMSG#message.to,
     FromJid = XmppMSG#message.from,
     SubEls = XmppMSG#message.sub_els,
-    Content = case XmppMSG#message.sub_els of 
-        [] -> 
+    Content = case XmppMSG#message.sub_els of
+        [] ->
             undefined;
-        _ -> 
+        _ ->
             [SubEl] = SubEls,
             msg_payload_mapping(SubEl)
-    end, 
+    end,
     Protomessage = #pb_ha_message{
         id = XmppMSG#message.id,
         type = XmppMSG#message.type,
@@ -39,11 +39,11 @@ xmpp_to_proto(XmppMSG) ->
 
 
 msg_payload_mapping(SubEl) ->
-    Payload = case element(1, SubEl) of 
+    Payload = case element(1, SubEl) of
         contact_list ->
             {cl, contact_parser:xmpp_to_proto(SubEl)};
         avatar ->
-            {a, avatar_parser:xmpp_to_proto(SubEl)}; 
+            {a, avatar_parser:xmpp_to_proto(SubEl)};
         whisper_keys ->
             {wk, whisper_keys_parser:xmpp_to_proto(SubEl)};
         receipt_seen ->
@@ -61,7 +61,7 @@ msg_payload_mapping(SubEl) ->
 %% -------------------------------------------- %%
 
 
-proto_to_xmpp(ProtoMSG) -> 
+proto_to_xmpp(ProtoMSG) ->
     PbToJid = #jid{
         user = ProtoMSG#pb_ha_message.to_uid,
         server = <<"s.halloapp.net">>
@@ -84,9 +84,9 @@ proto_to_xmpp(ProtoMSG) ->
     XmppMSG.
 
 
-xmpp_msg_subel_mapping(ProtoPayload) -> 
+xmpp_msg_subel_mapping(ProtoPayload) ->
     SubEl = case ProtoPayload of
-        {cl, ContactListRecord} -> 
+        {cl, ContactListRecord} ->
             contact_parser:proto_to_xmpp(ContactListRecord);
         {a, AvatarRecord} ->
             avatar_parser:proto_to_xmpp(AvatarRecord);
@@ -100,4 +100,4 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
             chat_parser:proto_to_xmpp(ChatRecord)
     end,
     SubEl.
-    
+

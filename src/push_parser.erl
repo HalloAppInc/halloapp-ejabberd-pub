@@ -24,7 +24,7 @@ proto_to_xmpp(ProtoPayload) ->
     PbPushToken = ProtoPayload#pb_push_register.push_token,
     #push_register{
         push_token = {
-            util:to_binary(PbPushToken#pb_push_token.os), 
+            util:to_binary(PbPushToken#pb_push_token.os),
             PbPushToken#pb_push_token.token
         }
     }.

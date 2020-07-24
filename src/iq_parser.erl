@@ -15,15 +15,15 @@
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto(XmppIQ) -> 
+xmpp_to_proto(XmppIQ) ->
     SubEls = XmppIQ#iq.sub_els,
-    Content = case XmppIQ#iq.sub_els of 
-        [] -> 
+    Content = case XmppIQ#iq.sub_els of
+        [] ->
             undefined;
-        _ -> 
+        _ ->
             [SubEl] = SubEls,
             iq_payload_mapping(SubEl)
-    end, 
+    end,
     ProtoIQ = #pb_ha_iq{
         id = XmppIQ#iq.id,
         type = XmppIQ#iq.type,
@@ -35,15 +35,15 @@ xmpp_to_proto(XmppIQ) ->
 
 
 iq_payload_mapping(SubEl) ->
-    Payload = case element(1, SubEl) of 
+    Payload = case element(1, SubEl) of
         upload_media ->
             {um, media_upload_parser:xmpp_to_proto(SubEl)};
         contact_list ->
             {cl, contact_parser:xmpp_to_proto(SubEl)};
         avatar ->
-            {a, avatar_parser:xmpp_to_proto(SubEl)}; 
+            {a, avatar_parser:xmpp_to_proto(SubEl)};
         avatars ->
-            {as, avatar_parser:xmpp_to_proto(SubEl)}; 
+            {as, avatar_parser:xmpp_to_proto(SubEl)};
         client_mode ->
             {cm, client_info_parser:xmpp_to_proto(SubEl)};
         client_version ->
@@ -54,17 +54,17 @@ iq_payload_mapping(SubEl) ->
             {wk, whisper_keys_parser:xmpp_to_proto(SubEl)};
         ping ->
             {p, #pb_ping{}}
-        %% TODO: not include feed_item and feed_node_items yet 
+        %% TODO: not include feed_item and feed_node_items yet
     end,
     Payload.
-        
+
 
 %% -------------------------------------------- %%
 %% Protobuf to XMPP
 %% -------------------------------------------- %%
 
 
-proto_to_xmpp(ProtoIQ) -> 
+proto_to_xmpp(ProtoIQ) ->
     ProtoPayload = ProtoIQ#pb_ha_iq.payload,
     Content = ProtoPayload#pb_iq_payload.content,
     SubEl = xmpp_iq_subel_mapping(Content),
@@ -76,11 +76,11 @@ proto_to_xmpp(ProtoIQ) ->
     XmppIQ.
 
 
-xmpp_iq_subel_mapping(ProtoPayload) -> 
+xmpp_iq_subel_mapping(ProtoPayload) ->
     SubEl = case ProtoPayload of
-        {um, UploadMediaRecord} -> 
+        {um, UploadMediaRecord} ->
             media_upload_parser:proto_to_xmpp(UploadMediaRecord);
-        {cl, ContactListRecord} -> 
+        {cl, ContactListRecord} ->
             contact_parser:proto_to_xmpp(ContactListRecord);
         {a, AvatarRecord} ->
             avatar_parser:proto_to_xmpp(AvatarRecord);
@@ -98,4 +98,4 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             #ping{}
     end,
     SubEl.
-    
+

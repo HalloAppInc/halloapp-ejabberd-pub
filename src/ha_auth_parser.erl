@@ -15,14 +15,14 @@
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto(XmppAuth) -> 
+xmpp_to_proto(XmppAuth) ->
     ProtoContent = case element(1, XmppAuth) of
         halloapp_auth -> xmpp_to_proto_auth_request(XmppAuth);
         halloapp_auth_result -> xmpp_to_proto_auth_result(XmppAuth)
-    end, 
+    end,
     ProtoContent.
-    
-    
+
+
 xmpp_to_proto_auth_request(XmppAuth) ->
     #pb_auth_request{
         uid = binary_to_integer(XmppAuth#halloapp_auth.uid),
@@ -33,7 +33,7 @@ xmpp_to_proto_auth_request(XmppAuth) ->
     }.
 
 
-xmpp_to_proto_auth_result(XmppAuth) -> 
+xmpp_to_proto_auth_result(XmppAuth) ->
     #pb_auth_result{
         result = XmppAuth#halloapp_auth_result.result,
         reason = XmppAuth#halloapp_auth_result.reason
@@ -49,8 +49,8 @@ proto_to_xmpp(ProtoAuth) ->
     XmppAuth = case element(1, ProtoAuth) of
         pb_auth_request -> proto_to_xmpp_auth_request(ProtoAuth);
         pb_auth_result -> proto_to_xmpp_auth_result(ProtoAuth)
-    end, 
-    XmppAuth.    
+    end,
+    XmppAuth.
 
 
 proto_to_xmpp_auth_request(ProtoAuth) ->
@@ -65,7 +65,7 @@ proto_to_xmpp_auth_request(ProtoAuth) ->
     }.
 
 
-proto_to_xmpp_auth_result(ProtoAuth) -> 
+proto_to_xmpp_auth_result(ProtoAuth) ->
     #halloapp_auth_result{
         result = ProtoAuth#pb_auth_result.result,
         reason = ProtoAuth#pb_auth_result.reason

@@ -15,7 +15,7 @@
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto(SubEl) -> 
+xmpp_to_proto(SubEl) ->
     [SubElContent] = SubEl#chat.sub_els,
     #pb_chat{
         timestamp = binary_to_integer(SubEl#chat.timestamp),
@@ -32,5 +32,5 @@ proto_to_xmpp(ProtoPayload) ->
     #chat{
         timestamp = integer_to_binary(ProtoPayload#pb_chat.timestamp),
         sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata, ProtoPayload#pb_chat.payload}]}]
-    }. 
+    }.
 
