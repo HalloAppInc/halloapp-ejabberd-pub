@@ -680,7 +680,7 @@ db_check_password(User, AuthzId, Server, ProvidedPassword, Digest, DigestFun, Mo
         {ok, ValidPassword} -> match_passwords(ProvidedPassword, ValidPassword, Digest, DigestFun);
         error ->
             case Mod:store_type(Server) of
-                {external, false} -> Mod:check_password(User, AuthzId, Server, ProvidedPassword);
+                external -> Mod:check_password(User, AuthzId, Server, ProvidedPassword);
                 _ -> false
             end
     end.
