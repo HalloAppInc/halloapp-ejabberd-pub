@@ -137,14 +137,7 @@ user_send_ack(#ack{id = MsgId, from = #jid{user = UserId, server = Server}} = Ac
             ?WARNING_MSG("missing a message on redis, msg_id: ~s, from_uid: ~s", [MsgId, UserId]);
         _ ->
             ok = model_messages:ack_message(UserId, MsgId),
-            case OfflineMessage#offline_message.content_type of
-                <<"chat">> ->
-                    ejabberd_hooks:run(user_ack_packet, Server, [{Ack, OfflineMessage}]);
-                <<"group_chat">> ->
-                    % TODO: change this code to fire always
-                    ejabberd_hooks:run(user_ack_packet, Server, [{Ack, OfflineMessage}]);
-                _ -> ok
-            end
+            ejabberd_hooks:run(user_ack_packet, Server, [{Ack, OfflineMessage}])
     end.
 
 
