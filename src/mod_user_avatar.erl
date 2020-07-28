@@ -39,7 +39,8 @@
 start(Host, _Opts) ->
     ?INFO_MSG("start ~w", [?MODULE]),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_USER_AVATAR, ?MODULE, process_local_iq),
-    % We need to make sure we run our remove_user hook code, before the redis data is deleted.
+    % remove_user hook should run, before the redis data is deleted.
+    % Otherwise we will not know what the old avatar_id was to delete from S3.
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 10),
     ejabberd_hooks:add(user_avatar_published, Host, ?MODULE, user_avatar_published, 50),
     ok.
@@ -98,7 +99,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
     xmpp:make_iq_result(IQ, NewAvatars).
 
 
-% Remove user hook is ran before the user data is actually deleted.
+% Remove user hook is run before the user data is actually deleted.
 remove_user(UserId, Server) ->
     delete_user_avatar_internal(UserId, Server).
 
@@ -163,10 +164,7 @@ check_and_get_avatar_id(Uid, FriendUid) ->
 
 -spec delete_user_avatar_internal(Uid :: uid(), Server :: binary()) -> ok.
 delete_user_avatar_internal(Uid, Server) ->
-    {ok, OldAvatarId} = model_accounts:get_avatar_id(Uid),
-    ok = model_accounts:del_avatar_id(Uid),
     update_user_avatar(Uid, Server, <<>>),
-    delete_avatar_s3(OldAvatarId),
     ok.
 
 
@@ -189,7 +187,12 @@ delete_avatar_s3(AvatarId) ->
 -spec update_user_avatar(UserId :: binary(), Server :: binary(), AvatarId :: binary()) -> ok.
 update_user_avatar(UserId, Server, AvatarId) ->
     {ok, OldAvatarId} = model_accounts:get_avatar_id(UserId),
-    model_accounts:set_avatar_id(UserId, AvatarId),
+    case AvatarId of
+        <<>> ->
+            model_accounts:del_avatar_id(UserId);
+        AvatarId ->
+            model_accounts:set_avatar_id(UserId, AvatarId)
+    end,
     ejabberd_hooks:run(user_avatar_published, Server, [UserId, Server, AvatarId]),
     delete_avatar_s3(OldAvatarId),
     ok.
