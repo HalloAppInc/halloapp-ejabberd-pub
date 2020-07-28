@@ -205,6 +205,12 @@ set_avatar_id(Uid, AvatarId) ->
     ok.
 
 
+-spec del_avatar_id(Uid :: binary()) -> ok.
+del_avatar_id(Uid) ->
+    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_AVATAR_ID]),
+    ok.
+
+
 -spec get_avatar_id(Uid :: binary()) -> binary() | {ok, binary() | undefined} | {error, any()}.
 get_avatar_id(Uid) ->
     {ok, Res} = q(["HGET", key(Uid), ?FIELD_AVATAR_ID]),

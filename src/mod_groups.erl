@@ -612,17 +612,7 @@ log_stats(API, Results) ->
 -spec clean_old_avatar(Gid :: gid()) -> ok.
 clean_old_avatar(Gid) ->
     GroupInfo = model_groups:get_group_info(Gid),
-    case GroupInfo#group_info.avatar of
-        undefined -> ok;
-        AvatarId ->
-            case mod_user_avatar:delete_avatar_s3(AvatarId) of
-                ok ->
-                    ?INFO_MSG("Gid: ~s deleted old AvatarId: ~s from S3",
-                        [Gid, AvatarId]);
-                error ->
-                    ?ERROR_MSG("Gid: ~s failed to delete old AvatarId: ~s from S3",
-                        [Gid, AvatarId])
-            end,
-            ok
-    end.
+    % this function already logs the error.
+    mod_user_avatar:delete_avatar_s3(GroupInfo#group_info.avatar),
+    ok.
 

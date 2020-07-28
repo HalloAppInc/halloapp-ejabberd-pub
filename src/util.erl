@@ -206,4 +206,12 @@ uuid_binary() ->
     list_to_binary(uuid:to_string(uuid:uuid1())).
 
 
+%% does not throw exception return error instead.
+-spec decode_base_64(Base64Data :: binary()) -> {ok, binary()} | {error, bad_data}.
+decode_base_64(Base64Data) ->
+    try
+        {ok, base64:decode(Base64Data)}
+    catch
+        error:badarg -> {error, bad_data}
+    end.
 
