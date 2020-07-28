@@ -7,18 +7,18 @@
 
 -define(receipts_gpb_version, "4.13.0").
 
--ifndef('PB_SEEN_PB_H').
--define('PB_SEEN_PB_H', true).
--record(pb_seen,
+-ifndef('PB_SEEN_RECEIPT_PB_H').
+-define('PB_SEEN_RECEIPT_PB_H', true).
+-record(pb_seen_receipt,
         {id = []                :: iodata() | undefined, % = 1
          thread_id = []         :: iodata() | undefined, % = 2
          timestamp = 0          :: integer() | undefined % = 3, 64 bits
         }).
 -endif.
 
--ifndef('PB_RECEIVED_PB_H').
--define('PB_RECEIVED_PB_H', true).
--record(pb_received,
+-ifndef('PB_DELIVERY_RECEIPT_PB_H').
+-define('PB_DELIVERY_RECEIPT_PB_H', true).
+-record(pb_delivery_receipt,
         {id = []                :: iodata() | undefined, % = 1
          thread_id = []         :: iodata() | undefined, % = 2
          timestamp = 0          :: integer() | undefined % = 3, 64 bits

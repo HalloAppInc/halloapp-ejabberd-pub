@@ -14,7 +14,7 @@
          pwd = []               :: iodata() | undefined, % = 2
          cm = undefined         :: ha_auth:pb_client_mode() | undefined, % = 3
          cv = undefined         :: ha_auth:pb_client_version() | undefined, % = 4
-         resource = android     :: android | ios | integer() | undefined % = 5, enum pb_auth_request.Resource
+         resource = []          :: iodata() | undefined % = 5
         }).
 -endif.
 

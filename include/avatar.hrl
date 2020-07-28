@@ -7,12 +7,19 @@
 
 -define(avatar_gpb_version, "4.13.0").
 
+-ifndef('PB_UPLOAD_AVATAR_PB_H').
+-define('PB_UPLOAD_AVATAR_PB_H', true).
+-record(pb_upload_avatar,
+        {id = []                :: iodata() | undefined, % = 1
+         data = <<>>            :: iodata() | undefined % = 2
+        }).
+-endif.
+
 -ifndef('PB_AVATAR_PB_H').
 -define('PB_AVATAR_PB_H', true).
 -record(pb_avatar,
         {id = []                :: iodata() | undefined, % = 1
-         uid = 0                :: integer() | undefined, % = 2, 64 bits
-         data = <<>>            :: iodata() | undefined % = 3
+         uid = 0                :: integer() | undefined % = 2, 64 bits
         }).
 -endif.
 

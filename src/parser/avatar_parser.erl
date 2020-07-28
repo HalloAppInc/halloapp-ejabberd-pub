@@ -26,8 +26,7 @@ xmpp_to_proto(SubEl) ->
 xmpp_to_proto_avatar(SubEl) ->
     #pb_avatar{
         id = SubEl#avatar.id,
-        uid = binary_to_integer(SubEl#avatar.userid),
-        data = base64:decode(SubEl#avatar.cdata)
+        uid = binary_to_integer(SubEl#avatar.userid)
     }.
 
 
@@ -47,7 +46,8 @@ xmpp_to_proto_avatars(SubEl) ->
 proto_to_xmpp(ProtoPayload) ->
     SubEl = case element(1, ProtoPayload) of
         pb_avatar -> proto_to_xmpp_avatar(ProtoPayload);
-        pb_avatars -> proto_to_xmpp_avatars(ProtoPayload)
+        pb_avatars -> proto_to_xmpp_avatars(ProtoPayload);
+        pb_upload_avatar -> proto_to_xmpp_upload_avatar(ProtoPayload)
     end,
     SubEl.
 
@@ -55,8 +55,7 @@ proto_to_xmpp(ProtoPayload) ->
 proto_to_xmpp_avatar(ProtoPayload) ->
     #avatar{
         id = ProtoPayload#pb_avatar.id,
-        userid = integer_to_binary(ProtoPayload#pb_avatar.uid),
-        cdata = base64:encode(ProtoPayload#pb_avatar.data)
+        userid = integer_to_binary(ProtoPayload#pb_avatar.uid)
     }.
 
 
@@ -65,5 +64,12 @@ proto_to_xmpp_avatars(ProtoPayload) ->
     XmppAvatars = lists:map(fun proto_to_xmpp_avatar/1, PbAvatars),
     #avatars{
         avatars = XmppAvatars
+    }.
+
+
+proto_to_xmpp_upload_avatar(ProtoPayload) ->
+    #avatar{
+        id = ProtoPayload#pb_upload_avatar.id,
+        cdata = base64:encode(ProtoPayload#pb_upload_avatar.data)
     }.
 

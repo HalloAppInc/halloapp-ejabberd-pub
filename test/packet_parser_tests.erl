@@ -58,7 +58,7 @@
         id = <<"3ece24923">>,
         type = set,
         payload = #pb_iq_payload{
-            content = {wk, #pb_whisper_keys{
+            content = {whisper_keys, #pb_whisper_keys{
                 uid = 863,
                 action = add,   
                 identity_key = <<"adf-fadsfa">>,
@@ -134,7 +134,7 @@
         to_uid = <<"1000000000045484920">>,
         from_uid = <<"1000000000519345762">>,
         payload = #pb_msg_payload{
-            content = {s, #pb_seen{
+            content = {seen, #pb_seen_receipt{
                 id = <<"7ab30vn">>,
                 thread_id = <<"thlm23ca">>,
                 timestamp = 20190910

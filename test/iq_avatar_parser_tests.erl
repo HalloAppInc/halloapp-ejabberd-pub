@@ -17,19 +17,31 @@
 %% define avatar and avatars constants
 %% -------------------------------------------- %%
 
+-define(XMPP_UPLOAD_AVATAR1,
+    #avatar{
+        id = <<"ppadfa">>,
+        cdata = <<"YTgwaGZhZGtsLW0=">> 
+    }
+).
+
+-define(PB_UPLOAD_AVATAR1,
+    #pb_upload_avatar{
+        id = <<"ppadfa">>,
+        data = <<"a80hfadkl-m">>
+    }
+).
+
 -define(XMPP_AVATAR1,
     #avatar{
         id = <<"ppadfa">>,
-        userid = <<"397103">>,
-        cdata = <<"YTgwaGZhZGtsLW0=">> 
+        userid = <<"397103">>
     }
 ).
 
 -define(PB_AVATAR1,
     #pb_avatar{
         id = <<"ppadfa">>,
-        uid = 397103,
-        data = <<"a80hfadkl-m">>
+        uid = 397103
     }
 ).
 
@@ -37,7 +49,7 @@
     #iq{
         id = <<"s9cCU-10">>,
         type = set,
-        sub_els = [?XMPP_AVATAR1]
+        sub_els = [?XMPP_UPLOAD_AVATAR1]
     }
 ).
 
@@ -46,7 +58,7 @@
         id = <<"s9cCU-10">>,
         type = set,
         payload = #pb_iq_payload{
-            content = {a, ?PB_AVATAR1}
+            content = {avatar, ?PB_UPLOAD_AVATAR1}
         }
     }
 ).
@@ -54,23 +66,21 @@
 -define(XMPP_AVATAR2,
     #avatar{
         id = <<"001">>,
-        userid = <<"1000">>,
-        cdata = <<"YThkbmtkMGhmYWRrbC1t">> 
+        userid = <<"1000">>
     }
 ).
 
 -define(PB_AVATAR2,
     #pb_avatar{
         id = <<"001">>,
-        uid = 1000,
-        data = <<"a8dnkd0hfadkl-m">>
+        uid = 1000
     }
 ).
 
 -define(XMPP_IQ_AVATAR2,
     #iq{
         id = <<"s9cCU-10-000">>,
-        type = set,
+        type = result,
         sub_els = [?XMPP_AVATAR2]
     }
 ).
@@ -78,9 +88,9 @@
 -define(PB_IQ_AVATAR2,
     #pb_ha_iq{
         id = <<"s9cCU-10-000">>,
-        type = set,
+        type = result,
         payload = #pb_iq_payload{
-            content = {a, ?PB_AVATAR2}
+            content = {avatar, ?PB_AVATAR2}
         }
     }
 ).
@@ -88,7 +98,7 @@
 -define(XMPP_IQ_AVATARS,
     #iq{
         id = <<"fadsa">>,
-        type = set,
+        type = result,
         sub_els = [#avatars{
                 avatars = [?XMPP_AVATAR1, ?XMPP_AVATAR2]
             }
@@ -99,9 +109,9 @@
 -define(PB_IQ_AVATARS,
     #pb_ha_iq{
         id = <<"fadsa">>,
-        type = set,
+        type = result,
         payload = #pb_iq_payload{
-            content = {as, #pb_avatars{
+            content = {avatars, #pb_avatars{
                 avatars = [?PB_AVATAR1, ?PB_AVATAR2]
             }}
         }
@@ -114,10 +124,7 @@
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto_avatar_test() -> 
-    ProtoIQ1 = iq_parser:xmpp_to_proto(?XMPP_IQ_AVATAR1),
-    ?assertEqual(true, is_record(ProtoIQ1, pb_ha_iq)),
-    ?assertEqual(?PB_IQ_AVATAR1, ProtoIQ1),
+xmpp_to_proto_avatar_test() ->
     ProtoIQ2 = iq_parser:xmpp_to_proto(?XMPP_IQ_AVATAR2),
     ?assertEqual(true, is_record(ProtoIQ2, pb_ha_iq)),
     ?assertEqual(?PB_IQ_AVATAR2, ProtoIQ2).

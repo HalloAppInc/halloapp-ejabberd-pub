@@ -52,7 +52,7 @@
         to_uid = <<"1000000000045484920">>,
         from_uid = <<"1000000000519345762">>,
         payload = #pb_msg_payload{
-            content = {c, #pb_chat{
+            content = {chat, #pb_chat{
                 timestamp = 2000090910,
                 payload = <<"Hello from pb chat!">>
             }}

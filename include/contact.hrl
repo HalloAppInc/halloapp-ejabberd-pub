@@ -14,7 +14,7 @@
          raw = []               :: iodata() | undefined, % = 2
          normalized = []        :: iodata() | undefined, % = 3
          uid = 0                :: integer() | undefined, % = 4, 64 bits
-         avatarid = []          :: iodata() | undefined, % = 5
+         avatar_id = []         :: iodata() | undefined, % = 5
          role = friend          :: friend | none | integer() | undefined % = 6, enum pb_contact.Role
         }).
 -endif.
@@ -23,8 +23,8 @@
 -define('PB_CONTACT_LIST_PB_H', true).
 -record(pb_contact_list,
         {type = full            :: full | delta | integer() | undefined, % = 1, enum pb_contact_list.Type
-         syncid = []            :: iodata() | undefined, % = 2
-         index = 0              :: integer() | undefined, % = 3, 32 bits
+         sync_id = []           :: iodata() | undefined, % = 2
+         batch_index = 0        :: integer() | undefined, % = 3, 32 bits
          is_last = false        :: boolean() | 0 | 1 | undefined, % = 4
          contacts = []          :: [contact:pb_contact()] | undefined % = 5
         }).

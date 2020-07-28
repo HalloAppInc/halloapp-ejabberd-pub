@@ -33,7 +33,7 @@
         id = <<"clientMODEid">>,
         type = set,
         payload = #pb_iq_payload{
-            content = {cm, #pb_client_mode{
+            content = {client_mode, #pb_client_mode{
                 mode = active
             }}
         }
@@ -57,7 +57,7 @@
         id = <<"clientVERSIONid">>,
         type = set,
         payload = #pb_iq_payload{
-            content = {cv, #pb_client_version{
+            content = {client_version, #pb_client_version{
                 version = <<"2.3">>,
                 expires_in_seconds = 23
             }}

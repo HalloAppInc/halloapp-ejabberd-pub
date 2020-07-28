@@ -19,15 +19,15 @@ xmpp_to_proto(SubEl) ->
                 raw = Contact#contact.raw,
                 normalized = Contact#contact.normalized,
                 uid = binary_to_integer(Contact#contact.userid),
-                avatarid = Contact#contact.avatarid,
+                avatar_id = Contact#contact.avatarid,
                 role = xmpp_to_proto_role(Contact#contact.role)
             }
         end,
         Contacts),
     #pb_contact_list{
         type = SubEl#contact_list.type,
-        syncid = SubEl#contact_list.syncid,
-        index = SubEl#contact_list.index,
+        sync_id = SubEl#contact_list.syncid,
+        batch_index = SubEl#contact_list.index,
         is_last = SubEl#contact_list.last,
         contacts = ProtoContacts
     }.
@@ -50,15 +50,15 @@ proto_to_xmpp(ProtoPayload) ->
                 raw = Contact#pb_contact.raw,
                 normalized = Contact#pb_contact.normalized,
                 userid = integer_to_binary(Contact#pb_contact.uid),
-                avatarid = Contact#pb_contact.avatarid,
+                avatarid = Contact#pb_contact.avatar_id,
                 role = proto_to_xmpp_role(Contact#pb_contact.role)
             }
         end,
         ContactList),
     #contact_list{
         type = ProtoPayload#pb_contact_list.type,
-        syncid = ProtoPayload#pb_contact_list.syncid,
-        index = ProtoPayload#pb_contact_list.index,
+        syncid = ProtoPayload#pb_contact_list.sync_id,
+        index = ProtoPayload#pb_contact_list.batch_index,
         last = ProtoPayload#pb_contact_list.is_last,
         contacts = XmppContacts
     }.

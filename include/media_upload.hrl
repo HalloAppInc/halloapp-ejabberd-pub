@@ -7,9 +7,9 @@
 
 -define(media_upload_gpb_version, "4.13.0").
 
--ifndef('PB_MEDIA_URLS_PB_H').
--define('PB_MEDIA_URLS_PB_H', true).
--record(pb_media_urls,
+-ifndef('PB_MEDIA_URL_PB_H').
+-define('PB_MEDIA_URL_PB_H', true).
+-record(pb_media_url,
         {get = []               :: iodata() | undefined, % = 1
          put = []               :: iodata() | undefined, % = 2
          patch = []             :: iodata() | undefined % = 3
@@ -20,7 +20,7 @@
 -define('PB_UPLOAD_MEDIA_PB_H', true).
 -record(pb_upload_media,
         {size = 0               :: integer() | undefined, % = 1, 64 bits
-         urls = []              :: [media_upload:pb_media_urls()] | undefined % = 2
+         url = undefined        :: media_upload:pb_media_url() | undefined % = 2
         }).
 -endif.
 

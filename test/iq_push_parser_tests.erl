@@ -33,7 +33,7 @@
         id = <<"cpuv9cnaid">>,
         type = set,
         payload = #pb_iq_payload{
-            content = {pr, #pb_push_register{
+            content = {push_register, #pb_push_register{
                 push_token = #pb_push_token{
                     os = ios,
                     token = <<"adfad">>

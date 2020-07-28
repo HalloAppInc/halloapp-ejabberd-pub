@@ -37,23 +37,25 @@ xmpp_to_proto(XmppIQ) ->
 iq_payload_mapping(SubEl) ->
     Payload = case element(1, SubEl) of
         upload_media ->
-            {um, media_upload_parser:xmpp_to_proto(SubEl)};
+            {upload_media, media_upload_parser:xmpp_to_proto(SubEl)};
         contact_list ->
-            {cl, contact_parser:xmpp_to_proto(SubEl)};
+            {contact_list, contact_parser:xmpp_to_proto(SubEl)};
+        upload_avatar ->
+            {upload_avatar, avatar_parser:xmpp_to_proto(SubEl)};
         avatar ->
-            {a, avatar_parser:xmpp_to_proto(SubEl)};
+            {avatar, avatar_parser:xmpp_to_proto(SubEl)};
         avatars ->
-            {as, avatar_parser:xmpp_to_proto(SubEl)};
+            {avatars, avatar_parser:xmpp_to_proto(SubEl)};
         client_mode ->
-            {cm, client_info_parser:xmpp_to_proto(SubEl)};
+            {client_mode, client_info_parser:xmpp_to_proto(SubEl)};
         client_version ->
-            {cv, client_info_parser:xmpp_to_proto(SubEl)};
+            {client_version, client_info_parser:xmpp_to_proto(SubEl)};
         push_register ->
-            {pr, push_parser:xmpp_to_proto(SubEl)};
+            {push_register, push_parser:xmpp_to_proto(SubEl)};
         whisper_keys ->
-            {wk, whisper_keys_parser:xmpp_to_proto(SubEl)};
+            {whisper_keys, whisper_keys_parser:xmpp_to_proto(SubEl)};
         ping ->
-            {p, #pb_ping{}}
+            {ping, #pb_ping{}}
         %% TODO: not include feed_item and feed_node_items yet
     end,
     Payload.
@@ -78,23 +80,25 @@ proto_to_xmpp(ProtoIQ) ->
 
 xmpp_iq_subel_mapping(ProtoPayload) ->
     SubEl = case ProtoPayload of
-        {um, UploadMediaRecord} ->
+        {upload_media, UploadMediaRecord} ->
             media_upload_parser:proto_to_xmpp(UploadMediaRecord);
-        {cl, ContactListRecord} ->
+        {contact_list, ContactListRecord} ->
             contact_parser:proto_to_xmpp(ContactListRecord);
-        {a, AvatarRecord} ->
+        {upload_avatar, UploadAvatarRecord} ->
+            avatar_parser:proto_to_xmpp(UploadAvatarRecord);
+        {avatar, AvatarRecord} ->
             avatar_parser:proto_to_xmpp(AvatarRecord);
-        {as, AvatarsRecord} ->
+        {avatars, AvatarsRecord} ->
             avatar_parser:proto_to_xmpp(AvatarsRecord);
-        {cm, ClientModeRecord} ->
+        {client_mode, ClientModeRecord} ->
             client_info_parser:proto_to_xmpp(ClientModeRecord);
-        {cv, ClientVersionRecord} ->
+        {client_version, ClientVersionRecord} ->
             client_info_parser:proto_to_xmpp(ClientVersionRecord);
-        {pr, PushRegisterRecord} ->
+        {push_register, PushRegisterRecord} ->
             push_parser:proto_to_xmpp(PushRegisterRecord);
-        {wk, WhisperKeysRecord} ->
+        {whisper_keys, WhisperKeysRecord} ->
             whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
-        {p, _} ->
+        {ping, _} ->
             #ping{}
     end,
     SubEl.

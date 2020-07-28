@@ -52,20 +52,22 @@
 -export_type([]).
 
 %% message types
+-type pb_upload_avatar() :: #pb_upload_avatar{}.
+
 -type pb_avatar() :: #pb_avatar{}.
 
 -type pb_avatars() :: #pb_avatars{}.
 
--export_type(['pb_avatar'/0, 'pb_avatars'/0]).
+-export_type(['pb_upload_avatar'/0, 'pb_avatar'/0, 'pb_avatars'/0]).
 
--spec encode_msg(#pb_avatar{} | #pb_avatars{}) -> binary().
+-spec encode_msg(#pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{}) -> binary().
 encode_msg(Msg) when tuple_size(Msg) >= 1 -> encode_msg(Msg, element(1, Msg), []).
 
--spec encode_msg(#pb_avatar{} | #pb_avatars{}, atom() | list()) -> binary().
+-spec encode_msg(#pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{}, atom() | list()) -> binary().
 encode_msg(Msg, MsgName) when is_atom(MsgName) -> encode_msg(Msg, MsgName, []);
 encode_msg(Msg, Opts) when tuple_size(Msg) >= 1, is_list(Opts) -> encode_msg(Msg, element(1, Msg), Opts).
 
--spec encode_msg(#pb_avatar{} | #pb_avatars{}, atom(), list()) -> binary().
+-spec encode_msg(#pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{}, atom(), list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
     case proplists:get_bool(verify, Opts) of
       true -> verify_msg(Msg, MsgName, Opts);
@@ -73,15 +75,16 @@ encode_msg(Msg, MsgName, Opts) ->
     end,
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
+      pb_upload_avatar -> encode_msg_pb_upload_avatar(id(Msg, TrUserData), TrUserData);
       pb_avatar -> encode_msg_pb_avatar(id(Msg, TrUserData), TrUserData);
       pb_avatars -> encode_msg_pb_avatars(id(Msg, TrUserData), TrUserData)
     end.
 
 
-encode_msg_pb_avatar(Msg, TrUserData) -> encode_msg_pb_avatar(Msg, <<>>, TrUserData).
+encode_msg_pb_upload_avatar(Msg, TrUserData) -> encode_msg_pb_upload_avatar(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_avatar(#pb_avatar{id = F1, uid = F2, data = F3}, Bin, TrUserData) ->
+encode_msg_pb_upload_avatar(#pb_upload_avatar{id = F1, data = F2}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -92,22 +95,37 @@ encode_msg_pb_avatar(#pb_avatar{id = F1, uid = F2, data = F3}, Bin, TrUserData) 
 		  end
 		end
 	 end,
-    B2 = if F2 == undefined -> B1;
+    if F2 == undefined -> B1;
+       true ->
+	   begin
+	     TrF2 = id(F2, TrUserData),
+	     case iolist_size(TrF2) of
+	       0 -> B1;
+	       _ -> e_type_bytes(TrF2, <<B1/binary, 18>>, TrUserData)
+	     end
+	   end
+    end.
+
+encode_msg_pb_avatar(Msg, TrUserData) -> encode_msg_pb_avatar(Msg, <<>>, TrUserData).
+
+
+encode_msg_pb_avatar(#pb_avatar{id = F1, uid = F2}, Bin, TrUserData) ->
+    B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
-		  TrF2 = id(F2, TrUserData),
-		  if TrF2 =:= 0 -> B1;
-		     true -> e_type_int64(TrF2, <<B1/binary, 16>>, TrUserData)
+		  TrF1 = id(F1, TrUserData),
+		  case is_empty_string(TrF1) of
+		    true -> Bin;
+		    false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
 		  end
 		end
 	 end,
-    if F3 == undefined -> B2;
+    if F2 == undefined -> B1;
        true ->
 	   begin
-	     TrF3 = id(F3, TrUserData),
-	     case iolist_size(TrF3) of
-	       0 -> B2;
-	       _ -> e_type_bytes(TrF3, <<B2/binary, 26>>, TrUserData)
+	     TrF2 = id(F2, TrUserData),
+	     if TrF2 =:= 0 -> B1;
+		true -> e_type_int64(TrF2, <<B1/binary, 16>>, TrUserData)
 	     end
 	   end
     end.
@@ -219,60 +237,99 @@ decode_msg_1_catch(Bin, MsgName, TrUserData) ->
     end.
 -endif.
 
+decode_msg_2_doit(pb_upload_avatar, Bin, TrUserData) -> id(decode_msg_pb_upload_avatar(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_avatar, Bin, TrUserData) -> id(decode_msg_pb_avatar(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_avatars, Bin, TrUserData) -> id(decode_msg_pb_avatars(Bin, TrUserData), TrUserData).
 
 
 
-decode_msg_pb_avatar(Bin, TrUserData) -> dfp_read_field_def_pb_avatar(Bin, 0, 0, id([], TrUserData), id(0, TrUserData), id(<<>>, TrUserData), TrUserData).
+decode_msg_pb_upload_avatar(Bin, TrUserData) -> dfp_read_field_def_pb_upload_avatar(Bin, 0, 0, id([], TrUserData), id(<<>>, TrUserData), TrUserData).
 
-dfp_read_field_def_pb_avatar(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_avatar_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_avatar(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_avatar_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_avatar(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_avatar_data(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_avatar(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_avatar{id = F@_1, uid = F@_2, data = F@_3};
-dfp_read_field_def_pb_avatar(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_avatar(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+dfp_read_field_def_pb_upload_avatar(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_upload_avatar_id(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+dfp_read_field_def_pb_upload_avatar(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_upload_avatar_data(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+dfp_read_field_def_pb_upload_avatar(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_upload_avatar{id = F@_1, data = F@_2};
+dfp_read_field_def_pb_upload_avatar(Other, Z1, Z2, F@_1, F@_2, TrUserData) -> dg_read_field_def_pb_upload_avatar(Other, Z1, Z2, F@_1, F@_2, TrUserData).
 
-dg_read_field_def_pb_avatar(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_avatar(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-dg_read_field_def_pb_avatar(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
+dg_read_field_def_pb_upload_avatar(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_upload_avatar(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+dg_read_field_def_pb_upload_avatar(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-      10 -> d_field_pb_avatar_id(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-      16 -> d_field_pb_avatar_uid(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-      26 -> d_field_pb_avatar_data(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      10 -> d_field_pb_upload_avatar_id(Rest, 0, 0, F@_1, F@_2, TrUserData);
+      18 -> d_field_pb_upload_avatar_data(Rest, 0, 0, F@_1, F@_2, TrUserData);
       _ ->
 	  case Key band 7 of
-	    0 -> skip_varint_pb_avatar(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    1 -> skip_64_pb_avatar(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    2 -> skip_length_delimited_pb_avatar(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    3 -> skip_group_pb_avatar(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
-	    5 -> skip_32_pb_avatar(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
+	    0 -> skip_varint_pb_upload_avatar(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    1 -> skip_64_pb_upload_avatar(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    2 -> skip_length_delimited_pb_upload_avatar(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    3 -> skip_group_pb_upload_avatar(Rest, Key bsr 3, 0, F@_1, F@_2, TrUserData);
+	    5 -> skip_32_pb_upload_avatar(Rest, 0, 0, F@_1, F@_2, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_avatar(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_avatar{id = F@_1, uid = F@_2, data = F@_3}.
+dg_read_field_def_pb_upload_avatar(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_upload_avatar{id = F@_1, data = F@_2}.
 
-d_field_pb_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_avatar(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+d_field_pb_upload_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_upload_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+d_field_pb_upload_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_upload_avatar(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
-d_field_pb_avatar_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_avatar_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_avatar_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_avatar(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
+d_field_pb_upload_avatar_data(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_upload_avatar_data(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+d_field_pb_upload_avatar_data(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_upload_avatar(RestF, 0, 0, F@_1, NewFValue, TrUserData).
 
-d_field_pb_avatar_data(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_avatar_data(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_avatar_data(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_avatar(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
+skip_varint_pb_upload_avatar(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_upload_avatar(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+skip_varint_pb_upload_avatar(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_upload_avatar(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-skip_varint_pb_avatar(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_avatar(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-skip_varint_pb_avatar(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_avatar(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_length_delimited_pb_upload_avatar(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_pb_upload_avatar(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+skip_length_delimited_pb_upload_avatar(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_upload_avatar(Rest2, 0, 0, F@_1, F@_2, TrUserData).
 
-skip_length_delimited_pb_avatar(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_avatar(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-skip_length_delimited_pb_avatar(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_avatar(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
+skip_group_pb_upload_avatar(Bin, FNum, Z2, F@_1, F@_2, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_upload_avatar(Rest, 0, Z2, F@_1, F@_2, TrUserData).
 
-skip_group_pb_avatar(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_avatar(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_32_pb_upload_avatar(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_upload_avatar(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-skip_32_pb_avatar(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_avatar(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_64_pb_upload_avatar(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_upload_avatar(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-skip_64_pb_avatar(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_avatar(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+decode_msg_pb_avatar(Bin, TrUserData) -> dfp_read_field_def_pb_avatar(Bin, 0, 0, id([], TrUserData), id(0, TrUserData), TrUserData).
+
+dfp_read_field_def_pb_avatar(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_avatar_id(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+dfp_read_field_def_pb_avatar(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_avatar_uid(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+dfp_read_field_def_pb_avatar(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_avatar{id = F@_1, uid = F@_2};
+dfp_read_field_def_pb_avatar(Other, Z1, Z2, F@_1, F@_2, TrUserData) -> dg_read_field_def_pb_avatar(Other, Z1, Z2, F@_1, F@_2, TrUserData).
+
+dg_read_field_def_pb_avatar(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_avatar(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+dg_read_field_def_pb_avatar(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key of
+      10 -> d_field_pb_avatar_id(Rest, 0, 0, F@_1, F@_2, TrUserData);
+      16 -> d_field_pb_avatar_uid(Rest, 0, 0, F@_1, F@_2, TrUserData);
+      _ ->
+	  case Key band 7 of
+	    0 -> skip_varint_pb_avatar(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    1 -> skip_64_pb_avatar(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    2 -> skip_length_delimited_pb_avatar(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    3 -> skip_group_pb_avatar(Rest, Key bsr 3, 0, F@_1, F@_2, TrUserData);
+	    5 -> skip_32_pb_avatar(Rest, 0, 0, F@_1, F@_2, TrUserData)
+	  end
+    end;
+dg_read_field_def_pb_avatar(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_avatar{id = F@_1, uid = F@_2}.
+
+d_field_pb_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+d_field_pb_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_avatar(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+
+d_field_pb_avatar_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_avatar_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+d_field_pb_avatar_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
+    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_avatar(RestF, 0, 0, F@_1, NewFValue, TrUserData).
+
+skip_varint_pb_avatar(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_avatar(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+skip_varint_pb_avatar(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_avatar(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+
+skip_length_delimited_pb_avatar(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_pb_avatar(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+skip_length_delimited_pb_avatar(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_avatar(Rest2, 0, 0, F@_1, F@_2, TrUserData).
+
+skip_group_pb_avatar(Bin, FNum, Z2, F@_1, F@_2, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_avatar(Rest, 0, Z2, F@_1, F@_2, TrUserData).
+
+skip_32_pb_avatar(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_avatar(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+
+skip_64_pb_avatar(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_avatar(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
 decode_msg_pb_avatars(Bin, TrUserData) -> dfp_read_field_def_pb_avatars(Bin, 0, 0, id([], TrUserData), TrUserData).
 
@@ -378,12 +435,24 @@ merge_msgs(Prev, New, Opts) when element(1, Prev) =:= element(1, New), is_list(O
 merge_msgs(Prev, New, MsgName, Opts) ->
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
+      pb_upload_avatar -> merge_msg_pb_upload_avatar(Prev, New, TrUserData);
       pb_avatar -> merge_msg_pb_avatar(Prev, New, TrUserData);
       pb_avatars -> merge_msg_pb_avatars(Prev, New, TrUserData)
     end.
 
+-compile({nowarn_unused_function,merge_msg_pb_upload_avatar/3}).
+merge_msg_pb_upload_avatar(#pb_upload_avatar{id = PFid, data = PFdata}, #pb_upload_avatar{id = NFid, data = NFdata}, _) ->
+    #pb_upload_avatar{id =
+			  if NFid =:= undefined -> PFid;
+			     true -> NFid
+			  end,
+		      data =
+			  if NFdata =:= undefined -> PFdata;
+			     true -> NFdata
+			  end}.
+
 -compile({nowarn_unused_function,merge_msg_pb_avatar/3}).
-merge_msg_pb_avatar(#pb_avatar{id = PFid, uid = PFuid, data = PFdata}, #pb_avatar{id = NFid, uid = NFuid, data = NFdata}, _) ->
+merge_msg_pb_avatar(#pb_avatar{id = PFid, uid = PFuid}, #pb_avatar{id = NFid, uid = NFuid}, _) ->
     #pb_avatar{id =
 		   if NFid =:= undefined -> PFid;
 		      true -> NFid
@@ -391,10 +460,6 @@ merge_msg_pb_avatar(#pb_avatar{id = PFid, uid = PFuid, data = PFdata}, #pb_avata
 	       uid =
 		   if NFuid =:= undefined -> PFuid;
 		      true -> NFuid
-		   end,
-	       data =
-		   if NFdata =:= undefined -> PFdata;
-		      true -> NFdata
 		   end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_avatars/3}).
@@ -416,23 +481,33 @@ verify_msg(X, _Opts) -> mk_type_error(not_a_known_message, X, []).
 verify_msg(Msg, MsgName, Opts) ->
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
+      pb_upload_avatar -> v_msg_pb_upload_avatar(Msg, [MsgName], TrUserData);
       pb_avatar -> v_msg_pb_avatar(Msg, [MsgName], TrUserData);
       pb_avatars -> v_msg_pb_avatars(Msg, [MsgName], TrUserData);
       _ -> mk_type_error(not_a_known_message, Msg, [])
     end.
 
 
+-compile({nowarn_unused_function,v_msg_pb_upload_avatar/3}).
+-dialyzer({nowarn_function,v_msg_pb_upload_avatar/3}).
+v_msg_pb_upload_avatar(#pb_upload_avatar{id = F1, data = F2}, Path, TrUserData) ->
+    if F1 == undefined -> ok;
+       true -> v_type_string(F1, [id | Path], TrUserData)
+    end,
+    if F2 == undefined -> ok;
+       true -> v_type_bytes(F2, [data | Path], TrUserData)
+    end,
+    ok;
+v_msg_pb_upload_avatar(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_upload_avatar}, X, Path).
+
 -compile({nowarn_unused_function,v_msg_pb_avatar/3}).
 -dialyzer({nowarn_function,v_msg_pb_avatar/3}).
-v_msg_pb_avatar(#pb_avatar{id = F1, uid = F2, data = F3}, Path, TrUserData) ->
+v_msg_pb_avatar(#pb_avatar{id = F1, uid = F2}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_string(F1, [id | Path], TrUserData)
     end,
     if F2 == undefined -> ok;
        true -> v_type_int64(F2, [uid | Path], TrUserData)
-    end,
-    if F3 == undefined -> ok;
-       true -> v_type_bytes(F3, [data | Path], TrUserData)
     end,
     ok;
 v_msg_pb_avatar(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_avatar}, X, Path).
@@ -505,19 +580,18 @@ cons(Elem, Acc, _TrUserData) -> [Elem | Acc].
 
 
 get_msg_defs() ->
-    [{{msg, pb_avatar},
-      [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = uid, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []},
-       #field{name = data, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []}]},
+    [{{msg, pb_upload_avatar}, [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = data, fnum = 2, rnum = 3, type = bytes, occurrence = optional, opts = []}]},
+     {{msg, pb_avatar}, [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = uid, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}]},
      {{msg, pb_avatars}, [#field{name = avatars, fnum = 1, rnum = 2, type = {msg, pb_avatar}, occurrence = repeated, opts = []}]}].
 
 
-get_msg_names() -> [pb_avatar, pb_avatars].
+get_msg_names() -> [pb_upload_avatar, pb_avatar, pb_avatars].
 
 
 get_group_names() -> [].
 
 
-get_msg_or_group_names() -> [pb_avatar, pb_avatars].
+get_msg_or_group_names() -> [pb_upload_avatar, pb_avatar, pb_avatars].
 
 
 get_enum_names() -> [].
@@ -534,9 +608,8 @@ fetch_msg_def(MsgName) ->
 fetch_enum_def(EnumName) -> erlang:error({no_such_enum, EnumName}).
 
 
-find_msg_def(pb_avatar) ->
-    [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = uid, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []},
-     #field{name = data, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []}];
+find_msg_def(pb_upload_avatar) -> [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = data, fnum = 2, rnum = 3, type = bytes, occurrence = optional, opts = []}];
+find_msg_def(pb_avatar) -> [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = uid, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}];
 find_msg_def(pb_avatars) -> [#field{name = avatars, fnum = 1, rnum = 2, type = {msg, pb_avatar}, occurrence = repeated, opts = []}];
 find_msg_def(_) -> error.
 
@@ -596,11 +669,13 @@ fqbins_to_service_and_rpc_name(S, R) -> error({gpb_error, {badservice_or_rpc, {S
 service_and_rpc_name_to_fqbins(S, R) -> error({gpb_error, {badservice_or_rpc, {S, R}}}).
 
 
+fqbin_to_msg_name(<<"upload_avatar">>) -> pb_upload_avatar;
 fqbin_to_msg_name(<<"avatar">>) -> pb_avatar;
 fqbin_to_msg_name(<<"avatars">>) -> pb_avatars;
 fqbin_to_msg_name(E) -> error({gpb_error, {badmsg, E}}).
 
 
+msg_name_to_fqbin(pb_upload_avatar) -> <<"upload_avatar">>;
 msg_name_to_fqbin(pb_avatar) -> <<"avatar">>;
 msg_name_to_fqbin(pb_avatars) -> <<"avatars">>;
 msg_name_to_fqbin(E) -> error({gpb_error, {badmsg, E}}).
@@ -641,7 +716,7 @@ get_all_source_basenames() -> ["avatar.proto"].
 get_all_proto_names() -> ["avatar"].
 
 
-get_msg_containment("avatar") -> [pb_avatar, pb_avatars];
+get_msg_containment("avatar") -> [pb_avatar, pb_avatars, pb_upload_avatar];
 get_msg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -661,6 +736,7 @@ get_enum_containment("avatar") -> [];
 get_enum_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
+get_proto_by_msg_name_as_fqbin(<<"upload_avatar">>) -> "avatar";
 get_proto_by_msg_name_as_fqbin(<<"avatar">>) -> "avatar";
 get_proto_by_msg_name_as_fqbin(<<"avatars">>) -> "avatar";
 get_proto_by_msg_name_as_fqbin(E) -> error({gpb_error, {badmsg, E}}).

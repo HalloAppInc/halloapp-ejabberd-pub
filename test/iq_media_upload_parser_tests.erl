@@ -60,13 +60,13 @@
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         type = result,
         payload = #pb_iq_payload{
-            content = {um, #pb_upload_media{
+            content = {upload_media, #pb_upload_media{
                 size = 100,
-                urls = [#pb_media_urls{
+                url = #pb_media_url{
                     get = <<"https://u-cdn.halloapp.net">>,
                     put = <<"https://us-e-halloapp-media.s3-accelerate">>,
                     patch = <<>>
-                }]
+                }
             }}
         }
     }

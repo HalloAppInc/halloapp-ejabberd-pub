@@ -30,30 +30,31 @@ message ping {
 
 message iq_payload {
     oneof content {
-        upload_media um = 1;
-        contact_list cl = 2;
-        avatar a = 3;
-        avatars as = 4;
-        client_mode cm = 5;
-        client_version cv = 6;
-        push_register pr = 7;
-        whisper_keys wk = 8;
-        ping p = 9;
-        feed_item fi = 10;
-        feed_node_items fni = 11;
+        upload_media upload_media = 1;
+        contact_list contact_list = 2;
+        upload_avatar upload_avatar = 3;
+        avatar avatar = 4;
+        avatars avatars = 5;
+        client_mode client_mode = 6;
+        client_version client_version = 7;
+        push_register push_register = 8;
+        whisper_keys whisper_keys = 9;
+        ping ping = 10;
+        feed_item feed_item = 11;
+        feed_node_items feed_node_items = 12;
     }
 }
 
 message msg_payload {
     oneof content {
-        contact_list cl = 1;
-        avatar a = 2;
-        whisper_keys wk = 3;
-        seen s = 4;
-        received r = 5;
-        chat c = 6;
-        feed_item fi = 7;
-        feed_node_items fni = 8;
+        contact_list contact_list = 1;
+        avatar avatar = 2;
+        whisper_keys whisper_keys = 3;
+        seen_receipt seen = 4;
+        delivery_receipt delivery = 5;
+        chat chat = 6;
+        feed_item feed_item = 7;
+        feed_node_items feed_node_items = 8;
     }
 }
 

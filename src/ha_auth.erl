@@ -16,7 +16,6 @@
 -export([find_msg_def/1, fetch_msg_def/1]).
 -export([find_enum_def/1, fetch_enum_def/1]).
 -export([enum_symbol_by_value/2, enum_value_by_symbol/2]).
--export(['enum_symbol_by_value_pb_auth_request.Resource'/1, 'enum_value_by_symbol_pb_auth_request.Resource'/1]).
 -export(['enum_symbol_by_value_pb_client_mode.Mode'/1, 'enum_value_by_symbol_pb_client_mode.Mode'/1]).
 -export([get_service_names/0]).
 -export([get_service_def/1]).
@@ -50,9 +49,8 @@
 -include("gpb.hrl").
 
 %% enumerated types
--type 'pb_auth_request.Resource'() :: android | ios.
 -type 'pb_client_mode.Mode'() :: active | passive.
--export_type(['pb_auth_request.Resource'/0, 'pb_client_mode.Mode'/0]).
+-export_type(['pb_client_mode.Mode'/0]).
 
 %% message types
 -type pb_auth_request() :: #pb_auth_request{}.
@@ -132,8 +130,9 @@ encode_msg_pb_auth_request(#pb_auth_request{uid = F1, pwd = F2, cm = F3, cv = F4
        true ->
 	   begin
 	     TrF5 = id(F5, TrUserData),
-	     if TrF5 =:= android; TrF5 =:= 0 -> B4;
-		true -> 'e_enum_pb_auth_request.Resource'(TrF5, <<B4/binary, 40>>, TrUserData)
+	     case is_empty_string(TrF5) of
+	       true -> B4;
+	       false -> e_type_string(TrF5, <<B4/binary, 42>>, TrUserData)
 	     end
 	   end
     end.
@@ -204,10 +203,6 @@ encode_msg_pb_client_version(#pb_client_version{version = F1, expires_in_seconds
 e_mfield_pb_auth_request_cm(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_client_mode(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_pb_auth_request_cv(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_client_version(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
-
-'e_enum_pb_auth_request.Resource'(android, Bin, _TrUserData) -> <<Bin/binary, 0>>;
-'e_enum_pb_auth_request.Resource'(ios, Bin, _TrUserData) -> <<Bin/binary, 1>>;
-'e_enum_pb_auth_request.Resource'(V, Bin, _TrUserData) -> e_varint(V, Bin).
 
 'e_enum_pb_client_mode.Mode'(active, Bin, _TrUserData) -> <<Bin/binary, 0>>;
 'e_enum_pb_client_mode.Mode'(passive, Bin, _TrUserData) -> <<Bin/binary, 1>>;
@@ -311,13 +306,13 @@ decode_msg_2_doit(pb_client_version, Bin, TrUserData) -> id(decode_msg_pb_client
 
 
 
-decode_msg_pb_auth_request(Bin, TrUserData) -> dfp_read_field_def_pb_auth_request(Bin, 0, 0, id(0, TrUserData), id([], TrUserData), id(undefined, TrUserData), id(undefined, TrUserData), id(android, TrUserData), TrUserData).
+decode_msg_pb_auth_request(Bin, TrUserData) -> dfp_read_field_def_pb_auth_request(Bin, 0, 0, id(0, TrUserData), id([], TrUserData), id(undefined, TrUserData), id(undefined, TrUserData), id([], TrUserData), TrUserData).
 
 dfp_read_field_def_pb_auth_request(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_auth_request(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_pwd(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_auth_request(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_cm(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_auth_request(<<34, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_cv(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dfp_read_field_def_pb_auth_request(<<40, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_resource(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_pb_auth_request(<<42, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_resource(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_auth_request(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> #pb_auth_request{uid = F@_1, pwd = F@_2, cm = F@_3, cv = F@_4, resource = F@_5};
 dfp_read_field_def_pb_auth_request(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dg_read_field_def_pb_auth_request(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
@@ -329,7 +324,7 @@ dg_read_field_def_pb_auth_request(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2,
       18 -> d_field_pb_auth_request_pwd(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
       26 -> d_field_pb_auth_request_cm(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
       34 -> d_field_pb_auth_request_cv(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-      40 -> d_field_pb_auth_request_resource(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+      42 -> d_field_pb_auth_request_resource(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
       _ ->
 	  case Key band 7 of
 	    0 -> skip_varint_pb_auth_request(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
@@ -370,7 +365,7 @@ d_field_pb_auth_request_cv(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, 
 
 d_field_pb_auth_request_resource(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_request_resource(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_auth_request_resource(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, TrUserData) ->
-    {NewFValue, RestF} = {id('d_enum_pb_auth_request.Resource'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
     dfp_read_field_def_pb_auth_request(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, TrUserData).
 
 skip_varint_pb_auth_request(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> skip_varint_pb_auth_request(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
@@ -511,10 +506,6 @@ skip_group_pb_client_version(Bin, FNum, Z2, F@_1, F@_2, TrUserData) -> {_, Rest}
 skip_32_pb_client_version(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_client_version(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
 skip_64_pb_client_version(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_client_version(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
-
-'d_enum_pb_auth_request.Resource'(0) -> android;
-'d_enum_pb_auth_request.Resource'(1) -> ios;
-'d_enum_pb_auth_request.Resource'(V) -> V.
 
 'd_enum_pb_client_mode.Mode'(0) -> active;
 'd_enum_pb_client_mode.Mode'(1) -> passive;
@@ -681,7 +672,7 @@ v_msg_pb_auth_request(#pb_auth_request{uid = F1, pwd = F2, cm = F3, cv = F4, res
        true -> v_msg_pb_client_version(F4, [cv | Path], TrUserData)
     end,
     if F5 == undefined -> ok;
-       true -> 'v_enum_pb_auth_request.Resource'(F5, [resource | Path], TrUserData)
+       true -> v_type_string(F5, [resource | Path], TrUserData)
     end,
     ok;
 v_msg_pb_auth_request(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_auth_request}, X, Path).
@@ -718,13 +709,6 @@ v_msg_pb_client_version(#pb_client_version{version = F1, expires_in_seconds = F2
     end,
     ok;
 v_msg_pb_client_version(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_client_version}, X, Path).
-
--compile({nowarn_unused_function,'v_enum_pb_auth_request.Resource'/3}).
--dialyzer({nowarn_function,'v_enum_pb_auth_request.Resource'/3}).
-'v_enum_pb_auth_request.Resource'(android, _Path, _TrUserData) -> ok;
-'v_enum_pb_auth_request.Resource'(ios, _Path, _TrUserData) -> ok;
-'v_enum_pb_auth_request.Resource'(V, Path, TrUserData) when is_integer(V) -> v_type_sint32(V, Path, TrUserData);
-'v_enum_pb_auth_request.Resource'(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'pb_auth_request.Resource'}, X, Path).
 
 -compile({nowarn_unused_function,'v_enum_pb_client_mode.Mode'/3}).
 -dialyzer({nowarn_function,'v_enum_pb_client_mode.Mode'/3}).
@@ -792,11 +776,11 @@ cons(Elem, Acc, _TrUserData) -> [Elem | Acc].
 
 
 get_msg_defs() ->
-    [{{enum, 'pb_auth_request.Resource'}, [{android, 0}, {ios, 1}]}, {{enum, 'pb_client_mode.Mode'}, [{active, 0}, {passive, 1}]},
+    [{{enum, 'pb_client_mode.Mode'}, [{active, 0}, {passive, 1}]},
      {{msg, pb_auth_request},
       [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = pwd, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = cm, fnum = 3, rnum = 4, type = {msg, pb_client_mode}, occurrence = optional, opts = []}, #field{name = cv, fnum = 4, rnum = 5, type = {msg, pb_client_version}, occurrence = optional, opts = []},
-       #field{name = resource, fnum = 5, rnum = 6, type = {enum, 'pb_auth_request.Resource'}, occurrence = optional, opts = []}]},
+       #field{name = resource, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}]},
      {{msg, pb_auth_result}, [#field{name = result, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = reason, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}]},
      {{msg, pb_client_mode}, [#field{name = mode, fnum = 1, rnum = 2, type = {enum, 'pb_client_mode.Mode'}, occurrence = optional, opts = []}]},
      {{msg, pb_client_version}, [#field{name = version, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = expires_in_seconds, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}]}].
@@ -811,7 +795,7 @@ get_group_names() -> [].
 get_msg_or_group_names() -> [pb_auth_request, pb_auth_result, pb_client_mode, pb_client_version].
 
 
-get_enum_names() -> ['pb_auth_request.Resource', 'pb_client_mode.Mode'].
+get_enum_names() -> ['pb_client_mode.Mode'].
 
 
 fetch_msg_def(MsgName) ->
@@ -831,32 +815,22 @@ fetch_enum_def(EnumName) ->
 find_msg_def(pb_auth_request) ->
     [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = pwd, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = cm, fnum = 3, rnum = 4, type = {msg, pb_client_mode}, occurrence = optional, opts = []}, #field{name = cv, fnum = 4, rnum = 5, type = {msg, pb_client_version}, occurrence = optional, opts = []},
-     #field{name = resource, fnum = 5, rnum = 6, type = {enum, 'pb_auth_request.Resource'}, occurrence = optional, opts = []}];
+     #field{name = resource, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}];
 find_msg_def(pb_auth_result) -> [#field{name = result, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = reason, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}];
 find_msg_def(pb_client_mode) -> [#field{name = mode, fnum = 1, rnum = 2, type = {enum, 'pb_client_mode.Mode'}, occurrence = optional, opts = []}];
 find_msg_def(pb_client_version) -> [#field{name = version, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = expires_in_seconds, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}];
 find_msg_def(_) -> error.
 
 
-find_enum_def('pb_auth_request.Resource') -> [{android, 0}, {ios, 1}];
 find_enum_def('pb_client_mode.Mode') -> [{active, 0}, {passive, 1}];
 find_enum_def(_) -> error.
 
 
-enum_symbol_by_value('pb_auth_request.Resource', Value) -> 'enum_symbol_by_value_pb_auth_request.Resource'(Value);
 enum_symbol_by_value('pb_client_mode.Mode', Value) -> 'enum_symbol_by_value_pb_client_mode.Mode'(Value).
 
 
-enum_value_by_symbol('pb_auth_request.Resource', Sym) -> 'enum_value_by_symbol_pb_auth_request.Resource'(Sym);
 enum_value_by_symbol('pb_client_mode.Mode', Sym) -> 'enum_value_by_symbol_pb_client_mode.Mode'(Sym).
 
-
-'enum_symbol_by_value_pb_auth_request.Resource'(0) -> android;
-'enum_symbol_by_value_pb_auth_request.Resource'(1) -> ios.
-
-
-'enum_value_by_symbol_pb_auth_request.Resource'(android) -> 0;
-'enum_value_by_symbol_pb_auth_request.Resource'(ios) -> 1.
 
 'enum_symbol_by_value_pb_client_mode.Mode'(0) -> active;
 'enum_symbol_by_value_pb_client_mode.Mode'(1) -> passive.
@@ -923,12 +897,10 @@ msg_name_to_fqbin(pb_client_version) -> <<"client_version">>;
 msg_name_to_fqbin(E) -> error({gpb_error, {badmsg, E}}).
 
 
-fqbin_to_enum_name(<<"auth_request.Resource">>) -> 'pb_auth_request.Resource';
 fqbin_to_enum_name(<<"client_mode.Mode">>) -> 'pb_client_mode.Mode';
 fqbin_to_enum_name(E) -> error({gpb_error, {badenum, E}}).
 
 
-enum_name_to_fqbin('pb_auth_request.Resource') -> <<"auth_request.Resource">>;
 enum_name_to_fqbin('pb_client_mode.Mode') -> <<"client_mode.Mode">>;
 enum_name_to_fqbin(E) -> error({gpb_error, {badenum, E}}).
 
@@ -980,7 +952,7 @@ get_rpc_containment("client_info") -> [];
 get_rpc_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
-get_enum_containment("ha_auth") -> ['pb_auth_request.Resource'];
+get_enum_containment("ha_auth") -> [];
 get_enum_containment("client_info") -> ['pb_client_mode.Mode'];
 get_enum_containment(P) -> error({gpb_error, {badproto, P}}).
 
@@ -997,7 +969,6 @@ get_proto_by_service_name_as_fqbin(E) -> error({gpb_error, {badservice, E}}).
 
 
 get_proto_by_enum_name_as_fqbin(<<"client_mode.Mode">>) -> "client_info";
-get_proto_by_enum_name_as_fqbin(<<"auth_request.Resource">>) -> "ha_auth";
 get_proto_by_enum_name_as_fqbin(E) -> error({gpb_error, {badenum, E}}).
 
 

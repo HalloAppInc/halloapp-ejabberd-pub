@@ -3,10 +3,14 @@ syntax = "proto3";
 
 // Avatar
 
+message upload_avatar {
+    string id = 1;
+    bytes data = 2;
+}
+
 message avatar {
     string id = 1;
     int64 uid = 2;
-    bytes data = 3;
 }
 
 message avatars {

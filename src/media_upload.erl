@@ -52,20 +52,20 @@
 -export_type([]).
 
 %% message types
--type pb_media_urls() :: #pb_media_urls{}.
+-type pb_media_url() :: #pb_media_url{}.
 
 -type pb_upload_media() :: #pb_upload_media{}.
 
--export_type(['pb_media_urls'/0, 'pb_upload_media'/0]).
+-export_type(['pb_media_url'/0, 'pb_upload_media'/0]).
 
--spec encode_msg(#pb_media_urls{} | #pb_upload_media{}) -> binary().
+-spec encode_msg(#pb_media_url{} | #pb_upload_media{}) -> binary().
 encode_msg(Msg) when tuple_size(Msg) >= 1 -> encode_msg(Msg, element(1, Msg), []).
 
--spec encode_msg(#pb_media_urls{} | #pb_upload_media{}, atom() | list()) -> binary().
+-spec encode_msg(#pb_media_url{} | #pb_upload_media{}, atom() | list()) -> binary().
 encode_msg(Msg, MsgName) when is_atom(MsgName) -> encode_msg(Msg, MsgName, []);
 encode_msg(Msg, Opts) when tuple_size(Msg) >= 1, is_list(Opts) -> encode_msg(Msg, element(1, Msg), Opts).
 
--spec encode_msg(#pb_media_urls{} | #pb_upload_media{}, atom(), list()) -> binary().
+-spec encode_msg(#pb_media_url{} | #pb_upload_media{}, atom(), list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
     case proplists:get_bool(verify, Opts) of
       true -> verify_msg(Msg, MsgName, Opts);
@@ -73,15 +73,15 @@ encode_msg(Msg, MsgName, Opts) ->
     end,
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
-      pb_media_urls -> encode_msg_pb_media_urls(id(Msg, TrUserData), TrUserData);
+      pb_media_url -> encode_msg_pb_media_url(id(Msg, TrUserData), TrUserData);
       pb_upload_media -> encode_msg_pb_upload_media(id(Msg, TrUserData), TrUserData)
     end.
 
 
-encode_msg_pb_media_urls(Msg, TrUserData) -> encode_msg_pb_media_urls(Msg, <<>>, TrUserData).
+encode_msg_pb_media_url(Msg, TrUserData) -> encode_msg_pb_media_url(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_media_urls(#pb_media_urls{get = F1, put = F2, patch = F3}, Bin, TrUserData) ->
+encode_msg_pb_media_url(#pb_media_url{get = F1, put = F2, patch = F3}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -116,7 +116,7 @@ encode_msg_pb_media_urls(#pb_media_urls{get = F1, put = F2, patch = F3}, Bin, Tr
 encode_msg_pb_upload_media(Msg, TrUserData) -> encode_msg_pb_upload_media(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_upload_media(#pb_upload_media{size = F1, urls = F2}, Bin, TrUserData) ->
+encode_msg_pb_upload_media(#pb_upload_media{size = F1, url = F2}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -126,17 +126,17 @@ encode_msg_pb_upload_media(#pb_upload_media{size = F1, urls = F2}, Bin, TrUserDa
 		  end
 		end
 	 end,
-    begin
-      TrF2 = id(F2, TrUserData),
-      if TrF2 == [] -> B1;
-	 true -> e_field_pb_upload_media_urls(TrF2, B1, TrUserData)
-      end
+    if F2 == undefined -> B1;
+       true ->
+	   begin
+	     TrF2 = id(F2, TrUserData),
+	     if TrF2 =:= undefined -> B1;
+		true -> e_mfield_pb_upload_media_url(TrF2, <<B1/binary, 18>>, TrUserData)
+	     end
+	   end
     end.
 
-e_mfield_pb_upload_media_urls(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_media_urls(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
-
-e_field_pb_upload_media_urls([Elem | Rest], Bin, TrUserData) -> Bin2 = <<Bin/binary, 18>>, Bin3 = e_mfield_pb_upload_media_urls(id(Elem, TrUserData), Bin2, TrUserData), e_field_pb_upload_media_urls(Rest, Bin3, TrUserData);
-e_field_pb_upload_media_urls([], Bin, _TrUserData) -> Bin.
+e_mfield_pb_upload_media_url(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_media_url(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
 -compile({nowarn_unused_function,e_type_sint/3}).
 e_type_sint(Value, Bin, _TrUserData) when Value >= 0 -> e_varint(Value * 2, Bin);
@@ -229,66 +229,66 @@ decode_msg_1_catch(Bin, MsgName, TrUserData) ->
     end.
 -endif.
 
-decode_msg_2_doit(pb_media_urls, Bin, TrUserData) -> id(decode_msg_pb_media_urls(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(pb_media_url, Bin, TrUserData) -> id(decode_msg_pb_media_url(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_upload_media, Bin, TrUserData) -> id(decode_msg_pb_upload_media(Bin, TrUserData), TrUserData).
 
 
 
-decode_msg_pb_media_urls(Bin, TrUserData) -> dfp_read_field_def_pb_media_urls(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id([], TrUserData), TrUserData).
+decode_msg_pb_media_url(Bin, TrUserData) -> dfp_read_field_def_pb_media_url(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id([], TrUserData), TrUserData).
 
-dfp_read_field_def_pb_media_urls(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_media_urls_get(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_media_urls(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_media_urls_put(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_media_urls(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_media_urls_patch(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_media_urls(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_media_urls{get = F@_1, put = F@_2, patch = F@_3};
-dfp_read_field_def_pb_media_urls(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_media_urls(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+dfp_read_field_def_pb_media_url(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_media_url_get(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_media_url(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_media_url_put(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_media_url(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_media_url_patch(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_media_url(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_media_url{get = F@_1, put = F@_2, patch = F@_3};
+dfp_read_field_def_pb_media_url(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_media_url(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-dg_read_field_def_pb_media_urls(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_media_urls(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-dg_read_field_def_pb_media_urls(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
+dg_read_field_def_pb_media_url(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_media_url(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+dg_read_field_def_pb_media_url(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-      10 -> d_field_pb_media_urls_get(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-      18 -> d_field_pb_media_urls_put(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-      26 -> d_field_pb_media_urls_patch(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      10 -> d_field_pb_media_url_get(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      18 -> d_field_pb_media_url_put(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      26 -> d_field_pb_media_url_patch(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
       _ ->
 	  case Key band 7 of
-	    0 -> skip_varint_pb_media_urls(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    1 -> skip_64_pb_media_urls(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    2 -> skip_length_delimited_pb_media_urls(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    3 -> skip_group_pb_media_urls(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
-	    5 -> skip_32_pb_media_urls(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
+	    0 -> skip_varint_pb_media_url(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    1 -> skip_64_pb_media_url(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    2 -> skip_length_delimited_pb_media_url(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    3 -> skip_group_pb_media_url(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
+	    5 -> skip_32_pb_media_url(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_media_urls(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_media_urls{get = F@_1, put = F@_2, patch = F@_3}.
+dg_read_field_def_pb_media_url(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_media_url{get = F@_1, put = F@_2, patch = F@_3}.
 
-d_field_pb_media_urls_get(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_urls_get(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_media_urls_get(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_urls(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+d_field_pb_media_url_get(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_url_get(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_media_url_get(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
-d_field_pb_media_urls_put(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_urls_put(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_media_urls_put(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_urls(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
+d_field_pb_media_url_put(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_url_put(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_media_url_put(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
 
-d_field_pb_media_urls_patch(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_urls_patch(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_media_urls_patch(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_urls(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
+d_field_pb_media_url_patch(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_url_patch(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_media_url_patch(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
 
-skip_varint_pb_media_urls(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_media_urls(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-skip_varint_pb_media_urls(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_media_urls(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_varint_pb_media_url(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_media_url(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+skip_varint_pb_media_url(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_media_url(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_length_delimited_pb_media_urls(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_media_urls(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-skip_length_delimited_pb_media_urls(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_media_urls(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
+skip_length_delimited_pb_media_url(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_media_url(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+skip_length_delimited_pb_media_url(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_media_url(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
 
-skip_group_pb_media_urls(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_media_urls(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_group_pb_media_url(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_media_url(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_32_pb_media_urls(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_media_urls(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_32_pb_media_url(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_media_url(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_64_pb_media_urls(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_media_urls(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_64_pb_media_url(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_media_url(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-decode_msg_pb_upload_media(Bin, TrUserData) -> dfp_read_field_def_pb_upload_media(Bin, 0, 0, id(0, TrUserData), id([], TrUserData), TrUserData).
+decode_msg_pb_upload_media(Bin, TrUserData) -> dfp_read_field_def_pb_upload_media(Bin, 0, 0, id(0, TrUserData), id(undefined, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_upload_media(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_upload_media_size(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-dfp_read_field_def_pb_upload_media(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_upload_media_urls(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-dfp_read_field_def_pb_upload_media(<<>>, 0, 0, F@_1, R1, TrUserData) -> #pb_upload_media{size = F@_1, urls = lists_reverse(R1, TrUserData)};
+dfp_read_field_def_pb_upload_media(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_upload_media_url(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+dfp_read_field_def_pb_upload_media(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_upload_media{size = F@_1, url = F@_2};
 dfp_read_field_def_pb_upload_media(Other, Z1, Z2, F@_1, F@_2, TrUserData) -> dg_read_field_def_pb_upload_media(Other, Z1, Z2, F@_1, F@_2, TrUserData).
 
 dg_read_field_def_pb_upload_media(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_upload_media(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
@@ -296,7 +296,7 @@ dg_read_field_def_pb_upload_media(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2,
     Key = X bsl N + Acc,
     case Key of
       8 -> d_field_pb_upload_media_size(Rest, 0, 0, F@_1, F@_2, TrUserData);
-      18 -> d_field_pb_upload_media_urls(Rest, 0, 0, F@_1, F@_2, TrUserData);
+      18 -> d_field_pb_upload_media_url(Rest, 0, 0, F@_1, F@_2, TrUserData);
       _ ->
 	  case Key band 7 of
 	    0 -> skip_varint_pb_upload_media(Rest, 0, 0, F@_1, F@_2, TrUserData);
@@ -306,16 +306,20 @@ dg_read_field_def_pb_upload_media(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2,
 	    5 -> skip_32_pb_upload_media(Rest, 0, 0, F@_1, F@_2, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_upload_media(<<>>, 0, 0, F@_1, R1, TrUserData) -> #pb_upload_media{size = F@_1, urls = lists_reverse(R1, TrUserData)}.
+dg_read_field_def_pb_upload_media(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_upload_media{size = F@_1, url = F@_2}.
 
 d_field_pb_upload_media_size(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_upload_media_size(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_upload_media_size(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
     {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_upload_media(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
-d_field_pb_upload_media_urls(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_upload_media_urls(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-d_field_pb_upload_media_urls(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_media_urls(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_upload_media(RestF, 0, 0, F@_1, cons(NewFValue, Prev, TrUserData), TrUserData).
+d_field_pb_upload_media_url(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_upload_media_url(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+d_field_pb_upload_media_url(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_media_url(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_pb_upload_media(RestF, 0, 0, F@_1,
+				       if Prev == undefined -> NewFValue;
+					  true -> merge_msg_pb_media_url(Prev, NewFValue, TrUserData)
+				       end,
+				       TrUserData).
 
 skip_varint_pb_upload_media(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_upload_media(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 skip_varint_pb_upload_media(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_upload_media(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
@@ -395,35 +399,35 @@ merge_msgs(Prev, New, Opts) when element(1, Prev) =:= element(1, New), is_list(O
 merge_msgs(Prev, New, MsgName, Opts) ->
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
-      pb_media_urls -> merge_msg_pb_media_urls(Prev, New, TrUserData);
+      pb_media_url -> merge_msg_pb_media_url(Prev, New, TrUserData);
       pb_upload_media -> merge_msg_pb_upload_media(Prev, New, TrUserData)
     end.
 
--compile({nowarn_unused_function,merge_msg_pb_media_urls/3}).
-merge_msg_pb_media_urls(#pb_media_urls{get = PFget, put = PFput, patch = PFpatch}, #pb_media_urls{get = NFget, put = NFput, patch = NFpatch}, _) ->
-    #pb_media_urls{get =
-		       if NFget =:= undefined -> PFget;
-			  true -> NFget
-		       end,
-		   put =
-		       if NFput =:= undefined -> PFput;
-			  true -> NFput
-		       end,
-		   patch =
-		       if NFpatch =:= undefined -> PFpatch;
-			  true -> NFpatch
-		       end}.
+-compile({nowarn_unused_function,merge_msg_pb_media_url/3}).
+merge_msg_pb_media_url(#pb_media_url{get = PFget, put = PFput, patch = PFpatch}, #pb_media_url{get = NFget, put = NFput, patch = NFpatch}, _) ->
+    #pb_media_url{get =
+		      if NFget =:= undefined -> PFget;
+			 true -> NFget
+		      end,
+		  put =
+		      if NFput =:= undefined -> PFput;
+			 true -> NFput
+		      end,
+		  patch =
+		      if NFpatch =:= undefined -> PFpatch;
+			 true -> NFpatch
+		      end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_upload_media/3}).
-merge_msg_pb_upload_media(#pb_upload_media{size = PFsize, urls = PFurls}, #pb_upload_media{size = NFsize, urls = NFurls}, TrUserData) ->
+merge_msg_pb_upload_media(#pb_upload_media{size = PFsize, url = PFurl}, #pb_upload_media{size = NFsize, url = NFurl}, TrUserData) ->
     #pb_upload_media{size =
 			 if NFsize =:= undefined -> PFsize;
 			    true -> NFsize
 			 end,
-		     urls =
-			 if PFurls /= undefined, NFurls /= undefined -> 'erlang_++'(PFurls, NFurls, TrUserData);
-			    PFurls == undefined -> NFurls;
-			    NFurls == undefined -> PFurls
+		     url =
+			 if PFurl /= undefined, NFurl /= undefined -> merge_msg_pb_media_url(PFurl, NFurl, TrUserData);
+			    PFurl == undefined -> NFurl;
+			    NFurl == undefined -> PFurl
 			 end}.
 
 
@@ -437,15 +441,15 @@ verify_msg(X, _Opts) -> mk_type_error(not_a_known_message, X, []).
 verify_msg(Msg, MsgName, Opts) ->
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
-      pb_media_urls -> v_msg_pb_media_urls(Msg, [MsgName], TrUserData);
+      pb_media_url -> v_msg_pb_media_url(Msg, [MsgName], TrUserData);
       pb_upload_media -> v_msg_pb_upload_media(Msg, [MsgName], TrUserData);
       _ -> mk_type_error(not_a_known_message, Msg, [])
     end.
 
 
--compile({nowarn_unused_function,v_msg_pb_media_urls/3}).
--dialyzer({nowarn_function,v_msg_pb_media_urls/3}).
-v_msg_pb_media_urls(#pb_media_urls{get = F1, put = F2, patch = F3}, Path, TrUserData) ->
+-compile({nowarn_unused_function,v_msg_pb_media_url/3}).
+-dialyzer({nowarn_function,v_msg_pb_media_url/3}).
+v_msg_pb_media_url(#pb_media_url{get = F1, put = F2, patch = F3}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_string(F1, [get | Path], TrUserData)
     end,
@@ -456,16 +460,16 @@ v_msg_pb_media_urls(#pb_media_urls{get = F1, put = F2, patch = F3}, Path, TrUser
        true -> v_type_string(F3, [patch | Path], TrUserData)
     end,
     ok;
-v_msg_pb_media_urls(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_media_urls}, X, Path).
+v_msg_pb_media_url(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_media_url}, X, Path).
 
 -compile({nowarn_unused_function,v_msg_pb_upload_media/3}).
 -dialyzer({nowarn_function,v_msg_pb_upload_media/3}).
-v_msg_pb_upload_media(#pb_upload_media{size = F1, urls = F2}, Path, TrUserData) ->
+v_msg_pb_upload_media(#pb_upload_media{size = F1, url = F2}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_int64(F1, [size | Path], TrUserData)
     end,
-    if is_list(F2) -> _ = [v_msg_pb_media_urls(Elem, [urls | Path], TrUserData) || Elem <- F2], ok;
-       true -> mk_type_error({invalid_list_of, {msg, pb_media_urls}}, F2, [urls | Path])
+    if F2 == undefined -> ok;
+       true -> v_msg_pb_media_url(F2, [url | Path], TrUserData)
     end,
     ok;
 v_msg_pb_upload_media(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_upload_media}, X, Path).
@@ -523,19 +527,19 @@ cons(Elem, Acc, _TrUserData) -> [Elem | Acc].
 
 
 get_msg_defs() ->
-    [{{msg, pb_media_urls},
+    [{{msg, pb_media_url},
       [#field{name = get, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = put, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = patch, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}]},
-     {{msg, pb_upload_media}, [#field{name = size, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = urls, fnum = 2, rnum = 3, type = {msg, pb_media_urls}, occurrence = repeated, opts = []}]}].
+     {{msg, pb_upload_media}, [#field{name = size, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = url, fnum = 2, rnum = 3, type = {msg, pb_media_url}, occurrence = optional, opts = []}]}].
 
 
-get_msg_names() -> [pb_media_urls, pb_upload_media].
+get_msg_names() -> [pb_media_url, pb_upload_media].
 
 
 get_group_names() -> [].
 
 
-get_msg_or_group_names() -> [pb_media_urls, pb_upload_media].
+get_msg_or_group_names() -> [pb_media_url, pb_upload_media].
 
 
 get_enum_names() -> [].
@@ -552,10 +556,10 @@ fetch_msg_def(MsgName) ->
 fetch_enum_def(EnumName) -> erlang:error({no_such_enum, EnumName}).
 
 
-find_msg_def(pb_media_urls) ->
+find_msg_def(pb_media_url) ->
     [#field{name = get, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = put, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = patch, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}];
-find_msg_def(pb_upload_media) -> [#field{name = size, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = urls, fnum = 2, rnum = 3, type = {msg, pb_media_urls}, occurrence = repeated, opts = []}];
+find_msg_def(pb_upload_media) -> [#field{name = size, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = url, fnum = 2, rnum = 3, type = {msg, pb_media_url}, occurrence = optional, opts = []}];
 find_msg_def(_) -> error.
 
 
@@ -614,12 +618,12 @@ fqbins_to_service_and_rpc_name(S, R) -> error({gpb_error, {badservice_or_rpc, {S
 service_and_rpc_name_to_fqbins(S, R) -> error({gpb_error, {badservice_or_rpc, {S, R}}}).
 
 
-fqbin_to_msg_name(<<"media_urls">>) -> pb_media_urls;
+fqbin_to_msg_name(<<"media_url">>) -> pb_media_url;
 fqbin_to_msg_name(<<"upload_media">>) -> pb_upload_media;
 fqbin_to_msg_name(E) -> error({gpb_error, {badmsg, E}}).
 
 
-msg_name_to_fqbin(pb_media_urls) -> <<"media_urls">>;
+msg_name_to_fqbin(pb_media_url) -> <<"media_url">>;
 msg_name_to_fqbin(pb_upload_media) -> <<"upload_media">>;
 msg_name_to_fqbin(E) -> error({gpb_error, {badmsg, E}}).
 
@@ -659,7 +663,7 @@ get_all_source_basenames() -> ["media_upload.proto"].
 get_all_proto_names() -> ["media_upload"].
 
 
-get_msg_containment("media_upload") -> [pb_media_urls, pb_upload_media];
+get_msg_containment("media_upload") -> [pb_media_url, pb_upload_media];
 get_msg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -680,7 +684,7 @@ get_enum_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
 get_proto_by_msg_name_as_fqbin(<<"upload_media">>) -> "media_upload";
-get_proto_by_msg_name_as_fqbin(<<"media_urls">>) -> "media_upload";
+get_proto_by_msg_name_as_fqbin(<<"media_url">>) -> "media_upload";
 get_proto_by_msg_name_as_fqbin(E) -> error({gpb_error, {badmsg, E}}).
 
 

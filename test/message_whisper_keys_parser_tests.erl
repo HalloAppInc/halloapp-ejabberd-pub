@@ -55,7 +55,7 @@
         to_uid = <<"1000000000045484920">>,
         from_uid = <<"1000000000519345762">>,
         payload = #pb_msg_payload{
-            content = {wk, #pb_whisper_keys{
+            content = {whisper_keys, #pb_whisper_keys{
                 uid = 29863,
                 action = add,   
                 identity_key = <<"adf-fadsfa">>,

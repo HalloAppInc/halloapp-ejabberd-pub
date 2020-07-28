@@ -41,17 +41,17 @@ xmpp_to_proto(XmppMSG) ->
 msg_payload_mapping(SubEl) ->
     Payload = case element(1, SubEl) of
         contact_list ->
-            {cl, contact_parser:xmpp_to_proto(SubEl)};
+            {contact_list, contact_parser:xmpp_to_proto(SubEl)};
         avatar ->
-            {a, avatar_parser:xmpp_to_proto(SubEl)};
+            {avatar, avatar_parser:xmpp_to_proto(SubEl)};
         whisper_keys ->
-            {wk, whisper_keys_parser:xmpp_to_proto(SubEl)};
+            {whisper_keys, whisper_keys_parser:xmpp_to_proto(SubEl)};
         receipt_seen ->
-            {s, receipts_parser:xmpp_to_proto(SubEl)};
+            {seen, receipts_parser:xmpp_to_proto(SubEl)};
         receipt_response ->
-            {r, receipts_parser:xmpp_to_proto(SubEl)};
+            {delivery, receipts_parser:xmpp_to_proto(SubEl)};
         chat ->
-            {c, chat_parser:xmpp_to_proto(SubEl)}
+            {chat, chat_parser:xmpp_to_proto(SubEl)}
     end,
     Payload.
 
@@ -86,17 +86,17 @@ proto_to_xmpp(ProtoMSG) ->
 
 xmpp_msg_subel_mapping(ProtoPayload) ->
     SubEl = case ProtoPayload of
-        {cl, ContactListRecord} ->
+        {contact_list, ContactListRecord} ->
             contact_parser:proto_to_xmpp(ContactListRecord);
-        {a, AvatarRecord} ->
+        {avatar, AvatarRecord} ->
             avatar_parser:proto_to_xmpp(AvatarRecord);
-        {wk, WhisperKeysRecord} ->
+        {whisper_keys, WhisperKeysRecord} ->
             whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
-        {s, SeenRecord} ->
+        {seen, SeenRecord} ->
             receipts_parser:proto_to_xmpp(SeenRecord);
-        {r, ReceivedRecord} ->
+        {delivery, ReceivedRecord} ->
             receipts_parser:proto_to_xmpp(ReceivedRecord);
-        {c, ChatRecord} ->
+        {chat, ChatRecord} ->
             chat_parser:proto_to_xmpp(ChatRecord)
     end,
     SubEl.

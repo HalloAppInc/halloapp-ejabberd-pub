@@ -21,7 +21,7 @@
         {id = []                :: iodata() | undefined, % = 1
          publisher_uid = 0      :: integer() | undefined, % = 2, 64 bits
          publisher_name = []    :: iodata() | undefined, % = 3
-         feedpost_id = []       :: iodata() | undefined, % = 4
+         post_id = []           :: iodata() | undefined, % = 4
          payload = <<>>         :: iodata() | undefined % = 5
         }).
 -endif.
@@ -31,7 +31,6 @@
 -record(pb_feed_item,
         {action = publish       :: publish | retract | integer() | undefined, % = 1, enum pb_feed_item.Action
          timestamp = 0          :: integer() | undefined, % = 2, 64 bits
-         uid = 0                :: integer() | undefined, % = 3, 64 bits
          item                   :: {feedpost, feed_items:pb_feedpost()} | {comment, feed_items:pb_comment()} | undefined % oneof
         }).
 -endif.

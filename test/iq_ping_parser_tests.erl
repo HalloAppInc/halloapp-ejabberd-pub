@@ -30,7 +30,7 @@
         id = <<"WHIPCD988id">>,
         type = set,
         payload = #pb_iq_payload{
-            content = {p, #pb_ping{}}
+            content = {ping, #pb_ping{}}
         }
     }
 ).

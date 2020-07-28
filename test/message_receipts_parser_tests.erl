@@ -53,7 +53,7 @@
         to_uid = <<"1000000000045484920">>,
         from_uid = <<"1000000000519345762">>,
         payload = #pb_msg_payload{
-            content = {s, #pb_seen{
+            content = {seen, #pb_seen_receipt{
                 id = <<"7ab30vn">>,
                 thread_id = <<"thlm23ca">>,
                 timestamp = 20190910
@@ -84,7 +84,7 @@
         to_uid = <<"1000000000045484920">>,
         from_uid = <<"1000000000519345762">>,
         payload = #pb_msg_payload{
-            content = {r, #pb_received{
+            content = {delivery, #pb_delivery_receipt{
                 id = <<"b30vn">>,
                 thread_id = <<"thlm2ere3ca">>,
                 timestamp = 2000090910

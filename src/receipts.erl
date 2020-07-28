@@ -52,20 +52,20 @@
 -export_type([]).
 
 %% message types
--type pb_seen() :: #pb_seen{}.
+-type pb_seen_receipt() :: #pb_seen_receipt{}.
 
--type pb_received() :: #pb_received{}.
+-type pb_delivery_receipt() :: #pb_delivery_receipt{}.
 
--export_type(['pb_seen'/0, 'pb_received'/0]).
+-export_type(['pb_seen_receipt'/0, 'pb_delivery_receipt'/0]).
 
--spec encode_msg(#pb_seen{} | #pb_received{}) -> binary().
+-spec encode_msg(#pb_seen_receipt{} | #pb_delivery_receipt{}) -> binary().
 encode_msg(Msg) when tuple_size(Msg) >= 1 -> encode_msg(Msg, element(1, Msg), []).
 
--spec encode_msg(#pb_seen{} | #pb_received{}, atom() | list()) -> binary().
+-spec encode_msg(#pb_seen_receipt{} | #pb_delivery_receipt{}, atom() | list()) -> binary().
 encode_msg(Msg, MsgName) when is_atom(MsgName) -> encode_msg(Msg, MsgName, []);
 encode_msg(Msg, Opts) when tuple_size(Msg) >= 1, is_list(Opts) -> encode_msg(Msg, element(1, Msg), Opts).
 
--spec encode_msg(#pb_seen{} | #pb_received{}, atom(), list()) -> binary().
+-spec encode_msg(#pb_seen_receipt{} | #pb_delivery_receipt{}, atom(), list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
     case proplists:get_bool(verify, Opts) of
       true -> verify_msg(Msg, MsgName, Opts);
@@ -73,15 +73,15 @@ encode_msg(Msg, MsgName, Opts) ->
     end,
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
-      pb_seen -> encode_msg_pb_seen(id(Msg, TrUserData), TrUserData);
-      pb_received -> encode_msg_pb_received(id(Msg, TrUserData), TrUserData)
+      pb_seen_receipt -> encode_msg_pb_seen_receipt(id(Msg, TrUserData), TrUserData);
+      pb_delivery_receipt -> encode_msg_pb_delivery_receipt(id(Msg, TrUserData), TrUserData)
     end.
 
 
-encode_msg_pb_seen(Msg, TrUserData) -> encode_msg_pb_seen(Msg, <<>>, TrUserData).
+encode_msg_pb_seen_receipt(Msg, TrUserData) -> encode_msg_pb_seen_receipt(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_seen(#pb_seen{id = F1, thread_id = F2, timestamp = F3}, Bin, TrUserData) ->
+encode_msg_pb_seen_receipt(#pb_seen_receipt{id = F1, thread_id = F2, timestamp = F3}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -112,10 +112,10 @@ encode_msg_pb_seen(#pb_seen{id = F1, thread_id = F2, timestamp = F3}, Bin, TrUse
 	   end
     end.
 
-encode_msg_pb_received(Msg, TrUserData) -> encode_msg_pb_received(Msg, <<>>, TrUserData).
+encode_msg_pb_delivery_receipt(Msg, TrUserData) -> encode_msg_pb_delivery_receipt(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_received(#pb_received{id = F1, thread_id = F2, timestamp = F3}, Bin, TrUserData) ->
+encode_msg_pb_delivery_receipt(#pb_delivery_receipt{id = F1, thread_id = F2, timestamp = F3}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -237,110 +237,111 @@ decode_msg_1_catch(Bin, MsgName, TrUserData) ->
     end.
 -endif.
 
-decode_msg_2_doit(pb_seen, Bin, TrUserData) -> id(decode_msg_pb_seen(Bin, TrUserData), TrUserData);
-decode_msg_2_doit(pb_received, Bin, TrUserData) -> id(decode_msg_pb_received(Bin, TrUserData), TrUserData).
+decode_msg_2_doit(pb_seen_receipt, Bin, TrUserData) -> id(decode_msg_pb_seen_receipt(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(pb_delivery_receipt, Bin, TrUserData) -> id(decode_msg_pb_delivery_receipt(Bin, TrUserData), TrUserData).
 
 
 
-decode_msg_pb_seen(Bin, TrUserData) -> dfp_read_field_def_pb_seen(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_seen_receipt(Bin, TrUserData) -> dfp_read_field_def_pb_seen_receipt(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id(0, TrUserData), TrUserData).
 
-dfp_read_field_def_pb_seen(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_seen_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_seen(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_seen_thread_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_seen(<<24, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_seen_timestamp(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_seen(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_seen{id = F@_1, thread_id = F@_2, timestamp = F@_3};
-dfp_read_field_def_pb_seen(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_seen(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+dfp_read_field_def_pb_seen_receipt(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_seen_receipt_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_seen_receipt(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_seen_receipt_thread_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_seen_receipt(<<24, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_seen_receipt_timestamp(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_seen_receipt(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_seen_receipt{id = F@_1, thread_id = F@_2, timestamp = F@_3};
+dfp_read_field_def_pb_seen_receipt(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_seen_receipt(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-dg_read_field_def_pb_seen(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_seen(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-dg_read_field_def_pb_seen(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
+dg_read_field_def_pb_seen_receipt(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_seen_receipt(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+dg_read_field_def_pb_seen_receipt(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-      10 -> d_field_pb_seen_id(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-      18 -> d_field_pb_seen_thread_id(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-      24 -> d_field_pb_seen_timestamp(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      10 -> d_field_pb_seen_receipt_id(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      18 -> d_field_pb_seen_receipt_thread_id(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      24 -> d_field_pb_seen_receipt_timestamp(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
       _ ->
 	  case Key band 7 of
-	    0 -> skip_varint_pb_seen(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    1 -> skip_64_pb_seen(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    2 -> skip_length_delimited_pb_seen(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    3 -> skip_group_pb_seen(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
-	    5 -> skip_32_pb_seen(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
+	    0 -> skip_varint_pb_seen_receipt(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    1 -> skip_64_pb_seen_receipt(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    2 -> skip_length_delimited_pb_seen_receipt(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    3 -> skip_group_pb_seen_receipt(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
+	    5 -> skip_32_pb_seen_receipt(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_seen(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_seen{id = F@_1, thread_id = F@_2, timestamp = F@_3}.
+dg_read_field_def_pb_seen_receipt(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_seen_receipt{id = F@_1, thread_id = F@_2, timestamp = F@_3}.
 
-d_field_pb_seen_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_seen_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_seen(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+d_field_pb_seen_receipt_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_receipt_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_seen_receipt_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_seen_receipt(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
-d_field_pb_seen_thread_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_thread_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_seen_thread_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_seen(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
+d_field_pb_seen_receipt_thread_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_receipt_thread_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_seen_receipt_thread_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_seen_receipt(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
 
-d_field_pb_seen_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_seen_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
-    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_seen(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
+d_field_pb_seen_receipt_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_receipt_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_seen_receipt_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
+    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_seen_receipt(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
 
-skip_varint_pb_seen(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_seen(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-skip_varint_pb_seen(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_seen(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_varint_pb_seen_receipt(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_seen_receipt(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+skip_varint_pb_seen_receipt(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_seen_receipt(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_length_delimited_pb_seen(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_seen(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-skip_length_delimited_pb_seen(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_seen(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
+skip_length_delimited_pb_seen_receipt(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_seen_receipt(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+skip_length_delimited_pb_seen_receipt(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_seen_receipt(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
 
-skip_group_pb_seen(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_seen(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_group_pb_seen_receipt(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_seen_receipt(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_32_pb_seen(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_seen(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_32_pb_seen_receipt(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_seen_receipt(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_64_pb_seen(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_seen(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_64_pb_seen_receipt(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_seen_receipt(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-decode_msg_pb_received(Bin, TrUserData) -> dfp_read_field_def_pb_received(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_delivery_receipt(Bin, TrUserData) -> dfp_read_field_def_pb_delivery_receipt(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id(0, TrUserData), TrUserData).
 
-dfp_read_field_def_pb_received(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_received_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_received(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_received_thread_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_received(<<24, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_received_timestamp(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_received(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_received{id = F@_1, thread_id = F@_2, timestamp = F@_3};
-dfp_read_field_def_pb_received(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_received(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+dfp_read_field_def_pb_delivery_receipt(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_delivery_receipt_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_delivery_receipt(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_delivery_receipt_thread_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_delivery_receipt(<<24, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_delivery_receipt_timestamp(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_delivery_receipt(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_delivery_receipt{id = F@_1, thread_id = F@_2, timestamp = F@_3};
+dfp_read_field_def_pb_delivery_receipt(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_delivery_receipt(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-dg_read_field_def_pb_received(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_received(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-dg_read_field_def_pb_received(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
+dg_read_field_def_pb_delivery_receipt(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_delivery_receipt(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+dg_read_field_def_pb_delivery_receipt(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-      10 -> d_field_pb_received_id(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-      18 -> d_field_pb_received_thread_id(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-      24 -> d_field_pb_received_timestamp(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      10 -> d_field_pb_delivery_receipt_id(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      18 -> d_field_pb_delivery_receipt_thread_id(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      24 -> d_field_pb_delivery_receipt_timestamp(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
       _ ->
 	  case Key band 7 of
-	    0 -> skip_varint_pb_received(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    1 -> skip_64_pb_received(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    2 -> skip_length_delimited_pb_received(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    3 -> skip_group_pb_received(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
-	    5 -> skip_32_pb_received(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
+	    0 -> skip_varint_pb_delivery_receipt(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    1 -> skip_64_pb_delivery_receipt(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    2 -> skip_length_delimited_pb_delivery_receipt(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    3 -> skip_group_pb_delivery_receipt(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
+	    5 -> skip_32_pb_delivery_receipt(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_received(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_received{id = F@_1, thread_id = F@_2, timestamp = F@_3}.
+dg_read_field_def_pb_delivery_receipt(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_delivery_receipt{id = F@_1, thread_id = F@_2, timestamp = F@_3}.
 
-d_field_pb_received_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_received_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_received_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_received(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+d_field_pb_delivery_receipt_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_delivery_receipt_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_delivery_receipt_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_delivery_receipt(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
-d_field_pb_received_thread_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_received_thread_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_received_thread_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_received(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
+d_field_pb_delivery_receipt_thread_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_delivery_receipt_thread_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_delivery_receipt_thread_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_delivery_receipt(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
 
-d_field_pb_received_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_received_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_received_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
-    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_received(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
+d_field_pb_delivery_receipt_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_delivery_receipt_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_delivery_receipt_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
+    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_delivery_receipt(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
 
-skip_varint_pb_received(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_received(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-skip_varint_pb_received(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_received(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_varint_pb_delivery_receipt(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_delivery_receipt(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+skip_varint_pb_delivery_receipt(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_delivery_receipt(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_length_delimited_pb_received(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_received(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-skip_length_delimited_pb_received(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_received(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
+skip_length_delimited_pb_delivery_receipt(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_delivery_receipt(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+skip_length_delimited_pb_delivery_receipt(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
+    Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_delivery_receipt(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
 
-skip_group_pb_received(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_received(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_group_pb_delivery_receipt(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_delivery_receipt(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_32_pb_received(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_received(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_32_pb_delivery_receipt(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_delivery_receipt(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_64_pb_received(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_received(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+skip_64_pb_delivery_receipt(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_delivery_receipt(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
 read_group(Bin, FieldNum) ->
     {NumBytes, EndTagLen} = read_gr_b(Bin, 0, 0, 0, 0, FieldNum),
@@ -408,39 +409,39 @@ merge_msgs(Prev, New, Opts) when element(1, Prev) =:= element(1, New), is_list(O
 merge_msgs(Prev, New, MsgName, Opts) ->
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
-      pb_seen -> merge_msg_pb_seen(Prev, New, TrUserData);
-      pb_received -> merge_msg_pb_received(Prev, New, TrUserData)
+      pb_seen_receipt -> merge_msg_pb_seen_receipt(Prev, New, TrUserData);
+      pb_delivery_receipt -> merge_msg_pb_delivery_receipt(Prev, New, TrUserData)
     end.
 
--compile({nowarn_unused_function,merge_msg_pb_seen/3}).
-merge_msg_pb_seen(#pb_seen{id = PFid, thread_id = PFthread_id, timestamp = PFtimestamp}, #pb_seen{id = NFid, thread_id = NFthread_id, timestamp = NFtimestamp}, _) ->
-    #pb_seen{id =
-		 if NFid =:= undefined -> PFid;
-		    true -> NFid
-		 end,
-	     thread_id =
-		 if NFthread_id =:= undefined -> PFthread_id;
-		    true -> NFthread_id
-		 end,
-	     timestamp =
-		 if NFtimestamp =:= undefined -> PFtimestamp;
-		    true -> NFtimestamp
-		 end}.
+-compile({nowarn_unused_function,merge_msg_pb_seen_receipt/3}).
+merge_msg_pb_seen_receipt(#pb_seen_receipt{id = PFid, thread_id = PFthread_id, timestamp = PFtimestamp}, #pb_seen_receipt{id = NFid, thread_id = NFthread_id, timestamp = NFtimestamp}, _) ->
+    #pb_seen_receipt{id =
+			 if NFid =:= undefined -> PFid;
+			    true -> NFid
+			 end,
+		     thread_id =
+			 if NFthread_id =:= undefined -> PFthread_id;
+			    true -> NFthread_id
+			 end,
+		     timestamp =
+			 if NFtimestamp =:= undefined -> PFtimestamp;
+			    true -> NFtimestamp
+			 end}.
 
--compile({nowarn_unused_function,merge_msg_pb_received/3}).
-merge_msg_pb_received(#pb_received{id = PFid, thread_id = PFthread_id, timestamp = PFtimestamp}, #pb_received{id = NFid, thread_id = NFthread_id, timestamp = NFtimestamp}, _) ->
-    #pb_received{id =
-		     if NFid =:= undefined -> PFid;
-			true -> NFid
-		     end,
-		 thread_id =
-		     if NFthread_id =:= undefined -> PFthread_id;
-			true -> NFthread_id
-		     end,
-		 timestamp =
-		     if NFtimestamp =:= undefined -> PFtimestamp;
-			true -> NFtimestamp
-		     end}.
+-compile({nowarn_unused_function,merge_msg_pb_delivery_receipt/3}).
+merge_msg_pb_delivery_receipt(#pb_delivery_receipt{id = PFid, thread_id = PFthread_id, timestamp = PFtimestamp}, #pb_delivery_receipt{id = NFid, thread_id = NFthread_id, timestamp = NFtimestamp}, _) ->
+    #pb_delivery_receipt{id =
+			     if NFid =:= undefined -> PFid;
+				true -> NFid
+			     end,
+			 thread_id =
+			     if NFthread_id =:= undefined -> PFthread_id;
+				true -> NFthread_id
+			     end,
+			 timestamp =
+			     if NFtimestamp =:= undefined -> PFtimestamp;
+				true -> NFtimestamp
+			     end}.
 
 
 verify_msg(Msg) when tuple_size(Msg) >= 1 -> verify_msg(Msg, element(1, Msg), []);
@@ -453,15 +454,15 @@ verify_msg(X, _Opts) -> mk_type_error(not_a_known_message, X, []).
 verify_msg(Msg, MsgName, Opts) ->
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
-      pb_seen -> v_msg_pb_seen(Msg, [MsgName], TrUserData);
-      pb_received -> v_msg_pb_received(Msg, [MsgName], TrUserData);
+      pb_seen_receipt -> v_msg_pb_seen_receipt(Msg, [MsgName], TrUserData);
+      pb_delivery_receipt -> v_msg_pb_delivery_receipt(Msg, [MsgName], TrUserData);
       _ -> mk_type_error(not_a_known_message, Msg, [])
     end.
 
 
--compile({nowarn_unused_function,v_msg_pb_seen/3}).
--dialyzer({nowarn_function,v_msg_pb_seen/3}).
-v_msg_pb_seen(#pb_seen{id = F1, thread_id = F2, timestamp = F3}, Path, TrUserData) ->
+-compile({nowarn_unused_function,v_msg_pb_seen_receipt/3}).
+-dialyzer({nowarn_function,v_msg_pb_seen_receipt/3}).
+v_msg_pb_seen_receipt(#pb_seen_receipt{id = F1, thread_id = F2, timestamp = F3}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_string(F1, [id | Path], TrUserData)
     end,
@@ -472,11 +473,11 @@ v_msg_pb_seen(#pb_seen{id = F1, thread_id = F2, timestamp = F3}, Path, TrUserDat
        true -> v_type_int64(F3, [timestamp | Path], TrUserData)
     end,
     ok;
-v_msg_pb_seen(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_seen}, X, Path).
+v_msg_pb_seen_receipt(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_seen_receipt}, X, Path).
 
--compile({nowarn_unused_function,v_msg_pb_received/3}).
--dialyzer({nowarn_function,v_msg_pb_received/3}).
-v_msg_pb_received(#pb_received{id = F1, thread_id = F2, timestamp = F3}, Path, TrUserData) ->
+-compile({nowarn_unused_function,v_msg_pb_delivery_receipt/3}).
+-dialyzer({nowarn_function,v_msg_pb_delivery_receipt/3}).
+v_msg_pb_delivery_receipt(#pb_delivery_receipt{id = F1, thread_id = F2, timestamp = F3}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_string(F1, [id | Path], TrUserData)
     end,
@@ -487,7 +488,7 @@ v_msg_pb_received(#pb_received{id = F1, thread_id = F2, timestamp = F3}, Path, T
        true -> v_type_int64(F3, [timestamp | Path], TrUserData)
     end,
     ok;
-v_msg_pb_received(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_received}, X, Path).
+v_msg_pb_delivery_receipt(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_delivery_receipt}, X, Path).
 
 -compile({nowarn_unused_function,v_type_int64/3}).
 -dialyzer({nowarn_function,v_type_int64/3}).
@@ -542,21 +543,21 @@ cons(Elem, Acc, _TrUserData) -> [Elem | Acc].
 
 
 get_msg_defs() ->
-    [{{msg, pb_seen},
+    [{{msg, pb_seen_receipt},
       [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = thread_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = timestamp, fnum = 3, rnum = 4, type = int64, occurrence = optional, opts = []}]},
-     {{msg, pb_received},
+     {{msg, pb_delivery_receipt},
       [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = thread_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = timestamp, fnum = 3, rnum = 4, type = int64, occurrence = optional, opts = []}]}].
 
 
-get_msg_names() -> [pb_seen, pb_received].
+get_msg_names() -> [pb_seen_receipt, pb_delivery_receipt].
 
 
 get_group_names() -> [].
 
 
-get_msg_or_group_names() -> [pb_seen, pb_received].
+get_msg_or_group_names() -> [pb_seen_receipt, pb_delivery_receipt].
 
 
 get_enum_names() -> [].
@@ -573,10 +574,10 @@ fetch_msg_def(MsgName) ->
 fetch_enum_def(EnumName) -> erlang:error({no_such_enum, EnumName}).
 
 
-find_msg_def(pb_seen) ->
+find_msg_def(pb_seen_receipt) ->
     [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = thread_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = timestamp, fnum = 3, rnum = 4, type = int64, occurrence = optional, opts = []}];
-find_msg_def(pb_received) ->
+find_msg_def(pb_delivery_receipt) ->
     [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = thread_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = timestamp, fnum = 3, rnum = 4, type = int64, occurrence = optional, opts = []}];
 find_msg_def(_) -> error.
@@ -637,13 +638,13 @@ fqbins_to_service_and_rpc_name(S, R) -> error({gpb_error, {badservice_or_rpc, {S
 service_and_rpc_name_to_fqbins(S, R) -> error({gpb_error, {badservice_or_rpc, {S, R}}}).
 
 
-fqbin_to_msg_name(<<"seen">>) -> pb_seen;
-fqbin_to_msg_name(<<"received">>) -> pb_received;
+fqbin_to_msg_name(<<"seen_receipt">>) -> pb_seen_receipt;
+fqbin_to_msg_name(<<"delivery_receipt">>) -> pb_delivery_receipt;
 fqbin_to_msg_name(E) -> error({gpb_error, {badmsg, E}}).
 
 
-msg_name_to_fqbin(pb_seen) -> <<"seen">>;
-msg_name_to_fqbin(pb_received) -> <<"received">>;
+msg_name_to_fqbin(pb_seen_receipt) -> <<"seen_receipt">>;
+msg_name_to_fqbin(pb_delivery_receipt) -> <<"delivery_receipt">>;
 msg_name_to_fqbin(E) -> error({gpb_error, {badmsg, E}}).
 
 
@@ -682,7 +683,7 @@ get_all_source_basenames() -> ["receipts.proto"].
 get_all_proto_names() -> ["receipts"].
 
 
-get_msg_containment("receipts") -> [pb_received, pb_seen];
+get_msg_containment("receipts") -> [pb_delivery_receipt, pb_seen_receipt];
 get_msg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -702,8 +703,8 @@ get_enum_containment("receipts") -> [];
 get_enum_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
-get_proto_by_msg_name_as_fqbin(<<"received">>) -> "receipts";
-get_proto_by_msg_name_as_fqbin(<<"seen">>) -> "receipts";
+get_proto_by_msg_name_as_fqbin(<<"seen_receipt">>) -> "receipts";
+get_proto_by_msg_name_as_fqbin(<<"delivery_receipt">>) -> "receipts";
 get_proto_by_msg_name_as_fqbin(E) -> error({gpb_error, {badmsg, E}}).
 
 

@@ -86,7 +86,7 @@ encode_msg(Msg, MsgName, Opts) ->
 encode_msg_pb_contact(Msg, TrUserData) -> encode_msg_pb_contact(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = F4, avatarid = F5, role = F6}, Bin, TrUserData) ->
+encode_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = F4, avatar_id = F5, role = F6}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -148,7 +148,7 @@ encode_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = 
 encode_msg_pb_contact_list(Msg, TrUserData) -> encode_msg_pb_contact_list(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_contact_list(#pb_contact_list{type = F1, syncid = F2, index = F3, is_last = F4, contacts = F5}, Bin, TrUserData) ->
+encode_msg_pb_contact_list(#pb_contact_list{type = F1, sync_id = F2, batch_index = F3, is_last = F4, contacts = F5}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -312,9 +312,9 @@ dfp_read_field_def_pb_contact(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4
 dfp_read_field_def_pb_contact(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_raw(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 dfp_read_field_def_pb_contact(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_normalized(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 dfp_read_field_def_pb_contact(<<32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-dfp_read_field_def_pb_contact(<<42, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_avatarid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
+dfp_read_field_def_pb_contact(<<42, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_avatar_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 dfp_read_field_def_pb_contact(<<48, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_role(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-dfp_read_field_def_pb_contact(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, _) -> #pb_contact{action = F@_1, raw = F@_2, normalized = F@_3, uid = F@_4, avatarid = F@_5, role = F@_6};
+dfp_read_field_def_pb_contact(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, _) -> #pb_contact{action = F@_1, raw = F@_2, normalized = F@_3, uid = F@_4, avatar_id = F@_5, role = F@_6};
 dfp_read_field_def_pb_contact(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> dg_read_field_def_pb_contact(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData).
 
 dg_read_field_def_pb_contact(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_contact(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
@@ -325,7 +325,7 @@ dg_read_field_def_pb_contact(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3
       18 -> d_field_pb_contact_raw(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
       26 -> d_field_pb_contact_normalized(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
       32 -> d_field_pb_contact_uid(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-      42 -> d_field_pb_contact_avatarid(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
+      42 -> d_field_pb_contact_avatar_id(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
       48 -> d_field_pb_contact_role(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
       _ ->
 	  case Key band 7 of
@@ -336,7 +336,7 @@ dg_read_field_def_pb_contact(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3
 	    5 -> skip_32_pb_contact(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_contact(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, _) -> #pb_contact{action = F@_1, raw = F@_2, normalized = F@_3, uid = F@_4, avatarid = F@_5, role = F@_6}.
+dg_read_field_def_pb_contact(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, _) -> #pb_contact{action = F@_1, raw = F@_2, normalized = F@_3, uid = F@_4, avatar_id = F@_5, role = F@_6}.
 
 d_field_pb_contact_action(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_action(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 d_field_pb_contact_action(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) ->
@@ -357,8 +357,8 @@ d_field_pb_contact_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4
 d_field_pb_contact_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, F@_5, F@_6, TrUserData) ->
     {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, NewFValue, F@_5, F@_6, TrUserData).
 
-d_field_pb_contact_avatarid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_avatarid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-d_field_pb_contact_avatarid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, F@_6, TrUserData) ->
+d_field_pb_contact_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
+d_field_pb_contact_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, F@_6, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
     dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, F@_6, TrUserData).
 
@@ -383,11 +383,11 @@ skip_64_pb_contact(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, 
 decode_msg_pb_contact_list(Bin, TrUserData) -> dfp_read_field_def_pb_contact_list(Bin, 0, 0, id(full, TrUserData), id([], TrUserData), id(0, TrUserData), id(false, TrUserData), id([], TrUserData), TrUserData).
 
 dfp_read_field_def_pb_contact_list(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_contact_list_type(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dfp_read_field_def_pb_contact_list(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_contact_list_syncid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dfp_read_field_def_pb_contact_list(<<24, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_contact_list_index(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_pb_contact_list(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_contact_list_sync_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_pb_contact_list(<<24, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_contact_list_batch_index(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_contact_list(<<32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_contact_list_is_last(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_contact_list(<<42, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_contact_list_contacts(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dfp_read_field_def_pb_contact_list(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, R1, TrUserData) -> #pb_contact_list{type = F@_1, syncid = F@_2, index = F@_3, is_last = F@_4, contacts = lists_reverse(R1, TrUserData)};
+dfp_read_field_def_pb_contact_list(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, R1, TrUserData) -> #pb_contact_list{type = F@_1, sync_id = F@_2, batch_index = F@_3, is_last = F@_4, contacts = lists_reverse(R1, TrUserData)};
 dfp_read_field_def_pb_contact_list(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dg_read_field_def_pb_contact_list(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
 dg_read_field_def_pb_contact_list(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_contact_list(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
@@ -395,8 +395,8 @@ dg_read_field_def_pb_contact_list(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2,
     Key = X bsl N + Acc,
     case Key of
       8 -> d_field_pb_contact_list_type(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-      18 -> d_field_pb_contact_list_syncid(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-      24 -> d_field_pb_contact_list_index(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+      18 -> d_field_pb_contact_list_sync_id(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+      24 -> d_field_pb_contact_list_batch_index(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
       32 -> d_field_pb_contact_list_is_last(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
       42 -> d_field_pb_contact_list_contacts(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
       _ ->
@@ -408,20 +408,20 @@ dg_read_field_def_pb_contact_list(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2,
 	    5 -> skip_32_pb_contact_list(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_contact_list(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, R1, TrUserData) -> #pb_contact_list{type = F@_1, syncid = F@_2, index = F@_3, is_last = F@_4, contacts = lists_reverse(R1, TrUserData)}.
+dg_read_field_def_pb_contact_list(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, R1, TrUserData) -> #pb_contact_list{type = F@_1, sync_id = F@_2, batch_index = F@_3, is_last = F@_4, contacts = lists_reverse(R1, TrUserData)}.
 
 d_field_pb_contact_list_type(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_contact_list_type(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_contact_list_type(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
     {NewFValue, RestF} = {id('d_enum_pb_contact_list.Type'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
     dfp_read_field_def_pb_contact_list(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-d_field_pb_contact_list_syncid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_contact_list_syncid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-d_field_pb_contact_list_syncid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, TrUserData) ->
+d_field_pb_contact_list_sync_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_contact_list_sync_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_pb_contact_list_sync_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
     dfp_read_field_def_pb_contact_list(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, TrUserData).
 
-d_field_pb_contact_list_index(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_contact_list_index(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-d_field_pb_contact_list_index(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, F@_5, TrUserData) ->
+d_field_pb_contact_list_batch_index(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_contact_list_batch_index(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_pb_contact_list_batch_index(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, F@_5, TrUserData) ->
     {NewFValue, RestF} = {begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_contact_list(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, TrUserData).
 
 d_field_pb_contact_list_is_last(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_contact_list_is_last(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
@@ -529,8 +529,8 @@ merge_msgs(Prev, New, MsgName, Opts) ->
     end.
 
 -compile({nowarn_unused_function,merge_msg_pb_contact/3}).
-merge_msg_pb_contact(#pb_contact{action = PFaction, raw = PFraw, normalized = PFnormalized, uid = PFuid, avatarid = PFavatarid, role = PFrole},
-		     #pb_contact{action = NFaction, raw = NFraw, normalized = NFnormalized, uid = NFuid, avatarid = NFavatarid, role = NFrole}, _) ->
+merge_msg_pb_contact(#pb_contact{action = PFaction, raw = PFraw, normalized = PFnormalized, uid = PFuid, avatar_id = PFavatar_id, role = PFrole},
+		     #pb_contact{action = NFaction, raw = NFraw, normalized = NFnormalized, uid = NFuid, avatar_id = NFavatar_id, role = NFrole}, _) ->
     #pb_contact{action =
 		    if NFaction =:= undefined -> PFaction;
 		       true -> NFaction
@@ -547,9 +547,9 @@ merge_msg_pb_contact(#pb_contact{action = PFaction, raw = PFraw, normalized = PF
 		    if NFuid =:= undefined -> PFuid;
 		       true -> NFuid
 		    end,
-		avatarid =
-		    if NFavatarid =:= undefined -> PFavatarid;
-		       true -> NFavatarid
+		avatar_id =
+		    if NFavatar_id =:= undefined -> PFavatar_id;
+		       true -> NFavatar_id
 		    end,
 		role =
 		    if NFrole =:= undefined -> PFrole;
@@ -557,19 +557,19 @@ merge_msg_pb_contact(#pb_contact{action = PFaction, raw = PFraw, normalized = PF
 		    end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_contact_list/3}).
-merge_msg_pb_contact_list(#pb_contact_list{type = PFtype, syncid = PFsyncid, index = PFindex, is_last = PFis_last, contacts = PFcontacts},
-			  #pb_contact_list{type = NFtype, syncid = NFsyncid, index = NFindex, is_last = NFis_last, contacts = NFcontacts}, TrUserData) ->
+merge_msg_pb_contact_list(#pb_contact_list{type = PFtype, sync_id = PFsync_id, batch_index = PFbatch_index, is_last = PFis_last, contacts = PFcontacts},
+			  #pb_contact_list{type = NFtype, sync_id = NFsync_id, batch_index = NFbatch_index, is_last = NFis_last, contacts = NFcontacts}, TrUserData) ->
     #pb_contact_list{type =
 			 if NFtype =:= undefined -> PFtype;
 			    true -> NFtype
 			 end,
-		     syncid =
-			 if NFsyncid =:= undefined -> PFsyncid;
-			    true -> NFsyncid
+		     sync_id =
+			 if NFsync_id =:= undefined -> PFsync_id;
+			    true -> NFsync_id
 			 end,
-		     index =
-			 if NFindex =:= undefined -> PFindex;
-			    true -> NFindex
+		     batch_index =
+			 if NFbatch_index =:= undefined -> PFbatch_index;
+			    true -> NFbatch_index
 			 end,
 		     is_last =
 			 if NFis_last =:= undefined -> PFis_last;
@@ -600,7 +600,7 @@ verify_msg(Msg, MsgName, Opts) ->
 
 -compile({nowarn_unused_function,v_msg_pb_contact/3}).
 -dialyzer({nowarn_function,v_msg_pb_contact/3}).
-v_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = F4, avatarid = F5, role = F6}, Path, TrUserData) ->
+v_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = F4, avatar_id = F5, role = F6}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> 'v_enum_pb_contact.Action'(F1, [action | Path], TrUserData)
     end,
@@ -614,7 +614,7 @@ v_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = F4, a
        true -> v_type_int64(F4, [uid | Path], TrUserData)
     end,
     if F5 == undefined -> ok;
-       true -> v_type_string(F5, [avatarid | Path], TrUserData)
+       true -> v_type_string(F5, [avatar_id | Path], TrUserData)
     end,
     if F6 == undefined -> ok;
        true -> 'v_enum_pb_contact.Role'(F6, [role | Path], TrUserData)
@@ -624,15 +624,15 @@ v_msg_pb_contact(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_contac
 
 -compile({nowarn_unused_function,v_msg_pb_contact_list/3}).
 -dialyzer({nowarn_function,v_msg_pb_contact_list/3}).
-v_msg_pb_contact_list(#pb_contact_list{type = F1, syncid = F2, index = F3, is_last = F4, contacts = F5}, Path, TrUserData) ->
+v_msg_pb_contact_list(#pb_contact_list{type = F1, sync_id = F2, batch_index = F3, is_last = F4, contacts = F5}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> 'v_enum_pb_contact_list.Type'(F1, [type | Path], TrUserData)
     end,
     if F2 == undefined -> ok;
-       true -> v_type_string(F2, [syncid | Path], TrUserData)
+       true -> v_type_string(F2, [sync_id | Path], TrUserData)
     end,
     if F3 == undefined -> ok;
-       true -> v_type_int32(F3, [index | Path], TrUserData)
+       true -> v_type_int32(F3, [batch_index | Path], TrUserData)
     end,
     if F4 == undefined -> ok;
        true -> v_type_bool(F4, [is_last | Path], TrUserData)
@@ -741,10 +741,10 @@ get_msg_defs() ->
      {{msg, pb_contact},
       [#field{name = action, fnum = 1, rnum = 2, type = {enum, 'pb_contact.Action'}, occurrence = optional, opts = []}, #field{name = raw, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = normalized, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = uid, fnum = 4, rnum = 5, type = int64, occurrence = optional, opts = []},
-       #field{name = avatarid, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}, #field{name = role, fnum = 6, rnum = 7, type = {enum, 'pb_contact.Role'}, occurrence = optional, opts = []}]},
+       #field{name = avatar_id, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}, #field{name = role, fnum = 6, rnum = 7, type = {enum, 'pb_contact.Role'}, occurrence = optional, opts = []}]},
      {{msg, pb_contact_list},
-      [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'pb_contact_list.Type'}, occurrence = optional, opts = []}, #field{name = syncid, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
-       #field{name = index, fnum = 3, rnum = 4, type = int32, occurrence = optional, opts = []}, #field{name = is_last, fnum = 4, rnum = 5, type = bool, occurrence = optional, opts = []},
+      [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'pb_contact_list.Type'}, occurrence = optional, opts = []}, #field{name = sync_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
+       #field{name = batch_index, fnum = 3, rnum = 4, type = int32, occurrence = optional, opts = []}, #field{name = is_last, fnum = 4, rnum = 5, type = bool, occurrence = optional, opts = []},
        #field{name = contacts, fnum = 5, rnum = 6, type = {msg, pb_contact}, occurrence = repeated, opts = []}]}].
 
 
@@ -777,10 +777,10 @@ fetch_enum_def(EnumName) ->
 find_msg_def(pb_contact) ->
     [#field{name = action, fnum = 1, rnum = 2, type = {enum, 'pb_contact.Action'}, occurrence = optional, opts = []}, #field{name = raw, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = normalized, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = uid, fnum = 4, rnum = 5, type = int64, occurrence = optional, opts = []},
-     #field{name = avatarid, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}, #field{name = role, fnum = 6, rnum = 7, type = {enum, 'pb_contact.Role'}, occurrence = optional, opts = []}];
+     #field{name = avatar_id, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}, #field{name = role, fnum = 6, rnum = 7, type = {enum, 'pb_contact.Role'}, occurrence = optional, opts = []}];
 find_msg_def(pb_contact_list) ->
-    [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'pb_contact_list.Type'}, occurrence = optional, opts = []}, #field{name = syncid, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
-     #field{name = index, fnum = 3, rnum = 4, type = int32, occurrence = optional, opts = []}, #field{name = is_last, fnum = 4, rnum = 5, type = bool, occurrence = optional, opts = []},
+    [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'pb_contact_list.Type'}, occurrence = optional, opts = []}, #field{name = sync_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
+     #field{name = batch_index, fnum = 3, rnum = 4, type = int32, occurrence = optional, opts = []}, #field{name = is_last, fnum = 4, rnum = 5, type = bool, occurrence = optional, opts = []},
      #field{name = contacts, fnum = 5, rnum = 6, type = {msg, pb_contact}, occurrence = repeated, opts = []}];
 find_msg_def(_) -> error.
 

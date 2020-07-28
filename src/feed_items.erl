@@ -113,7 +113,7 @@ encode_msg_pb_feedpost(#pb_feedpost{id = F1, payload = F2}, Bin, TrUserData) ->
 encode_msg_pb_comment(Msg, TrUserData) -> encode_msg_pb_comment(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_comment(#pb_comment{id = F1, publisher_uid = F2, publisher_name = F3, feedpost_id = F4, payload = F5}, Bin, TrUserData) ->
+encode_msg_pb_comment(#pb_comment{id = F1, publisher_uid = F2, publisher_name = F3, post_id = F4, payload = F5}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -167,7 +167,7 @@ encode_msg_pb_comment(#pb_comment{id = F1, publisher_uid = F2, publisher_name = 
 encode_msg_pb_feed_item(Msg, TrUserData) -> encode_msg_pb_feed_item(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_feed_item(#pb_feed_item{action = F1, timestamp = F2, uid = F3, item = F4}, Bin, TrUserData) ->
+encode_msg_pb_feed_item(#pb_feed_item{action = F1, timestamp = F2, item = F3}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -186,20 +186,11 @@ encode_msg_pb_feed_item(#pb_feed_item{action = F1, timestamp = F2, uid = F3, ite
 		  end
 		end
 	 end,
-    B3 = if F3 == undefined -> B2;
-	    true ->
-		begin
-		  TrF3 = id(F3, TrUserData),
-		  if TrF3 =:= 0 -> B2;
-		     true -> e_type_int64(TrF3, <<B2/binary, 24>>, TrUserData)
-		  end
-		end
-	 end,
-    if F4 =:= undefined -> B3;
+    if F3 =:= undefined -> B2;
        true ->
-	   case id(F4, TrUserData) of
-	     {feedpost, TF4} -> begin TrTF4 = id(TF4, TrUserData), e_mfield_pb_feed_item_feedpost(TrTF4, <<B3/binary, 34>>, TrUserData) end;
-	     {comment, TF4} -> begin TrTF4 = id(TF4, TrUserData), e_mfield_pb_feed_item_comment(TrTF4, <<B3/binary, 42>>, TrUserData) end
+	   case id(F3, TrUserData) of
+	     {feedpost, TF3} -> begin TrTF3 = id(TF3, TrUserData), e_mfield_pb_feed_item_feedpost(TrTF3, <<B2/binary, 26>>, TrUserData) end;
+	     {comment, TF3} -> begin TrTF3 = id(TF3, TrUserData), e_mfield_pb_feed_item_comment(TrTF3, <<B2/binary, 34>>, TrUserData) end
 	   end
     end.
 
@@ -383,9 +374,9 @@ decode_msg_pb_comment(Bin, TrUserData) -> dfp_read_field_def_pb_comment(Bin, 0, 
 dfp_read_field_def_pb_comment(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_comment_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_comment(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_comment_publisher_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_comment(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_comment_publisher_name(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dfp_read_field_def_pb_comment(<<34, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_comment_feedpost_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+dfp_read_field_def_pb_comment(<<34, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_comment_post_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_comment(<<42, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_comment_payload(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-dfp_read_field_def_pb_comment(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> #pb_comment{id = F@_1, publisher_uid = F@_2, publisher_name = F@_3, feedpost_id = F@_4, payload = F@_5};
+dfp_read_field_def_pb_comment(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> #pb_comment{id = F@_1, publisher_uid = F@_2, publisher_name = F@_3, post_id = F@_4, payload = F@_5};
 dfp_read_field_def_pb_comment(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dg_read_field_def_pb_comment(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
 dg_read_field_def_pb_comment(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_comment(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
@@ -395,7 +386,7 @@ dg_read_field_def_pb_comment(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3
       10 -> d_field_pb_comment_id(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
       16 -> d_field_pb_comment_publisher_uid(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
       26 -> d_field_pb_comment_publisher_name(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-      34 -> d_field_pb_comment_feedpost_id(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+      34 -> d_field_pb_comment_post_id(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
       42 -> d_field_pb_comment_payload(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
       _ ->
 	  case Key band 7 of
@@ -406,7 +397,7 @@ dg_read_field_def_pb_comment(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3
 	    5 -> skip_32_pb_comment(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_comment(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> #pb_comment{id = F@_1, publisher_uid = F@_2, publisher_name = F@_3, feedpost_id = F@_4, payload = F@_5}.
+dg_read_field_def_pb_comment(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> #pb_comment{id = F@_1, publisher_uid = F@_2, publisher_name = F@_3, post_id = F@_4, payload = F@_5}.
 
 d_field_pb_comment_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_comment_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
@@ -422,8 +413,8 @@ d_field_pb_comment_publisher_name(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2,
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
     dfp_read_field_def_pb_comment(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, TrUserData).
 
-d_field_pb_comment_feedpost_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_feedpost_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
-d_field_pb_comment_feedpost_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, F@_5, TrUserData) ->
+d_field_pb_comment_post_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_post_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
+d_field_pb_comment_post_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, F@_5, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
     dfp_read_field_def_pb_comment(RestF, 0, 0, F@_1, F@_2, F@_3, NewFValue, F@_5, TrUserData).
 
@@ -444,53 +435,47 @@ skip_32_pb_comment(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, 
 
 skip_64_pb_comment(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_comment(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-decode_msg_pb_feed_item(Bin, TrUserData) -> dfp_read_field_def_pb_feed_item(Bin, 0, 0, id(publish, TrUserData), id(0, TrUserData), id(0, TrUserData), id(undefined, TrUserData), TrUserData).
+decode_msg_pb_feed_item(Bin, TrUserData) -> dfp_read_field_def_pb_feed_item(Bin, 0, 0, id(publish, TrUserData), id(0, TrUserData), id(undefined, TrUserData), TrUserData).
 
-dfp_read_field_def_pb_feed_item(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_pb_feed_item_action(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_pb_feed_item(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_pb_feed_item_timestamp(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_pb_feed_item(<<24, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_pb_feed_item_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_pb_feed_item(<<34, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_pb_feed_item_feedpost(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_pb_feed_item(<<42, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_pb_feed_item_comment(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dfp_read_field_def_pb_feed_item(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, _) -> #pb_feed_item{action = F@_1, timestamp = F@_2, uid = F@_3, item = F@_4};
-dfp_read_field_def_pb_feed_item(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dg_read_field_def_pb_feed_item(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData).
+dfp_read_field_def_pb_feed_item(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_feed_item_action(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_feed_item(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_feed_item_timestamp(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_feed_item(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_feed_item_feedpost(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_feed_item(<<34, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_feed_item_comment(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_feed_item(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_feed_item{action = F@_1, timestamp = F@_2, item = F@_3};
+dfp_read_field_def_pb_feed_item(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_feed_item(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-dg_read_field_def_pb_feed_item(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_feed_item(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
-dg_read_field_def_pb_feed_item(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+dg_read_field_def_pb_feed_item(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_feed_item(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+dg_read_field_def_pb_feed_item(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-      8 -> d_field_pb_feed_item_action(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-      16 -> d_field_pb_feed_item_timestamp(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-      24 -> d_field_pb_feed_item_uid(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-      34 -> d_field_pb_feed_item_feedpost(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-      42 -> d_field_pb_feed_item_comment(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+      8 -> d_field_pb_feed_item_action(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      16 -> d_field_pb_feed_item_timestamp(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      26 -> d_field_pb_feed_item_feedpost(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      34 -> d_field_pb_feed_item_comment(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
       _ ->
 	  case Key band 7 of
-	    0 -> skip_varint_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-	    1 -> skip_64_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-	    2 -> skip_length_delimited_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-	    3 -> skip_group_pb_feed_item(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
-	    5 -> skip_32_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData)
+	    0 -> skip_varint_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    1 -> skip_64_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    2 -> skip_length_delimited_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    3 -> skip_group_pb_feed_item(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
+	    5 -> skip_32_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_feed_item(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, _) -> #pb_feed_item{action = F@_1, timestamp = F@_2, uid = F@_3, item = F@_4}.
+dg_read_field_def_pb_feed_item(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_feed_item{action = F@_1, timestamp = F@_2, item = F@_3}.
 
-d_field_pb_feed_item_action(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_pb_feed_item_action(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_pb_feed_item_action(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, TrUserData) ->
+d_field_pb_feed_item_action(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_feed_item_action(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_feed_item_action(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
     {NewFValue, RestF} = {id('d_enum_pb_feed_item.Action'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
-    dfp_read_field_def_pb_feed_item(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, TrUserData).
+    dfp_read_field_def_pb_feed_item(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
-d_field_pb_feed_item_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_pb_feed_item_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_pb_feed_item_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, TrUserData) ->
-    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_feed_item(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, TrUserData).
+d_field_pb_feed_item_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_feed_item_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_feed_item_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
+    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_feed_item(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
 
-d_field_pb_feed_item_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_pb_feed_item_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_pb_feed_item_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, TrUserData) ->
-    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_feed_item(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, TrUserData).
-
-d_field_pb_feed_item_feedpost(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_pb_feed_item_feedpost(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_pb_feed_item_feedpost(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, Prev, TrUserData) ->
+d_field_pb_feed_item_feedpost(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_feed_item_feedpost(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_feed_item_feedpost(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, Prev, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_feedpost(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_feed_item(RestF, 0, 0, F@_1, F@_2, F@_3,
+    dfp_read_field_def_pb_feed_item(RestF, 0, 0, F@_1, F@_2,
 				    case Prev of
 				      undefined -> id({feedpost, NewFValue}, TrUserData);
 				      {feedpost, MVPrev} -> id({feedpost, merge_msg_pb_feedpost(MVPrev, NewFValue, TrUserData)}, TrUserData);
@@ -498,10 +483,10 @@ d_field_pb_feed_item_feedpost(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_
 				    end,
 				    TrUserData).
 
-d_field_pb_feed_item_comment(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_pb_feed_item_comment(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_pb_feed_item_comment(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, Prev, TrUserData) ->
+d_field_pb_feed_item_comment(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_feed_item_comment(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_feed_item_comment(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, Prev, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_comment(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_feed_item(RestF, 0, 0, F@_1, F@_2, F@_3,
+    dfp_read_field_def_pb_feed_item(RestF, 0, 0, F@_1, F@_2,
 				    case Prev of
 				      undefined -> id({comment, NewFValue}, TrUserData);
 				      {comment, MVPrev} -> id({comment, merge_msg_pb_comment(MVPrev, NewFValue, TrUserData)}, TrUserData);
@@ -509,18 +494,17 @@ d_field_pb_feed_item_comment(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3
 				    end,
 				    TrUserData).
 
-skip_varint_pb_feed_item(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> skip_varint_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
-skip_varint_pb_feed_item(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData).
+skip_varint_pb_feed_item(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+skip_varint_pb_feed_item(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_length_delimited_pb_feed_item(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> skip_length_delimited_pb_feed_item(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
-skip_length_delimited_pb_feed_item(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
-    Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_feed_item(Rest2, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData).
+skip_length_delimited_pb_feed_item(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_feed_item(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+skip_length_delimited_pb_feed_item(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_feed_item(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
 
-skip_group_pb_feed_item(Bin, FNum, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_feed_item(Rest, 0, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData).
+skip_group_pb_feed_item(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_feed_item(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_32_pb_feed_item(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData).
+skip_32_pb_feed_item(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_64_pb_feed_item(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData).
+skip_64_pb_feed_item(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
 decode_msg_pb_feed_node_items(Bin, TrUserData) -> dfp_read_field_def_pb_feed_node_items(Bin, 0, 0, id(0, TrUserData), id([], TrUserData), TrUserData).
 
@@ -655,8 +639,8 @@ merge_msg_pb_feedpost(#pb_feedpost{id = PFid, payload = PFpayload}, #pb_feedpost
 		     end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_comment/3}).
-merge_msg_pb_comment(#pb_comment{id = PFid, publisher_uid = PFpublisher_uid, publisher_name = PFpublisher_name, feedpost_id = PFfeedpost_id, payload = PFpayload},
-		     #pb_comment{id = NFid, publisher_uid = NFpublisher_uid, publisher_name = NFpublisher_name, feedpost_id = NFfeedpost_id, payload = NFpayload}, _) ->
+merge_msg_pb_comment(#pb_comment{id = PFid, publisher_uid = PFpublisher_uid, publisher_name = PFpublisher_name, post_id = PFpost_id, payload = PFpayload},
+		     #pb_comment{id = NFid, publisher_uid = NFpublisher_uid, publisher_name = NFpublisher_name, post_id = NFpost_id, payload = NFpayload}, _) ->
     #pb_comment{id =
 		    if NFid =:= undefined -> PFid;
 		       true -> NFid
@@ -669,9 +653,9 @@ merge_msg_pb_comment(#pb_comment{id = PFid, publisher_uid = PFpublisher_uid, pub
 		    if NFpublisher_name =:= undefined -> PFpublisher_name;
 		       true -> NFpublisher_name
 		    end,
-		feedpost_id =
-		    if NFfeedpost_id =:= undefined -> PFfeedpost_id;
-		       true -> NFfeedpost_id
+		post_id =
+		    if NFpost_id =:= undefined -> PFpost_id;
+		       true -> NFpost_id
 		    end,
 		payload =
 		    if NFpayload =:= undefined -> PFpayload;
@@ -679,7 +663,7 @@ merge_msg_pb_comment(#pb_comment{id = PFid, publisher_uid = PFpublisher_uid, pub
 		    end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_feed_item/3}).
-merge_msg_pb_feed_item(#pb_feed_item{action = PFaction, timestamp = PFtimestamp, uid = PFuid, item = PFitem}, #pb_feed_item{action = NFaction, timestamp = NFtimestamp, uid = NFuid, item = NFitem}, TrUserData) ->
+merge_msg_pb_feed_item(#pb_feed_item{action = PFaction, timestamp = PFtimestamp, item = PFitem}, #pb_feed_item{action = NFaction, timestamp = NFtimestamp, item = NFitem}, TrUserData) ->
     #pb_feed_item{action =
 		      if NFaction =:= undefined -> PFaction;
 			 true -> NFaction
@@ -687,10 +671,6 @@ merge_msg_pb_feed_item(#pb_feed_item{action = PFaction, timestamp = PFtimestamp,
 		  timestamp =
 		      if NFtimestamp =:= undefined -> PFtimestamp;
 			 true -> NFtimestamp
-		      end,
-		  uid =
-		      if NFuid =:= undefined -> PFuid;
-			 true -> NFuid
 		      end,
 		  item =
 		      case {PFitem, NFitem} of
@@ -745,7 +725,7 @@ v_msg_pb_feedpost(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_feedp
 
 -compile({nowarn_unused_function,v_msg_pb_comment/3}).
 -dialyzer({nowarn_function,v_msg_pb_comment/3}).
-v_msg_pb_comment(#pb_comment{id = F1, publisher_uid = F2, publisher_name = F3, feedpost_id = F4, payload = F5}, Path, TrUserData) ->
+v_msg_pb_comment(#pb_comment{id = F1, publisher_uid = F2, publisher_name = F3, post_id = F4, payload = F5}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_string(F1, [id | Path], TrUserData)
     end,
@@ -756,7 +736,7 @@ v_msg_pb_comment(#pb_comment{id = F1, publisher_uid = F2, publisher_name = F3, f
        true -> v_type_string(F3, [publisher_name | Path], TrUserData)
     end,
     if F4 == undefined -> ok;
-       true -> v_type_string(F4, [feedpost_id | Path], TrUserData)
+       true -> v_type_string(F4, [post_id | Path], TrUserData)
     end,
     if F5 == undefined -> ok;
        true -> v_type_bytes(F5, [payload | Path], TrUserData)
@@ -766,21 +746,18 @@ v_msg_pb_comment(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_commen
 
 -compile({nowarn_unused_function,v_msg_pb_feed_item/3}).
 -dialyzer({nowarn_function,v_msg_pb_feed_item/3}).
-v_msg_pb_feed_item(#pb_feed_item{action = F1, timestamp = F2, uid = F3, item = F4}, Path, TrUserData) ->
+v_msg_pb_feed_item(#pb_feed_item{action = F1, timestamp = F2, item = F3}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> 'v_enum_pb_feed_item.Action'(F1, [action | Path], TrUserData)
     end,
     if F2 == undefined -> ok;
        true -> v_type_int64(F2, [timestamp | Path], TrUserData)
     end,
-    if F3 == undefined -> ok;
-       true -> v_type_int64(F3, [uid | Path], TrUserData)
-    end,
-    case F4 of
+    case F3 of
       undefined -> ok;
-      {feedpost, OF4} -> v_msg_pb_feedpost(OF4, [feedpost, item | Path], TrUserData);
-      {comment, OF4} -> v_msg_pb_comment(OF4, [comment, item | Path], TrUserData);
-      _ -> mk_type_error(invalid_oneof, F4, [item | Path])
+      {feedpost, OF3} -> v_msg_pb_feedpost(OF3, [feedpost, item | Path], TrUserData);
+      {comment, OF3} -> v_msg_pb_comment(OF3, [comment, item | Path], TrUserData);
+      _ -> mk_type_error(invalid_oneof, F3, [item | Path])
     end,
     ok;
 v_msg_pb_feed_item(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_feed_item}, X, Path).
@@ -873,13 +850,12 @@ get_msg_defs() ->
      {{msg, pb_feedpost}, [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = payload, fnum = 2, rnum = 3, type = bytes, occurrence = optional, opts = []}]},
      {{msg, pb_comment},
       [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = publisher_uid, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []},
-       #field{name = publisher_name, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = feedpost_id, fnum = 4, rnum = 5, type = string, occurrence = optional, opts = []},
+       #field{name = publisher_name, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = post_id, fnum = 4, rnum = 5, type = string, occurrence = optional, opts = []},
        #field{name = payload, fnum = 5, rnum = 6, type = bytes, occurrence = optional, opts = []}]},
      {{msg, pb_feed_item},
       [#field{name = action, fnum = 1, rnum = 2, type = {enum, 'pb_feed_item.Action'}, occurrence = optional, opts = []}, #field{name = timestamp, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []},
-       #field{name = uid, fnum = 3, rnum = 4, type = int64, occurrence = optional, opts = []},
-       #gpb_oneof{name = item, rnum = 5,
-		  fields = [#field{name = feedpost, fnum = 4, rnum = 5, type = {msg, pb_feedpost}, occurrence = optional, opts = []}, #field{name = comment, fnum = 5, rnum = 5, type = {msg, pb_comment}, occurrence = optional, opts = []}]}]},
+       #gpb_oneof{name = item, rnum = 4,
+		  fields = [#field{name = feedpost, fnum = 3, rnum = 4, type = {msg, pb_feedpost}, occurrence = optional, opts = []}, #field{name = comment, fnum = 4, rnum = 4, type = {msg, pb_comment}, occurrence = optional, opts = []}]}]},
      {{msg, pb_feed_node_items}, [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = items, fnum = 2, rnum = 3, type = {msg, pb_feed_item}, occurrence = repeated, opts = []}]}].
 
 
@@ -912,13 +888,12 @@ fetch_enum_def(EnumName) ->
 find_msg_def(pb_feedpost) -> [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = payload, fnum = 2, rnum = 3, type = bytes, occurrence = optional, opts = []}];
 find_msg_def(pb_comment) ->
     [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = publisher_uid, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []},
-     #field{name = publisher_name, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = feedpost_id, fnum = 4, rnum = 5, type = string, occurrence = optional, opts = []},
+     #field{name = publisher_name, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = post_id, fnum = 4, rnum = 5, type = string, occurrence = optional, opts = []},
      #field{name = payload, fnum = 5, rnum = 6, type = bytes, occurrence = optional, opts = []}];
 find_msg_def(pb_feed_item) ->
     [#field{name = action, fnum = 1, rnum = 2, type = {enum, 'pb_feed_item.Action'}, occurrence = optional, opts = []}, #field{name = timestamp, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []},
-     #field{name = uid, fnum = 3, rnum = 4, type = int64, occurrence = optional, opts = []},
-     #gpb_oneof{name = item, rnum = 5,
-		fields = [#field{name = feedpost, fnum = 4, rnum = 5, type = {msg, pb_feedpost}, occurrence = optional, opts = []}, #field{name = comment, fnum = 5, rnum = 5, type = {msg, pb_comment}, occurrence = optional, opts = []}]}];
+     #gpb_oneof{name = item, rnum = 4,
+		fields = [#field{name = feedpost, fnum = 3, rnum = 4, type = {msg, pb_feedpost}, occurrence = optional, opts = []}, #field{name = comment, fnum = 4, rnum = 4, type = {msg, pb_comment}, occurrence = optional, opts = []}]}];
 find_msg_def(pb_feed_node_items) -> [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = items, fnum = 2, rnum = 3, type = {msg, pb_feed_item}, occurrence = repeated, opts = []}];
 find_msg_def(_) -> error.
 

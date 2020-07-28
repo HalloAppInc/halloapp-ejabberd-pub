@@ -59,10 +59,10 @@
         id = <<"s9cCU-10">>,
         type = set,
         payload = #pb_iq_payload{
-            content = {cl, #pb_contact_list{
+            content = {contact_list, #pb_contact_list{
                 type = full, 
-                syncid = <<"halloapp:user:contacts">>,
-                index = 0,
+                sync_id = <<"halloapp:user:contacts">>,
+                batch_index = 0,
                 is_last = true,
                 contacts = [?PB_CONTACT1, ?PB_CONTACT2]
             }}
@@ -76,7 +76,7 @@
         raw = <<"650-275-2675">>,
         normalized = <<"+1 650-275-2675">>,
         uid = 123,
-        avatarid = <<"12334TCA">>,
+        avatar_id = <<"12334TCA">>,
         role = friend
     }
 ).
@@ -87,7 +87,7 @@
         raw = <<"650-275-2600">>,
         normalized = <<"+1 650-275-2600">>,
         uid = 456,
-        avatarid = <<"12LLL334TCA">>,
+        avatar_id = <<"12LLL334TCA">>,
         role = none
     }
 ).

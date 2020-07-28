@@ -34,16 +34,14 @@
 -define(XMPP_AVATAR,
     #avatar{
         id = <<"ppadfa">>,
-        userid = <<"30084">>,
-        cdata = <<"YTgwaGZhZGtsLW0=">> 
+        userid = <<"30084">>
     }
 ).
 
 -define(PB_AVATAR,
     #pb_avatar{
         id = <<"ppadfa">>,
-        uid = 30084,
-        data = <<"a80hfadkl-m">>
+        uid = 30084
     }
 ).
 
@@ -64,7 +62,7 @@
         to_uid = <<"1000000000045484920">>,
         from_uid = <<"1000000000519345762">>,
         payload = #pb_msg_payload{
-            content = {a, ?PB_AVATAR}
+            content = {avatar, ?PB_AVATAR}
         }
     }
 ).

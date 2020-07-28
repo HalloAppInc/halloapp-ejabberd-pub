@@ -38,7 +38,7 @@
         id = <<"3ece24923">>,
         type = set,
         payload = #pb_iq_payload{
-            content = {wk, #pb_whisper_keys{
+            content = {whisper_keys, #pb_whisper_keys{
                 uid = 863,
                 action = add,   
                 identity_key = <<"adf-fadsfa">>,
