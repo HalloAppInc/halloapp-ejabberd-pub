@@ -33,7 +33,8 @@
     ms_to_sec/1,
     send_after/2,
     uids_to_jids/2,
-    uuid_binary/0
+    uuid_binary/0,
+    timestamp_to_datetime/1
 ]).
 
 %% Export all functions for unit tests
@@ -214,4 +215,10 @@ decode_base_64(Base64Data) ->
     catch
         error:badarg -> {error, bad_data}
     end.
+
+
+-spec timestamp_to_datetime(TsMs :: non_neg_integer()) -> calendar:datetime().
+timestamp_to_datetime(TsMs) ->
+    BaseDate = calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}),
+    calendar:gregorian_seconds_to_datetime(BaseDate + (TsMs div 1000)).
 

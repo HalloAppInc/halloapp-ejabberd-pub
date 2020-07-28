@@ -69,6 +69,8 @@
 	 remove_uid_trace/1,
 	 add_phone_trace/1,
 	 remove_phone_trace/1,
+	 uid_info/1,
+	 phone_info/1,
 	 get_commands_spec/0
 	]).
 %% gen_server callbacks
@@ -76,6 +78,9 @@
 	 terminate/2, code_change/3]).
 
 -include("logger.hrl").
+-include("account.hrl").
+-include("groups.hrl").
+-include("time.hrl").
 -include("ejabberd_commands.hrl").
 
 -record(state, {}).
@@ -487,12 +492,24 @@ get_commands_spec() ->
             module = ?MODULE, function = remove_phone_trace,
             args_desc = ["Phone to be traced"],
             args_example = ["12066585586"],
-            args = [{phone, string}], result = {res, rescode}}
+            args = [{phone, string}], result = {res, rescode}},
     #ejabberd_commands{name = fix_account_counters, tags = [server],
             desc = "Fix Redis counters",
             module = ?MODULE, function = fix_account_counters,
-            args = [], result = {res, rescode}}
-    ].
+            args = [], result = {res, rescode}},
+	#ejabberd_commands{name = uid_info, tags = [server],
+		desc = "Get information associated with a user account",
+		module = ?MODULE, function = uid_info,
+		args_desc = ["Account UID"],
+		args_example = [<<"1000000024384563984">>],
+		args=[{uid, binary}]},
+	#ejabberd_commands{name = phone_info, tags = [server],
+		desc = "Get information associated with a phone number",
+		module = ?MODULE, function = phone_info,
+		args_desc = ["Phone number"],
+		args_example = [<<"12065555586">>],
+		args=[{phone, binary}]}
+	].
 
 
 %%%
@@ -1081,8 +1098,72 @@ remove_phone_trace(Phone) ->
     ok.
 
 
+uid_info(Uid) ->
+    case model_accounts:account_exists(Uid) of
+        false -> io:format("There is no account associated with uid: ~s~n", [Uid]);
+        true ->
+            {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
+                creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs,
+                activity_status = ActivityStatus} = _Account} = model_accounts:get_account(Uid),
+            {CreationDate, CreationTime} = translate_time(CreationTs),
+            {LastActiveDate, LastActiveTime} = translate_time(LastActivityTs),
+            ?INFO_MSG("Uid: ~s, Name: ~s, Phone: ~s~n", [Uid, Name, Phone]),
+            io:format("Uid: ~s~nName: ~s~nPhone: ~s~n", [Uid, Name, Phone]),
+            io:format("Account created on ~s at ~s~nUser agent: ~s~n",
+                [CreationDate, CreationTime, UserAgent]),
+            io:format("Last activity on ~s at ~s and current status is ~s~n",
+                [LastActiveDate, LastActiveTime, ActivityStatus]),
+
+            {ok, Friends} = model_friends:get_friends(Uid),
+            io:format("Friend list (~p):~n", [length(Friends)]),
+            FNameMap = model_accounts:get_names(Friends),
+            [io:format("  ~s (~s)~n", [FName, FUid]) ||
+                {FUid, FName} <- maps:to_list(FNameMap), FName =/= <<>>],
+
+            Gids = model_groups:get_groups(Uid),
+            io:format("Group list (~p):~n", [length(Gids)]),
+            [io:format(
+                "  ~s (~s)~n",
+                [(model_groups:get_group_info(Gid))#group_info.name, Gid])
+                || Gid <- Gids]
+    end.
+
+
+phone_info(Phone) ->
+    case model_phone:get_uid(Phone) of
+        {ok, undefined} ->
+            io:format("No account associated with phone: ~s~n", [Phone]),
+            invite_info(Phone);
+        {ok, Uid} -> uid_info(Uid)
+    end.
+
+
+invite_info(Phone) ->
+    case model_invites:is_invited(Phone) of
+        false -> io:format("This phone number has not been invited~n");
+        true ->
+            {ok, Uid, Ts} = model_invites:get_inviter(Phone),
+            {Day, Time} = translate_time(binary_to_integer(Ts) * ?SECONDS_MS),
+            {ok, Name} = model_accounts:get_name(Uid),
+            io:format("~s was invited by ~s (~s) on ~s at ~s.~n",
+                [Phone, Name, Uid, Day, Time])
+    end.
+
+
+translate_time(Ms) ->
+    case Ms of
+        undefined -> {"unknown date", "unknown time"};
+        _ ->
+            {{Y, Mo, D}, {H, Min, S}} = util:timestamp_to_datetime(Ms),
+            Date = io_lib:format("~4..0B-~2..0B-~2..0B", [Y, Mo, D]),
+            Time = io_lib:format("~2..0B:~2..0B:~2..0B", [H, Min, S]),
+            {Date, Time}
+    end.
+
+
 -spec is_my_host(binary()) -> boolean().
 is_my_host(Host) ->
     try ejabberd_router:is_my_host(Host)
     catch _:{invalid_domain, _} -> false
     end.
+
