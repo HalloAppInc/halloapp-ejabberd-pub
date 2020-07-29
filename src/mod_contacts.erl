@@ -37,7 +37,8 @@
     register_user/3, 
     re_register_user/3,
     block_uids/3,
-    unblock_uids/3
+    unblock_uids/3,
+    trigger_full_contact_sync/1
 ]).
 
 -export([
@@ -155,6 +156,14 @@ unblock_uids(Uid, Server, Ouids) ->
                 {error, missing} -> ok
             end
         end, Ouids),
+    ok.
+
+
+-spec trigger_full_contact_sync(Uid :: binary()) -> ok.
+trigger_full_contact_sync(Uid) ->
+    Server = util:get_host(),
+    ?INFO_MSG("Trigger full contact sync for user: ~p", [Uid]),
+    send_probe_message(<<>>, <<>>, Uid, Server),
     ok.
 
 
@@ -433,6 +442,13 @@ notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role) ->
 probe_contact_about_user(UserId, UserPhone, Server, ContactId) ->
     ?INFO_MSG("UserId: ~s, ContactId: ~s", [UserId, ContactId]),
     <<HashValue:?PROBE_HASH_LENGTH_BYTES/binary, _Rest/binary>> = crypto:hash(sha256, UserPhone),
+    send_probe_message(UserId, HashValue, ContactId, Server),
+    ok.
+
+
+-spec send_probe_message(UserId :: binary(), HashValue :: binary(),
+        ContactId :: binary(), Server :: binary()) -> ok.
+send_probe_message(UserId, HashValue, ContactId, Server) ->
     SubEl = #contact_list{
         type = normal,
         xmlns = ?NS_NORM,
