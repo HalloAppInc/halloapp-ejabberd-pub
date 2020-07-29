@@ -60,7 +60,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
             SubEl = make_feed_post_stanza(Action, PostId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            xmpp:make_error(IQ, #stream_error{reason = Reason})
+            xmpp:make_error(IQ, #stanza_error{reason = Reason})
     end;
     
 
@@ -76,7 +76,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
                     ParentCommentId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            xmpp:make_error(IQ, #stream_error{reason = Reason})
+            xmpp:make_error(IQ, #stanza_error{reason = Reason})
     end;
 
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
@@ -87,7 +87,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
             SubEl = make_feed_post_stanza(Action, PostId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            xmpp:make_error(IQ, #stream_error{reason = Reason})
+            xmpp:make_error(IQ, #stanza_error{reason = Reason})
     end;
 
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
@@ -100,7 +100,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
                     <<>>, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            xmpp:make_error(IQ, #stream_error{reason = Reason})
+            xmpp:make_error(IQ, #stanza_error{reason = Reason})
     end.
 
 

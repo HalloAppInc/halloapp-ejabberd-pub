@@ -161,7 +161,7 @@ get_error_iq_result(Reason, Uid, Server) ->
         from = jid:make(Server),
         type = error,
         to = jid:make(Uid, Server),
-        sub_els = [#stream_error{reason = Reason}]
+        sub_els = [#stanza_error{reason = Reason}]
     }.
 
 
