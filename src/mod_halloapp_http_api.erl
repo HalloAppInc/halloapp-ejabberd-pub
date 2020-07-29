@@ -46,9 +46,7 @@ process([<<"registration">>, <<"request_sms">>],
         ?INFO_MSG("payload ~p phone:~p, ua:~p ip:~p ~p",
             [Payload, Phone, UserAgent, IP, is_debug(Phone)]),
 
-        % TODO: incomment when we are ready to enforce it
-        % check_invited(Phone),
-
+        check_invited(Phone),
         check_ua(UserAgent),
         request_sms(Phone, UserAgent),
         {200, ?HEADER(?CT_JSON),
@@ -60,9 +58,6 @@ process([<<"registration">>, <<"request_sms">>],
         error : bad_user_agent ->
             ?ERROR_MSG("register error: bad_user_agent ~p", [Headers]),
             return_400();
-        error : no_friends ->
-            ?INFO_MSG("request_sms error: phone not in anyones contacts ~p", [Data]),
-            return_400(no_friends);
         error: not_invited ->
             ?INFO_MSG("request_sms error: phone not invited ~p", [Data]),
             return_400(not_invited);
@@ -202,20 +197,9 @@ request_sms(Phone, UserAgent) ->
     case is_debug(Phone) of
         true -> ok;
         false ->
-            ok = check_phone_in_contacts(Phone),
             ok = send_sms(Phone, Code, UserAgent)
     end,
     finish_enroll(Phone, Code).
-
-
--spec check_phone_in_contacts(Phone :: phone()) -> ok.
-check_phone_in_contacts(Phone) ->
-    Count = model_contacts:get_contact_uids_size(Phone),
-    ?INFO_MSG("phone:~s in %p phonebooks", [Phone, Count]),
-    case Count > 0 of
-        true -> ok;
-        false -> error(no_friends)
-    end.
 
 
 -spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary()) -> ok.
