@@ -26,6 +26,7 @@
 -author('alexey@process-one.net').
 -behaviour(gen_server).
 
+
 %% External exports
 -export([
     start_link/0,
@@ -52,7 +53,6 @@
     get_password_s/2,
     get_password_with_authmodule/2,
     user_exists/2,
-    user_exists_in_other_modules/3,
     remove_user/2,
     remove_user/3,
     plain_password_required/1,
@@ -66,16 +66,13 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--export([auth_modules/1]).
-
 -include("scram.hrl").
 -include("logger.hrl").
 
 -define(SALT_LENGTH, 16).
 
--record(state, {host_modules = #{} :: host_modules()}).
+-define(HOST, util:get_host()).
 
--type host_modules() :: #{binary => [module()]}.
 -type password() :: binary() | #scram{}.
 -type digest_fun() :: fun((binary()) -> binary()).
 -export_type([password/0]).
@@ -128,90 +125,52 @@ init([]) ->
     ejabberd_hooks:add(host_up, ?MODULE, host_up, 30),
     ejabberd_hooks:add(host_down, ?MODULE, host_down, 80),
     ejabberd_hooks:add(config_reloaded, ?MODULE, config_reloaded, 40),
-    HostModules = lists:foldl(
-        fun(Host, Acc) ->
-            Modules = auth_modules(Host),
-            maps:put(Host, Modules, Acc)
-        end, #{}, ejabberd_option:hosts()),
-    lists:foreach(
-        fun({Host, Modules}) ->
-            start(Host, Modules)
-        end, maps:to_list(HostModules)),
-    {ok, #state{host_modules = HostModules}}.
+    start(?HOST),
+    ok.
 
 
-handle_call(Request, From, State) ->
+handle_call(Request, From, _State) ->
     ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
-    {noreply, State}.
+    noreply.
 
-handle_cast({host_up, Host}, #state{host_modules = HostModules} = State) ->
-    Modules = auth_modules(Host),
-    start(Host, Modules),
-    NewHostModules = maps:put(Host, Modules, HostModules),
-    {noreply, State#state{host_modules = NewHostModules}};
+handle_cast({host_up, Host}, _State) ->
+    start(Host),
+    noreply;
 
-handle_cast({host_down, Host}, #state{host_modules = HostModules} = State) ->
-    Modules = maps:get(Host, HostModules, []),
-    stop(Host, Modules),
-    NewHostModules = maps:remove(Host, HostModules),
-    {noreply, State#state{host_modules = NewHostModules}};
+handle_cast({host_down, Host}, _State) ->
+    stop(Host),
+    noreply;
 
-handle_cast(config_reloaded, #state{host_modules = HostModules} = State) ->
-    NewHostModules = lists:foldl(
-        fun(Host, Acc) ->
-            OldModules = maps:get(Host, HostModules, []),
-            NewModules = auth_modules(Host),
-            start(Host, NewModules -- OldModules),
-            stop(Host, OldModules -- NewModules),
-            reload(Host, misc:intersection(OldModules, NewModules)),
-            maps:put(Host, NewModules, Acc)
-        end,
-        HostModules,
-        ejabberd_option:hosts()),
-    {noreply, State#state{host_modules = NewHostModules}};
+handle_cast(config_reloaded, _State) ->
+    noreply;
 
-handle_cast(Msg, State) ->
+handle_cast(Msg, _State) ->
     ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
-    {noreply, State}.
+    noreply.
 
 
-handle_info(Info, State) ->
+handle_info(Info, _State) ->
     ?WARNING_MSG("Unexpected info: ~p", [Info]),
-    {noreply, State}.
+    noreply.
 
 
-terminate(_Reason, State) ->
+terminate(_Reason, _State) ->
     ejabberd_hooks:delete(host_up, ?MODULE, host_up, 30),
     ejabberd_hooks:delete(host_down, ?MODULE, host_down, 80),
     ejabberd_hooks:delete(config_reloaded, ?MODULE, config_reloaded, 40),
-    lists:foreach(
-        fun({Host, Modules}) ->
-            stop(Host, Modules)
-        end,
-        maps:to_list(State#state.host_modules)).
+    stop(?HOST).
 
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
-start(Host, Modules) ->
-    lists:foreach(fun(M) -> M:start(Host) end, Modules).
+start(Host) ->
+    ejabberd_auth_halloapp:start(Host).
 
 
-stop(Host, Modules) ->
-    lists:foreach(fun(M) -> M:stop(Host) end, Modules).
-
-
-reload(Host, Modules) ->
-    lists:foreach(
-        fun(M) ->
-            case erlang:function_exported(M, reload, 1) of
-                true -> M:reload(Host);
-                false -> ok
-            end
-        end,
-        Modules).
+stop(Host) ->
+    ejabberd_auth_halloapp:stop(Host).
 
 
 host_up(Host) ->
@@ -228,26 +187,12 @@ config_reloaded() ->
 
 -spec plain_password_required(binary()) -> boolean().
 plain_password_required(Server) ->
-    lists:any(
-        fun(M) ->
-            M:plain_password_required(Server)
-        end,
-        auth_modules(Server)).
+    ejabberd_auth_halloapp:plain_password_required(Server).
 
 
 -spec store_type(binary()) -> plain | scram | external.
 store_type(Server) ->
-    lists:foldl(
-        fun
-            (_, external) -> external;
-            (M, scram) ->
-                case M:store_type(Server) of
-                    external -> external;
-                    _ -> scram
-                end;
-            (M, plain) ->
-                M:store_type(Server)
-        end, plain, auth_modules(Server)).
+    ejabberd_auth_halloapp:store_type(Server).
 
 
 -spec check_password(binary(), binary(), binary(), binary()) -> boolean().
@@ -258,8 +203,7 @@ check_password(User, AuthzId, Server, Password) ->
 -spec check_password(binary(), binary(), binary(), binary(), binary(),
         digest_fun() | undefined) -> boolean().
 check_password(User, AuthzId, Server, Password, Digest, DigestGen) ->
-    case check_password_with_authmodule(
-            User, AuthzId, Server, Password, Digest, DigestGen) of
+    case check_password_with_authmodule(User, AuthzId, Server, Password, Digest, DigestGen) of
         {true, _AuthModule} -> true;
         false -> false
     end.
@@ -279,22 +223,16 @@ check_password_with_authmodule(User, AuthzId, Server, Password, Digest, DigestGe
             case jid:nodeprep(AuthzId) of
                 error -> false;
                 LAuthzId ->
+                    %% TODO: remove untag_stop and related logic
                     untag_stop(
-                        lists:foldl(
-                            fun
-                                (Mod, false) ->
-                                    case db_check_password(
-                                            LUser, LAuthzId, LServer, Password,
-                                            Digest, DigestGen, Mod) of
-                                        true -> {true, Mod};
-                                        false -> false;
-                                        {stop, true} -> {stop, {true, Mod}};
-                                        {stop, false} -> {stop, false}
-                                    end;
-                                (_, Acc) -> Acc
-                            end,
-                            false,
-                            auth_modules(LServer)))
+                        case db_check_password(
+                                LUser, LAuthzId, LServer, Password,
+                                Digest, DigestGen, ejabberd_auth_halloapp) of
+                            true -> {true, ejabberd_auth_halloapp};
+                            false -> false;
+                            {stop, true} -> {stop, {true, ejabberd_auth_halloapp}};
+                            {stop, false} -> {stop, false}
+                        end)
             end;
         _ -> false
     end.
@@ -304,14 +242,7 @@ check_password_with_authmodule(User, AuthzId, Server, Password, Digest, DigestGe
         {error, db_failure | not_allowed |invalid_jid | invalid_password}.
 set_password(User, Server, Password) ->
     case validate_credentials(User, Server, Password) of
-        {ok, LUser, LServer} ->
-            lists:foldl(
-                fun
-                    (M, {error, _}) -> db_set_password(LUser, LServer, Password, M);
-                    (_, ok) -> ok
-                end,
-                {error, not_allowed},
-                auth_modules(LServer));
+        {ok, LUser, LServer} -> db_set_password(LUser, LServer, Password, ejabberd_auth_halloapp);
         Err -> Err
     end.
 
@@ -357,16 +288,9 @@ try_register(User, Server, Password) ->
                 false ->
                     case ejabberd_router:is_my_host(LServer) of
                         true ->
-                            case lists:foldl(
-                                fun
-                                    (_, ok) -> ok;
-                                    (Mod, _) -> db_try_register(LUser, LServer, Password, Mod)
-                                end,
-                                {error, not_allowed},
-                                auth_modules(LServer)) of
-                                    ok -> ejabberd_hooks:run(
-                                            register_user, LServer, [LUser, LServer]);
-                                    {error, _} = Err -> Err
+                            case db_try_register(LUser, LServer, Password, ejabberd_auth_halloapp) of
+                                ok -> ejabberd_hooks:run(register_user, LServer, [LUser, LServer]);
+                                {error, _} = Err -> Err
                             end;
                         false -> {error, not_allowed}
                     end
@@ -375,13 +299,10 @@ try_register(User, Server, Password) ->
     end.
 
 
+% get_users/0,1,2 not implemented in HA auth file
 -spec get_users() -> [{binary(), binary()}].
 get_users() ->
-    lists:flatmap(
-        fun({Host, Mod}) ->
-            db_get_users(Host, [], Mod)
-        end,
-        auth_modules()).
+    db_get_users(?HOST, [], ejabberd_auth_halloapp).
 
 -spec get_users(binary()) -> [{binary(), binary()}].
 get_users(Server) ->
@@ -391,15 +312,11 @@ get_users(Server) ->
 get_users(Server, Opts) ->
     case jid:nameprep(Server) of
         error -> [];
-        LServer ->
-            lists:flatmap(
-                fun(M) ->
-                    db_get_users(LServer, Opts, M)
-                end,
-                auth_modules(LServer))
+        LServer -> db_get_users(LServer, Opts, ejabberd_auth_halloapp)
     end.
 
 
+% count_users/1,2 not implemented in HA auth file
 -spec count_users(binary()) -> non_neg_integer().
 count_users(Server) ->
     count_users(Server, []).
@@ -408,34 +325,24 @@ count_users(Server) ->
 count_users(Server, Opts) ->
     case jid:nameprep(Server) of
         error -> 0;
-        LServer ->
-            lists:sum(
-                lists:map(
-                    fun(M) ->
-                        db_count_users(LServer, Opts, M)
-                    end,
-                    auth_modules(LServer)))
+        LServer -> db_count_users(LServer, Opts, ejabberd_auth_halloapp)
     end.
 
 
+% this function is not implemented in the HA auth file, will always return false
 -spec get_password(binary(), binary()) -> false | password().
 get_password(User, Server) ->
     case validate_credentials(User, Server) of
         {ok, LUser, LServer} ->
-            case lists:foldl(
-                fun
-                    (M, error) -> db_get_password(LUser, LServer, M);
-                    (_M, Acc) -> Acc
-                end,
-                error,
-                auth_modules(LServer)) of
-                    {ok, Password} -> Password;
-                    error -> false
+            case db_get_password(LUser, LServer, ejabberd_auth_halloapp) of
+                {ok, Password} -> Password;
+                error -> false
             end;
         _ -> false
     end.
 
 
+% this function is not implemented in the HA auth file
 -spec get_password_s(binary(), binary()) -> password().
 get_password_s(User, Server) ->
     case get_password(User, Server) of
@@ -444,17 +351,12 @@ get_password_s(User, Server) ->
     end.
 
 
+% this function is not implemented in the HA auth file
 -spec get_password_with_authmodule(binary(), binary()) -> {false | password(), module()}.
 get_password_with_authmodule(User, Server) ->
     case validate_credentials(User, Server) of
         {ok, LUser, LServer} ->
-            case lists:foldl(
-                fun
-                    (M, {error, _}) -> {db_get_password(LUser, LServer, M), M};
-                    (_M, Acc) -> Acc
-                end,
-                {error, undefined},
-                auth_modules(LServer)) of
+            case {db_get_password(LUser, LServer, ejabberd_auth_halloapp), ejabberd_auth_halloapp} of
                     {{ok, Password}, Module} -> {Password, Module};
                     {error, Module} -> {false, Module}
             end;
@@ -469,34 +371,15 @@ user_exists(_User, <<"">>) ->
 user_exists(User, Server) ->
     case validate_credentials(User, Server) of
         {ok, LUser, LServer} ->
-            lists:any(
-                fun(M) ->
-                    case db_user_exists(LUser, LServer, M) of
-                        {error, _} -> false;
-                        Else -> Else
-                    end
-                end,
-                auth_modules(LServer));
+            case db_user_exists(LUser, LServer, ejabberd_auth_halloapp) of
+                {error, _} -> false;
+                Else -> Else
+            end;
         _ -> false
     end.
 
 
--spec user_exists_in_other_modules(atom(), binary(), binary()) -> boolean() | maybe.
-user_exists_in_other_modules(Module, User, Server) ->
-    user_exists_in_other_modules_loop(
-        auth_modules(Server) -- [Module], User, Server).
-
-user_exists_in_other_modules_loop([], _User, _Server) ->
-    false;
-
-user_exists_in_other_modules_loop([AuthModule | AuthModules], User, Server) ->
-    case db_user_exists(User, Server, AuthModule) of
-        true -> true;
-        false -> user_exists_in_other_modules_loop(AuthModules, User, Server);
-        {error, _} -> maybe
-    end.
-
-
+% function not implemented in HA auth file
 -spec which_users_exists(list({binary(), binary()})) -> list({binary(), binary()}).
 which_users_exists(USPairs) ->
     ByServer = lists:foldl(
@@ -513,29 +396,24 @@ which_users_exists(USPairs) ->
     Set = lists:foldl(
         fun({LServer, UsersSet}, Results) ->
             UsersList = gb_sets:to_list(UsersSet),
-            lists:foldl(
-                fun(M, Results2) ->
-                    try M:which_users_exists(LServer, UsersList) of
-                        {error, _} -> Results2;
-                        Res ->
-                            gb_sets:union(
-                                gb_sets:from_list([{U, LServer} || U <- Res]),
-                                Results2)
-                    catch
-                        _:undef ->
-                            lists:foldl(
-                                fun(U, R2) ->
-                                    case user_exists(U, LServer) of
-                                        true -> gb_sets:add({U, LServer}, R2);
-                                        _ -> R2
-                                    end
-                                end,
-                                Results2,
-                                UsersList)
-                    end
-                end,
-                Results,
-                auth_modules(LServer))
+            try ejabberd_auth_halloapp:which_users_exists(LServer, UsersList) of
+                {error, _} -> Results;
+                Res ->
+                    gb_sets:union(
+                        gb_sets:from_list([{U, LServer} || U <- Res]),
+                        Results)
+            catch
+                _:undef ->
+                    lists:foldl(
+                        fun(U, R2) ->
+                            case user_exists(U, LServer) of
+                                true -> gb_sets:add({U, LServer}, R2);
+                                _ -> R2
+                            end
+                        end,
+                        Results,
+                        UsersList)
+            end
         end,
         gb_sets:empty(),
         gb_trees:to_list(ByServer)),
@@ -547,11 +425,7 @@ remove_user(User, Server) ->
     case validate_credentials(User, Server) of
         {ok, LUser, LServer} ->
             ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]),
-            lists:foreach(
-                fun(Mod) ->
-                    db_remove_user(LUser, LServer, Mod)
-                end,
-                auth_modules(LServer));
+            db_remove_user(LUser, LServer, ejabberd_auth_halloapp);
         _Err -> ok
     end.
 
@@ -565,22 +439,18 @@ re_register_user(User, Server, Phone) ->
 remove_user(User, Server, Password) ->
     case validate_credentials(User, Server, Password) of
         {ok, LUser, LServer} ->
-            case lists:foldl(
-                fun
-                    (_, ok) -> ok;
-                    (Mod, _) ->
-                        case db_check_password(
-                                LUser, <<"">>, LServer, Password, <<"">>, undefined, Mod) of
-                            true -> db_remove_user(LUser, LServer, Mod);
-                            {stop, true} -> db_remove_user(LUser, LServer, Mod);
-                            false -> {error, not_allowed};
-                            {stop, false} -> {error, not_allowed}
-                    end
-                end,
-                {error, not_allowed},
-                auth_modules(Server)) of
-                    ok -> ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]);
-                    Err -> Err
+            case
+                case db_check_password(
+                        LUser, <<"">>, LServer, Password, <<"">>, undefined, ejabberd_auth_halloapp)
+                of
+                    true -> db_remove_user(LUser, LServer, ejabberd_auth_halloapp);
+                    {stop, true} -> db_remove_user(LUser, LServer, ejabberd_auth_halloapp);
+                    false -> {error, not_allowed};
+                    {stop, false} -> {error, not_allowed}
+                end
+            of
+                ok -> ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]);
+                Err -> Err
             end;
         Err -> Err
     end.
@@ -635,7 +505,7 @@ db_try_register(User, Server, Password, Mod) ->
                 _ -> Password
             end,
             case Mod:try_register(User, Server, Password1) of
-                {ok, _} -> ok;
+                {ok, _, _} -> ok;
                 {error, _} = Err -> Err
             end;
         false -> {error, not_allowed}
@@ -658,6 +528,7 @@ db_set_password(User, Server, Password, Mod) ->
     end.
 
 
+% will always return error, HA auth file has no get_password/2 function
 db_get_password(User, Server, Mod) ->
     case erlang:function_exported(Mod, get_password, 2) of
         false -> error;
@@ -665,6 +536,7 @@ db_get_password(User, Server, Mod) ->
     end.
 
 
+% TODO: unnest case statements; first one will always error (see above)
 db_user_exists(User, Server, Mod) ->
     case db_get_password(User, Server, Mod) of
         {ok, _} -> true;
@@ -675,6 +547,7 @@ db_user_exists(User, Server, Mod) ->
             end
     end.
 
+% TODO: unnest case statements; first one will always error (see above)
 db_check_password(User, AuthzId, Server, ProvidedPassword, Digest, DigestFun, Mod) ->
     case db_get_password(User, Server, Mod) of
         {ok, ValidPassword} -> match_passwords(ProvidedPassword, ValidPassword, Digest, DigestFun);
@@ -686,6 +559,7 @@ db_check_password(User, AuthzId, Server, ProvidedPassword, Digest, DigestFun, Mo
     end.
 
 
+% HA auth:remove_user/2 always returns ok
 db_remove_user(User, Server, Mod) ->
     case erlang:function_exported(Mod, remove_user, 2) of
         true ->
@@ -697,13 +571,14 @@ db_remove_user(User, Server, Mod) ->
     end.
 
 
+% unimplemented in HA auth file
 db_get_users(Server, Opts, Mod) ->
     case erlang:function_exported(Mod, get_users, 2) of
         true -> Mod:get_users(Server, Opts);
         false -> []
     end.
 
-
+% unimplemented in HA auth file
 db_count_users(Server, Opts, Mod) ->
     case erlang:function_exported(Mod, count_users, 2) of
         true -> Mod:count_users(Server, Opts);
@@ -746,23 +621,6 @@ password_to_scram(Password, IterationCount) ->
 %%%----------------------------------------------------------------------
 %%% Internal functions
 %%%----------------------------------------------------------------------
-
--spec auth_modules() -> [{binary(), module()}].
-auth_modules() ->
-    lists:flatmap(
-        fun(Host) ->
-            [{Host, Mod} || Mod <- auth_modules(Host)]
-        end,
-        ejabberd_option:hosts()).
-
--spec auth_modules(binary()) -> [module()].
-auth_modules(Server) ->
-    LServer = jid:nameprep(Server),
-    Methods = ejabberd_option:auth_method(LServer),
-    Modules = [ejabberd:module_name([<<"ejabberd">>, <<"auth">>, misc:atom_to_binary(M)])
-        || M <- Methods],
-    ?INFO_MSG("auth_modules ~p", [Modules]),
-    Modules.
 
 
 -spec match_passwords(password(), password(), binary(), digest_fun() | undefined) -> boolean().

@@ -26,7 +26,6 @@ log_rotate_date: "$D0"
 log_rotate_count: 10
 log_rate_limit: 5000
 
-auth_method: halloapp
 
 ## If you already have certificates, list them here
 certfiles:
