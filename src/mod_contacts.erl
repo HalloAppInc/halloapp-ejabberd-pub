@@ -144,12 +144,19 @@ block_uids(Uid, Server, Ouids) ->
 -spec unblock_uids(Uid :: binary(), Server :: binary(), Ouids :: list(binary())) -> ok.
 unblock_uids(Uid, Server, Ouids) ->
     {ok, Phone} = model_accounts:get_phone(Uid),
+    {ok, ReverseBlockList} = model_privacy:get_blocked_by_uids(Uid),
+    ReverseBlockSet = sets:from_list(ReverseBlockList),
     lists:foreach(
         fun(Ouid) ->
             case model_accounts:get_phone(Ouid) of
                 {ok, OPhone} ->
+                    %% We now know, that Uid unblocked Ouid.
+                    %% So, try and add a friend relationship between Ouid and Uid.
+                    %% Ouid and Uid will be friends if both of them have each others as contacts and
+                    %% if Ouid did not block Uid.
                     case model_contacts:is_contact(Uid, OPhone) andalso
-                            model_contacts:is_contact(Ouid, Phone) of
+                            model_contacts:is_contact(Ouid, Phone) andalso
+                            not sets:is_element(Ouid, ReverseBlockSet) of
                         true -> add_friend(Uid, Server, Ouid);
                         false -> ok
                     end;
