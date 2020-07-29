@@ -486,17 +486,16 @@ purge_expired_items(#psnode{id = NodeId} = _Node, TimestampMs) ->
 
 -spec get_feed_audience_set(Uid :: binary()) -> set().
 get_feed_audience_set(Uid) ->
+    {ok, FriendUids} = model_friends:get_friends(Uid),
     AudienceUidSet = case mod_user_privacy:get_privacy_type(Uid) of
         all ->
-            {ok, FriendUids} = model_friends:get_friends(Uid),
             sets:from_list(FriendUids);
         except ->
-            {ok, FriendUids} = model_friends:get_friends(Uid),
             {ok, ExceptUidsList} = model_privacy:get_except_uids(Uid),
             sets:subtract(sets:from_list(FriendUids), sets:from_list(ExceptUidsList));
         only ->
             {ok, OnlyUidsList} = model_privacy:get_only_uids(Uid),
-            sets:from_list(OnlyUidsList)
+            sets:intersection(sets:from_list(OnlyUidsList), sets:from_list(FriendUids))
     end,
     sets:add_element(Uid, AudienceUidSet).
 
