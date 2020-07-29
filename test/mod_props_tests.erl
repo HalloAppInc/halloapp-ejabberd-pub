@@ -14,6 +14,8 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(HASH_LENGTH, (?PROPS_SHA_HASH_LENGTH_BYTES * 4 / 3)).
+-define(UID, <<"1">>).
+-define(DEV_UID, <<"2">>).
 -define(TEST_PROPLIST, [
     {some_test_prop, "value"},
     {max_group_size, 25},
@@ -21,22 +23,30 @@
     {pi, 3.14}
 ]).
 
+%% ----------------------------------------------
+%% Tests
+%% ----------------------------------------------
 
 hash_length_test() ->
-    {Hash, _SortedProplist} = mod_props:generate_hash_and_sorted_proplist(?TEST_PROPLIST),
-    ?assert(?HASH_LENGTH == byte_size(Hash)).
+    setup(),
+    {Hash, _} = mod_props:get_props_and_hash(?UID),
+    ?assert(?HASH_LENGTH == byte_size(Hash)),
+    {DevHash, _} = mod_props:get_props_and_hash(?DEV_UID),
+    ?assert(?HASH_LENGTH == byte_size(DevHash)),
+    teardown().
 
 
 hash_test() ->
-    {Hash1, _} = mod_props:generate_hash_and_sorted_proplist(?TEST_PROPLIST),
-    {Hash2, _} = mod_props:generate_hash_and_sorted_proplist(lists:reverse(?TEST_PROPLIST)),
-    ?assertEqual(Hash1, Hash2),
-    {Hash3, _} = mod_props:generate_hash_and_sorted_proplist([{some_key, "val"} | ?TEST_PROPLIST]),
-    ?assertNotEqual(Hash1, Hash3).
+    setup(),
+    {Hash1, _} = mod_props:get_props_and_hash(?UID),
+    {Hash2, _} = mod_props:get_props_and_hash(?DEV_UID),
+    ?assertNotEqual(Hash1, Hash2),
+    teardown().
 
 
 iq_test() ->
-    {Hash, SortedProplist} = mod_props:generate_hash_and_sorted_proplist(?TEST_PROPLIST),
+    SortedProplist = lists:keysort(1, ?TEST_PROPLIST),
+    Hash = mod_props:generate_hash(SortedProplist),
     Actual = mod_props:make_response(#iq{type = get}, SortedProplist, Hash),
     Expected = #iq{type = result, sub_els = [
         #props{hash = Hash, props = [
@@ -45,4 +55,17 @@ iq_test() ->
             #prop{name = pi, value = 3.14},
             #prop{name = some_test_prop, value = "value"}]}]},
     ?assertEqual(Expected, Actual).
+
+%% ----------------------------------------------
+%% Internal functions
+%% ----------------------------------------------
+
+setup() ->
+    meck:new(model_accounts),
+    meck:expect(model_accounts, get_traced_uids, fun() -> {ok, [?DEV_UID]} end).
+
+
+teardown() ->
+    ?assert(meck:validate(model_accounts)),
+    meck:unload(model_accounts).
 

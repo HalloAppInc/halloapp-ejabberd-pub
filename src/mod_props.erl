@@ -25,7 +25,8 @@
 
 %% API
 -export([
-    get_hash/0
+    get_hash/1,
+    get_props/1
 ]).
 
 %%====================================================================
@@ -34,10 +35,6 @@
 
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PROPS, ?MODULE, process_local_iq),
-    {Hash, SortedProplist} = generate_hash_and_sorted_proplist(?PROPLIST),
-    persistent_term:put(?PROPS_HASH_KEY, Hash),
-    persistent_term:put(?PROPLIST_KEY, SortedProplist),
-    ?INFO_MSG("Props hash: ~p", [Hash]),
     ok.
 
 stop(Host) ->
@@ -58,31 +55,64 @@ mod_options(_Host) ->
 %%====================================================================
 
 process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
-    ?INFO_MSG("uid: ~p requesting props", [Uid]),
-    make_response(IQ, persistent_term:get(?PROPLIST_KEY), get_hash()).
+    IsDev = is_dev(Uid),
+    {Hash, SortedProplist} = get_props_and_hash(Uid),
+    ?INFO_MSG("Uid:~s (dev = ~s) requesting props. hash = ~s, proplist = ~p",
+        [Uid, IsDev, Hash, SortedProplist]),
+    make_response(IQ, SortedProplist, Hash).
 
 %%====================================================================
 %% API
 %%====================================================================
 
--spec get_hash() -> binary().
-get_hash() ->
-    persistent_term:get(?PROPS_HASH_KEY).
+-spec get_hash(Uid :: binary()) -> binary().
+get_hash(Uid) ->
+    {Hash, _} = get_props_and_hash(Uid),
+    Hash.
+
+
+-spec get_props(Uid :: binary()) -> proplist().
+get_props(Uid) ->
+    Proplist = case is_dev(Uid) of
+        false ->
+            [
+                {dev, false},
+                {groups, false},
+                {max_group_size, 25}
+            ];
+        true ->
+            [
+                {dev, true},
+                {groups, false},
+                {max_group_size, 25}
+            ]
+    end,
+    lists:keysort(1, Proplist).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
+is_dev(Uid) ->
+    %% TODO: don't use traced uid list for this
+    {ok, InternalUids} = model_accounts:get_traced_uids(),
+    lists:member(Uid, InternalUids).
+
+
+generate_hash(SortedProplist) ->
+    Json = jsx:encode(SortedProplist),
+    <<HashValue:?PROPS_SHA_HASH_LENGTH_BYTES/binary, _Rest/binary>> = crypto:hash(sha256, Json),
+    base64url:encode(HashValue).
+
+
+get_props_and_hash(Uid) ->
+    SortedProplist = get_props(Uid),
+    Hash = generate_hash(SortedProplist),
+    {Hash, SortedProplist}.
+
+
 make_response(IQ, SortedProplist, Hash) ->
     Props = [#prop{name = Key, value = Val} || {Key, Val} <- SortedProplist],
     Prop = #props{hash = Hash, props = Props},
     xmpp:make_iq_result(IQ, Prop).
-
-
--spec generate_hash_and_sorted_proplist(proplist()) -> {binary(), proplist()}.
-generate_hash_and_sorted_proplist(Proplist) ->
-    SortedProplist = lists:keysort(1, Proplist),
-    Json = jsx:encode(SortedProplist),
-    <<HashValue:?PROPS_SHA_HASH_LENGTH_BYTES/binary, _Rest/binary>> = crypto:hash(sha256, Json),
-    {base64url:encode(HashValue), SortedProplist}.
 

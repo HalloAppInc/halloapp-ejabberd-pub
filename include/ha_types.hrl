@@ -20,7 +20,7 @@
 -type client_type() :: android | ios.
 
 -type pname() :: atom().
--type pvalue() :: binary() | boolean() | float() | integer() | float().
+-type pvalue() :: binary() | boolean() | float() | integer().
 -type property() :: {pname(), pvalue()}.
 -type proplist() :: [property()].
 
