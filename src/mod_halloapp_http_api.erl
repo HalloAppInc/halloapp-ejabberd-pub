@@ -151,7 +151,11 @@ check_invited(PhoneNum) ->
     Invited = model_invites:is_invited(PhoneNum),
     case Invited of
         true -> ok;
-        false -> erlang:error(not_invited)
+        false ->
+            case model_phone:get_uid(PhoneNum) of
+                {ok, undefined} -> erlang:error(not_invited);
+                {ok, _Uid} -> ok
+            end
     end.
 
 
