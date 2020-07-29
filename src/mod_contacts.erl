@@ -283,7 +283,7 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
                         OldReverseContactSet, Server, Contact, SyncId),
                 NewAcc = case {NewContact#contact.normalized, NewContact#contact.userid} of
                     {undefined, _} -> {PhoneAcc, UnregisteredPhoneAcc};
-                    {NormPhone, undefined} -> {[PhoneAcc], [NormPhone | UnregisteredPhoneAcc]};
+                    {NormPhone, undefined} -> {PhoneAcc, [NormPhone | UnregisteredPhoneAcc]};
                     {NormPhone, _} -> {[NormPhone | PhoneAcc], UnregisteredPhoneAcc}
                 end,
                 {NewContact, NewAcc}
