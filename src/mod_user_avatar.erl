@@ -189,7 +189,7 @@ update_user_avatar(UserId, Server, AvatarId) ->
     {ok, OldAvatarId} = model_accounts:get_avatar_id(UserId),
     case AvatarId of
         <<>> ->
-            model_accounts:del_avatar_id(UserId);
+            model_accounts:delete_avatar_id(UserId);
         AvatarId ->
             model_accounts:set_avatar_id(UserId, AvatarId)
     end,

@@ -205,8 +205,8 @@ set_avatar_id(Uid, AvatarId) ->
     ok.
 
 
--spec del_avatar_id(Uid :: binary()) -> ok.
-del_avatar_id(Uid) ->
+-spec delete_avatar_id(Uid :: binary()) -> ok.
+delete_avatar_id(Uid) ->
     {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_AVATAR_ID]),
     ok.
 
