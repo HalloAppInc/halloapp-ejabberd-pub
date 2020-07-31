@@ -20,6 +20,7 @@
 -include("xmpp.hrl").
 -include("offline_message.hrl").
 
+
 %% gen_mod API.
 -export([start/2, stop/1, depends/2, mod_options/1, reload/3]).
 %% Hooks.
@@ -41,15 +42,17 @@ reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
 
-%% Hook trigerred when user sent the server an ack stanza for this particular message.
+% TODO: (Nikola) change from ({Ack, OffileMessage}) to (Ack, OfflineMessage)
+%% Hook triggered when user sent the server an ack stanza for this particular message.
 -spec user_ack_packet({Ack :: ack(), OfflineMessage :: offline_message()}) -> ok.
 user_ack_packet({#ack{id = Id, from = #jid{server = ServerHost} = AckFrom},
-        #offline_message{content_type = ContentType, from_uid = MsgFromId}})
+        #offline_message{content_type = ContentType, from_uid = MsgFromId, message = Msg}})
         when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">> ->
     TimestampSec = util:now_binary(),
     FromJID = AckFrom,
     ToJID = jid:make(MsgFromId, ServerHost),
-    send_receipt(ToJID, FromJID, Id, TimestampSec),
+    ThreadId = get_thread_id(Msg),
+    send_receipt(ToJID, FromJID, Id, ThreadId, TimestampSec),
     log_delivered(ContentType);
 
 user_ack_packet(_) ->
@@ -57,12 +60,16 @@ user_ack_packet(_) ->
 
 
 %% Send a delivery receipt to the ToJID from FromJID using Id and Timestamp.
--spec send_receipt(ToJID :: jid(), FromJID :: jid(), Id :: binary(), Timestamp :: binary()) -> ok.
-send_receipt(ToJID, FromJID, Id, Timestamp) ->
+-spec send_receipt(ToJID :: jid(), FromJID :: jid(), Id :: binary(),
+        ThreadId :: binary(), Timestamp :: binary()) -> ok.
+send_receipt(ToJID, FromJID, Id, ThreadId, Timestamp) ->
     MessageReceipt = #message{
-            to = ToJID,
-            from = FromJID,
-            sub_els = [#receipt_response{id = Id, timestamp = Timestamp}]},
+        to = ToJID,
+        from = FromJID,
+        sub_els = [#receipt_response{
+            id = Id,
+            thread_id = ThreadId,
+            timestamp = Timestamp}]},
     ejabberd_router:route(MessageReceipt).
 
 
@@ -70,4 +77,28 @@ log_delivered(<<"chat">>) ->
     stat:count("HA/im_receipts", "delivered");
 log_delivered(<<"group_chat">>) ->
     stat:count("HA/group_im_receipts", "delivered").
+
+
+% Try to extract the gid from the binary message
+-spec get_thread_id(Message :: binary()) -> binary().
+get_thread_id(Message) ->
+    case fxml_stream:parse_element(Message) of
+        {error, Reason} ->
+            ?ERROR_MSG("failed to parse: ~p, reason: ~s", [Message, Reason]),
+            <<>>;
+        MessageXmlEl ->
+            try
+                Packet = xmpp:decode(MessageXmlEl),
+                [Child] = Packet#message.sub_els,
+                case Child of
+                    #group_chat{gid =  Gid} -> Gid;
+                    #chat{} -> <<>>   % This is the default case we don't need to send thread_id
+                end
+            catch
+                Class : Reason : Stacktrace ->
+                    ?ERROR_MSG("failed to decode message: ~s", [
+                        lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+                    <<>>
+            end
+    end.
 
