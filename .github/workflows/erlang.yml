@@ -70,6 +70,12 @@ jobs:
             repository: HalloAppInc/bcrypt
             token: ${{ secrets.murali_access_token }}
             path: deps/bcrypt
+    - name: Checkout halloapp-enif_protobuf
+      uses: actions/checkout@v2
+      with:
+            repository: HalloAppInc/enif_protobuf
+            token: ${{ secrets.murali_access_token }}
+            path: deps/enif_protobuf
     - name: Run Autogen
       run: ./autogen.sh
     - name: Run Configure
