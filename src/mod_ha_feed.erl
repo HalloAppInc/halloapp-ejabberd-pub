@@ -329,7 +329,7 @@ add_friend(UserId, Server, ContactId) ->
 -spec send_old_items_to_contact(Uid :: uid(), Server :: binary(), ContactId :: binary()) -> ok.
 send_old_items_to_contact(Uid, Server, ContactId) ->
     {ok, Items} = model_feed:get_7day_user_feed(Uid),
-    [Posts, Comments] = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
+    {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
     PostStanzas = convert_posts_to_stanzas(Posts),
     CommentStanzas = convert_comments_to_stanzas(Comments),
     %% TODO(murali@): remove this code after successful migration to redis.
