@@ -227,16 +227,17 @@ clear_subscriptions_test() ->
 
 push_token_test() ->
     setup(),
-    ?assertEqual({ok, undefined}, model_accounts:get_push_info(?UID1)),
-    ?assertEqual(ok, model_accounts:set_push_info(?UID1, ?PUSH_TOKEN_OS1,
+    ?assertEqual({ok, undefined}, model_accounts:get_push_token(?UID1)),
+    ?assertEqual(ok, model_accounts:set_push_token(?UID1, ?PUSH_TOKEN_OS1,
             ?PUSH_TOKEN1, ?PUSH_TOKEN_TIMESTAMP1)),
-    ?assertEqual({ok, ?PUSH_INFO1}, model_accounts:get_push_info(?UID1)),
-    ?assertEqual(ok, model_accounts:remove_push_info(?UID1)),
-    ?assertEqual({ok, undefined}, model_accounts:get_push_info(?UID1)),
+    ?assertEqual({ok, ?PUSH_INFO1}, model_accounts:get_push_token(?UID1)),
+    ?assertEqual(ok, model_accounts:remove_push_token(?UID1)),
+    ?assertEqual({ok, undefined}, model_accounts:get_push_token(?UID1)),
 
-    ?assertEqual({ok, undefined}, model_accounts:get_push_info(?UID2)),
-    ?assertEqual(ok, model_accounts:set_push_info(?PUSH_INFO2)),
-    ?assertEqual({ok, ?PUSH_INFO2}, model_accounts:get_push_info(?UID2)).
+    ?assertEqual({ok, undefined}, model_accounts:get_push_token(?UID2)),
+    ?assertEqual(ok, model_accounts:set_push_token(?UID2, ?PUSH_TOKEN_OS2,
+            ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2)),
+    ?assertEqual({ok, ?PUSH_INFO2}, model_accounts:get_push_token(?UID2)).
 
 
 count_test() ->

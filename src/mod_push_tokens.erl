@@ -24,7 +24,7 @@
 -export([
     process_local_iq/1,
     get_push_info/2,
-    remove_push_info/2
+    remove_push_token/2
 ]).
 
 
@@ -88,7 +88,7 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
         Os :: binary(), Token :: binary()) -> ok.
 register_push_info(Uid, Server, Os, Token) ->
     TimestampMs = util:now_ms(),
-    ok = model_accounts:set_push_info(Uid, Os, Token, TimestampMs),
+    ok = model_accounts:set_push_token(Uid, Os, Token, TimestampMs),
     stat:count("HA/push_tokens", "set_push_token"),
     ok.
 
@@ -99,9 +99,9 @@ get_push_info(Uid, Server) ->
     RedisPushInfo.
 
 
--spec remove_push_info(Uid :: binary(), Server :: binary()) -> ok.
-remove_push_info(Uid, Server) ->
-    ok = model_accounts:remove_push_info(Uid),
+-spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
+remove_push_token(Uid, Server) ->
+    ok = model_accounts:remove_push_token(Uid),
     stat:count("HA/push_tokens", "remove_push_token"),
     ok.
 

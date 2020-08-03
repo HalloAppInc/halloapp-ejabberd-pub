@@ -48,10 +48,10 @@
     set_last_activity/3,
     set_user_agent/2,
     get_signup_user_agent/1,
-    set_push_info/1,
-    set_push_info/4,
     get_push_info/1,
-    remove_push_info/1,
+    set_push_token/4,
+    get_push_token/1,
+    remove_push_token/1,
     presence_subscribe/2,
     presence_unsubscribe/2,
     presence_unsubscribe_all/1,
@@ -276,15 +276,10 @@ get_account(Uid) ->
 %% Push-tokens related API
 %%====================================================================
 
--spec set_push_info(PushInfo :: push_info()) -> ok.
-set_push_info(PushInfo) ->
-    set_push_info(PushInfo#push_info.uid, PushInfo#push_info.os,
-            PushInfo#push_info.token, PushInfo#push_info.timestamp_ms).
 
-
--spec set_push_info(Uid :: binary(), Os :: binary(), PushToken :: binary(),
+-spec set_push_token(Uid :: binary(), Os :: binary(), PushToken :: binary(),
         TimestampMs :: integer()) -> ok.
-set_push_info(Uid, Os, PushToken, TimestampMs) ->
+set_push_token(Uid, Os, PushToken, TimestampMs) ->
     {ok, _Res} = q(
             ["HMSET", key(Uid),
             ?FIELD_PUSH_OS, Os,
@@ -293,6 +288,31 @@ set_push_info(Uid, Os, PushToken, TimestampMs) ->
     ok.
 
 
+-spec get_push_token(Uid :: binary()) -> {ok, undefined | push_info()} | {error, missing}.
+get_push_token(Uid) ->
+    {ok, [Os, Token, TimestampMs]} = q(
+            ["HMGET", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    Res = case Token of
+        undefined ->
+            undefined;
+        _ -> 
+            #push_info{
+                uid = Uid, 
+                os = Os, 
+                token = Token, 
+                timestamp_ms = ts_decode(TimestampMs)
+            }
+    end,
+    {ok, Res}.
+
+
+-spec remove_push_token(Uid :: binary()) -> ok | {error, missing}.
+remove_push_token(Uid) ->
+    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    ok.
+
+
+%% TODO this will soon be modified to include the preferences values
 -spec get_push_info(Uid :: binary()) -> {ok, undefined | push_info()} | {error, missing}.
 get_push_info(Uid) ->
     {ok, [Os, Token, TimestampMs]} = q(
@@ -304,12 +324,6 @@ get_push_info(Uid) ->
                 #push_info{uid = Uid, os = Os, token = Token, timestamp_ms = TsMs}
         end,
     {ok, Res}.
-
-
--spec remove_push_info(Uid :: binary()) -> ok | {error, missing}.
-remove_push_info(Uid) ->
-    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
-    ok.
 
 
 -spec account_exists(Uid :: binary()) -> boolean().
@@ -604,6 +618,7 @@ ts_decode(Data) ->
         undefined -> undefined;
         Data -> binary_to_integer(Data)
     end.
+
 
 % TODO rename to account_key
 -spec key(binary()) -> binary().

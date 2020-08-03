@@ -196,14 +196,14 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
                     stat:count(?FCM, "failure"),
                     ?ERROR_MSG("Push failed, Uid:~s, token: ~p, reason: ~p",
                             [Uid, binary:part(Token, 0, 10), Reason]),
-                    remove_push_info(Uid, ServerHost)
+                    remove_push_token(Uid, ServerHost)
             end;
 
         {ok, {{_, _, _}, _, ResponseBody}} ->
             stat:count(?FCM, "failure"),
             ?ERROR_MSG("Push failed, Uid:~s, token: ~p, non-recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
-            remove_push_info(Uid, ServerHost);
+            remove_push_token(Uid, ServerHost);
 
         {error, Reason} ->
             ?ERROR_MSG("Push failed, Uid:~s, token: ~p, reason: ~p",
@@ -249,9 +249,9 @@ parse_response(ResponseBody) ->
     end.
 
 
--spec remove_push_info(Uid :: binary(), Server :: binary()) -> ok.
-remove_push_info(Uid, Server) ->
-    mod_push_tokens:remove_push_info(Uid, Server).
+-spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
+remove_push_token(Uid, Server) ->
+    mod_push_tokens:remove_push_token(Uid, Server).
 
 
 %%====================================================================
