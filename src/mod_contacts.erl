@@ -354,8 +354,14 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
                 true -> model_accounts:get_avatar_id_binary(ContactId);
                 false -> undefined
             end,
-            #contact{userid = ContactId, avatarid = AvatarId, normalized = ContactPhone,
-                     role = Role}
+            Name = model_accounts:get_name_binary(ContactId),
+            #contact{
+                userid = ContactId,
+                name = Name,
+                avatarid = AvatarId,
+                normalized = ContactPhone,
+                role = Role
+            }
     end.
 
 
@@ -434,7 +440,14 @@ notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role) ->
         <<"none">> -> undefined;
         <<"friends">> -> model_accounts:get_avatar_id_binary(UserId)
     end,
-    Contact = #contact{userid = UserId, avatarid = AvatarId, normalized = UserPhone, role = Role},
+    Name = model_accounts:get_name_binary(UserId),
+    Contact = #contact{
+        userid = UserId,
+        name = Name,
+        avatarid = AvatarId,
+        normalized = UserPhone,
+        role = Role
+    },
     SubEls = [#contact_list{type = normal, xmlns = ?NS_NORM, contacts = [Contact]}],
     Stanza = #message{from = jid:make(Server),
                       to = jid:make(ContactId, Server),

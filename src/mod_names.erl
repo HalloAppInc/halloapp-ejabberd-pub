@@ -25,6 +25,11 @@
 
 -define(NS_NAME, <<"halloapp:users:name">>).
 
+%% Export all functions for unit tests
+-ifdef(TEST).
+-compile(export_all).
+-endif.
+
 %% gen_mod API.
 %% IQ handlers and hooks.
 -export([
@@ -35,7 +40,8 @@
     mod_options/1,
     process_local_iq/1,
     remove_user/2,
-    re_register_user/3
+    re_register_user/3,
+    user_name_updated/2
 ]).
 
 
@@ -44,12 +50,14 @@ start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NAME, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:add(user_name_updated, Host, ?MODULE, user_name_updated, 50),
     ok.
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_NAME),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(user_name_updated, Host, ?MODULE, user_name_updated, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -65,22 +73,17 @@ mod_options(_Host) ->
 %% iq handlers
 %%====================================================================
 
-process_local_iq(#iq{from = #jid{user = UserId} = From, lang = Lang, type = set,
-                    sub_els = [#name{jid = JID, name = Name}]} = IQ) ->
-    case JID =:= undefined orelse jid:remove_resource(JID) =:= jid:remove_resource(From) of
+process_local_iq(#iq{from = #jid{user = Uid}, type = set,
+        sub_els = [#name{uid = Ouid, name = Name}]} = IQ) ->
+    case Ouid =:= <<>> orelse Ouid =:= Uid of
       true ->
-        ok = model_accounts:set_name(UserId, Name),
+        set_name(Uid, Name),
         xmpp:make_iq_result(IQ);
       false ->
-        Txt = ?T("Invalid jid in the request"),
-        ?WARNING_MSG("process_local_iq: ~p", [Txt]),
-        xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang))
-    end;
-%% iq-get exists only for debugging purposes as of now.
-process_local_iq(#iq{from = _From, lang = _Lang, type = get,
-                    sub_els = [#name{jid = #jid{user = UID} = JID}]} = IQ) ->
-    Name = model_accounts:get_name_binary(UID),
-    xmpp:make_iq_result(IQ, #name{jid = JID, name = Name}).
+        ?ERROR_MSG("Uid: ~p, Invalid userid in the iq-set request: ~p", [Uid, Ouid]),
+        xmpp:make_error(IQ, #stanza_error{reason = invalid_uid})
+    end.
+%% TODO(murali@): add get-iq api if clients need it.
 
 
 %% remove_user hook deletes the name of the user.
@@ -93,10 +96,33 @@ re_register_user(UserId, _Server, _Phone) ->
     ok = model_accounts:delete_name(UserId).
 
 
+-spec user_name_updated(Uid :: binary(), Name :: binary()) -> ok.
+user_name_updated(Uid, Name) ->
+    Server = util:get_host(),
+    {ok, Phone} = model_accounts:get_phone(Uid),
+    {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+    lists:foreach(
+        fun(ContactUid) ->
+            Message = #message{
+                id = util:new_msg_id(),
+                to = jid:make(ContactUid, Server),
+                from = jid:make(Server),
+                type = normal,
+                sub_els = [#name{uid = Uid, name = Name}]
+            },
+            ejabberd_router:route(Message)
+        end, ContactUids).
+
+
 %%====================================================================
 %% internal functions
 %%====================================================================
 
-
+-spec set_name(Uid :: binary(), Name :: binary()) -> ok.
+set_name(Uid, Name) ->
+    Server = util:get_host(),
+    ok = model_accounts:set_name(Uid, Name),
+    ejabberd_hooks:run(user_name_updated, Server, [Uid, Name]),
+    ok.
 
 

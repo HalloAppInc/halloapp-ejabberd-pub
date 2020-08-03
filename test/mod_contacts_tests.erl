@@ -104,8 +104,8 @@ normalize_and_insert_contacts_with_syncid_test() ->
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, ?SYNC_ID1),
     ExpectedContacts = [
-        #contact{raw = ?PHONE2, normalized = ?PHONE2, avatarid = <<>>, userid = ?UID2, role = <<"friends">>},
-        #contact{raw = ?PHONE3, normalized = ?PHONE3, userid = ?UID3, role = <<"none">>},
+        #contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatarid = <<>>, userid = ?UID2, role = <<"friends">>},
+        #contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, userid = ?UID3, role = <<"none">>},
         #contact{raw = ?PHONE4, normalized = ?PHONE4, role = <<"none">>},
         #contact{raw = ?PHONE5},
         #contact{raw = ?PHONE6, normalized = ?PHONE6, role = <<"none">>}
@@ -152,8 +152,8 @@ normalize_and_insert_contacts_without_syncid_test() ->
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, undefined),
     ExpectedContacts = [
-        #contact{raw = ?PHONE2, normalized = ?PHONE2, avatarid = <<>>, userid = ?UID2, role = <<"friends">>},
-        #contact{raw = ?PHONE3, normalized = ?PHONE3, userid = ?UID3, role = <<"none">>},
+        #contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatarid = <<>>, userid = ?UID2, role = <<"friends">>},
+        #contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, userid = ?UID3, role = <<"none">>},
         #contact{raw = ?PHONE4, normalized = ?PHONE4, role = <<"none">>},
         #contact{raw = ?PHONE5}
     ],
@@ -192,8 +192,8 @@ normalize_and_insert_contacts_with_blocklist_test() ->
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, undefined),
     ExpectedContacts = [
-        #contact{raw = ?PHONE2, normalized = ?PHONE2, userid = ?UID2, role = <<"none">>},
-        #contact{raw = ?PHONE3, normalized = ?PHONE3, userid = ?UID3, role = <<"none">>}
+        #contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, userid = ?UID2, role = <<"none">>},
+        #contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, userid = ?UID3, role = <<"none">>}
     ],
     ?assertEqual(ExpectedContacts, ActualContacts),
 
