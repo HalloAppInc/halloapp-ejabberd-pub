@@ -135,9 +135,12 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, ty
                     check_count_and_notify_user(Ouid, Server),
                     IdentityKey = WhisperKeySet#user_whisper_key_set.identity_key,
                     SignedKey = WhisperKeySet#user_whisper_key_set.signed_key,
-                    OneTimeKey = WhisperKeySet#user_whisper_key_set.one_time_key,
+                    OneTimeKeys = case WhisperKeySet#user_whisper_key_set.one_time_key of
+                        undefined -> [];
+                        OneTimeKey -> [OneTimeKey]
+                    end,
                     xmpp:make_iq_result(IQ, #whisper_keys{uid = Ouid, identity_key = IdentityKey,
-                            signed_key = SignedKey, one_time_keys = [OneTimeKey]})
+                            signed_key = SignedKey, one_time_keys = OneTimeKeys})
             end
     end.
 
