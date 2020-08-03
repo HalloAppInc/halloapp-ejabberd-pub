@@ -402,8 +402,14 @@ parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
 
 %% TODO(murali@): Need to clean all this parsing stuff logic.
 -spec parse_payload(Message :: message()) -> binary().
-parse_payload(#message{sub_els = [#chat{sub_els = [SubEl]}]}) ->
-    fxml:get_tag_cdata(SubEl);
+parse_payload(#message{sub_els = [#chat{sub_els = SubEls}]}) ->
+    lists:foldl(
+        fun(SubEl, Acc) ->
+            case SubEl#xmlel.name of
+                <<"s1">> -> fxml:get_tag_cdata(SubEl);
+                _ -> Acc
+            end
+        end, <<>>, SubEls);
 parse_payload(#message{sub_els = [#ps_event{items = #ps_items{
         items = [#ps_item{sub_els = [SubEl]}]}}]}) ->
     fxml:get_subtag_cdata(SubEl, <<"s1">>);
