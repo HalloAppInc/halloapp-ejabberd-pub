@@ -57,34 +57,15 @@ count_recent_active_users(IntervalMs, Type) ->
 
 -spec compute_counts() -> ok.
 compute_counts() ->
-    Total1 = count_active_users_1day(all),
-    Android1 = count_active_users_1day(android),
-    Ios1 = count_active_users_1day(ios),
-    ?INFO_MSG("Active users in the past 1 day: ~p total, ~p android, ~p ios", [Total1, Android1, Ios1]),
-    stat:count("HA/active_users", "1day_all", Total1),
-    stat:count("HA/active_users", "1day_android", Android1),
-    stat:count("HA/active_users", "1day_ios", Ios1),
-    Total7 = count_active_users_7day(all),
-    Android7 = count_active_users_7day(android),
-    Ios7 = count_active_users_7day(ios),
-    ?INFO_MSG("Active users in the past 7 days: ~p total, ~p android, ~p ios", [Total7, Android7, Ios7]),
-    stat:count("HA/active_users", "7day_all", Total7),
-    stat:count("HA/active_users", "7day_android", Android7),
-    stat:count("HA/active_users", "7day_ios", Ios7),
-    Total28 = count_active_users_28day(all),
-    Android28 = count_active_users_28day(android),
-    Ios28 = count_active_users_28day(ios),
-    ?INFO_MSG("Active users in the past 28 days: ~p total, ~p android, ~p ios", [Total28, Android28, Ios28]),
-    stat:count("HA/active_users", "28day_all", Total28),
-    stat:count("HA/active_users", "28day_android", Android28),
-    stat:count("HA/active_users", "28day_ios", Ios28),
-    Total30 = count_active_users_30day(all),
-    Android30 = count_active_users_30day(android),
-    Ios30 = count_active_users_30day(ios),
-    ?INFO_MSG("Active users in the past 30 days: ~p total, ~p android, ~p ios", [Total30, Android30, Ios30]),
-    stat:count("HA/active_users", "30day_all", Total30),
-    stat:count("HA/active_users", "30day_android", Android30),
-    stat:count("HA/active_users", "30day_ios", Ios30),
+    CountFuns = [
+        {fun count_active_users_1day/1, "1day"},
+        {fun count_active_users_7day/1, "7day"},
+        {fun count_active_users_28day/1, "28day"},
+        {fun count_active_users_30day/1, "30day"}
+    ],
+    DeviceTypes = [all, android, ios],
+    [stat:count("HA/active_users", Desc ++ "_" ++ atom_to_list(Device), Fun(Device))
+        || {Fun, Desc} <- CountFuns, Device <- DeviceTypes],
     ok.
 
 
