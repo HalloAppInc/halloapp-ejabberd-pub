@@ -46,6 +46,8 @@ start(normal, _Args) ->
 	start_included_apps(),
 	start_elixir_application(),
 	setup_if_elixir_conf_used(),
+	%% Load all message definitions to the nif module.
+	enif_protobuf:load_cache(packets:get_msg_defs()),
 	case ejabberd_config:load() of
 	    ok ->
 		ejabberd_mnesia:start(),

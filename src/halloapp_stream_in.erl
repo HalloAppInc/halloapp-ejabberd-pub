@@ -49,6 +49,7 @@
 
 -include("xmpp.hrl").
 -include("logger.hrl").
+-include("packets.hrl").
 -type state() :: #{
     owner := pid(),
     mod := module(),
@@ -74,13 +75,15 @@
     mode => active | passive,
     _ => _
 }.
--type stream_state() :: accepting | wait_for_stream | wait_for_authentication | established | disconnected.
+-type stream_state() :: accepting | wait_for_authentication | established | disconnected.
 -type stop_reason() :: {stream, reset | {in | out, stream_error()}} |
                {tls, inet:posix() | atom() | binary()} |
                {socket, inet:posix() | atom()} |
                internal_failure.
 -type noreply() :: {noreply, state(), timeout()}.
 -type next_state() :: noreply() | {stop, term(), state()}.
+-type pb_packet() :: #pb_packet{}.
+
 -export_type([state/0, stop_reason/0]).
 -callback init(list()) -> {ok, state()} | {error, term()} | ignore.
 -callback handle_cast(term(), state()) -> state().
@@ -248,19 +251,19 @@ init([Mod, {SockMod, Socket}, Opts]) ->
             stream_timeout => {Timeout, Time},
             stream_state => accepting
     },
-    ?INFO_MSG("here is the value for process state: ~p ~n", [State]),
+    ?DEBUG("c2s_process state: ~p ~n", [State]),
     {ok, State, Timeout}.
 
 
 -spec handle_cast(term(), state()) -> next_state().
 handle_cast(accept, #{socket := Socket, socket_mod := SockMod, socket_opts := Opts} = State) ->
-    XMPPSocket = halloapp_socket:new(SockMod, Socket, Opts),
-    SocketMonitor = halloapp_socket:monitor(XMPPSocket),
-    case halloapp_socket:peername(XMPPSocket) of
+    PbSocket = halloapp_socket:new(SockMod, Socket, Opts),
+    SocketMonitor = halloapp_socket:monitor(PbSocket),
+    case halloapp_socket:peername(PbSocket) of
         {ok, IP} ->
             State1 = maps:remove(socket_mod, State),
             State2 = maps:remove(socket_opts, State1),
-            State3 = State2#{socket => XMPPSocket, socket_monitor => SocketMonitor, ip => IP},
+            State3 = State2#{socket => PbSocket, socket_monitor => SocketMonitor, ip => IP},
             State4 = init_state(State3, Opts),
             case is_disconnected(State4) of
                 true -> noreply(State4);
@@ -298,68 +301,45 @@ handle_call(Call, From, State) ->
 
 
 -spec handle_info(term(), state()) -> next_state().
-handle_info(_, #{stream_state := accepting} = State) ->
-    ?INFO_MSG("here is the value for process state: ~p ~n", [State]),
-    stop(State);
-
-handle_info({'$gen_event', {xmlstreamstart, _Name, _Attrs}},
-        #{stream_state := wait_for_stream} = State) ->
-    noreply(State#{stream_state => wait_for_authentication});
-
-handle_info({'$gen_event', {xmlstreamend, _}}, State) ->
-    noreply(process_stream_end({stream, reset}, State));
-
 handle_info({'$gen_event', closed}, State) ->
     noreply(process_stream_end({socket, closed}, State));
 
-handle_info({'$gen_event', {xmlstreamerror, Reason}}, #{lang := Lang}= State) ->
-    noreply(
-        case is_disconnected(State) of
-            true -> State;
-            false ->
-                Err = case Reason of
-                    <<"XML stanza is too big">> -> xmpp:serr_policy_violation(Reason, Lang);
-                    {_, Txt} -> xmpp:serr_not_well_formed(Txt, Lang)
-                end,
-              send_pkt(State, Err)
-        end);
+handle_info({'$gen_event', {protobuf, <<>>}}, _State) ->
+    noreply(_State);
 
-handle_info({'$gen_event', El}, #{stream_state := wait_for_stream} = State) ->
-    ?WARNING_MSG("unexpected event from XML driver: ~p; xmlstreamstart was expected", [El]),
+handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := State} = State) ->
     noreply(
-        case is_disconnected(State) of
-            true -> State;
-            false -> send_pkt(State, xmpp:serr_invalid_xml())
-        end);
-
-handle_info({'$gen_event', {xmlstreamelement, El}},
-        #{xmlns := NS, codec_options := Opts} = State) ->
-    noreply(
-        try xmpp:decode(El, NS, Opts) of
+        try enif_protobuf:decode(Bin, pb_auth_request) of
         Pkt ->
-            State1 = try callback(handle_recv, El, Pkt, State)
+            ?DEBUG("recv: protobuf: ~p", [Pkt]),
+            FinalPkt = case State of
+                wait_for_authentication -> ha_auth_parser:proto_to_xmpp(Pkt);
+                established -> packet_parser:proto_to_xmpp(Pkt)
+            end,
+            ?DEBUG("recv: translated xmpp: ~p", [FinalPkt]),
+            State1 = try callback(handle_recv, Bin, FinalPkt, State)
                catch _:{?MODULE, undef} -> State
                end,
             case is_disconnected(State1) of
                 true -> State1;
-                false -> process_element(Pkt, State1)
+                false -> process_element(FinalPkt, State1)
             end
-        catch _:{xmpp_codec, Why} ->
-            State1 = try callback(handle_recv, El, {error, Why}, State)
+        catch _:_ ->
+            Why = <<"failed_codec">>,
+            State1 = try callback(handle_recv, Bin, {error, Why}, State)
                catch _:{?MODULE, undef} -> State
                end,
             case is_disconnected(State1) of
                 true -> State1;
-                false -> process_invalid_xml(State1, El, Why)
+                false -> process_invalid_protobuf(State1, Bin, Why)
             end
         end);
 
-handle_info(timeout, #{lang := Lang} = State) ->
+handle_info(timeout, State) ->
     Disconnected = is_disconnected(State),
     noreply(try callback(handle_timeout, State)
         catch _:{?MODULE, undef} when not Disconnected ->
-            Txt = <<"Idle connection">>,
-            send_pkt(State, xmpp:serr_connection_timeout(Txt, Lang));
+            process_stream_end(idle_connection, State);
           _:{?MODULE, undef} ->
             stop(State)
         end);
@@ -394,10 +374,8 @@ handle_info(Info, State) ->
 
 -spec terminate(term(), state()) -> state().
 terminate(_, #{stream_state := accepting} = State) ->
-    ?INFO_MSG("here is the value for process state: ~p ~n", [State]),
     State;
 terminate(Reason, State) ->
-    ?INFO_MSG("here is the value for process state: ~p ~n", [State]),
     case get(already_terminated) of
         true ->
             State;
@@ -424,7 +402,7 @@ code_change(OldVsn, State, Extra) ->
 init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
     State1 = State#{stream_direction => in,
             stream_id => xmpp_stream:new_id(),
-            stream_state => wait_for_stream,
+            stream_state => wait_for_authentication,
             stream_version => {1,0},
             stream_authenticated => false,
             codec_options => [ignore_els],
@@ -443,7 +421,7 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
                 end,
             case halloapp_socket:starttls(Socket, TLSOpts) of
                 {ok, TLSSocket} ->
-                    State2#{socket => TLSSocket};
+                    State2#{socket => TLSSocket, tls_options => TLSOpts};
                 {error, Reason} ->
                     process_stream_end({tls, Reason}, State2)
             end;
@@ -456,10 +434,8 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
 
 -spec noreply(state()) -> noreply().
 noreply(#{stream_timeout := infinity} = State) ->
-    ?INFO_MSG("here is the value for process state: ~p ~n", [State]),
     {noreply, State, infinity};
 noreply(#{stream_timeout := {MSecs, StartTime}} = State) ->
-    ?INFO_MSG("here is the value for process state: ~p ~n", [State]),
     CurrentTime = p1_time_compat:monotonic_time(milli_seconds),
     Timeout = max(0, MSecs - CurrentTime + StartTime),
     {noreply, State, Timeout}.
@@ -470,11 +446,9 @@ is_disconnected(#{stream_state := StreamState}) ->
     StreamState == disconnected.
 
 
--spec process_invalid_xml(state(), fxml:xmlel(), term()) -> state().
-process_invalid_xml(#{lang := MyLang} = State, El, Reason) ->
-    Txt = xmpp:io_format_error(Reason),
-    Lang = select_lang(MyLang, xmpp:get_lang(El)),
-    send_error(State, El, xmpp:err_bad_request(Txt, Lang)).
+-spec process_invalid_protobuf(state(), pb_packet(), term()) -> state().
+process_invalid_protobuf(State, Bin, Reason) ->
+    send_error(State, Bin, Reason).
 
 
 -spec process_stream_end(stop_reason(), state()) -> state().
@@ -488,20 +462,17 @@ process_stream_end(Reason, State) ->
 
 
 -spec process_element(xmpp_element(), state()) -> state().
-process_element(Pkt, #{stream_state := StateName, lang := Lang} = State) ->
+process_element(Pkt, #{stream_state := StateName} = State) ->
     FinalState = case Pkt of
         #halloapp_auth{} when StateName == wait_for_authentication ->
             process_auth_request(Pkt, State);
         #stream_error{} ->
             process_stream_end({stream, {in, Pkt}}, State);
         _ when StateName == wait_for_authentication ->
-            Txt = <<"Need to authenticate">>,
-            Err = xmpp:serr_policy_violation(Txt, Lang),
-            send_pkt(State, Err);
+            process_stream_end(un_authenticated, State);
         _ when StateName == established ->
             process_authenticated_packet(Pkt, State)
     end,
-    ?INFO_MSG("here is the value for process state: ~p ~n", [FinalState]),
     FinalState.
 
 
@@ -512,19 +483,17 @@ process_authenticated_packet(Pkt, State) ->
         {ok, Pkt2} ->
             try callback(handle_authenticated_packet, Pkt2, State)
             catch _:{?MODULE, undef} ->
-                Err = xmpp:err_service_unavailable(),
-                send_error(State, Pkt, Err)
+                process_stream_end(service_unavailable, State)
             end;
         {error, Err} ->
-            send_pkt(State, Err)
+            process_stream_end(Err, State)
     end.
 
 
 %% TODO(murali@): cleanup this function.
 -spec process_auth_request(halloapp_auth(), state()) -> state().
 process_auth_request(#halloapp_auth{uid = Uid, pwd = Pwd, client_mode = Mode,
-        client_version = ClientVersion, resource = R}, State) ->
-    Resource = list_to_binary(atom_to_list(R)),
+        client_version = ClientVersion, resource = Resource}, State) ->
     State1 = State#{user => Uid, client_version => ClientVersion, resource => Resource, mode => Mode},
     %% Check Uid and Password. TODO(murali@): simplify this even further!
     CheckPW = check_password_fun(<<>>, State1),
@@ -541,7 +510,7 @@ process_auth_request(#halloapp_auth{uid = Uid, pwd = Pwd, client_mode = Mode,
                 catch _:{?MODULE, undef} -> State2
             end,
             %% Check client_version
-            case callback(is_valid_client_version, Resource, State3) of
+            case callback(is_valid_client_version, ClientVersion, State3) of
                 false ->
                     {State3, <<"failure">>, <<"invalid client version">>};
                 true ->
@@ -602,7 +571,7 @@ set_from_to(Pkt, #{user := U, server := S, resource := R, lang := Lang, xmlns :=
         (JID#jid.lresource == From#jid.lresource
         orelse From#jid.lresource == <<"">>) ->
             To = case xmpp:get_to(Pkt) of
-                 undefined -> jid:make(U, S);
+                 undefined -> jid:make(S);
                  T -> T
              end,
             {ok, xmpp:set_from_to(Pkt, JID, To)};
@@ -625,8 +594,9 @@ set_from_to(Pkt, #{lang := Lang}) ->
     end.
 
 
--spec send_pkt(state(), xmpp_element() | xmlel()) -> state().
-send_pkt(State, Pkt) ->
+-spec send_pkt(state(), xmpp_element()) -> state().
+send_pkt(State, XmppPkt) ->
+    Pkt = xmpp_to_proto(XmppPkt),
     Result = socket_send(State, Pkt),
     State1 = try callback(handle_send, Pkt, Result, State)
          catch _:{?MODULE, undef} -> State
@@ -646,29 +616,16 @@ send_pkt(State, Pkt) ->
 
 
 -spec send_error(state(), xmpp_element() | xmlel(), stanza_error()) -> state().
-send_error(State, Pkt, Err) ->
-    case xmpp:is_stanza(Pkt) of
-        true ->
-            case xmpp:get_type(Pkt) of
-                result -> State;
-                error -> State;
-                <<"result">> -> State;
-                <<"error">> -> State;
-                _ ->
-                    ErrPkt = xmpp:make_error(Pkt, Err),
-                    send_pkt(State, ErrPkt)
-            end;
-        false ->
-            %% Maybe add a specific xml error stanza
-            State
-    end.
+send_error(State, _Pkt, Err) ->
+    %% TODO(murali@); send an error stanza.
+    process_stream_end(Err, State).
 
 
 -spec socket_send(state(), xmpp_element() | xmlel()) -> ok | {error, inet:posix()}.
-socket_send(#{socket := Sock, stream_state := StateName, xmlns := NS}, Pkt) ->
+socket_send(#{socket := Sock, stream_state := StateName}, Pkt) ->
     case Pkt of
         _ when StateName /= disconnected ->
-            halloapp_socket:send_element(Sock, NS, Pkt);
+            halloapp_socket:send_element(Sock, Pkt);
         _ ->
             {error, closed}
     end;
@@ -716,6 +673,13 @@ format_tls_error(Reason) ->
 -spec format(io:format(), list()) -> binary().
 format(Fmt, Args) ->
     iolist_to_binary(io_lib:format(Fmt, Args)).
+
+
+%% TODO(murali@): clean this up further: use the parser module itself.
+xmpp_to_proto(XmppPkt) when is_record(XmppPkt, halloapp_auth_result) ->
+    ha_auth_parser:xmpp_to_proto(XmppPkt);
+xmpp_to_proto(XmppPkt) ->
+    packet_parser:xmpp_to_proto(XmppPkt).
 
 
 %%%===================================================================
