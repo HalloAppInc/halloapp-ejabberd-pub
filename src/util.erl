@@ -34,7 +34,8 @@
     send_after/2,
     uids_to_jids/2,
     uuid_binary/0,
-    timestamp_to_datetime/1
+    timestamp_to_datetime/1,
+    decode_base_64/1
 ]).
 
 %% Export all functions for unit tests
