@@ -126,32 +126,32 @@ init([]) ->
     ejabberd_hooks:add(host_down, ?MODULE, host_down, 80),
     ejabberd_hooks:add(config_reloaded, ?MODULE, config_reloaded, 40),
     start(?HOST),
-    ok.
+    {ok, #{}}.
 
 
-handle_call(Request, From, _State) ->
+handle_call(Request, From, State) ->
     ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
-    noreply.
+    {noreply, State}.
 
-handle_cast({host_up, Host}, _State) ->
+handle_cast({host_up, Host}, State) ->
     start(Host),
-    noreply;
+    {noreply, State};
 
-handle_cast({host_down, Host}, _State) ->
+handle_cast({host_down, Host}, State) ->
     stop(Host),
-    noreply;
+    {noreply, State};
 
-handle_cast(config_reloaded, _State) ->
-    noreply;
+handle_cast(config_reloaded, State) ->
+    {noreply, State};
 
-handle_cast(Msg, _State) ->
+handle_cast(Msg, State) ->
     ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
-    noreply.
+    {noreply, State}.
 
 
-handle_info(Info, _State) ->
+handle_info(Info, State) ->
     ?WARNING_MSG("Unexpected info: ~p", [Info]),
-    noreply.
+    {noreply, State}.
 
 
 terminate(_Reason, _State) ->
