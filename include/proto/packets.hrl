@@ -11,7 +11,8 @@
 -define('PB_CHAT_PB_H', true).
 -record(pb_chat,
         {timestamp = 0          :: integer() | undefined, % = 1, 64 bits
-         payload = <<>>         :: iodata() | undefined % = 2
+         payload = <<>>         :: iodata() | undefined, % = 2
+         enc_payload = <<>>     :: iodata() | undefined % = 3
         }).
 -endif.
 

@@ -15,8 +15,11 @@ import "client_info.proto";
 // Chat
 
 message chat {
-  int64 timestamp = 1;
-  bytes payload = 2;
+    int64 timestamp = 1;
+    bytes payload = 2;
+    bytes enc_payload = 3;
+    // Temporarily added two payloads: one is for unecrypted and the other is encrypted.
+    // Clients currently send both of them at times.
 }
 
 

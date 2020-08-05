@@ -39,7 +39,8 @@
         from = ?FROMJID,
         sub_els = [#chat{
                 timestamp = <<"2000090910">>, 
-                sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"Hello from pb chat!">>}]}]
+                sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"Hello from pb chat!">>}]},
+                        {xmlel,<<"enc">>,[],[{xmlcdata,<<"Check encrypted content!">>}]}]
             }
         ]
     }
@@ -54,7 +55,8 @@
         payload = #pb_msg_payload{
             content = {chat, #pb_chat{
                 timestamp = 2000090910,
-                payload = <<"Hello from pb chat!">>
+                payload = <<"Hello from pb chat!">>,
+                enc_payload = <<"Check encrypted content!">>
             }}
         }
     }
@@ -76,4 +78,4 @@ proto_to_xmpp_chat_test() ->
     XmppMSG = message_parser:proto_to_xmpp(?PB_MSG_CHAT),
     ?assertEqual(true, is_record(XmppMSG, message)),
     ?assertEqual(?XMPP_MSG_CHAT, XmppMSG).
-% 
+

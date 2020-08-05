@@ -184,7 +184,7 @@ encode_msg(Msg, MsgName, Opts) ->
 encode_msg_pb_chat(Msg, TrUserData) -> encode_msg_pb_chat(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_chat(#pb_chat{timestamp = F1, payload = F2}, Bin, TrUserData) ->
+encode_msg_pb_chat(#pb_chat{timestamp = F1, payload = F2, enc_payload = F3}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -194,13 +194,23 @@ encode_msg_pb_chat(#pb_chat{timestamp = F1, payload = F2}, Bin, TrUserData) ->
 		  end
 		end
 	 end,
-    if F2 == undefined -> B1;
+    B2 = if F2 == undefined -> B1;
+	    true ->
+		begin
+		  TrF2 = id(F2, TrUserData),
+		  case iolist_size(TrF2) of
+		    0 -> B1;
+		    _ -> e_type_bytes(TrF2, <<B1/binary, 18>>, TrUserData)
+		  end
+		end
+	 end,
+    if F3 == undefined -> B2;
        true ->
 	   begin
-	     TrF2 = id(F2, TrUserData),
-	     case iolist_size(TrF2) of
-	       0 -> B1;
-	       _ -> e_type_bytes(TrF2, <<B1/binary, 18>>, TrUserData)
+	     TrF3 = id(F3, TrUserData),
+	     case iolist_size(TrF3) of
+	       0 -> B2;
+	       _ -> e_type_bytes(TrF3, <<B2/binary, 26>>, TrUserData)
 	     end
 	   end
     end.
@@ -1323,49 +1333,55 @@ decode_msg_2_doit(pb_push_register, Bin, TrUserData) -> id(decode_msg_pb_push_re
 
 
 
-decode_msg_pb_chat(Bin, TrUserData) -> dfp_read_field_def_pb_chat(Bin, 0, 0, id(0, TrUserData), id(<<>>, TrUserData), TrUserData).
+decode_msg_pb_chat(Bin, TrUserData) -> dfp_read_field_def_pb_chat(Bin, 0, 0, id(0, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
 
-dfp_read_field_def_pb_chat(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_chat_timestamp(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-dfp_read_field_def_pb_chat(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_chat_payload(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-dfp_read_field_def_pb_chat(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_chat{timestamp = F@_1, payload = F@_2};
-dfp_read_field_def_pb_chat(Other, Z1, Z2, F@_1, F@_2, TrUserData) -> dg_read_field_def_pb_chat(Other, Z1, Z2, F@_1, F@_2, TrUserData).
+dfp_read_field_def_pb_chat(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_chat_timestamp(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_chat(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_chat_payload(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_chat(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_chat_enc_payload(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_chat(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_chat{timestamp = F@_1, payload = F@_2, enc_payload = F@_3};
+dfp_read_field_def_pb_chat(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_chat(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-dg_read_field_def_pb_chat(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_chat(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-dg_read_field_def_pb_chat(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) ->
+dg_read_field_def_pb_chat(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_chat(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+dg_read_field_def_pb_chat(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-      8 -> d_field_pb_chat_timestamp(Rest, 0, 0, F@_1, F@_2, TrUserData);
-      18 -> d_field_pb_chat_payload(Rest, 0, 0, F@_1, F@_2, TrUserData);
+      8 -> d_field_pb_chat_timestamp(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      18 -> d_field_pb_chat_payload(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      26 -> d_field_pb_chat_enc_payload(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
       _ ->
 	  case Key band 7 of
-	    0 -> skip_varint_pb_chat(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    1 -> skip_64_pb_chat(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    2 -> skip_length_delimited_pb_chat(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    3 -> skip_group_pb_chat(Rest, Key bsr 3, 0, F@_1, F@_2, TrUserData);
-	    5 -> skip_32_pb_chat(Rest, 0, 0, F@_1, F@_2, TrUserData)
+	    0 -> skip_varint_pb_chat(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    1 -> skip_64_pb_chat(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    2 -> skip_length_delimited_pb_chat(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    3 -> skip_group_pb_chat(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
+	    5 -> skip_32_pb_chat(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_chat(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_chat{timestamp = F@_1, payload = F@_2}.
+dg_read_field_def_pb_chat(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_chat{timestamp = F@_1, payload = F@_2, enc_payload = F@_3}.
 
-d_field_pb_chat_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_chat_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-d_field_pb_chat_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_chat(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+d_field_pb_chat_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_chat_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_chat_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
+    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_chat(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
-d_field_pb_chat_payload(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_chat_payload(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-d_field_pb_chat_payload(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_chat(RestF, 0, 0, F@_1, NewFValue, TrUserData).
+d_field_pb_chat_payload(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_chat_payload(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_chat_payload(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_chat(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
 
-skip_varint_pb_chat(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_chat(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-skip_varint_pb_chat(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_chat(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+d_field_pb_chat_enc_payload(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_chat_enc_payload(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_chat_enc_payload(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_chat(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
 
-skip_length_delimited_pb_chat(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_pb_chat(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-skip_length_delimited_pb_chat(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_chat(Rest2, 0, 0, F@_1, F@_2, TrUserData).
+skip_varint_pb_chat(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_chat(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+skip_varint_pb_chat(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_chat(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_group_pb_chat(Bin, FNum, Z2, F@_1, F@_2, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_chat(Rest, 0, Z2, F@_1, F@_2, TrUserData).
+skip_length_delimited_pb_chat(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_chat(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+skip_length_delimited_pb_chat(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_chat(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
 
-skip_32_pb_chat(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_chat(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+skip_group_pb_chat(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_chat(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_64_pb_chat(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_chat(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+skip_32_pb_chat(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_chat(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+skip_64_pb_chat(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_chat(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
 decode_msg_pb_ping(Bin, TrUserData) -> dfp_read_field_def_pb_ping(Bin, 0, 0, TrUserData).
 
@@ -3284,7 +3300,7 @@ merge_msgs(Prev, New, MsgName, Opts) ->
     end.
 
 -compile({nowarn_unused_function,merge_msg_pb_chat/3}).
-merge_msg_pb_chat(#pb_chat{timestamp = PFtimestamp, payload = PFpayload}, #pb_chat{timestamp = NFtimestamp, payload = NFpayload}, _) ->
+merge_msg_pb_chat(#pb_chat{timestamp = PFtimestamp, payload = PFpayload, enc_payload = PFenc_payload}, #pb_chat{timestamp = NFtimestamp, payload = NFpayload, enc_payload = NFenc_payload}, _) ->
     #pb_chat{timestamp =
 		 if NFtimestamp =:= undefined -> PFtimestamp;
 		    true -> NFtimestamp
@@ -3292,6 +3308,10 @@ merge_msg_pb_chat(#pb_chat{timestamp = PFtimestamp, payload = PFpayload}, #pb_ch
 	     payload =
 		 if NFpayload =:= undefined -> PFpayload;
 		    true -> NFpayload
+		 end,
+	     enc_payload =
+		 if NFenc_payload =:= undefined -> PFenc_payload;
+		    true -> NFenc_payload
 		 end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_ping/3}).
@@ -3777,12 +3797,15 @@ verify_msg(Msg, MsgName, Opts) ->
 
 -compile({nowarn_unused_function,v_msg_pb_chat/3}).
 -dialyzer({nowarn_function,v_msg_pb_chat/3}).
-v_msg_pb_chat(#pb_chat{timestamp = F1, payload = F2}, Path, TrUserData) ->
+v_msg_pb_chat(#pb_chat{timestamp = F1, payload = F2, enc_payload = F3}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> v_type_int64(F1, [timestamp | Path], TrUserData)
     end,
     if F2 == undefined -> ok;
        true -> v_type_bytes(F2, [payload | Path], TrUserData)
+    end,
+    if F3 == undefined -> ok;
+       true -> v_type_bytes(F3, [enc_payload | Path], TrUserData)
     end,
     ok;
 v_msg_pb_chat(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_chat}, X, Path).
@@ -4384,7 +4407,10 @@ get_msg_defs() ->
      {{enum, 'pb_ha_presence.Type'}, [{available, 0}, {away, 1}, {subscribe, 2}, {unsubscribe, 3}]}, {{enum, 'pb_client_mode.Mode'}, [{active, 0}, {passive, 1}]}, {{enum, 'pb_contact.Action'}, [{add, 0}, {delete, 1}]},
      {{enum, 'pb_contact.Role'}, [{friend, 0}, {none, 1}]}, {{enum, 'pb_contact_list.Type'}, [{full, 0}, {delta, 1}]}, {{enum, 'pb_feed_item.Action'}, [{publish, 0}, {retract, 1}]},
      {{enum, 'pb_whisper_keys.Action'}, [{normal, 0}, {add, 1}, {count, 2}, {get, 3}, {set, 4}, {update, 5}]}, {{enum, 'pb_push_token.Os'}, [{android, 0}, {ios, 1}, {ios_dev, 2}]},
-     {{msg, pb_chat}, [#field{name = timestamp, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = payload, fnum = 2, rnum = 3, type = bytes, occurrence = optional, opts = []}]}, {{msg, pb_ping}, []},
+     {{msg, pb_chat},
+      [#field{name = timestamp, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = payload, fnum = 2, rnum = 3, type = bytes, occurrence = optional, opts = []},
+       #field{name = enc_payload, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []}]},
+     {{msg, pb_ping}, []},
      {{msg, pb_iq_payload},
       [#gpb_oneof{name = content, rnum = 2,
 		  fields =
@@ -4495,7 +4521,9 @@ fetch_enum_def(EnumName) ->
     end.
 
 
-find_msg_def(pb_chat) -> [#field{name = timestamp, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = payload, fnum = 2, rnum = 3, type = bytes, occurrence = optional, opts = []}];
+find_msg_def(pb_chat) ->
+    [#field{name = timestamp, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = payload, fnum = 2, rnum = 3, type = bytes, occurrence = optional, opts = []},
+     #field{name = enc_payload, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []}];
 find_msg_def(pb_ping) -> [];
 find_msg_def(pb_iq_payload) ->
     [#gpb_oneof{name = content, rnum = 2,
