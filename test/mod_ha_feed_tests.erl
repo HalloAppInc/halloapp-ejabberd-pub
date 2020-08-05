@@ -35,6 +35,9 @@ setup() ->
     gen_iq_handler:start(ejabberd_local),
     ejabberd_hooks:start_link(),
     mod_redis:start(undefined, []),
+    mnesia:start(),
+    ejabberd_mnesia:start(),
+    mod_feed_mnesia:start(undefined, []),
     clear(),
     ok.
 
@@ -68,16 +71,43 @@ create_comment_st(CommentId, PostId, PublisherUid,
         timestamp = Timestamp
     }.
 
-create_feed_stanza(Action, Posts, Comments) ->
+create_feed_stanza(Action, Posts, Comments, AudienceListSt, SharePostsSt) ->
     #feed_st{
         action = Action,
         posts = Posts,
-        comments = Comments
+        comments = Comments,
+        audience_list = AudienceListSt,
+        share_posts = SharePostsSt
     }.
 
-get_post_publish_iq(PostId, Uid, Payload, Server) ->
+create_audience_list_st(undefined, _) ->
+    [];
+create_audience_list_st(AudienceType, AudienceList) ->
+    Uids = lists:map(
+        fun(Uid) ->
+            #uid_element{uid = Uid}
+        end, AudienceList),
+    [#audience_list_st{
+        type = AudienceType,
+        uids = Uids
+    }].
+
+create_share_post_st(Uid, PostIds, Result, Reason) ->
+    Posts = lists:map(
+        fun(PostId) ->
+            #post_st{id = PostId}
+        end, PostIds),
+    #share_posts_st{
+        uid = Uid,
+        posts = Posts,
+        result = Result,
+        reason = Reason
+    }.
+
+get_post_publish_iq(PostId, Uid, Payload, AudienceType, AudienceList, Server) ->
     Post = create_post_st(PostId, Uid, Payload, <<>>),
-    FeedStanza = create_feed_stanza(publish, [Post], []),
+    AudienceListStanza = create_audience_list_st(AudienceType, AudienceList),
+    FeedStanza = create_feed_stanza(publish, [Post], [], AudienceListStanza, []),
     #iq{
         from = jid:make(Uid, Server),
         type = set,
@@ -87,7 +117,7 @@ get_post_publish_iq(PostId, Uid, Payload, Server) ->
 
 get_post_publish_iq_result(PostId, Uid, Timestamp, Server) ->
     Post = create_post_st(PostId, Uid, <<>>, Timestamp),
-    FeedStanza = create_feed_stanza(publish, [Post], []),
+    FeedStanza = create_feed_stanza(publish, [Post], [], [], []),
     #iq{
         from = jid:make(Server),
         type = result,
@@ -97,7 +127,7 @@ get_post_publish_iq_result(PostId, Uid, Timestamp, Server) ->
 
 get_comment_publish_iq(CommentId, PostId, Uid, ParentCommentId, Payload, Server) ->
     Comment = create_comment_st(CommentId, PostId, Uid, <<>>, ParentCommentId, Payload, <<>>),
-    FeedStanza = create_feed_stanza(publish, [], [Comment]),
+    FeedStanza = create_feed_stanza(publish, [], [Comment], [], []),
     #iq{
         from = jid:make(Uid, Server),
         type = set,
@@ -107,7 +137,7 @@ get_comment_publish_iq(CommentId, PostId, Uid, ParentCommentId, Payload, Server)
 
 get_comment_publish_iq_result(CommentId, PostId, Uid, ParentCommentId, Timestamp, Server) ->
     Comment = create_comment_st(CommentId, PostId, Uid, <<>>, ParentCommentId, <<>>, Timestamp),
-    FeedStanza = create_feed_stanza(publish, [], [Comment]),
+    FeedStanza = create_feed_stanza(publish, [], [Comment], [], []),
     #iq{
         from = jid:make(Server),
         type = result,
@@ -117,7 +147,7 @@ get_comment_publish_iq_result(CommentId, PostId, Uid, ParentCommentId, Timestamp
 
 get_post_retract_iq(PostId, Uid, Server) ->
     Post = create_post_st(PostId, Uid, <<>>, <<>>),
-    FeedStanza = create_feed_stanza(retract, [Post], []),
+    FeedStanza = create_feed_stanza(retract, [Post], [], [], []),
     #iq{
         from = jid:make(Uid, Server),
         type = set,
@@ -127,7 +157,7 @@ get_post_retract_iq(PostId, Uid, Server) ->
 
 get_post_retract_iq_result(PostId, Uid, Timestamp, Server) ->
     Post = create_post_st(PostId, Uid, <<>>, Timestamp),
-    FeedStanza = create_feed_stanza(retract, [Post], []),
+    FeedStanza = create_feed_stanza(retract, [Post], [], [], []),
     #iq{
         from = jid:make(Server),
         type = result,
@@ -137,7 +167,7 @@ get_post_retract_iq_result(PostId, Uid, Timestamp, Server) ->
 
 get_comment_retract_iq(CommentId, PostId, Uid, Server) ->
     Comment = create_comment_st(CommentId, PostId, <<>>, <<>>, <<>>, <<>>, <<>>),
-    FeedStanza = create_feed_stanza(retract, [], [Comment]),
+    FeedStanza = create_feed_stanza(retract, [], [Comment], [], []),
     #iq{
         from = jid:make(Uid, Server),
         type = set,
@@ -147,7 +177,40 @@ get_comment_retract_iq(CommentId, PostId, Uid, Server) ->
 
 get_comment_retract_iq_result(CommentId, PostId, Uid, Timestamp, Server) ->
     Comment = create_comment_st(CommentId, PostId, Uid, <<>>, <<>>, <<>>, Timestamp),
-    FeedStanza = create_feed_stanza(retract, [], [Comment]),
+    FeedStanza = create_feed_stanza(retract, [], [Comment], [], []),
+    #iq{
+        from = jid:make(Server),
+        type = result,
+        to = jid:make(Uid, Server),
+        sub_els = [FeedStanza]
+    }.
+
+
+get_share_iq(Uid, FriendUid, PostIds, Server) ->
+    SharePostSt = create_share_post_st(FriendUid, PostIds, <<>>, <<>>),
+    FeedStanza = create_feed_stanza(share, [], [], [], [SharePostSt]),
+    #iq{
+        from = jid:make(Uid, Server),
+        type = set,
+        to = jid:make(Server),
+        sub_els = [FeedStanza]
+    }.
+
+
+get_share_error_result(Uid, FriendUid, Server) ->
+    SharePostSt = create_share_post_st(FriendUid, [], failed, invalid_friend_uid),
+    FeedStanza = create_feed_stanza(share, [], [], [], [SharePostSt]),
+    #iq{
+        from = jid:make(Server),
+        type = result,
+        to = jid:make(Uid, Server),
+        sub_els = [FeedStanza]
+    }.
+
+
+get_share_iq_result(Uid, FriendUid, Server) ->
+    SharePostSt = create_share_post_st(FriendUid, [], ok, undefined),
+    FeedStanza = create_feed_stanza(share, [], [], [], [SharePostSt]),
     #iq{
         from = jid:make(Server),
         type = result,
@@ -177,10 +240,20 @@ get_timestamp(_) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+publish_post_no_audience_error_test() ->
+    setup(),
+    %% posting a feedpost without audience
+    PublishIQ = get_post_publish_iq(?POST_ID1, ?UID1, ?PAYLOAD1, undefined, [], ?SERVER),
+    ResultIQ = mod_ha_feed:process_local_iq(PublishIQ),
+    ExpectedResultIQ = get_error_iq_result(no_audience, ?UID1, ?SERVER),
+    ?assertEqual(ExpectedResultIQ, ResultIQ),
+    ok.
+
+
 publish_post_test() ->
     setup(),
     %% posting a feedpost.
-    PublishIQ = get_post_publish_iq(?POST_ID1, ?UID1, ?PAYLOAD1, ?SERVER),
+    PublishIQ = get_post_publish_iq(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], ?SERVER),
     ResultIQ1 = mod_ha_feed:process_local_iq(PublishIQ),
     Timestamp = get_timestamp(ResultIQ1),
     ExpectedResultIQ = get_post_publish_iq_result(?POST_ID1, ?UID1, Timestamp, ?SERVER),
@@ -205,7 +278,7 @@ publish_non_existing_post_comment_test() ->
 publish_comment_test() ->
     setup(),
     %% publish post and then comment.
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
     PublishIQ = get_comment_publish_iq(?COMMENT_ID1, ?POST_ID1, ?UID1, <<>>, ?PAYLOAD1, ?SERVER),
     ResultIQ = mod_ha_feed:process_local_iq(PublishIQ),
     Timestamp = get_timestamp(ResultIQ),
@@ -232,7 +305,7 @@ retract_non_existing_post_test() ->
 retract_post_test() ->
     setup(),
     %% publish post and then retract.
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
     RetractIQ = get_post_retract_iq(?POST_ID1, ?UID1, ?SERVER),
     ResultIQ = mod_ha_feed:process_local_iq(RetractIQ),
     Timestamp = get_timestamp(ResultIQ),
@@ -244,7 +317,7 @@ retract_post_test() ->
 retract_not_authorized_post_test() ->
     setup(),
     %% publish post and then retract by different user.
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
     RetractIQ = get_post_retract_iq(?POST_ID1, ?UID2, ?SERVER),
     ResultIQ = mod_ha_feed:process_local_iq(RetractIQ),
     ExpectedResultIQ = get_error_iq_result(not_authorized, ?UID2, ?SERVER),
@@ -265,7 +338,7 @@ retract_non_existing_comment_test() ->
 retract_comment_test() ->
     setup(),
     %% publish post and comment and then retract comment.
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, util:now_ms()),
     RetractIQ = get_comment_retract_iq(?COMMENT_ID1, ?POST_ID1, ?UID1, ?SERVER),
@@ -280,7 +353,7 @@ retract_comment_test() ->
 retract_not_authorized_comment_test() ->
     setup(),
     %% publish post and then retract by different user.
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
             ?UID2, <<>>, [?UID1, ?UID2], ?COMMENT_PAYLOAD2, util:now_ms()),
     RetractIQ = get_comment_retract_iq(?COMMENT_ID2, ?POST_ID1, ?UID1, ?SERVER),
@@ -288,4 +361,27 @@ retract_not_authorized_comment_test() ->
     ExpectedResultIQ = get_error_iq_result(not_authorized, ?UID1, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
+
+
+share_post_error_test() ->
+    setup(),
+    %% publish post and add non-friend
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
+    ShareIQ = get_share_iq(?UID1, ?UID2, [?POST_ID1], ?SERVER),
+    ResultIQ = mod_ha_feed:process_local_iq(ShareIQ),
+    ExpectedResultIQ = get_share_error_result(?UID1, ?UID2, ?SERVER),
+    ?assertEqual(ExpectedResultIQ#iq.sub_els, ResultIQ#iq.sub_els),
+    ok.
+
+
+%% TODO(murali@): add unit tests related to mnesia.
+% share_post_iq_test() ->
+%     setup(),
+%     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
+%     model_friends:add_friend(?UID1, ?UID2),
+%     ShareIQ = get_share_iq(?UID1, ?UID2, [?POST_ID1], ?SERVER),
+%     ResultIQ = mod_ha_feed:process_local_iq(ShareIQ),
+%     ExpectedResultIQ = get_share_iq_result(?UID1, ?UID2, ?SERVER),
+%     ?assertEqual(ExpectedResultIQ, ResultIQ),
+%     ok.
 

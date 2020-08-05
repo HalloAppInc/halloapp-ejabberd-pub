@@ -35,17 +35,19 @@
 
 %% API
 -export([
-    publish_post/4,
+    publish_post/6,
     publish_comment/7,
     retract_post/2,
     retract_comment/2,
     get_post/1,
     get_comment/2,
-    get_new_comment_data/3,
+    get_post_and_its_comments/1,
+    get_comment_data/3,
     get_7day_user_feed/1,
     get_entire_user_feed/1,
     is_post_owner/2,
-    remove_all_user_posts/1
+    remove_all_user_posts/1,
+    add_uid_to_audience/2
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -76,21 +78,26 @@ mod_options(_Host) ->
 
 -define(FIELD_UID, <<"uid">>).
 -define(FIELD_PAYLOAD, <<"pl">>).
+-define(FIELD_AUDIENCE_TYPE, <<"fa">>).
 -define(FIELD_TIMESTAMP_MS, <<"ts">>).
 -define(FIELD_PUBLISHER_UID, <<"pbu">>).
 -define(FIELD_PARENT_COMMENT_ID, <<"pc">>).
 
--spec publish_post(PostId :: binary(), Uid :: uid(),
-        Payload :: binary(), TimestampMs :: integer()) -> ok | {error, any()}.
-publish_post(PostId, Uid, Payload, TimestampMs) ->
+-spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(),
+        FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
+        TimestampMs :: integer()) -> ok | {error, any()}.
+publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, TimestampMs) ->
     DeadlineMs = TimestampMs - ?POST_TTL_MS,
     CleanupCommand = get_cleanup_command(Uid, DeadlineMs),
-    [{ok, _}, {ok, _}] = qp([
+    [{ok, _}, {ok, _}, {ok, _}, {ok, _}] = qp([
             ["HSET", post_key(PostId),
                 ?FIELD_UID, Uid,
                 ?FIELD_PAYLOAD, Payload,
+                ?FIELD_AUDIENCE_TYPE, encode_audience_type(FeedAudienceType),
                 ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)],
-            ["EXPIRE", post_key(PostId), ?POST_EXPIRATION]]),
+            ["SADD", post_audience_key(PostId) | FeedAudienceList],
+            ["EXPIRE", post_key(PostId), ?POST_EXPIRATION],
+            ["EXPIRE", post_audience_key(PostId), ?POST_EXPIRATION]]),
     [{ok, _}, {ok, _}, {ok, _}] = qp([
             CleanupCommand,
             ["ZADD", reverse_post_key(Uid), TimestampMs, PostId],
@@ -140,7 +147,8 @@ delete_post(PostId, Uid) ->
     {ok, CommentIds} = q(["ZRANGEBYSCORE", post_comments_key(PostId), "-inf", "+inf"]),
     CommentKeys = [[comment_key(CommentId, PostId), comment_push_list_key(CommentId, PostId)] || CommentId <- CommentIds],
     FinalKeys = lists:flatten(CommentKeys),
-    {ok, _} = q(["DEL", post_key(PostId), post_comments_key(PostId) | FinalKeys]),
+    {ok, _} = q(["DEL", post_key(PostId), post_audience_key(PostId),
+            post_comments_key(PostId) | FinalKeys]),
     {ok, _} = q(["ZREM", reverse_post_key(Uid), PostId]),
     ok.
 
@@ -163,12 +171,20 @@ remove_all_user_posts(Uid) ->
 
 -spec get_post(PostId :: binary()) -> {ok, post()} | {error, any()}.
 get_post(PostId) ->
-    {ok, [Uid, Payload, TimestampMs]} = q(
-        ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS]),
+    [{ok, [Uid, Payload, AudienceType, TimestampMs]}, {ok, AudienceList}] = qp([
+            ["HMGET", post_key(PostId),
+                ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS],
+            ["SMEMBERS", post_audience_key(PostId)]]),
     case Uid =:= undefined orelse Payload =:= undefined orelse TimestampMs =:= undefined of
         true -> {error, missing};
-        false -> {ok, #post{id = PostId, uid = Uid,
-                payload = Payload, ts_ms = util_redis:decode_ts(TimestampMs)}}
+        false ->
+            {ok, #post{
+                id = PostId,
+                uid = Uid,
+                audience_type = decode_audience_type(AudienceType),
+                audience_list = AudienceList,
+                payload = Payload,
+                ts_ms = util_redis:decode_ts(TimestampMs)}}
     end.
 
 
@@ -188,31 +204,46 @@ get_comment(CommentId, PostId) ->
     end.
 
 
+%% TODO(murali@): optimize redis queries to fetch all posts and comments.
+-spec get_post_and_its_comments(PostId :: binary()) -> {ok, {post(), [comment()]}} | {error, any()}.
+get_post_and_its_comments(PostId) when is_binary(PostId) ->
+    case get_post(PostId) of
+        {ok, Post} ->
+            {ok, Comments} = get_post_comments(PostId),
+            {ok, {Post, Comments}};
+        {error, missing} ->
+            {error, missing}
+    end.
+
+
 %% We dont check if the given ParentId here is correct or not.
 %% We only use it to fetch the PushList of uids.
-%% Check with team about renaming this function..
--spec get_new_comment_data(PostId :: binary(), CommentId :: binary(),
+-spec get_comment_data(PostId :: binary(), CommentId :: binary(),
         ParentId :: binary()) -> [{ok, feed_item()}] | {error, any()}.
-get_new_comment_data(PostId, CommentId, ParentId) ->
+get_comment_data(PostId, CommentId, ParentId) ->
     PushListCommands = case ParentId of
         <<>> -> [];
         _ -> [["SMEMBERS", comment_push_list_key(ParentId, PostId)]]
     end,
-    [{ok, Res1}, {ok, Res2} | Rest] = qp([
-        ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS],
+    [{ok, Res1}, {ok, Res2}, {ok, Res3} | Rest] = qp([
+        ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS],
+        ["SMEMBERS", post_audience_key(PostId)],
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID,
                 ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS] | PushListCommands]),
-    [PostUid, PostPayload, PostTsMs] = Res1,
-    [CommentPublisherUid, ParentCommentId, CommentPayload, CommentTsMs] = Res2,
+    [PostUid, PostPayload, AudienceType, PostTsMs] = Res1,
+    AudienceList = Res2,
+    [CommentPublisherUid, ParentCommentId, CommentPayload, CommentTsMs] = Res3,
     ParentPushList = case PushListCommands of
         [] -> [];
         _ ->
-            [{ok, Res3}] = Rest,
-            Res3
+            [{ok, Res4}] = Rest,
+            Res4
     end,
     Post = #post{
         id = PostId,
         uid = PostUid,
+        audience_type = decode_audience_type(AudienceType),
+        audience_list = AudienceList,
         payload = PostPayload,
         ts_ms = util_redis:decode_ts(PostTsMs)
     },
@@ -246,6 +277,18 @@ get_post_comments(PostId) when is_binary(PostId) ->
             Comment
         end, CommentIds),
     {ok, Comments}.
+
+
+-spec add_uid_to_audience(Uid :: uid(), PostIds :: [binary()]) -> ok | {error, any()}.
+add_uid_to_audience(Uid, PostIds) ->
+    lists:foreach(fun(PostId) -> add_uid_to_audience_for_post(Uid, PostId) end, PostIds),
+    ok.
+
+
+-spec add_uid_to_audience_for_post(Uid :: uid(), PostId :: binary()) -> ok | {error, any()}.
+add_uid_to_audience_for_post(Uid, PostId) ->
+    {ok, _} = q(["SADD", post_audience_key(PostId), Uid]),
+    ok.
 
 
 -spec get_7day_user_feed(Uid :: uid()) -> {ok, [feed_item()]} | {error, any()}.
@@ -313,6 +356,18 @@ get_posts_comments(PostIds) ->
 %% Internal functions
 %%====================================================================
 
+%% encode function should not allow any other values and crash here.
+encode_audience_type(all) -> <<"a">>;
+encode_audience_type(except) -> <<"e">>;
+encode_audience_type(only) -> <<"o">>.
+
+%% decode function should be able to handle undefined, since post need not exist.
+decode_audience_type(<<"a">>) -> all;
+decode_audience_type(<<"e">>) -> except;
+decode_audience_type(<<"o">>) -> only;
+decode_audience_type(_) -> undefined.
+
+
 q(Command) -> ecredis:q(ecredis_feed, Command).
 qp(Commands) -> ecredis:qp(ecredis_feed, Commands).
 
@@ -320,6 +375,11 @@ qp(Commands) -> ecredis:qp(ecredis_feed, Commands).
 -spec post_key(PostId :: binary()) -> binary().
 post_key(PostId) ->
     <<?POST_KEY/binary, "{", PostId/binary, "}">>.
+
+
+-spec post_audience_key(PostId :: binary()) -> binary().
+post_audience_key(PostId) ->
+    <<?POST_AUDIENCE_KEY/binary, "{", PostId/binary, "}">>.
 
 
 -spec comment_key(CommentId :: binary(), PostId :: binary()) -> binary().

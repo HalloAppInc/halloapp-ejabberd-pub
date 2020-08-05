@@ -29,11 +29,11 @@
 
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_FEED, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 50),
+    ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 60),
     ok.
 
 stop(Host) ->
-    ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 50),
+    ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 60),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_FEED),
     ok.
 
@@ -51,19 +51,21 @@ mod_options(_Host) ->
 %% feed: IQs
 %%====================================================================
 
+%% Publish post.
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        sub_els = [#feed_st{action = publish = Action, posts = [Post], comments = []}]} = IQ) ->
+        sub_els = [#feed_st{action = publish = Action, posts = [Post], comments = [],
+        audience_list = AudienceListStanza}]} = IQ) ->
     PostId = Post#post_st.id,
     Payload = Post#post_st.payload,
-    case publish_post(Uid, PostId, Payload) of
+    case publish_post(Uid, PostId, Payload, AudienceListStanza) of
         {ok, ResultTsMs} ->
             SubEl = make_feed_post_stanza(Action, PostId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
             xmpp:make_error(IQ, #stanza_error{reason = Reason})
     end;
-    
 
+%% Publish comment.
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         sub_els = [#feed_st{action = publish = Action, posts = [], comments = [Comment]}]} = IQ) ->
     CommentId = Comment#comment_st.id,
@@ -79,6 +81,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
             xmpp:make_error(IQ, #stanza_error{reason = Reason})
     end;
 
+% Retract post.
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         sub_els = [#feed_st{action = retract = Action, posts = [Post], comments = []}]} = IQ) ->
     PostId = Post#post_st.id,
@@ -90,6 +93,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
             xmpp:make_error(IQ, #stanza_error{reason = Reason})
     end;
 
+% Retract comment.
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         sub_els = [#feed_st{action = retract = Action, posts = [], comments = [Comment]}]} = IQ) ->
     CommentId = Comment#comment_st.id,
@@ -101,7 +105,16 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
             xmpp:make_error(IQ, #stanza_error{reason = Reason})
-    end.
+    end;
+
+% Share posts with friends.
+process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
+        sub_els = [#feed_st{action = share = Action, share_posts = SharePostStanzas}]} = IQ) ->
+    ResultSharePostStanzas = lists:map(
+        fun(SharePostSt) ->
+            process_share_posts(Uid, Server, SharePostSt)
+        end, SharePostStanzas),
+    xmpp:make_iq_result(IQ, #feed_st{action = Action, share_posts = ResultSharePostStanzas}).
 
 
 %%====================================================================
@@ -109,18 +122,24 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
 %%====================================================================
 
 
--spec publish_post(Uid :: uid(), PostId :: binary(),
-        Payload :: binary()) -> {ok, integer()} | {error, any()}.
-publish_post(Uid, PostId, Payload) ->
+-spec publish_post(Uid :: uid(), PostId :: binary(), Payload :: binary(),
+        AudienceListStanza ::[audience_list_st()]) -> {ok, integer()} | {error, any()}.
+publish_post(_Uid, _PostId, _Payload, []) ->
+    {error, no_audience};
+publish_post(Uid, PostId, Payload, [AudienceListSt]) ->
     ?INFO_MSG("Uid: ~s, PostId: ~s", [Uid, PostId]),
     Server = util:get_host(),
     Action = publish,
+    FeedAudienceType = AudienceListSt#audience_list_st.type,
+    %% Include own Uid in the audience list always.
+    FeedAudienceList = [Uid | uid_elements_to_uids(AudienceListSt#audience_list_st.uids)],
     case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
-            ok = model_feed:publish_post(PostId, Uid, Payload, TimestampMs),
+            ok = model_feed:publish_post(PostId, Uid, Payload,
+                    FeedAudienceType, FeedAudienceList, TimestampMs),
             ResultStanza = make_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs),
-            FeedAudienceSet = get_feed_audience_set(Uid),
+            FeedAudienceSet = get_feed_audience_set(Action, Uid, FeedAudienceList),
             PushSet = FeedAudienceSet,
             broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza),
             ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post]),
@@ -136,7 +155,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, Payload) ->
     ?INFO_MSG("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = publish,
-    case model_feed:get_new_comment_data(PostId, CommentId, ParentCommentId) of
+    case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
         [{error, missing}, _, _] ->
             %% Post is missing, so we reject the comment with an error.
             {error, invalid_post_id};
@@ -146,7 +165,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, Payload) ->
         [{ok, Post}, {error, _}, {ok, ParentPushList}] ->
             TimestampMs = util:now_ms(),
             PostOwnerUid = Post#post.uid,
-            FeedAudienceSet = get_feed_audience_set(PostOwnerUid),
+            FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
             case sets:is_element(PublisherUid, FeedAudienceSet) of
                 false -> ok;
                 true ->
@@ -179,7 +198,7 @@ retract_post(Uid, PostId) ->
                     TimestampMs = util:now_ms(),
                     ok = model_feed:retract_post(PostId, Uid),
                     ResultStanza = make_feed_post_stanza(Action, PostId, Uid, <<>>, TimestampMs),
-                    FeedAudienceSet = get_feed_audience_set(Uid),
+                    FeedAudienceSet = get_feed_audience_set(Action, Uid, ExistingPost#post.audience_list),
                     PushSet = sets:new(),
                     broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza),
                     ejabberd_hooks:run(feed_item_retracted, Server, [Uid, PostId, post]),
@@ -194,7 +213,7 @@ retract_comment(PublisherUid, CommentId, PostId) ->
     ?INFO_MSG("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = retract,
-    case model_feed:get_new_comment_data(PostId, CommentId, <<>>) of
+    case model_feed:get_comment_data(PostId, CommentId, <<>>) of
         [{error, missing}, _, _] ->
             {error, invalid_post_id};
         [{ok, _Post}, {error, _}, _] ->
@@ -206,7 +225,7 @@ retract_comment(PublisherUid, CommentId, PostId) ->
                     TimestampMs = util:now_ms(),
                     PostOwnerUid = Post#post.uid,
                     ok = model_feed:retract_comment(CommentId, PostId),
-                    FeedAudienceSet = get_feed_audience_set(PostOwnerUid),
+                    FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
                     ResultStanza = make_feed_comment_stanza(Action, CommentId, PostId, <<>>,
                             PublisherUid, <<>>, TimestampMs),
                     PushSet = sets:new(),
@@ -214,6 +233,27 @@ retract_comment(PublisherUid, CommentId, PostId) ->
                     ejabberd_hooks:run(feed_item_retracted, Server, [PublisherUid, CommentId, comment]),
                     {ok, TimestampMs}
             end
+    end.
+
+
+-spec process_share_posts(Uid :: uid(), Server :: binary(),
+        SharePostSt :: share_posts_st()) -> share_posts_st().
+process_share_posts(Uid, Server, SharePostSt) ->
+    Ouid = SharePostSt#share_posts_st.uid,
+    case model_friends:is_friend(Uid, Ouid) of
+        true ->
+            PostIds = [PostSt#post_st.id || PostSt <- SharePostSt#share_posts_st.posts],
+            share_feed_items(Uid, Ouid, Server, PostIds),
+            #share_posts_st{
+                uid = Ouid,
+                result = ok
+            };
+        false ->
+            #share_posts_st{
+                uid = Ouid,
+                result = failed,
+                reason = invalid_friend_uid
+            }
     end.
 
 
@@ -294,7 +334,7 @@ get_message_type(#feed_st{action = retract}, _, _) -> normal.
 %%====================================================================
 
 %% Still using the old logic for now.
-%% This will change in the coming diffs.
+%% TODO(murali@): This will change in the coming diffs.
 -spec add_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
 add_friend(UserId, Server, ContactId) ->
     ?INFO_MSG("Uid: ~s, ContactId: ~s", [UserId, ContactId]),
@@ -326,6 +366,7 @@ add_friend(UserId, Server, ContactId) ->
 %%====================================================================
 
 
+%% TODO(murali@): change this logic to send items from redis by using audience list types.
 -spec send_old_items_to_contact(Uid :: uid(), Server :: binary(), ContactId :: binary()) -> ok.
 send_old_items_to_contact(Uid, Server, ContactId) ->
     {ok, Items} = model_feed:get_7day_user_feed(Uid),
@@ -348,22 +389,57 @@ send_old_items_to_contact(Uid, Server, ContactId) ->
     ejabberd_router:route(Packet).
 
 
-%% Currently, we still use the old-way to compute audience based on Uid.
-%% This will change over the next couple of diffs to use the audience from post-id.
--spec get_feed_audience_set(Uid :: uid()) -> set().
-get_feed_audience_set(Uid) ->
-    {ok, FriendUids} = model_friends:get_friends(Uid),
-    AudienceUidSet = case mod_user_privacy:get_privacy_type(Uid) of
-        all ->
-            sets:from_list(FriendUids);
-        except ->
-            {ok, ExceptUidsList} = model_privacy:get_except_uids(Uid),
-            sets:subtract(sets:from_list(FriendUids), sets:from_list(ExceptUidsList));
-        only ->
-            {ok, OnlyUidsList} = model_privacy:get_only_uids(Uid),
-            sets:intersection(sets:from_list(OnlyUidsList), sets:from_list(FriendUids))
-    end,
-    sets:add_element(Uid, AudienceUidSet).
+%% TODO(murali@): Check if post-ids are related to this user only.
+-spec share_feed_items(Uid :: uid(), FriendUid :: uid(),
+        Server :: binary(), PostIds :: [binary()]) -> ok.
+share_feed_items(Uid, FriendUid, Server, PostIds) ->
+    ?INFO_MSG("Uid: ~s, FriendUid: ~s, post_ids: ~p", [Uid, FriendUid, PostIds]),
+    ok = model_feed:add_uid_to_audience(FriendUid, PostIds),
+    {Posts, Comments} = get_posts_and_comments(PostIds),
+    PostStanzas = lists:map(fun convert_posts_to_stanzas/1, Posts),
+    CommentStanzas = lists:map(fun convert_comments_to_stanzas/1, Comments),
+        
+    %% TODO(murali@): remove this code after successful migration to redis.
+    {ok, PubsubItems} = mod_feed_mnesia:get_all_items(<<"feed-", Uid/binary>>),
+    {PubsubPostStanzas, PubsubCommentStanzas} = convert_pubsub_items_to_stanzas(PubsubItems),
+    MsgType = normal,
+    From = jid:make(Server),
+    Packet = #message{
+        to = jid:make(FriendUid, Server),
+        from = From,
+        type = MsgType,
+        sub_els = [#feed_st{
+            posts = PostStanzas ++ PubsubPostStanzas,
+            comments = CommentStanzas ++ PubsubCommentStanzas}]
+    },
+    ejabberd_router:route(Packet),
+    ok.
+
+
+-spec get_posts_and_comments(PostIds :: [binary()]) -> {any(), any()}.
+get_posts_and_comments(PostIds) ->
+    {Posts, CommentsAcc} = lists:foldl(
+        fun(PostId, {PostAcc, CommentAcc}) ->
+            case model_feed:get_post_and_its_comments(PostId) of
+                {ok, {Post, Comments}} ->
+                    NewPostAcc = [Post | PostAcc],
+                    NewCommentAcc = [Comments | CommentAcc],
+                    {NewPostAcc, NewCommentAcc};
+                {error, _} ->
+                    ?ERROR_MSG("Post and comments are missing in redis, post_id: ~p", [PostId]),
+                    {PostAcc, CommentAcc}
+            end
+        end, {[], []}, PostIds),
+    {Posts, lists:flatten(CommentsAcc)}.
+
+
+-spec get_feed_audience_set(Action :: event_type(), Uid :: uid(), AudienceList :: [uid()]) -> set().
+get_feed_audience_set(Action, Uid, AudienceList) ->
+    {ok, BlockedUids} = model_privacy:get_blocked_uids(Uid),
+    case Action of
+        publish -> sets:subtract(sets:from_list(AudienceList), sets:from_list(BlockedUids));
+        retract -> sets:from_list(AudienceList)
+    end.
 
 
 -spec convert_posts_to_stanzas(post()) -> post_st().
@@ -387,6 +463,15 @@ convert_comments_to_stanzas(#comment{id = CommentId, post_id = PostId, publisher
         payload = Payload,
         timestamp = integer_to_binary(util:ms_to_sec(TimestampMs))
     }.
+
+
+%% TODO(murali@): move this function to a util module.
+-spec uid_elements_to_uids([uid_element()]) -> uid().
+uid_elements_to_uids(UidEls) ->
+    lists:map(
+        fun(UidEl) ->
+            UidEl#uid_element.uid
+        end, UidEls).
 
 
 %% TODO(murali@): remove this code after successful migration to redis.
