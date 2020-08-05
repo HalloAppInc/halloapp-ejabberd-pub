@@ -242,7 +242,7 @@ decode_msg_2_doit(pb_delivery_receipt, Bin, TrUserData) -> id(decode_msg_pb_deli
 
 
 
-decode_msg_pb_seen_receipt(Bin, TrUserData) -> dfp_read_field_def_pb_seen_receipt(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_seen_receipt(Bin, TrUserData) -> dfp_read_field_def_pb_seen_receipt(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_seen_receipt(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_seen_receipt_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
 dfp_read_field_def_pb_seen_receipt(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_seen_receipt_thread_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
@@ -270,11 +270,11 @@ dg_read_field_def_pb_seen_receipt(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_seen_r
 
 d_field_pb_seen_receipt_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_receipt_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_seen_receipt_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_seen_receipt(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_seen_receipt(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
 d_field_pb_seen_receipt_thread_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_receipt_thread_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_seen_receipt_thread_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_seen_receipt(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_seen_receipt(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
 
 d_field_pb_seen_receipt_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_receipt_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_seen_receipt_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
@@ -292,7 +292,7 @@ skip_32_pb_seen_receipt(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserD
 
 skip_64_pb_seen_receipt(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_seen_receipt(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-decode_msg_pb_delivery_receipt(Bin, TrUserData) -> dfp_read_field_def_pb_delivery_receipt(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_delivery_receipt(Bin, TrUserData) -> dfp_read_field_def_pb_delivery_receipt(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_delivery_receipt(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_delivery_receipt_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
 dfp_read_field_def_pb_delivery_receipt(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_delivery_receipt_thread_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
@@ -320,11 +320,11 @@ dg_read_field_def_pb_delivery_receipt(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_de
 
 d_field_pb_delivery_receipt_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_delivery_receipt_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_delivery_receipt_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_delivery_receipt(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_delivery_receipt(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
 d_field_pb_delivery_receipt_thread_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_delivery_receipt_thread_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_delivery_receipt_thread_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_delivery_receipt(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_delivery_receipt(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
 
 d_field_pb_delivery_receipt_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_delivery_receipt_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_delivery_receipt_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->

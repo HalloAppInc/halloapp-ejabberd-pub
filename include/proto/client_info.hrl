@@ -17,7 +17,7 @@
 -ifndef('PB_CLIENT_VERSION_PB_H').
 -define('PB_CLIENT_VERSION_PB_H', true).
 -record(pb_client_version,
-        {version = []           :: iodata() | undefined, % = 1
+        {version = <<>>         :: iodata() | undefined, % = 1
          expires_in_seconds = 0 :: integer() | undefined % = 2, 64 bits
         }).
 -endif.

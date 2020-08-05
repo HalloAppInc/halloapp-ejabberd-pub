@@ -10,9 +10,9 @@
 -ifndef('PB_MEDIA_URL_PB_H').
 -define('PB_MEDIA_URL_PB_H', true).
 -record(pb_media_url,
-        {get = []               :: iodata() | undefined, % = 1
-         put = []               :: iodata() | undefined, % = 2
-         patch = []             :: iodata() | undefined % = 3
+        {get = <<>>             :: iodata() | undefined, % = 1
+         put = <<>>             :: iodata() | undefined, % = 2
+         patch = <<>>           :: iodata() | undefined % = 3
         }).
 -endif.
 

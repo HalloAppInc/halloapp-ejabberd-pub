@@ -40,7 +40,7 @@
 -ifndef('PB_HA_IQ_PB_H').
 -define('PB_HA_IQ_PB_H', true).
 -record(pb_ha_iq,
-        {id = []                :: iodata() | undefined, % = 1
+        {id = <<>>              :: iodata() | undefined, % = 1
          type = get             :: get | set | result | error | integer() | undefined, % = 2, enum pb_ha_iq.Type
          payload = undefined    :: packets:pb_iq_payload() | undefined % = 3
         }).
@@ -49,7 +49,7 @@
 -ifndef('PB_HA_MESSAGE_PB_H').
 -define('PB_HA_MESSAGE_PB_H', true).
 -record(pb_ha_message,
-        {id = []                :: iodata() | undefined, % = 1
+        {id = <<>>              :: iodata() | undefined, % = 1
          type = chat            :: chat | error | groupchat | headline | normal | integer() | undefined, % = 2, enum pb_ha_message.Type
          to_uid = 0             :: integer() | undefined, % = 3, 64 bits
          from_uid = 0           :: integer() | undefined, % = 4, 64 bits
@@ -60,7 +60,7 @@
 -ifndef('PB_HA_PRESENCE_PB_H').
 -define('PB_HA_PRESENCE_PB_H', true).
 -record(pb_ha_presence,
-        {id = []                :: iodata() | undefined, % = 1
+        {id = <<>>              :: iodata() | undefined, % = 1
          type = available       :: available | away | subscribe | unsubscribe | integer() | undefined, % = 2, enum pb_ha_presence.Type
          uid = 0                :: integer() | undefined, % = 3, 64 bits
          last_seen = 0          :: integer() | undefined % = 4, 64 bits
@@ -70,7 +70,7 @@
 -ifndef('PB_HA_ACK_PB_H').
 -define('PB_HA_ACK_PB_H', true).
 -record(pb_ha_ack,
-        {id = []                :: iodata() | undefined, % = 1
+        {id = <<>>              :: iodata() | undefined, % = 1
          timestamp = 0          :: integer() | undefined % = 2, 64 bits
         }).
 -endif.
@@ -78,7 +78,7 @@
 -ifndef('PB_HA_ERROR_PB_H').
 -define('PB_HA_ERROR_PB_H', true).
 -record(pb_ha_error,
-        {reason = []            :: iodata() | undefined % = 1
+        {reason = <<>>          :: iodata() | undefined % = 1
         }).
 -endif.
 
@@ -93,18 +93,18 @@
 -define('PB_AUTH_REQUEST_PB_H', true).
 -record(pb_auth_request,
         {uid = 0                :: integer() | undefined, % = 1, 64 bits
-         pwd = []               :: iodata() | undefined, % = 2
+         pwd = <<>>             :: iodata() | undefined, % = 2
          cm = undefined         :: packets:pb_client_mode() | undefined, % = 3
          cv = undefined         :: packets:pb_client_version() | undefined, % = 4
-         resource = []          :: iodata() | undefined % = 5
+         resource = <<>>        :: iodata() | undefined % = 5
         }).
 -endif.
 
 -ifndef('PB_AUTH_RESULT_PB_H').
 -define('PB_AUTH_RESULT_PB_H', true).
 -record(pb_auth_result,
-        {result = []            :: iodata() | undefined, % = 1
-         reason = []            :: iodata() | undefined % = 2
+        {result = <<>>          :: iodata() | undefined, % = 1
+         reason = <<>>          :: iodata() | undefined % = 2
         }).
 -endif.
 
@@ -118,7 +118,7 @@
 -ifndef('PB_CLIENT_VERSION_PB_H').
 -define('PB_CLIENT_VERSION_PB_H', true).
 -record(pb_client_version,
-        {version = []           :: iodata() | undefined, % = 1
+        {version = <<>>         :: iodata() | undefined, % = 1
          expires_in_seconds = 0 :: integer() | undefined % = 2, 64 bits
         }).
 -endif.
@@ -126,7 +126,7 @@
 -ifndef('PB_UPLOAD_AVATAR_PB_H').
 -define('PB_UPLOAD_AVATAR_PB_H', true).
 -record(pb_upload_avatar,
-        {id = []                :: iodata() | undefined, % = 1
+        {id = <<>>              :: iodata() | undefined, % = 1
          data = <<>>            :: iodata() | undefined % = 2
         }).
 -endif.
@@ -134,7 +134,7 @@
 -ifndef('PB_AVATAR_PB_H').
 -define('PB_AVATAR_PB_H', true).
 -record(pb_avatar,
-        {id = []                :: iodata() | undefined, % = 1
+        {id = <<>>              :: iodata() | undefined, % = 1
          uid = 0                :: integer() | undefined % = 2, 64 bits
         }).
 -endif.
@@ -149,9 +149,9 @@
 -ifndef('PB_MEDIA_URL_PB_H').
 -define('PB_MEDIA_URL_PB_H', true).
 -record(pb_media_url,
-        {get = []               :: iodata() | undefined, % = 1
-         put = []               :: iodata() | undefined, % = 2
-         patch = []             :: iodata() | undefined % = 3
+        {get = <<>>             :: iodata() | undefined, % = 1
+         put = <<>>             :: iodata() | undefined, % = 2
+         patch = <<>>           :: iodata() | undefined % = 3
         }).
 -endif.
 
@@ -167,10 +167,10 @@
 -define('PB_CONTACT_PB_H', true).
 -record(pb_contact,
         {action = add           :: add | delete | integer() | undefined, % = 1, enum pb_contact.Action
-         raw = []               :: iodata() | undefined, % = 2
-         normalized = []        :: iodata() | undefined, % = 3
+         raw = <<>>             :: iodata() | undefined, % = 2
+         normalized = <<>>      :: iodata() | undefined, % = 3
          uid = 0                :: integer() | undefined, % = 4, 64 bits
-         avatar_id = []         :: iodata() | undefined, % = 5
+         avatar_id = <<>>       :: iodata() | undefined, % = 5
          role = friend          :: friend | none | integer() | undefined % = 6, enum pb_contact.Role
         }).
 -endif.
@@ -179,7 +179,7 @@
 -define('PB_CONTACT_LIST_PB_H', true).
 -record(pb_contact_list,
         {type = full            :: full | delta | integer() | undefined, % = 1, enum pb_contact_list.Type
-         sync_id = []           :: iodata() | undefined, % = 2
+         sync_id = <<>>         :: iodata() | undefined, % = 2
          batch_index = 0        :: integer() | undefined, % = 3, 32 bits
          is_last = false        :: boolean() | 0 | 1 | undefined, % = 4
          contacts = []          :: [packets:pb_contact()] | undefined % = 5
@@ -189,8 +189,8 @@
 -ifndef('PB_SEEN_RECEIPT_PB_H').
 -define('PB_SEEN_RECEIPT_PB_H', true).
 -record(pb_seen_receipt,
-        {id = []                :: iodata() | undefined, % = 1
-         thread_id = []         :: iodata() | undefined, % = 2
+        {id = <<>>              :: iodata() | undefined, % = 1
+         thread_id = <<>>       :: iodata() | undefined, % = 2
          timestamp = 0          :: integer() | undefined % = 3, 64 bits
         }).
 -endif.
@@ -198,8 +198,8 @@
 -ifndef('PB_DELIVERY_RECEIPT_PB_H').
 -define('PB_DELIVERY_RECEIPT_PB_H', true).
 -record(pb_delivery_receipt,
-        {id = []                :: iodata() | undefined, % = 1
-         thread_id = []         :: iodata() | undefined, % = 2
+        {id = <<>>              :: iodata() | undefined, % = 1
+         thread_id = <<>>       :: iodata() | undefined, % = 2
          timestamp = 0          :: integer() | undefined % = 3, 64 bits
         }).
 -endif.
@@ -207,7 +207,7 @@
 -ifndef('PB_FEEDPOST_PB_H').
 -define('PB_FEEDPOST_PB_H', true).
 -record(pb_feedpost,
-        {id = []                :: iodata() | undefined, % = 1
+        {id = <<>>              :: iodata() | undefined, % = 1
          payload = <<>>         :: iodata() | undefined % = 2
         }).
 -endif.
@@ -215,10 +215,10 @@
 -ifndef('PB_COMMENT_PB_H').
 -define('PB_COMMENT_PB_H', true).
 -record(pb_comment,
-        {id = []                :: iodata() | undefined, % = 1
+        {id = <<>>              :: iodata() | undefined, % = 1
          publisher_uid = 0      :: integer() | undefined, % = 2, 64 bits
-         publisher_name = []    :: iodata() | undefined, % = 3
-         post_id = []           :: iodata() | undefined, % = 4
+         publisher_name = <<>>  :: iodata() | undefined, % = 3
+         post_id = <<>>         :: iodata() | undefined, % = 4
          payload = <<>>         :: iodata() | undefined % = 5
         }).
 -endif.
@@ -256,7 +256,7 @@
 -define('PB_PUSH_TOKEN_PB_H', true).
 -record(pb_push_token,
         {os = android           :: android | ios | ios_dev | integer() | undefined, % = 1, enum pb_push_token.Os
-         token = []             :: iodata() | undefined % = 2
+         token = <<>>           :: iodata() | undefined % = 2
         }).
 -endif.
 

@@ -11,18 +11,18 @@
 -define('PB_AUTH_REQUEST_PB_H', true).
 -record(pb_auth_request,
         {uid = 0                :: integer() | undefined, % = 1, 64 bits
-         pwd = []               :: iodata() | undefined, % = 2
+         pwd = <<>>             :: iodata() | undefined, % = 2
          cm = undefined         :: ha_auth:pb_client_mode() | undefined, % = 3
          cv = undefined         :: ha_auth:pb_client_version() | undefined, % = 4
-         resource = []          :: iodata() | undefined % = 5
+         resource = <<>>        :: iodata() | undefined % = 5
         }).
 -endif.
 
 -ifndef('PB_AUTH_RESULT_PB_H').
 -define('PB_AUTH_RESULT_PB_H', true).
 -record(pb_auth_result,
-        {result = []            :: iodata() | undefined, % = 1
-         reason = []            :: iodata() | undefined % = 2
+        {result = <<>>          :: iodata() | undefined, % = 1
+         reason = <<>>          :: iodata() | undefined % = 2
         }).
 -endif.
 
@@ -36,7 +36,7 @@
 -ifndef('PB_CLIENT_VERSION_PB_H').
 -define('PB_CLIENT_VERSION_PB_H', true).
 -record(pb_client_version,
-        {version = []           :: iodata() | undefined, % = 1
+        {version = <<>>         :: iodata() | undefined, % = 1
          expires_in_seconds = 0 :: integer() | undefined % = 2, 64 bits
         }).
 -endif.

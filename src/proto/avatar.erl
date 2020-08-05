@@ -243,7 +243,7 @@ decode_msg_2_doit(pb_avatars, Bin, TrUserData) -> id(decode_msg_pb_avatars(Bin, 
 
 
 
-decode_msg_pb_upload_avatar(Bin, TrUserData) -> dfp_read_field_def_pb_upload_avatar(Bin, 0, 0, id([], TrUserData), id(<<>>, TrUserData), TrUserData).
+decode_msg_pb_upload_avatar(Bin, TrUserData) -> dfp_read_field_def_pb_upload_avatar(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_upload_avatar(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_upload_avatar_id(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_upload_avatar(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_upload_avatar_data(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -269,7 +269,7 @@ dg_read_field_def_pb_upload_avatar(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_upload_avat
 
 d_field_pb_upload_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_upload_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_upload_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_upload_avatar(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_upload_avatar(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
 d_field_pb_upload_avatar_data(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_upload_avatar_data(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_upload_avatar_data(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
@@ -287,7 +287,7 @@ skip_32_pb_upload_avatar(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) 
 
 skip_64_pb_upload_avatar(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_upload_avatar(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-decode_msg_pb_avatar(Bin, TrUserData) -> dfp_read_field_def_pb_avatar(Bin, 0, 0, id([], TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_avatar(Bin, TrUserData) -> dfp_read_field_def_pb_avatar(Bin, 0, 0, id(<<>>, TrUserData), id(0, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_avatar(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_avatar_id(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_avatar(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_avatar_uid(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -313,7 +313,7 @@ dg_read_field_def_pb_avatar(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_avatar{id = F@_1, 
 
 d_field_pb_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_avatar(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_avatar(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
 d_field_pb_avatar_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_avatar_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_avatar_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->

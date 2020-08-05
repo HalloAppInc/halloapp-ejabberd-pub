@@ -255,7 +255,7 @@ skip_32_pb_client_mode(<<_:32, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_r
 
 skip_64_pb_client_mode(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_client_mode(Rest, Z1, Z2, F@_1, TrUserData).
 
-decode_msg_pb_client_version(Bin, TrUserData) -> dfp_read_field_def_pb_client_version(Bin, 0, 0, id([], TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_client_version(Bin, TrUserData) -> dfp_read_field_def_pb_client_version(Bin, 0, 0, id(<<>>, TrUserData), id(0, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_client_version(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_client_version_version(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_client_version(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_client_version_expires_in_seconds(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -281,7 +281,7 @@ dg_read_field_def_pb_client_version(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_client_ver
 
 d_field_pb_client_version_version(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_client_version_version(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_client_version_version(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_client_version(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_client_version(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
 d_field_pb_client_version_expires_in_seconds(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_client_version_expires_in_seconds(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_client_version_expires_in_seconds(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->

@@ -234,7 +234,7 @@ decode_msg_2_doit(pb_upload_media, Bin, TrUserData) -> id(decode_msg_pb_upload_m
 
 
 
-decode_msg_pb_media_url(Bin, TrUserData) -> dfp_read_field_def_pb_media_url(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id([], TrUserData), TrUserData).
+decode_msg_pb_media_url(Bin, TrUserData) -> dfp_read_field_def_pb_media_url(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_media_url(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_media_url_get(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
 dfp_read_field_def_pb_media_url(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_media_url_put(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
@@ -262,15 +262,15 @@ dg_read_field_def_pb_media_url(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_media_url
 
 d_field_pb_media_url_get(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_url_get(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_media_url_get(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
 d_field_pb_media_url_put(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_url_put(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_media_url_put(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
 
 d_field_pb_media_url_patch(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_url_patch(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_media_url_patch(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
 
 skip_varint_pb_media_url(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_media_url(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
 skip_varint_pb_media_url(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_media_url(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).

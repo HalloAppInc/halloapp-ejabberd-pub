@@ -11,7 +11,7 @@
 -define('PB_PUSH_TOKEN_PB_H', true).
 -record(pb_push_token,
         {os = android           :: android | ios | ios_dev | integer() | undefined, % = 1, enum pb_push_token.Os
-         token = []             :: iodata() | undefined % = 2
+         token = <<>>           :: iodata() | undefined % = 2
         }).
 -endif.
 

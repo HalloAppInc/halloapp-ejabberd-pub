@@ -1736,7 +1736,7 @@ skip_32_pb_msg_payload(<<_:32, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_r
 
 skip_64_pb_msg_payload(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_msg_payload(Rest, Z1, Z2, F@_1, TrUserData).
 
-decode_msg_pb_ha_iq(Bin, TrUserData) -> dfp_read_field_def_pb_ha_iq(Bin, 0, 0, id([], TrUserData), id(get, TrUserData), id(undefined, TrUserData), TrUserData).
+decode_msg_pb_ha_iq(Bin, TrUserData) -> dfp_read_field_def_pb_ha_iq(Bin, 0, 0, id(<<>>, TrUserData), id(get, TrUserData), id(undefined, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_ha_iq(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_ha_iq_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
 dfp_read_field_def_pb_ha_iq(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_ha_iq_type(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
@@ -1764,7 +1764,7 @@ dg_read_field_def_pb_ha_iq(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_ha_iq{id = F@
 
 d_field_pb_ha_iq_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_ha_iq_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_ha_iq_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_ha_iq(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_ha_iq(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
 d_field_pb_ha_iq_type(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_ha_iq_type(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_ha_iq_type(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
@@ -1791,7 +1791,7 @@ skip_32_pb_ha_iq(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) ->
 
 skip_64_pb_ha_iq(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_ha_iq(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-decode_msg_pb_ha_message(Bin, TrUserData) -> dfp_read_field_def_pb_ha_message(Bin, 0, 0, id([], TrUserData), id(chat, TrUserData), id(0, TrUserData), id(0, TrUserData), id(undefined, TrUserData), TrUserData).
+decode_msg_pb_ha_message(Bin, TrUserData) -> dfp_read_field_def_pb_ha_message(Bin, 0, 0, id(<<>>, TrUserData), id(chat, TrUserData), id(0, TrUserData), id(0, TrUserData), id(undefined, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_ha_message(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_ha_message_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_ha_message(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_ha_message_type(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
@@ -1823,8 +1823,7 @@ dg_read_field_def_pb_ha_message(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> 
 
 d_field_pb_ha_message_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_ha_message_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_ha_message_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_ha_message(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, F@_5, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_ha_message(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
 d_field_pb_ha_message_type(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_ha_message_type(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_ha_message_type(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, TrUserData) ->
@@ -1861,7 +1860,7 @@ skip_32_pb_ha_message(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_
 
 skip_64_pb_ha_message(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_ha_message(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-decode_msg_pb_ha_presence(Bin, TrUserData) -> dfp_read_field_def_pb_ha_presence(Bin, 0, 0, id([], TrUserData), id(available, TrUserData), id(0, TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_ha_presence(Bin, TrUserData) -> dfp_read_field_def_pb_ha_presence(Bin, 0, 0, id(<<>>, TrUserData), id(available, TrUserData), id(0, TrUserData), id(0, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_ha_presence(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_pb_ha_presence_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
 dfp_read_field_def_pb_ha_presence(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_pb_ha_presence_type(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
@@ -1891,7 +1890,7 @@ dg_read_field_def_pb_ha_presence(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, _) -> #pb_h
 
 d_field_pb_ha_presence_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_pb_ha_presence_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
 d_field_pb_ha_presence_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_ha_presence(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_ha_presence(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, TrUserData).
 
 d_field_pb_ha_presence_type(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_pb_ha_presence_type(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
 d_field_pb_ha_presence_type(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, TrUserData) ->
@@ -1919,7 +1918,7 @@ skip_32_pb_ha_presence(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, Tr
 
 skip_64_pb_ha_presence(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_pb_ha_presence(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData).
 
-decode_msg_pb_ha_ack(Bin, TrUserData) -> dfp_read_field_def_pb_ha_ack(Bin, 0, 0, id([], TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_ha_ack(Bin, TrUserData) -> dfp_read_field_def_pb_ha_ack(Bin, 0, 0, id(<<>>, TrUserData), id(0, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_ha_ack(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_ha_ack_id(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_ha_ack(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_ha_ack_timestamp(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -1945,7 +1944,7 @@ dg_read_field_def_pb_ha_ack(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_ha_ack{id = F@_1, 
 
 d_field_pb_ha_ack_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_ha_ack_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_ha_ack_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_ha_ack(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_ha_ack(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
 d_field_pb_ha_ack_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_ha_ack_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_ha_ack_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
@@ -1963,7 +1962,7 @@ skip_32_pb_ha_ack(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_
 
 skip_64_pb_ha_ack(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_ha_ack(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-decode_msg_pb_ha_error(Bin, TrUserData) -> dfp_read_field_def_pb_ha_error(Bin, 0, 0, id([], TrUserData), TrUserData).
+decode_msg_pb_ha_error(Bin, TrUserData) -> dfp_read_field_def_pb_ha_error(Bin, 0, 0, id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_ha_error(<<10, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_ha_error_reason(Rest, Z1, Z2, F@_1, TrUserData);
 dfp_read_field_def_pb_ha_error(<<>>, 0, 0, F@_1, _) -> #pb_ha_error{reason = F@_1};
@@ -1987,7 +1986,7 @@ dg_read_field_def_pb_ha_error(<<>>, 0, 0, F@_1, _) -> #pb_ha_error{reason = F@_1
 
 d_field_pb_ha_error_reason(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> d_field_pb_ha_error_reason(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
 d_field_pb_ha_error_reason(<<0:1, X:7, Rest/binary>>, N, Acc, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_ha_error(RestF, 0, 0, NewFValue, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_ha_error(RestF, 0, 0, NewFValue, TrUserData).
 
 skip_varint_pb_ha_error(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> skip_varint_pb_ha_error(Rest, Z1, Z2, F@_1, TrUserData);
 skip_varint_pb_ha_error(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_ha_error(Rest, Z1, Z2, F@_1, TrUserData).
@@ -2098,7 +2097,7 @@ skip_32_pb_packet(<<_:32, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_f
 
 skip_64_pb_packet(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_packet(Rest, Z1, Z2, F@_1, TrUserData).
 
-decode_msg_pb_auth_request(Bin, TrUserData) -> dfp_read_field_def_pb_auth_request(Bin, 0, 0, id(0, TrUserData), id([], TrUserData), id(undefined, TrUserData), id(undefined, TrUserData), id([], TrUserData), TrUserData).
+decode_msg_pb_auth_request(Bin, TrUserData) -> dfp_read_field_def_pb_auth_request(Bin, 0, 0, id(0, TrUserData), id(<<>>, TrUserData), id(undefined, TrUserData), id(undefined, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_auth_request(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_auth_request(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_auth_request_pwd(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
@@ -2134,8 +2133,7 @@ d_field_pb_auth_request_uid(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@
 
 d_field_pb_auth_request_pwd(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_request_pwd(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_auth_request_pwd(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_auth_request(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_auth_request(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, TrUserData).
 
 d_field_pb_auth_request_cm(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_request_cm(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_auth_request_cm(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, Prev, F@_4, F@_5, TrUserData) ->
@@ -2157,8 +2155,7 @@ d_field_pb_auth_request_cv(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, 
 
 d_field_pb_auth_request_resource(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_auth_request_resource(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_auth_request_resource(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_auth_request(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_auth_request(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, TrUserData).
 
 skip_varint_pb_auth_request(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> skip_varint_pb_auth_request(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 skip_varint_pb_auth_request(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_auth_request(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
@@ -2173,7 +2170,7 @@ skip_32_pb_auth_request(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F
 
 skip_64_pb_auth_request(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_auth_request(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-decode_msg_pb_auth_result(Bin, TrUserData) -> dfp_read_field_def_pb_auth_result(Bin, 0, 0, id([], TrUserData), id([], TrUserData), TrUserData).
+decode_msg_pb_auth_result(Bin, TrUserData) -> dfp_read_field_def_pb_auth_result(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_auth_result(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_auth_result_result(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_auth_result(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_auth_result_reason(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -2199,11 +2196,11 @@ dg_read_field_def_pb_auth_result(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_auth_result{r
 
 d_field_pb_auth_result_result(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_auth_result_result(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_auth_result_result(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_auth_result(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_auth_result(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
 d_field_pb_auth_result_reason(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_auth_result_reason(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_auth_result_reason(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_auth_result(RestF, 0, 0, F@_1, NewFValue, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_auth_result(RestF, 0, 0, F@_1, NewFValue, TrUserData).
 
 skip_varint_pb_auth_result(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_auth_result(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 skip_varint_pb_auth_result(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_auth_result(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
@@ -2255,7 +2252,7 @@ skip_32_pb_client_mode(<<_:32, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_r
 
 skip_64_pb_client_mode(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_client_mode(Rest, Z1, Z2, F@_1, TrUserData).
 
-decode_msg_pb_client_version(Bin, TrUserData) -> dfp_read_field_def_pb_client_version(Bin, 0, 0, id([], TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_client_version(Bin, TrUserData) -> dfp_read_field_def_pb_client_version(Bin, 0, 0, id(<<>>, TrUserData), id(0, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_client_version(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_client_version_version(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_client_version(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_client_version_expires_in_seconds(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -2281,7 +2278,7 @@ dg_read_field_def_pb_client_version(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_client_ver
 
 d_field_pb_client_version_version(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_client_version_version(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_client_version_version(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_client_version(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_client_version(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
 d_field_pb_client_version_expires_in_seconds(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_client_version_expires_in_seconds(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_client_version_expires_in_seconds(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
@@ -2299,7 +2296,7 @@ skip_32_pb_client_version(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData)
 
 skip_64_pb_client_version(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_client_version(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-decode_msg_pb_upload_avatar(Bin, TrUserData) -> dfp_read_field_def_pb_upload_avatar(Bin, 0, 0, id([], TrUserData), id(<<>>, TrUserData), TrUserData).
+decode_msg_pb_upload_avatar(Bin, TrUserData) -> dfp_read_field_def_pb_upload_avatar(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_upload_avatar(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_upload_avatar_id(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_upload_avatar(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_upload_avatar_data(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -2325,7 +2322,7 @@ dg_read_field_def_pb_upload_avatar(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_upload_avat
 
 d_field_pb_upload_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_upload_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_upload_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_upload_avatar(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_upload_avatar(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
 d_field_pb_upload_avatar_data(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_upload_avatar_data(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_upload_avatar_data(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
@@ -2343,7 +2340,7 @@ skip_32_pb_upload_avatar(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) 
 
 skip_64_pb_upload_avatar(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_upload_avatar(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-decode_msg_pb_avatar(Bin, TrUserData) -> dfp_read_field_def_pb_avatar(Bin, 0, 0, id([], TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_avatar(Bin, TrUserData) -> dfp_read_field_def_pb_avatar(Bin, 0, 0, id(<<>>, TrUserData), id(0, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_avatar(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_avatar_id(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_avatar(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_avatar_uid(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -2369,7 +2366,7 @@ dg_read_field_def_pb_avatar(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_avatar{id = F@_1, 
 
 d_field_pb_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_avatar(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_avatar(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
 d_field_pb_avatar_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_avatar_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_avatar_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
@@ -2425,7 +2422,7 @@ skip_32_pb_avatars(<<_:32, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_
 
 skip_64_pb_avatars(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_avatars(Rest, Z1, Z2, F@_1, TrUserData).
 
-decode_msg_pb_media_url(Bin, TrUserData) -> dfp_read_field_def_pb_media_url(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id([], TrUserData), TrUserData).
+decode_msg_pb_media_url(Bin, TrUserData) -> dfp_read_field_def_pb_media_url(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_media_url(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_media_url_get(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
 dfp_read_field_def_pb_media_url(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_media_url_put(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
@@ -2453,15 +2450,15 @@ dg_read_field_def_pb_media_url(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_media_url
 
 d_field_pb_media_url_get(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_url_get(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_media_url_get(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
 d_field_pb_media_url_put(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_url_put(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_media_url_put(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
 
 d_field_pb_media_url_patch(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_media_url_patch(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_media_url_patch(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_media_url(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
 
 skip_varint_pb_media_url(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_media_url(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
 skip_varint_pb_media_url(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_media_url(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
@@ -2524,7 +2521,7 @@ skip_32_pb_upload_media(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -
 
 skip_64_pb_upload_media(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_upload_media(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-decode_msg_pb_contact(Bin, TrUserData) -> dfp_read_field_def_pb_contact(Bin, 0, 0, id(add, TrUserData), id([], TrUserData), id([], TrUserData), id(0, TrUserData), id([], TrUserData), id(friend, TrUserData), TrUserData).
+decode_msg_pb_contact(Bin, TrUserData) -> dfp_read_field_def_pb_contact(Bin, 0, 0, id(add, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), id(<<>>, TrUserData), id(friend, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_contact(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_action(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 dfp_read_field_def_pb_contact(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_raw(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
@@ -2563,13 +2560,11 @@ d_field_pb_contact_action(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4
 
 d_field_pb_contact_raw(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_raw(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 d_field_pb_contact_raw(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, F@_6, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, F@_6, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, F@_6, TrUserData).
 
 d_field_pb_contact_normalized(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_normalized(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 d_field_pb_contact_normalized(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, F@_5, F@_6, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, F@_6, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, F@_6, TrUserData).
 
 d_field_pb_contact_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 d_field_pb_contact_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, F@_5, F@_6, TrUserData) ->
@@ -2577,8 +2572,7 @@ d_field_pb_contact_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, F
 
 d_field_pb_contact_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 d_field_pb_contact_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, F@_6, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, F@_6, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, F@_6, TrUserData).
 
 d_field_pb_contact_role(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_role(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 d_field_pb_contact_role(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, _, TrUserData) ->
@@ -2598,7 +2592,7 @@ skip_32_pb_contact(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, 
 
 skip_64_pb_contact(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> dfp_read_field_def_pb_contact(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData).
 
-decode_msg_pb_contact_list(Bin, TrUserData) -> dfp_read_field_def_pb_contact_list(Bin, 0, 0, id(full, TrUserData), id([], TrUserData), id(0, TrUserData), id(false, TrUserData), id([], TrUserData), TrUserData).
+decode_msg_pb_contact_list(Bin, TrUserData) -> dfp_read_field_def_pb_contact_list(Bin, 0, 0, id(full, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), id(false, TrUserData), id([], TrUserData), TrUserData).
 
 dfp_read_field_def_pb_contact_list(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_contact_list_type(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_contact_list(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_contact_list_sync_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
@@ -2635,8 +2629,7 @@ d_field_pb_contact_list_type(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F
 
 d_field_pb_contact_list_sync_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_contact_list_sync_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_contact_list_sync_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_contact_list(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact_list(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, TrUserData).
 
 d_field_pb_contact_list_batch_index(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_contact_list_batch_index(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_contact_list_batch_index(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, F@_5, TrUserData) ->
@@ -2664,7 +2657,7 @@ skip_32_pb_contact_list(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F
 
 skip_64_pb_contact_list(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_contact_list(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
-decode_msg_pb_seen_receipt(Bin, TrUserData) -> dfp_read_field_def_pb_seen_receipt(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_seen_receipt(Bin, TrUserData) -> dfp_read_field_def_pb_seen_receipt(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_seen_receipt(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_seen_receipt_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
 dfp_read_field_def_pb_seen_receipt(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_seen_receipt_thread_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
@@ -2692,11 +2685,11 @@ dg_read_field_def_pb_seen_receipt(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_seen_r
 
 d_field_pb_seen_receipt_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_receipt_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_seen_receipt_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_seen_receipt(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_seen_receipt(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
 d_field_pb_seen_receipt_thread_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_receipt_thread_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_seen_receipt_thread_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_seen_receipt(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_seen_receipt(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
 
 d_field_pb_seen_receipt_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_seen_receipt_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_seen_receipt_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
@@ -2714,7 +2707,7 @@ skip_32_pb_seen_receipt(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserD
 
 skip_64_pb_seen_receipt(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_seen_receipt(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-decode_msg_pb_delivery_receipt(Bin, TrUserData) -> dfp_read_field_def_pb_delivery_receipt(Bin, 0, 0, id([], TrUserData), id([], TrUserData), id(0, TrUserData), TrUserData).
+decode_msg_pb_delivery_receipt(Bin, TrUserData) -> dfp_read_field_def_pb_delivery_receipt(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_delivery_receipt(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_delivery_receipt_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
 dfp_read_field_def_pb_delivery_receipt(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_delivery_receipt_thread_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
@@ -2742,11 +2735,11 @@ dg_read_field_def_pb_delivery_receipt(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_de
 
 d_field_pb_delivery_receipt_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_delivery_receipt_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_delivery_receipt_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_delivery_receipt(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_delivery_receipt(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
 
 d_field_pb_delivery_receipt_thread_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_delivery_receipt_thread_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_delivery_receipt_thread_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_delivery_receipt(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_delivery_receipt(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
 
 d_field_pb_delivery_receipt_timestamp(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_delivery_receipt_timestamp(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 d_field_pb_delivery_receipt_timestamp(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
@@ -2765,7 +2758,7 @@ skip_32_pb_delivery_receipt(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrU
 
 skip_64_pb_delivery_receipt(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_delivery_receipt(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-decode_msg_pb_feedpost(Bin, TrUserData) -> dfp_read_field_def_pb_feedpost(Bin, 0, 0, id([], TrUserData), id(<<>>, TrUserData), TrUserData).
+decode_msg_pb_feedpost(Bin, TrUserData) -> dfp_read_field_def_pb_feedpost(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_feedpost(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_feedpost_id(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_feedpost(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_feedpost_payload(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -2791,7 +2784,7 @@ dg_read_field_def_pb_feedpost(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_feedpost{id = F@
 
 d_field_pb_feedpost_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_feedpost_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_feedpost_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_feedpost(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_feedpost(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
 d_field_pb_feedpost_payload(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_feedpost_payload(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_feedpost_payload(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
@@ -2809,7 +2802,7 @@ skip_32_pb_feedpost(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> df
 
 skip_64_pb_feedpost(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_feedpost(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-decode_msg_pb_comment(Bin, TrUserData) -> dfp_read_field_def_pb_comment(Bin, 0, 0, id([], TrUserData), id(0, TrUserData), id([], TrUserData), id([], TrUserData), id(<<>>, TrUserData), TrUserData).
+decode_msg_pb_comment(Bin, TrUserData) -> dfp_read_field_def_pb_comment(Bin, 0, 0, id(<<>>, TrUserData), id(0, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_comment(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_comment_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_comment(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_comment_publisher_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
@@ -2841,8 +2834,7 @@ dg_read_field_def_pb_comment(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> #pb
 
 d_field_pb_comment_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_comment_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_comment(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, F@_5, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_comment(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
 d_field_pb_comment_publisher_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_publisher_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_comment_publisher_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, TrUserData) ->
@@ -2850,13 +2842,11 @@ d_field_pb_comment_publisher_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_
 
 d_field_pb_comment_publisher_name(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_publisher_name(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_comment_publisher_name(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, F@_5, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_comment(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_comment(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, TrUserData).
 
 d_field_pb_comment_post_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_post_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_comment_post_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, F@_5, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_comment(RestF, 0, 0, F@_1, F@_2, F@_3, NewFValue, F@_5, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_comment(RestF, 0, 0, F@_1, F@_2, F@_3, NewFValue, F@_5, TrUserData).
 
 d_field_pb_comment_payload(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_payload(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_comment_payload(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, TrUserData) ->
@@ -3062,7 +3052,7 @@ skip_32_pb_whisper_keys(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F
 
 skip_64_pb_whisper_keys(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> dfp_read_field_def_pb_whisper_keys(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData).
 
-decode_msg_pb_push_token(Bin, TrUserData) -> dfp_read_field_def_pb_push_token(Bin, 0, 0, id(android, TrUserData), id([], TrUserData), TrUserData).
+decode_msg_pb_push_token(Bin, TrUserData) -> dfp_read_field_def_pb_push_token(Bin, 0, 0, id(android, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_push_token(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_push_token_os(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_push_token(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_push_token_token(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -3092,7 +3082,7 @@ d_field_pb_push_token_os(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData)
 
 d_field_pb_push_token_token(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_push_token_token(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_push_token_token(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_push_token(RestF, 0, 0, F@_1, NewFValue, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_push_token(RestF, 0, 0, F@_1, NewFValue, TrUserData).
 
 skip_varint_pb_push_token(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_push_token(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 skip_varint_pb_push_token(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_push_token(Rest, Z1, Z2, F@_1, F@_2, TrUserData).

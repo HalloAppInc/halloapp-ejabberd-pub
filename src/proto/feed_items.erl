@@ -325,7 +325,7 @@ decode_msg_2_doit(pb_feed_node_items, Bin, TrUserData) -> id(decode_msg_pb_feed_
 
 
 
-decode_msg_pb_feedpost(Bin, TrUserData) -> dfp_read_field_def_pb_feedpost(Bin, 0, 0, id([], TrUserData), id(<<>>, TrUserData), TrUserData).
+decode_msg_pb_feedpost(Bin, TrUserData) -> dfp_read_field_def_pb_feedpost(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_feedpost(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_feedpost_id(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_feedpost(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_feedpost_payload(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -351,7 +351,7 @@ dg_read_field_def_pb_feedpost(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_feedpost{id = F@
 
 d_field_pb_feedpost_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_feedpost_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_feedpost_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_feedpost(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_feedpost(RestF, 0, 0, NewFValue, F@_2, TrUserData).
 
 d_field_pb_feedpost_payload(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_feedpost_payload(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_feedpost_payload(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
@@ -369,7 +369,7 @@ skip_32_pb_feedpost(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> df
 
 skip_64_pb_feedpost(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_feedpost(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-decode_msg_pb_comment(Bin, TrUserData) -> dfp_read_field_def_pb_comment(Bin, 0, 0, id([], TrUserData), id(0, TrUserData), id([], TrUserData), id([], TrUserData), id(<<>>, TrUserData), TrUserData).
+decode_msg_pb_comment(Bin, TrUserData) -> dfp_read_field_def_pb_comment(Bin, 0, 0, id(<<>>, TrUserData), id(0, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_comment(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_comment_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_comment(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_comment_publisher_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
@@ -401,8 +401,7 @@ dg_read_field_def_pb_comment(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, _) -> #pb
 
 d_field_pb_comment_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_comment_id(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_comment(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, F@_5, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_comment(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
 d_field_pb_comment_publisher_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_publisher_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_comment_publisher_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, TrUserData) ->
@@ -410,13 +409,11 @@ d_field_pb_comment_publisher_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_
 
 d_field_pb_comment_publisher_name(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_publisher_name(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_comment_publisher_name(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, F@_5, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_comment(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_comment(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, TrUserData).
 
 d_field_pb_comment_post_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_post_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_comment_post_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, F@_5, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_comment(RestF, 0, 0, F@_1, F@_2, F@_3, NewFValue, F@_5, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_comment(RestF, 0, 0, F@_1, F@_2, F@_3, NewFValue, F@_5, TrUserData).
 
 d_field_pb_comment_payload(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_comment_payload(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_comment_payload(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, TrUserData) ->

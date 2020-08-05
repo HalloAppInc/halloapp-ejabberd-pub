@@ -220,7 +220,7 @@ decode_msg_2_doit(pb_push_register, Bin, TrUserData) -> id(decode_msg_pb_push_re
 
 
 
-decode_msg_pb_push_token(Bin, TrUserData) -> dfp_read_field_def_pb_push_token(Bin, 0, 0, id(android, TrUserData), id([], TrUserData), TrUserData).
+decode_msg_pb_push_token(Bin, TrUserData) -> dfp_read_field_def_pb_push_token(Bin, 0, 0, id(android, TrUserData), id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_push_token(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_push_token_os(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 dfp_read_field_def_pb_push_token(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_push_token_token(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
@@ -250,7 +250,7 @@ d_field_pb_push_token_os(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData)
 
 d_field_pb_push_token_token(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_push_token_token(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
 d_field_pb_push_token_token(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end, dfp_read_field_def_pb_push_token(RestF, 0, 0, F@_1, NewFValue, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_push_token(RestF, 0, 0, F@_1, NewFValue, TrUserData).
 
 skip_varint_pb_push_token(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_push_token(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
 skip_varint_pb_push_token(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_push_token(Rest, Z1, Z2, F@_1, F@_2, TrUserData).

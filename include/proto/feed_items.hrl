@@ -10,7 +10,7 @@
 -ifndef('PB_FEEDPOST_PB_H').
 -define('PB_FEEDPOST_PB_H', true).
 -record(pb_feedpost,
-        {id = []                :: iodata() | undefined, % = 1
+        {id = <<>>              :: iodata() | undefined, % = 1
          payload = <<>>         :: iodata() | undefined % = 2
         }).
 -endif.
@@ -18,10 +18,10 @@
 -ifndef('PB_COMMENT_PB_H').
 -define('PB_COMMENT_PB_H', true).
 -record(pb_comment,
-        {id = []                :: iodata() | undefined, % = 1
+        {id = <<>>              :: iodata() | undefined, % = 1
          publisher_uid = 0      :: integer() | undefined, % = 2, 64 bits
-         publisher_name = []    :: iodata() | undefined, % = 3
-         post_id = []           :: iodata() | undefined, % = 4
+         publisher_name = <<>>  :: iodata() | undefined, % = 3
+         post_id = <<>>         :: iodata() | undefined, % = 4
          payload = <<>>         :: iodata() | undefined % = 5
         }).
 -endif.

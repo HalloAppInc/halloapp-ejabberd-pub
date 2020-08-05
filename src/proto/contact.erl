@@ -306,7 +306,7 @@ decode_msg_2_doit(pb_contact_list, Bin, TrUserData) -> id(decode_msg_pb_contact_
 
 
 
-decode_msg_pb_contact(Bin, TrUserData) -> dfp_read_field_def_pb_contact(Bin, 0, 0, id(add, TrUserData), id([], TrUserData), id([], TrUserData), id(0, TrUserData), id([], TrUserData), id(friend, TrUserData), TrUserData).
+decode_msg_pb_contact(Bin, TrUserData) -> dfp_read_field_def_pb_contact(Bin, 0, 0, id(add, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), id(<<>>, TrUserData), id(friend, TrUserData), TrUserData).
 
 dfp_read_field_def_pb_contact(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_action(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 dfp_read_field_def_pb_contact(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_raw(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
@@ -345,13 +345,11 @@ d_field_pb_contact_action(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4
 
 d_field_pb_contact_raw(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_raw(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 d_field_pb_contact_raw(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, F@_6, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, F@_6, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, F@_6, TrUserData).
 
 d_field_pb_contact_normalized(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_normalized(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 d_field_pb_contact_normalized(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, F@_5, F@_6, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, F@_6, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, F@_6, TrUserData).
 
 d_field_pb_contact_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 d_field_pb_contact_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, F@_5, F@_6, TrUserData) ->
@@ -359,8 +357,7 @@ d_field_pb_contact_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, F
 
 d_field_pb_contact_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 d_field_pb_contact_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, F@_6, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, F@_6, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, F@_6, TrUserData).
 
 d_field_pb_contact_role(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_role(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
 d_field_pb_contact_role(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, _, TrUserData) ->
@@ -380,7 +377,7 @@ skip_32_pb_contact(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, 
 
 skip_64_pb_contact(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> dfp_read_field_def_pb_contact(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData).
 
-decode_msg_pb_contact_list(Bin, TrUserData) -> dfp_read_field_def_pb_contact_list(Bin, 0, 0, id(full, TrUserData), id([], TrUserData), id(0, TrUserData), id(false, TrUserData), id([], TrUserData), TrUserData).
+decode_msg_pb_contact_list(Bin, TrUserData) -> dfp_read_field_def_pb_contact_list(Bin, 0, 0, id(full, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), id(false, TrUserData), id([], TrUserData), TrUserData).
 
 dfp_read_field_def_pb_contact_list(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_contact_list_type(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_pb_contact_list(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> d_field_pb_contact_list_sync_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
@@ -417,8 +414,7 @@ d_field_pb_contact_list_type(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F
 
 d_field_pb_contact_list_sync_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_contact_list_sync_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_contact_list_sync_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Utf8:Len/binary, Rest2/binary>> = Rest, {id(unicode:characters_to_list(Utf8, unicode), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_contact_list(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, TrUserData).
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact_list(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, TrUserData).
 
 d_field_pb_contact_list_batch_index(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) when N < 57 -> d_field_pb_contact_list_batch_index(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData);
 d_field_pb_contact_list_batch_index(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, F@_5, TrUserData) ->
