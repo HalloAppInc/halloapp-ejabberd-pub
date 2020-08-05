@@ -375,7 +375,7 @@ send_old_items_to_contact(Uid, Server, ContactId) ->
     CommentStanzas = convert_comments_to_stanzas(Comments),
     %% TODO(murali@): remove this code after successful migration to redis.
     {ok, PubsubItems} = mod_feed_mnesia:get_all_items(<<"feed-", Uid/binary>>),
-    {PubsubPostStanzas, PubsubCommentStanzas} = convert_pubsub_items_to_stanzas(PubsubItems),
+    {PubsubPostStanzas, PubsubCommentStanzas} = filter_and_transform_pubsub_items(PubsubItems),
     MsgType = normal,
     From = jid:make(Server),
     Packet = #message{
@@ -401,7 +401,7 @@ share_feed_items(Uid, FriendUid, Server, PostIds) ->
         
     %% TODO(murali@): remove this code after successful migration to redis.
     {ok, PubsubItems} = mod_feed_mnesia:get_all_items(<<"feed-", Uid/binary>>),
-    {PubsubPostStanzas, PubsubCommentStanzas} = convert_pubsub_items_to_stanzas(PubsubItems),
+    {PubsubPostStanzas, PubsubCommentStanzas} = filter_and_transform_pubsub_items(PubsubItems),
     MsgType = normal,
     From = jid:make(Server),
     Packet = #message{
@@ -475,8 +475,13 @@ uid_elements_to_uids(UidEls) ->
 
 
 %% TODO(murali@): remove this code after successful migration to redis.
--spec convert_pubsub_items_to_stanzas([item()]) -> [].
-convert_pubsub_items_to_stanzas(Items) ->
+-spec filter_and_transform_pubsub_items([item()]) -> [].
+filter_and_transform_pubsub_items(AllItems) ->
+    TimestampMs = util:now_ms(),
+    Items = lists:filter(
+        fun(Item) ->
+            TimestampMs - Item#item.creation_ts_ms < ?CATCH_UP_TIME_MS
+        end, AllItems),
     ResultItems = lists:map(
         fun(Item) ->
             ItemId = element(1, Item#item.key),

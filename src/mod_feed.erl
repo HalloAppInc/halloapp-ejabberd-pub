@@ -18,9 +18,6 @@
 
 -define(PUBSUB_HOST, <<"pubsub.s.halloapp.net">>).
 
-%% Number of milliseconds in 7days.
--define(EXPIRE_ITEM_MS, 7 * ?DAYS_MS).
-
 -behaviour(gen_mod).
 
 %% gen_mod API.
@@ -410,7 +407,12 @@ send_old_items_to_user(UserId, Server, ContactId) ->
 -spec send_all_node_items(Node :: psnode(), ContactId :: binary(), Server :: binary()) -> ok.
 send_all_node_items(#psnode{id = NodeId} = _Node, ContactId, Server) ->
     ?INFO_MSG("NodeId: ~s, ContactId: ~s", [NodeId, ContactId]),
-    {ok, Items} = mod_feed_mnesia:get_all_items(NodeId),
+    {ok, AllItems} = mod_feed_mnesia:get_all_items(NodeId),
+    TimestampMs = util:now_ms(),
+    Items = lists:filter(
+        fun(Item) ->
+            TimestampMs - Item#item.creation_ts_ms < ?CATCH_UP_TIME_MS
+        end, AllItems),
     MsgType = normal,
     From = jid:make(?PUBSUB_HOST),
     PsItems1 = items_els(Items, Server),
@@ -476,7 +478,7 @@ purge_expired_items(#psnode{id = NodeId} = _Node, TimestampMs) ->
     lists:foreach(
         fun(#item{key = ItemKey, creation_ts_ms = ThenTimestampMs}) ->
             if
-                TimestampMs - ThenTimestampMs < ?EXPIRE_ITEM_MS ->
+                TimestampMs - ThenTimestampMs < ?POST_TTL_MS ->
                     ok;
                 true ->
                     mod_feed_mnesia:retract_item(ItemKey)
