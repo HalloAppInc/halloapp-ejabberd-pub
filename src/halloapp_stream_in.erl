@@ -307,15 +307,37 @@ handle_info({'$gen_event', closed}, State) ->
 handle_info({'$gen_event', {protobuf, <<>>}}, _State) ->
     noreply(_State);
 
-handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := State} = State) ->
+handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := wait_for_authentication} = State) ->
     noreply(
         try enif_protobuf:decode(Bin, pb_auth_request) of
         Pkt ->
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
-            FinalPkt = case State of
-                wait_for_authentication -> ha_auth_parser:proto_to_xmpp(Pkt);
-                established -> packet_parser:proto_to_xmpp(Pkt)
-            end,
+            FinalPkt = ha_auth_parser:proto_to_xmpp(Pkt),
+            ?DEBUG("recv: translated xmpp: ~p", [FinalPkt]),
+            State1 = try callback(handle_recv, Bin, FinalPkt, State)
+               catch _:{?MODULE, undef} -> State
+               end,
+            case is_disconnected(State1) of
+                true -> State1;
+                false -> process_element(FinalPkt, State1)
+            end
+        catch _:_ ->
+            Why = <<"failed_codec">>,
+            State1 = try callback(handle_recv, Bin, {error, Why}, State)
+               catch _:{?MODULE, undef} -> State
+               end,
+            case is_disconnected(State1) of
+                true -> State1;
+                false -> process_invalid_protobuf(State1, Bin, Why)
+            end
+        end);
+
+handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := established} = State) ->
+    noreply(
+        try enif_protobuf:decode(Bin, pb_packet) of
+        Pkt ->
+            ?DEBUG("recv: protobuf: ~p", [Pkt]),
+            FinalPkt = packet_parser:proto_to_xmpp(Pkt),
             ?DEBUG("recv: translated xmpp: ~p", [FinalPkt]),
             State1 = try callback(handle_recv, Bin, FinalPkt, State)
                catch _:{?MODULE, undef} -> State
