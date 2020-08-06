@@ -19,7 +19,7 @@
 -compile(export_all).
 -endif.
 
--export([start_link/0]).
+
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
 
@@ -30,29 +30,23 @@
     delete_password/1
 ]).
 
-start_link() ->
-    gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
-
 %%====================================================================
 %% gen_mod callbacks
 %%====================================================================
 
 start(Host, Opts) ->
     ?INFO_MSG("start ~w", [?MODULE]),
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()).
+    ok.
 
 stop(_Host) ->
     ?INFO_MSG("stop ~w", [?MODULE]),
-    gen_mod:stop_child(get_proc()).
+    ok.
 
 depends(_Host, _Opts) ->
     [{mod_redis, hard}].
 
 mod_options(_Host) ->
     [].
-
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
 
 %%====================================================================
 %% API
