@@ -115,7 +115,6 @@ setup() ->
     {ok, _} = application:ensure_all_started(bcrypt),
     redis_sup:start_link(),
     clear(),
-    model_auth:start_link(),
     mod_redis:start(undefined, []),
     ok.
 

@@ -13,13 +13,12 @@
 -include("password.hrl").
 
 setup() ->
-  redis_sup:start_link(),
-  clear(),
-  model_auth:start_link(),
-  ok.
+    redis_sup:start_link(),
+    clear(),
+    ok.
 
 clear() ->
-  {ok, ok} = gen_server:call(redis_auth_client, flushdb).
+    {ok, ok} = gen_server:call(redis_auth_client, flushdb).
 
 -define(UID1, <<"1">>).
 -define(SALT1, <<"DE76yR5bKC3bEbN">>).

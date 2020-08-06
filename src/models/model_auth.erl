@@ -8,7 +8,6 @@
 %%%-------------------------------------------------------------------
 -module(model_auth).
 -author("nikola").
--behavior(gen_server).
 -behavior(gen_mod).
 
 -include("logger.hrl").
@@ -23,8 +22,6 @@
 -export([start_link/0]).
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
 %% API
 -export([
@@ -70,32 +67,10 @@ get_proc() ->
 set_password(Uid, Salt, HashedPassword) ->
     set_password(Uid, Salt, HashedPassword, util:now_ms()).
 
+
 -spec set_password(Uid :: binary(), Salt :: binary(), HashedPassword :: binary(),
-TimestampMs :: integer()) -> ok  | {error, any()}.
+        TimestampMs :: integer()) -> ok  | {error, any()}.
 set_password(Uid, Salt, HashedPassword, TimestampMs) ->
-    gen_server:call(get_proc(), {set_password, Uid, Salt, HashedPassword, TimestampMs}).
-
-
--spec get_password(Uid :: binary()) -> {ok, password()} | {error, missing}.
-get_password(Uid) ->
-    gen_server:call(get_proc(), {get_password, Uid}).
-
--spec delete_password(Uid :: binary()) -> ok  | {error, any()}.
-delete_password(Uid) ->
-    gen_server:call(get_proc(), {delete_password, Uid}).
-
-%%====================================================================
-%% gen_server callbacks
-%%====================================================================
-
-init(_Stuff) ->
-    process_flag(trap_exit, true),
-    {ok, redis_auth_client}.
-
-handle_call({get_connection}, _From, Redis) ->
-    {reply, {ok, Redis}, Redis};
-
-handle_call({set_password, Uid, Salt, HashedPassword, TimestampMs}, _From, Redis) ->
     Commands = [
         ["DEL", password_key(Uid)],
         ["HSET", password_key(Uid),
@@ -104,26 +79,25 @@ handle_call({set_password, Uid, Salt, HashedPassword, TimestampMs}, _From, Redis
             ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)]
     ],
     {ok, [_DelResult, <<"3">>]} = multi_exec(Commands),
-    {reply, ok, Redis};
+    ok.
 
-handle_call({get_password, Uid}, _From, Redis) ->
+
+-spec get_password(Uid :: binary()) -> {ok, password()} | {error, missing}.
+get_password(Uid) ->
     {ok, [Salt, HashedPassword, TsMsBinary]} = q(["HMGET", password_key(Uid),
         ?FIELD_SALT, ?FIELD_HASHED_PASSWORD, ?FIELD_TIMESTAMP_MS]),
-    {reply, {ok, #password{
+    {ok, #password{
         salt = Salt,
         hashed_password = HashedPassword,
         ts_ms = util_redis:decode_ts(TsMsBinary),
         uid = Uid
-    }}, Redis};
+    }}.
 
-handle_call({delete_password, Uid}, _From, Redis) ->
+
+-spec delete_password(Uid :: binary()) -> ok  | {error, any()}.
+delete_password(Uid) ->
     {ok, _Res} = q(["DEL", password_key(Uid)]),
-    {reply, ok, Redis}.
-
-handle_cast(_Message, Redis) -> {noreply, Redis}.
-handle_info(_Message, Redis) -> {noreply, Redis}.
-terminate(_Reason, _Redis) -> ok.
-code_change(_OldVersion, Redis, _Extra) -> {ok, Redis}.
+    ok.
 
 
 q(Command) -> ecredis:q(ecredis_auth, Command).
@@ -132,10 +106,12 @@ qp(Commands) -> ecredis:qp(ecredis_auth, Commands).
 
 multi_exec(Commands) ->
     WrappedCommands = lists:append([[["MULTI"]], Commands, [["EXEC"]]]),
-    {ok, Results} = gen_server:call(redis_auth_client, {qp, WrappedCommands}),
+    Results = qp(WrappedCommands),
     [ExecResult|_Rest] = lists:reverse(Results),
     ExecResult.
+
 
 -spec password_key(binary()) -> binary().
 password_key(Uid) ->
     <<?PASSWORD_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+

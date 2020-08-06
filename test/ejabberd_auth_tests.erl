@@ -78,7 +78,6 @@ setup() ->
     ejabberd_auth_halloapp:start(?SERVER),
     redis_sup:start_link(),
     clear(),
-    model_auth:start_link(),
     mod_redis:start(undefined, []),
     ok.
 
