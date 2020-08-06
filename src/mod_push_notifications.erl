@@ -71,6 +71,13 @@ offline_message_hook({_, #message{sub_els = [#feed_st{action = publish}]} = Mess
     push_message(Message),
     Acc;
 
+%% Push contact related notifications: could be contact_hash or new relationship notifications.
+offline_message_hook({_, #message{sub_els = [SubEl]} = Message} = Acc)
+        when is_record(SubEl, contact_list) ->
+    ?DEBUG("~p", [Message]),
+    push_message(Message),
+    Acc;
+
 offline_message_hook({_, #message{} = Message} = Acc) ->
     ?WARNING_MSG("ignoring push: ~p", [Message]),
     Acc.

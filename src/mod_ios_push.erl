@@ -367,6 +367,8 @@ get_pid_to_send(dev, State) ->
 -spec parse_subject_and_body(Message :: message()) -> {binary(), binary()}.
 parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubElement, chat) ->
     {<<"New Message">>, <<"You got a new message.">>};
+parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubElement, contact_list) ->
+    {<<"New Contact">>, <<"New contact notification">>};
 parse_subject_and_body(#message{sub_els = [#ps_event{items = #ps_items{
         items = [#ps_item{type = ItemType}]}}]}) ->
     case ItemType of
@@ -386,6 +388,9 @@ parse_subject_and_body(#message{to = #jid{luser = Uid}, id = Id}) ->
 parse_metadata(#message{id = Id, sub_els = [SubElement],
         from = #jid{luser = FromUid}}) when is_record(SubElement, chat) ->
     {Id, <<"chat">>, FromUid};
+parse_metadata(#message{id = Id, sub_els = [SubElement]})
+        when is_record(SubElement, contact_list) ->
+    {Id, <<"contact_notification">>, <<>>};
 parse_metadata(#message{sub_els = [#ps_event{items = #ps_items{
         items = [#ps_item{id = Id, publisher = FromId, type = ItemType}]}}]}) ->
 %% TODO(murali@): Change the fromId to be just userid instead of jid.
@@ -467,8 +472,9 @@ get_push_type(#message{type = headline, to = #jid{luser = User}, sub_els = [#ps_
     end;
 get_push_type(#message{type = headline, sub_els = [#feed_st{}]}) -> alert;
 get_push_type(#message{type = normal, sub_els = [#feed_st{}]}) -> silent;
-get_push_type(_) -> alert.
-
+get_push_type(#message{sub_els = [SubElement]}) when is_record(SubElement, chat) -> alert;
+get_push_type(#message{sub_els = [SubElement]}) when is_record(SubElement, contact_list) -> silent;
+get_push_type(_) -> silent.
 
 
 -spec get_apns_push_type(PushType :: silent | alert) -> binary().
