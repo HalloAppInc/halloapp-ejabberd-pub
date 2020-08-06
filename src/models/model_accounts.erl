@@ -52,6 +52,13 @@
     set_push_token/4,
     get_push_token/1,
     remove_push_token/1,
+    remove_push_info/1,
+    set_push_post_pref/2,
+    get_push_post_pref/1,
+    remove_push_post_pref/1,
+    set_push_comment_pref/2,
+    get_push_comment_pref/1,
+    remove_push_comment_pref/1,
     presence_subscribe/2,
     presence_unsubscribe/2,
     presence_unsubscribe_all/1,
@@ -113,6 +120,8 @@ mod_options(_Host) ->
 -define(FIELD_PUSH_OS, <<"pos">>).
 -define(FIELD_PUSH_TOKEN, <<"ptk">>).
 -define(FIELD_PUSH_TIMESTAMP, <<"pts">>).
+-define(FIELD_PUSH_POST, <<"pp">>).
+-define(FIELD_PUSH_COMMENT, <<"pc">>).
 
 
 %%====================================================================
@@ -312,18 +321,64 @@ remove_push_token(Uid) ->
     ok.
 
 
-%% TODO this will soon be modified to include the preferences values
 -spec get_push_info(Uid :: binary()) -> {ok, undefined | push_info()} | {error, missing}.
 get_push_info(Uid) ->
-    {ok, [Os, Token, TimestampMs]} = q(
-            ["HMGET", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
-    Res = case ts_decode(TimestampMs) of
-            undefined ->
-                undefined;
-            TsMs ->
-                #push_info{uid = Uid, os = Os, token = Token, timestamp_ms = TsMs}
-        end,
+    {ok, [Os, Token, TimestampMs, PushPost, PushComment]} = q(
+            ["HMGET", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP,
+            ?FIELD_PUSH_POST, ?FIELD_PUSH_COMMENT]),
+    Res = #push_info{uid = Uid, 
+            os = Os, 
+            token = Token, 
+            timestamp_ms = ts_decode(TimestampMs),
+            post_pref = boolean_decode(PushPost, true),
+            comment_pref = boolean_decode(PushComment, true)},
     {ok, Res}.
+
+
+-spec remove_push_info(Uid :: binary()) -> ok | {error, missing}.
+remove_push_info(Uid) ->
+    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    ok.
+
+
+-spec set_push_post_pref(Uid :: binary(), PushPost :: boolean()) -> ok.
+set_push_post_pref(Uid, PushPost) ->
+    PushPostValue = boolean_encode(PushPost),
+    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_PUSH_POST, PushPostValue]),
+    ok.
+
+
+-spec get_push_post_pref(Uid :: binary()) -> {ok, boolean()}.
+get_push_post_pref(Uid) ->
+    {ok, PushPostValue} = q(["HGET", key(Uid), ?FIELD_PUSH_POST]),
+    Res = boolean_decode(PushPostValue, true),
+    {ok, Res}.
+
+
+-spec remove_push_post_pref(Uid :: binary()) -> ok | {error, missing}.
+remove_push_post_pref(Uid) ->
+    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_POST]),
+    ok.
+
+
+-spec set_push_comment_pref(Uid :: binary(), PushComment :: boolean()) -> ok.
+set_push_comment_pref(Uid, PushComment) ->
+    PushCommentValue = boolean_encode(PushComment),
+    {ok, _Res} = q(["HMSET", key(Uid), ?FIELD_PUSH_COMMENT, PushCommentValue]),
+    ok.
+
+
+-spec get_push_comment_pref(Uid :: binary()) -> {ok, boolean()}.
+get_push_comment_pref(Uid) ->
+    {ok, [PushCommentValue]} = q(["HMGET", key(Uid), ?FIELD_PUSH_COMMENT]),
+    Res = boolean_decode(PushCommentValue, true),
+    {ok, Res}.
+
+
+-spec remove_push_comment_pref(Uid :: binary()) -> ok | {error, missing}.
+remove_push_comment_pref(Uid) ->
+    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_COMMENT]),
+    ok.
 
 
 -spec account_exists(Uid :: binary()) -> boolean().
@@ -617,6 +672,19 @@ ts_decode(Data) ->
     case Data of
         undefined -> undefined;
         Data -> binary_to_integer(Data)
+    end.
+
+boolean_decode(Data, DefaultValue) ->
+    case Data of
+        <<"1">> -> true;
+        <<"0">> -> false;
+        _ -> DefaultValue
+    end.
+
+boolean_encode(BoolValue) ->
+    case BoolValue of
+        true -> <<"1">>;
+        false -> <<"0">>
     end.
 
 

@@ -317,7 +317,8 @@ push_message_item(PushMessageItem, State) ->
     end,
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
     ExpiryTime = PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC,
-    PushType = get_push_type(PushMessageItem#push_message_item.message),
+    PushType = get_push_type(PushMessageItem#push_message_item.message,
+            PushMessageItem#push_message_item.push_info),
     PayloadBin = get_payload(PushMessageItem, PushType),
     Priority = get_priority(PushType),
     DevicePath = get_device_path(Token),
@@ -458,23 +459,29 @@ get_payload(PushMessageItem, PushType) ->
 get_priority(silent) -> 5;
 get_priority(alert) -> 10.
 
-
--spec get_push_type(Message :: message()) -> silent | alert.
+-spec get_push_type(Message :: message(), PushInfo :: push_info()) -> silent | alert.
 get_push_type(#message{type = headline, to = #jid{luser = User}, sub_els = [#ps_event{
-        items = #ps_items{node = Node, items = [#ps_item{type = ItemType}]}}]}) ->
+        items = #ps_items{node = Node, items = [#ps_item{type = ItemType}]}}]}, PushInfo) ->
     case ItemType of
-        feedpost -> alert;
+        feedpost -> boolean_to_push_type(PushInfo#push_info.post_pref);        
         comment ->
             case Node of
-                <<"feed-", User/binary>> -> alert;
+                <<"feed-", User/binary>> -> boolean_to_push_type(PushInfo#push_info.comment_pref);
                 _ -> silent
             end
     end;
-get_push_type(#message{type = headline, sub_els = [#feed_st{}]}) -> alert;
-get_push_type(#message{type = normal, sub_els = [#feed_st{}]}) -> silent;
-get_push_type(#message{sub_els = [SubElement]}) when is_record(SubElement, chat) -> alert;
-get_push_type(#message{sub_els = [SubElement]}) when is_record(SubElement, contact_list) -> silent;
-get_push_type(_) -> silent.
+get_push_type(#message{type = headline, sub_els = [#feed_st{}]}, _) -> alert;
+get_push_type(#message{type = normal, sub_els = [#feed_st{}]}, _) -> silent;
+get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, chat) -> alert;
+get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, contact_list) -> silent;
+get_push_type(_, _) -> silent.
+
+-spec boolean_to_push_type(BoolValue :: boolean()) -> silent | alert.
+boolean_to_push_type(BoolValue) ->
+    case BoolValue of
+        true -> alert;
+        false -> silent
+    end.
 
 
 -spec get_apns_push_type(PushType :: silent | alert) -> binary().

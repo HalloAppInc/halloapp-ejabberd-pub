@@ -38,7 +38,9 @@
     uid :: binary(),
     os :: binary(),
     token :: binary(),
-    timestamp_ms :: integer()
+    timestamp_ms :: integer(),
+    post_pref :: boolean(),
+    comment_pref :: boolean()
 }).
 
 -type push_info() :: #push_info{}.

@@ -33,7 +33,8 @@ clear() ->
 -define(PUSH_TOKEN1, <<"eXh2yYFZShGXzpobZEc5kg">>).
 -define(PUSH_TOKEN_TIMESTAMP1, 1589300000082).
 -define(PUSH_INFO1, #push_info{uid = ?UID1, os = ?PUSH_TOKEN_OS1,
-        token = ?PUSH_TOKEN1, timestamp_ms = ?PUSH_TOKEN_TIMESTAMP1}).
+        token = ?PUSH_TOKEN1, timestamp_ms = ?PUSH_TOKEN_TIMESTAMP1,
+        post_pref = undefined, comment_pref = undefined}).
 
 -define(UID2, <<"2">>).
 -define(PHONE2, <<"16505552222">>).
@@ -45,7 +46,8 @@ clear() ->
 -define(PUSH_TOKEN2, <<"pu7YCnjPQpa4yHm0gJRJ1g">>).
 -define(PUSH_TOKEN_TIMESTAMP2, 1570300000148).
 -define(PUSH_INFO2, #push_info{uid = ?UID2, os = ?PUSH_TOKEN_OS2,
-        token = ?PUSH_TOKEN2, timestamp_ms = ?PUSH_TOKEN_TIMESTAMP2}).
+        token = ?PUSH_TOKEN2, timestamp_ms = ?PUSH_TOKEN_TIMESTAMP2,
+        post_pref = undefined, comment_pref = undefined}).
 
 -define(UID3, <<"3">>).
 
@@ -238,6 +240,24 @@ push_token_test() ->
     ?assertEqual(ok, model_accounts:set_push_token(?UID2, ?PUSH_TOKEN_OS2,
             ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2)),
     ?assertEqual({ok, ?PUSH_INFO2}, model_accounts:get_push_token(?UID2)).
+
+
+push_post_test() ->
+    setup(),
+    ?assertEqual({ok, true}, model_accounts:get_push_post_pref(?UID1)),
+    ?assertEqual(ok, model_accounts:set_push_post_pref(?UID1, false)),
+    ?assertEqual({ok, false}, model_accounts:get_push_post_pref(?UID1)),
+    ?assertEqual(ok, model_accounts:remove_push_post_pref(?UID1)),
+    ?assertEqual({ok, true}, model_accounts:get_push_post_pref(?UID1)).
+
+
+push_coment_test() ->
+    setup(),
+    ?assertEqual({ok, true}, model_accounts:get_push_comment_pref(?UID1)),
+    ?assertEqual(ok, model_accounts:set_push_comment_pref(?UID1, true)),
+    ?assertEqual({ok, true}, model_accounts:get_push_comment_pref(?UID1)),
+    ?assertEqual(ok, model_accounts:remove_push_comment_pref(?UID1)),
+    ?assertEqual({ok, true}, model_accounts:get_push_comment_pref(?UID1)).
 
 
 count_test() ->

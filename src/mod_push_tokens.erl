@@ -78,10 +78,37 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lan
             ok = register_push_info(Uid, Server, Os, Token),
             xmpp:make_iq_result(IQ)
     end;
+
+process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lang = Lang,
+        to = _Host, sub_els = [#notification_prefs{push_prefs = PushPrefs}]} = IQ) ->
+    ?INFO_MSG("Uid: ~s, set-iq for push preferences", [Uid]),
+    case PushPrefs of
+        [] ->
+            ?WARNING_MSG("Uid: ~s, push pref list is empty!", [Uid]),
+            xmpp:make_error(IQ, #stanza_error{reason = invalid_prefs});
+        _ ->
+            lists:foreach(
+                fun(PushPref) ->
+                    update_push_pref(Uid, PushPref)
+                end,
+            PushPrefs),
+            xmpp:make_iq_result(IQ)
+    end;
+
 process_local_iq(#iq{lang = Lang} = IQ) ->
     Txt = ?T("Unable to handle this IQ"),
     xmpp:make_error(IQ, xmpp:err_internal_server_error(Txt, Lang)).
 
+
+-spec update_push_pref(Uid :: binary(), push_pref()) -> ok.
+update_push_pref(Uid, #push_pref{name = post, value = Value}) ->
+    stat:count("HA/push_prefs", "set_push_post_pref"),
+    ?INFO_MSG("set ~s's push post pref to be: ~s", [Uid, Value]),
+    model_accounts:set_push_post_pref(Uid, Value);
+update_push_pref(Uid, #push_pref{name = comment, value = Value}) ->
+    stat:count("HA/push_prefs", "set_push_comment_pref"),
+    ?INFO_MSG("set ~s's push comment pref to be: ~s", [Uid, Value]),
+    model_accounts:set_push_comment_pref(Uid, Value).
 
 
 -spec register_push_info(Uid :: binary(), Server :: binary(),
