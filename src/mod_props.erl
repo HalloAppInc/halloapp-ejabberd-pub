@@ -71,6 +71,7 @@ get_hash(Uid) ->
     Hash.
 
 
+% If any props are changed, please update props doc: server/doc/server_props.md
 -spec get_props(Uid :: binary()) -> proplist().
 get_props(Uid) ->
     Proplist = case is_dev(Uid) of
@@ -96,7 +97,12 @@ get_props(Uid) ->
 is_dev(Uid) ->
     %% TODO: don't use traced uid list for this
     {ok, InternalUids} = model_accounts:get_traced_uids(),
-    lists:member(Uid, InternalUids).
+    case lists:member(Uid, InternalUids) of
+        true -> true;
+        false ->
+            {ok, Phone} = model_accounts:get_phone(Uid),
+            util:is_test_number(Phone)
+    end .
 
 
 generate_hash(SortedProplist) ->

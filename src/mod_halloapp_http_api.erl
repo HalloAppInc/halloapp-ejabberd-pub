@@ -44,7 +44,7 @@ process([<<"registration">>, <<"request_sms">>],
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
         ?INFO_MSG("payload ~p phone:~p, ua:~p ip:~p ~p",
-            [Payload, Phone, UserAgent, IP, is_debug(Phone)]),
+            [Payload, Phone, UserAgent, IP, util:is_test_number(Phone)]),
 
         check_invited(Phone),
         check_ua(UserAgent),
@@ -196,9 +196,9 @@ check_sms_code(Phone, Code) ->
 
 -spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok.
 request_sms(Phone, UserAgent) ->
-    Code = mod_sms:generate_code(is_debug(Phone)),
+    Code = mod_sms:generate_code(util:is_test_number(Phone)),
     ?DEBUG("code generated phone:~s code:~s", [Phone, Code]),
-    case is_debug(Phone) of
+    case util:is_test_number(Phone) of
         true -> ok;
         false ->
             ok = send_sms(Phone, Code, UserAgent)
@@ -255,12 +255,6 @@ reload(_Host, _NewOpts, _OldOpts) ->
 get_user_agent(Hdrs) ->
     {_, S} = lists:keyfind('User-Agent', 1, Hdrs),
     S.
-
-is_debug(Phone) ->
-    case re:run(Phone, "^1...555....$") of
-        {match, _} -> true;
-        _ -> false
-    end.
 
 depends(_Host, _Opts) ->
     [{mod_sms, hard}].
