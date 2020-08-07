@@ -52,6 +52,12 @@ jobs:
             repository: HalloAppInc/ecredis
             token: ${{ secrets.murali_access_token }}
             path: deps/ecredis
+    - name: Checkout ha_enoise
+      uses: actions/checkout@v2
+      with:
+            repository: HalloAppInc/ha_enoise
+            token: ${{ secrets.murali_access_token }}
+            path: deps/ha_enoise
     - name: Checkout halloapp-erlcloud
       uses: actions/checkout@v2
       with:
