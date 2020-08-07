@@ -191,17 +191,43 @@ create_group_with_creator_as_member_test() ->
 
 delete_group_test() ->
     setup(),
-    Gid1 = undefined,
-    IQ = delete_group_IQ(?UID1, Gid1),
-    IQRes = mod_groups_api:process_local_iq(IQ),
-    ExpectedError = xmpp:err_feature_not_implemented(),
-%%    ?debugVal(IQRes),
+    CreateIQ = create_group_IQ(?UID1, ?GROUP_NAME1, [?UID1, ?UID2]),
+    CreateIQRes = mod_groups_api:process_local_iq(CreateIQ),
+    CreateGroupSt = get_result_iq_sub_el(CreateIQRes),
+    Gid = CreateGroupSt#group_st.gid,
+
+    DeleteIQ = delete_group_IQ(?UID1, Gid),
+    DeleteIQRes = mod_groups_api:process_local_iq(DeleteIQ),
+    GroupSt = get_result_iq_sub_el(DeleteIQRes),
+
     ?assertMatch(
-        #iq{
-            type = error,
-            sub_els = [ExpectedError]
+        #group_st{
+            gid = Gid,
+            action = delete,
+            members = [],
+            result = ok
         },
-        IQRes),
+        GroupSt),
+    ok.
+
+
+delete_group_error_test() ->
+    setup(),
+    CreateIQ = create_group_IQ(?UID1, ?GROUP_NAME1, [?UID1, ?UID2]),
+    CreateIQRes = mod_groups_api:process_local_iq(CreateIQ),
+    CreateGroupSt = get_result_iq_sub_el(CreateIQRes),
+    Gid = CreateGroupSt#group_st.gid,
+
+    DeleteIQ1 = delete_group_IQ(?UID2, Gid),
+    DeleteIQRes1 = mod_groups_api:process_local_iq(DeleteIQ1),
+    Error1 = get_error_iq_sub_el(DeleteIQRes1),
+
+    DeleteIQ2 = delete_group_IQ(?UID3, Gid),
+    DeleteIQRes2 = mod_groups_api:process_local_iq(DeleteIQ2),
+    Error2 = get_error_iq_sub_el(DeleteIQRes2),
+
+    ?assertEqual(#stanza_error{reason = not_admin}, Error1),
+    ?assertEqual(#stanza_error{reason = not_admin}, Error2),
     ok.
 
 

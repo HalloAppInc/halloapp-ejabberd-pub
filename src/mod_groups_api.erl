@@ -164,9 +164,17 @@ process_create_group(IQ, Uid, Name, ReqGroupSt) ->
 -spec process_delete_group(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
 process_delete_group(IQ, Gid, Uid) ->
     ?INFO_MSG("delete_group Gid: ~s Uid: ~s", [Gid, Uid]),
-    %% TODO: implement
-    ?ERROR_MSG("delete_group unimplemented", []),
-    xmpp:make_error(IQ, xmpp:err_feature_not_implemented()).
+    case mod_groups:delete_group(Gid, Uid) of
+        {error, not_admin} ->
+            xmpp:make_error(IQ, err(not_admin));
+        ok ->
+            GroupStResult = #group_st{
+                gid = Gid,
+                action = delete,
+                result = ok
+            },
+            xmpp:make_iq_result(IQ, GroupStResult)
+    end.
 
 
 -spec process_modify_members(IQ :: iq(), Gid :: gid(), Uid :: uid(), ReqGroupSt :: group_st())

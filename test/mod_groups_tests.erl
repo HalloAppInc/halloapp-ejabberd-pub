@@ -80,6 +80,21 @@ create_group_member_has_no_account_test() ->
     ?assertEqual(ExpectedAddMemberResult, AddMemberResult),
     ok.
 
+
+delete_group_test() ->
+    setup(),
+    {ok, Group, _AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    ?assertEqual({error, not_admin}, mod_groups:delete_group(Group#group.gid, ?UID2)),
+    ?assertEqual({error, not_admin}, mod_groups:delete_group(Group#group.gid, ?UID3)),
+    ?assertEqual(ok, mod_groups:delete_group(Group#group.gid, ?UID1)),
+
+    ?assertEqual(undefined, model_groups:get_group(Group#group.gid)),
+    ?assertEqual({error, not_member}, mod_groups:get_group(Group#group.gid, ?UID1)),
+    ?assertEqual({error, not_member}, mod_groups:get_group(Group#group.gid, ?UID2)),
+    ?assertEqual({error, not_member}, mod_groups:get_group(Group#group.gid, ?UID3)),
+    ok.
+
+
 % TODO: add test for max groups size.
 
 add_members_test() ->

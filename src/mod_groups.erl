@@ -24,6 +24,7 @@
 -export([
     create_group/2,
     create_group/3,
+    delete_group/2,
     add_members/3,
     remove_members/3,
     modify_members/3,
@@ -111,6 +112,20 @@ create_group(Uid, GroupName, MemberUids) ->
 
             send_create_group_event(Group, Uid, Results),
             {ok, Group, Results}
+    end.
+
+
+-spec delete_group(Gid :: binary(), Uid :: binary()) -> ok | {error, any()}.
+delete_group(Gid, Uid) ->
+    ?INFO_MSG("Gid: ~s Uid: ~s deleting group", [Gid, Uid]),
+    case model_groups:is_admin(Gid, Uid) of
+        false -> {error, not_admin};
+        true ->
+            Group = model_groups:get_group(Gid),
+            NamesMap = model_accounts:get_names([Uid]),
+            model_groups:delete_group(Gid),
+            broadcast_update(Group, Uid, delete, [], NamesMap),
+            ok
     end.
 
 
