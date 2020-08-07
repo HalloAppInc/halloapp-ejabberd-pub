@@ -20,14 +20,14 @@
 -define(XMPP_ACK,
     #ack{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
-        timestamp = <<"'1591056019'">>
+        timestamp = <<"1591056019">>
     }
 ).
 
 -define(PB_ACK, 
     #pb_ha_ack{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
-        timestamp = <<"'1591056019'">>
+        timestamp = 1591056019
     }
 ).
 
@@ -131,8 +131,8 @@
     #pb_ha_message{
         id = <<"s9cCU-10">>,
         type = normal,
-        to_uid = <<"1000000000045484920">>,
-        from_uid = <<"1000000000519345762">>,
+        to_uid = 1000000000045484920,
+        from_uid = 1000000000519345762,
         payload = #pb_msg_payload{
             content = {seen, #pb_seen_receipt{
                 id = <<"7ab30vn">>,

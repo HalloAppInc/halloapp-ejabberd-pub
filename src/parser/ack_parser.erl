@@ -12,7 +12,7 @@
 xmpp_to_proto(XmppAck) ->
     ProtoAck = #pb_ha_ack{
         id = XmppAck#ack.id,
-        timestamp = XmppAck#ack.timestamp
+        timestamp = binary_to_integer(XmppAck#ack.timestamp)
     },
     ProtoAck.
 
@@ -20,7 +20,7 @@ xmpp_to_proto(XmppAck) ->
 proto_to_xmpp(ProtoAck) ->
     XmppAck = #ack{
         id = ProtoAck#pb_ha_ack.id,
-        timestamp = ProtoAck#pb_ha_ack.timestamp
+        timestamp = integer_to_binary(ProtoAck#pb_ha_ack.timestamp)
     },
     XmppAck.
 

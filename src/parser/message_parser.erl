@@ -26,11 +26,16 @@ xmpp_to_proto(XmppMSG) ->
             [SubEl] = SubEls,
             msg_payload_mapping(SubEl)
     end,
+    PbFromUid = case FromJid#jid.user of
+        undefined -> 0;
+        <<>> -> 0;
+        Uid -> binary_to_integer(Uid)
+    end,
     Protomessage = #pb_ha_message{
         id = XmppMSG#message.id,
         type = XmppMSG#message.type,
-        to_uid = ToJid#jid.user,
-        from_uid = FromJid#jid.user,
+        to_uid = binary_to_integer(ToJid#jid.user),
+        from_uid = PbFromUid,
         payload = #pb_msg_payload{
             content = Content
         }
@@ -66,11 +71,11 @@ msg_payload_mapping(SubEl) ->
 
 proto_to_xmpp(ProtoMSG) ->
     PbToJid = #jid{
-        user = ProtoMSG#pb_ha_message.to_uid,
+        user = integer_to_binary(ProtoMSG#pb_ha_message.to_uid),
         server = <<"s.halloapp.net">>
     },
     PbFromJid = #jid{
-        user = ProtoMSG#pb_ha_message.from_uid,
+        user = integer_to_binary(ProtoMSG#pb_ha_message.from_uid),
         server = <<"s.halloapp.net">>
     },
     ProtoPayload = ProtoMSG#pb_ha_message.payload,

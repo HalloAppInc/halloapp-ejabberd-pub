@@ -23,7 +23,7 @@
         pwd = <<"TNpwdc">>,
         client_mode = active, 
         client_version = <<"2.3">>,
-        resource = android
+        resource = <<"android">>
     }
 ).
 
@@ -33,7 +33,7 @@
         pwd = <<"TNpwdc">>,
         cm = #pb_client_mode{mode = active},
         cv = #pb_client_version{version = <<"2.3">>},
-        resource = android
+        resource = <<"android">>
     }
 ).
 

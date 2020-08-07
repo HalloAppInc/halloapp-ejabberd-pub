@@ -50,8 +50,8 @@
     #pb_ha_message{
         id = <<"s9cC3v4qf40">>,
         type = normal,
-        to_uid = <<"1000000000045484920">>,
-        from_uid = <<"1000000000519345762">>,
+        to_uid = 1000000000045484920,
+        from_uid = 1000000000519345762,
         payload = #pb_msg_payload{
             content = {chat, #pb_chat{
                 timestamp = 2000090910,

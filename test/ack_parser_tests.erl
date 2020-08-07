@@ -23,13 +23,13 @@
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         from = ?JID1,
         to = ?JID1, 
-        timestamp = <<"'1591056019'">>
+        timestamp = <<"1591056019">>
     }
 ).
 -define(PROTO_ACK1, 
     #pb_ha_ack{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
-        timestamp = <<"'1591056019'">>
+        timestamp = 1591056019
     }
 ).
 -define(JID2,
@@ -50,7 +50,7 @@
 -define(PROTO_ACK2, 
     #pb_ha_ack{
         id = <<"18C5554A-C220-42DB-A0A1-C3AD3AD2B28D">>,
-        timestamp = <<"1591141620">>
+        timestamp = 1591141620
     }
 ).
 

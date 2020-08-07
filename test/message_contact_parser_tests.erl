@@ -80,8 +80,8 @@
     #pb_ha_message{
         id = <<"s9cCU-10">>,
         type = set,
-        to_uid = <<"1000000000045484920">>,
-        from_uid = <<"1000000000519345762">>,
+        to_uid = 1000000000045484920,
+        from_uid = 1000000000519345762,
         payload = #pb_msg_payload{
             content = {contact_list, #pb_contact_list{
                 type = full, 
@@ -136,8 +136,8 @@
     #pb_ha_message{
         id = <<"s9cCU-10">>,
         type = set,
-        to_uid = <<"1000000000045484920">>,
-        from_uid = <<"1000000000519345762">>,
+        to_uid = 1000000000045484920,
+        from_uid = 1000000000519345762,
         payload = #pb_msg_payload{
             content = {contact_hash, #pb_contact_hash{
                 hash = ?HASH1

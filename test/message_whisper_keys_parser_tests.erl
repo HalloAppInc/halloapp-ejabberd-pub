@@ -52,8 +52,8 @@
     #pb_ha_message{
         id = <<"WHIPCD988id">>,
         type = set,
-        to_uid = <<"1000000000045484920">>,
-        from_uid = <<"1000000000519345762">>,
+        to_uid = 1000000000045484920,
+        from_uid = 1000000000519345762,
         payload = #pb_msg_payload{
             content = {whisper_keys, #pb_whisper_keys{
                 uid = 29863,
