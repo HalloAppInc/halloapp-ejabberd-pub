@@ -42,6 +42,7 @@
     get_creation_ts_ms/1,
     delete_name/1,
     set_avatar_id/2,
+    delete_avatar_id/1,
     get_avatar_id/1,
     get_avatar_id_binary/1,
     get_last_activity/1,
