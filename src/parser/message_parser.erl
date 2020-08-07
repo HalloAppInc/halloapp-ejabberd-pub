@@ -41,7 +41,10 @@ xmpp_to_proto(XmppMSG) ->
 msg_payload_mapping(SubEl) ->
     Payload = case element(1, SubEl) of
         contact_list ->
-            {contact_list, contact_parser:xmpp_to_proto(SubEl)};
+            case SubEl#contact_list.contact_hash of
+                [] -> {contact_list, contact_parser:xmpp_to_proto(SubEl)};
+                [_] -> {contact_hash, contact_parser:xmpp_to_proto(SubEl)}
+            end;
         avatar ->
             {avatar, avatar_parser:xmpp_to_proto(SubEl)};
         whisper_keys ->
@@ -88,6 +91,8 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
     SubEl = case ProtoPayload of
         {contact_list, ContactListRecord} ->
             contact_parser:proto_to_xmpp(ContactListRecord);
+        {contact_hash, ContactHashRecord} ->
+            contact_parser:proto_to_xmpp(ContactHashRecord);
         {avatar, AvatarRecord} ->
             avatar_parser:proto_to_xmpp(AvatarRecord);
         {whisper_keys, WhisperKeysRecord} ->

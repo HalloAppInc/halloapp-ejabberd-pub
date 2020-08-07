@@ -113,6 +113,8 @@
 
 -type pb_contact_list() :: #pb_contact_list{}.
 
+-type pb_contact_hash() :: #pb_contact_hash{}.
+
 -type pb_seen_receipt() :: #pb_seen_receipt{}.
 
 -type pb_delivery_receipt() :: #pb_delivery_receipt{}.
@@ -131,16 +133,16 @@
 
 -type pb_push_register() :: #pb_push_register{}.
 
--export_type(['pb_chat'/0, 'pb_ping'/0, 'pb_iq_payload'/0, 'pb_msg_payload'/0, 'pb_ha_iq'/0, 'pb_ha_message'/0, 'pb_ha_presence'/0, 'pb_ha_ack'/0, 'pb_ha_error'/0, 'pb_packet'/0, 'pb_auth_request'/0, 'pb_auth_result'/0, 'pb_client_mode'/0, 'pb_client_version'/0, 'pb_upload_avatar'/0, 'pb_avatar'/0, 'pb_avatars'/0, 'pb_media_url'/0, 'pb_upload_media'/0, 'pb_contact'/0, 'pb_contact_list'/0, 'pb_seen_receipt'/0, 'pb_delivery_receipt'/0, 'pb_feedpost'/0, 'pb_comment'/0, 'pb_feed_item'/0, 'pb_feed_node_items'/0, 'pb_whisper_keys'/0, 'pb_push_token'/0, 'pb_push_register'/0]).
+-export_type(['pb_chat'/0, 'pb_ping'/0, 'pb_iq_payload'/0, 'pb_msg_payload'/0, 'pb_ha_iq'/0, 'pb_ha_message'/0, 'pb_ha_presence'/0, 'pb_ha_ack'/0, 'pb_ha_error'/0, 'pb_packet'/0, 'pb_auth_request'/0, 'pb_auth_result'/0, 'pb_client_mode'/0, 'pb_client_version'/0, 'pb_upload_avatar'/0, 'pb_avatar'/0, 'pb_avatars'/0, 'pb_media_url'/0, 'pb_upload_media'/0, 'pb_contact'/0, 'pb_contact_list'/0, 'pb_contact_hash'/0, 'pb_seen_receipt'/0, 'pb_delivery_receipt'/0, 'pb_feedpost'/0, 'pb_comment'/0, 'pb_feed_item'/0, 'pb_feed_node_items'/0, 'pb_whisper_keys'/0, 'pb_push_token'/0, 'pb_push_register'/0]).
 
--spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}) -> binary().
+-spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_contact_hash{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}) -> binary().
 encode_msg(Msg) when tuple_size(Msg) >= 1 -> encode_msg(Msg, element(1, Msg), []).
 
--spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}, atom() | list()) -> binary().
+-spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_contact_hash{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}, atom() | list()) -> binary().
 encode_msg(Msg, MsgName) when is_atom(MsgName) -> encode_msg(Msg, MsgName, []);
 encode_msg(Msg, Opts) when tuple_size(Msg) >= 1, is_list(Opts) -> encode_msg(Msg, element(1, Msg), Opts).
 
--spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}, atom(), list()) -> binary().
+-spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_contact_hash{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_feedpost{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_node_items{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}, atom(), list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
     case proplists:get_bool(verify, Opts) of
       true -> verify_msg(Msg, MsgName, Opts);
@@ -169,6 +171,7 @@ encode_msg(Msg, MsgName, Opts) ->
       pb_upload_media -> encode_msg_pb_upload_media(id(Msg, TrUserData), TrUserData);
       pb_contact -> encode_msg_pb_contact(id(Msg, TrUserData), TrUserData);
       pb_contact_list -> encode_msg_pb_contact_list(id(Msg, TrUserData), TrUserData);
+      pb_contact_hash -> encode_msg_pb_contact_hash(id(Msg, TrUserData), TrUserData);
       pb_seen_receipt -> encode_msg_pb_seen_receipt(id(Msg, TrUserData), TrUserData);
       pb_delivery_receipt -> encode_msg_pb_delivery_receipt(id(Msg, TrUserData), TrUserData);
       pb_feedpost -> encode_msg_pb_feedpost(id(Msg, TrUserData), TrUserData);
@@ -253,7 +256,8 @@ encode_msg_pb_msg_payload(#pb_msg_payload{content = F1}, Bin, TrUserData) ->
 	     {delivery, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_msg_payload_delivery(TrTF1, <<Bin/binary, 42>>, TrUserData) end;
 	     {chat, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_msg_payload_chat(TrTF1, <<Bin/binary, 50>>, TrUserData) end;
 	     {feed_item, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_msg_payload_feed_item(TrTF1, <<Bin/binary, 58>>, TrUserData) end;
-	     {feed_node_items, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_msg_payload_feed_node_items(TrTF1, <<Bin/binary, 66>>, TrUserData) end
+	     {feed_node_items, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_msg_payload_feed_node_items(TrTF1, <<Bin/binary, 66>>, TrUserData) end;
+	     {contact_hash, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_msg_payload_contact_hash(TrTF1, <<Bin/binary, 74>>, TrUserData) end
 	   end
     end.
 
@@ -673,7 +677,7 @@ encode_msg_pb_upload_media(#pb_upload_media{size = F1, url = F2}, Bin, TrUserDat
 encode_msg_pb_contact(Msg, TrUserData) -> encode_msg_pb_contact(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = F4, avatar_id = F5, role = F6}, Bin, TrUserData) ->
+encode_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = F4, avatar_id = F5, role = F6, name = F7}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -722,12 +726,22 @@ encode_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = 
 		  end
 		end
 	 end,
-    if F6 == undefined -> B5;
+    B6 = if F6 == undefined -> B5;
+	    true ->
+		begin
+		  TrF6 = id(F6, TrUserData),
+		  if TrF6 =:= friend; TrF6 =:= 0 -> B5;
+		     true -> 'e_enum_pb_contact.Role'(TrF6, <<B5/binary, 48>>, TrUserData)
+		  end
+		end
+	 end,
+    if F7 == undefined -> B6;
        true ->
 	   begin
-	     TrF6 = id(F6, TrUserData),
-	     if TrF6 =:= friend; TrF6 =:= 0 -> B5;
-		true -> 'e_enum_pb_contact.Role'(TrF6, <<B5/binary, 48>>, TrUserData)
+	     TrF7 = id(F7, TrUserData),
+	     case is_empty_string(TrF7) of
+	       true -> B6;
+	       false -> e_type_string(TrF7, <<B6/binary, 58>>, TrUserData)
 	     end
 	   end
     end.
@@ -778,6 +792,21 @@ encode_msg_pb_contact_list(#pb_contact_list{type = F1, sync_id = F2, batch_index
       if TrF5 == [] -> B4;
 	 true -> e_field_pb_contact_list_contacts(TrF5, B4, TrUserData)
       end
+    end.
+
+encode_msg_pb_contact_hash(Msg, TrUserData) -> encode_msg_pb_contact_hash(Msg, <<>>, TrUserData).
+
+
+encode_msg_pb_contact_hash(#pb_contact_hash{hash = F1}, Bin, TrUserData) ->
+    if F1 == undefined -> Bin;
+       true ->
+	   begin
+	     TrF1 = id(F1, TrUserData),
+	     case is_empty_string(TrF1) of
+	       true -> Bin;
+	       false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
+	     end
+	   end
     end.
 
 encode_msg_pb_seen_receipt(Msg, TrUserData) -> encode_msg_pb_seen_receipt(Msg, <<>>, TrUserData).
@@ -1113,6 +1142,8 @@ e_mfield_pb_msg_payload_feed_item(Msg, Bin, TrUserData) -> SubBin = encode_msg_p
 
 e_mfield_pb_msg_payload_feed_node_items(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_feed_node_items(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
+e_mfield_pb_msg_payload_contact_hash(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_contact_hash(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
+
 e_mfield_pb_ha_iq_payload(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_iq_payload(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_pb_ha_message_payload(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_msg_payload(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
@@ -1321,6 +1352,7 @@ decode_msg_2_doit(pb_media_url, Bin, TrUserData) -> id(decode_msg_pb_media_url(B
 decode_msg_2_doit(pb_upload_media, Bin, TrUserData) -> id(decode_msg_pb_upload_media(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_contact, Bin, TrUserData) -> id(decode_msg_pb_contact(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_contact_list, Bin, TrUserData) -> id(decode_msg_pb_contact_list(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(pb_contact_hash, Bin, TrUserData) -> id(decode_msg_pb_contact_hash(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_seen_receipt, Bin, TrUserData) -> id(decode_msg_pb_seen_receipt(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_delivery_receipt, Bin, TrUserData) -> id(decode_msg_pb_delivery_receipt(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_feedpost, Bin, TrUserData) -> id(decode_msg_pb_feedpost(Bin, TrUserData), TrUserData);
@@ -1610,6 +1642,7 @@ dfp_read_field_def_pb_msg_payload(<<42, Rest/binary>>, Z1, Z2, F@_1, TrUserData)
 dfp_read_field_def_pb_msg_payload(<<50, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_msg_payload_chat(Rest, Z1, Z2, F@_1, TrUserData);
 dfp_read_field_def_pb_msg_payload(<<58, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_msg_payload_feed_item(Rest, Z1, Z2, F@_1, TrUserData);
 dfp_read_field_def_pb_msg_payload(<<66, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_msg_payload_feed_node_items(Rest, Z1, Z2, F@_1, TrUserData);
+dfp_read_field_def_pb_msg_payload(<<74, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_msg_payload_contact_hash(Rest, Z1, Z2, F@_1, TrUserData);
 dfp_read_field_def_pb_msg_payload(<<>>, 0, 0, F@_1, _) -> #pb_msg_payload{content = F@_1};
 dfp_read_field_def_pb_msg_payload(Other, Z1, Z2, F@_1, TrUserData) -> dg_read_field_def_pb_msg_payload(Other, Z1, Z2, F@_1, TrUserData).
 
@@ -1625,6 +1658,7 @@ dg_read_field_def_pb_msg_payload(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUser
       50 -> d_field_pb_msg_payload_chat(Rest, 0, 0, F@_1, TrUserData);
       58 -> d_field_pb_msg_payload_feed_item(Rest, 0, 0, F@_1, TrUserData);
       66 -> d_field_pb_msg_payload_feed_node_items(Rest, 0, 0, F@_1, TrUserData);
+      74 -> d_field_pb_msg_payload_contact_hash(Rest, 0, 0, F@_1, TrUserData);
       _ ->
 	  case Key band 7 of
 	    0 -> skip_varint_pb_msg_payload(Rest, 0, 0, F@_1, TrUserData);
@@ -1721,6 +1755,17 @@ d_field_pb_msg_payload_feed_node_items(<<0:1, X:7, Rest/binary>>, N, Acc, Prev, 
 					undefined -> id({feed_node_items, NewFValue}, TrUserData);
 					{feed_node_items, MVPrev} -> id({feed_node_items, merge_msg_pb_feed_node_items(MVPrev, NewFValue, TrUserData)}, TrUserData);
 					_ -> id({feed_node_items, NewFValue}, TrUserData)
+				      end,
+				      TrUserData).
+
+d_field_pb_msg_payload_contact_hash(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> d_field_pb_msg_payload_contact_hash(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
+d_field_pb_msg_payload_contact_hash(<<0:1, X:7, Rest/binary>>, N, Acc, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_contact_hash(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_pb_msg_payload(RestF, 0, 0,
+				      case Prev of
+					undefined -> id({contact_hash, NewFValue}, TrUserData);
+					{contact_hash, MVPrev} -> id({contact_hash, merge_msg_pb_contact_hash(MVPrev, NewFValue, TrUserData)}, TrUserData);
+					_ -> id({contact_hash, NewFValue}, TrUserData)
 				      end,
 				      TrUserData).
 
@@ -2521,76 +2566,83 @@ skip_32_pb_upload_media(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -
 
 skip_64_pb_upload_media(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_upload_media(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-decode_msg_pb_contact(Bin, TrUserData) -> dfp_read_field_def_pb_contact(Bin, 0, 0, id(add, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), id(<<>>, TrUserData), id(friend, TrUserData), TrUserData).
+decode_msg_pb_contact(Bin, TrUserData) -> dfp_read_field_def_pb_contact(Bin, 0, 0, id(add, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), id(<<>>, TrUserData), id(friend, TrUserData), id(<<>>, TrUserData), TrUserData).
 
-dfp_read_field_def_pb_contact(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_action(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-dfp_read_field_def_pb_contact(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_raw(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-dfp_read_field_def_pb_contact(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_normalized(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-dfp_read_field_def_pb_contact(<<32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-dfp_read_field_def_pb_contact(<<42, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_avatar_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-dfp_read_field_def_pb_contact(<<48, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> d_field_pb_contact_role(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-dfp_read_field_def_pb_contact(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, _) -> #pb_contact{action = F@_1, raw = F@_2, normalized = F@_3, uid = F@_4, avatar_id = F@_5, role = F@_6};
-dfp_read_field_def_pb_contact(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> dg_read_field_def_pb_contact(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData).
+dfp_read_field_def_pb_contact(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_pb_contact_action(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_pb_contact(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_pb_contact_raw(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_pb_contact(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_pb_contact_normalized(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_pb_contact(<<32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_pb_contact_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_pb_contact(<<42, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_pb_contact_avatar_id(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_pb_contact(<<48, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_pb_contact_role(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_pb_contact(<<58, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_pb_contact_name(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_pb_contact(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, _) -> #pb_contact{action = F@_1, raw = F@_2, normalized = F@_3, uid = F@_4, avatar_id = F@_5, role = F@_6, name = F@_7};
+dfp_read_field_def_pb_contact(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> dg_read_field_def_pb_contact(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-dg_read_field_def_pb_contact(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_contact(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-dg_read_field_def_pb_contact(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) ->
+dg_read_field_def_pb_contact(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_contact(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dg_read_field_def_pb_contact(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-      8 -> d_field_pb_contact_action(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-      18 -> d_field_pb_contact_raw(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-      26 -> d_field_pb_contact_normalized(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-      32 -> d_field_pb_contact_uid(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-      42 -> d_field_pb_contact_avatar_id(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-      48 -> d_field_pb_contact_role(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
+      8 -> d_field_pb_contact_action(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+      18 -> d_field_pb_contact_raw(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+      26 -> d_field_pb_contact_normalized(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+      32 -> d_field_pb_contact_uid(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+      42 -> d_field_pb_contact_avatar_id(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+      48 -> d_field_pb_contact_role(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+      58 -> d_field_pb_contact_name(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
       _ ->
 	  case Key band 7 of
-	    0 -> skip_varint_pb_contact(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-	    1 -> skip_64_pb_contact(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-	    2 -> skip_length_delimited_pb_contact(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-	    3 -> skip_group_pb_contact(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-	    5 -> skip_32_pb_contact(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData)
+	    0 -> skip_varint_pb_contact(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+	    1 -> skip_64_pb_contact(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+	    2 -> skip_length_delimited_pb_contact(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+	    3 -> skip_group_pb_contact(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+	    5 -> skip_32_pb_contact(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_contact(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, _) -> #pb_contact{action = F@_1, raw = F@_2, normalized = F@_3, uid = F@_4, avatar_id = F@_5, role = F@_6}.
+dg_read_field_def_pb_contact(<<>>, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, _) -> #pb_contact{action = F@_1, raw = F@_2, normalized = F@_3, uid = F@_4, avatar_id = F@_5, role = F@_6, name = F@_7}.
 
-d_field_pb_contact_action(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_action(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-d_field_pb_contact_action(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) ->
+d_field_pb_contact_action(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_pb_contact_action(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_pb_contact_action(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) ->
     {NewFValue, RestF} = {id('d_enum_pb_contact.Action'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
-    dfp_read_field_def_pb_contact(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData).
+    dfp_read_field_def_pb_contact(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-d_field_pb_contact_raw(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_raw(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-d_field_pb_contact_raw(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, F@_6, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, F@_6, TrUserData).
+d_field_pb_contact_raw(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_pb_contact_raw(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_pb_contact_raw(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, NewFValue, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-d_field_pb_contact_normalized(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_normalized(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-d_field_pb_contact_normalized(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, F@_5, F@_6, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, F@_6, TrUserData).
+d_field_pb_contact_normalized(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_pb_contact_normalized(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_pb_contact_normalized(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, F@_5, F@_6, F@_7, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-d_field_pb_contact_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-d_field_pb_contact_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, F@_5, F@_6, TrUserData) ->
-    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, NewFValue, F@_5, F@_6, TrUserData).
+d_field_pb_contact_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_pb_contact_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_pb_contact_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, F@_5, F@_6, F@_7, TrUserData) ->
+    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, NewFValue, F@_5, F@_6, F@_7, TrUserData).
 
-d_field_pb_contact_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-d_field_pb_contact_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, F@_6, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, F@_6, TrUserData).
+d_field_pb_contact_avatar_id(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_pb_contact_avatar_id(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_pb_contact_avatar_id(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, _, F@_6, F@_7, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, NewFValue, F@_6, F@_7, TrUserData).
 
-d_field_pb_contact_role(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> d_field_pb_contact_role(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-d_field_pb_contact_role(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, _, TrUserData) ->
+d_field_pb_contact_role(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_pb_contact_role(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_pb_contact_role(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, _, F@_7, TrUserData) ->
     {NewFValue, RestF} = {id('d_enum_pb_contact.Role'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
-    dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, NewFValue, TrUserData).
+    dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, NewFValue, F@_7, TrUserData).
 
-skip_varint_pb_contact(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> skip_varint_pb_contact(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-skip_varint_pb_contact(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> dfp_read_field_def_pb_contact(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData).
+d_field_pb_contact_name(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_pb_contact_name(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_pb_contact_name(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact(RestF, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, NewFValue, TrUserData).
 
-skip_length_delimited_pb_contact(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) when N < 57 -> skip_length_delimited_pb_contact(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData);
-skip_length_delimited_pb_contact(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) ->
-    Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_contact(Rest2, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData).
+skip_varint_pb_contact(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> skip_varint_pb_contact(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+skip_varint_pb_contact(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> dfp_read_field_def_pb_contact(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-skip_group_pb_contact(Bin, FNum, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_contact(Rest, 0, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData).
+skip_length_delimited_pb_contact(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 ->
+    skip_length_delimited_pb_contact(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+skip_length_delimited_pb_contact(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) ->
+    Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_contact(Rest2, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-skip_32_pb_contact(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> dfp_read_field_def_pb_contact(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData).
+skip_group_pb_contact(Bin, FNum, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_contact(Rest, 0, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-skip_64_pb_contact(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData) -> dfp_read_field_def_pb_contact(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, TrUserData).
+skip_32_pb_contact(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> dfp_read_field_def_pb_contact(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
+
+skip_64_pb_contact(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> dfp_read_field_def_pb_contact(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
 decode_msg_pb_contact_list(Bin, TrUserData) -> dfp_read_field_def_pb_contact_list(Bin, 0, 0, id(full, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), id(false, TrUserData), id([], TrUserData), TrUserData).
 
@@ -2656,6 +2708,44 @@ skip_group_pb_contact_list(Bin, FNum, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserDa
 skip_32_pb_contact_list(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_contact_list(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
 
 skip_64_pb_contact_list(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) -> dfp_read_field_def_pb_contact_list(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData).
+
+decode_msg_pb_contact_hash(Bin, TrUserData) -> dfp_read_field_def_pb_contact_hash(Bin, 0, 0, id(<<>>, TrUserData), TrUserData).
+
+dfp_read_field_def_pb_contact_hash(<<10, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_contact_hash_hash(Rest, Z1, Z2, F@_1, TrUserData);
+dfp_read_field_def_pb_contact_hash(<<>>, 0, 0, F@_1, _) -> #pb_contact_hash{hash = F@_1};
+dfp_read_field_def_pb_contact_hash(Other, Z1, Z2, F@_1, TrUserData) -> dg_read_field_def_pb_contact_hash(Other, Z1, Z2, F@_1, TrUserData).
+
+dg_read_field_def_pb_contact_hash(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_contact_hash(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
+dg_read_field_def_pb_contact_hash(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key of
+      10 -> d_field_pb_contact_hash_hash(Rest, 0, 0, F@_1, TrUserData);
+      _ ->
+	  case Key band 7 of
+	    0 -> skip_varint_pb_contact_hash(Rest, 0, 0, F@_1, TrUserData);
+	    1 -> skip_64_pb_contact_hash(Rest, 0, 0, F@_1, TrUserData);
+	    2 -> skip_length_delimited_pb_contact_hash(Rest, 0, 0, F@_1, TrUserData);
+	    3 -> skip_group_pb_contact_hash(Rest, Key bsr 3, 0, F@_1, TrUserData);
+	    5 -> skip_32_pb_contact_hash(Rest, 0, 0, F@_1, TrUserData)
+	  end
+    end;
+dg_read_field_def_pb_contact_hash(<<>>, 0, 0, F@_1, _) -> #pb_contact_hash{hash = F@_1}.
+
+d_field_pb_contact_hash_hash(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> d_field_pb_contact_hash_hash(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
+d_field_pb_contact_hash_hash(<<0:1, X:7, Rest/binary>>, N, Acc, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_contact_hash(RestF, 0, 0, NewFValue, TrUserData).
+
+skip_varint_pb_contact_hash(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> skip_varint_pb_contact_hash(Rest, Z1, Z2, F@_1, TrUserData);
+skip_varint_pb_contact_hash(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_contact_hash(Rest, Z1, Z2, F@_1, TrUserData).
+
+skip_length_delimited_pb_contact_hash(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> skip_length_delimited_pb_contact_hash(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
+skip_length_delimited_pb_contact_hash(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_contact_hash(Rest2, 0, 0, F@_1, TrUserData).
+
+skip_group_pb_contact_hash(Bin, FNum, Z2, F@_1, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_contact_hash(Rest, 0, Z2, F@_1, TrUserData).
+
+skip_32_pb_contact_hash(<<_:32, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_contact_hash(Rest, Z1, Z2, F@_1, TrUserData).
+
+skip_64_pb_contact_hash(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_contact_hash(Rest, Z1, Z2, F@_1, TrUserData).
 
 decode_msg_pb_seen_receipt(Bin, TrUserData) -> dfp_read_field_def_pb_seen_receipt(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), id(0, TrUserData), TrUserData).
 
@@ -3278,6 +3368,7 @@ merge_msgs(Prev, New, MsgName, Opts) ->
       pb_upload_media -> merge_msg_pb_upload_media(Prev, New, TrUserData);
       pb_contact -> merge_msg_pb_contact(Prev, New, TrUserData);
       pb_contact_list -> merge_msg_pb_contact_list(Prev, New, TrUserData);
+      pb_contact_hash -> merge_msg_pb_contact_hash(Prev, New, TrUserData);
       pb_seen_receipt -> merge_msg_pb_seen_receipt(Prev, New, TrUserData);
       pb_delivery_receipt -> merge_msg_pb_delivery_receipt(Prev, New, TrUserData);
       pb_feedpost -> merge_msg_pb_feedpost(Prev, New, TrUserData);
@@ -3339,6 +3430,7 @@ merge_msg_pb_msg_payload(#pb_msg_payload{content = PFcontent}, #pb_msg_payload{c
 			  {{chat, OPFcontent}, {chat, ONFcontent}} -> {chat, merge_msg_pb_chat(OPFcontent, ONFcontent, TrUserData)};
 			  {{feed_item, OPFcontent}, {feed_item, ONFcontent}} -> {feed_item, merge_msg_pb_feed_item(OPFcontent, ONFcontent, TrUserData)};
 			  {{feed_node_items, OPFcontent}, {feed_node_items, ONFcontent}} -> {feed_node_items, merge_msg_pb_feed_node_items(OPFcontent, ONFcontent, TrUserData)};
+			  {{contact_hash, OPFcontent}, {contact_hash, ONFcontent}} -> {contact_hash, merge_msg_pb_contact_hash(OPFcontent, ONFcontent, TrUserData)};
 			  {_, undefined} -> PFcontent;
 			  _ -> NFcontent
 			end}.
@@ -3545,8 +3637,8 @@ merge_msg_pb_upload_media(#pb_upload_media{size = PFsize, url = PFurl}, #pb_uplo
 			 end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_contact/3}).
-merge_msg_pb_contact(#pb_contact{action = PFaction, raw = PFraw, normalized = PFnormalized, uid = PFuid, avatar_id = PFavatar_id, role = PFrole},
-		     #pb_contact{action = NFaction, raw = NFraw, normalized = NFnormalized, uid = NFuid, avatar_id = NFavatar_id, role = NFrole}, _) ->
+merge_msg_pb_contact(#pb_contact{action = PFaction, raw = PFraw, normalized = PFnormalized, uid = PFuid, avatar_id = PFavatar_id, role = PFrole, name = PFname},
+		     #pb_contact{action = NFaction, raw = NFraw, normalized = NFnormalized, uid = NFuid, avatar_id = NFavatar_id, role = NFrole, name = NFname}, _) ->
     #pb_contact{action =
 		    if NFaction =:= undefined -> PFaction;
 		       true -> NFaction
@@ -3570,6 +3662,10 @@ merge_msg_pb_contact(#pb_contact{action = PFaction, raw = PFraw, normalized = PF
 		role =
 		    if NFrole =:= undefined -> PFrole;
 		       true -> NFrole
+		    end,
+		name =
+		    if NFname =:= undefined -> PFname;
+		       true -> NFname
 		    end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_contact_list/3}).
@@ -3595,6 +3691,13 @@ merge_msg_pb_contact_list(#pb_contact_list{type = PFtype, sync_id = PFsync_id, b
 			 if PFcontacts /= undefined, NFcontacts /= undefined -> 'erlang_++'(PFcontacts, NFcontacts, TrUserData);
 			    PFcontacts == undefined -> NFcontacts;
 			    NFcontacts == undefined -> PFcontacts
+			 end}.
+
+-compile({nowarn_unused_function,merge_msg_pb_contact_hash/3}).
+merge_msg_pb_contact_hash(#pb_contact_hash{hash = PFhash}, #pb_contact_hash{hash = NFhash}, _) ->
+    #pb_contact_hash{hash =
+			 if NFhash =:= undefined -> PFhash;
+			    true -> NFhash
 			 end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_seen_receipt/3}).
@@ -3772,6 +3875,7 @@ verify_msg(Msg, MsgName, Opts) ->
       pb_upload_media -> v_msg_pb_upload_media(Msg, [MsgName], TrUserData);
       pb_contact -> v_msg_pb_contact(Msg, [MsgName], TrUserData);
       pb_contact_list -> v_msg_pb_contact_list(Msg, [MsgName], TrUserData);
+      pb_contact_hash -> v_msg_pb_contact_hash(Msg, [MsgName], TrUserData);
       pb_seen_receipt -> v_msg_pb_seen_receipt(Msg, [MsgName], TrUserData);
       pb_delivery_receipt -> v_msg_pb_delivery_receipt(Msg, [MsgName], TrUserData);
       pb_feedpost -> v_msg_pb_feedpost(Msg, [MsgName], TrUserData);
@@ -3840,6 +3944,7 @@ v_msg_pb_msg_payload(#pb_msg_payload{content = F1}, Path, TrUserData) ->
       {chat, OF1} -> v_msg_pb_chat(OF1, [chat, content | Path], TrUserData);
       {feed_item, OF1} -> v_msg_pb_feed_item(OF1, [feed_item, content | Path], TrUserData);
       {feed_node_items, OF1} -> v_msg_pb_feed_node_items(OF1, [feed_node_items, content | Path], TrUserData);
+      {contact_hash, OF1} -> v_msg_pb_contact_hash(OF1, [contact_hash, content | Path], TrUserData);
       _ -> mk_type_error(invalid_oneof, F1, [content | Path])
     end,
     ok;
@@ -4051,7 +4156,7 @@ v_msg_pb_upload_media(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_u
 
 -compile({nowarn_unused_function,v_msg_pb_contact/3}).
 -dialyzer({nowarn_function,v_msg_pb_contact/3}).
-v_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = F4, avatar_id = F5, role = F6}, Path, TrUserData) ->
+v_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = F4, avatar_id = F5, role = F6, name = F7}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> 'v_enum_pb_contact.Action'(F1, [action | Path], TrUserData)
     end,
@@ -4069,6 +4174,9 @@ v_msg_pb_contact(#pb_contact{action = F1, raw = F2, normalized = F3, uid = F4, a
     end,
     if F6 == undefined -> ok;
        true -> 'v_enum_pb_contact.Role'(F6, [role | Path], TrUserData)
+    end,
+    if F7 == undefined -> ok;
+       true -> v_type_string(F7, [name | Path], TrUserData)
     end,
     ok;
 v_msg_pb_contact(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_contact}, X, Path).
@@ -4093,6 +4201,15 @@ v_msg_pb_contact_list(#pb_contact_list{type = F1, sync_id = F2, batch_index = F3
     end,
     ok;
 v_msg_pb_contact_list(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_contact_list}, X, Path).
+
+-compile({nowarn_unused_function,v_msg_pb_contact_hash/3}).
+-dialyzer({nowarn_function,v_msg_pb_contact_hash/3}).
+v_msg_pb_contact_hash(#pb_contact_hash{hash = F1}, Path, TrUserData) ->
+    if F1 == undefined -> ok;
+       true -> v_type_string(F1, [hash | Path], TrUserData)
+    end,
+    ok;
+v_msg_pb_contact_hash(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_contact_hash}, X, Path).
 
 -compile({nowarn_unused_function,v_msg_pb_seen_receipt/3}).
 -dialyzer({nowarn_function,v_msg_pb_seen_receipt/3}).
@@ -4416,7 +4533,8 @@ get_msg_defs() ->
 		      [#field{name = contact_list, fnum = 1, rnum = 2, type = {msg, pb_contact_list}, occurrence = optional, opts = []}, #field{name = avatar, fnum = 2, rnum = 2, type = {msg, pb_avatar}, occurrence = optional, opts = []},
 		       #field{name = whisper_keys, fnum = 3, rnum = 2, type = {msg, pb_whisper_keys}, occurrence = optional, opts = []}, #field{name = seen, fnum = 4, rnum = 2, type = {msg, pb_seen_receipt}, occurrence = optional, opts = []},
 		       #field{name = delivery, fnum = 5, rnum = 2, type = {msg, pb_delivery_receipt}, occurrence = optional, opts = []}, #field{name = chat, fnum = 6, rnum = 2, type = {msg, pb_chat}, occurrence = optional, opts = []},
-		       #field{name = feed_item, fnum = 7, rnum = 2, type = {msg, pb_feed_item}, occurrence = optional, opts = []}, #field{name = feed_node_items, fnum = 8, rnum = 2, type = {msg, pb_feed_node_items}, occurrence = optional, opts = []}]}]},
+		       #field{name = feed_item, fnum = 7, rnum = 2, type = {msg, pb_feed_item}, occurrence = optional, opts = []}, #field{name = feed_node_items, fnum = 8, rnum = 2, type = {msg, pb_feed_node_items}, occurrence = optional, opts = []},
+		       #field{name = contact_hash, fnum = 9, rnum = 2, type = {msg, pb_contact_hash}, occurrence = optional, opts = []}]}]},
      {{msg, pb_ha_iq},
       [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = type, fnum = 2, rnum = 3, type = {enum, 'pb_ha_iq.Type'}, occurrence = optional, opts = []},
        #field{name = payload, fnum = 3, rnum = 4, type = {msg, pb_iq_payload}, occurrence = optional, opts = []}]},
@@ -4452,11 +4570,13 @@ get_msg_defs() ->
      {{msg, pb_contact},
       [#field{name = action, fnum = 1, rnum = 2, type = {enum, 'pb_contact.Action'}, occurrence = optional, opts = []}, #field{name = raw, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = normalized, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = uid, fnum = 4, rnum = 5, type = int64, occurrence = optional, opts = []},
-       #field{name = avatar_id, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}, #field{name = role, fnum = 6, rnum = 7, type = {enum, 'pb_contact.Role'}, occurrence = optional, opts = []}]},
+       #field{name = avatar_id, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}, #field{name = role, fnum = 6, rnum = 7, type = {enum, 'pb_contact.Role'}, occurrence = optional, opts = []},
+       #field{name = name, fnum = 7, rnum = 8, type = string, occurrence = optional, opts = []}]},
      {{msg, pb_contact_list},
       [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'pb_contact_list.Type'}, occurrence = optional, opts = []}, #field{name = sync_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = batch_index, fnum = 3, rnum = 4, type = int32, occurrence = optional, opts = []}, #field{name = is_last, fnum = 4, rnum = 5, type = bool, occurrence = optional, opts = []},
        #field{name = contacts, fnum = 5, rnum = 6, type = {msg, pb_contact}, occurrence = repeated, opts = []}]},
+     {{msg, pb_contact_hash}, [#field{name = hash, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]},
      {{msg, pb_seen_receipt},
       [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = thread_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = timestamp, fnum = 3, rnum = 4, type = int64, occurrence = optional, opts = []}]},
@@ -4483,7 +4603,7 @@ get_msg_defs() ->
 
 get_msg_names() ->
     [pb_chat, pb_ping, pb_iq_payload, pb_msg_payload, pb_ha_iq, pb_ha_message, pb_ha_presence, pb_ha_ack, pb_ha_error, pb_packet, pb_auth_request, pb_auth_result, pb_client_mode, pb_client_version, pb_upload_avatar, pb_avatar, pb_avatars, pb_media_url,
-     pb_upload_media, pb_contact, pb_contact_list, pb_seen_receipt, pb_delivery_receipt, pb_feedpost, pb_comment, pb_feed_item, pb_feed_node_items, pb_whisper_keys, pb_push_token, pb_push_register].
+     pb_upload_media, pb_contact, pb_contact_list, pb_contact_hash, pb_seen_receipt, pb_delivery_receipt, pb_feedpost, pb_comment, pb_feed_item, pb_feed_node_items, pb_whisper_keys, pb_push_token, pb_push_register].
 
 
 get_group_names() -> [].
@@ -4491,7 +4611,7 @@ get_group_names() -> [].
 
 get_msg_or_group_names() ->
     [pb_chat, pb_ping, pb_iq_payload, pb_msg_payload, pb_ha_iq, pb_ha_message, pb_ha_presence, pb_ha_ack, pb_ha_error, pb_packet, pb_auth_request, pb_auth_result, pb_client_mode, pb_client_version, pb_upload_avatar, pb_avatar, pb_avatars, pb_media_url,
-     pb_upload_media, pb_contact, pb_contact_list, pb_seen_receipt, pb_delivery_receipt, pb_feedpost, pb_comment, pb_feed_item, pb_feed_node_items, pb_whisper_keys, pb_push_token, pb_push_register].
+     pb_upload_media, pb_contact, pb_contact_list, pb_contact_hash, pb_seen_receipt, pb_delivery_receipt, pb_feedpost, pb_comment, pb_feed_item, pb_feed_node_items, pb_whisper_keys, pb_push_token, pb_push_register].
 
 
 get_enum_names() -> ['pb_ha_iq.Type', 'pb_ha_message.Type', 'pb_ha_presence.Type', 'pb_client_mode.Mode', 'pb_contact.Action', 'pb_contact.Role', 'pb_contact_list.Type', 'pb_feed_item.Action', 'pb_whisper_keys.Action', 'pb_push_token.Os'].
@@ -4530,7 +4650,8 @@ find_msg_def(pb_msg_payload) ->
 		    [#field{name = contact_list, fnum = 1, rnum = 2, type = {msg, pb_contact_list}, occurrence = optional, opts = []}, #field{name = avatar, fnum = 2, rnum = 2, type = {msg, pb_avatar}, occurrence = optional, opts = []},
 		     #field{name = whisper_keys, fnum = 3, rnum = 2, type = {msg, pb_whisper_keys}, occurrence = optional, opts = []}, #field{name = seen, fnum = 4, rnum = 2, type = {msg, pb_seen_receipt}, occurrence = optional, opts = []},
 		     #field{name = delivery, fnum = 5, rnum = 2, type = {msg, pb_delivery_receipt}, occurrence = optional, opts = []}, #field{name = chat, fnum = 6, rnum = 2, type = {msg, pb_chat}, occurrence = optional, opts = []},
-		     #field{name = feed_item, fnum = 7, rnum = 2, type = {msg, pb_feed_item}, occurrence = optional, opts = []}, #field{name = feed_node_items, fnum = 8, rnum = 2, type = {msg, pb_feed_node_items}, occurrence = optional, opts = []}]}];
+		     #field{name = feed_item, fnum = 7, rnum = 2, type = {msg, pb_feed_item}, occurrence = optional, opts = []}, #field{name = feed_node_items, fnum = 8, rnum = 2, type = {msg, pb_feed_node_items}, occurrence = optional, opts = []},
+		     #field{name = contact_hash, fnum = 9, rnum = 2, type = {msg, pb_contact_hash}, occurrence = optional, opts = []}]}];
 find_msg_def(pb_ha_iq) ->
     [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = type, fnum = 2, rnum = 3, type = {enum, 'pb_ha_iq.Type'}, occurrence = optional, opts = []},
      #field{name = payload, fnum = 3, rnum = 4, type = {msg, pb_iq_payload}, occurrence = optional, opts = []}];
@@ -4566,11 +4687,13 @@ find_msg_def(pb_upload_media) -> [#field{name = size, fnum = 1, rnum = 2, type =
 find_msg_def(pb_contact) ->
     [#field{name = action, fnum = 1, rnum = 2, type = {enum, 'pb_contact.Action'}, occurrence = optional, opts = []}, #field{name = raw, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = normalized, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = uid, fnum = 4, rnum = 5, type = int64, occurrence = optional, opts = []},
-     #field{name = avatar_id, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}, #field{name = role, fnum = 6, rnum = 7, type = {enum, 'pb_contact.Role'}, occurrence = optional, opts = []}];
+     #field{name = avatar_id, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}, #field{name = role, fnum = 6, rnum = 7, type = {enum, 'pb_contact.Role'}, occurrence = optional, opts = []},
+     #field{name = name, fnum = 7, rnum = 8, type = string, occurrence = optional, opts = []}];
 find_msg_def(pb_contact_list) ->
     [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'pb_contact_list.Type'}, occurrence = optional, opts = []}, #field{name = sync_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = batch_index, fnum = 3, rnum = 4, type = int32, occurrence = optional, opts = []}, #field{name = is_last, fnum = 4, rnum = 5, type = bool, occurrence = optional, opts = []},
      #field{name = contacts, fnum = 5, rnum = 6, type = {msg, pb_contact}, occurrence = repeated, opts = []}];
+find_msg_def(pb_contact_hash) -> [#field{name = hash, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}];
 find_msg_def(pb_seen_receipt) ->
     [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = thread_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = timestamp, fnum = 3, rnum = 4, type = int64, occurrence = optional, opts = []}];
@@ -4792,6 +4915,7 @@ fqbin_to_msg_name(<<"media_url">>) -> pb_media_url;
 fqbin_to_msg_name(<<"upload_media">>) -> pb_upload_media;
 fqbin_to_msg_name(<<"contact">>) -> pb_contact;
 fqbin_to_msg_name(<<"contact_list">>) -> pb_contact_list;
+fqbin_to_msg_name(<<"contact_hash">>) -> pb_contact_hash;
 fqbin_to_msg_name(<<"seen_receipt">>) -> pb_seen_receipt;
 fqbin_to_msg_name(<<"delivery_receipt">>) -> pb_delivery_receipt;
 fqbin_to_msg_name(<<"feedpost">>) -> pb_feedpost;
@@ -4825,6 +4949,7 @@ msg_name_to_fqbin(pb_media_url) -> <<"media_url">>;
 msg_name_to_fqbin(pb_upload_media) -> <<"upload_media">>;
 msg_name_to_fqbin(pb_contact) -> <<"contact">>;
 msg_name_to_fqbin(pb_contact_list) -> <<"contact_list">>;
+msg_name_to_fqbin(pb_contact_hash) -> <<"contact_hash">>;
 msg_name_to_fqbin(pb_seen_receipt) -> <<"seen_receipt">>;
 msg_name_to_fqbin(pb_delivery_receipt) -> <<"delivery_receipt">>;
 msg_name_to_fqbin(pb_feedpost) -> <<"feedpost">>;
@@ -4895,7 +5020,7 @@ get_msg_containment("ha_auth") -> [pb_auth_request, pb_auth_result];
 get_msg_containment("client_info") -> [pb_client_mode, pb_client_version];
 get_msg_containment("avatar") -> [pb_avatar, pb_avatars, pb_upload_avatar];
 get_msg_containment("media_upload") -> [pb_media_url, pb_upload_media];
-get_msg_containment("contact") -> [pb_contact, pb_contact_list];
+get_msg_containment("contact") -> [pb_contact, pb_contact_hash, pb_contact_list];
 get_msg_containment("receipts") -> [pb_delivery_receipt, pb_seen_receipt];
 get_msg_containment("feed_items") -> [pb_comment, pb_feed_item, pb_feed_node_items, pb_feedpost];
 get_msg_containment("whisper_keys") -> [pb_whisper_keys];
@@ -4980,6 +5105,7 @@ get_proto_by_msg_name_as_fqbin(<<"client_mode">>) -> "client_info";
 get_proto_by_msg_name_as_fqbin(<<"ha_presence">>) -> "packets";
 get_proto_by_msg_name_as_fqbin(<<"ha_message">>) -> "packets";
 get_proto_by_msg_name_as_fqbin(<<"ping">>) -> "packets";
+get_proto_by_msg_name_as_fqbin(<<"contact_hash">>) -> "contact";
 get_proto_by_msg_name_as_fqbin(<<"ha_ack">>) -> "packets";
 get_proto_by_msg_name_as_fqbin(<<"media_url">>) -> "media_upload";
 get_proto_by_msg_name_as_fqbin(<<"feed_item">>) -> "feed_items";

@@ -9,8 +9,19 @@
     proto_to_xmpp/1
 ]).
 
+%% -------------------------------------------- %%
+%% XMPP to Protobuf
+%% -------------------------------------------- %%
 
 xmpp_to_proto(SubEl) ->
+    ProtoContent = case SubEl#contact_list.contact_hash of
+        [] -> xmpp_to_proto_contact_list(SubEl);
+        [_] -> xmpp_to_proto_contact_hash(SubEl)
+    end,
+    ProtoContent.
+
+
+xmpp_to_proto_contact_list(SubEl) ->
     Contacts = SubEl#contact_list.contacts,
     ProtoContacts = lists:map(
         fun(Contact) ->
@@ -20,6 +31,7 @@ xmpp_to_proto(SubEl) ->
                 normalized = Contact#contact.normalized,
                 uid = binary_to_integer(Contact#contact.userid),
                 avatar_id = Contact#contact.avatarid,
+                name = Contact#contact.name,
                 role = xmpp_to_proto_role(Contact#contact.role)
             }
         end,
@@ -41,7 +53,26 @@ xmpp_to_proto_role(XmppRole) ->
     PbRole.
 
 
+xmpp_to_proto_contact_hash(SubEl) ->
+    [HashValue] = SubEl#contact_list.contact_hash,
+    #pb_contact_hash{
+        hash = HashValue
+    }.
+
+
+%% -------------------------------------------- %%
+%% Protobuf to XMPP
+%% -------------------------------------------- %%
+
 proto_to_xmpp(ProtoPayload) ->
+    SubEl = case element(1, ProtoPayload) of
+        pb_contact_list -> proto_to_xmpp_contact_list(ProtoPayload);
+        pb_contact_hash -> proto_to_xmpp_contact_hash(ProtoPayload)
+    end,
+    SubEl.
+
+
+proto_to_xmpp_contact_list(ProtoPayload) ->
     ContactList = ProtoPayload#pb_contact_list.contacts,
     XmppContacts = lists:map(
         fun(Contact) ->
@@ -51,6 +82,7 @@ proto_to_xmpp(ProtoPayload) ->
                 normalized = Contact#pb_contact.normalized,
                 userid = integer_to_binary(Contact#pb_contact.uid),
                 avatarid = Contact#pb_contact.avatar_id,
+                name = Contact#pb_contact.name,
                 role = proto_to_xmpp_role(Contact#pb_contact.role)
             }
         end,
@@ -70,4 +102,10 @@ proto_to_xmpp_role(PbRole) ->
         _ -> util:to_binary(PbRole)
     end,
     XmppRole.
+
+
+proto_to_xmpp_contact_hash(ProtoPayload) ->
+    #contact_list{
+        contact_hash = [ProtoPayload#pb_contact_hash.hash]
+    }.
 

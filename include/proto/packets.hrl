@@ -33,7 +33,7 @@
 -ifndef('PB_MSG_PAYLOAD_PB_H').
 -define('PB_MSG_PAYLOAD_PB_H', true).
 -record(pb_msg_payload,
-        {content                :: {contact_list, packets:pb_contact_list()} | {avatar, packets:pb_avatar()} | {whisper_keys, packets:pb_whisper_keys()} | {seen, packets:pb_seen_receipt()} | {delivery, packets:pb_delivery_receipt()} | {chat, packets:pb_chat()} | {feed_item, packets:pb_feed_item()} | {feed_node_items, packets:pb_feed_node_items()} | undefined % oneof
+        {content                :: {contact_list, packets:pb_contact_list()} | {avatar, packets:pb_avatar()} | {whisper_keys, packets:pb_whisper_keys()} | {seen, packets:pb_seen_receipt()} | {delivery, packets:pb_delivery_receipt()} | {chat, packets:pb_chat()} | {feed_item, packets:pb_feed_item()} | {feed_node_items, packets:pb_feed_node_items()} | {contact_hash, packets:pb_contact_hash()} | undefined % oneof
         }).
 -endif.
 
@@ -171,7 +171,8 @@
          normalized = <<>>      :: iodata() | undefined, % = 3
          uid = 0                :: integer() | undefined, % = 4, 64 bits
          avatar_id = <<>>       :: iodata() | undefined, % = 5
-         role = friend          :: friend | none | integer() | undefined % = 6, enum pb_contact.Role
+         role = friend          :: friend | none | integer() | undefined, % = 6, enum pb_contact.Role
+         name = <<>>            :: iodata() | undefined % = 7
         }).
 -endif.
 
@@ -183,6 +184,13 @@
          batch_index = 0        :: integer() | undefined, % = 3, 32 bits
          is_last = false        :: boolean() | 0 | 1 | undefined, % = 4
          contacts = []          :: [packets:pb_contact()] | undefined % = 5
+        }).
+-endif.
+
+-ifndef('PB_CONTACT_HASH_PB_H').
+-define('PB_CONTACT_HASH_PB_H', true).
+-record(pb_contact_hash,
+        {hash = <<>>            :: iodata() | undefined % = 1
         }).
 -endif.
 

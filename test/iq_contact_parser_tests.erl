@@ -24,7 +24,8 @@
         normalized = <<"+1 650-275-2675">>,
         userid = <<"123">>, 
         avatarid = <<"12334TCA">>,
-        role = <<"friend">>
+        role = <<"friend">>,
+        name = <<"alice">>
     }
 ). 
 
@@ -35,7 +36,8 @@
         normalized = <<"+1 650-275-2600">>,
         userid = <<"456">>, 
         avatarid = <<"12LLL334TCA">>,
-        role = <<"none">> 
+        role = <<"none">>,
+        name = <<"bob">>
     }
 ). 
 
@@ -48,7 +50,8 @@
                 syncid = <<"halloapp:user:contacts">>,
                 index = 0, 
                 last = true, 
-                contacts = [?CONTACT1, ?CONTACT2]
+                contacts = [?CONTACT1, ?CONTACT2],
+                contact_hash = []
             }
         ]
     }
@@ -77,7 +80,8 @@
         normalized = <<"+1 650-275-2675">>,
         uid = 123,
         avatar_id = <<"12334TCA">>,
-        role = friend
+        role = friend,
+        name = <<"alice">>
     }
 ).
 
@@ -88,7 +92,8 @@
         normalized = <<"+1 650-275-2600">>,
         uid = 456,
         avatar_id = <<"12LLL334TCA">>,
-        role = none
+        role = none,
+        name = <<"bob">>
     }
 ).
 

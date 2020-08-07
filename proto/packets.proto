@@ -58,6 +58,7 @@ message msg_payload {
         chat chat = 6;
         feed_item feed_item = 7;
         feed_node_items feed_node_items = 8;
+        contact_hash contact_hash = 9;
     }
 }
 

@@ -31,6 +31,9 @@
     }
 ).
 
+-define(HASH1, <<"tAY=">>).
+
+
 -define(CONTACT1, 
     #contact{
         type = add, 
@@ -38,6 +41,7 @@
         normalized = <<"+1 650-275-2675">>,
         userid = <<"123">>, 
         avatarid = <<"12334TCA">>,
+        name = <<"alice">>,
         role = <<"friend">>
     }
 ). 
@@ -49,7 +53,8 @@
         normalized = <<"+1 650-275-2600">>,
         userid = <<"456">>, 
         avatarid = <<"12LLL334TCA">>,
-        role = <<"none">> 
+        name = <<>>,
+        role = <<"none">>
     }
 ). 
 
@@ -64,7 +69,8 @@
                 syncid = <<"halloapp:user:contacts">>,
                 index = 0, 
                 last = true, 
-                contacts = [?CONTACT1, ?CONTACT2]
+                contacts = [?CONTACT1, ?CONTACT2],
+                contact_hash = []
             }
         ]
     }
@@ -95,6 +101,7 @@
         normalized = <<"+1 650-275-2675">>,
         uid = 123,
         avatar_id = <<"12334TCA">>,
+        name = <<"alice">>,
         role = friend
     }
 ).
@@ -106,7 +113,36 @@
         normalized = <<"+1 650-275-2600">>,
         uid = 456,
         avatar_id = <<"12LLL334TCA">>,
+        name = <<>>,
         role = none
+    }
+).
+
+
+-define(XMPP_MSG_CONTACT_HASH,
+    #message{
+        id = <<"s9cCU-10">>,
+        type = set,
+        to = ?TOJID,
+        from = ?FROMJID,
+        sub_els = [#contact_list{
+                contact_hash = [?HASH1]
+            }
+        ]
+    }
+).
+
+-define(PB_MSG_CONTACT_HASH,
+    #pb_ha_message{
+        id = <<"s9cCU-10">>,
+        type = set,
+        to_uid = <<"1000000000045484920">>,
+        from_uid = <<"1000000000519345762">>,
+        payload = #pb_msg_payload{
+            content = {contact_hash, #pb_contact_hash{
+                hash = ?HASH1
+            }}
+        }
     }
 ).
 
@@ -125,5 +161,17 @@ xmpp_to_proto_contact_list_test() ->
 proto_to_xmpp_contact_list_test() ->
     XmppMSG = message_parser:proto_to_xmpp(?PB_MSG_CONTACT_LIST),
     ?assertEqual(true, is_record(XmppMSG, message)),
-    ?assertEqual(?XMPP_MSG_CONTACT_LIST, XmppMSG). 
+    ?assertEqual(?XMPP_MSG_CONTACT_LIST, XmppMSG).
+
+
+xmpp_to_proto_contact_hash_test() ->
+    ProtoMSG = message_parser:xmpp_to_proto(?XMPP_MSG_CONTACT_HASH),
+    ?assertEqual(true, is_record(ProtoMSG, pb_ha_message)),
+    ?assertEqual(?PB_MSG_CONTACT_HASH, ProtoMSG).
+
+
+proto_to_xmpp_contact_hash_test() ->
+    XmppMSG = message_parser:proto_to_xmpp(?PB_MSG_CONTACT_HASH),
+    ?assertEqual(true, is_record(XmppMSG, message)),
+    ?assertEqual(?XMPP_MSG_CONTACT_HASH, XmppMSG).
 

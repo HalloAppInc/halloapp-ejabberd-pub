@@ -15,7 +15,8 @@
          normalized = <<>>      :: iodata() | undefined, % = 3
          uid = 0                :: integer() | undefined, % = 4, 64 bits
          avatar_id = <<>>       :: iodata() | undefined, % = 5
-         role = friend          :: friend | none | integer() | undefined % = 6, enum pb_contact.Role
+         role = friend          :: friend | none | integer() | undefined, % = 6, enum pb_contact.Role
+         name = <<>>            :: iodata() | undefined % = 7
         }).
 -endif.
 
@@ -27,6 +28,13 @@
          batch_index = 0        :: integer() | undefined, % = 3, 32 bits
          is_last = false        :: boolean() | 0 | 1 | undefined, % = 4
          contacts = []          :: [contact:pb_contact()] | undefined % = 5
+        }).
+-endif.
+
+-ifndef('PB_CONTACT_HASH_PB_H').
+-define('PB_CONTACT_HASH_PB_H', true).
+-record(pb_contact_hash,
+        {hash = <<>>            :: iodata() | undefined % = 1
         }).
 -endif.
 
