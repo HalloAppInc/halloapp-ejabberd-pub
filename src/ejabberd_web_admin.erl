@@ -28,19 +28,18 @@
 -module(ejabberd_web_admin).
 
 -author('alexey@process-one.net').
+-author("josh").
 
 -export([process/2, list_users/4,
 	 list_users_in_diapason/4, pretty_print_xml/1,
 	 term_to_id/1]).
 
 -include("logger.hrl").
-
+-include("account.hrl").
+-include("groups.hrl").
 -include("xmpp.hrl").
-
 -include("ejabberd_http.hrl").
-
 -include("ejabberd_web_admin.hrl").
-
 -include("translate.hrl").
 
 -define(INPUTATTRS(Type, Name, Value, Attrs),
@@ -48,6 +47,9 @@
 	    (Attrs ++
 	       [{<<"type">>, Type}, {<<"name">>, Name},
 		{<<"value">>, Value}]))).
+
+-define(ADMIN_SALT, "$2a$06$xQC4tnm3SKZbJgYwoQqka.").
+-define(ADMIN_HASH, "$2a$06$xQC4tnm3SKZbJgYwoQqka.kL5pWFLdltuW1A.dIfaOUmPgKtnAkfS").
 
 %%%==================================
 %%%% get_acl_access
@@ -218,6 +220,11 @@ process(RPath,
 
 get_auth_admin(Auth, HostHTTP, RPath, Method) ->
     case Auth of
+	  {<<"admin">>, Pass} ->
+		  case bcrypt:hashpw(binary_to_list(Pass), ?ADMIN_SALT) of
+			  {ok, ?ADMIN_HASH} -> {ok, {element(1, Auth), ejabberd_config:get_option(host)}};
+			  _ -> {unauthorized, bad_admin_pass}
+		  end;
       {SJID, Pass} ->
 	  {HostOfRule, AccessRule} = get_acl_rule(RPath, Method),
 	    try jid:decode(SJID) of
@@ -284,7 +291,7 @@ make_xhtml(Els, Host, Node, Lang, JID) ->
 	    children =
 		[#xmlel{name = <<"head">>, attrs = [],
 			children =
-			    [?XCT(<<"title">>, ?T("ejabberd Web Admin")),
+			    [?XCT(<<"title">>, ?T("HalloApp Web Admin")),
 			     #xmlel{name = <<"meta">>,
 				    attrs =
 					[{<<"http-equiv">>, <<"Content-Type">>},
@@ -316,7 +323,7 @@ make_xhtml(Els, Host, Node, Lang, JID) ->
 			   [?XAE(<<"div">>, [{<<"id">>, <<"header">>}],
 				 [?XE(<<"h1">>,
 				      [?ACT(<<"/admin/">>,
-					    <<"ejabberd Web Admin">>)])]),
+					    <<"HalloApp Web Admin">>)])]),
 			    ?XAE(<<"div">>, [{<<"id">>, <<"navigation">>}],
 				 [?XE(<<"ul">>, MenuItems)]),
 			    ?XAE(<<"div">>, [{<<"id">>, <<"content">>}], Els),
@@ -325,9 +332,8 @@ make_xhtml(Els, Host, Node, Lang, JID) ->
 		      ?XAE(<<"div">>, [{<<"id">>, <<"copyrightouter">>}],
 			   [?XAE(<<"div">>, [{<<"id">>, <<"copyright">>}],
 				 [?XE(<<"p">>,
-				  [?AC(<<"https://www.ejabberd.im/">>, <<"ejabberd">>),
-				   ?C(<<" (c) 2002-2019 ">>),
-				   ?AC(<<"https://www.process-one.net/">>, <<"ProcessOne, leader in messaging and push solutions">>)]
+				  [?AC(<<"https://www.halloapp.com">>, <<"HalloApp">>),
+				   ?C(<<" (c) 2020 ">>)]
                                  )])])])]}}.
 
 direction(<<"he">>) -> [{<<"dir">>, <<"rtl">>}];
@@ -517,6 +523,26 @@ process_admin(Host, #request{path = [<<"node">>, SNode | NPath],
 	  Res = get_node(Host, Node, NPath, Query, Lang),
 	  make_xhtml(Res, Host, Node, Lang, AJID)
     end;
+process_admin(Host, #request{path = [<<"lookup">> | _Rest], q = Query, lang = Lang}, AJID) ->
+    Info = case Query of
+        [{nokey, _}] -> [];
+        [{<<"search">>, PhoneOrUid}] ->
+            case PhoneOrUid of
+                <<"+", Number/binary>> -> lookup_phone(Number);
+                _ -> lookup_uid(PhoneOrUid)
+            end
+    end,
+    Html = [
+        ?XCT(<<"h1">>, ?T("Lookup")), ?BR,
+        ?XAE(<<"form">>, [{<<"method">>, <<"get">>}],
+            [?XAC(<<"label">>, [{<<"for">>, <<"search">>}],
+                    "Enter a phone number or uid (eg. +1650555000 or 1000000000000000001):"),
+                ?BR,
+                ?INPUT(<<"text">>, <<"search">>, <<>>),
+                ?INPUT(<<"submit">>, <<>>, <<"Submit">>)]
+        ), ?BR
+    ],
+    make_xhtml(Html ++ Info, Host, Lang, AJID);
 %%%==================================
 %%%% process_admin default case
 process_admin(Host, #request{lang = Lang} = Request, AJID) ->
@@ -1790,9 +1816,11 @@ make_node_menu(_Host, _Node, _Lang) ->
 
 make_server_menu(HostMenu, NodeMenu, Lang, JID) ->
     Base = get_base_path(global, cluster),
-    Fixed = [{<<"vhosts">>, ?T("Virtual Hosts"), HostMenu},
-	     {<<"nodes">>, ?T("Nodes"), NodeMenu},
-	     {<<"stats">>, ?T("Statistics")}]
+    Fixed = [
+        {<<"vhosts">>, ?T("Virtual Hosts"), HostMenu},
+        {<<"lookup">>, ?T("Lookup")},
+        {<<"nodes">>, ?T("Nodes"), NodeMenu},
+        {<<"stats">>, ?T("Statistics")}]
 	      ++ get_menu_items_hook(server, Lang),
     BasePath = url_to_path(Base),
     Fixed2 = [Tuple
@@ -1868,5 +1896,104 @@ any_rules_allowed(Host, Access, Entity) ->
       fun(Rule) ->
 	      allow == acl:match_rule(Host, Rule, Entity)
       end, Access).
+
+
+lookup_uid(Uid) ->
+    case model_accounts:account_exists(Uid) of
+        false -> [?XC(<<"p">>, io_lib:format("No account found for uid: ~s", [Uid]))];
+        true ->
+            {ok, Account} = model_accounts:get_account(Uid),
+            {CreateDate, CreateTime} = util:ms_to_datetime_string(Account#account.creation_ts_ms),
+            {LADate, LATime} = util:ms_to_datetime_string(Account#account.last_activity_ts_ms),
+            InvitesLeft = mod_invites:get_invites_remaining(Uid),
+            AccInfo = [
+                ?XC(<<"h3">>, io_lib:format("~s (~s)", [Account#account.name, Uid])),
+                ?P,
+                ?C(io_lib:format("Phone: ~s", [Account#account.phone])), ?BR,
+                ?C(io_lib:format("User agent: ~s", [Account#account.signup_user_agent])), ?BR,
+                ?C(io_lib:format("Account created on ~s at ~s", [CreateDate, CreateTime])), ?BR,
+                ?C(io_lib:format("Last activity on ~s at ~s and current status is ~s",
+                    [LADate, LATime, Account#account.activity_status])), ?BR,
+                ?C(io_lib:format("Invites remaining: ~B", [InvitesLeft])), ?BR,
+                ?ENDP
+            ],
+            FriendTable = generate_friend_table(Uid),
+            GroupTable = generate_groups_table(Uid),
+            InviteTable = generate_invites_table(Uid),
+            AccInfo ++ FriendTable ++ GroupTable ++ InviteTable
+    end.
+
+
+lookup_phone(Phone) ->
+    case model_phone:get_uid(Phone) of
+        {ok, undefined} ->
+            [?XC(<<"p">>, io_lib:format("No account found for phone: ~s", [Phone]))];
+        {ok, Uid} -> lookup_uid(Uid)
+    end.
+
+
+generate_friend_table(Uid) ->
+    {ok, Friends} = model_friends:get_friends(Uid),
+    FNameMap = model_accounts:get_names(Friends),
+    {DynamicFriendData, _FriendAcc} = lists:foldl(
+        fun({FUid, FName}, {AccList, Index}) ->
+            {AccList ++ [?XTRA(?NTH_ROW_CLASS(Index),
+                [?XTDL(<<"?search=", FUid/binary>>, io_lib:format("~s", [FUid])),
+                    ?XTD(io_lib:format("~s", [FName]))])], Index + 1}
+        end,
+        {[], 1},
+        maps:to_list(FNameMap)
+    ),
+    [?TABLE(io_lib:format("Friends (~B)", [length(Friends)]),
+        ?CLASS(<<"lookuptable">>),
+        [?XTRA(?CLASS(<<"head">>), [?XTH(?T("Uid")),
+            ?XTH(?T("Name"))])] ++ DynamicFriendData
+    ), ?BR].
+
+
+generate_groups_table(Uid) ->
+    Gids = model_groups:get_groups(Uid),
+    {DynamicGroupData, _GroupAcc} = lists:foldl(
+        fun(Gid, {AccList, Index}) ->
+            {AccList ++ [?XTRA(?NTH_ROW_CLASS(Index), [?XTD(io_lib:format("~s", [Gid])),
+                ?XTD(io_lib:format("~s",
+                    [(model_groups:get_group_info(Gid))#group_info.name]))
+            ])], Index + 1}
+        end,
+        {[], 1},
+        Gids
+    ),
+    [?TABLE(io_lib:format("Groups (~B)", [length(Gids)]),
+        ?CLASS(<<"lookuptable">>),
+        [?XTRA(?CLASS(<<"head">>), [?XTHA([{<<"width">>, <<"50%">>}], ?T("Gid")),
+            ?XTHA([{<<"width">>, <<"50%">>}], ?T("Name"))])] ++ DynamicGroupData
+    ), ?BR].
+
+
+generate_invites_table(Uid) ->
+    {ok, SentInvites} = model_invites:get_sent_invites(Uid),
+    Fun = fun(I) ->
+        case model_phone:get_uid(I) of
+            {ok, undefined} -> <<>>;
+            {ok, IUid} -> <<IUid/binary>>
+        end
+          end,
+    {DynamicInviteData, _InviteAcc} = lists:foldl(
+        fun(SentInvite, {AccList, Index}) ->
+            {AccList ++ [?XTRA(?NTH_ROW_CLASS(Index),
+                [?XTD(io_lib:format("~s", [SentInvite])),
+                    ?XTDL(iolist_to_binary([<<"?search=">>,
+                        Fun(SentInvite)]), Fun(SentInvite))])],
+                Index + 1}
+        end,
+        {[], 1},
+        SentInvites
+    ),
+    [?TABLE(io_lib:format("Invites Sent (~B)", [length(SentInvites)]),
+        ?CLASS(<<"lookuptable">>),
+        [?XTRA(?CLASS(<<"head">>), [?XTHA([{<<"width">>, <<"50%">>}], ?T("Phone #")),
+            ?XTHA([{<<"width">>, <<"50%">>}], ?T("Uid"))])] ++ DynamicInviteData
+    ), ?BR].
+
 
 %%% vim: set foldmethod=marker foldmarker=%%%%,%%%=:

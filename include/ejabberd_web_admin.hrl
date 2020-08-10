@@ -55,6 +55,8 @@
 
 -define(P, ?X(<<"p">>)).
 
+-define(ENDP, ?X(<<"/p">>)).
+
 -define(BR, ?X(<<"br">>)).
 
 -define(INPUT(Type, Name, Value),
@@ -100,3 +102,32 @@
 %% h1 with a Guide Link
 -define(H1GL(Name, Ref, Title),
 	[?XC(<<"h1">>, Name), ?GL(Ref, Title)]).
+
+-define(ATTR(Name, Val), [{Name, Val}]).
+
+-define(CLASS(Name), ?ATTR(<<"class">>, Name)).
+
+-define(NTH_ROW_CLASS(Num),
+	fun(N) when N rem 2 =:= 0 -> ?CLASS(<<"evenraw">>);
+	    (_) -> ?CLASS(<<"oddraw">>)
+	end(Num)).
+
+% table stuff
+-define(TABLE(Title, Attrs, Rows),
+	?XAE(<<"table">>, Attrs, [?XC(<<"caption">>, Title)] ++ Rows)).
+
+-define(XTR(Els), ?XTRA([], Els)).
+
+-define(XTRA(Attrs, Els), ?XAE(<<"tr">>, Attrs, Els)).
+
+-define(XTH(Text), ?XTHA([], Text)).
+
+-define(XTHA(Attrs, Text), ?XAC(<<"th">>, Attrs, Text)).
+
+-define(XTD(Text), ?XTDA([], Text)).
+
+-define(XTDA(Attrs, Text), ?XAC(<<"td">>, Attrs, Text)).
+
+% td with a link inside
+-define(XTDL(Link, Text), ?XE(<<"td">>, [?A(Link, [?C(Text)])])).
+

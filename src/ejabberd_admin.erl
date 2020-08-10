@@ -1105,8 +1105,8 @@ uid_info(Uid) ->
             {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
                 creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs,
                 activity_status = ActivityStatus} = _Account} = model_accounts:get_account(Uid),
-            {CreationDate, CreationTime} = translate_time(CreationTs),
-            {LastActiveDate, LastActiveTime} = translate_time(LastActivityTs),
+            {CreationDate, CreationTime} = util:ms_to_datetime_string(CreationTs),
+            {LastActiveDate, LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
             ?INFO_MSG("Uid: ~s, Name: ~s, Phone: ~s~n", [Uid, Name, Phone]),
             io:format("Uid: ~s~nName: ~s~nPhone: ~s~n", [Uid, Name, Phone]),
             io:format("Account created on ~s at ~s~nUser agent: ~s~n",
@@ -1145,23 +1145,12 @@ invite_info(Phone) ->
         false -> io:format("This phone number has not been invited~n");
         true ->
             {ok, Uid, Ts} = model_invites:get_inviter(Phone),
-            {Day, Time} = translate_time(binary_to_integer(Ts) * ?SECONDS_MS),
+            {Day, Time} = util:ms_to_datetime_string(binary_to_integer(Ts) * ?SECONDS_MS),
             {ok, Name} = model_accounts:get_name(Uid),
             io:format("~s was invited by ~s (~s) on ~s at ~s.~n",
                 [Phone, Name, Uid, Day, Time])
     end,
     ok.
-
-
-translate_time(Ms) ->
-    case Ms of
-        undefined -> {"unknown date", "unknown time"};
-        _ ->
-            {{Y, Mo, D}, {H, Min, S}} = util:timestamp_to_datetime(Ms),
-            Date = io_lib:format("~4..0B-~2..0B-~2..0B", [Y, Mo, D]),
-            Time = io_lib:format("~2..0B:~2..0B:~2..0B", [H, Min, S]),
-            {Date, Time}
-    end.
 
 
 -spec is_my_host(binary()) -> boolean().

@@ -40,7 +40,8 @@
     join_binary/2,
     join_binary/3,
     err/1,
-    err/2
+    err/2,
+    ms_to_datetime_string/1
 ]).
 
 %% Export all functions for unit tests
@@ -257,4 +258,16 @@ err(Reason) ->
 -spec err(Reason :: atom(), Hash :: binary()) -> stanza_error().
 err(Reason, Hash) ->
     #error_st{reason = Reason, hash = Hash}.
+
+
+-spec ms_to_datetime_string(Ms :: non_neg_integer()) -> {string(), string()}.
+ms_to_datetime_string(Ms) ->
+    case Ms of
+        undefined -> {"unknown date", "unknown time"};
+        _ ->
+            {{Y, Mo, D}, {H, Min, S}} = util:timestamp_to_datetime(Ms),
+            Date = io_lib:format("~4..0B-~2..0B-~2..0B", [Y, Mo, D]),
+            Time = io_lib:format("~2..0B:~2..0B:~2..0B", [H, Min, S]),
+            {Date, Time}
+    end.
 

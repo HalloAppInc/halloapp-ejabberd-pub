@@ -10,7 +10,7 @@ body {
 }
 a {
   text-decoration: none;
-  color: #3eaffa;
+  color: #412c75;
 }
 a:hover,
 a:active {
@@ -135,6 +135,10 @@ ul li #navhead a, ul li #navheadsub a, ul li #navheadsubsub a {
   padding: 2px;
   margin-bottom: -1px;
 }
+.lookuptable {
+  border-collapse: collapse;
+  border: 1px solid #3b547a;
+}
 thead tr td {
   background: #3eaffa;
   color: #fff;
@@ -154,6 +158,7 @@ tr.oddraw {
   color: #412c75;
   background-color: #ccd4df;
   text-align: center;
+  border: 0.5px solid #3b547a;
 }
 tr.evenraw {
   color: #412c75;
@@ -251,10 +256,8 @@ table {
   margin-top: 1em;
 }
 table tr td {
-  padding: 0.5em;
-}
-table tr:nth-child(odd) {
-  background: #fff;
+  width: 50%;
+  padding: 3px 5px;
 }
 table.withtextareas>tbody>tr>td {
   vertical-align: top;
@@ -277,3 +280,4 @@ p.result {
 *.alignright {
   text-align: right;
 }
+
