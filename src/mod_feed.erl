@@ -39,7 +39,10 @@
     remove_user/2,
     process_local_iq/1,
     on_user_first_login/2,
-    purge_expired_items/0
+    purge_expired_items/0,
+    publish_item/8,
+    retract_item/7,
+    broadcast_event/7
 ]).
 
 
@@ -232,8 +235,14 @@ publish_item(Uid, Server, ItemId, ItemType, Payload, Node, TimestampMs, FeedAudi
     FinalItem = case {ItemResult, NodeType} of
         {IRes, NType} when IRes =:= undefined; NType =:= metadata->
             ok = mod_feed_mnesia:publish_item(NewItem),
+
+            %% send an old api message to all the clients.
             broadcast_event(Uid, Server, Node, NewItem, Payload, publish, FeedAudienceSet),
             ejabberd_hooks:run(publish_feed_item, Server, [Uid, Node, ItemId, ItemType, Payload]),
+
+            %% send a new api message to all the clients.
+            send_new_notification(Uid, ItemId, ItemType, Payload, TimestampMs, publish, FeedAudienceSet),
+
             NewItem;
         {Item, feed} ->
             Item
@@ -247,9 +256,38 @@ retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet) ->
     ?INFO_MSG("Uid: ~s, Item: ~p", [Uid, Item]),
     ok = mod_feed_mnesia:retract_item(Item#item.key),
     case Notify andalso sets:is_element(Uid, FeedAudienceSet) of
-        true -> broadcast_event(Uid, Server, Node, Item, Payload, retract, FeedAudienceSet);
+        true ->
+            %% send an old api message to all the clients.
+            broadcast_event(Uid, Server, Node, Item, Payload, retract, FeedAudienceSet),
+
+           %% send a new api message to all the clients.
+            TimestampMs = util:now_ms(),
+            ItemId = element(1, Item#item.key),
+            send_new_notification(Uid, ItemId, Item#item.type, Payload, TimestampMs, retract, FeedAudienceSet),
+
+            ok;
         false -> ok
     end.
+
+
+send_new_notification(Uid, ItemId, ItemType, Payload, TimestampMs, Action, FeedAudienceSet) ->
+    NewPayload = case Action of
+        publish ->
+            [SubEl] = Payload,
+            BinPayload = fxml:get_subtag_cdata(SubEl, <<"s1">>),
+            BinPayload;
+        retract ->
+            <<>>
+    end,
+    case ItemType of
+        comment ->
+            mod_ha_feed:send_comment_notification(<<>>, ItemId, <<>>, NewPayload,
+                    Action, Uid, FeedAudienceSet, TimestampMs);
+        feedpost ->
+            mod_ha_feed:send_post_notification(ItemId, NewPayload, Action, Uid,
+                    FeedAudienceSet, TimestampMs)
+    end,
+    ok.
 
 
 -spec broadcast_event(Uid :: binary(), Server :: binary(), Node :: psnode(), Item :: item(),

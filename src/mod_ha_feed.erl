@@ -23,7 +23,10 @@
 %% Hooks and API.
 -export([
     process_local_iq/1,
-    add_friend/3
+    add_friend/3,
+    make_feed_post_stanza/5,
+    make_feed_comment_stanza/7,
+    broadcast_event/4
 ]).
 
 
@@ -72,7 +75,8 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
     PostId = Comment#comment_st.post_id,
     ParentCommentId = Comment#comment_st.parent_comment_id,
     Payload = Comment#comment_st.payload,
-    case publish_comment(Uid, CommentId, PostId, ParentCommentId, Payload) of
+    PostUid = Comment#comment_st.post_uid,
+    case publish_comment(Uid, CommentId, PostId, PostUid, ParentCommentId, Payload) of
         {ok, ResultTsMs} ->
             SubEl = make_feed_comment_stanza(Action, CommentId, PostId,
                     ParentCommentId, Uid, <<>>, ResultTsMs),
@@ -98,7 +102,8 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         sub_els = [#feed_st{action = retract = Action, posts = [], comments = [Comment]}]} = IQ) ->
     CommentId = Comment#comment_st.id,
     PostId = Comment#comment_st.post_id,
-    case retract_comment(Uid, CommentId, PostId) of
+    PostUid = Comment#comment_st.post_uid,
+    case retract_comment(Uid, CommentId, PostId, PostUid) of
         {ok, ResultTsMs} ->
             SubEl = make_feed_comment_stanza(Action, CommentId, PostId,
                     <<>>, Uid, <<>>, ResultTsMs),
@@ -138,27 +143,34 @@ publish_post(Uid, PostId, Payload, [AudienceListSt]) ->
             TimestampMs = util:now_ms(),
             ok = model_feed:publish_post(PostId, Uid, Payload,
                     FeedAudienceType, FeedAudienceList, TimestampMs),
+
+            %% send a new api message to all the clients.
             ResultStanza = make_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs),
             FeedAudienceSet = get_feed_audience_set(Action, Uid, FeedAudienceList),
             PushSet = FeedAudienceSet,
             broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza),
             ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post]),
+
+            %% send an old api message to all the clients.
+            send_old_notification(PostId, feedpost, Uid, Uid,
+                    TimestampMs, Payload, publish, FeedAudienceSet),
+
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             {ok, ExistingPost#post.ts_ms}
     end.
 
 
--spec publish_comment(Uid :: uid(), CommentId :: binary(), PostId :: binary(),
+-spec publish_comment(Uid :: uid(), CommentId :: binary(), PostId :: binary(), PostUid :: binary(),
         ParentCommentId :: binary(), Payload :: binary()) -> {ok, integer()} | {error, any()}.
-publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, Payload) ->
+publish_comment(PublisherUid, CommentId, PostId, PostUid, ParentCommentId, Payload) ->
     ?INFO_MSG("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = publish,
     case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
         [{error, missing}, _, _] ->
-            %% Post is missing, so we reject the comment with an error.
-            {error, invalid_post_id};
+            handle_mnesia_content_request(PostId, CommentId, comment, ParentCommentId,
+                    Payload, Action, PublisherUid, PostUid);
         [{ok, _Post}, {ok, Comment}, _] ->
             %% Comment with same id already exists: duplicate request from the client.
             {ok, Comment#comment.ts_ms};
@@ -172,12 +184,18 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, Payload) ->
                     NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
                             ParentCommentId, NewPushList, Payload, TimestampMs),
+
+                    %% send a new api message to all the clients.
                     ResultStanza = make_feed_comment_stanza(Action, CommentId,
                             PostId, ParentCommentId, PublisherUid, Payload, TimestampMs),
                     PushSet = sets:from_list(NewPushList),
                     broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
                     ejabberd_hooks:run(feed_item_published, Server,
-                            [PublisherUid, CommentId, comment])
+                            [PublisherUid, CommentId, comment]),
+
+                    %% send an old api message to all the clients.
+                    send_old_notification(CommentId, comment, PostOwnerUid, PublisherUid,
+                            TimestampMs, Payload, publish, FeedAudienceSet)
             end,
             {ok, TimestampMs}
     end.
@@ -190,32 +208,39 @@ retract_post(Uid, PostId) ->
     Action = retract,
     case model_feed:get_post(PostId) of
         {error, missing} ->
-            {error, invalid_post_id};
+            handle_mnesia_content_request(PostId, undefined, feedpost, <<>>, <<>>, Action, Uid, Uid);
         {ok, ExistingPost} ->
             case ExistingPost#post.uid =:= Uid of
                 false -> {error, not_authorized};
                 true ->
                     TimestampMs = util:now_ms(),
                     ok = model_feed:retract_post(PostId, Uid),
+
+                    %% send a new api message to all the clients.
                     ResultStanza = make_feed_post_stanza(Action, PostId, Uid, <<>>, TimestampMs),
                     FeedAudienceSet = get_feed_audience_set(Action, Uid, ExistingPost#post.audience_list),
                     PushSet = sets:new(),
                     broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza),
                     ejabberd_hooks:run(feed_item_retracted, Server, [Uid, PostId, post]),
+
+                    %% send an old api message to all the clients.
+                    send_old_notification(PostId, feedpost, Uid, Uid,
+                            TimestampMs, <<>>, retract, FeedAudienceSet),
+
                     {ok, TimestampMs}
             end
     end.
 
 
 -spec retract_comment(Uid :: uid(), CommentId :: binary(),
-        PostId :: binary()) -> {ok, integer()} | {error, any()}.
-retract_comment(PublisherUid, CommentId, PostId) ->
+        PostId :: binary(), PostUid :: binary()) -> {ok, integer()} | {error, any()}.
+retract_comment(PublisherUid, CommentId, PostId, PostUid) ->
     ?INFO_MSG("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = retract,
     case model_feed:get_comment_data(PostId, CommentId, <<>>) of
         [{error, missing}, _, _] ->
-            {error, invalid_post_id};
+            handle_mnesia_content_request(PostId, CommentId, comment, <<>>, <<>>, Action, PublisherUid, PostUid);
         [{ok, _Post}, {error, _}, _] ->
             {error, invalid_comment_id};
         [{ok, Post}, {ok, Comment}, _] ->
@@ -225,12 +250,19 @@ retract_comment(PublisherUid, CommentId, PostId) ->
                     TimestampMs = util:now_ms(),
                     PostOwnerUid = Post#post.uid,
                     ok = model_feed:retract_comment(CommentId, PostId),
+
+                    %% send a new api message to all the clients.
                     FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
                     ResultStanza = make_feed_comment_stanza(Action, CommentId, PostId, <<>>,
                             PublisherUid, <<>>, TimestampMs),
                     PushSet = sets:new(),
                     broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
                     ejabberd_hooks:run(feed_item_retracted, Server, [PublisherUid, CommentId, comment]),
+
+                    %% send an old api message to all the clients.
+                    send_old_notification(CommentId, comment, PostOwnerUid, PublisherUid,
+                            TimestampMs, <<>>, retract, FeedAudienceSet),
+
                     {ok, TimestampMs}
             end
     end.
@@ -327,6 +359,128 @@ get_message_type(#feed_st{action = publish, comments = [#comment_st{}]}, PushSet
         false -> normal
     end;
 get_message_type(#feed_st{action = retract}, _, _) -> normal.
+
+
+%% TODO(murali@): this is temporary: remove this after 2 weeks of using the new feed api.
+send_old_notification(ItemId, ItemType, PostOwnerUid, PublisherUid,
+        TimestampMs, Payload, EventType, FeedAudienceSet) ->
+    FinalPayload = get_old_payload(Payload),
+    Server = util:get_host(),
+    NodeId = <<"feed-", PostOwnerUid/binary>>,
+    Node = mod_feed_mnesia:get_node(NodeId),
+    Item = #item{
+        key = {ItemId, NodeId},
+        type = ItemType,
+        uid = PublisherUid,
+        creation_ts_ms = TimestampMs,
+        payload = FinalPayload
+    },
+    ok = mod_feed:broadcast_event(PublisherUid, Server, Node, Item,
+            Payload, EventType, FeedAudienceSet),
+    ok.
+
+
+%% TODO(murali@): remove after full transition to new api.
+handle_mnesia_content_request(_, _, _, _, _, _, _, undefined) ->
+    {error, invalid_post_uid};
+
+handle_mnesia_content_request(PostId, CommentId, ItemType, ParentCommentId, Payload, Action, PublisherUid, PostUid) ->
+    Server = util:get_host(),
+    {PostItem, CommentItem} = get_old_post_and_comment(PostId, CommentId),
+    TimestampMs = util:now_ms(),
+    NodeId = <<"feed-", PostUid/binary>>,
+    Node = mod_feed_mnesia:get_node(NodeId),
+    PostOwnerUid = PostUid,
+    FeedAudienceSet = mod_feed:get_feed_audience_set(PostOwnerUid),
+
+    case {Action, ItemType, PostItem, CommentItem} of
+        {publish, comment, _, undefined} ->
+            FinalPayload = get_old_payload(Payload),
+            %% insert data into mnesia and send an old api message to all the clients.
+            mod_feed:publish_item(PublisherUid, Server, CommentId, ItemType,
+                    FinalPayload, Node, TimestampMs, FeedAudienceSet),
+            %% send a new api message to all the clients.
+            send_comment_notification(PostId, CommentId, ParentCommentId, Payload,
+                    Action, PublisherUid, FeedAudienceSet, TimestampMs),
+            {ok, TimestampMs};
+        {publish, comment, _, _} ->
+            {ok, CommentItem#item.creation_ts_ms};
+        {retract, feedpost, undefined, _} ->
+            Item = #item{
+                key = {PostId, NodeId},
+                type = ItemType,
+                uid = PublisherUid,
+                creation_ts_ms = TimestampMs,
+                payload = []
+            },
+            %% Even when the post is missing: send an old api message to all the clients.
+            ok = mod_feed:broadcast_event(PublisherUid, Server, Node, Item, [], Action, FeedAudienceSet),
+            %% send a new api message to all the clients.
+            send_post_notification(PostId, Payload, Action, PublisherUid, FeedAudienceSet, TimestampMs),
+            {ok, TimestampMs};
+        {retract, feedpost, _, _} ->
+            %% remove data from mnesia and send an old api message to all the clients.
+            ok = mod_feed:retract_item(PublisherUid, Server, PostItem, [], Node, true, FeedAudienceSet),
+            %% send a new api message to all the clients.
+            send_post_notification(PostId, Payload, Action, PublisherUid, FeedAudienceSet, TimestampMs),
+            {ok, TimestampMs};
+        {retract, comment, _, undefined} ->
+            Item = #item{
+                key = {CommentId, NodeId},
+                type = ItemType,
+                uid = PublisherUid,
+                creation_ts_ms = TimestampMs,
+                payload = []
+            },
+            %% Even when the comment is missing: send an old api message to all the clients.
+            ok = mod_feed:broadcast_event(PublisherUid, Server, Node, Item, [], Action, FeedAudienceSet),
+            %% send a new api message to all the clients.
+            send_comment_notification(PostId, CommentId, ParentCommentId, Payload,
+                    Action, PublisherUid, FeedAudienceSet, TimestampMs),
+            {ok, TimestampMs};
+
+        {retract, comment, _, _} ->
+            %% remove data from mnesia and send an old api message to all the clients.
+            ok = mod_feed:retract_item(PublisherUid, Server, CommentItem, [], Node, true, FeedAudienceSet),
+            %% send a new api message to all the clients.
+            send_comment_notification(PostId, CommentId, ParentCommentId, Payload,
+                    Action, PublisherUid, FeedAudienceSet, TimestampMs),
+            {ok, TimestampMs}
+    end.
+
+
+get_old_payload(Payload) ->
+    case Payload of
+        <<>> -> [];
+        _ -> [{xmlel, <<"entry">>,[], [{xmlel, <<"s1">>,[], [{xmlcdata, Payload}]}]}]
+    end.
+
+
+get_old_post_and_comment(PostId, CommentId) ->
+    {ok, PostItem} = case PostId of
+        undefined -> {ok, undefined};
+        _ -> mod_feed_mnesia:get_item_by_id(PostId)
+    end,
+    {ok, CommentItem} = case CommentId of
+        undefined -> {ok, undefined};
+        _ -> mod_feed_mnesia:get_item_by_id(CommentId)
+    end,
+    {PostItem, CommentItem}.
+
+
+send_comment_notification(PostId, CommentId, ParentCommentId, Payload,
+        Action, PublisherUid, FeedAudienceSet, TimestampMs) ->
+    ResultStanza = make_feed_comment_stanza(Action, CommentId,
+            PostId, ParentCommentId, PublisherUid, Payload, TimestampMs),
+    PushSet = sets:new(),
+    broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
+    ok.
+
+send_post_notification(PostId, Payload, Action, Uid, FeedAudienceSet, TimestampMs) ->
+    ResultStanza = make_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs),
+    PushSet = sets:new(),
+    broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza),
+    ok.
 
 
 %%====================================================================
@@ -508,5 +662,16 @@ filter_and_transform_pubsub_items(AllItems) ->
                     }
             end
         end, Items),
-    lists:partition(fun(Item) -> is_record(Item, post_st) end, ResultItems).
+    {PostStanzas, CommentStanzas} = lists:partition(fun(Item) -> is_record(Item, post_st) end, ResultItems),
+    Timestamp = util:now(),
+    FinalPostStanzas = lists:filter(
+        fun(PostStanza) ->
+            Timestamp - PostStanza#post_st.timestamp < ?WEEKS
+        end, PostStanzas),
+    FinalCommentStanzas = lists:filter(
+        fun(CommentStanza) ->
+            Timestamp - CommentStanza#comment_st.timestamp < ?WEEKS
+        end, CommentStanzas),
+    {FinalPostStanzas, FinalCommentStanzas}.
+
 

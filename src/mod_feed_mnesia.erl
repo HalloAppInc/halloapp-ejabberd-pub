@@ -35,6 +35,7 @@
     get_item/1,
     retract_item/1,
     get_all_items/1,
+    get_item_by_id/1,
     %% TODO(murali@): remove after migration
     migrate_old_pubsub_data/0,
     get_node_type/1
@@ -121,6 +122,15 @@ publish_item(Item) ->
 -spec get_item(ItemKey :: {binary(), binary()}) -> {ok, undefined | item()} | {error, any()}.
 get_item(ItemKey) ->
     Result = case mnesia:dirty_match_object(#item{key = ItemKey, _ = '_'}) of
+        [] -> undefined;
+        [Item] -> Item
+    end,
+    {ok, Result}.
+
+
+-spec get_item_by_id(ItemId :: binary()) -> {ok, undefined | item()}.
+get_item_by_id(ItemId) ->
+    Result = case mnesia:dirty_match_object(#item{key = {ItemId, '_'}, _ = '_'}) of
         [] -> undefined;
         [Item] -> Item
     end,

@@ -470,11 +470,12 @@ get_push_type(#message{type = headline, to = #jid{luser = User}, sub_els = [#ps_
                 _ -> silent
             end
     end;
-get_push_type(#message{type = headline, sub_els = [#feed_st{}]}, _) -> alert;
+get_push_type(#message{type = headline, sub_els = [#feed_st{}]}, _) -> silent;
 get_push_type(#message{type = normal, sub_els = [#feed_st{}]}, _) -> silent;
 get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, chat) -> alert;
 get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, contact_list) -> silent;
 get_push_type(_, _) -> silent.
+
 
 -spec boolean_to_push_type(BoolValue :: boolean()) -> silent | alert.
 boolean_to_push_type(BoolValue) ->

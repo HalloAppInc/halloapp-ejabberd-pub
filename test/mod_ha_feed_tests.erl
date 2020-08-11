@@ -38,6 +38,7 @@ setup() ->
     mnesia:start(),
     ejabberd_mnesia:start(),
     mod_feed_mnesia:start(undefined, []),
+    mnesia:wait_for_tables([psnode, item], 10000),
     clear(),
     ok.
 
@@ -240,7 +241,7 @@ get_timestamp(_) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-publish_post_no_audience_error_test() ->
+publish_post_no_audience_error() ->
     setup(),
     %% posting a feedpost without audience
     PublishIQ = get_post_publish_iq(?POST_ID1, ?UID1, ?PAYLOAD1, undefined, [], ?SERVER),
@@ -249,8 +250,12 @@ publish_post_no_audience_error_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
 
+publish_post_no_audience_error_test() ->
+    {timeout, 30,
+        fun publish_post_no_audience_error/0}.
 
-publish_post_test() ->
+
+publish_post() ->
     setup(),
     %% posting a feedpost.
     PublishIQ = get_post_publish_iq(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], ?SERVER),
@@ -264,8 +269,12 @@ publish_post_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ2),
     ok.
 
+publish_post_test() ->
+    {timeout, 30,
+        fun publish_post/0}.
 
-publish_non_existing_post_comment_test() ->
+
+publish_non_existing_post_comment() ->
     setup(),
     %% publishing comment without post should give an error.
     PublishIQ = get_comment_publish_iq(?COMMENT_ID1, ?POST_ID1, ?UID1, <<>>, ?PAYLOAD1, ?SERVER),
@@ -274,8 +283,12 @@ publish_non_existing_post_comment_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
 
+publish_non_existing_post_comment_test() ->
+    {timeout, 30,
+        fun publish_non_existing_post_comment/0}.
 
-publish_comment_test() ->
+
+publish_comment() ->
     setup(),
     %% publish post and then comment.
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
@@ -291,8 +304,12 @@ publish_comment_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ2),
     ok.
 
+publish_comment_test() ->
+    {timeout, 30,
+        fun publish_comment/0}.
 
-retract_non_existing_post_test() ->
+
+retract_non_existing_post() ->
     setup(),
     %% retracting a post that does not exist should give an error.
     RetractIQ = get_post_retract_iq(?POST_ID1, ?UID1, ?SERVER),
@@ -301,8 +318,12 @@ retract_non_existing_post_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
 
+retract_non_existing_post_test() ->
+    {timeout, 30,
+        fun retract_non_existing_post/0}.
 
-retract_post_test() ->
+
+retract_post() ->
     setup(),
     %% publish post and then retract.
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
@@ -313,8 +334,12 @@ retract_post_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
 
+retract_post_test() ->
+    {timeout, 30,
+        fun retract_post/0}.
 
-retract_not_authorized_post_test() ->
+
+retract_not_authorized_post() ->
     setup(),
     %% publish post and then retract by different user.
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
@@ -324,8 +349,12 @@ retract_not_authorized_post_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
 
+retract_not_authorized_post_test() ->
+    {timeout, 30,
+        fun retract_not_authorized_post/0}.
 
-retract_non_existing_comment_test() ->
+
+retract_non_existing_comment() ->
     setup(),
     %% retracting a comment that does not exist should give an error.
     RetractIQ = get_comment_retract_iq(?COMMENT_ID1, ?POST_ID1, ?UID1, ?SERVER),
@@ -334,8 +363,12 @@ retract_non_existing_comment_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
 
+retract_non_existing_comment_test() ->
+    {timeout, 30,
+        fun retract_non_existing_comment/0}.
 
-retract_comment_test() ->
+
+retract_comment() ->
     setup(),
     %% publish post and comment and then retract comment.
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
@@ -349,8 +382,12 @@ retract_comment_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
 
+retract_comment_test() ->
+    {timeout, 30,
+        fun retract_comment/0}.
 
-retract_not_authorized_comment_test() ->
+
+retract_not_authorized_comment() ->
     setup(),
     %% publish post and then retract by different user.
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
@@ -362,8 +399,12 @@ retract_not_authorized_comment_test() ->
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
 
+retract_not_authorized_comment_test() ->
+    {timeout, 30,
+        fun retract_not_authorized_comment/0}.
 
-share_post_error_test() ->
+
+share_post_error() ->
     setup(),
     %% publish post and add non-friend
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
@@ -373,15 +414,22 @@ share_post_error_test() ->
     ?assertEqual(ExpectedResultIQ#iq.sub_els, ResultIQ#iq.sub_els),
     ok.
 
+share_post_error_test() ->
+    {timeout, 30,
+        fun share_post_error/0}.
 
-%% TODO(murali@): add unit tests related to mnesia.
-% share_post_iq_test() ->
-%     setup(),
-%     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
-%     model_friends:add_friend(?UID1, ?UID2),
-%     ShareIQ = get_share_iq(?UID1, ?UID2, [?POST_ID1], ?SERVER),
-%     ResultIQ = mod_ha_feed:process_local_iq(ShareIQ),
-%     ExpectedResultIQ = get_share_iq_result(?UID1, ?UID2, ?SERVER),
-%     ?assertEqual(ExpectedResultIQ, ResultIQ),
-%     ok.
+
+share_post_iq() ->
+    setup(),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
+    model_friends:add_friend(?UID1, ?UID2),
+    ShareIQ = get_share_iq(?UID1, ?UID2, [?POST_ID1], ?SERVER),
+    ResultIQ = mod_ha_feed:process_local_iq(ShareIQ),
+    ExpectedResultIQ = get_share_iq_result(?UID1, ?UID2, ?SERVER),
+    ?assertEqual(ExpectedResultIQ, ResultIQ),
+    ok.
+
+share_post_iq_test() ->
+    {timeout, 30,
+        fun share_post_iq/0}.
 
