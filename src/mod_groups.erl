@@ -296,7 +296,8 @@ delete_avatar(Gid, Uid) ->
             -> {ok, Ts} | {error, atom()}
             when Ts :: non_neg_integer().
 send_message(MsgId, Gid, Uid, MessagePayload) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
+    % TODO: remove the payload print
+    ?INFO_MSG("Gid: ~s Uid: ~s Payload ~p", [Gid, Uid, MessagePayload]),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
@@ -306,6 +307,7 @@ send_message(MsgId, Gid, Uid, MessagePayload) ->
             GroupInfo = model_groups:get_group_info(Gid),
             {ok, SenderName} = model_accounts:get_name(Uid),
             GroupMessage = make_message(GroupInfo, Uid, SenderName, MessagePayload, Ts),
+            ?INFO_MSG("Fan Out MSG: ~p", [GroupMessage]),
             MUids = model_groups:get_member_uids(Gid),
             ReceiverUids = lists:delete(Uid, MUids),
             Server = util:get_host(),
