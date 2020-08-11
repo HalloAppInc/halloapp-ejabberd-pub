@@ -483,7 +483,7 @@ make_message(GroupInfo, Uid, SenderName, MessagePayload, Ts) ->
         sender = Uid,
         sender_name = SenderName,
         timestamp = integer_to_binary(Ts),
-        cdata = MessagePayload
+        sub_els = MessagePayload
     }.
 
 -spec send_create_group_event(Group :: group(), Uid :: uid(),

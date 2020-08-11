@@ -58,7 +58,7 @@ mod_options(_Host) ->
 send_group_message(#message{id = MsgId, from = #jid{luser = Uid}, type = groupchat,
         sub_els = [#group_chat{gid = Gid} = GroupChatSt]} = Msg) ->
     ?INFO_MSG("Gid: ~s, Uid: ~s", [Gid, Uid]),
-    MessagePayload = GroupChatSt#group_chat.cdata,
+    MessagePayload = GroupChatSt#group_chat.sub_els,
     case mod_groups:send_message(MsgId, Gid, Uid, MessagePayload) of
         {error, Reason} ->
             ErrorMsg = xmpp:make_error(Msg, err(Reason)),
