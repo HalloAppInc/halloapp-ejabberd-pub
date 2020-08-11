@@ -563,6 +563,10 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     },
 
     Members = [M#group_member.uid || M <- Group#group.members],
+    %% We also need to notify users who will be affected and broadcast the update to them as well.
+    AdditionalUids = [element(1, R) || R <- Results],
+    UidsToNotify = sets:from_list(Members ++ AdditionalUids),
+    BroadcastUids = sets:to_list(UidsToNotify),
     Server = util:get_host(),
     Jids = util:uids_to_jids(Members, Server),
     From = jid:make(Server),
