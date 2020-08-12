@@ -7,11 +7,22 @@
 
 -define(feed_items_gpb_version, "4.13.0").
 
--ifndef('PB_FEEDPOST_PB_H').
--define('PB_FEEDPOST_PB_H', true).
--record(pb_feedpost,
+-ifndef('PB_AUDIENCE_PB_H').
+-define('PB_AUDIENCE_PB_H', true).
+-record(pb_audience,
+        {type = all             :: all | except | only | integer() | undefined, % = 1, enum pb_audience.Type
+         uids = []              :: [integer()] | undefined % = 2, 64 bits
+        }).
+-endif.
+
+-ifndef('PB_POST_PB_H').
+-define('PB_POST_PB_H', true).
+-record(pb_post,
         {id = <<>>              :: iodata() | undefined, % = 1
-         payload = <<>>         :: iodata() | undefined % = 2
+         uid = 0                :: integer() | undefined, % = 2, 64 bits
+         payload = <<>>         :: iodata() | undefined, % = 3
+         audience = undefined   :: feed_items:pb_audience() | undefined, % = 4
+         timestamp = 0          :: integer() | undefined % = 5, 64 bits
         }).
 -endif.
 
@@ -19,10 +30,12 @@
 -define('PB_COMMENT_PB_H', true).
 -record(pb_comment,
         {id = <<>>              :: iodata() | undefined, % = 1
-         publisher_uid = 0      :: integer() | undefined, % = 2, 64 bits
-         publisher_name = <<>>  :: iodata() | undefined, % = 3
-         post_id = <<>>         :: iodata() | undefined, % = 4
-         payload = <<>>         :: iodata() | undefined % = 5
+         post_id = <<>>         :: iodata() | undefined, % = 2
+         parent_comment_id = <<>> :: iodata() | undefined, % = 3
+         publisher_uid = 0      :: integer() | undefined, % = 4, 64 bits
+         publisher_name = <<>>  :: iodata() | undefined, % = 5
+         payload = <<>>         :: iodata() | undefined, % = 6
+         timestamp = 0          :: integer() | undefined % = 7, 64 bits
         }).
 -endif.
 
@@ -30,16 +43,46 @@
 -define('PB_FEED_ITEM_PB_H', true).
 -record(pb_feed_item,
         {action = publish       :: publish | retract | integer() | undefined, % = 1, enum pb_feed_item.Action
-         timestamp = 0          :: integer() | undefined, % = 2, 64 bits
-         item                   :: {feedpost, feed_items:pb_feedpost()} | {comment, feed_items:pb_comment()} | undefined % oneof
+         item                   :: {post, feed_items:pb_post()} | {comment, feed_items:pb_comment()} | undefined % oneof
         }).
 -endif.
 
--ifndef('PB_FEED_NODE_ITEMS_PB_H').
--define('PB_FEED_NODE_ITEMS_PB_H', true).
--record(pb_feed_node_items,
+-ifndef('PB_FEED_ITEMS_PB_H').
+-define('PB_FEED_ITEMS_PB_H', true).
+-record(pb_feed_items,
         {uid = 0                :: integer() | undefined, % = 1, 64 bits
          items = []             :: [feed_items:pb_feed_item()] | undefined % = 2
+        }).
+-endif.
+
+-ifndef('PB_SHARE_FEED_REQUEST_PB_H').
+-define('PB_SHARE_FEED_REQUEST_PB_H', true).
+-record(pb_share_feed_request,
+        {uid = 0                :: integer() | undefined, % = 1, 64 bits
+         post_ids = []          :: [iodata()] | undefined % = 2
+        }).
+-endif.
+
+-ifndef('PB_SHARE_FEED_REQUESTS_PB_H').
+-define('PB_SHARE_FEED_REQUESTS_PB_H', true).
+-record(pb_share_feed_requests,
+        {requests = []          :: [feed_items:pb_share_feed_request()] | undefined % = 1
+        }).
+-endif.
+
+-ifndef('PB_SHARE_FEED_RESPONSE_PB_H').
+-define('PB_SHARE_FEED_RESPONSE_PB_H', true).
+-record(pb_share_feed_response,
+        {uid = 0                :: integer() | undefined, % = 1, 64 bits
+         result = <<>>          :: iodata() | undefined, % = 2
+         reason = <<>>          :: iodata() | undefined % = 3
+        }).
+-endif.
+
+-ifndef('PB_SHARE_FEED_RESPONSES_PB_H').
+-define('PB_SHARE_FEED_RESPONSES_PB_H', true).
+-record(pb_share_feed_responses,
+        {responses = []         :: [feed_items:pb_share_feed_response()] | undefined % = 2
         }).
 -endif.
 

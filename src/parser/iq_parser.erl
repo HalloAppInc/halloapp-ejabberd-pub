@@ -55,8 +55,15 @@ iq_payload_mapping(SubEl) ->
         whisper_keys ->
             {whisper_keys, whisper_keys_parser:xmpp_to_proto(SubEl)};
         ping ->
-            {ping, #pb_ping{}}
-        %% TODO: not include feed_item and feed_node_items yet
+            {ping, #pb_ping{}};
+        feed_st ->
+            ProtoEl = feed_parser:xmpp_to_proto(SubEl),
+            case SubEl#feed_st.action of
+                share ->
+                    {share_feed_responses, ProtoEl};
+                Action when Action =:= publish; Action =:= retract ->
+                    {feed_item, ProtoEl}
+            end
     end,
     Payload.
 
@@ -99,7 +106,11 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
         {whisper_keys, WhisperKeysRecord} ->
             whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
         {ping, _} ->
-            #ping{}
+            #ping{};
+        {share_feed_requests, ShareFeedRecord} ->
+            feed_parser:proto_to_xmpp(ShareFeedRecord);
+        {feed_item, FeedItemRecord} ->
+            feed_parser:proto_to_xmpp(FeedItemRecord)
     end,
     SubEl.
 

@@ -3,17 +3,32 @@ syntax = "proto3";
 
 // Pubsub
 
-message feedpost {
+message audience {
+    enum Type {
+        all = 0;
+        except = 1;
+        only = 2;
+    }
+    Type type = 1;
+    repeated int64 uids = 2;
+}
+
+message post {
     string id = 1;
-    bytes payload = 2;
+    int64 uid = 2;
+    bytes payload = 3;
+    audience audience = 4;
+    int64 timestamp = 5;
 }
 
 message comment {
     string id = 1;
-    int64 publisher_uid = 2;
-    string publisher_name = 3;
-    string post_id = 4;
-    bytes payload = 5;
+    string post_id = 2;
+    string parent_comment_id = 3;
+    int64 publisher_uid = 4;
+    string publisher_name = 5;
+    bytes payload = 6;
+    int64 timestamp = 7;
 }
 
 message feed_item {
@@ -22,15 +37,34 @@ message feed_item {
         retract = 1;
     }
     Action action = 1;
-    int64 timestamp = 2;
     oneof item {
-        feedpost feedpost = 3;
-        comment comment = 4;
+        post post = 2;
+        comment comment = 3;
     }
 }
 
-message feed_node_items {
+message feed_items {
     int64 uid = 1;
     repeated feed_item items = 2;
+}
+
+
+message share_feed_request {
+    int64 uid = 1;
+    repeated string post_ids = 2;
+}
+
+message share_feed_requests {
+    repeated share_feed_request requests = 1;
+}
+
+message share_feed_response {
+    int64 uid = 1;
+    string result = 2;
+    string reason = 3;
+}
+
+message share_feed_responses {
+    repeated share_feed_response responses = 2;
 }
 

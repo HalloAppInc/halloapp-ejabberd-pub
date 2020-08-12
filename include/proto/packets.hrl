@@ -26,14 +26,14 @@
 -ifndef('PB_IQ_PAYLOAD_PB_H').
 -define('PB_IQ_PAYLOAD_PB_H', true).
 -record(pb_iq_payload,
-        {content                :: {upload_media, packets:pb_upload_media()} | {contact_list, packets:pb_contact_list()} | {upload_avatar, packets:pb_upload_avatar()} | {avatar, packets:pb_avatar()} | {avatars, packets:pb_avatars()} | {client_mode, packets:pb_client_mode()} | {client_version, packets:pb_client_version()} | {push_register, packets:pb_push_register()} | {whisper_keys, packets:pb_whisper_keys()} | {ping, packets:pb_ping()} | {feed_item, packets:pb_feed_item()} | {feed_node_items, packets:pb_feed_node_items()} | undefined % oneof
+        {content                :: {upload_media, packets:pb_upload_media()} | {contact_list, packets:pb_contact_list()} | {upload_avatar, packets:pb_upload_avatar()} | {avatar, packets:pb_avatar()} | {avatars, packets:pb_avatars()} | {client_mode, packets:pb_client_mode()} | {client_version, packets:pb_client_version()} | {push_register, packets:pb_push_register()} | {whisper_keys, packets:pb_whisper_keys()} | {ping, packets:pb_ping()} | {feed_item, packets:pb_feed_item()} | {share_feed_requests, packets:pb_share_feed_requests()} | {share_feed_responses, packets:pb_share_feed_responses()} | undefined % oneof
         }).
 -endif.
 
 -ifndef('PB_MSG_PAYLOAD_PB_H').
 -define('PB_MSG_PAYLOAD_PB_H', true).
 -record(pb_msg_payload,
-        {content                :: {contact_list, packets:pb_contact_list()} | {avatar, packets:pb_avatar()} | {whisper_keys, packets:pb_whisper_keys()} | {seen, packets:pb_seen_receipt()} | {delivery, packets:pb_delivery_receipt()} | {chat, packets:pb_chat()} | {feed_item, packets:pb_feed_item()} | {feed_node_items, packets:pb_feed_node_items()} | {contact_hash, packets:pb_contact_hash()} | undefined % oneof
+        {content                :: {contact_list, packets:pb_contact_list()} | {avatar, packets:pb_avatar()} | {whisper_keys, packets:pb_whisper_keys()} | {seen, packets:pb_seen_receipt()} | {delivery, packets:pb_delivery_receipt()} | {chat, packets:pb_chat()} | {feed_item, packets:pb_feed_item()} | {feed_items, packets:pb_feed_items()} | {contact_hash, packets:pb_contact_hash()} | undefined % oneof
         }).
 -endif.
 
@@ -212,11 +212,22 @@
         }).
 -endif.
 
--ifndef('PB_FEEDPOST_PB_H').
--define('PB_FEEDPOST_PB_H', true).
--record(pb_feedpost,
+-ifndef('PB_AUDIENCE_PB_H').
+-define('PB_AUDIENCE_PB_H', true).
+-record(pb_audience,
+        {type = all             :: all | except | only | integer() | undefined, % = 1, enum pb_audience.Type
+         uids = []              :: [integer()] | undefined % = 2, 64 bits
+        }).
+-endif.
+
+-ifndef('PB_POST_PB_H').
+-define('PB_POST_PB_H', true).
+-record(pb_post,
         {id = <<>>              :: iodata() | undefined, % = 1
-         payload = <<>>         :: iodata() | undefined % = 2
+         uid = 0                :: integer() | undefined, % = 2, 64 bits
+         payload = <<>>         :: iodata() | undefined, % = 3
+         audience = undefined   :: packets:pb_audience() | undefined, % = 4
+         timestamp = 0          :: integer() | undefined % = 5, 64 bits
         }).
 -endif.
 
@@ -224,10 +235,12 @@
 -define('PB_COMMENT_PB_H', true).
 -record(pb_comment,
         {id = <<>>              :: iodata() | undefined, % = 1
-         publisher_uid = 0      :: integer() | undefined, % = 2, 64 bits
-         publisher_name = <<>>  :: iodata() | undefined, % = 3
-         post_id = <<>>         :: iodata() | undefined, % = 4
-         payload = <<>>         :: iodata() | undefined % = 5
+         post_id = <<>>         :: iodata() | undefined, % = 2
+         parent_comment_id = <<>> :: iodata() | undefined, % = 3
+         publisher_uid = 0      :: integer() | undefined, % = 4, 64 bits
+         publisher_name = <<>>  :: iodata() | undefined, % = 5
+         payload = <<>>         :: iodata() | undefined, % = 6
+         timestamp = 0          :: integer() | undefined % = 7, 64 bits
         }).
 -endif.
 
@@ -235,16 +248,46 @@
 -define('PB_FEED_ITEM_PB_H', true).
 -record(pb_feed_item,
         {action = publish       :: publish | retract | integer() | undefined, % = 1, enum pb_feed_item.Action
-         timestamp = 0          :: integer() | undefined, % = 2, 64 bits
-         item                   :: {feedpost, packets:pb_feedpost()} | {comment, packets:pb_comment()} | undefined % oneof
+         item                   :: {post, packets:pb_post()} | {comment, packets:pb_comment()} | undefined % oneof
         }).
 -endif.
 
--ifndef('PB_FEED_NODE_ITEMS_PB_H').
--define('PB_FEED_NODE_ITEMS_PB_H', true).
--record(pb_feed_node_items,
+-ifndef('PB_FEED_ITEMS_PB_H').
+-define('PB_FEED_ITEMS_PB_H', true).
+-record(pb_feed_items,
         {uid = 0                :: integer() | undefined, % = 1, 64 bits
          items = []             :: [packets:pb_feed_item()] | undefined % = 2
+        }).
+-endif.
+
+-ifndef('PB_SHARE_FEED_REQUEST_PB_H').
+-define('PB_SHARE_FEED_REQUEST_PB_H', true).
+-record(pb_share_feed_request,
+        {uid = 0                :: integer() | undefined, % = 1, 64 bits
+         post_ids = []          :: [iodata()] | undefined % = 2
+        }).
+-endif.
+
+-ifndef('PB_SHARE_FEED_REQUESTS_PB_H').
+-define('PB_SHARE_FEED_REQUESTS_PB_H', true).
+-record(pb_share_feed_requests,
+        {requests = []          :: [packets:pb_share_feed_request()] | undefined % = 1
+        }).
+-endif.
+
+-ifndef('PB_SHARE_FEED_RESPONSE_PB_H').
+-define('PB_SHARE_FEED_RESPONSE_PB_H', true).
+-record(pb_share_feed_response,
+        {uid = 0                :: integer() | undefined, % = 1, 64 bits
+         result = <<>>          :: iodata() | undefined, % = 2
+         reason = <<>>          :: iodata() | undefined % = 3
+        }).
+-endif.
+
+-ifndef('PB_SHARE_FEED_RESPONSES_PB_H').
+-define('PB_SHARE_FEED_RESPONSES_PB_H', true).
+-record(pb_share_feed_responses,
+        {responses = []         :: [packets:pb_share_feed_response()] | undefined % = 2
         }).
 -endif.
 

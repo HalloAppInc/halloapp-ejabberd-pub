@@ -44,7 +44,8 @@ message iq_payload {
         whisper_keys whisper_keys = 9;
         ping ping = 10;
         feed_item feed_item = 11;
-        feed_node_items feed_node_items = 12;
+        share_feed_requests share_feed_requests = 12;
+        share_feed_responses share_feed_responses = 13;
     }
 }
 
@@ -57,7 +58,7 @@ message msg_payload {
         delivery_receipt delivery = 5;
         chat chat = 6;
         feed_item feed_item = 7;
-        feed_node_items feed_node_items = 8;
+        feed_items feed_items = 8;
         contact_hash contact_hash = 9;
     }
 }

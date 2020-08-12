@@ -59,7 +59,13 @@ msg_payload_mapping(SubEl) ->
         receipt_response ->
             {delivery, receipts_parser:xmpp_to_proto(SubEl)};
         chat ->
-            {chat, chat_parser:xmpp_to_proto(SubEl)}
+            {chat, chat_parser:xmpp_to_proto(SubEl)};
+        feed_st ->
+            case {SubEl#feed_st.posts, SubEl#feed_st.comments} of
+                {[_], []} -> {feed_item, feed_parser:xmpp_to_proto(SubEl)};
+                {[], [_]} -> {feed_item, feed_parser:xmpp_to_proto(SubEl)};
+                _ -> {feed_items, feed_parser:xmpp_to_proto(SubEl)}
+            end
     end,
     Payload.
 
@@ -107,7 +113,11 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
         {delivery, ReceivedRecord} ->
             receipts_parser:proto_to_xmpp(ReceivedRecord);
         {chat, ChatRecord} ->
-            chat_parser:proto_to_xmpp(ChatRecord)
+            chat_parser:proto_to_xmpp(ChatRecord);
+        {feed_item, FeedItemRecord} ->
+            feed_parser:proto_to_xmpp(FeedItemRecord);
+        {feed_items, FeedItemsRecord} ->
+            feed_parser:proto_to_xmpp(FeedItemsRecord)
     end,
     SubEl.
 
