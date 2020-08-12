@@ -131,7 +131,11 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, ty
                 undefined ->
                     xmpp:make_iq_result(IQ, #whisper_keys{uid = Ouid});
                 _ ->
+                    %% Uid requests keys of Ouid to establish a session.
+                    %% We need to add Uid as subscriber of Ouid's keys and vice-versa.
+                    %% When a user resets their keys on the server: these subscribers are then notified.
                     ok = model_whisper_keys:add_key_subscriber(Ouid, Uid),
+                    ok = model_whisper_keys:add_key_subscriber(Uid, Ouid),
                     check_count_and_notify_user(Ouid, Server),
                     IdentityKey = WhisperKeySet#user_whisper_key_set.identity_key,
                     SignedKey = WhisperKeySet#user_whisper_key_set.signed_key,
