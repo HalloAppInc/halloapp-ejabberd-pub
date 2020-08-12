@@ -107,7 +107,7 @@ should_push(#message{to = #jid{luser = User, lserver = Server}, sub_els = [#ps_e
 -spec push_message(Message :: message()) -> ok.
 push_message(#message{to = #jid{luser = User, lserver = Server}} = Message) ->
     PushInfo = mod_push_tokens:get_push_info(User, Server),
-    case PushInfo of
+    case PushInfo#push_info.token of
         undefined -> ?INFO_MSG("Uid: ~s, ignore push: undefined push token", [User]);
         _ -> push_message(Message, PushInfo)
     end.
