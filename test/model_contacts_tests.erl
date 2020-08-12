@@ -187,7 +187,6 @@ sequence_loop(From, To, Fun, MapAcc) ->
 
 %% Tests the lossiness of the hash function by hashing a large sequence of phone numbers.
 %% We ensure that the different hash value is of the order of total numbers / 32.
-%% which is our expected rate of collisions.
 test_hash_lossiness(From, To) ->
     Fun = fun(Number, Map) ->
         Hash = model_contacts:hash_phone(integer_to_binary(Number)),
@@ -195,7 +194,7 @@ test_hash_lossiness(From, To) ->
     end,
     ActualSize = sequence_loop(From, To, Fun, #{}),
     ExpectedSize = (To - From) / 32,
-    ?assert(ActualSize < ExpectedSize + 3) andalso ?assert(ActualSize > ExpectedSize - 3).
+    ?assert(ActualSize =< ExpectedSize).
 
 
 while(0, _F) -> ok;
