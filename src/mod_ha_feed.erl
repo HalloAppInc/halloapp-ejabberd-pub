@@ -26,7 +26,9 @@
     add_friend/3,
     make_feed_post_stanza/5,
     make_feed_comment_stanza/7,
-    broadcast_event/4
+    broadcast_event/4,
+    send_post_notification/6,
+    send_comment_notification/8
 ]).
 
 
