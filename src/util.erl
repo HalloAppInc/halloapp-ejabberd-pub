@@ -36,7 +36,9 @@
     uuid_binary/0,
     timestamp_to_datetime/1,
     decode_base_64/1,
-    is_test_number/1
+    is_test_number/1,
+    join_binary/2,
+    join_binary/3
 ]).
 
 %% Export all functions for unit tests
@@ -231,4 +233,16 @@ is_test_number(Phone) ->
         {match, _} -> true;
         _ -> false
     end.
+
+
+-spec join_binary(Char :: binary(), Elements :: [binary()]) -> binary().
+join_binary(Char, Elements) ->
+    join_binary(Char, Elements, <<>>).
+
+
+-spec join_binary(Char :: binary(), Elements :: [binary()], FinalString :: binary()) -> binary().
+join_binary(_Char, [], FinalString) -> FinalString;
+join_binary(Char, [Element | Rest], FinalString) ->
+    NewFinalString = <<FinalString/binary, Char/binary, Element/binary>>,
+    join_binary(Char, Rest, NewFinalString).
 

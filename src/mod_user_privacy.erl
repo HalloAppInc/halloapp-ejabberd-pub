@@ -16,6 +16,8 @@
 
 -define(NS_USER_PRIVACY, <<"halloapp:user:privacy">>).
 -define(STAT_PRIVACY, "HA/Privacy").
+-define(COMMA_CHAR, <<",">>).
+-define(HASH_FUNC, sha256).
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -69,12 +71,17 @@ mod_options(_Host) ->
 
 
 -spec process_local_iq(IQ :: iq()) -> iq().
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        lang = Lang, sub_els = [#user_privacy_list{type = Type, uid_els = UidEls}]} = IQ) ->
+process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set, lang = Lang,
+        sub_els = [#user_privacy_list{type = Type, hash = HashValue, uid_els = UidEls}]} = IQ) ->
     ?INFO_MSG("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
-    case update_privacy_type(Uid, Type, UidEls) of
+    case update_privacy_type(Uid, Type, HashValue, UidEls) of
         ok ->
             xmpp:make_iq_result(IQ);
+        {error, hash_mismatch, _ServerHashValue} ->
+            %% TODO(murali@): update these error stanzas!!
+            ?WARNING_MSG("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
+            Txt = ?T("hash_mismatch."),
+            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         {error, invalid_type} ->
             ?WARNING_MSG("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
             Txt = ?T("Invalid privacy_list_type."),
@@ -141,22 +148,26 @@ remove_friend(UserId, _Server, ContactId) ->
 
 
 %% TODO(murali@): counts for switching privacy modes will involve another redis call.
--spec update_privacy_type(Uid :: binary(),
-        Type :: privacy_list_type(), UidEls :: list(binary())) -> ok | {error, any()}.
-update_privacy_type(Uid, all = Type, []) ->
+-spec update_privacy_type(Uid :: binary(), Type :: privacy_list_type(),
+        HashValue :: binary(), UidEls :: list(binary())) -> ok | {error, any(), any()}.
+update_privacy_type(Uid, all = Type, _HashValue, []) ->
     set_privacy_type(Uid, Type),
     stat:count(?STAT_PRIVACY, Type),
     ok;
-update_privacy_type(Uid, Type, UidEls) when Type =:= except; Type =:= only ->
-    update_privacy_list(Uid, Type, UidEls),
-    set_privacy_type(Uid, Type),
-    stat:count(?STAT_PRIVACY, Type),
-    ok;
-update_privacy_type(Uid, Type, UidEls) when Type =:= mute; Type =:= block ->
-    update_privacy_list(Uid, Type, UidEls);
-update_privacy_type(_Uid, all, _) ->
+update_privacy_type(Uid, Type, HashValue, UidEls) when Type =:= except; Type =:= only ->
+    case update_privacy_list(Uid, Type, HashValue, UidEls) of
+        ok ->
+            set_privacy_type(Uid, Type),
+            stat:count(?STAT_PRIVACY, Type),
+            ok;
+        {error, _Reason, _ServerHashValue} = Error ->
+            Error
+    end;
+update_privacy_type(Uid, Type, HashValue, UidEls) when Type =:= mute; Type =:= block ->
+    update_privacy_list(Uid, Type, HashValue, UidEls);
+update_privacy_type(_Uid, all, _, _) ->
     {error, unexcepted_uids};
-update_privacy_type(_Uid, _, _) ->
+update_privacy_type(_Uid, _, _, _) ->
     {error, invalid_type}.
 
 
@@ -173,30 +184,56 @@ get_privacy_type(Uid) ->
     Type.
 
 
--spec update_privacy_list(Uid :: binary(),
-        Type :: privacy_list_type(), UidEls :: list(binary())) -> ok.
-update_privacy_list(_Uid, _Type, []) -> ok;
-update_privacy_list(Uid, Type, UidEls) ->
+-spec update_privacy_list(Uid :: binary(), Type :: privacy_list_type(),
+        ClientHashValue :: binary(), UidEls :: list(uid_el())) -> ok.
+update_privacy_list(_Uid, _Type, _ClientHashValue, []) -> ok;
+update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
     {DeleteUidsList, AddUidsList} = lists:partition(
             fun(#uid_el{type = T}) ->
-                T == delete
+                T =:= delete
             end, UidEls),
     DeleteUids = lists:map(fun extract_uid/1, DeleteUidsList),
     AddUids = lists:map(fun extract_uid/1, AddUidsList),
     ?INFO_MSG("Uid: ~s, Type: ~p, DeleteUids: ~p, AddUids: ~p", [Uid, Type, DeleteUids, AddUids]),
-    case DeleteUids of
-        [] -> ok;
-        _ -> remove_uids_from_privacy_list(Uid, Type, DeleteUids)
-    end,
-    case AddUids of
-        [] -> ok;
-        _ -> add_uids_to_privacy_list(Uid, Type, AddUids)
-    end,
-    ok.
+    ServerHashValue = compute_hash_value(Uid, Type, DeleteUids, AddUids),
+    log_counters(ServerHashValue, ClientHashValue),
+    case ServerHashValue =:= ClientHashValue orelse ClientHashValue =:= undefined of
+        true ->
+            ?INFO_MSG("Uid: ~s, Type: ~s, hash values match", [Uid, Type]),
+            case DeleteUids of
+                [] -> ok;
+                _ -> remove_uids_from_privacy_list(Uid, Type, DeleteUids)
+            end,
+            case AddUids of
+                [] -> ok;
+                _ -> add_uids_to_privacy_list(Uid, Type, AddUids)
+            end,
+            ok;
+        false ->
+            ?ERROR_MSG("Uid: ~s, Type: ~s, hash_mismatch, ClientHash: ~p, ServerHash: ~p",
+                    [Uid, Type, ClientHashValue, ServerHashValue]),
+            {error, hash_mismatch, ServerHashValue}
+    end.
 
 
--spec extract_uid(UidEl :: uid_el()) -> binary().
-extract_uid(#uid_el{uid = Uid}) -> Uid.
+-spec compute_hash_value(Uid :: binary(), Type :: privacy_list_type(),
+        DeleteUids :: [binary()], AddUids :: [binary()]) -> binary().
+compute_hash_value(Uid, Type, DeleteUids, AddUids) ->
+    {ok, Ouids} = case Type of
+        except -> model_privacy:get_except_uids(Uid);
+        only -> model_privacy:get_only_uids(Uid);
+        mute -> model_privacy:get_mutelist_uids(Uid);
+        block -> model_privacy:get_blocked_uids(Uid)
+    end,
+    OuidsSet = sets:from_list(Ouids),
+    DeleteSet = sets:from_list(DeleteUids),
+    AddSet = sets:from_list(AddUids),
+    FinalList = sets:to_list(sets:union(sets:subtract(OuidsSet, DeleteSet), AddSet)),
+    FinalString = util:join_binary(?COMMA_CHAR, lists:sort(FinalList), <<>>),
+    FullHash = crypto:hash(?HASH_FUNC, FinalString),
+    HashValue = base64url:encode(FullHash),
+    ?INFO_MSG("Uid: ~s, Type: ~p, HashValue: ~p", [Uid, Type, HashValue]),
+    HashValue.
 
 
 -spec remove_uids_from_privacy_list(Uid :: binary(),
@@ -267,4 +304,16 @@ get_privacy_lists(Uid, [Type | Rest], Result) ->
         end, Ouids),
     PrivacyList = #user_privacy_list{type = Type, uid_els = UidEls},
     get_privacy_lists(Uid, Rest, [PrivacyList | Result]).
+
+
+-spec extract_uid(UidEl :: uid_el()) -> binary().
+extract_uid(#uid_el{uid = Uid}) -> Uid.
+
+-spec log_counters(ServerHashValue :: binary(), ClientHashValue :: binary() | undefined) -> ok.
+log_counters(_, undefined) ->
+    stat:count(?STAT_PRIVACY, hash_undefined);
+log_counters(Hash, Hash) ->
+    stat:count(?STAT_PRIVACY, hash_match);
+log_counters(_, _) ->
+    stat:count(?STAT_PRIVACY, hash_mismatch).
 
