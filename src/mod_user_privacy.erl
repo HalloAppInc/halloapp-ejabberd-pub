@@ -77,19 +77,15 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set, la
     case update_privacy_type(Uid, Type, HashValue, UidEls) of
         ok ->
             xmpp:make_iq_result(IQ);
-        {error, hash_mismatch, _ServerHashValue} ->
-            %% TODO(murali@): update these error stanzas!!
+        {error, hash_mismatch, ServerHashValue} ->
             ?WARNING_MSG("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
-            Txt = ?T("hash_mismatch."),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            xmpp:make_error(IQ, #error_st{reason = hash_mismatch, hash = ServerHashValue});
         {error, invalid_type} ->
             ?WARNING_MSG("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
-            Txt = ?T("Invalid privacy_list_type."),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            xmpp:make_error(IQ, #error_st{reason = invalid_type});
         {error, unexcepted_uids} ->
             ?WARNING_MSG("Uid: ~s, unexcepted_uids for type: ~p", [Uid, Type]),
-            Txt = ?T("unexcepted_uids for this type."),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang))
+            xmpp:make_error(IQ, #error_st{reason = unexcepted_uids})
     end;
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = get,
         lang = _Lang, sub_els = [#user_privacy_lists{lists = PrivacyLists}]} = IQ) ->
