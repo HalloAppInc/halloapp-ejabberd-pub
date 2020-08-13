@@ -527,8 +527,8 @@ add_friend(UserId, Server, ContactId) ->
 send_old_items_to_contact(Uid, Server, ContactId) ->
     {ok, Items} = model_feed:get_7day_user_feed(Uid),
     {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
-    PostStanzas = convert_posts_to_stanzas(Posts),
-    CommentStanzas = convert_comments_to_stanzas(Comments),
+    PostStanzas = lists:map(fun convert_posts_to_stanzas/1, Posts),
+    CommentStanzas = lists:map(fun convert_comments_to_stanzas/1, Comments),
     %% TODO(murali@): remove this code after successful migration to redis.
     {ok, PubsubItems} = mod_feed_mnesia:get_all_items(<<"feed-", Uid/binary>>),
     {PubsubPostStanzas, PubsubCommentStanzas} = filter_and_transform_pubsub_items(PubsubItems),
