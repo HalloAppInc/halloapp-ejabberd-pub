@@ -114,18 +114,6 @@ get_groups_IQ(Uid) ->
     }.
 
 
-get_result_iq_sub_el(#iq{} = IQ) ->
-    ?assertEqual(result, IQ#iq.type),
-    [Res] = IQ#iq.sub_els,
-    Res.
-
-
-get_error_iq_sub_el(#iq{} = IQ) ->
-    ?assertEqual(error, IQ#iq.type),
-    [Res] = IQ#iq.sub_els,
-    Res.
-
-
 mod_groups_api_test() ->
     setup(),
     Host = <<"s.halloapp.net">>,
@@ -140,7 +128,7 @@ create_empty_group_test() ->
     setup(),
     IQ = create_group_IQ(?UID1, ?GROUP_NAME1),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    GroupSt = get_result_iq_sub_el(IQRes),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
     #group_st{
         gid = Gid,
         name = ?GROUP_NAME1,
@@ -158,7 +146,7 @@ create_group_with_members_test() ->
     setup(),
     IQ = create_group_IQ(?UID1, ?GROUP_NAME1, [?UID2, ?UID3, ?UID5]),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    GroupSt = get_result_iq_sub_el(IQRes),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
     #group_st{
         gid = _Gid,
         name = ?GROUP_NAME1,
@@ -176,7 +164,7 @@ create_group_with_creator_as_member_test() ->
     setup(),
     IQ = create_group_IQ(?UID1, ?GROUP_NAME1, [?UID1, ?UID2]),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    GroupSt = get_result_iq_sub_el(IQRes),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
     #group_st{
         gid = _Gid,
         name = ?GROUP_NAME1,
@@ -193,12 +181,12 @@ delete_group_test() ->
     setup(),
     CreateIQ = create_group_IQ(?UID1, ?GROUP_NAME1, [?UID1, ?UID2]),
     CreateIQRes = mod_groups_api:process_local_iq(CreateIQ),
-    CreateGroupSt = get_result_iq_sub_el(CreateIQRes),
+    CreateGroupSt = tutil:get_result_iq_sub_el(CreateIQRes),
     Gid = CreateGroupSt#group_st.gid,
 
     DeleteIQ = delete_group_IQ(?UID1, Gid),
     DeleteIQRes = mod_groups_api:process_local_iq(DeleteIQ),
-    GroupSt = get_result_iq_sub_el(DeleteIQRes),
+    GroupSt = tutil:get_result_iq_sub_el(DeleteIQRes),
 
     ?assertMatch(
         #group_st{
@@ -215,16 +203,16 @@ delete_group_error_test() ->
     setup(),
     CreateIQ = create_group_IQ(?UID1, ?GROUP_NAME1, [?UID1, ?UID2]),
     CreateIQRes = mod_groups_api:process_local_iq(CreateIQ),
-    CreateGroupSt = get_result_iq_sub_el(CreateIQRes),
+    CreateGroupSt = tutil:get_result_iq_sub_el(CreateIQRes),
     Gid = CreateGroupSt#group_st.gid,
 
     DeleteIQ1 = delete_group_IQ(?UID2, Gid),
     DeleteIQRes1 = mod_groups_api:process_local_iq(DeleteIQ1),
-    Error1 = get_error_iq_sub_el(DeleteIQRes1),
+    Error1 = tutil:get_error_iq_sub_el(DeleteIQRes1),
 
     DeleteIQ2 = delete_group_IQ(?UID3, Gid),
     DeleteIQRes2 = mod_groups_api:process_local_iq(DeleteIQ2),
-    Error2 = get_error_iq_sub_el(DeleteIQRes2),
+    Error2 = tutil:get_error_iq_sub_el(DeleteIQRes2),
 
     ?assertEqual(#error_st{reason = not_admin}, Error1),
     ?assertEqual(#error_st{reason = not_admin}, Error2),
@@ -234,7 +222,7 @@ delete_group_error_test() ->
 create_group(Uid, Name, Members) ->
     IQ = create_group_IQ(Uid, Name, Members),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    GroupSt = get_result_iq_sub_el(IQRes),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
     #group_st{gid = Gid} = GroupSt,
     Gid.
 
@@ -245,7 +233,7 @@ modify_members_test() ->
 %%    ?debugVal(Gid, 1000),
     IQ = modify_members_IQ(?UID1, Gid, [{?UID2, remove}, {?UID4, add}, {?UID5, add}]),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    GroupSt = get_result_iq_sub_el(IQRes),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
 %%    ?debugVal(GroupSt, 1000),
     ?assertMatch(
         #group_st{
@@ -267,7 +255,7 @@ modify_members_not_admin_test() ->
 %%    ?debugVal(Gid, 1000),
     IQ = modify_members_IQ(?UID2, Gid, [{?UID4, add}, {?UID5, add}]),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    Error = get_error_iq_sub_el(IQRes),
+    Error = tutil:get_error_iq_sub_el(IQRes),
 %%    ?debugVal(Error, 1000),
     ?assertEqual(#error_st{reason = not_admin}, Error),
     ok.
@@ -279,7 +267,7 @@ modify_admins_test() ->
 %%    ?debugVal(Gid, 1000),
     IQ = modify_admins_IQ(?UID1, Gid, [{?UID2, promote}, {?UID3, demote}, {?UID5, promote}]),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    GroupSt = get_result_iq_sub_el(IQRes),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
 %%    ?debugVal(GroupSt, 1000),
     ExpectedGroupSt = #group_st{
         gid = Gid,
@@ -300,7 +288,7 @@ modify_admins_not_admin_test() ->
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     IQ = modify_admins_IQ(?UID2, Gid, [{?UID4, promote}, {?UID3, demote}]),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    Error = get_error_iq_sub_el(IQRes),
+    Error = tutil:get_error_iq_sub_el(IQRes),
     ?assertEqual(#error_st{reason = not_admin}, Error),
     ok.
 
@@ -311,7 +299,7 @@ get_group_test() ->
 %%    ?debugVal(Gid, 1000),
     IQ = get_group_IQ(?UID1, Gid),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    GroupSt = get_result_iq_sub_el(IQRes),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
 %%    ?debugVal(GroupSt, 1000),
     ExpectedGroupSt = #group_st{
         gid = Gid,
@@ -331,12 +319,12 @@ get_group_error_not_member_test() ->
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     IQ = get_group_IQ(?UID4, Gid),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    Error = get_error_iq_sub_el(IQRes),
+    Error = tutil:get_error_iq_sub_el(IQRes),
     ?assertEqual(#error_st{reason = not_member}, Error),
 
     IQ2 = get_group_IQ(?UID1, <<"gdasdkjaskd">>),
     IQRes2 = mod_groups_api:process_local_iq(IQ2),
-    Error2 = get_error_iq_sub_el(IQRes2),
+    Error2 = tutil:get_error_iq_sub_el(IQRes2),
     ?assertEqual(#error_st{reason = not_member}, Error2),
     ok.
 
@@ -347,7 +335,7 @@ get_groups_test() ->
     Gid2 = create_group(?UID2, ?GROUP_NAME2, [?UID1, ?UID4]),
     IQ = get_groups_IQ(?UID1),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    GroupsSt = get_result_iq_sub_el(IQRes),
+    GroupsSt = tutil:get_result_iq_sub_el(IQRes),
 %%    ?debugVal(GroupsSt, 1000),
     GroupsSet = lists:sort(GroupsSt#groups.groups),
     ExpectedGroupsSet = lists:sort([
@@ -364,7 +352,7 @@ set_name_test() ->
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     IQ = set_name_IQ(?UID1, Gid, ?GROUP_NAME3),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    GroupSt = get_result_iq_sub_el(IQRes),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
 %%    ?debugVal(GroupSt, 1000),
     ExpectedGroupSt = #group_st{
         gid = Gid,
@@ -380,12 +368,12 @@ set_name_error_test() ->
     Gid = create_group(?UID1, ?GROUP_NAME1, []),
     IQ = set_name_IQ(?UID1, Gid, <<>>),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    Error = get_error_iq_sub_el(IQRes),
+    Error = tutil:get_error_iq_sub_el(IQRes),
     ?assertEqual(#error_st{reason = invalid_name}, Error),
 
     IQ2 = set_name_IQ(?UID2, Gid, ?GROUP_NAME2),
     IQRes2 = mod_groups_api:process_local_iq(IQ2),
-    Error2 = get_error_iq_sub_el(IQRes2),
+    Error2 = tutil:get_error_iq_sub_el(IQRes2),
     ?assertEqual(#error_st{reason = not_member}, Error2),
     ok.
 

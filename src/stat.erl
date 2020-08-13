@@ -28,7 +28,8 @@
 -export([
     count/2,
     count/3,
-    count_d/3
+    count_d/3,
+    count_d/4
 ]).
 
 % Trigger funcitons
@@ -89,14 +90,16 @@ count(Namespace, Metric, Value) ->
     ?DEBUG("Namespace:~s, Metric:~s, Value:~p", [Namespace, Metric, Value]),
     gen_server:cast(get_proc(), {count, Namespace, Metric, Value}).
 
--spec count_d(Namespace :: string(), Metric :: string(),
-        Tags :: [tag()]) -> ok.
+-spec count_d(Namespace :: string(), Metric :: string(), Tags :: [tag()]) -> ok.
 count_d(Namespace, Metric, Tags) ->
+    count_d(Namespace, Metric, 1, Tags).
+
+-spec count_d(Namespace :: string(), Metric :: string(), Value :: integer(), Tags :: [tag()]) -> ok.
+count_d(Namespace, Metric, Value, Tags) ->
     ?DEBUG("Namesapce:~s, Metric:~s Tags:~p", [Namespace, Metric, Tags]),
     Tags1 = fix_tags(Tags),
     Tags2 = [#dimension{name = N, value = V} || {N, V} <- Tags1],
-    gen_server:cast(get_proc(), {count_d, Namespace, Metric, 1, Tags2}).
-
+    gen_server:cast(get_proc(), {count_d, Namespace, Metric, Value, Tags2}).
 
 -spec trigger_send() -> ok.
 trigger_send() ->
