@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+
+// Client Log
+
+message client_log {
+    repeated count counts = 1;
+    repeated event events = 2;
+}
+
+message count {
+  string namespace = 1;
+  string metric = 2;
+  int64 count = 3;
+  repeated dim dims = 4;
+}
+
+message event {
+  string namespace = 1;
+  bytes event = 2;
+}
+
+message dim {
+  string name = 1;
+  string value = 2;
+}
