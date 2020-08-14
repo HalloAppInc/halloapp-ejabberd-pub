@@ -38,7 +38,9 @@
     decode_base_64/1,
     is_test_number/1,
     join_binary/2,
-    join_binary/3
+    join_binary/3,
+    err/1,
+    err/2
 ]).
 
 %% Export all functions for unit tests
@@ -245,4 +247,14 @@ join_binary(_Char, [], FinalString) -> FinalString;
 join_binary(Char, [Element | Rest], FinalString) ->
     NewFinalString = <<FinalString/binary, Char/binary, Element/binary>>,
     join_binary(Char, Rest, NewFinalString).
+
+
+-spec err(Reason :: atom()) -> stanza_error().
+err(Reason) ->
+    #error_st{reason = Reason}.
+
+
+-spec err(Reason :: atom(), Hash :: binary()) -> stanza_error().
+err(Reason, Hash) ->
+    #error_st{reason = Reason, hash = Hash}.
 

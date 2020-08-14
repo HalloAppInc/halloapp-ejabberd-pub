@@ -33,7 +33,7 @@ get_invites_error_test() ->
     setup_bare(),
     Actual = mod_invites:process_local_iq(create_get_iq(?UID1)),
     Expected = #iq{type = error, to = #jid{luser = ?UID1}, sub_els = [
-        #stanza_error{reason = no_account}
+        #error_st{reason = no_account}
     ]},
     ?assertEqual(Expected, Actual).
 
@@ -42,7 +42,7 @@ send_invites_error1_test() ->
     setup_bare(),
     Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
     Expected = #iq{type = error, to = #jid{luser = ?UID1}, sub_els = [
-        #stanza_error{reason = no_account}
+        #error_st{reason = no_account}
     ]},
     ?assertEqual(Expected, Actual).
 

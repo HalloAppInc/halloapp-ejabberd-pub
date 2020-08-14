@@ -79,13 +79,13 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set, la
             xmpp:make_iq_result(IQ);
         {error, hash_mismatch, ServerHashValue} ->
             ?WARNING_MSG("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
-            xmpp:make_error(IQ, #error_st{reason = hash_mismatch, hash = ServerHashValue});
+            xmpp:make_error(IQ, util:err(hash_mismatch, ServerHashValue));
         {error, invalid_type} ->
             ?WARNING_MSG("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
-            xmpp:make_error(IQ, #error_st{reason = invalid_type});
+            xmpp:make_error(IQ, util:err(invalid_type));
         {error, unexcepted_uids} ->
             ?WARNING_MSG("Uid: ~s, unexcepted_uids for type: ~p", [Uid, Type]),
-            xmpp:make_error(IQ, #error_st{reason = unexcepted_uids})
+            xmpp:make_error(IQ, util:err(unexcepted_uids))
     end;
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = get,
         lang = _Lang, sub_els = [#user_privacy_lists{lists = PrivacyLists}]} = IQ) ->

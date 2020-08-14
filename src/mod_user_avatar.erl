@@ -82,9 +82,8 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
         lang = Lang, sub_els = [#avatar{userid = FriendId}]} = IQ) ->
     case check_and_get_avatar_id(UserId, FriendId) of
         undefined ->
-            Txt = ?T("Invalid friend_uid"),
             ?WARNING_MSG("Uid: ~s, Invalid friend_uid: ~s", [UserId, FriendId]),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            xmpp:make_error(IQ, util:err(invalid_friend_uid));
         AvatarId ->
             xmpp:make_iq_result(IQ, #avatar{userid = FriendId, id = AvatarId})
     end;
@@ -142,7 +141,7 @@ process_set_user_avatar(IQ, Uid, Base64Data) ->
     ?INFO_MSG("Uid: ~s uploading avatar base64_size: ~p", [Uid, byte_size(Base64Data)]),
     case check_and_upload_avatar(Base64Data) of
         {error, Reason} ->
-            xmpp:make_error(IQ, err(Reason));
+            xmpp:make_error(IQ, util:err(Reason));
         {ok, AvatarId} ->
             ?INFO_MSG("Uid: ~s AvatarId: ~s", [Uid, AvatarId]),
             update_user_avatar(Uid, util:get_host(), AvatarId),
@@ -243,10 +242,4 @@ is_jpeg(<<255, 216, _/binary>>) ->
     true;
 is_jpeg(_) ->
     false.
-
-
-% TODO: (Nikola) duplicated code with mod_groups_api. Move this to some util.
--spec err(Reason :: atom()) -> stanza_error().
-err(Reason) ->
-    #stanza_error{reason = Reason}.
 

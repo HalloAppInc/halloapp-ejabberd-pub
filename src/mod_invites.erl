@@ -60,7 +60,7 @@ mod_options(_Host) ->
 process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
     AccExists = model_accounts:account_exists(Uid),
     case AccExists of
-        false -> xmpp:make_error(IQ, err(no_account));
+        false -> xmpp:make_error(IQ, util:err(no_account));
         true ->
             InvsRem = get_invites_remaining(Uid),
             Time = get_time_until_refresh(),
@@ -76,7 +76,7 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
         sub_els = [#invites{invites = InviteList}]} = IQ) ->
     AccExists = model_accounts:account_exists(Uid),
     case AccExists of
-        false -> xmpp:make_error(IQ, err(no_account));
+        false -> xmpp:make_error(IQ, util:err(no_account));
         true ->
             stat:count(?NS_INVITE_STATS, "requests"),
             PhoneList = [P#invite.phone || P <- InviteList],
@@ -175,11 +175,6 @@ get_next_sunday_midnight(CurrTime) ->
 
 
 %%% IQ helper functions %%%
-
-%% TODO: duplicate code with mod_groups_api.erl, put in some util file
--spec err(Reason :: atom()) -> stanza_error().
-err(Reason) ->
-    #stanza_error{reason = Reason}.
 
 
 prepend_plus(RawPhone) ->

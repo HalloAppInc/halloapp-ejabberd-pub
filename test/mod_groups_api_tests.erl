@@ -226,8 +226,8 @@ delete_group_error_test() ->
     DeleteIQRes2 = mod_groups_api:process_local_iq(DeleteIQ2),
     Error2 = get_error_iq_sub_el(DeleteIQRes2),
 
-    ?assertEqual(#stanza_error{reason = not_admin}, Error1),
-    ?assertEqual(#stanza_error{reason = not_admin}, Error2),
+    ?assertEqual(#error_st{reason = not_admin}, Error1),
+    ?assertEqual(#error_st{reason = not_admin}, Error2),
     ok.
 
 
@@ -269,7 +269,7 @@ modify_members_not_admin_test() ->
     IQRes = mod_groups_api:process_local_iq(IQ),
     Error = get_error_iq_sub_el(IQRes),
 %%    ?debugVal(Error, 1000),
-    ?assertEqual(#stanza_error{reason = not_admin}, Error),
+    ?assertEqual(#error_st{reason = not_admin}, Error),
     ok.
 
 
@@ -301,7 +301,7 @@ modify_admins_not_admin_test() ->
     IQ = modify_admins_IQ(?UID2, Gid, [{?UID4, promote}, {?UID3, demote}]),
     IQRes = mod_groups_api:process_local_iq(IQ),
     Error = get_error_iq_sub_el(IQRes),
-    ?assertEqual(#stanza_error{reason = not_admin}, Error),
+    ?assertEqual(#error_st{reason = not_admin}, Error),
     ok.
 
 
@@ -332,12 +332,12 @@ get_group_error_not_member_test() ->
     IQ = get_group_IQ(?UID4, Gid),
     IQRes = mod_groups_api:process_local_iq(IQ),
     Error = get_error_iq_sub_el(IQRes),
-    ?assertEqual(#stanza_error{reason = not_member}, Error),
+    ?assertEqual(#error_st{reason = not_member}, Error),
 
     IQ2 = get_group_IQ(?UID1, <<"gdasdkjaskd">>),
     IQRes2 = mod_groups_api:process_local_iq(IQ2),
     Error2 = get_error_iq_sub_el(IQRes2),
-    ?assertEqual(#stanza_error{reason = not_member}, Error2),
+    ?assertEqual(#error_st{reason = not_member}, Error2),
     ok.
 
 
@@ -381,12 +381,12 @@ set_name_error_test() ->
     IQ = set_name_IQ(?UID1, Gid, <<>>),
     IQRes = mod_groups_api:process_local_iq(IQ),
     Error = get_error_iq_sub_el(IQRes),
-    ?assertEqual(#stanza_error{reason = invalid_name}, Error),
+    ?assertEqual(#error_st{reason = invalid_name}, Error),
 
     IQ2 = set_name_IQ(?UID2, Gid, ?GROUP_NAME2),
     IQRes2 = mod_groups_api:process_local_iq(IQ2),
     Error2 = get_error_iq_sub_el(IQRes2),
-    ?assertEqual(#stanza_error{reason = not_member}, Error2),
+    ?assertEqual(#error_st{reason = not_member}, Error2),
     ok.
 
 

@@ -85,7 +85,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lan
     case PushPrefs of
         [] ->
             ?WARNING_MSG("Uid: ~s, push pref list is empty!", [Uid]),
-            xmpp:make_error(IQ, #stanza_error{reason = invalid_prefs});
+            xmpp:make_error(IQ, util:err(invalid_prefs));
         _ ->
             lists:foreach(
                 fun(PushPref) ->
