@@ -42,7 +42,6 @@
     check_and_register/5,
     get_users/0,
     get_users/1,
-    password_to_scram/1,
     get_users/2,
     import_info/0,
     count_users/1,
@@ -217,22 +216,16 @@ check_password_with_authmodule(User, AuthzId, Server, Password) ->
 
 -spec check_password_with_authmodule(binary(), binary(), binary(), binary(), binary(),
         digest_fun() | undefined) -> false | {true, atom()}.
-check_password_with_authmodule(User, AuthzId, Server, Password, Digest, DigestGen) ->
+check_password_with_authmodule(User, AuthzId, Server, Password, _Digest, _DigestGen) ->
     case validate_credentials(User, Server) of
         {ok, LUser, LServer} ->
             case jid:nodeprep(AuthzId) of
                 error -> false;
                 LAuthzId ->
-                    %% TODO: remove untag_stop and related logic
-                    untag_stop(
-                        case db_check_password(
-                                LUser, LAuthzId, LServer, Password,
-                                Digest, DigestGen, ejabberd_auth_halloapp) of
-                            true -> {true, ejabberd_auth_halloapp};
-                            false -> false;
-                            {stop, true} -> {stop, {true, ejabberd_auth_halloapp}};
-                            {stop, false} -> {stop, false}
-                        end)
+                    case ejabberd_auth_halloapp:check_password(LUser, LAuthzId, LServer, Password) of
+                        true -> {true, ejabberd_auth_halloapp};
+                        false -> false
+                    end
             end;
         _ -> false
     end.
@@ -242,21 +235,22 @@ check_password_with_authmodule(User, AuthzId, Server, Password, Digest, DigestGe
         {error, db_failure | not_allowed |invalid_jid | invalid_password}.
 set_password(User, Server, Password) ->
     case validate_credentials(User, Server, Password) of
-        {ok, LUser, LServer} -> db_set_password(LUser, LServer, Password, ejabberd_auth_halloapp);
+        {ok, LUser, LServer} ->
+            case ejabberd_auth_halloapp:set_password(LUser, LServer, Password) of
+                {ok, _Pass} -> ok;
+                Err -> Err
+            end;
         Err -> Err
     end.
 
 
 -spec check_and_register(binary(), binary(), password(), binary(), binary()) ->
-        ok |{error, db_failure | not_allowed | exists | invalid_jid | invalid_password}.
+    {ok, binary(), register | login} |
+    {error, db_failure | not_allowed | exists | invalid_jid | invalid_password}.
 check_and_register(Phone, Server, Password, Name, UserAgent) ->
-    Password1 = case ejabberd_auth_halloapp:store_type(Server) of
-        scram -> password_to_scram(Password);
-        _ -> Password
-    end,
     case ejabberd_auth_halloapp:get_uid(Phone) of
         undefined ->
-            case ejabberd_auth_halloapp:try_register(Phone, Server, Password1) of
+            case ejabberd_auth_halloapp:try_register(Phone, Server, Password) of
                 {ok, _, UserId} ->
                     ok = model_accounts:set_name(UserId, Name),
                     ok = model_accounts:set_user_agent(UserId, UserAgent),
@@ -266,7 +260,7 @@ check_and_register(Phone, Server, Password, Name, UserAgent) ->
             end;
         UserId ->
             re_register_user(UserId, Server, Phone),
-            case ejabberd_auth_halloapp:set_password(UserId, Server, Password1) of
+            case ejabberd_auth_halloapp:set_password(UserId, Server, Password) of
                 {ok, _} ->
                     ok = model_accounts:set_name(UserId, Name),
                     ok = model_accounts:set_user_agent(UserId, UserAgent),
@@ -288,8 +282,8 @@ try_register(User, Server, Password) ->
                 false ->
                     case ejabberd_router:is_my_host(LServer) of
                         true ->
-                            case db_try_register(LUser, LServer, Password, ejabberd_auth_halloapp) of
-                                ok -> ejabberd_hooks:run(register_user, LServer, [LUser, LServer]);
+                            case ejabberd_auth_halloapp:try_register(LUser, LServer, Password) of
+                                {ok, _, _}  -> ejabberd_hooks:run(register_user, LServer, [LUser, LServer]);
                                 {error, _} = Err -> Err
                             end;
                         false -> {error, not_allowed}
@@ -302,7 +296,7 @@ try_register(User, Server, Password) ->
 % get_users/0,1,2 not implemented in HA auth file
 -spec get_users() -> [{binary(), binary()}].
 get_users() ->
-    db_get_users(?HOST, [], ejabberd_auth_halloapp).
+    get_users(?HOST, []).
 
 -spec get_users(binary()) -> [{binary(), binary()}].
 get_users(Server) ->
@@ -312,7 +306,7 @@ get_users(Server) ->
 get_users(Server, Opts) ->
     case jid:nameprep(Server) of
         error -> [];
-        LServer -> db_get_users(LServer, Opts, ejabberd_auth_halloapp)
+        LServer -> ejabberd_auth_halloapp:get_users(LServer, Opts)
     end.
 
 
@@ -325,21 +319,14 @@ count_users(Server) ->
 count_users(Server, Opts) ->
     case jid:nameprep(Server) of
         error -> 0;
-        LServer -> db_count_users(LServer, Opts, ejabberd_auth_halloapp)
+        LServer -> ejabberd_auth_halloapp:count_users(LServer, Opts)
     end.
 
 
 % this function is not implemented in the HA auth file, will always return false
 -spec get_password(binary(), binary()) -> false | password().
-get_password(User, Server) ->
-    case validate_credentials(User, Server) of
-        {ok, LUser, LServer} ->
-            case db_get_password(LUser, LServer, ejabberd_auth_halloapp) of
-                {ok, Password} -> Password;
-                error -> false
-            end;
-        _ -> false
-    end.
+get_password(_User, _Server) ->
+    false.
 
 
 % this function is not implemented in the HA auth file
@@ -355,11 +342,7 @@ get_password_s(User, Server) ->
 -spec get_password_with_authmodule(binary(), binary()) -> {false | password(), module()}.
 get_password_with_authmodule(User, Server) ->
     case validate_credentials(User, Server) of
-        {ok, LUser, LServer} ->
-            case {db_get_password(LUser, LServer, ejabberd_auth_halloapp), ejabberd_auth_halloapp} of
-                    {{ok, Password}, Module} -> {Password, Module};
-                    {error, Module} -> {false, Module}
-            end;
+        {ok, _LUser, _LServer} -> {false, ejabberd_auth_halloapp};
         _ -> {false, undefined}
     end.
 
@@ -371,7 +354,7 @@ user_exists(_User, <<"">>) ->
 user_exists(User, Server) ->
     case validate_credentials(User, Server) of
         {ok, LUser, LServer} ->
-            case db_user_exists(LUser, LServer, ejabberd_auth_halloapp) of
+            case ejabberd_auth_halloapp:user_exists(LUser, LServer) of
                 {error, _} -> false;
                 Else -> Else
             end;
@@ -425,7 +408,7 @@ remove_user(User, Server) ->
     case validate_credentials(User, Server) of
         {ok, LUser, LServer} ->
             ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]),
-            db_remove_user(LUser, LServer, ejabberd_auth_halloapp);
+            ejabberd_auth_halloapp:remove_user(LUser, LServer);
         _Err -> ok
     end.
 
@@ -440,13 +423,9 @@ remove_user(User, Server, Password) ->
     case validate_credentials(User, Server, Password) of
         {ok, LUser, LServer} ->
             case
-                case db_check_password(
-                        LUser, <<"">>, LServer, Password, <<"">>, undefined, ejabberd_auth_halloapp)
-                of
-                    true -> db_remove_user(LUser, LServer, ejabberd_auth_halloapp);
-                    {stop, true} -> db_remove_user(LUser, LServer, ejabberd_auth_halloapp);
-                    false -> {error, not_allowed};
-                    {stop, false} -> {error, not_allowed}
+                case ejabberd_auth_halloapp:check_password(LUser, <<"">>, LServer, Password) of
+                    true -> ejabberd_auth_halloapp:remove_user(LUser, LServer);
+                    false -> {error, not_allowed}
                 end
             of
                 ok -> ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]);
@@ -492,165 +471,8 @@ password_format(LServer) ->
 
 
 %%%----------------------------------------------------------------------
-%%% Backend calls
-%%%----------------------------------------------------------------------
-
--spec db_try_register(binary(), binary(), password(), module()) -> ok |
-        {error, exists | db_failure | not_allowed}.
-db_try_register(User, Server, Password, Mod) ->
-    case erlang:function_exported(Mod, try_register, 3) of
-        true ->
-            Password1 = case Mod:store_type(Server) of
-                scram -> password_to_scram(Password);
-                _ -> Password
-            end,
-            case Mod:try_register(User, Server, Password1) of
-                {ok, _, _} -> ok;
-                {error, _} = Err -> Err
-            end;
-        false -> {error, not_allowed}
-    end.
-
-
--spec db_set_password(binary(), binary(), password(), module()) -> ok | {error, db_failure | not_allowed}.
-db_set_password(User, Server, Password, Mod) ->
-    case erlang:function_exported(Mod, set_password, 3) of
-        true ->
-            Password1 = case Mod:store_type(Server) of
-                scram -> password_to_scram(Password);
-                _ -> Password
-            end,
-            case Mod:set_password(User, Server, Password1) of
-                {ok, _} -> ok;
-                {error, _} = Err -> Err
-            end;
-        false -> {error, not_allowed}
-    end.
-
-
-% will always return error, HA auth file has no get_password/2 function
-db_get_password(User, Server, Mod) ->
-    case erlang:function_exported(Mod, get_password, 2) of
-        false -> error;
-        true -> Mod:get_password(User, Server)
-    end.
-
-
-% TODO: unnest case statements; first one will always error (see above)
-db_user_exists(User, Server, Mod) ->
-    case db_get_password(User, Server, Mod) of
-        {ok, _} -> true;
-        error ->
-            case Mod:store_type(Server) of
-                external -> Mod:user_exists(User, Server);
-                _ -> false
-            end
-    end.
-
-% TODO: unnest case statements; first one will always error (see above)
-db_check_password(User, AuthzId, Server, ProvidedPassword, Digest, DigestFun, Mod) ->
-    case db_get_password(User, Server, Mod) of
-        {ok, ValidPassword} -> match_passwords(ProvidedPassword, ValidPassword, Digest, DigestFun);
-        error ->
-            case Mod:store_type(Server) of
-                external -> Mod:check_password(User, AuthzId, Server, ProvidedPassword);
-                _ -> false
-            end
-    end.
-
-
-% HA auth:remove_user/2 always returns ok
-db_remove_user(User, Server, Mod) ->
-    case erlang:function_exported(Mod, remove_user, 2) of
-        true ->
-            case Mod:remove_user(User, Server) of
-                ok -> ok;
-                {error, _} = Err -> Err
-            end;
-        false -> {error, not_allowed}
-    end.
-
-
-% unimplemented in HA auth file
-db_get_users(Server, Opts, Mod) ->
-    case erlang:function_exported(Mod, get_users, 2) of
-        true -> Mod:get_users(Server, Opts);
-        false -> []
-    end.
-
-% unimplemented in HA auth file
-db_count_users(Server, Opts, Mod) ->
-    case erlang:function_exported(Mod, count_users, 2) of
-        true -> Mod:count_users(Server, Opts);
-        false -> 0
-    end.
-
-%%%----------------------------------------------------------------------
-%%% SCRAM stuff
-%%%----------------------------------------------------------------------
-
-is_password_scram_valid(Password, Scram) ->
-    case jid:resourceprep(Password) of
-        error -> false;
-        _ ->
-            IterationCount = Scram#scram.iterationcount,
-            Salt = base64:decode(Scram#scram.salt),
-            SaltedPassword = scram:salted_password(Password, Salt, IterationCount),
-            StoredKey = scram:stored_key(scram:client_key(SaltedPassword)),
-            base64:decode(Scram#scram.storedkey) == StoredKey
-    end.
-
-
-password_to_scram(Password) ->
-    password_to_scram(Password, ?SCRAM_DEFAULT_ITERATION_COUNT).
-
-password_to_scram(#scram{} = Password, _IterationCount) ->
-    Password;
-
-password_to_scram(Password, IterationCount) ->
-    Salt = p1_rand:bytes(?SALT_LENGTH),
-    SaltedPassword = scram:salted_password(Password, Salt, IterationCount),
-    StoredKey = scram:stored_key(scram:client_key(SaltedPassword)),
-    ServerKey = scram:server_key(SaltedPassword),
-    #scram{storedkey = base64:encode(StoredKey),
-        serverkey = base64:encode(ServerKey),
-        salt = base64:encode(Salt),
-        iterationcount = IterationCount}.
-
-
-%%%----------------------------------------------------------------------
 %%% Internal functions
 %%%----------------------------------------------------------------------
-
-
--spec match_passwords(password(), password(), binary(), digest_fun() | undefined) -> boolean().
-match_passwords(Password, #scram{} = Scram, <<"">>, undefined) ->
-    is_password_scram_valid(Password, Scram);
-
-match_passwords(Password, #scram{} = Scram, Digest, DigestFun) ->
-    StoredKey = base64:decode(Scram#scram.storedkey),
-    DigRes = if
-        Digest /= <<"">> -> Digest == DigestFun(StoredKey);
-        true -> false
-    end,
-    if DigRes ->
-        true;
-        true -> StoredKey == Password andalso Password /= <<"">>
-    end;
-
-match_passwords(ProvidedPassword, ValidPassword, <<"">>, undefined) ->
-    ProvidedPassword == ValidPassword andalso ProvidedPassword /= <<"">>;
-
-match_passwords(ProvidedPassword, ValidPassword, Digest, DigestFun) ->
-    DigRes = if
-        Digest /= <<"">> -> Digest == DigestFun(ValidPassword);
-        true -> false
-    end,
-    if DigRes ->
-        true;
-        true -> ValidPassword == ProvidedPassword andalso ProvidedPassword /= <<"">>
-    end.
-
 
 -spec validate_credentials(binary(), binary()) -> {ok, binary(), binary()} | {error, invalid_jid}.
 validate_credentials(User, Server) ->
@@ -678,10 +500,6 @@ validate_credentials(User, Server, Password) ->
                     end
             end
     end.
-
-
-untag_stop({stop, Val}) -> Val;
-untag_stop(Val) -> Val.
 
 
 import_info() ->

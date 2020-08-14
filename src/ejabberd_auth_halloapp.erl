@@ -114,9 +114,7 @@ get_users(_Server, _Opt) ->
 
 -spec count_users(Server :: binary(), Options :: any()) -> integer().
 count_users(_Server, _) ->
-    % TODO: implement user counter in redis
-    ?ERROR_MSG("Unimplemented", []),
-    0.
+    model_accounts:count_accounts().
 
 
 % TODO: API is not great. The model return makes more sense
