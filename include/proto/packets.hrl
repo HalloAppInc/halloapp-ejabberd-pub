@@ -26,7 +26,7 @@
 -ifndef('PB_IQ_PAYLOAD_PB_H').
 -define('PB_IQ_PAYLOAD_PB_H', true).
 -record(pb_iq_payload,
-        {content                :: {upload_media, packets:pb_upload_media()} | {contact_list, packets:pb_contact_list()} | {upload_avatar, packets:pb_upload_avatar()} | {avatar, packets:pb_avatar()} | {avatars, packets:pb_avatars()} | {client_mode, packets:pb_client_mode()} | {client_version, packets:pb_client_version()} | {push_register, packets:pb_push_register()} | {whisper_keys, packets:pb_whisper_keys()} | {ping, packets:pb_ping()} | {feed_item, packets:pb_feed_item()} | {privacy_list, packets:pb_privacy_list()} | {privacy_list_result, packets:pb_privacy_list_result()} | {privacy_lists, packets:pb_privacy_lists()} | {group_stanza, packets:pb_group_stanza()} | undefined % oneof
+        {content                :: {upload_media, packets:pb_upload_media()} | {contact_list, packets:pb_contact_list()} | {upload_avatar, packets:pb_upload_avatar()} | {avatar, packets:pb_avatar()} | {avatars, packets:pb_avatars()} | {client_mode, packets:pb_client_mode()} | {client_version, packets:pb_client_version()} | {push_register, packets:pb_push_register()} | {whisper_keys, packets:pb_whisper_keys()} | {ping, packets:pb_ping()} | {feed_item, packets:pb_feed_item()} | {privacy_list, packets:pb_privacy_list()} | {privacy_list_result, packets:pb_privacy_list_result()} | {privacy_lists, packets:pb_privacy_lists()} | {group_stanza, packets:pb_group_stanza()} | {client_log, packets:pb_client_log()} | undefined % oneof
         }).
 -endif.
 
@@ -368,6 +368,40 @@
          sender_name = <<>>     :: iodata() | undefined, % = 5
          timestamp = 0          :: integer() | undefined, % = 6, 64 bits
          payload = <<>>         :: iodata() | undefined % = 7
+        }).
+-endif.
+
+-ifndef('PB_CLIENT_LOG_PB_H').
+-define('PB_CLIENT_LOG_PB_H', true).
+-record(pb_client_log,
+        {counts = []            :: [packets:pb_count()] | undefined, % = 1
+         events = []            :: [packets:pb_event()] | undefined % = 2
+        }).
+-endif.
+
+-ifndef('PB_COUNT_PB_H').
+-define('PB_COUNT_PB_H', true).
+-record(pb_count,
+        {namespace = <<>>       :: iodata() | undefined, % = 1
+         metric = <<>>          :: iodata() | undefined, % = 2
+         count = 0              :: integer() | undefined, % = 3, 64 bits
+         dims = []              :: [packets:pb_dim()] | undefined % = 4
+        }).
+-endif.
+
+-ifndef('PB_EVENT_PB_H').
+-define('PB_EVENT_PB_H', true).
+-record(pb_event,
+        {namespace = <<>>       :: iodata() | undefined, % = 1
+         event = <<>>           :: iodata() | undefined % = 2
+        }).
+-endif.
+
+-ifndef('PB_DIM_PB_H').
+-define('PB_DIM_PB_H', true).
+-record(pb_dim,
+        {name = <<>>            :: iodata() | undefined, % = 1
+         value = <<>>           :: iodata() | undefined % = 2
         }).
 -endif.
 

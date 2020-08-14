@@ -12,6 +12,7 @@ import "push.proto";
 import "privacy_list.proto";
 import "client_info.proto";
 import "group_stanzas.proto";
+import "client_log.proto";
 
 
 // Chat
@@ -50,6 +51,7 @@ message iq_payload {
         privacy_list_result privacy_list_result = 13;
         privacy_lists privacy_lists = 14;
         group_stanza group_stanza = 15;
+        client_log client_log = 16;
     }
 }
 

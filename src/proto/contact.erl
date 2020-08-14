@@ -214,9 +214,9 @@ encode_msg_pb_contact_hash(#pb_contact_hash{hash = F1}, Bin, TrUserData) ->
        true ->
 	   begin
 	     TrF1 = id(F1, TrUserData),
-	     case is_empty_string(TrF1) of
-	       true -> Bin;
-	       false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
+	     case iolist_size(TrF1) of
+	       0 -> Bin;
+	       _ -> e_type_bytes(TrF1, <<Bin/binary, 10>>, TrUserData)
 	     end
 	   end
     end.
@@ -733,7 +733,7 @@ v_msg_pb_contact_list(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_c
 -dialyzer({nowarn_function,v_msg_pb_contact_hash/3}).
 v_msg_pb_contact_hash(#pb_contact_hash{hash = F1}, Path, TrUserData) ->
     if F1 == undefined -> ok;
-       true -> v_type_string(F1, [hash | Path], TrUserData)
+       true -> v_type_bytes(F1, [hash | Path], TrUserData)
     end,
     ok;
 v_msg_pb_contact_hash(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_contact_hash}, X, Path).
@@ -796,6 +796,12 @@ v_type_string(S, Path, _TrUserData) when is_list(S); is_binary(S) ->
     end;
 v_type_string(X, Path, _TrUserData) -> mk_type_error(bad_unicode_string, X, Path).
 
+-compile({nowarn_unused_function,v_type_bytes/3}).
+-dialyzer({nowarn_function,v_type_bytes/3}).
+v_type_bytes(B, _Path, _TrUserData) when is_binary(B) -> ok;
+v_type_bytes(B, _Path, _TrUserData) when is_list(B) -> ok;
+v_type_bytes(X, Path, _TrUserData) -> mk_type_error(bad_binary_value, X, Path).
+
 -compile({nowarn_unused_function,mk_type_error/3}).
 -spec mk_type_error(_, _, list()) -> no_return().
 mk_type_error(Error, ValueSeen, Path) -> Path2 = prettify_path(Path), erlang:error({gpb_type_error, {Error, [{value, ValueSeen}, {path, Path2}]}}).
@@ -842,7 +848,7 @@ get_msg_defs() ->
       [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'pb_contact_list.Type'}, occurrence = optional, opts = []}, #field{name = sync_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
        #field{name = batch_index, fnum = 3, rnum = 4, type = int32, occurrence = optional, opts = []}, #field{name = is_last, fnum = 4, rnum = 5, type = bool, occurrence = optional, opts = []},
        #field{name = contacts, fnum = 5, rnum = 6, type = {msg, pb_contact}, occurrence = repeated, opts = []}]},
-     {{msg, pb_contact_hash}, [#field{name = hash, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}]}].
+     {{msg, pb_contact_hash}, [#field{name = hash, fnum = 1, rnum = 2, type = bytes, occurrence = optional, opts = []}]}].
 
 
 get_msg_names() -> [pb_contact, pb_contact_list, pb_contact_hash].
@@ -880,7 +886,7 @@ find_msg_def(pb_contact_list) ->
     [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'pb_contact_list.Type'}, occurrence = optional, opts = []}, #field{name = sync_id, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
      #field{name = batch_index, fnum = 3, rnum = 4, type = int32, occurrence = optional, opts = []}, #field{name = is_last, fnum = 4, rnum = 5, type = bool, occurrence = optional, opts = []},
      #field{name = contacts, fnum = 5, rnum = 6, type = {msg, pb_contact}, occurrence = repeated, opts = []}];
-find_msg_def(pb_contact_hash) -> [#field{name = hash, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}];
+find_msg_def(pb_contact_hash) -> [#field{name = hash, fnum = 1, rnum = 2, type = bytes, occurrence = optional, opts = []}];
 find_msg_def(_) -> error.
 
 
