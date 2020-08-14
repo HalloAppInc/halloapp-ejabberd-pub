@@ -502,13 +502,13 @@ get_commands_spec() ->
 		module = ?MODULE, function = uid_info,
 		args_desc = ["Account UID"],
 		args_example = [<<"1000000024384563984">>],
-		args=[{uid, binary}]},
+		args=[{uid, binary}], result = {res, rescode}},
 	#ejabberd_commands{name = phone_info, tags = [server],
 		desc = "Get information associated with a phone number",
 		module = ?MODULE, function = phone_info,
 		args_desc = ["Phone number"],
 		args_example = [<<"12065555586">>],
-		args=[{phone, binary}]}
+		args=[{phone, binary}], result = {res, rescode}}
 	].
 
 
@@ -1126,7 +1126,8 @@ uid_info(Uid) ->
                 "  ~s (~s)~n",
                 [(model_groups:get_group_info(Gid))#group_info.name, Gid])
                 || Gid <- Gids]
-    end.
+    end,
+    ok.
 
 
 phone_info(Phone) ->
@@ -1135,7 +1136,8 @@ phone_info(Phone) ->
             io:format("No account associated with phone: ~s~n", [Phone]),
             invite_info(Phone);
         {ok, Uid} -> uid_info(Uid)
-    end.
+    end,
+    ok.
 
 
 invite_info(Phone) ->
@@ -1147,7 +1149,8 @@ invite_info(Phone) ->
             {ok, Name} = model_accounts:get_name(Uid),
             io:format("~s was invited by ~s (~s) on ~s at ~s.~n",
                 [Phone, Name, Uid, Day, Time])
-    end.
+    end,
+    ok.
 
 
 translate_time(Ms) ->
