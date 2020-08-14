@@ -38,7 +38,8 @@
     set_name/3,
     set_avatar/3,
     delete_avatar/2,
-    send_message/4
+    send_message/4,
+    broadcast_packet/4
 ]).
 
 -include("logger.hrl").
@@ -308,21 +309,29 @@ send_message(MsgId, Gid, Uid, MessagePayload) ->
             {ok, SenderName} = model_accounts:get_name(Uid),
             GroupMessage = make_message(GroupInfo, Uid, SenderName, MessagePayload, Ts),
             ?INFO_MSG("Fan Out MSG: ~p", [GroupMessage]),
-            MUids = model_groups:get_member_uids(Gid),
-            ReceiverUids = lists:delete(Uid, MUids),
             Server = util:get_host(),
-            Jids = util:uids_to_jids(ReceiverUids, Server),
-            From = jid:make(Uid, Server),
             Packet = #message{
                 id = MsgId,
                 type = groupchat,
                 sub_els = [GroupMessage]
             },
+            From = jid:make(Uid, Server),
+            MUids = model_groups:get_member_uids(Gid),	
+            ReceiverUids = lists:delete(Uid, MUids),
             stat:count(?STAT_NS, "send_im"),
             stat:count(?STAT_NS, "recv_im", length(ReceiverUids)),
-            ejabberd_router_multicast:route_multicast(From, Server, Jids, Packet),
+            broadcast_packet(From, Server, ReceiverUids, Packet),
             {ok, Ts}
     end.
+
+
+-spec broadcast_packet(From :: jid(), Server :: binary(), BroadcastUids :: [uid()],
+            Packet :: message() | chat_state()) -> ok.
+broadcast_packet(From, Server, BroadcastUids, Packet) ->
+    BroadcastJids = util:uids_to_jids(BroadcastUids, Server),
+    ?INFO_MSG("Uid: ~s, receiver uids: ~p", [From#jid.luser, BroadcastJids]),
+    ejabberd_router_multicast:route_multicast(From, Server, BroadcastJids, Packet),
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -570,10 +579,9 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     UidsToNotify = sets:from_list(Members ++ AdditionalUids),
     BroadcastUids = sets:to_list(UidsToNotify),
     Server = util:get_host(),
-    Jids = util:uids_to_jids(Members, Server),
     From = jid:make(Server),
     Packet = #message{type = groupchat, sub_els = [GroupSt]},
-    ejabberd_router_multicast:route_multicast(From, Server, Jids, Packet),
+    broadcast_packet(From, Server, BroadcastUids, Packet),
     ok.
 
 

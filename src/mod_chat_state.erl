@@ -93,12 +93,12 @@ process_chat_state(Packet, ThreadId) ->
 %% TODO: call send packet function from mod_groups once the function is ready
 -spec process_group_chat_state(Packet :: chat_state(), ThreadId :: binary()) -> ok.
 process_group_chat_state(Packet, ThreadId) ->
-    BroadcastUids = model_groups:get_member_uids(ThreadId),
     Server = util:get_host(),
-    BroadcastJids = util:uids_to_jids(BroadcastUids, Server),
     From = Packet#chat_state.from,
+    BroadcastUids = model_groups:get_member_uids(ThreadId),
     ?INFO_MSG("Uid: ~s, broadcast uids: ~p, type: ~s",
             [From#jid.luser, BroadcastUids, Packet#chat_state.type]),
-    ejabberd_router_multicast:route_multicast(From, Server, BroadcastJids, Packet),
+    mod_groups:broadcast_packet(From, Server, BroadcastUids, Packet),
     ok.
+
 
