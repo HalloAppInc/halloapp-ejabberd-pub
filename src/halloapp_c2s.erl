@@ -199,7 +199,8 @@ process_info(#{lserver := LServer} = State, {route, Packet}) ->
         #presence{} -> process_presence_in(State, Packet);
         #message{} -> process_message_in(State, Packet);
         #iq{} -> process_iq_in(State, Packet);
-        #ack{} -> {true, State}
+        #ack{} -> {true, State};
+        #chat_state{} -> {true, State}
     end,
     if
         Pass ->
@@ -368,6 +369,8 @@ handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
     #presence{} ->
         process_presence(State2, Pkt2);
     #ack{} ->
+        State2;
+    #chat_state{} ->
         State2;
     _ ->
         check_privacy_then_route(State2, Pkt2)

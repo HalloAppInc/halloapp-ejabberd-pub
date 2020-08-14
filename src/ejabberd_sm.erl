@@ -759,6 +759,20 @@ do_route(#iq{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
 	    ejabberd_hooks:run_fold(bounce_sm_packet,
 				    To#jid.lserver, {pass, Packet}, [])
     end;
+do_route(#chat_state{to = #jid{lresource = <<"">>} = To, type = T} = Packet)
+                                            when T == available; T == typing ->
+    ?DEBUG("Processing chat_state to bare JID:~n~ts", [xmpp:pp(Packet)]),
+    {LUser, LServer, _} = jid:tolower(To),
+    case check_if_user_is_available(LUser, LServer) of
+        true ->
+            lists:foreach(
+                fun({_, R}) ->
+                    do_route(Packet#chat_state{to = jid:replace_resource(To, R)})
+                end, 
+                get_user_present_resources(LUser, LServer));
+        false ->
+            ok
+    end;
 do_route(Packet) ->
     ?DEBUG("Processing packet to full JID:~n~ts", [xmpp:pp(Packet)]),
     To = xmpp:get_to(Packet),
@@ -773,6 +787,9 @@ do_route(Packet) ->
 		    ejabberd_hooks:run_fold(bounce_sm_packet,
 					    LServer, {pass, Packet}, []);
 		#presence{} ->
+		    ejabberd_hooks:run_fold(bounce_sm_packet,
+					    LServer, {pass, Packet}, []);
+		#chat_state{} ->
 		    ejabberd_hooks:run_fold(bounce_sm_packet,
 					    LServer, {pass, Packet}, []);
 		_ ->
