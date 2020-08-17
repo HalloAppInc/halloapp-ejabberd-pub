@@ -274,7 +274,7 @@ process_delete_avatar(IQ, Gid, Uid) ->
     case mod_groups:delete_avatar(Gid, Uid) of
         {error, Reason} ->
             xmpp:make_error(IQ, util:err(Reason));
-        ok ->
+        {ok, _GroupName} ->
             xmpp:make_iq_result(IQ)
     end.
 
@@ -285,11 +285,12 @@ process_set_avatar(IQ, Gid, Uid, Base64Data) ->
         {error, Reason} ->
             ?WARNING_MSG("Gid: ~s Uid ~s setting avatar failed ~p", [Gid, Uid, Reason]),
             xmpp:make_error(IQ, util:err(Reason));
-        {ok, AvatarId} ->
+        {ok, AvatarId, GroupName} ->
             ?INFO_MSG("Gid: ~s Uid: ~s Successfully set avatar ~s",
                 [Gid, Uid, AvatarId]),
             GroupSt = #group_st{
                 gid = Gid,
+                name = GroupName,
                 avatar = AvatarId
             },
             xmpp:make_iq_result(IQ, GroupSt)
@@ -297,7 +298,7 @@ process_set_avatar(IQ, Gid, Uid, Base64Data) ->
 
 
 -spec set_avatar(Gid :: gid(), Uid :: uid(), Base64Data :: binary()) ->
-        {ok, AvatarId :: binary()} | {error, atom()}.
+        {ok, AvatarId :: binary(), GroupName :: binary()} | {error, atom()}.
 set_avatar(Gid, Uid, Base64Data) ->
     case model_groups:check_member(Gid, Uid) of
         false -> {error, not_member};
@@ -305,10 +306,7 @@ set_avatar(Gid, Uid, Base64Data) ->
             case mod_user_avatar:check_and_upload_avatar(Base64Data) of
                 {error, Reason} -> {error, Reason};
                 {ok, AvatarId} ->
-                    case mod_groups:set_avatar(Gid, Uid, AvatarId) of
-                        {error, Reason} -> {error, Reason};
-                        ok -> {ok, AvatarId}
-                    end
+                    mod_groups:set_avatar(Gid, Uid, AvatarId)
             end
     end.
 

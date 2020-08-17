@@ -270,7 +270,7 @@ set_avatar_test() ->
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
     ?assertEqual(undefined, Group#group.avatar),
-    ?assertEqual(ok, mod_groups:set_avatar(Gid, ?UID1, ?AVATAR1)),
+    ?assertEqual({ok, ?AVATAR1, ?GROUP_NAME1}, mod_groups:set_avatar(Gid, ?UID1, ?AVATAR1)),
     {ok, GroupNew} = mod_groups:get_group(Gid, ?UID1),
     ?assertEqual(?AVATAR1, GroupNew#group.avatar),
     ok.
@@ -280,10 +280,10 @@ delete_avatar_test() ->
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
     ?assertEqual(undefined, Group#group.avatar),
-    ?assertEqual(ok, mod_groups:set_avatar(Gid, ?UID1, ?AVATAR1)),
+    ?assertEqual({ok, ?AVATAR1, ?GROUP_NAME1}, mod_groups:set_avatar(Gid, ?UID1, ?AVATAR1)),
     {ok, GroupNew} = mod_groups:get_group(Gid, ?UID1),
     ?assertEqual(?AVATAR1, GroupNew#group.avatar),
-    ?assertEqual(ok, mod_groups:delete_avatar(Gid, ?UID1)),
+    ?assertEqual({ok, ?GROUP_NAME1}, mod_groups:delete_avatar(Gid, ?UID1)),
     {ok, GroupNew2} = mod_groups:get_group(Gid, ?UID1),
     ?assertEqual(undefined, GroupNew2#group.avatar),
     ok.

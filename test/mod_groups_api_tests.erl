@@ -75,6 +75,26 @@ leave_group_IQ(Uid, Gid) ->
     make_group_IQ(Uid, Gid, set, leave, []).
 
 
+set_avatar_IQ(Uid, Gid) ->
+    avatar_IQ(Uid, Gid, ?IMAGE1).
+
+
+delete_avatar_IQ(Uid, Gid) ->
+    avatar_IQ(Uid, Gid, <<>>).
+
+
+avatar_IQ(Uid, Gid, Cdata) ->
+    #iq{
+        from = #jid{luser = Uid},
+        type = set,
+        sub_els = [
+            #group_avatar{
+                gid =  Gid,
+                cdata = Cdata
+            }]
+    }.
+
+
 set_name_IQ(Uid, Gid, Name) ->
     #iq{
         from = #jid{luser = Uid},
@@ -388,3 +408,59 @@ leave_group_test() ->
     ?assertEqual([], IQRes#iq.sub_els),
     ok.
 
+
+set_avatar_test() ->
+    setup(),
+    meck:new(mod_user_avatar, [passthrough]),
+    meck:expect(mod_user_avatar, check_and_upload_avatar, fun (_) -> {ok, ?AVATAR1} end),
+
+    Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    IQ = set_avatar_IQ(?UID2, Gid),
+    IQRes = mod_groups_api:process_local_iq(IQ),
+    ?assertEqual(result, IQRes#iq.type),
+    ?assertEqual([#group_st{
+        gid = Gid,
+        name = ?GROUP_NAME1,
+        avatar = ?AVATAR1
+    }], IQRes#iq.sub_els),
+
+    GroupInfo = model_groups:get_group_info(Gid),
+    ?assertEqual(?AVATAR1, GroupInfo#group_info.avatar),
+
+    ?assert(meck:validate(mod_user_avatar)),
+    meck:unload(mod_user_avatar),
+    ok.
+
+
+delete_avatar_test() ->
+    setup(),
+    meck:new(mod_user_avatar, [passthrough]),
+    meck:expect(mod_user_avatar, check_and_upload_avatar, fun (_) -> {ok, ?AVATAR1} end),
+    meck:expect(mod_user_avatar, delete_avatar_s3, fun (_) -> ok end),
+
+    % First create the group and set the avatar
+    Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    IQ = set_avatar_IQ(?UID2, Gid),
+    IQRes = mod_groups_api:process_local_iq(IQ),
+    ?assertEqual(result, IQRes#iq.type),
+    ?assertEqual([#group_st{
+        gid = Gid,
+        name = ?GROUP_NAME1,
+        avatar = ?AVATAR1
+    }], IQRes#iq.sub_els),
+
+    GroupInfo = model_groups:get_group_info(Gid),
+    ?assertEqual(?AVATAR1, GroupInfo#group_info.avatar),
+
+    % Now try to delete it
+    IQ2 = delete_avatar_IQ(?UID2, Gid),
+    IQRes2 = mod_groups_api:process_local_iq(IQ2),
+    ?assertEqual(result, IQRes2#iq.type),
+    ?assertEqual([], IQRes2#iq.sub_els),
+
+    GroupInfo2 = model_groups:get_group_info(Gid),
+    ?assertEqual(undefined, GroupInfo2#group_info.avatar),
+
+    ?assert(meck:validate(mod_user_avatar)),
+    meck:unload(mod_user_avatar),
+    ok.

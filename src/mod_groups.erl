@@ -258,7 +258,8 @@ set_name(Gid, Uid, Name) ->
     end.
 
 
--spec set_avatar(Gid :: gid(), Uid :: uid(), AvatarId :: binary()) -> ok | {error, not_member}.
+-spec set_avatar(Gid :: gid(), Uid :: uid(), AvatarId :: binary()) ->
+        {ok, AvatarId :: binary(), GroupName :: binary()} | {error, not_member}.
 set_avatar(Gid, Uid, AvatarId) ->
     ?INFO_MSG("Gid: ~s Uid: ~s setting avatar to ~s", [Gid, Uid, AvatarId]),
     case model_groups:check_member(Gid, Uid) of
@@ -267,16 +268,18 @@ set_avatar(Gid, Uid, AvatarId) ->
             ?WARNING_MSG("Gid: ~s, Uid: ~s is not member", [Gid, Uid]),
             {error, not_member};
         true ->
-            ok = clean_old_avatar(Gid),
+            GroupInfo = model_groups:get_group_info(Gid),
+            ok = clean_old_avatar(GroupInfo#group_info.avatar),
             ok = model_groups:set_avatar(Gid, AvatarId),
             ?INFO_MSG("Gid: ~s Uid: ~s set avatar to ~s", [Gid, Uid, AvatarId]),
             stat:count(?STAT_NS, "set_avatar"),
             send_change_avatar_event(Gid, Uid),
-            ok
+            {ok, AvatarId, GroupInfo#group_info.name}
     end.
 
 
--spec delete_avatar(Gid :: gid(), Uid :: uid()) -> ok | {error, not_member}.
+-spec delete_avatar(Gid :: gid(), Uid :: uid()) ->
+        {ok, GroupName :: binary()} | {error, not_member}.
 delete_avatar(Gid, Uid) ->
     ?INFO_MSG("Gid: ~s Uid: ~s deleting avatar", [Gid, Uid]),
     case model_groups:check_member(Gid, Uid) of
@@ -285,11 +288,12 @@ delete_avatar(Gid, Uid) ->
             ?WARNING_MSG("Gid: ~s, Uid: ~s is not member", [Gid, Uid]),
             {error, not_member};
         true ->
-            ok = clean_old_avatar(Gid),
+            GroupInfo = model_groups:get_group_info(Gid),
+            ok = clean_old_avatar(GroupInfo#group_info.avatar),
             ok = model_groups:delete_avatar(Gid),
             ?INFO_MSG("Gid: ~s Uid: ~s deleted avatar", [Gid, Uid]),
             stat:count(?STAT_NS, "delete_avatar"),
-            ok
+            {ok, GroupInfo#group_info.name}
     end.
 
 
@@ -638,10 +642,9 @@ log_stats(API, Results) ->
 
 
 % TODO: remember to delete the avatar when the group gets deleted
--spec clean_old_avatar(Gid :: gid()) -> ok.
-clean_old_avatar(Gid) ->
-    GroupInfo = model_groups:get_group_info(Gid),
+-spec clean_old_avatar(AvatarId :: binary()) -> ok.
+clean_old_avatar(AvatarId) ->
     % this function already logs the error.
-    mod_user_avatar:delete_avatar_s3(GroupInfo#group_info.avatar),
+    mod_user_avatar:delete_avatar_s3(AvatarId),
     ok.
 

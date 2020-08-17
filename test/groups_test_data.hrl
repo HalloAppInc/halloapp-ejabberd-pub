@@ -37,3 +37,4 @@
 
 -define(MSG_ID1, <<"MessageId1">>).
 
+-define(IMAGE1, <<"/9j/4AAQSkZJRgABAQEAYABgAAA=">>).
