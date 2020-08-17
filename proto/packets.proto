@@ -9,6 +9,7 @@ import "receipts.proto";
 import "feed_items.proto";
 import "whisper_keys.proto";
 import "push.proto";
+import "privacy_list.proto";
 import "client_info.proto";
 
 
@@ -46,6 +47,9 @@ message iq_payload {
         feed_item feed_item = 11;
         share_feed_requests share_feed_requests = 12;
         share_feed_responses share_feed_responses = 13;
+        privacy_list privacy_list = 14;
+        privacy_list_result privacy_list_result = 15;
+        privacy_lists privacy_lists = 16;
     }
 }
 

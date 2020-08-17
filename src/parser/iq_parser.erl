@@ -63,6 +63,18 @@ iq_payload_mapping(SubEl) ->
                     {share_feed_responses, ProtoEl};
                 Action when Action =:= publish; Action =:= retract ->
                     {feed_item, ProtoEl}
+            end;
+        user_privacy_list ->
+            {privacy_list, privacy_list_parser:xmpp_to_proto(SubEl)};
+        user_privacy_lists ->
+            {privacy_lists, privacy_list_parser:xmpp_to_proto(SubEl)};
+        error_st ->
+            case SubEl#error_st.hash =:= undefined of
+                true ->
+                    %% TODO(murali@): add error_parser separately.
+                    ok;
+                false ->
+                    {privacy_list_result, privacy_list_parser:xmpp_to_proto(SubEl)}
             end
     end,
     Payload.
@@ -110,7 +122,11 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
         {share_feed_requests, ShareFeedRecord} ->
             feed_parser:proto_to_xmpp(ShareFeedRecord);
         {feed_item, FeedItemRecord} ->
-            feed_parser:proto_to_xmpp(FeedItemRecord)
+            feed_parser:proto_to_xmpp(FeedItemRecord);
+        {privacy_list, PrivacyListRecord} ->
+            privacy_list_parser:proto_to_xmpp(PrivacyListRecord);
+        {privacy_lists, PrivacyListsRecord} ->
+            privacy_list_parser:proto_to_xmpp(PrivacyListsRecord)
     end,
     SubEl.
 

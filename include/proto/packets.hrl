@@ -26,7 +26,7 @@
 -ifndef('PB_IQ_PAYLOAD_PB_H').
 -define('PB_IQ_PAYLOAD_PB_H', true).
 -record(pb_iq_payload,
-        {content                :: {upload_media, packets:pb_upload_media()} | {contact_list, packets:pb_contact_list()} | {upload_avatar, packets:pb_upload_avatar()} | {avatar, packets:pb_avatar()} | {avatars, packets:pb_avatars()} | {client_mode, packets:pb_client_mode()} | {client_version, packets:pb_client_version()} | {push_register, packets:pb_push_register()} | {whisper_keys, packets:pb_whisper_keys()} | {ping, packets:pb_ping()} | {feed_item, packets:pb_feed_item()} | {share_feed_requests, packets:pb_share_feed_requests()} | {share_feed_responses, packets:pb_share_feed_responses()} | undefined % oneof
+        {content                :: {upload_media, packets:pb_upload_media()} | {contact_list, packets:pb_contact_list()} | {upload_avatar, packets:pb_upload_avatar()} | {avatar, packets:pb_avatar()} | {avatars, packets:pb_avatars()} | {client_mode, packets:pb_client_mode()} | {client_version, packets:pb_client_version()} | {push_register, packets:pb_push_register()} | {whisper_keys, packets:pb_whisper_keys()} | {ping, packets:pb_ping()} | {feed_item, packets:pb_feed_item()} | {share_feed_requests, packets:pb_share_feed_requests()} | {share_feed_responses, packets:pb_share_feed_responses()} | {privacy_list, packets:pb_privacy_list()} | {privacy_list_result, packets:pb_privacy_list_result()} | {privacy_lists, packets:pb_privacy_lists()} | undefined % oneof
         }).
 -endif.
 
@@ -315,6 +315,40 @@
 -define('PB_PUSH_REGISTER_PB_H', true).
 -record(pb_push_register,
         {push_token = undefined :: packets:pb_push_token() | undefined % = 1
+        }).
+-endif.
+
+-ifndef('PB_UID_ELEMENT_PB_H').
+-define('PB_UID_ELEMENT_PB_H', true).
+-record(pb_uid_element,
+        {action = add           :: add | delete | integer() | undefined, % = 1, enum pb_uid_element.Action
+         uid = 0                :: integer() | undefined % = 2, 64 bits
+        }).
+-endif.
+
+-ifndef('PB_PRIVACY_LIST_PB_H').
+-define('PB_PRIVACY_LIST_PB_H', true).
+-record(pb_privacy_list,
+        {type = all             :: all | block | except | mute | only | integer() | undefined, % = 1, enum pb_privacy_list.Type
+         uid_elements = []      :: [packets:pb_uid_element()] | undefined, % = 2
+         hash = <<>>            :: iodata() | undefined % = 3
+        }).
+-endif.
+
+-ifndef('PB_PRIVACY_LIST_RESULT_PB_H').
+-define('PB_PRIVACY_LIST_RESULT_PB_H', true).
+-record(pb_privacy_list_result,
+        {result = <<>>          :: iodata() | undefined, % = 1
+         reason = <<>>          :: iodata() | undefined, % = 2
+         hash = <<>>            :: iodata() | undefined % = 3
+        }).
+-endif.
+
+-ifndef('PB_PRIVACY_LISTS_PB_H').
+-define('PB_PRIVACY_LISTS_PB_H', true).
+-record(pb_privacy_lists,
+        {active_type = all      :: all | block | except | integer() | undefined, % = 1, enum pb_privacy_lists.Type
+         lists = []             :: [packets:pb_privacy_list()] | undefined % = 2
         }).
 -endif.
 

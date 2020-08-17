@@ -27,6 +27,9 @@
 -export(['enum_symbol_by_value_pb_feed_item.Action'/1, 'enum_value_by_symbol_pb_feed_item.Action'/1]).
 -export(['enum_symbol_by_value_pb_whisper_keys.Action'/1, 'enum_value_by_symbol_pb_whisper_keys.Action'/1]).
 -export(['enum_symbol_by_value_pb_push_token.Os'/1, 'enum_value_by_symbol_pb_push_token.Os'/1]).
+-export(['enum_symbol_by_value_pb_uid_element.Action'/1, 'enum_value_by_symbol_pb_uid_element.Action'/1]).
+-export(['enum_symbol_by_value_pb_privacy_list.Type'/1, 'enum_value_by_symbol_pb_privacy_list.Type'/1]).
+-export(['enum_symbol_by_value_pb_privacy_lists.Type'/1, 'enum_value_by_symbol_pb_privacy_lists.Type'/1]).
 -export([get_service_names/0]).
 -export([get_service_def/1]).
 -export([get_rpc_names/1]).
@@ -70,7 +73,10 @@
 -type 'pb_feed_item.Action'() :: publish | retract.
 -type 'pb_whisper_keys.Action'() :: normal | add | count | get | set | update.
 -type 'pb_push_token.Os'() :: android | ios | ios_dev.
--export_type(['pb_ha_iq.Type'/0, 'pb_ha_message.Type'/0, 'pb_ha_presence.Type'/0, 'pb_client_mode.Mode'/0, 'pb_contact.Action'/0, 'pb_contact.Role'/0, 'pb_contact_list.Type'/0, 'pb_audience.Type'/0, 'pb_feed_item.Action'/0, 'pb_whisper_keys.Action'/0, 'pb_push_token.Os'/0]).
+-type 'pb_uid_element.Action'() :: add | delete.
+-type 'pb_privacy_list.Type'() :: all | block | except | mute | only.
+-type 'pb_privacy_lists.Type'() :: all | block | except.
+-export_type(['pb_ha_iq.Type'/0, 'pb_ha_message.Type'/0, 'pb_ha_presence.Type'/0, 'pb_client_mode.Mode'/0, 'pb_contact.Action'/0, 'pb_contact.Role'/0, 'pb_contact_list.Type'/0, 'pb_audience.Type'/0, 'pb_feed_item.Action'/0, 'pb_whisper_keys.Action'/0, 'pb_push_token.Os'/0, 'pb_uid_element.Action'/0, 'pb_privacy_list.Type'/0, 'pb_privacy_lists.Type'/0]).
 
 %% message types
 -type pb_chat() :: #pb_chat{}.
@@ -145,16 +151,24 @@
 
 -type pb_push_register() :: #pb_push_register{}.
 
--export_type(['pb_chat'/0, 'pb_ping'/0, 'pb_iq_payload'/0, 'pb_msg_payload'/0, 'pb_ha_iq'/0, 'pb_ha_message'/0, 'pb_ha_presence'/0, 'pb_ha_ack'/0, 'pb_ha_error'/0, 'pb_packet'/0, 'pb_auth_request'/0, 'pb_auth_result'/0, 'pb_client_mode'/0, 'pb_client_version'/0, 'pb_upload_avatar'/0, 'pb_avatar'/0, 'pb_avatars'/0, 'pb_media_url'/0, 'pb_upload_media'/0, 'pb_contact'/0, 'pb_contact_list'/0, 'pb_contact_hash'/0, 'pb_seen_receipt'/0, 'pb_delivery_receipt'/0, 'pb_audience'/0, 'pb_post'/0, 'pb_comment'/0, 'pb_feed_item'/0, 'pb_feed_items'/0, 'pb_share_feed_request'/0, 'pb_share_feed_requests'/0, 'pb_share_feed_response'/0, 'pb_share_feed_responses'/0, 'pb_whisper_keys'/0, 'pb_push_token'/0, 'pb_push_register'/0]).
+-type pb_uid_element() :: #pb_uid_element{}.
 
--spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_contact_hash{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_audience{} | #pb_post{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_items{} | #pb_share_feed_request{} | #pb_share_feed_requests{} | #pb_share_feed_response{} | #pb_share_feed_responses{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}) -> binary().
+-type pb_privacy_list() :: #pb_privacy_list{}.
+
+-type pb_privacy_list_result() :: #pb_privacy_list_result{}.
+
+-type pb_privacy_lists() :: #pb_privacy_lists{}.
+
+-export_type(['pb_chat'/0, 'pb_ping'/0, 'pb_iq_payload'/0, 'pb_msg_payload'/0, 'pb_ha_iq'/0, 'pb_ha_message'/0, 'pb_ha_presence'/0, 'pb_ha_ack'/0, 'pb_ha_error'/0, 'pb_packet'/0, 'pb_auth_request'/0, 'pb_auth_result'/0, 'pb_client_mode'/0, 'pb_client_version'/0, 'pb_upload_avatar'/0, 'pb_avatar'/0, 'pb_avatars'/0, 'pb_media_url'/0, 'pb_upload_media'/0, 'pb_contact'/0, 'pb_contact_list'/0, 'pb_contact_hash'/0, 'pb_seen_receipt'/0, 'pb_delivery_receipt'/0, 'pb_audience'/0, 'pb_post'/0, 'pb_comment'/0, 'pb_feed_item'/0, 'pb_feed_items'/0, 'pb_share_feed_request'/0, 'pb_share_feed_requests'/0, 'pb_share_feed_response'/0, 'pb_share_feed_responses'/0, 'pb_whisper_keys'/0, 'pb_push_token'/0, 'pb_push_register'/0, 'pb_uid_element'/0, 'pb_privacy_list'/0, 'pb_privacy_list_result'/0, 'pb_privacy_lists'/0]).
+
+-spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_contact_hash{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_audience{} | #pb_post{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_items{} | #pb_share_feed_request{} | #pb_share_feed_requests{} | #pb_share_feed_response{} | #pb_share_feed_responses{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{} | #pb_uid_element{} | #pb_privacy_list{} | #pb_privacy_list_result{} | #pb_privacy_lists{}) -> binary().
 encode_msg(Msg) when tuple_size(Msg) >= 1 -> encode_msg(Msg, element(1, Msg), []).
 
--spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_contact_hash{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_audience{} | #pb_post{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_items{} | #pb_share_feed_request{} | #pb_share_feed_requests{} | #pb_share_feed_response{} | #pb_share_feed_responses{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}, atom() | list()) -> binary().
+-spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_contact_hash{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_audience{} | #pb_post{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_items{} | #pb_share_feed_request{} | #pb_share_feed_requests{} | #pb_share_feed_response{} | #pb_share_feed_responses{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{} | #pb_uid_element{} | #pb_privacy_list{} | #pb_privacy_list_result{} | #pb_privacy_lists{}, atom() | list()) -> binary().
 encode_msg(Msg, MsgName) when is_atom(MsgName) -> encode_msg(Msg, MsgName, []);
 encode_msg(Msg, Opts) when tuple_size(Msg) >= 1, is_list(Opts) -> encode_msg(Msg, element(1, Msg), Opts).
 
--spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_contact_hash{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_audience{} | #pb_post{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_items{} | #pb_share_feed_request{} | #pb_share_feed_requests{} | #pb_share_feed_response{} | #pb_share_feed_responses{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{}, atom(), list()) -> binary().
+-spec encode_msg(#pb_chat{} | #pb_ping{} | #pb_iq_payload{} | #pb_msg_payload{} | #pb_ha_iq{} | #pb_ha_message{} | #pb_ha_presence{} | #pb_ha_ack{} | #pb_ha_error{} | #pb_packet{} | #pb_auth_request{} | #pb_auth_result{} | #pb_client_mode{} | #pb_client_version{} | #pb_upload_avatar{} | #pb_avatar{} | #pb_avatars{} | #pb_media_url{} | #pb_upload_media{} | #pb_contact{} | #pb_contact_list{} | #pb_contact_hash{} | #pb_seen_receipt{} | #pb_delivery_receipt{} | #pb_audience{} | #pb_post{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_items{} | #pb_share_feed_request{} | #pb_share_feed_requests{} | #pb_share_feed_response{} | #pb_share_feed_responses{} | #pb_whisper_keys{} | #pb_push_token{} | #pb_push_register{} | #pb_uid_element{} | #pb_privacy_list{} | #pb_privacy_list_result{} | #pb_privacy_lists{}, atom(), list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
     case proplists:get_bool(verify, Opts) of
       true -> verify_msg(Msg, MsgName, Opts);
@@ -197,7 +211,11 @@ encode_msg(Msg, MsgName, Opts) ->
       pb_share_feed_responses -> encode_msg_pb_share_feed_responses(id(Msg, TrUserData), TrUserData);
       pb_whisper_keys -> encode_msg_pb_whisper_keys(id(Msg, TrUserData), TrUserData);
       pb_push_token -> encode_msg_pb_push_token(id(Msg, TrUserData), TrUserData);
-      pb_push_register -> encode_msg_pb_push_register(id(Msg, TrUserData), TrUserData)
+      pb_push_register -> encode_msg_pb_push_register(id(Msg, TrUserData), TrUserData);
+      pb_uid_element -> encode_msg_pb_uid_element(id(Msg, TrUserData), TrUserData);
+      pb_privacy_list -> encode_msg_pb_privacy_list(id(Msg, TrUserData), TrUserData);
+      pb_privacy_list_result -> encode_msg_pb_privacy_list_result(id(Msg, TrUserData), TrUserData);
+      pb_privacy_lists -> encode_msg_pb_privacy_lists(id(Msg, TrUserData), TrUserData)
     end.
 
 
@@ -256,7 +274,10 @@ encode_msg_pb_iq_payload(#pb_iq_payload{content = F1}, Bin, TrUserData) ->
 	     {ping, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_iq_payload_ping(TrTF1, <<Bin/binary, 82>>, TrUserData) end;
 	     {feed_item, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_iq_payload_feed_item(TrTF1, <<Bin/binary, 90>>, TrUserData) end;
 	     {share_feed_requests, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_iq_payload_share_feed_requests(TrTF1, <<Bin/binary, 98>>, TrUserData) end;
-	     {share_feed_responses, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_iq_payload_share_feed_responses(TrTF1, <<Bin/binary, 106>>, TrUserData) end
+	     {share_feed_responses, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_iq_payload_share_feed_responses(TrTF1, <<Bin/binary, 106>>, TrUserData) end;
+	     {privacy_list, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_iq_payload_privacy_list(TrTF1, <<Bin/binary, 114>>, TrUserData) end;
+	     {privacy_list_result, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_iq_payload_privacy_list_result(TrTF1, <<Bin/binary, 122>>, TrUserData) end;
+	     {privacy_lists, TF1} -> begin TrTF1 = id(TF1, TrUserData), e_mfield_pb_iq_payload_privacy_lists(TrTF1, <<Bin/binary, 130, 1>>, TrUserData) end
 	   end
     end.
 
@@ -1253,6 +1274,114 @@ encode_msg_pb_push_register(#pb_push_register{push_token = F1}, Bin, TrUserData)
 	   end
     end.
 
+encode_msg_pb_uid_element(Msg, TrUserData) -> encode_msg_pb_uid_element(Msg, <<>>, TrUserData).
+
+
+encode_msg_pb_uid_element(#pb_uid_element{action = F1, uid = F2}, Bin, TrUserData) ->
+    B1 = if F1 == undefined -> Bin;
+	    true ->
+		begin
+		  TrF1 = id(F1, TrUserData),
+		  if TrF1 =:= add; TrF1 =:= 0 -> Bin;
+		     true -> 'e_enum_pb_uid_element.Action'(TrF1, <<Bin/binary, 8>>, TrUserData)
+		  end
+		end
+	 end,
+    if F2 == undefined -> B1;
+       true ->
+	   begin
+	     TrF2 = id(F2, TrUserData),
+	     if TrF2 =:= 0 -> B1;
+		true -> e_type_int64(TrF2, <<B1/binary, 16>>, TrUserData)
+	     end
+	   end
+    end.
+
+encode_msg_pb_privacy_list(Msg, TrUserData) -> encode_msg_pb_privacy_list(Msg, <<>>, TrUserData).
+
+
+encode_msg_pb_privacy_list(#pb_privacy_list{type = F1, uid_elements = F2, hash = F3}, Bin, TrUserData) ->
+    B1 = if F1 == undefined -> Bin;
+	    true ->
+		begin
+		  TrF1 = id(F1, TrUserData),
+		  if TrF1 =:= all; TrF1 =:= 0 -> Bin;
+		     true -> 'e_enum_pb_privacy_list.Type'(TrF1, <<Bin/binary, 8>>, TrUserData)
+		  end
+		end
+	 end,
+    B2 = begin
+	   TrF2 = id(F2, TrUserData),
+	   if TrF2 == [] -> B1;
+	      true -> e_field_pb_privacy_list_uid_elements(TrF2, B1, TrUserData)
+	   end
+	 end,
+    if F3 == undefined -> B2;
+       true ->
+	   begin
+	     TrF3 = id(F3, TrUserData),
+	     case iolist_size(TrF3) of
+	       0 -> B2;
+	       _ -> e_type_bytes(TrF3, <<B2/binary, 26>>, TrUserData)
+	     end
+	   end
+    end.
+
+encode_msg_pb_privacy_list_result(Msg, TrUserData) -> encode_msg_pb_privacy_list_result(Msg, <<>>, TrUserData).
+
+
+encode_msg_pb_privacy_list_result(#pb_privacy_list_result{result = F1, reason = F2, hash = F3}, Bin, TrUserData) ->
+    B1 = if F1 == undefined -> Bin;
+	    true ->
+		begin
+		  TrF1 = id(F1, TrUserData),
+		  case is_empty_string(TrF1) of
+		    true -> Bin;
+		    false -> e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData)
+		  end
+		end
+	 end,
+    B2 = if F2 == undefined -> B1;
+	    true ->
+		begin
+		  TrF2 = id(F2, TrUserData),
+		  case is_empty_string(TrF2) of
+		    true -> B1;
+		    false -> e_type_string(TrF2, <<B1/binary, 18>>, TrUserData)
+		  end
+		end
+	 end,
+    if F3 == undefined -> B2;
+       true ->
+	   begin
+	     TrF3 = id(F3, TrUserData),
+	     case iolist_size(TrF3) of
+	       0 -> B2;
+	       _ -> e_type_bytes(TrF3, <<B2/binary, 26>>, TrUserData)
+	     end
+	   end
+    end.
+
+encode_msg_pb_privacy_lists(Msg, TrUserData) -> encode_msg_pb_privacy_lists(Msg, <<>>, TrUserData).
+
+
+encode_msg_pb_privacy_lists(#pb_privacy_lists{active_type = F1, lists = F2}, Bin, TrUserData) ->
+    B1 = if F1 == undefined -> Bin;
+	    true ->
+		begin
+		  TrF1 = id(F1, TrUserData),
+		  if TrF1 =:= all; TrF1 =:= 0 -> Bin;
+		     true -> 'e_enum_pb_privacy_lists.Type'(TrF1, <<Bin/binary, 8>>, TrUserData)
+		  end
+		end
+	 end,
+    begin
+      TrF2 = id(F2, TrUserData),
+      if TrF2 == [] -> B1;
+	 true -> e_field_pb_privacy_lists_lists(TrF2, B1, TrUserData)
+      end
+    end.
+
 e_mfield_pb_iq_payload_upload_media(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_upload_media(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_pb_iq_payload_contact_list(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_contact_list(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
@@ -1278,6 +1407,12 @@ e_mfield_pb_iq_payload_feed_item(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb
 e_mfield_pb_iq_payload_share_feed_requests(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_share_feed_requests(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_pb_iq_payload_share_feed_responses(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_share_feed_responses(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
+
+e_mfield_pb_iq_payload_privacy_list(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_privacy_list(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
+
+e_mfield_pb_iq_payload_privacy_list_result(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_privacy_list_result(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
+
+e_mfield_pb_iq_payload_privacy_lists(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_privacy_lists(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_pb_msg_payload_contact_list(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_contact_list(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
@@ -1364,6 +1499,16 @@ e_field_pb_whisper_keys_one_time_keys([], Bin, _TrUserData) -> Bin.
 
 e_mfield_pb_push_register_push_token(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_push_token(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
+e_mfield_pb_privacy_list_uid_elements(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_uid_element(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
+
+e_field_pb_privacy_list_uid_elements([Elem | Rest], Bin, TrUserData) -> Bin2 = <<Bin/binary, 18>>, Bin3 = e_mfield_pb_privacy_list_uid_elements(id(Elem, TrUserData), Bin2, TrUserData), e_field_pb_privacy_list_uid_elements(Rest, Bin3, TrUserData);
+e_field_pb_privacy_list_uid_elements([], Bin, _TrUserData) -> Bin.
+
+e_mfield_pb_privacy_lists_lists(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_privacy_list(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
+
+e_field_pb_privacy_lists_lists([Elem | Rest], Bin, TrUserData) -> Bin2 = <<Bin/binary, 18>>, Bin3 = e_mfield_pb_privacy_lists_lists(id(Elem, TrUserData), Bin2, TrUserData), e_field_pb_privacy_lists_lists(Rest, Bin3, TrUserData);
+e_field_pb_privacy_lists_lists([], Bin, _TrUserData) -> Bin.
+
 'e_enum_pb_ha_iq.Type'(get, Bin, _TrUserData) -> <<Bin/binary, 0>>;
 'e_enum_pb_ha_iq.Type'(set, Bin, _TrUserData) -> <<Bin/binary, 1>>;
 'e_enum_pb_ha_iq.Type'(result, Bin, _TrUserData) -> <<Bin/binary, 2>>;
@@ -1420,6 +1565,22 @@ e_mfield_pb_push_register_push_token(Msg, Bin, TrUserData) -> SubBin = encode_ms
 'e_enum_pb_push_token.Os'(ios, Bin, _TrUserData) -> <<Bin/binary, 1>>;
 'e_enum_pb_push_token.Os'(ios_dev, Bin, _TrUserData) -> <<Bin/binary, 2>>;
 'e_enum_pb_push_token.Os'(V, Bin, _TrUserData) -> e_varint(V, Bin).
+
+'e_enum_pb_uid_element.Action'(add, Bin, _TrUserData) -> <<Bin/binary, 0>>;
+'e_enum_pb_uid_element.Action'(delete, Bin, _TrUserData) -> <<Bin/binary, 1>>;
+'e_enum_pb_uid_element.Action'(V, Bin, _TrUserData) -> e_varint(V, Bin).
+
+'e_enum_pb_privacy_list.Type'(all, Bin, _TrUserData) -> <<Bin/binary, 0>>;
+'e_enum_pb_privacy_list.Type'(block, Bin, _TrUserData) -> <<Bin/binary, 1>>;
+'e_enum_pb_privacy_list.Type'(except, Bin, _TrUserData) -> <<Bin/binary, 2>>;
+'e_enum_pb_privacy_list.Type'(mute, Bin, _TrUserData) -> <<Bin/binary, 3>>;
+'e_enum_pb_privacy_list.Type'(only, Bin, _TrUserData) -> <<Bin/binary, 4>>;
+'e_enum_pb_privacy_list.Type'(V, Bin, _TrUserData) -> e_varint(V, Bin).
+
+'e_enum_pb_privacy_lists.Type'(all, Bin, _TrUserData) -> <<Bin/binary, 0>>;
+'e_enum_pb_privacy_lists.Type'(block, Bin, _TrUserData) -> <<Bin/binary, 1>>;
+'e_enum_pb_privacy_lists.Type'(except, Bin, _TrUserData) -> <<Bin/binary, 2>>;
+'e_enum_pb_privacy_lists.Type'(V, Bin, _TrUserData) -> e_varint(V, Bin).
 
 -compile({nowarn_unused_function,e_type_sint/3}).
 e_type_sint(Value, Bin, _TrUserData) when Value >= 0 -> e_varint(Value * 2, Bin);
@@ -1547,7 +1708,11 @@ decode_msg_2_doit(pb_share_feed_response, Bin, TrUserData) -> id(decode_msg_pb_s
 decode_msg_2_doit(pb_share_feed_responses, Bin, TrUserData) -> id(decode_msg_pb_share_feed_responses(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_whisper_keys, Bin, TrUserData) -> id(decode_msg_pb_whisper_keys(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_push_token, Bin, TrUserData) -> id(decode_msg_pb_push_token(Bin, TrUserData), TrUserData);
-decode_msg_2_doit(pb_push_register, Bin, TrUserData) -> id(decode_msg_pb_push_register(Bin, TrUserData), TrUserData).
+decode_msg_2_doit(pb_push_register, Bin, TrUserData) -> id(decode_msg_pb_push_register(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(pb_uid_element, Bin, TrUserData) -> id(decode_msg_pb_uid_element(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(pb_privacy_list, Bin, TrUserData) -> id(decode_msg_pb_privacy_list(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(pb_privacy_list_result, Bin, TrUserData) -> id(decode_msg_pb_privacy_list_result(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(pb_privacy_lists, Bin, TrUserData) -> id(decode_msg_pb_privacy_lists(Bin, TrUserData), TrUserData).
 
 
 
@@ -1645,6 +1810,9 @@ dfp_read_field_def_pb_iq_payload(<<82, Rest/binary>>, Z1, Z2, F@_1, TrUserData) 
 dfp_read_field_def_pb_iq_payload(<<90, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_iq_payload_feed_item(Rest, Z1, Z2, F@_1, TrUserData);
 dfp_read_field_def_pb_iq_payload(<<98, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_iq_payload_share_feed_requests(Rest, Z1, Z2, F@_1, TrUserData);
 dfp_read_field_def_pb_iq_payload(<<106, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_iq_payload_share_feed_responses(Rest, Z1, Z2, F@_1, TrUserData);
+dfp_read_field_def_pb_iq_payload(<<114, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_iq_payload_privacy_list(Rest, Z1, Z2, F@_1, TrUserData);
+dfp_read_field_def_pb_iq_payload(<<122, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_iq_payload_privacy_list_result(Rest, Z1, Z2, F@_1, TrUserData);
+dfp_read_field_def_pb_iq_payload(<<130, 1, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_iq_payload_privacy_lists(Rest, Z1, Z2, F@_1, TrUserData);
 dfp_read_field_def_pb_iq_payload(<<>>, 0, 0, F@_1, _) -> #pb_iq_payload{content = F@_1};
 dfp_read_field_def_pb_iq_payload(Other, Z1, Z2, F@_1, TrUserData) -> dg_read_field_def_pb_iq_payload(Other, Z1, Z2, F@_1, TrUserData).
 
@@ -1665,6 +1833,9 @@ dg_read_field_def_pb_iq_payload(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserD
       90 -> d_field_pb_iq_payload_feed_item(Rest, 0, 0, F@_1, TrUserData);
       98 -> d_field_pb_iq_payload_share_feed_requests(Rest, 0, 0, F@_1, TrUserData);
       106 -> d_field_pb_iq_payload_share_feed_responses(Rest, 0, 0, F@_1, TrUserData);
+      114 -> d_field_pb_iq_payload_privacy_list(Rest, 0, 0, F@_1, TrUserData);
+      122 -> d_field_pb_iq_payload_privacy_list_result(Rest, 0, 0, F@_1, TrUserData);
+      130 -> d_field_pb_iq_payload_privacy_lists(Rest, 0, 0, F@_1, TrUserData);
       _ ->
 	  case Key band 7 of
 	    0 -> skip_varint_pb_iq_payload(Rest, 0, 0, F@_1, TrUserData);
@@ -1816,6 +1987,39 @@ d_field_pb_iq_payload_share_feed_responses(<<0:1, X:7, Rest/binary>>, N, Acc, Pr
 				       undefined -> id({share_feed_responses, NewFValue}, TrUserData);
 				       {share_feed_responses, MVPrev} -> id({share_feed_responses, merge_msg_pb_share_feed_responses(MVPrev, NewFValue, TrUserData)}, TrUserData);
 				       _ -> id({share_feed_responses, NewFValue}, TrUserData)
+				     end,
+				     TrUserData).
+
+d_field_pb_iq_payload_privacy_list(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> d_field_pb_iq_payload_privacy_list(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
+d_field_pb_iq_payload_privacy_list(<<0:1, X:7, Rest/binary>>, N, Acc, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_privacy_list(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_pb_iq_payload(RestF, 0, 0,
+				     case Prev of
+				       undefined -> id({privacy_list, NewFValue}, TrUserData);
+				       {privacy_list, MVPrev} -> id({privacy_list, merge_msg_pb_privacy_list(MVPrev, NewFValue, TrUserData)}, TrUserData);
+				       _ -> id({privacy_list, NewFValue}, TrUserData)
+				     end,
+				     TrUserData).
+
+d_field_pb_iq_payload_privacy_list_result(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> d_field_pb_iq_payload_privacy_list_result(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
+d_field_pb_iq_payload_privacy_list_result(<<0:1, X:7, Rest/binary>>, N, Acc, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_privacy_list_result(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_pb_iq_payload(RestF, 0, 0,
+				     case Prev of
+				       undefined -> id({privacy_list_result, NewFValue}, TrUserData);
+				       {privacy_list_result, MVPrev} -> id({privacy_list_result, merge_msg_pb_privacy_list_result(MVPrev, NewFValue, TrUserData)}, TrUserData);
+				       _ -> id({privacy_list_result, NewFValue}, TrUserData)
+				     end,
+				     TrUserData).
+
+d_field_pb_iq_payload_privacy_lists(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> d_field_pb_iq_payload_privacy_lists(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
+d_field_pb_iq_payload_privacy_lists(<<0:1, X:7, Rest/binary>>, N, Acc, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_privacy_lists(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_pb_iq_payload(RestF, 0, 0,
+				     case Prev of
+				       undefined -> id({privacy_lists, NewFValue}, TrUserData);
+				       {privacy_lists, MVPrev} -> id({privacy_lists, merge_msg_pb_privacy_lists(MVPrev, NewFValue, TrUserData)}, TrUserData);
+				       _ -> id({privacy_lists, NewFValue}, TrUserData)
 				     end,
 				     TrUserData).
 
@@ -3689,6 +3893,200 @@ skip_32_pb_push_register(<<_:32, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp
 
 skip_64_pb_push_register(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_push_register(Rest, Z1, Z2, F@_1, TrUserData).
 
+decode_msg_pb_uid_element(Bin, TrUserData) -> dfp_read_field_def_pb_uid_element(Bin, 0, 0, id(add, TrUserData), id(0, TrUserData), TrUserData).
+
+dfp_read_field_def_pb_uid_element(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_uid_element_action(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+dfp_read_field_def_pb_uid_element(<<16, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_uid_element_uid(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+dfp_read_field_def_pb_uid_element(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_uid_element{action = F@_1, uid = F@_2};
+dfp_read_field_def_pb_uid_element(Other, Z1, Z2, F@_1, F@_2, TrUserData) -> dg_read_field_def_pb_uid_element(Other, Z1, Z2, F@_1, F@_2, TrUserData).
+
+dg_read_field_def_pb_uid_element(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_uid_element(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+dg_read_field_def_pb_uid_element(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key of
+      8 -> d_field_pb_uid_element_action(Rest, 0, 0, F@_1, F@_2, TrUserData);
+      16 -> d_field_pb_uid_element_uid(Rest, 0, 0, F@_1, F@_2, TrUserData);
+      _ ->
+	  case Key band 7 of
+	    0 -> skip_varint_pb_uid_element(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    1 -> skip_64_pb_uid_element(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    2 -> skip_length_delimited_pb_uid_element(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    3 -> skip_group_pb_uid_element(Rest, Key bsr 3, 0, F@_1, F@_2, TrUserData);
+	    5 -> skip_32_pb_uid_element(Rest, 0, 0, F@_1, F@_2, TrUserData)
+	  end
+    end;
+dg_read_field_def_pb_uid_element(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_uid_element{action = F@_1, uid = F@_2}.
+
+d_field_pb_uid_element_action(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_uid_element_action(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+d_field_pb_uid_element_action(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
+    {NewFValue, RestF} = {id('d_enum_pb_uid_element.Action'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
+    dfp_read_field_def_pb_uid_element(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+
+d_field_pb_uid_element_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_uid_element_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+d_field_pb_uid_element_uid(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, TrUserData) ->
+    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_uid_element(RestF, 0, 0, F@_1, NewFValue, TrUserData).
+
+skip_varint_pb_uid_element(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_uid_element(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+skip_varint_pb_uid_element(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_uid_element(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+
+skip_length_delimited_pb_uid_element(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_pb_uid_element(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+skip_length_delimited_pb_uid_element(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_uid_element(Rest2, 0, 0, F@_1, F@_2, TrUserData).
+
+skip_group_pb_uid_element(Bin, FNum, Z2, F@_1, F@_2, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_uid_element(Rest, 0, Z2, F@_1, F@_2, TrUserData).
+
+skip_32_pb_uid_element(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_uid_element(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+
+skip_64_pb_uid_element(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_uid_element(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+
+decode_msg_pb_privacy_list(Bin, TrUserData) -> dfp_read_field_def_pb_privacy_list(Bin, 0, 0, id(all, TrUserData), id([], TrUserData), id(<<>>, TrUserData), TrUserData).
+
+dfp_read_field_def_pb_privacy_list(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_privacy_list_type(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_privacy_list(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_privacy_list_uid_elements(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_privacy_list(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_privacy_list_hash(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_privacy_list(<<>>, 0, 0, F@_1, R1, F@_3, TrUserData) -> #pb_privacy_list{type = F@_1, uid_elements = lists_reverse(R1, TrUserData), hash = F@_3};
+dfp_read_field_def_pb_privacy_list(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_privacy_list(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+dg_read_field_def_pb_privacy_list(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_privacy_list(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+dg_read_field_def_pb_privacy_list(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key of
+      8 -> d_field_pb_privacy_list_type(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      18 -> d_field_pb_privacy_list_uid_elements(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      26 -> d_field_pb_privacy_list_hash(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      _ ->
+	  case Key band 7 of
+	    0 -> skip_varint_pb_privacy_list(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    1 -> skip_64_pb_privacy_list(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    2 -> skip_length_delimited_pb_privacy_list(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    3 -> skip_group_pb_privacy_list(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
+	    5 -> skip_32_pb_privacy_list(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
+	  end
+    end;
+dg_read_field_def_pb_privacy_list(<<>>, 0, 0, F@_1, R1, F@_3, TrUserData) -> #pb_privacy_list{type = F@_1, uid_elements = lists_reverse(R1, TrUserData), hash = F@_3}.
+
+d_field_pb_privacy_list_type(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_privacy_list_type(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_privacy_list_type(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
+    {NewFValue, RestF} = {id('d_enum_pb_privacy_list.Type'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
+    dfp_read_field_def_pb_privacy_list(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+
+d_field_pb_privacy_list_uid_elements(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_privacy_list_uid_elements(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_privacy_list_uid_elements(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, F@_3, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_uid_element(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_pb_privacy_list(RestF, 0, 0, F@_1, cons(NewFValue, Prev, TrUserData), F@_3, TrUserData).
+
+d_field_pb_privacy_list_hash(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_privacy_list_hash(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_privacy_list_hash(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_privacy_list(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
+
+skip_varint_pb_privacy_list(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_privacy_list(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+skip_varint_pb_privacy_list(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_privacy_list(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+skip_length_delimited_pb_privacy_list(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_privacy_list(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+skip_length_delimited_pb_privacy_list(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_privacy_list(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
+
+skip_group_pb_privacy_list(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_privacy_list(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+skip_32_pb_privacy_list(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_privacy_list(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+skip_64_pb_privacy_list(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_privacy_list(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+decode_msg_pb_privacy_list_result(Bin, TrUserData) -> dfp_read_field_def_pb_privacy_list_result(Bin, 0, 0, id(<<>>, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
+
+dfp_read_field_def_pb_privacy_list_result(<<10, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_privacy_list_result_result(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_privacy_list_result(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_privacy_list_result_reason(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_privacy_list_result(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_privacy_list_result_hash(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_privacy_list_result(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_privacy_list_result{result = F@_1, reason = F@_2, hash = F@_3};
+dfp_read_field_def_pb_privacy_list_result(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_privacy_list_result(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+dg_read_field_def_pb_privacy_list_result(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_privacy_list_result(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+dg_read_field_def_pb_privacy_list_result(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key of
+      10 -> d_field_pb_privacy_list_result_result(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      18 -> d_field_pb_privacy_list_result_reason(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      26 -> d_field_pb_privacy_list_result_hash(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      _ ->
+	  case Key band 7 of
+	    0 -> skip_varint_pb_privacy_list_result(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    1 -> skip_64_pb_privacy_list_result(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    2 -> skip_length_delimited_pb_privacy_list_result(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    3 -> skip_group_pb_privacy_list_result(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
+	    5 -> skip_32_pb_privacy_list_result(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
+	  end
+    end;
+dg_read_field_def_pb_privacy_list_result(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_privacy_list_result{result = F@_1, reason = F@_2, hash = F@_3}.
+
+d_field_pb_privacy_list_result_result(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_privacy_list_result_result(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_privacy_list_result_result(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_privacy_list_result(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+
+d_field_pb_privacy_list_result_reason(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_privacy_list_result_reason(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_privacy_list_result_reason(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_privacy_list_result(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
+
+d_field_pb_privacy_list_result_hash(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_privacy_list_result_hash(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_privacy_list_result_hash(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_privacy_list_result(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
+
+skip_varint_pb_privacy_list_result(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_privacy_list_result(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+skip_varint_pb_privacy_list_result(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_privacy_list_result(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+skip_length_delimited_pb_privacy_list_result(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_privacy_list_result(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+skip_length_delimited_pb_privacy_list_result(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
+    Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_privacy_list_result(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
+
+skip_group_pb_privacy_list_result(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_privacy_list_result(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+skip_32_pb_privacy_list_result(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_privacy_list_result(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+skip_64_pb_privacy_list_result(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_privacy_list_result(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+decode_msg_pb_privacy_lists(Bin, TrUserData) -> dfp_read_field_def_pb_privacy_lists(Bin, 0, 0, id(all, TrUserData), id([], TrUserData), TrUserData).
+
+dfp_read_field_def_pb_privacy_lists(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_privacy_lists_active_type(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+dfp_read_field_def_pb_privacy_lists(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_privacy_lists_lists(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+dfp_read_field_def_pb_privacy_lists(<<>>, 0, 0, F@_1, R1, TrUserData) -> #pb_privacy_lists{active_type = F@_1, lists = lists_reverse(R1, TrUserData)};
+dfp_read_field_def_pb_privacy_lists(Other, Z1, Z2, F@_1, F@_2, TrUserData) -> dg_read_field_def_pb_privacy_lists(Other, Z1, Z2, F@_1, F@_2, TrUserData).
+
+dg_read_field_def_pb_privacy_lists(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_privacy_lists(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+dg_read_field_def_pb_privacy_lists(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key of
+      8 -> d_field_pb_privacy_lists_active_type(Rest, 0, 0, F@_1, F@_2, TrUserData);
+      18 -> d_field_pb_privacy_lists_lists(Rest, 0, 0, F@_1, F@_2, TrUserData);
+      _ ->
+	  case Key band 7 of
+	    0 -> skip_varint_pb_privacy_lists(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    1 -> skip_64_pb_privacy_lists(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    2 -> skip_length_delimited_pb_privacy_lists(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    3 -> skip_group_pb_privacy_lists(Rest, Key bsr 3, 0, F@_1, F@_2, TrUserData);
+	    5 -> skip_32_pb_privacy_lists(Rest, 0, 0, F@_1, F@_2, TrUserData)
+	  end
+    end;
+dg_read_field_def_pb_privacy_lists(<<>>, 0, 0, F@_1, R1, TrUserData) -> #pb_privacy_lists{active_type = F@_1, lists = lists_reverse(R1, TrUserData)}.
+
+d_field_pb_privacy_lists_active_type(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_privacy_lists_active_type(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+d_field_pb_privacy_lists_active_type(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
+    {NewFValue, RestF} = {id('d_enum_pb_privacy_lists.Type'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
+    dfp_read_field_def_pb_privacy_lists(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+
+d_field_pb_privacy_lists_lists(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_privacy_lists_lists(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+d_field_pb_privacy_lists_lists(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_privacy_list(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_pb_privacy_lists(RestF, 0, 0, F@_1, cons(NewFValue, Prev, TrUserData), TrUserData).
+
+skip_varint_pb_privacy_lists(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_privacy_lists(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
+skip_varint_pb_privacy_lists(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_privacy_lists(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+
+skip_length_delimited_pb_privacy_lists(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_pb_privacy_lists(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
+skip_length_delimited_pb_privacy_lists(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_privacy_lists(Rest2, 0, 0, F@_1, F@_2, TrUserData).
+
+skip_group_pb_privacy_lists(Bin, FNum, Z2, F@_1, F@_2, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_privacy_lists(Rest, 0, Z2, F@_1, F@_2, TrUserData).
+
+skip_32_pb_privacy_lists(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_privacy_lists(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+
+skip_64_pb_privacy_lists(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_privacy_lists(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+
 'd_enum_pb_ha_iq.Type'(0) -> get;
 'd_enum_pb_ha_iq.Type'(1) -> set;
 'd_enum_pb_ha_iq.Type'(2) -> result;
@@ -3745,6 +4143,22 @@ skip_64_pb_push_register(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp
 'd_enum_pb_push_token.Os'(1) -> ios;
 'd_enum_pb_push_token.Os'(2) -> ios_dev;
 'd_enum_pb_push_token.Os'(V) -> V.
+
+'d_enum_pb_uid_element.Action'(0) -> add;
+'d_enum_pb_uid_element.Action'(1) -> delete;
+'d_enum_pb_uid_element.Action'(V) -> V.
+
+'d_enum_pb_privacy_list.Type'(0) -> all;
+'d_enum_pb_privacy_list.Type'(1) -> block;
+'d_enum_pb_privacy_list.Type'(2) -> except;
+'d_enum_pb_privacy_list.Type'(3) -> mute;
+'d_enum_pb_privacy_list.Type'(4) -> only;
+'d_enum_pb_privacy_list.Type'(V) -> V.
+
+'d_enum_pb_privacy_lists.Type'(0) -> all;
+'d_enum_pb_privacy_lists.Type'(1) -> block;
+'d_enum_pb_privacy_lists.Type'(2) -> except;
+'d_enum_pb_privacy_lists.Type'(V) -> V.
 
 read_group(Bin, FieldNum) ->
     {NumBytes, EndTagLen} = read_gr_b(Bin, 0, 0, 0, 0, FieldNum),
@@ -3847,7 +4261,11 @@ merge_msgs(Prev, New, MsgName, Opts) ->
       pb_share_feed_responses -> merge_msg_pb_share_feed_responses(Prev, New, TrUserData);
       pb_whisper_keys -> merge_msg_pb_whisper_keys(Prev, New, TrUserData);
       pb_push_token -> merge_msg_pb_push_token(Prev, New, TrUserData);
-      pb_push_register -> merge_msg_pb_push_register(Prev, New, TrUserData)
+      pb_push_register -> merge_msg_pb_push_register(Prev, New, TrUserData);
+      pb_uid_element -> merge_msg_pb_uid_element(Prev, New, TrUserData);
+      pb_privacy_list -> merge_msg_pb_privacy_list(Prev, New, TrUserData);
+      pb_privacy_list_result -> merge_msg_pb_privacy_list_result(Prev, New, TrUserData);
+      pb_privacy_lists -> merge_msg_pb_privacy_lists(Prev, New, TrUserData)
     end.
 
 -compile({nowarn_unused_function,merge_msg_pb_chat/3}).
@@ -3885,6 +4303,9 @@ merge_msg_pb_iq_payload(#pb_iq_payload{content = PFcontent}, #pb_iq_payload{cont
 			 {{feed_item, OPFcontent}, {feed_item, ONFcontent}} -> {feed_item, merge_msg_pb_feed_item(OPFcontent, ONFcontent, TrUserData)};
 			 {{share_feed_requests, OPFcontent}, {share_feed_requests, ONFcontent}} -> {share_feed_requests, merge_msg_pb_share_feed_requests(OPFcontent, ONFcontent, TrUserData)};
 			 {{share_feed_responses, OPFcontent}, {share_feed_responses, ONFcontent}} -> {share_feed_responses, merge_msg_pb_share_feed_responses(OPFcontent, ONFcontent, TrUserData)};
+			 {{privacy_list, OPFcontent}, {privacy_list, ONFcontent}} -> {privacy_list, merge_msg_pb_privacy_list(OPFcontent, ONFcontent, TrUserData)};
+			 {{privacy_list_result, OPFcontent}, {privacy_list_result, ONFcontent}} -> {privacy_list_result, merge_msg_pb_privacy_list_result(OPFcontent, ONFcontent, TrUserData)};
+			 {{privacy_lists, OPFcontent}, {privacy_lists, ONFcontent}} -> {privacy_lists, merge_msg_pb_privacy_lists(OPFcontent, ONFcontent, TrUserData)};
 			 {_, undefined} -> PFcontent;
 			 _ -> NFcontent
 		       end}.
@@ -4386,6 +4807,60 @@ merge_msg_pb_push_register(#pb_push_register{push_token = PFpush_token}, #pb_pus
 			     NFpush_token == undefined -> PFpush_token
 			  end}.
 
+-compile({nowarn_unused_function,merge_msg_pb_uid_element/3}).
+merge_msg_pb_uid_element(#pb_uid_element{action = PFaction, uid = PFuid}, #pb_uid_element{action = NFaction, uid = NFuid}, _) ->
+    #pb_uid_element{action =
+			if NFaction =:= undefined -> PFaction;
+			   true -> NFaction
+			end,
+		    uid =
+			if NFuid =:= undefined -> PFuid;
+			   true -> NFuid
+			end}.
+
+-compile({nowarn_unused_function,merge_msg_pb_privacy_list/3}).
+merge_msg_pb_privacy_list(#pb_privacy_list{type = PFtype, uid_elements = PFuid_elements, hash = PFhash}, #pb_privacy_list{type = NFtype, uid_elements = NFuid_elements, hash = NFhash}, TrUserData) ->
+    #pb_privacy_list{type =
+			 if NFtype =:= undefined -> PFtype;
+			    true -> NFtype
+			 end,
+		     uid_elements =
+			 if PFuid_elements /= undefined, NFuid_elements /= undefined -> 'erlang_++'(PFuid_elements, NFuid_elements, TrUserData);
+			    PFuid_elements == undefined -> NFuid_elements;
+			    NFuid_elements == undefined -> PFuid_elements
+			 end,
+		     hash =
+			 if NFhash =:= undefined -> PFhash;
+			    true -> NFhash
+			 end}.
+
+-compile({nowarn_unused_function,merge_msg_pb_privacy_list_result/3}).
+merge_msg_pb_privacy_list_result(#pb_privacy_list_result{result = PFresult, reason = PFreason, hash = PFhash}, #pb_privacy_list_result{result = NFresult, reason = NFreason, hash = NFhash}, _) ->
+    #pb_privacy_list_result{result =
+				if NFresult =:= undefined -> PFresult;
+				   true -> NFresult
+				end,
+			    reason =
+				if NFreason =:= undefined -> PFreason;
+				   true -> NFreason
+				end,
+			    hash =
+				if NFhash =:= undefined -> PFhash;
+				   true -> NFhash
+				end}.
+
+-compile({nowarn_unused_function,merge_msg_pb_privacy_lists/3}).
+merge_msg_pb_privacy_lists(#pb_privacy_lists{active_type = PFactive_type, lists = PFlists}, #pb_privacy_lists{active_type = NFactive_type, lists = NFlists}, TrUserData) ->
+    #pb_privacy_lists{active_type =
+			  if NFactive_type =:= undefined -> PFactive_type;
+			     true -> NFactive_type
+			  end,
+		      lists =
+			  if PFlists /= undefined, NFlists /= undefined -> 'erlang_++'(PFlists, NFlists, TrUserData);
+			     PFlists == undefined -> NFlists;
+			     NFlists == undefined -> PFlists
+			  end}.
+
 
 verify_msg(Msg) when tuple_size(Msg) >= 1 -> verify_msg(Msg, element(1, Msg), []);
 verify_msg(X) -> mk_type_error(not_a_known_message, X, []).
@@ -4433,6 +4908,10 @@ verify_msg(Msg, MsgName, Opts) ->
       pb_whisper_keys -> v_msg_pb_whisper_keys(Msg, [MsgName], TrUserData);
       pb_push_token -> v_msg_pb_push_token(Msg, [MsgName], TrUserData);
       pb_push_register -> v_msg_pb_push_register(Msg, [MsgName], TrUserData);
+      pb_uid_element -> v_msg_pb_uid_element(Msg, [MsgName], TrUserData);
+      pb_privacy_list -> v_msg_pb_privacy_list(Msg, [MsgName], TrUserData);
+      pb_privacy_list_result -> v_msg_pb_privacy_list_result(Msg, [MsgName], TrUserData);
+      pb_privacy_lists -> v_msg_pb_privacy_lists(Msg, [MsgName], TrUserData);
       _ -> mk_type_error(not_a_known_message, Msg, [])
     end.
 
@@ -4475,6 +4954,9 @@ v_msg_pb_iq_payload(#pb_iq_payload{content = F1}, Path, TrUserData) ->
       {feed_item, OF1} -> v_msg_pb_feed_item(OF1, [feed_item, content | Path], TrUserData);
       {share_feed_requests, OF1} -> v_msg_pb_share_feed_requests(OF1, [share_feed_requests, content | Path], TrUserData);
       {share_feed_responses, OF1} -> v_msg_pb_share_feed_responses(OF1, [share_feed_responses, content | Path], TrUserData);
+      {privacy_list, OF1} -> v_msg_pb_privacy_list(OF1, [privacy_list, content | Path], TrUserData);
+      {privacy_list_result, OF1} -> v_msg_pb_privacy_list_result(OF1, [privacy_list_result, content | Path], TrUserData);
+      {privacy_lists, OF1} -> v_msg_pb_privacy_lists(OF1, [privacy_lists, content | Path], TrUserData);
       _ -> mk_type_error(invalid_oneof, F1, [content | Path])
     end,
     ok;
@@ -4967,6 +5449,60 @@ v_msg_pb_push_register(#pb_push_register{push_token = F1}, Path, TrUserData) ->
     ok;
 v_msg_pb_push_register(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_push_register}, X, Path).
 
+-compile({nowarn_unused_function,v_msg_pb_uid_element/3}).
+-dialyzer({nowarn_function,v_msg_pb_uid_element/3}).
+v_msg_pb_uid_element(#pb_uid_element{action = F1, uid = F2}, Path, TrUserData) ->
+    if F1 == undefined -> ok;
+       true -> 'v_enum_pb_uid_element.Action'(F1, [action | Path], TrUserData)
+    end,
+    if F2 == undefined -> ok;
+       true -> v_type_int64(F2, [uid | Path], TrUserData)
+    end,
+    ok;
+v_msg_pb_uid_element(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_uid_element}, X, Path).
+
+-compile({nowarn_unused_function,v_msg_pb_privacy_list/3}).
+-dialyzer({nowarn_function,v_msg_pb_privacy_list/3}).
+v_msg_pb_privacy_list(#pb_privacy_list{type = F1, uid_elements = F2, hash = F3}, Path, TrUserData) ->
+    if F1 == undefined -> ok;
+       true -> 'v_enum_pb_privacy_list.Type'(F1, [type | Path], TrUserData)
+    end,
+    if is_list(F2) -> _ = [v_msg_pb_uid_element(Elem, [uid_elements | Path], TrUserData) || Elem <- F2], ok;
+       true -> mk_type_error({invalid_list_of, {msg, pb_uid_element}}, F2, [uid_elements | Path])
+    end,
+    if F3 == undefined -> ok;
+       true -> v_type_bytes(F3, [hash | Path], TrUserData)
+    end,
+    ok;
+v_msg_pb_privacy_list(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_privacy_list}, X, Path).
+
+-compile({nowarn_unused_function,v_msg_pb_privacy_list_result/3}).
+-dialyzer({nowarn_function,v_msg_pb_privacy_list_result/3}).
+v_msg_pb_privacy_list_result(#pb_privacy_list_result{result = F1, reason = F2, hash = F3}, Path, TrUserData) ->
+    if F1 == undefined -> ok;
+       true -> v_type_string(F1, [result | Path], TrUserData)
+    end,
+    if F2 == undefined -> ok;
+       true -> v_type_string(F2, [reason | Path], TrUserData)
+    end,
+    if F3 == undefined -> ok;
+       true -> v_type_bytes(F3, [hash | Path], TrUserData)
+    end,
+    ok;
+v_msg_pb_privacy_list_result(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_privacy_list_result}, X, Path).
+
+-compile({nowarn_unused_function,v_msg_pb_privacy_lists/3}).
+-dialyzer({nowarn_function,v_msg_pb_privacy_lists/3}).
+v_msg_pb_privacy_lists(#pb_privacy_lists{active_type = F1, lists = F2}, Path, TrUserData) ->
+    if F1 == undefined -> ok;
+       true -> 'v_enum_pb_privacy_lists.Type'(F1, [active_type | Path], TrUserData)
+    end,
+    if is_list(F2) -> _ = [v_msg_pb_privacy_list(Elem, [lists | Path], TrUserData) || Elem <- F2], ok;
+       true -> mk_type_error({invalid_list_of, {msg, pb_privacy_list}}, F2, [lists | Path])
+    end,
+    ok;
+v_msg_pb_privacy_lists(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_privacy_lists}, X, Path).
+
 -compile({nowarn_unused_function,'v_enum_pb_ha_iq.Type'/3}).
 -dialyzer({nowarn_function,'v_enum_pb_ha_iq.Type'/3}).
 'v_enum_pb_ha_iq.Type'(get, _Path, _TrUserData) -> ok;
@@ -5057,6 +5593,31 @@ v_msg_pb_push_register(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_
 'v_enum_pb_push_token.Os'(V, Path, TrUserData) when is_integer(V) -> v_type_sint32(V, Path, TrUserData);
 'v_enum_pb_push_token.Os'(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'pb_push_token.Os'}, X, Path).
 
+-compile({nowarn_unused_function,'v_enum_pb_uid_element.Action'/3}).
+-dialyzer({nowarn_function,'v_enum_pb_uid_element.Action'/3}).
+'v_enum_pb_uid_element.Action'(add, _Path, _TrUserData) -> ok;
+'v_enum_pb_uid_element.Action'(delete, _Path, _TrUserData) -> ok;
+'v_enum_pb_uid_element.Action'(V, Path, TrUserData) when is_integer(V) -> v_type_sint32(V, Path, TrUserData);
+'v_enum_pb_uid_element.Action'(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'pb_uid_element.Action'}, X, Path).
+
+-compile({nowarn_unused_function,'v_enum_pb_privacy_list.Type'/3}).
+-dialyzer({nowarn_function,'v_enum_pb_privacy_list.Type'/3}).
+'v_enum_pb_privacy_list.Type'(all, _Path, _TrUserData) -> ok;
+'v_enum_pb_privacy_list.Type'(block, _Path, _TrUserData) -> ok;
+'v_enum_pb_privacy_list.Type'(except, _Path, _TrUserData) -> ok;
+'v_enum_pb_privacy_list.Type'(mute, _Path, _TrUserData) -> ok;
+'v_enum_pb_privacy_list.Type'(only, _Path, _TrUserData) -> ok;
+'v_enum_pb_privacy_list.Type'(V, Path, TrUserData) when is_integer(V) -> v_type_sint32(V, Path, TrUserData);
+'v_enum_pb_privacy_list.Type'(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'pb_privacy_list.Type'}, X, Path).
+
+-compile({nowarn_unused_function,'v_enum_pb_privacy_lists.Type'/3}).
+-dialyzer({nowarn_function,'v_enum_pb_privacy_lists.Type'/3}).
+'v_enum_pb_privacy_lists.Type'(all, _Path, _TrUserData) -> ok;
+'v_enum_pb_privacy_lists.Type'(block, _Path, _TrUserData) -> ok;
+'v_enum_pb_privacy_lists.Type'(except, _Path, _TrUserData) -> ok;
+'v_enum_pb_privacy_lists.Type'(V, Path, TrUserData) when is_integer(V) -> v_type_sint32(V, Path, TrUserData);
+'v_enum_pb_privacy_lists.Type'(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'pb_privacy_lists.Type'}, X, Path).
+
 -compile({nowarn_unused_function,v_type_sint32/3}).
 -dialyzer({nowarn_function,v_type_sint32/3}).
 v_type_sint32(N, _Path, _TrUserData) when -2147483648 =< N, N =< 2147483647 -> ok;
@@ -5139,7 +5700,8 @@ get_msg_defs() ->
     [{{enum, 'pb_ha_iq.Type'}, [{get, 0}, {set, 1}, {result, 2}, {error, 3}]}, {{enum, 'pb_ha_message.Type'}, [{chat, 0}, {error, 1}, {groupchat, 2}, {headline, 3}, {normal, 4}]},
      {{enum, 'pb_ha_presence.Type'}, [{available, 0}, {away, 1}, {subscribe, 2}, {unsubscribe, 3}]}, {{enum, 'pb_client_mode.Mode'}, [{active, 0}, {passive, 1}]}, {{enum, 'pb_contact.Action'}, [{add, 0}, {delete, 1}]},
      {{enum, 'pb_contact.Role'}, [{friend, 0}, {none, 1}]}, {{enum, 'pb_contact_list.Type'}, [{full, 0}, {delta, 1}]}, {{enum, 'pb_audience.Type'}, [{all, 0}, {except, 1}, {only, 2}]}, {{enum, 'pb_feed_item.Action'}, [{publish, 0}, {retract, 1}]},
-     {{enum, 'pb_whisper_keys.Action'}, [{normal, 0}, {add, 1}, {count, 2}, {get, 3}, {set, 4}, {update, 5}]}, {{enum, 'pb_push_token.Os'}, [{android, 0}, {ios, 1}, {ios_dev, 2}]},
+     {{enum, 'pb_whisper_keys.Action'}, [{normal, 0}, {add, 1}, {count, 2}, {get, 3}, {set, 4}, {update, 5}]}, {{enum, 'pb_push_token.Os'}, [{android, 0}, {ios, 1}, {ios_dev, 2}]}, {{enum, 'pb_uid_element.Action'}, [{add, 0}, {delete, 1}]},
+     {{enum, 'pb_privacy_list.Type'}, [{all, 0}, {block, 1}, {except, 2}, {mute, 3}, {only, 4}]}, {{enum, 'pb_privacy_lists.Type'}, [{all, 0}, {block, 1}, {except, 2}]},
      {{msg, pb_chat},
       [#field{name = timestamp, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = payload, fnum = 2, rnum = 3, type = bytes, occurrence = optional, opts = []},
        #field{name = enc_payload, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []}]},
@@ -5153,7 +5715,8 @@ get_msg_defs() ->
 		       #field{name = client_version, fnum = 7, rnum = 2, type = {msg, pb_client_version}, occurrence = optional, opts = []}, #field{name = push_register, fnum = 8, rnum = 2, type = {msg, pb_push_register}, occurrence = optional, opts = []},
 		       #field{name = whisper_keys, fnum = 9, rnum = 2, type = {msg, pb_whisper_keys}, occurrence = optional, opts = []}, #field{name = ping, fnum = 10, rnum = 2, type = {msg, pb_ping}, occurrence = optional, opts = []},
 		       #field{name = feed_item, fnum = 11, rnum = 2, type = {msg, pb_feed_item}, occurrence = optional, opts = []}, #field{name = share_feed_requests, fnum = 12, rnum = 2, type = {msg, pb_share_feed_requests}, occurrence = optional, opts = []},
-		       #field{name = share_feed_responses, fnum = 13, rnum = 2, type = {msg, pb_share_feed_responses}, occurrence = optional, opts = []}]}]},
+		       #field{name = share_feed_responses, fnum = 13, rnum = 2, type = {msg, pb_share_feed_responses}, occurrence = optional, opts = []}, #field{name = privacy_list, fnum = 14, rnum = 2, type = {msg, pb_privacy_list}, occurrence = optional, opts = []},
+		       #field{name = privacy_list_result, fnum = 15, rnum = 2, type = {msg, pb_privacy_list_result}, occurrence = optional, opts = []}, #field{name = privacy_lists, fnum = 16, rnum = 2, type = {msg, pb_privacy_lists}, occurrence = optional, opts = []}]}]},
      {{msg, pb_msg_payload},
       [#gpb_oneof{name = content, rnum = 2,
 		  fields =
@@ -5235,13 +5798,22 @@ get_msg_defs() ->
        #field{name = identity_key, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []}, #field{name = signed_key, fnum = 4, rnum = 5, type = bytes, occurrence = optional, opts = []},
        #field{name = otp_key_count, fnum = 5, rnum = 6, type = int32, occurrence = optional, opts = []}, #field{name = one_time_keys, fnum = 6, rnum = 7, type = bytes, occurrence = repeated, opts = []}]},
      {{msg, pb_push_token}, [#field{name = os, fnum = 1, rnum = 2, type = {enum, 'pb_push_token.Os'}, occurrence = optional, opts = []}, #field{name = token, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}]},
-     {{msg, pb_push_register}, [#field{name = push_token, fnum = 1, rnum = 2, type = {msg, pb_push_token}, occurrence = optional, opts = []}]}].
+     {{msg, pb_push_register}, [#field{name = push_token, fnum = 1, rnum = 2, type = {msg, pb_push_token}, occurrence = optional, opts = []}]},
+     {{msg, pb_uid_element}, [#field{name = action, fnum = 1, rnum = 2, type = {enum, 'pb_uid_element.Action'}, occurrence = optional, opts = []}, #field{name = uid, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}]},
+     {{msg, pb_privacy_list},
+      [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'pb_privacy_list.Type'}, occurrence = optional, opts = []}, #field{name = uid_elements, fnum = 2, rnum = 3, type = {msg, pb_uid_element}, occurrence = repeated, opts = []},
+       #field{name = hash, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []}]},
+     {{msg, pb_privacy_list_result},
+      [#field{name = result, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = reason, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
+       #field{name = hash, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []}]},
+     {{msg, pb_privacy_lists},
+      [#field{name = active_type, fnum = 1, rnum = 2, type = {enum, 'pb_privacy_lists.Type'}, occurrence = optional, opts = []}, #field{name = lists, fnum = 2, rnum = 3, type = {msg, pb_privacy_list}, occurrence = repeated, opts = []}]}].
 
 
 get_msg_names() ->
     [pb_chat, pb_ping, pb_iq_payload, pb_msg_payload, pb_ha_iq, pb_ha_message, pb_ha_presence, pb_ha_ack, pb_ha_error, pb_packet, pb_auth_request, pb_auth_result, pb_client_mode, pb_client_version, pb_upload_avatar, pb_avatar, pb_avatars, pb_media_url,
      pb_upload_media, pb_contact, pb_contact_list, pb_contact_hash, pb_seen_receipt, pb_delivery_receipt, pb_audience, pb_post, pb_comment, pb_feed_item, pb_feed_items, pb_share_feed_request, pb_share_feed_requests, pb_share_feed_response,
-     pb_share_feed_responses, pb_whisper_keys, pb_push_token, pb_push_register].
+     pb_share_feed_responses, pb_whisper_keys, pb_push_token, pb_push_register, pb_uid_element, pb_privacy_list, pb_privacy_list_result, pb_privacy_lists].
 
 
 get_group_names() -> [].
@@ -5250,11 +5822,12 @@ get_group_names() -> [].
 get_msg_or_group_names() ->
     [pb_chat, pb_ping, pb_iq_payload, pb_msg_payload, pb_ha_iq, pb_ha_message, pb_ha_presence, pb_ha_ack, pb_ha_error, pb_packet, pb_auth_request, pb_auth_result, pb_client_mode, pb_client_version, pb_upload_avatar, pb_avatar, pb_avatars, pb_media_url,
      pb_upload_media, pb_contact, pb_contact_list, pb_contact_hash, pb_seen_receipt, pb_delivery_receipt, pb_audience, pb_post, pb_comment, pb_feed_item, pb_feed_items, pb_share_feed_request, pb_share_feed_requests, pb_share_feed_response,
-     pb_share_feed_responses, pb_whisper_keys, pb_push_token, pb_push_register].
+     pb_share_feed_responses, pb_whisper_keys, pb_push_token, pb_push_register, pb_uid_element, pb_privacy_list, pb_privacy_list_result, pb_privacy_lists].
 
 
 get_enum_names() ->
-    ['pb_ha_iq.Type', 'pb_ha_message.Type', 'pb_ha_presence.Type', 'pb_client_mode.Mode', 'pb_contact.Action', 'pb_contact.Role', 'pb_contact_list.Type', 'pb_audience.Type', 'pb_feed_item.Action', 'pb_whisper_keys.Action', 'pb_push_token.Os'].
+    ['pb_ha_iq.Type', 'pb_ha_message.Type', 'pb_ha_presence.Type', 'pb_client_mode.Mode', 'pb_contact.Action', 'pb_contact.Role', 'pb_contact_list.Type', 'pb_audience.Type', 'pb_feed_item.Action', 'pb_whisper_keys.Action', 'pb_push_token.Os',
+     'pb_uid_element.Action', 'pb_privacy_list.Type', 'pb_privacy_lists.Type'].
 
 
 fetch_msg_def(MsgName) ->
@@ -5284,7 +5857,8 @@ find_msg_def(pb_iq_payload) ->
 		     #field{name = client_version, fnum = 7, rnum = 2, type = {msg, pb_client_version}, occurrence = optional, opts = []}, #field{name = push_register, fnum = 8, rnum = 2, type = {msg, pb_push_register}, occurrence = optional, opts = []},
 		     #field{name = whisper_keys, fnum = 9, rnum = 2, type = {msg, pb_whisper_keys}, occurrence = optional, opts = []}, #field{name = ping, fnum = 10, rnum = 2, type = {msg, pb_ping}, occurrence = optional, opts = []},
 		     #field{name = feed_item, fnum = 11, rnum = 2, type = {msg, pb_feed_item}, occurrence = optional, opts = []}, #field{name = share_feed_requests, fnum = 12, rnum = 2, type = {msg, pb_share_feed_requests}, occurrence = optional, opts = []},
-		     #field{name = share_feed_responses, fnum = 13, rnum = 2, type = {msg, pb_share_feed_responses}, occurrence = optional, opts = []}]}];
+		     #field{name = share_feed_responses, fnum = 13, rnum = 2, type = {msg, pb_share_feed_responses}, occurrence = optional, opts = []}, #field{name = privacy_list, fnum = 14, rnum = 2, type = {msg, pb_privacy_list}, occurrence = optional, opts = []},
+		     #field{name = privacy_list_result, fnum = 15, rnum = 2, type = {msg, pb_privacy_list_result}, occurrence = optional, opts = []}, #field{name = privacy_lists, fnum = 16, rnum = 2, type = {msg, pb_privacy_lists}, occurrence = optional, opts = []}]}];
 find_msg_def(pb_msg_payload) ->
     [#gpb_oneof{name = content, rnum = 2,
 		fields =
@@ -5367,6 +5941,15 @@ find_msg_def(pb_whisper_keys) ->
      #field{name = otp_key_count, fnum = 5, rnum = 6, type = int32, occurrence = optional, opts = []}, #field{name = one_time_keys, fnum = 6, rnum = 7, type = bytes, occurrence = repeated, opts = []}];
 find_msg_def(pb_push_token) -> [#field{name = os, fnum = 1, rnum = 2, type = {enum, 'pb_push_token.Os'}, occurrence = optional, opts = []}, #field{name = token, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []}];
 find_msg_def(pb_push_register) -> [#field{name = push_token, fnum = 1, rnum = 2, type = {msg, pb_push_token}, occurrence = optional, opts = []}];
+find_msg_def(pb_uid_element) -> [#field{name = action, fnum = 1, rnum = 2, type = {enum, 'pb_uid_element.Action'}, occurrence = optional, opts = []}, #field{name = uid, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []}];
+find_msg_def(pb_privacy_list) ->
+    [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'pb_privacy_list.Type'}, occurrence = optional, opts = []}, #field{name = uid_elements, fnum = 2, rnum = 3, type = {msg, pb_uid_element}, occurrence = repeated, opts = []},
+     #field{name = hash, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []}];
+find_msg_def(pb_privacy_list_result) ->
+    [#field{name = result, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = reason, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
+     #field{name = hash, fnum = 3, rnum = 4, type = bytes, occurrence = optional, opts = []}];
+find_msg_def(pb_privacy_lists) ->
+    [#field{name = active_type, fnum = 1, rnum = 2, type = {enum, 'pb_privacy_lists.Type'}, occurrence = optional, opts = []}, #field{name = lists, fnum = 2, rnum = 3, type = {msg, pb_privacy_list}, occurrence = repeated, opts = []}];
 find_msg_def(_) -> error.
 
 
@@ -5381,6 +5964,9 @@ find_enum_def('pb_audience.Type') -> [{all, 0}, {except, 1}, {only, 2}];
 find_enum_def('pb_feed_item.Action') -> [{publish, 0}, {retract, 1}];
 find_enum_def('pb_whisper_keys.Action') -> [{normal, 0}, {add, 1}, {count, 2}, {get, 3}, {set, 4}, {update, 5}];
 find_enum_def('pb_push_token.Os') -> [{android, 0}, {ios, 1}, {ios_dev, 2}];
+find_enum_def('pb_uid_element.Action') -> [{add, 0}, {delete, 1}];
+find_enum_def('pb_privacy_list.Type') -> [{all, 0}, {block, 1}, {except, 2}, {mute, 3}, {only, 4}];
+find_enum_def('pb_privacy_lists.Type') -> [{all, 0}, {block, 1}, {except, 2}];
 find_enum_def(_) -> error.
 
 
@@ -5394,7 +5980,10 @@ enum_symbol_by_value('pb_contact_list.Type', Value) -> 'enum_symbol_by_value_pb_
 enum_symbol_by_value('pb_audience.Type', Value) -> 'enum_symbol_by_value_pb_audience.Type'(Value);
 enum_symbol_by_value('pb_feed_item.Action', Value) -> 'enum_symbol_by_value_pb_feed_item.Action'(Value);
 enum_symbol_by_value('pb_whisper_keys.Action', Value) -> 'enum_symbol_by_value_pb_whisper_keys.Action'(Value);
-enum_symbol_by_value('pb_push_token.Os', Value) -> 'enum_symbol_by_value_pb_push_token.Os'(Value).
+enum_symbol_by_value('pb_push_token.Os', Value) -> 'enum_symbol_by_value_pb_push_token.Os'(Value);
+enum_symbol_by_value('pb_uid_element.Action', Value) -> 'enum_symbol_by_value_pb_uid_element.Action'(Value);
+enum_symbol_by_value('pb_privacy_list.Type', Value) -> 'enum_symbol_by_value_pb_privacy_list.Type'(Value);
+enum_symbol_by_value('pb_privacy_lists.Type', Value) -> 'enum_symbol_by_value_pb_privacy_lists.Type'(Value).
 
 
 enum_value_by_symbol('pb_ha_iq.Type', Sym) -> 'enum_value_by_symbol_pb_ha_iq.Type'(Sym);
@@ -5407,7 +5996,10 @@ enum_value_by_symbol('pb_contact_list.Type', Sym) -> 'enum_value_by_symbol_pb_co
 enum_value_by_symbol('pb_audience.Type', Sym) -> 'enum_value_by_symbol_pb_audience.Type'(Sym);
 enum_value_by_symbol('pb_feed_item.Action', Sym) -> 'enum_value_by_symbol_pb_feed_item.Action'(Sym);
 enum_value_by_symbol('pb_whisper_keys.Action', Sym) -> 'enum_value_by_symbol_pb_whisper_keys.Action'(Sym);
-enum_value_by_symbol('pb_push_token.Os', Sym) -> 'enum_value_by_symbol_pb_push_token.Os'(Sym).
+enum_value_by_symbol('pb_push_token.Os', Sym) -> 'enum_value_by_symbol_pb_push_token.Os'(Sym);
+enum_value_by_symbol('pb_uid_element.Action', Sym) -> 'enum_value_by_symbol_pb_uid_element.Action'(Sym);
+enum_value_by_symbol('pb_privacy_list.Type', Sym) -> 'enum_value_by_symbol_pb_privacy_list.Type'(Sym);
+enum_value_by_symbol('pb_privacy_lists.Type', Sym) -> 'enum_value_by_symbol_pb_privacy_lists.Type'(Sym).
 
 
 'enum_symbol_by_value_pb_ha_iq.Type'(0) -> get;
@@ -5513,6 +6105,35 @@ enum_value_by_symbol('pb_push_token.Os', Sym) -> 'enum_value_by_symbol_pb_push_t
 'enum_value_by_symbol_pb_push_token.Os'(ios) -> 1;
 'enum_value_by_symbol_pb_push_token.Os'(ios_dev) -> 2.
 
+'enum_symbol_by_value_pb_uid_element.Action'(0) -> add;
+'enum_symbol_by_value_pb_uid_element.Action'(1) -> delete.
+
+
+'enum_value_by_symbol_pb_uid_element.Action'(add) -> 0;
+'enum_value_by_symbol_pb_uid_element.Action'(delete) -> 1.
+
+'enum_symbol_by_value_pb_privacy_list.Type'(0) -> all;
+'enum_symbol_by_value_pb_privacy_list.Type'(1) -> block;
+'enum_symbol_by_value_pb_privacy_list.Type'(2) -> except;
+'enum_symbol_by_value_pb_privacy_list.Type'(3) -> mute;
+'enum_symbol_by_value_pb_privacy_list.Type'(4) -> only.
+
+
+'enum_value_by_symbol_pb_privacy_list.Type'(all) -> 0;
+'enum_value_by_symbol_pb_privacy_list.Type'(block) -> 1;
+'enum_value_by_symbol_pb_privacy_list.Type'(except) -> 2;
+'enum_value_by_symbol_pb_privacy_list.Type'(mute) -> 3;
+'enum_value_by_symbol_pb_privacy_list.Type'(only) -> 4.
+
+'enum_symbol_by_value_pb_privacy_lists.Type'(0) -> all;
+'enum_symbol_by_value_pb_privacy_lists.Type'(1) -> block;
+'enum_symbol_by_value_pb_privacy_lists.Type'(2) -> except.
+
+
+'enum_value_by_symbol_pb_privacy_lists.Type'(all) -> 0;
+'enum_value_by_symbol_pb_privacy_lists.Type'(block) -> 1;
+'enum_value_by_symbol_pb_privacy_lists.Type'(except) -> 2.
+
 
 get_service_names() -> [].
 
@@ -5593,6 +6214,10 @@ fqbin_to_msg_name(<<"share_feed_responses">>) -> pb_share_feed_responses;
 fqbin_to_msg_name(<<"whisper_keys">>) -> pb_whisper_keys;
 fqbin_to_msg_name(<<"push_token">>) -> pb_push_token;
 fqbin_to_msg_name(<<"push_register">>) -> pb_push_register;
+fqbin_to_msg_name(<<"uid_element">>) -> pb_uid_element;
+fqbin_to_msg_name(<<"privacy_list">>) -> pb_privacy_list;
+fqbin_to_msg_name(<<"privacy_list_result">>) -> pb_privacy_list_result;
+fqbin_to_msg_name(<<"privacy_lists">>) -> pb_privacy_lists;
 fqbin_to_msg_name(E) -> error({gpb_error, {badmsg, E}}).
 
 
@@ -5632,6 +6257,10 @@ msg_name_to_fqbin(pb_share_feed_responses) -> <<"share_feed_responses">>;
 msg_name_to_fqbin(pb_whisper_keys) -> <<"whisper_keys">>;
 msg_name_to_fqbin(pb_push_token) -> <<"push_token">>;
 msg_name_to_fqbin(pb_push_register) -> <<"push_register">>;
+msg_name_to_fqbin(pb_uid_element) -> <<"uid_element">>;
+msg_name_to_fqbin(pb_privacy_list) -> <<"privacy_list">>;
+msg_name_to_fqbin(pb_privacy_list_result) -> <<"privacy_list_result">>;
+msg_name_to_fqbin(pb_privacy_lists) -> <<"privacy_lists">>;
 msg_name_to_fqbin(E) -> error({gpb_error, {badmsg, E}}).
 
 
@@ -5646,6 +6275,9 @@ fqbin_to_enum_name(<<"audience.Type">>) -> 'pb_audience.Type';
 fqbin_to_enum_name(<<"feed_item.Action">>) -> 'pb_feed_item.Action';
 fqbin_to_enum_name(<<"whisper_keys.Action">>) -> 'pb_whisper_keys.Action';
 fqbin_to_enum_name(<<"push_token.Os">>) -> 'pb_push_token.Os';
+fqbin_to_enum_name(<<"uid_element.Action">>) -> 'pb_uid_element.Action';
+fqbin_to_enum_name(<<"privacy_list.Type">>) -> 'pb_privacy_list.Type';
+fqbin_to_enum_name(<<"privacy_lists.Type">>) -> 'pb_privacy_lists.Type';
 fqbin_to_enum_name(E) -> error({gpb_error, {badenum, E}}).
 
 
@@ -5660,6 +6292,9 @@ enum_name_to_fqbin('pb_audience.Type') -> <<"audience.Type">>;
 enum_name_to_fqbin('pb_feed_item.Action') -> <<"feed_item.Action">>;
 enum_name_to_fqbin('pb_whisper_keys.Action') -> <<"whisper_keys.Action">>;
 enum_name_to_fqbin('pb_push_token.Os') -> <<"push_token.Os">>;
+enum_name_to_fqbin('pb_uid_element.Action') -> <<"uid_element.Action">>;
+enum_name_to_fqbin('pb_privacy_list.Type') -> <<"privacy_list.Type">>;
+enum_name_to_fqbin('pb_privacy_lists.Type') -> <<"privacy_lists.Type">>;
 enum_name_to_fqbin(E) -> error({gpb_error, {badenum, E}}).
 
 
@@ -5679,7 +6314,7 @@ source_basename() -> "packets.proto".
 %% source file. The files are returned with extension,
 %% see get_all_proto_names/0 for a version that returns
 %% the basenames sans extension
-get_all_source_basenames() -> ["packets.proto", "ha_auth.proto", "client_info.proto", "avatar.proto", "media_upload.proto", "contact.proto", "receipts.proto", "feed_items.proto", "whisper_keys.proto", "push.proto"].
+get_all_source_basenames() -> ["packets.proto", "ha_auth.proto", "client_info.proto", "avatar.proto", "media_upload.proto", "contact.proto", "receipts.proto", "feed_items.proto", "whisper_keys.proto", "push.proto", "privacy_list.proto"].
 
 
 %% Retrieve all proto file names, also imported ones.
@@ -5687,7 +6322,7 @@ get_all_source_basenames() -> ["packets.proto", "ha_auth.proto", "client_info.pr
 %% source file. The files are returned sans .proto extension,
 %% to make it easier to use them with the various get_xyz_containment
 %% functions.
-get_all_proto_names() -> ["packets", "ha_auth", "client_info", "avatar", "media_upload", "contact", "receipts", "feed_items", "whisper_keys", "push"].
+get_all_proto_names() -> ["packets", "ha_auth", "client_info", "avatar", "media_upload", "contact", "receipts", "feed_items", "whisper_keys", "push", "privacy_list"].
 
 
 get_msg_containment("packets") -> [pb_chat, pb_ha_ack, pb_ha_error, pb_ha_iq, pb_ha_message, pb_ha_presence, pb_iq_payload, pb_msg_payload, pb_packet, pb_ping];
@@ -5700,6 +6335,7 @@ get_msg_containment("receipts") -> [pb_delivery_receipt, pb_seen_receipt];
 get_msg_containment("feed_items") -> [pb_audience, pb_comment, pb_feed_item, pb_feed_items, pb_post, pb_share_feed_request, pb_share_feed_requests, pb_share_feed_response, pb_share_feed_responses];
 get_msg_containment("whisper_keys") -> [pb_whisper_keys];
 get_msg_containment("push") -> [pb_push_register, pb_push_token];
+get_msg_containment("privacy_list") -> [pb_privacy_list, pb_privacy_list_result, pb_privacy_lists, pb_uid_element];
 get_msg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -5713,6 +6349,7 @@ get_pkg_containment("receipts") -> undefined;
 get_pkg_containment("feed_items") -> undefined;
 get_pkg_containment("whisper_keys") -> undefined;
 get_pkg_containment("push") -> undefined;
+get_pkg_containment("privacy_list") -> undefined;
 get_pkg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -5726,6 +6363,7 @@ get_service_containment("receipts") -> [];
 get_service_containment("feed_items") -> [];
 get_service_containment("whisper_keys") -> [];
 get_service_containment("push") -> [];
+get_service_containment("privacy_list") -> [];
 get_service_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -5739,6 +6377,7 @@ get_rpc_containment("receipts") -> [];
 get_rpc_containment("feed_items") -> [];
 get_rpc_containment("whisper_keys") -> [];
 get_rpc_containment("push") -> [];
+get_rpc_containment("privacy_list") -> [];
 get_rpc_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -5752,6 +6391,7 @@ get_enum_containment("receipts") -> [];
 get_enum_containment("feed_items") -> ['pb_audience.Type', 'pb_feed_item.Action'];
 get_enum_containment("whisper_keys") -> ['pb_whisper_keys.Action'];
 get_enum_containment("push") -> ['pb_push_token.Os'];
+get_enum_containment("privacy_list") -> ['pb_privacy_list.Type', 'pb_privacy_lists.Type', 'pb_uid_element.Action'];
 get_enum_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -5761,11 +6401,15 @@ get_proto_by_msg_name_as_fqbin(<<"push_register">>) -> "push";
 get_proto_by_msg_name_as_fqbin(<<"upload_avatar">>) -> "avatar";
 get_proto_by_msg_name_as_fqbin(<<"avatar">>) -> "avatar";
 get_proto_by_msg_name_as_fqbin(<<"ha_error">>) -> "packets";
+get_proto_by_msg_name_as_fqbin(<<"privacy_lists">>) -> "privacy_list";
 get_proto_by_msg_name_as_fqbin(<<"whisper_keys">>) -> "whisper_keys";
 get_proto_by_msg_name_as_fqbin(<<"share_feed_responses">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"share_feed_requests">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"feed_items">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"avatars">>) -> "avatar";
+get_proto_by_msg_name_as_fqbin(<<"uid_element">>) -> "privacy_list";
+get_proto_by_msg_name_as_fqbin(<<"privacy_list_result">>) -> "privacy_list";
+get_proto_by_msg_name_as_fqbin(<<"privacy_list">>) -> "privacy_list";
 get_proto_by_msg_name_as_fqbin(<<"share_feed_request">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"post">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"comment">>) -> "feed_items";
@@ -5799,6 +6443,8 @@ get_proto_by_service_name_as_fqbin(E) -> error({gpb_error, {badservice, E}}).
 
 
 get_proto_by_enum_name_as_fqbin(<<"push_token.Os">>) -> "push";
+get_proto_by_enum_name_as_fqbin(<<"privacy_lists.Type">>) -> "privacy_list";
+get_proto_by_enum_name_as_fqbin(<<"privacy_list.Type">>) -> "privacy_list";
 get_proto_by_enum_name_as_fqbin(<<"audience.Type">>) -> "feed_items";
 get_proto_by_enum_name_as_fqbin(<<"contact_list.Type">>) -> "contact";
 get_proto_by_enum_name_as_fqbin(<<"contact.Role">>) -> "contact";
@@ -5806,6 +6452,7 @@ get_proto_by_enum_name_as_fqbin(<<"client_mode.Mode">>) -> "client_info";
 get_proto_by_enum_name_as_fqbin(<<"ha_presence.Type">>) -> "packets";
 get_proto_by_enum_name_as_fqbin(<<"ha_message.Type">>) -> "packets";
 get_proto_by_enum_name_as_fqbin(<<"ha_iq.Type">>) -> "packets";
+get_proto_by_enum_name_as_fqbin(<<"uid_element.Action">>) -> "privacy_list";
 get_proto_by_enum_name_as_fqbin(<<"whisper_keys.Action">>) -> "whisper_keys";
 get_proto_by_enum_name_as_fqbin(<<"feed_item.Action">>) -> "feed_items";
 get_proto_by_enum_name_as_fqbin(<<"contact.Action">>) -> "contact";

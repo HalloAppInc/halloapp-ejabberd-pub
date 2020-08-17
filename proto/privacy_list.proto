@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+
+// Privacy-Lists
+
+message uid_element {
+    enum Action {
+        add = 0;
+        delete = 1;
+    }
+    Action action = 1;
+    int64 uid = 2;
+}
+
+message privacy_list {
+    enum Type {
+        all = 0;
+        block = 1;
+        except = 2;
+        mute = 3;
+        only = 4;
+    }
+    Type type = 1;
+    repeated uid_element uid_elements = 2;
+    bytes hash = 3;
+}
+
+
+message privacy_list_result {
+    string result = 1;
+    string reason = 2;
+    bytes hash = 3;
+}
+
+
+message privacy_lists {
+    enum Type {
+        all = 0;
+        block = 1;
+        except = 2;
+    }
+    Type active_type = 1;
+    repeated privacy_list lists = 2;
+}
+
