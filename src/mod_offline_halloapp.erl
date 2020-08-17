@@ -137,7 +137,7 @@ user_send_ack(#ack{id = MsgId, from = #jid{user = UserId, server = Server}} = Ac
             ?WARNING_MSG("missing a message on redis, msg_id: ~s, from_uid: ~s", [MsgId, UserId]);
         _ ->
             ok = model_messages:ack_message(UserId, MsgId),
-            ejabberd_hooks:run(user_ack_packet, Server, [{Ack, OfflineMessage}])
+            ejabberd_hooks:run(user_ack_packet, Server, [Ack, OfflineMessage])
     end.
 
 

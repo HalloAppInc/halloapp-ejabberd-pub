@@ -24,7 +24,7 @@
 %% gen_mod API.
 -export([start/2, stop/1, depends/2, mod_options/1, reload/3]).
 %% Hooks.
--export([user_ack_packet/1]).
+-export([user_ack_packet/2]).
 
 start(Host, _Opts) ->
     ejabberd_hooks:add(user_ack_packet, Host, ?MODULE, user_ack_packet, 10).
@@ -42,11 +42,10 @@ reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
 
-% TODO: (Nikola) change from ({Ack, OffileMessage}) to (Ack, OfflineMessage)
 %% Hook triggered when user sent the server an ack stanza for this particular message.
--spec user_ack_packet({Ack :: ack(), OfflineMessage :: offline_message()}) -> ok.
-user_ack_packet({#ack{id = Id, from = #jid{server = ServerHost} = AckFrom},
-        #offline_message{content_type = ContentType, from_uid = MsgFromId, message = Msg}})
+-spec user_ack_packet(Ack :: ack(), OfflineMessage :: offline_message()) -> ok.
+user_ack_packet(#ack{id = Id, from = #jid{server = ServerHost} = AckFrom},
+        #offline_message{content_type = ContentType, from_uid = MsgFromId, message = Msg})
         when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">> ->
     TimestampSec = util:now_binary(),
     FromJID = AckFrom,
@@ -55,7 +54,7 @@ user_ack_packet({#ack{id = Id, from = #jid{server = ServerHost} = AckFrom},
     send_receipt(ToJID, FromJID, Id, ThreadId, TimestampSec),
     log_delivered(ContentType);
 
-user_ack_packet(_) ->
+user_ack_packet(_, _) ->
     ok.
 
 

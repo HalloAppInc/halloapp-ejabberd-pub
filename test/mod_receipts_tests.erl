@@ -132,7 +132,7 @@ send_1on1_delivery_receipt_test() ->
             ok
         end),
 
-    mod_receipts:user_ack_packet({Ack, OfflineMsg}),
+    mod_receipts:user_ack_packet(Ack, OfflineMsg),
     meck:validate(ejabberd_router),
     meck:unload(ejabberd_router),
     ok.
@@ -154,7 +154,7 @@ send_group_delivery_receipt_test() ->
             ok
         end),
 
-    mod_receipts:user_ack_packet({Ack, OfflineMsg}),
+    mod_receipts:user_ack_packet(Ack, OfflineMsg),
     meck:validate(ejabberd_router),
     meck:unload(ejabberd_router),
     ok.
