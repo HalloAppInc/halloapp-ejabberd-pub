@@ -17,26 +17,11 @@
 %% define whisper_keys constants
 %% -------------------------------------------- %%
 
--define(TOJID,
-    #jid{
-        user = <<"1000000000045484920">>,
-        server = <<"s.halloapp.net">>
-    }
-).
-
--define(FROMJID,
-    #jid{
-        user = <<"1000000000519345762">>,
-        server = <<"s.halloapp.net">>
-    }
-).
 
 -define(XMPP_MSG_WHISPER_KEYS,
     #message{
         id = <<"WHIPCD988id">>,
         type = set,
-        to = ?TOJID,
-        from = ?FROMJID,
         sub_els = [#whisper_keys{
             uid = <<"29863">>,
             type = add, 
@@ -53,7 +38,7 @@
         id = <<"WHIPCD988id">>,
         type = set,
         to_uid = 1000000000045484920,
-        from_uid = 1000000000519345762,
+        from_uid = 0,   %% Default value, when sent by the server.
         payload = #pb_msg_payload{
             content = {whisper_keys, #pb_whisper_keys{
                 uid = 29863,
@@ -72,15 +57,18 @@
 %% internal tests
 %% -------------------------------------------- %%
 
-
-xmpp_to_proto_whisper_keys_test() -> 
-    ProtoMSG = message_parser:xmpp_to_proto(?XMPP_MSG_WHISPER_KEYS),
-    ?assertEqual(true, is_record(ProtoMSG, pb_ha_message)),
-    ?assertEqual(?PB_MSG_WHISPER_KEYS, ProtoMSG).
+setup() ->
+    stringprep:start(),
+    ok.
 
 
-proto_to_xmpp_whisper_keys_test() ->
-    XmppMSG = message_parser:proto_to_xmpp(?PB_MSG_WHISPER_KEYS),
-    ?assertEqual(true, is_record(XmppMSG, message)),
-    ?assertEqual(?XMPP_MSG_WHISPER_KEYS, XmppMSG).
+xmpp_to_proto_whisper_keys_test() ->
+    setup(),
+    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
+    FromJid = jid:make(<<"s.halloapp.net">>),
+    XmppMsg = ?XMPP_MSG_WHISPER_KEYS#message{to = ToJid, from = FromJid},
+
+    ProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
+    ?assertEqual(true, is_record(ProtoMsg, pb_ha_message)),
+    ?assertEqual(?PB_MSG_WHISPER_KEYS, ProtoMsg).
 

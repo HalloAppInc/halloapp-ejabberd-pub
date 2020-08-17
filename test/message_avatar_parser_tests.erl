@@ -17,19 +17,6 @@
 %% define avatar and avatars constants
 %% -------------------------------------------- %%
 
--define(TOJID,
-    #jid{
-        user = <<"1000000000045484920">>,
-        server = <<"s.halloapp.net">>
-    }
-).
-
--define(FROMJID,
-    #jid{
-        user = <<"1000000000519345762">>,
-        server = <<"s.halloapp.net">>
-    }
-).
 
 -define(XMPP_AVATAR,
     #avatar{
@@ -49,8 +36,6 @@
     #message{
         id = <<"s9cCU-10">>,
         type = set,
-        to = ?TOJID,
-        from = ?FROMJID,
         sub_els = [?XMPP_AVATAR]
     }
 ).
@@ -72,15 +57,28 @@
 %% internal tests
 %% -------------------------------------------- %%
 
+setup() ->
+    stringprep:start(),
+    ok.
 
-xmpp_to_proto_avatar_test() -> 
-    ProtoMSG = message_parser:xmpp_to_proto(?XMPP_MSG_AVATAR),
-    ?assertEqual(true, is_record(ProtoMSG, pb_ha_message)),
-    ?assertEqual(?PB_MSG_AVATAR, ProtoMSG).
+xmpp_to_proto_avatar_test() ->
+    setup(),
+    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
+    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
+    XmppMsg = ?XMPP_MSG_AVATAR#message{to = ToJid, from = FromJid},
+
+    ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
+    ?assertEqual(true, is_record(ActualProtoMsg, pb_ha_message)),
+    ?assertEqual(?PB_MSG_AVATAR, ActualProtoMsg).
     
     
 proto_to_xmpp_avatar_test() ->
-    XmppMSG = message_parser:proto_to_xmpp(?PB_MSG_AVATAR),
-    ?assertEqual(true, is_record(XmppMSG, message)),
-    ?assertEqual(?XMPP_MSG_AVATAR, XmppMSG).
+    setup(),
+    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
+    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
+    ExpectedXmppMsg = ?XMPP_MSG_AVATAR#message{to = ToJid, from = FromJid},
+
+    ActualXmppMsg = message_parser:proto_to_xmpp(?PB_MSG_AVATAR),
+    ?assertEqual(true, is_record(ActualXmppMsg, message)),
+    ?assertEqual(ExpectedXmppMsg, ActualXmppMsg).
 

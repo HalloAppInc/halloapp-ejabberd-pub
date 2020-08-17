@@ -17,20 +17,6 @@
 %% define contact list constants
 %% -------------------------------------------- %%
 
--define(TOJID,
-    #jid{
-        user = <<"1000000000045484920">>,
-        server = <<"s.halloapp.net">>
-    }
-).
-
--define(FROMJID,
-    #jid{
-        user = <<"1000000000519345762">>,
-        server = <<"s.halloapp.net">>
-    }
-).
-
 -define(HASH1, <<"tAY=">>).
 
 
@@ -62,8 +48,6 @@
     #message{
         id = <<"s9cCU-10">>,
         type = set,
-        to = ?TOJID,
-        from = ?FROMJID,
         sub_els = [#contact_list{
                 type = full,
                 syncid = <<"halloapp:user:contacts">>,
@@ -81,7 +65,7 @@
         id = <<"s9cCU-10">>,
         type = set,
         to_uid = 1000000000045484920,
-        from_uid = 1000000000519345762,
+        from_uid = 0,   %% Default value, when sent by the server.
         payload = #pb_msg_payload{
             content = {contact_list, #pb_contact_list{
                 type = full, 
@@ -123,8 +107,6 @@
     #message{
         id = <<"s9cCU-10">>,
         type = set,
-        to = ?TOJID,
-        from = ?FROMJID,
         sub_els = [#contact_list{
                 contact_hash = [?HASH1]
             }
@@ -137,7 +119,7 @@
         id = <<"s9cCU-10">>,
         type = set,
         to_uid = 1000000000045484920,
-        from_uid = 1000000000519345762,
+        from_uid = 0,   %% Default value, when sent by the server.
         payload = #pb_msg_payload{
             content = {contact_hash, #pb_contact_hash{
                 hash = ?HASH1
@@ -151,27 +133,29 @@
 %% internal tests
 %% -------------------------------------------- %%
 
+setup() ->
+    stringprep:start(),
+    ok.
 
-xmpp_to_proto_contact_list_test() -> 
-    ProtoMSG = message_parser:xmpp_to_proto(?XMPP_MSG_CONTACT_LIST),
+
+xmpp_to_proto_contact_list_test() ->
+    setup(),
+    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
+    FromJid = jid:make(<<"s.halloapp.net">>),
+    XmppMsg = ?XMPP_MSG_CONTACT_LIST#message{to = ToJid, from = FromJid},
+
+    ProtoMSG = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ProtoMSG, pb_ha_message)),
-    ?assertEqual(?PB_MSG_CONTACT_LIST, ProtoMSG). 
-
-
-proto_to_xmpp_contact_list_test() ->
-    XmppMSG = message_parser:proto_to_xmpp(?PB_MSG_CONTACT_LIST),
-    ?assertEqual(true, is_record(XmppMSG, message)),
-    ?assertEqual(?XMPP_MSG_CONTACT_LIST, XmppMSG).
+    ?assertEqual(?PB_MSG_CONTACT_LIST, ProtoMSG).
 
 
 xmpp_to_proto_contact_hash_test() ->
-    ProtoMSG = message_parser:xmpp_to_proto(?XMPP_MSG_CONTACT_HASH),
+    setup(),
+    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
+    FromJid = jid:make(<<"s.halloapp.net">>),
+    XmppMsg = ?XMPP_MSG_CONTACT_HASH#message{to = ToJid, from = FromJid},
+
+    ProtoMSG = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ProtoMSG, pb_ha_message)),
     ?assertEqual(?PB_MSG_CONTACT_HASH, ProtoMSG).
-
-
-proto_to_xmpp_contact_hash_test() ->
-    XmppMSG = message_parser:proto_to_xmpp(?PB_MSG_CONTACT_HASH),
-    ?assertEqual(true, is_record(XmppMSG, message)),
-    ?assertEqual(?XMPP_MSG_CONTACT_HASH, XmppMSG).
 

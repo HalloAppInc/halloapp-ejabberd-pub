@@ -112,11 +112,15 @@
         type = normal,
         to = #jid{
             user = <<"1000000000045484920">>,
-            server = <<"s.halloapp.net">>
+            server = <<"s.halloapp.net">>,
+            luser = <<"1000000000045484920">>,
+            lserver = <<"s.halloapp.net">>
         },
         from = #jid{
             user = <<"1000000000519345762">>,
-            server = <<"s.halloapp.net">>
+            server = <<"s.halloapp.net">>,
+            luser = <<"1000000000519345762">>,
+            lserver = <<"s.halloapp.net">>
         },
         sub_els = [#receipt_seen{
                 id = <<"7ab30vn">>,
@@ -192,14 +196,22 @@ proto_to_xmpp_packet_presence_test() ->
     ?assertEqual(XmppPresence#presence.type, ?XMPP_PRESENCE#presence.type).
 
 
-xmpp_to_proto_packet_msg_test() -> 
-    ProtoMsg = packet_parser:xmpp_to_proto(?XMPP_MSG),
+xmpp_to_proto_packet_msg_test() ->
+    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
+    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
+    XmppMsg = ?XMPP_MSG#message{to = ToJid, from = FromJid},
+
+    ProtoMsg = packet_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ProtoMsg, pb_packet)),
     ?assertEqual(?PB_PACKET_MSG, ProtoMsg).
 
 
-proto_to_xmpp_packet_msg_test() -> 
+proto_to_xmpp_packet_msg_test() ->
+    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
+    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
+    ExpectedXmppMsg = ?XMPP_MSG#message{to = ToJid, from = FromJid},
+
     XmppMsg = packet_parser:proto_to_xmpp(?PB_PACKET_MSG),
     ?assertEqual(true, is_record(XmppMsg, message)),
-    ?assertEqual(?XMPP_MSG, XmppMsg).
+    ?assertEqual(ExpectedXmppMsg, XmppMsg).
 
