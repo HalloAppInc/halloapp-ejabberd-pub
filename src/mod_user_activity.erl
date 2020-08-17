@@ -169,7 +169,7 @@ broadcast_presence(User, Server, TimestampMs, Status) ->
     Presence = #presence{from = jid:make(User, Server),
             type = Status, last_seen = util:to_binary(LastSeen)},
     BroadcastUIDs = mod_presence_subscription:get_user_broadcast_friends(User, Server),
-    ?INFO_MSG("Uid: ~s, BroadcastUIDs: ~s, status: ~p", [User, BroadcastUIDs, Status]),
+    ?INFO_MSG("Uid: ~s, BroadcastUIDs: ~p, status: ~p", [User, BroadcastUIDs, Status]),
     BroadcastJIDs = lists:map(fun(Uid) -> jid:make(Uid, Server) end, BroadcastUIDs),
     route_multiple(Server, BroadcastJIDs, Presence).
 
