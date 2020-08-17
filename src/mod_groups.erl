@@ -124,6 +124,7 @@ delete_group(Gid, Uid) ->
         true ->
             Group = model_groups:get_group(Gid),
             NamesMap = model_accounts:get_names([Uid]),
+            delete_group_avatar_data(Gid, Group#group.avatar),
             model_groups:delete_group(Gid),
             broadcast_update(Group, Uid, delete, [], NamesMap),
             ok
@@ -269,7 +270,7 @@ set_avatar(Gid, Uid, AvatarId) ->
             {error, not_member};
         true ->
             GroupInfo = model_groups:get_group_info(Gid),
-            ok = clean_old_avatar(GroupInfo#group_info.avatar),
+            ok = delete_group_avatar_data(Gid, GroupInfo#group_info.avatar),
             ok = model_groups:set_avatar(Gid, AvatarId),
             ?INFO_MSG("Gid: ~s Uid: ~s set avatar to ~s", [Gid, Uid, AvatarId]),
             stat:count(?STAT_NS, "set_avatar"),
@@ -289,7 +290,7 @@ delete_avatar(Gid, Uid) ->
             {error, not_member};
         true ->
             GroupInfo = model_groups:get_group_info(Gid),
-            ok = clean_old_avatar(GroupInfo#group_info.avatar),
+            ok = delete_group_avatar_data(Gid, GroupInfo#group_info.avatar),
             ok = model_groups:delete_avatar(Gid),
             ?INFO_MSG("Gid: ~s Uid: ~s deleted avatar", [Gid, Uid]),
             stat:count(?STAT_NS, "delete_avatar"),
@@ -301,8 +302,7 @@ delete_avatar(Gid, Uid) ->
             -> {ok, Ts} | {error, atom()}
             when Ts :: non_neg_integer().
 send_message(MsgId, Gid, Uid, MessagePayload) ->
-    % TODO: remove the payload print
-    ?INFO_MSG("Gid: ~s Uid: ~s Payload ~p", [Gid, Uid, MessagePayload]),
+    ?INFO_MSG("Gid: ~s Uid: ~s size: ~p", [Gid, Uid, byte_size(MessagePayload)]),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
@@ -407,6 +407,7 @@ maybe_delete_empty_group(Gid) ->
         Size =:= 0 ->
             ?INFO_MSG("Group ~s is now empty. Deleting it.", [Gid]),
             stat:count("HA/groups", "auto_delete_empty"),
+            delete_group_avatar_data(Gid),
             model_groups:delete_group(Gid);
         true ->
             ok
@@ -641,9 +642,15 @@ log_stats(API, Results) ->
         Results).
 
 
-% TODO: remember to delete the avatar when the group gets deleted
--spec clean_old_avatar(AvatarId :: binary()) -> ok.
-clean_old_avatar(AvatarId) ->
+-spec delete_group_avatar_data(Gid :: gid()) -> ok.
+delete_group_avatar_data(Gid) ->
+    GroupInfo = model_groups:get_group_info(Gid),
+    delete_group_avatar_data(Gid, GroupInfo#group_info.avatar).
+
+
+-spec delete_group_avatar_data(Gid :: gid(), AvatarId :: binary()) -> ok.
+delete_group_avatar_data(Gid, AvatarId) ->
+    ?INFO_MSG("Gid: ~s deleting AvatarId: ~s from S3", [Gid, AvatarId]),
     % this function already logs the error.
     mod_user_avatar:delete_avatar_s3(AvatarId),
     ok.
