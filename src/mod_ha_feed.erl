@@ -369,7 +369,7 @@ send_old_notification(ItemId, ItemType, PostOwnerUid, PublisherUid,
     FinalPayload = get_old_payload(Payload),
     Server = util:get_host(),
     NodeId = <<"feed-", PostOwnerUid/binary>>,
-    Node = mod_feed_mnesia:get_node(NodeId),
+    {ok, Node} = mod_feed_mnesia:get_node(NodeId),
     Item = #item{
         key = {ItemId, NodeId},
         type = ItemType,
@@ -378,7 +378,7 @@ send_old_notification(ItemId, ItemType, PostOwnerUid, PublisherUid,
         payload = FinalPayload
     },
     ok = mod_feed:broadcast_event(PublisherUid, Server, Node, Item,
-            Payload, EventType, FeedAudienceSet),
+            FinalPayload, EventType, FeedAudienceSet),
     ok.
 
 
@@ -391,7 +391,7 @@ handle_mnesia_content_request(PostId, CommentId, ItemType, ParentCommentId, Payl
     {PostItem, CommentItem} = get_old_post_and_comment(PostId, CommentId),
     TimestampMs = util:now_ms(),
     NodeId = <<"feed-", PostUid/binary>>,
-    Node = mod_feed_mnesia:get_node(NodeId),
+    {ok, Node} = mod_feed_mnesia:get_node(NodeId),
     PostOwnerUid = PostUid,
     FeedAudienceSet = mod_feed:get_feed_audience_set(PostOwnerUid),
 
