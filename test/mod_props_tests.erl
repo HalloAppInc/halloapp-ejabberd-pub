@@ -16,7 +16,7 @@
 -define(HASH_LENGTH, (?PROPS_SHA_HASH_LENGTH_BYTES * 4 / 3)).
 -define(UID, <<"1">>).
 -define(PHONE, <<"16175280000">>).
--define(DEV_UID, <<"2">>).
+-define(DEV_UID, <<"1000000000045484920">>).  % michael's uid is on the dev list
 -define(TEST_UID, <<"3">>).
 -define(TEST_PHONE, <<"16175550000">>).
 -define(TEST_PROPLIST, [
@@ -59,21 +59,12 @@ iq_test() ->
             #prop{name = some_test_prop, value = "value"}]}]},
     ?assertEqual(Expected, Actual).
 
-
-is_dev_test() ->
-    setup(),
-    ?assert(mod_props:is_dev(?DEV_UID)),
-    ?assert(mod_props:is_dev(?TEST_UID)),
-    ?assertNot(mod_props:is_dev(?UID)),
-    teardown().
-
 %% ----------------------------------------------
 %% Internal functions
 %% ----------------------------------------------
 
 setup() ->
     meck:new(model_accounts),
-    meck:expect(model_accounts, get_traced_uids, fun() -> {ok, [?DEV_UID]} end),
     meck:expect(model_accounts, get_phone, fun mock_get_phone/1).
 
 
@@ -85,6 +76,7 @@ teardown() ->
 mock_get_phone(Uid) ->
     case Uid of
         ?UID -> {ok, ?PHONE};
+        ?DEV_UID -> {ok, ?PHONE};
         ?TEST_UID -> {ok, ?TEST_PHONE}
     end.
 

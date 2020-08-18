@@ -55,7 +55,7 @@ mod_options(_Host) ->
 %%====================================================================
 
 process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
-    IsDev = is_dev(Uid),
+    IsDev = dev_users:is_dev_uid(Uid),
     {Hash, SortedProplist} = get_props_and_hash(Uid),
     ?INFO_MSG("Uid:~s (dev = ~s) requesting props. hash = ~s, proplist = ~p",
         [Uid, IsDev, Hash, SortedProplist]),
@@ -74,7 +74,7 @@ get_hash(Uid) ->
 % If any props are changed, please update props doc: server/doc/server_props.md
 -spec get_props(Uid :: binary()) -> proplist().
 get_props(Uid) ->
-    Proplist = case is_dev(Uid) of
+    Proplist = case dev_users:is_dev_uid(Uid) of
         false ->
             [
                 {dev, false},
@@ -93,17 +93,6 @@ get_props(Uid) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-
-is_dev(Uid) ->
-    %% TODO: don't use traced uid list for this
-    {ok, InternalUids} = model_accounts:get_traced_uids(),
-    case lists:member(Uid, InternalUids) of
-        true -> true;
-        false ->
-            {ok, Phone} = model_accounts:get_phone(Uid),
-            util:is_test_number(Phone)
-    end .
-
 
 generate_hash(SortedProplist) ->
     Json = jsx:encode(SortedProplist),
