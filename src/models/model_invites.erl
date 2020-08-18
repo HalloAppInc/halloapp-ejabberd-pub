@@ -27,7 +27,8 @@
     record_invite/3,
     is_invited/1,
     is_invited_by/2,
-    get_inviter/1
+    get_inviter/1,
+    get_sent_invites/1
 ]).
 
 -define(FIELD_NUM_INV, <<"in">>).
@@ -96,6 +97,10 @@ get_inviter(PhoneNum) ->
             {ok, Uid, Ts}
     end.
 
+
+-spec get_sent_invites(Uid ::binary()) -> {ok, [binary()]}.
+get_sent_invites(Uid) ->
+    q_accounts(["SMEMBERS", acc_invites_key(Uid)]).
 
 %%====================================================================
 %% Internal functions

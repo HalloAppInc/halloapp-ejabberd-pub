@@ -158,9 +158,9 @@ who_invited_test() ->
 % tests set of invited users for accuracy
 invite_set_test() ->
     setup(),
-    ?assertEqual({ok, []}, model_invites:q_accounts(["SMEMBERS", model_invites:acc_invites_key(?UID1)])),
+    ?assertEqual({ok, []}, model_invites:get_sent_invites(?UID1)),
     {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
-    ?assertEqual({ok, [?PHONE2]}, model_invites:q_accounts(["SMEMBERS", model_invites:acc_invites_key(?UID1)])).
+    ?assertEqual({ok, [?PHONE2]}, model_invites:get_sent_invites(?UID1)).
 
 %% --------------------------------------------	%%
 %% Tests for internal functions

@@ -24,7 +24,8 @@
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 -export([
-    process_local_iq/1
+    process_local_iq/1,
+    get_invites_remaining/1
 ]).
 
 -define(NS_INVITE, <<"halloapp:invites">>).
