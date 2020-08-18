@@ -26,14 +26,14 @@
 -ifndef('PB_IQ_PAYLOAD_PB_H').
 -define('PB_IQ_PAYLOAD_PB_H', true).
 -record(pb_iq_payload,
-        {content                :: {upload_media, packets:pb_upload_media()} | {contact_list, packets:pb_contact_list()} | {upload_avatar, packets:pb_upload_avatar()} | {avatar, packets:pb_avatar()} | {avatars, packets:pb_avatars()} | {client_mode, packets:pb_client_mode()} | {client_version, packets:pb_client_version()} | {push_register, packets:pb_push_register()} | {whisper_keys, packets:pb_whisper_keys()} | {ping, packets:pb_ping()} | {feed_item, packets:pb_feed_item()} | {privacy_list, packets:pb_privacy_list()} | {privacy_list_result, packets:pb_privacy_list_result()} | {privacy_lists, packets:pb_privacy_lists()} | undefined % oneof
+        {content                :: {upload_media, packets:pb_upload_media()} | {contact_list, packets:pb_contact_list()} | {upload_avatar, packets:pb_upload_avatar()} | {avatar, packets:pb_avatar()} | {avatars, packets:pb_avatars()} | {client_mode, packets:pb_client_mode()} | {client_version, packets:pb_client_version()} | {push_register, packets:pb_push_register()} | {whisper_keys, packets:pb_whisper_keys()} | {ping, packets:pb_ping()} | {feed_item, packets:pb_feed_item()} | {privacy_list, packets:pb_privacy_list()} | {privacy_list_result, packets:pb_privacy_list_result()} | {privacy_lists, packets:pb_privacy_lists()} | {group_stanza, packets:pb_group_stanza()} | undefined % oneof
         }).
 -endif.
 
 -ifndef('PB_MSG_PAYLOAD_PB_H').
 -define('PB_MSG_PAYLOAD_PB_H', true).
 -record(pb_msg_payload,
-        {content                :: {contact_list, packets:pb_contact_list()} | {avatar, packets:pb_avatar()} | {whisper_keys, packets:pb_whisper_keys()} | {seen, packets:pb_seen_receipt()} | {delivery, packets:pb_delivery_receipt()} | {chat, packets:pb_chat()} | {feed_item, packets:pb_feed_item()} | {feed_items, packets:pb_feed_items()} | {contact_hash, packets:pb_contact_hash()} | undefined % oneof
+        {content                :: {contact_list, packets:pb_contact_list()} | {avatar, packets:pb_avatar()} | {whisper_keys, packets:pb_whisper_keys()} | {seen, packets:pb_seen_receipt()} | {delivery, packets:pb_delivery_receipt()} | {chat, packets:pb_chat()} | {feed_item, packets:pb_feed_item()} | {feed_items, packets:pb_feed_items()} | {contact_hash, packets:pb_contact_hash()} | {group_stanza, packets:pb_group_stanza()} | {group_chat, packets:pb_group_chat()} | undefined % oneof
         }).
 -endif.
 
@@ -329,6 +329,45 @@
 -record(pb_privacy_lists,
         {active_type = all      :: all | block | except | integer() | undefined, % = 1, enum pb_privacy_lists.Type
          lists = []             :: [packets:pb_privacy_list()] | undefined % = 2
+        }).
+-endif.
+
+-ifndef('PB_GROUP_MEMBER_PB_H').
+-define('PB_GROUP_MEMBER_PB_H', true).
+-record(pb_group_member,
+        {action = add           :: add | remove | promote | demote | leave | integer() | undefined, % = 1, enum pb_group_member.Action
+         uid = 0                :: integer() | undefined, % = 2, 64 bits
+         type = member          :: member | admin | integer() | undefined, % = 3, enum pb_group_member.Type
+         name = <<>>            :: iodata() | undefined, % = 4
+         avatar_id = <<>>       :: iodata() | undefined, % = 5
+         result = <<>>          :: iodata() | undefined, % = 6
+         reason = <<>>          :: iodata() | undefined % = 7
+        }).
+-endif.
+
+-ifndef('PB_GROUP_STANZA_PB_H').
+-define('PB_GROUP_STANZA_PB_H', true).
+-record(pb_group_stanza,
+        {action = set           :: set | get | create | delete | leave | change_avatar | change_name | modify_admins | modify_members | auto_promote_admins | integer() | undefined, % = 1, enum pb_group_stanza.Action
+         gid = <<>>             :: iodata() | undefined, % = 2
+         name = <<>>            :: iodata() | undefined, % = 3
+         avatar_id = <<>>       :: iodata() | undefined, % = 4
+         sender_uid = 0         :: integer() | undefined, % = 5, 64 bits
+         sender_name = <<>>     :: iodata() | undefined, % = 6
+         members = []           :: [packets:pb_group_member()] | undefined % = 7
+        }).
+-endif.
+
+-ifndef('PB_GROUP_CHAT_PB_H').
+-define('PB_GROUP_CHAT_PB_H', true).
+-record(pb_group_chat,
+        {gid = <<>>             :: iodata() | undefined, % = 1
+         name = <<>>            :: iodata() | undefined, % = 2
+         avatar_id = <<>>       :: iodata() | undefined, % = 3
+         sender_uid = 0         :: integer() | undefined, % = 4, 64 bits
+         sender_name = <<>>     :: iodata() | undefined, % = 5
+         timestamp = 0          :: integer() | undefined, % = 6, 64 bits
+         payload = <<>>         :: iodata() | undefined % = 7
         }).
 -endif.
 

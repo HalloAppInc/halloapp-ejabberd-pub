@@ -11,6 +11,7 @@ import "whisper_keys.proto";
 import "push.proto";
 import "privacy_list.proto";
 import "client_info.proto";
+import "group_stanzas.proto";
 
 
 // Chat
@@ -48,6 +49,7 @@ message iq_payload {
         privacy_list privacy_list = 12;
         privacy_list_result privacy_list_result = 13;
         privacy_lists privacy_lists = 14;
+        group_stanza group_stanza = 15;
     }
 }
 
@@ -62,6 +64,8 @@ message msg_payload {
         feed_item feed_item = 7;
         feed_items feed_items = 8;
         contact_hash contact_hash = 9;
+        group_stanza group_stanza = 10;
+        group_chat group_chat = 11;
     }
 }
 

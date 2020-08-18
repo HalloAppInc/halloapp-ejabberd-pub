@@ -65,7 +65,11 @@ msg_payload_mapping(SubEl) ->
                 {[_], []} -> {feed_item, feed_parser:xmpp_to_proto(SubEl)};
                 {[], [_]} -> {feed_item, feed_parser:xmpp_to_proto(SubEl)};
                 _ -> {feed_items, feed_parser:xmpp_to_proto(SubEl)}
-            end
+            end;
+        group_st ->
+            {group_stanza, groups_parser:xmpp_to_proto(SubEl)};
+        group_chat ->
+            {group_chat, groups_parser:xmpp_to_proto(SubEl)}
     end,
     Payload.
 
@@ -120,7 +124,11 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
         {feed_item, FeedItemRecord} ->
             feed_parser:proto_to_xmpp(FeedItemRecord);
         {feed_items, FeedItemsRecord} ->
-            feed_parser:proto_to_xmpp(FeedItemsRecord)
+            feed_parser:proto_to_xmpp(FeedItemsRecord);
+        {group_stanza, GroupStanzaRecord} ->
+            groups_parser:proto_to_xmpp(GroupStanzaRecord);
+        {group_chat, GroupChatRecord} ->
+            groups_parser:proto_to_xmpp(GroupChatRecord)
     end,
     SubEl.
 
