@@ -34,6 +34,6 @@ message contact_list {
 }
 
 message contact_hash {
-    string hash = 1;
+    bytes hash = 1;
 }
 

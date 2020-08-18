@@ -17,7 +17,8 @@
 %% define contact list constants
 %% -------------------------------------------- %%
 
--define(HASH1, <<"tAY=">>).
+-define(HASH1_BASE64, <<"YWI=">>).
+-define(HASH1, <<"ab">>).
 
 
 -define(CONTACT1, 
@@ -108,7 +109,7 @@
         id = <<"s9cCU-10">>,
         type = set,
         sub_els = [#contact_list{
-                contact_hash = [?HASH1]
+                contact_hash = [?HASH1_BASE64]
             }
         ]
     }

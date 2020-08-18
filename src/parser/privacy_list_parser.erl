@@ -27,10 +27,14 @@ xmpp_to_proto(SubEl) when is_record(SubEl, user_privacy_lists) ->
         lists = PbPrivacyLists
     };
 xmpp_to_proto(SubEl) when is_record(SubEl, error_st) ->
+    Hash = case SubEl#error_st.hash of
+        undefined -> <<>>;
+        H -> base64url:decode(H)
+    end,
     #pb_privacy_list_result {
         result = <<"failed">>,
         reason = util:to_binary(SubEl#error_st.reason),
-        hash = SubEl#error_st.hash
+        hash = Hash
     }.
 
 
@@ -42,9 +46,13 @@ xmpp_to_proto_user_privacy_list(SubEl) ->
                 uid = binary_to_integer(UidEl#uid_el.uid)
             }
         end, SubEl#user_privacy_list.uid_els),
+    Hash = case SubEl#user_privacy_list.hash of
+        undefined -> <<>>;
+        H -> base64url:decode(H)
+    end,
     #pb_privacy_list {
         type = SubEl#user_privacy_list.type,
-        hash = SubEl#user_privacy_list.hash,
+        hash = Hash,
         uid_elements = UidElements
     }.
 
@@ -75,7 +83,7 @@ proto_to_xmpp_privacy_list(ProtoPayload) ->
         end, ProtoPayload#pb_privacy_list.uid_elements),
     #user_privacy_list {
         type = ProtoPayload#pb_privacy_list.type,
-        hash = ProtoPayload#pb_privacy_list.hash,
+        hash = base64url:encode(ProtoPayload#pb_privacy_list.hash),
         uid_els = UidElements
     }.
 

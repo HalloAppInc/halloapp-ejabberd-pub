@@ -56,7 +56,7 @@ xmpp_to_proto_role(XmppRole) ->
 xmpp_to_proto_contact_hash(SubEl) ->
     [HashValue] = SubEl#contact_list.contact_hash,
     #pb_contact_hash{
-        hash = HashValue
+        hash = base64:decode(HashValue)
     }.
 
 
@@ -106,6 +106,6 @@ proto_to_xmpp_role(PbRole) ->
 
 proto_to_xmpp_contact_hash(ProtoPayload) ->
     #contact_list{
-        contact_hash = [ProtoPayload#pb_contact_hash.hash]
+        contact_hash = [base64:encode(ProtoPayload#pb_contact_hash.hash)]
     }.
 
