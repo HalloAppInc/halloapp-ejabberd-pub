@@ -42,7 +42,8 @@
     purge_expired_items/0,
     publish_item/8,
     retract_item/7,
-    broadcast_event/7
+    broadcast_event/7,
+    get_feed_audience_set/1
 ]).
 
 
