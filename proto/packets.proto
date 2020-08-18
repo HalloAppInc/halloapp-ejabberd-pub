@@ -45,11 +45,9 @@ message iq_payload {
         whisper_keys whisper_keys = 9;
         ping ping = 10;
         feed_item feed_item = 11;
-        share_feed_requests share_feed_requests = 12;
-        share_feed_responses share_feed_responses = 13;
-        privacy_list privacy_list = 14;
-        privacy_list_result privacy_list_result = 15;
-        privacy_lists privacy_lists = 16;
+        privacy_list privacy_list = 12;
+        privacy_list_result privacy_list_result = 13;
+        privacy_lists privacy_lists = 14;
     }
 }
 

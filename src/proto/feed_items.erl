@@ -51,7 +51,7 @@
 
 %% enumerated types
 -type 'pb_audience.Type'() :: all | except | only.
--type 'pb_feed_item.Action'() :: publish | retract.
+-type 'pb_feed_item.Action'() :: publish | retract | share.
 -export_type(['pb_audience.Type'/0, 'pb_feed_item.Action'/0]).
 
 %% message types
@@ -61,28 +61,22 @@
 
 -type pb_comment() :: #pb_comment{}.
 
+-type pb_share_stanza() :: #pb_share_stanza{}.
+
 -type pb_feed_item() :: #pb_feed_item{}.
 
 -type pb_feed_items() :: #pb_feed_items{}.
 
--type pb_share_feed_request() :: #pb_share_feed_request{}.
+-export_type(['pb_audience'/0, 'pb_post'/0, 'pb_comment'/0, 'pb_share_stanza'/0, 'pb_feed_item'/0, 'pb_feed_items'/0]).
 
--type pb_share_feed_requests() :: #pb_share_feed_requests{}.
-
--type pb_share_feed_response() :: #pb_share_feed_response{}.
-
--type pb_share_feed_responses() :: #pb_share_feed_responses{}.
-
--export_type(['pb_audience'/0, 'pb_post'/0, 'pb_comment'/0, 'pb_feed_item'/0, 'pb_feed_items'/0, 'pb_share_feed_request'/0, 'pb_share_feed_requests'/0, 'pb_share_feed_response'/0, 'pb_share_feed_responses'/0]).
-
--spec encode_msg(#pb_audience{} | #pb_post{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_items{} | #pb_share_feed_request{} | #pb_share_feed_requests{} | #pb_share_feed_response{} | #pb_share_feed_responses{}) -> binary().
+-spec encode_msg(#pb_audience{} | #pb_post{} | #pb_comment{} | #pb_share_stanza{} | #pb_feed_item{} | #pb_feed_items{}) -> binary().
 encode_msg(Msg) when tuple_size(Msg) >= 1 -> encode_msg(Msg, element(1, Msg), []).
 
--spec encode_msg(#pb_audience{} | #pb_post{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_items{} | #pb_share_feed_request{} | #pb_share_feed_requests{} | #pb_share_feed_response{} | #pb_share_feed_responses{}, atom() | list()) -> binary().
+-spec encode_msg(#pb_audience{} | #pb_post{} | #pb_comment{} | #pb_share_stanza{} | #pb_feed_item{} | #pb_feed_items{}, atom() | list()) -> binary().
 encode_msg(Msg, MsgName) when is_atom(MsgName) -> encode_msg(Msg, MsgName, []);
 encode_msg(Msg, Opts) when tuple_size(Msg) >= 1, is_list(Opts) -> encode_msg(Msg, element(1, Msg), Opts).
 
--spec encode_msg(#pb_audience{} | #pb_post{} | #pb_comment{} | #pb_feed_item{} | #pb_feed_items{} | #pb_share_feed_request{} | #pb_share_feed_requests{} | #pb_share_feed_response{} | #pb_share_feed_responses{}, atom(), list()) -> binary().
+-spec encode_msg(#pb_audience{} | #pb_post{} | #pb_comment{} | #pb_share_stanza{} | #pb_feed_item{} | #pb_feed_items{}, atom(), list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
     case proplists:get_bool(verify, Opts) of
       true -> verify_msg(Msg, MsgName, Opts);
@@ -93,12 +87,9 @@ encode_msg(Msg, MsgName, Opts) ->
       pb_audience -> encode_msg_pb_audience(id(Msg, TrUserData), TrUserData);
       pb_post -> encode_msg_pb_post(id(Msg, TrUserData), TrUserData);
       pb_comment -> encode_msg_pb_comment(id(Msg, TrUserData), TrUserData);
+      pb_share_stanza -> encode_msg_pb_share_stanza(id(Msg, TrUserData), TrUserData);
       pb_feed_item -> encode_msg_pb_feed_item(id(Msg, TrUserData), TrUserData);
-      pb_feed_items -> encode_msg_pb_feed_items(id(Msg, TrUserData), TrUserData);
-      pb_share_feed_request -> encode_msg_pb_share_feed_request(id(Msg, TrUserData), TrUserData);
-      pb_share_feed_requests -> encode_msg_pb_share_feed_requests(id(Msg, TrUserData), TrUserData);
-      pb_share_feed_response -> encode_msg_pb_share_feed_response(id(Msg, TrUserData), TrUserData);
-      pb_share_feed_responses -> encode_msg_pb_share_feed_responses(id(Msg, TrUserData), TrUserData)
+      pb_feed_items -> encode_msg_pb_feed_items(id(Msg, TrUserData), TrUserData)
     end.
 
 
@@ -247,10 +238,50 @@ encode_msg_pb_comment(#pb_comment{id = F1, post_id = F2, parent_comment_id = F3,
 	   end
     end.
 
+encode_msg_pb_share_stanza(Msg, TrUserData) -> encode_msg_pb_share_stanza(Msg, <<>>, TrUserData).
+
+
+encode_msg_pb_share_stanza(#pb_share_stanza{uid = F1, post_ids = F2, result = F3, reason = F4}, Bin, TrUserData) ->
+    B1 = if F1 == undefined -> Bin;
+	    true ->
+		begin
+		  TrF1 = id(F1, TrUserData),
+		  if TrF1 =:= 0 -> Bin;
+		     true -> e_type_int64(TrF1, <<Bin/binary, 8>>, TrUserData)
+		  end
+		end
+	 end,
+    B2 = begin
+	   TrF2 = id(F2, TrUserData),
+	   if TrF2 == [] -> B1;
+	      true -> e_field_pb_share_stanza_post_ids(TrF2, B1, TrUserData)
+	   end
+	 end,
+    B3 = if F3 == undefined -> B2;
+	    true ->
+		begin
+		  TrF3 = id(F3, TrUserData),
+		  case is_empty_string(TrF3) of
+		    true -> B2;
+		    false -> e_type_string(TrF3, <<B2/binary, 26>>, TrUserData)
+		  end
+		end
+	 end,
+    if F4 == undefined -> B3;
+       true ->
+	   begin
+	     TrF4 = id(F4, TrUserData),
+	     case is_empty_string(TrF4) of
+	       true -> B3;
+	       false -> e_type_string(TrF4, <<B3/binary, 34>>, TrUserData)
+	     end
+	   end
+    end.
+
 encode_msg_pb_feed_item(Msg, TrUserData) -> encode_msg_pb_feed_item(Msg, <<>>, TrUserData).
 
 
-encode_msg_pb_feed_item(#pb_feed_item{action = F1, item = F2}, Bin, TrUserData) ->
+encode_msg_pb_feed_item(#pb_feed_item{action = F1, item = F2, share_stanzas = F3}, Bin, TrUserData) ->
     B1 = if F1 == undefined -> Bin;
 	    true ->
 		begin
@@ -260,12 +291,18 @@ encode_msg_pb_feed_item(#pb_feed_item{action = F1, item = F2}, Bin, TrUserData) 
 		  end
 		end
 	 end,
-    if F2 =:= undefined -> B1;
-       true ->
-	   case id(F2, TrUserData) of
-	     {post, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_pb_feed_item_post(TrTF2, <<B1/binary, 18>>, TrUserData) end;
-	     {comment, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_pb_feed_item_comment(TrTF2, <<B1/binary, 26>>, TrUserData) end
-	   end
+    B2 = if F2 =:= undefined -> B1;
+	    true ->
+		case id(F2, TrUserData) of
+		  {post, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_pb_feed_item_post(TrTF2, <<B1/binary, 18>>, TrUserData) end;
+		  {comment, TF2} -> begin TrTF2 = id(TF2, TrUserData), e_mfield_pb_feed_item_comment(TrTF2, <<B1/binary, 26>>, TrUserData) end
+		end
+	 end,
+    begin
+      TrF3 = id(F3, TrUserData),
+      if TrF3 == [] -> B2;
+	 true -> e_field_pb_feed_item_share_stanzas(TrF3, B2, TrUserData)
+      end
     end.
 
 encode_msg_pb_feed_items(Msg, TrUserData) -> encode_msg_pb_feed_items(Msg, <<>>, TrUserData).
@@ -288,82 +325,6 @@ encode_msg_pb_feed_items(#pb_feed_items{uid = F1, items = F2}, Bin, TrUserData) 
       end
     end.
 
-encode_msg_pb_share_feed_request(Msg, TrUserData) -> encode_msg_pb_share_feed_request(Msg, <<>>, TrUserData).
-
-
-encode_msg_pb_share_feed_request(#pb_share_feed_request{uid = F1, post_ids = F2}, Bin, TrUserData) ->
-    B1 = if F1 == undefined -> Bin;
-	    true ->
-		begin
-		  TrF1 = id(F1, TrUserData),
-		  if TrF1 =:= 0 -> Bin;
-		     true -> e_type_int64(TrF1, <<Bin/binary, 8>>, TrUserData)
-		  end
-		end
-	 end,
-    begin
-      TrF2 = id(F2, TrUserData),
-      if TrF2 == [] -> B1;
-	 true -> e_field_pb_share_feed_request_post_ids(TrF2, B1, TrUserData)
-      end
-    end.
-
-encode_msg_pb_share_feed_requests(Msg, TrUserData) -> encode_msg_pb_share_feed_requests(Msg, <<>>, TrUserData).
-
-
-encode_msg_pb_share_feed_requests(#pb_share_feed_requests{requests = F1}, Bin, TrUserData) ->
-    begin
-      TrF1 = id(F1, TrUserData),
-      if TrF1 == [] -> Bin;
-	 true -> e_field_pb_share_feed_requests_requests(TrF1, Bin, TrUserData)
-      end
-    end.
-
-encode_msg_pb_share_feed_response(Msg, TrUserData) -> encode_msg_pb_share_feed_response(Msg, <<>>, TrUserData).
-
-
-encode_msg_pb_share_feed_response(#pb_share_feed_response{uid = F1, result = F2, reason = F3}, Bin, TrUserData) ->
-    B1 = if F1 == undefined -> Bin;
-	    true ->
-		begin
-		  TrF1 = id(F1, TrUserData),
-		  if TrF1 =:= 0 -> Bin;
-		     true -> e_type_int64(TrF1, <<Bin/binary, 8>>, TrUserData)
-		  end
-		end
-	 end,
-    B2 = if F2 == undefined -> B1;
-	    true ->
-		begin
-		  TrF2 = id(F2, TrUserData),
-		  case is_empty_string(TrF2) of
-		    true -> B1;
-		    false -> e_type_string(TrF2, <<B1/binary, 18>>, TrUserData)
-		  end
-		end
-	 end,
-    if F3 == undefined -> B2;
-       true ->
-	   begin
-	     TrF3 = id(F3, TrUserData),
-	     case is_empty_string(TrF3) of
-	       true -> B2;
-	       false -> e_type_string(TrF3, <<B2/binary, 26>>, TrUserData)
-	     end
-	   end
-    end.
-
-encode_msg_pb_share_feed_responses(Msg, TrUserData) -> encode_msg_pb_share_feed_responses(Msg, <<>>, TrUserData).
-
-
-encode_msg_pb_share_feed_responses(#pb_share_feed_responses{responses = F1}, Bin, TrUserData) ->
-    begin
-      TrF1 = id(F1, TrUserData),
-      if TrF1 == [] -> Bin;
-	 true -> e_field_pb_share_feed_responses_responses(TrF1, Bin, TrUserData)
-      end
-    end.
-
 e_field_pb_audience_uids(Elems, Bin, TrUserData) when Elems =/= [] -> SubBin = e_pfield_pb_audience_uids(Elems, <<>>, TrUserData), Bin2 = <<Bin/binary, 18>>, Bin3 = e_varint(byte_size(SubBin), Bin2), <<Bin3/binary, SubBin/binary>>;
 e_field_pb_audience_uids([], Bin, _TrUserData) -> Bin.
 
@@ -372,29 +333,22 @@ e_pfield_pb_audience_uids([], Bin, _TrUserData) -> Bin.
 
 e_mfield_pb_post_audience(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_audience(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
+e_field_pb_share_stanza_post_ids([Elem | Rest], Bin, TrUserData) -> Bin2 = <<Bin/binary, 18>>, Bin3 = e_type_string(id(Elem, TrUserData), Bin2, TrUserData), e_field_pb_share_stanza_post_ids(Rest, Bin3, TrUserData);
+e_field_pb_share_stanza_post_ids([], Bin, _TrUserData) -> Bin.
+
 e_mfield_pb_feed_item_post(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_post(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
 e_mfield_pb_feed_item_comment(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_comment(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
+
+e_mfield_pb_feed_item_share_stanzas(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_share_stanza(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
+
+e_field_pb_feed_item_share_stanzas([Elem | Rest], Bin, TrUserData) -> Bin2 = <<Bin/binary, 34>>, Bin3 = e_mfield_pb_feed_item_share_stanzas(id(Elem, TrUserData), Bin2, TrUserData), e_field_pb_feed_item_share_stanzas(Rest, Bin3, TrUserData);
+e_field_pb_feed_item_share_stanzas([], Bin, _TrUserData) -> Bin.
 
 e_mfield_pb_feed_items_items(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_feed_item(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
 
 e_field_pb_feed_items_items([Elem | Rest], Bin, TrUserData) -> Bin2 = <<Bin/binary, 18>>, Bin3 = e_mfield_pb_feed_items_items(id(Elem, TrUserData), Bin2, TrUserData), e_field_pb_feed_items_items(Rest, Bin3, TrUserData);
 e_field_pb_feed_items_items([], Bin, _TrUserData) -> Bin.
-
-e_field_pb_share_feed_request_post_ids([Elem | Rest], Bin, TrUserData) -> Bin2 = <<Bin/binary, 18>>, Bin3 = e_type_string(id(Elem, TrUserData), Bin2, TrUserData), e_field_pb_share_feed_request_post_ids(Rest, Bin3, TrUserData);
-e_field_pb_share_feed_request_post_ids([], Bin, _TrUserData) -> Bin.
-
-e_mfield_pb_share_feed_requests_requests(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_share_feed_request(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
-
-e_field_pb_share_feed_requests_requests([Elem | Rest], Bin, TrUserData) ->
-    Bin2 = <<Bin/binary, 10>>, Bin3 = e_mfield_pb_share_feed_requests_requests(id(Elem, TrUserData), Bin2, TrUserData), e_field_pb_share_feed_requests_requests(Rest, Bin3, TrUserData);
-e_field_pb_share_feed_requests_requests([], Bin, _TrUserData) -> Bin.
-
-e_mfield_pb_share_feed_responses_responses(Msg, Bin, TrUserData) -> SubBin = encode_msg_pb_share_feed_response(Msg, <<>>, TrUserData), Bin2 = e_varint(byte_size(SubBin), Bin), <<Bin2/binary, SubBin/binary>>.
-
-e_field_pb_share_feed_responses_responses([Elem | Rest], Bin, TrUserData) ->
-    Bin2 = <<Bin/binary, 18>>, Bin3 = e_mfield_pb_share_feed_responses_responses(id(Elem, TrUserData), Bin2, TrUserData), e_field_pb_share_feed_responses_responses(Rest, Bin3, TrUserData);
-e_field_pb_share_feed_responses_responses([], Bin, _TrUserData) -> Bin.
 
 'e_enum_pb_audience.Type'(all, Bin, _TrUserData) -> <<Bin/binary, 0>>;
 'e_enum_pb_audience.Type'(except, Bin, _TrUserData) -> <<Bin/binary, 1>>;
@@ -403,6 +357,7 @@ e_field_pb_share_feed_responses_responses([], Bin, _TrUserData) -> Bin.
 
 'e_enum_pb_feed_item.Action'(publish, Bin, _TrUserData) -> <<Bin/binary, 0>>;
 'e_enum_pb_feed_item.Action'(retract, Bin, _TrUserData) -> <<Bin/binary, 1>>;
+'e_enum_pb_feed_item.Action'(share, Bin, _TrUserData) -> <<Bin/binary, 2>>;
 'e_enum_pb_feed_item.Action'(V, Bin, _TrUserData) -> e_varint(V, Bin).
 
 -compile({nowarn_unused_function,e_type_sint/3}).
@@ -499,12 +454,9 @@ decode_msg_1_catch(Bin, MsgName, TrUserData) ->
 decode_msg_2_doit(pb_audience, Bin, TrUserData) -> id(decode_msg_pb_audience(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_post, Bin, TrUserData) -> id(decode_msg_pb_post(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_comment, Bin, TrUserData) -> id(decode_msg_pb_comment(Bin, TrUserData), TrUserData);
+decode_msg_2_doit(pb_share_stanza, Bin, TrUserData) -> id(decode_msg_pb_share_stanza(Bin, TrUserData), TrUserData);
 decode_msg_2_doit(pb_feed_item, Bin, TrUserData) -> id(decode_msg_pb_feed_item(Bin, TrUserData), TrUserData);
-decode_msg_2_doit(pb_feed_items, Bin, TrUserData) -> id(decode_msg_pb_feed_items(Bin, TrUserData), TrUserData);
-decode_msg_2_doit(pb_share_feed_request, Bin, TrUserData) -> id(decode_msg_pb_share_feed_request(Bin, TrUserData), TrUserData);
-decode_msg_2_doit(pb_share_feed_requests, Bin, TrUserData) -> id(decode_msg_pb_share_feed_requests(Bin, TrUserData), TrUserData);
-decode_msg_2_doit(pb_share_feed_response, Bin, TrUserData) -> id(decode_msg_pb_share_feed_response(Bin, TrUserData), TrUserData);
-decode_msg_2_doit(pb_share_feed_responses, Bin, TrUserData) -> id(decode_msg_pb_share_feed_responses(Bin, TrUserData), TrUserData).
+decode_msg_2_doit(pb_feed_items, Bin, TrUserData) -> id(decode_msg_pb_feed_items(Bin, TrUserData), TrUserData).
 
 
 
@@ -710,38 +662,99 @@ skip_32_pb_comment(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, 
 
 skip_64_pb_comment(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> dfp_read_field_def_pb_comment(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-decode_msg_pb_feed_item(Bin, TrUserData) -> dfp_read_field_def_pb_feed_item(Bin, 0, 0, id(publish, TrUserData), id(undefined, TrUserData), TrUserData).
+decode_msg_pb_share_stanza(Bin, TrUserData) -> dfp_read_field_def_pb_share_stanza(Bin, 0, 0, id(0, TrUserData), id([], TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
 
-dfp_read_field_def_pb_feed_item(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_feed_item_action(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-dfp_read_field_def_pb_feed_item(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_feed_item_post(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-dfp_read_field_def_pb_feed_item(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_feed_item_comment(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-dfp_read_field_def_pb_feed_item(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_feed_item{action = F@_1, item = F@_2};
-dfp_read_field_def_pb_feed_item(Other, Z1, Z2, F@_1, F@_2, TrUserData) -> dg_read_field_def_pb_feed_item(Other, Z1, Z2, F@_1, F@_2, TrUserData).
+dfp_read_field_def_pb_share_stanza(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_pb_share_stanza_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_pb_share_stanza(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_pb_share_stanza_post_ids(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_pb_share_stanza(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_pb_share_stanza_result(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_pb_share_stanza(<<34, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> d_field_pb_share_stanza_reason(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dfp_read_field_def_pb_share_stanza(<<>>, 0, 0, F@_1, R1, F@_3, F@_4, TrUserData) -> #pb_share_stanza{uid = F@_1, post_ids = lists_reverse(R1, TrUserData), result = F@_3, reason = F@_4};
+dfp_read_field_def_pb_share_stanza(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dg_read_field_def_pb_share_stanza(Other, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData).
 
-dg_read_field_def_pb_feed_item(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_feed_item(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-dg_read_field_def_pb_feed_item(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) ->
+dg_read_field_def_pb_share_stanza(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_share_stanza(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
+dg_read_field_def_pb_share_stanza(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-      8 -> d_field_pb_feed_item_action(Rest, 0, 0, F@_1, F@_2, TrUserData);
-      18 -> d_field_pb_feed_item_post(Rest, 0, 0, F@_1, F@_2, TrUserData);
-      26 -> d_field_pb_feed_item_comment(Rest, 0, 0, F@_1, F@_2, TrUserData);
+      8 -> d_field_pb_share_stanza_uid(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+      18 -> d_field_pb_share_stanza_post_ids(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+      26 -> d_field_pb_share_stanza_result(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+      34 -> d_field_pb_share_stanza_reason(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
       _ ->
 	  case Key band 7 of
-	    0 -> skip_varint_pb_feed_item(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    1 -> skip_64_pb_feed_item(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    2 -> skip_length_delimited_pb_feed_item(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    3 -> skip_group_pb_feed_item(Rest, Key bsr 3, 0, F@_1, F@_2, TrUserData);
-	    5 -> skip_32_pb_feed_item(Rest, 0, 0, F@_1, F@_2, TrUserData)
+	    0 -> skip_varint_pb_share_stanza(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+	    1 -> skip_64_pb_share_stanza(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+	    2 -> skip_length_delimited_pb_share_stanza(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+	    3 -> skip_group_pb_share_stanza(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, F@_4, TrUserData);
+	    5 -> skip_32_pb_share_stanza(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData)
 	  end
     end;
-dg_read_field_def_pb_feed_item(<<>>, 0, 0, F@_1, F@_2, _) -> #pb_feed_item{action = F@_1, item = F@_2}.
+dg_read_field_def_pb_share_stanza(<<>>, 0, 0, F@_1, R1, F@_3, F@_4, TrUserData) -> #pb_share_stanza{uid = F@_1, post_ids = lists_reverse(R1, TrUserData), result = F@_3, reason = F@_4}.
 
-d_field_pb_feed_item_action(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_feed_item_action(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-d_field_pb_feed_item_action(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = {id('d_enum_pb_feed_item.Action'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest}, dfp_read_field_def_pb_feed_item(RestF, 0, 0, NewFValue, F@_2, TrUserData).
+d_field_pb_share_stanza_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_pb_share_stanza_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_pb_share_stanza_uid(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, F@_4, TrUserData) ->
+    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_share_stanza(RestF, 0, 0, NewFValue, F@_2, F@_3, F@_4, TrUserData).
 
-d_field_pb_feed_item_post(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_feed_item_post(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-d_field_pb_feed_item_post(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, TrUserData) ->
+d_field_pb_share_stanza_post_ids(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_pb_share_stanza_post_ids(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_pb_share_stanza_post_ids(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, F@_3, F@_4, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end,
+    dfp_read_field_def_pb_share_stanza(RestF, 0, 0, F@_1, cons(NewFValue, Prev, TrUserData), F@_3, F@_4, TrUserData).
+
+d_field_pb_share_stanza_result(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_pb_share_stanza_result(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_pb_share_stanza_result(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, F@_4, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_share_stanza(RestF, 0, 0, F@_1, F@_2, NewFValue, F@_4, TrUserData).
+
+d_field_pb_share_stanza_reason(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> d_field_pb_share_stanza_reason(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
+d_field_pb_share_stanza_reason(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, _, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_share_stanza(RestF, 0, 0, F@_1, F@_2, F@_3, NewFValue, TrUserData).
+
+skip_varint_pb_share_stanza(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> skip_varint_pb_share_stanza(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData);
+skip_varint_pb_share_stanza(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_pb_share_stanza(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData).
+
+skip_length_delimited_pb_share_stanza(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) when N < 57 -> skip_length_delimited_pb_share_stanza(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, F@_4, TrUserData);
+skip_length_delimited_pb_share_stanza(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+    Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_share_stanza(Rest2, 0, 0, F@_1, F@_2, F@_3, F@_4, TrUserData).
+
+skip_group_pb_share_stanza(Bin, FNum, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_share_stanza(Rest, 0, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData).
+
+skip_32_pb_share_stanza(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_pb_share_stanza(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData).
+
+skip_64_pb_share_stanza(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData) -> dfp_read_field_def_pb_share_stanza(Rest, Z1, Z2, F@_1, F@_2, F@_3, F@_4, TrUserData).
+
+decode_msg_pb_feed_item(Bin, TrUserData) -> dfp_read_field_def_pb_feed_item(Bin, 0, 0, id(publish, TrUserData), id(undefined, TrUserData), id([], TrUserData), TrUserData).
+
+dfp_read_field_def_pb_feed_item(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_feed_item_action(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_feed_item(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_feed_item_post(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_feed_item(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_feed_item_comment(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_feed_item(<<34, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_feed_item_share_stanzas(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+dfp_read_field_def_pb_feed_item(<<>>, 0, 0, F@_1, F@_2, R1, TrUserData) -> #pb_feed_item{action = F@_1, item = F@_2, share_stanzas = lists_reverse(R1, TrUserData)};
+dfp_read_field_def_pb_feed_item(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_feed_item(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+dg_read_field_def_pb_feed_item(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_feed_item(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+dg_read_field_def_pb_feed_item(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
+    Key = X bsl N + Acc,
+    case Key of
+      8 -> d_field_pb_feed_item_action(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      18 -> d_field_pb_feed_item_post(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      26 -> d_field_pb_feed_item_comment(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      34 -> d_field_pb_feed_item_share_stanzas(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+      _ ->
+	  case Key band 7 of
+	    0 -> skip_varint_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    1 -> skip_64_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    2 -> skip_length_delimited_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
+	    3 -> skip_group_pb_feed_item(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
+	    5 -> skip_32_pb_feed_item(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
+	  end
+    end;
+dg_read_field_def_pb_feed_item(<<>>, 0, 0, F@_1, F@_2, R1, TrUserData) -> #pb_feed_item{action = F@_1, item = F@_2, share_stanzas = lists_reverse(R1, TrUserData)}.
+
+d_field_pb_feed_item_action(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_feed_item_action(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_feed_item_action(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
+    {NewFValue, RestF} = {id('d_enum_pb_feed_item.Action'(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
+    dfp_read_field_def_pb_feed_item(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
+
+d_field_pb_feed_item_post(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_feed_item_post(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_feed_item_post(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, F@_3, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_post(Bs, TrUserData), TrUserData), Rest2} end,
     dfp_read_field_def_pb_feed_item(RestF, 0, 0, F@_1,
 				    case Prev of
@@ -749,10 +762,10 @@ d_field_pb_feed_item_post(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, TrUserD
 				      {post, MVPrev} -> id({post, merge_msg_pb_post(MVPrev, NewFValue, TrUserData)}, TrUserData);
 				      _ -> id({post, NewFValue}, TrUserData)
 				    end,
-				    TrUserData).
+				    F@_3, TrUserData).
 
-d_field_pb_feed_item_comment(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_feed_item_comment(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-d_field_pb_feed_item_comment(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, TrUserData) ->
+d_field_pb_feed_item_comment(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_feed_item_comment(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_feed_item_comment(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, F@_3, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_comment(Bs, TrUserData), TrUserData), Rest2} end,
     dfp_read_field_def_pb_feed_item(RestF, 0, 0, F@_1,
 				    case Prev of
@@ -760,19 +773,24 @@ d_field_pb_feed_item_comment(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, TrUs
 				      {comment, MVPrev} -> id({comment, merge_msg_pb_comment(MVPrev, NewFValue, TrUserData)}, TrUserData);
 				      _ -> id({comment, NewFValue}, TrUserData)
 				    end,
-				    TrUserData).
+				    F@_3, TrUserData).
 
-skip_varint_pb_feed_item(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-skip_varint_pb_feed_item(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+d_field_pb_feed_item_share_stanzas(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_feed_item_share_stanzas(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+d_field_pb_feed_item_share_stanzas(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, Prev, TrUserData) ->
+    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_share_stanza(Bs, TrUserData), TrUserData), Rest2} end,
+    dfp_read_field_def_pb_feed_item(RestF, 0, 0, F@_1, F@_2, cons(NewFValue, Prev, TrUserData), TrUserData).
 
-skip_length_delimited_pb_feed_item(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_pb_feed_item(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-skip_length_delimited_pb_feed_item(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_feed_item(Rest2, 0, 0, F@_1, F@_2, TrUserData).
+skip_varint_pb_feed_item(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
+skip_varint_pb_feed_item(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_group_pb_feed_item(Bin, FNum, Z2, F@_1, F@_2, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_feed_item(Rest, 0, Z2, F@_1, F@_2, TrUserData).
+skip_length_delimited_pb_feed_item(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_feed_item(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
+skip_length_delimited_pb_feed_item(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_feed_item(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
 
-skip_32_pb_feed_item(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+skip_group_pb_feed_item(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_feed_item(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
 
-skip_64_pb_feed_item(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
+skip_32_pb_feed_item(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
+
+skip_64_pb_feed_item(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_feed_item(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
 
 decode_msg_pb_feed_items(Bin, TrUserData) -> dfp_read_field_def_pb_feed_items(Bin, 0, 0, id(0, TrUserData), id([], TrUserData), TrUserData).
 
@@ -819,179 +837,6 @@ skip_32_pb_feed_items(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> 
 
 skip_64_pb_feed_items(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_feed_items(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
 
-decode_msg_pb_share_feed_request(Bin, TrUserData) -> dfp_read_field_def_pb_share_feed_request(Bin, 0, 0, id(0, TrUserData), id([], TrUserData), TrUserData).
-
-dfp_read_field_def_pb_share_feed_request(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_share_feed_request_uid(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-dfp_read_field_def_pb_share_feed_request(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> d_field_pb_share_feed_request_post_ids(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-dfp_read_field_def_pb_share_feed_request(<<>>, 0, 0, F@_1, R1, TrUserData) -> #pb_share_feed_request{uid = F@_1, post_ids = lists_reverse(R1, TrUserData)};
-dfp_read_field_def_pb_share_feed_request(Other, Z1, Z2, F@_1, F@_2, TrUserData) -> dg_read_field_def_pb_share_feed_request(Other, Z1, Z2, F@_1, F@_2, TrUserData).
-
-dg_read_field_def_pb_share_feed_request(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_share_feed_request(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-dg_read_field_def_pb_share_feed_request(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) ->
-    Key = X bsl N + Acc,
-    case Key of
-      8 -> d_field_pb_share_feed_request_uid(Rest, 0, 0, F@_1, F@_2, TrUserData);
-      18 -> d_field_pb_share_feed_request_post_ids(Rest, 0, 0, F@_1, F@_2, TrUserData);
-      _ ->
-	  case Key band 7 of
-	    0 -> skip_varint_pb_share_feed_request(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    1 -> skip_64_pb_share_feed_request(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    2 -> skip_length_delimited_pb_share_feed_request(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    3 -> skip_group_pb_share_feed_request(Rest, Key bsr 3, 0, F@_1, F@_2, TrUserData);
-	    5 -> skip_32_pb_share_feed_request(Rest, 0, 0, F@_1, F@_2, TrUserData)
-	  end
-    end;
-dg_read_field_def_pb_share_feed_request(<<>>, 0, 0, F@_1, R1, TrUserData) -> #pb_share_feed_request{uid = F@_1, post_ids = lists_reverse(R1, TrUserData)}.
-
-d_field_pb_share_feed_request_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_share_feed_request_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-d_field_pb_share_feed_request_uid(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, TrUserData) ->
-    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_share_feed_request(RestF, 0, 0, NewFValue, F@_2, TrUserData).
-
-d_field_pb_share_feed_request_post_ids(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> d_field_pb_share_feed_request_post_ids(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-d_field_pb_share_feed_request_post_ids(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, Prev, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_share_feed_request(RestF, 0, 0, F@_1, cons(NewFValue, Prev, TrUserData), TrUserData).
-
-skip_varint_pb_share_feed_request(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> skip_varint_pb_share_feed_request(Rest, Z1, Z2, F@_1, F@_2, TrUserData);
-skip_varint_pb_share_feed_request(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_share_feed_request(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
-
-skip_length_delimited_pb_share_feed_request(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) when N < 57 -> skip_length_delimited_pb_share_feed_request(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, TrUserData);
-skip_length_delimited_pb_share_feed_request(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_share_feed_request(Rest2, 0, 0, F@_1, F@_2, TrUserData).
-
-skip_group_pb_share_feed_request(Bin, FNum, Z2, F@_1, F@_2, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_share_feed_request(Rest, 0, Z2, F@_1, F@_2, TrUserData).
-
-skip_32_pb_share_feed_request(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_share_feed_request(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
-
-skip_64_pb_share_feed_request(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, TrUserData) -> dfp_read_field_def_pb_share_feed_request(Rest, Z1, Z2, F@_1, F@_2, TrUserData).
-
-decode_msg_pb_share_feed_requests(Bin, TrUserData) -> dfp_read_field_def_pb_share_feed_requests(Bin, 0, 0, id([], TrUserData), TrUserData).
-
-dfp_read_field_def_pb_share_feed_requests(<<10, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_share_feed_requests_requests(Rest, Z1, Z2, F@_1, TrUserData);
-dfp_read_field_def_pb_share_feed_requests(<<>>, 0, 0, R1, TrUserData) -> #pb_share_feed_requests{requests = lists_reverse(R1, TrUserData)};
-dfp_read_field_def_pb_share_feed_requests(Other, Z1, Z2, F@_1, TrUserData) -> dg_read_field_def_pb_share_feed_requests(Other, Z1, Z2, F@_1, TrUserData).
-
-dg_read_field_def_pb_share_feed_requests(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_share_feed_requests(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
-dg_read_field_def_pb_share_feed_requests(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) ->
-    Key = X bsl N + Acc,
-    case Key of
-      10 -> d_field_pb_share_feed_requests_requests(Rest, 0, 0, F@_1, TrUserData);
-      _ ->
-	  case Key band 7 of
-	    0 -> skip_varint_pb_share_feed_requests(Rest, 0, 0, F@_1, TrUserData);
-	    1 -> skip_64_pb_share_feed_requests(Rest, 0, 0, F@_1, TrUserData);
-	    2 -> skip_length_delimited_pb_share_feed_requests(Rest, 0, 0, F@_1, TrUserData);
-	    3 -> skip_group_pb_share_feed_requests(Rest, Key bsr 3, 0, F@_1, TrUserData);
-	    5 -> skip_32_pb_share_feed_requests(Rest, 0, 0, F@_1, TrUserData)
-	  end
-    end;
-dg_read_field_def_pb_share_feed_requests(<<>>, 0, 0, R1, TrUserData) -> #pb_share_feed_requests{requests = lists_reverse(R1, TrUserData)}.
-
-d_field_pb_share_feed_requests_requests(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> d_field_pb_share_feed_requests_requests(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
-d_field_pb_share_feed_requests_requests(<<0:1, X:7, Rest/binary>>, N, Acc, Prev, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_share_feed_request(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_share_feed_requests(RestF, 0, 0, cons(NewFValue, Prev, TrUserData), TrUserData).
-
-skip_varint_pb_share_feed_requests(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> skip_varint_pb_share_feed_requests(Rest, Z1, Z2, F@_1, TrUserData);
-skip_varint_pb_share_feed_requests(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_share_feed_requests(Rest, Z1, Z2, F@_1, TrUserData).
-
-skip_length_delimited_pb_share_feed_requests(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> skip_length_delimited_pb_share_feed_requests(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
-skip_length_delimited_pb_share_feed_requests(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_share_feed_requests(Rest2, 0, 0, F@_1, TrUserData).
-
-skip_group_pb_share_feed_requests(Bin, FNum, Z2, F@_1, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_share_feed_requests(Rest, 0, Z2, F@_1, TrUserData).
-
-skip_32_pb_share_feed_requests(<<_:32, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_share_feed_requests(Rest, Z1, Z2, F@_1, TrUserData).
-
-skip_64_pb_share_feed_requests(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_share_feed_requests(Rest, Z1, Z2, F@_1, TrUserData).
-
-decode_msg_pb_share_feed_response(Bin, TrUserData) -> dfp_read_field_def_pb_share_feed_response(Bin, 0, 0, id(0, TrUserData), id(<<>>, TrUserData), id(<<>>, TrUserData), TrUserData).
-
-dfp_read_field_def_pb_share_feed_response(<<8, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_share_feed_response_uid(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_share_feed_response(<<18, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_share_feed_response_result(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_share_feed_response(<<26, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> d_field_pb_share_feed_response_reason(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-dfp_read_field_def_pb_share_feed_response(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_share_feed_response{uid = F@_1, result = F@_2, reason = F@_3};
-dfp_read_field_def_pb_share_feed_response(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dg_read_field_def_pb_share_feed_response(Other, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
-
-dg_read_field_def_pb_share_feed_response(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_share_feed_response(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-dg_read_field_def_pb_share_feed_response(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
-    Key = X bsl N + Acc,
-    case Key of
-      8 -> d_field_pb_share_feed_response_uid(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-      18 -> d_field_pb_share_feed_response_result(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-      26 -> d_field_pb_share_feed_response_reason(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-      _ ->
-	  case Key band 7 of
-	    0 -> skip_varint_pb_share_feed_response(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    1 -> skip_64_pb_share_feed_response(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    2 -> skip_length_delimited_pb_share_feed_response(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData);
-	    3 -> skip_group_pb_share_feed_response(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3, TrUserData);
-	    5 -> skip_32_pb_share_feed_response(Rest, 0, 0, F@_1, F@_2, F@_3, TrUserData)
-	  end
-    end;
-dg_read_field_def_pb_share_feed_response(<<>>, 0, 0, F@_1, F@_2, F@_3, _) -> #pb_share_feed_response{uid = F@_1, result = F@_2, reason = F@_3}.
-
-d_field_pb_share_feed_response_uid(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_share_feed_response_uid(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_share_feed_response_uid(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_2, F@_3, TrUserData) ->
-    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest}, dfp_read_field_def_pb_share_feed_response(RestF, 0, 0, NewFValue, F@_2, F@_3, TrUserData).
-
-d_field_pb_share_feed_response_result(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_share_feed_response_result(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_share_feed_response_result(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, _, F@_3, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_share_feed_response(RestF, 0, 0, F@_1, NewFValue, F@_3, TrUserData).
-
-d_field_pb_share_feed_response_reason(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> d_field_pb_share_feed_response_reason(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-d_field_pb_share_feed_response_reason(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, _, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, {id(binary:copy(Bytes), TrUserData), Rest2} end, dfp_read_field_def_pb_share_feed_response(RestF, 0, 0, F@_1, F@_2, NewFValue, TrUserData).
-
-skip_varint_pb_share_feed_response(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> skip_varint_pb_share_feed_response(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData);
-skip_varint_pb_share_feed_response(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_share_feed_response(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
-
-skip_length_delimited_pb_share_feed_response(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) when N < 57 -> skip_length_delimited_pb_share_feed_response(Rest, N + 7, X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
-skip_length_delimited_pb_share_feed_response(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
-    Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_share_feed_response(Rest2, 0, 0, F@_1, F@_2, F@_3, TrUserData).
-
-skip_group_pb_share_feed_response(Bin, FNum, Z2, F@_1, F@_2, F@_3, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_share_feed_response(Rest, 0, Z2, F@_1, F@_2, F@_3, TrUserData).
-
-skip_32_pb_share_feed_response(<<_:32, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_share_feed_response(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
-
-skip_64_pb_share_feed_response(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2, F@_3, TrUserData) -> dfp_read_field_def_pb_share_feed_response(Rest, Z1, Z2, F@_1, F@_2, F@_3, TrUserData).
-
-decode_msg_pb_share_feed_responses(Bin, TrUserData) -> dfp_read_field_def_pb_share_feed_responses(Bin, 0, 0, id([], TrUserData), TrUserData).
-
-dfp_read_field_def_pb_share_feed_responses(<<18, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> d_field_pb_share_feed_responses_responses(Rest, Z1, Z2, F@_1, TrUserData);
-dfp_read_field_def_pb_share_feed_responses(<<>>, 0, 0, R1, TrUserData) -> #pb_share_feed_responses{responses = lists_reverse(R1, TrUserData)};
-dfp_read_field_def_pb_share_feed_responses(Other, Z1, Z2, F@_1, TrUserData) -> dg_read_field_def_pb_share_feed_responses(Other, Z1, Z2, F@_1, TrUserData).
-
-dg_read_field_def_pb_share_feed_responses(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 32 - 7 -> dg_read_field_def_pb_share_feed_responses(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
-dg_read_field_def_pb_share_feed_responses(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) ->
-    Key = X bsl N + Acc,
-    case Key of
-      18 -> d_field_pb_share_feed_responses_responses(Rest, 0, 0, F@_1, TrUserData);
-      _ ->
-	  case Key band 7 of
-	    0 -> skip_varint_pb_share_feed_responses(Rest, 0, 0, F@_1, TrUserData);
-	    1 -> skip_64_pb_share_feed_responses(Rest, 0, 0, F@_1, TrUserData);
-	    2 -> skip_length_delimited_pb_share_feed_responses(Rest, 0, 0, F@_1, TrUserData);
-	    3 -> skip_group_pb_share_feed_responses(Rest, Key bsr 3, 0, F@_1, TrUserData);
-	    5 -> skip_32_pb_share_feed_responses(Rest, 0, 0, F@_1, TrUserData)
-	  end
-    end;
-dg_read_field_def_pb_share_feed_responses(<<>>, 0, 0, R1, TrUserData) -> #pb_share_feed_responses{responses = lists_reverse(R1, TrUserData)}.
-
-d_field_pb_share_feed_responses_responses(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> d_field_pb_share_feed_responses_responses(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
-d_field_pb_share_feed_responses_responses(<<0:1, X:7, Rest/binary>>, N, Acc, Prev, TrUserData) ->
-    {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bs:Len/binary, Rest2/binary>> = Rest, {id(decode_msg_pb_share_feed_response(Bs, TrUserData), TrUserData), Rest2} end,
-    dfp_read_field_def_pb_share_feed_responses(RestF, 0, 0, cons(NewFValue, Prev, TrUserData), TrUserData).
-
-skip_varint_pb_share_feed_responses(<<1:1, _:7, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> skip_varint_pb_share_feed_responses(Rest, Z1, Z2, F@_1, TrUserData);
-skip_varint_pb_share_feed_responses(<<0:1, _:7, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_share_feed_responses(Rest, Z1, Z2, F@_1, TrUserData).
-
-skip_length_delimited_pb_share_feed_responses(<<1:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) when N < 57 -> skip_length_delimited_pb_share_feed_responses(Rest, N + 7, X bsl N + Acc, F@_1, TrUserData);
-skip_length_delimited_pb_share_feed_responses(<<0:1, X:7, Rest/binary>>, N, Acc, F@_1, TrUserData) -> Length = X bsl N + Acc, <<_:Length/binary, Rest2/binary>> = Rest, dfp_read_field_def_pb_share_feed_responses(Rest2, 0, 0, F@_1, TrUserData).
-
-skip_group_pb_share_feed_responses(Bin, FNum, Z2, F@_1, TrUserData) -> {_, Rest} = read_group(Bin, FNum), dfp_read_field_def_pb_share_feed_responses(Rest, 0, Z2, F@_1, TrUserData).
-
-skip_32_pb_share_feed_responses(<<_:32, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_share_feed_responses(Rest, Z1, Z2, F@_1, TrUserData).
-
-skip_64_pb_share_feed_responses(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData) -> dfp_read_field_def_pb_share_feed_responses(Rest, Z1, Z2, F@_1, TrUserData).
-
 'd_enum_pb_audience.Type'(0) -> all;
 'd_enum_pb_audience.Type'(1) -> except;
 'd_enum_pb_audience.Type'(2) -> only;
@@ -999,6 +844,7 @@ skip_64_pb_share_feed_responses(<<_:64, Rest/binary>>, Z1, Z2, F@_1, TrUserData)
 
 'd_enum_pb_feed_item.Action'(0) -> publish;
 'd_enum_pb_feed_item.Action'(1) -> retract;
+'d_enum_pb_feed_item.Action'(2) -> share;
 'd_enum_pb_feed_item.Action'(V) -> V.
 
 read_group(Bin, FieldNum) ->
@@ -1070,12 +916,9 @@ merge_msgs(Prev, New, MsgName, Opts) ->
       pb_audience -> merge_msg_pb_audience(Prev, New, TrUserData);
       pb_post -> merge_msg_pb_post(Prev, New, TrUserData);
       pb_comment -> merge_msg_pb_comment(Prev, New, TrUserData);
+      pb_share_stanza -> merge_msg_pb_share_stanza(Prev, New, TrUserData);
       pb_feed_item -> merge_msg_pb_feed_item(Prev, New, TrUserData);
-      pb_feed_items -> merge_msg_pb_feed_items(Prev, New, TrUserData);
-      pb_share_feed_request -> merge_msg_pb_share_feed_request(Prev, New, TrUserData);
-      pb_share_feed_requests -> merge_msg_pb_share_feed_requests(Prev, New, TrUserData);
-      pb_share_feed_response -> merge_msg_pb_share_feed_response(Prev, New, TrUserData);
-      pb_share_feed_responses -> merge_msg_pb_share_feed_responses(Prev, New, TrUserData)
+      pb_feed_items -> merge_msg_pb_feed_items(Prev, New, TrUserData)
     end.
 
 -compile({nowarn_unused_function,merge_msg_pb_audience/3}).
@@ -1146,8 +989,28 @@ merge_msg_pb_comment(#pb_comment{id = PFid, post_id = PFpost_id, parent_comment_
 		       true -> NFtimestamp
 		    end}.
 
+-compile({nowarn_unused_function,merge_msg_pb_share_stanza/3}).
+merge_msg_pb_share_stanza(#pb_share_stanza{uid = PFuid, post_ids = PFpost_ids, result = PFresult, reason = PFreason}, #pb_share_stanza{uid = NFuid, post_ids = NFpost_ids, result = NFresult, reason = NFreason}, TrUserData) ->
+    #pb_share_stanza{uid =
+			 if NFuid =:= undefined -> PFuid;
+			    true -> NFuid
+			 end,
+		     post_ids =
+			 if PFpost_ids /= undefined, NFpost_ids /= undefined -> 'erlang_++'(PFpost_ids, NFpost_ids, TrUserData);
+			    PFpost_ids == undefined -> NFpost_ids;
+			    NFpost_ids == undefined -> PFpost_ids
+			 end,
+		     result =
+			 if NFresult =:= undefined -> PFresult;
+			    true -> NFresult
+			 end,
+		     reason =
+			 if NFreason =:= undefined -> PFreason;
+			    true -> NFreason
+			 end}.
+
 -compile({nowarn_unused_function,merge_msg_pb_feed_item/3}).
-merge_msg_pb_feed_item(#pb_feed_item{action = PFaction, item = PFitem}, #pb_feed_item{action = NFaction, item = NFitem}, TrUserData) ->
+merge_msg_pb_feed_item(#pb_feed_item{action = PFaction, item = PFitem, share_stanzas = PFshare_stanzas}, #pb_feed_item{action = NFaction, item = NFitem, share_stanzas = NFshare_stanzas}, TrUserData) ->
     #pb_feed_item{action =
 		      if NFaction =:= undefined -> PFaction;
 			 true -> NFaction
@@ -1158,6 +1021,11 @@ merge_msg_pb_feed_item(#pb_feed_item{action = PFaction, item = PFitem}, #pb_feed
 			{{comment, OPFitem}, {comment, ONFitem}} -> {comment, merge_msg_pb_comment(OPFitem, ONFitem, TrUserData)};
 			{_, undefined} -> PFitem;
 			_ -> NFitem
+		      end,
+		  share_stanzas =
+		      if PFshare_stanzas /= undefined, NFshare_stanzas /= undefined -> 'erlang_++'(PFshare_stanzas, NFshare_stanzas, TrUserData);
+			 PFshare_stanzas == undefined -> NFshare_stanzas;
+			 NFshare_stanzas == undefined -> PFshare_stanzas
 		      end}.
 
 -compile({nowarn_unused_function,merge_msg_pb_feed_items/3}).
@@ -1171,49 +1039,6 @@ merge_msg_pb_feed_items(#pb_feed_items{uid = PFuid, items = PFitems}, #pb_feed_i
 			  PFitems == undefined -> NFitems;
 			  NFitems == undefined -> PFitems
 		       end}.
-
--compile({nowarn_unused_function,merge_msg_pb_share_feed_request/3}).
-merge_msg_pb_share_feed_request(#pb_share_feed_request{uid = PFuid, post_ids = PFpost_ids}, #pb_share_feed_request{uid = NFuid, post_ids = NFpost_ids}, TrUserData) ->
-    #pb_share_feed_request{uid =
-			       if NFuid =:= undefined -> PFuid;
-				  true -> NFuid
-			       end,
-			   post_ids =
-			       if PFpost_ids /= undefined, NFpost_ids /= undefined -> 'erlang_++'(PFpost_ids, NFpost_ids, TrUserData);
-				  PFpost_ids == undefined -> NFpost_ids;
-				  NFpost_ids == undefined -> PFpost_ids
-			       end}.
-
--compile({nowarn_unused_function,merge_msg_pb_share_feed_requests/3}).
-merge_msg_pb_share_feed_requests(#pb_share_feed_requests{requests = PFrequests}, #pb_share_feed_requests{requests = NFrequests}, TrUserData) ->
-    #pb_share_feed_requests{requests =
-				if PFrequests /= undefined, NFrequests /= undefined -> 'erlang_++'(PFrequests, NFrequests, TrUserData);
-				   PFrequests == undefined -> NFrequests;
-				   NFrequests == undefined -> PFrequests
-				end}.
-
--compile({nowarn_unused_function,merge_msg_pb_share_feed_response/3}).
-merge_msg_pb_share_feed_response(#pb_share_feed_response{uid = PFuid, result = PFresult, reason = PFreason}, #pb_share_feed_response{uid = NFuid, result = NFresult, reason = NFreason}, _) ->
-    #pb_share_feed_response{uid =
-				if NFuid =:= undefined -> PFuid;
-				   true -> NFuid
-				end,
-			    result =
-				if NFresult =:= undefined -> PFresult;
-				   true -> NFresult
-				end,
-			    reason =
-				if NFreason =:= undefined -> PFreason;
-				   true -> NFreason
-				end}.
-
--compile({nowarn_unused_function,merge_msg_pb_share_feed_responses/3}).
-merge_msg_pb_share_feed_responses(#pb_share_feed_responses{responses = PFresponses}, #pb_share_feed_responses{responses = NFresponses}, TrUserData) ->
-    #pb_share_feed_responses{responses =
-				 if PFresponses /= undefined, NFresponses /= undefined -> 'erlang_++'(PFresponses, NFresponses, TrUserData);
-				    PFresponses == undefined -> NFresponses;
-				    NFresponses == undefined -> PFresponses
-				 end}.
 
 
 verify_msg(Msg) when tuple_size(Msg) >= 1 -> verify_msg(Msg, element(1, Msg), []);
@@ -1229,12 +1054,9 @@ verify_msg(Msg, MsgName, Opts) ->
       pb_audience -> v_msg_pb_audience(Msg, [MsgName], TrUserData);
       pb_post -> v_msg_pb_post(Msg, [MsgName], TrUserData);
       pb_comment -> v_msg_pb_comment(Msg, [MsgName], TrUserData);
+      pb_share_stanza -> v_msg_pb_share_stanza(Msg, [MsgName], TrUserData);
       pb_feed_item -> v_msg_pb_feed_item(Msg, [MsgName], TrUserData);
       pb_feed_items -> v_msg_pb_feed_items(Msg, [MsgName], TrUserData);
-      pb_share_feed_request -> v_msg_pb_share_feed_request(Msg, [MsgName], TrUserData);
-      pb_share_feed_requests -> v_msg_pb_share_feed_requests(Msg, [MsgName], TrUserData);
-      pb_share_feed_response -> v_msg_pb_share_feed_response(Msg, [MsgName], TrUserData);
-      pb_share_feed_responses -> v_msg_pb_share_feed_responses(Msg, [MsgName], TrUserData);
       _ -> mk_type_error(not_a_known_message, Msg, [])
     end.
 
@@ -1299,9 +1121,27 @@ v_msg_pb_comment(#pb_comment{id = F1, post_id = F2, parent_comment_id = F3, publ
     ok;
 v_msg_pb_comment(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_comment}, X, Path).
 
+-compile({nowarn_unused_function,v_msg_pb_share_stanza/3}).
+-dialyzer({nowarn_function,v_msg_pb_share_stanza/3}).
+v_msg_pb_share_stanza(#pb_share_stanza{uid = F1, post_ids = F2, result = F3, reason = F4}, Path, TrUserData) ->
+    if F1 == undefined -> ok;
+       true -> v_type_int64(F1, [uid | Path], TrUserData)
+    end,
+    if is_list(F2) -> _ = [v_type_string(Elem, [post_ids | Path], TrUserData) || Elem <- F2], ok;
+       true -> mk_type_error({invalid_list_of, string}, F2, [post_ids | Path])
+    end,
+    if F3 == undefined -> ok;
+       true -> v_type_string(F3, [result | Path], TrUserData)
+    end,
+    if F4 == undefined -> ok;
+       true -> v_type_string(F4, [reason | Path], TrUserData)
+    end,
+    ok;
+v_msg_pb_share_stanza(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_share_stanza}, X, Path).
+
 -compile({nowarn_unused_function,v_msg_pb_feed_item/3}).
 -dialyzer({nowarn_function,v_msg_pb_feed_item/3}).
-v_msg_pb_feed_item(#pb_feed_item{action = F1, item = F2}, Path, TrUserData) ->
+v_msg_pb_feed_item(#pb_feed_item{action = F1, item = F2, share_stanzas = F3}, Path, TrUserData) ->
     if F1 == undefined -> ok;
        true -> 'v_enum_pb_feed_item.Action'(F1, [action | Path], TrUserData)
     end,
@@ -1310,6 +1150,9 @@ v_msg_pb_feed_item(#pb_feed_item{action = F1, item = F2}, Path, TrUserData) ->
       {post, OF2} -> v_msg_pb_post(OF2, [post, item | Path], TrUserData);
       {comment, OF2} -> v_msg_pb_comment(OF2, [comment, item | Path], TrUserData);
       _ -> mk_type_error(invalid_oneof, F2, [item | Path])
+    end,
+    if is_list(F3) -> _ = [v_msg_pb_share_stanza(Elem, [share_stanzas | Path], TrUserData) || Elem <- F3], ok;
+       true -> mk_type_error({invalid_list_of, {msg, pb_share_stanza}}, F3, [share_stanzas | Path])
     end,
     ok;
 v_msg_pb_feed_item(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_feed_item}, X, Path).
@@ -1326,51 +1169,6 @@ v_msg_pb_feed_items(#pb_feed_items{uid = F1, items = F2}, Path, TrUserData) ->
     ok;
 v_msg_pb_feed_items(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_feed_items}, X, Path).
 
--compile({nowarn_unused_function,v_msg_pb_share_feed_request/3}).
--dialyzer({nowarn_function,v_msg_pb_share_feed_request/3}).
-v_msg_pb_share_feed_request(#pb_share_feed_request{uid = F1, post_ids = F2}, Path, TrUserData) ->
-    if F1 == undefined -> ok;
-       true -> v_type_int64(F1, [uid | Path], TrUserData)
-    end,
-    if is_list(F2) -> _ = [v_type_string(Elem, [post_ids | Path], TrUserData) || Elem <- F2], ok;
-       true -> mk_type_error({invalid_list_of, string}, F2, [post_ids | Path])
-    end,
-    ok;
-v_msg_pb_share_feed_request(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_share_feed_request}, X, Path).
-
--compile({nowarn_unused_function,v_msg_pb_share_feed_requests/3}).
--dialyzer({nowarn_function,v_msg_pb_share_feed_requests/3}).
-v_msg_pb_share_feed_requests(#pb_share_feed_requests{requests = F1}, Path, TrUserData) ->
-    if is_list(F1) -> _ = [v_msg_pb_share_feed_request(Elem, [requests | Path], TrUserData) || Elem <- F1], ok;
-       true -> mk_type_error({invalid_list_of, {msg, pb_share_feed_request}}, F1, [requests | Path])
-    end,
-    ok;
-v_msg_pb_share_feed_requests(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_share_feed_requests}, X, Path).
-
--compile({nowarn_unused_function,v_msg_pb_share_feed_response/3}).
--dialyzer({nowarn_function,v_msg_pb_share_feed_response/3}).
-v_msg_pb_share_feed_response(#pb_share_feed_response{uid = F1, result = F2, reason = F3}, Path, TrUserData) ->
-    if F1 == undefined -> ok;
-       true -> v_type_int64(F1, [uid | Path], TrUserData)
-    end,
-    if F2 == undefined -> ok;
-       true -> v_type_string(F2, [result | Path], TrUserData)
-    end,
-    if F3 == undefined -> ok;
-       true -> v_type_string(F3, [reason | Path], TrUserData)
-    end,
-    ok;
-v_msg_pb_share_feed_response(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_share_feed_response}, X, Path).
-
--compile({nowarn_unused_function,v_msg_pb_share_feed_responses/3}).
--dialyzer({nowarn_function,v_msg_pb_share_feed_responses/3}).
-v_msg_pb_share_feed_responses(#pb_share_feed_responses{responses = F1}, Path, TrUserData) ->
-    if is_list(F1) -> _ = [v_msg_pb_share_feed_response(Elem, [responses | Path], TrUserData) || Elem <- F1], ok;
-       true -> mk_type_error({invalid_list_of, {msg, pb_share_feed_response}}, F1, [responses | Path])
-    end,
-    ok;
-v_msg_pb_share_feed_responses(X, Path, _TrUserData) -> mk_type_error({expected_msg, pb_share_feed_responses}, X, Path).
-
 -compile({nowarn_unused_function,'v_enum_pb_audience.Type'/3}).
 -dialyzer({nowarn_function,'v_enum_pb_audience.Type'/3}).
 'v_enum_pb_audience.Type'(all, _Path, _TrUserData) -> ok;
@@ -1383,6 +1181,7 @@ v_msg_pb_share_feed_responses(X, Path, _TrUserData) -> mk_type_error({expected_m
 -dialyzer({nowarn_function,'v_enum_pb_feed_item.Action'/3}).
 'v_enum_pb_feed_item.Action'(publish, _Path, _TrUserData) -> ok;
 'v_enum_pb_feed_item.Action'(retract, _Path, _TrUserData) -> ok;
+'v_enum_pb_feed_item.Action'(share, _Path, _TrUserData) -> ok;
 'v_enum_pb_feed_item.Action'(V, Path, TrUserData) when is_integer(V) -> v_type_sint32(V, Path, TrUserData);
 'v_enum_pb_feed_item.Action'(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'pb_feed_item.Action'}, X, Path).
 
@@ -1451,7 +1250,7 @@ cons(Elem, Acc, _TrUserData) -> [Elem | Acc].
 
 
 get_msg_defs() ->
-    [{{enum, 'pb_audience.Type'}, [{all, 0}, {except, 1}, {only, 2}]}, {{enum, 'pb_feed_item.Action'}, [{publish, 0}, {retract, 1}]},
+    [{{enum, 'pb_audience.Type'}, [{all, 0}, {except, 1}, {only, 2}]}, {{enum, 'pb_feed_item.Action'}, [{publish, 0}, {retract, 1}, {share, 2}]},
      {{msg, pb_audience}, [#field{name = type, fnum = 1, rnum = 2, type = {enum, 'pb_audience.Type'}, occurrence = optional, opts = []}, #field{name = uids, fnum = 2, rnum = 3, type = int64, occurrence = repeated, opts = [packed]}]},
      {{msg, pb_post},
       [#field{name = id, fnum = 1, rnum = 2, type = string, occurrence = optional, opts = []}, #field{name = uid, fnum = 2, rnum = 3, type = int64, occurrence = optional, opts = []},
@@ -1462,25 +1261,23 @@ get_msg_defs() ->
        #field{name = parent_comment_id, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = publisher_uid, fnum = 4, rnum = 5, type = int64, occurrence = optional, opts = []},
        #field{name = publisher_name, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}, #field{name = payload, fnum = 6, rnum = 7, type = bytes, occurrence = optional, opts = []},
        #field{name = timestamp, fnum = 7, rnum = 8, type = int64, occurrence = optional, opts = []}]},
+     {{msg, pb_share_stanza},
+      [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = post_ids, fnum = 2, rnum = 3, type = string, occurrence = repeated, opts = []},
+       #field{name = result, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = reason, fnum = 4, rnum = 5, type = string, occurrence = optional, opts = []}]},
      {{msg, pb_feed_item},
       [#field{name = action, fnum = 1, rnum = 2, type = {enum, 'pb_feed_item.Action'}, occurrence = optional, opts = []},
-       #gpb_oneof{name = item, rnum = 3, fields = [#field{name = post, fnum = 2, rnum = 3, type = {msg, pb_post}, occurrence = optional, opts = []}, #field{name = comment, fnum = 3, rnum = 3, type = {msg, pb_comment}, occurrence = optional, opts = []}]}]},
-     {{msg, pb_feed_items}, [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = items, fnum = 2, rnum = 3, type = {msg, pb_feed_item}, occurrence = repeated, opts = []}]},
-     {{msg, pb_share_feed_request}, [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = post_ids, fnum = 2, rnum = 3, type = string, occurrence = repeated, opts = []}]},
-     {{msg, pb_share_feed_requests}, [#field{name = requests, fnum = 1, rnum = 2, type = {msg, pb_share_feed_request}, occurrence = repeated, opts = []}]},
-     {{msg, pb_share_feed_response},
-      [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = result, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
-       #field{name = reason, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}]},
-     {{msg, pb_share_feed_responses}, [#field{name = responses, fnum = 2, rnum = 2, type = {msg, pb_share_feed_response}, occurrence = repeated, opts = []}]}].
+       #gpb_oneof{name = item, rnum = 3, fields = [#field{name = post, fnum = 2, rnum = 3, type = {msg, pb_post}, occurrence = optional, opts = []}, #field{name = comment, fnum = 3, rnum = 3, type = {msg, pb_comment}, occurrence = optional, opts = []}]},
+       #field{name = share_stanzas, fnum = 4, rnum = 4, type = {msg, pb_share_stanza}, occurrence = repeated, opts = []}]},
+     {{msg, pb_feed_items}, [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = items, fnum = 2, rnum = 3, type = {msg, pb_feed_item}, occurrence = repeated, opts = []}]}].
 
 
-get_msg_names() -> [pb_audience, pb_post, pb_comment, pb_feed_item, pb_feed_items, pb_share_feed_request, pb_share_feed_requests, pb_share_feed_response, pb_share_feed_responses].
+get_msg_names() -> [pb_audience, pb_post, pb_comment, pb_share_stanza, pb_feed_item, pb_feed_items].
 
 
 get_group_names() -> [].
 
 
-get_msg_or_group_names() -> [pb_audience, pb_post, pb_comment, pb_feed_item, pb_feed_items, pb_share_feed_request, pb_share_feed_requests, pb_share_feed_response, pb_share_feed_responses].
+get_msg_or_group_names() -> [pb_audience, pb_post, pb_comment, pb_share_stanza, pb_feed_item, pb_feed_items].
 
 
 get_enum_names() -> ['pb_audience.Type', 'pb_feed_item.Action'].
@@ -1510,21 +1307,19 @@ find_msg_def(pb_comment) ->
      #field{name = parent_comment_id, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = publisher_uid, fnum = 4, rnum = 5, type = int64, occurrence = optional, opts = []},
      #field{name = publisher_name, fnum = 5, rnum = 6, type = string, occurrence = optional, opts = []}, #field{name = payload, fnum = 6, rnum = 7, type = bytes, occurrence = optional, opts = []},
      #field{name = timestamp, fnum = 7, rnum = 8, type = int64, occurrence = optional, opts = []}];
+find_msg_def(pb_share_stanza) ->
+    [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = post_ids, fnum = 2, rnum = 3, type = string, occurrence = repeated, opts = []},
+     #field{name = result, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}, #field{name = reason, fnum = 4, rnum = 5, type = string, occurrence = optional, opts = []}];
 find_msg_def(pb_feed_item) ->
     [#field{name = action, fnum = 1, rnum = 2, type = {enum, 'pb_feed_item.Action'}, occurrence = optional, opts = []},
-     #gpb_oneof{name = item, rnum = 3, fields = [#field{name = post, fnum = 2, rnum = 3, type = {msg, pb_post}, occurrence = optional, opts = []}, #field{name = comment, fnum = 3, rnum = 3, type = {msg, pb_comment}, occurrence = optional, opts = []}]}];
+     #gpb_oneof{name = item, rnum = 3, fields = [#field{name = post, fnum = 2, rnum = 3, type = {msg, pb_post}, occurrence = optional, opts = []}, #field{name = comment, fnum = 3, rnum = 3, type = {msg, pb_comment}, occurrence = optional, opts = []}]},
+     #field{name = share_stanzas, fnum = 4, rnum = 4, type = {msg, pb_share_stanza}, occurrence = repeated, opts = []}];
 find_msg_def(pb_feed_items) -> [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = items, fnum = 2, rnum = 3, type = {msg, pb_feed_item}, occurrence = repeated, opts = []}];
-find_msg_def(pb_share_feed_request) -> [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = post_ids, fnum = 2, rnum = 3, type = string, occurrence = repeated, opts = []}];
-find_msg_def(pb_share_feed_requests) -> [#field{name = requests, fnum = 1, rnum = 2, type = {msg, pb_share_feed_request}, occurrence = repeated, opts = []}];
-find_msg_def(pb_share_feed_response) ->
-    [#field{name = uid, fnum = 1, rnum = 2, type = int64, occurrence = optional, opts = []}, #field{name = result, fnum = 2, rnum = 3, type = string, occurrence = optional, opts = []},
-     #field{name = reason, fnum = 3, rnum = 4, type = string, occurrence = optional, opts = []}];
-find_msg_def(pb_share_feed_responses) -> [#field{name = responses, fnum = 2, rnum = 2, type = {msg, pb_share_feed_response}, occurrence = repeated, opts = []}];
 find_msg_def(_) -> error.
 
 
 find_enum_def('pb_audience.Type') -> [{all, 0}, {except, 1}, {only, 2}];
-find_enum_def('pb_feed_item.Action') -> [{publish, 0}, {retract, 1}];
+find_enum_def('pb_feed_item.Action') -> [{publish, 0}, {retract, 1}, {share, 2}];
 find_enum_def(_) -> error.
 
 
@@ -1546,11 +1341,13 @@ enum_value_by_symbol('pb_feed_item.Action', Sym) -> 'enum_value_by_symbol_pb_fee
 'enum_value_by_symbol_pb_audience.Type'(only) -> 2.
 
 'enum_symbol_by_value_pb_feed_item.Action'(0) -> publish;
-'enum_symbol_by_value_pb_feed_item.Action'(1) -> retract.
+'enum_symbol_by_value_pb_feed_item.Action'(1) -> retract;
+'enum_symbol_by_value_pb_feed_item.Action'(2) -> share.
 
 
 'enum_value_by_symbol_pb_feed_item.Action'(publish) -> 0;
-'enum_value_by_symbol_pb_feed_item.Action'(retract) -> 1.
+'enum_value_by_symbol_pb_feed_item.Action'(retract) -> 1;
+'enum_value_by_symbol_pb_feed_item.Action'(share) -> 2.
 
 
 get_service_names() -> [].
@@ -1599,24 +1396,18 @@ service_and_rpc_name_to_fqbins(S, R) -> error({gpb_error, {badservice_or_rpc, {S
 fqbin_to_msg_name(<<"audience">>) -> pb_audience;
 fqbin_to_msg_name(<<"post">>) -> pb_post;
 fqbin_to_msg_name(<<"comment">>) -> pb_comment;
+fqbin_to_msg_name(<<"share_stanza">>) -> pb_share_stanza;
 fqbin_to_msg_name(<<"feed_item">>) -> pb_feed_item;
 fqbin_to_msg_name(<<"feed_items">>) -> pb_feed_items;
-fqbin_to_msg_name(<<"share_feed_request">>) -> pb_share_feed_request;
-fqbin_to_msg_name(<<"share_feed_requests">>) -> pb_share_feed_requests;
-fqbin_to_msg_name(<<"share_feed_response">>) -> pb_share_feed_response;
-fqbin_to_msg_name(<<"share_feed_responses">>) -> pb_share_feed_responses;
 fqbin_to_msg_name(E) -> error({gpb_error, {badmsg, E}}).
 
 
 msg_name_to_fqbin(pb_audience) -> <<"audience">>;
 msg_name_to_fqbin(pb_post) -> <<"post">>;
 msg_name_to_fqbin(pb_comment) -> <<"comment">>;
+msg_name_to_fqbin(pb_share_stanza) -> <<"share_stanza">>;
 msg_name_to_fqbin(pb_feed_item) -> <<"feed_item">>;
 msg_name_to_fqbin(pb_feed_items) -> <<"feed_items">>;
-msg_name_to_fqbin(pb_share_feed_request) -> <<"share_feed_request">>;
-msg_name_to_fqbin(pb_share_feed_requests) -> <<"share_feed_requests">>;
-msg_name_to_fqbin(pb_share_feed_response) -> <<"share_feed_response">>;
-msg_name_to_fqbin(pb_share_feed_responses) -> <<"share_feed_responses">>;
 msg_name_to_fqbin(E) -> error({gpb_error, {badmsg, E}}).
 
 
@@ -1657,7 +1448,7 @@ get_all_source_basenames() -> ["feed_items.proto"].
 get_all_proto_names() -> ["feed_items"].
 
 
-get_msg_containment("feed_items") -> [pb_audience, pb_comment, pb_feed_item, pb_feed_items, pb_post, pb_share_feed_request, pb_share_feed_requests, pb_share_feed_response, pb_share_feed_responses];
+get_msg_containment("feed_items") -> [pb_audience, pb_comment, pb_feed_item, pb_feed_items, pb_post, pb_share_stanza];
 get_msg_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
@@ -1677,13 +1468,10 @@ get_enum_containment("feed_items") -> ['pb_audience.Type', 'pb_feed_item.Action'
 get_enum_containment(P) -> error({gpb_error, {badproto, P}}).
 
 
-get_proto_by_msg_name_as_fqbin(<<"share_feed_responses">>) -> "feed_items";
-get_proto_by_msg_name_as_fqbin(<<"share_feed_requests">>) -> "feed_items";
+get_proto_by_msg_name_as_fqbin(<<"share_stanza">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"feed_items">>) -> "feed_items";
-get_proto_by_msg_name_as_fqbin(<<"share_feed_request">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"post">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"comment">>) -> "feed_items";
-get_proto_by_msg_name_as_fqbin(<<"share_feed_response">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"audience">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(<<"feed_item">>) -> "feed_items";
 get_proto_by_msg_name_as_fqbin(E) -> error({gpb_error, {badmsg, E}}).

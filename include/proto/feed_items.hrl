@@ -39,11 +39,22 @@
         }).
 -endif.
 
+-ifndef('PB_SHARE_STANZA_PB_H').
+-define('PB_SHARE_STANZA_PB_H', true).
+-record(pb_share_stanza,
+        {uid = 0                :: integer() | undefined, % = 1, 64 bits
+         post_ids = []          :: [iodata()] | undefined, % = 2
+         result = <<>>          :: iodata() | undefined, % = 3
+         reason = <<>>          :: iodata() | undefined % = 4
+        }).
+-endif.
+
 -ifndef('PB_FEED_ITEM_PB_H').
 -define('PB_FEED_ITEM_PB_H', true).
 -record(pb_feed_item,
-        {action = publish       :: publish | retract | integer() | undefined, % = 1, enum pb_feed_item.Action
-         item                   :: {post, feed_items:pb_post()} | {comment, feed_items:pb_comment()} | undefined % oneof
+        {action = publish       :: publish | retract | share | integer() | undefined, % = 1, enum pb_feed_item.Action
+         item                   :: {post, feed_items:pb_post()} | {comment, feed_items:pb_comment()} | undefined, % oneof
+         share_stanzas = []     :: [feed_items:pb_share_stanza()] | undefined % = 4
         }).
 -endif.
 
@@ -52,37 +63,6 @@
 -record(pb_feed_items,
         {uid = 0                :: integer() | undefined, % = 1, 64 bits
          items = []             :: [feed_items:pb_feed_item()] | undefined % = 2
-        }).
--endif.
-
--ifndef('PB_SHARE_FEED_REQUEST_PB_H').
--define('PB_SHARE_FEED_REQUEST_PB_H', true).
--record(pb_share_feed_request,
-        {uid = 0                :: integer() | undefined, % = 1, 64 bits
-         post_ids = []          :: [iodata()] | undefined % = 2
-        }).
--endif.
-
--ifndef('PB_SHARE_FEED_REQUESTS_PB_H').
--define('PB_SHARE_FEED_REQUESTS_PB_H', true).
--record(pb_share_feed_requests,
-        {requests = []          :: [feed_items:pb_share_feed_request()] | undefined % = 1
-        }).
--endif.
-
--ifndef('PB_SHARE_FEED_RESPONSE_PB_H').
--define('PB_SHARE_FEED_RESPONSE_PB_H', true).
--record(pb_share_feed_response,
-        {uid = 0                :: integer() | undefined, % = 1, 64 bits
-         result = <<>>          :: iodata() | undefined, % = 2
-         reason = <<>>          :: iodata() | undefined % = 3
-        }).
--endif.
-
--ifndef('PB_SHARE_FEED_RESPONSES_PB_H').
--define('PB_SHARE_FEED_RESPONSES_PB_H', true).
--record(pb_share_feed_responses,
-        {responses = []         :: [feed_items:pb_share_feed_response()] | undefined % = 2
         }).
 -endif.
 

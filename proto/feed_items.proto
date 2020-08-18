@@ -31,40 +31,31 @@ message comment {
     int64 timestamp = 7;
 }
 
+
+message share_stanza {
+    int64 uid = 1;
+    repeated string post_ids = 2;
+    string result = 3;
+    string reason = 4;
+}
+
+
 message feed_item {
     enum Action {
         publish = 0;
         retract = 1;
+        share = 2;
     }
     Action action = 1;
     oneof item {
         post post = 2;
         comment comment = 3;
     }
+    repeated share_stanza share_stanzas = 4;
 }
 
 message feed_items {
     int64 uid = 1;
     repeated feed_item items = 2;
-}
-
-
-message share_feed_request {
-    int64 uid = 1;
-    repeated string post_ids = 2;
-}
-
-message share_feed_requests {
-    repeated share_feed_request requests = 1;
-}
-
-message share_feed_response {
-    int64 uid = 1;
-    string result = 2;
-    string reason = 3;
-}
-
-message share_feed_responses {
-    repeated share_feed_response responses = 2;
 }
 

@@ -129,28 +129,31 @@ create_feed_items(Uid, Items) ->
     }.
 
 create_share_feed_request(Uid, PostIds) ->
-    #pb_share_feed_request{
+    #pb_share_stanza{
         uid = Uid,
         post_ids = PostIds
     }.
 
-create_share_feed_requests(ShareFeedRequests) ->
-    #pb_share_feed_requests{
-        requests = ShareFeedRequests
+
+create_share_feed_requests(PbShareStanzas) ->
+    #pb_feed_item{
+        action = share,
+        share_stanzas = PbShareStanzas
     }.
 
 
 create_share_feed_response(Uid, Result, Reason) ->
-    #pb_share_feed_response {
+    #pb_share_stanza {
         uid = Uid,
         result = Result,
         reason = Reason
     }.
 
 
-create_share_feed_responses(ShareFeedResponses) ->
-    #pb_share_feed_responses{
-        responses = ShareFeedResponses
+create_share_feed_responses(PbShareStanzas) ->
+    #pb_feed_item{
+        action = share,
+        share_stanzas = PbShareStanzas
     }.
 
 
@@ -250,7 +253,7 @@ xmpp_to_proto_message_feed_items_test() ->
 xmpp_to_proto_iq_share_response_test() ->
     ShareFeedResponse = create_share_feed_response(?UID1_INT, <<"ok">>, undefined),
     ShareFeedResponses = create_share_feed_responses([ShareFeedResponse]),
-    PbIq = create_pb_iq(?ID1, result, {share_feed_responses, ShareFeedResponses}),
+    PbIq = create_pb_iq(?ID1, result, {feed_item, ShareFeedResponses}),
 
     SharePostsSt = create_share_posts_st(?UID1, [], ok, undefined),
     FeedSt = create_feed_st(share, [], [], [], [SharePostsSt]),
@@ -294,7 +297,7 @@ proto_to_xmpp_iq_feed_item_audience_test() ->
 proto_to_xmpp_iq_share_request_test() ->
     ShareFeedRequest = create_share_feed_request(?UID1_INT, [?ID1, ?ID2]),
     ShareFeedRequests = create_share_feed_requests([ShareFeedRequest]),
-    PbIq = create_pb_iq(?ID1, set, {share_feed_requests, ShareFeedRequests}),
+    PbIq = create_pb_iq(?ID1, set, {feed_item, ShareFeedRequests}),
 
     PostSt1 = create_post_st(?ID1, <<>>, <<>>, <<>>),
     PostSt2 = create_post_st(?ID2, <<>>, <<>>, <<>>),

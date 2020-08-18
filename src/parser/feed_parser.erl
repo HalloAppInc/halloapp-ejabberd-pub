@@ -16,7 +16,7 @@
 
 xmpp_to_proto(SubEl) ->
     PbStanza = case SubEl#feed_st.action of
-        share ->
+        share = Action ->
             case SubEl#feed_st.share_posts of
                 [] ->
                     Posts = lists:map(
@@ -44,15 +44,18 @@ xmpp_to_proto(SubEl) ->
                         items = Posts ++ Comments
                     };
                 _ ->
-                    Responses = lists:map(
+                    PbShareStanzas = lists:map(
                         fun(SharePostsSt) ->
-                            #pb_share_feed_response{
+                            #pb_share_stanza{
                                 uid = binary_to_integer(SharePostsSt#share_posts_st.uid),
                                 result = maybe_convert_to_binary(SharePostsSt#share_posts_st.result),
                                 reason = maybe_convert_to_binary(SharePostsSt#share_posts_st.reason)
                             }
                         end, SubEl#feed_st.share_posts),
-                    #pb_share_feed_responses{responses = Responses}
+                    #pb_feed_item{
+                        action = Action,
+                        share_stanzas = PbShareStanzas
+                    }
             end;
         Action ->
             case {SubEl#feed_st.posts, SubEl#feed_st.comments} of
@@ -104,27 +107,25 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_feed_item) ->
             #feed_st{
                 action = Action,
                 comments = [CommentSt]
+            };
+        undefined ->
+            SharePostsStanzas = lists:map(
+                    fun(PbShareStanza) ->
+                        Posts = lists:map(
+                            fun(PostId) ->
+                                #post_st{id = PostId}
+                            end, PbShareStanza#pb_share_stanza.post_ids),
+                        #share_posts_st{
+                            uid = integer_to_binary(PbShareStanza#pb_share_stanza.uid),
+                            posts = Posts
+                        }
+                    end, PbPacket#pb_feed_item.share_stanzas),
+            #feed_st{
+                action = Action,
+                share_posts = SharePostsStanzas
             }
     end,
-    XmppStanza;
-
-proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_share_feed_requests) ->
-    Action = share,
-    SharePostsStanzas = lists:map(
-        fun(ShareFeedRequest) ->
-            Posts = lists:map(
-                fun(PostId) ->
-                    #post_st{id = PostId}
-                end, ShareFeedRequest#pb_share_feed_request.post_ids),
-            #share_posts_st{
-                uid = integer_to_binary(ShareFeedRequest#pb_share_feed_request.uid),
-                posts = Posts
-            }
-        end, PbPacket#pb_share_feed_requests.requests),
-    #feed_st{
-        action = Action,
-        share_posts = SharePostsStanzas
-    }.
+    XmppStanza.
 
 
 %% -------------------------------------------- %%

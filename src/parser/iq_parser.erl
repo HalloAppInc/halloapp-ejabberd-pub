@@ -57,13 +57,7 @@ iq_payload_mapping(SubEl) ->
         ping ->
             {ping, #pb_ping{}};
         feed_st ->
-            ProtoEl = feed_parser:xmpp_to_proto(SubEl),
-            case SubEl#feed_st.action of
-                share ->
-                    {share_feed_responses, ProtoEl};
-                Action when Action =:= publish; Action =:= retract ->
-                    {feed_item, ProtoEl}
-            end;
+            {feed_item, feed_parser:xmpp_to_proto(SubEl)};
         user_privacy_list ->
             {privacy_list, privacy_list_parser:xmpp_to_proto(SubEl)};
         user_privacy_lists ->
@@ -119,8 +113,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
         {ping, _} ->
             #ping{};
-        {share_feed_requests, ShareFeedRecord} ->
-            feed_parser:proto_to_xmpp(ShareFeedRecord);
         {feed_item, FeedItemRecord} ->
             feed_parser:proto_to_xmpp(FeedItemRecord);
         {privacy_list, PrivacyListRecord} ->
