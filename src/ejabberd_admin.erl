@@ -679,7 +679,7 @@ registered_users(Host) ->
 enroll(User, Host, Passcode) ->
     case is_my_host(Host) of
         true ->
-            case ejabberd_auth_halloapp:try_enroll(User, Host, Passcode) of
+            case ejabberd_auth:try_enroll(User, Host, Passcode) of
                 {ok, _} ->
                     {ok, io_lib:format("User ~ts@~ts successfully enrolled", [User, Host])};
                 {error, Reason} ->
@@ -692,10 +692,11 @@ enroll(User, Host, Passcode) ->
             {error, cannot_enroll, 10001, "Unknown virtual host"}
     end.
 
-unenroll(User, Host) ->
+unenroll(Phone, Host) ->
     case is_my_host(Host) of
         true ->
-            ejabberd_auth_halloapp:remove_enrolled_user(User, Host),
+            ?INFO_MSG("phone:~s", [Phone]),
+            ok = model_phone:delete_sms_code(Phone),
             {ok, ""};
         false ->
             {error, "Unknown virtual host"}
@@ -711,15 +712,16 @@ enrolled_users(Host) ->
             {error, "Unknown virtual host"}
     end.
 
-get_user_passcode(User, Host) ->
+get_user_passcode(Phone, Host) ->
     case is_my_host(Host) of
         true ->
-            case ejabberd_auth_halloapp:get_passcode(User, Host) of
+            ?INFO_MSG("phone:~s", [Phone]),
+            case model_phone:get_sms_code(Phone) of
+                {ok, undefined} ->
+                    Msg = io_lib:format("Phone ~ts does not have a code", [Phone]),
+                    {error, conflict, 10090, Msg};
                 {ok, Passcode} ->
                     {ok, Passcode};
-                {error, invalid} ->
-                    Msg = io_lib:format("User ~ts@~ts is not enrolled", [User, Host]),
-                    {error, conflict, 10090, Msg};
                 {error, _} ->
                     {error, "db-failure, unable to obtain passcode"}
             end;

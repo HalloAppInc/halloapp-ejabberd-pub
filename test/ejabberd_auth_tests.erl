@@ -10,22 +10,35 @@
 -author("josh").
 
 -include_lib("eunit/include/eunit.hrl").
+-include("password.hrl").
 
 -define(UID, <<"1">>).
 -define(PHONE, <<"16175280000">>).
--define(SERVER, <<"localhost">>).
+-define(SERVER, <<"s.halloapp.net">>).
 -define(PASS, <<"pword">>).
 -define(NAME, <<"Testname">>).
--define(UA, "HalloApp/iPhone1.0").
+-define(UA, <<"HalloApp/iPhone1.0">>).
+-define(CODE, <<"111111">>).
 
 
 %%====================================================================
 %% Tests
 %%====================================================================
 
+plain_password_req_test() ->
+    ?assert(ejabberd_auth:plain_password_required(?SERVER)).
+
+
+store_type_test() ->
+    ?assertEqual(external, ejabberd_auth:store_type(?SERVER)).
+
+
 check_password_test() ->
     setup(),
     ok = ejabberd_auth:set_password(?UID, ?SERVER, ?PASS),
+    {ok, P} = model_auth:get_password(?UID),
+    HashedPassword = P#password.hashed_password,
+    ?assert(HashedPassword /= <<"">>),
     ?assert(ejabberd_auth:check_password(?UID, <<"">>, ?SERVER, ?PASS)),
     ?assertNot(ejabberd_auth:check_password(?UID, <<"">>, ?SERVER, <<"nopass">>)).
 
@@ -45,6 +58,24 @@ try_register_test() ->
     {ok, Uid} = model_phone:get_uid(?PHONE),
     ?assert(ejabberd_auth:check_password(Uid, <<"">>, ?SERVER, ?PASS)),
     meck_finish(ejabberd_router).
+
+
+ha_try_register_test() ->
+    clear(),
+    {ok, Password, Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SERVER, ?PASS, ?NAME, ?UA),
+    ?assertEqual(?PASS, Password),
+    ?assert(model_accounts:account_exists(Uid)),
+    ?assert(ejabberd_auth:check_password(Uid, <<"">>, ?SERVER, ?PASS)),
+    ?assertEqual({ok, ?PHONE}, model_accounts:get_phone(Uid)),
+    ?assertEqual({ok, Uid}, model_phone:get_uid(?PHONE)),
+    ?assertEqual({ok, ?NAME}, model_accounts:get_name(Uid)),
+    ?assertEqual({ok, ?UA}, model_accounts:get_signup_user_agent(Uid)).
+
+
+try_enroll_test() ->
+    clear(),
+    {ok, ?CODE} = ejabberd_auth:try_enroll(?PHONE, ?SERVER, ?CODE),
+    ?assertEqual({ok, ?CODE}, model_phone:get_sms_code(?PHONE)).
 
 
 user_exists_test() ->
@@ -68,6 +99,16 @@ remove_user_test() ->
     ok = ejabberd_auth:remove_user(Uid2, ?SERVER, ?PASS),
     ?assertNot(ejabberd_auth:user_exists(Uid2, ?SERVER)).
 
+
+is_password_match_badargg_test() ->
+    clear(),
+    ?assertError(badarg, ejabberd_auth:is_password_match(<<"binary">>, "str")),
+    ?assertError(badarg, ejabberd_auth:is_password_match("str", <<"binary">>)),
+    ?assertError(badarg, ejabberd_auth:is_password_match("str", "str")),
+    ?assertNotException(error, badarg, ejabberd_auth:is_password_match(<<"bin">>, <<"bin">>)),
+    ?assertNot(ejabberd_auth:is_password_match(<<"bin">>, <<"bin">>)).
+
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -75,7 +116,6 @@ remove_user_test() ->
 setup() ->
     {ok, _} = application:ensure_all_started(stringprep),
     {ok, _} = application:ensure_all_started(bcrypt),
-    ejabberd_auth_halloapp:start(?SERVER),
     redis_sup:start_link(),
     clear(),
     mod_redis:start(undefined, []),

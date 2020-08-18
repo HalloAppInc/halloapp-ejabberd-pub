@@ -87,7 +87,6 @@ process_group_chat_state_test() ->
 setup() ->
     {ok, _} = application:ensure_all_started(stringprep),
     {ok, _} = application:ensure_all_started(bcrypt),
-    ejabberd_auth_halloapp:start(?SERVER),
     redis_sup:start_link(),
     clear(),
     mod_redis:start(undefined, []),

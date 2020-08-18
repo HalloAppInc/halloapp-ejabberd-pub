@@ -198,12 +198,16 @@ get_role_value(false) ->
 
 -spec obtain_user_id(binary()) -> binary() | undefined.
 obtain_user_id(Phone) ->
-    ejabberd_auth_halloapp:get_uid(Phone).
+    {ok, Uid} = model_phone:get_uid(Phone),
+    Uid.
 
 
--spec get_phone(UserId :: binary()) -> binary().
+-spec get_phone(UserId :: binary()) -> binary() | undefined.
 get_phone(UserId) ->
-    ejabberd_auth_halloapp:get_phone(UserId).
+    case model_accounts:get_phone(UserId) of
+        {ok, Phone} -> Phone;
+        {error, missing} -> undefined
+    end.
 
 -spec handle_delta_contacts(UserId :: binary(), Server :: binary(),
         Contacts :: [contact()]) -> [contact()].

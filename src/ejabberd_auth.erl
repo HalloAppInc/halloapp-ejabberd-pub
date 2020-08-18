@@ -26,7 +26,6 @@
 -author('alexey@process-one.net').
 -behaviour(gen_server).
 
-
 %% External exports
 -export([
     start_link/0,
@@ -39,6 +38,7 @@
     check_password_with_authmodule/4,
     check_password_with_authmodule/6,
     try_register/3,
+    try_enroll/3,
     check_and_register/5,
     get_users/0,
     get_users/1,
@@ -65,20 +65,20 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--include("scram.hrl").
 -include("logger.hrl").
+-include("password.hrl").
+-include("account.hrl").
+-include("sms.hrl").
 
 -define(SALT_LENGTH, 16).
-
 -define(HOST, util:get_host()).
 
--type password() :: binary() | #scram{}.
--type digest_fun() :: fun((binary()) -> binary()).
--export_type([password/0]).
+%% Export all functions for unit tests
+-ifdef(TEST).
+-compile(export_all).
+-endif.
 
-%%%----------------------------------------------------------------------
-%%% API
-%%%----------------------------------------------------------------------
+-type digest_fun() :: fun((binary()) -> binary()).
 
 -type opts() :: [{prefix, binary()} |
     {from, integer()} |
@@ -86,34 +86,16 @@
     {limit, integer()} |
     {offset, integer()}].
 
--callback start(binary()) -> any().
--callback stop(binary()) -> any().
--callback reload(binary()) -> any().
--callback plain_password_required(binary()) -> boolean().
--callback store_type(binary()) -> plain | external | scram.
--callback set_password(binary(), binary(), password()) ->
-    {ok, password()} | {error, db_failure | not_allowed}.
--callback remove_user(binary(), binary()) -> ok | {error, db_failure | not_allowed}.
--callback user_exists(binary(), binary()) -> boolean() | {error, db_failure}.
--callback check_password(binary(), binary(), binary(), binary()) -> boolean() | {stop, boolean()}.
--callback try_register(binary(), binary(), password()) ->
-    {ok, password()} | {error, exists | db_failure | not_allowed}.
--callback get_users(binary(), opts()) -> [{binary(), binary()}].
--callback count_users(binary(), opts()) -> number().
--callback get_password(binary(), binary()) -> {ok, password()} | error.
+%%% TODO: cleanup old Mnesia tables:
+%%% passwd,
+%%% enrolled_users,
+%%% user_ids,
+%%% reg_users_counter,
+%%% user_phone,
 
--optional_callbacks([
-    reload/1,
-    set_password/3,
-    remove_user/2,
-    user_exists/2,
-    check_password/4,
-    try_register/3,
-    get_users/2,
-    count_users/2,
-    get_password/2
-]).
-
+%%%----------------------------------------------------------------------
+%%% Gen Server API
+%%%----------------------------------------------------------------------
 
 -spec start_link() -> {ok, pid()} | {error, any()}.
 start_link() ->
@@ -131,6 +113,7 @@ init([]) ->
 handle_call(Request, From, State) ->
     ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
+
 
 handle_cast({host_up, Host}, State) ->
     start(Host),
@@ -163,13 +146,16 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+%%%----------------------------------------------------------------------
+%%% API
+%%%----------------------------------------------------------------------
 
-start(Host) ->
-    ejabberd_auth_halloapp:start(Host).
+start(_Host) ->
+    ok.
 
 
-stop(Host) ->
-    ejabberd_auth_halloapp:stop(Host).
+stop(_Host) ->
+    ok.
 
 
 host_up(Host) ->
@@ -185,13 +171,13 @@ config_reloaded() ->
 
 
 -spec plain_password_required(binary()) -> boolean().
-plain_password_required(Server) ->
-    ejabberd_auth_halloapp:plain_password_required(Server).
+plain_password_required(_Server) ->
+    true.
 
 
 -spec store_type(binary()) -> plain | scram | external.
-store_type(Server) ->
-    ejabberd_auth_halloapp:store_type(Server).
+store_type(_Server) ->
+    external.
 
 
 -spec check_password(binary(), binary(), binary(), binary()) -> boolean().
@@ -218,11 +204,18 @@ check_password_with_authmodule(User, AuthzId, Server, Password) ->
         digest_fun() | undefined) -> false | {true, atom()}.
 check_password_with_authmodule(User, AuthzId, Server, Password, _Digest, _DigestGen) ->
     case validate_credentials(User, Server) of
-        {ok, LUser, LServer} ->
+        {ok, Uid, _LServer} ->
             case jid:nodeprep(AuthzId) of
                 error -> false;
-                LAuthzId ->
-                    case ejabberd_auth_halloapp:check_password(LUser, LAuthzId, LServer, Password) of
+                _LAuthzId ->
+                    ?INFO_MSG("uid:~s", [Uid]),
+                    {ok, StoredPasswordRecord} = model_auth:get_password(Uid),
+                    HashedPassword = StoredPasswordRecord#password.hashed_password,
+                    case HashedPassword of
+                        undefined  -> ?INFO_MSG("No password stored for uid:~p", [Uid]);
+                        _ -> ok
+                    end,
+                    case is_password_match(HashedPassword, Password) of
                         true -> {true, ejabberd_auth_halloapp};
                         false -> false
                     end
@@ -231,37 +224,36 @@ check_password_with_authmodule(User, AuthzId, Server, Password, _Digest, _Digest
     end.
 
 
--spec set_password(binary(), binary(), password()) -> ok |
+-spec set_password(binary(), binary(), binary()) -> ok |
         {error, db_failure | not_allowed |invalid_jid | invalid_password}.
 set_password(User, Server, Password) ->
     case validate_credentials(User, Server, Password) of
-        {ok, LUser, LServer} ->
-            case ejabberd_auth_halloapp:set_password(LUser, LServer, Password) of
-                {ok, _Pass} -> ok;
-                Err -> Err
-            end;
+        {ok, Uid, _LServer} ->
+            ?INFO_MSG("uid:~s", [Uid]),
+            {ok, Salt} = bcrypt:gen_salt(),
+            {ok, HashedPassword} = hashpw(Password, Salt),
+            model_auth:set_password(Uid, Salt, HashedPassword),
+            ok;
         Err -> Err
     end.
 
 
--spec check_and_register(binary(), binary(), password(), binary(), binary()) ->
+-spec check_and_register(binary(), binary(), binary(), binary(), binary()) ->
     {ok, binary(), register | login} |
     {error, db_failure | not_allowed | exists | invalid_jid | invalid_password}.
 check_and_register(Phone, Server, Password, Name, UserAgent) ->
-    case ejabberd_auth_halloapp:get_uid(Phone) of
-        undefined ->
-            case ejabberd_auth_halloapp:try_register(Phone, Server, Password) of
+    case model_phone:get_uid(Phone) of
+        {ok, undefined} ->
+            case ha_try_register(Phone, Server, Password, Name, UserAgent) of
                 {ok, _, UserId} ->
-                    ok = model_accounts:set_name(UserId, Name),
-                    ok = model_accounts:set_user_agent(UserId, UserAgent),
                     ejabberd_hooks:run(register_user, Server, [UserId, Server, Phone]),
                     {ok, UserId, register};
                 Err -> Err
             end;
-        UserId ->
+        {ok, UserId} ->
             re_register_user(UserId, Server, Phone),
-            case ejabberd_auth_halloapp:set_password(UserId, Server, Password) of
-                {ok, _} ->
+            case set_password(UserId, Server, Password) of
+                ok ->
                     ok = model_accounts:set_name(UserId, Name),
                     ok = model_accounts:set_user_agent(UserId, UserAgent),
                     SessionCount = ejabberd_sm:kick_user(UserId, Server),
@@ -272,18 +264,19 @@ check_and_register(Phone, Server, Password, Name, UserAgent) ->
     end.
 
 
--spec try_register(binary(), binary(), password()) -> ok |
+-spec try_register(binary(), binary(), binary()) -> ok |
         {error, db_failure | not_allowed | exists | invalid_jid | invalid_password}.
-try_register(User, Server, Password) ->
-    case validate_credentials(User, Server, Password) of
-        {ok, LUser, LServer} ->
-            case user_exists(LUser, LServer) of
+try_register(Phone, Server, Password) ->
+    case validate_credentials(Phone, Server, Password) of
+        {ok, LPhone, LServer} ->
+            case user_exists(LPhone, LServer) of
                 true -> {error, exists};
                 false ->
                     case ejabberd_router:is_my_host(LServer) of
                         true ->
-                            case ejabberd_auth_halloapp:try_register(LUser, LServer, Password) of
-                                {ok, _, _}  -> ejabberd_hooks:run(register_user, LServer, [LUser, LServer]);
+                            case ha_try_register(LPhone, LServer, Password, <<"">>, <<"">>) of
+                                {ok, _, Uid}  ->
+                                    ejabberd_hooks:run(register_user, LServer, [Uid, LServer]);
                                 {error, _} = Err -> Err
                             end;
                         false -> {error, not_allowed}
@@ -293,7 +286,14 @@ try_register(User, Server, Password) ->
     end.
 
 
-% get_users/0,1,2 not implemented in HA auth file
+-spec try_enroll(Phone :: binary(), Server :: binary(), Passcode :: binary()) -> {ok, binary()}.
+try_enroll(Phone, _Server, Passcode) ->
+    ?INFO_MSG("phone:~s code:~s", [Phone, Passcode]),
+    ok = model_phone:add_sms_code(Phone, Passcode, util:now(), ?TWILIO),
+    stat:count("HA/account", "enroll"),
+    {ok, Passcode}.
+
+
 -spec get_users() -> [{binary(), binary()}].
 get_users() ->
     get_users(?HOST, []).
@@ -303,34 +303,35 @@ get_users(Server) ->
     get_users(Server, []).
 
 -spec get_users(binary(), opts()) -> [{binary(), binary()}].
-get_users(Server, Opts) ->
+get_users(Server, _Opts) ->
     case jid:nameprep(Server) of
         error -> [];
-        LServer -> ejabberd_auth_halloapp:get_users(LServer, Opts)
+        _LServer ->
+            ?ERROR_MSG("Unimplemented", []),
+            []
     end.
 
 
-% count_users/1,2 not implemented in HA auth file
 -spec count_users(binary()) -> non_neg_integer().
 count_users(Server) ->
     count_users(Server, []).
 
 -spec count_users(binary(), opts()) -> non_neg_integer().
-count_users(Server, Opts) ->
+count_users(Server, _Opts) ->
     case jid:nameprep(Server) of
         error -> 0;
-        LServer -> ejabberd_auth_halloapp:count_users(LServer, Opts)
+        _LServer -> model_accounts:count_accounts()
     end.
 
 
 % this function is not implemented in the HA auth file, will always return false
--spec get_password(binary(), binary()) -> false | password().
+-spec get_password(binary(), binary()) -> false | binary().
 get_password(_User, _Server) ->
     false.
 
 
 % this function is not implemented in the HA auth file
--spec get_password_s(binary(), binary()) -> password().
+-spec get_password_s(binary(), binary()) -> binary().
 get_password_s(User, Server) ->
     case get_password(User, Server) of
         false -> <<"">>;
@@ -339,7 +340,7 @@ get_password_s(User, Server) ->
 
 
 % this function is not implemented in the HA auth file
--spec get_password_with_authmodule(binary(), binary()) -> {false | password(), module()}.
+-spec get_password_with_authmodule(binary(), binary()) -> {false | binary(), module()}.
 get_password_with_authmodule(User, Server) ->
     case validate_credentials(User, Server) of
         {ok, _LUser, _LServer} -> {false, ejabberd_auth_halloapp};
@@ -353,10 +354,14 @@ user_exists(_User, <<"">>) ->
 
 user_exists(User, Server) ->
     case validate_credentials(User, Server) of
-        {ok, LUser, LServer} ->
-            case ejabberd_auth_halloapp:user_exists(LUser, LServer) of
-                {error, _} -> false;
-                Else -> Else
+        {ok, LUser, _LServer} ->
+            case model_accounts:account_exists(LUser) of
+                {error, _} = Err ->
+                    ?ERROR_MSG("uid: ~s, error: ~p", [LUser, Err]),
+                    false;
+                Else ->
+                    ?INFO_MSG("uid:~s result: ~p", [LUser, Else]),
+                    Else
             end;
         _ -> false
     end.
@@ -403,33 +408,30 @@ which_users_exists(USPairs) ->
     gb_sets:to_list(Set).
 
 
--spec remove_user(binary(), binary()) -> ok.
-remove_user(User, Server) ->
-    case validate_credentials(User, Server) of
-        {ok, LUser, LServer} ->
-            ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]),
-            ejabberd_auth_halloapp:remove_user(LUser, LServer);
-        _Err -> ok
-    end.
-
-
 -spec re_register_user(User :: binary(), Server :: binary(), Phone :: binary()) -> ok.
 re_register_user(User, Server, Phone) ->
     ejabberd_hooks:run(re_register_user, Server, [User, Server, Phone]).
 
 
--spec remove_user(binary(), binary(), password()) -> ok | {error, atom()}.
+-spec remove_user(binary(), binary()) -> ok.
+remove_user(User, Server) ->
+    case validate_credentials(User, Server) of
+        {ok, LUser, LServer} ->
+            ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]),
+            ha_remove_user(LUser, LServer);
+        _Err -> ok
+    end.
+
+
+-spec remove_user(binary(), binary(), binary()) -> ok | {error, atom()}.
 remove_user(User, Server, Password) ->
     case validate_credentials(User, Server, Password) of
         {ok, LUser, LServer} ->
-            case
-                case ejabberd_auth_halloapp:check_password(LUser, <<"">>, LServer, Password) of
-                    true -> ejabberd_auth_halloapp:remove_user(LUser, LServer);
-                    false -> {error, not_allowed}
-                end
-            of
-                ok -> ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]);
-                Err -> Err
+            case check_password(LUser, <<"">>, LServer, Password) of
+                true ->
+                    ok = ha_remove_user(LUser, LServer),
+                    ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]);
+                false -> {error, not_allowed}
             end;
         Err -> Err
     end.
@@ -474,15 +476,72 @@ password_format(LServer) ->
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
+-spec ha_try_register(binary(), binary(), binary(), binary(), binary()) ->
+        {ok, binary(), binary()}.
+ha_try_register(Phone, Server, Password, Name, UserAgent) ->
+    ?INFO_MSG("phone:~s", [Phone]),
+    {ok, UidInt} = util_uid:generate_uid(),
+    Uid = util_uid:uid_to_binary(UidInt),
+    ok = model_accounts:create_account(Uid, Phone, Name, UserAgent),
+    ok = model_phone:add_phone(Phone, Uid),
+    ok = ejabberd_auth:set_password(Uid, Server, Password),
+    {ok, Password, Uid}.
+
+
+-spec ha_remove_user(Uid :: binary(), Server :: binary()) -> ok.
+ha_remove_user(Uid, _Server) ->
+    ?INFO_MSG("uid:~s", [Uid]),
+    case model_accounts:get_phone(Uid) of
+        {ok, Phone} ->
+            ok = model_phone:delete_phone(Phone);
+        {error, missing} ->
+            ok
+    end,
+    ok = model_auth:delete_password(Uid),
+    ok = model_accounts:delete_account(Uid),
+    ok.
+
+
+-spec hashpw(Password :: binary(), Salt :: string()) -> {ok, binary()}.
+hashpw(Password, Salt) when is_binary(Password) and is_list(Salt) ->
+    case bcrypt:hashpw(binary_to_list(Password), Salt) of
+        {ok, Hash} -> {ok, list_to_binary(Hash)};
+        Error -> Error
+    end.
+
+
+-spec is_password_match(
+        HashedPassword :: binary() | undefined,
+        ProvidedPassword :: binary() | undefined) -> boolean().
+is_password_match(<<"">>, _ProvidedPassword) ->
+    false;
+
+is_password_match(undefined, _ProvidedPassword) ->
+    false;
+
+is_password_match(_HashedPassword, undefined) ->
+    false;
+
+is_password_match(HashedPassword, ProvidedPassword)
+    when is_binary(HashedPassword) and is_binary(ProvidedPassword) ->
+    HashedPasswordStr = binary_to_list(HashedPassword),
+    {ok, HashedPassword} =:= hashpw(ProvidedPassword, HashedPasswordStr);
+
+is_password_match(HashedPassword, ProvidedPassword) ->
+    erlang:error(badarg, [util:type(HashedPassword), util:type(ProvidedPassword)]).
+
+
 -spec validate_credentials(binary(), binary()) -> {ok, binary(), binary()} | {error, invalid_jid}.
 validate_credentials(User, Server) ->
-    validate_credentials(User, Server, #scram{}).
+    validate_credentials(User, Server, #{}).
 
--spec validate_credentials(binary(), binary(), password()) ->
+-spec validate_credentials(binary(), binary(), binary()) ->
         {ok, binary(), binary()} | {error, invalid_jid | invalid_password}.
 validate_credentials(_User, _Server, <<"">>) ->
     {error, invalid_password};
 
+%% TODO: cleanup this function
+%% TODO: remove nodeprep functions
 validate_credentials(User, Server, Password) ->
     case jid:nodeprep(User) of
         error -> {error, invalid_jid};
@@ -491,7 +550,7 @@ validate_credentials(User, Server, Password) ->
                 error -> {error, invalid_jid};
                 LServer ->
                     if
-                        is_record(Password, scram) -> {ok, LUser, LServer};
+                        is_map(Password) -> {ok, LUser, LServer};
                         true ->
                             case jid:resourceprep(Password) of
                                 error -> {error, invalid_password};
