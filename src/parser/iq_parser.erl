@@ -73,7 +73,7 @@ iq_payload_mapping(SubEl) ->
         group_st ->
             {group_stanza, groups_parser:xmpp_to_proto(SubEl)};
         client_log_st ->
-            {client_log_st, auto_parser:xmpp_to_proto(SubEl)}
+            {client_log_st, client_log_parser:xmpp_to_proto(SubEl)}
     end,
     Payload.
 
@@ -126,7 +126,7 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
         {group_stanza, GroupStanzaRecord} ->
             groups_parser:proto_to_xmpp(GroupStanzaRecord);
         {client_log, ClientLogRecord} ->
-            auto_parser:proto_to_xmpp(ClientLogRecord)
+            client_log_parser:proto_to_xmpp(ClientLogRecord)
     end,
     SubEl.
 

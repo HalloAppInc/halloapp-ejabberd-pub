@@ -16,7 +16,8 @@ xmpp_to_proto(SubEl) ->
 proto_to_xmpp(SubEl) ->
     auto_parser:proto_to_xmpp(SubEl).
 
-
+% This is the manual parser. Keeping the code for now just in case.
+% The autoparser is nice.
 %%xmpp_to_proto(SubEl) ->
 %%    #pb_client_log{
 %%        counts = xmpp_to_proto_counts(SubEl#client_log_st.counts),
