@@ -76,4 +76,5 @@
 -define(GROUP_KEY, <<"g:">>).
 -define(GROUP_MEMBERS_KEY, <<"gm:">>).
 -define(USER_GROUPS_KEY, <<"ug:">>).
+-define(COUNT_GROUPS_KEY, <<"c_grp:">>).
 

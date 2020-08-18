@@ -15,7 +15,6 @@
 
 setup() ->
     mod_redis:start(undefined, []),
-%%  redis_sup:start_link(),
     clear(),
     ok.
 

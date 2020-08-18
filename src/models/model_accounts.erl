@@ -480,7 +480,7 @@ get_broadcast_uids(Uid) ->
 
 -spec count_registrations() -> non_neg_integer().
 count_registrations() ->
-    count_fold(fun model_accounts:count_registrations/1, "count_registrations").
+    redis_counts:count_fold(fun model_accounts:count_registrations/1).
 
 
 -spec count_registrations(Slot :: non_neg_integer()) -> non_neg_integer().
@@ -495,7 +495,7 @@ count_registrations(Slot) ->
 
 -spec count_accounts() -> non_neg_integer().
 count_accounts() ->
-    count_fold(fun model_accounts:count_accounts/1, "count_accounts").
+    redis_counts:count_fold(fun model_accounts:count_accounts/1).
 
 
 -spec count_accounts(Slot :: non_neg_integer()) -> non_neg_integer().
@@ -506,20 +506,6 @@ count_accounts(Slot) ->
                 CountBin -> binary_to_integer(CountBin)
             end,
     Count.
-
-
-count_fold(Fun, Name) ->
-    lists:foldl(
-        fun (Slot, Acc) ->
-            C = Fun(Slot),
-            case C > 0 of
-                true -> ?DEBUG("name: ~s, slot ~p count ~p", [Name, Slot, C]);
-                false -> ok
-            end,
-            Acc + C
-        end,
-        0,
-        lists:seq(0, ?REDIS_CLUSTER_HASH_SLOTS -1)).
 
 
 fix_counters() ->
@@ -709,18 +695,12 @@ count_registrations_key(Uid) ->
     count_registrations_key_slot(Slot).
 
 count_registrations_key_slot(Slot) ->
-    count_key(Slot, ?COUNT_REGISTRATIONS_KEY).
+    redis_counts:count_key(Slot, ?COUNT_REGISTRATIONS_KEY).
 
 count_accounts_key(Uid) ->
     Slot = eredis_cluster_hash:hash(binary_to_list(Uid)),
     count_accounts_key_slot(Slot).
 
 count_accounts_key_slot(Slot) ->
-    count_key(Slot, ?COUNT_ACCOUNTS_KEY).
-
-count_key(Slot, Prefix) when is_integer(Slot), is_binary(Prefix) ->
-    SlotKey = mod_redis:get_slot_key(Slot),
-    SlotBinary = integer_to_binary(Slot),
-    <<Prefix/binary, <<"{">>/binary, SlotKey/binary, <<"}.">>/binary,
-        SlotBinary/binary>>.
+    redis_counts:count_key(Slot, ?COUNT_ACCOUNTS_KEY).
 

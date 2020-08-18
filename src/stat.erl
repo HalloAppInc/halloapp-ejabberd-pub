@@ -124,6 +124,13 @@ compute_counts() ->
     CountRegistrations = model_accounts:count_registrations(),
     ?INFO_MSG("Number of registrations: ~p", [CountRegistrations]),
     stat:count("HA/account", "total_registrations", CountRegistrations),
+
+    % groups
+    CountGroups = model_groups:count_groups(),
+    ?INFO_MSG("Number of groups: ~p", [CountGroups]),
+    stat:count("HA/groups", "total_groups", CountGroups),
+
+    % active_users
     ok = mod_active_users:compute_counts(),
     End = util:now_ms(),
     ?INFO_MSG("Counting took ~p ms", [End - Start]),

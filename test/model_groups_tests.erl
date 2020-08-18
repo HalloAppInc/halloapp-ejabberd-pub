@@ -11,7 +11,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 setup() ->
-    redis_sup:start_link(),
+    mod_redis:start(undefined, []),
     clear(),
     ok.
 
@@ -198,5 +198,16 @@ delete_avatar_test() ->
     ?assertEqual(ok, model_groups:delete_avatar(Gid)),
     Group1 = model_groups:get_group(Gid),
     ?assertEqual(undefined, Group1#group.avatar),
+    ok.
+
+
+count_groups_test() ->
+    setup(),
+    {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    {ok, Gid2} = model_groups:create_group(?UID2, ?GROUP_NAME2),
+    ?assertEqual(2, model_groups:count_groups()),
+    ok = model_groups:delete_group(Gid1),
+    ok = model_groups:delete_group(Gid2),
+    ?assertEqual(0, model_groups:count_groups()),
     ok.
 

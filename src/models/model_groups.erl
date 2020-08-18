@@ -13,6 +13,7 @@
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 -include("groups.hrl").
+-include("eredis_cluster.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -46,7 +47,8 @@
     set_name/2,
     set_avatar/2,
     delete_avatar/1,
-    check_member/2
+    check_member/2,
+    count_groups/0
 ]).
 
 
@@ -85,20 +87,25 @@ create_group(Uid, Name) ->
 create_group(Uid, Name, Ts) ->
     Gid = util:generate_gid(),
     MemberValue = encode_member_value(admin, util:now_ms(), Uid),
-    [{ok, _}, {ok, _}] = qp([
+    [{ok, _}, {ok, _}, {ok, _}] = qp([
         ["HSET",
             group_key(Gid),
             ?FIELD_NAME, Name,
             ?FIELD_CREATION_TIME, integer_to_binary(Ts),
             ?FIELD_CREATED_BY, Uid],
-        ["HSET", members_key(Gid), Uid, MemberValue]]),
+        ["HSET", members_key(Gid), Uid, MemberValue],
+        ["INCR", count_groups_key(Gid)]]),
     {ok, _} = q(["SADD", user_groups_key(Uid), Gid]),
     {ok, Gid}.
 
 
 -spec delete_group(Gid :: gid()) -> ok.
 delete_group(Gid) ->
-    {ok, _Res} = q(["DEL", group_key(Gid), members_key(Gid)]),
+    {ok, Res} = q(["DEL", group_key(Gid), members_key(Gid)]),
+    case Res of
+        <<"0">> -> ok;
+        _ -> q(["DECR", count_groups_key(Gid)])
+    end,
     ok.
 
 
@@ -396,4 +403,29 @@ user_groups_key(Uid) ->
 
 q(Command) -> ecredis:q(ecredis_groups, Command).
 qp(Commands) -> ecredis:qp(ecredis_groups, Commands).
+
+
+-spec count_groups_key(Gid :: gid()) -> binary().
+count_groups_key(Gid) ->
+    Slot = eredis_cluster_hash:hash(binary_to_list(Gid)),
+    count_groups_key_slot(Slot).
+
+
+count_groups_key_slot(Slot) ->
+    redis_counts:count_key(Slot, ?COUNT_GROUPS_KEY).
+
+
+-spec count_groups() -> non_neg_integer().
+count_groups() ->
+    redis_counts:count_fold(fun model_groups:count_groups/1).
+
+
+-spec count_groups(Slot :: non_neg_integer()) -> non_neg_integer().
+count_groups(Slot) ->
+    {ok, CountBin} = q(["GET", count_groups_key_slot(Slot)]),
+    Count = case CountBin of
+        undefined -> 0;
+        CountBin -> binary_to_integer(CountBin)
+    end,
+    Count.
 
