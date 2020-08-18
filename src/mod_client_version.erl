@@ -99,7 +99,7 @@ check_and_set_user_agent(Version, Uid) ->
 
 %% Checks if the version is valid or not based on the boolean value.
 %% If it's not valid, then kill the connection.
-check_and_close_connection(Version, true, From) ->
+check_and_close_connection(_Version, true, _From) ->
   ok;
 check_and_close_connection(_Version, false, From) ->
   erlang:send(self(), {kill_connection, expired_app_version, From}),

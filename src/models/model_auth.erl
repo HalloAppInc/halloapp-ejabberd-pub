@@ -34,7 +34,7 @@
 %% gen_mod callbacks
 %%====================================================================
 
-start(Host, Opts) ->
+start(_Host, _Opts) ->
     ?INFO_MSG("start ~w", [?MODULE]),
     ok.
 

@@ -71,7 +71,7 @@ mod_options(_Host) ->
 
 
 -spec process_local_iq(IQ :: iq()) -> iq().
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set, lang = Lang,
+process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         sub_els = [#user_privacy_list{type = Type, hash = HashValue, uid_els = UidEls}]} = IQ) ->
     ?INFO_MSG("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
     case update_privacy_type(Uid, Type, HashValue, UidEls) of
@@ -88,7 +88,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set, la
             xmpp:make_error(IQ, util:err(unexcepted_uids))
     end;
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = get,
-        lang = _Lang, sub_els = [#user_privacy_lists{lists = PrivacyLists}]} = IQ) ->
+        sub_els = [#user_privacy_lists{lists = PrivacyLists}]} = IQ) ->
     ?INFO_MSG("Uid: ~s, get-iq for privacy_list", [Uid]),
     ListTypes = lists:map(fun(#user_privacy_list{type = Type}) -> Type end, PrivacyLists),
     Types = case ListTypes of

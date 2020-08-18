@@ -79,7 +79,7 @@ process_local_iq(#iq{from = #jid{luser = UserId}, type = set,
 
 %%% get_avatar (friend) %%%
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
-        lang = Lang, sub_els = [#avatar{userid = FriendId}]} = IQ) ->
+        sub_els = [#avatar{userid = FriendId}]} = IQ) ->
     case check_and_get_avatar_id(UserId, FriendId) of
         undefined ->
             ?WARNING_MSG("Uid: ~s, Invalid friend_uid: ~s", [UserId, FriendId]),
@@ -90,7 +90,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
 
 %%% get_avatars %%%
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
-        lang = _Lang, sub_els = [#avatars{} = Avatars]} = IQ) ->
+        sub_els = [#avatars{} = Avatars]} = IQ) ->
     NewAvatars = lists:foreach(
         fun(#avatar{userid = FriendId} = Avatar) ->
             Avatar#avatar{id = check_and_get_avatar_id(UserId, FriendId)}

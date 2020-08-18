@@ -32,7 +32,7 @@
 %% gen_mod API.
 %%====================================================================
 
-start(Host, Opts) ->
+start(Host, _Opts) ->
     ?INFO_MSG("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PUSH, ?MODULE, process_local_iq),
     ok.
@@ -61,25 +61,23 @@ mod_options(_Host) ->
 %%====================================================================
 
 -spec process_local_iq(IQ :: iq()) -> iq().
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lang = Lang,
+process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
         to = _Host, sub_els = [#push_register{push_token = {Os, Token}}]} = IQ) ->
     ?INFO_MSG("Uid: ~s, set-iq for push_token", [Uid]),
     IsValidOs = is_valid_push_os(Os),
     if
         Token =:= <<>> ->
             ?WARNING_MSG("Uid: ~s, received push token is empty!", [Uid]),
-            Txt = ?T("Invalid value for token."),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            xmpp:make_error(IQ, util:err(invalid_push_token));
         IsValidOs =:= false ->
             ?WARNING_MSG("Uid: ~s, invalid os attribute: ~s!", [Uid, Os]),
-            Txt = ?T("Invalid os attribute: ios/ios_dev/android expected."),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            xmpp:make_error(IQ, util:err(invalid_os));
         true ->
             ok = register_push_info(Uid, Server, Os, Token),
             xmpp:make_iq_result(IQ)
     end;
 
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lang = Lang,
+process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         to = _Host, sub_els = [#notification_prefs{push_prefs = PushPrefs}]} = IQ) ->
     ?INFO_MSG("Uid: ~s, set-iq for push preferences", [Uid]),
     case PushPrefs of
@@ -113,7 +111,7 @@ update_push_pref(Uid, #push_pref{name = comment, value = Value}) ->
 
 -spec register_push_info(Uid :: binary(), Server :: binary(),
         Os :: binary(), Token :: binary()) -> ok.
-register_push_info(Uid, Server, Os, Token) ->
+register_push_info(Uid, _Server, Os, Token) ->
     TimestampMs = util:now_ms(),
     ok = model_accounts:set_push_token(Uid, Os, Token, TimestampMs),
     stat:count("HA/push_tokens", "set_push_token"),
@@ -121,27 +119,16 @@ register_push_info(Uid, Server, Os, Token) ->
 
 
 -spec get_push_info(Uid :: binary(), Server :: binary()) -> undefined | push_info().
-get_push_info(Uid, Server) ->
+get_push_info(Uid, _Server) ->
     {ok, RedisPushInfo} = model_accounts:get_push_info(Uid),
     RedisPushInfo.
 
 
 -spec remove_push_token(Uid :: binary(), Server :: binary()) -> ok.
-remove_push_token(Uid, Server) ->
+remove_push_token(Uid, _Server) ->
     ok = model_accounts:remove_push_token(Uid),
     stat:count("HA/push_tokens", "remove_push_token"),
     ok.
-
-
-%% TODO(murali@): remove this function after successful migration.
--spec compare_push_info_result(Uid :: binary(), RedisPushInfo :: push_info(),
-        MnesiaPushInfo :: push_info()) -> boolean().
-compare_push_info_result(Uid, RedisPushInfo, MnesiaPushInfo) ->
-    case RedisPushInfo =:= MnesiaPushInfo of
-        true -> ?INFO_MSG("Uid: ~s push tokens match on mnesia and redis", [Uid]);
-        false -> ?ERROR_MSG("Uid: ~s, push tokens do not match on mnesia: ~p and redis: ~p",
-                [Uid, MnesiaPushInfo, RedisPushInfo])
-    end.
 
 
 -spec is_valid_push_os(Os :: binary()) -> boolean().
