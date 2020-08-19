@@ -531,7 +531,7 @@ send_old_items_to_contact(Uid, Server, ContactId) ->
     CommentStanzas = lists:map(fun convert_comments_to_stanzas/1, Comments),
     %% TODO(murali@): remove this code after successful migration to redis.
     {ok, PubsubItems} = mod_feed_mnesia:get_all_items(<<"feed-", Uid/binary>>),
-    {PubsubPostStanzas, PubsubCommentStanzas} = filter_and_transform_pubsub_items(PubsubItems),
+    {PubsubPostStanzas, PubsubCommentStanzas} = filter_and_transform_pubsub_items([], PubsubItems),
     MsgType = normal,
     From = jid:make(Server),
     Packet = #message{
@@ -557,7 +557,7 @@ share_feed_items(Uid, FriendUid, Server, PostIds) ->
         
     %% TODO(murali@): remove this code after successful migration to redis.
     {ok, PubsubItems} = mod_feed_mnesia:get_all_items(<<"feed-", Uid/binary>>),
-    {PubsubPostStanzas, PubsubCommentStanzas} = filter_and_transform_pubsub_items(PubsubItems),
+    {PubsubPostStanzas, PubsubCommentStanzas} = filter_and_transform_pubsub_items(PostIds, PubsubItems),
     MsgType = normal,
     From = jid:make(Server),
     Packet = #message{
@@ -631,26 +631,40 @@ uid_elements_to_uids(UidEls) ->
 
 
 %% TODO(murali@): remove this code after successful migration to redis.
--spec filter_and_transform_pubsub_items([item()]) -> [].
-filter_and_transform_pubsub_items(AllItems) ->
+-spec filter_and_transform_pubsub_items([binary()], [item()]) -> [].
+filter_and_transform_pubsub_items(PostIds, AllItems) ->
     TimestampMs = util:now_ms(),
+    PostIdsSet = sets:from_list(PostIds),
     Items = lists:filter(
         fun(Item) ->
-            TimestampMs - Item#item.creation_ts_ms < ?CATCH_UP_TIME_MS
+            IsNotExpired = TimestampMs - Item#item.creation_ts_ms < ?CATCH_UP_TIME_MS,
+            case Item#item.type of
+                feedpost ->
+                    ItemId = element(1, Item#item.key),
+                    case PostIds of
+                        %% Send all unexpired items if no post_ids are mentioned.
+                        [] -> IsNotExpired;
+
+                        %% Send only specific unexpired posts if some post_ids are given.
+                        _ -> sets:is_element(ItemId, PostIdsSet) andalso IsNotExpired
+                    end;
+                comment ->
+                    IsNotExpired
+            end
         end, AllItems),
     ResultItems = lists:map(
         fun(Item) ->
             ItemId = element(1, Item#item.key),
             PublisherUid = Item#item.uid,
-            TimestampMs = Item#item.creation_ts_ms,
+            ItemTimestampMs = Item#item.creation_ts_ms,
             Payload = Item#item.payload,
             case Item#item.type of
                 feedpost ->
                     #post_st{
                         id = ItemId,
                         uid = PublisherUid,
-                        payload = Payload,
-                        timestamp = integer_to_binary(util:ms_to_sec(TimestampMs))
+                        payload = fxml:get_subtag_cdata(Payload, <<"s1">>),
+                        timestamp = integer_to_binary(util:ms_to_sec(ItemTimestampMs))
                     };
                 comment ->
                     #comment_st{
@@ -659,8 +673,8 @@ filter_and_transform_pubsub_items(AllItems) ->
                         parent_comment_id = <<>>,
                         publisher_uid = PublisherUid,
                         publisher_name = model_accounts:get_name_binary(PublisherUid),
-                        payload = Payload,
-                        timestamp = integer_to_binary(util:ms_to_sec(TimestampMs))
+                        payload = fxml:get_subtag_cdata(Payload, <<"s1">>),
+                        timestamp = integer_to_binary(util:ms_to_sec(ItemTimestampMs))
                     }
             end
         end, Items),
@@ -668,11 +682,11 @@ filter_and_transform_pubsub_items(AllItems) ->
     Timestamp = util:now(),
     FinalPostStanzas = lists:filter(
         fun(PostStanza) ->
-            Timestamp - PostStanza#post_st.timestamp < ?WEEKS
+            Timestamp - binary_to_integer(PostStanza#post_st.timestamp) < ?WEEKS
         end, PostStanzas),
     FinalCommentStanzas = lists:filter(
         fun(CommentStanza) ->
-            Timestamp - CommentStanza#comment_st.timestamp < ?WEEKS
+            Timestamp - binary_to_integer(CommentStanza#comment_st.timestamp) < ?WEEKS
         end, CommentStanzas),
     {FinalPostStanzas, FinalCommentStanzas}.
 
