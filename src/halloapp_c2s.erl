@@ -233,14 +233,14 @@ handle_unexpected_cast(State, Msg) ->
 process_auth_result(#{auth_module := AuthModule, socket := Socket,
         ip := IP, lserver := LServer} = State, true, User) ->
     ?INFO_MSG("(~ts) Accepted c2s authentication for ~ts@~ts by ~ts backend from ~ts",
-            [xmpp_socket:pp(Socket), User, LServer,
+            [halloapp_socket:pp(Socket), User, LServer,
             ejabberd_auth:backend_type(AuthModule),
             ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
     State;
 process_auth_result(#{socket := Socket,ip := IP, lserver := LServer} = State,
         {false, Reason}, User) ->
     ?WARNING_MSG("(~ts) Failed c2s authentication ~tsfrom ~ts: ~ts",
-            [xmpp_socket:pp(Socket),
+            [halloapp_socket:pp(Socket),
             if User /= <<"">> -> ["for ", User, "@", LServer, " "];
                 true -> ""
             end, ejabberd_config:may_hide_data(misc:ip_to_list(IP)), Reason]),
@@ -256,7 +256,7 @@ process_terminated(#{sid := SID, socket := Socket,
         Reason) ->
     Status = format_reason(State, Reason),
     ?INFO_MSG("(~ts) Closing c2s session for ~ts: ~ts",
-            [xmpp_socket:pp(Socket), jid:encode(JID), Status]),
+            [halloapp_socket:pp(Socket), jid:encode(JID), Status]),
     State1 = case maps:is_key(pres_last, State) of
         true ->
             ejabberd_sm:close_session_unset_presence(SID, U, S, R, Status);
@@ -268,7 +268,7 @@ process_terminated(#{sid := SID, socket := Socket,
     State1;
 process_terminated(#{socket := Socket, stop_reason := {tls, _}} = State, Reason) ->
     ?WARNING_MSG("(~ts) Failed to secure c2s connection: ~ts",
-            [xmpp_socket:pp(Socket), format_reason(State, Reason)]),
+            [halloapp_socket:pp(Socket), format_reason(State, Reason)]),
     State;
 process_terminated(State, _Reason) ->
     State.
@@ -314,12 +314,12 @@ bind(R, #{user := U, server := S, access := Access, lang := Lang,
             State2 = ejabberd_hooks:run_fold(
                    c2s_session_opened, LServer, State1, []),
             ?INFO_MSG("(~ts) Opened c2s session for ~ts",
-                  [xmpp_socket:pp(Socket), jid:encode(JID)]),
+                  [halloapp_socket:pp(Socket), jid:encode(JID)]),
             {ok, State2};
         deny ->
             ejabberd_hooks:run(forbidden_session_hook, LServer, [JID]),
             ?WARNING_MSG("(~ts) Forbidden c2s session for ~ts",
-                 [xmpp_socket:pp(Socket), jid:encode(JID)]),
+                 [halloapp_socket:pp(Socket), jid:encode(JID)]),
             Txt = ?T("Access denied by service policy"),
             {error, xmpp:err_not_allowed(Txt, Lang), State}
         end
