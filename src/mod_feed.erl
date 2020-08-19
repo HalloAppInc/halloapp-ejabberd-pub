@@ -458,7 +458,8 @@ send_all_node_items(#psnode{id = NodeId} = _Node, ContactId, Server) ->
     FinalItems = case NodeId of
         <<"feed-", OwnerUid/binary>> ->
             {ok, FeedItems} = model_feed:get_7day_user_feed(OwnerUid),
-            PsItems2 = feed_items_to_items_els(FeedItems, Server),
+            {FilteredPosts, FilteredComments} = mod_ha_feed:filter_feed_items(FeedItems),
+            PsItems2 = feed_items_to_items_els(FilteredPosts ++ FilteredComments, Server),
             PsItems1 ++ PsItems2;
         _ ->
             PsItems1

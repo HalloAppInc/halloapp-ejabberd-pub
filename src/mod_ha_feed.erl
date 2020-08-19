@@ -28,7 +28,8 @@
     make_feed_comment_stanza/7,
     broadcast_event/4,
     send_post_notification/6,
-    send_comment_notification/8
+    send_comment_notification/8,
+    filter_feed_items/1
 ]).
 
 
@@ -526,9 +527,11 @@ add_friend(UserId, Server, ContactId) ->
 -spec send_old_items_to_contact(Uid :: uid(), Server :: binary(), ContactId :: binary()) -> ok.
 send_old_items_to_contact(Uid, Server, ContactId) ->
     {ok, Items} = model_feed:get_7day_user_feed(Uid),
-    {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
-    PostStanzas = lists:map(fun convert_posts_to_stanzas/1, Posts),
-    CommentStanzas = lists:map(fun convert_comments_to_stanzas/1, Comments),
+
+    {FilteredPosts, FilteredComments} = filter_feed_items(Items),
+    PostStanzas = lists:map(fun convert_posts_to_stanzas/1, FilteredPosts),
+    CommentStanzas = lists:map(fun convert_comments_to_stanzas/1, FilteredComments),
+
     %% TODO(murali@): remove this code after successful migration to redis.
     {ok, PubsubItems} = mod_feed_mnesia:get_all_items(<<"feed-", Uid/binary>>),
     {PubsubPostStanzas, PubsubCommentStanzas} = filter_and_transform_pubsub_items([], PubsubItems),
@@ -543,6 +546,23 @@ send_old_items_to_contact(Uid, Server, ContactId) ->
             comments = CommentStanzas ++ PubsubCommentStanzas}]
     },
     ejabberd_router:route(Packet).
+
+
+-spec filter_feed_items(Items :: [post()] | [comment()]) -> {[post()], [comment()]}.
+filter_feed_items(Items) ->
+    {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
+    %% TODO(murali@): remove this function after all clients migrate to the new API.
+    FilteredPosts = lists:filter(
+            fun(Post) ->
+                Post#post.audience_type =:= all
+            end, Posts),
+    FilteredPostIdsList = lists:map(fun(Post) -> Post#post.id end, FilteredPosts),
+    FilteredPostIdsSet = sets:from_list(FilteredPostIdsList),
+    FilteredComments = lists:filter(
+            fun(Comment) ->
+                sets:is_element(Comment#comment.post_id, FilteredPostIdsSet)
+            end, Comments),
+    {FilteredPosts, FilteredComments}.
 
 
 %% TODO(murali@): Check if post-ids are related to this user only.
