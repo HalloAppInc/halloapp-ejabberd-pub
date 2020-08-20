@@ -252,12 +252,12 @@ join_binary(Char, [Element | Rest], FinalString) ->
 
 -spec err(Reason :: atom()) -> stanza_error().
 err(Reason) ->
-    #error_st{reason = Reason}.
+    #error_st{reason = Reason, type = cancel}.
 
 
 -spec err(Reason :: atom(), Hash :: binary()) -> stanza_error().
 err(Reason, Hash) ->
-    #error_st{reason = Reason, hash = Hash}.
+    #error_st{reason = Reason, type= cancel, hash = Hash}.
 
 
 -spec ms_to_datetime_string(Ms :: non_neg_integer()) -> {string(), string()}.
