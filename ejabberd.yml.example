@@ -75,6 +75,7 @@ listen:
       /captcha: ejabberd_captcha
       /upload: mod_http_upload
       /ws: ejabberd_http_ws
+      /metrics: mod_prom_exporter
   -
     port: 5280
     ip: "::"
@@ -237,6 +238,7 @@ modules:
   mod_client_log: {}
   mod_client_version:
     max_days: 30
+  mod_prom_exporter: {}
   mod_push_tokens: {}
   mod_push_notifications: {}
   mod_ios_push:
