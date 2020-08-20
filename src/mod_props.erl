@@ -79,13 +79,15 @@ get_props(Uid) ->
             [
                 {dev, false},
                 {groups, false},
-                {max_group_size, 25}
+                {max_group_size, 25},
+                {max_post_media_items, 9}
             ];
         true ->
             [
                 {dev, true},
                 {groups, false},
-                {max_group_size, 25}
+                {max_group_size, 25},
+                {max_post_media_items, 9}
             ]
     end,
     lists:keysort(1, Proplist).
