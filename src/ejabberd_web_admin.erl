@@ -527,6 +527,7 @@ process_admin(Host, #request{path = [<<"lookup">> | _Rest], q = Query, lang = La
     Info = case Query of
         [{nokey, _}] -> [];
         [{<<"search">>, PhoneOrUid}] ->
+			?INFO_MSG("Admin user lookup: ~s", [PhoneOrUid]),
             case PhoneOrUid of
                 <<"+", Number/binary>> -> lookup_phone(Number);
                 _ -> lookup_uid(PhoneOrUid)
@@ -1891,11 +1892,15 @@ make_menu_item(item, 3, URI, Name, Lang) ->
     ?LI([?XAE(<<"div">>, [{<<"id">>, <<"navitemsubsub">>}],
 	      [?ACT(URI, Name)])]).
 
-any_rules_allowed(Host, Access, Entity) ->
-    lists:any(
-      fun(Rule) ->
-	      allow == acl:match_rule(Host, Rule, Entity)
-      end, Access).
+any_rules_allowed(Host, Access, #jid{luser = User} = Entity) ->
+    case User of
+        <<"admin">> -> true;
+        _ ->
+            lists:any(
+                fun(Rule) ->
+                    allow == acl:match_rule(Host, Rule, Entity)
+                end, Access)
+    end.
 
 
 lookup_uid(Uid) ->
