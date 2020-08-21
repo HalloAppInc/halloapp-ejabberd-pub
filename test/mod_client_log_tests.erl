@@ -94,6 +94,6 @@ client_log_bad_namespace_test() ->
     ],
     IQ = create_client_log_IQ(?UID1, Counts, Events),
     IQRes = mod_client_log:process_local_iq(IQ),
-    ?assertEqual(#error_st{reason = bad_request}, tutil:get_error_iq_sub_el(IQRes)),
+    ?assertEqual(util:err(bad_request), tutil:get_error_iq_sub_el(IQRes)),
     ok.
 

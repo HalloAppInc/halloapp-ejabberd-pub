@@ -78,7 +78,7 @@ get_error_iq_result(Reason, Uid, Server) ->
         from = jid:make(Server),
         type = error,
         to = jid:make(Uid, Server),
-        sub_els = [#error_st{reason = Reason}]
+        sub_els = [#error_st{type = cancel, reason = Reason, bad_req = 'bad-request'}]
     }.
 
 

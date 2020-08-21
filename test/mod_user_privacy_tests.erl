@@ -76,8 +76,10 @@ create_iq_request_privacy_list(Uid, Type, SubEls) ->
 
 create_error_st(Reason, Hash) ->
     #error_st{
+        type = cancel,
         reason = Reason,
-        hash = Hash
+        hash = Hash,
+        bad_req = 'bad-request'
     }.
 
 create_iq_response_privacy_list(Uid, Type, SubEls) ->
