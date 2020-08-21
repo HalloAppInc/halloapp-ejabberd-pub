@@ -13,6 +13,7 @@
 -include("xmpp.hrl").
 -include("offline_message.hrl").
 -include("redis_keys.hrl").
+-include("ha_types.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -77,7 +78,7 @@ store_message(Message) ->
     store_message(ToUid, FromUid, MsgId, ContentType, Message).
 
 
--spec store_message(ToUid :: binary(), FromUid :: undefined | binary(), MsgId :: binary(),
+-spec store_message(ToUid :: uid(), FromUid :: undefined | binary(), MsgId :: binary(),
                     ContentType :: binary(), Message :: message()) -> ok | {error, any()}.
 store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_record(Message, message) ->
     store_message(ToUid, FromUid, MsgId, ContentType, fxml:element_to_binary(xmpp:encode(Message)));
@@ -95,13 +96,13 @@ store_message(_ToUid, _FromUid, _MsgId, _ContentType, Message) ->
     ?ERROR_MSG("Invalid message format: ~p: use binary format", [Message]).
 
 
--spec increment_retry_count(Uid :: binary(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
+-spec increment_retry_count(Uid :: uid(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
 increment_retry_count(Uid, MsgId) ->
     {ok, RetryCount} = q(["HINCRBY", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT, 1]),
     {ok, binary_to_integer(RetryCount)}.
 
 
--spec get_retry_count(Uid :: binary(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
+-spec get_retry_count(Uid :: uid(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
 get_retry_count(Uid, MsgId) ->
     {ok, RetryCount} = q(["HGET", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT]),
     Res = case RetryCount of
@@ -111,21 +112,21 @@ get_retry_count(Uid, MsgId) ->
     {ok, Res}.
 
 
--spec get_message(Uid :: binary(), MsgId :: binary()) -> {ok, message()} | {error, any()}.
+-spec get_message(Uid :: uid(), MsgId :: binary()) -> {ok, message()} | {error, any()}.
 get_message(Uid, MsgId) ->
     Result = q(["HGETALL", message_key(Uid, MsgId)]),
     OfflineMessage = parse_result(Result),
     {ok, OfflineMessage}.
 
 
--spec get_all_user_messages(Uid :: binary()) -> {ok, [message()]} | {error, any()}.
+-spec get_all_user_messages(Uid :: uid()) -> {ok, [message()]} | {error, any()}.
 get_all_user_messages(Uid) ->
     {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
     Messages = get_all_user_messages(Uid, MsgIds),
     {ok, Messages}.
 
 
--spec ack_message(Uid :: binary(), MsgId :: binary()) -> ok | {error, any()}.
+-spec ack_message(Uid :: uid(), MsgId :: binary()) -> ok | {error, any()}.
 ack_message(Uid, MsgId) ->
     _Results = qp(
             [["MULTI"],
@@ -136,7 +137,7 @@ ack_message(Uid, MsgId) ->
 
 
 %%TODO(murali@): Update this to use a lua script.
--spec remove_all_user_messages(Uid :: binary()) -> ok | {error, any()}.
+-spec remove_all_user_messages(Uid :: uid()) -> ok | {error, any()}.
 remove_all_user_messages(Uid) ->
     {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
     MessageKeys = message_keys(Uid, MsgIds),
@@ -148,13 +149,13 @@ remove_all_user_messages(Uid) ->
     ok.
 
 
--spec count_user_messages(Uid :: binary()) -> {ok, integer()} | {error, any()}.
+-spec count_user_messages(Uid :: uid()) -> {ok, integer()} | {error, any()}.
 count_user_messages(Uid) ->
     {ok, Res} = q(["ZCARD", message_queue_key(Uid)]),
     {ok, binary_to_integer(Res)}.
 
 
--spec get_all_user_messages(Uid :: binary(), MsgIds :: [binary()]) -> [binary()].
+-spec get_all_user_messages(Uid :: uid(), MsgIds :: [binary()]) -> [binary()].
 get_all_user_messages(_Uid, []) ->
     [];
 get_all_user_messages(Uid, MsgIds) ->
@@ -239,29 +240,29 @@ q(Command) -> ecredis:q(ecredis_messages, Command).
 qp(Commands) -> ecredis:qp(ecredis_messages, Commands).
 
 
--spec message_keys(Uid :: binary(), MsgIds :: [binary()]) -> [binary()].
+-spec message_keys(Uid :: uid(), MsgIds :: [binary()]) -> [binary()].
 message_keys(Uid, MsgIds) ->
     message_keys(Uid, MsgIds, []).
 
 
--spec message_keys(Uid :: binary(), MsgIds :: [binary()], Results :: [binary()]) -> [binary()].
+-spec message_keys(Uid :: uid(), MsgIds :: [binary()], Results :: [binary()]) -> [binary()].
 message_keys(_Uid, [], Results) ->
     lists:reverse(Results);
 message_keys(Uid, [MsgId | Rest], Results) ->
     message_keys(Uid, Rest, [message_key(Uid, MsgId) | Results]).
 
 
--spec message_key(Uid :: binary(), MsgId :: binary()) -> binary().
+-spec message_key(Uid :: uid(), MsgId :: binary()) -> binary().
 message_key(Uid, MsgId) ->
     <<?MESSAGE_KEY/binary, <<"{">>/binary, Uid/binary, <<"}:">>/binary, MsgId/binary>>.
 
 
--spec message_queue_key(Uid :: binary()) -> binary().
+-spec message_queue_key(Uid :: uid()) -> binary().
 message_queue_key(Uid) ->
     <<?MESSAGE_QUEUE_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 
--spec message_order_key(Uid :: binary()) -> binary().
+-spec message_order_key(Uid :: uid()) -> binary().
 message_order_key(Uid) ->
     <<?MESSAGE_ORDER_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 

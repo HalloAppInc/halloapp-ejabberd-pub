@@ -10,6 +10,7 @@
 -behavior(gen_mod).
 
 -include("logger.hrl").
+-include("ha_types.hrl").
 -include("redis_keys.hrl").
 
 %% Export all functions for unit tests
@@ -124,7 +125,7 @@ get_sms_code_ttl(Phone) ->
     {ok, binary_to_integer(Res)}.
 
 
--spec add_phone(Phone :: binary(), Uid :: binary()) -> ok  | {error, any()}.
+-spec add_phone(Phone :: binary(), Uid :: uid()) -> ok  | {error, any()}.
 add_phone(Phone, Uid) ->
     {ok, _Res} = q(["SET", phone_key(Phone), Uid]),
     ok.

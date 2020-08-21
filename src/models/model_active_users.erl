@@ -13,6 +13,7 @@
 -include("logger.hrl").
 -include("redis_keys.hrl").
 -include("time.hrl").
+-include("ha_types.hrl").
 
 %% API
 -export([
@@ -41,19 +42,19 @@ count_active_users_between(Type, LowerBound, UpperBound) ->
     ).
 
 
--spec get_active_users_key(Uid :: binary()) -> binary().
+-spec get_active_users_key(Uid :: uid()) -> binary().
 get_active_users_key(Uid) ->
     Slot = hash(binary_to_list(Uid)),
     get_active_users_key_slot(Slot).
 
 
--spec get_active_users_key(Uid :: binary(), Type :: activity_type()) -> binary().
+-spec get_active_users_key(Uid :: uid(), Type :: activity_type()) -> binary().
 get_active_users_key(Uid, Type) ->
     Slot = hash(binary_to_list(Uid)),
     get_active_users_key_slot(Slot, Type).
 
 
--spec set_activity(Uid :: binary(), TimestampMs :: integer(), Keys :: list()) -> ok.
+-spec set_activity(Uid :: uid(), TimestampMs :: integer(), Keys :: list()) -> ok.
 set_activity(Uid, TimestampMs, Keys) ->
     Commands = [["ZADD", Key, TimestampMs, Uid] || Key <- Keys],
     qp(Commands),

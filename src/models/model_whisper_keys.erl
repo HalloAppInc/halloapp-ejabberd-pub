@@ -12,6 +12,7 @@
 -include("logger.hrl").
 -include("redis_keys.hrl").
 -include("whisper.hrl").
+-include("ha_types.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -62,7 +63,7 @@ mod_options(_Host) ->
 -define(FIELD_SIGNEDPRE_KEY, <<"spk">>).
 
 
--spec set_keys(Uid :: binary(), IdentityKey :: binary(),
+-spec set_keys(Uid :: uid(), IdentityKey :: binary(),
         SignedPreKey :: binary(), OtpKeys :: list(binary())) -> ok | {error, any()}.
 set_keys(Uid, IdentityKey, SignedPreKey, OtpKeys) ->
     PipeCommands = [
@@ -77,13 +78,13 @@ set_keys(Uid, IdentityKey, SignedPreKey, OtpKeys) ->
     ok.
 
 
--spec add_otp_keys(Uid :: binary(), OtpKeys :: list(binary())) -> ok | {error, any()}.
+-spec add_otp_keys(Uid :: uid(), OtpKeys :: list(binary())) -> ok | {error, any()}.
 add_otp_keys(Uid, OtpKeys) ->
     {ok, _Res} = q(["LPUSH", otp_key(Uid) | OtpKeys]),
     ok.
 
 
--spec get_key_set(Uid :: binary()) -> {ok, undefined | user_whisper_key_set()} | {error, any()}.
+-spec get_key_set(Uid :: uid()) -> {ok, undefined | user_whisper_key_set()} | {error, any()}.
 get_key_set(Uid) ->
     {ok, [IdentityKey, SignedPreKey]} = q(["HMGET", whisper_key(Uid),
             ?FIELD_IDENTITY_KEY, ?FIELD_SIGNEDPRE_KEY]),
@@ -101,36 +102,36 @@ get_key_set(Uid) ->
     {ok, Result}.
 
 
--spec count_otp_keys(Uid :: binary()) -> {ok, integer()} | {error, any()}.
+-spec count_otp_keys(Uid :: uid()) -> {ok, integer()} | {error, any()}.
 count_otp_keys(Uid) ->
     {ok, Count} = q(["LLEN", otp_key(Uid)]),
     {ok, binary_to_integer(Count)}.
 
 
--spec remove_all_keys(Uid :: binary()) -> ok | {error, any()}.
+-spec remove_all_keys(Uid :: uid()) -> ok | {error, any()}.
 remove_all_keys(Uid) ->
     {ok, _Res} = q(["DEL", whisper_key(Uid), otp_key(Uid)]),
     ok.
 
 
--spec add_key_subscriber(Uid :: binary(), SubscriberUid :: binary()) -> ok | {error, any()}.
+-spec add_key_subscriber(Uid :: uid(), SubscriberUid :: uid()) -> ok | {error, any()}.
 add_key_subscriber(Uid, SubscriberUid) ->
     {ok, _Res} = q(["SADD", subcribers_key(Uid), SubscriberUid]),
     ok.
 
 
--spec remove_key_subscriber(Uid :: binary(), SubscriberUid :: binary()) -> ok | {error, any()}.
+-spec remove_key_subscriber(Uid :: uid(), SubscriberUid :: uid()) -> ok | {error, any()}.
 remove_key_subscriber(Uid, SubscriberUid) ->
     {ok, _Res} = q(["SREM", subcribers_key(Uid), SubscriberUid]),
     ok.
 
 
--spec get_all_key_subscribers(Uid :: binary()) -> {ok, list(binary())} | {error, any()}.
+-spec get_all_key_subscribers(Uid :: uid()) -> {ok, list(binary())} | {error, any()}.
 get_all_key_subscribers(Uid) ->
     q(["SMEMBERS", subcribers_key(Uid)]).
 
 
--spec remove_all_key_subscribers(Uid :: binary()) -> ok | {error, any()}.
+-spec remove_all_key_subscribers(Uid :: uid()) -> ok | {error, any()}.
 remove_all_key_subscribers(Uid) ->
     {ok, _Res} = q(["DEL", subcribers_key(Uid)]),
     ok.
@@ -140,17 +141,17 @@ q(Command) -> ecredis:q(ecredis_whisper, Command).
 qp(Commands) -> ecredis:qp(ecredis_whisper, Commands).
 
 
--spec whisper_key(Uid :: binary()) -> binary().
+-spec whisper_key(Uid :: uid()) -> binary().
 whisper_key(Uid) ->
     <<?WHISPER_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 
--spec otp_key(Uid :: binary()) -> binary().
+-spec otp_key(Uid :: uid()) -> binary().
 otp_key(Uid) ->
     <<?OTP_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 
--spec subcribers_key(Uid :: binary()) -> binary().
+-spec subcribers_key(Uid :: uid()) -> binary().
 subcribers_key(Uid) ->
     <<?SUBSCRIBERS_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 

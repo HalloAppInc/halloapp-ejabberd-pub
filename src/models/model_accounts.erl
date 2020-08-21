@@ -129,13 +129,13 @@ mod_options(_Host) ->
 %% Account related API
 %%====================================================================
 
--spec create_account(Uid :: binary(), Phone :: binary(), Name :: binary(),
+-spec create_account(Uid :: uid(), Phone :: binary(), Name :: binary(),
         UserAgent :: binary()) -> ok | {error, exists}.
 create_account(Uid, Phone, Name, UserAgent) ->
     create_account(Uid, Phone, Name, UserAgent, util:now_ms()).
 
 
--spec create_account(Uid :: binary(), Phone :: binary(), Name :: binary(),
+-spec create_account(Uid :: uid(), Phone :: binary(), Name :: binary(),
         UserAgent :: binary(), CreationTsMs :: integer()) -> ok | {error, exists | deleted}.
 create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
     {ok, Deleted} = q(["EXISTS", deleted_account_key(Uid)]),
@@ -161,7 +161,7 @@ create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
     end.
 
 
--spec delete_account(Uid :: binary()) -> ok.
+-spec delete_account(Uid :: uid()) -> ok.
 delete_account(Uid) ->
     case q(["HEXISTS", key(Uid), ?FIELD_PHONE]) of
         {ok, <<"1">>} ->
@@ -182,25 +182,25 @@ delete_account(Uid) ->
     ok.
 
 
--spec set_name(Uid :: binary(), Name :: binary()) -> ok  | {error, any()}.
+-spec set_name(Uid :: uid(), Name :: binary()) -> ok  | {error, any()}.
 set_name(Uid, Name) ->
     {ok, _Res} = q(["HSET", key(Uid), ?FIELD_NAME, Name]),
     ok.
 
 
--spec get_name(Uid :: binary()) -> binary() | {ok, binary() | undefined} | {error, any()}.
+-spec get_name(Uid :: uid()) -> binary() | {ok, binary() | undefined} | {error, any()}.
 get_name(Uid) ->
     {ok, Res} = q(["HGET", key(Uid), ?FIELD_NAME]),
     {ok, Res}.
 
 
--spec delete_name(Uid :: binary()) -> ok  | {error, any()}.
+-spec delete_name(Uid :: uid()) -> ok  | {error, any()}.
 delete_name(Uid) ->
     {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_NAME]),
     ok.
 
 
--spec get_name_binary(Uid :: binary()) -> binary().
+-spec get_name_binary(Uid :: uid()) -> binary().
 get_name_binary(Uid) ->
     {ok, Name} = get_name(Uid),
     case Name of
@@ -209,25 +209,25 @@ get_name_binary(Uid) ->
     end.
 
 
--spec set_avatar_id(Uid :: binary(), AvatarId :: binary()) -> ok  | {error, any()}.
+-spec set_avatar_id(Uid :: uid(), AvatarId :: binary()) -> ok  | {error, any()}.
 set_avatar_id(Uid, AvatarId) ->
     {ok, _Res} = q(["HSET", key(Uid), ?FIELD_AVATAR_ID, AvatarId]),
     ok.
 
 
--spec delete_avatar_id(Uid :: binary()) -> ok.
+-spec delete_avatar_id(Uid :: uid()) -> ok.
 delete_avatar_id(Uid) ->
     {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_AVATAR_ID]),
     ok.
 
 
--spec get_avatar_id(Uid :: binary()) -> binary() | {ok, binary() | undefined} | {error, any()}.
+-spec get_avatar_id(Uid :: uid()) -> binary() | {ok, binary() | undefined} | {error, any()}.
 get_avatar_id(Uid) ->
     {ok, Res} = q(["HGET", key(Uid), ?FIELD_AVATAR_ID]),
     {ok, Res}.
 
 
--spec get_avatar_id_binary(Uid :: binary()) -> binary().
+-spec get_avatar_id_binary(Uid :: uid()) -> binary().
 get_avatar_id_binary(Uid) ->
     {ok, AvatarId} = get_avatar_id(Uid),
     case AvatarId of
@@ -236,7 +236,7 @@ get_avatar_id_binary(Uid) ->
     end.
 
 
--spec get_phone(Uid :: binary()) -> {ok, binary()} | {error, missing}.
+-spec get_phone(Uid :: uid()) -> {ok, binary()} | {error, missing}.
 get_phone(Uid) ->
     {ok, Res} = q(["HGET", key(Uid), ?FIELD_PHONE]),
     case Res of
@@ -245,19 +245,19 @@ get_phone(Uid) ->
     end.
 
 
--spec get_creation_ts_ms(Uid :: binary()) -> {ok, integer()} | {error, missing}.
+-spec get_creation_ts_ms(Uid :: uid()) -> {ok, integer()} | {error, missing}.
 get_creation_ts_ms(Uid) ->
     {ok, Res} = q(["HGET", key(Uid), ?FIELD_CREATION_TIME]),
     ts_reply(Res).
 
 
--spec set_user_agent(Uid :: binary(), UserAgent :: binary()) -> ok.
+-spec set_user_agent(Uid :: uid(), UserAgent :: binary()) -> ok.
 set_user_agent(Uid, UserAgent) ->
     {ok, _Res} = q(["HSET", key(Uid), ?FIELD_USER_AGENT, UserAgent]),
     ok.
 
 
--spec get_signup_user_agent(Uid :: binary()) -> {ok, binary()} | {error, missing}.
+-spec get_signup_user_agent(Uid :: uid()) -> {ok, binary()} | {error, missing}.
 get_signup_user_agent(Uid) ->
     {ok, Res} = q(["HGET", key(Uid), ?FIELD_USER_AGENT]),
     case Res of
@@ -266,7 +266,7 @@ get_signup_user_agent(Uid) ->
     end.
 
 
--spec get_account(Uid :: binary()) -> {ok, account()} | {error, missing}.
+-spec get_account(Uid :: uid()) -> {ok, account()} | {error, missing}.
 get_account(Uid) ->
     {ok, Res} = q(["HGETALL", key(Uid)]),
     M = util:list_to_map(Res),
@@ -287,7 +287,7 @@ get_account(Uid) ->
 %%====================================================================
 
 
--spec set_push_token(Uid :: binary(), Os :: binary(), PushToken :: binary(),
+-spec set_push_token(Uid :: uid(), Os :: binary(), PushToken :: binary(),
         TimestampMs :: integer()) -> ok.
 set_push_token(Uid, Os, PushToken, TimestampMs) ->
     {ok, _Res} = q(
@@ -298,7 +298,7 @@ set_push_token(Uid, Os, PushToken, TimestampMs) ->
     ok.
 
 
--spec get_push_token(Uid :: binary()) -> {ok, undefined | push_info()} | {error, missing}.
+-spec get_push_token(Uid :: uid()) -> {ok, undefined | push_info()} | {error, missing}.
 get_push_token(Uid) ->
     {ok, [Os, Token, TimestampMs]} = q(
             ["HMGET", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
@@ -316,13 +316,13 @@ get_push_token(Uid) ->
     {ok, Res}.
 
 
--spec remove_push_token(Uid :: binary()) -> ok | {error, missing}.
+-spec remove_push_token(Uid :: uid()) -> ok | {error, missing}.
 remove_push_token(Uid) ->
     {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
     ok.
 
 
--spec get_push_info(Uid :: binary()) -> {ok, undefined | push_info()} | {error, missing}.
+-spec get_push_info(Uid :: uid()) -> {ok, undefined | push_info()} | {error, missing}.
 get_push_info(Uid) ->
     {ok, [Os, Token, TimestampMs, PushPost, PushComment]} = q(
             ["HMGET", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP,
@@ -336,53 +336,53 @@ get_push_info(Uid) ->
     {ok, Res}.
 
 
--spec remove_push_info(Uid :: binary()) -> ok | {error, missing}.
+-spec remove_push_info(Uid :: uid()) -> ok | {error, missing}.
 remove_push_info(Uid) ->
     {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
     ok.
 
 
--spec set_push_post_pref(Uid :: binary(), PushPost :: boolean()) -> ok.
+-spec set_push_post_pref(Uid :: uid(), PushPost :: boolean()) -> ok.
 set_push_post_pref(Uid, PushPost) ->
     PushPostValue = boolean_encode(PushPost),
     {ok, _Res} = q(["HSET", key(Uid), ?FIELD_PUSH_POST, PushPostValue]),
     ok.
 
 
--spec get_push_post_pref(Uid :: binary()) -> {ok, boolean()}.
+-spec get_push_post_pref(Uid :: uid()) -> {ok, boolean()}.
 get_push_post_pref(Uid) ->
     {ok, PushPostValue} = q(["HGET", key(Uid), ?FIELD_PUSH_POST]),
     Res = boolean_decode(PushPostValue, true),
     {ok, Res}.
 
 
--spec remove_push_post_pref(Uid :: binary()) -> ok | {error, missing}.
+-spec remove_push_post_pref(Uid :: uid()) -> ok | {error, missing}.
 remove_push_post_pref(Uid) ->
     {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_POST]),
     ok.
 
 
--spec set_push_comment_pref(Uid :: binary(), PushComment :: boolean()) -> ok.
+-spec set_push_comment_pref(Uid :: uid(), PushComment :: boolean()) -> ok.
 set_push_comment_pref(Uid, PushComment) ->
     PushCommentValue = boolean_encode(PushComment),
     {ok, _Res} = q(["HMSET", key(Uid), ?FIELD_PUSH_COMMENT, PushCommentValue]),
     ok.
 
 
--spec get_push_comment_pref(Uid :: binary()) -> {ok, boolean()}.
+-spec get_push_comment_pref(Uid :: uid()) -> {ok, boolean()}.
 get_push_comment_pref(Uid) ->
     {ok, [PushCommentValue]} = q(["HMGET", key(Uid), ?FIELD_PUSH_COMMENT]),
     Res = boolean_decode(PushCommentValue, true),
     {ok, Res}.
 
 
--spec remove_push_comment_pref(Uid :: binary()) -> ok | {error, missing}.
+-spec remove_push_comment_pref(Uid :: uid()) -> ok | {error, missing}.
 remove_push_comment_pref(Uid) ->
     {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_COMMENT]),
     ok.
 
 
--spec account_exists(Uid :: binary()) -> boolean().
+-spec account_exists(Uid :: uid()) -> boolean().
 account_exists(Uid) ->
     {ok, Res} = q(["HEXISTS", key(Uid), ?FIELD_PHONE]),
     binary_to_integer(Res) > 0.
@@ -401,7 +401,7 @@ filter_nonexisting_uids(Uids) ->
         Uids).
 
 
--spec is_account_deleted(Uid :: binary()) -> boolean().
+-spec is_account_deleted(Uid :: uid()) -> boolean().
 is_account_deleted(Uid) ->
     {ok, Res} = q(["EXISTS", deleted_account_key(Uid)]),
     binary_to_integer(Res) > 0.
@@ -412,7 +412,7 @@ is_account_deleted(Uid) ->
 %%====================================================================
 
 
--spec set_last_activity(Uid :: binary(), TimestampMs :: integer(),
+-spec set_last_activity(Uid :: uid(), TimestampMs :: integer(),
         ActivityStatus :: activity_status()) -> ok.
 set_last_activity(Uid, TimestampMs, ActivityStatus) ->
     {ok, _Res1} = q(
@@ -422,7 +422,7 @@ set_last_activity(Uid, TimestampMs, ActivityStatus) ->
     ok.
 
 
--spec get_last_activity(Uid :: binary()) -> {ok, activity()} | {error, missing}.
+-spec get_last_activity(Uid :: uid()) -> {ok, activity()} | {error, missing}.
 get_last_activity(Uid) ->
     {ok, [TimestampMs, ActivityStatus]} = q(
             ["HMGET", key(Uid), ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS]),
@@ -436,21 +436,21 @@ get_last_activity(Uid) ->
     {ok, Res}.
 
 
--spec presence_subscribe(Uid :: binary(), Buid :: binary()) -> ok.
+-spec presence_subscribe(Uid :: uid(), Buid :: binary()) -> ok.
 presence_subscribe(Uid, Buid) ->
     {ok, _Res1} = q(["SADD", subscribe_key(Uid), Buid]),
     {ok, _Res2} = q(["SADD", broadcast_key(Buid), Uid]),
     ok.
 
 
--spec presence_unsubscribe(Uid :: binary(), Buid :: binary()) -> boolean().
+-spec presence_unsubscribe(Uid :: uid(), Buid :: binary()) -> boolean().
 presence_unsubscribe(Uid, Buid) ->
     {ok, _Res1} = q(["SREM", subscribe_key(Uid), Buid]),
     {ok, _Res2} = q(["SREM", broadcast_key(Buid), Uid]),
     ok.
 
 
--spec presence_unsubscribe_all(Uid :: binary()) -> ok.
+-spec presence_unsubscribe_all(Uid :: uid()) -> ok.
 presence_unsubscribe_all(Uid) ->
     {ok, Buids} = q(["SMEMBERS", subscribe_key(Uid)]),
     lists:foreach(fun (Buid) ->
@@ -461,13 +461,13 @@ presence_unsubscribe_all(Uid) ->
     ok.
 
 
--spec get_subscribed_uids(Uid :: binary()) -> {ok, [binary()]}.
+-spec get_subscribed_uids(Uid :: uid()) -> {ok, [binary()]}.
 get_subscribed_uids(Uid) ->
     {ok, Buids} = q(["SMEMBERS", subscribe_key(Uid)]),
     {ok, Buids}.
 
 
--spec get_broadcast_uids(Uid :: binary()) -> {ok, [binary()]}.
+-spec get_broadcast_uids(Uid :: uid()) -> {ok, [binary()]}.
 get_broadcast_uids(Uid) ->
     {ok, Buids} = q(["SMEMBERS", broadcast_key(Uid)]),
     {ok, Buids}.
@@ -577,19 +577,19 @@ get_traced_uids() ->
     {ok, Uids}.
 
 
--spec add_uid_to_trace(Uid :: binary()) -> ok.
+-spec add_uid_to_trace(Uid :: uid()) -> ok.
 add_uid_to_trace(Uid) ->
     {ok, _Res} = q(["SADD", ?TRACED_UIDS_KEY, Uid]),
     ok.
 
 
--spec remove_uid_from_trace(Uid :: binary()) -> ok.
+-spec remove_uid_from_trace(Uid :: uid()) -> ok.
 remove_uid_from_trace(Uid) ->
     {ok, _Res} = q(["SREM", ?TRACED_UIDS_KEY, Uid]),
     ok.
 
 
--spec is_uid_traced(Uid :: binary()) -> boolean().
+-spec is_uid_traced(Uid :: uid()) -> boolean().
 is_uid_traced(Uid) ->
     {ok, Res} = q(["SISMEMBER", ?TRACED_UIDS_KEY, Uid]),
     binary_to_integer(Res) == 1.

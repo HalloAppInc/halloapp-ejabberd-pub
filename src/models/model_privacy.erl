@@ -12,6 +12,7 @@
 -include("logger.hrl").
 -include("eredis_cluster.hrl").
 -include("redis_keys.hrl").
+-include("ha_types.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -82,67 +83,67 @@ mod_options(_Host) ->
 %%====================================================================
 
 
--spec set_privacy_type(Uid :: binary(), Type :: atom()) -> ok.
+-spec set_privacy_type(Uid :: uid(), Type :: atom()) -> ok.
 set_privacy_type(Uid, Type) ->
     Value = encode_feed_privacy_list_type(Type),
     {ok, _Res} = q(["HSET", model_accounts:key(Uid), ?FIELD_PRIVACY_LIST_TYPE, Value]),
     ok.
 
 
--spec get_privacy_type(Uid :: binary()) -> {ok, atom()} | {error, any()}.
+-spec get_privacy_type(Uid :: uid()) -> {ok, atom()} | {error, any()}.
 get_privacy_type(Uid) ->
     {ok, Res} = q(["HGET", model_accounts:key(Uid), ?FIELD_PRIVACY_LIST_TYPE]),
     {ok, decode_feed_privacy_list_type(Res)}.
 
 
--spec get_privacy_type_atom(Uid :: binary()) -> atom() | {error, any()}.
+-spec get_privacy_type_atom(Uid :: uid()) -> atom() | {error, any()}.
 get_privacy_type_atom(Uid) ->
     {ok, Res} = get_privacy_type(Uid),
     Res.
 
 
--spec add_only_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+-spec add_only_uid(Uid :: uid(), Ouid :: uid()) -> ok.
 add_only_uid(Uid, Ouid) ->
     add_only_uids(Uid, [Ouid]).
 
 
--spec add_only_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+-spec add_only_uids(Uid :: uid(), Ouid :: list(uid())) -> ok.
 add_only_uids(_Uid, []) -> ok;
 add_only_uids(Uid, Ouids) ->
     {ok, _Res1} = q(["SADD", only_key(Uid) | Ouids]),
     ok.
 
 
--spec add_except_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+-spec add_except_uid(Uid :: uid(), Ouid :: uid()) -> ok.
 add_except_uid(Uid, Ouid) ->
     add_except_uids(Uid, [Ouid]).
 
 
--spec add_except_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+-spec add_except_uids(Uid :: uid(), Ouid :: list(uid())) -> ok.
 add_except_uids(_Uid, []) -> ok;
 add_except_uids(Uid, Ouids) ->
     {ok, _Res1} = q(["SADD", except_key(Uid) | Ouids]),
     ok.
 
 
--spec mute_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+-spec mute_uid(Uid :: uid(), Ouid :: uid()) -> ok.
 mute_uid(Uid, Ouid) ->
     mute_uids(Uid, [Ouid]).
 
 
--spec mute_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+-spec mute_uids(Uid :: uid(), Ouid :: list(uid())) -> ok.
 mute_uids(_Uid, []) -> ok;
 mute_uids(Uid, Ouids) ->
     {ok, _Res} = q(["SADD", mute_key(Uid) | Ouids]),
     ok.
 
 
--spec block_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+-spec block_uid(Uid :: uid(), Ouid :: uid()) -> ok.
 block_uid(Uid, Ouid) ->
     block_uids(Uid, [Ouid]).
 
 
--spec block_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+-spec block_uids(Uid :: uid(), Ouid :: list(uid())) -> ok.
 block_uids(_Uid, []) -> ok;
 block_uids(Uid, Ouids) ->
     BlockKey = block_key(Uid),
@@ -152,103 +153,103 @@ block_uids(Uid, Ouids) ->
     ok.
 
 
--spec remove_only_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+-spec remove_only_uid(Uid :: uid(), Ouid :: uid()) -> ok.
 remove_only_uid(Uid, Ouid) ->
     remove_only_uids(Uid, [Ouid]).
 
 
--spec remove_only_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+-spec remove_only_uids(Uid :: uid(), Ouid :: list(uid())) -> ok.
 remove_only_uids(_Uid, []) -> ok;
 remove_only_uids(Uid, Ouids) ->
     {ok, _Res1} = q(["SREM", only_key(Uid) | Ouids]),
     ok.
 
 
--spec remove_except_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+-spec remove_except_uid(Uid :: uid(), Ouid :: uid()) -> ok.
 remove_except_uid(Uid, Ouid) ->
     remove_except_uids(Uid, [Ouid]).
 
 
--spec remove_except_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+-spec remove_except_uids(Uid :: uid(), Ouid :: list(uid())) -> ok.
 remove_except_uids(_Uid, []) -> ok;
 remove_except_uids(Uid, Ouids) ->
     {ok, _Res1} = q(["SREM", except_key(Uid) | Ouids]),
     ok.
 
 
--spec unmute_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+-spec unmute_uid(Uid :: uid(), Ouid :: uid()) -> ok.
 unmute_uid(Uid, Ouid) ->
     unmute_uids(Uid, [Ouid]).
 
 
--spec unmute_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+-spec unmute_uids(Uid :: uid(), Ouid :: list(uid())) -> ok.
 unmute_uids(_Uid, []) -> ok;
 unmute_uids(Uid, Ouids) ->
     {ok, _Res} = q(["SREM", mute_key(Uid) | Ouids]),
     ok.
 
 
--spec unblock_uid(Uid :: binary(), Ouid :: binary()) -> ok.
+-spec unblock_uid(Uid :: uid(), Ouid :: uid()) -> ok.
 unblock_uid(Uid, Ouid) ->
     unblock_uids(Uid, [Ouid]).
 
 
--spec unblock_uids(Uid :: binary(), Ouids :: list(binary())) -> ok.
+-spec unblock_uids(Uid :: uid(), Ouid :: list(uid())) -> ok.
 unblock_uids(_Uid, []) -> ok;
 unblock_uids(Uid, Ouids) ->
     {ok, _Res} = q(["SREM", block_key(Uid) | Ouids]),
     lists:foreach(fun(Ouid) -> q(["SREM", reverse_block_key(Ouid), Uid]) end, Ouids),
     ok.
 
--spec get_only_uids(Uid :: binary()) -> {ok, list(binary())}.
+-spec get_only_uids(Uid :: uid()) -> {ok, list(binary())}.
 get_only_uids(Uid) ->
     {ok, Res1} = q(["SMEMBERS", only_key(Uid)]),
     {ok, Res1}.
 
 
--spec get_except_uids(Uid :: binary()) -> {ok, list(binary())}.
+-spec get_except_uids(Uid :: uid()) -> {ok, list(binary())}.
 get_except_uids(Uid) ->
     {ok, Res1} = q(["SMEMBERS", except_key(Uid)]),
     {ok, Res1}.
 
 
--spec get_mutelist_uids(Uid :: binary()) -> {ok, list(binary())}.
+-spec get_mutelist_uids(Uid :: uid()) -> {ok, list(binary())}.
 get_mutelist_uids(Uid) ->
     {ok, Res} = q(["SMEMBERS", mute_key(Uid)]),
     {ok, Res}.
 
 
--spec get_blocked_uids(Uid :: binary()) -> {ok, list(binary())}.
+-spec get_blocked_uids(Uid :: uid()) -> {ok, list(binary())}.
 get_blocked_uids(Uid) ->
     {ok, Res} = q(["SMEMBERS", block_key(Uid)]),
     {ok, Res}.
 
 
--spec get_blocked_by_uids(Uid :: binary()) -> {ok, list(binary())}.
+-spec get_blocked_by_uids(Uid :: uid()) -> {ok, list(binary())}.
 get_blocked_by_uids(Uid) ->
     {ok, Res} = q(["SMEMBERS", reverse_block_key(Uid)]),
     {ok, Res}.
 
 
--spec is_only_uid(Uid :: binary(), Ouid :: binary()) -> boolean().
+-spec is_only_uid(Uid :: uid(), Ouid :: uid()) -> boolean().
 is_only_uid(Uid, Ouid) ->
     {ok, Res1} = q(["SISMEMBER", only_key(Uid), Ouid]),
     binary_to_integer(Res1) == 1.
 
 
--spec is_except_uid(Uid :: binary(), Ouid :: binary()) -> boolean().
+-spec is_except_uid(Uid :: uid(), Ouid :: uid()) -> boolean().
 is_except_uid(Uid, Ouid) ->
     {ok, Res1} = q(["SISMEMBER", except_key(Uid), Ouid]),
     binary_to_integer(Res1) == 1.
 
 
--spec is_blocked(Uid :: binary(), Ouid :: binary()) -> boolean().
+-spec is_blocked(Uid :: uid(), Ouid :: uid()) -> boolean().
 is_blocked(Uid, Ouid) ->
     {ok, Res} = q(["SISMEMBER", block_key(Uid), Ouid]),
     binary_to_integer(Res) == 1.
 
 
--spec is_blocked_by(Uid :: binary(), Ouid :: binary()) -> boolean().
+-spec is_blocked_by(Uid :: uid(), Ouid :: uid()) -> boolean().
 is_blocked_by(Uid, Ouid) ->
     {ok, Res} = q(["SISMEMBER", reverse_block_key(Uid), Ouid]),
     binary_to_integer(Res) == 1.
@@ -256,7 +257,7 @@ is_blocked_by(Uid, Ouid) ->
 
 %% Returns true if Uid blocked Ouid (or) if Uid is blocked by Ouid.
 %% Checks if there is a block-relationship between these uids in any direction.
--spec is_blocked_any(Uid :: binary(), Ouid :: binary()) -> boolean().
+-spec is_blocked_any(Uid :: uid(), Ouid :: uid()) -> boolean().
 is_blocked_any(Uid, Ouid) ->
     is_blocked(Uid, Ouid) orelse is_blocked_by(Uid, Ouid).
 

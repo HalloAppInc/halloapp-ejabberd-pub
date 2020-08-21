@@ -13,6 +13,7 @@
 -include("logger.hrl").
 -include("password.hrl").
 -include("redis_keys.hrl").
+-include("ha_types.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -56,13 +57,13 @@ mod_options(_Host) ->
 -define(FIELD_HASHED_PASSWORD, <<"hpw">>).
 -define(FIELD_TIMESTAMP_MS, <<"tms">>).
 
--spec set_password(Uid :: binary(), Salt :: binary(), HashedPassword :: binary()) ->
+-spec set_password(Uid :: uid(), Salt :: binary(), HashedPassword :: binary()) ->
     ok  | {error, any()}.
 set_password(Uid, Salt, HashedPassword) ->
     set_password(Uid, Salt, HashedPassword, util:now_ms()).
 
 
--spec set_password(Uid :: binary(), Salt :: binary(), HashedPassword :: binary(),
+-spec set_password(Uid :: uid(), Salt :: binary(), HashedPassword :: binary(),
         TimestampMs :: integer()) -> ok  | {error, any()}.
 set_password(Uid, Salt, HashedPassword, TimestampMs) ->
     Commands = [
@@ -76,7 +77,7 @@ set_password(Uid, Salt, HashedPassword, TimestampMs) ->
     ok.
 
 
--spec get_password(Uid :: binary()) -> {ok, password()} | {error, missing}.
+-spec get_password(Uid :: uid()) -> {ok, password()} | {error, missing}.
 get_password(Uid) ->
     {ok, [Salt, HashedPassword, TsMsBinary]} = q(["HMGET", password_key(Uid),
         ?FIELD_SALT, ?FIELD_HASHED_PASSWORD, ?FIELD_TIMESTAMP_MS]),
@@ -88,7 +89,7 @@ get_password(Uid) ->
     }}.
 
 
--spec delete_password(Uid :: binary()) -> ok  | {error, any()}.
+-spec delete_password(Uid :: uid()) -> ok  | {error, any()}.
 delete_password(Uid) ->
     {ok, _Res} = q(["DEL", password_key(Uid)]),
     ok.

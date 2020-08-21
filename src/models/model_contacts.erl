@@ -11,6 +11,7 @@
 
 -include("logger.hrl").
 -include("redis_keys.hrl").
+-include("ha_types.hrl").
 
 -define(SQUEEZE_LENGTH_BITS, 5).
 -define(STORE_HASH_LENGTH_BYTES, 8).
@@ -73,12 +74,12 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
--spec add_contact(Uid :: binary(), Contact :: binary()) -> ok  | {error, any()}.
+-spec add_contact(Uid :: uid(), Contact :: binary()) -> ok  | {error, any()}.
 add_contact(Uid, Contact) ->
     add_contacts(Uid, [Contact]).
 
 
--spec add_contacts(Uid :: binary(), ContactList :: [binary()]) -> ok  | {error, any()}.
+-spec add_contacts(Uid :: uid(), ContactList :: [binary()]) -> ok  | {error, any()}.
 add_contacts(_Uid, []) ->
     ok;
 add_contacts(Uid, ContactList) ->
@@ -90,12 +91,12 @@ add_contacts(Uid, ContactList) ->
     ok.
 
 
--spec add_reverse_hash_contact(Uid :: binary(), Contact :: binary()) -> ok | {error, any()}.
+-spec add_reverse_hash_contact(Uid :: uid(), Contact :: binary()) -> ok | {error, any()}.
 add_reverse_hash_contact(Uid, Contact) ->
     add_reverse_hash_contacts(Uid, [Contact]).
 
 
--spec add_reverse_hash_contacts(Uid :: binary(), ContactList :: [binary()]) -> ok | {error, any()}.
+-spec add_reverse_hash_contacts(Uid :: uid(), ContactList :: [binary()]) -> ok | {error, any()}.
 add_reverse_hash_contacts(Uid, ContactList) ->
     lists:foreach(
         fun(Contact) ->
@@ -104,12 +105,12 @@ add_reverse_hash_contacts(Uid, ContactList) ->
     ok.
 
 
--spec remove_contact(Uid :: binary(), Contact :: binary()) -> ok  | {error, any()}.
+-spec remove_contact(Uid :: uid(), Contact :: binary()) -> ok  | {error, any()}.
 remove_contact(Uid, Contact) ->
     remove_contacts(Uid, [Contact]).
 
 
--spec remove_contacts(Uid :: binary(), ContactList :: [binary()]) -> ok  | {error, any()}.
+-spec remove_contacts(Uid :: uid(), ContactList :: [binary()]) -> ok  | {error, any()}.
 remove_contacts(_Uid, []) ->
     ok;
 remove_contacts(Uid, ContactList) ->
@@ -121,7 +122,7 @@ remove_contacts(Uid, ContactList) ->
     ok.
 
 
--spec remove_all_contacts(Uid :: binary()) -> ok  | {error, any()}.
+-spec remove_all_contacts(Uid :: uid()) -> ok  | {error, any()}.
 remove_all_contacts(Uid) ->
     {ok, ContactList} = q(["SMEMBERS", contacts_key(Uid)]),
     lists:foreach(
@@ -132,7 +133,7 @@ remove_all_contacts(Uid) ->
     ok.
 
 
--spec sync_contacts(Uid :: binary(), Sid :: binary(),
+-spec sync_contacts(Uid :: uid(), Sid :: binary(),
                     ContactList :: [binary()]) -> ok  | {error, any()}.
 sync_contacts(_Uid, _Sid, []) ->
     ok;
@@ -141,7 +142,7 @@ sync_contacts(Uid, Sid, ContactList) ->
     ok.
 
 
--spec finish_sync(Uid :: binary(), Sid :: binary()) -> ok  | {error, any()}.
+-spec finish_sync(Uid :: uid(), Sid :: binary()) -> ok  | {error, any()}.
 finish_sync(Uid, Sid) ->
     {ok, RemovedContactList} = q(["SDIFF", contacts_key(Uid), sync_key(Uid, Sid)]),
     {ok, AddedContactList} = q(["SDIFF", sync_key(Uid, Sid), contacts_key(Uid)]),
@@ -161,19 +162,19 @@ finish_sync(Uid, Sid) ->
     ok.
 
 
--spec is_contact(Uid :: binary(), Contact :: binary()) -> boolean() | {error, any()}.
+-spec is_contact(Uid :: uid(), Contact :: binary()) -> boolean() | {error, any()}.
 is_contact(Uid, Contact) ->
     {ok, Res} = q(["SISMEMBER", contacts_key(Uid), Contact]),
     binary_to_integer(Res) == 1.
 
 
--spec get_contacts(Uid :: binary()) -> {ok, [binary()]} | {error, any()}.
+-spec get_contacts(Uid :: uid()) -> {ok, [binary()]} | {error, any()}.
 get_contacts(Uid) ->
     {ok, Res} = q(["SMEMBERS", contacts_key(Uid)]),
     {ok, Res}.
 
 
--spec get_sync_contacts(Uid :: binary(), Sid :: binary()) -> {ok, [binary()]} | {error, any()}.
+-spec get_sync_contacts(Uid :: uid(), Sid :: binary()) -> {ok, [binary()]} | {error, any()}.
 get_sync_contacts(Uid, Sid) ->
     {ok, Res} = q(["SMEMBERS", sync_key(Uid, Sid)]),
     {ok, Res}.
@@ -223,12 +224,12 @@ q(Command) -> ecredis:q(ecredis_contacts, Command).
 qp(Commands) -> ecredis:qp(ecredis_contacts, Commands).
 
 
--spec contacts_key(Uid :: binary()) -> binary().
+-spec contacts_key(Uid :: uid()) -> binary().
 contacts_key(Uid) ->
     <<?CONTACTS_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 
--spec sync_key(Uid :: binary(), Sid :: binary()) -> binary().
+-spec sync_key(Uid :: uid(), Sid :: binary()) -> binary().
 sync_key(Uid, Sid) ->
     <<?SYNC_KEY/binary, <<"{">>/binary, Uid/binary, <<"}:">>/binary, Sid/binary>>.
 
