@@ -41,6 +41,7 @@
 -include("ejabberd_http.hrl").
 -include("ejabberd_web_admin.hrl").
 -include("translate.hrl").
+-include("time.hrl").
 
 -define(INPUTATTRS(Type, Name, Value, Attrs),
 	?XA(<<"input">>,
@@ -524,23 +525,28 @@ process_admin(Host, #request{path = [<<"node">>, SNode | NPath],
 	  make_xhtml(Res, Host, Node, Lang, AJID)
     end;
 process_admin(Host, #request{path = [<<"lookup">> | _Rest], q = Query, lang = Lang}, AJID) ->
-    Info = case Query of
-        [{nokey, _}] -> [];
-        [{<<"search">>, PhoneOrUid}] ->
-			?INFO_MSG("Admin user lookup: ~s", [PhoneOrUid]),
-            case PhoneOrUid of
-                <<"+", Number/binary>> -> lookup_phone(Number);
-                _ -> lookup_uid(PhoneOrUid)
-            end
-    end,
+    Info = process_search_query(Query, fun lookup_phone/1, fun lookup_uid/1),
     Html = [
         ?XCT(<<"h1">>, ?T("Lookup")), ?BR,
         ?XAE(<<"form">>, [{<<"method">>, <<"get">>}],
             [?XAC(<<"label">>, [{<<"for">>, <<"search">>}],
-                    "Enter a phone number or uid (eg. +1650555000 or 1000000000000000001):"),
+                    "Enter a phone number or uid (eg. +16505550000 or 1000000000000000001):"),
                 ?BR,
                 ?INPUT(<<"text">>, <<"search">>, <<>>),
                 ?INPUT(<<"submit">>, <<>>, <<"Submit">>)]
+        ), ?BR
+    ],
+    make_xhtml(Html ++ Info, Host, Lang, AJID);
+process_admin(Host, #request{path = [<<"sms">> | _Rest], q = Query, lang = Lang}, AJID) ->
+    Info = process_search_query(Query, fun generate_sms_info/1, fun generate_sms_info/1),
+    Html = [
+        ?XCT(<<"h1">>, ?T("SMS Code Search")), ?BR,
+        ?XAE(<<"form">>, [{<<"method">>, <<"get">>}],
+            [?XAC(<<"label">>, [{<<"for">>, <<"search">>}],
+                "Enter a phone number (eg. +16505550000):"),
+                ?BR,
+                ?INPUT(<<"text">>, <<"search">>, <<>>),
+                ?INPUT(<<"submit">>, <<>>, <<"Get SMS Code">>)]
         ), ?BR
     ],
     make_xhtml(Html ++ Info, Host, Lang, AJID);
@@ -1820,6 +1826,7 @@ make_server_menu(HostMenu, NodeMenu, Lang, JID) ->
     Fixed = [
         {<<"vhosts">>, ?T("Virtual Hosts"), HostMenu},
         {<<"lookup">>, ?T("Lookup")},
+        {<<"sms">>, ?T("SMS Code")},
         {<<"nodes">>, ?T("Nodes"), NodeMenu},
         {<<"stats">>, ?T("Statistics")}]
 	      ++ get_menu_items_hook(server, Lang),
@@ -1904,6 +1911,7 @@ any_rules_allowed(Host, Access, #jid{luser = User} = Entity) ->
 
 
 lookup_uid(Uid) ->
+    ?INFO_MSG("Getting account info for uid: ~s", [Uid]),
     case model_accounts:account_exists(Uid) of
         false -> [?XC(<<"p">>, io_lib:format("No account found for uid: ~s", [Uid]))];
         true ->
@@ -1930,9 +1938,30 @@ lookup_uid(Uid) ->
 
 
 lookup_phone(Phone) ->
+    ?INFO_MSG("Getting account info for phone: ~s", [Phone]),
     case model_phone:get_uid(Phone) of
         {ok, undefined} ->
-            [?XC(<<"p">>, io_lib:format("No account found for phone: ~s", [Phone]))];
+            Info = [?XC(<<"p">>, io_lib:format("No account found for phone: ~s", [Phone]))],
+            {ok, Code} = model_phone:get_sms_code(Phone),
+            Info2 = case model_invites:get_inviter(Phone) of
+                {ok, undefined} -> Info;
+                {ok, Uid, Ts} ->
+                    {InviteDate, InviteTime} =
+                        util:ms_to_datetime_string(binary_to_integer(Ts) * ?SECONDS_MS),
+                    Name = model_accounts:get_name_binary(Uid),
+                    Info ++ [
+                        ?XE(<<"p">>, [
+                            ?C(io_lib:format("Invited by ~s (", [Name])),
+                            ?A(<<"?search=", Uid/binary>>, [?C(io_lib:format("~s", [Uid]))]),
+                            ?C(io_lib:format(") on ~s at ~s", [InviteDate, InviteTime]))
+                        ])
+                    ]
+            end,
+            case Code of
+                undefined -> Info2;
+                _ -> Info2 ++ [?A(<<"/admin/sms/?search=", Phone/binary>>,
+                    [?C(<<"Click here to view SMS info associated with this phone number">>)])]
+            end;
         {ok, Uid} -> lookup_uid(Uid)
     end.
 
@@ -1999,6 +2028,62 @@ generate_invites_table(Uid) ->
         [?XTRA(?CLASS(<<"head">>), [?XTHA([{<<"width">>, <<"50%">>}], ?T("Phone #")),
             ?XTHA([{<<"width">>, <<"50%">>}], ?T("Uid"))])] ++ DynamicInviteData
     ), ?BR].
+
+
+generate_sms_info(Phone) ->
+    ?INFO_MSG("Getting SMS info for phone: ~s", [Phone]),
+    {ok, Code} = model_phone:get_sms_code(Phone),
+    SMSInfo = case Code of
+        undefined ->
+            [?XC(<<"p">>, io_lib:format("No SMS code associated with phone: ~s", [Phone]))];
+        _ ->
+            {ok, Ts} = model_phone:get_sms_code_timestamp(Phone),
+            {Date, Time} = util:ms_to_datetime_string(Ts * 1000),
+            {ok, Sender} = model_phone:get_sms_code_sender(Phone),
+            {ok, Receipt} = model_phone:get_sms_code_receipt(Phone),
+            {ok, TTL} = model_phone:get_sms_code_ttl(Phone),
+            StrTTL = seconds_to_string(TTL),
+            [
+                ?XE(<<"p">>,[
+                    ?C(io_lib:format("SMS code for ~s: ~s", [Phone, Code])), ?BR, ?BR,
+                    ?C(io_lib:format("Sent on ~s at ~s by ~s", [Date, Time, Sender])), ?BR,
+                    ?C(io_lib:format("TTL: ~s", [StrTTL])), ?BR,
+                    ?C(io_lib:format("Receipt: ~p", [Receipt]))
+                ])
+            ]
+    end,
+    {ok, Uid} = model_phone:get_uid(Phone),
+    AccInfo = case Uid of
+        undefined -> [?XC(<<"p">>, <<"No account associated with this phone number.">>)];
+        _ -> [?XE(<<"p">>, [
+                ?C(<<"Existing account: ">>),
+                ?A(<<"/admin/lookup/?search=", Uid/binary>>, [?C(<<Uid/binary>>)])
+            ])]
+    end,
+    SMSInfo ++ AccInfo.
+
+
+-spec seconds_to_string(non_neg_integer()) -> string().
+seconds_to_string(N) ->
+    Hours = N div ?HOURS,
+    Mins = (N - (Hours * ?HOURS)) div ?MINUTES,
+    Secs = N - (Mins * ?MINUTES) - (Hours * ?HOURS),
+    if
+        N > ?HOURS -> io_lib:format("~B hours, ~B minutes, ~B seconds", [Hours, Mins, Secs]);
+        N > ?MINUTES -> io_lib:format("~B minutes, ~B seconds", [Mins, Secs]);
+        N =< ?MINUTES -> io_lib:format("~B seconds", [Secs])
+    end.
+
+
+process_search_query(Query, PhoneFun, ElseFun) ->
+    case Query of
+        [{nokey, _}] -> [];
+        [{<<"search">>, PhoneOrUid}] ->
+           case PhoneOrUid of
+               <<"+", Number/binary>> -> PhoneFun(Number);
+               _ -> ElseFun(PhoneOrUid)
+           end
+    end.
 
 
 %%% vim: set foldmethod=marker foldmarker=%%%%,%%%=:
