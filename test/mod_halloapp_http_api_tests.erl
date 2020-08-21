@@ -22,6 +22,8 @@
 -define(BAD_UA, <<"BadUserAgent/1.0">>).
 -define(SMS_CODE, <<"111111">>).
 -define(BAD_SMS_CODE, <<"111110">>).
+-define(BAD_PASSWORD, <<"BADPASS">>).
+-define(BAD_SIGNED_MESSAGE, <<"BADSIGNEDMESSAGE">>).
 -define(REQUEST_SMS_PATH, [<<"registration">>, <<"request_sms">>]).
 -define(REQUEST_SMS_HEADERS(UA), [
     {'Content-Type',<<"application/x-www-form-urlencoded">>},
@@ -38,6 +40,16 @@
     {'Host',<<"127.0.0.1:5580">>}]).
 -define(REGISTER_DATA(Phone, Code, Name),
     jsx:encode([{<<"phone">>, Phone}, {<<"code">>, Code}, {<<"name">>, Name}])).
+
+-define(REGISTER2_PATH, [<<"registration">>, <<"register2">>]).
+-define(REGISTER2_DATA(Phone, Code, Name, SEdPub, SignedPhrase),
+    jsx:encode([{<<"phone">>, Phone}, {<<"code">>, Code}, {<<"name">>, Name},
+                {<<"s_ed_pub">>, SEdPub}, {<<"signed_phrase">>, SignedPhrase}])).
+
+-define(UPDATE_KEY_PATH, [<<"registration">>, <<"update_key">>]).
+-define(UPDATE_KEY_DATA(UId, Pass, SEdPub, SignedPhrase),
+    jsx:encode([{<<"uid">>, UId}, {<<"password">>, Pass},
+                {<<"s_ed_pub">>, SEdPub}, {<<"signed_phrase">>, SignedPhrase}])).
 
 %%%----------------------------------------------------------------------
 %%% IQ tests
@@ -67,6 +79,7 @@ request_sms_test() ->
 register_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
     Data = jsx:encode([{<<"phone">>, ?PHONE}]),
     ok = model_invites:record_invite(?UID, ?PHONE, 4),
     mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
@@ -79,11 +92,108 @@ register_test() ->
     BadUserAgentError = mod_halloapp_http_api:return_400(),
     ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REGISTER_PATH,
         #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?BAD_UA)})),
+    {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER_PATH,
+        #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?UA)}),
+    [{<<"uid">>, Uid}, {<<"phone">>, ?PHONE}, {<<"password">>, RegPass},
+        {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(RegInfo),
+    ?assert(ejabberd_auth:check_password(Uid, RegPass)),
+    %% RE-reg
     {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER_PATH,
         #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?UA)}),
     [{<<"uid">>, Uid}, {<<"phone">>, ?PHONE}, {<<"password">>, Pass},
         {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
     ?assert(ejabberd_auth:check_password(Uid, Pass)),
+    meck_finish(ejabberd_sm),
+    meck_finish(ejabberd_router).
+
+
+register_spub_test() ->
+    setup(),
+    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
+    Data = jsx:encode([{<<"phone">>, ?PHONE}]),
+    ok = model_invites:record_invite(?UID, ?PHONE, 4),
+    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, headers = ?REQUEST_SMS_HEADERS(?UA)}),
+    KeyPair = ha_enoise:generate_signature_keypair(),
+    {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+    SignedMessage = enacl:sign("HALLO", SEdSecret),
+    SEdPubEncoded = base64:encode(SEdPub),
+    SignedMessageEncoded = base64:encode(SignedMessage),
+    BadCodeData = ?REGISTER2_DATA(?PHONE, ?BAD_SMS_CODE, ?NAME, SEdPubEncoded,
+                                  SignedMessageEncoded),
+    BadCodeError = mod_halloapp_http_api:return_400(wrong_sms_code),
+    ?assertEqual(BadCodeError, mod_halloapp_http_api:process(?REGISTER2_PATH,
+        #request{method = 'POST', data = BadCodeData, headers = ?REGISTER_HEADERS(?UA)})),
+    GoodData = ?REGISTER2_DATA(?PHONE, ?SMS_CODE, ?NAME, SEdPubEncoded, SignedMessageEncoded),
+    BadUserAgentError = mod_halloapp_http_api:return_400(),
+    ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REGISTER2_PATH,
+        #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?BAD_UA)})),
+    {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER2_PATH,
+        #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?UA)}),
+    [{<<"uid">>, Uid}, {<<"phone">>, ?PHONE},
+        {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(RegInfo),
+    SPub = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub),
+    ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub))),
+    %% Re-reg
+    KeyPair2 = ha_enoise:generate_signature_keypair(),
+    {SEdSecret2, SEdPub2} = {maps:get(secret, KeyPair2), maps:get(public, KeyPair2)},
+    SignedMessage2 = enacl:sign("HALLO", SEdSecret2),
+    SEdPubEncoded2 = base64:encode(SEdPub2),
+    SignedMessageEncoded2 = base64:encode(SignedMessage2),
+    GoodData2 = ?REGISTER2_DATA(?PHONE, ?SMS_CODE, ?NAME, SEdPubEncoded2, SignedMessageEncoded2),
+    {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER2_PATH,
+        #request{method = 'POST', data = GoodData2, headers = ?REGISTER_HEADERS(?UA)}),
+    [{<<"uid">>, Uid}, {<<"phone">>, ?PHONE},
+        {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
+    SPub2 = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub2),
+    ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub2))),
+    meck_finish(ejabberd_sm),
+    meck_finish(ejabberd_router).
+
+update_key_test() ->
+    setup(),
+    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    Data = jsx:encode([{<<"phone">>, ?PHONE}]),
+    ok = model_invites:record_invite(?UID, ?PHONE, 4),
+    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, headers = ?REQUEST_SMS_HEADERS(?UA)}),
+    RegisterData = ?REGISTER_DATA(?PHONE, ?SMS_CODE, ?NAME),
+    {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER_PATH,
+        #request{method = 'POST', data = RegisterData, headers = ?REGISTER_HEADERS(?UA)}),
+    [{<<"uid">>, Uid}, {<<"phone">>, ?PHONE}, {<<"password">>, Pass},
+        {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
+    ?assert(ejabberd_auth:check_password(Uid, Pass)),
+
+    KeyPair = ha_enoise:generate_signature_keypair(),
+    {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+    SignedMessage = enacl:sign("HALLO", SEdSecret),
+    SEdPubEncoded = base64:encode(SEdPub),
+    SignedMessageEncoded = base64:encode(SignedMessage),
+
+    BadData1 = ?UPDATE_KEY_DATA(Uid, ?BAD_PASSWORD, SEdPubEncoded, SignedMessageEncoded),
+    ?assertEqual(mod_halloapp_http_api:return_400(invalid_password),
+                 mod_halloapp_http_api:process(?UPDATE_KEY_PATH, #request{method = 'POST',
+         data = BadData1, headers = ?REGISTER_HEADERS(?UA)})),
+
+    BadData2 = ?UPDATE_KEY_DATA(Uid, Pass, SEdPubEncoded, base64:encode(?BAD_SIGNED_MESSAGE)),
+    ?assertEqual(mod_halloapp_http_api:return_400(unable_to_open_signed_phrase),
+                 mod_halloapp_http_api:process(?UPDATE_KEY_PATH, #request{method = 'POST',
+         data = BadData2, headers = ?REGISTER_HEADERS(?UA)})),
+
+    BadSignedMessage = enacl:sign("BAD", SEdSecret),
+    BadSignedMessageEncoded = base64:encode(BadSignedMessage),
+    BadData3 = ?UPDATE_KEY_DATA(Uid, Pass, SEdPubEncoded, BadSignedMessageEncoded),
+    ?assertEqual(mod_halloapp_http_api:return_400(invalid_signed_phrase),
+                 mod_halloapp_http_api:process(?UPDATE_KEY_PATH, #request{method = 'POST',
+         data = BadData3, headers = ?REGISTER_HEADERS(?UA)})),
+
+    UpdateKeyData = ?UPDATE_KEY_DATA(Uid, Pass, SEdPubEncoded, SignedMessageEncoded),
+    {200, ?HEADER(?CT_JSON), Info2} = mod_halloapp_http_api:process(?UPDATE_KEY_PATH,
+        #request{method = 'POST', data = UpdateKeyData, headers = ?REGISTER_HEADERS(?UA)}),
+    [{<<"result">>, <<"ok">>}] = jsx:decode(Info2),
+    SPub = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub),
+    ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub))),
     meck_finish(ejabberd_router).
 
 %%%----------------------------------------------------------------------

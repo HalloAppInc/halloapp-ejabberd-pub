@@ -28,6 +28,8 @@
 
 -behaviour(gen_server).
 
+-include_lib("stdlib/include/assert.hrl").
+
 -export([start_link/0,
 	 %% Server
 	 status/0, reopen_log/0, rotate_log/0,
@@ -42,7 +44,7 @@
 	 %% Erlang
 	 update_list/0, update/1,
 	 %% Accounts
-	 register/3, unregister/2, check_and_register/5,
+	 register/3, unregister/2,check_and_register/5, check_and_register_spub/5,
 	 registered_users/1,
 	 enroll/3, unenroll/2,
 	 enrolled_users/1, get_user_passcode/2,
@@ -619,23 +621,41 @@ update_module(ModuleNameString) ->
 %%% Account management
 %%%
 
+%% TODO(vipin): Remove after all clients use SPub.
 check_and_register(Phone, Host, Password, Name, UserAgent) ->
     case is_my_host(Host) of
-        true ->
-            case ejabberd_auth:check_and_register(Phone, Host, Password, Name, UserAgent) of
-                {ok, Uid, login} ->
-                    ?INFO_MSG("Login into existing account uid:~p for phone:~p", [Uid, Phone]),
+        true -> check_and_register(Phone, Host, Password, <<>>, Name, UserAgent);
+        false -> {error, cannot_register, 10001, "Unknown virtual host"}
+    end.
 
-                    {ok, Uid, login};
-                {ok, Uid, register} ->
-                    ?INFO_MSG("Registering new account uid:~p for phone:~p", [Uid, Phone]),
-                    {ok, Uid, register};
-                {error, Reason} ->
-                    ?INFO_MSG("Login/Registration for phone:~p failed. ~p", [Phone, Reason]),
-                    {error, Reason, 10001, "Login/Registration failed"}
-            end;
-        false ->
-            {error, cannot_register, 10001, "Unknown virtual host"}
+check_and_register_spub(Phone, Host, SPub, Name, UserAgent) ->
+    case is_my_host(Host) of
+        true -> check_and_register(Phone, Host, <<>>, SPub, Name, UserAgent);
+        false -> {error, cannot_register, 10001, "Unknown virtual host"}
+    end.
+
+
+check_and_register(Phone, Host, Password, SPub, Name, UserAgent) ->
+    Result = case Password of
+      <<>> ->
+          ?assert(byte_size(SPub) > 0),
+          ejabberd_auth:check_and_register(Phone, Host, SPub, fun ejabberd_auth:set_spub/2,
+                                           Name, UserAgent);
+      _ ->
+          ?assert(byte_size(Password) > 0),
+          ejabberd_auth:check_and_register(Phone, Host, Password, fun ejabberd_auth:set_password/2,
+                                           Name, UserAgent)
+    end,
+    case Result of
+        {ok, Uid, login} ->
+            ?INFO_MSG("Login into existing account uid:~p for phone:~p", [Uid, Phone]),
+            {ok, Uid, login};
+        {ok, Uid, register} ->
+            ?INFO_MSG("Registering new account uid:~p for phone:~p", [Uid, Phone]),
+            {ok, Uid, register};
+        {error, Reason} ->
+            ?INFO_MSG("Login/Registration for phone:~p failed. ~p", [Phone, Reason]),
+            {error, Reason, 10001, "Login/Registration failed"}
     end.
 
 register(User, Host, Password) ->

@@ -16,6 +16,7 @@
 -define(PHONE, <<"16175280000">>).
 -define(SERVER, <<"s.halloapp.net">>).
 -define(PASS, <<"pword">>).
+-define(SPUB, <<"spub">>).
 -define(NAME, <<"Testname">>).
 -define(UA, <<"HalloApp/iPhone1.0">>).
 -define(CODE, <<"111111">>).
@@ -41,6 +42,16 @@ check_password_test() ->
     ?assert(HashedPassword /= <<"">>),
     ?assert(ejabberd_auth:check_password(?UID, ?PASS)),
     ?assertNot(ejabberd_auth:check_password(?UID, <<"nopass">>)).
+
+
+check_spub_test() ->
+    setup(),
+    ok = ejabberd_auth:set_spub(?UID, ?SPUB),
+    {ok, S} = model_auth:get_spub(?UID),
+    SPub = S#s_pub.s_pub,
+    ?assert(SPub /= <<"">>),
+    ?assert(ejabberd_auth:check_spub(?UID, ?SPUB)),
+    ?assertNot(ejabberd_auth:check_spub(?UID, <<"nopass">>)).
 
 
 check_and_register_test() ->

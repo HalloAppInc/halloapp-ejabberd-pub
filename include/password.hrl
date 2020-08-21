@@ -15,4 +15,12 @@
     ts_ms :: integer()
 }).
 
+-record(s_pub, {
+    uid :: binary(),
+    s_pub :: binary(),
+    ts_ms :: integer()
+}).
+
 -type password() :: #password{}.
+-type s_pub() :: #s_pub{}.
+

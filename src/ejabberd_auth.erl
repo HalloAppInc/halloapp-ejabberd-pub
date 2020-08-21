@@ -20,9 +20,12 @@
     start_link/0,
     set_password/2,
     check_password/2,
+    set_spub/2,
+    check_spub/2,
     try_register/3,
     try_enroll/2,
     check_and_register/5,
+    check_and_register/6,
     get_users/0,
     count_users/0,
     user_exists/1,
@@ -43,6 +46,9 @@
 
 -define(SALT_LENGTH, 16).
 -define(HOST, util:get_host()).
+
+-type set_cred_fun() :: fun((binary(), binary(), binary()) -> ok |
+    {error, db_failure | not_allowed | invalid_jid | invalid_password}).
 
 %%%----------------------------------------------------------------------
 %%% Gen Server API
@@ -123,14 +129,40 @@ set_password(Uid, Password) ->
     model_auth:set_password(Uid, Salt, HashedPassword),
     ok.
 
+-spec check_spub(binary(), binary()) -> false | true.
+check_spub(Uid, SPub) ->
+    ?INFO_MSG("uid:~s", [Uid]),
+    {ok, SPubRecord} = model_auth:get_spub(Uid),
+    StoredSPub = SPubRecord#s_pub.s_pub,
+    case StoredSPub of
+        undefined  -> ?INFO_MSG("No spub stored for uid:~p", [Uid]);
+        _ -> ok
+    end,
+    is_spub_match(StoredSPub, SPub).
+
+
+-spec set_spub(binary(), binary()) -> ok |
+        {error, db_failure | not_allowed | invalid_jid}.
+set_spub(Uid, SPub) ->
+    ?INFO_MSG("uid:~s", [Uid]),
+    model_auth:set_spub(Uid, SPub),
+    ok.
+
 
 -spec check_and_register(binary(), binary(), binary(), binary(), binary()) ->
     {ok, binary(), register | login} |
     {error, db_failure | not_allowed | exists | invalid_jid | invalid_password}.
-check_and_register(Phone, Server, Password, Name, UserAgent) ->
+check_and_register(Phone, Server, Cred, Name, UserAgent) ->
+    check_and_register(Phone, Server, Cred, fun set_password/2, Name, UserAgent).
+
+
+-spec check_and_register(binary(), binary(), binary(), set_cred_fun(), binary(), binary()) ->
+    {ok, binary(), register | login} |
+    {error, db_failure | not_allowed | exists | invalid_jid | invalid_password}.
+check_and_register(Phone, Server, Cred, SetCredFn, Name, UserAgent) ->
     case model_phone:get_uid(Phone) of
         {ok, undefined} ->
-            case ha_try_register(Phone, Password, Name, UserAgent) of
+            case ha_try_register(Phone, Cred, SetCredFn, Name, UserAgent) of
                 {ok, _, UserId} ->
                     ejabberd_hooks:run(register_user, Server, [UserId, Server, Phone]),
                     {ok, UserId, register};
@@ -138,7 +170,7 @@ check_and_register(Phone, Server, Password, Name, UserAgent) ->
             end;
         {ok, UserId} ->
             re_register_user(UserId, Server, Phone),
-            case set_password(UserId, Password) of
+            case SetCredFn(UserId, Cred) of
                 ok ->
                     ok = model_accounts:set_name(UserId, Name),
                     ok = model_accounts:set_user_agent(UserId, UserAgent),
@@ -222,14 +254,19 @@ password_format() ->
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
--spec ha_try_register(binary(), binary(), binary(), binary()) -> {ok, binary(), binary()}.
+
+-spec ha_try_register(binary(), binary(), binary(), binary()) ->
+        {ok, binary(), binary()}.
 ha_try_register(Phone, Password, Name, UserAgent) ->
-    ?INFO_MSG("Phone:~s", [Phone]),
+    ha_try_register(Phone, Password, fun set_password/2, Name, UserAgent).
+
+ha_try_register(Phone, Cred, SetCredFn, Name, UserAgent) ->
+    ?INFO_MSG("phone:~s", [Phone]),
     {ok, Uid} = util_uid:generate_uid(),
     ok = model_accounts:create_account(Uid, Phone, Name, UserAgent),
     ok = model_phone:add_phone(Phone, Uid),
-    ok = ejabberd_auth:set_password(Uid, Password),
-    {ok, Password, Uid}.
+    ok = SetCredFn(Uid, Cred),
+    {ok, Cred, Uid}.
 
 
 -spec ha_remove_user(Uid :: binary()) -> ok.
@@ -253,6 +290,18 @@ hashpw(Password, Salt) when is_binary(Password) and is_list(Salt) ->
         Error -> Error
     end.
 
+
+-spec is_spub_match(
+        StoredSPub :: binary() | undefined,
+        SPub :: binary() | undefined) -> boolean().
+is_spub_match(<<"">>, _SPub) ->
+    false;
+is_spub_match(undefined, _SPub) ->
+    false;
+is_spub_match(StoredSPub, SPub) when StoredSPub =:= SPub ->
+    true;
+is_spub_match(_, _) ->
+    false.
 
 -spec is_password_match(
         HashedPassword :: binary() | undefined,

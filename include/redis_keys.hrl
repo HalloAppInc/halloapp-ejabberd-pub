@@ -46,6 +46,7 @@
 
 %% RedisAuth
 -define(PASSWORD_KEY, <<"pas:">>).
+-define(SPUB_KEY, <<"spb:">>).
 
 %% RedisContacts
 -define(CONTACTS_KEY, <<"con:">>).

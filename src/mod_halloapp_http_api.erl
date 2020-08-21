@@ -23,6 +23,8 @@
 -include("account.hrl").
 -include("ha_types.hrl").
 
+-define(MSG_TO_SIGN, <<"HALLO">>).
+
 %% API
 -export([start/2, stop/1, reload/3, init/1, depends/2, mod_options/1]).
 -export([process/2]).
@@ -116,6 +118,125 @@ process([<<"registration">>, <<"register">>],
             return_500()
     end;
 
+
+%% Newer version of `register` API. Uses spub instead of password.
+%% TODO(vipin): Refactor error handling code.
+process([<<"registration">>, <<"register2">>],
+        #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
+    try
+        ?INFO_MSG("spub registration request: r:~p ip:~p", [Data, IP]),
+        UserAgent = get_user_agent(Headers),
+        Payload = jiffy:decode(Data, [return_maps]),
+        Phone = maps:get(<<"phone">>, Payload),
+        Code = maps:get(<<"code">>, Payload),
+        Name = maps:get(<<"name">>, Payload),
+        SEdPub = maps:get(<<"s_ed_pub">>, Payload),
+        SignedPhrase = maps:get(<<"signed_phrase">>, Payload),
+
+        check_ua(UserAgent),
+        check_sms_code(Phone, Code),
+        LName = check_name(Name),
+
+        SEdPubBin = base64:decode(SEdPub),
+        check_s_ed_pub_size(SEdPubBin),
+        SignedPhraseBin = base64:decode(SignedPhrase),
+        check_signed_phrase(SignedPhraseBin, SEdPubBin),
+
+        SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
+
+        {ok, Phone, Uid} = finish_registration_spub(Phone, LName, UserAgent, SPub),
+        ?INFO_MSG("registration complete uid:~s, phone:~s", [Uid, Phone]),
+        {200, ?HEADER(?CT_JSON),
+            jiffy:encode({[
+                {uid, Uid},
+                {phone, Phone},
+                {name, LName},
+                {result, ok}
+            ]})}
+    catch
+        error : wrong_sms_code ->
+            ?INFO_MSG("register error: code mismatch data:~s", [Data]),
+            return_400(wrong_sms_code);
+        error : bad_user_agent ->
+            ?ERROR_MSG("register error: bad_user_agent ~p", [Headers]),
+            return_400();
+        error : invalid_s_ed_pub ->
+            ?ERROR_MSG("register error: invalid_s_ed_pub ~p", [Data]),
+            return_400(invalid_s_ed_pub);
+        error : invalid_signed_phrase ->
+            ?ERROR_MSG("register error: invalid_signed_phrase ~p", [Data]),
+            return_400(invalid_signed_phrase);
+        error : unable_to_open_signed_phrase ->
+            ?ERROR_MSG("register error: unable_to_open_signed_phrase ~p", [Data]),
+            return_400(unable_to_open_signed_phrase);
+         error: {badkey, <<"phone">>} ->
+            return_400(missing_phone);
+        error: {badkey, <<"code">>} ->
+            return_400(missing_code);
+        error: {badkey, <<"name">>} ->
+            return_400(missing_name);
+        error: {badkey, <<"s_ed_pub">>} ->
+            return_400(missing_s_ed_pub);
+        error: {badkey, <<"signed_phrase">>} ->
+            return_400(missing_signed_phrase);
+        error: invalid_name ->
+            return_400(invalid_name);
+        error : Reason : Stacktrace  ->
+            ?ERROR_MSG("register error: ~p, ~p", [Reason, Stacktrace]),
+            return_500()
+    end;
+
+process([<<"registration">>, <<"update_key">>],
+        #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
+    try
+        ?INFO_MSG("update_key request: r:~p ip:~p", [Data, IP]),
+        UserAgent = get_user_agent(Headers),
+        Payload = jiffy:decode(Data, [return_maps]),
+        Uid = maps:get(<<"uid">>, Payload),
+        Password = maps:get(<<"password">>, Payload),
+        SEdPub = maps:get(<<"s_ed_pub">>, Payload),
+        SignedPhrase = maps:get(<<"signed_phrase">>, Payload),
+
+        check_ua(UserAgent),
+        check_password(Uid, Password),
+        SEdPubBin = base64:decode(SEdPub),
+        check_s_ed_pub_size(SEdPubBin),
+        SignedPhraseBin = base64:decode(SignedPhrase),
+        check_signed_phrase(SignedPhraseBin, SEdPubBin),
+
+        SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
+        ok = update_key(Uid, SPub),
+        ?INFO_MSG("update key complete uid:~s", [Uid]),
+        {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
+    catch
+        error : bad_user_agent ->
+            ?ERROR_MSG("register error: bad_user_agent ~p", [Headers]),
+            return_400();
+        error : invalid_password ->
+            ?INFO_MSG("register error: invalid password, data:~s", [Data]),
+            return_400(invalid_password);
+        error : invalid_s_ed_pub ->
+            ?ERROR_MSG("register error: invalid_s_ed_pub ~p", [Data]),
+            return_400(invalid_s_ed_pub);
+        error : invalid_signed_phrase ->
+            ?ERROR_MSG("register error: invalid_signed_phrase ~p", [Data]),
+            return_400(invalid_signed_phrase);
+        error : unable_to_open_signed_phrase ->
+            ?ERROR_MSG("register error: unable_to_open_signed_phrase ~p", [Data]),
+            return_400(unable_to_open_signed_phrase);
+        error: {badkey, <<"uid">>} ->
+            return_400(missing_uid);
+        error: {badkey, <<"password">>} ->
+            return_400(missing_password);
+        error: {badkey, <<"s_ed_pub">>} ->
+            return_400(missing_s_ed_pub);
+        error: {badkey, <<"signed_phrase">>} ->
+            return_400(missing_signed_phrase);
+        error : Reason : Stacktrace  ->
+            ?ERROR_MSG("update key error: ~p, ~p", [Reason, Stacktrace]),
+            return_500()
+    end;
+
 process([<<"_ok">>], _Request) ->
     {200, ?HEADER(?CT_PLAIN), <<"ok">>};
 process(Path, Request) ->
@@ -130,6 +251,37 @@ check_ua(UserAgent) ->
         false ->
             ?ERROR_MSG("Invalid UserAgent:~p", [UserAgent]),
             error(bad_user_agent)
+    end.
+
+
+-spec check_password(binary(), binary()) -> ok.
+check_password(Uid, Password) ->
+    case ejabberd_auth:check_password(Uid, Password) of
+        true -> ok;
+        false ->
+            ?ERROR_MSG("Invalid Password for Uid:~p", [Uid]),
+            error(invalid_password)
+    end.
+
+-spec check_s_ed_pub_size(SEdPub :: binary()) -> ok | error.
+check_s_ed_pub_size(SEdPub) ->
+    case byte_size(SEdPub) of
+        32 -> ok;
+        _ ->
+            ?ERROR_MSG("Invalid s_ed_pub: ~p", [SEdPub]),
+            error(invalid_s_ed_pub)
+    end.
+
+-spec check_signed_phrase(SignedPhrase :: binary(), SEdPub:: binary())  -> ok | error.
+check_signed_phrase(SignedPhrase, SEdPub) ->
+    case enacl:sign_open(SignedPhrase, SEdPub) of
+        {ok, ?MSG_TO_SIGN} -> ok;
+        {ok, Phrase} ->
+            ?ERROR_MSG("Invalid Signed Phrase: ~p", [Phrase]),
+            error(invalid_signed_phrase);
+        {error, _} ->
+            ?ERROR_MSG("Unable to open signed message: ~p", [base64:encode(SignedPhrase)]),
+            error(unable_to_open_signed_phrase)
     end.
 
 
@@ -162,22 +314,33 @@ check_invited(PhoneNum) ->
     end.
 
 
+-spec update_key(binary(), binary()) -> {ok, binary(), binary()}.
+update_key(Uid, SPub) ->
+    stat:count("HA/account", "update_s_pub"),
+    model_auth:set_spub(Uid, SPub).
+
 -spec finish_registration(phone(), binary(), binary()) -> {ok, phone(), binary(), binary()}.
 finish_registration(Phone, Name, UserAgent) ->
     Password = util:generate_password(),
     Host = util:get_host(),
-    % TODO: this is templorary during the migration from Phone to Uid
-    {ok, _} = ejabberd_admin:unregister_push(Phone, Host),
-    {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, Password, Name, UserAgent),
-    case Action of
-        login ->
-            % Unregister the push token
-            ejabberd_admin:unregister_push(Uid, Host);
-        register -> ok
-    end,
+    {ok, Uid, _Action} = ejabberd_admin:check_and_register(Phone, Host, Password, Name, UserAgent),
+    %% Action = login, updates the password.
+    %% Action = register, creates a new user id and registers the user for the first time.
+    %% Note: We don't need to clear the push token in either of login/register case. 
     stat:count_d("HA/account", "registration_by_client_type",
         [{client_type, util_ua:get_client_type(UserAgent)}]),
     {ok, Phone, Uid, Password}.
+
+-spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
+finish_registration_spub(Phone, Name, UserAgent, SPub) ->
+    Host = util:get_host(),
+    {ok, Uid, _Action} = ejabberd_admin:check_and_register_spub(Phone, Host, SPub, Name, UserAgent),
+    %% Action = login, updates the password.
+    %% Action = register, creates a new user id and registers the user for the first time.
+    %% Note: We don't need to clear the push token in either of login/register case. 
+    stat:count_d("HA/account", "registration_by_client_type",
+        [{client_type, util_ua:get_client_type(UserAgent)}]),
+    {ok, Phone, Uid}.
 
 %% Throws error if the code is wrong
 -spec check_sms_code(phone(), string()) -> ok.
