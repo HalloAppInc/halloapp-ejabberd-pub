@@ -120,11 +120,9 @@ get_proc() ->
 make_state() ->
     #{twilio_secret_json => do_get_twilio_secret_json()}.
 
--spec do_get_twilio_secret_json() -> binary().
+-spec do_get_twilio_secret_json() -> string().
 do_get_twilio_secret_json() ->
-    %% TODO: This is not great, many hardcoded things like the region...
-    %% Should ve moved to aws utils
-    os:cmd("aws --region us-east-2 secretsmanager get-secret-value --secret-id Twilio --output text --query SecretString").
+    binary_to_list(mod_aws:get_secret(<<"Twilio">>)).
 
 %% Caching the secret
 -spec get_twilio_secret_json(State :: map()) -> binary().

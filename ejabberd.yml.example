@@ -182,6 +182,7 @@ shaper_rules:
   s2s_shaper: fast
 
 modules:
+  mod_aws: {}
   mod_user_avatar: {}
   mod_groups_api: {}
   mod_groups: {}

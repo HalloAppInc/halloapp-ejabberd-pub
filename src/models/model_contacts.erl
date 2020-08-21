@@ -213,8 +213,7 @@ fetch_and_store_salt() ->
 
 -spec get_salt_secret_from_aws() -> binary().
 get_salt_secret_from_aws() ->
-    %% Should have a better way to do this: using erlcloud.
-    SecretString = os:cmd("aws --region us-east-1 secretsmanager get-secret-value --secret-id contact_hash_salt --output text --query SecretString"),
+    SecretString = binary_to_list(mod_aws:get_secret(<<"contact_hash_salt">>)),
     Salt = string:trim(SecretString),
     list_to_binary(Salt).
 
