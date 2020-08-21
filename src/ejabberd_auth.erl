@@ -397,8 +397,7 @@ password_format(_LServer) ->
         {ok, binary(), binary()}.
 ha_try_register(Phone, Server, Password, Name, UserAgent) ->
     ?INFO_MSG("Phone:~s", [Phone]),
-    {ok, UidInt} = util_uid:generate_uid(),
-    Uid = util_uid:uid_to_binary(UidInt),
+    {ok, Uid} = util_uid:generate_uid(),
     ok = model_accounts:create_account(Uid, Phone, Name, UserAgent),
     ok = model_phone:add_phone(Phone, Uid),
     ok = ejabberd_auth:set_password(Uid, Server, Password),
