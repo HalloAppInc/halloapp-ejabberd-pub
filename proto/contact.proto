@@ -14,7 +14,7 @@ message contact {
     int64 uid = 4;
     string avatar_id = 5;
     enum Role {
-        friend = 0;
+        friends = 0;
         none = 1;
     }
     Role role = 6;
@@ -25,6 +25,7 @@ message contact_list {
     enum Type {
         full = 0;
         delta = 1;
+        normal = 2;
     }
     Type type = 1;
     string sync_id = 2;

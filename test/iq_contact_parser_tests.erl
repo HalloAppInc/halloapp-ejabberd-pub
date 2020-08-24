@@ -24,7 +24,7 @@
         normalized = <<"+1 650-275-2675">>,
         userid = <<"123">>, 
         avatarid = <<"12334TCA">>,
-        role = <<"friend">>,
+        role = <<"friends">>,
         name = <<"alice">>
     }
 ). 
@@ -46,8 +46,9 @@
         id = <<"s9cCU-10">>,
         type = set,
         sub_els = [#contact_list{
+                xmlns = <<"halloapp:user:contacts">>,
                 type = full,
-                syncid = <<"halloapp:user:contacts">>,
+                syncid = <<"syncid123">>,
                 index = 0, 
                 last = true, 
                 contacts = [?CONTACT1, ?CONTACT2],
@@ -64,7 +65,7 @@
         payload = #pb_iq_payload{
             content = {contact_list, #pb_contact_list{
                 type = full, 
-                sync_id = <<"halloapp:user:contacts">>,
+                sync_id = <<"syncid123">>,
                 batch_index = 0,
                 is_last = true,
                 contacts = [?PB_CONTACT1, ?PB_CONTACT2]
@@ -80,7 +81,7 @@
         normalized = <<"+1 650-275-2675">>,
         uid = 123,
         avatar_id = <<"12334TCA">>,
-        role = friend,
+        role = friends,
         name = <<"alice">>
     }
 ).

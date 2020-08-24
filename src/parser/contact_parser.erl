@@ -25,11 +25,16 @@ xmpp_to_proto_contact_list(SubEl) ->
     Contacts = SubEl#contact_list.contacts,
     ProtoContacts = lists:map(
         fun(Contact) ->
+            Uid = case Contact#contact.userid of
+                undefined -> 0;
+                <<>> -> 0;
+                U -> binary_to_integer(U)
+            end,
             #pb_contact{
                 action = Contact#contact.type,
                 raw = Contact#contact.raw,
                 normalized = Contact#contact.normalized,
-                uid = binary_to_integer(Contact#contact.userid),
+                uid = Uid,
                 avatar_id = Contact#contact.avatarid,
                 name = Contact#contact.name,
                 role = xmpp_to_proto_role(Contact#contact.role)
@@ -76,11 +81,15 @@ proto_to_xmpp_contact_list(ProtoPayload) ->
     ContactList = ProtoPayload#pb_contact_list.contacts,
     XmppContacts = lists:map(
         fun(Contact) ->
+            Uid = case Contact#pb_contact.uid of
+                undefined -> <<>>;
+                U -> integer_to_binary(U)
+            end,
             #contact{
                 type = Contact#pb_contact.action,
                 raw = Contact#pb_contact.raw,
                 normalized = Contact#pb_contact.normalized,
-                userid = integer_to_binary(Contact#pb_contact.uid),
+                userid = Uid,
                 avatarid = Contact#pb_contact.avatar_id,
                 name = Contact#pb_contact.name,
                 role = proto_to_xmpp_role(Contact#pb_contact.role)
@@ -88,6 +97,7 @@ proto_to_xmpp_contact_list(ProtoPayload) ->
         end,
         ContactList),
     #contact_list{
+        xmlns = <<"halloapp:user:contacts">>,
         type = ProtoPayload#pb_contact_list.type,
         syncid = ProtoPayload#pb_contact_list.sync_id,
         index = ProtoPayload#pb_contact_list.batch_index,
@@ -106,6 +116,7 @@ proto_to_xmpp_role(PbRole) ->
 
 proto_to_xmpp_contact_hash(ProtoPayload) ->
     #contact_list{
+        xmlns = <<"halloapp:user:contacts">>,
         contact_hash = [base64:encode(ProtoPayload#pb_contact_hash.hash)]
     }.
 
