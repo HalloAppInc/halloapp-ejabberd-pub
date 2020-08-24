@@ -23,7 +23,6 @@
 %% Hooks and API.
 -export([
     process_local_iq/1,
-    add_friend/3,
     make_feed_post_stanza/5,
     make_feed_comment_stanza/7,
     broadcast_event/4,
@@ -35,11 +34,9 @@
 
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_FEED, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 60),
     ok.
 
 stop(Host) ->
-    ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 60),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_FEED),
     ok.
 
@@ -483,38 +480,6 @@ send_post_notification(PostId, Payload, Action, Uid, FeedAudienceSet, TimestampM
     ResultStanza = make_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs),
     PushSet = sets:new(),
     broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza),
-    ok.
-
-
-%%====================================================================
-%% feed: add_friend
-%%====================================================================
-
-%% Still using the old logic for now.
-%% TODO(murali@): This will change in the coming diffs.
--spec add_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
-add_friend(UserId, Server, ContactId) ->
-    ?INFO_MSG("Uid: ~s, ContactId: ~s", [UserId, ContactId]),
-    {ok, TsMs1} = model_accounts:get_creation_ts_ms(UserId),
-    {ok, TsMs2} = model_accounts:get_creation_ts_ms(ContactId),
-    NowMs = util:now_ms(),
-    TimeDiff = 10 * ?MINUTES_MS,
-    %% Temporary hack to send old posts to new accounts with new friend relationships.
-    %% This will be fixed in the new_feed_api once we start storing the audience.
-    case NowMs - TsMs1 < TimeDiff of
-        true ->
-            ?INFO_MSG("sending old items of ~s, to ~s", [ContactId, UserId]),
-            send_old_items_to_contact(ContactId, Server, UserId);
-        false ->
-            ?INFO_MSG("Ignoring add_friend here, ContactId: ~s, Uid: ~s", [ContactId, UserId])
-    end,
-    case NowMs - TsMs2 < TimeDiff of
-        true ->
-            ?INFO_MSG("sending old items of ~s, to ~s", [UserId, ContactId]),
-            send_old_items_to_contact(UserId, Server, ContactId);
-        false ->
-            ?INFO_MSG("Ignoring add_friend here, Uid: ~s, ContactId: ~s", [UserId, ContactId])
-    end,
     ok.
 
 
