@@ -30,6 +30,14 @@ jobs:
  
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+    - name: Install libsodium
+      run: |
+           apt-get update
+           apt-get -y install sudo
+           wget http://http.us.debian.org/debian/pool/main/libs/libsodium/libsodium23_1.0.17-1~bpo9+1_amd64.deb
+           wget http://http.us.debian.org/debian/pool/main/libs/libsodium/libsodium-dev_1.0.17-1~bpo9+1_amd64.deb
+           sudo dpkg -i libsodium23_1.0.17-1~bpo9+1_amd64.deb
+           sudo dpkg -i libsodium-dev_1.0.17-1~bpo9+1_amd64.deb
     - name: Checkout ejabberd
       uses: actions/checkout@v2
     - name: Create deps-folder
