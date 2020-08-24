@@ -585,6 +585,7 @@ share_feed_items(Uid, FriendUid, Server, PostIds) ->
         from = From,
         type = MsgType,
         sub_els = [#feed_st{
+            action = share,
             posts = PostStanzas ++ PubsubPostStanzas,
             comments = CommentStanzas ++ PubsubCommentStanzas}]
     },
