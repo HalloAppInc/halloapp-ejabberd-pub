@@ -157,6 +157,7 @@ reset_stream(#socket_state{pb_stream = PBStream, sockmod = SockMod,
 send_element(SocketData, Pkt) ->
     ?DEBUG("send: xmpp: ~p", [Pkt]),
     FinalPkt = enif_protobuf:encode(Pkt),
+    stat:count("HA/pb_packet", "encode_success"),
     ?DEBUG("send: protobuf: ~p", [FinalPkt]),
     PktSize = byte_size(FinalPkt),
     %% TODO(murali@): remove this code after noise integration.

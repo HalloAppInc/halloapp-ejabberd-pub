@@ -311,6 +311,7 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := wait_for_authenti
     noreply(
         try enif_protobuf:decode(Bin, pb_auth_request) of
         Pkt ->
+            stat:count("HA/pb_packet", "decode_success"),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
             FinalPkt = ha_auth_parser:proto_to_xmpp(Pkt),
             ?DEBUG("recv: translated xmpp: ~p", [FinalPkt]),
@@ -322,6 +323,7 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := wait_for_authenti
                 false -> process_element(FinalPkt, State1)
             end
         catch _:_ ->
+            stat:count("HA/pb_packet", "decode_failure"),
             Why = <<"failed_codec">>,
             State1 = try callback(handle_recv, Bin, {error, Why}, State)
                catch _:{?MODULE, undef} -> State
@@ -336,6 +338,7 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := established} = St
     noreply(
         try enif_protobuf:decode(Bin, pb_packet) of
         Pkt ->
+            stat:count("HA/pb_packet", "decode_success"),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
             FinalPkt = packet_parser:proto_to_xmpp(Pkt),
             ?DEBUG("recv: translated xmpp: ~p", [FinalPkt]),
@@ -347,6 +350,7 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := established} = St
                 false -> process_element(FinalPkt, State1)
             end
         catch _:_ ->
+            stat:count("HA/pb_packet", "decode_failure"),
             Why = <<"failed_codec">>,
             State1 = try callback(handle_recv, Bin, {error, Why}, State)
                catch _:{?MODULE, undef} -> State
