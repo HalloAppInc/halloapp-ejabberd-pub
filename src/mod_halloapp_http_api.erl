@@ -11,6 +11,11 @@
 -author("nikola").
 -behaviour(gen_mod).
 
+%% Export all functions for unit tests
+-ifdef(TEST).
+-compile(export_all).
+-endif.
+
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("ejabberd_http.hrl").
