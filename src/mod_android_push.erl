@@ -24,8 +24,10 @@
 -define(MESSAGE_MAX_RETRY_TIME_SEC, 600).          %% 10 minutes.
 -define(RETRY_INTERVAL_MILLISEC, 30000).           %% 30 seconds.
 
+-define(FCM_GATEWAY, "https://fcm.googleapis.com/fcm/send").
+
 %% gen_mod API
--export([start/2, stop/1, reload/3, depends/2, mod_opt_type/1, mod_options/1]).
+-export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 %% gen_server API
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -50,22 +52,13 @@ stop(_Host) ->
     ok.
 
 depends(_Host, _Opts) ->
-    [].
+    [{mod_aws, hard}].
 
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
--spec mod_opt_type(atom()) -> econf:validator().
-mod_opt_type(fcm) ->
-    econf:map(
-        econf:atom(),
-        econf:either(
-            econf:binary(),
-            econf:int()),
-        [unique]).
-
 mod_options(_Host) ->
-    [{fcm, []}].
+    [].
 
 get_proc() ->
     gen_mod:get_module_proc(global, ?MODULE).
@@ -88,8 +81,7 @@ push(_Message, _PushInfo) ->
 
 init([Host|_]) ->
     process_flag(trap_exit, true),
-    Opts = gen_mod:get_module_opts(Host, ?MODULE),
-    store_options(Opts),
+    get_fcm_info(),
     {ok, #push_state{host = Host}}.
 
 
@@ -171,11 +163,10 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
             {connect_timeout, ?HTTP_CONNECT_TIMEOUT_MILLISEC}
     ],
     Options = [],
-    FcmGateway = get_fcm_gateway(),
     FcmApiKey = get_fcm_apikey(),
     Payload = #{<<"title">> => <<"PushMessage">>},
     PushMessage = #{<<"to">> => Token, <<"priority">> => <<"high">>, <<"data">> => Payload},
-    Request = {FcmGateway, [{"Authorization", "key=" ++ FcmApiKey}],
+    Request = {?FCM_GATEWAY, [{"Authorization", "key=" ++ FcmApiKey}],
             "application/json", jiffy:encode(PushMessage)},
     %% TODO(murali@): Switch to using an asynchronous http client.
     Response = httpc:request(post, Request, HTTPOptions, Options),
@@ -255,25 +246,15 @@ remove_push_token(Uid, Server) ->
 
 
 %%====================================================================
-%% Module Options
+%% FCM stuff
 %%====================================================================
 
-%% TODO(murali@): Persistent terms are super expensive. Update this to use ets table!
-store_options(Opts) ->
-    FcmOptions = mod_android_push_opt:fcm(Opts),
-    %% Store FCM Gateway and APIkey as strings.
-    FcmGateway = proplists:get_value(gateway, FcmOptions),
-    persistent_term:put({?MODULE, fcm_gateway}, binary_to_list(FcmGateway)),
-    FcmApiKey = proplists:get_value(apikey, FcmOptions),
-    persistent_term:put({?MODULE, fcm_apikey}, binary_to_list(FcmApiKey)).
+get_fcm_info() ->
+    jsx:decode(mod_aws:get_secret(<<"fcm">>)).
 
 
--spec get_fcm_gateway() -> list().
-get_fcm_gateway() ->
-    persistent_term:get({?MODULE, fcm_gateway}).
-
-
--spec get_fcm_apikey() -> list().
+-spec get_fcm_apikey() -> string().
 get_fcm_apikey() ->
-    persistent_term:get({?MODULE, fcm_apikey}).
+    [{<<"apikey">>, Res}] = get_fcm_info(),
+    binary_to_list(Res).
 
