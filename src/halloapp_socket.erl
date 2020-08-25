@@ -190,7 +190,8 @@ send_element(#socket_state{sockmod = SockMod} = SocketData, Pkt) ->
         fast_tls -> 
             PktSize = byte_size(FinalPkt),
             FinalData = <<PktSize:32/big, FinalPkt/binary>>,
-            ?DEBUG("send: protobuf with size: ~p, via tls", [FinalData]);
+            ?DEBUG("send: protobuf with size: ~p, via tls", [FinalData]),
+            FinalData;
         ha_enoise -> 
             ?DEBUG("send: protobuf: ~p, via noise (size will be added by ha_enoise)", [FinalPkt]),
             FinalPkt
