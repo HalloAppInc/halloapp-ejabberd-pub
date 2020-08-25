@@ -18,12 +18,12 @@ xmpp_to_proto(SubEl) when is_record(SubEl, group_st) ->
         fun(MemberSt) ->
             #pb_group_member {
                 action = MemberSt#member_st.action,
-                uid = binary_to_integer(MemberSt#member_st.uid),
+                uid = util_parser:xmpp_to_proto_uid(MemberSt#member_st.uid),
                 type = MemberSt#member_st.type,
                 name = MemberSt#member_st.name,
                 avatar_id = MemberSt#member_st.avatar,
-                result = maybe_convert_to_binary(MemberSt#member_st.result),
-                reason = maybe_convert_to_binary(MemberSt#member_st.reason)
+                result = util_parser:maybe_convert_to_binary(MemberSt#member_st.result),
+                reason = util_parser:maybe_convert_to_binary(MemberSt#member_st.reason)
             }
         end, SubEl#group_st.members),
     #pb_group_stanza {
@@ -58,7 +58,7 @@ proto_to_xmpp(ProtoPayload) when is_record(ProtoPayload, pb_group_chat) ->
         gid = ProtoPayload#pb_group_chat.gid,
         name = ProtoPayload#pb_group_chat.name,
         avatar = ProtoPayload#pb_group_chat.avatar_id,
-        sender = integer_to_binary(ProtoPayload#pb_group_chat.sender_uid),
+        sender = util_parser:proto_to_xmpp_uid(ProtoPayload#pb_group_chat.sender_uid),
         sender_name = ProtoPayload#pb_group_chat.sender_name,
         timestamp = integer_to_binary(ProtoPayload#pb_group_chat.timestamp),
         sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata, ProtoPayload#pb_group_chat.payload}]}]
@@ -69,7 +69,7 @@ proto_to_xmpp(ProtoPayload) when is_record(ProtoPayload, pb_group_stanza) ->
         fun(PbMember) ->
             #member_st {
                 action = PbMember#pb_group_member.action,
-                uid = integer_to_binary(PbMember#pb_group_member.uid),
+                uid = util_parser:proto_to_xmpp_uid(PbMember#pb_group_member.uid),
                 type = PbMember#pb_group_member.type,
                 name = PbMember#pb_group_member.name,
                 avatar = PbMember#pb_group_member.avatar_id
@@ -80,13 +80,8 @@ proto_to_xmpp(ProtoPayload) when is_record(ProtoPayload, pb_group_stanza) ->
         gid = ProtoPayload#pb_group_stanza.gid,
         name = ProtoPayload#pb_group_stanza.name,
         avatar = ProtoPayload#pb_group_stanza.avatar_id,
-        sender = integer_to_binary(ProtoPayload#pb_group_stanza.sender_uid),
+        sender = util_parser:proto_to_xmpp_uid(ProtoPayload#pb_group_stanza.sender_uid),
         sender_name = ProtoPayload#pb_group_stanza.sender_name,
         members = MembersSt
     }.
-    
-
-%% TODO(murali@): common code.. move it to utils.
-maybe_convert_to_binary(undefined) -> <<>>;
-maybe_convert_to_binary(Data) -> util:to_binary(Data).
 

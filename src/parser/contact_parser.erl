@@ -25,11 +25,7 @@ xmpp_to_proto_contact_list(SubEl) ->
     Contacts = SubEl#contact_list.contacts,
     ProtoContacts = lists:map(
         fun(Contact) ->
-            Uid = case Contact#contact.userid of
-                undefined -> 0;
-                <<>> -> 0;
-                U -> binary_to_integer(U)
-            end,
+            Uid = util_parser:xmpp_to_proto_uid(Contact#contact.userid),
             #pb_contact{
                 action = Contact#contact.type,
                 raw = Contact#contact.raw,
@@ -81,10 +77,7 @@ proto_to_xmpp_contact_list(ProtoPayload) ->
     ContactList = ProtoPayload#pb_contact_list.contacts,
     XmppContacts = lists:map(
         fun(Contact) ->
-            Uid = case Contact#pb_contact.uid of
-                undefined -> <<>>;
-                U -> integer_to_binary(U)
-            end,
+            Uid = util_parser:proto_to_xmpp_uid(Contact#pb_contact.uid),
             #contact{
                 type = Contact#pb_contact.action,
                 raw = Contact#pb_contact.raw,

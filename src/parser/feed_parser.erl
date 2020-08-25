@@ -35,7 +35,7 @@ xmpp_to_proto(SubEl) ->
                         end, SubEl#feed_st.comments),
                     Uid = case SubEl#feed_st.posts of
                         [PostSt | _] ->
-                            binary_to_integer(PostSt#post_st.uid);
+                            util_parser:xmpp_to_proto_uid(PostSt#post_st.uid);
                         _ ->
                             undefined
                     end,
@@ -47,9 +47,9 @@ xmpp_to_proto(SubEl) ->
                     PbShareStanzas = lists:map(
                         fun(SharePostsSt) ->
                             #pb_share_stanza{
-                                uid = binary_to_integer(SharePostsSt#share_posts_st.uid),
-                                result = maybe_convert_to_binary(SharePostsSt#share_posts_st.result),
-                                reason = maybe_convert_to_binary(SharePostsSt#share_posts_st.reason)
+                                uid = util_parser:xmpp_to_proto_uid(SharePostsSt#share_posts_st.uid),
+                                result = util_parser:maybe_convert_to_binary(SharePostsSt#share_posts_st.result),
+                                reason = util_parser:maybe_convert_to_binary(SharePostsSt#share_posts_st.reason)
                             }
                         end, SubEl#feed_st.share_posts),
                     #pb_feed_item{
@@ -90,7 +90,7 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_feed_item) ->
                 Audience ->
                     UidEls = lists:map(
                         fun(Uid) ->
-                            #uid_element{uid = integer_to_binary(Uid)}
+                            #uid_element{uid = util_parser:proto_to_xmpp_uid(Uid)}
                         end, Audience#pb_audience.uids),
                     [#audience_list_st{
                         type = Audience#pb_audience.type,
@@ -116,7 +116,7 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_feed_item) ->
                                 #post_st{id = PostId}
                             end, PbShareStanza#pb_share_stanza.post_ids),
                         #share_posts_st{
-                            uid = integer_to_binary(PbShareStanza#pb_share_stanza.uid),
+                            uid = util_parser:proto_to_xmpp_uid(PbShareStanza#pb_share_stanza.uid),
                             posts = Posts
                         }
                     end, PbPacket#pb_feed_item.share_stanzas),
@@ -174,8 +174,4 @@ post_to_post_st(Post) ->
         timestamp = integer_to_binary(Post#pb_post.timestamp)
     },
     PostSt.
-
-
-maybe_convert_to_binary(undefined) -> undefined;
-maybe_convert_to_binary(Data) -> util:to_binary(Data).
 

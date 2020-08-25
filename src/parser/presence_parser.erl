@@ -25,7 +25,7 @@ xmpp_to_proto(XmppPresence) ->
 
 proto_to_xmpp(ProtoPresence) ->
     ToJID = #jid{
-        user = integer_to_binary(ProtoPresence#pb_ha_presence.uid),
+        user = util_parser:proto_to_xmpp_uid(ProtoPresence#pb_ha_presence.uid),
         server =  util:get_host()
     },
     XmppPresence = #presence{

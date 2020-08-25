@@ -12,7 +12,7 @@
 
 xmpp_to_proto(SubEl) ->
     #pb_whisper_keys{
-        uid = binary_to_integer(SubEl#whisper_keys.uid),
+        uid = util_parser:xmpp_to_proto_uid(SubEl#whisper_keys.uid),
         action = SubEl#whisper_keys.type,
         identity_key = SubEl#whisper_keys.identity_key,
         signed_key = SubEl#whisper_keys.signed_key,
@@ -23,7 +23,7 @@ xmpp_to_proto(SubEl) ->
 
 proto_to_xmpp(ProtoPayload) ->
     #whisper_keys{
-        uid = integer_to_binary(ProtoPayload#pb_whisper_keys.uid),
+        uid = util_parser:proto_to_xmpp_uid(ProtoPayload#pb_whisper_keys.uid),
         type = ProtoPayload#pb_whisper_keys.action,
         identity_key = ProtoPayload#pb_whisper_keys.identity_key,
         signed_key = ProtoPayload#pb_whisper_keys.signed_key,

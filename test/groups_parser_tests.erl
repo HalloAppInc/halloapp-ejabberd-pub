@@ -181,12 +181,11 @@ xmpp_to_proto_iq_group_result_test() ->
     FromJid = jid:make(?SERVER),
     XmppIq = create_iq_stanza(?ID1, ToJid, FromJid, result, GroupSt),
 
-    PbMember = create_pb_member(add, ?UID2_INT, member, ?NAME2, ?AVATAR_ID2, <<"ok">>, <<>>),
+    PbMember = create_pb_member(add, ?UID2_INT, member, ?NAME2, ?AVATAR_ID2, <<"ok">>, undefined),
     PbGroup = create_pb_group_stanza(modify_members, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1_INT, ?NAME1, [PbMember]),
     ExpectedProtoIq = create_pb_iq(?ID1, result, {group_stanza, PbGroup}),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(XmppIq),
-
     ?assertEqual(true, is_record(ActualProtoIq, pb_ha_iq)),
     ?assertEqual(ExpectedProtoIq, ActualProtoIq).
 
@@ -201,8 +200,8 @@ xmpp_to_proto_message_group_test() ->
     FromJid = jid:make(?SERVER),
     XmppMsg = create_message_stanza(?ID1, ToJid, FromJid, normal, GroupSt),
 
-    PbMember1 = create_pb_member(demote, ?UID2_INT, admin, ?NAME2, ?AVATAR_ID2, <<>>, <<>>),
-    PbMember2 = create_pb_member(demote, ?UID3_INT, admin, ?NAME3, ?AVATAR_ID3, <<>>, <<>>),
+    PbMember1 = create_pb_member(demote, ?UID2_INT, admin, ?NAME2, ?AVATAR_ID2, undefined, undefined),
+    PbMember2 = create_pb_member(demote, ?UID3_INT, admin, ?NAME3, ?AVATAR_ID3, undefined, undefined),
     PbGroup = create_pb_group_stanza(modify_admins, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1_INT, ?NAME1, [PbMember1, PbMember2]),
     ExpectedProtoMsg = create_pb_message(?ID1, ?UID1_INT, 0, normal, {group_stanza, PbGroup}),
 

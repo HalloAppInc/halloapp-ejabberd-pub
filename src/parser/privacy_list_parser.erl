@@ -43,7 +43,7 @@ xmpp_to_proto_user_privacy_list(SubEl) ->
         fun(UidEl) ->
             #pb_uid_element{
                 action = UidEl#uid_el.type,
-                uid = binary_to_integer(UidEl#uid_el.uid)
+                uid = util_parser:xmpp_to_proto_uid(UidEl#uid_el.uid)
             }
         end, SubEl#user_privacy_list.uid_els),
     Hash = case SubEl#user_privacy_list.hash of
@@ -78,7 +78,7 @@ proto_to_xmpp_privacy_list(ProtoPayload) ->
         fun(UidElement) ->
             #uid_el{
                 type = UidElement#pb_uid_element.action,
-                uid = integer_to_binary(UidElement#pb_uid_element.uid)
+                uid = util_parser:proto_to_xmpp_uid(UidElement#pb_uid_element.uid)
             }
         end, ProtoPayload#pb_privacy_list.uid_elements),
     #user_privacy_list {

@@ -26,11 +26,7 @@ xmpp_to_proto(XmppMSG) ->
             [SubEl] = SubEls,
             msg_payload_mapping(SubEl)
     end,
-    PbFromUid = case FromJid#jid.user of
-        undefined -> 0;         %% Default value of protobuf.
-        <<>> -> 0;              %% Default value of protobuf.
-        Uid -> binary_to_integer(Uid)
-    end,
+    PbFromUid = util_parser:xmpp_to_proto_uid(FromJid#jid.user),
     Protomessage = #pb_ha_message{
         id = XmppMSG#message.id,
         type = XmppMSG#message.type,
@@ -80,14 +76,8 @@ msg_payload_mapping(SubEl) ->
 
 
 proto_to_xmpp(ProtoMSG) ->
-    ToUser = case ProtoMSG#pb_ha_message.to_uid of
-        0 -> <<>>;              %% Default value of protobuf.
-        ToUid -> integer_to_binary(ToUid)
-    end,
-    FromUser = case ProtoMSG#pb_ha_message.from_uid of
-        0 -> <<>>;              %% Default value of protobuf.
-        FromUid -> integer_to_binary(FromUid)
-    end,
+    ToUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_ha_message.to_uid),
+    FromUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_ha_message.from_uid),
     Server = util:get_host(),
     PbToJid = jid:make(ToUser, Server),
     PbFromJid = jid:make(FromUser, Server),
