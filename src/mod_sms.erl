@@ -47,10 +47,10 @@ stop(_Host) ->
     gen_mod:stop_child(get_proc()).
 
 depends(_Host, _Opts) ->
-    [].
+    [{mod_aws, hard}].
 
 mod_options(_Host) ->
-    [{mod_aws, hard}].
+    [].
 
 init(_Stuff) ->
     ?DEBUG("mod_sms: stuff ~p", [_Stuff]),
