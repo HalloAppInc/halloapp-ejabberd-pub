@@ -50,7 +50,7 @@ depends(_Host, _Opts) ->
     [].
 
 mod_options(_Host) ->
-    [].
+    [{mod_aws, hard}].
 
 init(_Stuff) ->
     ?DEBUG("mod_sms: stuff ~p", [_Stuff]),
