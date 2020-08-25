@@ -48,7 +48,8 @@
     set_avatar/2,
     delete_avatar/1,
     check_member/2,
-    count_groups/0
+    count_groups/0,
+    count_groups/1
 ]).
 
 
