@@ -578,10 +578,21 @@ get_posts_and_comments(PostIds) ->
 -spec get_feed_audience_set(Action :: event_type(), Uid :: uid(), AudienceList :: [uid()]) -> set().
 get_feed_audience_set(Action, Uid, AudienceList) ->
     {ok, BlockedUids} = model_privacy:get_blocked_uids(Uid),
-    case Action of
-        publish -> sets:subtract(sets:from_list(AudienceList), sets:from_list(BlockedUids));
-        retract -> sets:from_list(AudienceList)
-    end.
+    {ok, FriendUids} = model_friends:get_friends(Uid),
+    AudienceSet = sets:from_list(AudienceList),
+    NewAudienceSet = sets:intersection(AudienceSet, sets:from_list(FriendUids)),
+    FinalAudienceSet = case Action of
+        publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
+        retract -> AudienceSet
+    end,
+    %% TODO(murali@): adding this for debugging purposes.. remove this case later..
+    %% TODO(murali@): Send the final audience set back to the client in the response.
+    case AudienceSet =:= FinalAudienceSet of
+        true -> ok;
+        false ->
+            ?ERROR_MSG("FinalAudienceSet: ~p, AudienceSet: ~p", [FinalAudienceSet, AudienceSet])
+    end,
+    FinalAudienceSet.
 
 
 -spec convert_posts_to_stanzas(post()) -> post_st().
