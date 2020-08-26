@@ -17,7 +17,7 @@
 -define(CODE2, <<"285789">>).
 -define(TIME2, 1586907979).
 -define(SENDER, <<"api.halloapp.net">>).
--define(RECEIPT, <<"ok">>).
+-define(RECEIPT, <<"{\"name\": \"value\"}">>).
 -define(TTL_24HR_SEC, 86400).
 -define(DELAY_SEC, 10).
 

@@ -204,11 +204,11 @@ request_sms(Phone, UserAgent) ->
     Code = mod_sms:generate_code(util:is_test_number(Phone)),
     ?DEBUG("code generated phone:~s code:~s", [Phone, Code]),
     case util:is_test_number(Phone) of
-        true -> ok;
+        true -> finish_enroll(Phone, Code, <<>>);
         false ->
-            ok = send_sms(Phone, Code, UserAgent)
-    end,
-    finish_enroll(Phone, Code).
+            {ok, Receipt} = send_sms(Phone, Code, UserAgent),
+            finish_enroll(Phone, Code, Receipt)
+    end.
 
 
 -spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary()) -> ok.
@@ -216,17 +216,16 @@ send_sms(Phone, Code, UserAgent) ->
     Msg = mod_sms:prepare_registration_sms(Code, UserAgent),
     ?DEBUG("preparing to send sms, phone:~p msg:~s", [Phone, Msg]),
     case mod_sms:send_sms(Phone, Msg) of
-        ok -> ok;
+        {ok, Receipt} -> {ok, Receipt};
         {error, Error} -> erlang:error(Error)
     end.
 
 
--spec finish_enroll(phone(), binary()) -> any().
-finish_enroll(Phone, Code) ->
+-spec finish_enroll(phone(), binary(), binary()) -> any().
+finish_enroll(Phone, Code, Receipt) ->
     Host = util:get_host(),
-
     {ok, _} = ejabberd_admin:unenroll(Phone, Host),
-    {ok, _} = ejabberd_admin:enroll(Phone, Host, Code),
+    {ok, _} = ejabberd_admin:enroll(Phone, Host, Code, Receipt),
     ok.
 
 

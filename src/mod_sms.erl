@@ -62,7 +62,7 @@ init(_Stuff) ->
 %% API
 %%====================================================================
 
--spec send_sms(Phone :: phone(), Msg :: string()) -> ok | {error, sms_fail}.
+-spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, binary()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
     gen_server:call(get_proc(), {send_sms, Phone, Msg}).
 
@@ -94,8 +94,8 @@ handle_call({send_sms, Phone, Msg}, _From, State) ->
     Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
     ?DEBUG("twilio: ~p", [Response]),
     Res = case Response of
-        {ok, {{_, 201, "CREATED"}, _ResHeaders, _ResBody}} ->
-            ok;
+        {ok, {{_, 201, "CREATED"}, _ResHeaders, ResBody}} ->
+            {ok, ResBody};
         _ ->
             ?ERROR_MSG("Sending SMS failed ~p", [Response]),
             {error, sms_fail}

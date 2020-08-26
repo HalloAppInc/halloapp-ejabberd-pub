@@ -44,7 +44,7 @@
 	 %% Accounts
 	 register/3, unregister/2, check_and_register/5,
 	 registered_users/1,
-	 enroll/3, unenroll/2,
+	 enroll/4, unenroll/2,
 	 enrolled_users/1, get_user_passcode/2,
 	 register_push/4, unregister_push/2,
 	 %% Migration jabberd1.4
@@ -676,13 +676,15 @@ registered_users(Host) ->
 	    {error, "Unknown virtual host"}
     end.
 
-enroll(User, Host, Passcode) ->
+enroll(User, Host, Passcode, Receipt) ->
     case is_my_host(Host) of
         true ->
-            case ejabberd_auth:try_enroll(User, Host, Passcode) of
+            case ejabberd_auth:try_enroll(User, Host, Passcode, Receipt) of
                 {ok, _} ->
+                    ?INFO_MSG("Phone ~s successfully enrolled", [User]),
                     {ok, io_lib:format("User ~ts@~ts successfully enrolled", [User, Host])};
                 {error, Reason} ->
+                    ?ERROR_MSG("Failed to enroll phone ~s, Reason: ~p", [User, Reason]),
                     String = io_lib:format("Can't enroll user ~ts@~ts at node ~p: ~ts",
                                            [User, Host, node(),
                                             mod_register:format_error(Reason)]),
