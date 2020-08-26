@@ -302,7 +302,7 @@ delete_avatar(Gid, Uid) ->
             -> {ok, Ts} | {error, atom()}
             when Ts :: non_neg_integer().
 send_message(MsgId, Gid, Uid, MessagePayload) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s size: ~p", [Gid, Uid, byte_size(MessagePayload)]),
+    ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
