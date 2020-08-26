@@ -163,6 +163,20 @@ create_pb_group_chat(Gid, Name, AvatarId, SenderUid, SenderName, Timestamp, Payl
     }.
 
 
+create_groups_st(Action, Groups) ->
+    #groups{
+        action = Action,
+        groups = Groups
+    }.
+
+
+create_pb_groups_stanza(Action, GroupsStanza) ->
+    #pb_groups_stanza{
+        action = Action,
+        group_stanzas = GroupsStanza
+    }.
+
+
 setup() ->
     stringprep:start(),
     ok.
@@ -258,4 +272,33 @@ proto_to_xmpp_iq_group_test() ->
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
     ?assertEqual(ExpectedXmppIq, ActualXmppIq).
 
+
+proto_to_xmpp_groups_test() ->
+    setup(),
+
+    GroupsSt = create_groups_st(get, []),
+    ExpectedXmppIq = create_iq_stanza(?ID1, undefined, undefined, get, GroupsSt),
+
+    PbGroupsStanza = create_pb_groups_stanza(get, []),
+    ProtoIq = create_pb_iq(?ID1, get, {groups_stanza, PbGroupsStanza}),
+
+    ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIq),
+    ?assertEqual(true, is_record(ActualXmppIq, iq)),
+    ?assertEqual(ExpectedXmppIq, ActualXmppIq).
+
+
+xmpp_to_proto_iq_groups_test() ->
+    setup(),
+
+    GroupSt = create_group_st(undefined, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, undefined, undefined, []),
+    GroupsSt = create_groups_st(get, [GroupSt]),
+    XmppIq = create_iq_stanza(?ID1, undefined, undefined, result, GroupsSt),
+
+    PbGroup = create_pb_group_stanza(undefined, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, undefined, undefined, []),
+    PbGroupsStanza = create_pb_groups_stanza(get, [PbGroup]),
+    ExpectedProtoIq = create_pb_iq(?ID1, result, {groups_stanza, PbGroupsStanza}),
+
+    ActualProtoIq = iq_parser:xmpp_to_proto(XmppIq),
+    ?assertEqual(true, is_record(ActualProtoIq, pb_ha_iq)),
+    ?assertEqual(ExpectedProtoIq, ActualProtoIq).
 

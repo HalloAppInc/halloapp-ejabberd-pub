@@ -70,6 +70,8 @@ iq_payload_mapping(SubEl) ->
                 false ->
                     {privacy_list_result, privacy_list_parser:xmpp_to_proto(SubEl)}
             end;
+        groups ->
+            {groups_stanza, groups_parser:xmpp_to_proto(SubEl)};
         group_st ->
             {group_stanza, groups_parser:xmpp_to_proto(SubEl)};
         client_log_st ->
@@ -123,6 +125,8 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             privacy_list_parser:proto_to_xmpp(PrivacyListRecord);
         {privacy_lists, PrivacyListsRecord} ->
             privacy_list_parser:proto_to_xmpp(PrivacyListsRecord);
+        {groups_stanza, GroupsStanzaRecord} ->
+            groups_parser:proto_to_xmpp(GroupsStanzaRecord);
         {group_stanza, GroupStanzaRecord} ->
             groups_parser:proto_to_xmpp(GroupStanzaRecord);
         {client_log, ClientLogRecord} ->

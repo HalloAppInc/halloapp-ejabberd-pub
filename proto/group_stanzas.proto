@@ -59,3 +59,11 @@ message group_chat {
     bytes payload = 7;
 }
 
+message groups_stanza {
+    enum Action {
+        get = 0;
+    }
+    Action action = 1;
+    repeated group_stanza group_stanzas = 2;
+}
+

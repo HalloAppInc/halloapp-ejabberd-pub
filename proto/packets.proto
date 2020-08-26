@@ -51,7 +51,8 @@ message iq_payload {
         privacy_list_result privacy_list_result = 13;
         privacy_lists privacy_lists = 14;
         group_stanza group_stanza = 15;
-        client_log client_log = 16;
+        groups_stanza groups_stanza = 16;
+        client_log client_log = 17;
     }
 }
 
