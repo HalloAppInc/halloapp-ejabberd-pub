@@ -368,6 +368,8 @@ get_pid_to_send(dev, State) ->
 -spec parse_subject_and_body(Message :: message()) -> {binary(), binary()}.
 parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubElement, chat) ->
     {<<"New Message">>, <<"You got a new message.">>};
+parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubElement, group_chat) ->
+    {<<"New Group Message">>, <<"You got a new group message.">>};
 parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubElement, contact_list) ->
     {<<"New Contact">>, <<"New contact notification">>};
 parse_subject_and_body(#message{sub_els = [#ps_event{items = #ps_items{
@@ -389,6 +391,9 @@ parse_subject_and_body(#message{to = #jid{luser = Uid}, id = Id}) ->
 parse_metadata(#message{id = Id, sub_els = [SubElement],
         from = #jid{luser = FromUid}}) when is_record(SubElement, chat) ->
     {Id, <<"chat">>, FromUid};
+parse_metadata(#message{id = Id, sub_els = [SubElement],
+        from = #jid{luser = FromUid}}) when is_record(SubElement, group_chat) ->
+    {Id, <<"group_chat">>, FromUid};
 parse_metadata(#message{id = Id, sub_els = [SubElement]})
         when is_record(SubElement, contact_list) ->
     {Id, <<"contact_notification">>, <<>>};
@@ -406,9 +411,17 @@ parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
     {<<>>, <<>>, <<>>}.
 
 
-%% TODO(murali@): Need to clean all this parsing stuff logic.
+%% TODO(murali@): Need to clean all this parsing stuff logic after the switch to new feed api.
 -spec parse_payload(Message :: message()) -> binary().
 parse_payload(#message{sub_els = [#chat{sub_els = SubEls}]}) ->
+    lists:foldl(
+        fun(SubEl, Acc) ->
+            case SubEl#xmlel.name of
+                <<"s1">> -> fxml:get_tag_cdata(SubEl);
+                _ -> Acc
+            end
+        end, <<>>, SubEls);
+parse_payload(#message{sub_els = [#group_chat{sub_els = SubEls}]}) ->
     lists:foldl(
         fun(SubEl, Acc) ->
             case SubEl#xmlel.name of
@@ -472,6 +485,7 @@ get_push_type(#message{type = headline, to = #jid{luser = User}, sub_els = [#ps_
     end;
 get_push_type(#message{type = headline, sub_els = [#feed_st{}]}, _) -> silent;
 get_push_type(#message{type = normal, sub_els = [#feed_st{}]}, _) -> silent;
+get_push_type(#message{type = groupchat, sub_els = [#group_chat{}]}, _) -> alert;
 get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, chat) -> alert;
 get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, contact_list) -> silent;
 get_push_type(_, _) -> silent.

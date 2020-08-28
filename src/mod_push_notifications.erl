@@ -51,57 +51,42 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
-%% Push pubsub messages with type=headline, all new published posts and comments.
-offline_message_hook({_, #message{type = Type} = Message} = Acc)
-        when Type =:= headline ->
-    ?DEBUG("~p", [Message]),
-    push_message(Message),
-    Acc;
-
-%% Push chat messages: all messages with chat as the subelement.
-offline_message_hook({_, #message{sub_els = [SubEl]} = Message} = Acc)
-        when is_record(SubEl, chat) ->
-    ?DEBUG("~p", [Message]),
-    push_message(Message),
-    Acc;
-
-%% Push new feed messages: all messages with action=publish.
-offline_message_hook({_, #message{sub_els = [#feed_st{action = publish}]} = Message} = Acc) ->
-    ?DEBUG("~p", [Message]),
-    push_message(Message),
-    Acc;
-
-%% Push contact related notifications: could be contact_hash or new relationship notifications.
-offline_message_hook({_, #message{sub_els = [SubEl]} = Message} = Acc)
-        when is_record(SubEl, contact_list) ->
-    ?DEBUG("~p", [Message]),
-    push_message(Message),
-    Acc;
-
 offline_message_hook({_, #message{} = Message} = Acc) ->
-    ?WARNING_MSG("ignoring push: ~p", [Message]),
+    ?DEBUG("~p", [Message]),
+    case should_push(Message) of
+        true -> push_message(Message);
+        false -> ?WARNING_MSG("ignoring push: ~p", [Message])
+    end,
     Acc.
 
 
-%% TODO(murali@): delete this function if unnecessary.
 -spec should_push(Message :: message()) -> {ShouldPush :: boolean(), PushInfo :: push_info()}.
-should_push(#message{to = #jid{luser = User, lserver = Server}, sub_els = [#ps_event{
-        items = #ps_items{node = Node, items = [#ps_item{type = ItemType}]}}]}) ->
-    PushInfo = mod_push_tokens:get_push_info(User, Server),
-    ShouldPush = case PushInfo of
-        undefined -> false;
-        #push_info{os = <<"android">>} -> true;
-        #push_info{os = <<"ios_dev">>} -> true;
-        #push_info{os = <<"ios">>} -> case ItemType of
-            feedpost -> true;
-            comment ->
-                case Node of
-                    <<"feed-", OwnerId/binary>> -> User =:= OwnerId;
-                    _ -> false
-                end
-        end
-    end,
-    {ShouldPush, PushInfo}.
+should_push(#message{type = Type, sub_els = [SubEl]}) ->
+    if
+        type =:= headline ->
+            %% Push pubsub messages with type=headline, all new published posts and comments.
+            true;
+
+        type =:= groupchat andalso is_record(SubEl, group_chat) ->
+            %% Push all group chat messages: all messages with type=groupchat and group_chat as the subelement.
+            true;
+
+        is_record(SubEl, chat) ->
+            %% Push chat messages: all messages with chat as the subelement.
+            true;
+
+        is_record(SubEl, feed_st) andalso SubEl#feed_st.action =:= publish ->
+            %% Push new feed messages: all messages with action=publish.
+            true;
+
+        is_record(SubEl, contact_list) ->
+            %% Push contact related notifications: could be contact_hash or new relationship notifications.
+            true;
+
+        true ->
+            %% Ignore everything else.
+            false
+    end.
 
 
 -spec push_message(Message :: message()) -> ok.
