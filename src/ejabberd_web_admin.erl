@@ -2041,15 +2041,23 @@ generate_sms_info(Phone) ->
             {Date, Time} = util:ms_to_datetime_string(Ts * 1000),
             {ok, Sender} = model_phone:get_sms_code_sender(Phone),
             {ok, Receipt} = model_phone:get_sms_code_receipt(Phone),
+            XhtmlReceipt = case Receipt =:= <<>> orelse Receipt =:= undefined of
+                true -> [?C("No receipt found.")];
+                false ->
+                    Json = jsx:decode(Receipt),
+                    json_to_xhtml(Json, [], 2)
+            end,
             {ok, TTL} = model_phone:get_sms_code_ttl(Phone),
             StrTTL = seconds_to_string(TTL),
             [
-                ?XE(<<"p">>,[
+                ?XAE(<<"p">>, [{<<"style">>, <<"margin-bottom: 0px;">>}], [
                     ?C(io_lib:format("SMS code for ~s: ~s", [Phone, Code])), ?BR, ?BR,
                     ?C(io_lib:format("Sent on ~s at ~s by ~s", [Date, Time, Sender])), ?BR,
                     ?C(io_lib:format("TTL: ~s", [StrTTL])), ?BR,
-                    ?C(io_lib:format("Receipt: ~p", [Receipt]))
-                ])
+                    ?C("Receipt: ")
+                ]),
+                ?XAE(<<"pre">>, [{<<"style">>, <<"margin-top: 0px;">>}],
+                    [?XE(<<"code">>, XhtmlReceipt)])
             ]
     end,
     {ok, Uid} = model_phone:get_uid(Phone),
@@ -2073,6 +2081,30 @@ seconds_to_string(N) ->
         N > ?MINUTES -> io_lib:format("~B minutes, ~B seconds", [Mins, Secs]);
         N =< ?MINUTES -> io_lib:format("~B seconds", [Secs])
     end.
+
+
+-spec json_to_xhtml(list(tuple()), [], non_neg_integer()) -> list(tuple()).
+json_to_xhtml(Proplist, [], IndentLevel) when is_list(Proplist)->
+    json_to_xhtml(Proplist, [?C("{"), ?BR], IndentLevel);
+
+json_to_xhtml([], Acc, IndentLevel) ->
+    Indent = lists:flatten([" " || _ <- lists:seq(0, IndentLevel - 3)]),
+    lists:flatten([Acc | [?C(Indent ++ "}")]]);
+
+json_to_xhtml([{Name, Value} | Rest], Acc, IndentLevel) ->
+    MaybeComma = case Rest of
+        [] -> "";
+        _ -> ","
+    end,
+    Indent = lists:flatten([" " || _ <- lists:seq(0, IndentLevel)]),
+    Acc2 = case json_to_xhtml(Value, [], (2* IndentLevel) + byte_size(Name) + 3) of
+        Value -> [Acc | [?C(Indent ++ io_lib:format("~s: ~s", [Name, Value]) ++ MaybeComma), ?BR]];
+        NewValue -> [Acc | [?C(Indent ++ io_lib:format("~s: ", [Name]) ++ MaybeComma), NewValue, ?BR]]
+    end,
+    json_to_xhtml(Rest, Acc2, IndentLevel);
+
+json_to_xhtml(Else, _Acc, _IndentLevel) ->
+    Else.
 
 
 process_search_query(Query, PhoneFun, ElseFun) ->
