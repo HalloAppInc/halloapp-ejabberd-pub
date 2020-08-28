@@ -25,6 +25,8 @@ xmpp_to_proto(XmppStanza) ->
             {presence, presence_parser:xmpp_to_proto(XmppStanza)};
         message ->
             {msg, message_parser:xmpp_to_proto(XmppStanza)};
+        chat_state ->
+            {chat_state, chat_state_parser:xmpp_to_proto(XmppStanza)};
         %% TODO: add error parser
         _ -> undefined
     end,
@@ -46,6 +48,8 @@ proto_to_xmpp(PbPacket) ->
             presence_parser:proto_to_xmpp(PresenceRecord);
         {msg, MsgRecord} ->
             message_parser:proto_to_xmpp(MsgRecord);
+        {chat_state, ChatStateRecord} ->
+            chat_state_parser:proto_to_xmpp(ChatStateRecord);
         %% TODO: add error parser
         _ -> undefined
     end,

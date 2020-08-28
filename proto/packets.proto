@@ -122,6 +122,24 @@ message ha_presence {
 }
 
 
+// Chat State
+
+message ha_chat_state {
+    enum Type {
+        available = 0;
+        typing = 1;
+    }
+    Type type = 1;
+    string thread_id = 2;
+    enum ThreadType {
+        chat = 1;
+        group_chat = 2;
+    }
+    ThreadType thread_type = 3;
+    int64 from_uid = 4;
+}
+
+
 // Ack
 
 message ha_ack {
@@ -146,6 +164,7 @@ message packet {
         ha_ack ack = 3;
         ha_presence presence = 4;
         ha_error error = 5;
+        ha_chat_state chat_state = 6;
     }
 }
 
