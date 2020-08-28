@@ -64,6 +64,7 @@ offline_message_hook({_, #message{} = Message} = Acc) ->
 should_push(#message{type = Type, sub_els = [SubEl]}) ->
     if
         type =:= headline ->
+            %% TODO(murali@): remove the old api and then disable the format of push.
             %% Push pubsub messages with type=headline, all new published posts and comments.
             true;
 
@@ -76,8 +77,8 @@ should_push(#message{type = Type, sub_els = [SubEl]}) ->
             true;
 
         is_record(SubEl, feed_st) andalso SubEl#feed_st.action =:= publish ->
-            %% Push new feed messages: all messages with action=publish.
-            true;
+            %% Ignore new feed messages for now.. because we anyways send a push with old stanza.
+            false;
 
         is_record(SubEl, contact_list) ->
             %% Push contact related notifications: could be contact_hash or new relationship notifications.
