@@ -31,8 +31,7 @@
 -export([
     process_local_iq/1,
     privacy_check_packet/4,
-    get_privacy_type/1,
-    remove_friend/3
+    get_privacy_type/1
 ]).
 
 -type c2s_state() :: ejabberd_c2s:state().
@@ -45,14 +44,12 @@ start(Host, _Opts) ->
     ?INFO_MSG("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_USER_PRIVACY, ?MODULE, process_local_iq),
     ejabberd_hooks:add(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
-    ejabberd_hooks:add(remove_friend, Host, ?MODULE, remove_friend, 50),
     ok.
 
 stop(Host) ->
     ?INFO_MSG("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_USER_PRIVACY),
     ejabberd_hooks:delete(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
-    ejabberd_hooks:delete(remove_friend, Host, ?MODULE, remove_friend, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -131,12 +128,6 @@ privacy_check_packet(allow, _State, Pkt, _Dir)
 privacy_check_packet(Acc, _, _, _) ->
     Acc.
 
-
--spec remove_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
-remove_friend(UserId, _Server, ContactId) ->
-    ?INFO_MSG("Uid: ~s, ContactId: ~s", [UserId, ContactId]),
-    model_privacy:remove_only_uid(UserId, ContactId),
-    ok.
 
 %%====================================================================
 %% internal functions.
