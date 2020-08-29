@@ -65,6 +65,9 @@
 -include("mod_roster.hrl").
 -include("translate.hrl").
 
+-define(NOISE_STATIC_KEY, <<"static_key">>).
+-define(NOISE_SERVER_CERTIFICATE, <<"server_certificate">>).
+
 -type state() :: halloapp_stream_in:state().
 -export_type([state/0]).
 
@@ -405,16 +408,12 @@ init([State, Opts]) ->
                 end, Opts),
             State1#{tls_options => TLSOpts1};
         noise ->
-            %% TODO(vipin): Cache the Noise keys.
+            {NoiseStaticKey, NoiseCertificate} = get_noise_info(),
 
-            NoiseStaticKeyFilename = proplists:get_value(noise_static_key, Opts, none),
-            NoiseCertificateFilename = proplists:get_value(noise_server_certificate, Opts, none),
-            {ok, FileContent} = file:read_file(NoiseStaticKeyFilename),
-            [{_, ServerPublic, _}, {_, ServerSecret, _}] = public_key:pem_decode(FileContent),
+            [{_, ServerPublic, _}, {_, ServerSecret, _}] = public_key:pem_decode(NoiseStaticKey),
             ServerKeypair = enoise_keypair:new(dh25519, ServerSecret, ServerPublic),
-        
-            {ok, FileContent2} = file:read_file(NoiseCertificateFilename),
-            [{_, Certificate, _}] = public_key:pem_decode(FileContent2),
+
+            [{_, Certificate, _}] = public_key:pem_decode(NoiseCertificate),
         
             NoiseOpts = [{noise_static_key, ServerKeypair},
                          {noise_server_certificate, Certificate}],
@@ -423,6 +422,13 @@ init([State, Opts]) ->
     Timeout = ejabberd_option:negotiation_timeout(),
     State3 = halloapp_stream_in:set_timeout(State2, Timeout),
     ejabberd_hooks:run_fold(c2s_init, {ok, State3}, [Opts]).
+
+
+%% TODO(vipin): Try and cache the key and certificate.
+get_noise_info() ->
+    [{?NOISE_STATIC_KEY, NoiseStaticKey}, {?NOISE_SERVER_CERTIFICATE, NoiseCertificate}] = 
+        jsx:decode(mod_aws:get_secret(config:get_noise_secret_name())),
+    {NoiseStaticKey, NoiseCertificate}.
 
 
 handle_call(Request, From, #{lserver := LServer} = State) ->

@@ -15,7 +15,8 @@
     is_testing_env/0,
     is_prod_env/0,
     get_service/1,
-    get_default_log_level/0
+    get_default_log_level/0,
+    get_noise_secret_name/0
 ]).
 -export_type([service/0, hallo_env/0]).
 
@@ -24,6 +25,8 @@
 -define(ENV_PROD, "prod").
 -define(ENV_TEST, "test").
 -define(ENV_GITHUB, "github").
+-define(NOISE_PROD_SECRET_NAME, <<"noise_secret_prod">>).
+-define(NOISE_DEV_SECRET_NAME, <<"noise_secret_dev">>).
 
 -type hallo_env() :: prod | localhost | test | github.
 
@@ -44,6 +47,13 @@ is_testing_env() ->
         test -> true;
         github -> true;
         _ -> false
+    end.
+
+-spec get_noise_secret_name() -> binary().
+get_noise_secret_name() ->
+    case is_prod_env() of
+        true -> ?NOISE_PROD_SECRET_NAME;
+        _ -> ?NOISE_DEV_SECRET_NAME
     end.
 
 

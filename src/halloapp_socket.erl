@@ -19,6 +19,7 @@
     connect/5,
     starttls/2,
     startnoise/2,
+    noise_check_spub/2,
     reset_stream/1,
     send_element/2,
     send/2,
@@ -142,13 +143,31 @@ starttls(_, _) ->
     erlang:error(badarg).
 
 
+-spec noise_check_spub(binary(), binary()) -> ok | {error, binary()}.
+noise_check_spub(SPub, Auth) ->
+    try enif_protobuf:decode(Auth, pb_auth_request) of
+        Pkt ->
+            stat:count("HA/pb_packet", "decode_success"),
+            ?DEBUG("recv: protobuf: ~p", [Pkt]),
+            case ejabberd_auth:check_spub(Pkt#pb_auth_request.uid, <<>>, util:get_host(), SPub) of
+                true ->
+                    stat:count("HA/check_spub", "match"),
+                    ok;
+                false ->
+                    stat:count("HA/check_spub", "mismatch"),
+                    {error, <<"spub_mismatch">>}
+            end
+    catch _:_ ->
+        stat:count("HA/pb_packet", "decode_failure"),
+        {error, "failed_coded"}
+    end.
+
+
 -spec startnoise(socket_state(), [proplists:property()]) -> {ok, socket_state()} |
         {error, inet:posix() | atom() | binary()}.
 startnoise(#socket_state{sockmod = gen_tcp, socket = Socket} = SocketData, NoiseOpts) ->
     {StaticKey, Certificate} = extract_noise_keys(NoiseOpts),
-    %% TODO(vipin): Need a valid verify function.
-    VerifyFun = fun (_A, _B) -> {error, "wip"} end,
-    case ha_enoise:tcp_to_noise(Socket, StaticKey, Certificate, VerifyFun) of
+    case ha_enoise:tcp_to_noise(Socket, StaticKey, Certificate, fun noise_check_spub/2) of
         {ok, NoiseSocket} ->
             SocketData1 = SocketData#socket_state{socket = NoiseSocket, sockmod = ha_enoise},
             SocketData2 = reset_stream(SocketData1),
