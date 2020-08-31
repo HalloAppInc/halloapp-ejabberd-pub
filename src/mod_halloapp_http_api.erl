@@ -203,11 +203,12 @@ check_sms_code(Phone, Code) ->
 request_sms(Phone, UserAgent) ->
     Code = mod_sms:generate_code(util:is_test_number(Phone)),
     ?DEBUG("code generated phone:~s code:~s", [Phone, Code]),
+    finish_enroll(Phone, Code),
     case util:is_test_number(Phone) of
-        true -> finish_enroll(Phone, Code, <<>>);
+        true -> ok;
         false ->
             {ok, Receipt} = send_sms(Phone, Code, UserAgent),
-            finish_enroll(Phone, Code, Receipt)
+            model_phone:add_sms_code_receipt(Phone, Receipt)
     end.
 
 
@@ -221,11 +222,11 @@ send_sms(Phone, Code, UserAgent) ->
     end.
 
 
--spec finish_enroll(phone(), binary(), binary()) -> any().
-finish_enroll(Phone, Code, Receipt) ->
+-spec finish_enroll(phone(), binary()) -> any().
+finish_enroll(Phone, Code) ->
     Host = util:get_host(),
     {ok, _} = ejabberd_admin:unenroll(Phone, Host),
-    {ok, _} = ejabberd_admin:enroll(Phone, Host, Code, Receipt),
+    {ok, _} = ejabberd_admin:enroll(Phone, Host, Code),
     ok.
 
 

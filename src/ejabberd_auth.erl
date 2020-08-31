@@ -19,7 +19,7 @@
     check_password_with_authmodule/4,
     check_password_with_authmodule/6,
     try_register/3,
-    try_enroll/4,
+    try_enroll/3,
     check_and_register/5,
     get_users/0,
     get_users/1,
@@ -225,12 +225,10 @@ try_register(Phone, Server, Password) ->
     end.
 
 
--spec try_enroll(Phone :: binary(), Server :: binary(), Passcode :: binary(),
-        Receipt :: binary()) -> {ok, binary()}.
-try_enroll(Phone, _Server, Passcode, Receipt) ->
+-spec try_enroll(Phone :: binary(), Server :: binary(), Passcode :: binary()) -> {ok, binary()}.
+try_enroll(Phone, _Server, Passcode) ->
     ?INFO_MSG("phone:~s code:~s", [Phone, Passcode]),
     ok = model_phone:add_sms_code(Phone, Passcode, util:now(), ?TWILIO),
-    ok = model_phone:add_sms_code_receipt(Phone, Receipt),
     stat:count("HA/account", "enroll"),
     {ok, Passcode}.
 
