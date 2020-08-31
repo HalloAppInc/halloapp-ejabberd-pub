@@ -160,7 +160,7 @@ route_offline_message(#message{to = To, type = _Type} = Packet) ->
     LUser = To#jid.luser,
     LServer = To#jid.lserver,
     DecodedPacket = xmpp:decode_els(Packet),
-    case ejabberd_auth:user_exists(LUser, LServer) andalso
+    case ejabberd_auth:user_exists(LUser) andalso
         is_privacy_allow(DecodedPacket) of
         true ->
             ejabberd_hooks:run_fold(offline_message_hook,
@@ -206,8 +206,8 @@ close_session(SID, User, Server, Resource) ->
 
 -spec check_in_subscription(boolean(), presence()) -> boolean() | {stop, false}.
 check_in_subscription(Acc, #presence{to = To}) ->
-    #jid{user = User, server = Server} = To,
-    case ejabberd_auth:user_exists(User, Server) of
+    #jid{user = User} = To,
+    case ejabberd_auth:user_exists(User) of
       true -> Acc;
       false -> {stop, false}
     end.

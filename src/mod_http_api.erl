@@ -94,7 +94,7 @@ extract_auth(#request{auth = HTTPAuth, ip = {IP, _}, opts = Opts}) ->
 	       {SJID, Pass} ->
 		   try jid:decode(SJID) of
 		       #jid{luser = User, lserver = Server} ->
-			   case ejabberd_auth:check_password(User, <<"">>, Server, Pass) of
+			   case ejabberd_auth:check_password(User, Pass) of
 			       true ->
 				   #{usr => {User, Server, <<"">>}, caller_server => Server};
 			       false ->

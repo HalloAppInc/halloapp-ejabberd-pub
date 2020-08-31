@@ -83,7 +83,7 @@ register_test() ->
         #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?UA)}),
     [{<<"uid">>, Uid}, {<<"phone">>, ?PHONE}, {<<"password">>, Pass},
         {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
-    ?assert(ejabberd_auth:check_password(Uid, <<>>, ?SERVER, Pass)),
+    ?assert(ejabberd_auth:check_password(Uid, Pass)),
     meck_finish(ejabberd_router).
 
 %%%----------------------------------------------------------------------
@@ -113,7 +113,7 @@ check_invited_test() ->
     ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE)),
     clear(),
     ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE)),
-    {ok, _Pass, _Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SERVER, <<"pass">>, ?NAME, ?UA),
+    {ok, _Pass, _Uid} = ejabberd_auth:ha_try_register(?PHONE, <<"pass">>, ?NAME, ?UA),
     ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE)).
 
 

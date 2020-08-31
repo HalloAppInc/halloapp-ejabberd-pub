@@ -256,7 +256,7 @@ get_auth_account(HostOfRule, AccessRule, User, Server,
 
 get_auth_account2(HostOfRule, AccessRule, User, Server,
 		 Pass) ->
-    case ejabberd_auth:check_password(User, <<"">>, Server, Pass) of
+    case ejabberd_auth:check_password(User, Pass) of
       true ->
 	  case any_rules_allowed(HostOfRule, AccessRule,
 				 jid:make(User, Server))
@@ -265,7 +265,7 @@ get_auth_account2(HostOfRule, AccessRule, User, Server,
 	    true -> {ok, {User, Server}}
 	  end;
       false ->
-	  case ejabberd_auth:user_exists(User, Server) of
+	  case ejabberd_auth:user_exists(User) of
 	    true -> {unauthorized, <<"bad-password">>};
 	    false -> {unauthorized, <<"inexistent-account">>}
 	  end
@@ -503,7 +503,7 @@ process_admin(Host, #request{path = [<<"stats">>], lang = Lang}, AJID) ->
     make_xhtml(PageH1 ++ Res, Host, Lang, AJID);
 process_admin(Host, #request{path = [<<"user">>, U],
 			     q = Query, lang = Lang}, AJID) ->
-    case ejabberd_auth:user_exists(U, Host) of
+    case ejabberd_auth:user_exists(U) of
       true ->
 	  Res = user_info(U, Host, Query, Lang),
 	  make_xhtml(Res, Host, Lang, AJID);
@@ -598,7 +598,7 @@ list_vhosts2(Lang, Hosts) ->
 				 OnlineUsers =
 				     length(ejabberd_sm:get_vh_session_list(Host)),
 				 RegisteredUsers =
-				     ejabberd_auth:count_users(Host),
+				     ejabberd_auth:count_users(),
 				 ?XE(<<"tr">>,
 				     [?XE(<<"td">>,
 					  [?AC(<<"../server/", Host/binary,
@@ -616,7 +616,7 @@ list_vhosts2(Lang, Hosts) ->
 
 list_users(Host, Query, Lang, URLFunc) ->
     Res = list_users_parse_query(Query, Host),
-    Users = ejabberd_auth:get_users(Host),
+    Users = ejabberd_auth:get_users(),
     SUsers = lists:sort([{S, U} || {U, S} <- Users]),
     FUsers = case length(SUsers) of
 	       N when N =< 100 ->
@@ -697,7 +697,7 @@ list_users_parse_query(Query, Host) ->
     end.
 
 list_users_in_diapason(Host, Diap, Lang, URLFunc) ->
-    Users = ejabberd_auth:get_users(Host),
+    Users = ejabberd_auth:get_users(),
     SUsers = lists:sort([{S, U} || {U, S} <- Users]),
     [S1, S2] = ejabberd_regexp:split(Diap, <<"-">>),
     N1 = binary_to_integer(S1),
@@ -803,11 +803,7 @@ su_to_list({Server, User}) ->
 
 get_stats(global, Lang) ->
     OnlineUsers = ejabberd_sm:connected_users_number(),
-    RegisteredUsers = lists:foldl(fun (Host, Total) ->
-					  ejabberd_auth:count_users(Host)
-					    + Total
-				  end,
-				  0, ejabberd_option:hosts()),
+    RegisteredUsers = ejabberd_auth:count_users(),
     OutS2SNumber = ejabberd_s2s:outgoing_s2s_number(),
     InS2SNumber = ejabberd_s2s:incoming_s2s_number(),
     [?XAE(<<"table">>, [],
@@ -828,7 +824,7 @@ get_stats(Host, Lang) ->
     OnlineUsers =
 	length(ejabberd_sm:get_vh_session_list(Host)),
     RegisteredUsers =
-	ejabberd_auth:count_users(Host),
+	ejabberd_auth:count_users(),
     [?XAE(<<"table">>, [],
 	  [?XE(<<"tbody">>,
 	       [?XE(<<"tr">>,
@@ -969,11 +965,11 @@ user_parse_query(User, Server, Query) ->
 user_parse_query1(<<"password">>, _User, _Server,
 		  _Query) ->
     nothing;
-user_parse_query1(<<"chpassword">>, User, Server,
+user_parse_query1(<<"chpassword">>, User, _Server,
 		  Query) ->
     case lists:keysearch(<<"password">>, 1, Query) of
       {value, {_, Password}} ->
-	  ejabberd_auth:set_password(User, Server, Password), ok;
+	  ejabberd_auth:set_password(User, Password), ok;
       _ -> error
     end;
 user_parse_query1(<<"removeuser">>, User, Server,

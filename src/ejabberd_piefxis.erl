@@ -135,7 +135,7 @@ export_host(Dir, FnH, Host) ->
         {ok, Fd} ->
             print(Fd, make_piefxis_xml_head()),
             print(Fd, make_piefxis_host_head(Host)),
-            Users = ejabberd_auth:get_users(Host),
+            Users = ejabberd_auth:get_users(),
             case export_users(Users, Host, Fd) of
                 ok ->
                     print(Fd, make_piefxis_host_tail()),
@@ -164,9 +164,8 @@ export_users([], _Server, _Fd) ->
     ok.
 
 export_user(User, Server, Fd) ->
-    Password = ejabberd_auth:get_password_s(User, Server),
-    LServer = jid:nameprep(Server),
-    Pass = case ejabberd_auth:password_format(LServer) of
+    Password = <<"">>,
+    Pass = case ejabberd_auth:password_format() of
 	       scram -> format_scram_password(Password);
 	       _ -> Password
 	   end,
@@ -382,7 +381,7 @@ process_user(#xmlel{name = <<"user">>, attrs = Attrs, children = Els},
              #state{server = LServer} = State) ->
     Name = fxml:get_attr_s(<<"name">>, Attrs),
     Password = fxml:get_attr_s(<<"password">>, Attrs),
-    PasswordFormat = ejabberd_auth:password_format(LServer),
+    PasswordFormat = ejabberd_auth:password_format(),
     Pass = case PasswordFormat of
       scram ->
         case Password of

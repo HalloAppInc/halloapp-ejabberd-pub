@@ -93,7 +93,7 @@ prepare_turn_opts(Opts, _UseTurn = true) ->
 	_ ->
 	    ok
     end,
-    AuthFun = fun ejabberd_auth:get_password_s/2,
+    AuthFun = fun(_, _) -> <<"">> end,
     Shaper = proplists:get_value(shaper, Opts, none),
     AuthType = proplists:get_value(auth_type, Opts, user),
     Realm = case proplists:get_value(auth_realm, Opts) of

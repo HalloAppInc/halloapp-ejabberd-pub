@@ -837,15 +837,15 @@ restart_module(Host, Module) when is_atom(Module) ->
 %%%
 
 set_password(User, Host, Password) ->
-    Fun = fun () -> ejabberd_auth:set_password(User, Host, Password) end,
+    Fun = fun () -> ejabberd_auth:set_password(User, Password) end,
     user_action(User, Host, Fun, ok).
 
-check_password(User, Host, Password) ->
-    ejabberd_auth:check_password(User, <<>>, Host, Password).
+check_password(User, _Host, Password) ->
+    ejabberd_auth:check_password(User, Password).
 
 %% Copied some code from ejabberd_commands.erl
-check_password_hash(User, Host, PasswordHash, HashMethod) ->
-    AccountPass = ejabberd_auth:get_password_s(User, Host),
+check_password_hash(_User, _Host, PasswordHash, HashMethod) ->
+    AccountPass = <<"">>,
     Methods = lists:map(fun(A) -> atom_to_binary(A, latin1) end,
                    proplists:get_value(hashs, crypto:supports())),
     MethodAllowed = lists:member(HashMethod, Methods),
@@ -878,9 +878,9 @@ delete_old_users(Days) ->
     {removed, N, UR} = delete_old_users(Days, Users),
     {ok, io_lib:format("Deleted ~p users: ~p", [N, UR])}.
 
-delete_old_users_vhost(Host, Days) ->
+delete_old_users_vhost(_Host, Days) ->
     %% Get the list of registered users
-    Users = ejabberd_auth:get_users(Host),
+    Users = ejabberd_auth:get_users(),
 
     {removed, N, UR} = delete_old_users(Days, Users),
     {ok, io_lib:format("Deleted ~p users: ~p", [N, UR])}.
@@ -942,8 +942,8 @@ build_random_password(Reason) ->
     RandomString = p1_rand:get_string(),
     <<"BANNED_ACCOUNT--", Date/binary, "--", RandomString/binary, "--", Reason/binary>>.
 
-set_password_auth(User, Server, Password) ->
-    ok = ejabberd_auth:set_password(User, Server, Password).
+set_password_auth(User, _Server, Password) ->
+    ok = ejabberd_auth:set_password(User, Password).
 
 prepare_reason([]) ->
     <<"Kicked by administrator">>;
@@ -1320,8 +1320,8 @@ subscribe_roster({Name1, Server1, Group1, Nick1}, [{Name2, Server2, Group2, Nick
 	iolist_to_binary(Nick2), iolist_to_binary(Group2), <<"both">>, []),
     subscribe_roster({Name1, Server1, Group1, Nick1}, Roster).
 
-push_alltoall(S, G) ->
-    Users = ejabberd_auth:get_users(S),
+push_alltoall(_S, G) ->
+    Users = ejabberd_auth:get_users(),
     Users2 = build_list_users(G, Users, []),
     subscribe_all(Users2),
     ok.
@@ -1551,20 +1551,20 @@ stats(Name) ->
     case Name of
 	<<"uptimeseconds">> -> trunc(element(1, erlang:statistics(wall_clock))/1000);
 	<<"processes">> -> length(erlang:processes());
-	<<"registeredusers">> -> lists:foldl(fun(Host, Sum) -> ejabberd_auth:count_users(Host) + Sum end, 0, ejabberd_option:hosts());
+	<<"registeredusers">> -> ejabberd_auth:count_users();
 	<<"onlineusersnode">> -> length(ejabberd_sm:dirty_get_my_sessions_list());
 	<<"onlineusers">> -> length(ejabberd_sm:dirty_get_sessions_list())
     end.
 
 stats(Name, Host) ->
     case Name of
-	<<"registeredusers">> -> ejabberd_auth:count_users(Host);
+	<<"registeredusers">> -> ejabberd_auth:count_users();
 	<<"onlineusers">> -> length(ejabberd_sm:get_vh_session_list(Host))
     end.
 
 
-user_action(User, Server, Fun, OK) ->
-    case ejabberd_auth:user_exists(User, Server) of
+user_action(User, _Server, Fun, OK) ->
+    case ejabberd_auth:user_exists(User) of
         true ->
             case catch Fun() of
                 OK -> ok;

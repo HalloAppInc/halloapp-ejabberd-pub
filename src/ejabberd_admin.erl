@@ -669,7 +669,7 @@ unregister(User, Host) ->
 registered_users(Host) ->
     case is_my_host(Host) of
 	true ->
-	    Users = ejabberd_auth:get_users(Host),
+	    Users = ejabberd_auth:get_users(),
 	    SUsers = lists:sort(Users),
 	    lists:map(fun({U, _S}) -> U end, SUsers);
 	false ->
@@ -679,7 +679,7 @@ registered_users(Host) ->
 enroll(User, Host, Passcode) ->
     case is_my_host(Host) of
         true ->
-            case ejabberd_auth:try_enroll(User, Host, Passcode) of
+            case ejabberd_auth:try_enroll(User, Passcode) of
                 {ok, _} ->
                     ?INFO_MSG("Phone ~s successfully enrolled", [User]),
                     {ok, io_lib:format("User ~ts@~ts successfully enrolled", [User, Host])};

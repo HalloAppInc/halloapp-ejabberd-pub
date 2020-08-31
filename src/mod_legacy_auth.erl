@@ -89,11 +89,10 @@ c2s_stream_features(Acc, LServer) ->
 %%% Internal functions
 %%%===================================================================
 -spec authenticate(c2s_state(), iq()) -> c2s_state().
-authenticate(#{server := Server} = State,
+authenticate(State,
 	     #iq{type = get, sub_els = [#legacy_auth{}]} = IQ) ->
-    LServer = jid:nameprep(Server),
     Auth = #legacy_auth{username = <<>>, password = <<>>, resource = <<>>},
-    Res = case ejabberd_auth:plain_password_required(LServer) of
+    Res = case ejabberd_auth:plain_password_required() of
 	      false ->
 		  xmpp:make_iq_result(IQ, Auth#legacy_auth{digest = <<>>});
 	      true ->
@@ -108,27 +107,23 @@ authenticate(State,
     Txt = ?T("Both the username and the resource are required"),
     Err = xmpp:make_error(IQ, xmpp:err_not_acceptable(Txt, Lang)),
     ejabberd_c2s:send(State, Err);
-authenticate(#{stream_id := StreamID, server := Server,
+authenticate(#{server := Server,
 	       access := Access, ip := IP} = State,
 	     #iq{type = set, lang = Lang,
 		 sub_els = [#legacy_auth{username = U,
 					 password = P0,
-					 digest = D0,
 					 resource = R}]} = IQ) ->
     P = if is_binary(P0) -> P0; true -> <<>> end,
-    D = if is_binary(D0) -> D0; true -> <<>> end,
-    DGen = fun (PW) -> str:sha(<<StreamID/binary, PW/binary>>) end,
     JID = jid:make(U, Server, R),
     case JID /= error andalso
 	acl:match_rule(JID#jid.lserver, Access,
 		       #{usr => jid:split(JID), ip => IP}) == allow of
 	true ->
-	    case ejabberd_auth:check_password_with_authmodule(
-		   U, U, JID#jid.lserver, P, D, DGen) of
-		{true, AuthModule} ->
+	    case ejabberd_auth:check_password(U, P) of
+		true ->
 		    State1 = State#{sasl_mech => <<"legacy">>},
 		    State2 = ejabberd_c2s:handle_auth_success(
-			       U, <<"legacy">>, AuthModule, State1),
+			       U, <<"legacy">>, <<>>, State1),
 		    State3 = State2#{user := U},
 		    open_session(State3, IQ, R);
 		_ ->

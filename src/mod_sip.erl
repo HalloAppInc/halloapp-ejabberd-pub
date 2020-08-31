@@ -279,17 +279,8 @@ check_auth(#sip{method = Method, hdrs = Hdrs, body = Body}, AuthHdr, _SIPSock) -
                    (LUser == esip:unquote(Username))
                        and (LServer == esip:unquote(Realm))
            end, esip:get_hdrs(AuthHdr, Hdrs)) of
-        [Auth|_] ->
-	    case ejabberd_auth:get_password_s(LUser, LServer) of
-		<<"">> ->
+        [_Auth|_] ->
 		    false;
-		Password when is_binary(Password) ->
-		    esip:check_auth(Auth, Method, Body, Password);
-		_ScramedPassword ->
-		    ?ERROR_MSG("Unable to authenticate ~ts@~ts against SCRAM'ed "
-			       "password", [LUser, LServer]),
-		    false
-	    end;
         [] ->
             false
     end.

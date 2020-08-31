@@ -476,23 +476,20 @@ change_password(Username, Host, PasswordOld,
     account_exists = check_account_exists(Username, Host),
     password_correct = check_password(Username, Host,
 				      PasswordOld),
-    ok = ejabberd_auth:set_password(Username, Host,
-				    Password),
+    ok = ejabberd_auth:set_password(Username, Password),
     case check_password(Username, Host, Password) of
       password_correct -> {atomic, ok};
       password_incorrect -> {error, password_not_changed}
     end.
 
-check_account_exists(Username, Host) ->
-    case ejabberd_auth:user_exists(Username, Host) of
+check_account_exists(Username, _Host) ->
+    case ejabberd_auth:user_exists(Username) of
       true -> account_exists;
       false -> account_doesnt_exist
     end.
 
-check_password(Username, Host, Password) ->
-    case ejabberd_auth:check_password(Username, <<"">>, Host,
-				      Password)
-	of
+check_password(Username, _Host, Password) ->
+    case ejabberd_auth:check_password(Username, Password) of
       true -> password_correct;
       false -> password_incorrect
     end.

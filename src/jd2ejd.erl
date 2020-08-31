@@ -115,7 +115,7 @@ xdb_data(User, Server, #xmlel{attrs = Attrs} = El) ->
     case fxml:get_attr_s(<<"xmlns">>, Attrs) of
       ?NS_AUTH ->
 	  Password = fxml:get_tag_cdata(El),
-	  ejabberd_auth:set_password(User, Server, Password),
+	  ejabberd_auth:set_password(User, Password),
 	  ok;
       ?NS_ROSTER ->
 	  catch mod_roster:set_items(User, Server, xmpp:decode(El)),

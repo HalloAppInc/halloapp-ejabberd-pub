@@ -117,10 +117,10 @@ get_local_stat(Server, [], Name)
 	  ?STATVAL((integer_to_binary(length(Users))),
 		   <<"users">>)
     end;
-get_local_stat(Server, [], Name)
+get_local_stat(_Server, [], Name)
     when Name == <<"users/total">> ->
     case catch
-	   ejabberd_auth:count_users(Server)
+	   ejabberd_auth:count_users()
 	of
       {'EXIT', _Reason} ->
 	  ?STATERR(500, <<"Internal Server Error">>);
@@ -134,11 +134,7 @@ get_local_stat(_Server, [], Name)
     ?STATVAL((integer_to_binary(Users)), <<"users">>);
 get_local_stat(_Server, [], Name)
     when Name == <<"users/all-hosts/total">> ->
-    NumUsers = lists:foldl(fun (Host, Total) ->
-				   ejabberd_auth:count_users(Host)
-				     + Total
-			   end,
-			   0, ejabberd_option:hosts()),
+    NumUsers = ejabberd_auth:count_users(),
     ?STATVAL((integer_to_binary(NumUsers)),
 	     <<"users">>);
 get_local_stat(_Server, _, Name) ->

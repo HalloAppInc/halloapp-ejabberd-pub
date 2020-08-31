@@ -230,11 +230,10 @@ handle_unexpected_cast(State, Msg) ->
     State.
 
 
-process_auth_result(#{auth_module := AuthModule, socket := Socket,
+process_auth_result(#{socket := Socket,
         ip := IP, lserver := LServer} = State, true, User) ->
-    ?INFO_MSG("(~ts) Accepted c2s authentication for ~ts@~ts by ~ts backend from ~ts",
+    ?INFO_MSG("(~ts) Accepted c2s authentication for ~ts@~ts from ~ts",
             [halloapp_socket:pp(Socket), User, LServer,
-            ejabberd_auth:backend_type(AuthModule),
             ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
     State;
 process_auth_result(#{socket := Socket,ip := IP, lserver := LServer} = State,
@@ -290,9 +289,9 @@ noise_options(#{lserver := _LServer, noise_options := DefaultOpts}) ->
     DefaultOpts.
 
 
-check_password_fun(_Mech, #{lserver := LServer}) ->
-    fun(U, AuthzId, P) ->
-        ejabberd_auth:check_password_with_authmodule(U, AuthzId, LServer, P)
+check_password_fun(_Mech, #{lserver := _LServer}) ->
+    fun(U, _AuthzId, P) ->
+        ejabberd_auth:check_password(U, P)
     end.
 
 

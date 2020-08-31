@@ -191,7 +191,7 @@ process_iq(#iq{type = get, from = From, to = To, id = ID, lang = Lang} = IQ,
     {IsRegistered, Username} =
 	case From of
 	    #jid{user = User, lserver = Server} ->
-		case ejabberd_auth:user_exists(User, Server) of
+		case ejabberd_auth:user_exists(User) of
 		    true ->
 			{true, User};
 		    false ->
@@ -273,7 +273,7 @@ try_register_or_set_password(User, Server, Password,
 try_set_password(User, Server, Password) ->
     case is_strong_password(Server, Password) of
 	true ->
-	    ejabberd_auth:set_password(User, Server, Password);
+	    ejabberd_auth:set_password(User, Password);
 	error_preparing_password ->
 	    {error, invalid_password};
 	false ->
@@ -523,13 +523,13 @@ is_strong_password(Server, Password) ->
 	    error_preparing_password
     end.
 
-is_strong_password2(Server, Password) ->
+is_strong_password2(Server, _Password) ->
     LServer = jid:nameprep(Server),
     case mod_register_opt:password_strength(LServer) of
         0 ->
             true;
-        Entropy ->
-            ejabberd_auth:entropy(Password) >= Entropy
+        _Entropy ->
+            true
     end.
 
 %%%

@@ -269,12 +269,11 @@ reject_unauthenticated_packet(State, _Pkt) ->
     Err = xmpp:serr_not_authorized(),
     send(State, Err).
 
-process_auth_result(#{sasl_mech := Mech, auth_module := AuthModule,
+process_auth_result(#{sasl_mech := Mech,
 		      socket := Socket, ip := IP, lserver := LServer} = State,
 		    true, User) ->
-    ?INFO_MSG("(~ts) Accepted c2s ~ts authentication for ~ts@~ts by ~ts backend from ~ts",
+    ?INFO_MSG("(~ts) Accepted c2s ~ts authentication for ~ts@~ts from ~ts",
               [xmpp_socket:pp(Socket), Mech, User, LServer,
-               ejabberd_auth:backend_type(AuthModule),
                ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
     State;
 process_auth_result(#{sasl_mech := Mech,
@@ -380,7 +379,7 @@ authenticated_stream_features(#{lserver := LServer}) ->
     ejabberd_hooks:run_fold(c2s_post_auth_features, LServer, [], [LServer]).
 
 sasl_mechanisms(Mechs, #{lserver := LServer} = State) ->
-    Type = ejabberd_auth:store_type(LServer),
+    Type = ejabberd_auth:store_type(),
     Mechs1 = ejabberd_option:disable_sasl_mechanisms(LServer),
     %% I re-created it from cyrsasl ets magic, but I think it's wrong
     %% TODO: need to check before 18.09 release
@@ -394,9 +393,9 @@ sasl_mechanisms(Mechs, #{lserver := LServer} = State) ->
 	 (_) -> false
       end, Mechs -- Mechs1).
 
-get_password_fun(_Mech, #{lserver := LServer}) ->
-    fun(U) ->
-	    ejabberd_auth:get_password_with_authmodule(U, LServer)
+get_password_fun(_Mech, #{lserver := _LServer}) ->
+    fun(_U) ->
+        {false, undefined}
     end.
 
 check_password_fun(<<"X-OAUTH2">>, #{lserver := LServer}) ->
@@ -407,14 +406,14 @@ check_password_fun(<<"X-OAUTH2">>, #{lserver := LServer}) ->
 		_ -> {false, ejabberd_oauth}
 	    end
     end;
-check_password_fun(_Mech, #{lserver := LServer}) ->
-    fun(U, AuthzId, P) ->
-	    ejabberd_auth:check_password_with_authmodule(U, AuthzId, LServer, P)
+check_password_fun(_Mech, #{lserver := _LServer}) ->
+    fun(U, _AuthzId, P) ->
+	    ejabberd_auth:check_password(U, P)
     end.
 
-check_password_digest_fun(_Mech, #{lserver := LServer}) ->
-    fun(U, AuthzId, P, D, DG) ->
-	    ejabberd_auth:check_password_with_authmodule(U, AuthzId, LServer, P, D, DG)
+check_password_digest_fun(_Mech, #{lserver := _LServer}) ->
+    fun(U, _AuthzId, P, _D, _DG) ->
+	    ejabberd_auth:check_password(U, P)
     end.
 
 bind(<<"">>, State) ->

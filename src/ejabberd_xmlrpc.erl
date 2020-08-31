@@ -122,7 +122,7 @@ extract_auth(AuthList) ->
                 [U0, S0, P] ->
 		    U = jid:nodeprep(U0),
 		    S = jid:nameprep(S0),
-		    case ejabberd_auth:check_password(U, <<"">>, S, P) of
+		    case ejabberd_auth:check_password(U, P) of
 			true ->
 			    #{usr => {U, S, <<"">>}, caller_server => S};
 			false ->

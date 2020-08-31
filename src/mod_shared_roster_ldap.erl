@@ -367,7 +367,7 @@ search_group_info(State, Group) ->
 		      end
 		end,
     AuthChecker = case State#state.auth_check of
-		    true -> fun ejabberd_auth:user_exists/2;
+		    true -> fun(U, _S) -> ejabberd_auth:user_exists(U) end;
 		    _ -> fun (_U, _S) -> true end
 		  end,
     case eldap_search(State,

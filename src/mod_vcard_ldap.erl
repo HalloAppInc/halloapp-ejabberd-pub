@@ -148,8 +148,7 @@ search_items(Entries, State) ->
 		  {U, UIDAttrFormat} ->
 		      case eldap_utils:get_user_part(U, UIDAttrFormat) of
 			  {ok, Username} ->
-			      case ejabberd_auth:user_exists(Username,
-								LServer) of
+			      case ejabberd_auth:user_exists(Username) of
 				  true ->
 				      RFields = lists:map(
 						  fun({_, VCardName}) ->

@@ -1171,15 +1171,12 @@ parse_credentials(JID, ClientID) ->
 -spec authenticate(connect(), peername()) -> {ok, jid:jid()} | {error, reason_code()}.
 authenticate(#connect{password = Pass} = Pkt, IP) ->
     case parse_credentials(Pkt) of
-	{ok, #jid{luser = LUser, lserver = LServer} = JID} ->
-	    case ejabberd_auth:check_password_with_authmodule(
-                   LUser, <<>>, LServer, Pass) of
-		{true, AuthModule} ->
+    {ok, #jid{luser = LUser} = JID} ->
+        case ejabberd_auth:check_password(LUser, Pass) of
+        true ->
                     ?INFO_MSG(
-                       "Accepted MQTT authentication for ~ts "
-                       "by ~ts backend from ~ts",
+                       "Accepted MQTT authentication for ~ts from ~ts",
                        [jid:encode(JID),
-                        ejabberd_auth:backend_type(AuthModule),
                         ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
                     {ok, JID};
                 false ->

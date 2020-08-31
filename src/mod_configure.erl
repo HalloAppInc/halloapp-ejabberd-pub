@@ -528,10 +528,10 @@ get_local_items({_, Host}, [<<"online users">>],
 get_local_items({_, Host}, [<<"all users">>], _Server,
 		_Lang) ->
     {result, get_all_vh_users(Host)};
-get_local_items({_, Host},
+get_local_items({_, _Host},
 		[<<"all users">>, <<$@, Diap/binary>>], _Server,
 		_Lang) ->
-    Users = ejabberd_auth:get_users(Host),
+    Users = ejabberd_auth:get_users(),
     SUsers = lists:sort([{S, U} || {U, S} <- Users]),
     try
 	[S1, S2] = ejabberd_regexp:split(Diap, <<"-">>),
@@ -625,7 +625,7 @@ get_online_vh_users(Host) ->
 
 -spec get_all_vh_users(binary()) -> [disco_item()].
 get_all_vh_users(Host) ->
-    Users = ejabberd_auth:get_users(Host),
+    Users = ejabberd_auth:get_users(),
     SUsers = lists:sort([{S, U} || {U, S} <- Users]),
     case length(SUsers) of
 	N when N =< 100 ->
@@ -1065,9 +1065,9 @@ get_form(_Host, ?NS_ADMINL(<<"user-stats">>), Lang) ->
 				   label = tr(Lang, ?T("Jabber ID")),
 				   var = <<"accountjid">>,
 				   required = true}]}};
-get_form(Host,
+get_form(_Host,
 	 ?NS_ADMINL(<<"get-registered-users-num">>), Lang) ->
-    Num = integer_to_binary(ejabberd_auth:count_users(Host)),
+    Num = integer_to_binary(ejabberd_auth:count_users()),
     {result, completed,
      #xdata{type = form,
 	    fields = [?HFIELD(),
@@ -1295,7 +1295,7 @@ set_form(From, Host, ?NS_ADMINL(<<"delete-user">>),
 			     Server = JID#jid.lserver,
 			     true = Server == Host orelse
 				      get_permission_level(From) == global,
-			     true = ejabberd_auth:user_exists(User, Server),
+			     true = ejabberd_auth:user_exists(User),
 			     {User, Server}
 		     end,
 		     AccountStringList),
@@ -1320,11 +1320,10 @@ set_form(From, Host,
 	 ?NS_ADMINL(<<"get-user-password">>), Lang, XData) ->
     AccountString = get_value(<<"accountjid">>, XData),
     JID = jid:decode(AccountString),
-    User = JID#jid.luser,
     Server = JID#jid.lserver,
     true = Server == Host orelse
 	     get_permission_level(From) == global,
-    Password = ejabberd_auth:get_password(User, Server),
+    Password = <<"">>,
     true = is_binary(Password),
     {result,
      #xdata{type = form,
@@ -1342,8 +1341,8 @@ set_form(From, Host,
     Server = JID#jid.lserver,
     true = Server == Host orelse
 	     get_permission_level(From) == global,
-    true = ejabberd_auth:user_exists(User, Server),
-    ejabberd_auth:set_password(User, Server, Password),
+    true = ejabberd_auth:user_exists(User),
+    ejabberd_auth:set_password(User, Password),
     {result, undefined};
 set_form(From, Host,
 	 ?NS_ADMINL(<<"get-user-lastlogin">>), Lang, XData) ->
@@ -1503,7 +1502,7 @@ adhoc_sm_commands(Acc, _From, _To, _Request) -> Acc.
 
 -spec get_sm_form(binary(), binary(), binary(), binary()) -> {result, xdata()} |
 							     {error, stanza_error()}.
-get_sm_form(User, Server, <<"config">>, Lang) ->
+get_sm_form(User, _Server, <<"config">>, Lang) ->
     {result,
      #xdata{type = form,
 	    title = <<(tr(Lang, ?T("Administration of ")))/binary, User/binary>>,
@@ -1521,8 +1520,7 @@ get_sm_form(User, Server, <<"config">>, Lang) ->
 				  label = tr(Lang, ?T("Remove User")),
 				  value = <<"remove">>}]},
 		 ?XFIELD('text-private', ?T("Password"),
-			 <<"password">>,
-			 ejabberd_auth:get_password_s(User, Server))]}};
+			 <<"password">>, <<"">>)]}};
 get_sm_form(_User, _Server, _Node, _Lang) ->
     {error, xmpp:err_service_unavailable()}.
 
@@ -1537,7 +1535,7 @@ set_sm_form(User, Server, <<"config">>,
 	[<<"edit">>] ->
 	    case xmpp_util:get_xdata_values(<<"password">>, XData) of
 		[Password] ->
-		    ejabberd_auth:set_password(User, Server, Password),
+		    ejabberd_auth:set_password(User, Password),
 		    xmpp_util:make_adhoc_response(Response);
 		_ ->
 		    Txt = ?T("No 'password' found in data form"),
