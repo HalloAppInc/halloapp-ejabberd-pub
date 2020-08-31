@@ -210,8 +210,7 @@ install: all copy-files
 	#
 	# Configuration files
 	$(INSTALL) -d -m 750 $(G_USER) $(ETCDIR)
-	# TODO: switch away from .example
-	$(INSTALL) -b -S .bak -m 640 $(G_USER) ejabberd.yml.example $(ETCDIR)/ejabberd.yml
+	$(INSTALL) -b -S .bak -m 640 $(G_USER) ejabberd.yml $(ETCDIR)/ejabberd.yml
 	#[ -f $(ETCDIR)/ejabberd.yml ] \
 	#	&& $(INSTALL) -b -m 640 $(G_USER) ejabberd.yml.example $(ETCDIR)/ejabberd.yml-new \
 	#	|| $(INSTALL) -b -m 640 $(G_USER) ejabberd.yml.example $(ETCDIR)/ejabberd.yml
