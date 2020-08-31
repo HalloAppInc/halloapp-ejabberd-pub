@@ -148,19 +148,14 @@ type(_X) ->
 
 -spec to_integer(any()) -> integer() | undefined.
 to_integer(Data) ->
-    try
-        case type(Data) of
-            "binary" -> binary_to_integer(Data);
-            "list" -> list_to_integer(Data);
-            "float" -> round(Data);
-            "integer" -> Data;
-            _ ->
-                ?ERROR_MSG("Failed converting data to integer: ~p", [Data]),
-                undefined
-        end
-    catch _ ->
-        ?ERROR_MSG("Failed converting data to integer: ~p", [Data]),
-        undefined
+    case type(Data) of
+        "binary" -> binary_to_integer(Data);
+        "list" -> list_to_integer(Data);
+        "float" -> round(Data);
+        "integer" -> Data;
+        _ ->
+            ?ERROR_MSG("Failed converting data to integer: ~p", [Data]),
+            undefined
     end.
 
 

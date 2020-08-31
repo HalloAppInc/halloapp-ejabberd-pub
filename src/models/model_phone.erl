@@ -101,7 +101,7 @@ get_sms_code(Phone) ->
 -spec get_sms_code_timestamp(Phone :: binary()) -> {ok, undefined | integer()} | {error, any()}.
 get_sms_code_timestamp(Phone) ->
     {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_TIMESTAMP]),
-    {ok, util:to_integer(Res)}.
+    {ok, util_redis:decode_ts(Res)}.
 
 
 -spec get_sms_code_sender(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
@@ -116,10 +116,12 @@ get_sms_code_receipt(Phone) ->
     {ok, Res}.
 
 
--spec get_sms_code_ttl(Phone :: binary()) -> {ok, undefined | integer()} | {error, any()}.
+% -1 means key does not have TTL set.
+% -2 means key does not exist.
+-spec get_sms_code_ttl(Phone :: binary()) -> {ok, integer()} | {error, any()}.
 get_sms_code_ttl(Phone) ->
     {ok, Res} = q(["TTL" , code_key(Phone)]),
-    {ok, util:to_integer(Res)}.
+    {ok, binary_to_integer(Res)}.
 
 
 -spec add_phone(Phone :: binary(), Uid :: binary()) -> ok  | {error, any()}.

@@ -275,8 +275,8 @@ get_account(Uid) ->
             phone = maps:get(?FIELD_PHONE, M),
             name = maps:get(?FIELD_NAME, M),
             signup_user_agent = maps:get(?FIELD_USER_AGENT, M),
-            creation_ts_ms = ts_decode(maps:get(?FIELD_CREATION_TIME, M)),
-            last_activity_ts_ms = ts_decode(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
+            creation_ts_ms = util_redis:decode_ts(maps:get(?FIELD_CREATION_TIME, M)),
+            last_activity_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
             activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined))
         },
     {ok, Account}.
@@ -310,7 +310,7 @@ get_push_token(Uid) ->
                 uid = Uid, 
                 os = Os, 
                 token = Token, 
-                timestamp_ms = ts_decode(TimestampMs)
+                timestamp_ms = util_redis:decode_ts(TimestampMs)
             }
     end,
     {ok, Res}.
@@ -330,7 +330,7 @@ get_push_info(Uid) ->
     Res = #push_info{uid = Uid, 
             os = Os, 
             token = Token, 
-            timestamp_ms = ts_decode(TimestampMs),
+            timestamp_ms = util_redis:decode_ts(TimestampMs),
             post_pref = boolean_decode(PushPost, true),
             comment_pref = boolean_decode(PushComment, true)},
     {ok, Res}.
@@ -426,7 +426,7 @@ set_last_activity(Uid, TimestampMs, ActivityStatus) ->
 get_last_activity(Uid) ->
     {ok, [TimestampMs, ActivityStatus]} = q(
             ["HMGET", key(Uid), ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS]),
-    Res = case ts_decode(TimestampMs) of
+    Res = case util_redis:decode_ts(TimestampMs) of
             undefined ->
                 #activity{uid = Uid};
             TsMs ->
@@ -650,16 +650,11 @@ qs(Pool, Command) ->
 
 
 ts_reply(Res) ->
-    case ts_decode(Res) of
+    case util_redis:decode_ts(Res) of
         undefined -> {error, missing};
         Ts -> {ok, Ts}
     end.
 
-ts_decode(Data) ->
-    case Data of
-        undefined -> undefined;
-        Data -> binary_to_integer(Data)
-    end.
 
 boolean_decode(Data, DefaultValue) ->
     case Data of
