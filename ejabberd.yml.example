@@ -234,6 +234,7 @@ modules:
     upload_port: 1080
   mod_receipts: {}
   mod_presence_subscription: {}
+  mod_client_log: {}
   mod_client_version:
     max_days: 30
   mod_push_tokens: {}
