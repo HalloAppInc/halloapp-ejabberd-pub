@@ -86,7 +86,7 @@ process_count(#count_st{namespace = Namespace, metric = Metric, count = Count, d
         FullNamespace = full_namespace(Namespace),
         validate_namespace(FullNamespace),
         Tags = dims_st_to_tags(DimsSt),
-        stat:count_d(FullNamespace, Metric, Count, Tags),
+        stat:count_d(binary_to_list(FullNamespace), binary_to_list(Metric), Count, Tags),
         ok
     catch
         error : bad_namespace : _ ->
