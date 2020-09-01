@@ -398,7 +398,7 @@ handle_mnesia_content_request(PostId, CommentId, ItemType, ParentCommentId, Payl
             FinalPayload = get_old_payload(Payload),
             %% insert data into mnesia and send an old api message to all the clients.
             mod_feed:publish_item(PublisherUid, Server, CommentId, ItemType,
-                    FinalPayload, Node, TimestampMs, FeedAudienceSet),
+                    FinalPayload, Node, TimestampMs, FeedAudienceSet, false),
             %% send a new api message to all the clients.
             send_comment_notification(PostId, CommentId, ParentCommentId, Payload,
                     Action, PublisherUid, FeedAudienceSet, TimestampMs),
@@ -420,7 +420,7 @@ handle_mnesia_content_request(PostId, CommentId, ItemType, ParentCommentId, Payl
             {ok, TimestampMs};
         {retract, feedpost, _, _} ->
             %% remove data from mnesia and send an old api message to all the clients.
-            ok = mod_feed:retract_item(PublisherUid, Server, PostItem, [], Node, true, FeedAudienceSet),
+            ok = mod_feed:retract_item(PublisherUid, Server, PostItem, [], Node, true, FeedAudienceSet, false),
             %% send a new api message to all the clients.
             send_post_notification(PostId, Payload, Action, PublisherUid, FeedAudienceSet, TimestampMs),
             {ok, TimestampMs};

@@ -40,8 +40,8 @@
     process_local_iq/1,
     on_user_first_login/2,
     purge_expired_items/0,
-    publish_item/8,
-    retract_item/7,
+    publish_item/9,
+    retract_item/8,
     broadcast_event/7,
     get_feed_audience_set/1
 ]).
@@ -178,7 +178,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lan
                             ?INFO_MSG("Uid: ~s, publish_item", [Uid]),
                             _Item = publish_item(
                                     Uid, Server, ItemId, ItemType, Payload, Node,
-                                    TimestampMs, FeedAudienceSet)
+                                    TimestampMs, FeedAudienceSet, true)
                     end,
                     xmpp:make_iq_result(IQ,
                         #pubsub{publish = #ps_publish{
@@ -213,15 +213,15 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lan
         true ->
             ?INFO_MSG("Uid: ~s, retract_item", [Uid]),
             FeedAudienceSet = get_feed_audience_set(Node#psnode.uid),
-            retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet),
+            retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet, true),
             xmpp:make_iq_result(IQ)
     end.
 
 
 -spec publish_item(Uid :: binary(), Server :: binary(), ItemId :: binary(),
         ItemType :: item_type(), Payload :: xmpp_element(), Node :: psnode(),
-        TimestampMs :: integer(), FeedAudienceSet :: set()) -> item().
-publish_item(Uid, Server, ItemId, ItemType, Payload, Node, TimestampMs, FeedAudienceSet) ->
+        TimestampMs :: integer(), FeedAudienceSet :: set(), SendNewNotification :: boolean()) -> item().
+publish_item(Uid, Server, ItemId, ItemType, Payload, Node, TimestampMs, FeedAudienceSet, SendNewNotification) ->
     ?INFO_MSG("Uid: ~s, ItemId: ~p", [Uid, ItemId]),
     NodeId = Node#psnode.id,
     NodeType = Node#psnode.type,
@@ -241,8 +241,13 @@ publish_item(Uid, Server, ItemId, ItemType, Payload, Node, TimestampMs, FeedAudi
             broadcast_event(Uid, Server, Node, NewItem, Payload, publish, FeedAudienceSet),
             ejabberd_hooks:run(publish_feed_item, Server, [Uid, Node, ItemId, ItemType, Payload]),
 
-            %% send a new api message to all the clients.
-            send_new_notification(Uid, ItemId, ItemType, Payload, TimestampMs, publish, FeedAudienceSet),
+            case SendNewNotification of
+                false -> ok;
+                true ->
+                    %% send a new api message to all the clients.
+                    send_new_notification(Uid, ItemId, ItemType, Payload,
+                            TimestampMs, publish, FeedAudienceSet)
+            end,
 
             NewItem;
         {Item, feed} ->
@@ -252,8 +257,8 @@ publish_item(Uid, Server, ItemId, ItemType, Payload, Node, TimestampMs, FeedAudi
 
 
 -spec retract_item(Uid :: binary(), Server :: binary(), Item :: item(), Payload :: xmpp_element(),
-        Node :: psnode(), Notify :: boolean(), FeedAudienceSet :: set()) -> ok.
-retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet) ->
+        Node :: psnode(), Notify :: boolean(), FeedAudienceSet :: set(), SendNewNotification :: boolean()) -> ok.
+retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet, SendNewNotification) ->
     ?INFO_MSG("Uid: ~s, Item: ~p", [Uid, Item]),
     ok = mod_feed_mnesia:retract_item(Item#item.key),
     case Notify andalso sets:is_element(Uid, FeedAudienceSet) of
@@ -261,10 +266,15 @@ retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet) ->
             %% send an old api message to all the clients.
             broadcast_event(Uid, Server, Node, Item, Payload, retract, FeedAudienceSet),
 
-           %% send a new api message to all the clients.
-            TimestampMs = util:now_ms(),
-            ItemId = element(1, Item#item.key),
-            send_new_notification(Uid, ItemId, Item#item.type, Payload, TimestampMs, retract, FeedAudienceSet),
+            case SendNewNotification of
+                false -> ok;
+                true ->
+                   %% send a new api message to all the clients.
+                    TimestampMs = util:now_ms(),
+                    ItemId = element(1, Item#item.key),
+                    send_new_notification(Uid, ItemId, Item#item.type, Payload,
+                            TimestampMs, retract, FeedAudienceSet)
+            end,
 
             ok;
         false -> ok
