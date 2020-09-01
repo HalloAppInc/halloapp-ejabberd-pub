@@ -33,7 +33,7 @@
     }
 ).
 
--define(UPLOAD_MEDIA,
+-define(UPLOAD_MEDIA1,
     #upload_media{
         size = <<"100">>,
         media_urls = [#media_urls{
@@ -44,18 +44,17 @@
     }
 ).
 
--define(XMPP_IQ_UPLOAD_MEDIA,
+-define(XMPP_IQ_UPLOAD_MEDIA1,
     #iq{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         type = result,
-        lang = <<"en">>,
-        from = ?JID1,
-        to = ?JID2,
-        sub_els = [?UPLOAD_MEDIA]
+        from = undefined,
+        to = undefined,
+        sub_els = [?UPLOAD_MEDIA1]
     }
 ).
 
--define(PROTO_IQ_UPLOAD_MEDIA,
+-define(PROTO_IQ_UPLOAD_MEDIA1,
     #pb_ha_iq{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         type = result,
@@ -73,21 +72,58 @@
 ).
 
 
+-define(UPLOAD_MEDIA2,
+    #upload_media{
+        size = <<>>,
+        media_urls = []
+    }
+).
+
+-define(XMPP_IQ_UPLOAD_MEDIA2,
+    #iq{
+        id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
+        type = get,
+        from = undefined,
+        to = undefined,
+        sub_els = [?UPLOAD_MEDIA2]
+    }
+).
+
+-define(PROTO_IQ_UPLOAD_MEDIA2,
+    #pb_ha_iq{
+        id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
+        type = get,
+        payload = #pb_iq_payload{
+            content = {upload_media, #pb_upload_media{
+                size = 0,
+                url = undefined
+        }}
+        }
+    }
+).
+
+
 %% -------------------------------------------- %%
 %% internal tests
 %% -------------------------------------------- %%
 
 
 xmpp_to_proto_upload_media_test() -> 
-    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_UPLOAD_MEDIA),
+    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_UPLOAD_MEDIA1),
     ?assertEqual(true, is_record(ProtoIQ, pb_ha_iq)),
-    ?assertEqual(?PROTO_IQ_UPLOAD_MEDIA, ProtoIQ).
+    ?assertEqual(?PROTO_IQ_UPLOAD_MEDIA1, ProtoIQ).
 
     
 proto_to_xmpp_upload_media_test() ->
-    XmppIQ = iq_parser:proto_to_xmpp(?PROTO_IQ_UPLOAD_MEDIA),
-    ?assertEqual(true, is_record(XmppIQ, iq)),
-    ?assertEqual(?XMPP_IQ_UPLOAD_MEDIA#iq.id, XmppIQ#iq.id),
-    ?assertEqual(?XMPP_IQ_UPLOAD_MEDIA#iq.type, XmppIQ#iq.type),
-    ?assertEqual(?XMPP_IQ_UPLOAD_MEDIA#iq.sub_els, XmppIQ#iq.sub_els).
+    XmppIQ1 = iq_parser:proto_to_xmpp(?PROTO_IQ_UPLOAD_MEDIA1),
+
+    ?assertEqual(true, is_record(XmppIQ1, iq)),
+    ?assertEqual(?XMPP_IQ_UPLOAD_MEDIA1, XmppIQ1),
+
+    XmppIQ2 = iq_parser:proto_to_xmpp(?PROTO_IQ_UPLOAD_MEDIA2),   
+    ?assertEqual(true, is_record(XmppIQ2, iq)),
+    ?assertEqual(?XMPP_IQ_UPLOAD_MEDIA2, XmppIQ2),
+    ok.
+
+
     

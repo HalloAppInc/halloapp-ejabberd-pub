@@ -68,8 +68,12 @@ proto_to_xmpp_avatars(ProtoPayload) ->
 
 
 proto_to_xmpp_upload_avatar(ProtoPayload) ->
+    CData = case ProtoPayload#pb_upload_avatar.data of
+        undefined -> <<>>;
+        Data -> base64:encode(Data)
+    end,
     #avatar{
         id = ProtoPayload#pb_upload_avatar.id,
-        cdata = base64:encode(ProtoPayload#pb_upload_avatar.data)
+        cdata = CData
     }.
 

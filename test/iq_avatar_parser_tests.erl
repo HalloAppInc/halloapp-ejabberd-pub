@@ -31,6 +31,21 @@
     }
 ).
 
+
+-define(XMPP_UPLOAD_AVATAR2,
+    #avatar{
+        id = <<>>,
+        cdata = <<>>
+    }
+).
+
+-define(PB_UPLOAD_AVATAR2,
+    #pb_upload_avatar{
+        id = <<>>,
+        data = <<>>
+    }
+).
+
 -define(XMPP_AVATAR1,
     #avatar{
         id = <<"ppadfa">>,
@@ -95,6 +110,24 @@
     }
 ).
 
+-define(XMPP_IQ_AVATAR3,
+    #iq{
+        id = <<"s9cCU-10">>,
+        type = set,
+        sub_els = [?XMPP_UPLOAD_AVATAR2]
+    }
+).
+
+-define(PB_IQ_AVATAR3,
+    #pb_ha_iq{
+        id = <<"s9cCU-10">>,
+        type = set,
+        payload = #pb_iq_payload{
+            content = {avatar, ?PB_UPLOAD_AVATAR2}
+        }
+    }
+).
+
 -define(XMPP_IQ_AVATARS,
     #iq{
         id = <<"fadsa">>,
@@ -134,9 +167,14 @@ proto_to_xmpp_avatar_test() ->
     XmppIQ1 = iq_parser:proto_to_xmpp(?PB_IQ_AVATAR1),
     ?assertEqual(true, is_record(XmppIQ1, iq)),
     ?assertEqual(?XMPP_IQ_AVATAR1, XmppIQ1),
+
     XmppIQ2 = iq_parser:proto_to_xmpp(?PB_IQ_AVATAR2),
     ?assertEqual(true, is_record(XmppIQ2, iq)),
-    ?assertEqual(?XMPP_IQ_AVATAR2, XmppIQ2).
+    ?assertEqual(?XMPP_IQ_AVATAR2, XmppIQ2),
+
+    XmppIQ3 = iq_parser:proto_to_xmpp(?PB_IQ_AVATAR3),
+    ?assertEqual(true, is_record(XmppIQ3, iq)),
+    ?assertEqual(?XMPP_IQ_AVATAR3, XmppIQ3).
 
 
 xmpp_to_proto_avatars_test() -> 

@@ -17,7 +17,7 @@
 %% define whisper_keys constants
 %% -------------------------------------------- %%
 
--define(XMPP_IQ_WHISPER_KEYS,
+-define(XMPP_IQ_WHISPER_KEYS1,
     #iq{
         id = <<"3ece24923">>,
         type = set,
@@ -33,7 +33,7 @@
     }
 ).
 
--define(PB_IQ_WHISPER_KEYS,
+-define(PB_IQ_WHISPER_KEYS1,
     #pb_ha_iq{
         id = <<"3ece24923">>,
         type = set,
@@ -51,19 +51,53 @@
 ).
 
 
+-define(XMPP_IQ_WHISPER_KEYS2,
+    #iq{
+        id = <<"3ece24923">>,
+        type = get,
+        sub_els = [#whisper_keys{
+                uid = <<"863">>,
+                type = count,
+                identity_key = undefined,
+                signed_key = undefined,
+                otp_key_count = undefined,
+                one_time_keys = []
+            }
+        ]
+    }
+).
+
+-define(PB_IQ_WHISPER_KEYS2,
+    #pb_ha_iq{
+        id = <<"3ece24923">>,
+        type = get,
+        payload = #pb_iq_payload{
+            content = {whisper_keys, #pb_whisper_keys{
+                uid = 863,
+                action = count,
+                identity_key = undefined,
+                signed_key = undefined,
+                otp_key_count = undefined,
+                one_time_keys = []
+            }}
+        }
+    }
+).
+
+
 %% -------------------------------------------- %%
 %% internal tests
 %% -------------------------------------------- %%
 
 
 xmpp_to_proto_whisper_keys_test() -> 
-    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_WHISPER_KEYS),
+    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_WHISPER_KEYS1),
     ?assertEqual(true, is_record(ProtoIQ, pb_ha_iq)),
-    ?assertEqual(?PB_IQ_WHISPER_KEYS, ProtoIQ).
+    ?assertEqual(?PB_IQ_WHISPER_KEYS1, ProtoIQ).
 
 
 proto_to_xmpp_whisper_keys_test() ->
-    XmppIQ = iq_parser:proto_to_xmpp(?PB_IQ_WHISPER_KEYS),
+    XmppIQ = iq_parser:proto_to_xmpp(?PB_IQ_WHISPER_KEYS2),
     ?assertEqual(true, is_record(XmppIQ, iq)),
-    ?assertEqual(?XMPP_IQ_WHISPER_KEYS, XmppIQ).
+    ?assertEqual(?XMPP_IQ_WHISPER_KEYS2, XmppIQ).
 

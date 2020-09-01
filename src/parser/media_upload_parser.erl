@@ -27,13 +27,20 @@ xmpp_to_proto(SubEl) ->
 
 proto_to_xmpp(ProtoPayload) ->
     MediaURL = ProtoPayload#pb_upload_media.url,
-    XmppUrls = #media_urls{
-        get = MediaURL#pb_media_url.get,
-        put = MediaURL#pb_media_url.put,
-        patch = MediaURL#pb_media_url.patch
-    },
+    XmppUrls = case MediaURL of
+        undefined -> [];
+        _ -> [#media_urls{
+                get = MediaURL#pb_media_url.get,
+                put = MediaURL#pb_media_url.put,
+                patch = MediaURL#pb_media_url.patch
+            }]
+    end,
+    Size = case ProtoPayload#pb_upload_media.size of
+        0 -> <<>>;
+        S -> integer_to_binary(S)
+    end,
     #upload_media{
-        size = integer_to_binary(ProtoPayload#pb_upload_media.size),
-        media_urls = [XmppUrls]
+        size = Size,
+        media_urls = XmppUrls
     }.
 
