@@ -39,6 +39,7 @@ proto_to_xmpp(ProtoPayload) ->
     Content = {xmlel,<<"s1">>,[],[{xmlcdata, ProtoPayload#pb_chat.payload}]},
     EncryptedContent = {xmlel,<<"enc">>,[],[{xmlcdata, ProtoPayload#pb_chat.enc_payload}]},
     #chat{
+        xmlns = <<"halloapp:chat:messages">>,
         timestamp = integer_to_binary(ProtoPayload#pb_chat.timestamp),
         sub_els = [Content, EncryptedContent]
     }.
