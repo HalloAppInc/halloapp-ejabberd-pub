@@ -93,11 +93,11 @@ message ha_iq {
 message ha_message {
     string id = 1;
     enum Type {
-        chat = 0;
+        normal = 0;
         error = 1;
         groupchat = 2;
         headline = 3;
-        normal = 4;
+        chat = 4;       // Not used yet.
     }
     Type type = 2;
     int64 to_uid = 3;
