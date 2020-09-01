@@ -580,7 +580,9 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
     {ok, BlockedUids} = model_privacy:get_blocked_uids(Uid),
     {ok, FriendUids} = model_friends:get_friends(Uid),
     AudienceSet = sets:from_list(AudienceList),
-    NewAudienceSet = sets:intersection(AudienceSet, sets:from_list(FriendUids)),
+
+    %% Intersect the audience-set with friends, but include the post-owner's uid as well.
+    NewAudienceSet = sets:add_element(Uid, sets:intersection(AudienceSet, sets:from_list(FriendUids))),
     FinalAudienceSet = case Action of
         publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
         retract -> AudienceSet
