@@ -22,6 +22,7 @@
         id = <<"s9cC3v4qf40">>,
         type = normal,
         sub_els = [#chat{
+                xmlns = <<"halloapp:chat:messages">>,
                 timestamp = <<"2000090910">>, 
                 sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"Hello from pb chat!">>}]},
                         {xmlel,<<"enc">>,[],[{xmlcdata,<<"Check encrypted content!">>}]}]
