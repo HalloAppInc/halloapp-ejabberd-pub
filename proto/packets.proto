@@ -32,6 +32,14 @@ message ping {
 }
 
 
+// Name
+
+message name {
+    int64 uid = 1;
+    string name = 2;
+}
+
+
 // Payload for iq/message
 
 message iq_payload {
@@ -53,6 +61,7 @@ message iq_payload {
         group_stanza group_stanza = 15;
         groups_stanza groups_stanza = 16;
         client_log client_log = 17;
+        name name = 18;
     }
 }
 
@@ -69,6 +78,7 @@ message msg_payload {
         contact_hash contact_hash = 9;
         group_stanza group_stanza = 10;
         group_chat group_chat = 11;
+        name name = 12;
     }
 }
 

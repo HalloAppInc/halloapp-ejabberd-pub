@@ -72,7 +72,9 @@ msg_payload_mapping(SubEl) ->
         group_st ->
             {group_stanza, groups_parser:xmpp_to_proto(SubEl)};
         group_chat ->
-            {group_chat, groups_parser:xmpp_to_proto(SubEl)}
+            {group_chat, groups_parser:xmpp_to_proto(SubEl)};
+        name ->
+            {name, name_parser:xmpp_to_proto(SubEl)}
     end,
     Payload.
 
@@ -125,7 +127,9 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
         {group_stanza, GroupStanzaRecord} ->
             groups_parser:proto_to_xmpp(GroupStanzaRecord);
         {group_chat, GroupChatRecord} ->
-            groups_parser:proto_to_xmpp(GroupChatRecord)
+            groups_parser:proto_to_xmpp(GroupChatRecord);
+        {name, NameRecord} ->
+            name_parser:proto_to_xmpp(NameRecord)
     end,
     SubEl.
 
