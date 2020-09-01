@@ -18,8 +18,13 @@ xmpp_to_proto(SubEl) ->
         put = MediaURL#media_urls.put,
         patch = MediaURL#media_urls.patch
     },
+    Size = case SubEl#upload_media.size of
+        undefined -> undefined;
+        <<>> -> 0;
+        S -> binary_to_integer(S)
+    end,
     ProtoUploadMedia = #pb_upload_media{
-        size = binary_to_integer(SubEl#upload_media.size),
+        size = Size,
         url = ProtoMediaURL
     },
     ProtoUploadMedia.
@@ -36,6 +41,7 @@ proto_to_xmpp(ProtoPayload) ->
             }]
     end,
     Size = case ProtoPayload#pb_upload_media.size of
+        undefined -> undefined;
         0 -> <<>>;
         S -> integer_to_binary(S)
     end,
