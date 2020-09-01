@@ -15,28 +15,35 @@
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto(XmppMSG) ->
-    ToJid = XmppMSG#message.to,
-    FromJid = XmppMSG#message.from,
-    SubEls = XmppMSG#message.sub_els,
-    Content = case XmppMSG#message.sub_els of
-        [] ->
-            undefined;
-        _ ->
-            [SubEl] = SubEls,
-            msg_payload_mapping(SubEl)
-    end,
-    PbFromUid = util_parser:xmpp_to_proto_uid(FromJid#jid.user),
-    Protomessage = #pb_ha_message{
-        id = XmppMSG#message.id,
-        type = XmppMSG#message.type,
-        to_uid = binary_to_integer(ToJid#jid.user),
-        from_uid = PbFromUid,
-        payload = #pb_msg_payload{
-            content = Content
-        }
-    },
-    Protomessage.
+xmpp_to_proto(XmppMsg) ->
+    try
+        Message = xmpp:decode_els(XmppMsg),
+        ToJid = Message#message.to,
+        FromJid = Message#message.from,
+        SubEls = Message#message.sub_els,
+        Content = case Message#message.sub_els of
+            [] ->
+                undefined;
+            _ ->
+                [SubEl] = SubEls,
+                msg_payload_mapping(SubEl)
+        end,
+        PbFromUid = util_parser:xmpp_to_proto_uid(FromJid#jid.user),
+        ProtoMessage = #pb_ha_message{
+            id = Message#message.id,
+            type = Message#message.type,
+            to_uid = binary_to_integer(ToJid#jid.user),
+            from_uid = PbFromUid,
+            payload = #pb_msg_payload{
+                content = Content
+            }
+        },
+        ProtoMessage
+    catch
+        error : Reason ->
+            ?ERROR_MSG("Error decoding xmpp message: ~p, reason: ~p", [XmppMsg, Reason]),
+            undefined
+    end.
 
 
 msg_payload_mapping(SubEl) ->
