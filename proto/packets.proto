@@ -13,6 +13,7 @@ import "privacy_list.proto";
 import "client_info.proto";
 import "group_stanzas.proto";
 import "client_log.proto";
+import "server_props.proto";
 
 
 // Chat
@@ -32,6 +33,7 @@ message chat {
 
 message ping {
 }
+
 
 // Error
 
@@ -71,6 +73,7 @@ message iq_payload {
         client_log client_log = 17;
         name name = 18;
         error error = 19;
+        props props = 20;
     }
 }
 

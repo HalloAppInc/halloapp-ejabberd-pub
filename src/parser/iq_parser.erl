@@ -77,7 +77,9 @@ iq_payload_mapping(SubEl) ->
         client_log_st ->
             {client_log_st, client_log_parser:xmpp_to_proto(SubEl)};
         name ->
-            {name, name_parser:xmpp_to_proto(SubEl)}
+            {name, name_parser:xmpp_to_proto(SubEl)};
+        props ->
+            {props, props_parser:xmpp_to_proto(SubEl)}
     end,
     Payload.
 
@@ -134,7 +136,9 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
         {client_log, ClientLogRecord} ->
             client_log_parser:proto_to_xmpp(ClientLogRecord);
         {name, NameRecord} ->
-            name_parser:proto_to_xmpp(NameRecord)
+            name_parser:proto_to_xmpp(NameRecord);
+        {props, PropsRecord} ->
+            props_parser:proto_to_xmpp(PropsRecord)
     end,
     SubEl.
 
