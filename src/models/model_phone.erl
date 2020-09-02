@@ -93,25 +93,25 @@ delete_sms_code(Phone) ->
     ok.
 
 
--spec get_sms_code(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
+-spec get_sms_code(Phone :: binary()) -> {ok, maybe(binary())} | {error, any()}.
 get_sms_code(Phone) ->
     {ok, Res} = q(["HGET", code_key(Phone), ?FIELD_CODE]),
     {ok, Res}.
 
 
--spec get_sms_code_timestamp(Phone :: binary()) -> {ok, undefined | integer()} | {error, any()}.
+-spec get_sms_code_timestamp(Phone :: binary()) -> {ok, maybe(integer())} | {error, any()}.
 get_sms_code_timestamp(Phone) ->
     {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_TIMESTAMP]),
     {ok, util_redis:decode_ts(Res)}.
 
 
--spec get_sms_code_sender(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
+-spec get_sms_code_sender(Phone :: binary()) -> {ok, maybe(binary())} | {error, any()}.
 get_sms_code_sender(Phone) ->
     {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_SENDER]),
     {ok, Res}.
 
 
--spec get_sms_code_receipt(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
+-spec get_sms_code_receipt(Phone :: binary()) -> {ok, maybe(binary())} | {error, any()}.
 get_sms_code_receipt(Phone) ->
     {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_RECEIPT]),
     {ok, Res}.
@@ -137,7 +137,7 @@ delete_phone(Phone) ->
     ok.
 
 
--spec get_uid(Phone :: binary()) -> {ok, undefined | binary()} | {error, any()}.
+-spec get_uid(Phone :: binary()) -> {ok, maybe(binary())} | {error, any()}.
 get_uid(Phone) ->
     {ok, Res} = q(["GET" , phone_key(Phone)]),
     {ok, Res}.

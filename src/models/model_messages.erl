@@ -78,7 +78,7 @@ store_message(Message) ->
     store_message(ToUid, FromUid, MsgId, ContentType, Message).
 
 
--spec store_message(ToUid :: uid(), FromUid :: undefined | binary(), MsgId :: binary(),
+-spec store_message(ToUid :: uid(), FromUid :: maybe(uid()), MsgId :: binary(),
                     ContentType :: binary(), Message :: message()) -> ok | {error, any()}.
 store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_record(Message, message) ->
     store_message(ToUid, FromUid, MsgId, ContentType, fxml:element_to_binary(xmpp:encode(Message)));
@@ -178,7 +178,7 @@ parse_result({ok, FieldValuesList}) ->
 
 
 -spec parse_fields([binary()],
-        OfflineMessage :: offline_message()) -> undefined | offline_message().
+        OfflineMessage :: offline_message()) -> maybe(offline_message()).
 parse_fields([], OfflineMessage) ->
     case OfflineMessage#offline_message.message of
         undefined -> undefined;

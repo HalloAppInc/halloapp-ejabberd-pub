@@ -60,7 +60,7 @@ mod_options(_Host) ->
 %%====================================================================
 
 % returns {ok, NumInvitesRemaining, TimestampOfLastInvite}
--spec get_invites_remaining(Uid :: uid()) -> {ok, integer() | undefined, integer() | undefined}.
+-spec get_invites_remaining(Uid :: uid()) -> {ok, maybe(integer()), maybe(integer())}.
 get_invites_remaining(Uid) ->
     {ok, [Num, Ts]} = q_accounts(["HMGET", model_accounts:account_key(Uid), ?FIELD_NUM_INV, ?FIELD_SINV_TS]),
     case {Num, Ts} of

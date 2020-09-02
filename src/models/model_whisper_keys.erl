@@ -84,7 +84,7 @@ add_otp_keys(Uid, OtpKeys) ->
     ok.
 
 
--spec get_key_set(Uid :: uid()) -> {ok, undefined | user_whisper_key_set()} | {error, any()}.
+-spec get_key_set(Uid :: uid()) -> {ok, maybe(user_whisper_key_set())} | {error, any()}.
 get_key_set(Uid) ->
     {ok, [IdentityKey, SignedPreKey]} = q(["HMGET", whisper_key(Uid),
             ?FIELD_IDENTITY_KEY, ?FIELD_SIGNEDPRE_KEY]),

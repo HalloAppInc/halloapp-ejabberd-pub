@@ -128,7 +128,7 @@ get_group_size(Gid) ->
     binary_to_integer(Res).
 
 
--spec get_group(Gid :: gid()) -> group() | undefined.
+-spec get_group(Gid :: gid()) -> maybe(group()).
 get_group(Gid) ->
     [{ok, GroupData}, {ok, MembersData}] = qp([
         ["HGETALL", group_key(Gid)],
@@ -151,7 +151,7 @@ get_group(Gid) ->
     end.
 
 
--spec get_group_info(Gid :: gid()) -> group_info() | undefined.
+-spec get_group_info(Gid :: gid()) -> maybe(group_info()).
 get_group_info(Gid) ->
     {ok, GroupData} = q(["HGETALL", group_key(Gid)]),
     case GroupData of

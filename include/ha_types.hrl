@@ -12,6 +12,8 @@
 
 -define(HA_TYPES, 1).
 
+-type maybe(T) :: T | undefined.
+
 -type uid() :: binary().
 -type gid() :: binary().
 

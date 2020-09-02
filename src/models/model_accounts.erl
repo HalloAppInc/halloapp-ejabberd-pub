@@ -188,7 +188,7 @@ set_name(Uid, Name) ->
     ok.
 
 
--spec get_name(Uid :: uid()) -> binary() | {ok, binary() | undefined} | {error, any()}.
+-spec get_name(Uid :: uid()) -> binary() | {ok, maybe(binary())} | {error, any()}.
 get_name(Uid) ->
     {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_NAME]),
     {ok, Res}.
@@ -221,7 +221,7 @@ delete_avatar_id(Uid) ->
     ok.
 
 
--spec get_avatar_id(Uid :: uid()) -> binary() | {ok, binary() | undefined} | {error, any()}.
+-spec get_avatar_id(Uid :: uid()) -> binary() | {ok, maybe(binary())} | {error, any()}.
 get_avatar_id(Uid) ->
     {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_AVATAR_ID]),
     {ok, Res}.
@@ -298,7 +298,7 @@ set_push_token(Uid, Os, PushToken, TimestampMs) ->
     ok.
 
 
--spec get_push_token(Uid :: uid()) -> {ok, undefined | push_info()} | {error, missing}.
+-spec get_push_token(Uid :: uid()) -> {ok, maybe(push_info())} | {error, missing}.
 get_push_token(Uid) ->
     {ok, [Os, Token, TimestampMs]} = q(
             ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
@@ -322,7 +322,7 @@ remove_push_token(Uid) ->
     ok.
 
 
--spec get_push_info(Uid :: uid()) -> {ok, undefined | push_info()} | {error, missing}.
+-spec get_push_info(Uid :: uid()) -> {ok, maybe(push_info())} | {error, missing}.
 get_push_info(Uid) ->
     {ok, [Os, Token, TimestampMs, PushPost, PushComment]} = q(
             ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP,
