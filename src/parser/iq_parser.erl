@@ -63,10 +63,10 @@ iq_payload_mapping(SubEl) ->
         user_privacy_lists ->
             {privacy_lists, privacy_list_parser:xmpp_to_proto(SubEl)};
         error_st ->
-            case SubEl#error_st.hash =:= undefined of
+            Hash = SubEl#error_st.hash,
+            case Hash =:= undefined orelse Hash =:= <<>> of
                 true ->
-                    %% TODO(murali@): add error_parser separately.
-                    ok;
+                    {error, #pb_error{reason = util:to_binary(SubEl#error_st.reason)}};
                 false ->
                     {privacy_list_result, privacy_list_parser:xmpp_to_proto(SubEl)}
             end;

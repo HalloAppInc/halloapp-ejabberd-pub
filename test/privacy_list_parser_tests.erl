@@ -142,10 +142,10 @@ create_pb_iq(Id, Type, PayloadContent) ->
 %% iq-error with privacy_list_result.
 xmpp_to_proto_iq_error_test() ->
     setup(),
-    SubEl = create_error_st(unexcepted_uids, <<>>),
+    SubEl = create_error_st(unexcepted_uids, <<"MTIz">>),
     ErrorIQ = create_iq_stanza(?ID1, jid:make(?UID1, ?SERVER), jid:make(?SERVER), error, [SubEl]),
 
-    PrivacyListResult = create_pb_privacy_list_result(<<"failed">>, <<"unexcepted_uids">>, <<>>),
+    PrivacyListResult = create_pb_privacy_list_result(<<"failed">>, <<"unexcepted_uids">>, <<"123">>),
     ExpectedProtoIQ = create_pb_iq(?ID1, error, {privacy_list_result, PrivacyListResult}),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(ErrorIQ),

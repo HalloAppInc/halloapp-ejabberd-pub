@@ -74,7 +74,9 @@ msg_payload_mapping(SubEl) ->
         group_chat ->
             {group_chat, groups_parser:xmpp_to_proto(SubEl)};
         name ->
-            {name, name_parser:xmpp_to_proto(SubEl)}
+            {name, name_parser:xmpp_to_proto(SubEl)};
+        error_st ->
+            {error, #pb_error{reason = util:to_binary(SubEl#error_st.reason)}}
     end,
     Payload.
 

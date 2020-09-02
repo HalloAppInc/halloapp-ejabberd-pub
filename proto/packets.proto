@@ -31,6 +31,12 @@ message chat {
 message ping {
 }
 
+// Error
+
+message error {
+    string reason = 1;
+}
+
 
 // Name
 
@@ -62,6 +68,7 @@ message iq_payload {
         groups_stanza groups_stanza = 16;
         client_log client_log = 17;
         name name = 18;
+        error error = 19;
     }
 }
 
@@ -79,6 +86,7 @@ message msg_payload {
         group_stanza group_stanza = 10;
         group_chat group_chat = 11;
         name name = 12;
+        error error = 13;
     }
 }
 
