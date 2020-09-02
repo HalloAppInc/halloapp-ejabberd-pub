@@ -42,9 +42,11 @@
 
 -type tag_value() :: atom() | string() | binary().
 -type tag() :: {Name :: atom(), Value :: tag_value()}.
+-type tags() :: [tag()].
 
 -export_type([
     tag/0,
+    tags/0,
     tag_value/0
 ]).
 

@@ -46,13 +46,15 @@ mod_options(_Host) ->
 
 % client_log
 -spec process_local_iq(iq()) -> iq().
-process_local_iq(#iq{type = set, from = #jid{luser = Uid},
+process_local_iq(#iq{type = set, from = #jid{luser = Uid, lresource = Resource},
         sub_els = [#client_log_st{} = ClientLogsSt]} = IQ) ->
     try
+        Type = util_ua:resource_to_client_type(Resource),
+        ServerDims = [{"platform", atom_to_list(Type)}],
         Counts = ClientLogsSt#client_log_st.counts,
         Events = ClientLogsSt#client_log_st.events,
         ?INFO_MSG("Uid: ~s counts: ~p, events: ~p", [Uid, length(Counts), length(Events)]),
-        CountResults = process_counts(Counts),
+        CountResults = process_counts(Counts, ServerDims),
         EventResults = process_events(Uid, Events),
         CountError = lists:any(fun has_error/1, CountResults),
         EventError = lists:any(fun has_error/1, EventResults),
@@ -73,20 +75,25 @@ process_local_iq(#iq{} = IQ) ->
     xmpp:make_error(IQ, util:err(bad_request)).
 
 
--spec process_counts(Counts :: [count_st()]) -> [result()].
-process_counts(Counts) ->
-    lists:map(fun process_count/1, Counts).
+-spec process_counts(Counts :: [count_st()], ServerDims :: stat:tags()) -> [result()].
+process_counts(Counts, ServerDims) ->
+    lists:map(
+        fun (C) ->
+            process_count(C, ServerDims)
+        end, Counts).
 
 
 % TODO: validate the number of dims is < 6
 % TODO: validate the name and value of each dimension
--spec process_count(Counts :: count_st()) -> result() .
-process_count(#count_st{namespace = Namespace, metric = Metric, count = Count, dims = DimsSt}) ->
+-spec process_count(Counts :: count_st(), ServerTags :: stat:tags()) -> result() .
+process_count(#count_st{namespace = Namespace, metric = Metric, count = Count, dims = DimsSt},
+        ServerTags) ->
     try
         FullNamespace = full_namespace(Namespace),
         validate_namespace(FullNamespace),
         Tags = dims_st_to_tags(DimsSt),
-        stat:count_d(binary_to_list(FullNamespace), binary_to_list(Metric), Count, Tags),
+        % TODO: make sure to override duplicate keys in Tags with ServerTags
+        stat:count_d(binary_to_list(FullNamespace), binary_to_list(Metric), Count, Tags ++ ServerTags),
         ok
     catch
         error : bad_namespace : _ ->
