@@ -23,6 +23,8 @@ message chat {
     bytes enc_payload = 3;
     // Temporarily added two payloads: one is for unecrypted and the other is encrypted.
     // Clients currently send both of them at times.
+    bytes public_key = 4;
+    int64 one_time_pre_key_id = 5;
 }
 
 

@@ -25,7 +25,10 @@
                 xmlns = <<"halloapp:chat:messages">>,
                 timestamp = <<"2000090910">>, 
                 sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"Hello from pb chat!">>}]},
-                        {xmlel,<<"enc">>,[],[{xmlcdata,<<"Check encrypted content!">>}]}]
+                        {xmlel,<<"enc">>,
+                            [{<<"identity_key">>, <<"fDX3ZTTBwRfDrs+LiKUsrAqulUVoMUJz0cVzf1RjkII=">>},
+                            {<<"one_time_pre_key_id">>,<<"12">>}],
+                            [{xmlcdata,<<"Check encrypted content!">>}]}]
             }
         ]
     }
@@ -41,7 +44,9 @@
             content = {chat, #pb_chat{
                 timestamp = 2000090910,
                 payload = <<"Hello from pb chat!">>,
-                enc_payload = <<"Check encrypted content!">>
+                enc_payload = <<"Check encrypted content!">>,
+                public_key = <<"fDX3ZTTBwRfDrs+LiKUsrAqulUVoMUJz0cVzf1RjkII=">>,
+                one_time_pre_key_id = 12
             }}
         }
     }
