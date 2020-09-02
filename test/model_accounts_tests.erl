@@ -56,7 +56,7 @@ empty_test() ->
 
 
 key_test() ->
-    ?assertEqual(<<"acc:{1}">>, model_accounts:key(?UID1)).
+    ?assertEqual(<<"acc:{1}">>, model_accounts:account_key(?UID1)).
 
 
 deleted_account_key_test() ->

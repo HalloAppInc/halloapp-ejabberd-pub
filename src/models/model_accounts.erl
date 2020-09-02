@@ -24,7 +24,7 @@
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
 
--export([key/1]).
+-export([account_key/1]).
 
 
 %% API
@@ -142,11 +142,11 @@ create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
     case binary_to_integer(Deleted) == 1 of
         true -> {error, deleted};
         false ->
-            {ok, Exists} = q(["HSETNX", key(Uid), ?FIELD_PHONE, Phone]),
+            {ok, Exists} = q(["HSETNX", account_key(Uid), ?FIELD_PHONE, Phone]),
             case binary_to_integer(Exists) > 0 of
                 true ->
                     Res = qp([
-                        ["HSET", key(Uid),
+                        ["HSET", account_key(Uid),
                             ?FIELD_NAME, Name,
                             ?FIELD_USER_AGENT, UserAgent,
                             ?FIELD_CREATION_TIME, integer_to_binary(CreationTsMs)],
@@ -163,10 +163,10 @@ create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
 
 -spec delete_account(Uid :: uid()) -> ok.
 delete_account(Uid) ->
-    case q(["HEXISTS", key(Uid), ?FIELD_PHONE]) of
+    case q(["HEXISTS", account_key(Uid), ?FIELD_PHONE]) of
         {ok, <<"1">>} ->
             [RenameResult, DecrResult] = qp([
-                ["RENAME", key(Uid), deleted_account_key(Uid)],
+                ["RENAME", account_key(Uid), deleted_account_key(Uid)],
                 ["DECR", count_accounts_key(Uid)]
             ]),
             case RenameResult of
@@ -184,19 +184,19 @@ delete_account(Uid) ->
 
 -spec set_name(Uid :: uid(), Name :: binary()) -> ok  | {error, any()}.
 set_name(Uid, Name) ->
-    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_NAME, Name]),
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_NAME, Name]),
     ok.
 
 
 -spec get_name(Uid :: uid()) -> binary() | {ok, binary() | undefined} | {error, any()}.
 get_name(Uid) ->
-    {ok, Res} = q(["HGET", key(Uid), ?FIELD_NAME]),
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_NAME]),
     {ok, Res}.
 
 
 -spec delete_name(Uid :: uid()) -> ok  | {error, any()}.
 delete_name(Uid) ->
-    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_NAME]),
+    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_NAME]),
     ok.
 
 
@@ -211,19 +211,19 @@ get_name_binary(Uid) ->
 
 -spec set_avatar_id(Uid :: uid(), AvatarId :: binary()) -> ok  | {error, any()}.
 set_avatar_id(Uid, AvatarId) ->
-    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_AVATAR_ID, AvatarId]),
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_AVATAR_ID, AvatarId]),
     ok.
 
 
 -spec delete_avatar_id(Uid :: uid()) -> ok.
 delete_avatar_id(Uid) ->
-    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_AVATAR_ID]),
+    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_AVATAR_ID]),
     ok.
 
 
 -spec get_avatar_id(Uid :: uid()) -> binary() | {ok, binary() | undefined} | {error, any()}.
 get_avatar_id(Uid) ->
-    {ok, Res} = q(["HGET", key(Uid), ?FIELD_AVATAR_ID]),
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_AVATAR_ID]),
     {ok, Res}.
 
 
@@ -238,7 +238,7 @@ get_avatar_id_binary(Uid) ->
 
 -spec get_phone(Uid :: uid()) -> {ok, binary()} | {error, missing}.
 get_phone(Uid) ->
-    {ok, Res} = q(["HGET", key(Uid), ?FIELD_PHONE]),
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_PHONE]),
     case Res of
         undefined -> {error, missing};
         Res -> {ok, Res}
@@ -247,19 +247,19 @@ get_phone(Uid) ->
 
 -spec get_creation_ts_ms(Uid :: uid()) -> {ok, integer()} | {error, missing}.
 get_creation_ts_ms(Uid) ->
-    {ok, Res} = q(["HGET", key(Uid), ?FIELD_CREATION_TIME]),
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_CREATION_TIME]),
     ts_reply(Res).
 
 
 -spec set_user_agent(Uid :: uid(), UserAgent :: binary()) -> ok.
 set_user_agent(Uid, UserAgent) ->
-    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_USER_AGENT, UserAgent]),
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_USER_AGENT, UserAgent]),
     ok.
 
 
 -spec get_signup_user_agent(Uid :: uid()) -> {ok, binary()} | {error, missing}.
 get_signup_user_agent(Uid) ->
-    {ok, Res} = q(["HGET", key(Uid), ?FIELD_USER_AGENT]),
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_USER_AGENT]),
     case Res of
         undefined -> {error, missing};
         Res -> {ok, Res}
@@ -268,7 +268,7 @@ get_signup_user_agent(Uid) ->
 
 -spec get_account(Uid :: uid()) -> {ok, account()} | {error, missing}.
 get_account(Uid) ->
-    {ok, Res} = q(["HGETALL", key(Uid)]),
+    {ok, Res} = q(["HGETALL", account_key(Uid)]),
     M = util:list_to_map(Res),
     Account = #account{
             uid = Uid,
@@ -291,7 +291,7 @@ get_account(Uid) ->
         TimestampMs :: integer()) -> ok.
 set_push_token(Uid, Os, PushToken, TimestampMs) ->
     {ok, _Res} = q(
-            ["HMSET", key(Uid),
+            ["HMSET", account_key(Uid),
             ?FIELD_PUSH_OS, Os,
             ?FIELD_PUSH_TOKEN, PushToken,
             ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs)]),
@@ -301,7 +301,7 @@ set_push_token(Uid, Os, PushToken, TimestampMs) ->
 -spec get_push_token(Uid :: uid()) -> {ok, undefined | push_info()} | {error, missing}.
 get_push_token(Uid) ->
     {ok, [Os, Token, TimestampMs]} = q(
-            ["HMGET", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+            ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
     Res = case Token of
         undefined ->
             undefined;
@@ -318,14 +318,14 @@ get_push_token(Uid) ->
 
 -spec remove_push_token(Uid :: uid()) -> ok | {error, missing}.
 remove_push_token(Uid) ->
-    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
     ok.
 
 
 -spec get_push_info(Uid :: uid()) -> {ok, undefined | push_info()} | {error, missing}.
 get_push_info(Uid) ->
     {ok, [Os, Token, TimestampMs, PushPost, PushComment]} = q(
-            ["HMGET", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP,
+            ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP,
             ?FIELD_PUSH_POST, ?FIELD_PUSH_COMMENT]),
     Res = #push_info{uid = Uid, 
             os = Os, 
@@ -338,53 +338,53 @@ get_push_info(Uid) ->
 
 -spec remove_push_info(Uid :: uid()) -> ok | {error, missing}.
 remove_push_info(Uid) ->
-    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
     ok.
 
 
 -spec set_push_post_pref(Uid :: uid(), PushPost :: boolean()) -> ok.
 set_push_post_pref(Uid, PushPost) ->
     PushPostValue = boolean_encode(PushPost),
-    {ok, _Res} = q(["HSET", key(Uid), ?FIELD_PUSH_POST, PushPostValue]),
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_PUSH_POST, PushPostValue]),
     ok.
 
 
 -spec get_push_post_pref(Uid :: uid()) -> {ok, boolean()}.
 get_push_post_pref(Uid) ->
-    {ok, PushPostValue} = q(["HGET", key(Uid), ?FIELD_PUSH_POST]),
+    {ok, PushPostValue} = q(["HGET", account_key(Uid), ?FIELD_PUSH_POST]),
     Res = boolean_decode(PushPostValue, true),
     {ok, Res}.
 
 
 -spec remove_push_post_pref(Uid :: uid()) -> ok | {error, missing}.
 remove_push_post_pref(Uid) ->
-    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_POST]),
+    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_POST]),
     ok.
 
 
 -spec set_push_comment_pref(Uid :: uid(), PushComment :: boolean()) -> ok.
 set_push_comment_pref(Uid, PushComment) ->
     PushCommentValue = boolean_encode(PushComment),
-    {ok, _Res} = q(["HMSET", key(Uid), ?FIELD_PUSH_COMMENT, PushCommentValue]),
+    {ok, _Res} = q(["HMSET", account_key(Uid), ?FIELD_PUSH_COMMENT, PushCommentValue]),
     ok.
 
 
 -spec get_push_comment_pref(Uid :: uid()) -> {ok, boolean()}.
 get_push_comment_pref(Uid) ->
-    {ok, [PushCommentValue]} = q(["HMGET", key(Uid), ?FIELD_PUSH_COMMENT]),
+    {ok, [PushCommentValue]} = q(["HMGET", account_key(Uid), ?FIELD_PUSH_COMMENT]),
     Res = boolean_decode(PushCommentValue, true),
     {ok, Res}.
 
 
 -spec remove_push_comment_pref(Uid :: uid()) -> ok | {error, missing}.
 remove_push_comment_pref(Uid) ->
-    {ok, _Res} = q(["HDEL", key(Uid), ?FIELD_PUSH_COMMENT]),
+    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_COMMENT]),
     ok.
 
 
 -spec account_exists(Uid :: uid()) -> boolean().
 account_exists(Uid) ->
-    {ok, Res} = q(["HEXISTS", key(Uid), ?FIELD_PHONE]),
+    {ok, Res} = q(["HEXISTS", account_key(Uid), ?FIELD_PHONE]),
     binary_to_integer(Res) > 0.
 
 
@@ -416,7 +416,7 @@ is_account_deleted(Uid) ->
         ActivityStatus :: activity_status()) -> ok.
 set_last_activity(Uid, TimestampMs, ActivityStatus) ->
     {ok, _Res1} = q(
-            ["HMSET", key(Uid),
+            ["HMSET", account_key(Uid),
             ?FIELD_LAST_ACTIVITY, integer_to_binary(TimestampMs),
             ?FIELD_ACTIVITY_STATUS, util:to_binary(ActivityStatus)]),
     ok.
@@ -425,7 +425,7 @@ set_last_activity(Uid, TimestampMs, ActivityStatus) ->
 -spec get_last_activity(Uid :: uid()) -> {ok, activity()} | {error, missing}.
 get_last_activity(Uid) ->
     {ok, [TimestampMs, ActivityStatus]} = q(
-            ["HMGET", key(Uid), ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS]),
+            ["HMGET", account_key(Uid), ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS]),
     Res = case util_redis:decode_ts(TimestampMs) of
             undefined ->
                 #activity{uid = Uid};
@@ -670,9 +670,8 @@ boolean_encode(BoolValue) ->
     end.
 
 
-% TODO rename to account_key
--spec key(binary()) -> binary().
-key(Uid) ->
+-spec account_key(binary()) -> binary().
+account_key(Uid) ->
     <<?ACCOUNT_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 -spec deleted_account_key(binary()) -> binary().

@@ -62,7 +62,7 @@ mod_options(_Host) ->
 % returns {ok, NumInvitesRemaining, TimestampOfLastInvite}
 -spec get_invites_remaining(Uid :: uid()) -> {ok, integer() | undefined, integer() | undefined}.
 get_invites_remaining(Uid) ->
-    {ok, [Num, Ts]} = q_accounts(["HMGET", model_accounts:key(Uid), ?FIELD_NUM_INV, ?FIELD_SINV_TS]),
+    {ok, [Num, Ts]} = q_accounts(["HMGET", model_accounts:account_key(Uid), ?FIELD_NUM_INV, ?FIELD_SINV_TS]),
     case {Num, Ts} of
         {undefined, undefined} -> {ok, undefined, undefined};
         {_, _} -> {ok, binary_to_integer(Num), binary_to_integer(Ts)}
@@ -125,7 +125,7 @@ ph_invited_by_key(Phone) ->
 -spec record_sent_invite(FromUid :: uid(), ToPhone :: binary(), NumInvsLeft :: binary()) -> ok.
 record_sent_invite(FromUid, ToPhone, NumInvsLeft) ->
     [{ok, _}, {ok, _}] = qp_accounts([
-        ["HSET", model_accounts:key(FromUid),
+        ["HSET", model_accounts:account_key(FromUid),
             ?FIELD_NUM_INV, NumInvsLeft,
             ?FIELD_SINV_TS, integer_to_binary(util:now())],
         ["SADD", acc_invites_key(FromUid), ToPhone]

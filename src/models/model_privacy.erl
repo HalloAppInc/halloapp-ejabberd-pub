@@ -86,13 +86,13 @@ mod_options(_Host) ->
 -spec set_privacy_type(Uid :: uid(), Type :: atom()) -> ok.
 set_privacy_type(Uid, Type) ->
     Value = encode_feed_privacy_list_type(Type),
-    {ok, _Res} = q(["HSET", model_accounts:key(Uid), ?FIELD_PRIVACY_LIST_TYPE, Value]),
+    {ok, _Res} = q(["HSET", model_accounts:account_key(Uid), ?FIELD_PRIVACY_LIST_TYPE, Value]),
     ok.
 
 
 -spec get_privacy_type(Uid :: uid()) -> {ok, atom()} | {error, any()}.
 get_privacy_type(Uid) ->
-    {ok, Res} = q(["HGET", model_accounts:key(Uid), ?FIELD_PRIVACY_LIST_TYPE]),
+    {ok, Res} = q(["HGET", model_accounts:account_key(Uid), ?FIELD_PRIVACY_LIST_TYPE]),
     {ok, decode_feed_privacy_list_type(Res)}.
 
 
