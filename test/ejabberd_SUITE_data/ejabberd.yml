@@ -1,35 +1,35 @@
 include_config_file:
   - macros.yml
-  - ejabberd.extauth.yml
-  - ejabberd.ldap.yml
-  - ejabberd.mnesia.yml
-  - ejabberd.mysql.yml
-  - ejabberd.pgsql.yml
-  - ejabberd.redis.yml
-  - ejabberd.sqlite.yml
+  #- ejabberd.extauth.yml
+  #- ejabberd.ldap.yml
+  #- ejabberd.mnesia.yml
+  #- ejabberd.mysql.yml
+  #- ejabberd.pgsql.yml
+  #- ejabberd.redis.yml
+  #- ejabberd.sqlite.yml
 
-host_config:
-  pgsql.localhost: PGSQL_CONFIG
-  sqlite.localhost: SQLITE_CONFIG
-  mysql.localhost: MYSQL_CONFIG
-  mnesia.localhost: MNESIA_CONFIG
-  redis.localhost: REDIS_CONFIG
-  ldap.localhost: LDAP_CONFIG
-  extauth.localhost: EXTAUTH_CONFIG
-  localhost:
-    auth_method:
-      - internal
-      - anonymous
+#host_config:
+  #pgsql.localhost: PGSQL_CONFIG
+  #sqlite.localhost: SQLITE_CONFIG
+  #mysql.localhost: MYSQL_CONFIG
+  #mnesia.localhost: MNESIA_CONFIG
+  #redis.localhost: REDIS_CONFIG
+  #ldap.localhost: LDAP_CONFIG
+  #extauth.localhost: EXTAUTH_CONFIG
+  #localhost:
+  #  auth_method:
+  #    - internal
+  #    - anonymous
 
 hosts:
   - localhost
-  - mnesia.localhost
-  - redis.localhost
-  - mysql.localhost
-  - pgsql.localhost
-  - extauth.localhost
-  - ldap.localhost
-  - sqlite.localhost
+  #- mnesia.localhost
+  #- redis.localhost
+  #- mysql.localhost
+  #- pgsql.localhost
+  #- extauth.localhost
+  #- ldap.localhost
+  #- sqlite.localhost
 
 shaper_rules:
   c2s_shaper:
