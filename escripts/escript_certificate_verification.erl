@@ -27,6 +27,6 @@ main([CertFileName, ServerKeyFileName]) ->
     {ok, SignedMessage} = enacl:sign_open(Cert, SigningPublic),
     PbCert = enif_protobuf:decode(SignedMessage, pb_cert_message),
     io:format("Timestamp: ~p, ServerPublicKey: ~p~n", 
-              [PbCert#pb_cert_message.ts, base64:encode(PbCert#pb_cert_message.server_key)]).
+              [PbCert#pb_cert_message.timestamp, base64:encode(PbCert#pb_cert_message.server_key)]).
 
 

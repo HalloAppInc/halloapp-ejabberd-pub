@@ -18,7 +18,7 @@
 
 create_cert_bytes(ServerPublic) ->
     PbCert = #pb_cert_message{
-        ts = erlang:system_time(second),
+        timestamp = erlang:system_time(second),
         server_key = ServerPublic
     },
     enif_protobuf:encode(PbCert).
