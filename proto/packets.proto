@@ -150,8 +150,8 @@ message ha_chat_state {
     Type type = 1;
     string thread_id = 2;
     enum ThreadType {
-        chat = 1;
-        group_chat = 2;
+        chat = 0;
+        group_chat = 1;
     }
     ThreadType thread_type = 3;
     int64 from_uid = 4;
