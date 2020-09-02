@@ -18,5 +18,6 @@ message auth_request {
 message auth_result {
     string result = 1;
     string reason = 2;
+    bytes props_hash = 3;
 }
 

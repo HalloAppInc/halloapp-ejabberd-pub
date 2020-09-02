@@ -36,7 +36,8 @@ xmpp_to_proto_auth_request(XmppAuth) ->
 xmpp_to_proto_auth_result(XmppAuth) ->
     #pb_auth_result{
         result = XmppAuth#halloapp_auth_result.result,
-        reason = XmppAuth#halloapp_auth_result.reason
+        reason = XmppAuth#halloapp_auth_result.reason,
+        props_hash = base64:decode(XmppAuth#halloapp_auth_result.props_hash)
     }.
 
 
@@ -68,6 +69,7 @@ proto_to_xmpp_auth_request(ProtoAuth) ->
 proto_to_xmpp_auth_result(ProtoAuth) ->
     #halloapp_auth_result{
         result = ProtoAuth#pb_auth_result.result,
-        reason = ProtoAuth#pb_auth_result.reason
+        reason = ProtoAuth#pb_auth_result.reason,
+        props_hash = base64:encode(ProtoAuth#pb_auth_result.props_hash)
     }.
 

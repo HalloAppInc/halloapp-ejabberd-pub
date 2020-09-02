@@ -40,14 +40,16 @@
 -define(XMPP_AUTH_RESULT,
     #halloapp_auth_result{
         result = <<"Success!">>,
-        reason = <<"none">>
+        reason = <<"none">>,
+        props_hash = <<"MTIz">>
     }
 ).
 
 -define(PB_AUTH_RESULT,
     #pb_auth_result{
         result = <<"Success!">>,
-        reason = <<"none">>
+        reason = <<"none">>,
+        props_hash = <<"123">>
     }
 ).
 
