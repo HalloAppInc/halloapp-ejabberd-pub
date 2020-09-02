@@ -233,18 +233,18 @@ contacts_key(Uid) ->
 sync_key(Uid, Sid) ->
     <<?SYNC_KEY/binary, <<"{">>/binary, Uid/binary, <<"}:">>/binary, Sid/binary>>.
 
--spec reverse_key(Phone :: binary()) -> binary().
+-spec reverse_key(Phone :: phone()) -> binary().
 reverse_key(Phone) ->
     <<?REVERSE_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
 
 
--spec reverse_phone_hash_key(Phone :: binary()) -> binary().
+-spec reverse_phone_hash_key(Phone :: phone()) -> binary().
 reverse_phone_hash_key(Phone) ->
     SqueezedPhoneHash = hash_phone(Phone),
     <<?PHONE_HASH_KEY/binary, "{", SqueezedPhoneHash/binary, "}">>.
 
 
--spec hash_phone(Phone :: binary()) -> binary().
+-spec hash_phone(Phone :: phone()) -> binary().
 hash_phone(Phone) ->
     SqueezedPhone = integer_to_binary(binary_to_integer(Phone) bsr ?SQUEEZE_LENGTH_BITS),
     {ok, Salt} = get_contact_hash_salt(),

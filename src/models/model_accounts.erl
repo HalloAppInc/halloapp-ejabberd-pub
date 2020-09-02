@@ -129,13 +129,13 @@ mod_options(_Host) ->
 %% Account related API
 %%====================================================================
 
--spec create_account(Uid :: uid(), Phone :: binary(), Name :: binary(),
+-spec create_account(Uid :: uid(), Phone :: phone(), Name :: binary(),
         UserAgent :: binary()) -> ok | {error, exists}.
 create_account(Uid, Phone, Name, UserAgent) ->
     create_account(Uid, Phone, Name, UserAgent, util:now_ms()).
 
 
--spec create_account(Uid :: uid(), Phone :: binary(), Name :: binary(),
+-spec create_account(Uid :: uid(), Phone :: phone(), Name :: binary(),
         UserAgent :: binary(), CreationTsMs :: integer()) -> ok | {error, exists | deleted}.
 create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
     {ok, Deleted} = q(["EXISTS", deleted_account_key(Uid)]),
@@ -601,19 +601,19 @@ get_traced_phones() ->
     {ok, Phones}.
 
 
--spec add_phone_to_trace(Phone :: binary()) -> ok.
+-spec add_phone_to_trace(Phone :: phone()) -> ok.
 add_phone_to_trace(Phone) ->
     {ok, _Res} = q(["SADD", ?TRACED_PHONES_KEY, Phone]),
     ok.
 
 
--spec remove_phone_from_trace(Phone :: binary()) -> ok.
+-spec remove_phone_from_trace(Phone :: phone()) -> ok.
 remove_phone_from_trace(Phone) ->
     {ok, _Res} = q(["SREM", ?TRACED_PHONES_KEY, Phone]),
     ok.
 
 
--spec is_phone_traced(Phone :: binary()) -> boolean().
+-spec is_phone_traced(Phone :: phone()) -> boolean().
 is_phone_traced(Phone) ->
     {ok, Res} = q(["SISMEMBER", ?TRACED_PHONES_KEY, Phone]),
     binary_to_integer(Res) == 1.

@@ -21,6 +21,7 @@
 -include("ejabberd_http.hrl").
 -include("bosh.hrl").
 -include("account.hrl").
+-include("ha_types.hrl").
 
 %% API
 -export([start/2, stop/1, reload/3, init/1, depends/2, mod_options/1]).
@@ -35,9 +36,6 @@
 -type http_body() :: binary().
 -type http_response() :: {http_response_code(), http_headers(), http_body()}.
 -type http_path() :: [binary()].
-
-% TODO: move this to some header?
--type phone() :: binary().
 
 
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().

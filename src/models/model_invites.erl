@@ -82,7 +82,7 @@ is_invited(PhoneNum) ->
     binary_to_integer(Res) == 1.
 
 
--spec is_invited_by(Phone :: binary(), Uid :: uid()) -> boolean().
+-spec is_invited_by(Phone :: phone(), Uid :: uid()) -> boolean().
 is_invited_by(Phone, Uid) ->
     {ok, Res} = q_accounts(["SISMEMBER", acc_invites_key(Uid), Phone]),
     binary_to_integer(Res) == 1.
@@ -118,11 +118,11 @@ q_phones(Command) -> ecredis:q(ecredis_phone, Command).
 acc_invites_key(Uid) ->
     <<?INVITES_KEY/binary, "{", Uid/binary, "}">>.
 
--spec ph_invited_by_key(Phone :: binary()) -> binary().
+-spec ph_invited_by_key(Phone :: phone()) -> binary().
 ph_invited_by_key(Phone) ->
     <<?INVITED_BY_KEY/binary, "{", Phone/binary, "}">>.
 
--spec record_sent_invite(FromUid :: uid(), ToPhone :: binary(), NumInvsLeft :: binary()) -> ok.
+-spec record_sent_invite(FromUid :: uid(), ToPhone :: phone(), NumInvsLeft :: binary()) -> ok.
 record_sent_invite(FromUid, ToPhone, NumInvsLeft) ->
     [{ok, _}, {ok, _}] = qp_accounts([
         ["HSET", model_accounts:account_key(FromUid),
@@ -132,7 +132,7 @@ record_sent_invite(FromUid, ToPhone, NumInvsLeft) ->
     ]),
     ok.
 
--spec record_invited_by(FromUid :: uid(), ToPhone :: binary()) -> ok.
+-spec record_invited_by(FromUid :: uid(), ToPhone :: phone()) -> ok.
 record_invited_by(FromUid, ToPhone) ->
     {ok, _} = q_phones(["HSET", ph_invited_by_key(ToPhone),
                    ?FIELD_RINV_UID, FromUid,

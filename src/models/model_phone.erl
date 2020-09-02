@@ -68,7 +68,7 @@ mod_options(_Host) ->
 -define(MAX_SLOTS, 8).
 
 
--spec add_sms_code(Phone :: binary(), Code :: binary(), Timestamp :: integer(),
+-spec add_sms_code(Phone :: phone(), Code :: binary(), Timestamp :: integer(),
                 Sender :: binary()) -> ok  | {error, any()}.
 add_sms_code(Phone, Code, Timestamp, Sender) ->
     _Results = q([["MULTI"],
@@ -81,37 +81,37 @@ add_sms_code(Phone, Code, Timestamp, Sender) ->
     ok.
 
 
--spec add_sms_code_receipt(Phone :: binary(), Receipt :: binary()) -> ok  | {error, any()}.
+-spec add_sms_code_receipt(Phone :: phone(), Receipt :: binary()) -> ok  | {error, any()}.
 add_sms_code_receipt(Phone, Receipt) ->
     _Results = q(["HSET", code_key(Phone), ?FIELD_RECEIPT, Receipt]),
     ok.
 
 
--spec delete_sms_code(Phone :: binary()) -> ok  | {error, any()}.
+-spec delete_sms_code(Phone :: phone()) -> ok  | {error, any()}.
 delete_sms_code(Phone) ->
     {ok, _Res} = q(["DEL", code_key(Phone)]),
     ok.
 
 
--spec get_sms_code(Phone :: binary()) -> {ok, maybe(binary())} | {error, any()}.
+-spec get_sms_code(Phone :: phone()) -> {ok, maybe(binary())} | {error, any()}.
 get_sms_code(Phone) ->
     {ok, Res} = q(["HGET", code_key(Phone), ?FIELD_CODE]),
     {ok, Res}.
 
 
--spec get_sms_code_timestamp(Phone :: binary()) -> {ok, maybe(integer())} | {error, any()}.
+-spec get_sms_code_timestamp(Phone :: phone()) -> {ok, maybe(integer())} | {error, any()}.
 get_sms_code_timestamp(Phone) ->
     {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_TIMESTAMP]),
     {ok, util_redis:decode_ts(Res)}.
 
 
--spec get_sms_code_sender(Phone :: binary()) -> {ok, maybe(binary())} | {error, any()}.
+-spec get_sms_code_sender(Phone :: phone()) -> {ok, maybe(binary())} | {error, any()}.
 get_sms_code_sender(Phone) ->
     {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_SENDER]),
     {ok, Res}.
 
 
--spec get_sms_code_receipt(Phone :: binary()) -> {ok, maybe(binary())} | {error, any()}.
+-spec get_sms_code_receipt(Phone :: phone()) -> {ok, maybe(binary())} | {error, any()}.
 get_sms_code_receipt(Phone) ->
     {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_RECEIPT]),
     {ok, Res}.
@@ -119,25 +119,25 @@ get_sms_code_receipt(Phone) ->
 
 % -1 means key does not have TTL set.
 % -2 means key does not exist.
--spec get_sms_code_ttl(Phone :: binary()) -> {ok, integer()} | {error, any()}.
+-spec get_sms_code_ttl(Phone :: phone()) -> {ok, integer()} | {error, any()}.
 get_sms_code_ttl(Phone) ->
     {ok, Res} = q(["TTL" , code_key(Phone)]),
     {ok, binary_to_integer(Res)}.
 
 
--spec add_phone(Phone :: binary(), Uid :: uid()) -> ok  | {error, any()}.
+-spec add_phone(Phone :: phone(), Uid :: uid()) -> ok  | {error, any()}.
 add_phone(Phone, Uid) ->
     {ok, _Res} = q(["SET", phone_key(Phone), Uid]),
     ok.
 
 
--spec delete_phone(Phone :: binary()) -> ok  | {error, any()}.
+-spec delete_phone(Phone :: phone()) -> ok  | {error, any()}.
 delete_phone(Phone) ->
     {ok, _Res} = q(["DEL", phone_key(Phone)]),
     ok.
 
 
--spec get_uid(Phone :: binary()) -> {ok, maybe(binary())} | {error, any()}.
+-spec get_uid(Phone :: phone()) -> {ok, maybe(binary())} | {error, any()}.
 get_uid(Phone) ->
     {ok, Res} = q(["GET" , phone_key(Phone)]),
     {ok, Res}.
@@ -169,7 +169,7 @@ order_phones_by_keys(Phones) ->
     order_phones_into_slots(Phones, DefaultMap).
 
 
--spec phone_key(Phone :: binary()) -> binary().
+-spec phone_key(Phone :: phone()) -> binary().
 phone_key(Phone) ->
     Slot = get_slot(Phone),
     phone_key(Phone, Slot).
@@ -177,7 +177,7 @@ phone_key(Phone) ->
 
 % TODO: migrate the data to make the keys take look like pho:{5}:1555555555
 % TODO: also migrate to the crc16_redis
--spec phone_key(Phone :: binary(), Slot :: integer()) -> binary().
+-spec phone_key(Phone :: phone(), Slot :: integer()) -> binary().
 phone_key(Phone, Slot) ->
     <<?PHONE_KEY/binary, <<"{">>/binary, Slot/integer, <<"}:">>/binary, Phone/binary>>.
 
@@ -195,7 +195,7 @@ order_phones_into_slots(Phones, SlotsMap) ->
     lists:unzip(maps:values(SlotsPhoneMap)).
 
 
--spec get_slot(Phone :: binary()) -> integer().
+-spec get_slot(Phone :: phone()) -> integer().
 get_slot(Phone) ->
     crc16:crc16(binary_to_list(Phone)) rem ?MAX_SLOTS.
 
@@ -207,7 +207,7 @@ get_default_slot_map(Num, Map) ->
     get_default_slot_map(Num - 1, Map#{Num - 1 => {[], []}}).
 
 
--spec code_key(Phone :: binary()) -> binary().
+-spec code_key(Phone :: phone()) -> binary().
 code_key(Phone) ->
     <<?PHONE_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
 

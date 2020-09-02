@@ -17,6 +17,8 @@
 -type uid() :: binary().
 -type gid() :: binary().
 
+-type phone() :: binary().
+
 -type names_map() :: #{uid() := binary()}.
 
 -type client_type() :: android | ios.
