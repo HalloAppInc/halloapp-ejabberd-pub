@@ -79,7 +79,9 @@ iq_payload_mapping(SubEl) ->
         name ->
             {name, name_parser:xmpp_to_proto(SubEl)};
         props ->
-            {props, props_parser:xmpp_to_proto(SubEl)}
+            {props, props_parser:xmpp_to_proto(SubEl)};
+        invites ->
+            {invites, invite_parser:xmpp_to_proto(SubEl)}
     end,
     Payload.
 
@@ -138,7 +140,9 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
         {name, NameRecord} ->
             name_parser:proto_to_xmpp(NameRecord);
         {props, PropsRecord} ->
-            props_parser:proto_to_xmpp(PropsRecord)
+            props_parser:proto_to_xmpp(PropsRecord);
+        {invites, InvitesRecord} ->
+            invite_parser:proto_to_xmpp(InvitesRecord)
     end,
     SubEl.
 
