@@ -136,7 +136,7 @@ send(#{lserver := LServer} = State, Pkt) ->
     end.
 
 
--spec send_error(state(), xmpp_element(), stanza_error()) -> state().
+-spec send_error(state(), xmpp_element(), binary()) -> state().
 send_error(#{lserver := LServer} = State, Pkt, Err) ->
     case ejabberd_hooks:run_fold(c2s_filter_send, LServer, {Pkt, State}, []) of
         {drop, State1} -> State1;
@@ -363,11 +363,8 @@ handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
             send(State2, xmpp:make_iq_result(Pkt2));
         _ ->
             check_privacy_then_route(State2, Pkt2)
-        catch _:{xmpp_codec, Why} ->
-            Txt = xmpp:io_format_error(Why),
-            Lang = maps:get(lang, State),
-            Err = xmpp:err_bad_request(Txt, Lang),
-            send_error(State2, Pkt2, Err)
+        catch _:{xmpp_codec, _Why} ->
+            send_error(State2, Pkt2, <<"bad_request">>)
         end;
     #presence{} ->
         process_presence(State2, Pkt2);
@@ -526,16 +523,13 @@ update_priority(#{sid := SID, user := U, server := S, resource := R}, Pres) ->
 
 
 -spec check_privacy_then_route(state(), stanza()) -> state().
-check_privacy_then_route(#{lang := Lang} = State, Pkt) ->
+check_privacy_then_route(State, Pkt) ->
     case privacy_check_packet(State, Pkt, out) of
         deny ->
-            ErrText = ?T("Your active privacy list has denied "
-             "the routing of this stanza."),
-        Err = xmpp:err_not_acceptable(ErrText, Lang),
-        send_error(State, Pkt, Err);
+            send_error(State, Pkt, <<"not_acceptable">>);
         allow ->
-        ejabberd_router:route(Pkt),
-        State
+            ejabberd_router:route(Pkt),
+            State
     end.
 
 

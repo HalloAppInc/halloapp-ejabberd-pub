@@ -316,6 +316,8 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := wait_for_authenti
             stat:count("HA/pb_packet", "decode_success"),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
             FinalPkt = ha_auth_parser:proto_to_xmpp(Pkt),
+
+            %% TODO(murali@): need to catch errors here for proto_to_xmpp and decode errors.
             ?DEBUG("recv: translated xmpp: ~p", [FinalPkt]),
             State1 = try callback(handle_recv, Bin, FinalPkt, State)
                catch _:{?MODULE, undef} -> State
@@ -327,12 +329,12 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := wait_for_authenti
         catch _:_ ->
             stat:count("HA/pb_packet", "decode_failure"),
             Why = <<"failed_codec">>,
-            State1 = try callback(handle_recv, Bin, {error, Why}, State)
+            State2 = try callback(handle_recv, Bin, {error, Why}, State)
                catch _:{?MODULE, undef} -> State
                end,
-            case is_disconnected(State1) of
-                true -> State1;
-                false -> process_invalid_protobuf(State1, Bin, Why)
+            case is_disconnected(State2) of
+                true -> State2;
+                false -> process_invalid_protobuf(State2, Bin, Why)
             end
         end);
 
@@ -698,39 +700,52 @@ set_from_to(Pkt, #{lang := Lang}) ->
 -spec send_pkt(state(), xmpp_element()) -> state().
 send_pkt(State, XmppPkt) ->
     Pkt = xmpp_to_proto(XmppPkt),
-    Result = socket_send(State, Pkt),
-    Socket1 = case Result of
-        {ok, noise, SocketData} ->
-            SocketData;
-        {ok, fast_tls} ->
-            #{socket := SocketData} = State,
-            SocketData
+    %% TODO(murali@): xmpp_to_proto should throw an error instead of undefined.
+    {FinalResult, FinalState} = case Pkt of
+        undefined ->
+            ?ERROR_MSG("Failed to translate packet: ~p", [XmppPkt]),
+            NewState = send_error(State, XmppPkt, <<"server_error">>),
+            {ok, NewState};
+        Pkt ->
+            Result = socket_send(State, Pkt),
+            Socket1 = case Result of
+                {ok, noise, SocketData} ->
+                    SocketData;
+                {ok, fast_tls} ->
+                    #{socket := SocketData} = State,
+                    SocketData
+            end,
+            NewState = State#{socket => Socket1},
+            State1 = try callback(handle_send, Pkt, Result, NewState)
+                catch _:{?MODULE, undef} -> NewState
+            end,
+            {Result, State1}
     end,
-    NewState = State#{socket => Socket1},
-    State1 = try callback(handle_send, Pkt, Result, NewState)
-         catch _:{?MODULE, undef} -> NewState
-         end,
-    case Result of
+    case FinalResult of
         _ when is_record(Pkt, stream_error) ->
-            process_stream_end({stream, {out, Pkt}}, State1);
+            process_stream_end({stream, {out, Pkt}}, FinalState);
         ok ->
-            State1;
+            FinalState;
         {ok, noise, _} ->
-            State1;
+            FinalState;
         {ok, fast_tls} ->
-            State1;
+            FinalState;
         {error, _Why} ->
             % Queue process_stream_end instead of calling it directly,
             % so we have opportunity to process incoming queued messages before
             % terminating session.
             self() ! {'$gen_event', closed},
-            State1
+            FinalState
     end.
 
 
--spec send_error(state(), xmpp_element() | xmlel(), stanza_error()) -> state().
+%% TODO(murali@): maybe switch error to be an atom!
+-spec send_error(state(), xmpp_element() | xmlel(), binary()) -> state().
 send_error(State, _Pkt, Err) ->
-    %% TODO(murali@); send an error stanza.
+    ?ERROR_MSG("Sending error packet due to: ~p and terminating connection", [Err]),
+    ErrorStanza = #pb_ha_error{reason = Err},
+    ErrorPacket = #pb_packet{stanza = {error, ErrorStanza}},
+    socket_send(State, ErrorPacket),
     process_stream_end(Err, State).
 
 
@@ -790,10 +805,23 @@ format(Fmt, Args) ->
 
 
 %% TODO(murali@): clean this up further: use the parser module itself.
+%% Move it to the packet_parser module.
 xmpp_to_proto(XmppPkt) when is_record(XmppPkt, halloapp_auth_result) ->
-    ha_auth_parser:xmpp_to_proto(XmppPkt);
+    try
+        ha_auth_parser:xmpp_to_proto(XmppPkt)
+    catch
+        error: Reason ->
+            ?ERROR_MSG("Failed: packet: ~p, reason: ~p", [XmppPkt, Reason]),
+            undefined
+    end;
 xmpp_to_proto(XmppPkt) ->
-    packet_parser:xmpp_to_proto(XmppPkt).
+    try
+        packet_parser:xmpp_to_proto(XmppPkt)
+    catch
+        error: Reason ->
+            ?ERROR_MSG("Failed: packet: ~p, reason: ~p", [XmppPkt, Reason]),
+            undefined
+    end.
 
 
 %%%===================================================================
