@@ -604,7 +604,8 @@ process_auth_request(#halloapp_auth{uid = Uid, pwd = Pwd, client_mode = Mode,
                 catch _:{?MODULE, undef} -> State1
             end,
             {State2, <<"failure">>, <<"invalid uid or password">>};
-        {true, AuthModule} ->
+        true ->
+            AuthModule = undefined,
             State2 = State1#{auth_module => AuthModule},
             State3 = try callback(handle_auth_success, Uid, <<>>, AuthModule, State2)
                 catch _:{?MODULE, undef} -> State2
