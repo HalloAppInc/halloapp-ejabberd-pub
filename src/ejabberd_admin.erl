@@ -73,6 +73,7 @@
 	 remove_phone_trace/1,
 	 uid_info/1,
 	 phone_info/1,
+	 group_info/1,
 	 get_commands_spec/0
 	]).
 %% gen_server callbacks
@@ -510,7 +511,13 @@ get_commands_spec() ->
 		module = ?MODULE, function = phone_info,
 		args_desc = ["Phone number"],
 		args_example = [<<"12065555586">>],
-		args=[{phone, binary}], result = {res, rescode}}
+		args=[{phone, binary}], result = {res, rescode}},
+	#ejabberd_commands{name = group_info, tags = [server],
+		desc = "Get information about a group",
+		module = ?MODULE, function = group_info,
+		args_desc = ["Group ID (gid)"],
+		args_example = [<<"gmWxatkspbosFeZQmVoQ0f">>],
+		args=[{gid, binary}], result = {res, rescode}}
 	].
 
 
@@ -1173,6 +1180,23 @@ invite_info(Phone) ->
             {ok, Name} = model_accounts:get_name(Uid),
             io:format("~s was invited by ~s (~s) on ~s at ~s.~n",
                 [Phone, Name, Uid, Day, Time])
+    end,
+    ok.
+
+
+group_info(Gid) ->
+    case model_groups:group_exists(Gid) of
+        false -> io:format("No group associated with gid: ~s~n", [Gid]);
+        true ->
+            Group = model_groups:get_group(Gid),
+            GName = Group#group.name,
+            Members = [{Uid, Type, util:ms_to_datetime_string(Ts),
+                model_accounts:get_name_binary(Uid)}
+                || #group_member{uid = Uid, type = Type, joined_ts_ms = Ts} <- Group#group.members],
+            {CreateDate, CreateTime} = util:ms_to_datetime_string(Group#group.creation_ts_ms),
+            io:format("~s (~s), created on ~s at ~s:~n", [GName, Gid, CreateDate, CreateTime]),
+            [io:format("    ~s (~s) | ~s | joined on ~s at ~s~n", [Name, Uid, Type, Date, Time])
+                || {Uid, Type, {Date, Time}, Name} <- Members]
     end,
     ok.
 

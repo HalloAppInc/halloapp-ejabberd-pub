@@ -77,13 +77,18 @@ remove_member_test() ->
 
 get_group_test() ->
     setup(),
+    meck:new(util, [passthrough]),
+    meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
     Ts = util:now_ms(),
     {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1, Ts),
     Group = model_groups:get_group(Gid),
     ?assertEqual(?GROUP_NAME1, Group#group.name),
     ?assertEqual(undefined, Group#group.avatar),
     ?assertEqual(Ts, Group#group.creation_ts_ms),
-    ?assertEqual([#group_member{uid = ?UID1, type = admin}], Group#group.members),
+    ?assertEqual([#group_member{uid = ?UID1, type = admin, joined_ts_ms = ?TIMESTAMP}],
+        Group#group.members),
+    ?assert(meck:validate(util)),
+    meck:unload(util),
     ok.
 
 get_member_uids_test() ->

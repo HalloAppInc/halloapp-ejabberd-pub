@@ -368,10 +368,11 @@ decode_members(Gid, MembersMap)
 decode_member(Uid, MemberValue) ->
     try
         true = is_binary(Uid),
-        {MemberType, _Ts, _AddedBy} = decode_member_value(MemberValue),
+        {MemberType, Ts, _AddedBy} = decode_member_value(MemberValue),
         Member = #group_member{
             uid = Uid,
-            type = MemberType
+            type = MemberType,
+            joined_ts_ms = Ts
         },
         {ok, Member}
     catch

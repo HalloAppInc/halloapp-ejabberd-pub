@@ -14,7 +14,8 @@
 
 -record(group_member, {
     uid :: uid(),
-    type :: member | admin
+    type :: member | admin,
+    joined_ts_ms :: non_neg_integer()
 }).
 
 -type group_member() :: #group_member{}.

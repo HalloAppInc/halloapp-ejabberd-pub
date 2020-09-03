@@ -31,6 +31,8 @@ clear() ->
 
 create_empty_group_test() ->
     setup(),
+    meck:new(util, [passthrough]),
+    meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
 %%    ?debugVal(Group),
@@ -38,8 +40,11 @@ create_empty_group_test() ->
     ?assertEqual(undefined, Group#group.avatar),
     ?assertEqual(Gid, Group#group.gid),
     % make sure the time is close to now.
-    ?assert(erlang:abs(Group#group.creation_ts_ms - util:now_ms()) < 5000),
-    ?assertEqual([#group_member{uid = ?UID1, type = admin}], Group#group.members),
+    ?assertEqual(?TIMESTAMP, Group#group.creation_ts_ms),
+    ?assertEqual([#group_member{uid = ?UID1, type = admin, joined_ts_ms = ?TIMESTAMP}],
+        Group#group.members),
+    ?assert(meck:validate(util)),
+    meck:unload(util),
     ok.
 
 create_group_bad_name_test() ->
@@ -52,32 +57,40 @@ create_group_bad_name_test() ->
 
 create_group_with_members_test() ->
     setup(),
+    meck:new(util, [passthrough]),
+    meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
     {ok, Group, AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     ?assertEqual(?GROUP_NAME1, Group#group.name),
     ?assertEqual(3, length(Group#group.members)),
     [M1, M2, M3] = Group#group.members,
-    ?assertEqual(#group_member{uid = ?UID1, type = admin}, M1),
-    ?assertEqual(#group_member{uid = ?UID2, type = member}, M2),
-    ?assertEqual(#group_member{uid = ?UID3, type = member}, M3),
+    ?assertEqual(#group_member{uid = ?UID1, type = admin, joined_ts_ms = ?TIMESTAMP}, M1),
+    ?assertEqual(#group_member{uid = ?UID2, type = member, joined_ts_ms = ?TIMESTAMP}, M2),
+    ?assertEqual(#group_member{uid = ?UID3, type = member, joined_ts_ms = ?TIMESTAMP}, M3),
     ExpectedAddMemberResult = [
         {?UID2, add, ok},
         {?UID3, add, ok}
     ],
     ?assertEqual(ExpectedAddMemberResult, AddMemberResult),
+    ?assert(meck:validate(util)),
+    meck:unload(util),
     ok.
 
 create_group_member_has_no_account_test() ->
     setup(),
+    meck:new(util, [passthrough]),
+    meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
     {ok, Group, AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID5]),
     ?assertEqual(2, length(Group#group.members)),
     [M1, M2] = Group#group.members,
-    ?assertEqual(#group_member{uid = ?UID1, type = admin}, M1),
-    ?assertEqual(#group_member{uid = ?UID2, type = member}, M2),
+    ?assertEqual(#group_member{uid = ?UID1, type = admin, joined_ts_ms = ?TIMESTAMP}, M1),
+    ?assertEqual(#group_member{uid = ?UID2, type = member, joined_ts_ms = ?TIMESTAMP}, M2),
     ExpectedAddMemberResult = [
         {?UID2, add, ok},
         {?UID5, add, no_account}
     ],
     ?assertEqual(ExpectedAddMemberResult, AddMemberResult),
+    ?assert(meck:validate(util)),
+    meck:unload(util),
     ok.
 
 
@@ -213,6 +226,8 @@ get_group_not_member_test() ->
 
 get_group_test() ->
     setup(),
+    meck:new(util, [passthrough]),
+    meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
     mod_groups:add_members(Gid, ?UID1, [?UID2, ?UID3]),
@@ -222,12 +237,14 @@ get_group_test() ->
         name = ?GROUP_NAME1,
         creation_ts_ms = Group2#group.creation_ts_ms,
         members = [
-            #group_member{uid = ?UID1, type = admin},
-            #group_member{uid = ?UID2, type = member},
-            #group_member{uid = ?UID3, type = member}
+            #group_member{uid = ?UID1, type = admin, joined_ts_ms = ?TIMESTAMP},
+            #group_member{uid = ?UID2, type = member, joined_ts_ms = ?TIMESTAMP},
+            #group_member{uid = ?UID3, type = member, joined_ts_ms = ?TIMESTAMP}
         ]
     },
     ?assertEqual(ExpectedGroup, Group2),
+    ?assert(meck:validate(util)),
+    meck:unload(util),
     ok.
 
 get_groups_test() ->
