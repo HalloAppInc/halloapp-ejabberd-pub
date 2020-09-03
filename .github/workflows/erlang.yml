@@ -14,88 +14,12 @@ jobs:
   # This workflow contains a single job called "build"
   build:
     # The type of runner that the job will run on
-    runs-on: ubuntu-latest
-    container:	
-      image: erlang:22.0.7
-    
-    services:
-      redis:
-        image: redis
-        # Set health checks to wait until redis has started
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 120s
-          --health-timeout 5s
-          --health-retries 5
- 
+    runs-on: self-hosted
+
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - name: Install libsodium
-      run: |
-           apt-get update
-           apt-get -y install sudo
-           wget http://http.us.debian.org/debian/pool/main/libs/libsodium/libsodium23_1.0.17-1~bpo9+1_amd64.deb
-           wget http://http.us.debian.org/debian/pool/main/libs/libsodium/libsodium-dev_1.0.17-1~bpo9+1_amd64.deb
-           sudo dpkg -i libsodium23_1.0.17-1~bpo9+1_amd64.deb
-           sudo dpkg -i libsodium-dev_1.0.17-1~bpo9+1_amd64.deb
     - name: Checkout ejabberd
       uses: actions/checkout@v2
-    - name: Create deps-folder
-      run: mkdir deps
-    - name: Checkout halloapp-xmpp
-      uses: actions/checkout@v2
-      with:
-            repository: HalloAppInc/halloapp-xmpp
-            token: ${{ secrets.murali_access_token }}
-            path: deps/xmpp
-    - name: Checkout ecredis_crc16
-      uses: actions/checkout@v2
-      with:
-            repository: HalloAppInc/ecredis-crc16
-            token: ${{ secrets.murali_access_token }}
-            path: deps/ecredis_crc16
-    - name: Checkout ecredis
-      uses: actions/checkout@v2
-      with:
-            repository: HalloAppInc/ecredis
-            token: ${{ secrets.murali_access_token }}
-            path: deps/ecredis
-    - name: Checkout halloapp_enoise
-      uses: actions/checkout@v2
-      with:
-            repository: HalloAppInc/halloapp_enoise
-            token: ${{ secrets.murali_access_token }}
-            path: deps/enoise
-    - name: Checkout ha_enoise
-      uses: actions/checkout@v2
-      with:
-            repository: HalloAppInc/ha_enoise
-            token: ${{ secrets.murali_access_token }}
-            path: deps/ha_enoise
-    - name: Checkout halloapp-erlcloud
-      uses: actions/checkout@v2
-      with:
-            repository: HalloAppInc/halloapp-erlcloud
-            token: ${{ secrets.murali_access_token }}
-            path: deps/erlcloud
-    - name: Checkout halloapp-erlang-uuid
-      uses: actions/checkout@v2
-      with:
-            repository: HalloAppInc/halloapp-erlang-uuid
-            token: ${{ secrets.murali_access_token }}
-            path: deps/uuid
-    - name: Checkout bcrypt
-      uses: actions/checkout@v2
-      with:
-            repository: HalloAppInc/bcrypt
-            token: ${{ secrets.murali_access_token }}
-            path: deps/bcrypt
-    - name: Checkout halloapp-enif_protobuf
-      uses: actions/checkout@v2
-      with:
-            repository: HalloAppInc/enif_protobuf
-            token: ${{ secrets.murali_access_token }}
-            path: deps/enif_protobuf
     - name: Run Autogen
       run: ./autogen.sh
     - name: Run Configure
