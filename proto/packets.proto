@@ -75,9 +75,11 @@ message iq_payload {
         name name = 18;
         error error = 19;
         props props = 20;
-        invites invites = 21;
+        invites_request invites_request = 21;
+        invites_response invites_response = 22;
     }
 }
+
 
 message msg_payload {
     oneof content {

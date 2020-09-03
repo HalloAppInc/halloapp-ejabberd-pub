@@ -38,7 +38,7 @@ xmpp_to_proto_invite(XmppInvite) ->
 
 xmpp_to_proto_invites(XmppInvites) ->
     Invites = lists:map(fun xmpp_to_proto_invite/1, XmppInvites#invites.invites),
-    #pb_invites{
+    #pb_invites_response{
         invites_left = XmppInvites#invites.invites_left,
         time_until_refresh = XmppInvites#invites.time_until_refresh,
         invites = Invites
@@ -47,7 +47,7 @@ xmpp_to_proto_invites(XmppInvites) ->
 
 proto_to_xmpp(ProtoElement) when is_record(ProtoElement, pb_invite) ->
    proto_to_xmpp_pb_invite(ProtoElement);
-proto_to_xmpp(ProtoElement) when is_record(ProtoElement, pb_invites) ->
+proto_to_xmpp(ProtoElement) when is_record(ProtoElement, pb_invites_request) ->
     proto_to_xmpp_pb_invites(ProtoElement).
 
 proto_to_xmpp_pb_invite(ProtoInvite) ->
@@ -58,10 +58,10 @@ proto_to_xmpp_pb_invite(ProtoInvite) ->
     }.
 
 proto_to_xmpp_pb_invites(ProtoInvites) ->
-    Invites = lists:map(fun proto_to_xmpp_pb_invite/1, ProtoInvites#pb_invites.invites),
+    Invites = lists:map(fun proto_to_xmpp_pb_invite/1, ProtoInvites#pb_invites_request.invites),
     #invites{
-        invites_left = ProtoInvites#pb_invites.invites_left,
-        time_until_refresh = ProtoInvites#pb_invites.time_until_refresh,
+        invites_left = undefined,
+        time_until_refresh = undefined,
         invites = Invites
     }.
 
