@@ -143,7 +143,7 @@ get_uid(Phone) ->
     {ok, Res}.
 
 
--spec get_uids(Phones :: [binary()]) -> {ok, [binary()]} | {error, any()}.
+-spec get_uids(Phones :: [binary()]) -> {ok, map()} | {error, any()}.
 get_uids(Phones) ->
     {PhoneKeysList, PhonesList} = order_phones_by_keys(Phones),
     UidsList = lists:map(
@@ -163,7 +163,7 @@ get_uids(Phones) ->
 q(Command) -> ecredis:q(ecredis_phone, Command).
 
 
--spec order_phones_by_keys(Phones :: binary()) -> {[binary()], [binary()]}.
+-spec order_phones_by_keys(Phones :: [binary()]) -> {[binary()], [binary()]}.
 order_phones_by_keys(Phones) ->
     DefaultMap = get_default_slot_map(?MAX_SLOTS, #{}),
     order_phones_into_slots(Phones, DefaultMap).
@@ -182,7 +182,7 @@ phone_key(Phone, Slot) ->
     <<?PHONE_KEY/binary, <<"{">>/binary, Slot/integer, <<"}:">>/binary, Phone/binary>>.
 
 
--spec order_phones_into_slots(Phones :: binary(), SlotsMap :: map()) -> {[binary()], [binary()]}.
+-spec order_phones_into_slots(Phones :: [binary()], SlotsMap :: map()) -> {[binary()], [binary()]}.
 order_phones_into_slots(Phones, SlotsMap) ->
     SlotsPhoneMap = lists:foldl(fun(Phone, SMap) ->
                                     Slot = get_slot(Phone),

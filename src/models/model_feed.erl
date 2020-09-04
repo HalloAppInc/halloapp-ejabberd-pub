@@ -341,7 +341,7 @@ get_posts(PostIds) ->
     lists:filter(fun (X) -> X =/= undefined end, Results).
 
 
--spec get_posts_comments(PostIds :: [binary()]) -> [post()].
+-spec get_posts_comments(PostIds :: [binary()]) -> [comment()].
 get_posts_comments(PostIds) ->
     Results = lists:map(
         fun (PostId) ->

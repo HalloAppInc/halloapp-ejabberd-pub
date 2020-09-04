@@ -244,7 +244,7 @@ process(Path, Request) ->
     return_400().
 
 
--spec check_ua(binary()) -> boolean().
+-spec check_ua(binary()) -> ok | no_return().
 check_ua(UserAgent) ->
     case util_ua:is_hallo_ua(UserAgent) of
         true -> ok;
@@ -292,7 +292,7 @@ check_name(Name) when is_binary(Name) ->
     LName = string:slice(Name, 0, ?MAX_NAME_SIZE),
     case LName =:= Name of
         false ->
-            ?WARNING_MSG("Truncating user name to |~s| size was: ~p", [LName, length(Name)]);
+            ?WARNING_MSG("Truncating user name to |~s| size was: ~p", [LName, byte_size(Name)]);
         true ->
             ok
     end,
@@ -343,7 +343,7 @@ finish_registration_spub(Phone, Name, UserAgent, SPub) ->
     {ok, Phone, Uid}.
 
 %% Throws error if the code is wrong
--spec check_sms_code(phone(), string()) -> ok.
+-spec check_sms_code(phone(), binary()) -> ok.
 check_sms_code(Phone, Code) ->
     Host = util:get_host(),
     case {ejabberd_admin:get_user_passcode(Phone, Host), Code} of
@@ -373,7 +373,8 @@ request_sms(Phone, UserAgent) ->
     end.
 
 
--spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary()) -> ok.
+-spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary()) ->
+        {ok, binary()} | no_return().
 send_sms(Phone, Code, UserAgent) ->
     Msg = mod_sms:prepare_registration_sms(Code, UserAgent),
     ?DEBUG("preparing to send sms, phone:~p msg:~s", [Phone, Msg]),

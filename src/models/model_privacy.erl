@@ -305,12 +305,3 @@ block_key(Uid) ->
 reverse_block_key(Uid) ->
     <<?REVERSE_BLOCK_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
-
-check_result(FunctionName, Res1, Res2) ->
-    case Res1 =:= Res2 of
-        true ->
-            ?INFO_MSG("~p check ok", [FunctionName]);
-        false ->
-            ?WARNING_MSG("~p check failed ~p | ~p", [FunctionName, Res1, Res2])
-    end.
-

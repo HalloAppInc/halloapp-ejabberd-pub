@@ -168,9 +168,7 @@ get_last_sunday_midnight(CurrTime) ->
     Offset + ((CurrTime - Offset) div ?WEEKS) * ?WEEKS.
 
 
--spec get_next_sunday_midnight() -> integer().
-get_next_sunday_midnight() ->
-    get_next_sunday_midnight(util:now()).
+-spec get_next_sunday_midnight(CurrTime :: non_neg_integer()) -> non_neg_integer().
 get_next_sunday_midnight(CurrTime) ->
     get_last_sunday_midnight(CurrTime) + ?WEEKS.
 

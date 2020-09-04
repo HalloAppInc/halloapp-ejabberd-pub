@@ -443,7 +443,7 @@ presence_subscribe(Uid, Buid) ->
     ok.
 
 
--spec presence_unsubscribe(Uid :: uid(), Buid :: binary()) -> boolean().
+-spec presence_unsubscribe(Uid :: uid(), Buid :: binary()) -> ok.
 presence_unsubscribe(Uid, Buid) ->
     {ok, _Res1} = q(["SREM", subscribe_key(Uid), Buid]),
     {ok, _Res2} = q(["SREM", broadcast_key(Buid), Uid]),

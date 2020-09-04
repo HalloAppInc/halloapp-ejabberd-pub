@@ -94,7 +94,8 @@ set_spub(Uid, SPub) ->
     ok.
 
 
--spec get_password(Uid :: binary()) -> {ok, password()} | {error, missing}.
+%% TODO: spec says this function returns {error, missing}, but it does not
+-spec get_password(Uid :: uid()) -> {ok, password()} | {error, missing}.
 get_password(Uid) ->
     {ok, [Salt, HashedPassword, TsMsBinary]} = q(["HMGET", password_key(Uid),
         ?FIELD_SALT, ?FIELD_HASHED_PASSWORD, ?FIELD_TIMESTAMP_MS]),

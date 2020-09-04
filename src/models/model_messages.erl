@@ -112,7 +112,7 @@ get_retry_count(Uid, MsgId) ->
     {ok, Res}.
 
 
--spec get_message(Uid :: uid(), MsgId :: binary()) -> {ok, message()} | {error, any()}.
+-spec get_message(Uid :: uid(), MsgId :: binary()) -> {ok, offline_message()} | {error, any()}.
 get_message(Uid, MsgId) ->
     Result = q(["HGETALL", message_key(Uid, MsgId)]),
     OfflineMessage = parse_result(Result),
@@ -172,6 +172,8 @@ get_message_commands([MessageKey | Rest], Commands) ->
     get_message_commands(Rest, [Command | Commands]).
 
 
+%% TODO: passing the empty offline_message record makes dialyzer think that all its fields
+%% should be defined as maybe()
 -spec parse_result({ok, [binary()]}) -> offline_message().
 parse_result({ok, FieldValuesList}) ->
     parse_fields(FieldValuesList, #offline_message{}).

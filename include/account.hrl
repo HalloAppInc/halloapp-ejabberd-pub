@@ -8,6 +8,8 @@
 %%%-------------------------------------------------------------------
 -author("nikola").
 
+-include("ha_types.hrl").
+
 -record(account,
 {
     uid :: binary(),
@@ -39,8 +41,8 @@
     os :: binary(),
     token :: binary(),
     timestamp_ms :: integer(),
-    post_pref :: boolean(),
-    comment_pref :: boolean()
+    post_pref :: maybe(boolean()),
+    comment_pref :: maybe(boolean())
 }).
 
 -type push_info() :: #push_info{}.
