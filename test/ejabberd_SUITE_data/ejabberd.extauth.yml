@@ -1,5 +1,0 @@
-define_macro:
-  EXTAUTH_CONFIG:
-    queue_type: ram
-    extauth_program: "python extauth.py"
-    auth_method: external
