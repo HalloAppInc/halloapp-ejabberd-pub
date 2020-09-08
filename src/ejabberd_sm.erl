@@ -44,7 +44,6 @@
 	 is_active_session/1,
 	 close_session/4,
 	 check_in_subscription/2,
-	 bounce_offline_message/1,
 	 bounce_sm_packet/1,
 	 disconnect_removed_user/2,
 	 get_user_resources/2,
@@ -211,13 +210,6 @@ check_in_subscription(Acc, #presence{to = To}) ->
       true -> Acc;
       false -> {stop, false}
     end.
-
--spec bounce_offline_message({bounce, message()} | any()) -> any().
-bounce_offline_message({bounce, #message{type = T}} = Acc)
-    when T == chat; T == groupchat ->
-        bounce_sm_packet(Acc);
-bounce_offline_message(Acc) ->
-    Acc.
 
 -spec bounce_sm_packet({bounce | term(), stanza()}) -> any().
 bounce_sm_packet({bounce, Packet} = Acc) ->
@@ -553,8 +545,6 @@ host_up(Host) ->
 		       ejabberd_sm, c2s_handle_info, 50),
     ejabberd_hooks:add(roster_in_subscription, Host,
 		       ejabberd_sm, check_in_subscription, 20),
-    ejabberd_hooks:add(offline_message_hook, Host,
-		       ejabberd_sm, bounce_offline_message, 100),
     ejabberd_hooks:add(bounce_sm_packet, Host,
 		       ejabberd_sm, bounce_sm_packet, 100),
     ejabberd_hooks:add(remove_user, Host,
@@ -583,8 +573,6 @@ host_down(Host) ->
 			  ejabberd_sm, c2s_handle_info, 50),
     ejabberd_hooks:delete(roster_in_subscription, Host,
 			  ejabberd_sm, check_in_subscription, 20),
-    ejabberd_hooks:delete(offline_message_hook, Host,
-			  ejabberd_sm, bounce_offline_message, 100),
     ejabberd_hooks:delete(bounce_sm_packet, Host,
 			  ejabberd_sm, bounce_sm_packet, 100),
     ejabberd_hooks:delete(remove_user, Host,
@@ -781,7 +769,8 @@ do_route(Packet) ->
     case get_sessions(Mod, LUser, LServer, LResource) of
 	[] ->
 	    case Packet of
-		#message{type = T} when T == chat; T == normal; T == headline ->
+		#message{type = T} when T =:= chat; T =:= normal; T =:= headline; T =:= groupchat ->
+		    %% TODO(murali@): clean this do_route function properly
 		    route_message(Packet);
 		#message{} ->
 		    ejabberd_hooks:run_fold(bounce_sm_packet,

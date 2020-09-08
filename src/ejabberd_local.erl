@@ -81,7 +81,8 @@ route(Packet) ->
             gen_iq_handler:handle(?MODULE, Packet);
         Type == result; Type == error ->
             ok;
-        is_record(Packet, message), Type == groupchat ->
+        %% TODO(murali@): Refactor routing layer to group similar logic.
+        is_record(Packet, message), Type =:= groupchat ->
             ejabberd_hooks:run(group_message, To#jid.lserver, [Packet]);
         true ->
             ejabberd_hooks:run(local_send_to_resource_hook,
