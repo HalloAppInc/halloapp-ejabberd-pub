@@ -1,15 +1,15 @@
--module(escript_key_generator).
+-module(key_generator).
 
 %%! -pa deps/enacl/ebin deps/enoise/ebin -pa deps/ha_enoise/ebin
 
 -export([main/1]).
 
 %%% Usage:
-%%% escript escripts/escript_key_generator.erl gen_keypair/gen_signing_keypair KeyPairFilename SecretKeyFilename PublicKeyFilename
+%%% escript escripts/key_generator.erl gen_keypair/gen_signing_keypair KeyPairFilename SecretKeyFilename PublicKeyFilename
 %%% 
 %%% Example:
-%%% escript escripts/escript_key_generator.erl gen_keypair server.pem server_secret.pem server_public.pem
-%%% escript escripts/escript_key_generator.erl gen_signing_keypair server_signing_keypair.pem signing_secret.pem signing_public.pem
+%%% escript escripts/key_generator.erl gen_keypair server.pem server_secret.pem server_public.pem
+%%% escript escripts/key_generator.erl gen_signing_keypair server_signing_keypair.pem signing_secret.pem signing_public.pem
 %%%
 %%% Example dh keypair:
 %%% -----BEGIN PUBLIC KEY-----

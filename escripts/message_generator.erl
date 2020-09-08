@@ -1,4 +1,4 @@
--module(escript_message_generator).
+-module(message_generator).
 
 %%! -pa deps/enacl/ebin -pa ebin -pa deps/enif_protobuf/ebin/
 
@@ -8,10 +8,10 @@
 -include_lib("../include/proto/cert.hrl").
 
 %%% Usage:
-%%% escript escripts/escript_message_generator.erl ServerKeyFilename MessageFilename
+%%% escript escripts/message_generator.erl ServerKeyFilename MessageFilename
 %%% 
 %%% Example:
-%%% escript escripts/escript_message_generator.erl server_public.pem message
+%%% escript escripts/message_generator.erl server_public.pem message
 %%%
 %%% Example message in hex format with 40 bytes (32 bytes for public key, 8 bytes for timestamp)
 %%% 08B5BCA6FA051A20DDA895955992738B9532F5E81940501DBAC9DA1A86EF725DFEEF49E41358E650

@@ -1,4 +1,4 @@
--module(escript_aws_secret_generator).
+-module(aws_secret_generator).
 
 %%! -pa deps/jsx/ebin -pa ebin
 
@@ -8,10 +8,10 @@
 -include_lib("../include/proto/cert.hrl").
 
 %%% Usage:
-%%% escript escripts/escript_aws_secret_generator.erl ServerKeyFilename SignedMessageFileName SecretFileName
+%%% escript escripts/aws_secret_generator.erl ServerKeyFilename SignedMessageFileName SecretFileName
 %%% 
 %%% Example:
-%%% escript escripts/escript_aws_secret_generator.erl server.pem signed_message aws_secret
+%%% escript escripts/aws_secret_generator.erl server.pem signed_message aws_secret
 %%%
 %%% NOTE: signed_message is in hex format
 %%%

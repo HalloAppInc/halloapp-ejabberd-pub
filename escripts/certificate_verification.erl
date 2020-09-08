@@ -1,4 +1,4 @@
--module(escript_certificate_verification).
+-module(certificate_verification).
 
 %%! -pa deps/enacl/ebin -pa ebin -pa deps/enif_protobuf/ebin/
 
@@ -7,10 +7,10 @@
 -include_lib("../include/proto/cert.hrl").
 
 %%% Usage:
-%%% escript escripts/escript_certificate_verification.erl CertFileName ServerKeyFileName
+%%% escript escripts/certificate_verification.erl CertFileName ServerKeyFileName
 %%% 
 %%% Example:
-%%% escript escripts/escript_certificate_verification.erl cert.pem signing_public.pem
+%%% escript escripts/certificate_verification.erl cert.pem signing_public.pem
 %%%
 
 

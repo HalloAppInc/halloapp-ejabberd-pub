@@ -1,4 +1,4 @@
--module(escript_certificate_generator).
+-module(certificate_generator).
 
 %%! -pa deps/enacl/ebin -pa ebin -pa deps/enif_protobuf/ebin/
 
@@ -8,10 +8,10 @@
 -include_lib("../include/proto/cert.hrl").
 
 %%% Usage:
-%%% escript escripts/escript_certificate_generator.erl SigningKeyFilename ServerKeyFilename CertFilename
+%%% escript escripts/certificate_generator.erl SigningKeyFilename ServerKeyFilename CertFilename
 %%% 
 %%% Example:
-%%% escript escripts/escript_certificate_generator.erl signing_secret.pem server_public.pem cert.pem
+%%% escript escripts/certificate_generator.erl signing_secret.pem server_public.pem cert.pem
 %%%
 %%% Example certificate:
 %%% -----BEGIN CERTIFICATE-----
