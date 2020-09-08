@@ -428,7 +428,7 @@ init([State, Opts]) ->
 get_noise_info() ->
     [{?NOISE_STATIC_KEY, NoiseStaticKey}, {?NOISE_SERVER_CERTIFICATE, NoiseCertificate}] = 
         jsx:decode(mod_aws:get_secret(config:get_noise_secret_name())),
-    {NoiseStaticKey, NoiseCertificate}.
+    {base64:decode(NoiseStaticKey), base64:decode(NoiseCertificate)}.
 
 
 handle_call(Request, From, #{lserver := LServer} = State) ->
