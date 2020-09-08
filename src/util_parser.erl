@@ -12,7 +12,8 @@
 -export([
     xmpp_to_proto_uid/1,
     proto_to_xmpp_uid/1,
-    maybe_convert_to_binary/1
+    maybe_convert_to_binary/1,
+    maybe_convert_to_integer/1
 ]).
 
 %% Export all functions for unit tests
@@ -39,4 +40,7 @@ proto_to_xmpp_uid(PbUid) ->
 
 maybe_convert_to_binary(undefined) -> undefined;
 maybe_convert_to_binary(Data) -> util:to_binary(Data).
+
+maybe_convert_to_integer(undefined) -> undefined;
+maybe_convert_to_integer(Data) -> util:to_integer(Data).
 

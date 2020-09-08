@@ -16,7 +16,7 @@ xmpp_to_proto(SubEl) ->
         action = SubEl#whisper_keys.type,
         identity_key = SubEl#whisper_keys.identity_key,
         signed_key = SubEl#whisper_keys.signed_key,
-        otp_key_count = binary_to_integer(SubEl#whisper_keys.otp_key_count),
+        otp_key_count = util_parser:maybe_convert_to_integer(SubEl#whisper_keys.otp_key_count),
         one_time_keys = SubEl#whisper_keys.one_time_keys
     }.
 
@@ -31,7 +31,7 @@ proto_to_xmpp(ProtoPayload) ->
         type = ProtoPayload#pb_whisper_keys.action,
         identity_key = ProtoPayload#pb_whisper_keys.identity_key,
         signed_key = ProtoPayload#pb_whisper_keys.signed_key,
-        otp_key_count = OtpKeyCount,
+        otp_key_count = util_parser:maybe_convert_to_binary(OtpKeyCount),
         one_time_keys = ProtoPayload#pb_whisper_keys.one_time_keys
     }.
 
