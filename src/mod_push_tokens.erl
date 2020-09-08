@@ -24,7 +24,8 @@
 -export([
     process_local_iq/1,
     get_push_info/2,
-    remove_push_token/2
+    remove_push_token/2,
+    re_register_user/3
 ]).
 
 
@@ -35,12 +36,14 @@
 start(Host, _Opts) ->
     ?INFO_MSG("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PUSH, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 10),
     ok.
 
 
 stop(Host) ->
     ?INFO_MSG("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_PUSH),
+    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 10),
     ok.
 
 
@@ -59,6 +62,11 @@ mod_options(_Host) ->
 %%====================================================================
 %% hooks.
 %%====================================================================
+
+-spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
+re_register_user(UserId, Server, _Phone) ->
+    remove_push_token(UserId, Server).
+
 
 -spec process_local_iq(IQ :: iq()) -> iq().
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
