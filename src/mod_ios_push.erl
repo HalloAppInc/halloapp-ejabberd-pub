@@ -387,30 +387,6 @@ parse_subject_and_body(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]).
 
 
--spec parse_metadata(Message :: message()) -> {binary(), binary(), binary()}.
-parse_metadata(#message{id = Id, sub_els = [SubElement],
-        from = #jid{luser = FromUid}}) when is_record(SubElement, chat) ->
-    {Id, <<"chat">>, FromUid};
-parse_metadata(#message{id = Id, sub_els = [SubElement],
-        from = #jid{luser = FromUid}}) when is_record(SubElement, group_chat) ->
-    {Id, <<"group_chat">>, FromUid};
-parse_metadata(#message{id = Id, sub_els = [SubElement]})
-        when is_record(SubElement, contact_list) ->
-    {Id, <<"contact_notification">>, <<>>};
-parse_metadata(#message{sub_els = [#ps_event{items = #ps_items{
-        items = [#ps_item{id = Id, publisher = FromId, type = ItemType}]}}]}) ->
-%% TODO(murali@): Change the fromId to be just userid instead of jid.
-    #jid{luser = FromUid} = jid:from_string(FromId),
-    {Id, util:to_binary(ItemType), FromUid};
-parse_metadata(#message{sub_els = [#feed_st{posts = [Post]}]}) ->
-    {Post#post_st.id, <<"post">>, Post#post_st.uid};
-parse_metadata(#message{sub_els = [#feed_st{comments = [Comment]}]}) ->
-    {Comment#comment_st.id, <<"comment">>, Comment#comment_st.publisher_uid};
-parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
-    ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
-    {<<>>, <<>>, <<>>}.
-
-
 %% TODO(murali@): Need to clean all this parsing stuff logic after the switch to new feed api.
 -spec parse_payload(Message :: message()) -> binary().
 parse_payload(#message{sub_els = [#chat{sub_els = SubEls}]}) ->
@@ -444,7 +420,7 @@ parse_payload(#message{}) ->
 %% [https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification]
 -spec get_payload(PushMessageItem :: push_message_item(), PushType :: silent | alert) -> binary().
 get_payload(PushMessageItem, PushType) ->
-    {ContentId, ContentType, FromId} = parse_metadata(PushMessageItem#push_message_item.message),
+    {ContentId, ContentType, FromId} = push_util:parse_metadata(PushMessageItem#push_message_item.message),
     Data = parse_payload(PushMessageItem#push_message_item.message),
     MetadataMap = #{
         <<"content-id">> => ContentId,
@@ -508,9 +484,10 @@ get_device_path(DeviceId) ->
   <<"/3/device/", DeviceId/binary>>.
 
 
+%% TODO(murali@): refactor and cleanup this file.
 -spec get_collapse_id(PushMessageItem :: push_message_item()) -> binary().
 get_collapse_id(PushMessageItem) ->
-    {ContentId, _, _} = parse_metadata(PushMessageItem#push_message_item.message),
+    {ContentId, _, _} = push_util:parse_metadata(PushMessageItem#push_message_item.message),
     ContentId.
 
 

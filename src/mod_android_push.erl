@@ -164,7 +164,12 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
     ],
     Options = [],
     FcmApiKey = get_fcm_apikey(),
-    Payload = #{<<"title">> => <<"PushMessage">>},
+    {ContentId, ContentType, FromId} = push_utils:parse_metadata(PushMessageItem#push_message_item.message),
+    Payload = #{
+            <<"title">> => <<"PushMessage">>,
+            <<"content-id">> => ContentId,
+            <<"content-type">> => ContentType,
+            <<"from-id">> => FromId},
     PushMessage = #{<<"to">> => Token, <<"priority">> => <<"high">>, <<"data">> => Payload},
     Request = {?FCM_GATEWAY, [{"Authorization", "key=" ++ FcmApiKey}],
             "application/json", jiffy:encode(PushMessage)},
