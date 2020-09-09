@@ -16,7 +16,6 @@
 -include_lib("kernel/include/file.hrl").
 
 
-
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -37,32 +36,10 @@ init_config(Config) ->
     {ok, _} = file:copy(CertFile, filename:join([CWD, "cert.pem"])),
     {ok, _} = file:copy(SelfSignedCertFile, filename:join([CWD, "self-signed-cert.pem"])),
     {ok, _} = file:copy(CAFile, filename:join([CWD, "ca.pem"])),
-%%    {ok, MacrosContentTpl} = file:read_file(MacrosPathTpl),
-%%    Password = <<"password!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>,
-%%    Backends = get_config_backends(),
-%%    MacrosContent = process_config_tpl(
-%%        MacrosContentTpl,
-%%        [{c2s_port, 5222},
-%%            {loglevel, 4},
-%%            {new_schema, false},
-%%            {s2s_port, 5269},
-%%            {component_port, 5270},
-%%            {web_port, 5280},
-%%            {password, Password},
-%%            {mysql_server, <<"localhost">>},
-%%            {mysql_port, 3306},
-%%            {mysql_db, <<"ejabberd_test">>},
-%%            {mysql_user, <<"ejabberd_test">>},
-%%            {mysql_pass, <<"ejabberd_test">>},
-%%            {pgsql_server, <<"localhost">>},
-%%            {pgsql_port, 5432},
-%%            {pgsql_db, <<"ejabberd_test">>},
-%%            {pgsql_user, <<"ejabberd_test">>},
-%%            {pgsql_pass, <<"ejabberd_test">>},
-%%            {priv_dir, PrivDir}]),
-    MacrosPath = filename:join([CWD, "macros.yml"]),
-%%    ok = file:write_file(MacrosPath, MacrosContent),
-%%    copy_backend_configs(DataDir, CWD, Backends),
+
+    % TODO: we can try to use the macros to share .yml config file with the prod
+%%    MacrosPath = filename:join([CWD, "macros.yml"]),
+
     setup_ejabberd_lib_path(Config),
     case application:load(sasl) of
         ok -> ok;
@@ -86,11 +63,6 @@ init_config(Config) ->
         {component_port, ct:get_config(component_port, 5270)},
         {s2s_port, ct:get_config(s2s_port, 5269)},
         {server, ?COMMON_VHOST},
-        {user, <<"test_single!#$%^*()`~+-;_=[]{}|\\">>},
-        {nick, <<"nick!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>},
-        {master_nick, <<"master_nick!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>},
-        {slave_nick, <<"slave_nick!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>},
-        {room_subject, <<"hello, world!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>},
         {certfile, CertFile},
         {persistent_room, true},
         {anonymous, false},
@@ -105,14 +77,7 @@ init_config(Config) ->
         {rosterver, false},
         {lang, <<"en">>},
         {base_dir, BaseDir},
-        {receiver, undefined},
-        {pubsub_node, <<"node!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>},
-        {pubsub_node_title, <<"title!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>},
-        {resource, <<"resource!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>},
-        {master_resource, <<"master_resource!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>},
-        {slave_resource, <<"slave_resource!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>}
-%%        {password, Password},
-%%        {backends, Backends}
+        {receiver, undefined}
         | Config].
 
 
@@ -127,18 +92,11 @@ find_top_dir(Dir) ->
 
 setup_ejabberd_lib_path(Config) ->
     case code:lib_dir(ejabberd) of
-        {error, Error} ->
-        ct:pal("ejabberd_lib_path needs work ~p~n", [Error]),
+        {error, _Error} ->
             DataDir = proplists:get_value(data_dir, Config),
-            {ok, CWD} = file:get_cwd(),
-            NewEjPath = filename:join([CWD, "ejabberd-0.0.1"]),
             TopDir = find_top_dir(DataDir),
-            % TODO: this symlink I think is causing a loop in the FS.
-            % This causes an error later with the coverage tool.
-%%            ok = file:make_symlink(TopDir, NewEjPath),
             code:replace_path(ejabberd, TopDir);
         _ ->
-            ct:pal("ejabberd_lib_path ok~n"),
             ok
     end.
 

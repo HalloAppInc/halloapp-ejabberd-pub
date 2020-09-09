@@ -166,8 +166,10 @@ setup_ejabberd_lib_path(Config) ->
 	    {ok, CWD} = file:get_cwd(),
 	    NewEjPath = filename:join([CWD, "ejabberd-0.0.1"]),
 	    TopDir = find_top_dir(DataDir),
-	    ok = file:make_symlink(TopDir, NewEjPath),
-	    code:replace_path(ejabberd, NewEjPath);
+        % TODO: this symlink is causing inf loop when running the ejabberd_SUITE
+%%	    ok = file:make_symlink(TopDir, NewEjPath),
+%%	    code:replace_path(ejabberd, NewEjPath);
+        code:replace_path(ejabberd, TopDir);
 	_ ->
 	    ok
     end.
