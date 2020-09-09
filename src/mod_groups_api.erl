@@ -168,12 +168,7 @@ process_delete_group(IQ, Gid, Uid) ->
         {error, not_admin} ->
             xmpp:make_error(IQ, util:err(not_admin));
         ok ->
-            GroupStResult = #group_st{
-                gid = Gid,
-                action = delete,
-                result = ok
-            },
-            xmpp:make_iq_result(IQ, GroupStResult)
+            xmpp:make_iq_result(IQ)
     end.
 
 

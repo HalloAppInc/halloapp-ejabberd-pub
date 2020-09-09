@@ -206,16 +206,7 @@ delete_group_test() ->
 
     DeleteIQ = delete_group_IQ(?UID1, Gid),
     DeleteIQRes = mod_groups_api:process_local_iq(DeleteIQ),
-    GroupSt = tutil:get_result_iq_sub_el(DeleteIQRes),
-
-    ?assertMatch(
-        #group_st{
-            gid = Gid,
-            action = delete,
-            members = [],
-            result = ok
-        },
-        GroupSt),
+    ok = tutil:assert_empty_result_iq(DeleteIQRes),
     ok.
 
 
