@@ -15,7 +15,9 @@
 ###
 
 hosts:
-  - "s.halloapp.net"
+  # TODO: figure out how to do a certificate for s.halloapp.net"
+  ### - "s.halloapp.net"
+  - "localhost"
 
 ### loglevel is now controlled by the environment localhost,test is 5, prod is 4
 ### loglevel: 5
@@ -27,10 +29,10 @@ log_rotate_count: 10
 log_rate_limit: 5000
 
 
-ca_file: CAFILE
-c2s_cafile: CAFILE
+ca_file: ca.pem
+c2s_cafile: ca.pem
 certfiles:
-  - CERTFILE
+  - cert.pem
 
 listen:
   -

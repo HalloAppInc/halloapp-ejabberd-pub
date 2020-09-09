@@ -41,6 +41,7 @@ init_config(Config) ->
 %%    MacrosPath = filename:join([CWD, "macros.yml"]),
 
     setup_ejabberd_lib_path(Config),
+    setup_priv_dir(Config),
     case application:load(sasl) of
         ok -> ok;
         {error, {already_loaded, _}} -> ok
@@ -99,4 +100,15 @@ setup_ejabberd_lib_path(Config) ->
         _ ->
             ok
     end.
+
+
+setup_priv_dir(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    TopDir = find_top_dir(DataDir),
+    PrivDir = filename:join(TopDir, "priv"),
+    {ok, CWD} = file:get_cwd(),
+    NewPrivPath = filename:join([CWD, "priv"]),
+    ok = file:make_symlink(PrivDir, NewPrivPath),
+    ok.
+
 
