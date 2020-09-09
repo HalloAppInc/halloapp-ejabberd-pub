@@ -50,6 +50,11 @@ get_dev_uids() ->
 
 -spec is_dev_uid(Uid :: uid()) -> boolean().
 is_dev_uid(Uid) ->
-    {ok, Phone} = model_accounts:get_phone(Uid),
-    util:is_test_number(Phone) orelse lists:member(Uid, get_dev_uids()).
+    IsUIDDev = lists:member(Uid, get_dev_uids()),
+    case model_accounts:get_phone(Uid) of
+        {error, missing} ->
+            IsUIDDev;
+        {ok, Phone} ->
+            util:is_test_number(Phone) orelse IsUIDDev
+    end.
 
