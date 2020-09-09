@@ -15,7 +15,8 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(UID, <<"1">>).
--define(PHONE, <<"16175550000">>).
+-define(PHONE, <<"14703381473">>).
+-define(TEST_PHONE, <<"16175550000">>).
 -define(NAME, <<"Josh">>).
 -define(SERVER, <<"s.halloapp.net">>).
 -define(UA, <<"HalloApp/iPhone1.0">>).
@@ -58,20 +59,27 @@
 request_sms_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    Data = jsx:encode([{<<"phone">>, ?PHONE}]),
-    NotInvitedError = mod_halloapp_http_api:return_400(not_invited),
-    ?assertEqual(NotInvitedError, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
-        #request{method = 'POST', data = Data, headers = ?REQUEST_SMS_HEADERS(?UA)})),
-    ok = model_invites:record_invite(?UID, ?PHONE, 4),
+    Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
+    ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     BadUserAgentError = mod_halloapp_http_api:return_400(),
     ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, headers = ?REQUEST_SMS_HEADERS(?BAD_UA)})),
     GoodResponse = {200, ?HEADER(?CT_JSON),
         jiffy:encode({[
-            {phone, ?PHONE},
+            {phone, ?TEST_PHONE},
             {result, ok}
         ]})},
     ?assertEqual(GoodResponse, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, headers = ?REQUEST_SMS_HEADERS(?UA)})),
+    meck_finish(ejabberd_router).
+
+
+request_sms_test_phone_test() ->
+    setup(),
+    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    Data = jsx:encode([{<<"phone">>, ?PHONE}]),
+    NotInvitedError = mod_halloapp_http_api:return_400(not_invited),
+    ?assertEqual(NotInvitedError, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, headers = ?REQUEST_SMS_HEADERS(?UA)})),
     meck_finish(ejabberd_router).
 
@@ -80,27 +88,27 @@ register_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
-    Data = jsx:encode([{<<"phone">>, ?PHONE}]),
-    ok = model_invites:record_invite(?UID, ?PHONE, 4),
+    Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
+    ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, headers = ?REQUEST_SMS_HEADERS(?UA)}),
-    BadCodeData = ?REGISTER_DATA(?PHONE, ?BAD_SMS_CODE, ?NAME),
+    BadCodeData = ?REGISTER_DATA(?TEST_PHONE, ?BAD_SMS_CODE, ?NAME),
     BadCodeError = mod_halloapp_http_api:return_400(wrong_sms_code),
     ?assertEqual(BadCodeError, mod_halloapp_http_api:process(?REGISTER_PATH,
         #request{method = 'POST', data = BadCodeData, headers = ?REGISTER_HEADERS(?UA)})),
-    GoodData = ?REGISTER_DATA(?PHONE, ?SMS_CODE, ?NAME),
+    GoodData = ?REGISTER_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME),
     BadUserAgentError = mod_halloapp_http_api:return_400(),
     ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REGISTER_PATH,
         #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?BAD_UA)})),
     {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER_PATH,
         #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"uid">>, Uid}, {<<"phone">>, ?PHONE}, {<<"password">>, RegPass},
+    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, RegPass},
         {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(RegInfo),
     ?assert(ejabberd_auth:check_password(Uid, RegPass)),
     %% RE-reg
     {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER_PATH,
         #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"uid">>, Uid}, {<<"phone">>, ?PHONE}, {<<"password">>, Pass},
+    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, Pass},
         {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
     ?assert(ejabberd_auth:check_password(Uid, Pass)),
     meck_finish(ejabberd_sm),
@@ -111,8 +119,8 @@ register_spub_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
-    Data = jsx:encode([{<<"phone">>, ?PHONE}]),
-    ok = model_invites:record_invite(?UID, ?PHONE, 4),
+    Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
+    ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, headers = ?REQUEST_SMS_HEADERS(?UA)}),
     KeyPair = ha_enoise:generate_signature_keypair(),
@@ -120,18 +128,18 @@ register_spub_test() ->
     SignedMessage = enacl:sign("HALLO", SEdSecret),
     SEdPubEncoded = base64:encode(SEdPub),
     SignedMessageEncoded = base64:encode(SignedMessage),
-    BadCodeData = ?REGISTER2_DATA(?PHONE, ?BAD_SMS_CODE, ?NAME, SEdPubEncoded,
+    BadCodeData = ?REGISTER2_DATA(?TEST_PHONE, ?BAD_SMS_CODE, ?NAME, SEdPubEncoded,
                                   SignedMessageEncoded),
     BadCodeError = mod_halloapp_http_api:return_400(wrong_sms_code),
     ?assertEqual(BadCodeError, mod_halloapp_http_api:process(?REGISTER2_PATH,
         #request{method = 'POST', data = BadCodeData, headers = ?REGISTER_HEADERS(?UA)})),
-    GoodData = ?REGISTER2_DATA(?PHONE, ?SMS_CODE, ?NAME, SEdPubEncoded, SignedMessageEncoded),
+    GoodData = ?REGISTER2_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME, SEdPubEncoded, SignedMessageEncoded),
     BadUserAgentError = mod_halloapp_http_api:return_400(),
     ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REGISTER2_PATH,
         #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?BAD_UA)})),
     {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER2_PATH,
         #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"uid">>, Uid}, {<<"phone">>, ?PHONE},
+    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE},
         {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(RegInfo),
     SPub = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub),
     ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub))),
@@ -141,10 +149,10 @@ register_spub_test() ->
     SignedMessage2 = enacl:sign("HALLO", SEdSecret2),
     SEdPubEncoded2 = base64:encode(SEdPub2),
     SignedMessageEncoded2 = base64:encode(SignedMessage2),
-    GoodData2 = ?REGISTER2_DATA(?PHONE, ?SMS_CODE, ?NAME, SEdPubEncoded2, SignedMessageEncoded2),
+    GoodData2 = ?REGISTER2_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME, SEdPubEncoded2, SignedMessageEncoded2),
     {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER2_PATH,
         #request{method = 'POST', data = GoodData2, headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"uid">>, Uid}, {<<"phone">>, ?PHONE},
+    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE},
         {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
     SPub2 = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub2),
     ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub2))),
@@ -154,14 +162,14 @@ register_spub_test() ->
 update_key_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    Data = jsx:encode([{<<"phone">>, ?PHONE}]),
+    Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_invites:record_invite(?UID, ?PHONE, 4),
     mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, headers = ?REQUEST_SMS_HEADERS(?UA)}),
-    RegisterData = ?REGISTER_DATA(?PHONE, ?SMS_CODE, ?NAME),
+    RegisterData = ?REGISTER_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME),
     {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER_PATH,
         #request{method = 'POST', data = RegisterData, headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"uid">>, Uid}, {<<"phone">>, ?PHONE}, {<<"password">>, Pass},
+    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, Pass},
         {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
     ?assert(ejabberd_auth:check_password(Uid, Pass)),
 
@@ -218,6 +226,8 @@ check_name_test() ->
 
 check_invited_test() ->
     setup(),
+    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?TEST_PHONE)),
+
     ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE)),
     model_invites:record_invite(?UID, ?PHONE, 4),
     ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE)),
@@ -230,10 +240,10 @@ check_invited_test() ->
 request_and_check_sms_code_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?PHONE, ?SMS_CODE)),
-    ok = mod_halloapp_http_api:request_sms(?PHONE, ?UA),
-    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?PHONE, ?BAD_SMS_CODE)),
-    ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?PHONE, ?SMS_CODE)),
+    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?SMS_CODE)),
+    ok = mod_halloapp_http_api:request_sms(?TEST_PHONE, ?UA),
+    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?BAD_SMS_CODE)),
+    ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?SMS_CODE)),
     meck_finish(ejabberd_router).
 
 %%%----------------------------------------------------------------------

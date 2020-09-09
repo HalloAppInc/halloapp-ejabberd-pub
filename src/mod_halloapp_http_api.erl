@@ -304,7 +304,8 @@ check_name(_) ->
 -spec check_invited(PhoneNum :: binary()) -> ok | erlang:error().
 check_invited(PhoneNum) ->
     Invited = model_invites:is_invited(PhoneNum),
-    case Invited of
+    IsTestNumber = util:is_test_number(PhoneNum),
+    case Invited =:= true orelse IsTestNumber =:= true of
         true -> ok;
         false ->
             case model_phone:get_uid(PhoneNum) of
