@@ -28,7 +28,8 @@
     broadcast_event/4,
     send_post_notification/6,
     send_comment_notification/8,
-    filter_feed_items/1
+    filter_feed_items/1,
+    get_old_payload/1
 ]).
 
 

@@ -43,7 +43,8 @@
     publish_item/9,
     retract_item/8,
     broadcast_event/7,
-    get_feed_audience_set/1
+    get_feed_audience_set/1,
+    send_old_items_to_user/3
 ]).
 
 
@@ -563,7 +564,7 @@ feed_items_to_items_els(FeedItems, Server) ->
                         type = feedpost,
                         publisher = jid:encode(jid:make(Item#post.uid, Server)),
                         publisher_name = model_accounts:get_name_binary(Item#post.uid),
-                        sub_els = Item#post.payload
+                        sub_els = mod_ha_feed:get_old_payload(Item#post.payload)
                     };
                 #comment{} ->
                     #ps_item{
@@ -572,7 +573,7 @@ feed_items_to_items_els(FeedItems, Server) ->
                         type = comment,
                         publisher = jid:encode(jid:make(Item#comment.publisher_uid, Server)),
                         publisher_name = model_accounts:get_name_binary(Item#comment.publisher_uid),
-                        sub_els = Item#comment.payload
+                        sub_els = mod_ha_feed:get_old_payload(Item#comment.payload)
                     }
             end
         end, FeedItems).
