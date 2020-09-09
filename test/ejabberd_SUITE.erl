@@ -41,7 +41,8 @@
 -include("suite.hrl").
 
 suite() ->
-    [{timetrap, {seconds, 120}}].
+    % TODO: it takes too long to wait for things to timeout
+    [{timetrap, {seconds, 5}}].
 
 init_per_suite(Config) ->
     NewConfig = init_config(Config),
