@@ -17,7 +17,7 @@ all() -> [dummy_test].
 
 init_per_suite(InitConfigData) ->
     ct:pal("Config ~p", [InitConfigData]),
-    NewConfig = ha_suite:init_config(InitConfigData),
+    NewConfig = suite_ha:init_config(InitConfigData),
     DataDir = proplists:get_value(data_dir, NewConfig),
     {ok, CWD} = file:get_cwd(),
 %%    ExtAuthScript = filename:join([DataDir, "extauth.py"]),

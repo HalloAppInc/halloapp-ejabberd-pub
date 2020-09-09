@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 03. Sep 2020 2:51 PM
 %%%-------------------------------------------------------------------
--module(ha_suite).
+-module(suite_ha).
 -author("nikola").
 
 %% API
