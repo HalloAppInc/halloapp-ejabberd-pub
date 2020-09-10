@@ -31,7 +31,7 @@ xmpp_to_proto_client_mode(SubEl) ->
 xmpp_to_proto_client_version(SubEl) ->
     #pb_client_version{
         version = SubEl#client_version.version,
-        expires_in_seconds = binary_to_integer(SubEl#client_version.seconds_left)
+        expires_in_seconds = util_parser:maybe_convert_to_integer(SubEl#client_version.seconds_left)
     }.
 
 
@@ -57,6 +57,6 @@ proto_to_xmpp_client_mode(ProtoPayload) ->
 proto_to_xmpp_client_version(ProtoPayload) ->
     #client_version{
         version = ProtoPayload#pb_client_version.version,
-        seconds_left = integer_to_binary(ProtoPayload#pb_client_version.expires_in_seconds)
+        seconds_left = util_parser:maybe_convert_to_binary(ProtoPayload#pb_client_version.expires_in_seconds)
     }.
 

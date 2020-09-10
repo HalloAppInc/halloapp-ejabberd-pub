@@ -40,10 +40,10 @@
     }
 ).
 
--define(XMPP_IQ_CLIENT_VERSION,
+-define(XMPP_IQ_CLIENT_VERSION1,
     #iq{
         id = <<"clientVERSIONid">>,
-        type = set,
+        type = result,
         sub_els = [#client_version{
                 version = <<"2.3">>,
                 seconds_left = <<"23">>
@@ -52,14 +52,40 @@
     }
 ).
 
--define(PB_IQ_CLIENT_VERSION,
+-define(PB_IQ_CLIENT_VERSION1,
     #pb_ha_iq{
         id = <<"clientVERSIONid">>,
-        type = set,
+        type = result,
         payload = #pb_iq_payload{
             content = {client_version, #pb_client_version{
                 version = <<"2.3">>,
                 expires_in_seconds = 23
+            }}
+        }
+    }
+).
+
+
+-define(XMPP_IQ_CLIENT_VERSION2,
+    #iq{
+        id = <<"clientVERSIONid">>,
+        type = get,
+        sub_els = [#client_version{
+                version = <<"2.3">>,
+                seconds_left = undefined
+            }
+        ]
+    }
+).
+
+-define(PB_IQ_CLIENT_VERSION2,
+    #pb_ha_iq{
+        id = <<"clientVERSIONid">>,
+        type = get,
+        payload = #pb_iq_payload{
+            content = {client_version, #pb_client_version{
+                version = <<"2.3">>,
+                expires_in_seconds = undefined
             }}
         }
     }
@@ -84,13 +110,13 @@ proto_to_xmpp_client_mode_test() ->
 
 
 xmpp_to_proto_client_version_test() -> 
-    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_CLIENT_VERSION),
+    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_CLIENT_VERSION1),
     ?assertEqual(true, is_record(ProtoIQ, pb_ha_iq)),
-    ?assertEqual(?PB_IQ_CLIENT_VERSION, ProtoIQ).
+    ?assertEqual(?PB_IQ_CLIENT_VERSION1, ProtoIQ).
 
 
 proto_to_xmpp_client_version_test() ->
-    XmppIQ = iq_parser:proto_to_xmpp(?PB_IQ_CLIENT_VERSION),
+    XmppIQ = iq_parser:proto_to_xmpp(?PB_IQ_CLIENT_VERSION2),
     ?assertEqual(true, is_record(XmppIQ, iq)),
-    ?assertEqual(?XMPP_IQ_CLIENT_VERSION, XmppIQ).
+    ?assertEqual(?XMPP_IQ_CLIENT_VERSION2, XmppIQ).
 
