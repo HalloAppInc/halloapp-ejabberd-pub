@@ -43,6 +43,12 @@ parse_metadata(#message{sub_els = [#feed_st{posts = [Post]}]}) ->
 parse_metadata(#message{sub_els = [#feed_st{comments = [Comment]}]}) ->
     {Comment#comment_st.id, <<"comment">>, Comment#comment_st.publisher_uid, Comment#comment_st.timestamp};
 
+parse_metadata(#message{sub_els = [#group_feed_st{post = Post, comment = undefined}]}) ->
+    {Post#group_post_st.id, <<"group_post">>, Post#group_post_st.publisher_uid, Post#group_post_st.timestamp};
+
+parse_metadata(#message{sub_els = [#group_feed_st{post = undefined, comment = Comment}]}) ->
+    {Comment#group_comment_st.id, <<"group_comment">>, Comment#group_comment_st.publisher_uid, Comment#group_comment_st.timestamp};
+
 parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     {<<>>, <<>>, <<>>, <<>>}.

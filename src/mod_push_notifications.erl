@@ -84,6 +84,11 @@ should_push(#message{type = Type, sub_els = [SubEl]}) ->
             %% Push contact related notifications: could be contact_hash or new relationship notifications.
             true;
 
+        Type =:= groupchat andalso is_record(SubEl, group_feed_st) andalso
+                SubEl#group_feed_st.action =:= publish ->
+            %% Push all group feed messages with action = publish.
+            true;
+
         true ->
             %% Ignore everything else.
             false

@@ -412,6 +412,10 @@ parse_payload(#message{sub_els = [#feed_st{posts = [#post_st{payload = Payload}]
     Payload;
 parse_payload(#message{sub_els = [#feed_st{comments = [#comment_st{payload = Payload}]}]}) ->
     Payload;
+parse_payload(#message{sub_els = [#group_feed_st{post = #group_post_st{payload = Payload}}]}) ->
+    Payload;
+parse_payload(#message{sub_els = [#group_feed_st{comment = #group_comment_st{payload = Payload}}]}) ->
+    Payload;
 parse_payload(#message{}) ->
     <<>>.
 
@@ -464,6 +468,7 @@ get_push_type(#message{type = headline, to = #jid{luser = User}, sub_els = [#ps_
 get_push_type(#message{type = headline, sub_els = [#feed_st{}]}, _) -> silent;
 get_push_type(#message{type = normal, sub_els = [#feed_st{}]}, _) -> silent;
 get_push_type(#message{type = groupchat, sub_els = [#group_chat{}]}, _) -> alert;
+get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{}]}, _) -> alert;
 get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, chat) -> alert;
 get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, contact_list) -> silent;
 get_push_type(_, _) -> silent.
