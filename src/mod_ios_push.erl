@@ -420,12 +420,14 @@ parse_payload(#message{}) ->
 %% [https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification]
 -spec get_payload(PushMessageItem :: push_message_item(), PushType :: silent | alert) -> binary().
 get_payload(PushMessageItem, PushType) ->
-    {ContentId, ContentType, FromId} = push_util:parse_metadata(PushMessageItem#push_message_item.message),
+    {ContentId, ContentType, FromId, TimestampBin} = push_util:parse_metadata(
+            PushMessageItem#push_message_item.message),
     Data = parse_payload(PushMessageItem#push_message_item.message),
     MetadataMap = #{
         <<"content-id">> => ContentId,
         <<"content-type">> => ContentType,
         <<"from-id">> => FromId,
+        <<"timestamp">> => TimestampBin,
         <<"data">> => Data
     },
     BuildTypeMap = case PushType of
@@ -487,7 +489,7 @@ get_device_path(DeviceId) ->
 %% TODO(murali@): refactor and cleanup this file.
 -spec get_collapse_id(PushMessageItem :: push_message_item()) -> binary().
 get_collapse_id(PushMessageItem) ->
-    {ContentId, _, _} = push_util:parse_metadata(PushMessageItem#push_message_item.message),
+    {ContentId, _, _, _} = push_util:parse_metadata(PushMessageItem#push_message_item.message),
     ContentId.
 
 

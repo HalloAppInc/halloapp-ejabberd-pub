@@ -164,11 +164,13 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
     ],
     Options = [],
     FcmApiKey = get_fcm_apikey(),
-    {ContentId, ContentType, FromId} = push_util:parse_metadata(PushMessageItem#push_message_item.message),
+    {ContentId, ContentType, FromId, TimestampBin} = push_util:parse_metadata(
+            PushMessageItem#push_message_item.message),
     Payload = #{
             <<"title">> => <<"PushMessage">>,
             <<"content-id">> => ContentId,
             <<"content-type">> => ContentType,
+            <<"timestamp">> => TimestampBin,
             <<"from-id">> => FromId},
     PushMessage = #{<<"to">> => Token, <<"priority">> => <<"high">>, <<"data">> => Payload},
     Request = {?FCM_GATEWAY, [{"Authorization", "key=" ++ FcmApiKey}],
