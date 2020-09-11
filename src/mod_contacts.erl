@@ -137,7 +137,15 @@ register_user(UserId, Server, Phone) ->
 -spec block_uids(Uid :: binary(), Server :: binary(), Ouids :: list(binary())) -> ok.
 block_uids(Uid, Server, Ouids) ->
     %% TODO(murali@): Add batched api for friends.
-    lists:foreach(fun(Ouid) -> remove_friend(Uid, Server, Ouid) end, Ouids),
+    lists:foreach(
+        fun(Ouid) ->
+            case model_accounts:get_phone(Ouid) of
+                {ok, OPhone} ->
+                    remove_friend(Uid, Server, Ouid),
+                    notify_contact_about_user(Ouid, OPhone, Server, Uid, <<"none">>);
+                {error, missing} -> ok
+            end
+        end, Ouids),
     ok.
 
 
@@ -157,8 +165,11 @@ unblock_uids(Uid, Server, Ouids) ->
                     case model_contacts:is_contact(Uid, OPhone) andalso
                             model_contacts:is_contact(Ouid, Phone) andalso
                             not sets:is_element(Ouid, ReverseBlockSet) of
-                        true -> add_friend(Uid, Server, Ouid);
-                        false -> ok
+                        true ->
+                            add_friend(Uid, Server, Ouid),
+                            notify_contact_about_user(Ouid, OPhone, Server, Uid, <<"friends">>);
+                        false ->
+                            notify_contact_about_user(Ouid, OPhone, Server, Uid, <<"none">>)
                     end;
                 {error, missing} -> ok
             end
