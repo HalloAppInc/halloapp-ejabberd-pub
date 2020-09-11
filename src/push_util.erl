@@ -13,7 +13,8 @@
 -include ("push_message.hrl").
 
 -export([
-    parse_metadata/1
+    parse_metadata/1,
+    record_push_sent/1
 ]).
 
 
@@ -102,4 +103,13 @@ parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, post = undefined, c
 parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     #push_metadata{}.
+
+
+-spec record_push_sent(Message :: message()) -> boolean().
+record_push_sent(Message) ->
+    PushMetadata = parse_metadata(Message),
+    ContentId = PushMetadata#push_metadata.content_id,
+    #jid{user = UserId} = Message#message.to,
+    model_message:record_push_sent(UserId, ContentId).
+
 

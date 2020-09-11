@@ -139,27 +139,31 @@ publish_post(Uid, PostId, Payload, [AudienceListSt]) ->
     FeedAudienceType = AudienceListSt#audience_list_st.type,
     %% Include own Uid in the audience list always.
     FeedAudienceList = [Uid | uid_elements_to_uids(AudienceListSt#audience_list_st.uids)],
-    case model_feed:get_post(PostId) of
+    {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
             ok = model_feed:publish_post(PostId, Uid, Payload,
                     FeedAudienceType, FeedAudienceList, TimestampMs),
-
-            %% send a new api message to all the clients.
-            ResultStanza = make_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs),
-            FeedAudienceSet = get_feed_audience_set(Action, Uid, FeedAudienceList),
-            PushSet = FeedAudienceSet,
-            broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza),
             ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post]),
-
-            %% send an old api message to all the clients.
-            send_old_notification(PostId, feedpost, Uid, Uid,
-                    TimestampMs, Payload, publish, FeedAudienceSet),
 
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             {ok, ExistingPost#post.ts_ms}
-    end.
+    end,
+    broadcast_post(Action, PostId, Uid, Payload, FinalTimestampMs, FeedAudienceList),
+    {ok, FinalTimestampMs}.
+
+
+broadcast_post(Action, PostId, Uid, Payload, TimestampMs, FeedAudienceList) ->
+    %% send a new api message to all the clients.
+    ResultStanza = make_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs),
+    FeedAudienceSet = get_feed_audience_set(Action, Uid, FeedAudienceList),
+    PushSet = FeedAudienceSet,
+    broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza),
+
+    %% send an old api message to all the clients.
+    send_old_notification(PostId, feedpost, Uid, Uid, TimestampMs, Payload,
+        publish, FeedAudienceSet).
 
 
 -spec publish_comment(Uid :: uid(), CommentId :: binary(), PostId :: binary(), PostUid :: binary(),
@@ -170,11 +174,19 @@ publish_comment(PublisherUid, CommentId, PostId, PostUid, ParentCommentId, Paylo
     Action = publish,
     case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
         [{error, missing}, _, _] ->
-            handle_mnesia_content_request(PostId, CommentId, comment, ParentCommentId,
-                    Payload, Action, PublisherUid, PostUid);
-        [{ok, _Post}, {ok, Comment}, _] ->
+            {ok, TimestampMs} = handle_mnesia_content_request(PostId, CommentId, comment,
+                    ParentCommentId, Payload, Action, PublisherUid, PostUid),
+            {ok, TimestampMs};
+        [{ok, Post}, {ok, Comment}, {ok, ParentPushList}] ->
             %% Comment with same id already exists: duplicate request from the client.
-            {ok, Comment#comment.ts_ms};
+            TimestampMs = Comment#comment.ts_ms,
+            PostOwnerUid = Post#post.uid,
+            FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
+            NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
+            broadcast_comment(Action, CommentId, PostId, ParentCommentId,
+                PublisherUid, Payload, TimestampMs, FeedAudienceSet, NewPushList, PostOwnerUid),
+            
+            {ok, TimestampMs};
         [{ok, Post}, {error, _}, {ok, ParentPushList}] ->
             TimestampMs = util:now_ms(),
             PostOwnerUid = Post#post.uid,
@@ -185,21 +197,27 @@ publish_comment(PublisherUid, CommentId, PostId, PostUid, ParentCommentId, Paylo
                     NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
                             ParentCommentId, NewPushList, Payload, TimestampMs),
-
-                    %% send a new api message to all the clients.
-                    ResultStanza = make_feed_comment_stanza(Action, CommentId,
-                            PostId, ParentCommentId, PublisherUid, Payload, TimestampMs),
-                    PushSet = sets:from_list(NewPushList),
-                    broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
-                    ejabberd_hooks:run(feed_item_published, Server,
-                            [PublisherUid, CommentId, comment]),
-
-                    %% send an old api message to all the clients.
-                    send_old_notification(CommentId, comment, PostOwnerUid, PublisherUid,
-                            TimestampMs, Payload, publish, FeedAudienceSet)
+                    ejabberd_hooks:run(feed_item_published, Server, [PublisherUid, CommentId,
+                                       comment]),
+                    broadcast_comment(Action, CommentId, PostId, ParentCommentId,
+                        PublisherUid, Payload, TimestampMs, FeedAudienceSet, NewPushList,
+                        PostOwnerUid)
             end,
             {ok, TimestampMs}
     end.
+
+
+broadcast_comment(Action, CommentId, PostId, ParentCommentId, PublisherUid,
+    Payload, TimestampMs, FeedAudienceSet, NewPushList, PostOwnerUid) ->
+    %% send a new api message to all the clients.
+    ResultStanza = make_feed_comment_stanza(Action, CommentId,
+            PostId, ParentCommentId, PublisherUid, Payload, TimestampMs),
+    PushSet = sets:from_list(NewPushList),
+    broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
+
+    %% send an old api message to all the clients.
+    send_old_notification(CommentId, comment, PostOwnerUid, PublisherUid,
+            TimestampMs, Payload, publish, FeedAudienceSet).
 
 
 -spec retract_post(Uid :: uid(), PostId :: binary()) -> {ok, integer()} | {error, any()}.

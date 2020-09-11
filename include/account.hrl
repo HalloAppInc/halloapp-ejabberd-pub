@@ -8,6 +8,9 @@
 %%%-------------------------------------------------------------------
 -author("nikola").
 
+-ifndef(ACCOUNT_HRL).
+-define(ACCOUNT_HRL, 1).
+
 -include("ha_types.hrl").
 
 -record(account,
@@ -48,3 +51,5 @@
 -type push_info() :: #push_info{}.
 
 -define(MAX_NAME_SIZE, 25).
+
+-endif.

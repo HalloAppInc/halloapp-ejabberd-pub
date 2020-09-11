@@ -237,24 +237,28 @@ publish_item(Uid, Server, ItemId, ItemType, Payload, Node, TimestampMs, FeedAudi
     FinalItem = case {ItemResult, NodeType} of
         {IRes, NType} when IRes =:= undefined; NType =:= metadata->
             ok = mod_feed_mnesia:publish_item(NewItem),
-
-            %% send an old api message to all the clients.
-            broadcast_event(Uid, Server, Node, NewItem, Payload, publish, FeedAudienceSet),
             ejabberd_hooks:run(publish_feed_item, Server, [Uid, Node, ItemId, ItemType, Payload]),
-
-            case SendNewNotification of
-                false -> ok;
-                true ->
-                    %% send a new api message to all the clients.
-                    send_new_notification(Uid, ItemId, ItemType, Payload,
-                            TimestampMs, publish, FeedAudienceSet)
-            end,
-
             NewItem;
         {Item, feed} ->
             Item
     end,
+    broadcast_item(Uid, Server, Node, FinalItem, Payload, publish, FeedAudienceSet,
+        SendNewNotification),
     FinalItem.
+
+
+broadcast_item(Uid, Server, Node, Item, Payload, publish, FeedAudienceSet, SendNewNotification) ->
+    %% send an old api message to all the clients.
+    broadcast_event(Uid, Server, Node, Item, Payload, publish, FeedAudienceSet),
+    #item{type = ItemType, creation_ts_ms = TimestampMs, key = {ItemId, _NodeId}} = Item,
+
+    case SendNewNotification of
+        false -> ok;
+        true ->
+            %% send a new api message to all the clients.
+            send_new_notification(Uid, ItemId, ItemType, Payload, TimestampMs, publish,
+                FeedAudienceSet)
+    end.
 
 
 -spec retract_item(Uid :: binary(), Server :: binary(), Item :: item(), Payload :: xmpp_element(),

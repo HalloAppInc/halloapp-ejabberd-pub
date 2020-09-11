@@ -61,6 +61,7 @@
 -define(MESSAGE_KEY, <<"msg:">>).
 -define(MESSAGE_QUEUE_KEY, <<"mq:">>).
 -define(MESSAGE_ORDER_KEY, <<"ord:">>).
+-define(PUSH_SENT_KEY, <<"psh:">>).
 
 %% RedisPhone
 -define(PHONE_KEY, <<"pho:">>).

@@ -13,6 +13,7 @@
 -include("xmpp.hrl").
 -include("translate.hrl").
 -include("account.hrl").
+-include ("push_message.hrl").
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -60,7 +61,7 @@ offline_message_hook({_, #message{} = Message} = Acc) ->
     Acc.
 
 
--spec should_push(Message :: message()) -> {ShouldPush :: boolean(), PushInfo :: push_info()}.
+-spec should_push(Message :: message()) -> boolean(). 
 should_push(#message{type = Type, sub_els = [SubEl]}) ->
     if
         Type =:= headline ->

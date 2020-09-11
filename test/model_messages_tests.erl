@@ -144,3 +144,9 @@ retry_count_test() ->
     ?assertEqual({ok, 1}, model_messages:increment_retry_count(?UID1, ?MID1)),
     ?assertEqual({ok, 2}, model_messages:increment_retry_count(?UID1, ?MID1)).
 
+push_sent_test() ->
+    setup(),
+    ?assert(model_messages:record_push_sent(?UID1, ?MID1)),
+    ?assertNot(model_messages:record_push_sent(?UID1, ?MID1)).
+
+

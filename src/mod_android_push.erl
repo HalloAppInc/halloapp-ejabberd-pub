@@ -100,7 +100,16 @@ handle_call(_Request, _From, State) ->
 
 handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     ?DEBUG("push_message: ~p", [Message]),
-    push_message(Message, PushInfo, State),
+    %% TODO(vipin): We need to evaluate the cost of recording the push in Redis
+    %% in this gen_server instead of outside.
+
+    %% Ignore the push notification if it has already been sent.
+    case push_util:record_push_sent(Message) of
+        false -> 
+                ?INFO_MSG("Push notification already sent for Msg: ~p", [Message]),
+                ok;
+        true -> push_message(Message, PushInfo, State)
+    end,
     {noreply, State};
 handle_cast(_Request, State) ->
     ?DEBUG("Invalid request, ignoring it: ~p", [_Request]),

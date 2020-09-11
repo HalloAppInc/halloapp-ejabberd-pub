@@ -14,6 +14,7 @@
 -include("offline_message.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
+-include("time.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -33,7 +34,8 @@
     get_message/2,
     increment_retry_count/2,
     get_retry_count/2,
-    get_all_user_messages/1
+    get_all_user_messages/1,
+    record_push_sent/2
 ]).
 
 
@@ -67,6 +69,8 @@ mod_options(_Host) ->
 -define(FIELD_ORDER, <<"ord">>).
 -define(FIELD_CONTENT_TYPE, <<"ct">>).
 -define(FIELD_RETRY_COUNT, <<"rc">>).
+
+-define(PUSH_EXPIRATION, (31 * ?DAYS)).
 
 
 -spec store_message(Message :: message()) -> ok | {error, any()}.
@@ -163,6 +167,13 @@ get_all_user_messages(Uid, MsgIds) ->
     Commands = get_message_commands(MessageKeys, []),
     MessageResults = qp(Commands),
     lists:map(fun parse_result/1, MessageResults).
+
+
+-spec record_push_sent(Uid :: uid(), ContentId :: binary()) -> boolean().
+record_push_sent(Uid, ContentId) ->
+    [{ok, Res}, _Result] = qp([["SETNX", push_sent_key(Uid, ContentId), util:now()],
+        ["EXPIRE", push_sent_key(Uid, ContentId), ?PUSH_EXPIRATION]]),
+    binary_to_integer(Res) == 1.
 
 
 get_message_commands([], Commands) ->
@@ -267,4 +278,9 @@ message_queue_key(Uid) ->
 -spec message_order_key(Uid :: uid()) -> binary().
 message_order_key(Uid) ->
     <<?MESSAGE_ORDER_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+-spec push_sent_key(Uid :: uid(), ContentId :: binary()) -> binary().
+push_sent_key(Uid, ContentId) ->
+    <<?PUSH_SENT_KEY/binary, <<"{">>/binary, Uid/binary, <<"}:">>/binary, ContentId/binary>>.
+
 
