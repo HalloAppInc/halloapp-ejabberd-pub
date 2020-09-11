@@ -31,6 +31,7 @@
 start(Host, _Opts) ->
     ?INFO_MSG("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_GROUPS, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_GROUPS_FEED, ?MODULE, process_local_iq),
     ejabberd_hooks:add(group_message, Host, ?MODULE, send_group_message, 50),
     ok.
 
@@ -38,6 +39,7 @@ start(Host, _Opts) ->
 stop(Host) ->
     ?INFO_MSG("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_GROUPS),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_GROUPS_FEED),
     ejabberd_hooks:delete(group_message, Host, ?MODULE, send_group_message, 50),
     ok.
 
@@ -126,7 +128,13 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
 %%% leave_group %%%
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
         sub_els = [#group_st{action = leave, gid = Gid} = _ReqGroupSt]} = IQ) ->
-    process_leave_group(IQ, Gid, Uid).
+    process_leave_group(IQ, Gid, Uid);
+
+
+%%% group_feed %%%
+process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
+        sub_els = [#group_feed_st{gid = Gid} = GroupFeedSt]} = IQ) ->
+    process_group_feed(IQ, Gid, Uid, GroupFeedSt).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -289,6 +297,16 @@ process_set_avatar(IQ, Gid, Uid, Base64Data) ->
                 avatar = AvatarId
             },
             xmpp:make_iq_result(IQ, GroupSt)
+    end.
+
+
+process_group_feed(IQ, Gid, Uid, GroupFeedSt) ->
+    ?INFO_MSG("Gid: ~s, Uid: ~s", [Gid, Uid]),
+    case mod_groups:send_feed_item(Gid, Uid, GroupFeedSt) of
+        {error, Reason} ->
+            xmpp:make_error(IQ, util:err(Reason));
+        {ok, NewGroupFeedSt} ->
+            xmpp:make_iq_result(IQ, NewGroupFeedSt)
     end.
 
 

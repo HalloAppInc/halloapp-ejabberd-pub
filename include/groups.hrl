@@ -11,6 +11,7 @@
 -include("ha_types.hrl").
 
 -define(NS_GROUPS, <<"halloapp:groups">>).
+-define(NS_GROUPS_FEED, <<"halloapp:group:feed">>).
 
 -record(group_member, {
     uid :: uid(),

@@ -134,6 +134,45 @@ get_groups_IQ(Uid) ->
     }.
 
 
+make_group_post_st(PostId, PublisherUid, PublisherName, Payload, Timestamp) ->
+    #group_post_st{
+        id = PostId,
+        publisher_uid = PublisherUid,
+        publisher_name = PublisherName,
+        payload = Payload,
+        timestamp = Timestamp
+    }.
+
+make_group_comment_st(CommentId, PostId, PublisherUid,
+        PublisherName, ParentCommentId, Payload, Timestamp) ->
+    #group_comment_st{
+        id = CommentId,
+        post_id = PostId,
+        publisher_uid = PublisherUid,
+        publisher_name = PublisherName,
+        parent_comment_id = ParentCommentId,
+        payload = Payload,
+        timestamp = Timestamp
+    }.
+
+make_group_feed_st(Gid, Name, AvatarId, Action, Post, Comment) ->
+    #group_feed_st{
+        gid = Gid,
+        name = Name,
+        avatar_id = AvatarId,
+        action = Action,
+        post = Post,
+        comment = Comment
+    }.
+
+make_group_feed_iq(Uid, GroupFeedSt) ->
+    #iq{
+        from = #jid{luser = Uid},
+        type = set,
+        sub_els = [GroupFeedSt]
+    }.
+
+
 mod_groups_api_test() ->
     setup(),
     Host = <<"s.halloapp.net">>,
@@ -455,3 +494,80 @@ delete_avatar_test() ->
     ?assert(meck:validate(mod_user_avatar)),
     meck:unload(mod_user_avatar),
     ok.
+
+
+publish_group_feed_test() ->
+    setup(),
+
+    % First create the group and set the avatar
+    Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+
+    meck:new(ejabberd_router_multicast, [passthrough]),
+    meck:expect(ejabberd_router_multicast, route_multicast,
+        fun(_From, Server, BroadcastJids, Packet) ->
+            [SubEl] = Packet#message.sub_els,
+            ?assertEqual(?GROUP_NAME1, SubEl#group_feed_st.name),
+            ?assertEqual(undefined, SubEl#group_feed_st.avatar_id),
+            ?assertEqual(undefined, SubEl#group_feed_st.comment),
+            ?assertEqual(?UID1, SubEl#group_feed_st.post#group_post_st.publisher_uid),
+            ?assertNotEqual(undefined, SubEl#group_feed_st.post#group_post_st.timestamp),
+            ReceiverJids = util:uids_to_jids([?UID2, ?UID3], Server),
+            ?assertEqual(lists:sort(ReceiverJids), lists:sort(BroadcastJids)),
+            ok
+        end),
+
+    GroupInfo = model_groups:get_group_info(Gid),
+
+    PostSt = make_group_post_st(?ID1, <<>>, <<>>, ?PAYLOAD1, undefined),
+    CommentSt = undefined,
+    GroupFeedSt = make_group_feed_st(Gid, <<>>, undefined, publish, PostSt, CommentSt),
+    GroupFeedIq = make_group_feed_iq(?UID1, GroupFeedSt),
+    ResultIQ = mod_groups_api:process_local_iq(GroupFeedIq),
+
+    [SubEl] = ResultIQ#iq.sub_els,
+    ?assertEqual(result, ResultIQ#iq.type),
+    ?assertEqual(Gid, SubEl#group_feed_st.gid),
+    ?assertEqual(?UID1, SubEl#group_feed_st.post#group_post_st.publisher_uid),
+    ?assertNotEqual(undefined, SubEl#group_feed_st.post#group_post_st.timestamp),
+    ?assert(meck:validate(ejabberd_router_multicast)),
+    meck:unload(ejabberd_router_multicast),
+    ok.
+
+
+retract_group_feed_test() ->
+    setup(),
+
+    % First create the group and set the avatar
+    Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+
+    meck:new(ejabberd_router_multicast, [passthrough]),
+    meck:expect(ejabberd_router_multicast, route_multicast,
+        fun(_From, Server, BroadcastJids, Packet) ->
+            [SubEl] = Packet#message.sub_els,
+            ?assertEqual(?GROUP_NAME1, SubEl#group_feed_st.name),
+            ?assertEqual(undefined, SubEl#group_feed_st.avatar_id),
+            ?assertEqual(undefined, SubEl#group_feed_st.post),
+            ?assertEqual(?UID2, SubEl#group_feed_st.comment#group_comment_st.publisher_uid),
+            ?assertNotEqual(undefined, SubEl#group_feed_st.comment#group_comment_st.timestamp),
+            ReceiverJids = util:uids_to_jids([?UID1, ?UID3], Server),
+            ?assertEqual(lists:sort(ReceiverJids), lists:sort(BroadcastJids)),
+            ok
+        end),
+
+    GroupInfo = model_groups:get_group_info(Gid),
+
+    PostSt = undefined,
+    CommentSt = make_group_comment_st(?ID1, ?ID1, <<>>, <<>>, <<>>, <<>>, undefined),
+    GroupFeedSt = make_group_feed_st(Gid, <<>>, undefined, retract, PostSt, CommentSt),
+    GroupFeedIq = make_group_feed_iq(?UID2, GroupFeedSt),
+    ResultIQ = mod_groups_api:process_local_iq(GroupFeedIq),
+
+    [SubEl] = ResultIQ#iq.sub_els,
+    ?assertEqual(result, ResultIQ#iq.type),
+    ?assertEqual(Gid, SubEl#group_feed_st.gid),
+    ?assertEqual(?UID2, SubEl#group_feed_st.comment#group_comment_st.publisher_uid),
+    ?assertNotEqual(undefined, SubEl#group_feed_st.comment#group_comment_st.timestamp),
+    ?assert(meck:validate(ejabberd_router_multicast)),
+    meck:unload(ejabberd_router_multicast),
+    ok.
+
