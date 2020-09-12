@@ -657,7 +657,7 @@ filter_and_transform_pubsub_items(PostIds, AllItems) ->
             ItemId = element(1, Item#item.key),
             PublisherUid = Item#item.uid,
             ItemTimestampMs = Item#item.creation_ts_ms,
-            Payload = Item#item.payload,
+            [Payload] = Item#item.payload,
             case Item#item.type of
                 feedpost ->
                     #post_st{
