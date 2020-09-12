@@ -24,7 +24,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, call/4, call/5, multicall/3, multicall/4, multicall/5,
+-export([start_link/0, call/4, call/5, multicall/3, multicall/4, multicall/5, abcast/2,
 	 eval_everywhere/3, eval_everywhere/4]).
 %% Backend dependent API
 -export([get_nodes/0, get_known_nodes/0, join/1, leave/1, subscribe/0,
@@ -77,6 +77,10 @@ multicall(Nodes, Module, Function, Args) ->
 -spec multicall([node()], module(), atom(), list(), timeout()) -> {list(), [node()]}.
 multicall(Nodes, Module, Function, Args, Timeout) ->
     rpc:multicall(Nodes, Module, Function, Args, Timeout).
+
+-spec abcast(atom(), term()) -> abcast.
+abcast(Name, Request) ->
+    gen_server:abcast(get_nodes(), Name, Request).
 
 -spec eval_everywhere(module(), atom(), [any()]) -> ok.
 eval_everywhere(Module, Function, Args) ->
