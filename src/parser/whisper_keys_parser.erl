@@ -22,16 +22,12 @@ xmpp_to_proto(SubEl) ->
 
 
 proto_to_xmpp(ProtoPayload) ->
-    OtpKeyCount = case ProtoPayload#pb_whisper_keys.otp_key_count of
-        undefined -> undefined;
-        Count -> integer_to_binary(Count)
-    end,
     #whisper_keys{
         uid = util_parser:proto_to_xmpp_uid(ProtoPayload#pb_whisper_keys.uid),
         type = ProtoPayload#pb_whisper_keys.action,
         identity_key = ProtoPayload#pb_whisper_keys.identity_key,
         signed_key = ProtoPayload#pb_whisper_keys.signed_key,
-        otp_key_count = util_parser:maybe_convert_to_binary(OtpKeyCount),
+        otp_key_count = util_parser:maybe_convert_to_binary(ProtoPayload#pb_whisper_keys.otp_key_count),
         one_time_keys = ProtoPayload#pb_whisper_keys.one_time_keys
     }.
 

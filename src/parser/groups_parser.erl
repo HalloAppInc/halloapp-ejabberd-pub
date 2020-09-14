@@ -52,7 +52,7 @@ xmpp_to_proto(SubEl) when is_record(SubEl, group_chat) ->
         avatar_id = SubEl#group_chat.avatar,
         sender_uid = util_parser:xmpp_to_proto_uid(SubEl#group_chat.sender),
         sender_name = SubEl#group_chat.sender_name,
-        timestamp = binary_to_integer(SubEl#group_chat.timestamp),
+        timestamp = util_parser:maybe_convert_to_integer(SubEl#group_chat.timestamp),
         payload = fxml:get_tag_cdata(ChatPayload)
     }.
 
@@ -68,7 +68,7 @@ proto_to_xmpp(ProtoPayload) when is_record(ProtoPayload, pb_group_chat) ->
         avatar = ProtoPayload#pb_group_chat.avatar_id,
         sender = util_parser:proto_to_xmpp_uid(ProtoPayload#pb_group_chat.sender_uid),
         sender_name = ProtoPayload#pb_group_chat.sender_name,
-        timestamp = integer_to_binary(ProtoPayload#pb_group_chat.timestamp),
+        timestamp = util_parser:maybe_convert_to_binary(ProtoPayload#pb_group_chat.timestamp),
         sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata, ProtoPayload#pb_group_chat.payload}]}]
     };
 

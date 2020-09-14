@@ -32,7 +32,7 @@ xmpp_to_proto_uid(XmppUid) ->
 
 proto_to_xmpp_uid(PbUid) ->
 	case PbUid of
-        undefined -> undefined;
+        undefined -> <<>>;
         0 -> <<>>;
         U -> integer_to_binary(U)
     end.
@@ -42,5 +42,6 @@ maybe_convert_to_binary(undefined) -> undefined;
 maybe_convert_to_binary(Data) -> util:to_binary(Data).
 
 maybe_convert_to_integer(undefined) -> undefined;
+maybe_convert_to_integer(<<>>) -> undefined;
 maybe_convert_to_integer(Data) -> util:to_integer(Data).
 

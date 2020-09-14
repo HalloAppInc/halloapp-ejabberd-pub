@@ -32,7 +32,7 @@ xmpp_to_proto(XmppMsg) ->
         ProtoMessage = #pb_ha_message{
             id = Message#message.id,
             type = Message#message.type,
-            to_uid = binary_to_integer(ToJid#jid.user),
+            to_uid = util_parser:xmpp_to_proto_uid(ToJid#jid.user),
             from_uid = PbFromUid,
             payload = #pb_msg_payload{
                 content = Content

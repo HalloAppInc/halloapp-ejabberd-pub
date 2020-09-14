@@ -26,14 +26,14 @@ xmpp_to_proto_seen(SubEl) ->
     #pb_seen_receipt{
         id = SubEl#receipt_seen.id,
         thread_id = SubEl#receipt_seen.thread_id,
-        timestamp = binary_to_integer(SubEl#receipt_seen.timestamp)
+        timestamp = util_parser:maybe_convert_to_integer(SubEl#receipt_seen.timestamp)
     }.
 
 xmpp_to_proto_response(SubEl) ->
     #pb_delivery_receipt{
         id = SubEl#receipt_response.id,
         thread_id = SubEl#receipt_response.thread_id,
-        timestamp = binary_to_integer(SubEl#receipt_response.timestamp)
+        timestamp = util_parser:maybe_convert_to_integer(SubEl#receipt_response.timestamp)
     }.
 
 
@@ -54,7 +54,7 @@ proto_to_xmpp_seen(ProtoPayload) ->
     #receipt_seen{
         id = ProtoPayload#pb_seen_receipt.id,
         thread_id = ProtoPayload#pb_seen_receipt.thread_id,
-        timestamp = integer_to_binary(ProtoPayload#pb_seen_receipt.timestamp)
+        timestamp = util_parser:maybe_convert_to_binary(ProtoPayload#pb_seen_receipt.timestamp)
     }.
 
 
@@ -62,6 +62,6 @@ proto_to_xmpp_received(ProtoPayload) ->
     #receipt_response{
         id = ProtoPayload#pb_delivery_receipt.id,
         thread_id = ProtoPayload#pb_delivery_receipt.thread_id,
-        timestamp = integer_to_binary(ProtoPayload#pb_delivery_receipt.timestamp)
+        timestamp = util_parser:maybe_convert_to_binary(ProtoPayload#pb_delivery_receipt.timestamp)
     }.
 

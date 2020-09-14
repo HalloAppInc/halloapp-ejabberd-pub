@@ -25,7 +25,7 @@ xmpp_to_proto(XmppAuth) ->
 
 xmpp_to_proto_auth_request(XmppAuth) ->
     #pb_auth_request{
-        uid = binary_to_integer(XmppAuth#halloapp_auth.uid),
+        uid = util_parser:xmpp_to_proto_uid(XmppAuth#halloapp_auth.uid),
         pwd = XmppAuth#halloapp_auth.pwd,
         cm = #pb_client_mode{mode = XmppAuth#halloapp_auth.client_mode},
         cv = #pb_client_version{version = XmppAuth#halloapp_auth.client_version},
@@ -58,7 +58,7 @@ proto_to_xmpp_auth_request(ProtoAuth) ->
     PbClientMode = ProtoAuth#pb_auth_request.cm,
     PbClientVersion = ProtoAuth#pb_auth_request.cv,
     #halloapp_auth{
-        uid = integer_to_binary(ProtoAuth#pb_auth_request.uid),
+        uid = util_parser:proto_to_xmpp_uid(ProtoAuth#pb_auth_request.uid),
         pwd = ProtoAuth#pb_auth_request.pwd,
         client_mode = util:to_atom(PbClientMode#pb_client_mode.mode),
         client_version = PbClientVersion#pb_client_version.version,
