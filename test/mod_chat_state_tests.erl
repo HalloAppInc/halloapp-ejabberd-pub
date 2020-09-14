@@ -69,7 +69,7 @@ process_group_chat_state_test() ->
             ExpectedFrom = jid:make(?UID1, ?SERVER),
             ?assertEqual(ExpectedFrom, From),
             ?assertEqual(?SERVER, Server),
-            ExpectedBroadcastJids = [?UID1, ?UID2, ?UID3],
+            ExpectedBroadcastJids = util:uid_to_jids([?UID2, ?UID3]),
             ?assertEqual(lists:sort(ExpectedBroadcastJids), lists:sort(BroadcastJids)),
             ?assertEqual(ChatState, Packet),
             ok

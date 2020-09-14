@@ -95,10 +95,11 @@ process_chat_state(Packet, ThreadId) ->
 process_group_chat_state(Packet, ThreadId) ->
     Server = util:get_host(),
     From = Packet#chat_state.from,
-    BroadcastUids = model_groups:get_member_uids(ThreadId),
+    MUids = model_groups:get_member_uids(ThreadId),
+    ReceiverUids = lists:delete(From#jid.luser, MUids),
     ?INFO_MSG("Uid: ~s, broadcast uids: ~p, type: ~s",
-            [From#jid.luser, BroadcastUids, Packet#chat_state.type]),
-    mod_groups:broadcast_packet(From, Server, BroadcastUids, Packet),
+            [From#jid.luser, ReceiverUids, Packet#chat_state.type]),
+    mod_groups:broadcast_packet(From, Server, ReceiverUids, Packet),
     ok.
 
 
