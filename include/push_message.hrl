@@ -34,3 +34,18 @@
 -define(FCM, "HA/fcm").
 -define(APNS, "HA/apns").
 
+
+%% TODO(murali@): this list seems getting bigger, we should just send the whole packet as a protobuf binary.
+%% Client must decrypt the packet, decode it and do everything with it.
+-record(push_metadata,
+{
+    content_id :: binary(),			%% content-id
+    content_type :: binary(),		%% content-type: could be chat, group_chat, group_post, group_comment, feed_post, feed_comment, contact_list.
+    from_uid :: binary(),			%% uid of the sender.
+    timestamp :: binary(),			%% timestamp of the content.
+    thread_id :: binary(),			%% Maps to uid for chat, gid for groupchat, feed for feed.
+    thread_name :: binary()			%% Maps to group_name for groupchat, else irrelevant
+}).
+
+-type push_metadata() :: #push_metadata{}.
+

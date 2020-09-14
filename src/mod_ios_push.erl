@@ -319,7 +319,8 @@ push_message_item(PushMessageItem, State) ->
     ExpiryTime = PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC,
     PushType = get_push_type(PushMessageItem#push_message_item.message,
             PushMessageItem#push_message_item.push_info),
-    PayloadBin = get_payload(PushMessageItem, PushType),
+    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
+    PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType),
     Priority = get_priority(PushType),
     DevicePath = get_device_path(Token),
     ApnsId = util:uuid_binary(),
@@ -329,7 +330,7 @@ push_message_item(PushMessageItem, State) ->
         {?APNS_EXPIRY, integer_to_binary(ExpiryTime)},
         {?APNS_TOPIC, ?APP_BUNDLE_ID},
         {?APNS_PUSH_TYPE, get_apns_push_type(PushType)},
-        {?APNS_COLLAPSE_ID, get_collapse_id(PushMessageItem)}
+        {?APNS_COLLAPSE_ID, PushMetadata#push_metadata.content_id}
     ],
 
     {Pid, NewState} = get_pid_to_send(BuildType, State),
@@ -422,16 +423,17 @@ parse_payload(#message{}) ->
 
 %% Details about the content inside the apns push payload are here:
 %% [https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification]
--spec get_payload(PushMessageItem :: push_message_item(), PushType :: silent | alert) -> binary().
-get_payload(PushMessageItem, PushType) ->
-    {ContentId, ContentType, FromId, TimestampBin} = push_util:parse_metadata(
-            PushMessageItem#push_message_item.message),
+-spec get_payload(PushMessageItem :: push_message_item(),
+        PushMetadata :: push_metadata(), PushType :: silent | alert) -> binary().
+get_payload(PushMessageItem, PushMetadata, PushType) ->
     Data = parse_payload(PushMessageItem#push_message_item.message),
     MetadataMap = #{
-        <<"content-id">> => ContentId,
-        <<"content-type">> => ContentType,
-        <<"from-id">> => FromId,
-        <<"timestamp">> => TimestampBin,
+        <<"content-id">> => PushMetadata#push_metadata.content_id,
+        <<"content-type">> => PushMetadata#push_metadata.content_type,
+        <<"from-id">> => PushMetadata#push_metadata.from_uid,
+        <<"timestamp">> => PushMetadata#push_metadata.timestamp,
+        <<"thread-id">> => PushMetadata#push_metadata.thread_id,
+        <<"thread-name">> => PushMetadata#push_metadata.thread_name,
         <<"data">> => Data
     },
     BuildTypeMap = case PushType of
@@ -489,13 +491,6 @@ get_apns_push_type(alert) -> <<"alert">>.
 -spec get_device_path(DeviceId :: binary()) -> binary().
 get_device_path(DeviceId) ->
   <<"/3/device/", DeviceId/binary>>.
-
-
-%% TODO(murali@): refactor and cleanup this file.
--spec get_collapse_id(PushMessageItem :: push_message_item()) -> binary().
-get_collapse_id(PushMessageItem) ->
-    {ContentId, _, _, _} = push_util:parse_metadata(PushMessageItem#push_message_item.message),
-    ContentId.
 
 
 -spec retry_function(Retries :: non_neg_integer(), Opts :: map()) -> map().

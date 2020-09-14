@@ -10,46 +10,96 @@
 -author('murali').
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include ("push_message.hrl").
 
 -export([
     parse_metadata/1
 ]).
 
 
-%% TODO(murali@): Fix the output to be a nice record.. not a tuple.
 -spec parse_metadata(Message :: message()) -> {binary(), binary(), binary(), binary()}.
 parse_metadata(#message{id = Id, sub_els = [SubElement],
         from = #jid{luser = FromUid}}) when is_record(SubElement, chat) ->
-    {Id, <<"chat">>, FromUid, SubElement#chat.timestamp};
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"chat">>,
+        from_uid = FromUid,
+        timestamp = SubElement#chat.timestamp,
+        thread_id = FromUid
+    };
 
 parse_metadata(#message{id = Id, sub_els = [SubElement],
         from = #jid{luser = FromUid}}) when is_record(SubElement, group_chat) ->
-    {Id, <<"group_chat">>, FromUid, SubElement#group_chat.timestamp};
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"group_chat">>,
+        from_uid = FromUid,
+        timestamp = SubElement#group_chat.timestamp,
+        thread_id = SubElement#group_chat.gid,
+        thread_name = SubElement#group_chat.name
+    };
 
 parse_metadata(#message{id = Id, sub_els = [SubElement]})
         when is_record(SubElement, contact_list) ->
-    {Id, <<"contact_notification">>, <<>>, <<>>};
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"contact_notification">>,
+        from_uid = <<>>,
+        timestamp = <<>>,
+        thread_id = <<>>
+    };
 
 parse_metadata(#message{sub_els = [#ps_event{items = #ps_items{
         items = [#ps_item{id = Id, publisher = FromId,
         type = ItemType, timestamp = TimestampBin}]}}]}) ->
-%% TODO(murali@): Change the fromId to be just userid instead of jid.
     #jid{luser = FromUid} = jid:from_string(FromId),
-    {Id, util:to_binary(ItemType), FromUid, TimestampBin};
+    #push_metadata{
+        content_id = Id,
+        content_type = util:to_binary(ItemType),
+        from_uid = FromUid,
+        timestamp = TimestampBin,
+        thread_id = <<"feed">>
+    };
 
 parse_metadata(#message{sub_els = [#feed_st{posts = [Post]}]}) ->
-    {Post#post_st.id, <<"post">>, Post#post_st.uid, Post#post_st.timestamp};
+    #push_metadata{
+        content_id = Post#post_st.id,
+        content_type = <<"post">>,
+        from_uid = Post#post_st.uid,
+        timestamp = Post#post_st.timestamp,
+        thread_id = <<"feed">>
+    };
 
 parse_metadata(#message{sub_els = [#feed_st{comments = [Comment]}]}) ->
-    {Comment#comment_st.id, <<"comment">>, Comment#comment_st.publisher_uid, Comment#comment_st.timestamp};
+    #push_metadata{
+        content_id = Comment#comment_st.id,
+        content_type = <<"comment">>,
+        from_uid = Comment#comment_st.publisher_uid,
+        timestamp = Comment#comment_st.timestamp,
+        thread_id = <<"feed">>
+    };
 
-parse_metadata(#message{sub_els = [#group_feed_st{post = Post, comment = undefined}]}) ->
-    {Post#group_post_st.id, <<"group_post">>, Post#group_post_st.publisher_uid, Post#group_post_st.timestamp};
+parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, post = Post, comment = undefined} = SubElement]}) ->
+    #push_metadata{
+        content_id = Post#group_post_st.id,
+        content_type = <<"group_post">>,
+        from_uid = Post#group_post_st.publisher_uid,
+        timestamp = Post#group_post_st.timestamp,
+        thread_id = Gid,
+        thread_name = SubElement#group_feed_st.name
+    };
 
-parse_metadata(#message{sub_els = [#group_feed_st{post = undefined, comment = Comment}]}) ->
-    {Comment#group_comment_st.id, <<"group_comment">>, Comment#group_comment_st.publisher_uid, Comment#group_comment_st.timestamp};
+parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, post = undefined, comment = Comment} = SubElement]}) ->
+    #push_metadata{
+        content_id = Comment#group_comment_st.id,
+        content_type = <<"group_comment">>,
+        from_uid = Comment#group_comment_st.publisher_uid,
+        timestamp = Comment#group_comment_st.timestamp,
+        thread_id = Gid,
+        thread_name = SubElement#group_feed_st.name
+    };
 
 parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
-    {<<>>, <<>>, <<>>, <<>>}.
+    #push_metadata{}.
 
