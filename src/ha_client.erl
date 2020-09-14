@@ -51,20 +51,31 @@ send(Client, Message) ->
     gen_server:call(Client, {send, Message}).
 
 
+% Get the next received message or undefined if no message is received.
+-spec recv_nb(Client :: pid()) -> #pb_packet{} | undefined.
 recv_nb(Client) ->
     gen_server:call(Client, {recv_nb}).
 
-
+% Gets the next received message or waits for one.
+-spec recv(Client :: pid()) -> #pb_packet{}.
 recv(Client) ->
     gen_server:call(Client, {recv}).
 
-
+% Close the connection
+-spec close(Client :: pid()) -> ok.
 close(Client) ->
     gen_server:call(Client, {close}).
 
+wait_for() ->
+    ok.
 
+send_recv() ->
+    ok.
+
+% send pb_auth_request message
+-spec send_auth(Client :: pid(), Uid :: uid(), Password :: binary()) -> ok.
 send_auth(Client, Uid, Password) ->
-    gen_server:call(Client, {send_auth, Uid, Password}).
+    gen_server:call(Client, {send_auth, integer_to_binary(Uid), Password}).
 
 
 init(_Args) ->
