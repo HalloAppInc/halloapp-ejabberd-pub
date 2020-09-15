@@ -11,6 +11,7 @@
 -behaviour(gen_mod).
 -behaviour(gen_server).
 
+-include("ha_types.hrl").
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("translate.hrl").
@@ -32,7 +33,8 @@
     sm_register_connection_hook/3,
     user_session_activated/2,
     remove_user/2,
-    count_user_messages/1
+    count_user_messages/1,
+    route_offline_messages/1  % DEBUG
 ]).
 
 
@@ -146,11 +148,18 @@ offline_message_hook({Action, #message{} = Message} = _Acc) ->
     {Action, NewMessage}.
 
 
-user_receive_packet({Packet, #{lserver := _ServerHost} = State} = _Acc)
+user_receive_packet({Packet, #{lserver := _ServerHost} = State} = Acc)
         when is_record(Packet, message) ->
-    NewMessage = adjust_id_and_store_message(Packet),
-    setup_push_timer(NewMessage),
-    {NewMessage, State};
+    ?INFO_MSG("Uid: ~s MsgId: ~s, retry_count: ~p",
+        [Packet#message.to#jid.luser, Packet#message.id, Packet#message.retry_count]),
+    case Packet#message.retry_count of
+        0 ->
+            NewMessage = adjust_id_and_store_message(Packet),
+            setup_push_timer(NewMessage),
+            {NewMessage, State};
+        _ ->
+            Acc
+    end;
 user_receive_packet(Acc) ->
     Acc.
 
@@ -182,30 +191,51 @@ count_user_messages(User) ->
     Res.
 
 
-%% TODO(murali@): Add logic to increment retry count.
 -spec route_offline_messages(JID :: jid()) -> ok.
 route_offline_messages(#jid{luser = UserId, lserver = _ServerHost}) ->
+    ?INFO_MSG("Uid: ~s start", [UserId]),
     {ok, OfflineMessages} = model_messages:get_all_user_messages(UserId),
-    lists:foreach(fun route_offline_message/1, OfflineMessages).
+    ?INFO_MSG("Uid: ~s has ~p offline messages", [UserId, length(OfflineMessages)]),
+    % TODO: We need to rate limit the number of offline messages we send at once.
+    % TODO: Drop messages with high retry count
+    % TODO: get metrics about the number of retries
+    lists:foreach(fun route_offline_message/1, OfflineMessages),
+    % TODO: maybe don't increment the retry count on all the messages
+    % we can increment the retry count on just the first X
+    increment_retry_counts(UserId, OfflineMessages),
+    ok.
 
 
--spec route_offline_message(OfflineMessage :: undefined | offline_message()) -> ok.
+-spec route_offline_message(OfflineMessage :: maybe(offline_message())) -> ok.
 route_offline_message(undefined) ->
     ok;
-route_offline_message(#offline_message{from_uid = FromUid, to_uid = ToUid, message = Message}) ->
-    ?INFO_MSG("sending offline message from_uid: ~s to_uid: ~s", [FromUid, ToUid]),
+route_offline_message(#offline_message{
+        msg_id = MsgId, to_uid = ToUid, retry_count = RetryCount, message = Message}) ->
     case fxml_stream:parse_element(Message) of
-        {error, Reason} -> ?ERROR_MSG("failed to parse: ~p, reason: ~s", [Message, Reason]);
+        {error, Reason} ->
+            ?ERROR_MSG("MsgId: ~s, failed to parse: ~p, reason: ~s", [MsgId, Message, Reason]);
         MessageXmlEl ->
             try
                 Packet = xmpp:decode(MessageXmlEl, ?NS_CLIENT, [ignore_els]),
-                ejabberd_router:route(Packet)
+                Packet1 = Packet#message{retry_count = RetryCount},
+                ejabberd_router:route(Packet1),
+                ?INFO_MSG("sending offline message Uid: ~s MsgId: ~p rc: ~p",
+                    [ToUid, MsgId, RetryCount])
             catch
                 Class : Reason : Stacktrace ->
                     ?ERROR_MSG("failed routing: ~s", [
                             lager:pr_stacktrace(Stacktrace, {Class, Reason})])
             end
     end.
+
+-spec increment_retry_counts(UserId :: uid, OfflineMsgs :: [maybe(offline_message())]) -> ok.
+increment_retry_counts(UserId, OfflineMsgs) ->
+    MsgIds = lists:filtermap(
+        fun (undefined) -> false;
+            (Msg) -> {true, Msg#offline_message.msg_id}
+        end, OfflineMsgs),
+    ok = model_messages:increment_retry_counts(UserId, MsgIds),
+    ok.
 
 
 -spec adjust_id_and_store_message(message()) -> message().
