@@ -38,6 +38,7 @@ message group_stanza {
         modify_admins = 7;
         modify_members = 8;
         auto_promote_admins = 9;
+        set_name = 10;
     }
     Action action = 1;
     string gid = 2;
