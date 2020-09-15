@@ -74,6 +74,7 @@ route(Packet) ->
     ?DEBUG("Local route:~n~ts", [xmpp:pp(Packet)]),
     Type = xmpp:get_type(Packet),
     To = xmpp:get_to(Packet),
+    [SubEl] = Packet#message.sub_els,
     if
         To#jid.luser /= <<"">> ->
             ejabberd_sm:route(Packet);
@@ -81,6 +82,8 @@ route(Packet) ->
             gen_iq_handler:handle(?MODULE, Packet);
         Type == result; Type == error ->
             ok;
+        is_record(Packet, message) andalso is_record(SubEl, retract_st) ->
+            ejabberd_hooks:run(retract_message, To#jid.lserver, [Packet]);
         %% TODO(murali@): Refactor routing layer to group similar logic.
         is_record(Packet, message), Type =:= groupchat ->
             ejabberd_hooks:run(group_message, To#jid.lserver, [Packet]);
