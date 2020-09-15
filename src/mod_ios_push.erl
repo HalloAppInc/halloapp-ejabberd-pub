@@ -154,8 +154,8 @@ connect_to_apns(BuildType) ->
     Options = #{
         protocols => [http2],
         tls_opts => [{certfile, ApnsCertfile}],
-        retry => 5,                         %% gun will retry connecting 5 times before giving up!
-        retry_timeout => 5000,              %% Time between retries in milliseconds.
+        retry => 100,                      %% gun will retry connecting 100 times before giving up!
+        retry_timeout => 5000,             %% Time between retries in milliseconds.
         retry_fun => RetryFun
     },
     ?INFO_MSG("BuildType: ~s, Gateway: ~s, Port: ~p", [BuildType, ApnsGateway, ApnsPort]),
@@ -209,7 +209,7 @@ handle_info({'DOWN', Mon, process, Pid, Reason},
     {noreply, State#push_state{conn = NewPid, mon = NewMon}};
 
 handle_info({'DOWN', DevMon, process, DevPid, Reason},
-        #push_state{dev_conn = DevPid, mon = DevMon} = State) ->
+        #push_state{dev_conn = DevPid, dev_mon = DevMon} = State) ->
     ?INFO_MSG("dev gun_down pid: ~p, mon: ~p, reason: ~p", [DevPid, DevMon, Reason]),
     {NewDevPid, NewDevMon} = connect_to_apns(dev),
     {noreply, State#push_state{dev_conn = NewDevPid, dev_mon = NewDevMon}};
