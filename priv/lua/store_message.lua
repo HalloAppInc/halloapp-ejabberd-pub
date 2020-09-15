@@ -1,5 +1,5 @@
 local OrderId = redis.call('INCR', KEYS[1])
-redis.call('HSET', KEYS[2], 'tuid', ARGV[1], 'm', ARGV[2], 'ct', ARGV[3], 'rc', 0, 'ord', OrderId)
+redis.call('HSET', KEYS[2], 'tuid', ARGV[1], 'm', ARGV[2], 'ct', ARGV[3], 'rc', 1, 'ord', OrderId)
 if ARGV[4] == 'undefined' then
 else
     redis.call('HSET', KEYS[2], 'fuid', ARGV[4])

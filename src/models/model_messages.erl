@@ -33,6 +33,7 @@
     count_user_messages/1,
     get_message/2,
     increment_retry_count/2,
+    increment_retry_counts/2,
     get_retry_count/2,
     get_all_user_messages/1,
     record_push_sent/2
@@ -106,6 +107,13 @@ increment_retry_count(Uid, MsgId) ->
     {ok, binary_to_integer(RetryCount)}.
 
 
+-spec increment_retry_counts(Uid :: uid(), MsgIds :: [binary()]) -> ok.
+increment_retry_counts(Uid, MsgIds) ->
+    Commands = [["HINCRBY", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT, 1] || MsgId <- MsgIds],
+    _Results = qp(Commands),
+    ok.
+
+
 -spec get_retry_count(Uid :: uid(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
 get_retry_count(Uid, MsgId) ->
     {ok, RetryCount} = q(["HGET", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT]),
@@ -119,15 +127,8 @@ get_retry_count(Uid, MsgId) ->
 -spec get_message(Uid :: uid(), MsgId :: binary()) -> {ok, offline_message()} | {error, any()}.
 get_message(Uid, MsgId) ->
     Result = q(["HGETALL", message_key(Uid, MsgId)]),
-    OfflineMessage = parse_result(Result),
+    OfflineMessage = parse_result({MsgId, Result}),
     {ok, OfflineMessage}.
-
-
--spec get_all_user_messages(Uid :: uid()) -> {ok, [message()]} | {error, any()}.
-get_all_user_messages(Uid) ->
-    {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
-    Messages = get_all_user_messages(Uid, MsgIds),
-    {ok, Messages}.
 
 
 -spec ack_message(Uid :: uid(), MsgId :: binary()) -> ok | {error, any()}.
@@ -159,14 +160,21 @@ count_user_messages(Uid) ->
     {ok, binary_to_integer(Res)}.
 
 
--spec get_all_user_messages(Uid :: uid(), MsgIds :: [binary()]) -> [binary()].
+-spec get_all_user_messages(Uid :: uid()) -> {ok, [message()]} | {error, any()}.
+get_all_user_messages(Uid) ->
+    {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
+    Messages = get_all_user_messages(Uid, MsgIds),
+    {ok, Messages}.
+
+
+-spec get_all_user_messages(Uid :: uid(), MsgIds :: [binary()]) -> [maybe(offline_message())].
 get_all_user_messages(_Uid, []) ->
     [];
 get_all_user_messages(Uid, MsgIds) ->
     MessageKeys = message_keys(Uid, MsgIds),
     Commands = get_message_commands(MessageKeys, []),
     MessageResults = qp(Commands),
-    lists:map(fun parse_result/1, MessageResults).
+    lists:map(fun parse_result/1, lists:zip(MsgIds, MessageResults)).
 
 
 -spec record_push_sent(Uid :: uid(), ContentId :: binary()) -> boolean().
@@ -185,33 +193,46 @@ get_message_commands([MessageKey | Rest], Commands) ->
 
 %% TODO: passing the empty offline_message record makes dialyzer think that all its fields
 %% should be defined as maybe()
--spec parse_result({ok, [binary()]}) -> offline_message().
-parse_result({ok, FieldValuesList}) ->
-    parse_fields(FieldValuesList, #offline_message{}).
+-spec parse_result({binary(), {ok, [binary()]}}) -> maybe(offline_message()).
+parse_result({MsgId, {ok, FieldValuesList}}) ->
+    parse_fields(MsgId, FieldValuesList).
 
 
--spec parse_fields([binary()],
-        OfflineMessage :: offline_message()) -> maybe(offline_message()).
-parse_fields([], OfflineMessage) ->
-    case OfflineMessage#offline_message.message of
-        undefined -> undefined;
-        _ -> OfflineMessage
-    end;
-parse_fields([<<"0">>], _OfflineMessage) ->
+-spec parse_fields(MsgId :: binary(), [binary()]) -> maybe(offline_message()).
+parse_fields(MsgId, []) ->
     undefined;
-parse_fields(FieldValuesList, OfflineMessage) ->
+% TODO: what is this 0?
+parse_fields([<<"0">>], _OfflineMessage) ->
+    ?WARNING_MSG("this should not be happening", []),
+    undefined;
+parse_fields(MsgId, FieldValuesList) ->
     MsgDataMap = util:list_to_map(FieldValuesList),
     Message = maps:get(?FIELD_MESSAGE, MsgDataMap),
     case Message of
         undefined -> undefined;
         _ ->
-            OfflineMessage#offline_message{
+            RetryCount = binary_to_integer(maps:get(?FIELD_RETRY_COUNT, MsgDataMap)),
+            ToUid = maps:get(?FIELD_TO, MsgDataMap),
+            #offline_message{
+                msg_id = MsgId,
                 message = Message,
-                to_uid = maps:get(?FIELD_TO, MsgDataMap),
+                to_uid = ToUid,
                 from_uid = maps:get(?FIELD_FROM, MsgDataMap, undefined),
                 content_type = maps:get(?FIELD_CONTENT_TYPE, MsgDataMap),
-                retry_count = binary_to_integer(maps:get(?FIELD_RETRY_COUNT, MsgDataMap))}
+                retry_count = fix_retry_count(RetryCount, ToUid, MsgId)
+            }
     end.
+
+
+
+-spec fix_retry_count(integer(), uid(), binary()) -> integer().
+fix_retry_count(0, Uid, MsgId) ->
+    % TODO: this warning should not happen after 2020-10-25, after this date we can
+    % delete this function
+    ?WARNING_MSG("Retry count should not be 0 Uid: ~p, MsgId: ~p", [Uid, MsgId]),
+    1;
+fix_retry_count(X, _Uid, _MsgId) ->
+    X.
 
 
 -spec get_content_type(message()) -> binary().
@@ -255,14 +276,7 @@ qp(Commands) -> ecredis:qp(ecredis_messages, Commands).
 
 -spec message_keys(Uid :: uid(), MsgIds :: [binary()]) -> [binary()].
 message_keys(Uid, MsgIds) ->
-    message_keys(Uid, MsgIds, []).
-
-
--spec message_keys(Uid :: uid(), MsgIds :: [binary()], Results :: [binary()]) -> [binary()].
-message_keys(_Uid, [], Results) ->
-    lists:reverse(Results);
-message_keys(Uid, [MsgId | Rest], Results) ->
-    message_keys(Uid, Rest, [message_key(Uid, MsgId) | Results]).
+    [message_key(Uid, MsgId) || MsgId <- MsgIds].
 
 
 -spec message_key(Uid :: uid(), MsgId :: binary()) -> binary().

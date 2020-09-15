@@ -76,6 +76,7 @@ make_offline_msg(Msg) ->
     ToUid = Msg#message.to#jid.user,
     MsgBin = fxml:element_to_binary(xmpp:encode(Msg)),
     #offline_message{
+        msg_id = Msg#message.id,
         from_uid = FromUid,
         to_uid = ToUid,
         content_type = ContentType,

@@ -10,6 +10,7 @@
 
 -record(offline_message,
 {
+    msg_id :: binary(),
     to_uid :: binary(),
     from_uid :: binary(),
     content_type :: binary(),
