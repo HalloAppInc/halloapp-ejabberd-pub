@@ -56,7 +56,8 @@ offline_message_hook({_, #message{} = Message} = Acc) ->
     ?DEBUG("~p", [Message]),
     case should_push(Message) of
         true -> push_message(Message);
-        false -> ?WARNING_MSG("ignoring push: ~p", [Message])
+        % TODO: make debug, or don't print the full Msg
+        false -> ?INFO_MSG("ignoring push: ~p", [Message])
     end,
     Acc.
 
@@ -97,11 +98,15 @@ should_push(#message{type = Type, sub_els = [SubEl]}) ->
 
 
 -spec push_message(Message :: message()) -> ok.
-push_message(#message{to = #jid{luser = User, lserver = Server}} = Message) ->
+push_message(#message{id = MsgId, to = #jid{luser = User, lserver = Server}} = Message) ->
     PushInfo = mod_push_tokens:get_push_info(User, Server),
     case PushInfo#push_info.token of
-        undefined -> ?INFO_MSG("Uid: ~s, ignore push: undefined push token", [User]);
-        _ -> push_message(Message, PushInfo)
+        undefined ->
+            % TODO: add stat:count here to count this
+            ?INFO_MSG("Uid: ~s, MsgId: ~p ignore push: no push token", [User, MsgId]);
+        _ ->
+            ?INFO_MSG("Uid: ~s, MsgId: ~p", [User, MsgId]),
+            push_message(Message, PushInfo)
     end.
 
 
