@@ -31,7 +31,6 @@
 -include("xmpp.hrl").
 -include("logger.hrl").
 -include("mod_roster.hrl").
--include("mod_offline.hrl").
 -include("mod_privacy.hrl").
 
 %%%===================================================================
@@ -51,7 +50,7 @@ from_dir(ProsodyDir) ->
 						 [ProsodyDir, HostDir, SubDir]),
 					convert_dir(Path, Host, SubDir)
 				end, ["vcard", "accounts", "roster",
-				      "private", "config", "offline",
+				      "private", "config",
 				      "privacy", "pep", "pubsub"])
 		      end, HostDirs);
 		{error, Why} = Err ->
@@ -188,36 +187,6 @@ convert_data(Host, "vcard", User, [Data]) ->
 	_ ->
 	    ok
     end;
-convert_data(_Host, "config", _User, [Data]) ->
-    RoomJID1 = case proplists:get_value(<<"jid">>, Data, not_found) of
-	not_found -> proplists:get_value(<<"_jid">>, Data, room_jid_not_found);
-	A when is_binary(A) -> A
-    end,
-    RoomJID = jid:decode(RoomJID1),
-    Config = proplists:get_value(<<"_data">>, Data, []),
-    RoomCfg = convert_room_config(Data),
-    case proplists:get_bool(<<"persistent">>, Config) of
-	true when RoomJID /= error ->
-	    mod_muc:store_room(find_serverhost(RoomJID#jid.lserver), RoomJID#jid.lserver,
-			       RoomJID#jid.luser, RoomCfg);
-	_ ->
-	    ok
-    end;
-convert_data(Host, "offline", User, [Data]) ->
-    LUser = jid:nodeprep(User),
-    LServer = jid:nameprep(Host),
-    lists:foreach(
-      fun({_, RawXML}) ->
-	      case deserialize(RawXML) of
-		  [El] ->
-		      case el_to_offline_msg(LUser, LServer, El) of
-			  [Msg] -> ok = mod_offline:store_offline_msg(Msg);
-			  [] -> ok
-		      end;
-		  _ ->
-		      ok
-	      end
-      end, Data);
 convert_data(Host, "privacy", User, [Data]) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Host),
@@ -491,49 +460,6 @@ convert_node_config(Host, Data) ->
 	 proplists:get_value(<<"title">>, Config, <<"">>)}
 	       ]}
     ].
-
-el_to_offline_msg(LUser, LServer, #xmlel{attrs = Attrs} = El) ->
-    try
-	TS = xmpp_util:decode_timestamp(
-	       fxml:get_attr_s(<<"stamp">>, Attrs)),
-	Attrs1 = lists:filter(
-		   fun({<<"stamp">>, _}) -> false;
-		      ({<<"stamp_legacy">>, _}) -> false;
-		      (_) -> true
-		   end, Attrs),
-	El1 = El#xmlel{attrs = Attrs1},
-	case xmpp:decode(El1, ?NS_CLIENT, [ignore_els]) of
-	    #message{from = #jid{} = From, to = #jid{} = To} = Packet ->
-		[#offline_msg{
-		    us = {LUser, LServer},
-		    timestamp = TS,
-		    expire = never,
-		    from = From,
-		    to = To,
-		    packet = Packet}];
-	    _ ->
-		[]
-	end
-    catch _:{bad_timestamp, _} ->
-	    [];
-	  _:{bad_jid, _} ->
-	    [];
-	  _:{xmpp_codec, _} ->
-	    []
-    end.
-
-find_serverhost(Host) ->
-    [ServerHost] =
-	lists:filter(
-	  fun(ServerHost) ->
-		  case gen_mod:is_loaded(ServerHost, mod_muc) of
-		      true ->
-			  lists:member(Host, gen_mod:get_module_opt_hosts(ServerHost, mod_muc));
-		      false ->
-			  false
-		  end
-	  end, ejabberd_option:hosts()),
-    ServerHost.
 
 deserialize(L) ->
     deserialize(L, #xmlel{}, []).

@@ -768,10 +768,7 @@ get_offlinemsg_length(ModOffline, User, Server) ->
     end.
 
 get_offlinemsg_module(Server) ->
-    case gen_mod:is_loaded(Server, mod_offline) of
-      true -> mod_offline;
-      false -> none
-    end.
+    none.
 
 get_lastactivity_menuitem_list(Server) ->
     [].

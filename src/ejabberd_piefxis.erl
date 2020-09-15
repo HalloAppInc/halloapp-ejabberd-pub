@@ -169,8 +169,7 @@ export_user(User, Server, Fd) ->
 	       scram -> format_scram_password(Password);
 	       _ -> Password
 	   end,
-    Els = get_offline(User, Server) ++
-        get_vcard(User, Server) ++
+    Els = get_vcard(User, Server) ++
         get_privacy(User, Server) ++
         get_roster(User, Server) ++
         get_private(User, Server),
@@ -205,18 +204,6 @@ get_vcard(User, Server) ->
     case mod_vcard:get_vcard(LUser, LServer) of
 	error -> [];
 	Els -> Els
-    end.
-
--spec get_offline(binary(), binary()) -> [xmlel()].
-get_offline(User, Server) ->
-    LUser = jid:nodeprep(User),
-    LServer = jid:nameprep(Server),
-    case mod_offline:get_offline_els(LUser, LServer) of
-        [] ->
-            [];
-        Els ->
-            NewEls = lists:map(fun xmpp:encode/1, Els),
-            [#xmlel{name = <<"offline-messages">>, children = NewEls}]
     end.
 
 -spec get_privacy(binary(), binary()) -> [xmlel()].

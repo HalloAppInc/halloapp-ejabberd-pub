@@ -34,7 +34,7 @@
 	 %% Server
 	 status/0, reopen_log/0, rotate_log/0,
 	 set_loglevel/1,
-	 stop_kindly/2, send_service_message_all_mucs/2,
+	 stop_kindly/2,
 	 registered_vhosts/0,
 	 reload_config/0,
 	 dump_config/1,
@@ -51,8 +51,6 @@
 	 register_push/4, unregister_push/2,
 	 %% Migration jabberd1.4
 	 import_file/1, import_dir/1,
-	 %% Purge DB
-	 delete_expired_messages/0, delete_old_messages/1,
 	 %% Mnesia
 	 set_master/1,
 	 backup_mnesia/1, restore_mnesia/1,
@@ -373,17 +371,6 @@ get_commands_spec() ->
 			args = [{out, string}],
 			result = {res, rescode}},
 
-     #ejabberd_commands{name = delete_expired_messages, tags = [purge],
-			desc = "Delete expired offline messages from database",
-			module = ?MODULE, function = delete_expired_messages,
-			args = [], result = {res, rescode}},
-     #ejabberd_commands{name = delete_old_messages, tags = [purge],
-			desc = "Delete offline messages older than DAYS",
-			module = ?MODULE, function = delete_old_messages,
-			args_desc = ["Number of days"],
-			args_example = [31],
-			args = [{days, integer}], result = {res, rescode}},
-
      #ejabberd_commands{name = export2sql, tags = [mnesia],
 			desc = "Export virtual host information from Mnesia tables to SQL file",
 			longdesc = "Configure the modules to use SQL, then call this command.",
@@ -563,9 +550,6 @@ stop_kindly(DelaySeconds, AnnouncementTextString) ->
 	     {"Sending announcement to connected users",
 	      mod_announce, send_announcement_to_all,
 	      [ejabberd_config:get_myname(), Subject, AnnouncementText]},
-	     {"Sending service message to MUC rooms",
-	      ejabberd_admin, send_service_message_all_mucs,
-	      [Subject, AnnouncementText]},
 	     {WaitingDesc, timer, sleep, [DelaySeconds * 1000]},
 	     {"Stopping ejabberd", application, stop, [ejabberd]},
 	     {"Stopping Mnesia", mnesia, stop, []},
@@ -587,18 +571,6 @@ stop_kindly(DelaySeconds, AnnouncementTextString) ->
       1,
       Steps),
     ok.
-
-send_service_message_all_mucs(Subject, AnnouncementText) ->
-    Message = str:format("~ts~n~ts", [Subject, AnnouncementText]),
-    lists:foreach(
-      fun(ServerHost) ->
-	      MUCHosts = gen_mod:get_module_opt_hosts(ServerHost, mod_muc),
-	      lists:foreach(
-		fun(MUCHost) ->
-			mod_muc:broadcast_service_message(ServerHost, MUCHost, Message)
-		end, MUCHosts)
-      end,
-      ejabberd_option:hosts()).
 
 %%%
 %%% ejabberd_update
@@ -855,22 +827,6 @@ import_dir(Path) ->
     end.
 
 %%%
-%%% Purge DB
-%%%
-
-delete_expired_messages() ->
-    lists:foreach(
-      fun(Host) ->
-              {atomic, ok} = mod_offline:remove_expired_messages(Host)
-      end, ejabberd_option:hosts()).
-
-delete_old_messages(Days) ->
-    lists:foreach(
-      fun(Host) ->
-              {atomic, _} = mod_offline:remove_old_messages(Days, Host)
-      end, ejabberd_option:hosts()).
-
-%%%
 %%% Mnesia management
 %%%
 
@@ -939,8 +895,6 @@ keep_modules_tables() ->
 %% module.
 %% Mapping between modules and their tables
 module_tables(mod_announce) -> [motd, motd_users];
-module_tables(mod_muc) -> [muc_room, muc_registered];
-module_tables(mod_offline) -> [offline_msg];
 module_tables(mod_privacy) -> [privacy];
 module_tables(mod_private) -> [private_storage];
 module_tables(mod_pubsub) -> [pubsub_node];

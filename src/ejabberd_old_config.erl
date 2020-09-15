@@ -442,13 +442,6 @@ transform_module(mod_disco, Opts) ->
          (Opt) ->
               Opt
       end, Opts);
-transform_module(mod_muc_log, Opts) ->
-    lists:map(
-      fun({top_link, {S1, S2}}) ->
-              {top_link, [{S1, S2}]};
-         (Opt) ->
-              Opt
-      end, Opts);
 transform_module(mod_proxy65, Opts) ->
     lists:map(
       fun({ip, IP}) when is_tuple(IP) ->

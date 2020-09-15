@@ -694,16 +694,6 @@ get_commands_spec() ->
 			args_desc = ["Username", "User server name", "Group identifier", "Group server name"],
 			result = {res, rescode}},
 
-     #ejabberd_commands{name = get_offline_count,
-			tags = [offline],
-			desc = "Get the number of unread offline messages",
-			policy = user,
-			module = mod_offline, function = count_offline_messages,
-			args = [],
-			args_rename = [{server, host}],
-			result_example = 5,
-			result_desc = "Number",
-			result = {value, integer}},
      #ejabberd_commands{name = send_message, tags = [stanza],
 			desc = "Send a message to a local or remote bare of full JID",
 			longdesc = "When sending a groupchat message to a MUC room, "
