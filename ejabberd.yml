@@ -193,7 +193,6 @@ modules:
   mod_http_upload:
     put_url: https://@HOST@:5443/upload
   mod_invites: {}
-  mod_last: {}
   mod_offline_halloapp: {}
   mod_ping:
     send_pings: true

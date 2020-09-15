@@ -120,13 +120,6 @@ xdb_data(User, Server, #xmlel{attrs = Attrs} = El) ->
       ?NS_ROSTER ->
 	  catch mod_roster:set_items(User, Server, xmpp:decode(El)),
 	  ok;
-      ?NS_LAST ->
-	  TimeStamp = fxml:get_attr_s(<<"last">>, Attrs),
-	  Status = fxml:get_tag_cdata(El),
-	  catch mod_last:store_last_info(User, Server,
-					 binary_to_integer(TimeStamp),
-					 Status),
-	  ok;
       ?NS_VCARD ->
 	  catch mod_vcard:set_vcard(User, LServer, El),
 	  ok;

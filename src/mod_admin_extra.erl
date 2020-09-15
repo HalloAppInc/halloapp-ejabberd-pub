@@ -44,7 +44,7 @@
 	 kick_session/4, status_num/2, status_num/1,
 	 status_list/2, status_list/1, connected_users_info/0,
 	 connected_users_vhost/1, set_presence/7,
-	 get_presence/2, user_sessions_info/2, get_last/2, set_last/4,
+	 get_presence/2, user_sessions_info/2,
 
 	 % Accounts
 	 set_password/3, check_password_hash/4, delete_old_users/1,
@@ -612,30 +612,6 @@ get_commands_spec() ->
 			args_desc = ["Server name", "Group name"],
 			result = {res, rescode}},
 
-     #ejabberd_commands{name = get_last, tags = [last],
-			desc = "Get last activity information",
-			longdesc = "Timestamp is UTC and XEP-0082 format, for example: "
-			    "2017-02-23T22:25:28.063062Z     ONLINE",
-			module = ?MODULE, function = get_last,
-			args = [{user, binary}, {host, binary}],
-			args_example = [<<"user1">>,<<"myserver.com">>],
-			args_desc = ["User name", "Server name"],
-			result_example = {<<"2017-06-30T14:32:16.060684Z">>, "ONLINE"},
-			result_desc = "Last activity timestamp and status",
-			result = {last_activity,
-				  {tuple, [{timestamp, string},
-					   {status, string}
-					  ]}}},
-     #ejabberd_commands{name = set_last, tags = [last],
-			desc = "Set last activity information",
-			longdesc = "Timestamp is the seconds since "
-			"1970-01-01 00:00:00 UTC, for example: date +%s",
-			module = ?MODULE, function = set_last,
-			args = [{user, binary}, {host, binary}, {timestamp, integer}, {status, binary}],
-			args_example = [<<"user1">>,<<"myserver.com">>, 1500045311, <<"GoSleeping">>],
-			args_desc = ["User name", "Server name", "Number of seconds since epoch", "Status message"],
-			result = {res, rescode}},
-
      #ejabberd_commands{name = private_get, tags = [private],
 			desc = "Get some information from a user private storage",
 			module = ?MODULE, function = private_get,
@@ -902,18 +878,7 @@ delete_old_users(Days, Users) ->
     {removed, length(Users_removed), Users_removed}.
 
 delete_or_not(LUser, LServer, TimeStamp_oldest) ->
-    deny = acl:match_rule(LServer, protect_old_users, jid:make(LUser, LServer)),
-    [] = ejabberd_sm:get_user_resources(LUser, LServer),
-    case mod_last:get_last_info(LUser, LServer) of
-        {ok, TimeStamp, _Status} ->
-	    if TimeStamp_oldest < TimeStamp ->
-		    false;
-		true ->
-		    true
-	    end;
-	not_found ->
-	    true
-    end.
+	erlang:error(unimplemented).
 
 %%
 %% Ban account
@@ -1370,30 +1335,6 @@ build_broadcast(U, S, remove) ->
 %% Subs = both | from | to | none
 build_broadcast(U, S, SubsAtom) when is_atom(SubsAtom) ->
     {item, {U, S, <<>>}, SubsAtom}.
-
-%%%
-%%% Last Activity
-%%%
-
-get_last(User, Server) ->
-    {Now, Status} = case ejabberd_sm:get_user_resources(User, Server) of
-        [] ->
-            case mod_last:get_last_info(User, Server) of
-                not_found ->
-		    {erlang:timestamp(), "NOT FOUND"};
-                {ok, Shift, Status1} ->
-                    {{Shift div 1000000, Shift rem 1000000, 0}, Status1}
-            end;
-        _ ->
-	    {erlang:timestamp(), "ONLINE"}
-    end,
-    {xmpp_util:encode_timestamp(Now), Status}.
-
-set_last(User, Server, Timestamp, Status) ->
-    case mod_last:store_last_info(User, Server, Timestamp, Status) of
-        {ok, _} -> ok;
-	Error -> Error
-    end.
 
 %%%
 %%% Private Storage

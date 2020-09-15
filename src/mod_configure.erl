@@ -93,7 +93,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
 depends(_Host, _Opts) ->
-    [{mod_adhoc, hard}, {mod_last, soft}].
+    [{mod_adhoc, hard}].
 
 %%%-----------------------------------------------------------------------
 
@@ -1462,10 +1462,7 @@ stop_node(From, Host, ENode, Action, XData) ->
 
 -spec get_last_info(binary(), binary()) -> {ok, non_neg_integer(), binary()} | not_found.
 get_last_info(User, Server) ->
-    case gen_mod:is_loaded(Server, mod_last) of
-      true -> mod_last:get_last_info(User, Server);
-      false -> not_found
-    end.
+    not_found.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec adhoc_sm_commands(adhoc_command(), jid(), jid(), adhoc_command()) -> adhoc_command() |

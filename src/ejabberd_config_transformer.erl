@@ -392,9 +392,6 @@ transform_module(Host, mod_vcard_ldap, Opts, Acc) ->
 transform_module(Host, M, Opts, Acc) when (M == mod_announce_odbc orelse
 					   M == mod_blocking_odbc orelse
 					   M == mod_caps_odbc orelse
-					   M == mod_last_odbc orelse
-					   M == mod_muc_odbc orelse
-					   M == mod_offline_odbc orelse
 					   M == mod_privacy_odbc orelse
 					   M == mod_private_odbc orelse
 					   M == mod_pubsub_odbc orelse
