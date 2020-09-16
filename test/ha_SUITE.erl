@@ -17,6 +17,10 @@
     run_eunit/1
 ]).
 
+-export([
+    '$handle_undefined_function'/2
+]).
+
 -include("suite.hrl").
 -include("packets.hrl").
 
@@ -89,10 +93,9 @@ connect_test(_Conf) ->
 
 auth_no_user_test(_Conf) ->
     {ok, C} = ha_client:start_link(),
-    ha_client:send_auth(C, 1, <<"wrong_password">>),
-    Result = ha_client:recv(C),
+    Result = ha_client:send_auth(C, 1, <<"wrong_password">>),
     ct:pal("Got Auth Reply ~p", [Result]),
-    #pb_auth_result{} = Result,
+    #pb_auth_result{result = <<"failure">>, reason = <<"invalid uid or password">>} = Result,
     ok = ha_client:close(C),
     ok.
 
@@ -114,11 +117,14 @@ run_eunit(_Config) ->
 %% which will be a problem.
 %% TODO: instead of splitting the name with of the module and test with _ use :
 %% This will make it more clear that we are specifying the module name.
+
 '$handle_undefined_function'(F, [Config]) when is_list(Config) ->
+    ct:pal("Function ~p", [F]),
     case re:split(atom_to_list(F), "_", [{return, list}, {parts, 2}]) of
         [M, T] ->
             Module = list_to_atom(M ++ "_tests"),
             Function = list_to_atom(T),
+            ct:pal("Module ~p Function ~p", [Module, Function]),
             case erlang:function_exported(Module, Function, 1) of
                 true ->
                     Module:Function(Config);
