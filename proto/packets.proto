@@ -15,6 +15,7 @@ import "group_stanzas.proto";
 import "client_log.proto";
 import "server_props.proto";
 import "invite.proto";
+import "retract.proto";
 
 
 // Chat
@@ -97,6 +98,8 @@ message msg_payload {
         group_chat group_chat = 11;
         name name = 12;
         error error = 13;
+        groupchat_retract groupchat_retract = 14;
+        chat_retract chat_retract = 15;
     }
 }
 

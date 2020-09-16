@@ -76,7 +76,11 @@ msg_payload_mapping(SubEl) ->
         name ->
             {name, name_parser:xmpp_to_proto(SubEl)};
         error_st ->
-            {error, #pb_error{reason = util:to_binary(SubEl#error_st.reason)}}
+            {error, #pb_error{reason = util:to_binary(SubEl#error_st.reason)}};
+        groupchat_retract_st ->
+            {groupchat_retract, retract_parser:xmpp_to_proto(SubEl)};
+        chat_retract_st ->
+            {chat_retract, retract_parser:xmpp_to_proto(SubEl)}
     end,
     Payload.
 
@@ -131,7 +135,11 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
         {group_chat, GroupChatRecord} ->
             groups_parser:proto_to_xmpp(GroupChatRecord);
         {name, NameRecord} ->
-            name_parser:proto_to_xmpp(NameRecord)
+            name_parser:proto_to_xmpp(NameRecord);
+        {groupchat_retract, GroupChatRetractRecord} ->
+            retract_parser:proto_to_xmpp(GroupChatRetractRecord);
+        {chat_retract, ChatRetractRecord} ->
+            retract_parser:proto_to_xmpp(ChatRetractRecord)
     end,
     SubEl.
 

@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+
+// retract stanza
+
+message groupchat_retract {
+    string id = 1;
+    string gid = 2;
+}
+
+message chat_retract {
+    string id = 1;
+}
+
