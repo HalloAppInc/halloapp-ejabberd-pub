@@ -25,7 +25,8 @@
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 -export([
     process_local_iq/1,
-    get_invites_remaining/1
+    get_invites_remaining/1,
+    notify_inviter/5
 ]).
 
 -define(NS_INVITE, <<"halloapp:invites">>).
@@ -89,6 +90,18 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
                 invites = NewInviteList
             },
             xmpp:make_iq_result(IQ, Ret)
+    end.
+
+
+-spec notify_inviter(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
+        ContactId :: binary(), Role :: list()) -> ok.
+notify_inviter(UserId, UserPhone, Server, ContactId, Role) ->
+    case model_invites:record_invite_notification(UserPhone, ContactId) of
+        true ->
+            %% TODO Add stats.
+            notifications_util:send_contact_notification(UserId, UserPhone, Server, ContactId,
+                Role, headline);
+        false -> ok
     end.
 
 

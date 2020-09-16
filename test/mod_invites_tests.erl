@@ -20,6 +20,11 @@
 -define(NAME2, <<"Name2">>).
 -define(USER_AGENT2, <<"HalloApp/Android1.0">>).
 
+-define(UID3, <<"3">>).
+-define(PHONE3, <<"16175287002">>).
+-define(NAME3, <<"Name3">>).
+-define(USER_AGENT3, <<"HalloApp/Android1.0">>).
+
 %% -------------------------------------------- %%
 %% Tests for IQ API
 %% --------------------------------------------	%%
@@ -152,8 +157,26 @@ who_invited_test() ->
     ?assertEqual({ok, undefined}, model_invites:get_inviter(?PHONE2)),
     setup(),
     {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
-    {ok, Uid, _Ts} = model_invites:get_inviter(?PHONE2),
-    ?assertEqual(Uid, ?UID1).
+    {ok, Uid1, _Ts} = model_invites:get_inviter(?PHONE2),
+    ?assertEqual(Uid1, ?UID1),
+    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3),
+    ok = model_phone:add_phone(?PHONE3, ?UID3),
+    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID3, ?PHONE2),
+    {ok, Uid3, _Ts} = model_invites:get_inviter(?PHONE2),
+    ?assertEqual(Uid3, ?UID3).
+
+% tests notification to inviter
+inviter_notification_test() ->
+    setup_bare(),
+    ?assertEqual({ok, undefined}, model_invites:get_inviter(?PHONE2)),
+    setup(),
+    ?assertNot(model_invites:record_invite_notification(?PHONE2, ?UID1)),
+    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
+    ?assert(model_invites:record_invite_notification(?PHONE2, ?UID1)),
+    ?assertNot(model_invites:record_invite_notification(?PHONE2, ?UID1)),
+    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3),
+    ok = model_phone:add_phone(?PHONE3, ?UID3),
+    ?assertNot(model_invites:record_invite_notification(?PHONE2, ?UID3)).
 
 % tests set of invited users for accuracy
 invite_set_test() ->

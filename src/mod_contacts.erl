@@ -46,7 +46,8 @@
 ]).
 
 start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NORM, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NORM, ?MODULE,
+        process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 100),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
@@ -253,6 +254,8 @@ finish_sync(UserId, Server, SyncId) ->
     DeleteContactSet = sets:subtract(OldContactSet, NewContactSet),
     AddContactSet = sets:subtract(NewContactSet, OldContactSet),
     OldReverseContactSet = sets:from_list(OldReverseContactList),
+    %% Send notification to User who invited this user.
+    process_notification_to_inviter(UserId, UserPhone, Server, NewContactSet, sets:is_empty(OldContactSet)),
     ?INFO_MSG("Full contact sync stats: uid: ~p, old_contacts: ~p, new_contacts: ~p, "
             "add_contacts: ~p, delete_contacts: ~p", [UserId, sets:size(OldContactSet),
             sets:size(NewContactSet), sets:size(AddContactSet), sets:size(DeleteContactSet)]),
@@ -272,6 +275,25 @@ finish_sync(UserId, Server, SyncId) ->
     EndTime = os:system_time(microsecond),
     T = EndTime - StartTime,
     ?INFO_MSG("Time taken: ~w us", [T]),
+    ok.
+
+
+-spec process_notification_to_inviter(UserId :: binary(), UserPhone :: binary(),
+    Server :: binary(), NewContactSet :: sets:set(binary()),
+    IsOldSetEmpty :: boolean()) -> ok.
+process_notification_to_inviter(UserId, UserPhone, Server, NewContactSet, true) ->
+    InviterUid = case model_invites:get_inviter(UserPhone) of
+        {ok, Uid, _} -> Uid;
+        {ok, undefined} -> undefined
+    end,
+    case sets:is_element(InviterUid, NewContactSet) of
+        true -> mod_invites:notify_inviter(UserId, UserPhone, Server, InviterUid, 
+                    get_role_value(false));
+        false -> ok
+    end;
+
+
+process_notification_to_inviter(_UserId, _UserPhone, _Server, _NewContactSet, false) ->
     ok.
 
 
@@ -359,7 +381,7 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
             Role = get_role_value(IsFriends),
             %% Notify the new contact and update its friends table.
             case {ShouldNotify, IsNewContact, IsFriends} of
-                {yes, true, true} -> 
+                {yes, true, true} ->
                     add_friend(UserId, Server, ContactId),
                     notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role);
                 {_, _, _} -> ok
@@ -451,29 +473,8 @@ remove_contact_and_notify(UserId, Server, UserPhone, ContactPhone, ReverseContac
 notify_contact_about_user(UserId, _UserPhone, _Server, UserId, _Role) ->
     ok;
 notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role) ->
-    AvatarId = case Role of
-        <<"none">> -> undefined;
-        <<"friends">> -> model_accounts:get_avatar_id_binary(UserId)
-    end,
-    Name = model_accounts:get_name_binary(UserId),
-    Contact = #contact{
-        userid = UserId,
-        name = Name,
-        avatarid = AvatarId,
-        normalized = UserPhone,
-        role = Role
-    },
-    SubEls = [#contact_list{type = normal, xmlns = ?NS_NORM, contacts = [Contact]}],
-    Stanza = #message{
-        id = util:new_msg_id(),
-        from = jid:make(Server),
-        to = jid:make(ContactId, Server),
-        sub_els = SubEls
-    },
-    ?DEBUG("Notifying contact: ~p about user: ~p using stanza: ~p",
-            [{ContactId, Server}, UserId, Stanza]),
-    ejabberd_router:route(Stanza).
-
+    notifications_util:send_contact_notification(UserId, UserPhone, Server, ContactId, Role,
+        normal).
 
 -spec probe_contact_about_user(UserId :: binary(), UserPhone :: binary(),
         Server :: binary(), ContactId :: binary()) -> ok.

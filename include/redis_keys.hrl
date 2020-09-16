@@ -67,6 +67,7 @@
 -define(PHONE_KEY, <<"pho:">>).
 -define(CODE_KEY, <<"cod:">>).
 -define(INVITED_BY_KEY, <<"inb:">>).
+-define(INVITE_NOTIFICATION_KEY, <<"ink:">>).
 
 
 %% RedisWhisperKeys

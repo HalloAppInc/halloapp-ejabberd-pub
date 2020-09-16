@@ -54,7 +54,8 @@ setup() ->
 clear() ->
     {ok, ok} = gen_server:call(redis_contacts_client, flushdb),
     {ok, ok} = gen_server:call(redis_friends_client, flushdb),
-    {ok, ok} = gen_server:call(redis_accounts_client, flushdb).
+    {ok, ok} = gen_server:call(redis_accounts_client, flushdb),
+    {ok, ok} = gen_server:call(redis_phone_client, flushdb).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -293,5 +294,37 @@ unblock_uids_test() ->
     %% Now UID2 unblocks UID1: so now they should be friends.
     ?assertEqual({ok, [?UID2]}, model_friends:get_friends(?UID1)),
     ?assertEqual({ok, [?UID1]}, model_friends:get_friends(?UID2)),
+    ok.
+
+
+new_user_invite_notification_test() ->
+    setup(),
+    setup_accounts([[?UID1, ?PHONE1, ?NAME1, ?UA1]]),
+
+    %% UID1 invites PHONE2, invite goes from the client and the server does not know about
+    %% PHONE2
+    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
+ 
+    %% PHONE2 joins as UID2. 
+    setup_accounts([[?UID2, ?PHONE2, ?NAME2, ?UA2]]),
+
+    %% UID2 uploads his addressbook and that has UID1's phone number.
+    InputContacts = [#contact{raw = ?PHONE1}],
+
+    mod_contacts:normalize_and_insert_contacts(?UID2, ?SERVER, InputContacts, ?SYNC_ID2),
+
+    meck:new(ejabberd_router),
+    meck:expect(ejabberd_router, route,
+        fun(Packet) ->
+            #message{type = MsgType, sub_els = _SubEls} = Packet,
+            ?assertEqual(MsgType, headline),
+            ok
+        end),
+
+    mod_contacts:finish_sync(?UID2, ?SERVER, ?SYNC_ID2),
+    ?assertEqual({ok, [?PHONE1]}, model_contacts:get_contacts(?UID2)),
+
+    meck:validate(ejabberd_router),
+    meck:unload(ejabberd_router),
     ok.
 

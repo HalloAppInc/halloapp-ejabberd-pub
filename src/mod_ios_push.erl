@@ -384,8 +384,12 @@ parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubEleme
     {<<"New Message">>, <<"You got a new message.">>};
 parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubElement, group_chat) ->
     {<<"New Group Message">>, <<"You got a new group message.">>};
-parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubElement, contact_list) ->
-    {<<"New Contact">>, <<"New contact notification">>};
+parse_subject_and_body(#message{type = MsgType, sub_els = [SubElement]})
+        when is_record(SubElement, contact_list) ->
+    case MsgType of
+        headline -> {<<"Accepted Invite">>, <<"The person you invited has joined HalloApp">>};
+        normal -> {<<"New Contact">>, <<"New contact notification">>}
+    end;
 parse_subject_and_body(#message{sub_els = [#ps_event{items = #ps_items{
         items = [#ps_item{type = ItemType}]}}]}) ->
     case ItemType of
@@ -485,7 +489,12 @@ get_push_type(#message{type = normal, sub_els = [#feed_st{}]}, _) -> silent;
 get_push_type(#message{type = groupchat, sub_els = [#group_chat{}]}, _) -> alert;
 get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{}]}, _) -> alert;
 get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, chat) -> alert;
-get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, contact_list) -> silent;
+get_push_type(#message{type = MsgType, sub_els = [SubElement]}, _)
+      when is_record(SubElement, contact_list) ->
+    case MsgType of
+        headline -> alert;
+        normal -> silent
+    end;
 get_push_type(_, _) -> silent.
 
 

@@ -29,13 +29,16 @@
     is_invited/1,
     is_invited_by/2,
     get_inviter/1,
-    get_sent_invites/1
+    get_sent_invites/1,
+    record_invite_notification/2
 ]).
 
 -define(FIELD_NUM_INV, <<"in">>).
 -define(FIELD_SINV_TS, <<"it">>).
 -define(FIELD_RINV_UID, <<"id">>).
 -define(FIELD_RINV_TS, <<"ts">>).
+
+-define(PUSH_EXPIRATION, (31 * ?DAYS)).
 
 
 %%====================================================================
@@ -98,6 +101,17 @@ get_inviter(PhoneNum) ->
             {ok, Uid, Ts}
     end.
 
+-spec record_invite_notification(PhoneNum :: binary(), Uid :: uid()) -> boolean().
+record_invite_notification(PhoneNum, Uid) ->
+    case is_invited_by(PhoneNum, Uid) of
+        false -> false;
+        true -> 
+            [{ok, Res}, _Result] = 
+                qp_phones([["SETNX", notification_sent_key(PhoneNum, Uid), util:now()],
+                    ["EXPIRE", notification_sent_key(PhoneNum, Uid), ?PUSH_EXPIRATION]]),
+            binary_to_integer(Res) == 1
+    end.
+
 
 -spec get_sent_invites(Uid ::binary()) -> {ok, [binary()]}.
 get_sent_invites(Uid) ->
@@ -112,6 +126,7 @@ q_accounts(Command) -> ecredis:q(ecredis_accounts, Command).
 % borrowed from model_accounts.erl
 qp_accounts(Commands) -> ecredis:qp(ecredis_accounts, Commands).
 q_phones(Command) -> ecredis:q(ecredis_phone, Command).
+qp_phones(Commands) -> ecredis:qp(ecredis_phone, Commands).
 
 
 -spec acc_invites_key(Uid :: uid()) -> binary().
@@ -121,6 +136,10 @@ acc_invites_key(Uid) ->
 -spec ph_invited_by_key(Phone :: phone()) -> binary().
 ph_invited_by_key(Phone) ->
     <<?INVITED_BY_KEY/binary, "{", Phone/binary, "}">>.
+
+-spec notification_sent_key(Phone :: phone(), Uid :: uid()) -> binary().
+notification_sent_key(Phone, Uid) ->
+    <<?INVITE_NOTIFICATION_KEY/binary, "{", Phone/binary, "}", Uid/binary>>.
 
 -spec record_sent_invite(FromUid :: uid(), ToPhone :: phone(), NumInvsLeft :: binary()) -> ok.
 record_sent_invite(FromUid, ToPhone, NumInvsLeft) ->
@@ -134,6 +153,7 @@ record_sent_invite(FromUid, ToPhone, NumInvsLeft) ->
 
 -spec record_invited_by(FromUid :: uid(), ToPhone :: phone()) -> ok.
 record_invited_by(FromUid, ToPhone) ->
+    %% TODO(vipin): We need to allow ToPhone to be invited by multiple FromUids.
     {ok, _} = q_phones(["HSET", ph_invited_by_key(ToPhone),
                    ?FIELD_RINV_UID, FromUid,
                    ?FIELD_RINV_TS, util:now()]),
