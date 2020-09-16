@@ -7,6 +7,7 @@
 -author("nikola").
 
 -include("groups.hrl").
+-include("xmpp.hrl").
 -include("groups_test_data.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
@@ -319,11 +320,19 @@ modify_members_test() ->
     ?assertEqual(lists:sort([?UID1, ?UID2, ?UID4]), lists:sort(model_groups:get_member_uids(Gid))),
     ok.
 
-send_message_test() ->
+send_chat_message_test() ->
     setup(),
     {ok, Group, _Res} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     Gid = Group#group.gid,
-    {ok, _Ts} = mod_groups:send_message(?MSG_ID1, Gid, ?UID1, <<"TestMessage">>),
+    {ok, _Ts} = mod_groups:send_chat_message(?MSG_ID1, Gid, ?UID1, <<"TestMessage">>),
+    ok.
+
+send_retract_message_test() ->
+    setup(),
+    {ok, Group, _Res} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    Gid = Group#group.gid,
+    GroupChatRetractSt = #groupchat_retract_st{id = <<"id1">>, gid = Gid},
+    {ok, _Ts} = mod_groups:send_retract_message(?MSG_ID1, Gid, ?UID1, GroupChatRetractSt),
     ok.
 
 cleanup_empty_groups_test() ->

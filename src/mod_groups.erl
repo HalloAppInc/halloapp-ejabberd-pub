@@ -38,9 +38,10 @@
     set_name/3,
     set_avatar/3,
     delete_avatar/2,
-    send_message/4,
+    send_chat_message/4,
     broadcast_packet/4,
-    send_feed_item/3
+    send_feed_item/3,
+    send_retract_message/4
 ]).
 
 -include("logger.hrl").
@@ -299,10 +300,10 @@ delete_avatar(Gid, Uid) ->
     end.
 
 
--spec send_message(MsgId :: binary(), Gid :: gid(), Uid :: uid(), MessagePayload :: binary())
+-spec send_chat_message(MsgId :: binary(), Gid :: gid(), Uid :: uid(), MessagePayload :: binary())
             -> {ok, Ts} | {error, atom()}
             when Ts :: non_neg_integer().
-send_message(MsgId, Gid, Uid, MessagePayload) ->
+send_chat_message(MsgId, Gid, Uid, MessagePayload) ->
     ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
     case model_groups:check_member(Gid, Uid) of
         false ->
@@ -312,7 +313,7 @@ send_message(MsgId, Gid, Uid, MessagePayload) ->
             Ts = util:now(),
             GroupInfo = model_groups:get_group_info(Gid),
             {ok, SenderName} = model_accounts:get_name(Uid),
-            GroupMessage = make_message(GroupInfo, Uid, SenderName, MessagePayload, Ts),
+            GroupMessage = make_chat_message(GroupInfo, Uid, SenderName, MessagePayload, Ts),
             ?INFO_MSG("Fan Out MSG: ~p", [GroupMessage]),
             Server = util:get_host(),
             Packet = #message{
@@ -325,6 +326,32 @@ send_message(MsgId, Gid, Uid, MessagePayload) ->
             ReceiverUids = lists:delete(Uid, MUids),
             stat:count(?STAT_NS, "send_im"),
             stat:count(?STAT_NS, "recv_im", length(ReceiverUids)),
+            broadcast_packet(From, Server, ReceiverUids, Packet),
+            {ok, Ts}
+    end.
+
+
+-spec send_retract_message(MsgId :: binary(), Gid :: gid(), Uid :: uid(),
+        GroupChatRetractSt :: groupchat_retract_st()) -> {ok, Ts} | {error, atom()}
+        when Ts :: non_neg_integer().
+send_retract_message(MsgId, Gid, Uid, GroupChatRetractSt) ->
+    ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
+    case model_groups:check_member(Gid, Uid) of
+        false ->
+            %% also possible the group does not exists
+            {error, not_member};
+        true ->
+            Ts = util:now(),
+            ?INFO_MSG("Fan Out MSG: ~p", [GroupChatRetractSt]),
+            Server = util:get_host(),
+            Packet = #message{
+                id = MsgId,
+                type = groupchat,
+                sub_els = [GroupChatRetractSt]
+            },
+            From = jid:make(Uid, Server),
+            MUids = model_groups:get_member_uids(Gid),
+            ReceiverUids = lists:delete(Uid, MUids),
             broadcast_packet(From, Server, ReceiverUids, Packet),
             {ok, Ts}
     end.
@@ -516,9 +543,9 @@ maybe_assign_admin(Gid) ->
     end.
 
 
--spec make_message(GroupInfo :: group_info(), Uid :: uid(), SenderName :: binary(),
+-spec make_chat_message(GroupInfo :: group_info(), Uid :: uid(), SenderName :: binary(),
         MessagePayload :: binary(), Ts :: integer()) -> group_chat().
-make_message(GroupInfo, Uid, SenderName, MessagePayload, Ts) ->
+make_chat_message(GroupInfo, Uid, SenderName, MessagePayload, Ts) ->
     #group_chat{
         xmlns = ?NS_GROUPS,
         gid = GroupInfo#group_info.gid,

@@ -51,10 +51,15 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
-user_send_packet({#message{} = Packet, State} = _Acc) ->
+user_send_packet({#message{id = MsgId} = Packet, State} = _Acc) ->
     From = xmpp:get_from(Packet),
+    To = xmpp:get_to(Packet),
+    ToUid = To#jid.luser,
     FromUid = From#jid.luser,
     [SubEl] = Packet#message.sub_els,
+    SubElementType = element(1, SubEl),
+    ?INFO_MSG("Uid: ~s sending ~p message to ~s MsgId: ~s",
+            [FromUid, SubElementType, ToUid, MsgId]),
     NewPacket = if
         FromUid =:= <<>> ->
             Packet;
