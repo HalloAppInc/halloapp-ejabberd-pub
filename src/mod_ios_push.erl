@@ -145,7 +145,7 @@ handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     NewState = case push_util:record_push_sent(Message) of
         false -> 
                 ?INFO_MSG("Push notification already sent for Msg: ~p", [Message]),
-                ok;
+                State;
         true -> push_message(Message, PushInfo, State)
     end,
     {noreply, NewState};
