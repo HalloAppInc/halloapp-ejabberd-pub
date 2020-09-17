@@ -110,6 +110,6 @@ record_push_sent(Message) ->
     PushMetadata = parse_metadata(Message),
     ContentId = PushMetadata#push_metadata.content_id,
     #jid{user = UserId} = Message#message.to,
-    model_message:record_push_sent(UserId, ContentId).
+    model_messages:record_push_sent(UserId, ContentId).
 
 
