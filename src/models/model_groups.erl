@@ -15,10 +15,6 @@
 -include("groups.hrl").
 -include("eredis_cluster.hrl").
 
-%% Export all functions for unit tests
--ifdef(TEST).
--compile(export_all).
--endif.
 
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
@@ -27,6 +23,7 @@
 %% API
 -export([
     create_group/2,
+    delete_group/1,
     delete_group_unsafe/1,
     group_exists/1,
     get_member_uids/1,
@@ -52,6 +49,16 @@
     count_groups/1
 ]).
 
+-ifdef(TEST).
+-export([
+    decode_member/2,
+    create_group/3,
+    encode_member_type/1,
+    group_key/1,
+    members_key/1,
+    user_groups_key/1
+]).
+-endif.
 
 %%====================================================================
 %% gen_mod callbacks
@@ -108,11 +115,7 @@ delete_group(Gid) ->
             {ok, _} = q(["SREM", user_groups_key(Uid), Gid])
         end,
         MemberUids),
-    {ok, Res} = q(["DEL", group_key(Gid), members_key(Gid)]),
-    case Res of
-        <<"0">> -> ok;
-        _ -> q(["DECR", count_groups_key(Gid)])
-    end,
+    ok = delete_group_unsafe(Gid),
     ok.
 
 
