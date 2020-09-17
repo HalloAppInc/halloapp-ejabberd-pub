@@ -44,6 +44,7 @@ delete_group_test() ->
     ?assertEqual(ok, model_groups:delete_group(Gid)),
     ?assertEqual(false, model_groups:group_exists(Gid)),
     ?assertEqual(0, model_groups:get_group_size(Gid)),
+    ?assertEqual([], model_groups:get_groups(?UID1)),
     ok.
 
 add_member_test() ->
@@ -214,5 +215,13 @@ count_groups_test() ->
     ok = model_groups:delete_group(Gid1),
     ok = model_groups:delete_group(Gid2),
     ?assertEqual(0, model_groups:count_groups()),
+    ok.
+
+
+delete_group_unsafe_test() ->
+    setup(),
+    {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    ok = model_groups:delete_group_unsafe(Gid1),
+    ?assertEqual([Gid1], model_groups:get_groups(?UID1)),
     ok.
 

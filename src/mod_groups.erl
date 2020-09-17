@@ -127,7 +127,7 @@ delete_group(Gid, Uid) ->
             Group = model_groups:get_group(Gid),
             NamesMap = model_accounts:get_names([Uid]),
             delete_group_avatar_data(Gid, Group#group.avatar),
-            model_groups:delete_group(Gid),
+            ok = model_groups:delete_group(Gid),
             broadcast_update(Group, Uid, delete, [], NamesMap),
             ok
     end.
@@ -477,7 +477,7 @@ maybe_delete_empty_group(Gid) ->
             ?INFO_MSG("Group ~s is now empty. Deleting it.", [Gid]),
             stat:count("HA/groups", "auto_delete_empty"),
             delete_group_avatar_data(Gid),
-            model_groups:delete_group(Gid);
+            model_groups:delete_group_unsafe(Gid);
         true ->
             ok
     end.

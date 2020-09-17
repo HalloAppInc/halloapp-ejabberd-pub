@@ -27,7 +27,7 @@
 %% API
 -export([
     create_group/2,
-    delete_group/1,
+    delete_group_unsafe/1,
     group_exists/1,
     get_member_uids/1,
     get_group_size/1,
@@ -102,6 +102,22 @@ create_group(Uid, Name, Ts) ->
 
 -spec delete_group(Gid :: gid()) -> ok.
 delete_group(Gid) ->
+    MemberUids = get_member_uids(Gid),
+    lists:foreach(
+        fun (Uid) ->
+            {ok, _} = q(["SREM", user_groups_key(Uid), Gid])
+        end,
+        MemberUids),
+    {ok, Res} = q(["DEL", group_key(Gid), members_key(Gid)]),
+    case Res of
+        <<"0">> -> ok;
+        _ -> q(["DECR", count_groups_key(Gid)])
+    end,
+    ok.
+
+
+-spec delete_group_unsafe(Gid :: gid()) -> ok.
+delete_group_unsafe(Gid) ->
     {ok, Res} = q(["DEL", group_key(Gid), members_key(Gid)]),
     case Res of
         <<"0">> -> ok;
