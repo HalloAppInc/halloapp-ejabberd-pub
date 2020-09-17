@@ -460,7 +460,7 @@ handle_mnesia_content_request(PostId, CommentId, ItemType, ParentCommentId, Payl
 
         {retract, comment, _, _} ->
             %% remove data from mnesia and send an old api message to all the clients.
-            ok = mod_feed:retract_item(PublisherUid, Server, CommentItem, [], Node, true, FeedAudienceSet),
+            ok = mod_feed:retract_item(PublisherUid, Server, CommentItem, [], Node, true, FeedAudienceSet, false),
             %% send a new api message to all the clients.
             send_comment_notification(PostId, CommentId, ParentCommentId, Payload,
                     Action, PublisherUid, FeedAudienceSet, TimestampMs),
