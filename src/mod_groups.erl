@@ -238,7 +238,18 @@ get_group_info(Gid, Uid) ->
 
 -spec get_groups(Uid :: uid()) -> [group_info()].
 get_groups(Uid) ->
-    [model_groups:get_group_info(Gid) || Gid <- model_groups:get_groups(Uid)].
+    Gids = model_groups:get_groups(Uid),
+    lists:filtermap(
+        fun (Gid) ->
+            case model_groups:get_group_info(Gid) of
+                undefined ->
+                    ?WARNING_MSG("can not find group ~s", [Gid]),
+                    false;
+                GroupInfo ->
+                    {true, GroupInfo}
+            end
+        end,
+        Gids).
 
 
 -spec set_name(Gid :: gid(), Uid :: uid(), Name :: binary()) -> ok | {error, invalid_name | not_member}.
