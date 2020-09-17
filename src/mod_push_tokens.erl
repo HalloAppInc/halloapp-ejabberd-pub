@@ -25,7 +25,8 @@
     process_local_iq/1,
     get_push_info/2,
     remove_push_token/2,
-    re_register_user/3
+    re_register_user/3,
+    register_push_info/4
 ]).
 
 

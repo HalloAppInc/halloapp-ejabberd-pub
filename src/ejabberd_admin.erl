@@ -61,9 +61,6 @@
 	 mnesia_change_nodename/4,
 	 restore/1, % Still used by some modules
 	 clear_cache/0,
-	 migrate_accounts/0,
-	 migrate_all_contacts/0,
-	 verify_migrate_accounts/0,
 	 fix_account_counters/0,
 	 add_uid_trace/1,
 	 remove_uid_trace/1,
@@ -447,18 +444,6 @@ get_commands_spec() ->
 			desc = "Clear database cache on all nodes",
 			module = ?MODULE, function = clear_cache,
 			args = [], result = {res, rescode}},
-	 #ejabberd_commands{name = migrate_all_contacts, tags = [server],
-			desc = "Migrates all contacts from mnesia to redis",
-			module = ?MODULE, function = migrate_all_contacts,
-			args = [], result = {res, rescode}},
-     #ejabberd_commands{name = migrate_accounts, tags = [server],
-			desc = "Migrate all the accounts from mnesia to redis",
-			module = ?MODULE, function = migrate_accounts,
-			args = [], result = {res, rescode}},
-    #ejabberd_commands{name = verify_migrate_accounts, tags = [server],
-                        desc = "Verify the migration of all the accounts from mnesia to redis",
-                        module = ?MODULE, function = verify_migrate_accounts,
-                        args = [], result = {res, rescode}},
     #ejabberd_commands{name = add_uid_trace, tags = [server],
             desc = "Start tracing uid",
             module = ?MODULE, function = add_uid_trace,
@@ -706,6 +691,7 @@ unenroll(Phone, Host) ->
 enrolled_users(Host) ->
     case is_my_host(Host) of
         true ->
+            %% TODO(vipin): the following function is not defined.
             Users = ejabberd_auth_halloapp:get_enrolled_users(Host),
             SUsers = lists:sort(Users),
             lists:map(fun({U, _S}) -> U end, SUsers);
@@ -1038,21 +1024,9 @@ clear_cache() ->
     Nodes = ejabberd_cluster:get_nodes(),
     lists:foreach(fun(T) -> ets_cache:clear(T, Nodes) end, ets_cache:all()).
 
-migrate_accounts() ->
-    ?INFO_MSG("starting migration", []),
-    ejabberd_auth_halloapp:migrate_all().
-
-verify_migrate_accounts() ->
-    ?INFO_MSG("starting migration verification", []),
-    ejabberd_auth_halloapp:verify_migration().
-
 fix_account_counters() ->
     ?INFO_MSG("fixing account counters", []),
     model_accounts:fix_counters().
-
-%% TODO(murali@): Verify migration of contacts!
-migrate_all_contacts() ->
-	mod_contacts:migrate_all_contacts().
 
 add_uid_trace(Uid) ->
     UidBin = list_to_binary(Uid),

@@ -303,7 +303,7 @@ remove_unregistered_numbers_run(Key, State) ->
 
 %%% Stage 2. Check if the remaining data is correct.
 remove_unregistered_numbers_verify(Key, State) ->
-    remove_unregistered_numbers_verify:remove_unregistered_numbers_verify(Key, State).
+    migrate_contact_data:remove_unregistered_numbers_verify(Key, State).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

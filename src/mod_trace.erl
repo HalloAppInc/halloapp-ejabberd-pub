@@ -134,7 +134,7 @@ add_uid(Uid) when is_binary(Uid) ->
 -spec remove_uid(Uid :: binary()) -> ok.
 remove_uid(Uid) when is_binary(Uid) ->
     ?INFO_MSG("Uid: ~s", [Uid]),
-    model_accounts:remove_uid_to_trace(Uid),
+    model_accounts:remove_uid_from_trace(Uid),
     ejabberd_cluster:multicall(?MODULE, stop_trace, [Uid]),
     ok.
 
@@ -159,7 +159,7 @@ remove_phone(Phone) ->
     ?INFO_MSG("Phone: ~s", [Phone]),
     {ok, Uid} = model_phone:get_uid(Phone),
     ?INFO_MSG("currently we have Uid: ~s registered with Phone: ~s", [Uid, Phone]),
-    model_accounts:remove_phone_to_trace(Phone),
+    model_accounts:remove_phone_from_trace(Phone),
     case Uid of
         undefined -> ok;
         Uid ->

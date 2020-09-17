@@ -149,7 +149,7 @@ noise_check_spub(SPub, Auth) ->
         Pkt ->
             stat:count("HA/pb_packet", "decode_success"),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
-            case ejabberd_auth:check_spub(Pkt#pb_auth_request.uid, <<>>, util:get_host(), SPub) of
+            case ejabberd_auth:check_spub(Pkt#pb_auth_request.uid, SPub) of
                 true ->
                     stat:count("HA/check_spub", "match"),
                     ok;

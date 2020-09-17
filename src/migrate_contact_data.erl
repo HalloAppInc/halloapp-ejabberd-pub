@@ -96,7 +96,7 @@ remove_unregistered_numbers_run(Key, State) ->
             case Uid of
                 undefined ->
                     ?INFO_MSG("Removing key ~s, phone: ~s", [Key, Phone]),
-                    {ok, ContactUids} = model_phone:get_contact_uids(Phone),
+                    {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
                     Command = ["DEL", Key],
                     case DryRun of
                         true ->
