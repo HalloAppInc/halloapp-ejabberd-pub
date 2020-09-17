@@ -395,25 +395,35 @@ parse(SocketData, Data) when Data == <<>>; Data == [] ->
             Err
     end;
 
-parse(#socket_state{pb_stream = PBStream, socket = _Socket,
-        shaper = _ShaperState} = SocketData, Data) when is_binary(Data) ->
+parse(SocketData, Data) when is_binary(Data) ->
     %% TODO(murali@): add shaper rules here.
     ?DEBUG("(~s) Received pb bytes on stream = ~p", [pp(SocketData), Data]),
+    parse_pb_data(SocketData, Data).
 
+
+parse_pb_data(#socket_state{pb_stream = PBStream, socket = _Socket,
+        shaper = _ShaperState} = SocketData, Data) when is_binary(Data) ->
     FinalData = <<PBStream/binary, Data/binary>>,
-    case byte_size(FinalData) > 4 of
+    ?DEBUG("(~s) Parsing data = ~p", [pp(SocketData), FinalData]),
+    FinalSocketData = case byte_size(FinalData) > 4 of
         true ->
             <<_ControlByte:8, PacketSize:24, Rest/binary>> = FinalData,
             case byte_size(Rest) >= PacketSize of
                 true ->
                     <<Packet:PacketSize/binary, Rem/binary>> = Rest,
                     self() ! {'$gen_event', {protobuf, Packet}},
-                    parse(SocketData#socket_state{pb_stream = Rem}, <<>>);
+                    parse_pb_data(SocketData#socket_state{pb_stream = Rem}, <<>>);
                 false ->
-                    {ok, SocketData#socket_state{pb_stream = FinalData}}
+                    SocketData#socket_state{pb_stream = FinalData}
             end;
         false ->
-            {ok, SocketData#socket_state{pb_stream = FinalData}}
+            SocketData#socket_state{pb_stream = FinalData}
+    end,
+    case activate(SocketData) of
+        ok ->
+            {ok, FinalSocketData};
+        {error, _} = Err ->
+            Err
     end.
 
 parse_message(SocketData, Data) when is_binary(Data) ->
