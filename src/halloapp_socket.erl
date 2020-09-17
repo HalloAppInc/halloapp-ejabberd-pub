@@ -405,7 +405,7 @@ parse_pb_data(#socket_state{pb_stream = PBStream, socket = _Socket,
         shaper = _ShaperState} = SocketData, Data) when is_binary(Data) ->
     FinalData = <<PBStream/binary, Data/binary>>,
     ?DEBUG("(~s) Parsing data = ~p", [pp(SocketData), FinalData]),
-    FinalSocketData = case byte_size(FinalData) > 4 of
+    {ok, FinalSocketData} = case byte_size(FinalData) > 4 of
         true ->
             <<_ControlByte:8, PacketSize:24, Rest/binary>> = FinalData,
             case byte_size(Rest) >= PacketSize of
@@ -414,10 +414,10 @@ parse_pb_data(#socket_state{pb_stream = PBStream, socket = _Socket,
                     self() ! {'$gen_event', {protobuf, Packet}},
                     parse_pb_data(SocketData#socket_state{pb_stream = Rem}, <<>>);
                 false ->
-                    SocketData#socket_state{pb_stream = FinalData}
+                    {ok, SocketData#socket_state{pb_stream = FinalData}}
             end;
         false ->
-            SocketData#socket_state{pb_stream = FinalData}
+            {ok, SocketData#socket_state{pb_stream = FinalData}}
     end,
     case activate(SocketData) of
         ok ->
