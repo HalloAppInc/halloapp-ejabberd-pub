@@ -30,8 +30,10 @@
 -define(ID2, <<"id2">>).
 -define(ID3, <<"id3">>).
 
--define(PAYLOAD1, <<"payload1">>).
--define(PAYLOAD2, <<"payload2">>).
+-define(PAYLOAD1, <<"123">>).
+-define(PAYLOAD2, <<"456">>).
+-define(PAYLOAD1_BASE64, <<"MTIz">>).
+-define(PAYLOAD2_BASE64, <<"NDU2">>).
 -define(TIMESTAMP1, <<"2000090910">>).
 -define(TIMESTAMP1_INT, 2000090910).
 -define(TIMESTAMP2, <<"1850012340">>).
@@ -216,7 +218,7 @@ xmpp_to_proto_message_feed_item_test() ->
     PbFeedItem = create_feed_item(publish, {post, PbPost}),
     PbMessage = create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, {feed_item, PbFeedItem}),
 
-    PostSt = create_post_st(?ID1, ?UID1, ?PAYLOAD1, ?TIMESTAMP1),
+    PostSt = create_post_st(?ID1, ?UID1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
     FeedSt = create_feed_st(publish, [PostSt], [], [], []),
     ToJid = create_jid(?UID2, ?SERVER),
     FromJid = create_jid(?UID1, ?SERVER),
@@ -237,9 +239,9 @@ xmpp_to_proto_message_feed_items_test() ->
     PbFeedItems = create_feed_items(?UID1_INT, [PbFeedItem1, PbFeedItem2, PbFeedItem3]),
     PbMessage = create_pb_message(?ID1, ?UID3_INT, ?UID1_INT, normal, {feed_items, PbFeedItems}),
 
-    PostSt1 = create_post_st(?ID1, ?UID1, ?PAYLOAD1, ?TIMESTAMP1),
-    PostSt2 = create_post_st(?ID2, ?UID1, ?PAYLOAD2, ?TIMESTAMP2),
-    CommentSt1 = create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2, ?TIMESTAMP2),
+    PostSt1 = create_post_st(?ID1, ?UID1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
+    PostSt2 = create_post_st(?ID2, ?UID1, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
+    CommentSt1 = create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
     FeedSt = create_feed_st(share, [PostSt1, PostSt2], [CommentSt1], [], []),
     ToJid = create_jid(?UID3, ?SERVER),
     FromJid = create_jid(?UID1, ?SERVER),
@@ -269,7 +271,7 @@ proto_to_xmpp_iq_feed_item_test() ->
     PbFeedItem =create_feed_item(publish, {comment, PbComment}),
     PbIq = create_pb_iq(?ID1, set, {feed_item, PbFeedItem}),
 
-    CommentSt = create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2, ?TIMESTAMP2),
+    CommentSt = create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
     FeedSt = create_feed_st(publish, [], [CommentSt], [], []),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
@@ -285,7 +287,7 @@ proto_to_xmpp_iq_feed_item_audience_test() ->
     PbIq = create_pb_iq(?ID1, set, {feed_item, PbFeedItem}),
 
     AudienceSt = create_audience_list(only, [?UID2, ?UID3]),
-    PostSt = create_post_st(?ID1, ?UID1, ?PAYLOAD1, ?TIMESTAMP1),
+    PostSt = create_post_st(?ID1, ?UID1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
     FeedSt = create_feed_st(publish, [PostSt], [], [AudienceSt], []),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
