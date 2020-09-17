@@ -384,6 +384,7 @@ send_feed_item(Gid, Uid, GroupFeedSt) ->
             ?INFO_MSG("Fan Out MSG: ~p", [GroupFeedSt]),
             Server = util:get_host(),
             Packet = #message{
+                id = util:new_msg_id(),
                 type = groupchat,
                 sub_els = [NewGroupFeedSt]
             },
@@ -663,7 +664,11 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     BroadcastUids = sets:to_list(UidsToNotify),
     Server = util:get_host(),
     From = jid:make(Server),
-    Packet = #message{type = groupchat, sub_els = [GroupSt]},
+    Packet = #message{
+        id = util:new_msg_id(),
+        type = groupchat,
+        sub_els = [GroupSt]
+    },
     broadcast_packet(From, Server, BroadcastUids, Packet),
     ok.
 

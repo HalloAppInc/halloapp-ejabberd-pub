@@ -167,8 +167,12 @@ check_count_and_notify_user(Uid, Server) ->
     ?INFO_MSG("Uid: ~s, Count: ~p, MinCount: ~p", [Uid, Count, ?MIN_OTP_KEY_COUNT]),
     case Count < ?MIN_OTP_KEY_COUNT of
         true ->
-            Message = #message{from = jid:make(Server), to = jid:make(Uid, Server),
-                    sub_els = [#whisper_keys{uid = Uid, otp_key_count = integer_to_binary(Count)}]},
+            Message = #message{
+                    id = util:new_msg_id(),
+                    from = jid:make(Server),
+                    to = jid:make(Uid, Server),
+                    sub_els = [#whisper_keys{uid = Uid, otp_key_count = integer_to_binary(Count)}]
+            },
             ejabberd_router:route(Message);
         false ->
             ok
@@ -181,7 +185,11 @@ notify_key_subscribers(Uid, Server) ->
     {ok, Ouids} = model_whisper_keys:get_all_key_subscribers(Uid),
     Ojids = util:uids_to_jids(Ouids, Server),
     From = jid:make(Server),
-    Packet = #message{from = From, sub_els = [#whisper_keys{type = update, uid = Uid}]},
+    Packet = #message{
+        id = util:new_msg_id(),
+        from = From,
+        sub_els = [#whisper_keys{type = update, uid = Uid}]
+    },
     ejabberd_router_multicast:route_multicast(From, Server, Ojids, Packet).
 
 

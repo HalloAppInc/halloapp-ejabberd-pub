@@ -63,6 +63,7 @@ user_ack_packet(_, _) ->
         ThreadId :: binary(), Timestamp :: binary()) -> ok.
 send_receipt(ToJID, FromJID, Id, ThreadId, Timestamp) ->
     MessageReceipt = #message{
+        id = util:new_msg_id(),
         to = ToJID,
         from = FromJID,
         sub_els = [#receipt_response{

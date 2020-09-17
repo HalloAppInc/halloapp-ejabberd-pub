@@ -351,6 +351,7 @@ broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza) ->
         fun(ToUid) ->
             MsgType = get_message_type(ResultStanza, PushSet, ToUid),
             Packet = #message{
+                id = util:new_msg_id(),
                 to = jid:make(ToUid, Server),
                 from = From,
                 type = MsgType,
@@ -522,6 +523,7 @@ send_old_items_to_contact(Uid, Server, ContactId) ->
     MsgType = normal,
     From = jid:make(Server),
     Packet = #message{
+        id = util:new_msg_id(),
         to = jid:make(ContactId, Server),
         from = From,
         type = MsgType,
@@ -565,6 +567,7 @@ share_feed_items(Uid, FriendUid, Server, PostIds) ->
     MsgType = normal,
     From = jid:make(Server),
     Packet = #message{
+        id = util:new_msg_id(),
         to = jid:make(FriendUid, Server),
         from = From,
         type = MsgType,

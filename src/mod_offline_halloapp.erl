@@ -209,8 +209,16 @@ route_offline_message(#offline_message{from_uid = FromUid, to_uid = ToUid, messa
 
 
 -spec adjust_id_and_store_message(message()) -> message().
-adjust_id_and_store_message(Message) ->
+adjust_id_and_store_message(#message{id = Id} = Message) ->
     NewMessage = xmpp:set_id_if_missing(Message, util:new_msg_id()),
+
+    %% TODO(murali@): ensure all messages always have id generated.
+    case Id of
+        undefined -> ?WARNING_MSG("message id was empty ~p", [Message]);
+        <<>> -> ?WARNING_MSG("message id was empty ~p", [Message]);
+        _ -> ok
+    end,
+
     ok = model_messages:store_message(NewMessage),
     NewMessage.
 

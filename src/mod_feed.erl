@@ -348,7 +348,11 @@ broadcast_event(Uid, Server, Node, Item, Payload, EventType, FeedAudienceSet) ->
 broadcast_items(Uid, Server, Node, ItemsEls, EventType, FeedAudienceSet) ->
     ?INFO_MSG("Node: ~p, ItemsEls: ~p", [Node, ItemsEls]),
     MsgType = get_message_type(Node, EventType),
-    Packet = #message{type = MsgType, sub_els = [#ps_event{items = ItemsEls}]},
+    Packet = #message{
+        id = util:new_msg_id(),
+        type = MsgType,
+        sub_els = [#ps_event{items = ItemsEls}]
+    },
     BroadcastUids = sets:to_list(sets:del_element(Uid, FeedAudienceSet)),
     BroadcastJids = util:uids_to_jids(BroadcastUids, Server),
     From = jid:make(?PUBSUB_HOST),
@@ -480,6 +484,7 @@ send_all_node_items(#psnode{id = NodeId} = _Node, ContactId, Server) ->
             PsItems1
     end,
     Packet = #message{
+        id = util:new_msg_id(),
         to = jid:make(ContactId, Server),
         from = From,
         type = MsgType,

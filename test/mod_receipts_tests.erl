@@ -128,7 +128,9 @@ send_1on1_delivery_receipt_test() ->
         fun(Packet) ->
             [#receipt_response{timestamp = Ts}] = Packet#message.sub_els,
             ExpectedReceipt = make_receipt(?ID1, ?UID1, ?UID2, <<>>, Ts),
-            ?assertEqual(ExpectedReceipt, Packet),
+            ?assertEqual(ExpectedReceipt#message.to, Packet#message.to),
+            ?assertEqual(ExpectedReceipt#message.from, Packet#message.from),
+            ?assertEqual(ExpectedReceipt#message.sub_els, Packet#message.sub_els),
             ok
         end),
 
@@ -150,7 +152,9 @@ send_group_delivery_receipt_test() ->
         fun(Packet) ->
             [#receipt_response{timestamp = Ts}] = Packet#message.sub_els,
             ExpectedReceipt = make_receipt(?ID1, ?UID1, ?UID2, ?GID1, Ts),
-            ?assertEqual(ExpectedReceipt, Packet),
+            ?assertEqual(ExpectedReceipt#message.to, Packet#message.to),
+            ?assertEqual(ExpectedReceipt#message.from, Packet#message.from),
+            ?assertEqual(ExpectedReceipt#message.sub_els, Packet#message.sub_els),
             ok
         end),
 

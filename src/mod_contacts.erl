@@ -464,9 +464,12 @@ notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role) ->
         role = Role
     },
     SubEls = [#contact_list{type = normal, xmlns = ?NS_NORM, contacts = [Contact]}],
-    Stanza = #message{from = jid:make(Server),
-                      to = jid:make(ContactId, Server),
-                      sub_els = SubEls},
+    Stanza = #message{
+        id = util:new_msg_id(),
+        from = jid:make(Server),
+        to = jid:make(ContactId, Server),
+        sub_els = SubEls
+    },
     ?DEBUG("Notifying contact: ~p about user: ~p using stanza: ~p",
             [{ContactId, Server}, UserId, Stanza]),
     ejabberd_router:route(Stanza).
@@ -489,9 +492,11 @@ send_probe_message(UserId, HashValue, ContactId, Server) ->
         xmlns = ?NS_NORM,
         contact_hash = [base64:encode(HashValue)]},
     Stanza = #message{
+        id = util:new_msg_id(),
         from = jid:make(Server),
         to = jid:make(ContactId, Server),
-        sub_els = [SubEl]},
+        sub_els = [SubEl]
+    },
     ?DEBUG("Probing contact: ~p about user: ~p using stanza: ~p",
             [{ContactId, Server}, UserId, Stanza]),
     ejabberd_router:route(Stanza).
