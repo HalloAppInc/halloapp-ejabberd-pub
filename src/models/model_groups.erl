@@ -24,7 +24,7 @@
 -export([
     create_group/2,
     delete_group/1,
-    delete_group_unsafe/1,
+    delete_empty_group/1,
     group_exists/1,
     get_member_uids/1,
     get_group_size/1,
@@ -115,12 +115,12 @@ delete_group(Gid) ->
             {ok, _} = q(["SREM", user_groups_key(Uid), Gid])
         end,
         MemberUids),
-    ok = delete_group_unsafe(Gid),
+    ok = delete_empty_group(Gid),
     ok.
 
 
--spec delete_group_unsafe(Gid :: gid()) -> ok.
-delete_group_unsafe(Gid) ->
+-spec delete_empty_group(Gid :: gid()) -> ok.
+delete_empty_group(Gid) ->
     {ok, Res} = q(["DEL", group_key(Gid), members_key(Gid)]),
     case Res of
         <<"0">> -> ok;

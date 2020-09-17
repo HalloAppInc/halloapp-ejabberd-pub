@@ -477,7 +477,7 @@ maybe_delete_empty_group(Gid) ->
             ?INFO_MSG("Group ~s is now empty. Deleting it.", [Gid]),
             stat:count("HA/groups", "auto_delete_empty"),
             delete_group_avatar_data(Gid),
-            model_groups:delete_group_unsafe(Gid);
+            model_groups:delete_empty_group(Gid);
         true ->
             ok
     end.

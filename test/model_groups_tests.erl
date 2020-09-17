@@ -218,10 +218,10 @@ count_groups_test() ->
     ok.
 
 
-delete_group_unsafe_test() ->
+delete_empty_group_test() ->
     setup(),
     {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
-    ok = model_groups:delete_group_unsafe(Gid1),
+    ok = model_groups:delete_empty_group(Gid1),
     ?assertEqual([Gid1], model_groups:get_groups(?UID1)),
     ok.
 
