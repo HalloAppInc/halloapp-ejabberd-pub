@@ -65,11 +65,6 @@ offline_message_hook({_, #message{} = Message} = Acc) ->
 -spec should_push(Message :: message()) -> boolean(). 
 should_push(#message{type = Type, sub_els = [SubEl]}) ->
     if
-        Type =:= headline ->
-            %% TODO(murali@): remove the old api and then disable the format of push.
-            %% Push pubsub messages with type=headline, all new published posts and comments.
-            true;
-
         Type =:= groupchat andalso is_record(SubEl, group_chat) ->
             %% Push all group chat messages: all messages with type=groupchat and group_chat as the subelement.
             true;
@@ -89,6 +84,11 @@ should_push(#message{type = Type, sub_els = [SubEl]}) ->
         Type =:= groupchat andalso is_record(SubEl, group_feed_st) andalso
                 SubEl#group_feed_st.action =:= publish ->
             %% Push all group feed messages with action = publish.
+            true;
+
+        Type =:= headline ->
+            %% TODO(murali@): remove the old api and then disable the format of push.
+            %% Push pubsub messages with type=headline, all new published posts and comments.
             true;
 
         true ->
