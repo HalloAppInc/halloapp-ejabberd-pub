@@ -29,9 +29,9 @@ xmpp_to_proto(SubEl) ->
         end, {<<>>, <<>>, <<>>, 0}, SubEl#chat.sub_els),
     #pb_chat{
         timestamp = util_parser:maybe_convert_to_integer(SubEl#chat.timestamp),
-        payload = Content,
-        enc_payload = EncryptedContent,
-        public_key = PublicKey,
+        payload = base64:decode(Content),
+        enc_payload = base64:decode(EncryptedContent),
+        public_key = base64:decode(PublicKey),
         one_time_pre_key_id = OneTimePreKeyId
     }.
 
@@ -42,14 +42,15 @@ xmpp_to_proto(SubEl) ->
 
 
 proto_to_xmpp(ProtoPayload) ->
-    Attrs = [{<<"identity_key">>, ProtoPayload#pb_chat.public_key},
-            {<<"one_time_pre_key_id">>, util_parser:maybe_convert_to_binary(ProtoPayload#pb_chat.one_time_pre_key_id)}],
-    Content = {xmlel,<<"s1">>,[],[{xmlcdata, ProtoPayload#pb_chat.payload}]},
-    EncryptedContent = {xmlel,<<"enc">>, Attrs, [{xmlcdata, ProtoPayload#pb_chat.enc_payload}]},
+    Content = {xmlel,<<"s1">>,[],[{xmlcdata, base64:encode(ProtoPayload#pb_chat.payload)}]},
     FinalSubEls = case ProtoPayload#pb_chat.enc_payload of
         undefined -> [Content];
         <<>> -> [Content];
-        _ -> [Content, EncryptedContent]
+        _ ->
+            Attrs = [{<<"identity_key">>, base64:encode(ProtoPayload#pb_chat.public_key)},
+            {<<"one_time_pre_key_id">>, util_parser:maybe_convert_to_binary(ProtoPayload#pb_chat.one_time_pre_key_id)}],
+            EncryptedContent = {xmlel,<<"enc">>, Attrs, [{xmlcdata, base64:encode(ProtoPayload#pb_chat.enc_payload)}]},
+            [Content, EncryptedContent]
     end,
     #chat{
         xmlns = <<"halloapp:chat:messages">>,

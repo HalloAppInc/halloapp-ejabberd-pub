@@ -24,11 +24,11 @@
         sub_els = [#chat{
                 xmlns = <<"halloapp:chat:messages">>,
                 timestamp = <<"2000090910">>, 
-                sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"Hello from pb chat!">>}]},
+                sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"MTIz">>}]},
                         {xmlel,<<"enc">>,
-                            [{<<"identity_key">>, <<"fDX3ZTTBwRfDrs+LiKUsrAqulUVoMUJz0cVzf1RjkII=">>},
+                            [{<<"identity_key">>, <<"Nzg5">>},
                             {<<"one_time_pre_key_id">>,<<"12">>}],
-                            [{xmlcdata,<<"Check encrypted content!">>}]}]
+                            [{xmlcdata,<<"NDU2">>}]}]
             }
         ]
     }
@@ -43,9 +43,9 @@
         payload = #pb_msg_payload{
             content = {chat, #pb_chat{
                 timestamp = 2000090910,
-                payload = <<"Hello from pb chat!">>,
-                enc_payload = <<"Check encrypted content!">>,
-                public_key = <<"fDX3ZTTBwRfDrs+LiKUsrAqulUVoMUJz0cVzf1RjkII=">>,
+                payload = <<"123">>,
+                enc_payload = <<"456">>,
+                public_key = <<"789">>,
                 one_time_pre_key_id = 12
             }}
         }
@@ -60,11 +60,11 @@
         sub_els = [#chat{
                 xmlns = <<"halloapp:chat:messages">>,
                 timestamp = undefined,
-                sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"Hello from pb chat!">>}]},
+                sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"MTIz">>}]},
                         {xmlel,<<"enc">>,
-                            [{<<"identity_key">>, <<"fDX3ZTTBwRfDrs+LiKUsrAqulUVoMUJz0cVzf1RjkII=">>},
+                            [{<<"identity_key">>, <<"Nzg5">>},
                             {<<"one_time_pre_key_id">>,<<"12">>}],
-                            [{xmlcdata,<<"Check encrypted content!">>}]}]
+                            [{xmlcdata,<<"NDU2">>}]}]
             }
         ]
     }
@@ -79,9 +79,9 @@
         payload = #pb_msg_payload{
             content = {chat, #pb_chat{
                 timestamp = undefined,
-                payload = <<"Hello from pb chat!">>,
-                enc_payload = <<"Check encrypted content!">>,
-                public_key = <<"fDX3ZTTBwRfDrs+LiKUsrAqulUVoMUJz0cVzf1RjkII=">>,
+                payload = <<"123">>,
+                enc_payload = <<"456">>,
+                public_key = <<"789">>,
                 one_time_pre_key_id = 12
             }}
         }
