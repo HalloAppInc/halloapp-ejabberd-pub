@@ -108,6 +108,7 @@ increment_retry_count(Uid, MsgId) ->
 
 
 -spec increment_retry_counts(Uid :: uid(), MsgIds :: [binary()]) -> ok.
+increment_retry_counts(Uid, []) -> ok;
 increment_retry_counts(Uid, MsgIds) ->
     Commands = [["HINCRBY", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT, 1] || MsgId <- MsgIds],
     _Results = qp(Commands),
