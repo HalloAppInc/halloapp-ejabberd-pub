@@ -74,7 +74,10 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         sub_els = [#feed_st{action = publish = Action, posts = [], comments = [Comment]}]} = IQ) ->
     CommentId = Comment#comment_st.id,
     PostId = Comment#comment_st.post_id,
-    ParentCommentId = Comment#comment_st.parent_comment_id,
+    ParentCommentId = case Comment#comment_st.parent_comment_id of
+        undefined -> <<>>;
+        ParentId -> ParentId
+    end,
     Payload = Comment#comment_st.payload,
     PostUid = Comment#comment_st.post_uid,
     case publish_comment(Uid, CommentId, PostId, PostUid, ParentCommentId, Payload) of
