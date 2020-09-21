@@ -114,7 +114,7 @@ dummy_test(_Conf) ->
 
 connect_test(_Conf) ->
     {ok, C} = ha_client:start_link(),
-    ok = ha_client:close(C),
+    ok = ha_client:stop(C),
     ok.
 
 check_accounts_test(_Conf) ->
@@ -124,26 +124,20 @@ check_accounts_test(_Conf) ->
     ok.
 
 auth_no_user_test(_Conf) ->
-    {ok, C} = ha_client:start_link(),
     % UID6 does not exist
     false = model_accounts:account_exists(?UID6),
-    Result = ha_client:send_auth(C, ?UID6, <<"wrong_password">>),
-    #pb_auth_result{result = <<"failure">>, reason = <<"invalid uid or password">>} = Result,
-    ok = ha_client:close(C),
+    {error, 'invalid uid or password'} = ha_client:connect_and_login(?UID6, <<"wrong_password">>),
     ok.
 
 auth_bad_password_test(_Conf) ->
-    {ok, C} = ha_client:start_link(),
     true = model_accounts:account_exists(?UID1),
-    Result = ha_client:send_auth(C, ?UID1, <<"wrong_password">>),
-    #pb_auth_result{result = <<"failure">>, reason = <<"invalid uid or password">>} = Result,
-    ok = ha_client:close(C),
+    {error, 'invalid uid or password'} = ha_client:connect_and_login(?UID1, <<"wrong_password">>),
     ok.
 
 
 auth_success_test(_Conf) ->
     {ok, C} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    ok = ha_client:close(C),
+    ok = ha_client:stop(C),
     ok.
 
 

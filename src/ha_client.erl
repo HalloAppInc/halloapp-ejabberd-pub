@@ -21,18 +21,20 @@
 %% API
 -export([
     start_link/0,
+    stop/1,
     connect_and_login/2,
     send/2,
     recv_nb/1,
     recv/1,
-    close/1,
-    send_auth/3,
+    send_recv/2,
     wait_for/2,
-    send_recv/2
+    login/3
+
 ]).
 
 -export([
     init/1,
+    terminate/2,
     handle_call/3,
     handle_cast/2,
     handle_info/2
@@ -49,6 +51,7 @@
 
 -type state() :: #state{}.
 
+
 % TODO: move this somewhere else
 -type pb_packet() :: #pb_packet{}.
 
@@ -61,13 +64,15 @@ start_link() ->
         {ok, Client :: pid()} | {error, Reason :: term()}.
 connect_and_login(Uid, Password) ->
     {ok, C} = start_link(),
-    Result = send_auth(C, Uid, Password),
+    Result = login(C, Uid, Password),
     case Result of
         #pb_auth_result{result = <<"success">>} ->
             {ok, C};
         #pb_auth_result{result = <<"failure">>, reason = Reason} ->
+            stop(C),
             {error, binary_to_atom(Reason, utf8)};
         Any ->
+            stop(C),
             {error, {unexpected_result, Any}}
     end.
 
@@ -79,34 +84,38 @@ send(Client, Message) ->
 
 
 % Get the next received message or undefined if no message is received.
+% This API does not block waiting for network messages, it returns undefined.
 -spec recv_nb(Client :: pid()) -> maybe(pb_packet()).
 recv_nb(Client) ->
     gen_server:call(Client, {recv_nb}).
 
-% Gets the next received message or waits for one.
+% Gets the next received message or waits for one. Blocking API.
 -spec recv(Client :: pid()) -> pb_packet().
 recv(Client) ->
     gen_server:call(Client, {recv}).
 
-% Close the connection
--spec close(Client :: pid()) -> ok.
-close(Client) ->
-    gen_server:call(Client, {close}).
 
--spec wait_for(Client :: pid(), function()) -> pb_packet().
+% Stop the gen_server
+-spec stop(Client :: pid()) -> ok.
+stop(Client) ->
+    gen_server:stop(Client).
+
+% Check the received messages for the first message where Func(Message) returns true.
+% If no such message is already received it waits for such message to arrive from the server.
+-spec wait_for(Client :: pid(), Func :: fun((term()) -> boolean())) -> pb_packet().
 wait_for(Client, MatchFun) ->
-    gen_server:call(Client, {wait_form, MatchFun}).
+    gen_server:call(Client, {wait_for, MatchFun}).
 
 
--spec send_recv(Cleint :: pid(), Message :: iolist() | pb_packet()) -> pb_packet().
-send_recv(Client, Message) ->
-    gen_server:call(Client, {send_recv, Message}).
+-spec send_recv(Client :: pid(), Packet :: iolist() | pb_packet()) -> pb_packet().
+send_recv(Client, Packet) ->
+    gen_server:call(Client, {send_recv, Packet}).
 
 
 % send pb_auth_request message
--spec send_auth(Client :: pid(), Uid :: uid(), Password :: binary()) -> ok.
-send_auth(Client, Uid, Password) ->
-    gen_server:call(Client, {send_auth, Uid, Password}).
+-spec login(Client :: pid(), Uid :: uid(), Password :: binary()) -> ok.
+login(Client, Uid, Password) ->
+    gen_server:call(Client, {login, Uid, Password}).
 
 
 init(_Args) ->
@@ -118,6 +127,12 @@ init(_Args) ->
         recv_buf = <<"">>
     },
     {ok, State}.
+
+
+terminate(_Reason, State) ->
+    Socket = State#state.socket,
+    ssl:close(Socket),
+    ok.
 
 
 handle_call({send, Message}, _From, State) ->
@@ -157,7 +172,7 @@ handle_call({close}, _From, State) ->
     NewState = State#state{socket = undefined},
     {reply, ok, NewState};
 
-handle_call({send_auth, Uid, Passwd}, _From, State) ->
+handle_call({login, Uid, Passwd}, _From, State) ->
     ct:pal("sending_auth"),
     Socket = State#state.socket,
     HaAuth = #pb_auth_request{
@@ -177,21 +192,29 @@ handle_call({send_auth, Uid, Passwd}, _From, State) ->
 
 handle_call({wait_for, MatchFun}, _From, State) ->
     Q = State#state.recv_q,
-    Results = lists:filter(MatchFun, queue:to_list(Q)),
-    {Message, NewState} = case Results of
-        [] ->
-            {Message, NewState} = network_receive_until(State, MatchFun);
-        [Message | _Rest] ->
-            NewQueue = queue:filter(
-                fun (X) ->
-                    X =/= Message
-                end,
-                Q
-            ),
-            NewState = State#state{recv_q = NewQueue},
-            {Message, NewState}
+    % look over the recv_q first for the first Packet where MatchFun(P) -> true
+    % return the list minus this element
+    {Packet, NewQueueReversed} = lists:foldr(
+        fun (X, {FoundPacket, NewQueue}) ->
+            case {FoundPacket, MatchFun(X)} of
+                {undefined, true} ->
+                    {X, NewQueue};
+                {undefined, false} ->
+                    {undefined, [X | NewQueue]};
+                {FoundPacket, _} ->
+                    {FoundPacket, [X | NewQueue]}
+            end
+        end, queue:to_list(Q), {undefined, []}),
+    NewQueue2 = lists:reverse(NewQueueReversed),
+
+    {Packet2, NewState2} = case {Packet, NewQueue2} of
+        {undefined, _} ->
+            network_receive_until(State, MatchFun);
+        {Packet, NewQueue2} ->
+            NewState = State#state{recv_q = queue:from_list(NewQueue2)},
+            {Packet, NewState}
     end,
-    {reply, Message, NewState}.
+    {reply, Packet2, NewState2}.
 
 
 handle_cast(Something, State) ->
@@ -200,23 +223,24 @@ handle_cast(Something, State) ->
 
 handle_info({ha_packet, PacketBytes}, State) ->
     ?INFO_MSG("got ~p", [PacketBytes]),
-    NewState = case State#state.state of
+    Result = case State#state.state of
         auth ->
             PBAuthResult = enif_protobuf:decode(PacketBytes, pb_auth_result),
-            handle_auth_result(PBAuthResult, State);
+            NewState = handle_auth_result(PBAuthResult, State),
+            {PBAuthResult, NewState};
         connected ->
             Packet = enif_protobuf:decode(PacketBytes, pb_packet),
             ?INFO_MSG("recv packet ~p", [Packet]),
             RecvQ = queue:in(Packet, State#state.recv_q),
-            State#state{recv_q = RecvQ}
+            {Packet, State#state{recv_q = RecvQ}}
     end,
-    {noreply, NewState};
+    {noreply, Result};
 
 handle_info({ssl, _Socket, Message}, State) ->
     ?INFO_MSG("recv ~p", [Message]),
     OldRecvBuf = State#state.recv_buf,
     Buffer = <<OldRecvBuf/binary, Message/binary>>,
-    NewRecvBuf = decode_ha_packets(Buffer),
+    NewRecvBuf = parse_ha_packets(Buffer),
     NewState = State#state{recv_buf = NewRecvBuf},
     {noreply, NewState};
 
@@ -252,17 +276,15 @@ send_internal(Socket, PBRecord)
 receive_wait(State) ->
     receive
         {ha_packet, PacketBytes} ->
-            {noreply, NewState} = handle_info({ha_packet, PacketBytes}, State),
-            PBAuthResult = enif_protobuf:decode(PacketBytes, pb_auth_result),
-            NewState = handle_auth_result(PBAuthResult, State),
-            {PBAuthResult, NewState};
+            {noreply, {Packet, NewState}} = handle_info({ha_packet, PacketBytes}, State),
+            {Packet, NewState};
         {ssl, _Socket, _SocketBytes} = Pkt ->
             {noreply, NewState} = handle_info(Pkt, State),
             receive_wait(NewState)
     end.
 
 
-decode_ha_packets(Buffer) ->
+parse_ha_packets(Buffer) ->
     case byte_size(Buffer) >= 4 of
         true ->
             <<_ControlByte:8, PacketSize:24, Rest/binary>> = Buffer,
@@ -270,7 +292,7 @@ decode_ha_packets(Buffer) ->
                 true ->
                     <<Packet:PacketSize/binary, Rem/binary>> = Rest,
                     self() ! {ha_packet, Packet},
-                    decode_ha_packets(Rem);
+                    parse_ha_packets(Rem);
                 false ->
                     Buffer
             end;
@@ -281,25 +303,14 @@ decode_ha_packets(Buffer) ->
 
 -spec network_receive_until(State :: state(), fun((term()) -> boolean())) -> {pb_packet(), state()}.
 network_receive_until(State, MatchFun) ->
-    Packet = receive_one(),
+    {Packet, NewState1} = receive_wait(State),
     case MatchFun(Packet) of
         true ->
-            {Packet, State};
+            % Remove packet from the rear/end of the queue, It should be the one we just received.
+            {{value, Packet}, Q2} = queue:out_r(Packet, NewState1#state.recv_q),
+            NewState2 = NewState1#state{recv_q = Q2},
+            {Packet, NewState2};
         false ->
-            NewState1 = State#state{recv_q = queue:in(Packet, State#state.recv_q)},
             network_receive_until(NewState1, MatchFun)
     end.
-
-receive_one() ->
-    receive
-        {ssl, _Socket, Message} ->
-            ?INFO_MSG("recv got ~p", [Message]),
-            parse_message(Message)
-    end.
-
-
-parse_message(Message) ->
-    <<Size:32/big, Payload/binary>> = Message,
-    ?assert(byte_size(Payload) =:= Size),
-    enif_protobuf:decode(Payload, pb_packet).
 
