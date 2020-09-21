@@ -19,9 +19,9 @@
 -include("ha_auth.hrl").
 
 %% API
--export([start_link/0]).
-
 -export([
+    start_link/0,
+    connect_and_login/2,
     send/2,
     recv_nb/1,
     recv/1,
@@ -52,9 +52,24 @@
 % TODO: move this somewhere else
 -type pb_packet() :: #pb_packet{}.
 
-
+% TODO: handle acks,
+% TODO: send acks to server.
 start_link() ->
     gen_server:start_link(ha_client, [], []).
+
+-spec connect_and_login(Uid :: uid(), Password :: binary()) ->
+        {ok, Client :: pid()} | {error, Reason :: term()}.
+connect_and_login(Uid, Password) ->
+    {ok, C} = start_link(),
+    Result = send_auth(C, Uid, Password),
+    case Result of
+        #pb_auth_result{result = <<"success">>} ->
+            {ok, C};
+        #pb_auth_result{result = <<"failure">>, reason = Reason} ->
+            {error, binary_to_atom(Reason, utf8)};
+        Any ->
+            {error, {unexpected_result, Any}}
+    end.
 
 
 -spec send(Client :: pid(), Message :: iolist() | pb_packet()) ->
@@ -146,7 +161,7 @@ handle_call({send_auth, Uid, Passwd}, _From, State) ->
     ct:pal("sending_auth"),
     Socket = State#state.socket,
     HaAuth = #pb_auth_request{
-        uid = Uid,
+        uid = util:to_integer(Uid),
         pwd = Passwd,
         cm = #pb_client_mode{mode = active},
         cv = #pb_client_version{version = <<"HalloAppAndroid/82D">>},
