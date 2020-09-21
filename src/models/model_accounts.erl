@@ -30,6 +30,7 @@
 %% API
 -export([
     create_account/4,
+    create_account/5, % CommonTest
     delete_account/1,
     account_exists/1,
     filter_nonexisting_uids/1,

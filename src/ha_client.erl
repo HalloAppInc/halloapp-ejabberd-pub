@@ -47,6 +47,8 @@
     recv_buf = <<>> :: binary()
 }).
 
+-type state() :: #state{}.
+
 % TODO: move this somewhere else
 -type pb_packet() :: #pb_packet{}.
 
@@ -55,7 +57,8 @@ start_link() ->
     gen_server:start_link(ha_client, [], []).
 
 
--spec send(Client :: pid(), Message :: iolist() | pb_packet()) -> ok | {error, closed | inet:posix()}.
+-spec send(Client :: pid(), Message :: iolist() | pb_packet()) ->
+        ok | {error, closed | inet:posix()}.
 send(Client, Message) ->
     gen_server:call(Client, {send, Message}).
 
@@ -234,7 +237,7 @@ send_internal(Socket, PBRecord)
 receive_wait(State) ->
     receive
         {ha_packet, PacketBytes} ->
-            {noreply, NewState} = hanlde_info({ha_packet, PacketBytes}, State),
+            {noreply, NewState} = handle_info({ha_packet, PacketBytes}, State),
             PBAuthResult = enif_protobuf:decode(PacketBytes, pb_auth_result),
             NewState = handle_auth_result(PBAuthResult, State),
             {PBAuthResult, NewState};
@@ -261,7 +264,7 @@ decode_ha_packets(Buffer) ->
     end.
 
 
--spec network_receive_until(State :: #state{}, fun((term()) -> boolean())) -> {#pb_packet{}, #state{}}.
+-spec network_receive_until(State :: state(), fun((term()) -> boolean())) -> {pb_packet(), state()}.
 network_receive_until(State, MatchFun) ->
     Packet = receive_one(),
     case MatchFun(Packet) of

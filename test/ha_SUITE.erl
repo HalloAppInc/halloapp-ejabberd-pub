@@ -14,6 +14,8 @@
     dummy_test/1,
     connect_test/1,
     auth_no_user_test/1,
+    auth_success_test/1,
+    check_accounts_test/1,
     run_eunit/1
 ]).
 
@@ -23,6 +25,8 @@
 
 -include("suite.hrl").
 -include("packets.hrl").
+-include("account_test_data.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 
 suite() ->
@@ -51,6 +55,8 @@ all() -> [
     dummy_test,
     connect_test,
     auth_no_user_test,
+    auth_success_test,
+    check_accounts_test,
     run_eunit
 ].
 
@@ -60,7 +66,7 @@ chat_tests() -> [dummy_test].
 privacy_lists_tests() -> [dummy_test].
 misc_tests() ->[dummy_test].
 
-
+% TODO: figure out what to do with APNS push failing
 init_per_suite(InitConfigData) ->
     ct:pal("Config ~p", [InitConfigData]),
     NewConfig = suite_ha:init_config(InitConfigData),
@@ -71,6 +77,7 @@ init_per_suite(InitConfigData) ->
     inet_db:set_domain(binary_to_list(p1_rand:get_string())),
     inet_db:set_lookup([file, native]),
     start_ejabberd(NewConfig),
+    create_test_accounts(),
     NewConfig.
 
 
@@ -80,6 +87,23 @@ start_ejabberd(_Config) ->
 
 end_per_suite(_Config) ->
     application:stop(ejabberd).
+
+flush_db() ->
+    % TODO: Instead of this we should somehow clear the redis before
+    % we even start the ejabberd
+    {ok, ok} = gen_server:call(redis_accounts_client, flushdb),
+    ok.
+
+% TODO: move those function in some util file, maybe suite_ha
+create_test_accounts() ->
+    flush_db(),
+    % TODO: instead of the model functions it is better to use the higher level API.
+    % TODO: we should empty the DB before running the tests
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA, ?TS1),
+    ok = ejabberd_auth:set_password(?UID1, ?PASSWORD1),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA, ?TS2),
+    ok = ejabberd_auth:set_password(?UID2, ?PASSWORD2),
+    ok.
 
 
 dummy_test(_Conf) ->
@@ -98,6 +122,22 @@ auth_no_user_test(_Conf) ->
     #pb_auth_result{result = <<"failure">>, reason = <<"invalid uid or password">>} = Result,
     ok = ha_client:close(C),
     ok.
+
+check_accounts_test(_Conf) ->
+    ?assertEqual(true, model_accounts:account_exists(?UID1)),
+    ?assertEqual(true, model_accounts:account_exists(?UID2)),
+    ?assertEqual(false, model_accounts:account_exists(?UID3)),
+    ok.
+
+
+auth_success_test(_Conf) ->
+%%    {ok, C} = ha_client:start_link(),
+%%    Result = ha_client:send_auth(C, 1, <<"wrong_password">>),
+%%    ct:pal("Got Auth Reply ~p", [Result]),
+%%    #pb_auth_result{result = <<"failure">>, reason = <<"invalid uid or password">>} = Result,
+%%    ok = ha_client:close(C),
+    ok.
+
 
 
 run_eunit(_Config) ->
