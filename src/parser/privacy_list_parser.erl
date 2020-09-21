@@ -47,7 +47,7 @@ xmpp_to_proto_user_privacy_list(SubEl) ->
             }
         end, SubEl#user_privacy_list.uid_els),
     Hash = case SubEl#user_privacy_list.hash of
-        undefined -> <<>>;
+        undefined -> undefined;
         H -> base64url:decode(H)
     end,
     #pb_privacy_list {
@@ -81,9 +81,13 @@ proto_to_xmpp_privacy_list(ProtoPayload) ->
                 uid = util_parser:proto_to_xmpp_uid(UidElement#pb_uid_element.uid)
             }
         end, ProtoPayload#pb_privacy_list.uid_elements),
+    Hash = case ProtoPayload#pb_privacy_list.hash of
+        undefined -> undefined;
+        H -> base64url:encode(H)
+    end,
     #user_privacy_list {
         type = ProtoPayload#pb_privacy_list.type,
-        hash = base64url:encode(ProtoPayload#pb_privacy_list.hash),
+        hash = Hash,
         uid_els = UidElements
     }.
 
