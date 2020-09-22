@@ -24,10 +24,10 @@
 -export([
     process_local_iq/1,
     make_feed_post_stanza/5,
-    make_feed_comment_stanza/7,
+    make_feed_comment_stanza/8,
     broadcast_event/4,
     send_post_notification/6,
-    send_comment_notification/8,
+    send_comment_notification/9,
     filter_feed_items/1,
     get_old_payload/1
 ]).
@@ -82,7 +82,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
     PostUid = Comment#comment_st.post_uid,
     case publish_comment(Uid, CommentId, PostId, PostUid, ParentCommentId, Payload) of
         {ok, ResultTsMs} ->
-            SubEl = make_feed_comment_stanza(Action, CommentId, PostId,
+            SubEl = make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
                     ParentCommentId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
@@ -109,7 +109,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
     PostUid = Comment#comment_st.post_uid,
     case retract_comment(Uid, CommentId, PostId, PostUid) of
         {ok, ResultTsMs} ->
-            SubEl = make_feed_comment_stanza(Action, CommentId, PostId,
+            SubEl = make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
                     <<>>, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
@@ -214,7 +214,7 @@ broadcast_comment(Action, CommentId, PostId, ParentCommentId, PublisherUid,
     Payload, TimestampMs, FeedAudienceSet, NewPushList, PostOwnerUid) ->
     %% send a new api message to all the clients.
     ResultStanza = make_feed_comment_stanza(Action, CommentId,
-            PostId, ParentCommentId, PublisherUid, Payload, TimestampMs),
+            PostId, PostOwnerUid, ParentCommentId, PublisherUid, Payload, TimestampMs),
     PushSet = sets:from_list(NewPushList),
     broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
 
@@ -275,7 +275,7 @@ retract_comment(PublisherUid, CommentId, PostId, PostUid) ->
 
                     %% send a new api message to all the clients.
                     FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
-                    ResultStanza = make_feed_comment_stanza(Action, CommentId, PostId, <<>>,
+                    ResultStanza = make_feed_comment_stanza(Action, CommentId, PostId, PostUid, <<>>,
                             PublisherUid, <<>>, TimestampMs),
                     PushSet = sets:new(),
                     broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
@@ -326,9 +326,9 @@ make_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs) ->
 
 
 -spec make_feed_comment_stanza(Action :: action_type(), CommentId :: binary(),
-        PostId :: binary(), ParentCommentId :: binary(), Uid :: uid(),
+        PostId :: binary(), PostUid :: binary(), ParentCommentId :: binary(), Uid :: uid(),
         Payload :: binary(), TimestampMs :: integer()) -> feed_st().
-make_feed_comment_stanza(Action, CommentId, PostId,
+make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
         ParentCommentId, PublisherUid, Payload, TimestampMs) ->
     #feed_st{
         action = Action,
@@ -336,6 +336,7 @@ make_feed_comment_stanza(Action, CommentId, PostId,
             #comment_st{
                 id = CommentId,
                 post_id = PostId,
+                post_uid = PostUid,
                 parent_comment_id = ParentCommentId,
                 publisher_uid = PublisherUid,
                 publisher_name = model_accounts:get_name_binary(PublisherUid),
@@ -423,7 +424,7 @@ handle_mnesia_content_request(PostId, CommentId, ItemType, ParentCommentId, Payl
             mod_feed:publish_item(PublisherUid, Server, CommentId, ItemType,
                     FinalPayload, Node, TimestampMs, FeedAudienceSet, false),
             %% send a new api message to all the clients.
-            send_comment_notification(PostId, CommentId, ParentCommentId, Payload,
+            send_comment_notification(PostId, PostUid, CommentId, ParentCommentId, Payload,
                     Action, PublisherUid, FeedAudienceSet, TimestampMs),
             {ok, TimestampMs};
         {publish, comment, _, _} ->
@@ -458,7 +459,7 @@ handle_mnesia_content_request(PostId, CommentId, ItemType, ParentCommentId, Payl
             %% Even when the comment is missing: send an old api message to all the clients.
             ok = mod_feed:broadcast_event(PublisherUid, Server, Node, Item, [], Action, FeedAudienceSet),
             %% send a new api message to all the clients.
-            send_comment_notification(PostId, CommentId, ParentCommentId, Payload,
+            send_comment_notification(PostId, PostUid, CommentId, ParentCommentId, Payload,
                     Action, PublisherUid, FeedAudienceSet, TimestampMs),
             {ok, TimestampMs};
 
@@ -466,7 +467,7 @@ handle_mnesia_content_request(PostId, CommentId, ItemType, ParentCommentId, Payl
             %% remove data from mnesia and send an old api message to all the clients.
             ok = mod_feed:retract_item(PublisherUid, Server, CommentItem, [], Node, true, FeedAudienceSet, false),
             %% send a new api message to all the clients.
-            send_comment_notification(PostId, CommentId, ParentCommentId, Payload,
+            send_comment_notification(PostId, PostUid, CommentId, ParentCommentId, Payload,
                     Action, PublisherUid, FeedAudienceSet, TimestampMs),
             {ok, TimestampMs}
     end.
@@ -491,10 +492,10 @@ get_old_post_and_comment(PostId, CommentId) ->
     {PostItem, CommentItem}.
 
 
-send_comment_notification(PostId, CommentId, ParentCommentId, Payload,
+send_comment_notification(PostId, PostUid, CommentId, ParentCommentId, Payload,
         Action, PublisherUid, FeedAudienceSet, TimestampMs) ->
     ResultStanza = make_feed_comment_stanza(Action, CommentId,
-            PostId, ParentCommentId, PublisherUid, Payload, TimestampMs),
+            PostId, PostUid, ParentCommentId, PublisherUid, Payload, TimestampMs),
     PushSet = sets:new(),
     broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
     ok.

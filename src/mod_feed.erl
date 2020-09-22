@@ -256,7 +256,7 @@ broadcast_item(Uid, Server, Node, Item, Payload, publish, FeedAudienceSet, SendN
         false -> ok;
         true ->
             %% send a new api message to all the clients.
-            send_new_notification(Uid, ItemId, ItemType, Payload, TimestampMs, publish,
+            send_new_notification(Uid, ItemId, Node#psnode.uid, ItemType, Payload, TimestampMs, publish,
                 FeedAudienceSet)
     end.
 
@@ -277,7 +277,7 @@ retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet, SendNewN
                    %% send a new api message to all the clients.
                     TimestampMs = util:now_ms(),
                     ItemId = element(1, Item#item.key),
-                    send_new_notification(Uid, ItemId, Item#item.type, Payload,
+                    send_new_notification(Uid, ItemId, Node#psnode.uid, Item#item.type, Payload,
                             TimestampMs, retract, FeedAudienceSet)
             end,
 
@@ -286,7 +286,7 @@ retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet, SendNewN
     end.
 
 
-send_new_notification(Uid, ItemId, ItemType, Payload, TimestampMs, Action, FeedAudienceSet) ->
+send_new_notification(Uid, ItemId, NodeUid, ItemType, Payload, TimestampMs, Action, FeedAudienceSet) ->
     NewPayload = case Action of
         publish ->
             [SubEl] = Payload,
@@ -297,7 +297,7 @@ send_new_notification(Uid, ItemId, ItemType, Payload, TimestampMs, Action, FeedA
     end,
     case ItemType of
         comment ->
-            mod_ha_feed:send_comment_notification(<<>>, ItemId, <<>>, NewPayload,
+            mod_ha_feed:send_comment_notification(<<>>, NodeUid, ItemId, <<>>, NewPayload,
                     Action, Uid, FeedAudienceSet, TimestampMs);
         feedpost ->
             mod_ha_feed:send_post_notification(ItemId, NewPayload, Action, Uid,
