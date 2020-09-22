@@ -12,10 +12,7 @@
 -include("logger.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
-
--define(SQUEEZE_LENGTH_BITS, 5).
--define(STORE_HASH_LENGTH_BYTES, 8).
--define(DUMMY_SALT, <<"y2c8wq3bvMIQNLlghqsXAS7bwEetE0Q=">>).
+-include("contacts.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -138,7 +135,9 @@ remove_all_contacts(Uid) ->
 sync_contacts(_Uid, _Sid, []) ->
     ok;
 sync_contacts(Uid, Sid, ContactList) ->
-    {ok, _Res} = q(["SADD", sync_key(Uid, Sid) | ContactList]),
+    [{ok, _Res}, {ok, _}] = qp([
+            ["SADD", sync_key(Uid, Sid) | ContactList],
+            ["EXPIRE", sync_key(Uid, Sid), ?SYNC_KEY_TTL]]),
     ok.
 
 

@@ -8,13 +8,15 @@
 -author('murali').
 
 -include("logger.hrl").
+-include("contacts.hrl").
 
 -export([
     rename_reverse_contacts_run/2,
     rename_reverse_contacts_verify/2,
     rename_reverse_contacts_cleanup/2,
     remove_unregistered_numbers_run/2,
-    remove_unregistered_numbers_verify/2
+    remove_unregistered_numbers_verify/2,
+    expire_sync_keys_run/2
 ]).
 
 
@@ -127,6 +129,29 @@ remove_unregistered_numbers_verify(Key, State) ->
             case Uid of
                 undefined -> ?ERROR_MSG("This key still exists: ~p, phone: ~p", [Key, Phone]);
                 _ -> ok
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%% Stage 1. Set expiry for the data.
+expire_sync_keys_run(Key, State) ->
+    ?INFO_MSG("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^sync:{([0-9]+)}$", [global, {capture, none}]),
+    case Result of
+        match ->
+            Command = ["EXPIRE", Key, ?SYNC_KEY_TTL],
+            case DryRun of
+                true ->
+                    ?INFO_MSG("would do: ~p", [Command]);
+                false ->
+                    [{ok, _}, {ok, TTL}] = qp(
+                            redis_contacts_client,
+                            [Command,
+                            ["TTL", Key]]),
+                    ?INFO_MSG("key ~p ttl: ~p", [Key, TTL])
             end;
         _ -> ok
     end,

@@ -37,7 +37,8 @@
     remove_unregistered_numbers_verify/2,
     rename_privacy_list_run/2,
     rename_privacy_list_verify/2,
-    rename_privacy_list_cleanup/2
+    rename_privacy_list_cleanup/2,
+    expire_sync_keys_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -323,4 +324,12 @@ rename_privacy_list_verify(Key, State) ->
 %%% Stage 3. Delete the old data
 rename_privacy_list_cleanup(Key, State) ->
     migrate_privacy_data:cleanup(Key, State).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                           Expire sync keys                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Stage 1. Set expiry for sync keys.
+expire_sync_keys_run(Key, State) ->
+    migrate_contact_data:expire_sync_keys_run(Key, State).
 
