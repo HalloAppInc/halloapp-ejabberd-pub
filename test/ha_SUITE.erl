@@ -33,7 +33,7 @@
 -include("account_test_data.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
-
+% TODO: figure out to remove debug logs.
 suite() ->
     [{timetrap, {seconds, 5}}].
 

@@ -217,32 +217,53 @@ handle_cast(Something, State) ->
     ?INFO_MSG("handle_cast ~p", [Something]),
     {noreply, State}.
 
-handle_info({ha_packet, PacketBytes}, State) ->
-    ?INFO_MSG("got ~p", [PacketBytes]),
-    Result = case State#state.state of
-        auth ->
-            PBAuthResult = enif_protobuf:decode(PacketBytes, pb_auth_result),
-            NewState = handle_auth_result(PBAuthResult, State),
-            {PBAuthResult, NewState};
-        connected ->
-            Packet = enif_protobuf:decode(PacketBytes, pb_packet),
-            ?INFO_MSG("recv packet ~p", [Packet]),
-            RecvQ = queue:in(Packet, State#state.recv_q),
-            {Packet, State#state{recv_q = RecvQ}}
-    end,
-    {noreply, Result};
+
+handle_info({ha_raw_packet, PacketBytes}, State) ->
+    {_Packet, NewState} = handle_raw_packet(PacketBytes, State),
+    {noreply, NewState};
 
 handle_info({ssl, _Socket, Message}, State) ->
     ?INFO_MSG("recv ~p", [Message]),
     OldRecvBuf = State#state.recv_buf,
     Buffer = <<OldRecvBuf/binary, Message/binary>>,
-    NewRecvBuf = parse_ha_packets(Buffer),
+    NewRecvBuf = parse_and_queue_ha_packets(Buffer),
     NewState = State#state{recv_buf = NewRecvBuf},
     {noreply, NewState};
 
 handle_info(Something, State) ->
     ?INFO_MSG("handle_info ~p", [Something]),
     {noreply, State}.
+
+handle_packet(#pb_auth_result{} = Packet, State) ->
+    NewState = handle_auth_result(Packet, State),
+    {Packet, NewState};
+handle_packet(#pb_packet{stanza = {ack, #pb_ack{id = Id} = _Ack}} = Packet, State) ->
+    ?INFO_MSG("recv ack: ~s", [Id]),
+    {Packet, State};
+handle_packet(#pb_packet{stanza = {msg, #pb_msg{id = Id}}} = Packet, State) ->
+    ?INFO_MSG("recv msg: ~s", [Id]),
+    State1 = send_ack(Id, State),
+    State2 = queue_in(Packet, State1),
+    {Packet, State2};
+handle_packet(#pb_packet{} = Packet, State) ->
+    NewState = queue_in(Packet, State),
+    {Packet, NewState};
+handle_packet(Packet, State) ->
+    {Packet, State}.
+
+handle_raw_packet(PacketBytes, State) ->
+    ?INFO_MSG("got ~p", [PacketBytes]),
+    {Packet1, State1} = case State#state.state of
+        auth ->
+            PBAuthResult = enif_protobuf:decode(PacketBytes, pb_auth_result),
+            ?INFO_MSG("recv pb_auth_result ~p", [PBAuthResult]),
+            handle_packet(PBAuthResult, State);
+        connected ->
+            Packet = enif_protobuf:decode(PacketBytes, pb_packet),
+            ?INFO_MSG("recv packet ~p", [Packet]),
+            handle_packet(Packet, State)
+    end,
+    {Packet1, State1}.
 
 handle_auth_result(
         #pb_auth_result{result = Result, reason = Reason, props_hash = _PropsHash} = PBAuthResult,
@@ -256,6 +277,17 @@ handle_auth_result(
             ?INFO_MSG("auth failure reason: ~p", [Reason]),
             State
     end.
+
+-spec send_ack(Id :: any(), State :: state()) -> state().
+send_ack(Id, State) ->
+    Packet = #pb_packet{
+        stanza = #pb_ack{
+            id = Id,
+            timestamp = util:now()
+        }
+    },
+    ok = send_internal(State#state.socket, Packet),
+    State.
 
 
 send_internal(Socket, Message) when is_binary(Message) ->
@@ -273,24 +305,23 @@ send_internal(Socket, PBRecord)
 -spec receive_wait(State :: state()) -> {Packet :: pb_packet(), NewState :: state()}.
 receive_wait(State) ->
     receive
-        {ha_packet, PacketBytes} ->
-            {noreply, {Packet, NewState}} = handle_info({ha_packet, PacketBytes}, State),
-            {Packet, NewState};
+        {ha_raw_packet, PacketBytes} ->
+            handle_raw_packet(PacketBytes, State);
         {ssl, _Socket, _SocketBytes} = Pkt ->
             {noreply, NewState} = handle_info(Pkt, State),
             receive_wait(NewState)
     end.
 
 
-parse_ha_packets(Buffer) ->
+parse_and_queue_ha_packets(Buffer) ->
     case byte_size(Buffer) >= 4 of
         true ->
             <<_ControlByte:8, PacketSize:24, Rest/binary>> = Buffer,
             case byte_size(Rest) >= PacketSize of
                 true ->
                     <<Packet:PacketSize/binary, Rem/binary>> = Rest,
-                    self() ! {ha_packet, Packet},
-                    parse_ha_packets(Rem);
+                    self() ! {ha_raw_packet, Packet},
+                    parse_and_queue_ha_packets(Rem);
                 false ->
                     Buffer
             end;
@@ -311,4 +342,9 @@ network_receive_until(State, MatchFun) ->
         false ->
             network_receive_until(NewState1, MatchFun)
     end.
+
+
+-spec queue_in(Packet :: pb_packet(), State :: state()) -> state().
+queue_in(Packet, State) ->
+    State#state{recv_q = queue:in(Packet, State#state.recv_q)}.
 
