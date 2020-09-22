@@ -27,8 +27,8 @@
     recv/1,
     send_recv/2,
     wait_for/2,
-    login/3
-
+    login/3,
+    send_iq/4
 ]).
 
 -export([
@@ -53,6 +53,7 @@
 
 % TODO: move this somewhere else
 -type pb_packet() :: #pb_packet{}.
+-type pb_iq() :: #pb_iq{}.
 
 % TODO: handle acks,
 % TODO: send acks to server.
@@ -115,6 +116,27 @@ send_recv(Client, Packet) ->
 -spec login(Client :: pid(), Uid :: uid(), Password :: binary()) -> ok.
 login(Client, Uid, Password) ->
     gen_server:call(Client, {login, Uid, Password}).
+
+-spec send_iq(Client :: pid(), Id :: any(), Type :: atom(), Payload :: term()) ->
+        {ok, pb_iq()} | {error, any()}.
+send_iq(Client, Id, Type, Payload) ->
+    Packet = #pb_packet{
+        stanza = #pb_iq{
+            id = Id,
+            payload = Payload,
+            type = Type
+        }
+    },
+    send(Client, Packet),
+    Response = wait_for(Client,
+        fun (P) ->
+            case P of
+                #pb_packet{stanza = #pb_iq{id = Id}} -> true;
+                _Any -> false
+            end
+        end),
+    Response.
+
 
 
 init(_Args) ->

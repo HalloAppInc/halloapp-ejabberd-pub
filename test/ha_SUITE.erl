@@ -21,6 +21,7 @@
 %% Tests
 -export([
     dummy_test/1,
+    ping_test/1,
     run_eunit/1
 ]).
 
@@ -59,6 +60,7 @@ all() -> [
     {group, privacy_lists},
     {group, misc},
     dummy_test,
+    ping_test,
     run_eunit
 ].
 
@@ -105,6 +107,21 @@ create_test_accounts() ->
     ok = ejabberd_auth:set_password(?UID1, ?PASSWORD1),
     ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA, ?TS2),
     ok = ejabberd_auth:set_password(?UID2, ?PASSWORD2),
+    ok.
+
+
+ping_test(_Conf) ->
+    {ok, C} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    Id = <<"iq_id_1">>,
+    Payload = #pb_ping{},
+    Result = ha_client:send_iq(C, Id, get, Payload),
+    #pb_packet{
+        stanza = #pb_iq{
+            id = Id,
+            type = result,
+            payload = undefined
+        }
+    } = Result,
     ok.
 
 
