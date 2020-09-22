@@ -154,17 +154,13 @@ handle_call({recv_nb}, _From, State) ->
 handle_call({recv}, _From, State) ->
     {Val, RecvQ2} = queue:out(State#state.recv_q),
     NewState = State#state{recv_q = RecvQ2},
-    Result = case Val of
+    {Result, NewState2} = case Val of
         empty ->
-            receive
-                {ssl, _Socket, Message} ->
-                    ?INFO_MSG("recv got ~p", [Message]),
-                    Message
-
-            end;
-        {value, Message} -> Message
+            receive_wait(NewState);
+        {value, Message} ->
+            {Message, NewState}
     end,
-    {reply, Result, NewState};
+    {reply, Result, NewState2};
 
 handle_call({close}, _From, State) ->
     Socket = State#state.socket,
@@ -268,11 +264,13 @@ send_internal(Socket, Message) when is_binary(Message) ->
 send_internal(Socket, PBRecord)
         when is_record(PBRecord, pb_auth_request); is_record(PBRecord, pb_packet) ->
     ?INFO_MSG("Encoding Record ~p", [PBRecord]),
+    % TODO: handle encode error and raise it
     Message = enif_protobuf:encode(PBRecord),
     ?INFO_MSG("Message ~p", [Message]),
     send_internal(Socket, Message).
 
 
+-spec receive_wait(State :: state()) -> {Packet :: pb_packet(), NewState :: state()}.
 receive_wait(State) ->
     receive
         {ha_packet, PacketBytes} ->

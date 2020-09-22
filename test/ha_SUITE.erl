@@ -1,3 +1,12 @@
+%%%-------------------------------------------------------------------------
+%%% Common Test Suite of tests for HalloApp.
+%%% Please define your tests in their own files and include them here
+%%% in the all() and groups() API.
+%%% Tests files have be named foo_tests and test names have to be
+%%% foo_t1 and the test function itself has to be foo_tests:t1()
+%%%
+%%% This works because of the $handle_undefined_function declared here.
+%%%-------------------------------------------------------------------------
 -module(ha_SUITE).
 
 %% Suite
@@ -12,11 +21,6 @@
 %% Tests
 -export([
     dummy_test/1,
-    connect_test/1,
-    check_accounts_test/1,
-    auth_no_user_test/1,
-    auth_bad_password_test/1,
-    auth_success_test/1,
     run_eunit/1
 ]).
 
@@ -35,36 +39,31 @@ suite() ->
 
 
 groups() -> [
-    {groups, [sequence], [
-        groups_tests:groups_cases()
-    ]},
+    auth_tests:group(),
     {feed, [sequence], feed_tests()},
+    groups_tests:group(),
+    chat_tests:group(),
     {registration, [sequence], registration_tests()},
-    {chat, [sequence], chat_tests()},
     {privacy_lists, [sequence], privacy_lists_tests()},
     {misc, [sequence], misc_tests()}
 ].
 
-
+% List of all the tests or group of tests that are part of this SUITE.
+% groups have to be defined by groups() method
 all() -> [
-    {group, groups},
+    {group, auth},
     {group, feed},
-    {group, registration},
     {group, chat},
+    {group, groups},
+    {group, registration},
     {group, privacy_lists},
     {group, misc},
     dummy_test,
-    connect_test,
-    check_accounts_test,
-    auth_no_user_test,
-    auth_bad_password_test,
-    auth_success_test,
     run_eunit
 ].
 
 feed_tests() -> [dummy_test].
 registration_tests() -> [dummy_test].
-chat_tests() -> [dummy_test].
 privacy_lists_tests() -> [dummy_test].
 misc_tests() ->[dummy_test].
 
@@ -111,34 +110,6 @@ create_test_accounts() ->
 
 dummy_test(_Conf) ->
     ok = ok.
-
-connect_test(_Conf) ->
-    {ok, C} = ha_client:start_link(),
-    ok = ha_client:stop(C),
-    ok.
-
-check_accounts_test(_Conf) ->
-    ?assertEqual(true, model_accounts:account_exists(?UID1)),
-    ?assertEqual(true, model_accounts:account_exists(?UID2)),
-    ?assertEqual(false, model_accounts:account_exists(?UID3)),
-    ok.
-
-auth_no_user_test(_Conf) ->
-    % UID6 does not exist
-    false = model_accounts:account_exists(?UID6),
-    {error, 'invalid uid or password'} = ha_client:connect_and_login(?UID6, <<"wrong_password">>),
-    ok.
-
-auth_bad_password_test(_Conf) ->
-    true = model_accounts:account_exists(?UID1),
-    {error, 'invalid uid or password'} = ha_client:connect_and_login(?UID1, <<"wrong_password">>),
-    ok.
-
-
-auth_success_test(_Conf) ->
-    {ok, C} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    ok = ha_client:stop(C),
-    ok.
 
 
 run_eunit(_Config) ->
