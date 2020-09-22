@@ -23,7 +23,8 @@
         type = normal,
         sub_els = [#chat{
                 xmlns = <<"halloapp:chat:messages">>,
-                timestamp = <<"2000090910">>, 
+                timestamp = <<"2000090910">>,
+                sender_name = <<"Nikola">>,
                 sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"MTIz">>}]},
                         {xmlel,<<"enc">>,
                             [{<<"identity_key">>, <<"Nzg5">>},
@@ -42,6 +43,7 @@
         from_uid = 1000000000519345762,
         payload = #pb_chat_stanza{
                 timestamp = 2000090910,
+                sender_name = <<"Nikola">>,
                 payload = <<"123">>,
                 enc_payload = <<"456">>,
                 public_key = <<"789">>,
@@ -58,6 +60,7 @@
         sub_els = [#chat{
                 xmlns = <<"halloapp:chat:messages">>,
                 timestamp = undefined,
+                sender_name = <<"Murali">>,
                 sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"MTIz">>}]},
                         {xmlel,<<"enc">>,
                             [{<<"identity_key">>, <<"Nzg5">>},
@@ -76,6 +79,7 @@
         from_uid = 1000000000519345762,
         payload = #pb_chat_stanza{
                 timestamp = undefined,
+                sender_name = <<"Murali">>,
                 payload = <<"123">>,
                 enc_payload = <<"456">>,
                 public_key = <<"789">>,

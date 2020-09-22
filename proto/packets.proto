@@ -28,6 +28,7 @@ message chat_stanza {
     // Clients currently send both of them at times.
     bytes public_key = 4;
     int64 one_time_pre_key_id = 5;
+    string sender_name = 6;
 }
 
 

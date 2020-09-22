@@ -29,6 +29,7 @@ xmpp_to_proto(SubEl) ->
         end, {<<>>, <<>>, <<>>, 0}, SubEl#chat.sub_els),
     #pb_chat_stanza{
         timestamp = util_parser:maybe_convert_to_integer(SubEl#chat.timestamp),
+        sender_name = SubEl#chat.sender_name,
         payload = base64:decode(Content),
         enc_payload = base64:decode(EncryptedContent),
         public_key = base64:decode(PublicKey),
@@ -55,6 +56,7 @@ proto_to_xmpp(ProtoPayload) ->
     #chat{
         xmlns = <<"halloapp:chat:messages">>,
         timestamp = util_parser:maybe_convert_to_binary(ProtoPayload#pb_chat_stanza.timestamp),
+        sender_name = ProtoPayload#pb_chat_stanza.sender_name,
         sub_els = FinalSubEls
     }.
 
