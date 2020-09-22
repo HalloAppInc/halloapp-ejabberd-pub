@@ -333,14 +333,18 @@ push_message_item(PushMessageItem, State) ->
     Priority = get_priority(PushType),
     DevicePath = get_device_path(Token),
     ApnsId = util:uuid_binary(),
+    ContentId = PushMetadata#push_metadata.content_id,
     HeadersList = [
         {?APNS_ID, ApnsId},
         {?APNS_PRIORITY, integer_to_binary(Priority)},
         {?APNS_EXPIRY, integer_to_binary(ExpiryTime)},
         {?APNS_TOPIC, ?APP_BUNDLE_ID},
         {?APNS_PUSH_TYPE, get_apns_push_type(PushType)},
-        {?APNS_COLLAPSE_ID, PushMetadata#push_metadata.content_id}
+        {?APNS_COLLAPSE_ID, ContentId}
     ],
+    Id = PushMessageItem#push_message_item.id,
+    Uid = PushMessageItem#push_message_item.uid,
+    ?INFO_MSG("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s", [Uid, Id, ApnsId, ContentId]),
 
     {Pid, NewState} = get_pid_to_send(BuildType, State),
     _StreamRef = gun:post(Pid, DevicePath, HeadersList, PayloadBin),
