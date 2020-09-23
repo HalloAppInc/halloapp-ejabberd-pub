@@ -83,7 +83,9 @@ iq_payload_mapping(SubEl) ->
         invites ->
             {pb_invites_response, invite_parser:xmpp_to_proto(SubEl)};
         notification_prefs ->
-            {notification_prefs, push_parser:xmpp_to_proto(SubEl)}
+            {notification_prefs, push_parser:xmpp_to_proto(SubEl)};
+        group_feed_st ->
+            {group_feed_item, group_feed_parser:xmpp_to_proto(SubEl)}
     end,
     Payload.
 
@@ -146,7 +148,9 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
         {pb_invites_request, InvitesRecord} ->
             invite_parser:proto_to_xmpp(InvitesRecord);
         {notification_prefs, NotificationPrefsRecord} ->
-            push_parser:proto_to_xmpp(NotificationPrefsRecord)
+            push_parser:proto_to_xmpp(NotificationPrefsRecord);
+        {group_feed_item, GroupFeedItemRecord} ->
+            group_feed_parser:proto_to_xmpp(GroupFeedItemRecord)
     end,
     SubEl.
 

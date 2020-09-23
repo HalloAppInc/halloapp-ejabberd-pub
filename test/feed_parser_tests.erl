@@ -98,7 +98,7 @@ create_pb_audience(Type, Uids) ->
 create_pb_post(Id, Uid, Payload, Audience, Timestamp) ->
     #pb_post{
         id = Id,
-        uid = Uid,
+        publisher_uid = Uid,
         payload = Payload,
         audience = Audience,
         timestamp = Timestamp

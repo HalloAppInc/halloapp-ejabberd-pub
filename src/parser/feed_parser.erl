@@ -148,7 +148,7 @@ comment_st_to_comment(CommentSt) ->
 post_st_to_post(PostSt) ->
     Post = #pb_post{
         id = PostSt#post_st.id,
-        uid = util_parser:xmpp_to_proto_uid(PostSt#post_st.uid),
+        publisher_uid = util_parser:xmpp_to_proto_uid(PostSt#post_st.uid),
         payload = base64:decode(PostSt#post_st.payload),
         timestamp = util_parser:maybe_convert_to_integer(PostSt#post_st.timestamp)
     },
@@ -169,7 +169,7 @@ comment_to_comment_st(Comment) ->
 post_to_post_st(Post) ->
     PostSt = #post_st{
         id = Post#pb_post.id,
-        uid = util_parser:proto_to_xmpp_uid(Post#pb_post.uid),
+        uid = util_parser:proto_to_xmpp_uid(Post#pb_post.publisher_uid),
         payload = base64:encode(Post#pb_post.payload),
         timestamp = util_parser:maybe_convert_to_binary(Post#pb_post.timestamp)
     },

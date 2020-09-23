@@ -80,7 +80,9 @@ msg_payload_mapping(SubEl) ->
         groupchat_retract_st ->
             {groupchat_retract, retract_parser:xmpp_to_proto(SubEl)};
         chat_retract_st ->
-            {chat_retract, retract_parser:xmpp_to_proto(SubEl)}
+            {chat_retract, retract_parser:xmpp_to_proto(SubEl)};
+        group_feed_st ->
+            {group_feed_item, group_feed_parser:xmpp_to_proto(SubEl)}
     end,
     Payload.
 
@@ -139,7 +141,9 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
         {groupchat_retract, GroupChatRetractRecord} ->
             retract_parser:proto_to_xmpp(GroupChatRetractRecord);
         {chat_retract, ChatRetractRecord} ->
-            retract_parser:proto_to_xmpp(ChatRetractRecord)
+            retract_parser:proto_to_xmpp(ChatRetractRecord);
+        {group_feed_item, GroupFeedItemRecord} ->
+            group_feed_parser:proto_to_xmpp(GroupFeedItemRecord)
     end,
     SubEl.
 

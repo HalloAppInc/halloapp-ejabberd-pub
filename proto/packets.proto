@@ -79,6 +79,7 @@ message iq_payload {
         invites_request invites_request = 21;
         invites_response invites_response = 22;
         notification_prefs notification_prefs = 23;
+        group_feed_item group_feed_item = 24;
     }
 }
 
@@ -100,6 +101,7 @@ message msg_payload {
         error error = 13;
         groupchat_retract groupchat_retract = 14;
         chat_retract chat_retract = 15;
+        group_feed_item group_feed_item = 16;
     }
 }
 
