@@ -17,8 +17,8 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("translate.hrl").
+-include("ha_namespaces.hrl").
 
--define(NS_NORM, <<"halloapp:user:contacts">>).
 -define(SALT_LENGTH_BYTES, 32).
 -define(PROBE_HASH_LENGTH_BYTES, 2).
 
@@ -46,7 +46,7 @@
 ]).
 
 start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NORM, ?MODULE,
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_USER_CONTACTS, ?MODULE,
         process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 100),
@@ -56,7 +56,7 @@ start(Host, _Opts) ->
     ok.
 
 stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_NORM),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_USER_CONTACTS),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 100),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
@@ -92,7 +92,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
             ResultIQ = xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         _ ->
             count_full_sync(Index),
-            ResultIQ = xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM,
+            ResultIQ = xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_USER_CONTACTS,
                     syncid = SyncId, type = normal,
                     contacts = normalize_and_insert_contacts(UserId, Server, Contacts, SyncId)})
     end,
@@ -112,7 +112,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
                     sub_els = [#contact_list{type = delta, contacts = Contacts,
                                             index = _Index, last = _Last}]} = IQ) ->
-    xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_NORM, type = normal,
+    xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_USER_CONTACTS, type = normal,
                     contacts = handle_delta_contacts(UserId, Server, Contacts)}).
 
 
@@ -490,7 +490,7 @@ probe_contact_about_user(UserId, UserPhone, Server, ContactId) ->
 send_probe_message(UserId, HashValue, ContactId, Server) ->
     SubEl = #contact_list{
         type = normal,
-        xmlns = ?NS_NORM,
+        xmlns = ?NS_USER_CONTACTS,
         contact_hash = [base64:encode(HashValue)]},
     Stanza = #message{
         id = util:new_msg_id(),

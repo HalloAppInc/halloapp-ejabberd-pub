@@ -11,7 +11,7 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 
--define(NS_NORM, <<"halloapp:user:contacts">>).
+-include("ha_namespaces.hrl").
 
 -export([
     send_contact_notification/6
@@ -34,7 +34,7 @@ send_contact_notification(UserId, UserPhone, Server, ContactId, Role, MessageTyp
         role = Role
     },
 
-    SubEls = [#contact_list{type = normal, xmlns = ?NS_NORM, contacts = [Contact]}],
+    SubEls = [#contact_list{type = normal, xmlns = ?NS_USER_CONTACTS, contacts = [Contact]}],
     Stanza = #message{
         id = util:new_msg_id(),
         type = MessageType,
