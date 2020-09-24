@@ -232,7 +232,8 @@ install: all copy-files
 	#
 	# Administration script
 	[ -d $(SBINDIR) ] || $(INSTALL) -d -m 755 $(SBINDIR)
-	$(INSTALL) -m 550 $(G_USER) ejabberdctl.example $(SBINDIR)/ejabberdctl
+	$(INSTALL) -m 555 $(G_USER) ejabberdctl.example $(SBINDIR)/ejabberdctl
+	ln -f -s $(SBINDIR)/ejabberdctl /usr/bin/ejabberdctl
 	# Elixir binaries
 	[ -d $(BINDIR) ] || $(INSTALL) -d -m 755 $(BINDIR)
 	[ -f deps/elixir/bin/iex ] && $(INSTALL) -m 550 $(G_USER) deps/elixir/bin/iex $(BINDIR)/iex || true
