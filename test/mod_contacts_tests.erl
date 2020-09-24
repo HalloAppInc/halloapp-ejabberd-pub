@@ -316,7 +316,10 @@ new_user_invite_notification_test() ->
     meck:new(ejabberd_router),
     meck:expect(ejabberd_router, route,
         fun(Packet) ->
-            #message{type = MsgType, sub_els = _SubEls} = Packet,
+            #message{type = MsgType, sub_els = SubEls} = Packet,
+            #contact_list{contacts = [Contact]} = SubEls,
+            #contact{name = Name} = Contact,
+            ?assertEqual(Name, ?NAME2),
             ?assertEqual(MsgType, headline),
             ok
         end),

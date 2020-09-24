@@ -387,7 +387,10 @@ parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubEleme
 parse_subject_and_body(#message{type = MsgType, sub_els = [SubElement]})
         when is_record(SubElement, contact_list) ->
     case MsgType of
-        headline -> {<<"Accepted Invite">>, <<"The person you invited has joined HalloApp">>};
+        headline ->
+                  #contact_list{contacts = [Contact]} = SubElement,
+                  #contact{name = Name} = Contact,
+                  {<<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
         normal -> {<<"New Contact">>, <<"New contact notification">>}
     end;
 parse_subject_and_body(#message{sub_els = [#ps_event{items = #ps_items{
