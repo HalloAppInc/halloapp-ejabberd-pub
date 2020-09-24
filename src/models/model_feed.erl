@@ -47,7 +47,8 @@
     get_entire_user_feed/1,
     is_post_owner/2,
     remove_all_user_posts/1,
-    add_uid_to_audience/2
+    add_uid_to_audience/2,
+    is_post_deleted/1   %% test.
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -147,10 +148,18 @@ delete_post(PostId, Uid) ->
     {ok, CommentIds} = q(["ZRANGEBYSCORE", post_comments_key(PostId), "-inf", "+inf"]),
     CommentKeys = [[comment_key(CommentId, PostId), comment_push_list_key(CommentId, PostId)] || CommentId <- CommentIds],
     FinalKeys = lists:flatten(CommentKeys),
-    {ok, _} = q(["DEL", post_key(PostId), post_audience_key(PostId),
-            post_comments_key(PostId) | FinalKeys]),
+    [{ok, _}, {ok, _}, {ok, _}] = qp([
+            ["DEL", post_audience_key(PostId), post_comments_key(PostId) | FinalKeys],
+            ["HDEL", post_key(PostId), ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE],
+            ["RENAME", post_key(PostId), deleted_post_key(PostId)]]),
     {ok, _} = q(["ZREM", reverse_post_key(Uid), PostId]),
     ok.
+
+
+-spec is_post_deleted(PostId :: binary()) -> boolean().
+is_post_deleted(PostId) ->
+    {ok, Res} = q(["EXISTS", deleted_post_key(PostId)]),
+    binary_to_integer(Res) == 1.
 
 
 -spec retract_comment(CommentId :: binary(), PostId :: binary()) -> ok | {error, any()}.
@@ -376,6 +385,10 @@ qp(Commands) -> ecredis:qp(ecredis_feed, Commands).
 post_key(PostId) ->
     <<?POST_KEY/binary, "{", PostId/binary, "}">>.
 
+
+-spec deleted_post_key(binary()) -> binary().
+deleted_post_key(Uid) ->
+    <<?DELETED_POST_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 -spec post_audience_key(PostId :: binary()) -> binary().
 post_audience_key(PostId) ->

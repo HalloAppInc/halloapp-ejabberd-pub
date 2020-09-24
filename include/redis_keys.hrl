@@ -29,6 +29,7 @@
 
 %%RedisFeed (model_feed)
 -define(POST_KEY, <<"fp:">>).
+-define(DELETED_POST_KEY, <<"dfp:">>).
 -define(POST_AUDIENCE_KEY, <<"fpa:">>).
 -define(POST_COMMENTS_KEY, <<"fpc:">>).
 -define(COMMENT_KEY, <<"fc:">>).
