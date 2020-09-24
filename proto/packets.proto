@@ -52,59 +52,6 @@ message name {
 }
 
 
-// Payload for iq/message
-
-message iq_payload {
-    oneof content {
-        upload_media upload_media = 1;
-        contact_list contact_list = 2;
-        upload_avatar upload_avatar = 3;
-        avatar avatar = 4;
-        avatars avatars = 5;
-        client_mode client_mode = 6;
-        client_version client_version = 7;
-        push_register push_register = 8;
-        whisper_keys whisper_keys = 9;
-        ping ping = 10;
-        feed_item feed_item = 11;
-        privacy_list privacy_list = 12;
-        privacy_list_result privacy_list_result = 13;
-        privacy_lists privacy_lists = 14;
-        group_stanza group_stanza = 15;
-        groups_stanza groups_stanza = 16;
-        client_log client_log = 17;
-        name name = 18;
-        error error = 19;
-        props props = 20;
-        invites_request invites_request = 21;
-        invites_response invites_response = 22;
-        notification_prefs notification_prefs = 23;
-        group_feed_item group_feed_item = 24;
-    }
-}
-
-
-message msg_payload {
-    oneof content {
-        contact_list contact_list = 1;
-        avatar avatar = 2;
-        whisper_keys whisper_keys = 3;
-        seen_receipt seen = 4;
-        delivery_receipt delivery = 5;
-        chat chat = 6;
-        feed_item feed_item = 7;
-        feed_items feed_items = 8;
-        contact_hash contact_hash = 9;
-        group_stanza group_stanza = 10;
-        group_chat group_chat = 11;
-        name name = 12;
-        error error = 13;
-        groupchat_retract groupchat_retract = 14;
-        chat_retract chat_retract = 15;
-        group_feed_item group_feed_item = 16;
-    }
-}
-
 
 // IQ
 
@@ -117,7 +64,32 @@ message ha_iq {
         error = 3;
     }
     Type type = 2;
-    iq_payload payload = 3;
+    oneof payload {
+        upload_media upload_media = 3;
+        contact_list contact_list = 4;
+        upload_avatar upload_avatar = 5;
+        avatar avatar = 6;
+        avatars avatars = 7;
+        client_mode client_mode = 8;
+        client_version client_version = 9;
+        push_register push_register = 10;
+        whisper_keys whisper_keys = 11;
+        ping ping = 12;
+        feed_item feed_item = 13;
+        privacy_list privacy_list = 14;
+        privacy_list_result privacy_list_result = 15;
+        privacy_lists privacy_lists = 16;
+        group_stanza group_stanza = 17;
+        groups_stanza groups_stanza = 18;
+        client_log client_log = 19;
+        name name = 20;
+        error error = 21;
+        props props = 22;
+        invites_request invites_request = 23;
+        invites_response invites_response = 24;
+        notification_prefs notification_prefs = 25;
+        group_feed_item group_feed_item = 26;
+    }
 }
 
 
@@ -135,7 +107,24 @@ message ha_message {
     Type type = 2;
     int64 to_uid = 3;
     int64 from_uid = 4;
-    msg_payload payload = 5;
+    oneof payload {
+        contact_list contact_list = 5;
+        avatar avatar = 6;
+        whisper_keys whisper_keys = 7;
+        seen_receipt seen = 8;
+        delivery_receipt delivery = 9;
+        chat chat = 10;
+        feed_item feed_item = 11;
+        feed_items feed_items = 12;
+        contact_hash contact_hash = 13;
+        group_stanza group_stanza = 14;
+        group_chat group_chat = 15;
+        name name = 16;
+        error error = 17;
+        groupchat_retract groupchat_retract = 18;
+        chat_retract chat_retract = 19;
+        group_feed_item group_feed_item = 20;
+    }
 }
 
 

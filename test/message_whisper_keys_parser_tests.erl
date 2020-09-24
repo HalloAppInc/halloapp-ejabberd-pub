@@ -39,8 +39,7 @@
         type = set,
         to_uid = 1000000000045484920,
         from_uid = 0,   %% Default value, when sent by the server.
-        payload = #pb_msg_payload{
-            content = {whisper_keys, #pb_whisper_keys{
+        payload = {whisper_keys, #pb_whisper_keys{
                 uid = 29863,
                 action = add,   
                 identity_key = <<"adf-fadsfa">>,
@@ -48,7 +47,6 @@
                 otp_key_count = 3264653331,
                 one_time_keys = [<<"3dd">>, <<"31d">>, <<"39e">>]
             }}
-        }
     }
 ).
 

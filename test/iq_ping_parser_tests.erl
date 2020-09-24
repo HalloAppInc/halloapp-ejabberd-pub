@@ -29,9 +29,7 @@
     #pb_ha_iq{
         id = <<"WHIPCD988id">>,
         type = set,
-        payload = #pb_iq_payload{
-            content = {ping, #pb_ping{}}
-        }
+        payload = {ping, #pb_ping{}}
     }
 ).
 

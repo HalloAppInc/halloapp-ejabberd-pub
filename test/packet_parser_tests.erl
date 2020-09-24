@@ -57,8 +57,7 @@
     #pb_ha_iq{
         id = <<"3ece24923">>,
         type = set,
-        payload = #pb_iq_payload{
-            content = {whisper_keys, #pb_whisper_keys{
+        payload = {whisper_keys, #pb_whisper_keys{
                 uid = 863,
                 action = add,   
                 identity_key = <<"adf-fadsfa">>,
@@ -66,7 +65,6 @@
                 otp_key_count = 100,
                 one_time_keys = [<<"3dd">>, <<"31d">>, <<"39e">>]
             }}
-        }
     }
 ).
 
@@ -137,13 +135,11 @@
         type = normal,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = #pb_msg_payload{
-            content = {seen, #pb_seen_receipt{
+        payload = {seen, #pb_seen_receipt{
                 id = <<"7ab30vn">>,
                 thread_id = <<"thlm23ca">>,
                 timestamp = 20190910
             }}
-        }
     }
 ).
 

@@ -27,9 +27,7 @@ xmpp_to_proto(XmppIQ) ->
     ProtoIQ = #pb_ha_iq{
         id = XmppIQ#iq.id,
         type = XmppIQ#iq.type,
-        payload = #pb_iq_payload{
-            content = Content
-        }
+        payload = Content
     },
     ProtoIQ.
 
@@ -96,8 +94,7 @@ iq_payload_mapping(SubEl) ->
 
 
 proto_to_xmpp(ProtoIQ) ->
-    ProtoPayload = ProtoIQ#pb_ha_iq.payload,
-    Content = ProtoPayload#pb_iq_payload.content,
+    Content = ProtoIQ#pb_ha_iq.payload,
     SubEl = xmpp_iq_subel_mapping(Content),
     XmppIQ = #iq{
         id = ProtoIQ#pb_ha_iq.id,

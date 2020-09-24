@@ -34,9 +34,7 @@ xmpp_to_proto(XmppMsg) ->
             type = Message#message.type,
             to_uid = util_parser:xmpp_to_proto_uid(ToJid#jid.user),
             from_uid = PbFromUid,
-            payload = #pb_msg_payload{
-                content = Content
-            }
+            payload = Content
         },
         ProtoMessage
     catch
@@ -98,8 +96,7 @@ proto_to_xmpp(ProtoMSG) ->
     Server = util:get_host(),
     PbToJid = jid:make(ToUser, Server),
     PbFromJid = jid:make(FromUser, Server),
-    ProtoPayload = ProtoMSG#pb_ha_message.payload,
-    Content = ProtoPayload#pb_msg_payload.content,
+    Content = ProtoMSG#pb_ha_message.payload,
     SubEl = xmpp_msg_subel_mapping(Content),
 
     XmppMSG = #message{

@@ -40,15 +40,13 @@
         type = normal,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = #pb_msg_payload{
-            content = {chat, #pb_chat{
+        payload = {chat, #pb_chat{
                 timestamp = 2000090910,
                 payload = <<"123">>,
                 enc_payload = <<"456">>,
                 public_key = <<"789">>,
                 one_time_pre_key_id = 12
             }}
-        }
     }
 ).
 
@@ -76,15 +74,13 @@
         type = normal,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = #pb_msg_payload{
-            content = {chat, #pb_chat{
+        payload = {chat, #pb_chat{
                 timestamp = undefined,
                 payload = <<"123">>,
                 enc_payload = <<"456">>,
                 public_key = <<"789">>,
                 one_time_pre_key_id = 12
             }}
-        }
     }
 ).
 

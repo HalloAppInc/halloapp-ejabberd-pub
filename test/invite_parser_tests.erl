@@ -67,9 +67,7 @@ create_pb_iq(Id, Type, PayloadContent) ->
     #pb_ha_iq{
         id = Id,
         type = Type,
-        payload = #pb_iq_payload{
-                content = PayloadContent
-            }
+        payload = PayloadContent
     }.
 
 

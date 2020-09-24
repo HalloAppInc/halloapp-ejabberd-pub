@@ -58,8 +58,7 @@
     #pb_ha_iq{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         type = result,
-        payload = #pb_iq_payload{
-            content = {upload_media, #pb_upload_media{
+        payload = {upload_media, #pb_upload_media{
                 size = 100,
                 url = #pb_media_url{
                     get = <<"https://u-cdn.halloapp.net">>,
@@ -67,7 +66,6 @@
                     patch = <<>>
                 }
             }}
-        }
     }
 ).
 
@@ -93,12 +91,10 @@
     #pb_ha_iq{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         type = get,
-        payload = #pb_iq_payload{
-            content = {upload_media, #pb_upload_media{
+        payload = {upload_media, #pb_upload_media{
                 size = 0,
                 url = undefined
         }}
-        }
     }
 ).
 

@@ -67,15 +67,13 @@
         type = set,
         to_uid = 1000000000045484920,
         from_uid = 0,   %% Default value, when sent by the server.
-        payload = #pb_msg_payload{
-            content = {contact_list, #pb_contact_list{
+        payload = {contact_list, #pb_contact_list{
                 type = full, 
                 sync_id = <<"halloapp:user:contacts">>,
                 batch_index = 0,
                 is_last = true,
                 contacts = [?PB_CONTACT1, ?PB_CONTACT2]
             }}
-        }
     }
 ).
 
@@ -121,11 +119,9 @@
         type = set,
         to_uid = 1000000000045484920,
         from_uid = 0,   %% Default value, when sent by the server.
-        payload = #pb_msg_payload{
-            content = {contact_hash, #pb_contact_hash{
+        payload = {contact_hash, #pb_contact_hash{
                 hash = ?HASH1
             }}
-        }
     }
 ).
 

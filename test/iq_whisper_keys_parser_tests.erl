@@ -37,8 +37,7 @@
     #pb_ha_iq{
         id = <<"3ece24923">>,
         type = set,
-        payload = #pb_iq_payload{
-            content = {whisper_keys, #pb_whisper_keys{
+        payload = {whisper_keys, #pb_whisper_keys{
                 uid = 863,
                 action = add,   
                 identity_key = <<"adf-fadsfa">>,
@@ -46,7 +45,6 @@
                 otp_key_count = 100,
                 one_time_keys = [<<"3dd">>, <<"31d">>, <<"39e">>]
             }}
-        }
     }
 ).
 
@@ -71,8 +69,7 @@
     #pb_ha_iq{
         id = <<"3ece24923">>,
         type = get,
-        payload = #pb_iq_payload{
-            content = {whisper_keys, #pb_whisper_keys{
+        payload = {whisper_keys, #pb_whisper_keys{
                 uid = 863,
                 action = count,
                 identity_key = undefined,
@@ -80,7 +77,6 @@
                 otp_key_count = undefined,
                 one_time_keys = []
             }}
-        }
     }
 ).
 

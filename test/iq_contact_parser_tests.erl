@@ -62,15 +62,13 @@
     #pb_ha_iq{
         id = <<"s9cCU-10">>,
         type = set,
-        payload = #pb_iq_payload{
-            content = {contact_list, #pb_contact_list{
+        payload = {contact_list, #pb_contact_list{
                 type = full, 
                 sync_id = <<"syncid123">>,
                 batch_index = 0,
                 is_last = true,
                 contacts = [?PB_CONTACT1, ?PB_CONTACT2]
             }}
-        }
     }
 ).
 

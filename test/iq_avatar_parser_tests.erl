@@ -72,9 +72,7 @@
     #pb_ha_iq{
         id = <<"s9cCU-10">>,
         type = set,
-        payload = #pb_iq_payload{
-            content = {avatar, ?PB_UPLOAD_AVATAR1}
-        }
+        payload = {avatar, ?PB_UPLOAD_AVATAR1}
     }
 ).
 
@@ -104,9 +102,7 @@
     #pb_ha_iq{
         id = <<"s9cCU-10-000">>,
         type = result,
-        payload = #pb_iq_payload{
-            content = {avatar, ?PB_AVATAR2}
-        }
+        payload = {avatar, ?PB_AVATAR2}
     }
 ).
 
@@ -122,9 +118,7 @@
     #pb_ha_iq{
         id = <<"s9cCU-10">>,
         type = set,
-        payload = #pb_iq_payload{
-            content = {avatar, ?PB_UPLOAD_AVATAR2}
-        }
+        payload = {avatar, ?PB_UPLOAD_AVATAR2}
     }
 ).
 
@@ -143,11 +137,9 @@
     #pb_ha_iq{
         id = <<"fadsa">>,
         type = result,
-        payload = #pb_iq_payload{
-            content = {avatars, #pb_avatars{
+        payload = {avatars, #pb_avatars{
                 avatars = [?PB_AVATAR1, ?PB_AVATAR2]
             }}
-        }
     }
 ).
 

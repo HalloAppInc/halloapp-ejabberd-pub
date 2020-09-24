@@ -46,9 +46,7 @@
         type = set,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = #pb_msg_payload{
-            content = {avatar, ?PB_AVATAR}
-        }
+        payload = {avatar, ?PB_AVATAR}
     }
 ).
 

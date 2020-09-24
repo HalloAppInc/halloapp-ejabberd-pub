@@ -32,11 +32,9 @@
     #pb_ha_iq{
         id = <<"clientMODEid">>,
         type = set,
-        payload = #pb_iq_payload{
-            content = {client_mode, #pb_client_mode{
+        payload = {client_mode, #pb_client_mode{
                 mode = active
             }}
-        }
     }
 ).
 
@@ -56,12 +54,10 @@
     #pb_ha_iq{
         id = <<"clientVERSIONid">>,
         type = result,
-        payload = #pb_iq_payload{
-            content = {client_version, #pb_client_version{
+        payload = {client_version, #pb_client_version{
                 version = <<"2.3">>,
                 expires_in_seconds = 23
             }}
-        }
     }
 ).
 
@@ -82,12 +78,10 @@
     #pb_ha_iq{
         id = <<"clientVERSIONid">>,
         type = get,
-        payload = #pb_iq_payload{
-            content = {client_version, #pb_client_version{
+        payload = {client_version, #pb_client_version{
                 version = <<"2.3">>,
                 expires_in_seconds = undefined
             }}
-        }
     }
 ).
 
