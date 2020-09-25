@@ -42,9 +42,13 @@ proto_to_xmpp(ProtoPayload) when is_record(ProtoPayload, pb_push_register) ->
 proto_to_xmpp(ProtoPayload) when is_record(ProtoPayload, pb_notification_prefs) ->
     PushPrefs = lists:map(
             fun(PbPushPref) ->
+                Value = case PbPushPref#pb_push_pref.value of
+                    undefined -> false;
+                    V -> V
+                end,
                 #push_pref{
                     name = PbPushPref#pb_push_pref.name,
-                    value = PbPushPref#pb_push_pref.value
+                    value = Value
                 }
             end, ProtoPayload#pb_notification_prefs.push_prefs),
     #notification_prefs{

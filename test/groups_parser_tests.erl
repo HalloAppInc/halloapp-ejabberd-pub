@@ -40,8 +40,10 @@
 -define(G_NAME1, <<"g_name1">>).
 -define(G_NAME2, <<"g_name2">>).
 
--define(PAYLOAD1, <<"payload1">>).
--define(PAYLOAD2, <<"payload2">>).
+-define(PAYLOAD1, <<"123">>).
+-define(PAYLOAD2, <<"456">>).
+-define(PAYLOAD1_BASE64, <<"MTIz">>).
+-define(PAYLOAD2_BASE64, <<"NDU2">>).
 -define(TIMESTAMP1, <<"2000090910">>).
 -define(TIMESTAMP1_INT, 2000090910).
 -define(TIMESTAMP2, <<"1850012340">>).
@@ -224,7 +226,7 @@ xmpp_to_proto_message_group_test() ->
 xmpp_to_proto_group_chat_test() ->
     setup(),
 
-    GroupChatSt = create_group_chat(?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID2, ?NAME2, ?TIMESTAMP1, ?PAYLOAD1),
+    GroupChatSt = create_group_chat(?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID2, ?NAME2, ?TIMESTAMP1, ?PAYLOAD1_BASE64),
     ToJid = jid:make(?UID1, ?SERVER),
     FromJid = jid:make(?SERVER),
     XmppMsg = create_message_stanza(?ID1, ToJid, FromJid, groupchat, GroupChatSt),
@@ -240,7 +242,7 @@ xmpp_to_proto_group_chat_test() ->
 proto_to_xmpp_group_chat_test() ->
     setup(),
 
-    GroupChatSt = create_group_chat(?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID2, ?NAME2, ?TIMESTAMP1, ?PAYLOAD1),
+    GroupChatSt = create_group_chat(?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID2, ?NAME2, ?TIMESTAMP1, ?PAYLOAD1_BASE64),
     ToJid = jid:make(?SERVER),
     FromJid = jid:make(?UID1, ?SERVER),
     ExpectedXmppMsg = create_message_stanza(?ID1, ToJid, FromJid, normal, GroupChatSt),
