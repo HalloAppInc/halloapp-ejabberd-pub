@@ -48,6 +48,7 @@ init([]) ->
 	   worker(ejabberd_pkix),
 	   worker(acl),
 	   worker(ejabberd_shaper),
+	   worker(ejabberd_monitor),
 	   supervisor(ejabberd_db_sup),
 	   supervisor(ejabberd_backend_sup),
 	   supervisor(ejabberd_sql_sup),
