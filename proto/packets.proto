@@ -52,10 +52,9 @@ message name {
 }
 
 
-
 // IQ
 
-message ha_iq {
+message iq {
     string id = 1;
     enum Type {
         get = 0;
@@ -95,7 +94,7 @@ message ha_iq {
 
 // Message
 
-message ha_message {
+message msg {
     string id = 1;
     enum Type {
         normal = 0;
@@ -111,8 +110,8 @@ message ha_message {
         contact_list contact_list = 5;
         avatar avatar = 6;
         whisper_keys whisper_keys = 7;
-        seen_receipt seen = 8;
-        delivery_receipt delivery = 9;
+        seen_receipt seen_receipt = 8;
+        delivery_receipt delivery_receipt = 9;
         chat chat = 10;
         feed_item feed_item = 11;
         feed_items feed_items = 12;
@@ -130,7 +129,7 @@ message ha_message {
 
 // Presence
 
-message ha_presence {
+message presence {
     string id = 1;
     enum Type {
         available = 0;
@@ -146,7 +145,7 @@ message ha_presence {
 
 // Chat State
 
-message ha_chat_state {
+message chat_state {
     enum Type {
         available = 0;
         typing = 1;
@@ -164,7 +163,7 @@ message ha_chat_state {
 
 // Ack
 
-message ha_ack {
+message ack {
     string id = 1;
     int64 timestamp = 2;
 }
@@ -181,12 +180,12 @@ message ha_error {
 
 message packet {
     oneof stanza {
-        ha_message msg = 1;
-        ha_iq iq = 2;
-        ha_ack ack = 3;
-        ha_presence presence = 4;
-        ha_error error = 5;
-        ha_chat_state chat_state = 6;
+        msg msg = 1;
+        iq iq = 2;
+        ack ack = 3;
+        presence presence = 4;
+        ha_error ha_error = 5;
+        chat_state chat_state = 6;
     }
 }
 

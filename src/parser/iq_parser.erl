@@ -24,7 +24,7 @@ xmpp_to_proto(XmppIQ) ->
             [SubEl] = SubEls,
             iq_payload_mapping(SubEl)
     end,
-    ProtoIQ = #pb_ha_iq{
+    ProtoIQ = #pb_iq{
         id = XmppIQ#iq.id,
         type = XmppIQ#iq.type,
         payload = Content
@@ -94,11 +94,11 @@ iq_payload_mapping(SubEl) ->
 
 
 proto_to_xmpp(ProtoIQ) ->
-    Content = ProtoIQ#pb_ha_iq.payload,
+    Content = ProtoIQ#pb_iq.payload,
     SubEl = xmpp_iq_subel_mapping(Content),
     XmppIQ = #iq{
-        id = ProtoIQ#pb_ha_iq.id,
-        type = ProtoIQ#pb_ha_iq.type,
+        id = ProtoIQ#pb_iq.id,
+        type = ProtoIQ#pb_iq.type,
         sub_els = [SubEl]
     },
     XmppIQ.
@@ -150,4 +150,3 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             group_feed_parser:proto_to_xmpp(GroupFeedItemRecord)
     end,
     SubEl.
-

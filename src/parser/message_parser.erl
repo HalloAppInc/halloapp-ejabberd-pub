@@ -29,7 +29,7 @@ xmpp_to_proto(XmppMsg) ->
                 msg_payload_mapping(SubEl)
         end,
         PbFromUid = util_parser:xmpp_to_proto_uid(FromJid#jid.user),
-        ProtoMessage = #pb_ha_message{
+        ProtoMessage = #pb_message{
             id = Message#message.id,
             type = Message#message.type,
             to_uid = util_parser:xmpp_to_proto_uid(ToJid#jid.user),
@@ -91,17 +91,17 @@ msg_payload_mapping(SubEl) ->
 
 
 proto_to_xmpp(ProtoMSG) ->
-    ToUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_ha_message.to_uid),
-    FromUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_ha_message.from_uid),
+    ToUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_message.to_uid),
+    FromUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_message.from_uid),
     Server = util:get_host(),
     PbToJid = jid:make(ToUser, Server),
     PbFromJid = jid:make(FromUser, Server),
-    Content = ProtoMSG#pb_ha_message.payload,
+    Content = ProtoMSG#pb_message.payload,
     SubEl = xmpp_msg_subel_mapping(Content),
 
     XmppMSG = #message{
-        id = ProtoMSG#pb_ha_message.id,
-        type = ProtoMSG#pb_ha_message.type,
+        id = ProtoMSG#pb_message.id,
+        type = ProtoMSG#pb_message.type,
         to = PbToJid,
         from = PbFromJid,
         sub_els = [SubEl]
@@ -143,4 +143,3 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
             group_feed_parser:proto_to_xmpp(GroupFeedItemRecord)
     end,
     SubEl.
-

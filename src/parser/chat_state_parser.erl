@@ -11,7 +11,7 @@
 
 xmpp_to_proto(XmppChatState) ->
     FromUid = XmppChatState#chat_state.from#jid.luser,
-    #pb_ha_chat_state{
+    #pb_chat_state{
         type = XmppChatState#chat_state.type,
         thread_id = XmppChatState#chat_state.thread_id,
         thread_type = XmppChatState#chat_state.thread_type,
@@ -21,13 +21,13 @@ xmpp_to_proto(XmppChatState) ->
 
 proto_to_xmpp(ProtoChatState) ->
     Server = util:get_host(),
-    FromUid = util_parser:proto_to_xmpp_uid(ProtoChatState#pb_ha_chat_state.from_uid),
+    FromUid = util_parser:proto_to_xmpp_uid(ProtoChatState#pb_chat_state.from_uid),
     FromJid = jid:make(FromUid, Server),
     ToJid = jid:make(Server),
     #chat_state{
-        type = ProtoChatState#pb_ha_chat_state.type,
-        thread_id = ProtoChatState#pb_ha_chat_state.thread_id,
-        thread_type = ProtoChatState#pb_ha_chat_state.thread_type,
+        type = ProtoChatState#pb_chat_state.type,
+        thread_id = ProtoChatState#pb_chat_state.thread_id,
+        thread_type = ProtoChatState#pb_chat_state.thread_type,
         from = FromJid,
         to = ToJid
     }.
