@@ -17,9 +17,9 @@
 xmpp_to_proto(SubEl) ->
     PbItem = case {SubEl#group_feed_st.post, SubEl#group_feed_st.comment} of
         {PostSt, undefined} ->
-            {post, group_post_st_to_post(PostSt)};
+            group_post_st_to_post(PostSt);
         {undefined, CommentSt} ->
-            {comment, group_comment_st_to_comment(CommentSt)}
+            group_comment_st_to_comment(CommentSt)
     end,
     #pb_group_feed_item{
         action = SubEl#group_feed_st.action,
@@ -37,14 +37,14 @@ xmpp_to_proto(SubEl) ->
 proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_group_feed_item) ->
     Action = PbPacket#pb_group_feed_item.action,
     XmppStanza = case PbPacket#pb_group_feed_item.item of
-        {post, Post} ->
+        #pb_post{} = Post ->
             PostSt = post_to_group_post_st(Post),
             #group_feed_st{
                 action = Action,
                 gid = PbPacket#pb_group_feed_item.gid,
                 post = PostSt
             };
-        {comment, Comment} ->
+        #pb_comment{} = Comment ->
             CommentSt = comment_to_group_comment_st(Comment),
             #group_feed_st{
                 action = Action,

@@ -29,7 +29,7 @@ xmpp_to_proto(XmppMsg) ->
                 msg_payload_mapping(SubEl)
         end,
         PbFromUid = util_parser:xmpp_to_proto_uid(FromJid#jid.user),
-        ProtoMessage = #pb_message{
+        ProtoMessage = #pb_msg{
             id = Message#message.id,
             type = Message#message.type,
             to_uid = util_parser:xmpp_to_proto_uid(ToJid#jid.user),
@@ -47,40 +47,33 @@ xmpp_to_proto(XmppMsg) ->
 msg_payload_mapping(SubEl) ->
     Payload = case element(1, SubEl) of
         contact_list ->
-            case SubEl#contact_list.contact_hash of
-                [] -> {contact_list, contact_parser:xmpp_to_proto(SubEl)};
-                [_] -> {contact_hash, contact_parser:xmpp_to_proto(SubEl)}
-            end;
+            contact_parser:xmpp_to_proto(SubEl);
         avatar ->
-            {avatar, avatar_parser:xmpp_to_proto(SubEl)};
+            avatar_parser:xmpp_to_proto(SubEl);
         whisper_keys ->
-            {whisper_keys, whisper_keys_parser:xmpp_to_proto(SubEl)};
+            whisper_keys_parser:xmpp_to_proto(SubEl);
         receipt_seen ->
-            {seen, receipts_parser:xmpp_to_proto(SubEl)};
+            receipts_parser:xmpp_to_proto(SubEl);
         receipt_response ->
-            {delivery, receipts_parser:xmpp_to_proto(SubEl)};
+            receipts_parser:xmpp_to_proto(SubEl);
         chat ->
-            {chat, chat_parser:xmpp_to_proto(SubEl)};
+            chat_parser:xmpp_to_proto(SubEl);
         feed_st ->
-            case {SubEl#feed_st.posts, SubEl#feed_st.comments} of
-                {[_], []} -> {feed_item, feed_parser:xmpp_to_proto(SubEl)};
-                {[], [_]} -> {feed_item, feed_parser:xmpp_to_proto(SubEl)};
-                _ -> {feed_items, feed_parser:xmpp_to_proto(SubEl)}
-            end;
+            feed_parser:xmpp_to_proto(SubEl);
         group_st ->
-            {group_stanza, groups_parser:xmpp_to_proto(SubEl)};
+            groups_parser:xmpp_to_proto(SubEl);
         group_chat ->
-            {group_chat, groups_parser:xmpp_to_proto(SubEl)};
+            groups_parser:xmpp_to_proto(SubEl);
         name ->
-            {name, name_parser:xmpp_to_proto(SubEl)};
+            name_parser:xmpp_to_proto(SubEl);
         error_st ->
-            {error, #pb_error{reason = util:to_binary(SubEl#error_st.reason)}};
+            #pb_error{reason = util:to_binary(SubEl#error_st.reason)};
         groupchat_retract_st ->
-            {groupchat_retract, retract_parser:xmpp_to_proto(SubEl)};
+            retract_parser:xmpp_to_proto(SubEl);
         chat_retract_st ->
-            {chat_retract, retract_parser:xmpp_to_proto(SubEl)};
+            retract_parser:xmpp_to_proto(SubEl);
         group_feed_st ->
-            {group_feed_item, group_feed_parser:xmpp_to_proto(SubEl)}
+            group_feed_parser:xmpp_to_proto(SubEl)
     end,
     Payload.
 
@@ -91,17 +84,17 @@ msg_payload_mapping(SubEl) ->
 
 
 proto_to_xmpp(ProtoMSG) ->
-    ToUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_message.to_uid),
-    FromUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_message.from_uid),
+    ToUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_msg.to_uid),
+    FromUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_msg.from_uid),
     Server = util:get_host(),
     PbToJid = jid:make(ToUser, Server),
     PbFromJid = jid:make(FromUser, Server),
-    Content = ProtoMSG#pb_message.payload,
+    Content = ProtoMSG#pb_msg.payload,
     SubEl = xmpp_msg_subel_mapping(Content),
 
     XmppMSG = #message{
-        id = ProtoMSG#pb_message.id,
-        type = ProtoMSG#pb_message.type,
+        id = ProtoMSG#pb_msg.id,
+        type = ProtoMSG#pb_msg.type,
         to = PbToJid,
         from = PbFromJid,
         sub_els = [SubEl]
@@ -111,35 +104,35 @@ proto_to_xmpp(ProtoMSG) ->
 
 xmpp_msg_subel_mapping(ProtoPayload) ->
     SubEl = case ProtoPayload of
-        {contact_list, ContactListRecord} ->
+        #pb_contact_list{} = ContactListRecord ->
             contact_parser:proto_to_xmpp(ContactListRecord);
-        {contact_hash, ContactHashRecord} ->
+        #pb_contact_hash{} = ContactHashRecord ->
             contact_parser:proto_to_xmpp(ContactHashRecord);
-        {avatar, AvatarRecord} ->
+        #pb_avatar{} = AvatarRecord ->
             avatar_parser:proto_to_xmpp(AvatarRecord);
-        {whisper_keys, WhisperKeysRecord} ->
+        #pb_whisper_keys{} = WhisperKeysRecord ->
             whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
-        {seen, SeenRecord} ->
+        #pb_seen_receipt{} = SeenRecord ->
             receipts_parser:proto_to_xmpp(SeenRecord);
-        {delivery, ReceivedRecord} ->
+        #pb_delivery_receipt{} = ReceivedRecord ->
             receipts_parser:proto_to_xmpp(ReceivedRecord);
-        {chat, ChatRecord} ->
+        #pb_chat{} = ChatRecord ->
             chat_parser:proto_to_xmpp(ChatRecord);
-        {feed_item, FeedItemRecord} ->
+        #pb_feed_item{} = FeedItemRecord ->
             feed_parser:proto_to_xmpp(FeedItemRecord);
-        {feed_items, FeedItemsRecord} ->
+        #pb_feed_items{} = FeedItemsRecord ->
             feed_parser:proto_to_xmpp(FeedItemsRecord);
-        {group_stanza, GroupStanzaRecord} ->
+        #pb_group_stanza{} = GroupStanzaRecord ->
             groups_parser:proto_to_xmpp(GroupStanzaRecord);
-        {group_chat, GroupChatRecord} ->
+        #pb_group_chat{} = GroupChatRecord ->
             groups_parser:proto_to_xmpp(GroupChatRecord);
-        {name, NameRecord} ->
+        #pb_name{} = NameRecord ->
             name_parser:proto_to_xmpp(NameRecord);
-        {groupchat_retract, GroupChatRetractRecord} ->
+        #pb_groupchat_retract{} = GroupChatRetractRecord ->
             retract_parser:proto_to_xmpp(GroupChatRetractRecord);
-        {chat_retract, ChatRetractRecord} ->
+        #pb_chat_retract{} = ChatRetractRecord ->
             retract_parser:proto_to_xmpp(ChatRetractRecord);
-        {group_feed_item, GroupFeedItemRecord} ->
+        #pb_group_feed_item{} = GroupFeedItemRecord ->
             group_feed_parser:proto_to_xmpp(GroupFeedItemRecord)
     end,
     SubEl.

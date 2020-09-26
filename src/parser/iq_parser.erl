@@ -35,55 +35,55 @@ xmpp_to_proto(XmppIQ) ->
 iq_payload_mapping(SubEl) ->
     Payload = case element(1, SubEl) of
         upload_media ->
-            {upload_media, media_upload_parser:xmpp_to_proto(SubEl)};
+            media_upload_parser:xmpp_to_proto(SubEl);
         contact_list ->
-            {contact_list, contact_parser:xmpp_to_proto(SubEl)};
+            contact_parser:xmpp_to_proto(SubEl);
         upload_avatar ->
-            {upload_avatar, avatar_parser:xmpp_to_proto(SubEl)};
+            avatar_parser:xmpp_to_proto(SubEl);
         avatar ->
-            {avatar, avatar_parser:xmpp_to_proto(SubEl)};
+            avatar_parser:xmpp_to_proto(SubEl);
         avatars ->
-            {avatars, avatar_parser:xmpp_to_proto(SubEl)};
+            avatar_parser:xmpp_to_proto(SubEl);
         client_mode ->
-            {client_mode, client_info_parser:xmpp_to_proto(SubEl)};
+            client_info_parser:xmpp_to_proto(SubEl);
         client_version ->
-            {client_version, client_info_parser:xmpp_to_proto(SubEl)};
+            client_info_parser:xmpp_to_proto(SubEl);
         push_register ->
-            {push_register, push_parser:xmpp_to_proto(SubEl)};
+            push_parser:xmpp_to_proto(SubEl);
         whisper_keys ->
-            {whisper_keys, whisper_keys_parser:xmpp_to_proto(SubEl)};
+            whisper_keys_parser:xmpp_to_proto(SubEl);
         ping ->
-            {ping, #pb_ping{}};
+            #pb_ping{};
         feed_st ->
-            {feed_item, feed_parser:xmpp_to_proto(SubEl)};
+            feed_parser:xmpp_to_proto(SubEl);
         user_privacy_list ->
-            {privacy_list, privacy_list_parser:xmpp_to_proto(SubEl)};
+            privacy_list_parser:xmpp_to_proto(SubEl);
         user_privacy_lists ->
-            {privacy_lists, privacy_list_parser:xmpp_to_proto(SubEl)};
+            privacy_list_parser:xmpp_to_proto(SubEl);
         error_st ->
             Hash = SubEl#error_st.hash,
             case Hash =:= undefined orelse Hash =:= <<>> of
                 true ->
-                    {error, #pb_error{reason = util:to_binary(SubEl#error_st.reason)}};
+                    #pb_error{reason = util:to_binary(SubEl#error_st.reason)};
                 false ->
-                    {privacy_list_result, privacy_list_parser:xmpp_to_proto(SubEl)}
+                    privacy_list_parser:xmpp_to_proto(SubEl)
             end;
         groups ->
-            {groups_stanza, groups_parser:xmpp_to_proto(SubEl)};
+            groups_parser:xmpp_to_proto(SubEl);
         group_st ->
-            {group_stanza, groups_parser:xmpp_to_proto(SubEl)};
+            groups_parser:xmpp_to_proto(SubEl);
         client_log_st ->
-            {client_log_st, client_log_parser:xmpp_to_proto(SubEl)};
+            client_log_parser:xmpp_to_proto(SubEl);
         name ->
-            {name, name_parser:xmpp_to_proto(SubEl)};
+            name_parser:xmpp_to_proto(SubEl);
         props ->
-            {props, props_parser:xmpp_to_proto(SubEl)};
+            props_parser:xmpp_to_proto(SubEl);
         invites ->
-            {pb_invites_response, invite_parser:xmpp_to_proto(SubEl)};
+            invite_parser:xmpp_to_proto(SubEl);
         notification_prefs ->
-            {notification_prefs, push_parser:xmpp_to_proto(SubEl)};
+            push_parser:xmpp_to_proto(SubEl);
         group_feed_st ->
-            {group_feed_item, group_feed_parser:xmpp_to_proto(SubEl)}
+            group_feed_parser:xmpp_to_proto(SubEl)
     end,
     Payload.
 
@@ -106,47 +106,47 @@ proto_to_xmpp(ProtoIQ) ->
 
 xmpp_iq_subel_mapping(ProtoPayload) ->
     SubEl = case ProtoPayload of
-        {upload_media, UploadMediaRecord} ->
+        #pb_upload_media{} = UploadMediaRecord ->
             media_upload_parser:proto_to_xmpp(UploadMediaRecord);
-        {contact_list, ContactListRecord} ->
+        #pb_contact_list{} = ContactListRecord ->
             contact_parser:proto_to_xmpp(ContactListRecord);
-        {upload_avatar, UploadAvatarRecord} ->
+        #pb_upload_avatar{} = UploadAvatarRecord ->
             avatar_parser:proto_to_xmpp(UploadAvatarRecord);
-        {avatar, AvatarRecord} ->
+        #pb_avatar{} = AvatarRecord ->
             avatar_parser:proto_to_xmpp(AvatarRecord);
-        {avatars, AvatarsRecord} ->
+        #pb_avatars{} = AvatarsRecord ->
             avatar_parser:proto_to_xmpp(AvatarsRecord);
-        {client_mode, ClientModeRecord} ->
+        #pb_client_mode{} = ClientModeRecord ->
             client_info_parser:proto_to_xmpp(ClientModeRecord);
-        {client_version, ClientVersionRecord} ->
+        #pb_client_version{} = ClientVersionRecord ->
             client_info_parser:proto_to_xmpp(ClientVersionRecord);
-        {push_register, PushRegisterRecord} ->
+        #pb_push_register{} = PushRegisterRecord ->
             push_parser:proto_to_xmpp(PushRegisterRecord);
-        {whisper_keys, WhisperKeysRecord} ->
+        #pb_whisper_keys{} = WhisperKeysRecord ->
             whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
-        {ping, _} ->
+        #pb_ping{} ->
             #ping{};
-        {feed_item, FeedItemRecord} ->
+        #pb_feed_item{} = FeedItemRecord ->
             feed_parser:proto_to_xmpp(FeedItemRecord);
-        {privacy_list, PrivacyListRecord} ->
+        #pb_privacy_list{} = PrivacyListRecord ->
             privacy_list_parser:proto_to_xmpp(PrivacyListRecord);
-        {privacy_lists, PrivacyListsRecord} ->
+        #pb_privacy_lists{} = PrivacyListsRecord ->
             privacy_list_parser:proto_to_xmpp(PrivacyListsRecord);
-        {groups_stanza, GroupsStanzaRecord} ->
+        #pb_groups_stanza{} = GroupsStanzaRecord ->
             groups_parser:proto_to_xmpp(GroupsStanzaRecord);
-        {group_stanza, GroupStanzaRecord} ->
+        #pb_group_stanza{} = GroupStanzaRecord ->
             groups_parser:proto_to_xmpp(GroupStanzaRecord);
-        {client_log, ClientLogRecord} ->
+        #pb_client_log{} = ClientLogRecord ->
             client_log_parser:proto_to_xmpp(ClientLogRecord);
-        {name, NameRecord} ->
+        #pb_name{} = NameRecord ->
             name_parser:proto_to_xmpp(NameRecord);
-        {props, PropsRecord} ->
+        #pb_props{} = PropsRecord ->
             props_parser:proto_to_xmpp(PropsRecord);
-        {pb_invites_request, InvitesRecord} ->
+        #pb_invites_request{} = InvitesRecord ->
             invite_parser:proto_to_xmpp(InvitesRecord);
-        {notification_prefs, NotificationPrefsRecord} ->
+        #pb_notification_prefs{} = NotificationPrefsRecord ->
             push_parser:proto_to_xmpp(NotificationPrefsRecord);
-        {group_feed_item, GroupFeedItemRecord} ->
+        #pb_group_feed_item{} = GroupFeedItemRecord ->
             group_feed_parser:proto_to_xmpp(GroupFeedItemRecord)
     end,
     SubEl.

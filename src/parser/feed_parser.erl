@@ -23,14 +23,14 @@ xmpp_to_proto(SubEl) ->
                         fun(PostSt) ->
                             Post = post_st_to_post(PostSt),
                             #pb_feed_item{
-                                item = {post, Post}
+                                item = Post
                             }
                         end, SubEl#feed_st.posts),
                     Comments = lists:map(
                         fun(CommentSt) ->
                             Comment = comment_st_to_comment(CommentSt),
                             #pb_feed_item{
-                                item = {comment, Comment}
+                                item = Comment
                             }
                         end, SubEl#feed_st.comments),
                     Uid = case SubEl#feed_st.posts of
@@ -63,13 +63,13 @@ xmpp_to_proto(SubEl) ->
                     Post = post_st_to_post(PostSt),
                     #pb_feed_item{
                         action = Action,
-                        item = {post, Post}
+                        item = Post
                     };
                 {[], [CommentSt]} ->
                     Comment = comment_st_to_comment(CommentSt),
                     #pb_feed_item{
                         action = Action,
-                        item = {comment, Comment}
+                        item = Comment
                     }
             end
     end,
@@ -83,7 +83,7 @@ xmpp_to_proto(SubEl) ->
 proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_feed_item) ->
     Action = PbPacket#pb_feed_item.action,
     XmppStanza = case PbPacket#pb_feed_item.item of
-        {post, Post} ->
+        #pb_post{} = Post ->
             PostSt = post_to_post_st(Post),
             AudienceLists = case Post#pb_post.audience of
                 undefined -> [];
@@ -102,7 +102,7 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_feed_item) ->
                 posts = [PostSt],
                 audience_list = AudienceLists
             };
-        {comment, Comment} ->
+        #pb_comment{} = Comment ->
             CommentSt = comment_to_comment_st(Comment),
             #feed_st{
                 action = Action,
