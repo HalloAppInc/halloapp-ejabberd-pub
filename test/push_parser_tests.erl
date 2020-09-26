@@ -72,7 +72,7 @@ create_iq_stanza(Id, ToJid, FromJid, Type, SubEls) ->
 
 
 create_pb_iq(Id, Type, PayloadContent) ->
-    #pb_ha_iq{
+    #pb_iq{
         id = Id,
         type = Type,
         payload = PayloadContent
@@ -86,19 +86,19 @@ create_pb_iq(Id, Type, PayloadContent) ->
 
 xmpp_to_proto_push_register_test() ->
     PbPushRegister = create_pb_push_register(?OS1, ?TOKEN1),
-    ExpectedPbIq = create_pb_iq(?ID1, set, {push_register, PbPushRegister}),
+    ExpectedPbIq = create_pb_iq(?ID1, set, PbPushRegister),
 
     XmppPushRegister = create_push_register(?OS1_BIN, ?TOKEN1),
     XmppIq = create_iq_stanza(?ID1, undefined, undefined, set, [XmppPushRegister]),
 
     ActualPbIq = iq_parser:xmpp_to_proto(XmppIq),
-    ?assertEqual(true, is_record(ActualPbIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ActualPbIq, pb_iq)),
     ?assertEqual(ExpectedPbIq, ActualPbIq).
 
 
 proto_to_xmpp_push_register_test() ->
     PbPushRegister = create_pb_push_register(?OS1, ?TOKEN1),
-    PbIq = create_pb_iq(?ID1, set, {push_register, PbPushRegister}),
+    PbIq = create_pb_iq(?ID1, set, PbPushRegister),
 
     XmppPushRegister = create_push_register(?OS1_BIN, ?TOKEN1),
     ExpectedXmppIq = create_iq_stanza(?ID1, undefined, undefined, set, [XmppPushRegister]),
@@ -114,7 +114,7 @@ xmpp_to_proto_result_iq_test() ->
     XmppIq = create_iq_stanza(?ID1, undefined, undefined, result, []),
 
     ActualPbIq = iq_parser:xmpp_to_proto(XmppIq),
-    ?assertEqual(true, is_record(ActualPbIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ActualPbIq, pb_iq)),
     ?assertEqual(ExpectedPbIq, ActualPbIq).
 
 
@@ -123,7 +123,7 @@ proto_to_xmpp_notification_prefs_test() ->
     PbPushPref1 = create_pb_push_pref(post, false),
     PbPushPref2 = create_pb_push_pref(comment, false),
     PbNotificationPref = create_pb_notification_prefs([PbPushPref1, PbPushPref2]),
-    PbIq = create_pb_iq(?ID1, set, {notification_prefs, PbNotificationPref}),
+    PbIq = create_pb_iq(?ID1, set, PbNotificationPref),
 
     PushPref1 = create_push_pref(post, false),
     PushPref2 = create_push_pref(comment, false),

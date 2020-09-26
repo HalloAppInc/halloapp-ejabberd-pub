@@ -64,7 +64,7 @@ create_iq_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_iq(Id, Type, PayloadContent) ->
-    #pb_ha_iq{
+    #pb_iq{
         id = Id,
         type = Type,
         payload = PayloadContent
@@ -85,14 +85,14 @@ invite_xmpp_to_proto_test() ->
 
     PbInvite = create_pb_invite(?PHONE1, <<"ok">>, undefined),
     PbInvites = create_pb_invites_response(2, 100, [PbInvite]),
-    PbIq = create_pb_iq(?ID1, result, {pb_invites_response, PbInvites}),
+    PbIq = create_pb_iq(?ID1, result, PbInvites),
 
     InviteSt = create_invite(?PHONE1, ok, undefined),
     InvitesSt = create_invites(2, 100, [InviteSt]),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, result, InvitesSt),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
-    ?assertEqual(true, is_record(ProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIq, pb_iq)),
     ?assertEqual(PbIq, ProtoIq).
 
 
@@ -100,13 +100,13 @@ invites_xmpp_to_proto_test() ->
     setup(),
 
     PbInvites = create_pb_invites_response(2, 100, []),
-    PbIq = create_pb_iq(?ID1, result, {pb_invites_response, PbInvites}),
+    PbIq = create_pb_iq(?ID1, result, PbInvites),
 
     InvitesSt = create_invites(2, 100, []),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, result, InvitesSt),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
-    ?assertEqual(true, is_record(ProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIq, pb_iq)),
     ?assertEqual(PbIq, ProtoIq).
 
 
@@ -115,14 +115,14 @@ invite_error_xmpp_to_proto_test() ->
 
     PbInvite = create_pb_invite(?PHONE1, <<"failed">>, <<"invalid_number">>),
     PbInvites = create_pb_invites_response(5, 1000, [PbInvite]),
-    PbIq = create_pb_iq(?ID1, result, {pb_invites_response, PbInvites}),
+    PbIq = create_pb_iq(?ID1, result, PbInvites),
 
     InviteSt = create_invite(?PHONE1, failed, invalid_number),
     InvitesSt = create_invites(5, 1000, [InviteSt]),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, result, InvitesSt),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
-    ?assertEqual(true, is_record(ProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIq, pb_iq)),
     ?assertEqual(PbIq, ProtoIq).
 
 
@@ -133,7 +133,7 @@ invite_set_proto_to_xmpp_test() ->
     PbInvite1 = create_pb_invite(?PHONE1, undefined, undefined),
     PbInvite2 = create_pb_invite(?PHONE2, undefined, undefined),
     PbInvites = create_pb_invites_request([PbInvite1, PbInvite2]),
-    PbIq = create_pb_iq(?ID1, set, {pb_invites_request, PbInvites}),
+    PbIq = create_pb_iq(?ID1, set, PbInvites),
 
     InviteSt1 = create_invite(?PHONE1, undefined, undefined),
     InviteSt2 = create_invite(?PHONE2, undefined, undefined),
@@ -149,7 +149,7 @@ invite_get_proto_to_xmpp_test() ->
     setup(),
 
     PbInvites = create_pb_invites_request([]),
-    PbIq = create_pb_iq(?ID1, get, {pb_invites_request, PbInvites}),
+    PbIq = create_pb_iq(?ID1, get, PbInvites),
 
     InvitesSt = create_invites(undefined, undefined, []),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, get, InvitesSt),

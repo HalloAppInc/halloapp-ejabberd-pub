@@ -62,7 +62,7 @@
 ).
 
 -define(PROTO_ELEMENT1, 
-    #pb_ha_presence{
+    #pb_presence{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         type = available, 
         uid = 1000000000045484920,
@@ -71,7 +71,7 @@
 ).
 
 -define(PROTO_ELEMENT2, 
-    #pb_ha_presence{
+    #pb_presence{
         id = <<"ID2">>,
         type = subscribe,
         uid = 1000000000519345762,
@@ -80,7 +80,7 @@
 ).
 
 -define(PROTO_ELEMENT3, 
-    #pb_ha_presence{
+    #pb_presence{
         id = <<"ID3">>,
         type = unsubscribe,
         last_seen = 1585013887,
@@ -96,20 +96,20 @@
 
 presence_xml_to_proto_test() -> 
     ProtoPres1 = presence_parser:xmpp_to_proto(?XMPP_PRESENCE1),
-    ?assertEqual(true, is_record(ProtoPres1, pb_ha_presence)),
-    ?assertEqual(?PROTO_ELEMENT1#pb_ha_presence.id, ProtoPres1#pb_ha_presence.id),
-    ?assertEqual(?PROTO_ELEMENT1#pb_ha_presence.type, ProtoPres1#pb_ha_presence.type),
-    ?assertEqual(?PROTO_ELEMENT1#pb_ha_presence.uid, ProtoPres1#pb_ha_presence.uid),
+    ?assertEqual(true, is_record(ProtoPres1, pb_presence)),
+    ?assertEqual(?PROTO_ELEMENT1#pb_presence.id, ProtoPres1#pb_presence.id),
+    ?assertEqual(?PROTO_ELEMENT1#pb_presence.type, ProtoPres1#pb_presence.type),
+    ?assertEqual(?PROTO_ELEMENT1#pb_presence.uid, ProtoPres1#pb_presence.uid),
     
     ProtoPres2 = presence_parser:xmpp_to_proto(?XMPP_PRESENCE2),
-    ?assertEqual(true, is_record(ProtoPres2, pb_ha_presence)),
-    ?assertEqual(?PROTO_ELEMENT2#pb_ha_presence.id, ProtoPres2#pb_ha_presence.id),
-    ?assertEqual(?PROTO_ELEMENT2#pb_ha_presence.type, ProtoPres2#pb_ha_presence.type),
+    ?assertEqual(true, is_record(ProtoPres2, pb_presence)),
+    ?assertEqual(?PROTO_ELEMENT2#pb_presence.id, ProtoPres2#pb_presence.id),
+    ?assertEqual(?PROTO_ELEMENT2#pb_presence.type, ProtoPres2#pb_presence.type),
     
     ProtoPres3 = presence_parser:xmpp_to_proto(?XMPP_PRESENCE3),
-    ?assertEqual(true, is_record(ProtoPres3, pb_ha_presence)),
-    ?assertEqual(?PROTO_ELEMENT3#pb_ha_presence.id, ProtoPres3#pb_ha_presence.id),
-    ?assertEqual(?PROTO_ELEMENT3#pb_ha_presence.type, ProtoPres3#pb_ha_presence.type).
+    ?assertEqual(true, is_record(ProtoPres3, pb_presence)),
+    ?assertEqual(?PROTO_ELEMENT3#pb_presence.id, ProtoPres3#pb_presence.id),
+    ?assertEqual(?PROTO_ELEMENT3#pb_presence.type, ProtoPres3#pb_presence.type).
     
 
 proto_to_xml_id_and_type_test() -> 

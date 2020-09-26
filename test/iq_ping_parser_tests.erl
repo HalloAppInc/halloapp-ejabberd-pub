@@ -26,10 +26,10 @@
 ).
 
 -define(PB_IQ_PING,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"WHIPCD988id">>,
         type = set,
-        payload = {ping, #pb_ping{}}
+        payload = #pb_ping{}
     }
 ).
 
@@ -41,7 +41,7 @@
 
 xmpp_to_proto_ping_test() -> 
     ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_PING),
-    ?assertEqual(true, is_record(ProtoIQ, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
     ?assertEqual(?PB_IQ_PING, ProtoIQ).
 
 

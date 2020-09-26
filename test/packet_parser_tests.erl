@@ -25,7 +25,7 @@
 ).
 
 -define(PB_ACK, 
-    #pb_ha_ack{
+    #pb_ack{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         timestamp = 1591056019
     }
@@ -33,7 +33,7 @@
 
 -define(PB_PACKET_ACK,
     #pb_packet{
-        stanza = {ack, ?PB_ACK}
+        stanza = ?PB_ACK
     }
 ).
 
@@ -54,23 +54,23 @@
 ).
 
 -define(PB_IQ,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"3ece24923">>,
         type = set,
-        payload = {whisper_keys, #pb_whisper_keys{
+        payload = #pb_whisper_keys{
                 uid = 863,
                 action = add,   
                 identity_key = <<"adf-fadsfa">>,
                 signed_key = <<"2cd3c3">>,
                 otp_key_count = 100,
                 one_time_keys = [<<"3dd">>, <<"31d">>, <<"39e">>]
-            }}
+            }
     }
 ).
 
 -define(PB_PACKET_IQ,
     #pb_packet{
-        stanza = {iq, ?PB_IQ}
+        stanza = ?PB_IQ
     }
 ).
 
@@ -90,7 +90,7 @@
 ).
 
 -define(PB_PRESENCE, 
-    #pb_ha_presence{
+    #pb_presence{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         type = available, 
         uid = 1000000000045484920,
@@ -100,7 +100,7 @@
 
 -define(PB_PACKET_PRESENCE,
     #pb_packet{
-        stanza = {presence, ?PB_PRESENCE}
+        stanza = ?PB_PRESENCE
     }
 ).
 
@@ -130,22 +130,22 @@
 ).
 
 -define(PB_MSG,
-    #pb_ha_message{
+    #pb_msg{
         id = <<"s9cCU-10">>,
         type = normal,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = {seen, #pb_seen_receipt{
+        payload = #pb_seen_receipt{
                 id = <<"7ab30vn">>,
                 thread_id = <<"thlm23ca">>,
                 timestamp = 20190910
-            }}
+            }
     }
 ).
 
 -define(PB_PACKET_MSG,
     #pb_packet{
-        stanza = {msg, ?PB_MSG}
+        stanza = ?PB_MSG
     }
 ).
 

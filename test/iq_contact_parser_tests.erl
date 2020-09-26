@@ -59,16 +59,16 @@
 ).
 
 -define(PB_IQ_CONTACT_LIST,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"s9cCU-10">>,
         type = set,
-        payload = {contact_list, #pb_contact_list{
+        payload = #pb_contact_list{
                 type = full, 
                 sync_id = <<"syncid123">>,
                 batch_index = 0,
                 is_last = true,
                 contacts = [?PB_CONTACT1, ?PB_CONTACT2]
-            }}
+            }
     }
 ).
 
@@ -104,7 +104,7 @@
 
 xmpp_to_proto_contact_list_test() -> 
     ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_CONTACT_LIST),
-    ?assertEqual(true, is_record(ProtoIQ, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
     ?assertEqual(?PB_IQ_CONTACT_LIST, ProtoIQ). 
 
 

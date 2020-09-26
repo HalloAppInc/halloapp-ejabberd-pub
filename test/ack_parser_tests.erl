@@ -27,7 +27,7 @@
     }
 ).
 -define(PROTO_ACK1, 
-    #pb_ha_ack{
+    #pb_ack{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         timestamp = 1591056019
     }
@@ -48,7 +48,7 @@
     }
 ).
 -define(PROTO_ACK2, 
-    #pb_ha_ack{
+    #pb_ack{
         id = <<"18C5554A-C220-42DB-A0A1-C3AD3AD2B28D">>,
         timestamp = 1591141620
     }
@@ -62,11 +62,11 @@
 
 ack_xml_to_proto_test() -> 
     ProtoAck1 = ack_parser:xmpp_to_proto(?XMPP_ACK1),
-    ?assertEqual(true, is_record(ProtoAck1, pb_ha_ack)),
+    ?assertEqual(true, is_record(ProtoAck1, pb_ack)),
     ?assertEqual(?PROTO_ACK1, ProtoAck1),
     
     ProtoAck2 = ack_parser:xmpp_to_proto(?XMPP_ACK2),
-    ?assertEqual(true, is_record(ProtoAck2, pb_ha_ack)),
+    ?assertEqual(true, is_record(ProtoAck2, pb_ack)),
     ?assertEqual(?PROTO_ACK2, ProtoAck2).
 
 

@@ -34,19 +34,19 @@
 ).
 
 -define(PB_MSG_WHISPER_KEYS,
-    #pb_ha_message{
+    #pb_msg{
         id = <<"WHIPCD988id">>,
         type = set,
         to_uid = 1000000000045484920,
         from_uid = 0,   %% Default value, when sent by the server.
-        payload = {whisper_keys, #pb_whisper_keys{
+        payload = #pb_whisper_keys{
                 uid = 29863,
                 action = add,   
                 identity_key = <<"adf-fadsfa">>,
                 signed_key = <<"2cd3c3">>,
                 otp_key_count = 3264653331,
                 one_time_keys = [<<"3dd">>, <<"31d">>, <<"39e">>]
-            }}
+            }
     }
 ).
 
@@ -67,6 +67,6 @@ xmpp_to_proto_whisper_keys_test() ->
     XmppMsg = ?XMPP_MSG_WHISPER_KEYS#message{to = ToJid, from = FromJid},
 
     ProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
-    ?assertEqual(true, is_record(ProtoMsg, pb_ha_message)),
+    ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
     ?assertEqual(?PB_MSG_WHISPER_KEYS, ProtoMsg).
 

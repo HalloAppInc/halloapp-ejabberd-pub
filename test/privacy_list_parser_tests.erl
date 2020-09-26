@@ -125,7 +125,7 @@ create_iq_stanza(Id, ToJid, FromJid, Type, SubEls) ->
 
 
 create_pb_iq(Id, Type, PayloadContent) ->
-    #pb_ha_iq{
+    #pb_iq{
         id = Id,
         type = Type,
         payload = PayloadContent
@@ -144,10 +144,10 @@ xmpp_to_proto_iq_error_test() ->
     ErrorIQ = create_iq_stanza(?ID1, jid:make(?UID1, ?SERVER), jid:make(?SERVER), error, [SubEl]),
 
     PrivacyListResult = create_pb_privacy_list_result(<<"failed">>, <<"unexcepted_uids">>, <<"123">>),
-    ExpectedProtoIQ = create_pb_iq(?ID1, error, {privacy_list_result, PrivacyListResult}),
+    ExpectedProtoIQ = create_pb_iq(?ID1, error, PrivacyListResult),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(ErrorIQ),
-    ?assertEqual(true, is_record(ActualProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
     ?assertEqual(ExpectedProtoIQ, ActualProtoIq).
 
 
@@ -162,10 +162,10 @@ xmpp_to_proto_iq_privacy_list_test() ->
     UidElement1 = create_pb_uid_element(add, ?UID2_INT),
     UidElement2 = create_pb_uid_element(add, ?UID3_INT),
     PrivacyList = create_pb_privacy_list(except, undefined, [UidElement1, UidElement2]),
-    ExpectedProtoIQ = create_pb_iq(?ID1, set, {privacy_list, PrivacyList}),
+    ExpectedProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(ExceptIQ),
-    ?assertEqual(true, is_record(ActualProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
     ?assertEqual(ExpectedProtoIQ, ActualProtoIq).
 
 
@@ -178,10 +178,10 @@ xmpp_to_proto_iq_privacy_list_hash_test() ->
 
     UidElement1 = create_pb_uid_element(add, ?UID3_INT),
     PrivacyList = create_pb_privacy_list(except, ?HASH1, [UidElement1]),
-    ExpectedProtoIQ = create_pb_iq(?ID1, set, {privacy_list, PrivacyList}),
+    ExpectedProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(ExceptIQ),
-    ?assertEqual(true, is_record(ActualProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
     ?assertEqual(ExpectedProtoIQ, ActualProtoIq).
 
 
@@ -193,7 +193,7 @@ xmpp_to_proto_iq_privacy_list_result_test() ->
     ExpectedProtoIQ = create_pb_iq(?ID1, result, undefined),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(ExceptIQ),
-    ?assertEqual(true, is_record(ActualProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
     ?assertEqual(ExpectedProtoIQ, ActualProtoIq).
 
 
@@ -222,10 +222,10 @@ xmpp_to_proto_iq_privacy_lists_result_test() ->
     PrivacyList4 = create_pb_privacy_list(block, <<>>, [UidElement4]),
 
     PrivacyLists = create_pb_privacy_lists(only, [PrivacyList4, PrivacyList3, PrivacyList2, PrivacyList1]),
-    ExpectedProtoIQ = create_pb_iq(?ID1, result, {privacy_lists, PrivacyLists}),
+    ExpectedProtoIQ = create_pb_iq(?ID1, result, PrivacyLists),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(ExceptIQ),
-    ?assertEqual(true, is_record(ActualProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
     ?assertEqual(ExpectedProtoIQ, ActualProtoIq).
 
 
@@ -240,7 +240,7 @@ proto_to_xmpp_iq_only_privacy_list_test() ->
     UidElement1 = create_pb_uid_element(add, ?UID2_INT),
     UidElement2 = create_pb_uid_element(add, ?UID3_INT),
     PrivacyList = create_pb_privacy_list(only, <<>>, [UidElement1, UidElement2]),
-    ProtoIQ = create_pb_iq(?ID1, set, {privacy_list, PrivacyList}),
+    ProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIQ),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -256,7 +256,7 @@ proto_to_xmpp_iq_only_privacy_list_hash_test() ->
 
     UidElement1 = create_pb_uid_element(add, ?UID2_INT),
     PrivacyList = create_pb_privacy_list(only, ?HASH2, [UidElement1]),
-    ProtoIQ = create_pb_iq(?ID1, set, {privacy_list, PrivacyList}),
+    ProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIQ),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -270,7 +270,7 @@ proto_to_xmpp_iq_all_privacy_list_test() ->
     ExceptedXmppIQ = create_iq_stanza(?ID1, undefined, undefined, set, [SubEl]),
 
     PrivacyList = create_pb_privacy_list(all, <<>>, []),
-    ProtoIQ = create_pb_iq(?ID1, set, {privacy_list, PrivacyList}),
+    ProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIQ),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -282,7 +282,7 @@ proto_to_xmpp_iq_privacy_lists_test() ->
     setup(),
     ExceptedXmppIQ = create_iq_stanza(?ID1, undefined, undefined, get, [#user_privacy_lists{active_type = all}]),
 
-    ProtoIQ = create_pb_iq(?ID1, get, {privacy_lists, #pb_privacy_lists{}}),
+    ProtoIQ = create_pb_iq(?ID1, get, #pb_privacy_lists{}),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIQ),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -295,7 +295,7 @@ proto_to_xmpp_iq_only_get_privacy_list_test() ->
     ExceptedXmppIQ = create_iq_stanza(?ID1, undefined, undefined, set, [SubEl]),
 
     PrivacyList = create_pb_privacy_list(only, undefined, []),
-    ProtoIQ = create_pb_iq(?ID1, set, {privacy_list, PrivacyList}),
+    ProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIQ),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),

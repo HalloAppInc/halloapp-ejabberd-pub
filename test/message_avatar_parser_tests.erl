@@ -41,12 +41,12 @@
 ).
 
 -define(PB_MSG_AVATAR,
-    #pb_ha_message{
+    #pb_msg{
         id = <<"s9cCU-10">>,
         type = set,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = {avatar, ?PB_AVATAR}
+        payload = ?PB_AVATAR
     }
 ).
 
@@ -66,7 +66,7 @@ xmpp_to_proto_avatar_test() ->
     XmppMsg = ?XMPP_MSG_AVATAR#message{to = ToJid, from = FromJid},
 
     ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
-    ?assertEqual(true, is_record(ActualProtoMsg, pb_ha_message)),
+    ?assertEqual(true, is_record(ActualProtoMsg, pb_msg)),
     ?assertEqual(?PB_MSG_AVATAR, ActualProtoMsg).
     
     

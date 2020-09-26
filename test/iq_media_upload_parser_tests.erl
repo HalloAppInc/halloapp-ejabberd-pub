@@ -55,17 +55,17 @@
 ).
 
 -define(PROTO_IQ_UPLOAD_MEDIA1,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         type = result,
-        payload = {upload_media, #pb_upload_media{
+        payload = #pb_upload_media{
                 size = 100,
                 url = #pb_media_url{
                     get = <<"https://u-cdn.halloapp.net">>,
                     put = <<"https://us-e-halloapp-media.s3-accelerate">>,
                     patch = <<>>
                 }
-            }}
+            }
     }
 ).
 
@@ -88,13 +88,13 @@
 ).
 
 -define(PROTO_IQ_UPLOAD_MEDIA2,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
         type = get,
-        payload = {upload_media, #pb_upload_media{
+        payload = #pb_upload_media{
                 size = 0,
                 url = undefined
-        }}
+        }
     }
 ).
 
@@ -106,7 +106,7 @@
 
 xmpp_to_proto_upload_media_test() -> 
     ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_UPLOAD_MEDIA1),
-    ?assertEqual(true, is_record(ProtoIQ, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
     ?assertEqual(?PROTO_IQ_UPLOAD_MEDIA1, ProtoIQ).
 
     

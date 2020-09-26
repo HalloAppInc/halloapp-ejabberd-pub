@@ -177,7 +177,7 @@ create_message_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_message(Id, ToUid, FromUid, Type, PayloadContent) ->
-    #pb_ha_message{
+    #pb_msg{
         id = Id,
         to_uid = ToUid,
         from_uid = FromUid,
@@ -197,7 +197,7 @@ create_iq_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_iq(Id, Type, PayloadContent) ->
-    #pb_ha_iq{
+    #pb_iq{
         id = Id,
         type = Type,
         payload = PayloadContent
@@ -211,8 +211,8 @@ create_pb_iq(Id, Type, PayloadContent) ->
 
 xmpp_to_proto_message_feed_item_test() ->
     PbPost = create_pb_post(?ID1, ?UID1_INT, ?PAYLOAD1, undefined, ?TIMESTAMP1_INT),
-    PbFeedItem = create_feed_item(publish, {post, PbPost}),
-    PbMessage = create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, {feed_item, PbFeedItem}),
+    PbFeedItem = create_feed_item(publish, PbPost),
+    PbMessage = create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbFeedItem),
 
     PostSt = create_post_st(?ID1, ?UID1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
     FeedSt = create_feed_st(publish, [PostSt], [], [], []),
@@ -221,7 +221,7 @@ xmpp_to_proto_message_feed_item_test() ->
     MessageSt = create_message_stanza(?ID1, ToJid, FromJid, normal, FeedSt),
 
     ProtoMsg = message_parser:xmpp_to_proto(MessageSt),
-    ?assertEqual(true, is_record(ProtoMsg, pb_ha_message)),
+    ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
     ?assertEqual(PbMessage, ProtoMsg).
 
 
@@ -229,11 +229,11 @@ xmpp_to_proto_message_feed_items_test() ->
     PbPost1 = create_pb_post(?ID1, ?UID1_INT, ?PAYLOAD1, undefined, ?TIMESTAMP1_INT),
     PbPost2 = create_pb_post(?ID2, ?UID1_INT, ?PAYLOAD2, undefined, ?TIMESTAMP2_INT),
     PbComment1 = create_pb_comment(?ID3, ?ID1, <<>>, ?UID2_INT, ?NAME2, ?PAYLOAD2, ?TIMESTAMP2_INT),
-    PbFeedItem1 = create_feed_item(publish, {post, PbPost1}),
-    PbFeedItem2 = create_feed_item(publish, {post, PbPost2}),
-    PbFeedItem3 = create_feed_item(publish, {comment, PbComment1}),
+    PbFeedItem1 = create_feed_item(publish, PbPost1),
+    PbFeedItem2 = create_feed_item(publish, PbPost2),
+    PbFeedItem3 = create_feed_item(publish, PbComment1),
     PbFeedItems = create_feed_items(?UID1_INT, [PbFeedItem1, PbFeedItem2, PbFeedItem3]),
-    PbMessage = create_pb_message(?ID1, ?UID3_INT, ?UID1_INT, normal, {feed_items, PbFeedItems}),
+    PbMessage = create_pb_message(?ID1, ?UID3_INT, ?UID1_INT, normal, PbFeedItems),
 
     PostSt1 = create_post_st(?ID1, ?UID1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
     PostSt2 = create_post_st(?ID2, ?UID1, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
@@ -244,28 +244,28 @@ xmpp_to_proto_message_feed_items_test() ->
     MessageSt = create_message_stanza(?ID1, ToJid, FromJid, normal, FeedSt),
 
     ProtoMsg = message_parser:xmpp_to_proto(MessageSt),
-    ?assertEqual(true, is_record(ProtoMsg, pb_ha_message)),
+    ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
     ?assertEqual(PbMessage, ProtoMsg).
 
 
 xmpp_to_proto_iq_share_response_test() ->
     ShareFeedResponse = create_share_feed_response(?UID1_INT, <<"ok">>, undefined),
     ShareFeedResponses = create_share_feed_responses([ShareFeedResponse]),
-    PbIq = create_pb_iq(?ID1, result, {feed_item, ShareFeedResponses}),
+    PbIq = create_pb_iq(?ID1, result, ShareFeedResponses),
 
     SharePostsSt = create_share_posts_st(?UID1, [], ok, undefined),
     FeedSt = create_feed_st(share, [], [], [], [SharePostsSt]),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, result, FeedSt),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
-    ?assertEqual(true, is_record(ProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIq, pb_iq)),
     ?assertEqual(PbIq, ProtoIq).
 
 
 proto_to_xmpp_iq_feed_item_test() ->
     PbComment = create_pb_comment(?ID3, ?ID1, <<>>, ?UID2_INT, ?NAME2, ?PAYLOAD2, ?TIMESTAMP2_INT),
-    PbFeedItem =create_feed_item(publish, {comment, PbComment}),
-    PbIq = create_pb_iq(?ID1, set, {feed_item, PbFeedItem}),
+    PbFeedItem =create_feed_item(publish, PbComment),
+    PbIq = create_pb_iq(?ID1, set, PbFeedItem),
 
     CommentSt = create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
     FeedSt = create_feed_st(publish, [], [CommentSt], [], []),
@@ -279,8 +279,8 @@ proto_to_xmpp_iq_feed_item_test() ->
 proto_to_xmpp_iq_feed_item_audience_test() ->
     PbAudience = create_pb_audience(only, [?UID2_INT, ?UID3_INT]),
     PbPost = create_pb_post(?ID1, ?UID1_INT, ?PAYLOAD1, PbAudience, ?TIMESTAMP1_INT),
-    PbFeedItem = create_feed_item(publish, {post, PbPost}),
-    PbIq = create_pb_iq(?ID1, set, {feed_item, PbFeedItem}),
+    PbFeedItem = create_feed_item(publish, PbPost),
+    PbIq = create_pb_iq(?ID1, set, PbFeedItem),
 
     AudienceSt = create_audience_list(only, [?UID2, ?UID3]),
     PostSt = create_post_st(?ID1, ?UID1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
@@ -295,7 +295,7 @@ proto_to_xmpp_iq_feed_item_audience_test() ->
 proto_to_xmpp_iq_share_request_test() ->
     ShareFeedRequest = create_share_feed_request(?UID1_INT, [?ID1, ?ID2]),
     ShareFeedRequests = create_share_feed_requests([ShareFeedRequest]),
-    PbIq = create_pb_iq(?ID1, set, {feed_item, ShareFeedRequests}),
+    PbIq = create_pb_iq(?ID1, set, ShareFeedRequests),
 
     PostSt1 = create_post_st(?ID1, <<>>, <<>>, <<>>),
     PostSt2 = create_post_st(?ID2, <<>>, <<>>, <<>>),

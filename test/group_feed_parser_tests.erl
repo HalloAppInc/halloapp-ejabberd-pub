@@ -120,7 +120,7 @@ create_message_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_message(Id, ToUid, FromUid, Type, PayloadContent) ->
-    #pb_ha_message{
+    #pb_msg{
         id = Id,
         to_uid = ToUid,
         from_uid = FromUid,
@@ -140,7 +140,7 @@ create_iq_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_iq(Id, Type, PayloadContent) ->
-    #pb_ha_iq{
+    #pb_iq{
         id = Id,
         type = Type,
         payload = PayloadContent
@@ -160,8 +160,8 @@ xmpp_to_proto_message_feed_item_test() ->
     setup(),
 
     PbPost = create_pb_post(?ID1, ?UID1_INT, ?NAME1, ?PAYLOAD1, undefined, ?TIMESTAMP1_INT),
-    PbFeedItem = create_group_feed_item(publish, ?GID1, ?GNAME1, ?AVATARID1, {post, PbPost}),
-    PbMessage = create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, {group_feed_item, PbFeedItem}),
+    PbFeedItem = create_group_feed_item(publish, ?GID1, ?GNAME1, ?AVATARID1, PbPost),
+    PbMessage = create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbFeedItem),
 
     PostSt = create_group_post_st(?ID1, ?UID1, ?NAME1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
     FeedSt = create_group_feed_st(publish, ?GID1, ?GNAME1, ?AVATARID1, PostSt, undefined),
@@ -170,7 +170,7 @@ xmpp_to_proto_message_feed_item_test() ->
     MessageSt = create_message_stanza(?ID1, ToJid, FromJid, normal, FeedSt),
 
     ProtoMsg = message_parser:xmpp_to_proto(MessageSt),
-    ?assertEqual(true, is_record(ProtoMsg, pb_ha_message)),
+    ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
     ?assertEqual(PbMessage, ProtoMsg).
 
 
@@ -178,15 +178,15 @@ xmpp_to_proto_iq_feed_item_test() ->
     setup(),
 
     PbComment = create_pb_comment(?ID3, ?ID1, <<>>, ?UID2_INT, ?NAME2, ?PAYLOAD2, ?TIMESTAMP2_INT),
-    PbFeedItem =create_group_feed_item(publish, ?GID1, ?GNAME1, ?AVATARID1, {comment, PbComment}),
-    PbIq = create_pb_iq(?ID1, result, {group_feed_item, PbFeedItem}),
+    PbFeedItem =create_group_feed_item(publish, ?GID1, ?GNAME1, ?AVATARID1, PbComment),
+    PbIq = create_pb_iq(?ID1, result, PbFeedItem),
 
     CommentSt = create_group_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
     FeedSt = create_group_feed_st(publish, ?GID1, ?GNAME1, ?AVATARID1, undefined, CommentSt),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, result, FeedSt),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(IqSt),
-    ?assertEqual(true, is_record(ActualProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
     ?assertEqual(PbIq, ActualProtoIq).
 
 
@@ -194,8 +194,8 @@ proto_to_xmpp_iq_feed_item_test() ->
     setup(),
 
     PbComment = create_pb_comment(?ID3, ?ID1, <<>>, undefined, undefined, ?PAYLOAD2, undefined),
-    PbFeedItem =create_group_feed_item(publish, ?GID1, undefined, undefined, {comment, PbComment}),
-    PbIq = create_pb_iq(?ID1, set, {group_feed_item, PbFeedItem}),
+    PbFeedItem =create_group_feed_item(publish, ?GID1, undefined, undefined, PbComment),
+    PbIq = create_pb_iq(?ID1, set, PbFeedItem),
 
     CommentSt = create_group_comment_st(?ID3, ?ID1, <<>>, <<>>, undefined, ?PAYLOAD2_BASE64, undefined),
     FeedSt = create_group_feed_st(publish, ?GID1, <<>>, undefined, undefined, CommentSt),

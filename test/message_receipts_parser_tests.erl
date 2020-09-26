@@ -31,16 +31,16 @@
 ).
 
 -define(PB_MSG_SEEN,
-    #pb_ha_message{
+    #pb_msg{
         id = <<"s9cCU-10">>,
         type = normal,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = {seen, #pb_seen_receipt{
+        payload = #pb_seen_receipt{
                 id = <<"7ab30vn">>,
                 thread_id = <<"thlm23ca">>,
                 timestamp = 20190910
-            }}
+            }
     }
 ).
 
@@ -58,16 +58,16 @@
 ).
 
 -define(PB_MSG_RECEIVED,
-    #pb_ha_message{
+    #pb_msg{
         id = <<"s9cC3v4qf40">>,
         type = normal,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = {delivery, #pb_delivery_receipt{
+        payload = #pb_delivery_receipt{
                 id = <<"b30vn">>,
                 thread_id = <<"thlm2ere3ca">>,
                 timestamp = 2000090910
-            }}
+            }
     }
 ).
 
@@ -88,7 +88,7 @@ xmpp_to_proto_seen_test() ->
     XmppMsg = ?XMPP_MSG_SEEN#message{to = ToJid, from = FromJid},
 
     ProtoMSG = message_parser:xmpp_to_proto(XmppMsg),
-    ?assertEqual(true, is_record(ProtoMSG, pb_ha_message)),
+    ?assertEqual(true, is_record(ProtoMSG, pb_msg)),
     ?assertEqual(?PB_MSG_SEEN, ProtoMSG).
 
 
@@ -110,7 +110,7 @@ xmpp_to_proto_response_test() ->
     XmppMsg = ?XMPP_MSG_RECEIVED#message{to = ToJid, from = FromJid},
 
     ProtoMSG = message_parser:xmpp_to_proto(XmppMsg),
-    ?assertEqual(true, is_record(ProtoMSG, pb_ha_message)),
+    ?assertEqual(true, is_record(ProtoMSG, pb_msg)),
     ?assertEqual(?PB_MSG_RECEIVED, ProtoMSG).
 
 

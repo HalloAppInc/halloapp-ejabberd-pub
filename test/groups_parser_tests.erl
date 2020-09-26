@@ -110,7 +110,7 @@ create_message_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_message(Id, ToUid, FromUid, Type, PayloadContent) ->
-    #pb_ha_message{
+    #pb_msg{
         id = Id,
         to_uid = ToUid,
         from_uid = FromUid,
@@ -130,7 +130,7 @@ create_iq_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_iq(Id, Type, PayloadContent) ->
-    #pb_ha_iq{
+    #pb_iq{
         id = Id,
         type = Type,
         payload = PayloadContent
@@ -195,10 +195,10 @@ xmpp_to_proto_iq_group_result_test() ->
 
     PbMember = create_pb_member(add, ?UID2_INT, member, ?NAME2, ?AVATAR_ID2, <<"ok">>, undefined),
     PbGroup = create_pb_group_stanza(modify_members, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1_INT, ?NAME1, [PbMember]),
-    ExpectedProtoIq = create_pb_iq(?ID1, result, {group_stanza, PbGroup}),
+    ExpectedProtoIq = create_pb_iq(?ID1, result, PbGroup),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(XmppIq),
-    ?assertEqual(true, is_record(ActualProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
     ?assertEqual(ExpectedProtoIq, ActualProtoIq).
 
 
@@ -215,11 +215,11 @@ xmpp_to_proto_message_group_test() ->
     PbMember1 = create_pb_member(demote, ?UID2_INT, admin, ?NAME2, ?AVATAR_ID2, undefined, undefined),
     PbMember2 = create_pb_member(demote, ?UID3_INT, admin, ?NAME3, ?AVATAR_ID3, undefined, undefined),
     PbGroup = create_pb_group_stanza(modify_admins, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1_INT, ?NAME1, [PbMember1, PbMember2]),
-    ExpectedProtoMsg = create_pb_message(?ID1, ?UID1_INT, 0, normal, {group_stanza, PbGroup}),
+    ExpectedProtoMsg = create_pb_message(?ID1, ?UID1_INT, 0, normal, PbGroup),
 
     ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
 
-    ?assertEqual(true, is_record(ActualProtoMsg, pb_ha_message)),
+    ?assertEqual(true, is_record(ActualProtoMsg, pb_msg)),
     ?assertEqual(ExpectedProtoMsg, ActualProtoMsg).
 
 
@@ -232,10 +232,10 @@ xmpp_to_proto_group_chat_test() ->
     XmppMsg = create_message_stanza(?ID1, ToJid, FromJid, groupchat, GroupChatSt),
 
     PbGroupChat = create_pb_group_chat(?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID2_INT, ?NAME2, ?TIMESTAMP1_INT, ?PAYLOAD1),
-    ExpectedProtoMsg = create_pb_message(?ID1, ?UID1_INT, 0, groupchat, {group_chat, PbGroupChat}),
+    ExpectedProtoMsg = create_pb_message(?ID1, ?UID1_INT, 0, groupchat, PbGroupChat),
 
     ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
-    ?assertEqual(true, is_record(ActualProtoMsg, pb_ha_message)),
+    ?assertEqual(true, is_record(ActualProtoMsg, pb_msg)),
     ?assertEqual(ExpectedProtoMsg, ActualProtoMsg).
 
 
@@ -248,7 +248,7 @@ proto_to_xmpp_group_chat_test() ->
     ExpectedXmppMsg = create_message_stanza(?ID1, ToJid, FromJid, normal, GroupChatSt),
 
     PbGroupChat = create_pb_group_chat(?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID2_INT, ?NAME2, ?TIMESTAMP1_INT, ?PAYLOAD1),
-    ProtoMsg = create_pb_message(?ID1, 0, ?UID1_INT, normal, {group_chat, PbGroupChat}),
+    ProtoMsg = create_pb_message(?ID1, 0, ?UID1_INT, normal, PbGroupChat),
 
     ActualXmppMsg = message_parser:proto_to_xmpp(ProtoMsg),
     ?assertEqual(true, is_record(ExpectedXmppMsg, message)),
@@ -264,7 +264,7 @@ proto_to_xmpp_iq_group_test() ->
 
     PbMember = create_pb_member(promote, ?UID2_INT, admin, ?NAME2, ?AVATAR_ID2, <<>>, <<>>),
     PbGroup = create_pb_group_stanza(modify_admins, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1_INT, ?NAME1, [PbMember]),
-    ProtoIq = create_pb_iq(?ID1, set, {group_stanza, PbGroup}),
+    ProtoIq = create_pb_iq(?ID1, set, PbGroup),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIq),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -278,7 +278,7 @@ proto_to_xmpp_groups_test() ->
     ExpectedXmppIq = create_iq_stanza(?ID1, undefined, undefined, get, GroupsSt),
 
     PbGroupsStanza = create_pb_groups_stanza(get, []),
-    ProtoIq = create_pb_iq(?ID1, get, {groups_stanza, PbGroupsStanza}),
+    ProtoIq = create_pb_iq(?ID1, get, PbGroupsStanza),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIq),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -294,9 +294,9 @@ xmpp_to_proto_iq_groups_test() ->
 
     PbGroup = create_pb_group_stanza(undefined, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, undefined, undefined, []),
     PbGroupsStanza = create_pb_groups_stanza(get, [PbGroup]),
-    ExpectedProtoIq = create_pb_iq(?ID1, result, {groups_stanza, PbGroupsStanza}),
+    ExpectedProtoIq = create_pb_iq(?ID1, result, PbGroupsStanza),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(XmppIq),
-    ?assertEqual(true, is_record(ActualProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
     ?assertEqual(ExpectedProtoIq, ActualProtoIq).
 

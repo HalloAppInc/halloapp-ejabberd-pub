@@ -55,7 +55,7 @@ create_message_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_message(Id, ToUid, FromUid, Type, PayloadContent) ->
-    #pb_ha_message{
+    #pb_msg{
         id = Id,
         to_uid = ToUid,
         from_uid = FromUid,
@@ -75,7 +75,7 @@ create_iq_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_iq(Id, Type, PayloadContent) ->
-    #pb_ha_iq{
+    #pb_iq{
         id = Id,
         type = Type,
         payload = PayloadContent
@@ -95,7 +95,7 @@ xmpp_to_proto_message_name_test() ->
     setup(),
 
     PbName = create_pb_name(?UID1_INT, ?NAME1),
-    PbMessage = create_pb_message(?ID1, ?UID2_INT, 0, normal, {name, PbName}),
+    PbMessage = create_pb_message(?ID1, ?UID2_INT, 0, normal, PbName),
 
     NameSt = create_name_st(?UID1, ?NAME1),
     ToJid = create_jid(?UID2, ?SERVER),
@@ -103,7 +103,7 @@ xmpp_to_proto_message_name_test() ->
     MessageSt = create_message_stanza(?ID1, ToJid, FromJid, normal, NameSt),
 
     ProtoMsg = message_parser:xmpp_to_proto(MessageSt),
-    ?assertEqual(true, is_record(ProtoMsg, pb_ha_message)),
+    ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
     ?assertEqual(PbMessage, ProtoMsg).
 
 
@@ -111,7 +111,7 @@ proto_to_xmpp_iq_name_test() ->
     setup(),
 
     PbName = create_pb_name(?UID1_INT, ?NAME1),
-    PbIq = create_pb_iq(?ID1, set, {name, PbName}),
+    PbIq = create_pb_iq(?ID1, set, PbName),
 
     NameSt = create_name_st(?UID1, ?NAME1),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, set, NameSt),
@@ -125,7 +125,7 @@ proto_to_xmpp_iq_name_empty_uid_test() ->
     setup(),
 
     PbName = create_pb_name(0, ?NAME1),
-    PbIq = create_pb_iq(?ID1, set, {name, PbName}),
+    PbIq = create_pb_iq(?ID1, set, PbName),
 
     NameSt = create_name_st(<<>>, ?NAME1),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, set, NameSt),

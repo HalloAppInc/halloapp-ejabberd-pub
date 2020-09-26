@@ -62,7 +62,7 @@ create_iq_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_iq(Id, Type, PayloadContent) ->
-    #pb_ha_iq{
+    #pb_iq{
         id = Id,
         type = Type,
         payload = PayloadContent
@@ -84,7 +84,7 @@ prop_xmpp_to_proto_test() ->
     PbProp1 = create_pb_prop(?PROP1_NAME, ?PROP1_VALUE_BIN),
     PbProp2 = create_pb_prop(?PROP2_NAME, ?PROP2_VALUE_BIN),
     PbProps = create_pb_props(<<"123">>, [PbProp1, PbProp2]),
-    PbIq = create_pb_iq(?ID1, result, {props, PbProps}),
+    PbIq = create_pb_iq(?ID1, result, PbProps),
 
     PropSt1 = create_prop(?PROP1_NAME, ?PROP1_VALUE),
     PropSt2 = create_prop(?PROP2_NAME, ?PROP2_VALUE),
@@ -92,7 +92,7 @@ prop_xmpp_to_proto_test() ->
     IqSt = create_iq_stanza(?ID1, undefined, undefined, result, PropsSt),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
-    ?assertEqual(true, is_record(ProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIq, pb_iq)),
     ?assertEqual(PbIq, ProtoIq).
 
 
@@ -100,7 +100,7 @@ prop_get_proto_to_xmpp_test() ->
     setup(),
 
     PbProps = create_pb_props(<<>>, []),
-    PbIq = create_pb_iq(?ID1, get, {props, PbProps}),
+    PbIq = create_pb_iq(?ID1, get, PbProps),
 
     PropsSt = create_props(<<>>, []),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, get, PropsSt),

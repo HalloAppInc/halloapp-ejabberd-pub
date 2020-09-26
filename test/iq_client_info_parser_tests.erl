@@ -29,12 +29,12 @@
 ).
 
 -define(PB_IQ_CLIENT_MODE,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"clientMODEid">>,
         type = set,
-        payload = {client_mode, #pb_client_mode{
+        payload = #pb_client_mode{
                 mode = active
-            }}
+            }
     }
 ).
 
@@ -51,13 +51,13 @@
 ).
 
 -define(PB_IQ_CLIENT_VERSION1,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"clientVERSIONid">>,
         type = result,
-        payload = {client_version, #pb_client_version{
+        payload = #pb_client_version{
                 version = <<"2.3">>,
                 expires_in_seconds = 23
-            }}
+            }
     }
 ).
 
@@ -75,13 +75,13 @@
 ).
 
 -define(PB_IQ_CLIENT_VERSION2,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"clientVERSIONid">>,
         type = get,
-        payload = {client_version, #pb_client_version{
+        payload = #pb_client_version{
                 version = <<"2.3">>,
                 expires_in_seconds = undefined
-            }}
+            }
     }
 ).
 
@@ -93,7 +93,7 @@
 
 xmpp_to_proto_client_mode_test() -> 
     ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_CLIENT_MODE),
-    ?assertEqual(true, is_record(ProtoIQ, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
     ?assertEqual(?PB_IQ_CLIENT_MODE, ProtoIQ).
 
 
@@ -105,7 +105,7 @@ proto_to_xmpp_client_mode_test() ->
 
 xmpp_to_proto_client_version_test() -> 
     ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_CLIENT_VERSION1),
-    ?assertEqual(true, is_record(ProtoIQ, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
     ?assertEqual(?PB_IQ_CLIENT_VERSION1, ProtoIQ).
 
 

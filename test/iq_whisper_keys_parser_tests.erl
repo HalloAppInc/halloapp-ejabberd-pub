@@ -34,17 +34,17 @@
 ).
 
 -define(PB_IQ_WHISPER_KEYS1,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"3ece24923">>,
         type = set,
-        payload = {whisper_keys, #pb_whisper_keys{
+        payload = #pb_whisper_keys{
                 uid = 863,
                 action = add,   
                 identity_key = <<"adf-fadsfa">>,
                 signed_key = <<"2cd3c3">>,
                 otp_key_count = 100,
                 one_time_keys = [<<"3dd">>, <<"31d">>, <<"39e">>]
-            }}
+            }
     }
 ).
 
@@ -66,17 +66,17 @@
 ).
 
 -define(PB_IQ_WHISPER_KEYS2,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"3ece24923">>,
         type = get,
-        payload = {whisper_keys, #pb_whisper_keys{
+        payload = #pb_whisper_keys{
                 uid = 863,
                 action = count,
                 identity_key = undefined,
                 signed_key = undefined,
                 otp_key_count = undefined,
                 one_time_keys = []
-            }}
+            }
     }
 ).
 
@@ -88,7 +88,7 @@
 
 xmpp_to_proto_whisper_keys_test() -> 
     ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_WHISPER_KEYS1),
-    ?assertEqual(true, is_record(ProtoIQ, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
     ?assertEqual(?PB_IQ_WHISPER_KEYS1, ProtoIQ).
 
 

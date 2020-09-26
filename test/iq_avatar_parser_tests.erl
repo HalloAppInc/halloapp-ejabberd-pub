@@ -69,10 +69,10 @@
 ).
 
 -define(PB_IQ_AVATAR1,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"s9cCU-10">>,
         type = set,
-        payload = {avatar, ?PB_UPLOAD_AVATAR1}
+        payload = ?PB_UPLOAD_AVATAR1
     }
 ).
 
@@ -99,10 +99,10 @@
 ).
 
 -define(PB_IQ_AVATAR2,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"s9cCU-10-000">>,
         type = result,
-        payload = {avatar, ?PB_AVATAR2}
+        payload = ?PB_AVATAR2
     }
 ).
 
@@ -115,10 +115,10 @@
 ).
 
 -define(PB_IQ_AVATAR3,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"s9cCU-10">>,
         type = set,
-        payload = {avatar, ?PB_UPLOAD_AVATAR2}
+        payload = ?PB_UPLOAD_AVATAR2
     }
 ).
 
@@ -134,12 +134,12 @@
 ).
 
 -define(PB_IQ_AVATARS,
-    #pb_ha_iq{
+    #pb_iq{
         id = <<"fadsa">>,
         type = result,
-        payload = {avatars, #pb_avatars{
+        payload = #pb_avatars{
                 avatars = [?PB_AVATAR1, ?PB_AVATAR2]
-            }}
+            }
     }
 ).
 
@@ -151,7 +151,7 @@
 
 xmpp_to_proto_avatar_test() ->
     ProtoIQ2 = iq_parser:xmpp_to_proto(?XMPP_IQ_AVATAR2),
-    ?assertEqual(true, is_record(ProtoIQ2, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIQ2, pb_iq)),
     ?assertEqual(?PB_IQ_AVATAR2, ProtoIQ2).
 
 
@@ -171,7 +171,7 @@ proto_to_xmpp_avatar_test() ->
 
 xmpp_to_proto_avatars_test() -> 
     ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_AVATARS),
-    ?assertEqual(true, is_record(ProtoIQ, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
     ?assertEqual(?PB_IQ_AVATARS, ProtoIQ).
 
 

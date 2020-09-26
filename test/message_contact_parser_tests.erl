@@ -62,18 +62,18 @@
 ).
 
 -define(PB_MSG_CONTACT_LIST,
-    #pb_ha_message{
+    #pb_msg{
         id = <<"s9cCU-10">>,
         type = set,
         to_uid = 1000000000045484920,
         from_uid = 0,   %% Default value, when sent by the server.
-        payload = {contact_list, #pb_contact_list{
+        payload = #pb_contact_list{
                 type = full, 
                 sync_id = <<"halloapp:user:contacts">>,
                 batch_index = 0,
                 is_last = true,
                 contacts = [?PB_CONTACT1, ?PB_CONTACT2]
-            }}
+            }
     }
 ).
 
@@ -114,14 +114,14 @@
 ).
 
 -define(PB_MSG_CONTACT_HASH,
-    #pb_ha_message{
+    #pb_msg{
         id = <<"s9cCU-10">>,
         type = set,
         to_uid = 1000000000045484920,
         from_uid = 0,   %% Default value, when sent by the server.
-        payload = {contact_hash, #pb_contact_hash{
+        payload = #pb_contact_hash{
                 hash = ?HASH1
-            }}
+            }
     }
 ).
 
@@ -142,7 +142,7 @@ xmpp_to_proto_contact_list_test() ->
     XmppMsg = ?XMPP_MSG_CONTACT_LIST#message{to = ToJid, from = FromJid},
 
     ProtoMSG = message_parser:xmpp_to_proto(XmppMsg),
-    ?assertEqual(true, is_record(ProtoMSG, pb_ha_message)),
+    ?assertEqual(true, is_record(ProtoMSG, pb_msg)),
     ?assertEqual(?PB_MSG_CONTACT_LIST, ProtoMSG).
 
 
@@ -153,6 +153,6 @@ xmpp_to_proto_contact_hash_test() ->
     XmppMsg = ?XMPP_MSG_CONTACT_HASH#message{to = ToJid, from = FromJid},
 
     ProtoMSG = message_parser:xmpp_to_proto(XmppMsg),
-    ?assertEqual(true, is_record(ProtoMSG, pb_ha_message)),
+    ?assertEqual(true, is_record(ProtoMSG, pb_msg)),
     ?assertEqual(?PB_MSG_CONTACT_HASH, ProtoMSG).
 

@@ -35,18 +35,18 @@
 ).
 
 -define(PB_MSG_CHAT1,
-    #pb_ha_message{
+    #pb_msg{
         id = <<"s9cC3v4qf40">>,
         type = normal,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = {chat, #pb_chat{
+        payload = #pb_chat{
                 timestamp = 2000090910,
                 payload = <<"123">>,
                 enc_payload = <<"456">>,
                 public_key = <<"789">>,
                 one_time_pre_key_id = 12
-            }}
+            }
     }
 ).
 
@@ -69,18 +69,18 @@
 ).
 
 -define(PB_MSG_CHAT2,
-    #pb_ha_message{
+    #pb_msg{
         id = <<"s9cC3v4qf40">>,
         type = normal,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = {chat, #pb_chat{
+        payload = #pb_chat{
                 timestamp = undefined,
                 payload = <<"123">>,
                 enc_payload = <<"456">>,
                 public_key = <<"789">>,
                 one_time_pre_key_id = 12
-            }}
+            }
     }
 ).
 
@@ -100,7 +100,7 @@ xmpp_to_proto_chat_test() ->
     XmppMsg = ?XMPP_MSG_CHAT1#message{to = ToJid, from = FromJid},
 
     ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
-    ?assertEqual(true, is_record(ActualProtoMsg, pb_ha_message)),
+    ?assertEqual(true, is_record(ActualProtoMsg, pb_msg)),
     ?assertEqual(?PB_MSG_CHAT1, ActualProtoMsg).
 
 

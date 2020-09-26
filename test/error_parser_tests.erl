@@ -42,7 +42,7 @@ create_pb_error(Reason) ->
 
 
 create_pb_iq(Id, Type, PayloadContent) ->
-    #pb_ha_iq{
+    #pb_iq{
         id = Id,
         type = Type,
         payload = PayloadContent
@@ -60,7 +60,7 @@ create_message_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_message(Id, ToUid, FromUid, Type, PayloadContent) ->
-    #pb_ha_message{
+    #pb_msg{
         id = Id,
         to_uid = ToUid,
         from_uid = FromUid,
@@ -86,7 +86,7 @@ xmpp_to_proto_message_error_test() ->
     setup(),
 
     PbError = create_pb_error(<<"invalid_uid">>),
-    PbMessage = create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, {error, PbError}),
+    PbMessage = create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbError),
 
     ErrorSt = create_error_st(invalid_uid),
     ToJid = create_jid(?UID2, ?SERVER),
@@ -94,7 +94,7 @@ xmpp_to_proto_message_error_test() ->
     MessageSt = create_message_stanza(?ID1, ToJid, FromJid, normal, ErrorSt),
 
     ProtoMsg = message_parser:xmpp_to_proto(MessageSt),
-    ?assertEqual(true, is_record(ProtoMsg, pb_ha_message)),
+    ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
     ?assertEqual(PbMessage, ProtoMsg).
 
 
@@ -102,13 +102,12 @@ xmpp_to_proto_iq_error_test() ->
     setup(),
 
     PbError = create_pb_error(<<"invalid_id">>),
-    PbIq = create_pb_iq(?ID1, error, {error, PbError}),
+    PbIq = create_pb_iq(?ID1, error, PbError),
 
     ErrorSt = create_error_st(invalid_id),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, error, ErrorSt),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
-    ?assertEqual(true, is_record(ProtoIq, pb_ha_iq)),
+    ?assertEqual(true, is_record(ProtoIq, pb_iq)),
     ?assertEqual(PbIq, ProtoIq).
-
 
