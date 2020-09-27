@@ -29,6 +29,7 @@
     is_invited/1,
     is_invited_by/2,
     get_inviter/1,
+    get_inviters_list/1,
     get_sent_invites/1,
     record_invite_notification/2
 ]).
@@ -82,7 +83,14 @@ record_invite(FromUid, ToPhoneNum, NumInvsLeft) ->
 -spec is_invited(PhoneNum :: binary()) -> boolean().
 is_invited(PhoneNum) ->
     {ok, Res} = q_phones(["EXISTS", ph_invited_by_key(PhoneNum)]),
-    binary_to_integer(Res) == 1.
+    Ret1 = (binary_to_integer(Res) == 1),
+    {ok, Res2} = q_phones(["ZCARD", ph_invited_by_key_new(PhoneNum)]),
+    Ret2 = (binary_to_integer(Res2) > 0),
+    Match = (Ret1 =:= Ret2),
+
+    ?INFO_MSG("PhoneNum: ~p, Old Result: ~p, New Result: ~p, Match:~p",
+        [PhoneNum, Ret1, Ret2, Match]),
+    Ret1.
 
 
 -spec is_invited_by(Phone :: phone(), Uid :: uid()) -> boolean().
@@ -91,13 +99,43 @@ is_invited_by(Phone, Uid) ->
     binary_to_integer(Res) == 1.
 
 
+-spec get_inviters_list(PhoneNum :: binary()) -> {ok, [{Uid :: uid(), Timestamp :: binary()}]}.
+get_inviters_list(PhoneNum) ->
+    IsInvited = is_invited(PhoneNum),
+    case IsInvited of
+        false -> {ok, []};
+        true ->
+            [{ok, OldResult},
+             {ok, InvitersUids}] = qp_phones([
+                  ["HGETALL", ph_invited_by_key(PhoneNum)],
+                  ["ZRANGE", ph_invited_by_key_new(PhoneNum), 0, -1, "WITHSCORES"]
+            ]),
+            InvitersMap = util:list_to_map(InvitersUids),
+            case OldResult of
+                [] ->
+                    %% TODO when deleting reference to ph_invited_by_key(..), the following code
+                    %% needs to be fixed.
+                    case maps:size(InvitersMap) > 0 of
+                        true -> ?ERROR_MSG("PhoneNum: ~p, Old: empty, New: ~p~n",
+                                    [PhoneNum, maps:size(InvitersMap)]);
+                        false -> ?INFO_MSG("PhoneNum: ~p, Old: empty, New: empty~n", [PhoneNum])
+                    end,
+                    {ok, []};
+                [_, OldUid, _, OldTs] ->
+                    InvitersMap2 = maps:put(OldUid, OldTs, InvitersMap),
+                    {ok, maps:to_list(InvitersMap2)}
+            end
+    end.
+
+
+%% TODO: Need to delete this method.
 -spec get_inviter(PhoneNum :: binary()) -> {ok, Uid :: uid(), Timestamp :: binary()} | {ok, undefined}.
 get_inviter(PhoneNum) ->
     IsInvited = is_invited(PhoneNum),
     case IsInvited of
         false -> {ok, undefined};
-        true ->
-            {ok, [_, Uid, _, Ts]} = q_phones(["HGETALL", ph_invited_by_key(PhoneNum)]),
+        true -> {ok, InvitersList} = get_inviters_list(PhoneNum),
+            [{Uid, Ts} | _LeftOver] = InvitersList,
             {ok, Uid, Ts}
     end.
 
@@ -137,6 +175,10 @@ acc_invites_key(Uid) ->
 ph_invited_by_key(Phone) ->
     <<?INVITED_BY_KEY/binary, "{", Phone/binary, "}">>.
 
+-spec ph_invited_by_key_new(Phone :: phone()) -> binary().
+ph_invited_by_key_new(Phone) ->
+    <<?INVITED_BY_KEY_NEW/binary, "{", Phone/binary, "}">>.
+
 -spec notification_sent_key(Phone :: phone(), Uid :: uid()) -> binary().
 notification_sent_key(Phone, Uid) ->
     <<?INVITE_NOTIFICATION_KEY/binary, "{", Phone/binary, "}", Uid/binary>>.
@@ -153,7 +195,13 @@ record_sent_invite(FromUid, ToPhone, NumInvsLeft) ->
 
 -spec record_invited_by(FromUid :: uid(), ToPhone :: phone()) -> ok.
 record_invited_by(FromUid, ToPhone) ->
-    %% TODO(vipin): We need to allow ToPhone to be invited by multiple FromUids.
+    record_invited_by_old(FromUid, ToPhone),
+    {ok, _} = q_phones(["ZADD", ph_invited_by_key_new(ToPhone), util:now(), FromUid]),
+    ok.
+
+%% TODO(vipin): Get rid of this method after the transition to list of inviters.
+-spec record_invited_by_old(FromUid :: uid(), ToPhone :: phone()) -> ok.
+record_invited_by_old(FromUid, ToPhone) ->
     {ok, _} = q_phones(["HSET", ph_invited_by_key(ToPhone),
                    ?FIELD_RINV_UID, FromUid,
                    ?FIELD_RINV_TS, util:now()]),

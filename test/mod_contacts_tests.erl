@@ -298,13 +298,13 @@ unblock_uids_test() ->
 
 
 new_user_invite_notification_not_friend_test() ->
+    %% UID1 is the only friend of the new user: UID2.
     setup(),
     setup_accounts([[?UID1, ?PHONE1, ?NAME1, ?UA1]]),
 
     %% UID1 invites PHONE2, invite goes from the client and the server does not know about
     %% PHONE2
     {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
- 
     %% PHONE2 joins as UID2. 
     setup_accounts([[?UID2, ?PHONE2, ?NAME2, ?UA2]]),
 
@@ -372,6 +372,96 @@ new_user_invite_notification_friend_test() ->
 
     mod_contacts:finish_sync(?UID2, ?SERVER, ?SYNC_ID2),
     ?assertEqual({ok, [?PHONE1]}, model_contacts:get_contacts(?UID2)),
+
+    meck:validate(ejabberd_router),
+    meck:unload(ejabberd_router),
+    ok.
+
+new_user_inviters_list1_notification_test() ->
+    %% UID3 is the only friend of the new user: UID2.
+    setup(),
+    setup_accounts([[?UID1, ?PHONE1, ?NAME1, ?UA1]]),
+    setup_accounts([[?UID3, ?PHONE3, ?NAME3, ?UA3]]),
+
+    %% UID1 invites PHONE2, invite goes from the client and the server does not know about
+    %% PHONE2
+    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
+    
+    %% UID3 also invites PHONE2.
+    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID3, ?PHONE2),
+ 
+    %% PHONE2 joins as UID2. 
+    setup_accounts([[?UID2, ?PHONE2, ?NAME2, ?UA2]]),
+
+    %% UID2 uploads his addressbook and that has UID3's phone number.
+    InputContacts = [#contact{raw = ?PHONE3}],
+
+    mod_contacts:normalize_and_insert_contacts(?UID2, ?SERVER, InputContacts, ?SYNC_ID2),
+
+    meck:new(ejabberd_router),
+    meck:expect(ejabberd_router, route,
+        fun(Packet) ->
+            #message{type = MsgType, to = To, sub_els = [SubEls]} = Packet,
+            #jid{user = User} = To,
+            ?assertEqual(User, ?UID3),
+            #contact_list{contacts = [Contact]} = SubEls,
+            #contact{name = Name, normalized = Phone, role = Role} = Contact,
+            ?assertEqual(Name, ?NAME2),
+            ?assertEqual(Phone, ?PHONE2),
+            ?assertEqual(MsgType, headline),
+            ?assertEqual(Role, <<"none">>),
+            ok
+        end),
+
+    mod_contacts:finish_sync(?UID2, ?SERVER, ?SYNC_ID2),
+    ?assertEqual({ok, [?PHONE3]}, model_contacts:get_contacts(?UID2)),
+
+    meck:validate(ejabberd_router),
+    meck:unload(ejabberd_router),
+    ok.
+
+new_user_inviters_list2_notification_test() ->
+    %% UID1 and UID3 is the only friend of the new user: UID2.
+    setup(),
+    setup_accounts([[?UID1, ?PHONE1, ?NAME1, ?UA1]]),
+    setup_accounts([[?UID3, ?PHONE3, ?NAME3, ?UA3]]),
+
+    %% UID1 invites PHONE2, invite goes from the client and the server does not know about
+    %% PHONE2
+    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
+    
+    %% UID3 also invites PHONE2.
+    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID3, ?PHONE2),
+ 
+    %% PHONE2 joins as UID2. 
+    setup_accounts([[?UID2, ?PHONE2, ?NAME2, ?UA2]]),
+
+    %% UID2 uploads his addressbook and that has UID1's phone number.
+    InputContacts = [
+        #contact{raw = ?PHONE3},
+        #contact{raw = ?PHONE1}
+    ],
+
+    mod_contacts:normalize_and_insert_contacts(?UID2, ?SERVER, InputContacts, ?SYNC_ID2),
+
+    meck:new(ejabberd_router),
+    meck:expect(ejabberd_router, route,
+        fun(Packet) ->
+            #message{type = MsgType, to = To, sub_els = [SubEls]} = Packet,
+            #jid{user = User} = To,
+            ?assert(User =:= ?UID3 orelse User =:= ?UID1),
+            #contact_list{contacts = [Contact]} = SubEls,
+            #contact{name = Name, normalized = Phone, role = Role} = Contact,
+            ?assertEqual(Name, ?NAME2),
+            ?assertEqual(Phone, ?PHONE2),
+            ?assertEqual(MsgType, headline),
+            ?assertEqual(Role, <<"none">>),
+            ok
+        end),
+
+    mod_contacts:finish_sync(?UID2, ?SERVER, ?SYNC_ID2),
+    {ok, Result} = model_contacts:get_contacts(?UID2),
+    ?assertEqual(sets:from_list([?PHONE1, ?PHONE3]), sets:from_list(Result)),
 
     meck:validate(ejabberd_router),
     meck:unload(ejabberd_router),

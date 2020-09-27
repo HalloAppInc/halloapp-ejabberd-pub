@@ -275,34 +275,30 @@ finish_sync(UserId, Server, SyncId) ->
     T = EndTime - StartTime,
     ?INFO_MSG("Time taken: ~w us", [T]),
     %% Send notification to User who invited this user.
-    process_notification_to_inviter(UserId, UserPhone, Server, NewContactSet,
+    process_notification_to_inviters(UserId, UserPhone, Server, NewContactSet,
         sets:is_empty(OldContactSet)),
     ok.
 
 
--spec process_notification_to_inviter(UserId :: binary(), UserPhone :: binary(),
+-spec process_notification_to_inviters(UserId :: binary(), UserPhone :: binary(),
     Server :: binary(), NewContactSet :: sets:set(binary()),
     IsOldSetEmpty :: boolean()) -> ok.
-process_notification_to_inviter(UserId, UserPhone, Server, NewContactSet, true) ->
-    InviterUid = case model_invites:get_inviter(UserPhone) of
-        {ok, Uid, _} -> Uid;
-        {ok, undefined} -> undefined
-    end,
-    case InviterUid of
-        undefined -> ok;
-        _ ->
-            {ok, InviterPhone} = model_accounts:get_phone(InviterUid),
-            case sets:is_element(InviterPhone, NewContactSet) of
+process_notification_to_inviters(UserId, UserPhone, Server, NewContactSet, true) ->
+    {ok, Result} = model_invites:get_inviters_list(UserPhone),
+    lists:foreach(
+        fun(X) ->
+            {InviterUid, _Ts} = X,
+            {ok, InvitersPhoneNum} = model_accounts:get_phone(InviterUid),
+            case sets:is_element(InvitersPhoneNum, NewContactSet) of
                 true ->
-                    IsFriend = model_friends:is_friend(InviterUid, UserId), 
-                    mod_invites:notify_inviter(UserId, UserPhone, Server, InviterUid, 
-                            get_role_value(IsFriend));
-                false -> ok
+                    IsFriend = model_friends:is_friend(InviterUid, UserId),
+                    mod_invites:notify_inviter(UserId, UserPhone, Server, InviterUid,
+                        get_role_value(IsFriend));
+               false -> ok
             end
-    end;
+        end, Result);
 
-
-process_notification_to_inviter(_UserId, _UserPhone, _Server, _NewContactSet, false) ->
+process_notification_to_inviters(_UserId, _UserPhone, _Server, _NewContactSet, false) ->
     ok.
 
 

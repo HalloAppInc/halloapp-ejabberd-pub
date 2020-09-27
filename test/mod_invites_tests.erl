@@ -151,6 +151,28 @@ is_invited__test() ->
     {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
     ?assert(model_invites:is_invited(?PHONE2)).
 
+% tests record_invited_by using old method
+record_invited_by_old_test() ->
+    setup(),
+    ?assertNot(model_invites:is_invited(?PHONE2)),
+    {ok, undefined} = model_invites:get_inviter(?PHONE2),
+    {ok, []} = model_invites:get_inviters_list(?PHONE2),
+    ok = model_invites:record_invited_by_old(?UID1, ?PHONE2),
+    ?assert(model_invites:is_invited(?PHONE2)),
+    {ok, ?UID1, _} = model_invites:get_inviter(?PHONE2),
+    {ok, [{?UID1, _}]} = model_invites:get_inviters_list(?PHONE2),
+    ok = model_invites:record_invited_by_old(?UID3, ?PHONE2),
+    {ok, ?UID3, _} = model_invites:get_inviter(?PHONE2),
+    {ok, [{?UID3, _}]} = model_invites:get_inviters_list(?PHONE2),
+    ok = model_invites:record_invited_by(?UID3, ?PHONE2),
+    {ok, ?UID3, _} = model_invites:get_inviter(?PHONE2),
+    {ok, [{?UID3, _}]} = model_invites:get_inviters_list(?PHONE2),
+    ok = model_invites:record_invited_by(?UID1, ?PHONE2),
+    {ok, Res} = model_invites:get_inviters_list(?PHONE2),
+    Res2 = [Uid || {Uid, _Ts} <- Res],
+    ?assertEqual(sets:from_list(Res2), sets:from_list([?UID1, ?UID3])).
+
+
 % tests who_invited
 who_invited_test() ->
     setup_bare(),
@@ -159,11 +181,17 @@ who_invited_test() ->
     {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
     {ok, Uid1, _Ts} = model_invites:get_inviter(?PHONE2),
     ?assertEqual(Uid1, ?UID1),
+    {ok, Res} = model_invites:get_inviters_list(?PHONE2),
+    Res2 = [Uid || {Uid, _Ts1} <- Res], 
+    ?assertEqual(sets:from_list(Res2), sets:from_list([?UID1])),
     ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3),
     ok = model_phone:add_phone(?PHONE3, ?UID3),
     {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID3, ?PHONE2),
     {ok, Uid3, _Ts} = model_invites:get_inviter(?PHONE2),
-    ?assertEqual(Uid3, ?UID3).
+    ?assert(Uid3 =:= ?UID3 orelse Uid3 =:= ?UID1),
+    {ok, Res3} = model_invites:get_inviters_list(?PHONE2),
+    Res4 = [Uid || {Uid, _Ts2} <- Res3], 
+    ?assertEqual(sets:from_list(Res4), sets:from_list([?UID1, ?UID3])).
 
 % tests notification to inviter
 inviter_notification_test() ->
