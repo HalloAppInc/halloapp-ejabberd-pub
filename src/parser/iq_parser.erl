@@ -64,7 +64,7 @@ iq_payload_mapping(SubEl) ->
             Hash = SubEl#error_st.hash,
             case Hash =:= undefined orelse Hash =:= <<>> of
                 true ->
-                    #pb_error{reason = util:to_binary(SubEl#error_st.reason)};
+                    #pb_error_stanza{reason = util:to_binary(SubEl#error_st.reason)};
                 false ->
                     privacy_list_parser:xmpp_to_proto(SubEl)
             end;

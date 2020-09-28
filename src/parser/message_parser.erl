@@ -67,7 +67,7 @@ msg_payload_mapping(SubEl) ->
         name ->
             name_parser:xmpp_to_proto(SubEl);
         error_st ->
-            #pb_error{reason = util:to_binary(SubEl#error_st.reason)};
+            #pb_error_stanza{reason = util:to_binary(SubEl#error_st.reason)};
         groupchat_retract_st ->
             retract_parser:xmpp_to_proto(SubEl);
         chat_retract_st ->
@@ -116,7 +116,7 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
             receipts_parser:proto_to_xmpp(SeenRecord);
         #pb_delivery_receipt{} = ReceivedRecord ->
             receipts_parser:proto_to_xmpp(ReceivedRecord);
-        #pb_chat{} = ChatRecord ->
+        #pb_chat_stanza{} = ChatRecord ->
             chat_parser:proto_to_xmpp(ChatRecord);
         #pb_feed_item{} = FeedItemRecord ->
             feed_parser:proto_to_xmpp(FeedItemRecord);

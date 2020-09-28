@@ -20,7 +20,7 @@ import "retract.proto";
 
 // Chat
 
-message chat {
+message chat_stanza {
     int64 timestamp = 1;
     bytes payload = 2;
     bytes enc_payload = 3;
@@ -39,7 +39,7 @@ message ping {
 
 // Error
 
-message error {
+message error_stanza {
     string reason = 1;
 }
 
@@ -82,7 +82,7 @@ message iq {
         groups_stanza groups_stanza = 18;
         client_log client_log = 19;
         name name = 20;
-        error error = 21;
+        error_stanza error_stanza = 21;
         props props = 22;
         invites_request invites_request = 23;
         invites_response invites_response = 24;
@@ -112,14 +112,14 @@ message msg {
         whisper_keys whisper_keys = 7;
         seen_receipt seen_receipt = 8;
         delivery_receipt delivery_receipt = 9;
-        chat chat = 10;
+        chat_stanza chat_stanza = 10;
         feed_item feed_item = 11;
         feed_items feed_items = 12;
         contact_hash contact_hash = 13;
         group_stanza group_stanza = 14;
         group_chat group_chat = 15;
         name name = 16;
-        error error = 17;
+        error_stanza error_stanza = 17;
         groupchat_retract groupchat_retract = 18;
         chat_retract chat_retract = 19;
         group_feed_item group_feed_item = 20;

@@ -40,7 +40,7 @@
         type = normal,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = #pb_chat{
+        payload = #pb_chat_stanza{
                 timestamp = 2000090910,
                 payload = <<"123">>,
                 enc_payload = <<"456">>,
@@ -74,7 +74,7 @@
         type = normal,
         to_uid = 1000000000045484920,
         from_uid = 1000000000519345762,
-        payload = #pb_chat{
+        payload = #pb_chat_stanza{
                 timestamp = undefined,
                 payload = <<"123">>,
                 enc_payload = <<"456">>,

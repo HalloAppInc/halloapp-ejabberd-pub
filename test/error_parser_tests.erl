@@ -36,7 +36,7 @@ create_iq_stanza(Id, ToJid, FromJid, Type, SubEl) ->
 
 
 create_pb_error(Reason) ->
-    #pb_error{
+    #pb_error_stanza{
         reason = Reason
     }.
 

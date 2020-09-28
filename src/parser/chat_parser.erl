@@ -27,7 +27,7 @@ xmpp_to_proto(SubEl) ->
                     {S1, Cdata, Attr1, binary_to_integer(Attr2)}
             end
         end, {<<>>, <<>>, <<>>, 0}, SubEl#chat.sub_els),
-    #pb_chat{
+    #pb_chat_stanza{
         timestamp = util_parser:maybe_convert_to_integer(SubEl#chat.timestamp),
         payload = base64:decode(Content),
         enc_payload = base64:decode(EncryptedContent),
@@ -42,19 +42,19 @@ xmpp_to_proto(SubEl) ->
 
 
 proto_to_xmpp(ProtoPayload) ->
-    Content = {xmlel,<<"s1">>,[],[{xmlcdata, base64:encode(ProtoPayload#pb_chat.payload)}]},
-    FinalSubEls = case ProtoPayload#pb_chat.enc_payload of
+    Content = {xmlel,<<"s1">>,[],[{xmlcdata, base64:encode(ProtoPayload#pb_chat_stanza.payload)}]},
+    FinalSubEls = case ProtoPayload#pb_chat_stanza.enc_payload of
         undefined -> [Content];
         <<>> -> [Content];
         _ ->
-            Attrs = [{<<"identity_key">>, base64:encode(ProtoPayload#pb_chat.public_key)},
-            {<<"one_time_pre_key_id">>, util_parser:maybe_convert_to_binary(ProtoPayload#pb_chat.one_time_pre_key_id)}],
-            EncryptedContent = {xmlel,<<"enc">>, Attrs, [{xmlcdata, base64:encode(ProtoPayload#pb_chat.enc_payload)}]},
+            Attrs = [{<<"identity_key">>, base64:encode(ProtoPayload#pb_chat_stanza.public_key)},
+            {<<"one_time_pre_key_id">>, util_parser:maybe_convert_to_binary(ProtoPayload#pb_chat_stanza.one_time_pre_key_id)}],
+            EncryptedContent = {xmlel,<<"enc">>, Attrs, [{xmlcdata, base64:encode(ProtoPayload#pb_chat_stanza.enc_payload)}]},
             [Content, EncryptedContent]
     end,
     #chat{
         xmlns = <<"halloapp:chat:messages">>,
-        timestamp = util_parser:maybe_convert_to_binary(ProtoPayload#pb_chat.timestamp),
+        timestamp = util_parser:maybe_convert_to_binary(ProtoPayload#pb_chat_stanza.timestamp),
         sub_els = FinalSubEls
     }.
 
