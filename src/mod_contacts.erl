@@ -254,8 +254,6 @@ finish_sync(UserId, Server, SyncId) ->
     DeleteContactSet = sets:subtract(OldContactSet, NewContactSet),
     AddContactSet = sets:subtract(NewContactSet, OldContactSet),
     OldReverseContactSet = sets:from_list(OldReverseContactList),
-    %% Send notification to User who invited this user.
-    process_notification_to_inviter(UserId, UserPhone, Server, NewContactSet, sets:is_empty(OldContactSet)),
     ?INFO_MSG("Full contact sync stats: uid: ~p, old_contacts: ~p, new_contacts: ~p, "
             "add_contacts: ~p, delete_contacts: ~p", [UserId, sets:size(OldContactSet),
             sets:size(NewContactSet), sets:size(AddContactSet), sets:size(DeleteContactSet)]),
@@ -275,6 +273,9 @@ finish_sync(UserId, Server, SyncId) ->
     EndTime = os:system_time(microsecond),
     T = EndTime - StartTime,
     ?INFO_MSG("Time taken: ~w us", [T]),
+    %% Send notification to User who invited this user.
+    process_notification_to_inviter(UserId, UserPhone, Server, NewContactSet,
+        sets:is_empty(OldContactSet)),
     ok.
 
 
@@ -286,10 +287,17 @@ process_notification_to_inviter(UserId, UserPhone, Server, NewContactSet, true) 
         {ok, Uid, _} -> Uid;
         {ok, undefined} -> undefined
     end,
-    case sets:is_element(InviterUid, NewContactSet) of
-        true -> mod_invites:notify_inviter(UserId, UserPhone, Server, InviterUid, 
-                    get_role_value(false));
-        false -> ok
+    case InviterUid of
+        undefined -> ok;
+        _ ->
+            {ok, InviterPhone} = model_accounts:get_phone(InviterUid),
+            case sets:is_element(InviterPhone, NewContactSet) of
+                true ->
+                    IsFriend = model_friends:is_friend(InviterUid, UserId), 
+                    mod_invites:notify_inviter(UserId, UserPhone, Server, InviterUid, 
+                            get_role_value(IsFriend));
+                false -> ok
+            end
     end;
 
 

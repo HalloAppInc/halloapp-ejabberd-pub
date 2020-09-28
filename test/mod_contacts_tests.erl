@@ -297,7 +297,7 @@ unblock_uids_test() ->
     ok.
 
 
-new_user_invite_notification_test() ->
+new_user_invite_notification_not_friend_test() ->
     setup(),
     setup_accounts([[?UID1, ?PHONE1, ?NAME1, ?UA1]]),
 
@@ -316,11 +316,15 @@ new_user_invite_notification_test() ->
     meck:new(ejabberd_router),
     meck:expect(ejabberd_router, route,
         fun(Packet) ->
-            #message{type = MsgType, sub_els = SubEls} = Packet,
+            #message{type = MsgType, to = To, sub_els = [SubEls]} = Packet,
+            #jid{user = User} = To,
+            ?assertEqual(User, ?UID1),
             #contact_list{contacts = [Contact]} = SubEls,
-            #contact{name = Name} = Contact,
+            #contact{name = Name, normalized = Phone, role = Role} = Contact,
             ?assertEqual(Name, ?NAME2),
+            ?assertEqual(Phone, ?PHONE2),
             ?assertEqual(MsgType, headline),
+            ?assertEqual(Role, <<"none">>),
             ok
         end),
 
@@ -330,4 +334,47 @@ new_user_invite_notification_test() ->
     meck:validate(ejabberd_router),
     meck:unload(ejabberd_router),
     ok.
+
+new_user_invite_notification_friend_test() ->
+    setup(),
+    setup_accounts([[?UID1, ?PHONE1, ?NAME1, ?UA1]]),
+
+    %% UID1 invites PHONE2, invite goes from the client and the server does not know about
+    %% PHONE2
+    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
+ 
+    %% PHONE2 joins as UID2. 
+    setup_accounts([[?UID2, ?PHONE2, ?NAME2, ?UA2]]),
+
+    %% UID1 uploads his addressbook and that has UID2's phone number on UID2's reg.
+    InputContacts = [#contact{raw = ?PHONE2}],
+    mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, ?SYNC_ID1),
+    ok = mod_contacts:finish_sync(?UID1, ?SERVER, ?SYNC_ID1),
+
+    %% UID2 uploads his addressbook and that has UID1's phone number.
+    InputContacts2 = [#contact{raw = ?PHONE1}],
+    mod_contacts:normalize_and_insert_contacts(?UID2, ?SERVER, InputContacts2, ?SYNC_ID2),
+
+    meck:new(ejabberd_router),
+    meck:expect(ejabberd_router, route,
+        fun(Packet) ->
+            #message{type = MsgType, to = To, sub_els = [SubEls]} = Packet,
+            #jid{user = User} = To,
+            ?assertEqual(User, ?UID1),
+            #contact_list{contacts = [Contact]} = SubEls,
+            #contact{name = Name, normalized = Phone, role = Role} = Contact,
+            ?assertEqual(Name, ?NAME2),
+            ?assertEqual(Phone, ?PHONE2),
+            ?assert(MsgType =:= headline orelse MsgType =:= normal),
+            ?assertEqual(Role, <<"friends">>),
+            ok
+        end),
+
+    mod_contacts:finish_sync(?UID2, ?SERVER, ?SYNC_ID2),
+    ?assertEqual({ok, [?PHONE1]}, model_contacts:get_contacts(?UID2)),
+
+    meck:validate(ejabberd_router),
+    meck:unload(ejabberd_router),
+    ok.
+
 
