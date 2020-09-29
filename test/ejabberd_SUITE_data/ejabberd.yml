@@ -95,6 +95,7 @@ loglevel: LOGLEVEL
 max_fsm_queue: 1000
 queue_type: file
 modules:
+  mod_aws: {}
   mod_adhoc: []
   mod_announce: []
   mod_configure: []
@@ -102,13 +103,7 @@ modules:
   mod_ping: []
   mod_proxy65:
     vcard: VCARD
-  mod_muc:
-    vcard: VCARD
-  mod_muc_admin: []
   mod_carboncopy: []
-  mod_jidprep: []
-  mod_mam: []
-  mod_last: []
   mod_register:
     welcome_message:
       subject: "Welcome!"
@@ -120,14 +115,27 @@ Welcome to this XMPP server."
   mod_stream_mgmt:
     max_ack_queue: 10
     resume_timeout: 3
+  mod_client_version:
+    max_days: 30
   mod_time: []
-  mod_version: []
+#  mod_version: []
   mod_http_upload:
     docroot: PRIV_DIR
     put_url: PUT_URL
     get_url: GET_URL
     max_size: 10000
     vcard: VCARD
+  mod_redis: {}
+  model_phone: {}
+  model_friends: {}
+  model_accounts: {}
+  model_privacy: {}
+  model_contacts: {}
+  model_messages: {}
+  model_auth: {}
+  model_whisper_keys: {}
+  model_feed: {}
+  stat: {}
 registration_timeout: infinity
 route_subdomains: s2s
 s2s_use_starttls: false

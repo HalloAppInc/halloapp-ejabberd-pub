@@ -52,7 +52,7 @@ init_config(Config) ->
 			filename:join([CWD, "self-signed-cert.pem"])),
     {ok, _} = file:copy(CAFile, filename:join([CWD, "ca.pem"])),
     {ok, MacrosContentTpl} = file:read_file(MacrosPathTpl),
-    Password = <<"password!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>,
+    Password = <<"hallo">>,
     Backends = get_config_backends(),
     MacrosContent = process_config_tpl(
 		      MacrosContentTpl,
@@ -78,6 +78,7 @@ init_config(Config) ->
     ok = file:write_file(MacrosPath, MacrosContent),
     copy_backend_configs(DataDir, CWD, Backends),
     setup_ejabberd_lib_path(Config),
+    setup_priv_dir(Config),
     case application:load(sasl) of
 	ok -> ok;
 	{error, {already_loaded, _}} -> ok
@@ -99,7 +100,7 @@ init_config(Config) ->
      {component_port, ct:get_config(component_port, 5270)},
      {s2s_port, ct:get_config(s2s_port, 5269)},
      {server, ?COMMON_VHOST},
-     {user, <<"test_single!#$%^*()`~+-;_=[]{}|\\">>},
+     {user, <<"1000000000000000001">>},
      {nick, <<"nick!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>},
      {master_nick, <<"master_nick!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>},
      {slave_nick, <<"slave_nick!@#$%^&*()'\"`~<>+-/;:_=[]{}|\\">>},
@@ -174,6 +175,16 @@ setup_ejabberd_lib_path(Config) ->
 	    ok
     end.
 
+setup_priv_dir(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    TopDir = find_top_dir(DataDir),
+    PrivDir = filename:join(TopDir, "priv"),
+    {ok, CWD} = file:get_cwd(),
+    NewPrivPath = filename:join([CWD, "priv"]),
+    ok = file:make_symlink(PrivDir, NewPrivPath),
+    ok.
+
+
 %% Read environment variable CT_DB=mysql to limit the backends to test.
 %% You can thus limit the backend you want to test with:
 %%  CT_BACKENDS=mysql rebar ct suites=ejabberd
@@ -220,6 +231,7 @@ stream_header(Config) ->
 		  from = From,
 		  lang = ?config(lang, Config),
 		  version = ?config(stream_version, Config),
+          client_version = <<"HalloApp/iOS0.2.61">>,
 		  xmlns = ?config(xmlns, Config),
 		  db_xmlns = ?config(db_xmlns, Config),
 		  stream_xmlns = ?config(ns_stream, Config)}.

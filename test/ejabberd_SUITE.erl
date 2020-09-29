@@ -39,10 +39,11 @@
 		auth_legacy/2, auth_legacy/3, tcp_connect/1, send_text/2,
 		set_roster/3, del_roster/1]).
 -include("suite.hrl").
+-include("account_test_data.hrl").
 
 suite() ->
     % TODO: it takes too long to wait for things to timeout
-    [{timetrap, {seconds, 5}}].
+    [{timetrap, {seconds, 7}}].
 
 init_per_suite(Config) ->
     NewConfig = init_config(Config),
@@ -58,7 +59,25 @@ init_per_suite(Config) ->
     inet_db:set_domain(binary_to_list(p1_rand:get_string())),
     inet_db:set_lookup([file, native]),
     start_ejabberd(NewConfig),
+    create_test_accounts(),
     NewConfig.
+
+flush_db() ->
+    % TODO: Instead of this we should somehow clear the redis before
+    % we even start the ejabberd
+    {ok, ok} = gen_server:call(redis_accounts_client, flushdb),
+    ok.
+
+% TODO: move those function in some util file, maybe suite_ha
+create_test_accounts() ->
+    flush_db(),
+    % TODO: instead of the model functions it is better to use the higher level API.
+    % TODO: create all 5 accounts
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA, ?TS1),
+    ok = ejabberd_auth:set_password(?UID1, ?PASSWORD1),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA, ?TS2),
+    ok = ejabberd_auth:set_password(?UID2, ?PASSWORD2),
+    ok.
 
 start_ejabberd(_) ->
     {ok, _} = application:ensure_all_started(ejabberd, transient).
@@ -88,14 +107,14 @@ init_per_group(Group, Config) ->
     end.
 
 do_init_per_group(no_db, Config) ->
-    re_register(Config),
+%%    re_register(Config),
     set_opt(persistent_room, false, Config);
 do_init_per_group(mnesia, Config) ->
-    mod_muc:shutdown_rooms(?MNESIA_VHOST),
-    set_opt(server, ?MNESIA_VHOST, Config);
+%%    mod_muc:shutdown_rooms(?MNESIA_VHOST),
+    set_opt(server, ?COMMON_VHOST, Config);
 do_init_per_group(redis, Config) ->
-    mod_muc:shutdown_rooms(?REDIS_VHOST),
-    set_opt(server, ?REDIS_VHOST, Config);
+%%    mod_muc:shutdown_rooms(?REDIS_VHOST),
+    set_opt(server, ?COMMON_VHOST, Config);
 do_init_per_group(mysql, Config) ->
     case catch ejabberd_sql:sql_query(?MYSQL_VHOST, [<<"select 1;">>]) of
         {selected, _, _} ->
@@ -211,12 +230,12 @@ init_per_testcase(TestCase, OrigConfig) ->
 	   end,
     IsCarbons = lists:prefix("carbons_", Test),
     IsReplaced = lists:prefix("replaced_", Test),
-    User = if IsReplaced -> <<"test_single!#$%^*()`~+-;_=[]{}|\\">>;
+    User = if IsReplaced -> ?UID1;
 	      IsCarbons and not (IsMaster or IsSlave) ->
-		   <<"test_single!#$%^*()`~+-;_=[]{}|\\">>;
-	      IsMaster or IsCarbons -> <<"test_master!#$%^*()`~+-;_=[]{}|\\">>;
-              IsSlave -> <<"test_slave!#$%^*()`~+-;_=[]{}|\\">>;
-              true -> <<"test_single!#$%^*()`~+-;_=[]{}|\\">>
+		   ?UID1;
+	      IsMaster or IsCarbons -> ?UID1;
+              IsSlave -> ?UID2;
+              true -> ?UID1
            end,
     Nick = if IsSlave -> ?config(slave_nick, OrigConfig);
 	      IsMaster -> ?config(master_nick, OrigConfig);
@@ -227,18 +246,18 @@ init_per_testcase(TestCase, OrigConfig) ->
 		    true -> Resource
 		 end,
     Slave = if IsCarbons ->
-		    jid:make(<<"test_master!#$%^*()`~+-;_=[]{}|\\">>, Server, SlaveResource);
+		    jid:make(?UID1, Server, SlaveResource);
 	       IsReplaced ->
 		    jid:make(User, Server, Resource);
 	       true ->
-		    jid:make(<<"test_slave!#$%^*()`~+-;_=[]{}|\\">>, Server, Resource)
+		    jid:make(?UID2, Server, Resource)
 	    end,
     Master = if IsCarbons ->
-		     jid:make(<<"test_master!#$%^*()`~+-;_=[]{}|\\">>, Server, MasterResource);
+		     jid:make(?UID1, Server, MasterResource);
 		IsReplaced ->
 		     jid:make(User, Server, Resource);
 		true ->
-		     jid:make(<<"test_master!#$%^*()`~+-;_=[]{}|\\">>, Server, Resource)
+		     jid:make(?UID2, Server, Resource)
 	     end,
     Config1 = set_opt(user, User,
 		      set_opt(slave, Slave,
@@ -336,34 +355,23 @@ no_db_tests() ->
        bad_nonza,
        invalid_from,
        ping,
-       version,
        time,
        stats,
        disco]},
-     {presence_and_s2s, [sequence],
-      [test_auth_fail,
-       presence,
-       s2s_dialback,
-       s2s_optional,
-       s2s_required]},
-     auth_external,
-     auth_external_no_jid,
-     auth_external_no_user,
-     auth_external_malformed_jid,
-     auth_external_wrong_jid,
-     auth_external_wrong_server,
-     auth_external_invalid_cert,
-     jidprep_tests:single_cases(),
+%%     jidprep_tests:single_cases(),
      sm_tests:single_cases(),
      sm_tests:master_slave_cases(),
-     muc_tests:single_cases(),
-     muc_tests:master_slave_cases(),
-     proxy65_tests:single_cases(),
-     proxy65_tests:master_slave_cases(),
+        % TODO: delete muc
+%%     muc_tests:single_cases(),
+%%     muc_tests:master_slave_cases(),
+        % TODO: delete proxy65
+%%     proxy65_tests:single_cases(),
+%%     proxy65_tests:master_slave_cases(),
      replaced_tests:master_slave_cases(),
-     upload_tests:single_cases(),
-     carbons_tests:single_cases(),
-     carbons_tests:master_slave_cases()].
+     upload_tests:single_cases()
+%%     carbons_tests:single_cases(),
+%%     carbons_tests:master_slave_cases()
+    ].
 
 db_tests(DB) when DB == mnesia; DB == redis ->
     [{single_user, [sequence],
@@ -424,10 +432,7 @@ db_tests(DB) ->
 
 ldap_tests() ->
     [{ldap_tests, [sequence],
-      [test_auth,
-       test_auth_fail,
-       vcard_get,
-       ldap_shared_roster_get]}].
+      []}].
 
 extauth_tests() ->
     [{extauth_tests, [sequence],
@@ -474,7 +479,8 @@ s2s_tests() ->
        codec_failure]}].
 
 groups() ->
-    [{ldap, [sequence], ldap_tests()},
+    [
+    {ldap, [sequence], ldap_tests()},
      {extauth, [sequence], extauth_tests()},
      {no_db, [sequence], no_db_tests()},
      {component, [sequence], component_tests()},
@@ -483,19 +489,21 @@ groups() ->
      {redis, [sequence], db_tests(redis)},
      {mysql, [sequence], db_tests(mysql)},
      {pgsql, [sequence], db_tests(pgsql)},
-     {sqlite, [sequence], db_tests(sqlite)}].
+     {sqlite, [sequence], db_tests(sqlite)}
+    ].
 
 all() ->
-    [{group, ldap},
+    [
+%%        {group, ldap},
      {group, no_db},
-     {group, mnesia},
-     {group, redis},
-     {group, mysql},
-     {group, pgsql},
-     {group, sqlite},
-     {group, extauth},
-     {group, component},
-     {group, s2s},
+%%     {group, mnesia},
+%%     {group, redis},
+%%     {group, mysql},
+%%     {group, pgsql},
+%%     {group, sqlite},
+%%     {group, extauth},
+%%     {group, component},
+%%     {group, s2s},
      stop_ejabberd].
 
 stop_ejabberd(Config) ->
@@ -698,32 +706,6 @@ test_component_send(Config) ->
 			      sub_els = [#ping{}]}),
     disconnect(Config).
 
-s2s_dialback(Config) ->
-    Server = ?config(server, Config),
-    ejabberd_s2s:stop_s2s_connections(),
-    ejabberd_config:set_option({s2s_use_starttls, Server}, false),
-    ejabberd_config:set_option({s2s_use_starttls, ?MNESIA_VHOST}, false),
-    ejabberd_config:set_option(ca_file, pkix:get_cafile()),
-    s2s_ping(Config).
-
-s2s_optional(Config) ->
-    Server = ?config(server, Config),
-    ejabberd_s2s:stop_s2s_connections(),
-    ejabberd_config:set_option({s2s_use_starttls, Server}, optional),
-    ejabberd_config:set_option({s2s_use_starttls, ?MNESIA_VHOST}, optional),
-    ejabberd_config:set_option(ca_file, pkix:get_cafile()),
-    s2s_ping(Config).
-
-s2s_required(Config) ->
-    Server = ?config(server, Config),
-    ejabberd_s2s:stop_s2s_connections(),
-    gen_mod:stop_module(Server, mod_s2s_dialback),
-    gen_mod:stop_module(?MNESIA_VHOST, mod_s2s_dialback),
-    ejabberd_config:set_option({s2s_use_starttls, Server}, required),
-    ejabberd_config:set_option({s2s_use_starttls, ?MNESIA_VHOST}, required),
-    ejabberd_config:set_option(ca_file, "ca.pem"),
-    s2s_ping(Config).
-
 s2s_ping(Config) ->
     From = my_jid(Config),
     To = jid:make(?MNESIA_VHOST),
@@ -842,11 +824,6 @@ unsupported_query(Config) ->
 							 #privacy_query{}]}),
     disconnect(Config).
 
-presence(Config) ->
-    JID = my_jid(Config),
-    #presence{from = JID, to = JID} = send_recv(Config, #presence{}),
-    disconnect(Config).
-
 presence_broadcast(Config) ->
     Feature = <<"p1:tmp:", (p1_rand:get_string())/binary>>,
     Ver = crypto:hash(sha, ["client", $/, "bot", $/, "en", $/,
@@ -894,14 +871,6 @@ ping(Config) ->
           #iq{type = get, sub_els = [#ping{}], to = server_jid(Config)}),
     disconnect(Config).
 
-version(Config) ->
-    true = is_feature_advertised(Config, ?NS_VERSION),
-    #iq{type = result, sub_els = [#version{}]} =
-        send_recv(
-          Config, #iq{type = get, sub_els = [#version{}],
-                      to = server_jid(Config)}),
-    disconnect(Config).
-
 time(Config) ->
     true = is_feature_advertised(Config, ?NS_TIME),
     #iq{type = result, sub_els = [#time{}]} =
@@ -932,19 +901,6 @@ last(Config) ->
                               to = server_jid(Config)}),
     disconnect(Config).
 
-vcard_get(Config) ->
-    true = is_feature_advertised(Config, ?NS_VCARD),
-    %% TODO: check if VCard corresponds to LDIF data from ejabberd.ldif
-    #iq{type = result, sub_els = [_VCard]} =
-        send_recv(Config, #iq{type = get, sub_els = [#vcard_temp{}]}),
-    disconnect(Config).
-
-ldap_shared_roster_get(Config) ->
-    Item = #roster_item{jid = jid:decode(<<"user2@ldap.localhost">>), name = <<"Test User 2">>,
-                        groups = [<<"group1">>], subscription = both},
-    #iq{type = result, sub_els = [#roster_query{items = [Item]}]} =
-        send_recv(Config, #iq{type = get, sub_els = [#roster_query{}]}),
-    disconnect(Config).
 
 stats(Config) ->
     #iq{type = result, sub_els = [#stats{list = Stats}]} =

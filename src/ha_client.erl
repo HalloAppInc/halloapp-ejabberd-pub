@@ -175,7 +175,7 @@ handle_call({login, Uid, Passwd}, _From, State) ->
         uid = util:to_integer(Uid),
         pwd = Passwd,
         cm = #pb_client_mode{mode = active},
-        cv = #pb_client_version{version = <<"HalloAppAndroid/82D">>},
+        cv = #pb_client_version{version = <<"HalloApp/Android0.82D">>},
         resource = <<"android">>
     },
     ct:pal("before send"),
