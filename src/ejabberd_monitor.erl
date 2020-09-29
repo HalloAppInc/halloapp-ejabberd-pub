@@ -26,6 +26,7 @@
 %% gen_server callbacks
 -export([
     init/1,
+    stop/0,
     handle_call/3,
     handle_cast/2,
     handle_info/2,
@@ -48,6 +49,10 @@ start_link() ->
 monitor(Proc) ->
     gen_server:cast(?MODULE, {monitor, Proc}),
     ok.
+
+
+stop() ->
+    ejabberd_sup:stop_child(?MODULE).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
