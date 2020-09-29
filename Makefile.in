@@ -264,7 +264,9 @@ install: all copy-files
 	# Log directory
 	$(INSTALL) -d -m 750 $(O_USER) $(LOGDIR)
 	$(CHOWN_COMMAND) -R @INSTALLUSER@ $(LOGDIR) >$(CHOWN_OUTPUT)
-	chmod -R 750 $(LOGDIR)
+	chmod -R 755 $(LOGDIR)
+	## TODO(murali@): Fix this eventually, when we have different user profiles.
+	ln -f -s $(LOGDIR) /home/ec2-user/logs
 	#
 	# Documentation
 	$(INSTALL) -d $(DOCDIR)
