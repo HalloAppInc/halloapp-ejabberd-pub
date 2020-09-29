@@ -63,7 +63,7 @@ offline_message_hook({_, #message{} = Message} = Acc) ->
 
 
 -spec should_push(Message :: message()) -> boolean(). 
-should_push(#message{type = Type, sub_els = [SubEl]}) ->
+should_push(#message{type = Type, sub_els = [SubEl | _]}) ->
     if
         Type =:= groupchat andalso is_record(SubEl, group_chat) ->
             %% Push all group chat messages: all messages with type=groupchat and group_chat as the subelement.
