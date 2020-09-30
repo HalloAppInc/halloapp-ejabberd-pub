@@ -78,7 +78,10 @@ only_list_test() ->
     ?assertEqual(ok, model_privacy:add_only_uids(?UID1, [?UID2, ?UID3])),
     ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_only_uids(?UID1)),
     ?assertEqual(true, model_privacy:is_only_uid(?UID1, ?UID2)),
-    ?assertEqual(true, model_privacy:is_only_uid(?UID1, ?UID3)).
+    ?assertEqual(true, model_privacy:is_only_uid(?UID1, ?UID3)),
+
+    ?assertEqual(ok, model_privacy:remove_user(?UID1)),
+    ?assertEqual({ok, []}, model_privacy:get_only_uids(?UID1)).
 
 
 except_list_test_test() ->
@@ -95,7 +98,10 @@ except_list_test_test() ->
     ?assertEqual(ok, model_privacy:add_except_uids(?UID1, [?UID2, ?UID3])),
     ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_except_uids(?UID1)),
     ?assertEqual(true, model_privacy:is_except_uid(?UID1, ?UID2)),
-    ?assertEqual(true, model_privacy:is_except_uid(?UID1, ?UID3)).
+    ?assertEqual(true, model_privacy:is_except_uid(?UID1, ?UID3)),
+
+    ?assertEqual(ok, model_privacy:remove_user(?UID1)),
+    ?assertEqual({ok, []}, model_privacy:get_except_uids(?UID1)).
 
 
 mute_test() ->
@@ -108,7 +114,10 @@ mute_test() ->
 
     ?assertEqual(ok, model_privacy:mute_uids(?UID1, [])),
     ?assertEqual(ok, model_privacy:mute_uids(?UID1, [?UID2, ?UID3])),
-    ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_mutelist_uids(?UID1)).
+    ?assertEqual({ok, [?UID2, ?UID3]}, model_privacy:get_mutelist_uids(?UID1)),
+
+    ?assertEqual(ok, model_privacy:remove_user(?UID1)),
+    ?assertEqual({ok, []}, model_privacy:get_mutelist_uids(?UID1)).
 
 
 block_test() ->
@@ -131,7 +140,10 @@ block_test() ->
     ?assertEqual(true, model_privacy:is_blocked(?UID1, ?UID2)),
     ?assertEqual(true, model_privacy:is_blocked_by(?UID2, ?UID1)),
     ?assertEqual(true, model_privacy:is_blocked(?UID1, ?UID3)),
-    ?assertEqual(true, model_privacy:is_blocked_by(?UID3, ?UID1)).
+    ?assertEqual(true, model_privacy:is_blocked_by(?UID3, ?UID1)),
+
+    ?assertEqual(ok, model_privacy:remove_user(?UID1)),
+    ?assertEqual({ok, []}, model_privacy:get_blocked_uids(?UID1)).
 
 
 is_blocked_test() ->
@@ -144,5 +156,8 @@ is_blocked_test() ->
     ?assertEqual(ok, model_privacy:unblock_uid(?UID1, ?UID2)),
     ?assertEqual(false, model_privacy:is_blocked_any(?UID1, ?UID2)),
     ?assertEqual(ok, model_privacy:block_uid(?UID2, ?UID1)),
-    ?assertEqual(true, model_privacy:is_blocked_any(?UID1, ?UID2)).
+    ?assertEqual(true, model_privacy:is_blocked_any(?UID1, ?UID2)),
+
+    ?assertEqual(ok, model_privacy:remove_user(?UID1)),
+    ?assertEqual({ok, []}, model_privacy:get_blocked_uids(?UID1)).
 

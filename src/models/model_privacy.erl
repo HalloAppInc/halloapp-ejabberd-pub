@@ -52,7 +52,8 @@
     is_except_uid/2,
     is_blocked/2,
     is_blocked_by/2,
-    is_blocked_any/2
+    is_blocked_any/2,
+    remove_user/1
 ]).
 
 %%====================================================================
@@ -260,6 +261,13 @@ is_blocked_by(Uid, Ouid) ->
 -spec is_blocked_any(Uid :: uid(), Ouid :: uid()) -> boolean().
 is_blocked_any(Uid, Ouid) ->
     is_blocked(Uid, Ouid) orelse is_blocked_by(Uid, Ouid).
+
+
+-spec remove_user(Uid :: uid()) -> ok.
+remove_user(Uid) ->
+    {ok, _Res} = q(["DEL", only_key(Uid), except_key(Uid), mute_key(Uid),
+            block_key(Uid), reverse_block_key(Uid)]),
+    ok.
 
 
 %%====================================================================

@@ -116,6 +116,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
                     contacts = handle_delta_contacts(UserId, Server, Contacts)}).
 
 
+-spec remove_user(UserId :: binary(), Server :: binary()) -> ok.
 remove_user(UserId, Server) ->
     remove_all_contacts(UserId, Server).
 

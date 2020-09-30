@@ -31,6 +31,7 @@
     presence_subs_hook/3,
     unset_presence_hook/4,
     re_register_user/3,
+    remove_user/2,
     subscribe_user_to_friend/3,
     unsubscribe_user_to_friend/3,
     get_user_subscribed_friends/2,
@@ -41,12 +42,14 @@
 start(Host, _Opts) ->
     ejabberd_hooks:add(presence_subs_hook, Host, ?MODULE, presence_subs_hook, 1),
     ejabberd_hooks:add(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50).
+    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10).
 
 stop(Host) ->
     ejabberd_hooks:delete(presence_subs_hook, Host, ?MODULE, presence_subs_hook, 1),
     ejabberd_hooks:delete(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50).
+    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10).
 
 depends(_Host, _Opts) ->
     [].
@@ -64,15 +67,24 @@ reload(_Host, _NewOpts, _OldOpts) ->
 -spec re_register_user(Uid :: binary(), Server :: binary(),
         Phone :: binary()) -> {ok, any()} | {error, any()}.
 re_register_user(Uid, _Server, _Phone) ->
+    presence_unsubscribe_all(Uid).
+
+
+-spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
+remove_user(Uid, _Server) ->
+    presence_unsubscribe_all(Uid).
+
+
+-spec unset_presence_hook(Uid :: binary(), Server :: binary(),
+        Resource :: binary(), Status :: binary()) -> {ok, any()} | {error, any()}.
+unset_presence_hook(Uid, _Server, _Resource, _Status) ->
+    presence_unsubscribe_all(Uid).
+
+
+-spec presence_unsubscribe_all(Uid :: binary()) -> ok.
+presence_unsubscribe_all(Uid) ->
     ?INFO_MSG("Uid: ~s, unsubscribe_all", [Uid]),
     model_accounts:presence_unsubscribe_all(Uid).
-
-
--spec unset_presence_hook(User :: binary(), Server :: binary(),
-        Resource :: binary(), Status :: binary()) -> {ok, any()} | {error, any()}.
-unset_presence_hook(User, _Server, _Resource, _Status) ->
-    ?INFO_MSG("Uid: ~s, unsubscribe_all", [User]),
-    model_accounts:presence_unsubscribe_all(User).
 
 
 -spec presence_subs_hook(User :: binary(), Server :: binary(),
