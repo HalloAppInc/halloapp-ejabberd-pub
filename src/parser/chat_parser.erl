@@ -24,15 +24,32 @@ xmpp_to_proto(SubEl) ->
                     Cdata = fxml:get_tag_cdata(SubElement),
                     Attr1 = fxml:get_tag_attr_s(<<"identity_key">>, SubElement),
                     Attr2 = fxml:get_tag_attr_s(<<"one_time_pre_key_id">>, SubElement),
-                    {S1, Cdata, Attr1, binary_to_integer(Attr2)}
+                    EncData = case Cdata of
+                        <<>> -> undefined;
+                        undefined -> undefined;
+                        _ -> base64:decode(Cdata)
+                    end,
+                    PKeyAttr = case Attr1 of
+                        <<>> -> undefined;
+                        undefined -> undefined;
+                        _ -> base64:decode(Attr1)
+                    end,
+                    OtpKeyIdAttr = case Attr2 of
+                        <<>> -> undefined;
+                        0 -> undefined;
+                        undefined -> undefined;
+                        _ -> binary_to_integer(Attr2)
+                    end,
+
+                    {S1, EncData, PKeyAttr, OtpKeyIdAttr}
             end
-        end, {<<>>, <<>>, <<>>, 0}, SubEl#chat.sub_els),
+        end, {<<>>, undefined, undefined, undefined}, SubEl#chat.sub_els),
     #pb_chat_stanza{
         timestamp = util_parser:maybe_convert_to_integer(SubEl#chat.timestamp),
         sender_name = SubEl#chat.sender_name,
         payload = base64:decode(Content),
-        enc_payload = base64:decode(EncryptedContent),
-        public_key = base64:decode(PublicKey),
+        enc_payload = EncryptedContent,
+        public_key = PublicKey,
         one_time_pre_key_id = OneTimePreKeyId
     }.
 
@@ -48,8 +65,15 @@ proto_to_xmpp(ProtoPayload) ->
         undefined -> [Content];
         <<>> -> [Content];
         _ ->
-            Attrs = [{<<"identity_key">>, base64:encode(ProtoPayload#pb_chat_stanza.public_key)},
-            {<<"one_time_pre_key_id">>, util_parser:maybe_convert_to_binary(ProtoPayload#pb_chat_stanza.one_time_pre_key_id)}],
+            PkeyAttr = case ProtoPayload#pb_chat_stanza.public_key of
+                undefined -> [];
+                Pkey -> [{<<"identity_key">>, base64:encode(Pkey)}]
+            end,
+            OtpKeyIdAttr = case ProtoPayload#pb_chat_stanza.one_time_pre_key_id of
+                undefined -> [];
+                OtpKeyId -> [{<<"one_time_pre_key_id">>, util_parser:maybe_convert_to_binary(OtpKeyId)}]
+            end,
+            Attrs = PkeyAttr ++ OtpKeyIdAttr,
             EncryptedContent = {xmlel,<<"enc">>, Attrs, [{xmlcdata, base64:encode(ProtoPayload#pb_chat_stanza.enc_payload)}]},
             [Content, EncryptedContent]
     end,
