@@ -55,83 +55,6 @@ setup() ->
     ok.
 
 
-create_uid_el(Type, Uid) ->
-    #uid_el{
-        type = Type,
-        uid = Uid
-    }.
-
-
-create_user_privacy_list(Type, Hash, UidEls) ->
-    #user_privacy_list {
-        type = Type,
-        hash = Hash,
-        uid_els = UidEls
-    }.
-
-
-create_user_privacy_lists(ActiveType, Lists) ->
-    #user_privacy_lists{
-        active_type = ActiveType,
-        lists = Lists
-    }.
-
-
-create_pb_uid_element(Action, Uid) ->
-    #pb_uid_element{
-        action = Action,
-        uid = Uid
-    }.
-
-
-create_pb_privacy_list(Type, Hash, UidElements) ->
-    #pb_privacy_list{
-        type = Type,
-        hash = Hash,
-        uid_elements = UidElements
-    }.
-
-
-create_pb_privacy_lists(ActiveType, PbPrivacyLists) ->
-    #pb_privacy_lists{
-        active_type = ActiveType,
-        lists = PbPrivacyLists
-    }.
-
-
-create_pb_privacy_list_result(Result, Reason, Hash) ->
-    #pb_privacy_list_result{
-        result = Result,
-        reason = Reason,
-        hash = Hash
-    }.
-
-
-create_error_st(Reason, Hash) ->
-    #error_st{
-        reason = Reason,
-        hash = Hash
-    }.
-
-
-create_iq_stanza(Id, ToJid, FromJid, Type, SubEls) ->
-    #iq{
-        id = Id,
-        to = ToJid,
-        from = FromJid,
-        type = Type,
-        sub_els = SubEls
-    }.
-
-
-create_pb_iq(Id, Type, PayloadContent) ->
-    #pb_iq{
-        id = Id,
-        type = Type,
-        payload = PayloadContent
-    }.
-
-
 %% -------------------------------------------- %%
 %% internal tests
 %% -------------------------------------------- %%
@@ -140,11 +63,11 @@ create_pb_iq(Id, Type, PayloadContent) ->
 %% iq-error with privacy_list_result.
 xmpp_to_proto_iq_error_test() ->
     setup(),
-    SubEl = create_error_st(unexcepted_uids, <<"MTIz">>),
-    ErrorIQ = create_iq_stanza(?ID1, jid:make(?UID1, ?SERVER), jid:make(?SERVER), error, [SubEl]),
+    SubEl = struct_util:create_error_st(unexcepted_uids, <<"MTIz">>),
+    ErrorIQ = struct_util:create_iq_stanza(?ID1, jid:make(?UID1, ?SERVER), jid:make(?SERVER), error, [SubEl]),
 
-    PrivacyListResult = create_pb_privacy_list_result(<<"failed">>, <<"unexcepted_uids">>, <<"123">>),
-    ExpectedProtoIQ = create_pb_iq(?ID1, error, PrivacyListResult),
+    PrivacyListResult = struct_util:create_pb_privacy_list_result(<<"failed">>, <<"unexcepted_uids">>, <<"123">>),
+    ExpectedProtoIQ = struct_util:create_pb_iq(?ID1, error, PrivacyListResult),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(ErrorIQ),
     ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
@@ -154,15 +77,15 @@ xmpp_to_proto_iq_error_test() ->
 %% iq-set with privacy_list.
 xmpp_to_proto_iq_privacy_list_test() ->
     setup(),
-    UidEl1 = create_uid_el(add, ?UID2),
-    UidEl2 = create_uid_el(add, ?UID3),
-    SubEl = create_user_privacy_list(except, undefined, [UidEl1, UidEl2]),
-    ExceptIQ = create_iq_stanza(?ID1, jid:make(?SERVER), jid:make(?UID1, ?SERVER), set, [SubEl]),
+    UidEl1 = struct_util:create_uid_el(add, ?UID2),
+    UidEl2 = struct_util:create_uid_el(add, ?UID3),
+    SubEl = struct_util:create_user_privacy_list(except, undefined, [UidEl1, UidEl2]),
+    ExceptIQ = struct_util:create_iq_stanza(?ID1, jid:make(?SERVER), jid:make(?UID1, ?SERVER), set, [SubEl]),
 
-    UidElement1 = create_pb_uid_element(add, ?UID2_INT),
-    UidElement2 = create_pb_uid_element(add, ?UID3_INT),
-    PrivacyList = create_pb_privacy_list(except, undefined, [UidElement1, UidElement2]),
-    ExpectedProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
+    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2_INT),
+    UidElement2 = struct_util:create_pb_uid_element(add, ?UID3_INT),
+    PrivacyList = struct_util:create_pb_privacy_list(except, undefined, [UidElement1, UidElement2]),
+    ExpectedProtoIQ = struct_util:create_pb_iq(?ID1, set, PrivacyList),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(ExceptIQ),
     ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
@@ -172,13 +95,13 @@ xmpp_to_proto_iq_privacy_list_test() ->
 %% iq-set with privacy_list and hash.
 xmpp_to_proto_iq_privacy_list_hash_test() ->
     setup(),
-    UidEl1 = create_uid_el(add, ?UID3),
-    SubEl = create_user_privacy_list(except, ?HASH1_BASE64, [UidEl1]),
-    ExceptIQ = create_iq_stanza(?ID1, jid:make(?SERVER), jid:make(?UID1, ?SERVER), set, [SubEl]),
+    UidEl1 = struct_util:create_uid_el(add, ?UID3),
+    SubEl = struct_util:create_user_privacy_list(except, ?HASH1_BASE64, [UidEl1]),
+    ExceptIQ = struct_util:create_iq_stanza(?ID1, jid:make(?SERVER), jid:make(?UID1, ?SERVER), set, [SubEl]),
 
-    UidElement1 = create_pb_uid_element(add, ?UID3_INT),
-    PrivacyList = create_pb_privacy_list(except, ?HASH1, [UidElement1]),
-    ExpectedProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
+    UidElement1 = struct_util:create_pb_uid_element(add, ?UID3_INT),
+    PrivacyList = struct_util:create_pb_privacy_list(except, ?HASH1, [UidElement1]),
+    ExpectedProtoIQ = struct_util:create_pb_iq(?ID1, set, PrivacyList),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(ExceptIQ),
     ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
@@ -188,9 +111,9 @@ xmpp_to_proto_iq_privacy_list_hash_test() ->
 %% iq-empty result.
 xmpp_to_proto_iq_privacy_list_result_test() ->
     setup(),
-    ExceptIQ = create_iq_stanza(?ID1, jid:make(?UID1, ?SERVER), jid:make(?SERVER), result, []),
+    ExceptIQ = struct_util:create_iq_stanza(?ID1, jid:make(?UID1, ?SERVER), jid:make(?SERVER), result, []),
 
-    ExpectedProtoIQ = create_pb_iq(?ID1, result, undefined),
+    ExpectedProtoIQ = struct_util:create_pb_iq(?ID1, result, undefined),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(ExceptIQ),
     ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
@@ -200,29 +123,29 @@ xmpp_to_proto_iq_privacy_list_result_test() ->
 %% iq-result with all lists.
 xmpp_to_proto_iq_privacy_lists_result_test() ->
     setup(),
-    UidEl1 = create_uid_el(add, ?UID2),
-    UidEl2 = create_uid_el(add, ?UID3),
-    UidEl3 = create_uid_el(add, ?UID4),
-    UidEl4 = create_uid_el(add, ?UID5),
-    SubEl1 = create_user_privacy_list(except, <<>>, [UidEl1, UidEl2]),
-    SubEl2 = create_user_privacy_list(only, <<>>, [UidEl2, UidEl3]),
-    SubEl3 = create_user_privacy_list(mute, <<>>, [UidEl3]),
-    SubEl4 = create_user_privacy_list(block, <<>>, [UidEl4]),
+    UidEl1 = struct_util:create_uid_el(add, ?UID2),
+    UidEl2 = struct_util:create_uid_el(add, ?UID3),
+    UidEl3 = struct_util:create_uid_el(add, ?UID4),
+    UidEl4 = struct_util:create_uid_el(add, ?UID5),
+    SubEl1 = struct_util:create_user_privacy_list(except, <<>>, [UidEl1, UidEl2]),
+    SubEl2 = struct_util:create_user_privacy_list(only, <<>>, [UidEl2, UidEl3]),
+    SubEl3 = struct_util:create_user_privacy_list(mute, <<>>, [UidEl3]),
+    SubEl4 = struct_util:create_user_privacy_list(block, <<>>, [UidEl4]),
 
-    UserPrivacyLists = create_user_privacy_lists(only, [SubEl4, SubEl3, SubEl2, SubEl1]),
-    ExceptIQ = create_iq_stanza(?ID1, jid:make(?UID1, ?SERVER), jid:make(?SERVER), result, [UserPrivacyLists]),
+    UserPrivacyLists = struct_util:create_user_privacy_lists(only, [SubEl4, SubEl3, SubEl2, SubEl1]),
+    ExceptIQ = struct_util:create_iq_stanza(?ID1, jid:make(?UID1, ?SERVER), jid:make(?SERVER), result, [UserPrivacyLists]),
 
-    UidElement1 = create_pb_uid_element(add, ?UID2_INT),
-    UidElement2 = create_pb_uid_element(add, ?UID3_INT),
-    UidElement3 = create_pb_uid_element(add, ?UID4_INT),
-    UidElement4 = create_pb_uid_element(add, ?UID5_INT),
-    PrivacyList1 = create_pb_privacy_list(except, <<>>, [UidElement1, UidElement2]),
-    PrivacyList2 = create_pb_privacy_list(only, <<>>, [UidElement2, UidElement3]),
-    PrivacyList3 = create_pb_privacy_list(mute, <<>>, [UidElement3]),
-    PrivacyList4 = create_pb_privacy_list(block, <<>>, [UidElement4]),
+    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2_INT),
+    UidElement2 = struct_util:create_pb_uid_element(add, ?UID3_INT),
+    UidElement3 = struct_util:create_pb_uid_element(add, ?UID4_INT),
+    UidElement4 = struct_util:create_pb_uid_element(add, ?UID5_INT),
+    PrivacyList1 = struct_util:create_pb_privacy_list(except, <<>>, [UidElement1, UidElement2]),
+    PrivacyList2 = struct_util:create_pb_privacy_list(only, <<>>, [UidElement2, UidElement3]),
+    PrivacyList3 = struct_util:create_pb_privacy_list(mute, <<>>, [UidElement3]),
+    PrivacyList4 = struct_util:create_pb_privacy_list(block, <<>>, [UidElement4]),
 
-    PrivacyLists = create_pb_privacy_lists(only, [PrivacyList4, PrivacyList3, PrivacyList2, PrivacyList1]),
-    ExpectedProtoIQ = create_pb_iq(?ID1, result, PrivacyLists),
+    PrivacyLists = struct_util:create_pb_privacy_lists(only, [PrivacyList4, PrivacyList3, PrivacyList2, PrivacyList1]),
+    ExpectedProtoIQ = struct_util:create_pb_iq(?ID1, result, PrivacyLists),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(ExceptIQ),
     ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
@@ -232,15 +155,15 @@ xmpp_to_proto_iq_privacy_lists_result_test() ->
 %% iq-set for only privacy_list.
 proto_to_xmpp_iq_only_privacy_list_test() ->
     setup(),
-    UidEl1 = create_uid_el(add, ?UID2),
-    UidEl2 = create_uid_el(add, ?UID3),
-    SubEl = create_user_privacy_list(only, <<>>, [UidEl1, UidEl2]),
-    ExceptedXmppIQ = create_iq_stanza(?ID1, undefined, undefined, set, [SubEl]),
+    UidEl1 = struct_util:create_uid_el(add, ?UID2),
+    UidEl2 = struct_util:create_uid_el(add, ?UID3),
+    SubEl = struct_util:create_user_privacy_list(only, <<>>, [UidEl1, UidEl2]),
+    ExceptedXmppIQ = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, [SubEl]),
 
-    UidElement1 = create_pb_uid_element(add, ?UID2_INT),
-    UidElement2 = create_pb_uid_element(add, ?UID3_INT),
-    PrivacyList = create_pb_privacy_list(only, <<>>, [UidElement1, UidElement2]),
-    ProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
+    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2_INT),
+    UidElement2 = struct_util:create_pb_uid_element(add, ?UID3_INT),
+    PrivacyList = struct_util:create_pb_privacy_list(only, <<>>, [UidElement1, UidElement2]),
+    ProtoIQ = struct_util:create_pb_iq(?ID1, set, PrivacyList),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIQ),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -250,13 +173,13 @@ proto_to_xmpp_iq_only_privacy_list_test() ->
 %% iq-set for only privacy_list and hash.
 proto_to_xmpp_iq_only_privacy_list_hash_test() ->
     setup(),
-    UidEl1 = create_uid_el(add, ?UID2),
-    SubEl = create_user_privacy_list(only, ?HASH2_BASE64, [UidEl1]),
-    ExceptedXmppIQ = create_iq_stanza(?ID1, undefined, undefined, set, [SubEl]),
+    UidEl1 = struct_util:create_uid_el(add, ?UID2),
+    SubEl = struct_util:create_user_privacy_list(only, ?HASH2_BASE64, [UidEl1]),
+    ExceptedXmppIQ = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, [SubEl]),
 
-    UidElement1 = create_pb_uid_element(add, ?UID2_INT),
-    PrivacyList = create_pb_privacy_list(only, ?HASH2, [UidElement1]),
-    ProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
+    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2_INT),
+    PrivacyList = struct_util:create_pb_privacy_list(only, ?HASH2, [UidElement1]),
+    ProtoIQ = struct_util:create_pb_iq(?ID1, set, PrivacyList),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIQ),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -266,11 +189,11 @@ proto_to_xmpp_iq_only_privacy_list_hash_test() ->
 %% iq-set for all privacy_list.
 proto_to_xmpp_iq_all_privacy_list_test() ->
     setup(),
-    SubEl = create_user_privacy_list(all, <<>>, []),
-    ExceptedXmppIQ = create_iq_stanza(?ID1, undefined, undefined, set, [SubEl]),
+    SubEl = struct_util:create_user_privacy_list(all, <<>>, []),
+    ExceptedXmppIQ = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, [SubEl]),
 
-    PrivacyList = create_pb_privacy_list(all, <<>>, []),
-    ProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
+    PrivacyList = struct_util:create_pb_privacy_list(all, <<>>, []),
+    ProtoIQ = struct_util:create_pb_iq(?ID1, set, PrivacyList),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIQ),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -280,9 +203,9 @@ proto_to_xmpp_iq_all_privacy_list_test() ->
 %% iq-get to retrieve all privacy_lists.
 proto_to_xmpp_iq_privacy_lists_test() ->
     setup(),
-    ExceptedXmppIQ = create_iq_stanza(?ID1, undefined, undefined, get, [#user_privacy_lists{active_type = all}]),
+    ExceptedXmppIQ = struct_util:create_iq_stanza(?ID1, undefined, undefined, get, [#user_privacy_lists{active_type = all}]),
 
-    ProtoIQ = create_pb_iq(?ID1, get, #pb_privacy_lists{}),
+    ProtoIQ = struct_util:create_pb_iq(?ID1, get, #pb_privacy_lists{}),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIQ),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -291,11 +214,11 @@ proto_to_xmpp_iq_privacy_lists_test() ->
 
 proto_to_xmpp_iq_only_get_privacy_list_test() ->
     setup(),
-    SubEl = create_user_privacy_list(only, undefined, []),
-    ExceptedXmppIQ = create_iq_stanza(?ID1, undefined, undefined, set, [SubEl]),
+    SubEl = struct_util:create_user_privacy_list(only, undefined, []),
+    ExceptedXmppIQ = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, [SubEl]),
 
-    PrivacyList = create_pb_privacy_list(only, undefined, []),
-    ProtoIQ = create_pb_iq(?ID1, set, PrivacyList),
+    PrivacyList = struct_util:create_pb_privacy_list(only, undefined, []),
+    ProtoIQ = struct_util:create_pb_iq(?ID1, set, PrivacyList),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIQ),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
