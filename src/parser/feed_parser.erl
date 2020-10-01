@@ -134,6 +134,7 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_feed_item) ->
 
 
 comment_st_to_comment(CommentSt) ->
+    Payload = convert_payload(CommentSt),
     Comment = #pb_comment{
         id = CommentSt#comment_st.id,
         post_id = CommentSt#comment_st.post_id,
@@ -141,37 +142,47 @@ comment_st_to_comment(CommentSt) ->
         publisher_uid = util_parser:xmpp_to_proto_uid(CommentSt#comment_st.publisher_uid),
         publisher_name = CommentSt#comment_st.publisher_name,
         timestamp = util_parser:maybe_convert_to_integer(CommentSt#comment_st.timestamp),
-        payload = base64:decode(CommentSt#comment_st.payload)
+        payload = Payload
     },
     Comment.
 
 post_st_to_post(PostSt) ->
+    Payload = convert_payload(PostSt),
     Post = #pb_post{
         id = PostSt#post_st.id,
         publisher_uid = util_parser:xmpp_to_proto_uid(PostSt#post_st.uid),
-        payload = base64:decode(PostSt#post_st.payload),
+        payload = Payload,
         timestamp = util_parser:maybe_convert_to_integer(PostSt#post_st.timestamp)
     },
     Post.
 
 comment_to_comment_st(Comment) ->
+    Payload = convert_payload(Comment),
     CommentSt = #comment_st{
         id = Comment#pb_comment.id,
         post_id = Comment#pb_comment.post_id,
         parent_comment_id = Comment#pb_comment.parent_comment_id,
         publisher_uid = util_parser:proto_to_xmpp_uid(Comment#pb_comment.publisher_uid),
         publisher_name = Comment#pb_comment.publisher_name,
-        payload = base64:encode(Comment#pb_comment.payload),
+        payload = Payload,
         timestamp = util_parser:maybe_convert_to_binary(Comment#pb_comment.timestamp)
     },
     CommentSt.
 
 post_to_post_st(Post) ->
+    Payload = convert_payload(Post),
     PostSt = #post_st{
         id = Post#pb_post.id,
         uid = util_parser:proto_to_xmpp_uid(Post#pb_post.publisher_uid),
-        payload = base64:encode(Post#pb_post.payload),
+        payload = Payload,
         timestamp = util_parser:maybe_convert_to_binary(Post#pb_post.timestamp)
     },
     PostSt.
+
+
+convert_payload(#post_st{payload = Payload}) when Payload =/= undefined -> base64:decode(Payload);
+convert_payload(#comment_st{payload = Payload}) when Payload =/= undefined -> base64:decode(Payload);
+convert_payload(#pb_comment{payload = Payload}) when Payload =/= undefined -> base64:encode(Payload);
+convert_payload(#pb_post{payload = Payload}) when Payload =/= undefined -> base64:encode(Payload);
+convert_payload(_) -> undefined.
 

@@ -225,6 +225,22 @@ xmpp_to_proto_message_feed_item_test() ->
     ?assertEqual(PbMessage, ProtoMsg).
 
 
+xmpp_to_proto_retract_message_feed_item_test() ->
+    PbPost = create_pb_post(?ID1, ?UID1_INT, undefined, undefined, ?TIMESTAMP1_INT),
+    PbFeedItem = create_feed_item(retract, PbPost),
+    PbMessage = create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbFeedItem),
+
+    PostSt = create_post_st(?ID1, ?UID1, undefined, ?TIMESTAMP1),
+    FeedSt = create_feed_st(retract, [PostSt], [], [], []),
+    ToJid = create_jid(?UID2, ?SERVER),
+    FromJid = create_jid(?UID1, ?SERVER),
+    MessageSt = create_message_stanza(?ID1, ToJid, FromJid, normal, FeedSt),
+
+    ProtoMsg = message_parser:xmpp_to_proto(MessageSt),
+    ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
+    ?assertEqual(PbMessage, ProtoMsg).
+
+
 xmpp_to_proto_message_feed_items_test() ->
     PbPost1 = create_pb_post(?ID1, ?UID1_INT, ?PAYLOAD1, undefined, ?TIMESTAMP1_INT),
     PbPost2 = create_pb_post(?ID2, ?UID1_INT, ?PAYLOAD2, undefined, ?TIMESTAMP2_INT),
@@ -269,6 +285,20 @@ proto_to_xmpp_iq_feed_item_test() ->
 
     CommentSt = create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
     FeedSt = create_feed_st(publish, [], [CommentSt], [], []),
+    IqSt = create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
+
+    XmppIq = iq_parser:proto_to_xmpp(PbIq),
+    ?assertEqual(true, is_record(XmppIq, iq)),
+    ?assertEqual(IqSt, XmppIq).
+
+
+proto_to_xmpp_iq_retract_feed_item_test() ->
+    PbComment = create_pb_comment(?ID3, ?ID1, <<>>, ?UID2_INT, ?NAME2, undefined, ?TIMESTAMP2_INT),
+    PbFeedItem =create_feed_item(retract, PbComment),
+    PbIq = create_pb_iq(?ID1, set, PbFeedItem),
+
+    CommentSt = create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, undefined, ?TIMESTAMP2),
+    FeedSt = create_feed_st(retract, [], [CommentSt], [], []),
     IqSt = create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),
