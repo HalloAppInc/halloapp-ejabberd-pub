@@ -63,15 +63,15 @@ xmpp_to_proto_message_feed_item_test() ->
 
 
 xmpp_to_proto_retract_message_feed_item_test() ->
-    PbPost = create_pb_post(?ID1, ?UID1_INT, undefined, undefined, ?TIMESTAMP1_INT),
-    PbFeedItem = create_feed_item(retract, PbPost),
-    PbMessage = create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbFeedItem),
+    PbPost = struct_util:create_pb_post(?ID1, ?UID1_INT, <<>>, undefined, undefined, ?TIMESTAMP1_INT),
+    PbFeedItem = struct_util:create_feed_item(retract, PbPost),
+    PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbFeedItem),
 
-    PostSt = create_post_st(?ID1, ?UID1, undefined, ?TIMESTAMP1),
-    FeedSt = create_feed_st(retract, [PostSt], [], [], []),
-    ToJid = create_jid(?UID2, ?SERVER),
-    FromJid = create_jid(?UID1, ?SERVER),
-    MessageSt = create_message_stanza(?ID1, ToJid, FromJid, normal, FeedSt),
+    PostSt = struct_util:create_post_st(?ID1, ?UID1, undefined, ?TIMESTAMP1),
+    FeedSt = struct_util:create_feed_st(retract, [PostSt], [], [], []),
+    ToJid = struct_util:create_jid(?UID2, ?SERVER),
+    FromJid = struct_util:create_jid(?UID1, ?SERVER),
+    MessageSt = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, FeedSt),
 
     ProtoMsg = message_parser:xmpp_to_proto(MessageSt),
     ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
@@ -130,13 +130,13 @@ proto_to_xmpp_iq_feed_item_test() ->
 
 
 proto_to_xmpp_iq_retract_feed_item_test() ->
-    PbComment = create_pb_comment(?ID3, ?ID1, <<>>, ?UID2_INT, ?NAME2, undefined, ?TIMESTAMP2_INT),
-    PbFeedItem =create_feed_item(retract, PbComment),
-    PbIq = create_pb_iq(?ID1, set, PbFeedItem),
+    PbComment = struct_util:create_pb_comment(?ID3, ?ID1, <<>>, ?UID2_INT, ?NAME2, undefined, ?TIMESTAMP2_INT),
+    PbFeedItem = struct_util:create_feed_item(retract, PbComment),
+    PbIq = struct_util:create_pb_iq(?ID1, set, PbFeedItem),
 
-    CommentSt = create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, undefined, ?TIMESTAMP2),
-    FeedSt = create_feed_st(retract, [], [CommentSt], [], []),
-    IqSt = create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
+    CommentSt = struct_util:create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, undefined, ?TIMESTAMP2),
+    FeedSt = struct_util:create_feed_st(retract, [], [CommentSt], [], []),
+    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),
     ?assertEqual(true, is_record(XmppIq, iq)),
