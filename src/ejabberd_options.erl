@@ -39,11 +39,12 @@ opt_type(acl) ->
     acl:validator(acl);
 opt_type(acme) ->
     econf:options(
-      #{ca_url => econf:url(),
-	contact => econf:list_or_single(econf:binary("^[a-zA-Z]+:[^:]+$")),
-	auto => econf:bool(),
-	cert_type => econf:enum([ec, rsa])},
-      [unique, {return, map}]);
+        #{
+            ca_url => econf:url(),
+            contact => econf:list_or_single(econf:binary("^[a-zA-Z]+:[^:]+$")),
+            auto => econf:bool(),
+            cert_type => econf:enum([ec, rsa])},
+        [unique, {return, map}]);
 opt_type(allow_contrib_modules) ->
     econf:bool();
 opt_type(allow_multiple_connections) ->
@@ -54,11 +55,11 @@ opt_type(api_permissions) ->
     ejabberd_access_permissions:validator();
 opt_type(append_host_config) ->
     econf:map(
-      econf:and_then(
-	econf:domain(),
-	econf:enum(ejabberd_config:get_option(hosts))),
-      validator(),
-      [unique]);
+        econf:and_then(
+            econf:domain(),
+            econf:enum(ejabberd_config:get_option(hosts))),
+        validator(),
+        [unique]);
 opt_type(auth_cache_life_time) ->
     econf:timeout(second, infinity);
 opt_type(auth_cache_missed) ->
@@ -79,8 +80,8 @@ opt_type(c2s_dhfile) ->
     econf:file();
 opt_type(c2s_protocol_options) ->
     econf:and_then(
-      econf:list(econf:binary(), [unique]),
-      fun concat_tls_protocol_options/1);
+        econf:list(econf:binary(), [unique]),
+        fun concat_tls_protocol_options/1);
 opt_type(c2s_tls_compression) ->
     econf:bool();
 opt_type(ca_file) ->
@@ -113,18 +114,18 @@ opt_type(define_macro) ->
     econf:any();
 opt_type(disable_sasl_mechanisms) ->
     econf:list_or_single(
-      econf:and_then(
-	econf:binary(),
-	fun str:to_upper/1));
+        econf:and_then(
+            econf:binary(),
+            fun str:to_upper/1));
 opt_type(domain_balancing) ->
     econf:map(
-      econf:domain(),
-      econf:options(
-	#{component_number => econf:int(2, 1000),
-	  type => econf:enum([random, source, destination,
-			      bare_source, bare_destination])},
-	[{required, [component_number]}, {return, map}, unique]),
-      [{return, map}]);
+        econf:domain(),
+        econf:options(#{
+            component_number => econf:int(2, 1000),
+            type => econf:enum([random, source, destination,
+                  bare_source, bare_destination])},
+            [{required, [component_number]}, {return, map}, unique]),
+        [{return, map}]);
 opt_type(ext_api_path_oauth) ->
     econf:binary();
 opt_type(ext_api_http_pool_size) ->
@@ -145,11 +146,11 @@ opt_type(hide_sensitive_log_data) ->
     econf:bool();
 opt_type(host_config) ->
     econf:map(
-      econf:and_then(
-	econf:domain(),
-	econf:enum(ejabberd_config:get_option(hosts))),
-      validator(),
-      [unique]);
+        econf:and_then(
+            econf:domain(),
+            econf:enum(ejabberd_config:get_option(hosts))),
+        validator(),
+        [unique]);
 opt_type(hosts) ->
     econf:non_empty(econf:list(econf:domain(), [unique]));
 opt_type(include_config_file) ->
@@ -164,10 +165,10 @@ opt_type(ldap_deref_aliases) ->
     econf:enum([never, searching, finding, always]);
 opt_type(ldap_dn_filter) ->
     econf:and_then(
-      econf:non_empty(
-	econf:map(
-	  econf:ldap_filter(),
-	  econf:list(econf:binary()))),
+        econf:non_empty(
+            econf:map(
+                econf:ldap_filter(),
+                econf:list(econf:binary()))),
       fun hd/1);
 opt_type(ldap_encrypt) ->
     econf:enum([tls, starttls, none]);
@@ -191,11 +192,11 @@ opt_type(ldap_tls_verify) ->
     econf:enum([hard, soft, false]);
 opt_type(ldap_uids) ->
     econf:either(
-      econf:list(
-	econf:and_then(
-	  econf:binary(),
-	  fun(U) -> {U, <<"%u">>} end)),
-      econf:map(econf:binary(), econf:binary(), [unique]));
+        econf:list(
+            econf:and_then(
+                econf:binary(),
+                fun(U) -> {U, <<"%u">>} end)),
+        econf:map(econf:binary(), econf:binary(), [unique]));
 opt_type(listen) ->
     ejabberd_listener:validator();
 opt_type(log_rate_limit) ->
@@ -204,8 +205,8 @@ opt_type(log_rotate_count) ->
     econf:non_neg_int();
 opt_type(log_rotate_date) ->
     econf:string("^(\\$((D(([0-9])|(1[0-9])|(2[0-3])))|"
-		 "(((W[0-6])|(M(([1-2][0-9])|(3[0-1])|([1-9]))))"
-		 "(D(([0-9])|(1[0-9])|(2[0-3])))?)))?$");
+         "(((W[0-6])|(M(([1-2][0-9])|(3[0-1])|([1-9]))))"
+         "(D(([0-9])|(1[0-9])|(2[0-3])))?)))?$");
 opt_type(log_rotate_size) ->
     econf:non_neg_int();
 opt_type(loglevel) ->
@@ -242,14 +243,14 @@ opt_type(oom_watermark) ->
     econf:int(1, 99);
 opt_type(outgoing_s2s_families) ->
     econf:and_then(
-      econf:non_empty(
-	econf:list(econf:enum([ipv4, ipv6]), [unique])),
-      fun(L) ->
-	      lists:map(
-		fun(ipv4) -> inet;
-		   (ipv6) -> inet6
-		end, L)
-      end);
+        econf:non_empty(
+            econf:list(econf:enum([ipv4, ipv6]), [unique])),
+        fun(L) ->
+            lists:map(
+                fun (ipv4) -> inet;
+                    (ipv6) -> inet6
+                end, L)
+        end);
 opt_type(outgoing_s2s_port) ->
     econf:port();
 opt_type(outgoing_s2s_timeout) ->
@@ -310,8 +311,8 @@ opt_type(s2s_max_retry_delay) ->
     econf:timeout(second);
 opt_type(s2s_protocol_options) ->
     econf:and_then(
-      econf:list(econf:binary(), [unique]),
-      fun concat_tls_protocol_options/1);
+        econf:list(econf:binary(), [unique]),
+        fun concat_tls_protocol_options/1);
 opt_type(s2s_queue_type) ->
     econf:enum([ram, file]);
 opt_type(s2s_timeout) ->
@@ -320,16 +321,16 @@ opt_type(s2s_tls_compression) ->
     econf:bool();
 opt_type(s2s_use_starttls) ->
     econf:either(
-      econf:bool(),
-      econf:enum([optional, required]));
+        econf:bool(),
+        econf:enum([optional, required]));
 opt_type(s2s_zlib) ->
     econf:and_then(
-      econf:bool(),
-      fun(false) -> false;
-	 (true) ->
-	      ejabberd:start_app(ezlib),
-	      true
-      end);
+        econf:bool(),
+        fun (false) -> false;
+            (true) ->
+                ejabberd:start_app(ezlib),
+                true
+        end);
 opt_type(shaper) ->
     ejabberd_shaper:validator(shaper);
 opt_type(shaper_rules) ->
@@ -386,329 +387,333 @@ opt_type(version) ->
     econf:binary();
 opt_type(websocket_origin) ->
     econf:list(
-      econf:and_then(
-	econf:and_then(
-	  econf:binary_sep("\\s+"),
-	  econf:list(econf:url(), [unique])),
-	fun(L) -> str:join(L, <<" ">>) end),
-      [unique]);
+        econf:and_then(
+            econf:and_then(
+                econf:binary_sep("\\s+"),
+                econf:list(econf:url(), [unique])),
+            fun(L) -> str:join(L, <<" ">>) end),
+        [unique]);
 opt_type(websocket_ping_interval) ->
     econf:timeout(second);
 opt_type(websocket_timeout) ->
     econf:timeout(second);
 opt_type(jwt_key) ->
     econf:and_then(
-      econf:path(),
-      fun(Path) ->
-              case file:read_file(Path) of
-                  {ok, Data} ->
-		      try jose_jwk:from_binary(Data) of
-			  {error, _} -> econf:fail({bad_jwt_key, Path});
-			  Ret -> Ret
-		      catch _:_ ->
-			      econf:fail({bad_jwt_key, Path})
-		      end;
-                  {error, Reason} ->
-                      econf:fail({read_file, Reason, Path})
-              end
-      end);
+        econf:path(),
+        fun(Path) ->
+            case file:read_file(Path) of
+                {ok, Data} ->
+                    try jose_jwk:from_binary(Data) of
+                        {error, _} -> econf:fail({bad_jwt_key, Path});
+                        Ret -> Ret
+                    catch _:_ ->
+                        econf:fail({bad_jwt_key, Path})
+                    end;
+                {error, Reason} ->
+                    econf:fail({read_file, Reason, Path})
+            end
+        end);
 opt_type(jwt_auth_only_rule) ->
     econf:atom().
 
 %% We only define the types of options that cannot be derived
 %% automatically by tools/opt_type.sh script
--spec options() -> [{s2s_protocol_options, undefined | binary()} |
-		    {c2s_protocol_options, undefined | binary()} |
-		    {websocket_origin, [binary()]} |
-		    {disable_sasl_mechanisms, [binary()]} |
-		    {s2s_zlib, boolean()} |
-		    {listen, [ejabberd_listener:listener()]} |
-		    {modules, [{module(), gen_mod:opts(), integer()}]} |
-		    {ldap_uids, [{binary(), binary()}]} |
-		    {ldap_dn_filter, {binary(), [binary()]}} |
-		    {outgoing_s2s_families, [inet | inet6, ...]} |
-		    {acl, [{atom(), [acl:acl_rule()]}]} |
-		    {access_rules, [{atom(), acl:access()}]} |
-		    {shaper, #{atom() => ejabberd_shaper:shaper_rate()}} |
-		    {shaper_rules, [{atom(), [ejabberd_shaper:shaper_rule()]}]} |
-		    {api_permissions, [ejabberd_access_permissions:permission()]} |
-		    {jwt_key, jose_jwk:key() | undefined} |
-		    {append_host_config, [{binary(), any()}]} |
-		    {host_config, [{binary(), any()}]} |
-		    {define_macro, any()} |
-		    {include_config_file, any()} |
-		    {atom(), any()}].
-options() ->
-    [%% Top-priority options
-     hosts,
-     {loglevel, 4},
-     {cache_life_time, timer:seconds(3600)},
-     {cache_missed, true},
-     {cache_size, 1000},
-     {use_cache, true},
-     {default_db, mnesia},
-     {default_ram_db, mnesia},
-     {queue_type, ram},
-     {version, ejabberd_config:version()},
-     %% Other options
-     {acl, []},
-     {access_rules, []},
-     {acme, #{}},
-     {allow_contrib_modules, true},
-     {allow_multiple_connections, false},
-     {anonymous_protocol, sasl_anon},
-     {api_permissions,
-      [{<<"admin access">>,
-	{[],
-	 [{acl, admin},
-	  {oauth, {[<<"ejabberd:admin">>], [{acl, admin}]}}],
-	 {all, [start, stop]}}}]},
-     {append_host_config, []},
-     {auth_cache_life_time,
-      fun(Host) -> ejabberd_config:get_option({cache_life_time, Host}) end},
-     {auth_cache_missed,
-      fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
-     {auth_cache_size,
-      fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
-     {auth_method,
-      fun(Host) -> [ejabberd_config:default_db(Host, ejabberd_auth)] end},
-     {auth_password_format, plain},
-     {auth_use_cache,
-      fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
-     {c2s_cafile, undefined},
-     {c2s_ciphers, undefined},
-     {c2s_dhfile, undefined},
-     {c2s_protocol_options, undefined},
-     {c2s_tls_compression, undefined},
-     {ca_file, iolist_to_binary(pkix:get_cafile())},
-     {captcha_cmd, undefined},
-     {captcha_host, <<"">>},
-     {captcha_limit, infinity},
-     {captcha_url, undefined},
-     {certfiles, undefined},
-     {cluster_backend, mnesia},
-     {cluster_nodes, []},
-     {define_macro, []},
-     {disable_sasl_mechanisms, []},
-     {domain_balancing, #{}},
-     {ext_api_headers, <<>>},
-     {ext_api_http_pool_size, 100},
-     {ext_api_path_oauth, <<"/oauth">>},
-     {ext_api_url, <<"http://localhost/api">>},
-     {extauth_pool_name, undefined},
-     {extauth_pool_size, undefined},
-     {extauth_program, undefined},
-     {fqdn, fun fqdn/1},
-     {hide_sensitive_log_data, false},
-     {host_config, []},
-     {include_config_file, []},
-     {language, <<"en">>},
-     {ldap_backups, []},
-     {ldap_base, <<"">>},
-     {ldap_deref_aliases, never},
-     {ldap_dn_filter, {undefined, []}},
-     {ldap_encrypt, none},
-     {ldap_filter, <<"">>},
-     {ldap_password, <<"">>},
-     {ldap_port,
-      fun(Host) ->
-	      case ejabberd_config:get_option({ldap_encrypt, Host}) of
-		  tls -> 636;
-		  _ -> 389
-	      end
-      end},
-     {ldap_rootdn, <<"">>},
-     {ldap_servers, [<<"localhost">>]},
-     {ldap_tls_cacertfile, undefined},
-     {ldap_tls_certfile, undefined},
-     {ldap_tls_depth, undefined},
-     {ldap_tls_verify, false},
-     {ldap_uids, [{<<"uid">>, <<"%u">>}]},
-     {listen, []},
-     {log_rate_limit, undefined},
-     {log_rotate_count, undefined},
-     {log_rotate_date, undefined},
-     {log_rotate_size, undefined},
-     {max_fsm_queue, undefined},
-     {modules, []},
-     {negotiation_timeout, timer:seconds(30)},
-     {net_ticktime, timer:seconds(60)},
-     {new_sql_schema, ?USE_NEW_SQL_SCHEMA_DEFAULT},
-     {oauth_access, none},
-     {oauth_cache_life_time,
-      fun(Host) -> ejabberd_config:get_option({cache_life_time, Host}) end},
-     {oauth_cache_missed,
-      fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
-     {oauth_cache_size,
-      fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
-     {oauth_db_type,
-      fun(Host) -> ejabberd_config:default_db(Host, ejabberd_oauth) end},
-     {oauth_expire, 4294967},
-     {oauth_use_cache,
-      fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
-     {oom_killer, true},
-     {oom_queue, 10000},
-     {oom_watermark, 80},
-     {outgoing_s2s_families, [inet, inet6]},
-     {outgoing_s2s_port, 5269},
-     {outgoing_s2s_timeout, timer:seconds(10)},
-     {pam_service, <<"ejabberd">>},
-     {pam_userinfotype, username},
-     {pgsql_users_number_estimate, false},
-     {queue_dir, undefined},
-     {redis_connect_timeout, timer:seconds(1)},
-     {redis_db, 0},
-     {redis_password, ""},
-     {redis_pool_size, 10},
-     {redis_port, 6379},
-     {redis_queue_type,
-      fun(Host) -> ejabberd_config:get_option({queue_type, Host}) end},
-     {redis_server, "localhost"},
-     {registration_timeout, timer:seconds(600)},
-     {resource_conflict, acceptnew},
-     {router_cache_life_time,
-      fun(Host) -> ejabberd_config:get_option({cache_life_time, Host}) end},
-     {router_cache_missed,
-      fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
-     {router_cache_size,
-      fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
-     {router_db_type,
-      fun(Host) -> ejabberd_config:default_ram_db(Host, ejabberd_router) end},
-     {router_use_cache,
-      fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
-     {rpc_timeout, timer:seconds(5)},
-     {s2s_access, all},
-     {s2s_cafile, undefined},
-     {s2s_ciphers, undefined},
-     {s2s_dhfile, undefined},
-     {s2s_dns_retries, 2},
-     {s2s_dns_timeout, timer:seconds(10)},
-     {s2s_max_retry_delay, timer:seconds(300)},
-     {s2s_protocol_options, undefined},
-     {s2s_queue_type,
-      fun(Host) -> ejabberd_config:get_option({queue_type, Host}) end},
-     {s2s_timeout, timer:minutes(10)},
-     {s2s_tls_compression, undefined},
-     {s2s_use_starttls, false},
-     {s2s_zlib, false},
-     {shaper, #{}},
-     {shaper_rules, []},
-     {sm_cache_life_time,
-      fun(Host) -> ejabberd_config:get_option({cache_life_time, Host}) end},
-     {sm_cache_missed,
-      fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
-     {sm_cache_size,
-      fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
-     {sm_db_type,
-      fun(Host) -> ejabberd_config:default_ram_db(Host, ejabberd_sm) end},
-     {sm_use_cache,
-      fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
-     {sql_type, odbc},
-     {sql_connect_timeout, timer:seconds(5)},
-     {sql_database, undefined},
-     {sql_keepalive_interval, undefined},
-     {sql_password, <<"">>},
-     {sql_pool_size,
-      fun(Host) ->
-	      case ejabberd_config:get_option({sql_type, Host}) of
-		  sqlite -> 1;
-		  _ -> 10
-	      end
-      end},
-     {sql_port,
-      fun(Host) ->
-	      case ejabberd_config:get_option({sql_type, Host}) of
-		  mssql -> 1433;
-		  mysql -> 3306;
-		  pgsql -> 5432;
-		  _ -> undefined
-	      end
-      end},
-     {sql_query_timeout, timer:seconds(60)},
-     {sql_queue_type,
-      fun(Host) -> ejabberd_config:get_option({queue_type, Host}) end},
-     {sql_server, <<"localhost">>},
-     {sql_ssl, false},
-     {sql_ssl_cafile, undefined},
-     {sql_ssl_certfile, undefined},
-     {sql_ssl_verify, false},
-     {sql_start_interval, timer:seconds(30)},
-     {sql_username, <<"ejabberd">>},
-     {trusted_proxies, []},
-     {validate_stream, false},
-     {websocket_origin, []},
-     {websocket_ping_interval, timer:seconds(60)},
-     {websocket_timeout, timer:minutes(5)},
-     {jwt_key, undefined},
-     {jwt_auth_only_rule, none}].
+-spec options() -> [
+    {s2s_protocol_options, undefined | binary()} |
+    {c2s_protocol_options, undefined | binary()} |
+    {websocket_origin, [binary()]} |
+    {disable_sasl_mechanisms, [binary()]} |
+    {s2s_zlib, boolean()} |
+    {listen, [ejabberd_listener:listener()]} |
+    {modules, [{module(), gen_mod:opts(), integer()}]} |
+    {ldap_uids, [{binary(), binary()}]} |
+    {ldap_dn_filter, {binary(), [binary()]}} |
+    {outgoing_s2s_families, [inet | inet6, ...]} |
+    {acl, [{atom(), [acl:acl_rule()]}]} |
+    {access_rules, [{atom(), acl:access()}]} |
+    {shaper, #{atom() => ejabberd_shaper:shaper_rate()}} |
+    {shaper_rules, [{atom(), [ejabberd_shaper:shaper_rule()]}]} |
+    {api_permissions, [ejabberd_access_permissions:permission()]} |
+    {jwt_key, jose_jwk:key() | undefined} |
+    {append_host_config, [{binary(), any()}]} |
+    {host_config, [{binary(), any()}]} |
+    {define_macro, any()} |
+    {include_config_file, any()} |
+    {atom(), any()}].
+options() -> [%% Top-priority options
+    hosts,
+    {loglevel, 4},
+    {cache_life_time, timer:seconds(3600)},
+    {cache_missed, true},
+    {cache_size, 1000},
+    {use_cache, true},
+    {default_db, mnesia},
+    {default_ram_db, mnesia},
+    {queue_type, ram},
+    {version, ejabberd_config:version()},
+    %% Other options
+    {acl, []},
+    {access_rules, []},
+    {acme, #{}},
+    {allow_contrib_modules, true},
+    {allow_multiple_connections, false},
+    {anonymous_protocol, sasl_anon},
+    {api_permissions, [
+        {<<"admin access">>, {
+            [],
+            [
+                {acl, admin},
+                {oauth, {[<<"ejabberd:admin">>], [{acl, admin}]}}],
+            {all, [start, stop]}}}]},
+    {append_host_config, []},
+    {auth_cache_life_time,
+        fun(Host) -> ejabberd_config:get_option({cache_life_time, Host}) end},
+    {auth_cache_missed,
+        fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
+    {auth_cache_size,
+        fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
+    {auth_method,
+        fun(Host) -> [ejabberd_config:default_db(Host, ejabberd_auth)] end},
+    {auth_password_format, plain},
+    {auth_use_cache,
+        fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
+    {c2s_cafile, undefined},
+    {c2s_ciphers, undefined},
+    {c2s_dhfile, undefined},
+    {c2s_protocol_options, undefined},
+    {c2s_tls_compression, undefined},
+    {ca_file, iolist_to_binary(pkix:get_cafile())},
+    {captcha_cmd, undefined},
+    {captcha_host, <<"">>},
+    {captcha_limit, infinity},
+    {captcha_url, undefined},
+    {certfiles, undefined},
+    {cluster_backend, mnesia},
+    {cluster_nodes, []},
+    {define_macro, []},
+    {disable_sasl_mechanisms, []},
+    {domain_balancing, #{}},
+    {ext_api_headers, <<>>},
+    {ext_api_http_pool_size, 100},
+    {ext_api_path_oauth, <<"/oauth">>},
+    {ext_api_url, <<"http://localhost/api">>},
+    {extauth_pool_name, undefined},
+    {extauth_pool_size, undefined},
+    {extauth_program, undefined},
+    {fqdn, fun fqdn/1},
+    {hide_sensitive_log_data, false},
+    {host_config, []},
+    {include_config_file, []},
+    {language, <<"en">>},
+    % TODO cleanup ldap options
+    {ldap_backups, []},
+    {ldap_base, <<"">>},
+    {ldap_deref_aliases, never},
+    {ldap_dn_filter, {undefined, []}},
+    {ldap_encrypt, none},
+    {ldap_filter, <<"">>},
+    {ldap_password, <<"">>},
+    {ldap_port,
+        fun(Host) ->
+            case ejabberd_config:get_option({ldap_encrypt, Host}) of
+                tls -> 636;
+                _ -> 389
+            end
+        end},
+    {ldap_rootdn, <<"">>},
+    {ldap_servers, [<<"localhost">>]},
+    {ldap_tls_cacertfile, undefined},
+    {ldap_tls_certfile, undefined},
+    {ldap_tls_depth, undefined},
+    {ldap_tls_verify, false},
+    {ldap_uids, [{<<"uid">>, <<"%u">>}]},
+    {listen, []},
+    {log_rate_limit, undefined},
+    {log_rotate_count, undefined},
+    {log_rotate_date, undefined},
+    {log_rotate_size, undefined},
+    {max_fsm_queue, undefined},
+    {modules, []},
+    {negotiation_timeout, timer:seconds(30)},
+    {net_ticktime, timer:seconds(60)},
+    {new_sql_schema, ?USE_NEW_SQL_SCHEMA_DEFAULT},
+    {oauth_access, none},
+    {oauth_cache_life_time,
+        fun(Host) -> ejabberd_config:get_option({cache_life_time, Host}) end},
+    {oauth_cache_missed,
+        fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
+    {oauth_cache_size,
+        fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
+    {oauth_db_type,
+        fun(Host) -> ejabberd_config:default_db(Host, ejabberd_oauth) end},
+    {oauth_expire, 4294967},
+    {oauth_use_cache,
+        fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
+    % TODO: learn more about ejabberd_system_monitor
+    {oom_killer, true},
+    {oom_queue, 10000},
+    {oom_watermark, 80},
+    {outgoing_s2s_families, [inet, inet6]},
+    {outgoing_s2s_port, 5269},
+    {outgoing_s2s_timeout, timer:seconds(10)},
+    % TODO: what is pam maybe cleanup
+    {pam_service, <<"ejabberd">>},
+    {pam_userinfotype, username},
+    {pgsql_users_number_estimate, false},
+    {queue_dir, undefined},
+    {redis_connect_timeout, timer:seconds(1)},
+    {redis_db, 0},
+    {redis_password, ""},
+    {redis_pool_size, 10},
+    {redis_port, 6379},
+    {redis_queue_type,
+        fun(Host) -> ejabberd_config:get_option({queue_type, Host}) end},
+    {redis_server, "localhost"},
+    {registration_timeout, timer:seconds(600)},
+    {resource_conflict, acceptnew},
+    {router_cache_life_time,
+        fun(Host) -> ejabberd_config:get_option({cache_life_time, Host}) end},
+    {router_cache_missed,
+        fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
+    {router_cache_size,
+        fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
+    {router_db_type,
+        fun(Host) -> ejabberd_config:default_ram_db(Host, ejabberd_router) end},
+    {router_use_cache,
+        fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
+    {rpc_timeout, timer:seconds(5)},
+    {s2s_access, all},
+    {s2s_cafile, undefined},
+    {s2s_ciphers, undefined},
+    {s2s_dhfile, undefined},
+    {s2s_dns_retries, 2},
+    {s2s_dns_timeout, timer:seconds(10)},
+    {s2s_max_retry_delay, timer:seconds(300)},
+    {s2s_protocol_options, undefined},
+    {s2s_queue_type,
+        fun(Host) -> ejabberd_config:get_option({queue_type, Host}) end},
+    {s2s_timeout, timer:minutes(10)},
+    {s2s_tls_compression, undefined},
+    {s2s_use_starttls, false},
+    {s2s_zlib, false},
+    {shaper, #{}},
+    {shaper_rules, []},
+    {sm_cache_life_time,
+        fun(Host) -> ejabberd_config:get_option({cache_life_time, Host}) end},
+    {sm_cache_missed,
+        fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
+    {sm_cache_size,
+        fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
+    {sm_db_type,
+        fun(Host) -> ejabberd_config:default_ram_db(Host, ejabberd_sm) end},
+    {sm_use_cache,
+        fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
+    {sql_type, odbc},
+    {sql_connect_timeout, timer:seconds(5)},
+    {sql_database, undefined},
+    {sql_keepalive_interval, undefined},
+    {sql_password, <<"">>},
+    {sql_pool_size,
+        fun(Host) ->
+            case ejabberd_config:get_option({sql_type, Host}) of
+                sqlite -> 1;
+                _ -> 10
+            end
+        end},
+    {sql_port,
+        fun(Host) ->
+            case ejabberd_config:get_option({sql_type, Host}) of
+                mssql -> 1433;
+                mysql -> 3306;
+                pgsql -> 5432;
+                _ -> undefined
+            end
+        end},
+    {sql_query_timeout, timer:seconds(60)},
+    {sql_queue_type,
+        fun(Host) -> ejabberd_config:get_option({queue_type, Host}) end},
+    {sql_server, <<"localhost">>},
+    {sql_ssl, false},
+    {sql_ssl_cafile, undefined},
+    {sql_ssl_certfile, undefined},
+    {sql_ssl_verify, false},
+    {sql_start_interval, timer:seconds(30)},
+    {sql_username, <<"ejabberd">>},
+    {trusted_proxies, []},
+    {validate_stream, false},
+    {websocket_origin, []},
+    {websocket_ping_interval, timer:seconds(60)},
+    {websocket_timeout, timer:minutes(5)},
+    {jwt_key, undefined},
+    {jwt_auth_only_rule, none}].
 
 -spec globals() -> [atom()].
-globals() ->
-    [acme,
-     allow_contrib_modules,
-     api_permissions,
-     append_host_config,
-     auth_cache_life_time,
-     auth_cache_missed,
-     auth_cache_size,
-     ca_file,
-     captcha_cmd,
-     captcha_host,
-     captcha_limit,
-     captcha_url,
-     certfiles,
-     cluster_backend,
-     cluster_nodes,
-     domain_balancing,
-     ext_api_path_oauth,
-     fqdn,
-     hosts,
-     host_config,
-     listen,
-     loglevel,
-     log_rate_limit,
-     log_rotate_count,
-     log_rotate_date,
-     log_rotate_size,
-     negotiation_timeout,
-     net_ticktime,
-     new_sql_schema,
-     node_start,
-     oauth_cache_life_time,
-     oauth_cache_missed,
-     oauth_cache_size,
-     oauth_db_type,
-     oauth_expire,
-     oauth_use_cache,
-     oom_killer,
-     oom_queue,
-     oom_watermark,
-     queue_dir,
-     redis_connect_timeout,
-     redis_db,
-     redis_password,
-     redis_pool_size,
-     redis_port,
-     redis_queue_type,
-     redis_server,
-     registration_timeout,
-     router_cache_life_time,
-     router_cache_missed,
-     router_cache_size,
-     router_db_type,
-     router_use_cache,
-     rpc_timeout,
-     s2s_max_retry_delay,
-     shaper,
-     sm_cache_life_time,
-     sm_cache_missed,
-     sm_cache_size,
-     trusted_proxies,
-     validate_stream,
-     version,
-     websocket_origin,
-     websocket_ping_interval,
-     websocket_timeout].
+globals() -> [
+    acme,
+    allow_contrib_modules,
+    api_permissions,
+    append_host_config,
+    auth_cache_life_time,
+    auth_cache_missed,
+    auth_cache_size,
+    ca_file,
+    captcha_cmd,
+    captcha_host,
+    captcha_limit,
+    captcha_url,
+    certfiles,
+    cluster_backend,
+    cluster_nodes,
+    domain_balancing,
+    ext_api_path_oauth,
+    fqdn,
+    hosts,
+    host_config,
+    listen,
+    loglevel,
+    log_rate_limit,
+    log_rotate_count,
+    log_rotate_date,
+    log_rotate_size,
+    negotiation_timeout,
+    net_ticktime,
+    new_sql_schema,
+    node_start,
+    oauth_cache_life_time,
+    oauth_cache_missed,
+    oauth_cache_size,
+    oauth_db_type,
+    oauth_expire,
+    oauth_use_cache,
+    oom_killer,
+    oom_queue,
+    oom_watermark,
+    queue_dir,
+    redis_connect_timeout,
+    redis_db,
+    redis_password,
+    redis_pool_size,
+    redis_port,
+    redis_queue_type,
+    redis_server,
+    registration_timeout,
+    router_cache_life_time,
+    router_cache_missed,
+    router_cache_size,
+    router_db_type,
+    router_use_cache,
+    rpc_timeout,
+    s2s_max_retry_delay,
+    shaper,
+    sm_cache_life_time,
+    sm_cache_missed,
+    sm_cache_size,
+    trusted_proxies,
+    validate_stream,
+    version,
+    websocket_origin,
+    websocket_ping_interval,
+    websocket_timeout].
 
 %%%===================================================================
 %%% Internal functions
@@ -718,20 +723,20 @@ validator() ->
     Disallowed = ejabberd_config:globals(),
     {Validators, Required} = ejabberd_config:validators(Disallowed),
     econf:options(
-      Validators,
-      [{disallowed, Required ++ Disallowed}, unique]).
+        Validators,
+        [{disallowed, Required ++ Disallowed}, unique]).
 
 -spec fqdn(global | binary()) -> [binary()].
 fqdn(global) ->
     {ok, Hostname} = inet:gethostname(),
     case inet:gethostbyname(Hostname) of
-	{ok, #hostent{h_name = FQDN}} ->
-	    case jid:nameprep(iolist_to_binary(FQDN)) of
-		error -> [];
-		Domain -> [Domain]
-	    end;
-	{error, _} ->
-	    []
+    {ok, #hostent{h_name = FQDN}} ->
+        case jid:nameprep(iolist_to_binary(FQDN)) of
+            error -> [];
+            Domain -> [Domain]
+        end;
+    {error, _} ->
+        []
     end;
 fqdn(_) ->
     ejabberd_config:get_option(fqdn).
