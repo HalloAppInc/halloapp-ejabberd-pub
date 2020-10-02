@@ -390,25 +390,7 @@ opt_type(websocket_origin) ->
 opt_type(websocket_ping_interval) ->
     econf:timeout(second);
 opt_type(websocket_timeout) ->
-    econf:timeout(second);
-opt_type(jwt_key) ->
-    econf:and_then(
-        econf:path(),
-        fun(Path) ->
-            case file:read_file(Path) of
-                {ok, Data} ->
-                    try jose_jwk:from_binary(Data) of
-                        {error, _} -> econf:fail({bad_jwt_key, Path});
-                        Ret -> Ret
-                    catch _:_ ->
-                        econf:fail({bad_jwt_key, Path})
-                    end;
-                {error, Reason} ->
-                    econf:fail({read_file, Reason, Path})
-            end
-        end);
-opt_type(jwt_auth_only_rule) ->
-    econf:atom().
+    econf:timeout(second).
 
 %% We only define the types of options that cannot be derived
 %% automatically by tools/opt_type.sh script
@@ -428,7 +410,6 @@ opt_type(jwt_auth_only_rule) ->
     {shaper, #{atom() => ejabberd_shaper:shaper_rate()}} |
     {shaper_rules, [{atom(), [ejabberd_shaper:shaper_rule()]}]} |
     {api_permissions, [ejabberd_access_permissions:permission()]} |
-    {jwt_key, jose_jwk:key() | undefined} |
     {append_host_config, [{binary(), any()}]} |
     {host_config, [{binary(), any()}]} |
     {define_macro, any()} |
@@ -634,9 +615,8 @@ options() -> [%% Top-priority options
     {validate_stream, false},
     {websocket_origin, []},
     {websocket_ping_interval, timer:seconds(60)},
-    {websocket_timeout, timer:minutes(5)},
-    {jwt_key, undefined},
-    {jwt_auth_only_rule, none}].
+    {websocket_timeout, timer:minutes(5)}
+].
 
 
 -spec globals() -> [atom()].
