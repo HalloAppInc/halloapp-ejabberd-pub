@@ -249,10 +249,6 @@ opt_type(outgoing_s2s_port) ->
     econf:port();
 opt_type(outgoing_s2s_timeout) ->
     econf:timeout(second, infinity);
-opt_type(pam_service) ->
-    econf:binary();
-opt_type(pam_userinfotype) ->
-    econf:enum([username, jid]);
 opt_type(pgsql_users_number_estimate) ->
     econf:bool();
 opt_type(queue_dir) ->
@@ -528,9 +524,6 @@ options() -> [%% Top-priority options
     {outgoing_s2s_families, [inet, inet6]},
     {outgoing_s2s_port, 5269},
     {outgoing_s2s_timeout, timer:seconds(10)},
-    % TODO: what is pam maybe cleanup
-    {pam_service, <<"ejabberd">>},
-    {pam_userinfotype, username},
     {pgsql_users_number_estimate, false},
     {queue_dir, undefined},
     {redis_connect_timeout, timer:seconds(1)},
@@ -617,6 +610,7 @@ options() -> [%% Top-priority options
     {websocket_ping_interval, timer:seconds(60)},
     {websocket_timeout, timer:minutes(5)}
 ].
+
 
 
 -spec globals() -> [atom()].

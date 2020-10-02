@@ -109,10 +109,10 @@ AC_ARG_ENABLE(mssql,
 esac],[db_type=generic])
 
 AC_ARG_ENABLE(all,
-[AC_HELP_STRING([--enable-all], [same as --enable-odbc --enable-mysql --enable-pgsql --enable-sqlite --enable-pam --enable-zlib --enable-redis --enable-elixir --enable-stun --enable-sip --enable-debug --enable-tools (useful for Dialyzer checks, default: no)])],
+[AC_HELP_STRING([--enable-all], [same as --enable-odbc --enable-mysql --enable-pgsql --enable-sqlite --enable-zlib --enable-redis --enable-elixir --enable-stun --enable-sip --enable-debug --enable-tools (useful for Dialyzer checks, default: no)])],
 [case "${enableval}" in
-  yes) odbc=true mysql=true pgsql=true sqlite=true pam=true zlib=true redis=true elixir=true stun=true sip=true debug=true tools=true ;;
-  no) odbc=false mysql=false pgsql=false sqlite=false pam=false zlib=false redis=false elixir=false stun=false sip=false debug=false tools=false ;;
+  yes) odbc=true mysql=true pgsql=true sqlite=true zlib=true redis=true elixir=true stun=true sip=true debug=true tools=true ;;
+  no) odbc=false mysql=false pgsql=false sqlite=false zlib=false redis=false elixir=false stun=false sip=false debug=false tools=false ;;
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-all) ;;
 esac],[])
 
@@ -155,14 +155,6 @@ AC_ARG_ENABLE(sqlite,
   no)  sqlite=false ;;
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-sqlite) ;;
 esac],[if test "x$sqlite" = "x"; then sqlite=false; fi])
-
-AC_ARG_ENABLE(pam,
-[AC_HELP_STRING([--enable-pam], [enable PAM support (default: no)])],
-[case "${enableval}" in
-  yes) pam=true ;;
-  no)  pam=false ;;
-  *) AC_MSG_ERROR(bad value ${enableval} for --enable-pam) ;;
-esac],[if test "x$pam" = "x"; then pam=false; fi])
 
 AC_ARG_ENABLE(zlib,
 [AC_HELP_STRING([--enable-zlib], [enable Stream Compression (XEP-0138) using zlib (default: yes)])],
@@ -286,7 +278,6 @@ AC_SUBST(odbc)
 AC_SUBST(mysql)
 AC_SUBST(pgsql)
 AC_SUBST(sqlite)
-AC_SUBST(pam)
 AC_SUBST(zlib)
 AC_SUBST(redis)
 AC_SUBST(elixir)

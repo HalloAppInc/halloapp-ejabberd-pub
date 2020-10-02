@@ -87,8 +87,6 @@
 -export([outgoing_s2s_families/0, outgoing_s2s_families/1]).
 -export([outgoing_s2s_port/0, outgoing_s2s_port/1]).
 -export([outgoing_s2s_timeout/0, outgoing_s2s_timeout/1]).
--export([pam_service/0, pam_service/1]).
--export([pam_userinfotype/0, pam_userinfotype/1]).
 -export([pgsql_users_number_estimate/0, pgsql_users_number_estimate/1]).
 -export([queue_dir/0]).
 -export([queue_type/0, queue_type/1]).
@@ -624,20 +622,6 @@ outgoing_s2s_timeout() ->
 -spec outgoing_s2s_timeout(global | binary()) -> 'infinity' | pos_integer().
 outgoing_s2s_timeout(Host) ->
     ejabberd_config:get_option({outgoing_s2s_timeout, Host}).
-
--spec pam_service() -> binary().
-pam_service() ->
-    pam_service(global).
--spec pam_service(global | binary()) -> binary().
-pam_service(Host) ->
-    ejabberd_config:get_option({pam_service, Host}).
-
--spec pam_userinfotype() -> 'jid' | 'username'.
-pam_userinfotype() ->
-    pam_userinfotype(global).
--spec pam_userinfotype(global | binary()) -> 'jid' | 'username'.
-pam_userinfotype(Host) ->
-    ejabberd_config:get_option({pam_userinfotype, Host}).
 
 -spec pgsql_users_number_estimate() -> boolean().
 pgsql_users_number_estimate() ->

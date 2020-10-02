@@ -112,7 +112,6 @@ To compile ejabberd you need:
  - Erlang/OTP ≥ 19.1.
  - OpenSSL ≥ 1.0.0.
  - Zlib ≥ 1.2.3, for Stream Compression support (XEP-0138). Optional.
- - PAM library. Optional. For Pluggable Authentication Modules (PAM).
  - ImageMagick's Convert program and Ghostscript fonts. Optional. For CAPTCHA
    challenges.
 
