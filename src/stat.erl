@@ -207,7 +207,6 @@ send_data(MetricsMap) when is_map(MetricsMap) ->
 -spec send_to_cloudwatch(Data :: map()) -> ok.
 send_to_cloudwatch(Data) when is_map(Data) ->
     ?INFO("sending ~p Namespaces", [maps:size(Data)]),
-    update_aws_config(),
     maps:fold(
         fun (Namespace, Metrics, _Acc) ->
             ?DEBUG("~s ~p", [Namespace, length(Metrics)]),
@@ -244,46 +243,6 @@ cloudwatch_put_metric_data_env(localhost, "HA/test" = Namespace, Metrics) ->
 cloudwatch_put_metric_data_env(_Env, Namespace, Metrics) ->
     ?DEBUG("would send: ~s metrics: ~p", [Namespace, Metrics]).
 
-
--spec update_aws_config() -> ok.
-update_aws_config() ->
-    try
-        C = erlcloud_aws:default_config(),
-        ?DEBUG("key_id:~s expiration:~p", [C#aws_config.access_key_id, C#aws_config.expiration]),
-        update_aws_config(C)
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR("Stacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end.
-
-
-% TODO: delete this code if our change in erlcloud auto refreshing works
--spec update_aws_config(Config :: aws_config()) -> ok.
-update_aws_config(#aws_config{access_key_id = _AccessKeyId, expiration = undefined}) ->
-    ok;
-update_aws_config(#aws_config{access_key_id = AccessKeyId, expiration = Expiration}) ->
-    Now = util:now(),
-    ExpiresIn = Expiration - Now,
-    %% Tokens are usually expire in 3h, refresh the token if it expires in less then 5 minutes
-    %% Also refresh the token if somehow the times is too much in the future.
-    %% (Maybe the clock was off)
-    case (ExpiresIn < 2 * ?MINUTES) or (ExpiresIn > 1 * ?DAYS) of
-        false -> ok;
-        true ->
-            ?ERROR("erlcloud update_config failed to refresh our tokens: "
-                "AccessKeyId: ~s Expiration: ~p", [AccessKeyId, Expiration]),
-            %% This gets a new config with refreshed tokens
-            {ok, NewConfig0} = erlcloud_aws:auto_config(),
-            %% Debug code to force early expiration
-            NewConfig = NewConfig0#aws_config{expiration = util:now() + 600},
-            NewAccessKeyId = NewConfig#aws_config.access_key_id,
-            NewExpiration = NewConfig#aws_config.expiration,
-            erlcloud_aws:configure(NewConfig),
-            ?INFO("refreshed aws config id:~p exp:~p new_id:~p exp:~p",
-                [AccessKeyId, Expiration, NewAccessKeyId, NewExpiration])
-    end,
-    ok.
 
 -spec prepare_data(MetricsMap :: map(), TimestampMs :: non_neg_integer()) -> map().
 prepare_data(MetricsMap, TimestampMs)
