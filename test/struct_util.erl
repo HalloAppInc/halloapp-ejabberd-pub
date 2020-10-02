@@ -194,8 +194,8 @@ create_group_avatar(Gid, Cdata) ->
     }.
 
 
-create_pb_group_avatar(Gid, Data) ->
-    #pb_group_avatar{
+create_pb_upload_group_avatar(Gid, Data) ->
+    #pb_upload_group_avatar{
         gid = Gid,
         data = Data
     }.

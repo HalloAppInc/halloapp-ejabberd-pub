@@ -24,7 +24,7 @@ message Avatars {
 }
 
 
-message GroupAvatar {
+message UploadGroupAvatar {
     string gid = 1;
     bytes data = 2;
 }
@@ -401,7 +401,7 @@ message Iq {
         InvitesResponse invites_response = 24;
         NotificationPrefs notification_prefs = 25;
         GroupFeedItem group_feed_item = 26;
-        GroupAvatar group_avatar = 27;
+        UploadGroupAvatar group_avatar = 27;
     }
 }
 

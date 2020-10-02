@@ -102,13 +102,13 @@ proto_to_xmpp(ProtoPayload) when is_record(ProtoPayload, pb_groups_stanza) ->
         groups = GroupSts
     };
 
-proto_to_xmpp(ProtoPayload) when is_record(ProtoPayload, pb_group_avatar) ->
-    CData = case ProtoPayload#pb_group_avatar.data of
+proto_to_xmpp(ProtoPayload) when is_record(ProtoPayload, pb_upload_group_avatar) ->
+    CData = case ProtoPayload#pb_upload_group_avatar.data of
         undefined -> <<>>;
         Data -> base64:encode(Data)
     end,
     #group_avatar{
-        gid = ProtoPayload#pb_group_avatar.gid,
+        gid = ProtoPayload#pb_upload_group_avatar.gid,
         cdata = CData
     }.
 

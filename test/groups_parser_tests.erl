@@ -183,7 +183,7 @@ proto_to_xmpp_group_avatar_test() ->
     GroupAvatarSt = struct_util:create_group_avatar(?GID1, ?PAYLOAD1_BASE64),
     ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, GroupAvatarSt),
 
-    PbGroupAvatarStanza = struct_util:create_pb_group_avatar(?GID1, ?PAYLOAD1),
+    PbGroupAvatarStanza = struct_util:create_pb_upload_group_avatar(?GID1, ?PAYLOAD1),
     ProtoIq = struct_util:create_pb_iq(?ID1, set, PbGroupAvatarStanza),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIq),
