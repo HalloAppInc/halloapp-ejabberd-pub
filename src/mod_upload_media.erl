@@ -19,7 +19,7 @@
 -include("xmpp.hrl").
 
 start(Host, Opts) ->
-    ?INFO_MSG("------ Starting Media module on:~p", [Host]),
+    ?INFO("------ Starting Media module on:~p", [Host]),
     Region = mod_upload_media_opt:aws_media_region(Opts),
     PutHost = mod_upload_media_opt:aws_media_put_host(Opts),
     GetHost = mod_upload_media_opt:aws_media_get_host(Opts),
@@ -34,7 +34,7 @@ start(Host, Opts) ->
     ok.
 
 stop(Host) ->
-    ?INFO_MSG("----- Stopping Media module on:~p", [Host]),
+    ?INFO("----- Stopping Media module on:~p", [Host]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, 
                                      <<"ns:upload_media">>),
     xmpp:unregister_codec(upload_media),
@@ -54,7 +54,7 @@ process_patch_url_result(IQ, PatchResult) ->
       case PatchResult of
         error ->
             %% Attempt to fetch Resumable Patch URL failed.
-            ?WARNING_MSG("Attempt to fetch resumable patch url failed", []),
+            ?WARNING("Attempt to fetch resumable patch url failed", []),
             {GetUrl, PutUrl} = generate_s3_urls(),
             #media_urls{get = GetUrl, put = PutUrl};
         {ok, ResumablePatch} -> #media_urls{patch = ResumablePatch}

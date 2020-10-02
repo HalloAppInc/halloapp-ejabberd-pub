@@ -92,15 +92,15 @@ init([]) ->
     {ok, #state{}}.
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -612,13 +612,13 @@ check_and_register(Phone, Host, Password, SPub, Name, UserAgent) ->
     end,
     case Result of
         {ok, Uid, login} ->
-            ?INFO_MSG("Login into existing account uid:~p for phone:~p", [Uid, Phone]),
+            ?INFO("Login into existing account uid:~p for phone:~p", [Uid, Phone]),
             {ok, Uid, login};
         {ok, Uid, register} ->
-            ?INFO_MSG("Registering new account uid:~p for phone:~p", [Uid, Phone]),
+            ?INFO("Registering new account uid:~p for phone:~p", [Uid, Phone]),
             {ok, Uid, register};
         {error, Reason} ->
-            ?INFO_MSG("Login/Registration for phone:~p failed. ~p", [Phone, Reason]),
+            ?INFO("Login/Registration for phone:~p failed. ~p", [Phone, Reason]),
             {error, Reason, 10001, "Login/Registration failed"}
     end.
 
@@ -665,10 +665,10 @@ enroll(User, Host, Passcode) ->
         true ->
             case ejabberd_auth:try_enroll(User, Passcode) of
                 {ok, _} ->
-                    ?INFO_MSG("Phone ~s successfully enrolled", [User]),
+                    ?INFO("Phone ~s successfully enrolled", [User]),
                     {ok, io_lib:format("User ~ts@~ts successfully enrolled", [User, Host])};
                 {error, Reason} ->
-                    ?ERROR_MSG("Failed to enroll phone ~s, Reason: ~p", [User, Reason]),
+                    ?ERROR("Failed to enroll phone ~s, Reason: ~p", [User, Reason]),
                     String = io_lib:format("Can't enroll user ~ts@~ts at node ~p: ~ts",
                                            [User, Host, node(),
                                             mod_register:format_error(Reason)]),
@@ -681,7 +681,7 @@ enroll(User, Host, Passcode) ->
 unenroll(Phone, Host) ->
     case is_my_host(Host) of
         true ->
-            ?INFO_MSG("phone:~s", [Phone]),
+            ?INFO("phone:~s", [Phone]),
             ok = model_phone:delete_sms_code(Phone),
             {ok, ""};
         false ->
@@ -702,7 +702,7 @@ enrolled_users(Host) ->
 get_user_passcode(Phone, Host) ->
     case is_my_host(Host) of
         true ->
-            ?INFO_MSG("phone:~s", [Phone]),
+            ?INFO("phone:~s", [Phone]),
             case model_phone:get_sms_code(Phone) of
                 {ok, undefined} ->
                     Msg = io_lib:format("Phone ~ts does not have a code", [Phone]),
@@ -1025,33 +1025,33 @@ clear_cache() ->
     lists:foreach(fun(T) -> ets_cache:clear(T, Nodes) end, ets_cache:all()).
 
 fix_account_counters() ->
-    ?INFO_MSG("fixing account counters", []),
+    ?INFO("fixing account counters", []),
     model_accounts:fix_counters().
 
 add_uid_trace(Uid) ->
     UidBin = list_to_binary(Uid),
     % TODO: check if it looks like uid
-    ?INFO_MSG("Uid: ~s", [UidBin]),
+    ?INFO("Uid: ~s", [UidBin]),
     mod_trace:add_uid(UidBin),
     ok.
 
 remove_uid_trace(Uid) ->
     UidBin = list_to_binary(Uid),
     % TODO: check if it looks like uid
-    ?INFO_MSG("Uid: ~s", [UidBin]),
+    ?INFO("Uid: ~s", [UidBin]),
     mod_trace:remove_uid(UidBin),
     ok.
 
 add_phone_trace(Phone) ->
     PhoneBin = list_to_binary(Phone),
-    ?INFO_MSG("Phone: ~s", [PhoneBin]),
+    ?INFO("Phone: ~s", [PhoneBin]),
     mod_trace:add_phone(PhoneBin),
     ok.
 
 
 remove_phone_trace(Phone) ->
     PhoneBin = list_to_binary(Phone),
-    ?INFO_MSG("Phone: ~s", [PhoneBin]),
+    ?INFO("Phone: ~s", [PhoneBin]),
     mod_trace:remove_phone(PhoneBin),
     ok.
 
@@ -1065,7 +1065,7 @@ uid_info(Uid) ->
                 activity_status = ActivityStatus} = _Account} = model_accounts:get_account(Uid),
             {CreationDate, CreationTime} = util:ms_to_datetime_string(CreationTs),
             {LastActiveDate, LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
-            ?INFO_MSG("Uid: ~s, Name: ~s, Phone: ~s~n", [Uid, Name, Phone]),
+            ?INFO("Uid: ~s, Name: ~s, Phone: ~s~n", [Uid, Name, Phone]),
             io:format("Uid: ~s~nName: ~s~nPhone: ~s~n", [Uid, Name, Phone]),
             io:format("Account created on ~s at ~s~nUser agent: ~s~n",
                 [CreationDate, CreationTime, UserAgent]),

@@ -45,13 +45,13 @@ create_with_retry(ContentLength, Retries, CBDetails) ->
         {_, Error}
            when Retries < ?MAX_TRIES ->
             BackOff = round(math:pow(2, Retries)) * ?BACK_OFF_MS,
-            ?WARNING_MSG("~pth request to: ~p, error: ~p, backoff: ~p",
+            ?WARNING("~pth request to: ~p, error: ~p, backoff: ~p",
                          [Retries, get_upload_host(), Error, BackOff]),
             timer:apply_after(round(math:pow(2, Retries)) * ?BACK_OFF_MS,
                               ?MODULE, create_with_retry,
                               [ContentLength, Retries+1, CBDetails]);
         {_, Error} ->
-            ?ERROR_MSG("Giving up on: ~p, tried: ~p times, error: ~p",
+            ?ERROR("Giving up on: ~p, tried: ~p times, error: ~p",
                        [get_upload_host(), Retries, Error]),
             process_location_url({error, ""}, CBDetails)
     end.
@@ -62,7 +62,7 @@ create(ContentLength) ->
 
 - spec init(binary(), integer()) -> ok.
 init(UploadHost, UploadPort) ->
-    ?INFO_MSG("init UploadHost: ~p, UploadPort: ~p", [UploadHost, UploadPort]),
+    ?INFO("init UploadHost: ~p, UploadPort: ~p", [UploadHost, UploadPort]),
     ?assert(not is_boolean(UploadHost)),
     UploadHostStr = binary_to_list(UploadHost),
     ?assert(length(UploadHostStr) > 0),
@@ -78,7 +78,7 @@ init(UploadHost, UploadPort) ->
 
 - spec close() -> ok.
 close() ->
-    ?INFO_MSG("~p", [close]),
+    ?INFO("~p", [close]),
     persistent_term:erase({?MODULE, upload_host}).
 
 %%-----------------------------------------------------------------------------

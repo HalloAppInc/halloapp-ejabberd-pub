@@ -190,7 +190,7 @@ handle_call({get_state, Pid}, From, State) ->
             noreply(State3)
     end;
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     noreply(State).
 
 handle_cast(accept, #state{socket = {_, Sock}} = State) ->
@@ -208,7 +208,7 @@ handle_cast(accept, #state{socket = {_, Sock}} = State) ->
 	    stop(State, {socket, Why})
     end;
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     noreply(State).
 
 handle_info(Msg, #state{stop_reason = {resumed, Pid} = Reason} = State) ->
@@ -279,7 +279,7 @@ handle_info({Ref, badarg}, State) when is_reference(Ref) ->
     %% TODO: figure out from where this messages comes from
     noreply(State);
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     noreply(State).
 
 -spec handle_packet(mqtt_packet(), state()) -> {ok, state()} |
@@ -357,7 +357,7 @@ handle_packet(#disconnect{code = Code, properties = Props},
              end,
     {error, State2, {peer_disconnected, Code, Reason}};
 handle_packet(Pkt, State) ->
-    ?WARNING_MSG("Unexpected packet:~n~ts~n** when state:~n~ts",
+    ?WARNING("Unexpected packet:~n~ts~n** when state:~n~ts",
 		 [pp(Pkt), pp(State)]),
     {error, State, {unexpected_packet, element(1, Pkt)}}.
 
@@ -468,7 +468,7 @@ open_session(State, JID, _CleanStart = false) ->
 		{error, Why} ->
 		    {error, State, Why}
 	    catch exit:{Why, {p1_server, _, _}} ->
-		    ?WARNING_MSG("Failed to copy session state from ~p at ~ts: ~ts",
+		    ?WARNING("Failed to copy session state from ~p at ~ts: ~ts",
 				 [Pid, node(Pid), format_exit_reason(Why)]),
 		    register_session(State, JID, undefined)
 	    end;
@@ -488,7 +488,7 @@ register_session(#state{peername = IP} = State, JID, Parent) ->
 	ok ->
 	    case resubscribe(USR, State#state.subscriptions) of
 		ok ->
-		    ?INFO_MSG("~ts for ~ts from ~ts",
+		    ?INFO("~ts for ~ts from ~ts",
 			      [if is_pid(Parent) ->
 				       io_lib:format(
 					 "Reopened MQTT session via ~p",
@@ -511,7 +511,7 @@ register_session(#state{peername = IP} = State, JID, Parent) ->
 		    {error, State#state{session_expiry = 0}, Why}
 	    end;
 	{error, Reason} ->
-	    ?ERROR_MSG("Failed to register MQTT session for ~ts from ~ts: ~ts",
+	    ?ERROR("Failed to register MQTT session for ~ts from ~ts: ~ts",
 		       err_args(JID, IP, Reason)),
 	    {error, State, Reason}
     end.
@@ -523,23 +523,23 @@ unregister_session(#state{jid = #jid{} = JID, peername = IP} = State, Reason) ->
         {Tag, _} when Tag == replaced; Tag == resumed ->
             ?DEBUG(Msg, err_args(JID, IP, Reason));
         {socket, _} ->
-            ?INFO_MSG(Msg, err_args(JID, IP, Reason));
+            ?INFO(Msg, err_args(JID, IP, Reason));
         Tag when Tag == idle_connection; Tag == session_expired; Tag == shutdown ->
-            ?INFO_MSG(Msg, err_args(JID, IP, Reason));
+            ?INFO(Msg, err_args(JID, IP, Reason));
         {peer_disconnected, Code, _} ->
             case mqtt_codec:is_error_code(Code) of
-                true -> ?WARNING_MSG(Msg, err_args(JID, IP, Reason));
-                false -> ?INFO_MSG(Msg, err_args(JID, IP, Reason))
+                true -> ?WARNING(Msg, err_args(JID, IP, Reason));
+                false -> ?INFO(Msg, err_args(JID, IP, Reason))
             end;
         _ ->
-            ?WARNING_MSG(Msg, err_args(JID, IP, Reason))
+            ?WARNING(Msg, err_args(JID, IP, Reason))
     end,
     USR = jid:tolower(JID),
     unsubscribe(maps:keys(State#state.subscriptions), USR, #{}),
     case mod_mqtt:close_session(USR) of
 	ok -> ok;
 	{error, Why} ->
-            ?ERROR_MSG(
+            ?ERROR(
                "Failed to close MQTT session for ~ts from ~ts: ~ts",
                err_args(JID, IP, Why))
     end;
@@ -1174,7 +1174,7 @@ authenticate(#connect{password = Pass} = Pkt, IP) ->
     {ok, #jid{luser = LUser} = JID} ->
         case ejabberd_auth:check_password(LUser, Pass) of
         true ->
-                    ?INFO_MSG(
+                    ?INFO(
                        "Accepted MQTT authentication for ~ts from ~ts",
                        [jid:encode(JID),
                         ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
@@ -1277,7 +1277,7 @@ publish_will(#state{will = #publish{} = Will,
             ?DEBUG("Will of ~ts has been published to ~ts",
                    [jid:encode(JID), Will#publish.topic]);
         {error, Why} ->
-            ?WARNING_MSG("Failed to publish will of ~ts to ~ts: ~ts",
+            ?WARNING("Failed to publish will of ~ts to ~ts: ~ts",
                          [jid:encode(JID), Will#publish.topic,
                           format_error(Why)])
     end,
@@ -1327,12 +1327,12 @@ log_disconnection(#state{jid = JID, peername = IP}, Reason) ->
         idle_connection ->
             ?DEBUG(Msg, err_args(JID, IP, Reason));
         Tag when Tag == session_expired; Tag == shutdown ->
-            ?INFO_MSG(Msg, err_args(JID, IP, Reason));
+            ?INFO(Msg, err_args(JID, IP, Reason));
         {peer_disconnected, Code, _} ->
             case mqtt_codec:is_error_code(Code) of
-                true -> ?WARNING_MSG(Msg, err_args(JID, IP, Reason));
+                true -> ?WARNING(Msg, err_args(JID, IP, Reason));
                 false -> ?DEBUG(Msg, err_args(JID, IP, Reason))
             end;
         _ ->
-            ?WARNING_MSG(Msg, err_args(JID, IP, Reason))
+            ?WARNING(Msg, err_args(JID, IP, Reason))
     end.

@@ -120,7 +120,7 @@ purge_expired_items() ->
 route(#iq{to = To} = IQ) when To#jid.lresource == <<"">> ->
     ejabberd_router:process_iq(IQ);
 route(_Pkt) ->
-    ?ERROR_MSG("invalid packet received: ~p", [_Pkt]),
+    ?ERROR("invalid packet received: ~p", [_Pkt]),
     ok.
 
 %%====================================================================
@@ -132,11 +132,11 @@ route(_Pkt) ->
 %% This get-api is kind of flaky too.. we dont purge expired items here.
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = get, lang = Lang,
         sub_els = [#pubsub{items = #ps_items{node = NodeId, items = ItemsEls}}]} = IQ) ->
-    ?INFO_MSG("Uid: ~s, get_items", [Uid]),
+    ?INFO("Uid: ~s, get_items", [Uid]),
     {ok, Node} = mod_feed_mnesia:get_node(NodeId),
     if
         Node =:= undefined ->
-            ?INFO_MSG("Uid: ~s, Invalid node", [Uid]),
+            ?INFO("Uid: ~s, Invalid node", [Uid]),
             Txt = ?T("Invalid node"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         ItemsEls =:= undefined ->
@@ -156,11 +156,11 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = get, lan
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lang = Lang,
         sub_els = [#pubsub{publish = #ps_publish{node = NodeId,
             items = [#ps_item{id = ItemId, type = ItemType, sub_els = Payload}]}}]} = IQ) ->
-    ?INFO_MSG("Uid: ~s, publish item_id: ~s", [Uid, ItemId]),
+    ?INFO("Uid: ~s, publish item_id: ~s", [Uid, ItemId]),
     {ok, Node} = mod_feed_mnesia:get_node(NodeId),
     case Node =/= undefined of
         false ->
-            ?INFO_MSG("Uid: ~s, Invalid node", [Uid]),
+            ?INFO("Uid: ~s, Invalid node", [Uid]),
             Txt = ?T("Invalid node"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         true ->
@@ -168,15 +168,15 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lan
             case check_permissions(Uid, Node#psnode.uid, Node#psnode.type,
                     ItemType, FeedAudienceSet) of
                 error ->
-                    ?INFO_MSG("Uid: ~s, Unauthorized to publish", [Uid]),
+                    ?INFO("Uid: ~s, Unauthorized to publish", [Uid]),
                     Txt = ?T("Unauthorized to publish"),
                     xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
                 Res ->
                     TimestampMs = util:now_ms(),
                     case Res of
-                        ignore -> ?INFO_MSG("Uid: ~s, ignoring item: ~s", [Uid, ItemId]);
+                        ignore -> ?INFO("Uid: ~s, ignoring item: ~s", [Uid, ItemId]);
                         accept ->
-                            ?INFO_MSG("Uid: ~s, publish_item", [Uid]),
+                            ?INFO("Uid: ~s, publish_item", [Uid]),
                             _Item = publish_item(
                                     Uid, Server, ItemId, ItemType, Payload, Node,
                                     TimestampMs, FeedAudienceSet, true)
@@ -195,24 +195,24 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lan
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lang = Lang,
     sub_els = [#pubsub{retract = #ps_retract{node = NodeId, notify = Notify,
         items = [#ps_item{id = ItemId, type = _ItemType, sub_els = Payload}]}}]} = IQ) ->
-    ?INFO_MSG("Uid: ~s, retract item_id: ~s", [Uid, ItemId]),
+    ?INFO("Uid: ~s, retract item_id: ~s", [Uid, ItemId]),
     {ok, Node} = mod_feed_mnesia:get_node(NodeId),
     {ok, Item} = mod_feed_mnesia:get_item({ItemId, NodeId}),
     if
         Node =:= undefined ->
-            ?INFO_MSG("Uid: ~s, Invalid node", [Uid]),
+            ?INFO("Uid: ~s, Invalid node", [Uid]),
             Txt = ?T("Invalid node"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         Item =:= undefined ->
-            ?INFO_MSG("Uid: ~s, Invalid item-id", [Uid]),
+            ?INFO("Uid: ~s, Invalid item-id", [Uid]),
             Txt = ?T("Invalid item-id"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         Item#item.uid =/= Uid ->
-            ?INFO_MSG("Uid: ~s, Unauthorized to delete item", [Uid]),
+            ?INFO("Uid: ~s, Unauthorized to delete item", [Uid]),
             Txt = ?T("Unauthorized to delete item"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         true ->
-            ?INFO_MSG("Uid: ~s, retract_item", [Uid]),
+            ?INFO("Uid: ~s, retract_item", [Uid]),
             FeedAudienceSet = get_feed_audience_set(Node#psnode.uid),
             retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet, true),
             xmpp:make_iq_result(IQ)
@@ -223,7 +223,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, lan
         ItemType :: item_type(), Payload :: xmpp_element(), Node :: psnode(),
         TimestampMs :: integer(), FeedAudienceSet :: set(), SendNewNotification :: boolean()) -> item().
 publish_item(Uid, Server, ItemId, ItemType, Payload, Node, TimestampMs, FeedAudienceSet, SendNewNotification) ->
-    ?INFO_MSG("Uid: ~s, ItemId: ~p", [Uid, ItemId]),
+    ?INFO("Uid: ~s, ItemId: ~p", [Uid, ItemId]),
     NodeId = Node#psnode.id,
     NodeType = Node#psnode.type,
     NewItem = #item{
@@ -264,7 +264,7 @@ broadcast_item(Uid, Server, Node, Item, Payload, publish, FeedAudienceSet, SendN
 -spec retract_item(Uid :: binary(), Server :: binary(), Item :: item(), Payload :: xmpp_element(),
         Node :: psnode(), Notify :: boolean(), FeedAudienceSet :: set(), SendNewNotification :: boolean()) -> ok.
 retract_item(Uid, Server, Item, Payload, Node, Notify, FeedAudienceSet, SendNewNotification) ->
-    ?INFO_MSG("Uid: ~s, Item: ~p", [Uid, Item]),
+    ?INFO("Uid: ~s, Item: ~p", [Uid, Item]),
     ok = mod_feed_mnesia:retract_item(Item#item.key),
     case Notify andalso sets:is_element(Uid, FeedAudienceSet) of
         true ->
@@ -309,7 +309,7 @@ send_new_notification(Uid, ItemId, NodeUid, ItemType, Payload, TimestampMs, Acti
 -spec broadcast_event(Uid :: binary(), Server :: binary(), Node :: psnode(), Item :: item(),
         Payload :: xmpp_element(), EventType :: event_type(), FeedAudienceSet :: set()) -> ok.
 broadcast_event(Uid, Server, Node, Item, Payload, EventType, FeedAudienceSet) ->
-    ?INFO_MSG("Node: ~p, Item: ~p", [Node, Item]),
+    ?INFO("Node: ~p, Item: ~p", [Node, Item]),
     {ItemId, NodeId} = Item#item.key,
     Timestamp = util:ms_to_sec(Item#item.creation_ts_ms),
     PublisherUid = Item#item.uid,
@@ -346,7 +346,7 @@ broadcast_event(Uid, Server, Node, Item, Payload, EventType, FeedAudienceSet) ->
 -spec broadcast_items(Uid :: binary(), Server :: binary(), Node :: psnode(),
         ItemsEls :: ps_items(), EventType :: event_type(), FeedAudienceSet :: set()) -> ok.
 broadcast_items(Uid, Server, Node, ItemsEls, EventType, FeedAudienceSet) ->
-    ?INFO_MSG("Node: ~p, ItemsEls: ~p", [Node, ItemsEls]),
+    ?INFO("Node: ~p, ItemsEls: ~p", [Node, ItemsEls]),
     MsgType = get_message_type(Node, EventType),
     Packet = #message{
         id = util:new_msg_id(),
@@ -356,7 +356,7 @@ broadcast_items(Uid, Server, Node, ItemsEls, EventType, FeedAudienceSet) ->
     BroadcastUids = sets:to_list(sets:del_element(Uid, FeedAudienceSet)),
     BroadcastJids = util:uids_to_jids(BroadcastUids, Server),
     From = jid:make(?PUBSUB_HOST),
-    ?INFO_MSG("Node: ~p, ItemsEls: ~p, FriendUids: ~p", [Node, ItemsEls, BroadcastUids]),
+    ?INFO("Node: ~p, ItemsEls: ~p, FriendUids: ~p", [Node, ItemsEls, BroadcastUids]),
     ejabberd_router_multicast:route_multicast(From, Server, BroadcastJids, Packet),
     ok.
 
@@ -390,14 +390,14 @@ get_message_type(#psnode{type = _ }, retract) -> normal.
 %% TODO(murali@): remove metadata node remains as you migrate away from using node-type.
 -spec create_pubsub_nodes(Uid :: binary(), Server :: binary()) -> ok.
 create_pubsub_nodes(Uid, _Server) ->
-    ?INFO_MSG("Uid: ~s", [Uid]),
+    ?INFO("Uid: ~s", [Uid]),
     FeedNodeName = util:pubsub_node_name(Uid, feed),
     create_pubsub_node(Uid, FeedNodeName, feed).
 
 
 -spec create_pubsub_node(Uid :: binary(), NodeName :: binary(), NodeType :: node_type()) -> ok.
 create_pubsub_node(Uid, NodeName, NodeType) ->
-    ?INFO_MSG("Uid: ~s, node_name: ~s, node_type: ~s", [Uid, NodeName, NodeType]),
+    ?INFO("Uid: ~s, node_name: ~s, node_type: ~s", [Uid, NodeName, NodeType]),
     Node = #psnode{
         id = NodeName,
         uid = Uid,
@@ -412,7 +412,7 @@ create_pubsub_node(Uid, NodeName, NodeType) ->
 
 -spec add_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
 add_friend(UserId, Server, ContactId) ->
-    ?INFO_MSG("Uid: ~s, ContactId: ~s", [UserId, ContactId]),
+    ?INFO("Uid: ~s, ContactId: ~s", [UserId, ContactId]),
     {ok, TsMs1} = model_accounts:get_creation_ts_ms(UserId),
     {ok, TsMs2} = model_accounts:get_creation_ts_ms(ContactId),
     NowMs = util:now_ms(),
@@ -422,17 +422,17 @@ add_friend(UserId, Server, ContactId) ->
 
     case NowMs - TsMs1 < TimeDiff of
         true ->
-            ?INFO_MSG("sending old items of ~s, to ~s", [ContactId, UserId]),
+            ?INFO("sending old items of ~s, to ~s", [ContactId, UserId]),
             send_old_items_to_user(ContactId, Server, UserId);
         false ->
-            ?INFO_MSG("Ignoring add_friend here, ContactId: ~s, Uid: ~s", [ContactId, UserId])
+            ?INFO("Ignoring add_friend here, ContactId: ~s, Uid: ~s", [ContactId, UserId])
     end,
     case NowMs - TsMs2 < TimeDiff of
         true ->
-            ?INFO_MSG("sending old items of ~s, to ~s", [UserId, ContactId]),
+            ?INFO("sending old items of ~s, to ~s", [UserId, ContactId]),
             send_old_items_to_user(UserId, Server, ContactId);
         false ->
-            ?INFO_MSG("Ignoring add_friend here, Uid: ~s, ContactId: ~s", [UserId, ContactId])
+            ?INFO("Ignoring add_friend here, Uid: ~s, ContactId: ~s", [UserId, ContactId])
     end,
     ok.
 
@@ -443,7 +443,7 @@ add_friend(UserId, Server, ContactId) ->
 
 -spec remove_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
 remove_friend(UserId, _Server, ContactId) ->
-    ?INFO_MSG("Uid: ~s, ContactId: ~s", [UserId, ContactId]),
+    ?INFO("Uid: ~s, ContactId: ~s", [UserId, ContactId]),
     ok.
 
 
@@ -464,7 +464,7 @@ send_old_items_to_user(UserId, Server, ContactId) ->
 
 -spec send_all_node_items(Node :: psnode(), ContactId :: binary(), Server :: binary()) -> ok.
 send_all_node_items(#psnode{id = NodeId} = _Node, ContactId, Server) ->
-    ?INFO_MSG("NodeId: ~s, ContactId: ~s", [NodeId, ContactId]),
+    ?INFO("NodeId: ~s, ContactId: ~s", [NodeId, ContactId]),
     {ok, AllItems} = mod_feed_mnesia:get_all_items(NodeId),
     TimestampMs = util:now_ms(),
     Items = lists:filter(

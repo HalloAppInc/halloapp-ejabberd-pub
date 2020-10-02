@@ -58,14 +58,14 @@ make_signed_url(Method, ExpireTime, Host, URI) ->
 
 - spec init(string(), string(), string()) -> ok.
 init(Region, PutHost, GetHost) ->
-    ?INFO_MSG("~p", [init]),
+    ?INFO("~p", [init]),
     internal_init(Region, PutHost, GetHost),
     ssl:start(),
     erlcloud:start().
 
 - spec close() -> ok.
 close() ->
-    ?INFO_MSG("~p", [close]),
+    ?INFO("~p", [close]),
     internal_close().
 
 %%-----------------------------------------------------------------------------
@@ -95,7 +95,7 @@ internal_init(Region, PutHost, GetHost) ->
                                       true);
         _ ->  persistent_term:put({?MODULE, is_signed_get_needed}, false)
     end,
-    ?INFO_MSG("Need signed get?: ~p", [is_signed_get_needed()]).
+    ?INFO("Need signed get?: ~p", [is_signed_get_needed()]).
 
 %% To clear state kept by this module.
 internal_close() ->

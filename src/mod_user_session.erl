@@ -31,12 +31,12 @@
 %%====================================================================
 
 start(Host, _Opts) ->
-    ?INFO_MSG("start", []),
+    ?INFO("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_USER_MODE, ?MODULE, process_local_iq),
     ok.
 
 stop(Host) ->
-    ?INFO_MSG("stop", []),
+    ?INFO("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_USER_MODE),
     ok.
 
@@ -57,10 +57,10 @@ mod_options(_Host) ->
 -spec process_local_iq(IQ :: iq()) -> iq().
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
         lang = Lang, sub_els = [#client_mode{mode = Mode}]} = IQ) ->
-    ?INFO_MSG("Uid: ~s, set-iq for client_mode, mode: ~p", [Uid, Mode]),
+    ?INFO("Uid: ~s, set-iq for client_mode, mode: ~p", [Uid, Mode]),
     if
         Mode =/= active ->
-            ?WARNING_MSG("Uid: ~s, received invalid client mode: ~p", [Uid, Mode]),
+            ?WARNING("Uid: ~s, received invalid client mode: ~p", [Uid, Mode]),
             Txt = ?T("Invalid client login mode."),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         true ->
@@ -81,12 +81,12 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
 mark_user_session_active(Uid, Server) ->
     case ejabberd_sm_mnesia:get_sessions(Uid, Server) of
         {ok, []} ->
-            ?ERROR_MSG("No sessions found for uid: ~s", [Uid]);
+            ?ERROR("No sessions found for uid: ~s", [Uid]);
         {ok, [Session]} ->
             CurrentMode = proplists:get_value(mode, Session#session.info),
             activate_user_session(Session, CurrentMode);
         {ok, _} ->
-            ?ERROR_MSG("Multiple sessions found for uid: ~s", [Uid])
+            ?ERROR("Multiple sessions found for uid: ~s", [Uid])
             %% Ideally, we could use resource to match the session,
             %% but we dont need this until we support multiple devices per user.
     end.
@@ -94,9 +94,9 @@ mark_user_session_active(Uid, Server) ->
 
 -spec activate_user_session(Session :: session(), CurrentMode :: active | passive | undefined) -> ok.
 activate_user_session(#session{us = {Uid, _}} = _Session, active) ->
-    ?WARNING_MSG("Uid: ~s, user session is already active.", [Uid]);
+    ?WARNING("Uid: ~s, user session is already active.", [Uid]);
 activate_user_session(#session{us = {Uid, _}} = Session, _CurrentMode) ->
-    ?INFO_MSG("Uid: ~s, activating user_session", [Uid]),
+    ?INFO("Uid: ~s, activating user_session", [Uid]),
     ejabberd_sm:activate_session(Session).
 
 

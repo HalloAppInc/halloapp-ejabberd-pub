@@ -185,10 +185,10 @@ delete_old_sessions(Days) ->
     ets_cache:clear(?PUSH_CACHE, ejabberd_cluster:get_nodes()),
     case lists:filter(fun(Res) -> Res /= ok end, Results) of
 	[] ->
-	    ?INFO_MSG("Deleted push sessions older than ~B days", [Days]),
+	    ?INFO("Deleted push sessions older than ~B days", [Days]),
 	    ok;
 	[NotOk | _] ->
-	    ?ERROR_MSG("Error while deleting old push sessions: ~p", [NotOk]),
+	    ?ERROR("Error while deleting old push sessions: ~p", [NotOk]),
 	    NotOk
     end.
 
@@ -308,16 +308,16 @@ enable(#jid{luser = LUser, lserver = LServer, lresource = LResource} = JID,
 	{TS, PID} ->
 	    case store_session(LUser, LServer, TS, PushJID, Node, XData) of
 		{ok, _} ->
-		    ?INFO_MSG("Enabling push notifications for ~ts",
+		    ?INFO("Enabling push notifications for ~ts",
 			      [jid:encode(JID)]),
 		    ejabberd_c2s:cast(PID, push_enable);
 		{error, _} = Err ->
-		    ?ERROR_MSG("Cannot enable push for ~ts: database error",
+		    ?ERROR("Cannot enable push for ~ts: database error",
 			       [jid:encode(JID)]),
 		    Err
 	    end;
 	none ->
-	    ?WARNING_MSG("Cannot enable push for ~ts: session not found",
+	    ?WARNING("Cannot enable push for ~ts: session not found",
 			 [jid:encode(JID)]),
 	    {error, notfound}
     end.
@@ -327,11 +327,11 @@ disable(#jid{luser = LUser, lserver = LServer, lresource = LResource} = JID,
        PushJID, Node) ->
     case ejabberd_sm:get_session_sid(LUser, LServer, LResource) of
 	{_TS, PID} ->
-	    ?INFO_MSG("Disabling push notifications for ~ts",
+	    ?INFO("Disabling push notifications for ~ts",
 		      [jid:encode(JID)]),
 	    ejabberd_c2s:cast(PID, push_disable);
 	none ->
-	    ?WARNING_MSG("Session not found while disabling push for ~ts",
+	    ?WARNING("Session not found while disabling push for ~ts",
 			 [jid:encode(JID)])
     end,
     if Node /= <<>> ->
@@ -420,7 +420,7 @@ c2s_handle_cast(State, _Msg) ->
 
 -spec remove_user(binary(), binary()) -> ok | {error, err_reason()}.
 remove_user(LUser, LServer) ->
-    ?INFO_MSG("Removing any push sessions of ~ts@~ts", [LUser, LServer]),
+    ?INFO("Removing any push sessions of ~ts@~ts", [LUser, LServer]),
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     LookupFun = fun() -> Mod:lookup_sessions(LUser, LServer) end,
     delete_sessions(LUser, LServer, LookupFun, Mod).
@@ -451,14 +451,14 @@ notify(LUser, LServer, Clients, Pkt, Dir) ->
 		     (#iq{type = error} = IQ) ->
 			  case inspect_error(IQ) of
 			      {wait, Reason} ->
-				  ?INFO_MSG("~ts rejected notification for "
+				  ?INFO("~ts rejected notification for "
 					    "~ts@~ts (~ts) temporarily: ~ts",
 					    [jid:encode(PushLJID), LUser,
 					     LServer, Node, Reason]);
 			      {Type, Reason} ->
 				  spawn(?MODULE, delete_session,
 					[LUser, LServer, TS]),
-				  ?WARNING_MSG("~ts rejected notification for "
+				  ?WARNING("~ts rejected notification for "
 					       "~ts@~ts (~ts), disabling push: ~ts "
 					       "(~ts)",
 					       [jid:encode(PushLJID), LUser,

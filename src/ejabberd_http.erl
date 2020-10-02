@@ -153,7 +153,7 @@ send_text(State, Text) ->
     case (State#state.sockmod):send(State#state.socket, Text) of
 	ok -> ok;
 	{error, timeout} ->
-	    ?INFO_MSG("Timeout on ~p:send", [State#state.sockmod]),
+	    ?INFO("Timeout on ~p:send", [State#state.sockmod]),
 	    exit(normal);
 	Error ->
 	    ?DEBUG("Error in ~p:send: ~p",
@@ -179,7 +179,7 @@ send_file(State, Fd, Size, FileName) ->
 	end
     catch _:{case_clause, {error, Why}} ->
 	    if Why /= closed ->
-		    ?WARNING_MSG("Failed to read ~ts: ~ts",
+		    ?WARNING("Failed to read ~ts: ~ts",
 				 [FileName, file_format_error(Why)]),
 		    exit(normal);
 	       true ->
@@ -677,12 +677,12 @@ make_file_output(State, Status, Headers, FileName) ->
 		    none;
 		{error, Why} ->
 		    Reason = file_format_error(Why),
-		    ?ERROR_MSG("Failed to open ~ts: ~ts", [FileName, Reason]),
+		    ?ERROR("Failed to open ~ts: ~ts", [FileName, Reason]),
 		    make_text_output(State, 404, Reason, [], <<>>)
 	    end;
 	{error, Why} ->
 	    Reason = file_format_error(Why),
-	    ?ERROR_MSG("Failed to read info of ~ts: ~ts", [FileName, Reason]),
+	    ?ERROR("Failed to read info of ~ts: ~ts", [FileName, Reason]),
 	    make_text_output(State, 404, Reason, [], <<>>)
     end.
 

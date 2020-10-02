@@ -54,12 +54,12 @@ from_dir(ProsodyDir) ->
 				      "privacy", "pep", "pubsub"])
 		      end, HostDirs);
 		{error, Why} = Err ->
-		    ?ERROR_MSG("Failed to list ~ts: ~ts",
+		    ?ERROR("Failed to list ~ts: ~ts",
 			       [ProsodyDir, file:format_error(Why)]),
 		    Err
 	    end;
 	{error, _} = Err ->
-	    ?ERROR_MSG("The file 'luerl.beam' is not found: maybe "
+	    ?ERROR("The file 'luerl.beam' is not found: maybe "
 		       "ejabberd is not compiled with Lua support", []),
 	    Err
     end.
@@ -96,7 +96,7 @@ convert_dir(Path, Host, Type) ->
 	{error, enoent} ->
 	    ok;
 	{error, Why} = Err ->
-	    ?ERROR_MSG("Failed to list ~ts: ~ts",
+	    ?ERROR("Failed to list ~ts: ~ts",
 		       [Path, file:format_error(Why)]),
 	    Err
     end.
@@ -118,11 +118,11 @@ eval_file(Path) ->
 		{ok, _} = Res ->
 		    Res;
 		{error, Why} = Err ->
-		    ?ERROR_MSG("Failed to eval ~ts: ~p", [Path, Why]),
+		    ?ERROR("Failed to eval ~ts: ~p", [Path, Why]),
 		    Err
 	    end;
 	{error, Why} = Err ->
-	    ?ERROR_MSG("Failed to read file ~ts: ~ts",
+	    ?ERROR("Failed to read file ~ts: ~ts",
 		       [Path, file:format_error(Why)]),
 	    Err
     end.
@@ -150,7 +150,7 @@ convert_data(Host, "accounts", User, [Data]) ->
 	ok ->
 	    ok;
 	Err ->
-	    ?ERROR_MSG("Failed to register user ~ts@~ts: ~p",
+	    ?ERROR("Failed to register user ~ts@~ts: ~p",
 		       [User, Host, Err]),
 	    Err
     end;
@@ -241,12 +241,12 @@ convert_data(HostStr, "pubsub", Node, [Data]) ->
 			    Error
 		    end;
 		Error ->
-		    ?ERROR_MSG("Failed to import pubsub node ~ts on ~p:~n~p",
+		    ?ERROR("Failed to import pubsub node ~ts on ~p:~n~p",
 			       [Node, Host, NodeData]),
 		    Error
 	    end;
 	Error ->
-	    ?ERROR_MSG("Failed to import pubsub node: ~p", [Error]),
+	    ?ERROR("Failed to import pubsub node: ~p", [Error]),
 	    Error
     end;
 convert_data(_Host, _Type, _User, _Data) ->

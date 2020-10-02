@@ -254,15 +254,15 @@ process_info(#{jid := JID} = State, {resend_presence, To}) ->
 	    process_presence_out(State, xmpp:set_to(Pres, To))
     end;
 process_info(State, Info) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     State.
 
 handle_unexpected_call(State, From, Msg) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Msg]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Msg]),
     State.
 
 handle_unexpected_cast(State, Msg) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     State.
 
 reject_unauthenticated_packet(State, _Pkt) ->
@@ -272,14 +272,14 @@ reject_unauthenticated_packet(State, _Pkt) ->
 process_auth_result(#{sasl_mech := Mech,
 		      socket := Socket, ip := IP, lserver := LServer} = State,
 		    true, User) ->
-    ?INFO_MSG("(~ts) Accepted c2s ~ts authentication for ~ts@~ts from ~ts",
+    ?INFO("(~ts) Accepted c2s ~ts authentication for ~ts@~ts from ~ts",
               [xmpp_socket:pp(Socket), Mech, User, LServer,
                ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
     State;
 process_auth_result(#{sasl_mech := Mech,
 		      socket := Socket, ip := IP, lserver := LServer} = State,
 		    {false, Reason}, User) ->
-    ?WARNING_MSG("(~ts) Failed c2s ~ts authentication ~tsfrom ~ts: ~ts",
+    ?WARNING("(~ts) Failed c2s ~ts authentication ~tsfrom ~ts: ~ts",
                  [xmpp_socket:pp(Socket), Mech,
                   if User /= <<"">> -> ["for ", User, "@", LServer, " "];
                      true -> ""
@@ -294,7 +294,7 @@ process_terminated(#{sid := SID, socket := Socket,
 		     jid := JID, user := U, server := S, resource := R} = State,
 		   Reason) ->
     Status = format_reason(State, Reason),
-    ?INFO_MSG("(~ts) Closing c2s session for ~ts: ~ts",
+    ?INFO("(~ts) Closing c2s session for ~ts: ~ts",
 	      [xmpp_socket:pp(Socket), jid:encode(JID), Status]),
     State1 = case maps:is_key(pres_last, State) of
 		 true ->
@@ -312,7 +312,7 @@ process_terminated(#{sid := SID, socket := Socket,
     State1;
 process_terminated(#{socket := Socket,
 		     stop_reason := {tls, _}} = State, Reason) ->
-    ?WARNING_MSG("(~ts) Failed to secure c2s connection: ~ts",
+    ?WARNING("(~ts) Failed to secure c2s connection: ~ts",
 		 [xmpp_socket:pp(Socket), format_reason(State, Reason)]),
     State;
 process_terminated(State, _Reason) ->
@@ -433,12 +433,12 @@ bind(R, #{user := U, server := S, access := Access, lang := Lang,
 						 sid => ejabberd_sm:make_sid()}),
 		    State2 = ejabberd_hooks:run_fold(
 			       c2s_session_opened, LServer, State1, []),
-		    ?INFO_MSG("(~ts) Opened c2s session for ~ts",
+		    ?INFO("(~ts) Opened c2s session for ~ts",
 			      [xmpp_socket:pp(Socket), jid:encode(JID)]),
 		    {ok, State2};
 		deny ->
 		    ejabberd_hooks:run(forbidden_session_hook, LServer, [JID]),
-		    ?WARNING_MSG("(~ts) Forbidden c2s session for ~ts",
+		    ?WARNING("(~ts) Forbidden c2s session for ~ts",
 				 [xmpp_socket:pp(Socket), jid:encode(JID)]),
 		    Txt = ?T("Access denied by service policy"),
 		    {error, xmpp:err_not_allowed(Txt, Lang), State}
@@ -914,7 +914,7 @@ bounce_message_queue({_, Pid} = SID, JID) ->
     SIDs = ejabberd_sm:get_session_sids(U, S, R),
     case lists:member(SID, SIDs) of
 	true ->
-	    ?WARNING_MSG("The session for ~ts@~ts/~ts is supposed to "
+	    ?WARNING("The session for ~ts@~ts/~ts is supposed to "
 			 "be unregistered, but session identifier ~p "
 			 "still presents in the 'session' table",
 			 [U, S, R, Pid]);

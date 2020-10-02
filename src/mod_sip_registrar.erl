@@ -80,7 +80,7 @@ request(#sip{hdrs = Hdrs} = Req, SIPSock) ->
         [<<"*">>] when Expires == 0 ->
             case unregister_session(US, CallID, CSeq) of
 		{ok, ContactsWithExpires} ->
-		    ?INFO_MSG("Unregister SIP session for user ~ts@~ts from ~ts",
+		    ?INFO("Unregister SIP session for user ~ts@~ts from ~ts",
 			      [LUser, LServer, inet_parse:ntoa(PeerIP)]),
 		    Cs = prepare_contacts_to_send(ContactsWithExpires),
 		    mod_sip:make_response(
@@ -114,7 +114,7 @@ request(#sip{hdrs = Hdrs} = Req, SIPSock) ->
 					  IsOutboundSupported,
 					  ContactsWithExpires) of
 			{ok, Res} ->
-			    ?INFO_MSG("~ts SIP session for user ~ts@~ts from ~ts",
+			    ?INFO("~ts SIP session for user ~ts@~ts from ~ts",
 				      [Res, LUser, LServer,
 				       inet_parse:ntoa(PeerIP)]),
 			    Cs = prepare_contacts_to_send(ContactsWithExpires),
@@ -199,11 +199,11 @@ handle_call({ping, SIPSocket}, _From, State) ->
     Res = process_ping(SIPSocket),
     {reply, Res, State};
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info({write, Sessions, Supported}, State) ->
@@ -224,7 +224,7 @@ handle_info({'DOWN', MRef, process, _Pid, _Reason}, State) ->
     end,
     {noreply, State};
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->

@@ -43,11 +43,11 @@
 %%%===================================================================
 
 start(Host, Opts) ->
-    ?INFO_MSG("mod_offline_halloapp: start", []),
+    ?INFO("mod_offline_halloapp: start", []),
     gen_mod:start_child(?MODULE, Host, Opts, get_proc()).
 
 stop(_Host) ->
-    ?INFO_MSG("mod_offline_halloapp: stop", []),
+    ?INFO("mod_offline_halloapp: stop", []),
     gen_mod:stop_child(get_proc()).
 
 depends(_Host, _Opts) ->
@@ -115,9 +115,9 @@ handle_info({push_offline_message, Message}, #{host := _ServerHost} = State) ->
     #jid{user = Uid} = xmpp:get_to(Message),
     case model_messages:get_message(Uid, MsgId) of
         {ok, undefined} ->
-            ?INFO_MSG("Uid: ~s, message has been acked, Id: ~s", [Uid, MsgId]);
+            ?INFO("Uid: ~s, message has been acked, Id: ~s", [Uid, MsgId]);
         _ ->
-            ?INFO_MSG("Uid: ~s, no ack for message Id: ~s, trying a push", [Uid, MsgId]),
+            ?INFO("Uid: ~s, no ack for message Id: ~s, trying a push", [Uid, MsgId]),
             ejabberd_sm:route_offline_message(Message)
     end,
     {noreply, State};
@@ -136,7 +136,7 @@ user_send_ack(#ack{id = MsgId, from = #jid{user = UserId, server = Server}} = Ac
     {ok, OfflineMessage} = model_messages:get_message(UserId, MsgId),
     case OfflineMessage of
         undefined ->
-            ?WARNING_MSG("missing a message on redis, msg_id: ~s, from_uid: ~s", [MsgId, UserId]);
+            ?WARNING("missing a message on redis, msg_id: ~s, from_uid: ~s", [MsgId, UserId]);
         _ ->
             ok = model_messages:ack_message(UserId, MsgId),
             ejabberd_hooks:run(user_ack_packet, Server, [Ack, OfflineMessage])
@@ -150,7 +150,7 @@ offline_message_hook({Action, #message{} = Message} = _Acc) ->
 
 user_receive_packet({Packet, #{lserver := _ServerHost} = State} = Acc)
         when is_record(Packet, message) ->
-    ?INFO_MSG("Uid: ~s MsgId: ~s, retry_count: ~p",
+    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p",
         [Packet#message.to#jid.luser, Packet#message.id, Packet#message.retry_count]),
     case Packet#message.retry_count of
         0 ->
@@ -181,7 +181,7 @@ user_session_activated(User, Server) ->
 
 
 remove_user(User, _Server) ->
-    ?INFO_MSG("removing all user messages, uid: ~s", [User]),
+    ?INFO("removing all user messages, uid: ~s", [User]),
     model_messages:remove_all_user_messages(User).
 
 
@@ -193,9 +193,9 @@ count_user_messages(User) ->
 
 -spec route_offline_messages(JID :: jid()) -> ok.
 route_offline_messages(#jid{luser = UserId, lserver = _ServerHost}) ->
-    ?INFO_MSG("Uid: ~s start", [UserId]),
+    ?INFO("Uid: ~s start", [UserId]),
     {ok, OfflineMessages} = model_messages:get_all_user_messages(UserId),
-    ?INFO_MSG("Uid: ~s has ~p offline messages", [UserId, length(OfflineMessages)]),
+    ?INFO("Uid: ~s has ~p offline messages", [UserId, length(OfflineMessages)]),
     % TODO: We need to rate limit the number of offline messages we send at once.
     % TODO: Drop messages with high retry count
     % TODO: get metrics about the number of retries
@@ -213,17 +213,17 @@ route_offline_message(#offline_message{
         msg_id = MsgId, to_uid = ToUid, retry_count = RetryCount, message = Message}) ->
     case fxml_stream:parse_element(Message) of
         {error, Reason} ->
-            ?ERROR_MSG("MsgId: ~s, failed to parse: ~p, reason: ~s", [MsgId, Message, Reason]);
+            ?ERROR("MsgId: ~s, failed to parse: ~p, reason: ~s", [MsgId, Message, Reason]);
         MessageXmlEl ->
             try
                 Packet = xmpp:decode(MessageXmlEl, ?NS_CLIENT, [ignore_els]),
                 Packet1 = Packet#message{retry_count = RetryCount},
                 ejabberd_router:route(Packet1),
-                ?INFO_MSG("sending offline message Uid: ~s MsgId: ~p rc: ~p",
+                ?INFO("sending offline message Uid: ~s MsgId: ~p rc: ~p",
                     [ToUid, MsgId, RetryCount])
             catch
                 Class : Reason : Stacktrace ->
-                    ?ERROR_MSG("failed routing: ~s", [
+                    ?ERROR("failed routing: ~s", [
                             lager:pr_stacktrace(Stacktrace, {Class, Reason})])
             end
     end.
@@ -244,8 +244,8 @@ adjust_id_and_store_message(#message{id = Id} = Message) ->
 
     %% TODO(murali@): ensure all messages always have id generated.
     case Id of
-        undefined -> ?WARNING_MSG("message id was empty ~p", [Message]);
-        <<>> -> ?WARNING_MSG("message id was empty ~p", [Message]);
+        undefined -> ?WARNING("message id was empty ~p", [Message]);
+        <<>> -> ?WARNING("message id was empty ~p", [Message]);
         _ -> ok
     end,
 

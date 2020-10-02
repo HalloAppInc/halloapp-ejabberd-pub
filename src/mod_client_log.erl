@@ -53,7 +53,7 @@ process_local_iq(#iq{type = set, from = #jid{luser = Uid, lresource = Resource},
         ServerDims = [{"platform", atom_to_list(Type)}],
         Counts = ClientLogsSt#client_log_st.counts,
         Events = ClientLogsSt#client_log_st.events,
-        ?INFO_MSG("Uid: ~s counts: ~p, events: ~p", [Uid, length(Counts), length(Events)]),
+        ?INFO("Uid: ~s counts: ~p, events: ~p", [Uid, length(Counts), length(Events)]),
         CountResults = process_counts(Counts, ServerDims),
         EventResults = process_events(Uid, Events),
         CountError = lists:any(fun has_error/1, CountResults),
@@ -66,7 +66,7 @@ process_local_iq(#iq{type = set, from = #jid{luser = Uid, lresource = Resource},
         end
     catch
         Class : Reason : Stacktrace ->
-            ?ERROR_MSG("client log error: ~s", [
+            ?ERROR("client log error: ~s", [
                 lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             xmpp:make_error(IQ, util:err(server_error))
     end;
@@ -99,7 +99,7 @@ process_count(#count_st{namespace = Namespace, metric = Metric, count = Count, d
         error : bad_namespace : _ ->
             {error, bad_namespace};
         Class : Reason : Stacktrace ->
-            ?ERROR_MSG("client count error: ~s", [
+            ?ERROR("client count error: ~s", [
                 lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             {error, badarg}
     end.
@@ -123,14 +123,14 @@ process_event(Uid, #event_st{namespace = Namespace, event = EventData}) ->
         EventJson = jiffy:decode(EventData, [return_maps]),
         EventJson2 = EventJson#{<<"uid">> => Uid},
         EventData2 = jiffy:encode(EventJson2),
-        ?INFO_MSG("~s, ~s, ~p, ~s", [FullNamespace, Uid, Ts, EventData2]),
+        ?INFO("~s, ~s, ~p, ~s", [FullNamespace, Uid, Ts, EventData2]),
         ok
         % TODO: log the event into CloudWatch Log
     catch
         error : bad_namespace : _ ->
             {error, bad_namespace};
         Class : Reason : Stacktrace ->
-            ?ERROR_MSG("client event error: ~s", [
+            ?ERROR("client event error: ~s", [
                 lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             {error, badarg}
     end.
@@ -150,7 +150,7 @@ validate_namespace(Namespace) ->
         true ->
             ok;
         false ->
-            ?WARNING_MSG("Invalid namespace ~p", [Namespace]),
+            ?WARNING("Invalid namespace ~p", [Namespace]),
             erlang:error(bad_namespace)
     end.
 

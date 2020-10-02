@@ -57,7 +57,7 @@ offline_message_hook({_, #message{} = Message} = Acc) ->
     case should_push(Message) of
         true -> push_message(Message);
         % TODO: make debug, or don't print the full Msg
-        false -> ?INFO_MSG("ignoring push: ~p", [Message])
+        false -> ?INFO("ignoring push: ~p", [Message])
     end,
     Acc.
 
@@ -103,9 +103,9 @@ push_message(#message{id = MsgId, to = #jid{luser = User, lserver = Server}} = M
     case PushInfo#push_info.token of
         undefined ->
             % TODO: add stat:count here to count this
-            ?INFO_MSG("Uid: ~s, MsgId: ~p ignore push: no push token", [User, MsgId]);
+            ?INFO("Uid: ~s, MsgId: ~p ignore push: no push token", [User, MsgId]);
         _ ->
-            ?INFO_MSG("Uid: ~s, MsgId: ~p", [User, MsgId]),
+            ?INFO("Uid: ~s, MsgId: ~p", [User, MsgId]),
             push_message(Message, PushInfo)
     end.
 

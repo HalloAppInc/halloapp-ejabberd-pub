@@ -295,5 +295,5 @@ is_process_dead(Pid) ->
     node(Pid) == node() andalso not is_process_alive(Pid).
 
 db_fail(Format, Reason, Args) ->
-    ?ERROR_MSG(Format ++ ": ~p", Args ++ [Reason]),
+    ?ERROR(Format ++ ": ~p", Args ++ [Reason]),
     {error, db_failure}.

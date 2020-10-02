@@ -149,11 +149,11 @@ init([]) ->
     end.
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info({redis_message, ?SM_KEY, Data}, State) ->
@@ -161,11 +161,11 @@ handle_info({redis_message, ?SM_KEY, Data}, State) ->
 	{delete, Key} ->
 	    ets_cache:delete(?SM_CACHE, Key);
 	Msg ->
-	    ?WARNING_MSG("Unexpected redis message: ~p", [Msg])
+	    ?WARNING("Unexpected redis message: ~p", [Msg])
     end,
     {noreply, State};
 handle_info(Info, State) ->
-    ?ERROR_MSG("Unexpected info: ~p", [Info]),
+    ?ERROR("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -216,7 +216,7 @@ clean_table(Node) ->
 		  ok = clean_node_sessions(Node, Host)
 	  end, ejabberd_sm:get_vh_by_backend(?MODULE))
     catch _:{badmatch, {error, _} = Err} ->
-	    ?ERROR_MSG("Failed to clean Redis SM table", []),
+	    ?ERROR("Failed to clean Redis SM table", []),
 	    Err
     end.
 
@@ -250,7 +250,7 @@ load_script() ->
 			V when V >= ?MIN_REDIS_VERSION ->
 			    ejabberd_redis:script_load(Data);
 			V ->
-			    ?CRITICAL_MSG("Unsupported Redis version: ~ts. "
+			    ?CRITICAL("Unsupported Redis version: ~ts. "
 					  "The version must be ~ts or above",
 					  [V, ?MIN_REDIS_VERSION]),
 			    {error, unsupported_redis_version}

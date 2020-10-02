@@ -50,7 +50,7 @@
 %%-include_lib("exmpp/include/exmpp_client.hrl").
 %% Copied from exmpp header files:
 %% Copied from mod_private.erl
-%%-define(ERROR_MSG(M,Args),io:format(M,Args)).
+%%-define(ERROR(M,Args),io:format(M,Args)).
 %%-define(INFO_MSG(M,Args),ok).
 %%%==================================
 %%%% Import file
@@ -86,7 +86,7 @@ import_file(FileName, State) ->
             Res;
 	{error, Reason} ->
             ErrTxt = file:format_error(Reason),
-            ?ERROR_MSG("Failed to open file '~ts': ~ts", [FileName, ErrTxt]),
+            ?ERROR("Failed to open file '~ts': ~ts", [FileName, ErrTxt]),
             {error, Reason}
     end.
 
@@ -125,7 +125,7 @@ export_hosts(Hosts, Dir) ->
               end, ok, FilesAndHosts);
         {error, Reason} ->
             ErrTxt = file:format_error(Reason),
-            ?ERROR_MSG("Failed to open file '~ts': ~ts", [DFn, ErrTxt]),
+            ?ERROR("Failed to open file '~ts': ~ts", [DFn, ErrTxt]),
             {error, Reason}
     end.
 
@@ -149,7 +149,7 @@ export_host(Dir, FnH, Host) ->
             end;
         {error, Reason} ->
             ErrTxt = file:format_error(Reason),
-            ?ERROR_MSG("Failed to open file '~ts': ~ts", [DFn, ErrTxt]),
+            ?ERROR("Failed to open file '~ts': ~ts", [DFn, ErrTxt]),
             {error, Reason}
     end.
 
@@ -537,7 +537,7 @@ process_presence(Pres, #state{user = U, server = S} = State) ->
     {ok, State}.
 
 stop(Fmt, Args) ->
-    ?ERROR_MSG(Fmt, Args),
+    ?ERROR(Fmt, Args),
     {error, import_failed}.
 
 make_filename_template() ->

@@ -69,13 +69,13 @@ start_migration(Name, RedisService, Function) ->
                 {scan_count, non_neg_integer()} |
                 {interval, non_neg_integer()}.
 start_migration(Name, RedisService, Function, Options) ->
-    ?INFO_MSG("Name: ~s RedisService: ~p, Function: ~p", [Name, RedisService, Function]),
+    ?INFO("Name: ~s RedisService: ~p, Function: ~p", [Name, RedisService, Function]),
 
     Nodes = get_execution_nodes(Options),
     NodesArr = list_to_tuple(Nodes),
 
     RedisMasters = get_masters(RedisService),
-    ?INFO_MSG("redis masters: ~p", [RedisMasters]),
+    ?INFO("redis masters: ~p", [RedisMasters]),
 
     EnumNodes = lists:zip(lists:seq(0, length(RedisMasters) - 1), RedisMasters),
     Job = #{
@@ -99,14 +99,14 @@ start_migration(Name, RedisService, Function, Options) ->
             spawn_link(Node, ?MODULE, start, [PName, AJob])
         end,
         EnumNodes),
-    ?INFO_MSG("pids: ~p", [Pids]),
-    ?INFO_MSG("nodes: ~p", [Nodes]),
+    ?INFO("pids: ~p", [Pids]),
+    ?INFO("nodes: ~p", [Nodes]),
     ok.
 
 
 -spec start(Name :: string(), Job :: map()) -> gen_server:start_ref().
 start(Name, Job) ->
-    ?INFO_MSG("Starting migration ~s on Node: ~p, Job: ~p", [Name, node(), Job]),
+    ?INFO("Starting migration ~s on Node: ~p, Job: ~p", [Name, node(), Job]),
     gen_server:start({global, Name}, ?MODULE, Job, []).
 
 
@@ -139,10 +139,10 @@ iterate(Name) ->
 -spec init(Job :: #{}) -> {ok, any()}.
 init(#{redis_host := RedisHost, redis_port := RedisPort,
         interval := Interval, dry_run := DryRun, scan_count := ScanCount} = Job) ->
-    ?INFO_MSG("Migration started: pid: ~p, Job: ~p", [self(), Job]),
+    ?INFO("Migration started: pid: ~p, Job: ~p", [self(), Job]),
     process_flag(trap_exit, true),
     {ok, C} = eredis:start_link(RedisHost, RedisPort),
-    ?INFO_MSG("connection ok: ~p", [C]),
+    ?INFO("connection ok: ~p", [C]),
 
     TRef = erlang:send_after(Interval, self(), {'$gen_cast', {iterate}}),
     State = Job#{
@@ -162,13 +162,13 @@ handle_call({get_progress}, _From, State) ->
 
 
 handle_call({reset}, From, State) ->
-    ?INFO_MSG("resetting from ~p", [From]),
+    ?INFO("resetting from ~p", [From]),
     NewState = State#{cursor := <<"0">>},
     {reply, ok, NewState};
 
 
 handle_call(Any, From, State) ->
-    ?ERROR_MSG("Unhandled message: ~p from: ~p", [Any, From]),
+    ?ERROR("Unhandled message: ~p from: ~p", [Any, From]),
     {reply, ignore, State}.
 
 
@@ -188,7 +188,7 @@ handle_cast({iterate}, State) ->
         Items),
     case NextCursor of
         <<"0">> ->
-            ?INFO_MSG("scan done", []),
+            ?INFO("scan done", []),
             {stop, normal, NewState1};
         _ ->
             TRef = erlang:send_after(Interval, self(), {'$gen_cast', {iterate}}),
@@ -205,12 +205,12 @@ handle_info(_Message, State) -> {noreply, State}.
 
 
 terminate(Reason, State) ->
-    ?INFO_MSG("terminating ~p State: ~p", [Reason, State]),
+    ?INFO("terminating ~p State: ~p", [Reason, State]),
     ok.
 
 
 code_change(OldVersion, State, _Extra) ->
-    ?INFO_MSG("OldVersion: ~p", [OldVersion]),
+    ?INFO("OldVersion: ~p", [OldVersion]),
     {ok, State}.
 
 
@@ -262,13 +262,13 @@ get_execute_option(Options) ->
 
 
 count_accounts(Key, State) ->
-    ?INFO_MSG("Key: ~p", [Key]),
+    ?INFO("Key: ~p", [Key]),
     % TODO: implement
     State.
 
 
 rehash_phones(Key, State) ->
-    ?INFO_MSG("Key: ~p", [Key]),
+    ?INFO("Key: ~p", [Key]),
     % TODO: implement
     State.
 

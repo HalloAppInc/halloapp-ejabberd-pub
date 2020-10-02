@@ -53,7 +53,7 @@ init() ->
 		  {updated, _} ->
 		      ok;
 		  Err ->
-		      ?ERROR_MSG("Failed to clean 'sm' table: ~p", [Err]),
+		      ?ERROR("Failed to clean 'sm' table: ~p", [Err]),
 		      {error, db_failure}
 	      end;
 	 (_, Err) ->

@@ -197,7 +197,7 @@ process_reply(#xdata{} = X) ->
 		captcha_not_found -> {error, not_found}
 	    end
     catch _:{captcha_form, Why} ->
-	    ?WARNING_MSG("Malformed CAPTCHA form: ~ts",
+	    ?WARNING("Malformed CAPTCHA form: ~ts",
 			 [captcha_form:format_error(Why)]),
 	    {error, malformed}
     end;
@@ -331,11 +331,11 @@ handle_call(config_reloaded, _From, #state{enabled = Enabled} = State) ->
 	     end,
     {reply, ok, State1};
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info({remove_id, Id}, State) ->
@@ -348,7 +348,7 @@ handle_info({remove_id, Id}, State) ->
     end,
     {noreply, State};
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, #state{enabled = Enabled}) ->
@@ -404,18 +404,18 @@ do_create_image(Key) ->
 	  when X == $7; X == $9 ->
 	  {ok, <<"image/gif">>, Key, Img};
       {error, enodata = Reason} ->
-	  ?ERROR_MSG("Failed to process output from \"~ts\". "
+	  ?ERROR("Failed to process output from \"~ts\". "
 		     "Maybe ImageMagick's Convert program "
 		     "is not installed.",
 		     [Cmd]),
 	  {error, Reason};
       {error, Reason} ->
-	  ?ERROR_MSG("Failed to process an output from \"~ts\": ~p",
+	  ?ERROR("Failed to process an output from \"~ts\": ~p",
 		     [Cmd, Reason]),
 	  {error, Reason};
       _ ->
 	  Reason = malformed_image,
-	  ?ERROR_MSG("Failed to process an output from \"~ts\": ~p",
+	  ?ERROR("Failed to process an output from \"~ts\": ~p",
 		     [Cmd, Reason]),
 	  {error, Reason}
     end.
@@ -503,7 +503,7 @@ is_limited(Limiter) ->
 	      of
 	    true -> true;
 	    false -> false;
-	    Err -> ?ERROR_MSG("Call failed: ~p", [Err]), false
+	    Err -> ?ERROR("Call failed: ~p", [Err]), false
 	  end
     end.
 
@@ -555,7 +555,7 @@ check_captcha_setup() ->
 		{ok, _, _, _} ->
 		    true;
 		Err ->
-		    ?CRITICAL_MSG("Captcha is enabled in the option captcha_cmd, "
+		    ?CRITICAL("Captcha is enabled in the option captcha_cmd, "
 				  "but it can't generate images.",
 				  []),
 		    Err

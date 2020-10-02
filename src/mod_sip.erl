@@ -31,7 +31,7 @@
 -ifndef(SIP).
 -export([start/2, stop/1, depends/2, mod_options/1]).
 start(_, _) ->
-    ?CRITICAL_MSG("ejabberd is not compiled with SIP support", []),
+    ?CRITICAL("ejabberd is not compiled with SIP support", []),
     {error, sip_not_compiled}.
 stop(_) ->
     ok.
@@ -151,7 +151,7 @@ request(Req, SIPSock, TrID, Action) ->
                     mod_sip_proxy:route(Req, SIPSock, TrID, Pid),
                     {mod_sip_proxy, route, [Pid]};
                 Err ->
-		    ?WARNING_MSG("Failed to proxy request ~p: ~p", [Req, Err]),
+		    ?WARNING("Failed to proxy request ~p: ~p", [Req, Err]),
                     Err
             end;
         {proxy_auth, LServer} ->

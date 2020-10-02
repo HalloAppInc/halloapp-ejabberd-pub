@@ -48,7 +48,7 @@ insert_version(Version, Timestamp) ->
                 Mnesia transaction successful for version: ~p", [Version]),
         Result;
     {aborted, Reason} ->
-        ?ERROR_MSG("insert_version:
+        ?ERROR("insert_version:
                     Mnesia transaction failed for version: ~p with reason: ~p",
                                                                   [Version, Reason]),
         {error, db_failure}
@@ -73,7 +73,7 @@ delete_version(Version, Timestamp) ->
       ?DEBUG("delete_version: Mnesia transaction successful for version: ~p", [Version]),
       {ok, Result};
     {aborted, Reason} ->
-      ?ERROR_MSG("delete_version:
+      ?ERROR("delete_version:
                   Mnesia transaction failed for version: ~p with reason: ~p", [Version, Reason]),
       {error, db_failure}
   end.
@@ -96,7 +96,7 @@ delete_version(Version) ->
       ?DEBUG("delete_version: Mnesia transaction successful for version: ~p", [Version]),
       {ok, Result};
     {aborted, Reason} ->
-      ?ERROR_MSG("delete_version:
+      ?ERROR("delete_version:
                   Mnesia transaction failed for version: ~p with reason: ~p", [Version, Reason]),
       {error, db_failure}
   end.
@@ -116,7 +116,7 @@ fetch_version(Version) ->
       ?DEBUG("fetch_version: Mnesia transaction successful for version: ~p", [Version]),
       Result;
     {aborted, Reason} ->
-      ?ERROR_MSG("fetch_version:
+      ?ERROR("fetch_version:
                   Mnesia transaction failed for version: ~p with reason: ~p", [Version, Reason]),
       {error, db_failure}
   end.
@@ -151,7 +151,7 @@ check_if_version_exists(Version) ->
       ?DEBUG("check_if_version_exists: Mnesia transaction successful for version: ~p", [Version]),
       Res;
     {aborted, Reason} ->
-      ?ERROR_MSG("check_if_version_exists:
+      ?ERROR("check_if_version_exists:
                   Mnesia transaction failed for version: ~p with reason: ~p", [Version, Reason]),
       false
   end.

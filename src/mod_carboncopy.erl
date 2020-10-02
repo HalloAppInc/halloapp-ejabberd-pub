@@ -245,7 +245,7 @@ enable(Host, U, R, CC)->
     case ejabberd_sm:set_user_info(U, Host, R, carboncopy, CC) of
 	ok -> ok;
 	{error, Reason} = Err ->
-	    ?ERROR_MSG("Failed to enable carbons for ~ts@~ts/~ts: ~p",
+	    ?ERROR("Failed to enable carbons for ~ts@~ts/~ts: ~p",
 		       [U, Host, R, Reason]),
 	    Err
     end.
@@ -257,7 +257,7 @@ disable(Host, U, R)->
 	ok -> ok;
 	{error, notfound} -> ok;
 	{error, Reason} = Err ->
-	    ?ERROR_MSG("Failed to disable carbons for ~ts@~ts/~ts: ~p",
+	    ?ERROR("Failed to disable carbons for ~ts@~ts/~ts: ~p",
 		       [U, Host, R, Reason]),
 	    Err
     end.

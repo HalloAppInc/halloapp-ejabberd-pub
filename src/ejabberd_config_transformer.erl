@@ -89,7 +89,7 @@ transform(global, listen, Listeners, Acc) ->
 transform(_Host, Opt, CertFile, Acc) when (Opt == domain_certfile) orelse
 					  (Opt == c2s_certfile) orelse
 					  (Opt == s2s_certfile) ->
-    ?WARNING_MSG("Option '~ts' is deprecated and was automatically "
+    ?WARNING("Option '~ts' is deprecated and was automatically "
 		 "appended to 'certfiles' option. ~ts",
 		 [Opt, adjust_hint()]),
     CertFiles = maps:get(certfiles, Acc, []),
@@ -105,7 +105,7 @@ transform(_Host, acme, ACME, Acc) ->
 		      case http_uri:parse(binary_to_list(URL)) of
 			  {ok, {_, _, "acme-v01.api.letsencrypt.org", _, _, _}} ->
 			      NewURL = ejabberd_acme:default_directory_url(),
-			      ?WARNING_MSG("ACME directory URL ~ts defined in "
+			      ?WARNING("ACME directory URL ~ts defined in "
 					   "option acme->ca_url is deprecated "
 					   "and was automatically replaced "
 					   "with ~ts. ~ts",
@@ -119,7 +119,7 @@ transform(_Host, acme, ACME, Acc) ->
 	      end, ACME),
     {{true, {acme, ACME1}}, Acc};
 transform(Host, s2s_use_starttls, required_trusted, Acc) ->
-    ?WARNING_MSG("The value 'required_trusted' of option "
+    ?WARNING("The value 'required_trusted' of option "
 		 "'s2s_use_starttls' is deprecated and was "
 		 "automatically replaced with value 'required'. "
 		 "The module 'mod_s2s_dialback' has also "
@@ -200,7 +200,7 @@ filter(_Host, default_ram_db, internal, _) ->
 filter(_Host, default_ram_db, odbc, _) ->
     {true, {default_ram_db, sql}};
 filter(_Host, extauth_cache, _, _) ->
-    ?WARNING_MSG("Option 'extauth_cache' is deprecated "
+    ?WARNING("Option 'extauth_cache' is deprecated "
 		 "and has no effect, use authentication "
 		 "or global cache configuration options: "
 		 "auth_use_cache, auth_cache_life_time, "
@@ -293,7 +293,7 @@ replace_request_handlers(Opts) ->
 		 ({http_bind, _}) -> false;
 		 ({xmlrpc, _}) -> false;
 		 ({http_poll, _}) ->
-		      ?WARNING_MSG("Listening option 'http_poll' is "
+		      ?WARNING("Listening option 'http_poll' is "
 				   "ignored: HTTP Polling support was "
 				   "removed in ejabberd 15.04. ~ts",
 				   [adjust_hint()]),
@@ -332,7 +332,7 @@ collect_listener_certfiles(Opts, Acc) ->
        Mod == ejabberd_s2s_in ->
 	    case lists:keyfind(certfile, 1, Opts) of
 		{_, CertFile} ->
-		    ?WARNING_MSG("Listening option 'certfile' of module ~ts "
+		    ?WARNING("Listening option 'certfile' of module ~ts "
 				 "is deprecated and was automatically "
 				 "appended to global 'certfiles' option. ~ts",
 				 [Mod, adjust_hint()]),
@@ -454,7 +454,7 @@ transform_module(_Host, mod_pubsub, Opts, Acc) ->
 					 <<"mix">>, <<"online">>, <<"private">>,
 					 <<"public">>]) of
 				     true ->
-					 ?WARNING_MSG(
+					 ?WARNING(
 					    "Plugin '~ts' of mod_pubsub is not "
 					    "supported anymore and has been "
 					    "automatically removed from 'plugins' "
@@ -498,49 +498,49 @@ set_certfiles(Y, Acc) ->
 %%% Warnings
 %%%===================================================================
 warn_replaced_module(From, To) ->
-    ?WARNING_MSG("Module ~ts is deprecated and was automatically "
+    ?WARNING("Module ~ts is deprecated and was automatically "
 		 "replaced by ~ts. ~ts",
 		 [From, To, adjust_hint()]).
 
 warn_replaced_module(From, To, Type) ->
-    ?WARNING_MSG("Module ~ts is deprecated and was automatically "
+    ?WARNING("Module ~ts is deprecated and was automatically "
 		 "replaced by ~ts with db_type: ~ts. ~ts",
 		 [From, To, Type, adjust_hint()]).
 
 warn_removed_module(Mod) ->
-    ?WARNING_MSG("Module ~ts is deprecated and was automatically "
+    ?WARNING("Module ~ts is deprecated and was automatically "
 		 "removed from the configuration. ~ts", [Mod, adjust_hint()]).
 
 warn_replaced_handler(Opt, {Path, Module}) ->
-    ?WARNING_MSG("Listening option '~ts' is deprecated "
+    ?WARNING("Listening option '~ts' is deprecated "
 		 "and was automatically replaced by "
 		 "HTTP request handler: \"~ts\" -> ~ts. ~ts",
 		 [Opt, Path, Module, adjust_hint()]).
 
 warn_deprecated_option(OldOpt, NewOpt) ->
-    ?WARNING_MSG("Option '~ts' is deprecated. Use option '~ts' instead.",
+    ?WARNING("Option '~ts' is deprecated. Use option '~ts' instead.",
 		 [OldOpt, NewOpt]).
 
 warn_replaced_option(OldOpt, NewOpt) ->
-    ?WARNING_MSG("Option '~ts' is deprecated and was automatically "
+    ?WARNING("Option '~ts' is deprecated and was automatically "
 		 "replaced by '~ts'. ~ts",
 		 [OldOpt, NewOpt, adjust_hint()]).
 
 warn_removed_option(Opt) ->
-    ?WARNING_MSG("Option '~ts' is deprecated and has no effect anymore. "
+    ?WARNING("Option '~ts' is deprecated and has no effect anymore. "
 		 "Please remove it from the configuration.", [Opt]).
 
 warn_removed_option(OldOpt, NewOpt) ->
-    ?WARNING_MSG("Option '~ts' is deprecated and has no effect anymore. "
+    ?WARNING("Option '~ts' is deprecated and has no effect anymore. "
 		 "Use option '~ts' instead.", [OldOpt, NewOpt]).
 
 warn_removed_module_option(Opt, Mod) ->
-    ?WARNING_MSG("Option '~ts' of module ~ts is deprecated "
+    ?WARNING("Option '~ts' of module ~ts is deprecated "
 		 "and has no effect anymore. ~ts",
 		 [Opt, Mod, adjust_hint()]).
 
 warn_huge_timeout(Opt, T) when is_integer(T), T >= 1000 ->
-    ?WARNING_MSG("Value '~B' of option '~ts' is too big, "
+    ?WARNING("Value '~B' of option '~ts' is too big, "
 		 "are you sure you have set seconds?",
 		 [T, Opt]);
 warn_huge_timeout(_, _) ->

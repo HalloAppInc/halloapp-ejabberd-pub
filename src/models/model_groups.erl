@@ -374,7 +374,7 @@ decode_members(Gid, MembersMap)
                 {ok, Member} ->
                     [Member | Acc];
                 {error, Reason} ->
-                    ?ERROR_MSG("decode failed ~p Gid: ~s Uid: ~s Value: ~s",
+                    ?ERROR("decode failed ~p Gid: ~s Uid: ~s Value: ~s",
                         [Reason, Gid, Uid, MemberValue]),
                     Acc
             end
@@ -396,7 +396,7 @@ decode_member(Uid, MemberValue) ->
         {ok, Member}
     catch
         Class:Reason:Stacktrace ->
-            ?ERROR_MSG("Stacktrace:~s",
+            ?ERROR("Stacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             {error, Reason}
     end.

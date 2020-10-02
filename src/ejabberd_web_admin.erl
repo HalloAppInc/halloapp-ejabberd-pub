@@ -94,7 +94,7 @@ get_jid(Auth, HostHTTP, Method) ->
       {ok, {User, Server}} ->
 	  jid:make(User, Server);
       {unauthorized, Error} ->
-	  ?ERROR_MSG("Unauthorized ~p: ~p", [Auth, Error]),
+	  ?ERROR("Unauthorized ~p: ~p", [Auth, Error]),
 	  throw({unauthorized, Auth})
     end.
 
@@ -177,7 +177,7 @@ process([<<"server">>, SHost | RPath] = Path,
 		{BadUser, _BadPass} = Auth,
 		{IPT, _Port} = Request#request.ip,
 		IPS = ejabberd_config:may_hide_data(misc:ip_to_list(IPT)),
-		?WARNING_MSG("Access of ~p from ~p failed with error: ~p",
+		?WARNING("Access of ~p from ~p failed with error: ~p",
 			     [BadUser, IPS, Error]),
 		{401,
 		 [{<<"WWW-Authenticate">>,
@@ -209,7 +209,7 @@ process(RPath,
 	    {BadUser, _BadPass} = Auth,
 	    {IPT, _Port} = Request#request.ip,
 	    IPS = ejabberd_config:may_hide_data(misc:ip_to_list(IPT)),
-	    ?WARNING_MSG("Access of ~p from ~p failed with error: ~p",
+	    ?WARNING("Access of ~p from ~p failed with error: ~p",
 			 [BadUser, IPS, Error]),
 	    {401,
 	     [{<<"WWW-Authenticate">>,
@@ -1624,10 +1624,10 @@ node_update_parse_query(Node, Query) ->
 	      of
 	    {ok, _} -> ok;
 	    {error, Error} ->
-		?ERROR_MSG("~p~n", [Error]),
+		?ERROR("~p~n", [Error]),
 		{error, (str:format("~p", [Error]))};
 	    {badrpc, Error} ->
-		?ERROR_MSG("Bad RPC: ~p~n", [Error]),
+		?ERROR("Bad RPC: ~p~n", [Error]),
 		{error,
 		 <<"Bad RPC: ", ((str:format("~p", [Error])))/binary>>}
 	  end;
@@ -1891,7 +1891,7 @@ any_rules_allowed(Host, Access, #jid{luser = User} = Entity) ->
 
 
 lookup_uid(Uid) ->
-    ?INFO_MSG("Getting account info for uid: ~s", [Uid]),
+    ?INFO("Getting account info for uid: ~s", [Uid]),
     case model_accounts:account_exists(Uid) of
         false -> [?XC(<<"p">>, io_lib:format("No account found for uid: ~s", [Uid]))];
         true ->
@@ -1918,7 +1918,7 @@ lookup_uid(Uid) ->
 
 
 lookup_phone(Phone) ->
-    ?INFO_MSG("Getting account info for phone: ~s", [Phone]),
+    ?INFO("Getting account info for phone: ~s", [Phone]),
     case model_phone:get_uid(Phone) of
         {ok, undefined} ->
             Info = [?XC(<<"p">>, io_lib:format("No account found for phone: ~s", [Phone]))],
@@ -2011,7 +2011,7 @@ generate_invites_table(Uid) ->
 
 
 generate_sms_info(Phone) ->
-    ?INFO_MSG("Getting SMS info for phone: ~s", [Phone]),
+    ?INFO("Getting SMS info for phone: ~s", [Phone]),
     {ok, Code} = model_phone:get_sms_code(Phone),
     SMSInfo = case Code of
         undefined ->

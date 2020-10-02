@@ -55,12 +55,12 @@
 %%====================================================================
 
 start(Host, Opts) ->
-    ?INFO_MSG("start ~w", [?MODULE]),
+    ?INFO("start ~w", [?MODULE]),
     gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
     ok.
 
 stop(_Host) ->
-    ?INFO_MSG("stop ~w", [?MODULE]),
+    ?INFO("stop ~w", [?MODULE]),
     gen_mod:stop_child(get_proc()),
     ok.
 
@@ -96,7 +96,7 @@ push(Message, #push_info{os = Os} = PushInfo)
         when Os =:= <<"ios">>; Os =:= <<"ios_dev">> ->
     gen_server:cast(get_proc(), {push_message, Message, PushInfo});
 push(_Message, _PushInfo) ->
-    ?ERROR_MSG("Invalid push_info : ~p", [_PushInfo]).
+    ?ERROR("Invalid push_info : ~p", [_PushInfo]).
 
 
 %%====================================================================
@@ -132,7 +132,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 handle_call(_Request, _From, State) ->
-    ?ERROR_MSG("invalid call request: ~p", [_Request]),
+    ?ERROR("invalid call request: ~p", [_Request]),
     {reply, {error, invalid_request}, State}.
 
 
@@ -144,7 +144,7 @@ handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     %% Ignore the push notification if it has already been sent.
     NewState = case push_util:record_push_sent(Message) of
         false -> 
-                ?INFO_MSG("Push notification already sent for Msg: ~p", [Message]),
+                ?INFO("Push notification already sent for Msg: ~p", [Message]),
                 State;
         true -> push_message(Message, PushInfo, State)
     end,
@@ -167,16 +167,16 @@ connect_to_apns(BuildType) ->
         retry_timeout => 5000,             %% Time between retries in milliseconds.
         retry_fun => RetryFun
     },
-    ?INFO_MSG("BuildType: ~s, Gateway: ~s, Port: ~p", [BuildType, ApnsGateway, ApnsPort]),
+    ?INFO("BuildType: ~s, Gateway: ~s, Port: ~p", [BuildType, ApnsGateway, ApnsPort]),
     case gun:open(ApnsGateway, ApnsPort, Options) of
         {ok, Pid} ->
             Mon = monitor(process, Pid),
             {ok, Protocol} = gun:await_up(Pid, Mon),
-            ?INFO_MSG("BuildType: ~s, connection successful pid: ~p, protocol: ~p, monitor: ~p",
+            ?INFO("BuildType: ~s, connection successful pid: ~p, protocol: ~p, monitor: ~p",
                     [BuildType, Pid, Protocol, Mon]),
             {Pid, Mon};
         {error, Reason} ->
-            ?ERROR_MSG("BuildType: ~s, Failed to connect to apns: ~p", [BuildType, Reason]),
+            ?ERROR("BuildType: ~s, Failed to connect to apns: ~p", [BuildType, Reason]),
             {undefined, undefined}
     end.
 
@@ -201,10 +201,10 @@ handle_info({retry, PushMessageItem}, State) ->
     %% Stop retrying after 10 minutes!
     NewState = case CurTimestamp - MsgTimestamp < ?MESSAGE_MAX_RETRY_TIME_SEC of
         false ->
-            ?INFO_MSG("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]),
+            ?INFO("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]),
             State;
         true ->
-            ?INFO_MSG("Uid: ~s, retry push_message_item: ~p", [Uid, Id]),
+            ?INFO("Uid: ~s, retry push_message_item: ~p", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
             push_message_item(NewPushMessageItem, State)
@@ -213,18 +213,18 @@ handle_info({retry, PushMessageItem}, State) ->
 
 handle_info({'DOWN', Mon, process, Pid, Reason},
         #push_state{conn = Pid, mon = Mon} = State) ->
-    ?INFO_MSG("prod gun_down pid: ~p, mon: ~p, reason: ~p", [Pid, Mon, Reason]),
+    ?INFO("prod gun_down pid: ~p, mon: ~p, reason: ~p", [Pid, Mon, Reason]),
     {NewPid, NewMon} = connect_to_apns(prod),
     {noreply, State#push_state{conn = NewPid, mon = NewMon}};
 
 handle_info({'DOWN', DevMon, process, DevPid, Reason},
         #push_state{dev_conn = DevPid, dev_mon = DevMon} = State) ->
-    ?INFO_MSG("dev gun_down pid: ~p, mon: ~p, reason: ~p", [DevPid, DevMon, Reason]),
+    ?INFO("dev gun_down pid: ~p, mon: ~p, reason: ~p", [DevPid, DevMon, Reason]),
     {NewDevPid, NewDevMon} = connect_to_apns(dev),
     {noreply, State#push_state{dev_conn = NewDevPid, dev_mon = NewDevMon}};
 
 handle_info({'DOWN', _Mon, process, Pid, Reason}, State) ->
-    ?ERROR_MSG("down message from gun pid: ~p, reason: ~p, state: ~p", [Pid, Reason, State]),
+    ?ERROR("down message from gun pid: ~p, reason: ~p, state: ~p", [Pid, Reason, State]),
     {noreply, State};
 
 handle_info({gun_response, ConnPid, StreamRef, fin, StatusCode, Headers}, State) ->
@@ -244,18 +244,18 @@ handle_info(Request, State) ->
         State :: push_state()) -> push_state().
 handle_apns_response(_, undefined, State) ->
     %% This should never happen, since apns always responds with the apns-id.
-    ?ERROR_MSG("unexpected response from apns!!", []),
+    ?ERROR("unexpected response from apns!!", []),
     State;
 handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) ->
     stat:count(?APNS, "success"),
     FinalPendingMap = case maps:take(ApnsId, PendingMap) of
         error ->
-            ?ERROR_MSG("Message not found in our map: apns-id: ~p", [ApnsId]),
+            ?ERROR("Message not found in our map: apns-id: ~p", [ApnsId]),
             PendingMap;
         {PushMessageItem, NewPendingMap} ->
             Id = PushMessageItem#push_message_item.id,
             Uid = PushMessageItem#push_message_item.uid,
-            ?INFO_MSG("Uid: ~s, apns push successful: msg_id: ~s", [Uid, Id]),
+            ?INFO("Uid: ~s, apns push successful: msg_id: ~s", [Uid, Id]),
             NewPendingMap
     end,
     State#push_state{pendingMap = FinalPendingMap};
@@ -265,12 +265,12 @@ handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = 
     stat:count(?APNS, "apns_error"),
     FinalPendingMap = case maps:take(ApnsId, PendingMap) of
         error ->
-            ?ERROR_MSG("Message not found in our map: apns-id: ~p", [ApnsId]),
+            ?ERROR("Message not found in our map: apns-id: ~p", [ApnsId]),
             State;
         {PushMessageItem, NewPendingMap} ->
             Id = PushMessageItem#push_message_item.id,
             Uid = PushMessageItem#push_message_item.uid,
-            ?WARNING_MSG("Uid: ~s, apns push error: msg_id: ~s, will retry", [Uid, Id]),
+            ?WARNING("Uid: ~s, apns push error: msg_id: ~s, will retry", [Uid, Id]),
             retry_message_item(PushMessageItem),
             NewPendingMap
     end,
@@ -281,18 +281,18 @@ handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = 
     stat:count(?APNS, "failure"),
     FinalPendingMap = case maps:take(ApnsId, PendingMap) of
         error ->
-            ?ERROR_MSG("Message not found in our map: apns-id: ~p", [ApnsId]),
+            ?ERROR("Message not found in our map: apns-id: ~p", [ApnsId]),
             State;
         {PushMessageItem, NewPendingMap} ->
             Id = PushMessageItem#push_message_item.id,
             Uid = PushMessageItem#push_message_item.uid,
-            ?ERROR_MSG("Uid: ~s, apns push error: msg_id: ~s, needs to be fixed!", [Uid, Id]),
+            ?ERROR("Uid: ~s, apns push error: msg_id: ~s, needs to be fixed!", [Uid, Id]),
             NewPendingMap
     end,
     State#push_state{pendingMap = FinalPendingMap};
 
 handle_apns_response(StatusCode, ApnsId, State) ->
-    ?ERROR_MSG("Invalid status code : ~p, from apns, apns-id: ~p", [StatusCode, ApnsId]),
+    ?ERROR("Invalid status code : ~p, from apns, apns-id: ~p", [StatusCode, ApnsId]),
     State.
 
 
@@ -344,7 +344,7 @@ push_message_item(PushMessageItem, State) ->
     ],
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
-    ?INFO_MSG("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s", [Uid, Id, ApnsId, ContentId]),
+    ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s", [Uid, Id, ApnsId, ContentId]),
 
     {Pid, NewState} = get_pid_to_send(BuildType, State),
     _StreamRef = gun:post(Pid, DevicePath, HeadersList, PayloadBin),
@@ -405,7 +405,7 @@ parse_subject_and_body(#message{sub_els = [#feed_st{posts = [#post_st{}]}]}) ->
 parse_subject_and_body(#message{sub_els = [#feed_st{comments = [#comment_st{}]}]}) ->
     {<<"New Notification">>, <<"New comment">>};
 parse_subject_and_body(#message{to = #jid{luser = Uid}, id = Id}) ->
-    ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]).
+    ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]).
 
 
 %% TODO(murali@): Need to clean all this parsing stuff logic after the switch to new feed api.

@@ -169,7 +169,7 @@ set_ticktime() ->
     Ticktime = ejabberd_option:net_ticktime() div 1000,
     case net_kernel:set_net_ticktime(Ticktime) of
 	{ongoing_change_to, Time} when Time /= Ticktime ->
-	    ?ERROR_MSG("Failed to set new net_ticktime because "
+	    ?ERROR("Failed to set new net_ticktime because "
 		       "the net kernel is busy changing it to the "
 		       "previously configured value. Please wait for "
 		       "~B seconds and retry", [Time]);
@@ -197,21 +197,21 @@ init([]) ->
     end.
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info({node_up, Node}, State) ->
-    ?INFO_MSG("Node ~ts has joined", [Node]),
+    ?INFO("Node ~ts has joined", [Node]),
     {noreply, State};
 handle_info({node_down, Node}, State) ->
-    ?INFO_MSG("Node ~ts has left", [Node]),
+    ?INFO("Node ~ts has left", [Node]),
     {noreply, State};
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->

@@ -40,7 +40,7 @@ xmpp_to_proto(XmppMsg) ->
         ProtoMessage
     catch
         error : Reason ->
-            ?ERROR_MSG("Error decoding xmpp message: ~p, reason: ~p", [XmppMsg, Reason]),
+            ?ERROR("Error decoding xmpp message: ~p, reason: ~p", [XmppMsg, Reason]),
             undefined
     end.
 

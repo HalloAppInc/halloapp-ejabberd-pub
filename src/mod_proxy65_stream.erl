@@ -88,7 +88,7 @@ terminate(_Reason, StateName, #state{sha1 = SHA1}) ->
     Mod = gen_mod:ram_db_mod(global, mod_proxy65),
     Mod:unregister_stream(SHA1),
     if StateName == stream_established ->
-	   ?INFO_MSG("(~w) Bytestream terminated", [self()]);
+	   ?INFO("(~w) Bytestream terminated", [self()]);
        true -> ok
     end.
 
@@ -110,7 +110,7 @@ activate({P1, J1}, {P2, J2}) ->
 	  P2 ! {activate, P1, S1, J1, J2},
 	  JID1 = jid:encode(J1),
 	  JID2 = jid:encode(J2),
-	  ?INFO_MSG("(~w:~w) Activated bytestream for ~ts "
+	  ?INFO("(~w:~w) Activated bytestream for ~ts "
 		    "-> ~ts",
 		    [P1, P2, JID1, JID2]),
 	  ok;

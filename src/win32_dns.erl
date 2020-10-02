@@ -67,7 +67,7 @@ try_translate(K, V) ->
 	    Res
     catch
 	A:B ->
-	    ?ERROR_MSG("Error '~p' translating Win32 registry~n"
+	    ?ERROR("Error '~p' translating Win32 registry~n"
 		       "K: ~p~nV: ~p~nError: ~p", [A, K, V, B]),
 	    undefined
     end.

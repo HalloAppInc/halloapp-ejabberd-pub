@@ -148,7 +148,7 @@ search(LServer, Data, AllowReturnAll, MaxMatch) ->
 		 <<"orgunit">>], Rs} when is_list(Rs) ->
 		   [row_to_item(LServer, R) || R <- Rs];
 	       Error ->
-		   ?ERROR_MSG("~p", [Error]), []
+		   ?ERROR("~p", [Error]), []
 	   end
     end.
 

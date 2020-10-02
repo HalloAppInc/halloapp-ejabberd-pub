@@ -57,7 +57,7 @@ mod_options(_Host) ->
 process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
     IsDev = dev_users:is_dev_uid(Uid),
     {Hash, SortedProplist} = get_props_and_hash(Uid),
-    ?INFO_MSG("Uid:~s (dev = ~s) requesting props. hash = ~s, proplist = ~p",
+    ?INFO("Uid:~s (dev = ~s) requesting props. hash = ~s, proplist = ~p",
         [Uid, IsDev, Hash, SortedProplist]),
     make_response(IQ, SortedProplist, Hash).
 

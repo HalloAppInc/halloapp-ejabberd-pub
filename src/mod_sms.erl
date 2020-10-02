@@ -37,13 +37,13 @@
 %%====================================================================
 
 start(Host, Opts) ->
-    ?INFO_MSG("start ~w ~p", [?MODULE, self()]),
+    ?INFO("start ~w ~p", [?MODULE, self()]),
     X = gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
-    ?INFO_MSG("here ~p", [X]),
+    ?INFO("here ~p", [X]),
     X.
 
 stop(_Host) ->
-    ?INFO_MSG("start ~w ~p", [?MODULE, self()]),
+    ?INFO("start ~w ~p", [?MODULE, self()]),
     gen_mod:stop_child(get_proc()).
 
 depends(_Host, _Opts) ->
@@ -80,7 +80,7 @@ generate_code(false) ->
 
 
 handle_call({send_sms, Phone, Msg}, _From, State) ->
-    ?INFO_MSG("send_sms ~p", [Phone]),
+    ?INFO("send_sms ~p", [Phone]),
     URL = ?BASE_URL,
     AuthStr = base64:encode_to_string(get_twilio_account_sid(State) ++ ":"
         ++ get_twilio_auth_token(State)),
@@ -97,7 +97,7 @@ handle_call({send_sms, Phone, Msg}, _From, State) ->
         {ok, {{_, 201, "CREATED"}, _ResHeaders, ResBody}} ->
             {ok, ResBody};
         _ ->
-            ?ERROR_MSG("Sending SMS failed ~p", [Response]),
+            ?ERROR("Sending SMS failed ~p", [Response]),
             {error, sms_fail}
     end,
     {reply, Res, State};
@@ -109,7 +109,7 @@ handle_call(X, _From, State) ->
 handle_cast(_Message, State) -> {noreply, State}.
 handle_info(_Message, State) -> {noreply, State}.
 terminate(_Reason, _State) ->
-    ?INFO_MSG("terminate ~p", [?MODULE]),
+    ?INFO("terminate ~p", [?MODULE]),
     ok.
 code_change(_OldVersion, State, _Extra) -> {ok, State}.
 

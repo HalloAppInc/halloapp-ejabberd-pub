@@ -42,14 +42,14 @@
 %%====================================================================
 
 start(Host, _Opts) ->
-    ?INFO_MSG("start", []),
+    ?INFO("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_USER_PRIVACY, ?MODULE, process_local_iq),
     ejabberd_hooks:add(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
 stop(Host) ->
-    ?INFO_MSG("stop", []),
+    ?INFO("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_USER_PRIVACY),
     ejabberd_hooks:delete(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
@@ -73,23 +73,23 @@ mod_options(_Host) ->
 -spec process_local_iq(IQ :: iq()) -> iq().
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         sub_els = [#user_privacy_list{type = Type, hash = HashValue, uid_els = UidEls}]} = IQ) ->
-    ?INFO_MSG("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
+    ?INFO("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
     case update_privacy_type(Uid, Type, HashValue, UidEls) of
         ok ->
             xmpp:make_iq_result(IQ);
         {error, hash_mismatch, ServerHashValue} ->
-            ?WARNING_MSG("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
+            ?WARNING("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
             xmpp:make_error(IQ, util:err(hash_mismatch, ServerHashValue));
         {error, invalid_type} ->
-            ?WARNING_MSG("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
+            ?WARNING("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
             xmpp:make_error(IQ, util:err(invalid_type));
         {error, unexcepted_uids} ->
-            ?WARNING_MSG("Uid: ~s, unexcepted_uids for type: ~p", [Uid, Type]),
+            ?WARNING("Uid: ~s, unexcepted_uids for type: ~p", [Uid, Type]),
             xmpp:make_error(IQ, util:err(unexcepted_uids))
     end;
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = get,
         sub_els = [#user_privacy_lists{lists = PrivacyLists}]} = IQ) ->
-    ?INFO_MSG("Uid: ~s, get-iq for privacy_list", [Uid]),
+    ?INFO("Uid: ~s, get-iq for privacy_list", [Uid]),
     ListTypes = lists:map(fun(#user_privacy_list{type = Type}) -> Type end, PrivacyLists),
     Types = case ListTypes of
         [] -> [except, only, mute, block];
@@ -122,7 +122,7 @@ privacy_check_packet(allow, _State, Pkt, _Dir)
         true ->
             case model_privacy:is_blocked_any(FromUid, ToUid) of
                 true ->
-                    ?INFO_MSG("Packet from-uid: ~s to-uid: ~s is blocked", [FromUid, ToUid]),
+                    ?INFO("Packet from-uid: ~s to-uid: ~s is blocked", [FromUid, ToUid]),
                     {stop, deny};
                 false ->
                     allow
@@ -169,14 +169,14 @@ update_privacy_type(_Uid, _, _, _) ->
 
 -spec set_privacy_type(Uid :: binary(), Type :: privacy_type()) -> ok.
 set_privacy_type(Uid, Type) ->
-    ?INFO_MSG("Uid: ~s, privacy_type: ~p", [Uid, Type]),
+    ?INFO("Uid: ~s, privacy_type: ~p", [Uid, Type]),
     model_privacy:set_privacy_type(Uid, Type).
 
 
 -spec get_privacy_type(Uid :: binary()) -> privacy_type().
 get_privacy_type(Uid) ->
     {ok, Type} = model_privacy:get_privacy_type(Uid),
-    ?INFO_MSG("Uid: ~s, privacy_type: ~p", [Uid, Type]),
+    ?INFO("Uid: ~s, privacy_type: ~p", [Uid, Type]),
     Type.
 
 
@@ -190,12 +190,12 @@ update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
             end, UidEls),
     DeleteUids = lists:map(fun extract_uid/1, DeleteUidsList),
     AddUids = lists:map(fun extract_uid/1, AddUidsList),
-    ?INFO_MSG("Uid: ~s, Type: ~p, DeleteUids: ~p, AddUids: ~p", [Uid, Type, DeleteUids, AddUids]),
+    ?INFO("Uid: ~s, Type: ~p, DeleteUids: ~p, AddUids: ~p", [Uid, Type, DeleteUids, AddUids]),
     ServerHashValue = compute_hash_value(Uid, Type, DeleteUids, AddUids),
     log_counters(ServerHashValue, ClientHashValue),
     case ServerHashValue =:= ClientHashValue orelse ClientHashValue =:= undefined of
         true ->
-            ?INFO_MSG("Uid: ~s, Type: ~s, hash values match", [Uid, Type]),
+            ?INFO("Uid: ~s, Type: ~s, hash values match", [Uid, Type]),
             case DeleteUids of
                 [] -> ok;
                 _ -> remove_uids_from_privacy_list(Uid, Type, DeleteUids)
@@ -206,7 +206,7 @@ update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
             end,
             ok;
         false ->
-            ?ERROR_MSG("Uid: ~s, Type: ~s, hash_mismatch, ClientHash: ~p, ServerHash: ~p",
+            ?ERROR("Uid: ~s, Type: ~s, hash_mismatch, ClientHash: ~p, ServerHash: ~p",
                     [Uid, Type, ClientHashValue, ServerHashValue]),
             {error, hash_mismatch, ServerHashValue}
     end.
@@ -228,7 +228,7 @@ compute_hash_value(Uid, Type, DeleteUids, AddUids) ->
     FinalString = util:join_binary(?COMMA_CHAR, lists:sort(FinalList), <<>>),
     FullHash = crypto:hash(?HASH_FUNC, FinalString),
     HashValue = base64url:encode(FullHash),
-    ?INFO_MSG("Uid: ~s, Type: ~p, HashValue: ~p", [Uid, Type, HashValue]),
+    ?INFO("Uid: ~s, Type: ~p, HashValue: ~p", [Uid, Type, HashValue]),
     HashValue.
 
 

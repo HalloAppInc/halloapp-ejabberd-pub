@@ -80,7 +80,7 @@ process_local_iq(#iq{from = #jid{user = Uid}, type = set,
         set_name(Uid, Name),
         xmpp:make_iq_result(IQ);
       false ->
-        ?ERROR_MSG("Uid: ~p, Invalid userid in the iq-set request: ~p", [Uid, Ouid]),
+        ?ERROR("Uid: ~p, Invalid userid in the iq-set request: ~p", [Uid, Ouid]),
         xmpp:make_error(IQ, util:err(invalid_uid))
     end.
 %% TODO(murali@): add get-iq api if clients need it.

@@ -173,7 +173,7 @@ startnoise(#socket_state{sockmod = gen_tcp, socket = Socket} = SocketData, Noise
             SocketData2 = reset_stream(SocketData1),
             {ok, SocketData2};
         {error, _} = Err ->
-            ?ERROR_MSG("Failed to start noise, key: ~p, cert: ~p", [StaticKey, Certificate]),
+            ?ERROR("Failed to start noise, key: ~p, cert: ~p", [StaticKey, Certificate]),
             Err
     end;
 startnoise(_, _) ->

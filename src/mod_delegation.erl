@@ -155,7 +155,7 @@ init([Host|_]) ->
     {ok, #state{server_host = Host}}.
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast({component_connected, Host}, State) ->
@@ -177,7 +177,7 @@ handle_cast({component_disconnected, Host}, State) ->
     Delegations =
 	maps:filter(
 	  fun({NS, Type}, {H, _}) when H == Host ->
-		  ?INFO_MSG("Remove delegation of namespace '~ts' "
+		  ?INFO("Remove delegation of namespace '~ts' "
 			    "from external component '~ts'",
 			    [NS, Host]),
 		  gen_iq_handler:remove_iq_handler(Type, ServerHost, NS),
@@ -188,7 +188,7 @@ handle_cast({component_disconnected, Host}, State) ->
     set_delegations(ServerHost, Delegations),
     {noreply, State};
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info({iq_reply, ResIQ, {disco_info, Type, Host, NS}}, State) ->
@@ -209,7 +209,7 @@ handle_info({iq_reply, ResIQ, #iq{} = IQ}, State) ->
     process_iq_result(IQ, ResIQ),
     {noreply, State};
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, State) ->
@@ -292,7 +292,7 @@ process_iq_result(#iq{from = From, to = To, id = ID, lang = Lang} = IQ,
 		ejabberd_router:route(Reply)
 	end
     catch _:_ ->
-	    ?ERROR_MSG("Got iq-result with invalid delegated "
+	    ?ERROR("Got iq-result with invalid delegated "
 		       "payload:~n~ts", [xmpp:pp(ResIQ)]),
 	    Txt = ?T("External component failure"),
 	    Err = xmpp:err_internal_server_error(Txt, Lang),
@@ -320,10 +320,10 @@ process_disco_info(ServerHost, Type, Host, NS, Info) ->
 	    gen_iq_handler:add_iq_handler(Type, ServerHost, NS, ?MODULE, Type),
 	    ejabberd_router:route(Msg),
 	    set_delegations(ServerHost, Delegations1),
-	    ?INFO_MSG("Namespace '~ts' is delegated to external component '~ts'",
+	    ?INFO("Namespace '~ts' is delegated to external component '~ts'",
 		      [NS, Host]);
 	{ok, {AnotherHost, _}} ->
-	    ?WARNING_MSG("Failed to delegate namespace '~ts' to "
+	    ?WARNING("Failed to delegate namespace '~ts' to "
 			 "external component '~ts' because it's already "
 			 "delegated to '~ts'",
 			 [NS, Host, AnotherHost])

@@ -50,24 +50,24 @@ import_file(File) ->
 		  El when is_record(El, xmlel) ->
 		      case catch process_xdb(User, Server, El) of
 			{'EXIT', Reason} ->
-			    ?ERROR_MSG("Error while processing file \"~ts\": "
+			    ?ERROR("Error while processing file \"~ts\": "
 				       "~p~n",
 				       [File, Reason]),
 			    {error, Reason};
 			_ -> ok
 		      end;
 		  {error, Reason} ->
-		      ?ERROR_MSG("Can't parse file \"~ts\": ~p~n",
+		      ?ERROR("Can't parse file \"~ts\": ~p~n",
 				 [File, Reason]),
 		      {error, Reason}
 		end;
 	    {error, Reason} ->
-		?ERROR_MSG("Can't read file \"~ts\": ~p~n",
+		?ERROR("Can't read file \"~ts\": ~p~n",
 			   [File, Reason]),
 		{error, Reason}
 	  end;
       false ->
-	  ?ERROR_MSG("Illegal user/server name in file \"~ts\"~n",
+	  ?ERROR("Illegal user/server name in file \"~ts\"~n",
 		     [File]),
 	  {error, <<"illegal user/server">>}
     end.
@@ -159,7 +159,7 @@ process_offline(Server, To, #xmlel{children = Els}) ->
 		      ok
 	      catch _:{xmpp_codec, Why} ->
 		      Txt = xmpp:format_error(Why),
-		      ?ERROR_MSG("Failed to decode XML '~ts': ~ts",
+		      ?ERROR("Failed to decode XML '~ts': ~ts",
 				 [fxml:element_to_binary(El), Txt])
 	      end
       end, Els).

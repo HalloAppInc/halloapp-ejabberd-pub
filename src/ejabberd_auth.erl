@@ -65,17 +65,17 @@ init([]) ->
 
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 
@@ -110,11 +110,11 @@ store_type() ->
 
 -spec check_password(binary(), binary()) -> boolean().
 check_password(Uid, Password) ->
-    ?INFO_MSG("Uid:~s", [Uid]),
+    ?INFO("Uid:~s", [Uid]),
     {ok, StoredPasswordRecord} = model_auth:get_password(Uid),
     HashedPassword = StoredPasswordRecord#password.hashed_password,
     case HashedPassword of
-        undefined  -> ?INFO_MSG("No password stored for uid:~p", [Uid]);
+        undefined  -> ?INFO("No password stored for uid:~p", [Uid]);
         _ -> ok
     end,
     is_password_match(HashedPassword, Password).
@@ -123,7 +123,7 @@ check_password(Uid, Password) ->
 -spec set_password(binary(), binary()) -> ok |
         {error, db_failure | not_allowed |invalid_jid | invalid_password}.
 set_password(Uid, Password) ->
-    ?INFO_MSG("Uid:~s", [Uid]),
+    ?INFO("Uid:~s", [Uid]),
     {ok, Salt} = bcrypt:gen_salt(),
     {ok, HashedPassword} = hashpw(Password, Salt),
     model_auth:set_password(Uid, Salt, HashedPassword),
@@ -131,11 +131,11 @@ set_password(Uid, Password) ->
 
 -spec check_spub(binary(), binary()) -> false | true.
 check_spub(Uid, SPub) ->
-    ?INFO_MSG("uid:~s", [Uid]),
+    ?INFO("uid:~s", [Uid]),
     {ok, SPubRecord} = model_auth:get_spub(Uid),
     StoredSPub = SPubRecord#s_pub.s_pub,
     case StoredSPub of
-        undefined  -> ?INFO_MSG("No spub stored for uid:~p", [Uid]);
+        undefined  -> ?INFO("No spub stored for uid:~p", [Uid]);
         _ -> ok
     end,
     is_spub_match(StoredSPub, SPub).
@@ -144,7 +144,7 @@ check_spub(Uid, SPub) ->
 -spec set_spub(binary(), binary()) -> ok |
         {error, db_failure | not_allowed | invalid_jid}.
 set_spub(Uid, SPub) ->
-    ?INFO_MSG("uid:~s", [Uid]),
+    ?INFO("uid:~s", [Uid]),
     model_auth:set_spub(Uid, SPub),
     ok.
 
@@ -175,7 +175,7 @@ check_and_register(Phone, Server, Cred, SetCredFn, Name, UserAgent) ->
                     ok = model_accounts:set_name(UserId, Name),
                     ok = model_accounts:set_user_agent(UserId, UserAgent),
                     SessionCount = ejabberd_sm:kick_user(UserId, Server),
-                    ?INFO_MSG("~p removed from ~p sessions", [UserId, SessionCount]),
+                    ?INFO("~p removed from ~p sessions", [UserId, SessionCount]),
                     {ok, UserId, login};
                 Err -> Err
             end
@@ -202,7 +202,7 @@ try_register(Phone, Server, Password) ->
 
 -spec try_enroll(Phone :: binary(), Passcode :: binary()) -> {ok, binary()}.
 try_enroll(Phone, Passcode) ->
-    ?INFO_MSG("phone:~s code:~s", [Phone, Passcode]),
+    ?INFO("phone:~s code:~s", [Phone, Passcode]),
     ok = model_phone:add_sms_code(Phone, Passcode, util:now(), ?TWILIO),
     stat:count("HA/account", "enroll"),
     {ok, Passcode}.
@@ -210,7 +210,7 @@ try_enroll(Phone, Passcode) ->
 
 -spec get_users() -> [].
 get_users() ->
-    ?ERROR_MSG("Unimplemented", []),
+    ?ERROR("Unimplemented", []),
     [].
 
 
@@ -261,7 +261,7 @@ ha_try_register(Phone, Password, Name, UserAgent) ->
     ha_try_register(Phone, Password, fun set_password/2, Name, UserAgent).
 
 ha_try_register(Phone, Cred, SetCredFn, Name, UserAgent) ->
-    ?INFO_MSG("phone:~s", [Phone]),
+    ?INFO("phone:~s", [Phone]),
     {ok, Uid} = util_uid:generate_uid(),
     ok = model_accounts:create_account(Uid, Phone, Name, UserAgent),
     ok = model_phone:add_phone(Phone, Uid),
@@ -271,7 +271,7 @@ ha_try_register(Phone, Cred, SetCredFn, Name, UserAgent) ->
 
 -spec ha_remove_user(Uid :: binary()) -> ok.
 ha_remove_user(Uid) ->
-    ?INFO_MSG("Uid:~s", [Uid]),
+    ?INFO("Uid:~s", [Uid]),
     case model_accounts:get_phone(Uid) of
         {ok, Phone} ->
             ok = model_phone:delete_phone(Phone);

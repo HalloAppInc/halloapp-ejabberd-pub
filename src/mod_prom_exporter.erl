@@ -43,17 +43,17 @@ process([<<"_ok">>], _Request) ->
     {200, ?HEADER(?CT_PLAIN), <<"ok">>};
 
 process(Path, Request) ->
-    ?WARNING_MSG("Bad Request: path: ~p, r:~p", [Path, Request]),
+    ?WARNING("Bad Request: path: ~p, r:~p", [Path, Request]),
     {404, ?HEADER(?CT_PLAIN), "Not Found"}.
 
 
 start(Host, Opts) ->
-    ?INFO_MSG("start ~w ~p", [?MODULE, Opts]),
+    ?INFO("start ~w ~p", [?MODULE, Opts]),
     application:ensure_started(prometheus),
     gen_mod:start_child(?MODULE, Host, Opts).
 
 stop(Host) ->
-    ?INFO_MSG("stop ~w", [?MODULE]),
+    ?INFO("stop ~w", [?MODULE]),
     gen_mod:stop_child(?MODULE, Host).
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -63,7 +63,7 @@ depends(_Host, _Opts) ->
     [].
 
 init(_Stuff) ->
-    ?INFO_MSG("~w init ~p", [?MODULE, _Stuff]),
+    ?INFO("~w init ~p", [?MODULE, _Stuff]),
     process_flag(trap_exit, true),
     {ok, {}}.
 

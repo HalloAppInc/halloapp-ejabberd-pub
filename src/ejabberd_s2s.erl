@@ -91,7 +91,7 @@ list_temporarily_blocked_hosts() ->
 
 -spec external_host_overloaded(binary()) -> {aborted, any()} | {atomic, ok}.
 external_host_overloaded(Host) ->
-    ?INFO_MSG("Disabling s2s connections to ~ts for ~p seconds",
+    ?INFO("Disabling s2s connections to ~ts for ~p seconds",
 	      [Host, ?S2S_OVERLOAD_BLOCK_PERIOD]),
     mnesia:transaction(fun () ->
                                Time = erlang:monotonic_time(),
@@ -122,7 +122,7 @@ remove_connection({From, To} = FromTo, Pid) ->
 	    case mnesia:transaction(F) of
 		{atomic, _} -> ok;
 		{aborted, Reason} ->
-		    ?ERROR_MSG("Failed to unregister s2s connection ~ts -> ~ts: "
+		    ?ERROR("Failed to unregister s2s connection ~ts -> ~ts: "
 			       "Mnesia failure: ~p",
 			       [From, To, Reason])
 	    end;
@@ -167,7 +167,7 @@ try_register({From, To} = FromTo) ->
     case mnesia:transaction(F) of
 	{atomic, Res} -> Res;
 	{aborted, Reason} ->
-	    ?ERROR_MSG("Failed to register s2s connection ~ts -> ~ts: "
+	    ?ERROR("Failed to register s2s connection ~ts -> ~ts: "
 		       "Mnesia failure: ~p",
 		       [From, To, Reason]),
 	    false
@@ -270,11 +270,11 @@ init([]) ->
     end.
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info({mnesia_system_event, {mnesia_down, Node}}, State) ->
@@ -284,13 +284,13 @@ handle_info({route, Packet}, State) ->
     try route(Packet)
     catch ?EX_RULE(Class, Reason, St) ->
 	    StackTrace = ?EX_STACK(St),
-	    ?ERROR_MSG("Failed to route packet:~n~ts~n** ~ts",
+	    ?ERROR("Failed to route packet:~n~ts~n** ~ts",
 		       [xmpp:pp(Packet),
 			misc:format_exception(2, Class, Reason, StackTrace)])
     end,
     {noreply, State};
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -477,7 +477,7 @@ new_connection(MyServer, Server, From, FromTo,
 	    end,
 	    [Pid1];
 	{aborted, Reason} ->
-	    ?ERROR_MSG("Failed to register s2s connection ~ts -> ~ts: "
+	    ?ERROR("Failed to register s2s connection ~ts -> ~ts: "
 		       "Mnesia failure: ~p",
 		       [MyServer, Server, Reason]),
 	    ejabberd_s2s_out:stop(Pid),

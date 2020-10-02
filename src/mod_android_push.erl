@@ -42,12 +42,12 @@
 %%====================================================================
 
 start(Host, Opts) ->
-    ?INFO_MSG("start ~w", [?MODULE]),
+    ?INFO("start ~w", [?MODULE]),
     gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
     ok.
 
 stop(_Host) ->
-    ?INFO_MSG("stop ~w", [?MODULE]),
+    ?INFO("stop ~w", [?MODULE]),
     gen_mod:stop_child(get_proc()),
     ok.
 
@@ -72,7 +72,7 @@ get_proc() ->
 push(Message, #push_info{os = <<"android">>} = PushInfo) ->
     gen_server:cast(get_proc(), {push_message, Message, PushInfo});
 push(_Message, _PushInfo) ->
-    ?ERROR_MSG("Invalid push_info : ~p", [_PushInfo]).
+    ?ERROR("Invalid push_info : ~p", [_PushInfo]).
 
 
 %%====================================================================
@@ -94,7 +94,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 handle_call(_Request, _From, State) ->
-    ?ERROR_MSG("invalid call request: ~p", [_Request]),
+    ?ERROR("invalid call request: ~p", [_Request]),
     {reply, {error, invalid_request}, State}.
 
 
@@ -106,7 +106,7 @@ handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     %% Ignore the push notification if it has already been sent.
     case push_util:record_push_sent(Message) of
         false -> 
-                ?INFO_MSG("Push notification already sent for Msg: ~p", [Message]),
+                ?INFO("Push notification already sent for Msg: ~p", [Message]),
                 ok;
         true -> push_message(Message, PushInfo, State)
     end,
@@ -130,9 +130,9 @@ handle_info({retry, PushMessageItem}, State) ->
     %% Stop retrying after 10 minutes!
     case CurTimestamp - MsgTimestamp < ?MESSAGE_MAX_RETRY_TIME_SEC of
         false ->
-            ?INFO_MSG("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]);
+            ?INFO("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]);
         true ->
-            ?INFO_MSG("Uid: ~s, retry push_message_item: ~s", [Uid, Id]),
+            ?INFO("Uid: ~s, retry push_message_item: ~s", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
             push_message_item(NewPushMessageItem, State)
@@ -192,7 +192,7 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
         {ok, {{_, StatusCode5xx, _}, _, ResponseBody}}
                 when StatusCode5xx >= 500 andalso StatusCode5xx < 600 ->
             stat:count(?FCM, "fcm_error"),
-            ?ERROR_MSG("Push failed, Uid: ~s, Token: ~p, recoverable FCM error: ~p",
+            ?ERROR("Push failed, Uid: ~s, Token: ~p, recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
             retry_message_item(PushMessageItem);
 
@@ -200,22 +200,22 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
             case parse_response(ResponseBody) of
                 ok ->
                     stat:count(?FCM, "success"),
-                    ?INFO_MSG("Uid:~s push successful for msg-id: ~s", [Uid, Id]);
+                    ?INFO("Uid:~s push successful for msg-id: ~s", [Uid, Id]);
                 Reason ->
                     stat:count(?FCM, "failure"),
-                    ?ERROR_MSG("Push failed, Uid:~s, token: ~p, reason: ~p",
+                    ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p",
                             [Uid, binary:part(Token, 0, 10), Reason]),
                     remove_push_token(Uid, ServerHost)
             end;
 
         {ok, {{_, _, _}, _, ResponseBody}} ->
             stat:count(?FCM, "failure"),
-            ?ERROR_MSG("Push failed, Uid:~s, token: ~p, non-recoverable FCM error: ~p",
+            ?ERROR("Push failed, Uid:~s, token: ~p, non-recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
             remove_push_token(Uid, ServerHost);
 
         {error, Reason} ->
-            ?ERROR_MSG("Push failed, Uid:~s, token: ~p, reason: ~p",
+            ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p",
                     [Uid, binary:part(Token, 0, 10), Reason]),
             retry_message_item(PushMessageItem)
 
@@ -246,13 +246,13 @@ parse_response(ResponseBody) ->
             [{Result}] = proplists:get_value(<<"results">>, JsonData),
             case proplists:get_value(<<"error">>, Result) of
                 <<"NotRegistered">> ->
-                    ?ERROR_MSG("FCM error: NotRegistered", []),
+                    ?ERROR("FCM error: NotRegistered", []),
                     not_registered;
                 <<"InvalidRegistration">> ->
-                    ?ERROR_MSG("FCM error: InvalidRegistration", []),
+                    ?ERROR("FCM error: InvalidRegistration", []),
                     invalid_registration;
                 Error ->
-                    ?ERROR_MSG("FCM error: ~s", [Error]),
+                    ?ERROR("FCM error: ~s", [Error]),
                     other
             end
     end.

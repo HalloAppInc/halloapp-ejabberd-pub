@@ -63,7 +63,7 @@ store_session(LUser, LServer, TS, PushJID, Node, XData) ->
 	{atomic, ok} ->
 	    {ok, {TS, PushLJID, Node, XData}};
 	{aborted, E} ->
-	    ?ERROR_MSG("Cannot store push session for ~ts@~ts: ~p",
+	    ?ERROR("Cannot store push session for ~ts@~ts: ~p",
 		       [LUser, LServer, E]),
 	    {error, db_failure}
     end.
@@ -145,7 +145,7 @@ delete_session(LUser, LServer, TS) ->
 	{atomic, ok} ->
 	    ok;
 	{aborted, E} ->
-	    ?ERROR_MSG("Cannot delete push session of ~ts@~ts: ~p",
+	    ?ERROR("Cannot delete push session of ~ts@~ts: ~p",
 		       [LUser, LServer, E]),
 	    {error, db_failure}
     end.
@@ -163,12 +163,12 @@ delete_old_sessions(_LServer, Time) ->
 	{atomic, ok} ->
 	    ok;
 	{aborted, E} ->
-	    ?ERROR_MSG("Cannot delete old push sessions: ~p", [E]),
+	    ?ERROR("Cannot delete old push sessions: ~p", [E]),
 	    {error, db_failure}
     end.
 
 transform({push_session, US, TS, Service, Node, XData}) ->
-    ?INFO_MSG("Transforming push_session Mnesia table", []),
+    ?INFO("Transforming push_session Mnesia table", []),
     #push_session{us = US, timestamp = TS, service = Service,
 		  node = Node, xml = encode_xdata(XData)}.
 
@@ -187,7 +187,7 @@ enforce_max_sessions({U, S} = US, MaxSessions) ->
 				       TS1 >= TS2
 			       end, Recs),
 	    OldRecs = lists:nthtail(MaxSessions - 1, Recs1),
-	    ?INFO_MSG("Disabling old push session(s) of ~ts@~ts", [U, S]),
+	    ?INFO("Disabling old push session(s) of ~ts@~ts", [U, S]),
 	    lists:foreach(fun(Rec) -> mnesia:delete_object(Rec) end, OldRecs);
 	_ ->
 	    ok

@@ -29,7 +29,7 @@
 
 
 start(Host, _Opts) ->
-    ?INFO_MSG("start", []),
+    ?INFO("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_GROUPS, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_GROUPS_FEED, ?MODULE, process_local_iq),
     ejabberd_hooks:add(group_message, Host, ?MODULE, send_group_message, 50),
@@ -37,7 +37,7 @@ start(Host, _Opts) ->
 
 
 stop(Host) ->
-    ?INFO_MSG("stop", []),
+    ?INFO("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_GROUPS),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_GROUPS_FEED),
     ejabberd_hooks:delete(group_message, Host, ?MODULE, send_group_message, 50),
@@ -59,7 +59,7 @@ mod_options(_Host) ->
 %%% group_message %%%
 send_group_message(#message{id = MsgId, from = #jid{luser = Uid}, type = groupchat,
         sub_els = [#group_chat{gid = Gid} = GroupChatSt]} = Msg) ->
-    ?INFO_MSG("Gid: ~s, Uid: ~s", [Gid, Uid]),
+    ?INFO("Gid: ~s, Uid: ~s", [Gid, Uid]),
     MessagePayload = GroupChatSt#group_chat.sub_els,
     case mod_groups:send_chat_message(MsgId, Gid, Uid, MessagePayload) of
         {error, Reason} ->
@@ -72,7 +72,7 @@ send_group_message(#message{id = MsgId, from = #jid{luser = Uid}, type = groupch
 
 send_group_message(#message{id = MsgId, from = #jid{luser = Uid}, type = groupchat,
         sub_els = [#groupchat_retract_st{gid = Gid} = GroupChatRetractSt]} = Msg) ->
-    ?INFO_MSG("Gid: ~s, Uid: ~s", [Gid, Uid]),
+    ?INFO("Gid: ~s, Uid: ~s", [Gid, Uid]),
     case mod_groups:send_retract_message(MsgId, Gid, Uid, GroupChatRetractSt) of
         {error, Reason} ->
             ErrorMsg = xmpp:make_error(Msg, util:err(Reason)),
@@ -157,7 +157,7 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
 -spec process_create_group(IQ :: iq(), Uid :: uid(),
         Name :: binary(), ReqGroupSt :: group_st()) -> iq().
 process_create_group(IQ, Uid, Name, ReqGroupSt) ->
-    ?INFO_MSG("create_group Uid: ~s Name: |~s| Group: ~p", [Uid, Name, ReqGroupSt]),
+    ?INFO("create_group Uid: ~s Name: |~s| Group: ~p", [Uid, Name, ReqGroupSt]),
     MemberUids = [M#member_st.uid || M <- ReqGroupSt#group_st.members],
 
     {ok, Group, Results} = mod_groups:create_group(Uid, Name, MemberUids),
@@ -183,7 +183,7 @@ process_create_group(IQ, Uid, Name, ReqGroupSt) ->
 
 -spec process_delete_group(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
 process_delete_group(IQ, Gid, Uid) ->
-    ?INFO_MSG("delete_group Gid: ~s Uid: ~s", [Gid, Uid]),
+    ?INFO("delete_group Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:delete_group(Gid, Uid) of
         {error, not_admin} ->
             xmpp:make_error(IQ, util:err(not_admin));
@@ -197,7 +197,7 @@ process_delete_group(IQ, Gid, Uid) ->
 process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
     MembersSt = ReqGroupSt#group_st.members,
     Changes = [{M#member_st.uid, M#member_st.action} || M <- MembersSt],
-    ?INFO_MSG("modify_members Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
+    ?INFO("modify_members Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
     case mod_groups:modify_members(Gid, Uid, Changes) of
         {error, not_admin} ->
             xmpp:make_error(IQ, util:err(not_admin));
@@ -223,7 +223,7 @@ process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
 process_modify_admins(IQ, Gid, Uid, ReqGroupSt) ->
     MembersSt = ReqGroupSt#group_st.members,
     Changes = [{M#member_st.uid, M#member_st.action} || M <- MembersSt],
-    ?INFO_MSG("modify_admins Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
+    ?INFO("modify_admins Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
 
     case mod_groups:modify_admins(Gid, Uid, Changes) of
         {error, not_admin} ->
@@ -248,7 +248,7 @@ process_modify_admins(IQ, Gid, Uid, ReqGroupSt) ->
 
 -spec process_get_group(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
 process_get_group(IQ, Gid, Uid) ->
-    ?INFO_MSG("get_group Gid: ~s Uid: ~s", [Gid, Uid]),
+    ?INFO("get_group Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:get_group(Gid, Uid) of
         {error, not_member} ->
             xmpp:make_error(IQ, util:err(not_member));
@@ -260,7 +260,7 @@ process_get_group(IQ, Gid, Uid) ->
 
 -spec process_get_groups(IQ :: iq(), Uid :: uid()) -> iq().
 process_get_groups(IQ, Uid) ->
-    ?INFO_MSG("get_groups Uid: ~s", [Uid]),
+    ?INFO("get_groups Uid: ~s", [Uid]),
     GroupInfos = mod_groups:get_groups(Uid),
     GroupsSt = [group_info_to_group_st(GI) || GI <- GroupInfos],
     ResultSt = #groups{
@@ -272,7 +272,7 @@ process_get_groups(IQ, Uid) ->
 
 -spec process_set_name(IQ :: iq(), Gid :: gid(), Uid :: uid(), Name :: name()) -> iq().
 process_set_name(IQ, Gid, Uid, Name) ->
-    ?INFO_MSG("set_name Gid: ~s Uid: ~s Name: |~p|", [Gid, Uid, Name]),
+    ?INFO("set_name Gid: ~s Uid: ~s Name: |~p|", [Gid, Uid, Name]),
     case mod_groups:set_name(Gid, Uid, Name) of
         {error, invalid_name} ->
             xmpp:make_error(IQ, util:err(invalid_name));
@@ -285,7 +285,7 @@ process_set_name(IQ, Gid, Uid, Name) ->
 
 
 process_delete_avatar(IQ, Gid, Uid) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
+    ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:delete_avatar(Gid, Uid) of
         {error, Reason} ->
             xmpp:make_error(IQ, util:err(Reason));
@@ -295,13 +295,13 @@ process_delete_avatar(IQ, Gid, Uid) ->
 
 
 process_set_avatar(IQ, Gid, Uid, Base64Data) ->
-    ?INFO_MSG("set_avatar Gid: ~s Uid: ~s Base64Size: ~s", [Gid, Uid, byte_size(Base64Data)]),
+    ?INFO("set_avatar Gid: ~s Uid: ~s Base64Size: ~s", [Gid, Uid, byte_size(Base64Data)]),
     case set_avatar(Gid, Uid, Base64Data) of
         {error, Reason} ->
-            ?WARNING_MSG("Gid: ~s Uid ~s setting avatar failed ~p", [Gid, Uid, Reason]),
+            ?WARNING("Gid: ~s Uid ~s setting avatar failed ~p", [Gid, Uid, Reason]),
             xmpp:make_error(IQ, util:err(Reason));
         {ok, AvatarId, GroupName} ->
-            ?INFO_MSG("Gid: ~s Uid: ~s Successfully set avatar ~s",
+            ?INFO("Gid: ~s Uid: ~s Successfully set avatar ~s",
                 [Gid, Uid, AvatarId]),
             GroupSt = #group_st{
                 gid = Gid,
@@ -313,7 +313,7 @@ process_set_avatar(IQ, Gid, Uid, Base64Data) ->
 
 
 process_group_feed(IQ, Gid, Uid, GroupFeedSt) ->
-    ?INFO_MSG("Gid: ~s, Uid: ~s", [Gid, Uid]),
+    ?INFO("Gid: ~s, Uid: ~s", [Gid, Uid]),
     case mod_groups:send_feed_item(Gid, Uid, GroupFeedSt) of
         {error, Reason} ->
             xmpp:make_error(IQ, util:err(Reason));
@@ -338,7 +338,7 @@ set_avatar(Gid, Uid, Base64Data) ->
 
 -spec process_leave_group(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
 process_leave_group(IQ, Gid, Uid) ->
-    ?INFO_MSG("leave_group Gid: ~s Uid: ~s ", [Gid, Uid]),
+    ?INFO("leave_group Gid: ~s Uid: ~s ", [Gid, Uid]),
     case mod_groups:leave_group(Gid, Uid) of
         {ok, _Res} ->
             xmpp:make_iq_result(IQ)

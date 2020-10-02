@@ -120,7 +120,7 @@ init([Host|_]) ->
 			process_local_iq_info),
 		      case Mod:is_search_supported(Host) of
 			  false ->
-			      ?WARNING_MSG("vCard search functionality is "
+			      ?WARNING("vCard search functionality is "
 					   "not implemented for ~ts backend",
 					   [mod_vcard_opt:db_type(Opts)]);
 			  true ->
@@ -134,24 +134,24 @@ init([Host|_]) ->
     {ok, #state{hosts = MyHosts, server_host = Host}}.
 
 handle_call(Call, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Call]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Call]),
     {noreply, State}.
 
 handle_cast(Cast, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Cast]),
+    ?WARNING("Unexpected cast: ~p", [Cast]),
     {noreply, State}.
 
 handle_info({route, Packet}, State) ->
     try route(Packet)
     catch ?EX_RULE(Class, Reason, St) ->
 	    StackTrace = ?EX_STACK(St),
-	    ?ERROR_MSG("Failed to route packet:~n~ts~n** ~ts",
+	    ?ERROR("Failed to route packet:~n~ts~n** ~ts",
 		       [xmpp:pp(Packet),
 			misc:format_exception(2, Class, Reason, StackTrace)])
     end,
     {noreply, State};
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, #state{hosts = MyHosts, server_host = Host}) ->

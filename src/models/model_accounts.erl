@@ -92,11 +92,11 @@
 %%====================================================================
 
 start(_Host, _Opts) ->
-    ?INFO_MSG("start ~w", [?MODULE]),
+    ?INFO("start ~w", [?MODULE]),
     ok.
 
 stop(_Host) ->
-    ?INFO_MSG("stop ~w", [?MODULE]),
+    ?INFO("stop ~w", [?MODULE]),
     ok.
 
 depends(_Host, _Opts) ->
@@ -172,9 +172,9 @@ delete_account(Uid) ->
             ]),
             case RenameResult of
                 {ok, <<"OK">>} ->
-                    ?INFO_MSG("Uid: ~s deleted", [Uid]);
+                    ?INFO("Uid: ~s deleted", [Uid]);
                 {error, Error} ->
-                    ?ERROR_MSG("Uid: ~s account delete failed ~p", [Uid, Error])
+                    ?ERROR("Uid: ~s account delete failed ~p", [Uid, Error])
             end,
             {ok, _} = DecrResult;
         {ok, <<"0">>} ->
@@ -510,17 +510,17 @@ count_accounts(Slot) ->
 
 
 fix_counters() ->
-    ?INFO_MSG("start", []),
+    ?INFO("start", []),
     {ok, Pools} = get_all_pools(),
-    ?INFO_MSG("pools: ~p", [Pools]),
+    ?INFO("pools: ~p", [Pools]),
     ResultMap = compute_counters(Pools),
-    ?INFO_MSG("result map ~p", [ResultMap]),
+    ?INFO("result map ~p", [ResultMap]),
     maps:map(
         fun (K, V) ->
             {ok, _} = q(["SET", K, V])
         end,
         ResultMap),
-    ?INFO_MSG("finished setting ~p counters", [maps:size(ResultMap)]),
+    ?INFO("finished setting ~p counters", [maps:size(ResultMap)]),
     ok.
 
 

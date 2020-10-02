@@ -82,13 +82,13 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
         sub_els = [#contact_list{type = full, contacts = Contacts, syncid = SyncId, index = Index, 
                 last = Last}]} = IQ) ->
     StartTime = os:system_time(microsecond), 
-    ?INFO_MSG("Full contact sync Uid: ~p, syncid: ~p, index: ~p, last: ~p, num_contacts: ~p",
+    ?INFO("Full contact sync Uid: ~p, syncid: ~p, index: ~p, last: ~p, num_contacts: ~p",
             [UserId, SyncId, Index, Last, length(Contacts)]),
     stat:count("HA/contacts", "sync_full_contacts", length(Contacts)),
     case SyncId of
         undefined ->
             Txt = ?T("Invalid syncid in the request"),
-            ?WARNING_MSG("process_local_iq: ~p, ~p", [IQ, Txt]),
+            ?WARNING("process_local_iq: ~p, ~p", [IQ, Txt]),
             ResultIQ = xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         _ ->
             count_full_sync(Index),
@@ -106,7 +106,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
     end,
     EndTime = os:system_time(microsecond),
     T = EndTime - StartTime,
-    ?INFO_MSG("Time taken: ~w us", [T]),
+    ?INFO("Time taken: ~w us", [T]),
     ResultIQ;
 
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
@@ -182,7 +182,7 @@ unblock_uids(Uid, Server, Ouids) ->
 -spec trigger_full_contact_sync(Uid :: binary()) -> ok.
 trigger_full_contact_sync(Uid) ->
     Server = util:get_host(),
-    ?INFO_MSG("Trigger full contact sync for user: ~p", [Uid]),
+    ?INFO("Trigger full contact sync for user: ~p", [Uid]),
     send_probe_message(<<>>, <<>>, Uid, Server),
     ok.
 
@@ -255,10 +255,10 @@ finish_sync(UserId, Server, SyncId) ->
     DeleteContactSet = sets:subtract(OldContactSet, NewContactSet),
     AddContactSet = sets:subtract(NewContactSet, OldContactSet),
     OldReverseContactSet = sets:from_list(OldReverseContactList),
-    ?INFO_MSG("Full contact sync stats: uid: ~p, old_contacts: ~p, new_contacts: ~p, "
+    ?INFO("Full contact sync stats: uid: ~p, old_contacts: ~p, new_contacts: ~p, "
             "add_contacts: ~p, delete_contacts: ~p", [UserId, sets:size(OldContactSet),
             sets:size(NewContactSet), sets:size(AddContactSet), sets:size(DeleteContactSet)]),
-    ?INFO_MSG("Full contact sync: uid: ~p, add_contacts: ~p, delete_contacts: ~p",
+    ?INFO("Full contact sync: uid: ~p, add_contacts: ~p, delete_contacts: ~p",
                 [UserId, AddContactSet, DeleteContactSet]),
     %% TODO(murali@): Update this after moving pubsub to redis.
     remove_contacts_and_notify(UserId, Server, UserPhone,
@@ -273,7 +273,7 @@ finish_sync(UserId, Server, SyncId) ->
     model_contacts:finish_sync(UserId, SyncId),
     EndTime = os:system_time(microsecond),
     T = EndTime - StartTime,
-    ?INFO_MSG("Time taken: ~w us", [T]),
+    ?INFO("Time taken: ~w us", [T]),
     %% Send notification to User who invited this user.
     process_notification_to_inviters(UserId, UserPhone, Server, NewContactSet,
         sets:is_empty(OldContactSet)),
@@ -409,14 +409,14 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
 
 -spec add_friend(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.
 add_friend(Uid, Server, Ouid) ->
-    ?INFO_MSG("~p is friends with ~p", [Uid, Ouid]),
+    ?INFO("~p is friends with ~p", [Uid, Ouid]),
     model_friends:add_friend(Uid, Ouid),
     ejabberd_hooks:run(add_friend, Server, [Uid, Server, Ouid]).
 
 
 -spec remove_friend(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.
 remove_friend(Uid, Server, Ouid) ->
-    ?INFO_MSG("~p is no longer friends with ~p", [Uid, Ouid]),
+    ?INFO("~p is no longer friends with ~p", [Uid, Ouid]),
     model_friends:remove_friend(Uid, Ouid),
     ejabberd_hooks:run(remove_friend, Server, [Uid, Server, Ouid]).
 
@@ -484,7 +484,7 @@ notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role) ->
 -spec probe_contact_about_user(UserId :: binary(), UserPhone :: binary(),
         Server :: binary(), ContactId :: binary()) -> ok.
 probe_contact_about_user(UserId, UserPhone, Server, ContactId) ->
-    ?INFO_MSG("UserId: ~s, ContactId: ~s", [UserId, ContactId]),
+    ?INFO("UserId: ~s, ContactId: ~s", [UserId, ContactId]),
     <<HashValue:?PROBE_HASH_LENGTH_BYTES/binary, _Rest/binary>> = crypto:hash(sha256, UserPhone),
     send_probe_message(UserId, HashValue, ContactId, Server),
     ok.

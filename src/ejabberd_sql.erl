@@ -157,7 +157,7 @@ keep_alive(Host, Proc) ->
 	{selected,_,[[<<"1">>]]} ->
 	    ok;
 	_Err ->
-	    ?ERROR_MSG("Keep alive query failed, closing connection: ~p", [_Err]),
+	    ?ERROR("Keep alive query failed, closing connection: ~p", [_Err]),
 	    sync_send_event(Proc, force_timeout, Timeout)
     end.
 
@@ -263,13 +263,13 @@ decode_term(Bin) ->
 	{ok, Term} = erl_parse:parse_term(Tokens),
 	Term
     catch _:{badmatch, {error, {Line, Mod, Reason}, _}} ->
-	    ?ERROR_MSG("Corrupted Erlang term in SQL database:~n"
+	    ?ERROR("Corrupted Erlang term in SQL database:~n"
 		       "** Scanner error: at line ~B: ~ts~n"
 		       "** Term: ~ts",
 		       [Line, Mod:format_error(Reason), Bin]),
 	    erlang:error(badarg);
 	  _:{badmatch, {error, {Line, Mod, Reason}}} ->
-	    ?ERROR_MSG("Corrupted Erlang term in SQL database:~n"
+	    ?ERROR("Corrupted Erlang term in SQL database:~n"
 		       "** Parser error: at line ~B: ~ts~n"
 		       "** Term: ~ts",
 		       [Line, Mod:format_error(Reason), Bin]),
@@ -290,7 +290,7 @@ sqlite_file(Host) ->
 		{ok, Cwd} ->
 		    filename:join([Cwd|Path]);
 		{error, Reason} ->
-		    ?ERROR_MSG("Failed to get current directory: ~ts",
+		    ?ERROR("Failed to get current directory: ~ts",
 			       [file:format_error(Reason)]),
 		    filename:join(Path)
 	    end;
@@ -365,7 +365,7 @@ connecting(connect, #state{host = Host} = State) ->
 	    handle_reconnect(Reason, State)
     end;
 connecting(Event, State) ->
-    ?WARNING_MSG("Unexpected event in 'connecting': ~p",
+    ?WARNING("Unexpected event in 'connecting': ~p",
 		 [Event]),
     {next_state, connecting, State}.
 
@@ -382,7 +382,7 @@ connecting({sql_cmd, Command, Timestamp} = Req, From,
 			State#state.pending_requests)
 	catch error:full ->
 		Err = <<"SQL request queue is overfilled">>,
-		?ERROR_MSG("~ts, bouncing all pending requests", [Err]),
+		?ERROR("~ts, bouncing all pending requests", [Err]),
 		Q = p1_queue:dropwhile(
 		      fun({sql_cmd, _, To, TS}) ->
 			      reply(To, {error, Err}, TS),
@@ -393,7 +393,7 @@ connecting({sql_cmd, Command, Timestamp} = Req, From,
     {next_state, connecting,
      State#state{pending_requests = PendingRequests}};
 connecting(Request, {Who, _Ref}, State) ->
-    ?WARNING_MSG("Unexpected call ~p from ~p in 'connecting'",
+    ?WARNING("Unexpected call ~p from ~p in 'connecting'",
 		 [Request, Who]),
     {next_state, connecting, State}.
 
@@ -401,7 +401,7 @@ session_established({sql_cmd, Command, Timestamp}, From,
 		    State) ->
     run_sql_cmd(Command, From, State, Timestamp);
 session_established(Request, {Who, _Ref}, State) ->
-    ?WARNING_MSG("Unexpected call ~p from ~p in 'session_established'",
+    ?WARNING("Unexpected call ~p from ~p in 'session_established'",
 		 [Request, Who]),
     {next_state, session_established, State}.
 
@@ -411,7 +411,7 @@ session_established({sql_cmd, Command, From, Timestamp},
 session_established(force_timeout, State) ->
     {stop, timeout, State};
 session_established(Event, State) ->
-    ?WARNING_MSG("Unexpected event in 'session_established': ~p",
+    ?WARNING("Unexpected event in 'session_established': ~p",
 		 [Event]),
     {next_state, session_established, State}.
 
@@ -427,7 +427,7 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 handle_info({'EXIT', _Pid, Reason}, _StateName, State) ->
     handle_reconnect(Reason, State);
 handle_info(Info, StateName, State) ->
-    ?WARNING_MSG("Unexpected info in ~p: ~p",
+    ?WARNING("Unexpected info in ~p: ~p",
 		 [StateName, Info]),
     {next_state, StateName, State}.
 
@@ -451,7 +451,7 @@ print_state(State) -> State.
 %%%----------------------------------------------------------------------
 handle_reconnect(Reason, #state{host = Host} = State) ->
     StartInterval = ejabberd_option:sql_start_interval(Host),
-    ?WARNING_MSG("~p connection failed:~n"
+    ?WARNING("~p connection failed:~n"
 		 "** Reason: ~p~n"
 		 "** Retry after: ~B seconds",
 		 [State#state.db_type, Reason,
@@ -496,7 +496,7 @@ inner_transaction(F) ->
     case get(?NESTING_KEY) of
       ?TOP_LEVEL_TXN ->
 	  {backtrace, T} = process_info(self(), backtrace),
-	  ?ERROR_MSG("Inner transaction called at outer txn "
+	  ?ERROR("Inner transaction called at outer txn "
 		     "level. Trace: ~ts",
 		     [T]),
 	  erlang:exit(implementation_faulty);
@@ -518,7 +518,7 @@ outer_transaction(F, NRestarts, _Reason) ->
       ?TOP_LEVEL_TXN -> ok;
       _N ->
 	  {backtrace, T} = process_info(self(), backtrace),
-	  ?ERROR_MSG("Outer transaction called at inner txn "
+	  ?ERROR("Outer transaction called at inner txn "
 		     "level. Trace: ~ts",
 		     [T]),
 	  erlang:exit(implementation_faulty)
@@ -536,7 +536,7 @@ outer_transaction(F, NRestarts, _Reason) ->
 	    outer_transaction(F, NRestarts - 1, Reason);
 	?EX_RULE(throw, {aborted, Reason}, Stack) when NRestarts =:= 0 ->
 	    StackTrace = ?EX_STACK(Stack),
-	    ?ERROR_MSG("SQL transaction restarts exceeded~n** "
+	    ?ERROR("SQL transaction restarts exceeded~n** "
 		       "Restarts: ~p~n** Last abort reason: "
 		       "~p~n** Stacktrace: ~p~n** When State "
 		       "== ~p",
@@ -587,7 +587,7 @@ sql_query_internal(#sql_query{} = Query) ->
                                 {ok, _, _, _} ->
                                     put(Key, prepared);
                                 {error, Error} ->
-                                    ?ERROR_MSG("PREPARE failed for SQL query "
+                                    ?ERROR("PREPARE failed for SQL query "
                                                "at ~p: ~p",
                                                [Query#sql_query.loc, Error]),
                                     put(Key, ignore)
@@ -616,7 +616,7 @@ sql_query_internal(#sql_query{} = Query) ->
 		{error, <<"shutdown">>};
 	      ?EX_RULE(Class, Reason, Stack) ->
 		StackTrace = ?EX_STACK(Stack),
-                ?ERROR_MSG("Internal error while processing SQL query:~n** ~ts",
+                ?ERROR("Internal error while processing SQL query:~n** ~ts",
 			   [misc:format_exception(2, Class, Reason, StackTrace)]),
                 {error, <<"internal error">>}
         end,
@@ -758,7 +758,7 @@ sql_query_format_res({selected, _, Rows}, SQLQuery) ->
                   catch
 		      ?EX_RULE(Class, Reason, Stack) ->
 			  StackTrace = ?EX_STACK(Stack),
-                          ?ERROR_MSG("Error while processing SQL query result:~n"
+                          ?ERROR("Error while processing SQL query result:~n"
                                      "** Row: ~p~n** ~ts",
                                      [Row,
 				      misc:format_exception(2, Class, Reason, StackTrace)]),
@@ -811,7 +811,7 @@ report_overload(#state{overload_reported = PrevTime} = State) ->
     CurrTime = current_time(),
     case PrevTime == undefined orelse (CurrTime - PrevTime) > timer:seconds(30) of
 	true ->
-	    ?ERROR_MSG("SQL connection pool is overloaded, "
+	    ?ERROR("SQL connection pool is overloaded, "
 		       "discarding stale requests", []),
 	    State#state{overload_reported = current_time()};
 	false ->
@@ -998,11 +998,11 @@ get_db_version(#state{db_type = pgsql} = State) ->
                 Version when is_integer(Version) ->
                     State#state{db_version = Version};
                 Error ->
-                    ?WARNING_MSG("Error getting pgsql version: ~p", [Error]),
+                    ?WARNING("Error getting pgsql version: ~p", [Error]),
                     State
             end;
         Res ->
-            ?WARNING_MSG("Error getting pgsql version: ~p", [Res]),
+            ?WARNING("Error getting pgsql version: ~p", [Res]),
             State
     end;
 get_db_version(State) ->
@@ -1011,9 +1011,9 @@ get_db_version(State) ->
 log(Level, Format, Args) ->
     case Level of
       debug -> ?DEBUG(Format, Args);
-      info -> ?INFO_MSG(Format, Args);
-      normal -> ?INFO_MSG(Format, Args);
-      error -> ?ERROR_MSG(Format, Args)
+      info -> ?INFO(Format, Args);
+      normal -> ?INFO(Format, Args);
+      error -> ?ERROR(Format, Args)
     end.
 
 db_opts(Host) ->
@@ -1053,7 +1053,7 @@ warn_if_ssl_unsupported(tcp, _) ->
 warn_if_ssl_unsupported(ssl, pgsql) ->
     ok;
 warn_if_ssl_unsupported(ssl, Type) ->
-    ?WARNING_MSG("SSL connection is not supported for ~ts", [Type]).
+    ?WARNING("SSL connection is not supported for ~ts", [Type]).
 
 get_ssl_opts(ssl, Host) ->
     Opts1 = case ejabberd_option:sql_ssl_certfile(Host) of
@@ -1070,7 +1070,7 @@ get_ssl_opts(ssl, Host) ->
 		true ->
 		    [{verify, verify_peer}|Opts2];
 		false ->
-		    ?WARNING_MSG("SSL verification is enabled for "
+		    ?WARNING("SSL verification is enabled for "
 				 "SQL connection, but option "
 				 "'sql_ssl_cafile' is not set; "
 				 "verification will be disabled", []),
@@ -1122,12 +1122,12 @@ init_mssql(Host) ->
 		os:putenv("FREETDSCONF", freetds_config()),
 		ok
 	    catch error:{badmatch, {error, Reason} = Err} ->
-		    ?ERROR_MSG("Failed to create temporary files in ~ts: ~ts",
+		    ?ERROR("Failed to create temporary files in ~ts: ~ts",
 			       [tmp_dir(), file:format_error(Reason)]),
 		    Err
 	    end;
 	{error, Reason} = Err ->
-	    ?ERROR_MSG("Failed to create temporary directory ~ts: ~ts",
+	    ?ERROR("Failed to create temporary directory ~ts: ~ts",
 		       [tmp_dir(), file:format_error(Reason)]),
 	    Err
     end.
@@ -1192,16 +1192,16 @@ check_error({error, Why} = Err, _Query) when Why == killed ->
     Err;
 check_error({error, Why}, #sql_query{} = Query) ->
     Err = extended_error(Why),
-    ?ERROR_MSG("SQL query '~ts' at ~p failed: ~p",
+    ?ERROR("SQL query '~ts' at ~p failed: ~p",
                [Query#sql_query.hash, Query#sql_query.loc, Err]),
     {error, Err};
 check_error({error, Why}, Query) ->
     Err = extended_error(Why),
     case catch iolist_to_binary(Query) of
         SQuery when is_binary(SQuery) ->
-            ?ERROR_MSG("SQL query '~ts' failed: ~p", [SQuery, Err]);
+            ?ERROR("SQL query '~ts' failed: ~p", [SQuery, Err]);
         _ ->
-            ?ERROR_MSG("SQL query ~p failed: ~p", [Query, Err])
+            ?ERROR("SQL query ~p failed: ~p", [Query, Err])
     end,
     {error, Err};
 check_error(Result, _Query) ->

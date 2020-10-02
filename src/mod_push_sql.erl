@@ -213,7 +213,7 @@ enforce_max_sessions(_LUser, _LServer, infinity) ->
 enforce_max_sessions(LUser, LServer, MaxSessions) ->
     case lookup_sessions(LUser, LServer) of
 	{ok, Sessions} when length(Sessions) >= MaxSessions ->
-	    ?INFO_MSG("Disabling old push session(s) of ~ts@~ts",
+	    ?INFO("Disabling old push session(s) of ~ts@~ts",
 		      [LUser, LServer]),
 	    Sessions1 = lists:sort(fun({TS1, _, _, _}, {TS2, _, _, _}) ->
 					   TS1 >= TS2
@@ -233,13 +233,13 @@ decode_xdata(XML, LUser, LServer) ->
 	#xmlel{} = El ->
 	    try xmpp:decode(El)
 	    catch _:{xmpp_codec, Why} ->
-		    ?ERROR_MSG("Failed to decode ~ts for user ~ts@~ts "
+		    ?ERROR("Failed to decode ~ts for user ~ts@~ts "
 			       "from table 'push_session': ~ts",
 			       [XML, LUser, LServer, xmpp:format_error(Why)]),
 		    undefined
 	    end;
 	Err ->
-	    ?ERROR_MSG("Failed to decode ~ts for user ~ts@~ts from "
+	    ?ERROR("Failed to decode ~ts for user ~ts@~ts from "
 		       "table 'push_session': ~p",
 		       [XML, LUser, LServer, Err]),
 	    undefined

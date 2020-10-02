@@ -83,7 +83,7 @@ unset_presence_hook(Uid, _Server, _Resource, _Status) ->
 
 -spec presence_unsubscribe_all(Uid :: binary()) -> ok.
 presence_unsubscribe_all(Uid) ->
-    ?INFO_MSG("Uid: ~s, unsubscribe_all", [Uid]),
+    ?INFO("Uid: ~s, unsubscribe_all", [Uid]),
     model_accounts:presence_unsubscribe_all(Uid).
 
 
@@ -94,7 +94,7 @@ presence_subs_hook(User, Server, #presence{to = #jid{user = Friend}, type = Type
         subscribe ->
             check_and_subscribe_user_to_friend(User, Server, Friend);
         unsubscribe ->
-            ?INFO_MSG("Uid: ~s, unsubscribe_all", [User]),
+            ?INFO("Uid: ~s, unsubscribe_all", [User]),
             unsubscribe_user_to_friend(User, Server, Friend)
     end.
 
@@ -108,14 +108,14 @@ presence_subs_hook(User, Server, #presence{to = #jid{user = Friend}, type = Type
 subscribe_user_to_friend(User, _, User) ->
     {ok, ignore_self_subscribe};
 subscribe_user_to_friend(User, _Server, Friend) ->
-    ?INFO_MSG("Uid: ~s, Friend: ~s", [User, Friend]),
+    ?INFO("Uid: ~s, Friend: ~s", [User, Friend]),
     model_accounts:presence_subscribe(User, Friend).
 
 
 -spec unsubscribe_user_to_friend(User :: binary(), Server :: binary(),
         Friend :: binary()) -> {ok, any()} | {error, any()}.
 unsubscribe_user_to_friend(User, _Server, Friend) ->
-    ?INFO_MSG("Uid: ~s, Friend: ~s", [User, Friend]),
+    ?INFO("Uid: ~s, Friend: ~s", [User, Friend]),
     model_accounts:presence_unsubscribe(User, Friend).
 
 

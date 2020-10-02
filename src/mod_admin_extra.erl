@@ -819,13 +819,13 @@ check_password_hash(_User, _Host, PasswordHash, HashMethod) ->
 			  {A, _} when is_tuple(A) -> scrammed;
 			  {_, true} -> get_hash(AccountPass, HashMethod);
 			  {_, false} ->
-			      ?ERROR_MSG("Check_password_hash called "
+			      ?ERROR("Check_password_hash called "
 					 "with hash method: ~p", [HashMethod]),
 			      undefined
 		      end,
     case AccountPassHash of
 	scrammed ->
-	    ?ERROR_MSG("Passwords are scrammed, and check_password_hash cannot work.", []),
+	    ?ERROR("Passwords are scrammed, and check_password_hash cannot work.", []),
 	    throw(passwords_scrammed_command_cannot_work);
 	undefined -> throw(unkown_hash_method);
 	PasswordHash -> ok;
@@ -1501,7 +1501,7 @@ user_action(User, _Server, Fun, OK) ->
                 OK -> ok;
                 {error, Error} -> throw(Error);
                 Error ->
-                    ?ERROR_MSG("Command returned: ~p", [Error]),
+                    ?ERROR("Command returned: ~p", [Error]),
                     1
             end;
         false ->

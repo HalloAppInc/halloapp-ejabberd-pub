@@ -63,7 +63,7 @@ need_transform(#caps_features{node_pair = {N, P}, features = Fs}) ->
     case is_list(N) orelse is_list(P) orelse
 	(is_list(Fs) andalso lists:any(fun is_list/1, Fs)) of
 	true ->
-	    ?INFO_MSG("Mnesia table 'caps_features' will be "
+	    ?INFO("Mnesia table 'caps_features' will be "
 		      "converted to binary", []),
 	    true;
 	false ->

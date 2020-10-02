@@ -144,7 +144,7 @@ import(#privacy{} = P) ->
     mnesia:dirty_write(P).
 
 need_transform({privacy, {U, S}, _, _}) when is_list(U) orelse is_list(S) ->
-    ?INFO_MSG("Mnesia table 'privacy' will be converted to binary", []),
+    ?INFO("Mnesia table 'privacy' will be converted to binary", []),
     true;
 need_transform(_) ->
     false.
@@ -184,6 +184,6 @@ transaction(F) ->
 	{atomic, Result} ->
 	    Result;
 	{aborted, Reason} ->
-	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+	    ?ERROR("Mnesia transaction failed: ~p", [Reason]),
 	    {error, db_failure}
     end.

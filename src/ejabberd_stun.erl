@@ -32,7 +32,7 @@
 -include("logger.hrl").
 -export([accept/1, start/3, start_link/3, listen_options/0]).
 fail() ->
-    ?CRITICAL_MSG("Listening module ~ts is not available: "
+    ?CRITICAL("Listening module ~ts is not available: "
 		  "ejabberd is not compiled with STUN/TURN support",
 		  [?MODULE]),
     erlang:error(stun_not_compiled).
@@ -87,7 +87,7 @@ prepare_turn_opts(Opts, _UseTurn = true) ->
     NumberOfMyHosts = length(ejabberd_option:hosts()),
     case proplists:get_value(turn_ip, Opts) of
 	undefined ->
-	    ?WARNING_MSG("Option 'turn_ip' is undefined, "
+	    ?WARNING("Option 'turn_ip' is undefined, "
 			 "most likely the TURN relay won't be working "
 			 "properly", []);
 	_ ->
@@ -99,7 +99,7 @@ prepare_turn_opts(Opts, _UseTurn = true) ->
     Realm = case proplists:get_value(auth_realm, Opts) of
 		undefined when AuthType == user ->
 		    if NumberOfMyHosts > 1 ->
-			    ?WARNING_MSG("You have several virtual "
+			    ?WARNING("You have several virtual "
 					 "hosts configured, but option "
 					 "'auth_realm' is undefined and "
 					 "'auth_type' is set to 'user', "

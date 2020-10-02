@@ -109,7 +109,7 @@ terminate(_Reason, #state{host = Host}) ->
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast({reload, Host, NewOpts, _OldOpts},
@@ -129,7 +129,7 @@ handle_cast({stop_ping, JID}, State) ->
     Timers = del_timer(JID, State#state.timers),
     {noreply, State#state{timers = Timers}};
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info({iq_reply, #iq{}, _JID}, State) ->
@@ -163,7 +163,7 @@ handle_info({timeout, _TRef, {ping, JID}}, State) ->
 		       State#state.timers),
     {noreply, State#state{timers = Timers}};
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 code_change(_OldVsn, State, _Extra) -> {ok, State}.

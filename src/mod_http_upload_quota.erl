@@ -126,7 +126,7 @@ init([ServerHost|_]) ->
 
 -spec handle_call(_, {pid(), _}, state()) -> {noreply, state()}.
 handle_call(Request, From, State) ->
-    ?ERROR_MSG("Unexpected request from ~p: ~p", [From, Request]),
+    ?ERROR("Unexpected request from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 -spec handle_cast(_, state()) -> {noreply, state()}.
@@ -159,15 +159,15 @@ handle_cast({handle_slot_request, #jid{user = U, server = S} = JID, Path, Size},
 			     [jid:encode(JID)]),
 		      undefined;
 		  {0, _} ->
-		      ?WARNING_MSG("No hard quota specified for ~ts",
+		      ?WARNING("No hard quota specified for ~ts",
 				   [jid:encode(JID)]),
 		      enforce_quota(Path, Size, OldSize, SoftQuota, SoftQuota);
 		  {_, 0} ->
-		      ?WARNING_MSG("No soft quota specified for ~ts",
+		      ?WARNING("No soft quota specified for ~ts",
 				   [jid:encode(JID)]),
 		      enforce_quota(Path, Size, OldSize, HardQuota, HardQuota);
 		  _ when SoftQuota > HardQuota ->
-		      ?WARNING_MSG("Bad quota for ~ts (soft: ~p, hard: ~p)",
+		      ?WARNING("Bad quota for ~ts (soft: ~p, hard: ~p)",
 				   [jid:encode(JID),
 				    SoftQuota, HardQuota]),
 		      enforce_quota(Path, Size, OldSize, SoftQuota, SoftQuota);
@@ -183,7 +183,7 @@ handle_cast({handle_slot_request, #jid{user = U, server = S} = JID, Path, Size},
 		   end,
     {noreply, State#state{disk_usage = NewDiskUsage}};
 handle_cast(Request, State) ->
-    ?ERROR_MSG("Unexpected request: ~p", [Request]),
+    ?ERROR("Unexpected request: ~p", [Request]),
     {noreply, State}.
 
 -spec handle_info(_, state()) -> {noreply, state()}.
@@ -204,12 +204,12 @@ handle_info(sweep, #state{server_host = ServerHost,
 				  delete_old_files(UserDir, BackThen)
 			  end, UserDirs);
 	{error, Error} ->
-	    ?ERROR_MSG("Cannot open document root ~ts: ~ts",
+	    ?ERROR("Cannot open document root ~ts: ~ts",
 		       [DocRoot, ?FORMAT(Error)])
     end,
     {noreply, State};
 handle_info(Info, State) ->
-    ?ERROR_MSG("Unexpected info: ~p", [Info]),
+    ?ERROR("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 -spec terminate(normal | shutdown | {shutdown, _} | _, state()) -> ok.
@@ -299,7 +299,7 @@ gather_file_info(Dir) ->
 					       [Path]),
 					Acc;
 				    {error, Error} ->
-					?ERROR_MSG("Cannot stat(2) ~ts: ~ts",
+					?ERROR("Cannot stat(2) ~ts: ~ts",
 						   [Path, ?FORMAT(Error)]),
 					Acc
 				end
@@ -308,7 +308,7 @@ gather_file_info(Dir) ->
 	    ?DEBUG("Directory ~ts doesn't exist", [Dir]),
 	    [];
 	{error, Error} ->
-	    ?ERROR_MSG("Cannot open directory ~ts: ~ts", [Dir, ?FORMAT(Error)]),
+	    ?ERROR("Cannot open directory ~ts: ~ts", [Dir, ?FORMAT(Error)]),
 	    []
     end.
 
@@ -316,7 +316,7 @@ gather_file_info(Dir) ->
 del_file_and_dir(File) ->
     case file:delete(File) of
 	ok ->
-	    ?INFO_MSG("Removed ~ts", [File]),
+	    ?INFO("Removed ~ts", [File]),
 	    Dir = filename:dirname(File),
 	    case file:del_dir(Dir) of
 		ok ->
@@ -325,7 +325,7 @@ del_file_and_dir(File) ->
 		    ?DEBUG("Cannot remove ~ts: ~ts", [Dir, ?FORMAT(Error)])
 	    end;
 	{error, Error} ->
-	    ?WARNING_MSG("Cannot remove ~ts: ~ts", [File, ?FORMAT(Error)])
+	    ?WARNING("Cannot remove ~ts: ~ts", [File, ?FORMAT(Error)])
     end.
 
 -spec secs_since_epoch() -> non_neg_integer().

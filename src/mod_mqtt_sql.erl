@@ -33,7 +33,7 @@
 %%% API
 %%%===================================================================
 init() ->
-    ?ERROR_MSG("Backend 'sql' is only supported for db_type", []),
+    ?ERROR("Backend 'sql' is only supported for db_type", []),
     {error, db_failure}.
 
 init(_Host, _Opts) ->
@@ -91,12 +91,12 @@ lookup_published({_, LServer, _}, Topic) ->
                                       user_property => UserProps},
                             {ok, {Payload, QoS, Props, Expiry}}
                     catch _:badarg ->
-                            ?ERROR_MSG("Malformed value of 'payload_format' column "
+                            ?ERROR("Malformed value of 'payload_format' column "
                                        "for topic '~ts'", [Topic]),
                             {error, db_failure}
                     end
             catch _:badarg ->
-                    ?ERROR_MSG("Malformed value of 'user_properties' column "
+                    ?ERROR("Malformed value of 'user_properties' column "
                                "for topic '~ts'", [Topic]),
                     {error, db_failure}
             end;

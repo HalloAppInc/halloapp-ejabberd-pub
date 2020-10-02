@@ -218,7 +218,7 @@ init([Host|_]) ->
     {ok, #state{server_host = Host}}.
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast({component_connected, Host}, State) ->
@@ -235,7 +235,7 @@ handle_cast({component_connected, Host}, State) ->
 						       type = RosterPerm},
 				       #privilege_perm{access = presence,
 						       type = PresencePerm}]},
-	    ?INFO_MSG("Granting permissions to external "
+	    ?INFO("Granting permissions to external "
 		      "component '~ts': roster = ~ts, presence = ~ts, "
 		      "message = ~ts",
 		      [Host, RosterPerm, PresencePerm, MessagePerm]),
@@ -248,7 +248,7 @@ handle_cast({component_connected, Host}, State) ->
 	    ets:insert(?MODULE, {ServerHost, Permissions}),
 	    {noreply, State};
        true ->
-	    ?INFO_MSG("Granting no permissions to external component '~ts'",
+	    ?INFO("Granting no permissions to external component '~ts'",
 		      [Host]),
 	    {noreply, State}
     end;
@@ -261,11 +261,11 @@ handle_cast({component_disconnected, Host}, State) ->
     end,
     {noreply, State};
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, State) ->

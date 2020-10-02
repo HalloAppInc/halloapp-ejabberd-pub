@@ -147,7 +147,7 @@ handle_call({delete, Hook, Host, Module, Function, Seq}, _From, State) ->
     Reply = handle_delete(Hook, Host, HookFormat),
     {reply, Reply, State};
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 -spec handle_add(atom(), atom(), hook()) -> ok.
@@ -180,11 +180,11 @@ handle_delete(Hook, Host, El) ->
     end.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -237,7 +237,7 @@ safe_apply(Hook, Module, Function, Args) ->
 	end
     catch ?EX_RULE(E, R, St) when E /= exit; R /= normal ->
 	    Stack = ?EX_STACK(St),
-	    ?ERROR_MSG("Hook ~p crashed when running ~p:~p/~p:~n" ++
+	    ?ERROR("Hook ~p crashed when running ~p:~p/~p:~n" ++
 			   string:join(
 			     ["** ~ts"|
 			      ["** Arg " ++ integer_to_list(I) ++ " = ~p"

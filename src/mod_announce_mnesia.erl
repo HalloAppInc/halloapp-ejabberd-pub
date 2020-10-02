@@ -99,10 +99,10 @@ set_motd_user(LUser, LServer) ->
     transaction(F).
 
 need_transform({motd, S, _}) when is_list(S) ->
-    ?INFO_MSG("Mnesia table 'motd' will be converted to binary", []),
+    ?INFO("Mnesia table 'motd' will be converted to binary", []),
     true;
 need_transform({motd_users, {U, S}, _}) when is_list(U) orelse is_list(S) ->
-    ?INFO_MSG("Mnesia table 'motd_users' will be converted to binary", []),
+    ?INFO("Mnesia table 'motd_users' will be converted to binary", []),
     true;
 need_transform(_) ->
     false.
@@ -129,6 +129,6 @@ transaction(F) ->
 	{atomic, Res} ->
 	    Res;
 	{aborted, Reason} ->
-	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+	    ?ERROR("Mnesia transaction failed: ~p", [Reason]),
 	    {error, db_failure}
     end.

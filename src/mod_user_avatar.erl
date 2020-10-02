@@ -37,7 +37,7 @@
 
 
 start(Host, _Opts) ->
-    ?INFO_MSG("start ~w", [?MODULE]),
+    ?INFO("start ~w", [?MODULE]),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_USER_AVATAR, ?MODULE, process_local_iq),
     % remove_user hook should run, before the redis data is deleted.
     % Otherwise we will not know what the old avatar_id was to delete from S3.
@@ -46,7 +46,7 @@ start(Host, _Opts) ->
     ok.
 
 stop(Host) ->
-    ?INFO_MSG("stop ~w", [?MODULE]),
+    ?INFO("stop ~w", [?MODULE]),
     ejabberd_hooks:delete(user_avatar_published, Host, ?MODULE, user_avatar_published, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_USER_AVATAR),
@@ -82,7 +82,7 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
         sub_els = [#avatar{userid = FriendId}]} = IQ) ->
     case check_and_get_avatar_id(UserId, FriendId) of
         undefined ->
-            ?WARNING_MSG("Uid: ~s, Invalid friend_uid: ~s", [UserId, FriendId]),
+            ?WARNING("Uid: ~s, Invalid friend_uid: ~s", [UserId, FriendId]),
             xmpp:make_error(IQ, util:err(invalid_friend_uid));
         AvatarId ->
             xmpp:make_iq_result(IQ, #avatar{userid = FriendId, id = AvatarId})
@@ -131,19 +131,19 @@ check_and_upload_avatar(Base64Data) ->
 
 -spec process_delete_user_avatar(IQ :: iq(), Uid :: uid()) -> iq().
 process_delete_user_avatar(IQ, Uid) ->
-    ?INFO_MSG("Uid: ~s deleting avatar", [Uid]),
+    ?INFO("Uid: ~s deleting avatar", [Uid]),
     delete_user_avatar_internal(Uid, util:get_host()),
     xmpp:make_iq_result(IQ, #avatar{id = <<>>}).
 
 
 -spec process_set_user_avatar(IQ :: iq(), Uid :: uid(), Base64Data :: binary()) -> iq().
 process_set_user_avatar(IQ, Uid, Base64Data) ->
-    ?INFO_MSG("Uid: ~s uploading avatar base64_size: ~p", [Uid, byte_size(Base64Data)]),
+    ?INFO("Uid: ~s uploading avatar base64_size: ~p", [Uid, byte_size(Base64Data)]),
     case check_and_upload_avatar(Base64Data) of
         {error, Reason} ->
             xmpp:make_error(IQ, util:err(Reason));
         {ok, AvatarId} ->
-            ?INFO_MSG("Uid: ~s AvatarId: ~s", [Uid, AvatarId]),
+            ?INFO("Uid: ~s AvatarId: ~s", [Uid, AvatarId]),
             update_user_avatar(Uid, util:get_host(), AvatarId),
             xmpp:make_iq_result(IQ, #avatar{id = AvatarId})
     end.
@@ -174,10 +174,10 @@ delete_avatar_s3(AvatarId) ->
     try
         Result = erlcloud_s3:delete_object(
             binary_to_list(?AWS_BUCKET_NAME), binary_to_list(AvatarId)),
-        ?INFO_MSG("AvatarId: ~s, Result: ~p", [AvatarId, Result]),
+        ?INFO("AvatarId: ~s, Result: ~p", [AvatarId, Result]),
         ok
     catch Class:Reason:St ->
-        ?ERROR_MSG("AvatarId: ~s failed to delete object on s3: Stacktrace: ~p",
+        ?ERROR("AvatarId: ~s failed to delete object on s3: Stacktrace: ~p",
             [AvatarId, lager:pr_stacktrace(St, {Class, Reason})]),
         error
     end.
@@ -227,11 +227,11 @@ upload_avatar(BucketName, AvatarId, BinaryData) ->
     try
         Result = erlcloud_s3:put_object(binary_to_list(
                 BucketName), binary_to_list(AvatarId), BinaryData, [], Headers),
-        ?INFO_MSG("AvatarId: ~s, Result: ~p", [AvatarId, Result]),
+        ?INFO("AvatarId: ~s, Result: ~p", [AvatarId, Result]),
         ok
     catch ?EX_RULE(Class, Reason, St) ->
         StackTrace = ?EX_STACK(St),
-        ?ERROR_MSG("AvatarId: ~s, Error uploading object on s3: response:~n~ts",
+        ?ERROR("AvatarId: ~s, Error uploading object on s3: response:~n~ts",
                [AvatarId, misc:format_exception(2, Class, Reason, StackTrace)]),
         error
     end.

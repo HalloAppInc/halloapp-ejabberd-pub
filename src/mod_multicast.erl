@@ -184,7 +184,7 @@ handle_cast({reload, NewOpts, NewOpts},
     {noreply, State#state{lservice = NewLServiceS,
 			  access = Access, service_limits = SLimits}};
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -197,7 +197,7 @@ handle_cast(Msg, State) ->
 handle_info({route, #iq{} = Packet}, State) ->
     case catch handle_iq(Packet, State) of
         {'EXIT', Reason} ->
-            ?ERROR_MSG("Error when processing IQ stanza: ~p",
+            ?ERROR("Error when processing IQ stanza: ~p",
                        [Reason]);
         _ -> ok
     end,
@@ -217,7 +217,7 @@ handle_info({route_trusted, Destinations, Packet},
     case catch route_trusted(LServiceS, LServerS, From, Destinations,
                              Packet) of
         {'EXIT', Reason} ->
-            ?ERROR_MSG("Error in route_trusted: ~p", [Reason]);
+            ?ERROR("Error in route_trusted: ~p", [Reason]);
         _ -> ok
     end,
     {noreply, State};
@@ -346,7 +346,7 @@ route_untrusted(LServiceS, LServerS, Access, SLimits, Packet) ->
 	  route_error(Packet, forbidden,
 		      ?T("Packet relay is denied by service policy"));
       EType:EReason ->
-	  ?ERROR_MSG("Multicast unknown error: Type: ~p~nReason: ~p",
+	  ?ERROR("Multicast unknown error: Type: ~p~nReason: ~p",
 		     [EType, EReason]),
 	  route_error(Packet, internal_server_error,
 		      ?T("Internal server error"))

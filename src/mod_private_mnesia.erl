@@ -109,7 +109,7 @@ import(LServer, <<"private_storage">>,
 
 need_transform({private_storage, {U, S, NS}, _})
   when is_list(U) orelse is_list(S) orelse is_list(NS) ->
-    ?INFO_MSG("Mnesia table 'private_storage' will be converted to binary", []),
+    ?INFO("Mnesia table 'private_storage' will be converted to binary", []),
     true;
 need_transform(_) ->
     false.
@@ -128,6 +128,6 @@ transaction(F) ->
 	{atomic, Res} ->
 	    Res;
 	{aborted, Reason} ->
-	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+	    ?ERROR("Mnesia transaction failed: ~p", [Reason]),
 	    {error, db_failure}
     end.

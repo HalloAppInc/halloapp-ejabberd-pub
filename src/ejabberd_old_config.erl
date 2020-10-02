@@ -31,7 +31,7 @@
 read_file(File) ->
     case consult(File) of
 	{ok, Terms1} ->
-	    ?INFO_MSG("Converting from old configuration format", []),
+	    ?INFO("Converting from old configuration format", []),
 	    Terms2 = strings_to_binary(Terms1),
 	    Terms3 = transform(Terms2),
 	    Terms4 = transform_certfiles(Terms3),
@@ -77,7 +77,7 @@ transform_register(Opts) ->
         {value, {?MODULE, RegOpts}, ModOpts1} = lists:keytake(?MODULE, 1, ModOpts),
         {value, {ip_access, L}, RegOpts1} = lists:keytake(ip_access, 1, RegOpts),
         true = is_list(L),
-        ?WARNING_MSG("Old 'ip_access' format detected. "
+        ?WARNING("Old 'ip_access' format detected. "
                      "The old format is still supported "
                      "but it is better to fix your config: "
                      "use access rules instead.", []),
@@ -108,7 +108,7 @@ transform_s2s(Opts) ->
     lists:foldl(fun transform_s2s/2, [], Opts).
 
 transform_s2s({{s2s_host, Host}, Action}, Opts) ->
-    ?WARNING_MSG("Option 's2s_host' is deprecated.", []),
+    ?WARNING("Option 's2s_host' is deprecated.", []),
     ACLName = misc:binary_to_atom(
                 iolist_to_binary(["s2s_access_", Host])),
     [{acl, ACLName, {server, Host}},
@@ -116,7 +116,7 @@ transform_s2s({{s2s_host, Host}, Action}, Opts) ->
      {s2s_access, s2s} |
      Opts];
 transform_s2s({s2s_default_policy, Action}, Opts) ->
-    ?WARNING_MSG("Option 's2s_default_policy' is deprecated. "
+    ?WARNING("Option 's2s_default_policy' is deprecated. "
                  "The option is still supported but it is better to "
                  "fix your config: "
                  "use 's2s_access' with an access rule.", []),
@@ -133,7 +133,7 @@ transform_s2s_out(Opts) ->
     lists:foldl(fun transform_s2s_out/2, [], Opts).
 
 transform_s2s_out({outgoing_s2s_options, Families, Timeout}, Opts) ->
-    ?WARNING_MSG("Option 'outgoing_s2s_options' is deprecated. "
+    ?WARNING("Option 'outgoing_s2s_options' is deprecated. "
                  "The option is still supported "
                  "but it is better to fix your config: "
                  "use 'outgoing_s2s_timeout' and "
@@ -142,7 +142,7 @@ transform_s2s_out({outgoing_s2s_options, Families, Timeout}, Opts) ->
      {outgoing_s2s_timeout, Timeout}
      | Opts];
 transform_s2s_out({s2s_dns_options, S2SDNSOpts}, AllOpts) ->
-    ?WARNING_MSG("Option 's2s_dns_options' is deprecated. "
+    ?WARNING("Option 's2s_dns_options' is deprecated. "
                  "The option is still supported "
                  "but it is better to fix your config: "
                  "use 's2s_dns_timeout' and "
@@ -516,10 +516,10 @@ transform_globals(Opts) ->
 transform_globals(Opt, Opts) when Opt == override_global;
 				  Opt == override_local;
 				  Opt == override_acls ->
-    ?WARNING_MSG("Option '~ts' has no effect anymore", [Opt]),
+    ?WARNING("Option '~ts' has no effect anymore", [Opt]),
     Opts;
 transform_globals({node_start, _}, Opts) ->
-    ?WARNING_MSG("Option 'node_start' has no effect anymore", []),
+    ?WARNING("Option 'node_start' has no effect anymore", []),
     Opts;
 transform_globals({iqdisc, {queues, N}}, Opts) ->
     [{iqdisc, N}|Opts];

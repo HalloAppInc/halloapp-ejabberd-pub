@@ -59,11 +59,11 @@
 
 
 start(_Host, _Opts) ->
-    ?INFO_MSG("start ~w", [?MODULE]),
+    ?INFO("start ~w", [?MODULE]),
     ok.
 
 stop(_Host) ->
-    ?INFO_MSG("start ~w", [?MODULE]),
+    ?INFO("start ~w", [?MODULE]),
     ok.
 
 depends(_Host, _Opts) ->
@@ -270,7 +270,7 @@ get_comment_data(PostId, CommentId, ParentId) ->
         PostUid =/= undefined andalso CommentPublisherUid =:= undefined ->
             [{ok, Post}, {error, missing}, {ok, ParentPushList}];
         PostUid =:= undefined andalso CommentPublisherUid =/= undefined ->
-            ?ERROR_MSG("Invalid internal state: postid: ~p, commentid: ~p", [PostId, CommentId]),
+            ?ERROR("Invalid internal state: postid: ~p, commentid: ~p", [PostId, CommentId]),
             [{error, missing}, {error, missing}, {error, missing}];
         true ->
             [{ok, Post}, {ok, Comment}, {ok, ParentPushList}]

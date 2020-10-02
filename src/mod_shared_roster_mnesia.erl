@@ -146,11 +146,11 @@ import(LServer, <<"sr_user">>, [SJID, Group, _TimeStamp]) ->
 
 need_transform({sr_group, {G, H}, _})
   when is_list(G) orelse is_list(H) ->
-    ?INFO_MSG("Mnesia table 'sr_group' will be converted to binary", []),
+    ?INFO("Mnesia table 'sr_group' will be converted to binary", []),
     true;
 need_transform({sr_user, {U, S}, {G, H}})
   when is_list(U) orelse is_list(S) orelse is_list(G) orelse is_list(H) ->
-    ?INFO_MSG("Mnesia table 'sr_user' will be converted to binary", []),
+    ?INFO("Mnesia table 'sr_user' will be converted to binary", []),
     true;
 need_transform(_) ->
     false.

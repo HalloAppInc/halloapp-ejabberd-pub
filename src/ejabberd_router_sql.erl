@@ -44,7 +44,7 @@ init() ->
 	{updated, _} ->
 	    ok;
 	Err ->
-	    ?ERROR_MSG("Failed to clean 'route' table: ~p", [Err]),
+	    ?ERROR("Failed to clean 'route' table: ~p", [Err]),
 	    Err
     end.
 
@@ -123,7 +123,7 @@ row_to_route(Domain, {ServerHost, NodeS, PidS, LocalHintS} = Row) ->
 	    [];
 	  ?EX_RULE(Class, Reason, St) ->
 	    StackTrace = ?EX_STACK(St),
-	    ?ERROR_MSG("Failed to decode row from 'route' table:~n"
+	    ?ERROR("Failed to decode row from 'route' table:~n"
 		       "** Row = ~p~n"
 		       "** Domain = ~ts~n"
 		       "** ~ts",

@@ -101,7 +101,7 @@ parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, post = undefined, c
     };
 
 parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
-    ?ERROR_MSG("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
+    ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     #push_metadata{}.
 
 

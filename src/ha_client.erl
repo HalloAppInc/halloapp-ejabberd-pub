@@ -235,7 +235,7 @@ handle_call({wait_for, MatchFun}, _From, State) ->
 
 
 handle_cast(Something, State) ->
-    ?INFO_MSG("handle_cast ~p", [Something]),
+    ?INFO("handle_cast ~p", [Something]),
     {noreply, State}.
 
 
@@ -244,7 +244,7 @@ handle_info({ha_raw_packet, PacketBytes}, State) ->
     {noreply, NewState};
 
 handle_info({ssl, _Socket, Message}, State) ->
-    ?INFO_MSG("recv ~p", [Message]),
+    ?INFO("recv ~p", [Message]),
     OldRecvBuf = State#state.recv_buf,
     Buffer = <<OldRecvBuf/binary, Message/binary>>,
     NewRecvBuf = parse_and_queue_ha_packets(Buffer),
@@ -252,7 +252,7 @@ handle_info({ssl, _Socket, Message}, State) ->
     {noreply, NewState};
 
 handle_info(Something, State) ->
-    ?INFO_MSG("handle_info ~p", [Something]),
+    ?INFO("handle_info ~p", [Something]),
     {noreply, State}.
 
 handle_packet(#pb_auth_result{} = Packet, State) ->
@@ -289,13 +289,13 @@ handle_raw_packet(PacketBytes, State) ->
 handle_auth_result(
         #pb_auth_result{result = Result, reason = Reason, props_hash = _PropsHash} = PBAuthResult,
         State) ->
-    ?INFO_MSG("auth result: ~p", [PBAuthResult]),
+    ?INFO("auth result: ~p", [PBAuthResult]),
     case Result of
         <<"success">> ->
-            ?INFO_MSG("auth success", []),
+            ?INFO("auth success", []),
             State#state{state = connected};
         <<"failure">> ->
-            ?INFO_MSG("auth failure reason: ~p", [Reason]),
+            ?INFO("auth failure reason: ~p", [Reason]),
             State
     end.
 
@@ -316,10 +316,10 @@ send_internal(Socket, Message) when is_binary(Message) ->
     ssl:send(Socket, <<Size:32/big, Message/binary>>);
 send_internal(Socket, PBRecord)
         when is_record(PBRecord, pb_auth_request); is_record(PBRecord, pb_packet) ->
-    ?INFO_MSG("Encoding Record ~p", [PBRecord]),
+    ?INFO("Encoding Record ~p", [PBRecord]),
     % TODO: handle encode error and raise it
     Message = enif_protobuf:encode(PBRecord),
-    ?INFO_MSG("Message ~p", [Message]),
+    ?INFO("Message ~p", [Message]),
     send_internal(Socket, Message).
 
 

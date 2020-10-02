@@ -135,7 +135,7 @@ route(To, Term) ->
     try do_route(To, Term), ok
     catch ?EX_RULE(E, R, St) ->
 	    StackTrace = ?EX_STACK(St),
-	    ?ERROR_MSG("Failed to route term to ~ts:~n"
+	    ?ERROR("Failed to route term to ~ts:~n"
 		       "** Term = ~p~n"
 		       "** ~ts",
 		       [jid:encode(To), Term,
@@ -513,15 +513,15 @@ init([]) ->
     end.
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->

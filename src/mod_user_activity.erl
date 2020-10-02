@@ -144,7 +144,7 @@ store_and_broadcast_presence(User, Server, Resource, available) ->
 check_for_first_login(User, Server) ->
     case get_user_activity(User, Server) of
         #activity{status = undefined} ->
-            ?INFO_MSG("Uid: ~s, on_user_first_login", [User]),
+            ?INFO("Uid: ~s, on_user_first_login", [User]),
             ejabberd_hooks:run(on_user_first_login, Server, [User, Server]);
         _ ->
             ok
@@ -154,7 +154,7 @@ check_for_first_login(User, Server) ->
 -spec store_user_activity(User :: binary(), Server :: binary(), TimestampMs :: integer(),
         Resource :: binary() | undefined, Status :: undefined | activity_status()) -> {ok, any()} | {error, any()}.
 store_user_activity(User, _Server, Resource, TimestampMs, Status) ->
-    ?INFO_MSG("Uid: ~s, tsms: ~p, Status: ~p", [User, TimestampMs, Status]),
+    ?INFO("Uid: ~s, tsms: ~p, Status: ~p", [User, TimestampMs, Status]),
     mod_active_users:update_last_activity(User, TimestampMs, Resource),
     model_accounts:set_last_activity(User, TimestampMs, Status).
 
@@ -169,7 +169,7 @@ broadcast_presence(User, Server, TimestampMs, Status) ->
     Presence = #presence{from = jid:make(User, Server),
             type = Status, last_seen = util:to_binary(LastSeen)},
     BroadcastUIDs = mod_presence_subscription:get_user_broadcast_friends(User, Server),
-    ?INFO_MSG("Uid: ~s, BroadcastUIDs: ~p, status: ~p", [User, BroadcastUIDs, Status]),
+    ?INFO("Uid: ~s, BroadcastUIDs: ~p, status: ~p", [User, BroadcastUIDs, Status]),
     BroadcastJIDs = lists:map(fun(Uid) -> jid:make(Uid, Server) end, BroadcastUIDs),
     route_multiple(Server, BroadcastJIDs, Presence).
 
@@ -199,13 +199,13 @@ check_and_send_presence(_, #activity{status = undefined}, _) ->
     ok;
 check_and_send_presence(#jid{luser = FromUid} = FromJID, #activity{status = available} = Activity,
         #jid{luser = ToUid} = ToJID) ->
-    ?INFO_MSG("FromUid: ~s, ToUid: ~s, activity: ~p", [FromUid, ToUid, Activity]),
+    ?INFO("FromUid: ~s, ToUid: ~s, activity: ~p", [FromUid, ToUid, Activity]),
     Packet = #presence{from = FromJID, to = ToJID, type = available},
     ejabberd_router:route(Packet);
 check_and_send_presence(#jid{luser = FromUid} = FromJID,
         #activity{last_activity_ts_ms = LastSeen, status = away} = Activity,
         #jid{luser = ToUid} = ToJID) ->
-    ?INFO_MSG("FromUid: ~s, ToUid: ~s, activity: ~p", [FromUid, ToUid, Activity]),
+    ?INFO("FromUid: ~s, ToUid: ~s, activity: ~p", [FromUid, ToUid, Activity]),
     Packet = #presence{from = FromJID, to = ToJID,
             type = away, last_seen = util:to_binary(util:ms_to_sec(LastSeen))},
     ejabberd_router:route(Packet).

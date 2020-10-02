@@ -162,11 +162,11 @@ init([]) ->
     {ok, #state{}}.
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info({mnesia_table_event,
@@ -202,7 +202,7 @@ handle_info({'DOWN', _Ref, _Type, Pid, _Info}, State) ->
     transaction(F),
     {noreply, State};
 handle_info(Info, State) ->
-    ?ERROR_MSG("Unexpected info: ~p", [Info]),
+    ?ERROR("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -219,7 +219,7 @@ transaction(F) ->
 	{atomic, _} ->
 	    ok;
 	{aborted, Reason} ->
-	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+	    ?ERROR("Mnesia transaction failed: ~p", [Reason]),
 	    {error, db_failure}
     end.
 

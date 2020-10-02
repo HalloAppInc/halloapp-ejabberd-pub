@@ -36,7 +36,7 @@
 %%====================================================================
 
 start(Host, _Opts) ->
-    ?INFO_MSG("start", []),
+    ?INFO("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PUSH, ?MODULE, process_local_iq),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 10),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 10),
@@ -44,7 +44,7 @@ start(Host, _Opts) ->
 
 
 stop(Host) ->
-    ?INFO_MSG("stop", []),
+    ?INFO("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_PUSH),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 10),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10),
@@ -80,14 +80,14 @@ remove_user(UserId, Server) ->
 -spec process_local_iq(IQ :: iq()) -> iq().
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
         to = _Host, sub_els = [#push_register{push_token = {Os, Token}}]} = IQ) ->
-    ?INFO_MSG("Uid: ~s, set-iq for push_token", [Uid]),
+    ?INFO("Uid: ~s, set-iq for push_token", [Uid]),
     IsValidOs = is_valid_push_os(Os),
     if
         Token =:= <<>> ->
-            ?WARNING_MSG("Uid: ~s, received push token is empty!", [Uid]),
+            ?WARNING("Uid: ~s, received push token is empty!", [Uid]),
             xmpp:make_error(IQ, util:err(invalid_push_token));
         IsValidOs =:= false ->
-            ?WARNING_MSG("Uid: ~s, invalid os attribute: ~s!", [Uid, Os]),
+            ?WARNING("Uid: ~s, invalid os attribute: ~s!", [Uid, Os]),
             xmpp:make_error(IQ, util:err(invalid_os));
         true ->
             ok = register_push_info(Uid, Server, Os, Token),
@@ -96,10 +96,10 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
 
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         to = _Host, sub_els = [#notification_prefs{push_prefs = PushPrefs}]} = IQ) ->
-    ?INFO_MSG("Uid: ~s, set-iq for push preferences", [Uid]),
+    ?INFO("Uid: ~s, set-iq for push preferences", [Uid]),
     case PushPrefs of
         [] ->
-            ?WARNING_MSG("Uid: ~s, push pref list is empty!", [Uid]),
+            ?WARNING("Uid: ~s, push pref list is empty!", [Uid]),
             xmpp:make_error(IQ, util:err(invalid_prefs));
         _ ->
             lists:foreach(
@@ -118,11 +118,11 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
 -spec update_push_pref(Uid :: binary(), push_pref()) -> ok.
 update_push_pref(Uid, #push_pref{name = post, value = Value}) ->
     stat:count("HA/push_prefs", "set_push_post_pref"),
-    ?INFO_MSG("set ~s's push post pref to be: ~s", [Uid, Value]),
+    ?INFO("set ~s's push post pref to be: ~s", [Uid, Value]),
     model_accounts:set_push_post_pref(Uid, Value);
 update_push_pref(Uid, #push_pref{name = comment, value = Value}) ->
     stat:count("HA/push_prefs", "set_push_comment_pref"),
-    ?INFO_MSG("set ~s's push comment pref to be: ~s", [Uid, Value]),
+    ?INFO("set ~s's push comment pref to be: ~s", [Uid, Value]),
     model_accounts:set_push_comment_pref(Uid, Value).
 
 

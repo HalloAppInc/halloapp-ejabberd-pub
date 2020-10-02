@@ -83,7 +83,7 @@ search(LServer, Data, AllowReturnAll, MaxMatch) ->
 	    case catch mnesia:dirty_select(vcard_search,
 					   [{MatchSpec, [], ['$_']}]) of
 		{'EXIT', Reason} ->
-		    ?ERROR_MSG("~p", [Reason]), [];
+		    ?ERROR("~p", [Reason]), [];
 		Rs ->
 		    Fields = lists:map(fun record_to_item/1, Rs),
 		    case MaxMatch of
@@ -156,12 +156,12 @@ import(LServer, <<"vcard_search">>,
                     orgunit = OrgUnit, lorgunit = LOrgUnit}).
 
 need_transform({vcard, {U, S}, _}) when is_list(U) orelse is_list(S) ->
-    ?INFO_MSG("Mnesia table 'vcard' will be converted to binary", []),
+    ?INFO("Mnesia table 'vcard' will be converted to binary", []),
     true;
 need_transform(R) when element(1, R) == vcard_search ->
     case element(2, R) of
 	{U, S} when is_list(U) orelse is_list(S) ->
-	    ?INFO_MSG("Mnesia table 'vcard_search' will be converted to binary", []),
+	    ?INFO("Mnesia table 'vcard_search' will be converted to binary", []),
 	    true;
 	_ ->
 	    false

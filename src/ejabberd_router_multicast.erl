@@ -62,7 +62,7 @@ start_link() ->
 route_multicast(From, Domain, Destinations, Packet) ->
     case catch do_route(Domain, Destinations, xmpp:set_from(Packet, From)) of
 	{'EXIT', Reason} ->
-	    ?ERROR_MSG("~p~nwhen processing: ~p",
+	    ?ERROR("~p~nwhen processing: ~p",
 		       [Reason, {From, Domain, Destinations, Packet}]);
 	_ ->
 	    ok
@@ -137,7 +137,7 @@ init([]) ->
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -147,7 +147,7 @@ handle_call(Request, From, State) ->
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -159,7 +159,7 @@ handle_cast(Msg, State) ->
 handle_info({route_multicast, Domain, Destinations, Packet}, State) ->
     case catch do_route(Domain, Destinations, Packet) of
 	{'EXIT', Reason} ->
-	    ?ERROR_MSG("~p~nwhen processing: ~p",
+	    ?ERROR("~p~nwhen processing: ~p",
 		       [Reason, {Domain, Destinations, Packet}]);
 	_ ->
 	    ok
@@ -184,7 +184,7 @@ handle_info({'DOWN', _Ref, _Type, Pid, _Info}, State) ->
     mnesia:transaction(F),
     {noreply, State};
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------

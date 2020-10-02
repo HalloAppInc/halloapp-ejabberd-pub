@@ -54,7 +54,7 @@ start(Host) ->
 		{ok, _} -> ok;
 		{error, {already_started, _}} -> ok;
 		{error, Why} = Err ->
-		    ?ERROR_MSG("Failed to start ~ts: ~p", [?MODULE, Why]),
+		    ?ERROR("Failed to start ~ts: ~p", [?MODULE, Why]),
 		    Err
 	    end
     end.
@@ -137,7 +137,7 @@ is_started(Host) ->
 get_pool_size(SQLType, Host) ->
     PoolSize = ejabberd_option:sql_pool_size(Host),
     if PoolSize > 1 andalso SQLType == sqlite ->
-	    ?WARNING_MSG("It's not recommended to set sql_pool_size > 1 for "
+	    ?WARNING("It's not recommended to set sql_pool_size > 1 for "
 			 "sqlite, because it may cause race conditions", []);
        true ->
 	    ok
@@ -182,7 +182,7 @@ check_sqlite_db(Host) ->
                     ok
             end;
         {error, Reason} ->
-            ?WARNING_MSG("Failed open sqlite database, reason ~p", [Reason])
+            ?WARNING("Failed open sqlite database, reason ~p", [Reason])
     end.
 
 create_sqlite_tables(DB) ->
@@ -195,7 +195,7 @@ create_sqlite_tables(DB) ->
             [ok = sqlite3:sql_exec(DB, Q) || Q <- Qs],
             ok = sqlite3:sql_exec(DB, "commit");
         {error, Reason} ->
-            ?WARNING_MSG("Failed to read SQLite schema file: ~ts",
+            ?WARNING("Failed to read SQLite schema file: ~ts",
 			 [file:format_error(Reason)])
     end.
 
@@ -223,6 +223,6 @@ read_lines(Fd, File, Acc) ->
                       end
               end, QueryList);
         {error, _} = Err ->
-            ?ERROR_MSG("Failed read from lite.sql, reason: ~p", [Err]),
+            ?ERROR("Failed read from lite.sql, reason: ~p", [Err]),
             []
     end.

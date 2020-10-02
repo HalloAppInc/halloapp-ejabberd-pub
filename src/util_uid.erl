@@ -40,12 +40,12 @@ generate_uid() ->
 -spec generate_uid(integer(), integer()) -> generate_uid_result().
 generate_uid(Region, _Shard)
         when not is_integer(Region); Region > ?MAX_REGION; Region < ?MIN_REGION ->
-    ?ERROR_MSG("Invalid Region = ~w", [Region]),
+    ?ERROR("Invalid Region = ~w", [Region]),
     {error, invalid_region};
 
 generate_uid(_Region, Shard)
         when not is_integer(Shard); Shard > ?MAX_SHARD; Shard < ?MIN_SHARD ->
-    ?ERROR_MSG("Invalid Shard = ~w", [Shard]),
+    ?ERROR("Invalid Shard = ~w", [Shard]),
     {error, invalid_shard};
 
 generate_uid(Region, Shard)

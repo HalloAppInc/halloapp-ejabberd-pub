@@ -76,7 +76,7 @@ try_certfile(Path0) ->
     case pkix:is_pem_file(Path) of
 	true -> Path;
 	{false, Reason} ->
-	    ?ERROR_MSG("Failed to read PEM file ~ts: ~ts",
+	    ?ERROR("Failed to read PEM file ~ts: ~ts",
 		       [Path, pkix:format_error(Reason)]),
 	    erlang:error(badarg)
     end.
@@ -134,7 +134,7 @@ notify_expired(Event) ->
 cert_expired(_Cert, #{domains := Domains,
 		      expiry := Expiry,
 		      files := [{Path, Line}|_]}) ->
-    ?WARNING_MSG("Certificate in ~ts (at line: ~B)~ts ~ts",
+    ?WARNING("Certificate in ~ts (at line: ~B)~ts ~ts",
 		 [Path, Line,
 		  case Domains of
 		      [] -> "";
@@ -197,7 +197,7 @@ handle_call(config_reloaded, _From, State) ->
 handle_call(commit, From, State) ->
     handle_call(config_reloaded, From, State);
 handle_call(Request, _From, State) ->
-    ?WARNING_MSG("Unexpected call: ~p", [Request]),
+    ?WARNING("Unexpected call: ~p", [Request]),
     {noreply, State}.
 
 -spec handle_cast(term(), state()) -> {noreply, state()}.
@@ -205,12 +205,12 @@ handle_cast({cert_expired, Cert, CertInfo}, State) ->
     ejabberd_hooks:run(cert_expired, [Cert, CertInfo]),
     {noreply, State};
 handle_cast(Request, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Request]),
+    ?WARNING("Unexpected cast: ~p", [Request]),
     {noreply, State}.
 
 -spec handle_info(term(), state()) -> {noreply, state()}.
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 -spec terminate(normal | shutdown | {shutdown, term()} | term(),
@@ -262,7 +262,7 @@ add_file(File) ->
     case pkix:add_file(File) of
 	ok -> ok;
 	{error, Reason} = Err ->
-	    ?ERROR_MSG("Failed to read PEM file ~ts: ~ts",
+	    ?ERROR("Failed to read PEM file ~ts: ~ts",
 		       [File, pkix:format_error(Reason)]),
 	    Err
     end.
@@ -289,7 +289,7 @@ do_commit() ->
 	    fast_tls_add_certfiles(),
 	    {ok, Errors};
 	{error, File, Reason} ->
-	    ?CRITICAL_MSG("Failed to write to ~ts: ~ts",
+	    ?CRITICAL("Failed to write to ~ts: ~ts",
 			  [File, file:format_error(Reason)]),
 	    error
     end.
@@ -309,7 +309,7 @@ check_domain_certfiles(Hosts) ->
 	      fun(Host) ->
 		      case get_certfile_no_default(Host) of
 			  error ->
-			      ?WARNING_MSG(
+			      ?WARNING(
 				 "No certificate found matching ~ts",
 				 [Host]);
 			  _ ->
@@ -339,7 +339,7 @@ prep_path(Path0) ->
 		{ok, CWD} ->
 		    unicode:characters_to_binary(filename:join(CWD, Path0));
 		{error, Reason} ->
-		    ?WARNING_MSG("Failed to get current directory name: ~ts",
+		    ?WARNING("Failed to get current directory name: ~ts",
 				 [file:format_error(Reason)]),
 		    unicode:characters_to_binary(Path0)
 	    end;
@@ -349,7 +349,7 @@ prep_path(Path0) ->
 
 -spec stop_ejabberd() -> no_return().
 stop_ejabberd() ->
-    ?CRITICAL_MSG("ejabberd initialization was aborted due to "
+    ?CRITICAL("ejabberd initialization was aborted due to "
 		  "invalid certificates configuration", []),
     ejabberd:halt().
 
@@ -359,7 +359,7 @@ wildcard(Path) when is_binary(Path) ->
 wildcard(Path) ->
     case filelib:wildcard(Path) of
 	[] ->
-	    ?WARNING_MSG("Path ~ts is empty, please make sure ejabberd has "
+	    ?WARNING("Path ~ts is empty, please make sure ejabberd has "
 			 "sufficient rights to read it", [Path]),
 	    [];
 	Files ->
@@ -390,7 +390,7 @@ reason_to_fmt(_) ->
 log_warnings(Warnings) ->
     lists:foreach(
       fun({File, Reason}) ->
-	      ?WARNING_MSG(reason_to_fmt(Reason),
+	      ?WARNING(reason_to_fmt(Reason),
 			   [File, pkix:format_error(Reason)])
       end, Warnings).
 
@@ -398,13 +398,13 @@ log_warnings(Warnings) ->
 log_errors(Errors) ->
     lists:foreach(
       fun({File, Reason}) ->
-	      ?ERROR_MSG(reason_to_fmt(Reason),
+	      ?ERROR(reason_to_fmt(Reason),
 			 [File, pkix:format_error(Reason)])
       end, Errors).
 
 -spec log_cafile_error({filename(), pkix:error_reason()} | undefined) -> ok.
 log_cafile_error({File, Reason}) ->
-    ?CRITICAL_MSG("Failed to read CA certitificates from ~ts: ~ts. "
+    ?CRITICAL("Failed to read CA certitificates from ~ts: ~ts. "
 		  "Try to change/set option 'ca_file'",
 		  [File, pkix:format_error(Reason)]);
 log_cafile_error(_) ->

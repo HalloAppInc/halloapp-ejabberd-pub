@@ -64,15 +64,15 @@ add_paths() ->
      || {Module, _} <- installed()].
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -159,7 +159,7 @@ update() ->
         end, Contrib, modules_spec(sources_dir(), "*/*")),
     Repos = maps:fold(fun(Repo, _Mods, Acc) ->
                 Update = add_sources(Repo),
-                ?INFO_MSG("Update packages from repo ~ts: ~p", [Repo, Update]),
+                ?INFO("Update packages from repo ~ts: ~p", [Repo, Update]),
                 case Update of
                     ok -> Acc;
                     Error -> [{repository, Repo, Error}|Acc]
@@ -168,7 +168,7 @@ update() ->
     Res = lists:foldl(fun({Package, Spec}, Acc) ->
                 Repo = proplists:get_value(url, Spec, ""),
                 Update = add_sources(Package, Repo),
-                ?INFO_MSG("Update package ~ts: ~p", [Package, Update]),
+                ?INFO("Update package ~ts: ~p", [Package, Update]),
                 case Update of
                     ok -> Acc;
                     Error -> [{Package, Repo, Error}|Acc]

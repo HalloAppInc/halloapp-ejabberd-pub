@@ -392,7 +392,7 @@ handle_call({subscribe, Caller, Channels}, _From,
     eredis_subscribe(Pid, Channels),
     {reply, ok, State#state{subscriptions = Subs1}};
 handle_call(Request, _From, State) ->
-    ?WARNING_MSG("Unexpected call: ~p", [Request]),
+    ?WARNING("Unexpected call: ~p", [Request]),
     {noreply, State}.
 
 handle_cast(_Msg, State) ->
@@ -425,7 +425,7 @@ handle_info({subscribed, Channel, Pid}, State) ->
 	    case maps:is_key(Channel, State#state.subscriptions) of
 		true -> eredis_sub:ack_message(Pid);
 		false ->
-		    ?WARNING_MSG("Got subscription ack for unknown channel ~ts",
+		    ?WARNING("Got subscription ack for unknown channel ~ts",
 				 [Channel])
 	    end;
 	_ ->
@@ -445,7 +445,7 @@ handle_info({message, Channel, Data, Pid}, State) ->
     end,
     {noreply, State};
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info = ~p", [Info]),
+    ?WARNING("Unexpected info = ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -476,7 +476,7 @@ connect(#state{num = Num}) ->
     catch _:Reason ->
 	    Timeout = p1_rand:uniform(
 			min(10, ejabberd_redis_sup:get_pool_size())),
-	    ?ERROR_MSG("Redis connection #~p at ~ts:~p has failed: ~p; "
+	    ?ERROR("Redis connection #~p at ~ts:~p has failed: ~p; "
 		       "reconnecting in ~p seconds",
 		       [Num, Server, Port, Reason, Timeout]),
 	    erlang:send_after(timer:seconds(Timeout), self(), connect),
@@ -540,7 +540,7 @@ gen_server_call(Proc, Msg) ->
 
 -spec log_error(redis_command() | redis_pipeline(), atom() | binary()) -> ok.
 log_error(Cmd, Reason) ->
-    ?ERROR_MSG("Redis request has failed:~n"
+    ?ERROR("Redis request has failed:~n"
 	       "** request = ~p~n"
 	       "** response = ~ts",
 	       [Cmd, format_error(Reason)]).
@@ -615,7 +615,7 @@ clean_queue(Q, CurrTime) ->
     Len = p1_queue:len(Q1),
     Limit = p1_queue:get_limit(Q1),
     if Len >= Limit ->
-	    ?ERROR_MSG("Redis request queue is overloaded", []),
+	    ?ERROR("Redis request queue is overloaded", []),
 	    p1_queue:dropwhile(
 	      fun({From, _Time}) ->
 		      ?GEN_SERVER:reply(From, {error, overloaded}),

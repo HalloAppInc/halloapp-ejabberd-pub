@@ -137,7 +137,7 @@ update_timer_ref(TaskId, NewTimerRef) ->
 
 %% Method to add new task
 add_task(Host, Task) ->
-    ?INFO_MSG("@@@@@@@@@@@@############################# fails here ##########################",[]),
+    ?INFO("@@@@@@@@@@@@############################# fails here ##########################",[]),
     [TimeNum, TimeUnit, Mod, Fun, Args, InTimerType] =
 	[proplists:get_value(Key, Task) || Key <- [time, units, module, function, arguments, timer_type]],
     TimerType = case InTimerType of
@@ -179,13 +179,13 @@ get_new_taskid() ->
 run_task(Mod, Fun, Args) ->
     case catch apply(Mod, Fun, Args) of
 	{'EXIT', Reason} ->
-	    ?ERROR_MSG("Error in scheduled task ~p:~p~p:~n~p", [Mod, Fun, Args, Reason]);
+	    ?ERROR("Error in scheduled task ~p:~p~p:~n~p", [Mod, Fun, Args, Reason]);
 	{error, Reason} ->
-	    ?ERROR_MSG("Error in scheduled task ~p:~p~p:~n~p", [Mod, Fun, Args, Reason]);
+	    ?ERROR("Error in scheduled task ~p:~p~p:~n~p", [Mod, Fun, Args, Reason]);
 	ok ->
-	    ?INFO_MSG("Scheduled task ~p:~p~p finished ok", [Mod, Fun, Args]);
+	    ?INFO("Scheduled task ~p:~p~p finished ok", [Mod, Fun, Args]);
 	Res ->
-	    ?INFO_MSG("Scheduled task ~p:~p~p returned:~n~p", [Mod, Fun, Args, Res])
+	    ?INFO("Scheduled task ~p:~p~p returned:~n~p", [Mod, Fun, Args, Res])
     end.
 
 %% Method to delete task, given a taskid

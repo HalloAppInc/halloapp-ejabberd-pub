@@ -84,7 +84,7 @@ log_delivered(<<"group_chat">>) ->
 get_thread_id(Message) ->
     case fxml_stream:parse_element(Message) of
         {error, Reason} ->
-            ?ERROR_MSG("failed to parse: ~p, reason: ~s", [Message, Reason]),
+            ?ERROR("failed to parse: ~p, reason: ~s", [Message, Reason]),
             <<>>;
         MessageXmlEl ->
             try
@@ -96,7 +96,7 @@ get_thread_id(Message) ->
                 end
             catch
                 Class : Reason : Stacktrace ->
-                    ?ERROR_MSG("failed to decode message: ~s", [
+                    ?ERROR("failed to decode message: ~s", [
                         lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
                     <<>>
             end

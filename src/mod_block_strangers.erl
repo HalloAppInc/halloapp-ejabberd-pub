@@ -115,7 +115,7 @@ filter_subscription(Acc, #presence{from = From, to = To, lang = Lang,
 					   sub_els = CaptchaEls},
 			    case mod_block_strangers_opt:log(LServer) of
 				true ->
-				    ?INFO_MSG("Challenge subscription request "
+				    ?INFO("Challenge subscription request "
 					      "from stranger ~ts to ~ts with "
 					      "CAPTCHA",
 					      [jid:encode(From), jid:encode(To)]);
@@ -164,7 +164,7 @@ check_message(#message{from = From, to = To, lang = Lang} = Msg) ->
 		    Log = mod_block_strangers_opt:log(LServer),
 		    if
 			Log ->
-			    ?INFO_MSG("~ts message from stranger ~ts to ~ts",
+			    ?INFO("~ts message from stranger ~ts to ~ts",
 				      [if Drop -> "Rejecting";
 					  true -> "Allow"
 				       end,

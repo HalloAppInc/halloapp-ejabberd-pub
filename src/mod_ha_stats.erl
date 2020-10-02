@@ -57,13 +57,13 @@ mod_options(_Host) ->
 -spec publish_feed_item(Uid :: binary(), Node :: binary(),
         ItemId :: binary(), ItemType :: atom(), Payloads :: [xmlel()]) -> ok.
 publish_feed_item(Uid, Node, ItemId, ItemType, _Payload) ->
-    ?INFO_MSG("counting Uid:~p, Node: ~p, ItemId: ~p, ItemType:~p", [Uid, Node, ItemId, ItemType]),
+    ?INFO("counting Uid:~p, Node: ~p, ItemId: ~p, ItemType:~p", [Uid, Node, ItemId, ItemType]),
     case ItemType of
         feedpost ->
-            ?INFO_MSG("post",[]),
+            ?INFO("post",[]),
             stat:count("HA/feed", "post");
         comment ->
-            ?INFO_MSG("comment",[]),
+            ?INFO("comment",[]),
             stat:count("HA/feed", "comment");
         _ -> ok
     end,
@@ -72,42 +72,42 @@ publish_feed_item(Uid, Node, ItemId, ItemType, _Payload) ->
 
 -spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: binary()) -> ok.
 feed_item_published(Uid, ItemId, ItemType) ->
-    ?INFO_MSG("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
+    ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
     stat:count("HA/feed", atom_to_list(ItemType)),
     ok.
 
 
 -spec feed_item_retracted(Uid :: binary(), ItemId :: binary(), ItemType :: binary()) -> ok.
 feed_item_retracted(Uid, ItemId, ItemType) ->
-    ?INFO_MSG("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
+    ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
     stat:count("HA/feed", "retract_" ++ atom_to_list(ItemType)),
     ok.
 
 
 -spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
 register_user(Uid, _Server, _Phone) ->
-    ?INFO_MSG("counting uid:~s", [Uid]),
+    ?INFO("counting uid:~s", [Uid]),
     stat:count("HA/account", "registration"),
     ok.
 
 
 -spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
 re_register_user(Uid, _Server, _Phone) ->
-    ?INFO_MSG("counting uid:~s", [Uid]),
+    ?INFO("counting uid:~s", [Uid]),
     stat:count("HA/account", "re_register"),
     ok.
 
 
 -spec add_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
 add_friend(Uid, _Server, _ContactId) ->
-    ?INFO_MSG("counting uid:~s", [Uid]),
+    ?INFO("counting uid:~s", [Uid]),
     stat:count("HA/graph", "add_friend"),
     ok.
 
 
 -spec remove_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
 remove_friend(Uid, _Server, _ContactId) ->
-    ?INFO_MSG("counting uid:~s", [Uid]),
+    ?INFO("counting uid:~s", [Uid]),
     stat:count("HA/graph", "remove_friend"),
     ok.
 

@@ -53,7 +53,7 @@ parse_territories([Territory = #xmlElement{name = territory} | Rest]) ->
   RegionId = RegionAttributes#attributes.id,
   case RegionId of
     undefined ->
-      ?ERROR_MSG("Something is wrong with this territory: unable to parse it: ~p", [Territory]);
+      ?ERROR("Something is wrong with this territory: unable to parse it: ~p", [Territory]);
     _ ->
       RegionMetadata = #region_metadata{id = RegionId, attributes = RegionAttributes,
                                         mobile = RegionMobile},

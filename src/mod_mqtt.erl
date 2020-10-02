@@ -178,15 +178,15 @@ init([Host|_]) ->
     end.
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -520,7 +520,7 @@ init_topic_cache(Mod, Host) ->
     catch ets:new(?MQTT_TOPIC_CACHE,
                   [named_table, ordered_set, public,
                    {heir, erlang:group_leader(), none}]),
-    ?INFO_MSG("Building MQTT cache for ~ts, this may take a while", [Host]),
+    ?INFO("Building MQTT cache for ~ts, this may take a while", [Host]),
     case Mod:list_topics(Host) of
         {ok, Topics} ->
             lists:foreach(

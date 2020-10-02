@@ -42,7 +42,7 @@
 
 
 start_link() ->
-    ?INFO_MSG("Starting monitoring process: ~p", [?MODULE]),
+    ?INFO("Starting monitoring process: ~p", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 
@@ -63,47 +63,47 @@ stop() ->
 %% TODO(murali@): we must consider moving the state to redis.
 %% Since, if this process crashes: restarting this process will lose all our monitor references.
 init([]) ->
-    ?INFO_MSG("Start: ~p", [?MODULE]),
+    ?INFO("Start: ~p", [?MODULE]),
     process_flag(trap_exit, true),
     {ok, #state{monitors = #{}}}.
 
 
 terminate(_Reason, _State) ->
-    ?INFO_MSG("Terminate: ~p", [?MODULE]),
+    ?INFO("Terminate: ~p", [?MODULE]),
     ok.
 
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 
 handle_cast({monitor, Proc}, #state{monitors = Monitors} = State) ->
     Pid = whereis(Proc),
-    ?INFO_MSG("Monitoring process name: ~p, pid: ~p", [Proc, Pid]),
+    ?INFO("Monitoring process name: ~p, pid: ~p", [Proc, Pid]),
     Ref = erlang:monitor(process, Proc),
     NewState = State#state{monitors = Monitors#{Ref => Proc}},
     {noreply, NewState};
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 
 handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors} = State) ->
-    ?ERROR_MSG("process down, pid: ~p, reason: ~p", [Pid, Reason]),
+    ?ERROR("process down, pid: ~p, reason: ~p", [Pid, Reason]),
     Proc = maps:get(Ref, Monitors, undefined),
     case Proc of
         undefined ->
-            ?ERROR_MSG("Monitor's reference missing: ~p", [Ref]);
+            ?ERROR("Monitor's reference missing: ~p", [Ref]);
         _ ->
             Response = send_alert(Proc),
             ?DEBUG("alerts response: ~p", [Response]),
             case Response of
                 {ok, {{_, 200, _}, _ResHeaders, _ResBody}} ->
-                    ?INFO_MSG("Sent an alert successfully.", []);
+                    ?INFO("Sent an alert successfully.", []);
                 _ ->
-                    ?ERROR_MSG("Failed sending an alert: ~p", [Response])
+                    ?ERROR("Failed sending an alert: ~p", [Response])
             end
     end,
     NewMonitors = maps:remove(Ref, State#state.monitors),
@@ -111,7 +111,7 @@ handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors} = S
     {noreply, NewState};
 
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 

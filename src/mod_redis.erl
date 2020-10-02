@@ -27,13 +27,13 @@
 ]).
 
 start(_Host, _Opts) ->
-    ?INFO_MSG("start ~w", [?MODULE]),
+    ?INFO("start ~w", [?MODULE]),
     load_reverse_redis_hash(),
     redis_sup:start_link(),
     ok.
 
 stop(_Host) ->
-  ?INFO_MSG("stop ~w", [?MODULE]),
+  ?INFO("stop ~w", [?MODULE]),
   ok.
 
 depends(_Host, _Opts) ->
@@ -90,5 +90,5 @@ load_reverse_redis_hash() ->
     Info = ets:info(?SLOT_TO_KEY),
     Memory = lists:keyfind(memory, 1, Info),
     Size = lists:keyfind(size, 1, Info),
-    ?INFO_MSG("finished building slot_to_key map ~p ~p", [Memory, Size]).
+    ?INFO("finished building slot_to_key map ~p ~p", [Memory, Size]).
 

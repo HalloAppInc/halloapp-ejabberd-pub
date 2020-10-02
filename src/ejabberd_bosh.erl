@@ -120,7 +120,7 @@ start(#body{attrs = Attrs} = Body, IP, SID) ->
 	  check_bosh_module(XMPPDomain),
 	  {error, module_not_loaded};
       Err ->
-	  ?ERROR_MSG("Failed to start BOSH session: ~p", [Err]),
+	  ?ERROR("Failed to start BOSH session: ~p", [Err]),
 	  {error, Err}
     end.
 
@@ -309,7 +309,7 @@ init([#body{attrs = Attrs}, IP, SID]) ->
     end.
 
 wait_for_session(_Event, State) ->
-    ?ERROR_MSG("Unexpected event in 'wait_for_session': ~p",
+    ?ERROR("Unexpected event in 'wait_for_session': ~p",
 	       [_Event]),
     {next_state, wait_for_session, State}.
 
@@ -368,14 +368,14 @@ wait_for_session(#body{attrs = Attrs} = Req, From,
 			     From)
     end;
 wait_for_session(_Event, _From, State) ->
-    ?ERROR_MSG("Unexpected sync event in 'wait_for_session': ~p",
+    ?ERROR("Unexpected sync event in 'wait_for_session': ~p",
 	       [_Event]),
     {reply, {error, badarg}, wait_for_session, State}.
 
 active({#body{} = Body, From}, State) ->
     active1(Body, From, State);
 active(_Event, State) ->
-    ?ERROR_MSG("Unexpected event in 'active': ~p",
+    ?ERROR("Unexpected event in 'active': ~p",
 	       [_Event]),
     {next_state, active, State}.
 
@@ -409,7 +409,7 @@ active(#body{attrs = Attrs, size = Size} = Req, From,
        true -> active1(Req, From, State1)
     end;
 active(_Event, _From, State) ->
-    ?ERROR_MSG("Unexpected sync event in 'active': ~p",
+    ?ERROR("Unexpected sync event in 'active': ~p",
 	       [_Event]),
     {reply, {error, badarg}, active, State}.
 
@@ -518,7 +518,7 @@ handle_event({change_shaper, Shaper}, StateName,
 	     State) ->
     {next_state, StateName, State#state{shaper_state = Shaper}};
 handle_event(_Event, StateName, State) ->
-    ?ERROR_MSG("Unexpected event in '~ts': ~p",
+    ?ERROR("Unexpected event in '~ts': ~p",
 	       [StateName, _Event]),
     {next_state, StateName, State}.
 
@@ -558,7 +558,7 @@ handle_sync_event(deactivate_socket, _From, StateName,
     {reply, ok, StateName,
      StateData#state{c2s_pid = undefined}};
 handle_sync_event(_Event, _From, StateName, State) ->
-    ?ERROR_MSG("Unexpected sync event in '~ts': ~p",
+    ?ERROR("Unexpected sync event in '~ts': ~p",
 	       [StateName, _Event]),
     {reply, {error, badarg}, StateName, State}.
 
@@ -577,14 +577,14 @@ handle_info({timeout, TRef, shaper_timeout}, StateName,
 	  {next_state, StateName,
 	   State#state{shaped_receivers = Q}};
       {{value, _}, _} ->
-	  ?ERROR_MSG("shaper_timeout mismatch:~n** TRef: ~p~n** "
+	  ?ERROR("shaper_timeout mismatch:~n** TRef: ~p~n** "
 		     "State: ~p",
 		     [TRef, State]),
 	  {stop, normal, State};
       _ -> {next_state, StateName, State}
     end;
 handle_info(_Info, StateName, State) ->
-    ?ERROR_MSG("Unexpected info:~n** Msg: ~p~n** StateName: ~p",
+    ?ERROR("Unexpected info:~n** Msg: ~p~n** StateName: ~p",
 	       [_Info, StateName]),
     {next_state, StateName, State}.
 
@@ -971,7 +971,7 @@ check_bosh_module(XmppDomain) ->
     case gen_mod:is_loaded(XmppDomain, mod_bosh) of
       true -> ok;
       false ->
-	  ?ERROR_MSG("You are trying to use BOSH (HTTP Bind) "
+	  ?ERROR("You are trying to use BOSH (HTTP Bind) "
 		     "in host ~p, but the module mod_bosh "
 		     "is not started in that host. Configure "
 		     "your BOSH client to connect to the correct "

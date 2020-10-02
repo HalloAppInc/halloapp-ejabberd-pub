@@ -65,12 +65,12 @@ load_phone_number_metadata() ->
         false ->
             OldFilePhoneNumberMetadata
     end,
-    ?INFO_MSG("Parsing this xml file for regionMetadata: ~p", [FilePhoneNumberMetadata]),
+    ?INFO("Parsing this xml file for regionMetadata: ~p", [FilePhoneNumberMetadata]),
     case phone_number_metadata_parser:parse_xml_file(FilePhoneNumberMetadata) of
         {ok, Reason} ->
-            ?INFO_MSG("Full libPhoneNumber metadata has been inserted into ets: ~p", [Reason]);
+            ?INFO("Full libPhoneNumber metadata has been inserted into ets: ~p", [Reason]);
         {error, Reason} ->
-            ?ERROR_MSG("Failed parsing the xml file for some reason: ~p", [Reason])
+            ?ERROR("Failed parsing the xml file for some reason: ~p", [Reason])
     end,
     ok.
 
@@ -78,13 +78,13 @@ load_phone_number_metadata() ->
 %% Creates a table in ets to be able to store all the libphonenumber metadata.
 -spec create_libPhoneNumber_table() -> ok | error.
 create_libPhoneNumber_table() ->
-    ?INFO_MSG("Trying to create a table for libPhoneNumber ~p in ets.",
+    ?INFO("Trying to create a table for libPhoneNumber ~p in ets.",
                 [?LIBPHONENUMBER_METADATA_TABLE]),
     case libphonenumber_ets:init() of
         ok ->
-            ?INFO_MSG("Created a table for libPhoneNumber in ets.", []);
+            ?INFO("Created a table for libPhoneNumber in ets.", []);
         _ ->
-            ?ERROR_MSG("Failed creating a table for libphonenumber in ets", [])
+            ?ERROR("Failed creating a table for libphonenumber in ets", [])
     end.
 
 
@@ -94,12 +94,12 @@ parse_phone_number(PhoneNumber, DefaultRegionId) ->
     PhoneNumberState = #phone_number_state{phone_number = Raw, raw = Raw},
     case parse_helper(PhoneNumberState, DefaultRegionId) of
         {error, Reason} ->
-            ?WARNING_MSG("Failed parsing |~s|, with reason: ~s", [PhoneNumber, Reason]),
+            ?WARNING("Failed parsing |~s|, with reason: ~s", [PhoneNumber, Reason]),
             {error, Reason};
         PhoneNumberState2 ->
             PhoneNumberState3 = is_valid_number_internal(PhoneNumberState2),
             PhoneNumberState4 = format_number_internal(PhoneNumberState3),
-            ?INFO_MSG("parsed |~s| -> ~p", [PhoneNumber, PhoneNumberState4]),
+            ?INFO("parsed |~s| -> ~p", [PhoneNumber, PhoneNumberState4]),
             {ok, PhoneNumberState4}
     end.
 

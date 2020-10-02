@@ -120,7 +120,7 @@ send(Dst, Msg) ->
 
 -spec wait_for_sync(timeout()) -> ok.
 wait_for_sync(Timeout) ->
-    ?INFO_MSG("Waiting for Mnesia synchronization to complete", []),
+    ?INFO("Waiting for Mnesia synchronization to complete", []),
     mnesia:wait_for_tables(mnesia:system_info(local_tables), Timeout),
     ok.
 

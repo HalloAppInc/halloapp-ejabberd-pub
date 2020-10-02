@@ -140,7 +140,7 @@ s2s_out_auth_result(#{db_enabled := true,
 		      remote_server := RServer} = State, {false, _}) ->
     %% SASL authentication has failed, retrying with dialback
     %% Sending dialback request, section 2.1.1, step 1
-    ?INFO_MSG("(~ts) Retrying with s2s dialback authentication: ~ts -> ~ts (~ts)",
+    ?INFO("(~ts) Retrying with s2s dialback authentication: ~ts -> ~ts (~ts)",
 	      [xmpp_socket:pp(Socket), LServer, RServer,
 	       ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
     State1 = maps:remove(stop_reason, State#{on_route => queue}),
@@ -159,7 +159,7 @@ s2s_out_downgraded(#{db_enabled := true,
 		     remote_server := RServer} = State, _) ->
     %% non-RFC compliant server detected, send dialback request instantly,
     %% section 2.1.1, step 1
-    ?INFO_MSG("(~ts) Trying s2s dialback authentication with "
+    ?INFO("(~ts) Trying s2s dialback authentication with "
 	      "non-RFC compliant server: ~ts -> ~ts (~ts)",
 	      [xmpp_socket:pp(Socket), LServer, RServer,
 	       ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
@@ -195,7 +195,7 @@ s2s_in_packet(State, #db_verify{to = To, from = From, key = Key,
     {stop, ejabberd_s2s_in:send(State, Response)};
 s2s_in_packet(State, Pkt) when is_record(Pkt, db_result);
 			       is_record(Pkt, db_verify) ->
-    ?WARNING_MSG("Got stray dialback packet:~n~ts", [xmpp:pp(Pkt)]),
+    ?WARNING("Got stray dialback packet:~n~ts", [xmpp:pp(Pkt)]),
     State;
 s2s_in_packet(State, _) ->
     State.
@@ -249,7 +249,7 @@ s2s_out_packet(#{server := LServer, remote_server := RServer} = State,
     end;
 s2s_out_packet(State, Pkt) when is_record(Pkt, db_result);
 				is_record(Pkt, db_verify) ->
-    ?WARNING_MSG("Got stray dialback packet:~n~ts", [xmpp:pp(Pkt)]),
+    ?WARNING("Got stray dialback packet:~n~ts", [xmpp:pp(Pkt)]),
     State;
 s2s_out_packet(State, _) ->
     State.

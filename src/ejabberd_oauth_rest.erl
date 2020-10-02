@@ -56,7 +56,7 @@ store(R) ->
         {ok, Code, _} when Code == 200 orelse Code == 201 ->
             ok;
         Err ->
-            ?ERROR_MSG("Failed to store oauth record ~p: ~p", [R, Err]),
+            ?ERROR("Failed to store oauth record ~p: ~p", [R, Err]),
             {error, db_failure}
     end.
 
@@ -78,7 +78,7 @@ lookup(Token) ->
         {ok, 404, _Resp} ->
             error;
         Other ->
-            ?ERROR_MSG("Unexpected response for oauth lookup: ~p", [Other]),
+            ?ERROR("Unexpected response for oauth lookup: ~p", [Other]),
 	    error
     end.
 

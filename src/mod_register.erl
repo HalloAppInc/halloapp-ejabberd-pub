@@ -283,7 +283,7 @@ try_set_password(User, Server, Password) ->
 try_set_password(User, Server, Password, #iq{lang = Lang, meta = M} = IQ) ->
     case try_set_password(User, Server, Password) of
 	ok ->
-	    ?INFO_MSG("~ts has changed password from ~ts",
+	    ?INFO("~ts has changed password from ~ts",
 		      [jid:encode({User, Server, <<"">>}),
 		       ejabberd_config:may_hide_data(
 			 misc:ip_to_list(maps:get(ip, M, {0,0,0,0})))]),
@@ -341,7 +341,7 @@ try_register(User, Server, Password, SourceRaw, Lang) ->
 	ok ->
 	    JID = jid:make(User, Server),
 	    Source = may_remove_resource(SourceRaw),
-	    ?INFO_MSG("The account ~ts was registered from IP address ~ts",
+	    ?INFO("The account ~ts was registered from IP address ~ts",
 		      [jid:encode({User, Server, <<"">>}),
 		       ejabberd_config:may_hide_data(ip_to_string(Source))]),
 	    send_welcome_message(JID),
@@ -452,7 +452,7 @@ check_timeout(Source) ->
 	   case mnesia:transaction(F) of
 	     {atomic, Res} -> Res;
 	     {aborted, Reason} ->
-		 ?ERROR_MSG("timeout check error: ~p~n", [Reason]),
+		 ?ERROR("timeout check error: ~p~n", [Reason]),
 		 true
 	   end;
        true -> true
@@ -486,7 +486,7 @@ remove_timeout(Source) ->
 	   case mnesia:transaction(F) of
 	     {atomic, ok} -> ok;
 	     {aborted, Reason} ->
-		 ?ERROR_MSG("Mod_register: timeout remove error: "
+		 ?ERROR("Mod_register: timeout remove error: "
 			    "~p~n",
 			    [Reason]),
 		 ok

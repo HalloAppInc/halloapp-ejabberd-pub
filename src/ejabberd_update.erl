@@ -140,9 +140,9 @@ build_script(Dir, UpdatedBeams) ->
 	    ?DEBUG("Check: ~p~n", [Check]),
 	    ok;
 	_ ->
-	    ?ERROR_MSG("Script: ~p~n", [Script]),
-	    ?ERROR_MSG("Low level script: ~p~n", [LowLevelScript]),
-	    ?ERROR_MSG("Check: ~p~n", [Check]),
+	    ?ERROR("Script: ~p~n", [Script]),
+	    ?ERROR("Low level script: ~p~n", [LowLevelScript]),
+	    ?ERROR("Check: ~p~n", [Check]),
 	    error
     end,
     {Script, LowLevelScript, Check1}.

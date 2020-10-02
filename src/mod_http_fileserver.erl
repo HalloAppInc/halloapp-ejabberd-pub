@@ -172,7 +172,7 @@ try_open_log(FN, _Host) ->
 	     FD1 -> FD1
 	 catch
 	     throw:{cannot_open_accesslog, FN, Reason} ->
-		 ?ERROR_MSG("Cannot open access log file: ~p~nReason: ~p", [FN, Reason]),
+		 ?ERROR("Cannot open access log file: ~p~nReason: ~p", [FN, Reason]),
 		 undefined
 	 end,
     ejabberd_hooks:add(reopen_log_hook, ?MODULE, reopen_log, 50),
@@ -200,7 +200,7 @@ handle_call({serve, LocalPath, Auth, RHeaders}, _From, State) ->
 		  State#state.user_access, IfModifiedSince),
     {reply, Reply, State};
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -224,7 +224,7 @@ handle_cast({reload, Host, NewOpts, _OldOpts}, OldState) ->
 	    {noreply, OldState}
     end;
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -234,7 +234,7 @@ handle_cast(Msg, State) ->
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------

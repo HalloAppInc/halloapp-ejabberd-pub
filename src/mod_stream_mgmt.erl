@@ -98,7 +98,7 @@ stop(Host) ->
 
 reload(_Host, NewOpts, _OldOpts) ->
     init_cache(NewOpts),
-    ?WARNING_MSG("Module ~ts is reloaded, but new configuration will take "
+    ?WARNING("Module ~ts is reloaded, but new configuration will take "
 		 "effect for newly created client connections only", [?MODULE]).
 
 depends(_Host, _Opts) ->
@@ -432,7 +432,7 @@ handle_resume(#{user := User, lserver := LServer,
 	    State3 = resend_unacked_stanzas(State2),
 	    State4 = send(State3, #sm_r{xmlns = AttrXmlns}),
 	    State5 = ejabberd_hooks:run_fold(c2s_session_resumed, LServer, State4, []),
-	    ?INFO_MSG("(~ts) Resumed session for ~ts",
+	    ?INFO("(~ts) Resumed session for ~ts",
 		      [xmpp_socket:pp(Socket), jid:encode(JID)]),
 	    {ok, State5};
 	{error, El, Reason} ->
@@ -448,7 +448,7 @@ transition_to_pending(#{mgmt_state := active, jid := JID, socket := Socket,
 			lserver := LServer, mgmt_timeout := Timeout} = State,
 		      Reason) ->
     State1 = cancel_ack_timer(State),
-    ?INFO_MSG("(~ts) Closing c2s connection for ~ts: ~ts; "
+    ?INFO("(~ts) Closing c2s connection for ~ts: ~ts; "
 	      "waiting ~B seconds for stream resumption",
 	      [xmpp_socket:pp(Socket), jid:encode(JID),
 	       format_reason(State, Reason), Timeout div 1000]),
@@ -462,7 +462,7 @@ transition_to_pending(State, _Reason) ->
 check_h_attribute(#{mgmt_stanzas_out := NumStanzasOut, jid := JID,
 		    lang := Lang} = State, H)
   when H > NumStanzasOut ->
-    ?WARNING_MSG("~ts acknowledged ~B stanzas, but only ~B were sent",
+    ?WARNING("~ts acknowledged ~B stanzas, but only ~B were sent",
 		 [jid:encode(JID), H, NumStanzasOut]),
     State1 = State#{mgmt_resend => false},
     Err = xmpp:serr_undefined_condition(
@@ -759,10 +759,10 @@ format_reason(State, Reason) ->
 -spec log_resumption_error(binary(), binary(), error_reason()) -> ok.
 log_resumption_error(User, Server, Reason)
   when Reason == invalid_previd ->
-    ?WARNING_MSG("Cannot resume session for ~ts@~ts: ~ts",
+    ?WARNING("Cannot resume session for ~ts@~ts: ~ts",
 		 [User, Server, format_error(Reason)]);
 log_resumption_error(User, Server, Reason) ->
-    ?INFO_MSG("Cannot resume session for ~ts@~ts: ~ts",
+    ?INFO("Cannot resume session for ~ts@~ts: ~ts",
 	      [User, Server, format_error(Reason)]).
 
 %%%===================================================================

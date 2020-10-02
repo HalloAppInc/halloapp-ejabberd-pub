@@ -77,14 +77,14 @@ load() ->
 load(Path) ->
     ConfigFile = unicode:characters_to_binary(Path),
     UnixTime = erlang:monotonic_time(second),
-    ?INFO_MSG("Loading configuration from ~ts", [ConfigFile]),
+    ?INFO("Loading configuration from ~ts", [ConfigFile]),
     _ = ets:new(ejabberd_options,
 		[named_table, public, {read_concurrency, true}]),
     case load_file(ConfigFile) of
 	ok ->
 	    set_shared_key(),
 	    set_node_start(UnixTime),
-	    ?INFO_MSG("Configuration loaded successfully", []);
+	    ?INFO("Configuration loaded successfully", []);
 	Err ->
 	    Err
     end.
@@ -92,7 +92,7 @@ load(Path) ->
 -spec reload() -> ok | error_return().
 reload() ->
     ConfigFile = path(),
-    ?INFO_MSG("Reloading configuration from ~ts", [ConfigFile]),
+    ?INFO("Reloading configuration from ~ts", [ConfigFile]),
     OldHosts = get_myhosts(),
     case load_file(ConfigFile) of
 	ok ->
@@ -109,9 +109,9 @@ reload() ->
 	      end, DelHosts),
 	    ejabberd_hooks:run(config_reloaded, []),
 	    delete_host_options(DelHosts),
-	    ?INFO_MSG("Configuration reloaded successfully", []);
+	    ?INFO("Configuration reloaded successfully", []);
 	Err ->
-	    ?ERROR_MSG("Configuration reload aborted: ~ts",
+	    ?ERROR("Configuration reload aborted: ~ts",
 		       [format_error(Err)]),
 	    Err
     end.
@@ -271,7 +271,7 @@ default_db(Opt, Host, Mod, Default) ->
     case code:ensure_loaded(DBMod) of
 	{module, _} -> Type;
 	{error, _} ->
-	    ?WARNING_MSG("Module ~ts doesn't support database '~ts' "
+	    ?WARNING("Module ~ts doesn't support database '~ts' "
 			 "defined in option '~ts', using "
 			 "'~ts' as fallback", [Mod, Type, Opt, Default]),
 	    Default

@@ -82,12 +82,12 @@ export(Server, Output, Module1) ->
               case export(LServer, Table, IO, ConvertFun) of
                   {atomic, ok} -> ok;
 		  {aborted, {no_exists, _}} ->
-		      ?WARNING_MSG("Ignoring export for module ~ts: "
+		      ?WARNING("Ignoring export for module ~ts: "
 				   "Mnesia table ~ts doesn't exist (most likely "
 				   "because the module is unused)",
 				   [Module1, Table]);
                   {aborted, Reason} ->
-                      ?ERROR_MSG("Failed export for module ~p and table ~p: ~p",
+                      ?ERROR("Failed export for module ~p and table ~p: ~p",
                                  [Module, Table, Reason])
               end
       end, SQLMod:export(Server)),
@@ -110,7 +110,7 @@ delete(Server, Module) ->
 import(Server, Dir, ToType) ->
     lists:foreach(
       fun(Mod) ->
-              ?INFO_MSG("Importing ~p...", [Mod]),
+              ?INFO("Importing ~p...", [Mod]),
               import(Mod, Server, Dir, ToType)
       end, modules()).
 
@@ -129,9 +129,9 @@ import(Mod, Server, Dir, ToType) ->
                   {error, enoent} ->
                       ok;
                   eof ->
-                      ?INFO_MSG("It seems like SQL dump ~ts is empty", [FileName]);
+                      ?INFO("It seems like SQL dump ~ts is empty", [FileName]);
                   Err ->
-                      ?ERROR_MSG("Failed to open SQL dump ~ts: ~ts",
+                      ?ERROR("Failed to open SQL dump ~ts: ~ts",
                                  [FileName, format_error(Err)])
               end
       end, import_info(Mod)),
@@ -248,7 +248,7 @@ import_rows(LServer, FromType, ToType, Tab, Mod, Dump, FieldsNumber) ->
                 ok ->
                     ok;
                 Err ->
-                    ?ERROR_MSG("Failed to import fields ~p for tab ~p: ~p",
+                    ?ERROR("Failed to import fields ~p for tab ~p: ~p",
                                [Fields, Tab, Err])
             end,
             import_rows(LServer, FromType, ToType,
@@ -256,7 +256,7 @@ import_rows(LServer, FromType, ToType, Tab, Mod, Dump, FieldsNumber) ->
         eof ->
             ok;
         Err ->
-            ?ERROR_MSG("Failed to read row from SQL dump: ~ts",
+            ?ERROR("Failed to read row from SQL dump: ~ts",
                        [format_error(Err)])
     end.
 

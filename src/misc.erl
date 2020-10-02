@@ -315,7 +315,7 @@ try_read_file(Path) ->
 	    file:close(Fd),
 	    iolist_to_binary(Path);
 	{error, Why} ->
-	    ?ERROR_MSG("Failed to read ~ts: ~ts", [Path, file:format_error(Why)]),
+	    ?ERROR("Failed to read ~ts: ~ts", [Path, file:format_error(Why)]),
 	    erlang:error(badarg)
     end.
 
@@ -330,15 +330,15 @@ try_url(URL0) ->
     end,
     case http_uri:parse(URL) of
 	{ok, {Scheme, _, _, _, _, _}} when Scheme /= http, Scheme /= https ->
-	    ?ERROR_MSG("Unsupported URI scheme: ~ts", [URL]),
+	    ?ERROR("Unsupported URI scheme: ~ts", [URL]),
 	    erlang:error(badarg);
 	{ok, {_, _, Host, _, _, _}} when Host == ""; Host == <<"">> ->
-	    ?ERROR_MSG("Invalid URL: ~ts", [URL]),
+	    ?ERROR("Invalid URL: ~ts", [URL]),
 	    erlang:error(badarg);
 	{ok, _} ->
 	    iolist_to_binary(URL);
 	{error, _} ->
-	    ?ERROR_MSG("Invalid URL: ~ts", [URL]),
+	    ?ERROR("Invalid URL: ~ts", [URL]),
 	    erlang:error(badarg)
     end.
 
@@ -629,7 +629,7 @@ read_file(Path) ->
 	{ok, Data} ->
 	    {ok, Data};
 	{error, Why} = Err ->
-	    ?ERROR_MSG("Failed to read file ~ts: ~ts",
+	    ?ERROR("Failed to read file ~ts: ~ts",
 		       [Path, file:format_error(Why)]),
 	    Err
     end.

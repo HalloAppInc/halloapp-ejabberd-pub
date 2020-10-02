@@ -218,7 +218,7 @@ ws_loop(FrameInfo, Socket, WsHandleLoopPid, SocketMode, Shaper) ->
                        normal ->
                            1000; % normal close
                        _ ->
-                           ?ERROR_MSG("Linked websocket controlling loop crashed "
+                           ?ERROR("Linked websocket controlling loop crashed "
                                       "with reason: ~p",
                                       [Reason]),
                            1011 % internal error
@@ -243,7 +243,7 @@ ws_loop(FrameInfo, Socket, WsHandleLoopPid, SocketMode, Shaper) ->
 		 [self()]),
             websocket_close(Socket, WsHandleLoopPid, SocketMode, 1001); % going away
         _Ignored ->
-            ?WARNING_MSG("Received unexpected message, ignoring: ~p",
+            ?WARNING("Received unexpected message, ignoring: ~p",
                          [_Ignored]),
             ws_loop(FrameInfo, Socket, WsHandleLoopPid,
                     SocketMode, Shaper)

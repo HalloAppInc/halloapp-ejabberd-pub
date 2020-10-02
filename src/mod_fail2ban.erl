@@ -136,11 +136,11 @@ init([Host|_]) ->
     {ok, #state{host = Host}}.
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(_Msg, State) ->
-    ?WARNING_MSG("Unexpected cast = ~p", [_Msg]),
+    ?WARNING("Unexpected cast = ~p", [_Msg]),
     {noreply, State}.
 
 handle_info(clean, State) ->
@@ -152,7 +152,7 @@ handle_info(clean, State) ->
     erlang:send_after(?CLEAN_INTERVAL, self(), clean),
     {noreply, State};
 handle_info(_Info, State) ->
-    ?WARNING_MSG("Unexpected info = ~p", [_Info]),
+    ?WARNING("Unexpected info = ~p", [_Info]),
     {noreply, State}.
 
 terminate(_Reason, #state{host = Host}) ->
@@ -191,7 +191,7 @@ unban(S) ->
 	{ok, {Net, Mask}} ->
 	    unban(Net, Mask);
 	error ->
-	    ?WARNING_MSG("Invalid network address when trying to unban: ~p", [S]),
+	    ?WARNING("Invalid network address when trying to unban: ~p", [S]),
 	    -1
     end.
 
@@ -220,7 +220,7 @@ log_and_disconnect(#{ip := {Addr, _}, lang := Lang} = State, Attempts, UnbanTS) 
 		"from this IP address (~ts). The address "
 		"will be unblocked at ~ts UTC"),
     Args = [Attempts, IP, UnbanDate],
-    ?WARNING_MSG("Connection attempt from blacklisted IP ~ts: ~ts",
+    ?WARNING("Connection attempt from blacklisted IP ~ts: ~ts",
 		 [IP, io_lib:fwrite(Format, Args)]),
     Err = xmpp:serr_policy_violation({Format, Args}, Lang),
     {stop, ejabberd_c2s:send(State, Err)}.

@@ -34,12 +34,12 @@
 
 start(_Host, _Opts) ->
     try
-        ?INFO_MSG("Trying to create a table for mod_aws in ets", []),
+        ?INFO("Trying to create a table for mod_aws in ets", []),
         ets:new(?SECRETS_TABLE, [named_table, public, {read_concurrency, true}]),
         ok
     catch
         Error:badarg ->
-            ?WARNING_MSG("Failed to create a table for mod_aws in ets: ~p", [Error]),
+            ?WARNING("Failed to create a table for mod_aws in ets: ~p", [Error]),
             error
     end,
     ok.

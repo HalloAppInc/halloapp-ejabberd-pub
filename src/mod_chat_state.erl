@@ -50,14 +50,14 @@ mod_options(_Host) ->
 %%====================================================================
 
 user_send_packet({#chat_state{thread_id = <<>>}, _} = Acc) ->
-    ?ERROR_MSG("Thread id is empty.", []),
+    ?ERROR("Thread id is empty.", []),
     Acc;
 
 user_send_packet({#chat_state{thread_id = ThreadId, thread_type = ThreadType} = 
         Packet, _State} = Acc) ->
     Type = Packet#chat_state.type,
     stat:count_d("HA/chat_state", atom_to_list(Type), [{thread_type, ThreadType}]),
-    ?INFO_MSG("thread_id: ~s, thread_type: ~s, type: ~s",
+    ?INFO("thread_id: ~s, thread_type: ~s, type: ~s",
             [ThreadId, ThreadType, Type]),
     case ThreadType of
         chat ->
@@ -83,7 +83,7 @@ process_chat_state(Packet, ThreadId) ->
     NewToJid = jid:make(ThreadId, Server),
     From = Packet#chat_state.from,
     NewPacket = Packet#chat_state{to = NewToJid, thread_id = From#jid.luser},
-    ?INFO_MSG("Uid: ~s, to_uid: ~s, type: ~s",
+    ?INFO("Uid: ~s, to_uid: ~s, type: ~s",
             [From#jid.luser, NewToJid#jid.luser, Packet#chat_state.type]),
     ejabberd_router:route(NewPacket),
     ok.
@@ -97,7 +97,7 @@ process_group_chat_state(Packet, ThreadId) ->
     From = Packet#chat_state.from,
     MUids = model_groups:get_member_uids(ThreadId),
     ReceiverUids = lists:delete(From#jid.luser, MUids),
-    ?INFO_MSG("Uid: ~s, broadcast uids: ~p, type: ~s",
+    ?INFO("Uid: ~s, broadcast uids: ~p, type: ~s",
             [From#jid.luser, ReceiverUids, Packet#chat_state.type]),
     mod_groups:broadcast_packet(From, Server, ReceiverUids, Packet),
     ok.

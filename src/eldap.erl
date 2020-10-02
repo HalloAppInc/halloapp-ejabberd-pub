@@ -598,7 +598,7 @@ init([Hosts, Port, Rootdn, Passwd, Opts]) ->
     Verify = proplists:get_value(tls_verify, Opts, false),
     TLSOpts = if (Verify == hard orelse Verify == soft)
 		   andalso CacertOpts == [] ->
-		     ?WARNING_MSG("TLS verification is enabled but no CA "
+		     ?WARNING("TLS verification is enabled but no CA "
 				  "certfiles configured, so verification "
 				  "is disabled.",
 				  []),
@@ -692,7 +692,7 @@ handle_info({Tag, _Socket, Data}, StateName, S)
     end;
 handle_info({Tag, _Socket}, Fsm_state, S)
     when Tag == tcp_closed; Tag == ssl_closed ->
-    ?WARNING_MSG("LDAP server closed the connection: ~ts:~p~nIn "
+    ?WARNING("LDAP server closed the connection: ~ts:~p~nIn "
 		 "State: ~p",
 		 [S#eldap.host, S#eldap.port, Fsm_state]),
     {next_state, connecting, close_and_retry(S)};
@@ -985,7 +985,7 @@ close_and_retry(S) ->
     close_and_retry(S, ?RETRY_TIMEOUT).
 
 report_bind_failure(Host, Port, Reason) ->
-    ?WARNING_MSG("LDAP bind failed on ~ts:~p~nReason: ~p",
+    ?WARNING("LDAP bind failed on ~ts:~p~nReason: ~p",
 		 [Host, Port, Reason]).
 
 %%-----------------------------------------------------------------------
@@ -1070,7 +1070,7 @@ connect_bind(S) ->
 		{ok, connecting, NewS#eldap{host = Host}}
 	  end;
       {error, Reason} ->
-	  ?ERROR_MSG("LDAP connection to ~ts:~b failed: ~ts",
+	  ?ERROR("LDAP connection to ~ts:~b failed: ~ts",
 		     [Host, S#eldap.port, format_error(SockMod, Reason)]),
 	  NewS = close_and_retry(S),
 	  {ok, connecting, NewS#eldap{host = Host}}

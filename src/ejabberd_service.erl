@@ -164,7 +164,7 @@ get_password_fun(#{remote_server := RemoteServer,
 		{ok, Password} ->
 		    {Password, undefined};
 		error ->
-		    ?WARNING_MSG("(~ts) Domain ~ts is unconfigured for "
+		    ?WARNING("(~ts) Domain ~ts is unconfigured for "
 				 "external component from ~ts",
 				 [xmpp_socket:pp(Socket), RemoteServer,
 				  ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
@@ -176,7 +176,7 @@ handle_auth_success(_, Mech, _,
 		    #{remote_server := RemoteServer, host_opts := HostOpts,
 		      socket := Socket, ip := IP,
 		      global_routes := GlobalRoutes} = State) ->
-    ?INFO_MSG("(~ts) Accepted external component ~ts authentication "
+    ?INFO("(~ts) Accepted external component ~ts authentication "
 	      "for ~ts from ~ts",
 	      [xmpp_socket:pp(Socket), Mech, RemoteServer,
 	       ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
@@ -195,7 +195,7 @@ handle_auth_success(_, Mech, _,
 handle_auth_failure(_, Mech, Reason,
 		    #{remote_server := RemoteServer,
 		      socket := Socket, ip := IP} = State) ->
-    ?WARNING_MSG("(~ts) Failed external component ~ts authentication "
+    ?WARNING("(~ts) Failed external component ~ts authentication "
 		 "for ~ts from ~ts: ~ts",
 		 [xmpp_socket:pp(Socket), Mech, RemoteServer,
 		  ejabberd_config:may_hide_data(misc:ip_to_list(IP)),
@@ -235,7 +235,7 @@ handle_info({route, Packet}, #{access := Access} = State) ->
 	    State
     end;
 handle_info(Info, State) ->
-    ?ERROR_MSG("Unexpected info: ~p", [Info]),
+    ?ERROR("Unexpected info: ~p", [Info]),
     State.
 
 terminate(Reason, #{routes := Routes}) ->
@@ -272,7 +272,7 @@ listen_opt_type(shaper_rule) ->
     econf:and_then(
       econf:shaper(),
       fun(S) ->
-	      ?WARNING_MSG("Listening option 'shaper_rule' of module ~ts "
+	      ?WARNING("Listening option 'shaper_rule' of module ~ts "
 			   "is renamed to 'shaper'. Please adjust your "
 			   "configuration", [?MODULE]),
 	      S

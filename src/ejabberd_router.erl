@@ -92,7 +92,7 @@ route(Packet) ->
     try do_route(Packet)
     catch ?EX_RULE(Class, Reason, St) ->
 	    StackTrace = ?EX_STACK(St),
-	    ?ERROR_MSG("Failed to route packet:~n~ts~n** ~ts",
+	    ?ERROR("Failed to route packet:~n~ts~n** ~ts",
 		       [xmpp:pp(Packet),
 			misc:format_exception(2, Class, Reason, StackTrace)])
     end.
@@ -102,7 +102,7 @@ route(#jid{} = From, #jid{} = To, #xmlel{} = El) ->
     try xmpp:decode(El, ?NS_CLIENT, [ignore_els]) of
 	Pkt -> route(From, To, Pkt)
     catch _:{xmpp_codec, Why} ->
-	    ?ERROR_MSG("Failed to decode xml element ~p when "
+	    ?ERROR("Failed to decode xml element ~p when "
 		       "routing from ~ts to ~ts: ~ts",
 		       [El, jid:encode(From), jid:encode(To),
 			xmpp:format_error(Why)])
@@ -176,7 +176,7 @@ register_route(Domain, ServerHost, LocalHint, Pid) ->
 		    ejabberd_hooks:run(route_registered, [LDomain]),
 		    delete_cache(Mod, LDomain);
 		{error, Err} ->
-		    ?ERROR_MSG("Failed to register route ~ts: ~p",
+		    ?ERROR("Failed to register route ~ts: ~p",
 			       [LDomain, Err])
 	    end
     end.
@@ -206,7 +206,7 @@ unregister_route(Domain, Pid) ->
 		    ejabberd_hooks:run(route_unregistered, [LDomain]),
 		    delete_cache(Mod, LDomain);
 		{error, Err} ->
-		    ?ERROR_MSG("Failed to unregister route ~ts: ~p",
+		    ?ERROR("Failed to unregister route ~ts: ~p",
 			       [LDomain, Err])
 	    end
     end.
@@ -342,11 +342,11 @@ handle_call({demonitor, Domain, Pid}, _From, State) ->
 	     end,
     {reply, ok, State#state{route_monitors = MRefs1}};
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info({route, Packet}, State) ->
@@ -367,7 +367,7 @@ handle_info({'DOWN', MRef, _, Pid, Info}, State) ->
 	      end, State#state.route_monitors),
     {noreply, State#state{route_monitors = MRefs}};
 handle_info(Info, State) ->
-    ?ERROR_MSG("Unexpected info: ~p", [Info]),
+    ?ERROR("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->

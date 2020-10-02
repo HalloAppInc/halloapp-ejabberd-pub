@@ -123,7 +123,7 @@ stop_child(Proc) ->
 -spec start_modules() -> any().
 start_modules() ->
     Hosts = ejabberd_option:hosts(),
-    ?INFO_MSG("Loading modules for ~ts", [misc:format_hosts_list(Hosts)]),
+    ?INFO("Loading modules for ~ts", [misc:format_hosts_list(Hosts)]),
     lists:foreach(fun start_modules/1, Hosts).
 
 -spec start_modules(binary()) -> ok.
@@ -162,7 +162,7 @@ start_module(Host, Module, Opts, Order) ->
 			  Module, start, 2,
 			  Opts, Class, Reason,
 			  StackTrace),
-	    ?CRITICAL_MSG(ErrorText, []),
+	    ?CRITICAL(ErrorText, []),
 	    maybe_halt_ejabberd(),
 	    erlang:raise(Class, Reason, StackTrace)
     end.
@@ -220,11 +220,11 @@ reload_module(Host, Module, NewOpts, OldOpts, Order) ->
                                   Module, reload, 3,
                                   NewOpts, Class, Reason,
 				  StackTrace),
-                    ?CRITICAL_MSG(ErrorText, []),
+                    ?CRITICAL(ErrorText, []),
 		    erlang:raise(Class, Reason, StackTrace)
 	    end;
 	false ->
-	    ?WARNING_MSG("Module ~ts doesn't support reloading "
+	    ?WARNING("Module ~ts doesn't support reloading "
 			 "and will be restarted", [Module]),
 	    stop_module(Host, Module),
 	    start_module(Host, Module, NewOpts, Order)
@@ -249,7 +249,7 @@ store_options(Host, Module, Opts, Order) ->
 maybe_halt_ejabberd() ->
     case is_app_running(ejabberd) of
 	false ->
-	    ?CRITICAL_MSG("ejabberd initialization was aborted "
+	    ?CRITICAL("ejabberd initialization was aborted "
 			  "because a module start failed.",
 			  []),
 	    ejabberd:halt();
@@ -293,7 +293,7 @@ stop_module_keep_config(Host, Module) ->
 	    ok
     catch ?EX_RULE(Class, Reason, St) ->
             StackTrace = ?EX_STACK(St),
-            ?ERROR_MSG("Failed to stop module ~ts at ~ts:~n** ~ts",
+            ?ERROR("Failed to stop module ~ts at ~ts:~n** ~ts",
                        [Module, Host,
                         misc:format_exception(2, Class, Reason, StackTrace)]),
 	    error
@@ -575,13 +575,13 @@ sort_modules(Host, ModOpts) ->
 
 -spec warn_soft_dep_fail(module(), module()) -> ok.
 warn_soft_dep_fail(DepMod, Mod) ->
-    ?WARNING_MSG("Module ~ts is recommended for module "
+    ?WARNING("Module ~ts is recommended for module "
 		 "~ts but is not found in the config",
 		 [DepMod, Mod]).
 
 -spec warn_cyclic_dep([module()]) -> ok.
 warn_cyclic_dep(Path) ->
-    ?WARNING_MSG("Cyclic dependency detected between modules ~ts. "
+    ?WARNING("Cyclic dependency detected between modules ~ts. "
 		 "This is either a bug, or the modules are not "
 		 "supposed to work together in this configuration. "
 		 "The modules will still be loaded though",

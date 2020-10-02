@@ -143,7 +143,7 @@ check_apps() ->
 
 -spec exit_or_halt(iodata(), boolean()) -> no_return().
 exit_or_halt(Reason, StartFlag) ->
-    ?CRITICAL_MSG(Reason, []),
+    ?CRITICAL(Reason, []),
     if StartFlag ->
             %% Wait for the critical message is written in the console/log
             halt();

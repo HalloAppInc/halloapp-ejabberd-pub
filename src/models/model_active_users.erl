@@ -63,7 +63,7 @@ set_activity(Uid, TimestampMs, Keys) ->
 
 -spec cleanup() -> ok.
 cleanup() ->
-    ?INFO_MSG("Cleaning up active user zsets...", []),
+    ?INFO("Cleaning up active user zsets...", []),
     TotalNumRemoved = lists:foldl(
         fun (Slot, Acc) ->
             cleanup_by_slot(Slot) + Acc
@@ -71,7 +71,7 @@ cleanup() ->
         0,
         lists:seq(0, ?NUM_SLOTS - 1)
     ),
-    ?INFO_MSG("Removed ~p entries from active user zsets", [TotalNumRemoved]),
+    ?INFO("Removed ~p entries from active user zsets", [TotalNumRemoved]),
     ok.
 
 %%====================================================================

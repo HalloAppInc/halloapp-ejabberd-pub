@@ -60,7 +60,7 @@ insert_keys(Username, IdentityKey, SignedKey, OneTimeKeys) ->
         ?DEBUG("insert_keys: Mnesia transaction successful for username: ~p", [Username]),
         Result;
     {aborted, Reason} ->
-        ?ERROR_MSG("insert_keys: Mnesia transaction failed for username: ~p with reason: ~p",
+        ?ERROR("insert_keys: Mnesia transaction failed for username: ~p with reason: ~p",
                                                                   [Username, Reason]),
         {error, db_failure}
   end.
@@ -80,7 +80,7 @@ insert_otp_keys(Username, OneTimeKeys) ->
         ?DEBUG("insert_keys: Mnesia transaction successful for username: ~p", [Username]),
         Result;
     {aborted, Reason} ->
-        ?ERROR_MSG("insert_keys: Mnesia transaction failed for username: ~p with reason: ~p",
+        ?ERROR("insert_keys: Mnesia transaction failed for username: ~p with reason: ~p",
                                                                   [Username, Reason]),
         {error, db_failure}
   end.
@@ -110,7 +110,7 @@ delete_all_keys(Username) ->
       ?DEBUG("delete_all_keys: Mnesia transaction successful for username: ~p", [Username]),
       {ok, Result};
     {aborted, Reason} ->
-      ?ERROR_MSG("delete_all_keys: Mnesia transaction failed for username: ~p with reason: ~p",
+      ?ERROR("delete_all_keys: Mnesia transaction failed for username: ~p with reason: ~p",
                                                                           [Username, Reason]),
       {error, db_failure}
   end.
@@ -131,7 +131,7 @@ get_otp_key_count(Username) ->
       ?DEBUG("get_otp_key_count: Mnesia transaction successful for username: ~p", [Username]),
       {ok, Result};
     {aborted, Reason} ->
-      ?ERROR_MSG("get_otp_key_count: Mnesia transaction failed for username: ~p with reason: ~p",
+      ?ERROR("get_otp_key_count: Mnesia transaction failed for username: ~p with reason: ~p",
                                                                           [Username, Reason]),
       {error, db_failure}
   end.
@@ -167,7 +167,7 @@ fetch_key_set_and_delete(Username) ->
       ?DEBUG("fetch_key_set: Mnesia transaction successful for username: ~p", [Username]),
       {ok, Result};
     {aborted, Reason} ->
-      ?ERROR_MSG("fetch_key_set: Mnesia transaction failed for username: ~p with reason: ~p",
+      ?ERROR("fetch_key_set: Mnesia transaction failed for username: ~p with reason: ~p",
                                                                           [Username, Reason]),
       {error, db_failure}
   end.

@@ -58,7 +58,7 @@ user_send_packet({#message{id = MsgId} = Packet, State} = _Acc) ->
     FromUid = From#jid.luser,
     [SubEl] = Packet#message.sub_els,
     SubElementType = element(1, SubEl),
-    ?INFO_MSG("Uid: ~s sending ~p message to ~s MsgId: ~s",
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s",
             [FromUid, SubElementType, ToUid, MsgId]),
     NewPacket = if
         FromUid =:= <<>> ->
@@ -82,7 +82,7 @@ set_sender_name(Packet) ->
     MsgId = xmpp:get_id(Packet),
     From = xmpp:get_from(Packet),
     FromUid = From#jid.luser,
-    ?INFO_MSG("FromUid: ~s, set name on the chat message-id: ~s", [FromUid, MsgId]),
+    ?INFO("FromUid: ~s, set name on the chat message-id: ~s", [FromUid, MsgId]),
     Name = model_accounts:get_name_binary(FromUid),
     NewPacket = xmpp:set_sender_name(Packet, Name),
     NewPacket.

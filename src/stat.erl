@@ -59,13 +59,13 @@ start_link() ->
 
 
 start(Host, Opts) ->
-    ?INFO_MSG("start ~w", [?MODULE]),
+    ?INFO("start ~w", [?MODULE]),
     gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
     ok.
 
 
 stop(_Host) ->
-    ?INFO_MSG("stop ~w", [?MODULE]),
+    ?INFO("stop ~w", [?MODULE]),
     gen_mod:stop_child(get_proc()),
     ok.
 
@@ -119,23 +119,23 @@ trigger_zset_cleanup() ->
 
 compute_counts() ->
     Start = util:now_ms(),
-    ?INFO_MSG("start", []),
+    ?INFO("start", []),
     CountAccounts = model_accounts:count_accounts(),
-    ?INFO_MSG("Number of accounts: ~p", [CountAccounts]),
+    ?INFO("Number of accounts: ~p", [CountAccounts]),
     stat:count("HA/account", "total_accounts", CountAccounts),
     CountRegistrations = model_accounts:count_registrations(),
-    ?INFO_MSG("Number of registrations: ~p", [CountRegistrations]),
+    ?INFO("Number of registrations: ~p", [CountRegistrations]),
     stat:count("HA/account", "total_registrations", CountRegistrations),
 
     % groups
     CountGroups = model_groups:count_groups(),
-    ?INFO_MSG("Number of groups: ~p", [CountGroups]),
+    ?INFO("Number of groups: ~p", [CountGroups]),
     stat:count("HA/groups", "total_groups", CountGroups),
 
     % active_users
     ok = mod_active_users:compute_counts(),
     End = util:now_ms(),
-    ?INFO_MSG("Counting took ~p ms", [End - Start]),
+    ?INFO("Counting took ~p ms", [End - Start]),
     ok.
 
 
@@ -153,7 +153,7 @@ init(_Stuff) ->
 
 
 handle_call(_Message, _From, State) ->
-    ?ERROR_MSG("unexpected call ~p from ", _Message),
+    ?ERROR("unexpected call ~p from ", _Message),
     {reply, ok, State}.
 
 
@@ -206,7 +206,7 @@ send_data(MetricsMap) when is_map(MetricsMap) ->
 
 -spec send_to_cloudwatch(Data :: map()) -> ok.
 send_to_cloudwatch(Data) when is_map(Data) ->
-    ?INFO_MSG("sending ~p Namespaces", [maps:size(Data)]),
+    ?INFO("sending ~p Namespaces", [maps:size(Data)]),
     update_aws_config(),
     maps:fold(
         fun (Namespace, Metrics, _Acc) ->
@@ -229,13 +229,13 @@ cloudwatch_put_metric_data_env(prod, Namespace, Metrics) ->
         erlcloud_mon:put_metric_data(Namespace, Metrics)
     of
         {error, Reason} ->
-            ?ERROR_MSG("failed ~s ~w Reason: ~p",
+            ?ERROR("failed ~s ~w Reason: ~p",
                 [Namespace, length(Metrics), Reason]);
         _Result ->
             ?DEBUG("success ~s ~w", [Namespace, length(Metrics)])
     catch
         Class:Reason:Stacktrace ->
-            ?ERROR_MSG("Stacktrace:~s",
+            ?ERROR("Stacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
     end;
 cloudwatch_put_metric_data_env(localhost, "HA/test" = Namespace, Metrics) ->
@@ -253,7 +253,7 @@ update_aws_config() ->
         update_aws_config(C)
     catch
         Class:Reason:Stacktrace ->
-            ?ERROR_MSG("Stacktrace:~s",
+            ?ERROR("Stacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
     end.
 
@@ -271,7 +271,7 @@ update_aws_config(#aws_config{access_key_id = AccessKeyId, expiration = Expirati
     case (ExpiresIn < 2 * ?MINUTES) or (ExpiresIn > 1 * ?DAYS) of
         false -> ok;
         true ->
-            ?ERROR_MSG("erlcloud update_config failed to refresh our tokens: "
+            ?ERROR("erlcloud update_config failed to refresh our tokens: "
                 "AccessKeyId: ~s Expiration: ~p", [AccessKeyId, Expiration]),
             %% This gets a new config with refreshed tokens
             {ok, NewConfig0} = erlcloud_aws:auto_config(),
@@ -280,7 +280,7 @@ update_aws_config(#aws_config{access_key_id = AccessKeyId, expiration = Expirati
             NewAccessKeyId = NewConfig#aws_config.access_key_id,
             NewExpiration = NewConfig#aws_config.expiration,
             erlcloud_aws:configure(NewConfig),
-            ?INFO_MSG("refreshed aws config id:~p exp:~p new_id:~p exp:~p",
+            ?INFO("refreshed aws config id:~p exp:~p new_id:~p exp:~p",
                 [AccessKeyId, Expiration, NewAccessKeyId, NewExpiration])
     end,
     ok.

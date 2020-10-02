@@ -68,7 +68,7 @@ register_stream(SHA1, StreamPid) ->
 	{atomic, ok} ->
 	    ok;
 	{aborted, Reason} ->
-	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+	    ?ERROR("Mnesia transaction failed: ~p", [Reason]),
 	    {error, Reason}
     end.
 
@@ -78,7 +78,7 @@ unregister_stream(SHA1) ->
 	{atomic, ok} ->
 	    ok;
 	{aborted, Reason} ->
-	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+	    ?ERROR("Mnesia transaction failed: ~p", [Reason]),
 	    {error, Reason}
     end.
 
@@ -137,15 +137,15 @@ handle_call({activate_stream, SHA1, Initiator, MaxConnections}, _From, State) ->
     Reply = mnesia:transaction(F),
     {reply, Reply, State};
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->

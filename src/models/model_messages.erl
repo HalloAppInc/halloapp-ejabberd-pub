@@ -98,7 +98,7 @@ store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_binary(Messag
     ok;
 
 store_message(_ToUid, _FromUid, _MsgId, _ContentType, Message) ->
-    ?ERROR_MSG("Invalid message format: ~p: use binary format", [Message]).
+    ?ERROR("Invalid message format: ~p: use binary format", [Message]).
 
 
 -spec increment_retry_count(Uid :: uid(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
@@ -204,7 +204,7 @@ parse_fields(MsgId, []) ->
     undefined;
 % TODO: what is this 0?
 parse_fields([<<"0">>], _OfflineMessage) ->
-    ?WARNING_MSG("this should not be happening", []),
+    ?WARNING("this should not be happening", []),
     undefined;
 parse_fields(MsgId, FieldValuesList) ->
     MsgDataMap = util:list_to_map(FieldValuesList),
@@ -230,7 +230,7 @@ parse_fields(MsgId, FieldValuesList) ->
 fix_retry_count(0, Uid, MsgId) ->
     % TODO: this warning should not happen after 2020-10-25, after this date we can
     % delete this function
-    ?WARNING_MSG("Retry count should not be 0 Uid: ~p, MsgId: ~p", [Uid, MsgId]),
+    ?WARNING("Retry count should not be 0 Uid: ~p, MsgId: ~p", [Uid, MsgId]),
     1;
 fix_retry_count(X, _Uid, _MsgId) ->
     X.

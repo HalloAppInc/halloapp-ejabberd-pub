@@ -136,7 +136,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
 publish_post(_Uid, _PostId, _Payload, []) ->
     {error, no_audience};
 publish_post(Uid, PostId, Payload, [AudienceListSt]) ->
-    ?INFO_MSG("Uid: ~s, PostId: ~s", [Uid, PostId]),
+    ?INFO("Uid: ~s, PostId: ~s", [Uid, PostId]),
     Server = util:get_host(),
     Action = publish,
     FeedAudienceType = AudienceListSt#audience_list_st.type,
@@ -172,7 +172,7 @@ broadcast_post(Action, PostId, Uid, Payload, TimestampMs, FeedAudienceList) ->
 -spec publish_comment(Uid :: uid(), CommentId :: binary(), PostId :: binary(), PostUid :: binary(),
         ParentCommentId :: binary(), Payload :: binary()) -> {ok, integer()} | {error, any()}.
 publish_comment(PublisherUid, CommentId, PostId, PostUid, ParentCommentId, Payload) ->
-    ?INFO_MSG("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
+    ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = publish,
     case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
@@ -225,7 +225,7 @@ broadcast_comment(Action, CommentId, PostId, ParentCommentId, PublisherUid,
 
 -spec retract_post(Uid :: uid(), PostId :: binary()) -> {ok, integer()} | {error, any()}.
 retract_post(Uid, PostId) ->
-    ?INFO_MSG("Uid: ~s, PostId: ~s", [Uid, PostId]),
+    ?INFO("Uid: ~s, PostId: ~s", [Uid, PostId]),
     Server = util:get_host(),
     Action = retract,
     case model_feed:get_post(PostId) of
@@ -257,7 +257,7 @@ retract_post(Uid, PostId) ->
 -spec retract_comment(Uid :: uid(), CommentId :: binary(),
         PostId :: binary(), PostUid :: binary()) -> {ok, integer()} | {error, any()}.
 retract_comment(PublisherUid, CommentId, PostId, PostUid) ->
-    ?INFO_MSG("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
+    ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = retract,
     case model_feed:get_comment_data(PostId, CommentId, <<>>) of
@@ -559,7 +559,7 @@ filter_feed_items(Items) ->
 -spec share_feed_items(Uid :: uid(), FriendUid :: uid(),
         Server :: binary(), PostIds :: [binary()]) -> ok.
 share_feed_items(Uid, FriendUid, Server, PostIds) ->
-    ?INFO_MSG("Uid: ~s, FriendUid: ~s, post_ids: ~p", [Uid, FriendUid, PostIds]),
+    ?INFO("Uid: ~s, FriendUid: ~s, post_ids: ~p", [Uid, FriendUid, PostIds]),
     ok = model_feed:add_uid_to_audience(FriendUid, PostIds),
     {Posts, Comments} = get_posts_and_comments(PostIds),
     PostStanzas = lists:map(fun convert_posts_to_stanzas/1, Posts),
@@ -594,7 +594,7 @@ get_posts_and_comments(PostIds) ->
                     NewCommentAcc = [Comments | CommentAcc],
                     {NewPostAcc, NewCommentAcc};
                 {error, _} ->
-                    ?ERROR_MSG("Post and comments are missing in redis, post_id: ~p", [PostId]),
+                    ?ERROR("Post and comments are missing in redis, post_id: ~p", [PostId]),
                     {PostAcc, CommentAcc}
             end
         end, {[], []}, PostIds),
@@ -618,7 +618,7 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
     case AudienceSet =:= FinalAudienceSet of
         true -> ok;
         false ->
-            ?ERROR_MSG("FinalAudienceSet: ~p, AudienceSet: ~p", [FinalAudienceSet, AudienceSet])
+            ?ERROR("FinalAudienceSet: ~p, AudienceSet: ~p", [FinalAudienceSet, AudienceSet])
     end,
     FinalAudienceSet.
 

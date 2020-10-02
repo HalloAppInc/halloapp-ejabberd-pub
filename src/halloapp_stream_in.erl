@@ -488,7 +488,7 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
             NoiseOpts = try callback(noise_options, State2)
                 catch _:{?MODULE, undef} -> []
                 end,
-            ?INFO_MSG("NoiseOpts : ~p", [NoiseOpts]),
+            ?INFO("NoiseOpts : ~p", [NoiseOpts]),
             case halloapp_socket:startnoise(Socket, NoiseOpts) of
                 {ok, NoiseSocket} ->
                     State2#{socket => NoiseSocket};
@@ -703,7 +703,7 @@ send_pkt(State, XmppPkt) ->
     %% TODO(murali@): xmpp_to_proto should throw an error instead of undefined.
     {FinalResult, FinalState} = case Pkt of
         undefined ->
-            ?ERROR_MSG("Failed to translate packet: ~p", [XmppPkt]),
+            ?ERROR("Failed to translate packet: ~p", [XmppPkt]),
             NewState = send_error(State, XmppPkt, <<"server_error">>),
             {ok, NewState};
         Pkt ->
@@ -742,7 +742,7 @@ send_pkt(State, XmppPkt) ->
 %% TODO(murali@): maybe switch error to be an atom!
 -spec send_error(state(), xmpp_element() | xmlel(), binary()) -> state().
 send_error(State, _Pkt, Err) ->
-    ?ERROR_MSG("Sending error packet due to: ~p and terminating connection", [Err]),
+    ?ERROR("Sending error packet due to: ~p and terminating connection", [Err]),
     ErrorStanza = #pb_ha_error{reason = Err},
     ErrorPacket = #pb_packet{stanza = {error, ErrorStanza}},
     socket_send(State, ErrorPacket),
@@ -811,7 +811,7 @@ xmpp_to_proto(XmppPkt) when is_record(XmppPkt, halloapp_auth_result) ->
         ha_auth_parser:xmpp_to_proto(XmppPkt)
     catch
         error: Reason ->
-            ?ERROR_MSG("Failed: packet: ~p, reason: ~p", [XmppPkt, Reason]),
+            ?ERROR("Failed: packet: ~p, reason: ~p", [XmppPkt, Reason]),
             undefined
     end;
 xmpp_to_proto(XmppPkt) ->
@@ -819,7 +819,7 @@ xmpp_to_proto(XmppPkt) ->
         packet_parser:xmpp_to_proto(XmppPkt)
     catch
         error: Reason ->
-            ?ERROR_MSG("Failed: packet: ~p, reason: ~p", [XmppPkt, Reason]),
+            ?ERROR("Failed: packet: ~p, reason: ~p", [XmppPkt, Reason]),
             undefined
     end.
 

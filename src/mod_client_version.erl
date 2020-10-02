@@ -57,7 +57,7 @@ process_local_iq(#iq{type = get, to = _Host, from = From,
   Validity = is_valid_version(Version, TimeLeftSec),
   check_and_close_connection(Version, Validity, From),
   check_and_set_user_agent(Version, From#jid.luser),
-  ?INFO_MSG("mod_client_version: Received an IQ for this version: ~p, validity: ~p, time left: ~p",
+  ?INFO("mod_client_version: Received an IQ for this version: ~p, validity: ~p, time left: ~p",
                                                               [Version, Validity, TimeLeftSec]),
   xmpp:make_iq_result(IQ, #client_version{version = Version, seconds_left = TimeLeftSec}).
 
@@ -92,7 +92,7 @@ check_and_set_user_agent(Version, Uid) ->
     case CurrUserAgent =:= <<>> of
         true ->
             model_accounts:set_user_agent(Uid, Version),
-            ?INFO_MSG("User agent for uid:~p updated to ~p",[Uid, Version]);
+            ?INFO("User agent for uid:~p updated to ~p",[Uid, Version]);
         false -> ok
     end.
 

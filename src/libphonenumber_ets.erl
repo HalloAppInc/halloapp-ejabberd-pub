@@ -19,14 +19,14 @@
 
 init() ->
     try
-        ?INFO_MSG("Trying to create a table for libPhoneNumber in ets", []),
+        ?INFO("Trying to create a table for libPhoneNumber in ets", []),
         ets:new(?LIBPHONENUMBER_METADATA_TABLE,
                 [named_table, public, bag, {keypos, 2},
                 {write_concurrency, true}, {read_concurrency, true}]),
         ok
     catch
         Error:badarg ->
-            ?INFO_MSG("Failed to create a table for libPhoneNumber in ets: ~p", [Error]),
+            ?INFO("Failed to create a table for libPhoneNumber in ets: ~p", [Error]),
             error
     end.
 

@@ -74,7 +74,7 @@ get_region_id(Number) ->
                 _ ->
                     ?US_REGION_ID
             end,
-    ?INFO_MSG("~s -> ~s", [Number, Result]),
+    ?INFO("~s -> ~s", [Number, Result]),
     Result.
 
 

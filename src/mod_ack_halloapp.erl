@@ -70,14 +70,14 @@ send_ack(#message{id = MsgId, from = #jid{user = User, server = ServerHost} = Fr
     PacketTs = xmpp:get_timestamp(Packet),
     Timestamp = case PacketTs of
         undefined ->
-            ?WARNING_MSG("Uid: ~s, timestamp is undefined, msg_id: ~s", [User, MsgId]),
+            ?WARNING("Uid: ~s, timestamp is undefined, msg_id: ~s", [User, MsgId]),
             util:now_binary();
         <<>> ->
-            ?WARNING_MSG("Uid: ~s, timestamp is empty, msg_id: ~s", [User, MsgId]),
+            ?WARNING("Uid: ~s, timestamp is empty, msg_id: ~s", [User, MsgId]),
             util:now_binary();
         PacketTs -> PacketTs
     end,
     AckPacket = #ack{id = MsgId, to = From, from = jid:make(ServerHost), timestamp = Timestamp},
-    ?INFO_MSG("uid: ~s, msg_id: ~s", [User, MsgId]),
+    ?INFO("uid: ~s, msg_id: ~s", [User, MsgId]),
     ejabberd_router:route(AckPacket).
 

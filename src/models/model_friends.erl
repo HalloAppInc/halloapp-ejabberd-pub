@@ -40,11 +40,11 @@
 
 
 start(_Host, _Opts) ->
-    ?INFO_MSG("start ~w", [?MODULE]),
+    ?INFO("start ~w", [?MODULE]),
     ok.
 
 stop(_Host) ->
-    ?INFO_MSG("start ~w", [?MODULE]),
+    ?INFO("start ~w", [?MODULE]),
     ok.
 
 depends(_Host, _Opts) ->

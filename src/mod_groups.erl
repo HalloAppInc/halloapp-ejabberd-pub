@@ -60,13 +60,13 @@
 
 
 start(Host, _Opts) ->
-    ?INFO_MSG("start", []),
+    ?INFO("start", []),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
 
 stop(Host) ->
-    ?INFO_MSG("stop", []),
+    ?INFO("stop", []),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
@@ -96,7 +96,7 @@ mod_options(_Host) ->
 
 -spec create_group(Uid :: uid(), GroupName :: binary()) -> {ok, group()} | {error, invalid_name}.
 create_group(Uid, GroupName) ->
-    ?INFO_MSG("Uid: ~s GroupName: ~s", [Uid, GroupName]),
+    ?INFO("Uid: ~s GroupName: ~s", [Uid, GroupName]),
     case create_group_internal(Uid, GroupName) of
         {error, Reason} -> {error, Reason};
         {ok, Gid} ->
@@ -111,7 +111,7 @@ create_group(Uid, GroupName, MemberUids) ->
     case create_group_internal(Uid, GroupName) of
         {error, Reason} -> {error, Reason};
         {ok, Gid} ->
-            ?INFO_MSG("Gid: ~s Uid: ~s initializing with Members ~p", [Gid, Uid, MemberUids]),
+            ?INFO("Gid: ~s Uid: ~s initializing with Members ~p", [Gid, Uid, MemberUids]),
             Results = add_members_unsafe(Gid, Uid, MemberUids),
 
             Group = model_groups:get_group(Gid),
@@ -123,7 +123,7 @@ create_group(Uid, GroupName, MemberUids) ->
 
 -spec delete_group(Gid :: binary(), Uid :: binary()) -> ok | {error, any()}.
 delete_group(Gid, Uid) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s deleting group", [Gid, Uid]),
+    ?INFO("Gid: ~s Uid: ~s deleting group", [Gid, Uid]),
     case model_groups:is_admin(Gid, Uid) of
         false -> {error, not_admin};
         true ->
@@ -167,13 +167,13 @@ modify_members(Gid, Uid, Changes) ->
 
 -spec leave_group(Gid :: gid(), Uid :: uid()) -> {ok, boolean()}.
 leave_group(Gid, Uid) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
+    ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
     Res = model_groups:remove_member(Gid, Uid),
     case Res of
         {ok, false} ->
-            ?INFO_MSG("Gid: ~s Uid: ~s not a member already", [Gid, Uid]);
+            ?INFO("Gid: ~s Uid: ~s not a member already", [Gid, Uid]);
         {ok, true} ->
-            ?INFO_MSG("Gid: ~s Uid: ~s left", [Gid, Uid]),
+            ?INFO("Gid: ~s Uid: ~s left", [Gid, Uid]),
             stat:count(?STAT_NS, "leave"),
             send_leave_group_event(Gid, Uid),
             maybe_assign_admin(Gid)
@@ -197,7 +197,7 @@ demote_admins(Gid, Uid, AdminUids) ->
 -spec modify_admins(Gid :: gid(), Uid :: uid(), Changes :: [{uid(), promote | demote}])
             -> {ok, modify_admin_results()} | {error, not_admin}.
 modify_admins(Gid, Uid, Changes) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
+    ?INFO("Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
     case model_groups:is_admin(Gid, Uid) of
         false -> {error, not_admin};
         true ->
@@ -219,7 +219,7 @@ get_group(Gid, Uid) ->
         true ->
             case model_groups:get_group(Gid) of
                 undefined ->
-                    ?ERROR_MSG("could not find the group: ~p uid: ~p", [Gid, Uid]),
+                    ?ERROR("could not find the group: ~p uid: ~p", [Gid, Uid]),
                     {error, not_member};
                 Group -> {ok, Group}
             end
@@ -246,7 +246,7 @@ get_groups(Uid) ->
         fun (Gid) ->
             case model_groups:get_group_info(Gid) of
                 undefined ->
-                    ?WARNING_MSG("can not find group ~s", [Gid]),
+                    ?WARNING("can not find group ~s", [Gid]),
                     false;
                 GroupInfo ->
                     {true, GroupInfo}
@@ -265,7 +265,7 @@ remove_user(Uid, _Server) ->
 
 -spec set_name(Gid :: gid(), Uid :: uid(), Name :: binary()) -> ok | {error, invalid_name | not_member}.
 set_name(Gid, Uid, Name) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s Name: |~s|", [Gid, Uid, Name]),
+    ?INFO("Gid: ~s Uid: ~s Name: |~s|", [Gid, Uid, Name]),
     case validate_group_name(Name) of
         {error, _Reason} = E -> E;
         {ok, LName} ->
@@ -275,7 +275,7 @@ set_name(Gid, Uid, Name) ->
                     {error, not_member};
                 true ->
                     ok = model_groups:set_name(Gid, LName),
-                    ?INFO_MSG("Gid: ~s Uid: ~s set name to |~s|", [Gid, Uid, LName]),
+                    ?INFO("Gid: ~s Uid: ~s set name to |~s|", [Gid, Uid, LName]),
                     stat:count(?STAT_NS, "set_name"),
                     send_change_name_event(Gid, Uid),
                     ok
@@ -286,17 +286,17 @@ set_name(Gid, Uid, Name) ->
 -spec set_avatar(Gid :: gid(), Uid :: uid(), AvatarId :: binary()) ->
         {ok, AvatarId :: binary(), GroupName :: binary()} | {error, not_member}.
 set_avatar(Gid, Uid, AvatarId) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s setting avatar to ~s", [Gid, Uid, AvatarId]),
+    ?INFO("Gid: ~s Uid: ~s setting avatar to ~s", [Gid, Uid, AvatarId]),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
-            ?WARNING_MSG("Gid: ~s, Uid: ~s is not member", [Gid, Uid]),
+            ?WARNING("Gid: ~s, Uid: ~s is not member", [Gid, Uid]),
             {error, not_member};
         true ->
             GroupInfo = model_groups:get_group_info(Gid),
             ok = delete_group_avatar_data(Gid, GroupInfo#group_info.avatar),
             ok = model_groups:set_avatar(Gid, AvatarId),
-            ?INFO_MSG("Gid: ~s Uid: ~s set avatar to ~s", [Gid, Uid, AvatarId]),
+            ?INFO("Gid: ~s Uid: ~s set avatar to ~s", [Gid, Uid, AvatarId]),
             stat:count(?STAT_NS, "set_avatar"),
             send_change_avatar_event(Gid, Uid),
             {ok, AvatarId, GroupInfo#group_info.name}
@@ -306,17 +306,17 @@ set_avatar(Gid, Uid, AvatarId) ->
 -spec delete_avatar(Gid :: gid(), Uid :: uid()) ->
         {ok, GroupName :: binary()} | {error, not_member}.
 delete_avatar(Gid, Uid) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s deleting avatar", [Gid, Uid]),
+    ?INFO("Gid: ~s Uid: ~s deleting avatar", [Gid, Uid]),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
-            ?WARNING_MSG("Gid: ~s, Uid: ~s is not member", [Gid, Uid]),
+            ?WARNING("Gid: ~s, Uid: ~s is not member", [Gid, Uid]),
             {error, not_member};
         true ->
             GroupInfo = model_groups:get_group_info(Gid),
             ok = delete_group_avatar_data(Gid, GroupInfo#group_info.avatar),
             ok = model_groups:delete_avatar(Gid),
-            ?INFO_MSG("Gid: ~s Uid: ~s deleted avatar", [Gid, Uid]),
+            ?INFO("Gid: ~s Uid: ~s deleted avatar", [Gid, Uid]),
             stat:count(?STAT_NS, "delete_avatar"),
             {ok, GroupInfo#group_info.name}
     end.
@@ -326,7 +326,7 @@ delete_avatar(Gid, Uid) ->
             -> {ok, Ts} | {error, atom()}
             when Ts :: non_neg_integer().
 send_chat_message(MsgId, Gid, Uid, MessagePayload) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
+    ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
@@ -336,7 +336,7 @@ send_chat_message(MsgId, Gid, Uid, MessagePayload) ->
             GroupInfo = model_groups:get_group_info(Gid),
             {ok, SenderName} = model_accounts:get_name(Uid),
             GroupMessage = make_chat_message(GroupInfo, Uid, SenderName, MessagePayload, Ts),
-            ?INFO_MSG("Fan Out MSG: ~p", [GroupMessage]),
+            ?INFO("Fan Out MSG: ~p", [GroupMessage]),
             Server = util:get_host(),
             Packet = #message{
                 id = MsgId,
@@ -357,14 +357,14 @@ send_chat_message(MsgId, Gid, Uid, MessagePayload) ->
         GroupChatRetractSt :: groupchat_retract_st()) -> {ok, Ts} | {error, atom()}
         when Ts :: non_neg_integer().
 send_retract_message(MsgId, Gid, Uid, GroupChatRetractSt) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
+    ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
             {error, not_member};
         true ->
             Ts = util:now(),
-            ?INFO_MSG("Fan Out MSG: ~p", [GroupChatRetractSt]),
+            ?INFO("Fan Out MSG: ~p", [GroupChatRetractSt]),
             Server = util:get_host(),
             Packet = #message{
                 id = MsgId,
@@ -383,7 +383,7 @@ send_retract_message(MsgId, Gid, Uid, GroupChatRetractSt) ->
             Packet :: message() | chat_state()) -> ok.
 broadcast_packet(From, Server, BroadcastUids, Packet) ->
     BroadcastJids = util:uids_to_jids(BroadcastUids, Server),
-    ?INFO_MSG("Uid: ~s, receiver uids: ~p", [From#jid.luser, BroadcastJids]),
+    ?INFO("Uid: ~s, receiver uids: ~p", [From#jid.luser, BroadcastJids]),
     ejabberd_router_multicast:route_multicast(From, Server, BroadcastJids, Packet),
     ok.
 
@@ -392,7 +392,7 @@ broadcast_packet(From, Server, BroadcastUids, Packet) ->
             -> {ok, Ts} | {error, atom()}
             when Ts :: non_neg_integer().
 send_feed_item(Gid, Uid, GroupFeedSt) ->
-    ?INFO_MSG("Gid: ~s Uid: ~s", [Gid, Uid]),
+    ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
@@ -403,7 +403,7 @@ send_feed_item(Gid, Uid, GroupFeedSt) ->
             GroupInfo = model_groups:get_group_info(Gid),
             {ok, SenderName} = model_accounts:get_name(Uid),
             NewGroupFeedSt = make_group_feed_st(GroupInfo, Uid, SenderName, GroupFeedSt, Ts),
-            ?INFO_MSG("Fan Out MSG: ~p", [GroupFeedSt]),
+            ?INFO("Fan Out MSG: ~p", [GroupFeedSt]),
             Server = util:get_host(),
             Packet = #message{
                 id = util:new_msg_id(),
@@ -428,7 +428,7 @@ create_group_internal(Uid, GroupName) ->
         {error, Reason} -> {error, Reason};
         {ok, LGroupName} ->
             {ok, Gid} = model_groups:create_group(Uid, LGroupName),
-            ?INFO_MSG("group created Gid: ~s Uid: ~s GroupName: |~s|", [Gid, Uid, LGroupName]),
+            ?INFO("group created Gid: ~s Uid: ~s GroupName: |~s|", [Gid, Uid, LGroupName]),
             stat:count(?STAT_NS, "create"),
             {ok, Gid}
     end.
@@ -485,7 +485,7 @@ maybe_delete_empty_group(Gid) ->
     Size = model_groups:get_group_size(Gid),
     if
         Size =:= 0 ->
-            ?INFO_MSG("Group ~s is now empty. Deleting it.", [Gid]),
+            ?INFO("Group ~s is now empty. Deleting it.", [Gid]),
             stat:count("HA/groups", "auto_delete_empty"),
             delete_group_avatar_data(Gid),
             model_groups:delete_empty_group(Gid);
@@ -500,7 +500,7 @@ validate_group_name(<<"">>) ->
 validate_group_name(Name) when is_binary(Name) ->
     LName = string:slice(Name, 0, ?MAX_GROUP_NAME_SIZE),
     case LName =:= Name of
-        false -> ?WARNING_MSG("Truncating group name to |~s| size was: ~p", [LName, length(Name)]);
+        false -> ?WARNING("Truncating group name to |~s| size was: ~p", [LName, length(Name)]);
         true -> ok
     end,
     {ok, LName};
@@ -557,7 +557,7 @@ maybe_assign_admin(Gid) ->
                 true ->
                     % everyone in the group is member, pick first one
                     [Member | _Rest] = Group#group.members,
-                    ?INFO_MSG("Gid: ~s automatically promoting Uid: ~s to admin",
+                    ?INFO("Gid: ~s automatically promoting Uid: ~s to admin",
                         [Gid, Member#group_member.uid]),
                     Res = promote_admins_unsafe(Gid, [Member#group_member.uid]),
                     send_auto_promote_admin_event(Gid, Res),
@@ -718,7 +718,7 @@ make_member_st({Uid, Action, Result}, Event, NamesMap) ->
 
         Result =/= ok -> undefined;
         Name =:= undefined ->
-            ?ERROR_MSG("Missing name Uid: ~s, Event: ~p Action: ~p Result ~p",
+            ?ERROR("Missing name Uid: ~s, Event: ~p Action: ~p Result ~p",
                 [Uid, Event, Action, Result]),
             undefined;
         true ->
@@ -756,7 +756,7 @@ delete_group_avatar_data(Gid) ->
 
 -spec delete_group_avatar_data(Gid :: gid(), AvatarId :: binary()) -> ok.
 delete_group_avatar_data(Gid, AvatarId) ->
-    ?INFO_MSG("Gid: ~s deleting AvatarId: ~s from S3", [Gid, AvatarId]),
+    ?INFO("Gid: ~s deleting AvatarId: ~s from S3", [Gid, AvatarId]),
     % this function already logs the error.
     mod_user_avatar:delete_avatar_s3(AvatarId),
     ok.

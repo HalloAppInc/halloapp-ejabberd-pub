@@ -48,7 +48,7 @@ process([<<"registration">>, <<"request_sms">>],
         UserAgent = get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
-        ?INFO_MSG("payload ~p phone:~p, ua:~p ip:~p ~p",
+        ?INFO("payload ~p phone:~p, ua:~p ip:~p ~p",
             [Payload, Phone, UserAgent, IP, util:is_test_number(Phone)]),
 
         check_invited(Phone),
@@ -61,16 +61,16 @@ process([<<"registration">>, <<"request_sms">>],
             ]})}
     catch
         error : bad_user_agent ->
-            ?ERROR_MSG("register error: bad_user_agent ~p", [Headers]),
+            ?ERROR("register error: bad_user_agent ~p", [Headers]),
             return_400();
         error: not_invited ->
-            ?INFO_MSG("request_sms error: phone not invited ~p", [Data]),
+            ?INFO("request_sms error: phone not invited ~p", [Data]),
             return_400(not_invited);
         error : sms_fail ->
-            ?INFO_MSG("request_sms error: sms_failed ~p", [Data]),
+            ?INFO("request_sms error: sms_failed ~p", [Data]),
             return_400(sms_fail);
         Class : Reason : Stacktrace  ->
-            ?ERROR_MSG("request_sms crash: ~s\nStacktrace:~s",
+            ?ERROR("request_sms crash: ~s\nStacktrace:~s",
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             return_500()
     end;
@@ -78,7 +78,7 @@ process([<<"registration">>, <<"request_sms">>],
 process([<<"registration">>, <<"register">>],
         #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
     try
-        ?INFO_MSG("registration request: r:~p ip:~p", [Data, IP]),
+        ?INFO("registration request: r:~p ip:~p", [Data, IP]),
         UserAgent = get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
@@ -89,7 +89,7 @@ process([<<"registration">>, <<"register">>],
         check_sms_code(Phone, Code),
         LName = check_name(Name),
         {ok, Phone, Uid, Password} = finish_registration(Phone, LName, UserAgent),
-        ?INFO_MSG("registration complete uid:~s, phone:~s", [Uid, Phone]),
+        ?INFO("registration complete uid:~s, phone:~s", [Uid, Phone]),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
                 {uid, Uid},
@@ -100,10 +100,10 @@ process([<<"registration">>, <<"register">>],
             ]})}
     catch
         error : wrong_sms_code ->
-            ?INFO_MSG("register error: code missmatch data:~s", [Data]),
+            ?INFO("register error: code missmatch data:~s", [Data]),
             return_400(wrong_sms_code);
         error : bad_user_agent ->
-            ?ERROR_MSG("register error: bad_user_agent ~p", [Headers]),
+            ?ERROR("register error: bad_user_agent ~p", [Headers]),
             return_400();
         error: {badkey, <<"phone">>} ->
             return_400(missing_phone);
@@ -114,7 +114,7 @@ process([<<"registration">>, <<"register">>],
         error: invalid_name ->
             return_400(invalid_name);
         error : Reason : Stacktrace  ->
-            ?ERROR_MSG("register error: ~p, ~p", [Reason, Stacktrace]),
+            ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
             return_500()
     end;
 
@@ -124,7 +124,7 @@ process([<<"registration">>, <<"register">>],
 process([<<"registration">>, <<"register2">>],
         #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
     try
-        ?INFO_MSG("spub registration request: r:~p ip:~p", [Data, IP]),
+        ?INFO("spub registration request: r:~p ip:~p", [Data, IP]),
         UserAgent = get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
@@ -145,7 +145,7 @@ process([<<"registration">>, <<"register2">>],
         SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
 
         {ok, Phone, Uid} = finish_registration_spub(Phone, LName, UserAgent, SPub),
-        ?INFO_MSG("registration complete uid:~s, phone:~s", [Uid, Phone]),
+        ?INFO("registration complete uid:~s, phone:~s", [Uid, Phone]),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
                 {uid, Uid},
@@ -155,19 +155,19 @@ process([<<"registration">>, <<"register2">>],
             ]})}
     catch
         error : wrong_sms_code ->
-            ?INFO_MSG("register error: code mismatch data:~s", [Data]),
+            ?INFO("register error: code mismatch data:~s", [Data]),
             return_400(wrong_sms_code);
         error : bad_user_agent ->
-            ?ERROR_MSG("register error: bad_user_agent ~p", [Headers]),
+            ?ERROR("register error: bad_user_agent ~p", [Headers]),
             return_400();
         error : invalid_s_ed_pub ->
-            ?ERROR_MSG("register error: invalid_s_ed_pub ~p", [Data]),
+            ?ERROR("register error: invalid_s_ed_pub ~p", [Data]),
             return_400(invalid_s_ed_pub);
         error : invalid_signed_phrase ->
-            ?ERROR_MSG("register error: invalid_signed_phrase ~p", [Data]),
+            ?ERROR("register error: invalid_signed_phrase ~p", [Data]),
             return_400(invalid_signed_phrase);
         error : unable_to_open_signed_phrase ->
-            ?ERROR_MSG("register error: unable_to_open_signed_phrase ~p", [Data]),
+            ?ERROR("register error: unable_to_open_signed_phrase ~p", [Data]),
             return_400(unable_to_open_signed_phrase);
          error: {badkey, <<"phone">>} ->
             return_400(missing_phone);
@@ -182,14 +182,14 @@ process([<<"registration">>, <<"register2">>],
         error: invalid_name ->
             return_400(invalid_name);
         error : Reason : Stacktrace  ->
-            ?ERROR_MSG("register error: ~p, ~p", [Reason, Stacktrace]),
+            ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
             return_500()
     end;
 
 process([<<"registration">>, <<"update_key">>],
         #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
     try
-        ?INFO_MSG("update_key request: r:~p ip:~p", [Data, IP]),
+        ?INFO("update_key request: r:~p ip:~p", [Data, IP]),
         UserAgent = get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Uid = maps:get(<<"uid">>, Payload),
@@ -206,23 +206,23 @@ process([<<"registration">>, <<"update_key">>],
 
         SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
         ok = update_key(Uid, SPub),
-        ?INFO_MSG("update key complete uid:~s", [Uid]),
+        ?INFO("update key complete uid:~s", [Uid]),
         {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
     catch
         error : bad_user_agent ->
-            ?ERROR_MSG("register error: bad_user_agent ~p", [Headers]),
+            ?ERROR("register error: bad_user_agent ~p", [Headers]),
             return_400();
         error : invalid_password ->
-            ?INFO_MSG("register error: invalid password, data:~s", [Data]),
+            ?INFO("register error: invalid password, data:~s", [Data]),
             return_400(invalid_password);
         error : invalid_s_ed_pub ->
-            ?ERROR_MSG("register error: invalid_s_ed_pub ~p", [Data]),
+            ?ERROR("register error: invalid_s_ed_pub ~p", [Data]),
             return_400(invalid_s_ed_pub);
         error : invalid_signed_phrase ->
-            ?ERROR_MSG("register error: invalid_signed_phrase ~p", [Data]),
+            ?ERROR("register error: invalid_signed_phrase ~p", [Data]),
             return_400(invalid_signed_phrase);
         error : unable_to_open_signed_phrase ->
-            ?ERROR_MSG("register error: unable_to_open_signed_phrase ~p", [Data]),
+            ?ERROR("register error: unable_to_open_signed_phrase ~p", [Data]),
             return_400(unable_to_open_signed_phrase);
         error: {badkey, <<"uid">>} ->
             return_400(missing_uid);
@@ -233,14 +233,14 @@ process([<<"registration">>, <<"update_key">>],
         error: {badkey, <<"signed_phrase">>} ->
             return_400(missing_signed_phrase);
         error : Reason : Stacktrace  ->
-            ?ERROR_MSG("update key error: ~p, ~p", [Reason, Stacktrace]),
+            ?ERROR("update key error: ~p, ~p", [Reason, Stacktrace]),
             return_500()
     end;
 
 process([<<"_ok">>], _Request) ->
     {200, ?HEADER(?CT_PLAIN), <<"ok">>};
 process(Path, Request) ->
-    ?WARNING_MSG("Bad Request: path: ~p, r:~p", [Path, Request]),
+    ?WARNING("Bad Request: path: ~p, r:~p", [Path, Request]),
     return_400().
 
 
@@ -249,7 +249,7 @@ check_ua(UserAgent) ->
     case util_ua:is_hallo_ua(UserAgent) of
         true -> ok;
         false ->
-            ?ERROR_MSG("Invalid UserAgent:~p", [UserAgent]),
+            ?ERROR("Invalid UserAgent:~p", [UserAgent]),
             error(bad_user_agent)
     end.
 
@@ -259,7 +259,7 @@ check_password(Uid, Password) ->
     case ejabberd_auth:check_password(Uid, Password) of
         true -> ok;
         false ->
-            ?ERROR_MSG("Invalid Password for Uid:~p", [Uid]),
+            ?ERROR("Invalid Password for Uid:~p", [Uid]),
             error(invalid_password)
     end.
 
@@ -268,7 +268,7 @@ check_s_ed_pub_size(SEdPub) ->
     case byte_size(SEdPub) of
         32 -> ok;
         _ ->
-            ?ERROR_MSG("Invalid s_ed_pub: ~p", [SEdPub]),
+            ?ERROR("Invalid s_ed_pub: ~p", [SEdPub]),
             error(invalid_s_ed_pub)
     end.
 
@@ -277,10 +277,10 @@ check_signed_phrase(SignedPhrase, SEdPub) ->
     case enacl:sign_open(SignedPhrase, SEdPub) of
         {ok, ?MSG_TO_SIGN} -> ok;
         {ok, Phrase} ->
-            ?ERROR_MSG("Invalid Signed Phrase: ~p", [Phrase]),
+            ?ERROR("Invalid Signed Phrase: ~p", [Phrase]),
             error(invalid_signed_phrase);
         {error, _} ->
-            ?ERROR_MSG("Unable to open signed message: ~p", [base64:encode(SignedPhrase)]),
+            ?ERROR("Unable to open signed message: ~p", [base64:encode(SignedPhrase)]),
             error(unable_to_open_signed_phrase)
     end.
 
@@ -292,7 +292,7 @@ check_name(Name) when is_binary(Name) ->
     LName = string:slice(Name, 0, ?MAX_NAME_SIZE),
     case LName =:= Name of
         false ->
-            ?WARNING_MSG("Truncating user name to |~s| size was: ~p", [LName, byte_size(Name)]);
+            ?WARNING("Truncating user name to |~s| size was: ~p", [LName, byte_size(Name)]);
         true ->
             ok
     end,
@@ -352,11 +352,11 @@ check_sms_code(Phone, Code) ->
             ?DEBUG("Code match phone:~s code:~s", [Phone, MatchingCode]),
             ok;
         {{ok, StoredCode}, UserCode}->
-            ?INFO_MSG("Codes mismatch, phone:~s, StoredCode:~s UserCode:~s",
+            ?INFO("Codes mismatch, phone:~s, StoredCode:~s UserCode:~s",
                 [Phone, StoredCode, UserCode]),
             error(wrong_sms_code);
         Any ->
-            ?INFO_MSG("No stored code in db ~p", [Any]),
+            ?INFO("No stored code in db ~p", [Any]),
             error(wrong_sms_code)
     end.
 
@@ -395,7 +395,7 @@ finish_enroll(Phone, Code) ->
 
 -spec return_400(term()) -> http_response().
 return_400(Error) ->
-    ?WARNING_MSG("400 ~p", [Error]),
+    ?WARNING("400 ~p", [Error]),
     {400, ?HEADER(?CT_JSON), jiffy:encode({[
         {result, fail},
         {error, Error}]})}.
@@ -410,11 +410,11 @@ return_500() ->
         jiffy:encode({[{result, <<"Internal Server Error">>}]})}.
 
 start(Host, Opts) ->
-    ?INFO_MSG("start ~w ~p", [?MODULE, Opts]),
+    ?INFO("start ~w ~p", [?MODULE, Opts]),
     gen_mod:start_child(?MODULE, Host, Opts).
 
 stop(Host) ->
-    ?INFO_MSG("stop ~w", [?MODULE]),
+    ?INFO("stop ~w", [?MODULE]),
     gen_mod:stop_child(?MODULE, Host).
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -428,7 +428,7 @@ depends(_Host, _Opts) ->
     [{mod_sms, hard}].
 
 init(_Stuff) ->
-    ?INFO_MSG("mod_halloapp_http_api init ~p", [_Stuff]),
+    ?INFO("mod_halloapp_http_api init ~p", [_Stuff]),
     process_flag(trap_exit, true),
     {ok, {}}.
 

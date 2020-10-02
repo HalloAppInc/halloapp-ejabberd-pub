@@ -78,7 +78,7 @@ process(_, #request{method = 'POST', data = Data, opts = Opts, ip = {IP, _}}) ->
 	El ->
 	    case fxmlrpc:decode(El) of
 		{error, _} = Err ->
-		    ?ERROR_MSG("XML-RPC request ~ts failed with reason: ~p",
+		    ?ERROR("XML-RPC request ~ts failed with reason: ~p",
 			       [Data, Err]),
 		    {400, [],
 		     #xmlel{name = <<"h1">>, attrs = [],
@@ -235,7 +235,7 @@ try_do_command(AccessCommands, Auth, Command, AttrL,
 build_fault_response(Code, ParseString, ParseArgs) ->
     FaultString = "Error " ++ integer_to_list(Code) ++ "\n"
         ++ lists:flatten(io_lib:format(ParseString, ParseArgs)),
-    ?WARNING_MSG(FaultString, []),
+    ?WARNING(FaultString, []),
     {false, {response, {fault, Code, list_to_binary(FaultString)}}}.
 
 do_command(AccessCommands, Auth, Command, AttrL, ArgsF, ArgsR,
@@ -330,7 +330,7 @@ format_arg(Arg, string) when is_binary(Arg) -> binary_to_list(Arg);
 format_arg(undefined, binary) -> <<>>;
 format_arg(undefined, string) -> "";
 format_arg(Arg, Format) ->
-    ?ERROR_MSG("Don't know how to format Arg ~p for format ~p", [Arg, Format]),
+    ?ERROR("Don't know how to format Arg ~p for format ~p", [Arg, Format]),
     exit({invalid_arg_type, Arg, Format}).
 
 process_unicode_codepoints(Str) ->

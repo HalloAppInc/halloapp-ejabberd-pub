@@ -75,14 +75,14 @@ init([]) ->
     {ok, #state{}}.
 
 handle_call(Request, From, State) ->
-    ?WARNING_MSG("Unexpected call from ~p: ~p", [From, Request]),
+    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     noreply(State).
 
 handle_cast({restart_timer, Expire}, State) ->
     State1 = State#state{expire = min(Expire, State#state.expire)},
     noreply(State1);
 handle_cast(Msg, State) ->
-    ?WARNING_MSG("Unexpected cast: ~p", [Msg]),
+    ?WARNING("Unexpected cast: ~p", [Msg]),
     noreply(State).
 
 handle_info({route, IQ, Key}, State) ->
@@ -98,7 +98,7 @@ handle_info(timeout, State) ->
     Expire = clean(ets:first(?MODULE)),
     noreply(State#state{expire = Expire});
 handle_info(Info, State) ->
-    ?WARNING_MSG("Unexpected info: ~p", [Info]),
+    ?WARNING("Unexpected info: ~p", [Info]),
     noreply(State).
 
 terminate(_Reason, _State) ->
@@ -176,7 +176,7 @@ callback(undefined, IQRes, Fun) ->
     try Fun(IQRes)
     catch ?EX_RULE(Class, Reason, St) ->
 	    StackTrace = ?EX_STACK(St),
-	    ?ERROR_MSG("Failed to process iq response:~n~ts~n** ~ts",
+	    ?ERROR("Failed to process iq response:~n~ts~n** ~ts",
 		       [xmpp:pp(IQRes),
 			misc:format_exception(2, Class, Reason, StackTrace)])
     end;

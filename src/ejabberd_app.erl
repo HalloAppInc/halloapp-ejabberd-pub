@@ -61,16 +61,16 @@ start(normal, _Args) ->
 			ejabberd_hooks:run(ejabberd_started, []),
 			ejabberd:check_apps(),
 			{T2, _} = statistics(wall_clock),
-			?INFO_MSG("ejabberd ~ts is started in the node ~p in ~.2fs",
+			?INFO("ejabberd ~ts is started in the node ~p in ~.2fs",
 				  [ejabberd_option:version(),
 				   node(), (T2-T1)/1000]),
 			{ok, SupPid};
 		    Err ->
-			?CRITICAL_MSG("Failed to start ejabberd application: ~p", [Err]),
+			?CRITICAL("Failed to start ejabberd application: ~p", [Err]),
 			ejabberd:halt()
 		end;
 	    Err ->
-		?CRITICAL_MSG("Failed to start ejabberd application: ~ts",
+		?CRITICAL("Failed to start ejabberd application: ~ts",
 			      [ejabberd_config:format_error(Err)]),
 		ejabberd:halt()
 	end
@@ -109,7 +109,7 @@ prep_stop(State) ->
 
 %% All the processes were killed when this function is called
 stop(_State) ->
-    ?INFO_MSG("ejabberd ~ts is stopped in the node ~p",
+    ?INFO("ejabberd ~ts is stopped in the node ~p",
 	      [ejabberd_option:version(), node()]),
     delete_pid_file().
 
@@ -126,7 +126,7 @@ maybe_add_nameservers() ->
 
 add_windows_nameservers() ->
     IPTs = win32_dns:get_nameservers(),
-    ?INFO_MSG("Adding machine's DNS IPs to Erlang system:~n~p", [IPTs]),
+    ?INFO("Adding machine's DNS IPs to Erlang system:~n~p", [IPTs]),
     lists:foreach(fun(IPT) -> inet_db:add_ns(IPT) end, IPTs).
 
 %%%
@@ -146,7 +146,7 @@ write_pid_file(Pid, PidFilename) ->
 	ok ->
 	    ok;
 	{error, Reason} = Err ->
-	    ?CRITICAL_MSG("Cannot write PID file ~ts: ~ts",
+	    ?CRITICAL("Cannot write PID file ~ts: ~ts",
 			  [PidFilename, file:format_error(Reason)]),
 	    throw({?MODULE, Err})
     end.
@@ -192,7 +192,7 @@ register_elixir_config_hooks() ->
 start_elixir_application() ->
     case application:ensure_started(elixir) of
 	ok -> ok;
-	{error, _Msg} -> ?ERROR_MSG("Elixir application not started.", [])
+	{error, _Msg} -> ?ERROR("Elixir application not started.", [])
     end.
 -else.
 setup_if_elixir_conf_used() -> ok.

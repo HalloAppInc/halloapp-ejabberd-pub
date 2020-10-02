@@ -18,20 +18,20 @@
 
 %%% Stage 1. Rename the privacy lists: both exceptlist and onlylist.
 run(Key, State) ->
-    ?INFO_MSG("Key: ~p", [Key]),
+    ?INFO("Key: ~p", [Key]),
     DryRun = maps:get(dry_run, State, false),
     Result = re:run(Key, "^(bla|whi):{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[OldKey, Prefix, Uid]]} ->
             NewKey = get_buddy_privacy_key(Prefix, Uid),
-            ?INFO_MSG("Migrating ~s -> ~s Uid: ~s", [OldKey, NewKey, Uid]),
+            ?INFO("Migrating ~s -> ~s Uid: ~s", [OldKey, NewKey, Uid]),
             Command = ["SUNIONSTORE", NewKey, OldKey, NewKey],
             case DryRun of
                 true ->
-                    ?INFO_MSG("would do: ~p", [Command]);
+                    ?INFO("would do: ~p", [Command]);
                 false ->
                     {ok, NumItems} = q(redis_accounts_client, Command),
-                    ?INFO_MSG("stored ~p uids", [NumItems])
+                    ?INFO("stored ~p uids", [NumItems])
             end;
         _ -> ok
     end,
@@ -40,21 +40,21 @@ run(Key, State) ->
 
 %%% Stage 2. Check if the migrated data is in sync
 verify(Key, State) ->
-    ?INFO_MSG("Key: ~p", [Key]),
+    ?INFO("Key: ~p", [Key]),
     Result = re:run(Key, "^(bla|whi|exc|onl):{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[Key1, Prefix, Uid]]} ->
             Key2 = get_buddy_privacy_key(Prefix, Uid),
-            ?INFO_MSG("Checking ~s vs ~s Uid: ~s", [Key1, Key2, Uid]),
+            ?INFO("Checking ~s vs ~s Uid: ~s", [Key1, Key2, Uid]),
             [{ok, Items1}, {ok, Items2}] = qp(redis_accounts_client, [
                 ["SMEMBERS", Key1],
                 ["SMEMBERS", Key2]
             ]),
             case Items1 =:= Items2 of
                 true ->
-                    ?INFO_MSG("match ~s ~s items: ~p", [Key1, Key2, length(Items2)]);
+                    ?INFO("match ~s ~s items: ~p", [Key1, Key2, length(Items2)]);
                 false ->
-                    ?ERROR_MSG("NO match ~s : ~p, vs ~s : ~p", [Key1, Items1, Key2, Items2])
+                    ?ERROR("NO match ~s : ~p, vs ~s : ~p", [Key1, Items1, Key2, Items2])
             end;
         _ -> ok
     end,
@@ -63,19 +63,19 @@ verify(Key, State) ->
 
 %%% Stage 3. Delete the old data
 cleanup(Key, State) ->
-    ?INFO_MSG("Key: ~p", [Key]),
+    ?INFO("Key: ~p", [Key]),
     DryRun = maps:get(dry_run, State, false),
     Result = re:run(Key, "^(bla|whi):{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[_FullKey, _Prefix, Uid]]} ->
-            ?INFO_MSG("Cleaning ~s Uid: ~s", [Key, Uid]),
+            ?INFO("Cleaning ~s Uid: ~s", [Key, Uid]),
             Command = ["DEL", Key],
             case DryRun of
                 true ->
-                    ?INFO_MSG("would do: ~p", [Command]);
+                    ?INFO("would do: ~p", [Command]);
                 false ->
                     DelResult = q(redis_accounts_client, Command),
-                    ?INFO_MSG("delete result ~p", [DelResult])
+                    ?INFO("delete result ~p", [DelResult])
             end;
         _ -> ok
     end,

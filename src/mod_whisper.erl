@@ -63,25 +63,25 @@ mod_options(_Host) ->
 
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, type = set,
                     sub_els = [#whisper_keys{type = set} = WhisperKeys]} = IQ) ->
-    ?INFO_MSG("set_keys Uid: ~s", [Uid]),
+    ?INFO("set_keys Uid: ~s", [Uid]),
     IdentityKey = WhisperKeys#whisper_keys.identity_key,
     SignedKey = WhisperKeys#whisper_keys.signed_key,
     OneTimeKeys = WhisperKeys#whisper_keys.one_time_keys,
     if
         IdentityKey =:= undefined ->
-            ?INFO_MSG("Uid: ~s, undefined identity_key", [Uid]),
+            ?INFO("Uid: ~s, undefined identity_key", [Uid]),
             Txt = ?T("undefined IdentityKey"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         SignedKey =:= undefined ->
-            ?INFO_MSG("Uid: ~s, undefined signed_key", [Uid]),
+            ?INFO("Uid: ~s, undefined signed_key", [Uid]),
             Txt = ?T("undefined SignedKey"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         OneTimeKeys =:= [] ->
-            ?INFO_MSG("Uid: ~s, empty one_time_keys", [Uid]),
+            ?INFO("Uid: ~s, empty one_time_keys", [Uid]),
             Txt = ?T("empty OneTimeKeys"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         true ->
-            ?INFO_MSG("Uid: ~s, set_keys", [Uid]),
+            ?INFO("Uid: ~s, set_keys", [Uid]),
             ok = model_whisper_keys:set_keys(Uid, IdentityKey, SignedKey, OneTimeKeys),
             notify_key_subscribers(Uid, Server),
             xmpp:make_iq_result(IQ)
@@ -89,25 +89,25 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, ty
 
 process_local_iq(#iq{from = #jid{luser = Uid}, lang = Lang, type = set,
                     sub_els = [#whisper_keys{type = add} = WhisperKeys]} = IQ) ->
-    ?INFO_MSG("add_otp_keys Uid: ~s", [Uid]),
+    ?INFO("add_otp_keys Uid: ~s", [Uid]),
     IdentityKey = WhisperKeys#whisper_keys.identity_key,
     SignedKey = WhisperKeys#whisper_keys.signed_key,
     OneTimeKeys = WhisperKeys#whisper_keys.one_time_keys,
     if
         IdentityKey =/= undefined ->
-            ?INFO_MSG("Uid: ~s, undefined identity_key", [Uid]),
+            ?INFO("Uid: ~s, undefined identity_key", [Uid]),
             Txt = ?T("undefined IdentityKey"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         SignedKey =/= undefined ->
-            ?INFO_MSG("Uid: ~s, undefined signed_key", [Uid]),
+            ?INFO("Uid: ~s, undefined signed_key", [Uid]),
             Txt = ?T("undefined SignedKey"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         OneTimeKeys =:= [] ->
-            ?INFO_MSG("Uid: ~s, empty one_time_keys", [Uid]),
+            ?INFO("Uid: ~s, empty one_time_keys", [Uid]),
             Txt = ?T("empty OneTimeKeys"),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         true ->
-            ?INFO_MSG("Uid: ~s, add_otp_keys", [Uid]),
+            ?INFO("Uid: ~s, add_otp_keys", [Uid]),
             model_whisper_keys:add_otp_keys(Uid, OneTimeKeys),
             xmpp:make_iq_result(IQ)
     end;
@@ -120,7 +120,7 @@ process_local_iq(#iq{from = #jid{luser = Uid}, lang = _Lang, type = get,
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, type = get,
                     sub_els = [#whisper_keys{uid = Ouid, type = get}]} = IQ) ->
     %%TODO(murali@): check if user is allowed to access keys of username.
-    ?INFO_MSG("get_keys Uid: ~s, Ouid: ~s", [Uid, Ouid]),
+    ?INFO("get_keys Uid: ~s, Ouid: ~s", [Uid, Ouid]),
     case Ouid of
         undefined ->
             Txt = ?T("undefined uid"),
@@ -151,7 +151,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, ty
 
 -spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
 remove_user(Uid, _Server) ->
-    ?INFO_MSG("Uid: ~s", [Uid]),
+    ?INFO("Uid: ~s", [Uid]),
     model_whisper_keys:remove_all_keys(Uid),
     model_whisper_keys:remove_all_key_subscribers(Uid).
 
@@ -164,7 +164,7 @@ remove_user(Uid, _Server) ->
 -spec check_count_and_notify_user(Uid :: binary(), Server :: binary()) -> ok.
 check_count_and_notify_user(Uid, Server) ->
     {ok, Count} = model_whisper_keys:count_otp_keys(Uid),
-    ?INFO_MSG("Uid: ~s, Count: ~p, MinCount: ~p", [Uid, Count, ?MIN_OTP_KEY_COUNT]),
+    ?INFO("Uid: ~s, Count: ~p, MinCount: ~p", [Uid, Count, ?MIN_OTP_KEY_COUNT]),
     case Count < ?MIN_OTP_KEY_COUNT of
         true ->
             Message = #message{
@@ -181,7 +181,7 @@ check_count_and_notify_user(Uid, Server) ->
 
 -spec notify_key_subscribers(Uid :: binary(), Server :: binary()) -> ok.
 notify_key_subscribers(Uid, Server) ->
-    ?INFO_MSG("Uid: ~s", [Uid]),
+    ?INFO("Uid: ~s", [Uid]),
     {ok, Ouids} = model_whisper_keys:get_all_key_subscribers(Uid),
     Ojids = util:uids_to_jids(Ouids, Server),
     From = jid:make(Server),

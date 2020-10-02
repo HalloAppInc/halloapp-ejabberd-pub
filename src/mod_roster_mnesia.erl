@@ -124,11 +124,11 @@ import(LServer, <<"roster_version">>, [LUser, Ver]) ->
 
 need_transform({roster, {U, S, _}, _, _, _, _, _, _, _, _})
   when is_list(U) orelse is_list(S) ->
-    ?INFO_MSG("Mnesia table 'roster' will be converted to binary", []),
+    ?INFO("Mnesia table 'roster' will be converted to binary", []),
     true;
 need_transform({roster_version, {U, S}, Ver})
   when is_list(U) orelse is_list(S) orelse is_list(Ver) ->
-    ?INFO_MSG("Mnesia table 'roster_version' will be converted to binary", []),
+    ?INFO("Mnesia table 'roster_version' will be converted to binary", []),
     true;
 need_transform(_) ->
     false.

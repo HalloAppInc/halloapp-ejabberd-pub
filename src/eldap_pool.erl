@@ -57,7 +57,7 @@ start_link(Name, Hosts, Backups, Port, Rootdn, Passwd,
 			      of
 			    {ok, Pid} -> pg2:join(PoolName, Pid);
 			    Err ->
-                                  ?ERROR_MSG("Err = ~p", [Err]),
+                                  ?ERROR("Err = ~p", [Err]),
                                   error
 			  end
 		  end,
@@ -71,9 +71,9 @@ do_request(Name, {F, Args}) ->
       Pid when is_pid(Pid) ->
 	  case catch apply(eldap, F, [Pid | Args]) of
 	    {'EXIT', {timeout, _}} ->
-		?ERROR_MSG("LDAP request failed: timed out", []);
+		?ERROR("LDAP request failed: timed out", []);
 	    {'EXIT', Reason} ->
-		?ERROR_MSG("LDAP request failed: eldap:~p(~p)~nReason: ~p",
+		?ERROR("LDAP request failed: eldap:~p(~p)~nReason: ~p",
 			   [F, Args, Reason]),
 		{error, Reason};
 	    Reply -> Reply

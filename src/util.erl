@@ -154,7 +154,7 @@ to_integer(Data) ->
         "float" -> round(Data);
         "integer" -> Data;
         _ ->
-            ?ERROR_MSG("Failed converting data to integer: ~p", [Data]),
+            ?ERROR("Failed converting data to integer: ~p", [Data]),
             undefined
     end.
 
@@ -166,7 +166,7 @@ to_atom(Data) ->
         "boolean" -> Data;
         "list" -> list_to_atom(Data);
         _ ->
-            ?ERROR_MSG("Failed converting data to atom: ~p", [Data]),
+            ?ERROR("Failed converting data to atom: ~p", [Data]),
             undefined
     end.
 
@@ -178,7 +178,7 @@ to_binary(Data) ->
         "list" -> list_to_binary(Data);
         "integer" -> integer_to_binary(Data);
         _ ->
-            ?ERROR_MSG("Failed converting data to binary: ~p", [Data]),
+            ?ERROR("Failed converting data to binary: ~p", [Data]),
             <<>>
     end.
 
