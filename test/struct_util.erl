@@ -187,6 +187,20 @@ create_pb_iq(Id, Type, PayloadContent) ->
     }.
 
 
+create_group_avatar(Gid, Cdata) ->
+    #group_avatar{
+        gid = Gid,
+        cdata = Cdata
+    }.
+
+
+create_pb_group_avatar(Gid, Data) ->
+    #pb_group_avatar{
+        gid = Gid,
+        data = Data
+    }.
+
+
 create_group_post_st(Id, PublisherUid, PublisherName, Payload, Timestamp) ->
     #group_post_st{
         id = Id,

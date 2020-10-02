@@ -24,6 +24,12 @@ message Avatars {
 }
 
 
+message GroupAvatar {
+    string gid = 1;
+    bytes data = 2;
+}
+
+
 
 message CertMessage {
     int64 timestamp = 1;
@@ -395,6 +401,7 @@ message Iq {
         InvitesResponse invites_response = 24;
         NotificationPrefs notification_prefs = 25;
         GroupFeedItem group_feed_item = 26;
+        GroupAvatar group_avatar = 27;
     }
 }
 

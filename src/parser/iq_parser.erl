@@ -136,6 +136,8 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             groups_parser:proto_to_xmpp(GroupsStanzaRecord);
         #pb_group_stanza{} = GroupStanzaRecord ->
             groups_parser:proto_to_xmpp(GroupStanzaRecord);
+        #pb_group_avatar{} = GroupAvatarRecord ->
+            groups_parser:proto_to_xmpp(GroupAvatarRecord);
         #pb_client_log{} = ClientLogRecord ->
             client_log_parser:proto_to_xmpp(ClientLogRecord);
         #pb_name{} = NameRecord ->
