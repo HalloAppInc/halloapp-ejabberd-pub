@@ -35,6 +35,7 @@
     get_group/2,
     get_group_info/2,
     get_groups/1,
+    remove_user/2,
     set_name/3,
     set_avatar/3,
     delete_avatar/2,
@@ -58,13 +59,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-start(_Host, _Opts) ->
+start(Host, _Opts) ->
     ?INFO_MSG("start", []),
+    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
 
-stop(_Host) ->
+stop(Host) ->
     ?INFO_MSG("stop", []),
+    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
 
@@ -250,6 +253,14 @@ get_groups(Uid) ->
             end
         end,
         Gids).
+
+
+-spec remove_user(Uid :: uid(), Server :: binary()) -> ok.
+remove_user(Uid, _Server) ->
+    ?INFO_MSG("Uid: ~s", [Uid]),
+    Gids = model_groups:get_groups(Uid),
+    lists:foreach(fun(Gid) -> leave_group(Gid, Uid) end, Gids),
+    ok.
 
 
 -spec set_name(Gid :: gid(), Uid :: uid(), Name :: binary()) -> ok | {error, invalid_name | not_member}.

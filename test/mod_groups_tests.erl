@@ -170,6 +170,22 @@ leave_group_test() ->
     ?assertEqual({ok, false}, mod_groups:leave_group(Gid, ?UID2)),
     ok.
 
+
+remove_user_test() ->
+    setup(),
+    ?assertEqual(ok, mod_groups:remove_user(?UID1, <<>>)),
+    {ok, Group1, _AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    {ok, Group2} = mod_groups:create_group(?UID1, ?GROUP_NAME2),
+    Gid1 = Group1#group.gid,
+    Gid2 = Group2#group.gid,
+    ?assertEqual(ok, mod_groups:remove_user(?UID1, <<>>)),
+    ?assertEqual(false, model_groups:is_member(Gid1, ?UID1)),
+    ?assertEqual(false, model_groups:is_member(Gid2, ?UID1)),
+    ?assertEqual(true, model_groups:group_exists(Gid1)),
+    ?assertEqual(false, model_groups:group_exists(Gid2)),
+    ok.
+
+
 promote_admins_test() ->
     setup(),
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
