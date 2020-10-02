@@ -221,7 +221,7 @@ handle_call({wait_for, MatchFun}, _From, State) ->
                 {FoundPacket, _} ->
                     {FoundPacket, [X | NewQueue]}
             end
-        end, queue:to_list(Q), {undefined, []}),
+        end, {undefined, []}, queue:to_list(Q)),
     NewQueue2 = lists:reverse(NewQueueReversed),
 
     {Packet2, NewState2} = case {Packet, NewQueue2} of
@@ -357,7 +357,7 @@ network_receive_until(State, MatchFun) ->
     case MatchFun(Packet) of
         true ->
             % Remove packet from the rear/end of the queue, It should be the one we just received.
-            {{value, Packet}, Q2} = queue:out_r(Packet, NewState1#state.recv_q),
+            {{value, Packet}, Q2} = queue:out_r(NewState1#state.recv_q),
             NewState2 = NewState1#state{recv_q = Q2},
             {Packet, NewState2};
         false ->
