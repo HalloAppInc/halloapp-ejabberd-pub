@@ -34,7 +34,8 @@ xmpp_to_proto(XmppMsg) ->
             type = Message#message.type,
             to_uid = util_parser:xmpp_to_proto_uid(ToJid#jid.user),
             from_uid = PbFromUid,
-            payload = Content
+            payload = Content,
+            retry_count = Message#message.retry_count
         },
         ProtoMessage
     catch
@@ -97,7 +98,8 @@ proto_to_xmpp(ProtoMSG) ->
         type = ProtoMSG#pb_msg.type,
         to = PbToJid,
         from = PbFromJid,
-        sub_els = [SubEl]
+        sub_els = [SubEl],
+        retry_count = ProtoMSG#pb_msg.retry_count
     },
     XmppMSG.
 
