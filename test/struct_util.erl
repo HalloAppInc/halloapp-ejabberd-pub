@@ -529,7 +529,7 @@ create_pb_chat_retract(Id) ->
 
 
 create_pb_groupchat_retract(Id, Gid) ->
-    #pb_groupchat_retract{
+    #pb_group_chat_retract{
         id = Id,
         gid = Gid
     }.

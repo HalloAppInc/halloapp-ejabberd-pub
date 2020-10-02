@@ -128,7 +128,7 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
             groups_parser:proto_to_xmpp(GroupChatRecord);
         #pb_name{} = NameRecord ->
             name_parser:proto_to_xmpp(NameRecord);
-        #pb_groupchat_retract{} = GroupChatRetractRecord ->
+        #pb_group_chat_retract{} = GroupChatRetractRecord ->
             retract_parser:proto_to_xmpp(GroupChatRetractRecord);
         #pb_chat_retract{} = ChatRetractRecord ->
             retract_parser:proto_to_xmpp(ChatRetractRecord);

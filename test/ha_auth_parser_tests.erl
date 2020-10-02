@@ -31,8 +31,8 @@
     #pb_auth_request{
         uid = 10093,
         pwd = <<"TNpwdc">>,
-        cm = #pb_client_mode{mode = active},
-        cv = #pb_client_version{version = <<"2.3">>},
+        client_mode = #pb_client_mode{mode = active},
+        client_version = #pb_client_version{version = <<"2.3">>},
         resource = <<"android">>
     }
 ).

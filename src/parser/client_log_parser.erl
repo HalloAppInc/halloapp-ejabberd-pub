@@ -1,6 +1,6 @@
 -module(client_log_parser).
 
--include("client_log.hrl").
+-include("packets.hrl").
 -include("logger.hrl").
 -include("xmpp.hrl").
 

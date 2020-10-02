@@ -1,6 +1,0 @@
-syntax = "proto3";
-
-message cert_message {
-    int64 timestamp = 1;
-    bytes server_key = 2;
-}

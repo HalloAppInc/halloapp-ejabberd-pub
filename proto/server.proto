@@ -1,0 +1,644 @@
+
+syntax = "proto3";
+
+package server;
+
+option java_package = "com.halloapp.proto.server";
+option java_multiple_files = true;
+
+
+// Avatar
+
+message UploadAvatar {
+    string id = 1;
+    bytes data = 2;
+}
+
+message Avatar {
+    string id = 1;
+    int64 uid = 2;
+}
+
+message Avatars {
+    repeated Avatar avatars = 1;
+}
+
+
+
+message CertMessage {
+    int64 timestamp = 1;
+    bytes server_key = 2;
+}
+
+
+
+// Client Mode and Client Version
+
+message ClientMode {
+    enum Mode {
+        ACTIVE = 0;
+        PASSIVE = 1;
+    }
+    Mode mode = 1;
+}
+
+message ClientVersion {
+    string version = 1;
+    int64 expires_in_seconds = 2;
+}
+
+
+
+
+// Client Log
+
+message ClientLog {
+    repeated Count counts = 1;
+    repeated Event events = 2;
+}
+
+message Count {
+    string namespace = 1;
+    string metric = 2;
+    int64 count = 3;
+    repeated Dim dims = 4;
+}
+
+message Event {
+    string namespace = 1;
+    bytes event = 2;
+}
+
+message Dim {
+    string name = 1;
+    string value = 2;
+}
+
+
+
+// Contact-Sync
+
+message Contact {
+    enum Action {
+        ADD = 0;
+        DELETE = 1;
+    }
+    Action action = 1;
+    string raw = 2;
+    string normalized = 3;
+    int64 uid = 4;
+    string avatar_id = 5;
+    enum Role {
+        FRIENDS = 0;
+        NONE = 1;
+    }
+    Role role = 6;
+    string name = 7;
+}
+
+message ContactList {
+    enum Type {
+        FULL = 0;
+        DELTA = 1;
+        NORMAL = 2;
+    }
+    Type type = 1;
+    string sync_id = 2;
+    int32 batch_index = 3;
+    bool is_last = 4;
+    repeated Contact contacts = 5;
+}
+
+message ContactHash {
+    bytes hash = 1;
+}
+
+
+
+
+// Pubsub
+
+message Audience {
+    enum Type {
+        ALL = 0;
+        EXCEPT = 1;
+        ONLY = 2;
+    }
+    Type type = 1;
+    repeated int64 uids = 2;
+}
+
+message Post {
+    string id = 1;
+    int64 publisher_uid = 2;
+    bytes payload = 3;
+    Audience audience = 4;
+    int64 timestamp = 5;
+    string publisher_name = 6;
+}
+
+message Comment {
+    string id = 1;
+    string post_id = 2;
+    string parent_comment_id = 3;
+    int64 publisher_uid = 4;
+    string publisher_name = 5;
+    bytes payload = 6;
+    int64 timestamp = 7;
+}
+
+
+message ShareStanza {
+    int64 uid = 1;
+    repeated string post_ids = 2;
+    string result = 3;
+    string reason = 4;
+}
+
+
+message FeedItem {
+    enum Action {
+        PUBLISH = 0;
+        RETRACT = 1;
+        SHARE = 2;
+    }
+    Action action = 1;
+    oneof item {
+        Post post = 2;
+        Comment comment = 3;
+    }
+    repeated ShareStanza share_stanzas = 4;
+}
+
+message FeedItems {
+    int64 uid = 1;
+    repeated FeedItem items = 2;
+}
+
+
+message GroupFeedItem {
+    enum Action {
+        PUBLISH = 0;
+        RETRACT = 1;
+    }
+    Action action = 1;
+    string gid = 2;
+    string name = 3;
+    string avatar_id = 4;
+    oneof item {
+        Post post = 5;
+        Comment comment = 6;
+    }
+}
+
+
+
+
+// Definitions for group stanzas.
+
+message GroupMember {
+    enum Action {
+        ADD = 0;
+        REMOVE = 1;
+        PROMOTE = 2;
+        DEMOTE = 3;
+        LEAVE = 4;
+    }
+    Action action = 1;
+    int64 uid = 2;
+
+    enum Type {
+        MEMBER = 0;
+        ADMIN = 1;
+    }
+    Type type = 3;
+    string name = 4;
+    string avatar_id = 5;
+    string result = 6;
+    string reason = 7;
+}
+
+
+message GroupStanza {
+    enum Action {
+        SET = 0;
+        GET = 1;
+        CREATE = 2;
+        DELETE = 3;
+        LEAVE = 4;
+        CHANGE_AVATAR = 5;
+        CHANGE_NAME = 6;
+        MODIFY_ADMINS = 7;
+        MODIFY_MEMBERS = 8;
+        AUTO_PROMOTE_ADMINS = 9;
+        SET_NAME = 10;
+    }
+    Action action = 1;
+    string gid = 2;
+    string name = 3;
+    string avatar_id = 4;
+    int64 sender_uid = 5;
+    string sender_name = 6;
+    repeated GroupMember members = 7;
+}
+
+
+message GroupChat {
+    string gid = 1;
+    string name = 2;
+    string avatar_id = 3;
+    int64 sender_uid = 4;
+    string sender_name = 5;
+    int64 timestamp = 6;
+    bytes payload = 7;
+}
+
+message GroupsStanza {
+    enum Action {
+        GET = 0;
+    }
+    Action action = 1;
+    repeated GroupStanza group_stanzas = 2;
+}
+
+
+
+
+
+
+
+// Definitions for authentication packet.
+
+message AuthRequest {
+    int64 uid = 1;
+    string pwd = 2;
+    ClientMode client_mode = 3;
+    ClientVersion client_version = 4;
+    string resource = 5;
+}
+
+// Left them to be string for now, will update these later as necessary.
+message AuthResult {
+    string result = 1;
+    string reason = 2;
+    bytes props_hash = 3;
+}
+
+
+
+
+// Invites
+
+message Invite {
+    string phone = 1;
+    string result = 2;
+    string reason = 3;
+}
+
+
+message InvitesRequest {
+    repeated Invite invites = 1;
+}
+
+
+message InvitesResponse {
+    int32 invites_left = 1;
+    int64 time_until_refresh = 2;
+    repeated Invite invites = 3;
+}
+
+
+
+
+// Media Upload
+
+message MediaUrl {
+    string get = 1;
+    string put = 2;
+    string patch = 3;
+}
+
+message UploadMedia {
+    int64 size = 1;
+    MediaUrl url = 2;
+}
+
+
+// Chat
+
+message ChatStanza {
+    int64 timestamp = 1;
+    bytes payload = 2;
+    bytes enc_payload = 3;
+    // Temporarily added two payloads: one is for unencrypted and the other is encrypted.
+    // Clients currently send both of them at times.
+    bytes public_key = 4;
+    int64 one_time_pre_key_id = 5;
+    string sender_name = 6;
+}
+
+
+// Ping
+
+message Ping {
+}
+
+
+// Error
+
+message ErrorStanza {
+    string reason = 1;
+}
+
+
+// Name
+
+message Name {
+    int64 uid = 1;
+    string name = 2;
+}
+
+
+// IQ
+
+message Iq {
+    string id = 1;
+    enum Type {
+        GET = 0;
+        SET = 1;
+        RESULT = 2;
+        ERROR = 3;
+    }
+    Type type = 2;
+    oneof payload {
+        UploadMedia upload_media = 3;
+        ContactList contact_list = 4;
+        UploadAvatar upload_avatar = 5;
+        Avatar avatar = 6;
+        Avatars avatars = 7;
+        ClientMode client_mode = 8;
+        ClientVersion client_version = 9;
+        PushRegister push_register = 10;
+        WhisperKeys whisper_keys = 11;
+        Ping ping = 12;
+        FeedItem feed_item = 13;
+        PrivacyList privacy_list = 14;
+        PrivacyListResult privacy_list_result = 15;
+        PrivacyLists privacy_lists = 16;
+        GroupStanza group_stanza = 17;
+        GroupsStanza groups_stanza = 18;
+        ClientLog client_log = 19;
+        Name name = 20;
+        ErrorStanza error_stanza = 21;
+        Props props = 22;
+        InvitesRequest invites_request = 23;
+        InvitesResponse invites_response = 24;
+        NotificationPrefs notification_prefs = 25;
+        GroupFeedItem group_feed_item = 26;
+    }
+}
+
+
+// Message
+
+message Msg {
+    string id = 1;
+    enum Type {
+        NORMAL = 0;
+        ERROR = 1;
+        GROUPCHAT = 2;
+        HEADLINE = 3;
+        CHAT = 4;       // Not used yet.
+    }
+    Type type = 2;
+    int64 to_uid = 3;
+    int64 from_uid = 4;
+    oneof payload {
+        ContactList contact_list = 5;
+        Avatar avatar = 6;
+        WhisperKeys whisper_keys = 7;
+        SeenReceipt seen_receipt = 8;
+        DeliveryReceipt delivery_receipt = 9;
+        ChatStanza chat_stanza = 10;
+        FeedItem feed_item = 11;
+        FeedItems feed_items = 12;
+        ContactHash contact_hash = 13;
+        GroupStanza group_stanza = 14;
+        GroupChat group_chat = 15;
+        Name name = 16;
+        ErrorStanza error_stanza = 17;
+        GroupChatRetract groupchat_retract = 18;
+        ChatRetract chat_retract = 19;
+        GroupFeedItem group_feed_item = 20;
+    }
+    int32 retry_count = 21;
+}
+
+
+// Presence
+
+message Presence {
+    string id = 1;
+    enum Type {
+        AVAILABLE = 0;
+        AWAY = 1;
+        SUBSCRIBE = 2;
+        UNSUBSCRIBE = 3;
+    }
+    Type type = 2;
+    int64 uid = 3;
+    int64 last_seen = 4;
+}
+
+
+// Chat State
+
+message ChatState {
+    enum Type {
+        AVAILABLE = 0;
+        TYPING = 1;
+    }
+    Type type = 1;
+    string thread_id = 2;
+    enum ThreadType {
+        CHAT = 0;
+        GROUP_CHAT = 1;
+    }
+    ThreadType thread_type = 3;
+    int64 from_uid = 4;
+}
+
+
+// Ack
+
+message Ack {
+    string id = 1;
+    int64 timestamp = 2;
+}
+
+
+// Error packet: Only to be sent by the server to the client.
+
+message HaError {
+    string reason = 1;
+}
+
+
+// Super Packet
+
+message Packet {
+    oneof stanza {
+        Msg msg = 1;
+        Iq iq = 2;
+        Ack ack = 3;
+        Presence presence = 4;
+        HaError ha_error = 5;
+        ChatState chat_state = 6;
+    }
+}
+
+
+
+
+
+
+// Privacy-Lists
+
+message UidElement {
+    enum Action {
+        ADD = 0;
+        DELETE = 1;
+    }
+    Action action = 1;
+    int64 uid = 2;
+}
+
+message PrivacyList {
+    enum Type {
+        ALL = 0;
+        BLOCK = 1;
+        EXCEPT = 2;
+        MUTE = 3;
+        ONLY = 4;
+    }
+    Type type = 1;
+    repeated UidElement uid_elements = 2;
+    bytes hash = 3;
+}
+
+
+message PrivacyListResult {
+    string result = 1;
+    string reason = 2;
+    bytes hash = 3;
+}
+
+
+message PrivacyLists {
+    enum Type {
+        ALL = 0;
+        BLOCK = 1;
+        EXCEPT = 2;
+    }
+    Type active_type = 1;
+    repeated PrivacyList lists = 2;
+}
+
+
+
+
+// Push Tokens
+
+message PushToken {
+    enum Os {
+        ANDROID = 0;
+        IOS = 1;
+        IOS_DEV = 2;
+    }
+    Os os = 1;
+    string token = 2;
+}
+
+message PushRegister {
+    PushToken push_token = 1;
+}
+
+message PushPref {
+    enum Name {
+        POST = 0;
+        COMMENT = 1;
+    }
+    Name name = 1;
+    bool value = 2;
+}
+
+message NotificationPrefs {
+    repeated PushPref push_prefs = 1;
+}
+
+
+
+// Seen and Delivery Receipts
+
+message SeenReceipt {
+    string id = 1;
+    string thread_id = 2;
+    int64 timestamp = 3;
+}
+
+message DeliveryReceipt {
+    string id = 1;
+    string thread_id = 2;
+    int64 timestamp = 3;
+}
+
+
+
+
+// retract stanza
+
+message GroupChatRetract {
+    string id = 1;
+    string gid = 2;
+}
+
+message ChatRetract {
+    string id = 1;
+}
+
+
+
+
+// Definitions for server props.
+
+message Prop {
+    string name = 1;
+    string value = 2;
+}
+
+message Props {
+    bytes hash = 1;
+    repeated Prop props = 2;
+}
+
+
+
+
+// Whisper Encryption
+
+message WhisperKeys {
+    int64 uid = 1;
+    enum Action {
+        NORMAL = 0;
+        ADD = 1;
+        COUNT = 2;
+        GET = 3;
+        SET = 4;
+        UPDATE = 5;
+    }
+    Action action = 2;
+    bytes identity_key = 3;
+    bytes signed_key = 4;
+    int32 otp_key_count = 5;
+    repeated bytes one_time_keys = 6;
+}

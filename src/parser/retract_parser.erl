@@ -20,7 +20,7 @@ xmpp_to_proto(#chat_retract_st{id = Id}) ->
         id = Id
     };
 xmpp_to_proto(#groupchat_retract_st{id = Id, gid = Gid}) ->
-    #pb_groupchat_retract{
+    #pb_group_chat_retract{
         id = Id,
         gid = Gid
     }.
@@ -34,7 +34,7 @@ proto_to_xmpp(#pb_chat_retract{id = Id}) ->
     #chat_retract_st{
         id = Id
     };
-proto_to_xmpp(#pb_groupchat_retract{id = Id, gid = Gid}) ->
+proto_to_xmpp(#pb_group_chat_retract{id = Id, gid = Gid}) ->
     #groupchat_retract_st{
         id = Id,
         gid = Gid

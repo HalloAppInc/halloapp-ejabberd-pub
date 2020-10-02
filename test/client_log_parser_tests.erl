@@ -10,7 +10,7 @@
 -author("nikola").
 
 -include_lib("eunit/include/eunit.hrl").
--include("client_log.hrl").
+-include("packets.hrl").
 -include("xmpp.hrl").
 
 %% -------------------------------------------- %%

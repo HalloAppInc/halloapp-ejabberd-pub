@@ -16,7 +16,6 @@
 -include("logger.hrl").
 -include("ha_types.hrl").
 -include("packets.hrl").
--include("ha_auth.hrl").
 
 %% API
 -export([
@@ -174,8 +173,8 @@ handle_call({login, Uid, Passwd}, _From, State) ->
     HaAuth = #pb_auth_request{
         uid = util:to_integer(Uid),
         pwd = Passwd,
-        cm = #pb_client_mode{mode = active},
-        cv = #pb_client_version{version = <<"HalloApp/Android0.82D">>},
+        client_mode = #pb_client_mode{mode = active},
+        client_version = #pb_client_version{version = <<"HalloApp/Android0.82D">>},
         resource = <<"android">>
     },
     ct:pal("before send"),
