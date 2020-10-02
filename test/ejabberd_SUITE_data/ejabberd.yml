@@ -1,6 +1,5 @@
 include_config_file:
   - macros.yml
-  #- ejabberd.extauth.yml
   #- ejabberd.ldap.yml
   #- ejabberd.mnesia.yml
   #- ejabberd.mysql.yml
@@ -15,7 +14,6 @@ include_config_file:
   #mnesia.localhost: MNESIA_CONFIG
   #redis.localhost: REDIS_CONFIG
   #ldap.localhost: LDAP_CONFIG
-  #extauth.localhost: EXTAUTH_CONFIG
   #localhost:
   #  auth_method:
   #    - internal
@@ -27,7 +25,6 @@ hosts:
   #- redis.localhost
   #- mysql.localhost
   #- pgsql.localhost
-  #- extauth.localhost
   #- ldap.localhost
   #- sqlite.localhost
 

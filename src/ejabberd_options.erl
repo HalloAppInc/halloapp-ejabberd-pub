@@ -134,12 +134,6 @@ opt_type(ext_api_url) ->
     econf:url();
 opt_type(ext_api_headers) ->
     econf:binary();
-opt_type(extauth_pool_name) ->
-    econf:binary();
-opt_type(extauth_pool_size) ->
-    econf:pos_int();
-opt_type(extauth_program) ->
-    econf:string();
 opt_type(fqdn) ->
     econf:list_or_single(econf:domain());
 opt_type(hide_sensitive_log_data) ->
@@ -497,9 +491,6 @@ options() -> [%% Top-priority options
     {ext_api_http_pool_size, 100},
     {ext_api_path_oauth, <<"/oauth">>},
     {ext_api_url, <<"http://localhost/api">>},
-    {extauth_pool_name, undefined},
-    {extauth_pool_size, undefined},
-    {extauth_program, undefined},
     {fqdn, fun fqdn/1},
     {hide_sensitive_log_data, false},
     {host_config, []},
@@ -646,6 +637,7 @@ options() -> [%% Top-priority options
     {websocket_timeout, timer:minutes(5)},
     {jwt_key, undefined},
     {jwt_auth_only_rule, none}].
+
 
 -spec globals() -> [atom()].
 globals() -> [

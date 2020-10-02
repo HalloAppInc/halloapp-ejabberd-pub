@@ -199,16 +199,6 @@ filter(_Host, default_ram_db, internal, _) ->
     {true, {default_ram_db, mnesia}};
 filter(_Host, default_ram_db, odbc, _) ->
     {true, {default_ram_db, sql}};
-filter(_Host, extauth_cache, _, _) ->
-    ?WARNING("Option 'extauth_cache' is deprecated "
-		 "and has no effect, use authentication "
-		 "or global cache configuration options: "
-		 "auth_use_cache, auth_cache_life_time, "
-		 "use_cache, cache_life_time, and so on", []),
-    false;
-filter(_Host, extauth_instances, Val, _) ->
-    warn_replaced_option(extauth_instances, extauth_pool_size),
-    {true, {extauth_pool_size, Val}};
 filter(_Host, Opt, Val, _) when Opt == outgoing_s2s_timeout;
 				Opt == s2s_dns_timeout ->
     warn_huge_timeout(Opt, Val),

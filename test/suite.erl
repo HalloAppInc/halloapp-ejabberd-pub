@@ -200,7 +200,7 @@ get_config_backends() ->
 		  end,
     application:load(ejabberd),
     EnabledBackends = application:get_env(ejabberd, enabled_backends, EnvBackends),
-    misc:intersection(EnvBackends, [mnesia, ldap, extauth|EnabledBackends]).
+    misc:intersection(EnvBackends, [mnesia, ldap | EnabledBackends]).
 
 process_config_tpl(Content, []) ->
     Content;

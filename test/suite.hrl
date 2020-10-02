@@ -95,11 +95,10 @@
 -define(PGSQL_VHOST, <<"pgsql.localhost">>).
 -define(SQLITE_VHOST, <<"sqlite.localhost">>).
 -define(LDAP_VHOST, <<"ldap.localhost">>).
--define(EXTAUTH_VHOST, <<"extauth.localhost">>).
 -define(S2S_VHOST, <<"s2s.localhost">>).
 -define(UPLOAD_VHOST, <<"upload.localhost">>).
 
--define(BACKENDS, [mnesia, redis, mysql, pgsql, sqlite, ldap, extauth]).
+-define(BACKENDS, [mnesia, redis, mysql, pgsql, sqlite, ldap]).
 
 insert(Val, N, Tuple) ->
     L = tuple_to_list(Tuple),

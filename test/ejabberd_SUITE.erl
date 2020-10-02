@@ -48,10 +48,7 @@ suite() ->
 init_per_suite(Config) ->
     NewConfig = init_config(Config),
     DataDir = proplists:get_value(data_dir, NewConfig),
-    {ok, CWD} = file:get_cwd(),
-    ExtAuthScript = filename:join([DataDir, "extauth.py"]),
     LDIFFile = filename:join([DataDir, "ejabberd.ldif"]),
-    {ok, _} = file:copy(ExtAuthScript, filename:join([CWD, "extauth.py"])),
     {ok, _} = ldap_srv:start(LDIFFile),
     inet_db:add_host({127,0,0,1}, [binary_to_list(?S2S_VHOST),
 				   binary_to_list(?MNESIA_VHOST),
@@ -143,8 +140,6 @@ do_init_per_group(sqlite, Config) ->
     end;
 do_init_per_group(ldap, Config) ->
     set_opt(server, ?LDAP_VHOST, Config);
-do_init_per_group(extauth, Config) ->
-    set_opt(server, ?EXTAUTH_VHOST, Config);
 do_init_per_group(s2s, Config) ->
     ejabberd_config:set_option({s2s_use_starttls, ?COMMON_VHOST}, required),
     ejabberd_config:set_option(ca_file, "ca.pem"),
@@ -185,8 +180,6 @@ end_per_group(sqlite, _Config) ->
 end_per_group(no_db, _Config) ->
     ok;
 end_per_group(ldap, _Config) ->
-    ok;
-end_per_group(extauth, _Config) ->
     ok;
 end_per_group(component, _Config) ->
     ok;
@@ -434,12 +427,6 @@ ldap_tests() ->
     [{ldap_tests, [sequence],
       []}].
 
-extauth_tests() ->
-    [{extauth_tests, [sequence],
-      [test_auth,
-       test_auth_fail,
-       test_unregister]}].
-
 component_tests() ->
     [{component_connect, [parallel],
       [test_connect_bad_xml,
@@ -478,19 +465,17 @@ s2s_tests() ->
        bad_nonza,
        codec_failure]}].
 
-groups() ->
-    [
+groups() -> [
     {ldap, [sequence], ldap_tests()},
-     {extauth, [sequence], extauth_tests()},
-     {no_db, [sequence], no_db_tests()},
-     {component, [sequence], component_tests()},
-     {s2s, [sequence], s2s_tests()},
-     {mnesia, [sequence], db_tests(mnesia)},
-     {redis, [sequence], db_tests(redis)},
-     {mysql, [sequence], db_tests(mysql)},
-     {pgsql, [sequence], db_tests(pgsql)},
-     {sqlite, [sequence], db_tests(sqlite)}
-    ].
+    {no_db, [sequence], no_db_tests()},
+    {component, [sequence], component_tests()},
+    {s2s, [sequence], s2s_tests()},
+    {mnesia, [sequence], db_tests(mnesia)},
+    {redis, [sequence], db_tests(redis)},
+    {mysql, [sequence], db_tests(mysql)},
+    {pgsql, [sequence], db_tests(pgsql)},
+    {sqlite, [sequence], db_tests(sqlite)}
+].
 
 all() ->
     [
@@ -501,7 +486,6 @@ all() ->
 %%     {group, mysql},
 %%     {group, pgsql},
 %%     {group, sqlite},
-%%     {group, extauth},
 %%     {group, component},
 %%     {group, s2s},
      stop_ejabberd].

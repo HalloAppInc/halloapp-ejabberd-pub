@@ -42,9 +42,6 @@
 -export([ext_api_http_pool_size/0, ext_api_http_pool_size/1]).
 -export([ext_api_path_oauth/0]).
 -export([ext_api_url/0, ext_api_url/1]).
--export([extauth_pool_name/0, extauth_pool_name/1]).
--export([extauth_pool_size/0, extauth_pool_size/1]).
--export([extauth_program/0, extauth_program/1]).
 -export([fqdn/0]).
 -export([hide_sensitive_log_data/0, hide_sensitive_log_data/1]).
 -export([host_config/0]).
@@ -377,27 +374,6 @@ ext_api_url() ->
 -spec ext_api_url(global | binary()) -> binary().
 ext_api_url(Host) ->
     ejabberd_config:get_option({ext_api_url, Host}).
-
--spec extauth_pool_name() -> 'undefined' | binary().
-extauth_pool_name() ->
-    extauth_pool_name(global).
--spec extauth_pool_name(global | binary()) -> 'undefined' | binary().
-extauth_pool_name(Host) ->
-    ejabberd_config:get_option({extauth_pool_name, Host}).
-
--spec extauth_pool_size() -> 'undefined' | pos_integer().
-extauth_pool_size() ->
-    extauth_pool_size(global).
--spec extauth_pool_size(global | binary()) -> 'undefined' | pos_integer().
-extauth_pool_size(Host) ->
-    ejabberd_config:get_option({extauth_pool_size, Host}).
-
--spec extauth_program() -> 'undefined' | string().
-extauth_program() ->
-    extauth_program(global).
--spec extauth_program(global | binary()) -> 'undefined' | string().
-extauth_program(Host) ->
-    ejabberd_config:get_option({extauth_program, Host}).
 
 -spec fqdn() -> [binary()].
 fqdn() ->
