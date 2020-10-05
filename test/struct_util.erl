@@ -549,3 +549,18 @@ create_pb_groupchat_retract(Id, Gid) ->
     }.
 
 
+create_error_st(Reason) ->
+    util:err(Reason).
+
+
+create_stanza_error(Reason) ->
+    #stanza_error{reason = Reason}.
+
+
+create_pb_error(Reason) ->
+    #pb_error_stanza{
+        reason = Reason
+    }.
+
+
+

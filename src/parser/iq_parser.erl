@@ -83,7 +83,9 @@ iq_payload_mapping(SubEl) ->
         notification_prefs ->
             push_parser:xmpp_to_proto(SubEl);
         group_feed_st ->
-            group_feed_parser:xmpp_to_proto(SubEl)
+            group_feed_parser:xmpp_to_proto(SubEl);
+        stanza_error ->
+            #pb_error_stanza{reason = util:to_binary(SubEl#stanza_error.reason)}
     end,
     Payload.
 
