@@ -28,17 +28,20 @@
     broadcast_event/4,
     send_post_notification/6,
     send_comment_notification/9,
-    filter_feed_items/1,
-    get_old_payload/1
+    filter_feed_items/2,
+    get_old_payload/1,
+    add_friend/3
 ]).
 
 
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_FEED, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 50),
     ok.
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_FEED),
+    ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -124,6 +127,16 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
             process_share_posts(Uid, Server, SharePostSt)
         end, SharePostStanzas),
     xmpp:make_iq_result(IQ, #feed_st{action = Action, share_posts = ResultSharePostStanzas}).
+
+
+-spec add_friend(Uid :: uid(), Server :: binary(), Ouid :: uid()) -> ok.
+add_friend(Uid, Server, Ouid) ->
+    ?INFO("Uid: ~s, Ouid: ~s", [Uid, Ouid]),
+    % Posts from Uid to Ouid
+    send_old_items(Uid, Ouid, Server),
+    % Posts from Ouid to Uid
+    send_old_items(Ouid, Uid, Server),
+    ok.
 
 
 %%====================================================================
@@ -513,38 +526,49 @@ send_post_notification(PostId, Payload, Action, Uid, FeedAudienceSet, TimestampM
 
 
 %% TODO(murali@): change this logic to send items from redis by using audience list types.
--spec send_old_items_to_contact(Uid :: uid(), Server :: binary(), ContactId :: binary()) -> ok.
-send_old_items_to_contact(Uid, Server, ContactId) ->
-    {ok, Items} = model_feed:get_7day_user_feed(Uid),
+-spec send_old_items(FromUid :: uid(), ToUid :: uid(), Server :: binary()) -> ok.
+send_old_items(FromUid, ToUid, Server) ->
+    ?INFO("sending old items of ~s, to ~s", [FromUid, ToUid]),
 
-    {FilteredPosts, FilteredComments} = filter_feed_items(Items),
+    {ok, FeedItems} = model_feed:get_7day_user_feed(FromUid),
+    {FilteredPosts, FilteredComments} = filter_feed_items(ToUid, FeedItems),
     PostStanzas = lists:map(fun convert_posts_to_stanzas/1, FilteredPosts),
     CommentStanzas = lists:map(fun convert_comments_to_stanzas/1, FilteredComments),
 
-    %% TODO(murali@): remove this code after successful migration to redis.
-    {ok, PubsubItems} = mod_feed_mnesia:get_all_items(<<"feed-", Uid/binary>>),
-    {PubsubPostStanzas, PubsubCommentStanzas} = filter_and_transform_pubsub_items([], PubsubItems),
-    MsgType = normal,
-    From = jid:make(Server),
-    Packet = #message{
-        id = util:new_msg_id(),
-        to = jid:make(ContactId, Server),
-        from = From,
-        type = MsgType,
-        sub_els = [#feed_st{
-            posts = PostStanzas ++ PubsubPostStanzas,
-            comments = CommentStanzas ++ PubsubCommentStanzas}]
-    },
-    ejabberd_router:route(Packet).
+    ?INFO_MSG("sending FromUid: ~s ToUid: ~s ~p posts and ~p comments",
+        [FromUid, ToUid, length(PostStanzas), length(CommentStanzas)]),
+    ?INFO_MSG("sending FromUid: ~s ToUid: ~s posts: ~p",
+        [FromUid, ToUid, [P#post.id || P <- FilteredPosts]]),
 
+    case PostStanzas of
+        [] -> ok;
+        _ ->
+            Packet = #message{
+                id = util:new_msg_id(),
+                to = jid:make(ToUid, Server),
+                from = jid:make(Server),
+                type = normal,
+                sub_els = [#feed_st{
+                    posts = PostStanzas,
+                    comments = CommentStanzas}]
+            },
+            ejabberd_router:route(Packet),
+            ok
+    end.
 
--spec filter_feed_items(Items :: [post()] | [comment()]) -> {[post()], [comment()]}.
-filter_feed_items(Items) ->
+% Uid is the user to which we want to send those posts.
+% Posts have to be either with audience_type all or the Uid has to be in the audience_list
+-spec filter_feed_items(Uid :: uid(), Items :: [post()] | [comment()]) -> {[post()], [comment()]}.
+filter_feed_items(Uid, Items) ->
     {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
     %% TODO(murali@): remove this function after all clients migrate to the new API.
     FilteredPosts = lists:filter(
             fun(Post) ->
-                Post#post.audience_type =:= all
+                case Post#post.audience_type of
+                    all -> true;
+                    _ ->
+                        lists:member(Uid, Post#post.audience_list)
+                end
             end, Posts),
     FilteredPostIdsList = lists:map(fun(Post) -> Post#post.id end, FilteredPosts),
     FilteredPostIdsSet = sets:from_list(FilteredPostIdsList),

@@ -38,9 +38,21 @@ setup() ->
     mnesia:start(),
     ejabberd_mnesia:start(),
     mod_feed_mnesia:start(undefined, []),
+    mod_ha_feed:start(?SERVER, []),
     mnesia:wait_for_tables([psnode, item], 10000),
     clear(),
     ok.
+
+
+setup2() ->
+    stringprep:start(),
+    gen_iq_handler:start(ejabberd_local),
+    ejabberd_hooks:start_link(),
+    mod_redis:start(undefined, []),
+    mod_ha_feed:start(?SERVER, []),
+    clear(),
+    ok.
+
 
 
 clear() ->
@@ -427,9 +439,41 @@ share_post_iq() ->
     ResultIQ = mod_ha_feed:process_local_iq(ShareIQ),
     ExpectedResultIQ = get_share_iq_result(?UID1, ?UID2, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
+    % TODO: the old tests are not working
+    ?assertEqual(1, 2),
     ok.
 
 share_post_iq_test() ->
     {timeout, 30,
         fun share_post_iq/0}.
+
+
+add_friend_test() ->
+    setup2(),
+    meck:new(ejabberd_router, [passthrough]),
+    meck:expect(ejabberd_router, route, fun(P) ->
+        #message {
+            id = _Id,
+            to = To,
+            from = From,
+            type = MsgType,
+            sub_els = [FeedSt]
+        } = P,
+        ?assertEqual(jid:make(?UID2, ?SERVER), To),
+        ?assertEqual(jid:make(?SERVER), From),
+        ?assertEqual(normal, MsgType),
+        #feed_st{
+            posts = [PostSt],
+            comments = []
+        } = FeedSt,
+        ?assertEqual(?POST_ID1, PostSt#post_st.id),
+        ?assertEqual(?PAYLOAD1, PostSt#post_st.payload),
+        ok
+    end),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
+    model_friends:add_friend(?UID1, ?UID2),
+    mod_ha_feed:add_friend(?UID1, ?SERVER, ?UID2),
+    ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),
+    meck:unload(ejabberd_router),
+    ok.
 
