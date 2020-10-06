@@ -91,8 +91,12 @@ retract_post_test() ->
     Timestamp1 = util:now_ms(),
     ?assertEqual(false, model_feed:is_post_deleted(?POST_ID1)),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
+            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+
     ?assertEqual(false, model_feed:is_post_deleted(?POST_ID1)),
     ok = model_feed:retract_post(?POST_ID1, ?UID1),
+    ?assertEqual({error, missing}, model_feed:get_comment(?COMMENT_ID1, ?POST_ID1)),
     ?assertEqual({error, missing}, model_feed:get_post(?POST_ID1)),
     ?assertEqual(true, model_feed:is_post_deleted(?POST_ID1)),
     ok.
@@ -104,6 +108,7 @@ retract_comment_test() ->
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+
     ok = model_feed:retract_comment(?COMMENT_ID1, ?POST_ID1),
     ?assertEqual({error, missing}, model_feed:get_comment(?COMMENT_ID1, ?POST_ID1)),
     ok.

@@ -48,7 +48,7 @@
     is_post_owner/2,
     remove_all_user_posts/1,
     add_uid_to_audience/2,
-    is_post_deleted/1   %% test.
+    is_post_deleted/1    %% test.
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -89,7 +89,6 @@ mod_options(_Host) ->
         TimestampMs :: integer()) -> ok | {error, any()}.
 publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, TimestampMs) ->
     DeadlineMs = TimestampMs - ?POST_TTL_MS,
-    CleanupCommand = get_cleanup_command(Uid, DeadlineMs),
     [{ok, _}, {ok, _}, {ok, _}, {ok, _}] = qp([
             ["HSET", post_key(PostId),
                 ?FIELD_UID, Uid,
@@ -99,10 +98,11 @@ publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, Timestamp
             ["SADD", post_audience_key(PostId) | FeedAudienceList],
             ["EXPIRE", post_key(PostId), ?POST_EXPIRATION],
             ["EXPIRE", post_audience_key(PostId), ?POST_EXPIRATION]]),
-    [{ok, _}, {ok, _}, {ok, _}] = qp([
-            CleanupCommand,
+    [{ok, _}, {ok, _}] = qp([
             ["ZADD", reverse_post_key(Uid), TimestampMs, PostId],
             ["EXPIRE", reverse_post_key(Uid), ?POST_EXPIRATION]]),
+    CleanupCommands = get_cleanup_commands(Uid, DeadlineMs),
+    [{ok, _}, {ok, _}] = qp(CleanupCommands),
     ok.
 
 
@@ -112,6 +112,7 @@ publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, Timestamp
         Payload :: binary(), TimestampMs :: integer()) -> ok | {error, any()}.
 publish_comment(CommentId, PostId, PublisherUid,
         ParentCommentId, PushList, Payload, TimestampMs) ->
+    DeadlineMs = TimestampMs - ?POST_TTL_MS,
     {ok, TTL} = q(["TTL", post_key(PostId)]),
     [{ok, _}, {ok, _}, {ok, _}, {ok, _}] = qp([
             ["HSET", comment_key(CommentId, PostId),
@@ -125,6 +126,10 @@ publish_comment(CommentId, PostId, PublisherUid,
     [{ok, _}, {ok, _}] = qp([
             ["ZADD", post_comments_key(PostId), TimestampMs, CommentId],
             ["EXPIRE", post_comments_key(PostId), TTL]]),
+    {ok, _} = q(
+            ["ZADD", reverse_comment_key(PublisherUid), TimestampMs, comment_key(CommentId, PostId)]),
+    CleanupCommands = get_cleanup_commands(PublisherUid, DeadlineMs),
+    [{ok, _}, {ok, _}] = qp(CleanupCommands),
     ok.
 
 
@@ -146,12 +151,28 @@ retract_post(PostId, Uid) ->
 -spec delete_post(PostId :: binary(), Uid :: uid()) -> ok | {error, any()}.
 delete_post(PostId, Uid) ->
     {ok, CommentIds} = q(["ZRANGEBYSCORE", post_comments_key(PostId), "-inf", "+inf"]),
+
+    %% Get all comment keys.
     CommentKeys = [[comment_key(CommentId, PostId), comment_push_list_key(CommentId, PostId)] || CommentId <- CommentIds],
     FinalKeys = lists:flatten(CommentKeys),
+
+    %% Cleanup reverse index of comments.
+    %% TODO(murali@): remove this cleanup after adding the deleted field for comments.
+    Results = qp([
+            ["HGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID] || CommentId <- CommentIds]),
+    ZippedResults = lists:zip(Results, CommentIds),
+    CleanupCommands = [["ZREM", reverse_comment_key(Uid), comment_key(CommentId, PostId)]
+            || {{ok, PublisherUid}, CommentId} <- ZippedResults, PublisherUid =/= undefined],
+    lists:foreach(fun(CleanupCommand) -> {ok, _} = q(CleanupCommand) end, CleanupCommands),
+
+    %% Delete content in post, delete all comments, leave a tombstone for the post.
     [{ok, _}, {ok, _}, {ok, _}] = qp([
             ["DEL", post_audience_key(PostId), post_comments_key(PostId) | FinalKeys],
             ["HDEL", post_key(PostId), ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE],
             ["RENAME", post_key(PostId), deleted_post_key(PostId)]]),
+
+    %% Cleanup reverse index for posts.
+    %% TODO(murali@): remove this cleanup after adding the deleted field.
     {ok, _} = q(["ZREM", reverse_post_key(Uid), PostId]),
     ok.
 
@@ -164,10 +185,14 @@ is_post_deleted(PostId) ->
 
 -spec retract_comment(CommentId :: binary(), PostId :: binary()) -> ok | {error, any()}.
 retract_comment(CommentId, PostId) ->
+    {ok, PublisherUid} = q(["HGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID]),
     [{ok, _}, {ok, _}, {ok, _}] = qp([
             ["DEL", comment_key(CommentId, PostId)],
             ["DEL", comment_push_list_key(CommentId, PostId)],
             ["ZREM", post_comments_key(PostId), CommentId]]),
+    %% Cleanup reverse index for commentId
+    %% TODO(murali@): remove this cleanup after adding the deleted field.
+    {ok, _} = q(["ZREM", reverse_comment_key(PublisherUid), comment_key(CommentId, PostId)]),
     ok.
 
 
@@ -327,14 +352,17 @@ get_user_feed(Uid, DeadlineMs) ->
 cleanup_old_posts(Uid) ->
     NowMs = util:now_ms(),
     DeadlineMs = NowMs - ?POST_TTL_MS,
-    CleanupCommand = get_cleanup_command(Uid, DeadlineMs),
-    {ok, _} = q(CleanupCommand),
+    CleanupCommands = get_cleanup_commands(Uid, DeadlineMs),
+    [{ok, _}, {ok, _}] = qp(CleanupCommands),
     ok.
 
 
--spec get_cleanup_command(Uid :: uid(), DeadlineMs :: integer()) -> [iodata()].
-get_cleanup_command(Uid, DeadlineMs) ->
-    ["ZREMRANGEBYSCORE", reverse_post_key(Uid), "-inf", integer_to_binary(DeadlineMs)].
+-spec get_cleanup_commands(Uid :: uid(), DeadlineMs :: integer()) -> [iodata()].
+get_cleanup_commands(Uid, DeadlineMs) ->
+    [
+        ["ZREMRANGEBYSCORE", reverse_post_key(Uid), "-inf", integer_to_binary(DeadlineMs)],
+        ["ZREMRANGEBYSCORE", reverse_comment_key(Uid), "-inf", integer_to_binary(DeadlineMs)]
+    ].
 
 
 -spec get_posts(PostIds :: [binary()]) -> [post()].
@@ -377,6 +405,15 @@ decode_audience_type(<<"o">>) -> only;
 decode_audience_type(_) -> undefined.
 
 
+decode_comment_key(CommentKey) ->
+    [Part1, Part2] = re:split(CommentKey, "}:"),
+    CommentKeyPrefix = ?COMMENT_KEY,
+    %% this is not nice?
+    <<CommentKeyPrefix:3/binary, "{", PostId/binary>> = Part1,
+    CommentId = Part2,
+    {PostId, CommentId}.
+
+
 q(Command) -> ecredis:q(ecredis_feed, Command).
 qp(Commands) -> ecredis:qp(ecredis_feed, Commands).
 
@@ -413,4 +450,9 @@ post_comments_key(PostId) ->
 -spec reverse_post_key(Uid :: uid()) -> binary().
 reverse_post_key(Uid) ->
     <<?REVERSE_POST_KEY/binary, "{", Uid/binary, "}">>.
+
+
+-spec reverse_comment_key(Uid :: uid()) -> binary().
+reverse_comment_key(Uid) ->
+    <<?REVERSE_COMMENT_KEY/binary, "{", Uid/binary, "}">>.
 
