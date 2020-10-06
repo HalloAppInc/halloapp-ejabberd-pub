@@ -549,6 +549,7 @@ send_old_items(FromUid, ToUid, Server) ->
                 from = jid:make(Server),
                 type = normal,
                 sub_els = [#feed_st{
+                    action = share,
                     posts = PostStanzas,
                     comments = CommentStanzas}]
             },
