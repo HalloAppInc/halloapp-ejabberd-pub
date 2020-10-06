@@ -12,60 +12,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% test data
-%% -------------------------------------------- %%
-
--define(NS1, <<"ns1">>).
--define(NS2, <<"ns2">>).
--define(METRIC1, <<"m1">>).
--define(METRIC2, <<"m2">>).
--define(COUNT1, 43).
--define(COUNT2, 54).
--define(D1NAME, <<"d1name">>).
--define(D2NAME, <<"d2name">>).
--define(D1VALUE1, <<"d1value1">>).
--define(D1VALUE2, <<"d1value2">>).
--define(D2VALUE1, <<"d2value1">>).
--define(EVENT1, <<"event1">>).
--define(EVENT2, <<"event2">>).
-
--define(XMPP_CLIENT_LOG,
-    #client_log_st{
-        counts = [
-            #count_st{namespace = ?NS1, metric = ?METRIC1, count = ?COUNT1, dims = [
-                #dim_st{name = ?D1NAME, value = ?D1VALUE1},
-                #dim_st{name = ?D2NAME, value = ?D2VALUE1}
-            ]},
-            #count_st{namespace = ?NS2, metric = ?METRIC2, count = ?COUNT2, dims = [
-                #dim_st{name = ?D1NAME, value = ?D1VALUE2}
-            ]}
-        ],
-        events = [
-            #event_st{namespace = ?NS1, event = ?EVENT1},
-            #event_st{namespace = ?NS2, event = ?EVENT2}
-        ]
-    }
-).
-
--define(PB_CLIENT_LOG,
-    #pb_client_log{
-        counts = [
-            #pb_count{namespace = ?NS1, metric = ?METRIC1, count = ?COUNT1, dims = [
-                #pb_dim{name = ?D1NAME, value = ?D1VALUE1},
-                #pb_dim{name = ?D2NAME, value = ?D2VALUE1}
-            ]},
-            #pb_count{namespace = ?NS2, metric = ?METRIC2, count = ?COUNT2, dims = [
-                #pb_dim{name = ?D1NAME, value = ?D1VALUE2}
-            ]}
-        ],
-        events = [
-            #pb_event{namespace = ?NS1, event = ?EVENT1},
-            #pb_event{namespace = ?NS2, event = ?EVENT2}
-        ]
-    }
-).
+-include("parser_test_data.hrl").
 
 
 %% -------------------------------------------- %%
@@ -73,14 +20,37 @@
 %% -------------------------------------------- %%
 
 
+setup_stanzas() ->
+    Dim1 = struct_util:create_dim_st(?D1NAME, ?D1VALUE1),
+    Dim2 = struct_util:create_dim_st(?D2NAME, ?D2VALUE1),
+    Dim3 = struct_util:create_dim_st(?D1NAME, ?D1VALUE2),
+    Count1 = struct_util:create_count_st(?NS1, ?METRIC1, ?COUNT1, [Dim1, Dim2]),
+    Count2 = struct_util:create_count_st(?NS2, ?METRIC2, ?COUNT2, [Dim3]),
+    Event1 = struct_util:create_event_st(?NS1, ?EVENT1),
+    Event2 = struct_util:create_event_st(?NS2, ?EVENT2),
+    XmppClientLog = struct_util:create_client_log_st([Count1, Count2], [Event1, Event2]),
+
+    PbDim1 = struct_util:create_pb_dim(?D1NAME, ?D1VALUE1),
+    PbDim2 = struct_util:create_pb_dim(?D2NAME, ?D2VALUE1),
+    PbDim3 = struct_util:create_pb_dim(?D1NAME, ?D1VALUE2),
+    PbCount1 = struct_util:create_pb_count(?NS1, ?METRIC1, ?COUNT1, [PbDim1, PbDim2]),
+    PbCount2 = struct_util:create_pb_count(?NS2, ?METRIC2, ?COUNT2, [PbDim3]),
+    PbEvent1 = struct_util:create_pb_event(?NS1, ?EVENT1),
+    PbEvent2 = struct_util:create_pb_event(?NS2, ?EVENT2),
+    PbClientLog = struct_util:create_pb_client_log([PbCount1, PbCount2], [PbEvent1, PbEvent2]),
+    {XmppClientLog, PbClientLog}.
+
+
 xmpp_to_proto_client_log_test() ->
-    Proto = client_log_parser:xmpp_to_proto(?XMPP_CLIENT_LOG),
+    {XmppClientLog, PbClientLog} = setup_stanzas(),
+    Proto = client_log_parser:xmpp_to_proto(XmppClientLog),
     ?assertEqual(true, is_record(Proto, pb_client_log)),
-    ?assertEqual(?PB_CLIENT_LOG, Proto).
+    ?assertEqual(PbClientLog, Proto).
 
 
 proto_to_xmpp_whisper_keys_test() ->
-    Xmpp = client_log_parser:proto_to_xmpp(?PB_CLIENT_LOG),
+    {XmppClientLog, PbClientLog} = setup_stanzas(),
+    Xmpp = client_log_parser:proto_to_xmpp(PbClientLog),
     ?assertEqual(true, is_record(Xmpp, client_log_st)),
-    ?assertEqual(?XMPP_CLIENT_LOG, Xmpp).
+    ?assertEqual(XmppClientLog, Xmpp).
 

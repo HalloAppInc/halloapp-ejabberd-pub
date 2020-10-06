@@ -12,41 +12,33 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define ping constants
-%% -------------------------------------------- %%
-
--define(XMPP_IQ_PING,
-    #iq{
-        id = <<"WHIPCD988id">>,
-        type = set,
-        sub_els = [#ping{}]
-    }
-).
-
--define(PB_IQ_PING,
-    #pb_iq{
-        id = <<"WHIPCD988id">>,
-        type = set,
-        payload = #pb_ping{}
-    }
-).
-
+-include("parser_test_data.hrl").
 
 %% -------------------------------------------- %%
 %% internal tests
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto_ping_test() -> 
-    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_PING),
+xmpp_to_proto_ping_test() ->
+    Ping = struct_util:create_ping(),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, get, Ping),
+
+    PbPing = struct_util:create_pb_ping(),
+    PbIq = struct_util:create_pb_iq(?ID2, get, PbPing),
+
+    ProtoIQ = iq_parser:xmpp_to_proto(XmppIq),
     ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
-    ?assertEqual(?PB_IQ_PING, ProtoIQ).
+    ?assertEqual(PbIq, ProtoIQ).
 
 
 proto_to_xmpp_ping_test() ->
-    XmppIQ = iq_parser:proto_to_xmpp(?PB_IQ_PING),
-    ?assertEqual(true, is_record(XmppIQ, iq)),
-    ?assertEqual(?XMPP_IQ_PING, XmppIQ).
+    Ping = struct_util:create_ping(),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, Ping),
+
+    PbPing = struct_util:create_pb_ping(),
+    PbIq = struct_util:create_pb_iq(?ID2, result, PbPing),
+
+    ActualXmppIQ = iq_parser:proto_to_xmpp(PbIq),
+    ?assertEqual(true, is_record(ActualXmppIQ, iq)),
+    ?assertEqual(XmppIq, ActualXmppIQ).
 

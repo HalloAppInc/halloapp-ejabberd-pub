@@ -12,65 +12,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define seen and received constants
-%% -------------------------------------------- %%
-
--define(XMPP_MSG_SEEN,
-    #message{
-        id = <<"s9cCU-10">>,
-        type = normal,
-        sub_els = [#receipt_seen{
-                id = <<"7ab30vn">>,
-                thread_id = <<"thlm23ca">>,
-                timestamp = <<"20190910">>
-            }
-        ]
-    }
-).
-
--define(PB_MSG_SEEN,
-    #pb_msg{
-        id = <<"s9cCU-10">>,
-        type = normal,
-        to_uid = 1000000000045484920,
-        from_uid = 1000000000519345762,
-        payload = #pb_seen_receipt{
-                id = <<"7ab30vn">>,
-                thread_id = <<"thlm23ca">>,
-                timestamp = 20190910
-            }
-    }
-).
-
--define(XMPP_MSG_RECEIVED,
-    #message{
-        id = <<"s9cC3v4qf40">>,
-        type = normal,
-        sub_els = [#receipt_response{
-                id = <<"b30vn">>,
-                thread_id = <<"thlm2ere3ca">>,
-                timestamp = <<"2000090910">>
-            }
-        ]
-    }
-).
-
--define(PB_MSG_RECEIVED,
-    #pb_msg{
-        id = <<"s9cC3v4qf40">>,
-        type = normal,
-        to_uid = 1000000000045484920,
-        from_uid = 1000000000519345762,
-        payload = #pb_delivery_receipt{
-                id = <<"b30vn">>,
-                thread_id = <<"thlm2ere3ca">>,
-                timestamp = 2000090910
-            }
-    }
-).
-
+-include("parser_test_data.hrl").
 
 %% -------------------------------------------- %%
 %% internal tests
@@ -83,44 +25,64 @@ setup() ->
 
 xmpp_to_proto_seen_test() ->
     setup(),
-    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
-    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
-    XmppMsg = ?XMPP_MSG_SEEN#message{to = ToJid, from = FromJid},
+
+    SeenReceipt = struct_util:create_seen_receipt(?ID1, ?UID2, ?TIMESTAMP1),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, SeenReceipt),
+
+    PbSeenReceipt = struct_util:create_pb_seen_receipt(?ID1, ?UID2, ?TIMESTAMP1_INT),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbSeenReceipt),
 
     ProtoMSG = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ProtoMSG, pb_msg)),
-    ?assertEqual(?PB_MSG_SEEN, ProtoMSG).
+    ?assertEqual(PbMsg, ProtoMSG).
 
 
 proto_to_xmpp_seen_test() ->
     setup(),
-    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
-    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
-    ExpectedXmppMsg = ?XMPP_MSG_SEEN#message{to = ToJid, from = FromJid},
 
-    ActualXmppMsg = message_parser:proto_to_xmpp(?PB_MSG_SEEN),
+    SeenReceipt = struct_util:create_seen_receipt(?ID1, ?UID2, ?TIMESTAMP1),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, SeenReceipt),
+
+    PbSeenReceipt = struct_util:create_pb_seen_receipt(?ID1, ?UID2, ?TIMESTAMP1_INT),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbSeenReceipt),
+
+    ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
     ?assertEqual(true, is_record(ActualXmppMsg, message)),
-    ?assertEqual(ExpectedXmppMsg, ActualXmppMsg).
+    ?assertEqual(XmppMsg, ActualXmppMsg).
 
 
 xmpp_to_proto_response_test() ->
     setup(),
-    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
-    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
-    XmppMsg = ?XMPP_MSG_RECEIVED#message{to = ToJid, from = FromJid},
+
+    DeliveryReceipt = struct_util:create_delivery_receipt(?ID1, ?UID2, ?TIMESTAMP1),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, DeliveryReceipt),
+
+    PbDeliveryReceipt = struct_util:create_pb_delivery_receipt(?ID1, ?UID2, ?TIMESTAMP1_INT),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbDeliveryReceipt),
 
     ProtoMSG = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ProtoMSG, pb_msg)),
-    ?assertEqual(?PB_MSG_RECEIVED, ProtoMSG).
+    ?assertEqual(PbMsg, ProtoMSG).
 
 
 proto_to_xmpp_response_test() ->
     setup(),
-    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
-    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
-    ExpectedXmppMsg = ?XMPP_MSG_RECEIVED#message{to = ToJid, from = FromJid},
+    
+    DeliveryReceipt = struct_util:create_delivery_receipt(?ID1, ?UID2, ?TIMESTAMP1),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, DeliveryReceipt),
 
-    ActualXmppMsg = message_parser:proto_to_xmpp(?PB_MSG_RECEIVED),
+    PbDeliveryReceipt = struct_util:create_pb_delivery_receipt(?ID1, ?UID2, ?TIMESTAMP1_INT),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbDeliveryReceipt),
+
+    ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
     ?assertEqual(true, is_record(ActualXmppMsg, message)),
-    ?assertEqual(ExpectedXmppMsg, ActualXmppMsg).
+    ?assertEqual(XmppMsg, ActualXmppMsg).
 

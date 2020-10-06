@@ -9,47 +9,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define chat constants
-%% -------------------------------------------- %%
-
--define(UID1, <<"1000000000045484920">>).
--define(UID1_INT, 1000000000045484920).
--define(NAME1, <<"name1">>).
--define(AVATAR_ID1, <<"avatarid1">>).
-
--define(UID2, <<"1000000000519345762">>).
--define(UID2_INT, 1000000000519345762).
--define(NAME2, <<"name2">>).
--define(AVATAR_ID2, <<"avatarid2">>).
-
--define(UID3, <<"1000000000321423233">>).
--define(UID3_INT, 1000000000321423233).
--define(NAME3, <<"name3">>).
--define(AVATAR_ID3, <<"avatarid3">>).
-
--define(ID1, <<"id1">>).
--define(ID2, <<"id2">>).
--define(ID3, <<"id3">>).
-
--define(GID1, <<"gid1">>).
--define(GID2, <<"gid2">>).
--define(G_AVATAR_ID1, <<"g_avatar_id1">>).
--define(G_AVATAR_ID2, <<"g_avatar_id2">>).
--define(G_NAME1, <<"g_name1">>).
--define(G_NAME2, <<"g_name2">>).
-
--define(PAYLOAD1, <<"123">>).
--define(PAYLOAD2, <<"456">>).
--define(PAYLOAD1_BASE64, <<"MTIz">>).
--define(PAYLOAD2_BASE64, <<"NDU2">>).
--define(TIMESTAMP1, <<"2000090910">>).
--define(TIMESTAMP1_INT, 2000090910).
--define(TIMESTAMP2, <<"1850012340">>).
--define(TIMESTAMP2_INT, 1850012340).
--define(SERVER, <<"s.halloapp.net">>).
-
+-include("parser_test_data.hrl").
 
 setup() ->
     stringprep:start(),

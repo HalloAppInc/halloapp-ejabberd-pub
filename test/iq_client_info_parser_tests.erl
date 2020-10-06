@@ -12,105 +12,57 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define client_mode and client_version constants
-%% -------------------------------------------- %%
-
--define(XMPP_IQ_CLIENT_MODE,
-    #iq{
-        id = <<"clientMODEid">>,
-        type = set,
-        sub_els = [#client_mode{
-                mode = active
-            }
-        ]
-    }
-).
-
--define(PB_IQ_CLIENT_MODE,
-    #pb_iq{
-        id = <<"clientMODEid">>,
-        type = set,
-        payload = #pb_client_mode{
-                mode = active
-            }
-    }
-).
-
--define(XMPP_IQ_CLIENT_VERSION1,
-    #iq{
-        id = <<"clientVERSIONid">>,
-        type = result,
-        sub_els = [#client_version{
-                version = <<"2.3">>,
-                seconds_left = <<"23">>
-            }
-        ]
-    }
-).
-
--define(PB_IQ_CLIENT_VERSION1,
-    #pb_iq{
-        id = <<"clientVERSIONid">>,
-        type = result,
-        payload = #pb_client_version{
-                version = <<"2.3">>,
-                expires_in_seconds = 23
-            }
-    }
-).
-
-
--define(XMPP_IQ_CLIENT_VERSION2,
-    #iq{
-        id = <<"clientVERSIONid">>,
-        type = get,
-        sub_els = [#client_version{
-                version = <<"2.3">>,
-                seconds_left = undefined
-            }
-        ]
-    }
-).
-
--define(PB_IQ_CLIENT_VERSION2,
-    #pb_iq{
-        id = <<"clientVERSIONid">>,
-        type = get,
-        payload = #pb_client_version{
-                version = <<"2.3">>,
-                expires_in_seconds = undefined
-            }
-    }
-).
-
+-include("parser_test_data.hrl").
 
 %% -------------------------------------------- %%
 %% internal tests
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto_client_mode_test() -> 
-    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_CLIENT_MODE),
-    ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
-    ?assertEqual(?PB_IQ_CLIENT_MODE, ProtoIQ).
+xmpp_to_proto_client_mode_test() ->
+    ClientMode = struct_util:create_client_mode(active),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, ClientMode),
+
+    PbClientMode = struct_util:create_pb_client_mode(active),
+    PbIq = struct_util:create_pb_iq(?ID1, result, PbClientMode),
+
+    ProtoIq = iq_parser:xmpp_to_proto(XmppIq),
+    ?assertEqual(true, is_record(ProtoIq, pb_iq)),
+    ?assertEqual(PbIq, ProtoIq).
 
 
 proto_to_xmpp_client_mode_test() ->
-    XmppIQ = iq_parser:proto_to_xmpp(?PB_IQ_CLIENT_MODE),
-    ?assertEqual(true, is_record(XmppIQ, iq)),
-    ?assertEqual(?XMPP_IQ_CLIENT_MODE, XmppIQ).
+    ClientMode = struct_util:create_client_mode(active),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, ClientMode),
+
+    PbClientMode = struct_util:create_pb_client_mode(active),
+    PbIq = struct_util:create_pb_iq(?ID1, result, PbClientMode),
+
+    ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),
+    ?assertEqual(true, is_record(ActualXmppIq, iq)),
+    ?assertEqual(XmppIq, ActualXmppIq).
 
 
-xmpp_to_proto_client_version_test() -> 
-    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_CLIENT_VERSION1),
-    ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
-    ?assertEqual(?PB_IQ_CLIENT_VERSION1, ProtoIQ).
+xmpp_to_proto_client_version_test() ->
+    ClientVersion = struct_util:create_client_version(<<"v1">>, <<"123">>),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, ClientVersion),
+
+    PbClientVersion = struct_util:create_pb_client_version(<<"v1">>, 123),
+    PbIq = struct_util:create_pb_iq(?ID1, result, PbClientVersion),
+
+    ProtoIq = iq_parser:xmpp_to_proto(XmppIq),
+    ?assertEqual(true, is_record(ProtoIq, pb_iq)),
+    ?assertEqual(PbIq, ProtoIq).
 
 
 proto_to_xmpp_client_version_test() ->
-    XmppIQ = iq_parser:proto_to_xmpp(?PB_IQ_CLIENT_VERSION2),
-    ?assertEqual(true, is_record(XmppIQ, iq)),
-    ?assertEqual(?XMPP_IQ_CLIENT_VERSION2, XmppIQ).
+    ClientVersion = struct_util:create_client_version(<<"v1">>, undefined),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, get, ClientVersion),
+
+    PbClientVersion = struct_util:create_pb_client_version(<<"v1">>, undefined),
+    PbIq = struct_util:create_pb_iq(?ID1, get, PbClientVersion),
+
+    ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),
+    ?assertEqual(true, is_record(ActualXmppIq, iq)),
+    ?assertEqual(XmppIq, ActualXmppIq).
 

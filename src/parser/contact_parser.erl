@@ -101,7 +101,7 @@ proto_to_xmpp_contact_list(ProtoPayload) ->
 
 proto_to_xmpp_role(PbRole) ->
     XmppRole = case PbRole of
-        undefined -> <<>>;
+        undefined -> undefined;
         _ -> util:to_binary(PbRole)
     end,
     XmppRole.

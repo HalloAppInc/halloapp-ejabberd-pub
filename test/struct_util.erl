@@ -135,10 +135,7 @@ create_share_feed_responses(PbShareStanzas) ->
 
 
 create_jid(Uid, Server) ->
-    #jid{
-        user = Uid,
-        server = Server
-    }.
+    jid:make(Uid, Server).
 
 
 create_message_stanza(Id, ToJid, FromJid, Type, SubEl) ->
@@ -562,5 +559,361 @@ create_pb_error(Reason) ->
         reason = Reason
     }.
 
+
+create_dim_st(Name, Value) ->
+    #dim_st{
+        name = Name,
+        value = Value
+    }.
+
+create_count_st(Namespace, Metric, Count, Dims) ->
+    #count_st{
+        namespace = Namespace,
+        metric = Metric,
+        count = Count,
+        dims = Dims
+    }.
+
+
+create_event_st(Namespace, Event) ->
+    #event_st{
+        namespace = Namespace,
+        event = Event
+    }.
+
+create_client_log_st(Counts, Events) ->
+    #client_log_st{
+        counts = Counts,
+        events = Events
+    }.
+
+
+create_pb_dim(Name, Value) ->
+    #pb_dim{
+        name = Name,
+        value = Value
+    }.
+
+create_pb_count(Namespace, Metric, Count, Dims) ->
+    #pb_count{
+        namespace = Namespace,
+        metric = Metric,
+        count = Count,
+        dims = Dims
+    }.
+
+
+create_pb_event(Namespace, Event) ->
+    #pb_event{
+        namespace = Namespace,
+        event = Event
+    }.
+
+create_pb_client_log(Counts, Events) ->
+    #pb_client_log{
+        counts = Counts,
+        events = Events
+    }.
+
+
+create_pb_avatar(Id, Uid) ->
+    #pb_avatar{
+        id = Id,
+        uid = Uid
+    }.
+
+
+create_s1_xmlel(Data) ->
+    {xmlel,<<"s1">>,[],[{xmlcdata, Data}]}.
+
+
+create_enc_xmlel(Data, IdentityKey, OneTimeKeyId) ->
+    {xmlel,<<"enc">>,
+        [{<<"identity_key">>, IdentityKey},
+        {<<"one_time_pre_key_id">>,OneTimeKeyId}],
+        [{xmlcdata,Data}]
+    }.
+
+
+create_chat_stanza(Timestamp, SenderName, SubEls) ->
+    #chat{
+        xmlns = <<"halloapp:chat:messages">>,
+        timestamp = Timestamp,
+        sender_name = SenderName,
+        sub_els = SubEls
+    }.
+
+create_pb_chat_stanza(Timestamp, SenderName, Payload, EncPayload, PublicKey, OneTimeKeyId) ->
+    #pb_chat_stanza{
+        timestamp = Timestamp,
+        sender_name = SenderName,
+        payload = Payload,
+        enc_payload = EncPayload,
+        public_key = PublicKey,
+        one_time_pre_key_id = OneTimeKeyId
+    }.
+
+
+create_contact(Type, Raw, Normalized, UserId, AvatarId, Name, Role) ->
+    #contact{
+        type = Type, 
+        raw = Raw, 
+        normalized = Normalized,
+        userid = UserId, 
+        avatarid = AvatarId,
+        name = Name,
+        role = Role
+    }.
+
+create_pb_contact(Action, Raw, Normalized, UserId, AvatarId, Name, Role) ->
+    #pb_contact{
+        action = Action, 
+        raw = Raw, 
+        normalized = Normalized,
+        uid = UserId, 
+        avatar_id = AvatarId,
+        name = Name,
+        role = Role
+    }.
+
+
+create_contact_list(Type, SyncId, Index, Last, Contacts, ContactHash) ->
+    #contact_list{
+        xmlns = <<"halloapp:user:contacts">>,
+        type = Type,
+        syncid = SyncId,
+        index = Index, 
+        last = Last, 
+        contacts = Contacts,
+        contact_hash = ContactHash
+    }.
+
+
+create_pb_contact_list(Type, SyncId, Index, Last, Contacts) ->
+    #pb_contact_list{
+        type = Type,
+        sync_id = SyncId,
+        batch_index = Index, 
+        is_last = Last, 
+        contacts = Contacts
+    }.
+
+
+create_pb_contact_hash(ContactHash) ->
+    #pb_contact_hash{
+        hash = ContactHash
+    }.
+
+
+create_seen_receipt(Id, ThreadId, Timestamp) ->
+    #receipt_seen{
+        id = Id,
+        thread_id = ThreadId,
+        timestamp = Timestamp
+    }.
+
+
+create_pb_seen_receipt(Id, ThreadId, Timestamp) ->
+    #pb_seen_receipt{
+        id = Id,
+        thread_id = ThreadId,
+        timestamp = Timestamp
+    }.
+
+
+create_delivery_receipt(Id, ThreadId, Timestamp) ->
+    #receipt_response{
+        id = Id,
+        thread_id = ThreadId,
+        timestamp = Timestamp
+    }.
+
+
+create_pb_delivery_receipt(Id, ThreadId, Timestamp) ->
+    #pb_delivery_receipt{
+        id = Id,
+        thread_id = ThreadId,
+        timestamp = Timestamp
+    }.
+
+
+create_whisper_keys(Uid, Type, IdentityKey, SignedKey, OtpKeyCount, OneTimeKeys) ->
+    #whisper_keys{
+        uid = Uid,
+        type = Type,
+        identity_key = IdentityKey,
+        signed_key = SignedKey,
+        otp_key_count = OtpKeyCount,
+        one_time_keys = OneTimeKeys
+    }.
+
+create_pb_whisper_keys(Uid, Action, IdentityKey, SignedKey, OtpKeyCount, OneTimeKeys) ->
+    #pb_whisper_keys{
+        uid = Uid,
+        action = Action,
+        identity_key = IdentityKey,
+        signed_key = SignedKey,
+        otp_key_count = OtpKeyCount,
+        one_time_keys = OneTimeKeys
+    }.
+
+
+create_ping() ->
+    #ping{}.
+
+create_pb_ping() ->
+    #pb_ping{}.
+
+
+create_media_url(Get, Put, Patch) ->
+    #media_urls{
+        get = Get,
+        put = Put,
+        patch = Patch
+    }.
+
+
+create_pb_media_url(Get, Put, Patch) ->
+    #pb_media_url{
+        get = Get,
+        put = Put,
+        patch = Patch
+    }.
+
+create_upload_media(Size, MediaUrls) ->
+    #upload_media{
+        size = Size,
+        media_urls = MediaUrls
+    }.
+
+
+create_pb_upload_media(Size, Url) ->
+    #pb_upload_media{
+        size = Size,
+        url = Url
+    }.
+
+
+create_avatar(Id, UserId, Data) ->
+    #avatar{
+        id = Id,
+        userid = UserId,
+        cdata = Data
+    }.
+
+
+create_avatars(Avatars) ->
+    #avatars{
+        avatars = Avatars
+    }.
+
+
+create_pb_upload_avatar(Id, Data) ->
+    #pb_upload_avatar{
+        id = Id,
+        data = Data
+    }.
+
+create_pb_avatars(PbAvatars) ->
+    #pb_avatars{
+        avatars = PbAvatars
+    }.
+
+
+create_ack(Id, ToJid, FromJid, Timestamp) ->
+    #ack{
+        id = Id,
+        to = ToJid,
+        from = FromJid,
+        timestamp = Timestamp
+    }.
+
+
+create_pb_ack(Id, Timestamp) ->
+    #pb_ack{
+        id = Id,
+        timestamp = Timestamp
+    }.
+
+
+create_pb_presence(Id, Type, Uid, LastSeen) ->
+    #pb_presence{
+        id = Id,
+        type = Type,
+        last_seen = LastSeen,
+        uid = Uid
+    }.
+
+
+create_presence(Id, Type, ToJid, FromJid, LastSeen) ->
+    #presence{
+        id = Id,
+        type = Type,
+        from = FromJid,
+        to = ToJid,
+        last_seen = LastSeen
+    }.
+
+
+create_client_mode(Mode) ->
+    #client_mode{
+        mode = Mode
+    }.
+
+
+create_pb_client_mode(Mode) ->
+    #pb_client_mode{
+        mode = Mode
+    }.
+
+
+create_client_version(Version, SecondsLeft) ->
+    #client_version{
+        version = Version,
+        seconds_left = SecondsLeft
+    }.
+
+
+create_pb_client_version(Version, SecondsLeft) ->
+    #pb_client_version{
+        version = Version,
+        expires_in_seconds = SecondsLeft
+    }.
+
+
+create_auth_request(Uid, Password, ClientMode, ClientVersion, Resource) ->
+    #halloapp_auth{
+        uid = Uid,
+        pwd = Password,
+        client_mode = ClientMode,
+        client_version = ClientVersion,
+        resource = Resource
+    }.
+
+
+create_pb_auth_request(Uid, Password, PbClientMode, PbClientVersion, Resource) ->
+    #pb_auth_request{
+        uid = Uid,
+        pwd = Password,
+        client_mode = PbClientMode,
+        client_version = PbClientVersion,
+        resource = Resource
+    }.
+
+
+create_auth_result(Result, Reason, PropsHash) ->
+    #halloapp_auth_result{
+        result = Result,
+        reason = Reason,
+        props_hash = PropsHash
+    }.
+
+
+create_pb_auth_result(Result, Reason, PropsHash) ->
+    #pb_auth_result{
+        result = Result,
+        reason = Reason,
+        props_hash = PropsHash
+    }.
 
 

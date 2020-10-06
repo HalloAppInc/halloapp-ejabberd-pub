@@ -10,18 +10,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-
--define(PROP1_NAME, <<"groups">>).
--define(PROP1_VALUE, true).
--define(PROP1_VALUE_BIN, <<"true">>).
-
--define(PROP2_NAME, <<"max_group_size">>).
--define(PROP2_VALUE, 25).
--define(PROP2_VALUE_BIN, <<"25">>).
-
--define(ID1, <<"id1">>).
-
+-include("parser_test_data.hrl").
 
 setup() ->
     stringprep:start(),
@@ -37,12 +26,12 @@ prop_xmpp_to_proto_test() ->
 
     PbProp1 = struct_util:create_pb_prop(?PROP1_NAME, ?PROP1_VALUE_BIN),
     PbProp2 = struct_util:create_pb_prop(?PROP2_NAME, ?PROP2_VALUE_BIN),
-    PbProps = struct_util:create_pb_props(<<"123">>, [PbProp1, PbProp2]),
+    PbProps = struct_util:create_pb_props(?HASH1, [PbProp1, PbProp2]),
     PbIq = struct_util:create_pb_iq(?ID1, result, PbProps),
 
     PropSt1 = struct_util:create_prop(?PROP1_NAME, ?PROP1_VALUE),
     PropSt2 = struct_util:create_prop(?PROP2_NAME, ?PROP2_VALUE),
-    PropsSt = struct_util:create_props(<<"MTIz">>, [PropSt1, PropSt2]),
+    PropsSt = struct_util:create_props(?HASH1_BASE64, [PropSt1, PropSt2]),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, PropsSt),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),

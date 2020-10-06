@@ -4,14 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-
--define(UID1, <<"1">>).
--define(UID1_INT, 1).
--define(UID2, <<"2">>).
--define(UID2_INT, 2).
--define(SERVER, <<"s.halloapp.net">>).
--define(GID1, <<"GID1">>).
+-include("parser_test_data.hrl").
 
 
 setup() ->

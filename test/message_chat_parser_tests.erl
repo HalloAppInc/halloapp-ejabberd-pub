@@ -12,117 +12,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define chat constants
-%% -------------------------------------------- %%
-
--define(XMPP_MSG_CHAT1,
-    #message{
-        id = <<"s9cC3v4qf40">>,
-        type = normal,
-        sub_els = [#chat{
-                xmlns = <<"halloapp:chat:messages">>,
-                timestamp = <<"2000090910">>,
-                sender_name = <<"Nikola">>,
-                sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"MTIz">>}]},
-                        {xmlel,<<"enc">>,
-                            [{<<"identity_key">>, <<"Nzg5">>},
-                            {<<"one_time_pre_key_id">>,<<"12">>}],
-                            [{xmlcdata,<<"NDU2">>}]}]
-            }
-        ]
-    }
-).
-
--define(PB_MSG_CHAT1,
-    #pb_msg{
-        id = <<"s9cC3v4qf40">>,
-        type = normal,
-        to_uid = 1000000000045484920,
-        from_uid = 1000000000519345762,
-        payload = #pb_chat_stanza{
-                timestamp = 2000090910,
-                sender_name = <<"Nikola">>,
-                payload = <<"123">>,
-                enc_payload = <<"456">>,
-                public_key = <<"789">>,
-                one_time_pre_key_id = 12
-            }
-    }
-).
-
-
--define(XMPP_MSG_CHAT2,
-    #message{
-        id = <<"s9cC3v4qf40">>,
-        type = normal,
-        sub_els = [#chat{
-                xmlns = <<"halloapp:chat:messages">>,
-                timestamp = undefined,
-                sender_name = <<"Murali">>,
-                sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"MTIz">>}]},
-                        {xmlel,<<"enc">>,
-                            [{<<"identity_key">>, <<"Nzg5">>},
-                            {<<"one_time_pre_key_id">>,<<"12">>}],
-                            [{xmlcdata,<<"NDU2">>}]}]
-            }
-        ]
-    }
-).
-
--define(PB_MSG_CHAT2,
-    #pb_msg{
-        id = <<"s9cC3v4qf40">>,
-        type = normal,
-        to_uid = 1000000000045484920,
-        from_uid = 1000000000519345762,
-        payload = #pb_chat_stanza{
-                timestamp = undefined,
-                sender_name = <<"Murali">>,
-                payload = <<"123">>,
-                enc_payload = <<"456">>,
-                public_key = <<"789">>,
-                one_time_pre_key_id = 12
-            }
-    }
-).
-
-
--define(XMPP_MSG_CHAT3,
-    #message{
-        id = <<"s9cC3v4qf40">>,
-        type = normal,
-        sub_els = [#chat{
-                xmlns = <<"halloapp:chat:messages">>,
-                timestamp = undefined,
-                sender_name = <<"Murali">>,
-                sub_els = [{xmlel,<<"s1">>,[],[{xmlcdata,<<"MTIz">>}]},
-                        {xmlel,<<"enc">>,
-                            [],
-                            [{xmlcdata,<<"NDU2">>}]}]
-            }
-        ]
-    }
-).
-
--define(PB_MSG_CHAT3,
-    #pb_msg{
-        id = <<"s9cC3v4qf40">>,
-        type = normal,
-        to_uid = 1000000000045484920,
-        from_uid = 1000000000519345762,
-        payload = #pb_chat_stanza{
-                timestamp = undefined,
-                sender_name = <<"Murali">>,
-                payload = <<"123">>,
-                enc_payload = <<"456">>,
-                public_key = undefined,
-                one_time_pre_key_id = undefined
-            }
-    }
-).
-
+-include("parser_test_data.hrl").
 
 %% -------------------------------------------- %%
 %% internal tests
@@ -132,34 +22,77 @@ setup() ->
     stringprep:start(),
     ok.
 
-xmpp_to_proto_chat_test() ->
+xmpp_to_proto_chat1_test() ->
     setup(),
-    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
-    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
 
-    XmppMsg = ?XMPP_MSG_CHAT1#message{to = ToJid, from = FromJid},
+    S1 = struct_util:create_s1_xmlel(?PAYLOAD1_BASE64),
+    Enc = struct_util:create_enc_xmlel(?PAYLOAD2_BASE64, ?PAYLOAD1_BASE64, <<"12">>),
+    ChatSt = struct_util:create_chat_stanza(?TIMESTAMP1, ?NAME1, [S1, Enc]),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ChatSt),
+
+    PbChat = struct_util:create_pb_chat_stanza(?TIMESTAMP1_INT, ?NAME1, ?PAYLOAD1, ?PAYLOAD2, ?PAYLOAD1, 12),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbChat),
+
     ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ActualProtoMsg, pb_msg)),
-    ?assertEqual(?PB_MSG_CHAT1, ActualProtoMsg),
-
-    XmppMsg3 = ?XMPP_MSG_CHAT3#message{to = ToJid, from = FromJid},
-    ActualProtoMsg3 = message_parser:xmpp_to_proto(XmppMsg3),
-    ?assertEqual(true, is_record(ActualProtoMsg3, pb_msg)),
-    ?assertEqual(?PB_MSG_CHAT3, ActualProtoMsg3).
+    ?assertEqual(PbMsg, ActualProtoMsg),
+    ok.
 
 
-proto_to_xmpp_chat_test() ->
+xmpp_to_proto_chat2_test() ->
     setup(),
-    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
-    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
 
-    ExpectedXmppMsg = ?XMPP_MSG_CHAT2#message{to = ToJid, from = FromJid},
-    ActualXmppMsg = message_parser:proto_to_xmpp(?PB_MSG_CHAT2),
+    S1 = struct_util:create_s1_xmlel(?PAYLOAD1_BASE64),
+    Enc = struct_util:create_enc_xmlel(?PAYLOAD2_BASE64, undefined, undefined),
+    ChatSt = struct_util:create_chat_stanza(?TIMESTAMP1, ?NAME1, [S1, Enc]),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ChatSt),
+
+    PbChat = struct_util:create_pb_chat_stanza(?TIMESTAMP1_INT, ?NAME1, ?PAYLOAD1, ?PAYLOAD2, undefined, undefined),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbChat),
+
+    ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
+    ?assertEqual(true, is_record(ActualProtoMsg, pb_msg)),
+    ?assertEqual(PbMsg, ActualProtoMsg).
+
+
+proto_to_xmpp_chat1_test() ->
+    setup(),
+
+    S1 = struct_util:create_s1_xmlel(?PAYLOAD1_BASE64),
+    Enc = struct_util:create_enc_xmlel(?PAYLOAD2_BASE64, ?PAYLOAD1_BASE64, <<"12">>),
+    ChatSt = struct_util:create_chat_stanza(?TIMESTAMP1, ?NAME1, [S1, Enc]),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ChatSt),
+
+    PbChat = struct_util:create_pb_chat_stanza(?TIMESTAMP1_INT, ?NAME1, ?PAYLOAD1, ?PAYLOAD2, ?PAYLOAD1, 12),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbChat),
+
+    ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
     ?assertEqual(true, is_record(ActualXmppMsg, message)),
-    ?assertEqual(ExpectedXmppMsg, ActualXmppMsg),
+    ?assertEqual(XmppMsg, ActualXmppMsg),
+    ok.
 
-    ExpectedXmppMsg3 = ?XMPP_MSG_CHAT3#message{to = ToJid, from = FromJid},
-    ActualXmppMsg3 = message_parser:proto_to_xmpp(?PB_MSG_CHAT3),
-    ?assertEqual(true, is_record(ActualXmppMsg3, message)),
-    ?assertEqual(ExpectedXmppMsg3, ActualXmppMsg3).
+
+proto_to_xmpp_chat2_test() ->
+    setup(),
+
+    S1 = struct_util:create_s1_xmlel(?PAYLOAD1_BASE64),
+    Enc = struct_util:create_enc_xmlel(?PAYLOAD2_BASE64, ?PAYLOAD1_BASE64, <<"12">>),
+    ChatSt = struct_util:create_chat_stanza(undefined, ?NAME1, [S1, Enc]),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ChatSt),
+
+    PbChat = struct_util:create_pb_chat_stanza(undefined, ?NAME1, ?PAYLOAD1, ?PAYLOAD2, ?PAYLOAD1, 12),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbChat),
+
+    ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
+    ?assertEqual(true, is_record(ActualXmppMsg, message)),
+    ?assertEqual(XmppMsg, ActualXmppMsg),
+    ok.
 

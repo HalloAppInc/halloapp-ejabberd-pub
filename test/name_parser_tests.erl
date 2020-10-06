@@ -9,23 +9,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define chat constants
-%% -------------------------------------------- %%
-
--define(UID1, <<"1000000000045484920">>).
--define(UID1_INT, 1000000000045484920).
--define(NAME1, <<"name1">>).
-
--define(UID2, <<"1000000000519345762">>).
--define(UID2_INT, 1000000000519345762).
--define(NAME2, <<"name2">>).
-
--define(ID1, <<"id1">>).
-
--define(SERVER, <<"s.halloapp.net">>).
-
+-include("parser_test_data.hrl").
 
 %% -------------------------------------------- %%
 %% internal tests

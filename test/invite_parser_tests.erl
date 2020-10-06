@@ -10,13 +10,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-
--define(PHONE1, <<"+14703381473">>).
--define(PHONE2, <<"+919885577163">>).
--define(SERVER, <<"s.halloapp.net">>).
--define(ID1, <<"id1">>).
-
+-include("parser_test_data.hrl").
 
 setup() ->
     stringprep:start(),

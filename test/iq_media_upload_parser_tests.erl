@@ -12,113 +12,51 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define upload media constants
-%% -------------------------------------------- %%
-
--define(JID1,
-    #jid{
-        user = <<"1000000000045484920">>,
-        server = <<"s.halloapp.net">>,
-        resource = <<"iphone">>
-    }
-).
-
--define(JID2,
-    #jid{
-        user = <<"1000000000519345762">>,
-        server = <<"s.halloapp.net">>,
-        resource = <<"iphone">>
-    }
-).
-
--define(UPLOAD_MEDIA1,
-    #upload_media{
-        size = <<"100">>,
-        media_urls = [#media_urls{
-            get = <<"https://u-cdn.halloapp.net">>,
-            put = <<"https://us-e-halloapp-media.s3-accelerate">>,
-            patch = <<>>
-        }]
-    }
-).
-
--define(XMPP_IQ_UPLOAD_MEDIA1,
-    #iq{
-        id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
-        type = result,
-        from = undefined,
-        to = undefined,
-        sub_els = [?UPLOAD_MEDIA1]
-    }
-).
-
--define(PROTO_IQ_UPLOAD_MEDIA1,
-    #pb_iq{
-        id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
-        type = result,
-        payload = #pb_upload_media{
-                size = 100,
-                url = #pb_media_url{
-                    get = <<"https://u-cdn.halloapp.net">>,
-                    put = <<"https://us-e-halloapp-media.s3-accelerate">>,
-                    patch = <<>>
-                }
-            }
-    }
-).
-
-
--define(UPLOAD_MEDIA2,
-    #upload_media{
-        size = <<>>,
-        media_urls = []
-    }
-).
-
--define(XMPP_IQ_UPLOAD_MEDIA2,
-    #iq{
-        id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
-        type = get,
-        from = undefined,
-        to = undefined,
-        sub_els = [?UPLOAD_MEDIA2]
-    }
-).
-
--define(PROTO_IQ_UPLOAD_MEDIA2,
-    #pb_iq{
-        id = <<"TgJNGKUsEeqhxg5_sD_LJQ">>,
-        type = get,
-        payload = #pb_upload_media{
-                size = 0,
-                url = undefined
-        }
-    }
-).
-
+-include("parser_test_data.hrl").
 
 %% -------------------------------------------- %%
 %% internal tests
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto_upload_media_test() -> 
-    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_UPLOAD_MEDIA1),
+xmpp_to_proto_upload_media_test() ->
+    MediaUrl = struct_util:create_media_url(?GET_URL, ?PUT_URL, <<>>),
+    UploadMedia = struct_util:create_upload_media(<<>>, [MediaUrl]),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, UploadMedia),
+
+    PbMediaUrl = struct_util:create_pb_media_url(?GET_URL, ?PUT_URL, <<>>),
+    PbUploadMedia = struct_util:create_pb_upload_media(0, PbMediaUrl),
+    PbIq = struct_util:create_pb_iq(?ID1, result, PbUploadMedia),
+
+    ProtoIQ = iq_parser:xmpp_to_proto(XmppIq),
     ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
-    ?assertEqual(?PROTO_IQ_UPLOAD_MEDIA1, ProtoIQ).
+    ?assertEqual(PbIq, ProtoIQ).
 
     
 proto_to_xmpp_upload_media_test() ->
-    XmppIQ1 = iq_parser:proto_to_xmpp(?PROTO_IQ_UPLOAD_MEDIA1),
+    MediaUrl = struct_util:create_media_url(?GET_URL, ?PUT_URL, <<>>),
+    UploadMedia = struct_util:create_upload_media(<<>>, [MediaUrl]),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, UploadMedia),
 
-    ?assertEqual(true, is_record(XmppIQ1, iq)),
-    ?assertEqual(?XMPP_IQ_UPLOAD_MEDIA1, XmppIQ1),
+    PbMediaUrl = struct_util:create_pb_media_url(?GET_URL, ?PUT_URL, <<>>),
+    PbUploadMedia = struct_util:create_pb_upload_media(0, PbMediaUrl),
+    PbIq = struct_util:create_pb_iq(?ID1, result, PbUploadMedia),
 
-    XmppIQ2 = iq_parser:proto_to_xmpp(?PROTO_IQ_UPLOAD_MEDIA2),   
-    ?assertEqual(true, is_record(XmppIQ2, iq)),
-    ?assertEqual(?XMPP_IQ_UPLOAD_MEDIA2, XmppIQ2),
+    ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),
+    ?assertEqual(true, is_record(ActualXmppIq, iq)),
+    ?assertEqual(XmppIq, ActualXmppIq).
+
+
+proto_to_xmpp_upload_media2_test() ->
+    UploadMedia = struct_util:create_upload_media(<<>>, []),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, get, UploadMedia),
+
+    PbUploadMedia = struct_util:create_pb_upload_media(0, undefined),
+    PbIq = struct_util:create_pb_iq(?ID1, get, PbUploadMedia),
+
+    ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),   
+    ?assertEqual(true, is_record(ActualXmppIq, iq)),
+    ?assertEqual(XmppIq, ActualXmppIq),
     ok.
 
 

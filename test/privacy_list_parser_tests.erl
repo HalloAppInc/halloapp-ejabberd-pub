@@ -9,43 +9,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define chat constants
-%% -------------------------------------------- %%
-
--define(UID1, <<"1000000000045484920">>).
--define(UID1_INT, 1000000000045484920).
-
--define(UID2, <<"1000000000519345762">>).
--define(UID2_INT, 1000000000519345762).
-
--define(UID3, <<"1000000000474745555">>).
--define(UID3_INT, 1000000000474745555).
-
--define(UID4, <<"1000000000634158521">>).
--define(UID4_INT, 1000000000634158521).
-
--define(UID5, <<"1000000000412574111">>).
--define(UID5_INT, 1000000000412574111).
-
--define(ID1, <<"id1">>).
--define(ID2, <<"id2">>).
--define(ID3, <<"id3">>).
-
--define(PAYLOAD1, <<"payload1">>).
--define(PAYLOAD2, <<"payload2">>).
--define(TIMESTAMP1, <<"2000090910">>).
--define(TIMESTAMP1_INT, 2000090910).
--define(TIMESTAMP2, <<"1850012340">>).
--define(TIMESTAMP2_INT, 1850012340).
--define(SERVER, <<"s.halloapp.net">>).
-
--define(HASH1_BASE64, <<"YWI">>).
--define(HASH1, <<"ab">>).
--define(HASH2_BASE64, <<"MTI">>).
--define(HASH2, <<"12">>).
-
+-include("parser_test_data.hrl").
 
 setup() ->
     stringprep:start(),

@@ -12,46 +12,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define auth request and auth result constants
-%% -------------------------------------------- %%
-
--define(XMPP_AUTH_REQUEST,
-    #halloapp_auth{
-        uid = <<"10093">>,
-        pwd = <<"TNpwdc">>,
-        client_mode = active, 
-        client_version = <<"2.3">>,
-        resource = <<"android">>
-    }
-).
-
--define(PB_AUTH_REQUEST,
-    #pb_auth_request{
-        uid = 10093,
-        pwd = <<"TNpwdc">>,
-        client_mode = #pb_client_mode{mode = active},
-        client_version = #pb_client_version{version = <<"2.3">>},
-        resource = <<"android">>
-    }
-).
-
--define(XMPP_AUTH_RESULT,
-    #halloapp_auth_result{
-        result = <<"Success!">>,
-        reason = <<"none">>,
-        props_hash = <<"MTIz">>
-    }
-).
-
--define(PB_AUTH_RESULT,
-    #pb_auth_result{
-        result = <<"Success!">>,
-        reason = <<"none">>,
-        props_hash = <<"123">>
-    }
-).
+-include("parser_test_data.hrl").
 
 
 %% -------------------------------------------- %%
@@ -59,26 +20,24 @@
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto_auth_request_test() -> 
-    ProtoAuth = ha_auth_parser:xmpp_to_proto(?XMPP_AUTH_REQUEST),
-    ?assertEqual(true, is_record(ProtoAuth, pb_auth_request)),
-    ?assertEqual(?PB_AUTH_REQUEST, ProtoAuth).
+proto_to_xmpp_auth_request_test() ->
+    XmppAuthRequest = struct_util:create_auth_request(?UID1, <<"123">>, active, <<"1">>, <<"android">>),
+
+    PbClientMode = struct_util:create_pb_client_mode(active),
+    PbClientVersion = struct_util:create_pb_client_version(<<"1">>, undefined),
+    PbAuthRequest = struct_util:create_pb_auth_request(?UID1_INT, <<"123">>, PbClientMode, PbClientVersion, <<"android">>),
+
+    ActualXmppAuth = ha_auth_parser:proto_to_xmpp(PbAuthRequest),
+    ?assertEqual(true, is_record(ActualXmppAuth, halloapp_auth)),
+    ?assertEqual(XmppAuthRequest, ActualXmppAuth).
 
 
-proto_to_xmpp_auth_request_test() -> 
-    XmppAuth = ha_auth_parser:proto_to_xmpp(?PB_AUTH_REQUEST),
-    ?assertEqual(true, is_record(XmppAuth, halloapp_auth)),
-    ?assertEqual(?XMPP_AUTH_REQUEST, XmppAuth).
+xmpp_to_proto_auth_result_test() ->
+    XmppAuthResult = struct_util:create_auth_result(<<"success">>, <<"welcome!">>, <<"MTIz">>),
+    PbAuthResult = struct_util:create_pb_auth_result(<<"success">>, <<"welcome!">>, <<"123">>),
 
+    ProtoAuthResult = ha_auth_parser:xmpp_to_proto(XmppAuthResult),
+    ?assertEqual(true, is_record(ProtoAuthResult, pb_auth_result)),
+    ?assertEqual(PbAuthResult, ProtoAuthResult).
 
-xmpp_to_proto_auth_result_test() -> 
-    ProtoAuth = ha_auth_parser:xmpp_to_proto(?XMPP_AUTH_RESULT),
-    ?assertEqual(true, is_record(ProtoAuth, pb_auth_result)),
-    ?assertEqual(?PB_AUTH_RESULT, ProtoAuth).
-
-
-proto_to_xmpp_auth_result_test() -> 
-    XmppAuth = ha_auth_parser:proto_to_xmpp(?PB_AUTH_RESULT),
-    ?assertEqual(true, is_record(XmppAuth, halloapp_auth_result)),
-    ?assertEqual(?XMPP_AUTH_RESULT, XmppAuth).
 

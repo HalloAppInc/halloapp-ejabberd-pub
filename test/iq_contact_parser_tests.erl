@@ -12,104 +12,41 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define contact list constants
-%% -------------------------------------------- %%
-
--define(CONTACT1, 
-    #contact{
-        type = add, 
-        raw = <<"650-275-2675">>, 
-        normalized = <<"+1 650-275-2675">>,
-        userid = <<"123">>, 
-        avatarid = <<"12334TCA">>,
-        role = <<"friends">>,
-        name = <<"alice">>
-    }
-). 
-
--define(CONTACT2, 
-    #contact{
-        type = delete, 
-        raw = <<"650-275-2600">>, 
-        normalized = <<"+1 650-275-2600">>,
-        userid = <<"456">>, 
-        avatarid = <<"12LLL334TCA">>,
-        role = <<"none">>,
-        name = <<"bob">>
-    }
-). 
-
--define(XMPP_IQ_CONTACT_LIST,
-    #iq{
-        id = <<"s9cCU-10">>,
-        type = set,
-        sub_els = [#contact_list{
-                xmlns = <<"halloapp:user:contacts">>,
-                type = full,
-                syncid = <<"syncid123">>,
-                index = 0, 
-                last = true, 
-                contacts = [?CONTACT1, ?CONTACT2],
-                contact_hash = []
-            }
-        ]
-    }
-).
-
--define(PB_IQ_CONTACT_LIST,
-    #pb_iq{
-        id = <<"s9cCU-10">>,
-        type = set,
-        payload = #pb_contact_list{
-                type = full, 
-                sync_id = <<"syncid123">>,
-                batch_index = 0,
-                is_last = true,
-                contacts = [?PB_CONTACT1, ?PB_CONTACT2]
-            }
-    }
-).
-
--define(PB_CONTACT1, 
-    #pb_contact{
-        action = add,
-        raw = <<"650-275-2675">>,
-        normalized = <<"+1 650-275-2675">>,
-        uid = 123,
-        avatar_id = <<"12334TCA">>,
-        role = friends,
-        name = <<"alice">>
-    }
-).
-
--define(PB_CONTACT2, 
-    #pb_contact{
-        action = delete,
-        raw = <<"650-275-2600">>,
-        normalized = <<"+1 650-275-2600">>,
-        uid = 456,
-        avatar_id = <<"12LLL334TCA">>,
-        role = none,
-        name = <<"bob">>
-    }
-).
-
+-include("parser_test_data.hrl").
 
 %% -------------------------------------------- %%
 %% internal tests
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto_contact_list_test() -> 
-    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_CONTACT_LIST),
+xmpp_to_proto_contact_list_test() ->
+    Contact1 = struct_util:create_contact(add, ?RAW1, ?NORM1, ?UID1, ?ID1, ?NAME1, <<"friends">>),
+    Contact2 = struct_util:create_contact(delete, ?RAW2, ?NORM2, ?UID2, undefined, ?NAME2, <<"none">>),
+    ContactList = struct_util:create_contact_list(full, ?ID1, 0, true, [Contact1, Contact2], []),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, ContactList),
+
+    PbContact1 = struct_util:create_pb_contact(add, ?RAW1, ?NORM1, ?UID1_INT, ?ID1, ?NAME1, friends),
+    PbContact2 = struct_util:create_pb_contact(delete, ?RAW2, ?NORM2, ?UID2_INT, undefined, ?NAME2, none),
+    PbContactList = struct_util:create_pb_contact_list(full, ?ID1, 0, true, [PbContact1, PbContact2]),
+    PbIq = struct_util:create_pb_iq(?ID2, result, PbContactList),
+
+    ProtoIQ = iq_parser:xmpp_to_proto(XmppIq),
     ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
-    ?assertEqual(?PB_IQ_CONTACT_LIST, ProtoIQ). 
+    ?assertEqual(PbIq, ProtoIQ).
 
 
 proto_to_xmpp_contact_list_test() ->
-    XmppIQ = iq_parser:proto_to_xmpp(?PB_IQ_CONTACT_LIST),
-    ?assertEqual(true, is_record(XmppIQ, iq)),
-    ?assertEqual(?XMPP_IQ_CONTACT_LIST, XmppIQ). 
+    Contact1 = struct_util:create_contact(add, ?RAW1, undefined, <<>>, undefined, undefined, undefined),
+    Contact2 = struct_util:create_contact(delete, ?RAW2, undefined, <<>>, undefined, undefined, undefined),
+    ContactList = struct_util:create_contact_list(delta, ?ID1, 0, false, [Contact1, Contact2], []),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, ContactList),
+
+    PbContact1 = struct_util:create_pb_contact(add, ?RAW1, undefined, undefined, undefined, undefined, undefined),
+    PbContact2 = struct_util:create_pb_contact(delete, ?RAW2, undefined, undefined, undefined, undefined, undefined),
+    PbContactList = struct_util:create_pb_contact_list(delta, ?ID1, 0, false, [PbContact1, PbContact2]),
+    PbIq = struct_util:create_pb_iq(?ID2, result, PbContactList),
+
+    ActualXmppIQ = iq_parser:proto_to_xmpp(PbIq),
+    ?assertEqual(true, is_record(ActualXmppIQ, iq)),
+    ?assertEqual(XmppIq, ActualXmppIQ).
 

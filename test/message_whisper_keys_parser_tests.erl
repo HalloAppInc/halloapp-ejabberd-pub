@@ -12,44 +12,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define whisper_keys constants
-%% -------------------------------------------- %%
-
-
--define(XMPP_MSG_WHISPER_KEYS,
-    #message{
-        id = <<"WHIPCD988id">>,
-        type = set,
-        sub_els = [#whisper_keys{
-            uid = <<"29863">>,
-            type = add, 
-            identity_key = <<"adf-fadsfa">>,
-            signed_key = <<"2cd3c3">>,
-            otp_key_count = <<"3264653331">>,
-            one_time_keys = [<<"3dd">>, <<"31d">>, <<"39e">>]
-        }]
-    }
-).
-
--define(PB_MSG_WHISPER_KEYS,
-    #pb_msg{
-        id = <<"WHIPCD988id">>,
-        type = set,
-        to_uid = 1000000000045484920,
-        from_uid = 0,   %% Default value, when sent by the server.
-        payload = #pb_whisper_keys{
-                uid = 29863,
-                action = add,   
-                identity_key = <<"adf-fadsfa">>,
-                signed_key = <<"2cd3c3">>,
-                otp_key_count = 3264653331,
-                one_time_keys = [<<"3dd">>, <<"31d">>, <<"39e">>]
-            }
-    }
-).
-
+-include("parser_test_data.hrl").
 
 %% -------------------------------------------- %%
 %% internal tests
@@ -62,11 +25,15 @@ setup() ->
 
 xmpp_to_proto_whisper_keys_test() ->
     setup(),
-    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
-    FromJid = jid:make(<<"s.halloapp.net">>),
-    XmppMsg = ?XMPP_MSG_WHISPER_KEYS#message{to = ToJid, from = FromJid},
+    WhisperKeys = struct_util:create_whisper_keys(?UID1, add, ?KEY1_BASE64, ?KEY2_BASE64, <<"5">>, [?KEY3_BASE64, ?KEY4_BASE64]),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, WhisperKeys),
+
+    PbWhisperKeys = struct_util:create_pb_whisper_keys(?UID1_INT, add, ?KEY1, ?KEY2, 5, [?KEY3, ?KEY4]),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbWhisperKeys),
 
     ProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
-    ?assertEqual(?PB_MSG_WHISPER_KEYS, ProtoMsg).
+    ?assertEqual(PbMsg, ProtoMsg).
 

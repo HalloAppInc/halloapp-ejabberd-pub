@@ -12,137 +12,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define avatar and avatars constants
-%% -------------------------------------------- %%
-
--define(XMPP_UPLOAD_AVATAR1,
-    #avatar{
-        id = <<"ppadfa">>,
-        cdata = <<"YTgwaGZhZGtsLW0=">> 
-    }
-).
-
--define(PB_UPLOAD_AVATAR1,
-    #pb_upload_avatar{
-        id = <<"ppadfa">>,
-        data = <<"a80hfadkl-m">>
-    }
-).
-
-
--define(XMPP_UPLOAD_AVATAR2,
-    #avatar{
-        id = <<>>,
-        cdata = <<>>
-    }
-).
-
--define(PB_UPLOAD_AVATAR2,
-    #pb_upload_avatar{
-        id = <<>>,
-        data = <<>>
-    }
-).
-
--define(XMPP_AVATAR1,
-    #avatar{
-        id = <<"ppadfa">>,
-        userid = <<"397103">>
-    }
-).
-
--define(PB_AVATAR1,
-    #pb_avatar{
-        id = <<"ppadfa">>,
-        uid = 397103
-    }
-).
-
--define(XMPP_IQ_AVATAR1,
-    #iq{
-        id = <<"s9cCU-10">>,
-        type = set,
-        sub_els = [?XMPP_UPLOAD_AVATAR1]
-    }
-).
-
--define(PB_IQ_AVATAR1,
-    #pb_iq{
-        id = <<"s9cCU-10">>,
-        type = set,
-        payload = ?PB_UPLOAD_AVATAR1
-    }
-).
-
--define(XMPP_AVATAR2,
-    #avatar{
-        id = <<"001">>,
-        userid = <<"1000">>
-    }
-).
-
--define(PB_AVATAR2,
-    #pb_avatar{
-        id = <<"001">>,
-        uid = 1000
-    }
-).
-
--define(XMPP_IQ_AVATAR2,
-    #iq{
-        id = <<"s9cCU-10-000">>,
-        type = result,
-        sub_els = [?XMPP_AVATAR2]
-    }
-).
-
--define(PB_IQ_AVATAR2,
-    #pb_iq{
-        id = <<"s9cCU-10-000">>,
-        type = result,
-        payload = ?PB_AVATAR2
-    }
-).
-
--define(XMPP_IQ_AVATAR3,
-    #iq{
-        id = <<"s9cCU-10">>,
-        type = set,
-        sub_els = [?XMPP_UPLOAD_AVATAR2]
-    }
-).
-
--define(PB_IQ_AVATAR3,
-    #pb_iq{
-        id = <<"s9cCU-10">>,
-        type = set,
-        payload = ?PB_UPLOAD_AVATAR2
-    }
-).
-
--define(XMPP_IQ_AVATARS,
-    #iq{
-        id = <<"fadsa">>,
-        type = result,
-        sub_els = [#avatars{
-                avatars = [?XMPP_AVATAR1, ?XMPP_AVATAR2]
-            }
-        ]
-    }
-).
-
--define(PB_IQ_AVATARS,
-    #pb_iq{
-        id = <<"fadsa">>,
-        type = result,
-        payload = #pb_avatars{
-                avatars = [?PB_AVATAR1, ?PB_AVATAR2]
-            }
-    }
-).
-
+-include("parser_test_data.hrl").
 
 %% -------------------------------------------- %%
 %% internal tests
@@ -150,33 +20,69 @@
 
 
 xmpp_to_proto_avatar_test() ->
-    ProtoIQ2 = iq_parser:xmpp_to_proto(?XMPP_IQ_AVATAR2),
-    ?assertEqual(true, is_record(ProtoIQ2, pb_iq)),
-    ?assertEqual(?PB_IQ_AVATAR2, ProtoIQ2).
+    Avatar = struct_util:create_avatar(?ID1, ?UID1, <<>>),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, Avatar),
+
+    PbAvatar = struct_util:create_pb_avatar(?ID1, ?UID1_INT),
+    PbIq = struct_util:create_pb_iq(?ID2, result, PbAvatar),
+
+    ProtoIq = iq_parser:xmpp_to_proto(XmppIq),
+    ?assertEqual(true, is_record(ProtoIq, pb_iq)),
+    ?assertEqual(PbIq, ProtoIq).
 
 
-proto_to_xmpp_avatar_test() ->
-    XmppIQ1 = iq_parser:proto_to_xmpp(?PB_IQ_AVATAR1),
-    ?assertEqual(true, is_record(XmppIQ1, iq)),
-    ?assertEqual(?XMPP_IQ_AVATAR1, XmppIQ1),
+xmpp_to_proto_get_avatars_test() ->
+    Avatar1 = struct_util:create_avatar(?ID1, ?UID1, <<>>),
+    Avatar2 = struct_util:create_avatar(?ID2, ?UID2, <<>>),
+    Avatars = struct_util:create_avatars([Avatar1, Avatar2]),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, Avatars),
 
-    XmppIQ2 = iq_parser:proto_to_xmpp(?PB_IQ_AVATAR2),
-    ?assertEqual(true, is_record(XmppIQ2, iq)),
-    ?assertEqual(?XMPP_IQ_AVATAR2, XmppIQ2),
+    PbAvatar1 = struct_util:create_pb_avatar(?ID1, ?UID1_INT),
+    PbAvatar2 = struct_util:create_pb_avatar(?ID2, ?UID2_INT),
+    PbAvatars = struct_util:create_pb_avatars([PbAvatar1, PbAvatar2]),
+    PbIq = struct_util:create_pb_iq(?ID2, result, PbAvatars),
 
-    XmppIQ3 = iq_parser:proto_to_xmpp(?PB_IQ_AVATAR3),
-    ?assertEqual(true, is_record(XmppIQ3, iq)),
-    ?assertEqual(?XMPP_IQ_AVATAR3, XmppIQ3).
-
-
-xmpp_to_proto_avatars_test() -> 
-    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_AVATARS),
-    ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
-    ?assertEqual(?PB_IQ_AVATARS, ProtoIQ).
+    ProtoIq = iq_parser:xmpp_to_proto(XmppIq),
+    ?assertEqual(true, is_record(ProtoIq, pb_iq)),
+    ?assertEqual(PbIq, ProtoIq).
 
 
-proto_to_xmpp_avatars_test() ->
-    XmppIQ = iq_parser:proto_to_xmpp(?PB_IQ_AVATARS),
-    ?assertEqual(true, is_record(XmppIQ, iq)),
-    ?assertEqual(?XMPP_IQ_AVATARS, XmppIQ).
+proto_to_xmpp_set_avatar_test() ->
+    Avatar = struct_util:create_avatar(undefined, <<>>, ?PAYLOAD1_BASE64),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, set, Avatar),
+
+    PbAvatar = struct_util:create_pb_upload_avatar(undefined, ?PAYLOAD1),
+    PbIq = struct_util:create_pb_iq(?ID2, set, PbAvatar),
+
+    ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),
+    ?assertEqual(true, is_record(ActualXmppIq, iq)),
+    ?assertEqual(XmppIq, ActualXmppIq).
+
+
+proto_to_xmpp_get_avatar_test() ->
+    Avatar = struct_util:create_avatar(undefined, ?UID1, <<>>),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, get, Avatar),
+
+    PbAvatar = struct_util:create_pb_avatar(undefined, ?UID1_INT),
+    PbIq = struct_util:create_pb_iq(?ID2, get, PbAvatar),
+
+    ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),
+    ?assertEqual(true, is_record(ActualXmppIq, iq)),
+    ?assertEqual(XmppIq, ActualXmppIq).
+
+
+proto_to_xmpp_get_avatars_test() ->
+    Avatar1 = struct_util:create_avatar(undefined, ?UID1, <<>>),
+    Avatar2 = struct_util:create_avatar(undefined, ?UID2, <<>>),
+    Avatars = struct_util:create_avatars([Avatar1, Avatar2]),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, get, Avatars),
+
+    PbAvatar1 = struct_util:create_pb_avatar(undefined, ?UID1_INT),
+    PbAvatar2 = struct_util:create_pb_avatar(undefined, ?UID2_INT),
+    PbAvatars = struct_util:create_pb_avatars([PbAvatar1, PbAvatar2]),
+    PbIq = struct_util:create_pb_iq(?ID2, get, PbAvatars),
+
+    ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),
+    ?assertEqual(true, is_record(ActualXmppIq, iq)),
+    ?assertEqual(XmppIq, ActualXmppIq).
 

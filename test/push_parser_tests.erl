@@ -12,12 +12,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-
--define(ID1, <<"ID1">>).
--define(OS1, ios).
--define(OS1_BIN, <<"ios">>).
--define(TOKEN1, <<"token1">>).
+-include("parser_test_data.hrl").
 
 
 %% -------------------------------------------- %%

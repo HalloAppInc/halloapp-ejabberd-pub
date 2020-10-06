@@ -12,43 +12,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define avatar and avatars constants
-%% -------------------------------------------- %%
-
-
--define(XMPP_AVATAR,
-    #avatar{
-        id = <<"ppadfa">>,
-        userid = <<"30084">>
-    }
-).
-
--define(PB_AVATAR,
-    #pb_avatar{
-        id = <<"ppadfa">>,
-        uid = 30084
-    }
-).
-
--define(XMPP_MSG_AVATAR,
-    #message{
-        id = <<"s9cCU-10">>,
-        type = set,
-        sub_els = [?XMPP_AVATAR]
-    }
-).
-
--define(PB_MSG_AVATAR,
-    #pb_msg{
-        id = <<"s9cCU-10">>,
-        type = set,
-        to_uid = 1000000000045484920,
-        from_uid = 1000000000519345762,
-        payload = ?PB_AVATAR
-    }
-).
+-include("parser_test_data.hrl").
 
 
 %% -------------------------------------------- %%
@@ -59,24 +23,33 @@ setup() ->
     stringprep:start(),
     ok.
 
+
 xmpp_to_proto_avatar_test() ->
     setup(),
-    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
-    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
-    XmppMsg = ?XMPP_MSG_AVATAR#message{to = ToJid, from = FromJid},
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    Avatar = struct_util:create_avatar(?ID1, ?UID2, <<>>),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, Avatar),
+
+    PbAvatar = struct_util:create_pb_avatar(?ID1, ?UID2_INT),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbAvatar),
 
     ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ActualProtoMsg, pb_msg)),
-    ?assertEqual(?PB_MSG_AVATAR, ActualProtoMsg).
+    ?assertEqual(PbMsg, ActualProtoMsg).
     
     
 proto_to_xmpp_avatar_test() ->
     setup(),
-    ToJid = jid:make(<<"1000000000045484920">>, <<"s.halloapp.net">>),
-    FromJid = jid:make(<<"1000000000519345762">>, <<"s.halloapp.net">>),
-    ExpectedXmppMsg = ?XMPP_MSG_AVATAR#message{to = ToJid, from = FromJid},
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    Avatar = struct_util:create_avatar(?ID1, ?UID2, <<>>),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, Avatar),
 
-    ActualXmppMsg = message_parser:proto_to_xmpp(?PB_MSG_AVATAR),
+    PbAvatar = struct_util:create_pb_avatar(?ID1, ?UID2_INT),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbAvatar),
+
+    ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
     ?assertEqual(true, is_record(ActualXmppMsg, message)),
-    ?assertEqual(ExpectedXmppMsg, ActualXmppMsg).
+    ?assertEqual(XmppMsg, ActualXmppMsg).
 

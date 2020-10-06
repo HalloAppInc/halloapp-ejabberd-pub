@@ -12,88 +12,33 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
-
-%% -------------------------------------------- %%
-%% define whisper_keys constants
-%% -------------------------------------------- %%
-
--define(XMPP_IQ_WHISPER_KEYS1,
-    #iq{
-        id = <<"3ece24923">>,
-        type = set,
-        sub_els = [#whisper_keys{
-                uid = <<"863">>,
-                type = add, 
-                identity_key = <<"adf-fadsfa">>,
-                signed_key = <<"2cd3c3">>,
-                otp_key_count = <<"100">>,
-                one_time_keys = [<<"3dd">>, <<"31d">>, <<"39e">>]
-            }
-        ]
-    }
-).
-
--define(PB_IQ_WHISPER_KEYS1,
-    #pb_iq{
-        id = <<"3ece24923">>,
-        type = set,
-        payload = #pb_whisper_keys{
-                uid = 863,
-                action = add,   
-                identity_key = <<"adf-fadsfa">>,
-                signed_key = <<"2cd3c3">>,
-                otp_key_count = 100,
-                one_time_keys = [<<"3dd">>, <<"31d">>, <<"39e">>]
-            }
-    }
-).
-
-
--define(XMPP_IQ_WHISPER_KEYS2,
-    #iq{
-        id = <<"3ece24923">>,
-        type = get,
-        sub_els = [#whisper_keys{
-                uid = <<"863">>,
-                type = count,
-                identity_key = undefined,
-                signed_key = undefined,
-                otp_key_count = undefined,
-                one_time_keys = []
-            }
-        ]
-    }
-).
-
--define(PB_IQ_WHISPER_KEYS2,
-    #pb_iq{
-        id = <<"3ece24923">>,
-        type = get,
-        payload = #pb_whisper_keys{
-                uid = 863,
-                action = count,
-                identity_key = undefined,
-                signed_key = undefined,
-                otp_key_count = undefined,
-                one_time_keys = []
-            }
-    }
-).
-
+-include("parser_test_data.hrl").
 
 %% -------------------------------------------- %%
 %% internal tests
 %% -------------------------------------------- %%
 
 
-xmpp_to_proto_whisper_keys_test() -> 
-    ProtoIQ = iq_parser:xmpp_to_proto(?XMPP_IQ_WHISPER_KEYS1),
+xmpp_to_proto_whisper_keys_test() ->
+    WhisperKeys = struct_util:create_whisper_keys(?UID1, add, ?KEY1_BASE64, ?KEY2_BASE64, <<"5">>, [?KEY3_BASE64, ?KEY4_BASE64]),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, WhisperKeys),
+
+    PbWhisperKeys = struct_util:create_pb_whisper_keys(?UID1_INT, add, ?KEY1, ?KEY2, 5, [?KEY3, ?KEY4]),
+    PbIq = struct_util:create_pb_iq(?ID2, result, PbWhisperKeys),
+
+    ProtoIQ = iq_parser:xmpp_to_proto(XmppIq),
     ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
-    ?assertEqual(?PB_IQ_WHISPER_KEYS1, ProtoIQ).
+    ?assertEqual(PbIq, ProtoIQ).
 
 
 proto_to_xmpp_whisper_keys_test() ->
-    XmppIQ = iq_parser:proto_to_xmpp(?PB_IQ_WHISPER_KEYS2),
-    ?assertEqual(true, is_record(XmppIQ, iq)),
-    ?assertEqual(?XMPP_IQ_WHISPER_KEYS2, XmppIQ).
+    WhisperKeys = struct_util:create_whisper_keys(?UID1, count, undefined, undefined, undefined, []),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, get, WhisperKeys),
+
+    PbWhisperKeys = struct_util:create_pb_whisper_keys(?UID1_INT, count, undefined, undefined, undefined, []),
+    PbIq = struct_util:create_pb_iq(?ID2, get, PbWhisperKeys),
+
+    ActualXmppIQ = iq_parser:proto_to_xmpp(PbIq),
+    ?assertEqual(true, is_record(ActualXmppIQ, iq)),
+    ?assertEqual(XmppIq, ActualXmppIQ).
 
