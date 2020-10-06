@@ -151,46 +151,6 @@ opt_type(include_config_file) ->
     econf:any();
 opt_type(language) ->
     econf:lang();
-opt_type(ldap_backups) ->
-    econf:list(econf:domain(), [unique]);
-opt_type(ldap_base) ->
-    econf:binary();
-opt_type(ldap_deref_aliases) ->
-    econf:enum([never, searching, finding, always]);
-opt_type(ldap_dn_filter) ->
-    econf:and_then(
-        econf:non_empty(
-            econf:map(
-                econf:ldap_filter(),
-                econf:list(econf:binary()))),
-      fun hd/1);
-opt_type(ldap_encrypt) ->
-    econf:enum([tls, starttls, none]);
-opt_type(ldap_filter) ->
-    econf:ldap_filter();
-opt_type(ldap_password) ->
-    econf:binary();
-opt_type(ldap_port) ->
-    econf:port();
-opt_type(ldap_rootdn) ->
-    econf:binary();
-opt_type(ldap_servers) ->
-    econf:list(econf:domain(), [unique]);
-opt_type(ldap_tls_cacertfile) ->
-    econf:pem();
-opt_type(ldap_tls_certfile) ->
-    econf:pem();
-opt_type(ldap_tls_depth) ->
-    econf:non_neg_int();
-opt_type(ldap_tls_verify) ->
-    econf:enum([hard, soft, false]);
-opt_type(ldap_uids) ->
-    econf:either(
-        econf:list(
-            econf:and_then(
-                econf:binary(),
-                fun(U) -> {U, <<"%u">>} end)),
-        econf:map(econf:binary(), econf:binary(), [unique]));
 opt_type(listen) ->
     ejabberd_listener:validator();
 opt_type(log_rate_limit) ->
@@ -398,8 +358,6 @@ opt_type(websocket_timeout) ->
     {s2s_zlib, boolean()} |
     {listen, [ejabberd_listener:listener()]} |
     {modules, [{module(), gen_mod:opts(), integer()}]} |
-    {ldap_uids, [{binary(), binary()}]} |
-    {ldap_dn_filter, {binary(), [binary()]}} |
     {outgoing_s2s_families, [inet | inet6, ...]} |
     {acl, [{atom(), [acl:acl_rule()]}]} |
     {access_rules, [{atom(), acl:access()}]} |
@@ -473,28 +431,6 @@ options() -> [%% Top-priority options
     {host_config, []},
     {include_config_file, []},
     {language, <<"en">>},
-    % TODO cleanup ldap options
-    {ldap_backups, []},
-    {ldap_base, <<"">>},
-    {ldap_deref_aliases, never},
-    {ldap_dn_filter, {undefined, []}},
-    {ldap_encrypt, none},
-    {ldap_filter, <<"">>},
-    {ldap_password, <<"">>},
-    {ldap_port,
-        fun(Host) ->
-            case ejabberd_config:get_option({ldap_encrypt, Host}) of
-                tls -> 636;
-                _ -> 389
-            end
-        end},
-    {ldap_rootdn, <<"">>},
-    {ldap_servers, [<<"localhost">>]},
-    {ldap_tls_cacertfile, undefined},
-    {ldap_tls_certfile, undefined},
-    {ldap_tls_depth, undefined},
-    {ldap_tls_verify, false},
-    {ldap_uids, [{<<"uid">>, <<"%u">>}]},
     {listen, []},
     {log_rate_limit, undefined},
     {log_rotate_count, undefined},

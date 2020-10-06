@@ -352,11 +352,7 @@ match_regexp(Data, RegExp) ->
 loaded_shared_roster_module(global) ->
     loaded_shared_roster_module(ejabberd_config:get_myname());
 loaded_shared_roster_module(Host) ->
-    case gen_mod:is_loaded(Host, mod_shared_roster_ldap) of
-	true -> mod_shared_roster_ldap;
-	false ->
-	    case gen_mod:is_loaded(Host, mod_shared_roster) of
-		true -> mod_shared_roster;
-		false -> undefined
-	    end
+    case gen_mod:is_loaded(Host, mod_shared_roster) of
+        true -> mod_shared_roster;
+        false -> undefined
     end.

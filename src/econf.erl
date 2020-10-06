@@ -49,7 +49,7 @@
 -export([acl/0, shaper/0, url_or_file/0, lang/0]).
 -export([pem/0, queue_type/0]).
 -export([jid/0, user/0, domain/0, resource/0]).
--export([db_type/1, ldap_filter/0]).
+-export([db_type/1]).
 -export([host/0, hosts/0]).
 -export([vcard_temp/0]).
 -ifdef(SIP).
@@ -168,8 +168,6 @@ format_error({bad_domain, Bad}) ->
     format("Invalid domain: ~ts", [Bad]);
 format_error({bad_resource, Bad}) ->
     format("Invalid resource part: ~ts", [Bad]);
-format_error({bad_ldap_filter, Bad}) ->
-    format("Invalid LDAP filter: ~ts", [Bad]);
 format_error({bad_sip_uri, Bad}) ->
     format("Invalid SIP URI: ~ts", [Bad]);
 format_error({route_conflict, R}) ->
@@ -486,17 +484,6 @@ db_type(M) ->
 -spec queue_type() -> yconf:validator(ram | file).
 queue_type() ->
     enum([ram, file]).
-
--spec ldap_filter() -> yconf:validator(binary()).
-ldap_filter() ->
-    and_then(
-      binary(),
-      fun(Val) ->
-	      case eldap_filter:parse(Val) of
-		  {ok, _} -> Val;
-		  _ -> fail({bad_ldap_filter, Val})
-	      end
-      end).
 
 -ifdef(SIP).
 sip_uri() ->

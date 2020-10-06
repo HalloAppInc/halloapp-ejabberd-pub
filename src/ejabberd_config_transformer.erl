@@ -166,24 +166,6 @@ filter(_Host, ejabberdctl_access_commands, _, _) ->
 filter(_Host, commands_admin_access, _, _) ->
     warn_removed_option(commands_admin_access, api_permissions),
     false;
-filter(_Host, ldap_group_cache_size, _, _) ->
-    warn_removed_option(ldap_group_cache_size, cache_size),
-    false;
-filter(_Host, ldap_user_cache_size, _, _) ->
-    warn_removed_option(ldap_user_cache_size, cache_size),
-    false;
-filter(_Host, ldap_group_cache_validity, _, _) ->
-    warn_removed_option(ldap_group_cache_validity, cache_life_time),
-    false;
-filter(_Host, ldap_user_cache_validity, _, _) ->
-    warn_removed_option(ldap_user_cache_validity, cache_life_time),
-    false;
-filter(_Host, ldap_local_filter, _, _) ->
-    warn_removed_option(ldap_local_filter),
-    false;
-filter(_Host, deref_aliases, Val, _) ->
-    warn_replaced_option(deref_aliases, ldap_deref_aliases),
-    {true, {ldap_deref_aliases, Val}};
 filter(_Host, default_db, internal, _) ->
     {true, {default_db, mnesia}};
 filter(_Host, default_db, odbc, _) ->
@@ -348,21 +330,6 @@ transform_module_options(Opts) ->
 	 ({Opt, odbc}) when Opt == db_type;
 			    Opt == ram_db_type ->
 	      {true, {Opt, sql}};
-	 ({deref_aliases, Val}) ->
-	      warn_replaced_option(deref_aliases, ldap_deref_aliases),
-	      {true, {ldap_deref_aliases, Val}};
-	 ({ldap_group_cache_size, _}) ->
-	      warn_removed_option(ldap_group_cache_size, cache_size),
-	      false;
-	 ({ldap_user_cache_size, _}) ->
-	      warn_removed_option(ldap_user_cache_size, cache_size),
-	      false;
-	 ({ldap_group_cache_validity, _}) ->
-	      warn_removed_option(ldap_group_cache_validity, cache_life_time),
-	      false;
-	 ({ldap_user_cache_validity, _}) ->
-	      warn_removed_option(ldap_user_cache_validity, cache_life_time),
-	      false;
 	 ({iqdisc, _}) ->
 	      warn_removed_option(iqdisc),
 	      false;
@@ -376,9 +343,6 @@ transform_module(Host, mod_http_bind, Opts, Acc) ->
 transform_module(Host, mod_vcard_xupdate_odbc, Opts, Acc) ->
     warn_replaced_module(mod_vcard_xupdate_odbc, mod_vcard_xupdate),
     transform_module(Host, mod_vcard_xupdate, Opts, Acc);
-transform_module(Host, mod_vcard_ldap, Opts, Acc) ->
-    warn_replaced_module(mod_vcard_ldap, mod_vcard, ldap),
-    transform_module(Host, mod_vcard, [{db_type, ldap}|Opts], Acc);
 transform_module(Host, M, Opts, Acc) when (M == mod_announce_odbc orelse
 					   M == mod_blocking_odbc orelse
 					   M == mod_caps_odbc orelse
