@@ -13,7 +13,9 @@
     xmpp_to_proto_uid/1,
     proto_to_xmpp_uid/1,
     maybe_convert_to_binary/1,
-    maybe_convert_to_integer/1
+    maybe_convert_to_integer/1,
+    maybe_base64_encode/1,
+    maybe_base64_decode/1
 ]).
 
 %% Export all functions for unit tests
@@ -44,4 +46,11 @@ maybe_convert_to_binary(Data) -> util:to_binary(Data).
 maybe_convert_to_integer(undefined) -> undefined;
 maybe_convert_to_integer(<<>>) -> undefined;
 maybe_convert_to_integer(Data) -> util:to_integer(Data).
+
+
+maybe_base64_encode(undefined) -> undefined;
+maybe_base64_encode(Data) -> base64:encode(Data).
+
+maybe_base64_decode(undefined) -> undefined;
+maybe_base64_decode(Data) -> base64:decode(Data).
 

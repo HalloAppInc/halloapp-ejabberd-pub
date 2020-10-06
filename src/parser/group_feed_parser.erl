@@ -68,7 +68,7 @@ group_comment_st_to_comment(CommentSt) ->
         publisher_uid = util_parser:xmpp_to_proto_uid(CommentSt#group_comment_st.publisher_uid),
         publisher_name = CommentSt#group_comment_st.publisher_name,
         timestamp = util_parser:maybe_convert_to_integer(CommentSt#group_comment_st.timestamp),
-        payload = base64:decode(CommentSt#group_comment_st.payload)
+        payload = util_parser:maybe_base64_decode(CommentSt#group_comment_st.payload)
     },
     Comment.
 
@@ -77,7 +77,7 @@ group_post_st_to_post(PostSt) ->
         id = PostSt#group_post_st.id,
         publisher_uid = util_parser:xmpp_to_proto_uid(PostSt#group_post_st.publisher_uid),
         publisher_name = PostSt#group_post_st.publisher_name,
-        payload = base64:decode(PostSt#group_post_st.payload),
+        payload = util_parser:maybe_base64_decode(PostSt#group_post_st.payload),
         timestamp = util_parser:maybe_convert_to_integer(PostSt#group_post_st.timestamp)
     },
     Post.
@@ -89,7 +89,7 @@ comment_to_group_comment_st(Comment) ->
         parent_comment_id = Comment#pb_comment.parent_comment_id,
         publisher_uid = util_parser:proto_to_xmpp_uid(Comment#pb_comment.publisher_uid),
         publisher_name = Comment#pb_comment.publisher_name,
-        payload = base64:encode(Comment#pb_comment.payload),
+        payload = util_parser:maybe_base64_encode(Comment#pb_comment.payload),
         timestamp = util_parser:maybe_convert_to_binary(Comment#pb_comment.timestamp)
     },
     CommentSt.
@@ -99,7 +99,7 @@ post_to_group_post_st(Post) ->
         id = Post#pb_post.id,
         publisher_uid = util_parser:proto_to_xmpp_uid(Post#pb_post.publisher_uid),
         publisher_name = Post#pb_post.publisher_name,
-        payload = base64:encode(Post#pb_post.payload),
+        payload = util_parser:maybe_base64_encode(Post#pb_post.payload),
         timestamp = util_parser:maybe_convert_to_binary(Post#pb_post.timestamp)
     },
     PostSt.

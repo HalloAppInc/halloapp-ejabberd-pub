@@ -180,9 +180,8 @@ post_to_post_st(Post) ->
     PostSt.
 
 
-convert_payload(#post_st{payload = Payload}) when Payload =/= undefined -> base64:decode(Payload);
-convert_payload(#comment_st{payload = Payload}) when Payload =/= undefined -> base64:decode(Payload);
-convert_payload(#pb_comment{payload = Payload}) when Payload =/= undefined -> base64:encode(Payload);
-convert_payload(#pb_post{payload = Payload}) when Payload =/= undefined -> base64:encode(Payload);
-convert_payload(_) -> undefined.
+convert_payload(#post_st{payload = Payload}) -> util_parser:maybe_base64_decode(Payload);
+convert_payload(#comment_st{payload = Payload}) -> util_parser:maybe_base64_decode(Payload);
+convert_payload(#pb_comment{payload = Payload}) -> util_parser:maybe_base64_encode(Payload);
+convert_payload(#pb_post{payload = Payload}) -> util_parser:maybe_base64_encode(Payload).
 
