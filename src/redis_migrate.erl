@@ -38,7 +38,8 @@
     rename_privacy_list_run/2,
     rename_privacy_list_verify/2,
     rename_privacy_list_cleanup/2,
-    expire_sync_keys_run/2
+    expire_sync_keys_run/2,
+    trigger_full_sync_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -332,4 +333,28 @@ rename_privacy_list_cleanup(Key, State) ->
 %%% Stage 1. Set expiry for sync keys.
 expire_sync_keys_run(Key, State) ->
     migrate_contact_data:expire_sync_keys_run(Key, State).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                            Trigger full sync                                       %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+trigger_full_sync_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            case DryRun of
+                true ->
+                    ?INFO("would send empty hash to: ~p", [Uid]);
+                false ->
+                    ok = mod_contacts:trigger_full_contact_sync(Uid),
+                    ?INFO("sent empty hash to: ~p", [Uid])
+            end;
+        _ -> ok
+    end,
+    State.
+
 
