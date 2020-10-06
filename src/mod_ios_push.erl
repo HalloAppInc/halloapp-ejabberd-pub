@@ -404,6 +404,10 @@ parse_subject_and_body(#message{sub_els = [#feed_st{posts = [#post_st{}]}]}) ->
     {<<"New Notification">>, <<"New post">>};
 parse_subject_and_body(#message{sub_els = [#feed_st{comments = [#comment_st{}]}]}) ->
     {<<"New Notification">>, <<"New comment">>};
+parse_subject_and_body(#message{sub_els = [#group_feed_st{post = #group_post_st{}}]}) ->
+    {<<"New Group Message">>, <<"New post">>};
+parse_subject_and_body(#message{sub_els = [#group_feed_st{comment = #group_comment_st{}}]}) ->
+    {<<"New Group Message">>, <<"New comment">>};
 parse_subject_and_body(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]).
 
