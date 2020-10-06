@@ -15,8 +15,13 @@
 %% internal tests
 %% -------------------------------------------- %%
 
+setup() ->
+    stringprep:start(),
+    ok.
 
 xmpp_to_proto_message_feed_item_test() ->
+    setup(),
+
     PbPost = struct_util:create_pb_post(?ID1, ?UID1_INT, <<>>, ?PAYLOAD1, undefined, ?TIMESTAMP1_INT),
     PbFeedItem = struct_util:create_feed_item(publish, PbPost),
     PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbFeedItem),
@@ -33,6 +38,8 @@ xmpp_to_proto_message_feed_item_test() ->
 
 
 xmpp_to_proto_retract_message_feed_item_test() ->
+    setup(),
+
     PbPost = struct_util:create_pb_post(?ID1, ?UID1_INT, <<>>, undefined, undefined, ?TIMESTAMP1_INT),
     PbFeedItem = struct_util:create_feed_item(retract, PbPost),
     PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbFeedItem),
@@ -49,6 +56,8 @@ xmpp_to_proto_retract_message_feed_item_test() ->
 
 
 xmpp_to_proto_message_feed_items_test() ->
+    setup(),
+
     PbPost1 = struct_util:create_pb_post(?ID1, ?UID1_INT, <<>>, ?PAYLOAD1, undefined, ?TIMESTAMP1_INT),
     PbPost2 = struct_util:create_pb_post(?ID2, ?UID1_INT, <<>>, ?PAYLOAD2, undefined, ?TIMESTAMP2_INT),
     PbComment1 = struct_util:create_pb_comment(?ID3, ?ID1, <<>>, ?UID2_INT, ?NAME2, ?PAYLOAD2, ?TIMESTAMP2_INT),
@@ -134,13 +143,15 @@ proto_to_xmpp_iq_share_request_test() ->
     ShareFeedRequests = struct_util:create_share_feed_requests([ShareFeedRequest]),
     PbIq = struct_util:create_pb_iq(?ID1, set, ShareFeedRequests),
 
-    PostSt1 = struct_util:create_post_st(?ID1, <<>>, <<>>, <<>>),
-    PostSt2 = struct_util:create_post_st(?ID2, <<>>, <<>>, <<>>),
+    PostSt1 = struct_util:create_post_st(?ID1, <<>>, <<>>, undefined),
+    PostSt2 = struct_util:create_post_st(?ID2, <<>>, <<>>, undefined),
     SharePostsSt = struct_util:create_share_posts_st(?UID1, [PostSt1, PostSt2], undefined, undefined),
     FeedSt = struct_util:create_feed_st(share, [], [], [], [SharePostsSt]),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),
+    ?debugFmt("~p", [IqSt]),
+    ?debugFmt("~p", [XmppIq]),
     ?assertEqual(true, is_record(XmppIq, iq)),
     ?assertEqual(IqSt, XmppIq).
 
