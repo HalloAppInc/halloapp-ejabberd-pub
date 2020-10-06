@@ -115,7 +115,7 @@ normalize_and_insert_contacts_with_syncid_test() ->
 
     %% Test if the phones are inserted correctly.
     {ok, ActualSyncPhones} = model_contacts:get_sync_contacts(?UID1, ?SYNC_ID1),
-    ExpectedSyncPhones = [?PHONE2, ?PHONE3],
+    ExpectedSyncPhones = [?PHONE2, ?PHONE3, ?PHONE4, ?PHONE6],
     ?assertEqual(lists:sort(ExpectedSyncPhones), lists:sort(ActualSyncPhones)),
 
     %% Test if uid is correctly inserted for unregistered phone numbers.
@@ -164,7 +164,7 @@ normalize_and_insert_contacts_without_syncid_test() ->
     %% We wont have Phone4: because that number is not registered on our platform.
     %% Since there is no uid associated with Phone4.
     {ok, ActualPhones} = model_contacts:get_contacts(?UID1),
-    ExpectedPhones = [?PHONE2, ?PHONE3, ?PHONE6],
+    ExpectedPhones = [?PHONE2, ?PHONE3, ?PHONE4, ?PHONE6],
     ?assertEqual(lists:sort(ExpectedPhones), lists:sort(ActualPhones)),
 
     %% Test if uid is correctly inserted for unregistered phone numbers.
@@ -233,7 +233,7 @@ finish_sync_test() ->
     _ = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, ?SYNC_ID1),
     ok = mod_contacts:finish_sync(?UID1, ?SERVER, ?SYNC_ID1),
     {ok, ActualPhones2} = model_contacts:get_contacts(?UID1),
-    ExpectedPhones2 = [?PHONE2, ?PHONE3],
+    ExpectedPhones2 = [?PHONE2, ?PHONE3, ?PHONE4],
     ?assertEqual(lists:sort(ExpectedPhones2), lists:sort(ActualPhones2)),
 
     %% Ensure friend relationships are correctly inserted.

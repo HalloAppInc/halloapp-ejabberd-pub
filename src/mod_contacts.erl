@@ -133,7 +133,13 @@ register_user(UserId, Server, Phone) ->
     lists:foreach(
         fun(ContactId) ->
             probe_contact_about_user(UserId, Phone, Server, ContactId)
-        end, PotentialContactUids).
+        end, PotentialContactUids),
+
+    {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+    lists:foreach(
+        fun(ContactId) ->
+            notify_contact_about_user(UserId, Phone, Server, ContactId, <<"none">>)
+        end, ContactUids).
 
 
 -spec block_uids(Uid :: binary(), Server :: binary(), Ouids :: list(binary())) -> ok.
@@ -325,7 +331,7 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
                         OldReverseContactSet, Server, Contact, SyncId),
                 NewAcc = case {NewContact#contact.normalized, NewContact#contact.userid} of
                     {undefined, _} -> {PhoneAcc, UnregisteredPhoneAcc};
-                    {NormPhone, undefined} -> {PhoneAcc, [NormPhone | UnregisteredPhoneAcc]};
+                    {NormPhone, undefined} -> {[NormPhone | PhoneAcc], [NormPhone | UnregisteredPhoneAcc]};
                     {NormPhone, _} -> {[NormPhone | PhoneAcc], UnregisteredPhoneAcc}
                 end,
                 {NewContact, NewAcc}
