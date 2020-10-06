@@ -34,7 +34,8 @@
 {mysql, @mysql@}.
 {pgsql, @pgsql@}.
 {sqlite, @sqlite@}.
-{pam, @pam@}.
+% TODO: maybe try to get rid of pam
+{pam, false}.
 {zlib, @zlib@}.
 {redis, @redis@}.
 {elixir, @elixir@}.
