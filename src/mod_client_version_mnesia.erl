@@ -23,7 +23,8 @@
     delete_version/1,
     fetch_version/1,
     get_time_left/3,
-    check_if_version_exists/1
+    check_if_version_exists/1,
+    migrate_to_redis/0
 ]).
 
 -record(client_version, {
@@ -152,4 +153,18 @@ check_if_version_exists(Version) ->
             ?ERROR("mnesia transaction failed for version: ~p with reason: ~p", [Version, Reason]),
             false
     end.
+
+% TODO: Delete this after the migration is done
+migrate_to_redis() ->
+    mnesia:activity(sync_dirty,
+        fun() ->
+            mnesia:foldl(
+                fun(#client_version{version = V, timestamp = T}, Acc) ->
+                    ?INFO_MSG("Migrating ~p ~p", [V, T]),
+                    model_client_version:set_version_ts(V, binary_to_integer(T)),
+                    Acc
+                end,
+                ignored_acc,
+                client_version)
+        end).
 

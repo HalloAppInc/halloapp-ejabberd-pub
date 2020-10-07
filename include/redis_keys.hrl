@@ -26,6 +26,10 @@
 -define(ACTIVE_USERS_ALL_KEY, <<"active_users_all:">>).
 -define(ACTIVE_USERS_IOS_KEY, <<"active_users_ios:">>).
 -define(ACTIVE_USERS_ANDROID_KEY, <<"active_users_android:">>).
+% top level key clv:Android0.90 -> timestamp
+-define(CLIENT_VERSION_KEY, <<"clv:">>).
+% zset of all client version
+-define(CLIENT_VERSION_ALL_KEY, <<"all_client_versions:">>).
 
 %%RedisFeed (model_feed)
 -define(POST_KEY, <<"fp:">>).

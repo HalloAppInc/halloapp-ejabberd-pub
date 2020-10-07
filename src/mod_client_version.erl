@@ -34,6 +34,7 @@
 %% debug console functions.
 -export([get_time_left/2]).
 
+% TODO: add tests after the migration to Redis is done.
 
 start(Host, Opts) ->
     ejabberd_hooks:add(c2s_handle_info, Host, ?MODULE, c2s_handle_info, 10),
@@ -51,7 +52,7 @@ stop(Host) ->
     ok.
 
 depends(_Host, _Opts) ->
-    [].
+    [{mod_redis, hard}].
 
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.
@@ -136,15 +137,31 @@ get_time_left(Version, CurTimestamp) ->
     MaxTimeSec = get_max_time_in_sec(),
     case mod_client_version_mnesia:check_if_version_exists(Version) of
         false ->
-            mod_client_version_mnesia:insert_version(Version, CurTimestamp);
+            mod_client_version_mnesia:insert_version(Version, CurTimestamp),
+            model_client_version:set_version_ts(Version, binary_to_integer(CurTimestamp));
         true ->
             ok
     end,
     case mod_client_version_mnesia:get_time_left(Version, CurTimestamp, MaxTimeSec) of
-        {error, _} -> <<"0">>;
-        {ok, SecsLeft} -> integer_to_binary(SecsLeft)
+        {error, _} ->
+            ?ERROR("version missing, should not happen. Version: ~p", [Version]),
+            <<"0">>;
+        {ok, SecsLeft} ->
+            VerTs = model_client_version:get_version_ts(Version),
+            case VerTs of
+                undefined -> ?WARNING("version_check_failed no data in Redis Version: ~p", [Version]);
+                _ ->
+                    NewSecsLeft = MaxTimeSec - (binary_to_integer(CurTimestamp) - VerTs),
+                    case SecsLeft =:= NewSecsLeft of
+                        true ->
+                            ?INFO("version_match_ok version ~p -> ~p", [Version, NewSecsLeft]);
+                        false ->
+                            ?ERROR("version_exp_mismatch Version: ~p ~p ~p",
+                                [Version, SecsLeft, NewSecsLeft])
+                    end
+            end,
+            integer_to_binary(SecsLeft)
     end.
-
 
 %% Store the necessary options with persistent_term.
 %% [https://erlang.org/doc/man/persistent_term.html]
