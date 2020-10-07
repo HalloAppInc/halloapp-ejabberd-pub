@@ -664,10 +664,8 @@ set_from_to(Pkt, _State) when not ?is_stanza(Pkt) ->
     {ok, Pkt};
 set_from_to(Pkt, #{user := U, server := S, resource := R, lang := Lang, xmlns := ?NS_CLIENT}) ->
     JID = jid:make(U, S, R),
-    From = case xmpp:get_from(Pkt) of
-        undefined -> JID;
-        F -> F
-    end,
+    %% Always overwrite the from_jid to be the user's jid.
+    From = JID,
     if
         JID#jid.luser == From#jid.luser andalso
         JID#jid.lserver == From#jid.lserver andalso
