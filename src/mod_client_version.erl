@@ -21,9 +21,16 @@
 -define(NS_CLIENT_VER, <<"halloapp:client:version">>).
 
 %% gen_mod API.
--export([start/2, stop/1, depends/2, reload/3, mod_options/1, mod_opt_type/1, is_valid_version/1]).
+-export([start/2, stop/1, depends/2, reload/3, mod_options/1, mod_opt_type/1]).
+% API
+-export([
+    is_valid_version/1
+]).
 %% iq handler and hooks.
--export([process_local_iq/1, c2s_handle_info/2]).
+-export([
+    process_local_iq/1,
+    c2s_handle_info/2
+]).
 %% debug console functions.
 -export([get_time_left/2]).
 
@@ -51,25 +58,24 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 
 process_local_iq(#iq{type = get, to = _Host, from = From,
-                  sub_els = [#client_version{version = Version}]} = IQ) ->
-  CurTimestamp = util:now_binary(),
-  TimeLeftSec = get_time_left(Version, CurTimestamp),
-  Validity = is_valid_version(Version, TimeLeftSec),
-  check_and_close_connection(Version, Validity, From),
-  check_and_set_user_agent(Version, From#jid.luser),
-  ?INFO("mod_client_version: Received an IQ for this version: ~p, validity: ~p, time left: ~p",
-                                                              [Version, Validity, TimeLeftSec]),
-  xmpp:make_iq_result(IQ, #client_version{version = Version, seconds_left = TimeLeftSec}).
+        sub_els = [#client_version{version = Version}]} = IQ) ->
+    CurTimestamp = util:now_binary(),
+    TimeLeftSec = get_time_left(Version, CurTimestamp),
+    Validity = is_valid_version(Version, TimeLeftSec),
+    check_and_close_connection(Version, Validity, From),
+    check_and_set_user_agent(Version, From#jid.luser),
+    ?INFO("client_version version: ~p, validity: ~p, time left: ~p",
+        [Version, Validity, TimeLeftSec]),
+    xmpp:make_iq_result(IQ, #client_version{version = Version, seconds_left = TimeLeftSec}).
 
 
 
 c2s_handle_info(State, {kill_connection, expired_app_version, From}) ->
-     #jid{user = User, server = Server, resource = Resource} = From,
-      case ejabberd_sm:get_session_pid(User, Server, Resource)
-          of
+    #jid{user = User, server = Server, resource = Resource} = From,
+    case ejabberd_sm:get_session_pid(User, Server, Resource) of
         Pid when is_pid(Pid) -> ejabberd_c2s:close(Pid, expired_app_version);
         _ -> ok
-      end,
+    end,
     State;
 c2s_handle_info(State, _) ->
     State.
@@ -78,9 +84,9 @@ c2s_handle_info(State, _) ->
 %% Checks if a version is valid or not with respect to the current timestamp.
 -spec is_valid_version(binary()) -> boolean().
 is_valid_version(Version) ->
-  CurTimestamp = util:now_binary(),
-  TimeLeftSec = get_time_left(Version, CurTimestamp),
-  is_valid_version(Version, TimeLeftSec).
+    CurTimestamp = util:now_binary(),
+    TimeLeftSec = get_time_left(Version, CurTimestamp),
+    is_valid_version(Version, TimeLeftSec).
 
 %%====================================================================
 %% internal functions
@@ -91,6 +97,7 @@ check_and_set_user_agent(Version, Uid) ->
     CurrUserAgent = model_accounts:get_signup_user_agent(Uid),
     case CurrUserAgent =:= <<>> of
         true ->
+            % TODO(nikola): check if this is still happening, maybe we can remove this code
             model_accounts:set_user_agent(Uid, Version),
             ?INFO("User agent for uid:~p updated to ~p",[Uid, Version]);
         false -> ok
@@ -100,25 +107,22 @@ check_and_set_user_agent(Version, Uid) ->
 %% Checks if the version is valid or not based on the boolean value.
 %% If it's not valid, then kill the connection.
 check_and_close_connection(_Version, true, _From) ->
-  ok;
+    ok;
 check_and_close_connection(_Version, false, From) ->
-  erlang:send(self(), {kill_connection, expired_app_version, From}),
-  ok.
-
+    erlang:send(self(), {kill_connection, expired_app_version, From}),
+    ok.
 
 
 %% Checks if the version with the timeleft is valid or not.
 %% We consider a version to be valid if it has more than 60 seconds of unexpired time.
 -spec is_valid_version(binary(), binary()) -> boolean().
 is_valid_version(_Version, TimeLeftSec) ->
-  SecsLeft = binary_to_integer(TimeLeftSec),
-  if
-    SecsLeft =< 60 ->
-      false;
-    true ->
-      true
-  end.
-
+    SecsLeft = binary_to_integer(TimeLeftSec),
+    if
+        % TODO(nikola) why 60 seconds, should be 0?
+        SecsLeft =< 60 -> false;
+        true -> true
+    end.
 
 
 %% Gets the time left in seconds for a client version.
@@ -127,47 +131,46 @@ is_valid_version(_Version, TimeLeftSec) ->
 %% using the max_days config option of the module.
 -spec get_time_left(binary(), binary()) -> binary().
 get_time_left(undefined, _CurTimestamp) ->
-  <<"0">>;
+    <<"0">>;
 get_time_left(Version, CurTimestamp) ->
-  MaxTimeSec = get_max_time_in_sec(),
-  case mod_client_version_mnesia:check_if_version_exists(Version) of
-    false ->
-      mod_client_version_mnesia:insert_version(Version, CurTimestamp);
-    true ->
-      ok
-  end,
-  case mod_client_version_mnesia:get_time_left(Version, CurTimestamp, MaxTimeSec) of
-    {error, _} -> <<"0">>;
-    {ok, SecsLeft} -> integer_to_binary(SecsLeft)
-  end.
-
+    MaxTimeSec = get_max_time_in_sec(),
+    case mod_client_version_mnesia:check_if_version_exists(Version) of
+        false ->
+            mod_client_version_mnesia:insert_version(Version, CurTimestamp);
+        true ->
+            ok
+    end,
+    case mod_client_version_mnesia:get_time_left(Version, CurTimestamp, MaxTimeSec) of
+        {error, _} -> <<"0">>;
+        {ok, SecsLeft} -> integer_to_binary(SecsLeft)
+    end.
 
 
 %% Store the necessary options with persistent_term.
 %% [https://erlang.org/doc/man/persistent_term.html]
 store_options(Opts) ->
-  MaxDays = mod_client_version_opt:max_days(Opts),
-  %% Store MaxDays as int.
-  persistent_term:put({?MODULE, max_days}, MaxDays).
+    MaxDays = mod_client_version_opt:max_days(Opts),
+    %% Store MaxDays as int.
+    persistent_term:put({?MODULE, max_days}, MaxDays).
 
 
 -spec get_max_time_in_sec() -> integer().
 get_max_time_in_sec() ->
-  get_max_days() * 24 * 60 * 60.
+    get_max_days() * 24 * 60 * 60.
 
 
 -spec get_max_days() -> integer().
 get_max_days() ->
-  persistent_term:get({?MODULE, max_days}).
-
+    persistent_term:get({?MODULE, max_days}).
 
 
 -spec mod_opt_type(atom()) -> econf:validator().
 mod_opt_type(max_days) ->
-  econf:pos_int(infinity).
+    econf:pos_int(infinity).
+
 
 mod_options(_Host) ->
-  [{max_days, 30}].
-
-
+    [
+        {max_days, 30}
+    ].
 
