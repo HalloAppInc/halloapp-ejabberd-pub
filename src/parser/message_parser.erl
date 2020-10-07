@@ -92,14 +92,13 @@ proto_to_xmpp(ProtoMSG) ->
     PbFromJid = jid:make(FromUser, Server),
     Content = ProtoMSG#pb_msg.payload,
     SubEl = xmpp_msg_subel_mapping(Content),
-
     XmppMSG = #message{
         id = ProtoMSG#pb_msg.id,
         type = ProtoMSG#pb_msg.type,
         to = PbToJid,
         from = PbFromJid,
         sub_els = [SubEl],
-        retry_count = ProtoMSG#pb_msg.retry_count
+        retry_count = 0
     },
     XmppMSG.
 
