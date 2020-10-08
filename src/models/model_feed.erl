@@ -158,12 +158,16 @@ delete_post(PostId, Uid) ->
 
     %% Cleanup reverse index of comments.
     %% TODO(murali@): remove this cleanup after adding the deleted field for comments.
-    Results = qp([
-            ["HGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID] || CommentId <- CommentIds]),
-    ZippedResults = lists:zip(Results, CommentIds),
-    CleanupCommands = [["ZREM", reverse_comment_key(Uid), comment_key(CommentId, PostId)]
-            || {{ok, PublisherUid}, CommentId} <- ZippedResults, PublisherUid =/= undefined],
-    lists:foreach(fun(CleanupCommand) -> {ok, _} = q(CleanupCommand) end, CleanupCommands),
+    case CommentIds of
+        [] -> ok;
+        _ ->
+            Results = qp([
+                    ["HGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID] || CommentId <- CommentIds]),
+            ZippedResults = lists:zip(Results, CommentIds),
+            CleanupCommands = [["ZREM", reverse_comment_key(Uid), comment_key(CommentId, PostId)]
+                    || {{ok, PublisherUid}, CommentId} <- ZippedResults, PublisherUid =/= undefined],
+            lists:foreach(fun(CleanupCommand) -> {ok, _} = q(CleanupCommand) end, CleanupCommands)
+    end,
 
     %% Delete content in post, delete all comments, leave a tombstone for the post.
     [{ok, _}, {ok, _}, {ok, _}] = qp([
