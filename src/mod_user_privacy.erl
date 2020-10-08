@@ -193,6 +193,7 @@ update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
     ?INFO("Uid: ~s, Type: ~p, DeleteUids: ~p, AddUids: ~p", [Uid, Type, DeleteUids, AddUids]),
     ServerHashValue = compute_hash_value(Uid, Type, DeleteUids, AddUids),
     log_counters(ServerHashValue, ClientHashValue),
+    %% TODO(murali@): remove support for undefined hash values here.
     case ServerHashValue =:= ClientHashValue orelse ClientHashValue =:= undefined of
         true ->
             ?INFO("Uid: ~s, Type: ~s, hash values match", [Uid, Type]),
@@ -307,6 +308,7 @@ extract_uid(#uid_el{uid = Uid}) -> Uid.
 
 -spec log_counters(ServerHashValue :: binary(), ClientHashValue :: binary() | undefined) -> ok.
 log_counters(_, undefined) ->
+    ?WARNING("ClientHashValue is undefined"),
     stat:count(?STAT_PRIVACY, hash_undefined);
 log_counters(Hash, Hash) ->
     stat:count(?STAT_PRIVACY, hash_match);
