@@ -71,7 +71,7 @@ proto_to_xmpp(ProtoPayload) when is_record(ProtoPayload, pb_group_chat) ->
         timestamp = util_parser:maybe_convert_to_binary(ProtoPayload#pb_group_chat.timestamp),
         sub_els = [
                 {xmlel,<<"s1">>,[],
-                [{xmlcdata, util_parser:maybe_base64_encode(ProtoPayload#pb_group_chat.payload)}]}
+                [{xmlcdata, util_parser:maybe_base64_encode_binary(ProtoPayload#pb_group_chat.payload)}]}
         ]
     };
 

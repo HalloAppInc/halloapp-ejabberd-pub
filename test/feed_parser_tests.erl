@@ -40,11 +40,11 @@ xmpp_to_proto_message_feed_item_test() ->
 xmpp_to_proto_retract_message_feed_item_test() ->
     setup(),
 
-    PbPost = struct_util:create_pb_post(?ID1, ?UID1_INT, <<>>, undefined, undefined, ?TIMESTAMP1_INT),
+    PbPost = struct_util:create_pb_post(?ID1, ?UID1_INT, <<>>, <<>>, undefined, ?TIMESTAMP1_INT),
     PbFeedItem = struct_util:create_feed_item(retract, PbPost),
     PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbFeedItem),
 
-    PostSt = struct_util:create_post_st(?ID1, ?UID1, undefined, ?TIMESTAMP1),
+    PostSt = struct_util:create_post_st(?ID1, ?UID1, <<>>, ?TIMESTAMP1),
     FeedSt = struct_util:create_feed_st(retract, [PostSt], [], [], []),
     ToJid = struct_util:create_jid(?UID2, ?SERVER),
     FromJid = struct_util:create_jid(?UID1, ?SERVER),
@@ -113,7 +113,7 @@ proto_to_xmpp_iq_retract_feed_item_test() ->
     PbFeedItem = struct_util:create_feed_item(retract, PbComment),
     PbIq = struct_util:create_pb_iq(?ID1, set, PbFeedItem),
 
-    CommentSt = struct_util:create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, undefined, ?TIMESTAMP2),
+    CommentSt = struct_util:create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, <<>>, ?TIMESTAMP2),
     FeedSt = struct_util:create_feed_st(retract, [], [CommentSt], [], []),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
@@ -150,8 +150,6 @@ proto_to_xmpp_iq_share_request_test() ->
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),
-    ?debugFmt("~p", [IqSt]),
-    ?debugFmt("~p", [XmppIq]),
     ?assertEqual(true, is_record(XmppIq, iq)),
     ?assertEqual(IqSt, XmppIq).
 

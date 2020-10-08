@@ -51,6 +51,9 @@ maybe_convert_to_integer(Data) -> util:to_integer(Data).
 maybe_base64_encode(undefined) -> undefined;
 maybe_base64_encode(Data) -> base64:encode(Data).
 
+maybe_base64_encode_binary(undefined) -> <<>>;
+maybe_base64_encode_binary(Data) -> base64:encode(Data).
+
 maybe_base64_decode(undefined) -> undefined;
 maybe_base64_decode(Data) -> base64:decode(Data).
 
