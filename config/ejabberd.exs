@@ -149,9 +149,6 @@ defmodule Ejabberd.ConfigFile do
   module :mod_time do
   end
 
-  module :mod_version do
-  end
-
   # Example of how to define a hook, called when the event
   # specified is triggered.
   #

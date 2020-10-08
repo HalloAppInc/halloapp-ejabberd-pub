@@ -115,7 +115,6 @@ Welcome to this XMPP server."
   mod_client_version:
     max_days: 30
   mod_time: []
-#  mod_version: []
   mod_http_upload:
     docroot: PRIV_DIR
     put_url: PUT_URL
