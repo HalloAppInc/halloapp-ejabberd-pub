@@ -28,6 +28,11 @@ jobs:
       run: make
     - name: Run unit tests
       run: ./rebar eunit
+      env:
+      # Environment variable used by ejabberd to connect to redis
+        HALLO_ENV: github
+    - name: Run Common Test suite
+      run: ./rebar ct suite=ha
       # Environment variable used by ejabberd to connect to redis
       env:
-            HALLO_ENV: github
+        HALLO_ENV: github
