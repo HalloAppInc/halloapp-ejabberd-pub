@@ -19,3 +19,6 @@
 }).
 
 -type offline_message() :: #offline_message{}.
+
+-define(MSG_EXPIRATION, (30 * ?DAYS)).
+

@@ -5,3 +5,5 @@ else
     redis.call('HSET', KEYS[2], 'fuid', ARGV[4])
 end
 redis.call('ZADD', KEYS[3], OrderId, ARGV[5])
+redis.call('EXPIRE', KEYS[2], ARGV[6])
+redis.call('EXPIRE', KEYS[3], ARGV[6])

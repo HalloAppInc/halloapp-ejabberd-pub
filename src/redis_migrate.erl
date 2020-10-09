@@ -39,7 +39,8 @@
     rename_privacy_list_verify/2,
     rename_privacy_list_cleanup/2,
     expire_sync_keys_run/2,
-    trigger_full_sync_run/2
+    trigger_full_sync_run/2,
+    expire_message_keys_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -357,4 +358,12 @@ trigger_full_sync_run(Key, State) ->
     end,
     State.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                           Expire sync keys                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Stage 1. Set expiry for message keys.
+expire_message_keys_run(Key, State) ->
+    migrate_message_data:expire_message_keys_run(Key, State).
 

@@ -89,12 +89,13 @@ store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_record(Messag
     store_message(ToUid, FromUid, MsgId, ContentType, fxml:element_to_binary(xmpp:encode(Message)));
 
 store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_binary(Message)->
+    %% we also cleanup reverse index of messages.
     MessageOrderKey = binary_to_list(message_order_key(ToUid)),
     MessageKey = binary_to_list(message_key(ToUid, MsgId)),
     MessageQueueKey = binary_to_list(message_queue_key(ToUid)),
     Script = get_store_message_script(),
     {ok, _Res} = q(["EVAL", Script, 3, MessageOrderKey, MessageKey, MessageQueueKey,
-            ToUid, Message, ContentType, FromUid, MsgId]),
+            ToUid, Message, ContentType, FromUid, MsgId, ?MSG_EXPIRATION]),
     ok;
 
 store_message(_ToUid, _FromUid, _MsgId, _ContentType, Message) ->
@@ -108,7 +109,7 @@ increment_retry_count(Uid, MsgId) ->
 
 
 -spec increment_retry_counts(Uid :: uid(), MsgIds :: [binary()]) -> ok.
-increment_retry_counts(Uid, []) -> ok;
+increment_retry_counts(_Uid, []) -> ok;
 increment_retry_counts(Uid, MsgIds) ->
     Commands = [["HINCRBY", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT, 1] || MsgId <- MsgIds],
     _Results = qp(Commands),
@@ -175,7 +176,15 @@ get_all_user_messages(Uid, MsgIds) ->
     MessageKeys = message_keys(Uid, MsgIds),
     Commands = get_message_commands(MessageKeys, []),
     MessageResults = qp(Commands),
-    lists:map(fun parse_result/1, lists:zip(MsgIds, MessageResults)).
+    MsgIdsAndResults = lists:zip(MsgIds, MessageResults),
+    OfflineMessages = lists:map(fun parse_result/1, MsgIdsAndResults),
+    EmptyMessageIds = [MsgId || {MsgId, Result} <- MsgIdsAndResults, Result =:= {ok, []}],
+    delete_empty_messages(Uid, EmptyMessageIds),
+    OfflineMessages.
+
+
+delete_empty_messages(_Uid, []) -> ok;
+delete_empty_messages(Uid, MsgIds) -> {ok, _} = q(["ZREM", message_queue_key(Uid) | MsgIds]).
 
 
 -spec record_push_sent(Uid :: uid(), ContentId :: binary()) -> boolean().
@@ -200,11 +209,7 @@ parse_result({MsgId, {ok, FieldValuesList}}) ->
 
 
 -spec parse_fields(MsgId :: binary(), [binary()]) -> maybe(offline_message()).
-parse_fields(MsgId, []) ->
-    undefined;
-% TODO: what is this 0?
-parse_fields([<<"0">>], _OfflineMessage) ->
-    ?WARNING("this should not be happening", []),
+parse_fields(_MsgId, []) ->
     undefined;
 parse_fields(MsgId, FieldValuesList) ->
     MsgDataMap = util:list_to_map(FieldValuesList),
