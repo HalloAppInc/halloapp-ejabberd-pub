@@ -38,6 +38,7 @@ get_hallo_env() ->
         ?ENV_TEST -> test;
         ?ENV_GITHUB -> github;
         _Else -> prod
+        %% TODO: %% if nothing is present then update to use test or github.
     end.
 
 
@@ -70,14 +71,14 @@ get_service(Name) ->
         {localhost, Name} -> {Name, "127.0.0.1", 30001};
         {test, Name} -> {Name, "127.0.0.1", 30001};
         {github, Name} -> {Name, "127.0.0.1", 30001};
-        {prod, redis_friends} -> {redis_friends, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
-        {prod, redis_accounts} -> {redis_accounts, "redisaccounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
-        {prod, redis_contacts} -> {redis_contacts, "rediscontacts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
-        {prod, redis_auth} -> {redis_auth, "redisauth.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
-        {prod, redis_phone} -> {redis_phone, "redisphone.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        {prod, redis_friends} -> {redis_friends, "redis-accounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        {prod, redis_accounts} -> {redis_accounts, "redis-accounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        {prod, redis_contacts} -> {redis_contacts, "redis-contacts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        {prod, redis_auth} -> {redis_auth, "redis-auth.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        {prod, redis_phone} -> {redis_phone, "redis-phone.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_messages} -> {redis_messages, "redismessages.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
-        {prod, redis_whisper} -> {redis_whisper, "rediswhisper.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
-        {prod, redis_groups} -> {redis_groups, "redisgroups.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        {prod, redis_whisper} -> {redis_whisper, "redis-whisper.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
+        {prod, redis_groups} -> {redis_groups, "redis-groups.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_feed} -> {redis_feed, "redisfeed.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         _Else -> {error, service_not_found}
   end.
