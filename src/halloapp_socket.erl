@@ -48,7 +48,6 @@
 -type ext_socket() :: any().
 -type endpoint() :: {inet:ip_address(), inet:port_number()}.
 -type cert() :: #'Certificate'{} | #'OTPCertificate'{}.
--type pb_packet() :: #pb_packet{}.
 
 -record(socket_state,
 {

@@ -50,11 +50,6 @@
 
 -type state() :: #state{}.
 
-
-% TODO: move this somewhere else
--type pb_packet() :: #pb_packet{}.
--type pb_iq() :: #pb_iq{}.
-
 % TODO: handle acks,
 % TODO: send acks to server.
 start_link() ->

@@ -83,7 +83,6 @@
                internal_failure.
 -type noreply() :: {noreply, state(), timeout()}.
 -type next_state() :: noreply() | {stop, term(), state()}.
--type pb_packet() :: #pb_packet{}.
 
 -export_type([state/0, stop_reason/0]).
 -callback init(list()) -> {ok, state()} | {error, term()} | ignore.
