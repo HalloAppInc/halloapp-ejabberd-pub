@@ -16,7 +16,7 @@ setup() ->
     ok.
 
 clear() ->
-    {ok, ok} = gen_server:call(redis_groups_client, flushdb).
+    tutil:cleardb(redis_groups).
 
 group_key_test() ->
     ?assertEqual(<<"g:{g9kljfdl39kfsljlsfj03}">>, model_groups:group_key(?GID1)).

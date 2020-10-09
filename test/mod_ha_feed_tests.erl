@@ -56,7 +56,7 @@ setup2() ->
 
 
 clear() ->
-    {ok, ok} = gen_server:call(redis_feed_client, flushdb).
+    tutil:cleardb(redis_feed).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -52,10 +52,10 @@ setup() ->
 
 
 clear() ->
-    {ok, ok} = gen_server:call(redis_contacts_client, flushdb),
-    {ok, ok} = gen_server:call(redis_friends_client, flushdb),
-    {ok, ok} = gen_server:call(redis_accounts_client, flushdb),
-    {ok, ok} = gen_server:call(redis_phone_client, flushdb).
+    tutil:cleardb(redis_contacts),
+    tutil:cleardb(redis_friends),
+    tutil:cleardb(redis_accounts),
+    tutil:cleardb(redis_phone).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

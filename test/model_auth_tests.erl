@@ -18,7 +18,7 @@ setup() ->
     ok.
 
 clear() ->
-    {ok, ok} = gen_server:call(redis_auth_client, flushdb).
+    tutil:cleardb(redis_auth).
 
 -define(UID1, <<"1">>).
 -define(SALT1, <<"DE76yR5bKC3bEbN">>).

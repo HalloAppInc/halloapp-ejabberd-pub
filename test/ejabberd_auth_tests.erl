@@ -134,9 +134,9 @@ setup() ->
 
 
 clear() ->
-    {ok, ok} = gen_server:call(redis_auth_client, flushdb),
-    {ok, ok} = gen_server:call(redis_phone_client, flushdb),
-    {ok, ok} = gen_server:call(redis_accounts_client, flushdb).
+    tutil:cleardb(redis_auth),
+    tutil:cleardb(redis_phone),
+    tutil:cleardb(redis_accounts).
 
 
 meck_init(Mod, FunName, Fun) ->

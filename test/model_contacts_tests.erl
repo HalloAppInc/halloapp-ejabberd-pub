@@ -21,7 +21,7 @@ setup() ->
 
 
 clear() ->
-    {ok, ok} = gen_server:call(redis_contacts_client, flushdb).
+    tutil:cleardb(redis_contacts).
 
 
 keys_test() ->

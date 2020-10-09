@@ -29,7 +29,7 @@ setup() ->
 
 
 clear() ->
-    {ok, ok} = gen_server:call(redis_phone_client, flushdb).
+    tutil:cleardb(redis_phone).
 
 
 phone_key_test() ->

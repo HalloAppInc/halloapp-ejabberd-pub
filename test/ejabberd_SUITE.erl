@@ -62,7 +62,7 @@ init_per_suite(Config) ->
 flush_db() ->
     % TODO: Instead of this we should somehow clear the redis before
     % we even start the ejabberd
-    {ok, ok} = gen_server:call(redis_accounts_client, flushdb),
+    tutil:cleardb(redis_accounts),
     ok.
 
 % TODO: move those function in some util file, maybe suite_ha

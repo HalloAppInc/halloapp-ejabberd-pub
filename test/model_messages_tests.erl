@@ -41,7 +41,7 @@ setup() ->
 
 
 clear() ->
-    {ok, ok} = gen_server:call(redis_messages_client, flushdb).
+    tutil:cleardb(redis_messages).
 
 
 keys_test() ->

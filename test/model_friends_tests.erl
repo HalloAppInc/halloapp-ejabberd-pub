@@ -21,7 +21,7 @@ setup() ->
   ok.
 
 clear() ->
-  {ok, ok} = gen_server:call(redis_friends_client, flushdb).
+  tutil:cleardb(redis_friends).
 
 add_friend_test() ->
   setup(),

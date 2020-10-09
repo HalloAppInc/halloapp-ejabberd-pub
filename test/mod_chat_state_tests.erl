@@ -94,8 +94,8 @@ setup() ->
 
 
 clear() ->
-    {ok, ok} = gen_server:call(redis_groups_client, flushdb),
-    {ok, ok} = gen_server:call(redis_accounts_client, flushdb).
+    tutil:cleardb(redis_groups),
+    tutil:cleardb(redis_accounts).
 
 
 create_chat_state(FromUid, ToUid, ThreadId, Type, ThreadType) ->
