@@ -15,7 +15,8 @@
     maybe_convert_to_binary/1,
     maybe_convert_to_integer/1,
     maybe_base64_encode/1,
-    maybe_base64_decode/1
+    maybe_base64_decode/1,
+    maybe_base64_encode_binary/1
 ]).
 
 %% Export all functions for unit tests
