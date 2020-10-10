@@ -38,8 +38,13 @@ get_error_iq_sub_el(#iq{} = IQ) ->
     Res.
 
 cleardb(DBName) ->
+    true = config:is_testing_env(),
     {_, "127.0.0.1", 30001} = config:get_service(DBName),
     RedisClient = list_to_atom(atom_to_list(DBName) ++ "_client"),
+    Result = gen_server:call(RedisClient, {qa, ["DBSIZE"]}),
+    {ok, [{ok, BinSize} | _]}  = Result,
+    DbSize = binary_to_integer(BinSize),
+    ?assert(DbSize < 100),
     {ok, ok} = gen_server:call(RedisClient, flushdb).
 
 
