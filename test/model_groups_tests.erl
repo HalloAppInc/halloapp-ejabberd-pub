@@ -11,6 +11,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 setup() ->
+    tutil:setup(),
     mod_redis:start(undefined, []),
     clear(),
     ok.

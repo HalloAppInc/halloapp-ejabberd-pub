@@ -51,6 +51,7 @@
 
 
 setup() ->
+    tutil:setup(),
     redis_sup:start_link(),
     clear(),
     ok.

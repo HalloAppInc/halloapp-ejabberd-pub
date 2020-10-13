@@ -24,6 +24,7 @@
 
 
 setup() ->
+    tutil:setup(),
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
     ejabberd_hooks:start_link(),

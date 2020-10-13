@@ -46,6 +46,7 @@ suite() ->
     [{timetrap, {seconds, 7}}].
 
 init_per_suite(Config) ->
+    true = config:is_testing_env(),
     NewConfig = init_config(Config),
     DataDir = proplists:get_value(data_dir, NewConfig),
     LDIFFile = filename:join([DataDir, "ejabberd.ldif"]),

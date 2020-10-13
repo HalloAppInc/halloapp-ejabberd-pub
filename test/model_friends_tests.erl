@@ -16,6 +16,7 @@
 -define(UID3, <<"1000000000565604444">>).
 
 setup() ->
+  tutil:setup(),
   redis_sup:start_link(),
   clear(),
   ok.

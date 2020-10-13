@@ -14,6 +14,7 @@
 -include("ha_types.hrl").
 
 setup() ->
+    tutil:setup(),
     mod_redis:start(undefined, []),
     clear(),
     ok.

@@ -253,6 +253,7 @@ prev_sunday2_test() ->
 %% -------------------------------------------- %%
 
 setup() ->
+    tutil:setup(),
     mod_redis:start(undefined, []),
     phone_number_util:init(undefined, undefined),
     clear(),

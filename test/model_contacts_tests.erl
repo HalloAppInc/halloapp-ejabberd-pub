@@ -15,6 +15,7 @@
 -define(SID, <<"dbd22016">>).
 
 setup() ->
+    tutil:setup(),
     redis_sup:start_link(),
     clear(),
     ok.

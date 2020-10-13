@@ -84,6 +84,7 @@ cleanup_test() ->
 %% -------------------------------------------- %%
 
 setup() ->
+    tutil:setup(),
     mod_redis:start(undefined, []),
     clear(),
     ok = create_accounts(12),

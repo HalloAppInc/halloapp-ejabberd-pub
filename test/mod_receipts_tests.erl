@@ -24,6 +24,7 @@
 
 
 setup() ->
+    tutil:setup(),
     xmpp:start(undefined, undefined),
     stringprep:start(),
     ejabberd_hooks:start_link(),

@@ -14,11 +14,16 @@
 
 %% API
 -export([
+    setup/0,
     get_result_iq_sub_el/1,
     assert_empty_result_iq/1,
     get_error_iq_sub_el/1,
     cleardb/1
 ]).
+
+
+setup() ->
+    ?assert(config:is_testing_env()).
 
 
 get_result_iq_sub_el(#iq{} = IQ) ->
