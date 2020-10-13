@@ -5,7 +5,7 @@
 
 -export([main/1]).
 
--include_lib("../include/proto/cert.hrl").
+-include_lib("../include/proto/server.hrl").
 
 %%% Usage:
 %%% escript escripts/message_generator.erl ServerKeyFilename MessageFilename
@@ -24,7 +24,7 @@ create_cert_bytes(ServerPublic) ->
     enif_protobuf:encode(PbCert).
 
 main([ServerKeyFileName, OutFileName]) ->
-    enif_protobuf:load_cache(cert:get_msg_defs()),
+    enif_protobuf:load_cache(server:get_msg_defs()),
     %% server's key
     {ok, ServerBin} = file:read_file(ServerKeyFileName),
     [{_, ServerPublic, _}] = public_key:pem_decode(ServerBin),

@@ -5,7 +5,7 @@
 
 -export([main/1]).
 
--include_lib("../include/proto/cert.hrl").
+-include_lib("../include/proto/server.hrl").
 
 %%% Usage:
 %%% escript escripts/certificate_generator.erl SigningKeyFilename ServerKeyFilename CertFilename
@@ -29,7 +29,7 @@ create_cert_bytes(ServerPublic) ->
 
 
 main([SigningKeyFileName, ServerKeyFileName, OutFileName]) ->
-    enif_protobuf:load_cache(cert:get_msg_defs()),
+    enif_protobuf:load_cache(server:get_msg_defs()),
     %% signing key
     {ok, SignBin} = file:read_file(SigningKeyFileName),
     [{_, SignSecret, _}] = public_key:pem_decode(SignBin),

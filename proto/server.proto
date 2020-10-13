@@ -664,3 +664,25 @@ message WhisperKeys {
     int32 otp_key_count = 5;
     repeated bytes one_time_keys = 6;
 }
+
+
+message NoiseMessage {
+    enum MessageType {
+        XX_A = 0;  // -> e
+        XX_B = 1;  // <- e, ee, s, es
+        XX_C = 2;  // -> s, se
+
+        IK_A = 3;  // (<- s ...) -> e, es, s, ss
+        IK_B = 4;  // <- e, ee, se
+
+        XX_FALLBACK_A = 5;  // (-> e ...) <- e, ee, s, es
+        XX_FALLBACK_B = 6;  // -> s, se
+    }
+    MessageType message_type = 1;
+
+    // Third party library we use for Noise handshake provides API to read/write Noise messages.
+    // The following content represent the bytes returned by write message and such content is
+    // correctly consumed by the receiving library for matching handshake pattern and handshake
+    // state.
+    bytes content = 2;
+}
