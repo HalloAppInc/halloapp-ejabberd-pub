@@ -48,7 +48,8 @@
     is_post_owner/2,
     remove_all_user_posts/1,
     add_uid_to_audience/2,
-    is_post_deleted/1    %% test.
+    is_post_deleted/1,    %% test.
+    is_comment_deleted/2    %% test.
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -83,6 +84,7 @@ mod_options(_Host) ->
 -define(FIELD_TIMESTAMP_MS, <<"ts">>).
 -define(FIELD_PUBLISHER_UID, <<"pbu">>).
 -define(FIELD_PARENT_COMMENT_ID, <<"pc">>).
+-define(FIELD_DELETED, <<"del">>).
 
 -spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(),
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
@@ -149,54 +151,50 @@ retract_post(PostId, Uid) ->
 
 
 -spec delete_post(PostId :: binary(), Uid :: uid()) -> ok | {error, any()}.
-delete_post(PostId, Uid) ->
+delete_post(PostId, _Uid) ->
     {ok, CommentIds} = q(["ZRANGEBYSCORE", post_comments_key(PostId), "-inf", "+inf"]),
 
-    %% Get all comment keys.
-    CommentKeys = [[comment_key(CommentId, PostId), comment_push_list_key(CommentId, PostId)] || CommentId <- CommentIds],
-    FinalKeys = lists:flatten(CommentKeys),
-
-    %% Cleanup reverse index of comments.
-    %% TODO(murali@): remove this cleanup after adding the deleted field for comments.
+    %% Delete all comments content and leave tombstone.
+    CommentDeleteCommands = lists:foldl(
+            fun(CommentId, Acc) ->
+                [
+                ["HDEL", comment_key(CommentId, PostId), ?FIELD_PAYLOAD],
+                ["HSET", comment_key(CommentId, PostId), ?FIELD_DELETED, 1],
+                ["DEL", comment_push_list_key(CommentId, PostId)]
+                | Acc]
+            end, [], CommentIds),
     case CommentIds of
         [] -> ok;
-        _ ->
-            Results = qp([
-                    ["HGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID] || CommentId <- CommentIds]),
-            ZippedResults = lists:zip(Results, CommentIds),
-            CleanupCommands = [["ZREM", reverse_comment_key(Uid), comment_key(CommentId, PostId)]
-                    || {{ok, PublisherUid}, CommentId} <- ZippedResults, PublisherUid =/= undefined],
-            lists:foreach(fun(CleanupCommand) -> {ok, _} = q(CleanupCommand) end, CleanupCommands)
+        _ -> qp(CommentDeleteCommands)
     end,
 
-    %% Delete content in post, delete all comments, leave a tombstone for the post.
+    %% Delete content in post and leave a tombstone for the post.
+    %% Leave the post's reference to its own comments, i.e. post_comments_key
     [{ok, _}, {ok, _}, {ok, _}] = qp([
-            ["DEL", post_audience_key(PostId), post_comments_key(PostId) | FinalKeys],
+            ["DEL", post_audience_key(PostId)],
             ["HDEL", post_key(PostId), ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE],
-            ["RENAME", post_key(PostId), deleted_post_key(PostId)]]),
-
-    %% Cleanup reverse index for posts.
-    %% TODO(murali@): remove this cleanup after adding the deleted field.
-    {ok, _} = q(["ZREM", reverse_post_key(Uid), PostId]),
+            ["HSET", post_key(PostId), ?FIELD_DELETED, 1]]),
     ok.
 
 
 -spec is_post_deleted(PostId :: binary()) -> boolean().
 is_post_deleted(PostId) ->
-    {ok, Res} = q(["EXISTS", deleted_post_key(PostId)]),
-    binary_to_integer(Res) == 1.
+    {ok, Res} = q(["HGET", post_key(PostId), ?FIELD_DELETED]),
+    Res =:= <<"1">>.
+
+
+-spec is_comment_deleted(CommentId :: binary(), PostId :: binary()) -> boolean().
+is_comment_deleted(CommentId, PostId) ->
+    {ok, Res} = q(["HGET", comment_key(CommentId, PostId), ?FIELD_DELETED]),
+    Res =:= <<"1">>.
 
 
 -spec retract_comment(CommentId :: binary(), PostId :: binary()) -> ok | {error, any()}.
 retract_comment(CommentId, PostId) ->
-    {ok, PublisherUid} = q(["HGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID]),
     [{ok, _}, {ok, _}, {ok, _}] = qp([
-            ["DEL", comment_key(CommentId, PostId)],
-            ["DEL", comment_push_list_key(CommentId, PostId)],
-            ["ZREM", post_comments_key(PostId), CommentId]]),
-    %% Cleanup reverse index for commentId
-    %% TODO(murali@): remove this cleanup after adding the deleted field.
-    {ok, _} = q(["ZREM", reverse_comment_key(PublisherUid), comment_key(CommentId, PostId)]),
+            ["HDEL", comment_key(CommentId, PostId), ?FIELD_PAYLOAD],
+            ["HSET", comment_key(CommentId, PostId), ?FIELD_DELETED, 1],
+            ["DEL", comment_push_list_key(CommentId, PostId)]]),
     ok.
 
 
@@ -204,16 +202,20 @@ retract_comment(CommentId, PostId) ->
 remove_all_user_posts(Uid) ->
     {ok, PostIds} = q(["ZRANGEBYSCORE", reverse_post_key(Uid), "-inf", "+inf"]),
     lists:foreach(fun(PostId) -> ok = delete_post(PostId, Uid) end, PostIds),
+    {ok, _} = q(["DEL", reverse_post_key(Uid)]),
     ok.
 
 
 -spec get_post(PostId :: binary()) -> {ok, post()} | {error, any()}.
 get_post(PostId) ->
-    [{ok, [Uid, Payload, AudienceType, TimestampMs]}, {ok, AudienceList}] = qp([
+    [{ok, [Uid, Payload, AudienceType, TimestampMs, IsDeletedBin]}, {ok, AudienceList}] = qp([
             ["HMGET", post_key(PostId),
-                ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS],
+                ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED],
             ["SMEMBERS", post_audience_key(PostId)]]),
-    case Uid =:= undefined orelse Payload =:= undefined orelse TimestampMs =:= undefined of
+    IsDeleted = (IsDeletedBin =:= <<"1">>),
+    %% TODO(murali@): Update the condition after one month, since then all items in db will have the field.
+    case Uid =:= undefined orelse Payload =:= undefined orelse
+            TimestampMs =:= undefined orelse IsDeleted =:= true of
         true -> {error, missing};
         false ->
             {ok, #post{
@@ -228,10 +230,13 @@ get_post(PostId) ->
 
 -spec get_comment(CommentId :: binary(), PostId :: binary()) -> {ok, comment()} | {error, any()}.
 get_comment(CommentId, PostId) ->
-    {ok, [PublisherUid, ParentCommentId, Payload, TimestampMs]} = q(
+    {ok, [PublisherUid, ParentCommentId, Payload, TimestampMs, IsDeletedBin]} = q(
         ["HMGET", comment_key(CommentId, PostId),
-            ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS]),
-    case PublisherUid =:= undefined orelse Payload =:= undefined orelse TimestampMs =:= undefined of
+            ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]),
+    IsDeleted = (IsDeletedBin =:= <<"1">>),
+    %% TODO(murali@): Update the condition after one month, since then all items in db will have the field.
+    case PublisherUid =:= undefined orelse Payload =:= undefined orelse
+            TimestampMs =:= undefined orelse IsDeleted =:= true of
         true -> {error, missing};
         false -> {ok, #comment{
             id = CommentId,
@@ -264,11 +269,12 @@ get_comment_data(PostId, CommentId, ParentId) ->
         _ -> [["SMEMBERS", comment_push_list_key(ParentId, PostId)]]
     end,
     [{ok, Res1}, {ok, Res2}, {ok, Res3} | Rest] = qp([
-        ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS],
+        ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD,
+                ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED],
         ["SMEMBERS", post_audience_key(PostId)],
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID,
                 ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS] | PushListCommands]),
-    [PostUid, PostPayload, AudienceType, PostTsMs] = Res1,
+    [PostUid, PostPayload, AudienceType, PostTsMs, IsPostDeletedBin] = Res1,
     AudienceList = Res2,
     [CommentPublisherUid, ParentCommentId, CommentPayload, CommentTsMs] = Res3,
     ParentPushList = case PushListCommands of
@@ -293,8 +299,11 @@ get_comment_data(PostId, CommentId, ParentId) ->
         payload = CommentPayload,
         ts_ms = util_redis:decode_ts(CommentTsMs)
     },
+    IsPostDeleted = (IsPostDeletedBin =:= <<"1">>),
+    %% TODO(murali@): update these conditions after a few weeks to use the deleted field.
     if
-        PostUid =:= undefined andalso CommentPublisherUid =:= undefined ->
+        (PostUid =:= undefined orelse IsPostDeleted =:= true) andalso
+                CommentPublisherUid =:= undefined ->
             [{error, missing}, {error, missing}, {error, missing}];
         PostUid =/= undefined andalso CommentPublisherUid =:= undefined ->
             [{ok, Post}, {error, missing}, {ok, ParentPushList}];
@@ -309,11 +318,15 @@ get_comment_data(PostId, CommentId, ParentId) ->
 -spec get_post_comments(PostId :: binary()) -> {ok, [comment()]} | {error, any()}.
 get_post_comments(PostId) when is_binary(PostId) ->
     {ok, CommentIds} = q(["ZRANGEBYSCORE", post_comments_key(PostId), "-inf", "+inf"]),
-    Comments = lists:map(
-        fun(CommentId) ->
-            {ok, Comment} = get_comment(CommentId, PostId),
-            Comment
-        end, CommentIds),
+    Comments = lists:foldr(
+        fun(CommentId, Acc) ->
+            case get_comment(CommentId, PostId) of
+                {ok, Comment} -> [Comment | Acc];
+                {error, _} ->
+                    ?ERROR("Unable to get_comment, commentid: ~p, postid: ~p", [CommentId, PostId]),
+                    Acc
+            end
+        end, [], CommentIds),
     {ok, Comments}.
 
 
@@ -426,10 +439,6 @@ qp(Commands) -> ecredis:qp(ecredis_feed, Commands).
 post_key(PostId) ->
     <<?POST_KEY/binary, "{", PostId/binary, "}">>.
 
-
--spec deleted_post_key(binary()) -> binary().
-deleted_post_key(Uid) ->
-    <<?DELETED_POST_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 -spec post_audience_key(PostId :: binary()) -> binary().
 post_audience_key(PostId) ->
