@@ -867,7 +867,7 @@ delete_old_users(Days, Users) ->
     Users_removed = lists:filter(F, Users),
     {removed, length(Users_removed), Users_removed}.
 
-delete_or_not(LUser, LServer, TimeStamp_oldest) ->
+delete_or_not(_LUser, _LServer, _TimeStamp_oldest) ->
 	erlang:error(unimplemented).
 
 %%

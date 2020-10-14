@@ -552,12 +552,6 @@ get_priority_from_presence(#presence{priority = Prio}) ->
     end.
 
 
--spec route_multiple(state(), [jid()], stanza()) -> ok.
-route_multiple(#{lserver := LServer}, JIDs, Pkt) ->
-    From = xmpp:get_from(Pkt),
-    ejabberd_router_multicast:route_multicast(From, LServer, JIDs, Pkt).
-
-
 -spec resource_conflict_action(binary(), binary(), binary()) ->
                       {accept_resource, binary()} | closenew.
 resource_conflict_action(U, S, R) ->

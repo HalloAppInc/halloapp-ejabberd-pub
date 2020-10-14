@@ -312,7 +312,7 @@ fix_tags(Tags) ->
 
 
 -spec fix_tag(Tag :: tag()) -> tag().
-fix_tag({Name, Value} = T) when is_atom(Value); is_list(Value); is_binary(Value) ->
+fix_tag({Name, Value} = _T) when is_atom(Value); is_list(Value); is_binary(Value) ->
     {Name, util:to_atom(Value)};
 fix_tag(_) ->
     error(badarg).

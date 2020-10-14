@@ -25,8 +25,16 @@
 -module(ejabberd_logger).
 
 %% API
--export([start/0, restart/0, reopen_log/0, rotate_log/0, get/0, set/1,
-	 get_log_path/0]).
+-export([
+    start/0,
+    restart/0,
+    reopen_log/0,
+    rotate_log/0,
+    get/0,
+    set/1,
+    get_log_path/0,
+    get_lager_version/0
+]).
 
 
 -type loglevel() :: 0 | 1 | 2 | 3 | 4 | 5.

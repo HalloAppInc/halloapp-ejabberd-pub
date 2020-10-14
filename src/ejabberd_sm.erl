@@ -821,15 +821,6 @@ route_message(Packet) ->
             ejabberd_c2s:route(Pid, {route, Packet})
     end.
 
--spec maybe_mark_as_copy(message(), binary(), binary(), integer(), integer())
-      -> message().
-maybe_mark_as_copy(Packet, R, R, P, P) ->
-    Packet;
-maybe_mark_as_copy(Packet, _, _, P, P) ->
-    xmpp:put_meta(Packet, sm_copy, true);
-maybe_mark_as_copy(Packet, _, _, _, _) ->
-    Packet.
-
 
 -spec check_if_user_is_available(binary(), binary()) -> boolean().
 check_if_user_is_available(User, Server) ->

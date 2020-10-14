@@ -1461,7 +1461,7 @@ stop_node(From, Host, ENode, Action, XData) ->
     {result, undefined}.
 
 -spec get_last_info(binary(), binary()) -> {ok, non_neg_integer(), binary()} | not_found.
-get_last_info(User, Server) ->
+get_last_info(_User, _Server) ->
     not_found.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

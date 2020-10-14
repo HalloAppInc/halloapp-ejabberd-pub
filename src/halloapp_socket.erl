@@ -258,7 +258,7 @@ noise_parse(SocketData, Data, Payload)  when Data == <<>>; Data == [] ->
     {ok, SocketData1} = parse(SocketData, Data),
     case Payload of
         <<>> -> {ok, SocketData1};
-        Payload1 -> process_stream_validation(SocketData1, Payload)
+        _ -> process_stream_validation(SocketData1, Payload)
     end;
 
 noise_parse(SocketData1, [DecryptedMsg | Msgs], _Payload) ->

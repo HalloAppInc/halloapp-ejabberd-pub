@@ -72,7 +72,7 @@ depends(_Host, _Opts) ->
 pubsub_publish_item(LServer, ?NS_AVATAR_METADATA,
 		    #jid{luser = LUser, lserver = LServer} = From,
 		    #jid{luser = LUser, lserver = LServer} = Host,
-		    ItemId, ItemType, [Payload|_]) ->
+		    ItemId, _ItemType, [Payload|_]) ->
     try xmpp:decode(Payload) of
 	#avatar_meta{info = []} ->
 	    delete_vcard_avatar(From);

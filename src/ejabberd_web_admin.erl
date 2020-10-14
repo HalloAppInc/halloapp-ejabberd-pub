@@ -767,13 +767,13 @@ get_offlinemsg_length(ModOffline, User, Server) ->
 	  pretty_string_int(ModOffline:count_offline_messages(User,Server))
     end.
 
-get_offlinemsg_module(Server) ->
+get_offlinemsg_module(_Server) ->
     none.
 
-get_lastactivity_menuitem_list(Server) ->
+get_lastactivity_menuitem_list(_Server) ->
     [].
 
-get_last_info(User, Server) ->
+get_last_info(_User, _Server) ->
     not_found.
 
 us_to_list({User, Server}) ->

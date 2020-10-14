@@ -38,7 +38,7 @@ xmpp_to_proto_props(XmppProps) ->
 proto_to_xmpp(ProtoElement) when is_record(ProtoElement, pb_props) ->
     proto_to_xmpp_pb_props(ProtoElement).
 
-proto_to_xmpp_pb_props(ProtoInvites) ->
+proto_to_xmpp_pb_props(_ProtoInvites) ->
     #props{
         hash = <<>>,
         props = []

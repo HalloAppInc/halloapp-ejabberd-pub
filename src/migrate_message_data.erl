@@ -39,6 +39,5 @@ expire_message_keys_run(Key, State) ->
     State.
 
 
-q(Client, Command) -> util_redis:q(Client, Command).
 qp(Client, Commands) -> util_redis:qp(Client, Commands).
 
