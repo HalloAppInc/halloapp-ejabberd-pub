@@ -500,7 +500,7 @@ validate_group_name(<<"">>) ->
 validate_group_name(Name) when is_binary(Name) ->
     LName = string:slice(Name, 0, ?MAX_GROUP_NAME_SIZE),
     case LName =:= Name of
-        false -> ?WARNING("Truncating group name to |~s| size was: ~p", [LName, length(Name)]);
+        false -> ?WARNING("Truncating group name to |~s| size was: ~p", [LName, byte_size(Name)]);
         true -> ok
     end,
     {ok, LName};
