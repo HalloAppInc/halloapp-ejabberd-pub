@@ -40,7 +40,8 @@
     rename_privacy_list_cleanup/2,
     expire_sync_keys_run/2,
     trigger_full_sync_run/2,
-    expire_message_keys_run/2
+    expire_message_keys_run/2,
+    extend_ttl_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -366,4 +367,14 @@ trigger_full_sync_run(Key, State) ->
 %%% Stage 1. Set expiry for message keys.
 expire_message_keys_run(Key, State) ->
     migrate_message_data:expire_message_keys_run(Key, State).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                           Extend ttl for feed keys                                 %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Stage 1. Extend ttl for feed keys.
+extend_ttl_run(Key, State) ->
+    migrate_feed_data:extend_ttl_run(Key, State).
+
 

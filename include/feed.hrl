@@ -58,8 +58,8 @@
 -type action_type() :: publish | retract.
 -type set() :: sets:set().
 
--define(POST_EXPIRATION, (30 * ?DAYS)).
--define(POST_TTL_MS, (30 * ?DAYS_MS)).
+-define(POST_EXPIRATION, (31 * ?DAYS)).
+-define(POST_TTL_MS, (31 * ?DAYS_MS)).
 -define(CATCH_UP_TIME_MS, 1 * ?WEEKS_MS).
 
 
