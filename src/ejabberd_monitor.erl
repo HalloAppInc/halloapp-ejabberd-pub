@@ -36,7 +36,8 @@
 
 -export([
     monitor/1,
-    send_alert/1    %% Test
+    send_alert/4,
+    send_process_down_alert/2    %% Test
 ]).
 
 
@@ -53,6 +54,10 @@ monitor(Proc) ->
 
 stop() ->
     ejabberd_sup:stop_child(?MODULE).
+
+
+send_alert(Alertname, Service, Severity, Message) ->
+    gen_server:cast(?MODULE, {send_alert, Alertname, Service, Severity, Message}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -85,6 +90,11 @@ handle_cast({monitor, Proc}, #state{monitors = Monitors} = State) ->
     NewState = State#state{monitors = Monitors#{Ref => Proc}},
     {noreply, NewState};
 
+handle_cast({send_alert, Alertname, Service, Severity, Message}, #state{} = State) ->
+    ?INFO("send_alert, alertname: ~p, service: ~p, severity: ~p", [Alertname, Service, Severity]),
+    {_Response, NewState} = send_alert(Alertname, Service, Severity, Message, State),
+    {noreply, NewState};
+
 handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
@@ -95,9 +105,10 @@ handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors} = S
     Proc = maps:get(Ref, Monitors, undefined),
     case Proc of
         undefined ->
-            ?ERROR("Monitor's reference missing: ~p", [Ref]);
+            ?ERROR("Monitor's reference missing: ~p", [Ref]),
+            NewState = State;
         _ ->
-            Response = send_alert(Proc),
+            {Response, NewState} = send_process_down_alert(Proc, State),
             ?DEBUG("alerts response: ~p", [Response]),
             case Response of
                 {ok, {{_, 200, _}, _ResHeaders, _ResBody}} ->
@@ -106,9 +117,9 @@ handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors} = S
                     ?ERROR("Failed sending an alert: ~p", [Response])
             end
     end,
-    NewMonitors = maps:remove(Ref, State#state.monitors),
-    NewState = State#state{monitors = NewMonitors},
-    {noreply, NewState};
+    NewMonitors = maps:remove(Ref, NewState#state.monitors),
+    FinalState = NewState#state{monitors = NewMonitors},
+    {noreply, FinalState};
 
 handle_info(Info, State) ->
     ?WARNING("Unexpected info: ~p", [Info]),
@@ -120,26 +131,35 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 %% TODO(murali@): add counters here.
-send_alert(Proc) ->
+send_process_down_alert(Proc, State) ->
+    Alertname = <<"Process Down">>,
+    Service = util:to_binary(Proc),
+    Severity = <<"critical">>,
+    Message = <<>>,
+    send_alert(Alertname, Service, Severity, Message, State).
+
+%% TODO(murali@): include message here
+send_alert(Alertname, Service, Severity, Message, State) ->
     URL = ?ALERTS_MANAGER_URL,
     Headers = [],
     Type = "application/json",
-    Body = compose_alerts_body(Proc),
+    Body = compose_alerts_body(Alertname, Service, Severity, Message),
     HTTPOptions = [],
     Options = [],
     ?DEBUG("alerts_url : ~p", [URL]),
     Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
-    Response.
+    {Response, State}.
 
 
-compose_alerts_body(Proc) ->
+compose_alerts_body(Alertname, Service, Severity, Message) ->
     jiffy:encode([#{
         <<"status">> => <<"firing">>,
         <<"labels">> => #{
-            <<"alertname">> => <<"Process Down">>,
-            <<"service">> => util:to_binary(Proc),
-            <<"severity">> => <<"critical">>,
-            <<"instance">> => util:to_binary(node())
+            <<"alertname">> => Alertname,
+            <<"service">> => Service,
+            <<"severity">> => Severity,
+            <<"instance">> => util:to_binary(node()),
+            <<"message">> => Message
         }
     }]).
 

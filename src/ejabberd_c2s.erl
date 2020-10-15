@@ -475,7 +475,13 @@ handle_auth_success(User, _Mech, AuthModule,
 
 handle_auth_failure(User, _Mech, Reason,
 		    #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(c2s_auth_result, LServer, State, [{false, Reason}, User]).
+    NewState = ejabberd_hooks:run_fold(c2s_auth_result, LServer, State, [{false, Reason}, User]),
+    %% This is not great, but should be okay for now.
+    case mod_auth_monitor:is_auth_service_normal() of
+        true -> ok;
+        false -> stop(NewState)
+    end,
+    NewState.
 
 handle_unbinded_packet(Pkt, #{lserver := LServer} = State) ->
     ejabberd_hooks:run_fold(c2s_unbinded_packet, LServer, State, [Pkt]).

@@ -124,6 +124,10 @@ get_commands_spec() ->
 			result_example = {ok, <<"The node ejabberd@localhost is started with status: started"
 						"ejabberd X.X is running in that node">>},
 			args = [], result = {res, restuple}},
+     #ejabberd_commands{name = reset_auth_service, tags = [server],
+			desc = "Reset auth service: Server will start sending auth failures to clients again",
+			module = mod_auth_monitor, function = reset_auth_service,
+			args = [], result = {res, restuple}},
      #ejabberd_commands{name = stop, tags = [server],
 			desc = "Stop ejabberd gracefully",
 			module = init, function = stop,

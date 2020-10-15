@@ -630,10 +630,16 @@ process_auth_request(#halloapp_auth{uid = Uid, pwd = Pwd, client_mode = Mode,
         reason = Reason,
         props_hash = mod_props:get_hash(Uid)
     },
-    FinalState = send_pkt(NewState, AuthResultPkt),
     case Result of
-        <<"failure">> -> stop(FinalState);
-        <<"success">> -> FinalState
+        <<"failure">> ->
+            FinalState = case mod_auth_monitor:is_auth_service_normal() of
+                true -> send_pkt(NewState, AuthResultPkt);
+                false -> NewState
+            end,
+            stop(FinalState);
+        <<"success">> ->
+            FinalState = send_pkt(NewState, AuthResultPkt),
+            FinalState
     end.
 
 
