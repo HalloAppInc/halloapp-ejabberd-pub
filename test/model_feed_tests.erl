@@ -13,6 +13,7 @@
 
 -define(UID1, <<"1000000000376503286">>).
 -define(UID2, <<"1000000000457424539">>).
+-define(UID3, <<"1000000000231454777">>).
 
 -define(POST_ID1, <<"P1">>).
 -define(PAYLOAD1, <<"payload1">>).
@@ -132,14 +133,37 @@ get_comment_data_test() ->
     Post1 = get_post1(Timestamp1),
     Comment1 = get_comment1(Timestamp1),
     ?assertEqual(
-        [{ok, Post1}, {ok, Comment1}, {ok, []}],
+        [{ok, Post1}, {ok, Comment1}, {ok, [?UID1]}],
         model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID1, <<>>)),
     ?assertEqual(
-        [{ok, Post1}, {error, missing}, {ok, []}],
+        [{ok, Post1}, {error, missing}, {ok, [?UID1]}],
         model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID2, <<>>)),
     ?assertEqual(
         [{error, missing}, {error, missing}, {error, missing}],
         model_feed:get_comment_data(?POST_ID2, ?COMMENT_ID4, <<>>)),
+    ok.
+
+
+get_comment_push_data_test() ->
+    setup(),
+    Timestamp1 = util:now_ms(),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
+            ?UID3, <<>>, [?UID3, ?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+    ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
+            ?UID2, ?COMMENT_ID1, [?UID1, ?UID2, ?UID3], ?COMMENT_PAYLOAD2, Timestamp1),
+
+    [_, _, {ok, Comment1PushList1}] = model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID2, ?COMMENT_ID1),
+    Comment1PushList2 = model_feed:get_comment_push_data(?COMMENT_ID1, ?POST_ID1),
+    Comment1UidsList = [?UID1, ?UID3],
+    ?assertEqual(lists:sort(Comment1UidsList), lists:sort(Comment1PushList1)),
+    ?assertEqual(lists:sort(Comment1UidsList), lists:sort(Comment1PushList2)),
+
+    [_, _, {ok, Comment2PushList1}] = model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID3, ?COMMENT_ID2),
+    Comment2PushList2 = model_feed:get_comment_push_data(?COMMENT_ID2, ?POST_ID1),
+    Comment2UidsList = [?UID1, ?UID2, ?UID3],
+    ?assertEqual(lists:sort(Comment2UidsList), lists:sort(Comment2PushList1)),
+    ?assertEqual(lists:sort(Comment2UidsList), lists:sort(Comment2PushList2)),
     ok.
 
 
@@ -196,7 +220,7 @@ comment_subs_test() ->
     Comment3 = get_comment3(Timestamp1),
 
     ?assertEqual(
-        [{ok, Post1}, {ok, Comment1}, {ok, []}],
+        [{ok, Post1}, {ok, Comment1}, {ok, [?UID1]}],
         model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID1, <<>>)),
     ?assertEqual(
         [{ok, Post1}, {ok, Comment2}, {ok, [?UID1]}],

@@ -278,7 +278,7 @@ get_comment_data(PostId, CommentId, ParentId) ->
     AudienceList = Res2,
     [CommentPublisherUid, ParentCommentId, CommentPayload, CommentTsMs] = Res3,
     ParentPushList = case PushListCommands of
-        [] -> [];
+        [] -> [PostUid];
         _ ->
             [{ok, Res4}] = Rest,
             Res4
@@ -300,6 +300,16 @@ get_comment_data(PostId, CommentId, ParentId) ->
         ts_ms = util_redis:decode_ts(CommentTsMs)
     },
     IsPostDeleted = (IsPostDeletedBin =:= <<"1">>),
+
+    %% Fetch and compare push data.
+    ParentPushList2 = get_comment_push_data(ParentId, CommentId),
+    case ParentPushList =:= ParentPushList2 of
+        true ->
+            ?INFO("Push data matches: ~p", [ParentPushList]);
+        false ->
+            ?ERROR("Push data mismatch, original: ~p, new: ~p", [ParentPushList, ParentPushList2])
+    end,
+
     %% TODO(murali@): update these conditions after a few weeks to use the deleted field.
     if
         (PostUid =:= undefined orelse IsPostDeleted =:= true) andalso
@@ -313,6 +323,22 @@ get_comment_data(PostId, CommentId, ParentId) ->
         true ->
             [{ok, Post}, {ok, Comment}, {ok, ParentPushList}]
     end.
+
+
+%% Test for now, remove it in a couple of days.
+%% Returns a list of uids to send a push notification for when replying to commentId on postId.
+-spec get_comment_push_data(CommentId :: binary(), PostId :: binary()) -> [binary()].
+get_comment_push_data(undefined, PostId) ->
+    ?ERROR("Invalid parent_id here for post: ~p", [PostId]),
+    [];
+get_comment_push_data(<<>>, PostId) ->
+    {ok, PostUid} = q(["HGET", post_key(PostId), ?FIELD_UID]),
+    [PostUid];
+get_comment_push_data(CommentId, PostId) ->
+    {ok, [CommentPublisherUid, ParentCommentId]} = qp(
+        ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID]),
+    ParentCommentPushData = get_comment_push_data(ParentCommentId, PostId),
+    [CommentPublisherUid | ParentCommentPushData].
 
 
 -spec get_post_comments(PostId :: binary()) -> {ok, [comment()]} | {error, any()}.
