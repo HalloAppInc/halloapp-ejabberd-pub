@@ -253,10 +253,10 @@ handle_info(Something, State) ->
 handle_packet(#pb_auth_result{} = Packet, State) ->
     NewState = handle_auth_result(Packet, State),
     {Packet, NewState};
-handle_packet(#pb_packet{stanza = {ack, #pb_ack{id = Id} = _Ack}} = Packet, State) ->
+handle_packet(#pb_packet{stanza = #pb_ack{id = Id} = _Ack} = Packet, State) ->
     ?INFO_MSG("recv ack: ~s", [Id]),
     {Packet, State};
-handle_packet(#pb_packet{stanza = {msg, #pb_msg{id = Id}}} = Packet, State) ->
+handle_packet(#pb_packet{stanza = #pb_msg{id = Id}} = Packet, State) ->
     ?INFO_MSG("recv msg: ~s", [Id]),
     State1 = send_ack(Id, State),
     State2 = queue_in(Packet, State1),
