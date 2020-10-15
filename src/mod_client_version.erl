@@ -22,23 +22,22 @@
 
 %% gen_mod API.
 -export([start/2, stop/1, depends/2, reload/3, mod_options/1, mod_opt_type/1]).
-% API
--export([
-    is_valid_version/1
-]).
-%% iq handler and hooks.
+
 -export([
     process_local_iq/1,
-    c2s_handle_info/2
+    c2s_handle_info/2,
+    is_valid_version/1,
+    set_client_version/2,
+    c2s_session_opened/1,
+    get_time_left/2     %% test
 ]).
-%% debug console functions.
--export([get_time_left/2]).
 
 % TODO: add tests after the migration to Redis is done.
 
 start(Host, Opts) ->
     ejabberd_hooks:add(c2s_handle_info, Host, ?MODULE, c2s_handle_info, 10),
     ejabberd_hooks:add(pb_c2s_handle_info, Host, ?MODULE, c2s_handle_info, 10),
+    ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 50),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_CLIENT_VER, ?MODULE, process_local_iq),
     mod_client_version_mnesia:init(Host, Opts),
     store_options(Opts),
@@ -47,6 +46,7 @@ start(Host, Opts) ->
 stop(Host) ->
     ejabberd_hooks:delete(c2s_handle_info, Host, ?MODULE, c2s_handle_info, 10),
     ejabberd_hooks:delete(pb_c2s_handle_info, Host, ?MODULE, c2s_handle_info, 10),
+    ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 50),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_CLIENT_VER),
     mod_client_version_mnesia:close(Host),
     ok.
@@ -70,6 +70,9 @@ process_local_iq(#iq{type = get, to = _Host, from = From,
     xmpp:make_iq_result(IQ, #client_version{version = Version, seconds_left = TimeLeftSec}).
 
 
+c2s_session_opened(#{user := Uid, client_version := ClientVersion}) ->
+    set_client_version(Uid, ClientVersion).
+
 
 c2s_handle_info(State, {kill_connection, expired_app_version, From}) ->
     #jid{user = User, server = Server, resource = Resource} = From,
@@ -80,6 +83,12 @@ c2s_handle_info(State, {kill_connection, expired_app_version, From}) ->
     State;
 c2s_handle_info(State, _) ->
     State.
+
+
+-spec set_client_version(Uid :: binary(), ClientVersion :: binary()) -> boolean().
+set_client_version(Uid, ClientVersion) ->
+    ok = model_accounts:set_client_version(Uid, ClientVersion),
+    ok.
 
 
 %% Checks if a version is valid or not with respect to the current timestamp.

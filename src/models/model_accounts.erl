@@ -50,6 +50,8 @@
     set_last_activity/3,
     set_user_agent/2,
     get_signup_user_agent/1,
+    set_client_version/2,
+    get_client_version/1,
     get_push_info/1,
     set_push_token/4,
     get_push_token/1,
@@ -119,6 +121,7 @@ mod_options(_Host) ->
 -define(FIELD_LAST_ACTIVITY, <<"la">>).
 -define(FIELD_ACTIVITY_STATUS, <<"st">>).
 -define(FIELD_USER_AGENT, <<"ua">>).
+-define(FIELD_CLIENT_VERSION, <<"cv">>).
 -define(FIELD_PUSH_OS, <<"pos">>).
 -define(FIELD_PUSH_TOKEN, <<"ptk">>).
 -define(FIELD_PUSH_TIMESTAMP, <<"pts">>).
@@ -267,6 +270,21 @@ get_signup_user_agent(Uid) ->
     end.
 
 
+-spec set_client_version(Uid :: uid(), Version :: binary()) -> ok.
+set_client_version(Uid, Version) ->
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_CLIENT_VERSION, Version]),
+    ok.
+
+
+-spec get_client_version(Uid :: uid()) -> {ok, binary()} | {error, missing}.
+get_client_version(Uid) ->
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_CLIENT_VERSION]),
+    case Res of
+        undefined -> {error, missing};
+        Res -> {ok, Res}
+    end.
+
+
 -spec get_account(Uid :: uid()) -> {ok, account()} | {error, missing}.
 get_account(Uid) ->
     {ok, Res} = q(["HGETALL", account_key(Uid)]),
@@ -278,7 +296,8 @@ get_account(Uid) ->
             signup_user_agent = maps:get(?FIELD_USER_AGENT, M),
             creation_ts_ms = util_redis:decode_ts(maps:get(?FIELD_CREATION_TIME, M)),
             last_activity_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
-            activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined))
+            activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined)),
+            client_version = maps:get(?FIELD_CLIENT_VERSION, M, undefined)
         },
     {ok, Account}.
 
@@ -325,15 +344,17 @@ remove_push_token(Uid) ->
 
 -spec get_push_info(Uid :: uid()) -> {ok, maybe(push_info())} | {error, missing}.
 get_push_info(Uid) ->
-    {ok, [Os, Token, TimestampMs, PushPost, PushComment]} = q(
+    {ok, [Os, Token, TimestampMs, PushPost, PushComment, ClientVersion]} = q(
             ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP,
-            ?FIELD_PUSH_POST, ?FIELD_PUSH_COMMENT]),
+            ?FIELD_PUSH_POST, ?FIELD_PUSH_COMMENT, ?FIELD_CLIENT_VERSION]),
     Res = #push_info{uid = Uid, 
             os = Os, 
             token = Token, 
             timestamp_ms = util_redis:decode_ts(TimestampMs),
             post_pref = boolean_decode(PushPost, true),
-            comment_pref = boolean_decode(PushComment, true)},
+            comment_pref = boolean_decode(PushComment, true),
+            client_version = ClientVersion
+        },
     {ok, Res}.
 
 

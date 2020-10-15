@@ -447,7 +447,7 @@ bind(R, #{user := U, server := S, access := Access, lang := Lang,
 
 handle_stream_start(#stream_start{client_version = ClientVersion} = StreamStart,
 					#{lserver := LServer} = State) ->
-	case mod_client_version:is_valid_version(ClientVersion) of
+	NewState = case mod_client_version:is_valid_version(ClientVersion) of
 		false ->
 			send(State#{lserver => ejabberd_config:get_myname()},
 					xmpp:serr_unsupported_client_version());
@@ -462,7 +462,8 @@ handle_stream_start(#stream_start{client_version = ClientVersion} = StreamStart,
 			    ejabberd_hooks:run_fold(
 			      c2s_stream_started, LServer, State2, [StreamStart])
 		    end
-	end.
+	end,
+	NewState#{client_version => ClientVersion}.
 
 handle_stream_end(Reason, #{lserver := LServer} = State) ->
     State1 = State#{stop_reason => Reason},

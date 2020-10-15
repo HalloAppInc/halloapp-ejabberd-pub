@@ -20,6 +20,7 @@
     name :: binary(),
     creation_ts_ms :: integer(),
     signup_user_agent :: binary(),
+    client_version :: binary(),
     last_activity_ts_ms :: integer() | undefined,
     activity_status :: activity_status() | undefined
 }).
@@ -45,7 +46,8 @@
     token :: binary(),
     timestamp_ms :: integer(),
     post_pref :: maybe(boolean()),
-    comment_pref :: maybe(boolean())
+    comment_pref :: maybe(boolean()),
+    client_version :: binary()
 }).
 
 -type push_info() :: #push_info{}.

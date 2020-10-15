@@ -28,6 +28,8 @@ clear() ->
 -define(TS1, 1500000000001).
 -define(AS1, available).
 -define(AVATAR_ID1, <<"CwlRWoG4TduL93Zyrz30Uw">>).
+-define(CLIENT_VERSION1, <<"HalloApp/Android0.65">>).
+-define(CLIENT_VERSION2, <<"HalloApp/Android0.72">>).
 -define(PUSH_TOKEN_OS1, <<"android">>).
 -define(PUSH_TOKEN1, <<"eXh2yYFZShGXzpobZEc5kg">>).
 -define(PUSH_TOKEN_TIMESTAMP1, 1589300000082).
@@ -129,6 +131,15 @@ get_signup_user_agent_test() ->
     ?assertEqual({ok, ?USER_AGENT1}, model_accounts:get_signup_user_agent(?UID1)),
     ok = model_accounts:set_user_agent(?UID1, ?USER_AGENT2),
     ?assertEqual({ok, ?USER_AGENT2}, model_accounts:get_signup_user_agent(?UID1)).
+
+
+get_client_version_test() ->
+    setup(),
+    ok = model_accounts:set_client_version(?UID1, ?CLIENT_VERSION1),
+    ?assertEqual({ok, ?CLIENT_VERSION1}, model_accounts:get_client_version(?UID1)),
+    ok = model_accounts:set_client_version(?UID1, ?CLIENT_VERSION2),
+    ?assertEqual({ok, ?CLIENT_VERSION2}, model_accounts:get_client_version(?UID1)),
+    ok.
 
 
 list_to_map_test() ->
