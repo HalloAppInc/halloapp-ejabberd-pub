@@ -28,25 +28,27 @@
 -module(misc).
 
 %% API
--export([add_delay_info/3, add_delay_info/4,
-	 unwrap_carbon/1, unwrap_mucsub_message/1, is_standalone_chat_state/1,
-	 tolower/1, term_to_base64/1, base64_to_term/1, ip_to_list/1,
-	 hex_to_bin/1, hex_to_base64/1, url_encode/1, expand_keyword/3,
-	 atom_to_binary/1, binary_to_atom/1, tuple_to_binary/1,
-	 l2i/1, i2l/1, i2l/2, expr_to_term/1, term_to_expr/1,
-	 now_to_usec/1, usec_to_now/1, encode_pid/1, decode_pid/2,
-	 compile_exprs/2, join_atoms/2, try_read_file/1, get_descr/2,
-	 css_dir/0, img_dir/0, js_dir/0, msgs_dir/0, sql_dir/0, lua_dir/0,
-	 xml_dir/0, data_dir/0, read_css/1, read_img/1, read_js/1, read_lua/1, try_url/1,
-	 intersection/2, format_val/1, cancel_timer/1, unique_timestamp/0,
-	 is_mucsub_message/1, best_match/2, pmap/2, peach/2, format_exception/4,
-	 parse_ip_mask/1, match_ip_mask/3, format_hosts_list/1, format_cycle/1,
-	 delete_dir/1]).
+-export([
+    add_delay_info/3, add_delay_info/4,
+    unwrap_carbon/1, unwrap_mucsub_message/1, is_standalone_chat_state/1,
+    tolower/1, term_to_base64/1, base64_to_term/1, ip_to_list/1,
+    hex_to_bin/1, hex_to_base64/1, url_encode/1, expand_keyword/3,
+    atom_to_binary/1, binary_to_atom/1, tuple_to_binary/1,
+    l2i/1, i2l/1, i2l/2, expr_to_term/1, term_to_expr/1,
+    now_to_usec/1, usec_to_now/1, encode_pid/1, decode_pid/2,
+    compile_exprs/2, join_atoms/2, try_read_file/1, get_descr/2,
+    css_dir/0, img_dir/0, js_dir/0, msgs_dir/0, sql_dir/0, lua_dir/0,
+    xml_dir/0, data_dir/0, read_css/1, read_img/1, read_js/1, read_lua/1, try_url/1,
+    intersection/2, format_val/1, cancel_timer/1, unique_timestamp/0,
+    is_mucsub_message/1, best_match/2, pmap/2, peach/2, format_exception/4,
+    parse_ip_mask/1, match_ip_mask/3, format_hosts_list/1, format_cycle/1,
+    delete_dir/1]).
 
 %% Deprecated functions
 -export([decode_base64/1, encode_base64/1]).
--deprecated([{decode_base64, 1},
-	     {encode_base64, 1}]).
+-deprecated([
+    {decode_base64, 1},
+    {encode_base64, 1}]).
 
 -include("logger.hrl").
 -include("xmpp.hrl").
@@ -65,53 +67,52 @@ add_delay_info(Stz, From, Time) ->
 add_delay_info(Stz, From, Time, Desc) ->
     Delays = xmpp:get_subtags(Stz, #delay{stamp = {0,0,0}}),
     Matching = lists:any(
-	fun(#delay{from = OldFrom}) when is_record(OldFrom, jid) ->
-	       jid:tolower(From) == jid:tolower(OldFrom);
-	   (_) ->
-	       false
-	end, Delays),
+        fun(#delay{from = OldFrom}) when is_record(OldFrom, jid) ->
+                jid:tolower(From) == jid:tolower(OldFrom);
+            (_) ->
+                false
+        end, Delays),
     case Matching of
-	true ->
-	    Stz;
-	_ ->
-	    NewDelay = #delay{stamp = Time, from = From, desc = Desc},
-	    xmpp:append_subtags(Stz, [NewDelay])
+        true ->
+            Stz;
+        _ ->
+            NewDelay = #delay{stamp = Time, from = From, desc = Desc},
+            xmpp:append_subtags(Stz, [NewDelay])
     end.
 
 -spec unwrap_carbon(stanza()) -> xmpp_element().
 unwrap_carbon(#message{} = Msg) ->
     try
-	case xmpp:get_subtag(Msg, #carbons_sent{forwarded = #forwarded{}}) of
-	    #carbons_sent{forwarded = #forwarded{sub_els = [El]}} ->
-		xmpp:decode(El, ?NS_CLIENT, [ignore_els]);
-	    _ ->
-		case xmpp:get_subtag(Msg, #carbons_received{
-					      forwarded = #forwarded{}}) of
-		    #carbons_received{forwarded = #forwarded{sub_els = [El]}} ->
-			xmpp:decode(El, ?NS_CLIENT, [ignore_els]);
-		    _ ->
-			Msg
-		end
-	end
+    case xmpp:get_subtag(Msg, #carbons_sent{forwarded = #forwarded{}}) of
+        #carbons_sent{forwarded = #forwarded{sub_els = [El]}} ->
+            xmpp:decode(El, ?NS_CLIENT, [ignore_els]);
+        _ ->
+            case xmpp:get_subtag(Msg, #carbons_received{forwarded = #forwarded{}}) of
+                #carbons_received{forwarded = #forwarded{sub_els = [El]}} ->
+                    xmpp:decode(El, ?NS_CLIENT, [ignore_els]);
+                _ ->
+                    Msg
+            end
+    end
     catch _:{xmpp_codec, _} ->
-	    Msg
+        Msg
     end;
 unwrap_carbon(Stanza) -> Stanza.
 
 -spec unwrap_mucsub_message(xmpp_element()) -> message() | false.
 unwrap_mucsub_message(#message{} = OuterMsg) ->
     case xmpp:get_subtag(OuterMsg, #ps_event{}) of
-	#ps_event{
-	    items = #ps_items{
-		node = Node,
-		items = [
-		    #ps_item{
-			sub_els = [#message{} = InnerMsg]} | _]}}
-	    when Node == ?NS_MUCSUB_NODES_MESSAGES;
-		 Node == ?NS_MUCSUB_NODES_SUBJECT ->
-	    InnerMsg;
-	_ ->
-	    false
+        #ps_event{
+            items = #ps_items{
+            node = Node,
+            items = [
+                #ps_item{
+                sub_els = [#message{} = InnerMsg]} | _]}}
+            when Node == ?NS_MUCSUB_NODES_MESSAGES;
+                 Node == ?NS_MUCSUB_NODES_SUBJECT ->
+            InnerMsg;
+        _ ->
+            false
     end;
 unwrap_mucsub_message(_Packet) ->
     false.
@@ -119,19 +120,19 @@ unwrap_mucsub_message(_Packet) ->
 -spec is_mucsub_message(xmpp_element()) -> boolean().
 is_mucsub_message(#message{} = OuterMsg) ->
     case xmpp:get_subtag(OuterMsg, #ps_event{}) of
-	#ps_event{
-	    items = #ps_items{
-		node = Node}}
-	    when Node == ?NS_MUCSUB_NODES_MESSAGES;
-		 Node == ?NS_MUCSUB_NODES_SUBJECT;
-		 Node == ?NS_MUCSUB_NODES_AFFILIATIONS;
-		 Node == ?NS_MUCSUB_NODES_CONFIG;
-		 Node == ?NS_MUCSUB_NODES_PARTICIPANTS;
-		 Node == ?NS_MUCSUB_NODES_PRESENCE;
-		 Node == ?NS_MUCSUB_NODES_SUBSCRIBERS ->
-	    true;
-	_ ->
-	    false
+    #ps_event{
+        items = #ps_items{
+        node = Node}}
+        when Node == ?NS_MUCSUB_NODES_MESSAGES;
+         Node == ?NS_MUCSUB_NODES_SUBJECT;
+         Node == ?NS_MUCSUB_NODES_AFFILIATIONS;
+         Node == ?NS_MUCSUB_NODES_CONFIG;
+         Node == ?NS_MUCSUB_NODES_PARTICIPANTS;
+         Node == ?NS_MUCSUB_NODES_PRESENCE;
+         Node == ?NS_MUCSUB_NODES_SUBSCRIBERS ->
+        true;
+    _ ->
+        false
     end;
 is_mucsub_message(_Packet) ->
     false.
@@ -139,13 +140,13 @@ is_mucsub_message(_Packet) ->
 -spec is_standalone_chat_state(stanza()) -> boolean().
 is_standalone_chat_state(Stanza) ->
     case unwrap_carbon(Stanza) of
-	#message{body = [], subject = [], sub_els = Els} ->
-	    IgnoreNS = [?NS_CHATSTATES, ?NS_DELAY, ?NS_EVENT],
-	    Stripped = [El || El <- Els,
-			      not lists:member(xmpp:get_ns(El), IgnoreNS)],
-	    Stripped == [];
-	_ ->
-	    false
+        #message{body = [], subject = [], sub_els = Els} ->
+            IgnoreNS = [?NS_CHATSTATES, ?NS_DELAY, ?NS_EVENT],
+            Stripped = [El || El <- Els,
+                      not lists:member(xmpp:get_ns(El), IgnoreNS)],
+            Stripped == [];
+        _ ->
+            false
     end.
 
 -spec tolower(binary()) -> binary().
@@ -153,8 +154,9 @@ tolower(B) ->
     iolist_to_binary(tolower_s(binary_to_list(B))).
 
 tolower_s([C | Cs]) ->
-    if C >= $A, C =< $Z -> [C + 32 | tolower_s(Cs)];
-       true -> [C | tolower_s(Cs)]
+    if
+        C >= $A, C =< $Z -> [C + 32 | tolower_s(Cs)];
+        true -> [C | tolower_s(Cs)]
     end;
 tolower_s([]) -> [].
 
@@ -165,9 +167,9 @@ term_to_base64(Term) ->
 -spec base64_to_term(binary()) -> {term, term()} | error.
 base64_to_term(Base64) ->
     try binary_to_term(base64:decode(Base64), [safe]) of
-	Term -> {term, Term}
+        Term -> {term, Term}
     catch _:_ ->
-	    error
+        error
     end.
 
 -spec decode_base64(binary()) -> binary().
@@ -181,8 +183,7 @@ encode_base64(Data) ->
     base64:encode(Data).
 
 -spec ip_to_list(inet:ip_address() | undefined |
-                 {inet:ip_address(), inet:port_number()}) -> binary().
-
+        {inet:ip_address(), inet:port_number()}) -> binary().
 ip_to_list({IP, _Port}) ->
     ip_to_list(IP);
 %% This function clause could use inet_parse too:
@@ -213,7 +214,7 @@ url_encode(A) ->
 -spec expand_keyword(iodata(), iodata(), iodata()) -> binary().
 expand_keyword(Keyword, Input, Replacement) ->
     re:replace(Input, Keyword, Replacement,
-	       [{return, binary}, global]).
+           [{return, binary}, global]).
 
 binary_to_atom(Bin) ->
     erlang:binary_to_atom(Bin, utf8).
@@ -254,9 +255,9 @@ i2l(L) when is_binary(L) -> L.
 i2l(I, N) when is_integer(I) -> i2l(i2l(I), N);
 i2l(L, N) when is_binary(L) ->
     case str:len(L) of
-      N -> L;
-      C when C > N -> L;
-      _ -> i2l(<<$0, L/binary>>, N)
+        N -> L;
+        C when C > N -> L;
+        _ -> i2l(<<$0, L/binary>>, N)
     end.
 
 -spec encode_pid(pid()) -> binary().
@@ -268,37 +269,38 @@ decode_pid(PidBin, NodeBin) ->
     PidStr = binary_to_list(PidBin),
     Pid = erlang:list_to_pid(PidStr),
     case erlang:binary_to_atom(NodeBin, latin1) of
-	Node when Node == node() ->
-	    Pid;
-	Node ->
-	    try set_node_id(PidStr, NodeBin)
-	    catch _:badarg ->
-		    erlang:error({bad_node, Node})
-	    end
+        Node when Node == node() ->
+            Pid;
+        Node ->
+            try set_node_id(PidStr, NodeBin)
+            catch _:badarg ->
+                erlang:error({bad_node, Node})
+            end
     end.
 
 -spec compile_exprs(module(), [string()]) -> ok | {error, any()}.
 compile_exprs(Mod, Exprs) ->
     try
-	Forms = lists:map(
-		  fun(Expr) ->
-			  {ok, Tokens, _} = erl_scan:string(lists:flatten(Expr)),
-			  {ok, Form} = erl_parse:parse_form(Tokens),
-			  Form
-		  end, Exprs),
-	{ok, Code} = case compile:forms(Forms, []) of
-			 {ok, Mod, Bin} -> {ok, Bin};
-			 {ok, Mod, Bin, _Warnings} -> {ok, Bin};
-			 Error -> Error
-		     end,
-	{module, Mod} = code:load_binary(Mod, "nofile", Code),
-	ok
-    catch _:{badmatch, {error, ErrInfo, _ErrLocation}} ->
-	    {error, ErrInfo};
-	  _:{badmatch, {error, _} = Err} ->
-	    Err;
-	  _:{badmatch, error} ->
-	    {error, compile_failed}
+    Forms = lists:map(
+        fun(Expr) ->
+            {ok, Tokens, _} = erl_scan:string(lists:flatten(Expr)),
+            {ok, Form} = erl_parse:parse_form(Tokens),
+            Form
+        end, Exprs),
+    {ok, Code} = case compile:forms(Forms, []) of
+        {ok, Mod, Bin} -> {ok, Bin};
+        {ok, Mod, Bin, _Warnings} -> {ok, Bin};
+        Error -> Error
+    end,
+    {module, Mod} = code:load_binary(Mod, "nofile", Code),
+    ok
+    catch
+        _:{badmatch, {error, ErrInfo, _ErrLocation}} ->
+            {error, ErrInfo};
+        _:{badmatch, {error, _} = Err} ->
+            Err;
+        _:{badmatch, error} ->
+            {error, compile_failed}
     end.
 
 -spec join_atoms([atom()], binary()) -> binary().
@@ -311,12 +313,12 @@ join_atoms(Atoms, Sep) ->
 -spec try_read_file(file:filename_all()) -> binary().
 try_read_file(Path) ->
     case file:open(Path, [read]) of
-	{ok, Fd} ->
-	    file:close(Fd),
-	    iolist_to_binary(Path);
-	{error, Why} ->
-	    ?ERROR("Failed to read ~ts: ~ts", [Path, file:format_error(Why)]),
-	    erlang:error(badarg)
+        {ok, Fd} ->
+            file:close(Fd),
+            iolist_to_binary(Path);
+        {error, Why} ->
+            ?ERROR("Failed to read ~ts: ~ts", [Path, file:format_error(Why)]),
+            erlang:error(badarg)
     end.
 
 %% @doc Checks if the URL is valid HTTP(S) URL and converts its name to binary.
@@ -325,21 +327,21 @@ try_read_file(Path) ->
 -spec try_url(binary() | string()) -> binary().
 try_url(URL0) ->
     URL = case URL0 of
-	V when is_binary(V) -> binary_to_list(V);
-	_ -> URL0
+    V when is_binary(V) -> binary_to_list(V);
+    _ -> URL0
     end,
     case http_uri:parse(URL) of
-	{ok, {Scheme, _, _, _, _, _}} when Scheme /= http, Scheme /= https ->
-	    ?ERROR("Unsupported URI scheme: ~ts", [URL]),
-	    erlang:error(badarg);
-	{ok, {_, _, Host, _, _, _}} when Host == ""; Host == <<"">> ->
-	    ?ERROR("Invalid URL: ~ts", [URL]),
-	    erlang:error(badarg);
-	{ok, _} ->
-	    iolist_to_binary(URL);
-	{error, _} ->
-	    ?ERROR("Invalid URL: ~ts", [URL]),
-	    erlang:error(badarg)
+        {ok, {Scheme, _, _, _, _, _}} when Scheme /= http, Scheme /= https ->
+            ?ERROR("Unsupported URI scheme: ~ts", [URL]),
+            erlang:error(badarg);
+        {ok, {_, _, Host, _, _, _}} when Host == ""; Host == <<"">> ->
+            ?ERROR("Invalid URL: ~ts", [URL]),
+            erlang:error(badarg);
+        {ok, _} ->
+            iolist_to_binary(URL);
+        {error, _} ->
+            ?ERROR("Invalid URL: ~ts", [URL]),
+            erlang:error(badarg)
     end.
 
 -spec css_dir() -> file:filename().
@@ -368,11 +370,11 @@ lua_dir() ->
 
 -spec xml_dir() -> file:filename().
 xml_dir() ->
-	get_dir("xml").
+    get_dir("xml").
 
 -spec data_dir() -> file:filename().
 data_dir() ->
-	get_dir("data").
+    get_dir("data").
 
 -spec read_css(file:filename()) -> {ok, binary()} | {error, file:posix()}.
 read_css(File) ->
@@ -399,17 +401,17 @@ get_descr(Lang, Text) ->
 -spec intersection(list(), list()) -> list().
 intersection(L1, L2) ->
     lists:filter(
-      fun(E) ->
-              lists:member(E, L2)
-      end, L1).
+        fun(E) ->
+            lists:member(E, L2)
+        end, L1).
 
 -spec format_val(any()) -> iodata().
 format_val({yaml, S}) when is_integer(S); is_binary(S); is_atom(S) ->
     format_val(S);
 format_val({yaml, YAML}) ->
     S = try fast_yaml:encode(YAML)
-	catch _:_ -> YAML
-	end,
+    catch _:_ -> YAML
+    end,
     format_val(S);
 format_val(I) when is_integer(I) ->
     integer_to_list(I);
@@ -417,62 +419,62 @@ format_val(B) when is_atom(B) ->
     erlang:atom_to_binary(B, utf8);
 format_val(Term) ->
     S = try iolist_to_binary(Term)
-	catch _:_ -> list_to_binary(io_lib:format("~p", [Term]))
-	end,
+    catch _:_ -> list_to_binary(io_lib:format("~p", [Term]))
+    end,
     case binary:match(S, <<"\n">>) of
-	nomatch -> S;
-	_ -> [io_lib:nl(), S]
+        nomatch -> S;
+        _ -> [io_lib:nl(), S]
     end.
 
 -spec cancel_timer(reference() | undefined) -> ok.
 cancel_timer(TRef) when is_reference(TRef) ->
     case erlang:cancel_timer(TRef) of
-	false ->
-	    receive {timeout, TRef, _} -> ok
-	    after 0 -> ok
-	    end;
-	_ ->
-	    ok
+        false ->
+            receive {timeout, TRef, _} -> ok
+            after 0 -> ok
+            end;
+        _ ->
+            ok
     end;
 cancel_timer(_) ->
     ok.
 
 -spec best_match(atom(), [atom()]) -> atom();
-		(binary(), [binary()]) -> binary().
+        (binary(), [binary()]) -> binary().
 best_match(Pattern, []) ->
     Pattern;
 best_match(Pattern, Opts) ->
-    F = if is_atom(Pattern) -> fun atom_to_list/1;
-	   is_binary(Pattern) -> fun binary_to_list/1
-	end,
+    F = if
+        is_atom(Pattern) -> fun atom_to_list/1;
+        is_binary(Pattern) -> fun binary_to_list/1
+    end,
     String = F(Pattern),
     {Ds, _} = lists:mapfoldl(
-		fun(Opt, Cache) ->
-			{Distance, Cache1} = ld(String, F(Opt), Cache),
-			{{Distance, Opt}, Cache1}
-		end, #{}, Opts),
+        fun(Opt, Cache) ->
+            {Distance, Cache1} = ld(String, F(Opt), Cache),
+            {{Distance, Opt}, Cache1}
+        end, #{}, Opts),
     element(2, lists:min(Ds)).
 
 -spec pmap(fun((T1) -> T2), [T1]) -> [T2].
 pmap(Fun, [_,_|_] = List) ->
     case erlang:system_info(logical_processors) of
-	1 -> lists:map(Fun, List);
-	_ ->
-	    Self = self(),
-	    lists:map(
-	      fun({Pid, Ref}) ->
-		      receive
-			  {Pid, Ret} ->
-			      receive
-				  {'DOWN', Ref, _, _, _} ->
-				      Ret
-			      end;
-			  {'DOWN', Ref, _, _, Reason} ->
-			      exit(Reason)
-		      end
-	      end, [spawn_monitor(
-		      fun() -> Self ! {self(), Fun(X)} end)
-		    || X <- List])
+        1 -> lists:map(Fun, List);
+        _ ->
+            Self = self(),
+            lists:map(
+                fun({Pid, Ref}) ->
+                    receive
+                        {Pid, Ret} ->
+                            receive
+                                {'DOWN', Ref, _, _, _} ->
+                                    Ret
+                            end;
+                        {'DOWN', Ref, _, _, Reason} ->
+                            exit(Reason)
+                    end
+                end,
+                [spawn_monitor(fun() -> Self ! {self(), Fun(X)} end) || X <- List])
     end;
 pmap(Fun, List) ->
     lists:map(Fun, List).
@@ -480,23 +482,22 @@ pmap(Fun, List) ->
 -spec peach(fun((T) -> any()), [T]) -> ok.
 peach(Fun, [_,_|_] = List) ->
     case erlang:system_info(logical_processors) of
-	1 -> lists:foreach(Fun, List);
-	_ ->
-	    Self = self(),
-	    lists:foreach(
-	      fun({Pid, Ref}) ->
-		      receive
-			  Pid ->
-			      receive
-				  {'DOWN', Ref, _, _, _} ->
-				      ok
-			      end;
-			  {'DOWN', Ref, _, _, Reason} ->
-			      exit(Reason)
-		      end
-	      end, [spawn_monitor(
-		      fun() -> Fun(X), Self ! self() end)
-		    || X <- List])
+        1 -> lists:foreach(Fun, List);
+        _ ->
+            Self = self(),
+            lists:foreach(
+                fun({Pid, Ref}) ->
+                    receive
+                        Pid ->
+                            receive
+                                {'DOWN', Ref, _, _, _} ->
+                                    ok
+                            end;
+                        {'DOWN', Ref, _, _, Reason} ->
+                            exit(Reason)
+                    end
+                end,
+                [spawn_monitor(fun() -> Fun(X), Self ! self() end) || X <- List])
     end;
 peach(Fun, List) ->
     lists:foreach(Fun, List).
@@ -504,28 +505,28 @@ peach(Fun, List) ->
 -ifdef(HAVE_ERL_ERROR).
 format_exception(Level, Class, Reason, Stacktrace) ->
     erl_error:format_exception(
-      Level, Class, Reason, Stacktrace,
-      fun(_M, _F, _A) -> false end,
-      fun(Term, I) ->
-	      io_lib:print(Term, I, 80, -1)
-      end).
+        Level, Class, Reason, Stacktrace,
+        fun(_M, _F, _A) -> false end,
+        fun(Term, I) ->
+            io_lib:print(Term, I, 80, -1)
+        end).
 -else.
 format_exception(Level, Class, Reason, Stacktrace) ->
     lib:format_exception(
-      Level, Class, Reason, Stacktrace,
-      fun(_M, _F, _A) -> false end,
-      fun(Term, I) ->
-	      io_lib:print(Term, I, 80, -1)
-      end).
+        Level, Class, Reason, Stacktrace,
+        fun(_M, _F, _A) -> false end,
+        fun(Term, I) ->
+            io_lib:print(Term, I, 80, -1)
+        end).
 -endif.
 
 -spec parse_ip_mask(binary()) -> {ok, {inet:ip4_address(), 0..32}} |
-				 {ok, {inet:ip6_address(), 0..128}} |
-				 error.
+        {ok, {inet:ip6_address(), 0..128}} |
+        error.
 parse_ip_mask(S) ->
     case econf:validate(econf:ip_mask(), S) of
-	{ok, _} = Ret -> Ret;
-	_ -> error
+        {ok, _} = Ret -> Ret;
+        _ -> error
     end.
 
 -spec match_ip_mask(inet:ip_address(), inet:ip_address(), 0..128) -> boolean().
@@ -535,19 +536,19 @@ match_ip_mask({_, _, _, _} = IP, {_, _, _, _} = Net, Mask) ->
     M = bnot (1 bsl (32 - Mask) - 1),
     IPInt band M =:= NetInt band M;
 match_ip_mask({_, _, _, _, _, _, _, _} = IP,
-		{_, _, _, _, _, _, _, _} = Net, Mask) ->
+        {_, _, _, _, _, _, _, _} = Net, Mask) ->
     IPInt = ip_to_integer(IP),
     NetInt = ip_to_integer(Net),
     M = bnot (1 bsl (128 - Mask) - 1),
     IPInt band M =:= NetInt band M;
 match_ip_mask({_, _, _, _} = IP,
-		{0, 0, 0, 0, 0, 16#FFFF, _, _} = Net, Mask) ->
+        {0, 0, 0, 0, 0, 16#FFFF, _, _} = Net, Mask) ->
     IPInt = ip_to_integer({0, 0, 0, 0, 0, 16#FFFF, 0, 0}) + ip_to_integer(IP),
     NetInt = ip_to_integer(Net),
     M = bnot (1 bsl (128 - Mask) - 1),
     IPInt band M =:= NetInt band M;
 match_ip_mask({0, 0, 0, 0, 0, 16#FFFF, _, _} = IP,
-		{_, _, _, _} = Net, Mask) ->
+        {_, _, _, _} = Net, Mask) ->
     IPInt = ip_to_integer(IP) - ip_to_integer({0, 0, 0, 0, 0, 16#FFFF, 0, 0}),
     NetInt = ip_to_integer(Net),
     M = bnot (1 bsl (32 - Mask) - 1),
@@ -564,7 +565,7 @@ format_hosts_list([H1, H2, H3]) ->
     [H1, ", ", H2, " and ", H3];
 format_hosts_list([H1, H2|Hs]) ->
     io_lib:format("~ts, ~ts and ~B more hosts",
-		  [H1, H2, length(Hs)]).
+          [H1, H2, length(Hs)]).
 
 -spec format_cycle([atom(), ...]) -> iolist().
 format_cycle([M1]) ->
@@ -577,19 +578,20 @@ format_cycle([M|Ms]) ->
 -spec delete_dir(file:filename_all()) -> ok | {error, file:posix()}.
 delete_dir(Dir) ->
     try
-	{ok, Entries} = file:list_dir(Dir),
-	lists:foreach(fun(Path) ->
-			      case filelib:is_dir(Path) of
-				  true ->
-				      ok = delete_dir(Path);
-				  false ->
-				      ok = file:delete(Path)
-			      end
-		      end, [filename:join(Dir, Entry) || Entry <- Entries]),
-	ok = file:del_dir(Dir)
+    {ok, Entries} = file:list_dir(Dir),
+    lists:foreach(
+        fun(Path) ->
+            case filelib:is_dir(Path) of
+                true ->
+                    ok = delete_dir(Path);
+                false ->
+                    ok = file:delete(Path)
+            end
+        end, [filename:join(Dir, Entry) || Entry <- Entries]),
+    ok = file:del_dir(Dir)
     catch
-	_:{badmatch, {error, Error}} ->
-	    {error, Error}
+        _:{badmatch, {error, Error}} ->
+            {error, Error}
     end.
 
 %%%===================================================================
@@ -597,19 +599,19 @@ delete_dir(Dir) ->
 %%%===================================================================
 -spec url_encode(binary(), binary()) -> binary().
 url_encode(<<H:8, T/binary>>, Acc) when
-  (H >= $a andalso H =< $z) orelse
-  (H >= $A andalso H =< $Z) orelse
-  (H >= $0 andalso H =< $9) orelse
-  H == $_ orelse
-  H == $. orelse
-  H == $- orelse
-  H == $/ orelse
-  H == $: ->
+        (H >= $a andalso H =< $z) orelse
+        (H >= $A andalso H =< $Z) orelse
+        (H >= $0 andalso H =< $9) orelse
+        H == $_ orelse
+        H == $. orelse
+        H == $- orelse
+        H == $/ orelse
+        H == $: ->
     url_encode(T, <<Acc/binary, H>>);
 url_encode(<<H:8, T/binary>>, Acc) ->
     case integer_to_list(H, 16) of
-	[X, Y] -> url_encode(T, <<Acc/binary, $%, X, Y>>);
-	[X] -> url_encode(T, <<Acc/binary, $%, $0, X>>)
+        [X, Y] -> url_encode(T, <<Acc/binary, $%, X, Y>>);
+        [X] -> url_encode(T, <<Acc/binary, $%, $0, X>>)
     end;
 url_encode(<<>>, Acc) ->
     Acc.
@@ -617,8 +619,8 @@ url_encode(<<>>, Acc) ->
 -spec set_node_id(string(), binary()) -> pid().
 set_node_id(PidStr, NodeBin) ->
     ExtPidStr = erlang:pid_to_list(
-		  binary_to_term(
-		    <<131,103,100,(size(NodeBin)):16,NodeBin/binary,0:72>>)),
+          binary_to_term(
+            <<131,103,100,(size(NodeBin)):16,NodeBin/binary,0:72>>)),
     [H|_] = string:tokens(ExtPidStr, "."),
     [_|T] = string:tokens(PidStr, "."),
     erlang:list_to_pid(string:join([H|T], ".")).
@@ -626,21 +628,21 @@ set_node_id(PidStr, NodeBin) ->
 -spec read_file(file:filename()) -> {ok, binary()} | {error, file:posix()}.
 read_file(Path) ->
     case file:read_file(Path) of
-	{ok, Data} ->
-	    {ok, Data};
-	{error, Why} = Err ->
-	    ?ERROR("Failed to read file ~ts: ~ts",
-		       [Path, file:format_error(Why)]),
-	    Err
+    {ok, Data} ->
+        {ok, Data};
+    {error, Why} = Err ->
+        ?ERROR("Failed to read file ~ts: ~ts",
+               [Path, file:format_error(Why)]),
+        Err
     end.
 
 -spec get_dir(string()) -> file:filename().
 get_dir(Type) ->
     Env = "EJABBERD_" ++ string:to_upper(Type) ++ "_PATH",
     case os:getenv(Env) of
-	false ->
-	    case code:priv_dir(ejabberd) of
-		{error, _} ->
+    false ->
+        case code:priv_dir(ejabberd) of
+        {error, _} ->
             Ebin = filename:dirname(code:which(?MODULE)),
             P = filename:join([filename:dirname(Ebin), "priv", Type]),
             P2 = case {filelib:is_dir(P), config:is_testing_env()} of
@@ -649,10 +651,10 @@ get_dir(Type) ->
             end,
             ?INFO("~p", [P2]),
             P2;
-		Path -> filename:join([Path, Type])
-	    end;
-	Path ->
-	    Path
+        Path -> filename:join([Path, Type])
+        end;
+    Path ->
+        Path
     end.
 
 %% Generates erlang:timestamp() that is guaranteed to unique
@@ -672,17 +674,17 @@ ld([X|S], [X|T], Cache) ->
 ld([_|ST] = S, [_|TT] = T, Cache) ->
     try {maps:get({S, T}, Cache), Cache}
     catch _:{badkey, _} ->
-            {L1, C1} = ld(S, TT, Cache),
-            {L2, C2} = ld(ST, T, C1),
-            {L3, C3} = ld(ST, TT, C2),
-            L = 1 + lists:min([L1, L2, L3]),
-            {L, maps:put({S, T}, L, C3)}
+        {L1, C1} = ld(S, TT, Cache),
+        {L2, C2} = ld(ST, T, C1),
+        {L3, C3} = ld(ST, TT, C2),
+        L = 1 + lists:min([L1, L2, L3]),
+        {L, maps:put({S, T}, L, C3)}
     end.
 
 -spec ip_to_integer(inet:ip_address()) -> non_neg_integer().
 ip_to_integer({IP1, IP2, IP3, IP4}) ->
     IP1 bsl 8 bor IP2 bsl 8 bor IP3 bsl 8 bor IP4;
 ip_to_integer({IP1, IP2, IP3, IP4, IP5, IP6, IP7,
-	       IP8}) ->
+           IP8}) ->
     IP1 bsl 16 bor IP2 bsl 16 bor IP3 bsl 16 bor IP4 bsl 16
-	bor IP5 bsl 16 bor IP6 bsl 16 bor IP7 bsl 16 bor IP8.
+    bor IP5 bsl 16 bor IP6 bsl 16 bor IP7 bsl 16 bor IP8.
