@@ -72,7 +72,7 @@ mod_options(_Host) ->
     [].
 
 get_proc() ->
-    gen_mod:get_module_proc(local, ?MODULE).
+    gen_mod:get_module_proc(global, ?MODULE).
 
 
 
