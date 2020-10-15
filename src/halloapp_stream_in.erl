@@ -747,7 +747,7 @@ send_pkt(State, XmppPkt) ->
 send_error(State, _Pkt, Err) ->
     ?ERROR("Sending error packet due to: ~p and terminating connection", [Err]),
     ErrorStanza = #pb_ha_error{reason = Err},
-    ErrorPacket = #pb_packet{stanza = {error, ErrorStanza}},
+    ErrorPacket = #pb_packet{stanza = ErrorStanza},
     socket_send(State, ErrorPacket),
     process_stream_end(Err, State).
 
