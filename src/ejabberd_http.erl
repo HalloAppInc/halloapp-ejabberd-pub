@@ -387,33 +387,40 @@ extract_path_query(#state{request_method = Method,
 		     end,
 	    {State, {LPath, LQuery, <<"">>}}
     end;
-extract_path_query(#state{request_method = Method,
-			  request_path = {abs_path, Path},
-			  request_content_length = Len,
-			  trail = Trail,
-			  sockmod = _SockMod,
-			  socket = _Socket} = State)
-  when (Method =:= 'POST' orelse Method =:= 'PUT') andalso Len>0 ->
+extract_path_query(#state{
+        request_method = Method,
+        request_path = {abs_path, Path},
+        request_content_length = Len,
+        trail = Trail,
+        sockmod = _SockMod,
+        socket = _Socket} = State)
+        when (Method =:= 'POST' orelse Method =:= 'PUT') andalso Len > 0 ->
     case catch url_decode_q_split_normalize(Path) of
-	{'EXIT', Error} ->
-	    ?DEBUG("Error decoding URL '~p': ~p", [Path, Error]),
-	    {State, false};
+        {'EXIT', Error} ->
+            ?DEBUG("Error decoding URL '~p': ~p", [Path, Error]),
+            {State, false};
         {LPath, _Query} ->
-	    case Method of
-		'PUT' ->
-		    {State, {LPath, [], Trail}};
-		'POST' ->
-		    case recv_data(State) of
-			{ok, Data} ->
-			    LQuery = case catch parse_urlencoded(Data) of
-					 {'EXIT', _Reason} -> [];
-					 LQ -> LQ
-				     end,
-			    {State, {LPath, LQuery, Data}};
-			error ->
-			    {State, false}
-		    end
-	    end
+            % parse the query even thought this is POST/PUT request
+            LQuery1 = case catch parse_urlencoded(_Query) of
+                {'EXIT', _Reason1} -> [];
+                LQ1 -> LQ1
+            end,
+            case Method of
+                'PUT' ->
+                    {State, {LPath, [], Trail}};
+                'POST' ->
+                    case recv_data(State) of
+                        {ok, Data} ->
+                            % It looks like we try to parse the data in the post request for query
+                            LQuery2 = case catch parse_urlencoded(Data) of
+                                {'EXIT', _Reason} -> LQuery1; % use the url query if you fail.
+                                LQ -> LQ
+                            end,
+                            {State, {LPath, LQuery2, Data}};
+                        error ->
+                            {State, false}
+                    end
+            end
     end;
 extract_path_query(State) ->
     {State, false}.

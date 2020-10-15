@@ -38,3 +38,6 @@ generate_uid_invalid_shard_test() ->
     ?assertEqual({error, invalid_shard}, util_uid:generate_uid(1, -1)),
     ok.
 
+uid_size_test() ->
+    ?assertEqual(19, util_uid:uid_size()).
+

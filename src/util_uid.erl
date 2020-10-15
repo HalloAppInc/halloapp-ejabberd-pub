@@ -16,7 +16,8 @@
 %% API
 -export([
     generate_uid/0,
-    generate_uid/2
+    generate_uid/2,
+    uid_size/0
 ]).
 
 
@@ -24,6 +25,7 @@
 -define(MAX_REGION, 9).
 -define(DEFAULT_REGION, 1).
 -define(REGION_BASE, 1000000000000000000).  % 19 digits
+-define(UID_SIZE, 19).
 
 -define(MIN_SHARD, 0).
 -define(MAX_SHARD, 99999).
@@ -56,4 +58,8 @@ generate_uid(Region, Shard)
     UidInt = RegionPart + ShardPart + RandomPart,
     Uid = integer_to_binary(UidInt),
     {ok, Uid}.
+
+-spec uid_size() -> non_neg_integer().
+uid_size() ->
+    ?UID_SIZE.
 

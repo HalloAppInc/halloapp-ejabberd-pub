@@ -94,6 +94,7 @@ listen:
     ip: "::"
     module: ejabberd_http
     request_handlers:
+      /api/logs: mod_logs_http_api
       /api: mod_halloapp_http_api
 
 s2s_use_starttls: optional
@@ -189,6 +190,7 @@ modules:
   mod_groups_api: {}
   mod_groups: {}
   mod_ha_stats: {}
+  mod_logs_http_api: {}
   mod_halloapp_http_api: {}
   mod_http_api: {}
   mod_http_upload:
