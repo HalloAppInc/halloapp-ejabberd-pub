@@ -37,3 +37,33 @@ xmpp_to_proto_whisper_keys_test() ->
     ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
     ?assertEqual(PbMsg, ProtoMsg).
 
+
+xmpp_to_proto_rerequest_test() ->
+    setup(),
+    RerequestSt = struct_util:create_rerequest_st(?ID1, ?KEY1_BASE64),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, RerequestSt),
+
+    PbRerequest = struct_util:create_pb_rerequest(?ID1, ?KEY1),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbRerequest),
+
+    ProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
+    ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
+    ?assertEqual(PbMsg, ProtoMsg).
+
+
+proto_to_xmpp_rerequest_test() ->
+    setup(),
+    RerequestSt = struct_util:create_rerequest_st(?ID1, ?KEY1_BASE64),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, RerequestSt),
+
+    PbRerequest = struct_util:create_pb_rerequest(?ID1, ?KEY1),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbRerequest),
+
+    ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
+    ?assertEqual(true, is_record(ActualXmppMsg, message)),
+    ?assertEqual(XmppMsg, ActualXmppMsg).
+

@@ -917,3 +917,15 @@ create_pb_auth_result(Result, Reason, PropsHash) ->
     }.
 
 
+create_rerequest_st(Id, IdentityKey) ->
+    #rerequest_st{
+        id = Id,
+        identity_key = IdentityKey
+    }.
+
+
+create_pb_rerequest(Id, IdentityKey) ->
+    #pb_rerequest{
+        id = Id,
+        identity_key = IdentityKey
+    }.

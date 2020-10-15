@@ -74,7 +74,9 @@ msg_payload_mapping(SubEl) ->
         chat_retract_st ->
             retract_parser:xmpp_to_proto(SubEl);
         group_feed_st ->
-            group_feed_parser:xmpp_to_proto(SubEl)
+            group_feed_parser:xmpp_to_proto(SubEl);
+        rerequest_st ->
+            whisper_keys_parser:xmpp_to_proto(SubEl)
     end,
     Payload.
 
@@ -134,6 +136,8 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
         #pb_chat_retract{} = ChatRetractRecord ->
             retract_parser:proto_to_xmpp(ChatRetractRecord);
         #pb_group_feed_item{} = GroupFeedItemRecord ->
-            group_feed_parser:proto_to_xmpp(GroupFeedItemRecord)
+            group_feed_parser:proto_to_xmpp(GroupFeedItemRecord);
+        #pb_rerequest{} = RerequestRecord ->
+            whisper_keys_parser:proto_to_xmpp(RerequestRecord)
     end,
     SubEl.

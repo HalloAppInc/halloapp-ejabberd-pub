@@ -437,6 +437,7 @@ message Msg {
         GroupChatRetract groupchat_retract = 18;
         ChatRetract chat_retract = 19;
         GroupFeedItem group_feed_item = 20;
+        Rerequest rerequest = 22;
     }
     int32 retry_count = 21;
 }
@@ -583,6 +584,14 @@ message NotificationPrefs {
     repeated PushPref push_prefs = 1;
 }
 
+
+
+// Rerequest
+
+message Rerequest {
+  string id = 1;
+  bytes identity_key = 2;
+}
 
 
 // Seen and Delivery Receipts
