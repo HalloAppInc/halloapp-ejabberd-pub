@@ -640,7 +640,15 @@ get_dir(Type) ->
     case os:getenv(Env) of
 	false ->
 	    case code:priv_dir(ejabberd) of
-		{error, _} -> filename:join(["priv", Type]);
+		{error, _} ->
+            Ebin = filename:dirname(code:which(?MODULE)),
+            P = filename:join([filename:dirname(Ebin), "priv", Type]),
+            P2 = case {filelib:is_dir(P), config:is_testing_env()} of
+                {false, true} -> filename:join("..", P);
+                _ -> P
+            end,
+            ?INFO("~p", [P2]),
+            P2;
 		Path -> filename:join([Path, Type])
 	    end;
 	Path ->

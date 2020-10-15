@@ -266,13 +266,7 @@ get_store_message_script() ->
 
 -spec read_lua() -> {ok, binary()} | {error, file:posix()}.
 read_lua() ->
-    File = filename:join(misc:lua_dir(), ?LUA_SCRIPT),
-    FileName = case config:is_testing_env() of
-        true ->
-            filename:join("../", File);
-        false ->
-            File
-    end,
+    FileName = filename:join(misc:lua_dir(), ?LUA_SCRIPT),
     file:read_file(FileName).
 
 

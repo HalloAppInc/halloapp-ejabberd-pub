@@ -51,14 +51,7 @@ get_slot_key(Slot) when is_integer(Slot) andalso Slot >= 0 andalso Slot =< ?REDI
 
 -spec get_file_path() -> file:filename_all().
 get_file_path() ->
-    FileName = filename:join(misc:data_dir(), ?REVERSE_REDIS_SLOT_MAP_FILE),
-    case config:is_testing_env() of
-        true ->
-            % unit tests run in .eunit folder
-            filename:join("../", FileName);
-        false ->
-            FileName
-    end.
+    filename:join(misc:data_dir(), ?REVERSE_REDIS_SLOT_MAP_FILE).
 
 
 -spec create_slot_to_key_table() -> ok.

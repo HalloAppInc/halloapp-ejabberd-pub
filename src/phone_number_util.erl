@@ -57,14 +57,7 @@ close(_Host) ->
 
 -spec load_phone_number_metadata() -> ok.
 load_phone_number_metadata() ->
-    OldFilePhoneNumberMetadata = filename:join(misc:xml_dir(), ?FILE_PHONE_NUMBER_METADATA),
-    FilePhoneNumberMetadata = case config:is_testing_env() of
-        true ->
-            % unit tests run in .eunit folder
-            filename:join("../", OldFilePhoneNumberMetadata);
-        false ->
-            OldFilePhoneNumberMetadata
-    end,
+    FilePhoneNumberMetadata = filename:join(misc:xml_dir(), ?FILE_PHONE_NUMBER_METADATA),
     ?INFO("Parsing this xml file for regionMetadata: ~p", [FilePhoneNumberMetadata]),
     case phone_number_metadata_parser:parse_xml_file(FilePhoneNumberMetadata) of
         {ok, Reason} ->
