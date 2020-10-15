@@ -70,8 +70,9 @@ process_local_iq(#iq{type = get, to = _Host, from = From,
     xmpp:make_iq_result(IQ, #client_version{version = Version, seconds_left = TimeLeftSec}).
 
 
-c2s_session_opened(#{user := Uid, client_version := ClientVersion}) ->
-    set_client_version(Uid, ClientVersion).
+c2s_session_opened(#{user := Uid, client_version := ClientVersion} = State) ->
+    ok = set_client_version(Uid, ClientVersion),
+    State.
 
 
 c2s_handle_info(State, {kill_connection, expired_app_version, From}) ->
