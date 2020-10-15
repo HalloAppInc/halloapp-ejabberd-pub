@@ -20,6 +20,7 @@
     is_auth_service_normal :: boolean()
 }).
 -type state() :: #state{}.
+-type c2s_state() :: xmpp_stream_in:state().
 
 -define(LOGIN_THRESHOLD_N, 10).    %% Need to update this as we scale.
 -define(AUTH_ALERT_MESSAGE, <<"In order to restore the service, run: 'ejabberdctl reset_auth_service'">>).
@@ -37,7 +38,7 @@
 ]).
 
 -export([
-    process_auth_result/2,
+    process_auth_result/3,
     is_auth_service_normal/0,
     reset_auth_service/0
 ]).
@@ -76,13 +77,16 @@ get_proc() ->
 
 
 
--spec process_auth_result(Result :: true | {false, any()}, Uid :: binary()) -> ok.
-process_auth_result(true, Uid) ->
+-spec process_auth_result(State :: c2s_state(),
+        Result :: true | {false, any()}, Uid :: binary()) -> c2s_state().
+process_auth_result(State, true, Uid) ->
     TimestampMs = util:now_ms(),
-    gen_server:cast(get_proc(), {auth_success, Uid, TimestampMs});
-process_auth_result({false, _Reason}, Uid) ->
+    gen_server:cast(get_proc(), {auth_success, Uid, TimestampMs}),
+    State;
+process_auth_result(State, {false, _Reason}, Uid) ->
     TimestampMs = util:now_ms(),
-    gen_server:cast(get_proc(), {auth_failure, Uid, TimestampMs}).
+    gen_server:cast(get_proc(), {auth_failure, Uid, TimestampMs}),
+    State.
 
 
 -spec is_auth_service_normal() -> boolean().
