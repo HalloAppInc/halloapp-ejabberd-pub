@@ -396,7 +396,9 @@ maybe_strip_national_prefix_and_carrier_code(PhoneNumberState, RegionMetadata) -
         undefined ->
             PossibleNationalPrefix = Attributes#attributes.national_prefix;
         _ ->
-            PossibleNationalPrefix = PotentialNationalPrefix
+            %% Strip whitespace characters because
+            %% this pattern could be spread over multiple lines in xml file.
+            PossibleNationalPrefix = strip_blank_chars(PotentialNationalPrefix)
     end,
     if
         PotentialNationalNumber == undefined orelse
@@ -1005,6 +1007,12 @@ get_valid_phone_number_pattern_matcher() ->
                        ++ ?VALID_PUNCTUATION ++ ?STAR_SIGN ++ ?DIGITS ++ "]*",
     {ok, Matcher} = re:compile(ValidPhoneNumber, [caseless]),
     Matcher.
+
+
+%% Strips all spaces, tabs: whitespace characters throughout the string.
+-spec strip_blank_chars(String :: list() |  binary()) -> list().
+strip_blank_chars(String) ->
+    re:replace(String, "\\s+", "", [global,{return,list}]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

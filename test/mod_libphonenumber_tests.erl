@@ -106,6 +106,52 @@ normalize_phone_country_code_test() ->
     ok.
 
 
+normalize_phone_national_prefix_test() ->
+    setup(),
+
+    %% US
+    ?assertEqual(<<"14703381473">>, mod_libphonenumber:normalize(<<"+1-1470-338-1473">>, ?REGION_US)),
+    %% US
+    ?assertEqual(<<"16503878455">>, mod_libphonenumber:normalize(<<"1650 387 (8455)">>, ?REGION_US)),
+    %% India
+    ?assertEqual(<<"919885577163">>, mod_libphonenumber:normalize(<<"+91-0-9885577163">>, ?REGION_US)),
+    %% UK
+    ?assertEqual(<<"447400123456">>, mod_libphonenumber:normalize(<<"+44-0-7400123456">>, ?REGION_US)),
+    %% Ireland
+    ?assertEqual(<<"353850123456">>, mod_libphonenumber:normalize(<<"+353-0-850123456">>, ?REGION_US)),
+    %% Italy
+    %% No National prefix.
+    %% Japan
+    ?assertEqual(<<"819012345678">>, mod_libphonenumber:normalize(<<"+81-0-9012345678">>, ?REGION_US)),
+    %% Singapore
+    %% No National prefix.
+    %% Australia
+    ?assertEqual(<<"61412345678">>, mod_libphonenumber:normalize(<<"+61-0-412345678">>, ?REGION_US)),
+    %% NewZealand
+    ?assertEqual(<<"64211234567">>, mod_libphonenumber:normalize(<<"+64-0-211234567">>, ?REGION_US)),
+    %% Mexico
+    ?assertEqual(<<"522221234567">>, mod_libphonenumber:normalize(<<"+52-01-2221234567">>, ?REGION_US)),
+    %% Canada
+    ?assertEqual(<<"15062345678">>, mod_libphonenumber:normalize(<<"+1-1-5062345678">>, ?REGION_US)),
+    %% Brazil
+    ?assertEqual(<<"5511961234567">>, mod_libphonenumber:normalize(<<"+55-0-11961234567">>, ?REGION_US)),
+    %% Russia
+    ?assertEqual(<<"79123456789">>, mod_libphonenumber:normalize(<<"+7-8-9123456789">>, ?REGION_US)),
+    %% Bulgaria
+    ?assertEqual(<<"35948123456">>, mod_libphonenumber:normalize(<<"+359-0-48123456">>, ?REGION_US)),
+    %% Turkey
+    ?assertEqual(<<"905012345678">>, mod_libphonenumber:normalize(<<"+90-0-5012345678">>, ?REGION_US)),
+    %% Invalid
+    ?assertEqual(undefined, mod_libphonenumber:normalize(<<"+91 415 412 1848">>, ?REGION_US)),
+    %% Invalid
+    ?assertEqual(undefined, mod_libphonenumber:normalize(<<"123456">>, ?REGION_US)),
+    %% Invalid
+    ?assertEqual(undefined, mod_libphonenumber:normalize(<<"1254154124">>, ?REGION_US)),
+    ok.
+
+%% TODO(murali@): add test without country code.
+
+
 normalize_phone_international_code_test() ->
     setup(),
 
