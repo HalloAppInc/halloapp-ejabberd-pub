@@ -30,7 +30,7 @@ xmpp_to_proto_prop(XmppProp) ->
 xmpp_to_proto_props(XmppProps) ->
     Props = lists:map(fun xmpp_to_proto_prop/1, XmppProps#props.props),
     #pb_props{
-        hash = base64:decode(XmppProps#props.hash),
+        hash = base64url:decode(XmppProps#props.hash),
         props = Props
     }.
 
