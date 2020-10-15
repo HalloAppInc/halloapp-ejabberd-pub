@@ -149,7 +149,41 @@ normalize_phone_national_prefix_test() ->
     ?assertEqual(undefined, mod_libphonenumber:normalize(<<"1254154124">>, ?REGION_US)),
     ok.
 
-%% TODO(murali@): add test without country code.
+
+normalize_without_phone_country_code_test() ->
+    setup(),
+
+    %% US
+    ?assertEqual(<<"14703381473">>, mod_libphonenumber:normalize(<<"4703381473">>, <<"US">>)),
+    %% India
+    ?assertEqual(<<"919885577163">>, mod_libphonenumber:normalize(<<"9885577163">>, <<"IN">>)),
+    %% UK
+    ?assertEqual(<<"447400123456">>, mod_libphonenumber:normalize(<<"7400123456">>, <<"GB">>)),
+    %% Ireland
+    ?assertEqual(<<"353850123456">>, mod_libphonenumber:normalize(<<"850123456">>, <<"IE">>)),
+    %% Italy
+    ?assertEqual(<<"393123456789">>, mod_libphonenumber:normalize(<<"3123456789">>, <<"IT">>)),
+    %% Japan
+    ?assertEqual(<<"819012345678">>, mod_libphonenumber:normalize(<<"9012345678">>, <<"JP">>)),
+    %% Singapore
+    ?assertEqual(<<"6581234567">>, mod_libphonenumber:normalize(<<"81234567">>, <<"SG">>)),
+    %% Australia
+    ?assertEqual(<<"61412345678">>, mod_libphonenumber:normalize(<<"61412345678">>, <<"AU">>)),
+    %% NewZealand
+    ?assertEqual(<<"64211234567">>, mod_libphonenumber:normalize(<<"211234567">>, <<"NZ">>)),
+    %% Mexico
+    ?assertEqual(<<"522221234567">>, mod_libphonenumber:normalize(<<"2221234567">>, <<"MX">>)),
+    %% Canada
+    ?assertEqual(<<"15062345678">>, mod_libphonenumber:normalize(<<"5062345678">>, <<"CA">>)),
+    %% Brazil
+    ?assertEqual(<<"5511961234567">>, mod_libphonenumber:normalize(<<"11961234567">>, <<"BR">>)),
+    %% Russia
+    ?assertEqual(<<"79123456789">>, mod_libphonenumber:normalize(<<"9123456789">>, <<"RU">>)),
+    %% Bulgaria
+    ?assertEqual(<<"35948123456">>, mod_libphonenumber:normalize(<<"48123456">>, <<"BG">>)),
+    %% Turkey
+    ?assertEqual(<<"905012345678">>, mod_libphonenumber:normalize(<<"5012345678">>, <<"TR">>)),
+    ok.
 
 
 normalize_phone_international_code_test() ->
