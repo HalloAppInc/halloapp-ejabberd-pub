@@ -302,7 +302,7 @@ get_comment_data(PostId, CommentId, ParentId) ->
     IsPostDeleted = (IsPostDeletedBin =:= <<"1">>),
 
     %% Fetch and compare push data.
-    ParentPushList2 = get_comment_push_data(ParentId, CommentId),
+    ParentPushList2 = get_comment_push_data(ParentId, PostId),
     case ParentPushList =:= ParentPushList2 of
         true ->
             ?INFO("Push data matches: ~p", [ParentPushList]);
@@ -335,7 +335,7 @@ get_comment_push_data(<<>>, PostId) ->
     {ok, PostUid} = q(["HGET", post_key(PostId), ?FIELD_UID]),
     [PostUid];
 get_comment_push_data(CommentId, PostId) ->
-    {ok, [CommentPublisherUid, ParentCommentId]} = qp(
+    {ok, [CommentPublisherUid, ParentCommentId]} = q(
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID]),
     ParentCommentPushData = get_comment_push_data(ParentCommentId, PostId),
     [CommentPublisherUid | ParentCommentPushData].

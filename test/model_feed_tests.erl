@@ -154,6 +154,12 @@ get_comment_push_data_test() ->
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
             ?UID2, ?COMMENT_ID1, [?UID1, ?UID2, ?UID3], ?COMMENT_PAYLOAD2, Timestamp1),
 
+    [_, _, {ok, Comment0PushList1}] = model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID1, <<>>),
+    Comment0PushList2 = model_feed:get_comment_push_data(<<>>, ?POST_ID1),
+    Comment0UidsList = [?UID1],
+    ?assertEqual(lists:sort(Comment0UidsList), lists:sort(Comment0PushList1)),
+    ?assertEqual(lists:sort(Comment0UidsList), lists:sort(Comment0PushList2)),
+
     [_, _, {ok, Comment1PushList1}] = model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID2, ?COMMENT_ID1),
     Comment1PushList2 = model_feed:get_comment_push_data(?COMMENT_ID1, ?POST_ID1),
     Comment1UidsList = [?UID1, ?UID3],
