@@ -11,9 +11,8 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("ejabberd_http.hrl").
--include("bosh.hrl").
+-include("util_http.hrl").
 -include("account.hrl").
 -include("ha_types.hrl").
 
@@ -31,18 +30,11 @@
 %%% API
 %%%----------------------------------------------------------------------
 % TODO: duplicate code with mod_halloapp_http_api
--type http_response_code() :: integer().
--type http_header() :: {binary(), binary()}.
--type http_headers() :: [http_header()].
--type http_body() :: binary().
--type http_response() :: {http_response_code(), http_headers(), http_body()}.
-
 
 %% /api/logs
+-spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 process([],
         #request{method = 'POST', q = Q, data = Data, ip = IP} = R) ->
-    % TODO: remove
-    ?INFO_MSG("~p", [R]),
     try
         {Uid, Phone, Version, _Msg} = parse_logs_query(Q),
         ?INFO_MSG("Logs from Uid: ~p Phone: ~p Version: ~p: ip: ~p", [Uid, Phone, Version, IP]),
@@ -55,7 +47,7 @@ process([],
             ok ->
                 {200, ?HEADER(?CT_PLAIN), <<"ok">>};
             error ->
-                return_500()
+                util_http:return_500()
         end
     catch
         error : Reason when
@@ -64,16 +56,16 @@ process([],
                 Reason =:= invalid_version orelse
                 Reason =:= log_in_not_zip orelse
                 Reason =:= log_too_big ->
-            return_400(Reason);
+            util_http:return_400(Reason);
         error : Reason : Stacktrace ->
             ?ERROR("logs unknown error: Stacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
-            return_500()
+            util_http:return_500()
     end;
 
 process(Path, Request) ->
     ?WARNING("Bad Request: path: ~p, r:~p", [Path, Request]),
-    return_400().
+    util_http:return_400().
 
 -spec parse_logs_query(Q :: proplist()) ->
         {Uid :: binary(), Phone :: binary(), Version :: binary(), Msg :: binary()}.
@@ -137,23 +129,6 @@ upload_log(ObjectKey, Data) ->
             [ObjectKey, lager:pr_stacktrace(St, {Class, Reason})]),
         error
     end.
-
-% TODO: duplicated code with mod_halloapp_http_api
--spec return_400(term()) -> http_response().
-return_400(Error) ->
-    ?WARNING("400 ~p", [Error]),
-    {400, ?HEADER(?CT_JSON), jiffy:encode({[
-        {result, fail},
-        {error, Error}]})}.
-
--spec return_400() -> http_response().
-return_400() ->
-    return_400(bad_request).
-
--spec return_500() -> http_response().
-return_500() ->
-    {500, ?HEADER(?CT_JSON),
-        jiffy:encode({[{result, <<"Internal Server Error">>}]})}.
 
 
 init_erlcloud() ->

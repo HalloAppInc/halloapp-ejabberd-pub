@@ -18,6 +18,7 @@
 %%%
 %%%----------------------------------------------------------------------
 
+% TODO: delete this. Most of the functionality moved to util_http
 -define(CT_XML,
 	{<<"Content-Type">>, <<"text/xml; charset=utf-8">>}).
 

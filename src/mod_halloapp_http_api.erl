@@ -19,7 +19,7 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("ejabberd_http.hrl").
--include("bosh.hrl").
+-include("util_http.hrl").
 -include("account.hrl").
 -include("ha_types.hrl").
 
@@ -32,12 +32,6 @@
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
--type http_response_code() :: integer().
--type http_header() :: {binary(), binary()}.
--type http_headers() :: [http_header()].
--type http_body() :: binary().
--type http_response() :: {http_response_code(), http_headers(), http_body()}.
--type http_path() :: [binary()].
 
 
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
@@ -62,17 +56,17 @@ process([<<"registration">>, <<"request_sms">>],
     catch
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
-            return_400();
+            util_http:return_400();
         error: not_invited ->
             ?INFO("request_sms error: phone not invited ~p", [Data]),
-            return_400(not_invited);
+            util_http:return_400(not_invited);
         error : sms_fail ->
             ?INFO("request_sms error: sms_failed ~p", [Data]),
-            return_400(sms_fail);
+            util_http:return_400(sms_fail);
         Class : Reason : Stacktrace  ->
             ?ERROR("request_sms crash: ~s\nStacktrace:~s",
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            return_500()
+            util_http:return_500()
     end;
 
 process([<<"registration">>, <<"register">>],
@@ -101,21 +95,21 @@ process([<<"registration">>, <<"register">>],
     catch
         error : wrong_sms_code ->
             ?INFO("register error: code missmatch data:~s", [Data]),
-            return_400(wrong_sms_code);
+            util_http:return_400(wrong_sms_code);
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
-            return_400();
+            util_http:return_400();
         error: {badkey, <<"phone">>} ->
-            return_400(missing_phone);
+            util_http:return_400(missing_phone);
         error: {badkey, <<"code">>} ->
-            return_400(missing_code);
+            util_http:return_400(missing_code);
         error: {badkey, <<"name">>} ->
-            return_400(missing_name);
+            util_http:return_400(missing_name);
         error: invalid_name ->
-            return_400(invalid_name);
+            util_http:return_400(invalid_name);
         error : Reason : Stacktrace  ->
             ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
-            return_500()
+            util_http:return_500()
     end;
 
 
@@ -156,34 +150,34 @@ process([<<"registration">>, <<"register2">>],
     catch
         error : wrong_sms_code ->
             ?INFO("register error: code mismatch data:~s", [Data]),
-            return_400(wrong_sms_code);
+            util_http:return_400(wrong_sms_code);
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
-            return_400();
+            util_http:return_400();
         error : invalid_s_ed_pub ->
             ?ERROR("register error: invalid_s_ed_pub ~p", [Data]),
-            return_400(invalid_s_ed_pub);
+            util_http:return_400(invalid_s_ed_pub);
         error : invalid_signed_phrase ->
             ?ERROR("register error: invalid_signed_phrase ~p", [Data]),
-            return_400(invalid_signed_phrase);
+            util_http:return_400(invalid_signed_phrase);
         error : unable_to_open_signed_phrase ->
             ?ERROR("register error: unable_to_open_signed_phrase ~p", [Data]),
-            return_400(unable_to_open_signed_phrase);
+            util_http:return_400(unable_to_open_signed_phrase);
          error: {badkey, <<"phone">>} ->
-            return_400(missing_phone);
+            util_http:return_400(missing_phone);
         error: {badkey, <<"code">>} ->
-            return_400(missing_code);
+            util_http:return_400(missing_code);
         error: {badkey, <<"name">>} ->
-            return_400(missing_name);
+            util_http:return_400(missing_name);
         error: {badkey, <<"s_ed_pub">>} ->
-            return_400(missing_s_ed_pub);
+            util_http:return_400(missing_s_ed_pub);
         error: {badkey, <<"signed_phrase">>} ->
-            return_400(missing_signed_phrase);
+            util_http:return_400(missing_signed_phrase);
         error: invalid_name ->
-            return_400(invalid_name);
+            util_http:return_400(invalid_name);
         error : Reason : Stacktrace  ->
             ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
-            return_500()
+            util_http:return_500()
     end;
 
 process([<<"registration">>, <<"update_key">>],
@@ -211,37 +205,37 @@ process([<<"registration">>, <<"update_key">>],
     catch
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
-            return_400();
+            util_http:return_400();
         error : invalid_password ->
             ?INFO("register error: invalid password, data:~s", [Data]),
-            return_400(invalid_password);
+            util_http:return_400(invalid_password);
         error : invalid_s_ed_pub ->
             ?ERROR("register error: invalid_s_ed_pub ~p", [Data]),
-            return_400(invalid_s_ed_pub);
+            util_http:return_400(invalid_s_ed_pub);
         error : invalid_signed_phrase ->
             ?ERROR("register error: invalid_signed_phrase ~p", [Data]),
-            return_400(invalid_signed_phrase);
+            util_http:return_400(invalid_signed_phrase);
         error : unable_to_open_signed_phrase ->
             ?ERROR("register error: unable_to_open_signed_phrase ~p", [Data]),
-            return_400(unable_to_open_signed_phrase);
+            util_http:return_400(unable_to_open_signed_phrase);
         error: {badkey, <<"uid">>} ->
-            return_400(missing_uid);
+            util_http:return_400(missing_uid);
         error: {badkey, <<"password">>} ->
-            return_400(missing_password);
+            util_http:return_400(missing_password);
         error: {badkey, <<"s_ed_pub">>} ->
-            return_400(missing_s_ed_pub);
+            util_http:return_400(missing_s_ed_pub);
         error: {badkey, <<"signed_phrase">>} ->
-            return_400(missing_signed_phrase);
+            util_http:return_400(missing_signed_phrase);
         error : Reason : Stacktrace  ->
             ?ERROR("update key error: ~p, ~p", [Reason, Stacktrace]),
-            return_500()
+            util_http:return_500()
     end;
 
 process([<<"_ok">>], _Request) ->
     {200, ?HEADER(?CT_PLAIN), <<"ok">>};
 process(Path, Request) ->
     ?WARNING("Bad Request: path: ~p, r:~p", [Path, Request]),
-    return_400().
+    util_http:return_400().
 
 
 -spec check_ua(binary()) -> ok | no_return().
@@ -392,22 +386,6 @@ finish_enroll(Phone, Code) ->
     {ok, _} = ejabberd_admin:enroll(Phone, Host, Code),
     ok.
 
-
--spec return_400(term()) -> http_response().
-return_400(Error) ->
-    ?WARNING("400 ~p", [Error]),
-    {400, ?HEADER(?CT_JSON), jiffy:encode({[
-        {result, fail},
-        {error, Error}]})}.
-
--spec return_400() -> http_response().
-return_400() ->
-    return_400(bad_request).
-
--spec return_500() -> http_response().
-return_500() ->
-    {500, ?HEADER(?CT_JSON),
-        jiffy:encode({[{result, <<"Internal Server Error">>}]})}.
 
 start(Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),
