@@ -40,14 +40,18 @@ parse_metadata(#message{id = Id, sub_els = [SubElement],
         thread_name = SubElement#group_chat.name
     };
 
+%% TODO(murali@): this is not great, we need to send the entire message.
+%% Let the client extract whatever they need.
 parse_metadata(#message{id = Id, sub_els = [SubElement]})
         when is_record(SubElement, contact_list) ->
+    [Contact | _] = SubElement#contact_list.contacts,
     #push_metadata{
         content_id = Id,
         content_type = <<"contact_notification">>,
-        from_uid = <<>>,
+        from_uid = Contact#contact.userid,
         timestamp = <<>>,
-        thread_id = <<>>
+        thread_id = Contact#contact.normalized,
+        thread_name = Contact#contact.name
     };
 
 parse_metadata(#message{sub_els = [#ps_event{items = #ps_items{
