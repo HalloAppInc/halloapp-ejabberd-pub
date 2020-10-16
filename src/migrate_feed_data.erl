@@ -24,7 +24,7 @@ extend_ttl_run(Key, State) ->
     case Result of
         match ->
             {ok, TTL} = qp(redis_feed_client, ["TTL", Key]),
-            NewTTL = TTL + ?DAYS,
+            NewTTL = binary_to_integer(TTL) + ?DAYS,
             Command = ["EXPIRE", Key, NewTTL],
             case DryRun of
                 true ->
