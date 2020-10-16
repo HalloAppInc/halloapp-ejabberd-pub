@@ -44,7 +44,19 @@
 
 start_link() ->
     ?INFO("Starting monitoring process: ~p", [?MODULE]),
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+    Result = gen_server:start_link({local, ?MODULE}, ?MODULE, [], []),
+    monitor_ejabberd_processes(),
+    Result.
+
+
+monitor_ejabberd_processes() ->
+    lists:foreach(fun monitor/1, get_processes_to_monitor()),
+    %% Monitor all our child gen_servers of ejabberd_gen_mod_sup.
+    lists:foreach(
+        fun ({ChildId, _, _, _}) ->
+            monitor(ChildId)
+        end, supervisor:which_children(ejabberd_gen_mod_sup)),
+    ok.
 
 
 monitor(Proc) ->
@@ -138,7 +150,7 @@ send_process_down_alert(Proc, State) ->
     Message = <<>>,
     send_alert(Alertname, Service, Severity, Message, State).
 
-%% TODO(murali@): include message here
+
 send_alert(Alertname, Service, Severity, Message, State) ->
     URL = ?ALERTS_MANAGER_URL,
     Headers = [],
@@ -163,4 +175,19 @@ compose_alerts_body(Alertname, Service, Severity, Message) ->
         }
     }]).
 
+
+get_processes_to_monitor() ->
+    [
+        ejabberd_auth,
+        ejabberd_local,
+        ejabberd_cluster,
+        ejabberd_iq,
+        ejabberd_hooks,
+        ejabberd_listener,
+        ejabberd_router,
+        ejabberd_router_multicast,
+        ejabberd_s2s,
+        ejabberd_sm,
+        ejabberd_gen_mod_sup
+    ].
 

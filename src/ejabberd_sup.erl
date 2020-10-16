@@ -48,7 +48,6 @@ init([]) ->
 	   worker(ejabberd_pkix),
 	   worker(acl),
 	   worker(ejabberd_shaper),
-	   worker(ejabberd_monitor),
 	   supervisor(ejabberd_db_sup),
 	   supervisor(ejabberd_backend_sup),
 	   supervisor(ejabberd_sql_sup),
@@ -66,7 +65,9 @@ init([]) ->
 	   supervisor(ejabberd_gen_mod_sup, gen_mod),
 	   worker(ejabberd_acme),
 	   worker(ejabberd_auth),
-	   worker(ejabberd_oauth)]}}.
+	   worker(ejabberd_oauth),
+	   worker(ejabberd_monitor)]}}. %% must be the last one in the list.
+    %% ejabberd_monitor needs to be started last always, since it monitors all the other processes.
 
 -spec stop_child(atom()) -> ok.
 stop_child(Name) ->

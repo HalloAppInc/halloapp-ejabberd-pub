@@ -107,9 +107,7 @@ start_child(Mod, Host, Opts, Proc) ->
 		   [{local, Proc}, Mod, [Host, Opts],
 		    ejabberd_config:fsm_limit_opts([])]},
             transient, timer:minutes(1), worker, [Mod]},
-    Result = supervisor:start_child(ejabberd_gen_mod_sup, Spec),
-    ejabberd_monitor:monitor(Proc),
-    Result.
+    supervisor:start_child(ejabberd_gen_mod_sup, Spec).
 
 -spec stop_child(module(), binary()) -> ok | {error, any()}.
 stop_child(Mod, Host) ->
