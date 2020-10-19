@@ -55,3 +55,4 @@ XmppAddr.hrl
 /mnesiadb
 /.rebar
 /Mnesia.nonode@nohost
+/test/ha_SUITE_data/ejabberd.auto.yml

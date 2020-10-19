@@ -24,7 +24,7 @@ init_config(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     [_, _|Tail] = lists:reverse(filename:split(DataDir)),
     BaseDir = filename:join(lists:reverse(Tail)),
-    ConfigPath = filename:join([DataDir, "ejabberd.yml"]),
+    ConfigPath = setup_test_config(BaseDir, DataDir),
     LogPath = filename:join([PrivDir, "ejabberd.log"]),
     SASLPath = filename:join([PrivDir, "sasl.log"]),
     % TODO: do we still mnesia?
@@ -37,7 +37,6 @@ init_config(Config) ->
     {ok, _} = file:copy(SelfSignedCertFile, filename:join([CWD, "self-signed-cert.pem"])),
     {ok, _} = file:copy(CAFile, filename:join([CWD, "ca.pem"])),
 
-    % TODO: we can try to use the macros to share .yml config file with the prod
 %%    MacrosPath = filename:join([CWD, "macros.yml"]),
 
     setup_ejabberd_lib_path(Config),
@@ -80,6 +79,23 @@ init_config(Config) ->
         {base_dir, BaseDir},
         {receiver, undefined}
         | Config].
+
+
+% Copy the main config file and replace few things
+setup_test_config(BaseDir, DataDir) ->
+    application:ensure_started(fast_yaml),
+
+    MainConfigPath = filename:join([BaseDir, "ejabberd.yml"]),
+    ConfigPath = filename:join([DataDir, "ejabberd.auto.yml"]),
+
+    {ok, [ConfigPropList]} = fast_yaml:decode_from_file(MainConfigPath, [plain_as_atom, sane_scalars]),
+
+    ConfigPropList1 = lists:keystore(certfiles, 1, ConfigPropList, {certfiles, ['cert.pem']}),
+    ConfigPropList2 = lists:keystore(ca_file, 1, ConfigPropList1, {ca_file, 'ca.pem'}),
+    ConfigPropList3 = lists:keystore(c2s_cafile, 1, ConfigPropList2, {c2s_cafile, 'ca.pem'}),
+
+    ok = file:write_file(ConfigPath, fast_yaml:encode(ConfigPropList3)),
+    ConfigPath.
 
 
 find_top_dir(Dir) ->

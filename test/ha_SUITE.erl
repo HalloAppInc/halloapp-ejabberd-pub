@@ -72,8 +72,6 @@ misc_tests() ->[dummy_test].
 % TODO: figure out what to do with APNS push failing
 init_per_suite(InitConfigData) ->
     true = config:is_testing_env(),
-    % TODO: delete this print
-    ct:pal("Config ~p", [InitConfigData]),
     NewConfig = suite_ha:init_config(InitConfigData),
     % TODO: move this to suite_ha unitility function
     inet_db:add_host({127, 0, 0, 1}, [
