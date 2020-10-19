@@ -343,6 +343,10 @@ message ChatStanza {
     string sender_name = 6;
 }
 
+// clients should decrypt, report stats, and then drop this message
+message SilentChatStanza {
+    ChatStanza chat_stanza = 1;
+}
 
 // Ping
 
@@ -438,6 +442,7 @@ message Msg {
         ChatRetract chat_retract = 19;
         GroupFeedItem group_feed_item = 20;
         Rerequest rerequest = 22;
+        SilentChatStanza silent_chat_stanza = 23;
     }
     int32 retry_count = 21;
 }

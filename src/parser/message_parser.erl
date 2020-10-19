@@ -76,7 +76,9 @@ msg_payload_mapping(SubEl) ->
         group_feed_st ->
             group_feed_parser:xmpp_to_proto(SubEl);
         rerequest_st ->
-            whisper_keys_parser:xmpp_to_proto(SubEl)
+            whisper_keys_parser:xmpp_to_proto(SubEl);
+        silent_chat ->
+            #pb_silent_chat_stanza{chat_stanza = chat_parser:xmpp_to_proto(SubEl#silent_chat.chat)}
     end,
     Payload.
 
@@ -138,6 +140,8 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
         #pb_group_feed_item{} = GroupFeedItemRecord ->
             group_feed_parser:proto_to_xmpp(GroupFeedItemRecord);
         #pb_rerequest{} = RerequestRecord ->
-            whisper_keys_parser:proto_to_xmpp(RerequestRecord)
+            whisper_keys_parser:proto_to_xmpp(RerequestRecord);
+        #pb_silent_chat_stanza{chat_stanza = ChatStanza} ->
+            #silent_chat{chat = chat_parser:proto_to_xmpp(ChatStanza)}
     end,
     SubEl.

@@ -929,3 +929,15 @@ create_pb_rerequest(Id, IdentityKey) ->
         id = Id,
         identity_key = IdentityKey
     }.
+
+
+create_silent_chat(Chat) ->
+    #silent_chat{
+        chat = Chat
+    }.
+
+create_pb_silent_chat_stanza(ChatStanza) ->
+    #pb_silent_chat_stanza{
+        chat_stanza = ChatStanza
+    }.
+
