@@ -491,7 +491,7 @@ get_push_type(#message{type = headline, to = #jid{luser = User}, sub_els = [#ps_
                 _ -> silent
             end
     end;
-get_push_type(#message{type = headline, sub_els = [#feed_st{}]}, _) -> silent;
+get_push_type(#message{type = headline, sub_els = [#feed_st{}]}, _) -> alert;
 get_push_type(#message{type = normal, sub_els = [#feed_st{}]}, _) -> silent;
 get_push_type(#message{type = groupchat, sub_els = [#group_chat{}]}, _) -> alert;
 get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{post = #group_post_st{}}]}, _) -> alert;

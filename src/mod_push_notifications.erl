@@ -74,8 +74,8 @@ should_push(#message{type = Type, sub_els = [SubEl | _]}) ->
             true;
 
         is_record(SubEl, feed_st) andalso SubEl#feed_st.action =:= publish ->
-            %% Ignore new feed messages for now.. because we anyways send a push with old stanza.
-            false;
+            %% Send pushes for feed messages: both posts and comments.
+            true;
 
         is_record(SubEl, contact_list) ->
             %% Push contact related notifications: could be contact_hash or new relationship notifications.
@@ -84,11 +84,6 @@ should_push(#message{type = Type, sub_els = [SubEl | _]}) ->
         Type =:= groupchat andalso is_record(SubEl, group_feed_st) andalso
                 SubEl#group_feed_st.action =:= publish ->
             %% Push all group feed messages with action = publish.
-            true;
-
-        Type =:= headline ->
-            %% TODO(murali@): remove the old api and then disable the format of push.
-            %% Push pubsub messages with type=headline, all new published posts and comments.
             true;
 
         true ->
