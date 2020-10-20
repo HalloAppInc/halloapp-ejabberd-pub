@@ -81,7 +81,8 @@ get_props(Uid) ->
                 {groups, false},
                 {max_group_size, 25},
                 {max_post_media_items, 10},
-                {group_feed, false}
+                {group_feed, false},
+                {silent_chat_messages, 5}
             ];
         true ->
             [
@@ -89,7 +90,8 @@ get_props(Uid) ->
                 {groups, false},
                 {max_group_size, 25},
                 {max_post_media_items, 10},
-                {group_feed, true}
+                {group_feed, true},
+                {silent_chat_messages, 5}
             ]
     end,
     lists:keysort(1, Proplist).
