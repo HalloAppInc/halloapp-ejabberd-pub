@@ -43,7 +43,18 @@ parse_metadata(#message{id = Id, sub_els = [SubElement],
 %% TODO(murali@): this is not great, we need to send the entire message.
 %% Let the client extract whatever they need.
 parse_metadata(#message{id = Id, sub_els = [SubElement]})
-        when is_record(SubElement, contact_list) ->
+        when is_record(SubElement, contact_list), SubElement#contact_list.contacts =:= [] ->
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"contact_notification">>,
+        from_uid = <<>>,
+        timestamp = <<>>,
+        thread_id = <<>>,
+        thread_name = <<>>
+    };
+
+parse_metadata(#message{id = Id, sub_els = [SubElement]})
+        when is_record(SubElement, contact_list), SubElement#contact_list.contacts =/= [] ->
     [Contact | _] = SubElement#contact_list.contacts,
     #push_metadata{
         content_id = Id,
