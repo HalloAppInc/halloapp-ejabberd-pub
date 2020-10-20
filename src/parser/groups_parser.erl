@@ -63,6 +63,7 @@ xmpp_to_proto(SubEl) when is_record(SubEl, group_chat) ->
 
 proto_to_xmpp(ProtoPayload) when is_record(ProtoPayload, pb_group_chat) ->
     #group_chat {
+        xmlns = <<"halloapp:groups">>,
         gid = ProtoPayload#pb_group_chat.gid,
         name = ProtoPayload#pb_group_chat.name,
         avatar = ProtoPayload#pb_group_chat.avatar_id,

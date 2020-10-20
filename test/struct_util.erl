@@ -291,6 +291,7 @@ create_pb_group_stanza(Action, Gid, Name, AvatarId, SenderUid, SenderName, PbMem
 
 create_group_chat(Gid, Name, AvatarId, SenderUid, SenderName, Timestamp, Payload) ->
     #group_chat{
+        xmlns = <<"halloapp:groups">>,
         gid = Gid,
         name = Name,
         avatar = AvatarId,
