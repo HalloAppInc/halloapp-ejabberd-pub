@@ -69,7 +69,7 @@ parse_metadata(#message{sub_els = [#ps_event{items = #ps_items{
 parse_metadata(#message{sub_els = [#feed_st{posts = [Post]}]}) ->
     #push_metadata{
         content_id = Post#post_st.id,
-        content_type = <<"post">>,
+        content_type = <<"feedpost">>,
         from_uid = Post#post_st.uid,
         timestamp = Post#post_st.timestamp,
         thread_id = <<"feed">>
