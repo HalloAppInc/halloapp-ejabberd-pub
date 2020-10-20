@@ -29,7 +29,11 @@
     count/2,
     count/3,
     count_d/3,
-    count_d/4
+    count_d/4,
+    gauge/3,
+    gauge/4,
+    get_prometheus_metrics/0,
+    get_proc/0
 ]).
 
 % Trigger funcitons
@@ -87,21 +91,41 @@ count(Namespace, Metric) ->
     count(Namespace, Metric, 1),
     ok.
 
+
 -spec count(Namespace :: string(), Metric :: string(), Value :: integer()) -> ok.
 count(Namespace, Metric, Value) ->
-    ?DEBUG("Namespace:~s, Metric:~s, Value:~p", [Namespace, Metric, Value]),
     gen_server:cast(get_proc(), {count, Namespace, Metric, Value}).
+
 
 -spec count_d(Namespace :: string(), Metric :: string(), Tags :: [tag()]) -> ok.
 count_d(Namespace, Metric, Tags) ->
     count_d(Namespace, Metric, 1, Tags).
 
+
 -spec count_d(Namespace :: string(), Metric :: string(), Value :: integer(), Tags :: [tag()]) -> ok.
 count_d(Namespace, Metric, Value, Tags) ->
-    ?DEBUG("Namesapce:~s, Metric:~s Tags:~p", [Namespace, Metric, Tags]),
-    Tags1 = fix_tags(Tags),
-    Tags2 = [#dimension{name = N, value = V} || {N, V} <- Tags1],
-    gen_server:cast(get_proc(), {count_d, Namespace, Metric, Value, Tags2}).
+    gen_server:cast(get_proc(), {count_d, Namespace, Metric, Value, Tags}).
+
+
+-spec gauge(Namespace :: string(), Metric :: string(), Value :: integer()) -> ok.
+gauge(Namespace, Metric, Value) ->
+    gauge(Namespace, Metric, Value, []).
+
+
+% Used for metrics that can go up or down, like number of groups.
+% When new call is made for the same metric new value is stored.
+-spec gauge(Namespace :: string(), Metric :: string(), Value :: integer(), Tags :: [tag()]) -> ok.
+gauge(Namespace, Metric, Value, Tags) ->
+    gen_server:cast(get_proc(), {gauge, Namespace, Metric, Value, Tags}).
+
+
+% Return binary with all our custom metrics in prometheus format
+% looks like this:
+% metric1{lable1="value1",label2="value2"} 4
+-spec get_prometheus_metrics() -> binary().
+get_prometheus_metrics() ->
+    gen_server:call(get_proc(), {get_prometheus_metrics}).
+
 
 -spec trigger_send() -> ok.
 trigger_send() ->
@@ -122,15 +146,15 @@ compute_counts() ->
     ?INFO("start", []),
     CountAccounts = model_accounts:count_accounts(),
     ?INFO("Number of accounts: ~p", [CountAccounts]),
-    stat:count("HA/account", "total_accounts", CountAccounts),
+    stat:gauge("HA/account", "total_accounts", CountAccounts),
     CountRegistrations = model_accounts:count_registrations(),
     ?INFO("Number of registrations: ~p", [CountRegistrations]),
-    stat:count("HA/account", "total_registrations", CountRegistrations),
+    stat:gauge("HA/account", "total_registrations", CountRegistrations),
 
     % groups
     CountGroups = model_groups:count_groups(),
     ?INFO("Number of groups: ~p", [CountGroups]),
-    stat:count("HA/groups", "total_groups", CountGroups),
+    stat:gauge("HA/groups", "total_groups", CountGroups),
 
     % active_users
     ok = mod_active_users:compute_counts(),
@@ -141,7 +165,8 @@ compute_counts() ->
 
 init(_Stuff) ->
     process_flag(trap_exit, true),
-    % TODO: The initial configuration of erlcloud should probably move
+    % Each Erlang process has to do the configure
+    % TODO: maybe make module where this erlcloud configure should go
     {ok, _} = application:ensure_all_started(erlcloud),
     {ok, Config} = erlcloud_aws:auto_config(),
     erlcloud_aws:configure(Config),
@@ -149,8 +174,16 @@ init(_Stuff) ->
     {ok, _Tref2} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, trigger_count_users, []),
     {ok, _Tref3} = timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, trigger_zset_cleanup, []),
     CurrentMinute = util:round_to_minute(util:now()),
-    {ok, #{minute => CurrentMinute}}.
+    % minute is unix timestamp that always represents round minute for which the data is being
+    % accumulated
+    % agg_map is map of metrics for CloudWatch
+    % prom_map is map of metrics for Prometheus
+    {ok, #{minute => CurrentMinute, agg_map => #{}, prom_map => #{}}}.
 
+
+handle_call({get_prometheus_metrics}, _From, State) ->
+    Result = get_prometheus_metrics_internal(State),
+    {reply, Result, State};
 
 handle_call(_Message, _From, State) ->
     ?ERROR("unexpected call ~p from ", _Message),
@@ -165,11 +198,16 @@ handle_cast({count_d, Namespace, Metric, Value, Tags}, State) ->
     NewState = count_internal(State, Namespace, Metric, Value, Tags),
     {noreply, NewState};
 
+handle_cast({gauge, Namespace, Metric, Value, Tags}, State) ->
+    NewState = gauge_internal(State, Namespace, Metric, Value, Tags),
+    {noreply, NewState};
+
 handle_cast({trigger_send}, State) ->
     NewState = maybe_rotate_data(State),
     {noreply, NewState};
 
-handle_cast(_Message, State) -> {noreply, State}.
+handle_cast(_Message, State) ->
+    {noreply, State}.
 
 
 handle_info(_Message, State) -> {noreply, State}.
@@ -177,11 +215,66 @@ terminate(_Reason, _State) -> ok.
 code_change(_OldVersion, State, _Extra) -> {ok, State}.
 
 count_internal(State, Namespace, Metric, Value, Tags) ->
+    process_count_internal(State, Namespace, Metric, Value, Tags, merge).
+
+gauge_internal(State, Namespace, Metric, Value, Tags) ->
+    process_count_internal(State, Namespace, Metric, Value, Tags, replace).
+
+process_count_internal(State, Namespace, Metric, Value, Tags, Type) ->
     NewState1 = maybe_rotate_data(State),
     DataPoint = make_statistic_set(Value),
-    Key = make_key(Namespace, Metric, Tags, "Count"),
-    NewState2 = update_state(Key, DataPoint, NewState1),
-    NewState2.
+    Tags1 = fix_tags(Tags),
+    Key = make_key(Namespace, Metric, Tags1, "Count"),
+    #{agg_map := AggMap, prom_map := PromMap} = NewState1,
+    AggMap1 = update_state(Key, DataPoint, AggMap, Type),
+    PromMap1 = update_prom_map(PromMap, Namespace, Metric, Value, Tags1, Type),
+    NewState1#{agg_map => AggMap1, prom_map => PromMap1}.
+
+
+update_prom_map(State, Namespace, Metric, Value, Tags, Type) ->
+    % TODO: remove the try/catch after we make sure no errors in this code.
+    try
+        Key = get_prom_key(Namespace, Metric, Tags),
+        NewVal = case Type of
+            merge -> maps:get(Key, State, 0) + Value;
+            replace -> Value
+        end,
+        State#{Key => NewVal}
+    catch
+        Class:Reason:Stacktrace ->
+            ?ERROR("Stacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            State
+    end.
+
+
+get_prometheus_metrics_internal(#{prom_map := PromMap}) ->
+    iolist_to_binary(
+        maps:fold(
+            fun (K, V, Acc) ->
+                % format it like this: metric_name{label1="lvalue1",label2="lvalue2"} value
+                {pmetric, PName, Tags} = K,
+                TagsStrList = [util:to_list(TK) ++ "=\"" ++ util:to_list(TV) ++ "\"" || {TK, TV} <- Tags],
+                TagsStr = string:join(TagsStrList, ","),
+                Line = [PName, "{", TagsStr, "} ", integer_to_list(V), "\n"],
+                [Line | Acc]
+            end,
+            [],
+            PromMap)).
+
+-spec get_prom_name(Namespace :: string(), Metric :: string()) -> string().
+get_prom_name(Namespace, Metric) ->
+    % prometheus only wants _ no other special chars
+    PNamespace = string:to_lower(lists:append(string:replace(Namespace, "/", "_"))),
+    % https://prometheus.io/docs/practices/naming/
+    PName = PNamespace ++ "_" ++ Metric ++ "_total",
+    PName.
+
+
+-spec get_prom_key(Namespace :: string(), Metric :: string(), Tags :: [tag()]) -> term().
+get_prom_key(Namespace, Metric, Tags) ->
+    PName = get_prom_name(Namespace, Metric),
+    {pmetric, PName, lists:sort(Tags)}.
 
 
 -spec maybe_rotate_data(State :: map()) -> map().
@@ -192,16 +285,19 @@ maybe_rotate_data(State) ->
         true ->
             State;
         false ->
-            send_data(State),
-            #{minute => MinuteNow}
+            #{minute := TimeSeconds, agg_map := AggMap} = State,
+            send_data(TimeSeconds, AggMap),
+            % after we send the data to CloudWatch we rest the agg_map.
+            % prom_map never resets... % TODO: maybe counters can overflow?
+            State#{minute => MinuteNow, agg_map => #{}}
     end.
 
 
--spec send_data(MetricsMap :: map()) -> ok.
-send_data(MetricsMap) when is_map(MetricsMap) ->
-    {TimeSeconds, MetricsMap2} = maps:take(minute, MetricsMap),
-    Data = prepare_data(MetricsMap2, TimeSeconds * ?SECONDS_MS),
-    send_to_cloudwatch(Data).
+-spec send_data(TimeSeconds :: integer(), MetricsMap :: map()) -> ok.
+send_data(TimeSeconds, MetricsMap) when is_map(MetricsMap) ->
+    Data = prepare_data(MetricsMap, TimeSeconds * ?SECONDS_MS),
+    send_to_cloudwatch(Data),
+    ok.
 
 
 -spec send_to_cloudwatch(Data :: map()) -> ok.
@@ -209,7 +305,7 @@ send_to_cloudwatch(Data) when is_map(Data) ->
     ?INFO("sending ~p Namespaces", [maps:size(Data)]),
     maps:fold(
         fun (Namespace, Metrics, _Acc) ->
-            ?DEBUG("~s ~p", [Namespace, length(Metrics)]),
+%%            ?DEBUG("~s ~p", [Namespace, length(Metrics)]),
             cloudwatch_put_metric_data(Namespace, Metrics)
         end,
         ok,
@@ -241,7 +337,8 @@ cloudwatch_put_metric_data_env(localhost, "HA/test" = Namespace, Metrics) ->
     ?DEBUG("would send: ~s metrics: ~p", [Namespace, Metrics]),
     erlcloud_mon:put_metric_data(Namespace, Metrics);
 cloudwatch_put_metric_data_env(_Env, Namespace, Metrics) ->
-    ?DEBUG("would send: ~s metrics: ~p", [Namespace, Metrics]).
+    ?DEBUG("would send: ~s metrics: ~p", [Namespace, Metrics]),
+    ok.
 
 
 -spec prepare_data(MetricsMap :: map(), TimestampMs :: non_neg_integer()) -> map().
@@ -290,17 +387,22 @@ make_statistic_set(Value) when is_float(Value) ->
     }.
 
 
-make_key(Namespace, Metric, Dimensions, Unit) ->
-    {metric, Namespace, Metric, Dimensions, Unit}.
+make_key(Namespace, Metric, Tags, Unit) ->
+    Dims = [#dimension{name = N, value = V} || {N, V} <- Tags],
+    {metric, Namespace, Metric, Dims, Unit}.
 
 
--spec update_state(Key :: term(), DataPoint :: statistic_set(), State :: map()) -> map().
-update_state(Key, DataPoint, State) ->
+-spec update_state(Key :: term(), DataPoint :: statistic_set(),
+        State :: map(), Action :: merge | replace) -> map().
+update_state(Key, DataPoint, State, Action) ->
     CurrentDP = maps:get(Key, State, undefined),
     case CurrentDP of
         undefined -> maps:put(Key, DataPoint, State);
         _ ->
-            NewDP = merge(CurrentDP, DataPoint),
+            NewDP = case Action of
+                merge -> merge(CurrentDP, DataPoint);
+                replace -> DataPoint
+            end,
             maps:put(Key, NewDP, State)
     end.
 
@@ -308,7 +410,7 @@ update_state(Key, DataPoint, State) ->
 % make sure tag values are atoms
 -spec fix_tags(Tags :: [tag()]) -> [tag()].
 fix_tags(Tags) ->
-    [fix_tag(T) || T <- Tags].
+    lists:sort([fix_tag(T) || T <- Tags]).
 
 
 -spec fix_tag(Tag :: tag()) -> tag().

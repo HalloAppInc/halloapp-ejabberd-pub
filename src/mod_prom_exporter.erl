@@ -35,9 +35,11 @@
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 process([],
         #request{method = 'GET', data = _Data, ip = _IP, headers = _Headers}) ->
-    ResponseData = prometheus_text_format:format(),
-    ?DEBUG("Response size: ~p", [byte_size(ResponseData)]),
-    {200, ?HEADER(?CT_PLAIN), ResponseData};
+    ErlangData = prometheus_text_format:format(),
+    HACustomData = stat:get_prometheus_metrics(),
+    FinalResponse = <<HACustomData/binary, ErlangData/binary>>,
+    ?DEBUG("Response size: ~p", [byte_size(FinalResponse)]),
+    {200, ?HEADER(?CT_PLAIN), FinalResponse};
 
 process([<<"_ok">>], _Request) ->
     {200, ?HEADER(?CT_PLAIN), <<"ok">>};

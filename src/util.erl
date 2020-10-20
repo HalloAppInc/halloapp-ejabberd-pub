@@ -10,6 +10,7 @@
 -author('murali').
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("ha_types.hrl").
 
 -export([
     timestamp_to_binary/1,
@@ -28,6 +29,7 @@
     to_integer/1,
     to_atom/1,
     to_binary/1,
+    to_list/1,
     new_msg_id/0,
     new_avatar_id/0,
     list_to_map/1,
@@ -180,6 +182,19 @@ to_binary(Data) ->
         _ ->
             ?ERROR("Failed converting data to binary: ~p", [Data]),
             <<>>
+    end.
+
+-spec to_list(Data :: list() | binary() | atom() | boolean() | integer()) -> maybe(list()).
+to_list(Data) ->
+    case type(Data) of
+        "list" -> Data;
+        "binary" -> binary_to_list(Data);
+        "atom" -> atom_to_list(Data);
+        "boolean" -> atom_to_list(Data);
+        "integer" -> integer_to_list(Data);
+        _ ->
+            ?ERROR("Failed converting data to list: ~p", [Data]),
+            undefined
     end.
 
 -spec new_msg_id() -> binary().
