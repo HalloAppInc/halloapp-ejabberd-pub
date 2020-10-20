@@ -203,8 +203,6 @@ modules:
     ping_ack_timeout: 30
     timeout_action: kill
   mod_props: {}
-  mod_feed_mnesia: {}
-  mod_feed: {}
   mod_ha_feed: {}
   mod_sms: {}
   mod_user_session: {}
