@@ -199,6 +199,7 @@ route_offline_messages(#jid{luser = UserId, lserver = _ServerHost}) ->
     % TODO: We need to rate limit the number of offline messages we send at once.
     % TODO: Drop messages with high retry count
     % TODO: get metrics about the number of retries
+    lists:filter(fun filter_messages/1, OfflineMessages),
     lists:foreach(fun route_offline_message/1, OfflineMessages),
     % TODO: maybe don't increment the retry count on all the messages
     % we can increment the retry count on just the first X
@@ -227,6 +228,16 @@ route_offline_message(#offline_message{
                             lager:pr_stacktrace(Stacktrace, {Class, Reason})])
             end
     end.
+
+
+%% TODO(murali@): remove this in one month.
+filter_messages(undefined) -> false;
+filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid, content_type = <<"event">>}) ->
+    %% Filter out old pubsub messages.
+    model_messages:ack_message(Uid, MsgId),
+    false;
+filter_messages(_) -> true.
+
 
 -spec increment_retry_counts(UserId :: uid, OfflineMsgs :: [maybe(offline_message())]) -> ok.
 increment_retry_counts(UserId, OfflineMsgs) ->
