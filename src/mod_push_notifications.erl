@@ -62,6 +62,7 @@ offline_message_hook({_, #message{} = Message} = Acc) ->
     Acc.
 
 
+%% Determine whether message should be pushed or not.. based on the content.
 -spec should_push(Message :: message()) -> boolean(). 
 should_push(#message{type = Type, sub_els = [SubEl | _]}) ->
     if
@@ -100,8 +101,15 @@ push_message(#message{id = MsgId, to = #jid{luser = User, lserver = Server}} = M
             % TODO: add stat:count here to count this
             ?INFO("Uid: ~s, MsgId: ~p ignore push: no push token", [User, MsgId]);
         _ ->
-            ?INFO("Uid: ~s, MsgId: ~p", [User, MsgId]),
-            push_message(Message, PushInfo)
+            ClientVersion = PushInfo#push_info.client_version,
+            case version_check_packet(ClientVersion, Message) of
+                true ->
+                    ?INFO("Uid: ~s, MsgId: ~p", [User, MsgId]),
+                    push_message(Message, PushInfo);
+                false ->
+                    ?INFO("Uid: ~s, MsgId: ~p ignore push: invalid client version: ~p",
+                            [User, MsgId, ClientVersion])
+            end
     end.
 
 
@@ -112,4 +120,54 @@ push_message(Message, #push_info{os = <<"android">>} = PushInfo) ->
 push_message(Message, #push_info{os = Os} = PushInfo)
         when Os =:= <<"ios">>; Os =:= <<"ios_dev">> ->
     mod_ios_push:push(Message, PushInfo).
+
+
+%% Determine whether message should be pushed or not.. based on client_version.
+-spec version_check_packet(ClientVersion :: binary(), Message :: message()) -> boolean().
+version_check_packet(undefined, #message{to = #jid{luser = Uid}} = _Message) ->
+    ?INFO("Uid: ~s, ClientVersion is still undefined", [Uid]),
+    true;
+version_check_packet(ClientVersion, #message{id = MsgId, to = #jid{luser = Uid}} = Message) ->
+    Platform = util_ua:get_client_type(ClientVersion),
+    [SubEl | _] = Message#message.sub_els,
+    SubElName = element(1, SubEl),
+    case check_version_rules(Platform, ClientVersion, Message) of
+        false ->
+            ?INFO("Uid: ~s, Dropping msgid: ~s, content: ~s due to client version: ~s",
+                    [Uid, MsgId, SubElName, ClientVersion]),
+            false;
+        true -> true
+    end.
+
+
+%% Version rules
+%% TODO(murali@): Write spec about version ids and extract version info using util function.
+-spec check_version_rules(Platform :: ios | android,
+        ClientVersion :: binary(), Message :: message()) -> boolean().
+%% Dont send pubsub messages to ios clients > 0.3.65
+check_version_rules(ios, ClientVersion,
+        #message{from = #jid{lserver = <<"pubsub.s.halloapp.net">>}})
+        when ClientVersion > <<"HalloApp/iOS0.3.65">> ->
+    false;
+
+%% Dont send pubsub messages to android clients > 0.92
+check_version_rules(android, ClientVersion,
+        #message{from = #jid{lserver = <<"pubsub.s.halloapp.net">>}})
+        when ClientVersion > <<"HalloApp/Android0.89">> ->
+    false;
+
+%% Dont send group_feed messages to ios clients < 0.3.65
+check_version_rules(ios, ClientVersion,
+        #message{sub_els = [#group_feed_st{}]})
+        when ClientVersion < <<"HalloApp/iOS0.3.65">> ->
+    false;
+
+%% Dont send group_feed messages to android clients < 0.95
+check_version_rules(android, ClientVersion,
+        #message{sub_els = [#group_feed_st{}]})
+        when ClientVersion < <<"HalloApp/Android0.93">> ->
+    false;
+
+check_version_rules(_, _, _) ->
+    true.
 
