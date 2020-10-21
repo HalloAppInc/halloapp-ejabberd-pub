@@ -50,11 +50,14 @@ process([],
                 util_http:return_500()
         end
     catch
+        error : {invalid_version = Reason, _Version} ->
+            util_http:return_400(Reason);
+        error : {invalid_uid = Reason, _Uid} ->
+            util_http:return_400(Reason);
+        error : {invalid_phone = Reason, _Phone} ->
+            util_http:return_400(Reason);
         error : Reason when
-                Reason =:= invalid_uid orelse
-                Reason =:= invalid_phone orelse
-                Reason =:= invalid_version orelse
-                Reason =:= log_in_not_zip orelse
+                Reason =:= log_in_not_zip;
                 Reason =:= log_too_big ->
             util_http:return_400(Reason);
         error : Reason : Stacktrace ->
@@ -116,7 +119,17 @@ make_object_key(Uid, Phone, Date, Version) ->
 % TODO: duplicated code with mod_user_avatar
 -spec upload_log(ObjectName :: binary(), Date :: binary()) -> ok | error.
 upload_log(ObjectKey, Data) ->
+    case config:is_prod_env() of
+        true ->
+            do_upload_log(ObjectKey, Data);
+        false ->
+            ?INFO("Would have uploaded ~p", [ObjectKey]),
+            ok
+    end.
 
+
+-spec do_upload_log(ObjectName :: binary(), Date :: binary()) -> ok | error.
+do_upload_log(ObjectKey, Data) ->
     Headers = [{"content-type", "application/zip"}],
     try
         init_erlcloud(),

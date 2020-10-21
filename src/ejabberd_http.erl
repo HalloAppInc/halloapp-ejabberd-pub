@@ -416,7 +416,7 @@ extract_path_query(#state{
                                 {'EXIT', _Reason} -> LQuery1; % use the url query if you fail.
                                 LQ -> LQ
                             end,
-                            {State, {LPath, LQuery2, Data}};
+                            {State, {LPath, LQuery1 ++ LQuery2, Data}};
                         error ->
                             {State, false}
                     end

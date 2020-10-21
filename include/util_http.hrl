@@ -2,12 +2,10 @@
 %%% @author nikola
 %%% @copyright (C) 2020, Halloapp Inc.
 %%% @doc
-%%%
+%%%  HTTP utility header
 %%% @end
 %%% Created : 16. Oct 2020 2:22 PM
 %%%-------------------------------------------------------------------
--author("nikola").
-
 -ifndef(UTIL_HTTP).
 -define(UTIL_HTTP, 1).
 
@@ -19,6 +17,9 @@
 
 -define(CT_JSON,
     {<<"Content-Type">>, <<"application/json">>}).
+
+-define(CT_BIN,
+    {<<"Content-Type">>, <<"application/octet-stream">>}).
 
 -define(AC_ALLOW_ORIGIN,
     {<<"Access-Control-Allow-Origin">>, <<"*">>}).

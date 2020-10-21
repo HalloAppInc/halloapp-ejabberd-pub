@@ -46,7 +46,8 @@ groups() -> [
     chat_tests:group(),
     {registration, [sequence], registration_tests()},
     {privacy_lists, [sequence], privacy_lists_tests()},
-    {misc, [sequence], misc_tests()}
+    {misc, [sequence], misc_tests()},
+    httplog_tests:group()
 ].
 
 % List of all the tests or group of tests that are part of this SUITE.
@@ -59,6 +60,7 @@ all() -> [
     {group, registration},
     {group, privacy_lists},
     {group, misc},
+    {group, httplog},
     dummy_test,
     ping_test,
     run_eunit
