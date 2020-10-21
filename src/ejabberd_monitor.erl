@@ -126,7 +126,7 @@ handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors} = S
                 {ok, {{_, 200, _}, _ResHeaders, _ResBody}} ->
                     ?INFO("Sent an alert successfully.", []);
                 _ ->
-                    ?ERROR("Failed sending an alert: ~p", [Response])
+                    ?CRITICAL("Failed sending an alert: ~p", [Response])
             end
     end,
     NewMonitors = maps:remove(Ref, NewState#state.monitors),
