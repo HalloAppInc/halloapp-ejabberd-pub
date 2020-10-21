@@ -213,7 +213,7 @@ parse_fields(_MsgId, []) ->
     undefined;
 parse_fields(MsgId, FieldValuesList) ->
     MsgDataMap = util:list_to_map(FieldValuesList),
-    Message = maps:get(?FIELD_MESSAGE, MsgDataMap),
+    Message = maps:get(?FIELD_MESSAGE, MsgDataMap, undefined),
     case Message of
         undefined -> undefined;
         _ ->
