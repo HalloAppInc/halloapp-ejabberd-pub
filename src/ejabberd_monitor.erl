@@ -15,7 +15,7 @@
 
 -include("logger.hrl").
 
--define(ALERTS_MANAGER_URL, "http://monitor.halloapp.net:9093/api/v1/alerts").
+-define(ALERTS_MANAGER_URL, "http://m1.ha:9093/api/v1/alerts").
 -record(state,
 {
     monitors :: maps:map()
