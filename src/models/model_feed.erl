@@ -303,7 +303,7 @@ get_comment_data(PostId, CommentId, ParentId) ->
 
     %% Fetch and compare push data.
     ParentPushList2 = get_comment_push_data(ParentId, PostId),
-    case ParentPushList =:= ParentPushList2 of
+    case lists:sort(ParentPushList) =:= lists:sort(ParentPushList2) of
         true ->
             ?INFO("Push data matches: ~p", [ParentPushList]);
         false ->
