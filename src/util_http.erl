@@ -16,7 +16,8 @@
 -export([
     return_400/0,
     return_400/1,
-    return_500/0
+    return_500/0,
+    get_user_agent/1
 ]).
 
 -spec return_400(term()) -> http_response().
@@ -36,4 +37,10 @@ return_400() ->
 return_500() ->
     {500, ?HEADER(?CT_JSON),
         jiffy:encode({[{result, <<"Internal Server Error">>}]})}.
+
+
+-spec get_user_agent(Headers :: list()) -> binary().
+get_user_agent(Hdrs) ->
+    {_, S} = lists:keyfind('User-Agent', 1, Hdrs),
+    S.
 

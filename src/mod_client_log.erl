@@ -16,7 +16,8 @@
 -export([start/2, stop/1, mod_options/1, depends/2]).
 
 -export([
-    process_local_iq/1
+    process_local_iq/1,
+    process_client_count_log_st/3
 ]).
 
 -include("logger.hrl").
@@ -49,20 +50,12 @@ mod_options(_Host) ->
 process_local_iq(#iq{type = set, from = #jid{luser = Uid, lresource = Resource},
         sub_els = [#client_log_st{} = ClientLogsSt]} = IQ) ->
     try
-        Type = util_ua:resource_to_client_type(Resource),
-        ServerDims = [{"platform", atom_to_list(Type)}],
-        Counts = ClientLogsSt#client_log_st.counts,
-        Events = ClientLogsSt#client_log_st.events,
-        ?INFO("Uid: ~s counts: ~p, events: ~p", [Uid, length(Counts), length(Events)]),
-        CountResults = process_counts(Counts, ServerDims),
-        EventResults = process_events(Uid, Events),
-        CountError = lists:any(fun has_error/1, CountResults),
-        EventError = lists:any(fun has_error/1, EventResults),
-        case CountError or EventError of
-            true ->
-                xmpp:make_error(IQ, util:err(bad_request));
-            false ->
-                xmpp:make_iq_result(IQ)
+        Platform = util_ua:resource_to_client_type(Resource),
+        case process_client_count_log_st(Uid, ClientLogsSt, Platform) of
+            ok ->
+                xmpp:make_iq_result(IQ);
+            error ->
+                xmpp:make_error(IQ, util:err(bad_request))
         end
     catch
         Class : Reason : Stacktrace ->
@@ -73,6 +66,22 @@ process_local_iq(#iq{type = set, from = #jid{luser = Uid, lresource = Resource},
 
 process_local_iq(#iq{} = IQ) ->
     xmpp:make_error(IQ, util:err(bad_request)).
+
+-spec process_client_count_log_st(Uid :: uid() | undefined, ClientLogSt :: client_log_st(),
+        Platform :: maybe(client_type())) -> ok | error.
+process_client_count_log_st(Uid, ClientLogsSt, Platform) ->
+    ServerDims = [{"platform", atom_to_list(Platform)}],
+    Counts = ClientLogsSt#client_log_st.counts,
+    Events = ClientLogsSt#client_log_st.events,
+    ?INFO("Uid: ~s counts: ~p, events: ~p", [Uid, length(Counts), length(Events)]),
+    CountResults = process_counts(Counts, ServerDims),
+    EventResults = process_events(Uid, Events),
+    CountError = lists:any(fun has_error/1, CountResults),
+    EventError = lists:any(fun has_error/1, EventResults),
+    case CountError or EventError of
+        true -> error;
+        false -> ok
+    end.
 
 
 -spec process_counts(Counts :: [count_st()], ServerDims :: stat:tags()) -> [result()].

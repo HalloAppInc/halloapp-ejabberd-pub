@@ -39,7 +39,7 @@ process([<<"registration">>, <<"request_sms">>],
         #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
     try
         ?DEBUG("Data:~p", [Data]),
-        UserAgent = get_user_agent(Headers),
+        UserAgent = util_http:get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
         ?INFO("payload ~p phone:~p, ua:~p ip:~p ~p",
@@ -73,7 +73,7 @@ process([<<"registration">>, <<"register">>],
         #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
     try
         ?INFO("registration request: r:~p ip:~p", [Data, IP]),
-        UserAgent = get_user_agent(Headers),
+        UserAgent = util_http:get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
         Code = maps:get(<<"code">>, Payload),
@@ -119,7 +119,7 @@ process([<<"registration">>, <<"register2">>],
         #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
     try
         ?INFO("spub registration request: r:~p ip:~p", [Data, IP]),
-        UserAgent = get_user_agent(Headers),
+        UserAgent = util_http:get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
         Code = maps:get(<<"code">>, Payload),
@@ -184,7 +184,7 @@ process([<<"registration">>, <<"update_key">>],
         #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
     try
         ?INFO("update_key request: r:~p ip:~p", [Data, IP]),
-        UserAgent = get_user_agent(Headers),
+        UserAgent = util_http:get_user_agent(Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Uid = maps:get(<<"uid">>, Payload),
         Password = maps:get(<<"password">>, Payload),
@@ -397,10 +397,6 @@ stop(Host) ->
 
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.
-
-get_user_agent(Hdrs) ->
-    {_, S} = lists:keyfind('User-Agent', 1, Hdrs),
-    S.
 
 depends(_Host, _Opts) ->
     [{mod_sms, hard}].

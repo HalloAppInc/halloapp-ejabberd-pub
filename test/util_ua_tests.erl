@@ -30,19 +30,20 @@ is_android_release_test() ->
 
 is_android_test() ->
     ?assertEqual(true, util_ua:is_android("HalloApp/Android1.2.3")),
-    ?assertEqual(false, util_ua:is_android("HalloApp/iPhone")),
+    ?assertEqual(false, util_ua:is_android("HalloApp/iOS")),
     ?assertEqual(false, util_ua:is_android("")),
     ok.
 
 is_hallo_ua_test() ->
     ?assertEqual(true, util_ua:is_hallo_ua("HalloApp/Android1.2.3")),
     ?assertEqual(true, util_ua:is_hallo_ua("HalloApp/Android1.2.3D")),
-    ?assertEqual(true, util_ua:is_hallo_ua("HalloApp/iPhone1.2.3")),
+    ?assertEqual(true, util_ua:is_hallo_ua("HalloApp/iOS1.2.3")),
     ?assertEqual(true, util_ua:is_hallo_ua("HalloApp/other")),
     ?assertEqual(false, util_ua:is_hallo_ua("Not")),
     ok.
 
 get_client_type_test() ->
     ?assertEqual(android, util_ua:get_client_type(<<"HalloApp/Android1.0">>)),
-    ?assertEqual(ios, util_ua:get_client_type(<<"HalloApp/iPhone1.0">>)).
+    ?assertEqual(ios, util_ua:get_client_type(<<"HalloApp/iOS1.0">>)),
+    ?assertEqual(undefined, util_ua:get_client_type(<<"HalloApp/other">>)).
 

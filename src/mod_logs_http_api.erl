@@ -15,6 +15,7 @@
 -include("util_http.hrl").
 -include("account.hrl").
 -include("ha_types.hrl").
+-include("packets.hrl").
 
 -define(MAX_LOG_SIZE, 10485760). % 10MB
 % Zip files must start with those 4 bytes
@@ -31,10 +32,35 @@
 %%%----------------------------------------------------------------------
 % TODO: duplicate code with mod_halloapp_http_api
 
-%% /api/logs
+
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
-process([],
-        #request{method = 'POST', q = Q, data = Data, ip = IP} = R) ->
+%% /api/logs
+process([<<"counts_and_events">>],
+        #request{method = 'POST', q = _Q, data = Data, ip = _IP, headers = Headers} = _R) ->
+    try
+        UserAgent = util_http:get_user_agent(Headers),
+        Platform = util_ua:get_client_type(UserAgent),
+        case enif_protobuf:decode(Data, pb_client_log) of
+            #pb_client_log{} = Result ->
+                ClientLogSt = client_log_parser:proto_to_xmpp(Result),
+                mod_client_log:process_client_count_log_st(undefined, ClientLogSt, Platform);
+            {error, _} ->
+                error(invalid_pb)
+        end,
+        {200, ?HEADER(?CT_PLAIN), <<"ok">>}
+    catch
+        error : invalid_pb ->
+            ?WARNING("invalid pb ~p", [Data]),
+            util_http:return_400(invalid_pb);
+        error : Reason : Stacktrace ->
+            ?ERROR("logs unknown error: Stacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
+            util_http:return_500()
+    end;
+
+%% /api/logs
+process([<<"device">>],
+        #request{method = 'POST', q = Q, data = Data, ip = IP} = _R) ->
     try
         {Uid, Phone, Version, _Msg} = parse_logs_query(Q),
         ?INFO_MSG("Logs from Uid: ~p Phone: ~p Version: ~p: ip: ~p", [Uid, Phone, Version, IP]),
