@@ -19,6 +19,8 @@
 -include("xmpp.hrl").
 
 -define(NS_CLIENT_VER, <<"halloapp:client:version">>).
+-define(CUTOFF_TIME, 1603318598).
+-define(OLD_MAX_DAYS, 30).
 
 %% gen_mod API.
 -export([start/2, stop/1, depends/2, reload/3, mod_options/1, mod_opt_type/1]).
@@ -29,6 +31,7 @@
     is_valid_version/1,
     set_client_version/2,
     c2s_session_opened/1,
+    get_version_validity/1,  % Stop exporting this once we delete mnesia
     get_time_left/2     %% test
 ]).
 
@@ -144,7 +147,6 @@ is_valid_version(_Version, TimeLeftSec) ->
 get_time_left(undefined, _CurTimestamp) ->
     <<"0">>;
 get_time_left(Version, CurTimestamp) ->
-    MaxTimeSec = get_max_time_in_sec(),
     case mod_client_version_mnesia:check_if_version_exists(Version) of
         false ->
             mod_client_version_mnesia:insert_version(Version, CurTimestamp),
@@ -152,7 +154,7 @@ get_time_left(Version, CurTimestamp) ->
         true ->
             ok
     end,
-    case mod_client_version_mnesia:get_time_left(Version, CurTimestamp, MaxTimeSec) of
+    case mod_client_version_mnesia:get_time_left(Version, CurTimestamp) of
         {error, _} ->
             ?ERROR("version missing, should not happen. Version: ~p", [Version]),
             <<"0">>;
@@ -161,6 +163,7 @@ get_time_left(Version, CurTimestamp) ->
             case VerTs of
                 undefined -> ?WARNING("version_check_failed no data in Redis Version: ~p", [Version]);
                 _ ->
+                    MaxTimeSec = get_version_validity(VerTs),
                     NewSecsLeft = MaxTimeSec - (binary_to_integer(CurTimestamp) - VerTs),
                     case SecsLeft =:= NewSecsLeft of
                         true ->
@@ -181,10 +184,12 @@ store_options(Opts) ->
     persistent_term:put({?MODULE, max_days}, MaxDays).
 
 
--spec get_max_time_in_sec() -> integer().
-get_max_time_in_sec() ->
-    get_max_days() * 24 * 60 * 60.
-
+-spec get_version_validity(VersionTs :: integer()) -> integer().
+get_version_validity(VersionTs) ->
+    case VersionTs > ?CUTOFF_TIME of
+        true -> get_max_days() * 24 * 60 * 60;
+        false -> ?OLD_MAX_DAYS * 24 * 60 * 60
+    end.
 
 -spec get_max_days() -> integer().
 get_max_days() ->

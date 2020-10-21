@@ -22,7 +22,7 @@
     delete_version/2,
     delete_version/1,
     fetch_version/1,
-    get_time_left/3,
+    get_time_left/2,
     check_if_version_exists/1,
     migrate_to_redis/0
 ]).
@@ -123,8 +123,8 @@ fetch_version(Version) ->
     end.
 
 
--spec get_time_left(binary(), binary(), integer()) -> {error, any()} | {ok, integer()}.
-get_time_left(Version, CurTimestamp, MaxTimeInSec) ->
+-spec get_time_left(binary(), binary()) -> {error, any()} | {ok, integer()}.
+get_time_left(Version, CurTimestamp) ->
     Result = fetch_version(Version),
     case Result of
         {error, _} ->
@@ -132,6 +132,7 @@ get_time_left(Version, CurTimestamp, MaxTimeInSec) ->
         {ok, #client_version{timestamp = ThenTimestamp}} ->
             Cur = binary_to_integer(CurTimestamp),
             Then = binary_to_integer(ThenTimestamp),
+            MaxTimeInSec = mod_client_version:get_version_validity(Then),
             SecsLeft = MaxTimeInSec - (Cur - Then),
             {ok, SecsLeft}
     end.
