@@ -75,8 +75,8 @@ process(Path, Request) ->
 parse_logs_query(Q) ->
     Uid = proplists:get_value(<<"uid">>, Q, <<"NOUID">>),
     Phone = proplists:get_value(<<"phone">>, Q, <<"NOPHONE">>),
-    Version = proplists:get_value(<<"version">>, Q, undefined),
-    Msg = proplists:get_value(<<"msg">>, Q, undefined),
+    Version = proplists:get_value(<<"version">>, Q, <<"">>),
+    Msg = proplists:get_value(<<"msg">>, Q, <<"">>),
     ?INFO_MSG("~p ~p ~p ~p", [Uid, Phone, Version, Msg]),
     case Uid of
         <<"NOUID">> -> ok;
