@@ -351,7 +351,7 @@ get_post_comments(PostId) when is_binary(PostId) ->
             case get_comment(CommentId, PostId) of
                 {ok, Comment} -> [Comment | Acc];
                 {error, _} ->
-                    ?ERROR("Unable to get_comment, commentid: ~p, postid: ~p", [CommentId, PostId]),
+                    ?WARNING("Unable to get_comment, commentid: ~p, postid: ~p", [CommentId, PostId]),
                     Acc
             end
         end, [], CommentIds),
