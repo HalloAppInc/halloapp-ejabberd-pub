@@ -26,33 +26,3 @@ upload_log_test(_Conf) ->
     ct:pal("Response: ~p", [Response]),
     ok.
 
-
-%%
-%%connect_test(_Conf) ->
-%%    {ok, C} = ha_client:start_link(),
-%%    ok = ha_client:stop(C),
-%%    ok.
-%%
-%%check_accounts_test(_Conf) ->
-%%    ?assertEqual(true, model_accounts:account_exists(?UID1)),
-%%    ?assertEqual(true, model_accounts:account_exists(?UID2)),
-%%    ?assertEqual(false, model_accounts:account_exists(?UID3)),
-%%    ok.
-%%
-%%no_user_test(_Conf) ->
-%%    % UID6 does not exist
-%%    false = model_accounts:account_exists(?UID6),
-%%    {error, 'invalid uid or password'} = ha_client:connect_and_login(?UID6, <<"wrong_password">>),
-%%    ok.
-%%
-%%bad_password_test(_Conf) ->
-%%    true = model_accounts:account_exists(?UID1),
-%%    {error, 'invalid uid or password'} = ha_client:connect_and_login(?UID1, <<"wrong_password">>),
-%%    ok.
-%%
-%%
-%%login_success_test(_Conf) ->
-%%    {ok, C} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-%%    ok = ha_client:stop(C),
-%%    ok.
-%%
