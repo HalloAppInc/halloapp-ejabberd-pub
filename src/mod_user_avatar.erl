@@ -170,6 +170,9 @@ delete_user_avatar_internal(Uid, Server) ->
 -spec delete_avatar_s3(AvatarId :: avatar_id() | undefined) -> ok | error.
 delete_avatar_s3(undefined) ->
     ok;
+delete_avatar_s3(<<>>) ->
+    ?WARNING("AvatarId is empty binary"),
+    ok;
 delete_avatar_s3(AvatarId) ->
     try
         Result = erlcloud_s3:delete_object(
