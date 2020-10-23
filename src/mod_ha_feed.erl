@@ -408,6 +408,9 @@ send_old_items(FromUid, ToUid, Server) ->
     ?INFO_MSG("sending FromUid: ~s ToUid: ~s posts: ~p",
         [FromUid, ToUid, FilteredPostIds]),
 
+    ejabberd_hooks:run(feed_share_old_items, Server,
+        [FromUid, ToUid, length(PostStanzas), length(CommentStanzas)]),
+
     case PostStanzas of
         [] -> ok;
         _ ->

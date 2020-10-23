@@ -1,14 +1,26 @@
 -module(mod_ha_stats).
 -author('nikola').
 -behaviour(gen_mod).
+-behavior(gen_server).
 
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("pubsub.hrl").
+-include("time.hrl").
 
+-export([start_link/0]).
+%% gen_mod callbacks
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
+%% gen_server callbacks
+-export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
+
+% timer functions
+-export([
+    trigger_cleanup/0
+]).
 
 -export([
+    feed_share_old_items/4,
     publish_feed_item/5,
     feed_item_published/3,
     feed_item_retracted/3,
@@ -20,6 +32,29 @@
     user_receive_packet/1
 ]).
 
+-ifdef(TEST).
+-export([
+    log_new_user/1
+]).
+-endif.
+
+
+-record(state, {
+    new_user_map = #{} :: map(),
+    last_cleanup_ts = 0 :: non_neg_integer()
+}).
+
+-record(new_user_stats, {
+    registered_at :: non_neg_integer(),
+    posts = 0 :: non_neg_integer(),
+    comments = 0 :: non_neg_integer()
+}).
+
+-define(CLEANUP_INTERVAL, 1 * ?HOURS).
+-define(LOG_NEW_USER_TIME, 1 * ?MINUTES_MS).
+
+start_link() ->
+    gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
 
 start(Host, _Opts) ->
     ejabberd_hooks:add(publish_feed_item, Host, ?MODULE, publish_feed_item, 50),
@@ -30,6 +65,7 @@ start(Host, _Opts) ->
     ejabberd_hooks:add(remove_friend, Host, ?MODULE, remove_friend, 50),
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 50),
+    ejabberd_hooks:add(feed_share_old_items, Host, ?MODULE, feed_share_old_items, 50),
     ok.
 
 
@@ -42,6 +78,7 @@ stop(Host) ->
     ejabberd_hooks:delete(publish_feed_item, Host, ?MODULE, publish_feed_item, 50),
     ejabberd_hooks:delete(feed_item_published, Host, ?MODULE, feed_item_published, 50),
     ejabberd_hooks:delete(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),
+    ejabberd_hooks:delete(feed_share_old_items, Host, ?MODULE, feed_share_old_items, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -52,6 +89,97 @@ depends(_Host, _Opts) ->
 
 mod_options(_Host) ->
     [].
+
+get_proc() ->
+    gen_mod:get_module_proc(global, ?MODULE).
+
+% gen_server
+init(_Stuff) ->
+    {ok, _Tref1} = timer:apply_interval(?CLEANUP_INTERVAL, ?MODULE, trigger_cleanup, []),
+    prometheus_histogram:new([{name, ha_new_user_initial_feed_posts},
+        {labels, []},
+        {buckets, [0, 1, 3, 5, 10, 20, 50]},
+        {help, "New user initial feed number of posts"}]),
+    prometheus_histogram:new([{name, ha_new_user_initial_feed_comments},
+        {labels, []},
+        {buckets, [0, 5, 10, 20, 50, 100]},
+        {help, "New user initial feed number of comments"}]),
+    {ok, #state{}}.
+
+
+handle_call(_Message, _From, State) ->
+    ?ERROR("unexpected call ~p from ", _Message),
+    {reply, ok, State}.
+
+handle_cast({new_user, Uid}, #state{new_user_map = NUMap} = State) ->
+    NUMap2 = NUMap#{Uid => #new_user_stats{registered_at = util:now()}},
+    _Tref = erlang:send_after(?LOG_NEW_USER_TIME, self(), {log_new_user, Uid}),
+    {noreply, State#state{new_user_map = NUMap2}};
+
+handle_cast({log_new_user, _Uid} = Msg, State) ->
+    handle_info(Msg, State);
+
+handle_cast({log_share_old_items, Uid, NumPosts, NumComments}, #state{new_user_map = NUMap} = State) ->
+    NUMap2 = case maps:get(Uid, NUMap, undefined) of
+        #new_user_stats{
+            posts = Posts,
+            comments = Comments
+        } = NUS ->
+            NUMap#{Uid => NUS#new_user_stats{
+                posts = Posts + NumPosts,
+                comments = Comments + NumComments}};
+        undefined ->
+            ?WARNING("User ~s not found in map", [Uid]),
+            NUMap
+    end,
+    {noreply, State#state{new_user_map = NUMap2}};
+
+handle_cast({cleanup}, #state{new_user_map = NUMap} = State) ->
+    NUMap2 = maps:filter(
+        fun(_Uid, NUS) ->
+            NUS#new_user_stats.registered_at > util:now() - ?CLEANUP_INTERVAL
+        end,
+        NUMap),
+    ?INFO_MSG("cleanup old ~p -> new ~p", [maps:size(NUMap), maps:size(NUMap2)]),
+    {noreply, State#state{new_user_map = NUMap2}};
+
+
+handle_cast(_Message, State) ->
+    {noreply, State}.
+
+handle_info({log_new_user, Uid}, #state{new_user_map = NUMap} = State) ->
+    NUMap2 = case maps:get(Uid, NUMap, undefined) of
+        #new_user_stats{
+            posts = Posts,
+            comments = Comments
+        } ->
+            prometheus_histogram:observe(ha_new_user_initial_feed_posts, Posts),
+            prometheus_histogram:observe(ha_new_user_initial_feed_comments, Comments),
+            maps:remove(Uid, NUMap);
+        undefined ->
+        ?WARNING("User ~s not found in map", [Uid]),
+        NUMap
+    end,
+    {noreply, State#state{new_user_map = NUMap2}};
+
+handle_info(_Message, State) ->
+    {noreply, State}.
+
+terminate(_Reason, _State) -> ok.
+code_change(_OldVersion, State, _Extra) -> {ok, State}.
+
+new_user(Uid) ->
+    gen_server:cast(get_proc(), {new_user, Uid}).
+
+% Test only
+log_new_user(Uid) ->
+    gen_server:cast(get_proc(), {log_new_user, Uid}).
+
+log_share_old_items(Uid, NumPosts, NumComments) ->
+    gen_server:cast(get_proc(), {log_share_old_items, Uid, NumPosts, NumComments}).
+
+trigger_cleanup() ->
+    gen_server:cast(get_proc(), {cleanup}).
 
 
 -spec publish_feed_item(Uid :: binary(), Node :: binary(),
@@ -88,6 +216,7 @@ feed_item_retracted(Uid, ItemId, ItemType) ->
 register_user(Uid, _Server, _Phone) ->
     ?INFO("counting uid:~s", [Uid]),
     stat:count("HA/account", "registration"),
+    new_user(Uid),
     ok.
 
 
@@ -150,3 +279,8 @@ count_packet(Namespace, _Action, _Packet) ->
     stat:count(Namespace, "unknown"),
     ok.
 
+feed_share_old_items(_FromUid, ToUid, NumPosts, NumComments) ->
+    stat:count("HA/feed", "initial_feed", NumPosts, [{type, post}]),
+    stat:count("HA/feed", "initial_feed", NumComments, [{type, comment}]),
+    log_share_old_items(ToUid, NumPosts, NumComments),
+    ok.
