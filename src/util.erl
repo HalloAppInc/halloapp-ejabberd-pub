@@ -172,6 +172,7 @@ to_atom(Data) ->
             undefined
     end.
 
+% TODO: add spec
 to_binary(Data) ->
     case type(Data) of
         "binary" -> Data;
@@ -181,6 +182,7 @@ to_binary(Data) ->
         "integer" -> integer_to_binary(Data);
         _ ->
             ?ERROR("Failed converting data to binary: ~p", [Data]),
+            % TODO: change to undefined
             <<>>
     end.
 
