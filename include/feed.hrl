@@ -35,7 +35,8 @@
 	payload :: binary(),
 	audience_type :: atom(),
 	audience_list :: [uid()],
-	ts_ms :: integer()
+	ts_ms :: integer(),
+	gid :: binary()
 }).
 
 -type post() :: #post{}.

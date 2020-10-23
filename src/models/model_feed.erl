@@ -35,6 +35,7 @@
 
 %% API
 -export([
+    publish_post/7,
     publish_post/6,
     publish_comment/7,
     retract_post/2,
@@ -45,6 +46,8 @@
     get_comment_data/3,
     get_7day_user_feed/1,
     get_entire_user_feed/1,
+    get_7day_group_feed/1,
+    get_entire_group_feed/1,
     is_post_owner/2,
     remove_all_user_posts/1,
     add_uid_to_audience/2,
@@ -85,12 +88,30 @@ mod_options(_Host) ->
 -define(FIELD_PUBLISHER_UID, <<"pbu">>).
 -define(FIELD_PARENT_COMMENT_ID, <<"pc">>).
 -define(FIELD_DELETED, <<"del">>).
+-define(FIELD_GROUP_ID, <<"gid">>).
+
+
+-spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(),
+        FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
+        TimestampMs :: integer(), Gid :: gid()) -> ok | {error, any()}.
+publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, TimestampMs, Gid)
+    when is_binary(Gid), Gid =/= <<>> ->
+    ok = publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, TimestampMs),
+    %% Set group_id
+    {ok, _} = q(["HSET", post_key(PostId), ?FIELD_GROUP_ID, Gid]),
+    %% Add post to reverse index of group_id
+    [{ok, _}, {ok, _}] = qp([
+            ["ZADD", reverse_group_post_key(Gid), TimestampMs, PostId],
+            ["EXPIRE", reverse_group_post_key(Gid), ?POST_EXPIRATION]]),
+    %% Cleanup reverse index of group_id
+    ok = cleanup_group_reverse_index(Gid),
+    ok.
+
 
 -spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(),
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
         TimestampMs :: integer()) -> ok | {error, any()}.
 publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, TimestampMs) ->
-    DeadlineMs = TimestampMs - ?POST_TTL_MS,
     [{ok, _}, {ok, _}, {ok, _}, {ok, _}] = qp([
             ["HSET", post_key(PostId),
                 ?FIELD_UID, Uid,
@@ -103,8 +124,7 @@ publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, Timestamp
     [{ok, _}, {ok, _}] = qp([
             ["ZADD", reverse_post_key(Uid), TimestampMs, PostId],
             ["EXPIRE", reverse_post_key(Uid), ?POST_EXPIRATION]]),
-    CleanupCommands = get_cleanup_commands(Uid, DeadlineMs),
-    [{ok, _}, {ok, _}] = qp(CleanupCommands),
+    ok = cleanup_reverse_index(Uid),
     ok.
 
 
@@ -114,7 +134,6 @@ publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, Timestamp
         Payload :: binary(), TimestampMs :: integer()) -> ok | {error, any()}.
 publish_comment(CommentId, PostId, PublisherUid,
         ParentCommentId, PushList, Payload, TimestampMs) ->
-    DeadlineMs = TimestampMs - ?POST_TTL_MS,
     {ok, TTL} = q(["TTL", post_key(PostId)]),
     [{ok, _}, {ok, _}, {ok, _}, {ok, _}] = qp([
             ["HSET", comment_key(CommentId, PostId),
@@ -130,8 +149,7 @@ publish_comment(CommentId, PostId, PublisherUid,
             ["EXPIRE", post_comments_key(PostId), TTL]]),
     {ok, _} = q(
             ["ZADD", reverse_comment_key(PublisherUid), TimestampMs, comment_key(CommentId, PostId)]),
-    CleanupCommands = get_cleanup_commands(PublisherUid, DeadlineMs),
-    [{ok, _}, {ok, _}] = qp(CleanupCommands),
+    ok = cleanup_reverse_index(PublisherUid),
     ok.
 
 
@@ -145,7 +163,7 @@ is_post_owner(PostId, Uid) ->
 %% We should do the check if Uid is the owner of PostId.
 -spec retract_post(PostId :: binary(), Uid :: uid()) -> ok | {error, any()}.
 retract_post(PostId, Uid) ->
-    ok = cleanup_old_posts(Uid),
+    ok = cleanup_reverse_index(Uid),
     delete_post(PostId, Uid),
     ok.
 
@@ -208,9 +226,10 @@ remove_all_user_posts(Uid) ->
 
 -spec get_post(PostId :: binary()) -> {ok, post()} | {error, any()}.
 get_post(PostId) ->
-    [{ok, [Uid, Payload, AudienceType, TimestampMs, IsDeletedBin]}, {ok, AudienceList}] = qp([
+    [{ok, [Uid, Payload, AudienceType, TimestampMs, Gid, IsDeletedBin]}, {ok, AudienceList}] = qp([
             ["HMGET", post_key(PostId),
-                ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED],
+                ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS,
+                ?FIELD_GROUP_ID, ?FIELD_DELETED],
             ["SMEMBERS", post_audience_key(PostId)]]),
     IsDeleted = (IsDeletedBin =:= <<"1">>),
     %% TODO(murali@): Update the condition after one month, since then all items in db will have the field.
@@ -224,7 +243,9 @@ get_post(PostId) ->
                 audience_type = decode_audience_type(AudienceType),
                 audience_list = AudienceList,
                 payload = Payload,
-                ts_ms = util_redis:decode_ts(TimestampMs)}}
+                ts_ms = util_redis:decode_ts(TimestampMs),
+                gid = Gid
+            }}
     end.
 
 
@@ -384,34 +405,89 @@ get_entire_user_feed(Uid) ->
     get_user_feed(Uid, DeadlineMs).
 
 
+-spec get_7day_group_feed(Gid :: gid()) -> {ok, [feed_item()]} | {error, any()}.
+get_7day_group_feed(Gid) ->
+    NowMs = util:now_ms(),
+    DeadlineMs = NowMs - ?WEEKS_MS,
+    get_group_feed(Gid, DeadlineMs).
+
+
+-spec get_entire_group_feed(Gid :: gid()) -> {ok, [feed_item()]} | {error, any()}.
+get_entire_group_feed(Gid) ->
+    NowMs = util:now_ms(),
+    DeadlineMs = NowMs - ?POST_TTL_MS,
+    get_group_feed(Gid, DeadlineMs).
+
+
 -spec get_user_feed(Uid :: uid(), DeadlineMs :: integer()) -> {ok, [feed_item()]} | {error, any()}.
 get_user_feed(Uid, DeadlineMs) ->
-    ok = cleanup_old_posts(Uid),
-    {ok, PostIds} = q(["ZRANGEBYSCORE", reverse_post_key(Uid), integer_to_binary(DeadlineMs), "+inf"]),
-    Posts = get_posts(PostIds),
+    {ok, AllPostIds} = q(["ZRANGEBYSCORE", reverse_post_key(Uid), integer_to_binary(DeadlineMs), "+inf"]),
+    Posts = get_user_feed_posts(AllPostIds),
+    PostIds = [PostId || #post{id = PostId} <- Posts],
     Comments = get_posts_comments(PostIds),
     {ok, lists:append(Posts, Comments)}.
 
 
--spec cleanup_old_posts(Uid :: uid()) -> ok.
-cleanup_old_posts(Uid) ->
+-spec get_group_feed(Uid :: uid(), DeadlineMs :: integer()) -> {ok, [feed_item()]} | {error, any()}.
+get_group_feed(Gid, DeadlineMs) ->
+    {ok, AllPostIds} = q(["ZRANGEBYSCORE", reverse_group_post_key(Gid), integer_to_binary(DeadlineMs), "+inf"]),
+    Posts = get_group_feed_posts(AllPostIds),
+    PostIds = [PostId || #post{id = PostId} <- Posts],
+    Comments = get_posts_comments(PostIds),
+    {ok, lists:append(Posts, Comments)}.
+
+
+-spec cleanup_reverse_index(Uid :: uid()) -> ok.
+cleanup_reverse_index(Uid) ->
     NowMs = util:now_ms(),
     DeadlineMs = NowMs - ?POST_TTL_MS,
-    CleanupCommands = get_cleanup_commands(Uid, DeadlineMs),
+    CleanupKeys = [reverse_post_key(Uid), reverse_comment_key(Uid)],
+    CleanupCommands = get_cleanup_commands(CleanupKeys, DeadlineMs),
     [{ok, _}, {ok, _}] = qp(CleanupCommands),
     ok.
 
 
--spec get_cleanup_commands(Uid :: uid(), DeadlineMs :: integer()) -> [iodata()].
-get_cleanup_commands(Uid, DeadlineMs) ->
-    [
-        ["ZREMRANGEBYSCORE", reverse_post_key(Uid), "-inf", integer_to_binary(DeadlineMs)],
-        ["ZREMRANGEBYSCORE", reverse_comment_key(Uid), "-inf", integer_to_binary(DeadlineMs)]
-    ].
+-spec cleanup_group_reverse_index(Gid :: gid()) -> ok.
+cleanup_group_reverse_index(Gid) ->
+    NowMs = util:now_ms(),
+    DeadlineMs = NowMs - ?POST_TTL_MS,
+    CleanupKeys = [reverse_group_post_key(Gid)],
+    CleanupCommands = get_cleanup_commands(CleanupKeys, DeadlineMs),
+    [{ok, _}] = qp(CleanupCommands),
+    ok.
+
+
+-spec get_cleanup_commands(Keys :: [binary()], DeadlineMs :: integer()) -> [iodata()].
+get_cleanup_commands(Keys, DeadlineMs) ->
+    [["ZREMRANGEBYSCORE", Key, "-inf", integer_to_binary(DeadlineMs)] || Key <- Keys].
 
 
 -spec get_posts(PostIds :: [binary()]) -> [post()].
 get_posts(PostIds) ->
+    FilterFun = fun (X) -> X =/= undefined end,
+    get_posts(PostIds, FilterFun).
+
+
+-spec get_user_feed_posts(PostIds :: [binary()]) -> [post()].
+get_user_feed_posts(PostIds) ->
+    FilterFun = fun (undefined) -> false;
+            (#post{gid = undefined}) -> true;
+            (_) -> false
+        end,
+    get_posts(PostIds, FilterFun).
+
+
+-spec get_group_feed_posts(PostIds :: [binary()]) -> [post()].
+get_group_feed_posts(PostIds) ->
+    FilterFun = fun (undefined) -> false;
+            (#post{gid = undefined}) -> false;
+            (_) -> true
+        end,
+    get_posts(PostIds, FilterFun).
+
+
+-spec get_posts(PostIds :: [binary()], FilterFun :: fun()) -> [{binary(), post()}].
+get_posts(PostIds, FilterFun) ->
     Results = lists:map(
         fun (PostId) ->
             case get_post(PostId) of
@@ -420,7 +496,7 @@ get_posts(PostIds) ->
              end
         end,
         PostIds),
-    lists:filter(fun (X) -> X =/= undefined end, Results).
+    lists:filter(FilterFun, Results).
 
 
 -spec get_posts_comments(PostIds :: [binary()]) -> [comment()].
@@ -491,6 +567,11 @@ post_comments_key(PostId) ->
 -spec reverse_post_key(Uid :: uid()) -> binary().
 reverse_post_key(Uid) ->
     <<?REVERSE_POST_KEY/binary, "{", Uid/binary, "}">>.
+
+
+-spec reverse_group_post_key(Gid :: uid()) -> binary().
+reverse_group_post_key(Gid) ->
+    <<?REVERSE_GROUP_POST_KEY/binary, "{", Gid/binary, "}">>.
 
 
 -spec reverse_comment_key(Uid :: uid()) -> binary().
