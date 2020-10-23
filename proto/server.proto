@@ -552,6 +552,7 @@ message PrivacyLists {
         ALL = 0;
         BLOCK = 1;
         EXCEPT = 2;
+        ONLY = 3;
     }
     Type active_type = 1;
     repeated PrivacyList lists = 2;
