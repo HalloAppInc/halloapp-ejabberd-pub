@@ -43,7 +43,10 @@ process([<<"counts_and_events">>],
         case enif_protobuf:decode(Data, pb_client_log) of
             #pb_client_log{} = Result ->
                 ClientLogSt = client_log_parser:proto_to_xmpp(Result),
-                mod_client_log:process_client_count_log_st(undefined, ClientLogSt, Platform);
+                case mod_client_log:process_client_count_log_st(undefined, ClientLogSt, Platform) of
+                    ok -> ok;
+                    error -> error(bad_request)
+                end;
             {error, _} ->
                 error(invalid_pb)
         end,
@@ -52,6 +55,9 @@ process([<<"counts_and_events">>],
         error : invalid_pb ->
             ?WARNING("invalid pb ~p", [Data]),
             util_http:return_400(invalid_pb);
+        error : bad_request ->
+            ?WARNING("bad_request"),
+            util_http:return_400(bad_request);
         error : Reason : Stacktrace ->
             ?ERROR("logs unknown error: Stacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
