@@ -69,7 +69,7 @@ get_proc() ->
 %%%===================================================================
 
 init([Host|_]) ->
-    ?DEBUG("mod_offline_halloapp: init", []),
+    ?INFO("mod_offline_halloapp: init", []),
     process_flag(trap_exit, true),
     ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
@@ -81,7 +81,7 @@ init([Host|_]) ->
 
 
 terminate(_Reason, #{host := Host} = _State) ->
-    ?DEBUG("mod_offline_halloapp: terminate", []),
+    ?INFO("mod_offline_halloapp: terminate", []),
     ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
     ejabberd_hooks:delete(user_send_ack, Host, ?MODULE, user_send_ack, 50),
@@ -92,12 +92,12 @@ terminate(_Reason, #{host := Host} = _State) ->
 
 
 code_change(_OldVsn, State, _Extra) ->
-    ?DEBUG("mod_offline_halloapp: code_change", []),
+    ?INFO("mod_offline_halloapp: code_change", []),
     {ok, State}.
 
 
 handle_call(Request, _From, State) ->
-    ?DEBUG("invalid request: ~p", [Request]),
+    ?ERROR("invalid request: ~p", [Request]),
     {reply, {error, bad_arg}, State}.
 
 
@@ -106,7 +106,7 @@ handle_cast({setup_push_timer, Message}, State) ->
     {noreply, State};
 
 handle_cast(Request, State) ->
-    ?DEBUG("invalid request: ~p", [Request]),
+    ?ERROR("invalid request: ~p", [Request]),
     {noreply, State}.
 
 
@@ -123,7 +123,7 @@ handle_info({push_offline_message, Message}, #{host := _ServerHost} = State) ->
     {noreply, State};
 
 handle_info(Request, State) ->
-    ?DEBUG("invalid request: ~p", [Request]),
+    ?ERROR("invalid request: ~p", [Request]),
     {noreply, State}.
 
 

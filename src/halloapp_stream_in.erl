@@ -3,7 +3,7 @@
 %%%
 %%% Copyright (C) 2020 halloappinc.
 %%%
-%%%
+%%% %%% TODO(murali@): revert logging of packets.
 %%%-------------------------------------------------------------------
 
 -module(halloapp_stream_in).
@@ -317,7 +317,7 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := wait_for_authenti
             FinalPkt = ha_auth_parser:proto_to_xmpp(Pkt),
 
             %% TODO(murali@): need to catch errors here for proto_to_xmpp and decode errors.
-            ?DEBUG("recv: translated xmpp: ~p", [FinalPkt]),
+            ?INFO("recv: translated xmpp: ~p", [FinalPkt]),
             State1 = try callback(handle_recv, Bin, FinalPkt, State)
                catch _:{?MODULE, undef} -> State
                end,
@@ -344,7 +344,7 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := established} = St
             stat:count("HA/pb_packet", "decode_success"),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
             FinalPkt = packet_parser:proto_to_xmpp(Pkt),
-            ?DEBUG("recv: translated xmpp: ~p", [FinalPkt]),
+            ?INFO("recv: translated xmpp: ~p", [FinalPkt]),
             State1 = try callback(handle_recv, Bin, FinalPkt, State)
                catch _:{?MODULE, undef} -> State
                end,
@@ -370,7 +370,7 @@ handle_info({'$gen_event', {stream_validation, Bin}}, State) ->
         Pkt ->
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
             FinalPkt = ha_auth_parser:proto_to_xmpp(Pkt),
-            ?DEBUG("recv: translated xmpp: ~p", [FinalPkt]),
+            ?INFO("recv: translated xmpp: ~p", [FinalPkt]),
             %% Change stream state.
             State1 = process_stream_authentication(FinalPkt, State),
             State2 = try callback(handle_recv, Bin, FinalPkt, State1)

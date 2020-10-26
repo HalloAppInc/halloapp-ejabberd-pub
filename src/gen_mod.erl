@@ -144,7 +144,7 @@ start_module(Host, Module) ->
 
 -spec start_module(binary(), atom(), opts(), integer()) -> ok | {ok, pid()}.
 start_module(Host, Module, Opts, Order) ->
-    ?DEBUG("Loading ~ts at ~ts", [Module, Host]),
+    ?INFO("Loading ~ts at ~ts", [Module, Host]),
     store_options(Host, Module, Opts, Order),
     try case Module:start(Host, Opts) of
 	    ok -> ok;
@@ -205,7 +205,7 @@ reload_modules(Host) ->
 reload_module(Host, Module, NewOpts, OldOpts, Order) ->
     case erlang:function_exported(Module, reload, 3) of
 	true ->
-	    ?DEBUG("Reloading ~ts at ~ts", [Module, Host]),
+	    ?INFO("Reloading ~ts at ~ts", [Module, Host]),
 	    store_options(Host, Module, NewOpts, Order),
 	    try case Module:reload(Host, NewOpts, OldOpts) of
 		    ok -> ok;
@@ -284,7 +284,7 @@ stop_module(Host, Module) ->
 
 -spec stop_module_keep_config(binary(), atom()) -> error | ok.
 stop_module_keep_config(Host, Module) ->
-    ?DEBUG("Stopping ~ts at ~ts", [Module, Host]),
+    ?INFO("Stopping ~ts at ~ts", [Module, Host]),
     try Module:stop(Host) of
 	_ ->
 	    ets:delete(ejabberd_modules, {Module, Host}),

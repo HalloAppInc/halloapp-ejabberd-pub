@@ -171,7 +171,7 @@ register_route(Domain, ServerHost, LocalHint, Pid) ->
 	    case Mod:register_route(LDomain, LServerHost, LocalHint,
 				    get_component_number(LDomain), Pid) of
 		ok ->
-		    ?DEBUG("Route registered: ~ts", [LDomain]),
+		    ?INFO("Route registered: ~ts", [LDomain]),
 		    monitor_route(LDomain, Pid),
 		    ejabberd_hooks:run(route_registered, [LDomain]),
 		    delete_cache(Mod, LDomain);
@@ -201,7 +201,7 @@ unregister_route(Domain, Pid) ->
 	    case Mod:unregister_route(
 		   LDomain, get_component_number(LDomain), Pid) of
 		ok ->
-		    ?DEBUG("Route unregistered: ~ts", [LDomain]),
+		    ?INFO("Route unregistered: ~ts", [LDomain]),
 		    demonitor_route(LDomain, Pid),
 		    ejabberd_hooks:run(route_unregistered, [LDomain]),
 		    delete_cache(Mod, LDomain);
@@ -355,7 +355,7 @@ handle_info({route, Packet}, State) ->
 handle_info({'DOWN', MRef, _, Pid, Info}, State) ->
     MRefs = maps:filter(
 	      fun({Domain, P}, M) when P == Pid, M == MRef ->
-		      ?DEBUG("Process ~p with route registered to ~ts "
+		      ?INFO("Process ~p with route registered to ~ts "
 			     "has terminated unexpectedly with reason: ~p",
 			     [P, Domain, Info]),
 		      try unregister_route(Domain, Pid)

@@ -3,7 +3,7 @@
 %%%
 %%% Copyright (C) 2020 halloappinc.
 %%%
-%%%
+%%% TODO(murali@): revert logging of packets.
 %%%-------------------------------------------------------------------
 
 -module(halloapp_socket).
@@ -200,7 +200,7 @@ reset_stream(#socket_state{pb_stream = PBStream, sockmod = SockMod,
 -spec send_element(SocketData :: socket_state(), Pkt :: pb_packet()) -> 
     {ok, fast_tls} | {ok, noise, #socket_state{}} | ok | {error, inet:posix()}.
 send_element(#socket_state{sockmod = SockMod} = SocketData, Pkt) ->
-    ?DEBUG("send: xmpp: ~p", [Pkt]),
+    ?INFO("send: xmpp: ~p", [Pkt]),
     FinalPkt = enif_protobuf:encode(Pkt),
     stat:count("HA/pb_packet", "encode_success"),
     ?DEBUG("send: protobuf: ~p", [FinalPkt]),
