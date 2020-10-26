@@ -211,15 +211,7 @@ modules:
   mod_chat: {}
   mod_chat_state: {}
   mod_user_activity: {}
-  mod_cron:
-    tasks:
-      - time: 1
-        units: hours
-        module: ejabberd_admin
-        function: backup_mnesia
-        arguments:
-          - "/usr/local/var/lib/ejabberd/halloapp.backup"
-        timer_type: interval
+  mod_cron: {}
   mod_whisper: {}
   mod_upload_media:
     aws_media_region: us-east-1
