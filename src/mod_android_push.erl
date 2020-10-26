@@ -198,13 +198,13 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
 
         {ok, {{_, 200, _}, _, ResponseBody}} ->
             case parse_response(ResponseBody) of
-                ok ->
+                {ok, FcmId} ->
                     stat:count(?FCM, "success"),
-                    ?INFO("Uid:~s push successful for msg-id: ~s", [Uid, Id]);
-                Reason ->
+                    ?INFO("Uid:~s push successful for msg-id: ~s, FcmId: ~p", [Uid, Id, FcmId]);
+                {error, Reason, FcmId} ->
                     stat:count(?FCM, "failure"),
-                    ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p",
-                            [Uid, binary:part(Token, 0, 10), Reason]),
+                    ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
+                            [Uid, binary:part(Token, 0, 10), Reason, FcmId]),
                     remove_push_token(Uid, ServerHost)
             end;
 
@@ -236,24 +236,26 @@ setup_timer(Msg, Timeout) ->
 
 
 %% Parses response of the request to check if everything worked successfully.
--spec parse_response(binary()) -> ok | not_registered | invalid_registration | other.
+-spec parse_response(binary()) -> {ok, string()} | {error, any(), string()}.
 parse_response(ResponseBody) ->
     {JsonData} = jiffy:decode(ResponseBody),
+    [{Result}] = proplists:get_value(<<"results">>, JsonData),
+    FcmId = proplists:get_value(<<"message_id">>, Result),
+    ?DEBUG("Fcm push: message_id: ~p", [FcmId]),
     case proplists:get_value(<<"success">>, JsonData) of
         1 ->
-            ok;
+            {ok, FcmId};
         0 ->
-            [{Result}] = proplists:get_value(<<"results">>, JsonData),
             case proplists:get_value(<<"error">>, Result) of
                 <<"NotRegistered">> ->
                     ?ERROR("FCM error: NotRegistered", []),
-                    not_registered;
+                    {error, not_registered, FcmId};
                 <<"InvalidRegistration">> ->
                     ?ERROR("FCM error: InvalidRegistration", []),
-                    invalid_registration;
+                    {error, invalid_registration, FcmId};
                 Error ->
                     ?ERROR("FCM error: ~s", [Error]),
-                    other
+                    {error, other, FcmId}
             end
     end.
 
