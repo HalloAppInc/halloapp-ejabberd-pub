@@ -41,7 +41,8 @@
     expire_sync_keys_run/2,
     trigger_full_sync_run/2,
     expire_message_keys_run/2,
-    extend_ttl_run/2
+    extend_ttl_run/2,
+    check_user_agent_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -378,3 +379,24 @@ extend_ttl_run(Key, State) ->
     migrate_feed_data:extend_ttl_run(Key, State).
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Check user_agent for all acc keys.                         %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+check_user_agent_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            {ok, Result} = q(redis_accounts_client, ["HGET", FullKey, <<"ua">>]),
+            case Result of
+                undefined ->
+                    ?ERROR("Uid: ~p, user agent is still empty!", [Uid]);
+                _ -> ok
+            end;
+        _ -> ok
+    end,
+    State.
+
+q(Client, Command) -> util_redis:q(Client, Command).

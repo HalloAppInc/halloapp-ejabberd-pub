@@ -108,13 +108,13 @@ is_valid_version(Version) ->
 
 %% Temp code to repair missing data during signup process
 check_and_set_user_agent(Version, Uid) ->
-    CurrUserAgent = model_accounts:get_signup_user_agent(Uid),
-    case CurrUserAgent =:= <<>> of
-        true ->
+    Result = model_accounts:get_signup_user_agent(Uid),
+    case Result of
+        {error, missing} ->
             % TODO(nikola): check if this is still happening, maybe we can remove this code
             model_accounts:set_user_agent(Uid, Version),
             ?INFO("User agent for uid:~p updated to ~p",[Uid, Version]);
-        false -> ok
+        _ -> ok
     end.
 
 
