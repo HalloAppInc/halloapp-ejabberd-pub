@@ -214,7 +214,7 @@ route_offline_message(#offline_message{
         msg_id = MsgId, to_uid = ToUid, retry_count = RetryCount, message = Message}) ->
     case fxml_stream:parse_element(Message) of
         {error, Reason} ->
-            ?ERROR("MsgId: ~s, failed to parse: ~p, reason: ~s", [MsgId, Message, Reason]);
+            ?ERROR("MsgId: ~s, failed to parse: ~p, reason: ~p", [MsgId, Message, Reason]);
         MessageXmlEl ->
             try
                 Packet = xmpp:decode(MessageXmlEl, ?NS_CLIENT, [ignore_els]),
