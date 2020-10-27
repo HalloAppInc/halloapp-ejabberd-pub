@@ -19,6 +19,7 @@
 -include("ejabberd_sm.hrl").
 
 -define(MESSAGE_RESPONSE_TIMEOUT_MILLISEC, 30000).  %% 30 seconds.
+-define(MAX_RETRY_COUNT, 10).
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
@@ -197,13 +198,12 @@ route_offline_messages(#jid{luser = UserId, lserver = _ServerHost}) ->
     {ok, OfflineMessages} = model_messages:get_all_user_messages(UserId),
     ?INFO("Uid: ~s has ~p offline messages", [UserId, length(OfflineMessages)]),
     % TODO: We need to rate limit the number of offline messages we send at once.
-    % TODO: Drop messages with high retry count
     % TODO: get metrics about the number of retries
-    lists:filter(fun filter_messages/1, OfflineMessages),
     lists:foreach(fun route_offline_message/1, OfflineMessages),
+    FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
     % TODO: maybe don't increment the retry count on all the messages
     % we can increment the retry count on just the first X
-    increment_retry_counts(UserId, OfflineMessages),
+    increment_retry_counts(UserId, FilteredOfflineMessages),
     ok.
 
 
@@ -234,7 +234,17 @@ route_offline_message(#offline_message{
 filter_messages(undefined) -> false;
 filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid, content_type = <<"event">>}) ->
     %% Filter out old pubsub messages.
+    ?INFO("Dropping old pubsub messages, Uid: ~p, msg_id: ~p", [Uid, MsgId]),
     model_messages:ack_message(Uid, MsgId),
+    stat:count("HA/offline_messages", "drop"),
+    false;
+filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid,
+        retry_count = RetryCount, message = Message})
+        when RetryCount >= ?MAX_RETRY_COUNT ->
+    ?WARNING("Dropping offline message after max retries, Uid: ~p, msg_id: ~p, message: ~p",
+            [Uid, MsgId, Message]),
+    model_messages:ack_message(Uid, MsgId),
+    stat:count("HA/offline_messages", "drop"),
     false;
 filter_messages(_) -> true.
 
