@@ -282,7 +282,7 @@ is_valid_prometheus_metric(PName, Tags) ->
 
 -spec is_valid_prometheus_name(Word :: iodata()) -> true | false.
 is_valid_prometheus_name(Word) when is_atom(Word) ->
-    is_valid_prometheus_name(atom_to_binary(Word));
+    is_valid_prometheus_name(atom_to_binary(Word, utf8));
 is_valid_prometheus_name(Word) ->
     ValidRE = "^[a-zA-Z_:][a-zA-Z0-9_:]*$",
     case re:run(Word, ValidRE, [{capture, none}]) of
