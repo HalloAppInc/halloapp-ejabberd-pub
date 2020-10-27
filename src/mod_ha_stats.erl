@@ -113,40 +113,40 @@ remove_friend(Uid, _Server, _ContactId) ->
 
 -spec user_send_packet({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
 user_send_packet({Packet, _State} = Acc) ->
-    stat:count("HA/user_send_packet", "packet"),
-    count_send_packet(Packet),
+    Action = "send",
+    Namespace = "HA/user_send_packet",
+    stat:count(Namespace, "packet"),
+    count_packet(Namespace, Action, Packet),
     Acc.
-
--spec count_send_packet(Packet :: stanza()) -> ok.
-count_send_packet(#ack{}) ->
-    stat:count("HA/user_send_packet", "ack");
-count_send_packet(#message{sub_els = [SubEl | _Rest]}) ->
-    stat:count("HA/user_send_packet", "message"),
-    case SubEl of
-        #chat{} ->
-            stat:count("HA/messaging", "send_im");
-        _ -> ok
-    end;
-count_send_packet(#presence{}) ->
-    stat:count("HA/user_send_packet", "presence");
-count_send_packet(#iq{}) ->
-    stat:count("HA/user_send_packet", "iq");
-count_send_packet(_Packet) ->
-    stat:count("HA/user_send_packet", "unknown"),
-    ok.
 
 
 -spec user_receive_packet({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
-user_receive_packet({#binary_message{} = _BinMessage, _State} = Acc) ->
-    stat:count("HA/user_receive_packet", "binary_message"),
-    Acc;
-user_receive_packet({#message{sub_els = [#receipt_seen{}]}, _State} = Acc) ->
-    stat:count("HA/im_receipts", "seen"),
-    Acc;
-user_receive_packet({#message{sub_els = [#receipt_response{}]}, _State} = Acc) ->
-    stat:count("HA/im_receipts", "received"),
-    Acc;
-user_receive_packet({_Packet, _State} = Acc) ->
-    % TODO: implement other types
+user_receive_packet({Packet, _State} = Acc) ->
+    Action = "receive",
+    Namespace = "HA/user_receive_packet",
+    stat:count(Namespace, "packet"),
+    count_packet(Namespace, Action, Packet),
     Acc.
+
+
+-spec count_packet(Namespace :: string(), Action :: string(), Packet :: stanza()) -> ok.
+count_packet(Namespace, _Action, #ack{}) ->
+    stat:count(Namespace, "ack");
+count_packet(Namespace, Action, #message{sub_els = [SubEl | _Rest]}) ->
+    stat:count(Namespace, "message"),
+    case SubEl of
+        #chat{} -> stat:count("HA/messaging", Action ++ "_im");
+        #receipt_seen{} -> stat:count("HA/im_receipts", Action ++ "_seen");
+        #receipt_response{} -> stat:count("HA/im_receipts", Action ++ "_received");
+        _ -> ok
+    end;
+count_packet(Namespace, _Action, #presence{}) ->
+    stat:count(Namespace, "presence");
+count_packet(Namespace, _Action, #iq{}) ->
+    stat:count(Namespace, "iq");
+count_packet(Namespace, _Action, #chat_state{}) ->
+    stat:count(Namespace, "chat_state");
+count_packet(Namespace, _Action, _Packet) ->
+    stat:count(Namespace, "unknown"),
+    ok.
 
