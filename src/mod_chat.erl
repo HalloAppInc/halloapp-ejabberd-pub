@@ -63,7 +63,7 @@ user_send_packet({#message{id = MsgId} = Packet, State} = _Acc) ->
     NewPacket = if
         FromUid =:= <<>> ->
             Packet;
-        not is_record(SubEl, chat) ->
+        not is_record(SubEl, chat) andalso not is_record(SubEl, silent_chat) ->
             Packet;
         true ->
             set_sender_name(Packet)
