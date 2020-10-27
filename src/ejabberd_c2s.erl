@@ -231,6 +231,8 @@ process_info(#{lserver := LServer} = State, {route, Packet}) ->
 			     {true, State}
 		     end,
     if Pass ->
+	    %% TODO(murali@): remove temp counts after clients transition.
+	    stat:count("HA/user_receive_packet", "xmpp"),
 	    {Packet1, State2} = ejabberd_hooks:run_fold(
 				  user_receive_packet, LServer,
 				  {Packet, State1}, []),
@@ -499,6 +501,8 @@ handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
     State1 = ejabberd_hooks:run_fold(c2s_authenticated_packet,
 				     LServer, State, [Pkt1]),
     #jid{luser = _LUser} = JID,
+    %% TODO(murali@): remove temp counts after clients transition.
+    stat:count("HA/user_send_packet", "xmpp"),
     {Pkt2, State2} = ejabberd_hooks:run_fold(
 		       user_send_packet, LServer, {Pkt1, State1}, []),
     case Pkt2 of
