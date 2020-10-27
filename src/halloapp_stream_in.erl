@@ -716,6 +716,9 @@ send_pkt(State, XmppPkt) ->
                     SocketData;
                 {ok, fast_tls} ->
                     #{socket := SocketData} = State,
+                    SocketData;
+                {error, _} ->
+                    #{socket := SocketData} = State,
                     SocketData
             end,
             NewState = State#{socket => Socket1},
