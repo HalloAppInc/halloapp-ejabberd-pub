@@ -197,6 +197,7 @@ reset_stream(#socket_state{pb_stream = PBStream, sockmod = SockMod,
     end.
 
 
+%% TODO(murali@): Update the log levels when printing the packet to be debug eventually.
 -spec send_element(SocketData :: socket_state(), Pkt :: pb_packet()) -> 
     {ok, fast_tls} | {ok, noise, #socket_state{}} | ok | {error, inet:posix()}.
 send_element(#socket_state{sockmod = SockMod} = SocketData, Pkt) ->
@@ -208,10 +209,10 @@ send_element(#socket_state{sockmod = SockMod} = SocketData, Pkt) ->
         fast_tls -> 
             PktSize = byte_size(FinalPkt),
             FinalData = <<PktSize:32/big, FinalPkt/binary>>,
-            ?DEBUG("send: protobuf with size: ~p, via tls", [FinalData]),
+            ?INFO("send: protobuf with size: ~p, via tls", [FinalData]),
             FinalData;
         ha_enoise -> 
-            ?DEBUG("send: protobuf: ~p, via noise (size will be added by ha_enoise)", [FinalPkt]),
+            ?INFO("send: protobuf: ~p, via noise (size will be added by ha_enoise)", [FinalPkt]),
             FinalPkt
     end,
     send(SocketData, FinalData1).
@@ -403,7 +404,7 @@ parse(SocketData, Data) when is_binary(Data) ->
 parse_pb_data(#socket_state{pb_stream = PBStream, socket = _Socket,
         shaper = _ShaperState} = SocketData, Data) when is_binary(Data) ->
     FinalData = <<PBStream/binary, Data/binary>>,
-    ?DEBUG("(~s) Parsing data = ~p", [pp(SocketData), FinalData]),
+    ?INFO("(~s) Parsing data = ~p", [pp(SocketData), FinalData]),
     {ok, FinalSocketData} = case byte_size(FinalData) > 4 of
         true ->
             <<_ControlByte:8, PacketSize:24, Rest/binary>> = FinalData,
