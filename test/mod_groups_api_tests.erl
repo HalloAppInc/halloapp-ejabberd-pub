@@ -8,6 +8,7 @@
 
 -include("xmpp.hrl").
 -include("groups.hrl").
+-include("feed.hrl").
 -include("groups_test_data.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -517,13 +518,11 @@ publish_group_feed_test() ->
             ok
         end),
 
-    GroupInfo = model_groups:get_group_info(Gid),
-
     PostSt = make_group_post_st(?ID1, <<>>, <<>>, ?PAYLOAD1, undefined),
     CommentSt = undefined,
     GroupFeedSt = make_group_feed_st(Gid, <<>>, undefined, publish, PostSt, CommentSt),
     GroupFeedIq = make_group_feed_iq(?UID1, GroupFeedSt),
-    ResultIQ = mod_groups_api:process_local_iq(GroupFeedIq),
+    ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 
     [SubEl] = ResultIQ#iq.sub_els,
     ?assertEqual(result, ResultIQ#iq.type),
@@ -532,6 +531,14 @@ publish_group_feed_test() ->
     ?assertNotEqual(undefined, SubEl#group_feed_st.post#group_post_st.timestamp),
     ?assert(meck:validate(ejabberd_router_multicast)),
     meck:unload(ejabberd_router_multicast),
+
+    {ok, Post} = model_feed:get_post(?ID1),
+    ?assertEqual(?ID1, Post#post.id),
+    ?assertEqual(?UID1, Post#post.uid),
+    ?assertEqual(?PAYLOAD1, Post#post.payload),
+    ?assertEqual(group, Post#post.audience_type),
+    ?assertEqual(lists:sort([?UID1, ?UID2, ?UID3]), lists:sort(Post#post.audience_list)),
+    ?assertEqual(Gid, Post#post.gid),
     ok.
 
 
@@ -540,6 +547,10 @@ retract_group_feed_test() ->
 
     % First create the group and set the avatar
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+
+    Timestamp = util:now_ms(),
+    ok = model_feed:publish_post(?ID2, ?UID1, <<>>, all, [?UID1, ?UID2, ?UID3], Timestamp, Gid),
+    ok = model_feed:publish_comment(?ID1, ?ID2, ?UID2, <<>>, [?UID1, ?UID2], <<>>, Timestamp),
 
     meck:new(ejabberd_router_multicast, [passthrough]),
     meck:expect(ejabberd_router_multicast, route_multicast,
@@ -555,13 +566,11 @@ retract_group_feed_test() ->
             ok
         end),
 
-    GroupInfo = model_groups:get_group_info(Gid),
-
     PostSt = undefined,
-    CommentSt = make_group_comment_st(?ID1, ?ID1, <<>>, <<>>, <<>>, <<>>, undefined),
+    CommentSt = make_group_comment_st(?ID1, ?ID2, <<>>, <<>>, <<>>, <<>>, undefined),
     GroupFeedSt = make_group_feed_st(Gid, <<>>, undefined, retract, PostSt, CommentSt),
     GroupFeedIq = make_group_feed_iq(?UID2, GroupFeedSt),
-    ResultIQ = mod_groups_api:process_local_iq(GroupFeedIq),
+    ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 
     [SubEl] = ResultIQ#iq.sub_els,
     ?assertEqual(result, ResultIQ#iq.type),
@@ -570,5 +579,9 @@ retract_group_feed_test() ->
     ?assertNotEqual(undefined, SubEl#group_feed_st.comment#group_comment_st.timestamp),
     ?assert(meck:validate(ejabberd_router_multicast)),
     meck:unload(ejabberd_router_multicast),
+
+    ?assertEqual({error, missing}, model_feed:get_comment(?ID1, ?ID2)),
     ok.
+
+%% TODO(murali@): add more unit tests here.
 

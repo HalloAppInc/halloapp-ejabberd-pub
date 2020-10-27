@@ -74,10 +74,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         sub_els = [#feed_st{action = publish = Action, posts = [], comments = [Comment]}]} = IQ) ->
     CommentId = Comment#comment_st.id,
     PostId = Comment#comment_st.post_id,
-    ParentCommentId = case Comment#comment_st.parent_comment_id of
-        undefined -> <<>>;
-        ParentId -> ParentId
-    end,
+    ParentCommentId = Comment#comment_st.parent_comment_id,
     Payload = Comment#comment_st.payload,
     PostUid = Comment#comment_st.post_uid,
     case publish_comment(Uid, CommentId, PostId, PostUid, ParentCommentId, Payload) of
@@ -107,10 +104,11 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
     CommentId = Comment#comment_st.id,
     PostId = Comment#comment_st.post_id,
     PostUid = Comment#comment_st.post_uid,
+    ParentCommentId = Comment#comment_st.parent_comment_id,
     case retract_comment(Uid, CommentId, PostId, PostUid) of
         {ok, ResultTsMs} ->
             SubEl = make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
-                    <<>>, Uid, <<>>, ResultTsMs),
+                    ParentCommentId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
             xmpp:make_error(IQ, util:err(Reason))
@@ -177,7 +175,7 @@ broadcast_post(Action, PostId, Uid, Payload, TimestampMs, FeedAudienceList) ->
 
 -spec publish_comment(Uid :: uid(), CommentId :: binary(), PostId :: binary(), PostUid :: binary(),
         ParentCommentId :: binary(), Payload :: binary()) -> {ok, integer()} | {error, any()}.
-publish_comment(PublisherUid, CommentId, PostId, PostUid, ParentCommentId, Payload) ->
+publish_comment(PublisherUid, CommentId, PostId, _PostUid, ParentCommentId, Payload) ->
     ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = publish,
@@ -256,7 +254,7 @@ retract_comment(PublisherUid, CommentId, PostId, PostUid) ->
     ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = retract,
-    case model_feed:get_comment_data(PostId, CommentId, <<>>) of
+    case model_feed:get_comment_data(PostId, CommentId, undefined) of
         [{error, missing}, _, _] ->
             {error, <<"invalid_post_id">>};
         [{ok, _Post}, {error, _}, _] ->
@@ -267,12 +265,13 @@ retract_comment(PublisherUid, CommentId, PostId, PostUid) ->
                 true ->
                     TimestampMs = util:now_ms(),
                     PostOwnerUid = Post#post.uid,
+                    ParentCommentId = Comment#comment.parent_id,
                     ok = model_feed:retract_comment(CommentId, PostId),
 
                     %% send a new api message to all the clients.
                     FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
-                    ResultStanza = make_feed_comment_stanza(Action, CommentId, PostId, PostUid, <<>>,
-                            PublisherUid, <<>>, TimestampMs),
+                    ResultStanza = make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
+                            ParentCommentId, PublisherUid, <<>>, TimestampMs),
                     PushSet = sets:new(),
                     broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
                     ejabberd_hooks:run(feed_item_retracted, Server, [PublisherUid, CommentId, comment]),

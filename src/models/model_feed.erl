@@ -135,10 +135,11 @@ publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, Timestamp
 publish_comment(CommentId, PostId, PublisherUid,
         ParentCommentId, PushList, Payload, TimestampMs) ->
     {ok, TTL} = q(["TTL", post_key(PostId)]),
+    ParentCommentIdValue = util_redis:encode_maybe_binary(ParentCommentId),
     [{ok, _}, {ok, _}, {ok, _}, {ok, _}] = qp([
             ["HSET", comment_key(CommentId, PostId),
                 ?FIELD_PUBLISHER_UID, PublisherUid,
-                ?FIELD_PARENT_COMMENT_ID, ParentCommentId,
+                ?FIELD_PARENT_COMMENT_ID, ParentCommentIdValue,
                 ?FIELD_PAYLOAD, Payload,
                 ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)],
             ["SADD", comment_push_list_key(CommentId, PostId) | PushList],
@@ -262,7 +263,8 @@ get_comment(CommentId, PostId) ->
         false -> {ok, #comment{
             id = CommentId,
             post_id = PostId,
-            publisher_uid = PublisherUid, parent_id = ParentCommentId,
+            publisher_uid = PublisherUid,
+            parent_id = util_redis:decode_maybe_binary(ParentCommentId),
             payload = Payload,
             ts_ms = util_redis:decode_ts(TimestampMs)}}
     end.
@@ -286,7 +288,7 @@ get_post_and_its_comments(PostId) when is_binary(PostId) ->
         ParentId :: binary()) -> [{ok, feed_item()}] | {error, any()}.
 get_comment_data(PostId, CommentId, ParentId) ->
     PushListCommands = case ParentId of
-        <<>> -> [];
+        undefined -> [];
         _ -> [["SMEMBERS", comment_push_list_key(ParentId, PostId)]]
     end,
     [{ok, Res1}, {ok, Res2}, {ok, Res3} | Rest] = qp([
@@ -316,7 +318,7 @@ get_comment_data(PostId, CommentId, ParentId) ->
         id = CommentId,
         post_id = PostId,
         publisher_uid = CommentPublisherUid,
-        parent_id = ParentCommentId,
+        parent_id = util_redis:decode_maybe_binary(ParentCommentId),
         payload = CommentPayload,
         ts_ms = util_redis:decode_ts(CommentTsMs)
     },
@@ -352,15 +354,13 @@ get_comment_data(PostId, CommentId, ParentId) ->
 %% Returns a list of uids to send a push notification for when replying to commentId on postId.
 -spec get_comment_push_data(CommentId :: binary(), PostId :: binary()) -> [binary()].
 get_comment_push_data(undefined, PostId) ->
-    ?ERROR("Invalid parent_id here for post: ~p", [PostId]),
-    [];
-get_comment_push_data(<<>>, PostId) ->
     {ok, PostUid} = q(["HGET", post_key(PostId), ?FIELD_UID]),
     [PostUid];
 get_comment_push_data(CommentId, PostId) ->
     {ok, [CommentPublisherUid, ParentCommentId]} = q(
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID]),
-    ParentCommentPushData = get_comment_push_data(ParentCommentId, PostId),
+    ParentCommentIdValue = util_redis:decode_maybe_binary(ParentCommentId),
+    ParentCommentPushData = get_comment_push_data(ParentCommentIdValue, PostId),
     [CommentPublisherUid | ParentCommentPushData].
 
 
@@ -517,12 +517,14 @@ get_posts_comments(PostIds) ->
 %% encode function should not allow any other values and crash here.
 encode_audience_type(all) -> <<"a">>;
 encode_audience_type(except) -> <<"e">>;
-encode_audience_type(only) -> <<"o">>.
+encode_audience_type(only) -> <<"o">>;
+encode_audience_type(group) -> <<"g">>.
 
 %% decode function should be able to handle undefined, since post need not exist.
 decode_audience_type(<<"a">>) -> all;
 decode_audience_type(<<"e">>) -> except;
 decode_audience_type(<<"o">>) -> only;
+decode_audience_type(<<"g">>) -> group;
 decode_audience_type(_) -> undefined.
 
 

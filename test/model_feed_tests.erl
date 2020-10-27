@@ -103,7 +103,7 @@ publish_comment_test() ->
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
     ?assertEqual({error, missing}, model_feed:get_comment(?COMMENT_ID1, ?POST_ID1)),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+            ?UID1, undefined, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
     ExpectedComment = get_comment1(Timestamp1),
     {ok, ActualComment} = model_feed:get_comment(?COMMENT_ID1, ?POST_ID1),
     ?assertEqual(ExpectedComment, ActualComment),
@@ -117,7 +117,7 @@ retract_post_test() ->
     ?assertEqual(false, model_feed:is_post_deleted(?POST_ID1)),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+            ?UID1, undefined, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
 
     ?assertEqual(false, model_feed:is_post_deleted(?POST_ID1)),
     ok = model_feed:retract_post(?POST_ID1, ?UID1),
@@ -140,7 +140,7 @@ retract_comment_test() ->
     Timestamp1 = util:now_ms(),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+            ?UID1, undefined, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
 
     ok = model_feed:retract_comment(?COMMENT_ID1, ?POST_ID1),
     ?assertEqual({error, missing}, model_feed:get_comment(?COMMENT_ID1, ?POST_ID1)),
@@ -152,18 +152,18 @@ get_comment_data_test() ->
     Timestamp1 = util:now_ms(),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+            ?UID1, undefined, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
     Post1 = get_post1(Timestamp1),
     Comment1 = get_comment1(Timestamp1),
     ?assertEqual(
         [{ok, Post1}, {ok, Comment1}, {ok, [?UID1]}],
-        model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID1, <<>>)),
+        model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID1, undefined)),
     ?assertEqual(
         [{ok, Post1}, {error, missing}, {ok, [?UID1]}],
-        model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID2, <<>>)),
+        model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID2, undefined)),
     ?assertEqual(
         [{error, missing}, {error, missing}, {error, missing}],
-        model_feed:get_comment_data(?POST_ID2, ?COMMENT_ID4, <<>>)),
+        model_feed:get_comment_data(?POST_ID2, ?COMMENT_ID4, undefined)),
     ok.
 
 
@@ -172,12 +172,12 @@ get_comment_push_data_test() ->
     Timestamp1 = util:now_ms(),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID3, <<>>, [?UID3, ?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+            ?UID3, undefined, [?UID3, ?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
             ?UID2, ?COMMENT_ID1, [?UID1, ?UID2, ?UID3], ?COMMENT_PAYLOAD2, Timestamp1),
 
-    [_, _, {ok, Comment0PushList1}] = model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID1, <<>>),
-    Comment0PushList2 = model_feed:get_comment_push_data(<<>>, ?POST_ID1),
+    [_, _, {ok, Comment0PushList1}] = model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID1, undefined),
+    Comment0PushList2 = model_feed:get_comment_push_data(undefined, ?POST_ID1),
     Comment0UidsList = [?UID1],
     ?assertEqual(lists:sort(Comment0UidsList), lists:sort(Comment0PushList1)),
     ?assertEqual(lists:sort(Comment0UidsList), lists:sort(Comment0PushList2)),
@@ -214,7 +214,7 @@ get_post_and_its_comments_test() ->
 
     %% Publish 1st comment and check.
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+            ?UID1, undefined, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
     {ok, {Post1, ActualComments1}} = model_feed:get_post_and_its_comments(?POST_ID1),
     ?assertEqual(lists:sort([Comment1]), ActualComments1),
 
@@ -237,7 +237,7 @@ comment_subs_test() ->
     Timestamp1 = util:now_ms(),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+            ?UID1, undefined, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
             ?UID2, ?COMMENT_ID1, [?UID1, ?UID2], ?COMMENT_PAYLOAD2, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
@@ -250,7 +250,7 @@ comment_subs_test() ->
 
     ?assertEqual(
         [{ok, Post1}, {ok, Comment1}, {ok, [?UID1]}],
-        model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID1, <<>>)),
+        model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID1, undefined)),
     ?assertEqual(
         [{ok, Post1}, {ok, Comment2}, {ok, [?UID1]}],
         model_feed:get_comment_data(?POST_ID1, ?COMMENT_ID2, ?COMMENT_ID1)),
@@ -266,7 +266,7 @@ get_user_feed_test() ->
     Timestamp2 = util:now_ms(),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+            ?UID1, undefined, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
             ?UID2, ?COMMENT_ID1, [?UID1, ?UID2], ?COMMENT_PAYLOAD2, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
@@ -274,11 +274,11 @@ get_user_feed_test() ->
 
     ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, except, [?UID2], Timestamp2),
     ok = model_feed:publish_comment(?COMMENT_ID4, ?POST_ID2,
-            ?UID2, <<>>, [?UID1, ?UID2], ?COMMENT_PAYLOAD4, Timestamp2),
+            ?UID2, undefined, [?UID1, ?UID2], ?COMMENT_PAYLOAD4, Timestamp2),
 
     ok = model_feed:publish_post(?POST_ID3, ?UID1, ?PAYLOAD3, except, [?UID2], Timestamp2, ?GID1),
     ok = model_feed:publish_comment(?COMMENT_ID5, ?POST_ID3,
-            ?UID2, <<>>, [?UID1, ?UID2], ?COMMENT_PAYLOAD5, Timestamp2),
+            ?UID2, undefined, [?UID1, ?UID2], ?COMMENT_PAYLOAD5, Timestamp2),
 
     Post1 = get_post1(Timestamp1),
     Comment1 = get_comment1(Timestamp1),
@@ -305,7 +305,7 @@ get_group_feed_test() ->
     Timestamp2 = util:now_ms(),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1, ?GID1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+            ?UID1, undefined, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
             ?UID2, ?COMMENT_ID1, [?UID1, ?UID2], ?COMMENT_PAYLOAD2, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
@@ -313,11 +313,11 @@ get_group_feed_test() ->
 
     ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, except, [?UID2], Timestamp2, ?GID1),
     ok = model_feed:publish_comment(?COMMENT_ID4, ?POST_ID2,
-            ?UID2, <<>>, [?UID1, ?UID2], ?COMMENT_PAYLOAD4, Timestamp2),
+            ?UID2, undefined, [?UID1, ?UID2], ?COMMENT_PAYLOAD4, Timestamp2),
 
     ok = model_feed:publish_post(?POST_ID3, ?UID1, ?PAYLOAD3, except, [?UID2], Timestamp2),
     ok = model_feed:publish_comment(?COMMENT_ID5, ?POST_ID3,
-            ?UID2, <<>>, [?UID1, ?UID2], ?COMMENT_PAYLOAD5, Timestamp2),
+            ?UID2, undefined, [?UID1, ?UID2], ?COMMENT_PAYLOAD5, Timestamp2),
 
     Post1 = get_post1(?GID1, Timestamp1),
     Comment1 = get_comment1(Timestamp1),
@@ -345,7 +345,7 @@ cleanup_reverse_index_test() ->
     Timestamp2 = util:now_ms(),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+            ?UID1, undefined, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
             ?UID2, ?COMMENT_ID1, [?UID1, ?UID2], ?COMMENT_PAYLOAD2, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
@@ -353,7 +353,7 @@ cleanup_reverse_index_test() ->
 
     ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, except, [?UID2], Timestamp2),
     ok = model_feed:publish_comment(?COMMENT_ID4, ?POST_ID2,
-            ?UID2, <<>>, [?UID1, ?UID2], ?COMMENT_PAYLOAD4, Timestamp2),
+            ?UID2, undefined, [?UID1, ?UID2], ?COMMENT_PAYLOAD4, Timestamp2),
 
     ok = model_feed:cleanup_reverse_index(?UID1),
 
@@ -377,7 +377,7 @@ cleanup_group_reverse_index_test() ->
     Timestamp2 = util:now_ms(),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1, ?GID1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+            ?UID1, undefined, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
             ?UID2, ?COMMENT_ID1, [?UID1, ?UID2], ?COMMENT_PAYLOAD2, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
@@ -385,7 +385,7 @@ cleanup_group_reverse_index_test() ->
 
     ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, except, [?UID2], Timestamp2, ?GID1),
     ok = model_feed:publish_comment(?COMMENT_ID4, ?POST_ID2,
-            ?UID2, <<>>, [?UID1, ?UID2], ?COMMENT_PAYLOAD4, Timestamp2),
+            ?UID2, undefined, [?UID1, ?UID2], ?COMMENT_PAYLOAD4, Timestamp2),
 
     ok = model_feed:cleanup_group_reverse_index(?GID1),
 
@@ -469,7 +469,7 @@ get_comment1(Timestamp) ->
         id = ?COMMENT_ID1,
         post_id = ?POST_ID1,
         publisher_uid = ?UID1,
-        parent_id = <<>>,
+        parent_id = undefined,
         payload = ?COMMENT_PAYLOAD1,
         ts_ms = Timestamp
     }.
@@ -499,7 +499,7 @@ get_comment4(Timestamp) ->
         id = ?COMMENT_ID4,
         post_id = ?POST_ID2,
         publisher_uid = ?UID2,
-        parent_id = <<>>,
+        parent_id = undefined,
         payload = ?COMMENT_PAYLOAD4,
         ts_ms = Timestamp
     }.
@@ -509,7 +509,7 @@ get_comment5(Timestamp) ->
         id = ?COMMENT_ID5,
         post_id = ?POST_ID3,
         publisher_uid = ?UID2,
-        parent_id = <<>>,
+        parent_id = undefined,
         payload = ?COMMENT_PAYLOAD5,
         ts_ms = Timestamp
     }.

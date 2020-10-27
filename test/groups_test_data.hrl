@@ -42,6 +42,7 @@
 -define(TIMESTAMP, 50).
 
 -define(ID1, <<"id1">>).
+-define(ID2, <<"id2">>).
 
 -define(PAYLOAD1, <<"payload1">>).
 

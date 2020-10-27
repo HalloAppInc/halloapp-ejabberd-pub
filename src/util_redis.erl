@@ -13,6 +13,8 @@
 -export([
     decode_ts/1,
     decode_int/1,
+    decode_maybe_binary/1,
+    encode_maybe_binary/1,
     q/2,
     qp/2
 ]).
@@ -27,6 +29,16 @@ decode_int(Bin) ->
         undefined -> undefined;
         _ -> binary_to_integer(Bin)
     end.
+
+
+-spec decode_maybe_binary(Bin :: binary()) -> undefined | binary().
+decode_maybe_binary(<<>>) -> undefined;
+decode_maybe_binary(Bin) -> Bin.
+
+
+-spec encode_maybe_binary(Bin :: undefined | binary()) -> binary().
+encode_maybe_binary(undefined) -> <<>>;
+encode_maybe_binary(Bin) -> Bin.
 
 
 q(Client, Command) ->

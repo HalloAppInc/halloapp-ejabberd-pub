@@ -506,6 +506,8 @@ get_push_type(#message{type = normal, sub_els = [#feed_st{}]}, _) -> silent;
 get_push_type(#message{type = groupchat, sub_els = [#group_chat{}]}, _) -> alert;
 get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{post = #group_post_st{}}]}, _) -> alert;
 get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{comment = #group_comment_st{}}]}, _) -> silent;
+get_push_type(#message{type = headline, sub_els = [#group_feed_st{}]}, _) -> alert;
+get_push_type(#message{type = normal, sub_els = [#group_feed_st{}]}, _) -> silent;
 get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, chat) -> alert;
 get_push_type(#message{type = MsgType, sub_els = [SubElement]}, _)
       when is_record(SubElement, contact_list) ->
