@@ -256,11 +256,38 @@ get_prometheus_metrics_internal(#{prom_map := PromMap}) ->
                 {pmetric, PName, Tags} = K,
                 TagsStrList = [util:to_list(TK) ++ "=\"" ++ util:to_list(TV) ++ "\"" || {TK, TV} <- Tags],
                 TagsStr = string:join(TagsStrList, ","),
-                Line = [PName, "{", TagsStr, "} ", integer_to_list(V), "\n"],
-                [Line | Acc]
+                case is_valid_prometheus_metric(PName, Tags) of
+                    true ->
+                        Line = [PName, "{", TagsStr, "} ", integer_to_list(V), "\n"],
+                        [Line | Acc];
+                    false ->
+                        Acc
+                end
             end,
             [],
             PromMap)).
+
+is_valid_prometheus_metric(PName, Tags) ->
+    IsNameValid = is_valid_prometheus_name(PName),
+    case IsNameValid of
+        false -> false;
+        true ->
+            lists:all(lists:map(
+                fun ({TK, TV}) ->
+                    is_valid_prometheus_name(TK) andalso is_valid_prometheus_name(TV)
+                end,
+                Tags
+            ))
+    end.
+
+-spec is_valid_prometheus_name(Word :: iodata()) -> true | false.
+is_valid_prometheus_name(Word) ->
+    ValidRE = "^[a-zA-Z_:][a-zA-Z0-9_:]*$",
+    case re:run(Word, ValidRE, [{capture, none}]) of
+        match -> true;
+        nomatch -> false
+    end.
+
 
 -spec get_prom_name(Namespace :: string(), Metric :: string()) -> string().
 get_prom_name(Namespace, Metric) ->
