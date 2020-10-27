@@ -12,6 +12,7 @@
 -behavior(gen_mod).
 
 -include("invites.hrl").
+-include("logger.hrl").
 -include("time.hrl").
 -include("translate.hrl").
 -include("xmpp.hrl").
@@ -66,6 +67,7 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
         true ->
             InvsRem = get_invites_remaining(Uid),
             Time = get_time_until_refresh(),
+            ?INFO("Uid: ~s has ~p invites left, next invites at ~p", [Uid, InvsRem, Time]),
             Result = #invites{
                 invites_left = InvsRem,
                 time_until_refresh = Time
@@ -82,6 +84,7 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
         true ->
             stat:count(?NS_INVITE_STATS, "requests"),
             PhoneList = [P#invite.phone || P <- InviteList],
+            ?INFO("Uid: ~s inviting ~p", [Uid, PhoneList]),
             Results = lists:map(fun(Phone) -> request_invite(Uid, Phone) end, PhoneList),
             NewInviteList = [#invite{phone = Ph, result = Res, reason = Rea} || {Ph, Res, Rea} <- Results],
             Ret = #invites{
@@ -135,12 +138,16 @@ get_time_until_refresh(CurrEpochTime) ->
 request_invite(FromUid, ToPhoneNum) ->
     case can_send_invite(FromUid, ToPhoneNum) of
         {error, already_invited} ->
+            ?INFO("Uid: ~s Phone: ~s already_invited", [FromUid, ToPhoneNum]),
             stat:count(?NS_INVITE_STATS, "invite_duplicate"),
             {ToPhoneNum, ok, undefined};
         {error, Reason} ->
+            ?INFO("Uid: ~s Phone: ~s error ~p", [FromUid, ToPhoneNum, Reason]),
             stat:count(?NS_INVITE_STATS, "invite_error_" ++ atom_to_list(Reason)),
             {ToPhoneNum, failed, Reason};
         {ok, InvitesLeft, NormalizedPhone} ->
+            ?INFO("Uid: ~s Phone: ~s invite successful, ~p invites left",
+                [FromUid, ToPhoneNum, InvitesLeft]),
             stat:count(?NS_INVITE_STATS, "invite_success"),
             model_invites:record_invite(FromUid, NormalizedPhone, InvitesLeft - 1),
             {ToPhoneNum, ok, undefined}
