@@ -102,7 +102,7 @@ process_count(#count_st{namespace = Namespace, metric = Metric, count = Count, d
         validate_namespace(FullNamespace),
         Tags = dims_st_to_tags(DimsSt),
         % TODO: make sure to override duplicate keys in Tags with ServerTags
-        stat:count_d(binary_to_list(FullNamespace), binary_to_list(Metric), Count, Tags ++ ServerTags),
+        stat:count(binary_to_list(FullNamespace), binary_to_list(Metric), Count, Tags ++ ServerTags),
         ok
     catch
         error : bad_namespace : _ ->

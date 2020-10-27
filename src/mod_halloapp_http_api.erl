@@ -322,7 +322,7 @@ finish_registration(Phone, Name, UserAgent) ->
     %% Action = login, updates the password.
     %% Action = register, creates a new user id and registers the user for the first time.
     %% Note: We don't need to clear the push token in either of login/register case. 
-    stat:count_d("HA/account", "registration_by_client_type",
+    stat:count("HA/account", "registration_by_client_type", 1,
         [{client_type, util_ua:get_client_type(UserAgent)}]),
     {ok, Phone, Uid, Password}.
 
@@ -333,7 +333,7 @@ finish_registration_spub(Phone, Name, UserAgent, SPub) ->
     %% Action = login, updates the password.
     %% Action = register, creates a new user id and registers the user for the first time.
     %% Note: We don't need to clear the push token in either of login/register case. 
-    stat:count_d("HA/account", "registration_by_client_type",
+    stat:count("HA/account", "registration_by_client_type", 1,
         [{client_type, util_ua:get_client_type(UserAgent)}]),
     {ok, Phone, Uid}.
 

@@ -28,8 +28,7 @@
 -export([
     count/2,
     count/3,
-    count_d/3,
-    count_d/4,
+    count/4,
     gauge/3,
     gauge/4,
     get_prometheus_metrics/0,
@@ -94,17 +93,15 @@ count(Namespace, Metric) ->
 
 -spec count(Namespace :: string(), Metric :: string(), Value :: integer()) -> ok.
 count(Namespace, Metric, Value) ->
-    gen_server:cast(get_proc(), {count, Namespace, Metric, Value}).
+    count(Namespace, Metric, Value, []).
 
 
--spec count_d(Namespace :: string(), Metric :: string(), Tags :: [tag()]) -> ok.
-count_d(Namespace, Metric, Tags) ->
-    count_d(Namespace, Metric, 1, Tags).
-
-
--spec count_d(Namespace :: string(), Metric :: string(), Value :: integer(), Tags :: [tag()]) -> ok.
-count_d(Namespace, Metric, Value, Tags) ->
-    gen_server:cast(get_proc(), {count_d, Namespace, Metric, Value, Tags}).
+-spec count(Namespace :: string(), Metric :: string(), Value :: integer(), Tags :: [tag()]) -> ok.
+count(Namespace, Metric, Value, Tags) when is_atom(Metric) ->
+    ?WARNING("Metric is supposed to be list: ~p ~p", [Metric, Namespace]),
+    count(Namespace, atom_to_list(Metric), Value, Tags);
+count(Namespace, Metric, Value, Tags) when is_list(Metric) ->
+    gen_server:cast(get_proc(), {count, Namespace, Metric, Value, Tags}).
 
 
 -spec gauge(Namespace :: string(), Metric :: string(), Value :: integer()) -> ok.
@@ -115,6 +112,9 @@ gauge(Namespace, Metric, Value) ->
 % Used for metrics that can go up or down, like number of groups.
 % When new call is made for the same metric new value is stored.
 -spec gauge(Namespace :: string(), Metric :: string(), Value :: integer(), Tags :: [tag()]) -> ok.
+gauge(Namespace, Metric, Value, Tags) when is_atom(Metric) ->
+    ?WARNING("Metric is supposed to be list: ~p ~p", [Metric, Namespace]),
+    gauge(Namespace, atom_to_list(Metric), Value, Tags);
 gauge(Namespace, Metric, Value, Tags) ->
     gen_server:cast(get_proc(), {gauge, Namespace, Metric, Value, Tags}).
 
@@ -190,11 +190,7 @@ handle_call(_Message, _From, State) ->
     {reply, ok, State}.
 
 
-handle_cast({count, Namespace, Metric, Value}, State) ->
-    NewState = count_internal(State, Namespace, Metric, Value, []),
-    {noreply, NewState};
-
-handle_cast({count_d, Namespace, Metric, Value, Tags}, State) ->
+handle_cast({count, Namespace, Metric, Value, Tags}, State) ->
     NewState = count_internal(State, Namespace, Metric, Value, Tags),
     {noreply, NewState};
 
@@ -261,6 +257,7 @@ get_prometheus_metrics_internal(#{prom_map := PromMap}) ->
                         Line = [PName, "{", TagsStr, "} ", integer_to_list(V), "\n"],
                         [Line | Acc];
                     false ->
+                        ?WARNING("Invalid Prometheus name ~p ~p", [PName, Tags]),
                         Acc
                 end
             end,

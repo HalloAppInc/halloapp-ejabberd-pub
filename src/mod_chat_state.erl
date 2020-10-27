@@ -56,7 +56,7 @@ user_send_packet({#chat_state{thread_id = <<>>}, _} = Acc) ->
 user_send_packet({#chat_state{thread_id = ThreadId, thread_type = ThreadType} = 
         Packet, _State} = Acc) ->
     Type = Packet#chat_state.type,
-    stat:count_d("HA/chat_state", atom_to_list(Type), [{thread_type, ThreadType}]),
+    stat:count("HA/chat_state", atom_to_list(Type), 1, [{thread_type, ThreadType}]),
     ?INFO("thread_id: ~s, thread_type: ~s, type: ~s",
             [ThreadId, ThreadType, Type]),
     case ThreadType of

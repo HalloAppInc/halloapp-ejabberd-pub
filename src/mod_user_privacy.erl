@@ -148,13 +148,13 @@ remove_user(Uid, _Server) ->
         HashValue :: binary(), UidEls :: list(binary())) -> ok | {error, any(), any()}.
 update_privacy_type(Uid, all = Type, _HashValue, []) ->
     set_privacy_type(Uid, Type),
-    stat:count(?STAT_PRIVACY, Type),
+    stat:count(?STAT_PRIVACY, "all"),
     ok;
 update_privacy_type(Uid, Type, HashValue, UidEls) when Type =:= except; Type =:= only ->
     case update_privacy_list(Uid, Type, HashValue, UidEls) of
         ok ->
             set_privacy_type(Uid, Type),
-            stat:count(?STAT_PRIVACY, Type),
+            stat:count(?STAT_PRIVACY, atom_to_list(Type)),
             ok;
         {error, _Reason, _ServerHashValue} = Error ->
             Error
@@ -237,19 +237,19 @@ compute_hash_value(Uid, Type, DeleteUids, AddUids) ->
         Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
 remove_uids_from_privacy_list(Uid, except, Ouids) ->
     model_privacy:remove_except_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, remove_except, length(Ouids)),
+    stat:count(?STAT_PRIVACY, "remove_except", length(Ouids)),
     ok;
 remove_uids_from_privacy_list(Uid, only, Ouids) ->
     model_privacy:remove_only_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, remove_only, length(Ouids)),
+    stat:count(?STAT_PRIVACY, "remove_only", length(Ouids)),
     ok;
 remove_uids_from_privacy_list(Uid, mute, Ouids) ->
     model_privacy:unmute_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, unmute, length(Ouids)),
+    stat:count(?STAT_PRIVACY, "unmute", length(Ouids)),
     ok;
 remove_uids_from_privacy_list(Uid, block, Ouids) ->
     model_privacy:unblock_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, unblock, length(Ouids)),
+    stat:count(?STAT_PRIVACY, "unblock", length(Ouids)),
     Server = util:get_host(),
     ejabberd_hooks:run(unblock_uids, Server, [Uid, Server, Ouids]).
 
@@ -258,22 +258,22 @@ remove_uids_from_privacy_list(Uid, block, Ouids) ->
         Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
 add_uids_to_privacy_list(Uid, except, Ouids) ->
     model_privacy:add_except_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, add_except, length(Ouids)),
+    stat:count(?STAT_PRIVACY, "add_except", length(Ouids)),
     ok;
 add_uids_to_privacy_list(Uid, only, Ouids) ->
     model_privacy:add_only_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, add_only, length(Ouids)),
+    stat:count(?STAT_PRIVACY, "add_only", length(Ouids)),
     ok;
 add_uids_to_privacy_list(Uid, mute, Ouids) ->
     model_privacy:mute_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, mute, length(Ouids)),
+    stat:count(?STAT_PRIVACY, "mute", length(Ouids)),
     ok;
 add_uids_to_privacy_list(Uid, block, Ouids) ->
     model_privacy:remove_only_uids(Uid, Ouids),
     Server = util:get_host(),
     ejabberd_hooks:run(block_uids, Server, [Uid, Server, Ouids]),
     model_privacy:block_uids(Uid, Ouids),
-    stat:count(?STAT_PRIVACY, block, length(Ouids)),
+    stat:count(?STAT_PRIVACY, "block", length(Ouids)),
     ok.
 
 
@@ -309,9 +309,9 @@ extract_uid(#uid_el{uid = Uid}) -> Uid.
 -spec log_counters(ServerHashValue :: binary(), ClientHashValue :: binary() | undefined) -> ok.
 log_counters(_, undefined) ->
     ?WARNING("ClientHashValue is undefined"),
-    stat:count(?STAT_PRIVACY, hash_undefined);
+    stat:count(?STAT_PRIVACY, "hash_undefined");
 log_counters(Hash, Hash) ->
-    stat:count(?STAT_PRIVACY, hash_match);
+    stat:count(?STAT_PRIVACY, "hash_match");
 log_counters(_, _) ->
-    stat:count(?STAT_PRIVACY, hash_mismatch).
+    stat:count(?STAT_PRIVACY, "hash_mismatch").
 

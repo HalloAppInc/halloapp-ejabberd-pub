@@ -694,7 +694,7 @@ log_stats(API, Results) ->
                 ok ->
                     stat:count(?STAT_NS, Metric);
                 Reason ->
-                    stat:count_d(?STAT_NS, Metric ++ "_error", [{error, Reason}]),
+                    stat:count(?STAT_NS, Metric ++ "_error", 1, [{error, Reason}]),
                     ok
             end
         end,
