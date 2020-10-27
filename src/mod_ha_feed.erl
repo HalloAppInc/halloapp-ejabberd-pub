@@ -491,7 +491,7 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
     end,
     %% TODO(murali@): adding this for debugging purposes.. remove this case later..
     %% TODO(murali@): Send the final audience set back to the client in the response.
-    case AudienceSet =:= FinalAudienceSet of
+    case lists:sort(sets:to_list(AudienceSet)) =:= lists:sort(sets:to_list(FinalAudienceSet)) of
         true -> ok;
         false ->
             ?ERROR("FinalAudienceSet: ~p, AudienceSet: ~p", [FinalAudienceSet, AudienceSet])
