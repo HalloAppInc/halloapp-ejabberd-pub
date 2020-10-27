@@ -449,6 +449,8 @@ bind(R, #{user := U, server := S, access := Access, lang := Lang,
 
 handle_stream_start(#stream_start{client_version = ClientVersion} = StreamStart,
 					#{lserver := LServer} = State) ->
+	% TODO(Nikola): clean up this print once we figure out the different versions bug
+	?INFO("ejabberd_c2s Version: ~p", [ClientVersion]),
 	NewState = case mod_client_version:is_valid_version(ClientVersion) of
 		false ->
 			send(State#{lserver => ejabberd_config:get_myname()},

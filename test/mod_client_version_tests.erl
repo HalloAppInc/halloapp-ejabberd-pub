@@ -29,11 +29,11 @@ clear() ->
 mod_client_version_test() ->
     setup(),
     Host = <<"s.halloapp.net">>,
-    Opts = #{max_days => 30},
+    Opts = [],
     ?assertEqual(ok, mod_client_version:start(Host, Opts)),
     ?assertEqual(ok, mod_client_version:stop(Host)),
     ?assertEqual([{mod_redis, hard}], mod_client_version:depends(Host, Opts)),
-    ?assertEqual([{max_days, 30}], mod_client_version:mod_options(Host)),
+    ?assertEqual([], mod_client_version:mod_options(Host)),
     ok.
 
 % TODO when

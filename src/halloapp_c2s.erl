@@ -331,6 +331,8 @@ bind(R, #{user := U, server := S, access := Access, lang := Lang,
 
 
 is_valid_client_version(ClientVersion, _State) ->
+    % TODO(Nikola): clean up this print once we figure out the different versions bug
+    ?INFO("halloapp_c2s ClientVersion: ~p", [ClientVersion]),
     mod_client_version:is_valid_version(ClientVersion).
 
 
