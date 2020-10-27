@@ -33,8 +33,10 @@
 
 %% API
 -export([
-    push/2
+    push/2,
+    crash/0    %% test
 ]).
+%% TODO(murali@): remove the crash api after testing.
 
 
 %%====================================================================
@@ -75,6 +77,11 @@ push(_Message, _PushInfo) ->
     ?ERROR("Invalid push_info : ~p", [_PushInfo]).
 
 
+-spec crash() -> ok.
+crash() ->
+    gen_server:cast(get_proc(), crash).
+
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -111,6 +118,10 @@ handle_cast({push_message, Message, PushInfo} = _Request, State) ->
         true -> push_message(Message, PushInfo, State)
     end,
     {noreply, State};
+
+handle_cast(crash, State) ->
+    error(test_crash);
+
 handle_cast(_Request, State) ->
     ?DEBUG("Invalid request, ignoring it: ~p", [_Request]),
     {noreply, State}.
