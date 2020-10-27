@@ -181,7 +181,7 @@ publish_comment(PublisherUid, CommentId, PostId, _PostUid, ParentCommentId, Payl
     Action = publish,
     case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
         [{error, missing}, _, _] ->
-            {error, <<"invalid_post_id">>};
+            {error, invalid_post_id};
         [{ok, Post}, {ok, Comment}, {ok, ParentPushList}] ->
             %% Comment with same id already exists: duplicate request from the client.
             TimestampMs = Comment#comment.ts_ms,
@@ -228,7 +228,7 @@ retract_post(Uid, PostId) ->
     Action = retract,
     case model_feed:get_post(PostId) of
         {error, missing} ->
-            {error, <<"invalid_post_id">>};
+            {error, invalid_post_id};
         {ok, ExistingPost} ->
             case ExistingPost#post.uid =:= Uid of
                 false -> {error, not_authorized};
@@ -256,7 +256,7 @@ retract_comment(PublisherUid, CommentId, PostId, PostUid) ->
     Action = retract,
     case model_feed:get_comment_data(PostId, CommentId, undefined) of
         [{error, missing}, _, _] ->
-            {error, <<"invalid_post_id">>};
+            {error, invalid_post_id};
         [{ok, _Post}, {error, _}, _] ->
             {error, invalid_comment_id};
         [{ok, Post}, {ok, Comment}, _] ->
