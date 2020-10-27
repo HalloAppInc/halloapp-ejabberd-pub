@@ -272,12 +272,12 @@ is_valid_prometheus_metric(PName, Tags) ->
     case IsNameValid of
         false -> false;
         true ->
-            lists:all(lists:map(
+            lists:all(
                 fun ({TK, TV}) ->
                     is_valid_prometheus_name(TK) andalso is_valid_prometheus_name(TV)
                 end,
                 Tags
-            ))
+            )
     end.
 
 -spec is_valid_prometheus_name(Word :: iodata()) -> true | false.
