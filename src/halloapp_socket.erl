@@ -202,20 +202,27 @@ reset_stream(#socket_state{pb_stream = PBStream, sockmod = SockMod,
     {ok, fast_tls} | {ok, noise, #socket_state{}} | ok | {error, inet:posix()}.
 send_element(#socket_state{sockmod = SockMod} = SocketData, Pkt) ->
     ?INFO("send: xmpp: ~p", [Pkt]),
-    FinalPkt = enif_protobuf:encode(Pkt),
-    stat:count("HA/pb_packet", "encode_success"),
-    ?DEBUG("send: protobuf: ~p", [FinalPkt]),
-    FinalData1 = case SockMod of
-        fast_tls -> 
-            PktSize = byte_size(FinalPkt),
-            FinalData = <<PktSize:32/big, FinalPkt/binary>>,
-            ?INFO("send: protobuf with size: ~p, via tls", [FinalData]),
-            FinalData;
-        ha_enoise -> 
-            ?INFO("send: protobuf: ~p, via noise (size will be added by ha_enoise)", [FinalPkt]),
-            FinalPkt
-    end,
-    send(SocketData, FinalData1).
+    case enif_protobuf:encode(Pkt) of
+        {error, Reason} ->
+            stat:count("HA/pb_packet", "encode_failure"),
+            ?ERROR("Error encoding packet: ~p, reason: ~p", [Pkt, Reason]),
+            %% protocol error.
+            {error, eproto};
+        FinalPkt ->
+            stat:count("HA/pb_packet", "encode_success"),
+            ?DEBUG("send: protobuf: ~p", [FinalPkt]),
+            FinalData1 = case SockMod of
+                fast_tls ->
+                    PktSize = byte_size(FinalPkt),
+                    FinalData = <<PktSize:32/big, FinalPkt/binary>>,
+                    ?INFO("send: protobuf with size: ~p, via tls", [FinalData]),
+                    FinalData;
+                ha_enoise ->
+                    ?INFO("send: protobuf: ~p, via noise (size will be added by ha_enoise)", [FinalPkt]),
+                    FinalPkt
+            end,
+            send(SocketData, FinalData1)
+    end.
 
 
 -spec send(socket_state(), iodata()) -> {ok, fast_tls} | {ok, noise, #socket_state{}} |
