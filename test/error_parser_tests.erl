@@ -36,6 +36,23 @@ xmpp_to_proto_message_error_test() ->
     ?assertEqual(PbMessage, ProtoMsg).
 
 
+
+xmpp_to_proto_message_stanza_error_test() ->
+    setup(),
+
+    PbError = struct_util:create_pb_error(<<"item-not-found">>),
+    PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbError),
+
+    ErrorSt = #stanza_error{type = 'cancel', reason = 'item-not-found', code = 404},
+    ToJid = struct_util:create_jid(?UID2, ?SERVER),
+    FromJid = struct_util:create_jid(?UID1, ?SERVER),
+    MessageSt = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ErrorSt),
+
+    ProtoMsg = message_parser:xmpp_to_proto(MessageSt),
+    ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
+    ?assertEqual(PbMessage, ProtoMsg).
+
+
 xmpp_to_proto_iq_error_test() ->
     setup(),
 
