@@ -41,7 +41,8 @@
     delete_avatar/2,
     send_chat_message/4,
     broadcast_packet/4,
-    send_retract_message/4
+    send_retract_message/4,
+    send_feed_item/3
 ]).
 
 -include("logger.hrl").
@@ -388,8 +389,35 @@ broadcast_packet(From, Server, BroadcastUids, Packet) ->
     ok.
 
 
-
-
+%% TODO(murali@): temporary code: remove it in 1month.
+-spec send_feed_item(Gid :: gid(), Uid :: uid(), GroupFeedSt :: group_feed_st())
+            -> {ok, Ts} | {error, atom()}
+            when Ts :: non_neg_integer().
+send_feed_item(Gid, Uid, GroupFeedSt) ->
+    ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
+    case model_groups:check_member(Gid, Uid) of
+        false ->
+            %% also possible the group does not exists
+            {error, not_member};
+        true ->
+            %% TODO(murali@): log stats for different group-feed activity.
+            Ts = util:now(),
+            GroupInfo = model_groups:get_group_info(Gid),
+            {ok, SenderName} = model_accounts:get_name(Uid),
+            NewGroupFeedSt = make_group_feed_st(GroupInfo, Uid, SenderName, GroupFeedSt, Ts),
+            ?INFO("Fan Out MSG: ~p", [GroupFeedSt]),
+            Server = util:get_host(),
+            Packet = #message{
+                id = util:new_msg_id(),
+                type = groupchat,
+                sub_els = [NewGroupFeedSt]
+            },
+            From = jid:make(Uid, Server),
+            MUids = model_groups:get_member_uids(Gid),
+            ReceiverUids = lists:delete(Uid, MUids),
+            broadcast_packet(From, Server, ReceiverUids, Packet),
+            {ok, NewGroupFeedSt}
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -552,6 +580,28 @@ make_chat_message(GroupInfo, Uid, SenderName, MessagePayload, Ts) ->
         sender_name = SenderName,
         timestamp = integer_to_binary(Ts),
         sub_els = MessagePayload
+    }.
+
+
+%% TODO(murali@): temporary code: remove it in 1month.
+-spec make_group_feed_st(GroupInfo :: group_info(), Uid :: uid(), SenderName :: binary(),
+        GroupFeedSt :: group_feed_st(), Ts :: integer()) -> group_chat().
+make_group_feed_st(GroupInfo, Uid, SenderName, GroupFeedSt, Ts) ->
+    TsBin = integer_to_binary(Ts),
+    Post = case GroupFeedSt#group_feed_st.post of
+        undefined -> undefined;
+        P -> P#group_post_st{publisher_uid = Uid, publisher_name = SenderName, timestamp = TsBin}
+    end,
+    Comment = case GroupFeedSt#group_feed_st.comment of
+        undefined -> undefined;
+        C -> C#group_comment_st{publisher_uid = Uid, publisher_name = SenderName, timestamp = TsBin}
+    end,
+    GroupFeedSt#group_feed_st{
+        gid = GroupInfo#group_info.gid,
+        name = GroupInfo#group_info.name,
+        avatar_id = GroupInfo#group_info.avatar,
+        post = Post,
+        comment = Comment
     }.
 
 
