@@ -240,10 +240,6 @@ replace_request_handlers(Opts) ->
 		  Handler = {<<"/admin">>, ejabberd_web_admin},
 		  warn_replaced_handler(web_admin, Handler),
 		  [Handler|Acc];
-	     ({http_bind, true}, Acc) ->
-		  Handler = {<<"/bosh">>, mod_bosh},
-		  warn_replaced_handler(http_bind, Handler),
-		  [Handler|Acc];
 	     ({xmlrpc, true}, Acc) ->
 		  Handler = {<<"/">>, ejabberd_xmlrpc},
 		  warn_replaced_handler(xmlrpc, Handler),
@@ -252,10 +248,7 @@ replace_request_handlers(Opts) ->
 		  Acc
 	  end, Handlers, Opts),
     Handlers2 = lists:map(
-		  fun({Path, mod_http_bind}) ->
-			  warn_replaced_module(mod_http_bind, mod_bosh),
-			  {Path, mod_bosh};
-		     (PathMod) ->
+		  fun(PathMod) ->
 			  PathMod
 		  end, Handlers1),
     Opts1 = lists:filtermap(
@@ -337,9 +330,6 @@ transform_module_options(Opts) ->
 	      true
       end, Opts).
 
-transform_module(Host, mod_http_bind, Opts, Acc) ->
-    warn_replaced_module(mod_http_bind, mod_bosh),
-    transform_module(Host, mod_bosh, Opts, Acc);
 transform_module(Host, mod_vcard_xupdate_odbc, Opts, Acc) ->
     warn_replaced_module(mod_vcard_xupdate_odbc, mod_vcard_xupdate),
     transform_module(Host, mod_vcard_xupdate, Opts, Acc);

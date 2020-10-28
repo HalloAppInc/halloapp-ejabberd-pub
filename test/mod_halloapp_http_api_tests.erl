@@ -10,7 +10,7 @@
 -author("josh").
 
 -include("account.hrl").
--include("bosh.hrl").
+-include("util_http.hrl").
 -include("ejabberd_http.hrl").
 -include_lib("eunit/include/eunit.hrl").
 

@@ -12,9 +12,7 @@
 
 -include("logger.hrl").
 -include("ejabberd_http.hrl").
-%% TODO: rename this header to something else. It just has some useful
-%% helpers for http
--include("bosh.hrl").
+-include("util_http.hrl").
 
 %% API
 -export([start/2, stop/1, reload/3, init/1, depends/2, mod_options/1]).
@@ -23,14 +21,6 @@
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
-% TODO: duplicate type with mod_halloapp_http_api
--type http_response_code() :: integer().
--type http_header() :: {binary(), binary()}.
--type http_headers() :: [http_header()].
--type http_body() :: binary().
--type http_response() :: {http_response_code(), http_headers(), http_body()}.
--type http_path() :: [binary()].
-
 
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 process([],
