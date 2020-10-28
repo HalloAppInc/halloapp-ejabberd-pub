@@ -16,33 +16,27 @@
 
 
 xmpp_to_proto(XmppMsg) ->
-    try
-        Message = xmpp:decode_els(XmppMsg),
-        ToJid = Message#message.to,
-        FromJid = Message#message.from,
-        SubEls = Message#message.sub_els,
-        Content = case Message#message.sub_els of
-            [] ->
-                undefined;
-            _ ->
-                [SubEl] = SubEls,
-                msg_payload_mapping(SubEl)
-        end,
-        PbFromUid = util_parser:xmpp_to_proto_uid(FromJid#jid.user),
-        ProtoMessage = #pb_msg{
-            id = Message#message.id,
-            type = Message#message.type,
-            to_uid = util_parser:xmpp_to_proto_uid(ToJid#jid.user),
-            from_uid = PbFromUid,
-            payload = Content,
-            retry_count = Message#message.retry_count
-        },
-        ProtoMessage
-    catch
-        error : Reason ->
-            ?ERROR("Error decoding xmpp message: ~p, reason: ~p", [XmppMsg, Reason]),
-            undefined
-    end.
+    Message = xmpp:decode_els(XmppMsg),
+    ToJid = Message#message.to,
+    FromJid = Message#message.from,
+    SubEls = Message#message.sub_els,
+    Content = case Message#message.sub_els of
+        [] ->
+            undefined;
+        _ ->
+            [SubEl] = SubEls,
+            msg_payload_mapping(SubEl)
+    end,
+    PbFromUid = util_parser:xmpp_to_proto_uid(FromJid#jid.user),
+    ProtoMessage = #pb_msg{
+        id = Message#message.id,
+        type = Message#message.type,
+        to_uid = util_parser:xmpp_to_proto_uid(ToJid#jid.user),
+        from_uid = PbFromUid,
+        payload = Content,
+        retry_count = Message#message.retry_count
+    },
+    ProtoMessage.
 
 
 msg_payload_mapping(SubEl) ->
