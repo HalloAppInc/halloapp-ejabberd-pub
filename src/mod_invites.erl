@@ -136,6 +136,7 @@ get_time_until_refresh(CurrEpochTime) ->
         ok | error, undefined | no_invites_left | existing_user | invalid_number}.
 request_invite(FromUid, ToPhoneNum) ->
     stat:count(?NS_INVITE_STATS, "requests"),
+    stat:count(?NS_INVITE_STATS, "requests_by_dev", 1, [{is_dev, dev_users:is_dev_uid(FromUid)}]),
     case can_send_invite(FromUid, ToPhoneNum) of
         {error, already_invited} ->
             ?INFO("Uid: ~s Phone: ~s already_invited", [FromUid, ToPhoneNum]),
