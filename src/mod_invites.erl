@@ -82,7 +82,6 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
     case AccExists of
         false -> xmpp:make_error(IQ, util:err(no_account));
         true ->
-            stat:count(?NS_INVITE_STATS, "requests"),
             PhoneList = [P#invite.phone || P <- InviteList],
             ?INFO("Uid: ~s inviting ~p", [Uid, PhoneList]),
             Results = lists:map(fun(Phone) -> request_invite(Uid, Phone) end, PhoneList),
@@ -136,6 +135,7 @@ get_time_until_refresh(CurrEpochTime) ->
 -spec request_invite(FromUid :: binary(), ToPhoneNum :: binary()) -> {ToPhoneNum :: binary(),
         ok | error, undefined | no_invites_left | existing_user | invalid_number}.
 request_invite(FromUid, ToPhoneNum) ->
+    stat:count(?NS_INVITE_STATS, "requests"),
     case can_send_invite(FromUid, ToPhoneNum) of
         {error, already_invited} ->
             ?INFO("Uid: ~s Phone: ~s already_invited", [FromUid, ToPhoneNum]),
