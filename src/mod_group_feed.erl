@@ -315,8 +315,8 @@ get_message_type(#group_feed_st{action = retract}, _, _) -> normal.
 
 -spec make_group_feed_st(GroupInfo :: group_info(), Uid :: uid(), SenderName :: binary(),
         GroupFeedSt :: group_feed_st(), Ts :: integer()) -> group_chat().
-make_group_feed_st(GroupInfo, Uid, SenderName, GroupFeedSt, Ts) ->
-    TsBin = integer_to_binary(Ts),
+make_group_feed_st(GroupInfo, Uid, SenderName, GroupFeedSt, TsMs) ->
+    TsBin = integer_to_binary(util:ms_to_sec(TsMs)),
     Post = case GroupFeedSt#group_feed_st.post of
         undefined -> undefined;
         P -> P#group_post_st{publisher_uid = Uid, publisher_name = SenderName, timestamp = TsBin}
