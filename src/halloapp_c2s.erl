@@ -466,7 +466,10 @@ process_iq_in(State, #iq{} = IQ) ->
     allow ->
         {true, State};
     deny ->
-        ejabberd_router:route_error(IQ, xmpp:err_service_unavailable()),
+        ?ERROR("failed_privacy_rules, packet received: ~p", [IQ]),
+        Err = util:err(service_unavailable),
+        ErrorIq = xmpp:make_error(IQ, Err),
+        ejabberd_router:route(ErrorIq),
         {false, State}
     end.
 
@@ -488,7 +491,10 @@ process_message_in(State, #message{type = T} = Msg) ->
         true ->
             ok;
         false ->
-            ejabberd_router:route_error(Msg, xmpp:err_service_unavailable())
+            ?ERROR("failed_privacy_rules, packet received: ~p", [Msg]),
+            Err = util:err(service_unavailable),
+            ErrorMsg = xmpp:make_error(Msg, Err),
+            ejabberd_router:route(ErrorMsg)
         end,
         {false, State}
     end.

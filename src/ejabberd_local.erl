@@ -101,10 +101,10 @@ bounce_resource_packet(#presence{to = #jid{lresource = <<"">>}}) ->
 bounce_resource_packet(#message{to = #jid{lresource = <<"">>}, type = headline}) ->
     ok;
 bounce_resource_packet(Packet) ->
-    Lang = xmpp:get_lang(Packet),
-    Txt = ?T("No available resource found"),
-    Err = xmpp:err_item_not_found(Txt, Lang),
-    ejabberd_router:route_error(Packet, Err),
+    ?ERROR("Invalid packet received: ~p", [Packet]),
+    Err = util:err(item_not_found),
+    ErrorPacket = xmpp:make_error(Packet, Err),
+    ejabberd_router:route(ErrorPacket),
     stop.
 
 -spec get_features(binary()) -> [binary()].

@@ -61,7 +61,7 @@ mod_options(_Host) ->
 %% iq handlers
 %%====================================================================
 
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, type = set,
+process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
                     sub_els = [#whisper_keys{type = set} = WhisperKeys]} = IQ) ->
     ?INFO("set_keys Uid: ~s", [Uid]),
     IdentityKey = WhisperKeys#whisper_keys.identity_key,
@@ -69,17 +69,14 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, ty
     OneTimeKeys = WhisperKeys#whisper_keys.one_time_keys,
     if
         IdentityKey =:= undefined ->
-            ?INFO("Uid: ~s, undefined identity_key", [Uid]),
-            Txt = ?T("undefined IdentityKey"),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            ?ERROR("Invalid iq: ~p", [IQ]),
+            xmpp:make_error(IQ, util:err(undefined_identity_key));
         SignedKey =:= undefined ->
-            ?INFO("Uid: ~s, undefined signed_key", [Uid]),
-            Txt = ?T("undefined SignedKey"),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            ?ERROR("Invalid iq: ~p", [IQ]),
+            xmpp:make_error(IQ, util:err(undefined_signed_key));
         OneTimeKeys =:= [] ->
-            ?INFO("Uid: ~s, empty one_time_keys", [Uid]),
-            Txt = ?T("empty OneTimeKeys"),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            ?ERROR("Invalid iq: ~p", [IQ]),
+            xmpp:make_error(IQ, util:err(empty_one_time_keys));
         true ->
             ?INFO("Uid: ~s, set_keys", [Uid]),
             ok = model_whisper_keys:set_keys(Uid, IdentityKey, SignedKey, OneTimeKeys),
@@ -87,7 +84,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, ty
             xmpp:make_iq_result(IQ)
     end;
 
-process_local_iq(#iq{from = #jid{luser = Uid}, lang = Lang, type = set,
+process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
                     sub_els = [#whisper_keys{type = add} = WhisperKeys]} = IQ) ->
     ?INFO("add_otp_keys Uid: ~s", [Uid]),
     IdentityKey = WhisperKeys#whisper_keys.identity_key,
@@ -95,36 +92,33 @@ process_local_iq(#iq{from = #jid{luser = Uid}, lang = Lang, type = set,
     OneTimeKeys = WhisperKeys#whisper_keys.one_time_keys,
     if
         IdentityKey =/= undefined ->
-            ?INFO("Uid: ~s, undefined identity_key", [Uid]),
-            Txt = ?T("undefined IdentityKey"),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            ?ERROR("Invalid iq: ~p", [IQ]),
+            xmpp:make_error(IQ, util:err(invalid_identity_key));
         SignedKey =/= undefined ->
-            ?INFO("Uid: ~s, undefined signed_key", [Uid]),
-            Txt = ?T("undefined SignedKey"),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            ?ERROR("Invalid iq: ~p", [IQ]),
+            xmpp:make_error(IQ, util:err(invalid_signed_key));
         OneTimeKeys =:= [] ->
-            ?INFO("Uid: ~s, empty one_time_keys", [Uid]),
-            Txt = ?T("empty OneTimeKeys"),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            ?ERROR("Invalid iq: ~p", [IQ]),
+            xmpp:make_error(IQ, util:err(empty_one_time_keys));
         true ->
             ?INFO("Uid: ~s, add_otp_keys", [Uid]),
             model_whisper_keys:add_otp_keys(Uid, OneTimeKeys),
             xmpp:make_iq_result(IQ)
     end;
 
-process_local_iq(#iq{from = #jid{luser = Uid}, lang = _Lang, type = get,
+process_local_iq(#iq{from = #jid{luser = Uid}, type = get,
                     sub_els = [#whisper_keys{type = count}]} = IQ) ->
     {ok, Count} = model_whisper_keys:count_otp_keys(Uid),
     xmpp:make_iq_result(IQ, #whisper_keys{uid = Uid, otp_key_count = integer_to_binary(Count)});
 
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, lang = Lang, type = get,
+process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = get,
                     sub_els = [#whisper_keys{uid = Ouid, type = get}]} = IQ) ->
     %%TODO(murali@): check if user is allowed to access keys of username.
     ?INFO("get_keys Uid: ~s, Ouid: ~s", [Uid, Ouid]),
     case Ouid of
         undefined ->
-            Txt = ?T("undefined uid"),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            ?ERROR("Invalid iq: ~p", [IQ]),
+            xmpp:make_error(IQ, util:err(undefined_uid));
         _ ->
             {ok, WhisperKeySet} = model_whisper_keys:get_key_set(Ouid),
             case WhisperKeySet of

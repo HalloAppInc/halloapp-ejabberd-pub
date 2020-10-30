@@ -164,8 +164,10 @@ route_offline_message(#message{to = To, type = _Type} = Packet) ->
         true ->
             ejabberd_hooks:run_fold(offline_message_hook, LServer, {bounce, DecodedPacket}, []);
         false ->
-            Err = xmpp:err_service_unavailable(),
-            ejabberd_router:route_error(Packet, Err)
+            ?ERROR("Invalid packet received: ~p", [Packet]),
+            Err = util:err(invalid_to_uid),
+            ErrorPacket = xmpp:make_error(Packet, Err),
+            ejabberd_router:route(ErrorPacket)
     end.
 
 
@@ -210,10 +212,12 @@ check_in_subscription(Acc, #presence{to = To}) ->
 
 -spec bounce_sm_packet({bounce | term(), stanza()}) -> any().
 bounce_sm_packet({bounce, Packet} = Acc) ->
-    Lang = xmpp:get_lang(Packet),
-    Txt = ?T("User session not found"),
-    Err = xmpp:err_service_unavailable(Txt, Lang),
-    ejabberd_router:route_error(Packet, Err),
+    %% This was part of original ejabberd code to drop messages if user is not online.
+    %% This must never happen in our case.
+    ?ERROR("bounce_sm_packet packet received: ~p", [Packet]),
+    Err = util:err(user_session_not_found),
+    ErrorPacket = xmpp:make_error(Packet, Err),
+    ejabberd_router:route(ErrorPacket),
     {stop, Acc};
 bounce_sm_packet({_, Packet} = Acc) ->
     ?DEBUG("Dropping packet to unavailable resource:~n~ts",

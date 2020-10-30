@@ -110,9 +110,9 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
             xmpp:make_iq_result(IQ)
     end;
 
-process_local_iq(#iq{lang = Lang} = IQ) ->
-    Txt = ?T("Unable to handle this IQ"),
-    xmpp:make_error(IQ, xmpp:err_internal_server_error(Txt, Lang)).
+process_local_iq(#iq{} = IQ) ->
+    ?ERROR("Invalid iq: ~p", [IQ]),
+    xmpp:make_error(IQ, util:err(invalid_iq)).
 
 
 -spec update_push_pref(Uid :: binary(), push_pref()) -> ok.
