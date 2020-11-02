@@ -19,7 +19,9 @@
     is_android_debug/1,
     is_android_release/1,
     is_hallo_ua/1,
-    resource_to_client_type/1
+    resource_to_client_type/1,
+    is_version_greater_than/2,
+    is_version_less_than/2
 ]).
 
 
@@ -77,3 +79,45 @@ resource_to_client_type(Resource) ->
         <<"ipad">> -> ios;
         _ -> undefined
     end.
+
+
+%% Returns true if Version1 is strictly greater than Version2.
+-spec is_version_greater_than(Version1 :: binary(), Version2 :: binary()) -> boolean().
+is_version_greater_than(Version1, Version1) -> false;
+is_version_greater_than(Version1, Version2) ->
+    {Major1, Minor1, Patch1} = split_version(Version1),
+    {Major2, Minor2, Patch2} = split_version(Version2),
+    if
+        Major1 > Major2 ->
+            true;
+        Major1 =:= Major2 andalso Minor1 > Minor2 ->
+            true;
+        Major1 =:= Major2 andalso Minor1 =:= Minor2 andalso Patch1 > Patch2 ->
+            true;
+        true ->
+            false
+    end.
+
+
+%% Returns true if Version1 is strictly less than Version2.
+-spec is_version_less_than(Version1 :: binary(), Version2 :: binary()) -> boolean().
+is_version_less_than(Version1, Version1) -> false;
+is_version_less_than(Version1, Version2) ->
+    is_version_greater_than(Version2, Version1).
+
+
+-spec split_version(Version :: binary()) -> {integer(), integer(), integer()}.
+split_version(Version) ->
+    case util_ua:get_client_type(Version) of
+        android ->
+            {match, [Version, Major, Minor]} = re:run(Version,
+                    "^HalloApp\/Android([0-9]+).([0-9]+)$", [{capture, all, binary}]),
+            {binary_to_integer(Major), binary_to_integer(Minor), 0};
+        ios ->
+            {match, [Version, Major, Minor, Patch]} = re:run(Version,
+                    "^HalloApp\/iOS([0-9]+).([0-9]+).([0-9]+)$", [{capture, all, binary}]),
+            {binary_to_integer(Major), binary_to_integer(Minor), binary_to_integer(Patch)};
+        undefined ->
+            {undefined, undefined, undefined}
+    end.
+

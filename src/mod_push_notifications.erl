@@ -141,32 +141,27 @@ version_check_packet(ClientVersion, #message{id = MsgId, to = #jid{luser = Uid}}
 
 
 %% Version rules
-%% TODO(murali@): Write spec about version ids and extract version info using util function.
 -spec check_version_rules(Platform :: ios | android,
         ClientVersion :: binary(), Message :: message()) -> boolean().
 %% Dont send pubsub messages to ios clients > 0.3.65
 check_version_rules(ios, ClientVersion,
-        #message{from = #jid{lserver = <<"pubsub.s.halloapp.net">>}})
-        when ClientVersion > <<"HalloApp/iOS0.3.65">> ->
-    false;
+        #message{from = #jid{lserver = <<"pubsub.s.halloapp.net">>}}) ->
+    util_ua:is_version_less_than(ClientVersion, <<"HalloApp/iOS0.3.65">>);
 
-%% Dont send pubsub messages to android clients > 0.92
+%% Dont send pubsub messages to android clients > 0.89
 check_version_rules(android, ClientVersion,
-        #message{from = #jid{lserver = <<"pubsub.s.halloapp.net">>}})
-        when ClientVersion > <<"HalloApp/Android0.89">> ->
-    false;
+        #message{from = #jid{lserver = <<"pubsub.s.halloapp.net">>}}) ->
+    util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android0.89">>);
 
 %% Dont send group_feed messages to ios clients < 0.3.65
 check_version_rules(ios, ClientVersion,
-        #message{sub_els = [#group_feed_st{}]})
-        when ClientVersion < <<"HalloApp/iOS0.3.65">> ->
-    false;
+        #message{sub_els = [#group_feed_st{}]}) ->
+    util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS0.3.65">>);
 
-%% Dont send group_feed messages to android clients < 0.95
+%% Dont send group_feed messages to android clients < 0.93
 check_version_rules(android, ClientVersion,
-        #message{sub_els = [#group_feed_st{}]})
-        when ClientVersion < <<"HalloApp/Android0.93">> ->
-    false;
+        #message{sub_els = [#group_feed_st{}]}) ->
+    util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android0.93">>);
 
 check_version_rules(_, _, _) ->
     true.
