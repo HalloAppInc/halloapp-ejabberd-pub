@@ -1,10 +1,10 @@
 %%%-------------------------------------------------------------------
-%%% File: mod_ha_feed_tests.erl
+%%% File: mod_feed_tests.erl
 %%%
 %%% Copyright (C) 2020, Halloapp Inc.
 %%%
 %%%-------------------------------------------------------------------
--module(mod_ha_feed_tests).
+-module(mod_feed_tests).
 -author('murali').
 
 -include("xmpp.hrl").
@@ -36,8 +36,7 @@ setup() ->
     gen_iq_handler:start(ejabberd_local),
     ejabberd_hooks:start_link(),
     mod_redis:start(undefined, []),
-    mod_ha_feed:start(?SERVER, []),
-    mnesia:wait_for_tables([psnode, item], 10000),
+    mod_feed:start(?SERVER, []),
     clear(),
     ok.
 
@@ -48,7 +47,7 @@ setup2() ->
     gen_iq_handler:start(ejabberd_local),
     ejabberd_hooks:start_link(),
     mod_redis:start(undefined, []),
-    mod_ha_feed:start(?SERVER, []),
+    mod_feed:start(?SERVER, []),
     clear(),
     ok.
 
@@ -256,7 +255,7 @@ publish_post_no_audience_error() ->
     setup(),
     %% posting a feedpost without audience
     PublishIQ = get_post_publish_iq(?POST_ID1, ?UID1, ?PAYLOAD1, undefined, [], ?SERVER),
-    ResultIQ = mod_ha_feed:process_local_iq(PublishIQ),
+    ResultIQ = mod_feed:process_local_iq(PublishIQ),
     ExpectedResultIQ = get_error_iq_result(no_audience, ?UID1, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
@@ -270,13 +269,13 @@ publish_post() ->
     setup(),
     %% posting a feedpost.
     PublishIQ = get_post_publish_iq(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], ?SERVER),
-    ResultIQ1 = mod_ha_feed:process_local_iq(PublishIQ),
+    ResultIQ1 = mod_feed:process_local_iq(PublishIQ),
     Timestamp = get_timestamp(ResultIQ1),
     ExpectedResultIQ = get_post_publish_iq_result(?POST_ID1, ?UID1, Timestamp, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ1),
 
     %% re-posting the same feedpost should still give the same timestamp.
-    ResultIQ2 = mod_ha_feed:process_local_iq(PublishIQ),
+    ResultIQ2 = mod_feed:process_local_iq(PublishIQ),
     ?assertEqual(ExpectedResultIQ, ResultIQ2),
     ok.
 
@@ -289,7 +288,7 @@ publish_non_existing_post_comment() ->
     setup(),
     %% publishing comment without post should give an error.
     PublishIQ = get_comment_publish_iq(?COMMENT_ID1, ?POST_ID1, ?UID1, <<>>, ?PAYLOAD1, ?SERVER),
-    ResultIQ = mod_ha_feed:process_local_iq(PublishIQ),
+    ResultIQ = mod_feed:process_local_iq(PublishIQ),
     ExpectedResultIQ = get_error_iq_result(invalid_post_id, ?UID1, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
@@ -304,14 +303,14 @@ publish_comment() ->
     %% publish post and then comment.
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
     PublishIQ = get_comment_publish_iq(?COMMENT_ID1, ?POST_ID1, ?UID1, <<>>, ?PAYLOAD1, ?SERVER),
-    ResultIQ = mod_ha_feed:process_local_iq(PublishIQ),
+    ResultIQ = mod_feed:process_local_iq(PublishIQ),
     Timestamp = get_timestamp(ResultIQ),
     ExpectedResultIQ = get_comment_publish_iq_result(?COMMENT_ID1, ?POST_ID1,
             ?UID1, <<>>, Timestamp, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
 
     %% reposting the same comment should still give the same timestamp.
-    ResultIQ2 = mod_ha_feed:process_local_iq(PublishIQ),
+    ResultIQ2 = mod_feed:process_local_iq(PublishIQ),
     ?assertEqual(ExpectedResultIQ, ResultIQ2),
     ok.
 
@@ -324,7 +323,7 @@ retract_non_existing_post() ->
     setup(),
     %% retracting a post that does not exist should give an error.
     RetractIQ = get_post_retract_iq(?POST_ID1, ?UID1, ?SERVER),
-    ResultIQ = mod_ha_feed:process_local_iq(RetractIQ),
+    ResultIQ = mod_feed:process_local_iq(RetractIQ),
     ExpectedResultIQ = get_error_iq_result(invalid_post_id, ?UID1, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
@@ -339,7 +338,7 @@ retract_post() ->
     %% publish post and then retract.
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
     RetractIQ = get_post_retract_iq(?POST_ID1, ?UID1, ?SERVER),
-    ResultIQ = mod_ha_feed:process_local_iq(RetractIQ),
+    ResultIQ = mod_feed:process_local_iq(RetractIQ),
     Timestamp = get_timestamp(ResultIQ),
     ExpectedResultIQ = get_post_retract_iq_result(?POST_ID1, ?UID1, Timestamp, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
@@ -355,7 +354,7 @@ retract_not_authorized_post() ->
     %% publish post and then retract by different user.
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
     RetractIQ = get_post_retract_iq(?POST_ID1, ?UID2, ?SERVER),
-    ResultIQ = mod_ha_feed:process_local_iq(RetractIQ),
+    ResultIQ = mod_feed:process_local_iq(RetractIQ),
     ExpectedResultIQ = get_error_iq_result(not_authorized, ?UID2, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
@@ -369,7 +368,7 @@ retract_non_existing_comment() ->
     setup(),
     %% retracting a comment that does not exist should give an error.
     RetractIQ = get_comment_retract_iq(?COMMENT_ID1, ?POST_ID1, ?UID1, ?SERVER),
-    ResultIQ = mod_ha_feed:process_local_iq(RetractIQ),
+    ResultIQ = mod_feed:process_local_iq(RetractIQ),
     ExpectedResultIQ = get_error_iq_result(invalid_post_id, ?UID1, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
@@ -386,7 +385,7 @@ retract_comment() ->
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, util:now_ms()),
     RetractIQ = get_comment_retract_iq(?COMMENT_ID1, ?POST_ID1, ?UID1, ?SERVER),
-    ResultIQ = mod_ha_feed:process_local_iq(RetractIQ),
+    ResultIQ = mod_feed:process_local_iq(RetractIQ),
     Timestamp = get_timestamp(ResultIQ),
     ExpectedResultIQ = get_comment_retract_iq_result(?COMMENT_ID1, ?POST_ID1,
             ?UID1, Timestamp, ?SERVER),
@@ -405,7 +404,7 @@ retract_not_authorized_comment() ->
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
             ?UID2, <<>>, [?UID1, ?UID2], ?COMMENT_PAYLOAD2, util:now_ms()),
     RetractIQ = get_comment_retract_iq(?COMMENT_ID2, ?POST_ID1, ?UID1, ?SERVER),
-    ResultIQ = mod_ha_feed:process_local_iq(RetractIQ),
+    ResultIQ = mod_feed:process_local_iq(RetractIQ),
     ExpectedResultIQ = get_error_iq_result(not_authorized, ?UID1, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     ok.
@@ -420,7 +419,7 @@ share_post_error() ->
     %% publish post and add non-friend
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
     ShareIQ = get_share_iq(?UID1, ?UID2, [?POST_ID1], ?SERVER),
-    ResultIQ = mod_ha_feed:process_local_iq(ShareIQ),
+    ResultIQ = mod_feed:process_local_iq(ShareIQ),
     ExpectedResultIQ = get_share_error_result(?UID1, ?UID2, ?SERVER),
     ?assertEqual(ExpectedResultIQ#iq.sub_els, ResultIQ#iq.sub_els),
     ok.
@@ -435,7 +434,7 @@ share_post_iq() ->
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
     model_friends:add_friend(?UID1, ?UID2),
     ShareIQ = get_share_iq(?UID1, ?UID2, [?POST_ID1], ?SERVER),
-    ResultIQ = mod_ha_feed:process_local_iq(ShareIQ),
+    ResultIQ = mod_feed:process_local_iq(ShareIQ),
     ExpectedResultIQ = get_share_iq_result(?UID1, ?UID2, ?SERVER),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
     % TODO: the old tests are not working
@@ -471,7 +470,7 @@ add_friend_test() ->
     end),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
     model_friends:add_friend(?UID1, ?UID2),
-    mod_ha_feed:add_friend(?UID1, ?SERVER, ?UID2),
+    mod_feed:add_friend(?UID1, ?SERVER, ?UID2),
     ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),
     meck:unload(ejabberd_router),
     ok.

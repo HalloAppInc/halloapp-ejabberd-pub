@@ -198,7 +198,7 @@ modules:
     ping_ack_timeout: 30
     timeout_action: kill
   mod_props: {}
-  mod_ha_feed: {}
+  mod_feed: {}
   mod_sms: {}
   mod_user_session: {}
   mod_contacts: {}

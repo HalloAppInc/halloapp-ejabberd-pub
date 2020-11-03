@@ -1,12 +1,12 @@
 %%%-----------------------------------------------------------------------------------
-%%% File    : mod_ha_feed.erl
+%%% File    : mod_feed.erl
 %%%
 %%% Copyright (C) 2020 halloappinc.
 %%%
 %%% TODO(murali@): Feed hooks do not contain payload since we dont need it for now.
 %%%-----------------------------------------------------------------------------------
 
--module(mod_ha_feed).
+-module(mod_feed).
 -behaviour(gen_mod).
 -author('murali').
 
@@ -199,7 +199,7 @@ publish_comment(PublisherUid, CommentId, PostId, _PostUid, ParentCommentId, Payl
             NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
             broadcast_comment(Action, CommentId, PostId, ParentCommentId,
                 PublisherUid, Payload, TimestampMs, FeedAudienceSet, NewPushList, PostOwnerUid),
-            
+
             {ok, TimestampMs};
         [{ok, Post}, {error, _}, {ok, ParentPushList}] ->
             TimestampMs = util:now_ms(),
