@@ -418,6 +418,32 @@ update_audience_test() ->
     ok.
 
 
+remove_user_test() ->
+    setup(),
+    Timestamp1 = util:now_ms() - ?WEEKS_MS - ?HOURS_MS,
+    Timestamp2 = util:now_ms(),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
+            ?UID1, <<>>, [?UID1], ?COMMENT_PAYLOAD1, Timestamp1),
+    ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
+            ?UID2, ?COMMENT_ID1, [?UID1, ?UID2], ?COMMENT_PAYLOAD2, Timestamp1),
+    ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
+            ?UID1, ?COMMENT_ID2, [?UID1, ?UID2], ?COMMENT_PAYLOAD3, Timestamp1),
+
+    ok = model_feed:publish_post(?POST_ID2, ?UID2, ?PAYLOAD2, except, [?UID1], Timestamp2),
+    ok = model_feed:publish_comment(?COMMENT_ID4, ?POST_ID2,
+            ?UID1, <<>>, [?UID1, ?UID2], ?COMMENT_PAYLOAD4, Timestamp2),
+
+    ok = model_feed:remove_user(?UID1),
+    ?assertEqual({error, missing}, model_feed:get_post(?POST_ID1)),
+    ?assertEqual({error, missing}, model_feed:get_comment(?COMMENT_ID1, ?POST_ID1)),
+    ?assertEqual({error, missing}, model_feed:get_comment(?COMMENT_ID2, ?POST_ID1)),
+    ?assertEqual({error, missing}, model_feed:get_comment(?COMMENT_ID3, ?POST_ID1)),
+    ?assertEqual({error, missing}, model_feed:get_comment(?COMMENT_ID4, ?POST_ID2)),
+    ?assertEqual({ok, []}, model_feed:get_entire_user_feed(?UID1)),
+    ok.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%                      Helper functions                                  %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -27,18 +27,21 @@
     make_feed_comment_stanza/8,
     broadcast_event/4,
     filter_feed_items/2,
-    add_friend/3
+    add_friend/3,
+    remove_user/2
 ]).
 
 
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_FEED, ?MODULE, process_local_iq),
     ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 50),
+    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_FEED),
     ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 50),
+    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -131,6 +134,12 @@ add_friend(Uid, Server, Ouid) ->
     send_old_items(Uid, Ouid, Server),
     % Posts from Ouid to Uid
     send_old_items(Ouid, Uid, Server),
+    ok.
+
+
+-spec remove_user(Uid :: uid(), Server :: binary()) -> ok.
+remove_user(Uid, _Server) ->
+    ok = model_feed:remove_user(Uid),
     ok.
 
 

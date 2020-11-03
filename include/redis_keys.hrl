@@ -13,6 +13,7 @@
 %% RedisAccounts (model_accounts)
 -define(ACCOUNT_KEY, <<"acc:">>).
 -define(DELETED_ACCOUNT_KEY, <<"dac:">>).
+-define(DELETED_UID_KEY, <<"du:">>).
 -define(SUBSCRIBE_KEY, <<"sub:">>).
 -define(BROADCAST_KEY, <<"bro:">>).
 -define(COUNT_REGISTRATIONS_KEY, <<"c_reg:">>).

@@ -103,7 +103,9 @@ delete_account_test() ->
     ok = model_accounts:delete_account(?UID1),
     ?assertEqual(false, model_accounts:account_exists(?UID1)),
     ?assertEqual(true, model_accounts:is_account_deleted(?UID1)),
-    {error, deleted} = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1).
+    {error, deleted} = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1),
+    ?assertEqual({error, missing}, model_accounts:get_signup_user_agent(?UID1)),
+    ok.
 
 
 create_account2_test() ->

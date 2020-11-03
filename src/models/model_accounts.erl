@@ -15,6 +15,9 @@
 -include("eredis_cluster.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
+-include("time.hrl").
+
+-define(DELETED_ACCOUNT_TTL, 2 * ?WEEKS).
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -116,6 +119,7 @@ mod_options(_Host) ->
 -define(FIELD_NAME, <<"na">>).
 -define(FIELD_AVATAR_ID, <<"av">>).
 -define(FIELD_CREATION_TIME, <<"ct">>).
+-define(FIELD_DELETION_TIME, <<"dt">>).
 -define(FIELD_NUM_INV, <<"in">>).  % from model_invites, but is part of the account structure
 -define(FIELD_SINV_TS, <<"it">>).  % from model_invites, but is part of the account structure
 -define(FIELD_LAST_ACTIVITY, <<"la">>).
@@ -165,12 +169,28 @@ create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
     end.
 
 
+%% We copy unidentifiable information to a new key.
+%% The renamed key with rest of the info like phone etc.. will expire in 2 weeks.
 -spec delete_account(Uid :: uid()) -> ok.
 delete_account(Uid) ->
-    case q(["HEXISTS", account_key(Uid), ?FIELD_PHONE]) of
-        {ok, <<"1">>} ->
-            [RenameResult, DecrResult] = qp([
+    DeletionTsMs = util:now_ms(),
+    case q(["HMGET", account_key(Uid), ?FIELD_PHONE,
+            ?FIELD_CREATION_TIME, ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS,
+            ?FIELD_USER_AGENT, ?FIELD_CLIENT_VERSION]) of
+        {ok, [undefined | _]} ->
+            ?WARNING("Looks like it is already deleted, Uid: ~p", [Uid]),
+            ok;
+        {ok, [Phone, CreationTsMsBin, LastActivityTsMs, ActivityStatus, UserAgent, ClientVersion]} ->
+            [{ok, _}, RenameResult, {ok, _}, DecrResult] = qp([
+                ["HSET", deleted_uid_key(Uid),
+                            ?FIELD_CREATION_TIME, CreationTsMsBin,
+                            ?FIELD_LAST_ACTIVITY, LastActivityTsMs,
+                            ?FIELD_ACTIVITY_STATUS, ActivityStatus,
+                            ?FIELD_USER_AGENT, UserAgent,
+                            ?FIELD_CLIENT_VERSION, ClientVersion,
+                            ?FIELD_DELETION_TIME, integer_to_binary(DeletionTsMs)],
                 ["RENAME", account_key(Uid), deleted_account_key(Uid)],
+                ["EXPIRE", deleted_account_key(Uid), ?DELETED_ACCOUNT_TTL],
                 ["DECR", count_accounts_key(Uid)]
             ]),
             case RenameResult of
@@ -180,7 +200,8 @@ delete_account(Uid) ->
                     ?ERROR("Uid: ~s account delete failed ~p", [Uid, Error])
             end,
             {ok, _} = DecrResult;
-        {ok, <<"0">>} ->
+        {error, _} ->
+            ?ERROR("Error, fetching details: ~p", [Uid]),
             ok
     end,
     ok.
@@ -425,7 +446,7 @@ filter_nonexisting_uids(Uids) ->
 
 -spec is_account_deleted(Uid :: uid()) -> boolean().
 is_account_deleted(Uid) ->
-    {ok, Res} = q(["EXISTS", deleted_account_key(Uid)]),
+    {ok, Res} = q(["EXISTS", deleted_uid_key(Uid)]),
     binary_to_integer(Res) > 0.
 
 
@@ -699,6 +720,11 @@ account_key(Uid) ->
 -spec deleted_account_key(binary()) -> binary().
 deleted_account_key(Uid) ->
     <<?DELETED_ACCOUNT_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+%% DeletedUidKey to keep track of all deleted uids used so far.
+-spec deleted_uid_key(binary()) -> binary().
+deleted_uid_key(Uid) ->
+    <<?DELETED_UID_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 subscribe_key(Uid) ->
     <<?SUBSCRIBE_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.

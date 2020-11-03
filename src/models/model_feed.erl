@@ -49,10 +49,11 @@
     get_7day_group_feed/1,
     get_entire_group_feed/1,
     is_post_owner/2,
-    remove_all_user_posts/1,
     add_uid_to_audience/2,
+    remove_all_user_posts/1,    %% test.
     is_post_deleted/1,    %% test.
-    is_comment_deleted/2    %% test.
+    is_comment_deleted/2,    %% test.
+    remove_user/1
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -510,6 +511,25 @@ get_posts_comments(PostIds) ->
     lists:flatten(Results).
 
 
+-spec remove_user(Uid :: binary()) -> ok.
+remove_user(Uid) ->
+    {ok, PostIds} = q(["ZRANGEBYSCORE", reverse_post_key(Uid), "-inf", "+inf"]),
+    {ok, CommentKeys} = q(["ZRANGEBYSCORE", reverse_comment_key(Uid), "-inf", "+inf"]),
+    %% Delete all posts and their uid fields too.
+    lists:foreach(fun(PostId) -> ok = delete_post(PostId, Uid) end, PostIds),
+    %% Delete all comments and their publisher_uid fields too.
+    lists:foreach(
+        fun(CommentKey) ->
+            {CommentId, PostId} = decode_comment_key(CommentKey),
+            ok = retract_comment(CommentId, PostId)
+        end, CommentKeys),
+    %% Delete reverse indexes to them from uid related keys.
+    [{ok, _}, {ok, _}] = qp([
+        ["DEL", reverse_comment_key(Uid)],
+        ["DEL", reverse_post_key(Uid)]]),
+    ok.
+
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -534,7 +554,7 @@ decode_comment_key(CommentKey) ->
     %% this is not nice?
     <<CommentKeyPrefix:3/binary, "{", PostId/binary>> = Part1,
     CommentId = Part2,
-    {PostId, CommentId}.
+    {CommentId, PostId}.
 
 
 q(Command) -> ecredis:q(ecredis_feed, Command).
