@@ -550,6 +550,7 @@ process_authenticated_packet(Pkt, State) ->
     Pkt1 = set_lang(Pkt, State),
     case set_from_to(Pkt1, State) of
         {ok, Pkt2} ->
+            ?INFO("recv: final xmpp: ~p", [Pkt2]),
             try callback(handle_authenticated_packet, Pkt2, State)
             catch _:{?MODULE, undef} ->
                 process_stream_end(service_unavailable, State)

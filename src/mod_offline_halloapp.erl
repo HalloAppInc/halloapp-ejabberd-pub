@@ -134,6 +134,7 @@ handle_info(Request, State) ->
 
 -spec user_send_ack(Packet :: ack()) -> ok.
 user_send_ack(#ack{id = MsgId, from = #jid{user = UserId, server = Server}} = Ack) ->
+    ?INFO("Uid: ~s, MsgId: ~s", [UserId, MsgId]),
     {ok, OfflineMessage} = model_messages:get_message(UserId, MsgId),
     case OfflineMessage of
         undefined ->

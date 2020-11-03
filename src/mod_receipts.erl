@@ -44,9 +44,10 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 %% Hook triggered when user sent the server an ack stanza for this particular message.
 -spec user_ack_packet(Ack :: ack(), OfflineMessage :: offline_message()) -> ok.
-user_ack_packet(#ack{id = Id, from = #jid{server = ServerHost} = AckFrom},
+user_ack_packet(#ack{id = Id, from = #jid{user = FromUid, server = ServerHost} = AckFrom},
         #offline_message{content_type = ContentType, from_uid = MsgFromId, message = Msg})
         when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">> ->
+    ?INFO("Uid: ~s, Id: ~p, ContentType: ~p", [FromUid, Id, ContentType]),
     TimestampSec = util:now_binary(),
     FromJID = AckFrom,
     ToJID = jid:make(MsgFromId, ServerHost),
@@ -62,6 +63,10 @@ user_ack_packet(_, _) ->
 -spec send_receipt(ToJID :: jid(), FromJID :: jid(), Id :: binary(),
         ThreadId :: binary(), Timestamp :: binary()) -> ok.
 send_receipt(ToJID, FromJID, Id, ThreadId, Timestamp) ->
+    ToUid = ToJID#jid.user,
+    FromUid = FromJID#jid.user,
+    ?INFO("FromUid: ~s, ToUid: ~s, Id: ~p, ThreadId: ~p, Timestamp: ~p",
+            [FromUid, ToUid, Id, ThreadId, Timestamp]),
     MessageReceipt = #message{
         id = util:new_msg_id(),
         to = ToJID,
