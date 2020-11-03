@@ -29,6 +29,7 @@
 -export([
     store_message/1,
     ack_message/2,
+    withhold_message/2,
     remove_all_user_messages/1,
     count_user_messages/1,
     get_message/2,
@@ -141,6 +142,17 @@ ack_message(Uid, MsgId) ->
             ["DEL", message_key(Uid, MsgId)],
             ["EXEC"]]),
     ok.
+
+
+-spec withhold_message(Uid :: uid(), MsgId :: binary()) -> ok | {error, any()}.
+withhold_message(Uid, MsgId) ->
+    [{ok, _}, Result] = qp([
+        ["ZREM", message_queue_key(Uid), MsgId],
+        ["RENAME", message_key(Uid, MsgId), withhold_message_key(Uid, MsgId)]]),
+    case Result of
+        {ok, _} -> ok;
+        {error, _} = Err -> Err
+    end.
 
 
 %%TODO(murali@): Update this to use a lua script.
@@ -282,6 +294,11 @@ message_keys(Uid, MsgIds) ->
 -spec message_key(Uid :: uid(), MsgId :: binary()) -> binary().
 message_key(Uid, MsgId) ->
     <<?MESSAGE_KEY/binary, <<"{">>/binary, Uid/binary, <<"}:">>/binary, MsgId/binary>>.
+
+
+-spec withhold_message_key(Uid :: uid(), MsgId :: binary()) -> binary().
+withhold_message_key(Uid, MsgId) ->
+    <<?WITHHOLD_MESSAGE_KEY/binary, <<"{">>/binary, Uid/binary, <<"}:">>/binary, MsgId/binary>>.
 
 
 -spec message_queue_key(Uid :: uid()) -> binary().

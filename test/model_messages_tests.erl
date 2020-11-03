@@ -48,6 +48,7 @@ clear() ->
 keys_test() ->
     setup(),
     ?assertEqual(<<"msg:{1}:qwerty">>, model_messages:message_key(<<"1">>, <<"qwerty">>)),
+    ?assertEqual(<<"wmsg:{1}:qwerty">>, model_messages:withhold_message_key(<<"1">>, <<"qwerty">>)),
     ?assertEqual(<<"mq:{1}">>, model_messages:message_queue_key(<<"1">>)),
     ?assertEqual(<<"ord:{1}">>, model_messages:message_order_key(<<"1">>)).
 
@@ -88,6 +89,18 @@ ack_message_test() ->
     ?assertEqual({ok, ?OFFLINE_MESSAGE1}, model_messages:get_message(?UID1, ?MID1)),
 
     ?assertEqual(ok, model_messages:ack_message(?UID1, ?MID1)),
+    ?assertEqual({ok, ?EMPTY_OFFLINE_MESSAGE}, model_messages:get_message(?UID1, ?MID1)),
+    ?assertEqual({ok, []}, model_messages:get_all_user_messages(?UID1)).
+
+
+starve_message_test() ->
+    setup(),
+    ?assertEqual({error,<<"ERR no such key">>}, model_messages:withhold_message(?UID1, ?MID1)),
+
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
+    ?assertEqual({ok, ?OFFLINE_MESSAGE1}, model_messages:get_message(?UID1, ?MID1)),
+
+    ?assertEqual(ok, model_messages:withhold_message(?UID1, ?MID1)),
     ?assertEqual({ok, ?EMPTY_OFFLINE_MESSAGE}, model_messages:get_message(?UID1, ?MID1)),
     ?assertEqual({ok, []}, model_messages:get_all_user_messages(?UID1)).
 

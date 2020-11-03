@@ -241,9 +241,9 @@ filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid, content_type = <<
 filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid,
         retry_count = RetryCount, message = Message})
         when RetryCount >= ?MAX_RETRY_COUNT ->
-    ?WARNING("Dropping offline message after max retries, Uid: ~p, msg_id: ~p, message: ~p",
+    ?WARNING("Withhold offline message after max retries, Uid: ~p, msg_id: ~p, message: ~p",
             [Uid, MsgId, Message]),
-    model_messages:ack_message(Uid, MsgId),
+    ok = model_messages:withhold_message(Uid, MsgId),
     stat:count("HA/offline_messages", "drop"),
     false;
 filter_messages(_) -> true.
