@@ -189,8 +189,6 @@ format_error({missing_module_dep, Mod, DepMod}) ->
 	   [Mod, DepMod]);
 format_error(eimp_error) ->
     format("ejabberd is built without image converter support", []);
-format_error({mqtt_codec, Reason}) ->
-    mqtt_codec:format_error(Reason);
 format_error(Reason) ->
     yconf:format_error(Reason).
 
