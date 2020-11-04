@@ -348,9 +348,12 @@ make_group_st(Group) ->
 
 -spec make_members_st(Members :: [group_member()]) -> [member_st()].
 make_members_st(Members) ->
+    MemberUids = [M#group_member.uid || M <- Members],
+    NamesMap = model_accounts:get_names(MemberUids),
     [#member_st{
         uid = M#group_member.uid,
-        type = M#group_member.type
+        type = M#group_member.type,
+        name = maps:get(M#group_member.uid, NamesMap, undefined)
     } || M <- Members].
 
 

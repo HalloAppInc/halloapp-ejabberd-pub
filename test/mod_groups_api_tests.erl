@@ -357,9 +357,9 @@ get_group_test() ->
         gid = Gid,
         name = ?GROUP_NAME1,
         members = [
-            #member_st{uid = ?UID1, type = admin},
-            #member_st{uid = ?UID2, type = member},
-            #member_st{uid = ?UID3, type = member}]
+            #member_st{uid = ?UID1, name = ?NAME1, type = admin},
+            #member_st{uid = ?UID2, name = ?NAME2, type = member},
+            #member_st{uid = ?UID3, name = ?NAME3, type = member}]
     },
 %%    ?debugVal(ExpectedGroupSt, 1000),
     ?assertEqual(ExpectedGroupSt, GroupSt),
