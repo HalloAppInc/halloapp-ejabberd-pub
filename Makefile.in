@@ -220,6 +220,7 @@ install: all copy-files
 		-e "s*{{libdir}}*@libdir@*g" \
 		-e "s*{{sysconfdir}}*@sysconfdir@*g" \
 		-e "s*{{localstatedir}}*@localstatedir@*g" \
+		-e "s*{{logdir}}*$(LOGDIR)*g" \
 		-e "s*{{docdir}}*@docdir@*g" \
 		-e "s*{{erl}}*@ERL@*g" \
 		-e "s*{{epmd}}*@EPMD@*g" ejabberdctl.template \
@@ -267,7 +268,9 @@ install: all copy-files
 	$(CHOWN_COMMAND) -R @INSTALLUSER@ $(LOGDIR) >$(CHOWN_OUTPUT)
 	chmod -R 755 $(LOGDIR)
 	## TODO(murali@): Fix this eventually, when we have different user profiles.
-	ln -f -s $(LOGDIR) /home/ec2-user/logs
+	## FIXME(Nikola): This is tied to production, breaks when you try make install on localhost.
+	## Commented it for now until I figure out what to do.
+	#ln -f -s $(LOGDIR) /home/ec2-user/logs
 	#
 	# Documentation
 	$(INSTALL) -d $(DOCDIR)
