@@ -148,7 +148,8 @@ noise_check_spub(SPub, Auth) ->
         Pkt ->
             stat:count("HA/pb_packet", "decode_success"),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
-            case ejabberd_auth:check_spub(integer_to_binary(Pkt#pb_auth_request.uid), SPub) of
+            case ejabberd_auth:check_spub(
+                    integer_to_binary(Pkt#pb_auth_request.uid), base64:encode(SPub)) of
                 true ->
                     stat:count("HA/check_spub", "match"),
                     ok;
