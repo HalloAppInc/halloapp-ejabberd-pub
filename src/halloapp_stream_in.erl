@@ -366,7 +366,7 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := established} = St
 
 handle_info({'$gen_event', {stream_validation, Bin}}, State) ->
     noreply(
-        try enif_protobuf:decode(Bin, pb_packet) of
+        try enif_protobuf:decode(Bin, pb_auth_request) of
         Pkt ->
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
             FinalPkt = ha_auth_parser:proto_to_xmpp(Pkt),
