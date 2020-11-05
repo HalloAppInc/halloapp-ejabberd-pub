@@ -613,11 +613,12 @@ new_uniq_id() ->
     iolist_to_binary([p1_rand:get_string(), integer_to_binary(erlang:unique_integer([positive]))]).
 
 
--spec get_conn_type(state()) -> c2s | c2s_tls | websocket | http_bind.
+-spec get_conn_type(state()) -> c2s | c2s_tls | c2s_noise | websocket | http_bind.
 get_conn_type(State) ->
     case halloapp_stream_in:get_transport(State) of
         tcp -> c2s;
         tls -> c2s_tls;
+        noise -> c2s_noise;
         http_bind -> http_bind;
         websocket -> websocket
     end.
