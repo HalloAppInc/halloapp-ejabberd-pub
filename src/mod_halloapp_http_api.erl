@@ -45,8 +45,8 @@ process([<<"registration">>, <<"request_sms">>],
         ?INFO("payload ~p phone:~p, ua:~p ip:~p ~p",
             [Payload, Phone, UserAgent, IP, util:is_test_number(Phone)]),
 
-        check_invited(Phone),
         check_ua(UserAgent),
+        check_invited(Phone, UserAgent),
         request_sms(Phone, UserAgent),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
@@ -295,11 +295,12 @@ check_name(_) ->
     error(invalid_name).
 
 
--spec check_invited(PhoneNum :: binary()) -> ok | erlang:error().
-check_invited(PhoneNum) ->
+-spec check_invited(PhoneNum :: binary(), UserAgent :: binary()) -> ok | erlang:error().
+check_invited(PhoneNum, UserAgent) ->
     Invited = model_invites:is_invited(PhoneNum),
     IsTestNumber = util:is_test_number(PhoneNum),
-    case Invited =:= true orelse IsTestNumber =:= true of
+    IsAllowedVersion = is_version_invite_opened(UserAgent),
+    case Invited =:= true orelse IsTestNumber =:= true orelse IsAllowedVersion of
         true -> ok;
         false ->
             case model_phone:get_uid(PhoneNum) of
@@ -308,6 +309,12 @@ check_invited(PhoneNum) ->
             end
     end.
 
+-spec is_version_invite_opened(UserAgent :: binary()) -> boolean().
+is_version_invite_opened(UserAgent) ->
+    case UserAgent of
+        <<"HalloApp/iOS1.0">> -> true;
+        _Any -> false
+    end.
 
 -spec update_key(binary(), binary()) -> {ok, binary(), binary()}.
 update_key(Uid, SPub) ->

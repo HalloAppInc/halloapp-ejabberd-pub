@@ -226,15 +226,15 @@ check_name_test() ->
 
 check_invited_test() ->
     setup(),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?TEST_PHONE)),
+    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?TEST_PHONE, <<"">>)),
 
-    ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE)),
+    ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE, <<"">>)),
     model_invites:record_invite(?UID, ?PHONE, 4),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE)),
+    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE, <<"">>)),
     clear(),
-    ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE)),
+    ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE, <<"">>)),
     {ok, _Pass, _Uid} = ejabberd_auth:ha_try_register(?PHONE, <<"pass">>, ?NAME, ?UA),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE)).
+    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE, <<"">>)).
 
 
 request_and_check_sms_code_test() ->
@@ -245,6 +245,21 @@ request_and_check_sms_code_test() ->
     ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?BAD_SMS_CODE)),
     ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?SMS_CODE)),
     meck_finish(ejabberd_router).
+
+
+is_version_invite_opened_test() ->
+    ?assertEqual(true, mod_halloapp_http_api:is_version_invite_opened(<<"HalloApp/iOS1.0">>)),
+    ?assertEqual(false, mod_halloapp_http_api:is_version_invite_opened(<<"HalloApp/iOS1.1">>)),
+    ok.
+
+
+check_invited_by_version_test() ->
+    setup(),
+    ?assertEqual(ok, mod_halloapp_http_api:check_invited(
+        <<"16501231234">>, <<"HalloApp/iOS1.0">>)),
+    ?assertError(not_invited, mod_halloapp_http_api:check_invited(
+        <<"16501231234">>, <<"HalloApp/iOS1.1">>)),
+    ok.
 
 %%%----------------------------------------------------------------------
 %%% Internal functions
