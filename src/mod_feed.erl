@@ -204,10 +204,15 @@ publish_comment(PublisherUid, CommentId, PostId, _PostUid, ParentCommentId, Payl
         [{ok, Post}, {error, _}, {ok, ParentPushList}] ->
             TimestampMs = util:now_ms(),
             PostOwnerUid = Post#post.uid,
+            PostAudienceSet = sets:from_list(Post#post.audience_list),
             FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
-            case sets:is_element(PublisherUid, FeedAudienceSet) of
-                false -> ok;
-                true ->
+            IsPublisherInFinalAudienceSet = sets:is_element(PublisherUid, FeedAudienceSet),
+            IsPublisherInPostAudienceSet = sets:is_element(PublisherUid, PostAudienceSet),
+
+            if
+                IsPublisherInFinalAudienceSet ->
+                    %% PublisherUid is allowed to comment since it is part of the final audience set.
+                    %% It should be stored and broadcasted.
                     NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
                             ParentCommentId, NewPushList, Payload, TimestampMs),
@@ -215,9 +220,20 @@ publish_comment(PublisherUid, CommentId, PostId, _PostUid, ParentCommentId, Payl
                                        comment]),
                     broadcast_comment(Action, CommentId, PostId, ParentCommentId,
                         PublisherUid, Payload, TimestampMs, FeedAudienceSet, NewPushList,
-                        PostOwnerUid)
-            end,
-            {ok, TimestampMs}
+                        PostOwnerUid),
+                    {ok, TimestampMs};
+
+                IsPublisherInPostAudienceSet ->
+                    %% PublisherUid is not allowed to comment.
+                    %% Post was shared with them, but not in the final audience set
+                    %% They could be blocked, so silently ignore it.
+                    {ok, TimestampMs};
+
+                true ->
+                    %% PublisherUid is not allowed to comment.
+                    %% Post was not shared to them, so reject with an error.
+                    {error, invalid_post_id}
+            end
     end.
 
 
@@ -269,23 +285,40 @@ retract_comment(PublisherUid, CommentId, PostId, PostUid) ->
         [{ok, _Post}, {error, _}, _] ->
             {error, invalid_comment_id};
         [{ok, Post}, {ok, Comment}, _] ->
+            TimestampMs = util:now_ms(),
+            PostOwnerUid = Post#post.uid,
+            ParentCommentId = Comment#comment.parent_id,
+            PostAudienceSet = sets:from_list(Post#post.audience_list),
+            FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
+            IsPublisherInFinalAudienceSet = sets:is_element(PublisherUid, FeedAudienceSet),
+            IsPublisherInPostAudienceSet = sets:is_element(PublisherUid, PostAudienceSet),
+
             case PublisherUid =:= Comment#comment.publisher_uid of
                 false -> {error, not_authorized};
                 true ->
-                    TimestampMs = util:now_ms(),
-                    PostOwnerUid = Post#post.uid,
-                    ParentCommentId = Comment#comment.parent_id,
-                    ok = model_feed:retract_comment(CommentId, PostId),
+                    if
+                        IsPublisherInFinalAudienceSet orelse IsPublisherInPostAudienceSet ->
+                            %% PublisherUid is allowed to retract comment since
+                            %% it is part of the final audience set or part of the post audience set.
+                            %% It should be removed from our db and broadcasted.
+                            ok = model_feed:retract_comment(CommentId, PostId),
 
-                    %% send a new api message to all the clients.
-                    FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
-                    ResultStanza = make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
-                            ParentCommentId, PublisherUid, <<>>, TimestampMs),
-                    PushSet = sets:new(),
-                    broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
-                    ejabberd_hooks:run(feed_item_retracted, Server, [PublisherUid, CommentId, comment]),
+                            %% send a new api message to all the clients.
+                            ResultStanza = make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
+                                    ParentCommentId, PublisherUid, <<>>, TimestampMs),
+                            PushSet = sets:new(),
+                            broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
+                            ejabberd_hooks:run(feed_item_retracted, Server,[PublisherUid, CommentId, comment]),
 
-                    {ok, TimestampMs}
+                            {ok, TimestampMs};
+
+                        true ->
+                            %% PublisherUid must be never allowed to comment.
+                            %% This should never occur.
+                            ?ERROR("Invalid state: post_id: ~p, comment_id: ~p, publisher_uid: ~p",
+                                    [PostId, CommentId, PublisherUid]),
+                            {error, invalid_post_id}
+                    end
             end
     end.
 
