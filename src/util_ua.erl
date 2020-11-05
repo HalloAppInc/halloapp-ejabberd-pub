@@ -111,7 +111,7 @@ split_version(Version) ->
     case util_ua:get_client_type(Version) of
         android ->
             {match, [Version, Major, Minor]} = re:run(Version,
-                    "^HalloApp\/Android([0-9]+).([0-9]+)$", [{capture, all, binary}]),
+                    "^HalloApp\/Android([0-9]+).([0-9]+)D?$", [{capture, all, binary}]),
             {binary_to_integer(Major), binary_to_integer(Minor), 0};
         ios ->
             {match, [Version, Major, Minor, Patch]} = re:run(Version,
