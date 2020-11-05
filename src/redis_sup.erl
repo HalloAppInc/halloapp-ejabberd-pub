@@ -12,6 +12,9 @@
 
 -behaviour(supervisor).
 
+-include("logger.hrl").
+-include("ha_types.hrl").
+
 %% API
 -export([start_link/0]).
 
@@ -44,6 +47,17 @@ start_link() ->
         [ChildSpec :: supervisor:child_spec()]}}
     | ignore | {error, Reason :: term()}).
 init([]) ->
+    % Switch to this code once we know it is working
+    % ok = check_environment(),
+    try
+        check_environment()
+%%        erlang:error(bad_error)
+    catch
+        Class : Reason : Stacktrace  ->
+            ?ERROR("Stacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+    end,
+
     MaxRestarts = 1000,
     MaxSecondsBetweenRestarts = 1,
     SupFlags = #{strategy => one_for_one,
@@ -127,3 +141,45 @@ create_redis_child_spec(RedisService, RedisClientImpl, RedisServiceClient) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+% Make sure if we are in the prod environment we are running on the right ec2 instance
+% Make sure if we are in test ot github environment we don't have Jabber IAM role
+-spec check_environment() -> ok. % or error is raised.
+check_environment() ->
+    Arn = get_arn(),
+    IsJabberIAMRole = is_jabber_iam_role(Arn),
+    ?INFO("Arn ~p ~p", [Arn, IsJabberIAMRole]),
+    case config:get_hallo_env() of
+        prod ->
+            case IsJabberIAMRole of
+                true -> ok;
+                false -> error({bad_iam_role, Arn, prod})
+            end;
+        TestEnv when TestEnv =:= test; TestEnv =:= github ->
+            case IsJabberIAMRole of
+                false -> error({bad_iam_role, Arn, TestEnv});
+                true -> ok
+            end
+    end.
+
+-spec get_arn() -> maybe(binary()).
+get_arn() ->
+    try
+        Res = os:cmd("aws sts get-caller-identity"),
+        ResMap = jiffy:decode(Res, [return_maps]),
+        maps:get("Arn", ResMap, undefined)
+    catch
+        Class : Reason : Stacktrace  ->
+            ?ERROR("cant get_arn()\nStacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            undefined
+    end.
+
+-spec is_jabber_iam_role(Arn :: binary()) -> boolean().
+is_jabber_iam_role(Arn) ->
+    case Arn of
+        <<"arn:aws:sts::356247613230:assumed-role/Jabber-instance-perms/", _Rest/binary>> ->
+            true;
+        _Any ->
+            false
+    end.
