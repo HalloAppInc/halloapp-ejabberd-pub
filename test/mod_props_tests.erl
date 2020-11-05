@@ -15,6 +15,8 @@
 
 -define(HASH_LENGTH, (?PROPS_SHA_HASH_LENGTH_BYTES * 4 / 3)).
 -define(UID, <<"1">>).
+-define(UID2, <<"2">>).
+-define(UID3, <<"3">>).
 -define(PHONE, <<"16175280000">>).
 -define(DEV_UID, <<"1000000000045484920">>).  % michael's uid is on the dev list
 -define(TEST_UID, <<"3">>).
@@ -32,18 +34,28 @@
 
 hash_length_test() ->
     setup(),
-    {Hash, _} = mod_props:get_props_and_hash(?UID),
-    ?assert(?HASH_LENGTH == byte_size(Hash)),
-    {DevHash, _} = mod_props:get_props_and_hash(?DEV_UID),
-    ?assert(?HASH_LENGTH == byte_size(DevHash)),
+    Hash1 = mod_props:get_hash(?UID),
+    Hash2 = mod_props:get_hash(?DEV_UID),
+    ?assert(?HASH_LENGTH == byte_size(Hash1)),
+    ?assert(?HASH_LENGTH == byte_size(Hash2)),
     teardown().
 
 
 hash_test() ->
     setup(),
-    {Hash1, _} = mod_props:get_props_and_hash(?UID),
-    {Hash2, _} = mod_props:get_props_and_hash(?DEV_UID),
+    Hash1 = mod_props:get_hash(?UID),
+    Hash2 = mod_props:get_hash(?DEV_UID),
     ?assertNotEqual(Hash1, Hash2),
+    teardown().
+
+
+hash_client_version_test() ->
+    setup(),
+    Hash1 = mod_props:get_hash(?UID),
+    Hash2 = mod_props:get_hash(?UID2),
+    Hash3 = mod_props:get_hash(?UID3),
+    ?assertEqual(Hash1, Hash2),
+    ?assertNotEqual(Hash1, Hash3),
     teardown().
 
 
@@ -65,7 +77,8 @@ iq_test() ->
 
 setup() ->
     meck:new(model_accounts),
-    meck:expect(model_accounts, get_phone, fun mock_get_phone/1).
+    meck:expect(model_accounts, get_phone, fun mock_get_phone/1),
+    meck:expect(model_accounts, get_client_version, fun mock_get_client_version/1).
 
 
 teardown() ->
@@ -76,7 +89,19 @@ teardown() ->
 mock_get_phone(Uid) ->
     case Uid of
         ?UID -> {ok, ?PHONE};
+        ?UID2 -> {ok, ?PHONE};
+        ?UID3 -> {ok, ?PHONE};
         ?DEV_UID -> {ok, ?PHONE};
         ?TEST_UID -> {ok, ?TEST_PHONE}
+    end.
+
+
+mock_get_client_version(Uid) ->
+    case Uid of
+        ?UID -> {ok, <<"HalloApp/iOS0.3.75">>};
+        ?UID2 -> {ok, <<"HalloApp/iOS0.3.75">>};
+        ?UID3 -> {ok, <<"HalloApp/iOS0.3.76">>};
+        ?DEV_UID -> {ok, <<"HalloApp/iOS0.3.76">>};
+        ?TEST_UID -> {ok, <<"HalloApp/Android0.100">>}
     end.
 

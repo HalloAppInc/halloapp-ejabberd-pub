@@ -583,7 +583,7 @@ process_stream_authentication(#halloapp_auth{uid = Uid, client_mode = Mode,
     AuthResultPkt = #halloapp_auth_result{
         result = Result,
         reason = Reason,
-        props_hash = mod_props:get_hash(Uid)
+        props_hash = mod_props:get_hash(Uid, ClientVersion)
     },
     FinalState = send_pkt(NewState, AuthResultPkt),
     case Result of
@@ -629,7 +629,7 @@ process_auth_request(#halloapp_auth{uid = Uid, pwd = Pwd, client_mode = Mode,
     AuthResultPkt = #halloapp_auth_result{
         result = Result,
         reason = Reason,
-        props_hash = mod_props:get_hash(Uid)
+        props_hash = mod_props:get_hash(Uid, ClientVersion)
     },
     case Result of
         <<"failure">> ->

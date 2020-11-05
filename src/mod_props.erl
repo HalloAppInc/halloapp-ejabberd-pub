@@ -26,7 +26,8 @@
 %% API
 -export([
     get_hash/1,
-    get_props/1
+    get_hash/2,
+    get_props/2    %% debug only
 ]).
 
 %%====================================================================
@@ -56,7 +57,8 @@ mod_options(_Host) ->
 
 process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
     IsDev = dev_users:is_dev_uid(Uid),
-    {Hash, SortedProplist} = get_props_and_hash(Uid),
+    {ok, ClientVersion} = model_accounts:get_client_version(Uid),
+    {Hash, SortedProplist} = get_props_and_hash(Uid, ClientVersion),
     ?INFO("Uid:~s (dev = ~s) requesting props. hash = ~s, proplist = ~p",
         [Uid, IsDev, Hash, SortedProplist]),
     make_response(IQ, SortedProplist, Hash).
@@ -65,36 +67,58 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
 %% API
 %%====================================================================
 
+%% deprecated but still used by xmpp clients.
+%% TODO(murali@): remove this in 1 month.
 -spec get_hash(Uid :: binary()) -> binary().
 get_hash(Uid) ->
-    {Hash, _} = get_props_and_hash(Uid),
+    {ok, ClientVersion} = model_accounts:get_client_version(Uid),
+    get_hash(Uid, ClientVersion).
+
+
+-spec get_hash(Uid :: binary(), ClientVersion :: binary()) -> binary().
+get_hash(Uid, ClientVersion) ->
+    {Hash, _} = get_props_and_hash(Uid, ClientVersion),
     Hash.
 
 
 % If any props are changed, please update props doc: server/doc/server_props.md
--spec get_props(Uid :: binary()) -> proplist().
-get_props(Uid) ->
-    Proplist = case dev_users:is_dev_uid(Uid) of
+-spec get_props(Uid :: binary(), ClientVersion :: binary()) -> proplist().
+get_props(Uid, ClientVersion) ->
+    PropMap1 = case dev_users:is_dev_uid(Uid) of
         false ->
-            [
-                {dev, false},
-                {groups, false},
-                {max_group_size, 25},
-                {max_post_media_items, 10},
-                {group_feed, false},
-                {silent_chat_messages, 5}
-            ];
+            #{
+                dev => false,
+                max_group_size => 25,
+                max_post_media_items => 10,
+                groups => false,
+                group_feed => false,
+                silent_chat_messages => 5
+            };
         true ->
-            [
-                {dev, true},
-                {groups, false},
-                {max_group_size, 25},
-                {max_post_media_items, 10},
-                {group_feed, true},
-                {silent_chat_messages, 5}
-            ]
+            #{
+                dev => true,
+                max_group_size => 25,
+                max_post_media_items => 10,
+                groups => true,
+                group_feed => true,
+                silent_chat_messages => 5
+            }
     end,
+    ClientType = util_ua:get_client_type(ClientVersion),
+    PropMap2 = get_client_based_props(PropMap1, ClientType, ClientVersion),
+    Proplist = maps:to_list(PropMap2),
     lists:keysort(1, Proplist).
+
+
+-spec get_client_based_props(PropMap :: map(),
+        ClientType :: atom(), ClientVersion :: binary()) -> map().
+get_client_based_props(PropMap, android, _ClientVersion) ->
+    maps:update(groups, true, PropMap);
+get_client_based_props(PropMap, ios, ClientVersion) ->
+    Result = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS0.3.75">>),
+    maps:update(groups, Result, PropMap);
+get_client_based_props(PropMap, other, _) ->
+    maps:update(groups, false, PropMap).
 
 %%====================================================================
 %% Internal functions
@@ -106,8 +130,8 @@ generate_hash(SortedProplist) ->
     base64url:encode(HashValue).
 
 
-get_props_and_hash(Uid) ->
-    SortedProplist = get_props(Uid),
+get_props_and_hash(Uid, ClientVersion) ->
+    SortedProplist = get_props(Uid, ClientVersion),
     Hash = generate_hash(SortedProplist),
     {Hash, SortedProplist}.
 
