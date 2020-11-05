@@ -22,11 +22,11 @@ setup() ->
 xmpp_to_proto_message_feed_item_test() ->
     setup(),
 
-    PbPost = struct_util:create_pb_post(?ID1, ?UID1_INT, <<>>, ?PAYLOAD1, undefined, ?TIMESTAMP1_INT),
+    PbPost = struct_util:create_pb_post(?ID1, ?UID1_INT, ?NAME1, ?PAYLOAD1, undefined, ?TIMESTAMP1_INT),
     PbFeedItem = struct_util:create_feed_item(publish, PbPost),
     PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbFeedItem),
 
-    PostSt = struct_util:create_post_st(?ID1, ?UID1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
+    PostSt = struct_util:create_post_st(?ID1, ?UID1, ?NAME1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
     FeedSt = struct_util:create_feed_st(publish, [PostSt], [], [], []),
     ToJid = struct_util:create_jid(?UID2, ?SERVER),
     FromJid = struct_util:create_jid(?UID1, ?SERVER),
@@ -40,11 +40,11 @@ xmpp_to_proto_message_feed_item_test() ->
 xmpp_to_proto_retract_message_feed_item_test() ->
     setup(),
 
-    PbPost = struct_util:create_pb_post(?ID1, ?UID1_INT, <<>>, <<>>, undefined, ?TIMESTAMP1_INT),
+    PbPost = struct_util:create_pb_post(?ID1, ?UID1_INT, ?NAME1, <<>>, undefined, ?TIMESTAMP1_INT),
     PbFeedItem = struct_util:create_feed_item(retract, PbPost),
     PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbFeedItem),
 
-    PostSt = struct_util:create_post_st(?ID1, ?UID1, <<>>, ?TIMESTAMP1),
+    PostSt = struct_util:create_post_st(?ID1, ?UID1, ?NAME1, <<>>, ?TIMESTAMP1),
     FeedSt = struct_util:create_feed_st(retract, [PostSt], [], [], []),
     ToJid = struct_util:create_jid(?UID2, ?SERVER),
     FromJid = struct_util:create_jid(?UID1, ?SERVER),
@@ -58,8 +58,8 @@ xmpp_to_proto_retract_message_feed_item_test() ->
 xmpp_to_proto_message_feed_items_test() ->
     setup(),
 
-    PbPost1 = struct_util:create_pb_post(?ID1, ?UID1_INT, <<>>, ?PAYLOAD1, undefined, ?TIMESTAMP1_INT),
-    PbPost2 = struct_util:create_pb_post(?ID2, ?UID1_INT, <<>>, ?PAYLOAD2, undefined, ?TIMESTAMP2_INT),
+    PbPost1 = struct_util:create_pb_post(?ID1, ?UID1_INT, ?NAME1, ?PAYLOAD1, undefined, ?TIMESTAMP1_INT),
+    PbPost2 = struct_util:create_pb_post(?ID2, ?UID1_INT, ?NAME2, ?PAYLOAD2, undefined, ?TIMESTAMP2_INT),
     PbComment1 = struct_util:create_pb_comment(?ID3, ?ID1, <<>>, ?UID2_INT, ?NAME2, ?PAYLOAD2, ?TIMESTAMP2_INT),
     PbFeedItem1 = struct_util:create_feed_item(publish, PbPost1),
     PbFeedItem2 = struct_util:create_feed_item(publish, PbPost2),
@@ -67,8 +67,8 @@ xmpp_to_proto_message_feed_items_test() ->
     PbFeedItems = struct_util:create_feed_items(?UID1_INT, [PbFeedItem1, PbFeedItem2, PbFeedItem3]),
     PbMessage = struct_util:create_pb_message(?ID1, ?UID3_INT, ?UID1_INT, normal, PbFeedItems),
 
-    PostSt1 = struct_util:create_post_st(?ID1, ?UID1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
-    PostSt2 = struct_util:create_post_st(?ID2, ?UID1, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
+    PostSt1 = struct_util:create_post_st(?ID1, ?UID1, ?NAME1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
+    PostSt2 = struct_util:create_post_st(?ID2, ?UID1, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
     CommentSt1 = struct_util:create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
     FeedSt = struct_util:create_feed_st(share, [PostSt1, PostSt2], [CommentSt1], [], []),
     ToJid = struct_util:create_jid(?UID3, ?SERVER),
@@ -129,7 +129,7 @@ proto_to_xmpp_iq_feed_item_audience_test() ->
     PbIq = struct_util:create_pb_iq(?ID1, set, PbFeedItem),
 
     AudienceSt = struct_util:create_audience_list(only, [?UID2, ?UID3]),
-    PostSt = struct_util:create_post_st(?ID1, ?UID1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
+    PostSt = struct_util:create_post_st(?ID1, ?UID1, ?NAME1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
     FeedSt = struct_util:create_feed_st(publish, [PostSt], [], [AudienceSt], []),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
@@ -143,8 +143,8 @@ proto_to_xmpp_iq_share_request_test() ->
     ShareFeedRequests = struct_util:create_share_feed_requests([ShareFeedRequest]),
     PbIq = struct_util:create_pb_iq(?ID1, set, ShareFeedRequests),
 
-    PostSt1 = struct_util:create_post_st(?ID1, <<>>, <<>>, undefined),
-    PostSt2 = struct_util:create_post_st(?ID2, <<>>, <<>>, undefined),
+    PostSt1 = struct_util:create_post_st(?ID1, <<>>, undefined, <<>>, undefined),
+    PostSt2 = struct_util:create_post_st(?ID2, <<>>, undefined, <<>>, undefined),
     SharePostsSt = struct_util:create_share_posts_st(?UID1, [PostSt1, PostSt2], undefined, undefined),
     FeedSt = struct_util:create_feed_st(share, [], [], [], [SharePostsSt]),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),

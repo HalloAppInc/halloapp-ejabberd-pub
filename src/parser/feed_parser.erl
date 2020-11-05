@@ -151,6 +151,7 @@ post_st_to_post(PostSt) ->
     Post = #pb_post{
         id = PostSt#post_st.id,
         publisher_uid = util_parser:xmpp_to_proto_uid(PostSt#post_st.uid),
+        publisher_name = PostSt#post_st.publisher_name,
         payload = Payload,
         timestamp = util_parser:maybe_convert_to_integer(PostSt#post_st.timestamp)
     },
@@ -175,7 +176,8 @@ post_to_post_st(Post) ->
         id = Post#pb_post.id,
         uid = util_parser:proto_to_xmpp_uid(Post#pb_post.publisher_uid),
         payload = Payload,
-        timestamp = util_parser:maybe_convert_to_binary(Post#pb_post.timestamp)
+        timestamp = util_parser:maybe_convert_to_binary(Post#pb_post.timestamp),
+        publisher_name = Post#pb_post.publisher_name
     },
     PostSt.
 

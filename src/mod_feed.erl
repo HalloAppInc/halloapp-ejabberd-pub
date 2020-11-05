@@ -321,6 +321,7 @@ make_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs) ->
                 id = PostId,
                 uid = Uid,
                 payload = Payload,
+                publisher_name = model_accounts:get_name_binary(Uid),
                 timestamp = integer_to_binary(util:ms_to_sec(TimestampMs))
     }]}.
 

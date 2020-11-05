@@ -44,7 +44,8 @@
     from_uid = <<>> :: binary(),			%% uid of the sender.
     timestamp = <<>> :: binary(),			%% timestamp of the content.
     thread_id = <<>> :: binary(),			%% Maps to uid for chat, gid for groupchat, feed for feed.
-    thread_name = <<>> :: binary()			%% Maps to group_name for groupchat, else irrelevant
+    thread_name = <<>> :: binary(),			%% Maps to group_name for groupchat, else irrelevant
+    sender_name = <<>> :: binary()			%% includes push_name of from_uid.
 }).
 
 -type push_metadata() :: #push_metadata{}.

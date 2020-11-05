@@ -468,6 +468,7 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
         <<"timestamp">> => PushMetadata#push_metadata.timestamp,
         <<"thread-id">> => PushMetadata#push_metadata.thread_id,
         <<"thread-name">> => PushMetadata#push_metadata.thread_name,
+        <<"sender-name">> => PushMetadata#push_metadata.sender_name,
         <<"data">> => Data
     },
     BuildTypeMap = case PushType of

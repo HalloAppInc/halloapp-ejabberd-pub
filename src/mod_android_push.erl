@@ -192,7 +192,8 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
             <<"from-id">> => PushMetadata#push_metadata.from_uid,
             <<"timestamp">> => PushMetadata#push_metadata.timestamp,
             <<"thread-id">> => PushMetadata#push_metadata.thread_id,
-            <<"thread-name">> => PushMetadata#push_metadata.thread_name
+            <<"thread-name">> => PushMetadata#push_metadata.thread_name,
+            <<"sender-name">> => PushMetadata#push_metadata.sender_name,
     },
     PushMessage = #{<<"to">> => Token, <<"priority">> => <<"high">>, <<"data">> => Payload},
     Request = {?FCM_GATEWAY, [{"Authorization", "key=" ++ FcmApiKey}],

@@ -14,11 +14,12 @@
 -compile(export_all).
 
 
-create_post_st(Id, Uid, Payload, Timestamp) ->
+create_post_st(Id, Uid, PublisherName, Payload, Timestamp) ->
     #post_st{
         id = Id,
         uid = Uid,
         payload = Payload,
+        publisher_name = PublisherName,
         timestamp = Timestamp
     }.
 

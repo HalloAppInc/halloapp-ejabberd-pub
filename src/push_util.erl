@@ -26,7 +26,8 @@ parse_metadata(#message{id = Id, sub_els = [SubElement],
         content_type = <<"chat">>,
         from_uid = FromUid,
         timestamp = SubElement#chat.timestamp,
-        thread_id = FromUid
+        thread_id = FromUid,
+        sender_name = SubElement#chat.sender_name
     };
 
 parse_metadata(#message{id = Id, sub_els = [SubElement],
@@ -83,7 +84,8 @@ parse_metadata(#message{sub_els = [#feed_st{posts = [Post]}]}) ->
         content_type = <<"feedpost">>,
         from_uid = Post#post_st.uid,
         timestamp = Post#post_st.timestamp,
-        thread_id = <<"feed">>
+        thread_id = <<"feed">>,
+        sender_name = Post#post_st.publisher_name
     };
 
 parse_metadata(#message{sub_els = [#feed_st{comments = [Comment]}]}) ->
@@ -92,7 +94,8 @@ parse_metadata(#message{sub_els = [#feed_st{comments = [Comment]}]}) ->
         content_type = <<"comment">>,
         from_uid = Comment#comment_st.publisher_uid,
         timestamp = Comment#comment_st.timestamp,
-        thread_id = <<"feed">>
+        thread_id = <<"feed">>,
+        sender_name = Comment#comment_st.publisher_name
     };
 
 parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, post = Post, comment = undefined} = SubElement]}) ->
@@ -102,7 +105,8 @@ parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, post = Post, commen
         from_uid = Post#group_post_st.publisher_uid,
         timestamp = Post#group_post_st.timestamp,
         thread_id = Gid,
-        thread_name = SubElement#group_feed_st.name
+        thread_name = SubElement#group_feed_st.name,
+        sender_name = Post#group_post_st.publisher_name
     };
 
 parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, post = undefined, comment = Comment} = SubElement]}) ->
@@ -112,7 +116,8 @@ parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, post = undefined, c
         from_uid = Comment#group_comment_st.publisher_uid,
         timestamp = Comment#group_comment_st.timestamp,
         thread_id = Gid,
-        thread_name = SubElement#group_feed_st.name
+        thread_name = SubElement#group_feed_st.name,
+        sender_name = Comment#group_comment_st.publisher_name
     };
 
 parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
