@@ -117,7 +117,7 @@ get_client_based_props(PropMap, android, _ClientVersion) ->
 get_client_based_props(PropMap, ios, ClientVersion) ->
     Result = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS0.3.75">>),
     maps:update(groups, Result, PropMap);
-get_client_based_props(PropMap, other, _) ->
+get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
 
 %%====================================================================
