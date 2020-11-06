@@ -250,14 +250,17 @@ get_prometheus_metrics_internal(#{prom_map := PromMap}) ->
             fun (K, V, Acc) ->
                 % format it like this: metric_name{label1="lvalue1",label2="lvalue2"} value
                 {pmetric, PName, Tags} = K,
-                TagsStrList = [util:to_list(TK) ++ "=\"" ++ util:to_list(TV) ++ "\"" || {TK, TV} <- Tags],
+                Tags2 = [{fix_prometheus_name(util:to_list(TK)), fix_prometheus_name(util:to_list(TV))}
+                    || {TK, TV} <- Tags],
+                TagsStrList = [TK ++ "=\"" ++ TV ++ "\"" || {TK, TV} <- Tags2],
                 TagsStr = string:join(TagsStrList, ","),
-                case is_valid_prometheus_metric(PName, Tags) of
+                PName2 = fix_prometheus_name(PName),
+                case is_valid_prometheus_metric(PName2, Tags2) of
                     true ->
-                        Line = [PName, "{", TagsStr, "} ", integer_to_list(V), "\n"],
+                        Line = [PName2, "{", TagsStr, "} ", integer_to_list(V), "\n"],
                         [Line | Acc];
                     false ->
-                        ?WARNING("Invalid Prometheus name ~p ~p", [PName, Tags]),
+                        ?WARNING("Invalid Prometheus name ~p ~p", [PName2, Tags2]),
                         Acc
                 end
             end,
@@ -266,16 +269,13 @@ get_prometheus_metrics_internal(#{prom_map := PromMap}) ->
 
 is_valid_prometheus_metric(PName, Tags) ->
     IsNameValid = is_valid_prometheus_name(PName),
-    case IsNameValid of
-        false -> false;
-        true ->
-            lists:all(
-                fun ({TK, TV}) ->
-                    is_valid_prometheus_name(TK) andalso is_valid_prometheus_name(TV)
-                end,
-                Tags
-            )
-    end.
+    AreTagsValid = lists:all(
+        fun ({TK, TV}) ->
+            is_valid_prometheus_name(TK) andalso is_valid_prometheus_name(TV)
+        end,
+        Tags
+    ),
+    IsNameValid and AreTagsValid.
 
 -spec is_valid_prometheus_name(Word :: iodata()) -> true | false.
 is_valid_prometheus_name(Word) when is_atom(Word) ->
@@ -286,6 +286,12 @@ is_valid_prometheus_name(Word) ->
         match -> true;
         nomatch -> false
     end.
+
+fix_prometheus_name(Name) when is_list(Name) ->
+    Name1 = string:replace(Name, ".", "_", all),
+    Name2 = string:replace(Name1, "/", "_", all),
+    Name3 = string:replace(Name2, "-", "_", all),
+    lists:append(Name3).
 
 
 -spec get_prom_name(Namespace :: string(), Metric :: string()) -> string().
