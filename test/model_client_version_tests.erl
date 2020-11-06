@@ -23,7 +23,7 @@ setup() ->
     ok.
 
 clear() ->
-    {ok, ok} = gen_server:call(redis_accounts_client, flushdb).
+    tutil:cleardb(redis_accounts).
 
 version_key_test() ->
     ?assertEqual(<<"clv:Android1">>, model_client_version:version_key(?VERSION1)).
