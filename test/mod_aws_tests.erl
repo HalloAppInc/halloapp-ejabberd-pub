@@ -12,6 +12,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(SECRET1, <<"Secret1">>).
+-define(SECRET2, <<"Secret2">>).
 -define(SECRET1_VALUE, <<"data">>).
 -define(SECRETS_TABLE, mod_aws:get_table_name()).
 
@@ -34,13 +35,25 @@ fetch_secret_test() ->
     finish().
 
 
-get_secret_test() ->
+%% get_cached_secret api is accessible for test only.
+%% test if caching works properly.
+get_cached_secret() ->
     setup(),
     ?assertNot(ets:member(?SECRETS_TABLE, ?SECRET1)),
     ?assertEqual(undefined, mod_aws:get_cached_secret(?SECRET1)),
-    ?assertEqual(?SECRET1_VALUE, mod_aws:get_secret(?SECRET1)),
+    ?assertEqual(?SECRET1_VALUE, mod_aws:get_and_cache_secret(?SECRET1)),
     ?assert(ets:member(?SECRETS_TABLE, ?SECRET1)),
     ?assertEqual(?SECRET1_VALUE, mod_aws:get_cached_secret(?SECRET1)),
+    finish().
+
+
+get_secret() ->
+    setup(),
+    %% Test that the secret is always dummy_secret for any id in testing environment.
+    ?assertEqual(undefined, mod_aws:get_cached_secret(?SECRET1)),
+    ?assertEqual(<<"dummy_secret">>, mod_aws:get_secret(?SECRET1)),
+    ?assertNot(ets:member(?SECRETS_TABLE, ?SECRET1)),
+    ?assertEqual(<<"dummy_secret">>, mod_aws:get_secret(?SECRET2)),
     finish().
 
 %%====================================================================

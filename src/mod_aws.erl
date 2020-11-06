@@ -27,6 +27,7 @@
 ]).
 
 -define(SECRETS_TABLE, aws_secrets).
+-define(DUMMY_SECRET, <<"dummy_secret">>).
 
 %%====================================================================
 %% gen_mod functions
@@ -63,9 +64,14 @@ mod_options(_Host) ->
 
 -spec get_secret(SecretName :: binary()) -> binary().
 get_secret(SecretName) ->
-    case get_cached_secret(SecretName) of
-        undefined -> get_and_cache_secret(SecretName);
-        Secret -> Secret
+    case config:is_prod_env() of
+        true ->
+            case get_cached_secret(SecretName) of
+                undefined -> get_and_cache_secret(SecretName);
+                Secret -> Secret
+            end;
+        false ->
+            ?DUMMY_SECRET
     end.
 
 %%====================================================================
