@@ -280,7 +280,7 @@ process_stream_validation(SocketData, Bin) ->
     {ok, SocketData}.
 
 ha_enoise_recv_data(Socket, Data) ->
-    ?DEBUG("(~s) Received (to be received by noise) data:  ~p", [pp(Socket), Data]),
+    ?DEBUG("Received (to be received by noise) data:  ~p", [Data]),
     case Data of
         <<>> -> {ok, Socket, Data, <<>>};
         _ -> ha_enoise:recv_data(Socket, Data)
