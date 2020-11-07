@@ -18,9 +18,11 @@
 -include("xmpp.hrl").
 -include("translate.hrl").
 -include("ha_namespaces.hrl").
+-include("time.hrl").
 
 -define(SALT_LENGTH_BYTES, 32).
 -define(PROBE_HASH_LENGTH_BYTES, 2).
+-define(NOTIFICATION_EXPIRY_MS, 1 * ?WEEKS_MS).
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -281,15 +283,20 @@ finish_sync(UserId, Server, SyncId) ->
     T = EndTime - StartTime,
     ?INFO("Time taken: ~w us", [T]),
     %% Send notification to User who invited this user.
-    process_notification_to_inviters(UserId, UserPhone, Server, NewContactSet,
-        sets:is_empty(OldContactSet)),
+    {ok, CreationTs} = model_accounts:get_creation_ts_ms(UserId),
+    IsNewUser = CreationTs + ?NOTIFICATION_EXPIRY_MS > util:now_ms(),
+    IsOldContactSetEmpty = sets:is_empty(OldContactSet),
+    case IsNewUser and IsOldContactSetEmpty of
+        true -> process_notification_to_inviters(UserId, UserPhone, Server, NewContactSet);
+        _ -> ok
+    end,
     ok.
 
 
 -spec process_notification_to_inviters(UserId :: binary(), UserPhone :: binary(),
-    Server :: binary(), NewContactSet :: sets:set(binary()),
-    IsOldSetEmpty :: boolean()) -> ok.
-process_notification_to_inviters(UserId, UserPhone, Server, NewContactSet, true) ->
+    Server :: binary(), NewContactSet :: sets:set(binary())) -> ok.
+process_notification_to_inviters(UserId, UserPhone, Server, NewContactSet) ->
+    ?INFO("User: ~p joined", [UserId]),
     {ok, Result} = model_invites:get_inviters_list(UserPhone),
     lists:foreach(
         fun(X) ->
@@ -302,10 +309,7 @@ process_notification_to_inviters(UserId, UserPhone, Server, NewContactSet, true)
                         get_role_value(IsFriend));
                false -> ok
             end
-        end, Result);
-
-process_notification_to_inviters(_UserId, _UserPhone, _Server, _NewContactSet, false) ->
-    ok.
+        end, Result).
 
 
 %%====================================================================

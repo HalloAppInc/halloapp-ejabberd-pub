@@ -104,6 +104,7 @@ notify_inviter(UserId, UserPhone, Server, ContactId, Role) ->
     case model_invites:record_invite_notification(UserPhone, ContactId) of
         true ->
             %% TODO Add stats.
+            ?INFO("Inviter: ~p about user: ~p joining", [ContactId, UserId]),
             notifications_util:send_contact_notification(UserId, UserPhone, Server, ContactId,
                 Role, headline);
         false -> ok
