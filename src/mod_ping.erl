@@ -131,6 +131,15 @@ handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
+handle_info({iq_reply, #iq{type = error,
+        sub_els = [#error_st{reason = user_session_not_found}]}, JID}, State) ->
+    Timers = case State#state.timeout_action of
+        kill ->
+            del_timer(JID, State#state.timers);
+        _ ->
+            State#state.timers
+    end,
+    {noreply, State#state{timers = Timers}};
 handle_info({iq_reply, #iq{}, _JID}, State) ->
     {noreply, State};
 handle_info({iq_reply, timeout, JID}, State) ->
