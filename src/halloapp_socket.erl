@@ -404,10 +404,26 @@ parse(SocketData, Data) when Data == <<>>; Data == [] ->
             Err
     end;
 
-parse(SocketData, Data) when is_binary(Data) ->
-    %% TODO(murali@): add shaper rules here.
+parse(#socket_state{socket = Socket} = SocketData, Data) when is_binary(Data) ->
     ?DEBUG("(~s) Received pb bytes on stream = ~p", [pp(SocketData), Data]),
-    parse_pb_data(SocketData, Data).
+    {ok, SocketData1} = parse_pb_data(SocketData, Data),
+    ShaperState1 = SocketData1#socket_state.shaper,
+    {ShaperState2, Pause} = shaper_update(ShaperState1, byte_size(Data)),
+    SocketData2 = SocketData1#socket_state{shaper = ShaperState2},
+    Result = case Pause > 0 of
+        true ->
+            %% TODO(murali@): add counters if necessary.
+            ?WARNING("Shaper warning, pausing for ~p seconds", [Pause]),
+            activate_after(Socket, self(), Pause);
+        false ->
+            activate(SocketData)
+    end,
+    case Result of
+        ok ->
+            {ok, SocketData2};
+        {error, _} = Err ->
+            Err
+    end.
 
 
 parse_pb_data(#socket_state{pb_stream = PBStream, socket = _Socket,
@@ -428,12 +444,7 @@ parse_pb_data(#socket_state{pb_stream = PBStream, socket = _Socket,
         false ->
             {ok, SocketData#socket_state{pb_stream = FinalData}}
     end,
-    case activate(SocketData) of
-        ok ->
-            {ok, FinalSocketData};
-        {error, _} = Err ->
-            Err
-    end.
+    {ok, FinalSocketData}.
 
 parse_message(SocketData, Data) when is_binary(Data) ->
     %% TODO(murali@): add shaper rules here.
