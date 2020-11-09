@@ -31,7 +31,8 @@
     get_inviter/1,
     get_inviters_list/1,
     get_sent_invites/1,
-    record_invite_notification/2
+    record_invite_notification/2,
+    set_invites_left/2
 ]).
 
 -define(FIELD_NUM_INV, <<"in">>).
@@ -97,6 +98,13 @@ is_invited(PhoneNum) ->
 is_invited_by(Phone, Uid) ->
     {ok, Res} = q_accounts(["SISMEMBER", acc_invites_key(Uid), Phone]),
     binary_to_integer(Res) == 1.
+
+
+-spec set_invites_left(Uid :: uid(), NumInvsLeft :: integer()) -> ok.
+set_invites_left(Uid, NumInvsLeft) ->
+    {ok, _} = q_accounts(
+        ["HSET", model_accounts:account_key(Uid), ?FIELD_NUM_INV, NumInvsLeft]),
+    ok.
 
 
 -spec get_inviters_list(PhoneNum :: binary()) -> {ok, [{Uid :: uid(), Timestamp :: binary()}]}.

@@ -93,6 +93,20 @@ send_invites_error4_test() ->
     ],
     ?assertEqual(Expected, get_invite_subel_list(Result)).
 
+
+register_user_hook_test() ->
+    setup(),
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    mod_invites:request_invite(?UID1, ?PHONE2),
+    ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)),
+    mod_invites:request_invite(?UID1, ?PHONE3),
+    ?assertEqual(?MAX_NUM_INVITES - 2, mod_invites:get_invites_remaining(?UID1)),
+    ok = mod_invites:register_user(?UID2, <<>>, ?PHONE2),
+    ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)),
+    ok = mod_invites:register_user(?UID3, <<>>, ?PHONE3),
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ok.
+
 %% -------------------------------------------- %%
 %% Tests for API functions
 %% --------------------------------------------	%%

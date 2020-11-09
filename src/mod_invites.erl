@@ -27,7 +27,8 @@
 -export([
     process_local_iq/1,
     get_invites_remaining/1,
-    notify_inviter/5
+    notify_inviter/5,
+    register_user/3
 ]).
 
 -define(NS_INVITE, <<"halloapp:invites">>).
@@ -39,10 +40,12 @@
 
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_INVITE, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
     ok.
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_INVITE),
+    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -106,6 +109,17 @@ notify_inviter(UserId, UserPhone, Server, ContactId, Role) ->
         false -> ok
     end.
 
+
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> any().
+register_user(Uid, _Server, Phone) ->
+    {ok, Result} = model_invites:get_inviters_list(Phone),
+    lists:foreach(
+        fun({InviterUid, _Ts}) ->
+            ?INFO("Uid: ~p, Phone: ~p accepted invite. InviterUid: ~p", [Uid, Phone, InviterUid]),
+            InvitesRem = get_invites_remaining(InviterUid),
+            FinalNumInvsLeft = min(InvitesRem +1, ?MAX_NUM_INVITES),
+            ok = model_invites:set_invites_left(InviterUid, FinalNumInvsLeft)
+        end, Result).
 
 %%====================================================================
 %% Internal functions
