@@ -39,7 +39,6 @@
     depends/2,
     mod_options/1,
     process_local_iq/1,
-    remove_user/2,
     re_register_user/3,
     user_name_updated/2
 ]).
@@ -48,14 +47,12 @@
 
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NAME, ?MODULE, process_local_iq),
-    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(user_name_updated, Host, ?MODULE, user_name_updated, 50),
     ok.
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_NAME),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(user_name_updated, Host, ?MODULE, user_name_updated, 50),
     ok.
@@ -84,11 +81,6 @@ process_local_iq(#iq{from = #jid{user = Uid}, type = set,
         xmpp:make_error(IQ, util:err(invalid_uid))
     end.
 %% TODO(murali@): add get-iq api if clients need it.
-
-
-%% remove_user hook deletes the name of the user.
-remove_user(UserId, _Server) ->
-    ok = model_accounts:delete_name(UserId).
 
 
 -spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
