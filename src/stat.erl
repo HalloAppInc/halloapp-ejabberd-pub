@@ -288,10 +288,15 @@ is_valid_prometheus_name(Word) ->
     end.
 
 fix_prometheus_name(Name) when is_list(Name) ->
-    Name1 = string:replace(Name, ".", "_", all),
-    Name2 = string:replace(Name1, "/", "_", all),
-    Name3 = string:replace(Name2, "-", "_", all),
-    lists:flatten(Name3).
+    Name1 = case Name of
+        [D | _] when D >= $0, D =< $9 ->
+            [$_, Name];
+        _ -> Name
+    end,
+    Name2 = string:replace(Name1, ".", "_", all),
+    Name3 = string:replace(Name2, "/", "_", all),
+    Name4 = string:replace(Name3, "-", "_", all),
+    lists:flatten(Name4).
 
 
 -spec get_prom_name(Namespace :: string(), Metric :: string()) -> string().
