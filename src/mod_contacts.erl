@@ -267,7 +267,7 @@ finish_sync(UserId, Server, SyncId) ->
             "add_contacts: ~p, delete_contacts: ~p", [UserId, sets:size(OldContactSet),
             sets:size(NewContactSet), sets:size(AddContactSet), sets:size(DeleteContactSet)]),
     ?INFO("Full contact sync: uid: ~p, add_contacts: ~p, delete_contacts: ~p",
-                [UserId, AddContactSet, DeleteContactSet]),
+                [UserId, sets:to_list(AddContactSet), sets:to_list(DeleteContactSet)]),
     %% TODO(murali@): Update this after moving pubsub to redis.
     remove_contacts_and_notify(UserId, Server, UserPhone,
             sets:to_list(DeleteContactSet), OldReverseContactSet),
