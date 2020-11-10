@@ -66,13 +66,13 @@
 %%====================================================================
 -spec start_ping(binary(), jid()) -> ok.
 start_ping(Host, JID) ->
-    ?INFO("Uid: ~p", [JID#jid.user]),
+    ?INFO("Uid: ~s", [JID#jid.user]),
     Proc = gen_mod:get_module_proc(Host, ?MODULE),
     gen_server:cast(Proc, {start_ping, JID}).
 
 -spec stop_ping(binary(), jid()) -> ok.
 stop_ping(Host, JID) ->
-    ?INFO("Uid: ~p", [JID#jid.user]),
+    ?INFO("Uid: ~s", [JID#jid.user]),
     Proc = gen_mod:get_module_proc(Host, ?MODULE),
     gen_server:cast(Proc, {stop_ping, JID}).
 
