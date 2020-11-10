@@ -422,6 +422,7 @@ parse(#socket_state{socket = Socket} = SocketData, Data) when is_binary(Data) ->
         ok ->
             {ok, SocketData2};
         {error, _} = Err ->
+            ?ERROR("Error activating the socket: ~p", [SocketData]),
             Err
     end.
 
