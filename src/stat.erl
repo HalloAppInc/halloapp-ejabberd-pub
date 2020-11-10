@@ -291,7 +291,7 @@ fix_prometheus_name(Name) when is_list(Name) ->
     Name1 = string:replace(Name, ".", "_", all),
     Name2 = string:replace(Name1, "/", "_", all),
     Name3 = string:replace(Name2, "-", "_", all),
-    lists:append(Name3).
+    lists:flatten(Name3).
 
 
 -spec get_prom_name(Namespace :: string(), Metric :: string()) -> string().
