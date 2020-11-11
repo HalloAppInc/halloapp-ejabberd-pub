@@ -544,7 +544,8 @@ update_priority(#{sid := SID, user := U, server := S, resource := R}, Pres) ->
 check_privacy_then_route(State, Pkt) ->
     case privacy_check_packet(State, Pkt, out) of
         deny ->
-            send_error(State, Pkt, <<"not_acceptable">>);
+            ?INFO("Failed privacy_rules: ~p", [Pkt]),
+            State;
         allow ->
             ejabberd_router:route(Pkt),
             State
