@@ -312,8 +312,8 @@ check_invited(PhoneNum, UserAgent) ->
 -spec is_version_invite_opened(UserAgent :: binary()) -> boolean().
 is_version_invite_opened(UserAgent) ->
     case UserAgent of
-        <<"HalloApp/iOS1.0.79", _Rest/binary>> -> true;
-        <<"HalloApp/79", _Rest/binary>> -> true;
+%%        <<"HalloApp/iOS1.0.79", _Rest/binary>> -> true;
+%%        <<"HalloApp/79", _Rest/binary>> -> true;
         _Any -> false
     end.
 
