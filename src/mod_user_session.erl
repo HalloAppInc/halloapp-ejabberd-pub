@@ -79,6 +79,8 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
 
 -spec mark_user_session_active(Uid :: binary(), Server :: binary()) -> ok.
 mark_user_session_active(Uid, Server) ->
+    % TODO: (nikola): instead of getting the session and then calling a function here we should just have
+    % this code in ejabberd_sm
     case ejabberd_sm_mnesia:get_sessions(Uid, Server) of
         {ok, []} ->
             ?ERROR("No sessions found for uid: ~s", [Uid]);

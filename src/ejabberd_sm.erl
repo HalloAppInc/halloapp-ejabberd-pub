@@ -132,7 +132,7 @@ stop() ->
 %% @doc route arbitrary term to c2s process(es)
 route(To, Term) ->
     try do_route(To, Term), ok
-    catch ?EX_RULE(E, R, St) ->
+    catch ?EX_RULE(E, R, St) ->  % TODO(Nikola): fix the exception log
         StackTrace = ?EX_STACK(St),
         ?ERROR("Failed to route term to ~ts:~n"
                "** Term = ~p~n"
@@ -144,6 +144,7 @@ route(To, Term) ->
 -spec route(stanza()) -> ok.
 route(Packet) ->
     #jid{lserver = LServer} = xmpp:get_to(Packet),
+    % TODO: (Nikola) no one is listening on this hook. Consider removing the hook.
     case ejabberd_hooks:run_fold(sm_receive_packet, LServer, Packet, []) of
         drop ->
             ?DEBUG("Hook dropped stanza:~n~ts", [xmpp:pp(Packet)]);
@@ -161,6 +162,7 @@ route_offline_message(#message{to = To, type = _Type} = Packet) ->
     case ejabberd_auth:user_exists(LUser) andalso
             is_privacy_allow(DecodedPacket) of
         true ->
+            % TODO: (Nikola): remove the bounce 'bounce' from this hook. It has no purpose.
             ejabberd_hooks:run_fold(offline_message_hook, LServer, {bounce, DecodedPacket}, []);
         false ->
             ?ERROR("Invalid packet received: ~p", [Packet]),
@@ -186,6 +188,7 @@ open_session(SID, User, Server, Resource, Info) ->
 -spec close_session(sid(), binary(), binary(), binary()) -> ok.
 
 close_session(SID, User, Server, Resource) ->
+    % TODO: remote all those nodeprep. They are not needed.
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
@@ -201,6 +204,7 @@ close_session(SID, User, Server, Resource) ->
     JID = jid:make(User, Server, Resource),
     ejabberd_hooks:run(sm_remove_connection_hook, JID#jid.lserver, [SID, JID, Info]).
 
+% TODO: (nikola) Not used. Was used by roster. Delete
 -spec check_in_subscription(boolean(), presence()) -> boolean() | {stop, false}.
 check_in_subscription(Acc, #presence{to = To}) ->
     #jid{user = User} = To,
@@ -270,8 +274,8 @@ get_user_info(User, Server) ->
          info = Info,
          sid = {Ts, Pid}} <- clean_session_list(Ss)].
 
+% TODO: (nikola): implement using the function above.
 -spec get_user_info(binary(), binary(), binary()) -> info() | offline.
-
 get_user_info(User, Server, Resource) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
@@ -289,7 +293,9 @@ get_user_info(User, Server, Resource) ->
              |Session#session.info]
     end.
 
+% only used by mod_carboncopy
 -spec set_user_info(binary(), binary(), binary(), atom(), term()) -> ok | {error, any()}.
+
 set_user_info(User, Server, Resource, Key, Val) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
@@ -308,7 +314,9 @@ set_user_info(User, Server, Resource, Key, Val) ->
               end, {error, not_owner}, Ss)
     end.
 
+% also only used by mod_carboncopy
 -spec del_user_info(binary(), binary(), binary(), atom()) -> ok | {error, any()}.
+
 del_user_info(User, Server, Resource, Key) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
@@ -327,6 +335,7 @@ del_user_info(User, Server, Resource, Key) ->
               end, {error, not_owner}, Ss)
     end.
 
+% TODO: (nikola): Both set_presence and unset_presence can use helper function to get_session
 -spec set_presence(sid(), binary(), binary(), binary(),
                    prio(), presence()) -> ok | {error, notfound}.
 
@@ -423,6 +432,7 @@ get_session_sids(User, Server, Resource) ->
     Sessions = get_sessions(Mod, LUser, LServer, LResource),
     [SID || #session{sid = SID} <- Sessions].
 
+% TODO: (nikola): Consider removing this. It is unlikely we can efficiently return this list at scale
 -spec dirty_get_sessions_list() -> [ljid()].
 
 dirty_get_sessions_list() ->
@@ -447,6 +457,7 @@ get_vh_session_list(Server) ->
     Mod = get_sm_backend(LServer),
     [S#session.usr || S <- get_sessions(Mod, LServer)].
 
+% TODO: (nikola): Remove. Not used.
 -spec get_all_pids() -> [pid()].
 
 get_all_pids() ->
@@ -462,6 +473,8 @@ get_vh_session_number(Server) ->
     Mod = get_sm_backend(LServer),
     length(get_sessions(Mod, LServer)).
 
+% TODO: (nikola): Move this code in the _c2s file.
+% It is unclear to me why this code is here and not in c2s.
 c2s_handle_info(#{lang := Lang} = State, replaced) ->
     State1 = State#{replaced => true},
     Err = xmpp:serr_conflict(?T("Replaced by new connection"), Lang),
@@ -475,8 +488,9 @@ c2s_handle_info(#{lang := Lang} = State, {exit, Reason}) ->
 c2s_handle_info(State, _) ->
     State.
 
-
+% TODO: (nikola): move this code to mod_chat. In mod_chat we set the name in the packet.
 user_send_packet({Packet, State} = _Acc) ->
+    % TODO: (nikola) in pb Timestamp is integer so we will soon be able to migrate out of binary ts.
     TimestampSec = util:now_binary(),
     NewPacket = xmpp:set_timestamp_if_missing(Packet, TimestampSec),
     ?DEBUG("set_timestamp_if_missing for packet: ~p", [NewPacket]),
@@ -538,6 +552,7 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %%--------------------------------------------------------------------
 -spec host_up(binary()) -> ok.
 host_up(Host) ->
+    % TODO: (nikola): first 4 hooks use ejabberd_sm atom while 5th uses ?MODULE
     ejabberd_hooks:add(c2s_handle_info, Host,
                ejabberd_sm, c2s_handle_info, 50),
     ejabberd_hooks:add(pb_c2s_handle_info, Host,
@@ -557,6 +572,9 @@ host_down(Host) ->
         [Node] when Node == node() -> xmpp:serr_system_shutdown();
         _ -> xmpp:serr_reset()
     end,
+    % TODO: (nikola): Here it looks like we send errors to all the sessions when shutting down.
+    % Do we want to do this and what will the error be. I think just closing the connection
+    % should be enough.
     lists:foreach(
         fun(#session{sid = {_, Pid}}) when node(Pid) == node() ->
             ejabberd_c2s:send(Pid, Err),
@@ -655,6 +673,9 @@ is_active_session(Session) ->
     proplists:get_value(mode, Session#session.info) =:= active.
 
 
+% TODO: (nikola): This function seems odd because most other functions take Uid, Server, Resource.
+% The issue is that mod_user_session is trying to get the session first and the activate the sessions
+% instead this function here should take Uid, Server.
 -spec activate_session(Session :: session()) -> ok.
 activate_session(Session) ->
     Info = Session#session.info,
@@ -717,6 +738,7 @@ do_route(#presence{to = #jid{lresource = <<"">>} = To, type = T} = Packet)
                                             when T == available; T == away ->
     ?DEBUG("Processing presence to bare JID:~n~ts", [xmpp:pp(Packet)]),
     {LUser, LServer, _} = jid:tolower(To),
+    %TODO: (nikola): Why are we checking if the user is available?
     case check_if_user_is_available(LUser, LServer) of
         true ->
             lists:foreach(
@@ -821,6 +843,7 @@ check_if_user_is_available(User, Server) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Keeps only one session per resource. Picks the one with highest sid.
 -spec clean_session_list([#session{}]) -> [#session{}].
 clean_session_list(Ss) ->
     clean_session_list(lists:keysort(#session.usr, Ss), []).
