@@ -9,6 +9,8 @@
 -module(util_redis).
 -author("nikola").
 
+-define(NUM_SLOTS, 256).
+
 %% API
 -export([
     decode_ts/1,
@@ -16,8 +18,16 @@
     decode_maybe_binary/1,
     encode_maybe_binary/1,
     q/2,
-    qp/2
+    qp/2,
+    eredis_hash/1
 ]).
+
+
+%% TODO(murali@): Update to use this util function in other redis model files.
+eredis_hash(Key) when is_list(Key) ->
+    eredis_cluster_hash:hash(Key) rem ?NUM_SLOTS;
+eredis_hash(Key) when is_binary(Key) ->
+    eredis_cluster_hash:hash(binary_to_list(Key)) rem ?NUM_SLOTS.
 
 
 decode_ts(TsMsBinary) ->

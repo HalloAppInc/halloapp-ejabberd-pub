@@ -42,7 +42,8 @@
     trigger_full_sync_run/2,
     expire_message_keys_run/2,
     extend_ttl_run/2,
-    check_user_agent_run/2
+    check_user_agent_run/2,
+    count_users_by_version_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -400,3 +401,36 @@ check_user_agent_run(Key, State) ->
     State.
 
 q(Client, Command) -> util_redis:q(Client, Command).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Compute user counts by version                            %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+count_users_by_version_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            {ok, Version} = q(redis_accounts_client, ["HGET", FullKey, <<"cv">>]),
+            case Version of
+                undefined ->
+                    ?ERROR("Uid: ~p, client_version is undefined!", [Uid]);
+                _ ->
+                    Slot = util_redis:eredis_hash(Uid),
+                    VersionKey = model_accounts:version_key(Slot, Version),
+                    case DryRun of
+                        true ->
+                            ?INFO("Uid: ~p, would increment counter for: ~p", [Uid, VersionKey]);
+                        false ->
+                            {ok, Value} = q(redis_accounts_client, ["INCR", VersionKey]),
+                            ?INFO("Uid: ~p, would increment counter for: ~p, value: ~p",
+                                    [Uid, VersionKey, Value])
+                    end
+            end;
+        _ -> ok
+    end,
+    State.
+

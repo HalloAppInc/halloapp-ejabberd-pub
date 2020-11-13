@@ -83,6 +83,11 @@ count_accounts_key_test() ->
     setup(),
     ?assertEqual(<<"c_acc:{1}.9842">>, model_accounts:count_accounts_key(?UID1)).
 
+version_key_test() ->
+    setup(),
+    ?assertEqual(<<"v:{1}:HalloApp/Android0.100">>,
+            model_accounts:version_key(1, <<"HalloApp/Android0.100">>)).
+
 
 create_account_test() ->
     setup(),
@@ -143,6 +148,25 @@ get_client_version_test() ->
     ok = model_accounts:set_client_version(?UID1, ?CLIENT_VERSION2),
     ?assertEqual({ok, ?CLIENT_VERSION2}, model_accounts:get_client_version(?UID1)),
     ok.
+
+
+set_client_version() ->
+    setup(),
+    ?assertEqual(0, model_accounts:count_accounts_with_version(?CLIENT_VERSION1)),
+    ?assertEqual(0, model_accounts:count_accounts_with_version(?CLIENT_VERSION2)),
+    ok = model_accounts:set_client_version(?UID1, ?CLIENT_VERSION1),
+    ?assertEqual(1, model_accounts:count_accounts_with_version(?CLIENT_VERSION1)),
+    ok = model_accounts:set_client_version(?UID2, ?CLIENT_VERSION1),
+    ?assertEqual(2, model_accounts:count_accounts_with_version(?CLIENT_VERSION1)),
+    ok = model_accounts:set_client_version(?UID1, ?CLIENT_VERSION2),
+    ?assertEqual(1, model_accounts:count_accounts_with_version(?CLIENT_VERSION1)),
+    ?assertEqual(1, model_accounts:count_accounts_with_version(?CLIENT_VERSION2)),
+    ok.
+
+
+set_client_version_test() ->
+    {timeout, 20,
+        fun set_client_version/0}.
 
 
 list_to_map_test() ->

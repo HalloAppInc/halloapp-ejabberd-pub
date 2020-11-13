@@ -21,7 +21,8 @@
 %% API
 -export([
     get_version_ts/1,
-    set_version_ts/2
+    set_version_ts/2,
+    get_versions/2
 ]).
 % Only test exports
 -ifdef(TEST).
@@ -67,6 +68,14 @@ set_version_ts(Version, Ts) ->
         false -> ok
     end,
     NewVersion.
+
+
+-spec get_versions(MinTs :: integer(), MaxTs :: integer()) -> {ok, [binary()]}.
+get_versions(MinTs, MaxTs) ->
+    {ok, Versions} = q(
+        ["ZRANGEBYSCORE", all_versions_key(), integer_to_binary(MinTs), integer_to_binary(MaxTs)]),
+    {ok, Versions}.
+
 
 -spec version_key(Version :: binary()) -> binary().
 version_key(Version) ->

@@ -31,6 +31,7 @@
 -define(CLIENT_VERSION_KEY, <<"clv:">>).
 % zset of all client version
 -define(CLIENT_VERSION_ALL_KEY, <<"all_client_versions:">>).
+-define(VERSION_KEY, <<"v:">>).
 
 %%RedisFeed (model_feed)
 -define(POST_KEY, <<"fp:">>).

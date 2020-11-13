@@ -16,6 +16,7 @@
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 -include("time.hrl").
+-include("client_version.hrl").
 
 -define(DELETED_ACCOUNT_TTL, 2 * ?WEEKS).
 
@@ -27,7 +28,10 @@
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
 
--export([account_key/1]).
+-export([
+    account_key/1,
+    version_key/2
+]).
 
 
 %% API
@@ -84,7 +88,9 @@
     add_phone_to_trace/1,
     remove_phone_from_trace/1,
     is_phone_traced/1,
-    get_names/1
+    get_names/1,
+    count_accounts_with_version/1,
+    count_accounts_with_version/2
 ]).
 
 -export([
@@ -293,7 +299,17 @@ get_signup_user_agent(Uid) ->
 
 -spec set_client_version(Uid :: uid(), Version :: binary()) -> ok.
 set_client_version(Uid, Version) ->
-    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_CLIENT_VERSION, Version]),
+    Slot = util_redis:eredis_hash(binary_to_list(Uid)),
+    OldVersionCommands = case get_client_version(Uid) of
+        {ok, OldVersion} ->
+            [["DECR", version_key(Slot, OldVersion)],
+            ["EXPIRE", version_key(Slot, OldVersion), ?VERSION_VALIDITY]];
+        _ -> []
+    end,
+    {ok, _} = q(["HSET", account_key(Uid), ?FIELD_CLIENT_VERSION, Version]),
+    [{ok, _}, {ok, _} | _] = qp([
+            ["INCR", version_key(Slot, Version)],
+            ["EXPIRE", version_key(Slot, Version), ?VERSION_VALIDITY] | OldVersionCommands]),
     ok.
 
 
@@ -551,6 +567,23 @@ count_accounts(Slot) ->
     Count.
 
 
+-spec count_accounts_with_version(Version :: binary()) -> non_neg_integer().
+count_accounts_with_version(Version) ->
+    redis_counts:count_fold(
+        fun(Slot) ->
+            model_accounts:count_accounts_with_version(Slot, Version)
+        end).
+
+
+-spec count_accounts_with_version(Slot :: binary(), Version :: binary()) -> non_neg_integer().
+count_accounts_with_version(Slot, Version) ->
+    {ok, Res} = q(["GET", version_key(Slot, Version)]),
+    case Res of
+        undefined -> 0;
+        Res -> binary_to_integer(Res)
+    end.
+
+
 fix_counters() ->
     ?INFO("start", []),
     {ok, Pools} = get_all_pools(),
@@ -731,6 +764,10 @@ subscribe_key(Uid) ->
 
 broadcast_key(Uid) ->
     <<?BROADCAST_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+version_key(Slot, Version) ->
+    SlotBinary = integer_to_binary(Slot),
+    <<?VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}:">>/binary, Version/binary>>.
 
 count_registrations_key(Uid) ->
     Slot = eredis_cluster_hash:hash(binary_to_list(Uid)),

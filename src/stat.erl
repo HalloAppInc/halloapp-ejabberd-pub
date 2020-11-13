@@ -16,6 +16,7 @@
 -include("time.hrl").
 -include("erlcloud_mon.hrl").
 -include("erlcloud_aws.hrl").
+-include("client_version.hrl").
 
 -export([start_link/0]).
 %% gen_mod callbacks
@@ -40,6 +41,7 @@
     trigger_send/0,
     trigger_count_users/0,
     trigger_zset_cleanup/0,
+    trigger_count_users_by_version/0,
     compute_counts/0
 ]).
 
@@ -136,6 +138,11 @@ trigger_send() ->
 trigger_count_users() ->
     spawn(?MODULE, compute_counts, []).
 
+
+-spec trigger_count_users_by_version() -> ok.
+trigger_count_users_by_version() ->
+    spawn(?MODULE, compute_counts_by_version, []).
+
 % TODO: this logic should move to new module mod_active_users
 -spec trigger_zset_cleanup() -> ok.
 trigger_zset_cleanup() ->
@@ -163,6 +170,26 @@ compute_counts() ->
     ok.
 
 
+compute_counts_by_version() ->
+    ?INFO("Version counts start"),
+    Start = util:now_ms(),
+    NowSec = util:now_binary(),
+    VersionExpiry = ?VERSION_VALIDITY,
+    DeadlineSec = NowSec - VersionExpiry,
+    {ok, Versions} = model_client_version:get_versions(DeadlineSec, NowSec),
+
+    lists:foreach(
+        fun(Version) ->
+            CountsByVersion = model_accounts:count_accounts_with_version(Version),
+            Platform = util_ua:get_client_type(Version),
+            stat:gauge("HA/client_version", "all_users", CountsByVersion,
+                    [{version, Version}, {platform, Platform}])
+        end, Versions),
+    End = util:now_ms(),
+    ?INFO("Counting took ~p ms", [End - Start]),
+    ok.
+
+
 init(_Stuff) ->
     process_flag(trap_exit, true),
     % Each Erlang process has to do the configure
@@ -173,6 +200,7 @@ init(_Stuff) ->
     {ok, _Tref1} = timer:apply_interval(1 * ?SECONDS_MS, ?MODULE, trigger_send, []),
     {ok, _Tref2} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, trigger_count_users, []),
     {ok, _Tref3} = timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, trigger_zset_cleanup, []),
+    {ok, _Tref4} = timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, trigger_count_users_by_version, []),
     CurrentMinute = util:round_to_minute(util:now()),
     % minute is unix timestamp that always represents round minute for which the data is being
     % accumulated

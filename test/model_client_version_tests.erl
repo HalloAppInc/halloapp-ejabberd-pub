@@ -50,3 +50,12 @@ two_version_test() ->
     ?assertEqual(?TS1, model_client_version:get_version_ts(?VERSION1)),
     ?assertEqual(?TS2, model_client_version:get_version_ts(?VERSION2)).
 
+
+get_versions_test() ->
+    setup(),
+    ?assertEqual(true, model_client_version:set_version_ts(?VERSION1, ?TS1)),
+    ?assertEqual(true, model_client_version:set_version_ts(?VERSION2, ?TS2)),
+    ?assertEqual({ok, [?VERSION1]}, model_client_version:get_versions(?TS1, ?TS1)),
+    ?assertEqual({ok, [?VERSION1, ?VERSION2]}, model_client_version:get_versions(?TS1, ?TS2)),
+    ok.
+

@@ -18,6 +18,7 @@
 -include("logger.hrl").
 -include("time.hrl").
 -include("xmpp.hrl").
+-include("client_version.hrl").
 
 -define(NS_CLIENT_VER, <<"halloapp:client:version">>).
 
@@ -25,7 +26,6 @@
 -define(CUTOFF_TIME, 1603318598).
 -define(OLD_VERSION_VALIDITY, 30 * ?DAYS).
 
--define(VERSION_VALIDITY, 60 * ?DAYS).
 %% gen_mod API.
 -export([start/2, stop/1, depends/2, reload/3, mod_options/1]).
 
