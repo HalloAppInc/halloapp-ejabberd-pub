@@ -489,15 +489,9 @@ process_message_in(State, #message{type = T} = Msg) ->
     deny when T == groupchat; T == headline ->
         {false, State};
     deny ->
-        case xmpp:has_subtag(Msg, #muc_user{}) of
-        true ->
-            ok;
-        false ->
-            ?ERROR("failed_privacy_rules, packet received: ~p", [Msg]),
-            Err = util:err(service_unavailable),
-            ErrorMsg = xmpp:make_error(Msg, Err),
-            ejabberd_router:route(ErrorMsg)
-        end,
+        ?INFO("failed_privacy_rules, packet received: ~p", [Msg]),
+        %% Log and silently ignore these packets.
+        %% No, need to route any errors back to the clients.
         {false, State}
     end.
 
@@ -544,7 +538,7 @@ update_priority(#{sid := SID, user := U, server := S, resource := R}, Pres) ->
 check_privacy_then_route(State, Pkt) ->
     case privacy_check_packet(State, Pkt, out) of
         deny ->
-            ?INFO("Failed privacy_rules: ~p", [Pkt]),
+            ?INFO("failed_privacy_rules, packet received: ~p", [Pkt]),
             State;
         allow ->
             ejabberd_router:route(Pkt),

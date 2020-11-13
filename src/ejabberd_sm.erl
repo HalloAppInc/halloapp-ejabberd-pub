@@ -210,18 +210,18 @@ check_in_subscription(Acc, #presence{to = To}) ->
         false -> {stop, false}
     end.
 
--spec bounce_sm_packet({bounce | term(), stanza()}) -> any().
-bounce_sm_packet({bounce, Packet} = Acc) ->
-    %% This was part of original ejabberd code to drop messages if user is not online.
-    %% This must never happen in our case.
-    ?ERROR("bounce_sm_packet packet received: ~p", [Packet]),
-    Err = util:err(user_session_not_found),
-    ErrorPacket = xmpp:make_error(Packet, Err),
-    ejabberd_router:route(ErrorPacket),
+-spec bounce_sm_packet({warn | term(), stanza()}) -> any().
+bounce_sm_packet({warn, Packet} = Acc) ->
+    FromJid = xmpp:get_from(Packet),
+    ToJid = xmpp:get_to(Packet),
+    ?WARNING("FromUid: ~p, ToUid: ~p, packet: ~p",
+            [FromJid#jid.luser, ToJid#jid.luser, Packet]),
     {stop, Acc};
 bounce_sm_packet({_, Packet} = Acc) ->
-    ?DEBUG("Dropping packet to unavailable resource:~n~ts",
-       [xmpp:pp(Packet)]),
+    FromJid = xmpp:get_from(Packet),
+    ToJid = xmpp:get_to(Packet),
+    ?INFO("FromUid: ~p, ToUid: ~p, packet: ~p",
+            [FromJid#jid.luser, ToJid#jid.luser, Packet]),
     Acc.
 
 -spec disconnect_removed_user(binary(), binary()) -> ok.
@@ -739,7 +739,7 @@ do_route(#message{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
             route_message(Packet);
         true ->
             ejabberd_hooks:run_fold(bounce_sm_packet,
-                    To#jid.lserver, {bounce, Packet}, [])
+                    To#jid.lserver, {pass, Packet}, [])
     end;
 do_route(#iq{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
     if
@@ -772,12 +772,9 @@ do_route(Packet) ->
     case get_sessions(Mod, LUser, LServer, LResource) of
         [] ->
             case Packet of
-            #message{type = T} when T =:= chat; T =:= normal; T =:= headline; T =:= groupchat ->
+            #message{} ->
                 %% TODO(murali@): clean this do_route function properly
                 route_message(Packet);
-            #message{} ->
-                ejabberd_hooks:run_fold(bounce_sm_packet,
-                            LServer, {pass, Packet}, []);
             #presence{} ->
                 ejabberd_hooks:run_fold(bounce_sm_packet,
                             LServer, {pass, Packet}, []);
@@ -786,7 +783,7 @@ do_route(Packet) ->
                             LServer, {pass, Packet}, []);
             _ ->
                 ejabberd_hooks:run_fold(bounce_sm_packet,
-                            LServer, {bounce, Packet}, [])
+                            LServer, {warn, Packet}, [])
             end;
         Ss ->
             Session = lists:max(Ss),
