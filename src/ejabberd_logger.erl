@@ -152,7 +152,7 @@ do_start(Level) ->
 
     application:set_env(lager, colored, true),
     application:set_env(lager, error_logger_hwm, LogRateLimit),
-    application:set_env(lager, handlers,
+    Handlers = 
         [
             {lager_console_backend, [
                 {level, Level},
@@ -173,7 +173,15 @@ do_start(Level) ->
                 {formatter_config, HalloappFormatterConfigFile},
                 {date, LogRotateDate},
                 {count, LogRotateCount},
-                {size, LogRotateSize}]}]),
+                {size, LogRotateSize}]}
+        ],
+    NewHandlers = case config:get_hallo_env() of
+        prod ->
+            application:set_env(raven_erlang, dsn, config:get_sentry_dsn()),
+            Handlers ++ [ {raven_lager_backend, warning}];
+        _ -> Handlers
+    end,
+    application:set_env(lager, handlers, NewHandlers),
     application:set_env(lager, extra_sinks, [
         {xmpp_trace_lager_event, [
             {handlers, [

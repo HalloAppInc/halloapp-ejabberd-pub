@@ -16,7 +16,8 @@
     is_prod_env/0,
     get_service/1,
     get_default_log_level/0,
-    get_noise_secret_name/0
+    get_noise_secret_name/0,
+    get_sentry_dsn/0
 ]).
 -export_type([service/0, hallo_env/0]).
 
@@ -27,6 +28,9 @@
 -define(ENV_GITHUB, "github").
 -define(NOISE_PROD_SECRET_NAME, <<"noise_secret_prod">>).
 -define(NOISE_DEV_SECRET_NAME, <<"noise_secret_dev">>).
+
+-define(SENTRY_DSN_SECRET_NAME, <<"sentry_dsn">>).
+
 
 -type hallo_env() :: prod | localhost | test | github.
 
@@ -56,6 +60,11 @@ get_noise_secret_name() ->
         true -> ?NOISE_PROD_SECRET_NAME;
         _ -> ?NOISE_DEV_SECRET_NAME
     end.
+
+
+-spec get_sentry_dsn() -> string().
+get_sentry_dsn() ->
+    base64:decode(mod_aws:get_secret(?SENTRY_DSN_SECRET_NAME)).
 
 
 -spec is_prod_env() -> boolean().
