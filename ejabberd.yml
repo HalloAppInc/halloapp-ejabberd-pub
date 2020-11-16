@@ -206,6 +206,7 @@ modules:
   mod_chat: {}
   mod_chat_state: {}
   mod_user_activity: {}
+  mod_connection_stats: {}
   mod_cron: {}
   mod_whisper: {}
   mod_upload_media:

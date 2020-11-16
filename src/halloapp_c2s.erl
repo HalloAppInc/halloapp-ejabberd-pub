@@ -178,7 +178,7 @@ host_down(Host) ->
 
 
 -spec open_session(state()) -> {ok, state()} | state().
-open_session(#{user := U, server := S, resource := R, sid := SID,
+open_session(#{user := U, server := S, resource := R, sid := SID, client_version := ClientVersion,
         ip := IP, auth_module := AuthModule, mode := Mode} = State) ->
     JID = jid:make(U, S, R),
     State1 = change_shaper(State),
@@ -188,7 +188,8 @@ open_session(#{user := U, server := S, resource := R, sid := SID,
         undefined -> undefined;
         Pres -> get_priority_from_presence(Pres)
     end,
-    Info = [{ip, IP}, {conn, Conn}, {auth_module, AuthModule}, {mode, Mode}],
+    Info = [{ip, IP}, {conn, Conn}, {auth_module, AuthModule},
+            {mode, Mode}, {client_version, ClientVersion}],
     ejabberd_sm:open_session(SID, U, S, R, Prio, Info),
     halloapp_stream_in:establish(State2).
 
