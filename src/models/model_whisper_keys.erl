@@ -30,6 +30,7 @@
     set_keys/4,
     add_otp_keys/2,
     get_key_set/1,
+    get_key_set_without_otp/1,
     remove_all_keys/1,
     count_otp_keys/1,
     add_key_subscriber/2,
@@ -97,6 +98,23 @@ get_key_set(Uid) ->
                 identity_key = IdentityKey,
                 signed_key = SignedPreKey,
                 one_time_key = OtpKey
+            }
+    end,
+    {ok, Result}.
+
+
+-spec get_key_set_without_otp(Uid :: uid()) -> {ok, maybe(user_whisper_key_set())} | {error, any()}.
+get_key_set_without_otp(Uid) ->
+    {ok, [IdentityKey, SignedPreKey]} = q(["HMGET", whisper_key(Uid),
+            ?FIELD_IDENTITY_KEY, ?FIELD_SIGNEDPRE_KEY]),
+    Result = case IdentityKey =:= undefined orelse SignedPreKey =:= undefined of
+        true -> undefined;
+        false ->
+            #user_whisper_key_set{
+                uid = Uid,
+                identity_key = IdentityKey,
+                signed_key = SignedPreKey,
+                one_time_key = undefined
             }
     end,
     {ok, Result}.

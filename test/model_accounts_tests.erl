@@ -52,6 +52,39 @@ clear() ->
         post_pref = undefined, comment_pref = undefined}).
 
 -define(UID3, <<"3">>).
+-define(PHONE3, <<"16505553333">>).
+-define(NAME3, <<"Name3">>).
+-define(USER_AGENT3, <<"HalloApp/Android1.0">>).
+
+-define(UID4, <<"4">>).
+-define(PHONE4, <<"16505554444">>).
+-define(NAME4, <<"Name4">>).
+-define(USER_AGENT4, <<"HalloApp/Android1.0">>).
+
+-define(UID5, <<"5">>).
+-define(PHONE5, <<"16505555555">>).
+-define(NAME5, <<"Name5">>).
+-define(USER_AGENT5, <<"HalloApp/Android1.0">>).
+
+-define(IDENTITY_KEY1, <<"3eF5_JpDEeqYWQoOKynmRg">>).
+-define(SIGNED_KEY1, <<"5PTKZJpDEeqkKQoOKynmRg">>).
+-define(OTP1_KEY1, <<"6z2ZgppDEeqyowoOKynmRg">>).
+-define(OTP1_KEY2, <<"7pahRppDEeqxzgoOKynmRg">>).
+-define(OTP1_KEY3, <<"8ZsIRppDEeqm-AoOKynmRg">>).
+-define(OTP1_KEY4, <<"9RyKYppDEeq6ugoOKynmRg">>).
+-define(OTP1_KEY5, <<"-EOkWppDEeq-DwoOKynmRg">>).
+
+-define(IDENTITY_KEY2, <<"4Z8hNJpDEeqk_goOKynmRg">>).
+-define(SIGNED_KEY2, <<"6BO9zJpDEeq9qQoOKynmRg">>).
+-define(OTP2_KEY1, <<"-zqNQJpDEeqGRwoOKynmRg">>).
+-define(OTP2_KEY2, <<"_sSNsppDEeq7_goOKynmRg">>).
+-define(OTP2_KEY3, <<"Aa0OZJpEEeqKfgoOKynmRg">>).
+
+-define(IDENTITY_KEY3, <<"5Z8hNJpDEeqk_goOKynmRg">>).
+-define(SIGNED_KEY3, <<>>).
+-define(OTP3_KEY1, <<"-zqNQJpDEeqGRwoOKynmRg">>).
+-define(OTP3_KEY2, <<"_sSNsppDEeq7_goOKynmRg">>).
+-define(OTP3_KEY3, <<"Aa0OZJpEEeqKfgoOKynmRg">>).
 
 
 empty_test() ->
@@ -389,4 +422,29 @@ check_accounts_exists_test() ->
     ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
     ?assertEqual([?UID1, ?UID2], model_accounts:filter_nonexisting_uids([?UID1, ?UID3, ?UID2])),
     ok.
+
+check_whisper_keys() ->
+    setup(),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
+    ?assertEqual(ok, model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?USER_AGENT4, ?TS2)),
+    ?assertEqual(ok, model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?USER_AGENT5, ?TS1)),
+    ?assertEqual(ok, model_whisper_keys:set_keys(?UID1, ?IDENTITY_KEY1, ?SIGNED_KEY1,
+            [?OTP1_KEY1, ?OTP1_KEY2, ?OTP1_KEY3, ?OTP1_KEY4, ?OTP1_KEY5])),
+    ?assertEqual(ok, model_whisper_keys:set_keys(?UID2, ?IDENTITY_KEY2, ?SIGNED_KEY2,
+            [?OTP2_KEY1, ?OTP2_KEY2, ?OTP2_KEY3])),
+    ?assertEqual(ok, model_whisper_keys:set_keys(?UID3, ?IDENTITY_KEY3, ?SIGNED_KEY3,
+            [?OTP3_KEY1, ?OTP3_KEY2, ?OTP3_KEY3])),
+    redis_migrate:start_migration("Check whisper keys", redis_accounts, check_users_by_whisper_keys,
+            [{dry_run, true}, {execute, sequential}]),
+    %% Just so the above async range scan finish, we will wait for 5 seconds.
+    timer:sleep(timer:seconds(5)),
+    ok.
+
+%% This test is simply for code coverage to avoid fixing silly mistakes in prod.
+check_whisper_keys_test() ->
+    {timeout, 10,
+        fun check_whisper_keys/0}.
+
 

@@ -9,8 +9,12 @@
 -module(redis_migrate).
 -author("nikola").
 
+-include_lib("stdlib/include/assert.hrl").
+
 -behavior(gen_server).
+-include("account.hrl").
 -include("logger.hrl").
+-include("whisper.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -43,7 +47,8 @@
     expire_message_keys_run/2,
     extend_ttl_run/2,
     check_user_agent_run/2,
-    count_users_by_version_run/2
+    count_users_by_version_run/2,
+    check_users_by_whisper_keys/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -433,4 +438,49 @@ count_users_by_version_run(Key, State) ->
         _ -> ok
     end,
     State.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Compute user counts by whisper keys                        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+check_users_by_whisper_keys(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            %% Don't fetch Otp keys.
+            {ok, KeySet} = model_whisper_keys:get_key_set_without_otp(Uid),
+            {ok, LastActivity} = model_accounts:get_last_activity(Uid),
+            #activity{uid = Uid, last_activity_ts_ms = TsMs, status = ActivityStatus} =
+                LastActivity,
+            LastActivityTimeString = case TsMs of
+                undefined -> undefined;
+                _ -> 
+                  calendar:system_time_to_rfc3339(TsMs,
+                      [{unit, millisecond}, {time_designator, $\s}])
+            end,
+            case KeySet of
+                undefined ->
+                    ?INFO("Uid: ~p, Key set is undefined, Last Activity: ~s, Last Status: ~s",
+                        [Uid, LastActivityTimeString, ActivityStatus]);
+                _ ->
+                    #user_whisper_key_set{uid = Uid, identity_key = IdentityKey,
+                        signed_key = SignedKey, one_time_key = OneTimeKey} = KeySet,
+                    ?assertEqual(OneTimeKey, undefined),
+                    case is_invalid_key(IdentityKey) orelse is_invalid_key(SignedKey) of
+                        true -> 
+                            ?INFO("Uid: ~p, Keys invalid, (Identity: ~p), (Signed: ~p), "
+                                  "Last Acitivty: ~s, Status: ~s",
+                                  [Uid, is_invalid_key(IdentityKey), is_invalid_key(SignedKey),
+                                   LastActivityTimeString, ActivityStatus]);
+                        _ -> ?INFO("Uid: ~p, Keys Ok", [Uid])
+                    end
+            end;
+        _ -> ok
+    end,
+    State.
+
+is_invalid_key(Key) ->
+    Key == undefined orelse not is_binary(Key) orelse byte_size(Key) == 0.
 
