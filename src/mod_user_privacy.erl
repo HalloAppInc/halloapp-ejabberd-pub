@@ -113,21 +113,41 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
 -spec privacy_check_packet(Acc :: allow | deny, State :: c2s_state(),
         Pkt :: stanza(), Dir :: in | out) -> allow | deny | {stop, deny}.
 privacy_check_packet(allow, _State, Pkt, _Dir)
-        when is_record(Pkt, message); is_record(Pkt, presence) ->
+        when is_record(Pkt, message); is_record(Pkt, presence); is_record(Pkt, chat_state) ->
     #jid{luser = FromUid} = xmpp:get_from(Pkt),
     #jid{luser = ToUid} = xmpp:get_to(Pkt),
-    if
+    Id = xmpp:get_id(Pkt),
+    PacketType = element(1, Pkt),
+    FinalResult = if
         FromUid =:= undefined -> allow;
         ToUid =:= undefined -> allow;
         true ->
-            case model_privacy:is_blocked_any(FromUid, ToUid) of
+            Result = case model_privacy:is_blocked_any(FromUid, ToUid) of
                 true ->
-                    ?INFO("Packet from-uid: ~s to-uid: ~s is blocked", [FromUid, ToUid]),
                     {stop, deny};
                 false ->
                     allow
+            end,
+            %% Allow only seen receipts of feed.
+            %% TODO(murali@): Use a util_function for payload.
+            case is_record(Pkt, message) of
+                true ->
+                    [SubEl] = Pkt#message.sub_els,
+                    case is_record(SubEl, receipt_seen) of
+                        true -> allow;
+                        false -> Result
+                    end;
+                false ->
+                    Result
             end
-    end;
+    end,
+    case FinalResult of
+        allow -> ok;
+        _ ->
+            ?INFO("PacketType: ~p packet-id: ~p, from-uid: ~s to-uid: ~s, result: ~p",
+                    [PacketType, Id, FromUid, ToUid, FinalResult])
+    end,
+    FinalResult;
 privacy_check_packet(Acc, _, _, _) ->
     Acc.
 
