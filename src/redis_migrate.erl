@@ -14,6 +14,7 @@
 -behavior(gen_server).
 -include("account.hrl").
 -include("logger.hrl").
+-include("time.hrl").
 -include("whisper.hrl").
 
 %% Export all functions for unit tests
@@ -451,30 +452,19 @@ check_users_by_whisper_keys(Key, State) ->
             ?INFO("Account uid: ~p", [Uid]),
             %% Don't fetch Otp keys.
             {ok, KeySet} = model_whisper_keys:get_key_set_without_otp(Uid),
-            {ok, LastActivity} = model_accounts:get_last_activity(Uid),
-            #activity{uid = Uid, last_activity_ts_ms = TsMs, status = ActivityStatus} =
-                LastActivity,
-            LastActivityTimeString = case TsMs of
-                undefined -> undefined;
-                _ -> 
-                  calendar:system_time_to_rfc3339(TsMs,
-                      [{unit, millisecond}, {time_designator, $\s}])
-            end,
             case KeySet of
                 undefined ->
-                    ?INFO("Uid: ~p, Key set is undefined, Last Activity: ~s, Last Status: ~s",
-                        [Uid, LastActivityTimeString, ActivityStatus]);
+                    ?INFO("Uid: ~p, Keys undefined, ~s", [Uid, user_details(Uid)]);
                 _ ->
                     #user_whisper_key_set{uid = Uid, identity_key = IdentityKey,
                         signed_key = SignedKey, one_time_key = OneTimeKey} = KeySet,
                     ?assertEqual(OneTimeKey, undefined),
                     case is_invalid_key(IdentityKey) orelse is_invalid_key(SignedKey) of
                         true -> 
-                            ?INFO("Uid: ~p, Keys invalid, (Identity: ~p), (Signed: ~p), "
-                                  "Last Acitivty: ~s, Status: ~s",
+                            ?INFO("Uid: ~p, Keys invalid, (Identity: ~p), (Signed: ~p), ~s",
                                   [Uid, is_invalid_key(IdentityKey), is_invalid_key(SignedKey),
-                                   LastActivityTimeString, ActivityStatus]);
-                        _ -> ?INFO("Uid: ~p, Keys Ok", [Uid])
+                                   user_details(Uid)]);
+                        _ -> ?INFO("Uid: ~p, Keys ok", [Uid])
                     end
             end;
         _ -> ok
@@ -483,4 +473,48 @@ check_users_by_whisper_keys(Key, State) ->
 
 is_invalid_key(Key) ->
     Key == undefined orelse not is_binary(Key) orelse byte_size(Key) == 0.
+
+user_details(Uid) ->
+    {ok, Account} = model_accounts:get_account(Uid),
+    #account{uid = Uid, name = Name, phone = Phone, signup_user_agent = UA, creation_ts_ms = CtMs,
+        last_activity_ts_ms = LaTsMs, activity_status = ActivityStatus, client_version = CV} =
+            Account,
+    IsTestPhone = util:is_test_number(Phone),
+
+    %% Get list of internal inviter phone numbers if any.
+    {ok, InvitersList} = model_invites:get_inviters_list(Phone),
+    InternalInviterPhoneNums = lists:foldl(
+        fun(X, Acc) ->
+            {InviterUid, _Ts} = X,
+            case dev_users:is_dev_uid(InviterUid) of
+                true ->
+                    {ok, InviterPhoneNum} = model_accounts:get_phone(InviterUid),
+                    io_lib:format("~s~s, ", Acc, InviterPhoneNum);
+                _ -> Acc
+            end
+        end,
+        "",
+        InvitersList),
+
+    LastActivityTimeString = case LaTsMs of
+        undefined -> undefined;
+        _ -> 
+          calendar:system_time_to_rfc3339(LaTsMs,
+              [{unit, millisecond}, {time_designator, $\s}])
+    end,
+
+    CurrentTimeMs = os:system_time(millisecond),
+    %% Designate account inactive if last activity 13 weeks ago.
+    IsAccountInactive = (CurrentTimeMs - LaTsMs) > 13 * ?WEEKS_MS,
+    CreationTimeString = case CtMs of
+        undefined -> undefined;
+        _ -> 
+          calendar:system_time_to_rfc3339(CtMs,
+              [{unit, millisecond}, {time_designator, $\s}])
+    end,
+    io_lib:format("Last Activity: ~s, Last Status: ~s, Name: ~s, Creation: ~s, Test Phone?: ~s, "
+        "Client Version: ~s, User Agent: ~s, Inactive?: ~s, Internal Inviters: ~s",
+        [LastActivityTimeString, ActivityStatus, binary_to_list(Name), CreationTimeString,
+         IsTestPhone, binary_to_list(CV), binary_to_list(UA), IsAccountInactive,
+         InternalInviterPhoneNums]).
 
