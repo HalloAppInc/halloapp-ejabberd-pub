@@ -42,6 +42,7 @@
     trigger_count_users/0,
     trigger_zset_cleanup/0,
     trigger_count_users_by_version/0,
+    compute_counts_by_version/0,
     compute_counts/0
 ]).
 
