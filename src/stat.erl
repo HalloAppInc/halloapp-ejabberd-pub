@@ -33,7 +33,9 @@
     gauge/3,
     gauge/4,
     get_prometheus_metrics/0,
-    get_proc/0
+    get_proc/0,
+    reload_aws_config/0,
+    get_aws_config/0
 ]).
 
 % Trigger funcitons
@@ -129,6 +131,12 @@ gauge(Namespace, Metric, Value, Tags) ->
 get_prometheus_metrics() ->
     gen_server:call(get_proc(), {get_prometheus_metrics}).
 
+reload_aws_config() ->
+    gen_server:call(get_proc(), {reload_aws_config}).
+
+get_aws_config() ->
+    gen_server:call(get_proc(), {get_aws_config}).
+
 
 -spec trigger_send() -> ok.
 trigger_send() ->
@@ -213,6 +221,21 @@ init(_Stuff) ->
 handle_call({get_prometheus_metrics}, _From, State) ->
     Result = get_prometheus_metrics_internal(State),
     {reply, Result, State};
+
+handle_call({reload_aws_config}, _From, State) ->
+    {ok, Config} = erlcloud_aws:auto_config(),
+    ?INFO("Refreshing aws config ~p ~p ~p ~p",
+        [Config#aws_config.access_key_id, Config#aws_config.secret_access_key,
+            Config#aws_config.security_token, Config#aws_config.expiration]),
+    erlcloud_aws:configure(Config),
+    {reply, Config, State};
+
+handle_call({get_aws_config}, _From, State) ->
+    Config = erlcloud_aws:default_config(),
+    ?INFO("Aws config ~p ~p ~p ~p",
+        [Config#aws_config.access_key_id, Config#aws_config.secret_access_key,
+            Config#aws_config.security_token, Config#aws_config.expiration]),
+    {reply, Config, State};
 
 handle_call(_Message, _From, State) ->
     ?ERROR("unexpected call ~p from ", _Message),
@@ -371,7 +394,7 @@ send_to_cloudwatch(Data) when is_map(Data) ->
     ?INFO("sending ~p Namespaces", [maps:size(Data)]),
     maps:fold(
         fun (Namespace, Metrics, _Acc) ->
-%%            ?DEBUG("~s ~p", [Namespace, length(Metrics)]),
+            ?INFO("~s ~p", [Namespace, length(Metrics)]),
             cloudwatch_put_metric_data(Namespace, Metrics)
         end,
         ok,
@@ -396,8 +419,8 @@ cloudwatch_put_metric_data_env(prod, Namespace, Metrics) ->
             ?DEBUG("success ~s ~w", [Namespace, length(Metrics)])
     catch
         Class:Reason:Stacktrace ->
-            ?ERROR("Stacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+            ?ERROR("Failed to send to CloudWatch NS: ~p M: ~p Stacktrace:~s",
+                [Namespace, Metrics, lager:pr_stacktrace(Stacktrace, {Class, Reason})])
     end;
 cloudwatch_put_metric_data_env(localhost, "HA/test" = Namespace, Metrics) ->
     ?DEBUG("would send: ~s metrics: ~p", [Namespace, Metrics]),
