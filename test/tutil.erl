@@ -18,7 +18,9 @@
     get_result_iq_sub_el/1,
     assert_empty_result_iq/1,
     get_error_iq_sub_el/1,
-    cleardb/1
+    cleardb/1,
+    meck_init/3,
+    meck_finish/1
 ]).
 
 
@@ -52,4 +54,13 @@ cleardb(DBName) ->
     ?assert(DbSize < 100),
     {ok, ok} = gen_server:call(RedisClient, flushdb).
 
+
+meck_init(Mod, FunName, Fun) ->
+    meck:new(Mod),
+    meck:expect(Mod, FunName, Fun).
+
+
+meck_finish(Mod) ->
+    ?assert(meck:validate(Mod)),
+    meck:unload(Mod).
 

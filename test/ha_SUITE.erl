@@ -22,6 +22,7 @@
 -export([
     dummy_test/1,
     ping_test/1,
+    delete_account_test/1,
     run_eunit/1
 ]).
 
@@ -63,6 +64,7 @@ all() -> [
     {group, httplog},
     dummy_test,
     ping_test,
+    delete_account_test,
     run_eunit
 ].
 
@@ -122,6 +124,23 @@ ping_test(_Conf) ->
             id = Id,
             type = result,
             payload = undefined
+        }
+    } = Result,
+    ok.
+
+
+delete_account_test(_Conf) ->
+    ok = model_accounts:create_account(?UID7, <<"14703381473">>, ?NAME3, ?UA, ?TS1),
+    ok = ejabberd_auth:set_password(?UID7, ?PASSWORD1),
+    {ok, C} = ha_client:connect_and_login(?UID7, ?PASSWORD1),
+    Id = <<"iq_id_1">>,
+    Payload = #pb_delete_account{phone = <<"+14703381473">>},
+    Result = ha_client:send_iq(C, Id, set, Payload),
+    #pb_packet{
+        stanza = #pb_iq{
+            id = Id,
+            type = result,
+            payload = #pb_delete_account{}
         }
     } = Result,
     ok.

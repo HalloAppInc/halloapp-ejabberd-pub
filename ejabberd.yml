@@ -178,6 +178,7 @@ shaper_rules:
   s2s_shaper: fast
 
 modules:
+  mod_user_account: {}
   mod_auth_monitor: {}
   mod_aws: {}
   mod_user_avatar: {}

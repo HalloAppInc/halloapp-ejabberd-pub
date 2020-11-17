@@ -406,6 +406,7 @@ message Iq {
         NotificationPrefs notification_prefs = 25;
         GroupFeedItem group_feed_item = 26;
         UploadGroupAvatar group_avatar = 27;
+        DeleteAccount delete_account = 28;
     }
 }
 
@@ -686,3 +687,11 @@ message NoiseMessage {
     // state.
     bytes content = 2;
 }
+
+
+// Delete User Account
+
+message DeleteAccount {
+    string phone = 1;
+}
+

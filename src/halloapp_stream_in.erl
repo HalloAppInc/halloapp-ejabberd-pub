@@ -422,6 +422,16 @@ handle_info({tcp_closed, _}, State) ->
 handle_info({tcp_error, _, Reason}, State) ->
     noreply(process_stream_end({socket, Reason}, State));
 
+handle_info({close, Reason}, State) ->
+    %% TODO(murali@): same logic as handle_cast with close
+    %% refactor to a simpler function call.
+    State1 = close_socket(State),
+    noreply(
+        case is_disconnected(State) of
+            true -> State1;
+            false -> process_stream_end({socket, Reason}, State)
+        end);
+
 handle_info(Info, State) ->
     noreply(try callback(handle_info, Info, State)
         catch _:{?MODULE, undef} -> State
@@ -526,7 +536,9 @@ process_stream_end(_, #{stream_state := disconnected} = State) ->
 process_stream_end(Reason, State) ->
     State1 = State#{stream_timeout => infinity, stream_state => disconnected},
     try callback(handle_stream_end, Reason, State1)
-    catch _:{?MODULE, undef} -> stop(State1)
+    catch _:{?MODULE, undef} ->
+        stop(State1),
+        State1
     end.
 
 
@@ -605,7 +617,10 @@ process_auth_request(#halloapp_auth{uid = Uid, pwd = Pwd, client_mode = Mode,
             State2 = try callback(handle_auth_failure, Uid, <<>>, <<>>, State1)
                 catch _:{?MODULE, undef} -> State1
             end,
-            {State2, <<"failure">>, <<"invalid uid or password">>};
+            case maps:get(account_deleted, State2, undefined) of
+                undefined -> {State2, <<"failure">>, <<"invalid uid or password">>};
+                true -> {State2, <<"failure">>, <<"account_deleted">>}
+            end;
         true ->
             AuthModule = undefined,
             State2 = State1#{auth_module => AuthModule},

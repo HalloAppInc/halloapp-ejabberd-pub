@@ -13,6 +13,7 @@
 -define(UID4, <<"1000000000000000004">>).
 -define(UID5, <<"1000000000000000005">>).
 -define(UID6, <<"1000000000000000006">>). % Does not exist
+-define(UID7, <<"1000000000000000007">>). % Does not exist
 
 -define(PHONE1, <<"12065550001">>).
 -define(PHONE2, <<"12065550002">>).

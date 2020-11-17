@@ -225,9 +225,8 @@ bounce_sm_packet({_, Packet} = Acc) ->
     Acc.
 
 -spec disconnect_removed_user(binary(), binary()) -> ok.
-
 disconnect_removed_user(User, Server) ->
-    route(jid:make(User, Server), {exit, ?T("User removed")}).
+    route(jid:make(User, Server), {close, account_deleted}).
 
 get_user_resources(User, Server) ->
     LUser = jid:nodeprep(User),
@@ -548,8 +547,6 @@ host_up(Host) ->
                ejabberd_sm, check_in_subscription, 20),
     ejabberd_hooks:add(bounce_sm_packet, Host,
                ejabberd_sm, bounce_sm_packet, 100),
-    ejabberd_hooks:add(remove_user, Host,
-               ejabberd_sm, disconnect_removed_user, 100),
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 10),
     ejabberd_c2s:host_up(Host),
     halloapp_c2s:host_up(Host).
@@ -576,8 +573,6 @@ host_down(Host) ->
               ejabberd_sm, check_in_subscription, 20),
     ejabberd_hooks:delete(bounce_sm_packet, Host,
               ejabberd_sm, bounce_sm_packet, 100),
-    ejabberd_hooks:delete(remove_user, Host,
-              ejabberd_sm, disconnect_removed_user, 100),
     ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 10),
     ejabberd_c2s:host_down(Host),
     halloapp_c2s:host_down(Host).
