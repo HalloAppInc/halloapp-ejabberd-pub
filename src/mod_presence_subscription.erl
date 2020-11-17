@@ -136,13 +136,14 @@ get_user_broadcast_friends(User, _Server) ->
 %%====================================================================
 
 -spec check_and_subscribe_user_to_friend(User :: binary(), Server :: binary(),
-        Friend :: binary()) -> ok | {ok, any()} | {error, any()}.
+        Friend :: binary()) -> ignore | ok | {ok, any()} | {error, any()}.
 check_and_subscribe_user_to_friend(User, Server, Friend) ->
     case model_friends:is_friend(User, Friend) of
         false ->
-            Packet = #presence{type = error, to = jid:make(User, Server)},
-            ejabberd_router:route(Packet);
+            ?INFO("ignore presence_subscribe, Uid: ~s, FriendUid: ~s", [User, Friend]),
+            ignore;
         true ->
+            ?INFO("accept presence_subscribe, Uid: ~s, FriendUid: ~s", [User, Friend]),
             subscribe_user_to_friend(User, Server, Friend),
             mod_user_activity:probe_and_send_presence(User, Server, Friend)
     end.
