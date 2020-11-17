@@ -128,17 +128,12 @@ privacy_check_packet(allow, _State, Pkt, _Dir)
                 false ->
                     allow
             end,
-            %% Allow only seen receipts of feed.
-            %% TODO(murali@): Use a util_function for payload.
-            case is_record(Pkt, message) of
-                true ->
-                    [SubEl] = Pkt#message.sub_els,
-                    case is_record(SubEl, receipt_seen) of
-                        true -> allow;
-                        false -> Result
-                    end;
-                false ->
-                    Result
+            %% Allow only seen receipts.
+            PacketType = util:get_packet_type(Pkt),
+            PayloadType = util:get_payload_type(Pkt),
+            case PacketType =:= message andalso PayloadType =:= receipt_seen of
+                true -> allow;
+                false -> Result
             end
     end,
     case FinalResult of

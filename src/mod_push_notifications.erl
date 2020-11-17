@@ -64,26 +64,26 @@ offline_message_hook({_, #message{} = Message} = Acc) ->
 
 %% Determine whether message should be pushed or not.. based on the content.
 -spec should_push(Message :: message()) -> boolean(). 
-should_push(#message{type = Type, sub_els = [SubEl | _]}) ->
+should_push(#message{type = Type, sub_els = [SubEl | _]} = Message) ->
+    PayloadType = util:get_payload_type(Message),
     if
-        Type =:= groupchat andalso is_record(SubEl, group_chat) ->
+        Type =:= groupchat andalso PayloadType =:= group_chat ->
             %% Push all group chat messages: all messages with type=groupchat and group_chat as the subelement.
             true;
 
-        is_record(SubEl, chat) ->
+        PayloadType =:= chat ->
             %% Push chat messages: all messages with chat as the subelement.
             true;
 
-        is_record(SubEl, feed_st) andalso SubEl#feed_st.action =:= publish ->
+        PayloadType =:= feed_st andalso SubEl#feed_st.action =:= publish ->
             %% Send pushes for feed messages: both posts and comments.
             true;
 
-        is_record(SubEl, contact_list) ->
+        PayloadType =:= contact_list ->
             %% Push contact related notifications: could be contact_hash or new relationship notifications.
             true;
 
-        is_record(SubEl, group_feed_st) andalso
-                SubEl#group_feed_st.action =:= publish ->
+        PayloadType =:= group_feed_st andalso SubEl#group_feed_st.action =:= publish ->
             %% Push all group feed messages with action = publish.
             true;
 
@@ -129,12 +129,11 @@ version_check_packet(undefined, #message{to = #jid{luser = Uid}} = _Message) ->
     true;
 version_check_packet(ClientVersion, #message{id = MsgId, to = #jid{luser = Uid}} = Message) ->
     Platform = util_ua:get_client_type(ClientVersion),
-    [SubEl | _] = Message#message.sub_els,
-    SubElName = element(1, SubEl),
+    PayloadType = util:get_payload_type(Message),
     case check_version_rules(Platform, ClientVersion, Message) of
         false ->
             ?INFO("Uid: ~s, Dropping msgid: ~s, content: ~s due to client version: ~s",
-                    [Uid, MsgId, SubElName, ClientVersion]),
+                    [Uid, MsgId, PayloadType, ClientVersion]),
             false;
         true -> true
     end.

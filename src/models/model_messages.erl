@@ -80,7 +80,7 @@ store_message(Message) ->
     #jid{user = ToUid} = Message#message.to,
     #jid{user = FromUid} = Message#message.from,
     MsgId = Message#message.id,
-    ContentType = get_content_type(Message),
+    ContentType = util:get_payload_type(Message),
     store_message(ToUid, FromUid, MsgId, ContentType, Message).
 
 

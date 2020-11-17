@@ -261,8 +261,9 @@ user_receive_packet({Packet, _State} = Acc) ->
 -spec count_packet(Namespace :: string(), Action :: string(), Packet :: stanza()) -> ok.
 count_packet(Namespace, _Action, #ack{}) ->
     stat:count(Namespace, "ack");
-count_packet(Namespace, Action, #message{sub_els = [SubEl | _Rest]}) ->
-    stat:count(Namespace, "message"),
+count_packet(Namespace, Action, #message{sub_els = [SubEl | _Rest]} = Message) ->
+    PayloadType = util:get_payload_type(Message),
+    stat:count(Namespace, "message", 1, [{payload_type, PayloadType}]),
     case SubEl of
         #chat{} -> stat:count("HA/messaging", Action ++ "_im");
         #receipt_seen{} -> stat:count("HA/im_receipts", Action ++ "_seen");
@@ -271,8 +272,9 @@ count_packet(Namespace, Action, #message{sub_els = [SubEl | _Rest]}) ->
     end;
 count_packet(Namespace, _Action, #presence{}) ->
     stat:count(Namespace, "presence");
-count_packet(Namespace, _Action, #iq{}) ->
-    stat:count(Namespace, "iq");
+count_packet(Namespace, _Action, #iq{} = Iq) ->
+    PayloadType = util:get_payload_type(Iq),
+    stat:count(Namespace, "iq", 1, [{payload_type, PayloadType}]);
 count_packet(Namespace, _Action, #chat_state{}) ->
     stat:count(Namespace, "chat_state");
 count_packet(Namespace, _Action, _Packet) ->

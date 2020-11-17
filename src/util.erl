@@ -44,7 +44,9 @@
     join_binary/3,
     err/1,
     err/2,
-    ms_to_datetime_string/1
+    ms_to_datetime_string/1,
+    get_packet_type/1,
+    get_payload_type/1
 ]).
 
 %% Export all functions for unit tests
@@ -301,4 +303,18 @@ ms_to_datetime_string(Ms) ->
             Time = io_lib:format("~2..0B:~2..0B:~2..0B", [H, Min, S]),
             {Date, Time}
     end.
+
+
+-spec get_packet_type(Packet :: stanza()) -> atom.
+get_packet_type(#iq{}) -> iq;
+get_packet_type(#message{}) -> message;
+get_packet_type(#presence{}) -> presence;
+get_packet_type(#chat_state{}) -> chat_state;
+get_packet_type(#ack{}) -> ack.
+
+
+-spec get_payload_type(Packet :: stanza()) -> atom.
+get_payload_type(#iq{sub_els = [SubEl]}) -> util:to_atom(xmpp:get_name(SubEl));
+get_payload_type(#message{sub_els = [SubEl]}) -> util:to_atom(xmpp:get_name(SubEl));
+get_payload_type(_) -> undefined.
 
