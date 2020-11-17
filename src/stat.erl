@@ -348,7 +348,8 @@ fix_prometheus_name(Name) when is_list(Name) ->
     Name2 = string:replace(Name1, ".", "_", all),
     Name3 = string:replace(Name2, "/", "_", all),
     Name4 = string:replace(Name3, "-", "_", all),
-    lists:flatten(Name4).
+    Name5 = string:replace(Name4, " ", "_", all),
+    lists:flatten(Name5).
 
 
 -spec get_prom_name(Namespace :: string(), Metric :: string()) -> string().
@@ -496,7 +497,7 @@ update_state(Key, DataPoint, State, Action) ->
     end.
 
 
-% make sure tag values are atoms
+% make sure tags are strings
 -spec fix_tags(Tags :: [tag()]) -> [tag()].
 fix_tags(Tags) ->
     lists:sort([fix_tag(T) || T <- Tags]).
@@ -507,7 +508,12 @@ fix_tag({Name, Value})  ->
     {fix_tag_name(Name), fix_tag_value(Value)}.
 
 fix_tag_value(Value) when is_atom(Value); is_list(Value); is_binary(Value) ->
-    util:to_list(Value);
+    StrValue = util:to_list(Value),
+    case string:find(StrValue, " ") of
+        nomatch -> ok;
+        _ -> ?ERROR("Tag Value has spaces |~p|", [Value])
+    end,
+    StrValue;
 fix_tag_value(_) ->
     error(badtagvalue).
 

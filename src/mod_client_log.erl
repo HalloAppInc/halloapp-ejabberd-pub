@@ -172,10 +172,13 @@ full_namespace(Namespace) ->
 dims_st_to_tags(DimsSt) ->
     lists:map(
         fun (#dim_st{name = Name, value = Value}) ->
-            {binary_to_list(Name), binary_to_list(Value)}
+            {binary_to_list(Name), fix_tag_value(binary_to_list(Value))}
         end,
         DimsSt
     ).
+
+fix_tag_value(Value) ->
+    lists:flatten(string:replace(Value, " ", "_", all)).
 
 
 -spec has_error(Result :: result()) -> boolean().
