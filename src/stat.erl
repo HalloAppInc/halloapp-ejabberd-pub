@@ -503,11 +503,17 @@ fix_tags(Tags) ->
 
 
 -spec fix_tag(Tag :: tag()) -> tag().
-fix_tag({Name, undefined} = _T)  ->
-    ?INFO("undefined tag value ~p", [Name]),
-    {Name, none};
-fix_tag({Name, Value} = _T) when is_atom(Value); is_list(Value); is_binary(Value) ->
-    {Name, util:to_atom(Value)};
-fix_tag(_) ->
-    error(badarg).
+fix_tag({Name, Value})  ->
+    {fix_tag_name(Name), fix_tag_value(Value)}.
+
+fix_tag_value(Value) when is_atom(Value); is_list(Value); is_binary(Value) ->
+    util:to_list(Value);
+fix_tag_value(_) ->
+    error(badtagvalue).
+
+
+fix_tag_name(Name) when is_atom(Name) ->
+    util:to_list(Name);
+fix_tag_name(_) ->
+    error(badtagname).
 
