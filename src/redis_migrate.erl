@@ -503,9 +503,13 @@ user_details(Uid) ->
               [{unit, millisecond}, {time_designator, $\s}])
     end,
 
-    CurrentTimeMs = os:system_time(millisecond),
     %% Designate account inactive if last activity 13 weeks ago.
-    IsAccountInactive = (CurrentTimeMs - LaTsMs) > 13 * ?WEEKS_MS,
+    IsAccountInactive = case LaTsMs of
+        undefined -> true;
+        _ ->
+            CurrentTimeMs = os:system_time(millisecond),
+            (CurrentTimeMs - LaTsMs) > 13 * ?WEEKS_MS
+    end,
     CreationTimeString = case CtMs of
         undefined -> undefined;
         _ -> 
