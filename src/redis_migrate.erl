@@ -481,7 +481,7 @@ user_details(Uid) ->
         Class:Reason:Stacktrace ->
             ?ERROR("Stacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            io_lib:format("Unable to fetch details")
+            io_lib:format("Unable to fetch details", [])
     end.
 
 user_details2(Uid) ->
