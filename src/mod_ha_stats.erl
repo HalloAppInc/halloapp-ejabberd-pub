@@ -213,9 +213,11 @@ feed_item_retracted(Uid, ItemId, ItemType) ->
 
 
 -spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-register_user(Uid, _Server, _Phone) ->
+register_user(Uid, _Server, Phone) ->
     ?INFO("counting uid:~s", [Uid]),
     stat:count("HA/account", "registration"),
+    CC = mod_libphonenumber:get_region_id(Phone),
+    stat:count("HA/account", "registration_by_cc", 1, [{cc, CC}]),
     new_user(Uid),
     ok.
 
