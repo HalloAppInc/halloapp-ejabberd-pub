@@ -475,6 +475,16 @@ is_invalid_key(Key) ->
     Key == undefined orelse not is_binary(Key) orelse byte_size(Key) == 0.
 
 user_details(Uid) ->
+    try
+        user_details2(Uid)
+    catch
+        Class:Reason:Stacktrace ->
+            ?ERROR("Stacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            io_lib:format("Unable to fetch details")
+    end.
+
+user_details2(Uid) ->
     {ok, Account} = model_accounts:get_account(Uid),
     #account{uid = Uid, name = Name, phone = Phone, signup_user_agent = UA, creation_ts_ms = CtMs,
         last_activity_ts_ms = LaTsMs, activity_status = ActivityStatus, client_version = CV} =
