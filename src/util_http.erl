@@ -55,15 +55,15 @@ get_user_agent(Headers) ->
     get_header('User-Agent', Headers).
 
 
--spec get_ip(IP :: tuple(), Headers :: list()) -> binary().
+-spec get_ip(IP :: tuple(), Headers :: list()) -> list().
 get_ip(IP, Headers) ->
     ForwardedIP = util_http:get_header('X-Forwarded-For', Headers),
     case ForwardedIP of
         undefined ->
             case IP of
-                undefined -> <<"no-ip">>;
-                IP -> list_to_binary(inet:ntoa(IP))
+                undefined -> "0.0.0.0";
+                IP -> inet:ntoa(IP)
             end;
-        ForwardedIP -> ForwardedIP
+        ForwardedIP -> binary_to_list(ForwardedIP)
     end.
 

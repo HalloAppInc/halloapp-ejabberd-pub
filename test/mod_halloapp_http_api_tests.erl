@@ -21,6 +21,8 @@
 -define(SERVER, <<"s.halloapp.net">>).
 -define(UA, <<"HalloApp/iPhone1.0">>).
 -define(BAD_UA, <<"BadUserAgent/1.0">>).
+-define(IP1, "1.1.1.1").
+-define(APPLE_IP, "17.3.4.5").
 -define(SMS_CODE, <<"111111">>).
 -define(BAD_SMS_CODE, <<"111110">>).
 -define(BAD_PASSWORD, <<"BADPASS">>).
@@ -226,15 +228,15 @@ check_name_test() ->
 
 check_invited_test() ->
     setup(),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?TEST_PHONE, <<"">>)),
+    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?TEST_PHONE, <<"">>, ?IP1)),
 
-    ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE, <<"">>)),
+    ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE, <<"">>, ?IP1)),
     model_invites:record_invite(?UID, ?PHONE, 4),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE, <<"">>)),
+    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE, <<"">>, ?IP1)),
     clear(),
-    ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE, <<"">>)),
+    ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE, <<"">>, ?IP1)),
     {ok, _Pass, _Uid} = ejabberd_auth:ha_try_register(?PHONE, <<"pass">>, ?NAME, ?UA),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE, <<"">>)).
+    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE, <<"">>, ?IP1)).
 
 
 request_and_check_sms_code_test() ->
@@ -255,10 +257,18 @@ is_version_invite_opened_test() ->
 
 check_invited_by_version_test() ->
     setup(),
-%%    ?assertEqual(ok, mod_halloapp_http_api:check_invited(
-%%        <<"16501231234">>, <<"HalloApp/iOS1.0.79">>)),
     ?assertError(not_invited, mod_halloapp_http_api:check_invited(
-        <<"16501231234">>, <<"HalloApp/iOS1.1">>)),
+        <<"16501231234">>, <<"HalloApp/iOS1.0.79">>, ?IP1)),
+    ?assertError(not_invited, mod_halloapp_http_api:check_invited(
+        <<"16501231234">>, <<"HalloApp/iOS1.1">>, ?IP1)),
+    ok.
+
+check_invited_by_ip_test() ->
+    setup(),
+    ?assertEqual(ok, mod_halloapp_http_api:check_invited(
+        ?PHONE, <<"">>, ?APPLE_IP)),
+    ?assertError(not_invited, mod_halloapp_http_api:check_invited(
+        ?PHONE, <<"">>, ?IP1)),
     ok.
 
 %%%----------------------------------------------------------------------

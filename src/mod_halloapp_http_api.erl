@@ -47,7 +47,7 @@ process([<<"registration">>, <<"request_sms">>],
             [Payload, Phone, UserAgent, ClientIP, util:is_test_number(Phone)]),
 
         check_ua(UserAgent),
-        check_invited(Phone, UserAgent),
+        check_invited(Phone, UserAgent, ClientIP),
         request_sms(Phone, UserAgent),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
@@ -299,12 +299,13 @@ check_name(_) ->
     error(invalid_name).
 
 
--spec check_invited(PhoneNum :: binary(), UserAgent :: binary()) -> ok | erlang:error().
-check_invited(PhoneNum, UserAgent) ->
+-spec check_invited(PhoneNum :: binary(), UserAgent :: binary(), IP :: string()) -> ok | erlang:error().
+check_invited(PhoneNum, UserAgent, IP) ->
     Invited = model_invites:is_invited(PhoneNum),
     IsTestNumber = util:is_test_number(PhoneNum),
     IsAllowedVersion = is_version_invite_opened(UserAgent),
-    case Invited =:= true orelse IsTestNumber =:= true orelse IsAllowedVersion of
+    IsIPAllowed = is_ip_invite_opened(IP),
+    case Invited orelse IsTestNumber orelse IsAllowedVersion orelse IsIPAllowed of
         true -> ok;
         false ->
             case model_phone:get_uid(PhoneNum) of
@@ -319,6 +320,20 @@ is_version_invite_opened(UserAgent) ->
 %%        <<"HalloApp/iOS1.0.79", _Rest/binary>> -> true;
 %%        <<"HalloApp/79", _Rest/binary>> -> true;
         _Any -> false
+    end.
+
+-spec is_ip_invite_opened(IP :: list()) -> boolean().
+is_ip_invite_opened(IP) ->
+    case inet:parse_address(IP) of
+        {ok, IPTuple} ->
+            case IPTuple of
+                % Apple owns 17.0.0.0/8
+                {17, _, _, _} -> true;
+                _ -> false
+            end;
+        {error, _} ->
+            ?WARNING("failed to parse IP: ~p", [IP]),
+            false
     end.
 
 -spec update_key(binary(), binary()) -> {ok, binary(), binary()}.
