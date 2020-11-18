@@ -512,7 +512,7 @@ fix_tag_value(_) ->
     error(badtagvalue).
 
 
-fix_tag_name(Name) when is_atom(Name) ->
+fix_tag_name(Name) when is_atom(Name); is_list(Name) ->
     util:to_list(Name);
 fix_tag_name(_) ->
     error(badtagname).
