@@ -489,7 +489,7 @@ user_details(Uid) ->
             case dev_users:is_dev_uid(InviterUid) of
                 true ->
                     {ok, InviterPhoneNum} = model_accounts:get_phone(InviterUid),
-                    io_lib:format("~s~s, ", Acc, InviterPhoneNum);
+                    io_lib:format("~s~s, ", [Acc, util:to_list(InviterPhoneNum)]);
                 _ -> Acc
             end
         end,
