@@ -514,7 +514,7 @@ user_details(Uid) ->
     end,
     io_lib:format("Last Activity: ~s, Last Status: ~s, Name: ~s, Creation: ~s, Test Phone?: ~s, "
         "Client Version: ~s, User Agent: ~s, Inactive?: ~s, Internal Inviters: ~s",
-        [LastActivityTimeString, ActivityStatus, binary_to_list(Name), CreationTimeString,
-         IsTestPhone, binary_to_list(CV), binary_to_list(UA), IsAccountInactive,
+        [LastActivityTimeString, ActivityStatus, util:to_list(Name), CreationTimeString,
+         IsTestPhone, util:to_list(CV), util:to_list(UA), IsAccountInactive,
          InternalInviterPhoneNums]).
 
