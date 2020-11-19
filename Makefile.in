@@ -79,6 +79,8 @@ COOKIEFILE = $(SPOOLDIR)/.erlang.cookie
 # /var/log/ejabberd/
 LOGDIR = $(DESTDIR)@localstatedir@/log/ejabberd
 
+CTL_TEMPLATE = ejabberdctl.template
+
 INSTALLUSER=@INSTALLUSER@
 # if no user was enabled, don't set privileges or ownership
 ifeq ($(INSTALLUSER),)
@@ -223,7 +225,7 @@ install: all copy-files
 		-e "s*{{logdir}}*$(LOGDIR)*g" \
 		-e "s*{{docdir}}*@docdir@*g" \
 		-e "s*{{erl}}*@ERL@*g" \
-		-e "s*{{epmd}}*@EPMD@*g" ejabberdctl.template \
+		-e "s*{{epmd}}*@EPMD@*g" $(CTL_TEMPLATE) \
 		> ejabberdctl.example
 	$(INSTALL) -b -S .bak -m 640 $(G_USER) ejabberdctl.cfg.example $(ETCDIR)/ejabberdctl.cfg
 	#[ -f $(ETCDIR)/ejabberdctl.cfg ] \
