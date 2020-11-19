@@ -50,7 +50,8 @@ init([]) ->
     % Switch to this code once we know it is working
     % ok = check_environment(),
     try
-        check_environment()
+        %%check_environment()
+        ok
 %%        erlang:error(bad_error)
     catch
         Class : Reason : Stacktrace  ->
