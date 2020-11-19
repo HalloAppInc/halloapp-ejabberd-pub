@@ -74,7 +74,6 @@ mod_options(_Host) ->
 
 init([_Host, _Opts]) ->
     ?INFO("Start ~p", [?MODULE]),
-    process_flag(trap_exit, true),
     xmpp_trace:notice("Start"),
     ets:new(trace_uids, [set, named_table, protected]),
     ?INFO("creating trace_uids ets table", []),

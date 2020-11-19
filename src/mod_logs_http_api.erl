@@ -200,7 +200,6 @@ depends(_Host, _Opts) ->
 
 init(_Opts) ->
     ?INFO("~p init ~p", [?MODULE, _Opts]),
-    process_flag(trap_exit, true),
     {ok, {}}.
 
 -spec mod_options(binary()) -> [{atom(), term()}].

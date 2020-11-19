@@ -200,7 +200,6 @@ compute_counts_by_version() ->
 
 
 init(_Stuff) ->
-    process_flag(trap_exit, true),
     % Each Erlang process has to do the configure
     % TODO: maybe make module where this erlcloud configure should go
     {ok, _} = application:ensure_all_started(erlcloud),

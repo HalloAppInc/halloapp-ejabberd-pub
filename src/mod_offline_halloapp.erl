@@ -71,7 +71,6 @@ get_proc() ->
 
 init([Host|_]) ->
     ?INFO("mod_offline_halloapp: init", []),
-    process_flag(trap_exit, true),
     ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:add(user_send_ack, Host, ?MODULE, user_send_ack, 50),

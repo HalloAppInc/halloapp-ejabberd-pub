@@ -56,7 +56,6 @@ depends(_Host, _Opts) ->
 
 init(_Stuff) ->
     ?INFO("~w init ~p", [?MODULE, _Stuff]),
-    process_flag(trap_exit, true),
     {ok, {}}.
 
 -spec mod_options(binary()) -> [{atom(), term()}].

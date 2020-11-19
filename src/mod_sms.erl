@@ -54,7 +54,6 @@ mod_options(_Host) ->
 
 init(_Stuff) ->
     ?DEBUG("mod_sms: stuff ~p", [_Stuff]),
-    process_flag(trap_exit, true),
     State = make_state(),
     {ok, State}.
 

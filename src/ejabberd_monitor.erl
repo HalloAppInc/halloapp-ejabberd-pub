@@ -81,7 +81,6 @@ send_alert(Alertname, Service, Severity, Message) ->
 %% Since, if this process crashes: restarting this process will lose all our monitor references.
 init([]) ->
     ?INFO("Start: ~p", [?MODULE]),
-    process_flag(trap_exit, true),
     {ok, #state{monitors = #{}}}.
 
 

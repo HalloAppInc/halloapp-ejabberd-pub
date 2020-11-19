@@ -87,7 +87,6 @@ crash() ->
 %%====================================================================
 
 init([Host|_]) ->
-    process_flag(trap_exit, true),
     get_fcm_info(),
     {ok, #push_state{host = Host}}.
 

@@ -110,7 +110,6 @@ crash() ->
 %%====================================================================
 
 init([Host|_]) ->
-    process_flag(trap_exit, true),
     Opts = gen_mod:get_module_opts(Host, ?MODULE),
     store_options(Opts),
     {Pid, Mon} = connect_to_apns(prod),

@@ -415,7 +415,6 @@ depends(_Host, _Opts) ->
 
 init(_Stuff) ->
     ?INFO("mod_halloapp_http_api init ~p", [_Stuff]),
-    process_flag(trap_exit, true),
     {ok, {}}.
 
 -spec mod_options(binary()) -> [{atom(), term()}].
