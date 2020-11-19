@@ -8,6 +8,9 @@
 
 -module(util).
 -author('murali').
+
+-include_lib("stdlib/include/assert.hrl").
+
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("ha_types.hrl").
@@ -46,7 +49,9 @@
     err/2,
     ms_to_datetime_string/1,
     get_packet_type/1,
-    get_payload_type/1
+    get_payload_type/1,
+    process_file_list/3,
+    remove_user/1
 ]).
 
 %% Export all functions for unit tests
@@ -56,6 +61,9 @@
 
 -define(PASSWORD_SIZE, 24).
 -define(GID_SIZE, 22).
+-define(SERVER, <<"s.halloapp.net">>).
+
+-type item_process_fun() :: fun((integer()) -> boolean()).
 
 -spec get_host() -> binary().
 get_host() ->
@@ -317,4 +325,47 @@ get_packet_type(#ack{}) -> ack.
 get_payload_type(#iq{sub_els = [SubEl]}) -> util:to_atom(xmpp:get_name(SubEl));
 get_payload_type(#message{sub_els = [SubEl]}) -> util:to_atom(xmpp:get_name(SubEl));
 get_payload_type(_) -> undefined.
+
+-spec process_file_list(
+    FileName :: string(), ProcessFun :: item_process_fun(), MaxToProcess :: integer()) -> ok.
+process_file_list(FileName, ProcessFun, MaxToProcess) ->
+    {ok, Res} = file:read_file(FileName),
+    Res2 = binary:split(Res, [<<"\n">>], [global]),
+    process_list(Res2, 0, ProcessFun, MaxToProcess).
+
+process_list([], Count, _ProcessFun, _MaxToProcess) -> Count;
+process_list([<<>>], Count, _ProcessFun, _MaxToProcess) -> Count;
+process_list([X | Rest], Count, ProcessFun, MaxToProcess) ->
+    Item = binary_to_list(X),
+    ItemLen = string:length(Item),
+    ?assert(ItemLen > 6),
+    Content = string:slice(Item, 3, ItemLen - 6),
+    ?DEBUG("Processing: ~p", [Content]),
+    IntContent = list_to_integer(Content),
+    ProcessResult = ProcessFun(IntContent),
+    NewCount = case ProcessResult of
+        false ->
+            ?INFO("~p not processed", [IntContent]),
+            Count;
+        true ->
+            ?INFO("~p processed", [IntContent]),
+            Count + 1
+    end,
+    case NewCount < MaxToProcess of
+        true -> process_list(Rest, NewCount, ProcessFun, MaxToProcess);
+        false ->
+              ?INFO("Done processing"),
+              NewCount
+    end.
+
+-spec remove_user(Uid :: integer()) -> boolean().
+remove_user(Uid) ->
+    UidBin = integer_to_binary(Uid),
+    case ejabberd_auth:user_exists(UidBin) of
+        true ->
+            ok = ejabberd_auth:remove_user(UidBin, ?SERVER),
+            true;
+        false -> false
+    end.
+
 
