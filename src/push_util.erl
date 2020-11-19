@@ -38,7 +38,8 @@ parse_metadata(#message{id = Id, sub_els = [SubElement],
         from_uid = FromUid,
         timestamp = SubElement#group_chat.timestamp,
         thread_id = SubElement#group_chat.gid,
-        thread_name = SubElement#group_chat.name
+        thread_name = SubElement#group_chat.name,
+        sender_name = SubElement#group_chat.sender_name
     };
 
 %% TODO(murali@): this is not great, we need to send the entire message.
