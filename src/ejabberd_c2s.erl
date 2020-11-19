@@ -49,7 +49,6 @@
 
 -include("xmpp.hrl").
 -include("logger.hrl").
--include("mod_roster.hrl").
 -include("translate.hrl").
 
 -define(SETS, gb_sets).
@@ -707,7 +706,7 @@ process_presence_out(#{lserver := LServer, jid := JID,
     State1 =
 	if Type == subscribe; Type == subscribed;
 	   Type == unsubscribe; Type == unsubscribed ->
-		Access = mod_roster_opt:access(LServer),
+		Access = all,
 		MyBareJID = jid:remove_resource(JID),
 		case acl:match_rule(LServer, Access, MyBareJID) of
 		    deny ->
@@ -788,80 +787,17 @@ update_priority(#{sid := SID, user := U, server := S, resource := R},
 -spec broadcast_presence_unavailable(state(), presence()) -> state().
 broadcast_presence_unavailable(#{jid := JID, pres_a := PresA} = State, Pres) ->
     #jid{luser = LUser, lserver = LServer} = JID,
-    BareJID = jid:remove_resource(JID),
-    Items1 = ejabberd_hooks:run_fold(roster_get, LServer,
-				     [], [{LUser, LServer}]),
-    Items2 = ?SETS:fold(
-		fun(LJID, Items) ->
-			[#roster{jid = LJID, subscription = from}|Items]
-		end, Items1, PresA),
-    _JIDs = lists:foldl(
-	     fun(#roster{jid = LJID, subscription = Sub}, Tos)
-		   when Sub == both orelse Sub == from ->
-		     To = jid:make(LJID),
-		     P = xmpp:set_to(Pres, jid:make(LJID)),
-		     case privacy_check_packet(State, P, out) of
-			 allow -> [To|Tos];
-			 deny -> Tos
-		     end;
-		(_, Tos) ->
-		     Tos
-	     end, [BareJID], Items2),
-    %%route_multiple(State, JIDs, Pres),
+    %% Unused old logic.
     State#{pres_a => ?SETS:new()}.
 
 -spec broadcast_presence_available(state(), presence(), boolean()) -> state().
 broadcast_presence_available(#{jid := JID} = State,
 			     Pres, _FromUnavailable = true) ->
-    Probe = #presence{from = JID, type = probe},
-    #jid{luser = LUser, lserver = LServer} = JID,
-    BareJID = jid:remove_resource(JID),
-    Items = ejabberd_hooks:run_fold(roster_get, LServer,
-				    [], [{LUser, LServer}]),
-    {_FJIDs, _TJIDs} =
-	lists:foldl(
-	  fun(#roster{jid = LJID, subscription = Sub}, {F, T}) ->
-		  To = jid:make(LJID),
-		  F1 = if Sub == both orelse Sub == from ->
-			       Pres1 = xmpp:set_to(Pres, To),
-			       case privacy_check_packet(State, Pres1, out) of
-				   allow -> [To|F];
-				   deny -> F
-			       end;
-			  true -> F
-		       end,
-		  T1 = if Sub == both orelse Sub == to ->
-			       Probe1 = xmpp:set_to(Probe, To),
-			       case privacy_check_packet(State, Probe1, out) of
-				   allow -> [To|T];
-				   deny -> T
-			       end;
-			  true -> T
-		       end,
-		  {F1, T1}
-	  end, {[BareJID], [BareJID]}, Items),
-    %%route_multiple(State, TJIDs, Probe),
-    %%route_multiple(State, FJIDs, Pres),
+    %% Unused old logic.
     State;
 broadcast_presence_available(#{jid := JID} = State,
 			     Pres, _FromUnavailable = false) ->
-    #jid{luser = LUser, lserver = LServer} = JID,
-    BareJID = jid:remove_resource(JID),
-    Items = ejabberd_hooks:run_fold(
-	      roster_get, LServer, [], [{LUser, LServer}]),
-    JIDs = lists:foldl(
-	     fun(#roster{jid = LJID, subscription = Sub}, Tos)
-		   when Sub == both orelse Sub == from ->
-		     To = jid:make(LJID),
-		     P = xmpp:set_to(Pres, jid:make(LJID)),
-		     case privacy_check_packet(State, P, out) of
-			 allow -> [To|Tos];
-			 deny -> Tos
-		     end;
-		(_, Tos) ->
-		     Tos
-	     end, [BareJID], Items),
-    route_multiple(State, JIDs, Pres),
+    %% Unused old logic.
     State.
 
 -spec check_privacy_then_route(state(), stanza()) -> state().

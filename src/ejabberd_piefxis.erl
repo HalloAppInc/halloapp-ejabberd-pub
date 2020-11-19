@@ -44,7 +44,6 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("mod_privacy.hrl").
--include("mod_roster.hrl").
 
 %%-include_lib("exmpp/include/exmpp.hrl").
 %%-include_lib("exmpp/include/exmpp_client.hrl").
@@ -171,7 +170,6 @@ export_user(User, Server, Fd) ->
 	   end,
     Els = get_vcard(User, Server) ++
         get_privacy(User, Server) ++
-        get_roster(User, Server) ++
         get_private(User, Server),
     print(Fd, fxml:element_to_binary(
                 #xmlel{name = <<"user">>,
@@ -223,37 +221,6 @@ get_privacy(User, Server) ->
             []
     end.
 
--spec get_roster(binary(), binary()) -> [xmlel()].
-get_roster(User, Server) ->
-    JID = jid:make(User, Server),
-    case mod_roster:get_roster(User, Server) of
-        [_|_] = Items ->
-            Subs =
-                lists:flatmap(
-                  fun(#roster{ask = Ask,
-                              askmessage = Msg} = R)
-                        when Ask == in; Ask == both ->
-                          Status = if is_binary(Msg) -> (Msg);
-                                      true -> <<"">>
-                                   end,
-			  [xmpp:encode(
-			     #presence{from = jid:make(R#roster.jid),
-				       to = JID,
-				       type = subscribe,
-				       status = xmpp:mk_text(Status)})];
-                     (_) ->
-                          []
-                  end, Items),
-            Rs = lists:flatmap(
-                   fun(#roster{ask = in, subscription = none}) ->
-                           [];
-                      (R) ->
-                           [mod_roster:encode_item(R)]
-                   end, Items),
-	    [xmpp:encode(#roster_query{items = Rs}) | Subs];
-        _ ->
-            []
-    end.
 
 -spec get_private(binary(), binary()) -> [xmlel()].
 get_private(User, Server) ->
@@ -409,8 +376,6 @@ process_user_el(#xmlel{name = Name, attrs = Attrs, children = Els} = El,
                 State) ->
     try
 	case {Name, fxml:get_attr_s(<<"xmlns">>, Attrs)} of
-	    {<<"query">>, ?NS_ROSTER} ->
-		process_roster(xmpp:decode(El), State);
 	    {<<"query">>, ?NS_PRIVACY} ->
 		%% Make sure <list/> elements go before <active/> and <default/>
 		process_privacy(xmpp:decode(El), State);
@@ -444,15 +409,6 @@ process_offline_msgs([_|Msgs], State) ->
     process_offline_msgs(Msgs, State);
 process_offline_msgs([], State) ->
     {ok, State}.
-
--spec process_roster(roster_query(), state()) -> {ok, state()} | {error, _}.
-process_roster(RosterQuery, State = #state{user = U, server = S}) ->
-    case mod_roster:set_items(U, S, RosterQuery) of
-        {atomic, _} ->
-            {ok, State};
-        Err ->
-            stop("Failed to write roster: ~p", [Err])
-    end.
 
 -spec process_privacy(privacy_query(), state()) -> {ok, state()} | {error, _}.
 process_privacy(#privacy_query{lists = Lists,

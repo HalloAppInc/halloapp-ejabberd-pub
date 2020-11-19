@@ -30,7 +30,6 @@
 -include("scram.hrl").
 -include("xmpp.hrl").
 -include("logger.hrl").
--include("mod_roster.hrl").
 -include("mod_privacy.hrl").
 
 %%%===================================================================
@@ -154,19 +153,6 @@ convert_data(Host, "accounts", User, [Data]) ->
 		       [User, Host, Err]),
 	    Err
     end;
-convert_data(Host, "roster", User, [Data]) ->
-    LUser = jid:nodeprep(User),
-    LServer = jid:nameprep(Host),
-    Rosters =
-	lists:flatmap(
-	  fun({<<"pending">>, L}) ->
-		  convert_pending_item(LUser, LServer, L);
-	     ({S, L}) when is_binary(S) ->
-		  convert_roster_item(LUser, LServer, S, L);
-	     (_) ->
-		  []
-	  end, Data),
-    lists:foreach(fun mod_roster:set_roster/1, Rosters);
 convert_data(Host, "private", User, [Data]) ->
     PrivData = lists:flatmap(
 		 fun({_TagXMLNS, Raw}) ->
@@ -251,52 +237,6 @@ convert_data(HostStr, "pubsub", Node, [Data]) ->
     end;
 convert_data(_Host, _Type, _User, _Data) ->
     ok.
-
-convert_pending_item(LUser, LServer, LuaList) ->
-    lists:flatmap(
-      fun({S, true}) ->
-	      try jid:decode(S) of
-		  J ->
-		      LJID = jid:tolower(J),
-		      [#roster{usj = {LUser, LServer, LJID},
-			       us = {LUser, LServer},
-			       jid = LJID,
-			       ask = in}]
-	      catch _:{bad_jid, _} ->
-		      []
-	      end;
-	 (_) ->
-	      []
-      end, LuaList).
-
-convert_roster_item(LUser, LServer, JIDstring, LuaList) ->
-    try jid:decode(JIDstring) of
-	JID ->
-	    LJID = jid:tolower(JID),
-	    InitR = #roster{usj = {LUser, LServer, LJID},
-			    us = {LUser, LServer},
-			    jid = LJID},
-	    lists:foldl(
-		  fun({<<"groups">>, Val}, [R]) ->
-			  Gs = lists:flatmap(
-				 fun({G, true}) -> [G];
-				    (_) -> []
-				 end, Val),
-			  [R#roster{groups = Gs}];
-		     ({<<"subscription">>, Sub}, [R]) ->
-			  [R#roster{subscription = misc:binary_to_atom(Sub)}];
-		     ({<<"ask">>, <<"subscribe">>}, [R]) ->
-			  [R#roster{ask = out}];
-		     ({<<"name">>, Name}, [R]) ->
-			  [R#roster{name = Name}];
-		     ({<<"persist">>, false}, _) ->
-			  [];
-		     (_, []) ->
-			  []
-		  end, [InitR], LuaList)
-    catch _:{bad_jid, _} ->
-	    []
-    end.
 
 convert_room_affiliations(Data) ->
     lists:flatmap(

@@ -43,7 +43,6 @@
 -include("translate.hrl").
 -include("xmpp.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
--include("mod_roster.hrl").
 
 -type features_acc() :: {error, stanza_error()} | {result, [binary()]} | empty.
 -type items_acc() :: {error, stanza_error()} | {result, [disco_item()]} | empty.

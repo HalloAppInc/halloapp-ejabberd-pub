@@ -62,7 +62,6 @@
 
 -include("xmpp.hrl").
 -include("logger.hrl").
--include("mod_roster.hrl").
 -include("translate.hrl").
 
 -define(NOISE_STATIC_KEY, <<"static_key">>).

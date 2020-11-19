@@ -28,7 +28,6 @@
 
 -include("suite.hrl").
 -include_lib("kernel/include/file.hrl").
--include("mod_roster.hrl").
 
 %%%===================================================================
 %%% API
@@ -797,11 +796,6 @@ set_roster(Config, Subscription, Groups) ->
     PeerLJID = jid:tolower(PeerBareJID),
     ct:comment("Adding ~s to roster with subscription '~s' in groups ~p",
 	       [jid:encode(PeerBareJID), Subscription, Groups]),
-    {atomic, _} = mod_roster:set_roster(#roster{usj = {U, S, PeerLJID},
-						us = {U, S},
-						jid = PeerLJID,
-						subscription = Subscription,
-						groups = Groups}),
     Config.
 
 del_roster(Config) ->

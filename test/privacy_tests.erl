@@ -30,7 +30,6 @@
 		send/2, my_jid/1, server_jid/1, get_features/1,
 		set_roster/3, del_roster/1, get_roster/1]).
 -include("suite.hrl").
--include("mod_roster.hrl").
 
 %%%===================================================================
 %%% API

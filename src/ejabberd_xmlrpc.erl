@@ -37,7 +37,6 @@
 
 -include("logger.hrl").
 -include("ejabberd_http.hrl").
--include("mod_roster.hrl").
 
 -include("xmpp.hrl").
 
