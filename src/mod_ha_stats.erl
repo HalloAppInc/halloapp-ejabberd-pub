@@ -186,13 +186,21 @@ trigger_cleanup() ->
         ItemId :: binary(), ItemType :: atom(), Payloads :: [xmlel()]) -> ok.
 publish_feed_item(Uid, Node, ItemId, ItemType, _Payload) ->
     ?INFO("counting Uid:~p, Node: ~p, ItemId: ~p, ItemType:~p", [Uid, Node, ItemId, ItemType]),
+    {ok, Phone} = model_accounts:get_phone(Uid),
+    CC = mod_libphonenumber:get_cc(Phone),
+    IsDev = dev_users:is_dev_uid(Uid),
+    % TODO: maybe try to combine the logic for post and comment
     case ItemType of
         feedpost ->
-            ?INFO("post",[]),
-            stat:count("HA/feed", "post");
+            ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            stat:count("HA/feed", "post"),
+            stat:count("HA/feed", "post_by_cc", 1, [{cc, CC}]),
+            stat:count("HA/feed", "post_by_dev", 1, [{is_dev, IsDev}]);
         comment ->
-            ?INFO("comment",[]),
-            stat:count("HA/feed", "comment");
+            ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            stat:count("HA/feed", "comment"),
+            stat:count("HA/feed", "comment_by_cc", 1, [{cc, CC}]),
+            stat:count("HA/feed", "comment_by_dev", 1, [{is_dev, IsDev}]);
         _ -> ok
     end,
     ok.

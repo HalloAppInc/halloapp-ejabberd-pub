@@ -26,6 +26,7 @@
 
 %% api
 -export([
+    get_cc/1,
     get_region_id/1,
     normalize/2
 ]).
@@ -52,6 +53,11 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %%====================================================================
 %% normalize phone numbers
 %%====================================================================
+
+% returns two letter ISO country code given well formatter phone
+-spec get_cc(Phone :: binary()) -> binary().
+get_cc(Phone) ->
+    get_region_id(Phone).
 
 %% TODO(murali@): ensure these numbers are already in e164 format.
 -spec get_region_id(Number :: binary()) -> binary().
