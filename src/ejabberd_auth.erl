@@ -294,6 +294,7 @@ ha_remove_user(Uid) ->
             ok
     end,
     ok = model_auth:delete_password(Uid),
+    ok = model_auth:delete_spub(Uid),
     ok = model_accounts:delete_account(Uid),
     ok.
 
