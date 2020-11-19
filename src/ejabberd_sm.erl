@@ -57,7 +57,6 @@
     get_vh_session_list/1,
     get_vh_session_number/1,
     get_vh_by_backend/1,
-    force_update_presence/1,
     connected_users/0,
     connected_users_number/0,
     user_resources/2,
@@ -903,16 +902,6 @@ get_max_user_sessions(LUser, Host) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec force_update_presence({binary(), binary()}) -> ok.
-
-force_update_presence({LUser, LServer}) ->
-    Mod = get_sm_backend(LServer),
-    Ss = get_sessions(Mod, LUser, LServer),
-    lists:foreach(
-            fun (#session{sid = {_, Pid}}) ->
-                ejabberd_c2s:resend_presence(Pid)
-            end,
-            Ss).
 
 -spec get_sm_backend(binary()) -> module().
 

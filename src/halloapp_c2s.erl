@@ -183,13 +183,10 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
     State1 = change_shaper(State),
     Conn = get_conn_type(State1),
     State2 = State1#{conn => Conn, resource => R, jid => JID},
-    Prio = case maps:get(pres_last, State, undefined) of
-        undefined -> undefined;
-        Pres -> get_priority_from_presence(Pres)
-    end,
+    Priority = 0,
     Info = [{ip, IP}, {conn, Conn}, {auth_module, AuthModule},
             {mode, Mode}, {client_version, ClientVersion}],
-    ejabberd_sm:open_session(SID, U, S, R, Prio, Info),
+    ejabberd_sm:open_session(SID, U, S, R, Priority, Info),
     halloapp_stream_in:establish(State2).
 
 
@@ -517,21 +514,14 @@ process_presence(State, Presence) ->
 
 
 %% TODO(murali@): cleanup presence logic here!
-process_self_presence(#{lserver := LServer} = State,
+process_self_presence(#{sid := SID, user := Uid, lserver := Server, resource := Resource} = State,
         #presence{type = Type} = Pres) when Type == available; Type == away ->
-    _ = update_priority(State, Pres),
-    {Pres1, State1} = ejabberd_hooks:run_fold(
-            c2s_self_presence, LServer, {Pres, State}, []),
-    State1#{pres_last => Pres1, pres_timestamp => erlang:timestamp()};
+    Priority = 0,
+    ejabberd_sm:set_presence(SID, Uid, Server, Resource, Priority, Pres),
+    State#{pres_last => Pres, pres_timestamp => erlang:timestamp()};
 
 process_self_presence(State, _Pres) ->
     State.
-
-
--spec update_priority(state(), presence()) -> ok | {error, notfound}.
-update_priority(#{sid := SID, user := U, server := S, resource := R}, Pres) ->
-    Priority = get_priority_from_presence(Pres),
-    ejabberd_sm:set_presence(SID, U, S, R, Priority, Pres).
 
 
 -spec check_privacy_then_route(state(), stanza()) -> state().
@@ -549,14 +539,6 @@ check_privacy_then_route(State, Pkt) ->
 -spec privacy_check_packet(state(), stanza(), in | out) -> allow | deny.
 privacy_check_packet(#{lserver := LServer} = State, Pkt, Dir) ->
     ejabberd_hooks:run_fold(privacy_check_packet, LServer, allow, [State, Pkt, Dir]).
-
-
--spec get_priority_from_presence(presence()) -> integer().
-get_priority_from_presence(#presence{priority = Prio}) ->
-    case Prio of
-    undefined -> 0;
-    _ -> Prio
-    end.
 
 
 -spec resource_conflict_action(binary(), binary(), binary()) ->
