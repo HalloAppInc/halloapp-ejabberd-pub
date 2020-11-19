@@ -5,7 +5,7 @@
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
--module(util_process_file_list_tests).
+-module(list_processor_tests).
 -author("vipin").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -67,9 +67,9 @@ check_file_processing_test() ->
     io:format(Fh, "~p~n", [?UID4]),
     io:format(Fh, "~p~n", [?UID5]),
     file:close(Fh),
-    ?assertEqual(1, util:process_file_list(?TEMP_FILE_NAME, fun is_even/1, 1)),
-    ?assertEqual(2, util:process_file_list(?TEMP_FILE_NAME, fun is_even/1, 2)),
-    ?assertEqual(2, util:process_file_list(?TEMP_FILE_NAME, fun is_even/1, 10)),
+    ?assertEqual(1, list_processor:process_file_list(?TEMP_FILE_NAME, fun is_even/1, 1)),
+    ?assertEqual(2, list_processor:process_file_list(?TEMP_FILE_NAME, fun is_even/1, 2)),
+    ?assertEqual(2, list_processor:process_file_list(?TEMP_FILE_NAME, fun is_even/1, 10)),
     ok = file:delete(?TEMP_FILE_NAME),
 
     setup(),
@@ -86,9 +86,9 @@ check_file_processing_test() ->
     io:format(Fh2, "~p~n", [Uid4]),
     io:format(Fh2, "~p~n", [Uid5]),
     file:close(Fh2),
-    ?assertEqual(1, util:process_file_list(?TEMP_FILE_NAME, fun util:remove_user/1, 1)),
-    ?assertEqual(2, util:process_file_list(?TEMP_FILE_NAME, fun util:remove_user/1, 2)),
-    ?assertEqual(2, util:process_file_list(?TEMP_FILE_NAME, fun util:remove_user/1, 10)),
-    ?assertEqual(0, util:process_file_list(?TEMP_FILE_NAME, fun util:remove_user/1, 10)),
+    ?assertEqual(1, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:remove_user/1, 1)),
+    ?assertEqual(2, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:remove_user/1, 2)),
+    ?assertEqual(2, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:remove_user/1, 10)),
+    ?assertEqual(0, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:remove_user/1, 10)),
     ok = file:delete(?TEMP_FILE_NAME).
  
