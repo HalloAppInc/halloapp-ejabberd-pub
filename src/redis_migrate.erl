@@ -458,7 +458,7 @@ check_accounts_run(Key, State) ->
                 undefined ->
                     ?ERROR("Uid: ~p, Phone is undefined!", [Uid]);
                 _ ->
-                    {ok, PhoneUid} = model_phone:get_uid(Uid),
+                    {ok, PhoneUid} = model_phone:get_uid(Phone),
                     case PhoneUid =:= Uid of
                         true -> ok;
                         false ->
