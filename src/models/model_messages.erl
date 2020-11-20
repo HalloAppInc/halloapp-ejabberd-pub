@@ -15,6 +15,7 @@
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 -include("time.hrl").
+-include("expiration.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -71,9 +72,6 @@ mod_options(_Host) ->
 -define(FIELD_ORDER, <<"ord">>).
 -define(FIELD_CONTENT_TYPE, <<"ct">>).
 -define(FIELD_RETRY_COUNT, <<"rc">>).
-
--define(PUSH_EXPIRATION, (31 * ?DAYS)).
-
 
 -spec store_message(Message :: message()) -> ok | {error, any()}.
 store_message(Message) ->

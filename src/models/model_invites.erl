@@ -13,6 +13,7 @@
 -include("time.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
+-include("expiration.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -39,8 +40,6 @@
 -define(FIELD_SINV_TS, <<"it">>).
 -define(FIELD_RINV_UID, <<"id">>).
 -define(FIELD_RINV_TS, <<"ts">>).
-
--define(PUSH_EXPIRATION, (31 * ?DAYS)).
 
 
 %%====================================================================
