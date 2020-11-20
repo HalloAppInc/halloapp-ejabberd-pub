@@ -314,7 +314,7 @@ get_packet_type(#ack{}) -> ack.
 
 
 -spec get_payload_type(Packet :: stanza()) -> atom.
-get_payload_type(#iq{sub_els = [SubEl]}) -> util:to_atom(xmpp:get_name(SubEl));
-get_payload_type(#message{sub_els = [SubEl]}) -> util:to_atom(xmpp:get_name(SubEl));
+get_payload_type(#iq{sub_els = [SubEl]}) -> util:to_atom(element(1, SubEl));
+get_payload_type(#message{sub_els = [SubEl]}) -> util:to_atom(element(1, SubEl));
 get_payload_type(_) -> undefined.
 
