@@ -409,6 +409,8 @@ handle_info({tcp, _, Data}, #{socket := Socket} = State) ->
         case halloapp_socket:recv(Socket, Data) of
             {ok, NewSocket} ->
                 State#{socket => NewSocket};
+            {error, einval} ->
+                process_stream_end({socket, einval}, State);
             {error, Reason} ->
                 send_error(State, Reason)
         end);
