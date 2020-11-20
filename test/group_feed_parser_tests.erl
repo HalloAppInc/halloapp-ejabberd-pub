@@ -28,7 +28,7 @@ xmpp_to_proto_message_feed_item_test() ->
     PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbFeedItem),
 
     PostSt = struct_util:create_group_post_st(?ID1, ?UID1, ?NAME1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
-    FeedSt = struct_util:create_group_feed_st(publish, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, PostSt, undefined),
+    FeedSt = struct_util:create_group_feed_st(publish, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, [PostSt], []),
     ToJid = struct_util:create_jid(?UID2, ?SERVER),
     FromJid = struct_util:create_jid(?UID1, ?SERVER),
     MessageSt = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, FeedSt),
@@ -46,7 +46,7 @@ xmpp_to_proto_iq_feed_item_test() ->
     PbIq = struct_util:create_pb_iq(?ID1, result, PbFeedItem),
 
     CommentSt = struct_util:create_group_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
-    FeedSt = struct_util:create_group_feed_st(publish, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, undefined, CommentSt),
+    FeedSt = struct_util:create_group_feed_st(publish, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, [], [CommentSt]),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, FeedSt),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(IqSt),
@@ -62,7 +62,7 @@ proto_to_xmpp_iq_feed_item_test() ->
     PbIq = struct_util:create_pb_iq(?ID1, set, PbFeedItem),
 
     CommentSt = struct_util:create_group_comment_st(?ID3, ?ID1, <<>>, <<>>, undefined, ?PAYLOAD2_BASE64, undefined),
-    FeedSt = struct_util:create_group_feed_st(publish, ?GID1, <<>>, undefined, undefined, CommentSt),
+    FeedSt = struct_util:create_group_feed_st(publish, ?GID1, <<>>, undefined, [], [CommentSt]),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),

@@ -155,7 +155,7 @@ handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     end,
     {noreply, NewState};
 
-handle_cast(crash, State) ->
+handle_cast(crash, _State) ->
     error(test_crash);
 
 handle_cast(_Request, State) ->
@@ -413,9 +413,9 @@ parse_subject_and_body(#message{sub_els = [#feed_st{posts = [#post_st{}]}]}) ->
     {<<"New Notification">>, <<"New post">>};
 parse_subject_and_body(#message{sub_els = [#feed_st{comments = [#comment_st{}]}]}) ->
     {<<"New Notification">>, <<"New comment">>};
-parse_subject_and_body(#message{sub_els = [#group_feed_st{post = #group_post_st{}}]}) ->
+parse_subject_and_body(#message{sub_els = [#group_feed_st{posts = [#group_post_st{}]}]}) ->
     {<<"New Group Message">>, <<"New post">>};
-parse_subject_and_body(#message{sub_els = [#group_feed_st{comment = #group_comment_st{}}]}) ->
+parse_subject_and_body(#message{sub_els = [#group_feed_st{comments = [#group_comment_st{}]}]}) ->
     {<<"New Group Message">>, <<"New comment">>};
 parse_subject_and_body(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]).
@@ -446,9 +446,9 @@ parse_payload(#message{sub_els = [#feed_st{posts = [#post_st{payload = Payload}]
     Payload;
 parse_payload(#message{sub_els = [#feed_st{comments = [#comment_st{payload = Payload}]}]}) ->
     Payload;
-parse_payload(#message{sub_els = [#group_feed_st{post = #group_post_st{payload = Payload}}]}) ->
+parse_payload(#message{sub_els = [#group_feed_st{posts = [#group_post_st{payload = Payload}]}]}) ->
     Payload;
-parse_payload(#message{sub_els = [#group_feed_st{comment = #group_comment_st{payload = Payload}}]}) ->
+parse_payload(#message{sub_els = [#group_feed_st{comments = [#group_comment_st{payload = Payload}]}]}) ->
     Payload;
 parse_payload(#message{}) ->
     <<>>.
@@ -504,8 +504,8 @@ get_push_type(#message{type = headline, to = #jid{luser = User}, sub_els = [#ps_
 get_push_type(#message{type = headline, sub_els = [#feed_st{}]}, _) -> alert;
 get_push_type(#message{type = normal, sub_els = [#feed_st{}]}, _) -> silent;
 get_push_type(#message{type = groupchat, sub_els = [#group_chat{}]}, _) -> alert;
-get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{post = #group_post_st{}}]}, _) -> alert;
-get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{comment = #group_comment_st{}}]}, _) -> silent;
+get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{posts = [#group_post_st{}]}]}, _) -> alert;
+get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{comments = [#group_comment_st{}]}]}, _) -> silent;
 get_push_type(#message{type = headline, sub_els = [#group_feed_st{}]}, _) -> alert;
 get_push_type(#message{type = normal, sub_els = [#group_feed_st{}]}, _) -> silent;
 get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, chat) -> alert;

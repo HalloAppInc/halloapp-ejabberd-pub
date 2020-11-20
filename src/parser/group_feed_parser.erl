@@ -14,11 +14,33 @@
 %% XMPP to Protobuf
 %% -------------------------------------------- %%
 
+xmpp_to_proto(SubEl) when SubEl#group_feed_st.action =:= share ->
+    Posts = lists:map(
+        fun(PostSt) ->
+            Post = group_post_st_to_post(PostSt),
+            #pb_group_feed_item{
+                item = Post
+            }
+        end, SubEl#group_feed_st.posts),
+    Comments = lists:map(
+        fun(CommentSt) ->
+            Comment = group_comment_st_to_comment(CommentSt),
+            #pb_group_feed_item{
+                item = Comment
+            }
+        end, SubEl#group_feed_st.comments),
+    #pb_group_feed_items{
+        gid = SubEl#group_feed_st.gid,
+        name = SubEl#group_feed_st.name,
+        avatar_id = SubEl#group_feed_st.avatar_id,
+        items = Posts ++ Comments
+    };
+
 xmpp_to_proto(SubEl) ->
-    PbItem = case {SubEl#group_feed_st.post, SubEl#group_feed_st.comment} of
-        {PostSt, undefined} ->
+    PbItem = case {SubEl#group_feed_st.posts, SubEl#group_feed_st.comments} of
+        {[PostSt], []} ->
             group_post_st_to_post(PostSt);
-        {undefined, CommentSt} ->
+        {[], [CommentSt]} ->
             group_comment_st_to_comment(CommentSt)
     end,
     #pb_group_feed_item{
@@ -42,14 +64,14 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_group_feed_item) ->
             #group_feed_st{
                 action = Action,
                 gid = PbPacket#pb_group_feed_item.gid,
-                post = PostSt
+                posts = [PostSt]
             };
         #pb_comment{} = Comment ->
             CommentSt = comment_to_group_comment_st(Comment),
             #group_feed_st{
                 action = Action,
                 gid = PbPacket#pb_group_feed_item.gid,
-                comment = CommentSt
+                comments = [CommentSt]
             }
     end,
     XmppStanza.

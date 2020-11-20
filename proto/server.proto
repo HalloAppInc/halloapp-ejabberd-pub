@@ -198,6 +198,12 @@ message GroupFeedItem {
 }
 
 
+message GroupFeedItems {
+    string gid = 1;
+    string name = 2;
+    string avatar_id = 3;
+    repeated GroupFeedItem items = 4;
+}
 
 
 // Definitions for group stanzas.
@@ -444,6 +450,7 @@ message Msg {
         GroupFeedItem group_feed_item = 20;
         Rerequest rerequest = 22;
         SilentChatStanza silent_chat_stanza = 23;
+        GroupFeedItems group_feed_items = 24;
     }
     int32 retry_count = 21;
 }

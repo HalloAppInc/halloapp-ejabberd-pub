@@ -157,14 +157,14 @@ make_group_comment_st(CommentId, PostId, PublisherUid,
         timestamp = Timestamp
     }.
 
-make_group_feed_st(Gid, Name, AvatarId, Action, Post, Comment) ->
+make_group_feed_st(Gid, Name, AvatarId, Action, Posts, Comments) ->
     #group_feed_st{
         gid = Gid,
         name = Name,
         avatar_id = AvatarId,
         action = Action,
-        post = Post,
-        comment = Comment
+        posts = Posts,
+        comments = Comments
     }.
 
 make_group_feed_iq(Uid, GroupFeedSt) ->
@@ -510,25 +510,26 @@ publish_group_feed_test() ->
             [SubEl] = Packet#message.sub_els,
             ?assertEqual(?GROUP_NAME1, SubEl#group_feed_st.name),
             ?assertEqual(undefined, SubEl#group_feed_st.avatar_id),
-            ?assertEqual(undefined, SubEl#group_feed_st.comment),
-            ?assertEqual(?UID1, SubEl#group_feed_st.post#group_post_st.publisher_uid),
-            ?assertNotEqual(undefined, SubEl#group_feed_st.post#group_post_st.timestamp),
+            ?assertEqual([], SubEl#group_feed_st.comments),
+            [Post] = SubEl#group_feed_st.posts,
+            ?assertEqual(?UID1, Post#group_post_st.publisher_uid),
+            ?assertNotEqual(undefined, Post#group_post_st.timestamp),
             ReceiverJids = util:uids_to_jids([?UID2, ?UID3], Server),
             ?assertEqual(lists:sort(ReceiverJids), lists:sort(BroadcastJids)),
             ok
         end),
 
     PostSt = make_group_post_st(?ID1, <<>>, <<>>, ?PAYLOAD1, undefined),
-    CommentSt = undefined,
-    GroupFeedSt = make_group_feed_st(Gid, <<>>, undefined, publish, PostSt, CommentSt),
+    GroupFeedSt = make_group_feed_st(Gid, <<>>, undefined, publish, [PostSt], []),
     GroupFeedIq = make_group_feed_iq(?UID1, GroupFeedSt),
     ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 
     [SubEl] = ResultIQ#iq.sub_els,
     ?assertEqual(result, ResultIQ#iq.type),
     ?assertEqual(Gid, SubEl#group_feed_st.gid),
-    ?assertEqual(?UID1, SubEl#group_feed_st.post#group_post_st.publisher_uid),
-    ?assertNotEqual(undefined, SubEl#group_feed_st.post#group_post_st.timestamp),
+    [GroupPostSt] = SubEl#group_feed_st.posts,
+    ?assertEqual(?UID1, GroupPostSt#group_post_st.publisher_uid),
+    ?assertNotEqual(undefined, GroupPostSt#group_post_st.timestamp),
     ?assert(meck:validate(ejabberd_router_multicast)),
     meck:unload(ejabberd_router_multicast),
 
@@ -558,25 +559,26 @@ retract_group_feed_test() ->
             [SubEl] = Packet#message.sub_els,
             ?assertEqual(?GROUP_NAME1, SubEl#group_feed_st.name),
             ?assertEqual(undefined, SubEl#group_feed_st.avatar_id),
-            ?assertEqual(undefined, SubEl#group_feed_st.post),
-            ?assertEqual(?UID2, SubEl#group_feed_st.comment#group_comment_st.publisher_uid),
-            ?assertNotEqual(undefined, SubEl#group_feed_st.comment#group_comment_st.timestamp),
+            ?assertEqual([], SubEl#group_feed_st.posts),
+            [Comment] = SubEl#group_feed_st.comments,
+            ?assertEqual(?UID2, Comment#group_comment_st.publisher_uid),
+            ?assertNotEqual(undefined, Comment#group_comment_st.timestamp),
             ReceiverJids = util:uids_to_jids([?UID1, ?UID3], Server),
             ?assertEqual(lists:sort(ReceiverJids), lists:sort(BroadcastJids)),
             ok
         end),
 
-    PostSt = undefined,
     CommentSt = make_group_comment_st(?ID1, ?ID2, <<>>, <<>>, <<>>, <<>>, undefined),
-    GroupFeedSt = make_group_feed_st(Gid, <<>>, undefined, retract, PostSt, CommentSt),
+    GroupFeedSt = make_group_feed_st(Gid, <<>>, undefined, retract, [], [CommentSt]),
     GroupFeedIq = make_group_feed_iq(?UID2, GroupFeedSt),
     ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 
     [SubEl] = ResultIQ#iq.sub_els,
     ?assertEqual(result, ResultIQ#iq.type),
     ?assertEqual(Gid, SubEl#group_feed_st.gid),
-    ?assertEqual(?UID2, SubEl#group_feed_st.comment#group_comment_st.publisher_uid),
-    ?assertNotEqual(undefined, SubEl#group_feed_st.comment#group_comment_st.timestamp),
+    [GroupCommentSt] = SubEl#group_feed_st.comments,
+    ?assertEqual(?UID2, GroupCommentSt#group_comment_st.publisher_uid),
+    ?assertNotEqual(undefined, GroupCommentSt#group_comment_st.timestamp),
     ?assert(meck:validate(ejabberd_router_multicast)),
     meck:unload(ejabberd_router_multicast),
 
