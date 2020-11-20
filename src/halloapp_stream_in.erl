@@ -409,11 +409,8 @@ handle_info({tcp, _, Data}, #{socket := Socket} = State) ->
         case halloapp_socket:recv(Socket, Data) of
             {ok, NewSocket} ->
                 State#{socket => NewSocket};
-            {error, Reason} when is_atom(Reason) ->
-                process_stream_end({socket, Reason}, State);
             {error, Reason} ->
-                %% TODO: make fast_tls return atoms
-                process_stream_end({tls, Reason}, State)
+                send_error(State, Reason)
         end);
 
 handle_info({tcp_closed, _}, State) ->
@@ -764,8 +761,12 @@ send_pkt(State, XmppPkt) ->
 %% TODO(murali@): maybe switch error to be an atom!
 -spec send_error(state(), xmpp_element() | xmlel(), binary()) -> state().
 send_error(State, _Pkt, Err) ->
+    send_error(State, Err).
+
+send_error(State, Err) ->
+    ErrBin = util:to_binary(Err),
     ?ERROR("Sending error packet due to: ~p and terminating connection", [Err]),
-    ErrorStanza = #pb_ha_error{reason = Err},
+    ErrorStanza = #pb_ha_error{reason = ErrBin},
     ErrorPacket = #pb_packet{stanza = ErrorStanza},
     socket_send(State, ErrorPacket),
     process_stream_end(Err, State).
