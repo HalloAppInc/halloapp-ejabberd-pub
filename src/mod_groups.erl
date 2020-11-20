@@ -588,20 +588,20 @@ make_chat_message(GroupInfo, Uid, SenderName, MessagePayload, Ts) ->
         GroupFeedSt :: group_feed_st(), Ts :: integer()) -> group_chat().
 make_group_feed_st(GroupInfo, Uid, SenderName, GroupFeedSt, Ts) ->
     TsBin = integer_to_binary(Ts),
-    Posts = case GroupFeedSt#group_feed_st.posts of
-        [] -> [];
-        [P] -> [P#group_post_st{publisher_uid = Uid, publisher_name = SenderName, timestamp = TsBin}]
+    Post = case GroupFeedSt#group_feed_st.post of
+        undefined -> undefined;
+        P -> P#group_post_st{publisher_uid = Uid, publisher_name = SenderName, timestamp = TsBin}
     end,
-    Comments = case GroupFeedSt#group_feed_st.comments of
-        [] -> [];
-        [C] -> [C#group_comment_st{publisher_uid = Uid, publisher_name = SenderName, timestamp = TsBin}]
+    Comment = case GroupFeedSt#group_feed_st.comment of
+        undefined -> undefined;
+        C -> C#group_comment_st{publisher_uid = Uid, publisher_name = SenderName, timestamp = TsBin}
     end,
     GroupFeedSt#group_feed_st{
         gid = GroupInfo#group_info.gid,
         name = GroupInfo#group_info.name,
         avatar_id = GroupInfo#group_info.avatar,
-        posts = Posts,
-        comments = Comments
+        post = Post,
+        comment = Comment
     }.
 
 

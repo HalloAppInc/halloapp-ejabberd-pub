@@ -99,7 +99,7 @@ parse_metadata(#message{sub_els = [#feed_st{comments = [Comment]}]}) ->
         sender_name = Comment#comment_st.publisher_name
     };
 
-parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [Post], comments = []} = SubElement]}) ->
+parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, post = Post, comment = undefined} = SubElement]}) ->
     #push_metadata{
         content_id = Post#group_post_st.id,
         content_type = <<"group_post">>,
@@ -110,7 +110,7 @@ parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [Post], com
         sender_name = Post#group_post_st.publisher_name
     };
 
-parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [], comments = [Comment]} = SubElement]}) ->
+parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, post = undefined, comment = Comment} = SubElement]}) ->
     #push_metadata{
         content_id = Comment#group_comment_st.id,
         content_type = <<"group_comment">>,
