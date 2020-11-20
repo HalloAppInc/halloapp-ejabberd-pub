@@ -49,7 +49,8 @@
     extend_ttl_run/2,
     check_user_agent_run/2,
     count_users_by_version_run/2,
-    check_users_by_whisper_keys/2
+    check_users_by_whisper_keys/2,
+    check_accounts_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -439,6 +440,37 @@ count_users_by_version_run(Key, State) ->
         _ -> ok
     end,
     State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Check all user accounts                        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+check_accounts_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            {ok, Phone} = q(redis_accounts_client, ["HGET", FullKey, <<"ph">>]),
+            case Phone of
+                undefined ->
+                    ?ERROR("Uid: ~p, Phone is undefined!", [Uid]);
+                _ ->
+                    {ok, PhoneUid} = model_phone:get_uid(Uid),
+                    case PhoneUid =:= Uid of
+                        true -> ok;
+                        false ->
+                            ?ERROR("uid mismatch for phone map Uid: ~s Phone: ~s PhoneUid: ~s",
+                                    [Uid, Phone, PhoneUid]),
+                            ok
+                    end
+            end;
+        _ -> ok
+    end,
+    State.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                         Compute user counts by whisper keys                        %%
