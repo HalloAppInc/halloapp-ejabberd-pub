@@ -221,14 +221,14 @@ create_group_comment_st(Id, PostId, ParentCommentId, PublisherUid, PublisherName
     }.
 
 
-create_group_feed_st(Action, Gid, Name, AvatarId, Post, Comment) ->
+create_group_feed_st(Action, Gid, Name, AvatarId, Posts, Comments) ->
     #group_feed_st{
         action = Action,
         gid = Gid,
         name = Name,
         avatar_id = AvatarId,
-        post = Post,
-        comment = Comment
+        posts = Posts,
+        comments = Comments
     }.
 
 
@@ -239,6 +239,15 @@ create_group_feed_item(Action, Gid, Name, AvatarId, Item) ->
         name = Name,
         avatar_id = AvatarId,
         item = Item
+    }.
+
+
+create_group_feed_item(Gid, Name, AvatarId, Items) ->
+    #pb_group_feed_items{
+        gid = Gid,
+        name = Name,
+        avatar_id = AvatarId,
+        items = Items
     }.
 
 
