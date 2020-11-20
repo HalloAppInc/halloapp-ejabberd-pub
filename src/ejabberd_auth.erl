@@ -289,7 +289,12 @@ ha_remove_user(Uid) ->
     ?INFO("Uid:~s", [Uid]),
     case model_accounts:get_phone(Uid) of
         {ok, Phone} ->
-            ok = model_phone:delete_phone(Phone);
+            {ok, PhoneUid} = model_phone:get_uid(Phone),
+            case PhoneUid =:= Uid of
+                true ->
+                    ok = model_phone:delete_phone(Phone);
+                false -> ok
+            end;
         {error, missing} ->
             ok
     end,
