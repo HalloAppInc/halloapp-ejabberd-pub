@@ -109,7 +109,7 @@ normalize_and_insert_contacts_with_syncid_test() ->
         #contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatarid = <<>>, userid = ?UID2, role = <<"friends">>},
         #contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, userid = ?UID3, role = <<"none">>},
         #contact{raw = ?PHONE4, normalized = ?PHONE4, role = <<"none">>},
-        #contact{raw = ?PHONE5},
+        #contact{raw = ?PHONE5, role = <<"none">>},
         #contact{raw = ?PHONE6, normalized = ?PHONE6, role = <<"none">>}
     ],
     ?assertEqual(ExpectedContacts, ActualContacts),
@@ -157,7 +157,7 @@ normalize_and_insert_contacts_without_syncid_test() ->
         #contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatarid = <<>>, userid = ?UID2, role = <<"friends">>},
         #contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, userid = ?UID3, role = <<"none">>},
         #contact{raw = ?PHONE4, normalized = ?PHONE4, role = <<"none">>},
-        #contact{raw = ?PHONE5}
+        #contact{raw = ?PHONE5, role = <<"none">>}
     ],
     ?assertEqual(ExpectedContacts, ActualContacts),
 

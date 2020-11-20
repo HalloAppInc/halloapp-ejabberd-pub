@@ -356,7 +356,7 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
         Contact :: contact(), SyncId :: binary()) -> contact().
 normalize_and_update_contact(_UserId, _UserRegionId, _UserPhone, _OldContactSet,
         _OldReverseContactSet, _Server, #contact{raw = undefined}, _SyncId) ->
-    #contact{};
+    #contact{role = <<"none">>};
 normalize_and_update_contact(UserId, UserRegionId, UserPhone, OldContactSet,
         OldReverseContactSet, Server, Contact, SyncId) ->
     RawPhone = Contact#contact.raw,
@@ -364,7 +364,7 @@ normalize_and_update_contact(UserId, UserRegionId, UserPhone, OldContactSet,
     NewContact = case ContactPhone of
         undefined ->
             stat:count("HA/contacts", "normalize_fail"),
-            #contact{};
+            #contact{role = <<"none">>};
         _ ->
             stat:count("HA/contacts", "normalize_success"),
             case SyncId of
