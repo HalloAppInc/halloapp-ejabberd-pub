@@ -293,7 +293,10 @@ ha_remove_user(Uid) ->
             case PhoneUid =:= Uid of
                 true ->
                     ok = model_phone:delete_phone(Phone);
-                false -> ok
+                false ->
+                    ?ERROR("uid mismatch for phone map Uid: ~s Phone: ~s PhoneUid: ~s",
+                        [Uid, Phone, PhoneUid]),
+                    ok
             end;
         {error, missing} ->
             ok
