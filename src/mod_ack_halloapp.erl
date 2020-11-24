@@ -66,6 +66,11 @@ user_send_packet({Packet, #{lserver := ServerHost} = _State} = Acc) ->
 
 %% Sends an ack packet.
 -spec send_ack(message()) -> ok.
+send_ack(#message{id = MsgId, from = #jid{user = User}} = Packet)
+        when MsgId =:= undefined orelse MsgId =:= <<>> ->
+    PayloadType = util:get_payload_type(Packet),
+    ?ERROR("uid: ~s, invalid msg_id: ~s, content: ~p", [User, MsgId, PayloadType]),
+    ok;
 send_ack(#message{id = MsgId, from = #jid{user = User, server = ServerHost} = From} = Packet) ->
     PacketTs = xmpp:get_timestamp(Packet),
     Timestamp = case PacketTs of
