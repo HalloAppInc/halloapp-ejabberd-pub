@@ -287,7 +287,7 @@ process_delete_avatar(IQ, Gid, Uid) ->
 
 
 process_set_avatar(IQ, Gid, Uid, Base64Data) ->
-    ?INFO("set_avatar Gid: ~s Uid: ~s Base64Size: ~s", [Gid, Uid, byte_size(Base64Data)]),
+    ?INFO("set_avatar Gid: ~s Uid: ~s Base64Size: ~p", [Gid, Uid, byte_size(Base64Data)]),
     case set_avatar(Gid, Uid, Base64Data) of
         {error, Reason} ->
             ?WARNING("Gid: ~s Uid ~s setting avatar failed ~p", [Gid, Uid, Reason]),
