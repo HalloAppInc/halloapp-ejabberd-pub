@@ -131,7 +131,8 @@ privacy_check_packet(allow, _State, Pkt, _Dir)
             %% Allow only seen receipts.
             PacketType = util:get_packet_type(Pkt),
             PayloadType = util:get_payload_type(Pkt),
-            case PacketType =:= message andalso PayloadType =:= receipt_seen of
+            case PacketType =:= message andalso
+                    (PayloadType =:= receipt_seen orelse PayloadType =:= group_chat) of
                 true -> allow;
                 false -> Result
             end
