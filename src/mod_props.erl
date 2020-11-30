@@ -92,7 +92,8 @@ get_props(Uid, ClientVersion) ->
                 max_post_media_items => 10,
                 groups => false,
                 group_feed => false,
-                silent_chat_messages => 5
+                silent_chat_messages => 5,
+                cleartext_chat_messages => true
             };
         true ->
             #{
@@ -101,7 +102,8 @@ get_props(Uid, ClientVersion) ->
                 max_post_media_items => 10,
                 groups => true,
                 group_feed => true,
-                silent_chat_messages => 5
+                silent_chat_messages => 5,
+                cleartext_chat_messages => true
             }
     end,
     ClientType = util_ua:get_client_type(ClientVersion),
