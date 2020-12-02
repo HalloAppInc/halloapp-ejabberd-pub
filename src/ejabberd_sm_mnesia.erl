@@ -28,17 +28,19 @@
 -behaviour(ejabberd_sm).
 
 %% API
--export([init/0,
-	 use_cache/1,
-	 set_session/1,
-	 delete_session/1,
-	 get_sessions/0,
-	 get_sessions/1,
-	 get_sessions/2]).
+-export([
+    init/0,
+    use_cache/1,
+    set_session/1,
+    delete_session/1,
+    get_sessions/0,
+    get_sessions/1,
+    get_sessions/2
+]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3, start_link/0]).
+    terminate/2, code_change/3, start_link/0]).
 
 -include("ejabberd_sm.hrl").
 -include("logger.hrl").
@@ -52,10 +54,10 @@
 -spec init() -> ok | {error, any()}.
 init() ->
     Spec = {?MODULE, {?MODULE, start_link, []},
-	    transient, 5000, worker, [?MODULE]},
+        transient, 5000, worker, [?MODULE]},
     case supervisor:start_child(ejabberd_backend_sup, Spec) of
-	{ok, _Pid} -> ok;
-	Err -> Err
+        {ok, _Pid} -> ok;
+        Err -> Err
     end.
 
 -spec start_link() -> {ok, pid()} | {error, any()}.
@@ -81,8 +83,8 @@ get_sessions() ->
 -spec get_sessions(binary()) -> [#session{}].
 get_sessions(LServer) ->
     mnesia:dirty_select(session,
-			[{#session{usr = '$1', _ = '_'},
-			  [{'==', {element, 2, '$1'}, LServer}], ['$_']}]).
+        [{#session{usr = '$1', _ = '_'},
+            [{'==', {element, 2, '$1'}, LServer}], ['$_']}]).
 
 -spec get_sessions(binary(), binary()) -> {ok, [#session{}]}.
 get_sessions(LUser, LServer) ->
@@ -93,13 +95,13 @@ get_sessions(LUser, LServer) ->
 %%%===================================================================
 init([]) ->
     update_tables(),
-    ejabberd_mnesia:create(?MODULE, session,
-			[{ram_copies, [node()]},
-			 {attributes, record_info(fields, session)},
-			 {index, [usr,us]}]),
-    ejabberd_mnesia:create(?MODULE, session_counter,
-			[{ram_copies, [node()]},
-			 {attributes, record_info(fields, session_counter)}]),
+    ejabberd_mnesia:create(?MODULE, session, [
+        {ram_copies, [node()]},
+        {attributes, record_info(fields, session)},
+        {index, [usr,us]}]),
+    ejabberd_mnesia:create(?MODULE, session_counter, [
+        {ram_copies, [node()]},
+        {attributes, record_info(fields, session_counter)}]),
     mnesia:subscribe(system),
     {ok, #state{}}.
 
@@ -112,18 +114,16 @@ handle_cast(Msg, State) ->
     {noreply, State}.
 
 handle_info({mnesia_system_event, {mnesia_down, Node}}, State) ->
-    Sessions =
-        ets:select(
-          session,
-          ets:fun2ms(
-            fun(#session{sid = {_, Pid}} = S)
-               when node(Pid) == Node ->
-                    S
+    Sessions = ets:select(
+        session,
+        ets:fun2ms(
+            fun(#session{sid = {_, Pid}} = S) when node(Pid) == Node ->
+                S
             end)),
     lists:foreach(
-      fun(S) ->
-              mnesia:dirty_delete_object(S)
-      end, Sessions),
+        fun(S) ->
+            mnesia:dirty_delete_object(S)
+        end, Sessions),
     {noreply, State};
 handle_info(Info, State) ->
     ?WARNING("Unexpected info: ~p", [Info]),
@@ -140,23 +140,21 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 update_tables() ->
     case catch mnesia:table_info(session, attributes) of
-      [ur, user, node] -> mnesia:delete_table(session);
-      [ur, user, pid] -> mnesia:delete_table(session);
-      [usr, us, pid] -> mnesia:delete_table(session);
-      [usr, us, sid, priority, info] -> mnesia:delete_table(session);
-      [sid, usr, us, priority] ->
-	  mnesia:delete_table(session);
-      [sid, usr, us, priority, info] -> ok;
-      {'EXIT', _} -> ok
+        [ur, user, node] -> mnesia:delete_table(session);
+        [ur, user, pid] -> mnesia:delete_table(session);
+        [usr, us, pid] -> mnesia:delete_table(session);
+        [usr, us, sid, priority, info] -> mnesia:delete_table(session);
+        [sid, usr, us, priority] -> mnesia:delete_table(session);
+        [sid, usr, us, priority, info] -> ok;
+        {'EXIT', _} -> ok
     end,
-    case lists:member(presence, mnesia:system_info(tables))
-	of
-      true -> mnesia:delete_table(presence);
-      false -> ok
+    case lists:member(presence, mnesia:system_info(tables)) of
+        true -> mnesia:delete_table(presence);
+        false -> ok
     end,
     case lists:member(local_session, mnesia:system_info(tables)) of
-	true ->
-	    mnesia:delete_table(local_session);
-	false ->
-	    ok
+        true ->
+            mnesia:delete_table(local_session);
+        false ->
+            ok
     end.
