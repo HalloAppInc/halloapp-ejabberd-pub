@@ -32,7 +32,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+    terminate/2, code_change/3]).
 
 -include("xmpp.hrl").
 -include("logger.hrl").
@@ -59,10 +59,10 @@ route(#iq{type = T} = IQ, Proc, Ctx, Timeout) when T == set; T == get ->
 -spec dispatch(iq()) -> boolean().
 dispatch(#iq{type = T, id = ID} = IQ) when T == error; T == result ->
     case decode_id(ID) of
-	{ok, Expire, Rnd, Node} ->
-	    ejabberd_cluster:send({?MODULE, Node}, {route, IQ, {Expire, Rnd}});
-	error ->
-	    false
+        {ok, Expire, Rnd, Node} ->
+            ejabberd_cluster:send({?MODULE, Node}, {route, IQ, {Expire, Rnd}});
+        error ->
+            false
     end;
 dispatch(_) ->
     false.
@@ -87,11 +87,11 @@ handle_cast(Msg, State) ->
 
 handle_info({route, IQ, Key}, State) ->
     case ets:lookup(?MODULE, Key) of
-	[{_, Proc, Ctx}] ->
-	    callback(Proc, IQ, Ctx),
-	    ets:delete(?MODULE, Key);
-	[] ->
-	    ok
+        [{_, Proc, Ctx}] ->
+            callback(Proc, IQ, Ctx),
+            ets:delete(?MODULE, Key);
+        [] ->
+            ok
     end,
     noreply(State);
 handle_info(timeout, State) ->
@@ -115,20 +115,20 @@ current_time() ->
     erlang:system_time(millisecond).
 
 -spec clean({non_neg_integer(), binary()} | '$end_of_table')
-	   -> non_neg_integer() | infinity.
+       -> non_neg_integer() | infinity.
 clean({Expire, _} = Key) ->
     case current_time() of
-	Time when Time >= Expire ->
-	    case ets:lookup(?MODULE, Key) of
-		[{_, Proc, Ctx}] ->
-		    callback(Proc, timeout, Ctx),
-		    ets:delete(?MODULE, Key);
-		[] ->
-		    ok
-	    end,
-	    clean(ets:next(?MODULE, Key));
-	_ ->
-	    Expire
+        Time when Time >= Expire ->
+            case ets:lookup(?MODULE, Key) of
+                [{_, Proc, Ctx}] ->
+                    callback(Proc, timeout, Ctx),
+                    ets:delete(?MODULE, Key);
+                [] ->
+                    ok
+            end,
+            clean(ets:next(?MODULE, Key));
+        _ ->
+            Expire
     end;
 clean('$end_of_table') ->
     infinity.
@@ -136,11 +136,11 @@ clean('$end_of_table') ->
 -spec noreply(state()) -> {noreply, state()} | {noreply, state(), non_neg_integer()}.
 noreply(#state{expire = Expire} = State) ->
     case Expire of
-	infinity ->
-	    {noreply, State};
-	_ ->
-	    Timeout = max(0, Expire - current_time()),
-	    {noreply, State, Timeout}
+        infinity ->
+            {noreply, State};
+        _ ->
+            Timeout = max(0, Expire - current_time()),
+            {noreply, State, Timeout}
     end.
 
 -spec encode_id(non_neg_integer(), binary()) -> binary().
@@ -153,15 +153,15 @@ encode_id(Expire, Rnd) ->
 -spec decode_id(binary()) -> {ok, non_neg_integer(), binary(), atom()} | error.
 decode_id(<<"rr-", ID/binary>>) ->
     try
-	[ExpireBin, Tail] = binary:split(ID, <<"-">>),
-	[Rnd, Rest] = binary:split(Tail, <<"-">>),
-	[CheckSum, NodeBin] = binary:split(Rest, <<"-">>),
-	CheckSum = calc_checksum(<<ExpireBin/binary, Rnd/binary, NodeBin/binary>>),
-	Node = ejabberd_cluster:get_node_by_id(NodeBin),
-	Expire = binary_to_integer(ExpireBin),
-	{ok, Expire, Rnd, Node}
+        [ExpireBin, Tail] = binary:split(ID, <<"-">>),
+        [Rnd, Rest] = binary:split(Tail, <<"-">>),
+        [CheckSum, NodeBin] = binary:split(Rest, <<"-">>),
+        CheckSum = calc_checksum(<<ExpireBin/binary, Rnd/binary, NodeBin/binary>>),
+        Node = ejabberd_cluster:get_node_by_id(NodeBin),
+        Expire = binary_to_integer(ExpireBin),
+        {ok, Expire, Rnd, Node}
     catch _:{badmatch, _} ->
-	    error
+        error
     end;
 decode_id(_) ->
     error.
@@ -175,10 +175,10 @@ calc_checksum(Data) ->
 callback(undefined, IQRes, Fun) ->
     try Fun(IQRes)
     catch ?EX_RULE(Class, Reason, St) ->
-	    StackTrace = ?EX_STACK(St),
-	    ?ERROR("Failed to process iq response:~n~ts~n** ~ts",
-		       [xmpp:pp(IQRes),
-			misc:format_exception(2, Class, Reason, StackTrace)])
+        StackTrace = ?EX_STACK(St),
+        ?ERROR("Failed to process iq response:~n~ts~n** ~ts", [
+            xmpp:pp(IQRes),
+            misc:format_exception(2, Class, Reason, StackTrace)])
     end;
 callback(Proc, IQRes, Ctx) ->
     try
