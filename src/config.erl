@@ -64,7 +64,8 @@ get_noise_secret_name() ->
 
 -spec get_sentry_dsn() -> string().
 get_sentry_dsn() ->
-    base64:decode(mod_aws:get_secret(?SENTRY_DSN_SECRET_NAME)).
+    %% Can not use mod_aws to fetch the secret, since mod_aws might not be started.
+    base64:decode(util_aws:get_secret(?SENTRY_DSN_SECRET_NAME)).
 
 
 -spec is_prod_env() -> boolean().

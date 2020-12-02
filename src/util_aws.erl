@@ -15,7 +15,8 @@
 %% API
 -export([
     get_arn/0,
-    is_jabber_iam_role/1
+    is_jabber_iam_role/1,
+    get_secret/1
 ]).
 
 -spec get_arn() -> maybe(binary()).
@@ -38,5 +39,20 @@ is_jabber_iam_role(Arn) ->
             true;
         _Any ->
             false
+    end.
+
+%% To fetch secret before mod_aws is ready. Not to be called more than once per secret.
+-spec get_secret(SecretName :: binary()) -> string().
+get_secret(SecretName) ->
+    try
+        Res = os:cmd("aws secretsmanager get-secret-value --region us-east-1 --secret-id "
+                ++ binary_to_list(SecretName)),
+        ResMap = jiffy:decode(Res, [return_maps]),
+        maps:get(<<"SecretString">>, ResMap, undefined)
+    catch
+        Class : Reason : Stacktrace  ->
+            ?ERROR("cant get_secret()\nStacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            undefined
     end.
 
