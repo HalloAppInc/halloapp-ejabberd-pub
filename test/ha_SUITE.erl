@@ -37,7 +37,7 @@
 
 % TODO: figure out to remove debug logs.
 suite() ->
-    [{timetrap, {seconds, 5}}].
+    [{timetrap, {seconds, 10}}].
 
 
 groups() -> [
