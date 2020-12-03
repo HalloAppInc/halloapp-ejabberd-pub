@@ -72,6 +72,8 @@ init([]) ->
         type => supervisor,
         modules => [dynamic]},
 
+    % Old redis clients
+    % TODO: get rid of this old redis clients.
     RedisFriends = create_redis_child_spec(redis_friends, eredis_cluster_client, 
                                            redis_friends_client),
     RedisAccounts = create_redis_child_spec(redis_accounts, eredis_cluster_client,
@@ -89,9 +91,10 @@ init([]) ->
     RedisGroups = create_redis_child_spec(redis_groups, eredis_cluster_client,
                                           redis_groups_client),
     RedisFeed = create_redis_child_spec(redis_feed, eredis_cluster_client, redis_feed_client),
+    RedisSessions = create_redis_child_spec(redis_sessions, eredis_cluster_client, redis_sessions_client),
 
+    % New redis clients
     ECRedisFriends = create_redis_child_spec(redis_friends, ecredis, ecredis_friends),
-
     ECRedisAccounts = create_redis_child_spec(redis_accounts, ecredis, ecredis_accounts),
     ECRedisContacts = create_redis_child_spec(redis_contacts, ecredis, ecredis_contacts),
     ECRedisAuth = create_redis_child_spec(redis_auth, ecredis, ecredis_auth),
@@ -100,6 +103,7 @@ init([]) ->
     ECRedisWhisper = create_redis_child_spec(redis_whisper, ecredis, ecredis_whisper),
     ECRedisGroups = create_redis_child_spec(redis_groups, ecredis, ecredis_groups),
     ECRedisFeed = create_redis_child_spec(redis_feed, ecredis, ecredis_feed),
+    ECRedisSessions = create_redis_child_spec(redis_sessions, ecredis, ecredis_sessions),
 
     {ok, {SupFlags, [
         EredisClusterPool,
@@ -120,7 +124,9 @@ init([]) ->
         RedisGroups,
         ECRedisGroups,
         RedisFeed,
-        ECRedisFeed
+        ECRedisFeed,
+        RedisSessions,
+        ECRedisSessions
     ]}}.
 
 %% TODO: can the 1 atoms be the same?
