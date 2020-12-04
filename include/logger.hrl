@@ -40,21 +40,21 @@
     begin lager:warning(Format, []), ok end).
 
 -define(WARNING(Format, Args),
-    begin lager:warning(Format, Args), ok end).
+    begin lager:warning([{fmt, Format}, {args, Args}], Format, Args), ok end).
 
 
 -define(ERROR(Format),
     begin lager:error(Format, []), ok end).
 
 -define(ERROR(Format, Args),
-    begin lager:error(Format, Args), ok end).
+    begin lager:error([{fmt, Format}, {args, Args}], Format, Args), ok end).
 
 
 -define(CRITICAL(Format),
     begin lager:critical(Format, []), ok end).
 
 -define(CRITICAL(Format, Args),
-    begin lager:critical(Format, Args), ok end).
+    begin lager:critical([{fmt, Format}, {args, Args}], Format, Args), ok end).
 
 
 %% Keep the old ones for now.
@@ -64,15 +64,15 @@
 
 
 -define(WARNING_MSG(Format, Args),
-    begin lager:warning(Format, Args), ok end).
+    begin lager:warning([{fmt, Format}, {args, Args}], Format, Args), ok end).
 
 
 -define(ERROR_MSG(Format, Args),
-    begin lager:error(Format, Args), ok end).
+    begin lager:error([{fmt, Format}, {args, Args}], Format, Args), ok end).
 
 
 -define(CRITICAL_MSG(Format, Args),
-    begin lager:critical(Format, Args), ok end).
+    begin lager:critical([{fmt, Format}, {args, Args}], Format, Args), ok end).
 
 
 %% Use only when trying to troubleshoot test problem with ExUnit
