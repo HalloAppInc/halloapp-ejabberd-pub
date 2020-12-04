@@ -411,6 +411,9 @@ handle_info({tcp, _, Data}, #{socket := Socket} = State) ->
                 State#{socket => NewSocket};
             {error, einval} ->
                 process_stream_end({socket, einval}, State);
+            {error, {spub_mismatch, NewSocket}} ->
+                NewState = State#{socket => NewSocket},
+                send_error(NewState, spub_mismatch);
             {error, Reason} ->
                 send_error(State, Reason)
         end);
