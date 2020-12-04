@@ -43,16 +43,16 @@ keys_test() ->
 set_session_test() ->
     setup(),
     Session1 = make_session(?UID1, ?PID1),
-    ?assertEqual(undefined, model_session:set_session(?UID1, Session1)),
+    ?assertEqual({ok, undefined}, model_session:set_session(?UID1, Session1)),
     Session2 = make_session(?UID1, ?PID2),
-    ?assertEqual(?PID1, model_session:set_session(?UID1, Session2)),
+    ?assertEqual({ok, ?PID1}, model_session:set_session(?UID1, Session2)),
     ok.
 
 get_sessions_test() ->
     setup(),
     ?assertEqual([], model_session:get_sessions(?UID1)),
     Session1 = make_session(?UID1, ?PID1),
-    ?assertEqual(undefined, model_session:set_session(?UID1, Session1)),
+    ?assertEqual({ok, undefined}, model_session:set_session(?UID1, Session1)),
     ?assertEqual([Session1], model_session:get_sessions(?UID1)),
     ok.
 
@@ -60,8 +60,8 @@ multiple_sessions_test() ->
     setup(),
     Session1 = make_session(?UID1, ?PID1),
     Session2 = make_session(?UID1, ?PID2),
-    ?assertEqual(undefined, model_session:set_session(?UID1, Session1)),
-    ?assertEqual(?PID1, model_session:set_session(?UID1, Session2)),
+    ?assertEqual({ok, undefined}, model_session:set_session(?UID1, Session1)),
+    ?assertEqual({ok, ?PID1}, model_session:set_session(?UID1, Session2)),
     ?assertEqual(lists:sort([Session1, Session2]), lists:sort(model_session:get_sessions(?UID1))),
     ok.
 
@@ -69,7 +69,7 @@ del_sessions_test() ->
     setup(),
     Session1 = make_session(?UID1, ?PID1),
     ?assertEqual([], model_session:get_sessions(?UID1)),
-    ?assertEqual(undefined, model_session:set_session(?UID1, Session1)),
+    ?assertEqual({ok, undefined}, model_session:set_session(?UID1, Session1)),
     ?assertEqual([Session1], model_session:get_sessions(?UID1)),
     ?assertEqual(ok, model_session:del_session(?UID1, Session1)),
     ?assertEqual([], model_session:get_sessions(?UID1)),
@@ -80,8 +80,8 @@ del_sessions2_test() ->
     setup(),
     Session1 = make_session(?UID1, ?PID1),
     Session2 = make_session(?UID1, ?PID2),
-    ?assertEqual(undefined, model_session:set_session(?UID1, Session1)),
-    ?assertEqual(?PID1, model_session:set_session(?UID1, Session2)),
+    ?assertEqual({ok, undefined}, model_session:set_session(?UID1, Session1)),
+    ?assertEqual({ok, ?PID1}, model_session:set_session(?UID1, Session2)),
     ?assertEqual(lists:sort([Session1, Session2]), lists:sort(model_session:get_sessions(?UID1))),
     ?assertEqual(ok, model_session:del_session(?UID1, Session1)),
     ?assertEqual([Session2], model_session:get_sessions(?UID1)),
@@ -94,9 +94,9 @@ get_pid_test() ->
     Session1 = make_session(?UID1, ?PID1),
     Session2 = make_session(?UID1, ?PID2),
     ?assertEqual(undefined, model_session:get_pid(?UID1)),
-    ?assertEqual(undefined, model_session:set_session(?UID1, Session1)),
+    ?assertEqual({ok, undefined}, model_session:set_session(?UID1, Session1)),
     ?assertEqual(?PID1, model_session:get_pid(?UID1)),
-    ?assertEqual(?PID1, model_session:set_session(?UID1, Session2)),
+    ?assertEqual({ok, ?PID1}, model_session:set_session(?UID1, Session2)),
     ?assertEqual(?PID2, model_session:get_pid(?UID1)),
     ok = model_session:del_session(?UID1, Session1),
     ?assertEqual(?PID2, model_session:get_pid(?UID1)),

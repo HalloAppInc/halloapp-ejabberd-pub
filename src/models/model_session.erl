@@ -67,10 +67,11 @@ set_session(Uid, Session) ->
         ["GETSET", pid_key(Uid), term_to_binary(Pid)],
         ["HSET", sessions_key(Uid), SIDKey, SBin]
     ]),
-    case OldPidBin of
+    OldPid = case OldPidBin of
         undefined -> undefined;
         _ -> binary_to_term(OldPidBin)
-    end.
+    end,
+    {ok, OldPid}.
 
 
 -spec del_session(Uid :: uid(), Session :: session()) -> ok.
