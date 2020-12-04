@@ -188,6 +188,7 @@ open_session(SID, User, Server, Resource, Info) ->
 
 close_session(SID, User, Server, Resource) ->
     % TODO: remote all those nodeprep. They are not needed.
+    ?INFO("SID: ~p User: ~p", [SID, User]),
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
@@ -384,6 +385,7 @@ unset_presence(SID, User, Server, Resource, Status) ->
 
 close_session_unset_presence(SID, User, Server,
                  Resource, Status) ->
+    ?INFO("SID: ~p User: ~p", [SID, User]),
     close_session(SID, User, Server, Resource),
     ejabberd_hooks:run(unset_presence_hook,
                jid:nameprep(Server),
