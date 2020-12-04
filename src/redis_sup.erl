@@ -155,10 +155,11 @@ check_environment() ->
                 true -> ok;
                 false -> error({bad_iam_role, Arn, prod})
             end;
-        TestEnv when TestEnv =:= test; TestEnv =:= github ->
+        TestEnv when TestEnv =:= test; TestEnv =:= github; TestEnv =:= localhost ->
             case IsJabberIAMRole of
-                false -> error({bad_iam_role, Arn, TestEnv});
-                true -> ok
-            end
+                true -> error({bad_iam_role, Arn, TestEnv});
+                false -> ok
+            end;
+        _ -> ok
     end.
 
