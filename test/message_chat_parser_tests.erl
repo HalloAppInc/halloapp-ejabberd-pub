@@ -129,3 +129,21 @@ proto_to_xmpp_chat2_test() ->
     ?assertEqual(XmppSilentMsg, ActualXmppSilentMsg),
     ok.
 
+
+proto_to_xmpp_chat3_test() ->
+    setup(),
+
+    Enc = struct_util:create_enc_xmlel(?PAYLOAD2_BASE64, ?PAYLOAD1_BASE64, <<"12">>),
+    ChatSt = struct_util:create_chat_stanza(undefined, ?NAME1, [Enc]),
+    ToJid = struct_util:create_jid(?UID1, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ChatSt),
+
+    PbChat = struct_util:create_pb_chat_stanza(undefined, ?NAME1, undefined, ?PAYLOAD2, ?PAYLOAD1, 12),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbChat),
+
+    ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
+    ?assertEqual(true, is_record(ActualXmppMsg, message)),
+    ?assertEqual(XmppMsg, ActualXmppMsg),
+    ok.
+

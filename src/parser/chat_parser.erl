@@ -60,10 +60,14 @@ xmpp_to_proto(SubEl) ->
 
 
 proto_to_xmpp(ProtoPayload) ->
-    Content = {xmlel,<<"s1">>,[],[{xmlcdata, base64:encode(ProtoPayload#pb_chat_stanza.payload)}]},
-    FinalSubEls = case ProtoPayload#pb_chat_stanza.enc_payload of
-        undefined -> [Content];
-        <<>> -> [Content];
+    SubEl1 = case ProtoPayload#pb_chat_stanza.payload of
+        undefined -> [];
+        _ ->
+            Content = {xmlel,<<"s1">>,[],[{xmlcdata, base64:encode(ProtoPayload#pb_chat_stanza.payload)}]},
+            [Content]
+    end,
+    SubEl2 = case ProtoPayload#pb_chat_stanza.enc_payload of
+        undefined -> [];
         _ ->
             PkeyAttr = case ProtoPayload#pb_chat_stanza.public_key of
                 undefined -> [];
@@ -75,12 +79,12 @@ proto_to_xmpp(ProtoPayload) ->
             end,
             Attrs = PkeyAttr ++ OtpKeyIdAttr,
             EncryptedContent = {xmlel,<<"enc">>, Attrs, [{xmlcdata, base64:encode(ProtoPayload#pb_chat_stanza.enc_payload)}]},
-            [Content, EncryptedContent]
+            [EncryptedContent]
     end,
     #chat{
         xmlns = <<"halloapp:chat:messages">>,
         timestamp = util_parser:maybe_convert_to_binary(ProtoPayload#pb_chat_stanza.timestamp),
         sender_name = ProtoPayload#pb_chat_stanza.sender_name,
-        sub_els = FinalSubEls
+        sub_els = SubEl1 ++ SubEl2
     }.
 
