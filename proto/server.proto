@@ -453,7 +453,6 @@ message Msg {
         GroupFeedItems group_feed_items = 24;
     }
     int32 retry_count = 21;
-    int32 rerequest_count = 25;
 }
 
 
