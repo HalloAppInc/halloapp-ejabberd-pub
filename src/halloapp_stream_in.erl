@@ -413,7 +413,7 @@ handle_info({tcp, _, Data}, #{socket := Socket} = State) ->
                 process_stream_end({socket, einval}, State);
             {error, {spub_mismatch, NewSocket}} ->
                 NewState = State#{socket => NewSocket},
-                send_error(NewState, spub_mismatch);
+                send_auth_error(NewState, spub_mismatch);
             {error, Reason} ->
                 send_error(State, Reason)
         end);
@@ -767,6 +767,13 @@ send_pkt(State, XmppPkt) ->
 -spec send_error(state(), xmpp_element() | xmlel(), binary()) -> state().
 send_error(State, _Pkt, Err) ->
     send_error(State, Err).
+
+send_auth_error(State, Err) ->
+    ErrBin = util:to_binary(Err),
+    ?ERROR("Sending auth error due to: ~p and terminating connection", [Err]),
+    AuthResultPkt = #halloapp_auth_result{result = <<"failure">>, reason = ErrBin},
+    FinalState = send_pkt(State, AuthResultPkt),
+    process_stream_end(Err, FinalState).
 
 send_error(State, Err) ->
     ErrBin = util:to_binary(Err),
