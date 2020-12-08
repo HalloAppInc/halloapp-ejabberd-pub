@@ -23,6 +23,12 @@
     offline_message_hook/1
 ]).
 
+-ifdef(TEST).
+-export([
+    should_push/1
+]).
+-endif.
+
 
 %%====================================================================
 %% gen_mod API.
