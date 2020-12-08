@@ -139,6 +139,9 @@ user_send_ack(#ack{id = MsgId, from = #jid{user = UserId, server = Server}} = Ac
         undefined ->
             ?WARNING("missing a message on redis, msg_id: ~s, from_uid: ~s", [MsgId, UserId]);
         _ ->
+            RetryCount = OfflineMessage#offline_message.retry_count,
+            CountTagValue = "retry" ++ util:to_list(RetryCount),
+            stat:count("HA/offline_messages", "retry_count", 1, [{count, CountTagValue}]),
             ok = model_messages:ack_message(UserId, MsgId),
             ejabberd_hooks:run(user_ack_packet, Server, [Ack, OfflineMessage])
     end.
