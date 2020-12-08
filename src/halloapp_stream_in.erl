@@ -50,6 +50,8 @@
 -include("xmpp.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
+-include("ha_types.hrl").
+-include("socket_state.hrl").
 -type state() :: #{
     owner := pid(),
     mod := module(),
@@ -308,11 +310,12 @@ handle_info({'$gen_event', closed}, State) ->
 handle_info({'$gen_event', {protobuf, <<>>}}, _State) ->
     noreply(_State);
 
-handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := wait_for_authentication} = State) ->
+handle_info({'$gen_event', {protobuf, Bin}},
+        #{stream_state := wait_for_authentication} = State) ->
     noreply(
         try enif_protobuf:decode(Bin, pb_auth_request) of
         Pkt ->
-            stat:count("HA/pb_packet", "decode_success"),
+            stat:count("HA/pb_packet", "decode_success", 1, [{socket_type, get_socket_type(State)}]),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
             FinalPkt = ha_auth_parser:proto_to_xmpp(Pkt),
 
@@ -326,7 +329,7 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := wait_for_authenti
                 false -> process_element(FinalPkt, State1)
             end
         catch _:_ ->
-            stat:count("HA/pb_packet", "decode_failure"),
+            stat:count("HA/pb_packet", "decode_failure", 1, [{socket_type, get_socket_type(State)}]),
             Why = <<"failed_codec">>,
             State2 = try callback(handle_recv, Bin, {error, Why}, State)
                catch _:{?MODULE, undef} -> State
@@ -337,11 +340,12 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := wait_for_authenti
             end
         end);
 
-handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := established} = State) ->
+handle_info({'$gen_event', {protobuf, Bin}},
+        #{stream_state := established, socket := Socket} = State) ->
     noreply(
         try enif_protobuf:decode(Bin, pb_packet) of
         Pkt ->
-            stat:count("HA/pb_packet", "decode_success"),
+            stat:count("HA/pb_packet", "decode_success", 1, [{socket_type, get_socket_type(State)}]),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
             FinalPkt = packet_parser:proto_to_xmpp(Pkt),
             ?INFO("recv: translated xmpp: ~p", [FinalPkt]),
@@ -353,7 +357,7 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := established} = St
                 false -> process_element(FinalPkt, State1)
             end
         catch _:_ ->
-            stat:count("HA/pb_packet", "decode_failure"),
+            stat:count("HA/pb_packet", "decode_failure", 1, [{socket_type, get_socket_type(State)}]),
             Why = <<"failed_codec">>,
             State1 = try callback(handle_recv, Bin, {error, Why}, State)
                catch _:{?MODULE, undef} -> State
@@ -364,10 +368,11 @@ handle_info({'$gen_event', {protobuf, Bin}}, #{stream_state := established} = St
             end
         end);
 
-handle_info({'$gen_event', {stream_validation, Bin}}, State) ->
+handle_info({'$gen_event', {stream_validation, Bin}}, #{socket := Socket} = State) ->
     noreply(
         try enif_protobuf:decode(Bin, pb_auth_request) of
         Pkt ->
+            stat:count("HA/pb_packet", "decode_success", 1, [{socket_type, get_socket_type(State)}]),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
             FinalPkt = ha_auth_parser:proto_to_xmpp(Pkt),
             ?INFO("recv: translated xmpp: ~p", [FinalPkt]),
@@ -381,6 +386,7 @@ handle_info({'$gen_event', {stream_validation, Bin}}, State) ->
                 false -> process_element(FinalPkt, State2)
             end
         catch _:_ ->
+            stat:count("HA/pb_packet", "decode_failure", 1, [{socket_type, get_socket_type(State)}]),
             Why = <<"failed_codec">>,
             State1 = try callback(handle_recv, Bin, {error, Why}, State)
                catch _:{?MODULE, undef} -> State
@@ -469,6 +475,8 @@ code_change(OldVsn, State, Extra) ->
 -spec init_state(state(), [proplists:property()]) -> state().
 init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
     Crypto = proplists:get_value(crypto, Opts, tls),
+    SocketType = Crypto,
+    stat:count("HA/connections", "socket", 1, [{socket_type, SocketType}]),
     State1 = State#{stream_direction => in,
             stream_id => xmpp_stream:new_id(),
             stream_state => wait_for_authentication,
@@ -491,7 +499,8 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
                 end,
             case halloapp_socket:starttls(Socket, TLSOpts) of
                 {ok, TLSSocket} ->
-                    State2#{socket => TLSSocket, tls_options => TLSOpts};
+                    State2#{socket => TLSSocket#socket_state{socket_type = SocketType},
+                            tls_options => TLSOpts};
                 {error, Reason} ->
                     process_stream_end({tls, Reason}, State2)
             end;
@@ -502,7 +511,8 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
             ?INFO("NoiseOpts : ~p", [NoiseOpts]),
             case halloapp_socket:startnoise(Socket, NoiseOpts) of
                 {ok, NoiseSocket} ->
-                    State2#{socket => NoiseSocket};
+                    State2#{socket => NoiseSocket#socket_state{socket_type = SocketType},
+                            socket_type => SocketType};
                 {error, Reason} ->
                     process_stream_end({noise, Reason}, State2)
             end;
@@ -857,6 +867,12 @@ xmpp_to_proto(XmppPkt) ->
             ?ERROR("Failed: packet: ~p, reason: ~p", [XmppPkt, Reason]),
             undefined
     end.
+
+
+-spec get_socket_type(state()) -> maybe(socket_type()).
+get_socket_type(#{socket := Socket} = State) ->
+    SocketType = Socket#socket_state.socket_type,
+    SocketType.
 
 
 %%%===================================================================

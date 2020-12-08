@@ -40,28 +40,10 @@
 -include("xmpp.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
+-include("socket_state.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--type sockmod() :: gen_tcp | fast_tls | enoise | ext_mod().
--type socket() :: inet:socket() | fast_tls:tls_socket() | ha_enoise:noise_socket() | ext_socket().
--type ext_mod() :: module().
--type ext_socket() :: any().
--type endpoint() :: {inet:ip_address(), inet:port_number()}.
 -type cert() :: #'Certificate'{} | #'OTPCertificate'{}.
-
--record(socket_state,
-{
-    sockmod :: sockmod(),
-    socket :: socket(),
-    max_stanza_size :: integer(),
-    pb_stream :: undefined | binary(),
-    shaper = none :: none | p1_shaper:state(),
-    sock_peer_name = none :: none | {endpoint(), endpoint()}
-}).
-
--type socket_state() :: #socket_state{}.
-
--export_type([socket/0, socket_state/0, sockmod/0]).
 
 -callback get_owner(ext_socket()) -> pid().
 -callback get_transport(ext_socket()) -> atom().
@@ -201,16 +183,16 @@ reset_stream(#socket_state{pb_stream = PBStream, sockmod = SockMod,
 %% TODO(murali@): Update the log levels when printing the packet to be debug eventually.
 -spec send_element(SocketData :: socket_state(), Pkt :: pb_packet()) -> 
     {ok, fast_tls} | {ok, noise, #socket_state{}} | ok | {error, inet:posix()}.
-send_element(#socket_state{sockmod = SockMod} = SocketData, Pkt) ->
+send_element(#socket_state{socket_type = SocketType, sockmod = SockMod} = SocketData, Pkt) ->
     ?INFO("send: xmpp: ~p", [Pkt]),
     case enif_protobuf:encode(Pkt) of
         {error, Reason} ->
-            stat:count("HA/pb_packet", "encode_failure"),
+            stat:count("HA/pb_packet", "encode_failure", 1, [{socket_type, SocketType}]),
             ?ERROR("Error encoding packet: ~p, reason: ~p", [Pkt, Reason]),
             %% protocol error.
             {error, eproto};
         FinalPkt ->
-            stat:count("HA/pb_packet", "encode_success"),
+            stat:count("HA/pb_packet", "encode_success", 1, [{socket_type, SocketType}]),
             ?DEBUG("send: protobuf: ~p", [FinalPkt]),
             FinalData1 = case SockMod of
                 fast_tls ->
