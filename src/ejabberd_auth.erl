@@ -88,12 +88,12 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
-process_auth_result(#{lserver := LServer} = State, true, Uid) ->
-    ?INFO("Uid: ~p, auth_success",[Uid, LServer]),
+process_auth_result(State, true, Uid) ->
+    ?INFO("Uid: ~p, auth_success", [Uid]),
     State;
-process_auth_result(#{lserver := LServer} = State,
+process_auth_result(State,
         {false, _Reason}, Uid) ->
-    ?INFO("Uid: ~p, auth_failure",[Uid, LServer]),
+    ?INFO("Uid: ~p, auth_failure", [Uid]),
     case model_accounts:is_account_deleted(Uid) of
         true -> State#{account_deleted => true};
         false -> State
