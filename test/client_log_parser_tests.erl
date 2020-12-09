@@ -26,8 +26,8 @@ setup_stanzas() ->
     Dim3 = struct_util:create_dim_st(?D1NAME, ?D1VALUE2),
     Count1 = struct_util:create_count_st(?NS1, ?METRIC1, ?COUNT1, [Dim1, Dim2]),
     Count2 = struct_util:create_count_st(?NS2, ?METRIC2, ?COUNT2, [Dim3]),
-    Event1 = struct_util:create_event_st(?NS1, ?EVENT1),
-    Event2 = struct_util:create_event_st(?NS2, ?EVENT2),
+    Event1 = struct_util:create_pb_event_data(?UID1, android, <<"0.1.2">>, ?EVENT1),
+    Event2 = struct_util:create_pb_event_data(?UID1, android, <<"0.1.2">>, ?EVENT2),
     XmppClientLog = struct_util:create_client_log_st([Count1, Count2], [Event1, Event2]),
 
     PbDim1 = struct_util:create_pb_dim(?D1NAME, ?D1VALUE1),
@@ -35,8 +35,8 @@ setup_stanzas() ->
     PbDim3 = struct_util:create_pb_dim(?D1NAME, ?D1VALUE2),
     PbCount1 = struct_util:create_pb_count(?NS1, ?METRIC1, ?COUNT1, [PbDim1, PbDim2]),
     PbCount2 = struct_util:create_pb_count(?NS2, ?METRIC2, ?COUNT2, [PbDim3]),
-    PbEvent1 = struct_util:create_pb_event(?NS1, ?EVENT1),
-    PbEvent2 = struct_util:create_pb_event(?NS2, ?EVENT2),
+    PbEvent1 = struct_util:create_pb_event_data(?UID1, android, <<"0.1.2">>, ?EVENT1),
+    PbEvent2 = struct_util:create_pb_event_data(?UID1, android, <<"0.1.2">>, ?EVENT2),
     PbClientLog = struct_util:create_pb_client_log([PbCount1, PbCount2], [PbEvent1, PbEvent2]),
     {XmppClientLog, PbClientLog}.
 

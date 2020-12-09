@@ -614,11 +614,14 @@ create_pb_count(Namespace, Metric, Count, Dims) ->
     }.
 
 
-create_pb_event(Namespace, Event) ->
-    #pb_event{
-        namespace = Namespace,
-        event = Event
+create_pb_event_data(Uid, Platform, Version, Edata) ->
+    #pb_event_data{
+        uid = Uid,
+        platform = Platform,
+        version = Version,
+        edata = Edata
     }.
+
 
 create_pb_client_log(Counts, Events) ->
     #pb_client_log{

@@ -7,6 +7,7 @@
 -author("nikola").
 
 -include("xmpp.hrl").
+-include("packets.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -19,11 +20,20 @@
 -define(COUNT1, 2).
 -define(COUNT2, 7).
 
--define(EVENT1, <<"{\"duration\": 1.2, \"num_photos\": 2, \"num_videos\": 1}">>).
--define(EVENT2, <<"{\"duration\": 0.1, \"num_photos\": 0, \"num_videos\": 7}">>).
+-define(EVENT1, #pb_media_upload{
+    duration_ms = 1200,
+    num_photos = 2,
+    num_videos = 1
+}).
+-define(EVENT2, #pb_media_upload{
+    duration_ms = 100,
+    num_photos = 0,
+    num_videos = 7
+}).
 
 
 setup() ->
+    enif_protobuf:load_cache(log_events:get_msg_defs()),
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
     ok.
@@ -38,10 +48,12 @@ create_count_st(Namespace, Metric, Count, Dims) ->
     }.
 
 
-create_event_st(Namespace, Event) ->
-    #event_st{
-        namespace = Namespace,
-        event = Event
+create_pb_event_data(Uid, Platform, Version, Event) ->
+    #pb_event_data{
+        uid = Uid,
+        platform = Platform,
+        version = Version,
+        edata = Event
     }.
 
 create_client_log_IQ(Uid, Counts, Events) ->
@@ -74,8 +86,8 @@ client_log_test() ->
         create_count_st(?NS2, ?METRIC2, ?COUNT2, [])
     ],
     Events = [
-        create_event_st(?NS1, ?EVENT1),
-        create_event_st(?NS1, ?EVENT2)
+        create_pb_event_data(undefined, android, <<"0.1.2">>, ?EVENT1),
+        create_pb_event_data(undefined, android, <<"0.1.2">>, ?EVENT2)
     ],
     IQ = create_client_log_IQ(?UID1, Counts, Events),
     IQRes = mod_client_log:process_local_iq(IQ),
@@ -89,8 +101,8 @@ client_log_bad_namespace_test() ->
         create_count_st(?NS2, ?METRIC2, ?COUNT2, [])
     ],
     Events = [
-        create_event_st(?NS2, ?EVENT1),
-        create_event_st(?BAD_NS1, ?EVENT2)
+        create_pb_event_data(undefined, android, <<"0.1.2">>, ?EVENT1),
+        create_pb_event_data(undefined, android, <<"0.1.2">>, undefined)
     ],
     IQ = create_client_log_IQ(?UID1, Counts, Events),
     IQRes = mod_client_log:process_local_iq(IQ),

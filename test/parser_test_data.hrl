@@ -3,6 +3,8 @@
 %%% copyright (C) 2020, Halloapp Inc.
 %%%-------------------------------------------------------------------
 
+-include("packets.hrl").
+
 -define(NS1, <<"ns1">>).
 -define(NS2, <<"ns2">>).
 -define(METRIC1, <<"m1">>).
@@ -14,8 +16,26 @@
 -define(D1VALUE1, <<"d1value1">>).
 -define(D1VALUE2, <<"d1value2">>).
 -define(D2VALUE1, <<"d2value1">>).
--define(EVENT1, <<"event1">>).
--define(EVENT2, <<"event2">>).
+-define(EVENT1, #pb_media_upload{
+    duration_ms = 0,
+    total_size = 100,
+    num_videos = 1,
+    num_photos = 2,
+    type = post,
+    id = <<"1">>,
+    status = ok,
+    retry_count = 0
+}).
+-define(EVENT2, #pb_media_download{
+    duration_ms = 0,
+    total_size = 100,
+    num_videos = 1,
+    num_photos = 2,
+    type = post,
+    id = <<"1">>,
+    status = ok,
+    retry_count = 0
+}).
 
 -define(PAYLOAD1, <<"123">>).
 -define(PAYLOAD2, <<"456">>).

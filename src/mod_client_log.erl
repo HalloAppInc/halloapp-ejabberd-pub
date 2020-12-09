@@ -24,7 +24,6 @@
 -include("xmpp.hrl").
 -include("ha_types.hrl").
 -include("packets.hrl").
-%%-include("log_events.hrl").
 
 
 -define(NS_CLIENT_LOG, <<"halloapp:client_log">>).
@@ -135,7 +134,7 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
         FullNamespace = full_namespace(Namespace),
         validate_namespace(FullNamespace),
         Ts = util:now_ms(),
-        Event2 = Event#pb_event_data{uid = Uid},
+        Event2 = Event#pb_event_data{uid = binary_to_integer(Uid)},
         case enif_protobuf:encode(Event2) of
             {error, Reason1} ->
                 ?ERROR("Failed to process event ~p, Event: ~p", [Reason1, Event]),
