@@ -28,18 +28,13 @@ xmpp_to_proto(XmppMsg) ->
             msg_payload_mapping(SubEl)
     end,
     PbFromUid = util_parser:xmpp_to_proto_uid(FromJid#jid.user),
-    RerequestCount = case Message#message.rerequest_count of
-        undefined -> 0;
-        Count -> Count
-    end,
     ProtoMessage = #pb_msg{
         id = Message#message.id,
         type = Message#message.type,
         to_uid = util_parser:xmpp_to_proto_uid(ToJid#jid.user),
         from_uid = PbFromUid,
         payload = Content,
-        retry_count = Message#message.retry_count,
-        rerequest_count = RerequestCount
+        retry_count = Message#message.retry_count
     },
     ProtoMessage.
 
@@ -100,18 +95,13 @@ proto_to_xmpp(ProtoMSG) ->
     PbFromJid = jid:make(FromUser, Server),
     Content = ProtoMSG#pb_msg.payload,
     SubEl = xmpp_msg_subel_mapping(Content),
-    RerequestCount = case ProtoMSG#pb_msg.rerequest_count of
-        undefined -> 0;
-        Count -> Count
-    end,
     XmppMSG = #message{
         id = ProtoMSG#pb_msg.id,
         type = ProtoMSG#pb_msg.type,
         to = PbToJid,
         from = PbFromJid,
         sub_els = [SubEl],
-        retry_count = 0,
-        rerequest_count = RerequestCount
+        retry_count = 0
     },
     XmppMSG.
 
