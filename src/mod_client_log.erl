@@ -74,7 +74,7 @@ process_client_count_log_st(Uid, ClientLogsSt, Platform) ->
     Counts = ClientLogsSt#client_log_st.counts,
     Events = ClientLogsSt#client_log_st.events,
     ?INFO("Uid: ~s counts: ~p, events: ~p", [Uid, length(Counts), length(Events)]),
-    CountResults = process_counts(Counts, ServerDims),
+    CountResults = process_counts(Uid, Counts, ServerDims),
     EventResults = process_events(Uid, Events),
     CountError = lists:any(fun has_error/1, CountResults),
     EventError = lists:any(fun has_error/1, EventResults),
@@ -84,25 +84,27 @@ process_client_count_log_st(Uid, ClientLogsSt, Platform) ->
     end.
 
 
--spec process_counts(Counts :: [count_st()], ServerDims :: stat:tags()) -> [result()].
-process_counts(Counts, ServerDims) ->
+-spec process_counts(Uid :: uid(), Counts :: [count_st()], ServerDims :: stat:tags()) -> [result()].
+process_counts(Uid, Counts, ServerDims) ->
     lists:map(
         fun (C) ->
-            process_count(C, ServerDims)
+            process_count(Uid, C, ServerDims)
         end, Counts).
 
 
 % TODO: validate the number of dims is < 6
 % TODO: validate the name and value of each dimension
--spec process_count(Counts :: count_st(), ServerTags :: stat:tags()) -> result() .
-process_count(#count_st{namespace = Namespace, metric = Metric, count = Count, dims = DimsSt},
+-spec process_count(Uid :: uid(), Counts :: count_st(), ServerTags :: stat:tags()) -> result() .
+process_count(Uid, #count_st{namespace = Namespace, metric = Metric, count = Count, dims = DimsSt},
         ServerTags) ->
     try
         FullNamespace = full_namespace(Namespace),
         validate_namespace(FullNamespace),
         Tags = dims_st_to_tags(DimsSt),
+        Tags2 = Tags ++ ServerTags, 
         % TODO: make sure to override duplicate keys in Tags with ServerTags
-        stat:count(binary_to_list(FullNamespace), binary_to_list(Metric), Count, Tags ++ ServerTags),
+        ?INFO("~s, ~s, ~p", [FullNamespace, Uid, Tags2]),
+        stat:count(binary_to_list(FullNamespace), binary_to_list(Metric), Count, Tags2),
         ok
     catch
         error : bad_namespace : _ ->
