@@ -18,14 +18,14 @@
 -define(X2P, #{
     client_log_st => pb_client_log,
     count_st => pb_count,
-    event_st => pb_event,
+    pb_event => pb_event,  % we use the pb_event without translation
     dim_st => pb_dim
 }).
 
 -define(P2X, #{
     pb_client_log => client_log_st,
     pb_count => count_st,
-    pb_event => event_st,
+    pb_event => pb_event,  % we use the pb_event without translation
     pb_dim => dim_st
 }).
 

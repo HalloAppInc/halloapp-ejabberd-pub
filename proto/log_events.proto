@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package server;
+
+option java_package = "com.halloapp.proto.log_events";
+option java_multiple_files = true;
+
+message EventData {
+  uint64 uid = 1;
+  Platform platform = 2;  // client platform `android` or `ios`
+  string version = 3;  // client version (eg.`0.94`)
+  reserved 4 to 9;  // for future fields like country code, carrier or others
+  oneof edata {
+    MediaUpload media_upload = 10;
+    MediaDownload media_download = 11;
+    MediaComposeLoad media_compose_load = 12;
+    PushReceived push_received = 13;
+  }
+}
+
+enum Platform {
+  ANDROID = 0;
+  IOS = 1;
+}
+
+message MediaUpload {
+  string id = 1;  // the id of the post or message
+  enum Type {
+    POST = 0;  // post or group_post
+    MESSAGE = 1; // 1v1 message or group_message
+  }
+  Type type = 2;
+  uint32 duration_ms = 3; // time in ms it took to upload all the media and send iq/message
+  uint32 num_photos = 4;  // number of photos
+  uint32 num_videos = 5;  // number of videos
+  uint32 total_size = 6;  // the total size in bytes of all the media objects uploaded
+  enum Status {
+    OK = 0;
+    FAIL = 1;
+  }
+  Status status = 7;  // if the request was ok or failed over all
+  uint32 retry_count = 8; // 0 if upload worked from the first attempt
+}
+
+
+message MediaDownload {
+  string id = 1;  // the id of the post or message
+  enum Type {
+    POST = 0;  // post or group_post
+    MESSAGE = 1; // 1v1 message or group_message
+  }
+  Type type = 2;
+  uint32 duration_ms = 3; // time in ms it took to download all the media
+  uint32 num_photos = 4;  // number of photos
+  uint32 num_videos = 5;  // number of videos
+  uint32 total_size = 6;  // the total size in bytes of all the media objects downloaded
+  enum Status {
+    OK = 0;
+    FAIL = 1;
+  }
+  Status status = 7;  // if the request was ok or failed over all
+  uint32 retry_count = 8; // 0 if download worked from the first attempt
+}
+
+message MediaComposeLoad {
+  uint32 duration_ms = 1;  // time in ms it took to load all the media and transcode them.
+                           // Basically until the share button shows up.
+  uint32 num_photos = 2;  // number of photos
+  uint32 num_videos = 3;  // number of videos
+  uint32 total_size = 4;  // the total size in bytes of all the media objects
+}
+
+message PushReceived {
+  string id = 1;
+  uint64 client_timestamp = 2;
+}
+

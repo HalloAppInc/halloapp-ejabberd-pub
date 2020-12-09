@@ -5,6 +5,7 @@
 -include("util_http.hrl").
 -include("account_test_data.hrl").
 -include("packets.hrl").
+%%-include("log_events.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 -define(ZIP_PREFIX, 16#50, 16#4b, 16#03, 16#04).
@@ -41,7 +42,13 @@ counts_and_events_test(_Conf) ->
                 dims = [#pb_dim{name = <<"dn1">>, value = <<"dv1">>}]}
         ],
         events = [
-            #pb_event{namespace = <<"ns3">>, event = <<"{}">>}
+            #pb_event_data{platform = android, version = <<"0.1.2">>, edata = #pb_media_upload{
+                num_photos = 2,
+                num_videos = 1,
+                total_size = 12312,
+                type = post,
+                duration_ms = 123
+            }}
         ]
     },
     Body = enif_protobuf:encode(ClientLogs),

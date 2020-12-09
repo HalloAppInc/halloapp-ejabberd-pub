@@ -23,6 +23,9 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("ha_types.hrl").
+-include("packets.hrl").
+%%-include("log_events.hrl").
+
 
 -define(NS_CLIENT_LOG, <<"halloapp:client_log">>).
 -define(CLIENT_NS, <<"client.">>).
@@ -116,7 +119,7 @@ process_count(Uid, #count_st{namespace = Namespace, metric = Metric, count = Cou
     end.
 
 
--spec process_events(Uid :: uid(), Events :: [event_st()]) -> [result()].
+-spec process_events(Uid :: uid(), Events :: [pb_event_data()]) -> [result()].
 process_events(Uid, Events) ->
     lists:map(
         fun(Event) ->
@@ -125,19 +128,27 @@ process_events(Uid, Events) ->
         Events).
 
 
--spec process_event(Uid :: uid(), Event :: event_st()) -> ok.
-process_event(Uid, #event_st{namespace = Namespace, event = EventData}) ->
+-spec process_event(Uid :: uid(), Event :: pb_event_data()) -> ok.
+process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
     try
+        Namespace = get_namespace(Edata),
         FullNamespace = full_namespace(Namespace),
         validate_namespace(FullNamespace),
         Ts = util:now_ms(),
-        EventJson = jiffy:decode(EventData, [return_maps]),
-        EventJson2 = EventJson#{<<"uid">> => Uid},
-        EventData2 = jiffy:encode(EventJson2),
-        ?INFO("~s, ~s, ~p, ~s", [FullNamespace, Uid, Ts, EventData2]),
-        ok
-        % TODO: log the event into CloudWatch Log
+        Event2 = Event#pb_event_data{uid = Uid},
+        case enif_protobuf:encode(Event2) of
+            {error, Reason1} ->
+                ?ERROR("Failed to process event ~p, Event: ~p", [Reason1, Event]),
+                {error, bad_arg};
+            Data when is_binary(Data) ->
+                ?INFO("~s, ~s, ~p, ~s", [FullNamespace, Uid, Ts, Data]),
+                ok
+        end
+        % TODO: log the event into CloudWatch Log or Kinesis Stream or S3
     catch
+        error : bad_edata : _ ->
+            ?WARNING("bad_edata Uid: ~s Event: ~p", [Uid, Event]),
+            {error, bad_edata};
         error : bad_namespace : _ ->
             {error, bad_namespace};
         Class : Reason : Stacktrace ->
@@ -145,6 +156,14 @@ process_event(Uid, #event_st{namespace = Namespace, event = EventData}) ->
                 lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             {error, badarg}
     end.
+
+
+get_namespace(Edata) when is_tuple(Edata) ->
+    Namespace1 = atom_to_list(element(1, Edata)),
+    % removing the "pb_"
+    Namespace = list_to_binary(string:sub_string(Namespace1, 3));
+get_namespace(Edata) ->
+    error(bad_edata)
 
 
 -spec is_valid_namespace(Namespace :: binary()) -> boolean().

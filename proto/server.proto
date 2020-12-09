@@ -6,6 +6,8 @@ package server;
 option java_package = "com.halloapp.proto.server";
 option java_multiple_files = true;
 
+import "log_events.proto";
+
 
 // Avatar
 
@@ -60,7 +62,7 @@ message ClientVersion {
 
 message ClientLog {
     repeated Count counts = 1;
-    repeated Event events = 2;
+    repeated EventData events = 2;
 }
 
 message Count {
@@ -68,11 +70,6 @@ message Count {
     string metric = 2;
     int64 count = 3;
     repeated Dim dims = 4;
-}
-
-message Event {
-    string namespace = 1;
-    bytes event = 2;
 }
 
 message Dim {
