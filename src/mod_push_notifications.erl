@@ -69,10 +69,7 @@ offline_message_hook({_, #message{} = Message} = Acc) ->
 
 
 %% Determine whether message should be pushed or not.. based on the content.
--spec should_push(Message :: message()) -> boolean().
-should_push(#message{rerequest_count = RerequestCount} = Message)
-        when RerequestCount > 0 ->
-    false;
+-spec should_push(Message :: message()) -> boolean(). 
 should_push(#message{type = Type, sub_els = [SubEl | _]} = Message) ->
     PayloadType = util:get_payload_type(Message),
     if
