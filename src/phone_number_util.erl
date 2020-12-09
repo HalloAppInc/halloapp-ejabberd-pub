@@ -588,7 +588,7 @@ is_valid_number_internal(PhoneNumberState) ->
     RegionId = get_region_id_for_number(PhoneNumberState),
     case RegionId of
         {error, _} ->
-            NewPhoneNumberState = PhoneNumberState;
+            NewPhoneNumberState = PhoneNumberState#phone_number_state{valid = false};
         _ ->
             Valid = is_valid_number_for_region(PhoneNumberState, RegionId),
             NewPhoneNumberState = PhoneNumberState#phone_number_state{valid = Valid}

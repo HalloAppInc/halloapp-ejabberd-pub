@@ -222,3 +222,11 @@ normalize_phone_international_code_test() ->
     ok.
 
 
+get_555_number_region_test() ->
+    setup(),
+
+    ?assertEqual(<<"US">>, mod_libphonenumber:get_region_id(<<"18885552222">>)),
+    ?assertEqual(<<"US">>, mod_libphonenumber:get_region_id(<<"14705551473">>)),
+    ok.
+
+
