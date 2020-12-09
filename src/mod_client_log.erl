@@ -141,7 +141,7 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
                 ?ERROR("Failed to process event ~p, Event: ~p", [Reason1, Event]),
                 {error, bad_arg};
             Data when is_binary(Data) ->
-                ?INFO("~s, ~s, ~p, ~s", [FullNamespace, Uid, Ts, Data]),
+                ?INFO("~s, ~s, ~p, ~p", [FullNamespace, Uid, Ts, Data]),
                 ok
         end
         % TODO: log the event into CloudWatch Log or Kinesis Stream or S3
@@ -161,9 +161,13 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
 get_namespace(Edata) when is_tuple(Edata) ->
     Namespace1 = atom_to_list(element(1, Edata)),
     % removing the "pb_"
-    Namespace = list_to_binary(string:sub_string(Namespace1, 3));
-get_namespace(Edata) ->
-    error(bad_edata)
+    Namespace2 = case string:sub_string(Namespace1, 1, 3) of
+        "pb_" -> string:sub_string(Namespace1, 4);
+        _ -> Namespace1
+    end,
+    list_to_binary(Namespace2);
+get_namespace(_Edata) ->
+    error(bad_edata).
 
 
 -spec is_valid_namespace(Namespace :: binary()) -> boolean().
