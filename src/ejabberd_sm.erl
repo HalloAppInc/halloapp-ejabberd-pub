@@ -75,7 +75,6 @@
     get_all_pids/0,
     is_existing_resource/3,
     get_commands_spec/0,
-    c2s_handle_info/2,
     user_send_packet/1,
     host_up/1,
     host_down/1,
@@ -473,20 +472,6 @@ get_vh_session_number(Server) ->
     Mod = get_sm_backend(LServer),
     length(get_sessions(Mod, LServer)).
 
-% TODO: (nikola): Move this code in the _c2s file.
-% It is unclear to me why this code is here and not in c2s.
-c2s_handle_info(#{lang := Lang} = State, replaced) ->
-    State1 = State#{replaced => true},
-    Err = xmpp:serr_conflict(?T("Replaced by new connection"), Lang),
-    {stop, ejabberd_c2s:send(State1, Err)};
-c2s_handle_info(#{lang := Lang} = State, kick) ->
-    Err = xmpp:serr_policy_violation(?T("has been kicked"), Lang),
-    {stop, ejabberd_c2s:send(State, Err)};
-c2s_handle_info(#{lang := Lang} = State, {exit, Reason}) ->
-    Err = xmpp:serr_conflict(Reason, Lang),
-    {stop, ejabberd_c2s:send(State, Err)};
-c2s_handle_info(State, _) ->
-    State.
 
 % TODO: (nikola): move this code to mod_chat. In mod_chat we set the name in the packet.
 user_send_packet({Packet, State} = _Acc) ->
@@ -552,11 +537,7 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %%--------------------------------------------------------------------
 -spec host_up(binary()) -> ok.
 host_up(Host) ->
-    % TODO: (nikola): first 4 hooks use ejabberd_sm atom while 5th uses ?MODULE
-    ejabberd_hooks:add(c2s_handle_info, Host,
-               ejabberd_sm, c2s_handle_info, 50),
-    ejabberd_hooks:add(pb_c2s_handle_info, Host,
-               ejabberd_sm, c2s_handle_info, 50),
+    % TODO: (nikola): first 2 hooks use ejabberd_sm atom while 5th uses ?MODULE
     ejabberd_hooks:add(roster_in_subscription, Host,
                ejabberd_sm, check_in_subscription, 20),
     ejabberd_hooks:add(bounce_sm_packet, Host,
@@ -582,10 +563,6 @@ host_down(Host) ->
         (_) ->
             ok
         end, get_sessions(Mod, Host)),
-    ejabberd_hooks:delete(c2s_handle_info, Host,
-              ejabberd_sm, c2s_handle_info, 50),
-    ejabberd_hooks:delete(pb_c2s_handle_info, Host,
-              ejabberd_sm, c2s_handle_info, 50),
     ejabberd_hooks:delete(roster_in_subscription, Host,
               ejabberd_sm, check_in_subscription, 20),
     ejabberd_hooks:delete(bounce_sm_packet, Host,

@@ -31,6 +31,7 @@
     close/1,
     close/2,
     send_error/3,
+    send_error/2,
     establish/1,
     get_transport/1,
     change_shaper/2,

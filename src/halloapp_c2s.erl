@@ -147,6 +147,11 @@ send_error(#{lserver := LServer} = State, Pkt, Err) ->
     end.
 
 
+-spec send_error(state(), binary()) -> state().
+send_error(State, Err) ->
+    halloapp_stream_in:send_error(State, Err).
+
+
 -spec route(pid(), term()) -> boolean().
 route(Pid, Term) ->
     ejabberd_cluster:send(Pid, Term).
@@ -480,6 +485,13 @@ handle_cast(Msg, #{lserver := LServer} = State) ->
     ejabberd_hooks:run_fold(pb_c2s_handle_cast, LServer, State, [Msg]).
 
 
+handle_info(replaced, State) ->
+    send_error(State, <<"session_replaced">>);
+handle_info(kick, State) ->
+    send_error(State, <<"session_kicked">>);
+handle_info({exit, Reason}, #{user := User} = State) ->
+    ?ERROR("Uid: ~s, session exit reason: ~p", [User, Reason]),
+    send_error(State, <<"server_error">>);
 handle_info(Info, #{lserver := LServer} = State) ->
     ejabberd_hooks:run_fold(pb_c2s_handle_info, LServer, State, [Info]).
 
