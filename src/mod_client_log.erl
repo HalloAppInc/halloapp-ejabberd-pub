@@ -69,7 +69,7 @@ process_local_iq(#iq{type = set, from = #jid{luser = Uid, lresource = Resource},
 process_local_iq(#iq{} = IQ) ->
     xmpp:make_error(IQ, util:err(bad_request)).
 
--spec process_client_count_log_st(Uid :: uid() | undefined, ClientLogSt :: client_log_st(),
+-spec process_client_count_log_st(Uid :: maybe(uid()) | undefined, ClientLogSt :: client_log_st(),
         Platform :: maybe(client_type())) -> ok | error.
 process_client_count_log_st(Uid, ClientLogsSt, Platform) ->
     ServerDims = [{"platform", atom_to_list(Platform)}],
@@ -118,7 +118,7 @@ process_count(Uid, #count_st{namespace = Namespace, metric = Metric, count = Cou
     end.
 
 
--spec process_events(Uid :: uid(), Events :: [pb_event_data()]) -> [result()].
+-spec process_events(Uid :: maybe(uid()), Events :: [pb_event_data()]) -> [result()].
 process_events(Uid, Events) ->
     lists:map(
         fun(Event) ->
@@ -127,14 +127,18 @@ process_events(Uid, Events) ->
         Events).
 
 
--spec process_event(Uid :: uid(), Event :: pb_event_data()) -> ok.
+-spec process_event(Uid :: maybe(uid()), Event :: pb_event_data()) -> ok.
 process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
     try
         Namespace = get_namespace(Edata),
         FullNamespace = full_namespace(Namespace),
         validate_namespace(FullNamespace),
         Ts = util:now_ms(),
-        Event2 = Event#pb_event_data{uid = binary_to_integer(Uid)},
+        UidInt = case Uid of
+            undefined -> 0;
+            Uid -> binary_to_integer(Uid)
+        end,
+        Event2 = Event#pb_event_data{uid = UidInt},
         case enif_protobuf:encode(Event2) of
             {error, Reason1} ->
                 ?ERROR("Failed to process event ~p, Event: ~p", [Reason1, Event]),
