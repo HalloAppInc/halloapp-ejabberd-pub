@@ -33,7 +33,7 @@
 
 
 setup() ->
-    enif_protobuf:load_cache(log_events:get_msg_defs()),
+    enif_protobuf:load_cache(server:get_msg_defs()),
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
     ok.
