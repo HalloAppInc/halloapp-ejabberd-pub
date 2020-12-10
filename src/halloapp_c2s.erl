@@ -217,23 +217,23 @@ upgrade_packet({message, Id, Type, Lang, From, To, RetryCount, _RerequestCount,
         thread = Thread,
         sub_els = SubEls
     };
-% upgrade_packet({message, Id, Type, Lang, From, To, RetryCount,
-%         Priority, Subject, Body, Thread, SubEls}) ->
-%     %% add missing field.
-%     #message{
-%         id = Id,
-%         type = Type,
-%         lang = Lang,
-%         from = From,
-%         to = To,
-%         retry_count = RetryCount,
-%         rerequest_count = 0,
-%         priority = Priority,
-%         subject = Subject,
-%         body = Body,
-%         thread = Thread,
-%         sub_els = SubEls
-%     };
+upgrade_packet({message, Id, Type, Lang, From, To, RetryCount,
+        Priority, Subject, Body, Thread, SubEls}) ->
+    %% add missing field.
+    #message{
+        id = Id,
+        type = Type,
+        lang = Lang,
+        from = From,
+        to = To,
+        retry_count = RetryCount,
+        rerequest_count = 0,
+        priority = Priority,
+        subject = Subject,
+        body = Body,
+        thread = Thread,
+        sub_els = SubEls
+    };
 upgrade_packet(Packet) -> Packet.
 
 
