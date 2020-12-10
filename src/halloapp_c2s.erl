@@ -63,6 +63,7 @@
 -include("xmpp.hrl").
 -include("logger.hrl").
 -include("translate.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -define(NOISE_STATIC_KEY, <<"static_key">>).
 -define(NOISE_SERVER_CERTIFICATE, <<"server_certificate">>).
@@ -194,12 +195,49 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %%% Hooks
 %%%===================================================================
 
+upgrade_packet(#message{} = Message) -> Message;
+upgrade_packet({message, Id, Type, Lang, From, To, RetryCount, _RerequestCount,
+        Priority, Subject, Body, Thread, SubEls}) ->
+    %% remove additional field.
+    #message{
+        id = Id,
+        type = Type,
+        lang = Lang,
+        from = From,
+        to = To,
+        retry_count = RetryCount,
+        priority = Priority,
+        subject = Subject,
+        body = Body,
+        thread = Thread,
+        sub_els = SubEls
+    };
+% upgrade_packet({message, Id, Type, Lang, From, To, RetryCount,
+%         Priority, Subject, Body, Thread, SubEls}) ->
+%     %% add missing field.
+%     #message{
+%         id = Id,
+%         type = Type,
+%         lang = Lang,
+%         from = From,
+%         to = To,
+%         retry_count = RetryCount,
+%         rerequest_count = 0,
+%         priority = Priority,
+%         subject = Subject,
+%         body = Body,
+%         thread = Thread,
+%         sub_els = SubEls
+%     };
+upgrade_packet(Packet) -> Packet.
+
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
-    {Pass, State1} = case Packet of
-        #presence{} -> process_presence_in(State, Packet);
-        #message{} -> process_message_in(State, Packet);
-        #iq{} -> process_iq_in(State, Packet);
+    NewPacket = upgrade_packet(Packet),
+    {Pass, State1} = case NewPacket of
+        #presence{} -> process_presence_in(State, NewPacket);
+        #message{} -> process_message_in(State, NewPacket);
+        #iq{} -> process_iq_in(State, NewPacket);
         #ack{} -> {true, State};
         #chat_state{} -> {true, State}
     end,
@@ -208,7 +246,7 @@ process_info(#{lserver := LServer} = State, {route, Packet}) ->
             %% TODO(murali@): remove temp counts after clients transition.
             stat:count("HA/user_receive_packet", "protobuf"),
             {Packet1, State2} = ejabberd_hooks:run_fold(
-                    user_receive_packet, LServer, {Packet, State1}, []),
+                    user_receive_packet, LServer, {NewPacket, State1}, []),
             case Packet1 of
                 drop -> State2;
                 _ -> send(State2, Packet1)
