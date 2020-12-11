@@ -32,8 +32,7 @@
 %% IQ handlers and hooks.
 -export([
     process_local_iq/1,
-    remove_user/2,
-    migrate_all_keys/0
+    remove_user/2
 ]).
 
 
@@ -185,27 +184,4 @@ notify_key_subscribers(Uid, Server) ->
         sub_els = [#whisper_keys{type = update, uid = Uid}]
     },
     ejabberd_router_multicast:route_multicast(From, Server, Ojids, Packet).
-
-
-migrate_all_keys() ->
-    UserWhisperKeys = mnesia:dirty_match_object(mnesia:table_info(user_whisper_keys, wild_pattern)),
-    lists:foreach(
-            fun(#user_whisper_keys{username = Username} = UserWhisperKey) ->
-                UserOtpKeys = mnesia:dirty_match_object(#user_whisper_otp_keys{username = Username, _ = '_'}),
-                migrate_all_user_keys(UserWhisperKey, UserOtpKeys)
-            end, UserWhisperKeys).
-
-
-migrate_all_user_keys(UserWhisperKey, UserOtpKeys) ->
-    Username = UserWhisperKey#user_whisper_keys.username,
-    #jid{luser = Uid} = jid:from_string(Username),
-    IdentityKey = UserWhisperKey#user_whisper_keys.identity_key,
-    SignedKey = UserWhisperKey#user_whisper_keys.signed_key,
-    OtpKeys = lists:map(
-            fun(#user_whisper_otp_keys{one_time_key = OtpKey}) ->
-                OtpKey
-            end, UserOtpKeys),
-    model_whisper_keys:set_keys(Uid, IdentityKey, SignedKey, OtpKeys).
-
-
 
