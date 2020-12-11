@@ -12,6 +12,7 @@
 -include("account.hrl").
 -include("util_http.hrl").
 -include("ejabberd_http.hrl").
+-include("whisper.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(UID, <<"1">>).
@@ -27,6 +28,9 @@
 -define(BAD_SMS_CODE, <<"111110">>).
 -define(BAD_PASSWORD, <<"BADPASS">>).
 -define(BAD_SIGNED_MESSAGE, <<"BADSIGNEDMESSAGE">>).
+-define(IDENTITY_KEY, <<"RExLRkpTTGtma2Zqcw==">>).
+-define(SIGNED_KEY, <<"RmFkZnNkZnNkZGZzaw==">>).
+-define(ONE_TIME_KEY, <<"RkxTREtGSkRTS2pmZHNr">>).
 -define(REQUEST_SMS_PATH, [<<"registration">>, <<"request_sms">>]).
 -define(REQUEST_SMS_HEADERS(UA), [
     {'Content-Type',<<"application/x-www-form-urlencoded">>},
@@ -43,6 +47,10 @@
     {'Host',<<"127.0.0.1:5580">>}]).
 -define(REGISTER_DATA(Phone, Code, Name),
     jsx:encode([{<<"phone">>, Phone}, {<<"code">>, Code}, {<<"name">>, Name}])).
+-define(REGISTER_DATA_W(Phone, Code, Name, WhisperKey, SignedKey, OneTimeKeys),
+    jsx:encode([{<<"phone">>, Phone}, {<<"code">>, Code}, {<<"name">>, Name},
+        {<<"identity_key">>, WhisperKey}, {<<"signed_key">>, SignedKey},
+        {<<"one_time_keys">>, OneTimeKeys}])).
 
 -define(REGISTER2_PATH, [<<"registration">>, <<"register2">>]).
 -define(REGISTER2_DATA(Phone, Code, Name, SEdPub, SignedPhrase),
@@ -116,6 +124,32 @@ register_test() ->
     meck_finish(ejabberd_sm),
     meck_finish(ejabberd_router).
 
+register_and_whisper_test() ->
+    setup(),
+    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
+    Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
+    ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
+    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, headers = ?REQUEST_SMS_HEADERS(?UA)}),
+    OneTimeKeys = [?ONE_TIME_KEY || _X <- lists:seq(0, 9)],
+    GoodData = ?REGISTER_DATA_W(?TEST_PHONE, ?SMS_CODE, ?NAME, ?IDENTITY_KEY, ?SIGNED_KEY, OneTimeKeys),
+    {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER_PATH,
+        #request{method = 'POST', data = GoodData, headers = ?REGISTER_HEADERS(?UA)}),
+    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, RegPass},
+        {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(RegInfo),
+    ?assert(ejabberd_auth:check_password(Uid, RegPass)),
+    WhisperKeySet = #user_whisper_key_set{
+        uid = Uid,
+        identity_key = ?IDENTITY_KEY,
+        signed_key = ?SIGNED_KEY,
+        one_time_key = ?ONE_TIME_KEY
+    },
+    ?assertEqual({ok, WhisperKeySet}, model_whisper_keys:get_key_set(Uid)),
+    ?assertEqual({ok, 9}, model_whisper_keys:count_otp_keys(Uid)),
+
+    meck_finish(ejabberd_sm),
+    meck_finish(ejabberd_router).
 
 register_spub_test() ->
     setup(),
@@ -287,6 +321,7 @@ setup() ->
 
 clear() ->
     tutil:cleardb(redis_accounts),
+    tutil:cleardb(redis_whisper),
     ok.
 
 

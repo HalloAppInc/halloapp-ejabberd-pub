@@ -23,6 +23,7 @@
 -include("xmpp.hrl").
 -include("translate.hrl").
 -include("whisper.hrl").
+-include("ha_types.hrl").
 
 -define(NS_WHISPER, <<"halloapp:whisper:keys">>).
 -define(MIN_OTP_KEY_COUNT, 10).
@@ -32,6 +33,8 @@
 %% IQ handlers and hooks.
 -export([
     process_local_iq/1,
+    notify_key_subscribers/2,
+    set_keys_and_notify/4,
     remove_user/2
 ]).
 
@@ -60,7 +63,7 @@ mod_options(_Host) ->
 %% iq handlers
 %%====================================================================
 
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
+process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
                     sub_els = [#whisper_keys{type = set} = WhisperKeys]} = IQ) ->
     ?INFO("set_keys Uid: ~s", [Uid]),
     IdentityKey = WhisperKeys#whisper_keys.identity_key,
@@ -77,9 +80,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
             ?ERROR("Invalid iq: ~p", [IQ]),
             xmpp:make_error(IQ, util:err(empty_one_time_keys));
         true ->
-            ?INFO("Uid: ~s, set_keys", [Uid]),
-            ok = model_whisper_keys:set_keys(Uid, IdentityKey, SignedKey, OneTimeKeys),
-            notify_key_subscribers(Uid, Server),
+            set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys),
             xmpp:make_iq_result(IQ)
     end;
 
@@ -170,6 +171,14 @@ check_count_and_notify_user(Uid, Server) ->
         false ->
             ok
     end.
+
+
+-spec set_keys_and_notify(Uid :: uid(), IdentityKey :: binary(), SignedKey :: binary(),
+        OneTimeKeys :: [binary()]) -> ok.
+set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys) ->
+    ?INFO("Uid: ~s, set_keys", [Uid]),
+    ok = model_whisper_keys:set_keys(Uid, IdentityKey, SignedKey, OneTimeKeys),
+    ok = notify_key_subscribers(Uid, util:get_host()).
 
 
 -spec notify_key_subscribers(Uid :: binary(), Server :: binary()) -> ok.

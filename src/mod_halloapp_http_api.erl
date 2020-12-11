@@ -84,7 +84,10 @@ process([<<"registration">>, <<"register">>],
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
         LName = check_name(Name),
+
         {ok, Phone, Uid, Password} = finish_registration(Phone, LName, UserAgent),
+        process_whisper_keys(Uid, Payload),
+
         ?INFO("registration complete uid:~s, phone:~s", [Uid, Phone]),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
@@ -101,12 +104,10 @@ process([<<"registration">>, <<"register">>],
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
             util_http:return_400();
-        error: {badkey, <<"phone">>} ->
-            util_http:return_400(missing_phone);
-        error: {badkey, <<"code">>} ->
-            util_http:return_400(missing_code);
-        error: {badkey, <<"name">>} ->
-            util_http:return_400(missing_name);
+        error: {badkey, MissingField} when is_binary(MissingField)->
+            util_http:return_400(util:to_atom(<<"missing_", MissingField/binary>>));
+        error: {wk_error, Reason} ->
+            util_http:return_400(Reason);
         error: invalid_name ->
             util_http:return_400(invalid_name);
         error : Reason : Stacktrace  ->
@@ -142,6 +143,8 @@ process([<<"registration">>, <<"register2">>],
         SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
 
         {ok, Phone, Uid} = finish_registration_spub(Phone, LName, UserAgent, SPub),
+        process_whisper_keys(Uid, Payload),
+
         ?INFO("registration complete uid:~s, phone:~s", [Uid, Phone]),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
@@ -151,6 +154,7 @@ process([<<"registration">>, <<"register2">>],
                 {result, ok}
             ]})}
     catch
+        % TODO: This code is getting out of hand... Figure out how to simplify the error handling
         error : wrong_sms_code ->
             ?INFO("register error: code mismatch data:~s", [Data]),
             util_http:return_400(wrong_sms_code);
@@ -166,16 +170,10 @@ process([<<"registration">>, <<"register2">>],
         error : unable_to_open_signed_phrase ->
             ?ERROR("register error: unable_to_open_signed_phrase ~p", [Data]),
             util_http:return_400(unable_to_open_signed_phrase);
-         error: {badkey, <<"phone">>} ->
-            util_http:return_400(missing_phone);
-        error: {badkey, <<"code">>} ->
-            util_http:return_400(missing_code);
-        error: {badkey, <<"name">>} ->
-            util_http:return_400(missing_name);
-        error: {badkey, <<"s_ed_pub">>} ->
-            util_http:return_400(missing_s_ed_pub);
-        error: {badkey, <<"signed_phrase">>} ->
-            util_http:return_400(missing_signed_phrase);
+        error: {badkey, MissingField} when is_binary(MissingField)->
+            util_http:return_400(util:to_atom(<<"missing_", MissingField/binary>>));
+        error: {wk_error, Reason} ->
+            util_http:return_400(Reason);
         error: invalid_name ->
             util_http:return_400(invalid_name);
         error : Reason : Stacktrace  ->
@@ -335,6 +333,49 @@ is_ip_invite_opened(IP) ->
             ?WARNING("failed to parse IP: ~p", [IP]),
             false
     end.
+
+-spec process_whisper_keys(Uid :: uid(), Payload :: map()) -> ok. % | or exception
+process_whisper_keys(Uid, Payload) ->
+    % check if client is passing identity_key and the other whisper keys,
+    % this is optional for now will be mandatory later
+    case maps:is_key(<<"identity_key">>, Payload) of
+        true ->
+            ?INFO("setting keys Uid: ~s", [Uid]),
+            {IdentityKey, SignedKey, OneTimeKeys} = get_and_check_whisper_keys(Payload),
+            ok = mod_whisper:set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys);
+        false ->
+            ok
+    end.
+
+-spec get_and_check_whisper_keys(Payload :: map()) -> {binary(), binary(), [binary()]}.
+get_and_check_whisper_keys(Payload) ->
+    IdentityKeyB64 = maps:get(<<"identity_key">>, Payload),
+    SignedKeyB64 = maps:get(<<"signed_key">>, Payload),
+    OneTimeKeysB64 = maps:get(<<"one_time_keys">>, Payload),
+    case util:type(OneTimeKeysB64) of
+        "list" -> ok;
+        _ ->
+            error({wk_error, invalid_one_time_keys})
+    end,
+    {IdentityKey, SignedKey, OneTimeKeys} = try
+        {base64:decode(IdentityKeyB64), base64:decode(SignedKeyB64), [base64:decode(K) || K <- OneTimeKeysB64]}
+    catch
+        error : badarg ->
+            error({wk_error, bad_base64_key})
+    end,
+    TooBigOTK = lists:any(fun(K) -> byte_size(K) > 512 end, OneTimeKeysB64),
+    if
+        IdentityKey =:= <<>> -> error({wk_error, missing_identity_key});
+        SignedKey =:= <<>> -> error({wk_error, missing_signed_key});
+        OneTimeKeys =:= [] -> error({wk_error, missing_one_time_keys});
+        length(OneTimeKeys) < 10 -> error({wk_error, too_few_one_time_keys});
+        length(OneTimeKeys) > 256 -> error({wk_error, too_many_one_time_keys});
+        byte_size(IdentityKeyB64) > 512 -> error({wk_error, too_big_identity_key});
+        byte_size(SignedKeyB64) > 512 -> error({wk_error, too_big_signed_key});
+        TooBigOTK -> error({wk_error, too_big_one_time_keys});
+        true -> ok
+    end,
+    {IdentityKeyB64, SignedKeyB64, OneTimeKeysB64}.
 
 -spec update_key(binary(), binary()) -> {ok, binary(), binary()}.
 update_key(Uid, SPub) ->
