@@ -180,10 +180,15 @@ connect_to_apns(BuildType) ->
     case gun:open(ApnsGateway, ApnsPort, Options) of
         {ok, Pid} ->
             Mon = monitor(process, Pid),
-            {ok, Protocol} = gun:await_up(Pid, Mon),
-            ?INFO("BuildType: ~s, connection successful pid: ~p, protocol: ~p, monitor: ~p",
-                    [BuildType, Pid, Protocol, Mon]),
-            {Pid, Mon};
+            case gun:await_up(Pid, Mon) of
+                {ok, Protocol} ->
+                    ?INFO("BuildType: ~s, connection successful pid: ~p, protocol: ~p, monitor: ~p",
+                            [BuildType, Pid, Protocol, Mon]),
+                    {Pid, Mon};
+                {error, Reason} ->
+                    ?ERROR("BuildType: ~s, Failed to connect to apns: ~p", [BuildType, Reason]),
+                    {undefined, undefined}
+            end;
         {error, Reason} ->
             ?ERROR("BuildType: ~s, Failed to connect to apns: ~p", [BuildType, Reason]),
             {undefined, undefined}
@@ -355,10 +360,15 @@ push_message_item(PushMessageItem, State) ->
     Uid = PushMessageItem#push_message_item.uid,
     ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s", [Uid, Id, ApnsId, ContentId]),
 
-    {Pid, NewState} = get_pid_to_send(BuildType, State),
-    _StreamRef = gun:post(Pid, DevicePath, HeadersList, PayloadBin),
-    FinalState = add_to_pending_map(ApnsId, PushMessageItem, NewState),
-    FinalState.
+    case get_pid_to_send(BuildType, State) of
+        {undefined, NewState} ->
+            ?ERROR("error: invalid_pid to send this push, Uid: ~p, ApnsId: ~p", [Uid, ApnsId]),
+            NewState;
+        {Pid, NewState} ->
+            _StreamRef = gun:post(Pid, DevicePath, HeadersList, PayloadBin),
+            FinalState = add_to_pending_map(ApnsId, PushMessageItem, NewState),
+            FinalState
+    end.
 
 
 -spec add_to_pending_map(ApnsId :: binary(), PushMessageItem :: push_message_item(),
