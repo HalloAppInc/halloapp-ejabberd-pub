@@ -237,10 +237,15 @@ handle_delta_contacts(UserId, Server, Contacts) ->
             fun(#contact{type = Type}) ->
                 Type == delete
             end, Contacts),
-    DeleteContactPhones = lists:map(
-            fun(Contact) ->
-                Contact#contact.normalized
-            end, DeleteContactsList),
+    DeleteContactPhones = lists:foldl(
+            fun(#contact{normalized = undefined}, Acc) ->
+                    ?ERROR("Uid: ~s, UserId, sending invalid_contacts", [UserId]),
+                    %% Added on 2020-12-11 because of some client bug.
+                    %% Clients must be fixing this soon. Check again in 2months.
+                    Acc;
+                (#contact{normalized = Normalized}, Acc) ->
+                    [Normalized | Acc]
+            end, [], DeleteContactsList),
     remove_contact_phones(UserId, Server, DeleteContactPhones),
     normalize_and_insert_contacts(UserId, Server, AddContactsList, undefined).
 
