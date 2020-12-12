@@ -235,7 +235,8 @@ parse_fields(MsgId, FieldValuesList) ->
                 to_uid = ToUid,
                 from_uid = maps:get(?FIELD_FROM, MsgDataMap, undefined),
                 content_type = maps:get(?FIELD_CONTENT_TYPE, MsgDataMap),
-                retry_count = fix_retry_count(RetryCount, ToUid, MsgId)
+                retry_count = fix_retry_count(RetryCount, ToUid, MsgId),
+                order_id = binary_to_integer(maps:get(?FIELD_ORDER, MsgDataMap))
             }
     end.
 

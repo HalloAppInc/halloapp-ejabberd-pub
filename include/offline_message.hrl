@@ -11,6 +11,7 @@
 -record(offline_message,
 {
     msg_id :: binary(),
+    order_id :: integer(),
     to_uid :: binary(),
     from_uid :: binary(),
     content_type :: binary(),

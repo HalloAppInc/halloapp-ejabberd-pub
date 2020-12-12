@@ -22,14 +22,21 @@
 -define(TYPE3, <<"contact_list">>).
 -define(MESSAGE1, term_to_binary(#message{id = ?MID1, to = #jid{user = ?UID1, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE1, #offline_message{msg_id = ?MID1, to_uid = ?UID1, from_uid = undefined,
-        content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE1}).
+        content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE1, order_id = 1}).
 -define(MESSAGE2, term_to_binary(#message{id = ?MID2, to = #jid{user = ?UID1, server = ?SERVER},
         from = #jid{user = ?UID2, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE2, #offline_message{msg_id = ?MID2, to_uid = ?UID1, from_uid = ?UID2,
-        content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE2}).
+        content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE2, order_id = 2}).
 -define(MESSAGE3, term_to_binary(#message{id = ?MID3, to = #jid{user = ?UID2, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE3, #offline_message{msg_id = ?MID3, to_uid = ?UID2, from_uid = undefined,
-        content_type = ?TYPE3, retry_count = 1, message = ?MESSAGE3}).
+        content_type = ?TYPE3, retry_count = 1, message = ?MESSAGE3, order_id = 1}).
+-define(MESSAGE4, term_to_binary(#message{id = ?MID2, to = #jid{user = ?UID1, server = ?SERVER},
+        from = #jid{user = ?UID2, server = ?SERVER}})).
+-define(OFFLINE_MESSAGE4, #offline_message{msg_id = ?MID2, to_uid = ?UID1, from_uid = ?UID2,
+        content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE4, order_id = 3}).
+-define(MESSAGE5, term_to_binary(#message{id = ?MID1, to = #jid{user = ?UID1, server = ?SERVER}})).
+-define(OFFLINE_MESSAGE5, #offline_message{msg_id = ?MID1, to_uid = ?UID1, from_uid = undefined,
+        content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE5, order_id = 4}).
 -define(EMPTY_OFFLINE_MESSAGE, undefined).
 
 
@@ -77,9 +84,9 @@ message_order_test() ->
             model_messages:get_all_user_messages(?UID1)),
     ?assertEqual(ok, model_messages:remove_all_user_messages(?UID1)),
 
-    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE2)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
-    ?assertEqual({ok, [?OFFLINE_MESSAGE2, ?OFFLINE_MESSAGE1]},
+    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE4)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE5)),
+    ?assertEqual({ok, [?OFFLINE_MESSAGE4, ?OFFLINE_MESSAGE5]},
             model_messages:get_all_user_messages(?UID1)).
 
 
@@ -106,6 +113,7 @@ starve_message_test() ->
 
 
 ack_out_of_order_test() ->
+    setup(),
     ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
     ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE2)),
     ?assertEqual({ok, [?OFFLINE_MESSAGE1, ?OFFLINE_MESSAGE2]},
