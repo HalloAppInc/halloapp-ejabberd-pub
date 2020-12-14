@@ -202,7 +202,7 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 
 upgrade_packet(#message{} = Message) -> Message;
 upgrade_packet({message, Id, Type, Lang, From, To, RetryCount, _RerequestCount,
-        Priority, Subject, Body, Thread, SubEls}) ->
+        Priority, Subject, Body, Thread, SubEls, Meta}) ->
     %% remove additional field.
     #message{
         id = Id,
@@ -215,10 +215,11 @@ upgrade_packet({message, Id, Type, Lang, From, To, RetryCount, _RerequestCount,
         subject = Subject,
         body = Body,
         thread = Thread,
-        sub_els = SubEls
+        sub_els = SubEls,
+        meta = Meta
     };
 upgrade_packet({message, Id, Type, Lang, From, To, RetryCount,
-        Priority, Subject, Body, Thread, SubEls}) ->
+        Priority, Subject, Body, Thread, SubEls, Meta}) ->
     %% add missing field.
     #message{
         id = Id,
@@ -232,7 +233,8 @@ upgrade_packet({message, Id, Type, Lang, From, To, RetryCount,
         subject = Subject,
         body = Body,
         thread = Thread,
-        sub_els = SubEls
+        sub_els = SubEls,
+        meta = Meta
     };
 upgrade_packet(Packet) -> Packet.
 
