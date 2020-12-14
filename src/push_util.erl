@@ -127,6 +127,10 @@ parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
 
 
 -spec record_push_sent(Message :: message()) -> boolean().
+record_push_sent(#message{id = MsgId, to = ToJid, sub_els = [SubElement]})
+        when is_record(SubElement, contact_list), SubElement#contact_list.contacts =/= [] ->
+    #jid{user = UserId} = ToJid,
+    model_messages:record_push_sent(UserId, MsgId);
 record_push_sent(Message) ->
     PushMetadata = parse_metadata(Message),
     ContentId = PushMetadata#push_metadata.content_id,
