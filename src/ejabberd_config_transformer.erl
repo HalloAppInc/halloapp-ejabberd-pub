@@ -170,13 +170,6 @@ filter(_Host, default_db, internal, _) ->
     {true, {default_db, mnesia}};
 filter(_Host, default_db, odbc, _) ->
     {true, {default_db, sql}};
-filter(_Host, auth_method, Ms, _) ->
-    Ms1 = lists:map(
-	    fun(internal) -> mnesia;
-	       (odbc) -> sql;
-	       (M) -> M
-	    end, Ms),
-    {true, {auth_method, Ms1}};
 filter(_Host, default_ram_db, internal, _) ->
     {true, {default_ram_db, mnesia}};
 filter(_Host, default_ram_db, odbc, _) ->
@@ -509,7 +502,6 @@ validator() ->
 	  domain_certfile => econf:binary(),
 	  default_db => econf:atom(),
 	  default_ram_db => econf:atom(),
-	  auth_method => econf:list_or_single(econf:atom()),
 	  acme => econf:options(
 		    #{ca_url => econf:binary(),
 		      '_' => econf:any()},

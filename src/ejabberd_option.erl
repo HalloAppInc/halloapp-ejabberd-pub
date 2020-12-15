@@ -14,7 +14,6 @@
 -export([auth_cache_life_time/0]).
 -export([auth_cache_missed/0]).
 -export([auth_cache_size/0]).
--export([auth_method/0, auth_method/1]).
 -export([auth_password_format/0, auth_password_format/1]).
 -export([auth_use_cache/0, auth_use_cache/1]).
 -export([c2s_cafile/0, c2s_cafile/1]).
@@ -189,13 +188,6 @@ auth_cache_missed() ->
 -spec auth_cache_size() -> 'infinity' | pos_integer().
 auth_cache_size() ->
     ejabberd_config:get_option({auth_cache_size, global}).
-
--spec auth_method() -> [atom()].
-auth_method() ->
-    auth_method(global).
--spec auth_method(global | binary()) -> [atom()].
-auth_method(Host) ->
-    ejabberd_config:get_option({auth_method, Host}).
 
 -spec auth_password_format() -> 'plain' | 'scram'.
 auth_password_format() ->

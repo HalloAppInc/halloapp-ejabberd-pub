@@ -66,8 +66,6 @@ opt_type(auth_cache_missed) ->
     econf:bool();
 opt_type(auth_cache_size) ->
     econf:pos_int(infinity);
-opt_type(auth_method) ->
-    econf:list_or_single(econf:db_type(ejabberd_auth));
 opt_type(auth_password_format) ->
     econf:enum([plain, scram]);
 opt_type(auth_use_cache) ->
@@ -401,8 +399,6 @@ options() -> [%% Top-priority options
         fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
     {auth_cache_size,
         fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
-    {auth_method,
-        fun(Host) -> [ejabberd_config:default_db(Host, ejabberd_auth)] end},
     {auth_password_format, plain},
     {auth_use_cache,
         fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
