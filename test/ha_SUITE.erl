@@ -130,7 +130,9 @@ ping_test(_Conf) ->
 
 
 delete_account_test(_Conf) ->
-    ok = model_accounts:create_account(?UID7, <<"14703381473">>, ?NAME3, ?UA, ?TS1),
+    Phone = <<"14703381473">>,
+    ok = model_accounts:create_account(?UID7, Phone, ?NAME3, ?UA, ?TS1),
+    ok = model_phone:add_phone(Phone, ?UID7),
     ok = ejabberd_auth:set_password(?UID7, ?PASSWORD1),
     {ok, C} = ha_client:connect_and_login(?UID7, ?PASSWORD1),
     Id = <<"iq_id_1">>,
