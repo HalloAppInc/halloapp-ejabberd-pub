@@ -126,6 +126,9 @@ parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
     #push_metadata{}.
 
 
+%% Adding a special case to be able to send all alert and silent notifications for contact_list
+%% updates. If we use the content_id which is the phone number in this case: we will not be sending
+%% other pushes for these messages.
 -spec record_push_sent(Message :: message()) -> boolean().
 record_push_sent(#message{id = MsgId, to = ToJid, sub_els = [SubElement]})
         when is_record(SubElement, contact_list), SubElement#contact_list.contacts =/= [] ->
