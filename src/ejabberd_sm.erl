@@ -273,8 +273,7 @@ get_user_info(User, Server, Resource) ->
         [{LResource, Info}] -> Info
     end.
 
-
-% only used by mod_carboncopy
+% TODO: not used
 -spec set_user_info(binary(), binary(), binary(), atom(), term()) -> ok | {error, any()}.
 
 set_user_info(User, Server, Resource, Key, Val) ->
@@ -295,7 +294,7 @@ set_user_info(User, Server, Resource, Key, Val) ->
               end, {error, not_owner}, Ss)
     end.
 
-% also only used by mod_carboncopy
+% TODO: not used
 -spec del_user_info(binary(), binary(), binary(), atom()) -> ok | {error, any()}.
 
 del_user_info(User, Server, Resource, Key) ->

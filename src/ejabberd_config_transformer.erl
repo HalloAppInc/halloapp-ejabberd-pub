@@ -347,19 +347,6 @@ transform_module(_Host, mod_blocking, Opts, Acc) ->
 		      true
 	      end, Opts),
     {{mod_blocking, Opts1}, Acc};
-transform_module(_Host, mod_carboncopy, Opts, Acc) ->
-    Opts1 = lists:filter(
-	      fun({Opt, _}) when Opt == ram_db_type;
-				 Opt == use_cache;
-				 Opt == cache_size;
-				 Opt == cache_missed;
-				 Opt == cache_life_time ->
-		      warn_removed_module_option(Opt, mod_carboncopy),
-		      false;
-		 (_) ->
-		      true
-	      end, Opts),
-    {{mod_carboncopy, Opts1}, Acc};
 transform_module(_Host, mod_http_api, Opts, Acc) ->
     Opts1 = lists:filter(
 	      fun({admin_ip_access, _}) ->
