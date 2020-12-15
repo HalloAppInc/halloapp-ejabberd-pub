@@ -333,7 +333,7 @@ transform_module_options(Opts) ->
 transform_module(Host, mod_vcard_xupdate_odbc, Opts, Acc) ->
     warn_replaced_module(mod_vcard_xupdate_odbc, mod_vcard_xupdate),
     transform_module(Host, mod_vcard_xupdate, Opts, Acc);
-transform_module(Host, M, Opts, Acc) when (M == mod_announce_odbc orelse
+transform_module(Host, M, Opts, Acc) when (
 					   M == mod_blocking_odbc orelse
 					   M == mod_caps_odbc orelse
 					   M == mod_privacy_odbc orelse

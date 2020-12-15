@@ -49,7 +49,6 @@
 
 modules() ->
     [ejabberd_auth,
-     mod_announce,
      mod_caps,
      mod_privacy,
      mod_private,

@@ -1452,8 +1452,7 @@ stop_node(From, Host, ENode, Action, XData) ->
 				     action = complete,
 				     xdata = #xdata{type = submit,
 						    fields = Fields}},
-	    To = jid:make(Host),
-	    mod_announce:announce_commands(empty, From, To, Request)
+	    To = jid:make(Host)
     end,
     Time = timer:seconds(Delay),
     Node = misc:binary_to_atom(ENode),

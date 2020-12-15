@@ -536,9 +536,6 @@ stop_kindly(DelaySeconds, AnnouncementTextString) ->
     Steps = [
 	     {"Stopping ejabberd port listeners",
 	      ejabberd_listener, stop_listeners, []},
-	     {"Sending announcement to connected users",
-	      mod_announce, send_announcement_to_all,
-	      [ejabberd_config:get_myname(), Subject, AnnouncementText]},
 	     {WaitingDesc, timer, sleep, [DelaySeconds * 1000]},
 	     {"Stopping ejabberd", application, stop, [ejabberd]},
 	     {"Stopping Mnesia", mnesia, stop, []},
@@ -884,7 +881,6 @@ keep_modules_tables() ->
 %% TODO: This mapping should probably be moved to a callback function in each
 %% module.
 %% Mapping between modules and their tables
-module_tables(mod_announce) -> [motd, motd_users];
 module_tables(mod_privacy) -> [privacy];
 module_tables(mod_private) -> [private_storage];
 module_tables(mod_pubsub) -> [pubsub_node];
