@@ -494,6 +494,12 @@ handle_info(kick, State) ->
 handle_info({exit, Reason}, #{user := User} = State) ->
     ?ERROR("Uid: ~s, session exit reason: ~p", [User, Reason]),
     send_error(State, <<"server_error">>);
+handle_info(activate_session, #{user := Uid, mode := active} = State) ->
+    ?WARNING("Uid: ~s, mode is already active in c2s_state", [Uid]),
+    State;
+handle_info(activate_session, #{user := Uid, mode := passive} = State) ->
+    ?INFO("Uid: ~s, pid: ~p, Updating mode from passive to active in c2s_state", [Uid, self()]),
+    State#{mode => active};
 handle_info(Info, #{lserver := LServer} = State) ->
     ejabberd_hooks:run_fold(pb_c2s_handle_info, LServer, State, [Info]).
 

@@ -659,9 +659,11 @@ is_active_session(Session) ->
 activate_session(Session) ->
     Info = Session#session.info,
     {Uid, Server} = Session#session.us,
+    {_, Pid} = Session#session.sid,
     NewInfo = lists:keyreplace(mode, 1, Info, {mode, active}),
     NewSession = Session#session{info = NewInfo},
     set_session(NewSession),
+    ejabberd_c2s:route(Pid, activate_session),
     ejabberd_hooks:run(user_session_activated, Server, [Uid, Server]).
 
 
