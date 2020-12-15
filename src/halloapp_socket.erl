@@ -240,7 +240,7 @@ recv(#socket_state{sockmod = SockMod, socket = Socket} = SocketData, Data) ->
                 {ok, NoiseSocket, NoiseData, Payload} ->
                     SocketData1 = SocketData#socket_state{socket = NoiseSocket},
                     noise_parse(SocketData1, NoiseData, Payload);
-                {error, {spub_mismatch, NoiseSocket}} = Err ->
+                {error, {spub_mismatch, NoiseSocket}} ->
                     {error, {spub_mismatch, SocketData#socket_state{socket = NoiseSocket}}};
                 {error, _} = Err -> Err
             end

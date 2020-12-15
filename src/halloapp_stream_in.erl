@@ -342,7 +342,7 @@ handle_info({'$gen_event', {protobuf, Bin}},
         end);
 
 handle_info({'$gen_event', {protobuf, Bin}},
-        #{stream_state := established, socket := Socket} = State) ->
+        #{stream_state := established, socket := _Socket} = State) ->
     noreply(
         try enif_protobuf:decode(Bin, pb_packet) of
         Pkt ->
@@ -369,7 +369,7 @@ handle_info({'$gen_event', {protobuf, Bin}},
             end
         end);
 
-handle_info({'$gen_event', {stream_validation, Bin}}, #{socket := Socket} = State) ->
+handle_info({'$gen_event', {stream_validation, Bin}}, #{socket := _Socket} = State) ->
     noreply(
         try enif_protobuf:decode(Bin, pb_auth_request) of
         Pkt ->
@@ -871,7 +871,7 @@ xmpp_to_proto(XmppPkt) ->
 
 
 -spec get_socket_type(state()) -> maybe(socket_type()).
-get_socket_type(#{socket := Socket} = State) ->
+get_socket_type(#{socket := Socket}) ->
     SocketType = Socket#socket_state.socket_type,
     SocketType.
 
