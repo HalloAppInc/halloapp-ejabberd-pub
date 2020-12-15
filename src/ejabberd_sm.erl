@@ -44,7 +44,6 @@
     activate_session/2,
     is_session_active/1,
     close_session/4,
-    check_in_subscription/2,
     bounce_sm_packet/1,
     disconnect_removed_user/2,
     get_user_resources/2,
@@ -204,15 +203,6 @@ close_session(SID, User, Server, Resource) ->
     JID = jid:make(User, Server, Resource),
     ejabberd_hooks:run(sm_remove_connection_hook, JID#jid.lserver, [SID, JID, Info]).
 
-% TODO: (nikola) Not used. Was used by roster. Delete
--spec check_in_subscription(boolean(), presence()) -> boolean() | {stop, false}.
-check_in_subscription(Acc, #presence{to = To}) ->
-    #jid{user = User} = To,
-    case ejabberd_auth:user_exists(User) of
-        true -> Acc;
-        false -> {stop, false}
-    end.
-
 -spec bounce_sm_packet({warn | term(), stanza()}) -> any().
 bounce_sm_packet({warn, Packet} = Acc) ->
     FromJid = xmpp:get_from(Packet),
@@ -274,24 +264,15 @@ get_user_info(User, Server) ->
          info = Info,
          sid = {Ts, Pid}} <- clean_session_list(Ss)].
 
-% TODO: (nikola): implement using the function above.
 -spec get_user_info(binary(), binary(), binary()) -> info() | offline.
 get_user_info(User, Server, Resource) ->
-    LUser = jid:nodeprep(User),
-    LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
-    case get_sessions(Mod, LUser, LServer, LResource) of
-        [] ->
-            offline;
-        Ss ->
-            Session = lists:max(Ss),
-            {Ts, Pid} = Session#session.sid,
-            Node = node(Pid),
-            Priority = Session#session.priority,
-            [{node, Node}, {ts, Ts}, {pid, Pid}, {priority, Priority}
-             |Session#session.info]
+    Results = get_user_info(User, Server),
+    case lists:filter(fun({LResource1, _Info}) -> LResource1 =:= LResource end, Results) of
+        [] -> offline;
+        [{LResource, Info}] -> Info
     end.
+
 
 % only used by mod_carboncopy
 -spec set_user_info(binary(), binary(), binary(), atom(), term()) -> ok | {error, any()}.
@@ -539,11 +520,8 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %%--------------------------------------------------------------------
 -spec host_up(binary()) -> ok.
 host_up(Host) ->
-    % TODO: (nikola): first 2 hooks use ejabberd_sm atom while 5th uses ?MODULE
-    ejabberd_hooks:add(roster_in_subscription, Host,
-               ejabberd_sm, check_in_subscription, 20),
-    ejabberd_hooks:add(bounce_sm_packet, Host,
-               ejabberd_sm, bounce_sm_packet, 100),
+    ejabberd_hooks:add(roster_in_subscription, Host, ?MODULE, check_in_subscription, 20),
+    ejabberd_hooks:add(bounce_sm_packet, Host, ?MODULE, bounce_sm_packet, 100),
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 10),
     ejabberd_c2s:host_up(Host),
     halloapp_c2s:host_up(Host).
