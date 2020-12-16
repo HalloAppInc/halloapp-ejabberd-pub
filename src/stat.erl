@@ -404,6 +404,12 @@ send_to_cloudwatch(Data) when is_map(Data) ->
 
 -spec cloudwatch_put_metric_data(EnvNamespace :: string(), Metrics :: [metric_datum()]) -> ok.
 cloudwatch_put_metric_data(Namespace, Metrics)
+        when is_list(Namespace), is_list(Metrics), length(Metrics) > 20 ->
+    % CloudWatch wants no more the 20 metrics in the same request
+    {M1, M2} = lists:split(20, Metrics),
+    cloudwatch_put_metric_data(Namespace, M1),
+    cloudwatch_put_metric_data(Namespace, M2);
+cloudwatch_put_metric_data(Namespace, Metrics)
         when is_list(Namespace), is_list(Metrics)->
     cloudwatch_put_metric_data_env(config:get_hallo_env(), Namespace, Metrics).
 
