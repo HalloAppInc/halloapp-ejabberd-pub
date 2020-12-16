@@ -173,7 +173,7 @@ sm_register_connection_hook(SID, JID, Info) ->
     US = {LUser, LServer},
     USR = {LUser, LServer, LResource},
     Session = #session{sid = SID, usr = USR, us = US, info = Info},
-    case ejabberd_sm:is_active_session(Session) of
+    case ejabberd_sm:is_session_active(Session) of
         true -> route_offline_messages(JID);
         false -> ok
     end.

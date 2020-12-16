@@ -64,7 +64,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
             Txt = ?T("Invalid client login mode."),
             xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
         true ->
-            ok = mark_user_session_active(Uid, Server),
+            ok = ejabberd_sm:activate_session(Uid, Server),
             xmpp:make_iq_result(IQ)
     end;
 process_local_iq(#iq{lang = Lang} = IQ) ->
@@ -75,31 +75,4 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
 %%====================================================================
 %% internal functions.
 %%====================================================================
-
-
--spec mark_user_session_active(Uid :: binary(), Server :: binary()) -> ok.
-mark_user_session_active(Uid, Server) ->
-    % TODO: (nikola): instead of getting the session and then calling a function here we should just have
-    % this code in ejabberd_sm
-    case ejabberd_sm_mnesia:get_sessions(Uid, Server) of
-        {ok, []} ->
-            ?ERROR("No sessions found for uid: ~s", [Uid]);
-        {ok, [Session]} ->
-            CurrentMode = proplists:get_value(mode, Session#session.info),
-            activate_user_session(Session, CurrentMode);
-        {ok, _} ->
-            ?ERROR("Multiple sessions found for uid: ~s", [Uid])
-            %% Ideally, we could use resource to match the session,
-            %% but we dont need this until we support multiple devices per user.
-    end.
-
-
--spec activate_user_session(Session :: session(), CurrentMode :: active | passive | undefined) -> ok.
-activate_user_session(#session{us = {Uid, _}} = _Session, active) ->
-    ?WARNING("Uid: ~s, user session is already active.", [Uid]);
-activate_user_session(#session{us = {Uid, _}} = Session, _CurrentMode) ->
-    ?INFO("Uid: ~s, activating user_session", [Uid]),
-    ejabberd_sm:activate_session(Session).
-
-
 

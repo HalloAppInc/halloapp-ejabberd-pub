@@ -41,8 +41,8 @@
     route/2,
     open_session/5,
     open_session/6,
-    activate_session/1,
-    is_active_session/1,
+    activate_session/2,
+    is_session_active/1,
     close_session/4,
     check_in_subscription/2,
     bounce_sm_packet/1,
@@ -644,27 +644,41 @@ get_sessions(Mod, LUser, LServer, LResource) ->
 -spec get_active_sessions(Mod :: module(), LUser :: binary(), LServer :: binary()) -> [session()].
 get_active_sessions(Mod, LUser, LServer) ->
     Sessions = get_sessions(Mod, LUser, LServer),
-    lists:filter(fun is_active_session/1, Sessions).
+    lists:filter(fun is_session_active/1, Sessions).
 
 
--spec is_active_session(Session :: session()) -> boolean().
-is_active_session(Session) ->
+-spec is_session_active(Session :: session()) -> boolean().
+is_session_active(Session) ->
     proplists:get_value(mode, Session#session.info) =:= active.
 
 
-% TODO: (nikola): This function seems odd because most other functions take Uid, Server, Resource.
-% The issue is that mod_user_session is trying to get the session first and the activate the sessions
-% instead this function here should take Uid, Server.
--spec activate_session(Session :: session()) -> ok.
-activate_session(Session) ->
-    Info = Session#session.info,
-    {Uid, Server} = Session#session.us,
-    {_, Pid} = Session#session.sid,
-    NewInfo = lists:keyreplace(mode, 1, Info, {mode, active}),
-    NewSession = Session#session{info = NewInfo},
-    set_session(NewSession),
-    ejabberd_c2s:route(Pid, activate_session),
-    ejabberd_hooks:run(user_session_activated, Server, [Uid, Server]).
+-spec activate_session(Uid :: binary(), Server :: binary()) -> ok.
+activate_session(Uid, Server) ->
+    Mod = get_sm_backend(Server),
+    case get_sessions(Mod, Uid, Server) of
+        {ok, []} ->
+            ?ERROR("No sessions found for uid: ~s", [Uid]);
+        {ok, [Session]} ->
+            {Uid, _} = Session#session.us,
+            {_, Pid} = Session#session.sid,
+            Info = Session#session.info,
+            CurrentMode = proplists:get_value(mode, Session#session.info),
+            case CurrentMode of
+                active ->
+                    ?WARNING("Uid: ~s, user session is already active.", [Uid]);
+                passive ->
+                    ?INFO("Uid: ~s, activating user_session", [Uid]),
+                    NewInfo = lists:keyreplace(mode, 1, Info, {mode, active}),
+                    NewSession = Session#session{info = NewInfo},
+                    ejabberd_c2s:route(Pid, activate_session),
+                    set_session(NewSession),
+                    ejabberd_hooks:run(user_session_activated, Server, [Uid, Server])
+            end;
+        {ok, _} ->
+            ?ERROR("Multiple sessions found for uid: ~s", [Uid])
+            %% Ideally, we could use resource to match the session,
+            %% but we dont need this until we support multiple devices per user.
+    end.
 
 
 -spec delete_session(module(), #session{}) -> ok.
