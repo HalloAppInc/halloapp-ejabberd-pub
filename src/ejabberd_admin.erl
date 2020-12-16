@@ -1066,15 +1066,16 @@ uid_info(Uid) ->
         true ->
             {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
                 creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs,
-                activity_status = ActivityStatus} = _Account} = model_accounts:get_account(Uid),
+                activity_status = ActivityStatus} = Account} = model_accounts:get_account(Uid),
             {CreationDate, CreationTime} = util:ms_to_datetime_string(CreationTs),
             {LastActiveDate, LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
             ?INFO("Uid: ~s, Name: ~s, Phone: ~s~n", [Uid, Name, Phone]),
             io:format("Uid: ~s~nName: ~s~nPhone: ~s~n", [Uid, Name, Phone]),
-            io:format("Account created on ~s at ~s~nUser agent: ~s~n",
+            io:format("Account created on ~s at ~s ua: ~s~n",
                 [CreationDate, CreationTime, UserAgent]),
             io:format("Last activity on ~s at ~s and current status is ~s~n",
                 [LastActiveDate, LastActiveTime, ActivityStatus]),
+            io:format("Current Version: ~s~n", [Account#account.client_version]),
 
             {ok, Friends} = model_friends:get_friends(Uid),
             io:format("Friend list (~p):~n", [length(Friends)]),
