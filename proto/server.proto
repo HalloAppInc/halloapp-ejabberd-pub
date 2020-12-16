@@ -372,6 +372,12 @@ message Name {
 }
 
 
+// End of Queue
+
+message EndOfQueue {
+}
+
+
 // IQ
 
 message Iq {
@@ -448,6 +454,7 @@ message Msg {
         Rerequest rerequest = 22;
         SilentChatStanza silent_chat_stanza = 23;
         GroupFeedItems group_feed_items = 24;
+        EndOfQueue end_of_queue = 26;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;

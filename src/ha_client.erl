@@ -255,7 +255,8 @@ handle_packet(#pb_auth_result{} = Packet, State) ->
     {Packet, NewState};
 handle_packet(#pb_packet{stanza = #pb_ack{id = Id} = _Ack} = Packet, State) ->
     ?INFO_MSG("recv ack: ~s", [Id]),
-    {Packet, State};
+    NewState = queue_in(Packet, State),
+    {Packet, NewState};
 handle_packet(#pb_packet{stanza = #pb_msg{id = Id}} = Packet, State) ->
     ?INFO_MSG("recv msg: ~s", [Id]),
     State1 = send_ack(Id, State),

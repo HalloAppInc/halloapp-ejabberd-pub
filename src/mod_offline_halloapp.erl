@@ -196,14 +196,22 @@ count_user_messages(User) ->
 
 
 -spec route_offline_messages(JID :: jid()) -> ok.
-route_offline_messages(#jid{luser = UserId, lserver = _ServerHost}) ->
+route_offline_messages(#jid{luser = UserId, lserver = Server}) ->
     ?INFO("Uid: ~s start", [UserId]),
     {ok, OfflineMessages} = model_messages:get_all_user_messages(UserId),
     ?INFO("Uid: ~s has ~p offline messages", [UserId, length(OfflineMessages)]),
     % TODO: We need to rate limit the number of offline messages we send at once.
     % TODO: get metrics about the number of retries
-    lists:foreach(fun route_offline_message/1, OfflineMessages),
     FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
+    lists:foreach(fun route_offline_messages/1, FilteredOfflineMessages),
+    %% TODO(murali@): use end_of_queue marker for time to clear out the offline queue.
+    EndOfQueueMarker = #message{
+        id = util:new_msg_id(),
+        to = jid:make(UserId, Server),
+        from = jid:make(Server),
+        sub_els = [#end_of_queue{}]
+    },
+    ejabberd_router:route(EndOfQueueMarker),
     % TODO: maybe don't increment the retry count on all the messages
     % we can increment the retry count on just the first X
     increment_retry_counts(UserId, FilteredOfflineMessages),
@@ -263,6 +271,9 @@ increment_retry_counts(UserId, OfflineMsgs) ->
 
 
 -spec adjust_id_and_store_message(message()) -> message().
+adjust_id_and_store_message(#message{sub_els = [#end_of_queue{}]} = Message) ->
+    %% ignore storing end_of_queue marker packets.
+    Message;
 adjust_id_and_store_message(#message{id = Id} = Message) ->
     NewMessage = xmpp:set_id_if_missing(Message, util:new_msg_id()),
 

@@ -28,11 +28,23 @@ send_im_test(_Conf) ->
             to_uid = Uid2,
             payload = #pb_chat_stanza{payload = <<"HELLO">>}}}),
     % TODO: use send_recv
-    Ack = ha_client:recv(C1),
+    Ack = ha_client:wait_for(C1,
+        fun (P) ->
+            case P of
+                #pb_packet{stanza = #pb_ack{id = Id}} -> true;
+                _Any -> false
+            end
+        end),
     #pb_packet{
         stanza = #pb_ack{id = <<"msgid1">>, timestamp = _ServerTs}
     } = Ack,
-    RecvMsg = ha_client:recv(C2),
+    RecvMsg = ha_client:wait_for(C2,
+        fun (P) ->
+            case P of
+                #pb_packet{stanza = #pb_msg{id = <<"msgid1">>}} -> true;
+                _Any -> false
+            end
+        end),
     #pb_packet{
         stanza = #pb_msg{
             id = <<"msgid1">>,

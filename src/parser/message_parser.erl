@@ -82,7 +82,9 @@ msg_payload_mapping(SubEl) ->
             ?WARNING("Old SubEl, stop sending these: ~p", [SubEl]),
             %% TODO(murali@): we dont want to have these stanza_errors in our code.
             %% We should be using our custom error_st stanza.
-            #pb_error_stanza{reason = util:to_binary(SubEl#stanza_error.reason)}
+            #pb_error_stanza{reason = util:to_binary(SubEl#stanza_error.reason)};
+        end_of_queue ->
+            #pb_end_of_queue{}
     end,
     Payload.
 
@@ -151,6 +153,8 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
         #pb_rerequest{} = RerequestRecord ->
             whisper_keys_parser:proto_to_xmpp(RerequestRecord);
         #pb_silent_chat_stanza{chat_stanza = ChatStanza} ->
-            #silent_chat{chat = chat_parser:proto_to_xmpp(ChatStanza)}
+            #silent_chat{chat = chat_parser:proto_to_xmpp(ChatStanza)};
+        #pb_end_of_queue{} ->
+            #end_of_queue{}
     end,
     SubEl.
