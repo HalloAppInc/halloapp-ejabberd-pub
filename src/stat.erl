@@ -384,8 +384,10 @@ maybe_rotate_data(State) ->
 
 -spec send_data(TimeSeconds :: integer(), MetricsMap :: map()) -> ok.
 send_data(TimeSeconds, MetricsMap) when is_map(MetricsMap) ->
-    Data = prepare_data(MetricsMap, TimeSeconds * ?SECONDS_MS),
+    TimeMilliSeconds = TimeSeconds * ?SECONDS_MS,
+    Data = prepare_data(MetricsMap, TimeMilliSeconds),
     send_to_cloudwatch(Data),
+    stat_opentsdb:put_metrics(MetricsMap, TimeMilliSeconds),
     ok.
 
 

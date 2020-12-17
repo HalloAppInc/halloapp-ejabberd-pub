@@ -16,7 +16,8 @@
 -export([
     get_arn/0,
     is_jabber_iam_role/1,
-    get_secret/1
+    get_secret/1,
+    get_machine_name/0
 ]).
 
 -spec get_arn() -> maybe(binary()).
@@ -53,6 +54,20 @@ get_secret(SecretName) ->
         Class : Reason : Stacktrace  ->
             ?ERROR("cant get_secret()\nStacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            undefined
+    end.
+
+-spec get_machine_name() -> binary().
+get_machine_name() ->
+    %% TODO(murali@): cache this instead of querying everytime.
+    case config:is_prod_env() of
+        true ->
+            InstanceId = os:cmd("curl -s http://169.254.169.254/latest/meta-data/instance-id"),
+            Command = "$(aws ec2 describe-tags --region us-east-1 --filters \"Name=resource-id,Values=" ++
+                    InstanceId ++ "\" \"Name=key,Values=Name\" --output text | cut -f5)",
+            Result = os:cmd(Command),
+            util:to_binary(string:trim(Result));
+        false ->
             undefined
     end.
 
