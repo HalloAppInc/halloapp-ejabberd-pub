@@ -62,6 +62,14 @@
     jsx:encode([{<<"uid">>, UId}, {<<"password">>, Pass},
                 {<<"s_ed_pub">>, SEdPub}, {<<"signed_phrase">>, SignedPhrase}])).
 
+-define(TWILIO_CALLBACK_PATH, [<<"smscallback">>, <<"twilio">>]).
+-define(TWILIO_CALLBACK_DATA(From, To, Status),
+    jsx:encode([{<<"from">>, From}, {<<"to">>, To}, {<<"status">>, Status}])).
+-define(TWILIO_CALLBACK_HEADERS(UA), [
+    {'Content-Type',<<"application/x-www-form-urlencoded">>},
+    {'Accept',<<"*/*">>},
+    {'User-Agent',UA}]).
+
 %%%----------------------------------------------------------------------
 %%% IQ tests
 %%%----------------------------------------------------------------------
@@ -239,6 +247,13 @@ update_key_test() ->
     SPub = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub),
     ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub))),
     meck_finish(ejabberd_router).
+
+twilio_callback_test() ->
+    setup(),
+    Data = ?TWILIO_CALLBACK_DATA(?TEST_PHONE, ?PHONE, "delivered"),
+    {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?TWILIO_CALLBACK_PATH,
+        #request{method = 'POST', data = Data, headers = ?TWILIO_CALLBACK_HEADERS(?UA)}),
+    [{<<"result">>, <<"ok">>}] = jsx:decode(Info).
 
 %%%----------------------------------------------------------------------
 %%% Internal function tests
