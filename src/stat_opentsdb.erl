@@ -81,6 +81,6 @@ compose_tags(Dimensions) ->
             Name = util:to_binary(N),
             Value = util:to_binary(V),
             maps:put(Name, Value, Acc)
-        end, #{?MACHINE_KEY => MachineName}, Dimensions),
-    TagsAndValues.
+        end, #{}, Dimensions),
+    TagsAndValues#{?MACHINE_KEY => MachineName}.
 
