@@ -171,32 +171,10 @@ Configure ejabberd to use custom OpenSSL, Yaml, iconv. [Resource](https://docs.e
 
 ```
 brew install git elixir openssl expat libyaml libiconv libgd sqlite rebar rebar3 automake autoconf
-export LDFLAGS="-L/usr/local/opt/openssl/lib -L/usr/local/lib -L/usr/local/opt/expat/lib"
 export CFLAGS="-I/usr/local/opt/openssl/include -I/usr/local/include -I/usr/local/opt/expat/include"
 export CPPFLAGS="-I/usr/local/opt/openssl/include/ -I/usr/local/include -I/usr/local/opt/expat/include"
 ```
-Go to `Makefile.in` and replace line 217-235 with following code block
-```
-#$(INSTALL) -b -m 640 $(G_USER) ejabberd.yml.example $(ETCDIR)/ejabberd.yml
-	[ -f $(ETCDIR)/ejabberd.yml ] \
-		&& $(INSTALL) -b -m 640 $(G_USER) ejabberd.yml.example $(ETCDIR)/ejabberd.yml-new \
-		|| $(INSTALL) -b -m 640 $(G_USER) ejabberd.yml.example $(ETCDIR)/ejabberd.yml
-	$(SED) -e "s*{{rootdir}}*@prefix@*g" \
-		-e "s*{{installuser}}*@INSTALLUSER@*g" \
-		-e "s*{{bindir}}*@bindir@*g" \
-		-e "s*{{libdir}}*@libdir@*g" \
-		-e "s*{{sysconfdir}}*@sysconfdir@*g" \
-		-e "s*{{localstatedir}}*@localstatedir@*g" \
-		-e "s*{{docdir}}*@docdir@*g" \
-		-e "s*{{erl}}*@ERL@*g" \
-		-e "s*{{epmd}}*@EPMD@*g" ejabberdctl.template \
-		> ejabberdctl.example
-	#$(INSTALL) -b -m 640 $(G_USER) ejabberdctl.cfg.example $(ETCDIR)/ejabberdctl.cfg
-	[ -f $(ETCDIR)/ejabberdctl.cfg ] \
-		&& $(INSTALL) -b -m 640 $(G_USER) ejabberdctl.cfg.example $(ETCDIR)/ejabberdctl.cfg-new \
-		|| $(INSTALL) -b -m 640 $(G_USER) ejabberdctl.cfg.example $(ETCDIR)/ejabberdctl.cfg
-	$(INSTALL) -b -m 644 $(G_USER) inetrc $(ETCDIR)/inetrc
-```
+
 Run following commands to compile and run ejabberd.
 ```
 ./autogen.sh
