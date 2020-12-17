@@ -203,7 +203,7 @@ route_offline_messages(#jid{luser = UserId, lserver = Server}) ->
     % TODO: We need to rate limit the number of offline messages we send at once.
     % TODO: get metrics about the number of retries
     FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
-    lists:foreach(fun route_offline_messages/1, FilteredOfflineMessages),
+    lists:foreach(fun route_offline_message/1, FilteredOfflineMessages),
     %% TODO(murali@): use end_of_queue marker for time to clear out the offline queue.
     EndOfQueueMarker = #message{
         id = util:new_msg_id(),
