@@ -200,42 +200,42 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %%% Hooks
 %%%===================================================================
 
-upgrade_packet(#message{} = Message) -> Message;
-upgrade_packet({message, Id, Type, Lang, From, To, RetryCount, _RerequestCount,
-        Priority, Subject, Body, Thread, SubEls, Meta}) ->
-    %% remove additional field.
-    #message{
-        id = Id,
-        type = Type,
-        lang = Lang,
-        from = From,
-        to = To,
-        retry_count = RetryCount,
-        priority = Priority,
-        subject = Subject,
-        body = Body,
-        thread = Thread,
-        sub_els = SubEls,
-        meta = Meta
-    };
-upgrade_packet({message, Id, Type, Lang, From, To, RetryCount,
-        Priority, Subject, Body, Thread, SubEls, Meta}) ->
-    %% add missing field.
-    #message{
-        id = Id,
-        type = Type,
-        lang = Lang,
-        from = From,
-        to = To,
-        retry_count = RetryCount,
-        rerequest_count = 0,
-        priority = Priority,
-        subject = Subject,
-        body = Body,
-        thread = Thread,
-        sub_els = SubEls,
-        meta = Meta
-    };
+% upgrade_packet(#message{} = Message) -> Message;
+% upgrade_packet({message, Id, Type, Lang, From, To, RetryCount, _RerequestCount,
+%         Priority, Subject, Body, Thread, SubEls, Meta}) ->
+%     %% remove additional field.
+%     #message{
+%         id = Id,
+%         type = Type,
+%         lang = Lang,
+%         from = From,
+%         to = To,
+%         retry_count = RetryCount,
+%         priority = Priority,
+%         subject = Subject,
+%         body = Body,
+%         thread = Thread,
+%         sub_els = SubEls,
+%         meta = Meta
+%     };
+% upgrade_packet({message, Id, Type, Lang, From, To, RetryCount,
+%         Priority, Subject, Body, Thread, SubEls, Meta}) ->
+%     %% add missing field.
+%     #message{
+%         id = Id,
+%         type = Type,
+%         lang = Lang,
+%         from = From,
+%         to = To,
+%         retry_count = RetryCount,
+%         rerequest_count = 0,
+%         priority = Priority,
+%         subject = Subject,
+%         body = Body,
+%         thread = Thread,
+%         sub_els = SubEls,
+%         meta = Meta
+%     };
 upgrade_packet(Packet) -> Packet.
 
 
