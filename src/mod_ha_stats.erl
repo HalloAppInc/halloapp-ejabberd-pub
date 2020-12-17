@@ -26,7 +26,7 @@
     feed_item_retracted/3,
     register_user/3,
     re_register_user/3,
-    add_friend/3,
+    add_friend/4,
     remove_friend/3,
     user_send_packet/1,
     user_receive_packet/1
@@ -237,8 +237,8 @@ re_register_user(Uid, _Server, _Phone) ->
     ok.
 
 
--spec add_friend(UserId :: binary(), Server :: binary(), ContactId :: binary()) -> ok.
-add_friend(Uid, _Server, _ContactId) ->
+-spec add_friend(UserId :: binary(), Server :: binary(), ContactId :: binary(), WasBlocked :: boolean()) -> ok.
+add_friend(Uid, _Server, _ContactId, _WasBlocked) ->
     ?INFO("counting uid:~s", [Uid]),
     stat:count("HA/graph", "add_friend"),
     ok.

@@ -470,7 +470,7 @@ add_friend_test() ->
     end),
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
     model_friends:add_friend(?UID1, ?UID2),
-    mod_feed:add_friend(?UID1, ?SERVER, ?UID2),
+    mod_feed:add_friend(?UID1, ?SERVER, ?UID2, false),
     ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),
     meck:unload(ejabberd_router),
     ok.

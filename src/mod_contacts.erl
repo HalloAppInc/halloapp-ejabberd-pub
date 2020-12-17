@@ -176,7 +176,8 @@ unblock_uids(Uid, Server, Ouids) ->
                             model_contacts:is_contact(Ouid, Phone) andalso
                             not sets:is_element(Ouid, ReverseBlockSet) of
                         true ->
-                            add_friend(Uid, Server, Ouid),
+                            WasBlocked = true,
+                            add_friend(Uid, Server, Ouid, WasBlocked),
                             notify_contact_about_user(Ouid, OPhone, Server, Uid, <<"friends">>);
                         false ->
                             notify_contact_about_user(Ouid, OPhone, Server, Uid, <<"none">>)
@@ -424,9 +425,14 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
 
 -spec add_friend(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.
 add_friend(Uid, Server, Ouid) ->
+    add_friend(Uid, Server, Ouid, false).
+
+
+-spec add_friend(Uid :: binary(), Server :: binary(), Ouid :: binary(), WasBlocked :: boolean()) -> ok.
+add_friend(Uid, Server, Ouid, WasBlocked) ->
     ?INFO("~p is friends with ~p", [Uid, Ouid]),
     model_friends:add_friend(Uid, Ouid),
-    ejabberd_hooks:run(add_friend, Server, [Uid, Server, Ouid]).
+    ejabberd_hooks:run(add_friend, Server, [Uid, Server, Ouid, WasBlocked]).
 
 
 -spec remove_friend(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.

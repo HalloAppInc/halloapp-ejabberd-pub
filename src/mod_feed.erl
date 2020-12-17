@@ -27,7 +27,7 @@
     make_feed_comment_stanza/8,
     broadcast_event/4,
     filter_feed_items/2,
-    add_friend/3,
+    add_friend/4,
     remove_user/2
 ]).
 
@@ -127,13 +127,15 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
     xmpp:make_iq_result(IQ, #feed_st{action = Action, share_posts = ResultSharePostStanzas}).
 
 
--spec add_friend(Uid :: uid(), Server :: binary(), Ouid :: uid()) -> ok.
-add_friend(Uid, Server, Ouid) ->
+-spec add_friend(Uid :: uid(), Server :: binary(), Ouid :: uid(), WasBlocked :: boolean()) -> ok.
+add_friend(Uid, Server, Ouid, false) ->
     ?INFO("Uid: ~s, Ouid: ~s", [Uid, Ouid]),
     % Posts from Uid to Ouid
     send_old_items(Uid, Ouid, Server),
     % Posts from Ouid to Uid
     send_old_items(Ouid, Uid, Server),
+    ok;
+add_friend(Uid, Server, Ouid, true) ->
     ok.
 
 
