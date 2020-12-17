@@ -459,8 +459,8 @@ get_vh_session_number(Server) ->
 user_send_packet({Packet, State} = _Acc) ->
     % TODO: (nikola) in pb Timestamp is integer so we will soon be able to migrate out of binary ts.
     TimestampSec = util:now_binary(),
-    NewPacket = xmpp:set_timestamp_if_missing(Packet, TimestampSec),
-    ?DEBUG("set_timestamp_if_missing for packet: ~p", [NewPacket]),
+    NewPacket = util:set_timestamp(Packet, TimestampSec),
+    ?DEBUG("set_timestamp for packet: ~p", [NewPacket]),
     {NewPacket, State}.
 
 

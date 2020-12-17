@@ -46,7 +46,9 @@
     err/2,
     ms_to_datetime_string/1,
     get_packet_type/1,
-    get_payload_type/1
+    get_payload_type/1,
+    set_timestamp/2,
+    get_timestamp/1
 ]).
 
 %% Export all functions for unit tests
@@ -317,4 +319,47 @@ get_packet_type(#ack{}) -> ack.
 get_payload_type(#iq{sub_els = [SubEl]}) -> util:to_atom(element(1, SubEl));
 get_payload_type(#message{sub_els = [SubEl]}) -> util:to_atom(element(1, SubEl));
 get_payload_type(_) -> undefined.
+
+
+%% Currently, we only set/get timestamps for different message stanzas:
+%% chat/group_chat/silent_chat/seen/deliveryreceipt stanzas.
+
+-spec set_timestamp(message(), binary()) -> stanza().
+set_timestamp(#message{sub_els = [#chat{} = Chat]} = Msg, T) ->
+    xmpp:set_els(Msg, [Chat#chat{timestamp = T}]);
+set_timestamp(#message{sub_els = [#receipt_seen{} = SeenReceipt]} = Msg, T) ->
+    xmpp:set_els(Msg, [SeenReceipt#receipt_seen{timestamp = T}]);
+set_timestamp(#message{sub_els = [#receipt_response{} = DeliveryReceipt]} = Msg, T) ->
+    xmpp:set_els(Msg, [DeliveryReceipt#receipt_response{timestamp = T}]);
+set_timestamp(#message{sub_els = [#group_chat{} = GroupChat]} = Msg, T) ->
+    xmpp:set_els(Msg, [GroupChat#group_chat{timestamp = T}]);
+set_timestamp(#message{sub_els = [#silent_chat{chat = #chat{} = Chat} = SilentChat]} = Msg, T) ->
+    xmpp:set_els(Msg, [SilentChat#silent_chat{chat = Chat#chat{timestamp = T}}]);
+set_timestamp(#message{sub_els = [SubEl]} = Msg, T) ->
+    try
+        SubElement = xmpp:decode(SubEl, <<>>, [ignore_els]),
+        set_timestamp(Msg#message{sub_els = [SubElement]}, T)
+    catch
+        error : Reason ->
+            ?ERROR("Error decoding xmpp message: ~p, reason: ~p", [Msg, Reason]),
+            Msg
+    end;
+set_timestamp(Packet, _T) -> Packet.
+
+
+-spec get_timestamp(message()) -> binary() | undefined.
+get_timestamp(#message{sub_els = [#chat{timestamp = T}]}) -> T;
+get_timestamp(#message{sub_els = [#receipt_seen{timestamp = T}]}) -> T;
+get_timestamp(#message{sub_els = [#receipt_response{timestamp = T}]}) -> T;
+get_timestamp(#message{sub_els = [#xmlel{} = SubEls]} = Msg) ->
+    try
+        SubElement = xmpp:decode(SubEls, <<>>, [ignore_els]),
+        get_timestamp(Msg#message{sub_els = [SubElement]})
+    catch
+        error : Reason ->
+            ?ERROR("Error decoding xmpp message: ~p, reason: ~p", [Msg, Reason]),
+            Msg
+    end;
+get_timestamp(#message{}) ->
+    undefined.
 

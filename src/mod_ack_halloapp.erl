@@ -72,7 +72,7 @@ send_ack(#message{id = MsgId, from = #jid{user = User}} = Packet)
     ?ERROR("uid: ~s, invalid msg_id: ~s, content: ~p", [User, MsgId, PayloadType]),
     ok;
 send_ack(#message{id = MsgId, from = #jid{user = User, server = ServerHost} = From} = Packet) ->
-    PacketTs = xmpp:get_timestamp(Packet),
+    PacketTs = util:get_timestamp(Packet),
     Timestamp = case PacketTs of
         undefined ->
             ?WARNING("Uid: ~s, timestamp is undefined, msg_id: ~s", [User, MsgId]),
