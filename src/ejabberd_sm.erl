@@ -141,15 +141,7 @@ route(To, Term) ->
 
 -spec route(stanza()) -> ok.
 route(Packet) ->
-    #jid{lserver = LServer} = xmpp:get_to(Packet),
-    % TODO: (Nikola) no one is listening on this hook. Consider removing the hook.
-    case ejabberd_hooks:run_fold(sm_receive_packet, LServer, Packet, []) of
-        drop ->
-            ?DEBUG("Hook dropped stanza:~n~ts", [xmpp:pp(Packet)]);
-        Packet1 ->
-            do_route(Packet1),
-            ok
-    end.
+    do_route(Packet).
 
 %% Routes a message specifically through the offline route by invoking the offline_message_hook.
 -spec route_offline_message(message()) -> any().
