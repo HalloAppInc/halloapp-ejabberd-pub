@@ -206,6 +206,7 @@ modules:
   mod_user_session: {}
   mod_contacts: {}
   mod_names: {}
+  mod_server_ts: {}
   mod_chat: {}
   mod_chat_state: {}
   mod_user_activity: {}

@@ -72,7 +72,6 @@
     get_all_pids/0,
     is_existing_resource/3,
     get_commands_spec/0,
-    user_send_packet/1,
     host_up/1,
     host_down/1,
     make_sid/0,
@@ -401,15 +400,6 @@ get_vh_session_number(Server) ->
     length(get_sessions(Mod, LServer)).
 
 
-% TODO: (nikola): move this code to mod_chat. In mod_chat we set the name in the packet.
-user_send_packet({Packet, State} = _Acc) ->
-    % TODO: (nikola) in pb Timestamp is integer so we will soon be able to migrate out of binary ts.
-    TimestampSec = util:now_binary(),
-    NewPacket = util:set_timestamp(Packet, TimestampSec),
-    ?DEBUG("set_timestamp for packet: ~p", [NewPacket]),
-    {NewPacket, State}.
-
-
 -spec config_reloaded() -> ok.
 config_reloaded() ->
     init_cache().
@@ -467,7 +457,6 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 host_up(Host) ->
     ejabberd_hooks:add(roster_in_subscription, Host, ?MODULE, check_in_subscription, 20),
     ejabberd_hooks:add(bounce_sm_packet, Host, ?MODULE, bounce_sm_packet, 100),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 10),
     ejabberd_c2s:host_up(Host),
     halloapp_c2s:host_up(Host).
 
@@ -492,7 +481,6 @@ host_down(Host) ->
               ejabberd_sm, check_in_subscription, 20),
     ejabberd_hooks:delete(bounce_sm_packet, Host,
               ejabberd_sm, bounce_sm_packet, 100),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 10),
     ejabberd_c2s:host_down(Host),
     halloapp_c2s:host_down(Host).
 
@@ -656,7 +644,8 @@ do_route(#presence{to = #jid{lresource = <<"">>} = To, type = T} = Packet)
                                             when T == available; T == away ->
     ?DEBUG("Processing presence to bare JID:~n~ts", [xmpp:pp(Packet)]),
     {LUser, LServer, _} = jid:tolower(To),
-    %TODO: (nikola): Why are we checking if the user is available?
+    %TODO: (nikola): Why are we checking if the user is available? Instead we should
+    % route the packet to the c2s process and there decide if it should be send or not
     case check_if_user_is_available(LUser, LServer) of
         true ->
             lists:foreach(

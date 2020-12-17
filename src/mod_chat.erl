@@ -60,15 +60,17 @@ user_send_packet({#message{id = MsgId} = Packet, State} = _Acc) ->
     SubElementType = element(1, SubEl),
     ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s",
             [FromUid, SubElementType, ToUid, MsgId]),
-    NewPacket = if
+    Packet1 = if
         FromUid =:= <<>> ->
+            % TODO: (nikola): I don't think this can happen
+            ?WARNING("MsgID: ~s Type: ~s has no FromUid", [MsgId, SubElementType]),
             Packet;
         not is_record(SubEl, chat) andalso not is_record(SubEl, silent_chat) ->
             Packet;
         true ->
             set_sender_name(Packet)
     end,
-    {NewPacket, State};
+    {Packet1, State};
 
 user_send_packet({_Packet, _State} = Acc) ->
     Acc.
