@@ -93,7 +93,7 @@ handle_call({send_sms, Phone, Msg}, _From, State) ->
     Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
     ?DEBUG("twilio: ~p", [Response]),
     Res = case Response of
-        {ok, {{_, 201, "CREATED"}, _ResHeaders, ResBody}} ->
+        {ok, {{_, 201, _}, _ResHeaders, ResBody}} ->
             {ok, ResBody};
         _ ->
             ?ERROR("Sending SMS failed ~p", [Response]),
