@@ -145,7 +145,12 @@ get_twilio_auth_token(State) ->
     Body :: uri_string:uri_string().
 compose_twilio_body(Phone, Message) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
-    Uri = uri_string:compose_query([{"To", PlusPhone }, {"From", ?FROM_PHONE}, {"Body", Message}], [{encoding, utf8}]),
+    Uri = uri_string:compose_query([
+            {"To", PlusPhone },
+            {"From", ?FROM_PHONE},
+            {"Body", Message},
+            {"StatusCallback", ?TWILIOCALLBACK_URL}
+        ],[{encoding, utf8}]),
     Uri.
 
 -spec get_app_hash(binary()) -> binary().
