@@ -240,6 +240,8 @@ upgrade_packet(Packet) -> Packet.
 
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
+    %% When we receive packets: we need to check the mode of the user's session.
+    %% When the mode is passive: we should not route any message stanzas to the client (old or new).
     NewPacket = upgrade_packet(Packet),
     {Pass, State1} = case NewPacket of
         #presence{} -> process_presence_in(State, NewPacket);
@@ -532,6 +534,10 @@ process_iq_in(State, #iq{} = IQ) ->
 
 
 -spec process_message_in(state(), message()) -> {boolean(), state()}.
+process_message_in(#{lserver := LServer, mode := passive} = State, #message{} = Msg) ->
+    %% TODO(murali@): update this hook to include just the packet.
+    ejabberd_hooks:run_fold(offline_message_hook, LServer, {bounce, Msg}, []),
+    {false, State};
 process_message_in(State, #message{type = T} = Msg) ->
     %% This function should be as simple as process_iq_in/2,
     %% however, we don't route errors to MUC rooms in order

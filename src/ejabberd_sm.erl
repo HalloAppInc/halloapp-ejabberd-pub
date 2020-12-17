@@ -797,7 +797,10 @@ route_message(Packet) ->
     LServer = To#jid.lserver,
     Mod = get_sm_backend(LServer),
     %% Ignore presence information and just rely on the connection state.
-    case get_active_sessions(Mod, LUser, LServer) of
+
+    %% Irrespective of whether the session is passive or active:
+    %% send the message to the user's c2s process if it exists.
+    case get_sessions(Mod, LUser, LServer) of
         [] ->
             route_offline_message(Packet);
         Ss ->
