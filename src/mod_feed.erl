@@ -539,15 +539,7 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
         publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
         retract -> AudienceSet
     end,
-    %% TODO(murali@): adding this for debugging purposes.. remove this case later..
     %% TODO(murali@): Send the final audience set back to the client in the response.
-    L1 = lists:sort(sets:to_list(AudienceSet)),
-    L2 = lists:sort(sets:to_list(FinalAudienceSet)),
-    case L1 =:= L2 of
-        true -> ok;
-        false ->
-            ?ERROR("FinalAudienceSet: ~p, AudienceSet: ~p", [L2, L1])
-    end,
     FinalAudienceSet.
 
 
