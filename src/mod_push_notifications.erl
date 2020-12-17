@@ -58,14 +58,15 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
-offline_message_hook({_, #message{} = Message} = Acc) ->
+-spec offline_message_hook(message()) -> message().
+offline_message_hook(#message{} = Message) ->
     ?DEBUG("~p", [Message]),
     case should_push(Message) of
         true -> push_message(Message);
         % TODO: make debug, or don't print the full Msg
         false -> ?INFO("ignoring push: ~p", [Message])
     end,
-    Acc.
+    Message.
 
 
 %% Determine whether message should be pushed or not.. based on the content.

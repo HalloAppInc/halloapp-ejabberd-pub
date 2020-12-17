@@ -535,8 +535,7 @@ process_iq_in(State, #iq{} = IQ) ->
 
 -spec process_message_in(state(), message()) -> {boolean(), state()}.
 process_message_in(#{lserver := LServer, mode := passive} = State, #message{} = Msg) ->
-    %% TODO(murali@): update this hook to include just the packet.
-    ejabberd_hooks:run_fold(offline_message_hook, LServer, {bounce, Msg}, []),
+    ejabberd_hooks:run_fold(offline_message_hook, LServer, Msg, []),
     {false, State};
 process_message_in(State, #message{type = T} = Msg) ->
     %% This function should be as simple as process_iq_in/2,

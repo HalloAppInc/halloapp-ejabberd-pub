@@ -146,8 +146,7 @@ route_offline_message(#message{to = To, type = _Type} = Packet) ->
     case ejabberd_auth:user_exists(LUser) andalso
             is_privacy_allow(DecodedPacket) of
         true ->
-            % TODO: (Nikola): remove the bounce 'bounce' from this hook. It has no purpose.
-            ejabberd_hooks:run_fold(offline_message_hook, LServer, {bounce, DecodedPacket}, []);
+            ejabberd_hooks:run_fold(offline_message_hook, LServer, DecodedPacket, []);
         false ->
             ?ERROR("Invalid packet received: ~p", [Packet]),
             Err = util:err(invalid_to_uid),

@@ -147,9 +147,9 @@ user_send_ack(#ack{id = MsgId, from = #jid{user = UserId, server = Server}} = Ac
     end.
 
 
-offline_message_hook({Action, #message{} = Message} = _Acc) ->
+offline_message_hook(#message{} = Message) ->
     store_message(Message),
-    {Action, Message}.
+    Message.
 
 
 user_receive_packet({Packet, #{lserver := _ServerHost} = State} = Acc)

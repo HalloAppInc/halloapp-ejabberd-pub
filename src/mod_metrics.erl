@@ -79,8 +79,8 @@ depends(_Host, _Opts) ->
 %%====================================================================
 %% Hooks handlers
 %%====================================================================
--spec offline_message_hook({any(), message()}) -> {any(), message()}.
-offline_message_hook({_Action, #message{to = #jid{lserver = LServer}}} = Acc) ->
+-spec offline_message_hook(message()) -> message().
+offline_message_hook(#message{to = #jid{lserver = LServer}} = Acc) ->
     push(LServer, offline_message),
     Acc.
 
