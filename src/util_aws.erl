@@ -63,8 +63,8 @@ get_machine_name() ->
     case config:is_prod_env() of
         true ->
             InstanceId = os:cmd("curl -s http://169.254.169.254/latest/meta-data/instance-id"),
-            Command = "$(aws ec2 describe-tags --region us-east-1 --filters \"Name=resource-id,Values=" ++
-                    InstanceId ++ "\" \"Name=key,Values=Name\" --output text | cut -f5)",
+            Command = "aws ec2 describe-tags --region us-east-1 --filters \"Name=resource-id,Values=" ++
+                    InstanceId ++ "\" \"Name=key,Values=Name\" --output text | cut -f5",
             Result = os:cmd(Command),
             util:to_binary(string:trim(Result));
         false ->
