@@ -335,15 +335,6 @@ set_timestamp(#message{sub_els = [#group_chat{} = GroupChat]} = Msg, T) ->
     xmpp:set_els(Msg, [GroupChat#group_chat{timestamp = T}]);
 set_timestamp(#message{sub_els = [#silent_chat{chat = #chat{} = Chat} = SilentChat]} = Msg, T) ->
     xmpp:set_els(Msg, [SilentChat#silent_chat{chat = Chat#chat{timestamp = T}}]);
-set_timestamp(#message{sub_els = [SubEl]} = Msg, T) ->
-    try
-        SubElement = xmpp:decode(SubEl, <<>>, [ignore_els]),
-        set_timestamp(Msg#message{sub_els = [SubElement]}, T)
-    catch
-        error : Reason ->
-            ?ERROR("Error decoding xmpp message: ~p, reason: ~p", [Msg, Reason]),
-            Msg
-    end;
 set_timestamp(Packet, _T) -> Packet.
 
 
@@ -351,15 +342,6 @@ set_timestamp(Packet, _T) -> Packet.
 get_timestamp(#message{sub_els = [#chat{timestamp = T}]}) -> T;
 get_timestamp(#message{sub_els = [#receipt_seen{timestamp = T}]}) -> T;
 get_timestamp(#message{sub_els = [#receipt_response{timestamp = T}]}) -> T;
-get_timestamp(#message{sub_els = [#xmlel{} = SubEls]} = Msg) ->
-    try
-        SubElement = xmpp:decode(SubEls, <<>>, [ignore_els]),
-        get_timestamp(Msg#message{sub_els = [SubElement]})
-    catch
-        error : Reason ->
-            ?ERROR("Error decoding xmpp message: ~p, reason: ~p", [Msg, Reason]),
-            Msg
-    end;
 get_timestamp(#message{}) ->
     undefined.
 
