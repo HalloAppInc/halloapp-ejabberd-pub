@@ -77,7 +77,8 @@ get_sessions(LServer) ->
 get_sessions(Uid, LServer) ->
     {ok, MSessions} = ejabberd_sm_mnesia:get_sessions(Uid, LServer),
     try
-        RSessions = model_session:get_sessions(Uid),
+        RSessionsAll = model_session:get_sessions(Uid),
+        RSessions = filter_alive_sessions(RSessionsAll),
         MSessionsSorted = lists:sort(MSessions),
         RSessionsSorted = lists:sort(RSessions),
         case MSessionsSorted =:= RSessionsSorted of
@@ -87,10 +88,42 @@ get_sessions(Uid, LServer) ->
                     Uid,
                     [S#session.sid || S <- MSessionsSorted],
                     [S#session.sid || S <- RSessionsSorted]])
-        end
+        end,
+        cleanup_sessions(RSessionsAll)
     catch Class:Reason:St ->
         ?ERROR("get_sessions in redis failed: Uid: ~p Stacktrace: ~p",
             [Uid, lager:pr_stacktrace(St, {Class, Reason})])
     end,
     {ok, MSessions}.
+
+
+-spec filter_alive_sessions(Sessions :: [session()]) -> [session()].
+filter_alive_sessions(Sessions) ->
+    lists:filter(
+        fun (#session{sid = {_, Pid}}) ->
+            remote_is_process_alive(Pid)
+        end, Sessions).
+
+remote_is_process_alive(Pid) ->
+    case rpc:call(node(Pid), erlang, is_process_alive, [Pid], 5000) of
+        {badrpc, Reason} ->
+            ?INFO("Pid: ~p badrpc ~p", [Pid, Reason]),
+            true;
+        Result -> Result
+    end.
+
+
+-spec cleanup_sessions(Sessions :: [session()]) -> ok.
+cleanup_sessions(Sessions) ->
+    lists:foreach(fun cleanup_session/1, Sessions).
+
+
+-spec cleanup_session(Session :: session()) -> ok.
+cleanup_session(#session{sid = {_, Pid} = SID, us = {Uid, _}} = Session) ->
+    case remote_is_process_alive(Pid) of
+        true -> ok;
+        false ->
+            ?INFO("Uid: ~s Cleanup dead session ~p", [Uid, SID]),
+            model_session:del_session(Uid, Session)
+    end.
 
