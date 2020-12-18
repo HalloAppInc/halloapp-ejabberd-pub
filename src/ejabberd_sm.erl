@@ -67,8 +67,6 @@
     get_session_sids/3,
     get_user_info/2,
     get_user_info/3,
-    set_user_info/5,
-    del_user_info/4,
     get_user_ip/3,
     get_max_user_sessions/2,
     get_all_pids/0,
@@ -265,47 +263,6 @@ get_user_info(User, Server, Resource) ->
         [{LResource, Info}] -> Info
     end.
 
-% TODO: not used
--spec set_user_info(binary(), binary(), binary(), atom(), term()) -> ok | {error, any()}.
-
-set_user_info(User, Server, Resource, Key, Val) ->
-    LUser = jid:nodeprep(User),
-    LServer = jid:nameprep(Server),
-    LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
-    case get_sessions(Mod, LUser, LServer, LResource) of
-        [] -> {error, notfound};
-        Ss ->
-            lists:foldl(
-                fun(#session{sid = {_, Pid},
-                        info = Info} = Session, _) when Pid == self() ->
-                    Info1 = lists:keystore(Key, 1, Info, {Key, Val}),
-                    set_session(Session#session{info = Info1});
-                (_, Acc) ->
-                    Acc
-              end, {error, not_owner}, Ss)
-    end.
-
-% TODO: not used
--spec del_user_info(binary(), binary(), binary(), atom()) -> ok | {error, any()}.
-
-del_user_info(User, Server, Resource, Key) ->
-    LUser = jid:nodeprep(User),
-    LServer = jid:nameprep(Server),
-    LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
-    case get_sessions(Mod, LUser, LServer, LResource) of
-        [] -> {error, notfound};
-        Ss ->
-            lists:foldl(
-                fun(#session{sid = {_, Pid},
-                        info = Info} = Session, _) when Pid == self() ->
-                    Info1 = lists:keydelete(Key, 1, Info),
-                    set_session(Session#session{info = Info1});
-                (_, Acc) ->
-                    Acc
-              end, {error, not_owner}, Ss)
-    end.
 
 % TODO: (nikola): Both set_presence and unset_presence can use helper function to get_session
 -spec set_presence(sid(), binary(), binary(), binary(),
