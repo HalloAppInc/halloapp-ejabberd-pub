@@ -122,6 +122,7 @@ re_register_user(Uid, _Server, _Phone) ->
 %%====================================================================
 
 
+%% TODO(murali@): log stats for different group-feed activity.
 -spec publish_post(Gid :: gid(), Uid :: uid(), PostId :: binary(), Payload :: binary(),
         GroupFeedSt :: group_feed_st()) -> {ok, group_feed_st()} | {error, atom()}.
 publish_post(Gid, Uid, PostId, Payload, GroupFeedSt) ->
@@ -174,9 +175,7 @@ publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, Payload, GroupFeed
 
             case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
                 [{error, missing}, _, _] ->
-                    %% {error, invalid_post_id};
-                    %% TODO(murali@): temporary code: remove it in 1month.
-                    mod_groups:send_feed_item(Gid, Uid, GroupFeedSt);
+                    {error, invalid_post_id};
                 [{ok, Post}, {ok, Comment}, {ok, ParentPushList}] ->
                     %% Comment with same id already exists: duplicate request from the client.
                     TimestampMs = Comment#comment.ts_ms,
@@ -225,9 +224,7 @@ retract_post(Gid, Uid, PostId, GroupFeedSt) ->
         true ->
             case model_feed:get_post(PostId) of
                 {error, missing} ->
-                    %% {error, invalid_post_id};
-                    %% TODO(murali@): temporary code: remove it in 1month.
-                    mod_groups:send_feed_item(Gid, Uid, GroupFeedSt);
+                    {error, invalid_post_id};
                 {ok, ExistingPost} ->
                     case ExistingPost#post.uid =:= Uid of
                         false -> {error, not_authorized};
@@ -265,9 +262,7 @@ retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
         true ->
             case model_feed:get_comment_data(PostId, CommentId, undefined) of
                 [{error, missing}, _, _] ->
-                    %% {error, invalid_post_id};
-                    %% TODO(murali@): temporary code: remove it in 1month.
-                    mod_groups:send_feed_item(Gid, Uid, GroupFeedSt);
+                    {error, invalid_post_id};
                 [{ok, _Post}, {error, _}, _] ->
                     {error, invalid_comment_id};
                 [{ok, Post}, {ok, ExistingComment}, _] ->
