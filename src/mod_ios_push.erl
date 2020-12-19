@@ -47,6 +47,7 @@
 %% API
 -export([
     push/2,
+    send_dev_push/4,
     crash/0    %% test
 ]).
 %% TODO(murali@): remove the crash api after testing.
@@ -101,6 +102,14 @@ push(_Message, _PushInfo) ->
     ?ERROR("Invalid push_info : ~p", [_PushInfo]).
 
 
+%% TODO(murali@): simplify this further to receive different parts of the payload.
+%% That would be more simpler for client devs.
+-spec send_dev_push(Uid :: binary(), PushInfo :: push_info(),
+        PushTypeBin :: binary(), PayloadBin :: binary()) -> ok | {error, any()}.
+send_dev_push(Uid, PushInfo, PushTypeBin, Payload) ->
+    gen_server:call(get_proc(), {send_dev_push, Uid, PushInfo, PushTypeBin, Payload}).
+
+
 -spec crash() -> ok.
 crash() ->
     gen_server:cast(get_proc(), crash).
@@ -136,6 +145,9 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
+handle_call({send_dev_push, Uid, PushInfo, PushTypeBin, Payload}, _From, State) ->
+    Response = send_dev_push_internal(Uid, PushInfo, PushTypeBin, Payload, State),
+    {reply, Response, State};
 handle_call(_Request, _From, State) ->
     ?ERROR("invalid call request: ~p", [_Request]),
     {reply, {error, invalid_request}, State}.
@@ -338,37 +350,19 @@ push_message_item(PushMessageItem, State) ->
         <<"ios">> -> prod;
         <<"ios_dev">> -> dev
     end,
-    Token = PushMessageItem#push_message_item.push_info#push_info.token,
-    ExpiryTime = PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC,
     PushType = get_push_type(PushMessageItem#push_message_item.message,
             PushMessageItem#push_message_item.push_info),
     PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
     PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType),
-    Priority = get_priority(PushType),
-    DevicePath = get_device_path(Token),
     ApnsId = util:uuid_binary(),
     ContentId = PushMetadata#push_metadata.content_id,
-    HeadersList = [
-        {?APNS_ID, ApnsId},
-        {?APNS_PRIORITY, integer_to_binary(Priority)},
-        {?APNS_EXPIRY, integer_to_binary(ExpiryTime)},
-        {?APNS_TOPIC, ?APP_BUNDLE_ID},
-        {?APNS_PUSH_TYPE, get_apns_push_type(PushType)},
-        {?APNS_COLLAPSE_ID, ContentId}
-    ],
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s", [Uid, Id, ApnsId, ContentId]),
 
-    case get_pid_to_send(BuildType, State) of
-        {undefined, NewState} ->
-            ?ERROR("error: invalid_pid to send this push, Uid: ~p, ApnsId: ~p", [Uid, ApnsId]),
-            NewState;
-        {Pid, NewState} ->
-            _StreamRef = gun:post(Pid, DevicePath, HeadersList, PayloadBin),
-            FinalState = add_to_pending_map(ApnsId, PushMessageItem, NewState),
-            FinalState
-    end.
+    {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
+            PushType, BuildType, PushMessageItem, State),
+    FinalState.
 
 
 -spec add_to_pending_map(ApnsId :: binary(), PushMessageItem :: push_message_item(),
@@ -609,4 +603,52 @@ get_apns_port(prod) ->
     persistent_term:get({?MODULE, apns_port});
 get_apns_port(dev) ->
     persistent_term:get({?MODULE, apns_dev_port}).
+
+
+-spec send_dev_push_internal(Uid :: binary(), PushInfo :: push_info(),
+        PushTypeBin :: binary(), PayloadBin :: binary(),
+        State :: push_state()) -> {ok, push_state()} | {{error, any()}, push_state()}.
+send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
+    BuildType = dev,
+    PushType = util:to_atom(PushTypeBin),
+    ContentId = util:uuid_binary(),
+    ApnsId = util:uuid_binary(),
+    PushMessageItem = #push_message_item{
+        id = ContentId,
+        uid = Uid,
+        message = PayloadBin,   %% Storing it here for now. TODO(murali@): fix this.
+        timestamp = util:now(),
+        retry_ms = ?RETRY_INTERVAL_MILLISEC,
+        push_info = PushInfo
+    },
+    send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
+            PushType, BuildType, PushMessageItem, State).
+
+
+-spec send_post_request_to_apns(Uid :: binary(), ApnsId :: binary(), ContentId :: binary(), PayloadBin :: binary(),
+        PushType :: alert | silent, BuildType :: build_type(), PushMessageItem :: push_message_item(),
+        State :: push_state()) -> {ok, push_state()} | {{error, any()}, push_state()}.
+send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, BuildType, PushMessageItem, State) ->
+    Token = PushMessageItem#push_message_item.push_info#push_info.token,
+    Priority = get_priority(PushType),
+    DevicePath = get_device_path(Token),
+    ExpiryTime = PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC,
+    HeadersList = [
+        {?APNS_ID, ApnsId},
+        {?APNS_PRIORITY, integer_to_binary(Priority)},
+        {?APNS_EXPIRY, integer_to_binary(ExpiryTime)},
+        {?APNS_TOPIC, ?APP_BUNDLE_ID},
+        {?APNS_PUSH_TYPE, get_apns_push_type(PushType)},
+        {?APNS_COLLAPSE_ID, ContentId}
+    ],
+    ?INFO("Uid: ~s, ApnsId: ~s, ContentId: ~s", [Uid, ApnsId, ContentId]),
+    case get_pid_to_send(BuildType, State) of
+        {undefined, NewState} ->
+            ?ERROR("error: invalid_pid to send this push, Uid: ~p, ApnsId: ~p", [Uid, ApnsId]),
+            {{error, cannot_connect}, NewState};
+        {Pid, NewState} ->
+            _StreamRef = gun:post(Pid, DevicePath, HeadersList, PayloadBin),
+            FinalState = add_to_pending_map(ApnsId, PushMessageItem, NewState),
+            {ok, FinalState}
+    end.
 

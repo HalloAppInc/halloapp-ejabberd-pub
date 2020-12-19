@@ -69,6 +69,7 @@
 	 uid_info/1,
 	 phone_info/1,
 	 group_info/1,
+	 send_ios_push/3,
 	 get_commands_spec/0
 	]).
 %% gen_server callbacks
@@ -493,7 +494,14 @@ get_commands_spec() ->
 		module = ?MODULE, function = group_info,
 		args_desc = ["Group ID (gid)"],
 		args_example = [<<"gmWxatkspbosFeZQmVoQ0f">>],
-		args=[{gid, binary}], result = {res, rescode}}
+		args=[{gid, binary}], result = {res, rescode}},
+	#ejabberd_commands{name = send_ios_push, tags = [server],
+		desc = "Send an ios push",
+		module = ?MODULE, function = send_ios_push,
+		args_desc = ["Uid", "PushType", "Payload"],
+		args_example = [<<"123">>, <<"alert">>, <<"GgMSAUg=">>],
+		args=[{uid, binary}, {push_type, binary}, {payload, binary}],
+		result = {res, rescode}}
 	].
 
 
@@ -1127,6 +1135,30 @@ group_info(Gid) ->
                 || {Uid, Type, {Date, Time}, Name} <- Members]
     end,
     ok.
+
+
+%% TODO(murali@): add support for android as well.
+send_ios_push(Uid, PushType, Payload) ->
+    Server = util:get_host(),
+    case ejabberd_auth:user_exists(Uid) of
+        false ->
+            io:format("Invalid uid: ~s", [Uid]);
+        true ->
+            PushInfo = mod_push_tokens:get_push_info(Uid, Server),
+            if
+                PushInfo#push_info.token =:= undefined ->
+                    io:format("Invalid push token: ~s", [Uid]);
+                PushInfo#push_info.os =:= <<"ios">> ->
+                    io:format("Cannot send push to non_dev users: ~s", [Uid]);
+                true ->
+                    case mod_ios_push:send_dev_push(Uid, PushInfo, PushType, Payload) of
+                        ok ->
+                            io:format("Uid: ~s, successfully sent a push", [Uid]);
+                        {error, Reason} ->
+                            io:format("Uid: ~s, failed sending a push: ~p", [Uid, Reason])
+                    end
+            end
+    end.
 
 
 -spec is_my_host(binary()) -> boolean().
