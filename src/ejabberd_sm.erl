@@ -128,13 +128,10 @@ stop() ->
 %% @doc route arbitrary term to c2s process(es)
 route(To, Term) ->
     try do_route(To, Term), ok
-    catch ?EX_RULE(E, R, St) ->  % TODO(Nikola): fix the exception log
-        StackTrace = ?EX_STACK(St),
-        ?ERROR("Failed to route term to ~ts:~n"
-               "** Term = ~p~n"
-               "** ~ts",
-               [jid:encode(To), Term,
-            misc:format_exception(2, E, R, StackTrace)])
+    catch Class : Reason : St ->
+        ?ERROR("Failed to route term to ~ts: Term: ~p~n"
+            "Stacktrace: ~ts",
+            [To#jid.user, Term, lager:pr_stacktrace(St, {Class, Reason})])
     end.
 
 -spec route(stanza()) -> ok.
