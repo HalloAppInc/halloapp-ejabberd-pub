@@ -22,8 +22,6 @@
     put_metrics/2
 ]).
 
-put_metrics(#{}, _TimestampMs) ->
-    ok;
 put_metrics(Metrics, TimestampMs) when is_map(Metrics) ->
     MachineName = util_aws:get_machine_name(),
     put(?MACHINE_KEY, MachineName),
@@ -37,6 +35,8 @@ put_metrics(Metrics, TimestampMs) ->
 
 
 -spec send_metrics(MetricsList :: [], TimestampMs :: integer()) -> ok | {error, any()}.
+send_metrics([], TimestampMs) ->
+    ok;
 send_metrics(MetricsList, TimestampMs) ->
     URL = ?OPENTSDB_URL,
     Headers = [],
