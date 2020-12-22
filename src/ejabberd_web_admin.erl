@@ -42,6 +42,7 @@
 -include("ejabberd_web_admin.hrl").
 -include("translate.hrl").
 -include("time.hrl").
+-include("ejabberd_sm.hrl").
 
 -define(INPUTATTRS(Type, Name, Value, Attrs),
 	?XA(<<"input">>,
@@ -596,7 +597,7 @@ list_vhosts2(Lang, Hosts) ->
 	  ?XE(<<"tbody">>,
 	      (lists:map(fun (Host) ->
 				 OnlineUsers =
-				     length(ejabberd_sm:get_vh_session_list(Host)),
+				     ejabberd_sm:ets_count_sessions(),
 				 RegisteredUsers =
 				     ejabberd_auth:count_users(),
 				 ?XE(<<"tr">>,
@@ -806,7 +807,7 @@ get_stats(global, Lang) ->
 		     ?XC(<<"td">>, (pretty_string_int(InS2SNumber)))])])])];
 get_stats(Host, Lang) ->
     OnlineUsers =
-	length(ejabberd_sm:get_vh_session_list(Host)),
+	ejabberd_sm:ets_count_sessions(),
     RegisteredUsers =
 	ejabberd_auth:count_users(),
     [?XAE(<<"table">>, [],
@@ -819,8 +820,9 @@ get_stats(Host, Lang) ->
 		     ?XC(<<"td">>, (pretty_string_int(OnlineUsers)))])])])].
 
 list_online_users(Host, _Lang) ->
+    USRs = [S#session.usr || S <- ejabberd_sm:dirty_get_my_sessions_list()],
     Users = [{S, U}
-	     || {U, S, _R} <- ejabberd_sm:get_vh_session_list(Host)],
+	     || {U, S, _R} <- USRs],
     SUsers = lists:usort(Users),
     lists:flatmap(fun ({_S, U} = SU) ->
 			  [?AC(<<"../user/",

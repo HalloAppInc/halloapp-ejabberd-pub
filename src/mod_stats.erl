@@ -110,11 +110,11 @@ get_local_stats(_Server, _, _, Lang) ->
 
 get_local_stat(Server, [], Name)
     when Name == <<"users/online">> ->
-    case catch ejabberd_sm:get_vh_session_list(Server) of
+    case catch ejabberd_sm:ets_count_sessions() of
       {'EXIT', _Reason} ->
 	  ?STATERR(500, <<"Internal Server Error">>);
-      Users ->
-	  ?STATVAL((integer_to_binary(length(Users))),
+      Count ->
+	  ?STATVAL((integer_to_binary(Count)),
 		   <<"users">>)
     end;
 get_local_stat(_Server, [], Name)

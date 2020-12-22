@@ -22,6 +22,7 @@
 -define(EJABBERD_SM_HRL, true).
 
 -define(SM_CACHE, sm_cache).
+-define(SM_LOCAL, sm_local).
 
 -record(session, {sid, usr, us, priority, info = []}).
 -record(session_counter, {vhost, count}).

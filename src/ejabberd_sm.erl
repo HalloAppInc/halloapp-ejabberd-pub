@@ -51,10 +51,8 @@
     set_presence/6,
     unset_presence/5,
     close_session_unset_presence/5,
-    dirty_get_sessions_list/0,
     dirty_get_my_sessions_list/0,
-    get_vh_session_list/1,
-    get_vh_session_number/1,
+    ets_count_sessions/0,
     get_vh_by_backend/1,
     connected_users/0,
     connected_users_number/0,
@@ -357,30 +355,12 @@ get_session_sids(User, Server, Resource) ->
     Sessions = get_sessions(Mod, LUser, LServer, LResource),
     [SID || #session{sid = SID} <- Sessions].
 
-% TODO: (nikola): Consider removing this. It is unlikely we can efficiently return this list at scale
--spec dirty_get_sessions_list() -> [ljid()].
-
-dirty_get_sessions_list() ->
-    lists:flatmap(
-        fun(Mod) ->
-            [S#session.usr || S <- get_sessions(Mod)]
-        end, get_sm_backends()).
 
 -spec dirty_get_my_sessions_list() -> [#session{}].
 
 dirty_get_my_sessions_list() ->
-    lists:flatmap(
-        fun(Mod) ->
-            [S || S <- get_sessions(Mod),
-            node(element(2, S#session.sid)) == node()]
-        end, get_sm_backends()).
+    ets:match(?SM_LOCAL, '$1').
 
--spec get_vh_session_list(binary()) -> [ljid()].
-
-get_vh_session_list(Server) ->
-    LServer = jid:nameprep(Server),
-    Mod = get_sm_backend(LServer),
-    [S#session.usr || S <- get_sessions(Mod, LServer)].
 
 % TODO: (nikola): Remove. Not used.
 -spec get_all_pids() -> [pid()].
@@ -390,13 +370,6 @@ get_all_pids() ->
         fun(Mod) ->
             [element(2, S#session.sid) || S <- get_sessions(Mod)]
         end, get_sm_backends()).
-
--spec get_vh_session_number(binary()) -> non_neg_integer().
-
-get_vh_session_number(Server) ->
-    LServer = jid:nameprep(Server),
-    Mod = get_sm_backend(LServer),
-    length(get_sessions(Mod, LServer)).
 
 
 -spec config_reloaded() -> ok.
@@ -409,6 +382,7 @@ config_reloaded() ->
 
 init([]) ->
     process_flag(trap_exit, true),
+    ets_init(),
     init_cache(),
     case lists:foldl(
             fun(Mod, ok) -> Mod:init();
@@ -452,6 +426,8 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+
 -spec host_up(binary()) -> ok.
 host_up(Host) ->
     ejabberd_hooks:add(roster_in_subscription, Host, ?MODULE, check_in_subscription, 20),
@@ -497,6 +473,7 @@ set_session(SID, User, Server, Resource, Priority, Info) ->
 
 -spec set_session(#session{}) -> ok | {error, any()}.
 set_session(#session{us = {LUser, LServer}} = Session) ->
+    ets_insert_sesssion(Session),
     Mod = get_sm_backend(LServer),
     case Mod:set_session(Session) of
         ok ->
@@ -593,6 +570,7 @@ activate_session(Uid, Server) ->
 
 -spec delete_session(module(), #session{}) -> ok.
 delete_session(Mod, #session{usr = {LUser, LServer, _}} = Session) ->
+    ets_delete_session(Session),
     Mod:delete_session(Session),
     case use_cache(Mod, LServer) of
         true ->
@@ -912,19 +890,47 @@ cache_nodes(Mod, LServer) ->
         false -> ejabberd_cluster:get_nodes()
     end.
 
+%%--------------------------------------------------------------------
+%%% Local ETS table
+%%--------------------------------------------------------------------
+
+-spec ets_init() -> ok.
+ets_init() ->
+    ets:new(?SM_LOCAL, [
+        set,
+        public,
+        named_table,
+        {keypos, 2},
+        {write_concurrency, true},
+        {read_concurrency, true}
+    ]),
+    ok.
+
+-spec ets_insert_sesssion(session()) -> true.
+ets_insert_sesssion(#session{} = Session) ->
+    ets:insert(?SM_LOCAL, Session).
+
+-spec ets_delete_session(session()) -> true.
+ets_delete_session(#session{} = Session) ->
+    ets:delete(?SM_LOCAL, Session).
+
+-spec ets_count_sessions() -> non_neg_integer().
+ets_count_sessions() ->
+    ets:info(?SM_LOCAL, size).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% ejabberd commands
 
 get_commands_spec() ->
     [#ejabberd_commands{name = connected_users, tags = [session],
-            desc = "List all established sessions",
+            desc = "List all established sessions on this node",
                         policy = admin,
             module = ?MODULE, function = connected_users, args = [],
             result_desc = "List of users sessions",
             result_example = [<<"user1@example.com">>, <<"user2@example.com">>],
             result = {connected_users, {list, {sessions, string}}}},
      #ejabberd_commands{name = connected_users_number, tags = [session, stats],
-            desc = "Get the number of established sessions",
+            desc = "Get the number of established sessions on this node",
                         policy = admin,
             module = ?MODULE, function = connected_users_number,
             result_example = 2,
@@ -951,13 +957,11 @@ get_commands_spec() ->
 -spec connected_users() -> [binary()].
 
 connected_users() ->
-    USRs = dirty_get_sessions_list(),
-    SUSRs = lists:sort(USRs),
-    lists:map(fun ({U, S, R}) -> <<U/binary, $@, S/binary, $/, R/binary>> end,
-          SUSRs).
+    Uids = [Uid || #session{us = {Uid, _}} <- dirty_get_my_sessions_list()],
+    lists:sort(Uids).
 
 connected_users_number() ->
-    length(dirty_get_sessions_list()).
+    ets_count_sessions().
 
 user_resources(User, Server) ->
     Resources = get_user_resources(User, Server),

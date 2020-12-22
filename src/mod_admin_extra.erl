@@ -42,8 +42,8 @@
 	 % Sessions
 	 num_resources/2, resource_num/3,
 	 kick_session/4, status_num/2, status_num/1,
-	 status_list/2, status_list/1, connected_users_info/0,
-	 connected_users_vhost/1, set_presence/7,
+	 status_list/2, status_list/1,
+	 set_presence/7,
 	 get_presence/2, user_sessions_info/2,
 
 	 % Accounts
@@ -305,39 +305,8 @@ get_commands_spec() ->
 								{status, string}
 							       ]}}
 					 }}},
-     #ejabberd_commands{name = connected_users_info,
-			tags = [session],
-			desc = "List all established sessions and their information",
-			module = ?MODULE, function = connected_users_info,
-			args = [],
-			result_example = [{"user1@myserver.com/tka",
-					    "c2s", "127.0.0.1", 42656,8, "ejabberd@localhost",
-                                           231, <<"dnd">>, <<"tka">>, <<>>}],
-			result = {connected_users_info,
-				  {list,
-				   {session, {tuple,
-					      [{jid, string},
-					       {connection, string},
-					       {ip, string},
-					       {port, integer},
-					       {priority, integer},
-					       {node, string},
-					       {uptime, integer},
-					       {status, string},
-					       {resource, string},
-					       {statustext, string}
-					      ]}}
-				  }}},
 
-     #ejabberd_commands{name = connected_users_vhost,
-			tags = [session],
-			desc = "Get the list of established sessions in a vhost",
-			module = ?MODULE, function = connected_users_vhost,
-			args_example = [<<"myexample.com">>],
-			args_desc = ["Server name"],
-			result_example = [<<"user1@myserver.com/tka">>, <<"user2@localhost/tka">>],
-			args = [{host, binary}],
-			result = {connected_users_vhost, {list, {sessions, string}}}},
+
      #ejabberd_commands{name = user_sessions_info,
 			tags = [session],
 			desc = "Get information about all sessions of a user",
@@ -737,23 +706,6 @@ get_status_list(Host, Status_required) ->
      || {{User, Resource, Status, Status_text}, Server, Priority} <- Sessions4,
 	apply(Fstatus, [Status, Status_required])].
 
-connected_users_info() ->
-    lists:filtermap(
-      fun({U, S, R}) ->
-	    case user_session_info(U, S, R) of
-		offline ->
-		    false;
-		Info ->
-		    Jid = jid:encode(jid:make(U, S, R)),
-		    {true, erlang:insert_element(1, Info, Jid)}
-	    end
-      end,
-      ejabberd_sm:dirty_get_sessions_list()).
-
-connected_users_vhost(Host) ->
-    USRs = ejabberd_sm:get_vh_session_list(Host),
-    [ jid:encode(jid:make(USR)) || USR <- USRs].
-
 %% Make string more print-friendly
 stringize(String) ->
     %% Replace newline characters with other code
@@ -942,14 +894,14 @@ stats(Name) ->
 	<<"uptimeseconds">> -> trunc(element(1, erlang:statistics(wall_clock))/1000);
 	<<"processes">> -> length(erlang:processes());
 	<<"registeredusers">> -> ejabberd_auth:count_users();
-	<<"onlineusersnode">> -> length(ejabberd_sm:dirty_get_my_sessions_list());
-	<<"onlineusers">> -> length(ejabberd_sm:dirty_get_sessions_list())
+	<<"onlineusersnode">> -> ejabberd_sm:ets_count_sessions();
+	<<"onlineusers">> -> 0 % can be implemented in the future by asking each node.
     end.
 
 stats(Name, Host) ->
     case Name of
 	<<"registeredusers">> -> ejabberd_auth:count_users();
-	<<"onlineusers">> -> length(ejabberd_sm:get_vh_session_list(Host))
+	<<"onlineusers">> -> ejabberd_sm:ets_count_sessions()
     end.
 
 
