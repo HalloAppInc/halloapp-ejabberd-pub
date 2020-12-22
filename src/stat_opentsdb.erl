@@ -27,7 +27,7 @@ put_metrics(Metrics, TimestampMs) when is_map(Metrics) ->
     put(?MACHINE_KEY, MachineName),
     put_metrics(maps:to_list(Metrics), TimestampMs);
 put_metrics(Metrics, TimestampMs) when length(Metrics) > ?MAX_DATAPOINTS_PER_REQUEST ->
-    {Part1, Part2} = lists:split(Metrics, ?MAX_DATAPOINTS_PER_REQUEST),
+    {Part1, Part2} = lists:split(?MAX_DATAPOINTS_PER_REQUEST, Metrics),
     send_metrics(Part1, TimestampMs),
     put_metrics(Part2, TimestampMs);
 put_metrics(Metrics, TimestampMs) ->
