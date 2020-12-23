@@ -232,14 +232,7 @@ modules:
   mod_prom_exporter: {}
   mod_push_tokens: {}
   mod_push_notifications: {}
-  mod_ios_push:
-    apns:
-      gateway: api.push.apple.com
-      certfile: /etc/apns_certs/prod.pem
-      port: 443
-      dev_gateway: api.sandbox.push.apple.com
-      dev_certfile: /etc/apns_certs/dev.pem
-      dev_port: 443
+  mod_ios_push: {}
   mod_android_push: {}
   mod_ack_halloapp: {}
   mod_trace: {}

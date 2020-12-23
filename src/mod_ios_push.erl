@@ -39,8 +39,16 @@
 
 -define(APP_BUNDLE_ID, <<"com.halloapp.hallo">>).
 
+%% APNS gateway and certificate details.
+-define(APNS_GATEWAY, "api.push.apple.com").
+-define(APNS_PORT, 443).
+-define(APNS_CERTFILE, "/etc/apns_certs/prod.pem").
+-define(APNS_DEV_GATEWAY, "api.sandbox.push.apple.com").
+-define(APNS_DEV_PORT, 443).
+-define(APNS_DEV_CERTFILE, "/etc/apns_certs/dev.pem").
+
 %% gen_mod API
--export([start/2, stop/1, reload/3, depends/2, mod_opt_type/1, mod_options/1]).
+-export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 %% gen_server API
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -73,17 +81,8 @@ depends(_Host, _Opts) ->
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
--spec mod_opt_type(atom()) -> econf:validator().
-mod_opt_type(apns) ->
-    econf:map(
-      econf:atom(),
-      econf:either(
-      econf:binary(),
-      econf:int()),
-      [unique]).
-
 mod_options(_Host) ->
-    [{apns, []}].
+    [].
 
 
 get_proc() ->
@@ -119,8 +118,6 @@ crash() ->
 %%====================================================================
 
 init([Host|_]) ->
-    Opts = gen_mod:get_module_opts(Host, ?MODULE),
-    store_options(Opts),
     {Pid, Mon} = connect_to_apns(prod),
     {DevPid, DevMon} = connect_to_apns(dev),
     {ok, #push_state{
@@ -564,48 +561,25 @@ setup_timer(Msg, TimeoutSec) ->
 %% Module Options
 %%====================================================================
 
-%% TODO(murali@): Persistent terms are super expensive. Update this to use ets table!
-store_options(Opts) ->
-    ApnsOptions = mod_push_notifications_opt:apns(Opts),
-
-    %% Store APNS Gateway and APIkey as strings.
-    ApnsGateway = proplists:get_value(gateway, ApnsOptions),
-    persistent_term:put({?MODULE, apns_gateway}, binary_to_list(ApnsGateway)),
-    ApnsCertfile = proplists:get_value(certfile, ApnsOptions),
-    persistent_term:put({?MODULE, apns_certfile}, binary_to_list(ApnsCertfile)),
-    %% Store APNS port as int.
-    ApnsPort = proplists:get_value(port, ApnsOptions),
-    persistent_term:put({?MODULE, apns_port}, ApnsPort),
-
-    %% Store APNS DevGateway and API Devkey as strings.
-    ApnsDevGateway = proplists:get_value(dev_gateway, ApnsOptions),
-    persistent_term:put({?MODULE, apns_dev_gateway}, binary_to_list(ApnsDevGateway)),
-    ApnsDevCertfile = proplists:get_value(dev_certfile, ApnsOptions),
-    persistent_term:put({?MODULE, apns_dev_certfile}, binary_to_list(ApnsDevCertfile)),
-    %% Store APNS Devport as int.
-    ApnsDevPort = proplists:get_value(dev_port, ApnsOptions),
-    persistent_term:put({?MODULE, apns_dev_port}, ApnsDevPort).
-
-
 -spec get_apns_gateway(BuildType :: build_type()) -> list().
 get_apns_gateway(prod) ->
-    persistent_term:get({?MODULE, apns_gateway});
+    ?APNS_GATEWAY;
 get_apns_gateway(dev) ->
-    persistent_term:get({?MODULE, apns_dev_gateway}).
+    ?APNS_DEV_GATEWAY.
 
 
 -spec get_apns_certfile(BuildType :: build_type()) -> list().
 get_apns_certfile(prod) ->
-    persistent_term:get({?MODULE, apns_certfile});
+    ?APNS_CERTFILE;
 get_apns_certfile(dev) ->
-    persistent_term:get({?MODULE, apns_dev_certfile}).
+    ?APNS_DEV_CERTFILE.
 
 
 -spec get_apns_port(BuildType :: build_type()) -> integer().
 get_apns_port(prod) ->
-    persistent_term:get({?MODULE, apns_port});
+    ?APNS_PORT;
 get_apns_port(dev) ->
-    persistent_term:get({?MODULE, apns_dev_port}).
+    ?APNS_DEV_PORT.
 
 
 -spec send_dev_push_internal(Uid :: binary(), PushInfo :: push_info(),
