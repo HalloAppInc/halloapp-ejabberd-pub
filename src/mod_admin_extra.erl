@@ -56,16 +56,12 @@
 	 % Send message
 	 send_message/5, send_stanza/3, send_stanza_c2s/4,
 
-	 % Privacy list
-	 privacy_set/3,
-
 	 % Stats
 	 stats/1, stats/2
 	]).
 
 
 -include("ejabberd_commands.hrl").
--include("mod_privacy.hrl").
 -include("ejabberd_sm.hrl").
 -include("xmpp.hrl").
 
@@ -936,15 +932,6 @@ send_stanza_c2s(Username, Host, Resource, Stanza) ->
 	    io:format("incorrect stanza: ~ts~n", [xmpp:format_error(Why)]),
 	    {error, Why}
     end.
-
-privacy_set(Username, Host, QueryS) ->
-    Jid = jid:make(Username, Host),
-    QueryEl = fxml_stream:parse_element(QueryS),
-    SubEl = xmpp:decode(QueryEl),
-    IQ = #iq{type = set, id = <<"push">>, sub_els = [SubEl],
-	     from = Jid, to = Jid},
-    Result = mod_privacy:process_iq(IQ),
-    Result#iq.type == result.
 
 %%%
 %%% Stats

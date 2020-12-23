@@ -43,7 +43,6 @@
 -include("scram.hrl").
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("mod_privacy.hrl").
 
 %%-include_lib("exmpp/include/exmpp.hrl").
 %%-include_lib("exmpp/include/exmpp_client.hrl").
@@ -169,7 +168,6 @@ export_user(User, Server, Fd) ->
 	       _ -> Password
 	   end,
     Els = get_vcard(User, Server) ++
-        get_privacy(User, Server) ++
         get_private(User, Server),
     print(Fd, fxml:element_to_binary(
                 #xmlel{name = <<"user">>,
@@ -202,23 +200,6 @@ get_vcard(User, Server) ->
     case mod_vcard:get_vcard(LUser, LServer) of
 	error -> [];
 	Els -> Els
-    end.
-
--spec get_privacy(binary(), binary()) -> [xmlel()].
-get_privacy(User, Server) ->
-    case mod_privacy:get_user_lists(User, Server) of
-        {ok, #privacy{default = Default,
-                      lists = [_|_] = Lists}} ->
-            XLists = lists:map(
-                       fun({Name, Items}) ->
-                               XItems = lists:map(
-					  fun mod_privacy:encode_list_item/1,
-					  Items),
-			       #privacy_list{name = Name, items = XItems}
-                       end, Lists),
-	    [xmpp:encode(#privacy_query{default = Default, lists = XLists})];
-        _ ->
-            []
     end.
 
 

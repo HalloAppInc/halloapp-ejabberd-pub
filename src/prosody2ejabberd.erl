@@ -30,7 +30,6 @@
 -include("scram.hrl").
 -include("xmpp.hrl").
 -include("logger.hrl").
--include("mod_privacy.hrl").
 
 %%%===================================================================
 %%% API
@@ -173,23 +172,6 @@ convert_data(Host, "vcard", User, [Data]) ->
 	_ ->
 	    ok
     end;
-convert_data(Host, "privacy", User, [Data]) ->
-    LUser = jid:nodeprep(User),
-    LServer = jid:nameprep(Host),
-    Lists = proplists:get_value(<<"lists">>, Data, []),
-    Priv = #privacy{
-	      us = {LUser, LServer},
-	      default = proplists:get_value(<<"default">>, Data, none),
-	      lists = lists:flatmap(
-			fun({Name, Vals}) ->
-				Items = proplists:get_value(<<"items">>, Vals, []),
-				case lists:map(fun convert_privacy_item/1,
-					       Items) of
-				    [] -> [];
-				    ListItems -> [{Name, ListItems}]
-				end
-			end, Lists)},
-    mod_privacy:set_list(Priv);
 convert_data(HostStr, "pubsub", Node, [Data]) ->
     case decode_pubsub_host(HostStr) of
 	Host when is_binary(Host);
@@ -279,40 +261,6 @@ convert_room_config(Data) ->
      {moderated, proplists:get_bool(<<"moderated">>, Config)},
      {persistent, proplists:get_bool(<<"persistent">>, Config)},
      {anonymous, Anonymous}] ++ Pass ++ Subj.
-
-convert_privacy_item({_, Item}) ->
-    Action = proplists:get_value(<<"action">>, Item, <<"allow">>),
-    Order = proplists:get_value(<<"order">>, Item, 0),
-    T = misc:binary_to_atom(proplists:get_value(<<"type">>, Item, <<"none">>)),
-    V = proplists:get_value(<<"value">>, Item, <<"">>),
-    MatchIQ = proplists:get_bool(<<"iq">>, Item),
-    MatchMsg = proplists:get_bool(<<"message">>, Item),
-    MatchPresIn = proplists:get_bool(<<"presence-in">>, Item),
-    MatchPresOut = proplists:get_bool(<<"presence-out">>, Item),
-    MatchAll = if (MatchIQ == false) and (MatchMsg == false) and
-		  (MatchPresIn == false) and (MatchPresOut == false) ->
-		       true;
-		  true ->
-		       false
-	       end,
-    {Type, Value} = try case T of
-			    none -> {T, none};
-			    group -> {T, V};
-			    jid -> {T, jid:tolower(jid:decode(V))};
-			    subscription -> {T, misc:binary_to_atom(V)}
-			end
-		    catch _:_ ->
-			    {none, none}
-		    end,
-    #listitem{type = Type,
-	      value = Value,
-	      action = misc:binary_to_atom(Action),
-	      order = erlang:trunc(Order),
-	      match_all = MatchAll,
-	      match_iq = MatchIQ,
-	      match_message = MatchMsg,
-	      match_presence_in = MatchPresIn,
-	      match_presence_out = MatchPresOut}.
 
 url_decode(Encoded) ->
     url_decode(Encoded, <<>>).
