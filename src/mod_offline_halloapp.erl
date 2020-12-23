@@ -148,8 +148,8 @@ user_send_ack(#ack{id = MsgId, from = #jid{user = UserId, server = Server}} = Ac
 
 
 offline_message_hook({Action, #message{} = Message} = _Acc) ->
-    NewMessage = adjust_id_and_store_message(Message),
-    {Action, NewMessage}.
+    store_message(Message),
+    {Action, Message}.
 
 
 user_receive_packet({Packet, #{lserver := _ServerHost} = State} = Acc)
@@ -158,9 +158,9 @@ user_receive_packet({Packet, #{lserver := _ServerHost} = State} = Acc)
         [Packet#message.to#jid.luser, Packet#message.id, Packet#message.retry_count]),
     case Packet#message.retry_count of
         0 ->
-            NewMessage = adjust_id_and_store_message(Packet),
-            setup_push_timer(NewMessage),
-            {NewMessage, State};
+            store_message(Packet),
+            setup_push_timer(Packet),
+            {Packet, State};
         _ ->
             Acc
     end;
@@ -270,22 +270,13 @@ increment_retry_counts(UserId, OfflineMsgs) ->
     ok.
 
 
--spec adjust_id_and_store_message(message()) -> message().
-adjust_id_and_store_message(#message{sub_els = [#end_of_queue{}]} = Message) ->
+-spec store_message(Message :: message()) -> ok.
+store_message(#message{sub_els = [#end_of_queue{}]} = _Message) ->
     %% ignore storing end_of_queue marker packets.
-    Message;
-adjust_id_and_store_message(#message{id = Id} = Message) ->
-    NewMessage = xmpp:set_id_if_missing(Message, util:new_msg_id()),
-
-    %% TODO(murali@): ensure all messages always have id generated.
-    case Id of
-        undefined -> ?WARNING("message id was empty ~p", [Message]);
-        <<>> -> ?WARNING("message id was empty ~p", [Message]);
-        _ -> ok
-    end,
-
-    ok = model_messages:store_message(NewMessage),
-    NewMessage.
+    ok;
+store_message(#message{} = Message) ->
+    ok = model_messages:store_message(Message),
+    ok.
 
 
 -spec setup_push_timer(Message :: message()) -> ok.
