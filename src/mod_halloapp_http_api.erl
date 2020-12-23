@@ -234,25 +234,6 @@ process([<<"registration">>, <<"update_key">>],
             util_http:return_500()
     end;
 
-process([<<"smscallback">>, <<"twilio">>],
-        #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
-    try
-        ClientIP = util_http:get_ip(IP, Headers),
-        UserAgent = util_http:get_user_agent(Headers),
-        ?INFO("Twilio SMS callback: r:~p ip:~s ua:~s", [Data, ClientIP, UserAgent]),
-        Payload = jiffy:decode(Data, [return_maps]),
-        To = maps:get(<<"to">>, Payload),
-        From = maps:get(<<"from">>, Payload),
-        Status = maps:get(<<"status">>, Payload),
-
-        ?INFO("Twilio SMS callback, To: %s, From: %s, Status: %s", [To, From, Status]),
-        {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
-    catch
-        error : Reason : Stacktrace  ->
-            ?ERROR("Twilio SMS callback error: ~p, ~p", [Reason, Stacktrace]),
-            util_http:return_500()
-    end;
-
 process([<<"_ok">>], _Request) ->
     {200, ?HEADER(?CT_PLAIN), <<"ok">>};
 process(Path, Request) ->

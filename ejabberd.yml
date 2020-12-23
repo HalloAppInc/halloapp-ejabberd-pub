@@ -91,6 +91,7 @@ listen:
     module: ejabberd_http
     request_handlers:
       /api/logs: mod_logs_http_api
+      /api/smscallback: mod_sms_callback
       /api: mod_halloapp_http_api
 
 s2s_use_starttls: optional
