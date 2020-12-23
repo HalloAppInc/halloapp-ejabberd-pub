@@ -5,7 +5,6 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("pubsub.hrl").
 -include("time.hrl").
 
 -export([start_link/0]).

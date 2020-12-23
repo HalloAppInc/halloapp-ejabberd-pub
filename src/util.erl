@@ -17,7 +17,6 @@
     cur_timestamp/0,
     timestamp_secs_to_integer/1,
     get_host/0,
-    pubsub_node_name/2,
     now_ms/0,
     now/0,
     now_binary/0,
@@ -106,11 +105,6 @@ cur_timestamp() ->
 -spec timestamp_secs_to_integer(erlang:timestamp()) -> integer().
 timestamp_secs_to_integer(Timestamp) ->
     binary_to_integer(timestamp_to_binary(Timestamp)).
-
-
--spec pubsub_node_name(User :: binary(), NodeType :: atom()) -> binary().
-pubsub_node_name(User, NodeType) ->
-    list_to_binary(atom_to_list(NodeType) ++ "-" ++ binary_to_list(User)).
 
 
 %% Returns random string containing [a-zA-Z0-9] and -_
