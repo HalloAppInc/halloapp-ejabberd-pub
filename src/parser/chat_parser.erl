@@ -50,7 +50,8 @@ xmpp_to_proto(SubEl) ->
         payload = base64:decode(Content),
         enc_payload = EncryptedContent,
         public_key = PublicKey,
-        one_time_pre_key_id = OneTimePreKeyId
+        one_time_pre_key_id = OneTimePreKeyId,
+        sender_log_info = SubEl#chat.sender_log_info
     }.
 
 
@@ -85,6 +86,7 @@ proto_to_xmpp(ProtoPayload) ->
         xmlns = <<"halloapp:chat:messages">>,
         timestamp = util_parser:maybe_convert_to_binary(ProtoPayload#pb_chat_stanza.timestamp),
         sender_name = ProtoPayload#pb_chat_stanza.sender_name,
+        sender_log_info = ProtoPayload#pb_chat_stanza.sender_log_info,
         sub_els = SubEl1 ++ SubEl2
     }.
 
