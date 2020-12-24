@@ -277,11 +277,18 @@ is_uid_traced(Uid) ->
 
 
 trace_packet(Uid, Direction, Packet) ->
-    case is_uid_traced(Uid) of
-        true ->
-            xmpp_trace:info("Uid:~s ~s === ~s",
-                [Uid, Direction, fxml:element_to_binary(xmpp:encode(Packet))]);
-        false -> ok
+    try
+        case is_uid_traced(Uid) of
+            true ->
+                xmpp_trace:info("Uid:~s ~s === ~s",
+                    [Uid, Direction, fxml:element_to_binary(xmpp:encode(Packet))]);
+            false -> ok
+        end
+    catch
+        error : Reason ->
+            %% Logging it as only warning for now.. because these are not critical errors.
+            %% we expect this to happen for some of our packets which do not have proper parsers.
+            ?WARNING("Error encoding packet: ~p, reason: ~p", [Packet, Reason])
     end.
 
 
