@@ -240,8 +240,6 @@ upgrade_packet(Packet) -> Packet.
 
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
-    %% When we receive packets: we need to check the mode of the user's session.
-    %% When the mode is passive: we should not route any message stanzas to the client (old or new).
     NewPacket = upgrade_packet(Packet),
     {Pass, State1} = case NewPacket of
         #presence{} -> process_presence_in(State, NewPacket);
@@ -504,6 +502,12 @@ handle_info(activate_session, #{user := Uid, mode := active} = State) ->
 handle_info(activate_session, #{user := Uid, mode := passive} = State) ->
     ?INFO("Uid: ~s, pid: ~p, Updating mode from passive to active in c2s_state", [Uid, self()]),
     State#{mode => active};
+handle_info({offline_queue_cleared, LastMsgOrderId},
+        #{user := Uid, lserver := Server} = State) ->
+    ?INFO("Uid: ~s, offline_queue is now cleared", [Uid]),
+    NewState = State#{offline_queue_cleared => true},
+    ejabberd_hooks:run(offline_queue_cleared, Server, [Uid, Server, LastMsgOrderId]),
+    NewState;
 handle_info(Info, #{lserver := LServer} = State) ->
     ejabberd_hooks:run_fold(pb_c2s_handle_info, LServer, State, [Info]).
 
@@ -536,9 +540,6 @@ process_iq_in(State, #iq{} = IQ) ->
 
 
 -spec process_message_in(state(), message()) -> {boolean(), state()}.
-process_message_in(#{lserver := LServer, mode := passive} = State, #message{} = Msg) ->
-    ejabberd_hooks:run_fold(offline_message_hook, LServer, Msg, []),
-    {false, State};
 process_message_in(State, #message{type = T} = Msg) ->
     %% This function should be as simple as process_iq_in/2,
     %% however, we don't route errors to MUC rooms in order

@@ -38,6 +38,7 @@
     increment_retry_counts/2,
     get_retry_count/2,
     get_all_user_messages/1,
+    get_user_messages/3,
     record_push_sent/2
 ]).
 
@@ -82,8 +83,6 @@ store_message(Message) ->
     store_message(ToUid, FromUid, MsgId, ContentType, Message).
 
 
--spec store_message(ToUid :: uid(), FromUid :: maybe(uid()), MsgId :: binary(),
-                    ContentType :: binary(), Message :: message()) -> ok | {error, any()}.
 store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_record(Message, message) ->
     store_message(ToUid, FromUid, MsgId, ContentType, fxml:element_to_binary(xmpp:encode(Message)));
 
@@ -179,6 +178,20 @@ get_all_user_messages(Uid) ->
     {ok, Messages}.
 
 
+-spec get_user_messages(Uid :: uid(), MinOrderId :: integer(),
+        Limit :: maybe(integer())) -> {ok, [message()]} | {error, any()}.
+get_user_messages(Uid, MinOrderId, Limit) ->
+    Part1 = ["ZRANGEBYSCORE", message_queue_key(Uid), MinOrderId, "+inf"],
+    Part2 = case Limit of
+        undefined -> [];
+        _ -> ["LIMIT", 0, Limit]
+    end,
+    Command = Part1 ++ Part2,
+    {ok, MsgIds} = q(Command),
+    Messages = get_all_user_messages(Uid, MsgIds),
+    {ok, Messages}.
+
+
 -spec get_all_user_messages(Uid :: uid(), MsgIds :: [binary()]) -> [maybe(offline_message())].
 get_all_user_messages(_Uid, []) ->
     [];
@@ -235,21 +248,10 @@ parse_fields(MsgId, FieldValuesList) ->
                 to_uid = ToUid,
                 from_uid = maps:get(?FIELD_FROM, MsgDataMap, undefined),
                 content_type = maps:get(?FIELD_CONTENT_TYPE, MsgDataMap),
-                retry_count = fix_retry_count(RetryCount, ToUid, MsgId),
+                retry_count = RetryCount,
                 order_id = binary_to_integer(maps:get(?FIELD_ORDER, MsgDataMap))
             }
     end.
-
-
-
--spec fix_retry_count(integer(), uid(), binary()) -> integer().
-fix_retry_count(0, Uid, MsgId) ->
-    % TODO: this warning should not happen after 2020-10-25, after this date we can
-    % delete this function
-    ?WARNING("Retry count should not be 0 Uid: ~p, MsgId: ~p", [Uid, MsgId]),
-    1;
-fix_retry_count(X, _Uid, _MsgId) ->
-    X.
 
 
 -spec get_content_type(message()) -> binary().

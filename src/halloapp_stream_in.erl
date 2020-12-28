@@ -483,6 +483,7 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
             stream_state => wait_for_authentication,
             stream_version => {1,0},
             stream_authenticated => false,
+            offline_queue_cleared => false,
             crypto => Crypto,
             codec_options => [ignore_els],
             xmlns => ?NS_CLIENT,

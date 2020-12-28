@@ -20,7 +20,10 @@
 
 -define(MESSAGE_RESPONSE_TIMEOUT_MILLISEC, 30000).  %% 30 seconds.
 -define(MAX_RETRY_COUNT, 10).
+-define(RETRY_INTERVAL_MILLISEC, 30000).    %% 30 sec.
 
+
+-type state() :: halloapp_c2s:state().
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
 %% gen_server API
@@ -31,11 +34,12 @@
     offline_message_hook/1,
     user_receive_packet/1,
     user_send_ack/1,
-    sm_register_connection_hook/3,
+    c2s_session_opened/1,
     user_session_activated/2,
     remove_user/2,
     count_user_messages/1,
-    route_offline_messages/1  % DEBUG
+    offline_queue_cleared/3,
+    route_offline_messages/4  % DEBUG
 ]).
 
 
@@ -74,8 +78,9 @@ init([Host|_]) ->
     ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:add(user_send_ack, Host, ?MODULE, user_send_ack, 50),
-    ejabberd_hooks:add(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
+    ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 100),
     ejabberd_hooks:add(user_session_activated, Host, ?MODULE, user_session_activated, 50),
+    ejabberd_hooks:add(offline_queue_cleared, Host, ?MODULE, offline_queue_cleared, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     {ok, #{host => Host}}.
 
@@ -85,8 +90,9 @@ terminate(_Reason, #{host := Host} = _State) ->
     ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
     ejabberd_hooks:delete(user_send_ack, Host, ?MODULE, user_send_ack, 50),
-    ejabberd_hooks:delete(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
+    ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 100),
     ejabberd_hooks:delete(user_session_activated, Host, ?MODULE, user_session_activated, 50),
+    ejabberd_hooks:add(offline_queue_cleared, Host, ?MODULE, offline_queue_cleared, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
@@ -152,36 +158,51 @@ offline_message_hook(#message{} = Message) ->
     Message.
 
 
-user_receive_packet({Packet, #{lserver := _ServerHost} = State} = Acc)
-        when is_record(Packet, message) ->
-    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p",
-        [Packet#message.to#jid.luser, Packet#message.id, Packet#message.retry_count]),
-    case Packet#message.retry_count of
-        0 ->
-            store_message(Packet),
-            setup_push_timer(Packet),
-            {Packet, State};
-        _ ->
-            Acc
-    end;
+%% When we receive packets: we need to check the mode of the user's session.
+%% When the mode is passive: we should not route any message stanzas to the client (old or new).
+user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
+        #{mode := passive} = State} = _Acc) ->
+    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
+    %% TODO(murali@): trigger the offline hook somehow.
+    ejabberd_sm:route_offline_message(Message),
+    {stop, {drop, State}};
+
+%% If OfflineQueue is cleared: send all messages.
+%% If not, send only offline messages: they have retry_count >=1.
+user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
+        #{mode := active, offline_queue_cleared := false} = State} = _Acc) when RetryCount =:= 0 ->
+    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
+    store_message(Message),
+    setup_push_timer(Message),
+    {stop, {drop, State}};
+user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
+        #{mode := active, offline_queue_cleared := true} = _State} = Acc) ->
+    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
+    store_message(Message),
+    setup_push_timer(Message),
+    Acc;
+
 user_receive_packet(Acc) ->
     Acc.
 
 
-sm_register_connection_hook(SID, JID, Info) ->
-    #jid{luser = LUser, lserver = LServer, lresource = LResource} = JID,
-    US = {LUser, LServer},
-    USR = {LUser, LServer, LResource},
-    Session = #session{sid = SID, usr = USR, us = US, info = Info},
-    case ejabberd_sm:is_session_active(Session) of
-        true -> route_offline_messages(JID);
-        false -> ok
-    end.
+-spec c2s_session_opened(State :: state()) -> state().
+c2s_session_opened(#{mode := active, user := UserId, lserver := Server} = State) ->
+    route_offline_messages(UserId, Server, 0, true),
+    State#{offline_queue_cleared => true};
+c2s_session_opened(#{mode := passive} = State) ->
+    State.
+
+
+-spec offline_queue_cleared(UserId :: binary(), Server :: binary(), LastMsgOrderId :: integer()) -> ok.
+offline_queue_cleared(UserId, Server, LastMsgOrderId) ->
+    ?INFO("Uid: ~s", [UserId]),
+    route_offline_messages(UserId, Server, LastMsgOrderId+1, false),
+    ok.
 
 
 user_session_activated(User, Server) ->
-    JID = jid:make(User, Server),
-    route_offline_messages(JID).
+    route_offline_messages(User, Server, 0, true).
 
 
 remove_user(User, _Server) ->
@@ -195,16 +216,58 @@ count_user_messages(User) ->
     Res.
 
 
--spec route_offline_messages(JID :: jid()) -> ok.
-route_offline_messages(#jid{luser = UserId, lserver = Server}) ->
+-spec route_offline_messages(UserId :: binary(), Server :: binary(),
+        LastMsgOrderId :: integer(), SendEndOfQueueMarker :: boolean()) -> ok.
+route_offline_messages(UserId, Server, LastMsgOrderId, SendEndOfQueueMarker) ->
     ?INFO("Uid: ~s start", [UserId]),
-    {ok, OfflineMessages} = model_messages:get_all_user_messages(UserId),
-    ?INFO("Uid: ~s has ~p offline messages", [UserId, length(OfflineMessages)]),
+    {ok, OfflineMessages} = model_messages:get_user_messages(UserId, LastMsgOrderId, undefined),
     % TODO: We need to rate limit the number of offline messages we send at once.
     % TODO: get metrics about the number of retries
     FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
+    ?INFO("Uid: ~s has ~p offline messages after order_id: ~p",
+            [UserId, length(FilteredOfflineMessages), LastMsgOrderId]),
     lists:foreach(fun route_offline_message/1, FilteredOfflineMessages),
+
+    % TODO: maybe don't increment the retry count on all the messages
+    % we can increment the retry count on just the first X
+    increment_retry_counts(UserId, FilteredOfflineMessages),
+
     %% TODO(murali@): use end_of_queue marker for time to clear out the offline queue.
+    case SendEndOfQueueMarker of
+        true ->
+            send_end_of_queue_marker(UserId, Server),
+            schedule_offline_queue_check(UserId, FilteredOfflineMessages, LastMsgOrderId);
+        false -> ok
+    end,
+    ok.
+
+
+%% We check our offline_queue after sometime even after we flush out all messages.
+%% Because other processes could end up storing some messages here.
+-spec schedule_offline_queue_check(UserId :: binary(), OfflineMessages :: [offline_message()],
+        PrevLastMsgOrderId :: integer()) -> ok.
+schedule_offline_queue_check(UserId, OfflineMessages, PrevLastMsgOrderId) ->
+    ?INFO("Uid: ~s, now has ~p offline messages",
+            [UserId, length(OfflineMessages)]),
+    NewLastMsgOrderId = case OfflineMessages of
+        [] ->
+            PrevLastMsgOrderId;
+        _ ->
+            case PrevLastMsgOrderId > 0 of
+                true -> ?WARNING("Uid: ~s, sending more messages after order_id: ~p",
+                        [PrevLastMsgOrderId]);
+                false -> ok
+            end,
+            LastOfflineMessage = lists:last(OfflineMessages),
+            LastOfflineMessage#offline_message.order_id
+    end,
+    ?INFO("send offline_queue_cleared notice to c2s process: ~p", [self()]),
+    erlang:send_after(?RETRY_INTERVAL_MILLISEC, self(), {offline_queue_cleared, NewLastMsgOrderId}),
+    ok.
+
+
+-spec send_end_of_queue_marker(UserId :: binary(), Server :: binary()) -> ok.
+send_end_of_queue_marker(UserId, Server) ->
     EndOfQueueMarker = #message{
         id = util:new_msg_id(),
         to = jid:make(UserId, Server),
@@ -212,9 +275,6 @@ route_offline_messages(#jid{luser = UserId, lserver = Server}) ->
         sub_els = [#end_of_queue{}]
     },
     ejabberd_router:route(EndOfQueueMarker),
-    % TODO: maybe don't increment the retry count on all the messages
-    % we can increment the retry count on just the first X
-    increment_retry_counts(UserId, FilteredOfflineMessages),
     ok.
 
 

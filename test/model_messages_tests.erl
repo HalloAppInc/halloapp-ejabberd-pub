@@ -189,3 +189,29 @@ push_sent_test() ->
     ?assertNot(model_messages:record_push_sent(?UID1, ?MID1)).
 
 
+get_user_messages_test() ->
+    setup(),
+    ?assertEqual(ok, model_messages:remove_all_user_messages(?UID1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE2)),
+    ?assertEqual({ok, [?OFFLINE_MESSAGE1]},
+            model_messages:get_user_messages(?UID1, 1, 1)),
+    ?assertEqual({ok, [?OFFLINE_MESSAGE1, ?OFFLINE_MESSAGE2]},
+            model_messages:get_user_messages(?UID1, 1, 2)),
+    ?assertEqual({ok, [?OFFLINE_MESSAGE1, ?OFFLINE_MESSAGE2]},
+            model_messages:get_user_messages(?UID1, 1, undefined)),
+    ?assertEqual({ok, [?OFFLINE_MESSAGE2]},
+            model_messages:get_user_messages(?UID1, 2, undefined)),
+    ?assertEqual(ok, model_messages:remove_all_user_messages(?UID1)),
+
+    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE4)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE5)),
+    ?assertEqual({ok, [?OFFLINE_MESSAGE4, ?OFFLINE_MESSAGE5]},
+            model_messages:get_user_messages(?UID1, 1, undefined)),
+    ?assertEqual({ok, [?OFFLINE_MESSAGE4]},
+            model_messages:get_user_messages(?UID1, 3, 1)),
+    ?assertEqual({ok, [?OFFLINE_MESSAGE4, ?OFFLINE_MESSAGE5]},
+            model_messages:get_user_messages(?UID1, 3, undefined)),
+    ?assertEqual({ok, []},
+            model_messages:get_user_messages(?UID1, 5, undefined)).
+
