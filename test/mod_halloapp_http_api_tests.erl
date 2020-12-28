@@ -28,9 +28,9 @@
 -define(BAD_SMS_CODE, <<"111110">>).
 -define(BAD_PASSWORD, <<"BADPASS">>).
 -define(BAD_SIGNED_MESSAGE, <<"BADSIGNEDMESSAGE">>).
--define(IDENTITY_KEY, <<"RExLRkpTTGtma2Zqcw==">>).
--define(SIGNED_KEY, <<"RmFkZnNkZnNkZGZzaw==">>).
--define(ONE_TIME_KEY, <<"RkxTREtGSkRTS2pmZHNr">>).
+-define(IDENTITY_KEY, <<"ZGFkc2FkYXNma2xqc2RsZmtqYXNkbGtmamFzZGxrZmphc2xrZGZqYXNsO2tkCgo=">>).
+-define(SIGNED_KEY, <<"Tmlrb2xhIHdyb3RlIHRoaXMgbmljZSBtZXNzYWdlIG1ha2luZyBzdXJlIGl0IGlzIGxvbmcgCg==">>).
+-define(ONE_TIME_KEY, <<"VGhpcyBpcyBvbmUgdGltZSBrZXkgZm9yIHRlc3RzIHRoYXQgaXMgbG9uZwo=">>).
 -define(REQUEST_SMS_PATH, [<<"registration">>, <<"request_sms">>]).
 -define(REQUEST_SMS_HEADERS(UA), [
     {'Content-Type',<<"application/x-www-form-urlencoded">>},
@@ -132,6 +132,7 @@ register_test() ->
     meck_finish(ejabberd_sm),
     meck_finish(ejabberd_router).
 
+% TODO: add tests for bad keys (too small, too large, too few, too many)
 register_and_whisper_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),

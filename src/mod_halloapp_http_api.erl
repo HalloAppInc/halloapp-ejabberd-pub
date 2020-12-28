@@ -25,6 +25,11 @@
 
 -define(MSG_TO_SIGN, <<"HALLO">>).
 
+-define(MAX_KEY_SIZE, 512).
+-define(MIN_KEY_SIZE, 32).
+-define(MAX_OTK_LENGTH, 256).
+-define(MIN_OTK_LENGTH, 10).
+
 %% API
 -export([start/2, stop/1, reload/3, init/1, depends/2, mod_options/1]).
 -export([process/2]).
@@ -382,16 +387,20 @@ get_and_check_whisper_keys(Payload) ->
         error : badarg ->
             error({wk_error, bad_base64_key})
     end,
-    TooBigOTK = lists:any(fun(K) -> byte_size(K) > 512 end, OneTimeKeysB64),
+    TooBigOTK = lists:any(fun(K) -> byte_size(K) > ?MAX_KEY_SIZE end, OneTimeKeysB64),
+    TooSmallOTK = lists:any(fun(K) -> byte_size(K) < ?MIN_KEY_SIZE end, OneTimeKeysB64),
     if
         IdentityKey =:= <<>> -> error({wk_error, missing_identity_key});
         SignedKey =:= <<>> -> error({wk_error, missing_signed_key});
         OneTimeKeys =:= [] -> error({wk_error, missing_one_time_keys});
-        length(OneTimeKeys) < 10 -> error({wk_error, too_few_one_time_keys});
-        length(OneTimeKeys) > 256 -> error({wk_error, too_many_one_time_keys});
-        byte_size(IdentityKeyB64) > 512 -> error({wk_error, too_big_identity_key});
-        byte_size(SignedKeyB64) > 512 -> error({wk_error, too_big_signed_key});
+        length(OneTimeKeys) < ?MIN_OTK_LENGTH -> error({wk_error, too_few_one_time_keys});
+        length(OneTimeKeys) > ?MAX_OTK_LENGTH -> error({wk_error, too_many_one_time_keys});
+        byte_size(IdentityKeyB64) > ?MAX_KEY_SIZE -> error({wk_error, too_big_identity_key});
+        byte_size(SignedKeyB64) > ?MAX_KEY_SIZE -> error({wk_error, too_big_signed_key});
         TooBigOTK -> error({wk_error, too_big_one_time_keys});
+        byte_size(IdentityKeyB64) < ?MIN_KEY_SIZE -> error({wk_error, too_small_identity_key});
+        byte_size(SignedKeyB64) < ?MIN_KEY_SIZE -> error({wk_error, too_small_signed_key});
+        TooSmallOTK -> error({wk_error, too_small_one_time_keys});
         true -> ok
     end,
     {IdentityKeyB64, SignedKeyB64, OneTimeKeysB64}.
