@@ -300,16 +300,18 @@ process_closed(State, Reason) ->
 
 
 process_terminated(#{sid := SID, socket := Socket,
-        jid := JID, user := U, server := S, resource := R} = State,
+        jid := JID, user := Uid, server := Server, resource := Resource} = State,
         Reason) ->
     Status = format_reason(State, Reason),
     ?INFO("(~ts) Closing c2s session for ~ts: ~ts",
             [halloapp_socket:pp(Socket), jid:encode(JID), Status]),
     State1 = case maps:is_key(pres_last, State) of
         true ->
-            ejabberd_sm:close_session_unset_presence(SID, U, S, R, Status);
+            ejabberd_sm:close_session(SID, Uid, Server, Resource),
+            ejabberd_hooks:run(unset_presence_hook, Server, [Uid, Server, Resource, Status]),
+            State;
         false ->
-            ejabberd_sm:close_session(SID, U, S, R),
+            ejabberd_sm:close_session(SID, Uid, Server, Resource),
             State
     end,
     bounce_message_queue(SID, JID),
@@ -420,7 +422,7 @@ handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
             send_error(State2, Pkt2, <<"bad_request">>)
         end;
     #presence{} ->
-        process_presence(State2, Pkt2);
+        process_presence_out(State2, Pkt2);
     #ack{} ->
         State2;
     #chat_state{} ->
@@ -567,23 +569,25 @@ process_presence_in(#{lserver := LServer} = State0, #presence{} = Pres) ->
     end.
 
 
--spec process_presence(state(), presence()) -> state().
-process_presence(#{user := User, server := Server} = State,
+%% TODO(murali@): move the presence-filter logic to mod_presence or something like that.
+-spec process_presence_out(state(), presence()) -> state().
+process_presence_out(#{user := User, server := Server} = State,
         #presence{type = Type} = Presence) when Type == subscribe; Type == unsubscribe ->
+    %% We run the presence_subs_hook hook,
+    %% since these presence stanzas are about updating user's activity status.
     ejabberd_hooks:run(presence_subs_hook, Server, [User, Server, Presence]),
     State;
-process_presence(State, Presence) ->
-    process_self_presence(State, Presence).
 
+process_presence_out(#{sid := _SID, user := Uid, lserver := Server, resource := Resource} = State,
+        #presence{type = Type} = Presence) when Type == available; Type == away ->
+    %% We run the set_presence_hook,
+    %% since these presence stanzas are about updating user's activity status.
+    ejabberd_hooks:run(set_presence_hook, Server, [Uid, Server, Resource, Presence]),
+    State#{pres_last => Presence, pres_timestamp_ms => util:now_ms()};
 
-%% TODO(murali@): cleanup presence logic here!
-process_self_presence(#{sid := SID, user := Uid, lserver := Server, resource := Resource} = State,
-        #presence{type = Type} = Pres) when Type == available; Type == away ->
-    Priority = 0,
-    ejabberd_sm:set_presence(SID, Uid, Server, Resource, Priority, Pres),
-    State#{pres_last => Pres, pres_timestamp => erlang:timestamp()};
-
-process_self_presence(State, _Pres) ->
+process_presence_out(State, _Pres) ->
+    %% We dont expect this to happen.
+    ?ERROR("Invalid presence stanza: ~p, state: ~p", [_Pres, State]),
     State.
 
 
