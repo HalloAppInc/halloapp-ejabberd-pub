@@ -353,34 +353,10 @@ get_and_check_whisper_keys(Payload) ->
     IdentityKeyB64 = maps:get(<<"identity_key">>, Payload),
     SignedKeyB64 = maps:get(<<"signed_key">>, Payload),
     OneTimeKeysB64 = maps:get(<<"one_time_keys">>, Payload),
-    case util:type(OneTimeKeysB64) of
-        "list" -> ok;
-        _ ->
-            error({wk_error, invalid_one_time_keys})
-    end,
-    {IdentityKey, SignedKey, OneTimeKeys} = try
-        {base64:decode(IdentityKeyB64), base64:decode(SignedKeyB64), [base64:decode(K) || K <- OneTimeKeysB64]}
-    catch
-        error : badarg ->
-            error({wk_error, bad_base64_key})
-    end,
-    TooBigOTK = lists:any(fun(K) -> byte_size(K) > ?MAX_KEY_SIZE end, OneTimeKeysB64),
-    TooSmallOTK = lists:any(fun(K) -> byte_size(K) < ?MIN_KEY_SIZE end, OneTimeKeysB64),
-    if
-        IdentityKey =:= <<>> -> error({wk_error, missing_identity_key});
-        SignedKey =:= <<>> -> error({wk_error, missing_signed_key});
-        OneTimeKeys =:= [] -> error({wk_error, missing_one_time_keys});
-        length(OneTimeKeys) < ?MIN_OTK_LENGTH -> error({wk_error, too_few_one_time_keys});
-        length(OneTimeKeys) > ?MAX_OTK_LENGTH -> error({wk_error, too_many_one_time_keys});
-        byte_size(IdentityKeyB64) > ?MAX_KEY_SIZE -> error({wk_error, too_big_identity_key});
-        byte_size(SignedKeyB64) > ?MAX_KEY_SIZE -> error({wk_error, too_big_signed_key});
-        TooBigOTK -> error({wk_error, too_big_one_time_keys});
-        byte_size(IdentityKeyB64) < ?MIN_KEY_SIZE -> error({wk_error, too_small_identity_key});
-        byte_size(SignedKeyB64) < ?MIN_KEY_SIZE -> error({wk_error, too_small_signed_key});
-        TooSmallOTK -> error({wk_error, too_small_one_time_keys});
-        true -> ok
-    end,
-    {IdentityKeyB64, SignedKeyB64, OneTimeKeysB64}.
+    case mod_whisper:check_whisper_keys(IdentityKeyB64, SignedKeyB64, OneTimeKeysB64) of
+        {error, Reason} -> error({wk_error, Reason});
+        ok -> {IdentityKeyB64, SignedKeyB64, OneTimeKeysB64}
+    end.
 
 -spec update_key(binary(), binary()) -> {ok, binary(), binary()}.
 update_key(Uid, SPub) ->
