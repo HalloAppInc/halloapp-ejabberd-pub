@@ -22,13 +22,9 @@
 -include("util_http.hrl").
 -include("account.hrl").
 -include("ha_types.hrl").
+-include("whisper.hrl").
 
 -define(MSG_TO_SIGN, <<"HALLO">>).
-
--define(MAX_KEY_SIZE, 512).
--define(MIN_KEY_SIZE, 32).
--define(MAX_OTK_LENGTH, 256).
--define(MIN_OTK_LENGTH, 10).
 
 %% API
 -export([start/2, stop/1, reload/3, init/1, depends/2, mod_options/1]).

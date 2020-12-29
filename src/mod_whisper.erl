@@ -63,22 +63,51 @@ mod_options(_Host) ->
 %% iq handlers
 %%====================================================================
 
+%TODO: (nikola) This function will get deleted after clients migrate to setting the initial keys during registration.
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
                     sub_els = [#whisper_keys{type = set} = WhisperKeys]} = IQ) ->
     ?INFO("set_keys Uid: ~s", [Uid]),
     IdentityKey = WhisperKeys#whisper_keys.identity_key,
     SignedKey = WhisperKeys#whisper_keys.signed_key,
     OneTimeKeys = WhisperKeys#whisper_keys.one_time_keys,
+
+    TooBigOTK = lists:any(fun(K) -> byte_size(K) > ?MAX_KEY_SIZE end, OneTimeKeys),
+    TooSmallOTK = lists:any(fun(K) -> byte_size(K) < ?MIN_KEY_SIZE end, OneTimeKeys),
+
     if
         IdentityKey =:= undefined ->
             ?ERROR("Invalid iq: ~p", [IQ]),
             xmpp:make_error(IQ, util:err(undefined_identity_key));
+        byte_size(IdentityKey) > ?MAX_KEY_SIZE ->
+            ?ERROR("IdentityKey is too big: ~p", [IdentityKey]),
+            xmpp:make_error(IQ, util:err(too_big_identity_key));
+        byte_size(IdentityKey) < ?MIN_KEY_SIZE ->
+            ?ERROR("IdentityKey is too small: ~p", [IdentityKey]),
+            xmpp:make_error(IQ, util:err(too_small_identity_key));
         SignedKey =:= undefined ->
             ?ERROR("Invalid iq: ~p", [IQ]),
             xmpp:make_error(IQ, util:err(undefined_signed_key));
+        byte_size(SignedKey) > ?MAX_KEY_SIZE ->
+            ?ERROR("SignedKey is too big: ~p", [SignedKey]),
+            xmpp:make_error(IQ, util:err(too_big_signed_key));
+        byte_size(SignedKey) < ?MIN_KEY_SIZE ->
+            ?ERROR("SignedKey is too small: ~p", [SignedKey]),
+            xmpp:make_error(IQ, util:err(too_small_signed_key));
         OneTimeKeys =:= [] ->
             ?ERROR("Invalid iq: ~p", [IQ]),
             xmpp:make_error(IQ, util:err(empty_one_time_keys));
+        length(OneTimeKeys) < ?MIN_OTK_LENGTH ->
+            ?ERROR("Too few OneTimeKeys OneTimeKeys: ~p", [OneTimeKeys]),
+            xmpp:make_error(IQ, util:err(too_few_one_time_keys));
+        length(OneTimeKeys) > ?MAX_OTK_LENGTH ->
+            ?ERROR("Too many OneTimeKeys OneTimeKeys: ~p", [OneTimeKeys]),
+            xmpp:make_error(IQ, util:err(too_few_one_time_keys));
+        TooBigOTK ->
+            ?ERROR("Some OTK are too big: OneTimeKeys: ~p", [OneTimeKeys]),
+            xmpp:make_error(IQ, util:err(too_big_one_time_keys));
+        TooSmallOTK ->
+            ?ERROR("Some OTK are too small: OneTimeKeys: ~p", [OneTimeKeys]),
+            xmpp:make_error(IQ, util:err(too_small_one_time_keys));
         true ->
             set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys),
             xmpp:make_iq_result(IQ)
@@ -90,6 +119,10 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
     IdentityKey = WhisperKeys#whisper_keys.identity_key,
     SignedKey = WhisperKeys#whisper_keys.signed_key,
     OneTimeKeys = WhisperKeys#whisper_keys.one_time_keys,
+
+    TooBigOTK = lists:any(fun(K) -> byte_size(K) > ?MAX_KEY_SIZE end, OneTimeKeys),
+    TooSmallOTK = lists:any(fun(K) -> byte_size(K) < ?MIN_KEY_SIZE end, OneTimeKeys),
+
     if
         IdentityKey =/= undefined ->
             ?ERROR("Invalid iq: ~p", [IQ]),
@@ -100,6 +133,18 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
         OneTimeKeys =:= [] ->
             ?ERROR("Invalid iq: ~p", [IQ]),
             xmpp:make_error(IQ, util:err(empty_one_time_keys));
+        length(OneTimeKeys) < ?MIN_OTK_LENGTH ->
+            ?ERROR("Too few OneTimeKeys OneTimeKeys: ~p", [OneTimeKeys]),
+            xmpp:make_error(IQ, util:err(too_few_one_time_keys));
+        length(OneTimeKeys) > ?MAX_OTK_LENGTH ->
+            ?ERROR("Too many OneTimeKeys OneTimeKeys: ~p", [OneTimeKeys]),
+            xmpp:make_error(IQ, util:err(too_few_one_time_keys));
+        TooBigOTK ->
+            ?ERROR("Some OTK are too big: OneTimeKeys: ~p", [OneTimeKeys]),
+            xmpp:make_error(IQ, util:err(too_big_one_time_keys));
+        TooSmallOTK ->
+            ?ERROR("Some OTK are too small: OneTimeKeys: ~p", [OneTimeKeys]),
+            xmpp:make_error(IQ, util:err(too_small_one_time_keys));
         true ->
             ?INFO("Uid: ~s, add_otp_keys", [Uid]),
             model_whisper_keys:add_otp_keys(Uid, OneTimeKeys),

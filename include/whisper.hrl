@@ -2,6 +2,11 @@
 %%% Records for whisper_keys and whisper_otp_keys.
 %%%
 %%%----------------------------------------------------------------------
+-define(MAX_KEY_SIZE, 512).
+-define(MIN_KEY_SIZE, 32).
+-define(MAX_OTK_LENGTH, 256).
+-define(MIN_OTK_LENGTH, 10).
+
 
 -record(user_whisper_key_set, {
     uid :: binary(),
