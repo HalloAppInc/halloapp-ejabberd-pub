@@ -248,7 +248,18 @@ handle_delta_contacts(UserId, Server, Contacts) ->
                     [Normalized | Acc]
             end, [], DeleteContactsList),
     remove_contact_phones(UserId, Server, DeleteContactPhones),
-    normalize_and_insert_contacts(UserId, Server, AddContactsList, undefined).
+    AddContacts = normalize_and_insert_contacts(UserId, Server, AddContactsList, undefined),
+
+    %% Send notification to user who invited this user.
+    %% Server fix for an issue on the ios client: remove this after 03-10-21.
+    AddContactsPhoneList = lists:foldl(
+            fun (#contact{normalized = undefined}, Acc) -> Acc;
+                (#contact{normalized = NormPhone}, Acc) -> [NormPhone | Acc]
+            end, [], AddContacts),
+    AddContactsPhoneSet = sets:from_list(AddContactsPhoneList),
+    check_and_send_inviter_notification(UserId, Server, AddContactsPhoneSet),
+
+    AddContacts.
 
 
 -spec remove_all_contacts(UserId :: binary(), Server :: binary()) -> ok.
@@ -288,13 +299,27 @@ finish_sync(UserId, Server, SyncId) ->
     EndTime = os:system_time(microsecond),
     T = EndTime - StartTime,
     ?INFO("Time taken: ~w us", [T]),
-    %% Send notification to User who invited this user.
+
+    %% Send notification to user who invited this user.
+    case sets:is_empty(OldContactSet) of
+        true -> check_and_send_inviter_notification(UserId, Server, NewContactSet);
+        false -> ok
+    end,
+    ok.
+
+
+%% TODO(murali@): need to cache user details like phone across all functions in this module.
+%% Checks if the user is new and sends an inviter notification to the inviters.
+-spec check_and_send_inviter_notification(UserId :: binary(),
+        Server :: binary(), NewContactSet :: [binary()]) -> ok.
+check_and_send_inviter_notification(UserId, Server, NewContactSet) ->
+    %% Send notification to user who invited this user.
+    UserPhone = get_phone(UserId),
     {ok, CreationTs} = model_accounts:get_creation_ts_ms(UserId),
     IsNewUser = CreationTs + ?NOTIFICATION_EXPIRY_MS > util:now_ms(),
-    IsOldContactSetEmpty = sets:is_empty(OldContactSet),
-    case IsNewUser and IsOldContactSetEmpty of
+    case IsNewUser of
         true -> process_notification_to_inviters(UserId, UserPhone, Server, NewContactSet);
-        _ -> ok
+        false -> ok
     end,
     ok.
 
