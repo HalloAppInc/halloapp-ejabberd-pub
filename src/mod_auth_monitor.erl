@@ -104,7 +104,7 @@ reset_auth_service() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-init([Host|_]) ->
+init([_Host|_]) ->
     ?INFO("Start: ~p", [?MODULE]),
     {ok, #state{authq = queue:new(), is_auth_service_normal = true}}.
 

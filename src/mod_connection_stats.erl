@@ -36,7 +36,7 @@ start(Host, Opts) ->
     gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
     ok.
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
     gen_mod:stop_child(get_proc()),
     ok.

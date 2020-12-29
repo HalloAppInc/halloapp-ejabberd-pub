@@ -41,6 +41,7 @@
     retract_post/2,
     retract_comment/2,
     get_post/1,
+    get_posts/1,
     get_comment/2,
     get_post_and_its_comments/1,
     get_comment_data/3,

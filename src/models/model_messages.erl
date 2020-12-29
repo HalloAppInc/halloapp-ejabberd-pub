@@ -254,17 +254,6 @@ parse_fields(MsgId, FieldValuesList) ->
     end.
 
 
--spec get_content_type(message()) -> binary().
-get_content_type(#message{sub_els = SubEls}) ->
-    lists:foldl(
-        fun(ChildEl, Acc) ->
-            case Acc of
-                <<>> -> xmpp:get_name(ChildEl);
-                _ -> Acc
-            end
-        end, <<>>, SubEls).
-
-
 -spec get_store_message_script() -> binary().
 get_store_message_script() ->
     Script = persistent_term:get(?LUA_SCRIPT, default),

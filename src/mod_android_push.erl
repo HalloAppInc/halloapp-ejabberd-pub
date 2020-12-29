@@ -118,7 +118,7 @@ handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     end,
     {noreply, State};
 
-handle_cast(crash, State) ->
+handle_cast(crash, _State) ->
     error(test_crash);
 
 handle_cast(_Request, State) ->

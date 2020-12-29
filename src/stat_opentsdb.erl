@@ -35,7 +35,7 @@ put_metrics(Metrics, TimestampMs) ->
 
 
 -spec send_metrics(MetricsList :: [], TimestampMs :: integer()) -> ok | {error, any()}.
-send_metrics([], TimestampMs) ->
+send_metrics([], _TimestampMs) ->
     ok;
 send_metrics(MetricsList, TimestampMs) ->
     URL = ?OPENTSDB_URL,

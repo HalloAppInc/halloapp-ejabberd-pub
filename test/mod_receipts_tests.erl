@@ -72,7 +72,7 @@ make_chat_msg(Id, FromUid, ToUid, Ts) ->
 
 
 make_offline_msg(Msg) ->
-    ContentType = model_messages:get_content_type(Msg),
+    ContentType = util:get_payload_type(Msg),
     FromUid = Msg#message.from#jid.user,
     ToUid = Msg#message.to#jid.user,
     MsgBin = fxml:element_to_binary(xmpp:encode(Msg)),

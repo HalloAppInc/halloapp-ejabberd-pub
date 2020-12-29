@@ -135,7 +135,7 @@ add_friend(Uid, Server, Ouid, false) ->
     % Posts from Ouid to Uid
     send_old_items(Ouid, Uid, Server),
     ok;
-add_friend(Uid, Server, Ouid, true) ->
+add_friend(_Uid, _Server, _Ouid, true) ->
     ok.
 
 

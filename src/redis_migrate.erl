@@ -448,7 +448,6 @@ count_users_by_version_run(Key, State) ->
 
 check_accounts_run(Key, State) ->
     ?INFO("Key: ~p", [Key]),
-    DryRun = maps:get(dry_run, State, false),
     Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[FullKey, Uid]]} ->

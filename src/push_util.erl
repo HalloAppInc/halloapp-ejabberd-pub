@@ -55,7 +55,7 @@ parse_metadata(#message{id = Id, sub_els = [SubElement]})
         thread_name = <<>>
     };
 
-parse_metadata(#message{id = Id, sub_els = [SubElement]})
+parse_metadata(#message{id = _Id, sub_els = [SubElement]})
         when is_record(SubElement, contact_list), SubElement#contact_list.contacts =/= [] ->
     [Contact | _] = SubElement#contact_list.contacts,
     #push_metadata{

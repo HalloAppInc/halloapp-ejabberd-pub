@@ -186,7 +186,7 @@ delete_account(Uid) ->
         {ok, [undefined | _]} ->
             ?WARNING("Looks like it is already deleted, Uid: ~p", [Uid]),
             ok;
-        {ok, [Phone, CreationTsMsBin, LastActivityTsMs, ActivityStatus, UserAgent, ClientVersion]} ->
+        {ok, [_Phone, CreationTsMsBin, LastActivityTsMs, ActivityStatus, UserAgent, ClientVersion]} ->
             [{ok, _}, RenameResult, {ok, _}, DecrResult] = qp([
                 ["HSET", deleted_uid_key(Uid),
                             ?FIELD_CREATION_TIME, CreationTsMsBin,
