@@ -200,42 +200,31 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %%% Hooks
 %%%===================================================================
 
-% upgrade_packet(#message{} = Message) -> Message;
-% upgrade_packet({message, Id, Type, Lang, From, To, RetryCount, _RerequestCount,
-%         Priority, Subject, Body, Thread, SubEls, Meta}) ->
-%     %% remove additional field.
-%     #message{
-%         id = Id,
-%         type = Type,
-%         lang = Lang,
-%         from = From,
-%         to = To,
-%         retry_count = RetryCount,
-%         priority = Priority,
-%         subject = Subject,
-%         body = Body,
-%         thread = Thread,
-%         sub_els = SubEls,
-%         meta = Meta
-%     };
-% upgrade_packet({message, Id, Type, Lang, From, To, RetryCount,
-%         Priority, Subject, Body, Thread, SubEls, Meta}) ->
-%     %% add missing field.
-%     #message{
-%         id = Id,
-%         type = Type,
-%         lang = Lang,
-%         from = From,
-%         to = To,
-%         retry_count = RetryCount,
-%         rerequest_count = 0,
-%         priority = Priority,
-%         subject = Subject,
-%         body = Body,
-%         thread = Thread,
-%         sub_els = SubEls,
-%         meta = Meta
-%     };
+upgrade_packet(#message{type = chat, sub_els = [SubEl]} = Message) ->
+    case SubEl of
+        #chat{} -> Message;
+        {chat, Xmlns, Timestamp, SenderName, ChatSubEls} ->
+            %% add missing field.
+            Chat = #chat{
+                xmlns = Xmlns,
+                timestamp = Timestamp,
+                sender_name = SenderName,
+                sub_els = ChatSubEls
+            },
+            Message#message{sub_els = [Chat]};
+        {chat, Xmlns, Timestamp, SenderName, _SenderLogInfo, ChatSubEls} ->
+            %% remove additional field.
+            Chat = #chat{
+                xmlns = Xmlns,
+                timestamp = Timestamp,
+                sender_name = SenderName,
+                sub_els = ChatSubEls
+            },
+            Message#message{sub_els = [Chat]};
+        _ ->
+            ?ERROR("invalid sub_element: ~p", [Message]),
+            Message
+    end;
 upgrade_packet(Packet) -> Packet.
 
 
