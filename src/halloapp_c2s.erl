@@ -206,6 +206,8 @@ upgrade_packet(#message{type = chat, sub_els = [SubEl]} = Message) ->
         #rerequest_st{} -> Message;
         #silent_chat{chat = ChatSubEl} ->
             Message#message{sub_els = [#silent_chat{chat = fix_chat_subel(ChatSubEl)}]};
+        #xmlel{} ->
+            upgrade_packet(xmpp:decode_els(Message));
         ChatSubEl ->
             NewChatSubEl = fix_chat_subel(ChatSubEl),
             Message#message{sub_els = [NewChatSubEl]}
