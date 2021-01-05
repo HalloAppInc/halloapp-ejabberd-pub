@@ -46,7 +46,7 @@ process([<<"twilio">>],
             _ ->
                 QueryParams = maps:to_list(Payload),
                 SortedQP = lists:keysort(1, QueryParams),
-                Q = util_http:convert_to_querystring(SortedQP),
+                Q = uri_string:compose_query(SortedQP),
                 Url = lists:flatten(?TWILIO_SMS_CALLBACK_URL, Q),
                 Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"Twilio">>)), [return_maps]),
                 DerivedSignature = base64:encode(
