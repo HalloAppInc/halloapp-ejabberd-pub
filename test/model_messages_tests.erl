@@ -66,6 +66,10 @@ store_message_test() ->
     ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
     ?assertEqual({ok, ?OFFLINE_MESSAGE1}, model_messages:get_message(?UID1, ?MID1)),
 
+    %% make sure the function is idempotent.
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
+    ?assertEqual({ok, ?OFFLINE_MESSAGE1}, model_messages:get_message(?UID1, ?MID1)),
+
     ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE2)),
     ?assertEqual({ok, ?OFFLINE_MESSAGE2}, model_messages:get_message(?UID1, ?MID2)),
     ?assertEqual({ok,[?OFFLINE_MESSAGE1, ?OFFLINE_MESSAGE2]},
