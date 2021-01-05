@@ -912,7 +912,7 @@ ets_insert_sesssion(#session{} = Session) ->
 
 -spec ets_delete_session(session()) -> true.
 ets_delete_session(#session{} = Session) ->
-    ets:delete(?SM_LOCAL, Session).
+    ets:delete_object(?SM_LOCAL, Session).
 
 -spec ets_count_sessions() -> non_neg_integer().
 ets_count_sessions() ->
