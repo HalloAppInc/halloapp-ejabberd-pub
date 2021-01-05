@@ -16,8 +16,8 @@
 -define(UA, <<"HalloApp/iPhone1.0">>).
 
 -define(TWILIO_CALLBACK_PATH, [<<"twilio">>]).
--define(TWILIO_CALLBACK_DATA(From, To, Status),
-    jsx:encode([{<<"from">>, From}, {<<"to">>, To}, {<<"status">>, Status}])).
+-define(TWILIO_CALLBACK_QS(From, To, Status),
+    [{<<"From">>, From}, {<<"To">>, To}, {<<"SmsStatus">>, Status}]).
 -define(TWILIO_CALLBACK_HEADERS(UA), [
     {'Content-Type',<<"application/x-www-form-urlencoded">>},
     {'Accept',<<"*/*">>},
@@ -38,7 +38,7 @@
 
 twilio_callback_test() ->
     setup(),
-    Data = ?TWILIO_CALLBACK_DATA(?TEST_PHONE, ?PHONE, "delivered"),
+    Data = uri_string:compose_query(?TWILIO_CALLBACK_QS(?TEST_PHONE, ?PHONE, "delivered")),
     {200, ?HEADER(?CT_JSON), Info} = mod_sms_callback:process(?TWILIO_CALLBACK_PATH,
         #request{method = 'POST', data = Data, headers = ?TWILIO_CALLBACK_HEADERS(?UA)}),
     [{<<"result">>, <<"ok">>}] = jsx:decode(Info).

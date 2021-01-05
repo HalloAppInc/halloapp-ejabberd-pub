@@ -35,17 +35,17 @@ process([<<"twilio">>],
     try
         ClientIP = util_http:get_ip(IP, Headers),
         UserAgent = util_http:get_user_agent(Headers),
-        ?INFO("Twilio SMS callback: r:~p ip:~s ua:~s", [Data, ClientIP, UserAgent]),
-        Payload = jiffy:decode(Data, [return_maps]),
-        To = maps:get(<<"to">>, Payload),
-        From = maps:get(<<"from">>, Payload),
-        Status = maps:get(<<"status">>, Payload),
+        ?INFO("Twilio SMS callback: data:~p ip:~s ua:~s, headers:~p", [Data, ClientIP, UserAgent, Headers]),
+        QueryList = uri_string:dissect_query(Data),
+        Id = proplists:get_value(<<"SmsSid">>, QueryList),
+        To = proplists:get_value(<<"To">>, QueryList),
+        From = proplists:get_value(<<"From">>, QueryList),
+        Status = proplists:get_value(<<"SmsStatus">>, QueryList),
         TwilioSignature = util_http:get_header('X-Twilio-Signature', Headers),
         case TwilioSignature of
             undefined -> ok;
             _ ->
-                QueryParams = maps:to_list(Payload),
-                SortedQP = lists:keysort(1, QueryParams),
+                SortedQP = lists:keysort(1, QueryList),
                 Q = uri_string:compose_query(SortedQP),
                 Url = lists:flatten(?TWILIO_SMS_CALLBACK_URL, Q),
                 Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"Twilio">>)), [return_maps]),
@@ -55,7 +55,7 @@ process([<<"twilio">>],
                 ?INFO("Twilio signature: ~s, DerivedSignature: ~s, Match: ~p",
                     [TwilioSignature, DerivedSignature, IsSigEqual])
         end,
-        ?INFO("Twilio SMS callback, To: ~s, From: ~s, Status: ~s", [To, From, Status]),
+        ?INFO("Twilio SMS callback, Id: ~s, To: ~s, From: ~s, Status: ~s", [Id, To, From, Status]),
         {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
     catch
         error : Reason : Stacktrace  ->
@@ -70,12 +70,12 @@ process([<<"mbird">>],
     try
         ClientIP = util_http:get_ip(IP, Headers),
         UserAgent = util_http:get_user_agent(Headers),
-        ?INFO("MessageBird SMS callback: Query:~p ip:~s ua:~s", [Q, ClientIP, UserAgent]),
+        ?INFO("MessageBird SMS callback: Query:~p ip:~s ua:~s, headers:~p", [Q, ClientIP, UserAgent, Headers]),
         Id = proplists:get_value(<<"id">>, Q),
         Recipient = proplists:get_value(<<"recipient">>, Q),
         Status = proplists:get_value(<<"status">>, Q),
         MBirdSignature = util_http:get_header('MessageBird-Signature', Headers),
-        MBirdTimestamp = util_http:get_header('MessageBird-Timestamp', Headers),
+        MBirdTimestamp = util_http:get_header('MessageBird-Request-Timestamp', Headers),
         case {MBirdSignature, MBirdTimestamp} of
             {undefined, _} -> ok;
             {_, undefined} -> ok;
