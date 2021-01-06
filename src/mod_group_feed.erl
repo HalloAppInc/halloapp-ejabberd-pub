@@ -201,7 +201,7 @@ publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, Payload, GroupFeed
                     ok = model_feed:publish_comment(CommentId, PostId, Uid,
                             ParentCommentId, PushList, Payload, TimestampMs),
                     ejabberd_hooks:run(group_feed_item_published, Server,
-                            [Gid, Uid, CommentId, PostId, comment]),
+                            [Gid, Uid, CommentId, comment]),
 
                     NewGroupFeedSt = make_group_feed_st(GroupInfo, Uid,
                             SenderName, GroupFeedSt, TimestampMs),
@@ -278,7 +278,7 @@ retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
                             TimestampMs = util:now_ms(),
                             ok = model_feed:retract_comment(CommentId, PostId),
                             ejabberd_hooks:run(group_feed_item_retracted, Server,
-                                    [Gid, Uid, CommentId, PostId, comment]),
+                                    [Gid, Uid, CommentId, comment]),
 
                             NewGroupFeedSt = make_group_feed_st(GroupInfo, Uid,
                                     SenderName, GroupFeedSt, TimestampMs),

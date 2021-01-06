@@ -20,9 +20,10 @@
 
 -export([
     feed_share_old_items/4,
-    publish_feed_item/5,
     feed_item_published/3,
     feed_item_retracted/3,
+    group_feed_item_published/4,
+    group_feed_item_retracted/4,
     register_user/3,
     re_register_user/3,
     add_friend/4,
@@ -56,7 +57,6 @@ start_link() ->
     gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
 
 start(Host, _Opts) ->
-    ejabberd_hooks:add(publish_feed_item, Host, ?MODULE, publish_feed_item, 50),
     ejabberd_hooks:add(feed_item_published, Host, ?MODULE, feed_item_published, 50),
     ejabberd_hooks:add(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
@@ -74,7 +74,6 @@ stop(Host) ->
     ejabberd_hooks:delete(remove_friend, Host, ?MODULE, remove_friend, 50),
     ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
-    ejabberd_hooks:delete(publish_feed_item, Host, ?MODULE, publish_feed_item, 50),
     ejabberd_hooks:delete(feed_item_published, Host, ?MODULE, feed_item_published, 50),
     ejabberd_hooks:delete(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),
     ejabberd_hooks:delete(feed_share_old_items, Host, ?MODULE, feed_share_old_items, 50),
@@ -181,16 +180,14 @@ trigger_cleanup() ->
     gen_server:cast(get_proc(), {cleanup}).
 
 
--spec publish_feed_item(Uid :: binary(), Node :: binary(),
-        ItemId :: binary(), ItemType :: atom(), Payloads :: [xmlel()]) -> ok.
-publish_feed_item(Uid, Node, ItemId, ItemType, _Payload) ->
-    ?INFO("counting Uid:~p, Node: ~p, ItemId: ~p, ItemType:~p", [Uid, Node, ItemId, ItemType]),
+-spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: atom()) -> ok.
+feed_item_published(Uid, ItemId, ItemType) ->
+    ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
     {ok, Phone} = model_accounts:get_phone(Uid),
     CC = mod_libphonenumber:get_cc(Phone),
     IsDev = dev_users:is_dev_uid(Uid),
-    % TODO: maybe try to combine the logic for post and comment
     case ItemType of
-        feedpost ->
+        post ->
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             stat:count("HA/feed", "post"),
             stat:count("HA/feed", "post_by_cc", 1, [{cc, CC}]),
@@ -205,17 +202,39 @@ publish_feed_item(Uid, Node, ItemId, ItemType, _Payload) ->
     ok.
 
 
--spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: binary()) -> ok.
-feed_item_published(Uid, ItemId, ItemType) ->
-    ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
-    stat:count("HA/feed", atom_to_list(ItemType)),
-    ok.
-
-
--spec feed_item_retracted(Uid :: binary(), ItemId :: binary(), ItemType :: binary()) -> ok.
+-spec feed_item_retracted(Uid :: binary(), ItemId :: binary(), ItemType :: atom()) -> ok.
 feed_item_retracted(Uid, ItemId, ItemType) ->
     ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
     stat:count("HA/feed", "retract_" ++ atom_to_list(ItemType)),
+    ok.
+
+
+-spec group_feed_item_published(Gid :: binary(), Uid :: binary(), ItemId :: binary(), ItemType :: atom()) -> ok.
+group_feed_item_published(Gid, Uid, ItemId, ItemType) ->
+    ?INFO("counting Gid: ~p, Uid:~p, ItemId: ~p, ItemType:~p", [Gid, Uid, ItemId, ItemType]),
+    {ok, Phone} = model_accounts:get_phone(Uid),
+    CC = mod_libphonenumber:get_cc(Phone),
+    IsDev = dev_users:is_dev_uid(Uid),
+    case ItemType of
+        post ->
+            ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            stat:count("HA/group_feed", "post"),
+            stat:count("HA/group_feed", "post_by_cc", 1, [{cc, CC}]),
+            stat:count("HA/group_feed", "post_by_dev", 1, [{is_dev, IsDev}]);
+        comment ->
+            ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            stat:count("HA/group_feed", "comment"),
+            stat:count("HA/group_feed", "comment_by_cc", 1, [{cc, CC}]),
+            stat:count("HA/group_feed", "comment_by_dev", 1, [{is_dev, IsDev}]);
+        _ -> ok
+    end,
+    ok.
+
+
+-spec group_feed_item_retracted(Gid :: binary(), Uid :: binary(), ItemId :: binary(), ItemType :: atom()) -> ok.
+group_feed_item_retracted(Gid, Uid, ItemId, ItemType) ->
+    ?INFO("counting Gid: ~p, Uid:~p, ItemId: ~p, ItemType:~p", [Gid, Uid, ItemId, ItemType]),
+    stat:count("HA/group_feed", "retract_" ++ atom_to_list(ItemType)),
     ok.
 
 
