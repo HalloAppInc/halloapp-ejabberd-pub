@@ -38,6 +38,13 @@ put_metrics(Metrics, TimestampMs) ->
 send_metrics([], _TimestampMs) ->
     ok;
 send_metrics(MetricsList, TimestampMs) ->
+    case config:is_prod_env() of
+        true -> do_send_metrics(MetricsList, TimestampMs);
+        false -> ok
+    end.
+
+-spec do_send_metrics(MetricsList :: [], TimestampMs :: integer()) -> ok | {error, any()}.
+do_send_metrics(MetricsList, TimestampMs) ->
     URL = ?OPENTSDB_URL,
     Headers = [],
     Type = "application/json",
@@ -46,14 +53,13 @@ send_metrics(MetricsList, TimestampMs) ->
     Options = [],
     ?DEBUG("URL : ~p, body: ~p", [URL, Body]),
     Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
-    Res = case Response of
+    case Response of
         {ok, {{_, ResCode, _}, _ResHeaders, _ResBody}} when ResCode =:= 200; ResCode =:= 204->
             ok;
         _ ->
             ?ERROR("Failed to send metrics: ~p, response: ~p", [MetricsList, Response]),
             {error, put_failed}
-    end,
-    Res.
+    end.
 
 
 -spec compose_body(MetricsList :: [], TimestampMs :: integer()) -> binary().
