@@ -21,7 +21,6 @@
     startnoise/2,
     noise_check_spub/2,
     reset_stream/1,
-    send_element/2,
     send/2,
     recv/2,
     activate/1,
@@ -177,34 +176,6 @@ reset_stream(#socket_state{pb_stream = PBStream, sockmod = SockMod,
         true ->
             Socket1 = SockMod:reset_stream(Socket),
             SocketData#socket_state{socket = Socket1}
-    end.
-
-
-%% TODO(murali@): Update the log levels when printing the packet to be debug eventually.
--spec send_element(SocketData :: socket_state(), Pkt :: pb_packet()) -> 
-    {ok, fast_tls} | {ok, noise, #socket_state{}} | ok | {error, inet:posix()}.
-send_element(#socket_state{socket_type = SocketType, sockmod = SockMod} = SocketData, Pkt) ->
-    ?INFO("send: xmpp: ~p", [Pkt]),
-    case enif_protobuf:encode(Pkt) of
-        {error, Reason} ->
-            stat:count("HA/pb_packet", "encode_failure", 1, [{socket_type, SocketType}]),
-            ?ERROR("Error encoding packet: ~p, reason: ~p", [Pkt, Reason]),
-            %% protocol error.
-            {error, eproto};
-        FinalPkt ->
-            stat:count("HA/pb_packet", "encode_success", 1, [{socket_type, SocketType}]),
-            ?DEBUG("send: protobuf: ~p", [FinalPkt]),
-            FinalData1 = case SockMod of
-                fast_tls ->
-                    PktSize = byte_size(FinalPkt),
-                    FinalData = <<PktSize:32/big, FinalPkt/binary>>,
-                    ?INFO("send: protobuf with size: ~p, via tls", [FinalData]),
-                    FinalData;
-                ha_enoise ->
-                    ?INFO("send: protobuf: ~p, via noise (size will be added by ha_enoise)", [FinalPkt]),
-                    FinalPkt
-            end,
-            send(SocketData, FinalData1)
     end.
 
 

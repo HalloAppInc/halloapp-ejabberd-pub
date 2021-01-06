@@ -740,22 +740,26 @@ send_pkt(State, XmppPkt) ->
             NewState = send_error(State, XmppPkt, <<"server_error">>),
             {ok, NewState};
         Pkt ->
-            Result = socket_send(State, Pkt),
-            Socket1 = case Result of
+            Result = case encode_packet(State, Pkt) of
+                {ok, BinPkt} ->
+                    socket_send(State, BinPkt);
+                {error, _} = Err ->
+                    Err
+            end,
+%%            Result = socket_send(State, Pkt),
+            State1 = case Result of
                 {ok, noise, SocketData} ->
-                    SocketData;
+                    State#{socket => SocketData};
                 {ok, fast_tls} ->
-                    #{socket := SocketData} = State,
-                    SocketData;
+                    State;
                 {error, _} ->
-                    #{socket := SocketData} = State,
-                    SocketData
+                    State
             end,
-            NewState = State#{socket => Socket1},
-            State1 = try callback(handle_send, Pkt, Result, NewState)
-                catch _:{?MODULE, undef} -> NewState
+            % TODO: nikola: add to this callback the BinPkt
+            State2 = try callback(handle_send, Pkt, Result, State1)
+                catch _:{?MODULE, undef} -> State1
             end,
-            {Result, State1}
+            {Result, State2}
     end,
     case FinalResult of
         _ when is_record(Pkt, stream_error) ->
@@ -801,12 +805,33 @@ send_error(State, Err) ->
 socket_send(#{socket := Sock, stream_state := StateName}, Pkt) ->
     case Pkt of
         _ when StateName /= disconnected ->
-            halloapp_socket:send_element(Sock, Pkt);
+            halloapp_socket:send(Sock, Pkt);
         _ ->
             {error, closed}
     end;
 socket_send(_, _) ->
     {error, closed}.
+
+
+-spec encode_packet(SocketState :: socket_state(), Pkt :: pb_packet())
+            -> {ok, binary()} | {error, pb_encode_error}.
+encode_packet(#{socket := #socket_state{socket_type = SocketType, sockmod = SockMod}}, Pkt) ->
+    case enif_protobuf:encode(Pkt) of
+        {error, Reason} ->
+            stat:count("HA/pb_packet", "encode_failure", 1, [{socket_type, SocketType}]),
+            ?ERROR("Error encoding packet: ~p, reason: ~p", [Pkt, Reason]),
+            {error, pb_encode_error};
+        FinalPkt ->
+            stat:count("HA/pb_packet", "encode_success", 1, [{socket_type, SocketType}]),
+            case SockMod of
+                fast_tls ->
+                    PktSize = byte_size(FinalPkt),
+                    FinalData = <<PktSize:32/big, FinalPkt/binary>>,
+                    {ok, FinalData};
+                ha_enoise ->
+                    {ok, FinalPkt}
+            end
+    end.
 
 
 -spec close_socket(state()) -> state().
