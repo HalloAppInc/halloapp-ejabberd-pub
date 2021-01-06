@@ -22,17 +22,18 @@
     {'Content-Type',<<"application/x-www-form-urlencoded">>},
     {'Accept',<<"*/*">>},
     {'User-Agent',UA}]).
-    %% TODO(vipin): Incoroporate Twilio Signature.
-    %% {'X-Twilio-Signature', <<"4m6Gt5Y9LmNtpKjQ5Wj0iP73tiXPYDMtM2uHrgpFKCQ=">>}]).
+    %% TODO(vipin): Incorporate the following.
+    %% {<<"X-Twilio-Signature">> <<"4m6Gt5Y9LmNtpKjQ5Wj0iP73tiXPYDMtM2uHrgpFKCQ=">>}]).
 
 -define(MBIRD_CALLBACK_PATH, [<<"mbird">>]).
 -define(MBIRD_CALLBACK_QS(To, Status), [{"recipient", To}, {"status", Status}]).
 -define(MBIRD_CALLBACK_HEADERS(UA), [
     {'Content-Type',<<"application/x-www-form-urlencoded">>},
     {'Accept',<<"*/*">>},
-    {'User-Agent',UA},
-    {'MessageBird-Signature', <<"4m6Gt5Y9LmNtpKjQ5Wj0iP73tiXPYDMtM2uHrgpFKCQ=">>},
-    {'MessageBird-Timestamp', calendar:system_time_to_rfc3339(erlang:system_time(second))}]).
+    {'User-Agent',UA}]).
+    %% TODO(vipin): Incorporate the following.
+    %% {<<"Messagebird-Signature">> <<"4m6Gt5Y9LmNtpKjQ5Wj0iP73tiXPYDMtM2uHrgpFKCQ=">>},
+    %% {<<"Messagebird-Request-Timestamp">> calendar:system_time_to_rfc3339(erlang:system_time(second))}]).
 
 %%%----------------------------------------------------------------------
 

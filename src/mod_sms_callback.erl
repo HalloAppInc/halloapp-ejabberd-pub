@@ -41,13 +41,13 @@ process([<<"twilio">>],
         To = proplists:get_value(<<"To">>, QueryList),
         From = proplists:get_value(<<"From">>, QueryList),
         Status = proplists:get_value(<<"SmsStatus">>, QueryList),
-        TwilioSignature = util_http:get_header('X-Twilio-Signature', Headers),
+        TwilioSignature = util_http:get_header(<<"X-Twilio-Signature">>, Headers),
         case TwilioSignature of
             undefined -> ok;
             _ ->
                 SortedQP = lists:keysort(1, QueryList),
                 Q = uri_string:compose_query(SortedQP),
-                Url = lists:flatten(?TWILIO_SMS_CALLBACK_URL, Q),
+                Url = lists:flatten(?TWILIO_SMS_CALLBACK_URL, binary_to_list(Q)),
                 Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"Twilio">>)), [return_maps]),
                 DerivedSignature = base64:encode(
                     crypto:hmac(sha, binary_to_list(maps:get(<<"auth_token">>, Json)), Url)),
@@ -74,8 +74,8 @@ process([<<"mbird">>],
         Id = proplists:get_value(<<"id">>, Q),
         Recipient = proplists:get_value(<<"recipient">>, Q),
         Status = proplists:get_value(<<"status">>, Q),
-        MBirdSignature = util_http:get_header('MessageBird-Signature', Headers),
-        MBirdTimestamp = util_http:get_header('MessageBird-Request-Timestamp', Headers),
+        MBirdSignature = util_http:get_header(<<"Messagebird-Signature">>, Headers),
+        MBirdTimestamp = util_http:get_header(<<"Messagebird-Request-Timestamp">>, Headers),
         case {MBirdSignature, MBirdTimestamp} of
             {undefined, _} -> ok;
             {_, undefined} -> ok;
@@ -83,10 +83,11 @@ process([<<"mbird">>],
                 SortedQP = lists:keysort(1, Q),
                 SortedQ = uri_string:compose_query(SortedQP),
                 %% The body empty for the 'GET' request.
-                Request = [MBirdTimestamp, $\n, SortedQ, $\n, crypto:hash(sha256, <<"">>)],
+                Request = [binary_to_list(MBirdTimestamp), $\n, binary_to_list(SortedQ), $\n, crypto:hash(sha256, <<"">>)],
                 FlatRequest = lists:flatten(Request),
+                Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"MBird">>)), [return_maps]),
                 DerivedSignature = base64:encode(
-                    crypto:hmac(sha256, mod_aws:get_secret(<<"MBird">>), FlatRequest)),
+                    crypto:hmac(sha256, binary_to_list(maps:get(<<"signing_key">>, Json)), FlatRequest)),
                 IsSigEqual = (MBirdSignature =:= DerivedSignature),
                 ?INFO("MessageBird signature: ~s, DerivedSignature: ~s, Match: ~p",
                     [MBirdSignature, DerivedSignature, IsSigEqual])
