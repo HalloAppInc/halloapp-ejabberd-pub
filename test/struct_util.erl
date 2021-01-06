@@ -650,22 +650,23 @@ create_enc_xmlel(Data, IdentityKey, OneTimeKeyId) ->
 
 
 create_chat_stanza(Timestamp, SenderName, SubEls) ->
-    create_chat_stanza(Timestamp, SenderName, SubEls, undefined).
+    create_chat_stanza(Timestamp, SenderName, SubEls, undefined, undefined).
 
 
-create_chat_stanza(Timestamp, SenderName, SubEls, SenderLogInfo) ->
+create_chat_stanza(Timestamp, SenderName, SubEls, SenderLogInfo, SenderClientVersion) ->
     #chat{
         xmlns = <<"halloapp:chat:messages">>,
         timestamp = Timestamp,
         sender_name = SenderName,
         sub_els = SubEls,
-        sender_log_info = SenderLogInfo
+        sender_log_info = SenderLogInfo,
+        sender_client_version = SenderClientVersion
     }.
 
 create_pb_chat_stanza(Timestamp, SenderName, Payload, EncPayload, PublicKey, OneTimeKeyId) ->
-    create_pb_chat_stanza(Timestamp, SenderName, Payload, EncPayload, PublicKey, OneTimeKeyId, undefined).
+    create_pb_chat_stanza(Timestamp, SenderName, Payload, EncPayload, PublicKey, OneTimeKeyId, undefined, undefined).
 
-create_pb_chat_stanza(Timestamp, SenderName, Payload, EncPayload, PublicKey, OneTimeKeyId, SenderLogInfo) ->
+create_pb_chat_stanza(Timestamp, SenderName, Payload, EncPayload, PublicKey, OneTimeKeyId, SenderLogInfo, SenderClientVersion) ->
     #pb_chat_stanza{
         timestamp = Timestamp,
         sender_name = SenderName,
@@ -673,7 +674,8 @@ create_pb_chat_stanza(Timestamp, SenderName, Payload, EncPayload, PublicKey, One
         enc_payload = EncPayload,
         public_key = PublicKey,
         one_time_pre_key_id = OneTimeKeyId,
-        sender_log_info = SenderLogInfo
+        sender_log_info = SenderLogInfo,
+        sender_client_version = SenderClientVersion
     }.
 
 

@@ -347,6 +347,7 @@ message ChatStanza {
 
     // Use >=16 for temporary elements since 1-15 encode smaller
     string sender_log_info = 16;
+    string sender_client_version = 17;
 }
 
 // clients should decrypt, report stats, and then drop this message

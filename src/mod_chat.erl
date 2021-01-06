@@ -12,6 +12,7 @@
 
 -include("xmpp.hrl").
 -include("logger.hrl").
+-include("account.hrl").
 
 
 %% gen_mod API.
@@ -68,7 +69,7 @@ user_send_packet({#message{id = MsgId} = Packet, State} = _Acc) ->
         not is_record(SubEl, chat) andalso not is_record(SubEl, silent_chat) ->
             Packet;
         true ->
-            set_sender_name(Packet)
+            set_sender_info(Packet)
     end,
     {Packet1, State};
 
@@ -79,13 +80,23 @@ user_send_packet({_Packet, _State} = Acc) ->
 %% internal functions
 %%====================================================================
 
--spec set_sender_name(Packet :: message()) -> message().
-set_sender_name(Packet) ->
-    MsgId = xmpp:get_id(Packet),
-    From = xmpp:get_from(Packet),
-    FromUid = From#jid.luser,
-    ?INFO("FromUid: ~s, set name on the chat message-id: ~s", [FromUid, MsgId]),
-    Name = model_accounts:get_name_binary(FromUid),
-    NewPacket = xmpp:set_sender_name(Packet, Name),
-    NewPacket.
+-spec set_sender_info(Message :: message()) -> message().
+set_sender_info(#message{id = MsgId, from = #jid{luser = FromUid}} = Message) ->
+    ?INFO("FromUid: ~s, MsgId: ~s", [FromUid, MsgId]),
+    {ok, SenderAccount} = model_accounts:get_account(FromUid),
+    set_sender_info(Message, SenderAccount#account.name, SenderAccount#account.client_version).
+
+
+-spec set_sender_info(Message :: message(), Name :: binary(), ClientVersion :: binary()) -> message().
+set_sender_info(#message{sub_els = [#chat{} = Chat]} = Message, Name, ClientVersion) ->
+    Chat1 = Chat#chat{sender_name = Name, sender_client_version = ClientVersion},
+    Message#message{sub_els = [Chat1]};
+
+set_sender_info(#message{sub_els = [#silent_chat{chat = Chat}]} = Message, Name, ClientVersion) ->
+    Chat1 = Chat#chat{sender_name = Name, sender_client_version = ClientVersion},
+    Message#message{sub_els = [#silent_chat{chat = Chat1}]};
+
+set_sender_info(#message{} = Message, _Name, _ClientVersion) ->
+    ?ERROR("Invalid message to set sender info: ~p", [Message]),
+    Message.
 
