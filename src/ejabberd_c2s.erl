@@ -537,10 +537,10 @@ handle_cdata(Data, #{lserver := LServer} = State) ->
 			    State, [Data]).
 
 handle_recv(El, Pkt, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(c2s_handle_recv, LServer, State, [El, Pkt]).
+    ejabberd_hooks:run_fold(xmpp_c2s_handle_recv, LServer, State, [El, Pkt]).
 
 handle_send(Pkt, Result, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(c2s_handle_send, LServer, State, [Pkt, Result]).
+    ejabberd_hooks:run_fold(xmpp_c2s_handle_send, LServer, State, [Pkt, Result]).
 
 init([State, Opts]) ->
     Access = proplists:get_value(access, Opts, all),

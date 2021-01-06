@@ -28,7 +28,7 @@
     handle_authenticated_packet/2,
     handle_auth_success/4,
     handle_auth_failure/4,
-    handle_send/3,
+    handle_send/4,
     handle_recv/3
 ]).
 
@@ -431,12 +431,12 @@ handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
     end.
 
 
-handle_recv(El, Pkt, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(c2s_handle_recv, LServer, State, [El, Pkt]).
+handle_recv(BinPkt, Pkt, #{lserver := LServer} = State) ->
+    ejabberd_hooks:run_fold(c2s_handle_recv, LServer, State, [BinPkt, Pkt]).
 
 
-handle_send(Pkt, Result, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(c2s_handle_send, LServer, State, [Pkt, Result]).
+handle_send(BinPkt, Pkt, Result, #{lserver := LServer} = State) ->
+    ejabberd_hooks:run_fold(c2s_handle_send, LServer, State, [BinPkt, Pkt, Result]).
 
 
 init([State, Opts]) ->

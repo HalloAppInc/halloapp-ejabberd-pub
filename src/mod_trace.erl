@@ -24,22 +24,23 @@
     stop_trace/1,
     is_uid_traced/1,
     refresh_traced/0
+
 ]).
 
 % hooks
 -export([
-    user_send_packet/1,
-    user_receive_packet/1,
     register_user/3,
-    remove_user/2
+    remove_user/2,
+    c2s_handle_recv/3,
+    c2s_handle_send/4
 ]).
 
 
 start(Host, Opts) ->
     ?INFO("starting", []),
     gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 100),
-    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
+    ejabberd_hooks:add(c2s_handle_recv, Host, ?MODULE, c2s_handle_recv, 0),
+    ejabberd_hooks:add(c2s_handle_send, Host, ?MODULE, c2s_handle_send, 0),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 10),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
@@ -50,8 +51,8 @@ stop(Host) ->
     gen_mod:stop_child(get_proc()),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 10),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 100),
-    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
+    ejabberd_hooks:delete(c2s_handle_send, Host, ?MODULE, c2s_handle_send, 0),
+    ejabberd_hooks:delete(c2s_handle_recv, Host, ?MODULE, c2s_handle_recv, 0),
     ok.
 
 
@@ -229,16 +230,14 @@ remove_user(Uid, _Server) ->
             ok
     end.
 
-user_send_packet({Packet, #{jid := JID} = State}) ->
-    #jid{luser = Uid} = JID,
-    trace_packet(Uid, send, Packet),
-    {Packet, State}.
+c2s_handle_recv(#{user := Uid} = State, Bin, Pkt) ->
+    trace_pb_packet(Uid, recv, Pkt, Bin),
+    State.
 
-
-user_receive_packet({Packet, #{jid := JID} = State}) ->
-    #jid{luser = Uid} = JID,
-    trace_packet(Uid, recv, Packet),
-    {Packet, State}.
+c2s_handle_send(#{user := Uid} = State, Bin, Pkt, _SendResult) ->
+    % TODO: maybe we should only log packets we send successfully
+    trace_pb_packet(Uid, send, Pkt, Bin),
+    State.
 
 
 start_trace(Uid) ->
@@ -276,18 +275,16 @@ is_uid_traced(Uid) ->
     end.
 
 
-trace_packet(Uid, Direction, Packet) ->
+trace_pb_packet(Uid, Direction, Packet, BinPacket) ->
     try
         case is_uid_traced(Uid) of
             true ->
-                xmpp_trace:info("Uid:~s ~s === ~s",
-                    [Uid, Direction, fxml:element_to_binary(xmpp:encode(Packet))]);
+                xmpp_trace:info("Uid:~s ~s === ~p | ~s",
+                    [Uid, Direction, Packet, base64:encode(BinPacket)]);
             false -> ok
         end
     catch
         error : Reason ->
-            %% Logging it as only warning for now.. because these are not critical errors.
-            %% we expect this to happen for some of our packets which do not have proper parsers.
             ?WARNING("Error encoding packet: ~p, reason: ~p", [Packet, Reason])
     end.
 

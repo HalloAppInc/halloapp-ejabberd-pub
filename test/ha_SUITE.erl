@@ -86,6 +86,9 @@ init_per_suite(InitConfigData) ->
     inet_db:set_lookup([file, native]),
     start_ejabberd(NewConfig),
     create_test_accounts(),
+    % TODO: move this to its own test. Make test for mod_trace
+    mod_trace:start_trace(?UID1),
+    mod_trace:start_trace(?UID2),
     NewConfig.
 
 

@@ -99,8 +99,8 @@
 -callback handle_authenticated_packet(xmpp_element(), state()) -> state().
 -callback handle_auth_success(binary(), binary(), module(), state()) -> state().
 -callback handle_auth_failure(binary(), binary(), binary(), state()) -> state().
--callback handle_send(xmpp_element(), ok | {error, inet:posix()}, state()) -> state().
--callback handle_recv(fxml:xmlel(), xmpp_element() | {error, term()}, state()) -> state().
+-callback handle_send(binary(), pb_packet(), ok | {error, inet:posix()}, state()) -> state().
+-callback handle_recv(binary(), pb_packet() | {error, term()}, state()) -> state().
 -callback handle_timeout(state()) -> state().
 -callback check_password_fun(xmpp_sasl:mechanism(), state()) -> fun().
 -callback bind(binary(), state()) -> {ok, state()} | {error, stanza_error(), state()}.
@@ -115,7 +115,7 @@
     handle_stream_end/2,
     handle_auth_success/4,
     handle_auth_failure/4,
-    handle_send/3,
+    handle_send/4,
     handle_recv/3,
     handle_timeout/1
 ]).
@@ -322,7 +322,7 @@ handle_info({'$gen_event', {protobuf, Bin}},
 
             %% TODO(murali@): need to catch errors here for proto_to_xmpp and decode errors.
             ?INFO("recv: translated xmpp: ~p", [FinalPkt]),
-            State1 = try callback(handle_recv, Bin, FinalPkt, State)
+            State1 = try callback(handle_recv, Bin, Pkt, State)
                catch _:{?MODULE, undef} -> State
                end,
             case is_disconnected(State1) of
@@ -350,7 +350,7 @@ handle_info({'$gen_event', {protobuf, Bin}},
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
             FinalPkt = packet_parser:proto_to_xmpp(Pkt),
             ?INFO("recv: translated xmpp: ~p", [FinalPkt]),
-            State1 = try callback(handle_recv, Bin, FinalPkt, State)
+            State1 = try callback(handle_recv, Bin, Pkt, State)
                catch _:{?MODULE, undef} -> State
                end,
             case is_disconnected(State1) of
@@ -379,7 +379,7 @@ handle_info({'$gen_event', {stream_validation, Bin}}, #{socket := _Socket} = Sta
             ?INFO("recv: translated xmpp: ~p", [FinalPkt]),
             %% Change stream state.
             State1 = process_stream_authentication(FinalPkt, State),
-            State2 = try callback(handle_recv, Bin, FinalPkt, State1)
+            State2 = try callback(handle_recv, Bin, Pkt, State1)
                catch _:{?MODULE, undef} -> State1
                end,
             case is_disconnected(State2) of
@@ -748,14 +748,15 @@ send_pkt(State, XmppPkt) ->
         Pkt ->
             % TODO: remove this log
             ?INFO("send pb: ~p", [Pkt]),
-            Result = case encode_packet(State, Pkt) of
+            {BinPkt1, Result} = case encode_packet(State, Pkt) of
                 {ok, BinPkt} ->
                     % TODO: remove this log
                     ?INFO("send bin: ~p", [BinPkt]),
-                    socket_send(State, BinPkt);
+                    {BinPkt, socket_send(State, BinPkt)};
                 {error, _} = Err ->
-                    Err
+                    {<<>>, Err}
             end,
+
             State1 = case Result of
                 {ok, noise, SocketData} ->
                     State#{socket => SocketData};
@@ -765,7 +766,7 @@ send_pkt(State, XmppPkt) ->
                     State
             end,
             % TODO: nikola: add to this callback the BinPkt
-            State2 = try callback(handle_send, Pkt, Result, State1)
+            State2 = try callback(handle_send, BinPkt1, Pkt, Result, State1)
                 catch _:{?MODULE, undef} -> State1
             end,
             {Result, State2}
