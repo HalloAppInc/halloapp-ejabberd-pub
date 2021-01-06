@@ -344,6 +344,9 @@ message ChatStanza {
     bytes public_key = 4;
     int64 one_time_pre_key_id = 5;
     string sender_name = 6;
+
+    // Use >=16 for temporary elements since 1-15 encode smaller
+    string sender_log_info = 16;
 }
 
 // clients should decrypt, report stats, and then drop this message
