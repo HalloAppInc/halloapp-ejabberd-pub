@@ -740,13 +740,16 @@ send_pkt(State, XmppPkt) ->
             NewState = send_error(State, XmppPkt, <<"server_error">>),
             {ok, NewState};
         Pkt ->
+            % TODO: remove this log
+            ?INFO("send pb: ~p", [Pkt]),
             Result = case encode_packet(State, Pkt) of
                 {ok, BinPkt} ->
+                    % TODO: remove this log
+                    ?INFO("send bin: ~p", [BinPkt]),
                     socket_send(State, BinPkt);
                 {error, _} = Err ->
                     Err
             end,
-%%            Result = socket_send(State, Pkt),
             State1 = case Result of
                 {ok, noise, SocketData} ->
                     State#{socket => SocketData};
@@ -829,6 +832,7 @@ encode_packet(#{socket := #socket_state{socket_type = SocketType, sockmod = Sock
                     FinalData = <<PktSize:32/big, FinalPkt/binary>>,
                     {ok, FinalData};
                 ha_enoise ->
+                    %% Noice layer adds the size prefix.
                     {ok, FinalPkt}
             end
     end.
