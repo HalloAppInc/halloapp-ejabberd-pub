@@ -185,6 +185,11 @@ sudo make install
 sudo /usr/local/sbin/ejabberdctl live
 ```
 
+__Note__:
+The above will likely not work right off the bat. A bandaid solution until the `configure.ac` file is modified is the following:
+1. Set `export LDFLAGS="-L/usr/local/opt/openssl/lib"` along with setting the other flags as above.
+2. Immediately after running `./configure`, `unset LDFLAGS`
+
 Development
 -----------
 
