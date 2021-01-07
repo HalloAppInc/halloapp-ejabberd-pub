@@ -27,6 +27,9 @@
 -define(ACTIVE_USERS_ALL_KEY, <<"active_users_all:">>).
 -define(ACTIVE_USERS_IOS_KEY, <<"active_users_ios:">>).
 -define(ACTIVE_USERS_ANDROID_KEY, <<"active_users_android:">>).
+-define(ENGAGED_USERS_ALL_KEY, <<"eu_all:">>).
+-define(ENGAGED_USERS_IOS_KEY, <<"eu_ios:">>).
+-define(ENGAGED_USERS_ANDROID_KEY, <<"eu_android:">>).
 % top level key clv:Android0.90 -> timestamp
 -define(CLIENT_VERSION_KEY, <<"clv:">>).
 % zset of all client version

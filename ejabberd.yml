@@ -211,6 +211,7 @@ modules:
   mod_chat: {}
   mod_chat_state: {}
   mod_user_activity: {}
+  mod_engaged_users: {}
   mod_connection_stats: {}
   mod_cron: {}
   mod_whisper: {}
