@@ -170,7 +170,7 @@ In terminal, enter `erl` to see whether erlang works fine. If not, run
 Configure ejabberd to use custom OpenSSL, Yaml, iconv. [Resource](https://docs.ejabberd.im/admin/installation/#macos). 
 
 ```
-brew install git elixir openssl expat libyaml libiconv libgd sqlite rebar rebar3 automake autoconf
+brew install git elixir openssl expat libyaml libiconv libgd sqlite rebar rebar3 automake autoconf libsodium
 export CFLAGS="-I/usr/local/opt/openssl/include -I/usr/local/include -I/usr/local/opt/expat/include"
 export CPPFLAGS="-I/usr/local/opt/openssl/include/ -I/usr/local/include -I/usr/local/opt/expat/include"
 ```
@@ -184,6 +184,11 @@ make
 sudo make install
 sudo /usr/local/sbin/ejabberdctl live
 ```
+
+__Note__:
+The above will likely not work right off the bat. A bandaid solution until the `configure.ac` file is modified is the following:
+1. Set `export LDFLAGS="-L/usr/local/opt/openssl/lib"` along with setting the other flags as above.
+2. Immediately after running `./configure`, `unset LDFLAGS`
 
 Development
 -----------
