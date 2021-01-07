@@ -185,14 +185,17 @@ send(#socket_state{sockmod = SockMod, socket = Socket} = SocketData, Data) ->
     ?DEBUG("(~s) Sending pb bytes on stream = ~p", [pp(SocketData), Data]),
     case SockMod of
         ha_enoise ->
+            % Noise adds the 4-byte size prefix
             case ha_enoise:send(Socket, Data) of
                 {ok, NoiseSocket} ->
                     {ok, noise, SocketData#socket_state{socket = NoiseSocket}};
                 {error, _} = Err ->
                     Err
             end;
-         fast_tls ->
-            case fast_tls:send(Socket, Data) of
+        fast_tls ->
+            DataSize = byte_size(Data),
+            DataWithSize = <<DataSize:32/big, Data/binary>>,
+            case fast_tls:send(Socket, DataWithSize) of
                 ok -> {ok, fast_tls};
                 {error, _} = Err -> Err
             end

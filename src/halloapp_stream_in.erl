@@ -826,15 +826,7 @@ encode_packet(#{socket := #socket_state{socket_type = SocketType, sockmod = Sock
             {error, pb_encode_error};
         FinalPkt ->
             stat:count("HA/pb_packet", "encode_success", 1, [{socket_type, SocketType}]),
-            case SockMod of
-                fast_tls ->
-                    PktSize = byte_size(FinalPkt),
-                    FinalData = <<PktSize:32/big, FinalPkt/binary>>,
-                    {ok, FinalData};
-                ha_enoise ->
-                    %% Noice layer adds the size prefix.
-                    {ok, FinalPkt}
-            end
+            {ok, FinalPkt}
     end.
 
 
