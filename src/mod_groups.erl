@@ -348,6 +348,7 @@ send_chat_message(MsgId, Gid, Uid, MessagePayload) ->
             ReceiverUids = lists:delete(Uid, MUids),
             stat:count(?STAT_NS, "send_im"),
             stat:count(?STAT_NS, "recv_im", length(ReceiverUids)),
+            ejabberd_hooks:run(user_send_group_im, Server, [Gid, Uid, MsgId, ReceiverUids]),
             broadcast_packet(From, Server, ReceiverUids, Packet),
             {ok, Ts}
     end.

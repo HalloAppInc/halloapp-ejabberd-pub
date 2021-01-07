@@ -57,6 +57,7 @@ user_send_packet({#message{id = MsgId} = Packet, State} = _Acc) ->
     To = xmpp:get_to(Packet),
     ToUid = To#jid.luser,
     FromUid = From#jid.luser,
+    LServer = From#jid.lserver,
     [SubEl] = Packet#message.sub_els,
     SubElementType = element(1, SubEl),
     ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s",
@@ -69,6 +70,10 @@ user_send_packet({#message{id = MsgId} = Packet, State} = _Acc) ->
         not is_record(SubEl, chat) andalso not is_record(SubEl, silent_chat) ->
             Packet;
         true ->
+            case is_record(SubEl, chat) of
+                true -> ejabberd_hooks:run_fold(user_send_im, LServer, [FromUid, MsgId, ToUid]);
+                false -> ok
+            end,
             set_sender_info(Packet)
     end,
     {Packet1, State};
