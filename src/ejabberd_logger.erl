@@ -191,7 +191,7 @@ do_start(Level) ->
                     {formatter, lager_default_formatter},
                     {formatter_config, HalloappTraceFormatterConfig},
                     {date, LogRotateDate},
-                    {count, 3},
+                    {count, LogRotateCount},
                     {size, 0}]
                 }]
             },
