@@ -10,6 +10,7 @@
 -author('murali').
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("server.hrl").
 -include("ha_types.hrl").
 
 -export([
@@ -338,4 +339,19 @@ get_timestamp(#message{sub_els = [#receipt_seen{timestamp = T}]}) -> T;
 get_timestamp(#message{sub_els = [#receipt_response{timestamp = T}]}) -> T;
 get_timestamp(#message{}) ->
     undefined.
+
+
+-spec convert_xmpp_to_pb_base64(Packet :: stanza()) -> binary().
+convert_xmpp_to_pb_base64(Packet) ->
+    try
+        case packet_parser:xmpp_to_proto(Packet) of
+            #pb_packet{} = PbPacket ->
+                base64:encode(enif_protobuf:encode(PbPacket));
+            _ -> <<>>
+        end
+    catch
+        error: Reason ->
+            ?ERROR("Failed convering packet: ~p to protobuf: ~p", [Packet, Reason]),
+            <<>>
+    end.
 

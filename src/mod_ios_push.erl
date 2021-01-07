@@ -18,6 +18,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("server.hrl").
 -include("translate.hrl").
 -include ("push_message.hrl").
 -include("feed.hrl").
@@ -461,6 +462,7 @@ parse_payload(#message{}) ->
         PushMetadata :: push_metadata(), PushType :: silent | alert) -> binary().
 get_payload(PushMessageItem, PushMetadata, PushType) ->
     Data = parse_payload(PushMessageItem#push_message_item.message),
+    PbMessageB64 = util:convert_xmpp_to_pb_base64(PushMessageItem#push_message_item.message),
     MetadataMap = #{
         <<"content-id">> => PushMetadata#push_metadata.content_id,
         <<"content-type">> => PushMetadata#push_metadata.content_type,
@@ -469,7 +471,8 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
         <<"thread-id">> => PushMetadata#push_metadata.thread_id,
         <<"thread-name">> => PushMetadata#push_metadata.thread_name,
         <<"sender-name">> => PushMetadata#push_metadata.sender_name,
-        <<"data">> => Data
+        <<"data">> => Data,
+        <<"message">> => PbMessageB64
     },
     BuildTypeMap = case PushType of
         alert ->
