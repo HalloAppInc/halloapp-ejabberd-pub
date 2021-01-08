@@ -81,35 +81,36 @@ get_hash(Uid, ClientVersion) ->
     Hash.
 
 
-% If any props are changed, please update props doc: server/doc/server_props.md
 -spec get_props(Uid :: binary(), ClientVersion :: binary()) -> proplist().
 get_props(Uid, ClientVersion) ->
-    PropMap1 = case dev_users:is_dev_uid(Uid) of
-        false ->
-            #{
-                dev => false,
-                max_group_size => 25,
-                max_post_media_items => 10,
-                groups => false,
-                group_feed => false,
-                silent_chat_messages => 5,
-                cleartext_chat_messages => true
-            };
-        true ->
-            #{
-                dev => true,
-                max_group_size => 25,
-                max_post_media_items => 10,
-                groups => true,
-                group_feed => true,
-                silent_chat_messages => 5,
-                cleartext_chat_messages => true
-            }
-    end,
+    PropMap1 = #{
+        dev => false, %% whether the client is dev or not.
+        max_group_size => 25, %% max limit on the group size.
+        max_post_media_items => 10, %% max number of media_items client can post.
+        groups => true, %% whether the client can create groups or not.
+        group_chat => true, %% whether the client can access group_chat or not.
+        group_feed => false, %% whether the client can access group_feed or not.
+        silent_chat_messages => 5, %% number of silent_chats client can send.
+        cleartext_chat_messages => true %% whether to disable cleartext chat messages.
+    },
+    PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
-    PropMap2 = get_client_based_props(PropMap1, ClientType, ClientVersion),
-    Proplist = maps:to_list(PropMap2),
+    PropMap3 = get_client_based_props(PropMap2, ClientType, ClientVersion),
+    Proplist = maps:to_list(PropMap3),
     lists:keysort(1, Proplist).
+
+
+-spec get_uid_based_props(PropMap :: map(), Uid :: binary()) -> map().
+get_uid_based_props(PropMap, Uid) ->
+    case dev_users:is_dev_uid(Uid) of
+        false -> PropMap;
+        true ->
+            % Set dev to be true.
+            PropMap1 = maps:update(dev, true, PropMap),
+            % Set group_feed to true.
+            PropMap2 = maps:update(group_feed, true, PropMap1),
+            PropMap2
+    end.
 
 
 -spec get_client_based_props(PropMap :: map(),
