@@ -72,15 +72,17 @@ send_ack(#message{id = MsgId, from = #jid{user = User}} = Packet)
     ?ERROR("uid: ~s, invalid msg_id: ~s, content: ~p", [User, MsgId, PayloadType]),
     ok;
 send_ack(#message{id = MsgId, from = #jid{user = User, server = ServerHost} = From} = Packet) ->
+    PayloadType = util:get_payload_type(Packet),
     PacketTs = util:get_timestamp(Packet),
-    Timestamp = case PacketTs of
-        undefined ->
+    Timestamp = case {PayloadType, PacketTs} of
+        {rerequest_st, _} -> util:now_binary();
+        {_, undefined} ->
             ?WARNING("Uid: ~s, timestamp is undefined, msg_id: ~s", [User, MsgId]),
             util:now_binary();
-        <<>> ->
+        {_, <<>>} ->
             ?WARNING("Uid: ~s, timestamp is empty, msg_id: ~s", [User, MsgId]),
             util:now_binary();
-        PacketTs -> PacketTs
+        {_, PacketTs} -> PacketTs
     end,
     AckPacket = #ack{id = MsgId, to = From, from = jid:make(ServerHost), timestamp = Timestamp},
     ?INFO("uid: ~s, msg_id: ~s", [User, MsgId]),

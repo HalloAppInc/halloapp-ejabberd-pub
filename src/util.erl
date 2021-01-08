@@ -335,6 +335,8 @@ set_timestamp(Packet, _T) -> Packet.
 
 -spec get_timestamp(message()) -> binary() | undefined.
 get_timestamp(#message{sub_els = [#chat{timestamp = T}]}) -> T;
+get_timestamp(#message{sub_els = [#silent_chat{chat = #chat{timestamp = T}}]}) -> T;
+get_timestamp(#message{sub_els = [#group_chat{timestamp = T}]}) -> T;
 get_timestamp(#message{sub_els = [#receipt_seen{timestamp = T}]}) -> T;
 get_timestamp(#message{sub_els = [#receipt_response{timestamp = T}]}) -> T;
 get_timestamp(#message{}) ->
