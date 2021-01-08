@@ -140,10 +140,23 @@ handle_info(Request, State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec user_send_ack(State :: state(), Packet :: ack()) -> state().
-user_send_ack(#{offline_queue_params := #{window := Window, pending_acks  := PendingAcks} = OfflineQueueParams,
+user_send_ack(State, #ack{id = MsgId, from = #jid{user = Uid, server = _Server}} = Ack) ->
+    ?INFO("Uid: ~s, Ack_MsgId: ~s", [Uid, MsgId]),
+
+    EndOfQueueMsgId = maps:get(end_of_queue_msg_id, State, undefined),
+    case MsgId =:= EndOfQueueMsgId of
+        true ->
+            ?INFO("Uid: ~s, processed entire queue: ~p", [Uid, EndOfQueueMsgId]),
+            State;
+        false ->
+            accept_ack(State, Ack)
+    end.
+
+
+-spec accept_ack(State :: state(), Packet :: ack()) -> state().
+accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := PendingAcks} = OfflineQueueParams,
         offline_queue_cleared := IsOfflineQueueCleared} = State,
         #ack{id = MsgId, from = #jid{user = Uid, server = Server}} = Ack) ->
-    ?INFO("Uid: ~s, MsgId: ~s", [Uid, MsgId]),
     {ok, OfflineMessage} = model_messages:get_message(Uid, MsgId),
     case OfflineMessage of
         undefined ->
@@ -351,9 +364,9 @@ do_send_offline_messages(Uid, MsgsToSend) ->
         NewLastMsgOrderId :: integer(), State :: state()) -> state().
 mark_offline_queue_cleared(UserId, Server, NewLastMsgOrderId, State) ->
     %% TODO(murali@): use end_of_queue marker for time to clear out the offline queue.
-    send_end_of_queue_marker(UserId, Server),
+    EndOfQueueMsgId = send_end_of_queue_marker(UserId, Server),
     schedule_offline_queue_check(UserId, NewLastMsgOrderId),
-    State#{offline_queue_cleared => true}.
+    State#{offline_queue_cleared => true, end_of_queue_msg_id => EndOfQueueMsgId}.
 
 
 %% We check our offline_queue after sometime even after we flush out all messages.
@@ -365,16 +378,17 @@ schedule_offline_queue_check(UserId, NewLastMsgOrderId) ->
     ok.
 
 
--spec send_end_of_queue_marker(UserId :: binary(), Server :: binary()) -> ok.
+-spec send_end_of_queue_marker(UserId :: binary(), Server :: binary()) -> MsgId :: binary().
 send_end_of_queue_marker(UserId, Server) ->
+    MsgId = util:new_msg_id(),
     EndOfQueueMarker = #message{
-        id = util:new_msg_id(),
+        id = MsgId,
         to = jid:make(UserId, Server),
         from = jid:make(Server),
         sub_els = [#end_of_queue{}]
     },
     ejabberd_router:route(EndOfQueueMarker),
-    ok.
+    MsgId.
 
 
 -spec route_offline_message(OfflineMessage :: maybe(offline_message())) -> ok.

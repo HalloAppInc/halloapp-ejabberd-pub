@@ -489,6 +489,7 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
             stream_authenticated => false,
             offline_queue_cleared => false,
             offline_queue_params => OfflineQueueParams,
+            end_of_queue_msg_id => undefined,
             crypto => Crypto,
             codec_options => [ignore_els],
             xmlns => ?NS_CLIENT,
