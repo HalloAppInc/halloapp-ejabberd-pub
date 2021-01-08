@@ -83,7 +83,7 @@ get_sessions(Uid, LServer) ->
         case MSessionsSorted =:= RSessionsSorted of
             true -> ?INFO("Uid ~s sessions match ~p", [Uid, length(RSessions)]);
             false ->
-                ?WARNING("sessions-mismatch Uid: ~s, M: ~p R: ~p", [
+                ?INFO("sessions-mismatch Uid: ~s, M: ~p R: ~p", [
                     Uid,
                     [S#session.sid || S <- MSessionsSorted],
                     [S#session.sid || S <- RSessionsSorted]])
