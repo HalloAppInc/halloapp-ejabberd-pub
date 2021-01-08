@@ -48,7 +48,8 @@ groups() -> [
     {registration, [sequence], registration_tests()},
     {privacy_lists, [sequence], privacy_lists_tests()},
     {misc, [sequence], misc_tests()},
-    httplog_tests:group()
+    httplog_tests:group(),
+    trace_tests:group()
 ].
 
 % List of all the tests or group of tests that are part of this SUITE.
@@ -62,6 +63,7 @@ all() -> [
     {group, privacy_lists},
     {group, misc},
     {group, httplog},
+    {group, trace},
     dummy_test,
     ping_test,
     delete_account_test,
@@ -86,9 +88,6 @@ init_per_suite(InitConfigData) ->
     inet_db:set_lookup([file, native]),
     start_ejabberd(NewConfig),
     create_test_accounts(),
-    % TODO: move this to its own test. Make test for mod_trace
-    mod_trace:start_trace(?UID1),
-    mod_trace:start_trace(?UID2),
     NewConfig.
 
 
