@@ -500,9 +500,11 @@ handle_info({exit, Reason}, #{user := User} = State) ->
 handle_info(activate_session, #{user := Uid, mode := active} = State) ->
     ?WARNING("Uid: ~s, mode is already active in c2s_state", [Uid]),
     State;
-handle_info(activate_session, #{user := Uid, mode := passive} = State) ->
+handle_info(activate_session, #{user := Uid, server := Server, mode := passive} = State) ->
     ?INFO("Uid: ~s, pid: ~p, Updating mode from passive to active in c2s_state", [Uid, self()]),
-    State#{mode => active};
+    State1 = State#{mode => active},
+    State2 = ejabberd_hooks:run_fold(user_session_activated, Server, State1, [Uid, Server]),
+    State2;
 handle_info({offline_queue_cleared, LastMsgOrderId},
         #{user := Uid, lserver := Server} = State) ->
     ?INFO("Uid: ~s, offline_queue is now cleared", [Uid]),

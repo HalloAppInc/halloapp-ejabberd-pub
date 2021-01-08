@@ -17,10 +17,12 @@
 -include("translate.hrl").
 -include("offline_message.hrl").
 -include("ejabberd_sm.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -define(MESSAGE_RESPONSE_TIMEOUT_MILLISEC, 30000).  %% 30 seconds.
 -define(MAX_RETRY_COUNT, 10).
 -define(RETRY_INTERVAL_MILLISEC, 30000).    %% 30 sec.
+-define(MAX_WINDOW, 64).
 
 
 -type state() :: halloapp_c2s:state().
@@ -33,9 +35,9 @@
 -export([
     offline_message_hook/1,
     user_receive_packet/1,
-    user_send_ack/1,
+    user_send_ack/2,
     c2s_session_opened/1,
-    user_session_activated/2,
+    user_session_activated/3,
     remove_user/2,
     count_user_messages/1,
     offline_queue_cleared/3,
@@ -137,19 +139,50 @@ handle_info(Request, State) ->
 %%      API and hooks
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec user_send_ack(Packet :: ack()) -> ok.
-user_send_ack(#ack{id = MsgId, from = #jid{user = UserId, server = Server}} = Ack) ->
-    ?INFO("Uid: ~s, MsgId: ~s", [UserId, MsgId]),
-    {ok, OfflineMessage} = model_messages:get_message(UserId, MsgId),
+-spec user_send_ack(State :: state(), Packet :: ack()) -> state().
+user_send_ack(#{offline_queue_params := #{window := Window, pending_acks  := PendingAcks} = OfflineQueueParams,
+        offline_queue_cleared := IsOfflineQueueCleared} = State,
+        #ack{id = MsgId, from = #jid{user = Uid, server = Server}} = Ack) ->
+    ?INFO("Uid: ~s, MsgId: ~s", [Uid, MsgId]),
+    {ok, OfflineMessage} = model_messages:get_message(Uid, MsgId),
     case OfflineMessage of
         undefined ->
-            ?WARNING("missing a message on redis, msg_id: ~s, from_uid: ~s", [MsgId, UserId]);
+            ?WARNING("missing a message on redis, msg_id: ~s, from_uid: ~s", [MsgId, Uid]),
+            State;
         _ ->
             RetryCount = OfflineMessage#offline_message.retry_count,
             CountTagValue = "retry" ++ util:to_list(RetryCount),
             stat:count("HA/offline_messages", "retry_count", 1, [{count, CountTagValue}]),
-            ok = model_messages:ack_message(UserId, MsgId),
-            ejabberd_hooks:run(user_ack_packet, Server, [Ack, OfflineMessage])
+            ok = model_messages:ack_message(Uid, MsgId),
+            ?assert(PendingAcks > 0),
+            ejabberd_hooks:run(user_ack_packet, Server, [Ack, OfflineMessage]),
+            State1 = State#{offline_queue_params := OfflineQueueParams#{pending_acks => PendingAcks - 1}},
+
+            ?INFO("Uid: ~s, Window: ~p, PendingAcks: ~p, offline_queue_cleared: ~p",
+                    [Uid, Window, PendingAcks, IsOfflineQueueCleared]),
+
+            %% If OfflineQueue is cleared: nothing to do.
+            %% If OfflineQueue is not cleared: we need to check if we can send more messages.
+            %% We check if the window size is undefined or
+            %% if number of messages outstanding is half the window size.
+            case IsOfflineQueueCleared of
+                true -> State;
+                false ->
+                    case Window =:= undefined orelse PendingAcks - 1 =< Window / 2 of
+                        true ->
+                            %% Temporary condition: I dont expect this code to run for non-dev users.
+                            %% As of now: this code should run only for dev users.
+                            case dev_users:is_dev_uid(Uid) of
+                                false ->
+                                    ?ERROR("Uid: ~s, unexpected c2s state: ~p", [Uid, State]),
+                                    State;
+                                true ->
+                                    send_offline_messages(State1)
+                            end;
+                        false ->
+                            State
+                    end
+            end
     end.
 
 
@@ -181,28 +214,36 @@ user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = M
     store_message(Message),
     setup_push_timer(Message),
     Acc;
-
 user_receive_packet(Acc) ->
     Acc.
 
 
 -spec c2s_session_opened(State :: state()) -> state().
-c2s_session_opened(#{mode := active, user := UserId, lserver := Server} = State) ->
-    route_offline_messages(UserId, Server, 0, true),
-    State#{offline_queue_cleared => true};
+c2s_session_opened(#{mode := active} = State) ->
+    NewState = check_and_send_offline_messages(State),
+    NewState;
 c2s_session_opened(#{mode := passive} = State) ->
     State.
 
 
--spec offline_queue_cleared(UserId :: binary(), Server :: binary(), LastMsgOrderId :: integer()) -> ok.
-offline_queue_cleared(UserId, Server, LastMsgOrderId) ->
-    ?INFO("Uid: ~s", [UserId]),
-    route_offline_messages(UserId, Server, LastMsgOrderId+1, false),
+-spec offline_queue_cleared(Uid :: binary(), Server :: binary(), LastMsgOrderId :: integer()) -> ok.
+offline_queue_cleared(Uid, _Server, LastMsgOrderId) ->
+    ?INFO("Uid: ~s", [Uid]),
+    case model_messages:get_user_messages(Uid, LastMsgOrderId + 1, undefined) of
+        {ok, []} -> ok;
+        {ok, OfflineMessages} ->
+            FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
+            ?INFO("Uid: ~s has some more new ~p messages after queue cleared.",
+                    [Uid, length(FilteredOfflineMessages)]),
+            do_send_offline_messages(Uid, FilteredOfflineMessages)
+    end,
     ok.
 
 
-user_session_activated(User, Server) ->
-    route_offline_messages(User, Server, 0, true).
+-spec user_session_activated(State :: state(), Uid :: binary(), Server :: binary()) -> state().
+user_session_activated(State, _Uid, _Server) ->
+    NewState = check_and_send_offline_messages(State),
+    NewState.
 
 
 remove_user(User, _Server) ->
@@ -216,9 +257,26 @@ count_user_messages(User) ->
     Res.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%      internal functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+-spec check_and_send_offline_messages(State :: state()) -> state().
+check_and_send_offline_messages(#{user := Uid, server := Server} = State) ->
+    %% Use the window algorithm to experiment only on dev users initially.
+    %% TODO(murali@): update this after ensuring everything works correctly.
+    case dev_users:is_dev_uid(Uid) of
+        false ->
+            route_offline_messages(Uid, Server, 0, State);
+        true ->
+            send_offline_messages(State)
+    end.
+
+
 -spec route_offline_messages(UserId :: binary(), Server :: binary(),
-        LastMsgOrderId :: integer(), SendEndOfQueueMarker :: boolean()) -> ok.
-route_offline_messages(UserId, Server, LastMsgOrderId, SendEndOfQueueMarker) ->
+        LastMsgOrderId :: integer(), State :: state()) -> ok.
+route_offline_messages(UserId, Server, LastMsgOrderId, State) ->
     ?INFO("Uid: ~s start", [UserId]),
     {ok, OfflineMessages} = model_messages:get_user_messages(UserId, LastMsgOrderId, undefined),
     % TODO: We need to rate limit the number of offline messages we send at once.
@@ -232,36 +290,77 @@ route_offline_messages(UserId, Server, LastMsgOrderId, SendEndOfQueueMarker) ->
     % we can increment the retry count on just the first X
     increment_retry_counts(UserId, FilteredOfflineMessages),
 
-    %% TODO(murali@): use end_of_queue marker for time to clear out the offline queue.
-    case SendEndOfQueueMarker of
-        true ->
-            send_end_of_queue_marker(UserId, Server),
-            schedule_offline_queue_check(UserId, FilteredOfflineMessages, LastMsgOrderId);
-        false -> ok
-    end,
+    NewLastMsgOrderId = get_last_msg_order_id(FilteredOfflineMessages, LastMsgOrderId),
+
+    %% mark offline queue to be cleared, send eoq msg and timer, update state.
+    mark_offline_queue_cleared(UserId, Server, NewLastMsgOrderId, State).
+
+
+-spec send_offline_messages(State :: state()) -> state().
+send_offline_messages(#{user := Uid, server := Server,
+        offline_queue_params := #{window := Window, pending_acks := PendingAcks,
+        last_msg_order_id := LastMsgOrderId} = OfflineQueueParams} = State) ->
+    case model_messages:get_user_messages(Uid, LastMsgOrderId, Window) of
+        {ok, []} ->
+            %% mark offline queue to be cleared, send eoq msg and timer, update state.
+            mark_offline_queue_cleared(Uid, Server, LastMsgOrderId, State);
+
+        {ok, OfflineMessages} ->
+            %% Applying filter to remove expired messages.
+            FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
+            TotalNumOfMessages = length(FilteredOfflineMessages),
+            case FilteredOfflineMessages of
+                [] ->
+                    %% we dont know if there are more messages in the queue..
+                    %% so recursively call to either send atleast 1 message or mark the queue as cleared.
+                    send_offline_messages(State);
+
+                [#offline_message{retry_count = RetryCount} | _Rest] ->
+                    {NewWindow, NumMsgToSend} = compute_new_params(RetryCount, Window,
+                            PendingAcks, TotalNumOfMessages),
+
+                    %% We could have less messages to send than the actual window size.
+                    %% This should be okay for now.
+                    %% https://github.com/HalloAppInc/halloapp-ejabberd/pull/1057#discussion_r553727406
+                    %% TODO(murali@): observe logs if this happens too often.
+
+                    {MsgsToSend, _RemMsgs} = lists:split(NumMsgToSend, FilteredOfflineMessages),
+                    ?INFO("Uid: ~s sending some ~p offline messages", [Uid, length(MsgsToSend)]),
+                    do_send_offline_messages(Uid, MsgsToSend),
+                    NewLastMsgOrderId = get_last_msg_order_id(MsgsToSend, LastMsgOrderId),
+                    State#{
+                        offline_queue_params => OfflineQueueParams#{
+                            window => NewWindow,
+                            pending_acks => PendingAcks + MsgsToSend,
+                            last_msg_order_id => NewLastMsgOrderId
+                        }
+                    }
+            end
+    end.
+
+
+-spec do_send_offline_messages(Uid :: binary(), MsgsToSend :: [message()]) -> ok.
+do_send_offline_messages(Uid, MsgsToSend) ->
+    lists:foreach(fun route_offline_message/1, MsgsToSend),
+    increment_retry_counts(Uid, MsgsToSend),
     ok.
+
+
+%% This function must always run on user's c2s process only!
+-spec mark_offline_queue_cleared(UserId :: binary(), Server :: binary(),
+        NewLastMsgOrderId :: integer(), State :: state()) -> state().
+mark_offline_queue_cleared(UserId, Server, NewLastMsgOrderId, State) ->
+    %% TODO(murali@): use end_of_queue marker for time to clear out the offline queue.
+    send_end_of_queue_marker(UserId, Server),
+    schedule_offline_queue_check(UserId, NewLastMsgOrderId),
+    State#{offline_queue_cleared => true}.
 
 
 %% We check our offline_queue after sometime even after we flush out all messages.
 %% Because other processes could end up storing some messages here.
--spec schedule_offline_queue_check(UserId :: binary(), OfflineMessages :: [offline_message()],
-        PrevLastMsgOrderId :: integer()) -> ok.
-schedule_offline_queue_check(UserId, OfflineMessages, PrevLastMsgOrderId) ->
-    ?INFO("Uid: ~s, now has ~p offline messages",
-            [UserId, length(OfflineMessages)]),
-    NewLastMsgOrderId = case OfflineMessages of
-        [] ->
-            PrevLastMsgOrderId;
-        _ ->
-            case PrevLastMsgOrderId > 0 of
-                true -> ?WARNING("Uid: ~s, sending more messages after order_id: ~p",
-                        [PrevLastMsgOrderId]);
-                false -> ok
-            end,
-            LastOfflineMessage = lists:last(OfflineMessages),
-            LastOfflineMessage#offline_message.order_id
-    end,
-    ?INFO("send offline_queue_cleared notice to c2s process: ~p", [self()]),
+-spec schedule_offline_queue_check(UserId :: binary(), NewLastMsgOrderId :: integer()) -> ok.
+schedule_offline_queue_check(UserId, NewLastMsgOrderId) ->
+    ?INFO("Uid: ~s, send offline_queue_cleared notice to c2s process: ~p", [UserId, self()]),
     erlang:send_after(?RETRY_INTERVAL_MILLISEC, self(), {offline_queue_cleared, NewLastMsgOrderId}),
     ok.
 
@@ -339,8 +438,41 @@ store_message(#message{} = Message) ->
     ok.
 
 
+-spec compute_new_params(RetryCount :: integer(), Window :: maybe(integer()),
+        PendingAcks :: integer(), TotalNumOfMessages :: integer()) -> {maybe(integer()), integer()}.
+compute_new_params(RetryCount, Window, PendingAcks, TotalNumOfMessages) ->
+    NewWindow = case RetryCount > 1 of
+        true ->
+            ExpDrop = round(math:pow(2, RetryCount - 2)),
+            ExpWindow = max(1, ?MAX_WINDOW / ExpDrop),
+            case Window of
+                undefined -> ExpWindow;
+                _ -> min(ExpWindow, Window * 2)
+            end;
+        false ->
+            undefined
+    end,
+    NumMsgToSend = case NewWindow of
+        undefined -> TotalNumOfMessages;
+        _ ->
+            max(NewWindow - PendingAcks, 1)
+    end,
+    {NewWindow, NumMsgToSend}.
+
+
 -spec setup_push_timer(Message :: message()) -> ok.
 setup_push_timer(Message) ->
     gen_server:cast(get_proc(), {setup_push_timer, Message}).
 
+
+-spec get_last_msg_order_id(MsgsToSend :: [offline_message()],
+        PrevLastMsgOrderId :: maybe(integer())) -> maybe(integer()).
+get_last_msg_order_id(MsgsToSend, PrevLastMsgOrderId) ->
+    NewLastMsgOrderId = case MsgsToSend of
+        [] -> PrevLastMsgOrderId;
+        _ ->
+            LastOfflineMessage = lists:last(MsgsToSend),
+            LastOfflineMessage#offline_message.order_id
+    end,
+    NewLastMsgOrderId.
 

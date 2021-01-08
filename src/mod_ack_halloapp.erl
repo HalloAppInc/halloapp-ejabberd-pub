@@ -50,18 +50,18 @@ mod_options(_Host) ->
 
 %% Hook called when the server receives a packet.
 %% TODO(murali@): Add logic to send ack only after handling the message properly!
-user_send_packet({Packet, #{lserver := ServerHost} = _State} = Acc) ->
+user_send_packet({Packet, #{lserver := ServerHost} = State} = Acc) ->
     case ?needs_ack_packet(Packet) of
         true -> send_ack(Packet);
         false -> ok
     end,
-    case ?is_ack_packet(Packet) of
+    NewState = case ?is_ack_packet(Packet) of
         true ->
-            ejabberd_hooks:run(user_send_ack, ServerHost, [Packet]);
+            ejabberd_hooks:run_fold(user_send_ack, ServerHost, State, [Packet]);
         false ->
-            ok
+            State
     end,
-    Acc.
+    {Packet, NewState}.
 
 
 %% Sends an ack packet.

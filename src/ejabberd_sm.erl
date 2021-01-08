@@ -539,6 +539,9 @@ is_session_active(Session) ->
     proplists:get_value(mode, Session#session.info) =:= active.
 
 
+%% This code should go away once we have access to c2s state when processing iqs.
+%% mod_user_session can directly update the state of the c2s process in that case.
+%% TODO(murali@): add new process_local_iq function that also has c2s process state.
 -spec activate_session(Uid :: binary(), Server :: binary()) -> ok.
 activate_session(Uid, Server) ->
     Mod = get_sm_backend(Server),
@@ -558,8 +561,7 @@ activate_session(Uid, Server) ->
                     NewInfo = lists:keyreplace(mode, 1, Info, {mode, active}),
                     NewSession = Session#session{info = NewInfo},
                     ejabberd_c2s:route(Pid, activate_session),
-                    set_session(NewSession),
-                    ejabberd_hooks:run(user_session_activated, Server, [Uid, Server])
+                    set_session(NewSession)
             end;
         {ok, _} ->
             ?ERROR("Multiple sessions found for uid: ~s", [Uid])
