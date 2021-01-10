@@ -5,7 +5,7 @@
 %%% @end
 %%%-------------------------------------------------------------------
 -module(mbird).
--behavior(sms_provider).
+-behavior(mod_sms).
 -author("vipin").
 -include("logger.hrl").
 -include("mbird.hrl").
@@ -16,7 +16,7 @@
     send_sms/2
 ]).
 
--spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, binary()} | {error, sms_fail}.
+-spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, binary(), binary(), binary()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
     ?INFO("send_sms via MessageBird ~p", [Phone]),
     URL = ?BASE_URL,
@@ -29,7 +29,13 @@ send_sms(Phone, Msg) ->
     ?DEBUG("Response: ~p", [Response]),
     case Response of
         {ok, {{_, 201, _}, _ResHeaders, ResBody}} ->
-            {ok, ResBody};
+            Json = jiffy:decode(ResBody, [return_maps]),
+            Id = maps:get(<<"id">>, Json),
+            Receipients = maps:get(<<"recipients">>, Json),
+            Items = maps:get(<<"items">>, Receipients),
+            [Item] = Items,
+            Status = maps:get(<<"status">>, Item),
+            {ok, Id, Status, ResBody};
         _ ->
             ?ERROR("Sending SMS failed ~p", [Response]),
             {error, sms_fail}
@@ -37,7 +43,8 @@ send_sms(Phone, Msg) ->
 
 -spec get_access_key() -> string().
 get_access_key() ->
-    binary_to_list(mod_aws:get_secret(<<"MBird">>)).
+    Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"MBird">>)), [return_maps]),
+    binary_to_list(maps:get(<<"access_key">>, Json)).
 
 -spec compose_body(Phone, Message) -> Body when
     Phone :: phone(),
@@ -45,6 +52,11 @@ get_access_key() ->
     Body :: uri_string:uri_string().
 compose_body(Phone, Message) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
-    uri_string:compose_query([{"recipients", PlusPhone }, {"originator", ?FROM_PHONE},
-        {"body", Message}], [{encoding, utf8}]).
+    %% reference is used during callback. TODO(vipin): Need a more useful ?REFERENCE.
+    uri_string:compose_query([
+        {"recipients", PlusPhone },
+        {"originator", ?FROM_PHONE},
+        {"reference", ?REFERENCE},
+        {"body", Message}
+    ], [{encoding, utf8}]).
 

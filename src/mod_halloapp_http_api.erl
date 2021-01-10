@@ -49,7 +49,7 @@ process([<<"registration">>, <<"request_sms">>],
 
         check_ua(UserAgent),
         check_invited(Phone, UserAgent, ClientIP),
-        request_sms(Phone, UserAgent),
+        mod_sms:request_sms(Phone, UserAgent),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
                 {phone, Phone},
@@ -402,38 +402,6 @@ check_sms_code(Phone, Code) ->
             ?INFO("No stored code in db ~p", [Any]),
             error(wrong_sms_code)
     end.
-
-
--spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok.
-request_sms(Phone, UserAgent) ->
-    Code = mod_sms:generate_code(util:is_test_number(Phone)),
-    ?DEBUG("code generated phone:~s code:~s", [Phone, Code]),
-    finish_enroll(Phone, Code),
-    case util:is_test_number(Phone) of
-        true -> ok;
-        false ->
-            {ok, Receipt} = send_sms(Phone, Code, UserAgent),
-            model_phone:add_sms_code_receipt(Phone, Receipt)
-    end.
-
-
--spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary()) ->
-        {ok, binary()} | no_return().
-send_sms(Phone, Code, UserAgent) ->
-    Msg = mod_sms:prepare_registration_sms(Code, UserAgent),
-    ?DEBUG("preparing to send sms, phone:~p msg:~s", [Phone, Msg]),
-    case mod_sms:send_sms(Phone, Msg) of
-        {ok, Receipt} -> {ok, Receipt};
-        {error, Error} -> erlang:error(Error)
-    end.
-
-
--spec finish_enroll(phone(), binary()) -> any().
-finish_enroll(Phone, Code) ->
-    Host = util:get_host(),
-    {ok, _} = ejabberd_admin:unenroll(Phone, Host),
-    {ok, _} = ejabberd_admin:enroll(Phone, Host, Code),
-    ok.
 
 
 start(Host, Opts) ->

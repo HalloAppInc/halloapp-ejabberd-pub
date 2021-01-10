@@ -9,10 +9,12 @@
 -module(mod_sms).
 -author("nikola").
 -behavior(gen_mod).
--behavior(gen_server).
 
 -include("logger.hrl").
 -include("sms.hrl").
+-include("ha_types.hrl").
+
+-callback send_sms(Phone :: phone(), Msg :: string()) -> {ok, binary()} | {error, sms_fail}.
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -21,30 +23,22 @@
 
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 %% API
 -export([
-    send_sms/2,
-    prepare_registration_sms/2,
-    generate_code/1
+    request_sms/2
 ]).
-
--type phone() :: binary().
 
 %%====================================================================
 %% gen_mod callbacks
 %%====================================================================
 
-start(Host, Opts) ->
+start(_Host, _Opts) ->
     ?INFO("start ~w ~p", [?MODULE, self()]),
-    X = gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
-    ?INFO("here ~p", [X]),
-    X.
+    ok.
 
 stop(_Host) ->
-    ?INFO("start ~w ~p", [?MODULE, self()]),
-    gen_mod:stop_child(get_proc()).
+    ?INFO("stop ~w ~p", [?MODULE, self()]),
+    ok.
 
 depends(_Host, _Opts) ->
     [{mod_aws, hard}].
@@ -52,18 +46,54 @@ depends(_Host, _Opts) ->
 mod_options(_Host) ->
     [].
 
-init(_Stuff) ->
-    ?DEBUG("mod_sms: stuff ~p", [_Stuff]),
-    State = make_state(),
-    {ok, State}.
 
 %%====================================================================
 %% API
 %%====================================================================
 
--spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, binary()} | {error, sms_fail}.
-send_sms(Phone, Msg) ->
-    gen_server:call(get_proc(), {send_sms, Phone, Msg}).
+-spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok.
+request_sms(Phone, UserAgent) ->
+    OldSMSCode = model_phone:get_sms_code(Phone),
+    {Code, AttemptList} = case OldSMSCode of
+        {ok, undefined} ->
+            %% Generate new SMS code.
+            NewSMSCode = generate_code(util:is_test_number(Phone)),
+            ?DEBUG("phone:~s generated code:~s", [Phone, NewSMSCode]),
+            {NewSMSCode, []};
+        {ok, OldCode} ->
+            %% Fetch the list of verification attempts.
+            {ok, OldVerificationAttempts} = model_phone:get_verification_attempt_list(Phone),
+            {OldCode, OldVerificationAttempts}
+    end,
+    {ok, NewAttempt} = model_phone:add_sms_code2(Phone, Code),
+    case util:is_test_number(Phone) of
+        true -> ok;
+        false ->
+            try
+                {ok, NewGateway, SMSId, Status, Response} = send_sms(Phone, Code, UserAgent, AttemptList),
+                model_phone:add_gateway_response(Phone, NewAttempt, NewGateway, SMSId, Status, Response)
+            catch
+                Class : Reason : Stacktrace ->
+                    ?ERROR("Unable to send SMS: ~s", [
+                            lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+            end
+     end.
+
+%%====================================================================
+
+-spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary(),
+        OldAttemptList :: [binary()]) -> {ok, binary(), binary(), binary(), binary()} | no_return().
+send_sms(Phone, Code, UserAgent, OldAttemptList) ->
+    Msg = prepare_registration_sms(Code, UserAgent),
+    ?DEBUG("preparing to send sms, phone:~p msg:~s", [Phone, Msg]),
+    case smart_send(Phone, Msg, OldAttemptList) of
+        {ok, NewGateway, Id, Status, Response} ->
+            {ok, NewGateway, Id, Status, Response};
+        {error, Error} ->
+            %% TODO(vipin): Need to handle error.
+            erlang:error(Error)
+    end.
+
 
 -spec prepare_registration_sms(Code :: binary(), UserAgent :: binary()) -> string().
 prepare_registration_sms(Code, UserAgent) ->
@@ -78,81 +108,6 @@ generate_code(false) ->
     list_to_binary(io_lib:format("~6..0w", [crypto:rand_uniform(0, 999999)])).
 
 
-handle_call({send_sms, Phone, Msg}, _From, State) ->
-    ?INFO("send_sms ~p", [Phone]),
-    URL = ?BASE_URL,
-    AuthStr = base64:encode_to_string(get_twilio_account_sid(State) ++ ":"
-        ++ get_twilio_auth_token(State)),
-    Headers = [{"Authorization", "Basic " ++ AuthStr}],
-    ?DEBUG("Auth: ~p", [Headers]),
-    Type = "application/x-www-form-urlencoded",
-    Body = compose_twilio_body(Phone, Msg),
-    HTTPOptions = [],
-    Options = [],
-    ?DEBUG("URL : ~p", [URL]),
-    Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
-    ?DEBUG("twilio: ~p", [Response]),
-    Res = case Response of
-        {ok, {{_, 201, _}, _ResHeaders, ResBody}} ->
-            {ok, ResBody};
-        _ ->
-            ?ERROR("Sending SMS failed ~p", [Response]),
-            {error, sms_fail}
-    end,
-    {reply, Res, State};
-
-handle_call(X, _From, State) ->
-    ?DEBUG("here ~p", [X]),
-    {reply, ok, State}.
-
-handle_cast(_Message, State) -> {noreply, State}.
-handle_info(_Message, State) -> {noreply, State}.
-terminate(_Reason, _State) ->
-    ?INFO("terminate ~p", [?MODULE]),
-    ok.
-code_change(_OldVersion, State, _Extra) -> {ok, State}.
-
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
-
--spec make_state() -> map().
-make_state() ->
-    #{twilio_secret_json => do_get_twilio_secret_json()}.
-
--spec do_get_twilio_secret_json() -> string().
-do_get_twilio_secret_json() ->
-    binary_to_list(mod_aws:get_secret(<<"Twilio">>)).
-
-%% Caching the secret
--spec get_twilio_secret_json(State :: map()) -> binary().
-get_twilio_secret_json(State) ->
-    maps:get(twilio_secret_json, State).
-
--spec get_twilio_account_sid(State :: map()) -> string().
-get_twilio_account_sid(State) ->
-%%    ?DEBUG("secret json ~p", [get_twilio_secret_json(State)]),
-    Json = jiffy:decode(get_twilio_secret_json(State), [return_maps]),
-    binary_to_list(maps:get(<<"account_sid">>, Json)).
-
--spec get_twilio_auth_token(State :: map()) -> string().
-get_twilio_auth_token(State) ->
-    Json = jiffy:decode(get_twilio_secret_json(State), [return_maps]),
-    binary_to_list(maps:get(<<"auth_token">>, Json)).
-
--spec compose_twilio_body(Phone, Message) -> Body when
-    Phone :: phone(),
-    Message :: string(),
-    Body :: uri_string:uri_string().
-compose_twilio_body(Phone, Message) ->
-    PlusPhone = "+" ++ binary_to_list(Phone),
-    Uri = uri_string:compose_query([
-            {"To", PlusPhone },
-            {"From", ?FROM_PHONE},
-            {"Body", Message},
-            {"StatusCallback", ?TWILIOCALLBACK_URL}
-        ],[{encoding, utf8}]),
-    Uri.
-
 -spec get_app_hash(binary()) -> binary().
 get_app_hash(UserAgent) ->
     case {util_ua:is_android_debug(UserAgent), util_ua:is_android(UserAgent)} of
@@ -160,3 +115,32 @@ get_app_hash(UserAgent) ->
         {false, true} -> ?ANDROID_RELEASE_HASH;
         _ -> <<"">>
     end.
+
+%% TODO(vipin)
+%% 1. Compute SMS provider to use for sending the SMS based on 'sms_provider_probability'.
+%% 2. (Phone, Provider) combination that has been used in the past should not be used again to send
+%%    the SMS.
+%% 3. On callback from the provider track (success, cost). Investigative logging to track missing
+%%    callback.
+%% 4. Client should be able to request_sms on non-receipt of SMS after a certain time decided
+%%    by the server.
+
+-define(sms_gateway_probability, [{twilio, 100}, {mbird, 0}]).
+
+-spec smart_send(Phone :: phone(), Msg :: string(), OldAttemptList :: [binary()]) 
+        -> {ok, binary(), binary(), binary(), binary()} | {error, sms_fail}.
+smart_send(Phone, Msg, OldAttemptList) ->
+    NewGateway = case length(OldAttemptList) of
+        0 -> twilio;
+        1 -> mbird;
+        _ ->
+            %% TODO(vipin): Need to handle better
+            twilio
+    end,
+    Result = NewGateway:send_sms(Phone, Msg),
+    ?DEBUG("Result: ~p", [Result]),
+    case Result of
+        {ok, Id, Status, Response} -> {ok, term_to_binary(NewGateway), Id, Status, Response};
+        Error -> Error
+    end.
+

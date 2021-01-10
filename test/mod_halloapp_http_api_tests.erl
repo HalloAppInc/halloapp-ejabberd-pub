@@ -280,7 +280,7 @@ request_and_check_sms_code_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?SMS_CODE)),
-    ok = mod_halloapp_http_api:request_sms(?TEST_PHONE, ?UA),
+    ok = mod_sms:request_sms(?TEST_PHONE, ?UA),
     ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?BAD_SMS_CODE)),
     ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?SMS_CODE)),
     meck_finish(ejabberd_router).

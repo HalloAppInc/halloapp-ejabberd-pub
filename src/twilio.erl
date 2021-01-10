@@ -8,7 +8,7 @@
 %%%----------------------------------------------------------------------
 
 -module(twilio).
--behavior(sms_provider).
+-behavior(mod_sms).
 -author('vipin').
 -include("logger.hrl").
 -include("twilio.hrl").
@@ -19,7 +19,7 @@
 ]).
 
 
--spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, binary()} | {error, sms_fail}.
+-spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, binary(), binary(), binary()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
     ?INFO("~p", [Phone]),
     URL = ?BASE_URL,
@@ -33,7 +33,10 @@ send_sms(Phone, Msg) ->
     case Response of
         {ok, {{_, 201, _}, _ResHeaders, ResBody}} ->
             %% TODO(vipin): Try to check status and send SMS using another provider if needed.
-            {ok, ResBody};
+            Json = jiffy:decode(ResBody, [return_maps]),
+            Id = maps:get(<<"sid">>, Json),
+            Status = maps:get(<<"status">>, Json),
+            {ok, Id, Status, ResBody};
         _ ->
             %% TODO(vipin): Try sending the SMS using the second provider.
             ?ERROR("Sending SMS failed ~p", [Response]),
@@ -57,7 +60,11 @@ fetch_auth_headers() ->
 -spec compose_body(Phone :: phone(), Message :: string()) -> uri_string:uri_string().
 compose_body(Phone, Message) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
-    uri_string:compose_query([{"To", PlusPhone }, {"From", ?FROM_PHONE}, {"Body", Message}],
-        [{encoding, utf8}]).
+    uri_string:compose_query([
+        {"To", PlusPhone },
+        {"From", ?FROM_PHONE},
+        {"Body", Message},
+        {"StatusCallback", ?TWILIOCALLBACK_URL}
+    ], [{encoding, utf8}]).
 
 

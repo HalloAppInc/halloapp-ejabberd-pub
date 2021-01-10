@@ -20,6 +20,12 @@
 -define(RECEIPT, <<"{\"name\": \"value\"}">>).
 -define(TTL_24HR_SEC, 86400).
 -define(DELAY_SEC, 10).
+-define(SMSID1, <<"smsid1">>).
+-define(SMSID2, <<"smsid2">>).
+-define(STATUS, <<"sent">>).
+-define(SENDER2, <<"api2.halloapp.net">>).
+-define(CALLBACK_STATUS1, <<"delivered">>).
+-define(CALLBACK_STATUS2, <<"dropped">>).
 
 
 setup() ->
@@ -80,6 +86,27 @@ add_sms_details_test() ->
     true = TTL1 =< ?TTL_24HR_SEC andalso TTL1 > ?TTL_24HR_SEC - ?DELAY_SEC,
     true = TTL2 =< ?TTL_24HR_SEC andalso TTL2 > ?TTL_24HR_SEC - ?DELAY_SEC.
 
+
+add_sms_gateway_response_test() ->
+    setup(),
+    {ok, []} = model_phone:get_verification_attempt_list(?PHONE1),
+    {ok, AttemptId} = model_phone:add_sms_code2(?PHONE1, ?CODE1),
+    ok = model_phone:add_gateway_response(?PHONE1, AttemptId, ?SENDER, ?SMSID1, ?STATUS, ?RECEIPT),
+    {ok, ?CODE1} = model_phone:get_sms_code(?PHONE1),
+    {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
+    {ok, [AttemptId]} = model_phone:get_verification_attempt_list(?PHONE1),
+    %% Sleep for 1 seconds just so the timestamp for Attempt1 and Attemp2 is different.
+    timer:sleep(timer:seconds(1)),
+    {ok, AttemptId2} = model_phone:add_sms_code2(?PHONE1, ?CODE2),
+    {ok, [AttemptId, AttemptId2]} = model_phone:get_verification_attempt_list(?PHONE1),
+    ok = model_phone:add_gateway_response(?PHONE1, AttemptId2, ?SENDER, ?SMSID2, ?STATUS, ?RECEIPT),
+    {ok, ?CODE2} = model_phone:get_sms_code(?PHONE1),
+    {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
+    {ok, ?CODE2} = model_phone:get_sms_code2(?PHONE1, AttemptId2),
+    ok = model_phone:add_gateway_callback_info(?SENDER, ?SMSID1, ?CALLBACK_STATUS1),
+    ok = model_phone:add_gateway_callback_info(?SENDER, ?SMSID2, ?CALLBACK_STATUS2),
+    {ok, ?CALLBACK_STATUS1} = model_phone:get_gateway_response_status(?PHONE1, AttemptId),
+    {ok, ?CALLBACK_STATUS2} = model_phone:get_gateway_response_status(?PHONE1, AttemptId2).
 
 delete_sms_code_test() ->
     setup(),
