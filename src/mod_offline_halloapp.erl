@@ -167,7 +167,6 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
             CountTagValue = "retry" ++ util:to_list(RetryCount),
             stat:count("HA/offline_messages", "retry_count", 1, [{count, CountTagValue}]),
             ok = model_messages:ack_message(Uid, MsgId),
-            ?assert(PendingAcks > 0),
             ejabberd_hooks:run(user_ack_packet, Server, [Ack, OfflineMessage]),
             State1 = State#{offline_queue_params := OfflineQueueParams#{pending_acks => PendingAcks - 1}},
 
@@ -181,6 +180,7 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
             case IsOfflineQueueCleared of
                 true -> State;
                 false ->
+                    ?assert(PendingAcks > 0),
                     case Window =:= undefined orelse PendingAcks - 1 =< Window / 2 of
                         true ->
                             %% Temporary condition: I dont expect this code to run for non-dev users.
