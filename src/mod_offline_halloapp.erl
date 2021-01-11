@@ -337,7 +337,10 @@ send_offline_messages(#{user := Uid, server := Server,
                     %% https://github.com/HalloAppInc/halloapp-ejabberd/pull/1057#discussion_r553727406
                     %% TODO(murali@): observe logs if this happens too often.
 
-                    {MsgsToSend, _RemMsgs} = lists:split(NumMsgToSend, FilteredOfflineMessages),
+                    {MsgsToSend, _RemMsgs} = case length(FilteredOfflineMessages) >= NumMsgToSend of
+                        true -> lists:split(NumMsgToSend, FilteredOfflineMessages);
+                        false -> {FilteredOfflineMessages, []}
+                    end,
                     ?INFO("Uid: ~s sending some ~p offline messages", [Uid, length(MsgsToSend)]),
                     do_send_offline_messages(Uid, MsgsToSend),
                     NewLastMsgOrderId = get_last_msg_order_id(MsgsToSend, LastMsgOrderId),
