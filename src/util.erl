@@ -48,7 +48,8 @@
     get_packet_type/1,
     get_payload_type/1,
     set_timestamp/2,
-    get_timestamp/1
+    get_timestamp/1,
+    convert_xmpp_to_pb_base64/1
 ]).
 
 %% Export all functions for unit tests
