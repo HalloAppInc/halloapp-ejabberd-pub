@@ -222,7 +222,7 @@ user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = M
     setup_push_timer(Message),
     {stop, {drop, State}};
 user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
-        #{mode := active, offline_queue_cleared := true} = _State} = Acc) ->
+        #{mode := active, offline_queue_cleared := true} = _State} = Acc) when RetryCount =:= 0 ->
     ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
     store_message(Message),
     setup_push_timer(Message),
