@@ -438,7 +438,7 @@ process_offline_msg(#message{from = undefined}, _State) ->
 process_offline_msg(Msg, State = #state{user = U, server = S}) ->
     To = jid:make(U, S),
     ejabberd_hooks:run_fold(
-      offline_message_hook, To#jid.lserver, xmpp:set_to(Msg, To), []),
+      store_message_hook, To#jid.lserver, xmpp:set_to(Msg, To), []),
     {ok, State}.
 
 -spec process_presence(presence(), state()) -> {ok, state()} | {error, _}.

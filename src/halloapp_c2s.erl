@@ -549,6 +549,8 @@ process_message_in(State, #message{type = T} = Msg) ->
     %% to avoid kicking us, because having a MUC room's JID blocked
     %% most likely means having only some particular participant
     %% blocked, i.e. room@conference.server.org/participant.
+    %% TODO: (nikola): We are checking the privacy of the message 2 times now,
+    %% once ejabberd_sm and here. We are also checking it on every resent of offline messages.
     case privacy_check_packet(State, Msg, in) of
     allow ->
         {true, State};

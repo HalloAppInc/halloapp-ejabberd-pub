@@ -153,7 +153,7 @@ process_offline(Server, To, #xmlel{children = Els}) ->
 				 _ -> JID
 			     end,
 		      ejabberd_hooks:run_fold(
-			offline_message_hook,
+			store_message_hook,
 			LServer, xmpp:set_from_to(Msg, From, To), []);
 		  _ ->
 		      ok

@@ -33,7 +33,7 @@
 
 %% API and hooks.
 -export([
-    offline_message_hook/1,
+    store_message_hook/1,
     user_receive_packet/1,
     user_send_ack/2,
     c2s_session_opened/1,
@@ -77,7 +77,7 @@ get_proc() ->
 
 init([Host|_]) ->
     ?INFO("mod_offline_halloapp: init", []),
-    ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
+    ejabberd_hooks:add(store_message_hook, Host, ?MODULE, store_message_hook, 50),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:add(user_send_ack, Host, ?MODULE, user_send_ack, 50),
     ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 100),
@@ -89,7 +89,7 @@ init([Host|_]) ->
 
 terminate(_Reason, #{host := Host} = _State) ->
     ?INFO("mod_offline_halloapp: terminate", []),
-    ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
+    ejabberd_hooks:delete(store_message_hook, Host, ?MODULE, store_message_hook, 50),
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:delete(user_send_ack, Host, ?MODULE, user_send_ack, 50),
     ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 100),
@@ -126,7 +126,7 @@ handle_info({push_offline_message, Message}, #{host := _ServerHost} = State) ->
             ?INFO("Uid: ~s, message has been acked, Id: ~s", [Uid, MsgId]);
         _ ->
             ?INFO("Uid: ~s, no ack for message Id: ~s, trying a push", [Uid, MsgId]),
-            ejabberd_sm:route_offline_message(Message)
+            ejabberd_sm:push_message(Message)
     end,
     {noreply, State};
 
@@ -199,7 +199,11 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
     end.
 
 
-offline_message_hook(#message{} = Message) ->
+store_message_hook(#message{retry_count = RetryCount} = Message) when RetryCount > 0 ->
+    Message;
+store_message_hook(#message{id = MsgID, to = To} = Message) ->
+    Uid = To#jid.luser,
+    ?INFO("To Uid: ~s MsgID: ~s storing message", [Uid, MsgID]),
     store_message(Message),
     Message.
 
@@ -209,8 +213,10 @@ offline_message_hook(#message{} = Message) ->
 user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
         #{mode := passive} = State} = _Acc) ->
     ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
-    %% TODO(murali@): trigger the offline hook somehow.
-    ejabberd_sm:route_offline_message(Message),
+    % TODO: Delete this code after upgrade. When everyone has updated to the new code the sender
+    % would have stored the message already.
+    check_store_message(Message),
+    ejabberd_sm:push_message(Message),
     {stop, {drop, State}};
 
 %% If OfflineQueue is cleared: send all messages.
@@ -218,13 +224,13 @@ user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = M
 user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
         #{mode := active, offline_queue_cleared := false} = State} = _Acc) when RetryCount =:= 0 ->
     ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
-    store_message(Message),
+    check_store_message(Message),
     setup_push_timer(Message),
     {stop, {drop, State}};
 user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
         #{mode := active, offline_queue_cleared := true} = _State} = Acc) when RetryCount =:= 0 ->
     ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
-    store_message(Message),
+    check_store_message(Message),
     setup_push_timer(Message),
     Acc;
 user_receive_packet(Acc) ->
@@ -479,6 +485,24 @@ store_message(#message{sub_els = [#end_of_queue{}]} = _Message) ->
     ok;
 store_message(#message{} = Message) ->
     ok = model_messages:store_message(Message),
+    ok.
+
+% TODO: (nikola): After the migration we will replce all calls to check_store_message with store_message or
+% delete the call all together. This function will be deleted.
+-spec check_store_message(Message :: message()) -> ok.
+check_store_message(#message{sub_els = [#end_of_queue{}]} = _Message) ->
+    %% ignore storing end_of_queue marker packets.
+    ok;
+check_store_message(#message{to = To, id = MsgID} = Message) ->
+    ToUid = To#jid.luser,
+    case model_messages:get_message(ToUid, MsgID) of
+        {ok, undefined} ->
+            ?INFO("Uid: ~s MsgID: ~s storing from receiver process", [ToUid, MsgID]),
+            store_message(Message);
+        {ok, #offline_message{}} ->
+            ?INFO("Uid: ~s MsgID: ~s already stored", [ToUid, MsgID]),
+            ok
+    end,
     ok.
 
 

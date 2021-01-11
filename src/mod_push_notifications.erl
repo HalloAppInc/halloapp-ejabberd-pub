@@ -20,7 +20,7 @@
 
 %% hooks
 -export([
-    offline_message_hook/1
+    push_message_hook/1
 ]).
 
 -ifdef(TEST).
@@ -36,12 +36,12 @@
 
 start(Host, _Opts) ->
     ?DEBUG("mod_push_notifications: start", []),
-    ejabberd_hooks:add(offline_message_hook, Host, ?MODULE, offline_message_hook, 50),
+    ejabberd_hooks:add(push_message_hook, Host, ?MODULE, push_message_hook, 50),
     ok.
 
 stop(Host) ->
     ?DEBUG("mod_push_notifications: stop", []),
-    ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 50),
+    ejabberd_hooks:delete(push_message_hook, Host, ?MODULE, push_message_hook, 50),
     ok.
 
 depends(_Host, _Opts) ->
@@ -58,8 +58,8 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
--spec offline_message_hook(message()) -> message().
-offline_message_hook(#message{} = Message) ->
+-spec push_message_hook(message()) -> message().
+push_message_hook(#message{} = Message) ->
     ?DEBUG("~p", [Message]),
     case should_push(Message) of
         true -> push_message(Message);

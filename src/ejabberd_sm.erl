@@ -37,13 +37,13 @@
     start_link/0,
     stop/0,
     route/1,
-    route_offline_message/1,
     route/2,
     open_session/5,
     open_session/6,
     activate_session/2,
     is_session_active/1,
     close_session/4,
+    push_message/1,
     bounce_sm_packet/1,
     disconnect_removed_user/2,
     get_user_resources/2,
@@ -135,22 +135,24 @@ route(To, Term) ->
 route(Packet) ->
     do_route(Packet).
 
-%% Routes a message specifically through the offline route by invoking the offline_message_hook.
--spec route_offline_message(message()) -> any().
-route_offline_message(#message{to = To, type = _Type} = Packet) ->
+check_privacy_and_dest_uid(#message{to = To, type = _Type, retry_count = RC} = Packet) ->
     LUser = To#jid.luser,
     LServer = To#jid.lserver,
     DecodedPacket = xmpp:decode_els(Packet),
-    case ejabberd_auth:user_exists(LUser) andalso
-            is_privacy_allow(DecodedPacket) of
-        true ->
-            ejabberd_hooks:run_fold(offline_message_hook, LServer, DecodedPacket, []);
-        false ->
-            ?ERROR("Invalid packet received: ~p", [Packet]),
-            Err = util:err(invalid_to_uid),
-            ErrorPacket = xmpp:make_error(Packet, Err),
-            ejabberd_router:route(ErrorPacket)
+    case ejabberd_auth:user_exists(LUser) andalso is_privacy_allow(DecodedPacket) of
+        true -> allow;
+        false -> deny
     end.
+
+% Store the message in the offline store.
+-spec store_offline_message(message()) -> message().
+store_offline_message(#message{to = To} = Packet) ->
+    LServer = To#jid.lserver,
+    ejabberd_hooks:run_fold(store_message_hook, LServer, Packet, []).
+
+push_message(#message{to = To} = Packet) ->
+    LServer = To#jid.lserver,
+    ejabberd_hooks:run_fold(push_message_hook, LServer, Packet, []).
 
 
 -spec open_session(sid(), binary(), binary(), binary(), prio(), info()) -> ok.
@@ -713,16 +715,30 @@ route_message(Packet) ->
     Mod = get_sm_backend(LServer),
     %% Ignore presence information and just rely on the connection state.
 
-    %% Irrespective of whether the session is passive or active:
-    %% send the message to the user's c2s process if it exists.
-    case get_sessions(Mod, LUser, LServer) of
-        [] ->
-            route_offline_message(Packet);
-        Ss ->
-            Session = lists:max(Ss),
-            Pid = element(2, Session#session.sid),
-            ?DEBUG("Sending to process ~p~n", [Pid]),
-            ejabberd_c2s:route(Pid, {route, Packet})
+    DecodedPacket = xmpp:decode_els(Packet),
+    case check_privacy_and_dest_uid(DecodedPacket) of
+        allow ->
+            %% Store the message regardless of user having sessions or not.
+            store_offline_message(DecodedPacket),
+            %% Irrespective of whether the session is passive or active:
+            %% send the message to the user's c2s process if it exists.
+            case get_sessions(Mod, LUser, LServer) of
+                [] ->
+                    %% If no online sessions, just send push via apple/google
+                    push_message(DecodedPacket);
+                Ss ->
+                    %% pick the latest session
+                    Session = lists:max(Ss),
+                    Pid = element(2, Session#session.sid),
+                    ?DEBUG("Sending to process ~p~n", [Pid]),
+                    % NOTE: message will be lost if the dest PID dies while routing
+                    ejabberd_c2s:route(Pid, {route, DecodedPacket})
+            end;
+        deny ->
+            ?ERROR("Invalid packet received: ~p", [DecodedPacket]),
+            Err = util:err(invalid_to_uid),
+            ErrorPacket = xmpp:make_error(DecodedPacket, Err),
+            ejabberd_router:route(ErrorPacket)
     end.
 
 
