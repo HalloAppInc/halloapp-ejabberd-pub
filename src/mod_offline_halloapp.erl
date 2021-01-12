@@ -313,7 +313,7 @@ route_offline_messages(UserId, Server, LastMsgOrderId, State) ->
 send_offline_messages(#{user := Uid, server := Server,
         offline_queue_params := #{window := Window, pending_acks := PendingAcks,
         last_msg_order_id := LastMsgOrderId} = OfflineQueueParams} = State) ->
-    case model_messages:get_user_messages(Uid, LastMsgOrderId, Window) of
+    case model_messages:get_user_messages(Uid, LastMsgOrderId + 1, Window) of
         {ok, []} ->
             %% mark offline queue to be cleared, send eoq msg and timer, update state.
             mark_offline_queue_cleared(Uid, Server, LastMsgOrderId, State);
