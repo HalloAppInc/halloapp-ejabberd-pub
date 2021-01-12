@@ -463,8 +463,8 @@ compute_new_params(RetryCount, Window, PendingAcks, TotalNumOfMessages) ->
             ExpDrop = round(math:pow(2, RetryCount - 2)),
             ExpWindow = max(1, ?MAX_WINDOW / ExpDrop),
             case Window of
-                undefined -> ExpWindow;
-                _ -> min(ExpWindow, Window * 2)
+                undefined -> round(ExpWindow);
+                _ -> round(min(ExpWindow, Window * 2))
             end;
         false ->
             undefined
@@ -474,7 +474,7 @@ compute_new_params(RetryCount, Window, PendingAcks, TotalNumOfMessages) ->
         _ ->
             max(NewWindow - PendingAcks, 1)
     end,
-    {round(NewWindow), round(NumMsgToSend)}.
+    {NewWindow, round(NumMsgToSend)}.
 
 
 -spec setup_push_timer(Message :: message()) -> ok.
