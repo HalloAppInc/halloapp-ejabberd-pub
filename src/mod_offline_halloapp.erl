@@ -474,7 +474,7 @@ compute_new_params(RetryCount, Window, PendingAcks, TotalNumOfMessages) ->
         _ ->
             max(NewWindow - PendingAcks, 1)
     end,
-    {NewWindow, round(NumMsgToSend)}.
+    {round(NewWindow), round(NumMsgToSend)}.
 
 
 -spec setup_push_timer(Message :: message()) -> ok.
