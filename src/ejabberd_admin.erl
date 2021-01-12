@@ -80,6 +80,7 @@
 -include("account.hrl").
 -include("groups.hrl").
 -include("time.hrl").
+-include("translate.hrl").
 -include("ejabberd_commands.hrl").
 
 -record(state, {}).
@@ -641,9 +642,9 @@ register(User, Host, Password) ->
 		    Msg = io_lib:format("User ~ts@~ts already registered", [User, Host]),
 		    {error, conflict, 10090, Msg};
 		{error, Reason} ->
+		    ErrReason = list_to_binary(io_lib:format(?T("error condition: ~p"), [Reason])),
 		    String = io_lib:format("Can't register user ~ts@~ts at node ~p: ~ts",
-					   [User, Host, node(),
-					    mod_register:format_error(Reason)]),
+					   [User, Host, node(), ErrReason]),
 		    {error, cannot_register, 10001, String}
 	    end;
 	false ->
@@ -678,9 +679,9 @@ enroll(User, Host, Passcode) ->
                     {ok, io_lib:format("User ~ts@~ts successfully enrolled", [User, Host])};
                 {error, Reason} ->
                     ?ERROR("Failed to enroll phone ~s, Reason: ~p", [User, Reason]),
+                    ErrReason = list_to_binary(io_lib:format(?T("error condition: ~p"), [Reason])),
                     String = io_lib:format("Can't enroll user ~ts@~ts at node ~p: ~ts",
-                                           [User, Host, node(),
-                                            mod_register:format_error(Reason)]),
+                                           [User, Host, node(), ErrReason]),
                     {error, cannot_enroll, 10001, String}
             end;
         false ->
@@ -732,9 +733,9 @@ register_push(User, Host, Os, Token) ->
                 {ok, _} ->
                     {ok, io_lib:format("User ~ts@~ts successfully registered for push notifications", [User, Host])};
                 {error, Reason} ->
+                    ErrReason = list_to_binary(io_lib:format(?T("error condition: ~p"), [Reason])),
                     String = io_lib:format("Can't register user ~ts@~ts at node ~p for push notifications: ~ts",
-                                           [User, Host, node(),
-                                            mod_register:format_error(Reason)]),
+                                           [User, Host, node(), ErrReason]),
                     {error, cannot_register_push, 10001, String}
             end;
         false ->
@@ -748,9 +749,9 @@ unregister_push(User, Host) ->
                 ok ->
                     {ok, io_lib:format("User ~ts@~ts successfully unregistered for push notifications", [User, Host])};
                 {error, Reason} ->
+                    ErrReason = list_to_binary(io_lib:format(?T("error condition: ~p"), [Reason])),
                     String = io_lib:format("Can't unregister user ~ts@~ts at node ~p for push notifications: ~ts",
-                                           [User, Host, node(),
-                                            mod_register:format_error(Reason)]),
+                                           [User, Host, node(), ErrReason]),
                     {error, cannot_unregister_push, 10001, String}
             end;
         false ->
