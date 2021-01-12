@@ -421,6 +421,8 @@ message Iq {
         UploadGroupAvatar group_avatar = 27;
         DeleteAccount delete_account = 28;
     }
+    int64 to_uid = 29;    // only for server use
+    int64 from_uid = 30;    // only for server use
 }
 
 
@@ -476,8 +478,10 @@ message Presence {
         UNSUBSCRIBE = 3;
     }
     Type type = 2;
-    int64 uid = 3;
+    int64 uid = 3 [deprecated = true]; // Clients must stop using this field.
     int64 last_seen = 4;
+    int64 to_uid = 5;
+    int64 from_uid = 6;
 }
 
 
@@ -496,6 +500,7 @@ message ChatState {
     }
     ThreadType thread_type = 3;
     int64 from_uid = 4;
+    int64 to_uid = 5;    // only for server use
 }
 
 
@@ -504,6 +509,8 @@ message ChatState {
 message Ack {
     string id = 1;
     int64 timestamp = 2;
+    int64 to_uid = 3;    // only for server use
+    int64 from_uid = 4;    // only for server use
 }
 
 

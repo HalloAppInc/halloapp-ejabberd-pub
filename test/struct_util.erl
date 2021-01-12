@@ -861,12 +861,14 @@ create_pb_ack(Id, Timestamp) ->
     }.
 
 
-create_pb_presence(Id, Type, Uid, LastSeen) ->
+create_pb_presence(Id, Type, Uid, ToUid, FromUid, LastSeen) ->
     #pb_presence{
         id = Id,
         type = Type,
         last_seen = LastSeen,
-        uid = Uid
+        uid = Uid,
+        to_uid = ToUid,
+        from_uid = FromUid
     }.
 
 
