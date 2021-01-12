@@ -159,6 +159,7 @@ open_session(SID, User, Server, Resource, Priority, Info) ->
     set_session(SID, User, Server, Resource, Priority, Info),
     check_for_sessions_to_replace(User, Server, Resource),
     JID = jid:make(User, Server, Resource),
+    ?INFO("U: ~p S: ~p R: ~p JID: ~p", [User, Server, Resource, JID]),
     ejabberd_hooks:run(sm_register_connection_hook, JID#jid.lserver, [SID, JID, Info]).
 
 -spec open_session(sid(), binary(), binary(), binary(), info()) -> ok.
