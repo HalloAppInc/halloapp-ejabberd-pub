@@ -174,7 +174,7 @@ get_verification_attempt_list(Phone) ->
     {ok, VerificationAttemptList}.
 
 
--spec add_gateway_response(Phone :: phone(), AttemptId :: binary(), Gateway :: binary(),
+-spec add_gateway_response(Phone :: phone(), AttemptId :: binary(), Gateway :: atom(),
         SMSId :: binary(), Status :: binary(), Response :: binary()) -> ok | {error, any()}.
 add_gateway_response(Phone, AttemptId, Gateway, SMSId, Status, Response) ->
     GatewayResponseKey = gateway_response_key(Gateway, SMSId),
@@ -184,8 +184,9 @@ add_gateway_response(Phone, AttemptId, Gateway, SMSId, Status, Response) ->
                    ["EXPIRE", GatewayResponseKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
     ?DEBUG("Adding mapping from GWRK: ~p, to VAK: ~p", [GatewayResponseKey, VerificationAttemptKey]),
+    GatewayBin = util:to_binary(Gateway),
     _Result2 = q([["MULTI"],
-                   ["HSET", VerificationAttemptKey, ?FIELD_SENDER, Gateway, ?FIELD_STATUS, Status,
+                   ["HSET", VerificationAttemptKey, ?FIELD_SENDER, GatewayBin, ?FIELD_STATUS, Status,
                        ?FIELD_RESPONSE, Response],
                    ["EXPIRE", VerificationAttemptKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
@@ -193,14 +194,14 @@ add_gateway_response(Phone, AttemptId, Gateway, SMSId, Status, Response) ->
 
     %% TODO(vipin): The following calls are temporary and will not be needed once we start tracking
     %% SMS Gateway using 'add_gateway_response(...)' instead of 'add_sms_code(...).
-    _Res2 = q(["HSET", code_key(Phone), ?FIELD_SENDER, Gateway]),
+    _Res2 = q(["HSET", code_key(Phone), ?FIELD_SENDER, GatewayBin]),
     add_sms_code_receipt(Phone, Response),
     ok.
 
 
 %% TODO(vipin): Add more fields from the callback response and add those fields in this call.
 %% Example additional field: Cost
--spec add_gateway_callback_info(Gateway :: binary(), SMSId :: binary(), Status :: binary())
+-spec add_gateway_callback_info(Gateway :: atom(), SMSId :: binary(), Status :: binary())
     -> ok | {error, any()}.
 add_gateway_callback_info(Gateway, SMSId, Status) ->
     GatewayResponseKey = gateway_response_key(Gateway, SMSId),
@@ -317,8 +318,9 @@ verification_attempt_key(Phone, AttemptId) ->
     <<?VERIFICATION_ATTEMPT_ID_KEY/binary, <<"{">>/binary, Phone/binary, <<"}:">>/binary, AttemptId/binary>>.
 
 
--spec gateway_response_key(Gateway :: binary(), SMSId :: binary()) -> binary().
+-spec gateway_response_key(Gateway :: atom(), SMSId :: binary()) -> binary().
 gateway_response_key(Gateway, SMSId) ->
-    <<?GATEWAY_RESPONSE_ID_KEY/binary, <<"{">>/binary, Gateway/binary, <<":">>/binary, SMSId/binary, <<"}">>/binary>>.
+    GatewayBin = util:to_binary(Gateway),
+    <<?GATEWAY_RESPONSE_ID_KEY/binary, <<"{">>/binary, GatewayBin/binary, <<":">>/binary, SMSId/binary, <<"}">>/binary>>.
 
 

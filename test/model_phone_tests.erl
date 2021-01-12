@@ -23,7 +23,8 @@
 -define(SMSID1, <<"smsid1">>).
 -define(SMSID2, <<"smsid2">>).
 -define(STATUS, <<"sent">>).
--define(SENDER2, <<"api2.halloapp.net">>).
+-define(GATEWAY1, gw1).
+-define(GATEWAY2, gw2).
 -define(CALLBACK_STATUS1, <<"delivered">>).
 -define(CALLBACK_STATUS2, <<"dropped">>).
 
@@ -91,7 +92,7 @@ add_sms_gateway_response_test() ->
     setup(),
     {ok, []} = model_phone:get_verification_attempt_list(?PHONE1),
     {ok, AttemptId} = model_phone:add_sms_code2(?PHONE1, ?CODE1),
-    ok = model_phone:add_gateway_response(?PHONE1, AttemptId, ?SENDER, ?SMSID1, ?STATUS, ?RECEIPT),
+    ok = model_phone:add_gateway_response(?PHONE1, AttemptId, ?GATEWAY1, ?SMSID1, ?STATUS, ?RECEIPT),
     {ok, ?CODE1} = model_phone:get_sms_code(?PHONE1),
     {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
     {ok, [AttemptId]} = model_phone:get_verification_attempt_list(?PHONE1),
@@ -99,12 +100,12 @@ add_sms_gateway_response_test() ->
     timer:sleep(timer:seconds(1)),
     {ok, AttemptId2} = model_phone:add_sms_code2(?PHONE1, ?CODE2),
     {ok, [AttemptId, AttemptId2]} = model_phone:get_verification_attempt_list(?PHONE1),
-    ok = model_phone:add_gateway_response(?PHONE1, AttemptId2, ?SENDER, ?SMSID2, ?STATUS, ?RECEIPT),
+    ok = model_phone:add_gateway_response(?PHONE1, AttemptId2, ?GATEWAY2, ?SMSID2, ?STATUS, ?RECEIPT),
     {ok, ?CODE2} = model_phone:get_sms_code(?PHONE1),
     {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
     {ok, ?CODE2} = model_phone:get_sms_code2(?PHONE1, AttemptId2),
-    ok = model_phone:add_gateway_callback_info(?SENDER, ?SMSID1, ?CALLBACK_STATUS1),
-    ok = model_phone:add_gateway_callback_info(?SENDER, ?SMSID2, ?CALLBACK_STATUS2),
+    ok = model_phone:add_gateway_callback_info(?GATEWAY1, ?SMSID1, ?CALLBACK_STATUS1),
+    ok = model_phone:add_gateway_callback_info(?GATEWAY2, ?SMSID2, ?CALLBACK_STATUS2),
     {ok, ?CALLBACK_STATUS1} = model_phone:get_gateway_response_status(?PHONE1, AttemptId),
     {ok, ?CALLBACK_STATUS2} = model_phone:get_gateway_response_status(?PHONE1, AttemptId2).
 

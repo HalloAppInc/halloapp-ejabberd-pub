@@ -82,7 +82,7 @@ request_sms(Phone, UserAgent) ->
 %%====================================================================
 
 -spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary(),
-        OldAttemptList :: [binary()]) -> {ok, binary(), binary(), binary(), binary()} | no_return().
+        OldAttemptList :: [binary()]) -> {ok, atom(), binary(), binary(), binary()} | no_return().
 send_sms(Phone, Code, UserAgent, OldAttemptList) ->
     Msg = prepare_registration_sms(Code, UserAgent),
     ?DEBUG("preparing to send sms, phone:~p msg:~s", [Phone, Msg]),
@@ -128,7 +128,7 @@ get_app_hash(UserAgent) ->
 -define(sms_gateway_probability, [{twilio, 100}, {mbird, 0}]).
 
 -spec smart_send(Phone :: phone(), Msg :: string(), OldAttemptList :: [binary()]) 
-        -> {ok, binary(), binary(), binary(), binary()} | {error, sms_fail}.
+        -> {ok, atom(), binary(), binary(), binary()} | {error, sms_fail}.
 smart_send(Phone, Msg, OldAttemptList) ->
     NewGateway = case length(OldAttemptList) of
         0 -> twilio;
@@ -140,7 +140,7 @@ smart_send(Phone, Msg, OldAttemptList) ->
     Result = NewGateway:send_sms(Phone, Msg),
     ?DEBUG("Result: ~p", [Result]),
     case Result of
-        {ok, Id, Status, Response} -> {ok, term_to_binary(NewGateway), Id, Status, Response};
+        {ok, Id, Status, Response} -> {ok, NewGateway, Id, Status, Response};
         Error -> Error
     end.
 
