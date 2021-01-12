@@ -347,7 +347,7 @@ send_offline_messages(#{user := Uid, server := Server,
                     State#{
                         offline_queue_params => OfflineQueueParams#{
                             window => NewWindow,
-                            pending_acks => PendingAcks + NumMsgToSend,
+                            pending_acks => PendingAcks + length(MsgsToSend),
                             last_msg_order_id => NewLastMsgOrderId
                         }
                     }
