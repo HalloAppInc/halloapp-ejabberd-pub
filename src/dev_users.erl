@@ -14,7 +14,8 @@
 %% API
 -export([
     get_dev_uids/0,
-    is_dev_uid/1
+    is_dev_uid/1,
+    is_murali/1
 ]).
 
 %%====================================================================
@@ -59,4 +60,9 @@ is_dev_uid(Uid) ->
         {ok, Phone} ->
             util:is_test_number(Phone) orelse IsUIDDev
     end.
+
+is_murali(<<"1000000000739856658">>) -> true;  %% Murali
+is_murali(<<"1000000000773653288">>) -> true;  %% Murali android
+is_murali(_) -> false.
+
 

@@ -185,7 +185,7 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
                         true ->
                             %% Temporary condition: I dont expect this code to run for non-dev users.
                             %% As of now: this code should run only for dev users.
-                            case dev_users:is_dev_uid(Uid) of
+                            case dev_users:is_murali(Uid) of
                                 false ->
                                     ?ERROR("Uid: ~s, unexpected c2s state: ~p", [Uid, State]),
                                     State;
@@ -279,7 +279,7 @@ count_user_messages(User) ->
 check_and_send_offline_messages(#{user := Uid, server := Server} = State) ->
     %% Use the window algorithm to experiment only on dev users initially.
     %% TODO(murali@): update this after ensuring everything works correctly.
-    case dev_users:is_dev_uid(Uid) of
+    case dev_users:is_murali(Uid) of
         false ->
             route_offline_messages(Uid, Server, 0, State);
         true ->
