@@ -191,4 +191,3 @@ run_eunit(_Config) ->
     end;
 '$handle_undefined_function'(_, _) ->
     erlang:error(undef).
-

@@ -58,16 +58,20 @@ process([<<"registration">>, <<"request_sms">>],
     catch
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
+            log_sms_issues(bad_user_agent),
             util_http:return_400();
         error: not_invited ->
             ?INFO("request_sms error: phone not invited ~p", [Data]),
+            log_sms_issues(not_invited),
             util_http:return_400(not_invited);
         error : sms_fail ->
             ?INFO("request_sms error: sms_failed ~p", [Data]),
+            log_sms_issues(sms_fail),
             util_http:return_400(sms_fail);
         Class : Reason : Stacktrace  ->
             ?ERROR("request_sms crash: ~s\nStacktrace:~s",
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            log_sms_issues(Reason),
             util_http:return_500()
     end;
 
@@ -101,17 +105,23 @@ process([<<"registration">>, <<"register">>],
     catch
         error : wrong_sms_code ->
             ?INFO("register error: code missmatch data:~s", [Data]),
+            log_registration_issues(wrong_sms_code),
             util_http:return_400(wrong_sms_code);
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
+            log_registration_issues(bad_user_agent),
             util_http:return_400();
         error: {badkey, MissingField} when is_binary(MissingField)->
+            log_registration_issues(badkey),
             util_http:return_400(util:to_atom(<<"missing_", MissingField/binary>>));
         error: {wk_error, Reason} ->
+            log_registration_issues(wk_error),
             util_http:return_400(Reason);
         error: invalid_name ->
+            log_registration_issues(invalid_name),
             util_http:return_400(invalid_name);
         error : Reason : Stacktrace  ->
+            log_registration_issues(Reason),
             ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
             util_http:return_500()
     end;
@@ -158,26 +168,35 @@ process([<<"registration">>, <<"register2">>],
         % TODO: This code is getting out of hand... Figure out how to simplify the error handling
         error : wrong_sms_code ->
             ?INFO("register error: code mismatch data:~s", [Data]),
+            log_registration_issues(wrong_sms_code),
             util_http:return_400(wrong_sms_code);
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
+            log_registration_issues(bad_user_agent),
             util_http:return_400();
         error : invalid_s_ed_pub ->
             ?ERROR("register error: invalid_s_ed_pub ~p", [Data]),
+            log_registration_issues(invalid_s_ed_pub),
             util_http:return_400(invalid_s_ed_pub);
         error : invalid_signed_phrase ->
             ?ERROR("register error: invalid_signed_phrase ~p", [Data]),
+            log_registration_issues(invalid_signed_phrase),
             util_http:return_400(invalid_signed_phrase);
         error : unable_to_open_signed_phrase ->
             ?ERROR("register error: unable_to_open_signed_phrase ~p", [Data]),
+            log_registration_issues(unable_to_open_signed_phrase),
             util_http:return_400(unable_to_open_signed_phrase);
         error: {badkey, MissingField} when is_binary(MissingField)->
+            log_registration_issues(badkey),
             util_http:return_400(util:to_atom(<<"missing_", MissingField/binary>>));
         error: {wk_error, Reason} ->
+            log_registration_issues(wk_error),
             util_http:return_400(Reason);
         error: invalid_name ->
+            log_registration_issues(invalid_name),
             util_http:return_400(invalid_name);
         error : Reason : Stacktrace  ->
+            log_registration_issues(Reason),
             ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
             util_http:return_500()
     end;
@@ -240,6 +259,19 @@ process(Path, Request) ->
     ?WARNING("Bad Request: path: ~p, r:~p", [Path, Request]),
     util_http:return_400().
 
+
+-spec log_registration_issues(ErrorType :: atom | string()) -> ok | no_return().
+log_registration_issues(ErrorType) ->
+    stat:count("HA/account", "registration_errors", 1,
+        [{error, ErrorType}]),
+    ok.
+
+
+-spec log_sms_issues(ErrorType :: atom | string()) -> ok | no_return().
+log_sms_issues(ErrorType) ->
+    stat:count("HA/account", "sms_errors", 1,
+        [{error, ErrorType}]),
+    ok.
 
 -spec check_ua(binary()) -> ok | no_return().
 check_ua(UserAgent) ->
