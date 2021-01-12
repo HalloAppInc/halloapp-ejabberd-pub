@@ -91,4 +91,4 @@ check_file_processing_test() ->
     ?assertEqual(2, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:remove_user/1, 10)),
     ?assertEqual(0, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:remove_user/1, 10)),
     ok = file:delete(?TEMP_FILE_NAME).
-
+ 
