@@ -170,8 +170,8 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
             ejabberd_hooks:run(user_ack_packet, Server, [Ack, OfflineMessage]),
             State1 = State#{offline_queue_params := OfflineQueueParams#{pending_acks => PendingAcks - 1}},
 
-            ?INFO("Uid: ~s, Window: ~p, PendingAcks: ~p, offline_queue_cleared: ~p",
-                    [Uid, Window, PendingAcks, IsOfflineQueueCleared]),
+            ?INFO("Uid: ~s, Window: ~p, PendingAcks: ~p, offline_queue_cleared: ~p, state: ~p",
+                    [Uid, Window, PendingAcks, IsOfflineQueueCleared, State1]),
 
             %% If OfflineQueue is cleared: nothing to do.
             %% If OfflineQueue is not cleared: we need to check if we can send more messages.
@@ -193,7 +193,7 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
                                     send_offline_messages(State1)
                             end;
                         false ->
-                            State
+                            State1
                     end
             end
     end.
