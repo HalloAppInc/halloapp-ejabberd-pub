@@ -425,6 +425,13 @@ filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid, content_type = <<
     model_messages:ack_message(Uid, MsgId),
     stat:count("HA/offline_messages", "drop"),
     false;
+filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid, content_type = <<"error_st">>}) ->
+    %% Filter out old error_st messages, clients dont handle them.
+    %% We should not be seeing these messages: TODO(murali@): debug and fix them.
+    ?INFO("Dropping error_st messages, Uid: ~p, msg_id: ~p", [Uid, MsgId]),
+    ok = model_messages:withhold_message(Uid, MsgId),
+    stat:count("HA/offline_messages", "drop"),
+    false;
 filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid,
         retry_count = RetryCount, message = Message})
         when RetryCount >= ?MAX_RETRY_COUNT ->
