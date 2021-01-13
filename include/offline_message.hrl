@@ -16,8 +16,7 @@
     from_uid :: binary(),
     content_type :: binary(),
     retry_count :: integer(),
-    message :: binary(),
-    protobuf = false :: boolean()
+    message :: binary()
 }).
 
 -type offline_message() :: #offline_message{}.

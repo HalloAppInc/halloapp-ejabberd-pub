@@ -19,9 +19,7 @@
     encode_maybe_binary/1,
     q/2,
     qp/2,
-    eredis_hash/1,
-    encode_boolean/1,
-    decode_boolean/2
+    eredis_hash/1
 ]).
 
 
@@ -61,13 +59,4 @@ q(Client, Command) ->
 qp(Client, Commands) ->
     {ok, Result} = gen_server:call(Client, {qp, Commands}),
     Result.
-
-
-encode_boolean(true) -> <<"1">>;
-encode_boolean(false) -> <<"0">>.
-
-
-decode_boolean(<<"1">>, _DefaultValue) -> true;
-decode_boolean(<<"0">>, _DefaultValue) -> false;
-decode_boolean(_, DefaultValue) -> DefaultValue.
 
