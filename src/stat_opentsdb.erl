@@ -71,7 +71,7 @@ compose_body(MetricsList, TimestampMs) ->
             #{
                 <<"metric">> => util:to_binary(Namespace ++ "_" ++ Metric),
                 <<"timestamp">> => TimestampMs,
-                <<"value">> => Value#statistic_set.sample_count,
+                <<"value">> => Value#statistic_set.sum,
                 <<"tags">> => TagsAndValues
             }
         end, MetricsList),
