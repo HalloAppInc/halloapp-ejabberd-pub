@@ -73,6 +73,7 @@ mod_options(_Host) ->
 -define(FIELD_ORDER, <<"ord">>).
 -define(FIELD_CONTENT_TYPE, <<"ct">>).
 -define(FIELD_RETRY_COUNT, <<"rc">>).
+-define(FIELD_PROTOBUF, <<"pb">>).
 
 -spec store_message(Message :: message()) -> ok | {error, any()}.
 store_message(Message) ->
@@ -84,19 +85,37 @@ store_message(Message) ->
 
 
 store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_record(Message, message) ->
-    store_message(ToUid, FromUid, MsgId, ContentType, fxml:element_to_binary(xmpp:encode(Message)));
+    {IsInPbFormat, MessageBin} = {false, fxml:element_to_binary(xmpp:encode(Message))},
+    % IsDevUser = dev_users:is_dev_uid(ToUid),
+    % {IsInPbFormat, MessageBin} = case IsDevUser of
+    %     true ->
+    %         case enif_protobuf:encode(packet_parser:xmpp_to_proto(Message)) of
+    %             {error, Reason} ->
+    %                 ?ERROR("failed encoding packet: ~p, reason: ~p", [Message, Reason]),
+    %                 ;
+    %             PbBin ->
+    %                 {true, PbBin}
+    %         end;
+    %     false ->
+    %         {false, fxml:element_to_binary(xmpp:encode(Message))}
+    % end,
+    store_message(ToUid, FromUid, MsgId, ContentType, MessageBin, IsInPbFormat);
 
-store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_binary(Message)->
+store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_binary(Message) ->
+    store_message(ToUid, FromUid, MsgId, ContentType, Message, false).
+
+store_message(ToUid, FromUid, MsgId, ContentType, Message, IsInPbFormat) when is_binary(Message) ->
     %% we also cleanup reverse index of messages.
     MessageOrderKey = binary_to_list(message_order_key(ToUid)),
     MessageKey = binary_to_list(message_key(ToUid, MsgId)),
     MessageQueueKey = binary_to_list(message_queue_key(ToUid)),
     Script = get_store_message_script(),
+    PbValue = util_redis:encode_boolean(IsInPbFormat),
     {ok, _Res} = q(["EVAL", Script, 3, MessageOrderKey, MessageKey, MessageQueueKey,
-            ToUid, Message, ContentType, FromUid, MsgId, ?MSG_EXPIRATION]),
+            ToUid, Message, ContentType, FromUid, MsgId, ?MSG_EXPIRATION, PbValue]),
     ok;
 
-store_message(_ToUid, _FromUid, _MsgId, _ContentType, Message) ->
+store_message(_ToUid, _FromUid, _MsgId, _ContentType, Message, _IsDevUser) ->
     ?ERROR("Invalid message format: ~p: use binary format", [Message]).
 
 
@@ -237,6 +256,8 @@ parse_fields(_MsgId, []) ->
 parse_fields(MsgId, FieldValuesList) ->
     MsgDataMap = util:list_to_map(FieldValuesList),
     Message = maps:get(?FIELD_MESSAGE, MsgDataMap, undefined),
+    PbValue = maps:get(?FIELD_PROTOBUF, MsgDataMap, undefined),
+    IsInPbFormat = util_redis:decode_boolean(PbValue, false),
     case Message of
         undefined -> undefined;
         _ ->
@@ -249,7 +270,8 @@ parse_fields(MsgId, FieldValuesList) ->
                 from_uid = maps:get(?FIELD_FROM, MsgDataMap, undefined),
                 content_type = maps:get(?FIELD_CONTENT_TYPE, MsgDataMap),
                 retry_count = RetryCount,
-                order_id = binary_to_integer(maps:get(?FIELD_ORDER, MsgDataMap))
+                order_id = binary_to_integer(maps:get(?FIELD_ORDER, MsgDataMap)),
+                protobuf = IsInPbFormat
             }
     end.
 
