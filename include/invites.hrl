@@ -1,2 +1,2 @@
--define(MAX_NUM_INVITES, 5).
+-define(MAX_NUM_INVITES, 10).
 
