@@ -90,7 +90,7 @@ init([Host|_]) ->
 terminate(_Reason, #{host := Host} = _State) ->
     ?INFO("mod_offline_halloapp: terminate", []),
     ejabberd_hooks:delete(offline_message_hook, Host, ?MODULE, offline_message_hook, 10),
-    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 10),
+    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ejabberd_hooks:delete(user_send_ack, Host, ?MODULE, user_send_ack, 50),
     ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 100),
     ejabberd_hooks:delete(user_session_activated, Host, ?MODULE, user_session_activated, 50),
