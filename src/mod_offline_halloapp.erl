@@ -400,7 +400,7 @@ route_offline_message(undefined) ->
 route_offline_message(#offline_message{
         msg_id = MsgId, to_uid = ToUid, retry_count = RetryCount, message = Message, protobuf = true}) ->
     %% TODO: remove when turning on this logic for all users.
-    ?assertEqual(ToUid, dev_users:is_dev_uid(ToUid)),
+    ?assertEqual(true, dev_users:is_dev_uid(ToUid)),
     case enif_protobuf:decode(Message, pb_packet) of
         {error, Reason} ->
             ?ERROR("MsgId: ~p, Message: ~p, failed decoding reason: ~s", [MsgId, Message, Reason]);
