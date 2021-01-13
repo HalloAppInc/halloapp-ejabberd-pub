@@ -105,7 +105,8 @@ process_count(Uid, #count_st{namespace = Namespace, metric = Metric, count = Cou
         Tags = dims_st_to_tags(DimsSt),
         Tags2 = Tags ++ ServerTags, 
         % TODO: make sure to override duplicate keys in Tags with ServerTags
-        ?INFO("~s, ~s, ~p", [FullNamespace, Uid, Tags2]),
+        %% TODO(murali@): remove these logs eventually.
+        ?INFO("~s, ~s, ~s, ~p, ~p", [FullNamespace, Metric, Uid, Tags2, Count]),
         stat:count(binary_to_list(FullNamespace), binary_to_list(Metric), Count, Tags2),
         ok
     catch
