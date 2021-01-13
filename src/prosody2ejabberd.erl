@@ -152,26 +152,6 @@ convert_data(Host, "accounts", User, [Data]) ->
 		       [User, Host, Err]),
 	    Err
     end;
-convert_data(Host, "private", User, [Data]) ->
-    PrivData = lists:flatmap(
-		 fun({_TagXMLNS, Raw}) ->
-			 case deserialize(Raw) of
-			     [El] ->
-				 XMLNS = fxml:get_tag_attr_s(<<"xmlns">>, El),
-				 [{XMLNS, El}];
-			     _ ->
-				 []
-			 end
-		 end, Data),
-    mod_private:set_data(jid:make(User, Host), PrivData);
-convert_data(Host, "vcard", User, [Data]) ->
-    LServer = jid:nameprep(Host),
-    case deserialize(Data) of
-	[VCard] ->
-	    mod_vcard:set_vcard(User, LServer, VCard);
-	_ ->
-	    ok
-    end;
 convert_data(HostStr, "pubsub", Node, [Data]) ->
     case decode_pubsub_host(HostStr) of
 	Host when is_binary(Host);

@@ -169,8 +169,7 @@ export_user(User, Server, Fd) ->
 	       scram -> format_scram_password(Password);
 	       _ -> Password
 	   end,
-    Els = get_vcard(User, Server) ++
-        get_private(User, Server),
+    Els = get_vcard(User, Server),
     print(Fd, fxml:element_to_binary(
                 #xmlel{name = <<"user">>,
                        attrs = [{<<"name">>, User},
@@ -202,16 +201,6 @@ get_vcard(User, Server) ->
     case mod_vcard:get_vcard(LUser, LServer) of
 	error -> [];
 	Els -> Els
-    end.
-
-
--spec get_private(binary(), binary()) -> [xmlel()].
-get_private(User, Server) ->
-    case mod_private:get_data(User, Server) of
-        [_|_] = Els ->
-	    [xmpp:encode(#private{sub_els = Els})];
-        _ ->
-            []
     end.
 
 process(#state{xml_stream_state = XMLStreamState, fd = Fd} = State) ->
@@ -362,8 +351,6 @@ process_user_el(#xmlel{name = Name, attrs = Attrs, children = Els} = El,
 	    {<<"query">>, ?NS_PRIVACY} ->
 		%% Make sure <list/> elements go before <active/> and <default/>
 		process_privacy(xmpp:decode(El), State);
-	    {<<"query">>, ?NS_PRIVATE} ->
-		process_private(xmpp:decode(El), State);
 	    {<<"vCard">>, ?NS_VCARD} ->
 		process_vcard(xmpp:decode(El), State);
 	    {<<"offline-messages">>, NS} ->
@@ -432,18 +419,6 @@ process_privacy2(JID, PQ) ->
             _ ->
                 ok
         end.
-
--spec process_private(private(), state()) -> {ok, state()} | {error, _}.
-process_private(Private, State = #state{user = U, server = S}) ->
-    JID = jid:make(U, S),
-    IQ = #iq{type = set, id = p1_rand:get_string(),
-	     from = JID, to = JID, sub_els = [Private]},
-    case mod_private:process_sm_iq(IQ) of
-        #iq{type = result} ->
-            {ok, State};
-        Err ->
-            stop("Failed to write private: ~p", [Err])
-    end.
 
 -spec process_vcard(xmpp_element(), state()) -> {ok, state()} | {error, _}.
 process_vcard(El, State = #state{user = U, server = S}) ->

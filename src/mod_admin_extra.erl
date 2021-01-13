@@ -50,9 +50,6 @@
 	 set_password/3, check_password_hash/4, delete_old_users/1,
 	 delete_old_users_vhost/2, ban_account/3, check_password/3,
 
-	 % Private storage
-	 private_get/4, private_set/3,
-
 	 % Send message
 	 send_message/5, send_stanza/3, send_stanza_c2s/4,
 
@@ -796,27 +793,6 @@ user_session_info(User, Host, Resource) ->
 %% $ ejabberdctl private_set badlop localhost "\<aa\ xmlns=\'bb\'\>Cluth\</aa\>"
 %% $ ejabberdctl private_get badlop localhost aa bb
 %% <aa xmlns='bb'>Cluth</aa>
-
-private_get(Username, Host, Element, Ns) ->
-    ElementXml = #xmlel{name = Element, attrs = [{<<"xmlns">>, Ns}]},
-    Els = mod_private:get_data(jid:nodeprep(Username), jid:nameprep(Host),
-			       [{Ns, ElementXml}]),
-    binary_to_list(fxml:element_to_binary(xmpp:encode(#private{sub_els = Els}))).
-
-private_set(Username, Host, ElementString) ->
-    case fxml_stream:parse_element(ElementString) of
-	{error, Error} ->
-	    io:format("Error found parsing the element:~n  ~p~nError: ~p~n",
-		      [ElementString, Error]),
-	    error;
-	Xml ->
-	    private_set2(Username, Host, Xml)
-    end.
-
-private_set2(Username, Host, Xml) ->
-    NS = fxml:get_tag_attr_s(<<"xmlns">>, Xml),
-    JID = jid:make(Username, Host),
-    mod_private:set_data(JID, [{NS, Xml}]).
 
 to_list([]) -> [];
 to_list([H|T]) -> [to_list(H)|to_list(T)];
