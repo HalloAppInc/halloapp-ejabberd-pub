@@ -1,7 +1,7 @@
 local OfflineMessage = redis.call('EXISTS', KEYS[2])
 if OfflineMessage == 0 then
 	local OrderId = redis.call('INCR', KEYS[1])
-	redis.call('HSET', KEYS[2], 'tuid', ARGV[1], 'm', ARGV[2], 'ct', ARGV[3], 'rc', 1, 'ord', OrderId)
+	redis.call('HSET', KEYS[2], 'tuid', ARGV[1], 'm', ARGV[2], 'ct', ARGV[3], 'rc', 1, 'ord', OrderId, 'pb', ARGV[7])
 	if ARGV[4] == 'undefined' then
 	else
 	    redis.call('HSET', KEYS[2], 'fuid', ARGV[4])

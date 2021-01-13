@@ -13,6 +13,7 @@
 -define(UID1, <<"1000000000376503286">>).
 -define(UID2, <<"1000000000489601473">>).
 -define(UID3, <<"1000000000575738138">>).
+-define(UID4, <<"1000000000739856658">>).
 -define(SERVER, <<"s.halloapp.net">>).
 -define(MID1, <<"a985962b-33b1">>).
 -define(TYPE1, <<>>).
@@ -22,21 +23,21 @@
 -define(TYPE3, <<"contact_list">>).
 -define(MESSAGE1, term_to_binary(#message{id = ?MID1, to = #jid{user = ?UID1, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE1, #offline_message{msg_id = ?MID1, to_uid = ?UID1, from_uid = undefined,
-        content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE1, order_id = 1}).
+        content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE1, order_id = 1, protobuf = false}).
 -define(MESSAGE2, term_to_binary(#message{id = ?MID2, to = #jid{user = ?UID1, server = ?SERVER},
         from = #jid{user = ?UID2, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE2, #offline_message{msg_id = ?MID2, to_uid = ?UID1, from_uid = ?UID2,
-        content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE2, order_id = 2}).
+        content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE2, order_id = 2, protobuf = false}).
 -define(MESSAGE3, term_to_binary(#message{id = ?MID3, to = #jid{user = ?UID2, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE3, #offline_message{msg_id = ?MID3, to_uid = ?UID2, from_uid = undefined,
-        content_type = ?TYPE3, retry_count = 1, message = ?MESSAGE3, order_id = 1}).
+        content_type = ?TYPE3, retry_count = 1, message = ?MESSAGE3, order_id = 1, protobuf = false}).
 -define(MESSAGE4, term_to_binary(#message{id = ?MID2, to = #jid{user = ?UID1, server = ?SERVER},
         from = #jid{user = ?UID2, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE4, #offline_message{msg_id = ?MID2, to_uid = ?UID1, from_uid = ?UID2,
-        content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE4, order_id = 3}).
+        content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE4, order_id = 3, protobuf = false}).
 -define(MESSAGE5, term_to_binary(#message{id = ?MID1, to = #jid{user = ?UID1, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE5, #offline_message{msg_id = ?MID1, to_uid = ?UID1, from_uid = undefined,
-        content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE5, order_id = 4}).
+        content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE5, order_id = 4, protobuf = false}).
 -define(EMPTY_OFFLINE_MESSAGE, undefined).
 
 
@@ -44,6 +45,8 @@
 setup() ->
     tutil:setup(),
     redis_sup:start_link(),
+    enif_protobuf:load_cache(server:get_msg_defs()),
+    stringprep:start(),
     clear(),
     ok.
 
@@ -77,6 +80,29 @@ store_message_test() ->
 
     ?assertEqual(ok, model_messages:store_message(?UID2, undefined, ?MID3, ?TYPE3, ?MESSAGE3)),
     ?assertEqual({ok, ?OFFLINE_MESSAGE3}, model_messages:get_message(?UID2, ?MID3)).
+
+
+store_message_pb_test() ->
+    setup(),
+    SeenReceipt = struct_util:create_seen_receipt(?MID1, ?UID2, <<"123">>),
+    ToJid = struct_util:create_jid(?UID4, ?SERVER),
+    FromJid = struct_util:create_jid(?UID2, ?SERVER),
+    XmppMsg = struct_util:create_message_stanza(?MID1, ToJid, FromJid, normal, SeenReceipt),
+    ?assertEqual({ok, ?EMPTY_OFFLINE_MESSAGE}, model_messages:get_message(?UID4, ?MID1)),
+    ?assertEqual(ok, model_messages:store_message(XmppMsg)),
+    {ok, ActualOfflineMessage} = model_messages:get_message(?UID4, ?MID1),
+
+    ExpectedOfflineMessage = #offline_message{
+        msg_id = ?MID1,
+        to_uid = ?UID4,
+        from_uid = ?UID2,
+        content_type = <<"receipt_seen">>,
+        retry_count = 1,
+        message = enif_protobuf:encode(packet_parser:xmpp_to_proto(XmppMsg)),
+        order_id = 1,
+        protobuf = true
+    },
+    ?assertEqual(ExpectedOfflineMessage, ActualOfflineMessage).
 
 
 message_order_test() ->

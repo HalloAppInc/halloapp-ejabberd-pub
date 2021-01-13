@@ -398,6 +398,17 @@ send_end_of_queue_marker(UserId, Server) ->
 route_offline_message(undefined) ->
     ok;
 route_offline_message(#offline_message{
+        msg_id = MsgId, to_uid = ToUid, retry_count = RetryCount, message = Message, protobuf = true}) ->
+    case enif_protobuf:decode(Message, pb_msg) of
+        {error, Reason} ->
+            ?ERROR("MsgId: ~p, Message: ~p, failed decoding reason: ~s", [MsgId, Message, Reason]);
+        Packet ->
+            Packet1 = packet_parser:proto_to_xmpp(Packet),
+            adjust_and_send_message(Packet1, RetryCount),
+            ?INFO("sending offline message Uid: ~s MsgId: ~p rc: ~p", [ToUid, MsgId, RetryCount])
+    end,
+    ok;
+route_offline_message(#offline_message{
         msg_id = MsgId, to_uid = ToUid, retry_count = RetryCount, message = Message}) ->
     case fxml_stream:parse_element(Message) of
         {error, Reason} ->
@@ -405,8 +416,7 @@ route_offline_message(#offline_message{
         MessageXmlEl ->
             try
                 Packet = xmpp:decode(MessageXmlEl, ?NS_CLIENT, [ignore_els]),
-                Packet1 = Packet#message{retry_count = RetryCount},
-                ejabberd_router:route(Packet1),
+                adjust_and_send_message(Packet, RetryCount),
                 ?INFO("sending offline message Uid: ~s MsgId: ~p rc: ~p",
                     [ToUid, MsgId, RetryCount])
             catch
@@ -414,7 +424,15 @@ route_offline_message(#offline_message{
                     ?ERROR("failed routing: ~s", [
                             lager:pr_stacktrace(Stacktrace, {Class, Reason})])
             end
-    end.
+    end,
+    ok.
+
+
+-spec adjust_and_send_message(Message :: message(), RetryCount :: integer()) -> ok.
+adjust_and_send_message(Message, RetryCount) ->
+    Message1 = Message#message{retry_count = RetryCount},
+    ejabberd_router:route(Message1),
+    ok.
 
 
 %% TODO(murali@): remove this in one month.
