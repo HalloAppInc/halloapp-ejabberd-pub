@@ -399,7 +399,7 @@ route_offline_message(undefined) ->
     ok;
 route_offline_message(#offline_message{
         msg_id = MsgId, to_uid = ToUid, retry_count = RetryCount, message = Message, protobuf = true}) ->
-    case enif_protobuf:decode(Message, pb_msg) of
+    case enif_protobuf:decode(Message, pb_packet) of
         {error, Reason} ->
             ?ERROR("MsgId: ~p, Message: ~p, failed decoding reason: ~s", [MsgId, Message, Reason]);
         Packet ->
