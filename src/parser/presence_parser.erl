@@ -28,10 +28,10 @@ proto_to_xmpp(ProtoPresence) ->
     Server = util:get_host(),
     ToJID = case {ProtoPresence#pb_presence.type, ToUid2} of
         {subscribe, <<>>} ->
-            ?WARNING("pb_presence_uid field is still being used"),
+            ?INFO("pb_presence_uid field is still being used"),
             jid:make(ToUid1, Server);
         {unsubscribe, <<>>} ->
-            ?WARNING("pb_presence_uid field is still being used"),
+            ?INFO("pb_presence_uid field is still being used"),
             jid:make(ToUid1, Server);
         _ ->
             jid:make(ToUid2, Server)
