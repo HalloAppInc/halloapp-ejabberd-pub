@@ -57,7 +57,7 @@ do_send_metrics(MetricsList, TimestampMs) ->
         {ok, {{_, ResCode, _}, _ResHeaders, _ResBody}} when ResCode =:= 200; ResCode =:= 204->
             ok;
         _ ->
-            ?ERROR("Failed to send metrics: ~p, response: ~p", [MetricsList, Response]),
+            ?ERROR("Failed to send metrics: ~p, body: ~p response: ~p", [MetricsList, Body, Response]),
             {error, put_failed}
     end.
 
