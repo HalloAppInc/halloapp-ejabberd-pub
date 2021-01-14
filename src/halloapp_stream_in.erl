@@ -806,16 +806,17 @@ send_error(State, Err) ->
     ?ERROR("Sending error packet due to: ~p and terminating connection", [Err]),
     ErrorStanza = #pb_ha_error{reason = ErrBin},
     ErrorPacket = #pb_packet{stanza = ErrorStanza},
-    socket_send(State, ErrorPacket),
+    {ok, BinPkt} = encode_packet(State, ErrorPacket),
+    socket_send(State, BinPkt),
     process_stream_end(Err, State).
 
 
--spec socket_send(state(), xmpp_element() | xmlel()) -> {ok, noise, halloapp_socket:socket()} | 
-                                                        {ok, fast_tls} | {error, inet:posix()}.
-socket_send(#{socket := Sock, stream_state := StateName}, Pkt) ->
-    case Pkt of
+-spec socket_send(state(), binary()) ->
+        {ok, noise, halloapp_socket:socket()} | {ok, fast_tls} | {error, inet:posix()}.
+socket_send(#{socket := Sock, stream_state := StateName}, BinPkt) ->
+    case BinPkt of
         _ when StateName /= disconnected ->
-            halloapp_socket:send(Sock, Pkt);
+            halloapp_socket:send(Sock, BinPkt);
         _ ->
             {error, closed}
     end;
