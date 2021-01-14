@@ -90,6 +90,7 @@ get_props(Uid, ClientVersion) ->
         groups => true, %% whether the client can create groups or not.
         group_chat => true, %% whether the client can access group_chat or not.
         group_feed => false, %% whether the client can access group_feed or not.
+        combine_feed => false, %% whether to combine content from group_feed and home feed.
         silent_chat_messages => 5, %% number of silent_chats client can send.
         cleartext_chat_messages => true %% whether to disable cleartext chat messages.
     },
@@ -109,7 +110,9 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap1 = maps:update(dev, true, PropMap),
             % Set group_feed to true.
             PropMap2 = maps:update(group_feed, true, PropMap1),
-            PropMap2
+            % Set combine_feed to true.
+            PropMap3 = maps:update(combine_feed, true, PropMap2),
+            PropMap3
     end.
 
 
