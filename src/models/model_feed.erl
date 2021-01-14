@@ -328,13 +328,15 @@ get_comment_data(PostId, CommentId, ParentId) ->
 
     %% Fetch and compare push data.
     ParentPushList2 = get_comment_push_data(ParentId, PostId),
-    Set1 = sets:from_list(ParentPushList),
-    Set2 = sets:from_list(ParentPushList2),
+    Set1 = sets:from_list(lists:sort(ParentPushList)),
+    Set2 = sets:from_list(lists:sort(ParentPushList2)),
     case Set1 =:= Set2 of
         true ->
             ?INFO("Push data matches: ~p", [ParentPushList]);
         false ->
-            ?ERROR("Push data mismatch, original: ~p, new: ~p", [ParentPushList, ParentPushList2])
+            ExtraElements = sets:to_list(sets:subtract(Set2, Set1)),
+            MissingElements = sets:to_list(sets:subtract(Set1, Set2)),
+            ?ERROR("Push data mismatch, extra: ~p, missing: ~p", [ExtraElements, MissingElements])
     end,
 
     %% TODO(murali@): update these conditions after a few weeks to use the deleted field.
