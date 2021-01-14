@@ -379,3 +379,11 @@ admin_leave_test() ->
     ?assertEqual(1, length(Admins)),
     ok.
 
+
+get_all_group_members_test() ->
+    setup(),
+    ?assertEqual(sets:new(), mod_groups:get_all_group_members(?UID1)),
+    {ok, _, _} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    {ok, _, _} = mod_groups:create_group(?UID1, ?GROUP_NAME2, [?UID2, ?UID4]),
+    ?assertEqual(sets:from_list([?UID2, ?UID3, ?UID4]), mod_groups:get_all_group_members(?UID1)),
+    ok.

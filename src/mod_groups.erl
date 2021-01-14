@@ -41,7 +41,8 @@
     delete_avatar/2,
     send_chat_message/4,
     broadcast_packet/4,
-    send_retract_message/4
+    send_retract_message/4,
+    get_all_group_members/1
 ]).
 
 -include("logger.hrl").
@@ -387,6 +388,18 @@ broadcast_packet(From, Server, BroadcastUids, Packet) ->
     ?INFO("Uid: ~s, receiver uids: ~p", [From#jid.luser, BroadcastJids]),
     ejabberd_router_multicast:route_multicast(From, Server, BroadcastJids, Packet),
     ok.
+
+%% Returns a set of all the uids that are in one or more groups with given Uid.
+-spec get_all_group_members(Uid :: uid()) -> set(). % set of uids
+get_all_group_members(Uid) ->
+    Gids = model_groups:get_groups(Uid),
+    MembersSetList = lists:map(
+        fun (Gid) ->
+            sets:from_list(model_groups:get_member_uids(Gid))
+        end, Gids),
+    S = sets:union(MembersSetList),
+    % remove the caller uid
+    sets:del_element(Uid, S).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -88,22 +88,30 @@ re_register_user(UserId, _Server, _Phone) ->
     ok = model_accounts:delete_name(UserId).
 
 
+% TODO: (nikola): need common test.
 -spec user_name_updated(Uid :: binary(), Name :: binary()) -> ok.
 user_name_updated(Uid, Name) ->
     Server = util:get_host(),
     {ok, Phone} = model_accounts:get_phone(Uid),
+    % TODO: (nikola): I feel like we should be notifying the contacts instead of the reverse contacts
+    % The reverse contacts have phonebook name so they will not care about our push name.
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+    GroupUidsSet = mod_groups:get_all_group_members(Uid),
+    UidsToNotifySet = sets:union(sets:from_list(ContactUids), GroupUidsSet),
+    UidsToNotify = sets:to_list(UidsToNotifySet),
+    ?INFO("Uid: ~s name updated. notifying ~p Contacts ~p group members ~p total unique",
+        [Uid, length(ContactUids), sets:size(GroupUidsSet), sets:size(UidsToNotifySet)]),
     lists:foreach(
-        fun(ContactUid) ->
+        fun(OUid) ->
             Message = #message{
                 id = util:new_msg_id(),
-                to = jid:make(ContactUid, Server),
+                to = jid:make(OUid, Server),
                 from = jid:make(Server),
                 type = normal,
                 sub_els = [#name{uid = Uid, name = Name}]
             },
             ejabberd_router:route(Message)
-        end, ContactUids).
+        end, UidsToNotify).
 
 
 %%====================================================================
