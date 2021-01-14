@@ -393,10 +393,8 @@ send_data(TimeSeconds, MetricsMap) when is_map(MetricsMap) ->
 
 -spec send_to_cloudwatch(Data :: map()) -> ok.
 send_to_cloudwatch(Data) when is_map(Data) ->
-    ?INFO("sending ~p Namespaces", [maps:size(Data)]),
     maps:fold(
         fun (Namespace, Metrics, _Acc) ->
-            ?INFO("~s ~p", [Namespace, length(Metrics)]),
             cloudwatch_put_metric_data(Namespace, Metrics)
         end,
         ok,
@@ -418,6 +416,7 @@ cloudwatch_put_metric_data(Namespace, Metrics)
 
 cloudwatch_put_metric_data_env(prod, Namespace, Metrics) ->
     try
+        ?INFO("~s ~p", [Namespace, length(Metrics)]),
         erlcloud_mon:put_metric_data(Namespace, Metrics)
     of
         {error, Reason} ->
@@ -431,10 +430,9 @@ cloudwatch_put_metric_data_env(prod, Namespace, Metrics) ->
                 [Namespace, Metrics, lager:pr_stacktrace(Stacktrace, {Class, Reason})])
     end;
 cloudwatch_put_metric_data_env(localhost, "HA/test" = Namespace, Metrics) ->
-    ?DEBUG("would send: ~s metrics: ~p", [Namespace, Metrics]),
+    ?INFO("would send: ~s metrics: ~p", [Namespace, Metrics]),
     erlcloud_mon:put_metric_data(Namespace, Metrics);
 cloudwatch_put_metric_data_env(_Env, Namespace, Metrics) ->
-    ?DEBUG("would send: ~s metrics: ~p", [Namespace, Metrics]),
     ok.
 
 
