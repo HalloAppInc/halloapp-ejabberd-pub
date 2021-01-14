@@ -1,7 +1,6 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("fast_xml/include/fxml.hrl").
 -include("ns.hrl").
--include("mod_proxy65.hrl").
 -include("xmpp_codec.hrl").
 
 -define(STREAM_TRAILER, <<"</stream:stream>">>).
