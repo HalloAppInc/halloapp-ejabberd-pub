@@ -69,7 +69,7 @@ compose_body(MetricsList, TimestampMs) ->
             {metric, Namespace, Metric, Dimensions, _Unit} = Key,
             TagsAndValues = compose_tags(Dimensions),
             #{
-                <<"metric">> => util:to_binary(Namespace ++ "_" ++ Metric),
+                <<"metric">> => util:to_binary(string:replace(Namespace, "/", ".", all) ++ "." ++ Metric),
                 <<"timestamp">> => TimestampMs,
                 <<"value">> => Value#statistic_set.sum,
                 <<"tags">> => TagsAndValues
