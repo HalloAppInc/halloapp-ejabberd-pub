@@ -85,20 +85,19 @@ store_message(Message) ->
 
 
 store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_record(Message, message) ->
-    {IsInPbFormat, MessageBin} = {false, fxml:element_to_binary(xmpp:encode(Message))},
-    % IsDevUser = dev_users:is_dev_uid(ToUid),
-    % {IsInPbFormat, MessageBin} = case IsDevUser of
-    %     true ->
-    %         case enif_protobuf:encode(packet_parser:xmpp_to_proto(Message)) of
-    %             {error, Reason} ->
-    %                 ?ERROR("failed encoding packet: ~p, reason: ~p", [Message, Reason]),
-    %                 ;
-    %             PbBin ->
-    %                 {true, PbBin}
-    %         end;
-    %     false ->
-    %         {false, fxml:element_to_binary(xmpp:encode(Message))}
-    % end,
+    IsMurali = dev_users:is_murali(ToUid),
+    {IsInPbFormat, MessageBin} = case IsMurali of
+        true ->
+            case enif_protobuf:encode(packet_parser:xmpp_to_proto(Message)) of
+                {error, Reason} ->
+                    ?ERROR("failed encoding packet: ~p, reason: ~p", [Message, Reason]),
+                    {false, fxml:element_to_binary(xmpp:encode(Message))};
+                PbBin ->
+                    {true, PbBin}
+            end;
+        false ->
+            {false, fxml:element_to_binary(xmpp:encode(Message))}
+    end,
     store_message(ToUid, FromUid, MsgId, ContentType, MessageBin, IsInPbFormat);
 
 store_message(ToUid, FromUid, MsgId, ContentType, Message) when is_binary(Message) ->
