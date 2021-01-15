@@ -56,7 +56,7 @@ delete_session(Session) ->
         {Uid, _Server} = Session#session.us,
         ok = model_session:del_session(Uid, Session)
     catch Class:Reason:St ->
-        ?ERROR("Deleting sessions in redis failed: Session: ~p Stacktrace: ~p",
+        ?ERROR("Deleting sessions in redis failed: Session: ~p Stacktrace: ~s",
             [Session, lager:pr_stacktrace(St, {Class, Reason})])
     end,
     Res.

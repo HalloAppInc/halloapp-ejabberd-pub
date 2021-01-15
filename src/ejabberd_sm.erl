@@ -116,6 +116,7 @@ start_link() ->
 
 -spec stop() -> ok.
 stop() ->
+    ?INFO("~s stopping", [?MODULE]),
     _ = supervisor:terminate_child(ejabberd_sup, ?MODULE),
     _ = supervisor:delete_child(ejabberd_sup, ?MODULE),
     _ = supervisor:terminate_child(ejabberd_sup, ejabberd_c2s_sup),
@@ -485,9 +486,8 @@ set_session(SID, User, Server, Resource, Priority, Info) ->
 
 -spec set_session(#session{}) -> ok | {error, any()}.
 set_session(#session{us = {LUser, LServer}} = Session) ->
-    ets_insert_sesssion(Session),
     Mod = get_sm_backend(LServer),
-    case Mod:set_session(Session) of
+    Res = case Mod:set_session(Session) of
         ok ->
             case use_cache(Mod, LServer) of
                 true ->
@@ -498,7 +498,9 @@ set_session(#session{us = {LUser, LServer}} = Session) ->
             end;
         {error, _} = Err ->
             Err
-    end.
+    end,
+    ets_insert_sesssion(Session),
+    Res.
 
 -spec get_sessions(module()) -> [#session{}].
 get_sessions(Mod) ->
@@ -584,8 +586,8 @@ activate_session(Uid, Server) ->
 
 -spec delete_session(module(), #session{}) -> ok.
 delete_session(Mod, #session{usr = {LUser, LServer, _}} = Session) ->
-    ets_delete_session(Session),
     Mod:delete_session(Session),
+    ets_delete_session(Session),
     case use_cache(Mod, LServer) of
         true ->
             ets_cache:delete(?SM_CACHE, {LUser, LServer},
@@ -928,17 +930,45 @@ ets_init() ->
     ]),
     ok.
 
--spec ets_insert_sesssion(session()) -> true.
+ets_exists() ->
+    case ets:whereis(?SM_LOCAL) of
+        undefined -> false;
+        _ -> true
+    end.
+
+% TODO: (nikola): ejabberd_sm terminates before all the c2s processes
+% and the functions below start crashing if we don't check for the ets table first
+-spec ets_insert_sesssion(session()) -> boolean().
 ets_insert_sesssion(#session{} = Session) ->
-    ets:insert(?SM_LOCAL, Session).
+    case ets_exists() of
+        true ->
+            ets:insert(?SM_LOCAL, Session);
+        false ->
+            ?WARNING("ets table ~p is gone", [?SM_LOCAL]),
+            false
+    end.
+
 
 -spec ets_delete_session(session()) -> true.
 ets_delete_session(#session{} = Session) ->
-    ets:delete_object(?SM_LOCAL, Session).
+    case ets_exists() of
+        true ->
+            ets:delete_object(?SM_LOCAL, Session);
+        false ->
+            ?WARNING("ets table ~p is gone", [?SM_LOCAL]),
+            false
+    end.
 
 -spec ets_count_sessions() -> non_neg_integer().
 ets_count_sessions() ->
-    ets:info(?SM_LOCAL, size).
+    case ets_exists() of
+        true ->
+            ets:info(?SM_LOCAL, size);
+        false ->
+            ?WARNING("ets table ~p is gone", [?SM_LOCAL]),
+            0
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% ejabberd commands
