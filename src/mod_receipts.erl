@@ -100,6 +100,11 @@ log_delivered(<<"group_chat">>) ->
 
 % Try to extract the gid from the binary message
 -spec get_thread_id(Message :: binary()) -> binary().
+get_thread_id(#message{sub_els = [SubEl]}) ->
+    case SubEl of
+        #group_chat{gid =  Gid} -> Gid;
+        #chat{} -> <<>>   % This is the default case we don't need to send thread_id
+    end;
 get_thread_id(Message) ->
     case fxml_stream:parse_element(Message) of
         {error, Reason} ->
