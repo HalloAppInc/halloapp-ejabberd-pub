@@ -516,7 +516,7 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
             NoiseOpts = try callback(noise_options, State2)
                 catch _:{?MODULE, undef} -> []
                 end,
-            ?INFO("NoiseOpts : ~p", [NoiseOpts]),
+            ?DEBUG("NoiseOpts : ~p", [NoiseOpts]),
             case halloapp_socket:startnoise(Socket, NoiseOpts) of
                 {ok, NoiseSocket} ->
                     State2#{socket => NoiseSocket#socket_state{socket_type = SocketType},
