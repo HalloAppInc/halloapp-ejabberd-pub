@@ -38,7 +38,6 @@
 %%% Application API
 %%%
 
-% TODO: format
 start(normal, _Args) ->
     try
         {T1, _} = statistics(wall_clock),
@@ -51,15 +50,17 @@ start(normal, _Args) ->
         enif_protobuf:load_cache(server:get_msg_defs()),
         case ejabberd_config:load() of
             ok ->
+                ?INFO("starting ejabberd_mnesia"),
                 ejabberd_mnesia:start(),
                 file_queue_init(),
                 maybe_add_nameservers(),
-                ?INFO("Started mnesia: about to start supervisor"),
+                ?INFO("starting ejabberd_sup"),
                 case ejabberd_sup:start_link() of
                     {ok, SupPid} ->
                         ?INFO("Ejabberd supervisor started"),
                         ejabberd_system_monitor:start(),
                         register_elixir_config_hooks(),
+                        ?INFO("ejabberd_cluster wait_for_sync"),
                         ejabberd_cluster:wait_for_sync(infinity),
                         ejabberd_hooks:run(ejabberd_started, []),
                         ejabberd:check_apps(),
@@ -100,6 +101,7 @@ start_included_apps() ->
 %% This function is called when an application is about to be stopped,
 %% before shutting down the processes of the application.
 prep_stop(State) ->
+    ?INFO("stopping..."),
     ejabberd_monitor:stop(),
     ejabberd_hooks:run(ejabberd_stopping, []),
     ejabberd_listener:stop(),
@@ -107,6 +109,7 @@ prep_stop(State) ->
     ejabberd_service:stop(),
     ejabberd_s2s:stop(),
     gen_mod:stop(),
+    ?INFO("end prep_stop"),
     State.
 
 %% All the processes were killed when this function is called
