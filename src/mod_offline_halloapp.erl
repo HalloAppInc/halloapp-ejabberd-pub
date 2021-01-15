@@ -212,9 +212,6 @@ store_message_hook(#message{id = MsgID, to = To} = Message) ->
 user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
         #{mode := passive} = State} = _Acc) ->
     ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
-    % TODO: Delete this code after upgrade. When everyone has updated to the new code the sender
-    % would have stored the message already.
-    check_store_message(Message),
     ejabberd_sm:push_message(Message),
     {stop, {drop, State}};
 
@@ -223,13 +220,11 @@ user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = M
 user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
         #{mode := active, offline_queue_cleared := false} = State} = _Acc) when RetryCount =:= 0 ->
     ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
-    check_store_message(Message),
     setup_push_timer(Message),
     {stop, {drop, State}};
 user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
         #{mode := active, offline_queue_cleared := true} = _State} = Acc) when RetryCount =:= 0 ->
     ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
-    check_store_message(Message),
     setup_push_timer(Message),
     Acc;
 user_receive_packet(Acc) ->
@@ -496,24 +491,6 @@ store_message(#message{sub_els = [#end_of_queue{}]} = _Message) ->
     ok;
 store_message(#message{} = Message) ->
     ok = model_messages:store_message(Message),
-    ok.
-
-% TODO: (nikola): After the migration we will replce all calls to check_store_message with store_message or
-% delete the call all together. This function will be deleted.
--spec check_store_message(Message :: message()) -> ok.
-check_store_message(#message{sub_els = [#end_of_queue{}]} = _Message) ->
-    %% ignore storing end_of_queue marker packets.
-    ok;
-check_store_message(#message{to = To, id = MsgID} = Message) ->
-    ToUid = To#jid.luser,
-    case model_messages:get_message(ToUid, MsgID) of
-        {ok, undefined} ->
-            ?INFO("Uid: ~s MsgID: ~s storing from receiver process", [ToUid, MsgID]),
-            store_message(Message);
-        {ok, #offline_message{}} ->
-            ?INFO("Uid: ~s MsgID: ~s already stored", [ToUid, MsgID]),
-            ok
-    end,
     ok.
 
 
