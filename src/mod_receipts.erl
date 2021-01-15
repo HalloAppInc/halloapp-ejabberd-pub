@@ -44,6 +44,20 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 %% Hook triggered when user sent the server an ack stanza for this particular message.
 -spec user_ack_packet(Ack :: ack(), OfflineMessage :: offline_message()) -> ok.
+user_ack_packet(#ack{} = Ack, #offline_message{content_type = ContentType, msg_id = MsgId,
+        message = Msg, protobuf = true} = OfflineMessage)
+        when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">> ->
+    ?INFO("MsgId: ~p, ContentType: ~p", [MsgId, ContentType]),
+    NewMsg = case enif_protobuf:decode(Msg, pb_packet) of
+        {error, Reason} -> <<>>;
+        Packet -> packet_parser:proto_to_xmpp(Packet)
+    end,
+    NewOfflineMessage = OfflineMessage#offline_message{
+        message = NewMsg,
+        protobuf = false
+    },
+    user_ack_packet(Ack, NewOfflineMessage);
+
 user_ack_packet(#ack{id = Id, from = #jid{user = FromUid, server = ServerHost} = AckFrom},
         #offline_message{content_type = ContentType, from_uid = MsgFromId, message = Msg})
         when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">> ->
@@ -89,7 +103,7 @@ log_delivered(<<"group_chat">>) ->
 get_thread_id(Message) ->
     case fxml_stream:parse_element(Message) of
         {error, Reason} ->
-            ?ERROR("failed to parse: ~p, reason: ~s", [Message, Reason]),
+            ?ERROR("failed to parse: ~p, reason: ~p", [Message, Reason]),
             <<>>;
         MessageXmlEl ->
             try
