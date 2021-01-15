@@ -141,6 +141,7 @@ handle_info({iq_reply, #iq{type = error,
 handle_info({iq_reply, #iq{}, _JID}, State) ->
     {noreply, State};
 handle_info({iq_reply, timeout, JID}, State) ->
+    ?INFO("Uid: ~s ping_timeout", [JID#jid.user]),
     ejabberd_hooks:run(user_ping_timeout, State#state.host, [JID]),
     Timers = case State#state.timeout_action of
         kill ->
