@@ -92,9 +92,11 @@ add_sms_details_test() ->
 add_sms_gateway_response_test() ->
     setup(),
     {ok, []} = model_phone:get_verification_attempt_list(?PHONE1),
+    {ok, []} = model_phone:get_all_sms_codes(?PHONE1),
     {ok, AttemptId} = model_phone:add_sms_code2(?PHONE1, ?CODE1),
     ok = model_phone:add_gateway_response(?PHONE1, AttemptId,
         #sms_response{gateway=?GATEWAY1, sms_id=?SMSID1, status=?STATUS, response=?RECEIPT}),
+    %% TODO(vipin): Need to get rid of the following line.
     {ok, ?CODE1} = model_phone:get_sms_code(?PHONE1),
     {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
     {ok, [AttemptId]} = model_phone:get_verification_attempt_list(?PHONE1),
@@ -104,13 +106,20 @@ add_sms_gateway_response_test() ->
     {ok, [AttemptId, AttemptId2]} = model_phone:get_verification_attempt_list(?PHONE1),
     ok = model_phone:add_gateway_response(?PHONE1, AttemptId2,
         #sms_response{gateway=?GATEWAY2, sms_id=?SMSID2, status=?STATUS, response=?RECEIPT}),
+    %% TODO(vipin): Need to get rid of the following line.
     {ok, ?CODE2} = model_phone:get_sms_code(?PHONE1),
     {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
     {ok, ?CODE2} = model_phone:get_sms_code2(?PHONE1, AttemptId2),
+    {ok, [{?CODE1, AttemptId}, {?CODE2, AttemptId2}]} = model_phone:get_all_sms_codes(?PHONE1),
     ok = model_phone:add_gateway_callback_info(?GATEWAY1, ?SMSID1, ?CALLBACK_STATUS1),
     ok = model_phone:add_gateway_callback_info(?GATEWAY2, ?SMSID2, ?CALLBACK_STATUS2),
     {ok, ?CALLBACK_STATUS1} = model_phone:get_gateway_response_status(?PHONE1, AttemptId),
-    {ok, ?CALLBACK_STATUS2} = model_phone:get_gateway_response_status(?PHONE1, AttemptId2).
+    {ok, ?CALLBACK_STATUS2} = model_phone:get_gateway_response_status(?PHONE1, AttemptId2),
+    ok = model_phone:add_verification_success(?PHONE1, AttemptId),
+    true = model_phone:get_verification_success(?PHONE1, AttemptId),
+    false = model_phone:get_verification_success(?PHONE1, AttemptId2),
+    ok = model_phone:add_verification_success(?PHONE1, AttemptId2),
+    true = model_phone:get_verification_success(?PHONE1, AttemptId2).
 
 delete_sms_code_test() ->
     setup(),

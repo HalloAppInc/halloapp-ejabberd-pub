@@ -25,7 +25,8 @@
 -export([start/2, stop/1, depends/2, mod_options/1]).
 %% API
 -export([
-    request_sms/2
+    request_sms/2,
+    verify_sms/2
 ]).
 
 %%====================================================================
@@ -53,6 +54,7 @@ mod_options(_Host) ->
 
 -spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok.
 request_sms(Phone, UserAgent) ->
+    %% TODO(vipin): Need to get rid of the code that is using the old sms code.
     OldSMSCode = model_phone:get_sms_code(Phone),
     {Code, AttemptList} = case OldSMSCode of
         {ok, undefined} ->
@@ -79,7 +81,19 @@ request_sms(Phone, UserAgent) ->
             end
      end.
 
+-spec verify_sms(Phone :: phone(), Code :: binary()) -> match | nomatch.
+verify_sms(Phone, Code) ->
+    {ok, AllSMSCodes} = model_phone:get_all_sms_codes(Phone),
+    case lists:search(fun({FetchedCode, _}) -> FetchedCode =:= Code end, AllSMSCodes) of
+        false -> nomatch;
+        {value, {_, AttemptId2}} ->
+            model_phone:add_verification_success(Phone, AttemptId2),
+            match
+    end.
+
+
 %%====================================================================
+
 
 -spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary(),
         OldAttemptList :: [binary()]) -> {ok, sms_response()} | no_return().

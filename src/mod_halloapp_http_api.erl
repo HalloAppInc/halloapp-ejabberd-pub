@@ -423,17 +423,12 @@ finish_registration_spub(Phone, Name, UserAgent, SPub) ->
 %% Throws error if the code is wrong
 -spec check_sms_code(phone(), binary()) -> ok.
 check_sms_code(Phone, Code) ->
-    Host = util:get_host(),
-    case {ejabberd_admin:get_user_passcode(Phone, Host), Code} of
-        {{ok, MatchingCode}, MatchingCode} when size(MatchingCode) =:= 6 ->
-            ?DEBUG("Code match phone:~s code:~s", [Phone, MatchingCode]),
+    case mod_sms:verify_sms(Phone, Code) of
+        match -> 
+            ?DEBUG("Code match phone:~s code:~s", [Phone, Code]),
             ok;
-        {{ok, StoredCode}, UserCode}->
-            ?INFO("Codes mismatch, phone:~s, StoredCode:~s UserCode:~s",
-                [Phone, StoredCode, UserCode]),
-            error(wrong_sms_code);
-        Any ->
-            ?INFO("No stored code in db ~p", [Any]),
+        nomatch ->
+            ?INFO("Codes mismatch, phone:~s, code:~s", [Phone, Code]),
             error(wrong_sms_code)
     end.
 

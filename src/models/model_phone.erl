@@ -40,10 +40,13 @@
     get_sms_code_ttl/1,
     add_sms_code2/2,
     get_sms_code2/2,
+    get_all_sms_codes/1,
     add_gateway_response/3,
     get_verification_attempt_list/1,
     add_gateway_callback_info/3,
-    get_gateway_response_status/2
+    get_gateway_response_status/2,
+    add_verification_success/2,
+    get_verification_success/2
 ]).
 
 
@@ -75,6 +78,7 @@ mod_options(_Host) ->
 -define(FIELD_RECEIPT, <<"rec">>).
 -define(FIELD_RESPONSE, <<"res">>).
 -define(FIELD_VERIFICATION_ATTEMPT, <<"fva">>).
+-define(FIELD_VERIFICATION_SUCCESS, <<"suc">>).
 -define(TTL_SMS_CODE, 86400).
 -define(MAX_SLOTS, 8).
 
@@ -156,7 +160,26 @@ add_sms_code2(Phone, Code) ->
     add_sms_code(Phone, Code, Timestamp, ?TWILIO),
     {ok, AttemptId}.
 
--spec get_sms_code2(Phone :: phone(), AttemptId :: binary()) -> [binary()].
+-spec get_all_sms_codes(Phone :: phone()) -> {ok, [{binary(), binary()}]} | {error, any()}.
+get_all_sms_codes(Phone) ->
+    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
+    RedisCommands = lists:map(
+        fun(AttemptId) ->
+            ["HGET", verification_attempt_key(Phone, AttemptId), ?FIELD_CODE]
+        end, VerificationAttemptList),
+    SMSCodeList = case RedisCommands of
+        [] -> [];
+        _ -> qp(RedisCommands)
+    end,
+    CombinedList = lists:zipwith(
+        fun(YY, ZZ) ->
+            {ok, Code} = YY,
+            {Code, ZZ}
+        end, SMSCodeList, VerificationAttemptList),
+    {ok, CombinedList}. 
+
+
+-spec get_sms_code2(Phone :: phone(), AttemptId :: binary()) -> {ok, binary()} | {error, any()}.
 get_sms_code2(Phone, AttemptId) ->
   VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
   {ok, Res} = q(["HGET", VerificationAttemptKey, ?FIELD_CODE]),
@@ -218,6 +241,20 @@ get_gateway_response_status(Phone, AttemptId) ->
     {ok, Res}.
 
 
+-spec add_verification_success(Phone :: phone(), AttemptId :: binary()) -> ok | {error, any()}.
+add_verification_success(Phone, AttemptId) ->
+    VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+    _Res = q(["HSET", VerificationAttemptKey, ?FIELD_VERIFICATION_SUCCESS, "1"]),
+    ok.
+
+
+-spec get_verification_success(Phone :: phone(), AttemptId :: binary()) -> boolean().
+get_verification_success(Phone, AttemptId) ->
+    VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+    {ok, Res} = q(["HGET", VerificationAttemptKey, ?FIELD_VERIFICATION_SUCCESS]),
+    util_redis:decode_boolean(Res, false).
+
+
 -spec add_phone(Phone :: phone(), Uid :: uid()) -> ok  | {error, any()}.
 add_phone(Phone, Uid) ->
     {ok, _Res} = q(["SET", phone_key(Phone), Uid]),
@@ -254,6 +291,7 @@ get_uids(Phones) ->
 
 
 q(Command) -> ecredis:q(ecredis_phone, Command).
+qp(Commands) -> ecredis:qp(ecredis_phone, Commands).
 
 
 -spec order_phones_by_keys(Phones :: [binary()]) -> {[binary()], [binary()]}.
