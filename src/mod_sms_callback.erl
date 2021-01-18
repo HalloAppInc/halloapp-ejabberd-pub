@@ -16,8 +16,8 @@
 -include("logger.hrl").
 -include("ejabberd_http.hrl").
 -include("util_http.hrl").
+-include("twilio.hrl").
 
--define(TWILIO_SMS_CALLBACK_URL, "https://api.halloapp.net/api/smscallback/twilio?").
 
 %% API
 -export([start/2, stop/1, reload/3, init/1, depends/2, mod_options/1]).
@@ -46,8 +46,8 @@ process([<<"twilio">>],
             undefined -> ok;
             _ ->
                 SortedQP = lists:keysort(1, QueryList),
-                Q = uri_string:compose_query(SortedQP),
-                Url = lists:flatten(?TWILIO_SMS_CALLBACK_URL, binary_to_list(Q)),
+                Q = [[Key, Value] || {Key, Value} <- SortedQP],
+                Url = lists:flatten(?TWILIOCALLBACK_URL, binary_to_list(Q)),
                 Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"Twilio">>)), [return_maps]),
                 DerivedSignature = base64:encode(
                     crypto:hmac(sha, binary_to_list(maps:get(<<"auth_token">>, Json)), Url)),
