@@ -10,13 +10,14 @@
 -include("logger.hrl").
 -include("mbird.hrl").
 -include("ha_types.hrl").
+-include("sms.hrl").
 
 %% API
 -export([
     send_sms/2
 ]).
 
--spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, binary(), binary(), binary()} | {error, sms_fail}.
+-spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
     ?INFO("send_sms via MessageBird ~p", [Phone]),
     URL = ?BASE_URL,
@@ -35,7 +36,7 @@ send_sms(Phone, Msg) ->
             Items = maps:get(<<"items">>, Receipients),
             [Item] = Items,
             Status = maps:get(<<"status">>, Item),
-            {ok, Id, Status, ResBody};
+            {ok, #sms_response{sms_id = Id, status = Status, response = ResBody}};
         _ ->
             ?ERROR("Sending SMS failed ~p", [Response]),
             {error, sms_fail}

@@ -17,6 +17,7 @@
 -include("ejabberd_http.hrl").
 -include("util_http.hrl").
 -include("twilio.hrl").
+-include("sms.hrl").
 
 
 %% API
@@ -42,8 +43,8 @@ process([<<"twilio">>],
         From = proplists:get_value(<<"From">>, QueryList),
         Status = proplists:get_value(<<"SmsStatus">>, QueryList),
         TwilioSignature = util_http:get_header(<<"X-Twilio-Signature">>, Headers),
-        case TwilioSignature of
-            undefined -> ok;
+        {SMSPrice, SMSCurrency} = case TwilioSignature of
+            undefined -> {undefined, <<"null">>};
             _ ->
                 SortedQP = lists:keysort(1, QueryList),
                 Q = [[Key, Value] || {Key, Value} <- SortedQP],
@@ -53,9 +54,22 @@ process([<<"twilio">>],
                     crypto:hmac(sha, binary_to_list(maps:get(<<"auth_token">>, Json)), Url)),
                 IsSigEqual = (TwilioSignature =:= DerivedSignature),
                 ?INFO("Twilio signature: ~s, DerivedSignature: ~s, Match: ~p",
-                    [TwilioSignature, DerivedSignature, IsSigEqual])
+                    [TwilioSignature, DerivedSignature, IsSigEqual]),
+                case {IsSigEqual, Status} of
+                    {true, <<"sent">>} ->
+                        case twilio:fetch_message_info(Id) of
+                            {ok, SMSResponse} ->
+                                #sms_response{price = Price, currency = Currency} = SMSResponse,
+                                {Price, Currency};
+                            {error, _} ->
+                                %% Fallback to what is returned when sending SMS.
+                                {undefined, <<"null">>}
+                        end;
+                    _ -> {undefined, <<"null">>}
+                end
         end,
-        ?INFO("Twilio SMS callback, Id: ~s, To: ~s, From: ~s, Status: ~s", [Id, To, From, Status]),
+        ?INFO("Twilio SMS callback, Id: ~s, To: ~s, From: ~s, Status: ~s, Price: ~p, Currency: ~s",
+            [Id, To, From, Status, SMSPrice, SMSCurrency]),
         {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
     catch
         error : Reason : Stacktrace  ->
@@ -74,6 +88,12 @@ process([<<"mbird">>],
         Id = proplists:get_value(<<"id">>, Q),
         Recipient = proplists:get_value(<<"recipient">>, Q),
         Status = proplists:get_value(<<"status">>, Q),
+        Price = binary_to_list(proplists:get_value(<<"price[amount]">>, Q)),
+        RealPrice = case string:to_float(Price) of
+            {error, _} -> undefined;
+            {RealPrice2, []} -> RealPrice2
+        end,
+        Currency = proplists:get_value(<<"price[currency]">>, Q),
         MBirdSignature = util_http:get_header(<<"Messagebird-Signature">>, Headers),
         MBirdTimestamp = util_http:get_header(<<"Messagebird-Request-Timestamp">>, Headers),
         case {MBirdSignature, MBirdTimestamp} of
@@ -92,7 +112,8 @@ process([<<"mbird">>],
                 ?INFO("MessageBird signature: ~s, DerivedSignature: ~s, Match: ~p",
                     [MBirdSignature, DerivedSignature, IsSigEqual])
         end,
-        ?INFO("MessageBird SMS callback, Id: ~s, To: ~s, Status: ~s", [Id, Recipient, Status]),
+        ?INFO("MessageBird SMS callback, Id: ~s, To: ~s, Status: ~s, Price: ~p, Currency: ~s",
+            [Id, Recipient, Status, RealPrice, Currency]),
         {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
     catch
         error : Reason : Stacktrace  ->

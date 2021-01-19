@@ -7,6 +7,7 @@
 -author("murali").
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("sms.hrl").
 
 -define(PHONE1, <<"14703381473">>).
 -define(UID1, <<"1000000000376503286">>).
@@ -92,7 +93,8 @@ add_sms_gateway_response_test() ->
     setup(),
     {ok, []} = model_phone:get_verification_attempt_list(?PHONE1),
     {ok, AttemptId} = model_phone:add_sms_code2(?PHONE1, ?CODE1),
-    ok = model_phone:add_gateway_response(?PHONE1, AttemptId, ?GATEWAY1, ?SMSID1, ?STATUS, ?RECEIPT),
+    ok = model_phone:add_gateway_response(?PHONE1, AttemptId,
+        #sms_response{gateway=?GATEWAY1, sms_id=?SMSID1, status=?STATUS, response=?RECEIPT}),
     {ok, ?CODE1} = model_phone:get_sms_code(?PHONE1),
     {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
     {ok, [AttemptId]} = model_phone:get_verification_attempt_list(?PHONE1),
@@ -100,7 +102,8 @@ add_sms_gateway_response_test() ->
     timer:sleep(timer:seconds(1)),
     {ok, AttemptId2} = model_phone:add_sms_code2(?PHONE1, ?CODE2),
     {ok, [AttemptId, AttemptId2]} = model_phone:get_verification_attempt_list(?PHONE1),
-    ok = model_phone:add_gateway_response(?PHONE1, AttemptId2, ?GATEWAY2, ?SMSID2, ?STATUS, ?RECEIPT),
+    ok = model_phone:add_gateway_response(?PHONE1, AttemptId2,
+        #sms_response{gateway=?GATEWAY2, sms_id=?SMSID2, status=?STATUS, response=?RECEIPT}),
     {ok, ?CODE2} = model_phone:get_sms_code(?PHONE1),
     {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
     {ok, ?CODE2} = model_phone:get_sms_code2(?PHONE1, AttemptId2),

@@ -40,7 +40,7 @@
     get_sms_code_ttl/1,
     add_sms_code2/2,
     get_sms_code2/2,
-    add_gateway_response/6,
+    add_gateway_response/3,
     get_verification_attempt_list/1,
     add_gateway_callback_info/3,
     get_gateway_response_status/2
@@ -174,9 +174,10 @@ get_verification_attempt_list(Phone) ->
     {ok, VerificationAttemptList}.
 
 
--spec add_gateway_response(Phone :: phone(), AttemptId :: binary(), Gateway :: atom(),
-        SMSId :: binary(), Status :: binary(), Response :: binary()) -> ok | {error, any()}.
-add_gateway_response(Phone, AttemptId, Gateway, SMSId, Status, Response) ->
+-spec add_gateway_response(Phone :: phone(), AttemptId :: binary(), SMSResponse :: sms_response())
+      -> ok | {error, any()}.
+add_gateway_response(Phone, AttemptId, SMSResponse) ->
+    #sms_response{sms_id = SMSId, gateway = Gateway, status = Status, response = Response} = SMSResponse,
     GatewayResponseKey = gateway_response_key(Gateway, SMSId),
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
     _Result1 = q([["MULTI"],

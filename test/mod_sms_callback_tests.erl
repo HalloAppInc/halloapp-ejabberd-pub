@@ -26,7 +26,7 @@
     %% {<<"X-Twilio-Signature">> <<"4m6Gt5Y9LmNtpKjQ5Wj0iP73tiXPYDMtM2uHrgpFKCQ=">>}]).
 
 -define(MBIRD_CALLBACK_PATH, [<<"mbird">>]).
--define(MBIRD_CALLBACK_QS(To, Status), [{"recipient", To}, {"status", Status}]).
+-define(MBIRD_CALLBACK_QS(To, Status), [{<<"recipient">>, To}, {<<"status">>, Status}, {<<"price[amount]">>, <<"0.007">>}, {<<"price[currency]">>, <<"USD">>}]).
 -define(MBIRD_CALLBACK_HEADERS(UA), [
     {'Content-Type',<<"application/x-www-form-urlencoded">>},
     {'Accept',<<"*/*">>},
@@ -39,14 +39,14 @@
 
 twilio_callback_test() ->
     setup(),
-    Data = uri_string:compose_query(?TWILIO_CALLBACK_QS(?TEST_PHONE, ?PHONE, "delivered")),
+    Data = uri_string:compose_query(?TWILIO_CALLBACK_QS(?TEST_PHONE, ?PHONE, <<"delivered">>)),
     {200, ?HEADER(?CT_JSON), Info} = mod_sms_callback:process(?TWILIO_CALLBACK_PATH,
         #request{method = 'POST', data = Data, headers = ?TWILIO_CALLBACK_HEADERS(?UA)}),
     [{<<"result">>, <<"ok">>}] = jsx:decode(Info).
 
 mbird_callback_test() ->
     setup(),
-    Q = ?MBIRD_CALLBACK_QS(binary_to_list(?PHONE), "delivered"),
+    Q = ?MBIRD_CALLBACK_QS(?PHONE, <<"delivered">>),
     {200, ?HEADER(?CT_JSON), Info} = mod_sms_callback:process(?MBIRD_CALLBACK_PATH,
         #request{method = 'GET', q = Q, headers = ?MBIRD_CALLBACK_HEADERS(?UA)}),
     [{<<"result">>, <<"ok">>}] = jsx:decode(Info).

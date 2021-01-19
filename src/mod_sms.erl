@@ -14,7 +14,7 @@
 -include("sms.hrl").
 -include("ha_types.hrl").
 
--callback send_sms(Phone :: phone(), Msg :: string()) -> {ok, binary()} | {error, sms_fail}.
+-callback send_sms(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, sms_fail}.
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -70,8 +70,8 @@ request_sms(Phone, UserAgent) ->
         true -> ok;
         false ->
             try
-                {ok, NewGateway, SMSId, Status, Response} = send_sms(Phone, Code, UserAgent, AttemptList),
-                model_phone:add_gateway_response(Phone, NewAttempt, NewGateway, SMSId, Status, Response)
+                {ok, SMSResponse} = send_sms(Phone, Code, UserAgent, AttemptList),
+                model_phone:add_gateway_response(Phone, NewAttempt, SMSResponse)
             catch
                 Class : Reason : Stacktrace ->
                     ?ERROR("Unable to send SMS: ~s", [
@@ -82,13 +82,13 @@ request_sms(Phone, UserAgent) ->
 %%====================================================================
 
 -spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary(),
-        OldAttemptList :: [binary()]) -> {ok, atom(), binary(), binary(), binary()} | no_return().
+        OldAttemptList :: [binary()]) -> {ok, sms_response()} | no_return().
 send_sms(Phone, Code, UserAgent, OldAttemptList) ->
     Msg = prepare_registration_sms(Code, UserAgent),
     ?DEBUG("preparing to send sms, phone:~p msg:~s", [Phone, Msg]),
     case smart_send(Phone, Msg, OldAttemptList) of
-        {ok, NewGateway, Id, Status, Response} ->
-            {ok, NewGateway, Id, Status, Response};
+        {ok, SMSResponse} ->
+            {ok, SMSResponse};
         {error, Error} ->
             %% TODO(vipin): Need to handle error.
             erlang:error(Error)
@@ -128,7 +128,7 @@ get_app_hash(UserAgent) ->
 -define(sms_gateway_probability, [{twilio, 100}, {mbird, 0}]).
 
 -spec smart_send(Phone :: phone(), Msg :: string(), OldAttemptList :: [binary()]) 
-        -> {ok, atom(), binary(), binary(), binary()} | {error, sms_fail}.
+        -> {ok, sms_response()} | {error, sms_fail}.
 smart_send(Phone, Msg, OldAttemptList) ->
     NewGateway = case length(OldAttemptList) of
         0 -> twilio;
@@ -140,7 +140,9 @@ smart_send(Phone, Msg, OldAttemptList) ->
     Result = NewGateway:send_sms(Phone, Msg),
     ?DEBUG("Result: ~p", [Result]),
     case Result of
-        {ok, Id, Status, Response} -> {ok, NewGateway, Id, Status, Response};
+        {ok, SMSResponse} -> 
+            SMSResponse2 = SMSResponse#sms_response{gateway = NewGateway},
+            {ok, SMSResponse2};
         Error -> Error
     end.
 

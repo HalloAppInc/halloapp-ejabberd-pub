@@ -13,13 +13,15 @@
 -include("logger.hrl").
 -include("twilio.hrl").
 -include("ha_types.hrl").
+-include("sms.hrl").
 
 -export([
-    send_sms/2
+    send_sms/2,
+    fetch_message_info/1
 ]).
 
 
--spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, binary(), binary(), binary()} | {error, sms_fail}.
+-spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
     ?INFO("~p", [Phone]),
     URL = ?BASE_URL,
@@ -36,10 +38,40 @@ send_sms(Phone, Msg) ->
             Json = jiffy:decode(ResBody, [return_maps]),
             Id = maps:get(<<"sid">>, Json),
             Status = maps:get(<<"status">>, Json),
-            {ok, Id, Status, ResBody};
+            {ok, #sms_response{sms_id = Id, status = Status, response = ResBody}};
         _ ->
             %% TODO(vipin): Try sending the SMS using the second provider.
             ?ERROR("Sending SMS failed ~p", [Response]),
+            {error, sms_fail}
+    end.
+
+-spec fetch_message_info(SMSId :: binary()) -> {ok, sms_response()} | {error, sms_fail}.
+fetch_message_info(SMSId) ->
+    ?INFO("~p", [SMSId]),
+    URL = ?SMS_INFO_URL ++ binary_to_list(SMSId) ++ ".json",
+    ?INFO("URL: ~s", [URL]),
+    Headers = fetch_auth_headers(),
+    HTTPOptions = [],
+    Options = [],
+    Response = httpc:request(get, {URL, Headers}, HTTPOptions, Options),
+    ?DEBUG("Response: ~p", [Response]),
+    case Response of
+        {ok, {{_, 200, _}, _ResHeaders, ResBody}} ->
+            Json = jiffy:decode(ResBody, [return_maps]),
+            Id = maps:get(<<"sid">>, Json),
+            Status = maps:get(<<"status">>, Json),
+            Price = maps:get(<<"price">>, Json),
+            RealPrice = case try string:to_float(binary_to_list(Price))
+            catch _:_ -> {error, no_float}
+            end of
+                {error, _} -> undefined;
+                {XX, []} -> abs(XX)
+            end,
+            Currency = maps:get(<<"price_unit">>, Json),
+            {ok, #sms_response{sms_id = Id, status = Status, price = RealPrice,
+                currency = Currency}};
+        _ ->
+            ?ERROR("SMS fetch info failed ~p", [Response]),
             {error, sms_fail}
     end.
 
