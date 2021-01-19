@@ -200,44 +200,19 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %%% Hooks
 %%%===================================================================
 
-upgrade_packet(#message{type = chat, sub_els = [SubEl]} = Message) ->
-    case SubEl of
-        #chat{} -> Message;
-        #rerequest_st{} -> Message;
-        #silent_chat{chat = ChatSubEl} ->
-            Message#message{sub_els = [#silent_chat{chat = fix_chat_subel(ChatSubEl)}]};
-        #xmlel{} ->
-            upgrade_packet(xmpp:decode_els(Message));
-        ChatSubEl ->
-            NewChatSubEl = fix_chat_subel(ChatSubEl),
-            Message#message{sub_els = [NewChatSubEl]}
-    end;
+% upgrade_packet(#message{type = chat, sub_els = [SubEl]} = Message) ->
+%     case SubEl of
+%         #chat{} -> Message;
+%         #rerequest_st{} -> Message;
+%         #silent_chat{chat = ChatSubEl} ->
+%             Message#message{sub_els = [#silent_chat{chat = fix_chat_subel(ChatSubEl)}]};
+%         #xmlel{} ->
+%             upgrade_packet(xmpp:decode_els(Message));
+%         ChatSubEl ->
+%             NewChatSubEl = fix_chat_subel(ChatSubEl),
+%             Message#message{sub_els = [NewChatSubEl]}
+%     end;
 upgrade_packet(Packet) -> Packet.
-
-
-fix_chat_subel(ChatSubEl) ->
-    case ChatSubEl of
-        #chat{} -> ChatSubEl;
-        {chat, Xmlns, Timestamp, SenderName, ChatSubEls} ->
-            %% add missing fields.
-            #chat{
-                xmlns = Xmlns,
-                timestamp = Timestamp,
-                sender_name = SenderName,
-                sub_els = ChatSubEls
-            };
-        {chat, Xmlns, Timestamp, SenderName, _SenderClientVersion, _SenderLogInfo, ChatSubEls} ->
-            %% remove additional fields.
-            #chat{
-                xmlns = Xmlns,
-                timestamp = Timestamp,
-                sender_name = SenderName,
-                sub_els = ChatSubEls
-            };
-        _ ->
-            ?ERROR("invalid sub_element: ~p", [ChatSubEl]),
-            ChatSubEl
-    end.
 
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
