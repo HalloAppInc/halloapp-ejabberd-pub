@@ -324,7 +324,7 @@ extract_uid(#uid_el{uid = Uid}) -> Uid.
 
 -spec log_counters(ServerHashValue :: binary(), ClientHashValue :: binary() | undefined) -> ok.
 log_counters(_, undefined) ->
-    ?WARNING("ClientHashValue is undefined"),
+    ?INFO("ClientHashValue is undefined"),
     stat:count(?STAT_PRIVACY, "hash_undefined");
 log_counters(Hash, Hash) ->
     stat:count(?STAT_PRIVACY, "hash_match");
