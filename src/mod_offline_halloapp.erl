@@ -249,8 +249,8 @@ c2s_session_opened(#{mode := passive} = State) ->
 offline_queue_cleared(Uid, _Server, LastMsgOrderId) ->
     ?INFO("Uid: ~s", [Uid]),
     case model_messages:get_user_messages(Uid, LastMsgOrderId + 1, undefined) of
-        {ok, []} -> ok;
-        {ok, OfflineMessages} ->
+        {ok, true, []} -> ok;
+        {ok, true, OfflineMessages} ->
             FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
             ?INFO("Uid: ~s has some more new ~p messages after queue cleared.",
                     [Uid, length(FilteredOfflineMessages)]),
@@ -297,7 +297,7 @@ check_and_send_offline_messages(#{user := Uid, server := Server} = State) ->
         LastMsgOrderId :: integer(), State :: state()) -> ok.
 route_offline_messages(UserId, Server, LastMsgOrderId, State) ->
     ?INFO("Uid: ~s start", [UserId]),
-    {ok, OfflineMessages} = model_messages:get_user_messages(UserId, LastMsgOrderId, undefined),
+    {ok, _, OfflineMessages} = model_messages:get_user_messages(UserId, LastMsgOrderId, undefined),
     % TODO: We need to rate limit the number of offline messages we send at once.
     % TODO: get metrics about the number of retries
     FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
@@ -320,11 +320,11 @@ send_offline_messages(#{user := Uid, server := Server,
         offline_queue_params := #{window := Window, pending_acks := PendingAcks,
         last_msg_order_id := LastMsgOrderId} = OfflineQueueParams} = State) ->
     case model_messages:get_user_messages(Uid, LastMsgOrderId + 1, Window) of
-        {ok, []} ->
+        {ok, true, []} ->
             %% mark offline queue to be cleared, send eoq msg and timer, update state.
             mark_offline_queue_cleared(Uid, Server, LastMsgOrderId, State);
 
-        {ok, OfflineMessages} ->
+        {ok, EndOfQueue, OfflineMessages} ->
             %% Applying filter to remove expired messages.
             FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
             TotalNumOfMessages = length(FilteredOfflineMessages),
@@ -350,13 +350,19 @@ send_offline_messages(#{user := Uid, server := Server,
                     ?INFO("Uid: ~s sending some ~p offline messages", [Uid, length(MsgsToSend)]),
                     do_send_offline_messages(Uid, MsgsToSend),
                     NewLastMsgOrderId = get_last_msg_order_id(MsgsToSend, LastMsgOrderId),
-                    State#{
+                    State1 = State#{
                         offline_queue_params => OfflineQueueParams#{
                             window => NewWindow,
                             pending_acks => PendingAcks + length(MsgsToSend),
                             last_msg_order_id => NewLastMsgOrderId
                         }
-                    }
+                    },
+                    case EndOfQueue of
+                        true ->
+                            %% mark offline queue to be cleared, send eoq msg and timer, update state.
+                            mark_offline_queue_cleared(Uid, Server, NewLastMsgOrderId, State1);
+                        false -> State1
+                    end
             end
     end.
 

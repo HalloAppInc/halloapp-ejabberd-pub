@@ -208,8 +208,9 @@ get_user_messages(Uid, MinOrderId, Limit) ->
     end,
     Command = Part1 ++ Part2,
     {ok, MsgIds} = q(Command),
+    EndOfQueue = Limit =:= undefined orelse length(MsgIds) < Limit,
     Messages = get_all_user_messages(Uid, MsgIds),
-    {ok, Messages}.
+    {ok, EndOfQueue, Messages}.
 
 
 -spec get_all_user_messages(Uid :: uid(), MsgIds :: [binary()]) -> [maybe(offline_message())].
