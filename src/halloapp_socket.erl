@@ -136,6 +136,7 @@ noise_check_spub(SPub, Auth) ->
                     ok;
                 false ->
                     stat:count("HA/check_spub", "mismatch"),
+                    ?ERROR("spub_mismatch: ~p", [Pkt]),
                     {error, <<"spub_mismatch">>}
             end
     catch _:_ ->
