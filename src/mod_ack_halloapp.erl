@@ -76,6 +76,8 @@ send_ack(#message{id = MsgId, from = #jid{user = User, server = ServerHost} = Fr
     PacketTs = util:get_timestamp(Packet),
     Timestamp = case {PayloadType, PacketTs} of
         {rerequest_st, _} -> util:now_binary();
+        {groupchat_retract_st, _} -> util:now_binary();
+        {chat_retract_st, _} -> util:now_binary();
         {_, undefined} ->
             ?WARNING("Uid: ~s, timestamp is undefined, msg_id: ~s", [User, MsgId]),
             util:now_binary();
