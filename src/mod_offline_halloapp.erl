@@ -413,13 +413,19 @@ route_offline_message(#offline_message{
         msg_id = MsgId, to_uid = ToUid, retry_count = RetryCount, message = Message, protobuf = true}) ->
     %% TODO: remove when turning on this logic for all users.
     ?assertEqual(true, dev_users:is_dev_uid(ToUid)),
-    case enif_protobuf:decode(Message, pb_packet) of
-        {error, Reason} ->
-            ?ERROR("MsgId: ~p, Message: ~p, failed decoding reason: ~s", [MsgId, Message, Reason]);
-        Packet ->
-            Packet1 = packet_parser:proto_to_xmpp(Packet),
-            adjust_and_send_message(Packet1, RetryCount),
-            ?INFO("sending offline message Uid: ~s MsgId: ~p rc: ~p", [ToUid, MsgId, RetryCount])
+    try
+        case enif_protobuf:decode(Message, pb_packet) of
+            {error, DecodeReason} ->
+                ?ERROR("MsgId: ~p, Message: ~p, failed decoding reason: ~s", [MsgId, Message, DecodeReason]);
+            Packet ->
+                Packet1 = packet_parser:proto_to_xmpp(Packet),
+                adjust_and_send_message(Packet1, RetryCount),
+                ?INFO("sending offline message Uid: ~s MsgId: ~p rc: ~p", [ToUid, MsgId, RetryCount])
+        end
+    catch
+        Class : Reason : Stacktrace ->
+            ?ERROR("failed parsing: ~s", [
+                    lager:pr_stacktrace(Stacktrace, {Class, Reason})])
     end,
     ok;
 route_offline_message(#offline_message{
