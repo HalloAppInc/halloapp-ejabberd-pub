@@ -112,7 +112,8 @@ get_thread_id(#message{sub_els = [SubEl]}) ->
     %% This should affect only murali.
     case SubEl of
         #group_chat{gid =  Gid} -> Gid;
-        #chat{} -> undefined   % This is the default case we don't need to send thread_id
+        #chat{} -> undefined;   % This is the default case we don't need to send thread_id
+        _ -> undefined
     end;
 get_thread_id(Message) ->
     case fxml_stream:parse_element(Message) of
