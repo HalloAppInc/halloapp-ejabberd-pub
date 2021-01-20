@@ -279,8 +279,8 @@ trace_pb_packet(Uid, Direction, Packet, BinPacket) ->
     try
         case is_uid_traced(Uid) of
             true ->
-                xmpp_trace:info("Uid:~s ~s === ~p | ~s",
-                    [Uid, Direction, Packet, base64:encode(BinPacket)]);
+                xmpp_trace:info("Uid:~s ~p ~s === ~p | ~s",
+                    [Uid, self(), Direction, Packet, base64:encode(BinPacket)]);
             false -> ok
         end
     catch
