@@ -49,8 +49,6 @@
 	 enroll/3, unenroll/2,
 	 enrolled_users/1, get_user_passcode/2,
 	 register_push/4, unregister_push/2,
-	 %% Migration jabberd1.4
-	 import_file/1, import_dir/1,
 	 %% Mnesia
 	 set_master/1,
 	 backup_mnesia/1, restore_mnesia/1,
@@ -305,44 +303,6 @@ get_commands_spec() ->
 			args = [],
 			result = {nodes, {list, {node, atom}}}},
 
-     #ejabberd_commands{name = import_file, tags = [mnesia],
-			desc = "Import user data from jabberd14 spool file",
-			module = ?MODULE, function = import_file,
-			args_desc = ["Full path to the jabberd14 spool file"],
-			args_example = ["/var/lib/ejabberd/jabberd14.spool"],
-			args = [{file, string}], result = {res, restuple}},
-     #ejabberd_commands{name = import_dir, tags = [mnesia],
-			desc = "Import users data from jabberd14 spool dir",
-			module = ?MODULE, function = import_dir,
-			args_desc = ["Full path to the jabberd14 spool directory"],
-			args_example = ["/var/lib/ejabberd/jabberd14/"],
-			args = [{file, string}],
-			result = {res, restuple}},
-     #ejabberd_commands{name = import_piefxis, tags = [mnesia],
-			desc = "Import users data from a PIEFXIS file (XEP-0227)",
-			module = ejabberd_piefxis, function = import_file,
-			args_desc = ["Full path to the PIEFXIS file"],
-			args_example = ["/var/lib/ejabberd/example.com.xml"],
-			args = [{file, string}], result = {res, rescode}},
-     #ejabberd_commands{name = export_piefxis, tags = [mnesia],
-			desc = "Export data of all users in the server to PIEFXIS files (XEP-0227)",
-			module = ejabberd_piefxis, function = export_server,
-			args_desc = ["Full path to a directory"],
-			args_example = ["/var/lib/ejabberd/"],
-			args = [{dir, string}], result = {res, rescode}},
-     #ejabberd_commands{name = export_piefxis_host, tags = [mnesia],
-			desc = "Export data of users in a host to PIEFXIS files (XEP-0227)",
-			module = ejabberd_piefxis, function = export_host,
-			args_desc = ["Full path to a directory", "Vhost to export"],
-			args_example = ["/var/lib/ejabberd/", "example.com"],
-			args = [{dir, string}, {host, string}], result = {res, rescode}},
-
-     #ejabberd_commands{name = delete_mnesia, tags = [mnesia, sql],
-                        desc = "Delete elements in Mnesia database for a given vhost",
-                        module = ejd2sql, function = delete,
-			args_desc = ["Vhost which content will be deleted in Mnesia database"],
-			args_example = ["example.com"],
-                        args = [{host, string}], result = {res, rescode}},
      #ejabberd_commands{name = convert_to_scram, tags = [sql],
 			desc = "Convert the passwords in 'users' ODBC table to SCRAM",
 			module = ejabberd_auth_sql, function = convert_to_scram,
@@ -374,14 +334,6 @@ get_commands_spec() ->
 			args = [{out, string}],
 			result = {res, rescode}},
 
-     #ejabberd_commands{name = export2sql, tags = [mnesia],
-			desc = "Export virtual host information from Mnesia tables to SQL file",
-			longdesc = "Configure the modules to use SQL, then call this command.",
-			module = ejd2sql, function = export,
-			args_desc = ["Vhost", "Full path to the destination SQL file"],
-			args_example = ["example.com", "/var/lib/ejabberd/example.com.sql"],
-			args = [{host, string}, {file, string}],
-			result = {res, rescode}},
      #ejabberd_commands{name = set_master, tags = [mnesia],
 			desc = "Set master node of the clustered Mnesia tables",
 			longdesc = "If you provide as nodename \"self\", this "
@@ -797,30 +749,6 @@ leave_cluster(NodeBin) ->
 
 list_cluster() ->
     ejabberd_cluster:get_nodes().
-
-%%%
-%%% Migration management
-%%%
-
-import_file(Path) ->
-    case jd2ejd:import_file(Path) of
-        ok ->
-            {ok, ""};
-        {error, Reason} ->
-            String = io_lib:format("Can't import jabberd14 spool file ~p at node ~p: ~p",
-				   [filename:absname(Path), node(), Reason]),
-	    {cannot_import_file, String}
-    end.
-
-import_dir(Path) ->
-    case jd2ejd:import_dir(Path) of
-        ok ->
-            {ok, ""};
-        {error, Reason} ->
-            String = io_lib:format("Can't import jabberd14 spool dir ~p at node ~p: ~p",
-				   [filename:absname(Path), node(), Reason]),
-	    {cannot_import_dir, String}
-    end.
 
 %%%
 %%% Mnesia management

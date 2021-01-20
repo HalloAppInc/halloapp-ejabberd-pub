@@ -1568,34 +1568,7 @@ node_backup_parse_query(Node, Query) ->
 					    <<"load">> ->
 						ejabberd_cluster:call(Node, mnesia,
 							 load_textfile,
-                                                         [binary_to_list(Path)]);
-					    <<"import_piefxis_file">> ->
-						ejabberd_cluster:call(Node, ejabberd_piefxis,
-							 import_file, [Path]);
-					    <<"export_piefxis_dir">> ->
-						ejabberd_cluster:call(Node, ejabberd_piefxis,
-							 export_server, [Path]);
-					    <<"export_piefxis_host_dir">> ->
-						{value, {_, Host}} =
-						    lists:keysearch(<<Action/binary,
-								      "host">>,
-								    1, Query),
-						ejabberd_cluster:call(Node, ejabberd_piefxis,
-							 export_host,
-							 [Path, Host]);
-                                            <<"export_sql_file">> ->
-                                                {value, {_, Host}} =
-                                                    lists:keysearch(<<Action/binary,
-                                                                      "host">>,
-                                                                    1, Query),
-                                                ejabberd_cluster:call(Node, ejd2sql,
-                                                         export, [Host, Path]);
-					    <<"import_file">> ->
-						ejabberd_cluster:call(Node, ejabberd_admin,
-							 import_file, [Path]);
-					    <<"import_dir">> ->
-						ejabberd_cluster:call(Node, ejabberd_admin,
-							 import_dir, [Path])
+                                                         [binary_to_list(Path)])
 					  end,
 				    case Res of
 				      {error, Reason} -> {error, Reason};
@@ -1610,9 +1583,7 @@ node_backup_parse_query(Node, Query) ->
 		end,
 		nothing,
 		[<<"store">>, <<"restore">>, <<"fallback">>, <<"dump">>,
-		 <<"load">>, <<"import_file">>, <<"import_dir">>,
-		 <<"import_piefxis_file">>, <<"export_piefxis_dir">>,
-		 <<"export_piefxis_host_dir">>, <<"export_sql_file">>]).
+		 <<"load">>]).
 
 node_update_parse_query(Node, Query) ->
     case lists:keysearch(<<"update">>, 1, Query) of
