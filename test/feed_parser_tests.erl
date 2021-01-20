@@ -153,3 +153,28 @@ proto_to_xmpp_iq_share_request_test() ->
     ?assertEqual(true, is_record(XmppIq, iq)),
     ?assertEqual(IqSt, XmppIq).
 
+
+proto_to_xmpp_message_feed_items_test() ->
+    setup(),
+
+    PbPost1 = struct_util:create_pb_post(?ID1, ?UID1_INT, ?NAME1, ?PAYLOAD1, undefined, ?TIMESTAMP1_INT),
+    PbPost2 = struct_util:create_pb_post(?ID2, ?UID1_INT, ?NAME2, ?PAYLOAD2, undefined, ?TIMESTAMP2_INT),
+    PbComment1 = struct_util:create_pb_comment(?ID3, ?ID1, <<>>, ?UID2_INT, ?NAME2, ?PAYLOAD2, ?TIMESTAMP2_INT),
+    PbFeedItem1 = struct_util:create_feed_item(publish, PbPost1),
+    PbFeedItem2 = struct_util:create_feed_item(publish, PbPost2),
+    PbFeedItem3 = struct_util:create_feed_item(publish, PbComment1),
+    PbFeedItems = struct_util:create_feed_items(?UID1_INT, [PbFeedItem1, PbFeedItem2, PbFeedItem3]),
+    PbMessage = struct_util:create_pb_message(?ID1, ?UID3_INT, ?UID1_INT, normal, PbFeedItems),
+
+    PostSt1 = struct_util:create_post_st(?ID1, ?UID1, ?NAME1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
+    PostSt2 = struct_util:create_post_st(?ID2, ?UID1, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
+    CommentSt1 = struct_util:create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
+    FeedSt = struct_util:create_feed_st(share, [PostSt1, PostSt2], [CommentSt1], [], []),
+    ToJid = struct_util:create_jid(?UID3, ?SERVER),
+    FromJid = struct_util:create_jid(?UID1, ?SERVER),
+    MessageSt = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, FeedSt),
+
+    XmppMsg = message_parser:proto_to_xmpp(PbMessage),
+    ?assertEqual(true, is_record(XmppMsg, message)),
+    ?assertEqual(XmppMsg, MessageSt).
+

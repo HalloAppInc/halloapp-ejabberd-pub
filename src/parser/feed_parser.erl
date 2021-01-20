@@ -125,7 +125,21 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_feed_item) ->
                 share_posts = SharePostsStanzas
             }
     end,
-    XmppStanza.
+    XmppStanza;
+proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_feed_items) ->
+    Items = lists:map(
+            fun(#pb_feed_item{item = #pb_post{} = PbPost}) -> post_to_post_st(PbPost);
+                (#pb_feed_item{item = #pb_comment{} = PbComment}) -> comment_to_comment_st(PbComment)
+            end, PbPacket#pb_feed_items.items),
+    {Posts, Comments} = lists:partition(
+            fun(#post_st{}) -> true;
+                (#comment_st{}) -> false
+            end, Items),
+    #feed_st{
+        action = share,
+        posts = Posts,
+        comments = Comments
+    }.
 
 
 %% -------------------------------------------- %%
