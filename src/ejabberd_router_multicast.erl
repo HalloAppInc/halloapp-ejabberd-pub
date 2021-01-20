@@ -56,6 +56,7 @@
 %% Description: Starts the server
 %%--------------------------------------------------------------------
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec route_multicast(jid(), binary(), [jid()], stanza()) -> ok.

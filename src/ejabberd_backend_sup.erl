@@ -22,6 +22,7 @@
 -module(ejabberd_backend_sup).
 
 -behaviour(supervisor).
+-include("logger.hrl").
 
 %% API
 -export([start_link/0]).
@@ -33,6 +34,7 @@
 %%% API functions
 %%%===================================================================
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 %%%===================================================================

@@ -82,6 +82,7 @@ show_current_definitions() ->
     gen_server:call(?MODULE, show_current_definitions).
 
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %%%===================================================================

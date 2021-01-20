@@ -53,8 +53,10 @@ start(normal, _Args) ->
 		ejabberd_mnesia:start(),
 		file_queue_init(),
 		maybe_add_nameservers(),
+		?INFO("Started mnesia: about to start supervisor"),
 		case ejabberd_sup:start_link() of
 		    {ok, SupPid} ->
+			?INFO("Ejabberd supervisor started"),
 			ejabberd_system_monitor:start(),
 			register_elixir_config_hooks(),
 			ejabberd_cluster:wait_for_sync(infinity),

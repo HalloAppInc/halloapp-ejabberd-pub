@@ -86,6 +86,7 @@
 %% API
 %%====================================================================
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     ?GEN_SERVER:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec route(stanza()) -> ok.

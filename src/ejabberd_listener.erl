@@ -72,6 +72,7 @@
 -define(TCP_SEND_TIMEOUT, 15000).
 
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init(_) ->

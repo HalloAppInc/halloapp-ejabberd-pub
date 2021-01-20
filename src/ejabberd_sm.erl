@@ -111,6 +111,7 @@
 -export_type([sid/0, info/0]).
 
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     ?GEN_SERVER:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec stop() -> ok.

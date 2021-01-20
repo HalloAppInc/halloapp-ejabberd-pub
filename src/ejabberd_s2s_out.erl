@@ -63,6 +63,7 @@ start(From, To, Opts) ->
     end.
 
 start_link(From, To, Opts) ->
+    ?INFO("start ~w", [?MODULE]),
     xmpp_stream_out:start_link(?MODULE, [From, To, Opts],
 			       ejabberd_config:fsm_limit_opts([])).
 

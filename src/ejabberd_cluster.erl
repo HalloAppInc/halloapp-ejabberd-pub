@@ -74,6 +74,7 @@
 %%% API
 %%%===================================================================
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 

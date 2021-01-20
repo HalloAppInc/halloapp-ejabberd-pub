@@ -41,6 +41,7 @@
 %%%===================================================================
 -spec start_link() -> {ok, pid()} | {error, any()}.
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec match(global | binary(), atom() | [shaper_rule()],

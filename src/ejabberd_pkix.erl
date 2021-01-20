@@ -49,6 +49,7 @@
 %%%===================================================================
 -spec start_link() -> {ok, pid()} | {error, {already_started, pid()} | term()}.
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec add_certfile(file:filename_all()) -> {ok, filename()} | {error, pkix:error_reason()}.

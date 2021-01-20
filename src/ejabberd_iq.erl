@@ -45,6 +45,7 @@
 %%% API
 %%%===================================================================
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec route(iq(), atom() | pid(), term(), non_neg_integer()) -> ok.

@@ -50,6 +50,7 @@ start(SockMod, Socket, Opts) ->
 			 ejabberd_config:fsm_limit_opts(Opts)).
 
 start_link(SockMod, Socket, Opts) ->
+    ?INFO("start ~w", [?MODULE]),
     xmpp_stream_in:start_link(?MODULE, [{SockMod, Socket}, Opts],
 			      ejabberd_config:fsm_limit_opts(Opts)).
 

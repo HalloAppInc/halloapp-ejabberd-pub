@@ -67,6 +67,7 @@ start() ->
     supervisor:start_child(ejabberd_sup, ChildSpec).
 
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec route(stanza()) -> ok.

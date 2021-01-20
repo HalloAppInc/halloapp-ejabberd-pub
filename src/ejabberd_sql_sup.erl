@@ -68,6 +68,7 @@ stop(Host) ->
 
 
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 start_link(Host) ->

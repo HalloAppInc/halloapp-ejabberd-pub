@@ -277,6 +277,7 @@ get_commands_spec() ->
                            result_example = ok}].
 
 start_link() ->
+    ?INFO("start ~w", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init([]) ->
