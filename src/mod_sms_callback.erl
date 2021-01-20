@@ -49,7 +49,7 @@ process([<<"twilio">>],
                 SortedQP = lists:keysort(1, QueryList),
                 Q = [[Key, Value] || {Key, Value} <- SortedQP],
                 Url = lists:flatten(?TWILIOCALLBACK_URL, binary_to_list(Q)),
-                Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"Twilio">>)), [return_maps]),
+                Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"TwilioMaster">>)), [return_maps]),
                 DerivedSignature = base64:encode(
                     crypto:hmac(sha, binary_to_list(maps:get(<<"auth_token">>, Json)), Url)),
                 IsSigEqual = (TwilioSignature =:= DerivedSignature),
