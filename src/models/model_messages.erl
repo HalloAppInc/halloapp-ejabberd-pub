@@ -203,7 +203,7 @@ get_all_user_messages(Uid) ->
 get_user_messages(Uid, MinOrderId, Limit) ->
     Part1 = ["ZRANGEBYSCORE", message_queue_key(Uid), MinOrderId, "+inf"],
     Part2 = case Limit of
-        undefined -> [];
+        undefined -> ["LIMIT", 0, -1];
         _ -> ["LIMIT", 0, Limit]
     end,
     Command = Part1 ++ Part2,
