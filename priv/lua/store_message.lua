@@ -6,6 +6,10 @@ if OfflineMessage == 0 then
 	else
 	    redis.call('HSET', KEYS[2], 'fuid', ARGV[4])
 	end
+	if ARGV[8] == 'undefined' then
+	else
+	    redis.call('HSET', KEYS[2], 'thid', ARGV[8])
+	end
 	redis.call('ZADD', KEYS[3], OrderId, ARGV[5])
 	redis.call('EXPIRE', KEYS[2], ARGV[6])
 	redis.call('EXPIRE', KEYS[3], ARGV[6])

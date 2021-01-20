@@ -14,16 +14,18 @@
 -define(UID2, <<"1000000000489601473">>).
 -define(UID3, <<"1000000000575738138">>).
 -define(UID4, <<"1000000000739856658">>).
+-define(GROUP1, <<"gRYMMwrS_H0isftYAJOlLV">>).
 -define(SERVER, <<"s.halloapp.net">>).
 -define(MID1, <<"a985962b-33b1">>).
--define(TYPE1, <<>>).
+-define(TYPE1, <<"group_chat">>).
 -define(MID2, <<"cea48bd2-c1ab">>).
 -define(TYPE2, <<"chat">>).
 -define(MID3, <<"dae46a45-95f2">>).
 -define(TYPE3, <<"contact_list">>).
 -define(MESSAGE1, term_to_binary(#message{id = ?MID1, to = #jid{user = ?UID1, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE1, #offline_message{msg_id = ?MID1, to_uid = ?UID1, from_uid = undefined,
-        content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE1, order_id = 1, protobuf = false}).
+        content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE1, order_id = 1, protobuf = false,
+        thread_id = ?GROUP1}).
 -define(MESSAGE2, term_to_binary(#message{id = ?MID2, to = #jid{user = ?UID1, server = ?SERVER},
         from = #jid{user = ?UID2, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE2, #offline_message{msg_id = ?MID2, to_uid = ?UID1, from_uid = ?UID2,
@@ -37,7 +39,8 @@
         content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE4, order_id = 3, protobuf = false}).
 -define(MESSAGE5, term_to_binary(#message{id = ?MID1, to = #jid{user = ?UID1, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE5, #offline_message{msg_id = ?MID1, to_uid = ?UID1, from_uid = undefined,
-        content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE5, order_id = 4, protobuf = false}).
+        content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE5, order_id = 4, protobuf = false,
+        thread_id = ?GROUP1}).
 -define(EMPTY_OFFLINE_MESSAGE, undefined).
 
 
@@ -66,19 +69,19 @@ keys_test() ->
 store_message_test() ->
     setup(),
     ?assertEqual({ok, ?EMPTY_OFFLINE_MESSAGE}, model_messages:get_message(?UID1, ?MID1)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?GROUP1, ?MESSAGE1)),
     ?assertEqual({ok, ?OFFLINE_MESSAGE1}, model_messages:get_message(?UID1, ?MID1)),
 
     %% make sure the function is idempotent.
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?GROUP1, ?MESSAGE1)),
     ?assertEqual({ok, ?OFFLINE_MESSAGE1}, model_messages:get_message(?UID1, ?MID1)),
 
-    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE2)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, undefined, ?MESSAGE2)),
     ?assertEqual({ok, ?OFFLINE_MESSAGE2}, model_messages:get_message(?UID1, ?MID2)),
     ?assertEqual({ok,[?OFFLINE_MESSAGE1, ?OFFLINE_MESSAGE2]},
             model_messages:get_all_user_messages(?UID1)),
 
-    ?assertEqual(ok, model_messages:store_message(?UID2, undefined, ?MID3, ?TYPE3, ?MESSAGE3)),
+    ?assertEqual(ok, model_messages:store_message(?UID2, undefined, ?MID3, ?TYPE3, undefined, ?MESSAGE3)),
     ?assertEqual({ok, ?OFFLINE_MESSAGE3}, model_messages:get_message(?UID2, ?MID3)).
 
 
@@ -91,7 +94,7 @@ store_message_pb_test() ->
     ?assertEqual({ok, ?EMPTY_OFFLINE_MESSAGE}, model_messages:get_message(?UID4, ?MID1)),
 
     PbMessage = enif_protobuf:encode(packet_parser:xmpp_to_proto(XmppMsg)),
-    ?assertEqual(ok, model_messages:store_message(?UID4, ?UID2, ?MID1, <<"receipt_seen">>, PbMessage, true)),
+    ?assertEqual(ok, model_messages:store_message(?UID4, ?UID2, ?MID1, <<"receipt_seen">>, undefined, PbMessage, true)),
     {ok, ActualOfflineMessage} = model_messages:get_message(?UID4, ?MID1),
 
     ExpectedOfflineMessage = #offline_message{
@@ -110,21 +113,21 @@ store_message_pb_test() ->
 message_order_test() ->
     setup(),
     ?assertEqual(ok, model_messages:remove_all_user_messages(?UID1)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE2)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?GROUP1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, undefined, ?MESSAGE2)),
     ?assertEqual({ok, [?OFFLINE_MESSAGE1, ?OFFLINE_MESSAGE2]},
             model_messages:get_all_user_messages(?UID1)),
     ?assertEqual(ok, model_messages:remove_all_user_messages(?UID1)),
 
-    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE4)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE5)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, undefined, ?MESSAGE4)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?GROUP1, ?MESSAGE5)),
     ?assertEqual({ok, [?OFFLINE_MESSAGE4, ?OFFLINE_MESSAGE5]},
             model_messages:get_all_user_messages(?UID1)).
 
 
 ack_message_test() ->
     setup(),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?GROUP1, ?MESSAGE1)),
     ?assertEqual({ok, ?OFFLINE_MESSAGE1}, model_messages:get_message(?UID1, ?MID1)),
 
     ?assertEqual(ok, model_messages:ack_message(?UID1, ?MID1)),
@@ -136,7 +139,7 @@ starve_message_test() ->
     setup(),
     ?assertEqual({error,<<"ERR no such key">>}, model_messages:withhold_message(?UID1, ?MID1)),
 
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?GROUP1, ?MESSAGE1)),
     ?assertEqual({ok, ?OFFLINE_MESSAGE1}, model_messages:get_message(?UID1, ?MID1)),
 
     ?assertEqual(ok, model_messages:withhold_message(?UID1, ?MID1)),
@@ -146,8 +149,8 @@ starve_message_test() ->
 
 ack_out_of_order_test() ->
     setup(),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE2)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?GROUP1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, undefined, ?MESSAGE2)),
     ?assertEqual({ok, [?OFFLINE_MESSAGE1, ?OFFLINE_MESSAGE2]},
             model_messages:get_all_user_messages(?UID1)),
     ?assertEqual(ok, model_messages:ack_message(?UID1, ?MID2)),
@@ -160,10 +163,10 @@ ack_out_of_order_test() ->
 remove_all_user_messages_test() ->
     setup(),
     ?assertEqual({ok, 0}, model_messages:count_user_messages(?UID1)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?GROUP1, ?MESSAGE1)),
     ?assertEqual({ok, ?OFFLINE_MESSAGE1}, model_messages:get_message(?UID1, ?MID1)),
 
-    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE2)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, undefined, ?MESSAGE2)),
     ?assertEqual({ok, ?OFFLINE_MESSAGE2}, model_messages:get_message(?UID1, ?MID2)),
 
     ?assertEqual({ok, [?OFFLINE_MESSAGE1, ?OFFLINE_MESSAGE2]},
@@ -178,10 +181,10 @@ count_user_messages_test() ->
     setup(),
     ?assertEqual({ok, 0}, model_messages:count_user_messages(?UID1)),
     ?assertEqual({ok, 0}, model_messages:count_user_messages(?UID2)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, undefined, ?MESSAGE1)),
     ?assertEqual({ok, 1}, model_messages:count_user_messages(?UID1)),
 
-    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE2)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, undefined, ?MESSAGE2)),
     ?assertEqual({ok, 2}, model_messages:count_user_messages(?UID1)),
 
     ?assertEqual(ok, model_messages:ack_message(?UID1, ?MID1)),
@@ -194,22 +197,22 @@ count_user_messages_test() ->
 retry_counts_is_1_test() ->
     setup(),
     ?assertEqual({ok, undefined}, model_messages:get_retry_count(?UID1, ?MID1)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, undefined, ?MESSAGE1)),
     ?assertEqual({ok, 1}, model_messages:get_retry_count(?UID1, ?MID1)).
 
 
 retry_count_test() ->
     setup(),
     ?assertEqual({ok, undefined}, model_messages:get_retry_count(?UID1, ?MID1)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, undefined, ?MESSAGE1)),
     ?assertEqual({ok, 2}, model_messages:increment_retry_count(?UID1, ?MID1)),
     ?assertEqual({ok, 3}, model_messages:increment_retry_count(?UID1, ?MID1)).
 
 
 increment_retry_counts_test() ->
     setup(),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID2, ?TYPE2, ?MESSAGE2)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, undefined, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID2, ?TYPE2, undefined, ?MESSAGE2)),
     ok = model_messages:increment_retry_counts(?UID1, [?MID1, ?MID2]),
     ?assertEqual({ok, 2}, model_messages:get_retry_count(?UID1, ?MID1)),
     ?assertEqual({ok, 2}, model_messages:get_retry_count(?UID1, ?MID2)).
@@ -224,8 +227,8 @@ push_sent_test() ->
 get_user_messages_test() ->
     setup(),
     ?assertEqual(ok, model_messages:remove_all_user_messages(?UID1)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE1)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE2)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?GROUP1, ?MESSAGE1)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, undefined, ?MESSAGE2)),
     ?assertEqual({ok, [?OFFLINE_MESSAGE1]},
             model_messages:get_user_messages(?UID1, 1, 1)),
     ?assertEqual({ok, [?OFFLINE_MESSAGE1, ?OFFLINE_MESSAGE2]},
@@ -236,8 +239,8 @@ get_user_messages_test() ->
             model_messages:get_user_messages(?UID1, 2, undefined)),
     ?assertEqual(ok, model_messages:remove_all_user_messages(?UID1)),
 
-    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, ?MESSAGE4)),
-    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?MESSAGE5)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, ?UID2, ?MID2, ?TYPE2, undefined, ?MESSAGE4)),
+    ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?GROUP1, ?MESSAGE5)),
     ?assertEqual({ok, [?OFFLINE_MESSAGE4, ?OFFLINE_MESSAGE5]},
             model_messages:get_user_messages(?UID1, 1, undefined)),
     ?assertEqual({ok, [?OFFLINE_MESSAGE4]},

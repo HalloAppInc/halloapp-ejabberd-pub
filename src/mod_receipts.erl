@@ -18,13 +18,17 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("ha_types.hrl").
 -include("offline_message.hrl").
 
 
 %% gen_mod API.
 -export([start/2, stop/1, depends/2, mod_options/1, reload/3]).
-%% Hooks.
--export([user_ack_packet/2]).
+%% Hooks and API.
+-export([
+    user_ack_packet/2,
+    get_thread_id/1
+]).
 
 start(Host, _Opts) ->
     ejabberd_hooks:add(user_ack_packet, Host, ?MODULE, user_ack_packet, 10).
@@ -43,6 +47,8 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 
 %% Hook triggered when user sent the server an ack stanza for this particular message.
+%% TODO(murali@): Some of the offline messages will now have thread_id.
+%% Start using that from next month around 02-20-2021.
 -spec user_ack_packet(Ack :: ack(), OfflineMessage :: offline_message()) -> ok.
 user_ack_packet(#ack{} = Ack, #offline_message{content_type = ContentType, msg_id = MsgId,
         message = Msg, protobuf = true} = OfflineMessage)
@@ -99,11 +105,14 @@ log_delivered(<<"group_chat">>) ->
 
 
 % Try to extract the gid from the binary message
--spec get_thread_id(Message :: binary()) -> binary().
+%% TODO(murali@): cleanup this function once we switch everything to protobuf.
+-spec get_thread_id(Message :: binary()) -> maybe(binary()).
 get_thread_id(#message{sub_els = [SubEl]}) ->
+    %% Sending undefined should work as usual.. so updating it here to test further.
+    %% This should affect only murali.
     case SubEl of
         #group_chat{gid =  Gid} -> Gid;
-        #chat{} -> <<>>   % This is the default case we don't need to send thread_id
+        #chat{} -> undefined   % This is the default case we don't need to send thread_id
     end;
 get_thread_id(Message) ->
     case fxml_stream:parse_element(Message) of

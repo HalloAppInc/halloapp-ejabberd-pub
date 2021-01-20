@@ -17,6 +17,7 @@
     content_type :: binary(),
     retry_count :: integer(),
     message :: binary(),
+    thread_id :: binary(),
     protobuf = false :: boolean()
 }).
 
