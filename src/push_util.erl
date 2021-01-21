@@ -126,7 +126,7 @@ parse_metadata(#message{id = Id, sub_els = [#group_st{gid = Gid, name = Name, se
         content_id = Id,
         content_type = <<"group_add">>,
         from_uid = Sender,
-        timestamp = <<>>,  % We don't have timestamp... Is it ok?
+        timestamp = <<>>, % All other events have Ts. Maybe we should add Ts to group_st
         thread_id = Gid,
         thread_name = Name,
         sender_name = SenderName
