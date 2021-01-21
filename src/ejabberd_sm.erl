@@ -930,7 +930,7 @@ ets_init() ->
     ]),
     ok.
 
-ets_exists() ->
+ets_sm_local_exists() ->
     case ets:whereis(?SM_LOCAL) of
         undefined -> false;
         _ -> true
@@ -940,7 +940,7 @@ ets_exists() ->
 % and the functions below start crashing if we don't check for the ets table first
 -spec ets_insert_sesssion(session()) -> boolean().
 ets_insert_sesssion(#session{} = Session) ->
-    case ets_exists() of
+    case ets_sm_local_exists() of
         true ->
             ets:insert(?SM_LOCAL, Session);
         false ->
@@ -951,7 +951,7 @@ ets_insert_sesssion(#session{} = Session) ->
 
 -spec ets_delete_session(session()) -> true.
 ets_delete_session(#session{} = Session) ->
-    case ets_exists() of
+    case ets_sm_local_exists() of
         true ->
             ets:delete_object(?SM_LOCAL, Session);
         false ->
@@ -961,7 +961,7 @@ ets_delete_session(#session{} = Session) ->
 
 -spec ets_count_sessions() -> non_neg_integer().
 ets_count_sessions() ->
-    case ets_exists() of
+    case ets_sm_local_exists() of
         true ->
             ets:info(?SM_LOCAL, size);
         false ->
