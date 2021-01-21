@@ -327,30 +327,30 @@ check_password_fun(_Mech, #{lserver := _LServer}) ->
 bind(<<"">>, State) ->
     bind(new_uniq_id(), State);
 bind(R, #{user := U, server := S, access := Access, lang := Lang,
-      lserver := LServer, socket := Socket,
-      ip := IP} = State) ->
+        lserver := LServer, socket := Socket,
+        ip := IP} = State) ->
     case resource_conflict_action(U, S, R) of
-    closenew ->
-        {error, xmpp:err_conflict(), State};
-    {accept_resource, Resource} ->
-        JID = jid:make(U, S, Resource),
-        case acl:match_rule(LServer, Access,
-                #{usr => jid:split(JID), ip => IP}) of
-        allow ->
-            State1 = open_session(State#{resource => Resource,
-                         sid => ejabberd_sm:make_sid()}),
-            State2 = ejabberd_hooks:run_fold(
-                   c2s_session_opened, LServer, State1, []),
-            ?INFO("(~ts) Opened c2s session for ~ts",
-                  [halloapp_socket:pp(Socket), jid:encode(JID)]),
-            {ok, State2};
-        deny ->
-            ejabberd_hooks:run(forbidden_session_hook, LServer, [JID]),
-            ?WARNING("(~ts) Forbidden c2s session for ~ts",
-                 [halloapp_socket:pp(Socket), jid:encode(JID)]),
-            Txt = ?T("Access denied by service policy"),
-            {error, xmpp:err_not_allowed(Txt, Lang), State}
-        end
+        closenew ->
+            {error, xmpp:err_conflict(), State};
+        {accept_resource, Resource} ->
+            JID = jid:make(U, S, Resource),
+            case acl:match_rule(LServer, Access,
+                    #{usr => jid:split(JID), ip => IP}) of
+                allow ->
+                    State1 = open_session(State#{resource => Resource,
+                                 sid => ejabberd_sm:make_sid()}),
+                    State2 = ejabberd_hooks:run_fold(
+                           c2s_session_opened, LServer, State1, []),
+                    ?INFO("(~ts) Opened c2s session for ~ts",
+                          [halloapp_socket:pp(Socket), jid:encode(JID)]),
+                    {ok, State2};
+                deny ->
+                    ejabberd_hooks:run(forbidden_session_hook, LServer, [JID]),
+                    ?WARNING("(~ts) Forbidden c2s session for ~ts",
+                         [halloapp_socket:pp(Socket), jid:encode(JID)]),
+                    Txt = ?T("Access denied by service policy"),
+                    {error, xmpp:err_not_allowed(Txt, Lang), State}
+            end
     end.
 
 
@@ -548,23 +548,23 @@ privacy_check_packet(#{lserver := LServer} = State, Pkt, Dir) ->
                       {accept_resource, binary()} | closenew.
 resource_conflict_action(U, S, R) ->
     OptionRaw = case ejabberd_sm:is_existing_resource(U, S, R) of
-            true ->
+        true ->
             ejabberd_option:resource_conflict(S);
-            false ->
+        false ->
             acceptnew
-        end,
+    end,
     Option = case OptionRaw of
-         setresource -> setresource;
-         closeold -> acceptnew; %% ejabberd_sm will close old session
-         closenew -> closenew;
-         acceptnew -> acceptnew
-         end,
+        setresource -> setresource;
+        closeold -> acceptnew; %% ejabberd_sm will close old session
+        closenew -> closenew;
+        acceptnew -> acceptnew
+    end,
     case Option of
-    acceptnew -> {accept_resource, R};
-    closenew -> closenew;
-    setresource ->
-        Rnew = new_uniq_id(),
-        {accept_resource, Rnew}
+        acceptnew -> {accept_resource, R};
+        closenew -> closenew;
+        setresource ->
+            Rnew = new_uniq_id(),
+            {accept_resource, Rnew}
     end.
 
 
