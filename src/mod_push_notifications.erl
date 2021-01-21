@@ -96,6 +96,17 @@ should_push(#message{type = Type, sub_els = [SubEl | _]} = Message) ->
             %% Push all group feed messages with action = publish.
             true;
 
+        Type =:= groupchat andalso PayloadType =:= group_st ->
+            %% Push when someone is added to a group
+            ToUid = Message#message.to#jid.user,
+            WasAdded = lists:any(
+                fun (MemberSt) ->
+                    MemberSt#member_st.uid =:= ToUid andalso MemberSt#member_st.action =:= add
+                end, SubEl#group_st.members),
+            % TODO: remove this log, here just to make sure it works initially
+            ?INFO("group_st push ~p Message; ~p", [WasAdded, Message]),
+            WasAdded;
+
         true ->
             %% Ignore everything else.
             false

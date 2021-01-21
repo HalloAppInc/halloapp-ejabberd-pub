@@ -121,6 +121,17 @@ parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [], comment
         sender_name = Comment#group_comment_st.publisher_name
     };
 
+parse_metadata(#message{id = Id, sub_els = [#group_st{gid = Gid, name = Name, sender = Sender, sender_name = SenderName} = SubElement]}) ->
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"group_add">>,
+        from_uid = Sender,
+        timestamp = <<>>,  % We don't have timestamp... Is it ok?
+        thread_id = Gid,
+        thread_name = Name,
+        sender_name = SenderName
+    };
+
 parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     #push_metadata{}.

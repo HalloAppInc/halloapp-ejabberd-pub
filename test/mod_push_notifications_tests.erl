@@ -90,4 +90,20 @@ whisper_push1_test() ->
     ?assertEqual(false, mod_push_notifications:should_push(MessageSt)),
     ok.
 
+should_push_group_add_test() ->
+    MemberSt2 = struct_util:create_member_st(add, ?UID2, member, ?NAME2, ?AVATAR_ID2, ok, undefined),
+    MemberSt3 = struct_util:create_member_st(add, ?UID3, member, ?NAME3, ?AVATAR_ID3, ok, undefined),
+    GroupSt = struct_util:create_group_st(modify_members, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1,
+        ?NAME1, [MemberSt2, MemberSt3]),
+    JID1 = struct_util:create_jid(?UID1, ?SERVER),
+    JID2 = struct_util:create_jid(?UID2, ?SERVER),
+    JID3 = struct_util:create_jid(?UID3, ?SERVER),
+    MessageSt2 = struct_util:create_message_stanza(?ID1, JID2, JID1, groupchat, GroupSt),
+    ?assertEqual(true, mod_push_notifications:should_push(MessageSt2)),
+    MessageSt3 = struct_util:create_message_stanza(?ID1, JID3, JID1, groupchat, GroupSt),
+    ?assertEqual(true, mod_push_notifications:should_push(MessageSt3)),
+    MessageSt1 = struct_util:create_message_stanza(?ID1, JID1, JID1, groupchat, GroupSt),
+    ?assertEqual(false, mod_push_notifications:should_push(MessageSt1)),
+    ok.
+
 
