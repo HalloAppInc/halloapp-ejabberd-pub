@@ -13,6 +13,7 @@ group() ->
         auth_check_accounts_test,
         auth_no_user_test,
         auth_bad_password_test,
+        auth_bad_resource_test,
         auth_login_success_test
     ]}.
 
@@ -41,6 +42,11 @@ bad_password_test(_Conf) ->
     {error, 'invalid uid or password'} = ha_client:connect_and_login(?UID1, <<"wrong_password">>),
     ok.
 
+bad_resource_test(_Conf) ->
+    true = model_accounts:account_exists(?UID1),
+    {error, 'invalid resource'} = ha_client:connect_and_login(?UID1, ?PASSWORD1,
+        #{resource => <<"bad_resource">>}),
+    ok.
 
 login_success_test(_Conf) ->
     {ok, C} = ha_client:connect_and_login(?UID1, ?PASSWORD1),

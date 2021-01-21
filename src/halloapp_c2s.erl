@@ -323,9 +323,9 @@ check_password_fun(_Mech, #{lserver := _LServer}) ->
         ejabberd_auth:check_password(U, P)
     end.
 
-
-bind(<<"">>, State) ->
-    bind(new_uniq_id(), State);
+% TODO: make those constants
+bind(R, State) when R =/= <<"android">>, R =/= <<"iphone">>, R =/= <<"ios">> ->
+    {error, {invalid_resource, R}, State};
 bind(R, #{user := U, server := S, access := Access, lang := Lang,
         lserver := LServer, socket := Socket,
         ip := IP} = State) ->

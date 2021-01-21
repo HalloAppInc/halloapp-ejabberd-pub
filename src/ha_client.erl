@@ -66,8 +66,12 @@ start_link(Options) ->
     gen_server:start_link(ha_client, [Options], []).
 
 
+-spec connect_and_login(Uid :: uid(), Password :: binary()) ->
+    {ok, Client :: pid()} | {error, Reason :: term()}.
 connect_and_login(Uid, Password) ->
-    connect_and_login(Uid, Password, #{auto_send_acks => true}).
+    connect_and_login(Uid, Password, #{
+        auto_send_acks => true,
+        resource => <<"android">>}).
 
 
 -spec connect_and_login(Uid :: uid(), Password :: binary(), Options :: options()) ->
@@ -211,21 +215,18 @@ handle_call({close}, _From, State) ->
     NewState = State#state{socket = undefined},
     {reply, ok, NewState};
 
-handle_call({login, Uid, Passwd}, _From, State) ->
-    ct:pal("sending_auth"),
+handle_call({login, Uid, Passwd}, _From,
+        #state{options = #{resource := Resource}} = State) ->
     Socket = State#state.socket,
     HaAuth = #pb_auth_request{
         uid = util:to_integer(Uid),
         pwd = Passwd,
         client_mode = #pb_client_mode{mode = active},
         client_version = #pb_client_version{version = <<"HalloApp/Android0.82D">>},
-        resource = <<"android">>
+        resource = Resource
     },
-    ct:pal("before send"),
     send_internal(Socket, HaAuth),
-    ct:pal("after send"),
     ?assert(auth =:= State#state.state),
-    ct:pal("waiting for auth response"),
     {Result, NewState} = receive_wait(State),
     {reply, Result, NewState};
 
