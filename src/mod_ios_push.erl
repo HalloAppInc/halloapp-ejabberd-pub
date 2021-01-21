@@ -418,6 +418,8 @@ parse_subject_and_body(#message{sub_els = [#group_feed_st{posts = [#group_post_s
     {<<"New Group Message">>, <<"New post">>};
 parse_subject_and_body(#message{sub_els = [#group_feed_st{comments = [#group_comment_st{}]}]}) ->
     {<<"New Group Message">>, <<"New comment">>};
+parse_subject_and_body(#message{sub_els = [#group_st{}]}) ->
+    {<<"New Group">>, <<"You got added to new group">>};
 parse_subject_and_body(#message{to = #jid{luser = Uid}, id = Id}) ->
     ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]).
 
@@ -510,6 +512,7 @@ get_push_type(#message{type = headline, sub_els = [#feed_st{comments = []}]}, #p
 get_push_type(#message{type = headline, sub_els = [#feed_st{posts = []}]}, #push_info{comment_pref = true}) -> alert;
 get_push_type(#message{type = _, sub_els = [#feed_st{}]}, _) -> silent;
 get_push_type(#message{type = groupchat, sub_els = [#group_chat{}]}, _) -> alert;
+get_push_type(#message{type = groupchat, sub_els = [#group_st{}]}, _) -> alert;
 get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{posts = [#group_post_st{}]}]}, _) -> alert;
 get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{comments = [#group_comment_st{}]}]}, _) -> silent;
 get_push_type(#message{type = headline, sub_els = [#group_feed_st{}]}, _) -> alert;
