@@ -121,7 +121,7 @@ load(Files, Dir) ->
     end,
     case Files of
 	[] ->
-	    ?WARNING("No translation files found in ~ts, "
+	    ?INFO("No translation files found in ~ts, "
 			 "check directory access",
 			 [Dir]);
 	_ ->
