@@ -30,7 +30,6 @@
 %% API
 -export([
     init/0,
-    use_cache/1,
     set_session/1,
     delete_session/1,
     get_sessions/0,
@@ -63,10 +62,6 @@ init() ->
 -spec start_link() -> {ok, pid()} | {error, any()}.
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
-
--spec use_cache(binary()) -> boolean().
-use_cache(_LServer) ->
-    false.
 
 -spec set_session(#session{}) -> ok.
 set_session(Session) ->

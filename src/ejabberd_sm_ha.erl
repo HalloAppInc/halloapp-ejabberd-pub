@@ -7,9 +7,7 @@
     delete_session/1,
     get_sessions/0,
     get_sessions/1,
-    get_sessions/2,
-    use_cache/1,
-    cache_nodes/1
+    get_sessions/2
 ]).
 
 
@@ -28,14 +26,6 @@ init() ->
     % FIXME: make sure the redis_sup has started already?
     ok.
 
-
--spec cache_nodes(Server :: binary()) -> [node()].
-cache_nodes(_LServer) ->
-    [node()].
-
--spec use_cache(Server :: binary()) -> boolean().
-use_cache(_LServer) ->
-    false.
 
 -spec set_session(Session :: session()) -> ok.
 set_session(Session) ->

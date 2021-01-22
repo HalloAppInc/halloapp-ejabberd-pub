@@ -73,7 +73,6 @@
     host_up/1,
     host_down/1,
     make_sid/0,
-    clean_cache/1,
     config_reloaded/0
 ]).
 
@@ -95,10 +94,6 @@
 -callback get_sessions() -> [#session{}].
 -callback get_sessions(binary()) -> [#session{}].
 -callback get_sessions(binary(), binary()) -> {ok, [#session{}]} | {error, any()}.
--callback use_cache(binary()) -> boolean().
--callback cache_nodes(binary()) -> [node()].
-
--optional_callbacks([use_cache/1, cache_nodes/1]).
 
 -record(state, {}).
 
@@ -387,7 +382,7 @@ get_all_pids() ->
 
 -spec config_reloaded() -> ok.
 config_reloaded() ->
-    init_cache().
+    ok.
 
 %%====================================================================
 %% gen_server callbacks
@@ -396,13 +391,11 @@ config_reloaded() ->
 init([]) ->
     process_flag(trap_exit, true),
     ets_init(),
-    init_cache(),
     case lists:foldl(
             fun(Mod, ok) -> Mod:init();
                 (_, Err) -> Err
             end, ok, get_sm_backends()) of
         ok ->
-            clean_cache(),
             gen_iq_handler:start(?MODULE),
             ejabberd_hooks:add(host_up, ?MODULE, host_up, 50),
             ejabberd_hooks:add(host_down, ?MODULE, host_down, 60),
@@ -489,13 +482,7 @@ set_session(#session{us = {LUser, LServer}} = Session) ->
     Mod = get_sm_backend(LServer),
     Res = case Mod:set_session(Session) of
         ok ->
-            case use_cache(Mod, LServer) of
-                true ->
-                    ets_cache:delete(?SM_CACHE, {LUser, LServer},
-                             cache_nodes(Mod, LServer));
-                false ->
-                    ok
-            end;
+            ok;
         {error, _} = Err ->
             Err
     end,
@@ -512,28 +499,9 @@ get_sessions(Mod, LServer) ->
 
 -spec get_sessions(module(), binary(), binary()) -> [#session{}].
 get_sessions(Mod, LUser, LServer) ->
-    case use_cache(Mod, LServer) of
-        true ->
-            case ets_cache:lookup(
-                    ?SM_CACHE, {LUser, LServer},
-                    fun() ->
-                        case Mod:get_sessions(LUser, LServer) of
-                            {ok, Ss} when Ss /= [] ->
-                                {ok, Ss};
-                            _ ->
-                                error
-                        end
-                    end) of
-                {ok, Sessions} ->
-                    delete_dead(Mod, Sessions);
-                error ->
-                    []
-            end;
-        false ->
-            case Mod:get_sessions(LUser, LServer) of
-                {ok, Ss} -> delete_dead(Mod, Ss);
-                _ -> []
-            end
+    case Mod:get_sessions(LUser, LServer) of
+        {ok, Ss} -> delete_dead(Mod, Ss);
+        _ -> []
     end.
 
 -spec get_sessions(module(), binary(), binary(), binary()) -> [#session{}].
@@ -587,16 +555,10 @@ activate_session(Uid, Server) ->
 
 
 -spec delete_session(module(), #session{}) -> ok.
-delete_session(Mod, #session{usr = {LUser, LServer, _}} = Session) ->
+delete_session(Mod, #session{} = Session) ->
     Mod:delete_session(Session),
     ets_delete_session(Session),
-    case use_cache(Mod, LServer) of
-        true ->
-            ets_cache:delete(?SM_CACHE, {LUser, LServer},
-                     cache_nodes(Mod, LServer));
-        false ->
-            ok
-    end.
+    ok.
 
 -spec delete_dead(module(), [#session{}]) -> [#session{}].
 delete_dead(Mod, Sessions) ->
@@ -852,64 +814,6 @@ get_vh_by_backend(Mod) ->
         fun(Host) ->
             get_sm_backend(Host) == Mod
         end, ejabberd_option:hosts()).
-
-%%--------------------------------------------------------------------
-%%% Cache stuff
-%%--------------------------------------------------------------------
--spec init_cache() -> ok.
-init_cache() ->
-    case use_cache() of
-        true ->
-            ets_cache:new(?SM_CACHE, cache_opts());
-        false ->
-            ets_cache:delete(?SM_CACHE)
-    end.
-
--spec cache_opts() -> [proplists:property()].
-cache_opts() ->
-    MaxSize = ejabberd_option:sm_cache_size(),
-    CacheMissed = ejabberd_option:sm_cache_missed(),
-    LifeTime = ejabberd_option:sm_cache_life_time(),
-    [{max_size, MaxSize}, {cache_missed, CacheMissed}, {life_time, LifeTime}].
-
--spec clean_cache(node()) -> non_neg_integer().
-clean_cache(Node) ->
-    ets_cache:filter(
-      ?SM_CACHE,
-      fun(_, error) ->
-          false;
-        (_, {ok, Ss}) ->
-            not lists:any(
-                fun(#session{sid = {_, Pid}}) ->
-                    node(Pid) == Node
-                end, Ss)
-      end).
-
--spec clean_cache() -> ok.
-clean_cache() ->
-    ejabberd_cluster:eval_everywhere(?MODULE, clean_cache, [node()]).
-
--spec use_cache(module(), binary()) -> boolean().
-use_cache(Mod, LServer) ->
-    case erlang:function_exported(Mod, use_cache, 1) of
-        true -> Mod:use_cache(LServer);
-        false -> ejabberd_option:sm_use_cache(LServer)
-    end.
-
--spec use_cache() -> boolean().
-use_cache() ->
-    lists:any(
-        fun(Host) ->
-            Mod = get_sm_backend(Host),
-            use_cache(Mod, Host)
-        end, ejabberd_option:hosts()).
-
--spec cache_nodes(module(), binary()) -> [node()].
-cache_nodes(Mod, LServer) ->
-    case erlang:function_exported(Mod, cache_nodes, 1) of
-        true -> Mod:cache_nodes(LServer);
-        false -> ejabberd_cluster:get_nodes()
-    end.
 
 %%--------------------------------------------------------------------
 %%% Local ETS table
