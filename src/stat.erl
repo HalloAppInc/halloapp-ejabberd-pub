@@ -174,6 +174,10 @@ compute_counts() ->
 
     % active_users
     ok = mod_active_users:compute_counts(),
+
+    % engaged_users
+    ok = mod_engaged_users:compute_counts(),
+
     End = util:now_ms(),
     ?INFO("Counting took ~p ms", [End - Start]),
     ok.
