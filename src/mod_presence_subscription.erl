@@ -35,7 +35,8 @@
     subscribe_user_to_friend/3,
     unsubscribe_user_to_friend/3,
     get_user_subscribed_friends/2,
-    get_user_broadcast_friends/2
+    get_user_broadcast_friends/2,
+    remove_friend/3
 ]).
 
 
@@ -43,13 +44,16 @@ start(Host, _Opts) ->
     ejabberd_hooks:add(presence_subs_hook, Host, ?MODULE, presence_subs_hook, 1),
     ejabberd_hooks:add(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10).
+    ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 10),
+    ejabberd_hooks:add(remove_friend, Host, ?MODULE, remove_friend, 50).
+
 
 stop(Host) ->
     ejabberd_hooks:delete(presence_subs_hook, Host, ?MODULE, presence_subs_hook, 1),
     ejabberd_hooks:delete(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
-    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10).
+    ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10),
+    ejabberd_hooks:delete(remove_friend, Host, ?MODULE, remove_friend, 50).
 
 depends(_Host, _Opts) ->
     [].
@@ -97,6 +101,13 @@ presence_subs_hook(User, Server, #presence{to = #jid{user = Friend}, type = Type
             ?INFO("Uid: ~s, unsubscribe_all", [User]),
             unsubscribe_user_to_friend(User, Server, Friend)
     end.
+
+
+-spec remove_friend(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.
+remove_friend(Uid, Server, Ouid) ->
+    unsubscribe_user_to_friend(Uid, Server, Ouid),
+    unsubscribe_user_to_friend(Ouid, Server, Uid),
+    ok.
 
 
 %%====================================================================
