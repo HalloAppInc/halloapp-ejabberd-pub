@@ -87,7 +87,10 @@ parse_phone_number(PhoneNumber, DefaultRegionId) ->
     PhoneNumberState = #phone_number_state{phone_number = Raw, raw = Raw},
     case parse_helper(PhoneNumberState, DefaultRegionId) of
         {error, Reason} ->
-            ?WARNING("Failed parsing |~s|, with reason: ~s", [PhoneNumber, Reason]),
+            case length(normalize(Raw)) > 5 of
+                true -> ?WARNING("Failed parsing |~s|, with reason: ~s", [PhoneNumber, Reason]);
+                false -> ?INFO("Failed parsing |~s|, with reason: ~s", [PhoneNumber, Reason])
+            end,
             {error, Reason};
         PhoneNumberState2 ->
             PhoneNumberState3 = is_valid_number_internal(PhoneNumberState2),
