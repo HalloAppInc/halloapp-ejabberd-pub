@@ -20,7 +20,7 @@
 
 -export([
     feed_share_old_items/4,
-    feed_item_published/3,
+    feed_item_published/4,
     feed_item_retracted/3,
     group_feed_item_published/4,
     group_feed_item_retracted/4,
@@ -180,8 +180,9 @@ trigger_cleanup() ->
     gen_server:cast(get_proc(), {cleanup}).
 
 
--spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: atom()) -> ok.
-feed_item_published(Uid, ItemId, ItemType) ->
+-spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: atom(),
+        FeedAudienceType :: atom()) -> ok.
+feed_item_published(Uid, ItemId, ItemType, FeedAudienceType) ->
     ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
     {ok, Phone} = model_accounts:get_phone(Uid),
     CC = mod_libphonenumber:get_cc(Phone),
@@ -191,7 +192,8 @@ feed_item_published(Uid, ItemId, ItemType) ->
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             stat:count("HA/feed", "post"),
             stat:count("HA/feed", "post_by_cc", 1, [{cc, CC}]),
-            stat:count("HA/feed", "post_by_dev", 1, [{is_dev, IsDev}]);
+            stat:count("HA/feed", "post_by_dev", 1, [{is_dev, IsDev}]),
+            stat:count("HA/feed", "post_by_audience_type", 1, [{type, FeedAudienceType}]);
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             stat:count("HA/feed", "comment"),

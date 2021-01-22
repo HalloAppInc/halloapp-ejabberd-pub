@@ -163,9 +163,11 @@ publish_post(Uid, PostId, Payload, [AudienceListSt]) ->
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
+            ?INFO("Uid: ~s PostId ~p published to ~p audience size: ~p",
+                [Uid, PostId, FeedAudienceType, length(FeedAudienceList)]),
             ok = model_feed:publish_post(PostId, Uid, Payload,
                     FeedAudienceType, FeedAudienceList, TimestampMs),
-            ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post]),
+            ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, FeedAudienceType]),
 
             {ok, TimestampMs};
         {ok, ExistingPost} ->
@@ -218,7 +220,7 @@ publish_comment(PublisherUid, CommentId, PostId, _PostUid, ParentCommentId, Payl
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
                             ParentCommentId, NewPushList, Payload, TimestampMs),
                     ejabberd_hooks:run(feed_item_published, Server, [PublisherUid, CommentId,
-                                       comment]),
+                                       comment, Post#post.audience_type]),
                     broadcast_comment(Action, CommentId, PostId, ParentCommentId,
                         PublisherUid, Payload, TimestampMs, FeedAudienceSet, NewPushList,
                         PostOwnerUid),
