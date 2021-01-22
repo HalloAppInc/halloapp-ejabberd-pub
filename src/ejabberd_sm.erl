@@ -537,6 +537,8 @@ get_sessions(Mod, LUser, LServer) ->
     end.
 
 -spec get_sessions(module(), binary(), binary(), binary()) -> [#session{}].
+get_sessions(Mod, LUser, LServer, <<"">>) ->
+    get_sessions(Mod, LUser, LServer);
 get_sessions(Mod, LUser, LServer, LResource) ->
     Sessions = get_sessions(Mod, LUser, LServer),
     [S || S <- Sessions, element(3, S#session.usr) == LResource].
@@ -648,15 +650,8 @@ do_route(#presence{to = #jid{lresource = <<"">>} = To, type = T} = Packet)
         false ->
             ok
     end;
-do_route(#message{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
-    ?DEBUG("Processing message to bare JID:~n~ts", [xmpp:pp(Packet)]),
-    if
-        T == chat; T == headline; T == normal; T == groupchat ->
-            route_message(Packet);
-        true ->
-            ejabberd_hooks:run_fold(bounce_sm_packet,
-                    To#jid.lserver, {pass, Packet}, [])
-    end;
+do_route(#message{} = Packet) ->
+    route_message(Packet);
 do_route(#iq{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
     if
         T == set; T == get ->
@@ -690,6 +685,7 @@ do_route(Packet) ->
             case Packet of
             #message{} ->
                 %% TODO(murali@): clean this do_route function properly
+                ?WARNING("should-not-happen"),
                 route_message(Packet);
             #presence{} ->
                 ejabberd_hooks:run_fold(bounce_sm_packet,
@@ -710,10 +706,11 @@ do_route(Packet) ->
 
 
 -spec route_message(message()) -> any().
-route_message(Packet) ->
+route_message(#message{} = Packet) ->
     To = xmpp:get_to(Packet),
     LUser = To#jid.luser,
     LServer = To#jid.lserver,
+    LResource = To#jid.lresource,
     Mod = get_sm_backend(LServer),
     %% Ignore presence information and just rely on the connection state.
 
@@ -724,7 +721,7 @@ route_message(Packet) ->
             store_offline_message(DecodedPacket),
             %% Irrespective of whether the session is passive or active:
             %% send the message to the user's c2s process if it exists.
-            case get_sessions(Mod, LUser, LServer) of
+            case get_sessions(Mod, LUser, LServer, LResource) of
                 [] ->
                     %% If no online sessions, just send push via apple/google
                     push_message(DecodedPacket);
@@ -732,7 +729,7 @@ route_message(Packet) ->
                     %% pick the latest session
                     Session = lists:max(Ss),
                     Pid = element(2, Session#session.sid),
-                    ?DEBUG("Sending to process ~p~n", [Pid]),
+                    ?INFO("route To: ~s -> pid ~p MsgId: ~s", [LUser, Pid, Packet#message.id]),
                     % NOTE: message will be lost if the dest PID dies while routing
                     ejabberd_c2s:route(Pid, {route, DecodedPacket})
             end;
@@ -740,7 +737,7 @@ route_message(Packet) ->
             %% Ignore the packet and stop routing it now.
             ok;
         {deny, invalid_to_uid} ->
-            ?ERROR("Invalid packet received: ~p", [DecodedPacket]),
+            ?ERROR("Invalid To uid: ~s packet received: ~p", [LUser, DecodedPacket]),
             Err = util:err(invalid_to_uid),
             ErrorPacket = xmpp:make_error(DecodedPacket, Err),
             ejabberd_router:route(ErrorPacket)
