@@ -12,7 +12,6 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("translate.hrl").
 -include("ejabberd_sm.hrl").
 
 -define(NS_USER_MODE, <<"halloapp:user:mode">>).
@@ -61,15 +60,13 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
     if
         Mode =/= active ->
             ?WARNING("Uid: ~s, received invalid client mode: ~p", [Uid, Mode]),
-            Txt = ?T("Invalid client login mode."),
-            xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            xmpp:make_error(IQ, util:err(invalid_login_mode));
         true ->
             ok = ejabberd_sm:activate_session(Uid, Server),
             xmpp:make_iq_result(IQ)
     end;
 process_local_iq(#iq{lang = Lang} = IQ) ->
-    Txt = ?T("Unable to handle this IQ"),
-    xmpp:make_error(IQ, xmpp:err_internal_server_error(Txt, Lang)).
+    xmpp:make_error(IQ, util:err(invalid_request)).
 
 
 %%====================================================================

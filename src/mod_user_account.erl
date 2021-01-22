@@ -12,7 +12,6 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("translate.hrl").
 -include("ejabberd_sm.hrl").
 
 -define(NS_USER_ACCOUNT, <<"halloapp:user:account">>).

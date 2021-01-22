@@ -14,7 +14,6 @@
 -include("ha_types.hrl").
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("translate.hrl").
 -include("offline_message.hrl").
 -include("ejabberd_sm.hrl").
 -include_lib("stdlib/include/assert.hrl").

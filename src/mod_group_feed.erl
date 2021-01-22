@@ -10,7 +10,6 @@
 -author('murali').
 
 -include("xmpp.hrl").
--include("translate.hrl").
 -include("logger.hrl").
 -include("feed.hrl").
 -include("groups.hrl").

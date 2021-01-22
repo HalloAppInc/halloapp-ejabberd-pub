@@ -16,7 +16,6 @@
 
 -include("xmpp.hrl").
 -include("logger.hrl").
--include("translate.hrl").
 
 -define(needs_ack_packet(Pkt),
         is_record(Pkt, message)).

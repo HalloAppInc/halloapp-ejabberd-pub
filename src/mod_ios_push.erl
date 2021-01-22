@@ -19,7 +19,6 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("server.hrl").
--include("translate.hrl").
 -include ("push_message.hrl").
 -include("feed.hrl").
 

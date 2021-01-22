@@ -12,7 +12,6 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("translate.hrl").
 
 -define(NS_USER_PRIVACY, <<"halloapp:user:privacy">>).
 -define(STAT_PRIVACY, "HA/Privacy").
@@ -103,8 +102,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = get,
                 lists = UserPrivacyLists
             });
 process_local_iq(#iq{lang = Lang} = IQ) ->
-    Txt = ?T("Unable to handle this IQ"),
-    xmpp:make_error(IQ, xmpp:err_internal_server_error(Txt, Lang)).
+    xmpp:make_error(IQ, util:err(invalid_request)).
 
 
 %% TODO(murali@): refactor this hook and its arguments later.

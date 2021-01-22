@@ -21,7 +21,6 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("translate.hrl").
 
 -define(NS_NAME, <<"halloapp:users:name">>).
 

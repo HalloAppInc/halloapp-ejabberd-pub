@@ -21,7 +21,6 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("translate.hrl").
 -include("whisper.hrl").
 -include("ha_types.hrl").
 

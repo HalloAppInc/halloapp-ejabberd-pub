@@ -15,7 +15,6 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("translate.hrl").
 -include ("push_message.hrl").
 
 %% TODO(murali@): convert everything to 1 timeunit.

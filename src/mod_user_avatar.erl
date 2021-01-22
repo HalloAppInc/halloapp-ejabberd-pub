@@ -12,7 +12,6 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("translate.hrl").
 -include("ha_types.hrl").
 -include("ejabberd_stacktrace.hrl").
 

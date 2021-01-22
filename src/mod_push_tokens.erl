@@ -13,7 +13,6 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("translate.hrl").
 -include("account.hrl").
 
 -define(NS_PUSH, <<"halloapp:push:notifications">>).

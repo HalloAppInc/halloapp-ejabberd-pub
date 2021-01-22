@@ -11,7 +11,6 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("translate.hrl").
 -include("account.hrl").
 -include ("push_message.hrl").
 

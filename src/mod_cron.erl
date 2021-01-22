@@ -23,7 +23,6 @@
 -include("ejabberd_http.hrl").
 -include("ejabberd_web_admin.hrl").
 -include("logger.hrl").
--include("translate.hrl").
 -include("xmpp.hrl").
 
 -record(task, {taskid, timerref, host, task}).
@@ -240,7 +239,7 @@ cron_del(TaskId) ->
 %% ---------------------
 
 web_menu_host(Acc, _Host, Lang) ->
-    [{<<"cron">>, translate:translate(Lang, ?T("Cron Tasks"))} | Acc].
+    [{<<"cron">>, <<"Cron Tasks">>} | Acc].
 
 web_page_host(_, Host,
 	      #request{path = [<<"cron">>],

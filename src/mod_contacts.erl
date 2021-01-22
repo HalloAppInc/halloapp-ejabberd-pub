@@ -16,7 +16,6 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("translate.hrl").
 -include("ha_namespaces.hrl").
 -include("time.hrl").
 
@@ -89,9 +88,8 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
     stat:count("HA/contacts", "sync_full_contacts", length(Contacts)),
     case SyncId of
         undefined ->
-            Txt = ?T("Invalid syncid in the request"),
-            ?WARNING("process_local_iq: ~p, ~p", [IQ, Txt]),
-            ResultIQ = xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
+            ?WARNING("undefined syncid, iq: ~p", [IQ]),
+            ResultIQ = xmpp:make_error(IQ, util:err(undefined_syncid));
         _ ->
             count_full_sync(Index),
             ResultIQ = xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_USER_CONTACTS,
