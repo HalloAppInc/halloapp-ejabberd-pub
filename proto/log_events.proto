@@ -9,7 +9,8 @@ message EventData {
   uint64 uid = 1;
   Platform platform = 2;  // client platform `android` or `ios`
   string version = 3;  // client version (eg.`0.94`)
-  reserved 4 to 9;  // for future fields like country code, carrier or others
+  uint64 timestamp_ms = 4; // set by server to indicate when event was received
+  reserved 5 to 9;  // for future fields like country code, carrier or others
   oneof edata {
     MediaUpload media_upload = 10;
     MediaDownload media_download = 11;

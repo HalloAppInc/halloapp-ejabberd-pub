@@ -8,6 +8,7 @@
 
 -include("xmpp.hrl").
 -include("packets.hrl").
+-include("time.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -19,6 +20,10 @@
 -define(METRIC2, <<"m2">>).
 -define(COUNT1, 2).
 -define(COUNT2, 7).
+
+-define(TERM, <<"teststring">>).
+-define(SOURCE_SERVER, <<"s-test">>).
+-define(HEADERS, [{"content-type", "text/plain"}]).
 
 -define(EVENT1, #pb_media_upload{
     duration_ms = 1200,
@@ -36,8 +41,14 @@ setup() ->
     enif_protobuf:load_cache(server:get_msg_defs()),
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
+    os:putenv("EJABBERD_LOG_PATH", "../logs/"),
+    del_dir(mod_client_log:client_log_dir()),
+    filelib:ensure_dir(filename:join([mod_client_log:client_log_dir(), "FILE"])), % making sure fresh copy at each test
     ok.
 
+make_timer() ->
+    {ok, Tref1} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, fun() -> ok end, []),
+    Tref1.
 
 create_count_st(Namespace, Metric, Count, Dims) ->
     #count_st{
@@ -68,19 +79,26 @@ create_client_log_IQ(Uid, Counts, Events) ->
         ]
     }.
 
-
 mod_client_log_test() ->
     setup(),
+    % we don't start the gen_server through gen_mod in our tests because
+    % of the ets table lookup that is done when start_child is called
+    meck:new(gen_mod),
+    meck:expect(gen_mod, start_child, fun(_, _, _, _) -> ok end),
+    meck:expect(gen_mod, stop_child, fun(_) -> ok end),
+    meck:expect(gen_mod, get_module_proc, fun(_, _) -> 1234 end),
     Host = <<"s.halloapp.net">>,
     ?assertEqual(ok, mod_client_log:start(Host, [])),
     ?assertEqual(ok, mod_client_log:stop(Host)),
     ?assertEqual([], mod_client_log:depends(Host, [])),
     ?assertEqual([], mod_client_log:mod_options(Host)),
+    meck:unload(gen_mod),
     ok.
 
 
 client_log_test() ->
     setup(),
+    start_gen_server(),
     Counts = [
         create_count_st(?NS1, ?METRIC1, ?COUNT1, []),
         create_count_st(?NS2, ?METRIC2, ?COUNT2, [])
@@ -92,6 +110,7 @@ client_log_test() ->
     IQ = create_client_log_IQ(?UID1, Counts, Events),
     IQRes = mod_client_log:process_local_iq(IQ),
     tutil:assert_empty_result_iq(IQRes),
+    kill_gen_server(),
     ok.
 
 client_log_bad_namespace_test() ->
@@ -109,3 +128,109 @@ client_log_bad_namespace_test() ->
     ?assertEqual(util:err(bad_request), tutil:get_error_iq_sub_el(IQRes)),
     ok.
 
+verify_s3_upload_test() ->
+    setup(),
+    start_gen_server(),
+    Filename = get_log_file(today(), 1),
+    file:write_file(Filename, ?TERM), % write a dummy file
+    mod_client_log:trigger_upload_aws_blocking(),
+    {ok, FileList} = file:list_dir(mod_client_log:client_log_dir()),
+    ?assertEqual([], FileList), % confirming file is deleted after s3 upload
+    kill_gen_server(),
+    ok.
+
+more_complicated_s3_upload_test() ->
+    setup(),
+    start_gen_server(),
+    Filename = get_log_file(today(), 1),
+    FileOlder = get_log_file(today(), 10),
+    FileEvenOlder = get_log_file(today(), 100),
+    file:write_file(Filename, ?TERM),
+    file:write_file(FileOlder, ?TERM),
+    file:write_file(FileEvenOlder, ?TERM),
+    mod_client_log:trigger_upload_aws_blocking(),
+    {ok, FileList} = file:list_dir(mod_client_log:client_log_dir()),
+    ?assert(length(FileList) < 3), % at least one file has been uploaded and deleted
+    mod_client_log:trigger_upload_aws_blocking(),
+    {ok, FileList2} = file:list_dir(mod_client_log:client_log_dir()),
+    ?assert(length(FileList2) < 2), % at least two files have been uploaded and deleted
+    mod_client_log:trigger_upload_aws_blocking(),
+    {ok, FileList3} = file:list_dir(mod_client_log:client_log_dir()),
+    ?assert(length(FileList3) == 0),
+    kill_gen_server(),
+    ok.
+
+file_contents_test() ->
+    % verify the contents of the log file
+    setup(),
+    start_gen_server(),
+    EventData = create_pb_event_data(101, android, <<"0.1.2">>, ?EVENT2),
+    Bin = enif_protobuf:encode(EventData),
+    Json = mod_client_log:json_encode(Bin),
+    Filename = get_log_file(erlang:date(), 0),
+    % start with a clean slate
+    file:delete(Filename),
+    Today = today(),
+    mod_client_log:write_log_blocking(binary_to_list(?NS1), Today, Json),
+    mod_client_log:write_log_blocking(binary_to_list(?NS1), Today, Json),
+    mod_client_log:write_log_blocking(binary_to_list(?NS1), Today, Json),
+    {ok, Data} = file:read_file(Filename),
+    JsonString = binary_to_list(Data),
+    Lines = string:tokens(JsonString, "\n"),
+    MostRecentEntry = lists:last(Lines),
+    Decoded = jiffy:decode(MostRecentEntry, [return_maps]),
+    ?assertEqual(<<"101">>, maps:get(<<"uid">>, Decoded)),
+    ?assertEqual(3, length(Lines)),
+    kill_gen_server(),
+    ok.
+
+today() ->
+    erlang:date().
+
+get_log_file(Date, NumDaysBack) ->
+    New = calendar:date_to_gregorian_days(Date) - NumDaysBack,
+    NewDate = calendar:gregorian_days_to_date(New),
+    DateStr = mod_client_log:make_date_str(NewDate),
+    Namespace = binary_to_list(?NS1),
+    mod_client_log:file_path(Namespace, DateStr).
+
+del_dir(Directory) ->
+    % list all files and delete each of them
+    case file:list_dir(Directory) of
+        {ok, Files} ->
+            lists:foreach(
+                fun(File) ->
+                    Filename = filename:join([Directory, File]),
+                    file:delete(Filename)
+                end,
+                Files),
+            ok;
+        {error, _} -> ok
+    end.
+
+start_gen_server() ->
+    try
+        mock_s3(),
+        mod_client_log:start_link()
+    catch
+        % to guard against already_started exception
+        {error, _} -> ok
+    end.
+
+kill_gen_server() ->
+    mod_client_log:terminate(shutdown, #{tref => make_timer()}),
+    finish_s3_mock().
+
+mock_s3() ->
+    meck:new(erlcloud_s3),
+    meck:new(erlcloud),
+    meck:new(erlcloud_aws),
+    meck:expect(erlcloud_aws, auto_config, fun() -> {ok, "test_config"} end),
+    meck:expect(erlcloud_aws, configure, fun(_) -> ok end),
+    meck:expect(erlcloud_s3, put_object, fun(_, _, _, _, _) -> ok end).
+
+finish_s3_mock() ->
+    meck:unload(erlcloud),
+    meck:unload(erlcloud_aws),
+    meck:unload(erlcloud_s3),
+    ok.
