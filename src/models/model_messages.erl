@@ -87,8 +87,8 @@ store_message(Message) ->
 
 
 store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, Message) when is_record(Message, message) ->
-    IsMurali = dev_users:is_murali(ToUid),
-    {IsInPbFormat, MessageBin} = case IsMurali of
+    IsDevUser = dev_users:is_dev_uid(ToUid),
+    {IsInPbFormat, MessageBin} = case IsDevUser of
         true ->
             case enif_protobuf:encode(packet_parser:xmpp_to_proto(Message)) of
                 {error, Reason} ->
