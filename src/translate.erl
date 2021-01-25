@@ -231,12 +231,14 @@ get_msg_dir() ->
 	{ok, #file_info{mtime = MTime}} ->
 	    {MTime, Dir};
 	{error, Reason} ->
-	    ?ERROR("Failed to read directory ~ts: ~ts",
+	    ?INFO("Failed to read directory ~ts: ~ts",
 		       [Dir, format_error(Reason)]),
-	    {?ZERO_DATETIME, Dir}
+	    {?ZERO_DATETIME, undefined}
     end.
 
 -spec get_msg_files(file:filename()) -> {calendar:datetime(), [file:filename()]}.
+get_msg_files(undefined) ->
+	{?ZERO_DATETIME, []};
 get_msg_files(MsgsDir) ->
     Res = filelib:fold_files(
 	    MsgsDir, ".+\\.msg", false,
