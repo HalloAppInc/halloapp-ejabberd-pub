@@ -531,7 +531,8 @@ check_privacy_then_route(State, Pkt)
             %% Think about the way we are routing presence stanzas.
             case Pkt of
                 #presence{} -> process_presence_out(State, Pkt);
-                _ ->
+                #chat_state{} -> State;
+                #message{} ->
                     ejabberd_router:route(Pkt),
                     State
             end
