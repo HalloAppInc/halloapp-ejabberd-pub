@@ -87,7 +87,7 @@ get_props(Uid, ClientVersion) ->
         dev => false, %% whether the client is dev or not.
         max_group_size => 25, %% max limit on the group size.
         max_post_media_items => 10, %% max number of media_items client can post.
-        groups => true, %% whether the client can create groups or not.
+        groups => false, %% whether the client can create groups or not.
         group_chat => true, %% whether the client can access group_chat or not.
         group_feed => false, %% whether the client can access group_feed or not.
         combine_feed => false, %% whether to combine content from group_feed and home feed.
@@ -108,11 +108,13 @@ get_uid_based_props(PropMap, Uid) ->
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
+            % Set groups to be true.
+            PropMap2 = maps:update(groups, true, PropMap1),
             % Set group_feed to true.
-            PropMap2 = maps:update(group_feed, true, PropMap1),
+            PropMap3 = maps:update(group_feed, true, PropMap2),
             % Set combine_feed to true.
-            PropMap3 = maps:update(combine_feed, true, PropMap2),
-            PropMap3
+            PropMap4 = maps:update(combine_feed, true, PropMap3),
+            PropMap4
     end.
 
 
