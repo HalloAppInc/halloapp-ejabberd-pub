@@ -105,45 +105,62 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
     xmpp:make_error(IQ, util:err(invalid_request)).
 
 
-%% TODO(murali@): refactor this hook and its arguments later.
-%% The call to model_privacy:is_blocked_any() could involve multiple redis calls and might be expensive.
-%% Will need to use qp() and cache it.
 -spec privacy_check_packet(Acc :: allow | deny, State :: c2s_state(),
-        Pkt :: stanza(), Dir :: in | out) -> allow | deny | {stop, deny}.
-privacy_check_packet(allow, _State, Pkt, _Dir)
-        when is_record(Pkt, message); is_record(Pkt, presence); is_record(Pkt, chat_state) ->
-    #jid{luser = FromUid} = xmpp:get_from(Pkt),
-    #jid{luser = ToUid} = xmpp:get_to(Pkt),
-    Id = xmpp:get_id(Pkt),
-    PacketType = element(1, Pkt),
-    FinalResult = if
-        FromUid =:= undefined -> allow;
-        ToUid =:= undefined -> allow;
-        true ->
-            Result = case model_privacy:is_blocked_any(FromUid, ToUid) of
-                true ->
-                    {stop, deny};
-                false ->
-                    allow
-            end,
-            %% Allow only seen receipts.
-            PacketType = util:get_packet_type(Pkt),
-            PayloadType = util:get_payload_type(Pkt),
-            case PacketType =:= message andalso
-                    (PayloadType =:= receipt_seen orelse PayloadType =:= group_chat) of
+        Packet :: stanza(), Dir :: in | out) -> allow | deny | {stop, deny}.
+%% When routing, handle privacy_checks from the receiver's perspective for messages.
+%% This hook runs just before storing these message stanzas.
+privacy_check_packet(allow, _State, #message{} = Packet, in = Dir) ->
+    #jid{luser = FromUid} = xmpp:get_from(Packet),
+    PayloadType = util:get_payload_type(Packet),
+    case FromUid =:= undefined orelse FromUid =:= <<>> of
+        true -> allow;  %% Allow server generated messages.
+        false ->
+            %% Else check payload and inspect these messages.
+            case is_payload_always_allowed(PayloadType) of
                 true -> allow;
-                false -> Result
+                false -> check_blocked(Packet, Dir)
             end
-    end,
-    case FinalResult of
-        allow -> ok;
-        _ ->
-            ?INFO("PacketType: ~p packet-id: ~p, from-uid: ~s to-uid: ~s, result: ~p",
-                    [PacketType, Id, FromUid, ToUid, FinalResult])
-    end,
-    FinalResult;
-privacy_check_packet(Acc, _, _, _) ->
-    Acc.
+    end;
+
+privacy_check_packet(allow, _State, #presence{type = Type} = Packet, in = Dir)
+        when Type =:= available; Type =:= away ->
+    %% inspect the addresses for presence stanzas sent by the server.
+    check_blocked(Packet, Dir);
+
+privacy_check_packet(allow, _State, #chat_state{} = Packet, in = Dir) ->
+    %% inspect the addresses for chat_state stanzas sent by the server.
+    check_blocked(Packet, Dir);
+
+
+%% Now the following runs on the sender's c2s process on outgoing packets.
+%% Runs on senders c2s process.
+privacy_check_packet(allow, _State, #presence{type = Type}, out = _Dir)
+        when Type =:= available; Type =:= away ->
+    %% always allow presence stanzas updating their own status.
+    allow;
+
+privacy_check_packet(allow, _State, #presence{type = Type} = Packet, out = Dir)
+        when Type =:= subscribe; Type =:= unsubscribe ->
+    %% inspect requests to another user's presence.
+    check_blocked(Packet, Dir);
+
+privacy_check_packet(allow, _State, #chat_state{} = Packet, out = Dir) ->
+    %% inspect sending chat_state updates to another user.
+    check_blocked(Packet, Dir);
+
+privacy_check_packet(allow, _State, #message{type = groupchat}, out = _Dir) ->
+    %% always allow all group_chat stanzas.
+    allow;
+privacy_check_packet(allow, _State, #message{} = Packet, out = Dir) ->
+    %% check payload and then inspect addresses if necessary.
+    PayloadType = util:get_payload_type(Packet),
+    case is_payload_always_allowed(PayloadType) of
+        true -> allow;
+        false -> check_blocked(Packet, Dir)
+    end;
+
+privacy_check_packet(deny, _State, _Pkt, _Dir) ->
+    deny.
 
 
 -spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
@@ -155,6 +172,39 @@ remove_user(Uid, _Server) ->
 %%====================================================================
 %% internal functions.
 %%====================================================================
+
+%% We allow message payloads of types: delivery_receipts, seen_receipts,
+%% group_chats and retract stanzas between any users including blocked users.
+%% For all other stanzas/categories: we are not sure.
+%% since we need to check the relationship between the sender and receiver.
+-spec is_payload_always_allowed(PayloadType :: atom()) -> boolean().
+is_payload_always_allowed(receipt_response) -> true;
+is_payload_always_allowed(receipt_seen) -> true;
+is_payload_always_allowed(group_chat) -> true;
+is_payload_always_allowed(chat_retract_st) -> true;
+is_payload_always_allowed(groupchat_retract_st) -> true;
+is_payload_always_allowed(group_st) -> true;
+is_payload_always_allowed(_) -> false.
+
+
+
+-spec check_blocked(Packet :: stanza(), Dir :: in | out) -> allow | deny.
+check_blocked(Packet, Dir) ->
+    #jid{luser = FromUid} = xmpp:get_from(Packet),
+    #jid{luser = ToUid} = xmpp:get_to(Packet),
+    Id = xmpp:get_id(Packet),
+    PacketType = element(1, Packet),
+    IsBlocked = case Dir of
+        in -> model_privacy:is_blocked(ToUid, FromUid);
+        out -> model_privacy:is_blocked(FromUid, ToUid)
+    end,
+    case IsBlocked of
+        true ->
+            ?INFO("Blocked PacketType: ~p Id: ~p, from-uid: ~s to-uid: ~s",
+                    [PacketType, Id, FromUid, ToUid]),
+            deny;
+        false -> allow
+    end.
 
 
 %% TODO(murali@): counts for switching privacy modes will involve another redis call.

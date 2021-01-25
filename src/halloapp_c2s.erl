@@ -215,27 +215,31 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 upgrade_packet(Packet) -> Packet.
 
 
+%% Privacy checks are being run on the receiver's process.
+%% We dont expect being denied based on privacy rules for messages/iqs/ack stanzas.
+%% For acks/iqs: server is sending them to the client: so they should never be denied.
+%% For messages: these are already in the offline queue of the user:
+%%     meaning sender's process has already checked the privacy settings here.
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
     NewPacket = upgrade_packet(Packet),
-    {Pass, State1} = case NewPacket of
-        #presence{} -> process_presence_in(State, NewPacket);
-        #message{} -> process_message_in(State, NewPacket);
-        #iq{} -> process_iq_in(State, NewPacket);
-        #ack{} -> {true, State};
-        #chat_state{} -> {true, State}
+    Pass = case NewPacket of
+        #presence{} -> privacy_check_packet(State, NewPacket, in);
+        #chat_state{} -> privacy_check_packet(State, NewPacket, in);
+        #message{} -> allow;
+        #iq{} -> allow;
+        #ack{} -> allow
     end,
-    if
-        Pass ->
+    case Pass of
+        allow ->
             %% TODO(murali@): remove temp counts after clients transition.
             stat:count("HA/user_receive_packet", "protobuf"),
-            {Packet1, State2} = ejabberd_hooks:run_fold(
-                    user_receive_packet, LServer, {NewPacket, State1}, []),
+            {Packet1, State1} = ejabberd_hooks:run_fold(
+                    user_receive_packet, LServer, {NewPacket, State}, []),
             case Packet1 of
-                drop -> State2;
-                _ -> send(State2, Packet1)
+                drop -> State1;
+                _ -> send(State1, Packet1)
             end;
-        true ->
-            State1
+        deny -> State
     end;
 
 process_info(State, Info) ->
@@ -384,25 +388,15 @@ handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
     {Pkt2, State2} = ejabberd_hooks:run_fold(
                user_send_packet, LServer, {Pkt1, State1}, []),
     case Pkt2 of
-    drop ->
-        State2;
-    #iq{type = set, sub_els = [_]} ->
-        try xmpp:try_subtag(Pkt2, #xmpp_session{}) of
-        #xmpp_session{} ->
-            send(State2, xmpp:make_iq_result(Pkt2));
-        _ ->
-            check_privacy_then_route(State2, Pkt2)
-        catch _:{xmpp_codec, _Why} ->
-            send_error(State2, Pkt2, <<"bad_request">>)
-        end;
-    #presence{} ->
-        process_presence_out(State2, Pkt2);
-    #ack{} ->
-        State2;
-    #chat_state{} ->
-        State2;
-    _ ->
-        check_privacy_then_route(State2, Pkt2)
+        drop -> State2;
+        #iq{} ->
+            ejabberd_router:route(Pkt2),
+            State2;
+            %% TODO(murali@): looks like we are handling acks and chat_state before this: does not seem right.
+        #ack{} -> State2;
+        #chat_state{} -> check_privacy_then_route(State2, Pkt2);
+        #message{} -> check_privacy_then_route(State2, Pkt2);
+        #presence{} -> check_privacy_then_route(State2, Pkt2)
     end.
 
 
@@ -503,53 +497,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 
 
--spec process_iq_in(state(), iq()) -> {boolean(), state()}.
-process_iq_in(State, #iq{} = IQ) ->
-    case privacy_check_packet(State, IQ, in) of
-    allow ->
-        {true, State};
-    deny ->
-        ?ERROR("failed_privacy_rules, packet received: ~p", [IQ]),
-        Err = util:err(service_unavailable),
-        ErrorIq = xmpp:make_error(IQ, Err),
-        ejabberd_router:route(ErrorIq),
-        {false, State}
-    end.
-
-
--spec process_message_in(state(), message()) -> {boolean(), state()}.
-process_message_in(State, #message{type = T} = Msg) ->
-    %% This function should be as simple as process_iq_in/2,
-    %% however, we don't route errors to MUC rooms in order
-    %% to avoid kicking us, because having a MUC room's JID blocked
-    %% most likely means having only some particular participant
-    %% blocked, i.e. room@conference.server.org/participant.
-    %% TODO: (nikola): We are checking the privacy of the message 2 times now,
-    %% once ejabberd_sm and here. We are also checking it on every resent of offline messages.
-    case privacy_check_packet(State, Msg, in) of
-    allow ->
-        {true, State};
-    deny when T == groupchat; T == headline ->
-        {false, State};
-    deny ->
-        ?INFO("failed_privacy_rules, packet received: ~p", [Msg]),
-        %% Log and silently ignore these packets.
-        %% No, need to route any errors back to the clients.
-        {false, State}
-    end.
-
-
--spec process_presence_in(state(), presence()) -> {boolean(), state()}.
-process_presence_in(#{lserver := LServer} = State0, #presence{} = Pres) ->
-    State = ejabberd_hooks:run_fold(c2s_presence_in, LServer, State0, [Pres]),
-    case privacy_check_packet(State, Pres, in) of
-        allow ->
-            {true, State};
-        deny ->
-            {false, State}
-    end.
-
-
 %% TODO(murali@): move the presence-filter logic to mod_presence or something like that.
 -spec process_presence_out(state(), presence()) -> state().
 process_presence_out(#{user := User, server := Server} = State,
@@ -573,14 +520,21 @@ process_presence_out(State, _Pres) ->
 
 
 -spec check_privacy_then_route(state(), stanza()) -> state().
-check_privacy_then_route(State, Pkt) ->
+check_privacy_then_route(State, Pkt)
+        when is_record(Pkt, presence); is_record(Pkt, message); is_record(Pkt, chat_state) ->
     case privacy_check_packet(State, Pkt, out) of
         deny ->
             ?INFO("failed_privacy_rules, packet received: ~p", [Pkt]),
             State;
         allow ->
-            ejabberd_router:route(Pkt),
-            State
+            %% Now route packets properly.
+            %% Think about the way we are routing presence stanzas.
+            case Pkt of
+                #presence{} -> process_presence_out(State, Pkt);
+                _ ->
+                    ejabberd_router:route(Pkt),
+                    State
+            end
     end.
 
 

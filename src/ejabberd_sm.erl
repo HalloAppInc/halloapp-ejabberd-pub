@@ -136,13 +136,21 @@ route(To, Term) ->
 route(Packet) ->
     do_route(Packet).
 
-check_privacy_and_dest_uid(#message{to = To, type = _Type, retry_count = RC} = Packet) ->
-    LUser = To#jid.luser,
+-spec check_privacy_and_dest_uid(Packet :: message()) -> allow | {deny, atom()}.
+check_privacy_and_dest_uid(#message{to = To, type = _Type} = Packet) ->
+    ToUid = To#jid.luser,
     LServer = To#jid.lserver,
     DecodedPacket = xmpp:decode_els(Packet),
-    case ejabberd_auth:user_exists(LUser) andalso is_privacy_allow(DecodedPacket) of
-        true -> allow;
-        false -> deny
+    case ejabberd_auth:user_exists(ToUid) of
+        true ->
+            case ejabberd_hooks:run_fold(privacy_check_packet, LServer, allow,
+                    [To, DecodedPacket, in]) of
+                allow -> allow;
+                deny -> {deny, privacy_violation};
+                {stop, deny} -> {deny, privacy_violation}
+            end;
+        false ->
+            {deny, invalid_to_uid}
     end.
 
 % Store the message in the offline store.
@@ -698,15 +706,6 @@ do_route(Packet) ->
             ejabberd_c2s:route(Pid, {route, Packet})
     end.
 
-%% The default list applies to the user as a whole,
-%% and is processed if there is no active list set
-%% for the target session/resource to which a stanza is addressed,
-%% or if there are no current sessions for the user.
--spec is_privacy_allow(stanza()) -> boolean().
-is_privacy_allow(Packet) ->
-    To = xmpp:get_to(Packet),
-    LServer = To#jid.server,
-    allow == ejabberd_hooks:run_fold(privacy_check_packet, LServer, allow, [To, Packet, in]).
 
 -spec route_message(message()) -> any().
 route_message(Packet) ->
@@ -735,7 +734,10 @@ route_message(Packet) ->
                     % NOTE: message will be lost if the dest PID dies while routing
                     ejabberd_c2s:route(Pid, {route, DecodedPacket})
             end;
-        deny ->
+        {deny, privacy_violation} ->
+            %% Ignore the packet and stop routing it now.
+            ok;
+        {deny, invalid_to_uid} ->
             ?ERROR("Invalid packet received: ~p", [DecodedPacket]),
             Err = util:err(invalid_to_uid),
             ErrorPacket = xmpp:make_error(DecodedPacket, Err),
