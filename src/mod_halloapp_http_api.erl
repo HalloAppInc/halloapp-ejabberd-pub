@@ -401,12 +401,18 @@ update_key(Uid, SPub) ->
 finish_registration(Phone, Name, UserAgent) ->
     Password = util:generate_password(),
     Host = util:get_host(),
-    {ok, Uid, _Action} = ejabberd_admin:check_and_register(Phone, Host, Password, Name, UserAgent),
+    {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, Password, Name, UserAgent),
     %% Action = login, updates the password.
     %% Action = register, creates a new user id and registers the user for the first time.
-    %% Note: We don't need to clear the push token in either of login/register case. 
-    stat:count("HA/account", "registration_by_client_type", 1,
-        [{client_type, util_ua:get_client_type(UserAgent)}]),
+    %% Note: We don't need to clear the push token in either of login/register case.
+    case Action of
+        login ->
+            stat:count("HA/account", "login_by_client_type", 1,
+                [{client_type, util_ua:get_client_type(UserAgent)}]);
+        register ->
+            stat:count("HA/account", "registration_by_client_type", 1,
+                [{client_type, util_ua:get_client_type(UserAgent)}])
+    end,
     {ok, Phone, Uid, Password}.
 
 -spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
