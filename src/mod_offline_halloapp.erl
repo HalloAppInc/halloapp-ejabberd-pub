@@ -337,7 +337,7 @@ send_offline_messages(#{user := Uid, server := Server,
                     %% https://github.com/HalloAppInc/halloapp-ejabberd/pull/1057#discussion_r553727406
                     %% TODO(murali@): observe logs if this happens too often.
 
-                    {MsgsToSend, _RemMsgs} = case length(FilteredOfflineMessages) >= NumMsgToSend of
+                    {MsgsToSend, RemMsgs} = case length(FilteredOfflineMessages) >= NumMsgToSend of
                         true -> lists:split(NumMsgToSend, FilteredOfflineMessages);
                         false -> {FilteredOfflineMessages, []}
                     end,
@@ -351,7 +351,9 @@ send_offline_messages(#{user := Uid, server := Server,
                             last_msg_order_id => NewLastMsgOrderId
                         }
                     },
-                    case EndOfQueue of
+                    %% If we are sending all the messages read and
+                    %% if there are no more messages in the queue, then mark the queue as cleared.
+                    case EndOfQueue =:= true andalso RemMsgs =:= [] of
                         true ->
                             %% mark offline queue to be cleared, send eoq msg and timer, update state.
                             mark_offline_queue_cleared(Uid, Server, NewLastMsgOrderId, State1);
