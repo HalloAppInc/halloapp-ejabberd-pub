@@ -67,7 +67,6 @@
     get_user_info/3,
     get_user_ip/3,
     get_max_user_sessions/2,
-    get_all_pids/0,
     is_existing_resource/3,
     get_commands_spec/0,
     host_up/1,
@@ -91,7 +90,6 @@
 -callback init() -> ok | {error, any()}.
 -callback set_session(#session{}) -> ok | {error, any()}.
 -callback delete_session(#session{}) -> ok | {error, any()}.
--callback get_sessions() -> [#session{}].
 -callback get_sessions(binary()) -> [#session{}].
 -callback get_sessions(binary(), binary()) -> {ok, [#session{}]} | {error, any()}.
 
@@ -368,16 +366,6 @@ get_session_sids(User, Server, Resource) ->
 
 dirty_get_my_sessions_list() ->
     ets:match(?SM_LOCAL, '$1').
-
-
-% TODO: (nikola): Remove. Not used.
--spec get_all_pids() -> [pid()].
-
-get_all_pids() ->
-    lists:flatmap(
-        fun(Mod) ->
-            [element(2, S#session.sid) || S <- get_sessions(Mod)]
-        end, get_sm_backends()).
 
 
 -spec config_reloaded() -> ok.

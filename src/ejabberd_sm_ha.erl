@@ -5,7 +5,6 @@
     init/0,
     set_session/1,
     delete_session/1,
-    get_sessions/0,
     get_sessions/1,
     get_sessions/2
 ]).
@@ -29,67 +28,46 @@ init() ->
 
 -spec set_session(Session :: session()) -> ok.
 set_session(Session) ->
-    Res = ejabberd_sm_mnesia:set_session(Session),
-    try
-        {Uid, _Server} = Session#session.us,
-        {ok, _OldPid} = model_session:set_session(Uid, Session)
-    catch Class:Reason:St ->
-        ?ERROR("Storing sessions in redis failed: Session: ~p Stacktrace: ~p",
-            [Session, lager:pr_stacktrace(St, {Class, Reason})])
-    end,
-    Res.
+    {Uid, _Server} = Session#session.us,
+    {ok, _OldPid} = model_session:set_session(Uid, Session),
+    ok = ejabberd_sm_mnesia:set_session(Session),
+    ok.
 
 -spec delete_session(Session :: session()) -> ok.
 delete_session(Session) ->
-    Res = ejabberd_sm_mnesia:delete_session(Session),
-    try
-        {Uid, _Server} = Session#session.us,
-        ok = model_session:del_session(Uid, Session)
-    catch Class:Reason:St ->
-        ?ERROR("Deleting sessions in redis failed: Session: ~p Stacktrace: ~s",
-            [Session, lager:pr_stacktrace(St, {Class, Reason})])
-    end,
-    Res.
+    {Uid, _Server} = Session#session.us,
+    ok = model_session:del_session(Uid, Session),
+    ok = ejabberd_sm_mnesia:delete_session(Session),
+    ok.
 
--spec get_sessions() -> [session()].
-get_sessions() ->
-    ?ERROR("Deprecated API"),
-    % TODO: return [], and later delete this API.
-    ejabberd_sm_mnesia:get_sessions().
-
+% TODO: delete
 -spec get_sessions(Server :: binary()) -> [session()].
-get_sessions(LServer) ->
+get_sessions(_LServer) ->
     ?ERROR("Deprecated API"),
-    % TODO: return [], and later delete this API.
-    ejabberd_sm_mnesia:get_sessions(LServer).
+    [].
 
 -spec get_sessions(Uid :: uid(), Server :: binary()) -> {ok, [session()]}.
 get_sessions(Uid, LServer) ->
+    RSessionsAll = model_session:get_sessions(Uid),
+    {RSessions, DeadRSessions} = partition_alive_sessions(RSessionsAll),
     {ok, MSessions} = ejabberd_sm_mnesia:get_sessions(Uid, LServer),
-    try
-        RSessionsAll = model_session:get_sessions(Uid),
-        RSessions = filter_alive_sessions(RSessionsAll),
-        MSessionsSorted = lists:sort(MSessions),
-        RSessionsSorted = lists:sort(RSessions),
-        case MSessionsSorted =:= RSessionsSorted of
-            true -> ?INFO("Uid ~s sessions match ~p", [Uid, length(RSessions)]);
-            false ->
-                ?INFO("sessions-mismatch Uid: ~s, M: ~p R: ~p", [
-                    Uid,
-                    [S#session.sid || S <- MSessionsSorted],
-                    [S#session.sid || S <- RSessionsSorted]])
-        end,
-        cleanup_sessions(RSessionsAll)
-    catch Class:Reason:St ->
-        ?ERROR("get_sessions in redis failed: Uid: ~p Stacktrace: ~p",
-            [Uid, lager:pr_stacktrace(St, {Class, Reason})])
+    MSessionsSorted = lists:sort(MSessions),
+    RSessionsSorted = lists:sort(RSessions),
+    case MSessionsSorted =:= RSessionsSorted of
+        true -> ?INFO("Uid ~s sessions match ~p", [Uid, length(RSessions)]);
+        false ->
+            ?INFO("sessions-mismatch Uid: ~s, M: ~p R: ~p", [
+                Uid,
+                [S#session.sid || S <- MSessionsSorted],
+                [S#session.sid || S <- RSessionsSorted]])
     end,
-    {ok, MSessions}.
+    cleanup_sessions(DeadRSessions),
+    {ok, RSessions}.
 
 
--spec filter_alive_sessions(Sessions :: [session()]) -> [session()].
-filter_alive_sessions(Sessions) ->
-    lists:filter(
+-spec partition_alive_sessions(Sessions :: [session()]) -> {[session()], [session()]}.
+partition_alive_sessions(Sessions) ->
+    lists:partition(
         fun (#session{sid = {_, Pid}}) ->
             remote_is_process_alive(Pid)
         end, Sessions).
@@ -97,7 +75,7 @@ filter_alive_sessions(Sessions) ->
 remote_is_process_alive(Pid) ->
     case rpc:call(node(Pid), erlang, is_process_alive, [Pid], 5000) of
         {badrpc, Reason} ->
-            ?INFO("Pid: ~p badrpc ~p", [Pid, Reason]),
+            ?ERROR("Pid: ~p badrpc ~p", [Pid, Reason]),
             true;
         Result -> Result
     end.
@@ -109,11 +87,8 @@ cleanup_sessions(Sessions) ->
 
 
 -spec cleanup_session(Session :: session()) -> ok.
-cleanup_session(#session{sid = {_, Pid} = SID, us = {Uid, _}} = Session) ->
-    case remote_is_process_alive(Pid) of
-        true -> ok;
-        false ->
-            ?INFO("Uid: ~s Cleanup dead session ~p", [Uid, SID]),
-            model_session:del_session(Uid, Session)
-    end.
+cleanup_session(#session{sid = SID, us = {Uid, _}} = Session) ->
+    ?INFO("Uid: ~s Cleanup dead session ~p", [Uid, SID]),
+    model_session:del_session(Uid, Session),
+    ok.
 
