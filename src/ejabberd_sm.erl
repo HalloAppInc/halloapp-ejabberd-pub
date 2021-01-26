@@ -409,6 +409,7 @@ handle_info(Info, State) ->
 
 terminate(_Reason, _State) ->
     lists:foreach(fun host_down/1, ejabberd_option:hosts()),
+    close_all_c2s(),
     ejabberd_hooks:delete(host_up, ?MODULE, host_up, 50),
     ejabberd_hooks:delete(host_down, ?MODULE, host_down, 60),
     ejabberd_hooks:delete(config_reloaded, ?MODULE, config_reloaded, 50),
@@ -430,25 +431,34 @@ host_up(Host) ->
 
 -spec host_down(binary()) -> ok.
 host_down(Host) ->
-    Mod = get_sm_backend(Host),
-    Err = case ejabberd_cluster:get_nodes() of
-        [Node] when Node == node() -> xmpp:serr_system_shutdown();
-        _ -> xmpp:serr_reset()
-    end,
-    % TODO: (nikola): Here it looks like we send errors to all the sessions when shutting down.
-    % Do we want to do this and what will the error be. I think just closing the connection
-    % should be enough.
-    lists:foreach(
-        fun(#session{sid = {_, Pid}}) when node(Pid) == node() ->
-            ejabberd_c2s:send(Pid, Err),
-            ejabberd_c2s:stop(Pid);
-        (_) ->
-            ok
-        end, get_sessions(Mod, Host)),
     ejabberd_hooks:delete(bounce_sm_packet, Host,
               ejabberd_sm, bounce_sm_packet, 100),
     ejabberd_c2s:host_down(Host),
     halloapp_c2s:host_down(Host).
+
+% Close down all the c2s processes 
+close_all_c2s() ->
+    Err = case ejabberd_cluster:get_nodes() of
+        [Node] when Node == node() -> xmpp:serr_system_shutdown();
+        _ -> xmpp:serr_reset()
+    end,
+
+    % TODO: (nikola): Here it looks like we send errors to all the sessions when shutting down.
+    % Do we want to do this and what will the error be. I think just closing the connection
+    % should be enough.
+
+    NumSessions = ets_sm_local_foldl(
+        fun (#session{sid = {_, Pid}}, Acc) when node(Pid) == node() ->
+                ?INFO("stopping ~p", [Pid]),
+                ejabberd_c2s:send(Pid, Err),
+                ejabberd_c2s:stop(Pid),
+                Acc + 1;
+            (S, Acc) ->
+                ?WARNING("shoudld not happen ~p", [S]), % we iterate over only local sessions
+                Acc
+        end, 0),
+    ?INFO("closed ~p sessions", [NumSessions]),
+    ok.
 
 -spec set_session(sid(), binary(), binary(), binary(),
                   prio(), info()) -> ok | {error, any()}.
@@ -853,6 +863,21 @@ ets_count_sessions() ->
         false ->
             ?WARNING("ets table ~p is gone", [?SM_LOCAL]),
             0
+    end.
+
+%% You can use this function to iterate over all the local sessions on this
+%% node.
+-spec ets_sm_local_foldl(Func, Acc :: term()) -> term() when
+    Func :: fun((Session :: session(), AccIn) -> AccOut),
+    AccIn :: term(),
+    AccOut :: term().
+ets_sm_local_foldl(Func, Acc) ->
+    case ets_sm_local_exists() of
+        true ->
+            ets:foldl(Func, Acc, ?SM_LOCAL);
+        false ->
+            ?WARNING("ets table ~p is gone", [?SM_LOCAL]),
+            Acc
     end.
 
 
