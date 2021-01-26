@@ -81,20 +81,6 @@ parse_metadata(#message{id = _Id, type = MsgType, sub_els = [SubElement]})
         body = Body
     };
 
-parse_metadata(#message{sub_els = [#ps_event{items = #ps_items{
-        items = [#ps_item{id = Id, publisher = FromId,
-        type = ItemType, timestamp = TimestampBin}]}}]}) ->
-    #jid{luser = FromUid} = jid:from_string(FromId),
-    #push_metadata{
-        content_id = Id,
-        content_type = util:to_binary(ItemType),
-        from_uid = FromUid,
-        timestamp = TimestampBin,
-        thread_id = <<"feed">>,
-        subject = <<"New Message">>,
-        body = <<"You got a new message.">>
-    };
-
 parse_metadata(#message{sub_els = [#feed_st{posts = [Post]}]}) ->
     #push_metadata{
         content_id = Post#post_st.id,

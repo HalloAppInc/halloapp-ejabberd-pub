@@ -407,9 +407,6 @@ parse_payload(#message{sub_els = [#group_chat{sub_els = SubEls}]}) ->
                 _ -> Acc
             end
         end, <<>>, SubEls);
-parse_payload(#message{sub_els = [#ps_event{items = #ps_items{
-        items = [#ps_item{sub_els = [SubEl]}]}}]}) ->
-    fxml:get_subtag_cdata(SubEl, <<"s1">>);
 parse_payload(#message{sub_els = [#feed_st{posts = [#post_st{payload = Payload}]}]}) ->
     Payload;
 parse_payload(#message{sub_els = [#feed_st{comments = [#comment_st{payload = Payload}]}]}) ->
@@ -460,16 +457,6 @@ get_priority(silent) -> 5;
 get_priority(alert) -> 10.
 
 -spec get_push_type(Message :: message(), PushInfo :: push_info()) -> silent | alert.
-get_push_type(#message{type = headline, to = #jid{luser = User}, sub_els = [#ps_event{
-        items = #ps_items{node = Node, items = [#ps_item{type = ItemType}]}}]}, PushInfo) ->
-    case ItemType of
-        feedpost -> boolean_to_push_type(PushInfo#push_info.post_pref);        
-        comment ->
-            case Node of
-                <<"feed-", User/binary>> -> boolean_to_push_type(PushInfo#push_info.comment_pref);
-                _ -> silent
-            end
-    end;
 %% check post preference.
 get_push_type(#message{type = headline, sub_els = [#feed_st{comments = []}]}, #push_info{post_pref = true}) -> alert;
 %% check comment preference.
