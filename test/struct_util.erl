@@ -242,7 +242,7 @@ create_group_feed_item(Action, Gid, Name, AvatarId, Item) ->
     }.
 
 
-create_group_feed_item(Gid, Name, AvatarId, Items) ->
+create_group_feed_items(Gid, Name, AvatarId, Items) ->
     #pb_group_feed_items{
         gid = Gid,
         name = Name,

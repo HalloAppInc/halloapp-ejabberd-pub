@@ -74,7 +74,25 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_group_feed_item) ->
                 comments = [CommentSt]
             }
     end,
-    XmppStanza.
+    XmppStanza;
+
+proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_group_feed_items) ->
+    Items = lists:map(
+            fun(#pb_group_feed_item{item = #pb_post{} = PbPost}) -> post_to_group_post_st(PbPost);
+                (#pb_group_feed_item{item = #pb_comment{} = PbComment}) -> comment_to_group_comment_st(PbComment)
+            end, PbPacket#pb_group_feed_items.items),
+    {Posts, Comments} = lists:partition(
+            fun(#group_post_st{}) -> true;
+                (#group_comment_st{}) -> false
+            end, Items),
+    #group_feed_st{
+        action = share,
+        gid = PbPacket#pb_group_feed_items.gid,
+        name = PbPacket#pb_group_feed_items.name,
+        avatar_id = PbPacket#pb_group_feed_items.avatar_id,
+        posts = Posts,
+        comments = Comments
+    }.
 
 
 %% -------------------------------------------- %%

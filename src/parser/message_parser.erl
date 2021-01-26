@@ -155,6 +155,8 @@ xmpp_msg_subel_mapping(ProtoPayload) ->
             retract_parser:proto_to_xmpp(ChatRetractRecord);
         #pb_group_feed_item{} = GroupFeedItemRecord ->
             group_feed_parser:proto_to_xmpp(GroupFeedItemRecord);
+        #pb_group_feed_items{} = GroupFeedItemsRecord ->
+            group_feed_parser:proto_to_xmpp(GroupFeedItemsRecord);
         #pb_rerequest{} = RerequestRecord ->
             whisper_keys_parser:proto_to_xmpp(RerequestRecord);
         #pb_silent_chat_stanza{chat_stanza = ChatStanza} ->
