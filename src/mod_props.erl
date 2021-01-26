@@ -85,7 +85,7 @@ get_hash(Uid, ClientVersion) ->
 get_props(Uid, ClientVersion) ->
     PropMap1 = #{
         dev => false, %% whether the client is dev or not.
-        max_group_size => 25, %% max limit on the group size.
+        max_group_size => 50, %% max limit on the group size.
         max_post_media_items => 10, %% max number of media_items client can post.
         groups => false, %% whether the client can create groups or not.
         group_chat => true, %% whether the client can access group_chat or not.
