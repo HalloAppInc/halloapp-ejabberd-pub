@@ -17,6 +17,7 @@
 -include("erlcloud_mon.hrl").
 -include("erlcloud_aws.hrl").
 -include("client_version.hrl").
+-include("proc.hrl").
 
 -export([start_link/0]).
 %% gen_mod callbacks
@@ -33,7 +34,6 @@
     gauge/3,
     gauge/4,
     get_prometheus_metrics/0,
-    get_proc/0,
     reload_aws_config/0,
     get_aws_config/0
 ]).
@@ -59,7 +59,7 @@
 ]).
 
 start_link() ->
-    gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
+    gen_server:start_link({local, ?PROC()}, ?MODULE, [], []).
 
 %%====================================================================
 %% gen_mod callbacks
@@ -68,13 +68,13 @@ start_link() ->
 
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     ok.
 
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    gen_mod:stop_child(get_proc()),
+    gen_mod:stop_child(?PROC()),
     ok.
 
 
@@ -84,10 +84,6 @@ depends(_Host, _Opts) ->
 
 mod_options(_Host) ->
     [].
-
-
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
 
 
 -spec count(Namespace :: string(), Metric :: string()) -> ok.
@@ -106,7 +102,7 @@ count(Namespace, Metric, Value, Tags) when is_atom(Metric) ->
     ?WARNING("Metric is supposed to be list: ~p ~p", [Metric, Namespace]),
     count(Namespace, atom_to_list(Metric), Value, Tags);
 count(Namespace, Metric, Value, Tags) when is_list(Metric) ->
-    gen_server:cast(get_proc(), {count, Namespace, Metric, Value, Tags}).
+    gen_server:cast(?PROC(), {count, Namespace, Metric, Value, Tags}).
 
 
 -spec gauge(Namespace :: string(), Metric :: string(), Value :: integer()) -> ok.
@@ -121,7 +117,7 @@ gauge(Namespace, Metric, Value, Tags) when is_atom(Metric) ->
     ?WARNING("Metric is supposed to be list: ~p ~p", [Metric, Namespace]),
     gauge(Namespace, atom_to_list(Metric), Value, Tags);
 gauge(Namespace, Metric, Value, Tags) ->
-    gen_server:cast(get_proc(), {gauge, Namespace, Metric, Value, Tags}).
+    gen_server:cast(?PROC(), {gauge, Namespace, Metric, Value, Tags}).
 
 
 % Return binary with all our custom metrics in prometheus format
@@ -130,7 +126,7 @@ gauge(Namespace, Metric, Value, Tags) ->
 -spec get_prometheus_metrics() -> binary().
 get_prometheus_metrics() ->
     try
-        gen_server:call(get_proc(), {get_prometheus_metrics})
+        gen_server:call(?PROC(), {get_prometheus_metrics})
     catch
         exit: Reason ->
             ?ERROR("Failed to fetch prometheus metrics, reason: ~p", [Reason]),
@@ -138,15 +134,15 @@ get_prometheus_metrics() ->
     end.
 
 reload_aws_config() ->
-    gen_server:call(get_proc(), {reload_aws_config}).
+    gen_server:call(?PROC(), {reload_aws_config}).
 
 get_aws_config() ->
-    gen_server:call(get_proc(), {get_aws_config}).
+    gen_server:call(?PROC(), {get_aws_config}).
 
 
 -spec trigger_send() -> ok.
 trigger_send() ->
-    gen_server:cast(get_proc(), {trigger_send}).
+    gen_server:cast(?PROC(), {trigger_send}).
 
 % TODO: this logic should move to new module mod_counters
 -spec trigger_count_users() -> ok.
