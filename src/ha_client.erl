@@ -20,15 +20,18 @@
 %% API
 -export([
     start_link/0,
+    start_link/1,
     stop/1,
     connect_and_login/2,
+    connect_and_login/3,
     send/2,
     recv_nb/1,
     recv/1,
     send_recv/2,
     wait_for/2,
     login/3,
-    send_iq/4
+    send_iq/4,
+    send_ack/2
 ]).
 
 -export([
@@ -45,20 +48,32 @@
     % Queue of decoded pb messages received
     recv_q :: list(),
     state = auth :: auth | connected,
-    recv_buf = <<>> :: binary()
+    recv_buf = <<>> :: binary(),
+    options :: options()
 }).
 
 -type state() :: #state{}.
 
+-type options() :: #{}.
+
 % TODO: handle acks,
 % TODO: send acks to server.
-start_link() ->
-    gen_server:start_link(ha_client, [], []).
 
--spec connect_and_login(Uid :: uid(), Password :: binary()) ->
-        {ok, Client :: pid()} | {error, Reason :: term()}.
+start_link() ->
+    start_link(#{auto_send_acks => true}).
+
+start_link(Options) ->
+    gen_server:start_link(ha_client, [Options], []).
+
+
 connect_and_login(Uid, Password) ->
-    {ok, C} = start_link(),
+    connect_and_login(Uid, Password, #{auto_send_acks => true}).
+
+
+-spec connect_and_login(Uid :: uid(), Password :: binary(), Options :: options()) ->
+        {ok, Client :: pid()} | {error, Reason :: term()}.
+connect_and_login(Uid, Password, Options) ->
+    {ok, C} = start_link(Options),
     Result = login(C, Uid, Password),
     case Result of
         #pb_auth_result{result = <<"success">>} ->
@@ -76,6 +91,17 @@ connect_and_login(Uid, Password) ->
         ok | {error, closed | inet:posix()}.
 send(Client, Message) ->
     gen_server:call(Client, {send, Message}).
+
+
+-spec send_ack(Client :: pid(), MsgId :: binary()) -> ok | {error, closed | inet:posix()}.
+send_ack(Client, MsgId) ->
+    AckPacket = #pb_packet{
+        stanza = #pb_ack{
+            id = MsgId,
+            timestamp = util:now()
+        }
+    },
+    send(Client, AckPacket).
 
 
 % Get the next received message or undefined if no message is received.
@@ -134,13 +160,14 @@ send_iq(Client, Id, Type, Payload) ->
 
 
 
-init(_Args) ->
+init([Options] = _Args) ->
     {ok, Socket} = ssl:connect("localhost", 5210, [binary]),
     State = #state{
         socket = Socket,
         recv_q = queue:new(),
         state = auth,
-        recv_buf = <<"">>
+        recv_buf = <<"">>,
+        options = Options
     },
     {ok, State}.
 
@@ -257,9 +284,13 @@ handle_packet(#pb_packet{stanza = #pb_ack{id = Id} = _Ack} = Packet, State) ->
     ?INFO_MSG("recv ack: ~s", [Id]),
     NewState = queue_in(Packet, State),
     {Packet, NewState};
-handle_packet(#pb_packet{stanza = #pb_msg{id = Id}} = Packet, State) ->
+handle_packet(#pb_packet{stanza = #pb_msg{id = Id}} = Packet,
+        #state{options = #{auto_send_acks := AutoSendAcks}} = State) ->
     ?INFO_MSG("recv msg: ~s", [Id]),
-    State1 = send_ack(Id, State),
+    State1 = case AutoSendAcks of
+        true -> send_ack_internal(Id, State);
+        false -> State
+    end,
     State2 = queue_in(Packet, State1),
     {Packet, State2};
 handle_packet(#pb_packet{} = Packet, State) ->
@@ -295,8 +326,8 @@ handle_auth_result(
             State
     end.
 
--spec send_ack(Id :: any(), State :: state()) -> state().
-send_ack(Id, State) ->
+-spec send_ack_internal(Id :: any(), State :: state()) -> state().
+send_ack_internal(Id, State) ->
     Packet = #pb_packet{
         stanza = #pb_ack{
             id = Id,
