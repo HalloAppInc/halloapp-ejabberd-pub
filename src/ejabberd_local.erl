@@ -34,7 +34,6 @@
 
 -export([
     route/1,
-    get_features/1,
     bounce_resource_packet/1,
     host_up/1,
     host_down/1
@@ -107,10 +106,6 @@ bounce_resource_packet(Packet) ->
     ErrorPacket = xmpp:make_error(Packet, Err),
     ejabberd_router:route(ErrorPacket),
     stop.
-
--spec get_features(binary()) -> [binary()].
-get_features(Host) ->
-    gen_iq_handler:get_features(?MODULE, Host).
 
 %%====================================================================
 %% gen_server callbacks

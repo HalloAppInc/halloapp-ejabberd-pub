@@ -33,8 +33,8 @@
     remove_iq_handler/3,
     handle/1,
     handle/2,
-    start/1,
-    get_features/2]).
+    start/1
+]).
 %% Deprecated functions
 -export([add_iq_handler/6, handle/5, iqdisc/1]).
 -deprecated([{add_iq_handler, 6}, {handle, 5}, {iqdisc, 1}]).
@@ -75,17 +75,22 @@ handle(#iq{to = To} = IQ) ->
     handle(Component, IQ).
 
 -spec handle(component(), iq()) -> ok.
-handle(Component, #iq{to = To, type = T, lang = Lang, sub_els = [El]} = Packet)
+%% TODO(murali@): cleanup and have a simpler module after the transition.
+handle(Component, #iq{to = To, type = T, sub_els = [El]} = Packet)
         when T == get; T == set ->
-    XMLNS = xmpp:get_ns(El),
+    PayloadType = util:get_payload_type(Packet),
+    Key =  case util:to_binary(PayloadType) of
+        <<"pb_", _/binary>> -> PayloadType;
+        _ -> xmpp:get_ns(El)
+    end,
     Host = To#jid.lserver,
-    case ets:lookup(Component, {Host, XMLNS}) of
+    case ets:lookup(Component, {Host, Key}) of
         [{_, Module, Function}] ->
             process_iq(Host, Module, Function, Packet);
         [] ->
-            Txt = ?T("No module is handling this query"),
-            Err = xmpp:err_service_unavailable(Txt, Lang),
-            ejabberd_router:route_error(Packet, Err)
+            ?ERROR("Invalid iq: ~p", [Packet]),
+            ErrIq = xmpp:make_error(Packet, util:err(invalid_iq)),
+            ejabberd_router:route(ErrIq)
     end;
 handle(_, #iq{type = T, lang = Lang, sub_els = SubEls} = Packet)
         when T == get; T == set ->
@@ -98,14 +103,6 @@ handle(_, #iq{type = T, lang = Lang, sub_els = SubEls} = Packet)
 handle(_, #iq{type = T}) when T == result; T == error ->
     ok.
 
--spec get_features(component(), binary()) -> [binary()].
-get_features(Component, Host) ->
-    get_features(Component, ets:next(Component, {Host, <<"">>}), Host, []).
-
-get_features(Component, {Host, XMLNS}, Host, XMLNSs) ->
-    get_features(Component, ets:next(Component, {Host, XMLNS}), Host, [XMLNS|XMLNSs]);
-get_features(_, _, _, XMLNSs) ->
-    XMLNSs.
 
 -spec process_iq(binary(), atom(), atom(), iq()) -> ok.
 process_iq(_Host, Module, Function, IQ) ->
@@ -117,25 +114,15 @@ process_iq(_Host, Module, Function, IQ) ->
     catch ?EX_RULE(Class, Reason, St) ->
         StackTrace = ?EX_STACK(St),
         ?ERROR("Failed to process iq:~n~ts~n** ~ts", [
-            xmpp:pp(IQ),
+            IQ,
             misc:format_exception(2, Class, Reason, StackTrace)]),
-        Txt = ?T("Module failed to handle the query"),
-        Err = xmpp:err_internal_server_error(Txt, IQ#iq.lang),
-        ejabberd_router:route_error(IQ, Err)
+        ErrIq = xmpp:make_error(IQ, util:err(internal_error)),
+        ejabberd_router:route(ErrIq)
     end.
 
 -spec process_iq(module(), atom(), iq()) -> ignore | iq().
-process_iq(Module, Function, #iq{lang = Lang, sub_els = [El]} = IQ) ->
-    try
-        Pkt = case erlang:function_exported(Module, decode_iq_subel, 1) of
-            true -> Module:decode_iq_subel(El);
-            false -> xmpp:decode(El)
-        end,
-        Module:Function(IQ#iq{sub_els = [Pkt]})
-    catch error:{xmpp_codec, Why} ->
-        Txt = xmpp:io_format_error(Why),
-        xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang))
-    end.
+process_iq(Module, Function, #iq{} = IQ) ->
+    Module:Function(IQ).
 
 -spec iqdisc(binary() | global) -> no_queue.
 iqdisc(_Host) ->
