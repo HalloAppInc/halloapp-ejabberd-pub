@@ -392,8 +392,7 @@ handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
         #iq{} ->
             ejabberd_router:route(Pkt2),
             State2;
-            %% TODO(murali@): looks like we are handling acks and chat_state before this: does not seem right.
-        #ack{} -> State2;
+        #ack{} -> process_ack_out(State2, Pkt2);
         #chat_state{} -> check_privacy_then_route(State2, Pkt2);
         #message{} -> check_privacy_then_route(State2, Pkt2);
         #presence{} -> check_privacy_then_route(State2, Pkt2)
@@ -519,6 +518,16 @@ process_presence_out(State, _Pres) ->
     State.
 
 
+process_ack_out(#{user := _Uid, lserver := Server} = State, #ack{} = Pkt) ->
+    %% We run the user_send_ack hook for the offline module to act on it.
+    ejabberd_hooks:run_fold(user_send_ack, Server, State, [Pkt]).
+
+
+process_chatstate_out(#{user := _Uid, lserver := Server} = State, #chat_state{} = Pkt) ->
+    %% We run the user_send_chatstate hook for the chat_state module to act on it.
+    ejabberd_hooks:run_fold(user_send_chatstate, Server, State, [Pkt]).
+
+
 -spec check_privacy_then_route(state(), stanza()) -> state().
 check_privacy_then_route(State, Pkt)
         when is_record(Pkt, presence); is_record(Pkt, message); is_record(Pkt, chat_state) ->
@@ -531,7 +540,7 @@ check_privacy_then_route(State, Pkt)
             %% Think about the way we are routing presence stanzas.
             case Pkt of
                 #presence{} -> process_presence_out(State, Pkt);
-                #chat_state{} -> State;
+                #chat_state{} -> process_chatstate_out(State, Pkt);
                 #message{} ->
                     ejabberd_router:route(Pkt),
                     State

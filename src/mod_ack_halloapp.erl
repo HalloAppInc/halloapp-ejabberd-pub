@@ -54,13 +54,7 @@ user_send_packet({Packet, #{lserver := ServerHost} = State} = Acc) ->
         true -> send_ack(Packet);
         false -> ok
     end,
-    NewState = case ?is_ack_packet(Packet) of
-        true ->
-            ejabberd_hooks:run_fold(user_send_ack, ServerHost, State, [Packet]);
-        false ->
-            State
-    end,
-    {Packet, NewState}.
+    {Packet, State}.
 
 
 %% Sends an ack packet.

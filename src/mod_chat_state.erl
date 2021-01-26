@@ -23,17 +23,17 @@
 
 %% Hooks and API.
 -export([
-    user_send_packet/1,
+    user_send_chatstate/2,
     process_chat_state/2,
     process_group_chat_state/2
 ]).
 
 start(Host, _Opts) ->
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
+    ejabberd_hooks:add(user_send_chatstate, Host, ?MODULE, user_send_chatstate, 50),
     ok.
 
 stop(Host) ->
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
+    ejabberd_hooks:delete(user_send_chatstate, Host, ?MODULE, user_send_chatstate, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -49,12 +49,11 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
-user_send_packet({#chat_state{thread_id = <<>>}, _} = Acc) ->
+user_send_chatstate(State, #chat_state{thread_id = <<>>}) ->
     ?ERROR("Thread id is empty.", []),
-    Acc;
+    State;
 
-user_send_packet({#chat_state{thread_id = ThreadId, thread_type = ThreadType} = 
-        Packet, _State} = Acc) ->
+user_send_chatstate(State, #chat_state{thread_id = ThreadId, thread_type = ThreadType} = Packet) ->
     Type = Packet#chat_state.type,
     stat:count("HA/chat_state", atom_to_list(Type), 1, [{thread_type, ThreadType}]),
     ?INFO("thread_id: ~s, thread_type: ~s, type: ~s",
@@ -65,10 +64,7 @@ user_send_packet({#chat_state{thread_id = ThreadId, thread_type = ThreadType} =
         group_chat ->
             process_group_chat_state(Packet, ThreadId)
     end,
-    Acc;
-
-user_send_packet({_Packet, _State} = Acc) ->
-    Acc.
+    State.
 
 
 %%====================================================================
