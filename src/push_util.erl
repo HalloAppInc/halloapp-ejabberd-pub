@@ -13,13 +13,14 @@
 -include ("push_message.hrl").
 
 -export([
-    parse_metadata/1,
-    record_push_sent/1
+    parse_metadata/2,
+    record_push_sent/1,
+    get_push_type/3
 ]).
 
--spec parse_metadata(Message :: message()) -> push_metadata().
+-spec parse_metadata(Message :: message(), PushInfo :: push_info()) -> push_metadata().
 parse_metadata(#message{id = Id, sub_els = [SubElement],
-        from = #jid{luser = FromUid}}) when is_record(SubElement, chat) ->
+        from = #jid{luser = FromUid}}, _PushInfo) when is_record(SubElement, chat) ->
     #push_metadata{
         content_id = Id,
         content_type = <<"chat">>,
@@ -28,11 +29,12 @@ parse_metadata(#message{id = Id, sub_els = [SubElement],
         thread_id = FromUid,
         sender_name = SubElement#chat.sender_name,
         subject = <<"New Message">>,
-        body = <<"You got a new message.">>
+        body = <<"You got a new message.">>,
+        push_type = alert
     };
 
 parse_metadata(#message{id = Id, sub_els = [SubElement],
-        from = #jid{luser = FromUid}}) when is_record(SubElement, group_chat) ->
+        from = #jid{luser = FromUid}}, _PushInfo) when is_record(SubElement, group_chat) ->
     #push_metadata{
         content_id = Id,
         content_type = <<"group_chat">>,
@@ -42,12 +44,13 @@ parse_metadata(#message{id = Id, sub_els = [SubElement],
         thread_name = SubElement#group_chat.name,
         sender_name = SubElement#group_chat.sender_name,
         subject = <<"New Group Message">>,
-        body = <<"You got a new group message.">>
+        body = <<"You got a new group message.">>,
+        push_type = alert
     };
 
 %% TODO(murali@): this is not great, we need to send the entire message.
 %% Let the client extract whatever they need.
-parse_metadata(#message{id = Id, sub_els = [SubElement]})
+parse_metadata(#message{id = Id, sub_els = [SubElement]}, _PushInfo)
         when is_record(SubElement, contact_list), SubElement#contact_list.contacts =:= [] ->
     #push_metadata{
         content_id = Id,
@@ -57,10 +60,11 @@ parse_metadata(#message{id = Id, sub_els = [SubElement]})
         thread_id = <<>>,
         thread_name = <<>>,
         subject = <<>>,
-        body = <<>>
+        body = <<>>,
+        push_type = silent
     };
 
-parse_metadata(#message{id = _Id, type = MsgType, sub_els = [SubElement]})
+parse_metadata(#message{id = _Id, type = MsgType, sub_els = [SubElement]} = Message, PushInfo)
         when is_record(SubElement, contact_list), SubElement#contact_list.contacts =/= [] ->
     [Contact | _] = SubElement#contact_list.contacts,
     {Subject, Body} = case MsgType of
@@ -70,6 +74,7 @@ parse_metadata(#message{id = _Id, type = MsgType, sub_els = [SubElement]})
         normal ->
             {<<"New Contact">>, <<"New contact notification">>}
     end,
+    PayloadType = util:get_payload_type(Message),
     #push_metadata{
         content_id = Contact#contact.normalized,
         content_type = <<"contact_notification">>,
@@ -78,10 +83,12 @@ parse_metadata(#message{id = _Id, type = MsgType, sub_els = [SubElement]})
         thread_id = Contact#contact.normalized,
         thread_name = Contact#contact.name,
         subject = Subject,
-        body = Body
+        body = Body,
+        push_type = get_push_type(MsgType, PayloadType, PushInfo)
     };
 
-parse_metadata(#message{sub_els = [#feed_st{posts = [Post]}]}) ->
+parse_metadata(#message{type = MsgType,
+        sub_els = [#feed_st{posts = [Post]}]} = _Message, PushInfo) ->
     #push_metadata{
         content_id = Post#post_st.id,
         content_type = <<"feedpost">>,
@@ -90,10 +97,12 @@ parse_metadata(#message{sub_els = [#feed_st{posts = [Post]}]}) ->
         thread_id = <<"feed">>,
         sender_name = Post#post_st.publisher_name,
         subject = <<"New Notification">>,
-        body = <<"New post">>
+        body = <<"New post">>,
+        push_type = get_push_type(MsgType, feed_post, PushInfo)
     };
 
-parse_metadata(#message{sub_els = [#feed_st{comments = [Comment]}]}) ->
+parse_metadata(#message{type = MsgType,
+        sub_els = [#feed_st{comments = [Comment]}]} = _Message, PushInfo) ->
     #push_metadata{
         content_id = Comment#comment_st.id,
         content_type = <<"comment">>,
@@ -102,10 +111,13 @@ parse_metadata(#message{sub_els = [#feed_st{comments = [Comment]}]}) ->
         thread_id = <<"feed">>,
         sender_name = Comment#comment_st.publisher_name,
         subject = <<"New Notification">>,
-        body = <<"New comment">>
+        body = <<"New comment">>,
+        push_type = get_push_type(MsgType, feed_comment, PushInfo)
     };
 
-parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [Post], comments = []} = SubElement]}) ->
+parse_metadata(#message{type = MsgType, sub_els = [#group_feed_st{gid = Gid, posts = [Post],
+        comments = []} = SubElement]} = Message, PushInfo) ->
+    PayloadType = util:get_payload_type(Message),
     #push_metadata{
         content_id = Post#group_post_st.id,
         content_type = <<"group_post">>,
@@ -115,10 +127,13 @@ parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [Post], com
         thread_name = SubElement#group_feed_st.name,
         sender_name = Post#group_post_st.publisher_name,
         subject = <<"New Group Message">>,
-        body = <<"New post">>
+        body = <<"New post">>,
+        push_type = get_push_type(MsgType, PayloadType, PushInfo)
     };
 
-parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [], comments = [Comment]} = SubElement]}) ->
+parse_metadata(#message{type = MsgType, sub_els = [#group_feed_st{gid = Gid, posts = [],
+        comments = [Comment]} = SubElement]} = Message, PushInfo) ->
+    PayloadType = util:get_payload_type(Message),
     #push_metadata{
         content_id = Comment#group_comment_st.id,
         content_type = <<"group_comment">>,
@@ -128,11 +143,13 @@ parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [], comment
         thread_name = SubElement#group_feed_st.name,
         sender_name = Comment#group_comment_st.publisher_name,
         subject = <<"New Group Message">>,
-        body = <<"New comment">>
+        body = <<"New comment">>,
+        push_type = get_push_type(MsgType, PayloadType, PushInfo)
     };
 
-parse_metadata(#message{id = Id, sub_els = [#group_st{
-        gid = Gid, name = Name, sender = Sender, sender_name = SenderName} = SubElement]}) ->
+parse_metadata(#message{id = Id, type = MsgType, sub_els = [#group_st{gid = Gid, name = Name,
+        sender = Sender, sender_name = SenderName} = _SubElement]} = Message, PushInfo) ->
+    PayloadType = util:get_payload_type(Message),
     #push_metadata{
         content_id = Id,
         content_type = <<"group_add">>,
@@ -142,10 +159,11 @@ parse_metadata(#message{id = Id, sub_els = [#group_st{
         thread_name = Name,
         sender_name = SenderName,
         subject = <<"New Group">>,
-        body = <<"You got added to new group">>
+        body = <<"You got added to new group">>,
+        push_type = get_push_type(MsgType, PayloadType, PushInfo)
     };
 
-parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->
+parse_metadata(#message{to = #jid{luser = Uid}, id = Id}, _PushInfo) ->
     ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     #push_metadata{}.
 
@@ -159,9 +177,23 @@ record_push_sent(#message{id = MsgId, to = ToJid, sub_els = [SubElement]})
     #jid{user = UserId} = ToJid,
     model_messages:record_push_sent(UserId, MsgId);
 record_push_sent(Message) ->
-    PushMetadata = parse_metadata(Message),
+    %% We parse again for content_id only, so its okay to ignore push_info here.
+    %% TODO(murali@): However, it is not clean: that we are parsing this again.
+    PushMetadata = parse_metadata(Message, undefined),
     ContentId = PushMetadata#push_metadata.content_id,
     #jid{user = UserId} = Message#message.to,
     model_messages:record_push_sent(UserId, ContentId).
 
+
+-spec get_push_type(MsgType :: message_type(),
+        PayloadType :: atom(), PushInfo :: push_info()) -> silent | alert.
+get_push_type(groupchat, group_chat, _PushInfo) -> alert;
+get_push_type(_MsgType, chat, _PushInfo) -> alert;
+get_push_type(groupchat, group_st, _PushInfo) -> alert;
+get_push_type(headline, group_feed_st, _PushInfo) -> alert;
+get_push_type(normal, group_feed_st, _PushInfo) -> silent;
+get_push_type(headline, feed_post, #push_info{post_pref = true}) -> alert;
+get_push_type(headline, feed_comment, #push_info{comment_pref = true}) -> alert;
+get_push_type(headline, contact_list, _PushInfo) -> alert;
+get_push_type(_MsgType, _PayloadType, _PushInfo) -> silent.
 

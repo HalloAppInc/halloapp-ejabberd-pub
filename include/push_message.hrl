@@ -47,7 +47,8 @@
     thread_name = <<>> :: binary(),			%% Maps to group_name for groupchat, else irrelevant
     sender_name = <<>> :: binary(),			%% includes push_name of from_uid.
     subject = <<>> :: binary(),			%% includes the fallback subject line
-    body = <<>> :: binary()				%% includes the fallback body line
+    body = <<>> :: binary(),				%% includes the fallback body line
+    push_type = silent :: alert | silent		%% indicates the push type.
 }).
 
 -type push_metadata() :: #push_metadata{}.

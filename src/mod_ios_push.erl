@@ -347,9 +347,9 @@ push_message_item(PushMessageItem, State) ->
         <<"ios">> -> prod;
         <<"ios_dev">> -> dev
     end,
-    PushType = get_push_type(PushMessageItem#push_message_item.message,
+    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
             PushMessageItem#push_message_item.push_info),
-    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
+    PushType = PushMetadata#push_metadata.push_type,
     PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType),
     ApnsId = util:uuid_binary(),
     ContentId = PushMetadata#push_metadata.content_id,
@@ -455,28 +455,6 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
 -spec get_priority(PushType :: silent | alert) -> integer().
 get_priority(silent) -> 5;
 get_priority(alert) -> 10.
-
--spec get_push_type(Message :: message(), PushInfo :: push_info()) -> silent | alert.
-%% check post preference.
-get_push_type(#message{type = headline, sub_els = [#feed_st{comments = []}]}, #push_info{post_pref = true}) -> alert;
-%% check comment preference.
-get_push_type(#message{type = headline, sub_els = [#feed_st{posts = []}]}, #push_info{comment_pref = true}) -> alert;
-get_push_type(#message{type = _, sub_els = [#feed_st{}]}, _) -> silent;
-get_push_type(#message{type = groupchat, sub_els = [#group_chat{}]}, _) -> alert;
-get_push_type(#message{type = groupchat, sub_els = [#group_st{}]}, _) -> alert;
-get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{posts = [#group_post_st{}]}]}, _) -> alert;
-get_push_type(#message{type = groupchat, sub_els = [#group_feed_st{comments = [#group_comment_st{}]}]}, _) -> silent;
-get_push_type(#message{type = headline, sub_els = [#group_feed_st{}]}, _) -> alert;
-get_push_type(#message{type = normal, sub_els = [#group_feed_st{}]}, _) -> silent;
-get_push_type(#message{sub_els = [SubElement]}, _) when is_record(SubElement, chat) -> alert;
-get_push_type(#message{type = MsgType, sub_els = [SubElement]}, _)
-      when is_record(SubElement, contact_list) ->
-    case MsgType of
-        headline -> alert;
-        normal -> silent
-    end;
-get_push_type(_, _) -> silent.
-
 
 -spec boolean_to_push_type(BoolValue :: boolean()) -> silent | alert.
 boolean_to_push_type(BoolValue) ->
