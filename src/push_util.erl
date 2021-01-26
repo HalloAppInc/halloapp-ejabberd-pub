@@ -17,8 +17,7 @@
     record_push_sent/1
 ]).
 
-
--spec parse_metadata(Message :: message()) -> {binary(), binary(), binary(), binary()}.
+-spec parse_metadata(Message :: message()) -> push_metadata().
 parse_metadata(#message{id = Id, sub_els = [SubElement],
         from = #jid{luser = FromUid}}) when is_record(SubElement, chat) ->
     #push_metadata{
@@ -27,7 +26,9 @@ parse_metadata(#message{id = Id, sub_els = [SubElement],
         from_uid = FromUid,
         timestamp = SubElement#chat.timestamp,
         thread_id = FromUid,
-        sender_name = SubElement#chat.sender_name
+        sender_name = SubElement#chat.sender_name,
+        subject = <<"New Message">>,
+        body = <<"You got a new message.">>
     };
 
 parse_metadata(#message{id = Id, sub_els = [SubElement],
@@ -39,7 +40,9 @@ parse_metadata(#message{id = Id, sub_els = [SubElement],
         timestamp = SubElement#group_chat.timestamp,
         thread_id = SubElement#group_chat.gid,
         thread_name = SubElement#group_chat.name,
-        sender_name = SubElement#group_chat.sender_name
+        sender_name = SubElement#group_chat.sender_name,
+        subject = <<"New Group Message">>,
+        body = <<"You got a new group message.">>
     };
 
 %% TODO(murali@): this is not great, we need to send the entire message.
@@ -52,19 +55,30 @@ parse_metadata(#message{id = Id, sub_els = [SubElement]})
         from_uid = <<>>,
         timestamp = <<>>,
         thread_id = <<>>,
-        thread_name = <<>>
+        thread_name = <<>>,
+        subject = <<>>,
+        body = <<>>
     };
 
-parse_metadata(#message{id = _Id, sub_els = [SubElement]})
+parse_metadata(#message{id = _Id, type = MsgType, sub_els = [SubElement]})
         when is_record(SubElement, contact_list), SubElement#contact_list.contacts =/= [] ->
     [Contact | _] = SubElement#contact_list.contacts,
+    {Subject, Body} = case MsgType of
+        headline ->
+            Name = Contact#contact.name,
+            {<<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
+        normal ->
+            {<<"New Contact">>, <<"New contact notification">>}
+    end,
     #push_metadata{
         content_id = Contact#contact.normalized,
         content_type = <<"contact_notification">>,
         from_uid = Contact#contact.userid,
         timestamp = <<>>,
         thread_id = Contact#contact.normalized,
-        thread_name = Contact#contact.name
+        thread_name = Contact#contact.name,
+        subject = Subject,
+        body = Body
     };
 
 parse_metadata(#message{sub_els = [#ps_event{items = #ps_items{
@@ -76,7 +90,9 @@ parse_metadata(#message{sub_els = [#ps_event{items = #ps_items{
         content_type = util:to_binary(ItemType),
         from_uid = FromUid,
         timestamp = TimestampBin,
-        thread_id = <<"feed">>
+        thread_id = <<"feed">>,
+        subject = <<"New Message">>,
+        body = <<"You got a new message.">>
     };
 
 parse_metadata(#message{sub_els = [#feed_st{posts = [Post]}]}) ->
@@ -86,7 +102,9 @@ parse_metadata(#message{sub_els = [#feed_st{posts = [Post]}]}) ->
         from_uid = Post#post_st.uid,
         timestamp = Post#post_st.timestamp,
         thread_id = <<"feed">>,
-        sender_name = Post#post_st.publisher_name
+        sender_name = Post#post_st.publisher_name,
+        subject = <<"New Notification">>,
+        body = <<"New post">>
     };
 
 parse_metadata(#message{sub_els = [#feed_st{comments = [Comment]}]}) ->
@@ -96,7 +114,9 @@ parse_metadata(#message{sub_els = [#feed_st{comments = [Comment]}]}) ->
         from_uid = Comment#comment_st.publisher_uid,
         timestamp = Comment#comment_st.timestamp,
         thread_id = <<"feed">>,
-        sender_name = Comment#comment_st.publisher_name
+        sender_name = Comment#comment_st.publisher_name,
+        subject = <<"New Notification">>,
+        body = <<"New comment">>
     };
 
 parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [Post], comments = []} = SubElement]}) ->
@@ -107,7 +127,9 @@ parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [Post], com
         timestamp = Post#group_post_st.timestamp,
         thread_id = Gid,
         thread_name = SubElement#group_feed_st.name,
-        sender_name = Post#group_post_st.publisher_name
+        sender_name = Post#group_post_st.publisher_name,
+        subject = <<"New Group Message">>,
+        body = <<"New post">>
     };
 
 parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [], comments = [Comment]} = SubElement]}) ->
@@ -118,10 +140,13 @@ parse_metadata(#message{sub_els = [#group_feed_st{gid = Gid, posts = [], comment
         timestamp = Comment#group_comment_st.timestamp,
         thread_id = Gid,
         thread_name = SubElement#group_feed_st.name,
-        sender_name = Comment#group_comment_st.publisher_name
+        sender_name = Comment#group_comment_st.publisher_name,
+        subject = <<"New Group Message">>,
+        body = <<"New comment">>
     };
 
-parse_metadata(#message{id = Id, sub_els = [#group_st{gid = Gid, name = Name, sender = Sender, sender_name = SenderName} = SubElement]}) ->
+parse_metadata(#message{id = Id, sub_els = [#group_st{
+        gid = Gid, name = Name, sender = Sender, sender_name = SenderName} = SubElement]}) ->
     #push_metadata{
         content_id = Id,
         content_type = <<"group_add">>,
@@ -129,7 +154,9 @@ parse_metadata(#message{id = Id, sub_els = [#group_st{gid = Gid, name = Name, se
         timestamp = <<>>, % All other events have Ts. Maybe we should add Ts to group_st
         thread_id = Gid,
         thread_name = Name,
-        sender_name = SenderName
+        sender_name = SenderName,
+        subject = <<"New Group">>,
+        body = <<"You got added to new group">>
     };
 
 parse_metadata(#message{to = #jid{luser = Uid}, id = Id}) ->

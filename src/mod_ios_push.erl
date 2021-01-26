@@ -389,41 +389,6 @@ get_pid_to_send(dev, State) ->
     {State#push_state.dev_conn, State}.
 
 
--spec parse_subject_and_body(Message :: message()) -> {binary(), binary()}.
-parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubElement, chat) ->
-    {<<"New Message">>, <<"You got a new message.">>};
-parse_subject_and_body(#message{sub_els = [SubElement]}) when is_record(SubElement, group_chat) ->
-    {<<"New Group Message">>, <<"You got a new group message.">>};
-parse_subject_and_body(#message{type = MsgType, sub_els = [SubElement]})
-        when is_record(SubElement, contact_list) ->
-    case MsgType of
-        headline ->
-                  #contact_list{contacts = [Contact]} = SubElement,
-                  #contact{name = Name} = Contact,
-                  {<<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
-        normal -> {<<"New Contact">>, <<"New contact notification">>}
-    end;
-parse_subject_and_body(#message{sub_els = [#ps_event{items = #ps_items{
-        items = [#ps_item{type = ItemType}]}}]}) ->
-    case ItemType of
-        comment -> {<<"New Notification">>, <<"New comment">>};
-        feedpost -> {<<"New Notification">>, <<"New feedpost">>};
-        _ -> {<<"New Message">>, <<"You got a new message.">>}
-    end;
-parse_subject_and_body(#message{sub_els = [#feed_st{posts = [#post_st{}]}]}) ->
-    {<<"New Notification">>, <<"New post">>};
-parse_subject_and_body(#message{sub_els = [#feed_st{comments = [#comment_st{}]}]}) ->
-    {<<"New Notification">>, <<"New comment">>};
-parse_subject_and_body(#message{sub_els = [#group_feed_st{posts = [#group_post_st{}]}]}) ->
-    {<<"New Group Message">>, <<"New post">>};
-parse_subject_and_body(#message{sub_els = [#group_feed_st{comments = [#group_comment_st{}]}]}) ->
-    {<<"New Group Message">>, <<"New comment">>};
-parse_subject_and_body(#message{sub_els = [#group_st{}]}) ->
-    {<<"New Group">>, <<"You got added to new group">>};
-parse_subject_and_body(#message{to = #jid{luser = Uid}, id = Id}) ->
-    ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]).
-
-
 %% TODO(murali@): Need to clean all this parsing stuff logic after the switch to new feed api.
 -spec parse_payload(Message :: message()) -> binary().
 parse_payload(#message{sub_els = [#chat{sub_els = SubEls}]}) ->
@@ -477,10 +442,9 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
     },
     BuildTypeMap = case PushType of
         alert ->
-            {Subject, Body} = parse_subject_and_body(PushMessageItem#push_message_item.message),
             DataMap = #{
-                <<"title">> => Subject,
-                <<"body">> => Body
+                <<"title">> => PushMetadata#push_metadata.subject,
+                <<"body">> => PushMetadata#push_metadata.body
             },
             %% Setting mutable-content flag allows the ios client to modify the push notification.
             #{<<"alert">> => DataMap, <<"sound">> => <<"default">>, <<"mutable-content">> => <<"1">>};
