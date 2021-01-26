@@ -16,10 +16,14 @@
 
 -define(TWILIO, <<"twilio">>).
 
+-define(SMS_RETRY_AFTER_SECS, 15).
+
+-type status() :: accepted | queued | sending | sent | delivered | undelivered | failed | unknown.
+
 -record(sms_response, {
     gateway :: atom(),
     sms_id :: binary(),
-    status :: binary(),
+    status :: status(),
     response :: binary(),
     price :: float(),
     currency :: binary()

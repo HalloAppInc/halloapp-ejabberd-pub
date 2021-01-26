@@ -13,11 +13,12 @@
 -include("ha_types.hrl").
 -include("redis_keys.hrl").
 -include("sms.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 
 %% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([phone_key/1]).
 -endif.
 
 %% gen_mod callbacks
@@ -42,8 +43,9 @@
     get_sms_code2/2,
     get_all_sms_codes/1,
     add_gateway_response/3,
+    get_all_gateway_responses/1,
     get_verification_attempt_list/1,
-    add_gateway_callback_info/3,
+    add_gateway_callback_info/1,
     get_gateway_response_status/2,
     add_verification_success/2,
     get_verification_success/2
@@ -75,6 +77,8 @@ mod_options(_Host) ->
 -define(FIELD_TIMESTAMP, <<"ts">>).
 -define(FIELD_SENDER, <<"sen">>).
 -define(FIELD_STATUS, <<"sts">>).
+-define(FIELD_PRICE, <<"prc">>).
+-define(FIELD_CURRENCY, <<"cur">>).
 -define(FIELD_RECEIPT, <<"rec">>).
 -define(FIELD_RESPONSE, <<"res">>).
 -define(FIELD_VERIFICATION_ATTEMPT, <<"fva">>).
@@ -207,14 +211,13 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
                    ["HSET", GatewayResponseKey, ?FIELD_VERIFICATION_ATTEMPT, VerificationAttemptKey],
                    ["EXPIRE", GatewayResponseKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
-    ?DEBUG("Adding mapping from GWRK: ~p, to VAK: ~p", [GatewayResponseKey, VerificationAttemptKey]),
     GatewayBin = util:to_binary(Gateway),
+    StatusBin = util:to_binary(Status),
     _Result2 = q([["MULTI"],
-                   ["HSET", VerificationAttemptKey, ?FIELD_SENDER, GatewayBin, ?FIELD_STATUS, Status,
+                   ["HSET", VerificationAttemptKey, ?FIELD_SENDER, GatewayBin, ?FIELD_STATUS, StatusBin,
                        ?FIELD_RESPONSE, Response],
                    ["EXPIRE", VerificationAttemptKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
-    ?DEBUG("Adding Response for VAK: ~p, status: ~p, response: ~p", [VerificationAttemptKey, Status, Response]),
 
     %% TODO(vipin): The following calls are temporary and will not be needed once we start tracking
     %% SMS Gateway using 'add_gateway_response(...)' instead of 'add_sms_code(...).
@@ -223,22 +226,54 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
     ok.
 
 
-%% TODO(vipin): Add more fields from the callback response and add those fields in this call.
-%% Example additional field: Cost
--spec add_gateway_callback_info(Gateway :: atom(), SMSId :: binary(), Status :: binary())
-    -> ok | {error, any()}.
-add_gateway_callback_info(Gateway, SMSId, Status) ->
+-spec get_all_gateway_responses(Phone :: phone()) -> {ok, [sms_response()]} | {error, any()}.
+get_all_gateway_responses(Phone) ->
+    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
+    RedisCommands = lists:map(
+        fun(AttemptId) ->
+            ["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_STATUS]
+        end, VerificationAttemptList),
+    ResponseList = case RedisCommands of
+        [] -> {ok, []};
+        _ -> qp(RedisCommands)
+    end,
+    SMSResponseList = lists:map(
+        fun({ok, [Sender, Status]}) ->
+            #sms_response{gateway = util:to_atom(Sender), status = util:to_atom(Status)}
+        end, ResponseList),
+    {ok, SMSResponseList}.
+
+
+-spec add_gateway_callback_info(SMSResponse :: sms_response()) -> ok | {error, any()}.
+add_gateway_callback_info(SMSResponse) ->
+    #sms_response{sms_id = SMSId, gateway = Gateway, status = Status, price = Price,
+        currency = Currency} = SMSResponse,
     GatewayResponseKey = gateway_response_key(Gateway, SMSId),
     {ok, VerificationAttemptKey} = q(["HGET", GatewayResponseKey, ?FIELD_VERIFICATION_ATTEMPT]),
-    _Result = q(["HSET", VerificationAttemptKey, ?FIELD_STATUS, Status]),
+    ?assertNotEqual(undefined, Status),
+    StatusBin = util:to_binary(Status),
+    StatusCommand = ["HSET", VerificationAttemptKey, ?FIELD_STATUS, StatusBin],
+    PriceCommands = case Price of
+        undefined -> [];
+        _ ->
+            ?assertNotEqual(undefined, Currency),
+            PriceBin = util:to_binary(Price),
+            [["HSET", VerificationAttemptKey, ?FIELD_PRICE, PriceBin],
+             ["HSET", VerificationAttemptKey, ?FIELD_CURRENCY, Currency]]
+    end,
+    RedisCommands = case PriceCommands of
+        [] -> [StatusCommand];
+        _ -> [StatusCommand] ++ PriceCommands
+    end,
+    _Result = qp(RedisCommands),
     ok.
 
 -spec get_gateway_response_status(Phone :: phone(), AttemptId :: binary())
-    -> {ok, maybe(binary())} | {error, any()}.
+    -> {ok, atom()} | {error, any()}.
 get_gateway_response_status(Phone, AttemptId) ->
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
     {ok, Res} = q(["HGET", VerificationAttemptKey, ?FIELD_STATUS]),
-    {ok, Res}.
+    {ok, util:to_atom(Res)}.
 
 
 -spec add_verification_success(Phone :: phone(), AttemptId :: binary()) -> ok | {error, any()}.

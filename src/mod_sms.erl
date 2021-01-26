@@ -56,7 +56,7 @@ mod_options(_Host) ->
 request_sms(Phone, UserAgent) ->
     %% TODO(vipin): Need to get rid of the code that is using the old sms code.
     OldSMSCode = model_phone:get_sms_code(Phone),
-    {Code, AttemptList} = case OldSMSCode of
+    {Code, OldResponses} = case OldSMSCode of
         {ok, undefined} ->
             %% Generate new SMS code.
             NewSMSCode = generate_code(util:is_test_number(Phone)),
@@ -64,15 +64,15 @@ request_sms(Phone, UserAgent) ->
             {NewSMSCode, []};
         {ok, OldCode} ->
             %% Fetch the list of verification attempts.
-            {ok, OldVerificationAttempts} = model_phone:get_verification_attempt_list(Phone),
-            {OldCode, OldVerificationAttempts}
+            {ok, OldGatewayResponses} = model_phone:get_all_gateway_responses(Phone),
+            {OldCode, OldGatewayResponses}
     end,
     {ok, NewAttempt} = model_phone:add_sms_code2(Phone, Code),
     case util:is_test_number(Phone) of
         true -> ok;
         false ->
             try
-                {ok, SMSResponse} = send_sms(Phone, Code, UserAgent, AttemptList),
+                {ok, SMSResponse} = send_sms(Phone, Code, UserAgent, OldResponses),
                 model_phone:add_gateway_response(Phone, NewAttempt, SMSResponse)
             catch
                 Class : Reason : Stacktrace ->
@@ -96,11 +96,11 @@ verify_sms(Phone, Code) ->
 
 
 -spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary(),
-        OldAttemptList :: [binary()]) -> {ok, sms_response()} | no_return().
-send_sms(Phone, Code, UserAgent, OldAttemptList) ->
+        OldResponses :: [sms_response()]) -> {ok, sms_response()} | no_return().
+send_sms(Phone, Code, UserAgent, OldResponses) ->
     Msg = prepare_registration_sms(Code, UserAgent),
     ?DEBUG("preparing to send sms, phone:~p msg:~s", [Phone, Msg]),
-    case smart_send(Phone, Msg, OldAttemptList) of
+    case smart_send(Phone, Msg, OldResponses) of
         {ok, SMSResponse} ->
             {ok, SMSResponse};
         {error, Error} ->
@@ -131,26 +131,48 @@ get_app_hash(UserAgent) ->
     end.
 
 %% TODO(vipin)
-%% 1. Compute SMS provider to use for sending the SMS based on 'sms_provider_probability'.
-%% 2. (Phone, Provider) combination that has been used in the past should not be used again to send
-%%    the SMS.
-%% 3. On callback from the provider track (success, cost). Investigative logging to track missing
-%%    callback.
-%% 4. Client should be able to request_sms on non-receipt of SMS after a certain time decided
-%%    by the server.
+%% On callback from the provider track (success, cost). Investigative logging to track missing
+%% callback.
 
--define(sms_gateway_probability, [{twilio, 100}, {mbird, 0}]).
-
--spec smart_send(Phone :: phone(), Msg :: string(), OldAttemptList :: [binary()]) 
+-spec smart_send(Phone :: phone(), Msg :: string(), OldResponses :: [sms_response()]) 
         -> {ok, sms_response()} | {error, sms_fail}.
-smart_send(Phone, Msg, OldAttemptList) ->
-    NewGateway = case length(OldAttemptList) of
-        0 -> twilio;
-        1 -> mbird;
-        _ ->
-            %% TODO(vipin): Need to handle better
-            twilio
+smart_send(Phone, Msg, OldResponses) ->
+    {WorkingList, NotWorkingList} = lists:foldl(
+        fun(#sms_response{gateway = Gateway, status = Status}, {Working, NotWorking}) ->
+            case Status of
+                failed -> {Working, NotWorking ++ [Gateway]};
+                undelivered -> {Working, NotWorking ++ [Gateway]};
+                unknown -> {Working, NotWorking ++ [Gateway]};
+                _ -> {Working ++ [Gateway], NotWorking}
+            end
+        end, {[], []}, OldResponses),
+    
+    WorkingSet = sets:from_list(WorkingList),
+    NotWorkingSet = sets:from_list(NotWorkingList),
+    ConsiderList = [twilio, mbird],
+    ConsiderSet = sets:from_list(ConsiderList),
+
+    %% Don't want to try using NotWorkingSet.
+    GoodSet = sets:subtract(ConsiderSet, NotWorkingSet),
+
+    %% Need to give preference to GW in GoodSet that is not in WorkingSet.
+    TrySet = sets:subtract(GoodSet, WorkingSet),
+    TryList = sets:to_list(TrySet),
+
+    %% To eliminate duplicates.
+    WorkingList2 = sets:to_list(WorkingSet),
+
+    %% If length(TryList) > 0 pick any from TryList, else if length(WorkingListi2) > 0 pick any from
+    %% WorkingList2. If both have no elements pick any from ConsiderList.
+    ToChooseFromList = case {length(TryList), length(WorkingList2)} of
+        {0, 0} -> ConsiderList;
+        {_, 0} -> TryList;
+        {0, _} -> WorkingList2
     end,
+
+    %% Pick any.
+    ToPick = p1_rand:uniform(1, length(ToChooseFromList)),
+    NewGateway = lists:nth(ToPick, ToChooseFromList),
     Result = NewGateway:send_sms(Phone, Msg),
     ?DEBUG("Result: ~p", [Result]),
     case Result of

@@ -23,11 +23,15 @@
 -define(DELAY_SEC, 10).
 -define(SMSID1, <<"smsid1">>).
 -define(SMSID2, <<"smsid2">>).
--define(STATUS, <<"sent">>).
+-define(STATUS, sent).
 -define(GATEWAY1, gw1).
 -define(GATEWAY2, gw2).
--define(CALLBACK_STATUS1, <<"delivered">>).
--define(CALLBACK_STATUS2, <<"dropped">>).
+-define(CALLBACK_STATUS1, delivered).
+-define(CALLBACK_STATUS2, failed).
+-define(PRICE1, 0.07).
+-define(PRICE2, 0.005).
+-define(CURRENCY1, <<"USD">>).
+-define(CURRENCY2, <<"USD">>).
 
 
 setup() ->
@@ -111,10 +115,19 @@ add_sms_gateway_response_test() ->
     {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
     {ok, ?CODE2} = model_phone:get_sms_code2(?PHONE1, AttemptId2),
     {ok, [{?CODE1, AttemptId}, {?CODE2, AttemptId2}]} = model_phone:get_all_sms_codes(?PHONE1),
-    ok = model_phone:add_gateway_callback_info(?GATEWAY1, ?SMSID1, ?CALLBACK_STATUS1),
-    ok = model_phone:add_gateway_callback_info(?GATEWAY2, ?SMSID2, ?CALLBACK_STATUS2),
+    ok = model_phone:add_gateway_callback_info(
+        #sms_response{gateway=?GATEWAY1, sms_id=?SMSID1, status=?CALLBACK_STATUS1,
+            price=?PRICE1, currency=?CURRENCY1}),
+    %% Sleep for 1 seconds just so the timestamp for Attempt1 and Attemp2 is different.
+    timer:sleep(timer:seconds(1)),
+    ok = model_phone:add_gateway_callback_info(
+        #sms_response{gateway=?GATEWAY2, sms_id=?SMSID2, status=?CALLBACK_STATUS2,
+            price=?PRICE2, currency=?CURRENCY2}),
     {ok, ?CALLBACK_STATUS1} = model_phone:get_gateway_response_status(?PHONE1, AttemptId),
     {ok, ?CALLBACK_STATUS2} = model_phone:get_gateway_response_status(?PHONE1, AttemptId2),
+    AllResponses = [#sms_response{gateway=?GATEWAY1, status=?CALLBACK_STATUS1},
+                    #sms_response{gateway=?GATEWAY2, status=?CALLBACK_STATUS2}],
+    {ok, AllResponses} = model_phone:get_all_gateway_responses(?PHONE1),
     ok = model_phone:add_verification_success(?PHONE1, AttemptId),
     true = model_phone:get_verification_success(?PHONE1, AttemptId),
     false = model_phone:get_verification_success(?PHONE1, AttemptId2),

@@ -14,7 +14,8 @@
 
 %% API
 -export([
-    send_sms/2
+    send_sms/2,
+    normalized_status/1
 ]).
 
 -spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, sms_fail}.
@@ -35,12 +36,28 @@ send_sms(Phone, Msg) ->
             Receipients = maps:get(<<"recipients">>, Json),
             Items = maps:get(<<"items">>, Receipients),
             [Item] = Items,
-            Status = maps:get(<<"status">>, Item),
+            Status = normalized_status(maps:get(<<"status">>, Item)),
             {ok, #sms_response{sms_id = Id, status = Status, response = ResBody}};
         _ ->
             ?ERROR("Sending SMS failed ~p", [Response]),
             {error, sms_fail}
     end.
+
+-spec normalized_status(Status :: binary()) -> atom().
+normalized_status(<<"scheduled">>) ->
+    accepted;
+normalized_status(<<"buffered">>) ->
+    queued;
+normalized_status(<<"sent">>) ->
+    sent;
+normalized_status(<<"delivered">>) ->
+    delivered;
+normalized_status(<<"delivery_failed">>) ->
+    undelivered;
+normalized_status(<<"expired">>) ->
+    failed;
+normalized_status(_) ->
+    unknown.
 
 -spec get_access_key() -> string().
 get_access_key() ->

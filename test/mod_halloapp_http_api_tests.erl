@@ -13,6 +13,7 @@
 -include("util_http.hrl").
 -include("ejabberd_http.hrl").
 -include("whisper.hrl").
+-include("sms.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(UID, <<"1">>).
@@ -82,6 +83,7 @@ request_sms_test() ->
     GoodResponse = {200, ?HEADER(?CT_JSON),
         jiffy:encode({[
             {phone, ?TEST_PHONE},
+            {retry_after_secs, ?SMS_RETRY_AFTER_SECS},
             {result, ok}
         ]})},
     ?assertEqual(GoodResponse, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,

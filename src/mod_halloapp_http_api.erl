@@ -23,6 +23,7 @@
 -include("account.hrl").
 -include("ha_types.hrl").
 -include("whisper.hrl").
+-include("sms.hrl").
 
 -define(MSG_TO_SIGN, <<"HALLO">>).
 
@@ -53,6 +54,7 @@ process([<<"registration">>, <<"request_sms">>],
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
                 {phone, Phone},
+                {retry_after_secs, ?SMS_RETRY_AFTER_SECS},
                 {result, ok}
             ]})}
     catch

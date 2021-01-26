@@ -41,7 +41,7 @@ process([<<"twilio">>],
         Id = proplists:get_value(<<"SmsSid">>, QueryList),
         To = proplists:get_value(<<"To">>, QueryList),
         From = proplists:get_value(<<"From">>, QueryList),
-        Status = proplists:get_value(<<"SmsStatus">>, QueryList),
+        Status = twilio:normalized_status(proplists:get_value(<<"SmsStatus">>, QueryList)),
         TwilioSignature = util_http:get_header(<<"X-Twilio-Signature">>, Headers),
         {SMSPrice, SMSCurrency} = case TwilioSignature of
             undefined -> {undefined, <<"null">>};
@@ -55,20 +55,20 @@ process([<<"twilio">>],
                 IsSigEqual = (TwilioSignature =:= DerivedSignature),
                 ?INFO("Twilio signature: ~s, DerivedSignature: ~s, Match: ~p",
                     [TwilioSignature, DerivedSignature, IsSigEqual]),
-                case {IsSigEqual, Status} of
-                    {true, <<"sent">>} ->
+                SMSResponse2 = case {IsSigEqual, Status} of
+                    {true, sent} ->
                         case twilio:fetch_message_info(Id) of
-                            {ok, SMSResponse} ->
-                                #sms_response{price = Price, currency = Currency} = SMSResponse,
-                                {Price, Currency};
-                            {error, _} ->
-                                %% Fallback to what is returned when sending SMS.
-                                {undefined, <<"null">>}
+                            {ok, SMSResponse} -> SMSResponse#sms_response{status = Status};
+                            {error, _} -> #sms_response{sms_id = Id, gateway = twilio}
                         end;
-                    _ -> {undefined, <<"null">>}
-                end
+                    {true, _} -> #sms_response{sms_id = Id, gateway = twilio, status = Status};
+                    _ -> #sms_response{sms_id = Id, gateway = twilio}
+                end,
+                add_gateway_callback_info(SMSResponse2),
+                #sms_response{price = Price, currency = Currency} = SMSResponse2,
+                {Price, Currency}
         end,
-        ?INFO("Twilio SMS callback, Id: ~s, To: ~s, From: ~s, Status: ~s, Price: ~p, Currency: ~s",
+        ?INFO("Twilio SMS callback, Id: ~s, To: ~s, From: ~s, Status: ~p, Price: ~p, Currency: ~s",
             [Id, To, From, Status, SMSPrice, SMSCurrency]),
         {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
     catch
@@ -87,7 +87,7 @@ process([<<"mbird">>],
         ?INFO("MessageBird SMS callback: Query:~p ip:~s ua:~s, headers:~p", [Q, ClientIP, UserAgent, Headers]),
         Id = proplists:get_value(<<"id">>, Q),
         Recipient = proplists:get_value(<<"recipient">>, Q),
-        Status = proplists:get_value(<<"status">>, Q),
+        Status = mbird:normalized_status(proplists:get_value(<<"status">>, Q)),
         Price = binary_to_list(proplists:get_value(<<"price[amount]">>, Q)),
         RealPrice = case string:to_float(Price) of
             {error, _} -> undefined;
@@ -110,9 +110,16 @@ process([<<"mbird">>],
                     crypto:hmac(sha256, binary_to_list(maps:get(<<"signing_key">>, Json)), FlatRequest)),
                 IsSigEqual = (MBirdSignature =:= DerivedSignature),
                 ?INFO("MessageBird signature: ~s, DerivedSignature: ~s, Match: ~p",
-                    [MBirdSignature, DerivedSignature, IsSigEqual])
+                    [MBirdSignature, DerivedSignature, IsSigEqual]),
+                case IsSigEqual andalso Status =/= undefined of
+                    true ->
+                        add_gateway_callback_info(
+                            #sms_response{sms_id = Id, gateway = mbird, status = Status,
+                            price = RealPrice, currency = Currency});
+                    false -> ok
+                end
         end,
-        ?INFO("MessageBird SMS callback, Id: ~s, To: ~s, Status: ~s, Price: ~p, Currency: ~s",
+        ?INFO("MessageBird SMS callback, Id: ~s, To: ~s, Status: ~p, Price: ~p, Currency: ~s",
             [Id, Recipient, Status, RealPrice, Currency]),
         {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
     catch
@@ -121,6 +128,13 @@ process([<<"mbird">>],
             util_http:return_500()
     end.
 
+-spec add_gateway_callback_info(SMSResponse :: sms_response()) -> ok.
+add_gateway_callback_info(SMSResponse) ->
+    #sms_response{status = Status} = SMSResponse,
+    case Status of
+        undefined -> ok;
+        _ -> model_phone:add_gateway_callback_info(SMSResponse)
+    end.
 
 start(Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),

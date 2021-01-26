@@ -17,7 +17,8 @@
 
 -export([
     send_sms/2,
-    fetch_message_info/1
+    fetch_message_info/1,
+    normalized_status/1
 ]).
 
 
@@ -37,13 +38,34 @@ send_sms(Phone, Msg) ->
             %% TODO(vipin): Try to check status and send SMS using another provider if needed.
             Json = jiffy:decode(ResBody, [return_maps]),
             Id = maps:get(<<"sid">>, Json),
-            Status = maps:get(<<"status">>, Json),
+            Status = normalized_status(maps:get(<<"status">>, Json)),
             {ok, #sms_response{sms_id = Id, status = Status, response = ResBody}};
         _ ->
             %% TODO(vipin): Try sending the SMS using the second provider.
             ?ERROR("Sending SMS failed ~p", [Response]),
             {error, sms_fail}
     end.
+
+-spec normalized_status(Status :: binary()) -> atom().
+normalized_status(<<"accepted">>) ->
+    accepted;
+normalized_status(<<"queued">>) ->
+    queued;
+normalized_status(<<"sending">>) ->
+    sending;
+normalized_status(<<"sent">>) ->
+    sent;
+normalized_status(<<"delivered">>) ->
+    delivered;
+normalized_status(<<"delivery_unknown">>) ->
+    undelivered;
+normalized_status(<<"undelivered">>) ->
+    undelivered;
+normalized_status(<<"failed">>) ->
+    failed;
+normalized_status(_) ->
+    unknown.
+
 
 -spec fetch_message_info(SMSId :: binary()) -> {ok, sms_response()} | {error, sms_fail}.
 fetch_message_info(SMSId) ->
@@ -68,8 +90,8 @@ fetch_message_info(SMSId) ->
                 {XX, []} -> abs(XX)
             end,
             Currency = maps:get(<<"price_unit">>, Json),
-            {ok, #sms_response{sms_id = Id, status = Status, price = RealPrice,
-                currency = Currency}};
+            {ok, #sms_response{sms_id = Id, gateway = twilio, status = normalized_status(Status),
+                price = RealPrice, currency = Currency}};
         _ ->
             ?ERROR("SMS fetch info failed ~p", [Response]),
             {error, sms_fail}
