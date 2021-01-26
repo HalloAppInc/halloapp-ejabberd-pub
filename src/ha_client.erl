@@ -27,11 +27,13 @@
     send/2,
     recv_nb/1,
     recv/1,
+    recv/2,
     send_recv/2,
     wait_for/2,
     login/3,
     send_iq/4,
-    send_ack/2
+    send_ack/2,
+    close/1
 ]).
 
 -export([
@@ -118,6 +120,17 @@ recv_nb(Client) ->
 -spec recv(Client :: pid()) -> pb_packet().
 recv(Client) ->
     gen_server:call(Client, {recv}).
+
+
+% Gets the next received message or waits for one until TimeoutMs.
+-spec recv(Client :: pid(), TimeoutMs :: infinity | integer()) -> maybe(pb_packet()).
+recv(Client, TimeoutMs) ->
+    gen_server:call(Client, {recv, TimeoutMs}).
+
+%% Closes the socket.
+-spec close(Client :: pid()) -> ok | {error, closed | inet:posix()}.
+close(Client) ->
+    gen_server:call(Client, {close}).
 
 
 % Stop the gen_server
@@ -209,6 +222,17 @@ handle_call({recv}, _From, State) ->
     end,
     {reply, Result, NewState2};
 
+handle_call({recv, TimeoutMs}, _From, State) ->
+    {Val, RecvQ2} = queue:out(State#state.recv_q),
+    NewState = State#state{recv_q = RecvQ2},
+    {Result, NewState2} = case Val of
+        empty ->
+            receive_wait(NewState, TimeoutMs);
+        {value, Message} ->
+            {Message, NewState}
+    end,
+    {reply, Result, NewState2};
+
 handle_call({close}, _From, State) ->
     Socket = State#state.socket,
     ssl:close(Socket),
@@ -234,7 +258,7 @@ handle_call({wait_for, MatchFun}, _From, State) ->
     Q = State#state.recv_q,
     % look over the recv_q first for the first Packet where MatchFun(P) -> true
     % return the list minus this element
-    {Packet, NewQueueReversed} = lists:foldr(
+    {Packet, NewQueueReversed} = lists:foldl(
         fun (X, {FoundPacket, NewQueue}) ->
             case {FoundPacket, MatchFun(X)} of
                 {undefined, true} ->
@@ -351,14 +375,22 @@ send_internal(Socket, PBRecord)
     send_internal(Socket, Message).
 
 
--spec receive_wait(State :: state()) -> {Packet :: pb_packet(), NewState :: state()}.
+-spec receive_wait(State :: state()) -> {Packet :: maybe(pb_packet()), NewState :: state()}.
 receive_wait(State) ->
+    receive_wait(State, infinity).
+
+
+-spec receive_wait(State :: state(), TimeoutMs :: integer() | infinity) ->
+        {Packet :: maybe(pb_packet()), NewState :: state()}.
+receive_wait(State, TimeoutMs) ->
     receive
         {ha_raw_packet, PacketBytes} ->
             handle_raw_packet(PacketBytes, State);
         {ssl, _Socket, _SocketBytes} = Pkt ->
             {noreply, NewState} = handle_info(Pkt, State),
             receive_wait(NewState)
+    after TimeoutMs ->
+        {undefined, State}
     end.
 
 
