@@ -127,6 +127,10 @@ privacy_check_packet(allow, _State, #presence{type = Type} = Packet, in = Dir)
     %% inspect the addresses for presence stanzas sent by the server.
     check_blocked(Packet, Dir);
 
+privacy_check_packet(allow, _State, #chat_state{type = group_chat} = _Packet, in) ->
+    %% always allow typing indicators in groups.
+    allow;
+
 privacy_check_packet(allow, _State, #chat_state{} = Packet, in = Dir) ->
     %% inspect the addresses for chat_state stanzas sent by the server.
     check_blocked(Packet, Dir);
@@ -143,6 +147,10 @@ privacy_check_packet(allow, _State, #presence{type = Type} = Packet, out = Dir)
         when Type =:= subscribe; Type =:= unsubscribe ->
     %% inspect requests to another user's presence.
     check_blocked(Packet, Dir);
+
+privacy_check_packet(allow, _State, #chat_state{type = group_chat} = _Packet, out) ->
+    %% always allow typing indicators in groups.
+    allow;
 
 privacy_check_packet(allow, _State, #chat_state{} = Packet, out = Dir) ->
     %% inspect sending chat_state updates to another user.
@@ -189,9 +197,19 @@ is_payload_always_allowed(_) -> false.
 
 
 -spec check_blocked(Packet :: stanza(), Dir :: in | out) -> allow | deny.
+check_blocked(#chat_state{thread_id = ThreadId, type = chat} = Packet, out = Dir) ->
+    #jid{luser = FromUid} = xmpp:get_from(Packet),
+    ToUid = ThreadId,
+    check_blocked(FromUid, ToUid, Packet, Dir);
 check_blocked(Packet, Dir) ->
     #jid{luser = FromUid} = xmpp:get_from(Packet),
     #jid{luser = ToUid} = xmpp:get_to(Packet),
+    check_blocked(FromUid, ToUid, Packet, Dir).
+
+
+-spec check_blocked(FromUid :: binary(), ToUid :: binary(),
+        Packet :: stanza(), Dir :: in | out) -> allow | deny.
+check_blocked(FromUid, ToUid, Packet, Dir) ->
     Id = xmpp:get_id(Packet),
     PacketType = element(1, Packet),
     IsBlocked = case Dir of

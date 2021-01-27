@@ -11,6 +11,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("groups.hrl").
 
 %% gen_mod API.
 -export([
@@ -91,11 +92,20 @@ process_chat_state(Packet, ThreadId) ->
 process_group_chat_state(Packet, ThreadId) ->
     Server = util:get_host(),
     From = Packet#chat_state.from,
-    MUids = model_groups:get_member_uids(ThreadId),
-    ReceiverUids = lists:delete(From#jid.luser, MUids),
-    ?INFO("Uid: ~s, broadcast uids: ~p, type: ~s",
-            [From#jid.luser, ReceiverUids, Packet#chat_state.type]),
-    mod_groups:broadcast_packet(From, Server, ReceiverUids, Packet),
+    FromUid = From#jid.luser,
+    case mod_groups:get_group(ThreadId, FromUid) of
+        {ok, Group} ->
+            MUids = lists:map(
+                    fun(GroupMember) ->
+                        GroupMember#group_member.uid
+                    end, Group#group.members),
+            ReceiverUids = lists:delete(FromUid, MUids),
+            ?INFO("Uid: ~s, broadcast uids: ~p, type: ~s",
+                    [FromUid, ReceiverUids, Packet#chat_state.type]),
+            mod_groups:broadcast_packet(From, Server, ReceiverUids, Packet);
+        {error, not_member} ->
+            ?WARNING("invalid chat_state stanza, Uid: ~s, Gid: ~p", [FromUid, ThreadId])
+    end,
     ok.
 
 
