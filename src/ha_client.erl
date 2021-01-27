@@ -72,9 +72,7 @@ start_link(Options) ->
 -spec connect_and_login(Uid :: uid(), Password :: binary()) ->
     {ok, Client :: pid()} | {error, Reason :: term()}.
 connect_and_login(Uid, Password) ->
-    connect_and_login(Uid, Password, #{
-        auto_send_acks => true,
-        resource => <<"android">>}).
+    connect_and_login(Uid, Password, #{auto_send_acks => true}).
 
 
 -spec connect_and_login(Uid :: uid(), Password :: binary(), Options :: options()) ->
@@ -254,14 +252,14 @@ handle_call({close}, _From, State) ->
     {reply, ok, NewState};
 
 handle_call({login, Uid, Passwd}, _From,
-        #state{options = #{resource := Resource}} = State) ->
+        #state{options = Options} = State) ->
     Socket = State#state.socket,
     HaAuth = #pb_auth_request{
         uid = util:to_integer(Uid),
         pwd = Passwd,
         client_mode = #pb_client_mode{mode = active},
         client_version = #pb_client_version{version = <<"HalloApp/Android0.82D">>},
-        resource = Resource
+        resource = maps:get(resource, Options, <<"android">>)
     },
     send_internal(Socket, HaAuth),
     ?assert(auth =:= State#state.state),
