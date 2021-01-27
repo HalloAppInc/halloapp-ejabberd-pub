@@ -215,21 +215,9 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 upgrade_packet(Packet) -> Packet.
 
 
-%% Privacy checks are being run on the receiver's process.
-%% We dont expect being denied based on privacy rules for messages/iqs/ack stanzas.
-%% For acks/iqs: server is sending them to the client: so they should never be denied.
-%% For messages: these are already in the offline queue of the user:
-%%     meaning sender's process has already checked the privacy settings here.
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
     NewPacket = upgrade_packet(Packet),
-    Pass = case NewPacket of
-        #presence{} -> privacy_check_packet(State, NewPacket, in);
-        #chat_state{} -> privacy_check_packet(State, NewPacket, in);
-        #message{} -> allow;
-        #iq{} -> allow;
-        #ack{} -> allow
-    end,
-    case Pass of
+    case verify_incoming_packet(State, NewPacket) of
         allow ->
             %% TODO(murali@): remove temp counts after clients transition.
             stat:count("HA/user_receive_packet", "protobuf"),
@@ -547,6 +535,53 @@ check_privacy_then_route(State, Pkt)
             end
     end.
 
+
+-spec verify_incoming_packet(state(), stanza()) -> allow | deny.
+verify_incoming_packet(State, Pkt) ->
+    case verify_incoming_packet_to(State, Pkt) of
+        allow ->
+            privacy_check_packet_in(State, Pkt);
+        deny -> deny
+    end.
+
+
+-spec verify_incoming_packet_to(State :: state(), Pkt :: stanza()) -> allow | deny.
+verify_incoming_packet_to(#{user := LUser, stream_state := StreamState} = State, Pkt) ->
+    To = xmpp:get_to(Pkt),
+    #jid{luser = LUserPkt} = To,
+    case StreamState of
+        established ->
+            case LUser =/= LUserPkt of
+                true ->
+                    ?ERROR("PANIC received packet not for me Pkt: ~p, State: ~p", [Pkt, State]),
+                    % TODO: (nikola): when we make sure the above error is not happening
+                    % change to deny
+                    allow;
+                false ->
+                    allow
+            end;
+        _ ->
+            ?ERROR("unexpected incoming packets before establish "
+                "Pkt: ~p StreamState: ~p", [Pkt, StreamState]),
+            % TODO: Update to deny once it looks ok.
+            allow
+    end.
+
+
+%% Privacy checks are being run on the receiver's process.
+%% We dont expect being denied based on privacy rules for messages/iqs/ack stanzas.
+%% For acks/iqs: server is sending them to the client: so they should never be denied.
+%% For messages: these are already in the offline queue of the user:
+%%     meaning sender's process has already checked the privacy settings here.
+-spec privacy_check_packet_in(State :: state(), Pkt :: stanza()) -> allow | deny.
+privacy_check_packet_in(State, Pkt) ->
+    case Pkt of
+        #presence{} -> privacy_check_packet(State, Pkt, in);
+        #chat_state{} -> privacy_check_packet(State, Pkt, in);
+        #message{} -> allow;
+        #iq{} -> allow;
+        #ack{} -> allow
+    end.
 
 -spec privacy_check_packet(state(), stanza(), in | out) -> allow | deny.
 privacy_check_packet(#{lserver := LServer} = State, Pkt, Dir) ->
