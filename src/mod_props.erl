@@ -92,7 +92,9 @@ get_props(Uid, ClientVersion) ->
         group_feed => false, %% whether the client can access group_feed or not.
         combine_feed => false, %% whether to combine content from group_feed and home feed.
         silent_chat_messages => 5, %% number of silent_chats client can send.
-        cleartext_chat_messages => true %% whether to disable cleartext chat messages.
+        cleartext_chat_messages => true, %% whether to disable cleartext chat messages.
+        max_feed_video_duration => 60, %% duration in seconds for videos on feed.
+        max_chat_video_duration => 120 %% duration in seconds for videos in chats.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
