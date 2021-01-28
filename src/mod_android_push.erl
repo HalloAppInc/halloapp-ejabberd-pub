@@ -182,7 +182,8 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
     ],
     Options = [],
     FcmApiKey = get_fcm_apikey(),
-    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
+    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
+            PushMessageItem#push_message_item.push_info),
     Payload = #{
             <<"title">> => <<"PushMessage">>,
             <<"content-id">> => PushMetadata#push_metadata.content_id,
