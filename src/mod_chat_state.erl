@@ -80,8 +80,8 @@ process_chat_state(Packet, ThreadId) ->
     NewToJid = jid:make(ThreadId, Server),
     From = Packet#chat_state.from,
     NewPacket = Packet#chat_state{to = NewToJid, thread_id = From#jid.luser},
-    ?INFO("Uid: ~s, to_uid: ~s, type: ~s",
-            [From#jid.luser, NewToJid#jid.luser, Packet#chat_state.type]),
+    ?INFO("Uid: ~s, to_uid: ~s, type: ~s, newpacket: ~p",
+            [From#jid.luser, NewToJid#jid.luser, Packet#chat_state.type, NewPacket]),
     ejabberd_router:route(NewPacket),
     ok.
 
