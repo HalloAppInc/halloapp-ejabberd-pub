@@ -8,6 +8,7 @@
 -author('murali').
 
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("feed.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -51,7 +52,7 @@ setup_accounts(Accounts) ->
 
 
 create_name_st(Uid, Name) ->
-    #name{
+    #pb_name{
         uid = Uid,
         name = Name
     }.

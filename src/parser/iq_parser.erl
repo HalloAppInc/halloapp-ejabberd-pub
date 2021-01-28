@@ -144,8 +144,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             groups_parser:proto_to_xmpp(GroupAvatarRecord);
         #pb_client_log{} = ClientLogRecord ->
             client_log_parser:proto_to_xmpp(ClientLogRecord);
-        #pb_name{} = NameRecord ->
-            name_parser:proto_to_xmpp(NameRecord);
         #pb_props{} = PropsRecord ->
             props_parser:proto_to_xmpp(PropsRecord);
         #pb_invites_request{} = InvitesRecord ->
@@ -155,6 +153,8 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
         #pb_group_feed_item{} = GroupFeedItemRecord ->
             group_feed_parser:proto_to_xmpp(GroupFeedItemRecord);
         #pb_delete_account{phone = Phone} ->
-            #delete_account{phone = Phone}
+            #delete_account{phone = Phone};
+        _ ->
+            uid_parser:translate_uid(ProtoPayload)
     end,
     SubEl.

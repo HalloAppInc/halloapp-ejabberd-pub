@@ -21,6 +21,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 
 -define(NS_NAME, <<"halloapp:users:name">>).
 
@@ -46,12 +47,14 @@
 
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NAME, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_name, ?MODULE, process_local_iq),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(user_name_updated, Host, ?MODULE, user_name_updated, 50),
     ok.
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_NAME),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_name),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(user_name_updated, Host, ?MODULE, user_name_updated, 50),
     ok.
@@ -70,7 +73,7 @@ mod_options(_Host) ->
 %%====================================================================
 
 process_local_iq(#iq{from = #jid{user = Uid}, type = set,
-        sub_els = [#name{uid = Ouid, name = Name}]} = IQ) ->
+        sub_els = [#pb_name{uid = Ouid, name = Name}]} = IQ) ->
     case Ouid =:= <<>> orelse Ouid =:= Uid of
       true ->
         set_name(Uid, Name),
