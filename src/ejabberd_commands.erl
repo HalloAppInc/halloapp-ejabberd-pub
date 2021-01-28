@@ -278,19 +278,25 @@ get_commands_spec() ->
 
 start_link() ->
     ?INFO("start ~w", [?MODULE]),
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+    Result = gen_server:start_link({local, ?MODULE}, ?MODULE, [], []),
+    ?INFO("start_link ~w", [Result]),
+    Result.
 
 init([]) ->
+    %% TODO(murali@): no need of transform for now i think.
     try mnesia:transform_table(ejabberd_commands, ignore,
 			       record_info(fields, ejabberd_commands))
     catch exit:{aborted, {no_exists, _}} -> ok
     end,
+    ?INFO("mnesia transform done."),
     ejabberd_mnesia:create(?MODULE, ejabberd_commands,
                         [{ram_copies, [node()]},
                          {local_content, true},
                          {attributes, record_info(fields, ejabberd_commands)},
                          {type, bag}]),
+    ?INFO("create mnesia table again"),
     register_commands(get_commands_spec()),
+    ?INFO("done, register_commands"),
     {ok, #state{}}.
 
 handle_call(Request, From, State) ->

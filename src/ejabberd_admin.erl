@@ -85,7 +85,9 @@
 
 start_link() ->
     ?INFO("start ~w", [?MODULE]),
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+    Result = gen_server:start_link({local, ?MODULE}, ?MODULE, [], []),
+    ?INFO("start_link ~w", [Result]),
+    Result.
 
 init([]) ->
     process_flag(trap_exit, true),
