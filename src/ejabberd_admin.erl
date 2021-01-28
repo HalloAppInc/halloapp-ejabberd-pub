@@ -68,6 +68,7 @@
 	 phone_info/1,
 	 group_info/1,
 	 send_ios_push/3,
+	 hot_code_reload/0,
 	 get_commands_spec/0
 	]).
 %% gen_server callbacks
@@ -458,7 +459,41 @@ get_commands_spec() ->
 		args_example = [<<"123">>, <<"alert">>, <<"GgMSAUg=">>],
 		args=[{uid, binary}, {push_type, binary}, {payload, binary}],
 		result = {res, rescode}}
+	#ejabberd_commands{name = hot_code_reload, tags = [server],
+		desc = "Hot code reload a module",
+		module = ?MODULE, function = hot_code_reload,
+		args=[], result = {res, restuple}}
 	].
+
+
+%% Use the h script to release.
+%% Ex: h release --machine s-test --hotload
+%% That command would release the latest code onto s-test and then call this function.
+%% We look up the list of modified modules and purge any old code if present and load these new modules.
+%% Please make sure that there are no errors when doing this hot code release.
+%% We log if can't hotload a specific module.
+%% If this does not work: we can release our old way using restart.
+-spec hot_code_reload() -> ok | {error, any()}.
+hot_code_reload() ->
+	try
+		ModifiedModules = code:modified_modules(),
+		lists:foldl(
+			fun(Module, Acc) ->
+				case code:soft_purge(Module) of
+					true -> [Module | Acc];
+					false ->
+						?ERROR("Can't purge: ~p: there is a process using it", [Module]),
+						error(failed_to_purge)
+				end
+			end, [], ModifiedModules),
+		{ok, Prepared} = code:prepare_loading(ModifiedModules),
+		ok = code:finish_loading(Prepared),
+		?INFO("Hotloaded following modules: ~p", [lists:sort(ModifiedModules)])
+	catch
+		error: Reason ->
+			?ERROR("Failed to hotload modules, reason: ~p", [Reason]),
+			{error, Reason}
+	end.
 
 
 %%%
