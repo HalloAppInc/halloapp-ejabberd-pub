@@ -50,7 +50,8 @@
     check_user_agent_run/2,
     count_users_by_version_run/2,
     check_users_by_whisper_keys/2,
-    check_accounts_run/2
+    check_accounts_run/2,
+    check_phone_numbers_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -463,6 +464,35 @@ check_accounts_run(Key, State) ->
                         false ->
                             ?ERROR("uid mismatch for phone map Uid: ~s Phone: ~s PhoneUid: ~s",
                                     [Uid, Phone, PhoneUid]),
+                            ok
+                    end
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Check all phone number accounts                        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+check_phone_numbers_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    Result = re:run(Key, "^pho:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Phone]]} ->
+            ?INFO("phone number: ~p", [Phone]),
+            {ok, Uid} = q(redis_phone_client, ["GET", FullKey]),
+            case Uid of
+                undefined ->
+                    ?ERROR("Phone: ~p, Uid is undefined!", [Uid]);
+                _ ->
+                    {ok, UidPhone} = q(redis_accounts_client,
+                            ["HGET", model_accounts:account_key(Uid), <<"ph">>]),
+                    case UidPhone =/= undefined andalso UidPhone =:= Phone of
+                        true -> ok;
+                        false ->
+                            ?ERROR("phone: ~p, uid: ~p, uidphone: ~p", [Uid, Phone, UidPhone]),
                             ok
                     end
             end;
