@@ -63,7 +63,7 @@ compute_counts() ->
         {fun count_active_users_28day/1, "28day"},
         {fun count_active_users_30day/1, "30day"}
     ],
-    DeviceTypes = [all, android, ios],
+    DeviceTypes = model_active_users:active_users_types(),
     [stat:gauge("HA/active_users", Desc ++ "_" ++ atom_to_list(Device), Fun(Device))
         || {Fun, Desc} <- CountFuns, Device <- DeviceTypes],
     ok.

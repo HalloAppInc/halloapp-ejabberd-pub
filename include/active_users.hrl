@@ -1,3 +1,3 @@
 -include("ha_types.hrl").
 
--type activity_type() :: all | client_type().
+-type activity_type() :: all | client_type() | post.

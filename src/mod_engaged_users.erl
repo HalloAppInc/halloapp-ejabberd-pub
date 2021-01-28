@@ -26,7 +26,6 @@
     user_send_im/3,
     user_send_group_im/4,
     compute_counts/0,
-    update_last_activity/1,
     count_engaged_users_1day/1,
     count_engaged_users_7day/1,
     count_engaged_users_28day/1,
@@ -36,7 +35,7 @@
 %% Export all functions for unit tests
 -ifdef(TEST).
 -export([
-    update_last_activity/3
+    update_last_activity/4
 ]).
 -endif.
 
@@ -69,24 +68,22 @@ mod_options(_Host) ->
 %% hooks
 %%====================================================================
 
-%% TODO(murali@): we could also have separate counters for each of these activities.
-%% For now: we consider all these activities and keep track of count of engaged users.
-group_feed_item_published(_Gid, Uid, _ItemId, _ItemType) ->
-    update_last_activity(Uid),
+group_feed_item_published(_Gid, Uid, _ItemId, ItemType) ->
+    update_last_activity(Uid, ItemType),
     ok.
 
-feed_item_published(Uid, _ItemId, _ItemTypem, _FeedAudienceType) ->
-    update_last_activity(Uid),
+feed_item_published(Uid, _ItemId, ItemType, _FeedAudienceType) ->
+    update_last_activity(Uid, ItemType),
     ok.
 
 
 user_send_im(FromUid, _MsgId, _ToUid) ->
-    update_last_activity(FromUid),
+    update_last_activity(FromUid, send_im),
     ok.
 
 
 user_send_group_im(_Gid, FromUid, _MsgId, _ToUids) ->
-    update_last_activity(FromUid),
+    update_last_activity(FromUid, send_group_im),
     ok.
 
 
@@ -129,9 +126,9 @@ compute_counts() ->
         {fun count_engaged_users_28day/1, "28day"},
         {fun count_engaged_users_30day/1, "30day"}
     ],
-    DeviceTypes = [all, android, ios],
-    [stat:gauge("HA/engaged_users", Desc ++ "_" ++ atom_to_list(Device), Fun(Device))
-        || {Fun, Desc} <- CountFuns, Device <- DeviceTypes],
+    Types = model_active_users:engaged_users_types(),
+    [stat:gauge("HA/engaged_users", Desc ++ "_" ++ atom_to_list(Type), Fun(Type))
+        || {Fun, Desc} <- CountFuns, Type <- Types],
     ok.
 
 
@@ -139,19 +136,25 @@ compute_counts() ->
 %% internal functions
 %%====================================================================
 
--spec update_last_activity(Uid :: binary()) -> ok.
-update_last_activity(Uid) ->
+-spec update_last_activity(Uid :: binary(), Action :: atom()) -> ok.
+update_last_activity(Uid, Action) ->
     {ok, ClientVersion} = model_accounts:get_client_version(Uid),
     PlatformType = util_ua:get_client_type(ClientVersion),
     TimestampMs = util:now_ms(),
-    update_last_activity(Uid, TimestampMs, PlatformType).
+    update_last_activity(Uid, Action, TimestampMs, PlatformType).
 
-update_last_activity(Uid, TimestampMs, PlatformType) ->
+update_last_activity(Uid, Action, TimestampMs, PlatformType) ->
     MainKey = model_active_users:get_engaged_users_key(Uid),
-    Keys = case PlatformType of
-        undefined -> [MainKey];
-        _ -> [MainKey, model_active_users:get_engaged_users_key(Uid, PlatformType)]
+    Keys1 = [MainKey],
+    Keys2 = case PlatformType of
+        undefined -> Keys1;
+        _ -> [model_active_users:get_engaged_users_key(Uid, PlatformType) | Keys1]
     end,
-    ok = model_active_users:set_activity(Uid, TimestampMs, Keys),
+    %% TODO(murali@): we could also have separate counters for each of these actions.
+    Keys3 = case Action of
+        post -> [model_active_users:get_engaged_users_key(Uid, post) | Keys2];
+        _ -> Keys2
+    end,
+    ok = model_active_users:set_activity(Uid, TimestampMs, Keys3),
     ok.
 

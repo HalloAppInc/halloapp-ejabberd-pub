@@ -26,7 +26,9 @@
     get_engaged_users_key/2,
     count_engaged_users_between/3,
     get_active_users_key_slot/2,
-    get_engaged_users_key_slot/2
+    get_engaged_users_key_slot/2,
+    active_users_types/0,
+    engaged_users_types/0
 ]).
 
 -define(NUM_SLOTS, 256).
@@ -93,40 +95,46 @@ set_activity(Uid, TimestampMs, Keys) ->
 
 -spec cleanup() -> ok.
 cleanup() ->
-    ?INFO("Cleaning up active user zsets...", []),
-    TotalNumActiveRemoved = lists:foldl(
+    ?INFO("Cleaning up active/enaged user zsets...", []),
+    TotalRemoved = lists:foldl(
         fun (Slot, Acc) ->
-            cleanup_by_slot(Slot, get_active_users_key_slot) + Acc
+            cleanup_by_slot(Slot) + Acc
         end,
         0,
         lists:seq(0, ?NUM_SLOTS - 1)
     ),
-    ?INFO("Removed ~p entries from active user zsets", [TotalNumActiveRemoved]),
-
-    ?INFO("Cleaning up engaged user zsets...", []),
-    TotalNumEngagedRemoved = lists:foldl(
-        fun (Slot, Acc) ->
-            cleanup_by_slot(Slot, get_engaged_users_key_slot) + Acc
-        end,
-        0,
-        lists:seq(0, ?NUM_SLOTS - 1)
-    ),
-    ?INFO("Removed ~p entries from engaged user zsets", [TotalNumEngagedRemoved]),
+    ?INFO("Removed ~p entries from active/enaged user zsets", [TotalRemoved]),
     ok.
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
--spec cleanup_by_slot(Slot :: non_neg_integer(), KeyFunction :: atom()) -> non_neg_integer().
-cleanup_by_slot(Slot, KeyFunction) ->
+active_users_types() ->
+    [
+        all,
+        android,
+        ios
+    ].
+
+engaged_users_types() ->
+    [
+        all,
+        android,
+        ios,
+        post
+    ].
+
+-spec cleanup_by_slot(Slot :: non_neg_integer()) -> non_neg_integer().
+cleanup_by_slot(Slot) ->
     OldTs = util:now_ms() - (30 * ?DAYS_MS) - (1 * ?SECONDS_MS),
-    [{ok, NumAll}, {ok, NumAndroid}, {ok, NumIos}] = qp([
-        ["ZREMRANGEBYSCORE", apply(?MODULE, KeyFunction, [Slot, all]), 0, OldTs],
-        ["ZREMRANGEBYSCORE", apply(?MODULE, KeyFunction, [Slot, android]), 0, OldTs],
-        ["ZREMRANGEBYSCORE", apply(?MODULE, KeyFunction, [Slot, ios]), 0, OldTs]
-    ]),
-    binary_to_integer(NumAll) + binary_to_integer(NumAndroid) + binary_to_integer(NumIos).
+    ActiveUsersKeys = [get_active_users_key_slot(Slot, Type) || Type <- active_users_types()],
+    EngagedUsersKeys = [get_engaged_users_key_slot(Slot, Type) || Type <- engaged_users_types()],
+    Queries = [["ZREMRANGEBYSCORE", Key, 0, OldTs] || Key <- ActiveUsersKeys ++ EngagedUsersKeys],
+    Results = qp(Queries),
+    Count = lists:foldl(fun ({ok, C}, Acc) -> Acc + binary_to_integer(C) end, 0, Results),
+    Count.
+
 
 -spec count_active_users_by_key(Key :: binary(), LowerBound :: non_neg_integer(),
         UpperBound :: non_neg_integer()) -> non_neg_integer().
@@ -154,7 +162,8 @@ get_engaged_users_key_slot(Slot, UserAgent) ->
     Key = case UserAgent of
         ios -> ?ENGAGED_USERS_IOS_KEY;
         android -> ?ENGAGED_USERS_ANDROID_KEY;
-        all -> ?ENGAGED_USERS_ALL_KEY
+        all -> ?ENGAGED_USERS_ALL_KEY;
+        post -> ?ENGAGED_USERS_POST_KEY
     end,
     <<Key/binary, "{", SlotBinary/binary, "}">>.
 
