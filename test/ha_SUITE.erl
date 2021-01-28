@@ -49,7 +49,8 @@ groups() -> [
     {privacy_lists, [sequence], privacy_lists_tests()},
     {misc, [sequence], misc_tests()},
     httplog_tests:group(),
-    trace_tests:group()
+    trace_tests:group(),
+    window_tests:group()
 ].
 
 % List of all the tests or group of tests that are part of this SUITE.
@@ -64,6 +65,7 @@ all() -> [
     {group, misc},
     {group, httplog},
     {group, trace},
+    {group, window},
     dummy_test,
     ping_test,
     delete_account_test,

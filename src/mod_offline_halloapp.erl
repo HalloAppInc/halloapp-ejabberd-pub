@@ -4,6 +4,7 @@
 %%% Copyright (C) 2020 halloappinc.
 %%%
 %%% TODO(murali@): Add limit for max number of messages per user. 
+%%% TODO(murali@): add more unit tests for offline window.
 %%%----------------------------------------------------------------------
 %% TODO(murali@): rename this file later.
 -module(mod_offline_halloapp).

@@ -30,6 +30,7 @@
     recv/2,
     send_recv/2,
     wait_for/2,
+    wait_for_msg/1,
     login/3,
     send_iq/4,
     send_ack/2,
@@ -127,6 +128,7 @@ recv(Client) ->
 recv(Client, TimeoutMs) ->
     gen_server:call(Client, {recv, TimeoutMs}).
 
+
 %% Closes the socket.
 -spec close(Client :: pid()) -> ok | {error, closed | inet:posix()}.
 close(Client) ->
@@ -138,11 +140,23 @@ close(Client) ->
 stop(Client) ->
     gen_server:stop(Client).
 
+
 % Check the received messages for the first message where Func(Message) returns true.
 % If no such message is already received it waits for such message to arrive from the server.
 -spec wait_for(Client :: pid(), Func :: fun((term()) -> boolean())) -> pb_packet().
 wait_for(Client, MatchFun) ->
     gen_server:call(Client, {wait_for, MatchFun}).
+
+
+-spec wait_for_msg(Client :: pid()) -> pb_packet().
+wait_for_msg(Client) ->
+    wait_for(Client,
+            fun (P) ->
+                case P of
+                    #pb_packet{stanza = #pb_msg{}} -> true;
+                    _Any -> false
+                end
+            end).
 
 
 -spec send_recv(Client :: pid(), Packet :: iolist() | pb_packet()) -> pb_packet().
@@ -365,7 +379,9 @@ send_ack_internal(Id, State) ->
 
 send_internal(Socket, Message) when is_binary(Message) ->
     Size = byte_size(Message),
-    ssl:send(Socket, <<Size:32/big, Message/binary>>);
+    Result = ssl:send(Socket, <<Size:32/big, Message/binary>>),
+    ?INFO("sent message, result: ~p", [Result]),
+    Result;
 send_internal(Socket, PBRecord)
         when is_record(PBRecord, pb_auth_request); is_record(PBRecord, pb_packet) ->
     ?INFO("Encoding Record ~p", [PBRecord]),
