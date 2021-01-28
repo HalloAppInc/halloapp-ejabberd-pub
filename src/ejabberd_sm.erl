@@ -436,7 +436,6 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
 -spec host_up(binary()) -> ok.
 host_up(Host) ->
-    ejabberd_hooks:add(roster_in_subscription, Host, ?MODULE, check_in_subscription, 20),
     ejabberd_hooks:add(bounce_sm_packet, Host, ?MODULE, bounce_sm_packet, 100),
     ejabberd_c2s:host_up(Host),
     halloapp_c2s:host_up(Host).
@@ -458,8 +457,6 @@ host_down(Host) ->
         (_) ->
             ok
         end, get_sessions(Mod, Host)),
-    ejabberd_hooks:delete(roster_in_subscription, Host,
-              ejabberd_sm, check_in_subscription, 20),
     ejabberd_hooks:delete(bounce_sm_packet, Host,
               ejabberd_sm, bounce_sm_packet, 100),
     ejabberd_c2s:host_down(Host),
