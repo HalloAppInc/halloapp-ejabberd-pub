@@ -482,13 +482,12 @@ check_phone_numbers_run(Key, State) ->
     case Result of
         {match, [[FullKey, Phone]]} ->
             ?INFO("phone number: ~p", [Phone]),
-            {ok, Uid} = q(redis_phone_client, ["GET", FullKey]),
+            {ok, Uid} = model_phone:get_uid(Phone),
             case Uid of
                 undefined ->
                     ?ERROR("Phone: ~p, Uid is undefined!", [Uid]);
                 _ ->
-                    {ok, UidPhone} = q(redis_accounts_client,
-                            ["HGET", model_accounts:account_key(Uid), <<"ph">>]),
+                    {ok, UidPhone} = model_accounts:get_phone(Uid),
                     case UidPhone =/= undefined andalso UidPhone =:= Phone of
                         true -> ok;
                         false ->
