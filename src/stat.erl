@@ -129,7 +129,13 @@ gauge(Namespace, Metric, Value, Tags) ->
 % metric1{lable1="value1",label2="value2"} 4
 -spec get_prometheus_metrics() -> binary().
 get_prometheus_metrics() ->
-    gen_server:call(get_proc(), {get_prometheus_metrics}).
+    try
+        gen_server:call(get_proc(), {get_prometheus_metrics})
+    catch
+        exit: Reason ->
+            ?ERROR("Failed to fetch prometheus metrics, reason: ~p", [Reason]),
+            <<>>
+    end.
 
 reload_aws_config() ->
     gen_server:call(get_proc(), {reload_aws_config}).
@@ -222,6 +228,7 @@ init(_Stuff) ->
 
 
 handle_call({get_prometheus_metrics}, _From, State) ->
+    ?INFO("here: get_prometheus_metrics"),
     Result = get_prometheus_metrics_internal(State),
     {reply, Result, State};
 
