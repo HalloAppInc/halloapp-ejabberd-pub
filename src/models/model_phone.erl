@@ -234,7 +234,7 @@ get_all_gateway_responses(Phone) ->
             ["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_STATUS]
         end, VerificationAttemptList),
     ResponseList = case RedisCommands of
-        [] -> {ok, []};
+        [] -> [];
         _ -> qp(RedisCommands)
     end,
     SMSResponseList = lists:map(

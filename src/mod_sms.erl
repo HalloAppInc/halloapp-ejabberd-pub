@@ -73,6 +73,7 @@ request_sms(Phone, UserAgent) ->
         false ->
             try
                 {ok, SMSResponse} = send_sms(Phone, Code, UserAgent, OldResponses),
+                ?INFO("Response: ~p", [SMSResponse]),
                 model_phone:add_gateway_response(Phone, NewAttempt, SMSResponse)
             catch
                 Class : Reason : Stacktrace ->
@@ -155,24 +156,40 @@ smart_send(Phone, Msg, OldResponses) ->
     %% Don't want to try using NotWorkingSet.
     GoodSet = sets:subtract(ConsiderSet, NotWorkingSet),
 
+    %% In case we have gateways we have tried that we don't use any more.
+    SupportedWorkingSet = sets:intersection(WorkingSet, ConsiderSet),
+
     %% Need to give preference to GW in GoodSet that is not in WorkingSet.
-    TrySet = sets:subtract(GoodSet, WorkingSet),
+    TrySet = sets:subtract(GoodSet, SupportedWorkingSet),
     TryList = sets:to_list(TrySet),
 
     %% To eliminate duplicates.
-    WorkingList2 = sets:to_list(WorkingSet),
+    WorkingList2 = sets:to_list(SupportedWorkingSet),
+    ?DEBUG("Working: ~p", [WorkingList2]),
+    ?DEBUG("Not Working: ~p", [NotWorkingList]),
+    ?DEBUG("Try: ~p", [TryList]),
+    ?DEBUG("Consider: ~p", [ConsiderList]),
 
     %% If length(TryList) > 0 pick any from TryList, else if length(WorkingListi2) > 0 pick any from
     %% WorkingList2. If both have no elements pick any from ConsiderList.
     ToChooseFromList = case {length(TryList), length(WorkingList2)} of
-        {0, 0} -> ConsiderList;
-        {_, 0} -> TryList;
-        {0, _} -> WorkingList2
+        {0, 0} -> ConsiderList;  %% None of the GWs we have support for has worked.
+        {0, _} -> WorkingList2;  %% We have tried all the GWs. Will try again using what has worked.
+        {_, _} -> TryList        %% We will try using GWs we have not tried.
     end,
+    ?DEBUG("Choose from: ~p", [ToChooseFromList]),
 
     %% Pick any.
     ToPick = p1_rand:uniform(1, length(ToChooseFromList)),
-    NewGateway = lists:nth(ToPick, ToChooseFromList),
+    PickedGateway = lists:nth(ToPick, ToChooseFromList),
+
+    %% Just in case there is any bug in computation of new gateway.
+    NewGateway = case sets:is_element(PickedGateway, ConsiderSet) of
+        true -> PickedGateway;
+        false ->
+            ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderSet]),
+            twilio
+    end,
     Result = NewGateway:send_sms(Phone, Msg),
     ?DEBUG("Result: ~p", [Result]),
     case Result of
