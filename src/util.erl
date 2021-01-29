@@ -180,6 +180,7 @@ to_binary(Data) ->
         "boolean" -> atom_to_binary(Data, utf8);
         "list" -> list_to_binary(Data);
         "integer" -> integer_to_binary(Data);
+        "float" -> float_to_binary(Data);
         _ ->
             ?ERROR("Failed converting data to binary: ~p", [Data]),
             % TODO: change to undefined
@@ -194,6 +195,7 @@ to_list(Data) ->
         "atom" -> atom_to_list(Data);
         "boolean" -> atom_to_list(Data);
         "integer" -> integer_to_list(Data);
+        "float" -> float_to_list(Data);
         _ ->
             ?ERROR("Failed converting data to list: ~p", [Data]),
             undefined
