@@ -127,6 +127,7 @@ add_sms_gateway_response_test() ->
     {ok, ?CALLBACK_STATUS2} = model_phone:get_gateway_response_status(?PHONE1, AttemptId2),
     AllResponses = [#sms_response{gateway=?GATEWAY1, status=?CALLBACK_STATUS1},
                     #sms_response{gateway=?GATEWAY2, status=?CALLBACK_STATUS2}],
+    {ok, []} = model_phone:get_all_gateway_responses(?PHONE2),
     {ok, AllResponses} = model_phone:get_all_gateway_responses(?PHONE1),
     ok = model_phone:add_verification_success(?PHONE1, AttemptId),
     true = model_phone:get_verification_success(?PHONE1, AttemptId),
