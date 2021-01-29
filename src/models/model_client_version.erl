@@ -22,7 +22,8 @@
 -export([
     get_version_ts/1,
     set_version_ts/2,
-    get_versions/2
+    get_versions/2,
+    update_version_ts/2
 ]).
 % Only test exports
 -ifdef(TEST).
@@ -68,6 +69,13 @@ set_version_ts(Version, Ts) ->
         false -> ok
     end,
     NewVersion.
+
+
+-spec update_version_ts(Version :: binary(), Ts :: integer()) -> ok | {error, any()}.
+update_version_ts(Version, Ts) ->
+    {ok, _Res} = q(["SET", version_key(Version), Ts]),
+    {ok, <<"1">>} = q(["ZADD", all_versions_key(), Ts, Version]),
+    ok.
 
 
 -spec get_versions(MinTs :: integer(), MaxTs :: integer()) -> {ok, [binary()]}.

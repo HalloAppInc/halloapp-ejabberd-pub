@@ -34,6 +34,7 @@
     is_valid_version/1,
     c2s_session_opened/1,
     get_version_validity/1,  % Stop exporting this once we delete mnesia
+    extend_version_validity/2,
     get_time_left/2     %% test
 ]).
 
@@ -91,6 +92,23 @@ is_valid_version(Version) ->
     CurTimestamp = util:now(),
     TimeLeftSec = get_time_left(Version, CurTimestamp),
     TimeLeftSec > 0.
+
+
+-spec extend_version_validity(Version :: binary(), ExtendTimeSec :: integer()) -> integer().
+extend_version_validity(Version, ExtendTimeSec) ->
+    CurTimestamp = model_client_version:get_version_ts(Version),
+    case CurTimestamp of
+        undefined ->
+            ?ERROR("Can not find version ~s in Redis", [Version]),
+            0;
+        VerTs ->
+            NewTimestamp = VerTs + ExtendTimeSec,
+            ok = model_client_version:update_version_ts(Version, NewTimestamp),
+            TimeLeft = get_time_left(Version, util:now()),
+            ?INFO("updated version : ~s, timestamp is now: ~p, timeleft: ~p",
+                    [Version, NewTimestamp, TimeLeft]),
+            TimeLeft
+    end.
 
 %%====================================================================
 %% internal functions
