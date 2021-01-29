@@ -31,6 +31,10 @@
 -define(PHONE5, <<"16505555555">>).
 -define(NAME5, <<"Name5">>).
 
+-define(PHONE6, <<"16505556666">>).
+-define(PHONE7, <<"16505557777">>).
+-define(PHONE8, <<"16505558888">>).
+
 -define(SERVER, <<"s.halloapp.net">>).
 -define(TEMP_FILE_NAME, "/tmp/uids.txt").
 -define(PASS, <<"pword">>).
@@ -90,5 +94,27 @@ check_file_processing_test() ->
     ?assertEqual(2, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:remove_user/1, 2)),
     ?assertEqual(2, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:remove_user/1, 10)),
     ?assertEqual(0, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:remove_user/1, 10)),
+    ok = file:delete(?TEMP_FILE_NAME),
+
+    %% Register again.
+    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE1, ?SERVER, ?PASS, ?NAME1, ?UA),
+    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE2, ?SERVER, ?PASS, ?NAME2, ?UA),
+    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE3, ?SERVER, ?PASS, ?NAME3, ?UA),
+    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE4, ?SERVER, ?PASS, ?NAME4, ?UA),
+    {ok, _, register} = ejabberd_auth:check_and_register(?PHONE5, ?SERVER, ?PASS, ?NAME5, ?UA),
+
+    {ok, Fh3} = file:open(?TEMP_FILE_NAME, [write]),
+    io:format(Fh3, "~p~n", [?PHONE1]),
+    io:format(Fh3, "~p~n", [?PHONE2]),
+    io:format(Fh3, "~p~n", [?PHONE3]),
+    io:format(Fh3, "~p~n", [?PHONE4]),
+    io:format(Fh3, "~p~n", [?PHONE5]),
+    io:format(Fh3, "~p~n", [?PHONE6]),
+    io:format(Fh3, "~p~n", [?PHONE7]),
+    io:format(Fh3, "~p~n", [?PHONE8]),
+    file:close(Fh3),
+    ?assertEqual(1, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:validate_phone/1, 1)),
+    ?assertEqual(2, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:validate_phone/1, 2)),
+    ?assertEqual(5, list_processor:process_file_list(?TEMP_FILE_NAME, fun list_processor:validate_phone/1, 10)),
     ok = file:delete(?TEMP_FILE_NAME).
- 
+

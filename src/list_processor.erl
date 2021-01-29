@@ -15,7 +15,8 @@
 
 -export([
     process_file_list/3,
-    remove_user/1
+    remove_user/1,
+    validate_phone/1   
 ]).
 
 %% Export all functions for unit tests
@@ -69,4 +70,16 @@ remove_user(Uid) ->
         false -> false
     end.
 
-
+-spec validate_phone(PhoneInt :: integer()) -> boolean().
+validate_phone(PhoneInt) ->
+    Phone = integer_to_binary(PhoneInt),
+    case model_phone:get_uid(Phone) of
+        {ok, undefined} ->
+            ?INFO("No Uid for: ~p", [Phone]),
+            false;
+        {ok, Uid} ->
+            case model_accounts:get_phone(Uid) of
+                {ok, GotPhone} -> GotPhone =:= Phone;
+                {error, _} -> false
+            end
+    end.
