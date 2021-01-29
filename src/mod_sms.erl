@@ -187,7 +187,7 @@ smart_send(Phone, Msg, OldResponses) ->
     NewGateway = case sets:is_element(PickedGateway, ConsiderSet) of
         true -> PickedGateway;
         false ->
-            ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderSet]),
+            ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderList]),
             twilio
     end,
     Result = NewGateway:send_sms(Phone, Msg),
