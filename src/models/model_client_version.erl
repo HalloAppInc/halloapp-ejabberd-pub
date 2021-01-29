@@ -74,7 +74,7 @@ set_version_ts(Version, Ts) ->
 -spec update_version_ts(Version :: binary(), Ts :: integer()) -> ok | {error, any()}.
 update_version_ts(Version, Ts) ->
     {ok, _Res} = q(["SET", version_key(Version), Ts]),
-    {ok, <<"1">>} = q(["ZADD", all_versions_key(), Ts, Version]),
+    {ok, _Res2} = q(["ZADD", all_versions_key(), Ts, Version]),
     ok.
 
 
