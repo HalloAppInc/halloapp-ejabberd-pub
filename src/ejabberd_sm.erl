@@ -473,7 +473,8 @@ set_session(SID, User, Server, Resource, Priority, Info) ->
              priority = Priority, info = Info}).
 
 -spec set_session(#session{}) -> ok | {error, any()}.
-set_session(#session{us = {LUser, LServer}} = Session) ->
+set_session(#session{sid = Sid, us = {LUser, LServer}} = Session) ->
+    ?INFO("Uid: ~s Sid: ~p", [LUser, Sid]),
     Mod = get_sm_backend(LServer),
     Res = case Mod:set_session(Session) of
         ok ->
@@ -550,7 +551,8 @@ activate_session(Uid, Server) ->
 
 
 -spec delete_session(module(), #session{}) -> ok.
-delete_session(Mod, #session{} = Session) ->
+delete_session(Mod, #session{sid = Sid} = Session) ->
+    ?INFO("SID: ~p", [Sid]),
     Mod:delete_session(Session),
     ets_delete_session(Session),
     ok.
