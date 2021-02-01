@@ -28,7 +28,7 @@ connect_test(_Conf) ->
 check_accounts_test(_Conf) ->
     ?assertEqual(true, model_accounts:account_exists(?UID1)),
     ?assertEqual(true, model_accounts:account_exists(?UID2)),
-    ?assertEqual(false, model_accounts:account_exists(?UID3)),
+    ?assertEqual(false, model_accounts:account_exists(?UID6)),
     ok.
 
 no_user_test(_Conf) ->

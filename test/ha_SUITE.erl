@@ -42,7 +42,7 @@ suite() ->
 
 groups() -> [
     auth_tests:group(),
-    {feed, [sequence], feed_tests()},
+    feed_tests:group(),
     groups_tests:group(),
     chat_tests:group(),
     {registration, [sequence], registration_tests()},
@@ -115,6 +115,16 @@ create_test_accounts() ->
     ok = ejabberd_auth:set_password(?UID1, ?PASSWORD1),
     ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA, ?TS2),
     ok = ejabberd_auth:set_password(?UID2, ?PASSWORD2),
+    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?UA, ?TS1),
+    ok = ejabberd_auth:set_password(?UID3, ?PASSWORD1),
+    ok = model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?UA, ?TS2),
+    ok = ejabberd_auth:set_password(?UID4, ?PASSWORD2),
+    ok = model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?UA, ?TS1),
+    ok = ejabberd_auth:set_password(?UID5, ?PASSWORD1),
+    ok = model_friends:add_friend(?UID1, ?UID2),
+    ok = model_friends:add_friend(?UID1, ?UID3),
+    ok = model_friends:add_friend(?UID1, ?UID4),
+    ok = model_friends:add_friend(?UID1, ?UID5),
     ok.
 
 
