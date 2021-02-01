@@ -203,7 +203,10 @@ init([Options] = _Args) ->
 
 terminate(_Reason, State) ->
     Socket = State#state.socket,
-    ssl:close(Socket),
+    case Socket of
+        undefined -> ok;
+        _ -> ssl:close(Socket)
+    end,
     ok.
 
 
