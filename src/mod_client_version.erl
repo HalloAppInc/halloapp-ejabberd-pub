@@ -33,7 +33,6 @@
     process_local_iq/1,
     is_valid_version/1,
     c2s_session_opened/1,
-    get_version_validity/1,  % Stop exporting this once we delete mnesia
     extend_version_validity/2,
     get_time_left/2     %% test
 ]).
@@ -144,17 +143,14 @@ get_time_left(Version, CurTimestamp) ->
             ?ERROR("Can not find version ~s in Redis", [Version]),
             0;
         VerTs ->
-            MaxTimeSec = get_version_validity(VerTs),
+            MaxTimeSec = get_version_validity(),
             MaxTimeSec - (CurTimestamp - VerTs)
     end.
 
-% TODO: this function can be simplified after 2020-11-25
--spec get_version_validity(VersionTs :: integer()) -> integer().
-get_version_validity(VersionTs) ->
-    case VersionTs > ?CUTOFF_TIME of
-        true -> ?VERSION_VALIDITY;
-        false -> ?OLD_VERSION_VALIDITY
-    end.
+
+-spec get_version_validity() -> integer().
+get_version_validity() ->
+    ?VERSION_VALIDITY.
 
 
 mod_options(_Host) ->
