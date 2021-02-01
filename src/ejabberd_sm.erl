@@ -485,14 +485,6 @@ set_session(#session{sid = Sid, us = {LUser, LServer}} = Session) ->
     ets_insert_sesssion(Session),
     Res.
 
--spec get_sessions(module()) -> [#session{}].
-get_sessions(Mod) ->
-    delete_dead(Mod, Mod:get_sessions()).
-
--spec get_sessions(module(), binary()) -> [#session{}].
-get_sessions(Mod, LServer) ->
-    delete_dead(Mod, Mod:get_sessions(LServer)).
-
 -spec get_sessions(module(), binary(), binary()) -> [#session{}].
 get_sessions(Mod, LUser, LServer) ->
     case Mod:get_sessions(LUser, LServer) of
@@ -560,16 +552,26 @@ delete_session(Mod, #session{sid = Sid} = Session) ->
 -spec delete_dead(module(), [#session{}]) -> [#session{}].
 delete_dead(Mod, Sessions) ->
     lists:filter(
-        fun(#session{sid = {_, Pid}} = Session) when node(Pid) == node() ->
-            case is_process_alive(Pid) of
+        fun(#session{sid = {_, Pid}} = Session) ->
+            case remote_is_process_alive(Pid) of
                 true -> true;
                 false ->
-                    delete_session(Mod, Session),
+                    ?WARNING("Pid: ~p is dead. Cleaning up old sessions ~p", [Session]),
+                    stat:count("HA/sessions", "cleanup_dead", 1),
+                    Mod:delete_session(Session),
                     false
-            end;
-        (_) ->
-            true
+            end
     end, Sessions).
+
+
+remote_is_process_alive(Pid) ->
+    stat:count("HA/sessions", "remote_is_process_alive", 1),
+    case rpc:call(node(Pid), erlang, is_process_alive, [Pid], 5000) of
+        {badrpc, Reason} ->
+            ?ERROR("Pid: ~p badrpc ~p", [Pid, Reason]),
+            true;
+        Result -> Result
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec do_route(jid(), term()) -> any().
