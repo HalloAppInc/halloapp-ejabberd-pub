@@ -539,6 +539,10 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
 -spec send_post_request_to_apns(Uid :: binary(), ApnsId :: binary(), ContentId :: binary(), PayloadBin :: binary(),
         PushType :: alert | silent, BuildType :: build_type(), PushMessageItem :: push_message_item(),
         State :: push_state()) -> {ok, push_state()} | {{error, any()}, push_state()}.
+send_post_request_to_apns(_Uid, _ApnsId, _ContentId, _PayloadBin, silent, _BuildType, _PushMessageItem, State) ->
+    %% Ignore sending silent pushes to ios for two weeks.
+    %% Revisit this in 2-weeks (15th Feb) once we have an ios build with fixes for handling silent pushes.
+    {ok, State};
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, BuildType, PushMessageItem, State) ->
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
     Priority = get_priority(PushType),
