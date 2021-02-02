@@ -21,7 +21,8 @@
     qp/2,
     eredis_hash/1,
     encode_boolean/1,
-    decode_boolean/2
+    decode_boolean/2,
+    parse_zrange_with_scores/1
 ]).
 
 
@@ -71,3 +72,12 @@ decode_boolean(<<"1">>, _DefaultValue) -> true;
 decode_boolean(<<"0">>, _DefaultValue) -> false;
 decode_boolean(_, DefaultValue) -> DefaultValue.
 
+
+-spec parse_zrange_with_scores(L :: []) -> [{term(), term()}].
+parse_zrange_with_scores(L) ->
+    parse_zrange_with_scores(L, []).
+
+parse_zrange_with_scores([], Res) ->
+    lists:reverse(Res);
+parse_zrange_with_scores([El, Score | Rest], Res) ->
+    parse_zrange_with_scores(Rest, [{El, Score} | Res]).

@@ -344,9 +344,35 @@ check_invited(PhoneNum, UserAgent, IP) ->
         true -> ok;
         false ->
             case model_phone:get_uid(PhoneNum) of
-                {ok, undefined} -> erlang:error(not_invited);
-                {ok, _Uid} -> ok
+                {ok, undefined} ->
+                    log_not_invited(PhoneNum),
+
+                    erlang:error(not_invited);
+                {ok, _Uid} ->
+                    ok
             end
+    end.
+
+-spec log_not_invited(PhoneNum :: binary()) -> ok.
+log_not_invited(PhoneNum) ->
+    try
+        CC = mod_libphonenumber:get_cc(PhoneNum),
+        NumPossibleFriends = model_contacts:get_contact_uids_size(PhoneNum),
+        HasSomeone = NumPossibleFriends =/= 0,
+        ?INFO("Phone: ~s (~s) is not invited. Has ~p possible friends", [PhoneNum, CC, NumPossibleFriends]),
+        New = model_contacts:add_not_invited_phone(PhoneNum),
+        case New of
+            true ->
+                stat:count("HA/registration", "not_invited", 1),
+                stat:count("HA/registration", "not_invited_by_cc", 1, [{"cc", CC}]),
+                stat:count("HA/registration", "not_invited_by_has_possible_friends", 1,
+                        [{"has_someone", HasSomeone}]);
+            false -> ok
+        end,
+        ok
+    catch
+        Class : Reason : St ->
+            ?ERROR("Stacktrace: ~s", [lager:pr_stacktrace(St, {Class, Reason})])
     end.
 
 -spec is_version_invite_opened(UserAgent :: binary()) -> boolean().

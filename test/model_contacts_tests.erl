@@ -180,6 +180,19 @@ hash_phone_test() ->
     ok.
 
 
+non_invited_phone_test() ->
+    setup(),
+    ?assertEqual([], model_contacts:get_not_invited_phones()),
+    ?assertEqual(true, model_contacts:add_not_invited_phone(?CONTACT1)),
+    ?assertEqual(false, model_contacts:add_not_invited_phone(?CONTACT1)),
+    ?assertEqual(true, model_contacts:add_not_invited_phone(?CONTACT2)),
+    Data = model_contacts:get_not_invited_phones(),
+    {Phones, _Times} = lists:unzip(Data),
+    ?assertEqual(2, length(Phones)),
+    ?assertEqual(lists:sort([?CONTACT1, ?CONTACT2]), lists:sort(Phones)),
+    ok.
+
+
 sequence_loop(To, To, Fun, MapAcc) -> maps:size(MapAcc);
 sequence_loop(From, To, Fun, MapAcc) ->
     NewMapAcc = erlang:apply(Fun, [From, MapAcc]),

@@ -65,6 +65,7 @@
 -define(SYNC_KEY, <<"sync:">>).
 -define(REVERSE_KEY, <<"rev:">>).
 -define(PHONE_HASH_KEY, <<"rph:">>).
+-define(NOT_INVITED_PHONES_KEY, <<"not_invited_phones:">>).
 
 %% RedisAccounts (model_friends)
 -define(FRIENDS_KEY, <<"fr:">>).

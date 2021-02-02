@@ -43,7 +43,9 @@
     get_contact_uids_size/1,
     get_potential_reverse_contact_uids/1,
     hash_phone/1,
-    get_contact_hash_salt/0
+    get_contact_hash_salt/0,
+    add_not_invited_phone/1,
+    get_not_invited_phones/0
 ]).
 
 %%====================================================================
@@ -196,6 +198,27 @@ get_potential_reverse_contact_uids(Contact) ->
     {ok, Res}.
 
 
+% Returns true if this is the first time this phone was marked.
+-spec add_not_invited_phone(Phone :: binary()) -> boolean().
+add_not_invited_phone(Phone) ->
+    TimestampMs = util:now_ms(),
+    {ok, Res} = q(["ZADD", not_invited_phones_key(), TimestampMs, Phone]),
+    cleanup_not_invited_phones(TimestampMs - 30 * ?DAYS_MS),
+    binary_to_integer(Res) =:= 1.
+
+
+-spec get_not_invited_phones() -> [{binary(), non_neg_integer()}].
+get_not_invited_phones() ->
+    {ok, Res} = q(["ZRANGEBYSCORE", not_invited_phones_key(), "-inf", "+inf", "WITHSCORES"]),
+    util_redis:parse_zrange_with_scores(Res).
+
+
+-spec cleanup_not_invited_phones(MinScore :: integer()) -> NumRemoved :: non_neg_integer().
+cleanup_not_invited_phones(MinScore) ->
+    {ok, Res} = q(["ZREMRANGEBYSCORE", not_invited_phones_key(), "-inf", MinScore]),
+    binary_to_integer(Res).
+
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -242,6 +265,8 @@ reverse_phone_hash_key(Phone) ->
     SqueezedPhoneHash = hash_phone(Phone),
     <<?PHONE_HASH_KEY/binary, "{", SqueezedPhoneHash/binary, "}">>.
 
+not_invited_phones_key() ->
+    <<?NOT_INVITED_PHONES_KEY/binary>>.
 
 -spec hash_phone(Phone :: phone()) -> binary().
 hash_phone(Phone) ->

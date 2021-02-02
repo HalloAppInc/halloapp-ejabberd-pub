@@ -94,7 +94,8 @@ request_sms_test() ->
 request_sms_test_phone_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    meck_init(stat, count, fun(_,_,_,_) -> "Logged a metric!" end),
+    meck:new(stat, [passthrough]),
+    meck:expect(stat, count, fun(_,_,_,_) -> "Logged a metric!" end),
     Data = jsx:encode([{<<"phone">>, ?PHONE}]),
     NotInvitedError = util_http:return_400(not_invited),
     ?assertEqual(NotInvitedError, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
