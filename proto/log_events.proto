@@ -20,8 +20,9 @@ message EventData {
 }
 
 enum Platform {
-  ANDROID = 0;
+  UNKNOWN = 0;
   IOS = 1;
+  ANDROID = 2;
 }
 
 message MediaUpload {
