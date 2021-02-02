@@ -28,6 +28,8 @@
 
 -behaviour(gen_server).
 
+-define(CURRENT_LIB_PATH, "/home/ha/pkg/ejabberd/current/lib/").
+
 -include_lib("stdlib/include/assert.hrl").
 
 -export([
@@ -476,6 +478,7 @@ get_commands_spec() ->
 -spec hot_code_reload() -> ok | {error, any()}.
 hot_code_reload() ->
     try
+        update_code_paths(),
         ModifiedModules = code:modified_modules(),
         lists:foldl(
             fun(Module, Acc) ->
@@ -483,17 +486,70 @@ hot_code_reload() ->
                     true -> [Module | Acc];
                     false ->
                         ?ERROR("Can't purge: ~p: there is a process using it", [Module]),
+                        io:format("Can't purge: ~p: there is a process using it", [Module]),
                         error(failed_to_purge)
                 end
             end, [], ModifiedModules),
         {ok, Prepared} = code:prepare_loading(ModifiedModules),
         ok = code:finish_loading(Prepared),
+        io:format("Hotloaded following modules: ~p", [lists:sort(ModifiedModules)]),
         ?INFO("Hotloaded following modules: ~p", [lists:sort(ModifiedModules)])
     catch
         error: Reason ->
+            io:format("Failed to hotload modules, reason: ~p", [Reason]),
             ?ERROR("Failed to hotload modules, reason: ~p", [Reason]),
+            {error, Reason};
+        Class: Reason: Stacktrace ->
+            io:format("hot_code_reload error: ~s",
+                    [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            ?ERROR("hot_code_reload error: ~s",
+                    [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             {error, Reason}
     end.
+
+
+-spec update_code_paths() -> ok | {error, any()}.
+update_code_paths() ->
+    %% List all libraries in the current directory.
+    {ok, AllLibDirs} = file:list_dir(?CURRENT_LIB_PATH),
+
+    %% Get all the new library names to be added.
+    Libs = lists:map(
+            fun(LibDir) ->
+                [Package| _] = string:split(LibDir, "-"),
+                Package
+            end, AllLibDirs),
+
+    %% check if we need to delete any filepaths from the new set of paths.
+    Files = code:get_path(),
+    DelFilePaths = lists:foldl(
+        fun(FilePath, Acc) ->
+            case util:to_binary(FilePath) of
+                <<?CURRENT_LIB_PATH, PackageExtBin>>  ->
+                    PackageExt = util:to_list(PackageExtBin),
+                    [Package | _] = string:split(PackageExt, <<"-">>),
+                    case lists:member(Package, Libs) of
+                        false -> [FilePath | Acc];
+                        true -> Acc
+                    end;
+                _ -> error(invalid_file)
+            end
+        end, [], Files),
+
+    %% replace any existing paths if any for all libraries.
+    %% if paths already exist: we replace them, else we add them newly.
+    LoadedLibs = lists:foldl(
+        fun(LibDir, Acc) ->
+            [Package | _] = string:split(LibDir, <<"-">>),
+            true = code:replace_path(Package, ?CURRENT_LIB_PATH ++ LibDir),
+            [Package | Acc]
+        end, [], AllLibDirs),
+
+    ?INFO("Added file paths for these libraries: ~p", [LoadedLibs]),
+
+    %% delete filepaths that are no longer needed.
+    lists:foreach(fun code:del_path/1, DelFilePaths),
+    ok.
 
 
 %%%
