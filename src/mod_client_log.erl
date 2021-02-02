@@ -476,7 +476,7 @@ make_date_str({Year, Month, Date}) ->
     DateStr.
 
 file_path(Namespace, DateStr) ->
-    LogFile = Namespace ++ ".log." ++ DateStr,
+    LogFile = binary_to_list(Namespace) ++ ".log." ++ DateStr,
     filename:join([client_log_dir(), LogFile]).
 
 client_log_dir() ->
