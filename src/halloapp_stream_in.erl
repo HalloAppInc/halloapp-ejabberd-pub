@@ -743,7 +743,7 @@ send_pkt(State, XmppPkt) ->
     {FinalResult, FinalState} = case Pkt of
         undefined ->
             ?ERROR("Failed to translate packet: ~p", [XmppPkt]),
-            NewState = send_error(State, XmppPkt, <<"server_error">>),
+            NewState = send_error(State, XmppPkt, server_error),
             {ok, NewState};
         Pkt ->
             % TODO: remove this log
@@ -790,7 +790,7 @@ send_pkt(State, XmppPkt) ->
 
 
 %% TODO(murali@): maybe switch error to be an atom!
--spec send_error(state(), xmpp_element() | xmlel(), binary()) -> state().
+-spec send_error(state(), xmpp_element() | xmlel(), atom()) -> state().
 send_error(State, _Pkt, Err) ->
     send_error(State, Err).
 

@@ -139,7 +139,7 @@ send(#{lserver := LServer} = State, Pkt) ->
     end.
 
 
--spec send_error(state(), xmpp_element(), binary()) -> state().
+-spec send_error(state(), xmpp_element(), atom()) -> state().
 send_error(#{lserver := LServer} = State, Pkt, Err) ->
     case ejabberd_hooks:run_fold(c2s_filter_send, LServer, {Pkt, State}, []) of
         {drop, State1} -> State1;
@@ -447,12 +447,12 @@ handle_cast(Msg, #{lserver := LServer} = State) ->
 
 
 handle_info(replaced, State) ->
-    send_error(State, <<"session_replaced">>);
+    send_error(State, session_replaced);
 handle_info(kick, State) ->
-    send_error(State, <<"session_kicked">>);
+    send_error(State, session_kicked);
 handle_info({exit, Reason}, #{user := User} = State) ->
     ?ERROR("Uid: ~s, session exit reason: ~p", [User, Reason]),
-    send_error(State, <<"server_error">>);
+    send_error(State, server_error);
 handle_info(activate_session, #{user := Uid, mode := active} = State) ->
     ?WARNING("Uid: ~s, mode is already active in c2s_state", [Uid]),
     State;
