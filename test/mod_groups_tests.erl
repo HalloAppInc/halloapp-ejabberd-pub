@@ -312,6 +312,8 @@ set_avatar_test() ->
 
 delete_avatar_test() ->
     setup(),
+    meck:new(mod_user_avatar),
+    meck:expect(mod_user_avatar, delete_avatar_s3, fun(_Id) -> ok end),
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
     ?assertEqual(undefined, Group#group.avatar),
@@ -321,6 +323,7 @@ delete_avatar_test() ->
     ?assertEqual({ok, ?GROUP_NAME1}, mod_groups:delete_avatar(Gid, ?UID1)),
     {ok, GroupNew2} = mod_groups:get_group(Gid, ?UID1),
     ?assertEqual(undefined, GroupNew2#group.avatar),
+    meck:unload(mod_user_avatar),
     ok.
 
 modify_members_test() ->
