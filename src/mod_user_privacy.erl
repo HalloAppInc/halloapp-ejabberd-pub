@@ -127,7 +127,7 @@ privacy_check_packet(allow, _State, #presence{type = Type} = Packet, in = Dir)
     %% inspect the addresses for presence stanzas sent by the server.
     check_blocked(Packet, Dir);
 
-privacy_check_packet(allow, _State, #chat_state{type = group_chat} = _Packet, in) ->
+privacy_check_packet(allow, _State, #chat_state{thread_type = group_chat} = _Packet, in) ->
     %% always allow typing indicators in groups.
     allow;
 
@@ -148,7 +148,7 @@ privacy_check_packet(allow, _State, #presence{type = Type} = Packet, out = Dir)
     %% inspect requests to another user's presence.
     check_blocked(Packet, Dir);
 
-privacy_check_packet(allow, _State, #chat_state{type = group_chat} = _Packet, out) ->
+privacy_check_packet(allow, _State, #chat_state{thread_type = group_chat} = _Packet, out) ->
     %% always allow typing indicators in groups.
     allow;
 
@@ -197,7 +197,7 @@ is_payload_always_allowed(_) -> false.
 
 
 -spec check_blocked(Packet :: stanza(), Dir :: in | out) -> allow | deny.
-check_blocked(#chat_state{thread_id = ThreadId, type = chat} = Packet, out = Dir) ->
+check_blocked(#chat_state{thread_id = ThreadId, thread_type = chat} = Packet, out = Dir) ->
     #jid{luser = FromUid} = xmpp:get_from(Packet),
     ToUid = ThreadId,
     check_blocked(FromUid, ToUid, Packet, Dir);
