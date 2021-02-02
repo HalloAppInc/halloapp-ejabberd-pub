@@ -214,26 +214,27 @@
 
 -define(DEFAULT_VERSION, 1000000).
 
--export([start_link/0,
-	 list_commands/0,
-	 list_commands/1,
-	 get_command_format/1,
-	 get_command_format/2,
-	 get_command_format/3,
-	 get_command_definition/1,
-	 get_command_definition/2,
-	 get_tags_commands/0,
-	 get_tags_commands/1,
-	 register_commands/1,
-	 unregister_commands/1,
-	 get_commands_spec/0,
-	 get_commands_definition/0,
-	 get_commands_definition/1,
-	 execute_command2/3,
-	 execute_command2/4]).
+-export([
+    start_link/0,
+    list_commands/0,
+    list_commands/1,
+    get_command_format/1,
+    get_command_format/2,
+    get_command_format/3,
+    get_command_definition/1,
+    get_command_definition/2,
+    get_tags_commands/0,
+    get_tags_commands/1,
+    register_commands/1,
+    unregister_commands/1,
+    get_commands_spec/0,
+    get_commands_definition/0,
+    get_commands_definition/1,
+    execute_command2/3,
+    execute_command2/4
+]).
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("ejabberd_commands.hrl").
 -include("logger.hrl").
@@ -284,16 +285,15 @@ start_link() ->
 
 init([]) ->
     %% TODO(murali@): no need of transform for now i think.
-    try mnesia:transform_table(ejabberd_commands, ignore,
-			       record_info(fields, ejabberd_commands))
+    try mnesia:transform_table(ejabberd_commands, ignore, record_info(fields, ejabberd_commands))
     catch exit:{aborted, {no_exists, _}} -> ok
     end,
     ?INFO("mnesia transform done."),
     ejabberd_mnesia:create(?MODULE, ejabberd_commands,
-                        [{ram_copies, [node()]},
-                         {local_content, true},
-                         {attributes, record_info(fields, ejabberd_commands)},
-                         {type, bag}]),
+            [{ram_copies, [node()]},
+             {local_content, true},
+             {attributes, record_info(fields, ejabberd_commands)},
+             {type, bag}]),
     ?INFO("create mnesia table again"),
     register_commands(get_commands_spec()),
     ?INFO("done, register_commands"),
@@ -326,12 +326,12 @@ code_change(_OldVsn, State, _Extra) ->
 %% ejabberd ReST API. It need to be exposed to be available through API.
 register_commands(Commands) ->
     lists:foreach(
-      fun(Command) ->
-              %% XXX check if command exists
-              mnesia:dirty_write(Command)
-              %% ?DEBUG("This command is already defined:~n~p", [Command])
-      end,
-      Commands),
+        fun(Command) ->
+            %% XXX check if command exists
+            mnesia:dirty_write(Command)
+            %% ?DEBUG("This command is already defined:~n~p", [Command])
+        end,
+        Commands),
     ejabberd_access_permissions:invalidate(),
     ok.
 
@@ -340,10 +340,10 @@ register_commands(Commands) ->
 %% @doc Unregister ejabberd commands.
 unregister_commands(Commands) ->
     lists:foreach(
-      fun(Command) ->
-	      mnesia:dirty_delete_object(Command)
-      end,
-      Commands),
+        fun(Command) ->
+            mnesia:dirty_delete_object(Command)
+        end,
+        Commands),
     ejabberd_access_permissions:invalidate().
 
 -spec list_commands() -> [{atom(), [aterm()], string()}].
@@ -358,9 +358,7 @@ list_commands() ->
 %% description in a given API version.
 list_commands(Version) ->
     Commands = get_commands_definition(Version),
-    [{Name, Args, Desc} || #ejabberd_commands{name = Name,
-                                              args = Args,
-                                              desc = Desc} <- Commands].
+    [{Name, Args, Desc} || #ejabberd_commands{name = Name, args = Args, desc = Desc} <- Commands].
 
 -spec get_command_format(atom()) -> {[aterm()], [{atom(),atom()}], rterm()}.
 
@@ -376,13 +374,11 @@ get_command_format(Name, Auth)  ->
 get_command_format(Name, Auth, Version) ->
     Admin = is_admin(Name, Auth, #{}),
     #ejabberd_commands{args = Args,
-		       result = Result,
-		       args_rename = Rename,
-                       policy = Policy} =
-        get_command_definition(Name, Version),
+            result = Result,
+            args_rename = Rename,
+            policy = Policy} = get_command_definition(Name, Version),
     case Policy of
-        user when Admin;
-                  Auth == noauth ->
+        user when Admin; Auth == noauth ->
             {[{user, binary}, {host, binary} | Args], Rename, Result};
         _ ->
             {Args, Rename, Result}
@@ -399,14 +395,12 @@ get_command_definition(Name) ->
 %% @doc Get the definition record of a command in a given API version.
 get_command_definition(Name, Version) ->
     case lists:reverse(
-           lists:sort(
-             mnesia:dirty_select(
-               ejabberd_commands,
-               ets:fun2ms(
-                 fun(#ejabberd_commands{name = N, version = V} = C)
-                       when N == Name, V =< Version ->
-                         {V, C}
-                 end)))) of
+            lists:sort(
+                mnesia:dirty_select(ejabberd_commands,
+                ets:fun2ms(
+                    fun(#ejabberd_commands{name = N, version = V} = C)
+                        when N == Name, V =< Version -> {V, C}
+                    end)))) of
         [{_, Command} | _ ] -> Command;
         _E -> throw({error, unknown_command})
     end.
@@ -420,12 +414,10 @@ get_commands_definition() ->
 get_commands_definition(Version) ->
     L = lists:reverse(
           lists:sort(
-            mnesia:dirty_select(
-              ejabberd_commands,
+            mnesia:dirty_select(ejabberd_commands,
               ets:fun2ms(
                 fun(#ejabberd_commands{name = Name, version = V} = C)
-                      when V =< Version ->
-                        {Name, V, C}
+                    when V =< Version -> {Name, V, C}
                 end)))),
     F = fun({_Name, _V, Command}, []) ->
                 [Command];
@@ -441,10 +433,10 @@ execute_command2(Name, Arguments, CallerInfo) ->
 execute_command2(Name, Arguments, CallerInfo, Version) ->
     Command = get_command_definition(Name, Version),
     case ejabberd_access_permissions:can_access(Name, CallerInfo) of
-	allow ->
-	    do_execute_command(Command, Arguments);
-	_ ->
-	    throw({error, access_rules_unauthorized})
+        allow ->
+            do_execute_command(Command, Arguments);
+        _ ->
+            throw({error, access_rules_unauthorized})
     end.
 
 
@@ -468,26 +460,24 @@ get_tags_commands() ->
 %% @doc Get all the tags and associated commands in a given API version
 get_tags_commands(Version) ->
     CommandTags = [{Name, Tags} ||
-		      #ejabberd_commands{name = Name, tags = Tags}
-			  <- get_commands_definition(Version)],
+            #ejabberd_commands{name = Name, tags = Tags} <- get_commands_definition(Version)],
     Dict = lists:foldl(
-	     fun({CommandNameAtom, CTags}, D) ->
-		     CommandName = atom_to_list(CommandNameAtom),
-		     case CTags of
-			 [] ->
-			     orddict:append("untagged", CommandName, D);
-			 _ ->
-			     lists:foldl(
-			       fun(TagAtom, DD) ->
-				       Tag = atom_to_list(TagAtom),
-				       orddict:append(Tag, CommandName, DD)
-			       end,
-			       D,
-			       CTags)
-		     end
-	     end,
-	     orddict:new(),
-	     CommandTags),
+         fun({CommandNameAtom, CTags}, D) ->
+            CommandName = atom_to_list(CommandNameAtom),
+            case CTags of
+                [] ->
+                    orddict:append("untagged", CommandName, D);
+                _ ->
+                    lists:foldl(
+                        fun(TagAtom, DD) ->
+                            Tag = atom_to_list(TagAtom),
+                            orddict:append(Tag, CommandName, DD)
+                        end,
+                        D, CTags)
+             end
+         end,
+         orddict:new(),
+         CommandTags),
     orddict:to_list(Dict).
 
 %% -----------------------------
