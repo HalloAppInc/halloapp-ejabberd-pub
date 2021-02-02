@@ -191,7 +191,7 @@ compute_counts_by_version() ->
     NowSec = util:now(),
     VersionExpiry = ?VERSION_VALIDITY,
     DeadlineSec = NowSec - VersionExpiry,
-    {ok, Versions} = model_client_version:get_versions(NowSec, DeadlineSec),
+    {ok, Versions} = model_client_version:get_versions(DeadlineSec, NowSec),
 
     lists:foreach(
         fun(Version) ->
