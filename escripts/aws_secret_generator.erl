@@ -5,7 +5,7 @@
 
 -export([main/1]).
 
--include_lib("../include/proto/cert.hrl").
+-include_lib("../include/proto/server.hrl").
 
 %%% Usage:
 %%% escript escripts/aws_secret_generator.erl ServerKeyFilename SignedMessageFileName SecretFileName
