@@ -33,7 +33,8 @@ xmpp_to_proto_contact_list(SubEl) ->
                 uid = Uid,
                 avatar_id = Contact#contact.avatarid,
                 name = Contact#contact.name,
-                role = xmpp_to_proto_role(Contact#contact.role)
+                role = xmpp_to_proto_role(Contact#contact.role),
+                num_potential_friends = Contact#contact.num_potential_friends
             }
         end,
         Contacts),
@@ -85,7 +86,8 @@ proto_to_xmpp_contact_list(ProtoPayload) ->
                 userid = Uid,
                 avatarid = Contact#pb_contact.avatar_id,
                 name = Contact#pb_contact.name,
-                role = proto_to_xmpp_role(Contact#pb_contact.role)
+                role = proto_to_xmpp_role(Contact#pb_contact.role),
+                num_potential_friends = Contact#pb_contact.num_potential_friends
             }
         end,
         ContactList),
