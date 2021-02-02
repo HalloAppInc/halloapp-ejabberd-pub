@@ -335,7 +335,7 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
                 {error, bad_arg};
             Data when is_binary(Data) ->
                 Json = json_encode(Data),
-                write_log(Namespace, Date, Json),
+                write_log(FullNamespace, Date, Json),
                 ?INFO("~s, ~s, ~p, ~p", [FullNamespace, Uid, Ts, Data]),
                 ok
         end
