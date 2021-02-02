@@ -22,7 +22,8 @@
 
 -export([
     process_local_iq/1,
-    process_client_count_log_st/3
+    process_client_count_log_st/3,
+    trigger_upload_aws/0
 ]).
 
 -ifdef(TEST).
