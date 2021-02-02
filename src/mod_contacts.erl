@@ -416,12 +416,7 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
     %% TODO(vipin): Need to fix the stat below.
     stat:count("HA/contacts", "add_contact"),
     case ContactId of
-        undefined ->
-            %% TODO(murali@): change this when we switch to contact hashing.
-            %% We are looking up redis sequentially for every phone number.
-            %% TODO(murali@): this query will make it expensive. fix this with qmn later.
-            NumPotentialFriends = model_contacts:get_contact_uids_size(ContactPhone),
-            #contact{normalized = ContactPhone, role = <<"none">>, num_potential_friends = NumPotentialFriends};
+        undefined -> #contact{normalized = ContactPhone, role = <<"none">>};
         _ ->
             %% TODO(murali@): update this to load block-uids once for this request
             %% and use it instead of every redis call.
