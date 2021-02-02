@@ -176,12 +176,12 @@ trigger_upload_aws_blocking() ->
     % returns the not-yet-uploaded-file-queue as the response
     gen_server:call(get_proc(), upload_to_s3).
 
--spec write_log(Namespace :: string(), Date :: tuple(), Bin :: binary()) -> ok.
+-spec write_log(Namespace :: binary(), Date :: tuple(), Bin :: binary()) -> ok.
 write_log(Namespace, Date, Bin) ->
     gen_server:cast(get_proc(), {write_log, Namespace, Date, Bin}),
     ok.
 
--spec write_log_blocking(Namespace :: string(), Date :: tuple(), Bin :: binary()) -> ok.
+-spec write_log_blocking(Namespace :: binary(), Date :: tuple(), Bin :: binary()) -> ok.
 write_log_blocking(Namespace, Date, Bin) ->
     gen_server:call(get_proc(), {write_log, Namespace, Date, Bin}).
 
@@ -475,6 +475,7 @@ make_date_str({Year, Month, Date}) ->
     DateStr = integer_to_list(Year) ++ "." ++ integer_to_list(Month) ++ "." ++ integer_to_list(Date),
     DateStr.
 
+-spec file_path(Namespace :: binary(), DateStr :: string()) -> string().
 file_path(Namespace, DateStr) ->
     LogFile = binary_to_list(Namespace) ++ ".log." ++ DateStr,
     filename:join([client_log_dir(), LogFile]).

@@ -171,9 +171,9 @@ file_contents_test() ->
     % start with a clean slate
     file:delete(Filename),
     Today = today(),
-    mod_client_log:write_log_blocking(binary_to_list(?NS1), Today, Json),
-    mod_client_log:write_log_blocking(binary_to_list(?NS1), Today, Json),
-    mod_client_log:write_log_blocking(binary_to_list(?NS1), Today, Json),
+    mod_client_log:write_log_blocking(?NS1, Today, Json),
+    mod_client_log:write_log_blocking(?NS1, Today, Json),
+    mod_client_log:write_log_blocking(?NS1, Today, Json),
     {ok, Data} = file:read_file(Filename),
     JsonString = binary_to_list(Data),
     Lines = string:tokens(JsonString, "\n"),
@@ -191,8 +191,7 @@ get_log_file(Date, NumDaysBack) ->
     New = calendar:date_to_gregorian_days(Date) - NumDaysBack,
     NewDate = calendar:gregorian_days_to_date(New),
     DateStr = mod_client_log:make_date_str(NewDate),
-    Namespace = binary_to_list(?NS1),
-    mod_client_log:file_path(Namespace, DateStr).
+    mod_client_log:file_path(?NS1, DateStr).
 
 del_dir(Directory) ->
     % list all files and delete each of them
