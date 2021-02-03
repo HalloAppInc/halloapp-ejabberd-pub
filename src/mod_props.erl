@@ -94,7 +94,8 @@ get_props(Uid, ClientVersion) ->
         silent_chat_messages => 5, %% number of silent_chats client can send.
         cleartext_chat_messages => true, %% whether to disable cleartext chat messages.
         max_feed_video_duration => 60, %% duration in seconds for videos on feed.
-        max_chat_video_duration => 120 %% duration in seconds for videos in chats.
+        max_chat_video_duration => 120, %% duration in seconds for videos in chats.
+        private_reactions => false %% whether client can send private reactions.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -116,7 +117,9 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap3 = maps:update(group_feed, true, PropMap2),
             % Set combine_feed to true.
             PropMap4 = maps:update(combine_feed, true, PropMap3),
-            PropMap4
+            % Set private_reactions to true.
+            PropMap5 = maps:update(private_reactions, true, PropMap4),
+            PropMap5
     end.
 
 
