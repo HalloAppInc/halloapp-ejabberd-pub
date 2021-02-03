@@ -1,28 +1,50 @@
-%%   - (put) returns (put_url, get_url) put_url to put content to an S3 object
-%%           and get_url to fetch content of the uploaded S3 object.
-%%-----------------------------------------------------------------------------
+%%%----------------------------------------------------------------------
+%%% File    : s3_signed_url_generator.erl
+%%%
+%%% Copyright (C) 2021 HalloApp Inc.
+%%%
+%%% - (put) returns (put_url, get_url) put_url to put content to an S3 object
+%%% and get_url to fetch content of the uploaded S3 object.
+%%%----------------------------------------------------------------------
 
 -module(s3_signed_url_generator).
-
--include_lib("stdlib/include/assert.hrl").
-
--export([make_signed_url/1,
-         make_signed_url/2,
-         make_signed_url/3,
-         init/3,
-         close/0
-        ]).
-
-%% Name of env variable to decide if we need signed Http GET.
--define(IsSignedGetNeeded, "HALLO_MEDIA_IS_SIGNED_GET").
+-author('vipin').
 
 -include("erlcloud.hrl").
 -include("erlcloud_aws.hrl").
 -include_lib("lhttpc/include/lhttpc_types.hrl").
 -include("logger.hrl").
+-include_lib("stdlib/include/assert.hrl").
+
+
+%% Name of env variable to decide if we need signed Http GET.
+-define(IsSignedGetNeeded, "HALLO_MEDIA_IS_SIGNED_GET").
+
+
+-export([
+    init/3,
+    close/0,
+    make_signed_url/1,
+    make_signed_url/2,
+    make_signed_url/3
+]).
+
+
+-spec init(Region :: string(), PutHost :: string(), GetHost :: string()) -> ok.
+init(Region, PutHost, GetHost) ->
+    ?INFO("~p", [init]),
+    internal_init(Region, PutHost, GetHost),
+    ssl:start(),
+    erlcloud:start().
+
+-spec close() -> ok.
+close() ->
+    ?INFO("~p", [close]),
+    internal_close().
+
 
 %% Generates signed url for Http put, returns {Key, SignedUrl}.
-- spec make_signed_url(integer()) -> {string(), string()}.
+-spec make_signed_url(Expires :: integer()) -> {Key :: string(), SignedUrl :: string()}.
 make_signed_url(Expires) ->
     %% Generate uuid, reference: RFC 4122. Do url friendly base64 encoding of
     %% the uuid.
@@ -30,12 +52,15 @@ make_signed_url(Expires) ->
     SignedUrl = make_signed_url(put, Expires, Key),
     {Key, SignedUrl}.
 
+
 %% Generates signed url for Http get, returns SignedUrl.
-- spec make_signed_url(integer(), string()) -> string().
+-spec make_signed_url(Expires :: integer(), Key :: string()) -> SignedUrl :: string().
 make_signed_url(Expires, Key) ->
     make_signed_url(get, Expires, Key).
 
--spec make_signed_url(atom(), integer(), string()) -> string().
+
+-spec make_signed_url(Method :: atom(), ExpireTime :: integer(),
+        Key :: string()) -> SignedUrl :: string().
 make_signed_url(Method, ExpireTime, Key) ->
     URI = "/" ++ Key,
 
@@ -46,31 +71,21 @@ make_signed_url(Method, ExpireTime, Key) ->
         {_, _} -> throw({error, "Works for get/put only at this point."})
     end.
 
-- spec make_signed_url(atom(), integer(), string(), string()) -> string().
+
+-spec make_signed_url(Method :: atom(), ExpireTime :: integer(),
+        Host :: string(), URI :: string()) -> SignedUrl :: string().
 make_signed_url(Method, ExpireTime, Host, URI) ->
     %% TODO(tbd): Use erlcloud_aws:auto_config_metadata() after building
     %% awareness, auto_config_metadata() builds specifically from ec2 instance
     %% metadata whereas auto_config() looks at env, user profile, ecs task
     %% profile and then instance metadata.
     {_, AwsConfig} = erlcloud_aws:auto_config(),
-    erlcloud_aws:sign_v4_url(Method, URI, AwsConfig,
-                             Host, get_region(), "s3", [], ExpireTime).
+    erlcloud_aws:sign_v4_url(Method, URI, AwsConfig, Host, get_region(), "s3", [], ExpireTime).
 
-- spec init(string(), string(), string()) -> ok.
-init(Region, PutHost, GetHost) ->
-    ?INFO("~p", [init]),
-    internal_init(Region, PutHost, GetHost),
-    ssl:start(),
-    erlcloud:start().
 
-- spec close() -> ok.
-close() ->
-    ?INFO("~p", [close]),
-    internal_close().
-
-%%-----------------------------------------------------------------------------
+%%====================================================================
 %% To keep the env and configuration variables.
-%%-----------------------------------------------------------------------------
+%%====================================================================
 
 internal_init(Region, PutHost, GetHost) ->
     ?assert(not is_boolean(Region)),
@@ -91,8 +106,7 @@ internal_init(Region, PutHost, GetHost) ->
     % Do we need to generate signed 'GET' from S3, default false.
     Val = os:getenv(?IsSignedGetNeeded),
     case Val of
-        "true" -> persistent_term:put({?MODULE, is_signed_get_needed},
-                                      true);
+        "true" -> persistent_term:put({?MODULE, is_signed_get_needed}, true);
         _ ->  persistent_term:put({?MODULE, is_signed_get_needed}, false)
     end,
     ?INFO("Need signed get?: ~p", [is_signed_get_needed()]).
@@ -115,3 +129,4 @@ get_get_host() ->
 
 is_signed_get_needed() ->
     persistent_term:get({?MODULE, is_signed_get_needed}).
+

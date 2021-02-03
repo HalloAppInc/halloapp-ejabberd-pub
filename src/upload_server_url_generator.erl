@@ -1,17 +1,18 @@
-%%   - To returns (key, patch_url) patch_url to patch content to an S3 object
-%% via the upload server
-%%-----------------------------------------------------------------------------
+%%%----------------------------------------------------------------------
+%%% File    : upload_server_url_generator.erl
+%%%
+%%% Copyright (C) 2021 HalloApp Inc.
+%%%
+%%% To returns (key, patch_url) patch_url to patch content to an S3 object
+%%% via the upload server
+%%%----------------------------------------------------------------------
 
 -module(upload_server_url_generator).
+-author('vipin').
 
 -include_lib("stdlib/include/assert.hrl").
-
--export([make_patch_url/2, create_with_retry/3,
-         init/2,
-         close/0
-        ]).
-
 -include("logger.hrl").
+
 
 -define(BACK_OFF_MS, 100).
 -define(CONNECT_TIMEOUT_MS, 8000).
@@ -20,47 +21,16 @@
 -define(MAX_TRIES, 8).
 -define(UPLOAD_SERVER_HTTP_POOL_SIZE, 10).
 
-%% Generates url for Http patch, returns {Key, PatchUrl} via the callback.
-- spec make_patch_url(integer(), any()) -> ok.
-make_patch_url(ContentLength, CBDetails) ->
-    create_with_retry(ContentLength, CBDetails).
 
-process_location_url(Location, CBDetails) ->
-    {CBModule, CBFunction, Param} = CBDetails,
-    case Location of
-        {error, _} -> CBModule:CBFunction(Param, error);
-        {ok, LocationUrl} -> CBModule:CBFunction(Param, {ok, LocationUrl})
-    end.
+-export([
+    init/2,
+    close/0,
+    make_patch_url/2,
+    create_with_retry/3
+]).
 
-create_with_retry(ContentLength, CBDetails) ->
-    create_with_retry(ContentLength, 0, CBDetails).
-create_with_retry(ContentLength, Retries, CBDetails) ->
-    case create(ContentLength) of
-        {ok, {{_, 201, _}, Headers, _}} ->
-           %% Extract location headers.
-           LocationHdr = [Location || {"location", _} = Location <- Headers],
-           [{_, LocationUrl}] = LocationHdr,
-           process_location_url({ok, LocationUrl}, CBDetails);
-        %% Retry on http errors.
-        {_, Error}
-           when Retries < ?MAX_TRIES ->
-            BackOff = round(math:pow(2, Retries)) * ?BACK_OFF_MS,
-            ?WARNING("~pth request to: ~p, error: ~p, backoff: ~p",
-                         [Retries, get_upload_host(), Error, BackOff]),
-            timer:apply_after(round(math:pow(2, Retries)) * ?BACK_OFF_MS,
-                              ?MODULE, create_with_retry,
-                              [ContentLength, Retries+1, CBDetails]);
-        {_, Error} ->
-            ?ERROR("Giving up on: ~p, tried: ~p times, error: ~p",
-                       [get_upload_host(), Retries, Error]),
-            process_location_url({error, ""}, CBDetails)
-    end.
 
-create(ContentLength) ->
-    Req = {url(), get_hdrs(ContentLength), ?CONTENT_TYPE, <<>>},
-    httpc:request(post, Req, get_http_opts(), []).
-
-- spec init(binary(), integer()) -> ok.
+-spec init(UploadHost :: binary(), UploadPort :: integer()) -> ok.
 init(UploadHost, UploadPort) ->
     ?INFO("init UploadHost: ~p, UploadPort: ~p", [UploadHost, UploadPort]),
     ?assert(not is_boolean(UploadHost)),
@@ -76,17 +46,60 @@ init(UploadHost, UploadPort) ->
     httpc:set_options([{max_sessions, ?UPLOAD_SERVER_HTTP_POOL_SIZE}]),
     ssl:start().
 
-- spec close() -> ok.
+
+-spec close() -> ok.
 close() ->
     ?INFO("~p", [close]),
     persistent_term:erase({?MODULE, upload_host}).
 
-%%-----------------------------------------------------------------------------
+
+%% Generates url for Http patch, returns {Key, PatchUrl} via the callback.
+-spec make_patch_url(integer(), any()) -> ok.
+make_patch_url(ContentLength, CBDetails) ->
+    create_with_retry(ContentLength, CBDetails).
+
+
+-spec create_with_retry(ContentLength :: integer(), CBDetails :: term()) -> ok.
+create_with_retry(ContentLength, CBDetails) ->
+    create_with_retry(ContentLength, 0, CBDetails).
+create_with_retry(ContentLength, Retries, CBDetails) ->
+    Req = {url(), get_hdrs(ContentLength), ?CONTENT_TYPE, <<>>},
+    case httpc:request(post, Req, get_http_opts(), []) of
+        {ok, {{_, 201, _}, Headers, _}} ->
+           %% Extract location headers.
+           LocationHdr = [Location || {"location", _} = Location <- Headers],
+           [{_, LocationUrl}] = LocationHdr,
+           process_location_url({ok, LocationUrl}, CBDetails);
+        %% Retry on http errors.
+        {_, Error}
+           when Retries < ?MAX_TRIES ->
+            BackOff = round(math:pow(2, Retries)) * ?BACK_OFF_MS,
+            ?WARNING("~pth request to: ~p, error: ~p, backoff: ~p",
+                    [Retries, get_upload_host(), Error, BackOff]),
+            timer:apply_after(round(math:pow(2, Retries)) * ?BACK_OFF_MS,
+                    ?MODULE, create_with_retry, [ContentLength, Retries+1, CBDetails]);
+        {_, Error} ->
+            ?ERROR("Giving up on: ~p, tried: ~p times, error: ~p", [get_upload_host(), Retries, Error]),
+            process_location_url({error, ""}, CBDetails)
+    end.
+
+
+%%====================================================================
+%% internal functions
+%%====================================================================
+
+-spec process_location_url(Location :: {ok, binary()} | {error, any()}, CBDetails :: term()) -> ok.
+process_location_url(Location, CBDetails) ->
+    {CBModule, CBFunction, Param} = CBDetails,
+    case Location of
+        {error, _} -> CBModule:CBFunction(Param, error);
+        {ok, LocationUrl} -> CBModule:CBFunction(Param, {ok, LocationUrl})
+    end.
+
 
 url() ->
     lists:concat([get_protocol() , get_upload_host(), ":",
-                  integer_to_list(get_upload_port()),
-                  get_upload_path()]).
+            integer_to_list(get_upload_port()), get_upload_path()]).
 
 get_upload_host() ->
     persistent_term:get({?MODULE, upload_host}).
@@ -103,9 +116,15 @@ get_protocol() ->
     "http://".
 
 get_hdrs(ContentLength) ->
-    [{"connection", "keep-alive"},
-     {"Tus-Resumable", "1.0.0"},
-     {"Upload-Length", integer_to_list(ContentLength)}].
+    [
+        {"connection", "keep-alive"},
+        {"Tus-Resumable", "1.0.0"},
+        {"Upload-Length", integer_to_list(ContentLength)}
+    ].
 
 get_http_opts() ->
-    [{connect_timeout, ?CONNECT_TIMEOUT_MS}, {timeout, ?HTTP_TIMEOUT_MS}].
+    [
+        {connect_timeout, ?CONNECT_TIMEOUT_MS},
+        {timeout, ?HTTP_TIMEOUT_MS}
+    ].
+
