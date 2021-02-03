@@ -556,7 +556,7 @@ delete_dead(Mod, Sessions) ->
             case remote_is_process_alive(Pid) of
                 true -> true;
                 false ->
-                    ?WARNING("Pid: ~p is dead. Cleaning up old sessions ~p", [Session]),
+                    ?WARNING("Pid: ~p is dead. Cleaning up old sessions ~p", [Pid, Session]),
                     stat:count("HA/sessions", "cleanup_dead", 1),
                     Mod:delete_session(Session),
                     false
