@@ -434,12 +434,12 @@ upload_file_to_s3(Filename, SourceServer) ->
 -spec make_object_key(SourceServer :: string(), Filename :: string()) -> string().
 make_object_key(SourceServer, Filename) ->
     % e.g. logs/event_logs/client.upload_timing.2021.01.20 on local machine
-    % becomes client.upload_timing/log/2021/01/20/s-test.json on S3 later
+    % becomes client.upload_timing/2021/01/20/s-test.json on S3 later
     WithoutPrefix = filename:basename(Filename),
     Tokenized = string:split(WithoutPrefix, ".log.", trailing),
     OldDateStr = lists:nth(2, Tokenized),
     Namespace = lists:nth(1, Tokenized),
-    NewDateStr = "log/" ++ string:replace(OldDateStr, ".", "/", all),
+    NewDateStr = string:replace(OldDateStr, ".", "/", all),
     FilenameWithServer = filename:join([Namespace, NewDateStr, binary_to_list(SourceServer) ++ ".json"]),
     FilenameWithServer.
 
@@ -472,7 +472,7 @@ upload_s3(_Env, _Headers, _ObjectKey, _Data) ->
 
 make_date_str({Year, Month, Date}) ->
     % converted to "/" later when uploading to AWS
-    DateStr = integer_to_list(Year) ++ "." ++ integer_to_list(Month) ++ "." ++ integer_to_list(Date),
+    DateStr = io_lib:format("~B.~2..0B.~2..0B", [Year, Month, Date]),
     DateStr.
 
 -spec file_path(Namespace :: binary(), DateStr :: string()) -> string().
