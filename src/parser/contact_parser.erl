@@ -20,20 +20,19 @@ xmpp_to_proto(SubEl) ->
     end,
     ProtoContent.
 
-
 xmpp_to_proto_contact_list(SubEl) ->
     Contacts = SubEl#contact_list.contacts,
     ProtoContacts = lists:map(
         fun(Contact) ->
-            Uid = util_parser:xmpp_to_proto_uid(Contact#contact.userid),
+            Uid = util_parser:xmpp_to_proto_uid(element(4, Contact)),
             #pb_contact{
-                action = Contact#contact.type,
-                raw = Contact#contact.raw,
-                normalized = Contact#contact.normalized,
+                action = element(2, Contact),
+                raw = element(3, Contact),
+                normalized = element(7, Contact),
                 uid = Uid,
-                avatar_id = Contact#contact.avatarid,
-                name = Contact#contact.name,
-                role = xmpp_to_proto_role(Contact#contact.role)
+                avatar_id = element(6, Contact),
+                name = element(5, Contact),
+                role = xmpp_to_proto_role(element(8, Contact))
             }
         end,
         Contacts),
