@@ -24,8 +24,7 @@ xmpp_to_proto_push_register_test() ->
     PbPushRegister = struct_util:create_pb_push_register(?OS1, ?TOKEN1),
     ExpectedPbIq = struct_util:create_pb_iq(?ID1, set, PbPushRegister),
 
-    XmppPushRegister = struct_util:create_push_register(?OS1_BIN, ?TOKEN1),
-    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, [XmppPushRegister]),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, [PbPushRegister]),
 
     ActualPbIq = iq_parser:xmpp_to_proto(XmppIq),
     ?assertEqual(true, is_record(ActualPbIq, pb_iq)),
@@ -36,8 +35,7 @@ proto_to_xmpp_push_register_test() ->
     PbPushRegister = struct_util:create_pb_push_register(?OS1, ?TOKEN1),
     PbIq = struct_util:create_pb_iq(?ID1, set, PbPushRegister),
 
-    XmppPushRegister = struct_util:create_push_register(?OS1_BIN, ?TOKEN1),
-    ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, [XmppPushRegister]),
+    ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, [PbPushRegister]),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -61,10 +59,7 @@ proto_to_xmpp_notification_prefs_test() ->
     PbNotificationPref = struct_util:create_pb_notification_prefs([PbPushPref1, PbPushPref2]),
     PbIq = struct_util:create_pb_iq(?ID1, set, PbNotificationPref),
 
-    PushPref1 = struct_util:create_push_pref(post, false),
-    PushPref2 = struct_util:create_push_pref(comment, false),
-    NotificationPref = struct_util:create_notification_prefs([PushPref1, PushPref2]),
-    ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, [NotificationPref]),
+    ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, [PbNotificationPref]),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),

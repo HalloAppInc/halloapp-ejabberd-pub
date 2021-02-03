@@ -11,6 +11,7 @@
 
 -include("account.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% -------------------------------------------- %%
@@ -34,14 +35,14 @@
 -define(NAME3, <<"kelly">>).
 
 -define(POST_PREF,
-    #push_pref{
+    #pb_push_pref{
         name = post,
         value = false
     }
 ).
 
 -define(COMMENT_PREF,
-    #push_pref{
+    #pb_push_pref{
         name = comment,
         value = false
     }
@@ -67,7 +68,7 @@ create_set_pref_iq(Uid, PushPrefs) ->
     #iq{
         from = jid:make(Uid, ?SERVER),
         type = set,
-        sub_els = [#notification_prefs{push_prefs = PushPrefs}]
+        sub_els = [#pb_notification_prefs{push_prefs = PushPrefs}]
     }.
 
 setup_accounts(Accounts) ->

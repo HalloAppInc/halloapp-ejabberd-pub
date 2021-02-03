@@ -48,8 +48,6 @@ iq_payload_mapping(SubEl) ->
             client_info_parser:xmpp_to_proto(SubEl);
         client_version ->
             client_info_parser:xmpp_to_proto(SubEl);
-        push_register ->
-            push_parser:xmpp_to_proto(SubEl);
         whisper_keys ->
             whisper_keys_parser:xmpp_to_proto(SubEl);
         ping ->
@@ -80,14 +78,14 @@ iq_payload_mapping(SubEl) ->
             props_parser:xmpp_to_proto(SubEl);
         invites ->
             invite_parser:xmpp_to_proto(SubEl);
-        notification_prefs ->
-            push_parser:xmpp_to_proto(SubEl);
         group_feed_st ->
             group_feed_parser:xmpp_to_proto(SubEl);
         stanza_error ->
             #pb_error_stanza{reason = util:to_binary(SubEl#stanza_error.reason)};
         delete_account ->
-            #pb_delete_account{phone = SubEl#delete_account.phone}
+            #pb_delete_account{phone = SubEl#delete_account.phone};
+        _ ->
+            SubEl
     end,
     Payload.
 
@@ -124,8 +122,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             client_info_parser:proto_to_xmpp(ClientModeRecord);
         #pb_client_version{} = ClientVersionRecord ->
             client_info_parser:proto_to_xmpp(ClientVersionRecord);
-        #pb_push_register{} = PushRegisterRecord ->
-            push_parser:proto_to_xmpp(PushRegisterRecord);
         #pb_whisper_keys{} = WhisperKeysRecord ->
             whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
         #pb_ping{} ->
@@ -148,8 +144,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             props_parser:proto_to_xmpp(PropsRecord);
         #pb_invites_request{} = InvitesRecord ->
             invite_parser:proto_to_xmpp(InvitesRecord);
-        #pb_notification_prefs{} = NotificationPrefsRecord ->
-            push_parser:proto_to_xmpp(NotificationPrefsRecord);
         #pb_group_feed_item{} = GroupFeedItemRecord ->
             group_feed_parser:proto_to_xmpp(GroupFeedItemRecord);
         #pb_delete_account{phone = Phone} ->

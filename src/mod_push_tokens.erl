@@ -14,8 +14,7 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("account.hrl").
-
--define(NS_PUSH, <<"halloapp:push:notifications">>).
+-include("packets.hrl").
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -36,7 +35,8 @@
 
 start(Host, _Opts) ->
     ?INFO("start", []),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PUSH, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_push_register, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_notification_prefs, ?MODULE, process_local_iq),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 10),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 10),
     ok.
@@ -44,7 +44,8 @@ start(Host, _Opts) ->
 
 stop(Host) ->
     ?INFO("stop", []),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_PUSH),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_push_register),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_notification_prefs),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 10),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10),
     ok.
@@ -77,9 +78,10 @@ remove_user(UserId, Server) ->
 
 
 -spec process_local_iq(IQ :: iq()) -> iq().
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
-        to = _Host, sub_els = [#push_register{push_token = {Os, Token}}]} = IQ) ->
+process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, to = _Host,
+        sub_els = [#pb_push_register{push_token = #pb_push_token{os = OsAtom, token = Token}}]} = IQ) ->
     ?INFO("Uid: ~s, set-iq for push_token", [Uid]),
+    Os = util:to_binary(OsAtom),
     IsValidOs = is_valid_push_os(Os),
     if
         Token =:= <<>> ->
@@ -94,7 +96,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
     end;
 
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        to = _Host, sub_els = [#notification_prefs{push_prefs = PushPrefs}]} = IQ) ->
+        to = _Host, sub_els = [#pb_notification_prefs{push_prefs = PushPrefs}]} = IQ) ->
     ?INFO("Uid: ~s, set-iq for push preferences", [Uid]),
     case PushPrefs of
         [] ->
@@ -115,11 +117,11 @@ process_local_iq(#iq{} = IQ) ->
 
 
 -spec update_push_pref(Uid :: binary(), push_pref()) -> ok.
-update_push_pref(Uid, #push_pref{name = post, value = Value}) ->
+update_push_pref(Uid, #pb_push_pref{name = post, value = Value}) ->
     stat:count("HA/push_prefs", "set_push_post_pref"),
     ?INFO("set ~s's push post pref to be: ~s", [Uid, Value]),
     model_accounts:set_push_post_pref(Uid, Value);
-update_push_pref(Uid, #push_pref{name = comment, value = Value}) ->
+update_push_pref(Uid, #pb_push_pref{name = comment, value = Value}) ->
     stat:count("HA/push_prefs", "set_push_comment_pref"),
     ?INFO("set ~s's push comment pref to be: ~s", [Uid, Value]),
     model_accounts:set_push_comment_pref(Uid, Value).
