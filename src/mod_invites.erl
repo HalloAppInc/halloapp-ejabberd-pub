@@ -15,6 +15,7 @@
 -include("logger.hrl").
 -include("time.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -38,12 +39,12 @@
 %%====================================================================
 
 start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_INVITE, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_invites_request, ?MODULE, process_local_iq),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
     ok.
 
 stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_INVITE),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_invites_request),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
     ok.
 
@@ -70,7 +71,7 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
             InvsRem = get_invites_remaining(Uid),
             Time = get_time_until_refresh(),
             ?INFO("Uid: ~s has ~p invites left, next invites at ~p", [Uid, InvsRem, Time]),
-            Result = #invites{
+            Result = #pb_invites_response{
                 invites_left = InvsRem,
                 time_until_refresh = Time
             },
@@ -79,16 +80,24 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
 
 % type = set
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#invites{invites = InviteList}]} = IQ) ->
+        sub_els = [#pb_invites_request{invites = InviteList}]} = IQ) ->
     AccExists = model_accounts:account_exists(Uid),
     case AccExists of
         false -> xmpp:make_error(IQ, util:err(no_account));
         true ->
-            PhoneList = [P#invite.phone || P <- InviteList],
+            PhoneList = [P#pb_invite.phone || P <- InviteList],
             ?INFO("Uid: ~s inviting ~p", [Uid, PhoneList]),
             Results = lists:map(fun(Phone) -> request_invite(Uid, Phone) end, PhoneList),
-            NewInviteList = [#invite{phone = Ph, result = Res, reason = Rea} || {Ph, Res, Rea} <- Results],
-            Ret = #invites{
+            NewInviteList = lists:map(
+                    fun({Ph, Res, Rea}) ->
+                        Result = util:to_binary(Res),
+                        Reason = case Rea of
+                            undefined -> <<>>;
+                            _ -> util:to_binary(Rea)
+                        end,
+                        #pb_invite{phone = Ph, result = Result, reason = Reason}
+                    end, Results),
+            Ret = #pb_invites_response{
                 invites_left = get_invites_remaining(Uid),
                 time_until_refresh = get_time_until_refresh(),
                 invites = NewInviteList

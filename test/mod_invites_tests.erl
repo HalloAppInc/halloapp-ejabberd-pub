@@ -8,6 +8,7 @@
 
 -include("invites.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(UID1, <<"1">>).
@@ -56,12 +57,12 @@ send_invites_error2_test() ->
     setup(),
     Result = mod_invites:process_local_iq(create_big_invite_iq(?UID1)),
     ?assertEqual(ok, check_invites_iq_correctness(Result, 0)),
-    Oks = [#invite{phone = integer_to_binary(Ph), result = ok} ||
+    Oks = [#pb_invite{phone = integer_to_binary(Ph), result = <<"ok">>} ||
         Ph <- lists:seq(16175289000,16175289000 + ?MAX_NUM_INVITES - 1)],
     Expected = lists:append(Oks,
-        [#invite{
+        [#pb_invite{
             phone = integer_to_binary(16175289000 + ?MAX_NUM_INVITES),
-            result = failed, reason = no_invites_left
+            result = <<"failed">>, reason = <<"no_invites_left">>
         }]),
     ?assertEqual(Expected, get_invite_subel_list(Result)).
 
@@ -72,10 +73,10 @@ send_invites_error3_test() ->
     ok = model_phone:add_phone(?PHONE2, ?UID2),
     Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
     Expected = [
-        #invite{phone = ?PHONE2, result = failed, reason = existing_user},
-        #invite{phone = <<"16175283002">>, result = ok},
-        #invite{phone = <<"16175283003">>, result = ok},
-        #invite{phone = <<"212">>, result = failed, reason = invalid_number}
+        #pb_invite{phone = ?PHONE2, result = <<"failed">>, reason = <<"existing_user">>},
+        #pb_invite{phone = <<"16175283002">>, result = <<"ok">>},
+        #pb_invite{phone = <<"16175283003">>, result = <<"ok">>},
+        #pb_invite{phone = <<"212">>, result = <<"failed">>, reason = <<"invalid_number">>}
     ],
     ?assertEqual(Expected, get_invite_subel_list(Actual)),
     ?assertEqual(ok, check_invites_iq_correctness(Actual, ?MAX_NUM_INVITES - 2)).
@@ -86,10 +87,10 @@ send_invites_error4_test() ->
     Result = mod_invites:process_local_iq(create_invite_iq(?UID1)),
     ?assertEqual(ok, check_invites_iq_correctness(Result, ?MAX_NUM_INVITES - 3)),
     Expected = [
-        #invite{phone = ?PHONE2, result = ok},
-        #invite{phone = <<"16175283002">>, result = ok},
-        #invite{phone = <<"16175283003">>, result = ok},
-        #invite{phone = <<"212">>, result = failed, reason = invalid_number}
+        #pb_invite{phone = ?PHONE2, result = <<"ok">>},
+        #pb_invite{phone = <<"16175283002">>, result = <<"ok">>},
+        #pb_invite{phone = <<"16175283003">>, result = <<"ok">>},
+        #pb_invite{phone = <<"212">>, result = <<"failed">>, reason = <<"invalid_number">>}
     ],
     ?assertEqual(Expected, get_invite_subel_list(Result)).
 
@@ -287,18 +288,18 @@ create_get_iq(Uid) ->
     #iq{
         from = #jid{luser = Uid},
         type = get,
-        sub_els = [#invites{}]
+        sub_els = [#pb_invites_request{}]
     }.
 
 create_invite_iq(Uid) ->
     #iq{
         from = #jid{luser = Uid},
         type = set,
-        sub_els = [#invites{invites = [
-            #invite{phone = ?PHONE2},
-            #invite{phone = <<"16175283002">>},
-            #invite{phone = <<"16175283003">>},
-            #invite{phone = <<"212">>}
+        sub_els = [#pb_invites_request{invites = [
+            #pb_invite{phone = ?PHONE2},
+            #pb_invite{phone = <<"16175283002">>},
+            #pb_invite{phone = <<"16175283003">>},
+            #pb_invite{phone = <<"212">>}
         ]}]
     }.
 
@@ -307,8 +308,8 @@ create_big_invite_iq(Uid) ->
     #iq{
         from = #jid{luser = Uid},
         type = set,
-        sub_els = [#invites{invites = [
-            #invite{phone = integer_to_binary(Ph)} || Ph <- lists:seq(16175289000,16175289000 + ?MAX_NUM_INVITES)
+        sub_els = [#pb_invites_request{invites = [
+            #pb_invite{phone = integer_to_binary(Ph)} || Ph <- lists:seq(16175289000,16175289000 + ?MAX_NUM_INVITES)
         ]}]
     }.
 
@@ -317,8 +318,11 @@ get_invites_subel(#iq{} = IQ) ->
     Res.
 
 get_invite_subel_list(#iq{} = IQ) ->
-    Invites = get_invites_subel(IQ),
-    Invites#invites.invites.
+    SubEl = get_invites_subel(IQ),
+    case SubEl of
+        #pb_invites_request{} -> SubEl#pb_invites_request.invites;
+        #pb_invites_response{} -> SubEl#pb_invites_response.invites
+    end.
 
 % function to verify the refresh time in the iq result is close enough to assume its correctness
 % the refresh time function itself is tested elsewhere
@@ -333,7 +337,7 @@ check_refresh_time_tolerance(Time) ->
 
 -spec check_invites_iq_correctness(IQ :: iq(), ExpectedInvsLeft :: integer()) -> ok.
 check_invites_iq_correctness(IQ, ExpectedInvsLeft) ->
-    #invites{invites_left = InvLeft, time_until_refresh = TimeLeft} = get_invites_subel(IQ),
+    #pb_invites_response{invites_left = InvLeft, time_until_refresh = TimeLeft} = get_invites_subel(IQ),
     ?assertEqual(ExpectedInvsLeft, InvLeft),
     ?assertEqual(ok, check_refresh_time_tolerance(TimeLeft)),
     ok.

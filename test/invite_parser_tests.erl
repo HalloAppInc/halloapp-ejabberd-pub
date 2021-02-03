@@ -28,9 +28,7 @@ invite_xmpp_to_proto_test() ->
     PbInvites = struct_util:create_pb_invites_response(2, 100, [PbInvite]),
     PbIq = struct_util:create_pb_iq(?ID1, result, PbInvites),
 
-    InviteSt = struct_util:create_invite(?PHONE1, ok, undefined),
-    InvitesSt = struct_util:create_invites(2, 100, [InviteSt]),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, InvitesSt),
+    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, PbInvites),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
     ?assertEqual(true, is_record(ProtoIq, pb_iq)),
@@ -43,8 +41,7 @@ invites_xmpp_to_proto_test() ->
     PbInvites = struct_util:create_pb_invites_response(2, 100, []),
     PbIq = struct_util:create_pb_iq(?ID1, result, PbInvites),
 
-    InvitesSt = struct_util:create_invites(2, 100, []),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, InvitesSt),
+    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, PbInvites),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
     ?assertEqual(true, is_record(ProtoIq, pb_iq)),
@@ -58,9 +55,7 @@ invite_error_xmpp_to_proto_test() ->
     PbInvites = struct_util:create_pb_invites_response(5, 1000, [PbInvite]),
     PbIq = struct_util:create_pb_iq(?ID1, result, PbInvites),
 
-    InviteSt = struct_util:create_invite(?PHONE1, failed, invalid_number),
-    InvitesSt = struct_util:create_invites(5, 1000, [InviteSt]),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, InvitesSt),
+    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, PbInvites),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
     ?assertEqual(true, is_record(ProtoIq, pb_iq)),
@@ -76,10 +71,7 @@ invite_set_proto_to_xmpp_test() ->
     PbInvites = struct_util:create_pb_invites_request([PbInvite1, PbInvite2]),
     PbIq = struct_util:create_pb_iq(?ID1, set, PbInvites),
 
-    InviteSt1 = struct_util:create_invite(?PHONE1, undefined, undefined),
-    InviteSt2 = struct_util:create_invite(?PHONE2, undefined, undefined),
-    InvitesSt = struct_util:create_invites(undefined, undefined, [InviteSt1, InviteSt2]),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, InvitesSt),
+    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, PbInvites),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),
     ?assertEqual(true, is_record(XmppIq, iq)),
@@ -92,8 +84,7 @@ invite_get_proto_to_xmpp_test() ->
     PbInvites = struct_util:create_pb_invites_request([]),
     PbIq = struct_util:create_pb_iq(?ID1, get, PbInvites),
 
-    InvitesSt = struct_util:create_invites(undefined, undefined, []),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, get, InvitesSt),
+    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, get, PbInvites),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),
     ?assertEqual(true, is_record(XmppIq, iq)),
