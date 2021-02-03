@@ -21,7 +21,7 @@
 start_prometheus_test_() ->
     {timeout, 10,
         fun() ->
-            setup(),
+            setup()
         end}.
 
 new_user_stat_test() ->
