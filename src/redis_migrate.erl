@@ -478,7 +478,7 @@ check_accounts_run(Key, State) ->
 
 check_phone_numbers_run(Key, State) ->
     ?INFO("Key: ~p", [Key]),
-    Result = re:run(Key, "^pho:{[0-9]+}:([0-9]+)$", [global, {capture, all, binary}]),
+    Result = re:run(Key, "^pho.*:([0-9]+)$", [global, {capture, all, binary}]),
     case Result of
         {match, [[FullKey, Phone]]} ->
             ?INFO("phone number: ~p", [Phone]),
