@@ -26,9 +26,6 @@ log_rotate_date: "$D0"
 log_rotate_count: 15
 log_rate_limit: 5000
 
-### Migrating the sm_db_type from mnesia to redis using ejabberd_sm_ha as a migration
-sm_db_type: ha
-
 ## If you already have certificates, list them here
 certfiles:
   - /etc/ejabberd_certs/s.halloapp.net/*.pem

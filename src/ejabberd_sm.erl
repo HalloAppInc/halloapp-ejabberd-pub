@@ -53,7 +53,6 @@
     close_session_unset_presence/5,
     dirty_get_my_sessions_list/0,
     ets_count_sessions/0,
-    get_vh_by_backend/1,
     connected_users/0,
     connected_users_number/0,
     user_resources/2,
@@ -86,12 +85,6 @@
 -include("ejabberd_stacktrace.hrl").
 -include("translate.hrl").
 -include ("account.hrl").
-
--callback init() -> ok | {error, any()}.
--callback set_session(#session{}) -> ok | {error, any()}.
--callback delete_session(#session{}) -> ok | {error, any()}.
--callback get_sessions(binary()) -> [#session{}].
--callback get_sessions(binary(), binary()) -> {ok, [#session{}]} | {error, any()}.
 
 -record(state, {}).
 
@@ -180,11 +173,10 @@ close_session(SID, User, Server, Resource) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
-    Sessions = get_sessions(Mod, LUser, LServer, LResource),
+    Sessions = get_sessions(LUser, LServer, LResource),
     Info = case lists:keyfind(SID, #session.sid, Sessions) of
        #session{info = I} = Session ->
-           delete_session(Mod, Session),
+           delete_session(Session),
            I;
        _ ->
            []
@@ -213,15 +205,13 @@ disconnect_removed_user(User, Server) ->
 get_user_resources(User, Server) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
-    Mod = get_sm_backend(LServer),
-    Ss = get_sessions(Mod, LUser, LServer),
+    Ss = get_sessions(LUser, LServer),
     [element(3, S#session.usr) || S <- clean_session_list(Ss)].
 
 -spec get_user_present_resources(binary(), binary()) -> [tuple()].
 
 get_user_present_resources(LUser, LServer) ->
-    Mod = get_sm_backend(LServer),
-    Ss = get_sessions(Mod, LUser, LServer),
+    Ss = get_sessions(LUser, LServer),
     [{S#session.priority, element(3, S#session.usr)}
      || S <- clean_session_list(Ss), is_integer(S#session.priority)].
 
@@ -231,8 +221,7 @@ get_user_ip(User, Server, Resource) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
-    case get_sessions(Mod, LUser, LServer, LResource) of
+    case get_sessions(LUser, LServer, LResource) of
         [] ->
             undefined;
         Ss ->
@@ -244,8 +233,7 @@ get_user_ip(User, Server, Resource) ->
 get_user_info(User, Server) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
-    Mod = get_sm_backend(LServer),
-    Ss = get_sessions(Mod, LUser, LServer),
+    Ss = get_sessions(LUser, LServer),
     [{LResource, [{node, node(Pid)}, {ts, Ts}, {pid, Pid},
           {priority, Priority} | Info]}
      || #session{usr = {_, _, LResource},
@@ -271,8 +259,7 @@ set_presence(SID, User, Server, Resource, Priority, Presence) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
-    case get_sessions(Mod, LUser, LServer, LResource) of
+    case get_sessions(LUser, LServer, LResource) of
         [] -> {error, notfound};
         Ss ->
             case lists:keyfind(SID, #session.sid, Ss) of
@@ -293,8 +280,7 @@ unset_presence(SID, User, Server, Resource, Status) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
-    case get_sessions(Mod, LUser, LServer, LResource) of
+    case get_sessions(LUser, LServer, LResource) of
         [] -> {error, notfound};
         Ss ->
             case lists:keyfind(SID, #session.sid, Ss) of
@@ -333,8 +319,7 @@ get_session_sid(User, Server, Resource) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
-    case get_sessions(Mod, LUser, LServer, LResource) of
+    case get_sessions(LUser, LServer, LResource) of
         [] ->
             none;
         Ss ->
@@ -347,8 +332,7 @@ get_session_sid(User, Server, Resource) ->
 get_session_sids(User, Server) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
-    Mod = get_sm_backend(LServer),
-    Sessions = get_sessions(Mod, LUser, LServer),
+    Sessions = get_sessions(LUser, LServer),
     [SID || #session{sid = SID} <- Sessions].
 
 -spec get_session_sids(binary(), binary(), binary()) -> [sid()].
@@ -357,8 +341,7 @@ get_session_sids(User, Server, Resource) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
-    Sessions = get_sessions(Mod, LUser, LServer, LResource),
+    Sessions = get_sessions(LUser, LServer, LResource),
     [SID || #session{sid = SID} <- Sessions].
 
 
@@ -379,21 +362,13 @@ config_reloaded() ->
 init([]) ->
     process_flag(trap_exit, true),
     ets_init(),
-    case lists:foldl(
-            fun(Mod, ok) -> Mod:init();
-                (_, Err) -> Err
-            end, ok, get_sm_backends()) of
-        ok ->
-            gen_iq_handler:start(?MODULE),
-            ejabberd_hooks:add(host_up, ?MODULE, host_up, 50),
-            ejabberd_hooks:add(host_down, ?MODULE, host_down, 60),
-            ejabberd_hooks:add(config_reloaded, ?MODULE, config_reloaded, 50),
-            lists:foreach(fun host_up/1, ejabberd_option:hosts()),
-            ejabberd_commands:register_commands(get_commands_spec()),
-            {ok, #state{}};
-        {error, Why} ->
-            {stop, Why}
-    end.
+    gen_iq_handler:start(?MODULE),
+    ejabberd_hooks:add(host_up, ?MODULE, host_up, 50),
+    ejabberd_hooks:add(host_down, ?MODULE, host_down, 60),
+    ejabberd_hooks:add(config_reloaded, ?MODULE, config_reloaded, 50),
+    lists:foreach(fun host_up/1, ejabberd_option:hosts()),
+    ejabberd_commands:register_commands(get_commands_spec()),
+    {ok, #state{}}.
 
 handle_call(Request, From, State) ->
     ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
@@ -473,10 +448,9 @@ set_session(SID, User, Server, Resource, Priority, Info) ->
              priority = Priority, info = Info}).
 
 -spec set_session(#session{}) -> ok | {error, any()}.
-set_session(#session{sid = Sid, us = {LUser, LServer}} = Session) ->
+set_session(#session{sid = Sid, us = {LUser, _LServer}} = Session) ->
     ?INFO("Uid: ~s Sid: ~p", [LUser, Sid]),
-    Mod = get_sm_backend(LServer),
-    Res = case Mod:set_session(Session) of
+    Res = case db_set_session(Session) of
         ok ->
             ok;
         {error, _} = Err ->
@@ -485,19 +459,35 @@ set_session(#session{sid = Sid, us = {LUser, LServer}} = Session) ->
     ets_insert_sesssion(Session),
     Res.
 
--spec get_sessions(module(), binary(), binary()) -> [#session{}].
-get_sessions(Mod, LUser, LServer) ->
-    case Mod:get_sessions(LUser, LServer) of
-        {ok, Ss} -> delete_dead(Mod, Ss);
+-spec get_sessions(binary(), binary()) -> [#session{}].
+get_sessions(LUser, _LServer) ->
+    case db_get_sessions(LUser) of
+        {ok, Ss} -> delete_dead(Ss);
         _ -> []
     end.
 
--spec get_sessions(module(), binary(), binary(), binary()) -> [#session{}].
-get_sessions(Mod, LUser, LServer, <<"">>) ->
-    get_sessions(Mod, LUser, LServer);
-get_sessions(Mod, LUser, LServer, LResource) ->
-    Sessions = get_sessions(Mod, LUser, LServer),
+-spec get_sessions(binary(), binary(), binary()) -> [#session{}].
+get_sessions(LUser, LServer, <<"">>) ->
+    get_sessions(LUser, LServer);
+get_sessions(LUser, LServer, LResource) ->
+    Sessions = get_sessions(LUser, LServer),
     [S || S <- Sessions, element(3, S#session.usr) == LResource].
+
+-spec db_set_session(Session :: session()) -> ok.
+db_set_session(Session) ->
+    {Uid, _Server} = Session#session.us,
+    {ok, _OldPid} = model_session:set_session(Uid, Session),
+    ok.
+
+-spec db_delete_session(Session :: session()) -> ok.
+db_delete_session(Session) ->
+    {Uid, _Server} = Session#session.us,
+    model_session:del_session(Uid, Session).
+
+-spec db_get_sessions(uid()) -> {ok, [#session{}]}.
+db_get_sessions(Uid) ->
+    Sessions = model_session:get_sessions(Uid),
+    {ok, Sessions}.
 
 
 -spec get_active_sessions(Mod :: module(), LUser :: binary(), LServer :: binary()) -> [session()].
@@ -516,8 +506,7 @@ is_session_active(Session) ->
 %% TODO(murali@): add new process_local_iq function that also has c2s process state.
 -spec activate_session(Uid :: binary(), Server :: binary()) -> ok.
 activate_session(Uid, Server) ->
-    Mod = get_sm_backend(Server),
-    case get_sessions(Mod, Uid, Server) of
+    case get_sessions(Uid, Server) of
         {ok, []} ->
             ?ERROR("No sessions found for uid: ~s", [Uid]);
         {ok, [Session]} ->
@@ -542,15 +531,15 @@ activate_session(Uid, Server) ->
     end.
 
 
--spec delete_session(module(), #session{}) -> ok.
-delete_session(Mod, #session{sid = Sid} = Session) ->
+-spec delete_session(#session{}) -> ok.
+delete_session(#session{sid = Sid} = Session) ->
     ?INFO("SID: ~p", [Sid]),
-    Mod:delete_session(Session),
+    db_delete_session(Session),
     ets_delete_session(Session),
     ok.
 
--spec delete_dead(module(), [#session{}]) -> [#session{}].
-delete_dead(Mod, Sessions) ->
+-spec delete_dead([#session{}]) -> [#session{}].
+delete_dead(Sessions) ->
     lists:filter(
         fun(#session{sid = {_, Pid}} = Session) ->
             case remote_is_process_alive(Pid) of
@@ -558,7 +547,7 @@ delete_dead(Mod, Sessions) ->
                 false ->
                     ?WARNING("Pid: ~p is dead. Cleaning up old sessions ~p", [Pid, Session]),
                     stat:count("HA/sessions", "cleanup_dead", 1),
-                    Mod:delete_session(Session),
+                    db_delete_session(Session),
                     false
             end
     end, Sessions).
@@ -583,8 +572,7 @@ do_route(#jid{lresource = <<"">>} = To, Term) ->
 do_route(To, Term) ->
     ?DEBUG("Broadcasting ~p to ~ts", [Term, jid:encode(To)]),
     {U, S, R} = jid:tolower(To),
-    Mod = get_sm_backend(S),
-    case get_sessions(Mod, U, S, R) of
+    case get_sessions(U, S, R) of
         [] ->
             ?DEBUG("Dropping broadcast to unavailable resourse: ~p", [Term]);
         Ss ->
@@ -640,8 +628,7 @@ do_route(Packet) ->
     ?DEBUG("Processing packet to full JID:~n~ts", [xmpp:pp(Packet)]),
     To = xmpp:get_to(Packet),
     {LUser, LServer, LResource} = jid:tolower(To),
-    Mod = get_sm_backend(LServer),
-    case get_sessions(Mod, LUser, LServer, LResource) of
+    case get_sessions(LUser, LServer, LResource) of
         [] ->
             case Packet of
             #message{} ->
@@ -672,7 +659,6 @@ route_message(#message{} = Packet) ->
     LUser = To#jid.luser,
     LServer = To#jid.lserver,
     LResource = To#jid.lresource,
-    Mod = get_sm_backend(LServer),
     %% Ignore presence information and just rely on the connection state.
 
     DecodedPacket = xmpp:decode_els(Packet),
@@ -682,7 +668,7 @@ route_message(#message{} = Packet) ->
             store_offline_message(DecodedPacket),
             %% Irrespective of whether the session is passive or active:
             %% send the message to the user's c2s process if it exists.
-            case get_sessions(Mod, LUser, LServer, LResource) of
+            case get_sessions(LUser, LServer, LResource) of
                 [] ->
                     %% If no online sessions, just send push via apple/google
                     push_message(DecodedPacket);
@@ -742,8 +728,7 @@ check_for_sessions_to_replace(User, Server, Resource) ->
 
 -spec check_existing_resources(binary(), binary(), binary()) -> ok.
 check_existing_resources(LUser, LServer, LResource) ->
-    Mod = get_sm_backend(LServer),
-    Ss = get_sessions(Mod, LUser, LServer, LResource),
+    Ss = get_sessions(LUser, LServer, LResource),
     if Ss == [] -> ok;
         true ->
         SIDs = [SID || #session{sid = SID} <- Ss],
@@ -765,13 +750,11 @@ get_resource_sessions(User, Server, Resource) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
-    [S#session.sid || S <- get_sessions(Mod, LUser, LServer, LResource)].
+    [S#session.sid || S <- get_sessions(LUser, LServer, LResource)].
 
 -spec check_max_sessions(binary(), binary()) -> ok | replaced.
 check_max_sessions(LUser, LServer) ->
-    Mod = get_sm_backend(LServer),
-    Ss = get_sessions(Mod, LUser, LServer),
+    Ss = get_sessions(LUser, LServer),
     MaxSessions = get_max_user_sessions(LUser, LServer),
     if
         length(Ss) =< MaxSessions -> ok;
@@ -795,24 +778,6 @@ get_max_user_sessions(LUser, Host) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec get_sm_backend(binary()) -> module().
-
-get_sm_backend(Host) ->
-    DBType = ejabberd_option:sm_db_type(Host),
-    list_to_existing_atom("ejabberd_sm_" ++ atom_to_list(DBType)).
-
--spec get_sm_backends() -> [module()].
-
-get_sm_backends() ->
-    lists:usort([get_sm_backend(Host) || Host <- ejabberd_option:hosts()]).
-
--spec get_vh_by_backend(module()) -> [binary()].
-
-get_vh_by_backend(Mod) ->
-    lists:filter(
-        fun(Host) ->
-            get_sm_backend(Host) == Mod
-        end, ejabberd_option:hosts()).
 
 %%--------------------------------------------------------------------
 %%% Local ETS table

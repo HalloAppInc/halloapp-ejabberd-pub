@@ -283,14 +283,13 @@ opt_type(shaper) ->
     ejabberd_shaper:validator(shaper);
 opt_type(shaper_rules) ->
     ejabberd_shaper:validator(shaper_rules);
+% TODO: delete sm_cache* options
 opt_type(sm_cache_life_time) ->
     econf:timeout(second, infinity);
 opt_type(sm_cache_missed) ->
     econf:bool();
 opt_type(sm_cache_size) ->
     econf:pos_int(infinity);
-opt_type(sm_db_type) ->
-    econf:db_type(ejabberd_sm);
 opt_type(sm_use_cache) ->
     econf:bool();
 opt_type(sql_connect_timeout) ->
@@ -501,8 +500,6 @@ options() -> [%% Top-priority options
         fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
     {sm_cache_size,
         fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
-    {sm_db_type,
-        fun(Host) -> ejabberd_config:default_ram_db(Host, ejabberd_sm) end},
     {sm_use_cache,
         fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
     {sql_type, odbc},

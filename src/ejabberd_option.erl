@@ -107,7 +107,6 @@
 -export([sm_cache_life_time/0]).
 -export([sm_cache_missed/0]).
 -export([sm_cache_size/0]).
--export([sm_db_type/0, sm_db_type/1]).
 -export([sm_use_cache/0, sm_use_cache/1]).
 -export([sql_connect_timeout/0, sql_connect_timeout/1]).
 -export([sql_database/0, sql_database/1]).
@@ -686,13 +685,6 @@ sm_cache_missed() ->
 -spec sm_cache_size() -> 'infinity' | pos_integer().
 sm_cache_size() ->
     ejabberd_config:get_option({sm_cache_size, global}).
-
--spec sm_db_type() -> atom().
-sm_db_type() ->
-    sm_db_type(global).
--spec sm_db_type(global | binary()) -> atom().
-sm_db_type(Host) ->
-    ejabberd_config:get_option({sm_db_type, Host}).
 
 -spec sm_use_cache() -> boolean().
 sm_use_cache() ->
