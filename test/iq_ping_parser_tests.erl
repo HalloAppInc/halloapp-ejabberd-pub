@@ -20,11 +20,9 @@
 
 
 xmpp_to_proto_ping_test() ->
-    Ping = struct_util:create_ping(),
-    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, get, Ping),
-
     PbPing = struct_util:create_pb_ping(),
     PbIq = struct_util:create_pb_iq(?ID2, get, PbPing),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, get, PbPing),
 
     ProtoIQ = iq_parser:xmpp_to_proto(XmppIq),
     ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
@@ -32,11 +30,9 @@ xmpp_to_proto_ping_test() ->
 
 
 proto_to_xmpp_ping_test() ->
-    Ping = struct_util:create_ping(),
-    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, Ping),
-
     PbPing = struct_util:create_pb_ping(),
     PbIq = struct_util:create_pb_iq(?ID2, result, PbPing),
+    XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, PbPing),
 
     ActualXmppIQ = iq_parser:proto_to_xmpp(PbIq),
     ?assertEqual(true, is_record(ActualXmppIQ, iq)),

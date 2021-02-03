@@ -50,8 +50,6 @@ iq_payload_mapping(SubEl) ->
             client_info_parser:xmpp_to_proto(SubEl);
         whisper_keys ->
             whisper_keys_parser:xmpp_to_proto(SubEl);
-        ping ->
-            #pb_ping{};
         feed_st ->
             feed_parser:xmpp_to_proto(SubEl);
         user_privacy_list ->
@@ -124,8 +122,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             client_info_parser:proto_to_xmpp(ClientVersionRecord);
         #pb_whisper_keys{} = WhisperKeysRecord ->
             whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
-        #pb_ping{} ->
-            #ping{};
         #pb_feed_item{} = FeedItemRecord ->
             feed_parser:proto_to_xmpp(FeedItemRecord);
         #pb_privacy_list{} = PrivacyListRecord ->

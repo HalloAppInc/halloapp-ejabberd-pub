@@ -34,7 +34,7 @@
 -behaviour(gen_server).
 
 -include("logger.hrl").
-
+-include("packets.hrl").
 -include("xmpp.hrl").
 
 %% API
@@ -158,7 +158,7 @@ handle_info({iq_reply, timeout, JID}, State) ->
 handle_info({timeout, _TRef, {ping, JID}}, State) ->
     Host = State#state.host,
     From = jid:remove_resource(JID),
-    IQ = #iq{from = From, to = JID, type = get, sub_els = [#ping{}]},
+    IQ = #iq{from = From, to = JID, type = get, sub_els = [#pb_ping{}]},
     ejabberd_router:route_iq(IQ, JID,
         gen_mod:get_module_proc(Host, ?MODULE),
         State#state.ping_ack_timeout),
@@ -174,7 +174,7 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% Hook callbacks
 %%====================================================================
 -spec iq_ping(iq()) -> iq().
-iq_ping(#iq{type = get, sub_els = [#ping{}]} = IQ) ->
+iq_ping(#iq{type = get, sub_els = [#pb_ping{}]} = IQ) ->
     xmpp:make_iq_result(IQ);
 iq_ping(#iq{} = IQ) ->
     ?ERROR("Invalid iq: ~p", [IQ]),
@@ -227,14 +227,12 @@ unregister_hooks(Host) ->
         user_send, 100).
 
 register_iq_handlers(Host) ->
-    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_PING,
-        ?MODULE, iq_ping),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PING,
-        ?MODULE, iq_ping).
+    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, pb_ping, ?MODULE, iq_ping),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_ping, ?MODULE, iq_ping).
 
 unregister_iq_handlers(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_PING),
-    gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_PING).
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_ping),
+    gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, pb_ping).
 
 -spec add_timer(jid(), pos_integer(), timers()) -> timers().
 add_timer(JID, Interval, Timers) ->
