@@ -97,6 +97,7 @@ message Contact {
     }
     Role role = 6;
     string name = 7;
+    int64 num_potential_friends = 8;
 }
 
 message ContactList {
