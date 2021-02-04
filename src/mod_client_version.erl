@@ -19,8 +19,7 @@
 -include("time.hrl").
 -include("xmpp.hrl").
 -include("client_version.hrl").
-
--define(NS_CLIENT_VER, <<"halloapp:client:version">>).
+-include("packets.hrl").
 
 % TODO: cleanup this on 2020-11-27
 -define(CUTOFF_TIME, 1603318598).
@@ -41,12 +40,12 @@
 
 start(Host, _Opts) ->
     ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 50),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_CLIENT_VER, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_client_version, ?MODULE, process_local_iq),
     ok.
 
 stop(Host) ->
     ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 50),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_CLIENT_VER),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_client_version),
     ok.
 
 depends(_Host, _Opts) ->
@@ -57,7 +56,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 
 process_local_iq(#iq{type = get, to = _Host, from = From,
-        sub_els = [#client_version{version = Version}]} = IQ) ->
+        sub_els = [#pb_client_version{version = Version}]} = IQ) ->
     % TODO(Nikola): clean up this print once we figure out the different versions bug
     ?INFO("mod_client_version Uid: ~s ClientVersion ~p", [From#jid.luser, Version]),
     CurTimestamp = util:now(),
@@ -70,8 +69,7 @@ process_local_iq(#iq{type = get, to = _Host, from = From,
             ?INFO("client_version version: ~p, expired ~p seconds ago",
                 [Version, abs(TimeLeftSec)])
     end,
-    xmpp:make_iq_result(IQ, #client_version{version = Version,
-            seconds_left = util:to_binary(TimeLeftSec)}).
+    xmpp:make_iq_result(IQ, #pb_client_version{version = Version, expires_in_seconds = TimeLeftSec}).
 
 
 c2s_session_opened(#{user := Uid, client_version := ClientVersion} = State) ->

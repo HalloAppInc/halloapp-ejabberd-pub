@@ -44,10 +44,6 @@ iq_payload_mapping(SubEl) ->
             avatar_parser:xmpp_to_proto(SubEl);
         avatars ->
             avatar_parser:xmpp_to_proto(SubEl);
-        client_mode ->
-            client_info_parser:xmpp_to_proto(SubEl);
-        client_version ->
-            client_info_parser:xmpp_to_proto(SubEl);
         whisper_keys ->
             whisper_keys_parser:xmpp_to_proto(SubEl);
         feed_st ->
@@ -112,10 +108,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             avatar_parser:proto_to_xmpp(AvatarRecord);
         #pb_avatars{} = AvatarsRecord ->
             avatar_parser:proto_to_xmpp(AvatarsRecord);
-        #pb_client_mode{} = ClientModeRecord ->
-            client_info_parser:proto_to_xmpp(ClientModeRecord);
-        #pb_client_version{} = ClientVersionRecord ->
-            client_info_parser:proto_to_xmpp(ClientVersionRecord);
         #pb_whisper_keys{} = WhisperKeysRecord ->
             whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
         #pb_feed_item{} = FeedItemRecord ->
