@@ -29,10 +29,7 @@ prop_xmpp_to_proto_test() ->
     PbProps = struct_util:create_pb_props(?HASH1, [PbProp1, PbProp2]),
     PbIq = struct_util:create_pb_iq(?ID1, result, PbProps),
 
-    PropSt1 = struct_util:create_prop(?PROP1_NAME, ?PROP1_VALUE),
-    PropSt2 = struct_util:create_prop(?PROP2_NAME, ?PROP2_VALUE),
-    PropsSt = struct_util:create_props(?HASH1_BASE64, [PropSt1, PropSt2]),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, PropsSt),
+    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, PbProps),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
     ?assertEqual(true, is_record(ProtoIq, pb_iq)),
@@ -45,8 +42,7 @@ prop_get_proto_to_xmpp_test() ->
     PbProps = struct_util:create_pb_props(<<>>, []),
     PbIq = struct_util:create_pb_iq(?ID1, get, PbProps),
 
-    PropsSt = struct_util:create_props(<<>>, []),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, get, PropsSt),
+    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, get, PbProps),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),
     ?assertEqual(true, is_record(XmppIq, iq)),

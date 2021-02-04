@@ -13,6 +13,7 @@
 -include("logger.hrl").
 -include("props.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -35,11 +36,11 @@
 %%====================================================================
 
 start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PROPS, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_props, ?MODULE, process_local_iq),
     ok.
 
 stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_PROPS),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_props),
     ok.
 
 depends(_Host, _Opts) ->
@@ -150,7 +151,8 @@ get_props_and_hash(Uid, ClientVersion) ->
 
 
 make_response(IQ, SortedProplist, Hash) ->
-    Props = [#prop{name = Key, value = Val} || {Key, Val} <- SortedProplist],
-    Prop = #props{hash = Hash, props = Props},
+    Props = [#pb_prop{name = util:to_binary(Key), value = util:to_binary(Val)} ||
+            {Key, Val} <- SortedProplist],
+    Prop = #pb_props{hash = base64url:decode(Hash), props = Props},
     xmpp:make_iq_result(IQ, Prop).
 

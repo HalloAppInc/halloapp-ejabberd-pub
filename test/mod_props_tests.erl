@@ -11,6 +11,7 @@
 
 -include("props.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(HASH_LENGTH, (?PROPS_SHA_HASH_LENGTH_BYTES * 4 / 3)).
@@ -64,11 +65,11 @@ iq_test() ->
     Hash = mod_props:generate_hash(SortedProplist),
     Actual = mod_props:make_response(#iq{type = get}, SortedProplist, Hash),
     Expected = #iq{type = result, sub_els = [
-        #props{hash = Hash, props = [
-            #prop{name = groups, value = true},
-            #prop{name = max_group_size, value = 25},
-            #prop{name = pi, value = 3.14},
-            #prop{name = some_test_prop, value = "value"}]}]},
+        #pb_props{hash = base64url:decode(Hash), props = [
+            #pb_prop{name = <<"groups">>, value = <<"true">>},
+            #pb_prop{name = <<"max_group_size">>, value = <<"25">>},
+            #pb_prop{name = <<"pi">>, value = float_to_binary(3.14)},
+            #pb_prop{name = <<"some_test_prop">>, value = <<"value">>}]}]},
     ?assertEqual(Expected, Actual).
 
 %% ----------------------------------------------

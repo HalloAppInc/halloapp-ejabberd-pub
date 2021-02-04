@@ -72,8 +72,6 @@ iq_payload_mapping(SubEl) ->
             client_log_parser:xmpp_to_proto(SubEl);
         name ->
             name_parser:xmpp_to_proto(SubEl);
-        props ->
-            props_parser:xmpp_to_proto(SubEl);
         group_feed_st ->
             group_feed_parser:xmpp_to_proto(SubEl);
         stanza_error ->
@@ -134,8 +132,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             groups_parser:proto_to_xmpp(GroupAvatarRecord);
         #pb_client_log{} = ClientLogRecord ->
             client_log_parser:proto_to_xmpp(ClientLogRecord);
-        #pb_props{} = PropsRecord ->
-            props_parser:proto_to_xmpp(PropsRecord);
         #pb_group_feed_item{} = GroupFeedItemRecord ->
             group_feed_parser:proto_to_xmpp(GroupFeedItemRecord);
         #pb_delete_account{phone = Phone} ->
