@@ -8,7 +8,7 @@
 -author('murali').
 
 -include("xmpp.hrl").
-
+-include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(UID1, <<"1">>).
@@ -22,6 +22,10 @@
 -define(UID3, <<"3">>).
 -define(UID4, <<"4">>).
 -define(UID5, <<"5">>).
+-define(UID2_INT, 2).
+-define(UID3_INT, 3).
+-define(UID4_INT, 4).
+-define(UID5_INT, 5).
 -define(SERVER, <<"s.halloapp.net">>).
 
 -define(HASH_FUNC, sha256).
@@ -55,14 +59,14 @@ setup_accounts(Accounts) ->
 
 
 create_uid_el(Type, Uid) ->
-    #uid_el{type = Type, uid = Uid}.
+    #pb_uid_element{action = Type, uid = Uid}.
 
 
 create_privacy_list(Type, HashValue, UidEls) ->
-    #user_privacy_list{
+    #pb_privacy_list{
         type = Type,
         hash = HashValue,
-        uid_els = UidEls
+        uid_elements = UidEls
     }.
 
 
@@ -81,6 +85,13 @@ create_error_st(Reason, Hash) ->
         reason = Reason,
         hash = Hash,
         bad_req = 'bad-request'
+    }.
+
+create_error_hash_st(Reason, Hash) ->
+    #pb_privacy_list_result{
+        result = <<"failed">>,
+        reason = util:to_binary(Reason),
+        hash = Hash
     }.
 
 create_iq_response_privacy_list(Uid, Type, SubEls) ->
@@ -157,8 +168,8 @@ iq_hash_mismatch_error_test() ->
     SubEl1 = create_privacy_list(only, <<"error">>, [UidEl1]),
     RequestIQ = create_iq_request_privacy_list(?UID1, set, [SubEl1]),
 
-    ServerHashValue = base64url:encode(crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>)),
-    SubEl2 = create_error_st(hash_mismatch, ServerHashValue),
+    ServerHashValue = crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>),
+    SubEl2 = create_error_hash_st(hash_mismatch, ServerHashValue),
     ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, error, [SubEl2]),
     ActualResponseIQ = mod_user_privacy:process_local_iq(RequestIQ),
 
@@ -191,18 +202,18 @@ iq_get_privacy_list_test() ->
     ok = model_privacy:block_uids(?UID1, [?UID5]),
     ok = model_privacy:set_privacy_type(?UID1, except),
 
-    RequestIQ = create_iq_request_privacy_list(?UID1, get, [#user_privacy_lists{}]),
+    RequestIQ = create_iq_request_privacy_list(?UID1, get, [#pb_privacy_lists{}]),
 
     UidEl1 = create_uid_el(add, ?UID2),
     UidEl2 = create_uid_el(add, ?UID3),
     UidEl3 = create_uid_el(add, ?UID4),
     UidEl4 = create_uid_el(add, ?UID5),
-    OnlyList = create_privacy_list(only, undefined, [UidEl1, UidEl2]),
-    ExceptList = create_privacy_list(except, undefined, [UidEl2, UidEl3]),
-    MuteList = create_privacy_list(mute, undefined, [UidEl3]),
-    BlockList = create_privacy_list(block, undefined, [UidEl4]),
+    OnlyList = create_privacy_list(only, <<>>, [UidEl1, UidEl2]),
+    ExceptList = create_privacy_list(except, <<>>, [UidEl2, UidEl3]),
+    MuteList = create_privacy_list(mute, <<>>, [UidEl3]),
+    BlockList = create_privacy_list(block, <<>>, [UidEl4]),
     ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, result,
-            [#user_privacy_lists{active_type = except, lists = [BlockList, MuteList, OnlyList, ExceptList]}]),
+            [#pb_privacy_lists{active_type = except, lists = [BlockList, MuteList, OnlyList, ExceptList]}]),
     ActualResponseIQ = mod_user_privacy:process_local_iq(RequestIQ),
 
     ?assertEqual(ExpectedResponseIQ, ActualResponseIQ),
@@ -219,7 +230,7 @@ update_privacy_type_error_test() ->
     ?assertEqual({error, invalid_type}, mod_user_privacy:update_privacy_type(?UID1, check, <<>>, [UidEl1])),
 
     %% Send incorrect hash value.
-    ServerHashValue = base64url:encode(crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>)),
+    ServerHashValue = crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>),
     ?assertEqual({error, hash_mismatch, ServerHashValue},
             mod_user_privacy:update_privacy_type(?UID1, except, <<"error">>, [UidEl1])),
     ok.
@@ -248,7 +259,7 @@ update_privacy_type_except_test() ->
         [?UID1, ?PHONE1, ?NAME1, ?UA1]]),
 
     ?assertEqual(all, mod_user_privacy:get_privacy_type(?UID1)),
-    HashValue1 = base64url:encode(crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>)),
+    HashValue1 = crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>),
     UidEl1 = create_uid_el(add, ?UID2),
     ?assertEqual(ok, mod_user_privacy:update_privacy_type(?UID1, except, HashValue1, [UidEl1])),
     ?assertEqual(except, mod_user_privacy:get_privacy_type(?UID1)),
@@ -257,7 +268,7 @@ update_privacy_type_except_test() ->
     ActualList1 = lists:sort(Res1),
     ?assertEqual(ExpectedList1, ActualList1),
 
-    HashValue2 = base64url:encode(crypto:hash(?HASH_FUNC, <<",", ?UID3/binary>>)),
+    HashValue2 = crypto:hash(?HASH_FUNC, <<",", ?UID3/binary>>),
     UidEl2 = create_uid_el(add, ?UID3),
     UidEl3 = create_uid_el(delete, ?UID2),
     ?assertEqual(ok, mod_user_privacy:update_privacy_type(?UID1, except, HashValue2, [UidEl2, UidEl3])),
@@ -275,7 +286,7 @@ update_privacy_type_only_test() ->
         [?UID1, ?PHONE1, ?NAME1, ?UA1]]),
 
     ?assertEqual(all, mod_user_privacy:get_privacy_type(?UID1)),
-    HashValue1 = base64url:encode(crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>)),
+    HashValue1 = crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>),
     UidEl1 = create_uid_el(add, ?UID2),
     ?assertEqual(ok, mod_user_privacy:update_privacy_type(?UID1, only, HashValue1, [UidEl1])),
     ?assertEqual(only, mod_user_privacy:get_privacy_type(?UID1)),
@@ -284,7 +295,7 @@ update_privacy_type_only_test() ->
     ActualList1 = lists:sort(Res1),
     ?assertEqual(ExpectedList1, ActualList1),
 
-    HashValue2 = base64url:encode(crypto:hash(?HASH_FUNC, <<",", ?UID3/binary>>)),
+    HashValue2 = crypto:hash(?HASH_FUNC, <<",", ?UID3/binary>>),
     UidEl2 = create_uid_el(delete, ?UID2),
     UidEl3 = create_uid_el(add, ?UID3),
     ?assertEqual(ok, mod_user_privacy:update_privacy_type(?UID1, only, HashValue2, [UidEl2, UidEl3])),
@@ -301,7 +312,7 @@ update_privacy_type_mute_test() ->
     setup_accounts([
         [?UID1, ?PHONE1, ?NAME1, ?UA1]]),
 
-    HashValue1 = base64url:encode(crypto:hash(?HASH_FUNC, <<",", ?UID2/binary, ",", ?UID3/binary>>)),
+    HashValue1 = crypto:hash(?HASH_FUNC, <<",", ?UID2/binary, ",", ?UID3/binary>>),
     UidEl1 = create_uid_el(add, ?UID2),
     UidEl2 = create_uid_el(add, ?UID3),
     ?assertEqual(ok, mod_user_privacy:update_privacy_type(?UID1, mute, HashValue1, [UidEl1, UidEl2])),
@@ -310,7 +321,7 @@ update_privacy_type_mute_test() ->
     ActualList1 = lists:sort(Res1),
     ?assertEqual(ExpectedList1, ActualList1),
 
-    HashValue2 = base64url:encode(crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>)),
+    HashValue2 = crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>),
     UidEl3 = create_uid_el(delete, ?UID3),
     ?assertEqual(ok, mod_user_privacy:update_privacy_type(?UID1, mute, HashValue2, [UidEl3])),
     ?assertEqual({ok, [?UID2]}, model_privacy:get_mutelist_uids(?UID1)),
@@ -322,7 +333,7 @@ update_privacy_type_block_test() ->
     setup_accounts([
         [?UID1, ?PHONE1, ?NAME1, ?UA1]]),
 
-    HashValue1 = base64url:encode(crypto:hash(?HASH_FUNC, <<",", ?UID3/binary>>)),
+    HashValue1 = crypto:hash(?HASH_FUNC, <<",", ?UID3/binary>>),
     UidEl1 = create_uid_el(add, ?UID3),
     ?assertEqual(ok, mod_user_privacy:update_privacy_type(?UID1, block, HashValue1, [UidEl1])),
     {ok, Res1} = model_privacy:get_blocked_uids(?UID1),
@@ -330,7 +341,7 @@ update_privacy_type_block_test() ->
     ActualList1 = lists:sort(Res1),
     ?assertEqual(ExpectedList1, ActualList1),
 
-    HashValue2 = base64url:encode(crypto:hash(?HASH_FUNC, <<>>)),
+    HashValue2 = crypto:hash(?HASH_FUNC, <<>>),
     UidEl2 = create_uid_el(delete, ?UID3),
     ?assertEqual(ok, mod_user_privacy:update_privacy_type(?UID1, block, HashValue2, [UidEl2])),
     ?assertEqual({ok, []}, model_privacy:get_blocked_uids(?UID1)),

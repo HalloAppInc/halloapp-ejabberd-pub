@@ -48,10 +48,6 @@ iq_payload_mapping(SubEl) ->
             whisper_keys_parser:xmpp_to_proto(SubEl);
         feed_st ->
             feed_parser:xmpp_to_proto(SubEl);
-        user_privacy_list ->
-            privacy_list_parser:xmpp_to_proto(SubEl);
-        user_privacy_lists ->
-            privacy_list_parser:xmpp_to_proto(SubEl);
         error_st ->
             Hash = SubEl#error_st.hash,
             case Hash =:= undefined orelse Hash =:= <<>> of
@@ -75,7 +71,7 @@ iq_payload_mapping(SubEl) ->
         delete_account ->
             #pb_delete_account{phone = SubEl#delete_account.phone};
         _ ->
-            SubEl
+            uid_parser:translate_to_pb_uid(SubEl)
     end,
     Payload.
 
@@ -112,10 +108,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
         #pb_feed_item{} = FeedItemRecord ->
             feed_parser:proto_to_xmpp(FeedItemRecord);
-        #pb_privacy_list{} = PrivacyListRecord ->
-            privacy_list_parser:proto_to_xmpp(PrivacyListRecord);
-        #pb_privacy_lists{} = PrivacyListsRecord ->
-            privacy_list_parser:proto_to_xmpp(PrivacyListsRecord);
         #pb_groups_stanza{} = GroupsStanzaRecord ->
             groups_parser:proto_to_xmpp(GroupsStanzaRecord);
         #pb_group_stanza{} = GroupStanzaRecord ->
@@ -129,6 +121,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
         #pb_delete_account{phone = Phone} ->
             #delete_account{phone = Phone};
         _ ->
-            uid_parser:translate_uid(ProtoPayload)
+            uid_parser:translate_to_xmpp_uid(ProtoPayload)
     end,
     SubEl.

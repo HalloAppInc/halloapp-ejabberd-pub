@@ -12,8 +12,8 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 
--define(NS_USER_PRIVACY, <<"halloapp:user:privacy">>).
 -define(STAT_PRIVACY, "HA/Privacy").
 -define(COMMA_CHAR, <<",">>).
 -define(HASH_FUNC, sha256).
@@ -42,14 +42,16 @@
 
 start(Host, _Opts) ->
     ?INFO("start", []),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_USER_PRIVACY, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_privacy_list, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_privacy_lists, ?MODULE, process_local_iq),
     ejabberd_hooks:add(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
 stop(Host) ->
     ?INFO("stop", []),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_USER_PRIVACY),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_privacy_list),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_privacy_lists),
     ejabberd_hooks:delete(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
@@ -71,14 +73,15 @@ mod_options(_Host) ->
 
 -spec process_local_iq(IQ :: iq()) -> iq().
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        sub_els = [#user_privacy_list{type = Type, hash = HashValue, uid_els = UidEls}]} = IQ) ->
+        sub_els = [#pb_privacy_list{type = Type, hash = HashValue, uid_elements = UidEls}]} = IQ) ->
     ?INFO("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
     case update_privacy_type(Uid, Type, HashValue, UidEls) of
         ok ->
             xmpp:make_iq_result(IQ);
         {error, hash_mismatch, ServerHashValue} ->
             ?WARNING("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
-            xmpp:make_error(IQ, util:err(hash_mismatch, ServerHashValue));
+            xmpp:make_error(IQ, #pb_privacy_list_result{
+                    result = <<"failed">>, reason = <<"hash_mismatch">>, hash = ServerHashValue});
         {error, invalid_type} ->
             ?WARNING("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
             xmpp:make_error(IQ, util:err(invalid_type));
@@ -87,9 +90,9 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
             xmpp:make_error(IQ, util:err(unexcepted_uids))
     end;
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = get,
-        sub_els = [#user_privacy_lists{lists = PrivacyLists}]} = IQ) ->
+        sub_els = [#pb_privacy_lists{lists = PrivacyLists}]} = IQ) ->
     ?INFO("Uid: ~s, get-iq for privacy_list", [Uid]),
-    ListTypes = lists:map(fun(#user_privacy_list{type = Type}) -> Type end, PrivacyLists),
+    ListTypes = lists:map(fun(#pb_privacy_list{type = Type}) -> Type end, PrivacyLists),
     Types = case ListTypes of
         [] -> [except, only, mute, block];
         _ -> ListTypes
@@ -97,7 +100,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = get,
     UserPrivacyLists = get_privacy_lists(Uid, Types),
     ActiveType = get_privacy_type(Uid),
     xmpp:make_iq_result(IQ,
-            #user_privacy_lists{
+            #pb_privacy_lists{
                 active_type = ActiveType,
                 lists = UserPrivacyLists
             });
@@ -267,7 +270,7 @@ get_privacy_type(Uid) ->
 update_privacy_list(_Uid, _Type, _ClientHashValue, []) -> ok;
 update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
     {DeleteUidsList, AddUidsList} = lists:partition(
-            fun(#uid_el{type = T}) ->
+            fun(#pb_uid_element{action = T}) ->
                 T =:= delete
             end, UidEls),
     DeleteUids = lists:map(fun extract_uid/1, DeleteUidsList),
@@ -309,8 +312,7 @@ compute_hash_value(Uid, Type, DeleteUids, AddUids) ->
     AddSet = sets:from_list(AddUids),
     FinalList = sets:to_list(sets:union(sets:subtract(OuidsSet, DeleteSet), AddSet)),
     FinalString = util:join_binary(?COMMA_CHAR, lists:sort(FinalList), <<>>),
-    FullHash = crypto:hash(?HASH_FUNC, FinalString),
-    HashValue = base64url:encode(FullHash),
+    HashValue = crypto:hash(?HASH_FUNC, FinalString),
     ?INFO("Uid: ~s, Type: ~p, HashValue: ~p", [Uid, Type, HashValue]),
     HashValue.
 
@@ -379,14 +381,14 @@ get_privacy_lists(Uid, [Type | Rest], Result) ->
     end,
     UidEls = lists:map(
         fun(Ouid) ->
-            #uid_el{uid = Ouid}
+            #pb_uid_element{uid = Ouid}
         end, Ouids),
-    PrivacyList = #user_privacy_list{type = Type, uid_els = UidEls},
+    PrivacyList = #pb_privacy_list{type = Type, uid_elements = UidEls},
     get_privacy_lists(Uid, Rest, [PrivacyList | Result]).
 
 
--spec extract_uid(UidEl :: uid_el()) -> binary().
-extract_uid(#uid_el{uid = Uid}) -> Uid.
+-spec extract_uid(UidEl :: pb_uid_element()) -> binary().
+extract_uid(#pb_uid_element{uid = Uid}) -> Uid.
 
 -spec log_counters(ServerHashValue :: binary(), ClientHashValue :: binary() | undefined) -> ok.
 log_counters(_, undefined) ->
