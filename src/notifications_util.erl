@@ -20,7 +20,7 @@
 
 -spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
         ContactId :: binary(), Role :: list(), MessageType :: atom()) -> ok.
-send_contact_notification(UserId, UserPhone, Server, ContactId, Role, MessageType) -> 
+send_contact_notification(UserId, UserPhone, Server, ContactId, Role, MessageType) ->
     AvatarId = case Role of
         <<"none">> -> undefined;
         <<"friends">> -> model_accounts:get_avatar_id_binary(UserId)

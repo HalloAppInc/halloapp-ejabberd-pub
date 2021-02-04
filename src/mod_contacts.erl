@@ -176,7 +176,7 @@ unblock_uids(Uid, Server, Ouids) ->
                         true ->
                             WasBlocked = true,
                             add_friend(Uid, Server, Ouid, WasBlocked),
-                            notify_contact_about_user(Ouid, OPhone, Server, Uid, <<"friends">>);
+                            notify_contact_about_user(Ouid, OPhone, Server, Uid, <<"friends">>, WasBlocked);
                         false ->
                             notify_contact_about_user(Ouid, OPhone, Server, Uid, <<"none">>)
                     end;
@@ -519,11 +519,20 @@ remove_contact_and_notify(UserId, Server, UserPhone, ContactPhone, ReverseContac
 %% if they are now friends or not on halloapp.
 -spec notify_contact_about_user(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
         ContactId :: binary(), Role :: list()) -> ok.
-notify_contact_about_user(UserId, _UserPhone, _Server, UserId, _Role) ->
-    ok;
 notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role) ->
-    notifications_util:send_contact_notification(UserId, UserPhone, Server, ContactId, Role,
-        normal).
+    notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role, false).
+
+
+-spec notify_contact_about_user(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
+        ContactId :: binary(), Role :: list(), WasBlocked :: boolean()) -> ok.
+notify_contact_about_user(UserId, _UserPhone, _Server, ContactId, _Role, _WasBlocked)
+        when ContactId =:= UserId ->
+    %% Users might have their own number in the contact book: so we should ignore them.
+    ok;
+notify_contact_about_user(UserId, UserPhone, Server, ContactId, <<"friends">> = Role, false) ->
+    notifications_util:send_contact_notification(UserId, UserPhone, Server, ContactId, Role, headline);
+notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role, _WasBlocked) ->
+    notifications_util:send_contact_notification(UserId, UserPhone, Server, ContactId, Role, normal).
 
 -spec probe_contact_about_user(UserId :: binary(), UserPhone :: binary(),
         Server :: binary(), ContactId :: binary()) -> ok.

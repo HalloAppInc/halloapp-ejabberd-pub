@@ -67,11 +67,15 @@ parse_metadata(#message{id = Id, sub_els = [SubElement]}, _PushInfo)
 parse_metadata(#message{id = _Id, type = MsgType, sub_els = [SubElement]} = Message, PushInfo)
         when is_record(SubElement, contact_list), SubElement#contact_list.contacts =/= [] ->
     [Contact | _] = SubElement#contact_list.contacts,
-    {Subject, Body} = case MsgType of
-        headline ->
+    Role = Contact#contact.role,
+    {Subject, Body} = case {MsgType, Role} of
+        {headline, <<"friends">>} ->
+            Name = Contact#contact.name,
+            {<<"New friend">>, <<"Your friend ", Name/binary, " just joined HalloApp">>};
+        {headline, <<"none">>} ->
             Name = Contact#contact.name,
             {<<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
-        normal ->
+        {normal, _} ->
             {<<"New Contact">>, <<"New contact notification">>}
     end,
     PayloadType = util:get_payload_type(Message),
