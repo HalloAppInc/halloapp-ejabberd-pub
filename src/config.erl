@@ -27,7 +27,6 @@
 -define(ENV_TEST, "test").
 -define(ENV_GITHUB, "github").
 -define(NOISE_PROD_SECRET_NAME, <<"noise_secret_prod">>).
--define(NOISE_PROD2_SECRET_NAME, <<"noise_secret_prod2">>).
 -define(NOISE_DEV_SECRET_NAME, <<"noise_secret_dev">>).
 
 -define(SENTRY_DSN_SECRET_NAME, <<"sentry_dsn">>).
@@ -58,7 +57,7 @@ is_testing_env() ->
 -spec get_noise_secret_name() -> binary().
 get_noise_secret_name() ->
     case is_prod_env() of
-        true -> ?NOISE_PROD2_SECRET_NAME;
+        true -> ?NOISE_PROD_SECRET_NAME;
         _ -> ?NOISE_DEV_SECRET_NAME
     end.
 
