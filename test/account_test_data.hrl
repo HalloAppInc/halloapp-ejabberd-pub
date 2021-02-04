@@ -18,8 +18,10 @@
 -define(UID1_INT, 1000000000000000001).
 -define(UID2_INT, 1000000000000000002).
 -define(UID3_INT, 1000000000000000003).
-
--define(PAYLOAD1, <<"123">>).
+-define(UID4_INT, 1000000000000000004).
+-define(UID5_INT, 1000000000000000005).
+-define(UID6_INT, 1000000000000000006).
+-define(UID7_INT, 1000000000000000007).
 
 -define(PHONE1, <<"12065550001">>).
 -define(PHONE2, <<"12065550002">>).
@@ -36,8 +38,6 @@
 -define(UA, <<"HalloApp/Android1.0">>).
 
 -define(MSG_ID1, <<"MessageId1">>).
--define(POST_ID1, <<"PostId1">>).
--define(COMMENT_ID1, <<"CommentId1">>).
 
 -define(TS1, 1600000000000).
 -define(TS2, 1600000001000).
