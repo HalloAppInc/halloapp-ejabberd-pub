@@ -66,8 +66,6 @@ iq_payload_mapping(SubEl) ->
             group_feed_parser:xmpp_to_proto(SubEl);
         stanza_error ->
             #pb_error_stanza{reason = util:to_binary(SubEl#stanza_error.reason)};
-        delete_account ->
-            #pb_delete_account{phone = SubEl#delete_account.phone};
         _ ->
             uid_parser:translate_to_pb_uid(SubEl)
     end,
@@ -114,8 +112,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             client_log_parser:proto_to_xmpp(ClientLogRecord);
         #pb_group_feed_item{} = GroupFeedItemRecord ->
             group_feed_parser:proto_to_xmpp(GroupFeedItemRecord);
-        #pb_delete_account{phone = Phone} ->
-            #delete_account{phone = Phone};
         _ ->
             uid_parser:translate_to_xmpp_uid(ProtoPayload)
     end,

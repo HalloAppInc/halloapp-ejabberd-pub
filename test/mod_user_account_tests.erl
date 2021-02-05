@@ -7,6 +7,7 @@
 -author('murali').
 
 -include("xmpp.hrl").
+-include("packets.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -29,7 +30,7 @@ create_delete_account_iq(Uid, Server, Type, Phone) ->
         from = jid:make(Uid, Server),
         type = Type,
         sub_els = [
-            #delete_account{
+            #pb_delete_account{
                 phone = Phone
             }
         ]
