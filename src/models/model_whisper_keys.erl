@@ -36,7 +36,8 @@
     add_key_subscriber/2,
     remove_key_subscriber/2,
     get_all_key_subscribers/1,
-    remove_all_key_subscribers/1
+    remove_all_key_subscribers/1,
+    delete_all_otp_keys/1  %% dangerous function - dont use without talking to the team.
 ]).
 
 %%====================================================================
@@ -82,6 +83,13 @@ set_keys(Uid, IdentityKey, SignedPreKey, OtpKeys) ->
 -spec add_otp_keys(Uid :: uid(), OtpKeys :: list(binary())) -> ok | {error, any()}.
 add_otp_keys(Uid, OtpKeys) ->
     {ok, _Res} = q(["LPUSH", otp_key(Uid) | OtpKeys]),
+    ok.
+
+
+%% dangerous function - dont use without notice to the team.
+-spec delete_all_otp_keys(Uid :: uid()) -> ok.
+delete_all_otp_keys(Uid) ->
+    {ok, _Res} = q(["LTRIM", otp_key(Uid), 1, 0]),
     ok.
 
 

@@ -51,7 +51,8 @@
     count_users_by_version_run/2,
     check_users_by_whisper_keys/2,
     check_accounts_run/2,
-    check_phone_numbers_run/2
+    check_phone_numbers_run/2,
+    refresh_otp_keys_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -493,6 +494,36 @@ check_phone_numbers_run(Key, State) ->
                         false ->
                             ?ERROR("phone: ~p, uid: ~p, uidphone: ~p", [Uid, Phone, UidPhone]),
                             ok
+                    end
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         refresh otp keys for some accounts                       %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+refresh_otp_keys_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            {ok, Version} = q(redis_accounts_client, ["HGET", FullKey, <<"cv">>]),
+            case util_ua:get_client_type(Version) =:= ios andalso
+                    util_ua:is_version_greater_than(Version, <<"HalloApp/iOS1.2.91">>) of
+                false -> ok;
+                %% refresh otp keys for all ios accounts with version > 1.2.91
+                true ->
+                    case DryRun of
+                        true ->
+                            ?INFO("Uid: ~p, would refresh keys for: ~p", [Uid, Version]);
+                        false ->
+                            ?INFO("Uid: ~p, Version: ~p", [Uid, Version]),
+                            ok = mod_whisper:refresh_otp_keys(Uid)
                     end
             end;
         _ -> ok

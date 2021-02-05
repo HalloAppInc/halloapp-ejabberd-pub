@@ -35,7 +35,8 @@
     notify_key_subscribers/2,
     set_keys_and_notify/4,
     remove_user/2,
-    check_whisper_keys/3
+    check_whisper_keys/3,
+    refresh_otp_keys/1
 ]).
 
 
@@ -170,6 +171,16 @@ check_whisper_keys(IdentityKeyB64, SignedKeyB64, OneTimeKeysB64) ->
             check_one_time_keys(OneTimeKeysB64)
     end.
 
+
+-spec refresh_otp_keys(Uid :: binary()) -> ok.
+refresh_otp_keys(Uid) ->
+    ?INFO("Uid: ~p", [Uid]),
+    ok = model_whisper_keys:delete_all_otp_keys(Uid),
+    ?INFO("deleted all otp keys, uid: ~p", [Uid]),
+    Server = util:get_host(),
+    ?INFO("trigger upload now, uid: ~p", [Uid]),
+    check_count_and_notify_user(Uid, Server),
+    ok.
 
 %%====================================================================
 %% internal functions
