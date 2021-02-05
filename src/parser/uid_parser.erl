@@ -79,9 +79,20 @@ translate_to_xmpp_uid(#pb_comment{publisher_uid = Uid} = PbPost) ->
 translate_to_xmpp_uid(#pb_audience{uids = Uids} = PbAudience) ->
     PbAudience#pb_audience{uids = lists:map(fun translate_to_xmpp_uid/1, Uids)};
 
+translate_to_xmpp_uid(#pb_group_stanza{sender_uid = Uid, members = Members} = PbGroup) ->
+    PbGroup#pb_group_stanza{
+        sender_uid = util_parser:proto_to_xmpp_uid(Uid),
+        members = [translate_to_xmpp_uid(M) || M <- Members]
+    };
+
+translate_to_xmpp_uid(#pb_group_member{uid = Uid} = GM) ->
+    GM#pb_group_member{uid = util_parser:proto_to_xmpp_uid(Uid)};
+
+translate_to_xmpp_uid(#pb_groups_stanza{group_stanzas = Groups} = GS) ->
+    GS#pb_groups_stanza{group_stanzas = [translate_to_xmpp_uid(G) || G <- Groups]};
+
 translate_to_xmpp_uid(PbElement) ->
     PbElement.
-
 
 
 translate_to_pb_uid(#pb_avatar{uid = Uid} = PbAvatar) ->
@@ -148,6 +159,18 @@ translate_to_pb_uid(#pb_comment{publisher_uid = Uid} = PbPost) ->
 
 translate_to_pb_uid(#pb_audience{uids = Uids} = PbAudience) ->
     PbAudience#pb_audience{uids = lists:map(fun translate_to_pb_uid/1, Uids)};
+
+translate_to_pb_uid(#pb_group_stanza{sender_uid = Uid, members = Members} = PbGroup) ->
+    PbGroup#pb_group_stanza{
+        sender_uid = util_parser:xmpp_to_proto_uid(Uid),
+        members = [translate_to_pb_uid(M) || M <- Members]
+    };
+
+translate_to_pb_uid(#pb_group_member{uid = Uid} = GM) ->
+    GM#pb_group_member{uid = util_parser:xmpp_to_proto_uid(Uid)};
+
+translate_to_pb_uid(#pb_groups_stanza{group_stanzas = Groups} = GS) ->
+    GS#pb_groups_stanza{group_stanzas = [translate_to_pb_uid(G) || G <- Groups]};
 
 translate_to_pb_uid(PbElement) ->
     PbElement.

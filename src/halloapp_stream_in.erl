@@ -761,6 +761,7 @@ send_pkt(State, XmppPkt) ->
                     ?INFO("send bin: ~p", [BinPkt]),
                     {BinPkt, socket_send(State, BinPkt)};
                 {error, _} = Err ->
+                    ?INFO("failed to encode packet ~p, error ~p", [Pkt, Err]),
                     {<<>>, Err}
             end,
 

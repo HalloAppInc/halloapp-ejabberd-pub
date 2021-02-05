@@ -64,7 +64,6 @@ create_group_test(_Conf) ->
                 action = create,
                 gid = Gid,
                 name = ?GROUP_NAME1,
-                avatar_id = undefined,
                 members = [
                     #pb_group_member{uid = Uid2, type = member, result = <<"ok">>, reason = undefined},
                     #pb_group_member{uid = Uid3, type = member, result = <<"ok">>, reason = undefined},

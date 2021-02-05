@@ -23,11 +23,11 @@ setup() ->
 xmpp_to_proto_iq_group_result_test() ->
     setup(),
 
-    MemberSt = struct_util:create_member_st(add, ?UID2, member, ?NAME2, ?AVATAR_ID2, ok, undefined),
-    GroupSt = struct_util:create_group_st(modify_members, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1, ?NAME1, [MemberSt]),
+    Member = struct_util:create_pb_member(add, ?UID2, member, ?NAME2, ?AVATAR_ID2, <<"ok">>, undefined),
+    Group = struct_util:create_pb_group_stanza(modify_members, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1, ?NAME1, [Member]),
     ToJid = jid:make(?UID1, ?SERVER),
     FromJid = jid:make(?SERVER),
-    XmppIq = struct_util:create_iq_stanza(?ID1, ToJid, FromJid, result, GroupSt),
+    XmppIq = struct_util:create_iq_stanza(?ID1, ToJid, FromJid, result, Group),
 
     PbMember = struct_util:create_pb_member(add, ?UID2_INT, member, ?NAME2, ?AVATAR_ID2, <<"ok">>, undefined),
     PbGroup = struct_util:create_pb_group_stanza(modify_members, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1_INT, ?NAME1, [PbMember]),
@@ -94,9 +94,9 @@ proto_to_xmpp_group_chat_test() ->
 proto_to_xmpp_iq_group_test() ->
     setup(),
 
-    MemberSt = struct_util:create_member_st(promote, ?UID2, admin, ?NAME2, ?AVATAR_ID2, undefined, undefined),
-    GroupSt = struct_util:create_group_st(modify_admins, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1, ?NAME1, [MemberSt]),
-    ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, GroupSt),
+    Member = struct_util:create_pb_member(promote, ?UID2, admin, ?NAME2, ?AVATAR_ID2, <<>>, <<>>),
+    Group = struct_util:create_pb_group_stanza(modify_admins, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1, ?NAME1, [Member]),
+    ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, Group),
 
     PbMember = struct_util:create_pb_member(promote, ?UID2_INT, admin, ?NAME2, ?AVATAR_ID2, <<>>, <<>>),
     PbGroup = struct_util:create_pb_group_stanza(modify_admins, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1_INT, ?NAME1, [PbMember]),
@@ -110,8 +110,8 @@ proto_to_xmpp_iq_group_test() ->
 proto_to_xmpp_groups_test() ->
     setup(),
 
-    GroupsSt = struct_util:create_groups_st(get, []),
-    ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, get, GroupsSt),
+    Groups = struct_util:create_pb_groups_stanza(get, []),
+    ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, get, Groups),
 
     PbGroupsStanza = struct_util:create_pb_groups_stanza(get, []),
     ProtoIq = struct_util:create_pb_iq(?ID1, get, PbGroupsStanza),
@@ -124,9 +124,9 @@ proto_to_xmpp_groups_test() ->
 xmpp_to_proto_iq_groups_test() ->
     setup(),
 
-    GroupSt = struct_util:create_group_st(undefined, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, undefined, undefined, []),
-    GroupsSt = struct_util:create_groups_st(get, [GroupSt]),
-    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, GroupsSt),
+    Group = struct_util:create_pb_group_stanza(undefined, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, undefined, undefined, []),
+    Groups = struct_util:create_pb_groups_stanza(get, [Group]),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, Groups),
 
     PbGroup = struct_util:create_pb_group_stanza(undefined, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, undefined, undefined, []),
     PbGroupsStanza = struct_util:create_pb_groups_stanza(get, [PbGroup]),

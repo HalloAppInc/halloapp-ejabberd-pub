@@ -21,7 +21,7 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("groups.hrl").
--include ("packets.hrl").
+-include("packets.hrl").
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -31,7 +31,8 @@
 
 start(Host, _Opts) ->
     ?INFO("start", []),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_GROUPS, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_group_stanza, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_groups_stanza, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_upload_group_avatar, ?MODULE, process_local_iq),
     ejabberd_hooks:add(group_message, Host, ?MODULE, send_group_message, 50),
     ok.
@@ -39,7 +40,8 @@ start(Host, _Opts) ->
 
 stop(Host) ->
     ?INFO("stop", []),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_GROUPS),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_group_stanza),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_groups_stanza),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_upload_group_avatar),
     ejabberd_hooks:delete(group_message, Host, ?MODULE, send_group_message, 50),
     ok.
@@ -86,43 +88,43 @@ send_group_message(#message{id = MsgId, from = #jid{luser = Uid}, type = groupch
 
 %%% create_group %%%
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#group_st{action = create, name = Name} = ReqGroupSt]} = IQ) ->
+        sub_els = [#pb_group_stanza{action = create, name = Name} = ReqGroupSt]} = IQ) ->
     process_create_group(IQ, Uid, Name, ReqGroupSt);
 
 
 %%% delete_group %%%
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#group_st{action = delete, gid = Gid} = _ReqGroupSt]} = IQ) ->
+        sub_els = [#pb_group_stanza{action = delete, gid = Gid} = _ReqGroupSt]} = IQ) ->
     process_delete_group(IQ, Gid, Uid);
 
 
 %%% modify_members %%%
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#group_st{action = modify_members, gid = Gid} = ReqGroupSt]} = IQ) ->
+        sub_els = [#pb_group_stanza{action = modify_members, gid = Gid} = ReqGroupSt]} = IQ) ->
     process_modify_members(IQ, Gid, Uid, ReqGroupSt);
 
 
 %%% modify_admins %%%
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#group_st{action = modify_admins, gid = Gid} = ReqGroupSt]} = IQ) ->
+        sub_els = [#pb_group_stanza{action = modify_admins, gid = Gid} = ReqGroupSt]} = IQ) ->
     process_modify_admins(IQ, Gid, Uid, ReqGroupSt);
 
 
 %%% get_group %%%
 process_local_iq(#iq{from = #jid{luser = Uid}, type = get,
-        sub_els = [#group_st{action = get, gid = Gid} = _ReqGroupSt]} = IQ) ->
+        sub_els = [#pb_group_stanza{action = get, gid = Gid} = _ReqGroupSt]} = IQ) ->
     process_get_group(IQ, Gid, Uid);
 
 
 %%% get_groups %%%
 process_local_iq(#iq{from = #jid{luser = Uid}, type = get,
-        sub_els = [#groups{action = get}]} = IQ) ->
+        sub_els = [#pb_groups_stanza{action = get}]} = IQ) ->
     process_get_groups(IQ, Uid);
 
 
 %%% set_name %%%
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#group_st{action = set_name, gid = Gid, name = Name} = _ReqGroupSt]} = IQ) ->
+        sub_els = [#pb_group_stanza{action = set_name, gid = Gid, name = Name} = _ReqGroupSt]} = IQ) ->
     process_set_name(IQ, Gid, Uid, Name);
 
 
@@ -135,14 +137,12 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
 %%% set_avatar
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
         sub_els = [#pb_upload_group_avatar{gid = Gid, data = Data}]} = IQ) ->
-    %% TODO(murali@): update these functions to work with binary data.
-    Base64Bytes = base64:encode(Data),
-    process_set_avatar(IQ, Gid, Uid, Base64Bytes);
+    process_set_avatar(IQ, Gid, Uid, Data);
 
 
 %%% leave_group %%%
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#group_st{action = leave, gid = Gid} = _ReqGroupSt]} = IQ) ->
+        sub_els = [#pb_group_stanza{action = leave, gid = Gid} = _ReqGroupSt]} = IQ) ->
     process_leave_group(IQ, Gid, Uid).
 
 
@@ -152,10 +152,10 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
 
 
 -spec process_create_group(IQ :: iq(), Uid :: uid(),
-        Name :: binary(), ReqGroupSt :: group_st()) -> iq().
+        Name :: binary(), ReqGroupSt :: pb_group_stanza()) -> iq().
 process_create_group(IQ, Uid, Name, ReqGroupSt) ->
     ?INFO("create_group Uid: ~s Name: |~s| Group: ~p", [Uid, Name, ReqGroupSt]),
-    MemberUids = [M#member_st.uid || M <- ReqGroupSt#group_st.members],
+    MemberUids = [M#pb_group_member.uid || M <- ReqGroupSt#pb_group_stanza.members],
 
     {ok, Group, Results} = mod_groups:create_group(Uid, Name, MemberUids),
 
@@ -169,7 +169,7 @@ process_create_group(IQ, Uid, Name, ReqGroupSt) ->
         end,
         Results),
 
-    GroupStResult = #group_st{
+    GroupStResult = #pb_group_stanza{
         gid = Group#group.gid,
         name = Group#group.name,
         action = create,
@@ -189,11 +189,11 @@ process_delete_group(IQ, Gid, Uid) ->
     end.
 
 
--spec process_modify_members(IQ :: iq(), Gid :: gid(), Uid :: uid(), ReqGroupSt :: group_st())
+-spec process_modify_members(IQ :: iq(), Gid :: gid(), Uid :: uid(), ReqGroupSt :: pb_group_stanza())
             -> iq().
 process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
-    MembersSt = ReqGroupSt#group_st.members,
-    Changes = [{M#member_st.uid, M#member_st.action} || M <- MembersSt],
+    MembersSt = ReqGroupSt#pb_group_stanza.members,
+    Changes = [{M#pb_group_member.uid, M#pb_group_member.action} || M <- MembersSt],
     ?INFO("modify_members Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
     case mod_groups:modify_members(Gid, Uid, Changes) of
         {error, not_admin} ->
@@ -206,7 +206,7 @@ process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
                 end,
                 ModifyResults),
 
-            GroupStResult = #group_st{
+            GroupStResult = #pb_group_stanza{
                 gid = Gid,
                 action = modify_members,
                 members = ResultMemberSt
@@ -215,11 +215,11 @@ process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
     end.
 
 
--spec process_modify_admins(IQ :: iq(), Gid :: gid(), Uid :: uid(), ReqGroupSt :: group_st())
+-spec process_modify_admins(IQ :: iq(), Gid :: gid(), Uid :: uid(), ReqGroupSt :: pb_group_stanza())
             -> iq().
 process_modify_admins(IQ, Gid, Uid, ReqGroupSt) ->
-    MembersSt = ReqGroupSt#group_st.members,
-    Changes = [{M#member_st.uid, M#member_st.action} || M <- MembersSt],
+    MembersSt = ReqGroupSt#pb_group_stanza.members,
+    Changes = [{M#pb_group_member.uid, M#pb_group_member.action} || M <- MembersSt],
     ?INFO("modify_admins Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
 
     case mod_groups:modify_admins(Gid, Uid, Changes) of
@@ -234,10 +234,12 @@ process_modify_admins(IQ, Gid, Uid, ReqGroupSt) ->
                 end,
                 ModifyResults),
 
-            GroupStResult = #group_st{
+            GroupStResult = #pb_group_stanza{
                 gid = Gid,
                 action = modify_admins,
-                members = ResultMemberSt
+                members = ResultMemberSt,
+                avatar_id = undefined,
+                sender_name = undefined
             },
             xmpp:make_iq_result(IQ, GroupStResult)
     end.
@@ -260,9 +262,9 @@ process_get_groups(IQ, Uid) ->
     ?INFO("get_groups Uid: ~s", [Uid]),
     GroupInfos = mod_groups:get_groups(Uid),
     GroupsSt = [group_info_to_group_st(GI) || GI <- GroupInfos],
-    ResultSt = #groups{
+    ResultSt = #pb_groups_stanza{
         action = get,
-        groups = GroupsSt
+        group_stanzas = GroupsSt
     },
     xmpp:make_iq_result(IQ, ResultSt).
 
@@ -291,8 +293,9 @@ process_delete_avatar(IQ, Gid, Uid) ->
     end.
 
 
-process_set_avatar(IQ, Gid, Uid, Base64Data) ->
-    ?INFO("set_avatar Gid: ~s Uid: ~s Base64Size: ~p", [Gid, Uid, byte_size(Base64Data)]),
+process_set_avatar(IQ, Gid, Uid, Data) ->
+    ?INFO("set_avatar Gid: ~s Uid: ~s Size: ~p", [Gid, Uid, byte_size(Data)]),
+    Base64Data = base64:encode(Data),
     case set_avatar(Gid, Uid, Base64Data) of
         {error, Reason} ->
             ?WARNING("Gid: ~s Uid ~s setting avatar failed ~p", [Gid, Uid, Reason]),
@@ -300,10 +303,10 @@ process_set_avatar(IQ, Gid, Uid, Base64Data) ->
         {ok, AvatarId, GroupName} ->
             ?INFO("Gid: ~s Uid: ~s Successfully set avatar ~s",
                 [Gid, Uid, AvatarId]),
-            GroupSt = #group_st{
+            GroupSt = #pb_group_stanza{
                 gid = Gid,
                 name = GroupName,
-                avatar = AvatarId
+                avatar_id = AvatarId
             },
             xmpp:make_iq_result(IQ, GroupSt)
     end.
@@ -332,30 +335,30 @@ process_leave_group(IQ, Gid, Uid) ->
     end.
 
 
--spec group_info_to_group_st(GroupInfo :: group_info()) -> group_st().
+-spec group_info_to_group_st(GroupInfo :: group_info()) -> pb_group_stanza().
 group_info_to_group_st(GroupInfo) ->
-    #group_st{
+    #pb_group_stanza{
         gid = GroupInfo#group_info.gid,
         name = GroupInfo#group_info.name,
-        avatar = GroupInfo#group_info.avatar
+        avatar_id = GroupInfo#group_info.avatar
     }.
 
 
--spec make_group_st(Group :: group()) -> group_st().
+-spec make_group_st(Group :: group()) -> pb_group_stanza().
 make_group_st(Group) ->
-    #group_st{
+    #pb_group_stanza{
         gid = Group#group.gid,
         name = Group#group.name,
-        avatar = Group#group.avatar,
+        avatar_id = Group#group.avatar,
         members = make_members_st(Group#group.members)
     }.
 
 
--spec make_members_st(Members :: [group_member()]) -> [member_st()].
+-spec make_members_st(Members :: [group_member()]) -> [pb_group_member()].
 make_members_st(Members) ->
     MemberUids = [M#group_member.uid || M <- Members],
     NamesMap = model_accounts:get_names(MemberUids),
-    [#member_st{
+    [#pb_group_member{
         uid = M#group_member.uid,
         type = M#group_member.type,
         name = maps:get(M#group_member.uid, NamesMap, undefined)
@@ -364,19 +367,19 @@ make_members_st(Members) ->
 
 make_member_st(MemberUid, Result, Type, Action) ->
     S = make_member_st(MemberUid, Result, Type),
-    S#member_st{action = Action}.
+    S#pb_group_member{action = Action}.
 
 
 make_member_st(MemberUid, Result, Type) ->
-    M = #member_st{
+    M = #pb_group_member{
         uid = MemberUid,
         type = Type
     },
     M2 = case Result of
         ok ->
-            M#member_st{result = ok};
-        Result ->
-            M#member_st{result = failed, reason = Result}
+            M#pb_group_member{result = <<"ok">>, reason = undefined};
+        Result when is_atom(Result) ->
+            M#pb_group_member{result = <<"failed">>, reason = util:to_binary(Result)}
     end,
     M2.
 

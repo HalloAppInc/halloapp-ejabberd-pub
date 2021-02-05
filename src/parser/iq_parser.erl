@@ -42,10 +42,6 @@ iq_payload_mapping(SubEl) ->
                 false ->
                     privacy_list_parser:xmpp_to_proto(SubEl)
             end;
-        groups ->
-            groups_parser:xmpp_to_proto(SubEl);
-        group_st ->
-            groups_parser:xmpp_to_proto(SubEl);
         name ->
             name_parser:xmpp_to_proto(SubEl);
         stanza_error ->
@@ -73,12 +69,5 @@ proto_to_xmpp(ProtoIQ) ->
 
 
 xmpp_iq_subel_mapping(ProtoPayload) ->
-    SubEl = case ProtoPayload of
-        #pb_groups_stanza{} = GroupsStanzaRecord ->
-            groups_parser:proto_to_xmpp(GroupsStanzaRecord);
-        #pb_group_stanza{} = GroupStanzaRecord ->
-            groups_parser:proto_to_xmpp(GroupStanzaRecord);
-        _ ->
-            uid_parser:translate_to_xmpp_uid(ProtoPayload)
-    end,
+    SubEl = uid_parser:translate_to_xmpp_uid(ProtoPayload),
     SubEl.

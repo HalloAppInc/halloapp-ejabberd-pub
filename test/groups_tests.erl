@@ -45,19 +45,21 @@ create_group_test(Conf) ->
     },
     % check the create_group result
     Result = ha_client:send_iq(C1, Id, set, Payload),
+%%    ct:pal("Result ~p", [Result]),
     #pb_packet{
         stanza = #pb_iq{
             id = Id,
             type = result,
             payload = #pb_group_stanza{
+                action = create,
                 gid = Gid,
                 name = ?GROUP_NAME1,
-                avatar_id = undefined, % TODO: was thinking it will be empty str
+                avatar_id = <<>>,
                 members = [
                     % TODO: the spec says we should get back our selves also... but we don't
 %%                    #pb_group_member{uid = Uid1, type = admin, name = ?NAME1},
                     % TODO: it looks like we are missing the name of UID2
-                    #pb_group_member{uid = Uid2, type = member}
+                    #pb_group_member{uid = Uid2, type = member, result = <<"ok">>}
                 ]
             }
         }
@@ -159,6 +161,7 @@ remove_members_test(Conf) ->
     Uid1 = binary_to_integer(?UID1),
     Uid2 = binary_to_integer(?UID2),
     Uid3 = binary_to_integer(?UID3),
+    Uid4 = binary_to_integer(?UID4),
 
     Id = <<"g_iq_id3">>,
     Payload = #pb_group_stanza{
@@ -195,7 +198,7 @@ remove_members_test(Conf) ->
             GroupMsg = ha_client:wait_for_msg(C2, pb_group_stanza),
 
             GroupSt = GroupMsg#pb_packet.stanza#pb_msg.payload,
-            ct:pal("Debug ~p", [GroupSt]),
+            ct:pal("Debug User:~p  ~p", [User, GroupSt]),
             #pb_group_stanza{
                 action = modify_members,
                 gid = Gid,
@@ -250,6 +253,7 @@ promote_admin_test(Conf) ->
                 action = modify_admins,
                 gid = Gid,
                 avatar_id = undefined,
+                sender_name = undefined,
                 members = [
                     #pb_group_member{uid = Uid2, type = admin, action = promote,
                         result = <<"ok">>, reason = undefined}

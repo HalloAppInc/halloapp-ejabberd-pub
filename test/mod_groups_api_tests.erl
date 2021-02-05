@@ -11,6 +11,7 @@
 -include("feed.hrl").
 -include("packets.hrl").
 -include("groups_test_data.hrl").
+-include("packets.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -44,12 +45,12 @@ create_group_IQ(Uid, Name) ->
 
 
 create_group_IQ(Uid, Name, Uids) ->
-    MemberSt = [#member_st{uid = Ouid} || Ouid <- Uids],
+    MemberSt = [#pb_group_member{uid = Ouid} || Ouid <- Uids],
     #iq{
         from = #jid{luser = Uid},
         type = set,
         sub_els = [
-            #group_st{
+            #pb_group_stanza{
                 action = create,
                 name = Name,
                 members = MemberSt
@@ -103,7 +104,7 @@ set_name_IQ(Uid, Gid, Name) ->
         from = #jid{luser = Uid},
         type = set,
         sub_els = [
-            #group_st{
+            #pb_group_stanza{
                 gid = Gid,
                 action = set_name,
                 name = Name
@@ -113,12 +114,12 @@ set_name_IQ(Uid, Gid, Name) ->
 
 
 make_group_IQ(Uid, Gid, Type, Action, Changes) ->
-    MemberSt = [#member_st{uid = Ouid, action = MAction} || {Ouid, MAction} <- Changes],
+    MemberSt = [#pb_group_member{uid = Ouid, action = MAction} || {Ouid, MAction} <- Changes],
     #iq{
         from = #jid{luser = Uid},
         type = Type,
         sub_els = [
-            #group_st{
+            #pb_group_stanza{
                 gid = Gid,
                 action = Action,
                 members = MemberSt
@@ -132,7 +133,7 @@ get_groups_IQ(Uid) ->
         from = #jid{luser = Uid},
         type = get,
         sub_els = [
-            #groups{action = get}
+            #pb_groups_stanza{action = get}
         ]
     }.
 
@@ -191,7 +192,7 @@ create_empty_group_test() ->
     IQ = create_group_IQ(?UID1, ?GROUP_NAME1),
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
-    #group_st{
+    #pb_group_stanza{
         gid = Gid,
         name = ?GROUP_NAME1,
         members = []
@@ -209,15 +210,15 @@ create_group_with_members_test() ->
     IQ = create_group_IQ(?UID1, ?GROUP_NAME1, [?UID2, ?UID3, ?UID5]),
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
-    #group_st{
+    #pb_group_stanza{
         gid = _Gid,
         name = ?GROUP_NAME1,
         members = Members
     } = GroupSt,
 %%    ?debugVal(Members),
-    M2 = #member_st{uid = ?UID2, type = member, result = ok},
-    M3 = #member_st{uid = ?UID3, type = member, result = ok},
-    M5 = #member_st{uid = ?UID5, type = member, result = failed, reason = no_account},
+    M2 = #pb_group_member{uid = ?UID2, type = member, result = <<"ok">>, reason = undefined},
+    M3 = #pb_group_member{uid = ?UID3, type = member, result = <<"ok">>, reason = undefined},
+    M5 = #pb_group_member{uid = ?UID5, type = member, result = <<"failed">>, reason = <<"no_account">>},
     ?assertEqual([M2, M3, M5], Members),
     ok.
 
@@ -227,14 +228,14 @@ create_group_with_creator_as_member_test() ->
     IQ = create_group_IQ(?UID1, ?GROUP_NAME1, [?UID1, ?UID2]),
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
-    #group_st{
+    #pb_group_stanza{
         gid = _Gid,
         name = ?GROUP_NAME1,
         members = Members
     } = GroupSt,
 %%    ?debugVal(Members),
-    M1 = #member_st{uid = ?UID1, type = admin, result = failed, reason = already_member},
-    M2 = #member_st{uid = ?UID2, type = member, result = ok},
+    M1 = #pb_group_member{uid = ?UID1, type = admin, result = <<"failed">>, reason = <<"already_member">>},
+    M2 = #pb_group_member{uid = ?UID2, type = member, result = <<"ok">>, reason = undefined},
     ?assertEqual([M1, M2], Members),
     ok.
 
@@ -244,7 +245,7 @@ delete_group_test() ->
     CreateIQ = create_group_IQ(?UID1, ?GROUP_NAME1, [?UID1, ?UID2]),
     CreateIQRes = mod_groups_api:process_local_iq(CreateIQ),
     CreateGroupSt = tutil:get_result_iq_sub_el(CreateIQRes),
-    Gid = CreateGroupSt#group_st.gid,
+    Gid = CreateGroupSt#pb_group_stanza.gid,
 
     DeleteIQ = delete_group_IQ(?UID1, Gid),
     DeleteIQRes = mod_groups_api:process_local_iq(DeleteIQ),
@@ -257,7 +258,7 @@ delete_group_error_test() ->
     CreateIQ = create_group_IQ(?UID1, ?GROUP_NAME1, [?UID1, ?UID2]),
     CreateIQRes = mod_groups_api:process_local_iq(CreateIQ),
     CreateGroupSt = tutil:get_result_iq_sub_el(CreateIQRes),
-    Gid = CreateGroupSt#group_st.gid,
+    Gid = CreateGroupSt#pb_group_stanza.gid,
 
     DeleteIQ1 = delete_group_IQ(?UID2, Gid),
     DeleteIQRes1 = mod_groups_api:process_local_iq(DeleteIQ1),
@@ -276,7 +277,7 @@ create_group(Uid, Name, Members) ->
     IQ = create_group_IQ(Uid, Name, Members),
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
-    #group_st{gid = Gid} = GroupSt,
+    #pb_group_stanza{gid = Gid} = GroupSt,
     Gid.
 
 
@@ -289,14 +290,14 @@ modify_members_test() ->
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
 %%    ?debugVal(GroupSt, 1000),
     ?assertMatch(
-        #group_st{
+        #pb_group_stanza{
             gid = Gid,
             action = modify_members,
             members = [
-                #member_st{uid = ?UID2, action = remove, result = ok},
-                #member_st{uid = ?UID4, action = add, type = member, result = ok},
-                #member_st{uid = ?UID5, action = add, type = member,
-                    result = failed, reason = no_account}]
+                #pb_group_member{uid = ?UID2, action = remove, result = <<"ok">>},
+                #pb_group_member{uid = ?UID4, action = add, type = member, result = <<"ok">>},
+                #pb_group_member{uid = ?UID5, action = add, type = member,
+                    result = <<"failed">>, reason = <<"no_account">>}]
         },
         GroupSt),
     ok.
@@ -322,14 +323,18 @@ modify_admins_test() ->
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
 %%    ?debugVal(GroupSt, 1000),
-    ExpectedGroupSt = #group_st{
+    ExpectedGroupSt = #pb_group_stanza{
         gid = Gid,
         action = modify_admins,
+        avatar_id = undefined,
+        sender_name = undefined,
         members = [
-            #member_st{uid = ?UID3, action = demote, type = member, result = ok},
-            #member_st{uid = ?UID2, action = promote, type = admin, result = ok},
-            #member_st{uid = ?UID5, action = promote, type = admin,
-                result = failed, reason = not_member}]
+            #pb_group_member{uid = ?UID3, action = demote, type = member,
+                result = <<"ok">>, reason = undefined},
+            #pb_group_member{uid = ?UID2, action = promote, type = admin,
+                result = <<"ok">>, reason = undefined},
+            #pb_group_member{uid = ?UID5, action = promote, type = admin,
+                result = <<"failed">>, reason = <<"not_member">>}]
     },
 %%    ?debugVal(ExpectedGroupSt, 1000),
     ?assertEqual(ExpectedGroupSt, GroupSt),
@@ -354,13 +359,14 @@ get_group_test() ->
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
 %%    ?debugVal(GroupSt, 1000),
-    ExpectedGroupSt = #group_st{
+    ExpectedGroupSt = #pb_group_stanza{
         gid = Gid,
         name = ?GROUP_NAME1,
+        avatar_id = undefined,
         members = [
-            #member_st{uid = ?UID1, name = ?NAME1, type = admin},
-            #member_st{uid = ?UID2, name = ?NAME2, type = member},
-            #member_st{uid = ?UID3, name = ?NAME3, type = member}]
+            #pb_group_member{uid = ?UID1, name = ?NAME1, type = admin},
+            #pb_group_member{uid = ?UID2, name = ?NAME2, type = member},
+            #pb_group_member{uid = ?UID3, name = ?NAME3, type = member}]
     },
 %%    ?debugVal(ExpectedGroupSt, 1000),
     ?assertEqual(ExpectedGroupSt, GroupSt),
@@ -390,10 +396,10 @@ get_groups_test() ->
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupsSt = tutil:get_result_iq_sub_el(IQRes),
 %%    ?debugVal(GroupsSt, 1000),
-    GroupsSet = lists:sort(GroupsSt#groups.groups),
+    GroupsSet = lists:sort(GroupsSt#pb_groups_stanza.group_stanzas),
     ExpectedGroupsSet = lists:sort([
-        #group_st{gid = Gid1, name = ?GROUP_NAME1},
-        #group_st{gid = Gid2, name = ?GROUP_NAME2}
+        #pb_group_stanza{gid = Gid1, name = ?GROUP_NAME1, avatar_id = undefined},
+        #pb_group_stanza{gid = Gid2, name = ?GROUP_NAME2, avatar_id = undefined}
     ]),
 %%    ?debugVal(ExpectedGroupsSet, 1000),
     ?assertEqual(ExpectedGroupsSet, GroupsSet),
@@ -407,9 +413,10 @@ set_name_test() ->
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
 %%    ?debugVal(GroupSt, 1000),
-    ExpectedGroupSt = #group_st{
+    ExpectedGroupSt = #pb_group_stanza{
         gid = Gid,
-        name = ?GROUP_NAME3
+        name = ?GROUP_NAME3,
+        avatar_id = undefined
     },
 %%    ?debugVal(ExpectedGroupSt, 1000),
     ?assertEqual(ExpectedGroupSt, GroupSt),
@@ -451,10 +458,10 @@ set_avatar_test() ->
     IQ = set_avatar_IQ(?UID2, Gid),
     IQRes = mod_groups_api:process_local_iq(IQ),
     ?assertEqual(result, IQRes#iq.type),
-    ?assertEqual([#group_st{
+    ?assertEqual([#pb_group_stanza{
         gid = Gid,
         name = ?GROUP_NAME1,
-        avatar = ?AVATAR1
+        avatar_id = ?AVATAR1
     }], IQRes#iq.sub_els),
 
     GroupInfo = model_groups:get_group_info(Gid),
@@ -476,10 +483,10 @@ delete_avatar_test() ->
     IQ = set_avatar_IQ(?UID2, Gid),
     IQRes = mod_groups_api:process_local_iq(IQ),
     ?assertEqual(result, IQRes#iq.type),
-    ?assertEqual([#group_st{
+    ?assertEqual([#pb_group_stanza{
         gid = Gid,
         name = ?GROUP_NAME1,
-        avatar = ?AVATAR1
+        avatar_id = ?AVATAR1
     }], IQRes#iq.sub_els),
 
     GroupInfo = model_groups:get_group_info(Gid),
