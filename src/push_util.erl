@@ -71,7 +71,7 @@ parse_metadata(#message{id = _Id, type = MsgType, sub_els = [SubElement]} = Mess
     {Subject, Body} = case {MsgType, Role} of
         {headline, <<"friends">>} ->
             Name = Contact#contact.name,
-            {<<"New friend">>, <<"Your friend ", Name/binary, " just joined HalloApp">>};
+            {<<"New friend">>, <<"You are now friends with ", Name/binary, " on HalloApp">>};
         {headline, <<"none">>} ->
             Name = Contact#contact.name,
             {<<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
