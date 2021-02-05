@@ -20,7 +20,7 @@
 
 
 xmpp_to_proto_avatar_test() ->
-    Avatar = struct_util:create_avatar(?ID1, ?UID1, <<>>),
+    Avatar = struct_util:create_pb_avatar(?ID1, ?UID1),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, Avatar),
 
     PbAvatar = struct_util:create_pb_avatar(?ID1, ?UID1_INT),
@@ -32,9 +32,9 @@ xmpp_to_proto_avatar_test() ->
 
 
 xmpp_to_proto_get_avatars_test() ->
-    Avatar1 = struct_util:create_avatar(?ID1, ?UID1, <<>>),
-    Avatar2 = struct_util:create_avatar(?ID2, ?UID2, <<>>),
-    Avatars = struct_util:create_avatars([Avatar1, Avatar2]),
+    Avatar1 = struct_util:create_pb_avatar(?ID1, ?UID1),
+    Avatar2 = struct_util:create_pb_avatar(?ID2, ?UID2),
+    Avatars = struct_util:create_pb_avatars([Avatar1, Avatar2]),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, Avatars),
 
     PbAvatar1 = struct_util:create_pb_avatar(?ID1, ?UID1_INT),
@@ -48,7 +48,7 @@ xmpp_to_proto_get_avatars_test() ->
 
 
 proto_to_xmpp_set_avatar_test() ->
-    Avatar = struct_util:create_avatar(undefined, <<>>, ?PAYLOAD1_BASE64),
+    Avatar = struct_util:create_pb_upload_avatar(undefined, ?PAYLOAD1),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, set, Avatar),
 
     PbAvatar = struct_util:create_pb_upload_avatar(undefined, ?PAYLOAD1),
@@ -60,7 +60,7 @@ proto_to_xmpp_set_avatar_test() ->
 
 
 proto_to_xmpp_get_avatar_test() ->
-    Avatar = struct_util:create_avatar(undefined, ?UID1, <<>>),
+    Avatar = struct_util:create_pb_avatar(undefined, ?UID1),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, get, Avatar),
 
     PbAvatar = struct_util:create_pb_avatar(undefined, ?UID1_INT),
@@ -72,9 +72,9 @@ proto_to_xmpp_get_avatar_test() ->
 
 
 proto_to_xmpp_get_avatars_test() ->
-    Avatar1 = struct_util:create_avatar(undefined, ?UID1, <<>>),
-    Avatar2 = struct_util:create_avatar(undefined, ?UID2, <<>>),
-    Avatars = struct_util:create_avatars([Avatar1, Avatar2]),
+    Avatar1 = struct_util:create_pb_avatar(undefined, ?UID1),
+    Avatar2 = struct_util:create_pb_avatar(undefined, ?UID2),
+    Avatars = struct_util:create_pb_avatars([Avatar1, Avatar2]),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, get, Avatars),
 
     PbAvatar1 = struct_util:create_pb_avatar(undefined, ?UID1_INT),

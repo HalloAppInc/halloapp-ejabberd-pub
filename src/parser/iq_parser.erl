@@ -36,12 +36,6 @@ iq_payload_mapping(SubEl) ->
     Payload = case element(1, SubEl) of
         contact_list ->
             contact_parser:xmpp_to_proto(SubEl);
-        upload_avatar ->
-            avatar_parser:xmpp_to_proto(SubEl);
-        avatar ->
-            avatar_parser:xmpp_to_proto(SubEl);
-        avatars ->
-            avatar_parser:xmpp_to_proto(SubEl);
         whisper_keys ->
             whisper_keys_parser:xmpp_to_proto(SubEl);
         feed_st ->
@@ -92,12 +86,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
     SubEl = case ProtoPayload of
         #pb_contact_list{} = ContactListRecord ->
             contact_parser:proto_to_xmpp(ContactListRecord);
-        #pb_upload_avatar{} = UploadAvatarRecord ->
-            avatar_parser:proto_to_xmpp(UploadAvatarRecord);
-        #pb_avatar{} = AvatarRecord ->
-            avatar_parser:proto_to_xmpp(AvatarRecord);
-        #pb_avatars{} = AvatarsRecord ->
-            avatar_parser:proto_to_xmpp(AvatarsRecord);
         #pb_whisper_keys{} = WhisperKeysRecord ->
             whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
         #pb_feed_item{} = FeedItemRecord ->

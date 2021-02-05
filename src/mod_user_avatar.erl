@@ -12,11 +12,11 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("ha_types.hrl").
 -include("ejabberd_stacktrace.hrl").
 
 -define(AVATAR_OPTIONS_ETS, user_avatar_options).
--define(NS_USER_AVATAR, <<"halloapp:user:avatar">>).
 -define(AWS_BUCKET_NAME, <<"halloapp-avatars">>).
 -define(MAX_AVATAR_SIZE, 51200).    %% 50KB
 -define(MAX_AVATAR_DIM, 256).
@@ -37,7 +37,9 @@
 
 start(Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_USER_AVATAR, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_avatar, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_avatars, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_upload_avatar, ?MODULE, process_local_iq),
     % remove_user hook should run, before the redis data is deleted.
     % Otherwise we will not know what the old avatar_id was to delete from S3.
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 10),
@@ -48,7 +50,9 @@ stop(Host) ->
     ?INFO("stop ~w", [?MODULE]),
     ejabberd_hooks:delete(user_avatar_published, Host, ?MODULE, user_avatar_published, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_USER_AVATAR),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_avatar),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_avatars),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_upload_avatar),
     ok.
 
 
@@ -68,33 +72,33 @@ mod_options(_Host) ->
 
 %%% delete_user_avatar %%%
 process_local_iq(#iq{from = #jid{luser = UserId}, type = set,
-        sub_els = [#avatar{cdata = <<>>}]} = IQ) ->
+        sub_els = [#pb_upload_avatar{data = Data}]} = IQ) when Data =:= undefined ->
     process_delete_user_avatar(IQ, UserId);
 
 %%% set_user_avatar %%%
 process_local_iq(#iq{from = #jid{luser = UserId}, type = set,
-        sub_els = [#avatar{cdata = Data}]} = IQ) ->
-    process_set_user_avatar(IQ, UserId, Data);
+        sub_els = [#pb_upload_avatar{data = Data}]} = IQ) ->
+    process_set_user_avatar(IQ, UserId, base64:encode(Data));
 
 %%% get_avatar (friend) %%%
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
-        sub_els = [#avatar{userid = FriendId}]} = IQ) ->
+        sub_els = [#pb_avatar{uid = FriendId}]} = IQ) ->
     case check_and_get_avatar_id(UserId, FriendId) of
         undefined ->
             ?WARNING("Uid: ~s, Invalid friend_uid: ~s", [UserId, FriendId]),
             xmpp:make_error(IQ, util:err(invalid_friend_uid));
         AvatarId ->
-            xmpp:make_iq_result(IQ, #avatar{userid = FriendId, id = AvatarId})
+            xmpp:make_iq_result(IQ, #pb_avatar{uid = FriendId, id = AvatarId})
     end;
 
 %%% get_avatars %%%
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = _Server}, type = get,
-        sub_els = [#avatars{} = Avatars]} = IQ) ->
+        sub_els = [#pb_avatars{avatars = Avatars}]} = IQ) ->
     NewAvatars = lists:foreach(
-        fun(#avatar{userid = FriendId} = Avatar) ->
-            Avatar#avatar{id = check_and_get_avatar_id(UserId, FriendId)}
+        fun(#pb_avatar{uid = FriendId} = Avatar) ->
+            Avatar#pb_avatar{id = check_and_get_avatar_id(UserId, FriendId)}
         end, Avatars),
-    xmpp:make_iq_result(IQ, NewAvatars).
+    xmpp:make_iq_result(IQ, #pb_avatars{avatars = NewAvatars}).
 
 
 % Remove user hook is run before the user data is actually deleted.
@@ -132,9 +136,10 @@ check_and_upload_avatar(Base64Data) ->
 process_delete_user_avatar(IQ, Uid) ->
     ?INFO("Uid: ~s deleting avatar", [Uid]),
     delete_user_avatar_internal(Uid, util:get_host()),
-    xmpp:make_iq_result(IQ, #avatar{id = <<>>}).
+    xmpp:make_iq_result(IQ, #pb_avatar{id = <<>>}).
 
 
+%% TODO(murali@): update functions here to work on binary data after updating group_avatars.
 -spec process_set_user_avatar(IQ :: iq(), Uid :: uid(), Base64Data :: binary()) -> iq().
 process_set_user_avatar(IQ, Uid, Base64Data) ->
     ?INFO("Uid: ~s uploading avatar base64_size: ~p", [Uid, byte_size(Base64Data)]),
@@ -144,7 +149,7 @@ process_set_user_avatar(IQ, Uid, Base64Data) ->
         {ok, AvatarId} ->
             ?INFO("Uid: ~s AvatarId: ~s", [Uid, AvatarId]),
             update_user_avatar(Uid, util:get_host(), AvatarId),
-            xmpp:make_iq_result(IQ, #avatar{id = AvatarId})
+            xmpp:make_iq_result(IQ, #pb_avatar{id = AvatarId})
     end.
 
 
