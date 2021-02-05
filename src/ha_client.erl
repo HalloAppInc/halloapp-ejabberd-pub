@@ -33,8 +33,7 @@
     wait_for_msg/1,
     login/3,
     send_iq/4,
-    send_ack/2,
-    close/1
+    send_ack/2
 ]).
 
 -export([
@@ -127,12 +126,6 @@ recv(Client, TimeoutMs) ->
     gen_server:call(Client, {recv, TimeoutMs}).
 
 
-%% Closes the socket.
--spec close(Client :: pid()) -> ok | {error, closed | inet:posix()}.
-close(Client) ->
-    gen_server:call(Client, {close}).
-
-
 % Stop the gen_server
 -spec stop(Client :: pid()) -> ok.
 stop(Client) ->
@@ -203,10 +196,7 @@ init([Options] = _Args) ->
 
 terminate(_Reason, State) ->
     Socket = State#state.socket,
-    case Socket of
-        undefined -> ok;
-        _ -> ssl:close(Socket)
-    end,
+    ssl_close(Socket),
     ok.
 
 
@@ -247,12 +237,6 @@ handle_call({recv, TimeoutMs}, _From, State) ->
             {Message, NewState}
     end,
     {reply, Result, NewState2};
-
-handle_call({close}, _From, State) ->
-    Socket = State#state.socket,
-    ssl:close(Socket),
-    NewState = State#state{socket = undefined},
-    {reply, ok, NewState};
 
 handle_call({login, Uid, Passwd}, _From,
         #state{options = Options} = State) ->
@@ -380,7 +364,7 @@ send_ack_internal(Id, State) ->
 
 send_internal(Socket, Message) when is_binary(Message) ->
     Size = byte_size(Message),
-    Result = ssl:send(Socket, <<Size:32/big, Message/binary>>),
+    Result = ssl_send(Socket, <<Size:32/big, Message/binary>>),
     ?INFO("sent message, result: ~p", [Result]),
     Result;
 send_internal(Socket, PBRecord)
@@ -445,4 +429,17 @@ network_receive_until(State, MatchFun) ->
 -spec queue_in(Packet :: pb_packet(), State :: state()) -> state().
 queue_in(Packet, State) ->
     State#state{recv_q = queue:in(Packet, State#state.recv_q)}.
+
+
+-spec ssl_close(Socket :: any()) -> ok | {error, any()}.
+ssl_close(undefined) ->
+    ?ERROR("Socket is undefined"),
+    ok;
+ssl_close(Socket) ->
+    ssl:close(Socket).
+
+
+-spec ssl_send(Socket :: any(), Data :: binary()) -> ok | {error, any()}.
+ssl_send(Socket, Data) ->
+    ssl:send(Socket, Data).
 

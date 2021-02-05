@@ -25,7 +25,7 @@ dummy_test(_Conf) ->
 end_of_queue_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1, ?OPTIONS1),
     recv_eoq(C1),
-    ha_client:close(C1),
+    ha_client:stop(C1),
     ok.
 
 
@@ -47,7 +47,7 @@ message_order_test(_Conf) ->
     recv_messages(C2, 1, 100),
     recv_eoq(C2),
     recv_messages(C2, 101, 105),
-    ha_client:close(C2),
+    ha_client:stop(C2),
 
     %% Second login.
     %% retry_count is now 2, so we will get only 64 messages now.
@@ -65,8 +65,8 @@ message_order_test(_Conf) ->
     recv_eoq(C2_2),
     send_acks(C2_2, 65, 110),
 
-    ha_client:close(C2_2),
-    ha_client:close(C1),
+    ha_client:stop(C2_2),
+    ha_client:stop(C1),
 
     %% clear out all offline messages for C1.
     {ok, C1_2} = ha_client:connect_and_login(?UID1, ?PASSWORD1, ?OPTIONS1),
@@ -87,63 +87,63 @@ offline_msg1_test(_Conf) ->
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
     recv_messages(C2, 1, 100),
     recv_eoq(C2),
-    ha_client:close(C2),
+    ha_client:stop(C2),
 
     %% retry_count is now 2, so we will get only 64 messages now.
     {ok, C2_2} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
     recv_messages(C2_2, 1, 64),
     %% ensure you dont get an end_of_queue here.
     ?assertEqual(undefined, ha_client:recv(C2_2, 100)),
-    ha_client:close(C2_2),
+    ha_client:stop(C2_2),
 
     %% retry_count is now 3, so we will get only 32 messages now.
     {ok, C2_3} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
     recv_messages(C2_3, 1, 32),
     %% ensure you dont get an end_of_queue here.
     ?assertEqual(undefined, ha_client:recv(C2_3, 100)),
-    ha_client:close(C2_3),
+    ha_client:stop(C2_3),
 
     %% retry_count is now 4, so we will get only 16 messages now.
     {ok, C2_4} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
     recv_messages(C2_4, 1, 16),
     %% ensure you dont get an end_of_queue here.
     ?assertEqual(undefined, ha_client:recv(C2_4, 100)),
-    ha_client:close(C2_4),
+    ha_client:stop(C2_4),
 
     %% retry_count is now 5, so we will get only 8 messages now.
     {ok, C2_5} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
     recv_messages(C2_5, 1, 8),
     %% ensure you dont get an end_of_queue here.
     ?assertEqual(undefined, ha_client:recv(C2_5, 100)),
-    ha_client:close(C2_5),
+    ha_client:stop(C2_5),
 
     %% retry_count is now 6, so we will get only 4 messages now.
     {ok, C2_6} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
     recv_messages(C2_6, 1, 4),
     %% ensure you dont get an end_of_queue here.
     ?assertEqual(undefined, ha_client:recv(C2_6, 100)),
-    ha_client:close(C2_6),
+    ha_client:stop(C2_6),
 
     %% retry_count is now 7, so we will get only 2 messages now.
     {ok, C2_7} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
     recv_messages(C2_7, 1, 2),
     %% ensure you dont get an end_of_queue here.
     ?assertEqual(undefined, ha_client:recv(C2_7, 100)),
-    ha_client:close(C2_7),
+    ha_client:stop(C2_7),
 
     %% retry_count is now 8, so we will get only 1 message now.
     {ok, C2_8} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
     recv_messages(C2_8, 1, 1),
     %% ensure you dont get an end_of_queue here.
     ?assertEqual(undefined, ha_client:recv(C2_8, 100)),
-    ha_client:close(C2_8),
+    ha_client:stop(C2_8),
 
     %% retry_count is now 9, so we will get only 1 message now.
     {ok, C2_9} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
     recv_messages(C2_9, 1, 1),
     %% ensure you dont get an end_of_queue here.
     ?assertEqual(undefined, ha_client:recv(C2_9, 100)),
-    ha_client:close(C2_9),
+    ha_client:stop(C2_9),
     ok.
 
 
@@ -323,7 +323,7 @@ offline_msg2_test(_Conf) ->
     recv_eoq(C2),
 
     send_acks(C2, 66, 100),
-    ha_client:close(C2),
+    ha_client:stop(C2),
     ok.
 
 
