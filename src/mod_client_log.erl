@@ -60,13 +60,13 @@
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
     gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_CLIENT_LOG, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_client_log, ?MODULE, process_local_iq),
     ok.
 
 
 stop(Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_CLIENT_LOG),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_client_log),
     gen_mod:stop_child(get_proc()),
     ok.
 
@@ -238,7 +238,7 @@ date_from_filename(Filename) ->
 % client_log
 -spec process_local_iq(iq()) -> iq().
 process_local_iq(#iq{type = set, from = #jid{luser = Uid, lresource = Resource},
-        sub_els = [#client_log_st{} = ClientLogsSt]} = IQ) ->
+        sub_els = [#pb_client_log{} = ClientLogsSt]} = IQ) ->
     try
         Platform = util_ua:resource_to_client_type(Resource),
         case process_client_count_log_st(Uid, ClientLogsSt, Platform) of
@@ -261,8 +261,8 @@ process_local_iq(#iq{} = IQ) ->
         Platform :: maybe(client_type())) -> ok | error.
 process_client_count_log_st(Uid, ClientLogsSt, Platform) ->
     ServerDims = [{"platform", atom_to_list(Platform)}],
-    Counts = ClientLogsSt#client_log_st.counts,
-    Events = ClientLogsSt#client_log_st.events,
+    Counts = ClientLogsSt#pb_client_log.counts,
+    Events = ClientLogsSt#pb_client_log.events,
     ?INFO("Uid: ~s counts: ~p, events: ~p", [Uid, length(Counts), length(Events)]),
     CountResults = process_counts(Uid, Counts, ServerDims),
     EventResults = process_events(Uid, Events),
@@ -285,7 +285,7 @@ process_counts(Uid, Counts, ServerDims) ->
 % TODO: validate the number of dims is < 6
 % TODO: validate the name and value of each dimension
 -spec process_count(Uid :: uid(), Counts :: count_st(), ServerTags :: stat:tags()) -> result() .
-process_count(Uid, #count_st{namespace = Namespace, metric = Metric, count = Count, dims = DimsSt},
+process_count(Uid, #pb_count{namespace = Namespace, metric = Metric, count = Count, dims = DimsSt},
         ServerTags) ->
     try
         FullNamespace = full_namespace(Namespace),
@@ -399,7 +399,7 @@ full_namespace(Namespace) ->
 
 dims_st_to_tags(DimsSt) ->
     lists:map(
-        fun (#dim_st{name = Name, value = Value}) ->
+        fun (#pb_dim{name = Name, value = Value}) ->
             {binary_to_list(Name), fix_tag_value(binary_to_list(Value))}
         end,
         DimsSt

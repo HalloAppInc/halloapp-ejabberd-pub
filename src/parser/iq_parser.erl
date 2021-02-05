@@ -52,8 +52,6 @@ iq_payload_mapping(SubEl) ->
             groups_parser:xmpp_to_proto(SubEl);
         group_st ->
             groups_parser:xmpp_to_proto(SubEl);
-        client_log_st ->
-            client_log_parser:xmpp_to_proto(SubEl);
         name ->
             name_parser:xmpp_to_proto(SubEl);
         group_feed_st ->
@@ -94,8 +92,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             groups_parser:proto_to_xmpp(GroupsStanzaRecord);
         #pb_group_stanza{} = GroupStanzaRecord ->
             groups_parser:proto_to_xmpp(GroupStanzaRecord);
-        #pb_client_log{} = ClientLogRecord ->
-            client_log_parser:proto_to_xmpp(ClientLogRecord);
         #pb_group_feed_item{} = GroupFeedItemRecord ->
             group_feed_parser:proto_to_xmpp(GroupFeedItemRecord);
         _ ->

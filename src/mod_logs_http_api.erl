@@ -41,8 +41,7 @@ process([<<"counts_and_events">>],
         UserAgent = util_http:get_user_agent(Headers),
         Platform = util_ua:get_client_type(UserAgent),
         case enif_protobuf:decode(Data, pb_client_log) of
-            #pb_client_log{} = Result ->
-                ClientLogSt = client_log_parser:proto_to_xmpp(Result),
+            #pb_client_log{} = ClientLogSt ->
                 case mod_client_log:process_client_count_log_st(undefined, ClientLogSt, Platform) of
                     ok -> ok;
                     error -> error(bad_request)

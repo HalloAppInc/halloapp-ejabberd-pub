@@ -50,8 +50,8 @@ make_timer() ->
     {ok, Tref1} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, fun() -> ok end, []),
     Tref1.
 
-create_count_st(Namespace, Metric, Count, Dims) ->
-    #count_st{
+create_pb_count(Namespace, Metric, Count, Dims) ->
+    #pb_count{
         namespace = Namespace,
         metric = Metric,
         count = Count,
@@ -72,7 +72,7 @@ create_client_log_IQ(Uid, Counts, Events) ->
         from = #jid{luser = Uid},
         type = set,
         sub_els = [
-            #client_log_st{
+            #pb_client_log{
                 counts = Counts,
                 events = Events
             }
@@ -100,8 +100,8 @@ client_log_test() ->
     setup(),
     start_gen_server(),
     Counts = [
-        create_count_st(?NS1, ?METRIC1, ?COUNT1, []),
-        create_count_st(?NS2, ?METRIC2, ?COUNT2, [])
+        create_pb_count(?NS1, ?METRIC1, ?COUNT1, []),
+        create_pb_count(?NS2, ?METRIC2, ?COUNT2, [])
     ],
     Events = [
         create_pb_event_data(undefined, android, <<"0.1.2">>, ?EVENT1),
@@ -116,8 +116,8 @@ client_log_test() ->
 client_log_bad_namespace_test() ->
     setup(),
     Counts = [
-        create_count_st(?BAD_NS1, ?METRIC1, ?COUNT1, []),
-        create_count_st(?NS2, ?METRIC2, ?COUNT2, [])
+        create_pb_count(?BAD_NS1, ?METRIC1, ?COUNT1, []),
+        create_pb_count(?NS2, ?METRIC2, ?COUNT2, [])
     ],
     Events = [
         create_pb_event_data(undefined, android, <<"0.1.2">>, ?EVENT1),
