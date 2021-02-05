@@ -39,8 +39,15 @@
 
 -define(MSG_ID1, <<"MessageId1">>).
 
--define(TS1, 1600000000000).
--define(TS2, 1600000001000).
+-define(TS1, 1600000001000).
+-define(TS2, 1600000002000).
+-define(TS3, 1600000003000).
+-define(TS4, 1600000004000).
+-define(TS5, 1600000005000).
 
 -define(PASSWORD1, <<"hallo">>).
 -define(PASSWORD2, <<"app">>).
+-define(PASSWORD3, <<"rocks">>).
+-define(PASSWORD4, <<"simple">>).
+-define(PASSWORD5, <<"private">>).
+-define(PASSWORD6, <<"authentic">>).

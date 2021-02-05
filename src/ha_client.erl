@@ -31,6 +31,7 @@
     send_recv/2,
     wait_for/2,
     wait_for_msg/1,
+    wait_for_msg/2,
     login/3,
     send_iq/4,
     send_ack/2
@@ -148,6 +149,17 @@ wait_for_msg(Client) ->
                     _Any -> false
                 end
             end).
+
+% wait for message with particular payload
+-spec wait_for_msg(Client :: pid(), PayloadTag :: atom()) -> pb_packet().
+wait_for_msg(Client, PayloadTag) ->
+    wait_for(Client,
+        fun (P) ->
+            case P of
+                #pb_packet{stanza = #pb_msg{payload = Payload}} -> is_record(Payload, PayloadTag);
+                _Any -> false
+            end
+        end).
 
 
 -spec send_recv(Client :: pid(), Packet :: iolist() | pb_packet()) -> pb_packet().
