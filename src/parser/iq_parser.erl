@@ -34,8 +34,6 @@ xmpp_to_proto(XmppIQ) ->
 
 iq_payload_mapping(SubEl) ->
     Payload = case element(1, SubEl) of
-        upload_media ->
-            media_upload_parser:xmpp_to_proto(SubEl);
         contact_list ->
             contact_parser:xmpp_to_proto(SubEl);
         upload_avatar ->
@@ -94,8 +92,6 @@ proto_to_xmpp(ProtoIQ) ->
 
 xmpp_iq_subel_mapping(ProtoPayload) ->
     SubEl = case ProtoPayload of
-        #pb_upload_media{} = UploadMediaRecord ->
-            media_upload_parser:proto_to_xmpp(UploadMediaRecord);
         #pb_contact_list{} = ContactListRecord ->
             contact_parser:proto_to_xmpp(ContactListRecord);
         #pb_upload_avatar{} = UploadAvatarRecord ->

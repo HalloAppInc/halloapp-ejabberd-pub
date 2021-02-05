@@ -20,13 +20,10 @@
 
 
 xmpp_to_proto_upload_media_test() ->
-    MediaUrl = struct_util:create_media_url(?GET_URL, ?PUT_URL, <<>>),
-    UploadMedia = struct_util:create_upload_media(<<>>, [MediaUrl]),
-    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, UploadMedia),
-
     PbMediaUrl = struct_util:create_pb_media_url(?GET_URL, ?PUT_URL, <<>>),
     PbUploadMedia = struct_util:create_pb_upload_media(0, PbMediaUrl),
     PbIq = struct_util:create_pb_iq(?ID1, result, PbUploadMedia),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, PbUploadMedia),
 
     ProtoIQ = iq_parser:xmpp_to_proto(XmppIq),
     ?assertEqual(true, is_record(ProtoIQ, pb_iq)),
@@ -34,13 +31,10 @@ xmpp_to_proto_upload_media_test() ->
 
     
 proto_to_xmpp_upload_media_test() ->
-    MediaUrl = struct_util:create_media_url(?GET_URL, ?PUT_URL, <<>>),
-    UploadMedia = struct_util:create_upload_media(<<>>, [MediaUrl]),
-    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, UploadMedia),
-
     PbMediaUrl = struct_util:create_pb_media_url(?GET_URL, ?PUT_URL, <<>>),
     PbUploadMedia = struct_util:create_pb_upload_media(0, PbMediaUrl),
     PbIq = struct_util:create_pb_iq(?ID1, result, PbUploadMedia),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, PbUploadMedia),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),
@@ -48,11 +42,9 @@ proto_to_xmpp_upload_media_test() ->
 
 
 proto_to_xmpp_upload_media2_test() ->
-    UploadMedia = struct_util:create_upload_media(<<>>, []),
-    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, get, UploadMedia),
-
     PbUploadMedia = struct_util:create_pb_upload_media(0, undefined),
     PbIq = struct_util:create_pb_iq(?ID1, get, PbUploadMedia),
+    XmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, get, PbUploadMedia),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),   
     ?assertEqual(true, is_record(ActualXmppIq, iq)),

@@ -15,6 +15,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 
 %% gen_mod callbacks.
 -export([start/2, stop/1, reload/3, mod_opt_type/1, mod_options/1, depends/2]).
@@ -33,12 +34,12 @@
 start(Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, self()]),
     initialize_url_generators(Opts),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, <<"ns:upload_media">>, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_upload_media, ?MODULE, process_local_iq),
     ok.
 
 stop(Host) ->
     ?INFO("stop ~w ~p", [?MODULE, self()]),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, <<"ns:upload_media">>),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_upload_media),
     s3_signed_url_generator:close(),
     upload_server_url_generator:close(),
     ok.
@@ -74,17 +75,17 @@ mod_options(_Host) ->
 %% iq handlers and api
 %%====================================================================
 
-process_local_iq(#iq{type = get, sub_els = [#upload_media{size = Size}]} = IQ) ->
+process_local_iq(#iq{type = get, sub_els = [#pb_upload_media{size = Size}]} = IQ) ->
     case Size of
-        <<>> ->
+        0 ->
             {GetUrl, PutUrl} = generate_s3_urls(),
-            MediaUrls = #media_urls{get = GetUrl, put = PutUrl},
-            xmpp:make_iq_result(IQ, #upload_media{media_urls = [MediaUrls]});
+            MediaUrl = #pb_media_url{get = GetUrl, put = PutUrl},
+            xmpp:make_iq_result(IQ, #pb_upload_media{url = MediaUrl});
         _ ->
             %% Do not return IQ result in this case. IQ result will be sent once
             %% the resumable urls are ready.
             %% TODO(murali@): Add CT tests for this.
-            generate_resumable_urls(binary_to_integer(Size), IQ),
+            generate_resumable_urls(Size, IQ),
             ignore
     end.
 
@@ -99,16 +100,16 @@ generate_s3_urls() ->
 
 -spec process_patch_url_result(IQ :: iq(), PatchResult :: {ok, binary()} | error) -> ok.
 process_patch_url_result(IQ, PatchResult) ->
-    MediaUrls = 
+    MediaUrl =
       case PatchResult of
         error ->
             %% Attempt to fetch Resumable Patch URL failed.
             ?WARNING("Attempt to fetch resumable patch url failed", []),
             {GetUrl, PutUrl} = generate_s3_urls(),
-            #media_urls{get = GetUrl, put = PutUrl};
-        {ok, ResumablePatch} -> #media_urls{patch = ResumablePatch}
+            #pb_media_url{get = GetUrl, put = PutUrl};
+        {ok, ResumablePatch} -> #pb_media_url{patch = ResumablePatch}
       end,
-    IQResult = xmpp:make_iq_result(IQ, #upload_media{media_urls = [MediaUrls]}),
+    IQResult = xmpp:make_iq_result(IQ, #pb_upload_media{url = MediaUrl}),
     ejabberd_router:route(IQResult).
     
 
