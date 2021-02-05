@@ -22,10 +22,6 @@
 %% Hooks and API.
 -export([
     process_local_iq/1,
-    make_feed_post_stanza/5,
-    make_feed_comment_stanza/8,
-    broadcast_event/4,
-    filter_feed_items/2,
     add_friend/4,
     remove_user/2
 ]).
@@ -78,10 +74,9 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
     PostId = Comment#comment_st.post_id,
     ParentCommentId = Comment#comment_st.parent_comment_id,
     Payload = Comment#comment_st.payload,
-    PostUid = Comment#comment_st.post_uid,
-    case publish_comment(Uid, CommentId, PostId, PostUid, ParentCommentId, Payload) of
+    case publish_comment(Uid, CommentId, PostId, ParentCommentId, Payload) of
         {ok, ResultTsMs} ->
-            SubEl = make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
+            SubEl = make_feed_comment_stanza(Action, CommentId, PostId,
                     ParentCommentId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
@@ -105,11 +100,10 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         sub_els = [#feed_st{action = retract = Action, posts = [], comments = [Comment]}]} = IQ) ->
     CommentId = Comment#comment_st.id,
     PostId = Comment#comment_st.post_id,
-    PostUid = Comment#comment_st.post_uid,
     ParentCommentId = Comment#comment_st.parent_comment_id,
-    case retract_comment(Uid, CommentId, PostId, PostUid) of
+    case retract_comment(Uid, CommentId, PostId) of
         {ok, ResultTsMs} ->
-            SubEl = make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
+            SubEl = make_feed_comment_stanza(Action, CommentId, PostId,
                     ParentCommentId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
@@ -185,9 +179,9 @@ broadcast_post(Action, PostId, Uid, Payload, TimestampMs, FeedAudienceList) ->
     broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza).
 
 
--spec publish_comment(Uid :: uid(), CommentId :: binary(), PostId :: binary(), PostUid :: binary(),
+-spec publish_comment(Uid :: uid(), CommentId :: binary(), PostId :: binary(),
         ParentCommentId :: binary(), Payload :: binary()) -> {ok, integer()} | {error, any()}.
-publish_comment(PublisherUid, CommentId, PostId, _PostUid, ParentCommentId, Payload) ->
+publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, Payload) ->
     ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = publish,
@@ -201,7 +195,7 @@ publish_comment(PublisherUid, CommentId, PostId, _PostUid, ParentCommentId, Payl
             FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
             NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
             broadcast_comment(Action, CommentId, PostId, ParentCommentId,
-                PublisherUid, Payload, TimestampMs, FeedAudienceSet, NewPushList, PostOwnerUid),
+                PublisherUid, Payload, TimestampMs, FeedAudienceSet, NewPushList),
 
             {ok, TimestampMs};
         [{ok, Post}, {error, _}, {ok, ParentPushList}] ->
@@ -222,8 +216,7 @@ publish_comment(PublisherUid, CommentId, PostId, _PostUid, ParentCommentId, Payl
                     ejabberd_hooks:run(feed_item_published, Server, [PublisherUid, CommentId,
                                        comment, Post#post.audience_type]),
                     broadcast_comment(Action, CommentId, PostId, ParentCommentId,
-                        PublisherUid, Payload, TimestampMs, FeedAudienceSet, NewPushList,
-                        PostOwnerUid),
+                        PublisherUid, Payload, TimestampMs, FeedAudienceSet, NewPushList),
                     {ok, TimestampMs};
 
                 IsPublisherInPostAudienceSet ->
@@ -241,10 +234,10 @@ publish_comment(PublisherUid, CommentId, PostId, _PostUid, ParentCommentId, Payl
 
 
 broadcast_comment(Action, CommentId, PostId, ParentCommentId, PublisherUid,
-    Payload, TimestampMs, FeedAudienceSet, NewPushList, PostOwnerUid) ->
+    Payload, TimestampMs, FeedAudienceSet, NewPushList) ->
     %% send a new api message to all the clients.
     ResultStanza = make_feed_comment_stanza(Action, CommentId,
-            PostId, PostOwnerUid, ParentCommentId, PublisherUid, Payload, TimestampMs),
+            PostId, ParentCommentId, PublisherUid, Payload, TimestampMs),
     PushSet = sets:from_list(NewPushList),
     broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza).
 
@@ -277,8 +270,8 @@ retract_post(Uid, PostId) ->
 
 
 -spec retract_comment(Uid :: uid(), CommentId :: binary(),
-        PostId :: binary(), PostUid :: binary()) -> {ok, integer()} | {error, any()}.
-retract_comment(PublisherUid, CommentId, PostId, PostUid) ->
+        PostId :: binary()) -> {ok, integer()} | {error, any()}.
+retract_comment(PublisherUid, CommentId, PostId) ->
     ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = retract,
@@ -307,7 +300,7 @@ retract_comment(PublisherUid, CommentId, PostId, PostUid) ->
                             ok = model_feed:retract_comment(CommentId, PostId),
 
                             %% send a new api message to all the clients.
-                            ResultStanza = make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
+                            ResultStanza = make_feed_comment_stanza(Action, CommentId, PostId,
                                     ParentCommentId, PublisherUid, <<>>, TimestampMs),
                             PushSet = sets:new(),
                             broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza),
@@ -363,9 +356,9 @@ make_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs) ->
 
 
 -spec make_feed_comment_stanza(Action :: action_type(), CommentId :: binary(),
-        PostId :: binary(), PostUid :: binary(), ParentCommentId :: binary(), Uid :: uid(),
+        PostId :: binary(), ParentCommentId :: binary(), Uid :: uid(),
         Payload :: binary(), TimestampMs :: integer()) -> feed_st().
-make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
+make_feed_comment_stanza(Action, CommentId, PostId,
         ParentCommentId, PublisherUid, Payload, TimestampMs) ->
     #feed_st{
         action = Action,
@@ -373,7 +366,6 @@ make_feed_comment_stanza(Action, CommentId, PostId, PostUid,
             #comment_st{
                 id = CommentId,
                 post_id = PostId,
-                post_uid = PostUid,
                 parent_comment_id = ParentCommentId,
                 publisher_uid = PublisherUid,
                 publisher_name = model_accounts:get_name_binary(PublisherUid),
