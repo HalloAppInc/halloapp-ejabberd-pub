@@ -140,11 +140,9 @@ xmpp_to_proto_iq_groups_test() ->
 proto_to_xmpp_group_avatar_test() ->
     setup(),
 
-    GroupAvatarSt = struct_util:create_group_avatar(?GID1, ?PAYLOAD1_BASE64),
-    ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, GroupAvatarSt),
-
     PbGroupAvatarStanza = struct_util:create_pb_upload_group_avatar(?GID1, ?PAYLOAD1),
     ProtoIq = struct_util:create_pb_iq(?ID1, set, PbGroupAvatarStanza),
+    ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, PbGroupAvatarStanza),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIq),
     ?assertEqual(true, is_record(ActualXmppIq, iq)),

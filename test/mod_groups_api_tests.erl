@@ -9,6 +9,7 @@
 -include("xmpp.hrl").
 -include("groups.hrl").
 -include("feed.hrl").
+-include("packets.hrl").
 -include("groups_test_data.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -82,17 +83,17 @@ set_avatar_IQ(Uid, Gid) ->
 
 
 delete_avatar_IQ(Uid, Gid) ->
-    avatar_IQ(Uid, Gid, <<>>).
+    avatar_IQ(Uid, Gid, undefined).
 
 
-avatar_IQ(Uid, Gid, Cdata) ->
+avatar_IQ(Uid, Gid, Data) ->
     #iq{
         from = #jid{luser = Uid},
         type = set,
         sub_els = [
-            #group_avatar{
+            #pb_upload_group_avatar{
                 gid =  Gid,
-                cdata = Cdata
+                data = Data
             }]
     }.
 

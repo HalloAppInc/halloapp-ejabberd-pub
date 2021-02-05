@@ -21,6 +21,7 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("groups.hrl").
+-include ("packets.hrl").
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -31,6 +32,7 @@
 start(Host, _Opts) ->
     ?INFO("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_GROUPS, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_upload_group_avatar, ?MODULE, process_local_iq),
     ejabberd_hooks:add(group_message, Host, ?MODULE, send_group_message, 50),
     ok.
 
@@ -38,6 +40,7 @@ start(Host, _Opts) ->
 stop(Host) ->
     ?INFO("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_GROUPS),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_upload_group_avatar),
     ejabberd_hooks:delete(group_message, Host, ?MODULE, send_group_message, 50),
     ok.
 
@@ -125,13 +128,15 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
 
 %%% delete_avatar
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#group_avatar{gid = Gid, cdata = <<>>}]} = IQ) ->
+        sub_els = [#pb_upload_group_avatar{gid = Gid, data = undefined}]} = IQ) ->
     process_delete_avatar(IQ, Gid, Uid);
 
 
 %%% set_avatar
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#group_avatar{gid = Gid, cdata = Base64Bytes}]} = IQ) ->
+        sub_els = [#pb_upload_group_avatar{gid = Gid, data = Data}]} = IQ) ->
+    %% TODO(murali@): update these functions to work with binary data.
+    Base64Bytes = base64:encode(Data),
     process_set_avatar(IQ, Gid, Uid, Base64Bytes);
 
 
