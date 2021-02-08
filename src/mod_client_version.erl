@@ -120,6 +120,17 @@ check_and_migrate_ios_otpkeys(Uid, ClientVersion) ->
     %% Run migration to delete otp keys of old accounts if any.
     %% Refresh keys only if ios and if older version =< 1.2.91 and newer version > 1.2.91.
     case model_accounts:get_client_version(Uid) of
+        {ok, undefined = OldVersion} ->
+            ?INFO("really old user i guess, uid: ~p", [Uid]),
+            ClientType = util_ua:get_client_type(OldVersion),
+            IsNewVersionGreater = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.2.91">>),
+            %% refresh otp keys for all ios accounts with version > 1.2.91 even when old version is undefined
+            case ClientType =:= ios andalso IsNewVersionGreater of
+                false -> ok;
+                true ->
+                    ?INFO("Uid: ~p, OldVersion: ~p, NewVersion: ~p", [Uid, OldVersion, ClientVersion]),
+                    ok = mod_whisper:refresh_otp_keys(Uid)
+            end;
         {ok, OldVersion} ->
             ClientType = util_ua:get_client_type(OldVersion),
             IsOldVersionGreater = util_ua:is_version_greater_than(OldVersion, <<"HalloApp/iOS1.2.91">>),
