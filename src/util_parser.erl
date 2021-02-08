@@ -25,6 +25,8 @@
 -endif.
 
 
+xmpp_to_proto_uid(XmppUid) when is_integer(XmppUid) ->
+    XmppUid;
 xmpp_to_proto_uid(XmppUid) ->
 	case XmppUid of
         undefined -> undefined;
@@ -33,6 +35,8 @@ xmpp_to_proto_uid(XmppUid) ->
     end.
 
 
+proto_to_xmpp_uid(PbUid) when is_binary(PbUid) ->
+    PbUid;
 proto_to_xmpp_uid(PbUid) ->
 	case PbUid of
         undefined -> <<>>;
