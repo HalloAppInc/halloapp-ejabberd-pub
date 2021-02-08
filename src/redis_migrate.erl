@@ -513,17 +513,22 @@ refresh_otp_keys_run(Key, State) ->
         {match, [[FullKey, Uid]]} ->
             ?INFO("Account uid: ~p", [Uid]),
             {ok, Version} = q(redis_accounts_client, ["HGET", FullKey, <<"cv">>]),
-            case util_ua:get_client_type(Version) =:= ios andalso
-                    util_ua:is_version_greater_than(Version, <<"HalloApp/iOS1.2.91">>) of
-                false -> ok;
-                %% refresh otp keys for all ios accounts with version > 1.2.91
-                true ->
-                    case DryRun of
+            case Version of
+                undefined ->
+                    ?ERROR("Undefined client version for a uid: ~p", [Uid]);
+                _ ->
+                    case util_ua:get_client_type(Version) =:= ios andalso
+                            util_ua:is_version_greater_than(Version, <<"HalloApp/iOS1.2.91">>) of
+                        false -> ok;
+                        %% refresh otp keys for all ios accounts with version > 1.2.91
                         true ->
-                            ?INFO("Uid: ~p, would refresh keys for: ~p", [Uid, Version]);
-                        false ->
-                            ?INFO("Uid: ~p, Version: ~p", [Uid, Version]),
-                            ok = mod_whisper:refresh_otp_keys(Uid)
+                            case DryRun of
+                                true ->
+                                    ?INFO("Uid: ~p, would refresh keys for: ~p", [Uid, Version]);
+                                false ->
+                                    ?INFO("Uid: ~p, Version: ~p", [Uid, Version]),
+                                    ok = mod_whisper:refresh_otp_keys(Uid)
+                            end
                     end
             end;
         _ -> ok
