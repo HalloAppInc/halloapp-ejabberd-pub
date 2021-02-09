@@ -498,7 +498,7 @@ check_and_write_to_file(<<"client.crypto">> = Namespace, Metric, Uid, Tags, Coun
                 {util:to_binary(TagName), util:to_binary(TagValue)}
             end, Tags),
     DataMap1 = maps:from_list(Tags2),
-    DataMap2 = #{
+    DataMap2 = DataMap1#{
         <<"uid">> => Uid,
         <<"count">> => util:to_binary(Count),
         <<"timestamp_ms">> => util:to_binary(TimestampMs)
