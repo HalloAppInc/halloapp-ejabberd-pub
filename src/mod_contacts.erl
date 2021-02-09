@@ -16,6 +16,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("ha_namespaces.hrl").
 -include("time.hrl").
 
@@ -47,8 +48,7 @@
 ]).
 
 start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_USER_CONTACTS, ?MODULE,
-        process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_contact_list, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 100),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
@@ -57,7 +57,7 @@ start(Host, _Opts) ->
     ok.
 
 stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_USER_CONTACTS),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_contact_list),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 100),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
@@ -79,21 +79,20 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% iq handlers
 %%====================================================================
 
-process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, lang = Lang,
-        sub_els = [#contact_list{type = full, contacts = Contacts, syncid = SyncId, index = Index, 
-                last = Last}]} = IQ) ->
+process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
+        sub_els = [#pb_contact_list{type = full, contacts = Contacts, sync_id = SyncId, batch_index = Index,
+                is_last = Last}]} = IQ) ->
     StartTime = os:system_time(microsecond), 
-    ?INFO("Full contact sync Uid: ~p, syncid: ~p, index: ~p, last: ~p, num_contacts: ~p",
+    ?INFO("Full contact sync Uid: ~p, sync_id: ~p, batch_index: ~p, is_last: ~p, num_contacts: ~p",
             [UserId, SyncId, Index, Last, length(Contacts)]),
     stat:count("HA/contacts", "sync_full_contacts", length(Contacts)),
     case SyncId of
         undefined ->
-            ?WARNING("undefined syncid, iq: ~p", [IQ]),
+            ?WARNING("undefined sync_id, iq: ~p", [IQ]),
             ResultIQ = xmpp:make_error(IQ, util:err(undefined_syncid));
         _ ->
             count_full_sync(Index),
-            ResultIQ = xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_USER_CONTACTS,
-                    syncid = SyncId, type = normal,
+            ResultIQ = xmpp:make_iq_result(IQ, #pb_contact_list{sync_id = SyncId, type = normal,
                     contacts = normalize_and_insert_contacts(UserId, Server, Contacts, SyncId)})
     end,
     case Last of
@@ -110,9 +109,9 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set, 
     ResultIQ;
 
 process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
-                    sub_els = [#contact_list{type = delta, contacts = Contacts,
-                                            index = _Index, last = _Last}]} = IQ) ->
-    xmpp:make_iq_result(IQ, #contact_list{xmlns = ?NS_USER_CONTACTS, type = normal,
+                    sub_els = [#pb_contact_list{type = delta, contacts = Contacts,
+                                            batch_index = _Index, is_last = _Last}]} = IQ) ->
+    xmpp:make_iq_result(IQ, #pb_contact_list{type = normal,
                     contacts = handle_delta_contacts(UserId, Server, Contacts)}).
 
 
@@ -233,16 +232,16 @@ get_phone(UserId) ->
         Contacts :: [contact()]) -> [contact()].
 handle_delta_contacts(UserId, Server, Contacts) ->
     {DeleteContactsList, AddContactsList} = lists:partition(
-            fun(#contact{type = Type}) ->
-                Type == delete
+            fun(#pb_contact{action = Action}) ->
+                Action =:= delete
             end, Contacts),
     DeleteContactPhones = lists:foldl(
-            fun(#contact{normalized = undefined}, Acc) ->
+            fun(#pb_contact{normalized = undefined}, Acc) ->
                     ?ERROR("Uid: ~s, UserId, sending invalid_contacts", [UserId]),
                     %% Added on 2020-12-11 because of some client bug.
                     %% Clients must be fixing this soon. Check again in 2months.
                     Acc;
-                (#contact{normalized = Normalized}, Acc) ->
+                (#pb_contact{normalized = Normalized}, Acc) ->
                     [Normalized | Acc]
             end, [], DeleteContactsList),
     remove_contact_phones(UserId, Server, DeleteContactPhones),
@@ -251,8 +250,8 @@ handle_delta_contacts(UserId, Server, Contacts) ->
     %% Send notification to user who invited this user.
     %% Server fix for an issue on the ios client: remove this after 03-10-21.
     AddContactsPhoneList = lists:foldl(
-            fun (#contact{normalized = undefined}, Acc) -> Acc;
-                (#contact{normalized = NormPhone}, Acc) -> [NormPhone | Acc]
+            fun (#pb_contact{normalized = undefined}, Acc) -> Acc;
+                (#pb_contact{normalized = NormPhone}, Acc) -> [NormPhone | Acc]
             end, [], AddContacts),
     AddContactsPhoneSet = sets:from_list(AddContactsPhoneList),
     check_and_send_inviter_notification(UserId, Server, AddContactsPhoneSet),
@@ -362,7 +361,7 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
                 NewContact = normalize_and_update_contact(
                         UserId, UserRegionId, UserPhone, OldContactSet,
                         OldReverseContactSet, Server, Contact, SyncId),
-                NewAcc = case {NewContact#contact.normalized, NewContact#contact.userid} of
+                NewAcc = case {NewContact#pb_contact.normalized, NewContact#pb_contact.uid} of
                     {undefined, _} -> {PhoneAcc, UnregisteredPhoneAcc};
                     {NormPhone, undefined} -> {[NormPhone | PhoneAcc], [NormPhone | UnregisteredPhoneAcc]};
                     {NormPhone, _} -> {[NormPhone | PhoneAcc], UnregisteredPhoneAcc}
@@ -384,16 +383,16 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
         OldReverseContactSet :: sets:set(binary()), Server :: binary(),
         Contact :: contact(), SyncId :: binary()) -> contact().
 normalize_and_update_contact(_UserId, _UserRegionId, _UserPhone, _OldContactSet,
-        _OldReverseContactSet, _Server, #contact{raw = undefined}, _SyncId) ->
-    #contact{role = <<"none">>};
+        _OldReverseContactSet, _Server, #pb_contact{raw = undefined}, _SyncId) ->
+    #pb_contact{role = none};
 normalize_and_update_contact(UserId, UserRegionId, UserPhone, OldContactSet,
         OldReverseContactSet, Server, Contact, SyncId) ->
-    RawPhone = Contact#contact.raw,
+    RawPhone = Contact#pb_contact.raw,
     ContactPhone = mod_libphonenumber:normalize(RawPhone, UserRegionId),
     NewContact = case ContactPhone of
         undefined ->
             stat:count("HA/contacts", "normalize_fail"),
-            #contact{role = <<"none">>};
+            Contact#pb_contact{role = none, uid = undefined, normalized = undefined};
         _ ->
             stat:count("HA/contacts", "normalize_success"),
             case SyncId of
@@ -403,7 +402,7 @@ normalize_and_update_contact(UserId, UserRegionId, UserPhone, OldContactSet,
                         OldReverseContactSet, Server, ContactPhone, no)
             end
     end,
-    NewContact#contact{raw = RawPhone}.
+    NewContact#pb_contact{raw = RawPhone}.
 
 
 -spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(),
@@ -421,7 +420,8 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
             %% We are looking up redis sequentially for every phone number.
             %% TODO(murali@): this query will make it expensive. fix this with qmn later.
             NumPotentialFriends = model_contacts:get_contact_uids_size(ContactPhone),
-            #contact{normalized = ContactPhone, role = <<"none">>, num_potential_friends = NumPotentialFriends};
+            #pb_contact{normalized = ContactPhone, uid = undefined,
+                    role = none, num_potential_friends = NumPotentialFriends};
         _ ->
             %% TODO(murali@): update this to load block-uids once for this request
             %% and use it instead of every redis call.
@@ -438,15 +438,15 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
             %% Send AvatarId only if ContactId and UserPhone are friends.
             AvatarId = case IsFriends of
                 true -> model_accounts:get_avatar_id_binary(ContactId);
-                false -> undefined
+                false -> <<>>   %% Both <<>> or undefined will be the same when interpreted by the clients.
             end,
             Name = model_accounts:get_name_binary(ContactId),
-            #contact{
-                userid = ContactId,
+            #pb_contact{
+                uid = ContactId,
                 name = Name,
-                avatarid = AvatarId,
+                avatar_id = AvatarId,
                 normalized = ContactPhone,
-                role = Role
+                role = util:to_atom(Role)
             }
     end.
 

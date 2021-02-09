@@ -8,6 +8,7 @@
 -author('murali').
 
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("logger.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -89,11 +90,11 @@ normalize_and_insert_contacts_with_syncid_test() ->
         [?UID2, ?PHONE2, ?NAME2, ?UA2],
         [?UID3, ?PHONE3, ?NAME3, ?UA3]]),
     InputContacts = [
-        #contact{raw = ?PHONE2},
-        #contact{raw = ?PHONE3},
-        #contact{raw = ?PHONE4},
-        #contact{raw = ?PHONE5},
-        #contact{raw = ?PHONE6}
+        #pb_contact{raw = ?PHONE2, normalized = undefined},
+        #pb_contact{raw = ?PHONE3, normalized = undefined},
+        #pb_contact{raw = ?PHONE4, normalized = undefined},
+        #pb_contact{raw = ?PHONE5, normalized = undefined},
+        #pb_contact{raw = ?PHONE6, normalized = undefined}
     ],
     insert_contacts(?UID2, [?PHONE1]),
 
@@ -102,15 +103,16 @@ normalize_and_insert_contacts_with_syncid_test() ->
     %% UID1 does full sync with some phone numbers.
 
     ?assertEqual({ok, []}, model_contacts:get_contacts(?UID1)),
+    ?assertEqual({ok, []}, model_contacts:get_sync_contacts(?UID1, ?SYNC_ID1)),
 
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, ?SYNC_ID1),
     ExpectedContacts = [
-        #contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatarid = <<>>, userid = ?UID2, role = <<"friends">>},
-        #contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, userid = ?UID3, role = <<"none">>},
-        #contact{raw = ?PHONE4, normalized = ?PHONE4, role = <<"none">>},
-        #contact{raw = ?PHONE5, role = <<"none">>},
-        #contact{raw = ?PHONE6, normalized = ?PHONE6, role = <<"none">>}
+        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatar_id = <<>>, uid = ?UID2, role = friends},
+        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3, role = none},
+        #pb_contact{raw = ?PHONE4, normalized = ?PHONE4, uid = undefined, role = none},
+        #pb_contact{raw = ?PHONE5, normalized = undefined, uid = undefined, role = none},
+        #pb_contact{raw = ?PHONE6, normalized = ?PHONE6, uid = undefined, role = none}
     ],
     ?assertEqual(ExpectedContacts, ActualContacts),
 
@@ -122,6 +124,8 @@ normalize_and_insert_contacts_with_syncid_test() ->
     %% Test if uid is correctly inserted for unregistered phone numbers.
     {ok, ActualUids1} = model_contacts:get_potential_reverse_contact_uids(?PHONE4),
     {ok, ActualUids2} = model_contacts:get_potential_reverse_contact_uids(?PHONE6),
+    ?debugFmt("~p",[ActualUids1]),
+    ?debugFmt("~p",[ActualUids2]),
     ?assert(lists:member(?UID1, ActualUids1)),
     ?assert(lists:member(?UID1, ActualUids2)),
 
@@ -137,10 +141,10 @@ normalize_and_insert_contacts_without_syncid_test() ->
         [?UID2, ?PHONE2, ?NAME2, ?UA2],
         [?UID3, ?PHONE3, ?NAME3, ?UA3]]),
     InputContacts = [
-        #contact{raw = ?PHONE2},
-        #contact{raw = ?PHONE3},
-        #contact{raw = ?PHONE4},
-        #contact{raw = ?PHONE5}
+        #pb_contact{raw = ?PHONE2},
+        #pb_contact{raw = ?PHONE3},
+        #pb_contact{raw = ?PHONE4},
+        #pb_contact{raw = ?PHONE5}
     ],
     insert_contacts(?UID2, [?PHONE1]),
     insert_contacts(?UID1, [?PHONE6]),
@@ -154,10 +158,10 @@ normalize_and_insert_contacts_without_syncid_test() ->
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, undefined),
     ExpectedContacts = [
-        #contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatarid = <<>>, userid = ?UID2, role = <<"friends">>},
-        #contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, userid = ?UID3, role = <<"none">>},
-        #contact{raw = ?PHONE4, normalized = ?PHONE4, role = <<"none">>},
-        #contact{raw = ?PHONE5, role = <<"none">>}
+        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatar_id = <<>>, uid = ?UID2, role = friends},
+        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3, role = none},
+        #pb_contact{raw = ?PHONE4, normalized = ?PHONE4, uid = undefined, role = none},
+        #pb_contact{raw = ?PHONE5, normalized = undefined, uid = undefined, role = none}
     ],
     ?assertEqual(ExpectedContacts, ActualContacts),
 
@@ -170,6 +174,7 @@ normalize_and_insert_contacts_without_syncid_test() ->
 
     %% Test if uid is correctly inserted for unregistered phone numbers.
     {ok, ActualUids} = model_contacts:get_potential_reverse_contact_uids(?PHONE4),
+    ?debugFmt("~p",[ActualUids]),
     ?assert(lists:member(?UID1, ActualUids)),
     ok.
 
@@ -181,8 +186,8 @@ normalize_and_insert_contacts_with_blocklist_test() ->
         [?UID2, ?PHONE2, ?NAME2, ?UA2],
         [?UID3, ?PHONE3, ?NAME3, ?UA3]]),
     InputContacts = [
-        #contact{raw = ?PHONE2},
-        #contact{raw = ?PHONE3}
+        #pb_contact{raw = ?PHONE2},
+        #pb_contact{raw = ?PHONE3}
     ],
     insert_contacts(?UID2, [?PHONE1]),
     ok = model_privacy:block_uid(?UID2, ?UID1),
@@ -194,8 +199,8 @@ normalize_and_insert_contacts_with_blocklist_test() ->
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, undefined),
     ExpectedContacts = [
-        #contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, userid = ?UID2, role = <<"none">>},
-        #contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, userid = ?UID3, role = <<"none">>}
+        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, uid = ?UID2, role = none},
+        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3, role = none}
     ],
     ?assertEqual(ExpectedContacts, ActualContacts),
 
@@ -213,10 +218,10 @@ finish_sync_test() ->
         [?UID2, ?PHONE2, ?NAME2, ?UA2],
         [?UID3, ?PHONE3, ?NAME3, ?UA3]]),
     InputContacts = [
-        #contact{raw = ?PHONE2},
-        #contact{raw = ?PHONE3},
-        #contact{raw = ?PHONE4},
-        #contact{raw = ?PHONE5}
+        #pb_contact{raw = ?PHONE2},
+        #pb_contact{raw = ?PHONE3},
+        #pb_contact{raw = ?PHONE4},
+        #pb_contact{raw = ?PHONE5}
     ],
     insert_contacts(?UID2, [?PHONE1]),
 
@@ -310,7 +315,7 @@ new_user_invite_notification_not_friend_test() ->
     setup_accounts([[?UID2, ?PHONE2, ?NAME2, ?UA2]]),
 
     %% UID2 uploads his addressbook and that has UID1's phone number.
-    InputContacts = [#contact{raw = ?PHONE1}],
+    InputContacts = [#pb_contact{raw = ?PHONE1, normalized = undefined}],
 
     mod_contacts:normalize_and_insert_contacts(?UID2, ?SERVER, InputContacts, ?SYNC_ID2),
 
@@ -348,12 +353,12 @@ new_user_invite_notification_friend_test() ->
     setup_accounts([[?UID2, ?PHONE2, ?NAME2, ?UA2]]),
 
     %% UID1 uploads his addressbook and that has UID2's phone number on UID2's reg.
-    InputContacts = [#contact{raw = ?PHONE2}],
+    InputContacts = [#pb_contact{raw = ?PHONE2, normalized = undefined}],
     mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, ?SYNC_ID1),
     ok = mod_contacts:finish_sync(?UID1, ?SERVER, ?SYNC_ID1),
 
     %% UID2 uploads his addressbook and that has UID1's phone number.
-    InputContacts2 = [#contact{raw = ?PHONE1}],
+    InputContacts2 = [#pb_contact{raw = ?PHONE1, normalized = undefined}],
     mod_contacts:normalize_and_insert_contacts(?UID2, ?SERVER, InputContacts2, ?SYNC_ID2),
 
     meck:new(ejabberd_router),
@@ -395,7 +400,7 @@ new_user_inviters_list1_notification_test() ->
     setup_accounts([[?UID2, ?PHONE2, ?NAME2, ?UA2]]),
 
     %% UID2 uploads his addressbook and that has UID3's phone number.
-    InputContacts = [#contact{raw = ?PHONE3}],
+    InputContacts = [#pb_contact{raw = ?PHONE3, normalized = undefined}],
 
     mod_contacts:normalize_and_insert_contacts(?UID2, ?SERVER, InputContacts, ?SYNC_ID2),
 
@@ -439,8 +444,8 @@ new_user_inviters_list2_notification_test() ->
 
     %% UID2 uploads his addressbook and that has UID1's phone number.
     InputContacts = [
-        #contact{raw = ?PHONE3},
-        #contact{raw = ?PHONE1}
+        #pb_contact{raw = ?PHONE3, normalized = undefined},
+        #pb_contact{raw = ?PHONE1}
     ],
 
     mod_contacts:normalize_and_insert_contacts(?UID2, ?SERVER, InputContacts, ?SYNC_ID2),
@@ -487,8 +492,8 @@ new_user_inviters_list3_notification_test() ->
 
     %% UID2 uploads his addressbook using delta sync and that has UID1's phone number.
     InputContacts = [
-        #contact{raw = ?PHONE3},
-        #contact{raw = ?PHONE1}
+        #pb_contact{raw = ?PHONE3, normalized = undefined},
+        #pb_contact{raw = ?PHONE1, normalized = undefined}
     ],
 
     meck:new(ejabberd_router),
