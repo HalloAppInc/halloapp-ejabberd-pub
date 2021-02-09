@@ -296,6 +296,7 @@ process_count(Uid, #pb_count{namespace = Namespace, metric = Metric, count = Cou
         %% TODO(murali@): remove these logs eventually.
         ?INFO("~s, ~s, ~s, ~p, ~p", [FullNamespace, Metric, Uid, Tags2, Count]),
         stat:count(binary_to_list(FullNamespace), binary_to_list(Metric), Count, Tags2),
+        check_and_write_to_file(FullNamespace, Metric, Uid, Tags2, Count),
         ok
     catch
         error : bad_namespace : _ ->
@@ -322,13 +323,13 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
         Namespace = get_namespace(Edata),
         FullNamespace = full_namespace(Namespace),
         validate_namespace(FullNamespace),
-        Ts = util:now_ms(),
-        {Date, _} = calendar:system_time_to_local_time(Ts, millisecond), % for knowing which log file to add to
+        TsMs = util:now_ms(),
+        Date = util:tsms_to_date(TsMs), % for knowing which log file to add to
         UidInt = case Uid of
             undefined -> 0;
             Uid -> binary_to_integer(Uid)
         end,
-        Event2 = Event#pb_event_data{uid = UidInt, timestamp_ms = Ts},
+        Event2 = Event#pb_event_data{uid = UidInt, timestamp_ms = TsMs},
         case enif_protobuf:encode(Event2) of
             {error, Reason1} ->
                 ?ERROR("Failed to process event ~p, Event: ~p", [Reason1, Event]),
@@ -336,7 +337,7 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
             Data when is_binary(Data) ->
                 Json = json_encode(Data),
                 write_log(FullNamespace, Date, Json),
-                ?INFO("~s, ~s, ~p, ~p", [FullNamespace, Uid, Ts, Data]),
+                ?INFO("~s, ~s, ~p, ~p", [FullNamespace, Uid, TsMs, Data]),
                 ok
         end
         % TODO: log the event into CloudWatch Log or Kinesis Stream or S3
@@ -484,3 +485,28 @@ client_log_dir() ->
     ConsoleLog = ejabberd_logger:get_log_path(),
     Dir = filename:dirname(ConsoleLog),
     filename:join([Dir, ?CLIENT_LOGS_DIR]).
+
+
+%% Currently we only write crypto stats to files.
+-spec check_and_write_to_file(Namespace :: binary(), Metric :: binary(),
+        Uid :: binary(), Tags :: proplist(), Count :: integer()) -> ok.
+check_and_write_to_file(<<"client.crypto">> = Namespace, Metric, Uid, Tags, Count) ->
+    FinalNamespace = <<Namespace/binary, ".", Metric/binary>>,
+    TimestampMs = util:now_ms(),
+    Date = util:tsms_to_date(TimestampMs),
+    Tags2 = lists:map(fun({TagName, TagValue}) ->
+                {util:to_binary(TagName), util:to_binary(TagValue)}
+            end, Tags),
+    DataMap1 = maps:from_list(Tags2),
+    DataMap2 = #{
+        <<"uid">> => Uid,
+        <<"count">> => util:to_binary(Count),
+        <<"timestamp_ms">> => util:to_binary(TimestampMs)
+    },
+    JsonBin = jiffy:encode(DataMap2),
+    ?INFO("~p, ~p, ~p", [FinalNamespace, Date, JsonBin]),
+    write_log(FinalNamespace, Date, JsonBin),
+    ok;
+check_and_write_to_file(_Namespace, _Metric, _Uid, _Tags2, _Count) ->
+    ok.
+

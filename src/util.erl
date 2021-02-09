@@ -21,6 +21,7 @@
     now_ms/0,
     now/0,
     now_binary/0,
+    tsms_to_date/1,
     round_to_minute/1,
     random_str/1,
     generate_password/0,
@@ -82,6 +83,12 @@ now() ->
 -spec now_binary() -> binary().
 now_binary() ->
     integer_to_binary(util:now()).
+
+
+-spec tsms_to_date(TsMs :: integer()) -> {integer(), integer(), integer()}.
+tsms_to_date(TsMs) ->
+    {Date, _} = calendar:system_time_to_local_time(TsMs, millisecond),
+    Date.
 
 
 -spec round_to_minute(TimestampInSeconds :: non_neg_integer()) -> non_neg_integer().
