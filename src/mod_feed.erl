@@ -330,13 +330,13 @@ process_share_posts(Uid, Server, SharePostSt) ->
             share_feed_items(Uid, Ouid, Server, PostIds),
             #pb_share_stanza{
                 uid = Ouid,
-                result = ok
+                result = <<"ok">>
             };
         false ->
             #pb_share_stanza{
                 uid = Ouid,
-                result = failed,
-                reason = invalid_friend_uid
+                result = <<"failed">>,
+                reason = <<"invalid_friend_uid">>
             }
     end.
 
