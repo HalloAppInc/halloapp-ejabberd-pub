@@ -527,8 +527,7 @@ remove_contact_and_notify(UserId, Server, UserPhone, ContactPhone, ReverseContac
 notify_contact_about_user(UserId, _UserPhone, _Server, UserId, _Role) ->
     ok;
 notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role) ->
-    notifications_util:send_contact_notification(UserId, UserPhone, Server, ContactId, Role,
-        normal).
+    notifications_util:send_contact_notification(UserId, UserPhone, ContactId, Role).
 
 -spec probe_contact_about_user(UserId :: binary(), UserPhone :: binary(),
         Server :: binary(), ContactId :: binary()) -> ok.

@@ -113,8 +113,7 @@ notify_inviter(UserId, UserPhone, Server, ContactId, Role) ->
         true ->
             %% TODO Add stats.
             ?INFO("Inviter: ~p about user: ~p joining", [ContactId, UserId]),
-            notifications_util:send_contact_notification(UserId, UserPhone, Server, ContactId,
-                Role, headline);
+            notifications_util:send_contact_notification(UserId, UserPhone, ContactId, Role, headline);
         false -> ok
     end.
 

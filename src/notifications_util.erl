@@ -14,13 +14,28 @@
 -include("ha_namespaces.hrl").
 
 -export([
+    send_contact_notification/4,
+    send_contact_notification/5,
     send_contact_notification/6
 ]).
 
 
--spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
-        ContactId :: binary(), Role :: list(), MessageType :: atom()) -> ok.
-send_contact_notification(UserId, UserPhone, Server, ContactId, Role, MessageType) ->
+-spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
+        Role :: list()) -> ok.
+send_contact_notification(UserId, UserPhone, ContactId, Role) ->
+    send_contact_notification(UserId, UserPhone, ContactId, Role, normal, normal).
+
+
+-spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
+        Role :: list(), MessageType :: atom()) -> ok.
+send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType) ->
+    send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, normal).
+
+
+-spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
+        Role :: list(), MessageType :: atom(), ContactListType :: atom()) -> ok.
+send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, ContactListType) ->
+    Server = util:get_host(),
     AvatarId = case Role of
         <<"none">> -> undefined;
         <<"friends">> -> model_accounts:get_avatar_id_binary(UserId)
@@ -34,7 +49,7 @@ send_contact_notification(UserId, UserPhone, Server, ContactId, Role, MessageTyp
         role = Role
     },
 
-    SubEls = [#contact_list{type = normal, xmlns = ?NS_USER_CONTACTS, contacts = [Contact]}],
+    SubEls = [#contact_list{type = ContactListType, xmlns = ?NS_USER_CONTACTS, contacts = [Contact]}],
     Stanza = #message{
         id = util:new_msg_id(),
         type = MessageType,
