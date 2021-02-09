@@ -565,7 +565,7 @@ process_stream_end(Reason, State) ->
 -spec process_element(xmpp_element(), state()) -> state().
 process_element(Pkt, #{stream_state := StateName} = State) ->
     FinalState = case Pkt of
-        #halloapp_auth{} when StateName == wait_for_authentication ->
+        #pb_auth_request{} when StateName == wait_for_authentication ->
             process_auth_request(Pkt, State);
         #stream_error{} ->
             process_stream_end({stream, {in, Pkt}}, State);
@@ -593,9 +593,11 @@ process_authenticated_packet(Pkt, State) ->
 
 
 %% Noise based stream authentication - indicated by successful completion of the handshake.
--spec process_stream_authentication(halloapp_auth(), state()) -> state().
-process_stream_authentication(#halloapp_auth{uid = Uid, client_mode = Mode,
-        client_version = ClientVersion, resource = Resource}, State) ->
+-spec process_stream_authentication(pb_auth_request(), state()) -> state().
+process_stream_authentication(#pb_auth_request{uid = Uid, client_mode = ClientMode,
+        client_version = PbClientVersion, resource = Resource}, State) ->
+    Mode = ClientMode#pb_client_mode.mode,
+    ClientVersion = PbClientVersion#pb_client_version.version,
     State1 = State#{user => Uid, client_version => ClientVersion, resource => Resource, mode => Mode},
     State2 = try callback(handle_auth_success, Uid, <<>>, <<>>, State1)
          catch _:{?MODULE, undef} -> State1
@@ -612,10 +614,11 @@ process_stream_authentication(#halloapp_auth{uid = Uid, client_mode = Mode,
                     {State3, <<"failure">>, <<"invalid resource">>}
             end
     end,
-    AuthResultPkt = #halloapp_auth_result{
+    AuthResultPkt = #pb_auth_result{
         result = Result,
         reason = Reason,
-        props_hash = mod_props:get_hash(Uid, ClientVersion)
+        props_hash = base64url:decode(mod_props:get_hash(Uid, ClientVersion))
+        %% TODO(murali@): move this logic to decode into mod_props.
     },
     FinalState = send_pkt(NewState, AuthResultPkt),
     case Result of
@@ -624,10 +627,13 @@ process_stream_authentication(#halloapp_auth{uid = Uid, client_mode = Mode,
     end.
 
 
-%% TODO(murali@): cleanup this function.
--spec process_auth_request(halloapp_auth(), state()) -> state().
-process_auth_request(#halloapp_auth{uid = Uid, pwd = Pwd, client_mode = Mode,
-        client_version = ClientVersion, resource = Resource}, State) ->
+%% TODO(murali@): we have duplicate logic for this code, clean it up in one month after we no longer have tls users.
+%% revisit on 03-01-2021.
+-spec process_auth_request(pb_auth_request(), state()) -> state().
+process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = ClientMode,
+        client_version = PbClientVersion, resource = Resource}, State) ->
+    Mode = ClientMode#pb_client_mode.mode,
+    ClientVersion = PbClientVersion#pb_client_version.version,
     State1 = State#{user => Uid, client_version => ClientVersion, resource => Resource, mode => Mode},
     %% Check Uid and Password. TODO(murali@): simplify this even further!
     CheckPW = check_password_fun(<<>>, State1),
@@ -661,10 +667,11 @@ process_auth_request(#halloapp_auth{uid = Uid, pwd = Pwd, client_mode = Mode,
                     end
             end
     end,
-    AuthResultPkt = #halloapp_auth_result{
+    AuthResultPkt = #pb_auth_result{
         result = Result,
         reason = Reason,
-        props_hash = mod_props:get_hash(Uid, ClientVersion)
+        props_hash = base64url:decode(mod_props:get_hash(Uid, ClientVersion))
+        %% TODO(murali@): move this logic to decode into mod_props.
     },
     case Result of
         <<"failure">> ->
@@ -797,7 +804,7 @@ send_error(State, _Pkt, Err) ->
 send_auth_error(State, Err) ->
     ErrBin = util:to_binary(Err),
     ?ERROR("Sending auth error due to: ~p and terminating connection", [Err]),
-    AuthResultPkt = #halloapp_auth_result{result = <<"failure">>, reason = ErrBin},
+    AuthResultPkt = #pb_auth_result{result = <<"failure">>, reason = ErrBin},
     FinalState = send_pkt(State, AuthResultPkt),
     process_stream_end(Err, FinalState).
 
@@ -882,14 +889,8 @@ format(Fmt, Args) ->
 
 %% TODO(murali@): clean this up further: use the parser module itself.
 %% Move it to the packet_parser module.
-xmpp_to_proto(XmppPkt) when is_record(XmppPkt, halloapp_auth_result) ->
-    try
-        ha_auth_parser:xmpp_to_proto(XmppPkt)
-    catch
-        error: Reason ->
-            ?ERROR("Failed: packet: ~p, reason: ~p", [XmppPkt, Reason]),
-            undefined
-    end;
+xmpp_to_proto(Pkt) when is_record(Pkt, pb_auth_result) ->
+    Pkt;
 xmpp_to_proto(XmppPkt) ->
     try
         packet_parser:xmpp_to_proto(XmppPkt)
