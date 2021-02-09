@@ -11,6 +11,7 @@
 -author('murali').
 
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("logger.hrl").
 -include("feed.hrl").
 
@@ -28,13 +29,13 @@
 
 
 start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_FEED, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_feed_item, ?MODULE, process_local_iq),
     ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
 stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_FEED),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_feed_item),
     ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
@@ -55,13 +56,13 @@ mod_options(_Host) ->
 
 %% Publish post.
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        sub_els = [#feed_st{action = publish = Action, posts = [Post], comments = [],
-        audience_list = AudienceListStanza}]} = IQ) ->
-    PostId = Post#post_st.id,
-    Payload = Post#post_st.payload,
-    case publish_post(Uid, PostId, Payload, AudienceListStanza) of
+        sub_els = [#pb_feed_item{action = publish = Action, item = #pb_post{} = Post}]} = IQ) ->
+    PostId = Post#pb_post.id,
+    Payload = Post#pb_post.payload,
+    AudienceList = Post#pb_post.audience,
+    case publish_post(Uid, PostId, Payload, AudienceList) of
         {ok, ResultTsMs} ->
-            SubEl = make_feed_post_stanza(Action, PostId, Uid, <<>>, ResultTsMs),
+            SubEl = make_pb_feed_post_stanza(Action, PostId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
             xmpp:make_error(IQ, util:err(Reason))
@@ -69,14 +70,14 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
 
 %% Publish comment.
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        sub_els = [#feed_st{action = publish = Action, posts = [], comments = [Comment]}]} = IQ) ->
-    CommentId = Comment#comment_st.id,
-    PostId = Comment#comment_st.post_id,
-    ParentCommentId = Comment#comment_st.parent_comment_id,
-    Payload = Comment#comment_st.payload,
+        sub_els = [#pb_feed_item{action = publish = Action, item = #pb_comment{} = Comment}]} = IQ) ->
+    CommentId = Comment#pb_comment.id,
+    PostId = Comment#pb_comment.post_id,
+    ParentCommentId = Comment#pb_comment.parent_comment_id,
+    Payload = Comment#pb_comment.payload,
     case publish_comment(Uid, CommentId, PostId, ParentCommentId, Payload) of
         {ok, ResultTsMs} ->
-            SubEl = make_feed_comment_stanza(Action, CommentId, PostId,
+            SubEl = make_pb_feed_comment_stanza(Action, CommentId, PostId,
                     ParentCommentId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
@@ -85,11 +86,11 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
 
 % Retract post.
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        sub_els = [#feed_st{action = retract = Action, posts = [Post], comments = []}]} = IQ) ->
-    PostId = Post#post_st.id,
+        sub_els = [#pb_feed_item{action = retract = Action, item = #pb_post{} = Post}]} = IQ) ->
+    PostId = Post#pb_post.id,
     case retract_post(Uid, PostId) of
         {ok, ResultTsMs} ->
-            SubEl = make_feed_post_stanza(Action, PostId, Uid, <<>>, ResultTsMs),
+            SubEl = make_pb_feed_post_stanza(Action, PostId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
             xmpp:make_error(IQ, util:err(Reason))
@@ -97,13 +98,13 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
 
 % Retract comment.
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        sub_els = [#feed_st{action = retract = Action, posts = [], comments = [Comment]}]} = IQ) ->
-    CommentId = Comment#comment_st.id,
-    PostId = Comment#comment_st.post_id,
-    ParentCommentId = Comment#comment_st.parent_comment_id,
+        sub_els = [#pb_feed_item{action = retract = Action, item = #pb_comment{} = Comment}]} = IQ) ->
+    CommentId = Comment#pb_comment.id,
+    PostId = Comment#pb_comment.post_id,
+    ParentCommentId = Comment#pb_comment.parent_comment_id,
     case retract_comment(Uid, CommentId, PostId) of
         {ok, ResultTsMs} ->
-            SubEl = make_feed_comment_stanza(Action, CommentId, PostId,
+            SubEl = make_pb_feed_comment_stanza(Action, CommentId, PostId,
                     ParentCommentId, Uid, <<>>, ResultTsMs),
             xmpp:make_iq_result(IQ, SubEl);
         {error, Reason} ->
@@ -112,12 +113,12 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
 
 % Share posts with friends.
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
-        sub_els = [#feed_st{action = share = Action, share_posts = SharePostStanzas}]} = IQ) ->
+        sub_els = [#pb_feed_item{action = share = Action, share_stanzas = SharePostStanzas}]} = IQ) ->
     ResultSharePostStanzas = lists:map(
         fun(SharePostSt) ->
             process_share_posts(Uid, Server, SharePostSt)
         end, SharePostStanzas),
-    xmpp:make_iq_result(IQ, #feed_st{action = Action, share_posts = ResultSharePostStanzas}).
+    xmpp:make_iq_result(IQ, #pb_feed_item{action = Action, share_stanzas = ResultSharePostStanzas}).
 
 
 -spec add_friend(Uid :: uid(), Server :: binary(), Ouid :: uid(), WasBlocked :: boolean()) -> ok.
@@ -145,15 +146,15 @@ remove_user(Uid, _Server) ->
 
 -spec publish_post(Uid :: uid(), PostId :: binary(), Payload :: binary(),
         AudienceListStanza ::[audience_list_st()]) -> {ok, integer()} | {error, any()}.
-publish_post(_Uid, _PostId, _Payload, []) ->
+publish_post(_Uid, _PostId, _Payload, undefined) ->
     {error, no_audience};
-publish_post(Uid, PostId, Payload, [AudienceListSt]) ->
+publish_post(Uid, PostId, Payload, AudienceList) ->
     ?INFO("Uid: ~s, PostId: ~s", [Uid, PostId]),
     Server = util:get_host(),
     Action = publish,
-    FeedAudienceType = AudienceListSt#audience_list_st.type,
+    FeedAudienceType = AudienceList#pb_audience.type,
     %% Include own Uid in the audience list always.
-    FeedAudienceList = [Uid | uid_elements_to_uids(AudienceListSt#audience_list_st.uids)],
+    FeedAudienceList = AudienceList#pb_audience.uids,
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
@@ -322,17 +323,17 @@ retract_comment(PublisherUid, CommentId, PostId) ->
 -spec process_share_posts(Uid :: uid(), Server :: binary(),
         SharePostSt :: share_posts_st()) -> share_posts_st().
 process_share_posts(Uid, Server, SharePostSt) ->
-    Ouid = SharePostSt#share_posts_st.uid,
+    Ouid = SharePostSt#pb_share_stanza.uid,
     case model_friends:is_friend(Uid, Ouid) of
         true ->
-            PostIds = [PostSt#post_st.id || PostSt <- SharePostSt#share_posts_st.posts],
+            PostIds = [PostId || PostId <- SharePostSt#pb_share_stanza.post_ids],
             share_feed_items(Uid, Ouid, Server, PostIds),
-            #share_posts_st{
+            #pb_share_stanza{
                 uid = Ouid,
                 result = ok
             };
         false ->
-            #share_posts_st{
+            #pb_share_stanza{
                 uid = Ouid,
                 result = failed,
                 reason = invalid_friend_uid
@@ -355,6 +356,20 @@ make_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs) ->
     }]}.
 
 
+-spec make_pb_feed_post_stanza(Action :: action_type(), PostId :: binary(),
+        Uid :: uid(), Payload :: binary(), TimestampMs :: integer()) -> feed_st().
+make_pb_feed_post_stanza(Action, PostId, Uid, Payload, TimestampMs) ->
+    #pb_feed_item{
+        action = Action,
+        item = #pb_post{
+            id = PostId,
+            publisher_uid = Uid,
+            payload = Payload,
+            publisher_name = model_accounts:get_name_binary(Uid),
+            timestamp = util:ms_to_sec(TimestampMs)
+    }}.
+
+
 -spec make_feed_comment_stanza(Action :: action_type(), CommentId :: binary(),
         PostId :: binary(), ParentCommentId :: binary(), Uid :: uid(),
         Payload :: binary(), TimestampMs :: integer()) -> feed_st().
@@ -372,6 +387,24 @@ make_feed_comment_stanza(Action, CommentId, PostId,
                 payload = Payload,
                 timestamp = integer_to_binary(util:ms_to_sec(TimestampMs))
     }]}.
+
+
+-spec make_pb_feed_comment_stanza(Action :: action_type(), CommentId :: binary(),
+        PostId :: binary(), ParentCommentId :: binary(), Uid :: uid(),
+        Payload :: binary(), TimestampMs :: integer()) -> feed_st().
+make_pb_feed_comment_stanza(Action, CommentId, PostId,
+        ParentCommentId, PublisherUid, Payload, TimestampMs) ->
+    #pb_feed_item{
+        action = Action,
+        item = #pb_comment{
+            id = CommentId,
+            post_id = PostId,
+            parent_comment_id = ParentCommentId,
+            publisher_uid = PublisherUid,
+            publisher_name = model_accounts:get_name_binary(PublisherUid),
+            payload = Payload,
+            timestamp = util:ms_to_sec(TimestampMs)
+    }}.
 
 
 -spec broadcast_event(Uid :: uid(), FeedAudienceSet :: set(),
@@ -559,14 +592,4 @@ convert_comments_to_stanzas(#comment{id = CommentId, post_id = PostId, publisher
         payload = Payload,
         timestamp = integer_to_binary(util:ms_to_sec(TimestampMs))
     }.
-
-
-%% TODO(murali@): move this function to a util module.
--spec uid_elements_to_uids([uid_element()]) -> uid().
-uid_elements_to_uids(UidEls) ->
-    lists:map(
-        fun(UidEl) ->
-            UidEl#uid_element.uid
-        end, UidEls).
-
 

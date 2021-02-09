@@ -85,8 +85,8 @@ xmpp_to_proto_iq_share_response_test() ->
     ShareFeedResponses = struct_util:create_share_feed_responses([ShareFeedResponse]),
     PbIq = struct_util:create_pb_iq(?ID1, result, ShareFeedResponses),
 
-    SharePostsSt = struct_util:create_share_posts_st(?UID1, [], ok, undefined),
-    FeedSt = struct_util:create_feed_st(share, [], [], [], [SharePostsSt]),
+    SharePostsSt = struct_util:create_share_feed_response(?UID1, <<"ok">>, undefined),
+    FeedSt = struct_util:create_share_feed_responses([SharePostsSt]),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, FeedSt),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
@@ -99,8 +99,8 @@ proto_to_xmpp_iq_feed_item_test() ->
     PbFeedItem = struct_util:create_feed_item(publish, PbComment),
     PbIq = struct_util:create_pb_iq(?ID1, set, PbFeedItem),
 
-    CommentSt = struct_util:create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
-    FeedSt = struct_util:create_feed_st(publish, [], [CommentSt], [], []),
+    CommentSt = struct_util:create_pb_comment(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2, ?TIMESTAMP2_INT),
+    FeedSt = struct_util:create_feed_item(publish, CommentSt),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),
@@ -113,8 +113,8 @@ proto_to_xmpp_iq_retract_feed_item_test() ->
     PbFeedItem = struct_util:create_feed_item(retract, PbComment),
     PbIq = struct_util:create_pb_iq(?ID1, set, PbFeedItem),
 
-    CommentSt = struct_util:create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, <<>>, ?TIMESTAMP2),
-    FeedSt = struct_util:create_feed_st(retract, [], [CommentSt], [], []),
+    CommentSt = struct_util:create_pb_comment(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, undefined, ?TIMESTAMP2_INT),
+    FeedSt = struct_util:create_feed_item(retract, CommentSt),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),
@@ -128,9 +128,9 @@ proto_to_xmpp_iq_feed_item_audience_test() ->
     PbFeedItem = struct_util:create_feed_item(publish, PbPost),
     PbIq = struct_util:create_pb_iq(?ID1, set, PbFeedItem),
 
-    AudienceSt = struct_util:create_audience_list(only, [?UID2, ?UID3]),
-    PostSt = struct_util:create_post_st(?ID1, ?UID1, ?NAME1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
-    FeedSt = struct_util:create_feed_st(publish, [PostSt], [], [AudienceSt], []),
+    AudienceSt = struct_util:create_pb_audience(only, [?UID2, ?UID3]),
+    PostSt = struct_util:create_pb_post(?ID1, ?UID1, ?NAME1, ?PAYLOAD1, AudienceSt, ?TIMESTAMP1_INT),
+    FeedSt = struct_util:create_feed_item(publish, PostSt),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),
@@ -143,10 +143,8 @@ proto_to_xmpp_iq_share_request_test() ->
     ShareFeedRequests = struct_util:create_share_feed_requests([ShareFeedRequest]),
     PbIq = struct_util:create_pb_iq(?ID1, set, ShareFeedRequests),
 
-    PostSt1 = struct_util:create_post_st(?ID1, <<>>, undefined, <<>>, undefined),
-    PostSt2 = struct_util:create_post_st(?ID2, <<>>, undefined, <<>>, undefined),
-    SharePostsSt = struct_util:create_share_posts_st(?UID1, [PostSt1, PostSt2], undefined, undefined),
-    FeedSt = struct_util:create_feed_st(share, [], [], [], [SharePostsSt]),
+    SharePostsSt = struct_util:create_share_feed_request(?UID1, [?ID1, ?ID2]),
+    FeedSt = struct_util:create_share_feed_requests([SharePostsSt]),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),

@@ -9,6 +9,7 @@
 
 -include("xmpp.hrl").
 -include("feed.hrl").
+-include("packets.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -62,17 +63,18 @@ clear() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-create_post_st(PostId, Uid, Payload, Timestamp) ->
-    #post_st{
+create_post_st(PostId, Uid, Payload, Timestamp, Audience) ->
+    #pb_post{
         id = PostId,
-        uid = Uid,
+        publisher_uid = Uid,
         payload = Payload,
-        timestamp = Timestamp
+        timestamp = Timestamp,
+        audience = Audience
     }.
 
 create_comment_st(CommentId, PostId, PublisherUid,
         PublisherName, ParentCommentId, Payload, Timestamp) ->
-    #comment_st{
+    #pb_comment{
         id = CommentId,
         post_id = PostId,
         publisher_uid = PublisherUid,
@@ -82,43 +84,33 @@ create_comment_st(CommentId, PostId, PublisherUid,
         timestamp = Timestamp
     }.
 
-create_feed_stanza(Action, Posts, Comments, AudienceListSt, SharePostsSt) ->
-    #feed_st{
+create_feed_stanza(Action, Item, SharePostsSt) ->
+    #pb_feed_item{
         action = Action,
-        posts = Posts,
-        comments = Comments,
-        audience_list = AudienceListSt,
-        share_posts = SharePostsSt
+        item = Item,
+        share_stanzas = SharePostsSt
     }.
 
 create_audience_list_st(undefined, _) ->
-    [];
-create_audience_list_st(AudienceType, AudienceList) ->
-    Uids = lists:map(
-        fun(Uid) ->
-            #uid_element{uid = Uid}
-        end, AudienceList),
-    [#audience_list_st{
+    undefined;
+create_audience_list_st(AudienceType, AudienceUids) ->
+    #pb_audience{
         type = AudienceType,
-        uids = Uids
-    }].
+        uids = AudienceUids
+    }.
 
 create_share_post_st(Uid, PostIds, Result, Reason) ->
-    Posts = lists:map(
-        fun(PostId) ->
-            #post_st{id = PostId}
-        end, PostIds),
-    #share_posts_st{
+    #pb_share_stanza{
         uid = Uid,
-        posts = Posts,
+        post_ids = PostIds,
         result = Result,
         reason = Reason
     }.
 
-get_post_publish_iq(PostId, Uid, Payload, AudienceType, AudienceList, Server) ->
-    Post = create_post_st(PostId, Uid, Payload, <<>>),
-    AudienceListStanza = create_audience_list_st(AudienceType, AudienceList),
-    FeedStanza = create_feed_stanza(publish, [Post], [], AudienceListStanza, []),
+get_post_publish_iq(PostId, Uid, Payload, AudienceType, AudienceUids, Server) ->
+    Audience = create_audience_list_st(AudienceType, AudienceUids),
+    Post = create_post_st(PostId, Uid, Payload, <<>>, Audience),
+    FeedStanza = create_feed_stanza(publish, Post, undefined),
     #iq{
         from = jid:make(Uid, Server),
         type = set,
@@ -127,8 +119,8 @@ get_post_publish_iq(PostId, Uid, Payload, AudienceType, AudienceList, Server) ->
     }.
 
 get_post_publish_iq_result(PostId, Uid, Timestamp, Server) ->
-    Post = create_post_st(PostId, Uid, <<>>, Timestamp),
-    FeedStanza = create_feed_stanza(publish, [Post], [], [], []),
+    Post = create_post_st(PostId, Uid, <<>>, Timestamp, undefined),
+    FeedStanza = create_feed_stanza(publish, Post, undefined),
     #iq{
         from = jid:make(Server),
         type = result,
@@ -138,7 +130,7 @@ get_post_publish_iq_result(PostId, Uid, Timestamp, Server) ->
 
 get_comment_publish_iq(CommentId, PostId, Uid, ParentCommentId, Payload, Server) ->
     Comment = create_comment_st(CommentId, PostId, Uid, <<>>, ParentCommentId, Payload, <<>>),
-    FeedStanza = create_feed_stanza(publish, [], [Comment], [], []),
+    FeedStanza = create_feed_stanza(publish, Comment, undefined),
     #iq{
         from = jid:make(Uid, Server),
         type = set,
@@ -148,7 +140,7 @@ get_comment_publish_iq(CommentId, PostId, Uid, ParentCommentId, Payload, Server)
 
 get_comment_publish_iq_result(CommentId, PostId, Uid, ParentCommentId, Timestamp, Server) ->
     Comment = create_comment_st(CommentId, PostId, Uid, <<>>, ParentCommentId, <<>>, Timestamp),
-    FeedStanza = create_feed_stanza(publish, [], [Comment], [], []),
+    FeedStanza = create_feed_stanza(publish, Comment, undefined),
     #iq{
         from = jid:make(Server),
         type = result,
@@ -157,8 +149,8 @@ get_comment_publish_iq_result(CommentId, PostId, Uid, ParentCommentId, Timestamp
     }.
 
 get_post_retract_iq(PostId, Uid, Server) ->
-    Post = create_post_st(PostId, Uid, <<>>, <<>>),
-    FeedStanza = create_feed_stanza(retract, [Post], [], [], []),
+    Post = create_post_st(PostId, Uid, <<>>, <<>>, undefined),
+    FeedStanza = create_feed_stanza(retract, Post, undefined),
     #iq{
         from = jid:make(Uid, Server),
         type = set,
@@ -167,8 +159,8 @@ get_post_retract_iq(PostId, Uid, Server) ->
     }.
 
 get_post_retract_iq_result(PostId, Uid, Timestamp, Server) ->
-    Post = create_post_st(PostId, Uid, <<>>, Timestamp),
-    FeedStanza = create_feed_stanza(retract, [Post], [], [], []),
+    Post = create_post_st(PostId, Uid, <<>>, Timestamp, undefined),
+    FeedStanza = create_feed_stanza(retract, Post, undefined),
     #iq{
         from = jid:make(Server),
         type = result,
@@ -178,7 +170,7 @@ get_post_retract_iq_result(PostId, Uid, Timestamp, Server) ->
 
 get_comment_retract_iq(CommentId, PostId, Uid, Server) ->
     Comment = create_comment_st(CommentId, PostId, <<>>, <<>>, <<>>, <<>>, <<>>),
-    FeedStanza = create_feed_stanza(retract, [], [Comment], [], []),
+    FeedStanza = create_feed_stanza(retract, Comment, undefined),
     #iq{
         from = jid:make(Uid, Server),
         type = set,
@@ -188,7 +180,7 @@ get_comment_retract_iq(CommentId, PostId, Uid, Server) ->
 
 get_comment_retract_iq_result(CommentId, PostId, Uid, Timestamp, Server) ->
     Comment = create_comment_st(CommentId, PostId, Uid, <<>>, <<>>, <<>>, Timestamp),
-    FeedStanza = create_feed_stanza(retract, [], [Comment], [], []),
+    FeedStanza = create_feed_stanza(retract, Comment, undefined),
     #iq{
         from = jid:make(Server),
         type = result,
@@ -199,7 +191,7 @@ get_comment_retract_iq_result(CommentId, PostId, Uid, Timestamp, Server) ->
 
 get_share_iq(Uid, FriendUid, PostIds, Server) ->
     SharePostSt = create_share_post_st(FriendUid, PostIds, <<>>, <<>>),
-    FeedStanza = create_feed_stanza(share, [], [], [], [SharePostSt]),
+    FeedStanza = create_feed_stanza(share, undefined, SharePostSt),
     #iq{
         from = jid:make(Uid, Server),
         type = set,
@@ -210,7 +202,7 @@ get_share_iq(Uid, FriendUid, PostIds, Server) ->
 
 get_share_error_result(Uid, FriendUid, Server) ->
     SharePostSt = create_share_post_st(FriendUid, [], failed, invalid_friend_uid),
-    FeedStanza = create_feed_stanza(share, [], [], [], [SharePostSt]),
+    FeedStanza = create_feed_stanza(share, undefined, SharePostSt),
     #iq{
         from = jid:make(Server),
         type = result,
@@ -221,7 +213,7 @@ get_share_error_result(Uid, FriendUid, Server) ->
 
 get_share_iq_result(Uid, FriendUid, Server) ->
     SharePostSt = create_share_post_st(FriendUid, [], ok, undefined),
-    FeedStanza = create_feed_stanza(share, [], [], [], [SharePostSt]),
+    FeedStanza = create_feed_stanza(share, undefined, SharePostSt),
     #iq{
         from = jid:make(Server),
         type = result,
@@ -239,9 +231,9 @@ get_error_iq_result(Reason, Uid, Server) ->
     }.
 
 
-get_timestamp(#iq{sub_els = [#feed_st{posts = [#post_st{timestamp = Timestamp}]}]}) ->
+get_timestamp(#iq{sub_els = [#pb_feed_item{item = #pb_post{timestamp = Timestamp}}]}) ->
     Timestamp;
-get_timestamp(#iq{sub_els = [#feed_st{comments = [#comment_st{timestamp = Timestamp}]}]}) ->
+get_timestamp(#iq{sub_els = [#pb_feed_item{item = #pb_comment{timestamp = Timestamp}}]}) ->
     Timestamp;
 get_timestamp(_) ->
     <<>>.
