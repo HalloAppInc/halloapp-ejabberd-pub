@@ -133,7 +133,8 @@ verify_s3_upload_test() ->
     start_gen_server(),
     Filename = get_log_file(today(), 1),
     file:write_file(Filename, ?TERM), % write a dummy file
-    mod_client_log:trigger_upload_aws_blocking(),
+    mod_client_log:trigger_upload_aws(),
+    mod_client_log:flush(),
     {ok, FileList} = file:list_dir(mod_client_log:client_log_dir()),
     ?assertEqual([], FileList), % confirming file is deleted after s3 upload
     kill_gen_server(),
@@ -148,13 +149,16 @@ more_complicated_s3_upload_test() ->
     file:write_file(Filename, ?TERM),
     file:write_file(FileOlder, ?TERM),
     file:write_file(FileEvenOlder, ?TERM),
-    mod_client_log:trigger_upload_aws_blocking(),
+    mod_client_log:trigger_upload_aws(),
+    mod_client_log:flush(),
     {ok, FileList} = file:list_dir(mod_client_log:client_log_dir()),
     ?assert(length(FileList) < 3), % at least one file has been uploaded and deleted
-    mod_client_log:trigger_upload_aws_blocking(),
+    mod_client_log:trigger_upload_aws(),
+    mod_client_log:flush(),
     {ok, FileList2} = file:list_dir(mod_client_log:client_log_dir()),
     ?assert(length(FileList2) < 2), % at least two files have been uploaded and deleted
-    mod_client_log:trigger_upload_aws_blocking(),
+    mod_client_log:trigger_upload_aws(),
+    mod_client_log:flush(),
     {ok, FileList3} = file:list_dir(mod_client_log:client_log_dir()),
     ?assert(length(FileList3) == 0),
     kill_gen_server(),
@@ -167,13 +171,14 @@ file_contents_test() ->
     EventData = create_pb_event_data(101, android, <<"0.1.2">>, ?EVENT2),
     Bin = enif_protobuf:encode(EventData),
     Json = mod_client_log:json_encode(Bin),
-    Filename = get_log_file(erlang:date(), 0),
+    Filename = get_log_file(today(), 0),
     % start with a clean slate
     file:delete(Filename),
     Today = today(),
-    mod_client_log:write_log_blocking(?NS1, Today, Json),
-    mod_client_log:write_log_blocking(?NS1, Today, Json),
-    mod_client_log:write_log_blocking(?NS1, Today, Json),
+    mod_client_log:write_log(?NS1, Today, Json),
+    mod_client_log:write_log(?NS1, Today, Json),
+    mod_client_log:write_log(?NS1, Today, Json),
+    mod_client_log:flush(),
     {ok, Data} = file:read_file(Filename),
     JsonString = binary_to_list(Data),
     Lines = string:tokens(JsonString, "\n"),
@@ -181,6 +186,25 @@ file_contents_test() ->
     Decoded = jiffy:decode(MostRecentEntry, [return_maps]),
     ?assertEqual(<<"101">>, maps:get(<<"uid">>, Decoded)),
     ?assertEqual(3, length(Lines)),
+    kill_gen_server(),
+    ok.
+
+write_event_test() ->
+    setup(),
+    start_gen_server(),
+    FullNamespace = <<"server.random_log">>,
+    EventData = maps:from_list([{test_field, test_value}]),
+    Filename = get_log_file(today(), 0, FullNamespace),
+    % start with a clean slate
+    file:delete(Filename),
+    mod_client_log:log_event(FullNamespace, EventData, 100, android, <<"0.1.2">>),
+    mod_client_log:flush(),
+    {ok, Data} = file:read_file(Filename),
+    JsonString = binary_to_list(Data),
+    Lines = string:tokens(JsonString, "\n"),
+    MostRecentEntry = lists:last(Lines),
+    Decoded = jiffy:decode(MostRecentEntry, [return_maps]),
+    ?assertEqual(100, maps:get(<<"uid">>, Decoded)),
     kill_gen_server(),
     ok.
 
@@ -192,6 +216,12 @@ get_log_file(Date, NumDaysBack) ->
     NewDate = calendar:gregorian_days_to_date(New),
     DateStr = mod_client_log:make_date_str(NewDate),
     mod_client_log:file_path(?NS1, DateStr).
+
+get_log_file(Date, NumDaysBack, Namespace) ->
+    New = calendar:date_to_gregorian_days(Date) - NumDaysBack,
+    NewDate = calendar:gregorian_days_to_date(New),
+    DateStr = mod_client_log:make_date_str(NewDate),
+    mod_client_log:file_path(Namespace, DateStr).
 
 del_dir(Directory) ->
     % list all files and delete each of them

@@ -211,7 +211,8 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
             case parse_response(ResponseBody) of
                 {ok, FcmId} ->
                     stat:count(?FCM, "success"),
-                    ?INFO("Uid:~s push successful for msg-id: ~s, FcmId: ~p", [Uid, Id, FcmId]);
+                    ?INFO("Uid:~s push successful for msg-id: ~s, FcmId: ~p", [Uid, Id, FcmId]),
+                    mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => FcmId, platform => android});
                 {error, Reason, FcmId} ->
                     stat:count(?FCM, "failure"),
                     ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",

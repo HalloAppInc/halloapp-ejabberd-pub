@@ -23,18 +23,18 @@
 -export([
     process_local_iq/1,
     process_client_count_log_st/3,
-    trigger_upload_aws/0
+    trigger_upload_aws/0,
+    log_event/2,
+    log_event/5
 ]).
 
 -ifdef(TEST).
 -export([
     write_log/3,
-    write_log_blocking/3,
+    flush/0,
     make_date_str/1,
     file_path/2,
     client_log_dir/0,
-    trigger_upload_aws/0,
-    trigger_upload_aws_blocking/0,
     json_encode/1
 ]).
 -endif.
@@ -100,12 +100,8 @@ terminate(_Reason, #{tref := Tref} = _State) ->
     ?INFO("Terminate: ~p", [?MODULE]),
     ok.
 
-handle_call({write_log, Namespace, LogDate, Bin}, _From, State) ->
-    write_func_internal(Namespace, LogDate, Bin),
+handle_call(flush, _From, State) ->
     {reply, ok, State};
-handle_call(upload_to_s3, _From, State) ->
-    NewState = upload_func_internal(State),
-    {reply, maps:get(file_list, NewState), NewState};
 handle_call(Request, From, State) ->
     ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
@@ -171,20 +167,10 @@ trigger_upload_aws() ->
     gen_server:cast(get_proc(), upload_to_s3),
     ok.
 
--spec trigger_upload_aws_blocking() -> {list()}.
-trigger_upload_aws_blocking() ->
-    % returns the not-yet-uploaded-file-queue as the response
-    gen_server:call(get_proc(), upload_to_s3).
-
 -spec write_log(Namespace :: binary(), Date :: tuple(), Bin :: binary()) -> ok.
 write_log(Namespace, Date, Bin) ->
     gen_server:cast(get_proc(), {write_log, Namespace, Date, Bin}),
     ok.
-
--spec write_log_blocking(Namespace :: binary(), Date :: tuple(), Bin :: binary()) -> ok.
-write_log_blocking(Namespace, Date, Bin) ->
-    gen_server:call(get_proc(), {write_log, Namespace, Date, Bin}).
-
 
 %%====================================================================
 %% upload file queueing logic
@@ -296,7 +282,7 @@ process_count(Uid, #pb_count{namespace = Namespace, metric = Metric, count = Cou
         %% TODO(murali@): remove these logs eventually.
         ?INFO("~s, ~s, ~s, ~p, ~p", [FullNamespace, Metric, Uid, Tags2, Count]),
         stat:count(binary_to_list(FullNamespace), binary_to_list(Metric), Count, Tags2),
-        check_and_write_to_file(FullNamespace, Metric, Uid, Tags2, Count),
+        log_count(FullNamespace, Metric, Uid, Tags2, Count),
         ok
     catch
         error : bad_namespace : _ ->
@@ -488,25 +474,36 @@ client_log_dir() ->
 
 
 %% Currently we only write crypto stats to files.
--spec check_and_write_to_file(Namespace :: binary(), Metric :: binary(),
+-spec log_count(Namespace :: binary(), Metric :: binary(),
         Uid :: binary(), Tags :: proplist(), Count :: integer()) -> ok.
-check_and_write_to_file(<<"client.crypto">> = Namespace, Metric, Uid, Tags, Count) ->
+log_count(<<"client.crypto">> = Namespace, Metric, Uid, Tags, Count) ->
     FinalNamespace = <<Namespace/binary, ".", Metric/binary>>,
-    TimestampMs = util:now_ms(),
-    Date = util:tsms_to_date(TimestampMs),
     Tags2 = lists:map(fun({TagName, TagValue}) ->
                 {util:to_binary(TagName), util:to_binary(TagValue)}
             end, Tags),
     DataMap1 = maps:from_list(Tags2),
     DataMap2 = DataMap1#{
         <<"uid">> => Uid,
-        <<"count">> => Count,
-        <<"timestamp_ms">> => util:to_binary(TimestampMs)
+        <<"count">> => Count
     },
-    JsonBin = jiffy:encode(DataMap2),
-    ?INFO("~p, ~p, ~p", [FinalNamespace, Date, JsonBin]),
-    write_log(FinalNamespace, Date, JsonBin),
+    log_event(FinalNamespace, DataMap2),
     ok;
-check_and_write_to_file(_Namespace, _Metric, _Uid, _Tags2, _Count) ->
+log_count(_Namespace, _Metric, _Uid, _Tags2, _Count) ->
     ok.
 
+log_event(FullNamespace, EventDataMap, Uid, Platform, Version) ->
+    EventDataMap2 = EventDataMap#{uid => Uid, platform => Platform, version => Version},
+    log_event(FullNamespace, EventDataMap2),
+    ok.
+log_event(FullNamespace, EventDataMap) ->
+    TimestampMs = util:now_ms(),
+    Date = util:tsms_to_date(TimestampMs),
+    EventDataMap2 = maps:put(timestamp_ms, util:to_binary(TimestampMs), EventDataMap),
+    JsonBin = jiffy:encode(EventDataMap2),
+    ?INFO("~p, ~p, ~p", [FullNamespace, Date, JsonBin]),
+    write_log(FullNamespace, Date, JsonBin),
+    ok.
+
+% used for tests to ensure a gen_server cast finishes before an assert
+flush() ->
+    gen_server:call(get_proc(), flush).

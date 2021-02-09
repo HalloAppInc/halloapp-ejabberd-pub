@@ -356,7 +356,7 @@ push_message_item(PushMessageItem, State) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s", [Uid, Id, ApnsId, ContentId]),
-
+    mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id, platform => ios}),
     {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
             PushType, BuildType, PushMessageItem, State),
     FinalState.
