@@ -113,9 +113,9 @@ process_iq(_Host, Module, Function, IQ) ->
             ok
     catch ?EX_RULE(Class, Reason, St) ->
         StackTrace = ?EX_STACK(St),
-        ?ERROR("Failed to process iq:~n~ts~n** ~ts", [
+        ?ERROR("Failed to process iq: ~p~n Stacktrace: ~s", [
             IQ,
-            misc:format_exception(2, Class, Reason, StackTrace)]),
+            lager:pr_stacktrace(StackTrace, {Class, Reason})]),
         ErrIq = xmpp:make_error(IQ, util:err(internal_error)),
         ejabberd_router:route(ErrIq)
     end.
