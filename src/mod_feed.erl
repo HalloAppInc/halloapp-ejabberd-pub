@@ -58,7 +58,7 @@ mod_options(_Host) ->
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         sub_els = [#pb_feed_item{action = publish = Action, item = #pb_post{} = Post}]} = IQ) ->
     PostId = Post#pb_post.id,
-    Payload = Post#pb_post.payload,
+    Payload = base64:encode(Post#pb_post.payload),
     AudienceList = Post#pb_post.audience,
     case publish_post(Uid, PostId, Payload, AudienceList) of
         {ok, ResultTsMs} ->
@@ -74,7 +74,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
     CommentId = Comment#pb_comment.id,
     PostId = Comment#pb_comment.post_id,
     ParentCommentId = Comment#pb_comment.parent_comment_id,
-    Payload = Comment#pb_comment.payload,
+    Payload = base64:encode(Comment#pb_comment.payload),
     case publish_comment(Uid, CommentId, PostId, ParentCommentId, Payload) of
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_comment_stanza(Action, CommentId, PostId,
