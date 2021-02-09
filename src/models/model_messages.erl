@@ -87,18 +87,12 @@ store_message(Message) ->
 
 
 store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, Message) when is_record(Message, message) ->
-    IsDevUser = dev_users:is_dev_uid(ToUid),
-    {IsInPbFormat, MessageBin} = case IsDevUser of
-        true ->
-            case enif_protobuf:encode(packet_parser:xmpp_to_proto(Message)) of
-                {error, Reason} ->
-                    ?ERROR("failed encoding packet: ~p, reason: ~p", [Message, Reason]),
-                    {false, fxml:element_to_binary(xmpp:encode(Message))};
-                PbBin ->
-                    {true, PbBin}
-            end;
-        false ->
-            {false, fxml:element_to_binary(xmpp:encode(Message))}
+    {IsInPbFormat, MessageBin} = case enif_protobuf:encode(packet_parser:xmpp_to_proto(Message)) of
+        {error, Reason} ->
+            ?ERROR("failed encoding packet: ~p, reason: ~p", [Message, Reason]),
+            {false, fxml:element_to_binary(xmpp:encode(Message))};
+        PbBin ->
+            {true, PbBin}
     end,
     store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, MessageBin, IsInPbFormat);
 
@@ -116,7 +110,7 @@ store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, Message, IsInPbForma
             ToUid, Message, ContentType, FromUid, MsgId, ?MSG_EXPIRATION, PbValue, ThreadId]),
     ok;
 
-store_message(_ToUid, _FromUid, _MsgId, _ContentType, _ThreadId, Message, _IsDevUser) ->
+store_message(_ToUid, _FromUid, _MsgId, _ContentType, _ThreadId, Message, _IsInPbFormat) ->
     ?ERROR("Invalid message format: ~p: use binary format", [Message]).
 
 
