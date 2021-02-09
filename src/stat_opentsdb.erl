@@ -17,6 +17,14 @@
 -define(MAX_DATAPOINTS_PER_REQUEST, 50).
 -define(MACHINE_KEY, <<"machine">>).
 
+%% Export all functions for unit tests
+-ifdef(TEST).
+-export([
+    convert_metric_to_map/2,
+    compose_tags/1
+]).
+-endif.
+
 %% API
 -export([
     put_metrics/2
@@ -65,17 +73,23 @@ do_send_metrics(MetricsList, TimestampMs) ->
 -spec compose_body(MetricsList :: [], TimestampMs :: integer()) -> binary().
 compose_body(MetricsList, TimestampMs) ->
     Data = lists:map(
-        fun({Key, Value}) ->
-            {metric, Namespace, Metric, Dimensions, _Unit} = Key,
-            TagsAndValues = compose_tags(Dimensions),
-            #{
-                <<"metric">> => util:to_binary(string:replace(Namespace, "/", ".", all) ++ "." ++ Metric),
-                <<"timestamp">> => TimestampMs,
-                <<"value">> => Value#statistic_set.sum,
-                <<"tags">> => TagsAndValues
-            }
+        fun(MetricKeyAndValue) ->
+            convert_metric_to_map(MetricKeyAndValue, TimestampMs)
         end, MetricsList),
     jiffy:encode(Data).
+
+
+-spec convert_metric_to_map({Key :: tuple(), Value :: statistic_set()},
+        TimestampMs :: integer()) -> map().
+convert_metric_to_map({Key, Value}, TimestampMs) ->
+    {metric, Namespace, Metric, Dimensions, _Unit} = Key,
+    TagsAndValues = compose_tags(Dimensions),
+    #{
+        <<"metric">> => util:to_binary(string:replace(Namespace, "/", ".", all) ++ "." ++ Metric),
+        <<"timestamp">> => TimestampMs,
+        <<"value">> => Value#statistic_set.sum,
+        <<"tags">> => TagsAndValues
+    }.
 
 
 -spec compose_tags(Dimensions :: [#dimension{}]) -> #{}.
