@@ -32,6 +32,9 @@ translate_to_xmpp_uid(#pb_avatars{avatars = Avatars} = PbAvatars) ->
     NewAvatars = lists:map(fun translate_to_xmpp_uid/1, Avatars),
     PbAvatars#pb_avatars{avatars = NewAvatars};
 
+translate_to_xmpp_uid(#pb_whisper_keys{uid = Uid} = PbWhisperKeys) ->
+    PbWhisperKeys#pb_whisper_keys{uid = util_parser:proto_to_xmpp_uid(Uid)};
+
 translate_to_xmpp_uid(PbElement) ->
     PbElement.
 
@@ -54,6 +57,9 @@ translate_to_pb_uid(#pb_privacy_list{uid_elements = UidEls} = PbPrivacyList) ->
 translate_to_pb_uid(#pb_privacy_lists{lists = PrivacyLists} = PbPrivacyLists) ->
     NewLists = lists:map(fun translate_to_pb_uid/1, PrivacyLists),
     PbPrivacyLists#pb_privacy_lists{lists = NewLists};
+
+translate_to_pb_uid(#pb_whisper_keys{uid = Uid} = PbWhisperKeys) ->
+    PbWhisperKeys#pb_whisper_keys{uid = util_parser:xmpp_to_proto_uid(Uid)};
 
 translate_to_pb_uid(PbElement) ->
     PbElement.

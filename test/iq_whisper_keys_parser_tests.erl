@@ -20,7 +20,7 @@
 
 
 xmpp_to_proto_whisper_keys_test() ->
-    WhisperKeys = struct_util:create_whisper_keys(?UID1, add, ?KEY1_BASE64, ?KEY2_BASE64, <<"5">>, [?KEY3_BASE64, ?KEY4_BASE64]),
+    WhisperKeys = struct_util:create_pb_whisper_keys(?UID1, add, ?KEY1, ?KEY2, 5, [?KEY3, ?KEY4]),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, WhisperKeys),
 
     PbWhisperKeys = struct_util:create_pb_whisper_keys(?UID1_INT, add, ?KEY1, ?KEY2, 5, [?KEY3, ?KEY4]),
@@ -32,7 +32,7 @@ xmpp_to_proto_whisper_keys_test() ->
 
 
 proto_to_xmpp_whisper_keys_test() ->
-    WhisperKeys = struct_util:create_whisper_keys(?UID1, count, undefined, undefined, undefined, []),
+    WhisperKeys = struct_util:create_pb_whisper_keys(?UID1, count, undefined, undefined, undefined, []),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, get, WhisperKeys),
 
     PbWhisperKeys = struct_util:create_pb_whisper_keys(?UID1_INT, count, undefined, undefined, undefined, []),

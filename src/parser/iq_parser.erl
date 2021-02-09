@@ -36,8 +36,6 @@ iq_payload_mapping(SubEl) ->
     Payload = case element(1, SubEl) of
         contact_list ->
             contact_parser:xmpp_to_proto(SubEl);
-        whisper_keys ->
-            whisper_keys_parser:xmpp_to_proto(SubEl);
         feed_st ->
             feed_parser:xmpp_to_proto(SubEl);
         error_st ->
@@ -84,8 +82,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
     SubEl = case ProtoPayload of
         #pb_contact_list{} = ContactListRecord ->
             contact_parser:proto_to_xmpp(ContactListRecord);
-        #pb_whisper_keys{} = WhisperKeysRecord ->
-            whisper_keys_parser:proto_to_xmpp(WhisperKeysRecord);
         #pb_feed_item{} = FeedItemRecord ->
             feed_parser:proto_to_xmpp(FeedItemRecord);
         #pb_groups_stanza{} = GroupsStanzaRecord ->

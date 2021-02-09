@@ -23,8 +23,8 @@
 -include("xmpp.hrl").
 -include("whisper.hrl").
 -include("ha_types.hrl").
+-include("packets.hrl").
 
--define(NS_WHISPER, <<"halloapp:whisper:keys">>).
 -define(MIN_OTP_KEY_COUNT, 10).
 
 %% gen_mod API.
@@ -41,12 +41,12 @@
 
 
 start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_WHISPER, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_whisper_keys, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ok.
 
 stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_WHISPER),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_whisper_keys),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ok.
 
@@ -66,11 +66,14 @@ mod_options(_Host) ->
 
 %TODO: (nikola) This function will get deleted after clients migrate to setting the initial keys during registration.
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-                    sub_els = [#whisper_keys{type = set} = WhisperKeys]} = IQ) ->
+                    sub_els = [#pb_whisper_keys{action = set} = WhisperKeys]} = IQ) ->
     ?INFO("set_keys Uid: ~s", [Uid]),
-    IdentityKey = WhisperKeys#whisper_keys.identity_key,
-    SignedKey = WhisperKeys#whisper_keys.signed_key,
-    OneTimeKeys = WhisperKeys#whisper_keys.one_time_keys,
+    IdentityKey = util_parser:maybe_base64_encode(WhisperKeys#pb_whisper_keys.identity_key),
+    SignedKey = util_parser:maybe_base64_encode(WhisperKeys#pb_whisper_keys.signed_key),
+    OneTimeKeys = lists:map(
+        fun(OneTimeKey) ->
+            util_parser:maybe_base64_encode(OneTimeKey)
+        end, WhisperKeys#pb_whisper_keys.one_time_keys),
 
     case check_whisper_keys(IdentityKey, SignedKey, OneTimeKeys) of
         {error, Reason} ->
@@ -82,11 +85,14 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
     end;
 
 process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-                    sub_els = [#whisper_keys{type = add} = WhisperKeys]} = IQ) ->
+                    sub_els = [#pb_whisper_keys{action = add} = WhisperKeys]} = IQ) ->
     ?INFO("add_otp_keys Uid: ~s", [Uid]),
-    IdentityKey = WhisperKeys#whisper_keys.identity_key,
-    SignedKey = WhisperKeys#whisper_keys.signed_key,
-    OneTimeKeys = WhisperKeys#whisper_keys.one_time_keys,
+    IdentityKey = util_parser:maybe_base64_encode(WhisperKeys#pb_whisper_keys.identity_key),
+    SignedKey = util_parser:maybe_base64_encode(WhisperKeys#pb_whisper_keys.signed_key),
+    OneTimeKeys = lists:map(
+        fun(OneTimeKey) ->
+            util_parser:maybe_base64_encode(OneTimeKey)
+        end, WhisperKeys#pb_whisper_keys.one_time_keys),
 
     case check_one_time_keys(OneTimeKeys) of
         {error, Reason} ->
@@ -108,17 +114,17 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
     end;
 
 process_local_iq(#iq{from = #jid{luser = Uid}, type = get,
-                    sub_els = [#whisper_keys{type = count}]} = IQ) ->
+                    sub_els = [#pb_whisper_keys{action = count}]} = IQ) ->
     {ok, Count} = model_whisper_keys:count_otp_keys(Uid),
     % TODO: we should return integer and not binary ideally. Will be fixed in pb
-    xmpp:make_iq_result(IQ, #whisper_keys{
+    xmpp:make_iq_result(IQ, #pb_whisper_keys{
         uid = Uid,
-        type = normal, %TODO: We should one day switch to type = count, iOS is
+        action = normal, %TODO: We should one day switch to type = count, iOS is
         % currently depending on the normal type. Check with iOS team after 2021-04-01
-        otp_key_count = integer_to_binary(Count)});
+        otp_key_count = Count});
 
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = get,
-                    sub_els = [#whisper_keys{uid = Ouid, type = get}]} = IQ) ->
+                    sub_els = [#pb_whisper_keys{uid = Ouid, action = get}]} = IQ) ->
     %%TODO(murali@): check if user is allowed to access keys of username.
     ?INFO("get_keys Uid: ~s, Ouid: ~s", [Uid, Ouid]),
     case Ouid of
@@ -129,7 +135,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = get,
             {ok, WhisperKeySet} = model_whisper_keys:get_key_set(Ouid),
             case WhisperKeySet of
                 undefined ->
-                    xmpp:make_iq_result(IQ, #whisper_keys{uid = Ouid});
+                    xmpp:make_iq_result(IQ, #pb_whisper_keys{uid = Ouid});
                 _ ->
                     %% Uid requests keys of Ouid to establish a session.
                     %% We need to add Uid as subscriber of Ouid's keys and vice-versa.
@@ -137,13 +143,13 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = get,
                     ok = model_whisper_keys:add_key_subscriber(Ouid, Uid),
                     ok = model_whisper_keys:add_key_subscriber(Uid, Ouid),
                     check_count_and_notify_user(Ouid, Server),
-                    IdentityKey = WhisperKeySet#user_whisper_key_set.identity_key,
-                    SignedKey = WhisperKeySet#user_whisper_key_set.signed_key,
+                    IdentityKey = util_parser:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
+                    SignedKey = util_parser:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.signed_key),
                     OneTimeKeys = case WhisperKeySet#user_whisper_key_set.one_time_key of
                         undefined -> [];
-                        OneTimeKey -> [OneTimeKey]
+                        OneTimeKey -> [util_parser:maybe_base64_decode(OneTimeKey)]
                     end,
-                    xmpp:make_iq_result(IQ, #whisper_keys{uid = Ouid, identity_key = IdentityKey,
+                    xmpp:make_iq_result(IQ, #pb_whisper_keys{uid = Ouid, identity_key = IdentityKey,
                             signed_key = SignedKey, one_time_keys = OneTimeKeys})
             end
     end.
