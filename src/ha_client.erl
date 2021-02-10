@@ -26,12 +26,14 @@
     connect_and_login/3,
     send/2,
     recv_nb/1,
+    recv_all_nb/1,
     recv/1,
     recv/2,
     send_recv/2,
     wait_for/2,
     wait_for_msg/1,
     wait_for_msg/2,
+    wait_for_eoq/1,
     login/3,
     send_iq/4,
     send_ack/2
@@ -115,6 +117,17 @@ send_ack(Client, MsgId) ->
 recv_nb(Client) ->
     gen_server:call(Client, {recv_nb}).
 
+-spec recv_all_nb(Client :: pid()) -> list().
+recv_all_nb(Client) ->
+    recv_all_nb(Client, []).
+
+-spec recv_all_nb(Client :: pid(), Messages :: list()) -> list().
+recv_all_nb(Client, Messages) ->
+    case recv_nb(Client) of
+        undefined -> lists:reverse(Messages);
+        Packet -> recv_all_nb(Client, [Packet | Messages])
+    end.
+
 % Gets the next received message or waits for one. Blocking API.
 -spec recv(Client :: pid()) -> pb_packet().
 recv(Client) ->
@@ -161,6 +174,9 @@ wait_for_msg(Client, PayloadTag) ->
             end
         end).
 
+-spec wait_for_eoq(Client :: pid()) -> pb_packet().
+wait_for_eoq(Client) ->
+    wait_for_msg(Client, pb_end_of_queue).
 
 -spec send_recv(Client :: pid(), Packet :: iolist() | pb_packet()) -> pb_packet().
 send_recv(Client, Packet) ->

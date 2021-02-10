@@ -123,8 +123,8 @@ create_test_accounts() ->
     ok = ejabberd_auth:set_password(?UID5, ?PASSWORD5),
     ok = model_friends:add_friend(?UID1, ?UID2),
     ok = model_friends:add_friend(?UID1, ?UID3),
-    ok = model_friends:add_friend(?UID1, ?UID4),
     ok = model_friends:add_friend(?UID1, ?UID5),
+    ok = model_privacy:block_uid(?UID5, ?UID1),
     ok.
 
 
