@@ -137,8 +137,8 @@ get_groups_IQ(Uid) ->
     }.
 
 
-make_group_post_st(PostId, PublisherUid, PublisherName, Payload, Timestamp) ->
-    #group_post_st{
+make_pb_post(PostId, PublisherUid, PublisherName, Payload, Timestamp) ->
+    #pb_post{
         id = PostId,
         publisher_uid = PublisherUid,
         publisher_name = PublisherName,
@@ -146,9 +146,10 @@ make_group_post_st(PostId, PublisherUid, PublisherName, Payload, Timestamp) ->
         timestamp = Timestamp
     }.
 
-make_group_comment_st(CommentId, PostId, PublisherUid,
+
+make_pb_comment(CommentId, PostId, PublisherUid,
         PublisherName, ParentCommentId, Payload, Timestamp) ->
-    #group_comment_st{
+    #pb_comment{
         id = CommentId,
         post_id = PostId,
         publisher_uid = PublisherUid,
@@ -158,14 +159,13 @@ make_group_comment_st(CommentId, PostId, PublisherUid,
         timestamp = Timestamp
     }.
 
-make_group_feed_st(Gid, Name, AvatarId, Action, Posts, Comments) ->
-    #group_feed_st{
+make_pb_group_feed_item(Gid, Name, AvatarId, Action, Item) ->
+    #pb_group_feed_item{
         gid = Gid,
         name = Name,
         avatar_id = AvatarId,
         action = Action,
-        posts = Posts,
-        comments = Comments
+        item = Item
     }.
 
 make_group_feed_iq(Uid, GroupFeedSt) ->
@@ -520,24 +520,25 @@ publish_group_feed_test() ->
             ok
         end),
 
-    PostSt = make_group_post_st(?ID1, <<>>, <<>>, ?PAYLOAD1, undefined),
-    GroupFeedSt = make_group_feed_st(Gid, <<>>, undefined, publish, [PostSt], []),
+    PostSt = make_pb_post(?ID1, <<>>, <<>>, ?PAYLOAD1, undefined),
+    GroupFeedSt = make_pb_group_feed_item(Gid, <<>>, undefined, publish, PostSt),
     GroupFeedIq = make_group_feed_iq(?UID1, GroupFeedSt),
     ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 
     [SubEl] = ResultIQ#iq.sub_els,
     ?assertEqual(result, ResultIQ#iq.type),
-    ?assertEqual(Gid, SubEl#group_feed_st.gid),
-    [GroupPostSt] = SubEl#group_feed_st.posts,
-    ?assertEqual(?UID1, GroupPostSt#group_post_st.publisher_uid),
-    ?assertNotEqual(undefined, GroupPostSt#group_post_st.timestamp),
+
+    ?assertEqual(Gid, SubEl#pb_group_feed_item.gid),
+    GroupPostSt = SubEl#pb_group_feed_item.item,
+    ?assertEqual(?UID1, GroupPostSt#pb_post.publisher_uid),
+    ?assertNotEqual(undefined, GroupPostSt#pb_post.timestamp),
     ?assert(meck:validate(ejabberd_router)),
     meck:unload(ejabberd_router),
 
     {ok, Post} = model_feed:get_post(?ID1),
     ?assertEqual(?ID1, Post#post.id),
     ?assertEqual(?UID1, Post#post.uid),
-    ?assertEqual(?PAYLOAD1, Post#post.payload),
+    ?assertEqual(?PAYLOAD1, base64:decode(Post#post.payload)),
     ?assertEqual(group, Post#post.audience_type),
     ?assertEqual(lists:sort([?UID1, ?UID2, ?UID3]), lists:sort(Post#post.audience_list)),
     ?assertEqual(Gid, Post#post.gid),
@@ -569,17 +570,17 @@ retract_group_feed_test() ->
             ok
         end),
 
-    CommentSt = make_group_comment_st(?ID1, ?ID2, <<>>, <<>>, <<>>, <<>>, undefined),
-    GroupFeedSt = make_group_feed_st(Gid, <<>>, undefined, retract, [], [CommentSt]),
+    CommentSt = make_pb_comment(?ID1, ?ID2, <<>>, <<>>, <<>>, <<>>, undefined),
+    GroupFeedSt = make_pb_group_feed_item(Gid, <<>>, undefined, retract, CommentSt),
     GroupFeedIq = make_group_feed_iq(?UID2, GroupFeedSt),
     ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 
     [SubEl] = ResultIQ#iq.sub_els,
     ?assertEqual(result, ResultIQ#iq.type),
-    ?assertEqual(Gid, SubEl#group_feed_st.gid),
-    [GroupCommentSt] = SubEl#group_feed_st.comments,
-    ?assertEqual(?UID2, GroupCommentSt#group_comment_st.publisher_uid),
-    ?assertNotEqual(undefined, GroupCommentSt#group_comment_st.timestamp),
+    ?assertEqual(Gid, SubEl#pb_group_feed_item.gid),
+    GroupCommentSt = SubEl#pb_group_feed_item.item,
+    ?assertEqual(?UID2, GroupCommentSt#pb_comment.publisher_uid),
+    ?assertNotEqual(undefined, GroupCommentSt#pb_comment.timestamp),
     ?assert(meck:validate(ejabberd_router)),
     meck:unload(ejabberd_router),
 

@@ -48,8 +48,6 @@ iq_payload_mapping(SubEl) ->
             groups_parser:xmpp_to_proto(SubEl);
         name ->
             name_parser:xmpp_to_proto(SubEl);
-        group_feed_st ->
-            group_feed_parser:xmpp_to_proto(SubEl);
         stanza_error ->
             #pb_error_stanza{reason = util:to_binary(SubEl#stanza_error.reason)};
         _ ->
@@ -80,8 +78,6 @@ xmpp_iq_subel_mapping(ProtoPayload) ->
             groups_parser:proto_to_xmpp(GroupsStanzaRecord);
         #pb_group_stanza{} = GroupStanzaRecord ->
             groups_parser:proto_to_xmpp(GroupStanzaRecord);
-        #pb_group_feed_item{} = GroupFeedItemRecord ->
-            group_feed_parser:proto_to_xmpp(GroupFeedItemRecord);
         _ ->
             uid_parser:translate_to_xmpp_uid(ProtoPayload)
     end,
