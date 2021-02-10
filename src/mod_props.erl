@@ -88,10 +88,10 @@ get_props(Uid, ClientVersion) ->
         dev => false, %% whether the client is dev or not.
         max_group_size => 50, %% max limit on the group size.
         max_post_media_items => 10, %% max number of media_items client can post.
-        groups => false, %% whether the client can create groups or not.
+        groups => true, %% whether the client can create groups or not.
         group_chat => true, %% whether the client can access group_chat or not.
-        group_feed => false, %% whether the client can access group_feed or not.
-        combine_feed => false, %% whether to combine content from group_feed and home feed.
+        group_feed => true, %% whether the client can access group_feed or not.
+        combine_feed => true, %% whether to combine content from group_feed and home feed.
         silent_chat_messages => 5, %% number of silent_chats client can send.
         cleartext_chat_messages => true, %% whether to disable cleartext chat messages.
         max_feed_video_duration => 60, %% duration in seconds for videos on feed.
@@ -112,15 +112,9 @@ get_uid_based_props(PropMap, Uid) ->
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
-            % Set groups to be true.
-            PropMap2 = maps:update(groups, true, PropMap1),
-            % Set group_feed to true.
-            PropMap3 = maps:update(group_feed, true, PropMap2),
-            % Set combine_feed to true.
-            PropMap4 = maps:update(combine_feed, true, PropMap3),
             % Set private_reactions to true.
-            PropMap5 = maps:update(private_reactions, true, PropMap4),
-            PropMap5
+            PropMap2 = maps:update(private_reactions, true, PropMap1),
+            PropMap2
     end.
 
 
