@@ -500,7 +500,7 @@ check_and_write_to_file(<<"client.crypto">> = Namespace, Metric, Uid, Tags, Coun
     DataMap1 = maps:from_list(Tags2),
     DataMap2 = DataMap1#{
         <<"uid">> => Uid,
-        <<"count">> => util:to_binary(Count),
+        <<"count">> => Count,
         <<"timestamp_ms">> => util:to_binary(TimestampMs)
     },
     JsonBin = jiffy:encode(DataMap2),
