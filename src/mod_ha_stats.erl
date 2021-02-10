@@ -58,7 +58,9 @@ start_link() ->
 
 start(Host, _Opts) ->
     ejabberd_hooks:add(feed_item_published, Host, ?MODULE, feed_item_published, 50),
+    ejabberd_hooks:add(group_feed_item_published, Host, ?MODULE, group_feed_item_published, 50),
     ejabberd_hooks:add(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),
+    ejabberd_hooks:add(group_feed_item_retracted, Host, ?MODULE, group_feed_item_retracted, 50),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
     ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:add(remove_friend, Host, ?MODULE, remove_friend, 50),
@@ -75,7 +77,9 @@ stop(Host) ->
     ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
     ejabberd_hooks:delete(feed_item_published, Host, ?MODULE, feed_item_published, 50),
+    ejabberd_hooks:delete(group_feed_item_published, Host, ?MODULE, group_feed_item_published, 50),
     ejabberd_hooks:delete(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),
+    ejabberd_hooks:delete(group_feed_item_retracted, Host, ?MODULE, group_feed_item_retracted, 50),
     ejabberd_hooks:delete(feed_share_old_items, Host, ?MODULE, feed_share_old_items, 50),
     ok.
 
