@@ -44,6 +44,7 @@
     join_binary/2,
     join_binary/3,
     err/1,
+    xmpp_err/1,
     err/2,
     ms_to_datetime_string/1,
     get_packet_type/1,
@@ -292,6 +293,10 @@ join_binary(Char, [Element | Rest], FinalString) ->
 
 -spec err(Reason :: atom()) -> stanza_error().
 err(Reason) ->
+    #pb_error_stanza{reason = util:to_binary(Reason)}.
+
+-spec xmpp_err(Reason :: atom()) -> stanza_error().
+xmpp_err(Reason) ->
     #error_st{reason = Reason, type = cancel, bad_req = 'bad-request'}.
 
 

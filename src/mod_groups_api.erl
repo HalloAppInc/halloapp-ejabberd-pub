@@ -64,7 +64,7 @@ send_group_message(#message{id = MsgId, from = #jid{luser = Uid}, type = groupch
     MessagePayload = GroupChatSt#group_chat.sub_els,
     case mod_groups:send_chat_message(MsgId, Gid, Uid, MessagePayload) of
         {error, Reason} ->
-            ErrorMsg = xmpp:make_error(Msg, util:err(Reason)),
+            ErrorMsg = xmpp:make_error(Msg, util:xmpp_err(Reason)),
             ejabberd_router:route(ErrorMsg);
         {ok, _Ts} ->
             ok
@@ -76,7 +76,7 @@ send_group_message(#message{id = MsgId, from = #jid{luser = Uid}, type = groupch
     ?INFO("Gid: ~s, Uid: ~s", [Gid, Uid]),
     case mod_groups:send_retract_message(MsgId, Gid, Uid, GroupChatRetractSt) of
         {error, Reason} ->
-            ErrorMsg = xmpp:make_error(Msg, util:err(Reason)),
+            ErrorMsg = xmpp:make_error(Msg, util:xmpp_err(Reason)),
             ejabberd_router:route(ErrorMsg);
         {ok, _Ts} ->
             ok

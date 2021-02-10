@@ -685,7 +685,7 @@ route_message(#message{} = Packet) ->
             ok;
         {deny, invalid_to_uid} ->
             ?ERROR("Invalid To uid: ~s packet received: ~p", [LUser, DecodedPacket]),
-            Err = util:err(invalid_to_uid),
+            Err = util:xmpp_err(invalid_to_uid),
             ErrorPacket = xmpp:make_error(DecodedPacket, Err),
             ejabberd_router:route(ErrorPacket)
     end.

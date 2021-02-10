@@ -79,13 +79,8 @@ create_iq_request_privacy_list(Uid, Type, SubEls) ->
     }.
 
 
-create_error_st(Reason, Hash) ->
-    #error_st{
-        type = cancel,
-        reason = Reason,
-        hash = Hash,
-        bad_req = 'bad-request'
-    }.
+create_error_st(Reason) ->
+    util:err(Reason).
 
 create_error_hash_st(Reason, Hash) ->
     #pb_privacy_list_result{
@@ -136,7 +131,7 @@ iq_unexcepted_uids_error_test() ->
     SubEl1 = create_privacy_list(all, <<>>, [UidEl1]),
     RequestIQ = create_iq_request_privacy_list(?UID1, set, [SubEl1]),
 
-    SubEl2 = create_error_st(unexcepted_uids, <<>>),
+    SubEl2 = create_error_st(unexcepted_uids),
     ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, error, [SubEl2]),
     ActualResponseIQ = mod_user_privacy:process_local_iq(RequestIQ),
 
@@ -152,7 +147,7 @@ iq_invalid_type_error_test() ->
     SubEl1 = create_privacy_list(check, <<>>, [UidEl1]),
     RequestIQ = create_iq_request_privacy_list(?UID1, set, [SubEl1]),
 
-    SubEl2 = create_error_st(invalid_type, <<>>),
+    SubEl2 = create_error_st(invalid_type),
     ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, error, [SubEl2]),
     ActualResponseIQ = mod_user_privacy:process_local_iq(RequestIQ),
 

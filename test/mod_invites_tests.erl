@@ -39,7 +39,7 @@ get_invites_error_test() ->
     setup_bare(),
     Actual = mod_invites:process_local_iq(create_get_iq(?UID1)),
     Expected = #iq{type = error, to = #jid{luser = ?UID1}, sub_els = [
-        #error_st{type = cancel, reason = no_account, bad_req = 'bad-request'}
+        #pb_error_stanza{reason = <<"no_account">>}
     ]},
     ?assertEqual(Expected, Actual).
 
@@ -48,7 +48,7 @@ send_invites_error1_test() ->
     setup_bare(),
     Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
     Expected = #iq{type = error, to = #jid{luser = ?UID1}, sub_els = [
-        #error_st{type = cancel, reason = no_account, bad_req = 'bad-request'}
+        #pb_error_stanza{reason = <<"no_account">>}
     ]},
     ?assertEqual(Expected, Actual).
 

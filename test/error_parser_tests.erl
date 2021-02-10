@@ -26,7 +26,7 @@ xmpp_to_proto_message_error_test() ->
     PbError = struct_util:create_pb_error(<<"invalid_uid">>),
     PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbError),
 
-    ErrorSt = struct_util:create_error_st(invalid_uid),
+    ErrorSt = struct_util:create_error_st(invalid_uid, <<>>),
     ToJid = struct_util:create_jid(?UID2, ?SERVER),
     FromJid = struct_util:create_jid(?UID1, ?SERVER),
     MessageSt = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ErrorSt),
@@ -43,7 +43,7 @@ xmpp_to_proto_message_stanza_error_test() ->
     PbError = struct_util:create_pb_error(<<"item-not-found">>),
     PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbError),
 
-    ErrorSt = #stanza_error{type = 'cancel', reason = 'item-not-found', code = 404},
+    ErrorSt = struct_util:create_error_st('item-not-found', <<>>),
     ToJid = struct_util:create_jid(?UID2, ?SERVER),
     FromJid = struct_util:create_jid(?UID1, ?SERVER),
     MessageSt = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ErrorSt),
