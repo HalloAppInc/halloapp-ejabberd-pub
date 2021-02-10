@@ -42,10 +42,10 @@
 %% APNS gateway and certificate details.
 -define(APNS_GATEWAY, "api.push.apple.com").
 -define(APNS_PORT, 443).
--define(APNS_CERTFILE, "/etc/apns_certs/prod.pem").
+-define(APNS_CERTFILE_SM, <<"apns_prod.pem">>).
 -define(APNS_DEV_GATEWAY, "api.sandbox.push.apple.com").
 -define(APNS_DEV_PORT, 443).
--define(APNS_DEV_CERTFILE, "/etc/apns_certs/dev.pem").
+-define(APNS_DEV_CERTFILE_SM, <<"apns_dev.pem">>).
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -175,12 +175,12 @@ handle_cast(_Request, State) ->
 -spec connect_to_apns(BuildType :: build_type()) -> {pid(), reference()} | {undefined, undefined}.
 connect_to_apns(BuildType) ->
     ApnsGateway = get_apns_gateway(BuildType),
-    ApnsCertfile = get_apns_certfile(BuildType),
+    {Cert, Key} = get_apns_cert(BuildType),
     ApnsPort = get_apns_port(BuildType),
     RetryFun = fun retry_function/2,
     Options = #{
         protocols => [http2],
-        tls_opts => [{certfile, ApnsCertfile}],
+        tls_opts => [{cert, Cert}, {key, Key}],
         retry => 100,                      %% gun will retry connecting 100 times before giving up!
         retry_timeout => 5000,             %% Time between retries in milliseconds.
         retry_fun => RetryFun
@@ -505,12 +505,18 @@ get_apns_gateway(dev) ->
     ?APNS_DEV_GATEWAY.
 
 
--spec get_apns_certfile(BuildType :: build_type()) -> list().
-get_apns_certfile(prod) ->
-    ?APNS_CERTFILE;
-get_apns_certfile(dev) ->
-    ?APNS_DEV_CERTFILE.
 
+-spec get_apns_cert(BuildType :: build_type()) -> tuple().
+get_apns_cert(BuildType) ->
+    SecretName = case BuildType of
+        prod -> ?APNS_CERTFILE_SM;
+        dev -> ?APNS_DEV_CERTFILE_SM
+    end,
+    Secret = mod_aws:get_secret(SecretName),
+    Arr = public_key:pem_decode(Secret),
+    [{_, CertBin, _}, {Asn1Type, KeyBin, _}] = Arr,
+    Key = {Asn1Type, KeyBin},
+    {CertBin, Key}.
 
 -spec get_apns_port(BuildType :: build_type()) -> integer().
 get_apns_port(prod) ->
