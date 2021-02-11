@@ -67,13 +67,16 @@ parse_metadata(#message{id = Id, sub_els = [SubElement]}, _PushInfo)
 parse_metadata(#message{id = _Id, type = MsgType, sub_els = [SubElement]} = Message, PushInfo)
         when is_record(SubElement, contact_list), SubElement#contact_list.contacts =/= [] ->
     [Contact | _] = SubElement#contact_list.contacts,
-    {Subject, Body} = case MsgType of
-        headline ->
-            Name = Contact#contact.name,
+    Name = Contact#contact.name,
+    {Subject, Body} = case SubElement#contact_list.type of
+        friend_notice ->
+            {<<"New Friend">>, <<"Your friend ", Name/binary, "is now on halloapp">>};
+        inviter_notice ->
             {<<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
         normal ->
             {<<"New Contact">>, <<"New contact notification">>}
     end,
+    NewMsgType = {MsgType, SubElement#contact_list.type},
     PayloadType = util:get_payload_type(Message),
     #push_metadata{
         content_id = Contact#contact.normalized,
@@ -84,7 +87,7 @@ parse_metadata(#message{id = _Id, type = MsgType, sub_els = [SubElement]} = Mess
         thread_name = Contact#contact.name,
         subject = Subject,
         body = Body,
-        push_type = get_push_type(MsgType, PayloadType, PushInfo)
+        push_type = get_push_type(NewMsgType, PayloadType, PushInfo)
     };
 
 parse_metadata(#message{type = MsgType,
@@ -194,6 +197,8 @@ get_push_type(headline, group_feed_st, _PushInfo) -> alert;
 get_push_type(normal, group_feed_st, _PushInfo) -> silent;
 get_push_type(headline, feed_post, #push_info{post_pref = true}) -> alert;
 get_push_type(headline, feed_comment, #push_info{comment_pref = true}) -> alert;
-get_push_type(headline, contact_list, _PushInfo) -> alert;
+get_push_type({headline, _}, contact_list, _PushInfo) -> alert;
+get_push_type({_, friend_notice}, contact_list, _PushInfo) -> alert;
+get_push_type({_, inviter_notice}, contact_list, _PushInfo) -> alert;
 get_push_type(_MsgType, _PayloadType, _PushInfo) -> silent.
 

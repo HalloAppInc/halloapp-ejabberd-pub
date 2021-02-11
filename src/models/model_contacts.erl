@@ -255,6 +255,7 @@ contacts_key(Uid) ->
 sync_key(Uid, Sid) ->
     <<?SYNC_KEY/binary, <<"{">>/binary, Uid/binary, <<"}:">>/binary, Sid/binary>>.
 
+
 -spec reverse_key(Phone :: phone()) -> binary().
 reverse_key(Phone) ->
     <<?REVERSE_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
