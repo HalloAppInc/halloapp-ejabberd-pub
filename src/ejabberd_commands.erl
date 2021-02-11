@@ -284,10 +284,6 @@ start_link() ->
     Result.
 
 init([]) ->
-    %% TODO(murali@): no need of transform for now i think.
-    try mnesia:transform_table(ejabberd_commands, ignore, record_info(fields, ejabberd_commands))
-    catch exit:{aborted, {no_exists, _}} -> ok
-    end,
     ?INFO("mnesia transform done."),
     ejabberd_mnesia:create(?MODULE, ejabberd_commands,
             [{ram_copies, [node()]},
