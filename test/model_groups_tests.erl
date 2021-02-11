@@ -169,8 +169,8 @@ remove_members_test() ->
     {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
     ?assertEqual([true, true], model_groups:add_members(Gid, [?UID2, ?UID3], ?UID1)),
     ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
-    ?assertEqual({ok, 2}, model_groups:remove_members(Gid, [?UID2, ?UID3])),
-    ?assertEqual({ok, 0}, model_groups:remove_members(Gid, [?UID2, ?UID3])),
+    ?assertEqual([true, true], model_groups:remove_members(Gid, [?UID2, ?UID3])),
+    ?assertEqual([false, false], model_groups:remove_members(Gid, [?UID2, ?UID3])),
     ok.
 
 get_groups_test() ->

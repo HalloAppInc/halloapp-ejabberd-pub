@@ -144,7 +144,7 @@ remove_members_test() ->
     ?assertEqual({ok, [{?UID3, remove, ok}]},
         mod_groups:remove_members(Gid, ?UID1, [?UID3])),
     ?assertEqual(2, model_groups:get_group_size(Gid)),
-    ?assertEqual({ok, [{?UID2, remove, ok}, {?UID3, remove, ok}]},
+    ?assertEqual({ok, [{?UID2, remove, ok}, {?UID3, remove, already_not_member}]},
         mod_groups:remove_members(Gid, ?UID1, [?UID2, ?UID3])),
     ?assertEqual(1, model_groups:get_group_size(Gid)),
     ok.

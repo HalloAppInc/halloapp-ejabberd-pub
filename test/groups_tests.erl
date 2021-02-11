@@ -83,7 +83,8 @@ create_group_test(Conf) ->
     {save_config, [{gid, Gid}]}.
 
 
-% Uid1 adds Uid3 to the group (created above). Make sure Uid2 and Uid3 get msg about the group change.
+% Uid1 adds Uid2, Uid3 to the group (created above). Uid2 is already a member.
+% Make sure Uid2 and Uid3 get msg about the group change.
 add_members_test(Conf) ->
     {groups_create_group_test, SConfig} = ?config(saved_config, Conf),
     Gid = ?config(gid, SConfig),
@@ -100,12 +101,14 @@ add_members_test(Conf) ->
     Payload = #pb_group_stanza{
         gid = Gid,
         action = modify_members,
-        members = [#pb_group_member{
-            uid = binary_to_integer(?UID3), action = add
-        }]
+        members = [
+            #pb_group_member{uid = binary_to_integer(?UID2), action = add},
+            #pb_group_member{uid = binary_to_integer(?UID3), action = add}
+        ]
     },
     % check the  result
     Result = ha_client:send_iq(C1, Id, set, Payload),
+    ct:pal("Result ~p", [Result]),
     #pb_packet{
         stanza = #pb_iq{
             id = Id,
@@ -113,7 +116,10 @@ add_members_test(Conf) ->
             payload = #pb_group_stanza{
                 gid = Gid,
                 members = [
-                    #pb_group_member{uid = Uid3, type = member, action = add}
+                    #pb_group_member{uid = Uid2, type = member, action = add,
+                        result = <<"failed">>, reason = <<"already_member">>},
+                    #pb_group_member{uid = Uid3, type = member, action = add,
+                        result = <<"ok">>, reason = undefined}
                 ]
             }
         }
@@ -132,6 +138,7 @@ add_members_test(Conf) ->
                 sender_uid = Uid1,
                 sender_name = ?NAME1,
                 members = [
+                    % Because Uid2 was already a member, nothing is broadcasted about him
                     #pb_group_member{uid = Uid3, action = add, type = member, name = ?NAME3}
                 ]
             } = GroupSt
@@ -156,9 +163,10 @@ remove_members_test(Conf) ->
     Payload = #pb_group_stanza{
         gid = Gid,
         action = modify_members,
-        members = [#pb_group_member{
-            uid = binary_to_integer(?UID3), action = remove
-        }]
+        members = [
+            #pb_group_member{uid = binary_to_integer(?UID3), action = remove},
+            #pb_group_member{uid = binary_to_integer(?UID4), action = remove}
+        ]
     },
     % check the  result
     Result = ha_client:send_iq(C1, Id, set, Payload),
@@ -170,7 +178,10 @@ remove_members_test(Conf) ->
             payload = #pb_group_stanza{
                 gid = Gid,
                 members = [
-                    #pb_group_member{uid = Uid3, type = member, action = remove}
+                    #pb_group_member{uid = Uid3, type = member, action = remove,
+                        result = <<"ok">>, reason = undefined},
+                    #pb_group_member{uid = Uid4, type = member, action = remove,
+                        result = <<"failed">>, reason = <<"already_not_member">>}
                 ]
             }
         }
@@ -193,6 +204,7 @@ remove_members_test(Conf) ->
                 members = [
                     #pb_group_member{uid = Uid3, action = remove, type = member, name = ?NAME3,
                         result = undefined, reason = undefined}
+                    % Nothing is broadcasted about Uid4
                 ]
             } = GroupSt
         end,

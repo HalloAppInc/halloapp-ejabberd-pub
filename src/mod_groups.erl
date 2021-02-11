@@ -85,7 +85,7 @@ mod_options(_Host) ->
 %%%   API                                                                                      %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--type modify_member_result() :: {uid(), add | remove, ok | no_account | max_group_size}.
+-type modify_member_result() :: {uid(), add | remove, ok | no_account | max_group_size | already_member | already_not_member}.
 -type modify_member_results() :: [modify_member_result()].
 -type modify_admin_result() :: {uid(), promote | demote, ok | no_member}.
 -type modify_admin_results() :: [modify_admin_result()].
@@ -433,13 +433,16 @@ add_members_unsafe(Gid, Uid, MemberUids) ->
             -> modify_member_results().
 add_members_unsafe_2(Gid, Uid, MemberUids) ->
     GoodUids = model_accounts:filter_nonexisting_uids(MemberUids),
-    model_groups:add_members(Gid, GoodUids, Uid),
+    RedisResults = model_groups:add_members(Gid, GoodUids, Uid),
+    AddResults = lists:zip(GoodUids, RedisResults),
     lists:map(
         fun (OUid) ->
-            case lists:member(OUid, GoodUids) of
+            case lists:keyfind(OUid, 1, AddResults) of
                 false ->
                     {OUid, add, no_account};
-                true ->
+                {Ouid, false} ->
+                    {OUid, add, already_member};
+                {Ouid, true} ->
                     {OUid, add, ok}
             end
         end,
@@ -448,8 +451,16 @@ add_members_unsafe_2(Gid, Uid, MemberUids) ->
 
 -spec remove_members_unsafe(Gid :: gid(), MemberUids :: [uid()]) -> modify_member_results().
 remove_members_unsafe(Gid, MemberUids) ->
-    {ok, _} = model_groups:remove_members(Gid, MemberUids),
-    [{Uid, remove, ok} || Uid <- MemberUids].
+    RedisResults = model_groups:remove_members(Gid, MemberUids),
+    lists:map(
+        fun
+            ({Uid, true}) ->
+                {Uid, remove, ok};
+            ({Uid, false}) ->
+                {Uid, remove, already_not_member}
+        end,
+        lists:zip(MemberUids, RedisResults)).
+
 
 
 -spec split_changes(Changes :: [{uid(), atom()}], FirstListAction :: atom()) -> {[uid()], [uid()]}.

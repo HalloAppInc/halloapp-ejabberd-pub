@@ -224,21 +224,27 @@ add_members(Gid, Uids, AdminUid) ->
 
 -spec remove_member(Gid :: gid(), Uid :: uid()) -> {ok, boolean()}.
 remove_member(Gid, Uid) ->
-    {ok, Num} = remove_members(Gid, [Uid]),
-    {ok, Num =:= 1}.
+    [Res] = remove_members(Gid, [Uid]),
+    {ok, Res}.
 
 
--spec remove_members(Gid :: gid(), Uids :: [uid()]) -> {ok, integer()}.
+-spec remove_members(Gid :: gid(), Uids :: [uid()]) -> [boolean()].
 remove_members(_Gid, []) ->
-    {ok, 0};
+    [];
 remove_members(Gid, Uids) ->
-    {ok, Res} = q(["HDEL", members_key(Gid) | Uids]),
+    GidKey = members_key(Gid),
+    Commands = [["HDEL", GidKey, U] || U <- Uids],
+    Results = qp(Commands),
     lists:foreach(
         fun (Uid) ->
             {ok, _Res2} = q(["SREM", user_groups_key(Uid), Gid])
         end,
         Uids),
-    {ok, binary_to_integer(Res)}.
+    lists:map(
+        fun ({ok, Res}) ->
+            binary_to_integer(Res) == 1
+        end,
+        Results).
 
 
 -spec promote_admin(Gid :: gid(), Uid :: uid()) -> {ok, boolean()} | {error, not_member}.

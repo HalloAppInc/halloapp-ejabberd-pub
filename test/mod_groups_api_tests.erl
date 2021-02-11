@@ -233,7 +233,7 @@ create_group_with_creator_as_member_test() ->
         members = Members
     } = GroupSt,
 %%    ?debugVal(Members),
-    M1 = #member_st{uid = ?UID1, type = admin, result = ok},
+    M1 = #member_st{uid = ?UID1, type = admin, result = failed, reason = already_member},
     M2 = #member_st{uid = ?UID2, type = member, result = ok},
     ?assertEqual([M1, M2], Members),
     ok.
