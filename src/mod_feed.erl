@@ -565,7 +565,7 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
     NewAudienceSet = sets:add_element(Uid, sets:intersection(AudienceSet, sets:from_list(FriendUids))),
     FinalAudienceSet = case Action of
         publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
-        retract -> AudienceSet
+        retract -> sets:add_element(Uid, AudienceSet)
     end,
     %% TODO(murali@): Send the final audience set back to the client in the response.
     FinalAudienceSet.
