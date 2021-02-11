@@ -23,7 +23,8 @@ group() ->
         groups_get_group_test,
         groups_set_name_test,
         groups_set_group_avatar_test,
-        groups_not_admin_modify_group_test
+        groups_not_admin_modify_group_test,
+        groups_create_group_creator_is_member_test
     ]}.
 
 dummy_test(_Conf) ->
@@ -528,3 +529,49 @@ set_group_avatar_test(Conf) ->
 not_admin_modify_group_test(Conf) ->
     ok.
 
+
+% Uid1 creates group and passes Uid1(self) and Uid2 as members. Trying to make sure Uid1 is admin
+create_group_creator_is_member_test(Conf) ->
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    Uid1 = binary_to_integer(?UID1),
+    Uid2 = binary_to_integer(?UID2),
+
+    Id = <<"g_iq_id20">>,
+    Payload = #pb_group_stanza{
+        action = create,
+        name = ?GROUP_NAME3,
+        members = [
+            #pb_group_member{uid = binary_to_integer(?UID1)},
+            #pb_group_member{uid = binary_to_integer(?UID2)}
+        ]
+    },
+
+    Result = ha_client:send_iq(C1, Id, set, Payload),
+    ct:pal("Create Group Result : ~p", [Result]),
+
+    % check the create_group result
+    #pb_packet{
+        stanza = #pb_iq{
+            id = Id,
+            type = result,
+            payload = #pb_group_stanza{
+                gid = Gid,
+                name = ?GROUP_NAME3,
+                members = [
+                    #pb_group_member{uid = Uid1, type = admin, result = <<"failed">>, reason = <<"already_member">>},
+                    #pb_group_member{uid = Uid2, type = member, result = <<"ok">>, reason = undefined}
+                ]
+            }
+        }
+    } = Result,
+    ct:pal("Group Gid ~p", [Gid]),
+    ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
+    ?assertEqual(true, model_groups:is_admin(Gid, ?UID1)),
+    ?assertEqual(false, model_groups:is_admin(Gid, ?UID2)),
+
+    ct:pal("Group Config ~p", [Conf]),
+
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    _GroupMsg = ha_client:wait_for_msg(C2, pb_group_stanza),
+
+    {save_config, [{gid, Gid}]}.
