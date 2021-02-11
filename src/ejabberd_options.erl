@@ -237,8 +237,6 @@ opt_type(router_cache_missed) ->
     econf:bool();
 opt_type(router_cache_size) ->
     econf:pos_int(infinity);
-opt_type(router_db_type) ->
-    econf:db_type(ejabberd_router);
 opt_type(router_use_cache) ->
     econf:bool();
 opt_type(rpc_timeout) ->
@@ -473,8 +471,6 @@ options() -> [%% Top-priority options
         fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
     {router_cache_size,
         fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
-    {router_db_type,
-        fun(Host) -> ejabberd_config:default_ram_db(Host, ejabberd_router) end},
     {router_use_cache,
         fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
     {rpc_timeout, timer:seconds(5)},
@@ -595,7 +591,6 @@ globals() -> [
     router_cache_life_time,
     router_cache_missed,
     router_cache_size,
-    router_db_type,
     router_use_cache,
     rpc_timeout,
     s2s_max_retry_delay,

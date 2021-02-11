@@ -86,7 +86,6 @@
 -export([router_cache_life_time/0]).
 -export([router_cache_missed/0]).
 -export([router_cache_size/0]).
--export([router_db_type/0]).
 -export([router_use_cache/0]).
 -export([rpc_timeout/0]).
 -export([s2s_access/0, s2s_access/1]).
@@ -562,10 +561,6 @@ router_cache_missed() ->
 -spec router_cache_size() -> 'infinity' | pos_integer().
 router_cache_size() ->
     ejabberd_config:get_option({router_cache_size, global}).
-
--spec router_db_type() -> atom().
-router_db_type() ->
-    ejabberd_config:get_option({router_db_type, global}).
 
 -spec router_use_cache() -> boolean().
 router_use_cache() ->

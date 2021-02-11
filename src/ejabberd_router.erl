@@ -52,8 +52,7 @@
     is_my_route/1,
     is_my_host/1,
     clean_cache/1,
-    config_reloaded/0,
-    get_backend/0
+    config_reloaded/0
 ]).
 
 -export([start_link/0]).
@@ -82,12 +81,15 @@
 
 -record(state, {route_monitors = #{} :: #{{binary(), pid()} => reference()}}).
 
+
 %%====================================================================
 %% API
 %%====================================================================
+
 start_link() ->
     ?INFO("start ~w", [?MODULE]),
     ?GEN_SERVER:start_link({local, ?MODULE}, ?MODULE, [], []).
+
 
 -spec route(stanza()) -> ok.
 route(Packet) ->
@@ -99,6 +101,7 @@ route(Packet) ->
             misc:format_exception(2, Class, Reason, StackTrace)])
     end.
 
+
 -spec route(jid(), jid(), xmlel() | stanza()) -> ok.
 route(#jid{} = From, #jid{} = To, #xmlel{} = El) ->
     try xmpp:decode(El, ?NS_CLIENT, [ignore_els]) of
@@ -109,8 +112,10 @@ route(#jid{} = From, #jid{} = To, #xmlel{} = El) ->
                [El, jid:encode(From), jid:encode(To),
             xmpp:format_error(Why)])
     end;
+
 route(#jid{} = From, #jid{} = To, Packet) ->
     route(xmpp:set_from_to(Packet, From, To)).
+
 
 -spec route_error(stanza(), stanza_error()) -> ok.
 route_error(Packet, Err) ->
@@ -122,6 +127,7 @@ route_error(Packet, Err) ->
             route(xmpp:make_error(Packet, Err))
     end.
 
+
 %% Route the error packet only if the originating packet is not an error itself.
 %% RFC3920 9.3.1
 -spec route_error(jid(), jid(), xmlel(), xmlel()) -> ok;
@@ -132,6 +138,7 @@ route_error(From, To, #xmlel{} = ErrPacket, #xmlel{} = OrigPacket) ->
         false -> route(From, To, ErrPacket);
         true -> ok
     end;
+
 route_error(From, To, Packet, #stanza_error{} = Err) ->
     Type = xmpp:get_type(Packet),
     if
@@ -141,13 +148,16 @@ route_error(From, To, Packet, #stanza_error{} = Err) ->
             route(From, To, xmpp:make_error(Packet, Err))
     end.
 
+
 -spec route_iq(iq(), fun((iq() | timeout) -> any())) -> ok.
 route_iq(IQ, Fun) ->
     route_iq(IQ, Fun, undefined, ?IQ_TIMEOUT).
 
+
 -spec route_iq(iq(), term(), pid() | atom()) -> ok.
 route_iq(IQ, State, Proc) ->
     route_iq(IQ, State, Proc, ?IQ_TIMEOUT).
+
 
 -spec route_iq(iq(), term(), pid() | atom(), undefined | non_neg_integer()) -> ok.
 route_iq(IQ, State, Proc, undefined) ->
@@ -155,13 +165,16 @@ route_iq(IQ, State, Proc, undefined) ->
 route_iq(IQ, State, Proc, Timeout) ->
     ejabberd_iq:route(IQ, Proc, State, Timeout).
 
+
 -spec register_route(binary(), binary()) -> ok.
 register_route(Domain, ServerHost) ->
     register_route(Domain, ServerHost, undefined).
 
+
 -spec register_route(binary(), binary(), local_hint() | undefined) -> ok.
 register_route(Domain, ServerHost, LocalHint) ->
     register_route(Domain, ServerHost, LocalHint, self()).
+
 
 -spec register_route(binary(), binary(), local_hint() | undefined, pid()) -> ok.
 register_route(Domain, ServerHost, LocalHint, Pid) ->
@@ -171,18 +184,17 @@ register_route(Domain, ServerHost, LocalHint, Pid) ->
         {_, error} ->
             erlang:error({invalid_domain, ServerHost});
         {LDomain, LServerHost} ->
-            Mod = get_backend(),
-            case Mod:register_route(LDomain, LServerHost, LocalHint,
-                    get_component_number(LDomain), Pid) of
+            case ejabberd_router_mnesia:register_route(LDomain, LServerHost, LocalHint, undefined, Pid) of
                 ok ->
                     ?INFO("Route registered: ~ts", [LDomain]),
                     monitor_route(LDomain, Pid),
                     ejabberd_hooks:run(route_registered, [LDomain]),
-                    delete_cache(Mod, LDomain);
+                    delete_cache(LDomain);
                 {error, Err} ->
                     ?ERROR("Failed to register route ~ts: ~p", [LDomain, Err])
             end
     end.
+
 
 -spec register_routes([{binary(), binary()}]) -> ok.
 register_routes(Domains) ->
@@ -192,9 +204,11 @@ register_routes(Domains) ->
         end,
         Domains).
 
+
 -spec unregister_route(binary()) -> ok.
 unregister_route(Domain) ->
     unregister_route(Domain, self()).
+
 
 -spec unregister_route(binary(), pid()) -> ok.
 unregister_route(Domain, Pid) ->
@@ -202,17 +216,17 @@ unregister_route(Domain, Pid) ->
         error ->
             erlang:error({invalid_domain, Domain});
         LDomain ->
-            Mod = get_backend(),
-            case Mod:unregister_route(LDomain, get_component_number(LDomain), Pid) of
+            case ejabberd_router_mnesia:unregister_route(LDomain, undefined, Pid) of
                 ok ->
                     ?INFO("Route unregistered: ~ts", [LDomain]),
                     demonitor_route(LDomain, Pid),
                     ejabberd_hooks:run(route_unregistered, [LDomain]),
-                    delete_cache(Mod, LDomain);
+                    delete_cache(LDomain);
                 {error, Err} ->
                     ?ERROR("Failed to unregister route ~ts: ~p", [LDomain, Err])
             end
     end.
+
 
 -spec unregister_routes([binary()]) -> ok.
 unregister_routes(Domains) ->
@@ -222,15 +236,14 @@ unregister_routes(Domains) ->
         end,
         Domains).
 
+
 -spec find_routes(binary()) -> [#route{}].
 find_routes(Domain) ->
-    Mod = get_backend(),
-    case use_cache(Mod) of
+    case use_cache() of
         true ->
-            case ets_cache:lookup(
-                    ?ROUTES_CACHE, {route, Domain},
+            case ets_cache:lookup(?ROUTES_CACHE, {route, Domain},
                     fun() ->
-                        case Mod:find_routes(Domain) of
+                        case ejabberd_router_mnesia:find_routes(Domain) of
                             {ok, Rs} when Rs /= [] ->
                                {ok, Rs};
                             _ ->
@@ -241,21 +254,20 @@ find_routes(Domain) ->
                 error -> []
             end;
         false ->
-            case Mod:find_routes(Domain) of
+            case ejabberd_router_mnesia:find_routes(Domain) of
                 {ok, Rs} -> Rs;
                 _ -> []
             end
     end.
 
+
 -spec get_all_routes() -> [binary()].
 get_all_routes() ->
-    Mod = get_backend(),
-    case use_cache(Mod) of
+    case use_cache() of
         true ->
-            case ets_cache:lookup(
-                    ?ROUTES_CACHE, routes,
+            case ets_cache:lookup(?ROUTES_CACHE, routes,
                     fun() ->
-                        case Mod:get_all_routes() of
+                        case ejabberd_router_mnesia:get_all_routes() of
                             {ok, Rs} when Rs /= [] ->
                                 {ok, Rs};
                             _ ->
@@ -266,11 +278,12 @@ get_all_routes() ->
                error -> []
             end;
         false ->
-            case Mod:get_all_routes() of
+            case ejabberd_router_mnesia:get_all_routes() of
                 {ok, Rs} -> Rs;
                 _ -> []
             end
     end.
+
 
 -spec host_of_route(binary()) -> binary().
 host_of_route(Domain) ->
@@ -286,6 +299,7 @@ host_of_route(Domain) ->
             end
     end.
 
+
 -spec is_my_route(binary()) -> boolean().
 is_my_route(Domain) ->
     case jid:nameprep(Domain) of
@@ -294,6 +308,7 @@ is_my_route(Domain) ->
         LDomain ->
             find_routes(LDomain) /= []
     end.
+
 
 -spec is_my_host(binary()) -> boolean().
 is_my_host(Domain) ->
@@ -307,25 +322,28 @@ is_my_host(Domain) ->
             end
     end.
 
+
 -spec process_iq(iq()) -> any().
 process_iq(IQ) ->
     gen_iq_handler:handle(IQ).
 
+
 -spec config_reloaded() -> ok.
 config_reloaded() ->
-    Mod = get_backend(),
-    init_cache(Mod).
+    init_cache().
+
 
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
+
 init([]) ->
     ejabberd_hooks:add(config_reloaded, ?MODULE, config_reloaded, 50),
-    Mod = get_backend(),
-    init_cache(Mod),
-    Mod:init(),
+    init_cache(),
+    ejabberd_router_mnesia:init(),
     clean_cache(),
     {ok, #state{}}.
+
 
 handle_call({monitor, Domain, Pid}, _From, State) ->
     MRefs = State#state.route_monitors,
@@ -336,6 +354,7 @@ handle_call({monitor, Domain, Pid}, _From, State) ->
             MRefs#{{Domain, Pid} => MRef}
     end,
     {reply, ok, State#state{route_monitors = MRefs1}};
+
 handle_call({demonitor, Domain, Pid}, _From, State) ->
     MRefs = State#state.route_monitors,
     MRefs1 = case maps:find({Domain, Pid}, MRefs) of
@@ -346,24 +365,27 @@ handle_call({demonitor, Domain, Pid}, _From, State) ->
             MRefs
     end,
     {reply, ok, State#state{route_monitors = MRefs1}};
+
 handle_call(Request, From, State) ->
     ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
+
 
 handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
+
 handle_info({route, Packet}, State) ->
     route(Packet),
     {noreply, State};
+
 handle_info({'DOWN', MRef, _, Pid, Info}, State) ->
     MRefs = maps:filter(
         fun({Domain, P}, M) when P == Pid, M == MRef ->
-            ?INFO("Process ~p with route registered to ~ts "
-                "has terminated unexpectedly with reason: ~p",
-                [P, Domain, Info]),
-            try unregister_route(Domain, Pid)
+            ?INFO("Pid ~p with route : ~p is down, reason: ~p", [P, Domain, Info]),
+            try
+                unregister_route(Domain, Pid)
             catch _:_ -> ok
             end,
             false;
@@ -376,15 +398,19 @@ handle_info(Info, State) ->
     ?ERROR("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
+
 terminate(_Reason, _State) ->
     ejabberd_hooks:delete(config_reloaded, ?MODULE, config_reloaded, 50).
+
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
 -spec do_route(stanza()) -> ok.
 do_route(OrigPacket) ->
     ?DEBUG("Route:~n~ts", [xmpp:pp(OrigPacket)]),
@@ -404,12 +430,12 @@ do_route(OrigPacket) ->
                         [Route] ->
                             do_route(Packet, Route);
                         Routes ->
-                            From = xmpp:get_from(Packet),
-                            balancing_route(From, To, Packet, Routes)
+                            balancing_route(Packet, Routes)
                     end,
                     ok
             end
     end.
+
 
 -spec do_route(stanza(), #route{}) -> any().
 do_route(Pkt, #route{local_hint = LocalHint, pid = Pid}) when is_pid(Pid) ->
@@ -422,51 +448,24 @@ do_route(Pkt, #route{local_hint = LocalHint, pid = Pid}) when is_pid(Pid) ->
 do_route(_Pkt, _Route) ->
     ok.
 
--spec balancing_route(jid(), jid(), stanza(), [#route{}]) -> any().
-balancing_route(From, To, Packet, Rs) ->
-    case get_domain_balancing(From, To, To#jid.lserver) of
-        undefined ->
-            Value = erlang:system_time(),
-            case [R || R <- Rs, node(R#route.pid) == node()] of
-                [] ->
-                    R = lists:nth(erlang:phash(Value, length(Rs)), Rs),
-                    do_route(Packet, R);
-                LRs ->
-                    R = lists:nth(erlang:phash(Value, length(LRs)), LRs),
-                    do_route(Packet, R)
-            end;
-        Value ->
-            SRs = lists:ukeysort(#route.local_hint, Rs),
-            R = lists:nth(erlang:phash(Value, length(SRs)), SRs),
+
+-spec balancing_route(stanza(), [#route{}]) -> any().
+balancing_route(Packet, Rs) ->
+    Value = erlang:system_time(),
+    case [R || R <- Rs, node(R#route.pid) == node()] of
+        [] ->
+            R = lists:nth(erlang:phash(Value, length(Rs)), Rs),
+            do_route(Packet, R);
+        LRs ->
+            R = lists:nth(erlang:phash(Value, length(LRs)), LRs),
             do_route(Packet, R)
     end.
 
--spec get_component_number(binary()) -> pos_integer() | undefined.
-get_component_number(LDomain) ->
-    M = ejabberd_option:domain_balancing(),
-    case maps:get(LDomain, M, undefined) of
-        undefined -> undefined;
-        Opts -> maps:get(component_number, Opts)
-    end.
-
--spec get_domain_balancing(jid(), jid(), binary()) -> integer() | ljid() | undefined.
-get_domain_balancing(From, To, LDomain) ->
-    M = ejabberd_option:domain_balancing(),
-    case maps:get(LDomain, M, undefined) of
-        undefined -> undefined;
-        Opts ->
-            case maps:get(type, Opts, random) of
-                random -> erlang:system_time();
-                source -> jid:tolower(From);
-                destination -> jid:tolower(To);
-                bare_source -> jid:remove_resource(jid:tolower(From));
-                bare_destination -> jid:remove_resource(jid:tolower(To))
-            end
-    end.
 
 -spec monitor_route(binary(), pid()) -> ok.
 monitor_route(Domain, Pid) ->
     ?GEN_SERVER:call(?MODULE, {monitor, Domain, Pid}, ?CALL_TIMEOUT).
+
 
 -spec demonitor_route(binary(), pid()) -> ok.
 demonitor_route(Domain, Pid) ->
@@ -477,43 +476,44 @@ demonitor_route(Domain, Pid) ->
             ?GEN_SERVER:call(?MODULE, {demonitor, Domain, Pid}, ?CALL_TIMEOUT)
     end.
 
--spec get_backend() -> module().
-get_backend() ->
-    DBType = ejabberd_option:router_db_type(),
-    list_to_existing_atom("ejabberd_router_" ++ atom_to_list(DBType)).
 
--spec cache_nodes(module()) -> [node()].
-cache_nodes(Mod) ->
-    case erlang:function_exported(Mod, cache_nodes, 0) of
-        true -> Mod:cache_nodes();
+-spec cache_nodes() -> [node()].
+cache_nodes() ->
+    case erlang:function_exported(ejabberd_router_mnesia, cache_nodes, 0) of
+        true -> ejabberd_router_mnesia:cache_nodes();
         false -> ejabberd_cluster:get_nodes()
     end.
 
--spec use_cache(module()) -> boolean().
-use_cache(Mod) ->
-    case erlang:function_exported(Mod, use_cache, 0) of
-        true -> Mod:use_cache();
+
+%% TODO(murali@): we are not using any cache right now - we could remove this code too.
+-spec use_cache() -> boolean().
+use_cache() ->
+    case erlang:function_exported(ejabberd_router_mnesia, use_cache, 0) of
+        true -> ejabberd_router_mnesia:use_cache();
         false -> ejabberd_option:router_use_cache()
     end.
 
--spec delete_cache(module(), binary()) -> ok.
-delete_cache(Mod, Domain) ->
-    case use_cache(Mod) of
+
+-spec delete_cache(binary()) -> ok.
+delete_cache(Domain) ->
+    case use_cache() of
         true ->
-            ets_cache:delete(?ROUTES_CACHE, {route, Domain}, cache_nodes(Mod)),
-            ets_cache:delete(?ROUTES_CACHE, routes, cache_nodes(Mod));
+            ets_cache:delete(?ROUTES_CACHE, {route, Domain}, cache_nodes()),
+            ets_cache:delete(?ROUTES_CACHE, routes, cache_nodes());
         false ->
             ok
     end.
 
--spec init_cache(module()) -> ok.
-init_cache(Mod) ->
-    case use_cache(Mod) of
+
+-spec init_cache() -> ok.
+init_cache() ->
+    case use_cache() of
         true ->
             ets_cache:new(?ROUTES_CACHE, cache_opts());
         false ->
             ets_cache:delete(?ROUTES_CACHE)
     end.
+
 
 -spec cache_opts() -> [proplists:property()].
 cache_opts() ->
@@ -521,6 +521,7 @@ cache_opts() ->
     CacheMissed = ejabberd_option:router_cache_missed(),
     LifeTime = ejabberd_option:router_cache_life_time(),
     [{max_size, MaxSize}, {cache_missed, CacheMissed}, {life_time, LifeTime}].
+
 
 -spec clean_cache(node()) -> non_neg_integer().
 clean_cache(Node) ->
@@ -531,12 +532,11 @@ clean_cache(Node) ->
         (routes, _) ->
             false;
         ({route, _}, {ok, Rs}) ->
-            not lists:any(
-                fun(#route{pid = Pid}) ->
-                    node(Pid) == Node
-                end, Rs)
+            not lists:any(fun(#route{pid = Pid}) -> node(Pid) == Node end, Rs)
         end).
+
 
 -spec clean_cache() -> ok.
 clean_cache() ->
     ejabberd_cluster:eval_everywhere(?MODULE, clean_cache, [node()]).
+
