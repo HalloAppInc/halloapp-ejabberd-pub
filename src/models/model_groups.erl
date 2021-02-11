@@ -217,7 +217,7 @@ add_members(Gid, Uids, AdminUid) ->
         Uids),
     lists:map(
         fun ({ok, Res}) ->
-            binary_to_integer(Res) == 1
+            binary_to_integer(Res) =:= 1
         end,
         RedisResults).
 
@@ -242,7 +242,7 @@ remove_members(Gid, Uids) ->
         Uids),
     lists:map(
         fun ({ok, Res}) ->
-            binary_to_integer(Res) == 1
+            binary_to_integer(Res) =:= 1
         end,
         Results).
 

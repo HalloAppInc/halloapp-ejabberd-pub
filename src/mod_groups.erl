@@ -435,8 +435,10 @@ add_members_unsafe_2(Gid, Uid, MemberUids) ->
     GoodUids = model_accounts:filter_nonexisting_uids(MemberUids),
     RedisResults = model_groups:add_members(Gid, GoodUids, Uid),
     AddResults = lists:zip(GoodUids, RedisResults),
+    % TODO: this is O(N^2), could be improved.
     lists:map(
         fun (OUid) ->
+
             case lists:keyfind(OUid, 1, AddResults) of
                 false ->
                     {OUid, add, no_account};
