@@ -39,3 +39,5 @@
 
 -type group_info() :: #group_info{}.
 
+-define(MAX_GROUP_SIZE, 50).
+

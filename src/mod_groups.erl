@@ -49,8 +49,6 @@
 -include("xmpp.hrl").
 -include("groups.hrl").
 -include("feed.hrl").
-
--define(MAX_GROUP_SIZE, 25).
 -define(MAX_GROUP_NAME_SIZE, 25).
 
 -define(STAT_NS, "HA/groups").
