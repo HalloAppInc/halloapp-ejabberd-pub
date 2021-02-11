@@ -131,6 +131,8 @@ delete_group(Gid, Uid) ->
             delete_group_avatar_data(Gid, Group#group.avatar),
             ok = model_groups:delete_group(Gid),
             broadcast_update(Group, Uid, delete, [], NamesMap),
+            stat:count(?STAT_NS, "delete"),
+            stat:count(?STAT_NS, "delete_total_members", length(Group#group.members)),
             ok
     end.
 
