@@ -70,7 +70,7 @@ parse_metadata(#message{id = _Id, type = MsgType, sub_els = [SubElement]} = Mess
     Name = Contact#contact.name,
     {Subject, Body} = case SubElement#contact_list.type of
         friend_notice ->
-            {<<"New Friend">>, <<"Your friend ", Name/binary, "is now on halloapp">>};
+            {<<"New Friend">>, <<"Your friend ", Name/binary, " is now on halloapp">>};
         inviter_notice ->
             {<<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
         normal ->
