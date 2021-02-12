@@ -83,6 +83,19 @@ publish_post_test() ->
     ?assertEqual({ok, false}, model_feed:is_post_owner(?POST_ID1, ?UID2)),
     ok.
 
+publish_post2_test() ->
+    setup(),
+    ?assertEqual({error, missing}, model_feed:get_post(?POST_ID1)),
+    Timestamp1 = util:now_ms(),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, only, [], Timestamp1),
+    Post1 = get_post1(Timestamp1),
+    ExpectedPost = Post1#post{audience_type = only, audience_list = []},
+    {ok, ActualPost} = model_feed:get_post(?POST_ID1),
+    ?assertEqual(ExpectedPost, ActualPost),
+    ?assertEqual({ok, true}, model_feed:is_post_owner(?POST_ID1, ?UID1)),
+    ?assertEqual({ok, false}, model_feed:is_post_owner(?POST_ID1, ?UID2)),
+    ok.
+
 
 publish_group_post_test() ->
     setup(),

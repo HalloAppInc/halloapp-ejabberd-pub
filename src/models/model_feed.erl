@@ -114,15 +114,18 @@ publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, Timestamp
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
         TimestampMs :: integer()) -> ok | {error, any()}.
 publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, TimestampMs) ->
-    [{ok, _}, {ok, _}, {ok, _}, {ok, _}] = qp([
-            ["HSET", post_key(PostId),
-                ?FIELD_UID, Uid,
-                ?FIELD_PAYLOAD, Payload,
-                ?FIELD_AUDIENCE_TYPE, encode_audience_type(FeedAudienceType),
-                ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)],
-            ["SADD", post_audience_key(PostId) | FeedAudienceList],
-            ["EXPIRE", post_key(PostId), ?POST_EXPIRATION],
-            ["EXPIRE", post_audience_key(PostId), ?POST_EXPIRATION]]),
+    C1 = [["HSET", post_key(PostId),
+        ?FIELD_UID, Uid,
+        ?FIELD_PAYLOAD, Payload,
+        ?FIELD_AUDIENCE_TYPE, encode_audience_type(FeedAudienceType),
+        ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)]],
+    C2 = case FeedAudienceList of
+        [] -> [];
+        _ -> [["SADD", post_audience_key(PostId) | FeedAudienceList]]
+    end,
+    C3 = [["EXPIRE", post_key(PostId), ?POST_EXPIRATION],
+            ["EXPIRE", post_audience_key(PostId), ?POST_EXPIRATION]],
+    _Results = qp(C1 ++ C2 ++ C3),
     [{ok, _}, {ok, _}] = qp([
             ["ZADD", reverse_post_key(Uid), TimestampMs, PostId],
             ["EXPIRE", reverse_post_key(Uid), ?POST_EXPIRATION]]),
