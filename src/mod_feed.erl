@@ -153,22 +153,23 @@ publish_post(Uid, PostId, Payload, AudienceList) ->
     Server = util:get_host(),
     Action = publish,
     FeedAudienceType = AudienceList#pb_audience.type,
-    %% Include own Uid in the audience list always.
     FeedAudienceList = AudienceList#pb_audience.uids,
+    %% Include own Uid in the audience list always.
+    UpdatedAudienceList = [Uid | FeedAudienceList],
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
             ?INFO("Uid: ~s PostId ~p published to ~p audience size: ~p",
-                [Uid, PostId, FeedAudienceType, length(FeedAudienceList)]),
+                [Uid, PostId, FeedAudienceType, length(UpdatedAudienceList)]),
             ok = model_feed:publish_post(PostId, Uid, Payload,
-                    FeedAudienceType, FeedAudienceList, TimestampMs),
+                    FeedAudienceType, UpdatedAudienceList, TimestampMs),
             ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, FeedAudienceType]),
 
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             {ok, ExistingPost#post.ts_ms}
     end,
-    broadcast_post(Action, PostId, Uid, Payload, FinalTimestampMs, FeedAudienceList),
+    broadcast_post(Action, PostId, Uid, Payload, FinalTimestampMs, UpdatedAudienceList),
     {ok, FinalTimestampMs}.
 
 
@@ -562,6 +563,8 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
     AudienceSet = sets:from_list(AudienceList),
 
     %% Intersect the audience-set with friends, but include the post-owner's uid as well.
+    %% TODO(murali@): we dont need to add uid in the future here.
+    %% remove this part in 1 month: 03-15-2021.
     NewAudienceSet = sets:add_element(Uid, sets:intersection(AudienceSet, sets:from_list(FriendUids))),
     FinalAudienceSet = case Action of
         publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
