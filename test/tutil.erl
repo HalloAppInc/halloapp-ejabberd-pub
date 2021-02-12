@@ -55,15 +55,21 @@ get_error_iq_sub_el(#pb_iq{} = IQ) ->
     IQ#pb_iq.payload.
 
 
+%% clears a given redis db - for instance, redis_contacts
 cleardb(DBName) ->
     true = config:is_testing_env(),
     {_, "127.0.0.1", 30001} = config:get_service(DBName),
-    RedisClient = list_to_atom(atom_to_list(DBName) ++ "_client"),
-    Result = gen_server:call(RedisClient, {qa, ["DBSIZE"]}),
-    {ok, [{ok, BinSize} | _]}  = Result,
+    RedisClient = list_to_atom("ec" ++ atom_to_list(DBName)),
+    Result = ecredis:qa(RedisClient, ["DBSIZE"]),
+    [{ok, BinSize} | _]  = Result,
     DbSize = binary_to_integer(BinSize),
     ?assert(DbSize < 100),
-    {ok, ok} = gen_server:call(RedisClient, flushdb).
+
+    %% TODO: figure out way to ensure flushdb is only available
+    %% during tests. This is simple enough with eunit, as the TEST
+    %% flag is set during compilation. But this is not the case with CT tests.
+
+    ok = ecredis:flushdb(RedisClient).
 
 
 meck_init(Mod, FunName, Fun) ->

@@ -23,7 +23,8 @@
     encode_boolean/1,
     decode_boolean/1,
     decode_boolean/2,
-    parse_zrange_with_scores/1
+    parse_zrange_with_scores/1,
+    get_redis_client/1
 ]).
 
 
@@ -84,3 +85,8 @@ parse_zrange_with_scores([], Res) ->
     lists:reverse(Res);
 parse_zrange_with_scores([El, Score | Rest], Res) ->
     parse_zrange_with_scores(Rest, [{El, Score} | Res]).
+
+%% used only in migration modules
+%% example of a service is redis_accounts
+get_redis_client(Service) ->
+    list_to_atom(atom_to_list(Service) ++"_client").

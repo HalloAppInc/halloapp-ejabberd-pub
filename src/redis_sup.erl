@@ -72,27 +72,6 @@ init([]) ->
         type => supervisor,
         modules => [dynamic]},
 
-    % Old redis clients
-    % TODO: get rid of this old redis clients.
-    RedisFriends = create_redis_child_spec(redis_friends, eredis_cluster_client, 
-                                           redis_friends_client),
-    RedisAccounts = create_redis_child_spec(redis_accounts, eredis_cluster_client,
-                                            redis_accounts_client),
-    RedisContacts = create_redis_child_spec(redis_contacts, eredis_cluster_client,
-                                            redis_contacts_client),
-    RedisAuth = create_redis_child_spec(redis_auth, eredis_cluster_client,
-                                        redis_auth_client),
-    RedisPhone = create_redis_child_spec(redis_phone, eredis_cluster_client,
-                                         redis_phone_client),
-    RedisMessages = create_redis_child_spec(redis_messages, eredis_cluster_client,
-                                            redis_messages_client),
-    RedisWhisper = create_redis_child_spec(redis_whisper, eredis_cluster_client,
-                                           redis_whisper_client),
-    RedisGroups = create_redis_child_spec(redis_groups, eredis_cluster_client,
-                                          redis_groups_client),
-    RedisFeed = create_redis_child_spec(redis_feed, eredis_cluster_client, redis_feed_client),
-    RedisSessions = create_redis_child_spec(redis_sessions, eredis_cluster_client, redis_sessions_client),
-
     % New redis clients
     ECRedisFriends = create_redis_child_spec(redis_friends, ecredis, ecredis_friends),
     ECRedisAccounts = create_redis_child_spec(redis_accounts, ecredis, ecredis_accounts),
@@ -107,25 +86,15 @@ init([]) ->
 
     {ok, {SupFlags, [
         EredisClusterPool,
-        RedisFriends,
         ECRedisFriends,
-        RedisAccounts,
         ECRedisAccounts,
-        RedisContacts,
         ECRedisContacts,
-        RedisAuth,
         ECRedisAuth,
-        RedisPhone,
         ECRedisPhone,
-        RedisMessages,
         ECRedisMessages,
-        RedisWhisper,
         ECRedisWhisper,
-        RedisGroups,
         ECRedisGroups,
-        RedisFeed,
         ECRedisFeed,
-        RedisSessions,
         ECRedisSessions
     ]}}.
 

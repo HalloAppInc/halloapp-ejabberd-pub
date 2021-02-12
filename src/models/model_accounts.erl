@@ -98,11 +98,6 @@
     cleanup_version_keys/1
 ]).
 
--export([
-    get_all_pools/0,
-    qs/2
-]).
-
 %%====================================================================
 %% gen_mod callbacks
 %%====================================================================
@@ -650,9 +645,9 @@ cleanup_version_keys(Versions) ->
 
 fix_counters() ->
     ?INFO("start", []),
-    {ok, Pools} = get_all_pools(),
-    ?INFO("pools: ~p", [Pools]),
-    ResultMap = compute_counters(Pools),
+    Nodes = get_node_list(),
+    ?INFO("cluster nodes are ~p", [Nodes]),
+    ResultMap = compute_counters(Nodes),
     ?INFO("result map ~p", [ResultMap]),
     maps:map(
         fun (K, V) ->
@@ -663,17 +658,16 @@ fix_counters() ->
     ok.
 
 
-compute_counters(Pools) ->
+compute_counters(Nodes) ->
     lists:foldl(
-        fun (Pool, Map) ->
-            scan_server(Pool, <<"0">>, Map)
+        fun (Node, Map) ->
+            scan_server(Node, <<"0">>, Map)
         end,
         #{},
-        Pools).
+        Nodes).
 
-
-scan_server(Pool, Cursor, Map) ->
-    {ok, [NewCursor, Results]} = qs(Pool, ["SCAN", Cursor, "COUNT", 500]),
+scan_server(Node, Cursor, Map) ->
+    {ok, [NewCursor, Results]} = qn(["SCAN", Cursor, "COUNT", 500], Node),
     Fun = fun (V) -> V + 1 end,
     NewMap = lists:foldl(
         fun (Key, M) ->
@@ -693,7 +687,7 @@ scan_server(Pool, Cursor, Map) ->
         Results),
     case NewCursor of
         <<"0">> -> NewMap;
-        _ -> scan_server(Pool, NewMap, NewMap)
+        _ -> scan_server(Node, NewCursor, NewMap)
     end.
 
 
@@ -779,15 +773,8 @@ get_names(Uids) ->
 
 q(Command) -> ecredis:q(ecredis_accounts, Command).
 qp(Commands) -> ecredis:qp(ecredis_accounts, Commands).
-
-
-get_all_pools() ->
-    gen_server:call(redis_accounts_client, {get_all_pools}).
-
-qs(Pool, Command) ->
-    Result = gen_server:call(redis_accounts_client, {qs, Pool, Command}),
-    Result.
-
+qn(Command, Node) -> ecredis:qn(ecredis_accounts, Node, Command).
+get_node_list() -> ecredis:get_nodes(ecredis_accounts).
 
 ts_reply(Res) ->
     case util_redis:decode_ts(Res) of
