@@ -214,7 +214,7 @@ init(_Stuff) ->
     {ok, _Tref1} = timer:apply_interval(1 * ?SECONDS_MS, ?MODULE, trigger_send, []),
     {ok, _Tref2} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, trigger_count_users, []),
     {ok, _Tref3} = timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, trigger_zset_cleanup, []),
-    {ok, _Tref4} = timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, trigger_count_users_by_version, []),
+    {ok, _Tref4} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_version, []),
     CurrentMinute = util:round_to_minute(util:now()),
     % minute is unix timestamp that always represents round minute for which the data is being
     % accumulated
