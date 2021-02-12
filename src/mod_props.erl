@@ -15,6 +15,7 @@
 -include("xmpp.hrl").
 -include("packets.hrl").
 -include("groups.hrl").
+-include("time.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -97,7 +98,8 @@ get_props(Uid, ClientVersion) ->
         cleartext_chat_messages => true, %% whether to disable cleartext chat messages.
         max_feed_video_duration => 60, %% duration in seconds for videos on feed.
         max_chat_video_duration => 120, %% duration in seconds for videos in chats.
-        private_reactions => false %% whether client can send private reactions.
+        private_reactions => false, %% whether client can send private reactions.
+        group_sync_time => 1 * ?WEEKS %% how often should clients sync group metadata
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
