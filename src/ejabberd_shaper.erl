@@ -18,14 +18,6 @@
 %%%----------------------------------------------------------------------
 -module(ejabberd_shaper).
 -behaviour(gen_server).
-
--export([start_link/0, new/1, update/2, match/3, get_max_rate/1]).
--export([reload_from_config/0]).
--export([validator/1, shaper_rules_validator/0]).
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
-
 -include("logger.hrl").
 
 -type state() :: #{hosts := [binary()]}.
@@ -36,6 +28,25 @@
 
 -export_type([shaper/0, shaper_rule/0, shaper_rate/0]).
 
+%% gen_server callbacks
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+
+-export([
+    start_link/0,
+    new/1,
+    update/2,
+    match/3,
+    get_max_rate/1
+]).
+-export([
+    reload_from_config/0
+]).
+-export([
+    validator/1,
+    shaper_rules_validator/0
+]).
+
+
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -44,14 +55,15 @@ start_link() ->
     ?INFO("start ~w", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
+
 -spec match(global | binary(), atom() | [shaper_rule()],
-	    jid:jid() | jid:ljid() | inet:ip_address() | acl:match()) -> none | shaper_rate().
+        jid:jid() | jid:ljid() | inet:ip_address() | acl:match()) -> none | shaper_rate().
 match(_, none, _) -> none;
 match(_, infinity, _) -> infinity;
 match(Host, Shaper, Match) when is_map(Match) ->
     Rules = if is_atom(Shaper) -> read_shaper_rules(Shaper, Host);
-	       true -> Shaper
-	    end,
+           true -> Shaper
+        end,
     Rate = acl:match_rules(Host, Rules, Match, none),
     read_shaper(Rate);
 match(Host, Shaper, IP) when tuple_size(IP) == 4; tuple_size(IP) == 8 ->
@@ -59,23 +71,27 @@ match(Host, Shaper, IP) when tuple_size(IP) == 4; tuple_size(IP) == 8 ->
 match(Host, Shaper, JID) ->
     match(Host, Shaper, #{usr => jid:tolower(JID)}).
 
+
 -spec get_max_rate(none | shaper_rate()) -> none | pos_integer().
 get_max_rate({Rate, _}) -> Rate;
 get_max_rate(Rate) when is_integer(Rate), Rate > 0 -> Rate;
 get_max_rate(_) -> none.
+
 
 -spec new(none | shaper_rate()) -> shaper().
 new({Rate, Burst}) -> p1_shaper:new(Rate, Burst);
 new(Rate) when is_integer(Rate), Rate > 0 -> p1_shaper:new(Rate);
 new(_) -> none.
 
+
 -spec update(shaper(), non_neg_integer()) -> {shaper(), non_neg_integer()}.
 update(none, _Size) -> {none, 0};
 update(Shaper1, Size) ->
     Shaper2 = p1_shaper:update(Shaper1, Size),
     ?DEBUG("Shaper update:~n~ts =>~n~ts",
-	   [p1_shaper:pp(Shaper1), p1_shaper:pp(Shaper2)]),
+       [p1_shaper:pp(Shaper1), p1_shaper:pp(Shaper2)]),
     Shaper2.
+
 
 -spec validator(shaper | shaper_rules) -> econf:validator().
 validator(shaper) ->
@@ -87,22 +103,25 @@ validator(shaper_rules) ->
       #{'_' => shaper_rules_validator()},
       [{disallowed, reserved()}, unique]).
 
+
 -spec shaper_rules_validator() -> econf:validator().
 shaper_rules_validator() ->
     fun(L) when is_list(L) ->
-	    lists:map(
-	      fun({K, V}) ->
-		      {(shaper_name())(K), (acl:access_validator())(V)};
-		 (N) ->
-		      {(shaper_name())(N), [{acl, all}]}
-	      end, lists:flatten(L));
-       (N) ->
-	    [{(shaper_name())(N), [{acl, all}]}]
+        lists:map(
+            fun({K, V}) ->
+                {(shaper_name())(K), (acl:access_validator())(V)};
+                (N) ->
+                {(shaper_name())(N), [{acl, all}]}
+            end, lists:flatten(L));
+    (N) ->
+        [{(shaper_name())(N), [{acl, all}]}]
     end.
+
 
 -spec reload_from_config() -> ok.
 reload_from_config() ->
     gen_server:call(?MODULE, reload_from_config, timer:minutes(1)).
+
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -152,24 +171,24 @@ load_from_config(OldHosts, NewHosts) ->
     ?DEBUG("Loading shaper rules from config", []),
     Shapers = ejabberd_option:shaper(),
     ets:insert(shaper, maps:to_list(Shapers)),
-    ets:insert(
-      shaper_rules,
-      lists:flatmap(
-	fun(Host) ->
-		lists:flatmap(
-		  fun({Name, List}) ->
-			  case resolve_shapers(Name, List, Shapers) of
-			      [] -> [];
-			      List1 ->
-				  [{{Name, Host}, List1}]
-			  end
-		  end, ejabberd_option:shaper_rules(Host))
-	end, [global|NewHosts])),
+    ets:insert(shaper_rules,
+        lists:flatmap(
+            fun(Host) ->
+                lists:flatmap(
+                    fun({Name, List}) ->
+                        case resolve_shapers(Name, List, Shapers) of
+                          [] -> [];
+                          List1 ->
+                          [{{Name, Host}, List1}]
+                        end
+                    end, ejabberd_option:shaper_rules(Host))
+            end, [global|NewHosts])),
     lists:foreach(
-      fun(Host) ->
-	      ets:match_delete(shaper_rules, {{'_', Host}, '_'})
-      end, OldHosts -- NewHosts),
+        fun(Host) ->
+            ets:match_delete(shaper_rules, {{'_', Host}, '_'})
+        end, OldHosts -- NewHosts),
     ?DEBUG("Shaper rules loaded successfully", []).
+
 
 -spec create_tabs() -> ok.
 create_tabs() ->
@@ -178,46 +197,49 @@ create_tabs() ->
     _ = ets:new(shaper_rules, [named_table, {read_concurrency, true}]),
     ok.
 
+
 -spec read_shaper_rules(atom(), global | binary()) -> [shaper_rate_rule()].
 read_shaper_rules(Name, Host) ->
     case ets:lookup(shaper_rules, {Name, Host}) of
-	[{_, Rule}] -> Rule;
-	[] -> []
+        [{_, Rule}] -> Rule;
+        [] -> []
     end.
+
 
 -spec read_shaper(atom() | shaper_rate()) -> none | shaper_rate().
 read_shaper(Name) when is_atom(Name), Name /= none, Name /= infinity ->
     case ets:lookup(shaper, Name) of
-	[{_, Rate}] -> Rate;
-	[] -> none
+        [{_, Rate}] -> Rate;
+        [] -> none
     end;
 read_shaper(Rate) ->
     Rate.
+
 
 %%%===================================================================
 %%% Validators
 %%%===================================================================
 shaper_name() ->
     econf:either(
-      econf:and_then(
-	econf:atom(),
-	fun(infinite) -> infinity;
-	   (unlimited) -> infinity;
-	   (A) -> A
-	end),
-      econf:pos_int()).
+        econf:and_then(
+            econf:atom(),
+            fun(infinite) -> infinity;
+               (unlimited) -> infinity;
+               (A) -> A
+            end),
+            econf:pos_int()).
 
 shaper_validator() ->
     econf:either(
-      econf:and_then(
-	econf:options(
-	  #{rate => econf:pos_int(),
-	    burst_size => econf:pos_int()},
-	  [unique, {required, [rate]}, {return, map}]),
-	fun(#{rate := Rate} = Map) ->
-		{Rate, maps:get(burst_size, Map, Rate)}
-	end),
-      econf:pos_int(infinity)).
+        econf:and_then(
+            econf:options(
+                #{rate => econf:pos_int(),
+                burst_size => econf:pos_int()},
+                [unique, {required, [rate]}, {return, map}]),
+            fun(#{rate := Rate} = Map) ->
+                {Rate, maps:get(burst_size, Map, Rate)}
+            end),
+            econf:pos_int(infinity)).
 
 %%%===================================================================
 %%% Aux
@@ -225,17 +247,19 @@ shaper_validator() ->
 reserved() ->
     [none, infinite, unlimited, infinity].
 
+
 -spec resolve_shapers(atom(), [shaper_rule()], #{atom() => shaper_rate()}) -> [shaper_rate_rule()].
 resolve_shapers(ShaperRule, Rules, Shapers) ->
     lists:filtermap(
-      fun({Name, Rule}) when is_atom(Name), Name /= none, Name /= infinity ->
-	      try {true, {maps:get(Name, Shapers), Rule}}
-	      catch _:{badkey, _} ->
-		      ?WARNING(
-			 "Shaper rule '~ts' refers to unknown shaper: ~ts",
-			 [ShaperRule, Name]),
-		      false
-	      end;
-	 (_) ->
-	      true
-      end, Rules).
+        fun({Name, Rule}) when is_atom(Name), Name /= none, Name /= infinity ->
+            try {true, {maps:get(Name, Shapers), Rule}}
+            catch _:{badkey, _} ->
+                ?WARNING(
+                "Shaper rule '~ts' refers to unknown shaper: ~ts",
+                [ShaperRule, Name]),
+                false
+            end;
+        (_) ->
+            true
+        end, Rules).
+
