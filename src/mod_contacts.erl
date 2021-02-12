@@ -457,7 +457,10 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
             %% TODO(murali@): change this when we switch to contact hashing.
             %% We are looking up redis sequentially for every phone number.
             %% TODO(murali@): this query will make it expensive. fix this with qmn later.
-            NumPotentialFriends = model_contacts:get_contact_uids_size(ContactPhone),
+            NumPotentialFriends = case dev_users:is_dev_uid(UserId) of
+                true -> model_contacts:get_contact_uids_size(ContactPhone);
+                false -> 0  %% 0 or undefined is the same for the clients.
+            end,
             #pb_contact{normalized = ContactPhone, uid = undefined,
                     role = none, num_potential_friends = NumPotentialFriends};
         _ ->
