@@ -418,15 +418,19 @@ upload_file_to_s3(Filename, SourceServer) ->
     upload_and_delete_file(ObjectKey, Filename),
     ok.
 
+make_s3_date_str(Year, Month, Date) ->
+    "year=" ++ Year ++ "/" ++ "month=" ++ Month ++ "/" ++ "date=" ++ Date.
+
 -spec make_object_key(SourceServer :: string(), Filename :: string()) -> string().
 make_object_key(SourceServer, Filename) ->
     % e.g. logs/event_logs/client.upload_timing.2021.01.20 on local machine
-    % becomes client.upload_timing/2021/01/20/s-test.json on S3 later
+    % becomes client.upload_timing/year=2021/month=01/date=20/s-test.json on S3 later
     WithoutPrefix = filename:basename(Filename),
     Tokenized = string:split(WithoutPrefix, ".log.", trailing),
     OldDateStr = lists:nth(2, Tokenized),
     Namespace = lists:nth(1, Tokenized),
-    NewDateStr = string:replace(OldDateStr, ".", "/", all),
+    [Year, Month, Date] = string:split(OldDateStr, ".", all),
+    NewDateStr = make_s3_date_str(Year, Month, Date),
     FilenameWithServer = filename:join([Namespace, NewDateStr, binary_to_list(SourceServer) ++ ".json"]),
     FilenameWithServer.
 
