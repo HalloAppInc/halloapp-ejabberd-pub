@@ -87,8 +87,7 @@ transform(global, listen, Listeners, Acc) ->
 	  end, Acc, Listeners),
     {{true, {listen, Listeners1}}, Acc2};
 transform(_Host, Opt, CertFile, Acc) when (Opt == domain_certfile) orelse
-					  (Opt == c2s_certfile) orelse
-					  (Opt == s2s_certfile) ->
+					  (Opt == c2s_certfile) ->
     ?WARNING("Option '~ts' is deprecated and was automatically "
 		 "appended to 'certfiles' option. ~ts",
 		 [Opt, adjust_hint()]),
@@ -118,16 +117,6 @@ transform(_Host, acme, ACME, Acc) ->
 		      Opt
 	      end, ACME),
     {{true, {acme, ACME1}}, Acc};
-transform(Host, s2s_use_starttls, required_trusted, Acc) ->
-    ?WARNING("The value 'required_trusted' of option "
-		 "'s2s_use_starttls' is deprecated and was "
-		 "automatically replaced with value 'required'. "
-		 "The module 'mod_s2s_dialback' has also "
-		 "been automatically removed from the configuration. ~ts",
-		 [adjust_hint()]),
-    Hosts = maps:get(remove_s2s_dialback, Acc, []),
-    Acc1 = maps:put(remove_s2s_dialback, [Host|Hosts], Acc),
-    {{true, {s2s_use_starttls, required}}, Acc1};
 transform(_Host, _Opt, _Val, Acc) ->
     {true, Acc}.
 
@@ -174,28 +163,9 @@ filter(_Host, default_ram_db, internal, _) ->
     {true, {default_ram_db, mnesia}};
 filter(_Host, default_ram_db, odbc, _) ->
     {true, {default_ram_db, sql}};
-filter(_Host, Opt, Val, _) when Opt == outgoing_s2s_timeout;
-				Opt == s2s_dns_timeout ->
-    warn_huge_timeout(Opt, Val),
-    true;
 filter(_Host, captcha_host, _, _) ->
     warn_deprecated_option(captcha_host, captcha_url),
     true;
-filter(_Host, route_subdomains, _, _) ->
-    warn_removed_option(route_subdomains, s2s_access),
-    false;
-filter(Host, modules, ModOpts, State) ->
-    NoDialbackHosts = maps:get(remove_s2s_dialback, State, []),
-    ModOpts1 = lists:filter(
-		 fun({mod_s2s_dialback, _}) ->
-			 not lists:member(Host, NoDialbackHosts);
-		    ({mod_echo, _}) ->
-			 warn_removed_module(mod_echo),
-			 false;
-		    (_) ->
-			 true
-		 end, ModOpts),
-    {true, {modules, ModOpts1}};
 filter(_, _, _, _) ->
     true.
 
@@ -286,8 +256,7 @@ remove_inet_options(Opts) ->
 collect_listener_certfiles(Opts, Acc) ->
     Mod = proplists:get_value(module, Opts),
     if Mod == ejabberd_http;
-       Mod == ejabberd_c2s;
-       Mod == ejabberd_s2s_in ->
+       Mod == ejabberd_c2s ->
 	    case lists:keyfind(certfile, 1, Opts) of
 		{_, CertFile} ->
 		    ?WARNING("Listening option 'certfile' of module ~ts "
@@ -482,10 +451,8 @@ adjust_hint() ->
 %%%===================================================================
 validator() ->
     Validators =
-	#{s2s_use_starttls => econf:atom(),
-	  certfiles => econf:list(econf:any()),
+	#{certfiles => econf:list(econf:any()),
 	  c2s_certfile => econf:binary(),
-	  s2s_certfile => econf:binary(),
 	  domain_certfile => econf:binary(),
 	  default_db => econf:atom(),
 	  default_ram_db => econf:atom(),

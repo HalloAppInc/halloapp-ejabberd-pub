@@ -426,7 +426,12 @@ do_route(OrigPacket) ->
                     LDstDomain = To#jid.lserver,
                     case find_routes(LDstDomain) of
                         [] ->
-                            ejabberd_s2s:route(Packet);
+                            ?ERROR("Packet can't be routed: ~p", [OrigPacket]),
+                            %% This should not happen for us.
+                            %% Should cleanup this file and ejabberd_local.
+                            %% We dont need to check the routing processes until after we store the message.
+                            %% TODO(murali@): fix this.
+                            ok;
                         [Route] ->
                             do_route(Packet, Route);
                         Routes ->

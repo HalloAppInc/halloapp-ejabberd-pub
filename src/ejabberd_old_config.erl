@@ -58,15 +58,13 @@ collect_options(Opts) ->
 
 transform(Opts) ->
     Opts1 = transform_register(Opts),
-    Opts2 = transform_s2s(Opts1),
-    Opts3 = transform_listeners(Opts2),
-    Opts5 = transform_sql(Opts3),
-    Opts6 = transform_shaper(Opts5),
-    Opts7 = transform_s2s_out(Opts6),
-    Opts8 = transform_acl(Opts7),
-    Opts9 = transform_modules(Opts8),
-    Opts10 = transform_globals(Opts9),
-    collect_options(Opts10).
+    Opts2 = transform_listeners(Opts1),
+    Opts3 = transform_sql(Opts2),
+    Opts4 = transform_shaper(Opts3),
+    Opts5 = transform_acl(Opts4),
+    Opts6 = transform_modules(Opts5),
+    Opts7 = transform_globals(Opts6),
+    collect_options(Opts7).
 
 %%%===================================================================
 %%% mod_register
@@ -101,62 +99,6 @@ transform_register(Opts) ->
             Opts
     end.
 
-%%%===================================================================
-%%% ejabberd_s2s
-%%%===================================================================
-transform_s2s(Opts) ->
-    lists:foldl(fun transform_s2s/2, [], Opts).
-
-transform_s2s({{s2s_host, Host}, Action}, Opts) ->
-    ?WARNING("Option 's2s_host' is deprecated.", []),
-    ACLName = misc:binary_to_atom(
-                iolist_to_binary(["s2s_access_", Host])),
-    [{acl, ACLName, {server, Host}},
-     {access, s2s, [{Action, ACLName}]},
-     {s2s_access, s2s} |
-     Opts];
-transform_s2s({s2s_default_policy, Action}, Opts) ->
-    ?WARNING("Option 's2s_default_policy' is deprecated. "
-                 "The option is still supported but it is better to "
-                 "fix your config: "
-                 "use 's2s_access' with an access rule.", []),
-    [{access, s2s, [{Action, all}]},
-     {s2s_access, s2s} |
-     Opts];
-transform_s2s(Opt, Opts) ->
-    [Opt|Opts].
-
-%%%===================================================================
-%%% ejabberd_s2s_out
-%%%===================================================================
-transform_s2s_out(Opts) ->
-    lists:foldl(fun transform_s2s_out/2, [], Opts).
-
-transform_s2s_out({outgoing_s2s_options, Families, Timeout}, Opts) ->
-    ?WARNING("Option 'outgoing_s2s_options' is deprecated. "
-                 "The option is still supported "
-                 "but it is better to fix your config: "
-                 "use 'outgoing_s2s_timeout' and "
-                 "'outgoing_s2s_families' instead.", []),
-    [{outgoing_s2s_families, Families},
-     {outgoing_s2s_timeout, Timeout}
-     | Opts];
-transform_s2s_out({s2s_dns_options, S2SDNSOpts}, AllOpts) ->
-    ?WARNING("Option 's2s_dns_options' is deprecated. "
-                 "The option is still supported "
-                 "but it is better to fix your config: "
-                 "use 's2s_dns_timeout' and "
-                 "'s2s_dns_retries' instead", []),
-    lists:foldr(
-      fun({timeout, T}, AccOpts) ->
-              [{s2s_dns_timeout, T}|AccOpts];
-         ({retries, R}, AccOpts) ->
-              [{s2s_dns_retries, R}|AccOpts];
-         (_, AccOpts) ->
-              AccOpts
-      end, AllOpts, S2SDNSOpts);
-transform_s2s_out(Opt, Opts) ->
-    [Opt|Opts].
 
 %%%===================================================================
 %%% ejabberd_listener

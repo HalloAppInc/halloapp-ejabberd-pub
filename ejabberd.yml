@@ -58,11 +58,6 @@ listen:
     noise_static_key: /etc/ejabberd_certs/noise/server.pem
     noise_server_certificate: /etc/ejabberd_certs/noise/server_certificate.pem
   -
-    port: 5269
-    ip: "::"
-    module: ejabberd_s2s_in
-    max_stanza_size: 524288
-  -
     port: 5443
     ip: "::"
     module: ejabberd_http
@@ -90,8 +85,6 @@ listen:
       /api/logs: mod_logs_http_api
       /api/smscallback: mod_sms_callback
       /api: mod_halloapp_http_api
-
-s2s_use_starttls: optional
 
 acme:
   auto: false

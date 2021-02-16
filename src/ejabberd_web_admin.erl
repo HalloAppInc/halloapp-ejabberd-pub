@@ -789,8 +789,6 @@ su_to_list({Server, User}) ->
 get_stats(global, Lang) ->
     OnlineUsers = ejabberd_sm:connected_users_number(),
     RegisteredUsers = ejabberd_auth:count_users(),
-    OutS2SNumber = ejabberd_s2s:outgoing_s2s_number(),
-    InS2SNumber = ejabberd_s2s:incoming_s2s_number(),
     [?XAE(<<"table">>, [],
 	  [?XE(<<"tbody">>,
 	       [?XE(<<"tr">>,
@@ -798,13 +796,7 @@ get_stats(global, Lang) ->
 		     ?XC(<<"td">>, (pretty_string_int(RegisteredUsers)))]),
 		?XE(<<"tr">>,
 		    [?XCT(<<"td">>, ?T("Online Users:")),
-		     ?XC(<<"td">>, (pretty_string_int(OnlineUsers)))]),
-		?XE(<<"tr">>,
-		    [?XCT(<<"td">>, ?T("Outgoing s2s Connections:")),
-		     ?XC(<<"td">>, (pretty_string_int(OutS2SNumber)))]),
-		?XE(<<"tr">>,
-		    [?XCT(<<"td">>, ?T("Incoming s2s Connections:")),
-		     ?XC(<<"td">>, (pretty_string_int(InS2SNumber)))])])])];
+		     ?XC(<<"td">>, (pretty_string_int(OnlineUsers)))])])])];
 get_stats(Host, Lang) ->
     OnlineUsers =
 	ejabberd_sm:ets_count_sessions(),

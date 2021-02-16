@@ -61,7 +61,6 @@ init_config(Config) ->
         {server_port, ct:get_config(c2s_port, 5222)},
         {server_host, "localhost"},
         {component_port, ct:get_config(component_port, 5270)},
-        {s2s_port, ct:get_config(s2s_port, 5269)},
         {server, ?COMMON_VHOST},
         {certfile, CertFile},
         {persistent_room, true},

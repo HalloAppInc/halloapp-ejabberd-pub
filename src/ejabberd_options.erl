@@ -193,20 +193,6 @@ opt_type(oom_queue) ->
     econf:pos_int();
 opt_type(oom_watermark) ->
     econf:int(1, 99);
-opt_type(outgoing_s2s_families) ->
-    econf:and_then(
-        econf:non_empty(
-            econf:list(econf:enum([ipv4, ipv6]), [unique])),
-        fun(L) ->
-            lists:map(
-                fun (ipv4) -> inet;
-                    (ipv6) -> inet6
-                end, L)
-        end);
-opt_type(outgoing_s2s_port) ->
-    econf:port();
-opt_type(outgoing_s2s_timeout) ->
-    econf:timeout(second, infinity);
 opt_type(pgsql_users_number_estimate) ->
     econf:bool();
 opt_type(queue_dir) ->
@@ -241,42 +227,6 @@ opt_type(router_use_cache) ->
     econf:bool();
 opt_type(rpc_timeout) ->
     econf:timeout(second);
-opt_type(s2s_access) ->
-    econf:acl();
-opt_type(s2s_cafile) ->
-    econf:pem();
-opt_type(s2s_ciphers) ->
-    econf:binary();
-opt_type(s2s_dhfile) ->
-    econf:file();
-opt_type(s2s_dns_retries) ->
-    econf:non_neg_int();
-opt_type(s2s_dns_timeout) ->
-    econf:timeout(second, infinity);
-opt_type(s2s_max_retry_delay) ->
-    econf:timeout(second);
-opt_type(s2s_protocol_options) ->
-    econf:and_then(
-        econf:list(econf:binary(), [unique]),
-        fun concat_tls_protocol_options/1);
-opt_type(s2s_queue_type) ->
-    econf:enum([ram, file]);
-opt_type(s2s_timeout) ->
-    econf:timeout(second, infinity);
-opt_type(s2s_tls_compression) ->
-    econf:bool();
-opt_type(s2s_use_starttls) ->
-    econf:either(
-        econf:bool(),
-        econf:enum([optional, required]));
-opt_type(s2s_zlib) ->
-    econf:and_then(
-        econf:bool(),
-        fun (false) -> false;
-            (true) ->
-                ejabberd:start_app(ezlib),
-                true
-        end);
 opt_type(shaper) ->
     ejabberd_shaper:validator(shaper);
 opt_type(shaper_rules) ->
@@ -346,14 +296,11 @@ opt_type(websocket_timeout) ->
 %% We only define the types of options that cannot be derived
 %% automatically by tools/opt_type.sh script
 -spec options() -> [
-    {s2s_protocol_options, undefined | binary()} |
     {c2s_protocol_options, undefined | binary()} |
     {websocket_origin, [binary()]} |
     {disable_sasl_mechanisms, [binary()]} |
-    {s2s_zlib, boolean()} |
     {listen, [ejabberd_listener:listener()]} |
     {modules, [{module(), gen_mod:opts(), integer()}]} |
-    {outgoing_s2s_families, [inet | inet6, ...]} |
     {acl, [{atom(), [acl:acl_rule()]}]} |
     {access_rules, [{atom(), acl:access()}]} |
     {shaper, #{atom() => ejabberd_shaper:shaper_rate()}} |
@@ -450,9 +397,6 @@ options() -> [%% Top-priority options
     {oom_killer, true},
     {oom_queue, 10000},
     {oom_watermark, 80},
-    {outgoing_s2s_families, [inet, inet6]},
-    {outgoing_s2s_port, 5269},
-    {outgoing_s2s_timeout, timer:seconds(10)},
     {pgsql_users_number_estimate, false},
     {queue_dir, undefined},
     {redis_connect_timeout, timer:seconds(1)},
@@ -474,20 +418,6 @@ options() -> [%% Top-priority options
     {router_use_cache,
         fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},
     {rpc_timeout, timer:seconds(5)},
-    {s2s_access, all},
-    {s2s_cafile, undefined},
-    {s2s_ciphers, undefined},
-    {s2s_dhfile, undefined},
-    {s2s_dns_retries, 2},
-    {s2s_dns_timeout, timer:seconds(10)},
-    {s2s_max_retry_delay, timer:seconds(300)},
-    {s2s_protocol_options, undefined},
-    {s2s_queue_type,
-        fun(Host) -> ejabberd_config:get_option({queue_type, Host}) end},
-    {s2s_timeout, timer:minutes(10)},
-    {s2s_tls_compression, undefined},
-    {s2s_use_starttls, false},
-    {s2s_zlib, false},
     {shaper, #{}},
     {shaper_rules, []},
     {sm_cache_life_time,
@@ -593,7 +523,6 @@ globals() -> [
     router_cache_size,
     router_use_cache,
     rpc_timeout,
-    s2s_max_retry_delay,
     shaper,
     sm_cache_life_time,
     sm_cache_missed,
