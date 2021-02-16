@@ -434,6 +434,9 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
         <<"thread-id">> => PushMetadata#push_metadata.thread_id,
         <<"thread-name">> => PushMetadata#push_metadata.thread_name,
         <<"sender-name">> => PushMetadata#push_metadata.sender_name,
+        %% Ideally clients should decode the pb message and then use this for metrics.
+        %% Easier to have this if we start sending it ourselves - filed an issue for ios.
+        <<"message-id">> => PushMessageItem#push_message_item.id,
         <<"data">> => Data,
         <<"message">> => PbMessageB64
     },
