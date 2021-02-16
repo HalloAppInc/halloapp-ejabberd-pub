@@ -71,6 +71,9 @@
     phone_info/1,
     group_info/1,
     send_ios_push/3,
+    update_code_paths/0,
+    list_changed_modules/0,
+    hotload_modules/1,
     hot_code_reload/0,
     get_commands_spec/0
 ]).
@@ -460,7 +463,19 @@ get_commands_spec() ->
         args_desc = ["Uid", "PushType", "Payload"],
         args_example = [<<"123">>, <<"alert">>, <<"GgMSAUg=">>],
         args=[{uid, binary}, {push_type, binary}, {payload, binary}],
-        result = {res, rescode}}
+        result = {res, rescode}},
+    #ejabberd_commands{name = update_code_paths, tags = [server],
+        desc = "update codepaths to the newly released folder.",
+        module = ?MODULE, function = update_code_paths,
+        args=[], result = {res, restuple}},
+    #ejabberd_commands{name = list_changed_modules, tags = [server],
+        desc = "list all changed modules",
+        module = ?MODULE, function = list_changed_modules,
+        args=[], result = {res, restuple}},
+    #ejabberd_commands{name = hotload_modules, tags = [server],
+        desc = "Hot code reload some modules",
+        module = ?MODULE, function = hotload_modules,
+        args=[{modules, modules_list}], result = {res, restuple}},
     #ejabberd_commands{name = hot_code_reload, tags = [server],
         desc = "Hot code reload a module",
         module = ?MODULE, function = hot_code_reload,
@@ -471,15 +486,36 @@ get_commands_spec() ->
 %% Use the h script to release.
 %% Ex: h release --machine s-test --hotload
 %% That command would release the latest code onto s-test and then call this function.
-%% We look up the list of modified modules and purge any old code if present and load these new modules.
+%% We first update all the code paths for all libraries and then we
+%% look up the list of modified modules and purge any old code if present and load these new modules.
 %% Please make sure that there are no errors when doing this hot code release.
 %% We log if can't hotload a specific module.
 %% If this does not work: we can release our old way using restart.
--spec hot_code_reload() -> ok | {error, any()}.
+-spec hot_code_reload() -> ok.
 hot_code_reload() ->
+    update_code_paths(),
+    {ok, ModifiedModules} = list_changed_modules(),
+    hotload_modules(ModifiedModules),
+    ok.
+
+
+%% Use the h script to check changed_modules.
+%% Ex: h release --machine s-test --list_changed_modules
+%% That should list the modules updated after the release.
+-spec list_changed_modules() -> {ok, [atom()]}.
+list_changed_modules() ->
+    ModifiedModules = code:modified_modules(),
+    ?INFO("changed_modules: ~p", [lists:sort(ModifiedModules)]),
+    io:format("changed_modules: ~p", [lists:sort(ModifiedModules)]),
+    {ok, ModifiedModules}.
+
+
+%% Use the h script to release.
+%% Ex: h release --machine s-test --hotload_modules module1,module2,module3
+%% This will then hotload all the modules.
+-spec hotload_modules(ModifiedModules :: [atom()]) -> ok | {error, any()}.
+hotload_modules(ModifiedModules) ->
     try
-        update_code_paths(),
-        ModifiedModules = code:modified_modules(),
         lists:foldl(
             fun(Module, Acc) ->
                 case code:soft_purge(Module) of
@@ -492,64 +528,73 @@ hot_code_reload() ->
             end, [], ModifiedModules),
         {ok, Prepared} = code:prepare_loading(ModifiedModules),
         ok = code:finish_loading(Prepared),
-        io:format("Hotloaded following modules: ~p", [lists:sort(ModifiedModules)]),
-        ?INFO("Hotloaded following modules: ~p", [lists:sort(ModifiedModules)])
+        ?INFO("Hotloaded following modules: ~p", [lists:sort(ModifiedModules)]),
+        io:format("Hotloaded following modules: ~p", [lists:sort(ModifiedModules)])
     catch
         error: Reason ->
             io:format("Failed to hotload modules, reason: ~p", [Reason]),
-            ?ERROR("Failed to hotload modules, reason: ~p", [Reason]),
             {error, Reason};
         Class: Reason: Stacktrace ->
-            io:format("hot_code_reload error: ~s",
-                    [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            ?ERROR("hot_code_reload error: ~s",
+            io:format("hotload_code error: ~s",
                     [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             {error, Reason}
     end.
 
 
+%% Use the h script to update code_paths.
+%% This will load the new directories for all packages and remove any files that are no longer needed.
 -spec update_code_paths() -> ok | {error, any()}.
 update_code_paths() ->
-    %% List all libraries in the current directory.
-    {ok, AllLibDirs} = file:list_dir(?CURRENT_LIB_PATH),
+    try
+        %% List all libraries in the current directory.
+        {ok, AllLibDirs} = file:list_dir(?CURRENT_LIB_PATH),
 
-    %% Get all the new library names to be added.
-    Libs = lists:map(
-            fun(LibDir) ->
-                [Package| _] = string:split(LibDir, "-"),
-                Package
-            end, AllLibDirs),
+        %% Get all the new library names to be added.
+        Libs = lists:map(
+                fun(LibDir) ->
+                    [Package| _] = string:split(LibDir, "-"),
+                    Package
+                end, AllLibDirs),
 
-    %% check if we need to delete any filepaths from the new set of paths.
-    Files = code:get_path(),
-    DelFilePaths = lists:foldl(
-        fun(FilePath, Acc) ->
-            case util:to_binary(FilePath) of
-                <<?CURRENT_LIB_PATH, PackageExtBin>>  ->
-                    PackageExt = util:to_list(PackageExtBin),
-                    [Package | _] = string:split(PackageExt, <<"-">>),
-                    case lists:member(Package, Libs) of
-                        false -> [FilePath | Acc];
-                        true -> Acc
-                    end;
-                _ -> error(invalid_file)
-            end
-        end, [], Files),
+        %% check if we need to delete any filepaths from the new set of paths.
+        Files = code:get_path(),
+        DelFilePaths = lists:foldl(
+            fun(FilePath, Acc) ->
+                case util:to_binary(FilePath) of
+                    <<?CURRENT_LIB_PATH, PackageExtBin>>  ->
+                        PackageExt = util:to_list(PackageExtBin),
+                        [Package | _] = string:split(PackageExt, <<"-">>),
+                        case lists:member(Package, Libs) of
+                            false -> [FilePath | Acc];
+                            true -> Acc
+                        end;
+                    _ -> error(invalid_file)
+                end
+            end, [], Files),
 
-    %% replace any existing paths if any for all libraries.
-    %% if paths already exist: we replace them, else we add them newly.
-    LoadedLibs = lists:foldl(
-        fun(LibDir, Acc) ->
-            [Package | _] = string:split(LibDir, <<"-">>),
-            true = code:replace_path(Package, ?CURRENT_LIB_PATH ++ LibDir),
-            [Package | Acc]
-        end, [], AllLibDirs),
+        %% replace any existing paths if any for all libraries.
+        %% if paths already exist: we replace them, else we add them newly.
+        LoadedLibs = lists:foldl(
+            fun(LibDir, Acc) ->
+                [Package | _] = string:split(LibDir, <<"-">>),
+                true = code:replace_path(Package, ?CURRENT_LIB_PATH ++ LibDir),
+                [Package | Acc]
+            end, [], AllLibDirs),
 
-    ?INFO("Added file paths for these libraries: ~p", [LoadedLibs]),
+        ?INFO("Added file paths for these libraries: ~p", [LoadedLibs]),
 
-    %% delete filepaths that are no longer needed.
-    lists:foreach(fun code:del_path/1, DelFilePaths),
-    ok.
+        %% delete filepaths that are no longer needed.
+        lists:foreach(fun code:del_path/1, DelFilePaths),
+        ok
+    catch
+        error: Reason ->
+            io:format("Failed to update paths, reason: ~p", [Reason]),
+            {error, Reason};
+        Class: Reason: Stacktrace ->
+            io:format("update_code_paths error: ~s",
+                    [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            {error, Reason}
+    end.
 
 
 %%%

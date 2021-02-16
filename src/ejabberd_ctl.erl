@@ -374,14 +374,23 @@ call_command([CmdString | Args], Auth, _AccessCommands, Version) ->
 %% Format arguments
 %%-----------------------------
 
+%% converts arguments to the specific format as mentioned in the command spec.
+%% extended this to support a list of arguments.
+format_args([ModulesList], [{_, modules_list}]) ->
+    Modules = string:split(ModulesList, ","),
+    [lists:map(
+        fun(Module) ->
+            Formatted = util:to_atom(Module)
+        end, Modules)
+    ];
 format_args(Args, ArgsFormat) ->
     lists:foldl(
-      fun({{_ArgName, ArgFormat}, Arg}, Res) ->
-	      Formatted = format_arg(Arg, ArgFormat),
-	      Res ++ [Formatted]
-      end,
-      [],
-      lists:zip(ArgsFormat, Args)).
+        fun({{_ArgName, ArgFormat}, Arg}, Res) ->
+            Formatted = format_arg(Arg, ArgFormat),
+            Res ++ [Formatted]
+        end,
+        [],
+        lists:zip(ArgsFormat, Args)).
 
 format_arg(Arg, integer) ->
     format_arg2(Arg, "~d");
