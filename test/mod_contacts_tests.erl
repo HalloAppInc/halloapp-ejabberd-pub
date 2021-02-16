@@ -124,8 +124,6 @@ normalize_and_insert_contacts_with_syncid_test() ->
     %% Test if uid is correctly inserted for unregistered phone numbers.
     {ok, ActualUids1} = model_contacts:get_potential_reverse_contact_uids(?PHONE4),
     {ok, ActualUids2} = model_contacts:get_potential_reverse_contact_uids(?PHONE6),
-    ?debugFmt("~p",[ActualUids1]),
-    ?debugFmt("~p",[ActualUids2]),
     ?assert(lists:member(?UID1, ActualUids1)),
     ?assert(lists:member(?UID1, ActualUids2)),
 
@@ -174,7 +172,6 @@ normalize_and_insert_contacts_without_syncid_test() ->
 
     %% Test if uid is correctly inserted for unregistered phone numbers.
     {ok, ActualUids} = model_contacts:get_potential_reverse_contact_uids(?PHONE4),
-    ?debugFmt("~p",[ActualUids]),
     ?assert(lists:member(?UID1, ActualUids)),
     ok.
 

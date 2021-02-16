@@ -567,7 +567,7 @@ remove_contact_and_notify(UserId, Server, UserPhone, ContactPhone, ReverseContac
         ContactId :: binary(), Role :: list()) -> ok.
 notify_contact_about_user(UserId, _UserPhone, _Server, UserId, _Role) ->
     ok;
-notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role) ->
+notify_contact_about_user(UserId, UserPhone, _Server, ContactId, Role) ->
     notifications_util:send_contact_notification(UserId, UserPhone, ContactId, Role).
 
 -spec probe_contact_about_user(UserId :: binary(), UserPhone :: binary(),
