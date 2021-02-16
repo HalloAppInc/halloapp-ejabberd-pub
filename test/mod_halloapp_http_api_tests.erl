@@ -372,7 +372,7 @@ clear() ->
 
 
 meck_init(Mod, FunName, Fun) ->
-    meck:new(Mod),
+    meck:new(Mod, [passthrough]),
     meck:expect(Mod, FunName, Fun).
 
 

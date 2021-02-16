@@ -184,7 +184,6 @@ get_processes_to_monitor() ->
         ejabberd_hooks,
         ejabberd_listener,
         ejabberd_router,
-        ejabberd_router_multicast,
         ejabberd_sm,
         ejabberd_gen_mod_sup
     ].

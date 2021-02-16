@@ -825,9 +825,9 @@ get_priority_from_presence(#presence{priority = Prio}) ->
     end.
 
 -spec route_multiple(state(), [jid()], stanza()) -> ok.
-route_multiple(#{lserver := LServer}, JIDs, Pkt) ->
+route_multiple(#{lserver := _LServer}, JIDs, Pkt) ->
     From = xmpp:get_from(Pkt),
-    ejabberd_router_multicast:route_multicast(From, LServer, JIDs, Pkt).
+    ejabberd_router:route_multicast(From, JIDs, Pkt).
 
 get_subscription(#jid{luser = LUser, lserver = LServer}, JID) ->
     {Subscription, _, _} = ejabberd_hooks:run_fold(

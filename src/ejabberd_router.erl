@@ -35,6 +35,7 @@
 %% API
 -export([
     route/1,
+    route_multicast/3,
     route_error/2,
     route_iq/2,
     route_iq/3,
@@ -99,7 +100,25 @@ route(Packet) ->
         ?ERROR("Failed to route packet:~n~ts~n** ~ts",
                [xmpp:pp(Packet),
             misc:format_exception(2, Class, Reason, StackTrace)])
-    end.
+    end,
+    ok.
+
+
+-spec route_multicast(jid(), [jid()], stanza()) -> ok.
+route_multicast(_From, [], _Packet) ->
+    ok;
+route_multicast(From, Destinations, Packet) ->
+    Id = xmpp:get_id(Packet),
+    Packet1 = xmpp:set_from(Packet, From),
+    lists:foldl(
+        fun(To, Acc) ->
+            AccBin = integer_to_binary(Acc),
+            NewId = <<Id/binary, "-", AccBin/binary>>,
+            Packet2 = xmpp:set_id(xmpp:set_to(Packet1, To), NewId),
+            route(Packet2),
+            Acc+1
+        end, 0, Destinations),
+    ok.
 
 
 -spec route(jid(), jid(), xmlel() | stanza()) -> ok.

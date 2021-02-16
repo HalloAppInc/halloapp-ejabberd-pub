@@ -384,7 +384,7 @@ send_retract_message(MsgId, Gid, Uid, GroupChatRetractSt) ->
 broadcast_packet(From, Server, BroadcastUids, Packet) ->
     BroadcastJids = util:uids_to_jids(BroadcastUids, Server),
     ?INFO("Uid: ~s, receiver uids: ~p", [From#jid.luser, BroadcastJids]),
-    ejabberd_router_multicast:route_multicast(From, Server, BroadcastJids, Packet),
+    ejabberd_router:route_multicast(From, BroadcastJids, Packet),
     ok.
 
 %% Returns a set of all the uids that are in one or more groups with given Uid.

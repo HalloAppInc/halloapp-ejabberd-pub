@@ -247,7 +247,8 @@ check_count_and_notify_user(Uid, Server) ->
 set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys) ->
     ?INFO("Uid: ~s, set_keys", [Uid]),
     ok = model_whisper_keys:set_keys(Uid, IdentityKey, SignedKey, OneTimeKeys),
-    ok = notify_key_subscribers(Uid, util:get_host()).
+    ok = notify_key_subscribers(Uid, util:get_host()),
+    ok.
 
 
 -spec notify_key_subscribers(Uid :: binary(), Server :: binary()) -> ok.
@@ -261,7 +262,8 @@ notify_key_subscribers(Uid, Server) ->
         from = From,
         sub_els = [#whisper_keys{type = update, uid = Uid}]
     },
-    ejabberd_router_multicast:route_multicast(From, Server, Ojids, Packet).
+    ejabberd_router:route_multicast(From, Ojids, Packet),
+    ok.
 
 
 is_base64_encoded(Data) ->

@@ -53,7 +53,6 @@ init([]) ->
 	   supervisor(ejabberd_sql_sup),
 	   worker(ejabberd_iq),
 	   worker(ejabberd_router),
-	   worker(ejabberd_router_multicast),
 	   worker(ejabberd_local),
 	   worker(ejabberd_sm),
 	   simple_supervisor(ejabberd_service),

@@ -178,7 +178,7 @@ route_multiple(_, [], _) ->
     ok;
 route_multiple(Server, JIDs, Packet) ->
     From = xmpp:get_from(Packet),
-    ejabberd_router_multicast:route_multicast(From, Server, JIDs, Packet).
+    ejabberd_router:route_multicast(From, JIDs, Packet).
 
 
 -spec check_and_probe_friends_presence(User :: binary(), Server :: binary(),

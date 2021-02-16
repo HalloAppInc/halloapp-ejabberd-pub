@@ -504,10 +504,10 @@ publish_group_feed_test() ->
 
     % First create the group and set the avatar
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
-
-    meck:new(ejabberd_router_multicast, [passthrough]),
-    meck:expect(ejabberd_router_multicast, route_multicast,
-        fun(_From, Server, BroadcastJids, Packet) ->
+    Server = <<>>,
+    meck:new(ejabberd_router, [passthrough]),
+    meck:expect(ejabberd_router, route_multicast,
+        fun(_From, BroadcastJids, Packet) ->
             [SubEl] = Packet#message.sub_els,
             ?assertEqual(?GROUP_NAME1, SubEl#group_feed_st.name),
             ?assertEqual(undefined, SubEl#group_feed_st.avatar_id),
@@ -531,8 +531,8 @@ publish_group_feed_test() ->
     [GroupPostSt] = SubEl#group_feed_st.posts,
     ?assertEqual(?UID1, GroupPostSt#group_post_st.publisher_uid),
     ?assertNotEqual(undefined, GroupPostSt#group_post_st.timestamp),
-    ?assert(meck:validate(ejabberd_router_multicast)),
-    meck:unload(ejabberd_router_multicast),
+    ?assert(meck:validate(ejabberd_router)),
+    meck:unload(ejabberd_router),
 
     {ok, Post} = model_feed:get_post(?ID1),
     ?assertEqual(?ID1, Post#post.id),
@@ -553,10 +553,10 @@ retract_group_feed_test() ->
     Timestamp = util:now_ms(),
     ok = model_feed:publish_post(?ID2, ?UID1, <<>>, all, [?UID1, ?UID2, ?UID3], Timestamp, Gid),
     ok = model_feed:publish_comment(?ID1, ?ID2, ?UID2, <<>>, [?UID1, ?UID2], <<>>, Timestamp),
-
-    meck:new(ejabberd_router_multicast, [passthrough]),
-    meck:expect(ejabberd_router_multicast, route_multicast,
-        fun(_From, Server, BroadcastJids, Packet) ->
+    Server = <<>>,
+    meck:new(ejabberd_router, [passthrough]),
+    meck:expect(ejabberd_router, route_multicast,
+        fun(_From, BroadcastJids, Packet) ->
             [SubEl] = Packet#message.sub_els,
             ?assertEqual(?GROUP_NAME1, SubEl#group_feed_st.name),
             ?assertEqual(undefined, SubEl#group_feed_st.avatar_id),
@@ -580,8 +580,8 @@ retract_group_feed_test() ->
     [GroupCommentSt] = SubEl#group_feed_st.comments,
     ?assertEqual(?UID2, GroupCommentSt#group_comment_st.publisher_uid),
     ?assertNotEqual(undefined, GroupCommentSt#group_comment_st.timestamp),
-    ?assert(meck:validate(ejabberd_router_multicast)),
-    meck:unload(ejabberd_router_multicast),
+    ?assert(meck:validate(ejabberd_router)),
+    meck:unload(ejabberd_router),
 
     ?assertEqual({error, missing}, model_feed:get_comment(?ID1, ?ID2)),
     ok.
