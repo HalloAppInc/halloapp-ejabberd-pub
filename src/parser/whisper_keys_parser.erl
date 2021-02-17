@@ -26,7 +26,11 @@ xmpp_to_proto(#whisper_keys{} = SubEl) ->
 xmpp_to_proto(#rerequest_st{} = SubEl) ->
     #pb_rerequest{
         id = SubEl#rerequest_st.id,
-        identity_key = util_parser:maybe_base64_decode(SubEl#rerequest_st.identity_key)
+        identity_key = util_parser:maybe_base64_decode(SubEl#rerequest_st.identity_key),
+        signed_pre_key_id = SubEl#rerequest_st.signed_pre_key_id,
+        one_time_pre_key_id = SubEl#rerequest_st.one_time_pre_key_id,
+        session_setup_ephemeral_key = util_parser:maybe_base64_decode(SubEl#rerequest_st.session_setup_ephemeral_key),
+        message_ephemeral_key = util_parser:maybe_base64_decode(SubEl#rerequest_st.message_ephemeral_key)
     }.
 
 
@@ -46,6 +50,10 @@ proto_to_xmpp(#pb_whisper_keys{} = ProtoPayload) ->
 proto_to_xmpp(#pb_rerequest{} = ProtoPayload) ->
     #rerequest_st{
         id = ProtoPayload#pb_rerequest.id,
-        identity_key = util_parser:maybe_base64_encode(ProtoPayload#pb_rerequest.identity_key)
+        identity_key = util_parser:maybe_base64_encode(ProtoPayload#pb_rerequest.identity_key),
+        signed_pre_key_id = ProtoPayload#pb_rerequest.signed_pre_key_id,
+        one_time_pre_key_id = ProtoPayload#pb_rerequest.one_time_pre_key_id,
+        session_setup_ephemeral_key = util_parser:maybe_base64_encode(ProtoPayload#pb_rerequest.session_setup_ephemeral_key),
+        message_ephemeral_key = util_parser:maybe_base64_encode(ProtoPayload#pb_rerequest.message_ephemeral_key)
     }.
 

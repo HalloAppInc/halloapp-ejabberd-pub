@@ -624,6 +624,10 @@ message NotificationPrefs {
 message Rerequest {
   string id = 1;
   bytes identity_key = 2;
+  int64 signed_pre_key_id = 3;
+  int64 one_time_pre_key_id = 4;
+  bytes session_setup_ephemeral_key = 5;
+  bytes message_ephemeral_key = 6;
 }
 
 

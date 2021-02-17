@@ -954,7 +954,9 @@ create_rerequest_st(Id, IdentityKey) ->
 create_pb_rerequest(Id, IdentityKey) ->
     #pb_rerequest{
         id = Id,
-        identity_key = IdentityKey
+        identity_key = IdentityKey,
+        signed_pre_key_id = undefined,
+        one_time_pre_key_id = undefined
     }.
 
 
