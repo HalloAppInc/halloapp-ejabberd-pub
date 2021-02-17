@@ -9,6 +9,7 @@
 
 -include("util_http.hrl").
 -include("ejabberd_http.hrl").
+-include("sms.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(PHONE, <<"14703381473">>).
@@ -39,10 +40,19 @@
 
 twilio_callback_test() ->
     setup(),
+    meck:new(twilio, [passthrough]),
+    % fetch_message_info is doing an http call to twilio. We don't want to do this during unit tests
+    meck:expect(twilio, fetch_message_info,
+        fun(Id) ->
+            {ok, #sms_response{sms_id = Id, gateway = twilio, status = delivered,
+                price = 0.01, currency = <<"USD">>}}
+        end),
     Data = uri_string:compose_query(?TWILIO_CALLBACK_QS(?TEST_PHONE, ?PHONE, <<"delivered">>)),
     {200, ?HEADER(?CT_JSON), Info} = mod_sms_callback:process(?TWILIO_CALLBACK_PATH,
         #request{method = 'POST', data = Data, headers = ?TWILIO_CALLBACK_HEADERS(?UA)}),
-    [{<<"result">>, <<"ok">>}] = jsx:decode(Info).
+    [{<<"result">>, <<"ok">>}] = jsx:decode(Info),
+    meck:unload(twilio),
+    ok.
 
 mbird_callback_test() ->
     setup(),
@@ -59,9 +69,8 @@ setup() ->
     tutil:setup(),
     {ok, _} = application:ensure_all_started(stringprep),
     {ok, _} = application:ensure_all_started(bcrypt),
-    redis_sup:start_link(),
-    clear(),
     mod_redis:start(undefined, []),
+    clear(),
     ok.
 
 
