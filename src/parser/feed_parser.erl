@@ -35,7 +35,7 @@ xmpp_to_proto(SubEl) ->
                         end, SubEl#feed_st.comments),
                     Uid = case SubEl#feed_st.posts of
                         [PostSt | _] ->
-                            util_parser:xmpp_to_proto_uid(PostSt#post_st.uid);
+                            PostSt#post_st.uid;
                         _ ->
                             undefined
                     end,
@@ -47,7 +47,7 @@ xmpp_to_proto(SubEl) ->
                     PbShareStanzas = lists:map(
                         fun(SharePostsSt) ->
                             #pb_share_stanza{
-                                uid = util_parser:xmpp_to_proto_uid(SharePostsSt#share_posts_st.uid),
+                                uid = SharePostsSt#share_posts_st.uid,
                                 result = util_parser:maybe_convert_to_binary(SharePostsSt#share_posts_st.result),
                                 reason = util_parser:maybe_convert_to_binary(SharePostsSt#share_posts_st.reason)
                             }
@@ -90,7 +90,7 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_feed_item) ->
                 Audience ->
                     UidEls = lists:map(
                         fun(Uid) ->
-                            #uid_element{uid = util_parser:proto_to_xmpp_uid(Uid)}
+                            #uid_element{uid = Uid}
                         end, Audience#pb_audience.uids),
                     [#audience_list_st{
                         type = Audience#pb_audience.type,
@@ -116,7 +116,7 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_feed_item) ->
                                 #post_st{id = PostId}
                             end, PbShareStanza#pb_share_stanza.post_ids),
                         #share_posts_st{
-                            uid = util_parser:proto_to_xmpp_uid(PbShareStanza#pb_share_stanza.uid),
+                            uid = PbShareStanza#pb_share_stanza.uid,
                             posts = Posts
                         }
                     end, PbPacket#pb_feed_item.share_stanzas),
@@ -153,7 +153,7 @@ comment_st_to_comment(CommentSt) ->
         id = CommentSt#comment_st.id,
         post_id = CommentSt#comment_st.post_id,
         parent_comment_id = CommentSt#comment_st.parent_comment_id,
-        publisher_uid = util_parser:xmpp_to_proto_uid(CommentSt#comment_st.publisher_uid),
+        publisher_uid = CommentSt#comment_st.publisher_uid,
         publisher_name = CommentSt#comment_st.publisher_name,
         timestamp = util_parser:maybe_convert_to_integer(CommentSt#comment_st.timestamp),
         payload = Payload
@@ -164,7 +164,7 @@ post_st_to_post(PostSt) ->
     Payload = convert_payload(PostSt),
     Post = #pb_post{
         id = PostSt#post_st.id,
-        publisher_uid = util_parser:xmpp_to_proto_uid(PostSt#post_st.uid),
+        publisher_uid = PostSt#post_st.uid,
         publisher_name = PostSt#post_st.publisher_name,
         payload = Payload,
         timestamp = util_parser:maybe_convert_to_integer(PostSt#post_st.timestamp)
@@ -177,7 +177,7 @@ comment_to_comment_st(Comment) ->
         id = Comment#pb_comment.id,
         post_id = Comment#pb_comment.post_id,
         parent_comment_id = Comment#pb_comment.parent_comment_id,
-        publisher_uid = util_parser:proto_to_xmpp_uid(Comment#pb_comment.publisher_uid),
+        publisher_uid = Comment#pb_comment.publisher_uid,
         publisher_name = Comment#pb_comment.publisher_name,
         payload = Payload,
         timestamp = util_parser:maybe_convert_to_binary(Comment#pb_comment.timestamp)
@@ -188,7 +188,7 @@ post_to_post_st(Post) ->
     Payload = convert_payload(Post),
     PostSt = #post_st{
         id = Post#pb_post.id,
-        uid = util_parser:proto_to_xmpp_uid(Post#pb_post.publisher_uid),
+        uid = Post#pb_post.publisher_uid,
         payload = Payload,
         timestamp = util_parser:maybe_convert_to_binary(Post#pb_post.timestamp),
         publisher_name = Post#pb_post.publisher_name

@@ -22,10 +22,6 @@
 -define(UID3, <<"3">>).
 -define(UID4, <<"4">>).
 -define(UID5, <<"5">>).
--define(UID2_INT, 2).
--define(UID3_INT, 3).
--define(UID4_INT, 4).
--define(UID5_INT, 5).
 -define(SERVER, <<"s.halloapp.net">>).
 
 -define(HASH_FUNC, sha256).

@@ -32,16 +32,14 @@ end_of_queue_test(_Conf) ->
 message_order_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1, ?OPTIONS1),
     wait_until_eoq(C1),
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    send_message(C1, Uid1, Uid2, 1, 100, []),
+    send_message(C1, ?UID1, ?UID2, 1, 100, []),
     recv_acks(C1, 1, 100),
 
     %% First login.
     %% retry_count is still 1, so we will have to receive all 100 of them.
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
     %% Send 5 new messages when C2 is online.
-    send_message(C1, Uid1, Uid2, 101, 105, []),
+    send_message(C1, ?UID1, ?UID2, 101, 105, []),
     %% Make sure to receive 100 messages first,
     %% then end of queue and only then the remaining 5 messages.
     recv_messages(C2, 1, 100),
@@ -53,7 +51,7 @@ message_order_test(_Conf) ->
     %% retry_count is now 2, so we will get only 64 messages now.
     {ok, C2_2} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
     %% Send 5 new messages again when C2 is online.
-    send_message(C1, Uid1, Uid2, 106, 110, []),
+    send_message(C1, ?UID1, ?UID2, 106, 110, []),
     recv_messages(C2_2, 1, 64),
     %% ensure you dont get an end_of_queue here.
     ?assertEqual(undefined, ha_client:recv(C2_2, 100)),
@@ -78,9 +76,7 @@ message_order_test(_Conf) ->
 offline_msg1_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1, ?OPTIONS1),
     wait_until_eoq(C1),
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    send_message(C1, Uid1, Uid2, 1, 100, []),
+    send_message(C1, ?UID1, ?UID2, 1, 100, []),
     recv_acks(C1, 1, 100),
 
     %% retry_count is still 1, so we will have to receive all 100 of them.

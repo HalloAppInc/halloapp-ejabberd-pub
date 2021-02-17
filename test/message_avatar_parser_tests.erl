@@ -31,8 +31,8 @@ xmpp_to_proto_avatar_test() ->
     Avatar = struct_util:create_avatar(?ID1, ?UID2, <<>>),
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, Avatar),
 
-    PbAvatar = struct_util:create_pb_avatar(?ID1, ?UID2_INT),
-    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbAvatar),
+    PbAvatar = struct_util:create_pb_avatar(?ID1, ?UID2),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbAvatar),
 
     ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ActualProtoMsg, pb_msg)),
@@ -46,8 +46,8 @@ proto_to_xmpp_avatar_test() ->
     Avatar = struct_util:create_avatar(?ID1, ?UID2, <<>>),
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, Avatar),
 
-    PbAvatar = struct_util:create_pb_avatar(?ID1, ?UID2_INT),
-    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbAvatar),
+    PbAvatar = struct_util:create_pb_avatar(?ID1, ?UID2),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbAvatar),
 
     ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
     ?assertEqual(true, is_record(ActualXmppMsg, message)),

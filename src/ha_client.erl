@@ -270,7 +270,7 @@ handle_call({login, Uid, Passwd}, _From,
         #state{options = Options} = State) ->
     Socket = State#state.socket,
     HaAuth = #pb_auth_request{
-        uid = util:to_integer(Uid),
+        uid = Uid,
         pwd = Passwd,
         client_mode = #pb_client_mode{mode = active},
         client_version = #pb_client_version{version = <<"HalloApp/Android0.82D">>},

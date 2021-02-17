@@ -24,7 +24,7 @@ xmpp_to_proto_contact_list(SubEl) ->
     Contacts = SubEl#contact_list.contacts,
     ProtoContacts = lists:map(
         fun(Contact) ->
-            Uid = util_parser:xmpp_to_proto_uid(element(4, Contact)),
+            Uid = element(4, Contact),
             NumPotentialFriends = case tuple_size(Contact) of
                 8 -> 0;
                 9 -> element(9, Contact)
@@ -81,7 +81,7 @@ proto_to_xmpp_contact_list(ProtoPayload) ->
     ContactList = ProtoPayload#pb_contact_list.contacts,
     XmppContacts = lists:map(
         fun(Contact) ->
-            Uid = util_parser:proto_to_xmpp_uid(Contact#pb_contact.uid),
+            Uid = Contact#pb_contact.uid,
             #contact{
                 type = Contact#pb_contact.action,
                 raw = Contact#pb_contact.raw,

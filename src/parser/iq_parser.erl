@@ -33,23 +33,7 @@ xmpp_to_proto(XmppIQ) ->
 
 
 iq_payload_mapping(SubEl) ->
-    Payload = case element(1, SubEl) of
-        error_st ->
-            Hash = SubEl#error_st.hash,
-            case Hash =:= undefined orelse Hash =:= <<>> of
-                true ->
-                    #pb_error_stanza{reason = util:to_binary(SubEl#error_st.reason)};
-                false ->
-                    privacy_list_parser:xmpp_to_proto(SubEl)
-            end;
-        name ->
-            name_parser:xmpp_to_proto(SubEl);
-        stanza_error ->
-            #pb_error_stanza{reason = util:to_binary(SubEl#stanza_error.reason)};
-        _ ->
-            uid_parser:translate_to_pb_uid(SubEl)
-    end,
-    Payload.
+    SubEl.
 
 
 %% -------------------------------------------- %%
@@ -69,5 +53,4 @@ proto_to_xmpp(ProtoIQ) ->
 
 
 xmpp_iq_subel_mapping(ProtoPayload) ->
-    SubEl = uid_parser:translate_to_xmpp_uid(ProtoPayload),
-    SubEl.
+    ProtoPayload.

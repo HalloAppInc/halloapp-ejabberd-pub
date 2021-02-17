@@ -23,8 +23,8 @@ setup() ->
 xmpp_to_proto_message_name_test() ->
     setup(),
 
-    PbName = struct_util:create_pb_name(?UID1_INT, ?NAME1),
-    PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, 0, normal, PbName),
+    PbName = struct_util:create_pb_name(?UID1, ?NAME1),
+    PbMessage = struct_util:create_pb_message(?ID1, ?UID2, <<>>, normal, PbName),
 
     NameSt = struct_util:create_name_st(?UID1, ?NAME1),
     ToJid = struct_util:create_jid(?UID2, ?SERVER),
@@ -39,7 +39,7 @@ xmpp_to_proto_message_name_test() ->
 proto_to_xmpp_iq_name_test() ->
     setup(),
 
-    PbName = struct_util:create_pb_name(?UID1_INT, ?NAME1),
+    PbName = struct_util:create_pb_name(?UID1, ?NAME1),
     PbIq = struct_util:create_pb_iq(?ID1, set, PbName),
 
     PbName2 = struct_util:create_pb_name(?UID1, ?NAME1),
@@ -53,10 +53,10 @@ proto_to_xmpp_iq_name_test() ->
 proto_to_xmpp_iq_name_empty_uid_test() ->
     setup(),
 
-    PbName = struct_util:create_pb_name(0, ?NAME1),
+    PbName = struct_util:create_pb_name(undefined, ?NAME1),
     PbIq = struct_util:create_pb_iq(?ID1, set, PbName),
 
-    PbName2 = struct_util:create_pb_name(<<>>, ?NAME1),
+    PbName2 = struct_util:create_pb_name(undefined, ?NAME1),
     IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, PbName2),
 
     XmppIq = iq_parser:proto_to_xmpp(PbIq),

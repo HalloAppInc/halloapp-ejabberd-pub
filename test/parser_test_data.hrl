@@ -50,25 +50,20 @@
 -define(SERVER, <<"s.halloapp.net">>).
 
 -define(UID1, <<"1000000000045484920">>).
--define(UID1_INT, 1000000000045484920).
 -define(NAME1, <<"name1">>).
 -define(AVATAR_ID1, <<"avatarid1">>).
 
 -define(UID2, <<"1000000000519345762">>).
--define(UID2_INT, 1000000000519345762).
 -define(NAME2, <<"name2">>).
 -define(AVATAR_ID2, <<"avatarid2">>).
 
 -define(UID3, <<"1000000000321423233">>).
--define(UID3_INT, 1000000000321423233).
 -define(NAME3, <<"name3">>).
 -define(AVATAR_ID3, <<"avatarid3">>).
 
 -define(UID4, <<"1000000000634158521">>).
--define(UID4_INT, 1000000000634158521).
 
 -define(UID5, <<"1000000000412574111">>).
--define(UID5_INT, 1000000000412574111).
 
 -define(ID1, <<"id1">>).
 -define(ID2, <<"id2">>).

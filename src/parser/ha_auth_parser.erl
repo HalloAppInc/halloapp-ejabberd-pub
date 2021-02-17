@@ -16,5 +16,5 @@
 
 
 proto_to_xmpp(#pb_auth_request{} = ProtoAuth) ->
-    ProtoAuth#pb_auth_request{uid = util_parser:proto_to_xmpp_uid(ProtoAuth#pb_auth_request.uid)}.
+    ProtoAuth#pb_auth_request{uid = ProtoAuth#pb_auth_request.uid}.
 

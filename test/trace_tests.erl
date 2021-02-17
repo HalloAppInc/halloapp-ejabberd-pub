@@ -30,14 +30,12 @@ slow_log_test(_Conf) ->
     mod_trace:start_trace(?UID1),
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
     SendMsg = #pb_packet{
         stanza = #pb_msg{
             id = <<"msgid1">>,
             type = chat,
-            from_uid = Uid1,
-            to_uid = Uid2,
+            from_uid = ?UID1,
+            to_uid = ?UID2,
             payload = #pb_chat_stanza{payload = <<"HELLO">>}}},
     ha_client:send(C1, SendMsg),
 

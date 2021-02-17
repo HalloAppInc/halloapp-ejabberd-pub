@@ -38,19 +38,15 @@ dummy_test(_Conf) ->
 % We need the group to test the group feed
 create_group_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
-    Uid4 = binary_to_integer(?UID4),
 
     Id = <<"g_iq_id1">>,
     Payload = #pb_group_stanza{
         action = create,
         name = ?GROUP_NAME1,
         members = [
-            #pb_group_member{uid = Uid2},
-            #pb_group_member{uid = Uid3},
-            #pb_group_member{uid = Uid4}
+            #pb_group_member{uid = ?UID2},
+            #pb_group_member{uid = ?UID3},
+            #pb_group_member{uid = ?UID4}
         ]
     },
     Result = ha_client:send_iq(C1, Id, set, Payload),
@@ -65,9 +61,9 @@ create_group_test(_Conf) ->
                 gid = Gid,
                 name = ?GROUP_NAME1,
                 members = [
-                    #pb_group_member{uid = Uid2, type = member, result = <<"ok">>, reason = undefined},
-                    #pb_group_member{uid = Uid3, type = member, result = <<"ok">>, reason = undefined},
-                    #pb_group_member{uid = Uid4, type = member, result = <<"ok">>, reason = undefined}
+                    #pb_group_member{uid = ?UID2, type = member, result = <<"ok">>, reason = undefined},
+                    #pb_group_member{uid = ?UID3, type = member, result = <<"ok">>, reason = undefined},
+                    #pb_group_member{uid = ?UID4, type = member, result = <<"ok">>, reason = undefined}
                 ]
             }
         }
@@ -86,10 +82,6 @@ post_test(Conf) ->
     ?assertEqual([?UID1, ?UID2, ?UID3, ?UID4], model_groups:get_member_uids(Gid)),
 
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    % TODO: use defines for this
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
 
     % Uid1 makes a post to the group
     Id = <<"g_iq_id2">>,
@@ -118,7 +110,7 @@ post_test(Conf) ->
                     id = ?POST1_ID,
                     payload = ?POST1_PAYLOAD,
                     timestamp = PostTs,
-                    publisher_uid = Uid1,
+                    publisher_uid = ?UID1,
                     publisher_name = ?NAME1
                 }
             }
@@ -140,7 +132,7 @@ post_test(Conf) ->
                 item = #pb_post{
                     id = ?POST1_ID,
                     payload = ?POST1_PAYLOAD,
-                    publisher_uid = Uid1,
+                    publisher_uid = ?UID1,
                     publisher_name = ?NAME1,
                     timestamp = PostTs
                 }
@@ -158,10 +150,6 @@ comment_test(Conf) ->
     ?assertEqual([?UID1, ?UID2, ?UID3, ?UID4], model_groups:get_member_uids(Gid)),
 
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
-    % TODO: use defines for this
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
 
     % Uid2 makes a post to the group
     Id = <<"g_iq_id3">>,
@@ -194,7 +182,7 @@ comment_test(Conf) ->
                     parent_comment_id = undefined,
                     post_id = ?POST1_ID,
                     timestamp = CommentTs,
-                    publisher_uid = Uid2,
+                    publisher_uid = ?UID2,
                     publisher_name = ?NAME2
                 }
             }
@@ -218,7 +206,7 @@ comment_test(Conf) ->
                     payload = ?COMMENT1_PAYLOAD,
                     parent_comment_id = undefined,
                     post_id = ?POST1_ID,
-                    publisher_uid = Uid2,
+                    publisher_uid = ?UID2,
                     publisher_name = ?NAME2,
                     timestamp = CommentTs
                 }
@@ -236,10 +224,6 @@ retract_comment_test(Conf) ->
     ?assertEqual([?UID1, ?UID2, ?UID3, ?UID4], model_groups:get_member_uids(Gid)),
 
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
-    % TODO: use defines for this
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
 
     % Uid2 retracts the comment
     Id = <<"g_iq_id4">>,
@@ -269,7 +253,7 @@ retract_comment_test(Conf) ->
                     payload = <<>>,
                     parent_comment_id = <<>>,
                     post_id = ?POST1_ID,
-                    publisher_uid = Uid2,
+                    publisher_uid = ?UID2,
                     publisher_name = ?NAME2
                 }
             }
@@ -291,7 +275,7 @@ retract_comment_test(Conf) ->
                 item = #pb_comment{
                     id = ?COMMENT1_ID,
                     post_id = ?POST1_ID,
-                    publisher_uid = Uid2,
+                    publisher_uid = ?UID2,
                     publisher_name = ?NAME2
                 }
             } = GroupFeedItem
@@ -308,10 +292,6 @@ retract_post_test(Conf) ->
     ?assertEqual([?UID1, ?UID2, ?UID3, ?UID4], model_groups:get_member_uids(Gid)),
 
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    % TODO: use defines for this
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
 
     % Uid1 makes a post to the group
     Id = <<"g_iq_id5">>,
@@ -357,7 +337,7 @@ retract_post_test(Conf) ->
                 item = #pb_post{
                     id = ?POST1_ID,
                     payload = <<>>,
-                    publisher_uid = Uid1,
+                    publisher_uid = ?UID1,
                     publisher_name = ?NAME1
                 }
             } = GroupFeedItem

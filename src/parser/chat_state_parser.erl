@@ -15,13 +15,13 @@ xmpp_to_proto(XmppChatState) ->
         type = XmppChatState#chat_state.type,
         thread_id = XmppChatState#chat_state.thread_id,
         thread_type = XmppChatState#chat_state.thread_type,
-        from_uid = util_parser:xmpp_to_proto_uid(FromUid)
+        from_uid = FromUid
     }.
 
 
 proto_to_xmpp(ProtoChatState) ->
     Server = util:get_host(),
-    FromUid = util_parser:proto_to_xmpp_uid(ProtoChatState#pb_chat_state.from_uid),
+    FromUid = ProtoChatState#pb_chat_state.from_uid,
     FromJid = jid:make(FromUid, Server),
     ToJid = jid:make(Server),
     #chat_state{

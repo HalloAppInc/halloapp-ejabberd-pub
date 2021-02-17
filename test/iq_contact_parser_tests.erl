@@ -25,8 +25,8 @@ xmpp_to_proto_contact_list_test() ->
     ContactList = struct_util:create_pb_contact_list(full, ?ID1, 0, true, [Contact1, Contact2]),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, ContactList),
 
-    PbContact1 = struct_util:create_pb_contact(add, ?RAW1, ?NORM1, ?UID1_INT, ?ID1, ?NAME1, friends),
-    PbContact2 = struct_util:create_pb_contact(delete, ?RAW2, ?NORM2, ?UID2_INT, undefined, ?NAME2, none),
+    PbContact1 = struct_util:create_pb_contact(add, ?RAW1, ?NORM1, ?UID1, ?ID1, ?NAME1, friends),
+    PbContact2 = struct_util:create_pb_contact(delete, ?RAW2, ?NORM2, ?UID2, undefined, ?NAME2, none),
     PbContactList = struct_util:create_pb_contact_list(full, ?ID1, 0, true, [PbContact1, PbContact2]),
     PbIq = struct_util:create_pb_iq(?ID2, result, PbContactList),
 
@@ -36,8 +36,8 @@ xmpp_to_proto_contact_list_test() ->
 
 
 proto_to_xmpp_contact_list_test() ->
-    Contact1 = struct_util:create_pb_contact(add, ?RAW1, undefined, <<>>, undefined, undefined, undefined),
-    Contact2 = struct_util:create_pb_contact(delete, ?RAW2, undefined, <<>>, undefined, undefined, undefined),
+    Contact1 = struct_util:create_pb_contact(add, ?RAW1, undefined, undefined, undefined, undefined, undefined),
+    Contact2 = struct_util:create_pb_contact(delete, ?RAW2, undefined, undefined, undefined, undefined, undefined),
     ContactList = struct_util:create_pb_contact_list(delta, ?ID1, 0, false, [Contact1, Contact2]),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, ContactList),
 

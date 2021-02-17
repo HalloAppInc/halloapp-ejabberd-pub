@@ -33,14 +33,12 @@ dummy_test(_Conf) ->
 % create group with Uid1 and Uid2, make sure Uid2 gets msg about the group
 create_group_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
     Id = <<"g_iq_id1">>,
     Payload = #pb_group_stanza{
         action = create,
         name = ?GROUP_NAME1,
         members = [#pb_group_member{
-            uid = binary_to_integer(?UID2)
+            uid = ?UID2
         }]
     },
     % check the create_group result
@@ -59,7 +57,7 @@ create_group_test(Conf) ->
                     % TODO: the spec says we should get back our selves also... but we don't
 %%                    #pb_group_member{uid = Uid1, type = admin, name = ?NAME1},
                     % TODO: it looks like we are missing the name of UID2
-                    #pb_group_member{uid = Uid2, type = member, result = <<"ok">>}
+                    #pb_group_member{uid = ?UID2, type = member, result = <<"ok">>}
                 ]
             }
         }
@@ -76,10 +74,10 @@ create_group_test(Conf) ->
         action = create, % TODO: create event is not documented
         gid = Gid,
         name = ?GROUP_NAME1,
-        sender_uid = Uid1,
+        sender_uid = ?UID1,
         sender_name = ?NAME1,
         members = [
-            #pb_group_member{uid = Uid2, action = add, type = member, name = ?NAME2}
+            #pb_group_member{uid = ?UID2, action = add, type = member, name = ?NAME2}
         ]
     } = GroupSt,
 
@@ -95,18 +93,14 @@ add_members_test(Conf) ->
 
     % Uid1 adds Uid3 to the group
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    % TODO: use defines for this
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
 
     Id = <<"g_iq_id2">>,
     Payload = #pb_group_stanza{
         gid = Gid,
         action = modify_members,
         members = [
-            #pb_group_member{uid = binary_to_integer(?UID2), action = add},
-            #pb_group_member{uid = binary_to_integer(?UID3), action = add}
+            #pb_group_member{uid = ?UID2, action = add},
+            #pb_group_member{uid = ?UID3, action = add}
         ]
     },
     % check the  result
@@ -119,9 +113,9 @@ add_members_test(Conf) ->
             payload = #pb_group_stanza{
                 gid = Gid,
                 members = [
-                    #pb_group_member{uid = Uid2, type = member, action = add,
+                    #pb_group_member{uid = ?UID2, type = member, action = add,
                         result = <<"failed">>, reason = <<"already_member">>},
-                    #pb_group_member{uid = Uid3, type = member, action = add,
+                    #pb_group_member{uid = ?UID3, type = member, action = add,
                         result = <<"ok">>, reason = undefined}
                 ]
             }
@@ -138,11 +132,11 @@ add_members_test(Conf) ->
                 action = modify_members,
                 gid = Gid,
                 name = ?GROUP_NAME1,
-                sender_uid = Uid1,
+                sender_uid = ?UID1,
                 sender_name = ?NAME1,
                 members = [
                     % Because Uid2 was already a member, nothing is broadcasted about him
-                    #pb_group_member{uid = Uid3, action = add, type = member, name = ?NAME3}
+                    #pb_group_member{uid = ?UID3, action = add, type = member, name = ?NAME3}
                 ]
             } = GroupSt
         end,
@@ -157,19 +151,14 @@ remove_members_test(Conf) ->
 
     % Uid1 adds Uid3 to the group
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    % TODO: use defines for this
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
-    Uid4 = binary_to_integer(?UID4),
 
     Id = <<"g_iq_id3">>,
     Payload = #pb_group_stanza{
         gid = Gid,
         action = modify_members,
         members = [
-            #pb_group_member{uid = binary_to_integer(?UID3), action = remove},
-            #pb_group_member{uid = binary_to_integer(?UID4), action = remove}
+            #pb_group_member{uid = ?UID3, action = remove},
+            #pb_group_member{uid = ?UID4, action = remove}
         ]
     },
     % check the  result
@@ -182,9 +171,9 @@ remove_members_test(Conf) ->
             payload = #pb_group_stanza{
                 gid = Gid,
                 members = [
-                    #pb_group_member{uid = Uid3, type = member, action = remove,
+                    #pb_group_member{uid = ?UID3, type = member, action = remove,
                         result = <<"ok">>, reason = undefined},
-                    #pb_group_member{uid = Uid4, type = member, action = remove,
+                    #pb_group_member{uid = ?UID4, type = member, action = remove,
                         result = <<"failed">>, reason = <<"already_not_member">>}
                 ]
             }
@@ -203,10 +192,10 @@ remove_members_test(Conf) ->
                 action = modify_members,
                 gid = Gid,
                 name = ?GROUP_NAME1,
-                sender_uid = Uid1,
+                sender_uid = ?UID1,
 %%                sender_name = ?NAME1,
                 members = [
-                    #pb_group_member{uid = Uid3, action = remove, type = member, name = ?NAME3,
+                    #pb_group_member{uid = ?UID3, action = remove, type = member, name = ?NAME3,
                         result = undefined, reason = undefined}
                     % Nothing is broadcasted about Uid4
                 ]
@@ -226,10 +215,6 @@ promote_admin_test(Conf) ->
 
 
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    % TODO: use defines for this
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
 
     ?assertEqual(false, model_groups:is_admin(Gid, ?UID2)),
     % Uid1 makes Uid2 admin
@@ -238,7 +223,7 @@ promote_admin_test(Conf) ->
         gid = Gid,
         action = modify_admins,
         members = [#pb_group_member{
-            uid = binary_to_integer(?UID2), action = promote
+            uid = ?UID2, action = promote
         }]
     },
 
@@ -255,7 +240,7 @@ promote_admin_test(Conf) ->
                 avatar_id = undefined,
                 sender_name = undefined,
                 members = [
-                    #pb_group_member{uid = Uid2, type = admin, action = promote,
+                    #pb_group_member{uid = ?UID2, type = admin, action = promote,
                         result = <<"ok">>, reason = undefined}
                 ]
             }
@@ -271,11 +256,11 @@ promote_admin_test(Conf) ->
         action = modify_admins,
         gid = Gid,
         name = ?GROUP_NAME1,
-        sender_uid = Uid1,
+        sender_uid = ?UID1,
         sender_name = ?NAME1,
         avatar_id = undefined,
         members = [
-            #pb_group_member{uid = Uid2, action = promote, type = admin, name = ?NAME2,
+            #pb_group_member{uid = ?UID2, action = promote, type = admin, name = ?NAME2,
                 result = undefined, reason = undefined}
         ]
     } = GroupSt,
@@ -291,10 +276,6 @@ demote_admin_test(Conf) ->
 
 
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    % TODO: use defines for this
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
 
     ?assertEqual(true, model_groups:is_admin(Gid, ?UID2)),
     % Uid1 demotes Uid2
@@ -303,7 +284,7 @@ demote_admin_test(Conf) ->
         gid = Gid,
         action = modify_admins,
         members = [#pb_group_member{
-            uid = binary_to_integer(?UID2), action = demote
+            uid = ?UID2, action = demote
         }]
     },
 
@@ -319,7 +300,7 @@ demote_admin_test(Conf) ->
                 gid = Gid,
                 avatar_id = undefined,
                 members = [
-                    #pb_group_member{uid = Uid2, type = member, action = demote,
+                    #pb_group_member{uid = ?UID2, type = member, action = demote,
                         result = <<"ok">>, reason = undefined}
                 ]
             }
@@ -335,11 +316,11 @@ demote_admin_test(Conf) ->
         action = modify_admins,
         gid = Gid,
         name = ?GROUP_NAME1,
-        sender_uid = Uid1,
+        sender_uid = ?UID1,
         sender_name = ?NAME1,
         avatar_id = undefined,
         members = [
-            #pb_group_member{uid = Uid2, action = demote, type = member, name = ?NAME2,
+            #pb_group_member{uid = ?UID2, action = demote, type = member, name = ?NAME2,
                 result = undefined, reason = undefined}
         ]
     } = GroupSt,
@@ -354,10 +335,6 @@ get_groups_test(Conf) ->
     ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
 
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    % TODO: code is duplicated
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
 
     % create second group, this way Uid1 is in 2 groups
     Id = <<"g_iq_id6">>,
@@ -365,7 +342,7 @@ get_groups_test(Conf) ->
         action = create,
         name = ?GROUP_NAME2,
         members = [#pb_group_member{
-            uid = binary_to_integer(?UID3)
+            uid = ?UID3
         }]
     },
     % check the create_group result
@@ -378,7 +355,7 @@ get_groups_test(Conf) ->
                 gid = Gid2,
                 name = ?GROUP_NAME2,
                 members = [
-                    #pb_group_member{uid = Uid3, type = member}
+                    #pb_group_member{uid = ?UID3, type = member}
                 ]
             }
         }
@@ -422,10 +399,6 @@ get_group_test(Conf) ->
     ?assertEqual([?UID1, ?UID3], model_groups:get_member_uids(Gid2)),
 
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    % TODO: code is duplicated
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
 
     % Get members of group1
     Id = <<"g_iq_id8">>,
@@ -446,8 +419,8 @@ get_group_test(Conf) ->
                 gid = Gid,
                 name = ?GROUP_NAME1,
                 members = [
-                    #pb_group_member{uid = Uid1, type = admin, name = ?NAME1},
-                    #pb_group_member{uid = Uid2, type = member, name = ?NAME2}
+                    #pb_group_member{uid = ?UID1, type = admin, name = ?NAME1},
+                    #pb_group_member{uid = ?UID2, type = member, name = ?NAME2}
                 ]
             }
         }
@@ -473,8 +446,8 @@ get_group_test(Conf) ->
                 gid = Gid2,
                 name = ?GROUP_NAME2,
                 members = [
-                    #pb_group_member{uid = Uid1, type = admin, name = ?NAME1},
-                    #pb_group_member{uid = Uid3, type = member, name = ?NAME3}
+                    #pb_group_member{uid = ?UID1, type = admin, name = ?NAME1},
+                    #pb_group_member{uid = ?UID3, type = member, name = ?NAME3}
                 ]
             }
         }
@@ -493,10 +466,6 @@ set_name_test(Conf) ->
 
 
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    % TODO: code is duplicated
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
-    Uid3 = binary_to_integer(?UID3),
 
     % Get members of group1
     Id = <<"g_iq_id9">>,
@@ -537,16 +506,14 @@ not_admin_modify_group_test(Conf) ->
 % Uid1 creates group and passes Uid1(self) and Uid2 as members. Trying to make sure Uid1 is admin
 create_group_creator_is_member_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
 
     Id = <<"g_iq_id20">>,
     Payload = #pb_group_stanza{
         action = create,
         name = ?GROUP_NAME3,
         members = [
-            #pb_group_member{uid = binary_to_integer(?UID1)},
-            #pb_group_member{uid = binary_to_integer(?UID2)}
+            #pb_group_member{uid = ?UID1},
+            #pb_group_member{uid = ?UID2}
         ]
     },
 
@@ -562,8 +529,8 @@ create_group_creator_is_member_test(Conf) ->
                 gid = Gid,
                 name = ?GROUP_NAME3,
                 members = [
-                    #pb_group_member{uid = Uid1, type = admin, result = <<"failed">>, reason = <<"already_member">>},
-                    #pb_group_member{uid = Uid2, type = member, result = <<"ok">>, reason = undefined}
+                    #pb_group_member{uid = ?UID1, type = admin, result = <<"failed">>, reason = <<"already_member">>},
+                    #pb_group_member{uid = ?UID2, type = member, result = <<"ok">>, reason = undefined}
                 ]
             }
         }

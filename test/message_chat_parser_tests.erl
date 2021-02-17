@@ -33,7 +33,7 @@ xmpp_to_proto_chat1_test() ->
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ChatSt),
 
     PbChat = struct_util:create_pb_chat_stanza(?TIMESTAMP1_INT, ?NAME1, ?PAYLOAD1, ?PAYLOAD2, ?PAYLOAD1, 12),
-    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbChat),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbChat),
 
     ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ActualProtoMsg, pb_msg)),
@@ -42,7 +42,7 @@ xmpp_to_proto_chat1_test() ->
     SilentChatSt = struct_util:create_silent_chat(ChatSt),
     XmppSilentMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, SilentChatSt),
     PbSilentChat = struct_util:create_pb_silent_chat_stanza(PbChat),
-    PbSilentMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbSilentChat),
+    PbSilentMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbSilentChat),
     ActualProtoSilentMsg = message_parser:xmpp_to_proto(XmppSilentMsg),
     ?assertEqual(true, is_record(ActualProtoSilentMsg, pb_msg)),
     ?assertEqual(PbSilentMsg, ActualProtoSilentMsg),
@@ -60,7 +60,7 @@ xmpp_to_proto_chat2_test() ->
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ChatSt),
 
     PbChat = struct_util:create_pb_chat_stanza(?TIMESTAMP1_INT, ?NAME1, ?PAYLOAD1, ?PAYLOAD2, undefined, undefined),
-    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbChat),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbChat),
 
     ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ActualProtoMsg, pb_msg)),
@@ -69,7 +69,7 @@ xmpp_to_proto_chat2_test() ->
     SilentChatSt = struct_util:create_silent_chat(ChatSt),
     XmppSilentMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, SilentChatSt),
     PbSilentChat = struct_util:create_pb_silent_chat_stanza(PbChat),
-    PbSilentMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbSilentChat),
+    PbSilentMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbSilentChat),
     ActualProtoSilentMsg = message_parser:xmpp_to_proto(XmppSilentMsg),
     ?assertEqual(true, is_record(ActualProtoSilentMsg, pb_msg)),
     ?assertEqual(PbSilentMsg, ActualProtoSilentMsg),
@@ -87,7 +87,7 @@ proto_to_xmpp_chat1_test() ->
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ChatSt),
 
     PbChat = struct_util:create_pb_chat_stanza(?TIMESTAMP1_INT, ?NAME1, ?PAYLOAD1, ?PAYLOAD2, ?PAYLOAD1, 12),
-    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbChat),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbChat),
 
     ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
     ?assertEqual(true, is_record(ActualXmppMsg, message)),
@@ -96,7 +96,7 @@ proto_to_xmpp_chat1_test() ->
     SilentChatSt = struct_util:create_silent_chat(ChatSt),
     XmppSilentMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, SilentChatSt),
     PbSilentChat = struct_util:create_pb_silent_chat_stanza(PbChat),
-    PbSilentMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbSilentChat),
+    PbSilentMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbSilentChat),
     ActualXmppSilentMsg = message_parser:proto_to_xmpp(PbSilentMsg),
     ?assertEqual(true, is_record(ActualXmppSilentMsg, message)),
     ?assertEqual(XmppSilentMsg, ActualXmppSilentMsg),
@@ -114,7 +114,7 @@ proto_to_xmpp_chat2_test() ->
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ChatSt),
 
     PbChat = struct_util:create_pb_chat_stanza(undefined, ?NAME1, ?PAYLOAD1, ?PAYLOAD2, ?PAYLOAD1, 12),
-    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbChat),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbChat),
 
     ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
     ?assertEqual(true, is_record(ActualXmppMsg, message)),
@@ -123,7 +123,7 @@ proto_to_xmpp_chat2_test() ->
     SilentChatSt = struct_util:create_silent_chat(ChatSt),
     XmppSilentMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, SilentChatSt),
     PbSilentChat = struct_util:create_pb_silent_chat_stanza(PbChat),
-    PbSilentMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbSilentChat),
+    PbSilentMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbSilentChat),
     ActualXmppSilentMsg = message_parser:proto_to_xmpp(PbSilentMsg),
     ?assertEqual(true, is_record(ActualXmppSilentMsg, message)),
     ?assertEqual(XmppSilentMsg, ActualXmppSilentMsg),
@@ -140,7 +140,7 @@ proto_to_xmpp_chat3_test() ->
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, ChatSt),
 
     PbChat = struct_util:create_pb_chat_stanza(undefined, ?NAME1, undefined, ?PAYLOAD2, ?PAYLOAD1, 12),
-    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbChat),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbChat),
 
     ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
     ?assertEqual(true, is_record(ActualXmppMsg, message)),

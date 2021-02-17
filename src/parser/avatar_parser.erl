@@ -26,7 +26,7 @@ xmpp_to_proto(SubEl) ->
 xmpp_to_proto_avatar(SubEl) ->
     #pb_avatar{
         id = SubEl#avatar.id,
-        uid = util_parser:xmpp_to_proto_uid(SubEl#avatar.userid)
+        uid = SubEl#avatar.userid
     }.
 
 
@@ -55,7 +55,7 @@ proto_to_xmpp(ProtoPayload) ->
 proto_to_xmpp_avatar(ProtoPayload) ->
     #avatar{
         id = ProtoPayload#pb_avatar.id,
-        userid = util_parser:proto_to_xmpp_uid(ProtoPayload#pb_avatar.uid)
+        userid = ProtoPayload#pb_avatar.uid
     }.
 
 

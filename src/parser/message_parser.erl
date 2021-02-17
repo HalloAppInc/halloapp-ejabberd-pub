@@ -27,7 +27,7 @@ xmpp_to_proto(XmppMsg) ->
             [SubEl] = SubEls,
             msg_payload_mapping(SubEl)
     end,
-    PbFromUid = util_parser:xmpp_to_proto_uid(FromJid#jid.user),
+    PbFromUid = FromJid#jid.user,
     %% TODO(murali@): observe where you have similar logic and make util function for this.
     RerequestCount = case Message#message.rerequest_count of
         undefined -> 0;
@@ -36,7 +36,7 @@ xmpp_to_proto(XmppMsg) ->
     ProtoMessage = #pb_msg{
         id = Message#message.id,
         type = Message#message.type,
-        to_uid = util_parser:xmpp_to_proto_uid(ToJid#jid.user),
+        to_uid = ToJid#jid.user,
         from_uid = PbFromUid,
         payload = Content,
         retry_count = Message#message.retry_count,
@@ -96,8 +96,8 @@ msg_payload_mapping(SubEl) ->
 
 
 proto_to_xmpp(ProtoMSG) ->
-    ToUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_msg.to_uid),
-    FromUser = util_parser:proto_to_xmpp_uid(ProtoMSG#pb_msg.from_uid),
+    ToUser = ProtoMSG#pb_msg.to_uid,
+    FromUser = ProtoMSG#pb_msg.from_uid,
     Server = util:get_host(),
     PbToJid = jid:make(ToUser, Server),
     PbFromJid = jid:make(FromUser, Server),

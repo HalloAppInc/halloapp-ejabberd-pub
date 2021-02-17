@@ -29,8 +29,8 @@ xmpp_to_proto_iq_group_result_test() ->
     FromJid = jid:make(?SERVER),
     XmppIq = struct_util:create_iq_stanza(?ID1, ToJid, FromJid, result, Group),
 
-    PbMember = struct_util:create_pb_member(add, ?UID2_INT, member, ?NAME2, ?AVATAR_ID2, <<"ok">>, undefined),
-    PbGroup = struct_util:create_pb_group_stanza(modify_members, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1_INT, ?NAME1, [PbMember]),
+    PbMember = struct_util:create_pb_member(add, ?UID2, member, ?NAME2, ?AVATAR_ID2, <<"ok">>, undefined),
+    PbGroup = struct_util:create_pb_group_stanza(modify_members, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1, ?NAME1, [PbMember]),
     ExpectedProtoIq = struct_util:create_pb_iq(?ID1, result, PbGroup),
 
     ActualProtoIq = iq_parser:xmpp_to_proto(XmppIq),
@@ -48,10 +48,10 @@ xmpp_to_proto_message_group_test() ->
     FromJid = jid:make(?SERVER),
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, GroupSt),
 
-    PbMember1 = struct_util:create_pb_member(demote, ?UID2_INT, admin, ?NAME2, ?AVATAR_ID2, undefined, undefined),
-    PbMember2 = struct_util:create_pb_member(demote, ?UID3_INT, admin, ?NAME3, ?AVATAR_ID3, undefined, undefined),
-    PbGroup = struct_util:create_pb_group_stanza(modify_admins, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1_INT, ?NAME1, [PbMember1, PbMember2]),
-    ExpectedProtoMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, 0, normal, PbGroup),
+    PbMember1 = struct_util:create_pb_member(demote, ?UID2, admin, ?NAME2, ?AVATAR_ID2, undefined, undefined),
+    PbMember2 = struct_util:create_pb_member(demote, ?UID3, admin, ?NAME3, ?AVATAR_ID3, undefined, undefined),
+    PbGroup = struct_util:create_pb_group_stanza(modify_admins, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1, ?NAME1, [PbMember1, PbMember2]),
+    ExpectedProtoMsg = struct_util:create_pb_message(?ID1, ?UID1, <<>>, normal, PbGroup),
 
     ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
 
@@ -67,8 +67,8 @@ xmpp_to_proto_group_chat_test() ->
     FromJid = jid:make(?SERVER),
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, groupchat, GroupChatSt),
 
-    PbGroupChat = struct_util:create_pb_group_chat(?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID2_INT, ?NAME2, ?TIMESTAMP1_INT, ?PAYLOAD1),
-    ExpectedProtoMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, 0, groupchat, PbGroupChat),
+    PbGroupChat = struct_util:create_pb_group_chat(?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID2, ?NAME2, ?TIMESTAMP1_INT, ?PAYLOAD1),
+    ExpectedProtoMsg = struct_util:create_pb_message(?ID1, ?UID1, <<>>, groupchat, PbGroupChat),
 
     ActualProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ActualProtoMsg, pb_msg)),
@@ -83,8 +83,8 @@ proto_to_xmpp_group_chat_test() ->
     FromJid = jid:make(?UID1, ?SERVER),
     ExpectedXmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, GroupChatSt),
 
-    PbGroupChat = struct_util:create_pb_group_chat(?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID2_INT, ?NAME2, ?TIMESTAMP1_INT, ?PAYLOAD1),
-    ProtoMsg = struct_util:create_pb_message(?ID1, 0, ?UID1_INT, normal, PbGroupChat),
+    PbGroupChat = struct_util:create_pb_group_chat(?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID2, ?NAME2, ?TIMESTAMP1_INT, ?PAYLOAD1),
+    ProtoMsg = struct_util:create_pb_message(?ID1, <<>>, ?UID1, normal, PbGroupChat),
 
     ActualXmppMsg = message_parser:proto_to_xmpp(ProtoMsg),
     ?assertEqual(true, is_record(ExpectedXmppMsg, message)),
@@ -98,8 +98,8 @@ proto_to_xmpp_iq_group_test() ->
     Group = struct_util:create_pb_group_stanza(modify_admins, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1, ?NAME1, [Member]),
     ExpectedXmppIq = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, Group),
 
-    PbMember = struct_util:create_pb_member(promote, ?UID2_INT, admin, ?NAME2, ?AVATAR_ID2, <<>>, <<>>),
-    PbGroup = struct_util:create_pb_group_stanza(modify_admins, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1_INT, ?NAME1, [PbMember]),
+    PbMember = struct_util:create_pb_member(promote, ?UID2, admin, ?NAME2, ?AVATAR_ID2, <<>>, <<>>),
+    PbGroup = struct_util:create_pb_group_stanza(modify_admins, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, ?UID1, ?NAME1, [PbMember]),
     ProtoIq = struct_util:create_pb_iq(?ID1, set, PbGroup),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(ProtoIq),

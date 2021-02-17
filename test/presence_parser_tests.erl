@@ -27,7 +27,7 @@ xmpp_to_proto_available_test() ->
 
     FromJid = struct_util:create_jid(?UID1, ?SERVER),
     XmppPresence = struct_util:create_presence(?ID1, available, undefined, FromJid, undefined),
-    PbPresence = struct_util:create_pb_presence(?ID1, available, ?UID1_INT, 0, ?UID1_INT, undefined),
+    PbPresence = struct_util:create_pb_presence(?ID1, available, ?UID1, <<>>, ?UID1, undefined),
 
     ProtoPresence = presence_parser:xmpp_to_proto(XmppPresence),
     ?assertEqual(true, is_record(ProtoPresence, pb_presence)),
@@ -39,7 +39,7 @@ xmpp_to_proto_away_test() ->
 
     FromJid = struct_util:create_jid(?UID1, ?SERVER),
     XmppPresence = struct_util:create_presence(?ID1, away, undefined, FromJid, ?TIMESTAMP1),
-    PbPresence = struct_util:create_pb_presence(?ID1, away, ?UID1_INT, 0, ?UID1_INT, ?TIMESTAMP1_INT),
+    PbPresence = struct_util:create_pb_presence(?ID1, away, ?UID1, <<>>, ?UID1, ?TIMESTAMP1_INT),
 
     ProtoPresence = presence_parser:xmpp_to_proto(XmppPresence),
     ?assertEqual(true, is_record(ProtoPresence, pb_presence)),
@@ -73,7 +73,7 @@ proto_to_xmpp_subscribe_test() ->
 
     ToJid = struct_util:create_jid(?UID1, ?SERVER),
     XmppPresence = struct_util:create_presence(?ID1, subscribe, ToJid, undefined, undefined),
-    PbPresence = struct_util:create_pb_presence(?ID1, subscribe, ?UID1_INT, ?UID1_INT, undefined, undefined),
+    PbPresence = struct_util:create_pb_presence(?ID1, subscribe, ?UID1, ?UID1, undefined, undefined),
 
     ActualXmppPresence = presence_parser:proto_to_xmpp(PbPresence),
     ?assertEqual(true, is_record(ActualXmppPresence, presence)),

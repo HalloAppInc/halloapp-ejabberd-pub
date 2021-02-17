@@ -17,15 +17,13 @@ dummy_test(_Conf) ->
 send_im_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
-    Uid1 = binary_to_integer(?UID1),
-    Uid2 = binary_to_integer(?UID2),
     ha_client:send(C1, #pb_packet{
         % the {msg} part is annoying
         stanza = #pb_msg{
             id = <<"msgid1">>,
             type = chat,
-            from_uid = Uid1,
-            to_uid = Uid2,
+            from_uid = ?UID1,
+            to_uid = ?UID2,
             payload = #pb_chat_stanza{payload = <<"HELLO">>}}}),
     % TODO: use send_recv
     Ack = ha_client:wait_for(C1,
@@ -49,8 +47,8 @@ send_im_test(_Conf) ->
         stanza = #pb_msg{
             id = <<"msgid1">>,
             type = chat,
-            from_uid = Uid1,
-            to_uid = Uid2,
+            from_uid = ?UID1,
+            to_uid = ?UID2,
             payload = #pb_chat_stanza{
                 payload = <<"HELLO">>,
                 sender_name = ?NAME1}}

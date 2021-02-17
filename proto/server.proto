@@ -18,7 +18,7 @@ message UploadAvatar {
 
 message Avatar {
     string id = 1;
-    int64 uid = 2;
+    int64 uid = 2 [ebin = true];
 }
 
 message Avatars {
@@ -89,7 +89,7 @@ message Contact {
     Action action = 1;
     string raw = 2;
     string normalized = 3;
-    int64 uid = 4;
+    int64 uid = 4 [ebin = true];
     string avatar_id = 5;
     enum Role {
         FRIENDS = 0;
@@ -131,12 +131,12 @@ message Audience {
         ONLY = 2;
     }
     Type type = 1;
-    repeated int64 uids = 2;
+    repeated int64 uids = 2 [ebin = true];
 }
 
 message Post {
     string id = 1;
-    int64 publisher_uid = 2;
+    int64 publisher_uid = 2 [ebin = true];
     bytes payload = 3;
     Audience audience = 4;
     int64 timestamp = 5;
@@ -147,7 +147,7 @@ message Comment {
     string id = 1;
     string post_id = 2;
     string parent_comment_id = 3;
-    int64 publisher_uid = 4;
+    int64 publisher_uid = 4 [ebin = true];
     string publisher_name = 5;
     bytes payload = 6;
     int64 timestamp = 7;
@@ -155,7 +155,7 @@ message Comment {
 
 
 message ShareStanza {
-    int64 uid = 1;
+    int64 uid = 1 [ebin = true];
     repeated string post_ids = 2;
     string result = 3;
     string reason = 4;
@@ -177,7 +177,7 @@ message FeedItem {
 }
 
 message FeedItems {
-    int64 uid = 1;
+    int64 uid = 1 [ebin = true];
     repeated FeedItem items = 2;
 }
 
@@ -217,7 +217,7 @@ message GroupMember {
         LEAVE = 4;
     }
     Action action = 1;
-    int64 uid = 2;
+    int64 uid = 2 [ebin = true];
 
     enum Type {
         MEMBER = 0;
@@ -249,7 +249,7 @@ message GroupStanza {
     string gid = 2;
     string name = 3;
     string avatar_id = 4;
-    int64 sender_uid = 5;
+    int64 sender_uid = 5 [ebin = true];
     string sender_name = 6;
     repeated GroupMember members = 7;
 }
@@ -259,7 +259,7 @@ message GroupChat {
     string gid = 1;
     string name = 2;
     string avatar_id = 3;
-    int64 sender_uid = 4;
+    int64 sender_uid = 4 [ebin = true];
     string sender_name = 5;
     int64 timestamp = 6;
     bytes payload = 7;
@@ -282,7 +282,7 @@ message GroupsStanza {
 // Definitions for authentication packet.
 
 message AuthRequest {
-    int64 uid = 1;
+    int64 uid = 1 [ebin = true];
     string pwd = 2;
     ClientMode client_mode = 3;
     ClientVersion client_version = 4;
@@ -374,7 +374,7 @@ message ErrorStanza {
 // Name
 
 message Name {
-    int64 uid = 1;
+    int64 uid = 1 [ebin = true];
     string name = 2;
 }
 
@@ -424,8 +424,8 @@ message Iq {
         UploadGroupAvatar group_avatar = 27;
         DeleteAccount delete_account = 28;
     }
-    int64 to_uid = 29;    // only for server use
-    int64 from_uid = 30;    // only for server use
+    int64 to_uid = 29 [ebin = true];    // only for server use
+    int64 from_uid = 30 [ebin = true];    // only for server use
 }
 
 
@@ -441,8 +441,8 @@ message Msg {
         CHAT = 4;       // Not used yet.
     }
     Type type = 2;
-    int64 to_uid = 3;
-    int64 from_uid = 4;
+    int64 to_uid = 3 [ebin = true];
+    int64 from_uid = 4 [ebin = true];
     oneof payload {
         ContactList contact_list = 5;
         Avatar avatar = 6;
@@ -481,10 +481,10 @@ message Presence {
         UNSUBSCRIBE = 3;
     }
     Type type = 2;
-    int64 uid = 3 [deprecated = true]; // Clients must stop using this field.
+    int64 uid = 3 [ebin = true, deprecated = true]; // Clients must stop using this field.
     int64 last_seen = 4;
-    int64 to_uid = 5;
-    int64 from_uid = 6;
+    int64 to_uid = 5 [ebin = true];
+    int64 from_uid = 6 [ebin = true];
 }
 
 
@@ -502,8 +502,8 @@ message ChatState {
         GROUP_CHAT = 1;
     }
     ThreadType thread_type = 3;
-    int64 from_uid = 4;
-    int64 to_uid = 5;    // only for server use
+    int64 from_uid = 4 [ebin = true];
+    int64 to_uid = 5 [ebin = true];    // only for server use
 }
 
 
@@ -512,8 +512,8 @@ message ChatState {
 message Ack {
     string id = 1;
     int64 timestamp = 2;
-    int64 to_uid = 3;    // only for server use
-    int64 from_uid = 4;    // only for server use
+    int64 to_uid = 3 [ebin = true];    // only for server use
+    int64 from_uid = 4 [ebin = true];    // only for server use
 }
 
 
@@ -550,7 +550,7 @@ message UidElement {
         DELETE = 1;
     }
     Action action = 1;
-    int64 uid = 2;
+    int64 uid = 2 [ebin = true];
 }
 
 message PrivacyList {
@@ -680,7 +680,7 @@ message Props {
 // Whisper Encryption
 
 message WhisperKeys {
-    int64 uid = 1;
+    int64 uid = 1 [ebin = true];
     enum Action {
         NORMAL = 0;
         ADD = 1;

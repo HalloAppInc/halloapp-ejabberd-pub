@@ -23,7 +23,7 @@ xmpp_to_proto_avatar_test() ->
     Avatar = struct_util:create_pb_avatar(?ID1, ?UID1),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, Avatar),
 
-    PbAvatar = struct_util:create_pb_avatar(?ID1, ?UID1_INT),
+    PbAvatar = struct_util:create_pb_avatar(?ID1, ?UID1),
     PbIq = struct_util:create_pb_iq(?ID2, result, PbAvatar),
 
     ProtoIq = iq_parser:xmpp_to_proto(XmppIq),
@@ -37,8 +37,8 @@ xmpp_to_proto_get_avatars_test() ->
     Avatars = struct_util:create_pb_avatars([Avatar1, Avatar2]),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, result, Avatars),
 
-    PbAvatar1 = struct_util:create_pb_avatar(?ID1, ?UID1_INT),
-    PbAvatar2 = struct_util:create_pb_avatar(?ID2, ?UID2_INT),
+    PbAvatar1 = struct_util:create_pb_avatar(?ID1, ?UID1),
+    PbAvatar2 = struct_util:create_pb_avatar(?ID2, ?UID2),
     PbAvatars = struct_util:create_pb_avatars([PbAvatar1, PbAvatar2]),
     PbIq = struct_util:create_pb_iq(?ID2, result, PbAvatars),
 
@@ -63,7 +63,7 @@ proto_to_xmpp_get_avatar_test() ->
     Avatar = struct_util:create_pb_avatar(undefined, ?UID1),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, get, Avatar),
 
-    PbAvatar = struct_util:create_pb_avatar(undefined, ?UID1_INT),
+    PbAvatar = struct_util:create_pb_avatar(undefined, ?UID1),
     PbIq = struct_util:create_pb_iq(?ID2, get, PbAvatar),
 
     ActualXmppIq = iq_parser:proto_to_xmpp(PbIq),
@@ -77,8 +77,8 @@ proto_to_xmpp_get_avatars_test() ->
     Avatars = struct_util:create_pb_avatars([Avatar1, Avatar2]),
     XmppIq = struct_util:create_iq_stanza(?ID2, undefined, undefined, get, Avatars),
 
-    PbAvatar1 = struct_util:create_pb_avatar(undefined, ?UID1_INT),
-    PbAvatar2 = struct_util:create_pb_avatar(undefined, ?UID2_INT),
+    PbAvatar1 = struct_util:create_pb_avatar(undefined, ?UID1),
+    PbAvatar2 = struct_util:create_pb_avatar(undefined, ?UID2),
     PbAvatars = struct_util:create_pb_avatars([PbAvatar1, PbAvatar2]),
     PbIq = struct_util:create_pb_iq(?ID2, get, PbAvatars),
 

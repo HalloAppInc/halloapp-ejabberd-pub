@@ -105,7 +105,7 @@ group_comment_st_to_comment(CommentSt) ->
         id = CommentSt#group_comment_st.id,
         post_id = CommentSt#group_comment_st.post_id,
         parent_comment_id = CommentSt#group_comment_st.parent_comment_id,
-        publisher_uid = util_parser:xmpp_to_proto_uid(CommentSt#group_comment_st.publisher_uid),
+        publisher_uid = CommentSt#group_comment_st.publisher_uid,
         publisher_name = CommentSt#group_comment_st.publisher_name,
         timestamp = util_parser:maybe_convert_to_integer(CommentSt#group_comment_st.timestamp),
         payload = util_parser:maybe_base64_decode(CommentSt#group_comment_st.payload)
@@ -115,7 +115,7 @@ group_comment_st_to_comment(CommentSt) ->
 group_post_st_to_post(PostSt) ->
     Post = #pb_post{
         id = PostSt#group_post_st.id,
-        publisher_uid = util_parser:xmpp_to_proto_uid(PostSt#group_post_st.publisher_uid),
+        publisher_uid = PostSt#group_post_st.publisher_uid,
         publisher_name = PostSt#group_post_st.publisher_name,
         payload = util_parser:maybe_base64_decode(PostSt#group_post_st.payload),
         timestamp = util_parser:maybe_convert_to_integer(PostSt#group_post_st.timestamp)
@@ -127,7 +127,7 @@ comment_to_group_comment_st(Comment) ->
         id = Comment#pb_comment.id,
         post_id = Comment#pb_comment.post_id,
         parent_comment_id = Comment#pb_comment.parent_comment_id,
-        publisher_uid = util_parser:proto_to_xmpp_uid(Comment#pb_comment.publisher_uid),
+        publisher_uid = Comment#pb_comment.publisher_uid,
         publisher_name = Comment#pb_comment.publisher_name,
         payload = util_parser:maybe_base64_encode_binary(Comment#pb_comment.payload),
         timestamp = util_parser:maybe_convert_to_binary(Comment#pb_comment.timestamp)
@@ -137,7 +137,7 @@ comment_to_group_comment_st(Comment) ->
 post_to_group_post_st(Post) ->
     PostSt = #group_post_st{
         id = Post#pb_post.id,
-        publisher_uid = util_parser:proto_to_xmpp_uid(Post#pb_post.publisher_uid),
+        publisher_uid = Post#pb_post.publisher_uid,
         publisher_name = Post#pb_post.publisher_name,
         payload = util_parser:maybe_base64_encode_binary(Post#pb_post.payload),
         timestamp = util_parser:maybe_convert_to_binary(Post#pb_post.timestamp)

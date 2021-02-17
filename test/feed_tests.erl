@@ -26,8 +26,8 @@ make_post_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
     % UID4 and UID1 are not friends; UID5 has blocked UID1
-    PbAudience = struct_util:create_pb_audience(only, [?UID2_INT, ?UID3_INT, ?UID4_INT, ?UID5_INT]),
-    PbPost = struct_util:create_pb_post(?POST_ID1, ?UID1_INT, ?NAME1, ?PAYLOAD1, PbAudience, ?TS1),
+    PbAudience = struct_util:create_pb_audience(only, [?UID2, ?UID3, ?UID4, ?UID5]),
+    PbPost = struct_util:create_pb_post(?POST_ID1, ?UID1, ?NAME1, ?PAYLOAD1, PbAudience, ?TS1),
     PbFeedItem = struct_util:create_feed_item(publish, PbPost),
 
     IqRes = ha_client:send_iq(C1, ?UID1, set, PbFeedItem),
@@ -41,7 +41,7 @@ make_post_test(_Conf) ->
                 action = publish,
                 item = #pb_post{
                     id = ?POST_ID1,
-                    publisher_uid = ?UID1_INT,
+                    publisher_uid = ?UID1,
                     publisher_name = ?NAME1
                 }
             }
@@ -59,12 +59,12 @@ make_post_test(_Conf) ->
     #pb_packet{
         stanza = #pb_msg{
             type = headline,
-            to_uid = ?UID2_INT,
+            to_uid = ?UID2,
             payload = #pb_feed_item{
                 action = publish,
                 item = #pb_post{
                     id = ?POST_ID1,
-                    publisher_uid = ?UID1_INT,
+                    publisher_uid = ?UID1,
                     publisher_name = ?NAME1,
                     payload = ?PAYLOAD1
                 }
@@ -86,7 +86,7 @@ make_comment_test(_Conf) ->
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
 
     % we don't have a parent comment id right now, hence it is left as the default value <<>>
-    PbComment1 = struct_util:create_pb_comment(?COMMENT_ID1, ?POST_ID1, <<>>, ?UID2_INT, ?NAME2, ?PAYLOAD1, ?TS2),
+    PbComment1 = struct_util:create_pb_comment(?COMMENT_ID1, ?POST_ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD1, ?TS2),
     PbFeedItem = struct_util:create_feed_item(publish, PbComment1),
 
     IqRes = ha_client:send_iq(C2, ?UID2, set, PbFeedItem),
@@ -100,7 +100,7 @@ make_comment_test(_Conf) ->
                 item = #pb_comment{
                     id = ?COMMENT_ID1,
                     post_id = ?POST_ID1,
-                    publisher_uid = ?UID2_INT,
+                    publisher_uid = ?UID2,
                     publisher_name = ?NAME2
                 }
             }
@@ -119,13 +119,13 @@ make_comment_test(_Conf) ->
     #pb_packet{
         stanza = #pb_msg{
             type = headline,
-            to_uid = ?UID1_INT,
+            to_uid = ?UID1,
             payload = #pb_feed_item{
                 action = publish,
                 item = #pb_comment{
                     id = ?COMMENT_ID1,
                     post_id = ?POST_ID1,
-                    publisher_uid = ?UID2_INT,
+                    publisher_uid = ?UID2,
                     publisher_name = ?NAME2,
                     payload = ?PAYLOAD1
                 }
@@ -144,7 +144,7 @@ retract_comment_test(_Conf) ->
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
     {ok, C3} = ha_client:connect_and_login(?UID3, ?PASSWORD3),
 
-    PbComment1 = struct_util:create_pb_comment(?COMMENT_ID1, ?POST_ID1, <<>>, ?UID2_INT, <<"">>, <<"">>, ?TS3),
+    PbComment1 = struct_util:create_pb_comment(?COMMENT_ID1, ?POST_ID1, <<>>, ?UID2, <<"">>, <<"">>, ?TS3),
     PbFeedItem = struct_util:create_feed_item(retract, PbComment1),
 
     IqRes = ha_client:send_iq(C2, ?UID2, set, PbFeedItem),
@@ -190,7 +190,7 @@ retract_post_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
 
-    PbPost = struct_util:create_pb_post(?POST_ID1, ?UID1_INT, ?NAME1, ?PAYLOAD1, undefined, ?TS1),
+    PbPost = struct_util:create_pb_post(?POST_ID1, ?UID1, ?NAME1, ?PAYLOAD1, undefined, ?TS1),
     PbFeedItem = struct_util:create_feed_item(retract, PbPost), % retract previous post
 
     IqRes = ha_client:send_iq(C1, ?UID1, set, PbFeedItem),
@@ -204,7 +204,7 @@ retract_post_test(_Conf) ->
                 action = retract,
                 item = #pb_post{
                     id = ?POST_ID1,
-                    publisher_uid = ?UID1_INT,
+                    publisher_uid = ?UID1,
                     publisher_name = ?NAME1
                 }
             }
@@ -221,7 +221,7 @@ retract_post_test(_Conf) ->
     #pb_packet{
         stanza = #pb_msg{
             type = normal,
-            to_uid = ?UID2_INT,
+            to_uid = ?UID2,
             payload = #pb_feed_item{
                 action = retract,
                 item = #pb_post{

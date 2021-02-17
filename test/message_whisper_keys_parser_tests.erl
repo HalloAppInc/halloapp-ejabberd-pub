@@ -30,8 +30,8 @@ xmpp_to_proto_whisper_keys_test() ->
     FromJid = struct_util:create_jid(?UID2, ?SERVER),
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, WhisperKeys),
 
-    PbWhisperKeys = struct_util:create_pb_whisper_keys(?UID1_INT, add, ?KEY1, ?KEY2, 5, [?KEY3, ?KEY4]),
-    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbWhisperKeys),
+    PbWhisperKeys = struct_util:create_pb_whisper_keys(?UID1, add, ?KEY1, ?KEY2, 5, [?KEY3, ?KEY4]),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbWhisperKeys),
 
     ProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
@@ -46,7 +46,7 @@ xmpp_to_proto_rerequest_test() ->
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, RerequestSt),
 
     PbRerequest = struct_util:create_pb_rerequest(?ID1, ?KEY1),
-    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbRerequest),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbRerequest),
 
     ProtoMsg = message_parser:xmpp_to_proto(XmppMsg),
     ?assertEqual(true, is_record(ProtoMsg, pb_msg)),
@@ -61,7 +61,7 @@ proto_to_xmpp_rerequest_test() ->
     XmppMsg = struct_util:create_message_stanza(?ID1, ToJid, FromJid, normal, RerequestSt),
 
     PbRerequest = struct_util:create_pb_rerequest(?ID1, ?KEY1),
-    PbMsg = struct_util:create_pb_message(?ID1, ?UID1_INT, ?UID2_INT, normal, PbRerequest),
+    PbMsg = struct_util:create_pb_message(?ID1, ?UID1, ?UID2, normal, PbRerequest),
 
     ActualXmppMsg = message_parser:proto_to_xmpp(PbMsg),
     ?assertEqual(true, is_record(ActualXmppMsg, message)),

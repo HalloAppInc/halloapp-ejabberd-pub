@@ -16,7 +16,7 @@ xmpp_to_proto(#whisper_keys{} = SubEl) ->
             util_parser:maybe_base64_decode(OneTimeKey)
         end, SubEl#whisper_keys.one_time_keys),
     #pb_whisper_keys{
-        uid = util_parser:xmpp_to_proto_uid(SubEl#whisper_keys.uid),
+        uid = SubEl#whisper_keys.uid,
         action = SubEl#whisper_keys.type,
         identity_key = util_parser:maybe_base64_decode(SubEl#whisper_keys.identity_key),
         signed_key = util_parser:maybe_base64_decode(SubEl#whisper_keys.signed_key),
@@ -40,7 +40,7 @@ proto_to_xmpp(#pb_whisper_keys{} = ProtoPayload) ->
             util_parser:maybe_base64_encode(OneTimeKey)
         end, ProtoPayload#pb_whisper_keys.one_time_keys),
     #whisper_keys{
-        uid = util_parser:proto_to_xmpp_uid(ProtoPayload#pb_whisper_keys.uid),
+        uid = ProtoPayload#pb_whisper_keys.uid,
         type = ProtoPayload#pb_whisper_keys.action,
         identity_key = util_parser:maybe_base64_encode(ProtoPayload#pb_whisper_keys.identity_key),
         signed_key = util_parser:maybe_base64_encode(ProtoPayload#pb_whisper_keys.signed_key),

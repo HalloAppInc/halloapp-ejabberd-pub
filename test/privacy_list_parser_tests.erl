@@ -43,8 +43,8 @@ xmpp_to_proto_iq_privacy_list_test() ->
     XmppUidElement2 = struct_util:create_pb_uid_element(add, ?UID3),
     XmppPrivacyList = struct_util:create_pb_privacy_list(except, undefined, [XmppUidElement1, XmppUidElement2]),
 
-    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2_INT),
-    UidElement2 = struct_util:create_pb_uid_element(add, ?UID3_INT),
+    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2),
+    UidElement2 = struct_util:create_pb_uid_element(add, ?UID3),
     PrivacyList = struct_util:create_pb_privacy_list(except, undefined, [UidElement1, UidElement2]),
     ExpectedProtoIQ = struct_util:create_pb_iq(?ID1, set, PrivacyList),
     ExceptIQ = struct_util:create_iq_stanza(?ID1, jid:make(?SERVER), jid:make(?UID1, ?SERVER), set, [XmppPrivacyList]),
@@ -57,7 +57,7 @@ xmpp_to_proto_iq_privacy_list_test() ->
 %% iq-set with privacy_list and hash.
 xmpp_to_proto_iq_privacy_list_hash_test() ->
     setup(),
-    UidElement1 = struct_util:create_pb_uid_element(add, ?UID3_INT),
+    UidElement1 = struct_util:create_pb_uid_element(add, ?UID3),
     PrivacyList = struct_util:create_pb_privacy_list(except, ?HASH1, [UidElement1]),
     ExpectedProtoIQ = struct_util:create_pb_iq(?ID1, set, PrivacyList),
 
@@ -85,10 +85,10 @@ xmpp_to_proto_iq_privacy_list_result_test() ->
 %% iq-result with all lists.
 xmpp_to_proto_iq_privacy_lists_result_test() ->
     setup(),
-    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2_INT),
-    UidElement2 = struct_util:create_pb_uid_element(add, ?UID3_INT),
-    UidElement3 = struct_util:create_pb_uid_element(add, ?UID4_INT),
-    UidElement4 = struct_util:create_pb_uid_element(add, ?UID5_INT),
+    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2),
+    UidElement2 = struct_util:create_pb_uid_element(add, ?UID3),
+    UidElement3 = struct_util:create_pb_uid_element(add, ?UID4),
+    UidElement4 = struct_util:create_pb_uid_element(add, ?UID5),
     PrivacyList1 = struct_util:create_pb_privacy_list(except, <<>>, [UidElement1, UidElement2]),
     PrivacyList2 = struct_util:create_pb_privacy_list(only, <<>>, [UidElement2, UidElement3]),
     PrivacyList3 = struct_util:create_pb_privacy_list(mute, <<>>, [UidElement3]),
@@ -117,8 +117,8 @@ xmpp_to_proto_iq_privacy_lists_result_test() ->
 %% iq-set for only privacy_list.
 proto_to_xmpp_iq_only_privacy_list_test() ->
     setup(),
-    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2_INT),
-    UidElement2 = struct_util:create_pb_uid_element(add, ?UID3_INT),
+    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2),
+    UidElement2 = struct_util:create_pb_uid_element(add, ?UID3),
     PrivacyList = struct_util:create_pb_privacy_list(only, <<>>, [UidElement1, UidElement2]),
     ProtoIQ = struct_util:create_pb_iq(?ID1, set, PrivacyList),
 
@@ -135,7 +135,7 @@ proto_to_xmpp_iq_only_privacy_list_test() ->
 %% iq-set for only privacy_list and hash.
 proto_to_xmpp_iq_only_privacy_list_hash_test() ->
     setup(),
-    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2_INT),
+    UidElement1 = struct_util:create_pb_uid_element(add, ?UID2),
     PrivacyList = struct_util:create_pb_privacy_list(only, ?HASH2, [UidElement1]),
     ProtoIQ = struct_util:create_pb_iq(?ID1, set, PrivacyList),
 

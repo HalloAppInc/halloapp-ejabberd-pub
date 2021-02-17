@@ -24,7 +24,7 @@ xmpp_to_proto_message_error_test() ->
     setup(),
 
     PbError = struct_util:create_pb_error(<<"invalid_uid">>),
-    PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbError),
+    PbMessage = struct_util:create_pb_message(?ID1, ?UID2, ?UID1, normal, PbError),
 
     ErrorSt = struct_util:create_error_st(invalid_uid, <<>>),
     ToJid = struct_util:create_jid(?UID2, ?SERVER),
@@ -41,7 +41,7 @@ xmpp_to_proto_message_stanza_error_test() ->
     setup(),
 
     PbError = struct_util:create_pb_error(<<"item-not-found">>),
-    PbMessage = struct_util:create_pb_message(?ID1, ?UID2_INT, ?UID1_INT, normal, PbError),
+    PbMessage = struct_util:create_pb_message(?ID1, ?UID2, ?UID1, normal, PbError),
 
     ErrorSt = struct_util:create_error_st('item-not-found', <<>>),
     ToJid = struct_util:create_jid(?UID2, ?SERVER),
@@ -59,8 +59,8 @@ xmpp_to_proto_iq_error_test() ->
     PbError = struct_util:create_pb_error(<<"invalid_id">>),
     PbIq = struct_util:create_pb_iq(?ID1, error, PbError),
 
-    ErrorSt = struct_util:create_error_st(invalid_id),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, error, ErrorSt),
+    PbError = struct_util:create_pb_error(<<"invalid_id">>),
+    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, error, PbError),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
     ?assertEqual(true, is_record(ProtoIq, pb_iq)),
@@ -73,8 +73,8 @@ xmpp_to_proto_iq_error_stanza_test() ->
     PbError = struct_util:create_pb_error(<<"internal-server-error">>),
     PbIq = struct_util:create_pb_iq(?ID1, error, PbError),
 
-    ErrorSt = struct_util:create_stanza_error('internal-server-error'),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, error, ErrorSt),
+    PbError = struct_util:create_pb_error(<<"internal-server-error">>),
+    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, error, PbError),
 
     ProtoIq = iq_parser:xmpp_to_proto(IqSt),
     ?assertEqual(true, is_record(ProtoIq, pb_iq)),
