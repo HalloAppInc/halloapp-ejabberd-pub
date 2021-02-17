@@ -68,14 +68,6 @@ translate_to_xmpp_uid(#pb_contact_list{contacts = Contacts} = PbContactList) ->
 translate_to_xmpp_uid(#pb_group_feed_item{item = Item} = PbFeedItem) ->
     PbFeedItem#pb_group_feed_item{item = translate_to_xmpp_uid(Item)};
 
-translate_to_xmpp_uid(#pb_post{publisher_uid = Uid, audience = Audience} = PbPost) ->
-    PbPost#pb_post{
-        publisher_uid = util_parser:proto_to_xmpp_uid(Uid),
-        audience = translate_to_xmpp_uid(Audience)};
-
-translate_to_xmpp_uid(#pb_comment{publisher_uid = Uid} = PbPost) ->
-    PbPost#pb_post{publisher_uid = util_parser:proto_to_xmpp_uid(Uid)};
-
 translate_to_xmpp_uid(#pb_audience{uids = Uids} = PbAudience) ->
     PbAudience#pb_audience{uids = lists:map(fun translate_to_xmpp_uid/1, Uids)};
 
@@ -148,14 +140,6 @@ translate_to_pb_uid(#pb_contact_list{contacts = Contacts} = PbContactList) ->
 
 translate_to_pb_uid(#pb_group_feed_item{item = Item} = PbFeedItem) ->
     PbFeedItem#pb_group_feed_item{item = translate_to_pb_uid(Item)};
-
-translate_to_pb_uid(#pb_post{publisher_uid = Uid, audience = Audience} = PbPost) ->
-    PbPost#pb_post{
-        publisher_uid = util_parser:xmpp_to_proto_uid(Uid),
-        audience = translate_to_pb_uid(Audience)};
-
-translate_to_pb_uid(#pb_comment{publisher_uid = Uid} = PbPost) ->
-    PbPost#pb_post{publisher_uid = util_parser:xmpp_to_proto_uid(Uid)};
 
 translate_to_pb_uid(#pb_audience{uids = Uids} = PbAudience) ->
     PbAudience#pb_audience{uids = lists:map(fun translate_to_pb_uid/1, Uids)};
