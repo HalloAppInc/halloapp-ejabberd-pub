@@ -152,18 +152,21 @@ create_redis_child_spec(RedisService, RedisClientImpl, RedisServiceClient) ->
 % Make sure if we are in test ot github environment we don't have Jabber IAM role
 -spec check_environment() -> ok. % or error is raised.
 check_environment() ->
-    Arn = util_aws:get_arn(),
-    IsJabberIAMRole = util_aws:is_jabber_iam_role(Arn),
-    ?INFO("Arn ~p ~p", [Arn, IsJabberIAMRole]),
     case config:get_hallo_env() of
         prod ->
+            Arn = util_aws:get_arn(),
+            IsJabberIAMRole = util_aws:is_jabber_iam_role(Arn),
+            ?INFO("Arn ~p ~p", [Arn, IsJabberIAMRole]),
             case IsJabberIAMRole of
                 true -> ok;
                 false -> error({bad_iam_role, Arn, prod})
             end;
-        TestEnv when TestEnv =:= test; TestEnv =:= github; TestEnv =:= localhost ->
+        github ->
+            Arn = util_aws:get_arn(),
+            IsJabberIAMRole = util_aws:is_jabber_iam_role(Arn),
+            ?INFO("Arn ~p ~p", [Arn, IsJabberIAMRole]),
             case IsJabberIAMRole of
-                true -> error({bad_iam_role, Arn, TestEnv});
+                true -> error({bad_iam_role, Arn, github});
                 false -> ok
             end;
         _ -> ok

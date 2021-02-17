@@ -12,16 +12,18 @@
 -include_lib("eunit/include/eunit.hrl").
 
 
-% get_arn is somehow slow if called few times in a row. Maybe AWS is doing some backoff
+% Disable these tests for now because AWS seems to have some ssl connection issues in the last few
+% days. For example running `aws --debug sts get-caller-identity` sometimes takes 25 secs.
+
 %%get_arn_test() ->
 %%    Arn = util_aws:get_arn(),
 %%    ?assertNotEqual(undefined, Arn),
 %%    ?assertEqual(<<"arn">>, binary:part(Arn, {0, 3})),
 %%    ok.
-
-is_jabberd_iam_role_test() ->
-    Arn = util_aws:get_arn(),
-    ?assertNotEqual(undefined, Arn),
-    ?assertEqual(false, util_aws:is_jabber_iam_role(Arn)),
-    ok.
+%%
+%%is_jabberd_iam_role_test() ->
+%%    Arn = util_aws:get_arn(),
+%%    ?assertNotEqual(undefined, Arn),
+%%    ?assertEqual(false, util_aws:is_jabber_iam_role(Arn)),
+%%    ok.
 
