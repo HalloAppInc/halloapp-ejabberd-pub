@@ -143,8 +143,8 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 handle_call({send_dev_push, Uid, PushInfo, PushTypeBin, Payload}, _From, State) ->
-    Response = send_dev_push_internal(Uid, PushInfo, PushTypeBin, Payload, State),
-    {reply, Response, State};
+    {ok, NewState} = send_dev_push_internal(Uid, PushInfo, PushTypeBin, Payload, State),
+    {reply, ok, NewState};
 handle_call(_Request, _From, State) ->
     ?ERROR("invalid call request: ~p", [_Request]),
     {reply, {error, invalid_request}, State}.
