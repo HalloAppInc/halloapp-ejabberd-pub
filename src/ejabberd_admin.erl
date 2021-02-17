@@ -1158,7 +1158,13 @@ uid_info(Uid) ->
             io:format("Group list (~p):~n", [length(Gids)]),
             [io:format(
                 "  ~s (~s)~n",
-                [(model_groups:get_group_info(Gid))#group_info.name, Gid])
+                [
+                    case (model_groups:get_group_info(Gid)) of
+                        #group_info{} = G -> G#group_info.name;
+                        _  -> undefined
+                    end,
+                    Gid
+                ])
                 || Gid <- Gids]
     end,
     ok.
