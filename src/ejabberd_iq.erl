@@ -52,27 +52,16 @@ start_link() ->
 -spec route(iq(), atom() | pid(), term(), non_neg_integer()) -> ok.
 route(#iq{type = T} = IQ, Proc, Ctx, Timeout) when T == set; T == get ->
     Expire = current_time() + Timeout,
-    Rnd = p1_rand:get_string(),
-    ID = encode_id(Expire, Rnd),
-    ets:insert(?MODULE, {{Expire, Rnd}, Proc, Ctx}),
+    Id = base64url:encode(crypto:strong_rand_bytes(10)),
+    ets:insert(?MODULE, {Id, Expire, Proc, Ctx}),
     gen_server:cast(?MODULE, {restart_timer, Expire}),
-    ejabberd_router:route(IQ#iq{id = ID}).
+    ejabberd_router:route(IQ#iq{id = Id}).
 
 -spec dispatch(iq()) -> boolean().
-dispatch(#pb_iq{type = T, id = ID} = IQ) when T == error; T == result ->
-    case decode_id(ID) of
-        {ok, Expire, Rnd, Node} ->
-            ejabberd_cluster:send({?MODULE, Node}, {route, IQ, {Expire, Rnd}});
-        error ->
-            false
-    end;
-dispatch(#iq{type = T, id = ID} = IQ) when T == error; T == result ->
-    case decode_id(ID) of
-        {ok, Expire, Rnd, Node} ->
-            ejabberd_cluster:send({?MODULE, Node}, {route, IQ, {Expire, Rnd}});
-        error ->
-            false
-    end;
+dispatch(#pb_iq{type = T} = IQ) when T == error; T == result ->
+    check_ets_and_dispatch(IQ);
+dispatch(#iq{type = T} = IQ) when T == error; T == result ->
+    check_ets_and_dispatch(IQ);
 dispatch(_) ->
     false.
 
@@ -94,9 +83,11 @@ handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     noreply(State).
 
-handle_info({route, IQ, Key}, State) ->
+handle_info({route, IQ}, State) ->
+    % check to see if it is pb_iq or xmpp iq
+    Key = util_pb:get_id(IQ),
     case ets:lookup(?MODULE, Key) of
-        [{_, Proc, Ctx}] ->
+        [{_, _, Proc, Ctx}] ->
             callback(Proc, IQ, Ctx),
             ets:delete(?MODULE, Key);
         [] ->
@@ -119,28 +110,38 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+-spec check_ets_and_dispatch(IQ :: iq()) -> boolean().
+check_ets_and_dispatch(IQ) ->
+    Key = util_pb:get_id(IQ),
+    case ets:lookup(?MODULE, Key) of
+        [{_, _, _, _}] ->
+            ejabberd_cluster:send(?MODULE, {route, IQ});
+        _ ->
+            false
+    end.
+
 -spec current_time() -> non_neg_integer().
 current_time() ->
     erlang:system_time(millisecond).
 
 -spec clean({non_neg_integer(), binary()} | '$end_of_table')
        -> non_neg_integer() | infinity.
-clean({Expire, _} = Key) ->
-    case current_time() of
-        Time when Time >= Expire ->
-            case ets:lookup(?MODULE, Key) of
-                [{_, Proc, Ctx}] ->
-                    callback(Proc, timeout, Ctx),
-                    ets:delete(?MODULE, Key);
-                [] ->
-                    ok
-            end,
-            clean(ets:next(?MODULE, Key));
-        _ ->
-            Expire
-    end;
 clean('$end_of_table') ->
-    infinity.
+    infinity;
+clean(Key) ->
+    case ets:lookup(?MODULE, Key) of
+        [{_, Expire, Proc, Ctx}] ->
+            case current_time() of
+                Time when Time >= Expire ->
+                    callback(Proc, timeout, Ctx),
+                    ets:delete(?MODULE, Key),
+                    clean(ets:next(?MODULE, Key));
+                _ ->
+                    Expire
+            end;
+        [] ->
+            clean(ets:next(?MODULE, Key))
+    end.
 
 -spec noreply(state()) -> {noreply, state()} | {noreply, state(), non_neg_integer()}.
 noreply(#state{expire = Expire} = State) ->
@@ -151,34 +152,6 @@ noreply(#state{expire = Expire} = State) ->
             Timeout = max(0, Expire - current_time()),
             {noreply, State, Timeout}
     end.
-
--spec encode_id(non_neg_integer(), binary()) -> binary().
-encode_id(Expire, Rnd) ->
-    ExpireBin = integer_to_binary(Expire),
-    Node = ejabberd_cluster:node_id(),
-    CheckSum = calc_checksum(<<ExpireBin/binary, Rnd/binary, Node/binary>>),
-    <<"rr-", ExpireBin/binary, $-, Rnd/binary, $-, CheckSum/binary, $-, Node/binary>>.
-
--spec decode_id(binary()) -> {ok, non_neg_integer(), binary(), atom()} | error.
-decode_id(<<"rr-", ID/binary>>) ->
-    try
-        [ExpireBin, Tail] = binary:split(ID, <<"-">>),
-        [Rnd, Rest] = binary:split(Tail, <<"-">>),
-        [CheckSum, NodeBin] = binary:split(Rest, <<"-">>),
-        CheckSum = calc_checksum(<<ExpireBin/binary, Rnd/binary, NodeBin/binary>>),
-        Node = ejabberd_cluster:get_node_by_id(NodeBin),
-        Expire = binary_to_integer(ExpireBin),
-        {ok, Expire, Rnd, Node}
-    catch _:{badmatch, _} ->
-        error
-    end;
-decode_id(_) ->
-    error.
-
--spec calc_checksum(binary()) -> binary().
-calc_checksum(Data) ->
-    Key = ejabberd_config:get_shared_key(),
-    base64:encode(crypto:hash(sha, <<Data/binary, Key/binary>>)).
 
 -spec callback(atom() | pid(), #iq{} | timeout, term()) -> any().
 callback(undefined, IQRes, Fun) ->
