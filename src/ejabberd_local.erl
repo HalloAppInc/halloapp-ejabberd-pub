@@ -42,10 +42,6 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
-%% deprecated functions: use ejabberd_router:route_iq/3,4
--export([route_iq/2, route_iq/3]).
--deprecated([{route_iq, 2}, {route_iq, 3}]).
-
 -include("logger.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 -include("xmpp.hrl").
@@ -86,14 +82,6 @@ route(Packet) ->
         true ->
             ejabberd_hooks:run(local_send_to_resource_hook, To#jid.lserver, [Packet])
     end.
-
--spec route_iq(iq(), function()) -> ok.
-route_iq(IQ, Fun) ->
-    route_iq(IQ, Fun, undefined).
-
--spec route_iq(iq(), function(), undefined | non_neg_integer()) -> ok.
-route_iq(IQ, Fun, Timeout) ->
-    ejabberd_router:route_iq(IQ, Fun, undefined, Timeout).
 
 -spec bounce_resource_packet(stanza()) -> ok | stop.
 bounce_resource_packet(#presence{to = #jid{lresource = <<"">>}}) ->

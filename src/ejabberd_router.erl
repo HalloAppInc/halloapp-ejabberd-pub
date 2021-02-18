@@ -60,10 +60,6 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
-%% Deprecated functions
--export([route/3, route_error/4]).
--deprecated([{route, 3}, {route_error, 4}]).
-
 %% This value is used in SIP and Megaco for a transaction lifetime.
 -define(IQ_TIMEOUT, 32000).
 -define(CALL_TIMEOUT, timer:minutes(10)).
@@ -121,21 +117,6 @@ route_multicast(From, Destinations, Packet) ->
     ok.
 
 
--spec route(jid(), jid(), xmlel() | stanza()) -> ok.
-route(#jid{} = From, #jid{} = To, #xmlel{} = El) ->
-    try xmpp:decode(El, ?NS_CLIENT, [ignore_els]) of
-    Pkt -> route(From, To, Pkt)
-    catch _:{xmpp_codec, Why} ->
-        ?ERROR("Failed to decode xml element ~p when "
-               "routing from ~ts to ~ts: ~ts",
-               [El, jid:encode(From), jid:encode(To),
-            xmpp:format_error(Why)])
-    end;
-
-route(#jid{} = From, #jid{} = To, Packet) ->
-    route(xmpp:set_from_to(Packet, From, To)).
-
-
 -spec route_error(stanza(), stanza_error()) -> ok.
 route_error(Packet, Err) ->
     Type = xmpp:get_type(Packet),
@@ -144,27 +125,6 @@ route_error(Packet, Err) ->
             ok;
         true ->
             route(xmpp:make_error(Packet, Err))
-    end.
-
-
-%% Route the error packet only if the originating packet is not an error itself.
-%% RFC3920 9.3.1
--spec route_error(jid(), jid(), xmlel(), xmlel()) -> ok;
-         (jid(), jid(), stanza(), stanza_error()) -> ok.
-route_error(From, To, #xmlel{} = ErrPacket, #xmlel{} = OrigPacket) ->
-    #xmlel{attrs = Attrs} = OrigPacket,
-    case <<"error">> == fxml:get_attr_s(<<"type">>, Attrs) of
-        false -> route(From, To, ErrPacket);
-        true -> ok
-    end;
-
-route_error(From, To, Packet, #stanza_error{} = Err) ->
-    Type = xmpp:get_type(Packet),
-    if
-        Type == error; Type == result ->
-            ok;
-        true ->
-            route(From, To, xmpp:make_error(Packet, Err))
     end.
 
 
@@ -441,48 +401,10 @@ do_route(OrigPacket) ->
                 true ->
                     ok;
                 false ->
-                    To = xmpp:get_to(Packet),
-                    LDstDomain = To#jid.lserver,
-                    case find_routes(LDstDomain) of
-                        [] ->
-                            ?ERROR("Packet can't be routed: ~p", [OrigPacket]),
-                            %% This should not happen for us.
-                            %% Should cleanup this file and ejabberd_local.
-                            %% We dont need to check the routing processes until after we store the message.
-                            %% TODO(murali@): fix this.
-                            ok;
-                        [Route] ->
-                            do_route(Packet, Route);
-                        Routes ->
-                            balancing_route(Packet, Routes)
-                    end,
-                    ok
+                    %% We dont need to check the routing processes until after we store the message.
+                    %% After storing the message - we directly route it to the user's c2s process.
+                    ejabberd_local:route(Packet)
             end
-    end.
-
-
--spec do_route(stanza(), #route{}) -> any().
-do_route(Pkt, #route{local_hint = LocalHint, pid = Pid}) when is_pid(Pid) ->
-    case LocalHint of
-        {apply, Module, Function} when node(Pid) == node() ->
-            Module:Function(Pkt);
-        _ ->
-            ejabberd_cluster:send(Pid, {route, Pkt})
-    end;
-do_route(_Pkt, _Route) ->
-    ok.
-
-
--spec balancing_route(stanza(), [#route{}]) -> any().
-balancing_route(Packet, Rs) ->
-    Value = erlang:system_time(),
-    case [R || R <- Rs, node(R#route.pid) == node()] of
-        [] ->
-            R = lists:nth(erlang:phash(Value, length(Rs)), Rs),
-            do_route(Packet, R);
-        LRs ->
-            R = lists:nth(erlang:phash(Value, length(LRs)), LRs),
-            do_route(Packet, R)
     end.
 
 
