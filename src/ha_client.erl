@@ -59,7 +59,15 @@
 
 -type state() :: #state{}.
 
--type options() :: #{}.
+-type options() :: #{
+    auto_send_acks => boolean(),
+    resource => binary(),
+    version => binary(),
+    _ => _
+}.
+
+-define(DEFAUL_UA, <<"HalloApp/Android0.129">>).
+-define(DEFAULT_RESOURCE, <<"android">>).
 
 % TODO: handle acks,
 % TODO: send acks to server.
@@ -274,8 +282,9 @@ handle_call({login, Uid, Passwd}, _From,
         pwd = Passwd,
         client_mode = #pb_client_mode{mode = active},
         %% TODO(murali@): add version based tests.
-        client_version = #pb_client_version{version = <<"HalloApp/Android0.129">>},
-        resource = maps:get(resource, Options, <<"android">>)
+        client_version = #pb_client_version{
+            version = maps:get(version, Options, ?DEFAUL_UA)},
+        resource = maps:get(resource, Options, ?DEFAULT_RESOURCE)
     },
     send_internal(Socket, HaAuth),
     ?assert(auth =:= State#state.state),
