@@ -400,9 +400,15 @@ send_internal(Socket, PBRecord)
         when is_record(PBRecord, pb_auth_request); is_record(PBRecord, pb_packet) ->
     ?INFO("Encoding Record ~p", [PBRecord]),
     % TODO: handle encode error and raise it
-    Message = enif_protobuf:encode(PBRecord),
-    ?INFO("Message ~p", [Message]),
-    send_internal(Socket, Message).
+    case enif_protobuf:encode(PBRecord) of
+        {error, Reason} ->
+            ?ERROR("Failed to encode PB: Reason ~p Record: ~p", [Reason, PBRecord]),
+            erlang:error({protobuf_encode_error, Reason, PBRecord});
+        Message ->
+            ?INFO("Message ~p", [Message]),
+            send_internal(Socket, Message)
+    end.
+
 
 
 -spec receive_wait(State :: state()) -> {Packet :: maybe(pb_packet()), NewState :: state()}.
