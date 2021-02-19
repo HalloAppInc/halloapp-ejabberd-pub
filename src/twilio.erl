@@ -18,17 +18,19 @@
 -export([
     send_sms/2,
     fetch_message_info/1,
-    normalized_status/1
+    normalized_status/1,
+    compose_body/2  % for debugging.
 ]).
 
 
 -spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
-    ?INFO("~p", [Phone]),
+    ?INFO("Phone: ~p, Msg: ~p", [Phone, Msg]),
     URL = ?BASE_URL,
     Headers = fetch_auth_headers(),
     Type = "application/x-www-form-urlencoded",
     Body = compose_body(Phone, Msg),
+    ?DEBUG("Body: ~p", [Body]),
     HTTPOptions = [],
     Options = [],
     Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
@@ -111,13 +113,22 @@ fetch_auth_headers() ->
     [{"Authorization", "Basic " ++ AuthStr}].
 
 
+-spec encode_based_on_country(Phone :: phone(), Msg :: string()) -> string().
+encode_based_on_country(Phone, Msg) ->
+    case mod_libphonenumber:get_cc(Phone) of
+        <<"CN">> -> "【 HALLOAPP】" ++ Msg;
+        _ -> Msg
+    end.
+
+
 -spec compose_body(Phone :: phone(), Message :: string()) -> uri_string:uri_string().
 compose_body(Phone, Message) ->
+    Message2 = encode_based_on_country(Phone, Message),
     PlusPhone = "+" ++ binary_to_list(Phone),
     uri_string:compose_query([
         {"To", PlusPhone },
         {"From", ?FROM_PHONE},
-        {"Body", Message},
+        {"Body", Message2},
         {"StatusCallback", ?TWILIOCALLBACK_URL}
     ], [{encoding, utf8}]).
 

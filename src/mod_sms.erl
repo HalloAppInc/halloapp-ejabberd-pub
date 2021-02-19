@@ -102,8 +102,7 @@ send_sms(Phone, Code, UserAgent, OldResponses) ->
 -spec prepare_registration_sms(Code :: binary(), UserAgent :: binary()) -> string().
 prepare_registration_sms(Code, UserAgent) ->
     AppHash = get_app_hash(UserAgent),
-    Msg = io_lib:format("Your HalloApp verification code: ~s~n~n~n~s", [Code, AppHash]),
-    Msg.
+    io_lib:format("Your HalloApp verification code: ~s~n~n~n~s", [Code, AppHash]).
 
 -spec generate_code(IsDebug :: boolean()) -> binary().
 generate_code(true) ->
@@ -179,7 +178,14 @@ smart_send(Phone, Msg, OldResponses) ->
             ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderList]),
             twilio
     end,
-    Result = NewGateway:send_sms(Phone, Msg),
+
+    %% TODO(vipin): Fix after we have approval via MessageBird.
+    NewGateway2 = case mod_libphonenumber:get_cc(Phone) of
+        <<"CN">> -> twilio;
+        _ -> NewGateway
+    end,
+    ?DEBUG("Choosen Gateway: ~p", [NewGateway2]),
+    Result = NewGateway2:send_sms(Phone, Msg),
     ?DEBUG("Result: ~p", [Result]),
     case Result of
         {ok, SMSResponse} -> 

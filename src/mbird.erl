@@ -20,7 +20,7 @@
 
 -spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
-    ?INFO("send_sms via MessageBird ~p", [Phone]),
+    ?INFO("Phone: ~p, Msg: ~s", [Phone, Msg]),
     URL = ?BASE_URL,
     Headers = [{"Authorization", "AccessKey " ++ get_access_key()}],
     Type = "application/x-www-form-urlencoded",
