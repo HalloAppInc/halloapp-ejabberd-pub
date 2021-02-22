@@ -116,9 +116,9 @@ check_version_rules(ios, ClientVersion, group_feed_st) ->
 check_version_rules(android, ClientVersion, group_feed_st) ->
     util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android0.93">>);
 
-%% Dont send group_chat messages and pushes to android clients >= 0.130
+%% Dont send group_chat messages and pushes to android clients >= 0.129
 check_version_rules(android, ClientVersion, group_chat) ->
-    util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android0.130">>);
+    util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android0.129">>);
 
 %% Dont send group_chat messages and pushes to ios clients >= 1.3.95
 check_version_rules(ios, ClientVersion, group_chat) ->
