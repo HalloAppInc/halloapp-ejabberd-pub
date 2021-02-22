@@ -19,6 +19,8 @@
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
 
+-define(GROUP_INVITE_LINK_SIZE, 24).
+
 
 %% API
 -export([
@@ -44,12 +46,20 @@
     set_name/2,
     set_avatar/2,
     delete_avatar/1,
+    has_invite_link/1,
+    get_invite_link/1,
+    reset_invite_link/1,
+    get_invite_link_gid/1,
+    is_removed_member/2,
+    add_removed_members/2,
+    clear_removed_members_set/1,
     check_member/2,
     count_groups/0,
     count_groups/1
 ]).
 
 -ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
 -export([
     decode_member/2,
     create_group/3,
@@ -84,6 +94,7 @@ mod_options(_Host) ->
 -define(FIELD_AVATAR_ID, <<"av">>).
 -define(FIELD_CREATION_TIME, <<"ct">>).
 -define(FIELD_CREATED_BY, <<"crb">>).
+-define(FIELD_INVITE_LINK, <<"il">>).
 
 
 -spec create_group(Uid :: uid(), Name :: binary()) -> {ok, Gid :: gid()}.
@@ -121,7 +132,12 @@ delete_group(Gid) ->
 
 -spec delete_empty_group(Gid :: gid()) -> ok.
 delete_empty_group(Gid) ->
-    {ok, Res} = q(["DEL", group_key(Gid), members_key(Gid)]),
+    {ok, Link} = q(["HGET", group_key(Gid), ?FIELD_INVITE_LINK]),
+    case Link of
+        undefined -> ok;
+        _ -> q(["DEL", group_invite_link_key(Link)])
+    end,
+    {ok, Res} = q(["DEL", group_key(Gid), members_key(Gid), group_removed_set_key(Gid)]),
     case Res of
         <<"0">> -> ok;
         _ -> q(["DECR", count_groups_key(Gid)])
@@ -342,6 +358,97 @@ delete_avatar(Gid) ->
     ok.
 
 
+-spec has_invite_link(Gid :: gid()) -> boolean().
+has_invite_link(Gid) ->
+    {ok, Link} = q(["HGET", group_key(Gid), ?FIELD_INVITE_LINK]),
+    Link =/= undefined.
+
+
+-spec get_invite_link(Gid :: gid()) -> {IsNew :: boolean(), Link :: binary()}.
+get_invite_link(Gid) ->
+    Link = gen_group_invite_link(),
+    [{ok, SetRes}, {ok, Link2}] = qp([
+        ["HSETNX", group_key(Gid), ?FIELD_INVITE_LINK, Link],
+        ["HGET", group_key(Gid), ?FIELD_INVITE_LINK]
+        ]),
+    IsNew = util_redis:decode_boolean(SetRes),
+    case IsNew of
+        false -> ok;
+        true ->
+            Link2 = Link, % just making sure they are the same
+            set_group_invite_link(Link2, Gid)
+    end,
+    {IsNew, Link2}.
+
+-spec reset_invite_link(Gid :: gid()) -> Link :: binary().
+reset_invite_link(Gid) ->
+    Link = gen_group_invite_link(),
+    Result = qp([
+        ["MULTI"],
+        ["HGET", group_key(Gid), ?FIELD_INVITE_LINK],
+        ["HSET", group_key(Gid), ?FIELD_INVITE_LINK, Link],
+        ["EXEC"]
+    ]),
+    [_, _, _, {ok, [OldLink, _SetRes]}] = Result,
+    remove_group_invite_link(OldLink),
+    set_group_invite_link(Link, Gid),
+    Link.
+
+
+remove_group_invite_link(undefined) -> ok;
+remove_group_invite_link(Link) ->
+    {ok, _Res} = q(["DEL", group_invite_link_key(Link)]),
+    ok.
+
+-spec set_group_invite_link(Link :: binary(), Gid :: gid()) -> ok.
+set_group_invite_link(Link, Gid) ->
+    % SETNX protects agains the very unlikely case of duplicate link
+    {ok, _Res} = q(["SETNX", group_invite_link_key(Link), Gid]),
+    ok.
+
+-spec get_invite_link_gid(Link :: binary()) -> maybe(gid()).
+get_invite_link_gid(undefined) -> undefined;
+get_invite_link_gid(<<>>) -> undefined;
+get_invite_link_gid(Link) ->
+    {ok, Gid} = q(["GET", group_invite_link_key(Link)]),
+    case Gid of
+        undefined -> undefined;
+        _ ->
+            {ok, CurLink} = q(["HGET", group_key(Gid), ?FIELD_INVITE_LINK]),
+            case Link =:= CurLink of
+                true -> Gid;
+                false ->
+                    % This might happen if we fail to delete and old link.
+                    ?WARNING("Group link mismatch Gid: ~p Link ~p", [Gid, Link]),
+                    undefined
+            end
+    end.
+
+
+-spec is_removed_member(Gid :: gid(), Uid :: uid()) -> boolean().
+is_removed_member(Gid, Uid) ->
+    {ok, Res} = q(["SISMEMBER", group_removed_set_key(Gid), Uid]),
+    util_redis:decode_boolean(Res).
+
+
+-spec add_removed_members(Gid :: gid(), Uid :: uid()) -> non_neg_integer().
+add_removed_members(Gid, []) ->
+    [];
+add_removed_members(Gid, Uids) ->
+    {ok, Res} = q(["SADD", group_removed_set_key(Gid) | Uids]),
+    util_redis:decode_int(Res).
+
+
+-spec clear_removed_members_set(Gid :: gid()) -> ok.
+clear_removed_members_set(Gid) ->
+    {ok, _} = q(["DEL", group_removed_set_key(Gid)]),
+    ok.
+
+
+gen_group_invite_link() ->
+    util:random_str(?GROUP_INVITE_LINK_SIZE).
+
+
 encode_member_value(MemberType, Ts, AddedBy) ->
     T = encode_member_type(MemberType),
     TsBin = integer_to_binary(Ts),
@@ -426,6 +533,16 @@ members_key(Gid) ->
 -spec user_groups_key(Uid :: uid()) -> binary().
 user_groups_key(Uid) ->
     <<?USER_GROUPS_KEY/binary, "{", Uid/binary, "}">>.
+
+
+-spec group_invite_link_key(Link :: binary()) -> binary().
+group_invite_link_key(Link) ->
+    <<?GROUP_INVITE_LINK_KEY/binary, "{", Link/binary, "}">>.
+
+
+-spec group_removed_set_key(Gid :: gid()) -> binary().
+group_removed_set_key(Gid) ->
+    <<?GROUP_REMOVED_SET_KEY/binary, <<"{">>/binary, Gid/binary, <<"}">>/binary>>.
 
 
 q(Command) -> ecredis:q(ecredis_groups, Command).

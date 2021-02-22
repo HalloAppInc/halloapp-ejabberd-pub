@@ -226,3 +226,75 @@ delete_empty_group_test() ->
     ?assertEqual([Gid1], model_groups:get_groups(?UID1)),
     ok.
 
+
+get_invite_link_test() ->
+    setup(),
+    {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    ?assertEqual(false, model_groups:has_invite_link(Gid1)),
+    {IsNew, Link} = model_groups:get_invite_link(Gid1),
+    ?assertEqual(true, model_groups:has_invite_link(Gid1)),
+    ?assertEqual(true, IsNew),
+    ?assertEqual(24, byte_size(Link)),
+    ?assertEqual(Gid1, model_groups:get_invite_link_gid(Link)),
+    {IsNew2, Link2} = model_groups:get_invite_link(Gid1),
+    ?assertEqual(false, IsNew2),
+    ?assertEqual(Link, Link2),
+    ?assertEqual(Gid1, model_groups:get_invite_link_gid(Link)),
+    ok.
+
+
+reset_invite_link_test() ->
+    setup(),
+    {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    {true, Link} = model_groups:get_invite_link(Gid1),
+    ?assertEqual(Gid1, model_groups:get_invite_link_gid(Link)),
+    Link2 = model_groups:reset_invite_link(Gid1),
+    ?assertNotEqual(Link, Link2),
+    ?assertEqual(undefined, model_groups:get_invite_link_gid(Link)),
+    ?assertEqual(Gid1, model_groups:get_invite_link_gid(Link2)),
+    ok.
+
+
+get_invite_link_git_test() ->
+    setup(),
+    {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    ?assertEqual(undefined, model_groups:get_invite_link_gid(undefined)),
+    ?assertEqual(undefined, model_groups:get_invite_link_gid(<<>>)),
+    {true, Link} = model_groups:get_invite_link(Gid1),
+    ?assertEqual(Gid1, model_groups:get_invite_link_gid(Link)),
+    ok.
+
+
+add_removed_member_test() ->
+    setup(),
+    {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    ?assertEqual(1, model_groups:add_removed_members(Gid1, [?UID2])),
+    ?assertEqual(0, model_groups:add_removed_members(Gid1, [?UID2])),
+    ok.
+
+
+is_removed_member_test() ->
+    setup(),
+    {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    ?assertEqual(false, model_groups:is_removed_member(Gid1, ?UID2)),
+    ?assertEqual(false, model_groups:is_removed_member(Gid1, ?UID3)),
+    ?assertEqual(1, model_groups:add_removed_members(Gid1, [?UID2])),
+    ?assertEqual(true, model_groups:is_removed_member(Gid1, ?UID2)),
+    ?assertEqual(false, model_groups:is_removed_member(Gid1, ?UID3)),
+    ok.
+
+
+clear_removed_members_set_test() ->
+    setup(),
+    {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    ?assertEqual(false, model_groups:is_removed_member(Gid1, ?UID2)),
+    ?assertEqual(false, model_groups:is_removed_member(Gid1, ?UID3)),
+    ?assertEqual(1, model_groups:add_removed_members(Gid1, [?UID2])),
+    ?assertEqual(1, model_groups:add_removed_members(Gid1, [?UID3])),
+    ?assertEqual(true, model_groups:is_removed_member(Gid1, ?UID2)),
+    ?assertEqual(true, model_groups:is_removed_member(Gid1, ?UID3)),
+    ok = model_groups:clear_removed_members_set(Gid1),
+    ?assertEqual(false, model_groups:is_removed_member(Gid1, ?UID2)),
+    ?assertEqual(false, model_groups:is_removed_member(Gid1, ?UID3)),
+    ok.
+

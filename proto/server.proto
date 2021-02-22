@@ -215,6 +215,7 @@ message GroupMember {
         PROMOTE = 2;
         DEMOTE = 3;
         LEAVE = 4;
+        JOIN = 5;
     }
     Action action = 1;
     int64 uid = 2 [ebin = true];
@@ -244,6 +245,7 @@ message GroupStanza {
         MODIFY_MEMBERS = 8;
         AUTO_PROMOTE_ADMINS = 9;
         SET_NAME = 10;
+        JOIN = 11;
     }
     Action action = 1;
     string gid = 2;
@@ -274,7 +276,20 @@ message GroupsStanza {
 }
 
 
-
+message GroupInviteLink {
+    enum Action {
+        UNKNOWN = 0;
+        GET = 1;
+        RESET = 2;
+        JOIN = 3;
+    }
+    Action action = 1;
+    string gid = 2;
+    string link = 3;
+    string result = 4;
+    string reason = 5;
+    GroupStanza group = 6; //only present for action=JOIN
+}
 
 
 
@@ -423,6 +438,7 @@ message Iq {
         GroupFeedItem group_feed_item = 26;
         UploadGroupAvatar group_avatar = 27;
         DeleteAccount delete_account = 28;
+        GroupInviteLink group_invite_link = 31;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use

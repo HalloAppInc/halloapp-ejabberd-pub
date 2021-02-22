@@ -42,7 +42,10 @@
     send_chat_message/4,
     broadcast_packet/4,
     send_retract_message/4,
-    get_all_group_members/1
+    get_all_group_members/1,
+    get_invite_link/2,
+    reset_invite_link/2,
+    join_with_invite_link/2
 ]).
 
 -include("logger.hrl").
@@ -161,6 +164,8 @@ modify_members(Gid, Uid, Changes) ->
             Results = RemoveResults ++ AddResults,
             log_stats(modify_members, Results),
             send_modify_members_event(Gid, Uid, Results),
+            store_removed_members(Gid, RemoveResults),
+            % TODO: remove the people that we successfully added from the removed_members_set
             maybe_delete_empty_group(Gid),
             {ok, Results}
     end.
@@ -402,6 +407,60 @@ get_all_group_members(Uid) ->
     sets:del_element(Uid, S).
 
 
+-spec get_invite_link(Gid :: gid(), Uid :: uid()) -> {ok, Link :: binary()} | {error, term()}.
+get_invite_link(Gid, Uid) ->
+    ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
+    case model_groups:is_admin(Gid, Uid) of
+        false -> {error, not_admin};
+        true ->
+            {IsNew, Link} = model_groups:get_invite_link(Gid),
+            ?INFO("Gid: ~s Uid: ~s Link: ~s new: ~p", [Gid, Uid, Link, IsNew]),
+            maybe_clear_removed_members_set(IsNew, Gid),
+            {ok, Link}
+    end.
+
+
+-spec reset_invite_link(Gid :: gid(), Uid :: uid()) -> {ok, Link :: binary()} | {error, term()}.
+reset_invite_link(Gid, Uid) ->
+    ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
+    case model_groups:is_admin(Gid, Uid) of
+        false -> {error, not_admin};
+        true ->
+            Link = model_groups:reset_invite_link(Gid),
+            ?INFO("Gid: ~s Uid: ~s Link: ~s", [Gid, Uid, Link]),
+            maybe_clear_removed_members_set(true, Gid),
+            {ok, Link}
+    end.
+
+
+-spec join_with_invite_link(Uid :: uid(), Link :: binary()) -> {ok, group()} | {error, term()}.
+join_with_invite_link(Uid, Link) ->
+    ?INFO("Uid: ~s Link: ~s", [Uid, Link]),
+    case model_groups:get_invite_link_gid(Link) of
+        undefined -> {error, invalid_invite};
+        Gid ->
+            GroupSize = model_groups:get_group_size(Gid),
+            IsSizeExceeded = GroupSize + 1 > ?MAX_GROUP_SIZE,
+            IsMember = model_groups:is_member(Gid, Uid),
+            WasRemoved = model_groups:is_removed_member(Gid, Uid),
+            if
+                IsMember -> {error, already_member};
+                IsSizeExceeded -> {error, max_group_size};
+                WasRemoved -> {error, admin_removed};
+                true ->
+                    [{Uid, add, Result}] = AddResults = add_members_unsafe_2(Gid, <<"link">>, [Uid]),
+                    case Result of
+                        ok ->
+                            log_stats(join_with_link, AddResults),
+                            send_join_group_event(Gid, Uid),
+                            {ok, model_groups:get_group(Gid)};
+                        Error ->
+                            {error, Error}
+                    end
+            end
+    end.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%   Internal                                                                                 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -624,6 +683,14 @@ send_leave_group_event(Gid, Uid) ->
     ok.
 
 
+-spec send_join_group_event(Gid :: gid(), Uid :: uid()) -> ok.
+send_join_group_event(Gid, Uid) ->
+    Group = model_groups:get_group(Gid),
+    NamesMap = model_accounts:get_names([Uid]),
+    broadcast_update(Group, Uid, join, [{Uid, join, ok}], NamesMap),
+    ok.
+
+
 -spec send_change_name_event(Gid :: gid(), Uid :: uid()) -> ok.
 send_change_name_event(Gid, Uid) ->
     Group = model_groups:get_group(Gid),
@@ -682,6 +749,7 @@ make_member_st({Uid, Action, Result}, Event, NamesMap) ->
     Type = case {Event, Action} of
         {create, add} -> member;
         {leave, leave} -> member;
+        {join, join} -> member;
         {modify_members, add} -> member;
         {modify_members, remove} -> member;
         {modify_admins, promote} -> admin;
@@ -735,5 +803,22 @@ delete_group_avatar_data(Gid, AvatarId) ->
     ?INFO("Gid: ~s deleting AvatarId: ~s from S3", [Gid, AvatarId]),
     % this function already logs the error.
     mod_user_avatar:delete_avatar_s3(AvatarId),
+    ok.
+
+
+-spec maybe_clear_removed_members_set(IsNewLink :: boolean(), Gid :: gid()) -> ok.
+maybe_clear_removed_members_set(false, _Gid) ->
+    % We only want to clear for new links
+    ok;
+maybe_clear_removed_members_set(true, Gid) ->
+    ?INFO("Gid: ~s clearing the removed_members_set for", [Gid]),
+    model_groups:clear_removed_members_set(Gid).
+
+
+-spec store_removed_members(Gid :: gid(), RemovedResult :: modify_member_results()) -> ok.
+store_removed_members(Gid, RemoveResults) ->
+    % only pick the successful removes
+    Uids = [Uid || {Uid, remove, ok} <- RemoveResults],
+    model_groups:add_removed_members(Gid, Uids),
     ok.
 

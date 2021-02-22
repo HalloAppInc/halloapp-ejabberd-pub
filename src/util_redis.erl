@@ -21,6 +21,7 @@
     qp/2,
     eredis_hash/1,
     encode_boolean/1,
+    decode_boolean/1,
     decode_boolean/2,
     parse_zrange_with_scores/1
 ]).
@@ -67,6 +68,8 @@ qp(Client, Commands) ->
 encode_boolean(true) -> <<"1">>;
 encode_boolean(false) -> <<"0">>.
 
+decode_boolean(<<"1">>) -> true;
+decode_boolean(<<"0">>) -> false.
 
 decode_boolean(<<"1">>, _DefaultValue) -> true;
 decode_boolean(<<"0">>, _DefaultValue) -> false;

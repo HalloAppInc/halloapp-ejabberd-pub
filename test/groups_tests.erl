@@ -22,6 +22,10 @@ group() ->
         groups_get_groups_test,
         groups_get_group_test,
         groups_set_name_test,
+        % TODO: move the group_invite_link tests into another file. Because this file is kind of long.
+        groups_invite_link_test,
+        groups_invite_link_fail_to_join_after_removed_by_admin_test,
+        groups_invite_link_reset_test,
         groups_set_group_avatar_test,
         groups_not_admin_modify_group_test,
         groups_create_group_creator_is_member_test
@@ -493,6 +497,225 @@ set_name_test(Conf) ->
     } = Result,
 
     % TODO: check that others get the group name change.
+
+    {save_config, [{gid, Gid}, {gid2, Gid2}]}.
+
+
+% Uid1 creates group invite link for Gid and Uid3 joins via the link.
+invite_link_test(Conf) ->
+    {groups_set_name_test, SConfig} = ?config(saved_config, Conf),
+    Gid = ?config(gid, SConfig),
+    Gid2 = ?config(gid2, SConfig),
+    ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
+    ?assertEqual([?UID1, ?UID3], model_groups:get_member_uids(Gid2)),
+
+    ?assertEqual(false, model_groups:has_invite_link(Gid)),
+    ?assertEqual(false, model_groups:has_invite_link(Gid2)),
+
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+
+    % Get members of group1
+    Id = <<"g_iq_id10">>,
+    GetLink = #pb_group_invite_link{
+        action = get,
+        gid = Gid
+    },
+
+    Result = ha_client:send_iq(C1, Id, get, GetLink),
+    ct:pal("Result ~p", [Result]),
+    % check the result group1
+    #pb_packet{
+        stanza = #pb_iq{
+            id = Id,
+            type = result,
+            payload = #pb_group_invite_link{
+                action = get,
+                gid = Gid,
+                link = FullLink
+            }
+        }
+    } = Result,
+
+    ?assertEqual(true, model_groups:has_invite_link(Gid)),
+    Link = mod_groups_api:parse_invite_link(FullLink),
+    FullLink = mod_groups_api:make_invite_link(Link),
+    {false, Link} = model_groups:get_invite_link(Gid),
+
+
+    {ok, C3} = ha_client:connect_and_login(?UID3, ?PASSWORD3),
+
+    % Uid3 joins with the link
+    Id2 = <<"g_iq_id11">>,
+    JoinWithLink = #pb_group_invite_link{
+        action = join,
+        link = FullLink
+    },
+
+    Result2 = ha_client:send_iq(C3, Id2, set, JoinWithLink),
+    ct:pal("Result ~p", [Result2]),
+
+    #pb_packet{
+        stanza = #pb_iq{
+            id = Id2,
+            type = result,
+            payload = #pb_group_invite_link{
+                action = join,
+                gid = Gid,
+                link = FullLink,
+                result = <<"ok">>,
+                reason = undefined,
+                group = GroupSt
+            }
+        }
+    } = Result2,
+
+    ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
+    ?assertEqual(3, length(GroupSt#pb_group_stanza.members)),
+
+    {save_config, [{gid, Gid}, {gid2, Gid2}]}.
+
+
+% Uid1 removes Uid3 from Gid and Uid3 can not join again using the link
+invite_link_fail_to_join_after_removed_by_admin_test(Conf) ->
+    {groups_invite_link_test, SConfig} = ?config(saved_config, Conf),
+    Gid = ?config(gid, SConfig),
+    Gid2 = ?config(gid2, SConfig),
+    ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
+    ?assertEqual([?UID1, ?UID3], model_groups:get_member_uids(Gid2)),
+
+    ?assertEqual(true, model_groups:has_invite_link(Gid)),
+
+    % Uid1 removes Uid3 to the group
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+
+    Id = <<"g_iq_id12">>,
+    Payload = #pb_group_stanza{
+        gid = Gid,
+        action = modify_members,
+        members = [
+            #pb_group_member{uid = ?UID3, action = remove}
+        ]
+    },
+
+    Result = ha_client:send_iq(C1, Id, set, Payload),
+    ct:pal("Result ~p", [Result]),
+    #pb_group_stanza{
+        gid = Gid,
+        members = [
+            #pb_group_member{uid = ?UID3, type = member, action = remove,
+                result = <<"ok">>, reason = undefined}
+        ]
+    } = Result#pb_packet.stanza#pb_iq.payload,
+
+    % Uid3 is no longer in the group
+    ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
+    % get the link from the DB.
+    {false, Link} = model_groups:get_invite_link(Gid),
+    FullLink = mod_groups_api:make_invite_link(Link),
+
+
+    % Uid3 tries to join with the link again but fails with admin_removed reason
+    Id2 = <<"g_iq_id13">>,
+    JoinWithLink = #pb_group_invite_link{
+        action = join,
+        link = FullLink
+    },
+
+    {ok, C3} = ha_client:connect_and_login(?UID3, ?PASSWORD3),
+    Result2 = ha_client:send_iq(C3, Id2, set, JoinWithLink),
+    ct:pal("Result ~p", [Result2]),
+
+    #pb_error_stanza{
+        reason = <<"admin_removed">>
+    } = Result2#pb_packet.stanza#pb_iq.payload,
+
+    {save_config, [{gid, Gid}, {gid2, Gid2}]}.
+
+
+% Uid1 resets the invite link for Gid,
+% Uid3 fails to join with the old link.
+% Uid3 can now join via the new link.
+% Uid1 gets already_member error if it tries to join.
+invite_link_reset_test(Conf) ->
+    {groups_invite_link_fail_to_join_after_removed_by_admin_test, SConfig} = ?config(saved_config, Conf),
+    Gid = ?config(gid, SConfig),
+    Gid2 = ?config(gid2, SConfig),
+    ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
+    ?assertEqual([?UID1, ?UID3], model_groups:get_member_uids(Gid2)),
+
+    ?assertEqual(true, model_groups:has_invite_link(Gid)),
+    % get the link from the DB.
+    {false, OldLink} = model_groups:get_invite_link(Gid),
+    OldFullLink = mod_groups_api:make_invite_link(OldLink),
+
+    % Uid1 resets the link, Uid3 should not be in the removed set
+    true = model_groups:is_removed_member(Gid, ?UID3),
+    Id = <<"g_iq_id13">>,
+    ResetLink = #pb_group_invite_link{
+        action = reset,
+        gid = Gid
+    },
+
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    Result = ha_client:send_iq(C1, Id, set, ResetLink),
+    ct:pal("Result ~p", [Result]),
+
+    #pb_group_invite_link{
+        action = reset,
+        gid = Gid,
+        link = FullLink
+    } = Result#pb_packet.stanza#pb_iq.payload,
+
+    ?assertEqual(true, model_groups:has_invite_link(Gid)),
+    false = model_groups:is_removed_member(Gid, ?UID3),
+
+    % Uid3 tries to join with the old link again but fails with invalid_invite reason
+    Id2 = <<"g_iq_id14">>,
+    JoinWithLink = #pb_group_invite_link{
+        action = join,
+        link = OldFullLink
+    },
+
+    {ok, C3} = ha_client:connect_and_login(?UID3, ?PASSWORD3),
+    Result2 = ha_client:send_iq(C3, Id2, set, JoinWithLink),
+    ct:pal("Result ~p", [Result2]),
+
+    #pb_error_stanza{
+        reason = <<"invalid_invite">>
+    } = Result2#pb_packet.stanza#pb_iq.payload,
+
+    % Uid3 tries to join with the new link again and succeeds.
+    Id3 = <<"g_iq_id14">>,
+    JoinWithLink2 = #pb_group_invite_link{
+        action = join,
+        link = FullLink
+    },
+
+    Result3 = ha_client:send_iq(C3, Id3, set, JoinWithLink2),
+    ct:pal("Result ~p", [Result3]),
+
+    #pb_group_invite_link{
+        action = join,
+        gid = Gid,
+        result = <<"ok">>
+    } = Result3#pb_packet.stanza#pb_iq.payload,
+
+    ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
+
+
+    % Uid1 tries to join with the new link but fails with already_member reason
+    Id4 = <<"g_iq_id15">>,
+    JoinWithLink3 = #pb_group_invite_link{
+        action = join,
+        link = FullLink
+    },
+
+    Result4 = ha_client:send_iq(C1, Id4, set, JoinWithLink3),
+    ct:pal("Result ~p", [Result4]),
+
+    #pb_error_stanza{
+        reason = <<"already_member">>
+    } = Result4#pb_packet.stanza#pb_iq.payload,
 
     {save_config, [{gid, Gid}, {gid2, Gid2}]}.
 

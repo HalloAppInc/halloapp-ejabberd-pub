@@ -99,6 +99,8 @@
 -define(GROUP_MEMBERS_KEY, <<"gm:">>).
 -define(USER_GROUPS_KEY, <<"ug:">>).
 -define(COUNT_GROUPS_KEY, <<"c_grp:">>).
+-define(GROUP_INVITE_LINK_KEY, <<"gi:">>).  % index from group invite to the gid
+-define(GROUP_REMOVED_SET_KEY, <<"grs:">>). % gid -> set(uid) of user removed from the group
 
 %% RedisSessions
 -define(PID_KEY, <<"p:">>).

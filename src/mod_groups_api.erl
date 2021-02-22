@@ -15,8 +15,12 @@
 
 -export([
     send_group_message/1,
-    process_local_iq/1
+    process_local_iq/1,
+    parse_invite_link/1, % Only used in CT
+    make_invite_link/1 % Only used in CT
 ]).
+
+-define(GROUP_INVITE_URL, <<"https://invite.halloapp.com/">>).
 
 -include("logger.hrl").
 -include("xmpp.hrl").
@@ -34,6 +38,7 @@ start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_group_stanza, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_groups_stanza, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_upload_group_avatar, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_group_invite_link, ?MODULE, process_local_iq),
     ejabberd_hooks:add(group_message, Host, ?MODULE, send_group_message, 50),
     ok.
 
@@ -43,6 +48,7 @@ stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_group_stanza),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_groups_stanza),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_upload_group_avatar),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_group_invite_link),
     ejabberd_hooks:delete(group_message, Host, ?MODULE, send_group_message, 50),
     ok.
 
@@ -142,8 +148,26 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 %%% leave_group %%%
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_group_stanza{action = leave, gid = Gid} = _ReqGroupSt} = IQ) ->
-    process_leave_group(IQ, Gid, Uid).
+        payload = #pb_group_stanza{action = leave, gid = Gid}} = IQ) ->
+    process_leave_group(IQ, Gid, Uid);
+
+
+%%% get_invite_link %%%
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+        payload = #pb_group_invite_link{action = get, gid = Gid}} = IQ) ->
+    process_get_invite_link(IQ, Gid, Uid);
+
+
+%%% reset_invite_link %%%
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_invite_link{action = reset, gid = Gid}} = IQ) ->
+    process_reset_invite_link(IQ, Gid, Uid);
+
+
+%%% join_with_invite_link %%%
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_invite_link{action = join, link = Link}} = IQ) ->
+    process_join_with_invite_link(IQ, Uid, Link).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -335,6 +359,71 @@ process_leave_group(IQ, Gid, Uid) ->
     end.
 
 
+-spec process_get_invite_link(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
+process_get_invite_link(IQ, Gid, Uid) ->
+    ?INFO("Gid: ~s Uid: ~s ", [Gid, Uid]),
+    case mod_groups:get_invite_link(Gid, Uid) of
+        {error, Reason} ->
+            ?WARNING("Gid: ~s Uid ~s failed ~p", [Gid, Uid, Reason]),
+            util_pb:make_error(IQ, util:err(Reason));
+        {ok, Link} ->
+            ?INFO("Gid: ~s Uid: ~s success Link: ~s",
+                [Gid, Uid, Link]),
+            PB = #pb_group_invite_link{
+                action = get,
+                gid = Gid,
+                link = make_invite_link(Link),
+                result = <<"ok">>
+            },
+            util_pb:make_iq_result(IQ, PB)
+    end.
+
+
+-spec process_reset_invite_link(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
+process_reset_invite_link(IQ, Gid, Uid) ->
+    ?INFO("Gid: ~s Uid: ~s ", [Gid, Uid]),
+    case mod_groups:reset_invite_link(Gid, Uid) of
+        {error, Reason} ->
+            ?WARNING("Gid: ~s Uid ~s failed ~p", [Gid, Uid, Reason]),
+            util_pb:make_error(IQ, util:err(Reason));
+        {ok, Link} ->
+            ?INFO("Gid: ~s Uid: ~s success Link: ~s",
+                [Gid, Uid, Link]),
+            PB = #pb_group_invite_link{
+                action = reset,
+                gid = Gid,
+                link = make_invite_link(Link),
+                result = <<"ok">>,
+                reason = undefined
+            },
+            util_pb:make_iq_result(IQ, PB)
+    end.
+
+
+-spec process_join_with_invite_link(IQ :: iq(), Uid :: uid(), FullLink :: binary()) -> iq().
+process_join_with_invite_link(IQ, Uid, FullLink) ->
+    Link = parse_invite_link(FullLink),
+    ?INFO("Parsing ~p -> ~p", [FullLink, Link]), % TODO: remove this log once its working
+    ?INFO("Uid: ~s Link: ~s", [Uid, Link]),
+    case mod_groups:join_with_invite_link(Uid, Link) of
+        {error, Reason} ->
+            ?WARNING("Uid: ~s Link: ~s failed ~p", [Uid, Link, Reason]),
+            util_pb:make_error(IQ, util:err(Reason));
+        {ok, Group} ->
+            ?INFO("Uid: ~s success Link: ~s",
+                [Uid, Link]),
+            PB = #pb_group_invite_link{
+                action = join,
+                gid = Group#group.gid,
+                link = FullLink,
+                result = <<"ok">>,
+                reason = undefined,
+                group = make_group_st(Group)
+            },
+            util_pb:make_iq_result(IQ, PB)
+    end.
+
+
 -spec group_info_to_group_st(GroupInfo :: group_info()) -> pb_group_stanza().
 group_info_to_group_st(GroupInfo) ->
     #pb_group_stanza{
@@ -382,4 +471,16 @@ make_member_st(MemberUid, Result, Type) ->
             M#pb_group_member{result = <<"failed">>, reason = util:to_binary(Result)}
     end,
     M2.
+
+
+-spec parse_invite_link(FullLink :: binary()) -> Link :: binary().
+parse_invite_link(FullLink) ->
+    lists:last(binary:split(FullLink, <<"/">>, [global])).
+
+
+-spec make_invite_link(Link :: binary()) -> FullLink :: binary().
+make_invite_link(Link) ->
+    % TODO: make define
+    <<?GROUP_INVITE_URL/binary, Link/binary>>.
+
 
