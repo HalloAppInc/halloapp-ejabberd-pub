@@ -115,9 +115,7 @@ get_uid_based_props(PropMap, Uid) ->
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
-            % Set private_reactions to true.
-            PropMap2 = maps:update(private_reactions, true, PropMap1),
-            PropMap2
+            PropMap1
     end.
 
 
