@@ -91,7 +91,7 @@ get_props(Uid, ClientVersion) ->
         max_group_size => ?MAX_GROUP_SIZE, %% max limit on the group size.
         max_post_media_items => 10, %% max number of media_items client can post.
         groups => true, %% whether the client can create groups or not.
-        group_chat => true, %% whether the client can access group_chat or not.
+        group_chat => false, %% whether the client can access group_chat or not.
         group_feed => true, %% whether the client can access group_feed or not.
         combine_feed => true, %% whether to combine content from group_feed and home feed.
         silent_chat_messages => 5, %% number of silent_chats client can send.
