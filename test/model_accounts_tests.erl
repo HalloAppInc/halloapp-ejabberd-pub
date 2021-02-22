@@ -121,6 +121,10 @@ version_key_test() ->
     ?assertEqual(<<"v:{1}:HalloApp/Android0.100">>,
             model_accounts:version_key(1, <<"HalloApp/Android0.100">>)).
 
+new_version_key_test() ->
+    setup(),
+    ?assertEqual(<<"v:{1}">>, model_accounts:new_version_key(1)).
+
 
 create_account_test() ->
     setup(),
@@ -185,13 +189,28 @@ get_client_version_test() ->
 
 set_client_version() ->
     setup(),
+    VersionCountsMap1 = model_accounts:count_version_keys(),
+    ?assertEqual(0, maps:get(?CLIENT_VERSION1, VersionCountsMap1, 0)),
+    ?assertEqual(0, maps:get(?CLIENT_VERSION2, VersionCountsMap1, 0)),
     ?assertEqual(0, model_accounts:count_accounts_with_version(?CLIENT_VERSION1)),
     ?assertEqual(0, model_accounts:count_accounts_with_version(?CLIENT_VERSION2)),
+
     ok = model_accounts:set_client_version(?UID1, ?CLIENT_VERSION1),
+    VersionCountsMap2 = model_accounts:count_version_keys(),
+    ?assertEqual(1, maps:get(?CLIENT_VERSION1, VersionCountsMap2, 0)),
+    ?assertEqual(0, maps:get(?CLIENT_VERSION2, VersionCountsMap2, 0)),
     ?assertEqual(1, model_accounts:count_accounts_with_version(?CLIENT_VERSION1)),
+
     ok = model_accounts:set_client_version(?UID2, ?CLIENT_VERSION1),
+    VersionCountsMap3 = model_accounts:count_version_keys(),
+    ?assertEqual(2, maps:get(?CLIENT_VERSION1, VersionCountsMap3, 0)),
+    ?assertEqual(0, maps:get(?CLIENT_VERSION2, VersionCountsMap3, 0)),
     ?assertEqual(2, model_accounts:count_accounts_with_version(?CLIENT_VERSION1)),
+
     ok = model_accounts:set_client_version(?UID1, ?CLIENT_VERSION2),
+    VersionCountsMap4 = model_accounts:count_version_keys(),
+    ?assertEqual(1, maps:get(?CLIENT_VERSION1, VersionCountsMap4, 0)),
+    ?assertEqual(1, maps:get(?CLIENT_VERSION2, VersionCountsMap4, 0)),
     ?assertEqual(1, model_accounts:count_accounts_with_version(?CLIENT_VERSION1)),
     ?assertEqual(1, model_accounts:count_accounts_with_version(?CLIENT_VERSION2)),
     ok.

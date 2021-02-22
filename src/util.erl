@@ -51,7 +51,8 @@
     get_payload_type/1,
     set_timestamp/2,
     get_timestamp/1,
-    convert_xmpp_to_pb_base64/1
+    convert_xmpp_to_pb_base64/1,
+    add_and_merge_maps/2
 ]).
 
 %% Export all functions for unit tests
@@ -232,6 +233,15 @@ list_to_map([K, V | Rest], Map) ->
     list_to_map(Rest, Map2);
 list_to_map([], Map) ->
     Map.
+
+
+%% iterates over map2.
+-spec add_and_merge_maps(Map1 :: map(), Map2 :: map()) -> map().
+add_and_merge_maps(Map1, Map2) ->
+    maps:fold(
+        fun(K, V, Map) ->
+            maps:update_with(K, fun(X) -> X + V end, V, Map)
+        end, Map1, Map2).
 
 
 -spec ms_to_sec(MilliSeconds :: integer()) -> integer().

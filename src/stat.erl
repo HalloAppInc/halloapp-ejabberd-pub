@@ -193,13 +193,33 @@ compute_counts_by_version() ->
     DeadlineSec = NowSec - VersionExpiry,
     {ok, Versions} = model_client_version:get_versions(DeadlineSec, NowSec),
 
-    lists:foreach(
-        fun(Version) ->
+    OldVersionCountsMap = lists:foldl(
+        fun(Version, Acc) ->
             CountsByVersion = model_accounts:count_accounts_with_version(Version),
             Platform = util_ua:get_client_type(Version),
             stat:gauge("HA/client_version", "all_users", CountsByVersion,
-                    [{version, Version}, {platform, Platform}])
+                    [{version, Version}, {platform, Platform}]),
+            maps:put(Version, CountsByVersion, Acc)
+        end, #{}, Versions),
+
+    {ok, NewVersionCountsMap} = model_accounts:count_version_keys(),
+    lists:foreach(
+        fun(Version) ->
+            Count1 = maps:get(Version, NewVersionCountsMap, 0),
+            Count2 = maps:get(Version, OldVersionCountsMap, 0),
+            case Count1 =:= Count2 of
+                false ->
+                    ?INFO("Counters dont match for version: ~p, count1: ~p, count2: ~p",
+                            [Version, Count1, Count2]);
+                true -> ok
+            end
         end, Versions),
+
+    %% Cleanup old version fields if any.
+    ExistingVersions = maps:keys(NewVersionCountsMap),
+    DeleteVersions = lists:subtract(ExistingVersions, Versions),
+    ok = model_accounts:cleanup_version_keys(DeleteVersions),
+
     End = util:now_ms(),
     ?INFO("Counting took ~p ms", [End - Start]),
     ok.

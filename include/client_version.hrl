@@ -8,3 +8,5 @@
 
 -define(VERSION_VALIDITY, 60 * ?DAYS).
 
+-define(NUM_VERSION_SLOTS, 256).
+

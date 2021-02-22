@@ -30,7 +30,8 @@
 
 -export([
     account_key/1,
-    version_key/2
+    version_key/2,
+    new_version_key/1
 ]).
 
 
@@ -92,7 +93,9 @@
     is_phone_traced/1,
     get_names/1,
     count_accounts_with_version/1,
-    count_accounts_with_version/2
+    count_accounts_with_version/2,
+    count_version_keys/0,
+    cleanup_version_keys/1
 ]).
 
 -export([
@@ -315,16 +318,31 @@ get_signup_user_agent(Uid) ->
 -spec set_client_version(Uid :: uid(), Version :: binary()) -> ok.
 set_client_version(Uid, Version) ->
     Slot = util_redis:eredis_hash(binary_to_list(Uid)),
-    OldVersionCommands = case get_client_version(Uid) of
+    NewSlot = Slot rem ?NUM_VERSION_SLOTS,
+
+    {Command1, Command2} = case get_client_version(Uid) of
         {ok, OldVersion} ->
-            [["DECR", version_key(Slot, OldVersion)],
-            ["EXPIRE", version_key(Slot, OldVersion), ?VERSION_VALIDITY]];
-        _ -> []
+            {
+                [["DECR", version_key(Slot, OldVersion)],
+                ["EXPIRE", version_key(Slot, OldVersion), ?VERSION_VALIDITY]],
+                [["HINCRBY", new_version_key(NewSlot), OldVersion, -1]]
+            };
+        _ -> {[], []}
     end,
     {ok, _} = q(["HSET", account_key(Uid), ?FIELD_CLIENT_VERSION, Version]),
     [{ok, _}, {ok, _} | _] = qp([
             ["INCR", version_key(Slot, Version)],
-            ["EXPIRE", version_key(Slot, Version), ?VERSION_VALIDITY] | OldVersionCommands]),
+            ["EXPIRE", version_key(Slot, Version), ?VERSION_VALIDITY] | Command1]),
+
+    case persistent_term:get("version_counters", true) of
+        true ->
+            %% Currently, we update both old keys and new keys.
+            %% After migration - will cleanup the old keys.
+            [{ok, _} | _] = qp([
+                    ["HINCRBY", new_version_key(NewSlot), Version, 1] | Command2]);
+        false ->
+            ?INFO("did not increment new_version_key yet")
+    end,
     ok.
 
 
@@ -599,6 +617,30 @@ count_accounts_with_version(Slot, Version) ->
     end.
 
 
+-spec count_version_keys() -> map().
+count_version_keys() ->
+    lists:foldl(
+        fun (Slot, Acc) ->
+            {ok, Res} = q(["HGETALL", new_version_key(Slot)]),
+            AccountsMap = util:list_to_map(Res),
+            util:add_and_merge_maps(Acc, AccountsMap)
+        end,
+        #{},
+        lists:seq(0, ?NUM_VERSION_SLOTS - 1)).
+
+
+-spec cleanup_version_keys(Versions :: [binary()]) -> ok.
+cleanup_version_keys([]) ->
+    ok;
+cleanup_version_keys(Versions) ->
+    lists:foreach(
+        fun (Slot) ->
+            {ok, _} = q(["HDEL", new_version_key(Slot) | Versions])
+        end,
+        lists:seq(0, ?NUM_VERSION_SLOTS - 1)),
+    ok.
+
+
 fix_counters() ->
     ?INFO("start", []),
     {ok, Pools} = get_all_pools(),
@@ -783,6 +825,10 @@ broadcast_key(Uid) ->
 version_key(Slot, Version) ->
     SlotBinary = integer_to_binary(Slot),
     <<?VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}:">>/binary, Version/binary>>.
+
+new_version_key(Slot) ->
+    SlotBinary = integer_to_binary(Slot),
+    <<?VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
 
 count_registrations_key(Uid) ->
     Slot = eredis_cluster_hash:hash(binary_to_list(Uid)),

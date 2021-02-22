@@ -16,6 +16,8 @@
 -include("logger.hrl").
 -include("time.hrl").
 -include("whisper.hrl").
+-include("eredis_cluster.hrl").
+-include("client_version.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -52,7 +54,8 @@
     check_users_by_whisper_keys/2,
     check_accounts_run/2,
     check_phone_numbers_run/2,
-    refresh_otp_keys_run/2
+    refresh_otp_keys_run/2,
+    update_version_keys_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -530,6 +533,42 @@ refresh_otp_keys_run(Key, State) ->
                                     ok = mod_whisper:refresh_otp_keys(Uid)
                             end
                     end
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                migrate version keys                                %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% For all accounts - go through them - compute the slot and get the version.
+%% increment the corresponding field.
+update_version_keys_run(Key, State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            Slot = util_redis:eredis_hash(binary_to_list(Uid)),
+            case q(redis_accounts_client, ["HGET", FullKey, <<"cv">>]) of
+                {ok, undefined} ->
+                    ?ERROR("Undefined client version for a uid: ~p", [Uid]);
+                {ok, Version} ->
+                    NewSlot = Slot rem ?NUM_VERSION_SLOTS,
+                    case DryRun of
+                        true ->
+                            ?INFO("would have incremented, slot: ~p, version: ~p by 1", [NewSlot, Version]);
+                        false ->
+                            {ok, FinalCount} = q(redis_accounts_client,
+                                ["HINCRBY", model_accounts:new_version_key(NewSlot), Version]),
+                            ?INFO("updated key, slot: ~p, version: ~p, finalCount: ~p",
+                                    [NewSlot, Version, FinalCount]),
+                            ok
+                    end;
+                Res ->
+                    ?ERROR("error with key: uid: ~p, result: ~p", [Uid, Res])
             end;
         _ -> ok
     end,
