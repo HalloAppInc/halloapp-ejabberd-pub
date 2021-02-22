@@ -26,6 +26,7 @@
 
 
 -spec get_client_type(RawUserAgent :: binary()) -> maybe(client_type()).
+get_client_type(undefined) -> undefined;
 get_client_type(RawUserAgent) ->
     case {is_android(RawUserAgent), is_ios(RawUserAgent)} of
         {true, false} -> android;
