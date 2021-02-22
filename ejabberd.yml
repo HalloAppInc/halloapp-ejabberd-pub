@@ -186,6 +186,7 @@ modules:
     put_url: https://@HOST@:5443/upload
   mod_invites: {}
   mod_offline_halloapp: {}
+  mod_packet_filter: {}
   mod_ping:
     send_pings: true
     ping_interval: 120

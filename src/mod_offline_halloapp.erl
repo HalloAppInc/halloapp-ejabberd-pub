@@ -246,7 +246,13 @@ offline_queue_cleared(Uid, _Server, LastMsgOrderId) ->
     case model_messages:get_user_messages(Uid, LastMsgOrderId + 1, undefined) of
         {ok, true, []} -> ok;
         {ok, true, OfflineMessages} ->
-            FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
+            %% TODO(murali@): fetch this from state instead - update the hook to include state.
+            {ok, ClientVersion} = model_accounts:get_client_version(Uid),
+            %% Applying filter to remove certain messages.
+            FilteredOfflineMessages = lists:filter(
+                    fun(OfflineMessage) ->
+                        filter_messages(ClientVersion, OfflineMessage)
+                    end, OfflineMessages),
             ?INFO("Uid: ~s has some more new ~p messages after queue cleared.",
                     [Uid, length(FilteredOfflineMessages)]),
             do_send_offline_messages(Uid, FilteredOfflineMessages)
@@ -295,7 +301,13 @@ route_offline_messages(UserId, Server, LastMsgOrderId, State) ->
     {ok, _, OfflineMessages} = model_messages:get_user_messages(UserId, LastMsgOrderId, undefined),
     % TODO: We need to rate limit the number of offline messages we send at once.
     % TODO: get metrics about the number of retries
-    FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
+
+    ClientVersion = maps:get(client_version, State, undefined),
+    %% Applying filter to remove certain messages.
+    FilteredOfflineMessages = lists:filter(
+            fun(OfflineMessage) ->
+                filter_messages(ClientVersion, OfflineMessage)
+            end, OfflineMessages),
     ?INFO("Uid: ~s has ~p offline messages after order_id: ~p",
             [UserId, length(FilteredOfflineMessages), LastMsgOrderId]),
     lists:foreach(fun route_offline_message/1, FilteredOfflineMessages),
@@ -320,8 +332,12 @@ send_offline_messages(#{user := Uid, server := Server,
             mark_offline_queue_cleared(Uid, Server, LastMsgOrderId, State);
 
         {ok, EndOfQueue, OfflineMessages} ->
-            %% Applying filter to remove expired messages.
-            FilteredOfflineMessages = lists:filter(fun filter_messages/1, OfflineMessages),
+            ClientVersion = maps:get(client_version, State, undefined),
+            %% Applying filter to remove certain messages.
+            FilteredOfflineMessages = lists:filter(
+                    fun(OfflineMessage) ->
+                        filter_messages(ClientVersion, OfflineMessage)
+                    end, OfflineMessages),
             TotalNumOfMessages = length(FilteredOfflineMessages),
             case FilteredOfflineMessages of
                 [] ->
@@ -450,22 +466,14 @@ adjust_and_send_message(Message, RetryCount) ->
     ok.
 
 
-%% TODO(murali@): remove this in one month.
-filter_messages(undefined) -> false;
-filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid, content_type = <<"event">>}) ->
-    %% Filter out old pubsub messages.
-    ?INFO("Dropping old pubsub messages, Uid: ~p, msg_id: ~p", [Uid, MsgId]),
-    model_messages:ack_message(Uid, MsgId),
-    stat:count("HA/offline_messages", "drop"),
+%% TODO(murali@): remove this in one month: 03-15-2021.
+%% Filter undefined messages - check logs and remove
+filter_messages(_ClientVersion, undefined) ->
+    ?ERROR("should-not-happen, invalid message"),
     false;
-filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid, content_type = <<"error_st">>}) ->
-    %% Filter out old error_st messages, clients dont handle them.
-    %% We should not be seeing these messages: TODO(murali@): debug and fix them.
-    ?INFO("Dropping error_st messages, Uid: ~p, msg_id: ~p", [Uid, MsgId]),
-    ok = model_messages:withhold_message(Uid, MsgId),
-    stat:count("HA/offline_messages", "drop"),
-    false;
-filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid,
+
+%% Withhold messages after max retry_count.
+filter_messages(_ClientVersion, #offline_message{msg_id = MsgId, to_uid = Uid,
         retry_count = RetryCount, message = Message})
         when RetryCount >= ?MAX_RETRY_COUNT ->
     ?WARNING("Withhold offline message after max retries, Uid: ~p, msg_id: ~p, message: ~p",
@@ -473,7 +481,21 @@ filter_messages(#offline_message{msg_id = MsgId, to_uid = Uid,
     ok = model_messages:withhold_message(Uid, MsgId),
     stat:count("HA/offline_messages", "drop"),
     false;
-filter_messages(_) -> true.
+
+%% Check version rules for this user, version and filter accordingly.
+filter_messages(ClientVersion, #offline_message{msg_id = MsgId,
+        to_uid = Uid, content_type = ContentType} = OfflineMessage) ->
+    Server = util:get_host(),
+    case ejabberd_hooks:run_fold(offline_message_version_filter, Server, allow,
+            [Uid, ClientVersion, OfflineMessage]) of
+        allow -> true;
+        deny ->
+            ?INFO("Uid: ~s, MsgId: ~p dont deliver message: invalid content: ~p for client version: ~p",
+                    [Uid, MsgId, ContentType, ClientVersion]),
+            ok = model_messages:ack_message(Uid, MsgId),
+            stat:count("HA/offline_messages", "dont_deliver"),
+            false
+    end.
 
 
 -spec increment_retry_counts(UserId :: uid, OfflineMsgs :: [maybe(offline_message())]) -> ok.

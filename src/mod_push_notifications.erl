@@ -122,11 +122,11 @@ push_message(#message{id = MsgId, to = #jid{luser = User, lserver = Server}} = M
             ?INFO("Uid: ~s, MsgId: ~p ignore push: no push token", [User, MsgId]);
         _ ->
             ClientVersion = PushInfo#push_info.client_version,
-            case version_check_packet(ClientVersion, Message) of
-                true ->
+            case ejabberd_hooks:run_fold(push_version_filter, Server, allow, [User, PushInfo, Message]) of
+                allow ->
                     ?INFO("Uid: ~s, MsgId: ~p", [User, MsgId]),
                     push_message(Message, PushInfo);
-                false ->
+                deny ->
                     ?INFO("Uid: ~s, MsgId: ~p ignore push: invalid client version: ~p",
                             [User, MsgId, ClientVersion])
             end
@@ -140,48 +140,4 @@ push_message(Message, #push_info{os = <<"android">>} = PushInfo) ->
 push_message(Message, #push_info{os = Os} = PushInfo)
         when Os =:= <<"ios">>; Os =:= <<"ios_dev">> ->
     mod_ios_push:push(Message, PushInfo).
-
-
-%% Determine whether message should be pushed or not.. based on client_version.
--spec version_check_packet(ClientVersion :: binary(), Message :: message()) -> boolean().
-version_check_packet(undefined, #message{to = #jid{luser = Uid}} = _Message) ->
-    ?INFO("Uid: ~s, ClientVersion is still undefined", [Uid]),
-    true;
-version_check_packet(ClientVersion, #message{id = MsgId, to = #jid{luser = Uid}} = Message) ->
-    Platform = util_ua:get_client_type(ClientVersion),
-    PayloadType = util:get_payload_type(Message),
-    case check_version_rules(Platform, ClientVersion, Message) of
-        false ->
-            ?INFO("Uid: ~s, Dropping msgid: ~s, content: ~s due to client version: ~s",
-                    [Uid, MsgId, PayloadType, ClientVersion]),
-            false;
-        true -> true
-    end.
-
-
-%% Version rules
--spec check_version_rules(Platform :: ios | android,
-        ClientVersion :: binary(), Message :: message()) -> boolean().
-%% Dont send pubsub messages to ios clients > 0.3.65
-check_version_rules(ios, ClientVersion,
-        #message{from = #jid{lserver = <<"pubsub.s.halloapp.net">>}}) ->
-    util_ua:is_version_less_than(ClientVersion, <<"HalloApp/iOS0.3.65">>);
-
-%% Dont send pubsub messages to android clients > 0.89
-check_version_rules(android, ClientVersion,
-        #message{from = #jid{lserver = <<"pubsub.s.halloapp.net">>}}) ->
-    util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android0.89">>);
-
-%% Dont send group_feed messages to ios clients < 0.3.65
-check_version_rules(ios, ClientVersion,
-        #message{sub_els = [#group_feed_st{}]}) ->
-    util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS0.3.65">>);
-
-%% Dont send group_feed messages to android clients < 0.93
-check_version_rules(android, ClientVersion,
-        #message{sub_els = [#group_feed_st{}]}) ->
-    util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android0.93">>);
-
-check_version_rules(_, _, _) ->
-    true.
 

@@ -273,7 +273,8 @@ handle_call({login, Uid, Passwd}, _From,
         uid = Uid,
         pwd = Passwd,
         client_mode = #pb_client_mode{mode = active},
-        client_version = #pb_client_version{version = <<"HalloApp/Android0.82D">>},
+        %% TODO(murali@): add version based tests.
+        client_version = #pb_client_version{version = <<"HalloApp/Android0.129">>},
         resource = maps:get(resource, Options, <<"android">>)
     },
     send_internal(Socket, HaAuth),
