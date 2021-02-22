@@ -583,22 +583,6 @@ do_route(To, Term) ->
     end.
 
 -spec do_route(stanza()) -> any().
-%% route presence stanzas only to the client only when the client is available.
-do_route(#presence{to = #jid{lresource = <<"">>} = To, type = T} = Packet)
-                                            when T == available; T == away ->
-    ?DEBUG("Processing presence to bare JID:~n~ts", [xmpp:pp(Packet)]),
-    {LUser, LServer, _} = jid:tolower(To),
-    %TODO: (nikola): Why are we checking if the user is available? Instead we should
-    % route the packet to the c2s process and there decide if it should be send or not
-    case check_if_user_is_available(LUser, LServer) of
-        true ->
-            lists:foreach(
-                fun({_, R}) ->
-                    do_route(Packet#presence{to = jid:replace_resource(To, R)})
-                end, get_user_present_resources(LUser, LServer));
-        false ->
-            ok
-    end;
 do_route(#message{} = Packet) ->
     route_message(Packet);
 do_route(#iq{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
@@ -609,20 +593,6 @@ do_route(#iq{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
         true ->
             ejabberd_hooks:run_fold(bounce_sm_packet,
                     To#jid.lserver, {pass, Packet}, [])
-    end;
-do_route(#chat_state{to = #jid{lresource = <<"">>} = To, type = T} = Packet)
-                                            when T == available; T == typing ->
-    ?DEBUG("Processing chat_state to bare JID:~n~ts", [xmpp:pp(Packet)]),
-    {LUser, LServer, _} = jid:tolower(To),
-    case check_if_user_is_available(LUser, LServer) of
-        true ->
-            lists:foreach(
-                fun({_, R}) ->
-                    do_route(Packet#chat_state{to = jid:replace_resource(To, R)})
-                end, 
-                get_user_present_resources(LUser, LServer));
-        false ->
-            ok
     end;
 do_route(Packet) ->
     ?DEBUG("Processing packet to full JID:~n~ts", [xmpp:pp(Packet)]),
@@ -689,12 +659,6 @@ route_message(#message{} = Packet) ->
             ErrorPacket = xmpp:make_error(DecodedPacket, Err),
             ejabberd_router:route(ErrorPacket)
     end.
-
-
--spec check_if_user_is_available(binary(), binary()) -> boolean().
-check_if_user_is_available(User, Server) ->
-    Activity = mod_user_activity:get_user_activity(User, Server),
-    Activity#activity.status =:= available.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

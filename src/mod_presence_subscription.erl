@@ -36,7 +36,8 @@
     unsubscribe_user_to_friend/3,
     get_user_subscribed_friends/2,
     get_user_broadcast_friends/2,
-    remove_friend/3
+    remove_friend/3,
+    user_receive_packet/1
 ]).
 
 
@@ -45,7 +46,9 @@ start(Host, _Opts) ->
     ejabberd_hooks:add(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 10),
-    ejabberd_hooks:add(remove_friend, Host, ?MODULE, remove_friend, 50).
+    ejabberd_hooks:add(remove_friend, Host, ?MODULE, remove_friend, 50),
+    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
+    ok.
 
 
 stop(Host) ->
@@ -53,7 +56,9 @@ stop(Host) ->
     ejabberd_hooks:delete(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10),
-    ejabberd_hooks:delete(remove_friend, Host, ?MODULE, remove_friend, 50).
+    ejabberd_hooks:delete(remove_friend, Host, ?MODULE, remove_friend, 50),
+    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
+    ok.
 
 depends(_Host, _Opts) ->
     [].
@@ -108,6 +113,18 @@ remove_friend(Uid, Server, Ouid) ->
     unsubscribe_user_to_friend(Uid, Server, Ouid),
     unsubscribe_user_to_friend(Ouid, Server, Uid),
     ok.
+
+
+%% We route presence stanzas to the client only if the client is available right now.
+user_receive_packet({#presence{} = Packet, #{presence := PresenceType} = State} = Acc)  ->
+    case PresenceType of
+        available -> Acc;
+        _ ->
+            ?INFO("ignored packet: ~p for presence_status: ~P", [Packet, PresenceType]),
+            {stop, {drop, State}}
+    end;
+user_receive_packet(Acc) ->
+    Acc.
 
 
 %%====================================================================

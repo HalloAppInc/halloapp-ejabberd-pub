@@ -26,15 +26,18 @@
 -export([
     user_send_chatstate/2,
     process_chat_state/2,
-    process_group_chat_state/2
+    process_group_chat_state/2,
+    user_receive_packet/1
 ]).
 
 start(Host, _Opts) ->
     ejabberd_hooks:add(user_send_chatstate, Host, ?MODULE, user_send_chatstate, 50),
+    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ok.
 
 stop(Host) ->
     ejabberd_hooks:delete(user_send_chatstate, Host, ?MODULE, user_send_chatstate, 50),
+    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -66,6 +69,18 @@ user_send_chatstate(State, #chat_state{thread_id = ThreadId, thread_type = Threa
             process_group_chat_state(Packet, ThreadId)
     end,
     State.
+
+
+%% We route chat_state stanzas to the client only if the client is available right now.
+user_receive_packet({#chat_state{} = Packet, #{presence := PresenceType} = State} = Acc)  ->
+    case PresenceType of
+        available -> Acc;
+        _ ->
+            ?INFO("ignored packet: ~p for presence_status: ~P", [Packet, PresenceType]),
+            {stop, {drop, State}}
+    end;
+user_receive_packet(Acc) ->
+    Acc.
 
 
 %%====================================================================

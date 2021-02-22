@@ -498,7 +498,7 @@ process_presence_out(#{sid := _SID, user := Uid, lserver := Server, resource := 
     %% We run the set_presence_hook,
     %% since these presence stanzas are about updating user's activity status.
     ejabberd_hooks:run(set_presence_hook, Server, [Uid, Server, Resource, Presence]),
-    State#{pres_last => Presence, pres_timestamp_ms => util:now_ms()};
+    State#{pres_last => Presence, presence => Type, pres_timestamp_ms => util:now_ms()};
 
 process_presence_out(State, _Pres) ->
     %% We dont expect this to happen.
