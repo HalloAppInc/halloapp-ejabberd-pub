@@ -434,7 +434,7 @@ close_all_c2s() ->
     NumSessions = ets_sm_local_foldl(
         fun (#session{sid = {_, Pid}}, Acc) when node(Pid) == node() ->
                 ?INFO("stopping c2s ~p", [Pid]),
-                halloapp_c2s:stop(Pid),
+                halloapp_c2s:close(Pid, shutdown),
                 Acc + 1;
             (S, Acc) ->
                 ?ERROR("found remote session in local ets table. Should not happen ~p", [S]),

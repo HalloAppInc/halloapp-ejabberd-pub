@@ -141,14 +141,6 @@ send(#{lserver := LServer} = State, Pkt) ->
     end.
 
 
--spec send_error(state(), xmpp_element(), atom()) -> state().
-send_error(#{lserver := LServer} = State, Pkt, Err) ->
-    case ejabberd_hooks:run_fold(c2s_filter_send, LServer, {Pkt, State}, []) of
-        {drop, State1} -> State1;
-        {Pkt1, State1} -> halloapp_stream_in:send_error(State1, Pkt1, Err)
-    end.
-
-
 -spec send_error(state(), binary()) -> state().
 send_error(State, Err) ->
     halloapp_stream_in:send_error(State, Err).

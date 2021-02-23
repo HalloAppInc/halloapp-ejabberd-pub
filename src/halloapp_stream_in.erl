@@ -284,7 +284,10 @@ handle_cast(stop, State) ->
     {stop, normal, State};
 
 handle_cast({close, Reason}, State) ->
-    State1 = close_socket(State),
+    State1 = case Reason of
+        shutdown -> send_error(State, Reason);
+        _ -> close_socket(State)
+    end,
     noreply(
         case is_disconnected(State) of
             true -> State1;
@@ -337,7 +340,7 @@ handle_info({'$gen_event', {protobuf, Bin}},
                end,
             case is_disconnected(State2) of
                 true -> State2;
-                false -> process_invalid_protobuf(State2, Bin, Why)
+                false -> send_error(State2, Bin, Why)
             end
         end);
 
@@ -365,7 +368,7 @@ handle_info({'$gen_event', {protobuf, Bin}},
                end,
             case is_disconnected(State1) of
                 true -> State1;
-                false -> process_invalid_protobuf(State1, Bin, Why)
+                false -> send_error(State1, Bin, Why)
             end
         end);
 
@@ -394,7 +397,7 @@ handle_info({'$gen_event', {stream_validation, Bin}}, #{socket := _Socket} = Sta
                end,
             case is_disconnected(State1) of
                 true -> State1;
-                false -> process_invalid_protobuf(State1, Bin, Why)
+                false -> send_error(State1, Bin, Why)
             end
         end);
 
@@ -422,6 +425,7 @@ handle_info({tcp, _, Data}, #{socket := Socket} = State) ->
                 NewState = State#{socket => NewSocket},
                 send_auth_error(NewState, spub_mismatch);
             {error, Reason} ->
+                % TODO: I don't think we should send to the client those specific reasons
                 send_error(State, Reason)
         end);
 
@@ -542,11 +546,6 @@ noreply(#{stream_timeout := {MSecs, StartTime}} = State) ->
 -spec is_disconnected(state()) -> boolean().
 is_disconnected(#{stream_state := StreamState}) ->
     StreamState == disconnected.
-
-
--spec process_invalid_protobuf(state(), pb_packet(), term()) -> state().
-process_invalid_protobuf(State, Bin, Reason) ->
-    send_error(State, Bin, Reason).
 
 
 -spec process_stream_end(stop_reason(), state()) -> state().
@@ -816,7 +815,12 @@ send_auth_error(State, Err) ->
 
 send_error(State, Err) ->
     ErrBin = util:to_binary(Err),
-    ?ERROR("Sending error packet due to: ~p and terminating connection", [Err]),
+    case Err of
+        _ when Err =:= shutdown; Err =:= replaced ->
+            ?INFO("Sending ~p and stoping", [Err]);
+        _ ->
+            ?ERROR("Sending ~p and stopping", [Err])
+    end,
     ErrorStanza = #pb_ha_error{reason = ErrBin},
     ErrorPacket = #pb_packet{stanza = ErrorStanza},
     {ok, BinPkt} = encode_packet(State, ErrorPacket),
