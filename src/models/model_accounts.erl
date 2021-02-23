@@ -63,7 +63,7 @@
     set_client_version/2,
     get_client_version/1,
     get_push_info/1,
-    set_push_token/4,
+    set_push_token/5,
     get_push_token/1,
     remove_push_token/1,
     remove_push_info/1,
@@ -143,6 +143,7 @@ mod_options(_Host) ->
 -define(FIELD_PUSH_TIMESTAMP, <<"pts">>).
 -define(FIELD_PUSH_POST, <<"pp">>).
 -define(FIELD_PUSH_COMMENT, <<"pc">>).
+-define(FIELD_PUSH_LANGUAGE_ID, <<"pl">>).
 
 
 %%====================================================================
@@ -378,20 +379,23 @@ get_account(Uid) ->
 
 
 -spec set_push_token(Uid :: uid(), Os :: binary(), PushToken :: binary(),
-        TimestampMs :: integer()) -> ok.
-set_push_token(Uid, Os, PushToken, TimestampMs) ->
+        TimestampMs :: integer(), LangId :: binary()) -> ok.
+set_push_token(Uid, Os, PushToken, TimestampMs, LangId) ->
     {ok, _Res} = q(
             ["HMSET", account_key(Uid),
             ?FIELD_PUSH_OS, Os,
             ?FIELD_PUSH_TOKEN, PushToken,
-            ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs)]),
+            ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
+            ?FIELD_PUSH_LANGUAGE_ID, LangId]),
     ok.
 
 
+%% TODO(murali@): No one is using this function: delete it.
 -spec get_push_token(Uid :: uid()) -> {ok, maybe(push_info())} | {error, missing}.
 get_push_token(Uid) ->
-    {ok, [Os, Token, TimestampMs]} = q(
-            ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    {ok, [Os, Token, TimestampMs, LangId]} = q(
+            ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN,
+                    ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID]),
     Res = case Token of
         undefined ->
             undefined;
@@ -400,7 +404,8 @@ get_push_token(Uid) ->
                 uid = Uid, 
                 os = Os, 
                 token = Token, 
-                timestamp_ms = util_redis:decode_ts(TimestampMs)
+                timestamp_ms = util_redis:decode_ts(TimestampMs),
+                lang_id = LangId
             }
     end,
     {ok, Res}.
@@ -414,23 +419,25 @@ remove_push_token(Uid) ->
 
 -spec get_push_info(Uid :: uid()) -> {ok, maybe(push_info())} | {error, missing}.
 get_push_info(Uid) ->
-    {ok, [Os, Token, TimestampMs, PushPost, PushComment, ClientVersion]} = q(
+    {ok, [Os, Token, TimestampMs, PushPost, PushComment, ClientVersion, LangId]} = q(
             ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP,
-            ?FIELD_PUSH_POST, ?FIELD_PUSH_COMMENT, ?FIELD_CLIENT_VERSION]),
+            ?FIELD_PUSH_POST, ?FIELD_PUSH_COMMENT, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID]),
     Res = #push_info{uid = Uid, 
             os = Os, 
             token = Token, 
             timestamp_ms = util_redis:decode_ts(TimestampMs),
             post_pref = boolean_decode(PushPost, true),
             comment_pref = boolean_decode(PushComment, true),
-            client_version = ClientVersion
+            client_version = ClientVersion,
+            lang_id = LangId
         },
     {ok, Res}.
 
 
 -spec remove_push_info(Uid :: uid()) -> ok | {error, missing}.
 remove_push_info(Uid) ->
-    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN,
+            ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID]),
     ok.
 
 

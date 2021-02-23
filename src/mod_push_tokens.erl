@@ -25,7 +25,7 @@
     remove_push_token/2,
     re_register_user/3,
     remove_user/2,
-    register_push_info/4
+    register_push_info/5
 ]).
 
 
@@ -79,7 +79,8 @@ remove_user(UserId, Server) ->
 
 -spec process_local_iq(IQ :: iq()) -> iq().
 process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, to = _Host,
-        sub_els = [#pb_push_register{push_token = #pb_push_token{os = OsAtom, token = Token}}]} = IQ) ->
+        sub_els = [#pb_push_register{lang_id = LangId,
+        push_token = #pb_push_token{os = OsAtom, token = Token}}]} = IQ) ->
     ?INFO("Uid: ~s, set-iq for push_token", [Uid]),
     Os = util:to_binary(OsAtom),
     IsValidOs = is_valid_push_os(Os),
@@ -91,7 +92,7 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, to 
             ?WARNING("Uid: ~s, invalid os attribute: ~s!", [Uid, Os]),
             xmpp:make_error(IQ, util:err(invalid_os));
         true ->
-            ok = register_push_info(Uid, Server, Os, Token),
+            ok = register_push_info(Uid, Server, Os, Token, LangId),
             xmpp:make_iq_result(IQ)
     end;
 
@@ -127,11 +128,13 @@ update_push_pref(Uid, #pb_push_pref{name = comment, value = Value}) ->
     model_accounts:set_push_comment_pref(Uid, Value).
 
 
+%% TODO(murali@): add counters by push languageId.
 -spec register_push_info(Uid :: binary(), Server :: binary(),
-        Os :: binary(), Token :: binary()) -> ok.
-register_push_info(Uid, _Server, Os, Token) ->
+        Os :: binary(), Token :: binary(), LangId :: binary()) -> ok.
+register_push_info(Uid, _Server, Os, Token, LangId) ->
+    LanguageId = get_language_id(LangId),
     TimestampMs = util:now_ms(),
-    ok = model_accounts:set_push_token(Uid, Os, Token, TimestampMs),
+    ok = model_accounts:set_push_token(Uid, Os, Token, TimestampMs, LanguageId),
     stat:count("HA/push_tokens", "set_push_token"),
     ok.
 
@@ -147,6 +150,11 @@ remove_push_token(Uid, _Server) ->
     ok = model_accounts:remove_push_token(Uid),
     stat:count("HA/push_tokens", "remove_push_token"),
     ok.
+
+
+-spec get_language_id(LangId :: undefined | binary()) -> binary().
+get_language_id(undefined) -> <<"en-US">>;
+get_language_id(LangId) -> LangId.
 
 
 -spec is_valid_push_os(Os :: binary()) -> boolean().

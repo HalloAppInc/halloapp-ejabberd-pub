@@ -819,7 +819,8 @@ get_user_passcode(Phone, Host) ->
 register_push(User, Host, Os, Token) ->
     case is_my_host(Host) of
         true ->
-            case mod_push_tokens:register_push_info(User, Host, Os, Token) of
+            %% todo(murali@): we will not need this eventually.
+            case mod_push_tokens:register_push_info(User, Host, Os, Token, <<"en-US">>) of
                 {ok, _} ->
                     {ok, io_lib:format("User ~ts@~ts successfully registered for push notifications", [User, Host])};
                 {error, Reason} ->

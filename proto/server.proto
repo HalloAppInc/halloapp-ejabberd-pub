@@ -602,6 +602,7 @@ message PushToken {
 
 message PushRegister {
     PushToken push_token = 1;
+    string lang_id = 2;
 }
 
 message PushPref {

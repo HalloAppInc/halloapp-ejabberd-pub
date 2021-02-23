@@ -47,7 +47,8 @@
     timestamp_ms :: integer(),
     post_pref :: maybe(boolean()),
     comment_pref :: maybe(boolean()),
-    client_version :: binary()
+    client_version :: binary(),
+    lang_id :: binary()
 }).
 
 -type push_info() :: #push_info{}.
