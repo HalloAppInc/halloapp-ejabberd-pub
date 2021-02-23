@@ -606,8 +606,9 @@ do_route(#iq{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
     end;
 do_route(Packet) ->
     ?DEBUG("Processing packet to full JID:~n~ts", [xmpp:pp(Packet)]),
-    To = xmpp:get_to(Packet),
-    {LUser, LServer, LResource} = jid:tolower(To),
+    LUser = util_pb:get_to(Packet),
+    LServer = util:get_host(),
+    LResource = <<>>,
     case get_sessions(LUser, LServer, LResource) of
         [] ->
             case Packet of

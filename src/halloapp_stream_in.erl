@@ -896,7 +896,7 @@ xmpp_to_proto(Pkt) when is_record(Pkt, pb_auth_result) ->
     Pkt;
 xmpp_to_proto(Pkt) ->
     PbPacket = case util_pb:is_pb_packet(Pkt) of
-        true -> Pkt;
+        true -> #pb_packet{stanza = Pkt};
         false ->
             try
                 packet_parser:xmpp_to_proto(Pkt)

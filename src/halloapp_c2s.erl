@@ -364,11 +364,11 @@ handle_auth_failure(User, _Mech, Reason, #{lserver := LServer} = State) ->
     ejabberd_hooks:run_fold(pb_c2s_auth_result, LServer, State, [{false, Reason}, User]).
 
 
-handle_authenticated_packet(Pkt, #{lserver := LServer} = State) when not ?is_stanza(Pkt) ->
-    ejabberd_hooks:run_fold(c2s_authenticated_packet, LServer, State, [Pkt]);
-handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
+% handle_authenticated_packet(Pkt, #{lserver := LServer} = State) when not ?is_stanza(Pkt) ->
+%     ejabberd_hooks:run_fold(c2s_authenticated_packet, LServer, State, [Pkt]);
+handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID,
                    ip := {IP, _}} = State) ->
-    Pkt1 = xmpp:put_meta(Pkt, ip, IP),
+    % Pkt1 = xmpp:put_meta(Pkt, ip, IP),
     State1 = ejabberd_hooks:run_fold(c2s_authenticated_packet,
                      LServer, State, [Pkt1]),
     #jid{luser = _LUser} = JID,
@@ -379,6 +379,9 @@ handle_authenticated_packet(Pkt, #{lserver := LServer, jid := JID,
     case Pkt2 of
         drop -> State2;
         #iq{} ->
+            ejabberd_router:route(Pkt2),
+            State2;
+        #pb_iq{} ->
             ejabberd_router:route(Pkt2),
             State2;
         #ack{} -> process_ack_out(State2, Pkt2);

@@ -24,6 +24,7 @@
     get_payload_type/1,
     get_type/1,
     make_iq_result/1,
+    make_iq_result/2,
     make_error/2
 ]).
 
