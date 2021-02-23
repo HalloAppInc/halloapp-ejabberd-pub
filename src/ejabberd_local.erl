@@ -45,6 +45,7 @@
 -include("logger.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("ejabberd_stacktrace.hrl").
 -include("translate.hrl").
 
@@ -67,6 +68,32 @@ start_link() ->
 
 -spec route(stanza()) -> ok.
 route(Packet) ->
+    case util_pb:is_pb_packet(Packet) of
+        true ->
+            route_pb(Packet);
+        false ->
+            route_xmpp(Packet)
+    end.
+
+
+route_pb(Packet) ->
+    ?DEBUG("Local route:~n~ts", [xmpp:pp(Packet)]),
+    Type = util_pb:get_type(Packet),
+    ToUid = util_pb:get_to(Packet),
+    Server = util:get_host(),
+    if
+        ToUid =/= <<"">> ->
+            ejabberd_sm:route(Packet);
+        is_record(Packet, pb_iq), ToUid =:= <<"">> ->
+            gen_iq_handler:handle(?MODULE, Packet);
+        Type =:= result orelse Type =:= error ->
+            ok;
+        true ->
+            ejabberd_hooks:run(local_send_to_resource_hook, Server, [Packet])
+    end.
+
+
+route_xmpp(Packet) ->
     ?DEBUG("Local route:~n~ts", [xmpp:pp(Packet)]),
     Type = xmpp:get_type(Packet),
     To = xmpp:get_to(Packet),

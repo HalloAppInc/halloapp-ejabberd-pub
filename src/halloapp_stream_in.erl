@@ -708,6 +708,8 @@ check_password_fun(Mech, State) ->
 
 -spec set_from_to(xmpp_element(), state()) -> {ok, xmpp_element()} |
                           {error, stream_error()}.
+set_from_to(Pkt, #{user := U, server := S, resource := R}) when is_record(Pkt, pb_iq) ->
+    {ok, Pkt#pb_iq{to_uid = <<>>, from_uid = U}};
 set_from_to(Pkt, _State) when not ?is_stanza(Pkt) ->
     {ok, Pkt};
 set_from_to(Pkt, #{user := U, server := S, resource := R, lang := Lang, xmlns := ?NS_CLIENT}) ->
@@ -892,13 +894,17 @@ format(Fmt, Args) ->
 %% Move it to the packet_parser module.
 xmpp_to_proto(Pkt) when is_record(Pkt, pb_auth_result) ->
     Pkt;
-xmpp_to_proto(XmppPkt) ->
-    try
-        packet_parser:xmpp_to_proto(XmppPkt)
-    catch
-        error: Reason ->
-            ?ERROR("Failed: packet: ~p, reason: ~p", [XmppPkt, Reason]),
-            undefined
+xmpp_to_proto(Pkt) ->
+    PbPacket = case util_pb:is_pb_packet(Pkt) of
+        true -> Pkt;
+        false ->
+            try
+                packet_parser:xmpp_to_proto(Pkt)
+            catch
+                error: Reason ->
+                    ?ERROR("Failed: packet: ~p, reason: ~p", [Pkt, Reason]),
+                    undefined
+            end
     end.
 
 

@@ -5,6 +5,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("time.hrl").
 
 -export([start_link/0]).
@@ -307,6 +308,9 @@ count_packet(Namespace, Action, #message{sub_els = [SubEl | _Rest]} = Message) -
 count_packet(Namespace, _Action, #presence{}) ->
     stat:count(Namespace, "presence");
 count_packet(Namespace, _Action, #iq{} = Iq) ->
+    PayloadType = util:get_payload_type(Iq),
+    stat:count(Namespace, "iq", 1, [{payload_type, PayloadType}]);
+count_packet(Namespace, _Action, #pb_iq{} = Iq) ->
     PayloadType = util:get_payload_type(Iq),
     stat:count(Namespace, "iq", 1, [{payload_type, PayloadType}]);
 count_packet(Namespace, _Action, #chat_state{}) ->

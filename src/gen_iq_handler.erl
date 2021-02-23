@@ -41,6 +41,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("translate.hrl").
 -include("ejabberd_stacktrace.hrl").
 
@@ -67,6 +68,12 @@ remove_iq_handler(Component, Host, NS) ->
     ok.
 
 -spec handle(iq()) -> ok.
+handle(#pb_iq{to_uid = ToUid} = IQ) ->
+    Component = case ToUid of
+        <<"">> -> ejabberd_local;
+        _ -> ejabberd_sm
+    end,
+    handle(Component, IQ);
 handle(#iq{to = To} = IQ) ->
     Component = case To#jid.luser of
         <<"">> -> ejabberd_local;
@@ -76,6 +83,24 @@ handle(#iq{to = To} = IQ) ->
 
 -spec handle(component(), iq()) -> ok.
 %% TODO(murali@): cleanup and have a simpler module after the transition.
+handle(_, #pb_iq{type = T, payload = undefined} = Packet)
+        when T == get; T == set ->
+    ErrIq = util_pb:make_error(Packet, util:err(invalid_iq)),
+    ejabberd_router:route(ErrIq);
+handle(Component, #pb_iq{type = T, payload = _Payload} = Packet)
+        when T == get; T == set ->
+    PayloadType = util:get_payload_type(Packet),
+    Host = util:get_host(),
+    case ets:lookup(Component, {Host, PayloadType}) of
+        [{_, Module, Function}] ->
+            process_iq(Host, Module, Function, Packet);
+        [] ->
+            ?ERROR("Invalid iq: ~p", [Packet]),
+            ErrIq = util_pb:make_error(Packet, util:err(invalid_iq)),
+            ejabberd_router:route(ErrIq)
+    end;
+handle(_, #pb_iq{type = T}) when T == result; T == error ->
+    ok;
 handle(Component, #iq{to = To, type = T, sub_els = [El]} = Packet)
         when T == get; T == set ->
     PayloadType = util:get_payload_type(Packet),
@@ -104,10 +129,12 @@ handle(_, #iq{type = T}) when T == result; T == error ->
     ok.
 
 
--spec process_iq(binary(), atom(), atom(), iq()) -> ok.
+-spec process_iq(binary(), atom(), atom(), pb_iq()) -> ok.
 process_iq(_Host, Module, Function, IQ) ->
     try process_iq(Module, Function, IQ) of
         #iq{} = ResIQ ->
+            ejabberd_router:route(ResIQ);
+        #pb_iq{} = ResIQ ->
             ejabberd_router:route(ResIQ);
         ignore ->
             ok
@@ -121,7 +148,7 @@ process_iq(_Host, Module, Function, IQ) ->
     end.
 
 -spec process_iq(module(), atom(), iq()) -> ignore | iq().
-process_iq(Module, Function, #iq{} = IQ) ->
+process_iq(Module, Function, IQ) when is_record(IQ, pb_iq); is_record(IQ, iq) ->
     Module:Function(IQ).
 
 -spec iqdisc(binary() | global) -> no_queue.

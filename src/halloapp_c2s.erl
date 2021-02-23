@@ -61,6 +61,7 @@
 ]).
 
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("logger.hrl").
 -include("translate.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -547,11 +548,10 @@ verify_incoming_packet(State, Pkt) ->
 
 -spec verify_incoming_packet_to(State :: state(), Pkt :: stanza()) -> allow | deny.
 verify_incoming_packet_to(#{user := LUser, stream_state := StreamState} = State, Pkt) ->
-    To = xmpp:get_to(Pkt),
-    #jid{luser = LUserPkt} = To,
+    ToUid = util_pb:get_to(Pkt),
     case StreamState of
         established ->
-            case LUser =/= LUserPkt of
+            case LUser =/= ToUid of
                 true ->
                     ?ERROR("PANIC received packet not for me Pkt: ~p, State: ~p", [Pkt, State]),
                     % TODO: (nikola): when we make sure the above error is not happening
@@ -580,7 +580,8 @@ privacy_check_packet_in(State, Pkt) ->
         #chat_state{} -> privacy_check_packet(State, Pkt, in);
         #message{} -> allow;
         #iq{} -> allow;
-        #ack{} -> allow
+        #ack{} -> allow;
+        #pb_iq{} -> allow
     end.
 
 -spec privacy_check_packet(state(), stanza(), in | out) -> allow | deny.

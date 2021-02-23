@@ -80,6 +80,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("ejabberd_commands.hrl").
 -include("ejabberd_sm.hrl").
 -include("ejabberd_stacktrace.hrl").
@@ -585,6 +586,15 @@ do_route(To, Term) ->
 -spec do_route(stanza()) -> any().
 do_route(#message{} = Packet) ->
     route_message(Packet);
+do_route(#pb_iq{to_uid = <<"">>, type = T} = Packet) ->
+    Server = util:get_host(),
+    if
+        T == set; T == get ->
+            ?DEBUG("Processing IQ : ~p", [Packet]),
+            gen_iq_handler:handle(?MODULE, Packet);
+        true ->
+            ejabberd_hooks:run_fold(bounce_sm_packet, Server, {pass, Packet}, [])
+    end;
 do_route(#iq{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
     if
         T == set; T == get ->

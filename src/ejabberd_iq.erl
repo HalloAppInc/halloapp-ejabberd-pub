@@ -36,6 +36,7 @@
 
 -include("xmpp.hrl").
 -include("logger.hrl").
+-include("packets.hrl").
 -include("ejabberd_stacktrace.hrl").
 
 -record(state, {expire = infinity :: timeout()}).
@@ -58,6 +59,13 @@ route(#iq{type = T} = IQ, Proc, Ctx, Timeout) when T == set; T == get ->
     ejabberd_router:route(IQ#iq{id = ID}).
 
 -spec dispatch(iq()) -> boolean().
+dispatch(#pb_iq{type = T, id = ID} = IQ) when T == error; T == result ->
+    case decode_id(ID) of
+        {ok, Expire, Rnd, Node} ->
+            ejabberd_cluster:send({?MODULE, Node}, {route, IQ, {Expire, Rnd}});
+        error ->
+            false
+    end;
 dispatch(#iq{type = T, id = ID} = IQ) when T == error; T == result ->
     case decode_id(ID) of
         {ok, Expire, Rnd, Node} ->
