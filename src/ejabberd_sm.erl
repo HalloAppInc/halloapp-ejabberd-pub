@@ -36,6 +36,7 @@
 -export([
     start_link/0,
     stop/0,
+    prep_stop/0,
     route/1,
     route/2,
     open_session/5,
@@ -91,6 +92,8 @@
 
 %% default value for the maximum number of user connections
 -define(MAX_USER_SESSIONS, infinity).
+% How long to wait for all c2s process to terminate, during shutdown
+-define(SHUTDOWN_TIMEOUT_MS, 3000).
 
 %%====================================================================
 %% API
@@ -104,10 +107,21 @@ start_link() ->
 -spec stop() -> ok.
 stop() ->
     ?INFO("~s stopping", [?MODULE]),
-    _ = supervisor:terminate_child(ejabberd_sup, ?MODULE),
-    _ = supervisor:delete_child(ejabberd_sup, ?MODULE),
-    _ = supervisor:terminate_child(ejabberd_sup, ejabberd_c2s_sup),
-    _ = supervisor:delete_child(ejabberd_sup, ejabberd_c2s_sup),
+    ejabberd_sup:stop_child(?MODULE),
+    % this supervisors are created by the ejabberd_listener
+    ejabberd_sup:stop_child(ejabberd_c2s_sup),
+    ejabberd_sup:stop_child(halloapp_c2s_sup),
+    ok.
+
+% called before stop to give us some time to terminate all the c2s process gracefully.
+-spec prep_stop() -> ok.
+prep_stop() ->
+    StartTime = util:now_ms(),
+    ?INFO("initiating shutdown"),
+    close_all_c2s(),
+
+    wait_for_c2s_to_terminate(?SHUTDOWN_TIMEOUT_MS),
+    ?INFO("done in ~pms", [util:now_ms() - StartTime]),
     ok.
 
 -spec route(jid(), term()) -> ok.
@@ -389,7 +403,7 @@ handle_info(Info, State) ->
 
 terminate(_Reason, _State) ->
     lists:foreach(fun host_down/1, ejabberd_option:hosts()),
-    close_all_c2s(),
+    final_session_cleanup(),
     ejabberd_hooks:delete(host_up, ?MODULE, host_up, 50),
     ejabberd_hooks:delete(host_down, ?MODULE, host_down, 60),
     ejabberd_hooks:delete(config_reloaded, ?MODULE, config_reloaded, 50),
@@ -418,12 +432,13 @@ host_down(Host) ->
 
 % Close down all the c2s processes 
 close_all_c2s() ->
+    % TODO: send 'shutdown' reason to all clients.
     N = ets_count_sessions(),
     ?INFO("Closing ~p c2s processes", [N]),
 
     NumSessions = ets_sm_local_foldl(
         fun (#session{sid = {_, Pid}}, Acc) when node(Pid) == node() ->
-                ?INFO("stopping C2S ~p", [Pid]),
+                ?INFO("stopping c2s ~p", [Pid]),
                 halloapp_c2s:stop(Pid),
                 Acc + 1;
             (S, Acc) ->
@@ -432,6 +447,35 @@ close_all_c2s() ->
         end, 0),
     ?INFO("closed ~p sessions", [NumSessions]),
     ok.
+
+
+final_session_cleanup() ->
+    N = ets_count_sessions(),
+    ?INFO("Final cleanup of ~p sessions", [N]),
+
+    NumSessions = ets_sm_local_foldl(
+        fun (#session{sid = {_, Pid}} = S, Acc) when node(Pid) == node() ->
+                db_delete_session(S),
+                Acc + 1;
+            (S, Acc) ->
+                ?ERROR("found remote session in local ets table. Should not happen ~p", [S]),
+                Acc
+        end, 0),
+    ?INFO("closed ~p sessions", [NumSessions]),
+    ok.
+
+-spec wait_for_c2s_to_terminate(Timeout :: integer()) -> ok.
+wait_for_c2s_to_terminate(Timeout) when Timeout =< 0 ->
+    ok;
+wait_for_c2s_to_terminate(Timeout) ->
+    N = ets_count_sessions(),
+    case N of
+        0 -> ok;
+        _ ->
+            ?INFO("Still waiting for ~ts c2s processes to terminate", [N]),
+            timer:sleep(50),
+            wait_for_c2s_to_terminate(Timeout - 50)
+    end.
 
 -spec set_session(sid(), binary(), binary(), binary(),
                   prio(), info()) -> ok | {error, any()}.

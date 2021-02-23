@@ -106,8 +106,18 @@ prep_stop(State) ->
     ejabberd_monitor:stop(),
     ejabberd_hooks:run(ejabberd_stopping, []),
     ejabberd_listener:stop(),
-    ejabberd_sm:stop(),
+    % We first try to terminate all the c2s processes and wait some amount of time for them
+    % to shutdown gracefully. We want to allow the c2s process some time time to terminate,
+    % before we move on to the next step and start stoping the modules
+    ejabberd_sm:prep_stop(),
+    % After that we continue with the shutdown procedure by stopping all the module. At this
+    % stage we might still have some c2s processes running. Module stopping needs to happen
+    % after c2s process termination in order for c2s processes to terminate gracefully.
     gen_mod:stop(),
+    % Lastly when ejabberd_sm stops it will remove from the redis_sessions all the c2s processes
+    % that have not yet terminated.
+    % We should stop the modules first before ejabberd_sm since ejabberd_sm is core component.
+    ejabberd_sm:stop(),
     ?INFO("end prep_stop"),
     State.
 
