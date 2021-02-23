@@ -85,8 +85,8 @@ ha_try_register_test() ->
 
 try_enroll_test() ->
     clear(),
-    {ok, ?CODE} = ejabberd_auth:try_enroll(?PHONE, ?CODE),
-    ?assertEqual({ok, ?CODE}, model_phone:get_sms_code(?PHONE)).
+    {ok, _} = ejabberd_auth:try_enroll(?PHONE, ?CODE),
+    ?assertEqual({ok, ?CODE}, ejabberd_admin:get_user_passcode(?PHONE, ?SERVER)).
 
 
 user_exists_test() ->

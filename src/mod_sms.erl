@@ -54,27 +54,16 @@ mod_options(_Host) ->
 
 -spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok.
 request_sms(Phone, UserAgent) ->
-    %% TODO(vipin): Need to get rid of the code that is using the old sms code.
-    OldSMSCode = model_phone:get_sms_code(Phone),
-    {Code, OldResponses} = case OldSMSCode of
-        {ok, undefined} ->
-            %% Generate new SMS code.
-            NewSMSCode = generate_code(util:is_test_number(Phone)),
-            ?DEBUG("phone:~s generated code:~s", [Phone, NewSMSCode]),
-            {NewSMSCode, []};
-        {ok, OldCode} ->
-            %% Fetch the list of verification attempts.
-            {ok, OldGatewayResponses} = model_phone:get_all_gateway_responses(Phone),
-            {OldCode, OldGatewayResponses}
-    end,
-    {ok, NewAttempt} = model_phone:add_sms_code2(Phone, Code),
+    Code = generate_code(util:is_test_number(Phone)),
+    {ok, NewAttemptId} = ejabberd_auth:try_enroll(Phone, Code),
     case util:is_test_number(Phone) of
         true -> ok;
         false ->
             try
+                {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
                 {ok, SMSResponse} = send_sms(Phone, Code, UserAgent, OldResponses),
                 ?INFO("Response: ~p", [SMSResponse]),
-                model_phone:add_gateway_response(Phone, NewAttempt, SMSResponse)
+                model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse)
             catch
                 Class : Reason : Stacktrace ->
                     ?ERROR("Unable to send SMS: ~s", [

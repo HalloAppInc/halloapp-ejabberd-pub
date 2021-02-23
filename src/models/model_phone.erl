@@ -40,6 +40,7 @@
     get_sms_code_receipt/1,
     get_sms_code_ttl/1,
     add_sms_code2/2,
+    delete_sms_code2/1,
     get_sms_code2/2,
     get_all_sms_codes/1,
     add_gateway_response/3,
@@ -159,10 +160,25 @@ add_sms_code2(Phone, Code) ->
                    ["HSET", VerificationAttemptKey, ?FIELD_CODE, Code],
                    ["EXPIRE", VerificationAttemptKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
-
-    %% TODO(vipin): Need to remove the following code a few days after the upgrade.
-    add_sms_code(Phone, Code, Timestamp, ?TWILIO),
     {ok, AttemptId}.
+
+
+-spec delete_sms_code2(Phone :: phone()) -> ok  | {error, any()}.
+delete_sms_code2(Phone) ->
+    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
+    RedisCommands = lists:map(
+        fun(AttemptId) ->
+            ["DEL", verification_attempt_key(Phone, AttemptId)]
+        end, VerificationAttemptList),
+    case RedisCommands of
+        [] ->
+            ok;
+        _ ->
+            RedisCommands2 = RedisCommands ++ [["DEL", verification_attempt_list_key(Phone)]],
+            qp(RedisCommands2)
+    end,
+    ok.
+
 
 -spec get_all_sms_codes(Phone :: phone()) -> {ok, [{binary(), binary()}]} | {error, any()}.
 get_all_sms_codes(Phone) ->
@@ -218,11 +234,6 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
                        ?FIELD_RESPONSE, Response],
                    ["EXPIRE", VerificationAttemptKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
-
-    %% TODO(vipin): The following calls are temporary and will not be needed once we start tracking
-    %% SMS Gateway using 'add_gateway_response(...)' instead of 'add_sms_code(...).
-    _Res2 = q(["HSET", code_key(Phone), ?FIELD_SENDER, GatewayBin]),
-    add_sms_code_receipt(Phone, Response),
     ok.
 
 

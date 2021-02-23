@@ -218,9 +218,9 @@ try_register(Phone, Server, Password) ->
 -spec try_enroll(Phone :: binary(), Passcode :: binary()) -> {ok, binary()}.
 try_enroll(Phone, Passcode) ->
     ?INFO("phone:~s code:~s", [Phone, Passcode]),
-    ok = model_phone:add_sms_code(Phone, Passcode, util:now(), ?TWILIO),
+    {ok, AttemptId} = model_phone:add_sms_code2(Phone, Passcode),
     stat:count("HA/account", "enroll"),
-    {ok, Passcode}.
+    {ok, AttemptId}.
 
 
 -spec get_users() -> [].

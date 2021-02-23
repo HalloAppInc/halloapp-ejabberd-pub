@@ -100,8 +100,6 @@ add_sms_gateway_response_test() ->
     {ok, AttemptId} = model_phone:add_sms_code2(?PHONE1, ?CODE1),
     ok = model_phone:add_gateway_response(?PHONE1, AttemptId,
         #sms_response{gateway=?GATEWAY1, sms_id=?SMSID1, status=?STATUS, response=?RECEIPT}),
-    %% TODO(vipin): Need to get rid of the following line.
-    {ok, ?CODE1} = model_phone:get_sms_code(?PHONE1),
     {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
     {ok, [AttemptId]} = model_phone:get_verification_attempt_list(?PHONE1),
     %% Sleep for 1 seconds just so the timestamp for Attempt1 and Attemp2 is different.
@@ -110,8 +108,6 @@ add_sms_gateway_response_test() ->
     {ok, [AttemptId, AttemptId2]} = model_phone:get_verification_attempt_list(?PHONE1),
     ok = model_phone:add_gateway_response(?PHONE1, AttemptId2,
         #sms_response{gateway=?GATEWAY2, sms_id=?SMSID2, status=?STATUS, response=?RECEIPT}),
-    %% TODO(vipin): Need to get rid of the following line.
-    {ok, ?CODE2} = model_phone:get_sms_code(?PHONE1),
     {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
     {ok, ?CODE2} = model_phone:get_sms_code2(?PHONE1, AttemptId2),
     {ok, [{?CODE1, AttemptId}, {?CODE2, AttemptId2}]} = model_phone:get_all_sms_codes(?PHONE1),
@@ -144,6 +140,17 @@ delete_sms_code_test() ->
     ok = model_phone:delete_sms_code(?PHONE1),
     {ok, undefined} = model_phone:get_sms_code(?PHONE1),
     {ok, undefined} = model_phone:get_sms_code_receipt(?PHONE1).
+
+
+delete_sms_code2_test() ->
+    setup(),
+    {ok, []} = model_phone:get_verification_attempt_list(?PHONE1),
+    {ok, []} = model_phone:get_all_sms_codes(?PHONE1),
+    {ok, _} = model_phone:add_sms_code2(?PHONE1, ?CODE1),
+    {ok, _} = model_phone:add_sms_code2(?PHONE1, ?CODE2),
+    ok = model_phone:delete_sms_code2(?PHONE1),
+    {ok, []} = model_phone:get_verification_attempt_list(?PHONE1),
+    {ok, []} = model_phone:get_all_sms_codes(?PHONE1).
 
 
 add_phone_test() ->

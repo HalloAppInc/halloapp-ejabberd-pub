@@ -50,7 +50,7 @@
     register/3, unregister/2,check_and_register/5, check_and_register_spub/5,
     registered_users/1,
     enroll/3, unenroll/2,
-    enrolled_users/1, get_user_passcode/2,
+    get_user_passcode/2,
     register_push/4, unregister_push/2,
     %% Mnesia
     set_master/1,
@@ -240,15 +240,6 @@ get_commands_spec() ->
                     args_example = [<<"bob">>, <<"example.com">>],
                     args = [{user, binary}, {host, binary}],
                     result = {res, restuple}},
-    #ejabberd_commands{name = enrolled_users, tags = [accounts],
-                    desc = "List all enrolled users in HOST",
-                    module = ?MODULE, function = enrolled_users,
-                    args_desc = ["Local vhost"],
-                    args_example = [<<"example.com">>],
-                    result_desc = "List of enrolled accounts usernames",
-                    result_example = [<<"user1">>, <<"user2">>],
-                    args = [{host, binary}],
-                    result = {users, {list, {username, string}}}},
     #ejabberd_commands{name = get_user_passcode, tags = [accounts],
                     desc = "Get the passcode of an enrolled user",
                     policy = admin,
@@ -782,38 +773,24 @@ unenroll(Phone, Host) ->
     case is_my_host(Host) of
         true ->
             ?INFO("phone:~s", [Phone]),
-            ok = model_phone:delete_sms_code(Phone),
+            ok = model_phone:delete_sms_code2(Phone),
             {ok, ""};
         false ->
             {error, "Unknown virtual host"}
     end.
 
-enrolled_users(Host) ->
-    case is_my_host(Host) of
-        true ->
-            %% TODO(vipin): the following function is not defined.
-            Users = ejabberd_auth_halloapp:get_enrolled_users(Host),
-            SUsers = lists:sort(Users),
-            lists:map(fun({U, _S}) -> U end, SUsers);
-        false ->
-            {error, "Unknown virtual host"}
-    end.
-
-get_user_passcode(Phone, Host) ->
-    case is_my_host(Host) of
-        true ->
-            ?INFO("phone:~s", [Phone]),
-            case model_phone:get_sms_code(Phone) of
-                {ok, undefined} ->
-                    Msg = io_lib:format("Phone ~ts does not have a code", [Phone]),
-                    {error, conflict, 10090, Msg};
-                {ok, Passcode} ->
-                    {ok, Passcode};
-                {error, _} ->
-                    {error, "db-failure, unable to obtain passcode"}
-            end;
-        false ->
-            {error, "Unknown virtual host"}
+get_user_passcode(Phone, _Host) ->
+    ?INFO("phone:~s", [Phone]),
+    case model_phone:get_all_sms_codes(Phone) of
+        {ok, []} ->
+            Msg = io_lib:format("Phone ~ts does not have a code", [Phone]),
+            {error, conflict, 10090, Msg};
+        {ok, PasscodeTuples} ->
+            ?assert(is_list(PasscodeTuples)),
+            [{Passcode, _} | _Rest] = PasscodeTuples,
+            {ok, Passcode};
+        {error, _} ->
+            {error, "db-failure, unable to obtain passcode"}
     end.
 
 register_push(User, Host, Os, Token) ->
