@@ -418,23 +418,16 @@ host_down(Host) ->
 
 % Close down all the c2s processes 
 close_all_c2s() ->
-    Err = case ejabberd_cluster:get_nodes() of
-        [Node] when Node == node() -> xmpp:serr_system_shutdown();
-        _ -> xmpp:serr_reset()
-    end,
-
-    % TODO: (nikola): Here it looks like we send errors to all the sessions when shutting down.
-    % Do we want to do this and what will the error be. I think just closing the connection
-    % should be enough.
+    N = ets_count_sessions(),
+    ?INFO("Closing ~p c2s processes", [N]),
 
     NumSessions = ets_sm_local_foldl(
         fun (#session{sid = {_, Pid}}, Acc) when node(Pid) == node() ->
-                ?INFO("stopping ~p", [Pid]),
-                ejabberd_c2s:send(Pid, Err),
-                ejabberd_c2s:stop(Pid),
+                ?INFO("stopping C2S ~p", [Pid]),
+                halloapp_c2s:stop(Pid),
                 Acc + 1;
             (S, Acc) ->
-                ?WARNING("shoudld not happen ~p", [S]), % we iterate over only local sessions
+                ?ERROR("found remote session in local ets table. Should not happen ~p", [S]),
                 Acc
         end, 0),
     ?INFO("closed ~p sessions", [NumSessions]),

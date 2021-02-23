@@ -270,18 +270,16 @@ process_terminated(#{sid := SID, socket := Socket,
         Reason) ->
     Status = format_reason(State, Reason),
     ?INFO("(~ts) Closing c2s session for ~ts: ~ts",
-            [halloapp_socket:pp(Socket), jid:encode(JID), Status]),
-    State1 = case maps:is_key(pres_last, State) of
+            [halloapp_socket:pp(Socket), Uid, Status]),
+    ejabberd_sm:close_session(SID, Uid, Server, Resource),
+    case maps:is_key(pres_last, State) of
         true ->
-            ejabberd_sm:close_session(SID, Uid, Server, Resource),
-            ejabberd_hooks:run(unset_presence_hook, Server, [Uid, Server, Resource, Status]),
-            State;
+            ejabberd_hooks:run(unset_presence_hook, Server, [Uid, Server, Resource, Status]);
         false ->
-            ejabberd_sm:close_session(SID, Uid, Server, Resource),
-            State
+            ok
     end,
     bounce_message_queue(SID, JID),
-    State1;
+    State;
 process_terminated(#{socket := Socket, stop_reason := {tls, _}} = State, Reason) ->
     ?WARNING("(~ts) Failed to secure c2s connection: ~ts",
             [halloapp_socket:pp(Socket), format_reason(State, Reason)]),
