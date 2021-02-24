@@ -268,8 +268,23 @@ get_invite_link_git_test() ->
 add_removed_member_test() ->
     setup(),
     {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    ?assertEqual(0, model_groups:add_removed_members(Gid1, [])),
     ?assertEqual(1, model_groups:add_removed_members(Gid1, [?UID2])),
     ?assertEqual(0, model_groups:add_removed_members(Gid1, [?UID2])),
+    ok.
+
+
+remove_removed_member_test() ->
+    setup(),
+    {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    ?assertEqual(2, model_groups:add_removed_members(Gid1, [?UID2, ?UID3])),
+    ?assertEqual(true, model_groups:is_removed_member(Gid1, [?UID2])),
+    ?assertEqual(true, model_groups:is_removed_member(Gid1, [?UID3])),
+    ?assertEqual(0, model_groups:remove_removed_members(Gid1, [])),
+    ?assertEqual(0, model_groups:remove_removed_members(Gid1, [?UID4])),
+    ?assertEqual(2, model_groups:remove_removed_members(Gid1, [?UID2, ?UID3])),
+    ?assertEqual(false, model_groups:is_removed_member(Gid1, [?UID2])),
+    ?assertEqual(false, model_groups:is_removed_member(Gid1, [?UID3])),
     ok.
 
 

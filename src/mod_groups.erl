@@ -164,8 +164,7 @@ modify_members(Gid, Uid, Changes) ->
             Results = RemoveResults ++ AddResults,
             log_stats(modify_members, Results),
             send_modify_members_event(Gid, Uid, Results),
-            store_removed_members(Gid, RemoveResults),
-            % TODO: remove the people that we successfully added from the removed_members_set
+            update_removed_members_set(Gid, Results),
             maybe_delete_empty_group(Gid),
             {ok, Results}
     end.
@@ -815,10 +814,12 @@ maybe_clear_removed_members_set(true, Gid) ->
     model_groups:clear_removed_members_set(Gid).
 
 
--spec store_removed_members(Gid :: gid(), RemovedResult :: modify_member_results()) -> ok.
-store_removed_members(Gid, RemoveResults) ->
+-spec update_removed_members_set(Gid :: gid(), Result :: modify_member_results()) -> ok.
+update_removed_members_set(Gid, Results) ->
     % only pick the successful removes
-    Uids = [Uid || {Uid, remove, ok} <- RemoveResults],
-    model_groups:add_removed_members(Gid, Uids),
+    RemoveUids = [Uid || {Uid, remove, ok} <- Results],
+    model_groups:add_removed_members(Gid, RemoveUids),
+    AddUids = [Uid || {Uid, add, ok} <- Results],
+    model_groups:remove_removed_members(Gid, AddUids),
     ok.
 

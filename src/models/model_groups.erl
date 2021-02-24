@@ -52,6 +52,7 @@
     get_invite_link_gid/1,
     is_removed_member/2,
     add_removed_members/2,
+    remove_removed_members/2,
     clear_removed_members_set/1,
     check_member/2,
     count_groups/0,
@@ -431,11 +432,19 @@ is_removed_member(Gid, Uid) ->
     util_redis:decode_boolean(Res).
 
 
--spec add_removed_members(Gid :: gid(), Uid :: uid()) -> non_neg_integer().
+-spec add_removed_members(Gid :: gid(), Uids :: [uid()]) -> non_neg_integer().
 add_removed_members(Gid, []) ->
-    [];
+    0;
 add_removed_members(Gid, Uids) ->
     {ok, Res} = q(["SADD", group_removed_set_key(Gid) | Uids]),
+    util_redis:decode_int(Res).
+
+
+-spec remove_removed_members(Gid :: gid(), AddUids :: [uid()]) -> non_neg_integer().
+remove_removed_members(_Gid, []) ->
+    0;
+remove_removed_members(Gid, Uids) ->
+    {ok, Res} = q(["SREM", group_removed_set_key(Gid) | Uids]),
     util_redis:decode_int(Res).
 
 
