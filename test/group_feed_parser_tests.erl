@@ -38,36 +38,6 @@ xmpp_to_proto_message_feed_item_test() ->
     ?assertEqual(PbMessage, ProtoMsg).
 
 
-xmpp_to_proto_iq_feed_item_test() ->
-    setup(),
-
-    PbComment = struct_util:create_pb_comment(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2, ?TIMESTAMP2_INT),
-    PbFeedItem = struct_util:create_group_feed_item(publish, ?GID1, ?G_NAME1, ?G_AVATAR_ID1, PbComment),
-    PbIq = struct_util:create_pb_iq(?ID1, result, PbFeedItem),
-
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, result, PbFeedItem),
-
-    ActualProtoIq = iq_parser:xmpp_to_proto(IqSt),
-    ?assertEqual(true, is_record(ActualProtoIq, pb_iq)),
-    ?assertEqual(PbIq, ActualProtoIq).
-
-
-proto_to_xmpp_iq_feed_item_test() ->
-    setup(),
-
-    PbComment = struct_util:create_pb_comment(?ID3, ?ID1, <<>>, ?UID2, undefined, ?PAYLOAD2, undefined),
-    PbFeedItem = struct_util:create_group_feed_item(publish, ?GID1, undefined, undefined, PbComment),
-    PbIq = struct_util:create_pb_iq(?ID1, set, PbFeedItem),
-    XmppIq = iq_parser:proto_to_xmpp(PbIq),
-
-    PbComment2 = struct_util:create_pb_comment(?ID3, ?ID1, <<>>, ?UID2, undefined, ?PAYLOAD2, undefined),
-    PbFeedItem2 = struct_util:create_group_feed_item(publish, ?GID1, undefined, undefined, PbComment2),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, PbFeedItem2),
-
-    ?assertEqual(true, is_record(XmppIq, iq)),
-    ?assertEqual(IqSt, XmppIq).
-
-
 xmpp_to_proto_message_feed_items_test() ->
     setup(),
 

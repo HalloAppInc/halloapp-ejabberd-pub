@@ -87,62 +87,62 @@ send_group_message(#message{id = MsgId, from = #jid{luser = Uid}, type = groupch
 
 
 %%% create_group %%%
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_group_stanza{action = create, name = Name} = ReqGroupSt]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_stanza{action = create, name = Name} = ReqGroupSt} = IQ) ->
     process_create_group(IQ, Uid, Name, ReqGroupSt);
 
 
 %%% delete_group %%%
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_group_stanza{action = delete, gid = Gid} = _ReqGroupSt]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_stanza{action = delete, gid = Gid} = _ReqGroupSt} = IQ) ->
     process_delete_group(IQ, Gid, Uid);
 
 
 %%% modify_members %%%
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_group_stanza{action = modify_members, gid = Gid} = ReqGroupSt]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_stanza{action = modify_members, gid = Gid} = ReqGroupSt} = IQ) ->
     process_modify_members(IQ, Gid, Uid, ReqGroupSt);
 
 
 %%% modify_admins %%%
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_group_stanza{action = modify_admins, gid = Gid} = ReqGroupSt]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_stanza{action = modify_admins, gid = Gid} = ReqGroupSt} = IQ) ->
     process_modify_admins(IQ, Gid, Uid, ReqGroupSt);
 
 
 %%% get_group %%%
-process_local_iq(#iq{from = #jid{luser = Uid}, type = get,
-        sub_els = [#pb_group_stanza{action = get, gid = Gid} = _ReqGroupSt]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+        payload = #pb_group_stanza{action = get, gid = Gid} = _ReqGroupSt} = IQ) ->
     process_get_group(IQ, Gid, Uid);
 
 
 %%% get_groups %%%
-process_local_iq(#iq{from = #jid{luser = Uid}, type = get,
-        sub_els = [#pb_groups_stanza{action = get}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+        payload = #pb_groups_stanza{action = get}} = IQ) ->
     process_get_groups(IQ, Uid);
 
 
 %%% set_name %%%
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_group_stanza{action = set_name, gid = Gid, name = Name} = _ReqGroupSt]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_stanza{action = set_name, gid = Gid, name = Name} = _ReqGroupSt} = IQ) ->
     process_set_name(IQ, Gid, Uid, Name);
 
 
 %%% delete_avatar
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_upload_group_avatar{gid = Gid, data = undefined}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_upload_group_avatar{gid = Gid, data = undefined}} = IQ) ->
     process_delete_avatar(IQ, Gid, Uid);
 
 
 %%% set_avatar
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_upload_group_avatar{gid = Gid, data = Data}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_upload_group_avatar{gid = Gid, data = Data}} = IQ) ->
     process_set_avatar(IQ, Gid, Uid, Data);
 
 
 %%% leave_group %%%
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_group_stanza{action = leave, gid = Gid} = _ReqGroupSt]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_stanza{action = leave, gid = Gid} = _ReqGroupSt} = IQ) ->
     process_leave_group(IQ, Gid, Uid).
 
 
@@ -175,7 +175,7 @@ process_create_group(IQ, Uid, Name, ReqGroupSt) ->
         action = create,
         members = MembersSt
     },
-    xmpp:make_iq_result(IQ, GroupStResult).
+    util_pb:make_iq_result(IQ, GroupStResult).
 
 
 -spec process_delete_group(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
@@ -183,9 +183,9 @@ process_delete_group(IQ, Gid, Uid) ->
     ?INFO("delete_group Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:delete_group(Gid, Uid) of
         {error, not_admin} ->
-            xmpp:make_error(IQ, util:err(not_admin));
+            util_pb:make_error(IQ, util:err(not_admin));
         ok ->
-            xmpp:make_iq_result(IQ)
+            util_pb:make_iq_result(IQ)
     end.
 
 
@@ -197,7 +197,7 @@ process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
     ?INFO("modify_members Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
     case mod_groups:modify_members(Gid, Uid, Changes) of
         {error, not_admin} ->
-            xmpp:make_error(IQ, util:err(not_admin));
+            util_pb:make_error(IQ, util:err(not_admin));
         {ok, ModifyResults} ->
 
             ResultMemberSt = lists:map(
@@ -211,7 +211,7 @@ process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
                 action = modify_members,
                 members = ResultMemberSt
             },
-            xmpp:make_iq_result(IQ, GroupStResult)
+            util_pb:make_iq_result(IQ, GroupStResult)
     end.
 
 
@@ -224,7 +224,7 @@ process_modify_admins(IQ, Gid, Uid, ReqGroupSt) ->
 
     case mod_groups:modify_admins(Gid, Uid, Changes) of
         {error, not_admin} ->
-            xmpp:make_error(IQ, util:err(not_admin));
+            util_pb:make_error(IQ, util:err(not_admin));
         {ok, ModifyResults} ->
 
             ResultMemberSt = lists:map(
@@ -241,7 +241,7 @@ process_modify_admins(IQ, Gid, Uid, ReqGroupSt) ->
                 avatar_id = undefined,
                 sender_name = undefined
             },
-            xmpp:make_iq_result(IQ, GroupStResult)
+            util_pb:make_iq_result(IQ, GroupStResult)
     end.
 
 
@@ -250,10 +250,10 @@ process_get_group(IQ, Gid, Uid) ->
     ?INFO("get_group Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:get_group(Gid, Uid) of
         {error, not_member} ->
-            xmpp:make_error(IQ, util:err(not_member));
+            util_pb:make_error(IQ, util:err(not_member));
         {ok, Group} ->
             GroupSt = make_group_st(Group),
-            xmpp:make_iq_result(IQ, GroupSt)
+            util_pb:make_iq_result(IQ, GroupSt)
     end.
 
 
@@ -266,7 +266,7 @@ process_get_groups(IQ, Uid) ->
         action = get,
         group_stanzas = GroupsSt
     },
-    xmpp:make_iq_result(IQ, ResultSt).
+    util_pb:make_iq_result(IQ, ResultSt).
 
 
 -spec process_set_name(IQ :: iq(), Gid :: gid(), Uid :: uid(), Name :: name()) -> iq().
@@ -274,12 +274,12 @@ process_set_name(IQ, Gid, Uid, Name) ->
     ?INFO("set_name Gid: ~s Uid: ~s Name: |~p|", [Gid, Uid, Name]),
     case mod_groups:set_name(Gid, Uid, Name) of
         {error, invalid_name} ->
-            xmpp:make_error(IQ, util:err(invalid_name));
+            util_pb:make_error(IQ, util:err(invalid_name));
         {error, not_member} ->
-            xmpp:make_error(IQ, util:err(not_member));
+            util_pb:make_error(IQ, util:err(not_member));
         ok ->
             {ok, GroupInfo} = mod_groups:get_group_info(Gid, Uid),
-            xmpp:make_iq_result(IQ, group_info_to_group_st(GroupInfo))
+            util_pb:make_iq_result(IQ, group_info_to_group_st(GroupInfo))
     end.
 
 
@@ -287,9 +287,9 @@ process_delete_avatar(IQ, Gid, Uid) ->
     ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:delete_avatar(Gid, Uid) of
         {error, Reason} ->
-            xmpp:make_error(IQ, util:err(Reason));
+            util_pb:make_error(IQ, util:err(Reason));
         {ok, _GroupName} ->
-            xmpp:make_iq_result(IQ)
+            util_pb:make_iq_result(IQ)
     end.
 
 
@@ -299,7 +299,7 @@ process_set_avatar(IQ, Gid, Uid, Data) ->
     case set_avatar(Gid, Uid, Base64Data) of
         {error, Reason} ->
             ?WARNING("Gid: ~s Uid ~s setting avatar failed ~p", [Gid, Uid, Reason]),
-            xmpp:make_error(IQ, util:err(Reason));
+            util_pb:make_error(IQ, util:err(Reason));
         {ok, AvatarId, GroupName} ->
             ?INFO("Gid: ~s Uid: ~s Successfully set avatar ~s",
                 [Gid, Uid, AvatarId]),
@@ -308,7 +308,7 @@ process_set_avatar(IQ, Gid, Uid, Data) ->
                 name = GroupName,
                 avatar_id = AvatarId
             },
-            xmpp:make_iq_result(IQ, GroupSt)
+            util_pb:make_iq_result(IQ, GroupSt)
     end.
 
 
@@ -331,7 +331,7 @@ process_leave_group(IQ, Gid, Uid) ->
     ?INFO("leave_group Gid: ~s Uid: ~s ", [Gid, Uid]),
     case mod_groups:leave_group(Gid, Uid) of
         {ok, _Res} ->
-            xmpp:make_iq_result(IQ)
+            util_pb:make_iq_result(IQ)
     end.
 
 

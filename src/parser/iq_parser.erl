@@ -67,6 +67,10 @@ proto_to_xmpp(ProtoIQ) ->
         #pb_notification_prefs{} -> ProtoIQ;
         #pb_feed_item{} -> ProtoIQ;
         #pb_ping{} -> ProtoIQ;
+        #pb_group_stanza{} -> ProtoIQ;
+        #pb_groups_stanza{} -> ProtoIQ;
+        #pb_upload_group_avatar{} -> ProtoIQ;
+        #pb_group_feed_item{} -> ProtoIQ;
         _ -> XmppIQ
     end.
 

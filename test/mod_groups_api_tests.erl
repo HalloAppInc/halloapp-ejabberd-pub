@@ -46,16 +46,15 @@ create_group_IQ(Uid, Name) ->
 
 create_group_IQ(Uid, Name, Uids) ->
     MemberSt = [#pb_group_member{uid = Ouid} || Ouid <- Uids],
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = set,
-        sub_els = [
+        payload =
             #pb_group_stanza{
                 action = create,
                 name = Name,
                 members = MemberSt
             }
-        ]
     }.
 
 
@@ -88,53 +87,50 @@ delete_avatar_IQ(Uid, Gid) ->
 
 
 avatar_IQ(Uid, Gid, Data) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = set,
-        sub_els = [
+        payload =
             #pb_upload_group_avatar{
                 gid =  Gid,
                 data = Data
-            }]
+            }
     }.
 
 
 set_name_IQ(Uid, Gid, Name) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = set,
-        sub_els = [
+        payload =
             #pb_group_stanza{
                 gid = Gid,
                 action = set_name,
                 name = Name
             }
-        ]
     }.
 
 
 make_group_IQ(Uid, Gid, Type, Action, Changes) ->
     MemberSt = [#pb_group_member{uid = Ouid, action = MAction} || {Ouid, MAction} <- Changes],
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = Type,
-        sub_els = [
+        payload =
             #pb_group_stanza{
                 gid = Gid,
                 action = Action,
                 members = MemberSt
             }
-        ]
     }.
 
 
 get_groups_IQ(Uid) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = get,
-        sub_els = [
+        payload =
             #pb_groups_stanza{action = get}
-        ]
     }.
 
 
@@ -170,10 +166,10 @@ make_pb_group_feed_item(Gid, Name, AvatarId, Action, Item) ->
     }.
 
 make_group_feed_iq(Uid, GroupFeedSt) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = set,
-        sub_els = [GroupFeedSt]
+        payload = GroupFeedSt
     }.
 
 
@@ -444,8 +440,8 @@ leave_group_test() ->
     IQ = leave_group_IQ(?UID2, Gid),
     IQRes = mod_groups_api:process_local_iq(IQ),
 %%    ?debugVal(IQRes, 1000),
-    ?assertEqual(result, IQRes#iq.type),
-    ?assertEqual([], IQRes#iq.sub_els),
+    ?assertEqual(result, IQRes#pb_iq.type),
+    ?assertEqual(undefined, IQRes#pb_iq.payload),
     ok.
 
 
@@ -457,12 +453,12 @@ set_avatar_test() ->
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     IQ = set_avatar_IQ(?UID2, Gid),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    ?assertEqual(result, IQRes#iq.type),
-    ?assertEqual([#pb_group_stanza{
+    ?assertEqual(result, IQRes#pb_iq.type),
+    ?assertEqual(#pb_group_stanza{
         gid = Gid,
         name = ?GROUP_NAME1,
         avatar_id = ?AVATAR1
-    }], IQRes#iq.sub_els),
+    }, IQRes#pb_iq.payload),
 
     GroupInfo = model_groups:get_group_info(Gid),
     ?assertEqual(?AVATAR1, GroupInfo#group_info.avatar),
@@ -482,12 +478,12 @@ delete_avatar_test() ->
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     IQ = set_avatar_IQ(?UID2, Gid),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    ?assertEqual(result, IQRes#iq.type),
-    ?assertEqual([#pb_group_stanza{
+    ?assertEqual(result, IQRes#pb_iq.type),
+    ?assertEqual(#pb_group_stanza{
         gid = Gid,
         name = ?GROUP_NAME1,
         avatar_id = ?AVATAR1
-    }], IQRes#iq.sub_els),
+    }, IQRes#pb_iq.payload),
 
     GroupInfo = model_groups:get_group_info(Gid),
     ?assertEqual(?AVATAR1, GroupInfo#group_info.avatar),
@@ -495,8 +491,8 @@ delete_avatar_test() ->
     % Now try to delete it
     IQ2 = delete_avatar_IQ(?UID2, Gid),
     IQRes2 = mod_groups_api:process_local_iq(IQ2),
-    ?assertEqual(result, IQRes2#iq.type),
-    ?assertEqual([], IQRes2#iq.sub_els),
+    ?assertEqual(result, IQRes2#pb_iq.type),
+    ?assertEqual(undefined, IQRes2#pb_iq.payload),
 
     GroupInfo2 = model_groups:get_group_info(Gid),
     ?assertEqual(undefined, GroupInfo2#group_info.avatar),
@@ -532,8 +528,8 @@ publish_group_feed_test() ->
     GroupFeedIq = make_group_feed_iq(?UID1, GroupFeedSt),
     ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 
-    [SubEl] = ResultIQ#iq.sub_els,
-    ?assertEqual(result, ResultIQ#iq.type),
+    SubEl = ResultIQ#pb_iq.payload,
+    ?assertEqual(result, ResultIQ#pb_iq.type),
 
     ?assertEqual(Gid, SubEl#pb_group_feed_item.gid),
     GroupPostSt = SubEl#pb_group_feed_item.item,
@@ -582,8 +578,8 @@ retract_group_feed_test() ->
     GroupFeedIq = make_group_feed_iq(?UID2, GroupFeedSt),
     ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 
-    [SubEl] = ResultIQ#iq.sub_els,
-    ?assertEqual(result, ResultIQ#iq.type),
+    SubEl = ResultIQ#pb_iq.payload,
+    ?assertEqual(result, ResultIQ#pb_iq.type),
     ?assertEqual(Gid, SubEl#pb_group_feed_item.gid),
     GroupCommentSt = SubEl#pb_group_feed_item.item,
     ?assertEqual(?UID2, GroupCommentSt#pb_comment.publisher_uid),

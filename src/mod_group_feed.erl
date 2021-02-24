@@ -53,56 +53,56 @@ mod_options(_Host) ->
 %%====================================================================
 
 %% Publish post.
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_group_feed_item{gid = Gid, action = publish,
-        item = #pb_post{} = Post} = GroupFeedSt]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_feed_item{gid = Gid, action = publish,
+        item = #pb_post{} = Post} = GroupFeedSt} = IQ) ->
     PostId = Post#pb_post.id,
     Payload = util_parser:maybe_base64_encode_binary(Post#pb_post.payload),
     case publish_post(Gid, Uid, PostId, Payload, GroupFeedSt) of
         {error, Reason} ->
-            xmpp:make_error(IQ, util:err(Reason));
+            util_pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
-            xmpp:make_iq_result(IQ, NewGroupFeedSt)
+            util_pb:make_iq_result(IQ, NewGroupFeedSt)
     end;
 
 %% Publish comment.
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_group_feed_item{gid = Gid, action = publish,
-        item = #pb_comment{} = Comment} = GroupFeedSt]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_feed_item{gid = Gid, action = publish,
+        item = #pb_comment{} = Comment} = GroupFeedSt} = IQ) ->
     CommentId = Comment#pb_comment.id,
     PostId = Comment#pb_comment.post_id,
     ParentCommentId = Comment#pb_comment.parent_comment_id,
     Payload = util_parser:maybe_base64_encode_binary(Comment#pb_comment.payload),
     case publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, Payload, GroupFeedSt) of
         {error, Reason} ->
-            xmpp:make_error(IQ, util:err(Reason));
+            util_pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
-            xmpp:make_iq_result(IQ, NewGroupFeedSt)
+            util_pb:make_iq_result(IQ, NewGroupFeedSt)
     end;
 
 %% Retract post.
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_group_feed_item{gid = Gid, action = retract,
-        item = #pb_post{} = Post} = GroupFeedSt]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_feed_item{gid = Gid, action = retract,
+        item = #pb_post{} = Post} = GroupFeedSt} = IQ) ->
     PostId = Post#pb_post.id,
     case retract_post(Gid, Uid, PostId, GroupFeedSt) of
         {error, Reason} ->
-            xmpp:make_error(IQ, util:err(Reason));
+            util_pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
-            xmpp:make_iq_result(IQ, NewGroupFeedSt)
+            util_pb:make_iq_result(IQ, NewGroupFeedSt)
     end;
 
 %% Retract comment.
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_group_feed_item{gid = Gid, action = retract,
-        item = #pb_comment{} = Comment} = GroupFeedSt]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_feed_item{gid = Gid, action = retract,
+        item = #pb_comment{} = Comment} = GroupFeedSt} = IQ) ->
     CommentId = Comment#pb_comment.id,
     PostId = Comment#pb_comment.post_id,
     case retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) of
         {error, Reason} ->
-            xmpp:make_error(IQ, util:err(Reason));
+            util_pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
-            xmpp:make_iq_result(IQ, NewGroupFeedSt)
+            util_pb:make_iq_result(IQ, NewGroupFeedSt)
     end.
 
 
