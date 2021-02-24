@@ -367,8 +367,9 @@ handle_auth_failure(User, _Mech, Reason, #{lserver := LServer} = State) ->
     ejabberd_hooks:run_fold(pb_c2s_auth_result, LServer, State, [{false, Reason}, User]).
 
 
-% handle_authenticated_packet(Pkt, #{lserver := LServer} = State) when not ?is_stanza(Pkt) ->
-%     ejabberd_hooks:run_fold(c2s_authenticated_packet, LServer, State, [Pkt]);
+%% TODO(murali@): fix this hook - need not be called for auth request.
+handle_authenticated_packet(Pkt, #{lserver := LServer} = State) when is_record(Pkt, pb_auth_request) ->
+    ejabberd_hooks:run_fold(c2s_authenticated_packet, LServer, State, [Pkt]);
 handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID,
                    ip := {IP, _}} = State) ->
     % Pkt1 = xmpp:put_meta(Pkt, ip, IP),
