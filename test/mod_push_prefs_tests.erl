@@ -65,10 +65,10 @@ clear() ->
   tutil:cleardb(redis_accounts).
 
 create_set_pref_iq(Uid, PushPrefs) ->
-    #iq{
-        from = jid:make(Uid, ?SERVER),
+    #pb_iq{
+        from_uid = Uid,
         type = set,
-        sub_els = [#pb_notification_prefs{push_prefs = PushPrefs}]
+        payload = #pb_notification_prefs{push_prefs = PushPrefs}
     }.
 
 setup_accounts(Accounts) ->

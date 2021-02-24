@@ -77,44 +77,46 @@ remove_user(UserId, Server) ->
     remove_push_token(UserId, Server).
 
 
--spec process_local_iq(IQ :: iq()) -> iq().
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set, to = _Host,
-        sub_els = [#pb_push_register{lang_id = LangId,
-        push_token = #pb_push_token{os = OsAtom, token = Token}}]} = IQ) ->
+-spec process_local_iq(IQ :: pb_iq()) -> pb_iq().
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_push_register{lang_id = LangId,
+        push_token = #pb_push_token{os = OsAtom, token = Token}}} = IQ) ->
+    Server = util:get_host(),
     ?INFO("Uid: ~s, set-iq for push_token", [Uid]),
     Os = util:to_binary(OsAtom),
     IsValidOs = is_valid_push_os(Os),
     if
         Token =:= <<>> ->
             ?WARNING("Uid: ~s, received push token is empty!", [Uid]),
-            xmpp:make_error(IQ, util:err(invalid_push_token));
+            util_pb:make_error(IQ, util:err(invalid_push_token));
         IsValidOs =:= false ->
             ?WARNING("Uid: ~s, invalid os attribute: ~s!", [Uid, Os]),
-            xmpp:make_error(IQ, util:err(invalid_os));
+            util_pb:make_error(IQ, util:err(invalid_os));
         true ->
             ok = register_push_info(Uid, Server, Os, Token, LangId),
-            xmpp:make_iq_result(IQ)
+            util_pb:make_iq_result(IQ)
     end;
 
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        to = _Host, sub_els = [#pb_notification_prefs{push_prefs = PushPrefs}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_notification_prefs{push_prefs = PushPrefs}} = IQ) ->
+    Server = util:get_host(),
     ?INFO("Uid: ~s, set-iq for push preferences", [Uid]),
     case PushPrefs of
         [] ->
             ?WARNING("Uid: ~s, push pref list is empty!", [Uid]),
-            xmpp:make_error(IQ, util:err(invalid_prefs));
+            util_pb:make_error(IQ, util:err(invalid_prefs));
         _ ->
             lists:foreach(
                 fun(PushPref) ->
                     update_push_pref(Uid, PushPref)
                 end,
             PushPrefs),
-            xmpp:make_iq_result(IQ)
+            util_pb:make_iq_result(IQ)
     end;
 
-process_local_iq(#iq{} = IQ) ->
+process_local_iq(#pb_iq{} = IQ) ->
     ?ERROR("Invalid iq: ~p", [IQ]),
-    xmpp:make_error(IQ, util:err(invalid_iq)).
+    util_pb:make_error(IQ, util:err(invalid_iq)).
 
 
 -spec update_push_pref(Uid :: binary(), push_pref()) -> ok.
