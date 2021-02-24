@@ -58,7 +58,7 @@ mod_options(_Host) ->
 %% IQ handler
 %%====================================================================
 
-process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = get} = IQ) ->
     IsDev = dev_users:is_dev_uid(Uid),
     {ok, ClientVersion} = model_accounts:get_client_version(Uid),
     {Hash, SortedProplist} = get_props_and_hash(Uid, ClientVersion),
@@ -149,5 +149,5 @@ make_response(IQ, SortedProplist, Hash) ->
     Props = [#pb_prop{name = util:to_binary(Key), value = util:to_binary(Val)} ||
             {Key, Val} <- SortedProplist],
     Prop = #pb_props{hash = base64url:decode(Hash), props = Props},
-    xmpp:make_iq_result(IQ, Prop).
+    util_pb:make_iq_result(IQ, Prop).
 

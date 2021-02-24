@@ -63,13 +63,13 @@ hash_client_version_test() ->
 iq_test() ->
     SortedProplist = lists:keysort(1, ?TEST_PROPLIST),
     Hash = mod_props:generate_hash(SortedProplist),
-    Actual = mod_props:make_response(#iq{type = get}, SortedProplist, Hash),
-    Expected = #iq{type = result, sub_els = [
+    Actual = mod_props:make_response(#pb_iq{type = get}, SortedProplist, Hash),
+    Expected = #pb_iq{type = result, payload =
         #pb_props{hash = base64url:decode(Hash), props = [
             #pb_prop{name = <<"groups">>, value = <<"true">>},
             #pb_prop{name = <<"max_group_size">>, value = <<"25">>},
             #pb_prop{name = <<"pi">>, value = float_to_binary(3.14)},
-            #pb_prop{name = <<"some_test_prop">>, value = <<"value">>}]}]},
+            #pb_prop{name = <<"some_test_prop">>, value = <<"value">>}]}},
     ?assertEqual(Expected, Actual).
 
 %% ----------------------------------------------

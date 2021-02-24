@@ -60,6 +60,7 @@ proto_to_xmpp(ProtoIQ) ->
         #pb_upload_media{} -> ProtoIQ;
         #pb_invites_request{} -> ProtoIQ;
         #pb_name{} -> ProtoIQ;
+        #pb_props{} -> ProtoIQ;
         _ -> XmppIQ
     end.
 
