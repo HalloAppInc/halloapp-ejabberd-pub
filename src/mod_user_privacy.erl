@@ -125,16 +125,16 @@ privacy_check_packet(allow, _State, #message{} = Packet, in = Dir) ->
             end
     end;
 
-privacy_check_packet(allow, _State, #presence{type = Type} = Packet, in = Dir)
+privacy_check_packet(allow, _State, #pb_presence{type = Type} = Packet, in = Dir)
         when Type =:= available; Type =:= away ->
     %% inspect the addresses for presence stanzas sent by the server.
     check_blocked(Packet, Dir);
 
-privacy_check_packet(allow, _State, #chat_state{thread_type = group_chat} = _Packet, in) ->
+privacy_check_packet(allow, _State, #pb_chat_state{thread_type = group_chat} = _Packet, in) ->
     %% always allow typing indicators in groups.
     allow;
 
-privacy_check_packet(allow, _State, #chat_state{} = Packet, in = Dir) ->
+privacy_check_packet(allow, _State, #pb_chat_state{} = Packet, in = Dir) ->
     %% inspect the addresses for chat_state stanzas sent by the server.
     check_blocked(Packet, Dir);
 

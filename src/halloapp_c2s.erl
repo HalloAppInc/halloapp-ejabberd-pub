@@ -213,6 +213,9 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %             NewChatSubEl = fix_chat_subel(ChatSubEl),
 %             Message#message{sub_els = [NewChatSubEl]}
 %     end;
+upgrade_packet(Pkt) when is_record(Pkt, presence); is_record(Pkt, chat_state); is_record(Pkt, ack) ->
+    ProtoPkt = packet_parser:xmpp_to_proto(Pkt),
+    ProtoPkt#pb_packet.stanza;
 upgrade_packet(Packet) -> Packet.
 
 
@@ -579,12 +582,11 @@ verify_incoming_packet_to(#{user := LUser, stream_state := StreamState} = State,
 -spec privacy_check_packet_in(State :: state(), Pkt :: stanza()) -> allow | deny.
 privacy_check_packet_in(State, Pkt) ->
     case Pkt of
-        #presence{} -> privacy_check_packet(State, Pkt, in);
-        #chat_state{} -> privacy_check_packet(State, Pkt, in);
+        #pb_presence{} -> privacy_check_packet(State, Pkt, in);
+        #pb_chat_state{} -> privacy_check_packet(State, Pkt, in);
         #message{} -> allow;
         #iq{} -> allow;
-        #ack{} -> allow;
-        #pb_iq{} -> allow
+        #pb_ack{} -> allow
     end.
 
 -spec privacy_check_packet(state(), stanza(), in | out) -> allow | deny.

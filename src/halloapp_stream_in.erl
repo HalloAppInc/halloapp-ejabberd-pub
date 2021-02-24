@@ -708,6 +708,7 @@ check_password_fun(Mech, State) ->
 
 -spec set_from_to(xmpp_element(), state()) -> {ok, xmpp_element()} |
                           {error, stream_error()}.
+%% TODO(murali@): cleanup these functions.
 set_from_to(Pkt, #{user := U, server := S, resource := R}) when is_record(Pkt, pb_iq) ->
     {ok, Pkt#pb_iq{to_uid = <<>>, from_uid = U}};
 set_from_to(Pkt, _State) when not ?is_stanza(Pkt) ->

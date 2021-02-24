@@ -20,6 +20,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("presence_subs.hrl").
 
 
@@ -116,7 +117,7 @@ remove_friend(Uid, Server, Ouid) ->
 
 
 %% We route presence stanzas to the client only if the client is available right now.
-user_receive_packet({#presence{} = Packet, #{presence := PresenceType} = State} = Acc)  ->
+user_receive_packet({#pb_presence{} = Packet, #{presence := PresenceType} = State} = Acc)  ->
     case PresenceType of
         available -> Acc;
         _ ->
