@@ -59,6 +59,7 @@ proto_to_xmpp(ProtoIQ) ->
         #pb_privacy_lists{} -> ProtoIQ;
         #pb_upload_media{} -> ProtoIQ;
         #pb_invites_request{} -> ProtoIQ;
+        #pb_name{} -> ProtoIQ;
         _ -> XmppIQ
     end.
 

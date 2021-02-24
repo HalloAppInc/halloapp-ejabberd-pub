@@ -59,28 +59,28 @@ create_name_st(Uid, Name) ->
 
 get_set_name_iq(Uid, Ouid, Name, Server) ->
     NameSt = create_name_st(Ouid, Name),
-    #iq{
-        from = jid:make(Uid, Server),
+    #pb_iq{
+        from_uid = Uid,
         type = set,
-        to = jid:make(Server),
-        sub_els = [NameSt]
+        to_uid = <<>>,
+        payload = NameSt
     }.
 
 get_set_name_iq_result(Uid, Server) ->
-    #iq{
-        from = jid:make(Server),
+    #pb_iq{
+        from_uid = <<>>,
         type = result,
-        to = jid:make(Uid, Server),
-        sub_els = []
+        to_uid = Uid,
+        payload = undefined
     }.
 
 
 get_error_iq_result(Reason, Uid, Server) ->
-    #iq{
-        from = jid:make(Server),
+    #pb_iq{
+        from_uid = <<>>,
         type = error,
-        to = jid:make(Uid, Server),
-        sub_els = [#pb_error_stanza{reason = util:to_binary(Reason)}]
+        to_uid = Uid,
+        payload = #pb_error_stanza{reason = util:to_binary(Reason)}
     }.
 
 

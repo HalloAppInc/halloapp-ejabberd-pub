@@ -36,31 +36,3 @@ xmpp_to_proto_message_name_test() ->
     ?assertEqual(PbMessage, ProtoMsg).
 
 
-proto_to_xmpp_iq_name_test() ->
-    setup(),
-
-    PbName = struct_util:create_pb_name(?UID1, ?NAME1),
-    PbIq = struct_util:create_pb_iq(?ID1, set, PbName),
-
-    PbName2 = struct_util:create_pb_name(?UID1, ?NAME1),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, PbName2),
-
-    XmppIq = iq_parser:proto_to_xmpp(PbIq),
-    ?assertEqual(true, is_record(XmppIq, iq)),
-    ?assertEqual(IqSt, XmppIq).
-
-
-proto_to_xmpp_iq_name_empty_uid_test() ->
-    setup(),
-
-    PbName = struct_util:create_pb_name(undefined, ?NAME1),
-    PbIq = struct_util:create_pb_iq(?ID1, set, PbName),
-
-    PbName2 = struct_util:create_pb_name(undefined, ?NAME1),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, PbName2),
-
-    XmppIq = iq_parser:proto_to_xmpp(PbIq),
-    ?assertEqual(true, is_record(XmppIq, iq)),
-    ?assertEqual(IqSt, XmppIq).
-
-

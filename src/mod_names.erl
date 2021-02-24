@@ -72,15 +72,15 @@ mod_options(_Host) ->
 %% iq handlers
 %%====================================================================
 
-process_local_iq(#iq{from = #jid{user = Uid}, type = set,
-        sub_els = [#pb_name{uid = Ouid, name = Name}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_name{uid = Ouid, name = Name}} = IQ) ->
     case Ouid =:= <<>> orelse Ouid =:= Uid of
       true ->
         set_name(Uid, Name),
-        xmpp:make_iq_result(IQ);
+        util_pb:make_iq_result(IQ);
       false ->
         ?ERROR("Uid: ~p, Invalid userid in the iq-set request: ~p", [Uid, Ouid]),
-        xmpp:make_error(IQ, util:err(invalid_uid))
+        util_pb:make_error(IQ, util:err(invalid_uid))
     end.
 %% TODO(murali@): add get-iq api if clients need it.
 
