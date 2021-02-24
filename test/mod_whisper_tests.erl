@@ -174,59 +174,59 @@ gen_key(Bytes) ->
     crypto:strong_rand_bytes(Bytes).
 
 create_set_whisper_keys_iq(Uid, IdentityKey, SignedKey, OneTimeKeys) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = set,
-        sub_els = [#pb_whisper_keys{
+        payload = #pb_whisper_keys{
             action = set,
             identity_key = IdentityKey,
             signed_key = SignedKey,
-            one_time_keys = OneTimeKeys}]
+            one_time_keys = OneTimeKeys}
     }.
 
 create_add_whisper_keys_iq(Uid, OneTimeKeys) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = set,
-        sub_els = [#pb_whisper_keys{
+        payload = #pb_whisper_keys{
             action = add,
             identity_key = undefined,
             signed_key = undefined,
-            one_time_keys = OneTimeKeys}]
+            one_time_keys = OneTimeKeys}
     }.
 
 create_count_whisper_keys_iq(Uid) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = get,
-        sub_els = [#pb_whisper_keys{
-            action = count}]
+        payload = #pb_whisper_keys{
+            action = count}
     }.
 
 create_get_whisper_keys_iq(Uid, Ouid) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = get,
-        sub_els = [#pb_whisper_keys{
+        payload = #pb_whisper_keys{
             uid = Ouid,
-            action = get}]
+            action = get}
     }.
 
 check_iq_result(Result) ->
-    #iq{type = Type, sub_els = SubEls} = Result,
+    #pb_iq{type = Type, payload = Payload} = Result,
     ?assertEqual(result, Type),
-    ?assertEqual([], SubEls),
+    ?assertEqual(undefined, Payload),
     ok.
 
 check_iq_result_count(Result, ExpectedCount) ->
-    #iq{type = Type, sub_els = [#pb_whisper_keys{action = WType, otp_key_count = Count}]} = Result,
+    #pb_iq{type = Type, payload = #pb_whisper_keys{action = WType, otp_key_count = Count}} = Result,
     ?assertEqual(result, Type),
     ?assertEqual(normal, WType),  % TODO: this will one day change to 'count'
     ?assertEqual(ExpectedCount, Count),
     ok.
 
 check_iq_result_get(Result, Uid, IK, SK, OTK) ->
-    #iq{type = Type, sub_els = [#pb_whisper_keys{action = normal} = WK]} = Result,
+    #pb_iq{type = Type, payload = #pb_whisper_keys{action = normal} = WK} = Result,
     ?assertEqual(result, Type),
     ?assertEqual(IK, WK#pb_whisper_keys.identity_key),
     ?assertEqual(SK, WK#pb_whisper_keys.signed_key),

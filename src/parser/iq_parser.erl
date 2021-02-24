@@ -61,6 +61,7 @@ proto_to_xmpp(ProtoIQ) ->
         #pb_invites_request{} -> ProtoIQ;
         #pb_name{} -> ProtoIQ;
         #pb_props{} -> ProtoIQ;
+        #pb_whisper_keys{} -> ProtoIQ;
         _ -> XmppIQ
     end.
 
