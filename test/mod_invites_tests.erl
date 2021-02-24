@@ -38,18 +38,18 @@ get_invites_test() ->
 get_invites_error_test() ->
     setup_bare(),
     Actual = mod_invites:process_local_iq(create_get_iq(?UID1)),
-    Expected = #iq{type = error, to = #jid{luser = ?UID1}, sub_els = [
+    Expected = #pb_iq{type = error, to_uid = ?UID1, payload =
         #pb_error_stanza{reason = <<"no_account">>}
-    ]},
+    },
     ?assertEqual(Expected, Actual).
 
 % tests no_account error
 send_invites_error1_test() ->
     setup_bare(),
     Actual = mod_invites:process_local_iq(create_invite_iq(?UID1)),
-    Expected = #iq{type = error, to = #jid{luser = ?UID1}, sub_els = [
+    Expected = #pb_iq{type = error, to_uid = ?UID1, payload =
         #pb_error_stanza{reason = <<"no_account">>}
-    ]},
+    },
     ?assertEqual(Expected, Actual).
 
 % tests no_invites_left error
@@ -285,39 +285,38 @@ clear() ->
     tutil:cleardb(redis_phone).
 
 create_get_iq(Uid) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = get,
-        sub_els = [#pb_invites_request{}]
+        payload = #pb_invites_request{}
     }.
 
 create_invite_iq(Uid) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = set,
-        sub_els = [#pb_invites_request{invites = [
+        payload = #pb_invites_request{invites = [
             #pb_invite{phone = ?PHONE2},
             #pb_invite{phone = <<"16175283002">>},
             #pb_invite{phone = <<"16175283003">>},
             #pb_invite{phone = <<"212">>}
-        ]}]
+        ]}
     }.
 
 % creates an iq with (MAX_NUM_INVITES + 1) phone numbers
 create_big_invite_iq(Uid) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = set,
-        sub_els = [#pb_invites_request{invites = [
+        payload = #pb_invites_request{invites = [
             #pb_invite{phone = integer_to_binary(Ph)} || Ph <- lists:seq(16175289000,16175289000 + ?MAX_NUM_INVITES)
-        ]}]
+        ]}
     }.
 
-get_invites_subel(#iq{} = IQ) ->
-    [Res] = IQ#iq.sub_els,
-    Res.
+get_invites_subel(#pb_iq{} = IQ) ->
+    IQ#pb_iq.payload.
 
-get_invite_subel_list(#iq{} = IQ) ->
+get_invite_subel_list(#pb_iq{} = IQ) ->
     SubEl = get_invites_subel(IQ),
     case SubEl of
         #pb_invites_request{} -> SubEl#pb_invites_request.invites;

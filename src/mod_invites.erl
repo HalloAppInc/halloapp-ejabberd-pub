@@ -63,10 +63,10 @@ mod_options(_Host) ->
 %%====================================================================
 
 % type = get
-process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = get} = IQ) ->
     AccExists = model_accounts:account_exists(Uid),
     case AccExists of
-        false -> xmpp:make_error(IQ, util:err(no_account));
+        false -> util_pb:make_error(IQ, util:err(no_account));
         true ->
             InvsRem = get_invites_remaining(Uid),
             Time = get_time_until_refresh(),
@@ -75,15 +75,15 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = get} = IQ) ->
                 invites_left = InvsRem,
                 time_until_refresh = Time
             },
-            xmpp:make_iq_result(IQ, Result)
+            util_pb:make_iq_result(IQ, Result)
     end;
 
 % type = set
-process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
-        sub_els = [#pb_invites_request{invites = InviteList}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_invites_request{invites = InviteList}} = IQ) ->
     AccExists = model_accounts:account_exists(Uid),
     case AccExists of
-        false -> xmpp:make_error(IQ, util:err(no_account));
+        false -> util_pb:make_error(IQ, util:err(no_account));
         true ->
             PhoneList = [P#pb_invite.phone || P <- InviteList],
             ?INFO("Uid: ~s inviting ~p", [Uid, PhoneList]),
@@ -102,7 +102,7 @@ process_local_iq(#iq{from = #jid{luser = Uid}, type = set,
                 time_until_refresh = get_time_until_refresh(),
                 invites = NewInviteList
             },
-            xmpp:make_iq_result(IQ, Ret)
+            util_pb:make_iq_result(IQ, Ret)
     end.
 
 
