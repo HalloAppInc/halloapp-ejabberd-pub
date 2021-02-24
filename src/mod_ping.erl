@@ -129,8 +129,8 @@ handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
-handle_info({iq_reply, #iq{type = error,
-        sub_els = [#error_st{reason = user_session_not_found}]}, JID}, State) ->
+handle_info({iq_reply, #pb_iq{type = error,
+        payload = #error_st{reason = user_session_not_found}}, JID}, State) ->
     Timers = case State#state.timeout_action of
         kill ->
             del_timer(JID, State#state.timers);
@@ -138,7 +138,7 @@ handle_info({iq_reply, #iq{type = error,
             State#state.timers
     end,
     {noreply, State#state{timers = Timers}};
-handle_info({iq_reply, #iq{}, _JID}, State) ->
+handle_info({iq_reply, #pb_iq{}, _JID}, State) ->
     {noreply, State};
 handle_info({iq_reply, timeout, JID}, State) ->
     ?INFO("Uid: ~s ping_timeout", [JID#jid.user]),
@@ -158,7 +158,7 @@ handle_info({iq_reply, timeout, JID}, State) ->
 handle_info({timeout, _TRef, {ping, JID}}, State) ->
     Host = State#state.host,
     From = jid:remove_resource(JID),
-    IQ = #iq{from = From, to = JID, type = get, sub_els = [#pb_ping{}]},
+    IQ = #pb_iq{to_uid = JID#jid.luser, type = get, payload = #pb_ping{}},
     ejabberd_router:route_iq(IQ, JID,
         gen_mod:get_module_proc(Host, ?MODULE),
         State#state.ping_ack_timeout),
@@ -173,12 +173,12 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %%====================================================================
 %% Hook callbacks
 %%====================================================================
--spec iq_ping(iq()) -> iq().
-iq_ping(#iq{type = get, sub_els = [#pb_ping{}]} = IQ) ->
-    xmpp:make_iq_result(IQ);
-iq_ping(#iq{} = IQ) ->
+-spec iq_ping(pb_iq()) -> pb_iq().
+iq_ping(#pb_iq{type = get, payload = #pb_ping{}} = IQ) ->
+    util_pb:make_iq_result(IQ);
+iq_ping(#pb_iq{} = IQ) ->
     ?ERROR("Invalid iq: ~p", [IQ]),
-    xmpp:make_error(IQ, util:err(invalid_iq)).
+    util_pb:make_error(IQ, util:err(invalid_iq)).
 
 -spec user_online(ejabberd_sm:sid(), jid(), ejabberd_sm:info()) -> ok.
 user_online(_SID, JID, _Info) ->

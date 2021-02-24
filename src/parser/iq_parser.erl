@@ -66,6 +66,7 @@ proto_to_xmpp(ProtoIQ) ->
         #pb_push_register{} -> ProtoIQ;
         #pb_notification_prefs{} -> ProtoIQ;
         #pb_feed_item{} -> ProtoIQ;
+        #pb_ping{} -> ProtoIQ;
         _ -> XmppIQ
     end.
 
