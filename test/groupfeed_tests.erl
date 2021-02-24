@@ -127,7 +127,7 @@ post_test(Conf) ->
             #pb_group_feed_item{
                 action = publish,
                 gid = Gid,
-                name = <<>>,
+                name = ?GROUP_NAME1,
                 avatar_id = undefined,
                 item = #pb_post{
                     id = ?POST1_ID,
@@ -199,7 +199,7 @@ comment_test(Conf) ->
             #pb_group_feed_item{
                 action = publish,
                 gid = Gid,
-                name = <<>>,
+                name = ?GROUP_NAME1,
                 avatar_id = undefined,
                 item = #pb_comment{
                     id = ?COMMENT1_ID,
@@ -270,7 +270,7 @@ retract_comment_test(Conf) ->
             #pb_group_feed_item{
                 action = retract,
                 gid = Gid,
-                name = <<>>,
+                name = ?GROUP_NAME1,
                 avatar_id = undefined,
                 item = #pb_comment{
                     id = ?COMMENT1_ID,
@@ -332,7 +332,7 @@ retract_post_test(Conf) ->
             #pb_group_feed_item{
                 action = retract,
                 gid = Gid,
-                name = <<>>,
+                name = ?GROUP_NAME1,
                 avatar_id = undefined,
                 item = #pb_post{
                     id = ?POST1_ID,

@@ -63,6 +63,7 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_group_feed_item) ->
             PostSt = post_to_group_post_st(Post),
             #group_feed_st{
                 action = Action,
+                name = PbPacket#pb_group_feed_item.name,
                 gid = PbPacket#pb_group_feed_item.gid,
                 posts = [PostSt]
             };
