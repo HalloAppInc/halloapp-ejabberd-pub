@@ -213,7 +213,7 @@ check_blocked(Packet, Dir) ->
 -spec check_blocked(FromUid :: binary(), ToUid :: binary(),
         Packet :: stanza(), Dir :: in | out) -> allow | deny.
 check_blocked(FromUid, ToUid, Packet, Dir) ->
-    Id = xmpp:get_id(Packet),
+    Id = util_pb:get_id(Packet),
     PacketType = element(1, Packet),
     IsBlocked = case Dir of
         in -> model_privacy:is_blocked(ToUid, FromUid);

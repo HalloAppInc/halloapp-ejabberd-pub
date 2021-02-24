@@ -25,7 +25,9 @@
     get_type/1,
     make_iq_result/1,
     make_iq_result/2,
-    make_error/2
+    make_error/2,
+    get_id/1,
+    set_id/2
 ]).
 
 %% Export all functions for unit tests
@@ -82,6 +84,26 @@ get_type(#pb_msg{type = Type}) -> Type;
 get_type(#pb_presence{type = Type}) -> Type;
 get_type(#pb_chat_state{type = Type}) -> Type;
 get_type(#pb_ack{}) -> undefined.
+
+
+-spec get_id(pb_packet()) -> undefined | binary().
+get_id(#pb_iq{id = Id}) -> Id;
+get_id(#pb_msg{id = Id}) -> Id;
+get_id(#pb_presence{id = Id}) -> Id;
+get_id(#pb_chat_state{}) -> undefined;
+get_id(#pb_ack{id = Id}) -> Id;
+get_id(Pkt) ->
+    xmpp:get_id(Pkt).
+
+
+-spec set_id(pb_packet(), binary()) -> pb_packet().
+set_id(#pb_iq{} = Pkt, Id) -> Pkt#pb_iq{id = Id};
+set_id(#pb_msg{} = Pkt, Id) -> Pkt#pb_msg{id = Id};
+set_id(#pb_presence{} = Pkt, Id) -> Pkt#pb_presence{id = Id};
+set_id(#pb_chat_state{} = Pkt, Id) -> Pkt;
+set_id(#pb_ack{} = Pkt, Id) -> Pkt#pb_ack{id = Id};
+set_id(Pkt, Id) ->
+    xmpp:set_id(Pkt, Id).
 
 
 -spec is_pb_packet(Packet :: stanza()) -> boolean().
