@@ -589,6 +589,7 @@ privacy_check_packet_in(State, Pkt) ->
         #pb_chat_state{} -> privacy_check_packet(State, Pkt, in);
         #message{} -> allow;
         #iq{} -> allow;
+        #pb_iq{} -> allow;
         #pb_ack{} -> allow
     end.
 
