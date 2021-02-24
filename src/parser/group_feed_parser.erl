@@ -70,6 +70,7 @@ proto_to_xmpp(PbPacket) when is_record(PbPacket, pb_group_feed_item) ->
             CommentSt = comment_to_group_comment_st(Comment),
             #group_feed_st{
                 action = Action,
+                name = PbPacket#pb_group_feed_item.name,
                 gid = PbPacket#pb_group_feed_item.gid,
                 comments = [CommentSt]
             }
