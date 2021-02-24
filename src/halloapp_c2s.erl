@@ -214,8 +214,10 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %             Message#message{sub_els = [NewChatSubEl]}
 %     end;
 upgrade_packet(Pkt) when is_record(Pkt, presence); is_record(Pkt, chat_state); is_record(Pkt, ack) ->
+    To = xmpp:get_to(Pkt),
+    From = xmpp:get_from(Pkt),
     ProtoPkt = packet_parser:xmpp_to_proto(Pkt),
-    ProtoPkt#pb_packet.stanza;
+    util_pb:set_to_from(ProtoPkt#pb_packet.stanza, To#jid.luser, From#jid.luser);
 upgrade_packet(Packet) -> Packet.
 
 

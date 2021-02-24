@@ -205,8 +205,8 @@ check_blocked(#chat_state{thread_id = ThreadId, thread_type = chat} = Packet, ou
     ToUid = ThreadId,
     check_blocked(FromUid, ToUid, Packet, Dir);
 check_blocked(Packet, Dir) ->
-    #jid{luser = FromUid} = xmpp:get_from(Packet),
-    #jid{luser = ToUid} = xmpp:get_to(Packet),
+    FromUid = util_pb:get_from(Packet),
+    ToUid = util_pb:get_to(Packet),
     check_blocked(FromUid, ToUid, Packet, Dir).
 
 
