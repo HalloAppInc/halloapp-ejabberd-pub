@@ -49,7 +49,13 @@ proto_to_xmpp(ProtoIQ) ->
         type = ProtoIQ#pb_iq.type,
         sub_els = [SubEl]
     },
-    XmppIQ.
+    case Content of
+        #pb_upload_avatar{} -> ProtoIQ;
+        #pb_avatar{} -> ProtoIQ;
+        #pb_avatars{} -> ProtoIQ;
+        _ ->
+            XmppIQ
+    end.
 
 
 xmpp_iq_subel_mapping(ProtoPayload) ->
