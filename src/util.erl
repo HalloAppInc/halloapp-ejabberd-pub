@@ -338,6 +338,8 @@ get_packet_type(#ack{}) -> ack.
 -spec get_payload_type(Packet :: stanza()) -> atom.
 get_payload_type(#iq{sub_els = [SubEl]}) -> util:to_atom(element(1, SubEl));
 get_payload_type(#message{sub_els = [SubEl]}) -> util:to_atom(element(1, SubEl));
+get_payload_type(#pb_iq{} = Pkt) -> util_pb:get_payload_type(Pkt);
+get_payload_type(#pb_msg{} = Pkt) -> util_pb:get_payload_type(Pkt);
 get_payload_type(_) -> undefined.
 
 
