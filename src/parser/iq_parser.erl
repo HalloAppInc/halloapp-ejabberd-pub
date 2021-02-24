@@ -62,6 +62,7 @@ proto_to_xmpp(ProtoIQ) ->
         #pb_name{} -> ProtoIQ;
         #pb_props{} -> ProtoIQ;
         #pb_whisper_keys{} -> ProtoIQ;
+        #pb_delete_account{} -> ProtoIQ;
         _ -> XmppIQ
     end.
 

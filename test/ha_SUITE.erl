@@ -152,13 +152,8 @@ delete_account_test(_Conf) ->
     Id = <<"iq_id_1">>,
     Payload = #pb_delete_account{phone = <<"+14703381473">>},
     Result = ha_client:send_iq(C, Id, set, Payload),
-    #pb_packet{
-        stanza = #pb_iq{
-            id = Id,
-            type = result,
-            payload = #pb_delete_account{}
-        }
-    } = Result,
+    ?assertEqual(result, Result#pb_packet.stanza#pb_iq.type),
+    ?assertEqual(#pb_delete_account{}, Result#pb_packet.stanza#pb_iq.payload),
     ok.
 
 

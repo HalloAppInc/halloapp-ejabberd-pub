@@ -26,14 +26,12 @@ setup() ->
 
 
 create_delete_account_iq(Uid, Server, Type, Phone) ->
-    #iq{
-        from = jid:make(Uid, Server),
+    #pb_iq{
+        from_uid = Uid,
         type = Type,
-        sub_els = [
-            #pb_delete_account{
+        payload = #pb_delete_account{
                 phone = Phone
             }
-        ]
     }.
 
 
