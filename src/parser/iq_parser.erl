@@ -55,8 +55,9 @@ proto_to_xmpp(ProtoIQ) ->
         #pb_avatars{} -> ProtoIQ;
         #pb_contact_list{} -> ProtoIQ;
         #pb_client_mode{} -> ProtoIQ;
+        #pb_privacy_list{} -> ProtoIQ;
+        #pb_privacy_lists{} -> ProtoIQ;
         _ -> XmppIQ
-
     end.
 
 

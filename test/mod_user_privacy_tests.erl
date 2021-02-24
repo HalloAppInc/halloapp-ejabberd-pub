@@ -66,12 +66,12 @@ create_privacy_list(Type, HashValue, UidEls) ->
     }.
 
 
-create_iq_request_privacy_list(Uid, Type, SubEls) ->
-    #iq{
-        from = jid:make(Uid, ?SERVER),
-        to = jid:make(?SERVER),
+create_iq_request_privacy_list(Uid, Type, Payload) ->
+    #pb_iq{
+        from_uid = Uid,
+        to_uid = <<>>,
         type = Type,
-        sub_els = SubEls
+        payload = Payload
     }.
 
 
@@ -85,12 +85,12 @@ create_error_hash_st(Reason, Hash) ->
         hash = Hash
     }.
 
-create_iq_response_privacy_list(Uid, Type, SubEls) ->
-    #iq{
-        to = jid:make(Uid, ?SERVER),
-        from = jid:make(?SERVER),
+create_iq_response_privacy_list(Uid, Type, Payload) ->
+    #pb_iq{
+        to_uid = Uid,
+        from_uid = <<>>,
         type = Type,
-        sub_els = SubEls
+        payload = Payload
     }.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -125,10 +125,10 @@ iq_unexcepted_uids_error_test() ->
         [?UID1, ?PHONE1, ?NAME1, ?UA1]]),
     UidEl1 = create_uid_el(add, ?UID2),
     SubEl1 = create_privacy_list(all, <<>>, [UidEl1]),
-    RequestIQ = create_iq_request_privacy_list(?UID1, set, [SubEl1]),
+    RequestIQ = create_iq_request_privacy_list(?UID1, set, SubEl1),
 
     SubEl2 = create_error_st(unexcepted_uids),
-    ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, error, [SubEl2]),
+    ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, error, SubEl2),
     ActualResponseIQ = mod_user_privacy:process_local_iq(RequestIQ),
 
     ?assertEqual(ExpectedResponseIQ, ActualResponseIQ),
@@ -141,10 +141,10 @@ iq_invalid_type_error_test() ->
         [?UID1, ?PHONE1, ?NAME1, ?UA1]]),
     UidEl1 = create_uid_el(add, ?UID2),
     SubEl1 = create_privacy_list(check, <<>>, [UidEl1]),
-    RequestIQ = create_iq_request_privacy_list(?UID1, set, [SubEl1]),
+    RequestIQ = create_iq_request_privacy_list(?UID1, set, SubEl1),
 
     SubEl2 = create_error_st(invalid_type),
-    ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, error, [SubEl2]),
+    ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, error, SubEl2),
     ActualResponseIQ = mod_user_privacy:process_local_iq(RequestIQ),
 
     ?assertEqual(ExpectedResponseIQ, ActualResponseIQ),
@@ -157,11 +157,11 @@ iq_hash_mismatch_error_test() ->
         [?UID1, ?PHONE1, ?NAME1, ?UA1]]),
     UidEl1 = create_uid_el(add, ?UID2),
     SubEl1 = create_privacy_list(only, <<"error">>, [UidEl1]),
-    RequestIQ = create_iq_request_privacy_list(?UID1, set, [SubEl1]),
+    RequestIQ = create_iq_request_privacy_list(?UID1, set, SubEl1),
 
     ServerHashValue = crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>),
     SubEl2 = create_error_hash_st(hash_mismatch, ServerHashValue),
-    ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, error, [SubEl2]),
+    ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, error, SubEl2),
     ActualResponseIQ = mod_user_privacy:process_local_iq(RequestIQ),
 
     ?assertEqual(ExpectedResponseIQ, ActualResponseIQ),
@@ -174,9 +174,9 @@ iq_result_test() ->
         [?UID1, ?PHONE1, ?NAME1, ?UA1]]),
     UidEl1 = create_uid_el(add, ?UID2),
     SubEl1 = create_privacy_list(except, undefined, [UidEl1]),
-    RequestIQ = create_iq_request_privacy_list(?UID1, set, [SubEl1]),
+    RequestIQ = create_iq_request_privacy_list(?UID1, set, SubEl1),
 
-    ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, result, []),
+    ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, result, undefined),
     ActualResponseIQ = mod_user_privacy:process_local_iq(RequestIQ),
 
     ?assertEqual(ExpectedResponseIQ, ActualResponseIQ),
@@ -193,7 +193,7 @@ iq_get_privacy_list_test() ->
     ok = model_privacy:block_uids(?UID1, [?UID5]),
     ok = model_privacy:set_privacy_type(?UID1, except),
 
-    RequestIQ = create_iq_request_privacy_list(?UID1, get, [#pb_privacy_lists{}]),
+    RequestIQ = create_iq_request_privacy_list(?UID1, get, #pb_privacy_lists{}),
 
     UidEl1 = create_uid_el(add, ?UID2),
     UidEl2 = create_uid_el(add, ?UID3),
@@ -204,7 +204,7 @@ iq_get_privacy_list_test() ->
     MuteList = create_privacy_list(mute, <<>>, [UidEl3]),
     BlockList = create_privacy_list(block, <<>>, [UidEl4]),
     ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, result,
-            [#pb_privacy_lists{active_type = except, lists = [BlockList, MuteList, OnlyList, ExceptList]}]),
+            #pb_privacy_lists{active_type = except, lists = [BlockList, MuteList, OnlyList, ExceptList]}),
     ActualResponseIQ = mod_user_privacy:process_local_iq(RequestIQ),
 
     ?assertEqual(ExpectedResponseIQ, ActualResponseIQ),

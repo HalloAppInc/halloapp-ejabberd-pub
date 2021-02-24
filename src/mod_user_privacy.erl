@@ -71,26 +71,26 @@ mod_options(_Host) ->
 %%====================================================================
 
 
--spec process_local_iq(IQ :: iq()) -> iq().
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        sub_els = [#pb_privacy_list{type = Type, hash = HashValue, uid_elements = UidEls}]} = IQ) ->
+-spec process_local_iq(IQ :: pb_iq()) -> pb_iq().
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_privacy_list{type = Type, hash = HashValue, uid_elements = UidEls}} = IQ) ->
     ?INFO("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
     case update_privacy_type(Uid, Type, HashValue, UidEls) of
         ok ->
-            xmpp:make_iq_result(IQ);
+            util_pb:make_iq_result(IQ);
         {error, hash_mismatch, ServerHashValue} ->
             ?WARNING("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
-            xmpp:make_error(IQ, #pb_privacy_list_result{
+            util_pb:make_error(IQ, #pb_privacy_list_result{
                     result = <<"failed">>, reason = <<"hash_mismatch">>, hash = ServerHashValue});
         {error, invalid_type} ->
             ?WARNING("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
-            xmpp:make_error(IQ, util:err(invalid_type));
+            util_pb:make_error(IQ, util:err(invalid_type));
         {error, unexcepted_uids} ->
             ?WARNING("Uid: ~s, unexcepted_uids for type: ~p", [Uid, Type]),
-            xmpp:make_error(IQ, util:err(unexcepted_uids))
+            util_pb:make_error(IQ, util:err(unexcepted_uids))
     end;
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = get,
-        sub_els = [#pb_privacy_lists{lists = PrivacyLists}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+        payload = #pb_privacy_lists{lists = PrivacyLists}} = IQ) ->
     ?INFO("Uid: ~s, get-iq for privacy_list", [Uid]),
     ListTypes = lists:map(fun(#pb_privacy_list{type = Type}) -> Type end, PrivacyLists),
     Types = case ListTypes of
@@ -99,13 +99,13 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = get,
     end,
     UserPrivacyLists = get_privacy_lists(Uid, Types),
     ActiveType = get_privacy_type(Uid),
-    xmpp:make_iq_result(IQ,
+    util_pb:make_iq_result(IQ,
             #pb_privacy_lists{
                 active_type = ActiveType,
                 lists = UserPrivacyLists
             });
-process_local_iq(#iq{lang = Lang} = IQ) ->
-    xmpp:make_error(IQ, util:err(invalid_request)).
+process_local_iq(#pb_iq{} = IQ) ->
+    util_pb:make_error(IQ, util:err(invalid_request)).
 
 
 -spec privacy_check_packet(Acc :: allow | deny, State :: c2s_state(),
