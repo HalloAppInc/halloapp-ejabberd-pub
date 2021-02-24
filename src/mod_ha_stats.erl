@@ -311,7 +311,7 @@ count_packet(Namespace, _Action, #iq{} = Iq) ->
     PayloadType = util:get_payload_type(Iq),
     stat:count(Namespace, "iq", 1, [{payload_type, PayloadType}]);
 count_packet(Namespace, _Action, #pb_iq{} = Iq) ->
-    PayloadType = util:get_payload_type(Iq),
+    PayloadType = util_pb:get_payload_type(Iq),
     stat:count(Namespace, "iq", 1, [{payload_type, PayloadType}]);
 count_packet(Namespace, _Action, #chat_state{}) ->
     stat:count(Namespace, "chat_state");

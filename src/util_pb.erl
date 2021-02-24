@@ -124,6 +124,8 @@ get_packet_type(#pb_ack{}) -> pb_ack.
 
 
 -spec get_payload_type(Packet :: stanza()) -> atom.
+get_payload_type(#pb_iq{payload = undefined}) -> undefined;
+get_payload_type(#pb_msg{payload = undefined}) -> undefined;
 get_payload_type(#pb_iq{payload = Payload}) -> util:to_atom(element(1, Payload));
 get_payload_type(#pb_msg{payload = Payload}) -> util:to_atom(element(1, Payload));
 get_payload_type(_) -> undefined.
