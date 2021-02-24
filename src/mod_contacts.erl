@@ -79,9 +79,10 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% iq handlers
 %%====================================================================
 
-process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
-        sub_els = [#pb_contact_list{type = full, contacts = Contacts, sync_id = SyncId, batch_index = Index,
-                is_last = Last}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = UserId, type = set,
+        payload = #pb_contact_list{type = full, contacts = Contacts, sync_id = SyncId, batch_index = Index,
+            is_last = Last}} = IQ) ->
+    Server = util:get_host(),
     StartTime = os:system_time(microsecond), 
     ?INFO("Full contact sync Uid: ~p, sync_id: ~p, batch_index: ~p, is_last: ~p, num_contacts: ~p",
             [UserId, SyncId, Index, Last, length(Contacts)]),
@@ -89,10 +90,10 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
     case SyncId of
         undefined ->
             ?WARNING("undefined sync_id, iq: ~p", [IQ]),
-            ResultIQ = xmpp:make_error(IQ, util:err(undefined_syncid));
+            ResultIQ = util_pb:make_error(IQ, util:err(undefined_syncid));
         _ ->
             count_full_sync(Index),
-            ResultIQ = xmpp:make_iq_result(IQ, #pb_contact_list{sync_id = SyncId, type = normal,
+            ResultIQ = util_pb:make_iq_result(IQ, #pb_contact_list{sync_id = SyncId, type = normal,
                     contacts = normalize_and_insert_contacts(UserId, Server, Contacts, SyncId)})
     end,
     case Last of
@@ -108,10 +109,11 @@ process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
     ?INFO("Time taken: ~w us", [T]),
     ResultIQ;
 
-process_local_iq(#iq{from = #jid{luser = UserId, lserver = Server}, type = set,
-                    sub_els = [#pb_contact_list{type = delta, contacts = Contacts,
-                                            batch_index = _Index, is_last = _Last}]} = IQ) ->
-    xmpp:make_iq_result(IQ, #pb_contact_list{type = normal,
+process_local_iq(#pb_iq{from_uid = UserId, type = set,
+        payload = #pb_contact_list{type = delta, contacts = Contacts,
+            batch_index = _Index, is_last = _Last}} = IQ) ->
+    Server = util:get_host(),
+    util_pb:make_iq_result(IQ, #pb_contact_list{type = normal,
                     contacts = handle_delta_contacts(UserId, Server, Contacts)}).
 
 

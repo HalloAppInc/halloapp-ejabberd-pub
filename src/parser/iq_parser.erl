@@ -53,6 +53,7 @@ proto_to_xmpp(ProtoIQ) ->
         #pb_upload_avatar{} -> ProtoIQ;
         #pb_avatar{} -> ProtoIQ;
         #pb_avatars{} -> ProtoIQ;
+        #pb_contact_list{} -> ProtoIQ;
         _ ->
             XmppIQ
     end.
