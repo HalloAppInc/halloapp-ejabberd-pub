@@ -185,6 +185,7 @@ get_processes_to_monitor() ->
         ejabberd_listener,
         ejabberd_router,
         ejabberd_sm,
-        ejabberd_gen_mod_sup
+        ejabberd_gen_mod_sup,
+        redis_sup
     ].
 

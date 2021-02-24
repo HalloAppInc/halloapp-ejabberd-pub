@@ -78,7 +78,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 
 depends(_Host, _Opts) ->
-    [{mod_redis, hard}].
+    [].
 
 
 mod_options(_Host) ->

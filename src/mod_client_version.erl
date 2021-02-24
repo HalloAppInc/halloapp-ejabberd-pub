@@ -49,7 +49,7 @@ stop(Host) ->
     ok.
 
 depends(_Host, _Opts) ->
-    [{mod_redis, hard}].
+    [].
 
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.

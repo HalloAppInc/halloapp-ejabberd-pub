@@ -16,7 +16,7 @@
 
 setup() ->
     tutil:setup(),
-    mod_redis:start(undefined, []),
+    ha_redis:start(),
     clear(),
     ok.
 

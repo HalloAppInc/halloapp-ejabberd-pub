@@ -50,6 +50,7 @@ start(normal, _Args) ->
         enif_protobuf:load_cache(server:get_msg_defs()),
         case ejabberd_config:load() of
             ok ->
+                ha_redis:start(),
                 ?INFO("starting ejabberd_mnesia"),
                 ejabberd_mnesia:start(),
                 file_queue_init(),

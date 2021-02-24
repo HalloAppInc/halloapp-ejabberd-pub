@@ -50,7 +50,7 @@
 
 setup() ->
     tutil:setup(),
-    redis_sup:start_link(),
+    ha_redis:start(),
     clear(),
     ok.
 

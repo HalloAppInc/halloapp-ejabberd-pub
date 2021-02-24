@@ -48,7 +48,7 @@ stop(_Host) ->
     ok.
 
 depends(_Host, _Opts) ->
-    [{mod_redis, hard}].
+    [].
 
 mod_options(_Host) ->
     [].

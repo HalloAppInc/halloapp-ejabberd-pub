@@ -269,14 +269,14 @@ prev_sunday2_test() ->
 
 setup() ->
     tutil:setup(),
-    mod_redis:start(undefined, []),
+    ha_redis:start(),
     phone_number_util:init(undefined, undefined),
     clear(),
     ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1),
     ok.
 
 setup_bare() ->
-    mod_redis:start(undefined, []),
+    ha_redis:start(),
     clear(),
     ok.
 

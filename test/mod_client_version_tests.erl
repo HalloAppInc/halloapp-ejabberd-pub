@@ -17,7 +17,7 @@ setup() ->
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
     ejabberd_hooks:start_link(),
-    mod_redis:start(undefined, []),
+    ha_redis:start(),
     clear(),
     ok.
 
@@ -32,7 +32,7 @@ mod_client_version_test() ->
     Opts = [],
     ?assertEqual(ok, mod_client_version:start(Host, Opts)),
     ?assertEqual(ok, mod_client_version:stop(Host)),
-    ?assertEqual([{mod_redis, hard}], mod_client_version:depends(Host, Opts)),
+    ?assertEqual([], mod_client_version:depends(Host, Opts)),
     ?assertEqual([], mod_client_version:mod_options(Host)),
     ok.
 

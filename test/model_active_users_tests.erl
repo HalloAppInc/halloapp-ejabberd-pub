@@ -139,7 +139,7 @@ cleanup_engaged_users_test() ->
 
 setup() ->
     tutil:setup(),
-    mod_redis:start(undefined, []),
+    ha_redis:start(),
     clear(),
     ok = create_accounts(12),
     ok.

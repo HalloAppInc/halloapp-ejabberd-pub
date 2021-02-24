@@ -22,7 +22,7 @@
 setup() ->
     tutil:setup(),
     logger:add_handler_filter(default, ?MODULE, {fun(_,_) -> stop end, nostate}),
-    redis_sup:start_link(),
+    ha_redis:start(),
     clear(),
     ok.
 

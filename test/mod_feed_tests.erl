@@ -36,7 +36,7 @@ setup() ->
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
     ejabberd_hooks:start_link(),
-    mod_redis:start(undefined, []),
+    ha_redis:start(),
     mod_feed:start(?SERVER, []),
     clear(),
     ok.
@@ -47,7 +47,7 @@ setup2() ->
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
     ejabberd_hooks:start_link(),
-    mod_redis:start(undefined, []),
+    ha_redis:start(),
     mod_feed:start(?SERVER, []),
     clear(),
     ok.

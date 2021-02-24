@@ -60,7 +60,7 @@ setup() ->
     tutil:setup(),
     {ok, _} = application:ensure_all_started(stringprep),
     {ok, _} = application:ensure_all_started(bcrypt),
-    mod_redis:start(undefined, []),
+    ha_redis:start(),
     clear(),
     ok.
 

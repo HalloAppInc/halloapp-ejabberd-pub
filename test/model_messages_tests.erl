@@ -47,7 +47,7 @@
 
 setup() ->
     tutil:setup(),
-    redis_sup:start_link(),
+    ha_redis:start(),
     enif_protobuf:load_cache(server:get_msg_defs()),
     stringprep:start(),
     clear(),

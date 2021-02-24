@@ -1,14 +1,19 @@
 %%%-------------------------------------------------------------------
 %%% @author nikola
-%%% @copyright (C) 2020, Halloapp Inc.
+%%% @copyright (C) 2021, Halloapp Inc.
 %%% @doc
 %%%
 %%% @end
-%%% Created : 25. Mar 2020 1:57 PM
+%%% Created : 24. Feb 2021 1:29 PM
 %%%-------------------------------------------------------------------
--module(mod_redis).
+-module(ha_redis).
 -author("nikola").
--behaviour(gen_mod).
+
+%% API
+-export([
+    start/0,
+    get_slot_key/1
+]).
 
 -include("logger.hrl").
 -include("eredis_cluster.hrl").
@@ -17,31 +22,12 @@
 %% ets table slot -> key
 -define(SLOT_TO_KEY, slot_to_key).
 
-%% gen_mod API callbacks
--export([
-    start/2,
-    stop/1,
-    depends/2,
-    mod_options/1,
-    get_slot_key/1
-]).
-
-start(_Host, _Opts) ->
-    ?INFO("start ~w", [?MODULE]),
+start() ->
+    ?INFO("start"),
     load_reverse_redis_hash(),
     redis_sup:start_link(),
+    ?INFO("start done"),
     ok.
-
-stop(_Host) ->
-  ?INFO("stop ~w", [?MODULE]),
-  ok.
-
-depends(_Host, _Opts) ->
-  [].
-
-mod_options(_Host) ->
-  [].
-
 
 -spec get_slot_key(Slot :: non_neg_integer()) -> binary().
 get_slot_key(Slot) when is_integer(Slot) andalso Slot >= 0 andalso Slot =< ?REDIS_CLUSTER_HASH_SLOTS ->

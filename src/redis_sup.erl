@@ -47,16 +47,8 @@ start_link() ->
         [ChildSpec :: supervisor:child_spec()]}}
     | ignore | {error, Reason :: term()}).
 init([]) ->
-    % Switch to this code once we know it is working
-    % ok = check_environment(),
-    try
-        check_environment()
-%%        erlang:error(bad_error)
-    catch
-        Class : Reason : Stacktrace  ->
-            ?ERROR("Stacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-    end,
+    % this is safety check of the environment we are running in
+    ok = check_environment(),
 
     MaxRestarts = 1000,
     MaxSecondsBetweenRestarts = 1,

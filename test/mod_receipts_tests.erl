@@ -28,7 +28,7 @@ setup() ->
     xmpp:start(undefined, undefined),
     stringprep:start(),
     ejabberd_hooks:start_link(),
-    mod_redis:start(undefined, []),
+    ha_redis:start(),
     clear(),
     ok.
 

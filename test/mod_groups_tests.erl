@@ -15,7 +15,7 @@
 setup() ->
     tutil:setup(),
     stringprep:start(),
-    mod_redis:start(undefined, []),
+    ha_redis:start(),
     clear(),
     setup_accounts(),
     ok.

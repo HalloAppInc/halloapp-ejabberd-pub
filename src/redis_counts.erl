@@ -19,7 +19,7 @@
 
 
 count_key(Slot, Prefix) when is_integer(Slot), is_binary(Prefix) ->
-    SlotKey = mod_redis:get_slot_key(Slot),
+    SlotKey = ha_redis:get_slot_key(Slot),
     SlotBinary = integer_to_binary(Slot),
     <<Prefix/binary, <<"{">>/binary, SlotKey/binary, <<"}.">>/binary,
         SlotBinary/binary>>.

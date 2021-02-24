@@ -230,7 +230,6 @@ modules:
   mod_android_push: {}
   mod_ack_halloapp: {}
   mod_trace: {}
-  mod_redis: {}
   mod_libphonenumber: {}
   mod_user_privacy: {}
   mod_inactive_accounts: {}
