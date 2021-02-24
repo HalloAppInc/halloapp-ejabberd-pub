@@ -52,20 +52,21 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
--spec process_local_iq(IQ :: iq()) -> iq().
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
-        lang = Lang, sub_els = [#pb_client_mode{mode = Mode}]} = IQ) ->
+-spec process_local_iq(IQ :: pb_iq()) -> pb_iq().
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_client_mode{mode = Mode}} = IQ) ->
+    Server = util:get_host(),
     ?INFO("Uid: ~s, set-iq for client_mode, mode: ~p", [Uid, Mode]),
     if
         Mode =/= active ->
             ?WARNING("Uid: ~s, received invalid client mode: ~p", [Uid, Mode]),
-            xmpp:make_error(IQ, util:err(invalid_login_mode));
+            util_pb:make_error(IQ, util:err(invalid_login_mode));
         true ->
             ok = ejabberd_sm:activate_session(Uid, Server),
-            xmpp:make_iq_result(IQ)
+            util_pb:make_iq_result(IQ)
     end;
-process_local_iq(#iq{lang = Lang} = IQ) ->
-    xmpp:make_error(IQ, util:err(invalid_request)).
+process_local_iq(#pb_iq{} = IQ) ->
+    util_pb:make_error(IQ, util:err(invalid_request)).
 
 
 %%====================================================================
