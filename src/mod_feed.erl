@@ -55,22 +55,22 @@ mod_options(_Host) ->
 %%====================================================================
 
 %% Publish post.
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        sub_els = [#pb_feed_item{action = publish = Action, item = #pb_post{} = Post}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_feed_item{action = publish = Action, item = #pb_post{} = Post}} = IQ) ->
     PostId = Post#pb_post.id,
     Payload = base64:encode(Post#pb_post.payload),
     AudienceList = Post#pb_post.audience,
     case publish_post(Uid, PostId, Payload, AudienceList) of
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_post_stanza(Action, PostId, Uid, <<>>, ResultTsMs),
-            xmpp:make_iq_result(IQ, SubEl);
+            util_pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            xmpp:make_error(IQ, util:err(Reason))
+            util_pb:make_error(IQ, util:err(Reason))
     end;
 
 %% Publish comment.
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        sub_els = [#pb_feed_item{action = publish = Action, item = #pb_comment{} = Comment}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_feed_item{action = publish = Action, item = #pb_comment{} = Comment}} = IQ) ->
     CommentId = Comment#pb_comment.id,
     PostId = Comment#pb_comment.post_id,
     ParentCommentId = Comment#pb_comment.parent_comment_id,
@@ -79,26 +79,26 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_comment_stanza(Action, CommentId, PostId,
                     ParentCommentId, Uid, <<>>, ResultTsMs),
-            xmpp:make_iq_result(IQ, SubEl);
+            util_pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            xmpp:make_error(IQ, util:err(Reason))
+            util_pb:make_error(IQ, util:err(Reason))
     end;
 
 % Retract post.
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        sub_els = [#pb_feed_item{action = retract = Action, item = #pb_post{} = Post}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_feed_item{action = retract = Action, item = #pb_post{} = Post}} = IQ) ->
     PostId = Post#pb_post.id,
     case retract_post(Uid, PostId) of
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_post_stanza(Action, PostId, Uid, <<>>, ResultTsMs),
-            xmpp:make_iq_result(IQ, SubEl);
+            util_pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            xmpp:make_error(IQ, util:err(Reason))
+            util_pb:make_error(IQ, util:err(Reason))
     end;
 
 % Retract comment.
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
-        sub_els = [#pb_feed_item{action = retract = Action, item = #pb_comment{} = Comment}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_feed_item{action = retract = Action, item = #pb_comment{} = Comment}} = IQ) ->
     CommentId = Comment#pb_comment.id,
     PostId = Comment#pb_comment.post_id,
     ParentCommentId = Comment#pb_comment.parent_comment_id,
@@ -106,19 +106,20 @@ process_local_iq(#iq{from = #jid{luser = Uid, lserver = _Server}, type = set,
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_comment_stanza(Action, CommentId, PostId,
                     ParentCommentId, Uid, <<>>, ResultTsMs),
-            xmpp:make_iq_result(IQ, SubEl);
+            util_pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            xmpp:make_error(IQ, util:err(Reason))
+            util_pb:make_error(IQ, util:err(Reason))
     end;
 
 % Share posts with friends.
-process_local_iq(#iq{from = #jid{luser = Uid, lserver = Server}, type = set,
-        sub_els = [#pb_feed_item{action = share = Action, share_stanzas = SharePostStanzas}]} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_feed_item{action = share = Action, share_stanzas = SharePostStanzas}} = IQ) ->
+    Server = util:get_host(),
     ResultSharePostStanzas = lists:map(
         fun(SharePostSt) ->
             process_share_posts(Uid, Server, SharePostSt)
         end, SharePostStanzas),
-    xmpp:make_iq_result(IQ, #pb_feed_item{action = Action, share_stanzas = ResultSharePostStanzas}).
+    util_pb:make_iq_result(IQ, #pb_feed_item{action = Action, share_stanzas = ResultSharePostStanzas}).
 
 
 -spec add_friend(Uid :: uid(), Server :: binary(), Ouid :: uid(), WasBlocked :: boolean()) -> ok.
