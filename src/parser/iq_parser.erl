@@ -57,6 +57,7 @@ proto_to_xmpp(ProtoIQ) ->
         #pb_client_mode{} -> ProtoIQ;
         #pb_privacy_list{} -> ProtoIQ;
         #pb_privacy_lists{} -> ProtoIQ;
+        #pb_upload_media{} -> ProtoIQ;
         _ -> XmppIQ
     end.
 

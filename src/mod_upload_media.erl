@@ -75,12 +75,12 @@ mod_options(_Host) ->
 %% iq handlers and api
 %%====================================================================
 
-process_local_iq(#iq{type = get, sub_els = [#pb_upload_media{size = Size}]} = IQ) ->
+process_local_iq(#pb_iq{type = get, payload = #pb_upload_media{size = Size}} = IQ) ->
     case Size of
         0 ->
             {GetUrl, PutUrl} = generate_s3_urls(),
             MediaUrl = #pb_media_url{get = GetUrl, put = PutUrl},
-            xmpp:make_iq_result(IQ, #pb_upload_media{url = MediaUrl});
+            util_pb:make_iq_result(IQ, #pb_upload_media{url = MediaUrl});
         _ ->
             %% Do not return IQ result in this case. IQ result will be sent once
             %% the resumable urls are ready.
@@ -109,7 +109,7 @@ process_patch_url_result(IQ, PatchResult) ->
             #pb_media_url{get = GetUrl, put = PutUrl};
         {ok, ResumablePatch} -> #pb_media_url{patch = ResumablePatch}
       end,
-    IQResult = xmpp:make_iq_result(IQ, #pb_upload_media{url = MediaUrl}),
+    IQResult = util_pb:make_iq_result(IQ, #pb_upload_media{url = MediaUrl}),
     ejabberd_router:route(IQResult).
     
 
