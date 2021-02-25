@@ -83,6 +83,7 @@
 -define(CODE_KEY, <<"cod:">>).
 -define(VERIFICATION_ATTEMPT_LIST_KEY, <<"val:">>).
 -define(VERIFICATION_ATTEMPT_ID_KEY, <<"vai:">>).
+-define(INCREMENTAL_TS_KEY, <<"ITS:">>).
 -define(GATEWAY_RESPONSE_ID_KEY, <<"gri:">>).
 -define(INVITED_BY_KEY, <<"inb:">>).
 -define(INVITED_BY_KEY_NEW, <<"ibn:">>).

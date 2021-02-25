@@ -128,8 +128,12 @@ add_sms_gateway_response_test() ->
     ok = model_phone:add_verification_success(?PHONE1, AttemptId),
     true = model_phone:get_verification_success(?PHONE1, AttemptId),
     false = model_phone:get_verification_success(?PHONE1, AttemptId2),
+    #sms_response{gateway=?GATEWAY2, status=?CALLBACK_STATUS2, verified=false} =
+          model_phone:get_verification_attempt_summary(?PHONE1, AttemptId2),
     ok = model_phone:add_verification_success(?PHONE1, AttemptId2),
-    true = model_phone:get_verification_success(?PHONE1, AttemptId2).
+    true = model_phone:get_verification_success(?PHONE1, AttemptId2),
+    #sms_response{gateway=?GATEWAY2, status=?CALLBACK_STATUS2, verified=true} =
+          model_phone:get_verification_attempt_summary(?PHONE1, AttemptId2).
 
 delete_sms_code_test() ->
     setup(),

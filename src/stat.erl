@@ -18,6 +18,7 @@
 -include("erlcloud_aws.hrl").
 -include("client_version.hrl").
 -include("proc.hrl").
+-include("sms.hrl").
 
 -export([start_link/0]).
 %% gen_mod callbacks
@@ -44,13 +45,17 @@
     trigger_count_users/0,
     trigger_zset_cleanup/0,
     trigger_count_users_by_version/0,
+    trigger_check_sms_reg/0,
     compute_counts_by_version/0,
-    compute_counts/0
+    compute_counts/0,
+    check_sms_reg/0
 ]).
 
 -type tag_value() :: atom() | string() | binary().
 -type tag() :: {Name :: atom(), Value :: tag_value()}.
 -type tags() :: [tag()].
+
+-define(SMS_REG_CHECK_INCREMENTS, 2).
 
 -export_type([
     tag/0,
@@ -154,6 +159,10 @@ trigger_count_users() ->
 trigger_count_users_by_version() ->
     spawn(?MODULE, compute_counts_by_version, []).
 
+-spec trigger_check_sms_reg() -> ok.
+trigger_check_sms_reg() ->
+    spawn(?MODULE, check_sms_reg, []).
+
 % TODO: this logic should move to new module mod_active_users
 -spec trigger_zset_cleanup() -> ok.
 trigger_zset_cleanup() ->
@@ -228,6 +237,40 @@ compute_counts_by_version() ->
     ?INFO("Counting took ~p ms", [End - Start]),
     ok.
 
+check_sms_reg() ->
+    ?INFO("Check SMS reg start"),
+    Start = util:now_ms(),
+    IncrementalTimestamp = util:now() div ?SMS_REG_TIMESTAMP_INCREMENT,
+    check_sms_reg2(IncrementalTimestamp, ?SMS_REG_CHECK_INCREMENTS),
+
+    End = util:now_ms(),
+    ?INFO("Check SMS reg took ~p ms", [End - Start]),
+    ok.
+ 
+-spec check_sms_reg2(IncrementalTimestamp :: integer(), Increment :: integer()) -> ok.
+check_sms_reg2(_IncrementalTimestamp, 0) ->
+    ?DEBUG("Stopping"),
+    ok;
+check_sms_reg2(IncrementalTimestamp, Increment) ->
+    ?DEBUG("Processing increment: ~p", [Increment]),
+    ToInspect = IncrementalTimestamp - Increment,
+    List = model_phone:get_incremental_attempt_list(ToInspect),
+    lists:foreach(fun({Phone, AttemptId}) ->
+        ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
+        SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
+        #sms_response{gateway = Gateway, status = Status, verified = Success} = SMSResponse, 
+        case {Gateway, Status, Success} of
+            {undefined, _, _} ->
+                  ?ERROR("Phone: ~p, AttemptId: ~p (not found), SMS attempt failed", [Phone, AttemptId]);
+            {_, _, false} ->
+                  ?ERROR("Phone: ~p SMS attempt failed via Gateway: ~p, Status: ~p", [Phone, Gateway, Status]);
+            {_, _, true} ->
+                  ok
+        end
+        end,
+        List),
+    check_sms_reg2(IncrementalTimestamp, Increment - 1). 
+
 
 init(_Stuff) ->
     % Each Erlang process has to do the configure
@@ -241,7 +284,8 @@ init(_Stuff) ->
             {ok, _Tref2} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, trigger_count_users, []),
             {ok, _Tref3} = timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, trigger_zset_cleanup, []),
             {ok, _Tref4} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_version, []),
-            {ok, _Tref5} = timer:apply_interval(1 * ?DAYS_MS, mod_athena_stats, query_encryption_stats, []);
+            {ok, _Tref5} = timer:apply_interval(1 * ?DAYS_MS, mod_athena_stats, query_encryption_stats, []),
+            {ok, _Tref6} = timer:apply_interval(15 * ?MINUTES_MS, ?MODULE, trigger_check_sms_reg, []);
         _ ->
             ok
     end,

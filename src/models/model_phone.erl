@@ -40,6 +40,7 @@
     get_sms_code_receipt/1,
     get_sms_code_ttl/1,
     add_sms_code2/2,
+    get_incremental_attempt_list/1,
     delete_sms_code2/1,
     get_sms_code2/2,
     get_all_sms_codes/1,
@@ -49,7 +50,8 @@
     add_gateway_callback_info/1,
     get_gateway_response_status/2,
     add_verification_success/2,
-    get_verification_success/2
+    get_verification_success/2,
+    get_verification_attempt_summary/2
 ]).
 
 
@@ -86,6 +88,9 @@ mod_options(_Host) ->
 -define(FIELD_VERIFICATION_SUCCESS, <<"suc">>).
 -define(TTL_SMS_CODE, 86400).
 -define(MAX_SLOTS, 8).
+
+%% TTL for SMS reg data: 1 day, in case the background task does not run for 1 day
+-define(TTL_INCREMENTAL_TIMESTAMP, 86400).
 
 -define(TTL_VERIFICATION_ATTEMPTS, 30 * 86400).  %% 30 days
 
@@ -160,7 +165,24 @@ add_sms_code2(Phone, Code) ->
                    ["HSET", VerificationAttemptKey, ?FIELD_CODE, Code],
                    ["EXPIRE", VerificationAttemptKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
+
+    %% Store Phone in a set determined by the timestamp increment (15 mins). We want to make sure
+    %% that there is a corresponding registration within safe distance of timestamp increment, e.g.
+    %% (1/2 hour).
+    IncrementalTimestamp = Timestamp div ?SMS_REG_TIMESTAMP_INCREMENT,
+    IncrementalTimestampKey = incremental_timestamp_key(IncrementalTimestamp),
+    ?DEBUG("Added at: ~p, Key: ~p", [IncrementalTimestamp, IncrementalTimestampKey]),
+    _Result2 = qp([["SADD", IncrementalTimestampKey, term_to_binary({Phone, AttemptId})],
+                   ["EXPIRE", IncrementalTimestampKey, ?TTL_INCREMENTAL_TIMESTAMP]]),
     {ok, AttemptId}.
+
+
+%% TODO(vipin): Add unit test.
+-spec get_incremental_attempt_list(IncrementalTimestamp :: integer()) -> [{phone(), binary()}].
+get_incremental_attempt_list(IncrementalTimestamp) ->
+    Key = incremental_timestamp_key(IncrementalTimestamp),
+    {ok, List} = q(["SMEMBERS", Key]),
+    [binary_to_term(Elem) || Elem <- List].
 
 
 -spec delete_sms_code2(Phone :: phone()) -> ok  | {error, any()}.
@@ -301,6 +323,18 @@ get_verification_success(Phone, AttemptId) ->
     util_redis:decode_boolean(Res, false).
 
 
+-spec get_verification_attempt_summary(Phone :: phone(), AttemptId :: binary()) -> sms_response().
+get_verification_attempt_summary(Phone, AttemptId) ->
+    {ok, Res} = q(["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS]),
+    [Sender, Status, Success] = Res,
+    case {Sender, Status, Success} of
+        {undefined, _, _} -> #sms_response{};
+        {_, _, _} -> #sms_response{gateway = util:to_atom(Sender),
+                status = util:to_atom(Status),
+                verified = util_redis:decode_boolean(Success, false)}
+    end.
+ 
+
 -spec add_phone(Phone :: phone(), Uid :: uid()) -> ok  | {error, any()}.
 add_phone(Phone, Uid) ->
     {ok, _Res} = q(["SET", phone_key(Phone), Uid]),
@@ -401,6 +435,11 @@ verification_attempt_list_key(Phone) ->
 -spec verification_attempt_key(Phone :: phone(), AttemptId :: binary()) -> binary().
 verification_attempt_key(Phone, AttemptId) ->
     <<?VERIFICATION_ATTEMPT_ID_KEY/binary, <<"{">>/binary, Phone/binary, <<"}:">>/binary, AttemptId/binary>>.
+
+-spec incremental_timestamp_key(IncrementalTS :: integer()) -> binary().
+incremental_timestamp_key(IncrementalTS) ->
+    TSBin = util:to_binary(IncrementalTS),
+    <<?INCREMENTAL_TS_KEY/binary, <<"{">>/binary, TSBin/binary, <<"}">>/binary>>.
 
 
 -spec gateway_response_key(Gateway :: atom(), SMSId :: binary()) -> binary().

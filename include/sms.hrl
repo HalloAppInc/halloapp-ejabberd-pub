@@ -26,9 +26,12 @@
     status :: status(),
     response :: binary(),
     price :: float(),
-    currency :: binary()
+    currency :: binary(),
+    verified  :: boolean()
 }).
 
 -type sms_response()  :: #sms_response{}.
+
+-define(SMS_REG_TIMESTAMP_INCREMENT, 900).  %% 15 minutes.
 
 -endif.
