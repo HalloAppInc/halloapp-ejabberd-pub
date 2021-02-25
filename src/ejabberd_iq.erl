@@ -51,11 +51,19 @@ start_link() ->
 
 -spec route(iq(), atom() | pid(), term(), non_neg_integer()) -> ok.
 route(#iq{type = T} = IQ, Proc, Ctx, Timeout) when T == set; T == get ->
+    do_route(IQ, Proc, Ctx, Timeout);
+route(#pb_iq{type = T} = IQ, Proc, Ctx, Timeout) when T == set; T == get ->
+    do_route(IQ, Proc, Ctx, Timeout).
+
+
+-spec do_route(iq(), atom() | pid(), term(), non_neg_integer()) -> ok.
+do_route(IQ, Proc, Ctx, Timeout) ->
     Expire = current_time() + Timeout,
     Id = base64url:encode(crypto:strong_rand_bytes(10)),
     ets:insert(?MODULE, {Id, Expire, Proc, Ctx}),
     gen_server:cast(?MODULE, {restart_timer, Expire}),
-    ejabberd_router:route(IQ#iq{id = Id}).
+    ejabberd_router:route(util_pb:set_id(IQ, Id)).
+
 
 -spec dispatch(iq()) -> boolean().
 dispatch(#pb_iq{type = T} = IQ) when T == error; T == result ->
