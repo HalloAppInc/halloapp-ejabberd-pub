@@ -52,6 +52,7 @@ groups() -> [
     httplog_tests:group(),
     trace_tests:group(),
     chatstate_tests:group(),
+    presence_tests:group(),
     window_tests:group()
 ].
 
@@ -70,6 +71,7 @@ all() -> [
     {group, trace},
     {group, window},
     {group, chatstate},
+    {group, presence},
     dummy_test,
     ping_test,
     delete_account_test,
@@ -127,6 +129,8 @@ create_test_accounts() ->
     ok = model_friends:add_friend(?UID1, ?UID3),
     ok = model_friends:add_friend(?UID1, ?UID5),
     ok = model_privacy:block_uid(?UID5, ?UID1),
+    ok = model_friends:add_friend(?UID2, ?UID5),
+    ok = model_friends:add_friend(?UID2, ?UID4),
     ok.
 
 
