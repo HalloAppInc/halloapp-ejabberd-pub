@@ -55,21 +55,21 @@ reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
 
-process_local_iq(#iq{type = get, to = _Host, from = From,
-        sub_els = [#pb_client_version{version = Version}]} = IQ) ->
+process_local_iq(#pb_iq{type = get, from_uid = Uid,
+        payload = #pb_client_version{version = Version}} = IQ) ->
     % TODO(Nikola): clean up this print once we figure out the different versions bug
-    ?INFO("mod_client_version Uid: ~s ClientVersion ~p", [From#jid.luser, Version]),
+    ?INFO("mod_client_version Uid: ~s ClientVersion ~p", [Uid, Version]),
     CurTimestamp = util:now(),
     TimeLeftSec = get_time_left(Version, CurTimestamp),
     case TimeLeftSec > 0 of
         true ->
             ?INFO("client_version version: ~p, valid for ~p seconds", [Version, TimeLeftSec]),
-            check_and_set_user_agent(Version, From#jid.luser);
+            check_and_set_user_agent(Version, Uid);
         false ->
             ?INFO("client_version version: ~p, expired ~p seconds ago",
                 [Version, abs(TimeLeftSec)])
     end,
-    xmpp:make_iq_result(IQ, #pb_client_version{version = Version, expires_in_seconds = TimeLeftSec}).
+    util_pb:make_iq_result(IQ, #pb_client_version{version = Version, expires_in_seconds = TimeLeftSec}).
 
 
 c2s_session_opened(#{user := Uid, client_version := ClientVersion} = State) ->

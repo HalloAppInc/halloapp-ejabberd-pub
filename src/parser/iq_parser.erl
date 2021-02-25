@@ -72,6 +72,8 @@ proto_to_xmpp(ProtoIQ) ->
         #pb_group_invite_link{} -> ProtoIQ;
         #pb_upload_group_avatar{} -> ProtoIQ;
         #pb_group_feed_item{} -> ProtoIQ;
+        #pb_client_log{} -> ProtoIQ;
+        #pb_client_version{} -> ProtoIQ;
         _ -> XmppIQ
     end.
 

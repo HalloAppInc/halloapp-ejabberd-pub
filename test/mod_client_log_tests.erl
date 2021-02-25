@@ -68,15 +68,14 @@ create_pb_event_data(Uid, Platform, Version, Event) ->
     }.
 
 create_client_log_IQ(Uid, Counts, Events) ->
-    #iq{
-        from = #jid{luser = Uid},
+    #pb_iq{
+        from_uid = Uid,
         type = set,
-        sub_els = [
+        payload =
             #pb_client_log{
                 counts = Counts,
                 events = Events
             }
-        ]
     }.
 
 mod_client_log_test() ->
@@ -98,6 +97,7 @@ mod_client_log_test() ->
 
 client_log_test() ->
     setup(),
+    model_accounts:set_client_version(?UID1, <<"HalloApp/Android0.129">>),
     start_gen_server(),
     Counts = [
         create_pb_count(?NS1, ?METRIC1, ?COUNT1, []),
@@ -115,6 +115,7 @@ client_log_test() ->
 
 client_log_bad_namespace_test() ->
     setup(),
+    model_accounts:set_client_version(?UID1, <<"HalloApp/Android0.129">>),
     Counts = [
         create_pb_count(?BAD_NS1, ?METRIC1, ?COUNT1, []),
         create_pb_count(?NS2, ?METRIC2, ?COUNT2, [])
