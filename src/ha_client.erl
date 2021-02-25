@@ -36,7 +36,8 @@
     wait_for_eoq/1,
     login/3,
     send_iq/4,
-    send_ack/2
+    send_ack/2,
+    clear_queue/1
 ]).
 
 -export([
@@ -152,6 +153,12 @@ recv(Client, TimeoutMs) ->
 -spec stop(Client :: pid()) -> ok.
 stop(Client) ->
     gen_server:stop(Client).
+
+
+% Clear the recv queue of the client.
+-spec clear_queue(Client :: pid()) -> ok.
+clear_queue(Client) ->
+    gen_server:call(Client, {clear_queue}).
 
 
 % Check the received messages for the first message where Func(Message) returns true.
@@ -315,7 +322,10 @@ handle_call({wait_for, MatchFun}, _From, State) ->
             NewState = State#state{recv_q = queue:from_list(NewQueue2)},
             {Packet, NewState}
     end,
-    {reply, Packet2, NewState2}.
+    {reply, Packet2, NewState2};
+
+handle_call({clear_queue}, _From, State) ->
+    {reply, ok, State#state{recv_q = queue:new()}}.
 
 
 handle_cast(Something, State) ->

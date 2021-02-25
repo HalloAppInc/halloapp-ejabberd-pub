@@ -51,6 +51,7 @@ groups() -> [
     {misc, [sequence], misc_tests()},
     httplog_tests:group(),
     trace_tests:group(),
+    chatstate_tests:group(),
     window_tests:group()
 ].
 
@@ -68,6 +69,7 @@ all() -> [
     {group, httplog},
     {group, trace},
     {group, window},
+    {group, chatstate},
     dummy_test,
     ping_test,
     delete_account_test,
