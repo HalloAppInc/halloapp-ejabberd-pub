@@ -41,7 +41,7 @@ xmpp_to_proto(XmppStanza) ->
 proto_to_xmpp(PbPacket) ->
     XmppStanza = case PbPacket#pb_packet.stanza of
         #pb_ack{} = AckRecord ->
-            ack_parser:proto_to_xmpp(AckRecord);
+            AckRecord;
         #pb_iq{} = IqRecord ->
             iq_parser:proto_to_xmpp(IqRecord);
         #pb_presence{} = PresenceRecord ->

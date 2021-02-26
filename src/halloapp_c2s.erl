@@ -390,7 +390,7 @@ handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID,
         #pb_iq{} ->
             ejabberd_router:route(Pkt2),
             State2;
-        #ack{} -> process_ack_out(State2, Pkt2);
+        #pb_ack{} -> process_ack_out(State2, Pkt2);
         #chat_state{} -> check_privacy_then_route(State2, Pkt2);
         #message{} -> check_privacy_then_route(State2, Pkt2);
         #presence{} -> check_privacy_then_route(State2, Pkt2)
@@ -516,7 +516,7 @@ process_presence_out(State, _Pres) ->
     State.
 
 
-process_ack_out(#{user := _Uid, lserver := Server} = State, #ack{} = Pkt) ->
+process_ack_out(#{user := _Uid, lserver := Server} = State, #pb_ack{} = Pkt) ->
     %% We run the user_send_ack hook for the offline module to act on it.
     ejabberd_hooks:run_fold(user_send_ack, Server, State, [Pkt]).
 

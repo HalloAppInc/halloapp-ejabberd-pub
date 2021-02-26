@@ -709,10 +709,13 @@ check_password_fun(Mech, State) ->
 -spec set_from_to(xmpp_element(), state()) -> {ok, xmpp_element()} |
                           {error, stream_error()}.
 %% TODO(murali@): cleanup these functions.
-set_from_to(Pkt, #{user := U, server := S, resource := R}) when is_record(Pkt, pb_iq) ->
-    {ok, Pkt#pb_iq{to_uid = <<>>, from_uid = U}};
-set_from_to(Pkt, _State) when not ?is_stanza(Pkt) ->
-    {ok, Pkt};
+set_from_to(Pkt, #{user := U} = _State) when not ?is_stanza(Pkt) ->
+    case util_pb:is_pb_packet(Pkt) of
+        true ->
+            {ok, util_pb:set_from(Pkt, U)};
+        false ->
+            {ok, Pkt}
+    end;
 set_from_to(Pkt, #{user := U, server := S, resource := R, lang := Lang, xmlns := ?NS_CLIENT}) ->
     JID = jid:make(U, S, R),
     %% Always overwrite the from_jid to be the user's jid.

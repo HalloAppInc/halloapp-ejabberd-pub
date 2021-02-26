@@ -15,6 +15,7 @@
 -include("ha_types.hrl").
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("offline_message.hrl").
 -include("ejabberd_sm.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -140,7 +141,7 @@ handle_info(Request, State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec user_send_ack(State :: state(), Packet :: ack()) -> state().
-user_send_ack(State, #ack{id = MsgId, from = #jid{user = Uid, server = _Server}} = Ack) ->
+user_send_ack(State, #pb_ack{id = MsgId, from_uid = Uid} = Ack) ->
     ?INFO("Uid: ~s, Ack_MsgId: ~s", [Uid, MsgId]),
 
     EndOfQueueMsgId = maps:get(end_of_queue_msg_id, State, undefined),
@@ -156,7 +157,8 @@ user_send_ack(State, #ack{id = MsgId, from = #jid{user = Uid, server = _Server}}
 -spec accept_ack(State :: state(), Packet :: ack()) -> state().
 accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := PendingAcks} = OfflineQueueParams,
         offline_queue_cleared := IsOfflineQueueCleared} = State,
-        #ack{id = MsgId, from = #jid{user = Uid, server = Server}} = Ack) ->
+        #pb_ack{id = MsgId, from_uid = Uid} = Ack) ->
+    Server = util:get_host(),
     {ok, OfflineMessage} = model_messages:get_message(Uid, MsgId),
     case OfflineMessage of
         undefined ->

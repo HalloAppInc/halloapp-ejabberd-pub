@@ -63,7 +63,10 @@ set_to(#pb_iq{} = Pkt, ToUid) -> Pkt#pb_iq{to_uid = ToUid};
 set_to(#pb_msg{} = Pkt, ToUid) -> Pkt#pb_msg{to_uid = ToUid};
 set_to(#pb_presence{} = Pkt, ToUid) -> Pkt#pb_presence{to_uid = ToUid};
 set_to(#pb_chat_state{} = Pkt, ToUid) -> Pkt#pb_chat_state{to_uid = ToUid};
-set_to(#pb_ack{} = Pkt, ToUid) -> Pkt#pb_ack{to_uid = ToUid}.
+set_to(#pb_ack{} = Pkt, ToUid) -> Pkt#pb_ack{to_uid = ToUid};
+set_to(Pkt, ToUid) ->
+    Server = util:get_host(),
+    xmpp:set_to(Pkt, jid:make(ToUid, Server)).
 
 
 -spec set_from(pb_packet(), binary()) -> pb_packet().
@@ -71,7 +74,10 @@ set_from(#pb_iq{} = Pkt, FromUid) -> Pkt#pb_iq{from_uid = FromUid};
 set_from(#pb_msg{} = Pkt, FromUid) -> Pkt#pb_msg{from_uid = FromUid};
 set_from(#pb_presence{} = Pkt, FromUid) -> Pkt#pb_presence{from_uid = FromUid};
 set_from(#pb_chat_state{} = Pkt, FromUid) -> Pkt#pb_chat_state{from_uid = FromUid};
-set_from(#pb_ack{} = Pkt, FromUid) -> Pkt#pb_ack{from_uid = FromUid}.
+set_from(#pb_ack{} = Pkt, FromUid) -> Pkt#pb_ack{from_uid = FromUid};
+set_from(Pkt, FromUid) ->
+    Server = util:get_host(),
+    xmpp:set_from(Pkt, jid:make(FromUid, Server)).
 
 
 -spec set_to_from(pb_packet(), binary(), binary()) -> pb_packet().

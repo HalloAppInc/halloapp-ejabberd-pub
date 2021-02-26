@@ -18,6 +18,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("ha_types.hrl").
 -include("offline_message.hrl").
 
@@ -50,7 +51,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% TODO(murali@): Some of the offline messages will now have thread_id.
 %% Start using that from next month around 02-20-2021.
 -spec user_ack_packet(Ack :: ack(), OfflineMessage :: offline_message()) -> ok.
-user_ack_packet(#ack{} = Ack, #offline_message{content_type = ContentType, msg_id = MsgId,
+user_ack_packet(#pb_ack{} = Ack, #offline_message{content_type = ContentType, msg_id = MsgId,
         message = Msg, protobuf = true} = OfflineMessage)
         when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">> ->
     ?INFO("MsgId: ~p, ContentType: ~p", [MsgId, ContentType]),
@@ -64,13 +65,14 @@ user_ack_packet(#ack{} = Ack, #offline_message{content_type = ContentType, msg_i
     },
     user_ack_packet(Ack, NewOfflineMessage);
 
-user_ack_packet(#ack{id = Id, from = #jid{user = FromUid, server = ServerHost} = AckFrom},
+user_ack_packet(#pb_ack{id = Id, from_uid = FromUid},
         #offline_message{content_type = ContentType, from_uid = MsgFromId, message = Msg})
         when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">> ->
     ?INFO("Uid: ~s, Id: ~p, ContentType: ~p", [FromUid, Id, ContentType]),
+    Server = util:get_host(),
     TimestampSec = util:now_binary(),
-    FromJID = AckFrom,
-    ToJID = jid:make(MsgFromId, ServerHost),
+    FromJID = jid:make(FromUid, Server),
+    ToJID = jid:make(MsgFromId, Server),
     ThreadId = get_thread_id(Msg),
     send_receipt(ToJID, FromJID, Id, ThreadId, TimestampSec),
     log_delivered(ContentType);

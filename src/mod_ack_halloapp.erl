@@ -15,12 +15,11 @@
 -export([user_send_packet/1]).
 
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("logger.hrl").
 
 -define(needs_ack_packet(Pkt),
         is_record(Pkt, message)).
--define(is_ack_packet(Pkt),
-        is_record(Pkt, ack)).
 
 %%%===================================================================
 %%% gen_mod API
@@ -68,18 +67,18 @@ send_ack(#message{id = MsgId, from = #jid{user = User, server = ServerHost} = Fr
     PayloadType = util:get_payload_type(Packet),
     PacketTs = util:get_timestamp(Packet),
     Timestamp = case {PayloadType, PacketTs} of
-        {rerequest_st, _} -> util:now_binary();
-        {groupchat_retract_st, _} -> util:now_binary();
-        {chat_retract_st, _} -> util:now_binary();
+        {rerequest_st, _} -> util:now();
+        {groupchat_retract_st, _} -> util:now();
+        {chat_retract_st, _} -> util:now();
         {_, undefined} ->
             ?WARNING("Uid: ~s, timestamp is undefined, msg_id: ~s", [User, MsgId]),
-            util:now_binary();
+            util:now();
         {_, <<>>} ->
             ?WARNING("Uid: ~s, timestamp is empty, msg_id: ~s", [User, MsgId]),
-            util:now_binary();
-        {_, PacketTs} -> PacketTs
+            util:now();
+        {_, PacketTs} -> util:to_integer(PacketTs)
     end,
-    AckPacket = #ack{id = MsgId, to = From, from = jid:make(ServerHost), timestamp = Timestamp},
+    AckPacket = #pb_ack{id = MsgId, to_uid = User, timestamp = Timestamp},
     ?INFO("uid: ~s, msg_id: ~s", [User, MsgId]),
     ejabberd_router:route(AckPacket).
 
