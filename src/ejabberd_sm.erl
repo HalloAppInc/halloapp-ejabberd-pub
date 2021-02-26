@@ -187,16 +187,15 @@ close_session(SID, User, Server, Resource) ->
 
 -spec bounce_sm_packet({warn | term(), stanza()}) -> any().
 bounce_sm_packet({warn, Packet} = Acc) ->
-    FromJid = xmpp:get_from(Packet),
-    ToJid = xmpp:get_to(Packet),
+    FromJid = util_pb:get_from(Packet),
+    ToJid = util_pb:get_to(Packet),
     ?WARNING("FromUid: ~p, ToUid: ~p, packet: ~p",
             [FromJid#jid.luser, ToJid#jid.luser, Packet]),
     {stop, Acc};
 bounce_sm_packet({_, Packet} = Acc) ->
-    FromJid = xmpp:get_from(Packet),
-    ToJid = xmpp:get_to(Packet),
-    ?INFO("FromUid: ~p, ToUid: ~p, packet: ~p",
-            [FromJid#jid.luser, ToJid#jid.luser, Packet]),
+    FromUid = util_pb:get_from(Packet),
+    ToUid = util_pb:get_to(Packet),
+    ?INFO("FromUid: ~p, ToUid: ~p, packet: ~p", [FromUid, ToUid, Packet]),
     Acc.
 
 -spec disconnect_removed_user(binary(), binary()) -> ok.
@@ -620,6 +619,12 @@ do_route(Packet) ->
                 ejabberd_hooks:run_fold(bounce_sm_packet,
                             LServer, {pass, Packet}, []);
             #chat_state{} ->
+                ejabberd_hooks:run_fold(bounce_sm_packet,
+                            LServer, {pass, Packet}, []);
+            #pb_presence{} ->
+                ejabberd_hooks:run_fold(bounce_sm_packet,
+                            LServer, {pass, Packet}, []);
+            #pb_chat_state{} ->
                 ejabberd_hooks:run_fold(bounce_sm_packet,
                             LServer, {pass, Packet}, []);
             _ ->

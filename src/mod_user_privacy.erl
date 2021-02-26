@@ -141,21 +141,21 @@ privacy_check_packet(allow, _State, #pb_chat_state{} = Packet, in = Dir) ->
 
 %% Now the following runs on the sender's c2s process on outgoing packets.
 %% Runs on senders c2s process.
-privacy_check_packet(allow, _State, #presence{type = Type}, out = _Dir)
+privacy_check_packet(allow, _State, #pb_presence{type = Type}, out = _Dir)
         when Type =:= available; Type =:= away ->
     %% always allow presence stanzas updating their own status.
     allow;
 
-privacy_check_packet(allow, _State, #presence{type = Type} = Packet, out = Dir)
+privacy_check_packet(allow, _State, #pb_presence{type = Type} = Packet, out = Dir)
         when Type =:= subscribe; Type =:= unsubscribe ->
     %% inspect requests to another user's presence.
     check_blocked(Packet, Dir);
 
-privacy_check_packet(allow, _State, #chat_state{thread_type = group_chat} = _Packet, out) ->
+privacy_check_packet(allow, _State, #pb_chat_state{thread_type = group_chat} = _Packet, out) ->
     %% always allow typing indicators in groups.
     allow;
 
-privacy_check_packet(allow, _State, #chat_state{} = Packet, out = Dir) ->
+privacy_check_packet(allow, _State, #pb_chat_state{} = Packet, out = Dir) ->
     %% inspect sending chat_state updates to another user.
     check_blocked(Packet, Dir);
 

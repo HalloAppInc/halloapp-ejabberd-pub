@@ -11,6 +11,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("groups.hrl").
 
 -define(SERVER, <<"s.halloapp.net">>).
@@ -28,7 +29,7 @@
 process_chat_state_typing_test() ->
     setup(),
     %% UID1 send `typing` chat_state to server, thread_id is UID2
-    ChatState = create_chat_state(?UID1, ?SERVER, ?UID2, typing,  chat),
+    ChatState = create_chat_state(?UID1, <<>>, ?UID2, typing,  chat),
     meck:new(ejabberd_router),
     meck:expect(ejabberd_router, route,
         fun(Packet) ->
@@ -45,7 +46,7 @@ process_chat_state_typing_test() ->
 process_chat_state_available_test() ->
     setup(),
     %% UID1 send `available` chat_state to server, thread_id is UID2
-    ChatState = create_chat_state(?UID1, ?SERVER, ?UID2, available, chat),
+    ChatState = create_chat_state(?UID1, <<>>, ?UID2, available, chat),
     meck:new(ejabberd_router),
     meck:expect(ejabberd_router, route,
         fun(Packet) ->
@@ -62,7 +63,7 @@ process_chat_state_available_test() ->
 process_group_chat_state_test() ->
     setup(),
     Gid = create_group(),
-    ChatState = create_chat_state(?UID1, ?SERVER, Gid, available, chat),
+    ChatState = create_chat_state(?UID1, <<>>, Gid, available, chat),
     meck:new(ejabberd_router),
     meck:expect(ejabberd_router, route_multicast,
         fun(From, BroadcastJids, Packet) ->
@@ -99,9 +100,9 @@ clear() ->
 
 
 create_chat_state(FromUid, ToUid, ThreadId, Type, ThreadType) ->
-    #chat_state{
-        from = jid:make(FromUid, ?SERVER),
-        to = jid:make(ToUid, ?SERVER),
+    #pb_chat_state{
+        from_uid = FromUid,
+        to_uid = ToUid,
         type = Type,
         thread_id = ThreadId,
         thread_type = ThreadType

@@ -104,13 +104,13 @@ route(Packet) ->
 route_multicast(_From, [], _Packet) ->
     ok;
 route_multicast(From, Destinations, Packet) ->
-    Id = xmpp:get_id(Packet),
-    Packet1 = xmpp:set_from(Packet, From),
+    Id = util_pb:get_id(Packet),
+    Packet1 = util_pb:set_from(Packet, From#jid.luser),
     lists:foldl(
         fun(To, Acc) ->
             AccBin = integer_to_binary(Acc),
             NewId = <<Id/binary, "-", AccBin/binary>>,
-            Packet2 = xmpp:set_id(xmpp:set_to(Packet1, To), NewId),
+            Packet2 = util_pb:set_id(util_pb:set_to(Packet1, To#jid.luser), NewId),
             route(Packet2),
             Acc+1
         end, 0, Destinations),

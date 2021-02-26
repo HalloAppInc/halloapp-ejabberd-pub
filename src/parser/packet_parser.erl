@@ -45,11 +45,11 @@ proto_to_xmpp(PbPacket) ->
         #pb_iq{} = IqRecord ->
             iq_parser:proto_to_xmpp(IqRecord);
         #pb_presence{} = PresenceRecord ->
-            presence_parser:proto_to_xmpp(PresenceRecord);
+            PresenceRecord;
         #pb_msg{} = MsgRecord ->
             message_parser:proto_to_xmpp(MsgRecord);
         #pb_chat_state{} = ChatStateRecord ->
-            chat_state_parser:proto_to_xmpp(ChatStateRecord);
+            ChatStateRecord;
         %% TODO: add error parser
         _ -> undefined
     end,

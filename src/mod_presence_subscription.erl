@@ -99,13 +99,12 @@ presence_unsubscribe_all(Uid) ->
 
 -spec presence_subs_hook(User :: binary(), Server :: binary(),
         Presence :: presence()) -> {ok, any()} | {error, any()}.
-presence_subs_hook(User, Server, #presence{to = #jid{user = Friend}, type = Type}) ->
+presence_subs_hook(User, Server, #pb_presence{to_uid = ToUid, type = Type}) ->
     case Type of
         subscribe ->
-            check_and_subscribe_user_to_friend(User, Server, Friend);
+            check_and_subscribe_user_to_friend(User, Server, ToUid);
         unsubscribe ->
-            ?INFO("Uid: ~s, unsubscribe_all", [User]),
-            unsubscribe_user_to_friend(User, Server, Friend)
+            unsubscribe_user_to_friend(User, Server, ToUid)
     end.
 
 

@@ -54,12 +54,12 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
-user_send_chatstate(State, #chat_state{thread_id = <<>>}) ->
+user_send_chatstate(State, #pb_chat_state{thread_id = <<>>}) ->
     ?ERROR("Thread id is empty.", []),
     State;
 
-user_send_chatstate(State, #chat_state{thread_id = ThreadId, thread_type = ThreadType} = Packet) ->
-    Type = Packet#chat_state.type,
+user_send_chatstate(State, #pb_chat_state{thread_id = ThreadId, thread_type = ThreadType} = Packet) ->
+    Type = Packet#pb_chat_state.type,
     stat:count("HA/chat_state", atom_to_list(Type), 1, [{thread_type, ThreadType}]),
     ?INFO("thread_id: ~s, thread_type: ~s, type: ~s",
             [ThreadId, ThreadType, Type]),
@@ -93,11 +93,10 @@ user_receive_packet(Acc) ->
 -spec process_chat_state(Packet :: chat_state(), ThreadId :: binary()) -> ok.
 process_chat_state(Packet, ThreadId) ->
     Server = util:get_host(),
-    NewToJid = jid:make(ThreadId, Server),
-    From = Packet#chat_state.from,
-    NewPacket = Packet#chat_state{to = NewToJid, thread_id = From#jid.luser},
+    FromUid = Packet#pb_chat_state.from_uid,
+    NewPacket = Packet#pb_chat_state{to_uid = ThreadId, thread_id = FromUid},
     ?INFO("Uid: ~s, to_uid: ~s, type: ~s, newpacket: ~p",
-            [From#jid.luser, NewToJid#jid.luser, Packet#chat_state.type, NewPacket]),
+            [FromUid, ThreadId, Packet#pb_chat_state.type, NewPacket]),
     ejabberd_router:route(NewPacket),
     ok.
 
@@ -107,8 +106,8 @@ process_chat_state(Packet, ThreadId) ->
 -spec process_group_chat_state(Packet :: chat_state(), ThreadId :: binary()) -> ok.
 process_group_chat_state(Packet, ThreadId) ->
     Server = util:get_host(),
-    From = Packet#chat_state.from,
-    FromUid = From#jid.luser,
+    FromUid = Packet#pb_chat_state.from_uid,
+    From = jid:make(FromUid, Server),
     case mod_groups:get_group(ThreadId, FromUid) of
         {ok, Group} ->
             MUids = lists:map(
@@ -117,7 +116,7 @@ process_group_chat_state(Packet, ThreadId) ->
                     end, Group#group.members),
             ReceiverUids = lists:delete(FromUid, MUids),
             ?INFO("Uid: ~s, broadcast uids: ~p, type: ~s",
-                    [FromUid, ReceiverUids, Packet#chat_state.type]),
+                    [FromUid, ReceiverUids, Packet#pb_chat_state.type]),
             mod_groups:broadcast_packet(From, Server, ReceiverUids, Packet);
         {error, not_member} ->
             ?WARNING("invalid chat_state stanza, Uid: ~s, Gid: ~p", [FromUid, ThreadId])

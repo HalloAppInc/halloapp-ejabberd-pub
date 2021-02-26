@@ -391,9 +391,9 @@ handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID,
             ejabberd_router:route(Pkt2),
             State2;
         #pb_ack{} -> process_ack_out(State2, Pkt2);
-        #chat_state{} -> check_privacy_then_route(State2, Pkt2);
+        #pb_chat_state{} -> check_privacy_then_route(State2, Pkt2);
         #message{} -> check_privacy_then_route(State2, Pkt2);
-        #presence{} -> check_privacy_then_route(State2, Pkt2)
+        #pb_presence{} -> check_privacy_then_route(State2, Pkt2)
     end.
 
 
@@ -497,14 +497,14 @@ code_change(_OldVsn, State, _Extra) ->
 %% TODO(murali@): move the presence-filter logic to mod_presence or something like that.
 -spec process_presence_out(state(), presence()) -> state().
 process_presence_out(#{user := User, server := Server} = State,
-        #presence{type = Type} = Presence) when Type == subscribe; Type == unsubscribe ->
+        #pb_presence{type = Type} = Presence) when Type == subscribe; Type == unsubscribe ->
     %% We run the presence_subs_hook hook,
     %% since these presence stanzas are about updating user's activity status.
     ejabberd_hooks:run(presence_subs_hook, Server, [User, Server, Presence]),
     State;
 
 process_presence_out(#{sid := _SID, user := Uid, lserver := Server, resource := Resource} = State,
-        #presence{type = Type} = Presence) when Type == available; Type == away ->
+        #pb_presence{type = Type} = Presence) when Type == available; Type == away ->
     %% We run the set_presence_hook,
     %% since these presence stanzas are about updating user's activity status.
     ejabberd_hooks:run(set_presence_hook, Server, [Uid, Server, Resource, Presence]),
@@ -521,14 +521,14 @@ process_ack_out(#{user := _Uid, lserver := Server} = State, #pb_ack{} = Pkt) ->
     ejabberd_hooks:run_fold(user_send_ack, Server, State, [Pkt]).
 
 
-process_chatstate_out(#{user := _Uid, lserver := Server} = State, #chat_state{} = Pkt) ->
+process_chatstate_out(#{user := _Uid, lserver := Server} = State, #pb_chat_state{} = Pkt) ->
     %% We run the user_send_chatstate hook for the chat_state module to act on it.
     ejabberd_hooks:run_fold(user_send_chatstate, Server, State, [Pkt]).
 
 
 -spec check_privacy_then_route(state(), stanza()) -> state().
 check_privacy_then_route(State, Pkt)
-        when is_record(Pkt, presence); is_record(Pkt, message); is_record(Pkt, chat_state) ->
+        when is_record(Pkt, pb_presence); is_record(Pkt, message); is_record(Pkt, pb_chat_state) ->
     case privacy_check_packet(State, Pkt, out) of
         deny ->
             ?INFO("failed_privacy_rules, packet received: ~p", [Pkt]),
@@ -537,8 +537,8 @@ check_privacy_then_route(State, Pkt)
             %% Now route packets properly.
             %% Think about the way we are routing presence stanzas.
             case Pkt of
-                #presence{} -> process_presence_out(State, Pkt);
-                #chat_state{} -> process_chatstate_out(State, Pkt);
+                #pb_presence{} -> process_presence_out(State, Pkt);
+                #pb_chat_state{} -> process_chatstate_out(State, Pkt);
                 #message{} ->
                     ejabberd_router:route(Pkt),
                     State

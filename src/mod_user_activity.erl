@@ -25,6 +25,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("account.hrl").
 
 %% gen_mod API.
@@ -86,7 +87,7 @@ re_register_user(Uid, Server, Phone) ->
 %% and sends it to the user.
 -spec set_presence_hook(User :: binary(), Server :: binary(),
         Resource :: binary(), Presence :: presence()) -> ok.
-set_presence_hook(User, Server, Resource, #presence{type = StatusType}) ->
+set_presence_hook(User, Server, Resource, #pb_presence{type = StatusType}) ->
     store_and_broadcast_presence(User, Server, Resource, StatusType),
     check_and_probe_friends_presence(User, Server, StatusType).
 
@@ -107,12 +108,10 @@ get_user_activity(User, _Server) ->
     Activity.
 
 
--spec probe_and_send_presence(User :: binary(), Server :: binary(), Friend :: binary()) -> ok.
-probe_and_send_presence(User, Server, Friend) ->
-    ToJID = jid:make(User, Server),
-    FromJID = jid:make(Friend, Server),
-    Activity = get_user_activity(Friend, Server),
-    check_and_send_presence(FromJID, Activity, ToJID).
+-spec probe_and_send_presence(Uid :: binary(), Server :: binary(), FriendUid :: binary()) -> ok.
+probe_and_send_presence(Uid, Server, FriendUid) ->
+    Activity = get_user_activity(FriendUid, Server),
+    check_and_send_presence(Uid, Activity, FriendUid).
 
 %%====================================================================
 %% Internal functions
@@ -162,11 +161,11 @@ store_user_activity(User, _Server, Resource, TimestampMs, Status) ->
         TimestampMs :: undefined | integer(), Status :: undefined | activity_status()) -> ok.
 broadcast_presence(User, Server, TimestampMs, Status) ->
     LastSeen = case TimestampMs of
-        undefined -> <<>>;
-        _ -> util:to_binary(util:ms_to_sec(TimestampMs))
+        undefined -> undefined;
+        _ -> util:ms_to_sec(TimestampMs)
     end,
-    Presence = #presence{from = jid:make(User, Server),
-            type = Status, last_seen = util:to_binary(LastSeen)},
+    Presence = #pb_presence{from_uid = User,
+            type = Status, last_seen = LastSeen},
     BroadcastUIDs = mod_presence_subscription:get_user_broadcast_friends(User, Server),
     ?INFO("Uid: ~s, BroadcastUIDs: ~p, status: ~p", [User, BroadcastUIDs, Status]),
     BroadcastJIDs = lists:map(fun(Uid) -> jid:make(Uid, Server) end, BroadcastUIDs),
@@ -177,8 +176,8 @@ broadcast_presence(User, Server, TimestampMs, Status) ->
 route_multiple(_, [], _) ->
     ok;
 route_multiple(Server, JIDs, Packet) ->
-    From = xmpp:get_from(Packet),
-    ejabberd_router:route_multicast(From, JIDs, Packet).
+    FromJid = jid:make(util_pb:get_from(Packet), Server),
+    ejabberd_router:route_multicast(FromJid, JIDs, Packet).
 
 
 -spec check_and_probe_friends_presence(User :: binary(), Server :: binary(),
@@ -196,17 +195,15 @@ check_and_probe_friends_presence(_User, _Server, away) ->
 -spec check_and_send_presence(FromJID :: jid(), Activity :: activity(), ToJID :: jid()) -> ok.
 check_and_send_presence(_, #activity{status = undefined}, _) ->
     ok;
-check_and_send_presence(#jid{luser = FromUid} = FromJID, #activity{status = available} = Activity,
-        #jid{luser = ToUid} = ToJID) ->
+check_and_send_presence(ToUid, #activity{status = available} = Activity, FromUid) ->
     ?INFO("FromUid: ~s, ToUid: ~s, activity: ~p", [FromUid, ToUid, Activity]),
-    Packet = #presence{from = FromJID, to = ToJID, type = available},
+    Packet = #pb_presence{from_uid = FromUid, to_uid = ToUid, type = available},
     ejabberd_router:route(Packet);
-check_and_send_presence(#jid{luser = FromUid} = FromJID,
-        #activity{last_activity_ts_ms = LastSeen, status = away} = Activity,
-        #jid{luser = ToUid} = ToJID) ->
+check_and_send_presence(ToUid,
+        #activity{last_activity_ts_ms = LastSeen, status = away} = Activity, FromUid) ->
     ?INFO("FromUid: ~s, ToUid: ~s, activity: ~p", [FromUid, ToUid, Activity]),
-    Packet = #presence{from = FromJID, to = ToJID,
-            type = away, last_seen = util:to_binary(util:ms_to_sec(LastSeen))},
+    Packet = #pb_presence{from_uid = FromUid, to_uid = ToUid,
+            type = away, last_seen = util:ms_to_sec(LastSeen)},
     ejabberd_router:route(Packet).
 
 
