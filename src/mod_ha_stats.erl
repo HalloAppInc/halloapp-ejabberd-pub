@@ -294,8 +294,9 @@ user_receive_packet({Packet, _State} = Acc) ->
 
 
 -spec count_packet(Namespace :: string(), Action :: string(), Packet :: stanza()) -> ok.
-count_packet(Namespace, _Action, #ack{}) ->
+count_packet(Namespace, _Action, #pb_ack{}) ->
     stat:count(Namespace, "ack");
+%% TODO(murali@): remove this function after migrating message stanzas.
 count_packet(Namespace, Action, #message{sub_els = [SubEl | _Rest]} = Message) ->
     PayloadType = util:get_payload_type(Message),
     stat:count(Namespace, "message", 1, [{payload_type, PayloadType}]),
@@ -305,7 +306,16 @@ count_packet(Namespace, Action, #message{sub_els = [SubEl | _Rest]} = Message) -
         #receipt_response{} -> stat:count("HA/im_receipts", Action ++ "_received");
         _ -> ok
     end;
-count_packet(Namespace, _Action, #presence{}) ->
+count_packet(Namespace, Action, #pb_msg{payload = Payload} = Message) ->
+    PayloadType = pb:get_payload_type(Message),
+    stat:count(Namespace, "message", 1, [{payload_type, PayloadType}]),
+    case Payload of
+        #pb_chat_stanza{} -> stat:count("HA/messaging", Action ++ "_im");
+        #pb_seen_receipt{} -> stat:count("HA/im_receipts", Action ++ "_seen");
+        #pb_delivery_receipt{} -> stat:count("HA/im_receipts", Action ++ "_received");
+        _ -> ok
+    end;
+count_packet(Namespace, _Action, #pb_presence{}) ->
     stat:count(Namespace, "presence");
 count_packet(Namespace, _Action, #iq{} = Iq) ->
     PayloadType = util:get_payload_type(Iq),
@@ -313,7 +323,7 @@ count_packet(Namespace, _Action, #iq{} = Iq) ->
 count_packet(Namespace, _Action, #pb_iq{} = Iq) ->
     PayloadType = pb:get_payload_type(Iq),
     stat:count(Namespace, "iq", 1, [{payload_type, PayloadType}]);
-count_packet(Namespace, _Action, #chat_state{}) ->
+count_packet(Namespace, _Action, #pb_chat_state{}) ->
     stat:count(Namespace, "chat_state");
 count_packet(Namespace, _Action, _Packet) ->
     stat:count(Namespace, "unknown"),
