@@ -231,19 +231,19 @@ process_local_iq(#pb_iq{type = set, from_uid = Uid,
         Platform = util_ua:get_client_type(ClientVersion),
         case process_client_count_log_st(Uid, ClientLogsSt, Platform) of
             ok ->
-                util_pb:make_iq_result(IQ);
+                pb:make_iq_result(IQ);
             error ->
-                util_pb:make_error(IQ, util:err(bad_request))
+                pb:make_error(IQ, util:err(bad_request))
         end
     catch
         Class : Reason : Stacktrace ->
             ?ERROR("client log error: ~s", [
                 lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            util_pb:make_error(IQ, util:err(server_error))
+            pb:make_error(IQ, util:err(server_error))
     end;
 
 process_local_iq(#pb_iq{} = IQ) ->
-    util_pb:make_error(IQ, util:err(bad_request)).
+    pb:make_error(IQ, util:err(bad_request)).
 
 -spec process_client_count_log_st(Uid :: maybe(uid()) | undefined, ClientLogSt :: client_log_st(),
         Platform :: maybe(client_type())) -> ok | error.

@@ -68,7 +68,7 @@ start_link() ->
 
 -spec route(stanza()) -> ok.
 route(Packet) ->
-    case util_pb:is_pb_packet(Packet) of
+    case pb:is_pb_packet(Packet) of
         true ->
             route_pb(Packet);
         false ->
@@ -78,8 +78,8 @@ route(Packet) ->
 
 route_pb(Packet) ->
     ?DEBUG("Local route:~n~ts", [xmpp:pp(Packet)]),
-    Type = util_pb:get_type(Packet),
-    ToUid = util_pb:get_to(Packet),
+    Type = pb:get_type(Packet),
+    ToUid = pb:get_to(Packet),
     Server = util:get_host(),
     if
         ToUid =/= <<"">> ->

@@ -104,13 +104,13 @@ route(Packet) ->
 route_multicast(_From, [], _Packet) ->
     ok;
 route_multicast(From, Destinations, Packet) ->
-    Id = util_pb:get_id(Packet),
-    Packet1 = util_pb:set_from(Packet, From#jid.luser),
+    Id = pb:get_id(Packet),
+    Packet1 = pb:set_from(Packet, From#jid.luser),
     lists:foldl(
         fun(To, Acc) ->
             AccBin = integer_to_binary(Acc),
             NewId = <<Id/binary, "-", AccBin/binary>>,
-            Packet2 = util_pb:set_id(util_pb:set_to(Packet1, To#jid.luser), NewId),
+            Packet2 = pb:set_id(pb:set_to(Packet1, To#jid.luser), NewId),
             route(Packet2),
             Acc+1
         end, 0, Destinations),

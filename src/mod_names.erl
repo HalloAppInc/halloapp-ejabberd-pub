@@ -77,10 +77,10 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     case Ouid =:= <<>> orelse Ouid =:= Uid of
       true ->
         set_name(Uid, Name),
-        util_pb:make_iq_result(IQ);
+        pb:make_iq_result(IQ);
       false ->
         ?ERROR("Uid: ~p, Invalid userid in the iq-set request: ~p", [Uid, Ouid]),
-        util_pb:make_error(IQ, util:err(invalid_uid))
+        pb:make_error(IQ, util:err(invalid_uid))
     end.
 %% TODO(murali@): add get-iq api if clients need it.
 

@@ -78,10 +78,10 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     case check_whisper_keys(IdentityKey, SignedKey, OneTimeKeys) of
         {error, Reason} ->
             ?ERROR("Invalid iq Reason: ~p iq: ~p", [Reason, IQ]),
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         ok ->
             set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys),
-            util_pb:make_iq_result(IQ)
+            pb:make_iq_result(IQ)
     end;
 
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
@@ -97,19 +97,19 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     case check_one_time_keys(OneTimeKeys) of
         {error, Reason} ->
             ?ERROR("Invalid iq Reason: ~p iq: ~p", [Reason, IQ]),
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         ok ->
             if
                 IdentityKey =/= undefined ->
                     ?ERROR("Invalid iq: ~p", [IQ]),
-                    util_pb:make_error(IQ, util:err(invalid_identity_key));
+                    pb:make_error(IQ, util:err(invalid_identity_key));
                 SignedKey =/= undefined ->
                     ?ERROR("Invalid iq: ~p", [IQ]),
-                    util_pb:make_error(IQ, util:err(invalid_signed_key));
+                    pb:make_error(IQ, util:err(invalid_signed_key));
                 true ->
                     ?INFO("Uid: ~s, add_otp_keys", [Uid]),
                     model_whisper_keys:add_otp_keys(Uid, OneTimeKeys),
-                    util_pb:make_iq_result(IQ)
+                    pb:make_iq_result(IQ)
             end
     end;
 
@@ -117,7 +117,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_whisper_keys{action = count}} = IQ) ->
     {ok, Count} = model_whisper_keys:count_otp_keys(Uid),
     % TODO: we should return integer and not binary ideally. Will be fixed in pb
-    util_pb:make_iq_result(IQ, #pb_whisper_keys{
+    pb:make_iq_result(IQ, #pb_whisper_keys{
         uid = Uid,
         action = normal, %TODO: We should one day switch to type = count, iOS is
         % currently depending on the normal type. Check with iOS team after 2021-04-01
@@ -131,12 +131,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
     case Ouid of
         undefined ->
             ?ERROR("Invalid iq: ~p", [IQ]),
-            util_pb:make_error(IQ, util:err(undefined_uid));
+            pb:make_error(IQ, util:err(undefined_uid));
         _ ->
             {ok, WhisperKeySet} = model_whisper_keys:get_key_set(Ouid),
             case WhisperKeySet of
                 undefined ->
-                    util_pb:make_iq_result(IQ, #pb_whisper_keys{uid = Ouid});
+                    pb:make_iq_result(IQ, #pb_whisper_keys{uid = Ouid});
                 _ ->
                     %% Uid requests keys of Ouid to establish a session.
                     %% We need to add Uid as subscriber of Ouid's keys and vice-versa.
@@ -150,7 +150,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
                         undefined -> [];
                         OneTimeKey -> [util_parser:maybe_base64_decode(OneTimeKey)]
                     end,
-                    util_pb:make_iq_result(IQ, #pb_whisper_keys{uid = Ouid, identity_key = IdentityKey,
+                    pb:make_iq_result(IQ, #pb_whisper_keys{uid = Ouid, identity_key = IdentityKey,
                             signed_key = SignedKey, one_time_keys = OneTimeKeys})
             end
     end.

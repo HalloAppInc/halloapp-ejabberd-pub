@@ -176,7 +176,7 @@ broadcast_presence(User, Server, TimestampMs, Status) ->
 route_multiple(_, [], _) ->
     ok;
 route_multiple(Server, JIDs, Packet) ->
-    FromJid = jid:make(util_pb:get_from(Packet), Server),
+    FromJid = jid:make(pb:get_from(Packet), Server),
     ejabberd_router:route_multicast(FromJid, JIDs, Packet).
 
 

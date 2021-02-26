@@ -217,7 +217,7 @@ upgrade_packet(Pkt) when is_record(Pkt, presence); is_record(Pkt, chat_state); i
     To = xmpp:get_to(Pkt),
     From = xmpp:get_from(Pkt),
     ProtoPkt = packet_parser:xmpp_to_proto(Pkt),
-    util_pb:set_to_from(ProtoPkt#pb_packet.stanza, To#jid.luser, From#jid.luser);
+    pb:set_to_from(ProtoPkt#pb_packet.stanza, To#jid.luser, From#jid.luser);
 upgrade_packet(Packet) -> Packet.
 
 
@@ -557,7 +557,7 @@ verify_incoming_packet(State, Pkt) ->
 
 -spec verify_incoming_packet_to(State :: state(), Pkt :: stanza()) -> allow | deny.
 verify_incoming_packet_to(#{user := LUser, stream_state := StreamState} = State, Pkt) ->
-    ToUid = util_pb:get_to(Pkt),
+    ToUid = pb:get_to(Pkt),
     case StreamState of
         established ->
             case LUser =/= ToUid of

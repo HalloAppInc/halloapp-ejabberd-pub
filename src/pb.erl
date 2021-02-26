@@ -1,12 +1,12 @@
 %%%----------------------------------------------------------------------
-%%% File    : util_pb.erl
+%%% File    : pb.erl
 %%%
 %%% Copyright (C) 2020 halloappinc.
 %%%
 %%% This module handles all the utility functions related to pb packets
 %%%----------------------------------------------------------------------
 
--module(util_pb).
+-module(pb).
 -author('murali').
 -include("logger.hrl").
 -include("xmpp.hrl").

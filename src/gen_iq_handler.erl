@@ -85,7 +85,7 @@ handle(#iq{to = To} = IQ) ->
 %% TODO(murali@): cleanup and have a simpler module after the transition.
 handle(_, #pb_iq{type = T, payload = undefined} = Packet)
         when T == get; T == set ->
-    ErrIq = util_pb:make_error(Packet, util:err(invalid_iq)),
+    ErrIq = pb:make_error(Packet, util:err(invalid_iq)),
     ejabberd_router:route(ErrIq);
 handle(Component, #pb_iq{type = T, payload = _Payload} = Packet)
         when T == get; T == set ->
@@ -96,7 +96,7 @@ handle(Component, #pb_iq{type = T, payload = _Payload} = Packet)
             process_iq(Host, Module, Function, Packet);
         [] ->
             ?ERROR("Invalid iq: ~p", [Packet]),
-            ErrIq = util_pb:make_error(Packet, util:err(invalid_iq)),
+            ErrIq = pb:make_error(Packet, util:err(invalid_iq)),
             ejabberd_router:route(ErrIq)
     end;
 handle(_, #pb_iq{type = T}) when T == result; T == error ->

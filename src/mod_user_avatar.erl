@@ -86,9 +86,9 @@ process_local_iq(#pb_iq{from_uid = UserId, type = get,
     case check_and_get_avatar_id(UserId, FriendId) of
         undefined ->
             ?WARNING("Uid: ~s, Invalid friend_uid: ~s", [UserId, FriendId]),
-            util_pb:make_error(IQ, util:err(invalid_friend_uid));
+            pb:make_error(IQ, util:err(invalid_friend_uid));
         AvatarId ->
-            util_pb:make_iq_result(IQ, #pb_avatar{uid = FriendId, id = AvatarId})
+            pb:make_iq_result(IQ, #pb_avatar{uid = FriendId, id = AvatarId})
     end;
 
 %%% get_avatars %%%
@@ -98,7 +98,7 @@ process_local_iq(#pb_iq{from_uid = UserId, type = get,
         fun(#pb_avatar{uid = FriendId} = Avatar) ->
             Avatar#pb_avatar{id = check_and_get_avatar_id(UserId, FriendId)}
         end, Avatars),
-    util_pb:make_iq_result(IQ, #pb_avatars{avatars = NewAvatars}).
+    pb:make_iq_result(IQ, #pb_avatars{avatars = NewAvatars}).
 
 
 % Remove user hook is run before the user data is actually deleted.
@@ -136,7 +136,7 @@ check_and_upload_avatar(Base64Data) ->
 process_delete_user_avatar(IQ, Uid) ->
     ?INFO("Uid: ~s deleting avatar", [Uid]),
     delete_user_avatar_internal(Uid, util:get_host()),
-    util_pb:make_iq_result(IQ, #pb_avatar{id = <<>>}).
+    pb:make_iq_result(IQ, #pb_avatar{id = <<>>}).
 
 
 %% TODO(murali@): update functions here to work on binary data after updating group_avatars.
@@ -145,11 +145,11 @@ process_set_user_avatar(IQ, Uid, Base64Data) ->
     ?INFO("Uid: ~s uploading avatar base64_size: ~p", [Uid, byte_size(Base64Data)]),
     case check_and_upload_avatar(Base64Data) of
         {error, Reason} ->
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         {ok, AvatarId} ->
             ?INFO("Uid: ~s AvatarId: ~s", [Uid, AvatarId]),
             update_user_avatar(Uid, util:get_host(), AvatarId),
-            util_pb:make_iq_result(IQ, #pb_avatar{id = AvatarId})
+            pb:make_iq_result(IQ, #pb_avatar{id = AvatarId})
     end.
 
 

@@ -90,10 +90,10 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
     case SyncId of
         undefined ->
             ?WARNING("undefined sync_id, iq: ~p", [IQ]),
-            ResultIQ = util_pb:make_error(IQ, util:err(undefined_syncid));
+            ResultIQ = pb:make_error(IQ, util:err(undefined_syncid));
         _ ->
             count_full_sync(Index),
-            ResultIQ = util_pb:make_iq_result(IQ, #pb_contact_list{sync_id = SyncId, type = normal,
+            ResultIQ = pb:make_iq_result(IQ, #pb_contact_list{sync_id = SyncId, type = normal,
                     contacts = normalize_and_insert_contacts(UserId, Server, Contacts, SyncId)})
     end,
     case Last of
@@ -113,7 +113,7 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
         payload = #pb_contact_list{type = delta, contacts = Contacts,
             batch_index = _Index, is_last = _Last}} = IQ) ->
     Server = util:get_host(),
-    util_pb:make_iq_result(IQ, #pb_contact_list{type = normal,
+    pb:make_iq_result(IQ, #pb_contact_list{type = normal,
                     contacts = handle_delta_contacts(UserId, Server, Contacts)}).
 
 

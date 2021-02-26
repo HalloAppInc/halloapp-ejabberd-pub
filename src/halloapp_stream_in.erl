@@ -710,9 +710,9 @@ check_password_fun(Mech, State) ->
                           {error, stream_error()}.
 %% TODO(murali@): cleanup these functions.
 set_from_to(Pkt, #{user := U} = _State) when not ?is_stanza(Pkt) ->
-    case util_pb:is_pb_packet(Pkt) of
+    case pb:is_pb_packet(Pkt) of
         true ->
-            {ok, util_pb:set_from(Pkt, U)};
+            {ok, pb:set_from(Pkt, U)};
         false ->
             {ok, Pkt}
     end;
@@ -899,7 +899,7 @@ format(Fmt, Args) ->
 xmpp_to_proto(Pkt) when is_record(Pkt, pb_auth_result) ->
     Pkt;
 xmpp_to_proto(Pkt) ->
-    PbPacket = case util_pb:is_pb_packet(Pkt) of
+    PbPacket = case pb:is_pb_packet(Pkt) of
         true -> #pb_packet{stanza = Pkt};
         false ->
             try

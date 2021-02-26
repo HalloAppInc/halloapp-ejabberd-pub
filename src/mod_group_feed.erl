@@ -60,9 +60,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     Payload = util_parser:maybe_base64_encode_binary(Post#pb_post.payload),
     case publish_post(Gid, Uid, PostId, Payload, GroupFeedSt) of
         {error, Reason} ->
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
-            util_pb:make_iq_result(IQ, NewGroupFeedSt)
+            pb:make_iq_result(IQ, NewGroupFeedSt)
     end;
 
 %% Publish comment.
@@ -75,9 +75,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     Payload = util_parser:maybe_base64_encode_binary(Comment#pb_comment.payload),
     case publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, Payload, GroupFeedSt) of
         {error, Reason} ->
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
-            util_pb:make_iq_result(IQ, NewGroupFeedSt)
+            pb:make_iq_result(IQ, NewGroupFeedSt)
     end;
 
 %% Retract post.
@@ -87,9 +87,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     PostId = Post#pb_post.id,
     case retract_post(Gid, Uid, PostId, GroupFeedSt) of
         {error, Reason} ->
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
-            util_pb:make_iq_result(IQ, NewGroupFeedSt)
+            pb:make_iq_result(IQ, NewGroupFeedSt)
     end;
 
 %% Retract comment.
@@ -100,9 +100,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     PostId = Comment#pb_comment.post_id,
     case retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) of
         {error, Reason} ->
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
-            util_pb:make_iq_result(IQ, NewGroupFeedSt)
+            pb:make_iq_result(IQ, NewGroupFeedSt)
     end.
 
 

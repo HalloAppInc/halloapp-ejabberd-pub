@@ -69,7 +69,7 @@ process_local_iq(#pb_iq{type = get, from_uid = Uid,
             ?INFO("client_version version: ~p, expired ~p seconds ago",
                 [Version, abs(TimeLeftSec)])
     end,
-    util_pb:make_iq_result(IQ, #pb_client_version{version = Version, expires_in_seconds = TimeLeftSec}).
+    pb:make_iq_result(IQ, #pb_client_version{version = Version, expires_in_seconds = TimeLeftSec}).
 
 
 c2s_session_opened(#{user := Uid, client_version := ClientVersion} = State) ->

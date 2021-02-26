@@ -63,9 +63,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     case publish_post(Uid, PostId, Payload, AudienceList) of
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_post_stanza(Action, PostId, Uid, <<>>, ResultTsMs),
-            util_pb:make_iq_result(IQ, SubEl);
+            pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            util_pb:make_error(IQ, util:err(Reason))
+            pb:make_error(IQ, util:err(Reason))
     end;
 
 %% Publish comment.
@@ -79,9 +79,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_comment_stanza(Action, CommentId, PostId,
                     ParentCommentId, Uid, <<>>, ResultTsMs),
-            util_pb:make_iq_result(IQ, SubEl);
+            pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            util_pb:make_error(IQ, util:err(Reason))
+            pb:make_error(IQ, util:err(Reason))
     end;
 
 % Retract post.
@@ -91,9 +91,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     case retract_post(Uid, PostId) of
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_post_stanza(Action, PostId, Uid, <<>>, ResultTsMs),
-            util_pb:make_iq_result(IQ, SubEl);
+            pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            util_pb:make_error(IQ, util:err(Reason))
+            pb:make_error(IQ, util:err(Reason))
     end;
 
 % Retract comment.
@@ -106,9 +106,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_comment_stanza(Action, CommentId, PostId,
                     ParentCommentId, Uid, <<>>, ResultTsMs),
-            util_pb:make_iq_result(IQ, SubEl);
+            pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
-            util_pb:make_error(IQ, util:err(Reason))
+            pb:make_error(IQ, util:err(Reason))
     end;
 
 % Share posts with friends.
@@ -119,7 +119,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         fun(SharePostSt) ->
             process_share_posts(Uid, Server, SharePostSt)
         end, SharePostStanzas),
-    util_pb:make_iq_result(IQ, #pb_feed_item{action = Action, share_stanzas = ResultSharePostStanzas}).
+    pb:make_iq_result(IQ, #pb_feed_item{action = Action, share_stanzas = ResultSharePostStanzas}).
 
 
 -spec add_friend(Uid :: uid(), Server :: binary(), Ouid :: uid(), WasBlocked :: boolean()) -> ok.

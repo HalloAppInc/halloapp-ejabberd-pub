@@ -77,17 +77,17 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     ?INFO("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
     case update_privacy_type(Uid, Type, HashValue, UidEls) of
         ok ->
-            util_pb:make_iq_result(IQ);
+            pb:make_iq_result(IQ);
         {error, hash_mismatch, ServerHashValue} ->
             ?WARNING("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
-            util_pb:make_error(IQ, #pb_privacy_list_result{
+            pb:make_error(IQ, #pb_privacy_list_result{
                     result = <<"failed">>, reason = <<"hash_mismatch">>, hash = ServerHashValue});
         {error, invalid_type} ->
             ?WARNING("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
-            util_pb:make_error(IQ, util:err(invalid_type));
+            pb:make_error(IQ, util:err(invalid_type));
         {error, unexcepted_uids} ->
             ?WARNING("Uid: ~s, unexcepted_uids for type: ~p", [Uid, Type]),
-            util_pb:make_error(IQ, util:err(unexcepted_uids))
+            pb:make_error(IQ, util:err(unexcepted_uids))
     end;
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_privacy_lists{lists = PrivacyLists}} = IQ) ->
@@ -99,13 +99,13 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
     end,
     UserPrivacyLists = get_privacy_lists(Uid, Types),
     ActiveType = get_privacy_type(Uid),
-    util_pb:make_iq_result(IQ,
+    pb:make_iq_result(IQ,
             #pb_privacy_lists{
                 active_type = ActiveType,
                 lists = UserPrivacyLists
             });
 process_local_iq(#pb_iq{} = IQ) ->
-    util_pb:make_error(IQ, util:err(invalid_request)).
+    pb:make_error(IQ, util:err(invalid_request)).
 
 
 -spec privacy_check_packet(Acc :: allow | deny, State :: c2s_state(),
@@ -205,15 +205,15 @@ check_blocked(#chat_state{thread_id = ThreadId, thread_type = chat} = Packet, ou
     ToUid = ThreadId,
     check_blocked(FromUid, ToUid, Packet, Dir);
 check_blocked(Packet, Dir) ->
-    FromUid = util_pb:get_from(Packet),
-    ToUid = util_pb:get_to(Packet),
+    FromUid = pb:get_from(Packet),
+    ToUid = pb:get_to(Packet),
     check_blocked(FromUid, ToUid, Packet, Dir).
 
 
 -spec check_blocked(FromUid :: binary(), ToUid :: binary(),
         Packet :: stanza(), Dir :: in | out) -> allow | deny.
 check_blocked(FromUid, ToUid, Packet, Dir) ->
-    Id = util_pb:get_id(Packet),
+    Id = pb:get_id(Packet),
     PacketType = element(1, Packet),
     IsBlocked = case Dir of
         in -> model_privacy:is_blocked(ToUid, FromUid);

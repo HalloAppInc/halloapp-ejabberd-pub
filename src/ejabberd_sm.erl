@@ -187,14 +187,14 @@ close_session(SID, User, Server, Resource) ->
 
 -spec bounce_sm_packet({warn | term(), stanza()}) -> any().
 bounce_sm_packet({warn, Packet} = Acc) ->
-    FromJid = util_pb:get_from(Packet),
-    ToJid = util_pb:get_to(Packet),
+    FromJid = pb:get_from(Packet),
+    ToJid = pb:get_to(Packet),
     ?WARNING("FromUid: ~p, ToUid: ~p, packet: ~p",
             [FromJid#jid.luser, ToJid#jid.luser, Packet]),
     {stop, Acc};
 bounce_sm_packet({_, Packet} = Acc) ->
-    FromUid = util_pb:get_from(Packet),
-    ToUid = util_pb:get_to(Packet),
+    FromUid = pb:get_from(Packet),
+    ToUid = pb:get_to(Packet),
     ?INFO("FromUid: ~p, ToUid: ~p, packet: ~p", [FromUid, ToUid, Packet]),
     Acc.
 
@@ -605,7 +605,7 @@ do_route(#iq{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
     end;
 do_route(Packet) ->
     ?DEBUG("Processing packet to full JID:~n~ts", [xmpp:pp(Packet)]),
-    LUser = util_pb:get_to(Packet),
+    LUser = pb:get_to(Packet),
     LServer = util:get_host(),
     LResource = <<>>,
     case get_sessions(LUser, LServer, LResource) of

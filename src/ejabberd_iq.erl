@@ -62,7 +62,7 @@ do_route(IQ, Proc, Ctx, Timeout) ->
     Id = base64url:encode(crypto:strong_rand_bytes(10)),
     ets:insert(?MODULE, {Id, Expire, Proc, Ctx}),
     gen_server:cast(?MODULE, {restart_timer, Expire}),
-    ejabberd_router:route(util_pb:set_id(IQ, Id)).
+    ejabberd_router:route(pb:set_id(IQ, Id)).
 
 
 -spec dispatch(iq()) -> boolean().
@@ -93,7 +93,7 @@ handle_cast(Msg, State) ->
 
 handle_info({route, IQ}, State) ->
     % check to see if it is pb_iq or xmpp iq
-    Key = util_pb:get_id(IQ),
+    Key = pb:get_id(IQ),
     case ets:lookup(?MODULE, Key) of
         [{_, _, Proc, Ctx}] ->
             callback(Proc, IQ, Ctx),
@@ -120,7 +120,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 -spec check_ets_and_dispatch(IQ :: iq()) -> boolean().
 check_ets_and_dispatch(IQ) ->
-    Key = util_pb:get_id(IQ),
+    Key = pb:get_id(IQ),
     case ets:lookup(?MODULE, Key) of
         [{_, _, _, _}] ->
             ejabberd_cluster:send(?MODULE, {route, IQ});

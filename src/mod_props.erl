@@ -149,5 +149,5 @@ make_response(IQ, SortedProplist, Hash) ->
     Props = [#pb_prop{name = util:to_binary(Key), value = util:to_binary(Val)} ||
             {Key, Val} <- SortedProplist],
     Prop = #pb_props{hash = base64url:decode(Hash), props = Props},
-    util_pb:make_iq_result(IQ, Prop).
+    pb:make_iq_result(IQ, Prop).
 

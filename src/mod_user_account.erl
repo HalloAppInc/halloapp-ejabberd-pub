@@ -63,17 +63,17 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     ResponseIq = case model_accounts:get_phone(Uid) of
         {ok, NormPhoneBin} when NormPhoneBin =/= undefined ->
             ok = ejabberd_auth:remove_user(Uid, Server),
-            util_pb:make_iq_result(IQ, #pb_delete_account{});
+            pb:make_iq_result(IQ, #pb_delete_account{});
         _ ->
             ?INFO("Uid: ~s, Failed delete_account", [Uid]),
-            util_pb:make_error(IQ, util:err(invalid_phone))
+            pb:make_error(IQ, util:err(invalid_phone))
     end,
     ejabberd_router:route(ResponseIq),
     ok = ejabberd_sm:disconnect_removed_user(Uid, Server),
     ignore;
 
 process_local_iq(#pb_iq{} = IQ) ->
-    util_pb:make_error(IQ, util:err(invalid_request)).
+    pb:make_error(IQ, util:err(invalid_request)).
 
 
 %%====================================================================

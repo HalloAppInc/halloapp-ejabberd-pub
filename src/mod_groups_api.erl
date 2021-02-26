@@ -199,7 +199,7 @@ process_create_group(IQ, Uid, Name, ReqGroupSt) ->
         action = create,
         members = MembersSt
     },
-    util_pb:make_iq_result(IQ, GroupStResult).
+    pb:make_iq_result(IQ, GroupStResult).
 
 
 -spec process_delete_group(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
@@ -207,9 +207,9 @@ process_delete_group(IQ, Gid, Uid) ->
     ?INFO("delete_group Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:delete_group(Gid, Uid) of
         {error, not_admin} ->
-            util_pb:make_error(IQ, util:err(not_admin));
+            pb:make_error(IQ, util:err(not_admin));
         ok ->
-            util_pb:make_iq_result(IQ)
+            pb:make_iq_result(IQ)
     end.
 
 
@@ -221,7 +221,7 @@ process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
     ?INFO("modify_members Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
     case mod_groups:modify_members(Gid, Uid, Changes) of
         {error, not_admin} ->
-            util_pb:make_error(IQ, util:err(not_admin));
+            pb:make_error(IQ, util:err(not_admin));
         {ok, ModifyResults} ->
 
             ResultMemberSt = lists:map(
@@ -235,7 +235,7 @@ process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
                 action = modify_members,
                 members = ResultMemberSt
             },
-            util_pb:make_iq_result(IQ, GroupStResult)
+            pb:make_iq_result(IQ, GroupStResult)
     end.
 
 
@@ -248,7 +248,7 @@ process_modify_admins(IQ, Gid, Uid, ReqGroupSt) ->
 
     case mod_groups:modify_admins(Gid, Uid, Changes) of
         {error, not_admin} ->
-            util_pb:make_error(IQ, util:err(not_admin));
+            pb:make_error(IQ, util:err(not_admin));
         {ok, ModifyResults} ->
 
             ResultMemberSt = lists:map(
@@ -265,7 +265,7 @@ process_modify_admins(IQ, Gid, Uid, ReqGroupSt) ->
                 avatar_id = undefined,
                 sender_name = undefined
             },
-            util_pb:make_iq_result(IQ, GroupStResult)
+            pb:make_iq_result(IQ, GroupStResult)
     end.
 
 
@@ -274,10 +274,10 @@ process_get_group(IQ, Gid, Uid) ->
     ?INFO("get_group Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:get_group(Gid, Uid) of
         {error, not_member} ->
-            util_pb:make_error(IQ, util:err(not_member));
+            pb:make_error(IQ, util:err(not_member));
         {ok, Group} ->
             GroupSt = make_group_st(Group),
-            util_pb:make_iq_result(IQ, GroupSt)
+            pb:make_iq_result(IQ, GroupSt)
     end.
 
 
@@ -290,7 +290,7 @@ process_get_groups(IQ, Uid) ->
         action = get,
         group_stanzas = GroupsSt
     },
-    util_pb:make_iq_result(IQ, ResultSt).
+    pb:make_iq_result(IQ, ResultSt).
 
 
 -spec process_set_name(IQ :: iq(), Gid :: gid(), Uid :: uid(), Name :: name()) -> iq().
@@ -298,12 +298,12 @@ process_set_name(IQ, Gid, Uid, Name) ->
     ?INFO("set_name Gid: ~s Uid: ~s Name: |~p|", [Gid, Uid, Name]),
     case mod_groups:set_name(Gid, Uid, Name) of
         {error, invalid_name} ->
-            util_pb:make_error(IQ, util:err(invalid_name));
+            pb:make_error(IQ, util:err(invalid_name));
         {error, not_member} ->
-            util_pb:make_error(IQ, util:err(not_member));
+            pb:make_error(IQ, util:err(not_member));
         ok ->
             {ok, GroupInfo} = mod_groups:get_group_info(Gid, Uid),
-            util_pb:make_iq_result(IQ, group_info_to_group_st(GroupInfo))
+            pb:make_iq_result(IQ, group_info_to_group_st(GroupInfo))
     end.
 
 
@@ -311,9 +311,9 @@ process_delete_avatar(IQ, Gid, Uid) ->
     ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:delete_avatar(Gid, Uid) of
         {error, Reason} ->
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         {ok, _GroupName} ->
-            util_pb:make_iq_result(IQ)
+            pb:make_iq_result(IQ)
     end.
 
 
@@ -323,7 +323,7 @@ process_set_avatar(IQ, Gid, Uid, Data) ->
     case set_avatar(Gid, Uid, Base64Data) of
         {error, Reason} ->
             ?WARNING("Gid: ~s Uid ~s setting avatar failed ~p", [Gid, Uid, Reason]),
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         {ok, AvatarId, GroupName} ->
             ?INFO("Gid: ~s Uid: ~s Successfully set avatar ~s",
                 [Gid, Uid, AvatarId]),
@@ -332,7 +332,7 @@ process_set_avatar(IQ, Gid, Uid, Data) ->
                 name = GroupName,
                 avatar_id = AvatarId
             },
-            util_pb:make_iq_result(IQ, GroupSt)
+            pb:make_iq_result(IQ, GroupSt)
     end.
 
 
@@ -355,7 +355,7 @@ process_leave_group(IQ, Gid, Uid) ->
     ?INFO("leave_group Gid: ~s Uid: ~s ", [Gid, Uid]),
     case mod_groups:leave_group(Gid, Uid) of
         {ok, _Res} ->
-            util_pb:make_iq_result(IQ)
+            pb:make_iq_result(IQ)
     end.
 
 
@@ -365,7 +365,7 @@ process_get_invite_link(IQ, Gid, Uid) ->
     case mod_groups:get_invite_link(Gid, Uid) of
         {error, Reason} ->
             ?WARNING("Gid: ~s Uid ~s failed ~p", [Gid, Uid, Reason]),
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         {ok, Link} ->
             ?INFO("Gid: ~s Uid: ~s success Link: ~s",
                 [Gid, Uid, Link]),
@@ -375,7 +375,7 @@ process_get_invite_link(IQ, Gid, Uid) ->
                 link = make_invite_link(Link),
                 result = <<"ok">>
             },
-            util_pb:make_iq_result(IQ, PB)
+            pb:make_iq_result(IQ, PB)
     end.
 
 
@@ -385,7 +385,7 @@ process_reset_invite_link(IQ, Gid, Uid) ->
     case mod_groups:reset_invite_link(Gid, Uid) of
         {error, Reason} ->
             ?WARNING("Gid: ~s Uid ~s failed ~p", [Gid, Uid, Reason]),
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         {ok, Link} ->
             ?INFO("Gid: ~s Uid: ~s success Link: ~s",
                 [Gid, Uid, Link]),
@@ -396,7 +396,7 @@ process_reset_invite_link(IQ, Gid, Uid) ->
                 result = <<"ok">>,
                 reason = undefined
             },
-            util_pb:make_iq_result(IQ, PB)
+            pb:make_iq_result(IQ, PB)
     end.
 
 
@@ -408,7 +408,7 @@ process_join_with_invite_link(IQ, Uid, FullLink) ->
     case mod_groups:join_with_invite_link(Uid, Link) of
         {error, Reason} ->
             ?WARNING("Uid: ~s Link: ~s failed ~p", [Uid, Link, Reason]),
-            util_pb:make_error(IQ, util:err(Reason));
+            pb:make_error(IQ, util:err(Reason));
         {ok, Group} ->
             ?INFO("Uid: ~s success Link: ~s",
                 [Uid, Link]),
@@ -420,7 +420,7 @@ process_join_with_invite_link(IQ, Uid, FullLink) ->
                 reason = undefined,
                 group = make_group_st(Group)
             },
-            util_pb:make_iq_result(IQ, PB)
+            pb:make_iq_result(IQ, PB)
     end.
 
 

@@ -88,13 +88,13 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     if
         Token =:= <<>> ->
             ?WARNING("Uid: ~s, received push token is empty!", [Uid]),
-            util_pb:make_error(IQ, util:err(invalid_push_token));
+            pb:make_error(IQ, util:err(invalid_push_token));
         IsValidOs =:= false ->
             ?WARNING("Uid: ~s, invalid os attribute: ~s!", [Uid, Os]),
-            util_pb:make_error(IQ, util:err(invalid_os));
+            pb:make_error(IQ, util:err(invalid_os));
         true ->
             ok = register_push_info(Uid, Server, Os, Token, LangId),
-            util_pb:make_iq_result(IQ)
+            pb:make_iq_result(IQ)
     end;
 
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
@@ -104,19 +104,19 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     case PushPrefs of
         [] ->
             ?WARNING("Uid: ~s, push pref list is empty!", [Uid]),
-            util_pb:make_error(IQ, util:err(invalid_prefs));
+            pb:make_error(IQ, util:err(invalid_prefs));
         _ ->
             lists:foreach(
                 fun(PushPref) ->
                     update_push_pref(Uid, PushPref)
                 end,
             PushPrefs),
-            util_pb:make_iq_result(IQ)
+            pb:make_iq_result(IQ)
     end;
 
 process_local_iq(#pb_iq{} = IQ) ->
     ?ERROR("Invalid iq: ~p", [IQ]),
-    util_pb:make_error(IQ, util:err(invalid_iq)).
+    pb:make_error(IQ, util:err(invalid_iq)).
 
 
 -spec update_push_pref(Uid :: binary(), push_pref()) -> ok.

@@ -175,10 +175,10 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %%====================================================================
 -spec iq_ping(pb_iq()) -> pb_iq().
 iq_ping(#pb_iq{type = get, payload = #pb_ping{}} = IQ) ->
-    util_pb:make_iq_result(IQ);
+    pb:make_iq_result(IQ);
 iq_ping(#pb_iq{} = IQ) ->
     ?ERROR("Invalid iq: ~p", [IQ]),
-    util_pb:make_error(IQ, util:err(invalid_iq)).
+    pb:make_error(IQ, util:err(invalid_iq)).
 
 -spec user_online(ejabberd_sm:sid(), jid(), ejabberd_sm:info()) -> ok.
 user_online(_SID, JID, _Info) ->
