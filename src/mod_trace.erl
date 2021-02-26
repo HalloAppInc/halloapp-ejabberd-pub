@@ -264,7 +264,8 @@ is_uid_traced(Uid) ->
     try
         case ets:lookup(trace_uids, Uid) of
             [{Uid}] -> true;
-            _ -> false
+            _ ->
+                dev_users:is_dev_uid(Uid)
         end
     catch
         % This could happen if the table does not exist.
