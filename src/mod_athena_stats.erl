@@ -16,7 +16,7 @@
 -include("time.hrl").
 
 %% TODO: rename db?
--define(iOS, <<"ios">>).
+-define(IOS, <<"ios">>).
 -define(ANDROID, <<"android">>).
 -define(ATHENA_DB, <<"default">>).
 -define(ATHENA_RESULT_S3_BUCKET, <<"s3://ha-athena-results">>).
@@ -127,7 +127,7 @@ query_encryption_stats(State) ->
         {ok, ExecId1} = erlcloud_athena:start_query_execution(Token1, ?ATHENA_DB, Query1, ?ATHENA_RESULT_S3_BUCKET),
 
         %% iOS success rates
-        Query2 = get_success_rates_query(?iOS, QueryDate),
+        Query2 = get_success_rates_query(?IOS, QueryDate),
         Token2 = util:new_uuid(),
         {ok, ExecId2} = erlcloud_athena:start_query_execution(Token2, ?ATHENA_DB, Query2, ?ATHENA_RESULT_S3_BUCKET),
 
@@ -137,7 +137,7 @@ query_encryption_stats(State) ->
         {ok, ExecId3} = erlcloud_athena:start_query_execution(Token3, ?ATHENA_DB, Query3, ?ATHENA_RESULT_S3_BUCKET),
 
         %% Android decryption reason rates
-        Query4 = get_decryption_reason_rates_query(?iOS, QueryDate),
+        Query4 = get_decryption_reason_rates_query(?IOS, QueryDate),
         Token4 = util:new_uuid(),
         {ok, ExecId4} = erlcloud_athena:start_query_execution(Token4, ?ATHENA_DB, Query4, ?ATHENA_RESULT_S3_BUCKET),
 
@@ -178,7 +178,9 @@ query_execution_results(Queries, ExecIds, State) ->
     end.
 
 
-
+%% Query gets the encryption and decryption success rates ordered by version and total number
+%% of messages for both encryption and decryption.
+%% This query will run on a specific platform and on data from Date till current.
 -spec get_success_rates_query(Platform :: binary(), Date :: binary()) -> binary().
 get_success_rates_query(Platform, Date) ->
     Query = <<"
@@ -215,6 +217,9 @@ get_success_rates_query(Platform, Date) ->
     Query.
 
 
+%% Query gets the decryption error rates ordered by version and the error reason.
+%% Also has the number of messages for each of the error reasons.
+%% This query will run on a specific platform and on data from Date till current.
 -spec get_decryption_reason_rates_query(Platform :: binary(), Date :: binary()) -> binary().
 get_decryption_reason_rates_query(Platform, Date) ->
     Query = <<"
