@@ -37,6 +37,7 @@
     ms_to_sec/1,
     send_after/2,
     uids_to_jids/2,
+    new_uuid/0,
     uuid_binary/0,
     timestamp_to_datetime/1,
     decode_base_64/1,
@@ -258,6 +259,11 @@ send_after(TimeoutMs, Msg) ->
 -spec uids_to_jids(Uids :: list(binary()), Server :: binary()) -> list(jid()).
 uids_to_jids(Uids, Server) ->
     lists:map(fun(Uid) -> jid:make(Uid, Server) end, Uids).
+
+
+-spec new_uuid() -> binary().
+new_uuid() ->
+    uuid_binary().
 
 
 -spec uuid_binary() -> binary().

@@ -221,6 +221,7 @@ modules:
   mod_receipts: {}
   mod_presence_subscription: {}
   mod_client_log: {}
+  mod_athena_stats: {}
   mod_client_version: {}
   mod_prom_exporter: {}
   mod_push_tokens: {}
