@@ -200,8 +200,8 @@ is_payload_always_allowed(_) -> false.
 
 
 -spec check_blocked(Packet :: stanza(), Dir :: in | out) -> allow | deny.
-check_blocked(#chat_state{thread_id = ThreadId, thread_type = chat} = Packet, out = Dir) ->
-    #jid{luser = FromUid} = xmpp:get_from(Packet),
+check_blocked(#pb_chat_state{thread_id = ThreadId, thread_type = chat} = Packet, out = Dir) ->
+    FromUid = pb:get_from(Packet),
     ToUid = ThreadId,
     check_blocked(FromUid, ToUid, Packet, Dir);
 check_blocked(Packet, Dir) ->
