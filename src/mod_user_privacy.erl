@@ -112,9 +112,9 @@ process_local_iq(#pb_iq{} = IQ) ->
         Packet :: stanza(), Dir :: in | out) -> allow | deny | {stop, deny}.
 %% When routing, handle privacy_checks from the receiver's perspective for messages.
 %% This hook runs just before storing these message stanzas.
-privacy_check_packet(allow, _State, #message{} = Packet, in = Dir) ->
-    #jid{luser = FromUid} = xmpp:get_from(Packet),
-    PayloadType = util:get_payload_type(Packet),
+privacy_check_packet(allow, _State, #pb_msg{} = Packet, in = Dir) ->
+    FromUid = pb:get_from(Packet),
+    PayloadType = pb:get_payload_type(Packet),
     case FromUid =:= undefined orelse FromUid =:= <<>> of
         true -> allow;  %% Allow server generated messages.
         false ->

@@ -88,6 +88,8 @@ route_pb(Packet) ->
             gen_iq_handler:handle(?MODULE, Packet);
         Type =:= result orelse Type =:= error ->
             ok;
+        is_record(Packet, pb_msg), Type =:= groupchat ->
+            ejabberd_hooks:run(group_message, Server, [Packet]);
         true ->
             ejabberd_hooks:run(local_send_to_resource_hook, Server, [Packet])
     end.

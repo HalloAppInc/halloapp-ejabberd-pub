@@ -124,15 +124,14 @@ route(To, Term) ->
 route(Packet) ->
     do_route(Packet).
 
--spec check_privacy_and_dest_uid(Packet :: message()) -> allow | {deny, atom()}.
-check_privacy_and_dest_uid(#message{to = To, type = _Type} = Packet) ->
-    ToUid = To#jid.luser,
-    LServer = To#jid.lserver,
-    DecodedPacket = xmpp:decode_els(Packet),
+-spec check_privacy_and_dest_uid(Packet :: pb_msg()) -> allow | {deny, atom()}.
+check_privacy_and_dest_uid(#pb_msg{to_uid = ToUid, type = _Type} = Packet) ->
+    LServer = util:get_host(),
     case ejabberd_auth:user_exists(ToUid) of
         true ->
+            %% remove state from privacy_check_packet hook.
             case ejabberd_hooks:run_fold(privacy_check_packet, LServer, allow,
-                    [To, DecodedPacket, in]) of
+                    [undefined, Packet, in]) of
                 allow -> allow;
                 deny -> {deny, privacy_violation};
                 {stop, deny} -> {deny, privacy_violation}
@@ -142,12 +141,13 @@ check_privacy_and_dest_uid(#message{to = To, type = _Type} = Packet) ->
     end.
 
 % Store the message in the offline store.
--spec store_offline_message(message()) -> message().
-store_offline_message(#message{to = To} = Packet) ->
-    LServer = To#jid.lserver,
+-spec store_offline_message(pb_msg()) -> pb_msg().
+store_offline_message(#pb_msg{} = Packet) ->
+    LServer = util:get_host(),
     ejabberd_hooks:run_fold(store_message_hook, LServer, Packet, []).
 
-push_message(#message{to = To} = Packet) ->
+
+push_message(#message{} = Packet) ->
     %% Upgrade to pb packet here
     %% so that modules that depend on this hook can now deal with only one stanza.
     PbPacket = halloapp_c2s:upgrade_packet(Packet),
@@ -589,6 +589,8 @@ do_route(To, Term) ->
 
 -spec do_route(stanza()) -> any().
 do_route(#message{} = Packet) ->
+    do_route(halloapp_c2s:upgrade_packet(Packet));
+do_route(#pb_msg{} = Packet) ->
     route_message(Packet);
 do_route(#pb_iq{to_uid = <<"">>, type = T} = Packet) ->
     Server = util:get_host(),
@@ -607,10 +609,6 @@ do_route(Packet) ->
     case get_sessions(LUser, LServer, LResource) of
         [] ->
             case Packet of
-            #message{} ->
-                %% TODO(murali@): clean this do_route function properly
-                ?WARNING("should-not-happen"),
-                route_message(Packet);
             #presence{} ->
                 ejabberd_hooks:run_fold(bounce_sm_packet,
                             LServer, {pass, Packet}, []);
@@ -636,39 +634,36 @@ do_route(Packet) ->
 
 
 -spec route_message(message()) -> any().
-route_message(#message{} = Packet) ->
-    To = xmpp:get_to(Packet),
-    LUser = To#jid.luser,
-    LServer = To#jid.lserver,
-    LResource = To#jid.lresource,
+route_message(#pb_msg{} = Packet) ->
+    MsgId = pb:get_id(Packet),
+    LUser = pb:get_to(Packet),
+    LServer = util:get_host(),
     %% Ignore presence information and just rely on the connection state.
-
-    DecodedPacket = xmpp:decode_els(Packet),
-    case check_privacy_and_dest_uid(DecodedPacket) of
+    case check_privacy_and_dest_uid(Packet) of
         allow ->
             %% Store the message regardless of user having sessions or not.
-            store_offline_message(DecodedPacket),
+            store_offline_message(Packet),
             %% Irrespective of whether the session is passive or active:
             %% send the message to the user's c2s process if it exists.
-            case get_sessions(LUser, LServer, LResource) of
+            case get_sessions(LUser, LServer, <<>>) of
                 [] ->
                     %% If no online sessions, just send push via apple/google
-                    push_message(DecodedPacket);
+                    push_message(Packet);
                 Ss ->
                     %% pick the latest session
                     Session = lists:max(Ss),
                     Pid = element(2, Session#session.sid),
-                    ?INFO("route To: ~s -> pid ~p MsgId: ~s", [LUser, Pid, Packet#message.id]),
+                    ?INFO("route To: ~s -> pid ~p MsgId: ~s", [LUser, Pid, MsgId]),
                     % NOTE: message will be lost if the dest PID dies while routing
-                    ejabberd_c2s:route(Pid, {route, DecodedPacket})
+                    ejabberd_c2s:route(Pid, {route, Packet})
             end;
         {deny, privacy_violation} ->
             %% Ignore the packet and stop routing it now.
             ok;
         {deny, invalid_to_uid} ->
-            ?ERROR("Invalid To uid: ~s packet received: ~p", [LUser, DecodedPacket]),
-            Err = util:xmpp_err(invalid_to_uid),
-            ErrorPacket = xmpp:make_error(DecodedPacket, Err),
+            ?ERROR("Invalid To uid: ~s packet received: ~p", [LUser, Packet]),
+            Err = util:err(invalid_to_uid),
+            ErrorPacket = pb:make_error(Packet, Err),
             ejabberd_router:route(ErrorPacket)
     end.
 
