@@ -99,12 +99,19 @@ presence_unsubscribe_all(Uid) ->
 
 -spec presence_subs_hook(User :: binary(), Server :: binary(),
         Presence :: presence()) -> {ok, any()} | {error, any()}.
-presence_subs_hook(User, Server, #pb_presence{to_uid = ToUid, type = Type}) ->
+presence_subs_hook(User, Server, #pb_presence{uid = Uid, to_uid = ToUid, type = Type}) ->
+    FinalToUid = case {Uid, ToUid} of
+        {_, <<>>} ->
+            ?INFO("pb_presence_uid field is still being used"),
+            Uid;
+        _ ->
+            ToUid
+    end,
     case Type of
         subscribe ->
-            check_and_subscribe_user_to_friend(User, Server, ToUid);
+            check_and_subscribe_user_to_friend(User, Server, FinalToUid);
         unsubscribe ->
-            unsubscribe_user_to_friend(User, Server, ToUid)
+            unsubscribe_user_to_friend(User, Server, FinalToUid)
     end.
 
 
