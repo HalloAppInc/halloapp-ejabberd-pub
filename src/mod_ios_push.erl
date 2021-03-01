@@ -18,6 +18,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("server.hrl").
 -include ("push_message.hrl").
 -include("feed.hrl").
@@ -330,9 +331,9 @@ handle_apns_response(StatusCode, ApnsId, State) ->
         State :: push_state()) -> push_state().
 push_message(Message, PushInfo, State) ->
     Timestamp = util:now(),
-    #jid{luser = Uid} = xmpp:get_to(Message),
+    Uid = pb:get_to(Message),
     PushMessageItem = #push_message_item{
-            id = xmpp:get_id(Message),
+            id = pb:get_id(Message),
             uid = Uid,
             message = Message,
             timestamp = Timestamp,
@@ -391,31 +392,19 @@ get_pid_to_send(dev, State) ->
 
 %% TODO(murali@): Need to clean all this parsing stuff logic after the switch to new feed api.
 -spec parse_payload(Message :: message()) -> binary().
-parse_payload(#message{sub_els = [#chat{sub_els = SubEls}]}) ->
-    lists:foldl(
-        fun(SubEl, Acc) ->
-            case SubEl#xmlel.name of
-                <<"s1">> -> fxml:get_tag_cdata(SubEl);
-                _ -> Acc
-            end
-        end, <<>>, SubEls);
-parse_payload(#message{sub_els = [#group_chat{sub_els = SubEls}]}) ->
-    lists:foldl(
-        fun(SubEl, Acc) ->
-            case SubEl#xmlel.name of
-                <<"s1">> -> fxml:get_tag_cdata(SubEl);
-                _ -> Acc
-            end
-        end, <<>>, SubEls);
-parse_payload(#message{sub_els = [#feed_st{posts = [#post_st{payload = Payload}]}]}) ->
+parse_payload(#pb_msg{payload = #pb_chat_stanza{payload = Payload}}) ->
     Payload;
-parse_payload(#message{sub_els = [#feed_st{comments = [#comment_st{payload = Payload}]}]}) ->
+parse_payload(#pb_msg{payload = #pb_group_chat{payload = Payload}}) ->
     Payload;
-parse_payload(#message{sub_els = [#group_feed_st{posts = [#group_post_st{payload = Payload}]}]}) ->
+parse_payload(#pb_msg{payload = #pb_feed_item{item = #pb_post{payload = Payload}}}) ->
     Payload;
-parse_payload(#message{sub_els = [#group_feed_st{comments = [#group_comment_st{payload = Payload}]}]}) ->
+parse_payload(#pb_msg{payload = #pb_feed_item{item = #pb_comment{payload = Payload}}}) ->
     Payload;
-parse_payload(#message{}) ->
+parse_payload(#pb_msg{payload = #pb_group_feed_item{item = #pb_post{payload = Payload}}}) ->
+    Payload;
+parse_payload(#pb_msg{payload = #pb_group_feed_item{item = #pb_comment{payload = Payload}}}) ->
+    Payload;
+parse_payload(#pb_msg{}) ->
     <<>>.
 
 

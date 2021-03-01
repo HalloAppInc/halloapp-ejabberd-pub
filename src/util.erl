@@ -10,7 +10,7 @@
 -author('murali').
 -include("logger.hrl").
 -include("xmpp.hrl").
--include("server.hrl").
+-include("packets.hrl").
 -include("ha_types.hrl").
 
 -export([
@@ -379,10 +379,14 @@ get_timestamp(#message{}) ->
 -spec convert_xmpp_to_pb_base64(Packet :: stanza()) -> binary().
 convert_xmpp_to_pb_base64(Packet) ->
     try
-        case packet_parser:xmpp_to_proto(Packet) of
-            #pb_packet{} = PbPacket ->
-                base64:encode(enif_protobuf:encode(PbPacket));
-            _ -> <<>>
+        case pb:is_pb_packet(Packet) of
+            true -> base64:encode(enif_protobuf:encode(#pb_packet{stanza = Packet}));
+            false ->
+                case packet_parser:xmpp_to_proto(Packet) of
+                    #pb_packet{} = PbPacket ->
+                        base64:encode(enif_protobuf:encode(PbPacket));
+                    _ -> <<>>
+                end
         end
     catch
         error: Reason ->

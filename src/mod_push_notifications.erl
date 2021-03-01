@@ -11,6 +11,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("account.hrl").
 -include ("push_message.hrl").
 
@@ -57,8 +58,8 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
--spec push_message_hook(message()) -> message().
-push_message_hook(#message{} = Message) ->
+-spec push_message_hook(pb_msg()) -> pb_msg().
+push_message_hook(#pb_msg{} = Message) ->
     ?DEBUG("~p", [Message]),
     case should_push(Message) of
         true -> push_message(Message);
@@ -69,40 +70,40 @@ push_message_hook(#message{} = Message) ->
 
 
 %% Determine whether message should be pushed or not.. based on the content.
--spec should_push(Message :: message()) -> boolean().
-should_push(#message{rerequest_count = RerequestCount} = _Message)
+-spec should_push(Message :: pb_msg()) -> boolean().
+should_push(#pb_msg{rerequest_count = RerequestCount} = _Message)
         when RerequestCount > 0 ->
     false;
-should_push(#message{type = Type, sub_els = [SubEl | _]} = Message) ->
+should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
     PayloadType = util:get_payload_type(Message),
     if
-        Type =:= groupchat andalso PayloadType =:= group_chat ->
+        Type =:= groupchat andalso PayloadType =:= pb_group_chat ->
             %% Push all group chat messages: all messages with type=groupchat and group_chat as the subelement.
             true;
 
-        PayloadType =:= chat ->
+        PayloadType =:= pb_chat_stanza ->
             %% Push chat messages: all messages with chat as the subelement.
             true;
 
-        PayloadType =:= feed_st andalso SubEl#feed_st.action =:= publish ->
+        PayloadType =:= pb_feed_item andalso Payload#pb_feed_item.action =:= publish ->
             %% Send pushes for feed messages: both posts and comments.
             true;
 
-        PayloadType =:= contact_list ->
+        PayloadType =:= pb_contact_list orelse PayloadType =:= pb_contact_hash ->
             %% Push contact related notifications: could be contact_hash or new relationship notifications.
             true;
 
-        PayloadType =:= group_feed_st andalso SubEl#group_feed_st.action =:= publish ->
+        PayloadType =:= pb_group_feed_item andalso Payload#pb_group_feed_item.action =:= publish ->
             %% Push all group feed messages with action = publish.
             true;
 
-        Type =:= groupchat andalso PayloadType =:= group_st ->
+        Type =:= groupchat andalso PayloadType =:= pb_group_stanza ->
             %% Push when someone is added to a group
-            ToUid = Message#message.to#jid.user,
+            ToUid = Message#pb_msg.to_uid,
             WasAdded = lists:any(
                 fun (MemberSt) ->
-                    MemberSt#member_st.uid =:= ToUid andalso MemberSt#member_st.action =:= add
-                end, SubEl#group_st.members),
+                    MemberSt#pb_group_member.uid =:= ToUid andalso MemberSt#pb_group_member.action =:= add
+                end, Payload#pb_group_stanza.members),
             % TODO: remove this log, here just to make sure it works initially
             ?INFO("group_st push ~p Message; ~p", [WasAdded, Message]),
             WasAdded;
@@ -113,8 +114,9 @@ should_push(#message{type = Type, sub_els = [SubEl | _]} = Message) ->
     end.
 
 
--spec push_message(Message :: message()) -> ok.
-push_message(#message{id = MsgId, to = #jid{luser = User, lserver = Server}} = Message) ->
+-spec push_message(Message :: pb_msg()) -> ok.
+push_message(#pb_msg{id = MsgId, to_uid = User} = Message) ->
+    Server = util:get_host(),
     PushInfo = mod_push_tokens:get_push_info(User, Server),
     case PushInfo#push_info.token of
         undefined ->
@@ -133,7 +135,7 @@ push_message(#message{id = MsgId, to = #jid{luser = User, lserver = Server}} = M
     end.
 
 
--spec push_message(Message :: message(), PushInfo :: push_info()) -> ok.
+-spec push_message(Message :: pb_msg(), PushInfo :: push_info()) -> ok.
 push_message(Message, #push_info{os = <<"android">>} = PushInfo) ->
     mod_android_push:push(Message, PushInfo);
 

@@ -57,7 +57,8 @@
     format_reason/2,
     host_up/1,
     host_down/1,
-    bounce_message_queue/2
+    bounce_message_queue/2,
+    upgrade_packet/1
 ]).
 
 -include("xmpp.hrl").
@@ -201,24 +202,15 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %%% Hooks
 %%%===================================================================
 
-% upgrade_packet(#message{type = chat, sub_els = [SubEl]} = Message) ->
-%     case SubEl of
-%         #chat{} -> Message;
-%         #rerequest_st{} -> Message;
-%         #silent_chat{chat = ChatSubEl} ->
-%             Message#message{sub_els = [#silent_chat{chat = fix_chat_subel(ChatSubEl)}]};
-%         #xmlel{} ->
-%             upgrade_packet(xmpp:decode_els(Message));
-%         ChatSubEl ->
-%             NewChatSubEl = fix_chat_subel(ChatSubEl),
-%             Message#message{sub_els = [NewChatSubEl]}
-%     end;
-upgrade_packet(Pkt) when is_record(Pkt, presence); is_record(Pkt, chat_state); is_record(Pkt, ack) ->
-    To = xmpp:get_to(Pkt),
-    From = xmpp:get_from(Pkt),
-    ProtoPkt = packet_parser:xmpp_to_proto(Pkt),
-    pb:set_to_from(ProtoPkt#pb_packet.stanza, To#jid.luser, From#jid.luser);
-upgrade_packet(Packet) -> Packet.
+upgrade_packet(Pkt) ->
+    case pb:is_pb_packet(Pkt) of
+        true -> Pkt;
+        false ->
+            ToUid = pb:get_to(Pkt),
+            FromUid = pb:get_from(Pkt),
+            ProtoPkt = packet_parser:xmpp_to_proto(Pkt),
+            pb:set_to_from(ProtoPkt#pb_packet.stanza, ToUid, FromUid)
+    end.
 
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
@@ -585,6 +577,7 @@ privacy_check_packet_in(State, Pkt) ->
         #pb_presence{} -> privacy_check_packet(State, Pkt, in);
         #pb_chat_state{} -> privacy_check_packet(State, Pkt, in);
         #message{} -> allow;
+        #pb_msg{} -> allow;
         #pb_iq{} -> allow;
         #pb_ack{} -> allow
     end.

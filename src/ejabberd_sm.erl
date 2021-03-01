@@ -148,8 +148,13 @@ store_offline_message(#message{to = To} = Packet) ->
     ejabberd_hooks:run_fold(store_message_hook, LServer, Packet, []).
 
 push_message(#message{to = To} = Packet) ->
-    LServer = To#jid.lserver,
-    ejabberd_hooks:run_fold(push_message_hook, LServer, Packet, []).
+    %% Upgrade to pb packet here
+    %% so that modules that depend on this hook can now deal with only one stanza.
+    PbPacket = halloapp_c2s:upgrade_packet(Packet),
+    push_message(PbPacket);
+push_message(#pb_msg{} = Packet) ->
+    Server = util:get_host(),
+    ejabberd_hooks:run_fold(push_message_hook, Server, Packet, []).
 
 
 -spec open_session(sid(), binary(), binary(), binary(), prio(), info()) -> ok.

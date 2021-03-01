@@ -120,8 +120,8 @@ handle_cast(Request, State) ->
 
 
 handle_info({push_offline_message, Message}, #{host := _ServerHost} = State) ->
-    MsgId = xmpp:get_id(Message),
-    #jid{user = Uid} = xmpp:get_to(Message),
+    MsgId = pb:get_id(Message),
+    Uid = pb:get_to(Message),
     case model_messages:get_message(Uid, MsgId) of
         {ok, undefined} ->
             ?INFO("Uid: ~s, message has been acked, Id: ~s", [Uid, MsgId]);
@@ -212,22 +212,22 @@ store_message_hook(#message{id = MsgID, to = To} = Message) ->
 
 %% When we receive packets: we need to check the mode of the user's session.
 %% When the mode is passive: we should not route any message stanzas to the client (old or new).
-user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, retry_count = RetryCount} = Message,
         #{mode := passive} = State} = _Acc) ->
-    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
+    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [ToUid, MsgId, RetryCount]),
     ejabberd_sm:push_message(Message),
     {stop, {drop, State}};
 
 %% If OfflineQueue is cleared: send all messages.
 %% If not, send only offline messages: they have retry_count >=1.
-user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, retry_count = RetryCount} = Message,
         #{mode := active, offline_queue_cleared := false} = State} = _Acc) when RetryCount =:= 0 ->
-    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
+    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [ToUid, MsgId, RetryCount]),
     setup_push_timer(Message),
     {stop, {drop, State}};
-user_receive_packet({#message{id = MsgId, to = To, retry_count = RetryCount} = Message,
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, retry_count = RetryCount} = Message,
         #{mode := active, offline_queue_cleared := true} = _State} = Acc) when RetryCount =:= 0 ->
-    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [To#jid.luser, MsgId, RetryCount]),
+    ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [ToUid, MsgId, RetryCount]),
     setup_push_timer(Message),
     Acc;
 user_receive_packet(Acc) ->
