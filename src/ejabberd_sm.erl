@@ -609,12 +609,6 @@ do_route(Packet) ->
     case get_sessions(LUser, LServer, LResource) of
         [] ->
             case Packet of
-            #presence{} ->
-                ejabberd_hooks:run_fold(bounce_sm_packet,
-                            LServer, {pass, Packet}, []);
-            #chat_state{} ->
-                ejabberd_hooks:run_fold(bounce_sm_packet,
-                            LServer, {pass, Packet}, []);
             #pb_presence{} ->
                 ejabberd_hooks:run_fold(bounce_sm_packet,
                             LServer, {pass, Packet}, []);
