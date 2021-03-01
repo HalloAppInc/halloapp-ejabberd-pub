@@ -43,7 +43,7 @@ proto_to_xmpp(PbPacket) ->
         #pb_ack{} = AckRecord ->
             AckRecord;
         #pb_iq{} = IqRecord ->
-            iq_parser:proto_to_xmpp(IqRecord);
+            IqRecord;
         #pb_presence{} = PresenceRecord ->
             PresenceRecord;
         #pb_msg{} = MsgRecord ->

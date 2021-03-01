@@ -384,9 +384,6 @@ handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID,
                user_send_packet, LServer, {Pkt1, State1}, []),
     case Pkt2 of
         drop -> State2;
-        #iq{} ->
-            ejabberd_router:route(Pkt2),
-            State2;
         #pb_iq{} ->
             ejabberd_router:route(Pkt2),
             State2;
@@ -588,7 +585,6 @@ privacy_check_packet_in(State, Pkt) ->
         #pb_presence{} -> privacy_check_packet(State, Pkt, in);
         #pb_chat_state{} -> privacy_check_packet(State, Pkt, in);
         #message{} -> allow;
-        #iq{} -> allow;
         #pb_iq{} -> allow;
         #pb_ack{} -> allow
     end.

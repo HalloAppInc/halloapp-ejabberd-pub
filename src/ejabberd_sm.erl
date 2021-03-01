@@ -594,15 +594,6 @@ do_route(#pb_iq{to_uid = <<"">>, type = T} = Packet) ->
         true ->
             ejabberd_hooks:run_fold(bounce_sm_packet, Server, {pass, Packet}, [])
     end;
-do_route(#iq{to = #jid{lresource = <<"">>} = To, type = T} = Packet) ->
-    if
-        T == set; T == get ->
-            ?DEBUG("Processing IQ to bare JID:~n~ts", [xmpp:pp(Packet)]),
-            gen_iq_handler:handle(?MODULE, Packet);
-        true ->
-            ejabberd_hooks:run_fold(bounce_sm_packet,
-                    To#jid.lserver, {pass, Packet}, [])
-    end;
 do_route(Packet) ->
     ?DEBUG("Processing packet to full JID:~n~ts", [xmpp:pp(Packet)]),
     LUser = pb:get_to(Packet),

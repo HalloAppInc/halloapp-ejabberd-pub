@@ -50,8 +50,6 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec route(iq(), atom() | pid(), term(), non_neg_integer()) -> ok.
-route(#iq{type = T} = IQ, Proc, Ctx, Timeout) when T == set; T == get ->
-    do_route(IQ, Proc, Ctx, Timeout);
 route(#pb_iq{type = T} = IQ, Proc, Ctx, Timeout) when T == set; T == get ->
     do_route(IQ, Proc, Ctx, Timeout).
 
@@ -67,8 +65,6 @@ do_route(IQ, Proc, Ctx, Timeout) ->
 
 -spec dispatch(iq()) -> boolean().
 dispatch(#pb_iq{type = T} = IQ) when T == error; T == result ->
-    check_ets_and_dispatch(IQ);
-dispatch(#iq{type = T} = IQ) when T == error; T == result ->
     check_ets_and_dispatch(IQ);
 dispatch(_) ->
     false.
@@ -161,7 +157,7 @@ noreply(#state{expire = Expire} = State) ->
             {noreply, State, Timeout}
     end.
 
--spec callback(atom() | pid(), #iq{} | timeout, term()) -> any().
+-spec callback(atom() | pid(), pb_iq() | timeout, term()) -> any().
 callback(undefined, IQRes, Fun) ->
     try Fun(IQRes)
     catch ?EX_RULE(Class, Reason, St) ->

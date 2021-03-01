@@ -73,12 +73,6 @@ handle(#pb_iq{to_uid = ToUid} = IQ) ->
         <<"">> -> ejabberd_local;
         _ -> ejabberd_sm
     end,
-    handle(Component, IQ);
-handle(#iq{to = To} = IQ) ->
-    Component = case To#jid.luser of
-        <<"">> -> ejabberd_local;
-        _ -> ejabberd_sm
-    end,
     handle(Component, IQ).
 
 -spec handle(component(), iq()) -> ok.
@@ -100,40 +94,12 @@ handle(Component, #pb_iq{type = T, payload = _Payload} = Packet)
             ejabberd_router:route(ErrIq)
     end;
 handle(_, #pb_iq{type = T}) when T == result; T == error ->
-    ok;
-handle(Component, #iq{to = To, type = T, sub_els = [El]} = Packet)
-        when T == get; T == set ->
-    PayloadType = util:get_payload_type(Packet),
-    Key =  case util:to_binary(PayloadType) of
-        <<"pb_", _/binary>> -> PayloadType;
-        _ -> xmpp:get_ns(El)
-    end,
-    Host = To#jid.lserver,
-    case ets:lookup(Component, {Host, Key}) of
-        [{_, Module, Function}] ->
-            process_iq(Host, Module, Function, Packet);
-        [] ->
-            ?ERROR("Invalid iq: ~p", [Packet]),
-            ErrIq = xmpp:make_error(Packet, util:err(invalid_iq)),
-            ejabberd_router:route(ErrIq)
-    end;
-handle(_, #iq{type = T, lang = Lang, sub_els = SubEls} = Packet)
-        when T == get; T == set ->
-    Txt = case SubEls of
-        [] -> ?T("No child elements found");
-        _ -> ?T("Too many child elements")
-    end,
-    Err = xmpp:err_bad_request(Txt, Lang),
-    ejabberd_router:route_error(Packet, Err);
-handle(_, #iq{type = T}) when T == result; T == error ->
     ok.
 
 
 -spec process_iq(binary(), atom(), atom(), pb_iq()) -> ok.
 process_iq(_Host, Module, Function, IQ) ->
     try process_iq(Module, Function, IQ) of
-        #iq{} = ResIQ ->
-            ejabberd_router:route(ResIQ);
         #pb_iq{} = ResIQ ->
             ejabberd_router:route(ResIQ);
         ignore ->
