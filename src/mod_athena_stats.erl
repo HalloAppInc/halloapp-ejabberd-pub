@@ -168,7 +168,7 @@ query_execution_results(Queries, ExecIds, State) ->
                 ?INFO("query: ~p", [Query]),
                 ?INFO("result: ~p", [ResultRows])
                 %% TODO(murali@): send this to opentsdb.
-            end, list:zip(Queries, Results)),
+            end, lists:zip(Queries, Results)),
         State
     catch
         Class : Reason : Stacktrace  ->
