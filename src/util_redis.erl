@@ -9,7 +9,7 @@
 -module(util_redis).
 -author("nikola").
 
--define(NUM_SLOTS, 256).
+-include("util_redis.hrl").
 
 %% API
 -export([

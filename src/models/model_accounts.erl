@@ -17,6 +17,7 @@
 -include("ha_types.hrl").
 -include("time.hrl").
 -include("client_version.hrl").
+-include("util_redis.hrl").
 
 -define(DELETED_ACCOUNT_TTL, 2 * ?WEEKS).
 
@@ -31,7 +32,8 @@
 -export([
     account_key/1,
     version_key/2,
-    new_version_key/1
+    new_version_key/1,
+    uids_to_delete_key/1
 ]).
 
 
@@ -95,7 +97,11 @@
     count_accounts_with_version/1,
     count_accounts_with_version/2,
     count_version_keys/0,
-    cleanup_version_keys/1
+    cleanup_version_keys/1,
+    add_uid_to_delete/1,
+    get_uids_to_delete/1,
+    count_uids_to_delete/0,
+    cleanup_uids_to_delete_keys/0
 ]).
 
 %%====================================================================
@@ -767,6 +773,43 @@ get_names(Uids) ->
 
 
 %%====================================================================
+%% Inactive Uid deletion API.
+%%====================================================================
+
+
+-spec add_uid_to_delete(Uid :: uid()) -> ok.
+add_uid_to_delete(Uid) ->
+    {ok, _Res} = q(["SADD", uids_to_delete_key(util_redis:eredis_hash(Uid)), Uid]),
+    ok.
+
+
+-spec get_uids_to_delete(Slot :: integer()) -> {ok, [binary()]}.
+get_uids_to_delete(Slot) ->
+    {ok, Uids} = q(["SMEMBERS", uids_to_delete_key(Slot)]),
+    {ok, Uids}.
+
+-spec count_uids_to_delete() -> integer().
+count_uids_to_delete() ->
+    lists:foldl(
+        fun (Slot, Acc) ->
+            {ok, Res} = q(["SCARD", uids_to_delete_key(Slot)]),
+            Acc + binary_to_integer(Res)
+        end,
+        0,
+        lists:seq(0, ?NUM_SLOTS - 1)).
+
+
+-spec cleanup_uids_to_delete_keys() -> ok.
+cleanup_uids_to_delete_keys() ->
+    lists:foreach(
+        fun (Slot) ->
+            {ok, _} = q(["DEL", uids_to_delete_key(Slot)])
+        end,
+        lists:seq(0, ?NUM_SLOTS - 1)),
+    ok.
+
+
+%%====================================================================
 %% Internal redis functions.
 %%====================================================================
 
@@ -823,6 +866,10 @@ version_key(Slot, Version) ->
 new_version_key(Slot) ->
     SlotBinary = integer_to_binary(Slot),
     <<?VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
+
+uids_to_delete_key(Slot) ->
+    SlotBinary = integer_to_binary(Slot),
+    <<?TO_DELETE_UIDS_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
 
 count_registrations_key(Uid) ->
     Slot = eredis_cluster_hash:hash(binary_to_list(Uid)),

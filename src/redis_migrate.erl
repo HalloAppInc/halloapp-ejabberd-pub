@@ -55,7 +55,8 @@
     check_accounts_run/2,
     check_phone_numbers_run/2,
     refresh_otp_keys_run/2,
-    update_version_keys_run/2
+    update_version_keys_run/2,
+    find_inactive_accounts/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -564,6 +565,44 @@ update_version_keys_run(Key, State) ->
                     end;
                 Res ->
                     ?ERROR("error with key: uid: ~p, result: ~p", [Uid, Res])
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Generate List of inactive users                            %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+find_inactive_accounts(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            {ok, Account} = model_accounts:get_account(Uid),
+            #account{uid = Uid, last_activity_ts_ms = LastTsMs} = Account,
+
+            %% Designate account inactive if last activity 27 weeks ago (approximately 180 days).
+            IsAccountInactive = case LastTsMs of
+                undefined ->
+                    ?ERROR("Undefined last active for Uid: ~p", [Uid]),
+                    false;
+                _ ->
+                    CurrentTimeMs = os:system_time(millisecond),
+                    (CurrentTimeMs - LastTsMs) > 27 * ?WEEKS_MS
+            end,
+            case IsAccountInactive of
+                true ->
+                    case DryRun of
+                        true ->
+                              ?INFO("Adding Uid: ~p to delete", [Uid]);
+                        false ->
+                              model_accounts:add_uid_to_delete(Uid)
+                    end;
+                false -> ok
             end;
         _ -> ok
     end,

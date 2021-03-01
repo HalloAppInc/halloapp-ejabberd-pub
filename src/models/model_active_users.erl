@@ -14,6 +14,7 @@
 -include("redis_keys.hrl").
 -include("time.hrl").
 -include("ha_types.hrl").
+-include("util_redis.hrl").
 
 %% API
 -export([
@@ -30,8 +31,6 @@
     active_users_types/0,
     engaged_users_types/0
 ]).
-
--define(NUM_SLOTS, 256).
 
 %%====================================================================
 %% API

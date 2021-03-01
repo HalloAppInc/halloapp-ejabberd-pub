@@ -12,6 +12,7 @@
 -include("account.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include("ha_types.hrl").
+-include("util_redis.hrl").
 
 setup() ->
     tutil:setup(),
@@ -472,5 +473,45 @@ check_whisper_keys() ->
 check_whisper_keys_test() ->
     {timeout, 10,
         fun check_whisper_keys/0}.
+
+check_uid_to_delete() ->
+    setup(),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
+    ?assertEqual(ok, model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?USER_AGENT4, ?TS2)),
+    ?assertEqual(ok, model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?USER_AGENT5, ?TS1)),
+    ?assertEqual(0, model_accounts:count_uids_to_delete()),
+    ?assertEqual(ok, model_accounts:add_uid_to_delete(?UID1)),
+    ?assertEqual(1, model_accounts:count_uids_to_delete()),
+    ?assertEqual(ok, model_accounts:add_uid_to_delete(?UID2)),
+    ?assertEqual(2, model_accounts:count_uids_to_delete()),
+    ?assertEqual(ok, model_accounts:cleanup_uids_to_delete_keys()),
+    ?assertEqual(0, model_accounts:count_uids_to_delete()),
+    ?assertEqual(ok, model_accounts:add_uid_to_delete(?UID1)),
+    ?assertEqual(ok, model_accounts:add_uid_to_delete(?UID2)),
+    ?assertEqual(ok, model_accounts:add_uid_to_delete(?UID3)),
+    ?assertEqual(ok, model_accounts:add_uid_to_delete(?UID4)),
+    ?assertEqual(ok, model_accounts:add_uid_to_delete(?UID5)),
+    ?assertEqual(5, model_accounts:count_uids_to_delete()),
+    All = lists:foldl(
+        fun(Slot, Acc) ->
+            {ok, Uids} = model_accounts:get_uids_to_delete(Slot),
+            Acc ++ Uids
+        end,
+        [],
+        lists:seq(0, ?NUM_SLOTS - 1)),
+    ?assertEqual(sets:from_list(All), sets:from_list([?UID1, ?UID2, ?UID3, ?UID4, ?UID5])),
+    redis_migrate:start_migration("Check whisper keys", redis_accounts, find_inactive_accounts,
+            [{dry_run, false}, {execute, sequential}]),
+    %% Just so the above async range scan finish, we will wait for 5 seconds.
+    timer:sleep(timer:seconds(5)),
+    ?assertEqual(0, model_accounts:count_uids_to_delete()),
+    ok.
+
+check_uid_to_delete_test() ->
+    {timeout, 10,
+        fun check_uid_to_delete/0}.
+
 
 

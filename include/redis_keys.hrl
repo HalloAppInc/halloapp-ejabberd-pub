@@ -37,6 +37,9 @@
 -define(CLIENT_VERSION_ALL_KEY, <<"all_client_versions:">>).
 -define(VERSION_KEY, <<"v:">>).
 
+%% To capture list of Uids that need to be deleted because of inactivity.
+-define(TO_DELETE_UIDS_KEY, <<"tdu:">>).
+
 %%RedisFeed (model_feed)
 -define(POST_KEY, <<"fp:">>).
 -define(POST_AUDIENCE_KEY, <<"fpa:">>).
