@@ -16,7 +16,6 @@
 -include("logger.hrl").
 -include("time.hrl").
 -include("whisper.hrl").
--include("eredis_cluster.hrl").
 -include("client_version.hrl").
 
 %% Export all functions for unit tests
@@ -59,6 +58,7 @@
     find_inactive_accounts/2
 ]).
 
+-define(ACCOUNTS_CLIENT, ecredis_accounts).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%                                          API                                                %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -238,7 +238,8 @@ code_change(OldVersion, State, _Extra) ->
 
 
 get_masters(Service) ->
-    Nodes = ecredis:get_nodes(Service),
+    Client = util_redis:get_redis_client(Service),
+    Nodes = ecredis:get_nodes(Client),
     [{Ip, Port} || {node, Ip, Port} <- Nodes].
 
 
@@ -390,7 +391,7 @@ check_user_agent_run(Key, State) ->
     case Result of
         {match, [[FullKey, Uid]]} ->
             ?INFO("Account uid: ~p", [Uid]),
-            {ok, Result} = q(redis_accounts_client, ["HGET", FullKey, <<"ua">>]),
+            {ok, Result} = q(?ACCOUNTS_CLIENT, ["HGET", FullKey, <<"ua">>]),
             case Result of
                 undefined ->
                     ?ERROR("Uid: ~p, user agent is still empty!", [Uid]);
@@ -414,7 +415,7 @@ count_users_by_version_run(Key, State) ->
     case Result of
         {match, [[FullKey, Uid]]} ->
             ?INFO("Account uid: ~p", [Uid]),
-            {ok, Version} = q(redis_accounts_client, ["HGET", FullKey, <<"cv">>]),
+            {ok, Version} = q(?ACCOUNTS_CLIENT, ["HGET", FullKey, <<"cv">>]),
             case Version of
                 undefined ->
                     ?ERROR("Uid: ~p, client_version is undefined!", [Uid]);
@@ -425,7 +426,7 @@ count_users_by_version_run(Key, State) ->
                         true ->
                             ?INFO("Uid: ~p, would increment counter for: ~p", [Uid, VersionKey]);
                         false ->
-                            {ok, Value} = q(redis_accounts_client, ["INCR", VersionKey]),
+                            {ok, Value} = q(?ACCOUNTS_CLIENT, ["INCR", VersionKey]),
                             ?INFO("Uid: ~p, would increment counter for: ~p, value: ~p",
                                     [Uid, VersionKey, Value])
                     end
@@ -445,7 +446,7 @@ check_accounts_run(Key, State) ->
     case Result of
         {match, [[FullKey, Uid]]} ->
             ?INFO("Account uid: ~p", [Uid]),
-            {ok, Phone} = q(redis_accounts_client, ["HGET", FullKey, <<"ph">>]),
+            {ok, Phone} = q(?ACCOUNTS_CLIENT, ["HGET", FullKey, <<"ph">>]),
             case Phone of
                 undefined ->
                     ?ERROR("Uid: ~p, Phone is undefined!", [Uid]);
@@ -503,7 +504,7 @@ refresh_otp_keys_run(Key, State) ->
     case Result of
         {match, [[FullKey, Uid]]} ->
             ?INFO("Account uid: ~p", [Uid]),
-            {ok, Version} = q(redis_accounts_client, ["HGET", FullKey, <<"cv">>]),
+            {ok, Version} = q(?ACCOUNTS_CLIENT, ["HGET", FullKey, <<"cv">>]),
             case Version of
                 undefined ->
                     ?ERROR("Undefined client version for a uid: ~p", [Uid]);
@@ -540,7 +541,7 @@ update_version_keys_run(Key, State) ->
         {match, [[FullKey, Uid]]} ->
             ?INFO("Account uid: ~p", [Uid]),
             Slot = util_redis:eredis_hash(binary_to_list(Uid)),
-            case q(redis_accounts_client, ["HGET", FullKey, <<"cv">>]) of
+            case q(?ACCOUNTS_CLIENT, ["HGET", FullKey, <<"cv">>]) of
                 {ok, undefined} ->
                     ?ERROR("Undefined client version for a uid: ~p", [Uid]);
                 {ok, Version} ->
@@ -549,7 +550,7 @@ update_version_keys_run(Key, State) ->
                         true ->
                             ?INFO("would have incremented, slot: ~p, version: ~p by 1", [NewSlot, Version]);
                         false ->
-                            {ok, FinalCount} = q(redis_accounts_client,
+                            {ok, FinalCount} = q(?ACCOUNTS_CLIENT,
                                 ["HINCRBY", model_accounts:new_version_key(NewSlot), Version]),
                             ?INFO("updated key, slot: ~p, version: ~p, finalCount: ~p",
                                     [NewSlot, Version, FinalCount]),
@@ -577,7 +578,7 @@ find_inactive_accounts(Key, State) ->
             try
                 {ok, LastActivity} = model_accounts:get_last_activity(Uid),
                 #activity{uid = Uid, last_activity_ts_ms = LastTsMs} = LastActivity,
-    
+
                 %% Designate account inactive if last activity 27 weeks ago (approximately 180 days).
                 IsAccountInactive = case LastTsMs of
                     undefined ->

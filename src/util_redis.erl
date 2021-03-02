@@ -87,6 +87,7 @@ parse_zrange_with_scores([El, Score | Rest], Res) ->
     parse_zrange_with_scores(Rest, [{El, Score} | Res]).
 
 %% used only in migration modules
-%% example of a service is redis_accounts
+%% example of a service is redis_accounts, corresponding client
+%% would be ecredis_accounts
 get_redis_client(Service) ->
-    list_to_atom(atom_to_list(Service) ++"_client").
+    list_to_atom("ec" ++ atom_to_list(Service)).

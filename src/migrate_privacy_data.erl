@@ -14,6 +14,7 @@
 	verify/2,
 	cleanup/2
 ]).
+-define(ACCOUNTS_CLIENT, ecredis_accounts).
 
 
 %%% Stage 1. Rename the privacy lists: both exceptlist and onlylist.
@@ -30,7 +31,7 @@ run(Key, State) ->
                 true ->
                     ?INFO("would do: ~p", [Command]);
                 false ->
-                    {ok, NumItems} = q(redis_accounts_client, Command),
+                    {ok, NumItems} = q(?ACCOUNTS_CLIENT, Command),
                     ?INFO("stored ~p uids", [NumItems])
             end;
         _ -> ok
@@ -46,7 +47,7 @@ verify(Key, State) ->
         {match, [[Key1, Prefix, Uid]]} ->
             Key2 = get_buddy_privacy_key(Prefix, Uid),
             ?INFO("Checking ~s vs ~s Uid: ~s", [Key1, Key2, Uid]),
-            [{ok, Items1}, {ok, Items2}] = qp(redis_accounts_client, [
+            [{ok, Items1}, {ok, Items2}] = qp(?ACCOUNTS_CLIENT, [
                 ["SMEMBERS", Key1],
                 ["SMEMBERS", Key2]
             ]),
@@ -74,7 +75,7 @@ cleanup(Key, State) ->
                 true ->
                     ?INFO("would do: ~p", [Command]);
                 false ->
-                    DelResult = q(redis_accounts_client, Command),
+                    DelResult = q(?ACCOUNTS_CLIENT, Command),
                     ?INFO("delete result ~p", [DelResult])
             end;
         _ -> ok

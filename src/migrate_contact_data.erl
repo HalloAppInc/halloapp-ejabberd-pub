@@ -19,6 +19,7 @@
     expire_sync_keys_run/2
 ]).
 
+-define(CONTACTS_CLIENT, ecredis_contacts).
 
 %%% Stage 1. Move the data.
 rename_reverse_contacts_run(Key, State) ->
@@ -34,7 +35,7 @@ rename_reverse_contacts_run(Key, State) ->
                 true ->
                     ?INFO("would do: ~p", [Command]);
                 false ->
-                    {ok, NumItems} = q(redis_contacts_client, Command),
+                    {ok, NumItems} = q(?CONTACTS_CLIENT, Command),
                     ?INFO("stored ~p uids", [NumItems])
             end;
         _ -> ok
@@ -51,7 +52,7 @@ rename_reverse_contacts_verify(Key, State) ->
             OldKey = list_to_binary("sync:{" ++ binary_to_list(Phone) ++ "}"),
             NewKey = list_to_binary("rev:{" ++ binary_to_list(Phone) ++ "}"),
             ?INFO("Checking ~s vs ~s phone: ~s", [OldKey, NewKey, Phone]),
-            [{ok, OldItems}, {ok, NewItems}] = qp(redis_contacts_client, [
+            [{ok, OldItems}, {ok, NewItems}] = qp(?CONTACTS_CLIENT, [
                 ["SMEMBERS", OldKey],
                 ["SMEMBERS", NewKey]
             ]),
@@ -79,7 +80,7 @@ rename_reverse_contacts_cleanup(Key, State) ->
                 true ->
                     ?INFO("would do: ~p", [Command]);
                 false ->
-                    DelResult = q(redis_contacts_client, Command),
+                    DelResult = q(?CONTACTS_CLIENT, Command),
                     ?INFO("delete result ~p", [DelResult])
             end;
         _ -> ok
@@ -109,7 +110,7 @@ remove_unregistered_numbers_run(Key, State) ->
                                 fun(ContactUid) ->
                                     model_contacts:remove_contact(ContactUid, Phone)
                                 end, ContactUids),
-                            {ok, _} = q(redis_contacts_client, Command),
+                            {ok, _} = q(?CONTACTS_CLIENT, Command),
                             ?INFO("deleted key: ~p", [Key])
                     end;
                 _ -> ok
@@ -148,7 +149,7 @@ expire_sync_keys_run(Key, State) ->
                     ?INFO("would do: ~p", [Command]);
                 false ->
                     [{ok, _}, {ok, TTL}] = qp(
-                            redis_contacts_client,
+                            ?CONTACTS_CLIENT,
                             [Command,
                             ["TTL", Key]]),
                     ?INFO("key ~p ttl: ~p", [Key, TTL])
