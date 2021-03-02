@@ -461,7 +461,7 @@ check_whisper_keys() ->
             [?OTP2_KEY1, ?OTP2_KEY2, ?OTP2_KEY3])),
     ?assertEqual(ok, model_whisper_keys:set_keys(?UID3, ?IDENTITY_KEY3, ?SIGNED_KEY3,
             [?OTP3_KEY1, ?OTP3_KEY2, ?OTP3_KEY3])),
-    redis_migrate:start_migration("Check whisper keys", redis_accounts, check_users_by_whisper_keys,
+    redis_migrate:start_migration("Check whisper keys", ecredis_accounts, check_users_by_whisper_keys,
             [{dry_run, true}, {execute, sequential}]),
     %% Just so the above async range scan finish, we will wait for 5 seconds.
     timer:sleep(timer:seconds(5)),
@@ -502,7 +502,7 @@ check_uid_to_delete() ->
         [],
         lists:seq(0, ?NUM_SLOTS - 1)),
     ?assertEqual(sets:from_list(All), sets:from_list([?UID1, ?UID2, ?UID3, ?UID4, ?UID5])),
-    redis_migrate:start_migration("Check whisper keys", redis_accounts, find_inactive_accounts,
+    redis_migrate:start_migration("Check whisper keys", ecredis_accounts, find_inactive_accounts,
             [{dry_run, false}, {execute, sequential}]),
     %% Just so the above async range scan finish, we will wait for 5 seconds.
     timer:sleep(timer:seconds(5)),

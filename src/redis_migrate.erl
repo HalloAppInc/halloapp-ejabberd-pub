@@ -238,16 +238,8 @@ code_change(OldVersion, State, _Extra) ->
 
 
 get_masters(Service) ->
-    Client = util_redis:get_redis_client(Service),
-    {ok, {ok, Result}} = gen_server:call(Client, {q, ["CLUSTER", "SLOTS"]}),
-    get_masters_from_slots(Result).
-
-
-get_masters_from_slots([]) ->
-    [];
-get_masters_from_slots([H | T]) ->
-    [_SlotStart, _SlotEnd, [MasterIP, MasterPort, _Hash] | _Slaves] = H,
-    [{binary_to_list(MasterIP), binary_to_integer(MasterPort)} | get_masters_from_slots(T)].
+    Nodes = ecredis:get_nodes(Service),
+    [{Ip, Port} || {node, Ip, Port} <- Nodes].
 
 
 all_nodes() ->

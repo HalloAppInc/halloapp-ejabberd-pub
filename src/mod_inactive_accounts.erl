@@ -50,7 +50,7 @@ manage() ->
             %% Find accounts to delete on Monday.
             ?INFO("On Monday, create list of inactive Uids", []),
             model_accounts:cleanup_to_delete_uids_keys(),
-            redis_migrate:start_migration("Find Inactive Accounts", redis_accounts,
+            redis_migrate:start_migration("Find Inactive Accounts", ecredis_accounts,
                 find_inactive_accounts, [{dry_run, false}, {execute, sequential}]);
         3 ->
             ?INFO("On Wednesday, Start deletion of inactive Uids using above list", []),
