@@ -190,15 +190,15 @@ record_push_sent(Message) ->
 
 -spec get_push_type(MsgType :: message_type(),
         PayloadType :: atom(), PushInfo :: push_info()) -> silent | alert.
-get_push_type(groupchat, group_chat, _PushInfo) -> alert;
-get_push_type(_MsgType, chat, _PushInfo) -> alert;
-get_push_type(groupchat, group_st, _PushInfo) -> alert;
-get_push_type(headline, group_feed_st, _PushInfo) -> alert;
-get_push_type(normal, group_feed_st, _PushInfo) -> silent;
+get_push_type(groupchat, pb_group_chat, _PushInfo) -> alert;
+get_push_type(_MsgType, pb_chat_stanza, _PushInfo) -> alert;
+get_push_type(groupchat, pb_group_stanza, _PushInfo) -> alert;
+get_push_type(headline, pb_group_feed_item, _PushInfo) -> alert;
+get_push_type(normal, pb_group_feed_item, _PushInfo) -> silent;
 get_push_type(headline, feed_post, #push_info{post_pref = true}) -> alert;
 get_push_type(headline, feed_comment, #push_info{comment_pref = true}) -> alert;
-get_push_type({headline, _}, contact_list, _PushInfo) -> alert;
-get_push_type({_, friend_notice}, contact_list, _PushInfo) -> alert;
-get_push_type({_, inviter_notice}, contact_list, _PushInfo) -> alert;
+get_push_type({headline, _}, pb_contact_list, _PushInfo) -> alert;
+get_push_type({_, friend_notice}, pb_contact_list, _PushInfo) -> alert;
+get_push_type({_, inviter_notice}, pb_contact_list, _PushInfo) -> alert;
 get_push_type(_MsgType, _PayloadType, _PushInfo) -> silent.
 
