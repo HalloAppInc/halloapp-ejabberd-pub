@@ -507,6 +507,10 @@ check_uid_to_delete() ->
     %% Just so the above async range scan finish, we will wait for 5 seconds.
     timer:sleep(timer:seconds(5)),
     ?assertEqual(0, model_accounts:count_uids_to_delete()),
+    ?assertEqual(false, model_accounts:mark_inactive_uids_gen_start()),
+    ?assertEqual(false, model_accounts:mark_inactive_uids_deletion_start()),
+    ?assertEqual(true, model_accounts:mark_inactive_uids_gen_start()),
+    ?assertEqual(true, model_accounts:mark_inactive_uids_deletion_start()),
     ok.
 
 check_uid_to_delete_test() ->

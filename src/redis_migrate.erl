@@ -575,19 +575,7 @@ find_inactive_accounts(Key, State) ->
         {match, [[_FullKey, Uid]]} ->
             ?INFO("Account uid: ~p", [Uid]),
             try
-                {ok, LastActivity} = model_accounts:get_last_activity(Uid),
-                #activity{uid = Uid, last_activity_ts_ms = LastTsMs} = LastActivity,
-
-                %% Designate account inactive if last activity 27 weeks ago (approximately 180 days).
-                IsAccountInactive = case LastTsMs of
-                    undefined ->
-                        ?ERROR("Undefined last active for Uid: ~p", [Uid]),
-                        false;
-                    _ ->
-                        CurrentTimeMs = os:system_time(millisecond),
-                        (CurrentTimeMs - LastTsMs) > 27 * ?WEEKS_MS
-                end,
-                case IsAccountInactive of
+                case mod_inactive_accounts:is_inactive_user(Uid) of
                     true ->
                         case DryRun of
                             true ->

@@ -10,12 +10,17 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
+-include("time.hrl").
+-include("mod_inactive_accounts.hrl").
+-include("util_redis.hrl").
+-include("account.hrl").
 
 %% gen_mod callbacks
 -export([start/2, stop/1, mod_options/1, depends/2]).
 
 -export([
-    manage/0
+    manage/0,
+    is_inactive_user/1
 ]).
 
 %%====================================================================
@@ -44,20 +49,118 @@ mod_options(_Host) ->
 
 -spec manage() -> ok.
 manage() ->
-    {Date, _Time} = calendar:local_time(),
-    case calendar:day_of_the_week(Date) of
-        1 ->
-            %% Find accounts to delete on Monday.
-            ?INFO("On Monday, create list of inactive Uids", []),
-            model_accounts:cleanup_to_delete_uids_keys(),
-            redis_migrate:start_migration("Find Inactive Accounts", redis_accounts,
-                find_inactive_accounts, [{dry_run, false}, {execute, sequential}]);
-        3 ->
-            ?INFO("On Wednesday, Start deletion of inactive Uids using above list", []),
-            %% TODO(vipin): Start deletion of accouts on Wednesday.
-            ok;
-        _ ->
+    {Date, {Hr, _Min, _Sec}} = calendar:local_time(),
+    ToExecute = calc_step_to_execute(calendar:day_of_the_week(Date), Hr),
+    case ToExecute of
+        find_uids ->
+            case model_accounts:mark_inactive_uids_gen_start() of
+                false ->
+                    ?INFO("On Monday, create list of inactive Uids", []),
+                     model_accounts:cleanup_uids_to_delete_keys(),
+                     redis_migrate:start_migration("Find Inactive Accounts", redis_accounts,
+                         find_inactive_accounts, [{dry_run, false}, {execute, sequential}]);
+                true ->
+                    ?INFO("On Monday list of inactive Uids already created", [])
+            end;
+        delete_uids ->
+            case model_accounts:mark_inactive_uids_deletion_start() of
+                false ->
+                    ?INFO("On Wednesday, Start deletion of inactive Uids using above list", []),
+                    check_and_delete_accounts();
+                true ->
+                    ?INFO("On Wednesday, deletion of inactive Uids already started", [])
+            end;
+       _ ->
             ok
+    end,
+    ok.
+
+
+calc_step_to_execute(DayOfWeek, Hr) ->
+    %% Ok to run between 10AM and 4PM local time.
+    IsHrOk = (Hr > 10) and (Hr < 16),
+    case {DayOfWeek, IsHrOk} of
+        {1, true} ->
+            %% Find Uids to delete on Monday.
+            find_uids;
+        {3, true} ->
+            %% Delete Uids found above on Wednesday.
+            delete_uids;
+        {_, _} ->
+            none
+    end.
+
+            
+-spec is_inactive_user(Uid :: uid()) -> boolean().
+is_inactive_user(Uid) ->
+    {ok, LastActivity} = model_accounts:get_last_activity(Uid),
+    #activity{uid = Uid, last_activity_ts_ms = LastTsMs} = LastActivity,
+    case LastTsMs of
+        undefined ->
+            ?ERROR("Undefined last active for Uid: ~p", [Uid]),
+            false;
+        _ ->
+            CurrentTimeMs = util:now_ms(),
+            (CurrentTimeMs - LastTsMs) > ?NUM_INACTIVITY_DAYS * ?DAYS_MS
+    end.
+ 
+
+%%====================================================================
+
+
+-spec check_and_delete_accounts() -> ok.
+check_and_delete_accounts() ->
+    NumInactiveAccounts = model_accounts:count_uids_to_delete(),
+    NumTotalAccounts = model_accounts:count_accounts(),
+    ?INFO("Num Inactive: ~p, Total: ~p", [NumInactiveAccounts, NumTotalAccounts]),
+    Fraction = NumInactiveAccounts / NumTotalAccounts,
+
+    %% It is ok to delete inactive accounts, if to delete is within acceptable fraction.
+    IsAcceptable = (Fraction > 0.0001) and (Fraction < ?ACCEPTABLE_FRACTION),
+    case IsAcceptable of
+        false -> 
+            ?ERROR("Not deleting inactive accounts. NumInactive: ~p, Total: ~p, Fraction: ~p",
+                [NumInactiveAccounts, NumTotalAccounts, Fraction]),
+            ok;
+        true ->
+            delete_inactive_accounts()
+    end,
+    ok.
+ 
+
+-spec delete_inactive_accounts() -> ok.
+delete_inactive_accounts() ->
+   lists:foreach(
+        fun(Slot) ->
+            ?INFO("Deleting accounts in slot: ~p", [Slot]),
+            {ok, List} = model_accounts:get_uids_to_delete(Slot),
+            [maybe_delete_inactive_account(Uid) || Uid <- List]
+        end,
+        lists:seq(0, ?NUM_SLOTS - 1)).
+
+
+-spec maybe_delete_inactive_account(Uid :: uid()) -> ok.
+maybe_delete_inactive_account(Uid) ->
+    case is_inactive_user(Uid) of
+        true ->
+            Phone = model_accounts:get_phone(Uid),
+            {ok, InvitersList} = model_invites:get_inviters_list(Phone),
+            IsInvitedInternally = lists:any(
+                fun({InviterUid, _Ts}) ->
+                    dev_users:is_dev_uid(InviterUid)
+                end,
+                InvitersList),
+            case IsInvitedInternally of
+                false ->
+                    ?INFO("Deleting: ~p", [Uid]),
+                    %% TODO(vipin): Uncomment after test run.
+                    %% ejabberd_auth:remove_user(Uid, util:get_host()),
+                    ok;
+                true ->
+                    ?ERROR("Not deleting: ~p, Invited internally by: ~p", [Uid, InvitersList])
+            end;
+        false ->
+            ?INFO("Not deleting: ~p, account has become active", [Uid])
     end,
     ok.
 

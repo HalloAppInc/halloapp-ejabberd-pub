@@ -21,6 +21,9 @@
 
 -define(DELETED_ACCOUNT_TTL, 2 * ?WEEKS).
 
+%% Validity period for transient keys created during inactive accounts deletion.
+-define(INACTIVE_UIDS_VALIDITY, 12 * ?HOURS).
+
 %% Export all functions for unit tests
 -ifdef(TEST).
 -compile(export_all).
@@ -101,7 +104,9 @@
     add_uid_to_delete/1,
     get_uids_to_delete/1,
     count_uids_to_delete/0,
-    cleanup_uids_to_delete_keys/0
+    cleanup_uids_to_delete_keys/0,
+    mark_inactive_uids_gen_start/0,
+    mark_inactive_uids_deletion_start/0
 ]).
 
 %%====================================================================
@@ -145,6 +150,10 @@ mod_options(_Host) ->
 -define(FIELD_PUSH_POST, <<"pp">>).
 -define(FIELD_PUSH_COMMENT, <<"pc">>).
 -define(FIELD_PUSH_LANGUAGE_ID, <<"pl">>).
+
+%% Fields to capture creation of list with inactive uids and their deletion.
+-define(FIELD_INACTIVE_UIDS_GEN_STATUS, <<"ilg">>).
+-define(FIELD_INACTIVE_UIDS_DELETION_STATUS, <<"ild">>).
 
 
 %%====================================================================
@@ -804,6 +813,24 @@ cleanup_uids_to_delete_keys() ->
     ok.
 
 
+-spec mark_inactive_uids_gen_start() -> bool.
+mark_inactive_uids_gen_start() ->
+    {ok, Exists} = qp([
+        ["HSETNX", inactive_uids_gen_key(), ?FIELD_INACTIVE_UIDS_GEN_STATUS, 1],
+        ["EXPIRE", inactive_uids_gen_key(), ?INACTIVE_UIDS_VALIDITY]
+    ]),
+    Exists =:= <<"1">>.
+
+
+-spec mark_inactive_uids_deletion_start() -> bool.
+mark_inactive_uids_deletion_start() ->
+    {ok, Exists} = qp([
+        ["HSETNX", inactive_uids_deletion_key(), ?FIELD_INACTIVE_UIDS_DELETION_STATUS, 1],
+        ["EXPIRE", inactive_uids_deletion_key(), ?INACTIVE_UIDS_VALIDITY]
+    ]),
+    Exists =:= <<"1">>.
+
+
 %%====================================================================
 %% Internal redis functions.
 %%====================================================================
@@ -861,6 +888,12 @@ version_key(Slot, Version) ->
 new_version_key(Slot) ->
     SlotBinary = integer_to_binary(Slot),
     <<?VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
+
+inactive_uids_gen_key() ->
+    <<?TO_DELETE_UIDS_KEY/binary, <<":">>/binary, ?INACTIVE_UIDS_GEN_KEY/binary>>.
+
+inactive_uids_deletion_key() ->
+    <<?TO_DELETE_UIDS_KEY/binary, <<":">>/binary, ?INACTIVE_UIDS_DELETION_KEY/binary>>.
 
 uids_to_delete_key(Slot) ->
     SlotBinary = integer_to_binary(Slot),
