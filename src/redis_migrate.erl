@@ -574,28 +574,35 @@ find_inactive_accounts(Key, State) ->
     case Result of
         {match, [[_FullKey, Uid]]} ->
             ?INFO("Account uid: ~p", [Uid]),
-            {ok, Account} = model_accounts:get_account(Uid),
-            #account{uid = Uid, last_activity_ts_ms = LastTsMs} = Account,
-
-            %% Designate account inactive if last activity 27 weeks ago (approximately 180 days).
-            IsAccountInactive = case LastTsMs of
-                undefined ->
-                    ?ERROR("Undefined last active for Uid: ~p", [Uid]),
-                    false;
-                _ ->
-                    CurrentTimeMs = os:system_time(millisecond),
-                    (CurrentTimeMs - LastTsMs) > 27 * ?WEEKS_MS
+            try
+                {ok, LastActivity} = model_accounts:get_last_activity(Uid),
+                #activity{uid = Uid, last_activity_ts_ms = LastTsMs} = LastActivity,
+    
+                %% Designate account inactive if last activity 27 weeks ago (approximately 180 days).
+                IsAccountInactive = case LastTsMs of
+                    undefined ->
+                        ?ERROR("Undefined last active for Uid: ~p", [Uid]),
+                        false;
+                    _ ->
+                        CurrentTimeMs = os:system_time(millisecond),
+                        (CurrentTimeMs - LastTsMs) > 27 * ?WEEKS_MS
+                end,
+                case IsAccountInactive of
+                    true ->
+                        case DryRun of
+                            true ->
+                                  ?INFO("Adding Uid: ~p to delete", [Uid]);
+                            false ->
+                                  model_accounts:add_uid_to_delete(Uid)
+                        end;
+                    false -> ok
+                end
+            catch
+                Class:Reason:Stacktrace ->
+                    ?ERROR("Stacktrace:~s", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+                    ?ERROR("Unable to get last activity: ~p", [Uid])
             end,
-            case IsAccountInactive of
-                true ->
-                    case DryRun of
-                        true ->
-                              ?INFO("Adding Uid: ~p to delete", [Uid]);
-                        false ->
-                              model_accounts:add_uid_to_delete(Uid)
-                    end;
-                false -> ok
-            end;
+            ok;
         _ -> ok
     end,
     State.
