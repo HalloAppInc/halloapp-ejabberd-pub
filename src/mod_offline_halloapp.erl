@@ -201,9 +201,10 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
     end.
 
 
-store_message_hook(#pb_msg{retry_count = RetryCount} = Message) when RetryCount > 0 ->
+store_message_hook(#message{retry_count = RetryCount} = Message) when RetryCount > 0 ->
     Message;
-store_message_hook(#pb_msg{id = MsgID, to_uid = Uid} = Message) ->
+store_message_hook(#message{id = MsgID, to = To} = Message) ->
+    Uid = To#jid.luser,
     ?INFO("To Uid: ~s MsgID: ~s storing message", [Uid, MsgID]),
     store_message(Message),
     Message.
@@ -410,10 +411,11 @@ schedule_offline_queue_check(UserId, NewLastMsgOrderId) ->
 -spec send_end_of_queue_marker(UserId :: binary(), Server :: binary()) -> MsgId :: binary().
 send_end_of_queue_marker(UserId, Server) ->
     MsgId = util:new_msg_id(),
-    EndOfQueueMarker = #pb_msg{
+    EndOfQueueMarker = #message{
         id = MsgId,
-        to_uid = UserId,
-        payload = #pb_end_of_queue{}
+        to = jid:make(UserId, Server),
+        from = jid:make(Server),
+        sub_els = [#end_of_queue{}]
     },
     ejabberd_router:route(EndOfQueueMarker),
     MsgId.
@@ -428,8 +430,9 @@ route_offline_message(#offline_message{
         case enif_protobuf:decode(Message, pb_packet) of
             {error, DecodeReason} ->
                 ?ERROR("MsgId: ~p, Message: ~p, failed decoding reason: ~s", [MsgId, Message, DecodeReason]);
-            #pb_packet{stanza = MsgPacket} ->
-                adjust_and_send_message(MsgPacket, RetryCount),
+            Packet ->
+                Packet1 = packet_parser:proto_to_xmpp(Packet),
+                adjust_and_send_message(Packet1, RetryCount),
                 ?INFO("sending offline message Uid: ~s MsgId: ~p rc: ~p", [ToUid, MsgId, RetryCount])
         end
     catch
@@ -458,12 +461,8 @@ route_offline_message(#offline_message{
     ok.
 
 
--spec adjust_and_send_message(Message :: pb_msg() | message(), RetryCount :: integer()) -> ok.
-adjust_and_send_message(#pb_msg{} = Message, RetryCount) ->
-    Message1 = Message#pb_msg{retry_count = RetryCount},
-    ejabberd_router:route(Message1),
-    ok;
-adjust_and_send_message(#message{} = Message, RetryCount) ->
+-spec adjust_and_send_message(Message :: message(), RetryCount :: integer()) -> ok.
+adjust_and_send_message(Message, RetryCount) ->
     Message1 = Message#message{retry_count = RetryCount},
     ejabberd_router:route(Message1),
     ok.
@@ -511,11 +510,11 @@ increment_retry_counts(UserId, OfflineMsgs) ->
     ok.
 
 
--spec store_message(Message :: pb_msg()) -> ok.
-store_message(#pb_msg{payload = #pb_end_of_queue{}} = _Message) ->
+-spec store_message(Message :: message()) -> ok.
+store_message(#message{sub_els = [#end_of_queue{}]} = _Message) ->
     %% ignore storing end_of_queue marker packets.
     ok;
-store_message(#pb_msg{} = Message) ->
+store_message(#message{} = Message) ->
     ok = model_messages:store_message(Message),
     ok.
 

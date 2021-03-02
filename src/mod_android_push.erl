@@ -160,9 +160,9 @@ handle_info(Request, State) ->
 -spec push_message(Message :: message(), PushInfo :: push_info(), State :: push_state()) -> ok.
 push_message(Message, PushInfo, State) ->
     Timestamp = util:now(),
-    Uid = pb:get_to(Message),
+    #jid{luser = Uid} = xmpp:get_to(Message),
     PushMessageItem = #push_message_item{
-            id = pb:get_id(Message),
+            id = xmpp:get_id(Message),
             uid = Uid,
             message = Message,
             timestamp = Timestamp,
