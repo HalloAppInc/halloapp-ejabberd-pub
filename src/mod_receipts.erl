@@ -117,6 +117,11 @@ get_thread_id(#message{sub_els = [SubEl]}) ->
         #chat{} -> undefined;   % This is the default case we don't need to send thread_id
         _ -> undefined
     end;
+get_thread_id(#pb_msg{payload = Payload}) ->
+    case Payload of
+        #pb_group_chat{gid = Gid} -> Gid;
+        _ -> undefined
+    end;
 get_thread_id(Message) ->
     case fxml_stream:parse_element(Message) of
         {error, Reason} ->

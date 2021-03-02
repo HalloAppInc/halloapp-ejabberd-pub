@@ -11,6 +11,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("offline_message.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
@@ -77,13 +78,16 @@ mod_options(_Host) ->
 -define(FIELD_THREAD_ID, <<"thid">>).
 
 -spec store_message(Message :: message()) -> ok | {error, any()}.
-store_message(Message) ->
-    #jid{user = ToUid} = Message#message.to,
-    #jid{user = FromUid} = Message#message.from,
-    MsgId = Message#message.id,
-    ContentType = util:get_payload_type(Message),
+store_message(#pb_msg{} = Message) ->
+    ToUid = Message#pb_msg.to_uid,
+    FromUid = Message#pb_msg.from_uid,
+    MsgId = Message#pb_msg.id,
+    ContentType = pb:get_payload_type(Message),
     ThreadId = mod_receipts:get_thread_id(Message),
-    store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, Message).
+    IsInPbFormat = true,
+    %% TODO(murali@): store everything to be in pb_msg not pb_packet.
+    MessageBin = enif_protobuf:encode(#pb_packet{stanza = Message}),
+    store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, MessageBin, IsInPbFormat).
 
 
 store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, Message) when is_record(Message, message) ->
