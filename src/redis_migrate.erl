@@ -550,7 +550,7 @@ update_version_keys_run(Key, State) ->
                             ?INFO("would have incremented, slot: ~p, version: ~p by 1", [NewSlot, Version]);
                         false ->
                             {ok, FinalCount} = q(ecredis_accounts,
-                                ["HINCRBY", model_accounts:new_version_key(NewSlot), Version]),
+                                ["HINCRBY", model_accounts:new_version_key(NewSlot), Version, 1]),
                             ?INFO("updated key, slot: ~p, version: ~p, finalCount: ~p",
                                     [NewSlot, Version, FinalCount]),
                             ok
