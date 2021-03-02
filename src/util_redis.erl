@@ -56,14 +56,8 @@ encode_maybe_binary(undefined) -> <<>>;
 encode_maybe_binary(Bin) -> Bin.
 
 
-q(Client, Command) ->
-    {ok, Result} = gen_server:call(Client, {q, Command}),
-    Result.
-
-
-qp(Client, Commands) ->
-    {ok, Result} = gen_server:call(Client, {qp, Commands}),
-    Result.
+q(Client, Command) -> ecredis:q(Client, Command).
+qp(Client, Commands) -> ecredis:qp(Client, Commands).
 
 
 encode_boolean(true) -> <<"1">>;
