@@ -54,7 +54,6 @@ start(normal, _Args) ->
                 ejabberd_mnesia:start(),
                 file_queue_init(),
                 maybe_add_nameservers(),
-                ok = persistent_term:put("version_counters", false),
                 ?INFO("starting ejabberd_sup"),
                 case ejabberd_sup:start_link() of
                     {ok, SupPid} ->

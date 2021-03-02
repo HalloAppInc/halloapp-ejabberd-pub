@@ -336,15 +336,10 @@ set_client_version(Uid, Version) ->
             ["INCR", version_key(Slot, Version)],
             ["EXPIRE", version_key(Slot, Version), ?VERSION_VALIDITY] | Command1]),
 
-    case persistent_term:get("version_counters", true) of
-        true ->
-            %% Currently, we update both old keys and new keys.
-            %% After migration - will cleanup the old keys.
-            [{ok, _} | _] = qp([
-                    ["HINCRBY", new_version_key(NewSlot), Version, 1] | Command2]);
-        false ->
-            ?INFO("did not increment new_version_key yet")
-    end,
+    %% Currently, we update both old keys and new keys.
+    %% After migration - will cleanup the old keys.
+    [{ok, _} | _] = qp([
+            ["HINCRBY", new_version_key(NewSlot), Version, 1] | Command2]),
     ok.
 
 
