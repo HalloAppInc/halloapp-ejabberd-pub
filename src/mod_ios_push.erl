@@ -419,7 +419,7 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
         <<"content-id">> => PushMetadata#push_metadata.content_id,
         <<"content-type">> => PushMetadata#push_metadata.content_type,
         <<"from-id">> => PushMetadata#push_metadata.from_uid,
-        <<"timestamp">> => PushMetadata#push_metadata.timestamp,
+        <<"timestamp">> => util:to_binary(PushMetadata#push_metadata.timestamp),
         <<"thread-id">> => PushMetadata#push_metadata.thread_id,
         <<"thread-name">> => PushMetadata#push_metadata.thread_name,
         <<"sender-name">> => PushMetadata#push_metadata.sender_name,
