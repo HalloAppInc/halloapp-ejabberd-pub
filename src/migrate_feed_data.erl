@@ -14,7 +14,6 @@
     extend_ttl_run/2
 ]).
 
--define(FEED_CLIENT, ecredis_feed).
 
 %%% Stage 1. extend ttl for feed keys.
 
@@ -24,7 +23,7 @@ extend_ttl_run(Key, State) ->
     Result = re:run(Key, "^(fp|fpa|rfp|fc|fcp|fpc):{.*", [global, {capture, none}]),
     case Result of
         match ->
-            {ok, TTL} = qp(?FEED_CLIENT, ["TTL", Key]),
+            {ok, TTL} = qp(ecredis_feed, ["TTL", Key]),
             NewTTL = binary_to_integer(TTL) + ?DAYS,
             Command = ["EXPIRE", Key, NewTTL],
             case DryRun of
@@ -32,7 +31,7 @@ extend_ttl_run(Key, State) ->
                     ?INFO_MSG("would do: ~p", [Command]);
                 false ->
                     [{ok, _}, {ok, FinalTTL}] = qp(
-                            ?FEED_CLIENT,
+                            ecredis_feed,
                             [Command,
                             ["TTL", Key]]),
                     ?INFO_MSG("key ~p ttl: ~p", [Key, FinalTTL])

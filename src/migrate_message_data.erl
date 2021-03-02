@@ -15,7 +15,6 @@
     expire_message_keys_run/2
 ]).
 
--define(MESSAGES_CLIENT, ecredis_messages).
 
 %%% Stage 1. Set expiry for the data.
 expire_message_keys_run(Key, State) ->
@@ -30,7 +29,7 @@ expire_message_keys_run(Key, State) ->
                     ?INFO_MSG("would do: ~p", [Command]);
                 false ->
                     [{ok, _}, {ok, TTL}] = qp(
-                            ?MESSAGES_CLIENT,
+                            ecredis_messages,
                             [Command,
                             ["TTL", Key]]),
                     ?INFO_MSG("key ~p ttl: ~p", [Key, TTL])
