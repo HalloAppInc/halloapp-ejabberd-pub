@@ -426,7 +426,7 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
         %% Ideally clients should decode the pb message and then use this for metrics.
         %% Easier to have this if we start sending it ourselves - filed an issue for ios.
         <<"message-id">> => PushMessageItem#push_message_item.id,
-        <<"data">> => Data,
+        <<"data">> => base64:encode(Data),
         <<"message">> => PbMessageB64
     },
     BuildTypeMap = case PushType of
