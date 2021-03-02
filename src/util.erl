@@ -241,7 +241,7 @@ list_to_map([], Map) ->
 add_and_merge_maps(Map1, Map2) ->
     maps:fold(
         fun(K, V, Map) ->
-            maps:update_with(K, fun(X) -> X + V end, V, Map)
+            maps:update_with(K, fun(X) -> util:to_integer(X) + util:to_integer(V) end, V, Map)
         end, Map1, Map2).
 
 
