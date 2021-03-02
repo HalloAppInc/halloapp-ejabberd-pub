@@ -194,6 +194,8 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
     Priority = 0,
     Info = [{ip, IP}, {conn, Conn}, {auth_module, AuthModule},
             {mode, Mode}, {client_version, ClientVersion}],
+    SocketType = maps:get(socket_type, State),
+    stat:count("HA/connections", "socket", 1, [{socket_type, SocketType}]),
     ejabberd_sm:open_session(SID, U, S, R, Priority, Info),
     halloapp_stream_in:establish(State2).
 

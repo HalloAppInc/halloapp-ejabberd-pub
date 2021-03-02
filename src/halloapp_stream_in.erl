@@ -477,7 +477,6 @@ code_change(OldVsn, State, Extra) ->
 init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
     Crypto = proplists:get_value(crypto, Opts, tls),
     SocketType = Crypto,
-    stat:count("HA/connections", "socket", 1, [{socket_type, SocketType}]),
     OfflineQueueParams = #{
             window => undefined,
             pending_acks => 0,
@@ -508,7 +507,7 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
             case halloapp_socket:starttls(Socket, TLSOpts) of
                 {ok, TLSSocket} ->
                     State2#{socket => TLSSocket#socket_state{socket_type = SocketType},
-                            tls_options => TLSOpts};
+                            tls_options => TLSOpts, socket_type => SocketType};
                 {error, Reason} ->
                     process_stream_end({tls, Reason}, State2)
             end;
