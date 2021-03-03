@@ -275,7 +275,7 @@ remove_friend(Uid, _Server, _ContactId) ->
     stat:count("HA/graph", "remove_friend"),
     ok.
 
--spec user_send_packet({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
+-spec user_send_packet({stanza(), halloapp_c2s:state()}) -> {stanza(), halloapp_c2s:state()}.
 user_send_packet({Packet, _State} = Acc) ->
     Action = "send",
     Namespace = "HA/user_send_packet",
@@ -284,7 +284,7 @@ user_send_packet({Packet, _State} = Acc) ->
     Acc.
 
 
--spec user_receive_packet({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
+-spec user_receive_packet({stanza(), halloapp_c2s:state()}) -> {stanza(), halloapp_c2s:state()}.
 user_receive_packet({Packet, _State} = Acc) ->
     Action = "receive",
     Namespace = "HA/user_receive_packet",

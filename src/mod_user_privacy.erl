@@ -34,7 +34,6 @@
     remove_user/2
 ]).
 
--type c2s_state() :: ejabberd_c2s:state().
 
 %%====================================================================
 %% gen_mod API.
@@ -108,7 +107,7 @@ process_local_iq(#pb_iq{} = IQ) ->
     pb:make_error(IQ, util:err(invalid_request)).
 
 
--spec privacy_check_packet(Acc :: allow | deny, State :: c2s_state(),
+-spec privacy_check_packet(Acc :: allow | deny, State :: halloapp_c2s:state(),
         Packet :: stanza(), Dir :: in | out) -> allow | deny | {stop, deny}.
 %% When routing, handle privacy_checks from the receiver's perspective for messages.
 %% This hook runs just before storing these message stanzas.

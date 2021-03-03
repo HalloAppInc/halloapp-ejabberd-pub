@@ -147,7 +147,7 @@ handle_info({iq_reply, timeout, JID}, State) ->
         kill ->
             #jid{user = User, server = Server, resource = Resource} = JID,
             case ejabberd_sm:get_session_pid(User, Server, Resource) of
-                Pid when is_pid(Pid) -> ejabberd_c2s:close(Pid, ping_timeout);
+                Pid when is_pid(Pid) -> halloapp_c2s:close(Pid, ping_timeout);
                 _ -> ok
             end,
             del_timer(JID, State#state.timers);
@@ -188,7 +188,7 @@ user_online(_SID, JID, _Info) ->
 user_offline(_SID, JID, _Info) ->
     stop_ping(JID#jid.lserver, JID).
 
--spec user_send({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
+-spec user_send({stanza(), halloapp_c2s:state()}) -> {stanza(), halloapp_c2s:state()}.
 user_send({Packet, #{jid := JID} = C2SState}) ->
     start_ping(JID#jid.lserver, JID),
     {Packet, C2SState}.

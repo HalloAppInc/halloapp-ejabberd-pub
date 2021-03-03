@@ -849,7 +849,7 @@ send_stanza_c2s(Username, Host, Resource, Stanza) ->
 	Pkt = xmpp:decode(El, ?NS_CLIENT, CodecOpts),
 	case ejabberd_sm:get_session_pid(Username, Host, Resource) of
 	    Pid when is_pid(Pid) ->
-		ejabberd_c2s:send(Pid, Pkt);
+		halloapp_c2s:send(Pid, Pkt);
 	    _ ->
 		{error, no_session}
 	end

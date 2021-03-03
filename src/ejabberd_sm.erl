@@ -519,7 +519,7 @@ activate_session(Uid, Server) ->
                     ?INFO("Uid: ~s, activating user_session", [Uid]),
                     NewInfo = lists:keyreplace(mode, 1, Info, {mode, active}),
                     NewSession = Session#session{info = NewInfo},
-                    ejabberd_c2s:route(Pid, activate_session),
+                    halloapp_c2s:route(Pid, activate_session),
                     set_session(NewSession)
             end;
         {ok, _} ->
@@ -577,7 +577,7 @@ do_route(To, Term) ->
             Session = lists:max(Ss),
             Pid = element(2, Session#session.sid),
             ?DEBUG("Sending to process ~p: ~p", [Pid, Term]),
-            ejabberd_c2s:route(Pid, Term)
+            halloapp_c2s:route(Pid, Term)
     end.
 
 -spec do_route(stanza()) -> any().
@@ -616,7 +616,7 @@ do_route(Packet) ->
             Session = lists:max(Ss),
             Pid = element(2, Session#session.sid),
             ?DEBUG("Sending to process ~p:~n~ts", [Pid, xmpp:pp(Packet)]),
-            ejabberd_c2s:route(Pid, {route, Packet})
+            halloapp_c2s:route(Pid, {route, Packet})
     end.
 
 
@@ -642,7 +642,7 @@ route_message(#pb_msg{} = Packet) ->
                     Pid = element(2, Session#session.sid),
                     ?INFO("route To: ~s -> pid ~p MsgId: ~s", [LUser, Pid, MsgId]),
                     % NOTE: message will be lost if the dest PID dies while routing
-                    ejabberd_c2s:route(Pid, {route, Packet})
+                    halloapp_c2s:route(Pid, {route, Packet})
             end;
         {deny, privacy_violation} ->
             %% Ignore the packet and stop routing it now.
@@ -692,7 +692,7 @@ check_existing_resources(LUser, LServer, LResource) ->
         SIDs = [SID || #session{sid = SID} <- Ss],
         MaxSID = lists:max(SIDs),
         lists:foreach(fun ({_, Pid} = S) when S /= MaxSID ->
-                        ejabberd_c2s:route(Pid, replaced);
+                        halloapp_c2s:route(Pid, replaced);
                     (_) -> ok
                     end,
                     SIDs)
@@ -718,7 +718,7 @@ check_max_sessions(LUser, LServer) ->
         length(Ss) =< MaxSessions -> ok;
         true ->
             #session{sid = {_, Pid}} = lists:min(Ss),
-            ejabberd_c2s:route(Pid, replaced)
+            halloapp_c2s:route(Pid, replaced)
     end.
 
 %% Get the user_max_session setting
@@ -872,7 +872,7 @@ kick_user(User, Server) ->
 kick_user(User, Server, Resource) ->
     case get_session_pid(User, Server, Resource) of
         none -> false;
-        Pid -> ejabberd_c2s:route(Pid, kick)
+        Pid -> halloapp_c2s:route(Pid, kick)
     end.
 
 make_sid() ->
