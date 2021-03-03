@@ -39,6 +39,7 @@
     uids_to_jids/2,
     new_uuid/0,
     uuid_binary/0,
+    new_short_id/0,
     timestamp_to_datetime/1,
     decode_base_64/1,
     is_test_number/1,
@@ -269,6 +270,12 @@ new_uuid() ->
 -spec uuid_binary() -> binary().
 uuid_binary() ->
     list_to_binary(uuid:to_string(uuid:uuid1())).
+
+
+%% wont be unique at scale.
+-spec new_short_id() -> binary().
+new_short_id() ->
+    base64url:encode(crypto:strong_rand_bytes(6)).
 
 
 %% does not throw exception return error instead.
