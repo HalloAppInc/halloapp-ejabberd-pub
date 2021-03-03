@@ -67,6 +67,7 @@
 -include("logger.hrl").
 -include("ejabberd_router.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("ejabberd_stacktrace.hrl").
 
 -callback init() -> any().
@@ -102,6 +103,13 @@ route(Packet) ->
 
 -spec route_multicast(jid(), [jid()], stanza()) -> ok.
 route_multicast(_From, [], _Packet) ->
+    ok;
+route_multicast(From, Destinations, #pb_chat_state{} = Packet) ->
+    %% pb_chat_state stanzas are special because they dont have ids.
+    lists:foreach(
+        fun(To) ->
+            route(pb:set_to(Packet, To#jid.luser))
+        end, Destinations),
     ok;
 route_multicast(From, Destinations, Packet) ->
     Id = pb:get_id(Packet),
