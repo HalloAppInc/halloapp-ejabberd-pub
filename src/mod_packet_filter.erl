@@ -100,6 +100,8 @@ push_version_filter(deny, _, _, _) -> deny.
 -spec check_version_rules(Platform :: ios | android,
         ClientVersion :: binary(), ContentType :: atom()) -> boolean().
 
+%% TODO(murali@): we have accounts with invalid client_version, revisit in 2 weeks.
+%% 03-15-2021. we'll be cleaning up some of them soon.
 check_version_rules(_, undefined, _) ->
     ?ERROR("should-not-happen, invalid client_version"),
     false;

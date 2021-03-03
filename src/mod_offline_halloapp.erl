@@ -469,10 +469,9 @@ adjust_and_send_message(#message{} = Message, RetryCount) ->
     ok.
 
 
-%% TODO(murali@): remove this in one month: 03-15-2021.
-%% Filter undefined messages - check logs and remove
+%% Filter undefined messages
 filter_messages(_ClientVersion, undefined) ->
-    ?ERROR("should-not-happen, invalid message"),
+    ?INFO("invalid message, should have expired"),
     false;
 
 %% Withhold messages after max retry_count.
