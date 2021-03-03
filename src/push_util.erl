@@ -69,19 +69,19 @@ parse_metadata(#pb_msg{id = _Id, type = MsgType, payload = Payload} = Message, P
         when is_record(Payload, pb_contact_list) ->
     [Contact | _] = Payload#pb_contact_list.contacts,
     Name = Contact#pb_contact.name,
-    {Subject, Body} = case Payload#pb_contact_list.type of
+    {ContentType, Subject, Body} = case Payload#pb_contact_list.type of
         friend_notice ->
-            {<<"New Friend">>, <<"Your friend ", Name/binary, " is now on halloapp">>};
+            {<<"friend_notice">>, <<"New Friend">>, <<"Your friend ", Name/binary, " is now on HalloApp">>};
         inviter_notice ->
-            {<<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
+            {<<"inviter_notice">>, <<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
         normal ->
-            {<<"New Contact">>, <<"New contact notification">>}
+            {<<"contact_notification">>, <<"New Contact">>, <<"New contact notification">>}
     end,
     NewMsgType = {MsgType, Payload#pb_contact_list.type},
     PayloadType = util:get_payload_type(Message),
     #push_metadata{
         content_id = Contact#pb_contact.normalized,
-        content_type = <<"contact_notification">>,
+        content_type = ContentType,
         from_uid = Contact#pb_contact.uid,
         timestamp = <<>>,
         thread_id = Contact#pb_contact.normalized,

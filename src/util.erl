@@ -380,11 +380,11 @@ get_timestamp(#message{}) ->
 convert_xmpp_to_pb_base64(Packet) ->
     try
         case pb:is_pb_packet(Packet) of
-            true -> base64:encode(enif_protobuf:encode(#pb_packet{stanza = Packet}));
+            true -> base64:encode(enif_protobuf:encode(Packet));
             false ->
                 case packet_parser:xmpp_to_proto(Packet) of
                     #pb_packet{} = PbPacket ->
-                        base64:encode(enif_protobuf:encode(PbPacket));
+                        base64:encode(enif_protobuf:encode(PbPacket#pb_packet.stanza));
                     _ -> <<>>
                 end
         end
