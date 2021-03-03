@@ -67,7 +67,6 @@ listen:
       /api: mod_http_api
       /captcha: ejabberd_captcha
       /upload: mod_http_upload
-      /ws: ejabberd_http_ws
       /metrics: mod_prom_exporter
   -
     port: 5280
