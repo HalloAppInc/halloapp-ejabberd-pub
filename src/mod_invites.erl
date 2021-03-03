@@ -27,7 +27,7 @@
 -export([
     process_local_iq/1,
     get_invites_remaining/1,
-    notify_inviter/5,
+    notify_inviter/7,
     register_user/3
 ]).
 
@@ -107,13 +107,15 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 
 -spec notify_inviter(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
-        ContactId :: binary(), Role :: list()) -> ok.
-notify_inviter(UserId, UserPhone, Server, ContactId, Role) ->
+        ContactId :: binary(), Role :: list(),
+        MessageType :: atom(), ContactListType :: atom()) -> ok.
+notify_inviter(UserId, UserPhone, Server, ContactId, Role, MessageType, ContactListType) ->
     case model_invites:record_invite_notification(UserPhone, ContactId) of
         true ->
             %% TODO Add stats.
             ?INFO("Inviter: ~p about user: ~p joining", [ContactId, UserId]),
-            notifications_util:send_contact_notification(UserId, UserPhone, ContactId, Role, headline);
+            notifications_util:send_contact_notification(UserId, UserPhone, ContactId,
+                    Role, MessageType, ContactListType);
         false -> ok
     end.
 

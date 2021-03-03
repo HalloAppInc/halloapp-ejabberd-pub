@@ -341,8 +341,8 @@ do_send_notifications(UserId, Server, NewContactRecordList) ->
     %% Send notification to user who invited this user.
     UserPhone = get_phone(UserId),
     %% Fetch all inviter phone numbers.
-    {ok, InviterUidList} = model_invites:get_inviters_list(UserPhone),
-    InviterUidSet = sets:from_list(InviterUidList),
+    {ok, InvitersList} = model_invites:get_inviters_list(UserPhone),
+    InviterUidSet = sets:from_list([InviterUid || {InviterUid, _} <- InvitersList]),
     %% Send only one notification per contact - inviter/friend.
     lists:foreach(
             fun(#pb_contact{uid = ContactId, role = friends = Role}) ->
