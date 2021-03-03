@@ -107,7 +107,6 @@ prep_stop(State) ->
     ejabberd_hooks:run(ejabberd_stopping, []),
     ejabberd_listener:stop(),
     ejabberd_sm:stop(),
-    ejabberd_service:stop(),
     gen_mod:stop(),
     ?INFO("end prep_stop"),
     State.

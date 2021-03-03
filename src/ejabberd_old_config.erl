@@ -164,21 +164,6 @@ transform_listen_option(ejabberd_http, {request_handlers, Hs}, Opts) ->
                     Opt
             end, Hs),
     [{request_handlers, Hs1} | Opts];
-transform_listen_option(ejabberd_service, {hosts, Hosts, O}, Opts) ->
-    case lists:keyfind(hosts, 1, Opts) of
-        {_, PrevHostOpts} ->
-            NewHostOpts =
-                lists:foldl(
-                  fun(H, Acc) ->
-                          dict:append_list(H, O, Acc)
-                  end, dict:from_list(PrevHostOpts), Hosts),
-            [{hosts, dict:to_list(NewHostOpts)}|
-             lists:keydelete(hosts, 1, Opts)];
-        _ ->
-            [{hosts, [{H, O} || H <- Hosts]}|Opts]
-    end;
-transform_listen_option(ejabberd_service, {host, Host, Os}, Opts) ->
-    transform_listen_option(ejabberd_service, {hosts, [Host], Os}, Opts);
 transform_listen_option(ejabberd_xmlrpc, {access_commands, ACOpts}, Opts) ->
     NewACOpts = lists:map(
                   fun({AName, ACmds, AOpts}) ->

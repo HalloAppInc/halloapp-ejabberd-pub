@@ -54,7 +54,6 @@ init([]) ->
 	   worker(ejabberd_router),
 	   worker(ejabberd_local),
 	   worker(ejabberd_sm),
-	   simple_supervisor(ejabberd_service),
 	   worker(ejabberd_captcha),
 	   worker(ext_mod),
 	   supervisor(ejabberd_gen_mod_sup, gen_mod),
