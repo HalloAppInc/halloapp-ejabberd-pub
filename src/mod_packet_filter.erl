@@ -100,10 +100,10 @@ push_version_filter(deny, _, _, _) -> deny.
 -spec check_version_rules(Platform :: ios | android,
         ClientVersion :: binary(), ContentType :: atom()) -> boolean().
 
-%% TODO(murali@): we have accounts with invalid client_version, revisit in 2 weeks.
-%% 03-15-2021. we'll be cleaning up some of them soon.
+%% TODO(murali@): we have several accounts with invalid client_version,
+%% revisit in 2 months on 05-03-2021 after deleting some inactive accounts.
 check_version_rules(_, undefined, _) ->
-    ?ERROR("should-not-happen, invalid client_version"),
+    ?INFO("should-not-happen, invalid client_version"),
     false;
 
 %% We were sending this a while back and this was blocking offline queue - since clients would not ack it.
