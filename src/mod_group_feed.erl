@@ -57,8 +57,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_group_feed_item{gid = Gid, action = publish,
         item = #pb_post{} = Post} = GroupFeedSt} = IQ) ->
     PostId = Post#pb_post.id,
-    Payload = util_parser:maybe_base64_encode_binary(Post#pb_post.payload),
-    case publish_post(Gid, Uid, PostId, Payload, GroupFeedSt) of
+    PayloadBase64 = base64:encode(Post#pb_post.payload),
+    case publish_post(Gid, Uid, PostId, PayloadBase64, GroupFeedSt) of
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
@@ -72,8 +72,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     CommentId = Comment#pb_comment.id,
     PostId = Comment#pb_comment.post_id,
     ParentCommentId = Comment#pb_comment.parent_comment_id,
-    Payload = util_parser:maybe_base64_encode_binary(Comment#pb_comment.payload),
-    case publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, Payload, GroupFeedSt) of
+    PayloadBase64 = base64:encode(Comment#pb_comment.payload),
+    case publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, PayloadBase64, GroupFeedSt) of
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
@@ -123,9 +123,9 @@ re_register_user(Uid, _Server, _Phone) ->
 
 
 %% TODO(murali@): log stats for different group-feed activity.
--spec publish_post(Gid :: gid(), Uid :: uid(), PostId :: binary(), Payload :: binary(),
+-spec publish_post(Gid :: gid(), Uid :: uid(), PostId :: binary(), PayloadBase64 :: binary(),
         GroupFeedSt :: pb_group_feed_item()) -> {ok, pb_group_feed_item()} | {error, atom()}.
-publish_post(Gid, Uid, PostId, Payload, GroupFeedSt) ->
+publish_post(Gid, Uid, PostId, PayloadBase64, GroupFeedSt) ->
     ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
     Server = util:get_host(),
     case model_groups:check_member(Gid, Uid) of
@@ -143,7 +143,7 @@ publish_post(Gid, Uid, PostId, Payload, GroupFeedSt) ->
             {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
                 {error, missing} ->
                     TimestampMs = util:now_ms(),
-                    ok = model_feed:publish_post(PostId, Uid, Payload,
+                    ok = model_feed:publish_post(PostId, Uid, PayloadBase64,
                             AudienceType, AudienceList, TimestampMs, Gid),
                     ejabberd_hooks:run(group_feed_item_published, Server, [Gid, Uid, PostId, post]),
                     {ok, TimestampMs};
@@ -160,9 +160,9 @@ publish_post(Gid, Uid, PostId, Payload, GroupFeedSt) ->
 
 
 -spec publish_comment(Gid :: gid(), Uid :: uid(), CommentId :: binary(),
-        PostId :: binary(), ParentCommentId :: binary(), Payload :: binary(),
+        PostId :: binary(), ParentCommentId :: binary(), PayloadBase64 :: binary(),
         GroupFeedSt :: pb_group_feed_item()) -> {ok, pb_group_feed_item()} | {error, atom()}.
-publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, Payload, GroupFeedSt) ->
+publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, PayloadBase64, GroupFeedSt) ->
     ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
     Server = util:get_host(),
     case model_groups:check_member(Gid, Uid) of
@@ -199,7 +199,7 @@ publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, Payload, GroupFeed
                     PushSet = sets:from_list([PostOwnerUid, Uid | ParentPushList]),
 
                     ok = model_feed:publish_comment(CommentId, PostId, Uid,
-                            ParentCommentId, PushList, Payload, TimestampMs),
+                            ParentCommentId, PushList, PayloadBase64, TimestampMs),
                     ejabberd_hooks:run(group_feed_item_published, Server,
                             [Gid, Uid, CommentId, comment]),
 
@@ -293,19 +293,16 @@ retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
 -spec broadcast_group_feed_event(Uid :: uid(), AudienceSet :: set(),
         PushSet :: set(), PBGroupFeed :: pb_group_feed_item()) -> ok.
 broadcast_group_feed_event(Uid, AudienceSet, PushSet, PBGroupFeed) ->
-    GroupFeedStanza = group_feed_parser:proto_to_xmpp(PBGroupFeed),
-    Server = util:get_host(),
     BroadcastUids = sets:to_list(sets:del_element(Uid, AudienceSet)),
-    From = jid:make(Uid, Server),
     lists:foreach(
         fun(ToUid) ->
-            MsgType = get_message_type(GroupFeedStanza, PushSet, ToUid),
-            Packet = #message{
+            MsgType = get_message_type(PBGroupFeed, PushSet, ToUid),
+            Packet = #pb_msg{
                 id = util:new_msg_id(),
-                to = jid:make(ToUid, Server),
-                from = From,
+                to_uid = ToUid,
+                from_uid = Uid,
                 type = MsgType,
-                sub_els = [GroupFeedStanza]
+                payload = PBGroupFeed
             },
             ejabberd_router:route(Packet)
         end, BroadcastUids),
@@ -314,13 +311,13 @@ broadcast_group_feed_event(Uid, AudienceSet, PushSet, PBGroupFeed) ->
 
 -spec get_message_type(FeedStanza :: feed_st(), PushSet :: set(),
         ToUid :: uid()) -> headline | normal.
-get_message_type(#group_feed_st{action = publish, posts = [#group_post_st{}]}, _, _) -> headline;
-get_message_type(#group_feed_st{action = publish, comments = [#group_comment_st{}]}, PushSet, Uid) ->
+get_message_type(#pb_group_feed_item{action = publish, item = #pb_post{}}, _, _) -> headline;
+get_message_type(#pb_group_feed_item{action = publish, item = #pb_comment{}}, PushSet, Uid) ->
     case sets:is_element(Uid, PushSet) of
         true -> headline;
         false -> normal
     end;
-get_message_type(#group_feed_st{action = retract}, _, _) -> normal.
+get_message_type(#pb_group_feed_item{action = retract}, _, _) -> normal.
 
 
 -spec make_pb_group_feed_item(GroupInfo :: group_info(), Uid :: uid(), SenderName :: binary(),
@@ -347,8 +344,8 @@ share_group_feed(Gid, Uid) ->
     Server = util:get_host(),
     {ok, FeedItems} = model_feed:get_entire_group_feed(Gid),
     {FilteredPosts, FilteredComments} = filter_group_feed_items(Uid, FeedItems),
-    PostStanzas = lists:map(fun convert_posts_to_group_stanzas/1, FilteredPosts),
-    CommentStanzas = lists:map(fun convert_comments_to_group_stanzas/1, FilteredComments),
+    PostStanzas = lists:map(fun convert_posts_to_groupfeeditem/1, FilteredPosts),
+    CommentStanzas = lists:map(fun convert_comments_to_groupfeeditem/1, FilteredComments),
     GroupInfo = model_groups:get_group_info(Gid),
 
     FilteredPostIds = [P#post.id || P <- FilteredPosts],
@@ -360,18 +357,15 @@ share_group_feed(Gid, Uid) ->
     case PostStanzas of
         [] -> ok;
         _ ->
-            Packet = #message{
+            Packet = #pb_msg{
                 id = util:new_msg_id(),
-                to = jid:make(Uid, Server),
-                from = jid:make(Server),
+                to_uid = Uid,
                 type = normal,
-                sub_els = [#group_feed_st{
-                    action = share,
+                payload = #pb_group_feed_items{
                     gid = GroupInfo#group_info.gid,
                     name = GroupInfo#group_info.name,
                     avatar_id = GroupInfo#group_info.avatar,
-                    posts = PostStanzas,
-                    comments = CommentStanzas}]
+                    items = PostStanzas ++ CommentStanzas}
             },
             ejabberd_router:route(Packet),
             ok
@@ -397,28 +391,34 @@ filter_group_feed_items(Uid, Items) ->
     {FilteredPosts, FilteredComments}.
 
 
--spec convert_posts_to_group_stanzas(post()) -> post_st().
-convert_posts_to_group_stanzas(#post{id = PostId, uid = Uid, payload = Payload, ts_ms = TimestampMs}) ->
-    #group_post_st{
-        id = PostId,
-        publisher_uid = Uid,
-        publisher_name = model_accounts:get_name_binary(Uid),
-        payload = Payload,
-        timestamp = integer_to_binary(util:ms_to_sec(TimestampMs))
+-spec convert_posts_to_groupfeeditem(post()) -> pb_post().
+convert_posts_to_groupfeeditem(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs}) ->
+    #pb_group_feed_item{
+        action = share,
+        item = #pb_post{
+            id = PostId,
+            publisher_uid = Uid,
+            publisher_name = model_accounts:get_name_binary(Uid),
+            payload = base64:decode(PayloadBase64),
+            timestamp = util:ms_to_sec(TimestampMs)
+        }
     }.
 
 
--spec convert_comments_to_group_stanzas(comment()) -> comment_st().
-convert_comments_to_group_stanzas(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
-        parent_id = ParentId, payload = Payload, ts_ms = TimestampMs}) ->
-    #group_comment_st{
-        id = CommentId,
-        post_id = PostId,
-        parent_comment_id = ParentId,
-        publisher_uid = PublisherUid,
-        publisher_name = model_accounts:get_name_binary(PublisherUid),
-        payload = Payload,
-        timestamp = integer_to_binary(util:ms_to_sec(TimestampMs))
+-spec convert_comments_to_groupfeeditem(comment()) -> pb_comment().
+convert_comments_to_groupfeeditem(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
+        parent_id = ParentId, payload = PayloadBase64, ts_ms = TimestampMs}) ->
+    #pb_group_feed_item{
+        action = share,
+        item = #pb_comment{
+            id = CommentId,
+            post_id = PostId,
+            parent_comment_id = ParentId,
+            publisher_uid = PublisherUid,
+            publisher_name = model_accounts:get_name_binary(PublisherUid),
+            payload = base64:decode(PayloadBase64),
+            timestamp = util:ms_to_sec(TimestampMs)
+        }
     }.
 
 

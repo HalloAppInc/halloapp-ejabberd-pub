@@ -50,6 +50,7 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("groups.hrl").
 -include("feed.hrl").
 -define(MAX_GROUP_NAME_SIZE, 25).
@@ -343,10 +344,10 @@ send_chat_message(MsgId, Gid, Uid, MessagePayload) ->
             GroupMessage = make_chat_message(GroupInfo, Uid, SenderName, MessagePayload, Ts),
             ?INFO("Fan Out MSG: ~p", [GroupMessage]),
             Server = util:get_host(),
-            Packet = #message{
+            Packet = #pb_msg{
                 id = MsgId,
                 type = groupchat,
-                sub_els = [GroupMessage]
+                payload = GroupMessage
             },
             From = jid:make(Uid, Server),
             MUids = model_groups:get_member_uids(Gid),	
@@ -372,10 +373,10 @@ send_retract_message(MsgId, Gid, Uid, GroupChatRetractSt) ->
             Ts = util:now(),
             ?INFO("Fan Out MSG: ~p", [GroupChatRetractSt]),
             Server = util:get_host(),
-            Packet = #message{
+            Packet = #pb_msg{
                 id = MsgId,
                 type = groupchat,
-                sub_els = [GroupChatRetractSt]
+                payload = GroupChatRetractSt
             },
             From = jid:make(Uid, Server),
             MUids = model_groups:get_member_uids(Gid),
@@ -622,17 +623,16 @@ maybe_assign_admin(Gid) ->
 
 
 -spec make_chat_message(GroupInfo :: group_info(), Uid :: uid(), SenderName :: binary(),
-        MessagePayload :: binary(), Ts :: integer()) -> group_chat().
+        MessagePayload :: binary(), Ts :: integer()) -> pb_group_chat().
 make_chat_message(GroupInfo, Uid, SenderName, MessagePayload, Ts) ->
-    #group_chat{
-        xmlns = ?NS_GROUPS,
+    #pb_group_chat{
         gid = GroupInfo#group_info.gid,
         name = GroupInfo#group_info.name,
-        avatar = GroupInfo#group_info.avatar,
-        sender = Uid,
+        avatar_id = GroupInfo#group_info.avatar,
+        sender_uid = Uid,
         sender_name = SenderName,
-        timestamp = integer_to_binary(Ts),
-        sub_els = MessagePayload
+        timestamp = Ts,
+        payload = MessagePayload
     }.
 
 
@@ -712,11 +712,11 @@ send_change_avatar_event(Gid, Uid) ->
 broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     MembersSt = make_members_st(Event, Results, NamesMap),
 
-    GroupSt = #group_st{
+    GroupSt = #pb_group_stanza{
         gid = Group#group.gid,
         name = Group#group.name,
-        avatar = Group#group.avatar,
-        sender = Uid,
+        avatar_id = Group#group.avatar,
+        sender_uid = Uid,
         sender_name = maps:get(Uid, NamesMap, undefined),
         action = Event,
         members = MembersSt
@@ -729,10 +729,10 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     BroadcastUids = sets:to_list(UidsToNotify),
     Server = util:get_host(),
     From = jid:make(Server),
-    Packet = #message{
+    Packet = #pb_msg{
         id = util:new_msg_id(),
         type = groupchat,
-        sub_els = [GroupSt]
+        payload = GroupSt
     },
     broadcast_packet(From, Server, BroadcastUids, Packet),
     ok.
@@ -765,7 +765,7 @@ make_member_st({Uid, Action, Result}, Event, NamesMap) ->
                 [Uid, Event, Action, Result]),
             undefined;
         true ->
-            #member_st{
+            #pb_group_member{
                 uid = Uid,
                 type = Type,
                 name = Name,

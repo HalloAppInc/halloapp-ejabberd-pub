@@ -158,7 +158,7 @@ privacy_check_packet(allow, _State, #pb_chat_state{} = Packet, out = Dir) ->
     %% inspect sending chat_state updates to another user.
     check_blocked(Packet, Dir);
 
-privacy_check_packet(allow, _State, #message{type = groupchat}, out = _Dir) ->
+privacy_check_packet(allow, _State, #pb_msg{type = groupchat}, out = _Dir) ->
     %% always allow all group_chat stanzas.
     allow;
 privacy_check_packet(allow, _State, #message{} = Packet, out = Dir) ->

@@ -360,8 +360,8 @@ get_payload_type(_) -> undefined.
 %% chat/group_chat/silent_chat/seen/deliveryreceipt stanzas.
 
 -spec set_timestamp(message(), binary()) -> stanza().
-set_timestamp(#message{sub_els = [#group_chat{} = GroupChat]} = Msg, T) ->
-    xmpp:set_els(Msg, [GroupChat#group_chat{timestamp = util:to_binary(T)}]);
+set_timestamp(#pb_msg{payload = #pb_group_chat{} = GroupChat} = Msg, T) ->
+    Msg#pb_msg{payload = GroupChat#pb_group_chat{timestamp = T}};
 set_timestamp(#pb_msg{payload = #pb_chat_stanza{} = Chat} = Msg, T) ->
     Msg#pb_msg{payload = Chat#pb_chat_stanza{timestamp = T}};
 set_timestamp(#pb_msg{payload = #pb_seen_receipt{} = SeenReceipt} = Msg, T) ->
@@ -381,7 +381,7 @@ get_timestamp(#pb_msg{payload = #pb_delivery_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{}) -> undefined;
 get_timestamp(#message{sub_els = [#chat{timestamp = T}]}) -> T;
 get_timestamp(#message{sub_els = [#silent_chat{chat = #chat{timestamp = T}}]}) -> T;
-get_timestamp(#message{sub_els = [#group_chat{timestamp = T}]}) -> T;
+get_timestamp(#pb_msg{payload = #pb_group_chat{timestamp = T}}) -> T;
 get_timestamp(#message{sub_els = [#receipt_seen{timestamp = T}]}) -> T;
 get_timestamp(#message{sub_els = [#receipt_response{timestamp = T}]}) -> T;
 get_timestamp(#message{}) ->

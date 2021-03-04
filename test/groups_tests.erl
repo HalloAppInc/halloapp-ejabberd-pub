@@ -199,10 +199,9 @@ remove_members_test(Conf) ->
                 gid = Gid,
                 name = ?GROUP_NAME1,
                 sender_uid = ?UID1,
-%%                sender_name = ?NAME1,
+                sender_name = ?NAME1,
                 members = [
-                    #pb_group_member{uid = ?UID3, action = remove, type = member, name = ?NAME3,
-                        result = undefined, reason = undefined}
+                    #pb_group_member{uid = ?UID3, action = remove, type = member, name = ?NAME3}
                     % Nothing is broadcasted about Uid4
                 ]
             } = GroupSt
@@ -266,8 +265,7 @@ promote_admin_test(Conf) ->
         sender_name = ?NAME1,
         avatar_id = undefined,
         members = [
-            #pb_group_member{uid = ?UID2, action = promote, type = admin, name = ?NAME2,
-                result = undefined, reason = undefined}
+            #pb_group_member{uid = ?UID2, action = promote, type = admin, name = ?NAME2}
         ]
     } = GroupSt,
 
@@ -326,8 +324,7 @@ demote_admin_test(Conf) ->
         sender_name = ?NAME1,
         avatar_id = undefined,
         members = [
-            #pb_group_member{uid = ?UID2, action = demote, type = member, name = ?NAME2,
-                result = undefined, reason = undefined}
+            #pb_group_member{uid = ?UID2, action = demote, type = member, name = ?NAME2}
         ]
     } = GroupSt,
 

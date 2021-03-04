@@ -54,6 +54,11 @@ proto_to_xmpp(PbPacket) ->
                 #pb_silent_chat_stanza{} -> MsgRecord;
                 #pb_rerequest{} -> MsgRecord;
                 #pb_chat_retract{} -> MsgRecord;
+                #pb_group_stanza{} -> MsgRecord;
+                #pb_group_chat{} -> MsgRecord;
+                #pb_group_feed_item{} -> MsgRecord;
+                #pb_group_feed_items{} -> MsgRecord;
+                #pb_group_chat_retract{} -> MsgRecord;
                 _ -> message_parser:proto_to_xmpp(MsgRecord)
             end;
         #pb_chat_state{} = ChatStateRecord ->
