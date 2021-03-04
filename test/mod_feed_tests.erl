@@ -442,25 +442,22 @@ add_friend_test() ->
     setup2(),
     meck:new(ejabberd_router, [passthrough]),
     meck:expect(ejabberd_router, route, fun(P) ->
-        #message {
+        #pb_msg {
             id = _Id,
-            to = To,
-            from = From,
+            to_uid = ToUid,
             type = MsgType,
-            sub_els = [FeedSt]
+            payload = Payload
         } = P,
-        ?assertEqual(jid:make(?UID2, ?SERVER), To),
-        ?assertEqual(jid:make(?SERVER), From),
+        ?assertEqual(?UID2, ToUid),
         ?assertEqual(normal, MsgType),
-        #feed_st{
-            posts = [PostSt],
-            comments = []
-        } = FeedSt,
-        ?assertEqual(?POST_ID1, PostSt#post_st.id),
-        ?assertEqual(?PAYLOAD1, PostSt#post_st.payload),
+        #pb_feed_items{
+            items = [Post]
+        } = Payload,
+        ?assertEqual(?POST_ID1, Post#pb_post.id),
+        ?assertEqual(?PAYLOAD1, Post#pb_post.payload),
         ok
     end),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, base64:encode(?PAYLOAD1), all, [?UID1], util:now_ms()),
     model_friends:add_friend(?UID1, ?UID2),
     mod_feed:add_friend(?UID1, ?SERVER, ?UID2, false),
     ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),
