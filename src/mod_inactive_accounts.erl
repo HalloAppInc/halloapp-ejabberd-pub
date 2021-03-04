@@ -20,7 +20,8 @@
 
 -export([
     manage/0,
-    is_inactive_user/1
+    is_inactive_user/1,
+    check_and_delete_accounts/0  %% for testing, TODO(vipin): delete after testing.
 ]).
 
 %%====================================================================
@@ -49,7 +50,7 @@ mod_options(_Host) ->
 
 -spec manage() -> ok.
 manage() ->
-    {Date, {Hr, _Min, _Sec}} = calendar:local_time(),
+    {Date, {Hr, _Min, _Sec}} = calendar:local_time_to_universal_time(calendar:local_time()),
     ToExecute = calc_step_to_execute(calendar:day_of_the_week(Date), Hr),
     case ToExecute of
         find_uids ->
@@ -77,8 +78,8 @@ manage() ->
 
 
 calc_step_to_execute(DayOfWeek, Hr) ->
-    %% Ok to run between 10AM and 4PM local time.
-    IsHrOk = (Hr > 10) and (Hr < 16),
+    %% Ok to run between 10AM and 4PM PST.
+    IsHrOk = (Hr > 18) and (Hr < 24),
     case {DayOfWeek, IsHrOk} of
         {1, true} ->
             %% Find Uids to delete on Monday.
