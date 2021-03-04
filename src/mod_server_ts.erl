@@ -7,6 +7,7 @@
 -behaviour(gen_mod).
 
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("logger.hrl").
 
 
@@ -52,6 +53,12 @@ user_send_packet({#message{id = MsgId} = Packet, State}) ->
     TimestampSec = util:now_binary(),
     Packet1 = util:set_timestamp(Packet, TimestampSec),
     ?DEBUG("setting timestamp MsgId: ~s Ts: ~s", [MsgId, TimestampSec]),
+    {Packet1, State};
+
+user_send_packet({#pb_msg{id = MsgId} = Packet, State}) ->
+    Timestamp = util:now(),
+    Packet1 = util:set_timestamp(Packet, Timestamp),
+    ?DEBUG("setting timestamp MsgId: ~s Ts: ~s", [MsgId, Timestamp]),
     {Packet1, State};
 
 user_send_packet({_Packet, _State} = Acc) ->
