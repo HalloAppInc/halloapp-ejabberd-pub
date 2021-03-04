@@ -105,12 +105,11 @@ user_name_updated(Uid, Name) ->
         [Uid, length(ContactUids), sets:size(GroupUidsSet), sets:size(UidsToNotifySet)]),
     lists:foreach(
         fun(OUid) ->
-            Message = #message{
+            Message = #pb_msg{
                 id = util:new_msg_id(),
-                to = jid:make(OUid, Server),
-                from = jid:make(Server),
+                to_uid = OUid,
                 type = normal,
-                sub_els = [#name{uid = Uid, name = Name}]
+                payload = #pb_name{uid = Uid, name = Name}
             },
             ejabberd_router:route(Message)
         end, UidsToNotify).
