@@ -139,7 +139,7 @@ register_user(UserId, Server, Phone) ->
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
     lists:foreach(
         fun(ContactId) ->
-            notify_contact_about_user(UserId, Phone, Server, ContactId, <<"none">>)
+            notify_contact_about_user(UserId, Phone, Server, ContactId, none)
         end, ContactUids).
 
 
@@ -151,7 +151,7 @@ block_uids(Uid, Server, Ouids) ->
             case model_accounts:get_phone(Ouid) of
                 {ok, OPhone} ->
                     remove_friend(Uid, Server, Ouid),
-                    notify_contact_about_user(Ouid, OPhone, Server, Uid, <<"none">>);
+                    notify_contact_about_user(Ouid, OPhone, Server, Uid, none);
                 {error, missing} -> ok
             end
         end, Ouids),
@@ -177,9 +177,9 @@ unblock_uids(Uid, Server, Ouids) ->
                         true ->
                             WasBlocked = true,
                             add_friend(Uid, Server, Ouid, WasBlocked),
-                            notify_contact_about_user(Ouid, OPhone, Server, Uid, <<"friends">>);
+                            notify_contact_about_user(Ouid, OPhone, Server, Uid, friends);
                         false ->
-                            notify_contact_about_user(Ouid, OPhone, Server, Uid, <<"none">>)
+                            notify_contact_about_user(Ouid, OPhone, Server, Uid, none)
                     end;
                 {error, missing} -> ok
             end
@@ -210,11 +210,9 @@ count_full_sync(_Index) ->
     ok.
 
 
--spec get_role_value(atom()) -> list().
-get_role_value(true) ->
-    <<"friends">>;
-get_role_value(false) ->
-    <<"none">>.
+-spec get_role_value(atom()) -> atom().
+get_role_value(true) -> friends;
+get_role_value(false) -> none.
 
 
 -spec obtain_user_id(binary()) -> binary() | undefined.
@@ -350,11 +348,11 @@ do_send_notifications(UserId, Server, NewContactRecordList) ->
                     true ->
                         ?INFO("Notify Inviter: ~p about user: ~p joining", [ContactId, UserId]),
                         mod_invites:notify_inviter(UserId, UserPhone, Server,
-                                ContactId, util:to_binary(Role), normal, inviter_notice);
+                                ContactId, Role, normal, inviter_notice);
                     false ->
                         ?INFO("Notify Friend: ~p about user: ~p joining", [ContactId, UserId]),
                         notifications_util:send_contact_notification(UserId, UserPhone,
-                                ContactId, util:to_binary(Role), normal, friend_notice)
+                                ContactId, Role, normal, friend_notice)
                 end;
                 (#pb_contact{normalized = ContactPhone, uid = ContactId, role = Role}) ->
                     ?INFO("No push notification to user, phone: ~p, uid: ~p, role: ~p",
@@ -489,7 +487,7 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
                 name = Name,
                 avatar_id = AvatarId,
                 normalized = ContactPhone,
-                role = util:to_atom(Role)
+                role = Role
             }
     end.
 
@@ -551,7 +549,7 @@ remove_contact_and_notify(UserId, Server, UserPhone, ContactPhone, ReverseContac
             case sets:is_element(ContactId, ReverseContactSet) of
                 true ->
                     remove_friend(UserId, Server, ContactId),
-                    notify_contact_about_user(UserId, UserPhone, Server, ContactId, <<"none">>);
+                    notify_contact_about_user(UserId, UserPhone, Server, ContactId, none);
                 false -> ok
             end,
             ejabberd_hooks:run(remove_contact, Server, [UserId, Server, ContactId])
@@ -566,7 +564,7 @@ remove_contact_and_notify(UserId, Server, UserPhone, ContactPhone, ReverseContac
 %% Notifies contact about the user using the UserId and the role element to indicate
 %% if they are now friends or not on halloapp.
 -spec notify_contact_about_user(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
-        ContactId :: binary(), Role :: list()) -> ok.
+        ContactId :: binary(), Role :: atom()) -> ok.
 notify_contact_about_user(UserId, _UserPhone, _Server, UserId, _Role) ->
     ok;
 notify_contact_about_user(UserId, UserPhone, _Server, ContactId, Role) ->

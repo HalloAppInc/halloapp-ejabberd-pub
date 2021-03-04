@@ -107,7 +107,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 
 -spec notify_inviter(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
-        ContactId :: binary(), Role :: list(),
+        ContactId :: binary(), Role :: atom(),
         MessageType :: atom(), ContactListType :: atom()) -> ok.
 notify_inviter(UserId, UserPhone, Server, ContactId, Role, MessageType, ContactListType) ->
     case model_invites:record_invite_notification(UserPhone, ContactId) of

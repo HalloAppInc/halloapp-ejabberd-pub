@@ -22,24 +22,24 @@
 
 
 -spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
-        Role :: list()) -> ok.
+        Role :: atom()) -> ok.
 send_contact_notification(UserId, UserPhone, ContactId, Role) ->
     send_contact_notification(UserId, UserPhone, ContactId, Role, normal, normal).
 
 
 -spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
-        Role :: list(), MessageType :: atom()) -> ok.
+        Role :: atom(), MessageType :: atom()) -> ok.
 send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType) ->
     send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, normal).
 
 
 -spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
-        Role :: list(), MessageType :: atom(), ContactListType :: atom()) -> ok.
+        Role :: atom(), MessageType :: atom(), ContactListType :: atom()) -> ok.
 send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, ContactListType) ->
     Server = util:get_host(),
     AvatarId = case Role of
-        <<"none">> -> undefined;
-        <<"friends">> -> model_accounts:get_avatar_id_binary(UserId)
+        none -> undefined;
+        friends -> model_accounts:get_avatar_id_binary(UserId)
     end,
     Name = model_accounts:get_name_binary(UserId),
     Contact = #pb_contact{
