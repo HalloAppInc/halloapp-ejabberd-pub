@@ -144,7 +144,7 @@ delete_inactive_accounts() ->
 maybe_delete_inactive_account(Uid) ->
     case is_inactive_user(Uid) of
         true ->
-            Phone = model_accounts:get_phone(Uid),
+            {ok, Phone} = model_accounts:get_phone(Uid),
             {ok, InvitersList} = model_invites:get_inviters_list(Phone),
             IsInvitedInternally = lists:any(
                 fun({InviterUid, _Ts}) ->
