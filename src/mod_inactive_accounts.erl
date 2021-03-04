@@ -145,20 +145,29 @@ maybe_delete_inactive_account(Uid) ->
     case is_inactive_user(Uid) of
         true ->
             {ok, Phone} = model_accounts:get_phone(Uid),
+            {_, Version} = model_accounts:get_client_version(Uid),
+            VersionTimeLeft = case Version of
+                missing -> 0;
+                _ -> mod_client_version:get_time_left(Version, util:now())
+            end,
+            VersionDaysLeft = VersionTimeLeft / ?DAYS,
             {ok, InvitersList} = model_invites:get_inviters_list(Phone),
             IsInvitedInternally = lists:any(
                 fun({InviterUid, _Ts}) ->
                     dev_users:is_dev_uid(InviterUid)
                 end,
                 InvitersList),
-            case IsInvitedInternally of
+            case (IsInvitedInternally or InvitersList =:= []) or (VersionDaysLeft > 0.0) of
                 false ->
-                    ?INFO("Deleting: ~p", [Uid]),
+                    ?INFO("Deleting: ~p, Version: ~p, Version expired: ~p days ago",
+                        [Uid, Version, abs(VersionDaysLeft)]),
                     %% TODO(vipin): Uncomment after test run.
                     %% ejabberd_auth:remove_user(Uid, util:get_host()),
                     ok;
                 true ->
-                    ?ERROR("Not deleting: ~p, Invited internally by: ~p", [Uid, InvitersList])
+                    %% Either invited explicitly by an insider or it is an initial account.
+                    ?ERROR("Manual attention needed. Not deleting: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
+                        [Uid, Version, VersionDaysLeft, InvitersList])
             end;
         false ->
             ?INFO("Not deleting: ~p, account has become active", [Uid])
