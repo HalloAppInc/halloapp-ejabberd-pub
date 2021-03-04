@@ -451,7 +451,7 @@ add_friend_test() ->
         ?assertEqual(?UID2, ToUid),
         ?assertEqual(normal, MsgType),
         #pb_feed_items{
-            items = [Post]
+            items = [#pb_feed_item{item = Post}]
         } = Payload,
         ?assertEqual(?POST_ID1, Post#pb_post.id),
         ?assertEqual(?PAYLOAD1, Post#pb_post.payload),
