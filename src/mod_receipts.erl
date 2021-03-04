@@ -48,59 +48,41 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 
 %% Hook triggered when user sent the server an ack stanza for this particular message.
-%% TODO(murali@): Some of the offline messages will now have thread_id.
-%% Start using that from next month around 02-20-2021.
 -spec user_ack_packet(Ack :: ack(), OfflineMessage :: offline_message()) -> ok.
-user_ack_packet(#pb_ack{} = Ack, #offline_message{content_type = ContentType, msg_id = MsgId,
-        message = Msg, protobuf = true} = OfflineMessage)
-        when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">> ->
-    ?INFO("MsgId: ~p, ContentType: ~p", [MsgId, ContentType]),
-    NewMsg = case enif_protobuf:decode(Msg, pb_packet) of
-        {error, Reason} -> <<>>;
-        Packet -> packet_parser:proto_to_xmpp(Packet)
-    end,
-    NewOfflineMessage = OfflineMessage#offline_message{
-        message = NewMsg,
-        protobuf = false
-    },
-    user_ack_packet(Ack, NewOfflineMessage);
-
 user_ack_packet(#pb_ack{id = Id, from_uid = FromUid},
-        #offline_message{content_type = ContentType, from_uid = MsgFromId, message = Msg})
-        when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">> ->
+        #offline_message{content_type = ContentType, from_uid = MsgFromId, thread_id = ThreadId})
+        when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">>;
+        ContentType =:= <<"pb_chat_stanza">>; ContentType =:= <<"pb_group_chat">> ->
     ?INFO("Uid: ~s, Id: ~p, ContentType: ~p", [FromUid, Id, ContentType]),
     Server = util:get_host(),
-    TimestampSec = util:now_binary(),
-    FromJID = jid:make(FromUid, Server),
-    ToJID = jid:make(MsgFromId, Server),
-    ThreadId = get_thread_id(Msg),
-    send_receipt(ToJID, FromJID, Id, ThreadId, TimestampSec),
+    Timestamp = util:now(),
+    send_receipt(MsgFromId, FromUid, Id, ThreadId, Timestamp),
     log_delivered(ContentType);
 
 user_ack_packet(_, _) ->
     ok.
 
 
-%% Send a delivery receipt to the ToJID from FromJID using Id and Timestamp.
--spec send_receipt(ToJID :: jid(), FromJID :: jid(), Id :: binary(),
-        ThreadId :: binary(), Timestamp :: binary()) -> ok.
-send_receipt(ToJID, FromJID, Id, ThreadId, Timestamp) ->
-    ToUid = ToJID#jid.user,
-    FromUid = FromJID#jid.user,
+%% Send a delivery receipt to the ToUid from FromUid using Id and Timestamp.
+-spec send_receipt(ToUid :: binary(), FromUid :: binary(), Id :: binary(),
+        ThreadId :: binary(), Timestamp :: integer()) -> ok.
+send_receipt(ToUid, FromUid, Id, ThreadId, Timestamp) ->
     ?INFO("FromUid: ~s, ToUid: ~s, Id: ~p, ThreadId: ~p, Timestamp: ~p",
             [FromUid, ToUid, Id, ThreadId, Timestamp]),
-    MessageReceipt = #message{
+    MessageReceipt = #pb_msg{
         id = util:new_msg_id(),
-        to = ToJID,
-        from = FromJID,
-        sub_els = [#receipt_response{
+        to_uid = ToUid,
+        from_uid = FromUid,
+        payload = #pb_delivery_receipt{
             id = Id,
             thread_id = ThreadId,
-            timestamp = Timestamp}]},
+            timestamp = Timestamp}},
     ejabberd_router:route(MessageReceipt).
 
 
 log_delivered(<<"chat">>) ->
+    stat:count("HA/im_receipts", "delivered");
+log_delivered(<<"pb_chat_stanza">>) ->
     stat:count("HA/im_receipts", "delivered");
 log_delivered(<<"group_chat">>) ->
     stat:count("HA/group_im_receipts", "delivered").

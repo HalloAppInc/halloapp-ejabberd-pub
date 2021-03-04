@@ -47,7 +47,15 @@ proto_to_xmpp(PbPacket) ->
         #pb_presence{} = PresenceRecord ->
             PresenceRecord;
         #pb_msg{} = MsgRecord ->
-            message_parser:proto_to_xmpp(MsgRecord);
+            case MsgRecord#pb_msg.payload of
+                #pb_chat_stanza{} -> MsgRecord;
+                #pb_seen_receipt{} -> MsgRecord;
+                #pb_delivery_receipt{} -> MsgRecord;
+                #pb_silent_chat_stanza{} -> MsgRecord;
+                #pb_rerequest{} -> MsgRecord;
+                #pb_chat_retract{} -> MsgRecord;
+                _ -> message_parser:proto_to_xmpp(MsgRecord)
+            end;
         #pb_chat_state{} = ChatStateRecord ->
             ChatStateRecord;
         %% TODO: add error parser

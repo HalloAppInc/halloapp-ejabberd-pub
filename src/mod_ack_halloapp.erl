@@ -19,7 +19,7 @@
 -include("logger.hrl").
 
 -define(needs_ack_packet(Pkt),
-        is_record(Pkt, message)).
+        is_record(Pkt, message) orelse is_record(Pkt, pb_msg)).
 
 %%%===================================================================
 %%% gen_mod API
@@ -80,5 +80,29 @@ send_ack(#message{id = MsgId, from = #jid{user = User, server = ServerHost} = Fr
     end,
     AckPacket = #pb_ack{id = MsgId, to_uid = User, timestamp = Timestamp},
     ?INFO("uid: ~s, msg_id: ~s", [User, MsgId]),
+    ejabberd_router:route(AckPacket);
+
+send_ack(#pb_msg{id = MsgId, from_uid = Uid} = Packet)
+        when MsgId =:= undefined orelse MsgId =:= <<>> ->
+    PayloadType = util:get_payload_type(Packet),
+    ?ERROR("uid: ~s, invalid msg_id: ~s, content: ~p", [Uid, MsgId, PayloadType]),
+    ok;
+send_ack(#pb_msg{id = MsgId, from_uid = Uid} = Packet) ->
+    PayloadType = util:get_payload_type(Packet),
+    PacketTs = util:get_timestamp(Packet),
+    Timestamp = case {PayloadType, PacketTs} of
+        {pb_rerequest, _} -> util:now();
+        {pb_group_chat_retract, _} -> util:now();
+        {pb_chat_retract, _} -> util:now();
+        {_, undefined} ->
+            ?WARNING("Uid: ~s, timestamp is undefined, msg_id: ~s", [Uid, MsgId]),
+            util:now();
+        {_, <<>>} ->
+            ?WARNING("Uid: ~s, timestamp is empty, msg_id: ~s", [Uid, MsgId]),
+            util:now();
+        {_, PacketTs} -> util:to_integer(PacketTs)
+    end,
+    AckPacket = #pb_ack{id = MsgId, to_uid = Uid, timestamp = Timestamp},
+    ?INFO("uid: ~s, msg_id: ~s", [Uid, MsgId]),
     ejabberd_router:route(AckPacket).
 

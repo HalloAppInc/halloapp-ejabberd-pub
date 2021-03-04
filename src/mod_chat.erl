@@ -11,6 +11,7 @@
 -behaviour(gen_mod).
 
 -include("xmpp.hrl").
+-include("packets.hrl").
 -include("logger.hrl").
 -include("account.hrl").
 
@@ -52,25 +53,20 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
-user_send_packet({#message{id = MsgId} = Packet, State} = _Acc) ->
-    From = xmpp:get_from(Packet),
-    To = xmpp:get_to(Packet),
-    ToUid = To#jid.luser,
-    FromUid = From#jid.luser,
-    LServer = From#jid.lserver,
-    [SubEl] = Packet#message.sub_els,
-    SubElementType = element(1, SubEl),
-    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s",
-            [FromUid, SubElementType, ToUid, MsgId]),
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = Payload} = Packet, State} = _Acc) ->
+    LServer = util:get_host(),
+    PayloadType = util:get_payload_type(Packet),
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s", [FromUid, PayloadType, ToUid, MsgId]),
     Packet1 = if
         FromUid =:= <<>> ->
             % TODO: (nikola): I don't think this can happen
-            ?WARNING("MsgID: ~s Type: ~s has no FromUid", [MsgId, SubElementType]),
+            ?WARNING("MsgID: ~s Type: ~s has no FromUid", [MsgId, PayloadType]),
             Packet;
-        not is_record(SubEl, chat) andalso not is_record(SubEl, silent_chat) ->
+        not is_record(Payload, pb_chat_stanza) andalso not is_record(Payload, pb_silent_chat_stanza) ->
             Packet;
         true ->
-            case is_record(SubEl, chat) of
+            case is_record(Payload, pb_chat_stanza) of
                 true -> ejabberd_hooks:run_fold(user_send_im, LServer, [FromUid, MsgId, ToUid]);
                 false -> ok
             end,
@@ -85,23 +81,23 @@ user_send_packet({_Packet, _State} = Acc) ->
 %% internal functions
 %%====================================================================
 
--spec set_sender_info(Message :: message()) -> message().
-set_sender_info(#message{id = MsgId, from = #jid{luser = FromUid}} = Message) ->
+-spec set_sender_info(Message :: pb_msg()) -> pb_msg().
+set_sender_info(#pb_msg{id = MsgId, from_uid = FromUid} = Message) ->
     ?INFO("FromUid: ~s, MsgId: ~s", [FromUid, MsgId]),
     {ok, SenderAccount} = model_accounts:get_account(FromUid),
     set_sender_info(Message, SenderAccount#account.name, SenderAccount#account.client_version).
 
 
--spec set_sender_info(Message :: message(), Name :: binary(), ClientVersion :: binary()) -> message().
-set_sender_info(#message{sub_els = [#chat{} = Chat]} = Message, Name, ClientVersion) ->
-    Chat1 = Chat#chat{sender_name = Name, sender_client_version = ClientVersion},
-    Message#message{sub_els = [Chat1]};
+-spec set_sender_info(Message :: pb_msg(), Name :: binary(), ClientVersion :: binary()) -> message().
+set_sender_info(#pb_msg{payload = #pb_chat_stanza{} = Chat} = Message, Name, ClientVersion) ->
+    Chat1 = Chat#pb_chat_stanza{sender_name = Name, sender_client_version = ClientVersion},
+    Message#pb_msg{payload = Chat1};
 
-set_sender_info(#message{sub_els = [#silent_chat{chat = Chat}]} = Message, Name, ClientVersion) ->
-    Chat1 = Chat#chat{sender_name = Name, sender_client_version = ClientVersion},
-    Message#message{sub_els = [#silent_chat{chat = Chat1}]};
+set_sender_info(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = Chat}} = Message, Name, ClientVersion) ->
+    Chat1 = Chat#pb_chat_stanza{sender_name = Name, sender_client_version = ClientVersion},
+    Message#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = Chat1}};
 
-set_sender_info(#message{} = Message, _Name, _ClientVersion) ->
+set_sender_info(#pb_msg{} = Message, _Name, _ClientVersion) ->
     ?ERROR("Invalid message to set sender info: ~p", [Message]),
     Message.
 

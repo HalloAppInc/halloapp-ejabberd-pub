@@ -360,20 +360,25 @@ get_payload_type(_) -> undefined.
 %% chat/group_chat/silent_chat/seen/deliveryreceipt stanzas.
 
 -spec set_timestamp(message(), binary()) -> stanza().
-set_timestamp(#message{sub_els = [#chat{} = Chat]} = Msg, T) ->
-    xmpp:set_els(Msg, [Chat#chat{timestamp = T}]);
-set_timestamp(#message{sub_els = [#receipt_seen{} = SeenReceipt]} = Msg, T) ->
-    xmpp:set_els(Msg, [SeenReceipt#receipt_seen{timestamp = T}]);
-set_timestamp(#message{sub_els = [#receipt_response{} = DeliveryReceipt]} = Msg, T) ->
-    xmpp:set_els(Msg, [DeliveryReceipt#receipt_response{timestamp = T}]);
 set_timestamp(#message{sub_els = [#group_chat{} = GroupChat]} = Msg, T) ->
-    xmpp:set_els(Msg, [GroupChat#group_chat{timestamp = T}]);
-set_timestamp(#message{sub_els = [#silent_chat{chat = #chat{} = Chat} = SilentChat]} = Msg, T) ->
-    xmpp:set_els(Msg, [SilentChat#silent_chat{chat = Chat#chat{timestamp = T}}]);
+    xmpp:set_els(Msg, [GroupChat#group_chat{timestamp = util:to_binary(T)}]);
+set_timestamp(#pb_msg{payload = #pb_chat_stanza{} = Chat} = Msg, T) ->
+    Msg#pb_msg{payload = Chat#pb_chat_stanza{timestamp = T}};
+set_timestamp(#pb_msg{payload = #pb_seen_receipt{} = SeenReceipt} = Msg, T) ->
+    Msg#pb_msg{payload = SeenReceipt#pb_seen_receipt{timestamp = T}};
+set_timestamp(#pb_msg{payload = #pb_delivery_receipt{} = DeliveryReceipt} = Msg, T) ->
+    Msg#pb_msg{payload = DeliveryReceipt#pb_delivery_receipt{timestamp = T}};
+set_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_stanza{} = Chat} = SilentChat} = Msg, T) ->
+    Msg#pb_msg{payload = SilentChat#pb_silent_chat_stanza{chat_stanza = Chat#pb_chat_stanza{timestamp = T}}};
 set_timestamp(Packet, _T) -> Packet.
 
 
 -spec get_timestamp(message()) -> binary() | undefined.
+get_timestamp(#pb_msg{payload = #pb_chat_stanza{timestamp = T}}) -> T;
+get_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_stanza{timestamp = T}}}) -> T;
+get_timestamp(#pb_msg{payload = #pb_seen_receipt{timestamp = T}}) -> T;
+get_timestamp(#pb_msg{payload = #pb_delivery_receipt{timestamp = T}}) -> T;
+get_timestamp(#pb_msg{}) -> undefined;
 get_timestamp(#message{sub_els = [#chat{timestamp = T}]}) -> T;
 get_timestamp(#message{sub_els = [#silent_chat{chat = #chat{timestamp = T}}]}) -> T;
 get_timestamp(#message{sub_els = [#group_chat{timestamp = T}]}) -> T;

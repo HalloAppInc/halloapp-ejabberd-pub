@@ -381,6 +381,7 @@ handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID,
             State2;
         #pb_ack{} -> process_ack_out(State2, Pkt2);
         #pb_chat_state{} -> check_privacy_then_route(State2, Pkt2);
+        #pb_msg{} -> check_privacy_then_route(State2, Pkt2);
         #message{} -> check_privacy_then_route(State2, Pkt2);
         #pb_presence{} -> check_privacy_then_route(State2, Pkt2)
     end.
@@ -517,7 +518,8 @@ process_chatstate_out(#{user := _Uid, lserver := Server} = State, #pb_chat_state
 
 -spec check_privacy_then_route(state(), stanza()) -> state().
 check_privacy_then_route(State, Pkt)
-        when is_record(Pkt, pb_presence); is_record(Pkt, message); is_record(Pkt, pb_chat_state) ->
+        when is_record(Pkt, pb_presence); is_record(Pkt, message);
+        is_record(Pkt, pb_msg); is_record(Pkt, pb_chat_state) ->
     case privacy_check_packet(State, Pkt, out) of
         deny ->
             ?INFO("failed_privacy_rules, packet received: ~p", [Pkt]),
@@ -528,6 +530,9 @@ check_privacy_then_route(State, Pkt)
             case Pkt of
                 #pb_presence{} -> process_presence_out(State, Pkt);
                 #pb_chat_state{} -> process_chatstate_out(State, Pkt);
+                #pb_msg{} ->
+                    ejabberd_router:route(Pkt),
+                    State;
                 #message{} ->
                     ejabberd_router:route(Pkt),
                     State
