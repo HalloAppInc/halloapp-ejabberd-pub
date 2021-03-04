@@ -21,9 +21,6 @@
 -include("client_version.hrl").
 -include("packets.hrl").
 
-% TODO: cleanup this on 2020-11-27
--define(CUTOFF_TIME, 1603318598).
--define(OLD_VERSION_VALIDITY, 30 * ?DAYS).
 
 %% gen_mod API.
 -export([start/2, stop/1, depends/2, reload/3, mod_options/1]).
