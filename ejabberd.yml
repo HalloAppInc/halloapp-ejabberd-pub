@@ -242,6 +242,7 @@ modules:
   model_whisper_keys: {}
   model_feed: {}
   stat: {}
+  mod_admin_extra: {}
 
 ### Local Variables:
 ### mode: yaml
