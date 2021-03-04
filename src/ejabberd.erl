@@ -38,7 +38,7 @@
 -protocol({xep, 270, '1.0'}).
 
 -export([start/0, stop/0, halt/0, start_app/1, start_app/2,
-	 get_pid_file/0, check_apps/0, module_name/1, is_loaded/0]).
+     get_pid_file/0, check_apps/0, module_name/1, is_loaded/0]).
 
 -include("logger.hrl").
 
@@ -56,12 +56,12 @@ halt() ->
 %% @spec () -> false | string()
 get_pid_file() ->
     case os:getenv("EJABBERD_PID_PATH") of
-	false ->
-	    false;
-	"" ->
-	    false;
-	Path ->
-	    Path
+        false ->
+            false;
+        "" ->
+            false;
+        Path ->
+            Path
     end.
 
 start_app(App) ->
@@ -87,17 +87,17 @@ start_app([App|Apps], Type, StartFlag) ->
             case lists:member(DepApp, [App|Apps]) of
                 true ->
                     Reason = io_lib:format(
-                               "Failed to start Erlang application '~ts': "
-                               "circular dependency with '~ts' detected",
-                               [App, DepApp]),
+                        "Failed to start Erlang application '~ts': "
+                        "circular dependency with '~ts' detected",
+                        [App, DepApp]),
                     exit_or_halt(Reason, StartFlag);
                 false ->
                     start_app([DepApp,App|Apps], Type, StartFlag)
             end;
         {error, Why} ->
             Reason = io_lib:format(
-		       "Failed to start Erlang application '~ts': ~ts. ~ts",
-		       [App, format_error(Why), hint()]),
+               "Failed to start Erlang application '~ts': ~ts. ~ts",
+               [App, format_error(Why), hint()]),
             exit_or_halt(Reason, StartFlag)
     end;
 start_app([], _Type, _StartFlag) ->
@@ -107,19 +107,19 @@ check_app_modules(App, StartFlag) ->
     case application:get_key(App, modules) of
         {ok, Mods} ->
             lists:foreach(
-              fun(Mod) ->
-                      case code:which(Mod) of
-                          non_existing ->
-                              File = get_module_file(App, Mod),
-                              Reason = io_lib:format(
-                                         "Couldn't find file ~ts needed "
-					 "for Erlang application '~ts'. ~ts",
-                                         [File, App, hint()]),
-                              exit_or_halt(Reason, StartFlag);
-                          _ ->
-			      ok
-                      end
-              end, Mods);
+                fun(Mod) ->
+                    case code:which(Mod) of
+                        non_existing ->
+                            File = get_module_file(App, Mod),
+                            Reason = io_lib:format(
+                                "Couldn't find file ~ts needed "
+                                "for Erlang application '~ts'. ~ts",
+                                [File, App, hint()]),
+                                exit_or_halt(Reason, StartFlag);
+                            _ ->
+                                ok
+                    end
+                end, Mods);
         _ ->
             %% No modules? This is strange
             ok
@@ -127,27 +127,28 @@ check_app_modules(App, StartFlag) ->
 
 check_apps() ->
     spawn(
-      fun() ->
-	      Apps = [ejabberd |
-		      [App || {App, _, _} <- application:which_applications(),
-			      App /= ejabberd]],
-	      ?DEBUG("Checking consistency of applications: ~ts",
-		     [misc:join_atoms(Apps, <<", ">>)]),
-	      misc:peach(
-		fun(App) ->
-			check_app_modules(App, true)
-		end, Apps),
-	      ?DEBUG("All applications are intact", []),
-	      lists:foreach(fun erlang:garbage_collect/1, processes())
+        fun() ->
+            Apps = [ejabberd |
+                [App || {App, _, _} <- application:which_applications(),
+                App /= ejabberd]],
+            ?DEBUG("Checking consistency of applications: ~ts",
+                [misc:join_atoms(Apps, <<", ">>)]),
+            misc:peach(
+                fun(App) ->
+                    check_app_modules(App, true)
+                end, Apps),
+            ?DEBUG("All applications are intact", []),
+            lists:foreach(fun erlang:garbage_collect/1, processes())
       end).
 
 -spec exit_or_halt(iodata(), boolean()) -> no_return().
 exit_or_halt(Reason, StartFlag) ->
     ?CRITICAL(Reason, []),
-    if StartFlag ->
+    if
+        StartFlag ->
             %% Wait for the critical message is written in the console/log
             halt();
-       true ->
+        true ->
             erlang:error(application_start_failed)
     end.
 
@@ -163,8 +164,8 @@ get_module_file(App, Mod) ->
 module_name([Dir, _, <<H,_/binary>> | _] = Mod) when H >= 65, H =< 90 ->
     Module = str:join([elixir_name(M) || M<-tl(Mod)], <<>>),
     Prefix = case elixir_name(Dir) of
-	<<"Ejabberd">> -> <<"Elixir.Ejabberd.">>;
-	Lib -> <<"Elixir.Ejabberd.", Lib/binary, ".">>
+        <<"Ejabberd">> -> <<"Elixir.Ejabberd.">>;
+        Lib -> <<"Elixir.Ejabberd.", Lib/binary, ".">>
     end,
     misc:binary_to_atom(<<Prefix/binary, Module/binary>>);
 module_name([<<"ejabberd">> | _] = Mod) ->
