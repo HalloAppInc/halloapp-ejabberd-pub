@@ -209,11 +209,10 @@ user_avatar_published(UserId, Server, AvatarId) ->
     {ok, Friends} = model_friends:get_friends(UserId),
     lists:foreach(
         fun(FriendId) ->
-            Message = #message{
+            Message = #pb_msg{
                 id = util:new_msg_id(),
-                to = jid:make(FriendId, Server),
-                from = jid:make(Server),
-                sub_els = [#avatar{userid = UserId, id = AvatarId}]},
+                to_uid = FriendId,
+                payload = #pb_avatar{uid = UserId, id = AvatarId}},
             ejabberd_router:route(Message)
         end, Friends).
 

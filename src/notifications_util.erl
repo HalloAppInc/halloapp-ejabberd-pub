@@ -10,6 +10,7 @@
 -author('vipin').
 -include("logger.hrl").
 -include("xmpp.hrl").
+-include("packets.hrl").
 
 -include("ha_namespaces.hrl").
 
@@ -41,21 +42,20 @@ send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, Conta
         <<"friends">> -> model_accounts:get_avatar_id_binary(UserId)
     end,
     Name = model_accounts:get_name_binary(UserId),
-    Contact = #contact{
-        userid = UserId,
+    Contact = #pb_contact{
+        uid = UserId,
         name = Name,
-        avatarid = AvatarId,
+        avatar_id = AvatarId,
         normalized = UserPhone,
         role = Role
     },
 
-    SubEls = [#contact_list{type = ContactListType, xmlns = ?NS_USER_CONTACTS, contacts = [Contact]}],
-    Stanza = #message{
+    Payload = #pb_contact_list{type = ContactListType, contacts = [Contact]},
+    Stanza = #pb_msg{
         id = util:new_msg_id(),
         type = MessageType,
-        from = jid:make(Server),
-        to = jid:make(ContactId, Server),
-        sub_els = SubEls
+        to_uid = ContactId,
+        payload = Payload
     },
     ?DEBUG("Notifying contact: ~p about user: ~p using stanza: ~p",
             [{ContactId, Server}, UserId, Stanza]),

@@ -584,15 +584,11 @@ probe_contact_about_user(UserId, UserPhone, Server, ContactId) ->
 -spec send_probe_message(UserId :: binary(), HashValue :: binary(),
         ContactId :: binary(), Server :: binary()) -> ok.
 send_probe_message(UserId, HashValue, ContactId, Server) ->
-    SubEl = #contact_list{
-        type = normal,
-        xmlns = ?NS_USER_CONTACTS,
-        contact_hash = [base64:encode(HashValue)]},
-    Stanza = #message{
+    Payload = #pb_contact_hash{hash = HashValue},
+    Stanza = #pb_msg{
         id = util:new_msg_id(),
-        from = jid:make(Server),
-        to = jid:make(ContactId, Server),
-        sub_els = [SubEl]
+        to_uid = ContactId,
+        payload = Payload
     },
     ?DEBUG("Probing contact: ~p about user: ~p using stanza: ~p",
             [{ContactId, Server}, UserId, Stanza]),
