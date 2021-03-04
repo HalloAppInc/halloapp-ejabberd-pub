@@ -36,8 +36,7 @@
     node_id/0,
     get_node_by_id/1,
     send/2,
-    wait_for_sync/1,
-    subscribe/1
+    wait_for_sync/1
 ]).
 
 -include("logger.hrl").
@@ -137,11 +136,6 @@ send(Dst, Msg) ->
 wait_for_sync(Timeout) ->
     ?INFO("Waiting for Mnesia synchronization to complete", []),
     mnesia:wait_for_tables(mnesia:system_info(local_tables), Timeout),
-    ok.
-
-
--spec subscribe(_) -> ok.
-subscribe(_) ->
     ok.
 
 

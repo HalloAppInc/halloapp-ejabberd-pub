@@ -41,8 +41,6 @@
     get_known_nodes/0,
     join/1,
     leave/1,
-    subscribe/0,
-    subscribe/1,
     node_id/0,
     get_node_by_id/1,
     send/2,
@@ -66,7 +64,6 @@
 -callback get_node_by_id(binary()) -> node().
 -callback send({atom(), node()}, term()) -> boolean().
 -callback wait_for_sync(timeout()) -> ok | {error, any()}.
--callback subscribe(dst()) -> ok.
 
 -record(state, {}).
 
@@ -190,16 +187,6 @@ wait_for_sync(Timeout) ->
     Mod:wait_for_sync(Timeout).
 
 
--spec subscribe() -> ok.
-subscribe() ->
-    subscribe(self()).
-
-
--spec subscribe(dst()) -> ok.
-subscribe(Proc) ->
-    Mod = get_mod(),
-    Mod:subscribe(Proc).
-
 %%%===================================================================
 %%% Hooks
 %%%===================================================================
@@ -231,7 +218,6 @@ init([]) ->
     case Mod:init() of
         ok ->
             ejabberd_hooks:add(config_reloaded, ?MODULE, set_ticktime, 50),
-            Mod:subscribe(?MODULE),
             {ok, #state{}};
         {error, Reason} ->
             {stop, Reason}
