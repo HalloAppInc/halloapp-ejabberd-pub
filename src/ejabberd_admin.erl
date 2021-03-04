@@ -62,7 +62,6 @@
     mnesia_change_nodename/4,
     restore/1, % Still used by some modules
     clear_cache/0,
-    fix_account_counters/0,
     add_uid_trace/1,
     remove_uid_trace/1,
     add_phone_trace/1,
@@ -426,10 +425,6 @@ get_commands_spec() ->
             args_desc = ["Phone to be traced"],
             args_example = ["12066585586"],
             args = [{phone, string}], result = {res, rescode}},
-    #ejabberd_commands{name = fix_account_counters, tags = [server],
-            desc = "Fix Redis counters",
-            module = ?MODULE, function = fix_account_counters,
-            args = [], result = {res, rescode}},
     #ejabberd_commands{name = uid_info, tags = [server],
         desc = "Get information associated with a user account",
         module = ?MODULE, function = uid_info,
@@ -1076,10 +1071,6 @@ mnesia_change_nodename(FromString, ToString, Source, Target) ->
 clear_cache() ->
     Nodes = ejabberd_cluster:get_nodes(),
     lists:foreach(fun(T) -> ets_cache:clear(T, Nodes) end, ets_cache:all()).
-
-fix_account_counters() ->
-    ?INFO("fixing account counters", []),
-    model_accounts:fix_counters().
 
 add_uid_trace(Uid) ->
     UidBin = list_to_binary(Uid),

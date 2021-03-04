@@ -87,7 +87,6 @@
     count_registrations/1,
     count_accounts/1,
     count_accounts/0,
-    fix_counters/0,
     get_traced_uids/0,
     add_uid_to_trace/1,
     remove_uid_from_trace/1,
@@ -653,62 +652,6 @@ cleanup_version_keys(Versions) ->
     ok.
 
 
-fix_counters() ->
-    ?INFO("start", []),
-    Nodes = get_node_list(),
-    ?INFO("cluster nodes are ~p", [Nodes]),
-    ResultMap = compute_counters(Nodes),
-    ?INFO("result map ~p", [ResultMap]),
-    maps:map(
-        fun (K, V) ->
-            {ok, _} = q(["SET", K, V])
-        end,
-        ResultMap),
-    ?INFO("finished setting ~p counters", [maps:size(ResultMap)]),
-    ok.
-
-
-compute_counters(Nodes) ->
-    lists:foldl(
-        fun (Node, Map) ->
-            scan_server(Node, <<"0">>, Map)
-        end,
-        #{},
-        Nodes).
-
-scan_server(Node, Cursor, Map) ->
-    {ok, [NewCursor, Results]} = qn(["SCAN", Cursor, "COUNT", 500], Node),
-    Fun = fun (V) -> V + 1 end,
-    NewMap = lists:foldl(
-        fun (Key, M) ->
-            case process_key(Key) of
-                skip -> M;
-                {account, Uid} ->
-                    CounterKey = count_registrations_key(Uid),
-                    M2 = maps:update_with(CounterKey, Fun, 1, M),
-                    CounterKey2 = count_accounts_key(Uid),
-                    maps:update_with(CounterKey2, Fun, 1, M2);
-                {deleted_account, Uid} ->
-                    CounterKey = count_registrations_key(Uid),
-                    maps:update_with(CounterKey, Fun, 1, M)
-            end
-        end,
-        Map,
-        Results),
-    case NewCursor of
-        <<"0">> -> NewMap;
-        _ -> scan_server(Node, NewCursor, NewMap)
-    end.
-
-
-process_key(<<"acc:{", Rest/binary>>) ->
-    [Uid, <<"">>] = binary:split(Rest, <<"}">>),
-    {account, Uid};
-process_key(<<"dac:{", Rest/binary>>) ->
-    [Uid, <<"">>] = binary:split(Rest, <<"}">>),
-    {deleted_account, Uid};
-process_key(_Any) ->
-    skip.
 
 %%====================================================================
 %% Tracing related API
