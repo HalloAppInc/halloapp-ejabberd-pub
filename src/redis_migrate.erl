@@ -508,10 +508,10 @@ refresh_otp_keys_run(Key, State) ->
                 undefined ->
                     ?ERROR("Undefined client version for a uid: ~p", [Uid]);
                 _ ->
-                    case util_ua:get_client_type(Version) =:= ios andalso
-                            util_ua:is_version_greater_than(Version, <<"HalloApp/iOS1.2.91">>) of
+                    case util_ua:get_client_type(Version) =:= android andalso
+                            util_ua:is_version_greater_than(Version, <<"HalloApp/Android0.131">>) of
                         false -> ok;
-                        %% refresh otp keys for all ios accounts with version > 1.2.91
+                        %% refresh otp keys for all android accounts with version > 0.131
                         true ->
                             case DryRun of
                                 true ->
