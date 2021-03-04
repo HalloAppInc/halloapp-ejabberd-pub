@@ -44,6 +44,7 @@
 -include("time.hrl").
 -include("ha_types.hrl").
 -include("packets.hrl").
+-include("proc.hrl").
 
 -define(NS_CLIENT_LOG, <<"halloapp:client_log">>).
 -define(CLIENT_NS, <<"client.">>).
@@ -59,7 +60,7 @@
 
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_client_log, ?MODULE, process_local_iq),
     ok.
 
@@ -67,7 +68,7 @@ start(Host, Opts) ->
 stop(Host) ->
     ?INFO("stop ~w", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_client_log),
-    gen_mod:stop_child(get_proc()),
+    gen_mod:stop_child(?PROC()),
     ok.
 
 depends(_Host, _Opts) ->
@@ -76,16 +77,13 @@ depends(_Host, _Opts) ->
 mod_options(_Host) ->
     [].
 
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
-
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
 
 % for tests
 start_link() ->
-    gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
+    gen_server:start_link({local, ?PROC()}, ?MODULE, [], []).
 
 init(_Host) ->
     ?INFO("Start: ~p", [?MODULE]),
@@ -155,7 +153,7 @@ upload_func_internal(#{source_server := SourceServer, file_list := FileList} = S
 make_optional_call([]) ->
     ok;
 make_optional_call(_FileList) ->
-    gen_server:cast(get_proc(), upload_to_s3),
+    gen_server:cast(?PROC(), upload_to_s3),
     ok.
 
 %%====================================================================
@@ -164,12 +162,12 @@ make_optional_call(_FileList) ->
 
 -spec trigger_upload_aws() -> ok.
 trigger_upload_aws() ->
-    gen_server:cast(get_proc(), upload_to_s3),
+    gen_server:cast(?PROC(), upload_to_s3),
     ok.
 
 -spec write_log(Namespace :: binary(), Date :: tuple(), Bin :: binary()) -> ok.
 write_log(Namespace, Date, Bin) ->
-    gen_server:cast(get_proc(), {write_log, Namespace, Date, Bin}),
+    gen_server:cast(?PROC(), {write_log, Namespace, Date, Bin}),
     ok.
 
 %%====================================================================
@@ -512,4 +510,4 @@ log_event(FullNamespace, EventDataMap) ->
 
 % used for tests to ensure a gen_server cast finishes before an assert
 flush() ->
-    gen_server:call(get_proc(), flush).
+    gen_server:call(?PROC(), flush).

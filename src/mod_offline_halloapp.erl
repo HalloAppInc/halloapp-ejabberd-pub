@@ -18,6 +18,7 @@
 -include("packets.hrl").
 -include("offline_message.hrl").
 -include("ejabberd_sm.hrl").
+-include("proc.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 -define(MESSAGE_RESPONSE_TIMEOUT_MILLISEC, 30000).  %% 30 seconds.
@@ -52,11 +53,11 @@
 
 start(Host, Opts) ->
     ?INFO("mod_offline_halloapp: start", []),
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()).
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()).
 
 stop(_Host) ->
     ?INFO("mod_offline_halloapp: stop", []),
-    gen_mod:stop_child(get_proc()).
+    gen_mod:stop_child(?PROC()).
 
 depends(_Host, _Opts) ->
     [].
@@ -66,9 +67,6 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 mod_options(_Host) ->
     [].
-
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
 
 
 
@@ -543,7 +541,7 @@ compute_new_params(RetryCount, Window, PendingAcks, TotalNumOfMessages) ->
 
 -spec setup_push_timer(Message :: message()) -> ok.
 setup_push_timer(Message) ->
-    gen_server:cast(get_proc(), {setup_push_timer, Message}).
+    gen_server:cast(?PROC(), {setup_push_timer, Message}).
 
 
 -spec get_last_msg_order_id(MsgsToSend :: [offline_message()],

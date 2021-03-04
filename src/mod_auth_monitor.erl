@@ -12,6 +12,7 @@
 
 -include("logger.hrl").
 -include("time.hrl").
+-include("proc.hrl").
 
 -type queue() :: erlang:queue().
 -record(state,
@@ -51,14 +52,14 @@
 
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     ejabberd_hooks:add(pb_c2s_auth_result, Host, ?MODULE, process_auth_result, 50),
     ejabberd_hooks:add(c2s_auth_result, Host, ?MODULE, process_auth_result, 50),
     ok.
 
 stop(Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    gen_mod:stop_child(get_proc()),
+    gen_mod:stop_child(?PROC()),
     ejabberd_hooks:delete(pb_c2s_auth_result, Host, ?MODULE, process_auth_result, 50),
     ejabberd_hooks:delete(c2s_auth_result, Host, ?MODULE, process_auth_result, 50),
     ok.
@@ -72,31 +73,28 @@ reload(_Host, _NewOpts, _OldOpts) ->
 mod_options(_Host) ->
     [].
 
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
-
 
 
 -spec process_auth_result(State :: c2s_state(),
         Result :: true | {false, any()}, Uid :: binary()) -> c2s_state().
 process_auth_result(State, true, Uid) ->
     TimestampMs = util:now_ms(),
-    gen_server:cast(get_proc(), {auth_success, Uid, TimestampMs}),
+    gen_server:cast(?PROC(), {auth_success, Uid, TimestampMs}),
     State;
 process_auth_result(State, {false, _Reason}, Uid) ->
     TimestampMs = util:now_ms(),
-    gen_server:cast(get_proc(), {auth_failure, Uid, TimestampMs}),
+    gen_server:cast(?PROC(), {auth_failure, Uid, TimestampMs}),
     State.
 
 
 -spec is_auth_service_normal() -> boolean().
 is_auth_service_normal() ->
-    gen_server:call(get_proc(), is_auth_service_normal).
+    gen_server:call(?PROC(), is_auth_service_normal).
 
 
 -spec reset_auth_service() -> ok.
 reset_auth_service() ->
-    gen_server:call(get_proc(), reset_auth_service).
+    gen_server:call(?PROC(), reset_auth_service).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

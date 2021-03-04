@@ -14,6 +14,7 @@
 -include("xmpp.hrl").
 -include("packets.hrl").
 -include("time.hrl").
+-include("proc.hrl").
 
 %% TODO: rename db?
 -define(IOS, <<"ios">>).
@@ -37,13 +38,13 @@
 
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     ok.
 
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    gen_mod:stop_child(get_proc()),
+    gen_mod:stop_child(?PROC()),
     ok.
 
 depends(_Host, _Opts) ->
@@ -51,9 +52,6 @@ depends(_Host, _Opts) ->
 
 mod_options(_Host) ->
     [].
-
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
 
 
 %%====================================================================
@@ -95,12 +93,12 @@ code_change(_OldVsn, State, _Extra) ->
 
 -spec query_encryption_stats() -> ok.
 query_encryption_stats() ->
-    gen_server:cast(get_proc(), query_encryption_stats),
+    gen_server:cast(?PROC(), query_encryption_stats),
     ok.
 
 -spec query_execution_results(Queries :: [binary()], ExecIds :: [binary()]) -> ok.
 query_execution_results(Queries, ExecIds) ->
-    gen_server:cast(get_proc(), {query_execution_results, Queries, ExecIds}),
+    gen_server:cast(?PROC(), {query_execution_results, Queries, ExecIds}),
     ok.
 
 

@@ -13,6 +13,7 @@
 -include("logger.hrl").
 -include("time.hrl").
 -include("xmpp.hrl").
+-include("proc.hrl").
 
 
 %% gen_mod API.
@@ -33,12 +34,12 @@
 
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     ok.
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    gen_mod:stop_child(get_proc()),
+    gen_mod:stop_child(?PROC()),
     ok.
 
 depends(_Host, _Opts) ->
@@ -49,9 +50,6 @@ mod_options(_Host) ->
 
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.
-
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
 
 
 %%====================================================================
@@ -139,7 +137,7 @@ handle_cast(Request, State) ->
         JID :: jid(), Info :: ejabberd_sm:info()) -> ok.
 sm_register_connection_hook(_SID, #jid{luser = Uid} = _JID, Info) ->
     ClientVersion = proplists:get_value(client_version, Info),
-    gen_server:cast(get_proc(), {add_connection, Uid, ClientVersion}),
+    gen_server:cast(?PROC(), {add_connection, Uid, ClientVersion}),
     ok.
 
 
@@ -147,7 +145,7 @@ sm_register_connection_hook(_SID, #jid{luser = Uid} = _JID, Info) ->
         JID :: jid(), Info :: ejabberd_sm:info()) -> ok.
 sm_remove_connection_hook(_SID, #jid{luser = Uid} = _JID, Info) ->
     ClientVersion = proplists:get_value(client_version, Info),
-    gen_server:cast(get_proc(), {remove_connection, Uid, ClientVersion}),
+    gen_server:cast(?PROC(), {remove_connection, Uid, ClientVersion}),
     ok.
 
 
@@ -158,7 +156,7 @@ sm_remove_connection_hook(_SID, #jid{luser = Uid} = _JID, Info) ->
 
 -spec compute_counts() -> ok.
 compute_counts() ->
-    gen_server:cast(get_proc(), compute_counts),
+    gen_server:cast(?PROC(), compute_counts),
     ok.
 
 

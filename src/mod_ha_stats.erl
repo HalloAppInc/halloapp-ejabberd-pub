@@ -7,6 +7,7 @@
 -include("xmpp.hrl").
 -include("packets.hrl").
 -include("time.hrl").
+-include("proc.hrl").
 
 -export([start_link/0]).
 %% gen_mod callbacks
@@ -55,7 +56,7 @@
 -define(LOG_NEW_USER_TIME, 1 * ?MINUTES_MS).
 
 start_link() ->
-    gen_server:start_link({local, get_proc()}, ?MODULE, [], []).
+    gen_server:start_link({local, ?PROC()}, ?MODULE, [], []).
 
 start(Host, _Opts) ->
     ejabberd_hooks:add(feed_item_published, Host, ?MODULE, feed_item_published, 50),
@@ -92,9 +93,6 @@ depends(_Host, _Opts) ->
 
 mod_options(_Host) ->
     [].
-
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
 
 % gen_server
 init(_Stuff) ->
@@ -172,17 +170,17 @@ terminate(_Reason, _State) -> ok.
 code_change(_OldVersion, State, _Extra) -> {ok, State}.
 
 new_user(Uid) ->
-    gen_server:cast(get_proc(), {new_user, Uid}).
+    gen_server:cast(?PROC(), {new_user, Uid}).
 
 % Test only
 log_new_user(Uid) ->
-    gen_server:cast(get_proc(), {log_new_user, Uid}).
+    gen_server:cast(?PROC(), {log_new_user, Uid}).
 
 log_share_old_items(Uid, NumPosts, NumComments) ->
-    gen_server:cast(get_proc(), {log_share_old_items, Uid, NumPosts, NumComments}).
+    gen_server:cast(?PROC(), {log_share_old_items, Uid, NumPosts, NumComments}).
 
 trigger_cleanup() ->
-    gen_server:cast(get_proc(), {cleanup}).
+    gen_server:cast(?PROC(), {cleanup}).
 
 
 -spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: atom(),

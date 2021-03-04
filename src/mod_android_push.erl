@@ -15,7 +15,8 @@
 
 -include("logger.hrl").
 -include("xmpp.hrl").
--include ("push_message.hrl").
+-include("push_message.hrl").
+-include("proc.hrl").
 
 %% TODO(murali@): convert everything to 1 timeunit.
 -define(HTTP_TIMEOUT_MILLISEC, 10000).             %% 10 seconds.
@@ -44,12 +45,12 @@
 
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     ok.
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    gen_mod:stop_child(get_proc()),
+    gen_mod:stop_child(?PROC()),
     ok.
 
 depends(_Host, _Opts) ->
@@ -61,9 +62,6 @@ reload(_Host, _NewOpts, _OldOpts) ->
 mod_options(_Host) ->
     [].
 
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
-
 
 %%====================================================================
 %% API
@@ -71,14 +69,14 @@ get_proc() ->
 
 -spec push(Message :: message(), PushInfo :: push_info()) -> ok.
 push(Message, #push_info{os = <<"android">>} = PushInfo) ->
-    gen_server:cast(get_proc(), {push_message, Message, PushInfo});
+    gen_server:cast(?PROC(), {push_message, Message, PushInfo});
 push(_Message, _PushInfo) ->
     ?ERROR("Invalid push_info : ~p", [_PushInfo]).
 
 
 -spec crash() -> ok.
 crash() ->
-    gen_server:cast(get_proc(), crash).
+    gen_server:cast(?PROC(), crash).
 
 
 %%====================================================================

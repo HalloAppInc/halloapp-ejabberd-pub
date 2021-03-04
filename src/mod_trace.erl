@@ -8,6 +8,7 @@
 -include("jid.hrl").
 -include("time.hrl").
 -include("ha_types.hrl").
+-include("proc.hrl").
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
@@ -38,7 +39,7 @@
 
 start(Host, Opts) ->
     ?INFO("starting", []),
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     ejabberd_hooks:add(c2s_handle_recv, Host, ?MODULE, c2s_handle_recv, 0),
     ejabberd_hooks:add(c2s_handle_send, Host, ?MODULE, c2s_handle_send, 0),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 10),
@@ -48,7 +49,7 @@ start(Host, Opts) ->
 
 stop(Host) ->
     ?INFO("stopping", []),
-    gen_mod:stop_child(get_proc()),
+    gen_mod:stop_child(?PROC()),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 10),
     ejabberd_hooks:delete(c2s_handle_send, Host, ?MODULE, c2s_handle_send, 0),
@@ -142,37 +143,34 @@ handle_info(Request, State) ->
     ?INFO("invalid request: ~p", [Request]),
     {noreply, State}.
 
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
-
 
 -spec add_uid(Uid :: uid()) -> ok.
 add_uid(Uid) when is_binary(Uid) ->
-    gen_server:call(get_proc(), {add_uid, Uid}).
+    gen_server:call(?PROC(), {add_uid, Uid}).
 
 add_uid_internal(Uid) ->
     ?INFO("add_uid Uid: ~s", [Uid]),
     model_accounts:add_uid_to_trace(Uid),
     % TODO: ideally we will do our start_trace_internal and then tell other nodes to do start_trace
-    ejabberd_cluster:abcast(get_proc(), {start_trace, Uid}),
+    ejabberd_cluster:abcast(?PROC(), {start_trace, Uid}),
     ok.
 
 
 -spec remove_uid(Uid :: binary()) -> ok.
 remove_uid(Uid) when is_binary(Uid) ->
-    gen_server:call(get_proc(), {remove_uid, Uid}).
+    gen_server:call(?PROC(), {remove_uid, Uid}).
 
 remove_uid_internal(Uid) ->
     ?INFO("remove_uid Uid: ~s", [Uid]),
     model_accounts:remove_uid_from_trace(Uid),
     % TODO: ideally we will do our stop_trace_internal and then tell other nodes to do stop_trace
-    ejabberd_cluster:abcast(get_proc(), {stop_trace, Uid}),
+    ejabberd_cluster:abcast(?PROC(), {stop_trace, Uid}),
     ok.
 
 
 -spec add_phone(Phone :: binary()) -> ok.
 add_phone(Phone) ->
-    gen_server:call(get_proc(), {add_phone, Phone}).
+    gen_server:call(?PROC(), {add_phone, Phone}).
 
 add_phone_internal(Phone) ->
     ?INFO("Phone: ~s", [Phone]),
@@ -188,7 +186,7 @@ add_phone_internal(Phone) ->
 
 -spec remove_phone(Phone :: binary()) -> ok.
 remove_phone(Phone) ->
-    gen_server:call(get_proc(), {remove_phone, Phone}).
+    gen_server:call(?PROC(), {remove_phone, Phone}).
 
 remove_phone_internal(Phone) ->
     ?INFO("Phone: ~s", [Phone]),
@@ -213,7 +211,7 @@ register_user(Uid, _Server, Phone) ->
             ?INFO("activiating trace for Uid: ~s because Phone: ~s is traced", [Uid, Phone]),
             % we use cast because we don't want to block the registration
             % while we wait for all nodes in the cluster to ack
-            gen_server:cast(get_proc(), {add_uid, Uid}),
+            gen_server:cast(?PROC(), {add_uid, Uid}),
             ok
     end.
 
@@ -226,7 +224,7 @@ remove_user(Uid, _Server) ->
             ?INFO("traced Uid: ~s is being deleted", [Uid]),
             % cast because we don't want to block the remove_user hook
             % while we wait for all nodes in the cluster to ack
-            gen_server:cast(get_proc(), {remove_uid, Uid}),
+            gen_server:cast(?PROC(), {remove_uid, Uid}),
             ok
     end.
 
@@ -242,7 +240,7 @@ c2s_handle_send(#{user := Uid} = State, Bin, Pkt, _SendResult) ->
 
 start_trace(Uid) ->
     ?INFO("Uid ~p", [Uid]),
-    gen_server:call(get_proc(), {start_trace, Uid}).
+    gen_server:call(?PROC(), {start_trace, Uid}).
 
 
 start_trace_internal(Uid) ->
@@ -252,7 +250,7 @@ start_trace_internal(Uid) ->
 
 stop_trace(Uid) ->
     ?INFO("Uid ~p", [Uid]),
-    gen_server:call(get_proc(), {stop_trace, Uid}).
+    gen_server:call(?PROC(), {stop_trace, Uid}).
 
 
 stop_trace_internal(Uid) ->

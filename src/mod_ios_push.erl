@@ -20,8 +20,9 @@
 -include("xmpp.hrl").
 -include("packets.hrl").
 -include("server.hrl").
--include ("push_message.hrl").
+-include("push_message.hrl").
 -include("feed.hrl").
+-include("proc.hrl").
 
 -type build_type() :: prod | dev.
 
@@ -68,12 +69,12 @@
 
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    gen_mod:start_child(?MODULE, Host, Opts, get_proc()),
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     ok.
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    gen_mod:stop_child(get_proc()),
+    gen_mod:stop_child(?PROC()),
     ok.
 
 depends(_Host, _Opts) ->
@@ -86,10 +87,6 @@ mod_options(_Host) ->
     [].
 
 
-get_proc() ->
-    gen_mod:get_module_proc(global, ?MODULE).
-
-
 %%====================================================================
 %% API
 %%====================================================================
@@ -97,7 +94,7 @@ get_proc() ->
 -spec push(Message :: message(), PushInfo :: push_info()) -> ok.
 push(Message, #push_info{os = Os} = PushInfo)
         when Os =:= <<"ios">>; Os =:= <<"ios_dev">> ->
-    gen_server:cast(get_proc(), {push_message, Message, PushInfo});
+    gen_server:cast(?PROC(), {push_message, Message, PushInfo});
 push(_Message, _PushInfo) ->
     ?ERROR("Invalid push_info : ~p", [_PushInfo]).
 
@@ -107,12 +104,12 @@ push(_Message, _PushInfo) ->
 -spec send_dev_push(Uid :: binary(), PushInfo :: push_info(),
         PushTypeBin :: binary(), PayloadBin :: binary()) -> ok | {error, any()}.
 send_dev_push(Uid, PushInfo, PushTypeBin, Payload) ->
-    gen_server:call(get_proc(), {send_dev_push, Uid, PushInfo, PushTypeBin, Payload}).
+    gen_server:call(?PROC(), {send_dev_push, Uid, PushInfo, PushTypeBin, Payload}).
 
 
 -spec crash() -> ok.
 crash() ->
-    gen_server:cast(get_proc(), crash).
+    gen_server:cast(?PROC(), crash).
 
 %%====================================================================
 %% gen_server callbacks
