@@ -424,8 +424,8 @@ send_old_items(FromUid, ToUid, Server) ->
 
     {ok, FeedItems} = model_feed:get_7day_user_feed(FromUid),
     {FilteredPosts, FilteredComments} = filter_feed_items(ToUid, FeedItems),
-    PostStanzas = lists:map(fun convert_posts_to_stanzas/1, FilteredPosts),
-    CommentStanzas = lists:map(fun convert_comments_to_stanzas/1, FilteredComments),
+    PostStanzas = lists:map(fun convert_posts_to_feed_items/1, FilteredPosts),
+    CommentStanzas = lists:map(fun convert_comments_to_feed_items/1, FilteredComments),
 
     %% Add the touid to the audience list so that they can comment on these posts.
     FilteredPostIds = [P#post.id || P <- FilteredPosts],
@@ -484,8 +484,8 @@ share_feed_items(Uid, FriendUid, _Server, PostIds) ->
     ?INFO("Uid: ~s, FriendUid: ~s, post_ids: ~p", [Uid, FriendUid, PostIds]),
     ok = model_feed:add_uid_to_audience(FriendUid, PostIds),
     {Posts, Comments} = get_posts_and_comments(PostIds),
-    PostStanzas = lists:map(fun convert_posts_to_stanzas/1, Posts),
-    CommentStanzas = lists:map(fun convert_comments_to_stanzas/1, Comments),
+    PostStanzas = lists:map(fun convert_posts_to_feed_items/1, Posts),
+    CommentStanzas = lists:map(fun convert_comments_to_feed_items/1, Comments),
 
     MsgType = normal,
     Packet = #pb_msg{
@@ -536,20 +536,24 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
     FinalAudienceSet.
 
 
--spec convert_posts_to_stanzas(post()) -> pb_post().
-convert_posts_to_stanzas(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs}) ->
-    #pb_post{
+-spec convert_posts_to_feed_items(post()) -> pb_post().
+convert_posts_to_feed_items(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs}) ->
+    Post = #pb_post{
         id = PostId,
         publisher_uid = Uid,
         publisher_name = model_accounts:get_name_binary(Uid),
         payload = base64:decode(PayloadBase64),
         timestamp = util:ms_to_sec(TimestampMs)
+    },
+    #pb_feed_item{
+        action = share,
+        item = Post
     }.
 
--spec convert_comments_to_stanzas(comment()) -> pb_comment().
-convert_comments_to_stanzas(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
+-spec convert_comments_to_feed_items(comment()) -> pb_comment().
+convert_comments_to_feed_items(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
         parent_id = ParentId, payload = PayloadBase64, ts_ms = TimestampMs}) ->
-    #pb_comment{
+    Comment = #pb_comment{
         id = CommentId,
         post_id = PostId,
         publisher_uid = PublisherUid,
@@ -557,5 +561,9 @@ convert_comments_to_stanzas(#comment{id = CommentId, post_id = PostId, publisher
         parent_comment_id = ParentId,
         payload = base64:decode(PayloadBase64),
         timestamp = util:ms_to_sec(TimestampMs)
+    },
+    #pb_feed_item{
+        action = share,
+        item = Comment
     }.
 
