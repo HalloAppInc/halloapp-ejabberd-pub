@@ -157,7 +157,7 @@ maybe_delete_inactive_account(Uid) ->
                     dev_users:is_dev_uid(InviterUid)
                 end,
                 InvitersList),
-            case (IsInvitedInternally or InvitersList =:= []) or (VersionDaysLeft > 0.0) of
+            case (IsInvitedInternally) or (InvitersList =:= []) or (VersionDaysLeft > 0.0) of
                 false ->
                     ?INFO("Deleting: ~p, Version: ~p, Version expired: ~p days ago",
                         [Uid, Version, abs(VersionDaysLeft)]),
