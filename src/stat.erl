@@ -251,7 +251,7 @@ check_sms_reg2(IncrementalTimestamp, Increment) ->
     ToInspect = IncrementalTimestamp - Increment,
     List = model_phone:get_incremental_attempt_list(ToInspect),
     lists:foreach(fun({Phone, AttemptId}) ->
-        ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
+        ?INFO("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
         SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
         #sms_response{gateway = Gateway, status = Status, verified = Success} = SMSResponse, 
         case {Gateway, Status, Success} of
