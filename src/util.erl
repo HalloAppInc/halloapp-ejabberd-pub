@@ -378,14 +378,7 @@ get_timestamp(#pb_msg{payload = #pb_chat_stanza{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_stanza{timestamp = T}}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_seen_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_delivery_receipt{timestamp = T}}) -> T;
-get_timestamp(#pb_msg{}) -> undefined;
-get_timestamp(#message{sub_els = [#chat{timestamp = T}]}) -> T;
-get_timestamp(#message{sub_els = [#silent_chat{chat = #chat{timestamp = T}}]}) -> T;
-get_timestamp(#pb_msg{payload = #pb_group_chat{timestamp = T}}) -> T;
-get_timestamp(#message{sub_els = [#receipt_seen{timestamp = T}]}) -> T;
-get_timestamp(#message{sub_els = [#receipt_response{timestamp = T}]}) -> T;
-get_timestamp(#message{}) ->
-    undefined.
+get_timestamp(#pb_msg{}) -> undefined.
 
 
 -spec convert_xmpp_to_pb_base64(Packet :: stanza()) -> binary().

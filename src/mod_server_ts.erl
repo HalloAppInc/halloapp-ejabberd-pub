@@ -48,13 +48,6 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
-user_send_packet({#message{id = MsgId} = Packet, State}) ->
-    % TODO: (nikola) in pb Timestamp is integer so we will soon be able to migrate out of binary ts.
-    TimestampSec = util:now_binary(),
-    Packet1 = util:set_timestamp(Packet, TimestampSec),
-    ?DEBUG("setting timestamp MsgId: ~s Ts: ~s", [MsgId, TimestampSec]),
-    {Packet1, State};
-
 user_send_packet({#pb_msg{id = MsgId} = Packet, State}) ->
     Timestamp = util:now(),
     Packet1 = util:set_timestamp(Packet, Timestamp),

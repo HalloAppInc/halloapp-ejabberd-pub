@@ -294,16 +294,6 @@ user_receive_packet({Packet, _State} = Acc) ->
 -spec count_packet(Namespace :: string(), Action :: string(), Packet :: stanza()) -> ok.
 count_packet(Namespace, _Action, #pb_ack{}) ->
     stat:count(Namespace, "ack");
-%% TODO(murali@): remove this function after migrating message stanzas.
-count_packet(Namespace, Action, #message{sub_els = [SubEl | _Rest]} = Message) ->
-    PayloadType = util:get_payload_type(Message),
-    stat:count(Namespace, "message", 1, [{payload_type, PayloadType}]),
-    case SubEl of
-        #chat{} -> stat:count("HA/messaging", Action ++ "_im");
-        #receipt_seen{} -> stat:count("HA/im_receipts", Action ++ "_seen");
-        #receipt_response{} -> stat:count("HA/im_receipts", Action ++ "_received");
-        _ -> ok
-    end;
 count_packet(Namespace, Action, #pb_msg{payload = Payload} = Message) ->
     PayloadType = pb:get_payload_type(Message),
     stat:count(Namespace, "message", 1, [{payload_type, PayloadType}]),

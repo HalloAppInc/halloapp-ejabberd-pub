@@ -161,13 +161,6 @@ privacy_check_packet(allow, _State, #pb_chat_state{} = Packet, out = Dir) ->
 privacy_check_packet(allow, _State, #pb_msg{type = groupchat}, out = _Dir) ->
     %% always allow all group_chat stanzas.
     allow;
-privacy_check_packet(allow, _State, #message{} = Packet, out = Dir) ->
-    %% check payload and then inspect addresses if necessary.
-    PayloadType = util:get_payload_type(Packet),
-    case is_payload_always_allowed(PayloadType) of
-        true -> allow;
-        false -> check_blocked(Packet, Dir)
-    end;
 privacy_check_packet(allow, _State, #pb_msg{} = Packet, out = Dir) ->
     %% check payload and then inspect addresses if necessary.
     PayloadType = util:get_payload_type(Packet),

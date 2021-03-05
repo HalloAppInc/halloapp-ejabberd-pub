@@ -443,8 +443,9 @@ route_offline_message(#offline_message{
             ?ERROR("MsgId: ~s, failed to parse: ~p, reason: ~p", [MsgId, Message, Reason]);
         MessageXmlEl ->
             try
-                Packet = xmpp:decode(MessageXmlEl, ?NS_CLIENT, [ignore_els]),
-                adjust_and_send_message(Packet, RetryCount),
+                Packet1 = xmpp:decode(MessageXmlEl, ?NS_CLIENT, [ignore_els]),
+                Packet2 = packet_parser:xmpp_to_proto(Packet1),
+                adjust_and_send_message(Packet2, RetryCount),
                 ?INFO("sending offline message Uid: ~s MsgId: ~p rc: ~p",
                     [ToUid, MsgId, RetryCount])
             catch
@@ -459,10 +460,6 @@ route_offline_message(#offline_message{
 -spec adjust_and_send_message(Message :: pb_msg() | message(), RetryCount :: integer()) -> ok.
 adjust_and_send_message(#pb_msg{} = Message, RetryCount) ->
     Message1 = Message#pb_msg{retry_count = RetryCount},
-    ejabberd_router:route(Message1),
-    ok;
-adjust_and_send_message(#message{} = Message, RetryCount) ->
-    Message1 = Message#message{retry_count = RetryCount},
     ejabberd_router:route(Message1),
     ok.
 

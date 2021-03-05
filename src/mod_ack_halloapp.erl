@@ -57,31 +57,7 @@ user_send_packet({Packet, #{lserver := ServerHost} = State} = Acc) ->
 
 
 %% Sends an ack packet.
--spec send_ack(message()) -> ok.
-send_ack(#message{id = MsgId, from = #jid{user = User}} = Packet)
-        when MsgId =:= undefined orelse MsgId =:= <<>> ->
-    PayloadType = util:get_payload_type(Packet),
-    ?ERROR("uid: ~s, invalid msg_id: ~s, content: ~p", [User, MsgId, PayloadType]),
-    ok;
-send_ack(#message{id = MsgId, from = #jid{user = User, server = ServerHost} = From} = Packet) ->
-    PayloadType = util:get_payload_type(Packet),
-    PacketTs = util:get_timestamp(Packet),
-    Timestamp = case {PayloadType, PacketTs} of
-        {rerequest_st, _} -> util:now();
-        {groupchat_retract_st, _} -> util:now();
-        {chat_retract_st, _} -> util:now();
-        {_, undefined} ->
-            ?WARNING("Uid: ~s, timestamp is undefined, msg_id: ~s", [User, MsgId]),
-            util:now();
-        {_, <<>>} ->
-            ?WARNING("Uid: ~s, timestamp is empty, msg_id: ~s", [User, MsgId]),
-            util:now();
-        {_, PacketTs} -> util:to_integer(PacketTs)
-    end,
-    AckPacket = #pb_ack{id = MsgId, to_uid = User, timestamp = Timestamp},
-    ?INFO("uid: ~s, msg_id: ~s", [User, MsgId]),
-    ejabberd_router:route(AckPacket);
-
+-spec send_ack(pb_msg()) -> ok.
 send_ack(#pb_msg{id = MsgId, from_uid = Uid} = Packet)
         when MsgId =:= undefined orelse MsgId =:= <<>> ->
     PayloadType = util:get_payload_type(Packet),

@@ -382,7 +382,6 @@ handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID,
         #pb_ack{} -> process_ack_out(State2, Pkt2);
         #pb_chat_state{} -> check_privacy_then_route(State2, Pkt2);
         #pb_msg{} -> check_privacy_then_route(State2, Pkt2);
-        #message{} -> check_privacy_then_route(State2, Pkt2);
         #pb_presence{} -> check_privacy_then_route(State2, Pkt2)
     end.
 
@@ -531,9 +530,6 @@ check_privacy_then_route(State, Pkt)
                 #pb_presence{} -> process_presence_out(State, Pkt);
                 #pb_chat_state{} -> process_chatstate_out(State, Pkt);
                 #pb_msg{} ->
-                    ejabberd_router:route(Pkt),
-                    State;
-                #message{} ->
                     ejabberd_router:route(Pkt),
                     State
             end

@@ -161,11 +161,6 @@ store_offline_message(#pb_msg{} = Packet) ->
     ejabberd_hooks:run_fold(store_message_hook, LServer, Packet, []).
 
 
-push_message(#message{} = Packet) ->
-    %% Upgrade to pb packet here
-    %% so that modules that depend on this hook can now deal with only one stanza.
-    PbPacket = halloapp_c2s:upgrade_packet(Packet),
-    push_message(PbPacket);
 push_message(#pb_msg{} = Packet) ->
     Server = util:get_host(),
     ejabberd_hooks:run_fold(push_message_hook, Server, Packet, []).
@@ -625,8 +620,6 @@ do_route(To, Term) ->
     end.
 
 -spec do_route(stanza()) -> any().
-do_route(#message{} = Packet) ->
-    do_route(halloapp_c2s:upgrade_packet(Packet));
 do_route(#pb_msg{} = Packet) ->
     route_message(Packet);
 do_route(#pb_iq{to_uid = <<"">>, type = T} = Packet) ->

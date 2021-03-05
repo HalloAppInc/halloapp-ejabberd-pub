@@ -90,38 +90,10 @@ log_delivered(<<"group_chat">>) ->
 
 % Try to extract the gid from the binary message
 %% TODO(murali@): cleanup this function once we switch everything to protobuf.
--spec get_thread_id(Message :: binary()) -> maybe(binary()).
-get_thread_id(#message{sub_els = [SubEl]}) ->
-    %% Sending undefined should work as usual.. so updating it here to test further.
-    %% This should affect only murali.
-    case SubEl of
-        #group_chat{gid =  Gid} -> Gid;
-        #chat{} -> undefined;   % This is the default case we don't need to send thread_id
-        _ -> undefined
-    end;
+-spec get_thread_id(Message :: pb_msg()) -> maybe(binary()).
 get_thread_id(#pb_msg{payload = Payload}) ->
     case Payload of
         #pb_group_chat{gid = Gid} -> Gid;
         _ -> undefined
-    end;
-get_thread_id(Message) ->
-    case fxml_stream:parse_element(Message) of
-        {error, Reason} ->
-            ?ERROR("failed to parse: ~p, reason: ~p", [Message, Reason]),
-            <<>>;
-        MessageXmlEl ->
-            try
-                Packet = xmpp:decode(MessageXmlEl),
-                [Child] = Packet#message.sub_els,
-                case Child of
-                    #group_chat{gid =  Gid} -> Gid;
-                    #chat{} -> <<>>   % This is the default case we don't need to send thread_id
-                end
-            catch
-                Class : Reason : Stacktrace ->
-                    ?ERROR("failed to decode message: ~s", [
-                        lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-                    <<>>
-            end
     end.
 
