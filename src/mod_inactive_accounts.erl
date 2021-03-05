@@ -116,17 +116,32 @@ check_and_delete_accounts() ->
     ?INFO("Num Inactive: ~p, Total: ~p", [NumInactiveAccounts, NumTotalAccounts]),
     Fraction = NumInactiveAccounts / NumTotalAccounts,
 
-    %% It is ok to delete inactive accounts, if to delete is within acceptable fraction.
-    IsAcceptable = (Fraction > 0.0001) and (Fraction < ?ACCEPTABLE_FRACTION),
+    IsNoDevAccount = not (is_any_dev_account()),
+
+    %% Ok to delete, if to delete is within acceptable fraction and no dev account is slated for
+    %% deletion.
+    IsAcceptable = (Fraction > 0.0001) and (Fraction < ?ACCEPTABLE_FRACTION) and IsNoDevAccount,
     case IsAcceptable of
         false -> 
-            ?ERROR("Not deleting inactive accounts. NumInactive: ~p, Total: ~p, Fraction: ~p",
-                [NumInactiveAccounts, NumTotalAccounts, Fraction]),
+            ?ERROR("Not deleting inactive accounts. NumInactive: ~p, Total: ~p, Fraction: ~p, No dev account?: ~p",
+                [NumInactiveAccounts, NumTotalAccounts, Fraction, IsNoDevAccount]),
             ok;
         true ->
             delete_inactive_accounts()
     end,
     ok.
+
+-spec is_any_dev_account() -> boolean().
+is_any_dev_account() ->
+    lists:any(fun(Slot) ->
+        ?INFO("Looking for dev account in slot: ~p", [Slot]),
+        {ok, List} = model_accounts:get_uids_to_delete(Slot),
+        lists:any(fun(Uid) ->
+            lists:member(Uid, dev_users:get_dev_uids())
+        end,
+        List)
+    end,
+    lists:seq(0, ?NUM_SLOTS - 1)).
  
 
 -spec delete_inactive_accounts() -> ok.
@@ -154,7 +169,7 @@ maybe_delete_inactive_account(Uid) ->
             {ok, InvitersList} = model_invites:get_inviters_list(Phone),
             IsInvitedInternally = lists:any(
                 fun({InviterUid, _Ts}) ->
-                    dev_users:is_dev_uid(InviterUid)
+                    lists:member(InviterUid, dev_users:get_dev_uids())
                 end,
                 InvitersList),
             case IsInvitedInternally of
