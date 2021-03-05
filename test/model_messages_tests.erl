@@ -25,22 +25,25 @@
 -define(MESSAGE1, term_to_binary(#message{id = ?MID1, to = #jid{user = ?UID1, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE1, #offline_message{msg_id = ?MID1, to_uid = ?UID1, from_uid = undefined,
         content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE1, order_id = 1, protobuf = false,
-        thread_id = ?GROUP1}).
+        thread_id = ?GROUP1, sent = false}).
 -define(MESSAGE2, term_to_binary(#message{id = ?MID2, to = #jid{user = ?UID1, server = ?SERVER},
         from = #jid{user = ?UID2, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE2, #offline_message{msg_id = ?MID2, to_uid = ?UID1, from_uid = ?UID2,
-        content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE2, order_id = 2, protobuf = false}).
+        content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE2, order_id = 2, protobuf = false,
+        sent = false}).
 -define(MESSAGE3, term_to_binary(#message{id = ?MID3, to = #jid{user = ?UID2, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE3, #offline_message{msg_id = ?MID3, to_uid = ?UID2, from_uid = undefined,
-        content_type = ?TYPE3, retry_count = 1, message = ?MESSAGE3, order_id = 1, protobuf = false}).
+        content_type = ?TYPE3, retry_count = 1, message = ?MESSAGE3, order_id = 1, protobuf = false,
+        sent = false}).
 -define(MESSAGE4, term_to_binary(#message{id = ?MID2, to = #jid{user = ?UID1, server = ?SERVER},
         from = #jid{user = ?UID2, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE4, #offline_message{msg_id = ?MID2, to_uid = ?UID1, from_uid = ?UID2,
-        content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE4, order_id = 3, protobuf = false}).
+        content_type = ?TYPE2, retry_count = 1, message = ?MESSAGE4, order_id = 3, protobuf = false,
+        sent = false}).
 -define(MESSAGE5, term_to_binary(#message{id = ?MID1, to = #jid{user = ?UID1, server = ?SERVER}})).
 -define(OFFLINE_MESSAGE5, #offline_message{msg_id = ?MID1, to_uid = ?UID1, from_uid = undefined,
         content_type = ?TYPE1, retry_count = 1, message = ?MESSAGE5, order_id = 4, protobuf = false,
-        thread_id = ?GROUP1}).
+        thread_id = ?GROUP1, sent = false}).
 -define(EMPTY_OFFLINE_MESSAGE, undefined).
 
 
@@ -105,7 +108,8 @@ store_message_pb_test() ->
         retry_count = 1,
         message = enif_protobuf:encode(packet_parser:xmpp_to_proto(XmppMsg)),
         order_id = 1,
-        protobuf = true
+        protobuf = true,
+        sent = false
     },
     ?assertEqual(ExpectedOfflineMessage, ActualOfflineMessage).
 
@@ -205,15 +209,15 @@ retry_count_test() ->
     setup(),
     ?assertEqual({ok, undefined}, model_messages:get_retry_count(?UID1, ?MID1)),
     ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, undefined, ?MESSAGE1)),
-    ?assertEqual({ok, 2}, model_messages:increment_retry_count(?UID1, ?MID1)),
-    ?assertEqual({ok, 3}, model_messages:increment_retry_count(?UID1, ?MID1)).
+    ?assertEqual({ok, 2}, model_messages:mark_sent_and_increment_retry_count(?UID1, ?MID1)),
+    ?assertEqual({ok, 3}, model_messages:mark_sent_and_increment_retry_count(?UID1, ?MID1)).
 
 
 increment_retry_counts_test() ->
     setup(),
     ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, undefined, ?MESSAGE1)),
     ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID2, ?TYPE2, undefined, ?MESSAGE2)),
-    ok = model_messages:increment_retry_counts(?UID1, [?MID1, ?MID2]),
+    ok = model_messages:mark_sent_and_increment_retry_counts(?UID1, [?MID1, ?MID2]),
     ?assertEqual({ok, 2}, model_messages:get_retry_count(?UID1, ?MID1)),
     ?assertEqual({ok, 2}, model_messages:get_retry_count(?UID1, ?MID2)).
 

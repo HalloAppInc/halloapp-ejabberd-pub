@@ -226,6 +226,7 @@ user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, retry_count = RetryCoun
         #{mode := active, offline_queue_cleared := true} = _State} = Acc) when RetryCount =:= 0 ->
     ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [ToUid, MsgId, RetryCount]),
     setup_push_timer(Message),
+    model_messages:mark_sent(ToUid, MsgId),
     Acc;
 user_receive_packet(Acc) ->
     Acc.
@@ -248,13 +249,26 @@ offline_queue_cleared(Uid, _Server, LastMsgOrderId) ->
             %% TODO(murali@): fetch this from state instead - update the hook to include state.
             {ok, ClientVersion} = model_accounts:get_client_version(Uid),
             %% Applying filter to remove certain messages.
-            FilteredOfflineMessages = lists:filter(
+            FilteredMsgs1 = lists:filter(
                     fun(OfflineMessage) ->
                         filter_messages(ClientVersion, OfflineMessage)
                     end, OfflineMessages),
-            ?INFO("Uid: ~s has some more new ~p messages after queue cleared.",
-                    [Uid, length(FilteredOfflineMessages)]),
-            do_send_offline_messages(Uid, FilteredOfflineMessages)
+            %% Filter messages again that were just sent to the client.
+            %% Note that, we do this "additional filter" for the sent field only after offline queue
+            %% is marked as cleared. so any messages on the past connection will be sent to the
+            %% client before the queue is cleared in this new connection.
+            FilteredMsgs2 = lists:filter(
+                    fun(#offline_message{sent = Sent}) -> Sent =/= true end, FilteredMsgs1),
+            NumFilteredMsgs = length(FilteredMsgs2),
+            case NumFilteredMsgs > 0 of
+                true ->
+                    ?WARNING("Uid: ~s has ~p messages to send again after offline queue cleared.",
+                        [Uid, NumFilteredMsgs]);
+                false ->
+                    ?INFO("Uid: ~s has ~p messages to send again after offline queue cleared.",
+                        [Uid, NumFilteredMsgs])
+            end,
+            do_send_offline_messages(Uid, FilteredMsgs2)
     end,
     ok.
 
@@ -313,7 +327,7 @@ route_offline_messages(UserId, Server, LastMsgOrderId, State) ->
 
     % TODO: maybe don't increment the retry count on all the messages
     % we can increment the retry count on just the first X
-    increment_retry_counts(UserId, FilteredOfflineMessages),
+    mark_sent_and_increment_retry_counts(UserId, FilteredOfflineMessages),
 
     NewLastMsgOrderId = get_last_msg_order_id(FilteredOfflineMessages, LastMsgOrderId),
 
@@ -382,7 +396,7 @@ send_offline_messages(#{user := Uid, server := Server,
 -spec do_send_offline_messages(Uid :: binary(), MsgsToSend :: [message()]) -> ok.
 do_send_offline_messages(Uid, MsgsToSend) ->
     lists:foreach(fun route_offline_message/1, MsgsToSend),
-    increment_retry_counts(Uid, MsgsToSend),
+    mark_sent_and_increment_retry_counts(Uid, MsgsToSend),
     ok.
 
 
@@ -495,13 +509,13 @@ filter_messages(ClientVersion, #offline_message{msg_id = MsgId,
     end.
 
 
--spec increment_retry_counts(UserId :: uid, OfflineMsgs :: [maybe(offline_message())]) -> ok.
-increment_retry_counts(UserId, OfflineMsgs) ->
+-spec mark_sent_and_increment_retry_counts(UserId :: uid, OfflineMsgs :: [maybe(offline_message())]) -> ok.
+mark_sent_and_increment_retry_counts(UserId, OfflineMsgs) ->
     MsgIds = lists:filtermap(
         fun (undefined) -> false;
             (Msg) -> {true, Msg#offline_message.msg_id}
         end, OfflineMsgs),
-    ok = model_messages:increment_retry_counts(UserId, MsgIds),
+    ok = model_messages:mark_sent_and_increment_retry_counts(UserId, MsgIds),
     ok.
 
 

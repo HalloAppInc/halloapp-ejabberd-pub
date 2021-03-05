@@ -35,12 +35,13 @@
     remove_all_user_messages/1,
     count_user_messages/1,
     get_message/2,
-    increment_retry_count/2,
-    increment_retry_counts/2,
+    mark_sent_and_increment_retry_count/2,
+    mark_sent_and_increment_retry_counts/2,
     get_retry_count/2,
     get_all_user_messages/1,
     get_user_messages/3,
-    record_push_sent/2
+    record_push_sent/2,
+    mark_sent/2
 ]).
 
 
@@ -76,6 +77,7 @@ mod_options(_Host) ->
 -define(FIELD_RETRY_COUNT, <<"rc">>).
 -define(FIELD_PROTOBUF, <<"pb">>).
 -define(FIELD_THREAD_ID, <<"thid">>).
+-define(FIELD_SENT, <<"snt">>).
 
 -spec store_message(Message :: message()) -> ok | {error, any()}.
 store_message(#pb_msg{} = Message) ->
@@ -118,18 +120,30 @@ store_message(_ToUid, _FromUid, _MsgId, _ContentType, _ThreadId, Message, _IsInP
     ?ERROR("Invalid message format: ~p: use binary format", [Message]).
 
 
--spec increment_retry_count(Uid :: uid(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
-increment_retry_count(Uid, MsgId) ->
-    {ok, RetryCount} = q(["HINCRBY", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT, 1]),
+-spec mark_sent_and_increment_retry_count(Uid :: uid(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
+mark_sent_and_increment_retry_count(Uid, MsgId) ->
+    [{ok, RetryCount}, {ok, _}] = qp([
+            ["HINCRBY", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT, 1],
+            ["HSETNX", message_key(Uid, MsgId), ?FIELD_SENT, 1]]),
     {ok, binary_to_integer(RetryCount)}.
 
 
--spec increment_retry_counts(Uid :: uid(), MsgIds :: [binary()]) -> ok.
-increment_retry_counts(_Uid, []) -> ok;
-increment_retry_counts(Uid, MsgIds) ->
-    Commands = [["HINCRBY", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT, 1] || MsgId <- MsgIds],
+-spec mark_sent_and_increment_retry_counts(Uid :: uid(), MsgIds :: [binary()]) -> ok.
+mark_sent_and_increment_retry_counts(_Uid, []) -> ok;
+mark_sent_and_increment_retry_counts(Uid, MsgIds) ->
+    Commands = lists:foldl(
+            fun(MsgId, Acc) ->
+                [["HINCRBY", message_key(Uid, MsgId), ?FIELD_RETRY_COUNT, 1],
+                ["HSETNX", message_key(Uid, MsgId), ?FIELD_SENT, 1] | Acc]
+            end, [], MsgIds),
     _Results = qp(Commands),
     ok.
+
+
+-spec mark_sent(Uid :: uid(), MsgId :: binary()) -> {ok, boolean()} | {error, any()}.
+mark_sent(Uid, MsgId) ->
+    {ok, Res} = q(["HSETNX", message_key(Uid, MsgId), ?FIELD_SENT, 1]),
+    {ok, Res =:= <<"1">>}.
 
 
 -spec get_retry_count(Uid :: uid(), MsgId :: binary()) -> {ok, integer()} | {error, any()}.
@@ -258,6 +272,7 @@ parse_fields(MsgId, FieldValuesList) ->
     Message = maps:get(?FIELD_MESSAGE, MsgDataMap, undefined),
     PbValue = maps:get(?FIELD_PROTOBUF, MsgDataMap, undefined),
     IsInPbFormat = util_redis:decode_boolean(PbValue, false),
+    WasSent = util_redis:decode_boolean(maps:get(?FIELD_SENT, MsgDataMap, undefined), false),
     case Message of
         undefined -> undefined;
         _ ->
@@ -272,7 +287,8 @@ parse_fields(MsgId, FieldValuesList) ->
                 retry_count = RetryCount,
                 order_id = binary_to_integer(maps:get(?FIELD_ORDER, MsgDataMap)),
                 thread_id = maps:get(?FIELD_THREAD_ID, MsgDataMap, undefined),
-                protobuf = IsInPbFormat
+                protobuf = IsInPbFormat,
+                sent = WasSent
             }
     end.
 

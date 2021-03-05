@@ -18,7 +18,8 @@
     retry_count :: integer(),
     message :: binary(),
     thread_id :: binary(),
-    protobuf = false :: boolean()
+    protobuf = false :: boolean(),
+    sent :: boolean()
 }).
 
 -type offline_message() :: #offline_message{}.

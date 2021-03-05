@@ -323,6 +323,37 @@ offline_msg2_test(_Conf) ->
     ok.
 
 
+% duplicate_message_test(_Conf) ->
+%     ct:timetrap({seconds, 60}),
+
+%     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1, ?OPTIONS1),
+%     wait_until_eoq(C1),
+%     send_message(C1, ?UID1, ?UID2, 1, 5, []),
+%     recv_acks(C1, 1, 5),
+
+%     %% retry_count is still 1, so we will have to receive all 100 of them.
+%     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS2),
+%     recv_messages(C2, 1, 5),
+%     recv_eoq(C2),
+
+%     %% Now C2 - has a scheduled offline queue check in a few seconds.
+%     %% Send 5 new messages when C2 is online.
+%     send_message(C1, ?UID1, ?UID2, 6, 10, []),
+
+%     %% recv messages only once.
+%     recv_messages(C2, 6, 10),
+%     ct:sleep({seconds, 35}),
+
+%     %% after 30 seconds - you should not be getting any more messages.
+%     undefined = ha_client:recv_nb(C2),
+
+%     ha_client:stop(C2),
+%     %% clear out all offline messages for C2.
+%     {ok, C2_2} = ha_client:connect_and_login(?UID2, ?PASSWORD2, ?OPTIONS1),
+%     wait_until_eoq(C2_2),
+%     ok.
+
+
 %%%===================================================================
 %%% internal functions
 %%%===================================================================
