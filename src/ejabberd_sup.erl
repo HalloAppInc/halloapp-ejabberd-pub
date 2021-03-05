@@ -36,32 +36,34 @@ start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-    {ok, {{one_for_one, 10, 1},
-	  [worker(ejabberd_hooks),
-	   worker(ejabberd_cluster),
-	   worker(translate),
-	   worker(ejabberd_access_permissions),
-	   worker(ejabberd_ctl),
-	   worker(ejabberd_commands),
-	   worker(ejabberd_admin),
-	   supervisor(ejabberd_listener),
-	   worker(ejabberd_pkix),
-	   worker(acl),
-	   worker(ejabberd_shaper),
-	   supervisor(ejabberd_db_sup),
-	   supervisor(ejabberd_backend_sup),
-	   worker(ejabberd_iq),
-	   worker(ejabberd_router),
-	   worker(ejabberd_local),
-	   worker(ejabberd_sm),
-	   worker(ejabberd_captcha),
-	   worker(ext_mod),
-	   supervisor(ejabberd_gen_mod_sup, gen_mod),
-	   worker(ejabberd_acme),
-	   worker(ejabberd_auth),
-	   worker(ejabberd_oauth),
-	   worker(ejabberd_monitor)]}}. %% must be the last one in the list.
-    %% ejabberd_monitor needs to be started last always, since it monitors all the other processes.
+    {ok, {{one_for_one, 10, 1}, [
+        worker(ejabberd_hooks),
+        worker(ejabberd_cluster),
+        worker(translate),
+        worker(ejabberd_access_permissions),
+        worker(ejabberd_ctl),
+        worker(ejabberd_commands),
+        worker(ejabberd_admin),
+        supervisor(ejabberd_listener),
+        worker(ejabberd_pkix),
+        worker(acl),
+        worker(ejabberd_shaper),
+        supervisor(ejabberd_db_sup),
+        supervisor(ejabberd_backend_sup),
+        worker(ejabberd_iq),
+        worker(ejabberd_router),
+        worker(ejabberd_local),
+        worker(ejabberd_sm),
+        worker(ejabberd_captcha),
+        worker(ext_mod),
+        supervisor(ejabberd_gen_mod_sup, gen_mod),
+        worker(ejabberd_acme),
+        worker(ejabberd_auth),
+        worker(ejabberd_oauth),
+        worker(ejabberd_monitor) %% must be the last one in the list.
+        %% ejabberd_monitor needs to be started last always, since it monitors all the other processes.
+    ]}}.
+
 
 -spec stop_child(atom()) -> ok.
 stop_child(Name) ->
@@ -83,5 +85,7 @@ supervisor(Name, Mod) ->
 
 simple_supervisor(Mod) ->
     Name = list_to_atom(atom_to_list(Mod) ++ "_sup"),
-    {Name, {ejabberd_tmp_sup, start_link, [Name, Mod]},
-     permanent, infinity, supervisor, [ejabberd_tmp_sup]}.
+    {Name,
+        {ejabberd_tmp_sup, start_link, [Name, Mod]},
+        permanent, infinity, supervisor, [ejabberd_tmp_sup]}.
+
