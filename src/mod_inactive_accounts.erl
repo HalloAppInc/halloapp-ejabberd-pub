@@ -157,12 +157,11 @@ maybe_delete_inactive_account(Uid) ->
                     dev_users:is_dev_uid(InviterUid)
                 end,
                 InvitersList),
-            case (IsInvitedInternally) or (InvitersList =:= []) or (VersionDaysLeft > 0.0) of
+            case IsInvitedInternally of
                 false ->
-                    ?INFO("Deleting: ~p, Version: ~p, Version expired: ~p days ago",
-                        [Uid, Version, abs(VersionDaysLeft)]),
-                    %% TODO(vipin): Uncomment after test run.
-                    %% ejabberd_auth:remove_user(Uid, util:get_host()),
+                    ?INFO("Deleting: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
+                        [Uid, Version, VersionDaysLeft, InvitersList]),
+                    ejabberd_auth:remove_user(Uid, util:get_host()),
                     ok;
                 true ->
                     %% Either invited explicitly by an insider or it is an initial account.
