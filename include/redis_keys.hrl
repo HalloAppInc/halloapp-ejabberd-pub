@@ -39,6 +39,7 @@
 %% To capture creation of inactive uids and start of their deletion.
 -define(INACTIVE_UIDS_GEN_KEY, <<"inactive_uids_gen">>).
 -define(INACTIVE_UIDS_DELETION_KEY, <<"inactive_uids_deletion">>).
+-define(INACTIVE_UIDS_CHECK_KEY, <<"inactive_uids_check">>).
 
 %% To capture list of Uids that need to be deleted because of inactivity.
 -define(TO_DELETE_UIDS_KEY, <<"tdu:">>).

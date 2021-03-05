@@ -21,7 +21,7 @@
 -export([
     manage/0,
     is_inactive_user/1,
-    check_and_delete_accounts/0  %% for testing, TODO(vipin): delete after testing.
+    check_and_delete_accounts/1  %% for testing, TODO(vipin): delete after testing.
 ]).
 
 %%====================================================================
@@ -63,11 +63,19 @@ manage() ->
                 true ->
                     ?INFO("On Monday list of inactive Uids already created", [])
             end;
-        delete_uids ->
+        check_uids ->
+            case model_accounts:mark_inactive_uids_check_start() of
+                false ->
+                    ?INFO("On Tuesday, Start checking of inactive Uids using above list", []),
+                    check_and_delete_accounts(false);
+                true ->
+                    ?INFO("On Tuesday, checking of inactive Uids already started", [])
+            end;
+         delete_uids ->
             case model_accounts:mark_inactive_uids_deletion_start() of
                 false ->
                     ?INFO("On Wednesday, Start deletion of inactive Uids using above list", []),
-                    check_and_delete_accounts();
+                    check_and_delete_accounts(true);
                 true ->
                     ?INFO("On Wednesday, deletion of inactive Uids already started", [])
             end;
@@ -84,6 +92,9 @@ calc_step_to_execute(DayOfWeek, Hr) ->
         {1, true} ->
             %% Find Uids to delete on Monday.
             find_uids;
+        {2, true} ->
+            %% Check Uids found above on Tuesday.
+            check_uids;
         {3, true} ->
             %% Delete Uids found above on Wednesday.
             delete_uids;
@@ -109,8 +120,8 @@ is_inactive_user(Uid) ->
 %%====================================================================
 
 
--spec check_and_delete_accounts() -> ok.
-check_and_delete_accounts() ->
+-spec check_and_delete_accounts(ShouldDelete :: boolean()) -> ok.
+check_and_delete_accounts(ShouldDelete) ->
     NumInactiveAccounts = model_accounts:count_uids_to_delete(),
     NumTotalAccounts = model_accounts:count_accounts(),
     ?INFO("Num Inactive: ~p, Total: ~p", [NumInactiveAccounts, NumTotalAccounts]),
@@ -127,7 +138,7 @@ check_and_delete_accounts() ->
                 [NumInactiveAccounts, NumTotalAccounts, Fraction, IsNoDevAccount]),
             ok;
         true ->
-            delete_inactive_accounts()
+            delete_inactive_accounts(ShouldDelete)
     end,
     ok.
 
@@ -144,19 +155,19 @@ is_any_dev_account() ->
     lists:seq(0, ?NUM_SLOTS - 1)).
  
 
--spec delete_inactive_accounts() -> ok.
-delete_inactive_accounts() ->
+-spec delete_inactive_accounts(ShouldDelete :: boolean()) -> ok.
+delete_inactive_accounts(ShouldDelete) ->
    lists:foreach(
         fun(Slot) ->
             ?INFO("Deleting accounts in slot: ~p", [Slot]),
             {ok, List} = model_accounts:get_uids_to_delete(Slot),
-            [maybe_delete_inactive_account(Uid) || Uid <- List]
+            [maybe_delete_inactive_account(Uid, ShouldDelete) || Uid <- List]
         end,
         lists:seq(0, ?NUM_SLOTS - 1)).
 
 
--spec maybe_delete_inactive_account(Uid :: uid()) -> ok.
-maybe_delete_inactive_account(Uid) ->
+-spec maybe_delete_inactive_account(Uid :: uid(), ShouldDelete :: boolean()) -> ok.
+maybe_delete_inactive_account(Uid, ShouldDelete) ->
     case is_inactive_user(Uid) of
         true ->
             {ok, Phone} = model_accounts:get_phone(Uid),
@@ -174,10 +185,15 @@ maybe_delete_inactive_account(Uid) ->
                 InvitersList),
             case IsInvitedInternally of
                 false ->
-                    ?INFO("Deleting: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
-                        [Uid, Version, VersionDaysLeft, InvitersList]),
-                    ejabberd_auth:remove_user(Uid, util:get_host()),
-                    ok;
+                    case ShouldDelete of
+                        true ->
+                            ?INFO("Deleting: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
+                                [Uid, Version, VersionDaysLeft, InvitersList]),
+                            ejabberd_auth:remove_user(Uid, util:get_host());
+                        false ->
+                            ?INFO("Check -- Will delete: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
+                                [Uid, Version, VersionDaysLeft, InvitersList])
+                    end;
                 true ->
                     %% Either invited explicitly by an insider or it is an initial account.
                     ?ERROR("Manual attention needed. Not deleting: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
