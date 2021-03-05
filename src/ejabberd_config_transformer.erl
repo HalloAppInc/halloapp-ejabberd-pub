@@ -181,8 +181,6 @@ transform_request_handlers(Opts) ->
     case lists:keyfind(module, 1, Opts) of
 	{_, ejabberd_http} ->
 	    replace_request_handlers(Opts);
-	{_, ejabberd_xmlrpc} ->
-	    remove_xmlrpc_access_commands(Opts);
 	_ ->
 	    Opts
     end.
@@ -203,10 +201,6 @@ replace_request_handlers(Opts) ->
 		  Handler = {<<"/admin">>, ejabberd_web_admin},
 		  warn_replaced_handler(web_admin, Handler),
 		  [Handler|Acc];
-	     ({xmlrpc, true}, Acc) ->
-		  Handler = {<<"/">>, ejabberd_xmlrpc},
-		  warn_replaced_handler(xmlrpc, Handler),
-		  Acc ++ [Handler];
 	     (_, Acc) ->
 		  Acc
 	  end, Handlers, Opts),
