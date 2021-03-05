@@ -252,15 +252,22 @@ check_sms_reg2(IncrementalTimestamp, Increment) ->
     List = model_phone:get_incremental_attempt_list(ToInspect),
     lists:foreach(fun({Phone, AttemptId}) ->
         ?INFO("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
-        SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
-        #sms_response{gateway = Gateway, status = Status, verified = Success} = SMSResponse, 
-        case {Gateway, Status, Success} of
-            {undefined, _, _} ->
-                  ?ERROR("Phone: ~p, AttemptId: ~p (not found), SMS attempt failed", [Phone, AttemptId]);
-            {_, _, false} ->
-                  ?ERROR("Phone: ~p SMS attempt failed via Gateway: ~p, Status: ~p", [Phone, Gateway, Status]);
-            {_, _, true} ->
-                  ok
+        case util:is_test_number(Phone) of
+            false ->
+                SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
+                #sms_response{gateway = Gateway, status = Status, verified = Success} = SMSResponse, 
+                case {Gateway, Status, Success} of
+                    {undefined, _, _} ->
+                        ?ERROR("Phone: ~p, AttemptId: ~p (not found), SMS attempt failed",
+                            [Phone, AttemptId]);
+                    {_, _, false} ->
+                        ?ERROR("Phone: ~p SMS attempt failed via Gateway: ~p, Status: ~p",
+                            [Phone, Gateway, Status]);
+                    {_, _, true} ->
+                          ok
+                end;
+            true ->
+                ok
         end
         end,
         List),
