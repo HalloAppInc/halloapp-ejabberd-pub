@@ -36,7 +36,8 @@
     gauge/4,
     get_prometheus_metrics/0,
     reload_aws_config/0,
-    get_aws_config/0
+    get_aws_config/0,
+    clear_prom/0
 ]).
 
 % Trigger funcitons
@@ -123,6 +124,9 @@ gauge(Namespace, Metric, Value, Tags) when is_atom(Metric) ->
     gauge(Namespace, atom_to_list(Metric), Value, Tags);
 gauge(Namespace, Metric, Value, Tags) ->
     gen_server:cast(?PROC(), {gauge, Namespace, Metric, Value, Tags}).
+
+clear_prom() ->
+    gen_server:cast(?PROC(), clear_prom).
 
 
 % Return binary with all our custom metrics in prometheus format
@@ -336,6 +340,11 @@ handle_cast({gauge, Namespace, Metric, Value, Tags}, State) ->
 
 handle_cast({trigger_send}, State) ->
     NewState = maybe_rotate_data(State),
+    {noreply, NewState};
+
+handle_cast(clear_prom, State) ->
+    % reset the prometheus map, useful if we have bad data in there.
+    NewState = State#{prom_map := #{}},
     {noreply, NewState};
 
 handle_cast(_Message, State) ->
