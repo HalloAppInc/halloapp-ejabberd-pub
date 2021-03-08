@@ -96,8 +96,8 @@ get_props(Uid, ClientVersion) ->
         combine_feed => true, %% whether to combine content from group_feed and home feed.
         silent_chat_messages => 5, %% number of silent_chats client can send.
         cleartext_chat_messages => true, %% whether to disable cleartext chat messages.
-        max_feed_video_duration => 60, %% duration in seconds for videos on feed.
-        max_chat_video_duration => 120, %% duration in seconds for videos in chats.
+        max_feed_video_duration => 600, %% duration in seconds for videos on feed.
+        max_chat_video_duration => 600, %% duration in seconds for videos in chats.
         private_reactions => false, %% whether client can send private reactions.
         group_sync_time => 1 * ?WEEKS %% how often should clients sync group metadata
     },
