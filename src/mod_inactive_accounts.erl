@@ -80,6 +80,7 @@ manage() ->
                     ?INFO("On Wednesday, deletion of inactive Uids already started", [])
             end;
        _ ->
+            ?INFO("Nothing to be done", []),
             ok
     end,
     ok.
