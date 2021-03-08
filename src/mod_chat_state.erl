@@ -107,7 +107,6 @@ process_chat_state(Packet, ThreadId) ->
 process_group_chat_state(Packet, ThreadId) ->
     Server = util:get_host(),
     FromUid = Packet#pb_chat_state.from_uid,
-    From = jid:make(FromUid, Server),
     case mod_groups:get_group(ThreadId, FromUid) of
         {ok, Group} ->
             MUids = lists:map(
@@ -117,7 +116,7 @@ process_group_chat_state(Packet, ThreadId) ->
             ReceiverUids = lists:delete(FromUid, MUids),
             ?INFO("Uid: ~s, broadcast uids: ~p, type: ~s",
                     [FromUid, ReceiverUids, Packet#pb_chat_state.type]),
-            mod_groups:broadcast_packet(From, Server, ReceiverUids, Packet);
+            mod_groups:broadcast_packet(FromUid, ReceiverUids, Packet);
         {error, not_member} ->
             ?WARNING("invalid chat_state stanza, Uid: ~s, Gid: ~p", [FromUid, ThreadId])
     end,

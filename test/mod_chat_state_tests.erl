@@ -66,11 +66,9 @@ process_group_chat_state_test() ->
     ChatState = create_chat_state(?UID1, <<>>, Gid, available, chat),
     meck:new(ejabberd_router),
     meck:expect(ejabberd_router, route_multicast,
-        fun(From, BroadcastJids, Packet) ->
-            ExpectedFrom = jid:make(?UID1, ?SERVER),
-            ?assertEqual(ExpectedFrom, From),
-            ExpectedBroadcastJids = util:uids_to_jids([?UID2, ?UID3], ?SERVER),
-            ?assertEqual(lists:sort(ExpectedBroadcastJids), lists:sort(BroadcastJids)),
+        fun(FromUid, BroadcastUids, Packet) ->
+            ?assertEqual(?UID1, FromUid),
+            ?assertEqual(lists:sort([?UID2, ?UID3]), lists:sort(BroadcastUids)),
             ?assertEqual(ChatState, Packet),
             ok
         end),

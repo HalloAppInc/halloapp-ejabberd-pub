@@ -5,7 +5,6 @@
 -behaviour(gen_server).
 
 -include("logger.hrl").
--include("jid.hrl").
 -include("time.hrl").
 -include("ha_types.hrl").
 -include("proc.hrl").

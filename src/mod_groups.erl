@@ -40,7 +40,7 @@
     set_avatar/3,
     delete_avatar/2,
     send_chat_message/4,
-    broadcast_packet/4,
+    broadcast_packet/3,
     send_retract_message/4,
     get_all_group_members/1,
     get_invite_link/2,
@@ -349,13 +349,12 @@ send_chat_message(MsgId, Gid, Uid, MessagePayload) ->
                 type = groupchat,
                 payload = GroupMessage
             },
-            From = jid:make(Uid, Server),
             MUids = model_groups:get_member_uids(Gid),	
             ReceiverUids = lists:delete(Uid, MUids),
             stat:count(?STAT_NS, "send_im"),
             stat:count(?STAT_NS, "recv_im", length(ReceiverUids)),
             ejabberd_hooks:run(user_send_group_im, Server, [Gid, Uid, MsgId, ReceiverUids]),
-            broadcast_packet(From, Server, ReceiverUids, Packet),
+            broadcast_packet(Uid, ReceiverUids, Packet),
             {ok, Ts}
     end.
 
@@ -372,26 +371,23 @@ send_retract_message(MsgId, Gid, Uid, GroupChatRetractSt) ->
         true ->
             Ts = util:now(),
             ?INFO("Fan Out MSG: ~p", [GroupChatRetractSt]),
-            Server = util:get_host(),
             Packet = #pb_msg{
                 id = MsgId,
                 type = groupchat,
                 payload = GroupChatRetractSt
             },
-            From = jid:make(Uid, Server),
             MUids = model_groups:get_member_uids(Gid),
             ReceiverUids = lists:delete(Uid, MUids),
-            broadcast_packet(From, Server, ReceiverUids, Packet),
+            broadcast_packet(Uid, ReceiverUids, Packet),
             {ok, Ts}
     end.
 
 
--spec broadcast_packet(From :: jid(), Server :: binary(), BroadcastUids :: [uid()],
+-spec broadcast_packet(FromUid :: uid(), BroadcastUids :: [uid()],
             Packet :: message() | chat_state()) -> ok.
-broadcast_packet(From, Server, BroadcastUids, Packet) ->
-    BroadcastJids = util:uids_to_jids(BroadcastUids, Server),
-    ?INFO("Uid: ~s, receiver uids: ~p", [From#jid.luser, BroadcastJids]),
-    ejabberd_router:route_multicast(From, BroadcastJids, Packet),
+broadcast_packet(FromUid, BroadcastUids, Packet) ->
+    ?INFO("Uid: ~s, receiver uids: ~p", [FromUid, BroadcastUids]),
+    ejabberd_router:route_multicast(FromUid, BroadcastUids, Packet),
     ok.
 
 %% Returns a set of all the uids that are in one or more groups with given Uid.
@@ -727,14 +723,12 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     AdditionalUids = [element(1, R) || R <- Results],
     UidsToNotify = sets:from_list(Members ++ AdditionalUids),
     BroadcastUids = sets:to_list(UidsToNotify),
-    Server = util:get_host(),
-    From = jid:make(Server),
     Packet = #pb_msg{
         id = util:new_msg_id(),
         type = groupchat,
         payload = GroupSt
     },
-    broadcast_packet(From, Server, BroadcastUids, Packet),
+    broadcast_packet(<<>>, BroadcastUids, Packet),
     ok.
 
 

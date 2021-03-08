@@ -168,16 +168,15 @@ broadcast_presence(User, Server, TimestampMs, Status) ->
             type = Status, last_seen = LastSeen},
     BroadcastUIDs = mod_presence_subscription:get_user_broadcast_friends(User, Server),
     ?INFO("Uid: ~s, BroadcastUIDs: ~p, status: ~p", [User, BroadcastUIDs, Status]),
-    BroadcastJIDs = lists:map(fun(Uid) -> jid:make(Uid, Server) end, BroadcastUIDs),
-    route_multiple(Server, BroadcastJIDs, Presence).
+    route_multiple(BroadcastUIDs, Presence).
 
 
--spec route_multiple(Server :: binary(), JIDs :: [jid()], Packet :: stanza()) -> ok.
-route_multiple(_, [], _) ->
+-spec route_multiple(BroadcastUIDs :: [uid()], Packet :: stanza()) -> ok.
+route_multiple([], _) ->
     ok;
-route_multiple(Server, JIDs, Packet) ->
-    FromJid = jid:make(pb:get_from(Packet), Server),
-    ejabberd_router:route_multicast(FromJid, JIDs, Packet).
+route_multiple(BroadcastUIDs, Packet) ->
+    FromUid = pb:get_from(Packet),
+    ejabberd_router:route_multicast(FromUid, BroadcastUIDs, Packet).
 
 
 -spec check_and_probe_friends_presence(User :: binary(), Server :: binary(),
@@ -192,7 +191,7 @@ check_and_probe_friends_presence(_User, _Server, away) ->
     ok.
 
 
--spec check_and_send_presence(FromJID :: jid(), Activity :: activity(), ToJID :: jid()) -> ok.
+-spec check_and_send_presence(ToUid :: uid(), Activity :: activity(), FromUid :: uid()) -> ok.
 check_and_send_presence(_, #activity{status = undefined}, _) ->
     ok;
 check_and_send_presence(ToUid, #activity{status = available} = Activity, FromUid) ->

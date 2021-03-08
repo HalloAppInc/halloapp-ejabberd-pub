@@ -255,13 +255,11 @@ set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys) ->
 notify_key_subscribers(Uid, Server) ->
     ?INFO("Uid: ~s", [Uid]),
     {ok, Ouids} = model_whisper_keys:get_all_key_subscribers(Uid),
-    Ojids = util:uids_to_jids(Ouids, Server),
-    From = jid:make(Server),
     Packet = #pb_msg{
         id = util:new_msg_id(),
         payload = #pb_whisper_keys{action = update, uid = Uid}
     },
-    ejabberd_router:route_multicast(From, Ojids, Packet),
+    ejabberd_router:route_multicast(<<>>, Ouids, Packet),
     ok.
 
 

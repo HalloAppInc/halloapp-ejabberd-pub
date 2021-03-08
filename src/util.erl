@@ -36,7 +36,6 @@
     list_to_map/1,
     ms_to_sec/1,
     send_after/2,
-    uids_to_jids/2,
     new_uuid/0,
     uuid_binary/0,
     new_short_id/0,
@@ -255,11 +254,6 @@ ms_to_sec(MilliSeconds) when is_integer(MilliSeconds) ->
 send_after(TimeoutMs, Msg) ->
     NewTimer = erlang:send_after(TimeoutMs, self(), Msg),
     NewTimer.
-
-
--spec uids_to_jids(Uids :: list(binary()), Server :: binary()) -> list(jid()).
-uids_to_jids(Uids, Server) ->
-    lists:map(fun(Uid) -> jid:make(Uid, Server) end, Uids).
 
 
 -spec new_uuid() -> binary().

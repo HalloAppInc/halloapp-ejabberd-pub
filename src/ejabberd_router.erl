@@ -69,6 +69,7 @@
 -include("xmpp.hrl").
 -include("packets.hrl").
 -include("ejabberd_stacktrace.hrl").
+-include("ha_types.hrl").
 
 -callback init() -> any().
 -callback register_route(binary(), binary(), local_hint(),
@@ -101,24 +102,25 @@ route(Packet) ->
     ok.
 
 
--spec route_multicast(jid(), [jid()], stanza()) -> ok.
+-spec route_multicast(uid(), [uid()], stanza()) -> ok.
 route_multicast(_From, [], _Packet) ->
     ok;
-route_multicast(From, Destinations, #pb_chat_state{} = Packet) ->
+route_multicast(FromUid, Destinations, #pb_chat_state{} = Packet) ->
     %% pb_chat_state stanzas are special because they dont have ids.
+    Packet1 = pb:set_from(Packet, FromUid),
     lists:foreach(
-        fun(To) ->
-            route(pb:set_to(Packet, To#jid.luser))
+        fun(ToUid) ->
+            route(pb:set_to(Packet, ToUid))
         end, Destinations),
     ok;
-route_multicast(From, Destinations, Packet) ->
+route_multicast(FromUid, Destinations, Packet) ->
     Id = pb:get_id(Packet),
-    Packet1 = pb:set_from(Packet, From#jid.luser),
+    Packet1 = pb:set_from(Packet, FromUid),
     lists:foldl(
-        fun(To, Acc) ->
+        fun(ToUid, Acc) ->
             AccBin = integer_to_binary(Acc),
             NewId = <<Id/binary, "-", AccBin/binary>>,
-            Packet2 = pb:set_id(pb:set_to(Packet1, To#jid.luser), NewId),
+            Packet2 = pb:set_id(pb:set_to(Packet1, ToUid), NewId),
             route(Packet2),
             Acc+1
         end, 0, Destinations),

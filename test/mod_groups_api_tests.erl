@@ -510,7 +510,7 @@ publish_group_feed_test() ->
     Server = <<>>,
     meck:new(ejabberd_router, [passthrough]),
     meck:expect(ejabberd_router, route_multicast,
-        fun(_From, BroadcastJids, Packet) ->
+        fun(_FromUid, BroadcastUids, Packet) ->
             [SubEl] = Packet#message.sub_els,
             ?assertEqual(?GROUP_NAME1, SubEl#group_feed_st.name),
             ?assertEqual(undefined, SubEl#group_feed_st.avatar_id),
@@ -518,8 +518,7 @@ publish_group_feed_test() ->
             [Post] = SubEl#group_feed_st.posts,
             ?assertEqual(?UID1, Post#group_post_st.publisher_uid),
             ?assertNotEqual(undefined, Post#group_post_st.timestamp),
-            ReceiverJids = util:uids_to_jids([?UID2, ?UID3], Server),
-            ?assertEqual(lists:sort(ReceiverJids), lists:sort(BroadcastJids)),
+            ?assertEqual(lists:sort([?UID2, ?UID3]), lists:sort(BroadcastUids)),
             ok
         end),
 
@@ -560,7 +559,7 @@ retract_group_feed_test() ->
     Server = <<>>,
     meck:new(ejabberd_router, [passthrough]),
     meck:expect(ejabberd_router, route_multicast,
-        fun(_From, BroadcastJids, Packet) ->
+        fun(_FromUid, BroadcastUids, Packet) ->
             [SubEl] = Packet#message.sub_els,
             ?assertEqual(?GROUP_NAME1, SubEl#group_feed_st.name),
             ?assertEqual(undefined, SubEl#group_feed_st.avatar_id),
@@ -568,8 +567,7 @@ retract_group_feed_test() ->
             [Comment] = SubEl#group_feed_st.comments,
             ?assertEqual(?UID2, Comment#group_comment_st.publisher_uid),
             ?assertNotEqual(undefined, Comment#group_comment_st.timestamp),
-            ReceiverJids = util:uids_to_jids([?UID1, ?UID3], Server),
-            ?assertEqual(lists:sort(ReceiverJids), lists:sort(BroadcastJids)),
+            ?assertEqual(lists:sort([?UID1, ?UID3]), lists:sort(BroadcastUids)),
             ok
         end),
 
