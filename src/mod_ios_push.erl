@@ -411,7 +411,7 @@ parse_payload(#pb_msg{}) ->
         PushMetadata :: push_metadata(), PushType :: silent | alert) -> binary().
 get_payload(PushMessageItem, PushMetadata, PushType) ->
     Data = parse_payload(PushMessageItem#push_message_item.message),
-    PbMessageB64 = util:convert_xmpp_to_pb_base64(PushMessageItem#push_message_item.message),
+    PbMessageB64 = base64:encode(enif_protobuf:encode(PushMessageItem#push_message_item.message)),
     MetadataMap = #{
         <<"content-id">> => PushMetadata#push_metadata.content_id,
         <<"content-type">> => PushMetadata#push_metadata.content_type,

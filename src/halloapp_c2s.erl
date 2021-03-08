@@ -57,8 +57,7 @@
     format_reason/2,
     host_up/1,
     host_down/1,
-    bounce_message_queue/2,
-    upgrade_packet/1
+    bounce_message_queue/2
 ]).
 
 -include("xmpp.hrl").
@@ -196,15 +195,16 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %%% Hooks
 %%%===================================================================
 
-upgrade_packet(Pkt) ->
-    case pb:is_pb_packet(Pkt) of
-        true -> Pkt;
-        false ->
-            ToUid = pb:get_to(Pkt),
-            FromUid = pb:get_from(Pkt),
-            ProtoPkt = packet_parser:xmpp_to_proto(Pkt),
-            pb:set_to_from(ProtoPkt#pb_packet.stanza, ToUid, FromUid)
-    end.
+% upgrade_packet(Pkt) ->
+%     case pb:is_pb_packet(Pkt) of
+%         true -> Pkt;
+%         false ->
+%             ToUid = pb:get_to(Pkt),
+%             FromUid = pb:get_from(Pkt),
+%             ProtoPkt = packet_parser:xmpp_to_proto(Pkt),
+%             pb:set_to_from(ProtoPkt#pb_packet.stanza, ToUid, FromUid)
+%     end.
+upgrade_packet(Packet) -> Packet.
 
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->

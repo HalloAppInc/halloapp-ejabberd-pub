@@ -52,7 +52,6 @@
     get_payload_type/1,
     set_timestamp/2,
     get_timestamp/1,
-    convert_xmpp_to_pb_base64/1,
     add_and_merge_maps/2
 ]).
 
@@ -373,23 +372,4 @@ get_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_st
 get_timestamp(#pb_msg{payload = #pb_seen_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_delivery_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{}) -> undefined.
-
-
--spec convert_xmpp_to_pb_base64(Packet :: stanza()) -> binary().
-convert_xmpp_to_pb_base64(Packet) ->
-    try
-        case pb:is_pb_packet(Packet) of
-            true -> base64:encode(enif_protobuf:encode(Packet));
-            false ->
-                case packet_parser:xmpp_to_proto(Packet) of
-                    #pb_packet{} = PbPacket ->
-                        base64:encode(enif_protobuf:encode(PbPacket#pb_packet.stanza));
-                    _ -> <<>>
-                end
-        end
-    catch
-        error: Reason ->
-            ?ERROR("Failed convering packet: ~p to protobuf: ~p", [Packet, Reason]),
-            <<>>
-    end.
 

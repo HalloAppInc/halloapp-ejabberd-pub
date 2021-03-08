@@ -92,16 +92,6 @@ store_message(#pb_msg{} = Message) ->
     store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, MessageBin, IsInPbFormat).
 
 
-store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, Message) when is_record(Message, message) ->
-    {IsInPbFormat, MessageBin} = case enif_protobuf:encode(packet_parser:xmpp_to_proto(Message)) of
-        {error, Reason} ->
-            ?ERROR("failed encoding packet: ~p, reason: ~p", [Message, Reason]),
-            {false, fxml:element_to_binary(xmpp:encode(Message))};
-        PbBin ->
-            {true, PbBin}
-    end,
-    store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, MessageBin, IsInPbFormat);
-
 store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, Message) when is_binary(Message) ->
     store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, Message, false).
 
