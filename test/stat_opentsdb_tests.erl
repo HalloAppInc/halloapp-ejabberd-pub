@@ -71,5 +71,9 @@ compose_tags_test() ->
             <<"test1">> => <<"value1">>,
             <<"test2">> => <<"20">>
         }, stat_opentsdb:compose_tags(Dims)),
+
+    ?assertEqual(#{
+            ?MACHINE_KEY => ?MACHINE_VALUE
+        }, stat_opentsdb:compose_tags([])),
     ok.
 

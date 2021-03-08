@@ -14,6 +14,7 @@
 -include("erlcloud_aws.hrl").
 
 -define(OPENTSDB_URL, "http://opentsdb1.ha:4242/api/put").
+-define(OPENTSDB_TAGS_LIMIT, 8).
 -define(MAX_DATAPOINTS_PER_REQUEST, 50).
 -define(MACHINE_KEY, <<"machine">>).
 
@@ -72,10 +73,14 @@ do_send_metrics(MetricsList, TimestampMs) ->
 
 -spec compose_body(MetricsList :: [], TimestampMs :: integer()) -> binary().
 compose_body(MetricsList, TimestampMs) ->
-    Data = lists:map(
-        fun(MetricKeyAndValue) ->
-            convert_metric_to_map(MetricKeyAndValue, TimestampMs)
-        end, MetricsList),
+    Data = lists:filtermap(
+            fun(MetricKeyAndValue) ->
+                MetricMap = convert_metric_to_map(MetricKeyAndValue, TimestampMs),
+                case maps:size(maps:get(<<"tags">>, MetricMap)) > 0 of
+                    true -> {true, MetricMap};
+                    false -> false
+                end
+            end, MetricsList),
     jiffy:encode(Data).
 
 
@@ -103,5 +108,11 @@ compose_tags(Dimensions) ->
             Value = util:to_binary(V),
             maps:put(Name, Value, Acc)
         end, #{}, Dimensions),
-    TagsAndValues#{?MACHINE_KEY => MachineName}.
+    case maps:size(TagsAndValues) < ?OPENTSDB_TAGS_LIMIT of
+        true ->
+            TagsAndValues#{?MACHINE_KEY => MachineName};
+        _ ->
+            ?ERROR("Too many tags here."),
+            #{}
+    end.
 
