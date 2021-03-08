@@ -261,8 +261,8 @@ check_sms_reg2(IncrementalTimestamp, Increment) ->
                         ?ERROR("Phone: ~p, AttemptId: ~p (not found), SMS attempt failed",
                             [Phone, AttemptId]);
                     {_, _, false} ->
-                        ?ERROR("Phone: ~p SMS attempt failed via Gateway: ~p, Status: ~p",
-                            [Phone, Gateway, Status]);
+                        ?ERROR("Phone: ~p AttemptId: ~p failed via Gateway: ~p, Status: ~p",
+                            [Phone, AttemptId, Gateway, Status]);
                     {_, _, true} ->
                           ok
                 end;

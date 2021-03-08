@@ -772,7 +772,7 @@ mark_inactive_uids_check_start() ->
 
 
 mark_inactive_uids(Key) ->
-    {ok, Exists} = qp([
+    [{ok, Exists}, {ok, _}] = qp([
         ["HSETNX", inactive_uids_mark_key(Key), ?FIELD_INACTIVE_UIDS_STATUS, 1],
         ["EXPIRE", inactive_uids_mark_key(Key), ?INACTIVE_UIDS_VALIDITY]
     ]),
