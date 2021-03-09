@@ -632,7 +632,7 @@ do_route(#pb_iq{to_uid = <<"">>, type = T} = Packet) ->
             ejabberd_hooks:run_fold(bounce_sm_packet, Server, {pass, Packet}, [])
     end;
 do_route(Packet) ->
-    ?DEBUG("Processing packet to full JID:~n~ts", [xmpp:pp(Packet)]),
+    ?DEBUG("Processing packet: ~p", [Packet]),
     LUser = pb:get_to(Packet),
     LServer = util:get_host(),
     LResource = <<>>,
@@ -652,7 +652,7 @@ do_route(Packet) ->
         Ss ->
             Session = lists:max(Ss),
             Pid = element(2, Session#session.sid),
-            ?DEBUG("Sending to process ~p:~n~ts", [Pid, xmpp:pp(Packet)]),
+            ?DEBUG("Sending to process ~p, packet:~p", [Pid, Packet]),
             halloapp_c2s:route(Pid, {route, Packet})
     end.
 

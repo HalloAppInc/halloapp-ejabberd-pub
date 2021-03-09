@@ -133,10 +133,9 @@ stop(Ref) ->
 send(Pid, Pkt) when is_pid(Pid) ->
     halloapp_stream_in:send(Pid, Pkt);
 send(#{lserver := LServer} = State, Pkt) ->
-    Pkt1 = fix_from_to(Pkt, State),
-    case ejabberd_hooks:run_fold(c2s_filter_send, LServer, {Pkt1, State}, []) of
+    case ejabberd_hooks:run_fold(c2s_filter_send, LServer, {Pkt, State}, []) of
         {drop, State1} -> State1;
-        {Pkt2, State1} -> halloapp_stream_in:send(State1, Pkt2)
+        {Pkt1, State1} -> halloapp_stream_in:send(State1, Pkt1)
     end.
 
 
@@ -309,7 +308,7 @@ bind(R, #{user := U, server := S, access := Access, lang := Lang,
         ip := IP} = State) ->
     case resource_conflict_action(U, S, R) of
         closenew ->
-            {error, xmpp:err_conflict(), State};
+            {error, <<"resource_conflict">>, State};
         {accept_resource, Resource} ->
             JID = jid:make(U, S, Resource),
             case acl:match_rule(LServer, Access,
@@ -326,8 +325,7 @@ bind(R, #{user := U, server := S, access := Access, lang := Lang,
                     ejabberd_hooks:run(forbidden_session_hook, LServer, [JID]),
                     ?WARNING("(~ts) Forbidden c2s session for ~ts",
                          [halloapp_socket:pp(Socket), jid:encode(JID)]),
-                    Txt = ?T("Access denied by service policy"),
-                    {error, xmpp:err_not_allowed(Txt, Lang), State}
+                    {error, <<"denied_Access">>, State}
             end
     end.
 
@@ -356,9 +354,7 @@ handle_auth_failure(User, _Mech, Reason, #{lserver := LServer} = State) ->
 %% TODO(murali@): fix this hook - need not be called for auth request.
 handle_authenticated_packet(Pkt, #{lserver := LServer} = State) when is_record(Pkt, pb_auth_request) ->
     ejabberd_hooks:run_fold(c2s_authenticated_packet, LServer, State, [Pkt]);
-handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID,
-                   ip := {IP, _}} = State) ->
-    % Pkt1 = xmpp:put_meta(Pkt, ip, IP),
+handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID} = State) ->
     State1 = ejabberd_hooks:run_fold(c2s_authenticated_packet,
                      LServer, State, [Pkt1]),
     #jid{luser = _LUser} = JID,
@@ -637,24 +633,6 @@ get_conn_type(State) ->
         http_bind -> http_bind;
         websocket -> websocket
     end.
-
-
--spec fix_from_to(xmpp_element(), state()) -> stanza().
-fix_from_to(Pkt, #{jid := JID}) when ?is_stanza(Pkt) ->
-    #jid{luser = U, lserver = S, lresource = R} = JID,
-    case xmpp:get_from(Pkt) of
-        undefined ->
-            Pkt;
-        From ->
-            From1 = case jid:tolower(From) of
-                {U, S, R} -> JID;
-                {U, S, _} -> jid:replace_resource(JID, From#jid.resource);
-                _ -> From
-                end,
-            xmpp:set_from_to(Pkt, From1, JID)
-    end;
-fix_from_to(Pkt, _State) ->
-    Pkt.
 
 
 -spec change_shaper(state()) -> state().

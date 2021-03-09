@@ -68,16 +68,7 @@ start_link() ->
 
 -spec route(stanza()) -> ok.
 route(Packet) ->
-    case pb:is_pb_packet(Packet) of
-        true ->
-            route_pb(Packet);
-        false ->
-            route_xmpp(Packet)
-    end.
-
-
-route_pb(Packet) ->
-    ?DEBUG("Local route:~n~ts", [xmpp:pp(Packet)]),
+    ?DEBUG("Local route:~p", [Packet]),
     Type = pb:get_type(Packet),
     ToUid = pb:get_to(Packet),
     Server = util:get_host(),
@@ -94,29 +85,11 @@ route_pb(Packet) ->
             ejabberd_hooks:run(local_send_to_resource_hook, Server, [Packet])
     end.
 
-
-route_xmpp(Packet) ->
-    ?DEBUG("Local route:~n~ts", [xmpp:pp(Packet)]),
-    Type = xmpp:get_type(Packet),
-    To = xmpp:get_to(Packet),
-    if
-        To#jid.luser /= <<"">> ->
-            ejabberd_sm:route(Packet);
-        is_record(Packet, iq), To#jid.lresource == <<"">> ->
-            gen_iq_handler:handle(?MODULE, Packet);
-        Type == result; Type == error ->
-            ok;
-        is_record(Packet, message), Type =:= groupchat ->
-            ejabberd_hooks:run(group_message, To#jid.lserver, [Packet]);
-        true ->
-            ejabberd_hooks:run(local_send_to_resource_hook, To#jid.lserver, [Packet])
-    end.
-
 -spec bounce_resource_packet(stanza()) -> ok | stop.
 bounce_resource_packet(Packet) ->
     ?ERROR("Invalid packet received: ~p", [Packet]),
     Err = util:err(item_not_found),
-    ErrorPacket = xmpp:make_error(Packet, Err),
+    ErrorPacket = pb:make_error(Packet, Err),
     ejabberd_router:route(ErrorPacket),
     stop.
 

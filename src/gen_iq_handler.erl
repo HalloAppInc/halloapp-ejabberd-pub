@@ -109,7 +109,7 @@ process_iq(_Host, Module, Function, IQ) ->
         ?ERROR("Failed to process iq: ~p~n Stacktrace: ~s", [
             IQ,
             lager:pr_stacktrace(StackTrace, {Class, Reason})]),
-        ErrIq = xmpp:make_error(IQ, util:err(internal_error)),
+        ErrIq = pb:make_error(IQ, util:err(internal_error)),
         ejabberd_router:route(ErrIq)
     end.
 

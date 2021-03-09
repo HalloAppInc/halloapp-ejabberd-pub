@@ -162,8 +162,8 @@ callback(undefined, IQRes, Fun) ->
     try Fun(IQRes)
     catch ?EX_RULE(Class, Reason, St) ->
         StackTrace = ?EX_STACK(St),
-        ?ERROR("Failed to process iq response:~n~ts~n** ~ts", [
-            xmpp:pp(IQRes),
+        ?ERROR("Failed to process iq response:~n~p~n** ~ts", [
+            IQRes,
             misc:format_exception(2, Class, Reason, StackTrace)])
     end;
 callback(Proc, IQRes, Ctx) ->

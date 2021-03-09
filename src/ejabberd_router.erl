@@ -95,9 +95,8 @@ route(Packet) ->
     try do_route(Packet)
     catch ?EX_RULE(Class, Reason, St) ->
         StackTrace = ?EX_STACK(St),
-        ?ERROR("Failed to route packet:~n~ts~n** ~ts",
-               [xmpp:pp(Packet),
-            misc:format_exception(2, Class, Reason, StackTrace)])
+        ?ERROR("Failed to route packet:~n~p~n** ~ts",
+               [Packet, misc:format_exception(2, Class, Reason, StackTrace)])
     end,
     ok.
 
@@ -129,12 +128,12 @@ route_multicast(FromUid, Destinations, Packet) ->
 
 -spec route_error(stanza(), stanza_error()) -> ok.
 route_error(Packet, Err) ->
-    Type = xmpp:get_type(Packet),
+    Type = pb:get_type(Packet),
     if
         Type == error; Type == result ->
             ok;
         true ->
-            route(xmpp:make_error(Packet, Err))
+            route(pb:make_error(Packet, Err))
     end.
 
 
@@ -402,7 +401,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 -spec do_route(stanza()) -> ok.
 do_route(OrigPacket) ->
-    ?DEBUG("Route:~n~ts", [xmpp:pp(OrigPacket)]),
+    ?DEBUG("Route:~n~p", [OrigPacket]),
     case ejabberd_hooks:run_fold(filter_packet, OrigPacket, []) of
         drop ->
             ok;

@@ -570,11 +570,10 @@ process_element(Pkt, #{stream_state := StateName} = State) ->
 
 -spec process_authenticated_packet(xmpp_element(), state()) -> state().
 process_authenticated_packet(Pkt, State) ->
-    Pkt1 = set_lang(Pkt, State),
-    case set_from_to(Pkt1, State) of
-        {ok, Pkt2} ->
-            ?INFO("recv: final xmpp: ~p", [Pkt2]),
-            try callback(handle_authenticated_packet, Pkt2, State)
+    case set_from_to(Pkt, State) of
+        {ok, Pkt1} ->
+            ?INFO("recv: final xmpp: ~p", [Pkt1]),
+            try callback(handle_authenticated_packet, Pkt1, State)
             catch _:{?MODULE, undef} ->
                 process_stream_end(service_unavailable, State)
             end;
@@ -700,42 +699,11 @@ check_password_fun(Mech, State) ->
 -spec set_from_to(xmpp_element(), state()) -> {ok, xmpp_element()} |
                           {error, stream_error()}.
 %% TODO(murali@): cleanup these functions.
-set_from_to(Pkt, #{user := U} = _State) when not ?is_stanza(Pkt) ->
+set_from_to(Pkt, #{user := U} = _State) ->
     case pb:is_pb_packet(Pkt) of
         true ->
             {ok, pb:set_from(Pkt, U)};
         false ->
-            {ok, Pkt}
-    end;
-set_from_to(Pkt, #{user := U, server := S, resource := R, lang := Lang, xmlns := ?NS_CLIENT}) ->
-    JID = jid:make(U, S, R),
-    %% Always overwrite the from_jid to be the user's jid.
-    From = JID,
-    if
-        JID#jid.luser == From#jid.luser andalso
-        JID#jid.lserver == From#jid.lserver andalso
-        (JID#jid.lresource == From#jid.lresource
-        orelse From#jid.lresource == <<"">>) ->
-            To = case xmpp:get_to(Pkt) of
-                 undefined -> jid:make(S);
-                 T -> T
-             end,
-            {ok, xmpp:set_from_to(Pkt, JID, To)};
-        true ->
-            Txt = <<"Improper 'from' attribute">>,
-            {error, xmpp:serr_invalid_from(Txt, Lang)}
-    end;
-set_from_to(Pkt, #{lang := Lang}) ->
-    From = xmpp:get_from(Pkt),
-    To = xmpp:get_to(Pkt),
-    if
-        From == undefined ->
-            Txt = <<"Missing 'from' attribute">>,
-            {error, xmpp:serr_improper_addressing(Txt, Lang)};
-        To == undefined ->
-            Txt = <<"Missing 'to' attribute">>,
-            {error, xmpp:serr_improper_addressing(Txt, Lang)};
-        true ->
             {ok, Pkt}
     end.
 
@@ -850,15 +818,6 @@ close_socket(#{socket := Socket} = State) ->
 -spec select_lang(binary(), binary()) -> binary().
 select_lang(Lang, <<"">>) -> Lang;
 select_lang(_, Lang) -> Lang.
-
-
--spec set_lang(xmpp_element(), state()) -> xmpp_element().
-set_lang(Pkt, #{lang := MyLang, xmlns := ?NS_CLIENT}) when ?is_stanza(Pkt) ->
-    HisLang = xmpp:get_lang(Pkt),
-    Lang = select_lang(MyLang, HisLang),
-    xmpp:set_lang(Pkt, Lang);
-set_lang(Pkt, _) ->
-    Pkt.
 
 
 -spec format_inet_error(atom()) -> string().
