@@ -656,10 +656,6 @@ format_reason(_, {shutdown, _}) ->
 format_reason(_, _) ->
     <<"internal server error">>.
 
-listen_opt_type(noise_static_key) ->
-    econf:any();
-listen_opt_type(noise_server_certificate) ->
-    econf:any();
 listen_opt_type(crypto) ->
     econf:enum([tls, noise]).
 
@@ -668,7 +664,5 @@ listen_options() ->
     {shaper, none},
     {max_stanza_size, infinity},
     {max_fsm_queue, 5000},
-    {noise_static_key, undefined},
-    {noise_server_certificate, undefined},
     {crypto, tls}].
 

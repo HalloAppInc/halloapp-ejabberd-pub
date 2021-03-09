@@ -34,11 +34,11 @@ listen:
   -
     port: 5222
     ip: "::"
-    module: ejabberd_c2s
+    module: halloapp_c2s
     max_stanza_size: 262144
     shaper: c2s_shaper
     access: c2s
-    starttls_required: true
+    crypto: noise
   -
     port: 5210
     ip: "::"
@@ -55,8 +55,6 @@ listen:
     shaper: c2s_shaper
     access: c2s
     crypto: noise
-    noise_static_key: /etc/ejabberd_certs/noise/server.pem
-    noise_server_certificate: /etc/ejabberd_certs/noise/server_certificate.pem
   -
     port: 5443
     ip: "::"
