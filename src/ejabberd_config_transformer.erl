@@ -249,8 +249,7 @@ remove_inet_options(Opts) ->
 
 collect_listener_certfiles(Opts, Acc) ->
     Mod = proplists:get_value(module, Opts),
-    if Mod == ejabberd_http;
-       Mod == ejabberd_c2s ->
+    if Mod == ejabberd_http ->
 	    case lists:keyfind(certfile, 1, Opts) of
 		{_, CertFile} ->
 		    ?WARNING("Listening option 'certfile' of module ~ts "

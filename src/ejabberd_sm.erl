@@ -109,7 +109,6 @@ stop() ->
     ?INFO("~s stopping", [?MODULE]),
     ejabberd_sup:stop_child(?MODULE),
     % this supervisors are created by the ejabberd_listener
-    ejabberd_sup:stop_child(ejabberd_c2s_sup),
     ejabberd_sup:stop_child(halloapp_c2s_sup),
     ok.
 
@@ -415,14 +414,12 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 -spec host_up(binary()) -> ok.
 host_up(Host) ->
     ejabberd_hooks:add(bounce_sm_packet, Host, ?MODULE, bounce_sm_packet, 100),
-    ejabberd_c2s:host_up(Host),
     halloapp_c2s:host_up(Host).
 
 -spec host_down(binary()) -> ok.
 host_down(Host) ->
     ejabberd_hooks:delete(bounce_sm_packet, Host,
               ejabberd_sm, bounce_sm_packet, 100),
-    ejabberd_c2s:host_down(Host),
     halloapp_c2s:host_down(Host).
 
 % Close down all the c2s processes 
