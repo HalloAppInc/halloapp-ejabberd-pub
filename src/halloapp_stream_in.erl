@@ -418,8 +418,9 @@ handle_info({tcp, _, Data}, #{socket := Socket} = State) ->
                 NewState = State#{socket => NewSocket},
                 send_auth_error(NewState, spub_mismatch);
             {error, Reason} ->
+                ?ERROR("noise error on read Reason: ~p Data: ~p", [Reason, Data]),
                 % TODO: I don't think we should send to the client those specific reasons
-                send_error(State, Reason)
+                send_error(State, noise_error)
         end);
 
 handle_info({tcp_closed, _}, State) ->
