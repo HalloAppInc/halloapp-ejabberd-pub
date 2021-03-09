@@ -474,7 +474,7 @@ check_whisper_keys_test() ->
     {timeout, 10,
         fun check_whisper_keys/0}.
 
-check_uid_to_delete() ->
+check_uid_to_delete_test() ->
     setup(),
     ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
     ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
@@ -502,20 +502,20 @@ check_uid_to_delete() ->
         [],
         lists:seq(0, ?NUM_SLOTS - 1)),
     ?assertEqual(sets:from_list(All), sets:from_list([?UID1, ?UID2, ?UID3, ?UID4, ?UID5])),
-    redis_migrate:start_migration("Check whisper keys", ecredis_accounts, find_inactive_accounts,
-            [{dry_run, false}, {execute, sequential}]),
-    %% Just so the above async range scan finish, we will wait for 5 seconds.
-    timer:sleep(timer:seconds(5)),
-    ?assertEqual(0, model_accounts:count_uids_to_delete()),
-    ?assertEqual(false, model_accounts:mark_inactive_uids_gen_start()),
-    ?assertEqual(false, model_accounts:mark_inactive_uids_deletion_start()),
+    %% TODO(vipin): uncomment the redis scan test.
+    %% redis_migrate:start_migration("Check whisper keys", ecredis_accounts, find_inactive_accounts,
+    %%        [{dry_run, false}, {execute, sequential}]),
+    %% Just so the above async range scan finish, we will wait for 1 second.
+    %% timer:sleep(timer:seconds(1)),
+    %% ?assertEqual(0, model_accounts:count_uids_to_delete()),
     ?assertEqual(true, model_accounts:mark_inactive_uids_gen_start()),
     ?assertEqual(true, model_accounts:mark_inactive_uids_deletion_start()),
+    ?assertEqual(true, model_accounts:mark_inactive_uids_check_start()),
+    ?assertEqual(false, model_accounts:mark_inactive_uids_gen_start()),
+    ?assertEqual(false, model_accounts:mark_inactive_uids_deletion_start()),
+    ?assertEqual(false, model_accounts:mark_inactive_uids_check_start()),
     ok.
 
-check_uid_to_delete_test() ->
-    {timeout, 10,
-        fun check_uid_to_delete/0}.
 
 
 

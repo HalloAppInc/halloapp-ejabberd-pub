@@ -55,28 +55,28 @@ manage() ->
     case ToExecute of
         find_uids ->
             case model_accounts:mark_inactive_uids_gen_start() of
-                false ->
+                true ->
                     ?INFO("On Monday, create list of inactive Uids", []),
                      model_accounts:cleanup_uids_to_delete_keys(),
                      redis_migrate:start_migration("Find Inactive Accounts", redis_accounts,
                          find_inactive_accounts, [{dry_run, false}, {execute, sequential}]);
-                true ->
+                false ->
                     ?INFO("On Monday list of inactive Uids already created", [])
             end;
         check_uids ->
             case model_accounts:mark_inactive_uids_check_start() of
-                false ->
+                true ->
                     ?INFO("On Tuesday, Start checking of inactive Uids using above list", []),
                     check_and_delete_accounts(false);
-                true ->
+                false ->
                     ?INFO("On Tuesday, checking of inactive Uids already started", [])
             end;
          delete_uids ->
             case model_accounts:mark_inactive_uids_deletion_start() of
-                false ->
+                true ->
                     ?INFO("On Wednesday, Start deletion of inactive Uids using above list", []),
                     check_and_delete_accounts(true);
-                true ->
+                false ->
                     ?INFO("On Wednesday, deletion of inactive Uids already started", [])
             end;
        _ ->
