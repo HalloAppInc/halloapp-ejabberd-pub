@@ -16,6 +16,7 @@ message EventData {
     MediaDownload media_download = 11;
     MediaComposeLoad media_compose_load = 12;
     PushReceived push_received = 13;
+    DecryptionReport decryption_report = 14;
   }
 }
 
@@ -77,3 +78,17 @@ message PushReceived {
   uint64 client_timestamp = 2;
 }
 
+message DecryptionReport {
+  enum Status {
+    OK = 0;
+    FAIL = 1;
+  }
+  Status result = 1;
+  string reason = 2;
+  string msg_id = 3;
+  string original_version = 4; // at time message id was first encountered
+  Platform sender_platform = 5;
+  string sender_version = 6;
+  uint32 rerequest_count = 7;
+  uint32 time_taken_s = 8;
+}
