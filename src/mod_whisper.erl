@@ -68,11 +68,11 @@ mod_options(_Host) ->
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_whisper_keys{action = set} = WhisperKeys} = IQ) ->
     ?INFO("set_keys Uid: ~s", [Uid]),
-    IdentityKey = util_parser:maybe_base64_encode(WhisperKeys#pb_whisper_keys.identity_key),
-    SignedKey = util_parser:maybe_base64_encode(WhisperKeys#pb_whisper_keys.signed_key),
+    IdentityKey = util:maybe_base64_encode(WhisperKeys#pb_whisper_keys.identity_key),
+    SignedKey = util:maybe_base64_encode(WhisperKeys#pb_whisper_keys.signed_key),
     OneTimeKeys = lists:map(
         fun(OneTimeKey) ->
-            util_parser:maybe_base64_encode(OneTimeKey)
+            util:maybe_base64_encode(OneTimeKey)
         end, WhisperKeys#pb_whisper_keys.one_time_keys),
 
     case check_whisper_keys(IdentityKey, SignedKey, OneTimeKeys) of
@@ -87,11 +87,11 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_whisper_keys{action = add} = WhisperKeys} = IQ) ->
     ?INFO("add_otp_keys Uid: ~s", [Uid]),
-    IdentityKey = util_parser:maybe_base64_encode(WhisperKeys#pb_whisper_keys.identity_key),
-    SignedKey = util_parser:maybe_base64_encode(WhisperKeys#pb_whisper_keys.signed_key),
+    IdentityKey = util:maybe_base64_encode(WhisperKeys#pb_whisper_keys.identity_key),
+    SignedKey = util:maybe_base64_encode(WhisperKeys#pb_whisper_keys.signed_key),
     OneTimeKeys = lists:map(
         fun(OneTimeKey) ->
-            util_parser:maybe_base64_encode(OneTimeKey)
+            util:maybe_base64_encode(OneTimeKey)
         end, WhisperKeys#pb_whisper_keys.one_time_keys),
 
     case check_one_time_keys(OneTimeKeys) of
@@ -144,11 +144,11 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
                     ok = model_whisper_keys:add_key_subscriber(Ouid, Uid),
                     ok = model_whisper_keys:add_key_subscriber(Uid, Ouid),
                     check_count_and_notify_user(Ouid, Server),
-                    IdentityKey = util_parser:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
-                    SignedKey = util_parser:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.signed_key),
+                    IdentityKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
+                    SignedKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.signed_key),
                     OneTimeKeys = case WhisperKeySet#user_whisper_key_set.one_time_key of
                         undefined -> [];
-                        OneTimeKey -> [util_parser:maybe_base64_decode(OneTimeKey)]
+                        OneTimeKey -> [util:maybe_base64_decode(OneTimeKey)]
                     end,
                     pb:make_iq_result(IQ, #pb_whisper_keys{uid = Ouid, identity_key = IdentityKey,
                             signed_key = SignedKey, one_time_keys = OneTimeKeys})

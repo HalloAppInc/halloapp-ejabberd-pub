@@ -48,11 +48,12 @@
     xmpp_err/1,
     err/2,
     ms_to_datetime_string/1,
-    get_packet_type/1,
     get_payload_type/1,
     set_timestamp/2,
     get_timestamp/1,
-    add_and_merge_maps/2
+    add_and_merge_maps/2,
+    maybe_base64_encode/1,
+    maybe_base64_decode/1
 ]).
 
 %% Export all functions for unit tests
@@ -333,17 +334,7 @@ ms_to_datetime_string(Ms) ->
     end.
 
 
--spec get_packet_type(Packet :: stanza()) -> atom.
-get_packet_type(#iq{}) -> iq;
-get_packet_type(#message{}) -> message;
-get_packet_type(#presence{}) -> presence;
-get_packet_type(#chat_state{}) -> chat_state;
-get_packet_type(#ack{}) -> ack.
-
-
 -spec get_payload_type(Packet :: stanza()) -> atom.
-get_payload_type(#iq{sub_els = [SubEl]}) -> util:to_atom(element(1, SubEl));
-get_payload_type(#message{sub_els = [SubEl]}) -> util:to_atom(element(1, SubEl));
 get_payload_type(#pb_iq{} = Pkt) -> pb:get_payload_type(Pkt);
 get_payload_type(#pb_msg{} = Pkt) -> pb:get_payload_type(Pkt);
 get_payload_type(_) -> undefined.
@@ -352,7 +343,7 @@ get_payload_type(_) -> undefined.
 %% Currently, we only set/get timestamps for different message stanzas:
 %% chat/group_chat/silent_chat/seen/deliveryreceipt stanzas.
 
--spec set_timestamp(message(), binary()) -> stanza().
+-spec set_timestamp(pb_msg(), binary()) -> stanza().
 set_timestamp(#pb_msg{payload = #pb_group_chat{} = GroupChat} = Msg, T) ->
     Msg#pb_msg{payload = GroupChat#pb_group_chat{timestamp = T}};
 set_timestamp(#pb_msg{payload = #pb_chat_stanza{} = Chat} = Msg, T) ->
@@ -366,10 +357,20 @@ set_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_st
 set_timestamp(Packet, _T) -> Packet.
 
 
--spec get_timestamp(message()) -> binary() | undefined.
+-spec get_timestamp(pb_msg()) -> binary() | undefined.
 get_timestamp(#pb_msg{payload = #pb_chat_stanza{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_stanza{timestamp = T}}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_seen_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_delivery_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{}) -> undefined.
+
+
+-spec maybe_base64_encode(maybe(binary())) -> maybe(binary()).
+maybe_base64_encode(undefined) -> undefined;
+maybe_base64_encode(Data) -> base64:encode(Data).
+
+
+-spec maybe_base64_decode(maybe(binary())) -> maybe(binary()).
+maybe_base64_decode(undefined) -> undefined;
+maybe_base64_decode(Data) -> base64:decode(Data).
 

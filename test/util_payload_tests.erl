@@ -13,34 +13,34 @@
 
 
 ack_payload_type_test() ->
-    Ack = struct_util:create_ack(?ID1, undefined, undefined, ?TIMESTAMP1),
+    Ack = struct_util:create_pb_ack(?ID1, ?TIMESTAMP1),
     ?assertEqual(undefined, util:get_payload_type(Ack)),
     ok.
 
 
 presence_payload_type_test() ->
-    Presence = struct_util:create_presence(?ID1, available, undefined, undefined, undefined),
+    Presence = struct_util:create_pb_presence(?ID1, available, undefined, undefined, undefined, undefined),
     ?assertEqual(undefined, util:get_payload_type(Presence)),
     ok.
 
 
 chat_state_payload_type_test() ->
-    ChatState = struct_util:create_chat_state(undefined, undefined, available, ?GID1, group_chat),
+    ChatState = struct_util:create_pb_chat_state(available, ?GID1, group_chat, undefined),
     ?assertEqual(undefined, util:get_payload_type(ChatState)),
     ok.
 
 
 message_payload_type_test() ->
-    PostSt = struct_util:create_post_st(?ID1, ?UID1, ?NAME1, ?PAYLOAD1_BASE64, ?TIMESTAMP1),
-    FeedSt1 = struct_util:create_feed_st(publish, [PostSt], [], [], []),
-    MessageSt = struct_util:create_message_stanza(undefined, undefined, undefined, normal, FeedSt1),
-    ?assertEqual(feed_st, util:get_payload_type(MessageSt)),
+    PostSt = struct_util:create_pb_post(?ID1, ?UID1, ?NAME1, ?PAYLOAD1_BASE64, undefined, ?TIMESTAMP1),
+    FeedSt1 = struct_util:create_feed_item(publish, PostSt),
+    MessageSt = struct_util:create_pb_message(undefined, undefined, undefined, normal, FeedSt1),
+    ?assertEqual(pb_feed_item, util:get_payload_type(MessageSt)),
     ok.
 
 iq_payload_type_test() ->
-    CommentSt = struct_util:create_comment_st(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
-    FeedSt2 = struct_util:create_feed_st(publish, [], [CommentSt], [], []),
-    IqSt = struct_util:create_iq_stanza(?ID1, undefined, undefined, set, FeedSt2),
-    ?assertEqual(feed_st, util:get_payload_type(IqSt)),
+    CommentSt = struct_util:create_pb_comment(?ID3, ?ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD2_BASE64, ?TIMESTAMP2),
+    FeedSt2 = struct_util:create_feed_item(publish, CommentSt),
+    IqSt = struct_util:create_pb_iq(?ID1, set, FeedSt2),
+    ?assertEqual(pb_feed_item, util:get_payload_type(IqSt)),
     ok.
 

@@ -113,8 +113,6 @@ route_xmpp(Packet) ->
     end.
 
 -spec bounce_resource_packet(stanza()) -> ok | stop.
-bounce_resource_packet(#presence{to = #jid{lresource = <<"">>}}) ->
-    ok;
 bounce_resource_packet(Packet) ->
     ?ERROR("Invalid packet received: ~p", [Packet]),
     Err = util:err(item_not_found),

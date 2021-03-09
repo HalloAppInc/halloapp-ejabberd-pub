@@ -90,23 +90,21 @@ store_message_test() ->
 
 store_message_pb_test() ->
     setup(),
-    SeenReceipt = struct_util:create_seen_receipt(?MID1, ?UID2, <<"123">>),
-    ToJid = struct_util:create_jid(?UID4, ?SERVER),
-    FromJid = struct_util:create_jid(?UID2, ?SERVER),
-    XmppMsg = struct_util:create_message_stanza(?MID1, ToJid, FromJid, normal, SeenReceipt),
+    SeenReceipt = struct_util:create_pb_seen_receipt(?MID1, ?UID2, 123),
+    Msg = struct_util:create_pb_message(?MID1, ?UID4, ?UID2, normal, SeenReceipt),
     ?assertEqual({ok, ?EMPTY_OFFLINE_MESSAGE}, model_messages:get_message(?UID4, ?MID1)),
 
-    PbMessage = enif_protobuf:encode(packet_parser:xmpp_to_proto(XmppMsg)),
-    ?assertEqual(ok, model_messages:store_message(?UID4, ?UID2, ?MID1, <<"receipt_seen">>, undefined, PbMessage, true)),
+    MsgBin = enif_protobuf:encode(Msg),
+    ?assertEqual(ok, model_messages:store_message(?UID4, ?UID2, ?MID1, <<"pb_seen_receipt">>, undefined, MsgBin, true)),
     {ok, ActualOfflineMessage} = model_messages:get_message(?UID4, ?MID1),
 
     ExpectedOfflineMessage = #offline_message{
         msg_id = ?MID1,
         to_uid = ?UID4,
         from_uid = ?UID2,
-        content_type = <<"receipt_seen">>,
+        content_type = <<"pb_seen_receipt">>,
         retry_count = 1,
-        message = enif_protobuf:encode(packet_parser:xmpp_to_proto(XmppMsg)),
+        message = enif_protobuf:encode(Msg),
         order_id = 1,
         protobuf = true,
         sent = false

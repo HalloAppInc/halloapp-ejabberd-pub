@@ -318,19 +318,16 @@ handle_info({'$gen_event', {protobuf, Bin}},
         #{stream_state := wait_for_authentication} = State) ->
     noreply(
         try enif_protobuf:decode(Bin, pb_auth_request) of
-        Pkt ->
+        #pb_auth_request{} = Pkt ->
             stat:count("HA/pb_packet", "decode_success", 1, [{socket_type, get_socket_type(State)}]),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
-            FinalPkt = ha_auth_parser:proto_to_xmpp(Pkt),
 
-            %% TODO(murali@): need to catch errors here for proto_to_xmpp and decode errors.
-            ?INFO("recv: translated xmpp: ~p", [FinalPkt]),
             State1 = try callback(handle_recv, Bin, Pkt, State)
                catch _:{?MODULE, undef} -> State
                end,
             case is_disconnected(State1) of
                 true -> State1;
-                false -> process_element(FinalPkt, State1)
+                false -> process_element(Pkt, State1)
             end
         catch _:_ ->
             stat:count("HA/pb_packet", "decode_failure", 1, [{socket_type, get_socket_type(State)}]),
@@ -348,17 +345,15 @@ handle_info({'$gen_event', {protobuf, Bin}},
         #{stream_state := established, socket := _Socket} = State) ->
     noreply(
         try enif_protobuf:decode(Bin, pb_packet) of
-        Pkt ->
+        #pb_packet{stanza = Pkt} ->
             stat:count("HA/pb_packet", "decode_success", 1, [{socket_type, get_socket_type(State)}]),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
-            FinalPkt = packet_parser:proto_to_xmpp(Pkt),
-            ?INFO("recv: translated xmpp: ~p", [FinalPkt]),
             State1 = try callback(handle_recv, Bin, Pkt, State)
                catch _:{?MODULE, undef} -> State
                end,
             case is_disconnected(State1) of
                 true -> State1;
-                false -> process_element(FinalPkt, State1)
+                false -> process_element(Pkt, State1)
             end
         catch _:_ ->
             stat:count("HA/pb_packet", "decode_failure", 1, [{socket_type, get_socket_type(State)}]),
@@ -375,19 +370,17 @@ handle_info({'$gen_event', {protobuf, Bin}},
 handle_info({'$gen_event', {stream_validation, Bin}}, #{socket := _Socket} = State) ->
     noreply(
         try enif_protobuf:decode(Bin, pb_auth_request) of
-        Pkt ->
+        #pb_auth_request{} = Pkt ->
             stat:count("HA/pb_packet", "decode_success", 1, [{socket_type, get_socket_type(State)}]),
             ?DEBUG("recv: protobuf: ~p", [Pkt]),
-            FinalPkt = ha_auth_parser:proto_to_xmpp(Pkt),
-            ?INFO("recv: translated xmpp: ~p", [FinalPkt]),
             %% Change stream state.
-            State1 = process_stream_authentication(FinalPkt, State),
+            State1 = process_stream_authentication(Pkt, State),
             State2 = try callback(handle_recv, Bin, Pkt, State1)
                catch _:{?MODULE, undef} -> State1
                end,
             case is_disconnected(State2) of
                 true -> State2;
-                false -> process_element(FinalPkt, State2)
+                false -> process_element(Pkt, State2)
             end
         catch _:_ ->
             stat:count("HA/pb_packet", "decode_failure", 1, [{socket_type, get_socket_type(State)}]),
@@ -748,56 +741,49 @@ set_from_to(Pkt, #{lang := Lang}) ->
 
 
 -spec send_pkt(state(), xmpp_element()) -> state().
-send_pkt(State, XmppPkt) ->
-    Pkt = xmpp_to_proto(XmppPkt),
-    %% TODO(murali@): xmpp_to_proto should throw an error instead of undefined.
-    {FinalResult, FinalState} = case Pkt of
-        undefined ->
-            ?ERROR("Failed to translate packet: ~p", [XmppPkt]),
-            NewState = send_error(State, XmppPkt, server_error),
-            {ok, NewState};
-        Pkt ->
-            % TODO: remove this log
-            ?INFO("send pb: ~p", [Pkt]),
-            {BinPkt1, Result} = case encode_packet(State, Pkt) of
-                {ok, BinPkt} ->
-                    % TODO: remove this log
-                    ?INFO("send bin: ~p", [BinPkt]),
-                    {BinPkt, socket_send(State, BinPkt)};
-                {error, _} = Err ->
-                    ?INFO("failed to encode packet ~p, error ~p", [Pkt, Err]),
-                    {<<>>, Err}
-            end,
-
-            State1 = case Result of
-                {ok, noise, SocketData} ->
-                    State#{socket => SocketData};
-                {ok, fast_tls} ->
-                    State;
-                {error, _} ->
-                    State
-            end,
-            % TODO: nikola: add to this callback the BinPkt
-            State2 = try callback(handle_send, BinPkt1, Pkt, Result, State1)
-                catch _:{?MODULE, undef} -> State1
-            end,
-            {Result, State2}
+send_pkt(State, PktToSend) ->
+    Pkt = case PktToSend of
+        #pb_auth_result{} -> PktToSend;
+        _ -> #pb_packet{stanza = PktToSend}
     end,
-    case FinalResult of
-        _ when is_record(Pkt, stream_error) ->
-            process_stream_end({stream, {out, Pkt}}, FinalState);
-        ok ->
-            FinalState;
-        {ok, noise, _} ->
-            FinalState;
+    % TODO: remove this log
+    ?INFO("send pb: ~p", [Pkt]),
+    {BinPkt1, Result} = case encode_packet(State, Pkt) of
+        {ok, BinPkt} ->
+            % TODO: remove this log
+            ?INFO("send bin: ~p", [BinPkt]),
+            {BinPkt, socket_send(State, BinPkt)};
+        {error, _} = Err ->
+            ?INFO("failed to encode packet ~p, error ~p", [Pkt, Err]),
+            {<<>>, Err}
+    end,
+    State1 = case Result of
+        {ok, noise, SocketData} ->
+            State#{socket => SocketData};
         {ok, fast_tls} ->
-            FinalState;
+            State;
+        {error, _} ->
+            State
+    end,
+    % TODO: nikola: add to this callback the BinPkt
+    State2 = try callback(handle_send, BinPkt1, Pkt, Result, State1)
+        catch _:{?MODULE, undef} -> State1
+    end,
+    case Result of
+        _ when is_record(Pkt, stream_error) ->
+            process_stream_end({stream, {out, Pkt}}, State2);
+        ok ->
+            State2;
+        {ok, noise, _} ->
+            State2;
+        {ok, fast_tls} ->
+            State2;
         {error, _Why} ->
             % Queue process_stream_end instead of calling it directly,
             % so we have opportunity to process incoming queued messages before
             % terminating session.
             self() ! {'$gen_event', closed},
-            FinalState
+            State2
     end.
 
 
@@ -895,24 +881,6 @@ format_tls_error(Reason) ->
 -spec format(io:format(), list()) -> binary().
 format(Fmt, Args) ->
     iolist_to_binary(io_lib:format(Fmt, Args)).
-
-
-%% TODO(murali@): clean this up further: use the parser module itself.
-%% Move it to the packet_parser module.
-xmpp_to_proto(Pkt) when is_record(Pkt, pb_auth_result) ->
-    Pkt;
-xmpp_to_proto(Pkt) ->
-    PbPacket = case pb:is_pb_packet(Pkt) of
-        true -> #pb_packet{stanza = Pkt};
-        false ->
-            try
-                packet_parser:xmpp_to_proto(Pkt)
-            catch
-                error: Reason ->
-                    ?ERROR("Failed: packet: ~p, reason: ~p", [Pkt, Reason]),
-                    undefined
-            end
-    end.
 
 
 -spec get_socket_type(state()) -> maybe(socket_type()).

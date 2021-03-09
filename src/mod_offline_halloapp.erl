@@ -449,25 +449,6 @@ route_offline_message(#offline_message{
             ?ERROR("failed parsing: ~s", [
                     lager:pr_stacktrace(Stacktrace, {Class, Reason})])
     end,
-    ok;
-route_offline_message(#offline_message{
-        msg_id = MsgId, to_uid = ToUid, retry_count = RetryCount, message = Message}) ->
-    case fxml_stream:parse_element(Message) of
-        {error, Reason} ->
-            ?ERROR("MsgId: ~s, failed to parse: ~p, reason: ~p", [MsgId, Message, Reason]);
-        MessageXmlEl ->
-            try
-                Packet1 = xmpp:decode(MessageXmlEl, ?NS_CLIENT, [ignore_els]),
-                Packet2 = packet_parser:xmpp_to_proto(Packet1),
-                adjust_and_send_message(Packet2, RetryCount),
-                ?INFO("sending offline message Uid: ~s MsgId: ~p rc: ~p",
-                    [ToUid, MsgId, RetryCount])
-            catch
-                Class : Reason : Stacktrace ->
-                    ?ERROR("failed routing: ~s", [
-                            lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-            end
-    end,
     ok.
 
 
