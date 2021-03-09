@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # define default configuration
 POLL=true
@@ -104,13 +104,35 @@ export CONTRIB_MODULES_PATH
 export CONTRIB_MODULES_CONF_DIR
 export ERL_LIBS
 
+cleanup() {
+   echo "cleanup up"
+   # more final cleanup code could go here
+}
+
+# we trap some signals and try to send SIGTERM to all processes in the same
+# group as our process. Note that we first override our SIGTERM handler to
+# nothing to avoid empty loop.
+# https://linuxconfig.org/how-to-propagate-a-signal-to-child-processes-from-a-bash-script
+trap 'trap " " SIGTERM; kill 0; wait; cleanup' SIGINT SIGTERM SIGHUP
+
 # run command either directly or via su $INSTALLUSER
+# We need to run the command in the backgroud to be able to trap signals and
+# terminate the command based on the signal.
+# When the commands is run the background with & the stdin is redirected from
+# /dev/null. To go around this we redirect stdin to fd3 and them we redirect
+# fd3 to be stdin for background process.
+
 exec_cmd()
 {
     case $EXEC_CMD in
-        as_install_user) su -s /bin/sh -c '"$0" "$@"' "$INSTALLUSER" -- "$@" ;;
+        as_install_user) { su -s /bin/sh -c '"$0" "$@"' "$INSTALLUSER" -- "$@" <&3 3<&- & } 3<&0 ;;
         as_current_user) "$@" ;;
     esac
+
+    # We started the cmd in the background and now we wait for it.
+    # We have to do this otherwise the trap does not execute until the command
+    # is done.
+    wait
 }
 exec_erl()
 {
