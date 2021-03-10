@@ -22,6 +22,7 @@
 group() ->
     {registration, [sequence], [
         registration_request_sms_test,
+        registration_request_sms_fail_test,
         registration_register_test
     ]}.
 
@@ -35,7 +36,23 @@ request_sms_test(_Conf) ->
     } = Resp,
     ok.
 
-% TODO: test request_sms errors like not_invited, bad_user_agent
+request_sms_fail_test(_Conf) ->
+    % use some random non-test number, get not_invited
+    {error, {400, Resp}} = registration_client:request_sms(<<12066580001>>),
+    ct:pal("~p", [Resp]),
+    #{
+        <<"result">> := <<"fail">>,
+        <<"error">> := <<"not_invited">>
+    } = Resp,
+
+    % use some random non-test number, get not_invited
+    {error, {400, Resp2}} = registration_client:request_sms(<<12066580001>>, #{user_agent => "BadUserAgent/1.0"}),
+    ct:pal("~p", [Resp2]),
+    #{
+        <<"result">> := <<"fail">>
+    } = Resp2,
+    ok.
+
 
 % TODO: this test should eventually switch to register2
 register_test(_Conf) ->

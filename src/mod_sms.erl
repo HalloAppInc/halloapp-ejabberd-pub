@@ -52,22 +52,22 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
--spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok.
+-spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok | {error, term()}.
 request_sms(Phone, UserAgent) ->
     Code = generate_code(util:is_test_number(Phone)),
     {ok, NewAttemptId} = ejabberd_auth:try_enroll(Phone, Code),
     case util:is_test_number(Phone) of
         true -> ok;
         false ->
-            try
-                {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
-                {ok, SMSResponse} = send_sms(Phone, Code, UserAgent, OldResponses),
-                ?INFO("Response: ~p", [SMSResponse]),
-                model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse)
-            catch
-                Class : Reason : Stacktrace ->
-                    ?ERROR("Unable to send SMS: ~s", [
-                            lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+            {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
+            case send_sms(Phone, Code, UserAgent, OldResponses) of
+                {ok, SMSResponse} ->
+                    ?INFO("Response: ~p", [SMSResponse]),
+                    model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
+                    ok;
+                {error, Reason} = Err ->
+                    ?ERROR("Unable to send SMS: ~p Phone: ~p", [Reason, Phone]),
+                    Err
             end
      end.
 
@@ -86,16 +86,15 @@ verify_sms(Phone, Code) ->
 
 
 -spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary(),
-        OldResponses :: [sms_response()]) -> {ok, sms_response()} | no_return().
+        OldResponses :: [sms_response()]) -> {ok, sms_response()} | {error, term()}.
 send_sms(Phone, Code, UserAgent, OldResponses) ->
     Msg = prepare_registration_sms(Code, UserAgent),
     ?DEBUG("preparing to send sms, phone:~p msg:~s", [Phone, Msg]),
     case smart_send(Phone, Msg, OldResponses) of
         {ok, SMSResponse} ->
             {ok, SMSResponse};
-        {error, Error} ->
-            %% TODO(vipin): Need to handle error.
-            erlang:error(Error)
+        {error, _Reason} = Err ->
+            Err
     end.
 
 

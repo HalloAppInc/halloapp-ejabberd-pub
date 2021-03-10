@@ -50,7 +50,7 @@ process([<<"registration">>, <<"request_sms">>],
 
         check_ua(UserAgent),
         check_invited(Phone, UserAgent, ClientIP),
-        mod_sms:request_sms(Phone, UserAgent),
+        request_sms(Phone, UserAgent),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
                 {phone, Phone},
@@ -276,6 +276,17 @@ log_request_sms_error(ErrorType) ->
     stat:count("HA/account", "request_sms_errors", 1,
         [{error, ErrorType}]),
     ok.
+
+
+-spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok | no_return(). % throws sms_fail
+request_sms(Phone, UserAgent) ->
+    case mod_sms:request_sms(Phone, UserAgent) of
+        ok -> ok;
+        {error, Reason} ->
+            ?ERROR("could not send sms Reason: ~p Phone: ~P", [Reason, Phone]),
+            erlang:error(sms_fail)
+    end.
+
 
 -spec check_ua(binary()) -> ok | no_return().
 check_ua(UserAgent) ->
