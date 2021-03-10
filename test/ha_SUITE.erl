@@ -46,7 +46,7 @@ groups() -> [
     groups_tests:group(),
     groupfeed_tests:group(),
     chat_tests:group(),
-    {registration, [sequence], registration_tests()},
+    registration_tests:group(),
     {privacy_lists, [sequence], privacy_lists_tests()},
     {misc, [sequence], misc_tests()},
     httplog_tests:group(),
@@ -78,7 +78,6 @@ all() -> [
     run_eunit
 ].
 
-registration_tests() -> [dummy_test].
 privacy_lists_tests() -> [dummy_test].
 misc_tests() ->[dummy_test].
 
