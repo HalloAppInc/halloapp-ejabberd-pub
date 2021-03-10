@@ -18,6 +18,7 @@
     cur_timestamp/0,
     timestamp_secs_to_integer/1,
     get_host/0,
+    get_upload_server/0,
     now_ms/0,
     now/0,
     now_binary/0,
@@ -73,6 +74,10 @@ get_host() ->
             [H | []] = ejabberd_option:hosts(),
             H
     end.
+
+-spec get_upload_server() -> binary().
+get_upload_server() ->
+    <<"upload.s.halloapp.net">>.
 
 -spec now_ms() -> integer().
 now_ms() ->

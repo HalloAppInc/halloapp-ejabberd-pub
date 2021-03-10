@@ -43,16 +43,13 @@
     register_route/2,
     register_route/3,
     register_route/4,
-    register_routes/1,
     host_of_route/1,
     process_iq/1,
     unregister_route/1,
     unregister_route/2,
-    unregister_routes/1,
     get_all_routes/0,
     is_my_route/1,
     is_my_host/1,
-    clean_cache/1,
     config_reloaded/0
 ]).
 
@@ -70,6 +67,7 @@
 -include("packets.hrl").
 -include("ejabberd_stacktrace.hrl").
 -include("ha_types.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -callback init() -> any().
 -callback register_route(binary(), binary(), local_hint(),
@@ -165,32 +163,17 @@ register_route(Domain, ServerHost, LocalHint) ->
 
 
 -spec register_route(binary(), binary(), local_hint() | undefined, pid()) -> ok.
-register_route(Domain, ServerHost, LocalHint, Pid) ->
+register_route(Domain, ServerHost, _LocalHint, Pid) ->
     case {jid:nameprep(Domain), jid:nameprep(ServerHost)} of
         {error, _} ->
             erlang:error({invalid_domain, Domain});
         {_, error} ->
             erlang:error({invalid_domain, ServerHost});
-        {LDomain, LServerHost} ->
-            case ejabberd_router_mnesia:register_route(LDomain, LServerHost, LocalHint, undefined, Pid) of
-                ok ->
-                    ?INFO("Route registered: ~ts", [LDomain]),
-                    monitor_route(LDomain, Pid),
-                    ejabberd_hooks:run(route_registered, [LDomain]),
-                    delete_cache(LDomain);
-                {error, Err} ->
-                    ?ERROR("Failed to register route ~ts: ~p", [LDomain, Err])
-            end
+        {LDomain, _LServerHost} ->
+            ?assert((LDomain == util:get_upload_server()) or (LDomain == util:get_host())),
+            monitor_route(LDomain, Pid),
+            ejabberd_hooks:run(route_registered, [LDomain])
     end.
-
-
--spec register_routes([{binary(), binary()}]) -> ok.
-register_routes(Domains) ->
-    lists:foreach(
-        fun ({Domain, ServerHost}) ->
-            register_route(Domain, ServerHost)
-        end,
-        Domains).
 
 
 -spec unregister_route(binary()) -> ok.
@@ -204,89 +187,19 @@ unregister_route(Domain, Pid) ->
         error ->
             erlang:error({invalid_domain, Domain});
         LDomain ->
-            case ejabberd_router_mnesia:unregister_route(LDomain, undefined, Pid) of
-                ok ->
-                    ?INFO("Route unregistered: ~ts", [LDomain]),
-                    demonitor_route(LDomain, Pid),
-                    ejabberd_hooks:run(route_unregistered, [LDomain]),
-                    delete_cache(LDomain);
-                {error, Err} ->
-                    ?ERROR("Failed to unregister route ~ts: ~p", [LDomain, Err])
-            end
+            demonitor_route(LDomain, Pid),
+            ejabberd_hooks:run(route_unregistered, [LDomain])
     end.
-
-
--spec unregister_routes([binary()]) -> ok.
-unregister_routes(Domains) ->
-    lists:foreach(
-        fun (Domain) ->
-            unregister_route(Domain)
-        end,
-        Domains).
-
-
--spec find_routes(binary()) -> [#route{}].
-find_routes(Domain) ->
-    case use_cache() of
-        true ->
-            case ets_cache:lookup(?ROUTES_CACHE, {route, Domain},
-                    fun() ->
-                        case ejabberd_router_mnesia:find_routes(Domain) of
-                            {ok, Rs} when Rs /= [] ->
-                               {ok, Rs};
-                            _ ->
-                                error
-                        end
-                    end) of
-                {ok, Rs} -> Rs;
-                error -> []
-            end;
-        false ->
-            case ejabberd_router_mnesia:find_routes(Domain) of
-                {ok, Rs} -> Rs;
-                _ -> []
-            end
-    end.
-
 
 -spec get_all_routes() -> [binary()].
 get_all_routes() ->
-    case use_cache() of
-        true ->
-            case ets_cache:lookup(?ROUTES_CACHE, routes,
-                    fun() ->
-                        case ejabberd_router_mnesia:get_all_routes() of
-                            {ok, Rs} when Rs /= [] ->
-                                {ok, Rs};
-                            _ ->
-                                error
-                        end
-                    end) of
-               {ok, Rs} -> Rs;
-               error -> []
-            end;
-        false ->
-            case ejabberd_router_mnesia:get_all_routes() of
-                {ok, Rs} -> Rs;
-                _ -> []
-            end
-    end.
+    [].
 
 
 -spec host_of_route(binary()) -> binary().
 host_of_route(Domain) ->
-    case jid:nameprep(Domain) of
-        error ->
-            erlang:error({invalid_domain, Domain});
-        LDomain ->
-            case find_routes(LDomain) of
-                [#route{server_host = ServerHost}|_] ->
-                    ServerHost;
-                _ ->
-                    erlang:error({unregistered_route, Domain})
-            end
-    end.
-
+    ?assertEqual(util:get_host(), Domain),
+    Domain.
 
 -spec is_my_route(binary()) -> boolean().
 is_my_route(Domain) ->
@@ -294,20 +207,19 @@ is_my_route(Domain) ->
         error ->
             erlang:error({invalid_domain, Domain});
         LDomain ->
-            find_routes(LDomain) /= []
+            %%  we check if the domain is s.halloapp.net
+            LDomain == util:get_host()
     end.
 
 
 -spec is_my_host(binary()) -> boolean().
 is_my_host(Domain) ->
+    Host = util:get_host(),
     case jid:nameprep(Domain) of
         error ->
             erlang:error({invalid_domain, Domain});
-        LDomain ->
-            case find_routes(LDomain) of
-                [#route{server_host = LDomain}|_] -> true;
-                _ -> false
-            end
+        Host -> true;
+        _ -> false
     end.
 
 
@@ -318,7 +230,8 @@ process_iq(IQ) ->
 
 -spec config_reloaded() -> ok.
 config_reloaded() ->
-    init_cache().
+    %% stub
+    ok.
 
 
 %%====================================================================
@@ -327,9 +240,6 @@ config_reloaded() ->
 
 init([]) ->
     ejabberd_hooks:add(config_reloaded, ?MODULE, config_reloaded, 50),
-    init_cache(),
-    ejabberd_router_mnesia:init(),
-    clean_cache(),
     {ok, #state{}}.
 
 
@@ -430,68 +340,3 @@ demonitor_route(Domain, Pid) ->
         false ->
             ?GEN_SERVER:call(?MODULE, {demonitor, Domain, Pid}, ?CALL_TIMEOUT)
     end.
-
-
--spec cache_nodes() -> [node()].
-cache_nodes() ->
-    case erlang:function_exported(ejabberd_router_mnesia, cache_nodes, 0) of
-        true -> ejabberd_router_mnesia:cache_nodes();
-        false -> ejabberd_cluster:get_nodes()
-    end.
-
-
-%% TODO(murali@): we are not using any cache right now - we could remove this code too.
--spec use_cache() -> boolean().
-use_cache() ->
-    case erlang:function_exported(ejabberd_router_mnesia, use_cache, 0) of
-        true -> ejabberd_router_mnesia:use_cache();
-        false -> ejabberd_option:router_use_cache()
-    end.
-
-
--spec delete_cache(binary()) -> ok.
-delete_cache(Domain) ->
-    case use_cache() of
-        true ->
-            ets_cache:delete(?ROUTES_CACHE, {route, Domain}, cache_nodes()),
-            ets_cache:delete(?ROUTES_CACHE, routes, cache_nodes());
-        false ->
-            ok
-    end.
-
-
--spec init_cache() -> ok.
-init_cache() ->
-    case use_cache() of
-        true ->
-            ets_cache:new(?ROUTES_CACHE, cache_opts());
-        false ->
-            ets_cache:delete(?ROUTES_CACHE)
-    end.
-
-
--spec cache_opts() -> [proplists:property()].
-cache_opts() ->
-    MaxSize = ejabberd_option:router_cache_size(),
-    CacheMissed = ejabberd_option:router_cache_missed(),
-    LifeTime = ejabberd_option:router_cache_life_time(),
-    [{max_size, MaxSize}, {cache_missed, CacheMissed}, {life_time, LifeTime}].
-
-
--spec clean_cache(node()) -> non_neg_integer().
-clean_cache(Node) ->
-    ets_cache:filter(
-        ?ROUTES_CACHE,
-        fun(_, error) ->
-            false;
-        (routes, _) ->
-            false;
-        ({route, _}, {ok, Rs}) ->
-            not lists:any(fun(#route{pid = Pid}) -> node(Pid) == Node end, Rs)
-        end).
-
-
--spec clean_cache() -> ok.
-clean_cache() ->
-    ejabberd_cluster:eval_everywhere(?MODULE, clean_cache, [node()]).
-
