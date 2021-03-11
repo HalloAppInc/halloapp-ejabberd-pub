@@ -34,10 +34,8 @@
     count/4,
     gauge/3,
     gauge/4,
-    get_prometheus_metrics/0,
     reload_aws_config/0,
-    get_aws_config/0,
-    clear_prom/0
+    get_aws_config/0
 ]).
 
 % Trigger funcitons
@@ -124,23 +122,6 @@ gauge(Namespace, Metric, Value, Tags) when is_atom(Metric) ->
     gauge(Namespace, atom_to_list(Metric), Value, Tags);
 gauge(Namespace, Metric, Value, Tags) ->
     gen_server:cast(?PROC(), {gauge, Namespace, Metric, Value, Tags}).
-
-clear_prom() ->
-    gen_server:cast(?PROC(), clear_prom).
-
-
-% Return binary with all our custom metrics in prometheus format
-% looks like this:
-% metric1{lable1="value1",label2="value2"} 4
--spec get_prometheus_metrics() -> binary().
-get_prometheus_metrics() ->
-    try
-        gen_server:call(?PROC(), {get_prometheus_metrics})
-    catch
-        exit: Reason ->
-            ?ERROR("Failed to fetch prometheus metrics, reason: ~p", [Reason]),
-            <<>>
-    end.
 
 reload_aws_config() ->
     gen_server:call(?PROC(), {reload_aws_config}).
@@ -288,14 +269,7 @@ init(_Stuff) ->
     % minute is unix timestamp that always represents round minute for which the data is being
     % accumulated
     % agg_map is map of metrics for CloudWatch
-    % prom_map is map of metrics for Prometheus
-    {ok, #{minute => CurrentMinute, agg_map => #{}, prom_map => #{}}}.
-
-
-handle_call({get_prometheus_metrics}, _From, State) ->
-    ?INFO("here: get_prometheus_metrics"),
-    Result = get_prometheus_metrics_internal(State),
-    {reply, Result, State};
+    {ok, #{minute => CurrentMinute, agg_map => #{}}}.
 
 handle_call({reload_aws_config}, _From, State) ->
     {ok, Config} = erlcloud_aws:auto_config(),
@@ -329,11 +303,6 @@ handle_cast({trigger_send}, State) ->
     NewState = maybe_rotate_data(State),
     {noreply, NewState};
 
-handle_cast(clear_prom, State) ->
-    % reset the prometheus map, useful if we have bad data in there.
-    NewState = State#{prom_map := #{}},
-    {noreply, NewState};
-
 handle_cast(_Message, State) ->
     {noreply, State}.
 
@@ -353,98 +322,9 @@ process_count_internal(State, Namespace, Metric, Value, Tags, Type) ->
     DataPoint = make_statistic_set(Value),
     Tags1 = fix_tags(Tags),
     Key = make_key(Namespace, Metric, Tags1, "Count"),
-    #{agg_map := AggMap, prom_map := PromMap} = NewState1,
+    #{agg_map := AggMap} = NewState1,
     AggMap1 = update_state(Key, DataPoint, AggMap, Type),
-    PromMap1 = update_prom_map(PromMap, Namespace, Metric, Value, Tags1, Type),
-    NewState1#{agg_map => AggMap1, prom_map => PromMap1}.
-
-
-update_prom_map(State, Namespace, Metric, Value, Tags, Type) ->
-    % TODO: remove the try/catch after we make sure no errors in this code.
-    try
-        Key = get_prom_key(Namespace, Metric, Tags),
-        NewVal = case Type of
-            merge -> maps:get(Key, State, 0) + Value;
-            replace -> Value
-        end,
-        State#{Key => NewVal}
-    catch
-        Class:Reason:Stacktrace ->
-            ?ERROR("Stacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            State
-    end.
-
-
-get_prometheus_metrics_internal(#{prom_map := PromMap}) ->
-    iolist_to_binary(
-        maps:fold(
-            fun (K, V, Acc) ->
-                % format it like this: metric_name{label1="lvalue1",label2="lvalue2"} value
-                {pmetric, PName, Tags} = K,
-                Tags2 = [{fix_prometheus_name(util:to_list(TK)), fix_prometheus_name(util:to_list(TV))}
-                    || {TK, TV} <- Tags],
-                TagsStrList = [TK ++ "=\"" ++ TV ++ "\"" || {TK, TV} <- Tags2],
-                TagsStr = string:join(TagsStrList, ","),
-                PName2 = fix_prometheus_name(PName),
-                case is_valid_prometheus_metric(PName2, Tags2) of
-                    true ->
-                        Line = [PName2, "{", TagsStr, "} ", integer_to_list(V), "\n"],
-                        [Line | Acc];
-                    false ->
-                        ?WARNING("Invalid Prometheus name ~p ~p", [PName2, Tags2]),
-                        Acc
-                end
-            end,
-            [],
-            PromMap)).
-
-is_valid_prometheus_metric(PName, Tags) ->
-    IsNameValid = is_valid_prometheus_name(PName),
-    AreTagsValid = lists:all(
-        fun ({TK, TV}) ->
-            is_valid_prometheus_name(TK) andalso is_valid_prometheus_name(TV)
-        end,
-        Tags
-    ),
-    IsNameValid and AreTagsValid.
-
--spec is_valid_prometheus_name(Word :: iodata()) -> true | false.
-is_valid_prometheus_name(Word) when is_atom(Word) ->
-    is_valid_prometheus_name(atom_to_binary(Word, utf8));
-is_valid_prometheus_name(Word) ->
-    ValidRE = "^[a-zA-Z_:][a-zA-Z0-9_:]*$",
-    case re:run(Word, ValidRE, [{capture, none}]) of
-        match -> true;
-        nomatch -> false
-    end.
-
-fix_prometheus_name(Name) when is_list(Name) ->
-    Name1 = case Name of
-        [D | _] when D >= $0, D =< $9 ->
-            [$_, Name];
-        _ -> Name
-    end,
-    Name2 = string:replace(Name1, ".", "_", all),
-    Name3 = string:replace(Name2, "/", "_", all),
-    Name4 = string:replace(Name3, "-", "_", all),
-    Name5 = string:replace(Name4, " ", "_", all),
-    lists:flatten(Name5).
-
-
--spec get_prom_name(Namespace :: string(), Metric :: string()) -> string().
-get_prom_name(Namespace, Metric) ->
-    % prometheus only wants _ no other special chars
-    PNamespace = string:to_lower(lists:append(string:replace(Namespace, "/", "_"))),
-    % https://prometheus.io/docs/practices/naming/
-    PName = PNamespace ++ "_" ++ Metric ++ "_total",
-    PName.
-
-
--spec get_prom_key(Namespace :: string(), Metric :: string(), Tags :: [tag()]) -> term().
-get_prom_key(Namespace, Metric, Tags) ->
-    PName = get_prom_name(Namespace, Metric),
-    {pmetric, PName, lists:sort(Tags)}.
+    NewState1#{agg_map => AggMap1}.
 
 
 -spec maybe_rotate_data(State :: map()) -> map().
@@ -457,8 +337,7 @@ maybe_rotate_data(State) ->
         false ->
             #{minute := TimeSeconds, agg_map := AggMap} = State,
             send_data(TimeSeconds, AggMap),
-            % after we send the data to CloudWatch we rest the agg_map.
-            % prom_map never resets... % TODO: maybe counters can overflow?
+            % after we send the data to CloudWatch we reset the agg_map.
             State#{minute => MinuteNow, agg_map => #{}}
     end.
 

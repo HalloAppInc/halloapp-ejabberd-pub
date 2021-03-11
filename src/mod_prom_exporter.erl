@@ -26,10 +26,8 @@
 process([],
         #request{method = 'GET', data = _Data, ip = _IP, headers = _Headers}) ->
     ErlangData = prometheus_text_format:format(),
-    HACustomData = stat:get_prometheus_metrics(),
-    FinalResponse = <<HACustomData/binary, ErlangData/binary>>,
-    ?DEBUG("Response size: ~p", [byte_size(FinalResponse)]),
-    {200, ?HEADER(?CT_PLAIN), FinalResponse};
+    ?DEBUG("Response size: ~p", [byte_size(ErlangData)]),
+    {200, ?HEADER(?CT_PLAIN), ErlangData};
 
 process([<<"_ok">>], _Request) ->
     {200, ?HEADER(?CT_PLAIN), <<"ok">>};
