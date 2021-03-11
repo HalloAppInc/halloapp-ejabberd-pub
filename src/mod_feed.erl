@@ -190,9 +190,9 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64)
     Server = util:get_host(),
     Action = publish,
     case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
-        [{error, missing}, _, _] ->
+        {{error, missing}, _, _} ->
             {error, invalid_post_id};
-        [{ok, Post}, {ok, Comment}, {ok, ParentPushList}] ->
+        {{ok, Post}, {ok, Comment}, {ok, ParentPushList}} ->
             %% Comment with same id already exists: duplicate request from the client.
             TimestampMs = Comment#comment.ts_ms,
             PostOwnerUid = Post#post.uid,
@@ -202,7 +202,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64)
                 PublisherUid, PayloadBase64, TimestampMs, FeedAudienceSet, NewPushList),
 
             {ok, TimestampMs};
-        [{ok, Post}, {error, _}, {ok, ParentPushList}] ->
+        {{ok, Post}, {error, _}, {ok, ParentPushList}} ->
             TimestampMs = util:now_ms(),
             PostOwnerUid = Post#post.uid,
             PostAudienceSet = sets:from_list(Post#post.audience_list),
@@ -216,7 +216,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64)
                     %% It should be stored and broadcasted.
                     NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
-                            ParentCommentId, NewPushList, PayloadBase64, TimestampMs),
+                            ParentCommentId, PayloadBase64, TimestampMs),
                     ejabberd_hooks:run(feed_item_published, Server, [PublisherUid, CommentId,
                                        comment, Post#post.audience_type]),
                     broadcast_comment(Action, CommentId, PostId, ParentCommentId,
@@ -280,11 +280,11 @@ retract_comment(PublisherUid, CommentId, PostId) ->
     Server = util:get_host(),
     Action = retract,
     case model_feed:get_comment_data(PostId, CommentId, undefined) of
-        [{error, missing}, _, _] ->
+        {{error, missing}, _, _} ->
             {error, invalid_post_id};
-        [{ok, _Post}, {error, _}, _] ->
+        {{ok, _Post}, {error, _}, _} ->
             {error, invalid_comment_id};
-        [{ok, Post}, {ok, Comment}, _] ->
+        {{ok, Post}, {ok, Comment}, _} ->
             TimestampMs = util:now_ms(),
             PostOwnerUid = Post#post.uid,
             ParentCommentId = Comment#comment.parent_id,

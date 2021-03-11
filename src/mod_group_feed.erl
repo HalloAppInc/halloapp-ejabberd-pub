@@ -174,9 +174,9 @@ publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, PayloadBase64, Gro
             {ok, SenderName} = model_accounts:get_name(Uid),
 
             case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
-                [{error, missing}, _, _] ->
+                {{error, missing}, _, _} ->
                     {error, invalid_post_id};
-                [{ok, Post}, {ok, Comment}, {ok, ParentPushList}] ->
+                {{ok, Post}, {ok, Comment}, {ok, ParentPushList}} ->
                     %% Comment with same id already exists: duplicate request from the client.
                     TimestampMs = Comment#comment.ts_ms,
                     PostOwnerUid = Post#post.uid,
@@ -190,16 +190,15 @@ publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, PayloadBase64, Gro
                     ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
                     {ok, NewGroupFeedSt};
 
-                [{ok, Post}, {error, _}, {ok, ParentPushList}] ->
+                {{ok, Post}, {error, _}, {ok, ParentPushList}} ->
                     TimestampMs = util:now_ms(),
                     PostOwnerUid = Post#post.uid,
                     AudienceList = Post#post.audience_list,
                     AudienceSet = sets:from_list(AudienceList),
-                    PushList = [PostOwnerUid, Uid | ParentPushList],
                     PushSet = sets:from_list([PostOwnerUid, Uid | ParentPushList]),
 
                     ok = model_feed:publish_comment(CommentId, PostId, Uid,
-                            ParentCommentId, PushList, PayloadBase64, TimestampMs),
+                            ParentCommentId, PayloadBase64, TimestampMs),
                     ejabberd_hooks:run(group_feed_item_published, Server,
                             [Gid, Uid, CommentId, comment]),
 
@@ -261,11 +260,11 @@ retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
             {error, not_member};
         true ->
             case model_feed:get_comment_data(PostId, CommentId, undefined) of
-                [{error, missing}, _, _] ->
+                {{error, missing}, _, _} ->
                     {error, invalid_post_id};
-                [{ok, _Post}, {error, _}, _] ->
+                {{ok, _Post}, {error, _}, _} ->
                     {error, invalid_comment_id};
-                [{ok, Post}, {ok, ExistingComment}, _] ->
+                {{ok, Post}, {ok, ExistingComment}, _} ->
                     case ExistingComment#comment.publisher_uid =:= Uid of
                         false -> {error, not_authorized};
                         true ->

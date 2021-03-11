@@ -555,7 +555,7 @@ retract_group_feed_test() ->
 
     Timestamp = util:now_ms(),
     ok = model_feed:publish_post(?ID2, ?UID1, <<>>, all, [?UID1, ?UID2, ?UID3], Timestamp, Gid),
-    ok = model_feed:publish_comment(?ID1, ?ID2, ?UID2, <<>>, [?UID1, ?UID2], <<>>, Timestamp),
+    ok = model_feed:publish_comment(?ID1, ?ID2, ?UID2, <<>>, <<>>, Timestamp),
     Server = <<>>,
     meck:new(ejabberd_router, [passthrough]),
     meck:expect(ejabberd_router, route_multicast,

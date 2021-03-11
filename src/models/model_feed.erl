@@ -37,7 +37,7 @@
 -export([
     publish_post/7,
     publish_post/6,
-    publish_comment/7,
+    publish_comment/6,
     retract_post/2,
     retract_comment/2,
     get_post/1,
@@ -135,20 +135,18 @@ publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, Timestamp
 
 %% TODO(murali@): Write lua scripts for some functions in this module.
 -spec publish_comment(CommentId :: binary(), PostId :: binary(),
-        PublisherUid :: uid(), ParentCommentId :: binary(), PushList :: [binary()],
+        PublisherUid :: uid(), ParentCommentId :: binary(),
         Payload :: binary(), TimestampMs :: integer()) -> ok | {error, any()}.
 publish_comment(CommentId, PostId, PublisherUid,
-        ParentCommentId, PushList, Payload, TimestampMs) ->
+        ParentCommentId, Payload, TimestampMs) ->
     {ok, TTL} = q(["TTL", post_key(PostId)]),
     ParentCommentIdValue = util_redis:encode_maybe_binary(ParentCommentId),
-    [{ok, _}, {ok, _}, {ok, _}, {ok, _}] = qp([
+    [{ok, _}, {ok, _}] = qp([
             ["HSET", comment_key(CommentId, PostId),
                 ?FIELD_PUBLISHER_UID, PublisherUid,
                 ?FIELD_PARENT_COMMENT_ID, ParentCommentIdValue,
                 ?FIELD_PAYLOAD, Payload,
                 ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)],
-            ["SADD", comment_push_list_key(CommentId, PostId) | PushList],
-            ["EXPIRE", comment_push_list_key(CommentId, PostId), TTL],
             ["EXPIRE", comment_key(CommentId, PostId), TTL]]),
     [{ok, _}, {ok, _}] = qp([
             ["ZADD", post_comments_key(PostId), TimestampMs, CommentId],
@@ -183,8 +181,7 @@ delete_post(PostId, _Uid) ->
             fun(CommentId, Acc) ->
                 [
                 ["HDEL", comment_key(CommentId, PostId), ?FIELD_PAYLOAD],
-                ["HSET", comment_key(CommentId, PostId), ?FIELD_DELETED, 1],
-                ["DEL", comment_push_list_key(CommentId, PostId)]
+                ["HSET", comment_key(CommentId, PostId), ?FIELD_DELETED, 1]
                 | Acc]
             end, [], CommentIds),
     case CommentIds of
@@ -204,21 +201,20 @@ delete_post(PostId, _Uid) ->
 -spec is_post_deleted(PostId :: binary()) -> boolean().
 is_post_deleted(PostId) ->
     {ok, Res} = q(["HGET", post_key(PostId), ?FIELD_DELETED]),
-    Res =:= <<"1">>.
+    util_redis:decode_boolean(Res, false).
 
 
 -spec is_comment_deleted(CommentId :: binary(), PostId :: binary()) -> boolean().
 is_comment_deleted(CommentId, PostId) ->
     {ok, Res} = q(["HGET", comment_key(CommentId, PostId), ?FIELD_DELETED]),
-    Res =:= <<"1">>.
+    util_redis:decode_boolean(Res, false).
 
 
 -spec retract_comment(CommentId :: binary(), PostId :: binary()) -> ok | {error, any()}.
 retract_comment(CommentId, PostId) ->
-    [{ok, _}, {ok, _}, {ok, _}] = qp([
+    [{ok, _}, {ok, _}] = qp([
             ["HDEL", comment_key(CommentId, PostId), ?FIELD_PAYLOAD],
-            ["HSET", comment_key(CommentId, PostId), ?FIELD_DELETED, 1],
-            ["DEL", comment_push_list_key(CommentId, PostId)]]),
+            ["HSET", comment_key(CommentId, PostId), ?FIELD_DELETED, 1]]),
     ok.
 
 
@@ -237,10 +233,8 @@ get_post(PostId) ->
                 ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS,
                 ?FIELD_GROUP_ID, ?FIELD_DELETED],
             ["SMEMBERS", post_audience_key(PostId)]]),
-    IsDeleted = (IsDeletedBin =:= <<"1">>),
-    %% TODO(murali@): Update the condition after one month, since then all items in db will have the field.
-    case Uid =:= undefined orelse Payload =:= undefined orelse
-            TimestampMs =:= undefined orelse IsDeleted =:= true of
+    IsDeleted = util_redis:decode_boolean(IsDeletedBin, false),
+    case Uid =:= undefined orelse IsDeleted =:= true of
         true -> {error, missing};
         false ->
             {ok, #post{
@@ -260,10 +254,8 @@ get_comment(CommentId, PostId) ->
     {ok, [PublisherUid, ParentCommentId, Payload, TimestampMs, IsDeletedBin]} = q(
         ["HMGET", comment_key(CommentId, PostId),
             ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]),
-    IsDeleted = (IsDeletedBin =:= <<"1">>),
-    %% TODO(murali@): Update the condition after one month, since then all items in db will have the field.
-    case PublisherUid =:= undefined orelse Payload =:= undefined orelse
-            TimestampMs =:= undefined orelse IsDeleted =:= true of
+    IsDeleted = util_redis:decode_boolean(IsDeletedBin, false),
+    case PublisherUid =:= undefined orelse IsDeleted =:= true of
         true -> {error, missing};
         false -> {ok, #comment{
             id = CommentId,
@@ -290,27 +282,17 @@ get_post_and_its_comments(PostId) when is_binary(PostId) ->
 %% We dont check if the given ParentId here is correct or not.
 %% We only use it to fetch the PushList of uids.
 -spec get_comment_data(PostId :: binary(), CommentId :: binary(),
-        ParentId :: binary()) -> [{ok, feed_item()}] | {error, any()}.
+        ParentId :: binary()) -> {{ok, feed_item()}, {ok, feed_item()}, {ok, [binary()]}} | {error, any()}.
 get_comment_data(PostId, CommentId, ParentId) ->
-    PushListCommands = case ParentId of
-        undefined -> [];
-        _ -> [["SMEMBERS", comment_push_list_key(ParentId, PostId)]]
-    end,
-    [{ok, Res1}, {ok, Res2}, {ok, Res3} | Rest] = qp([
+    [{ok, Res1}, {ok, Res2}, {ok, Res3}] = qp([
         ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD,
                 ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED],
         ["SMEMBERS", post_audience_key(PostId)],
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID,
-                ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS] | PushListCommands]),
+                ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]]),
     [PostUid, PostPayload, AudienceType, PostTsMs, IsPostDeletedBin] = Res1,
     AudienceList = Res2,
-    [CommentPublisherUid, ParentCommentId, CommentPayload, CommentTsMs] = Res3,
-    ParentPushList = case PushListCommands of
-        [] -> [PostUid];
-        _ ->
-            [{ok, Res4}] = Rest,
-            Res4
-    end,
+    [CommentPublisherUid, ParentCommentId, CommentPayload, CommentTsMs, IsCommentDeletedBin] = Res3,
     Post = #post{
         id = PostId,
         uid = PostUid,
@@ -327,37 +309,26 @@ get_comment_data(PostId, CommentId, ParentId) ->
         payload = CommentPayload,
         ts_ms = util_redis:decode_ts(CommentTsMs)
     },
-    IsPostDeleted = (IsPostDeletedBin =:= <<"1">>),
+    IsPostMissing = PostUid =:= undefined orelse util_redis:decode_boolean(IsPostDeletedBin, false),
+    IsCommentMissing = CommentPublisherUid =:= undefined orelse
+            util_redis:decode_boolean(IsCommentDeletedBin, false),
 
-    %% Fetch and compare push data.
-    ParentPushList2 = get_comment_push_data(ParentId, PostId),
-    Set1 = sets:from_list(lists:sort(ParentPushList)),
-    Set2 = sets:from_list(lists:sort(ParentPushList2)),
-    case Set1 =:= Set2 of
-        true ->
-            ?INFO("Push data matches: ~p", [ParentPushList]);
-        false ->
-            ExtraElements = sets:to_list(sets:subtract(Set2, Set1)),
-            MissingElements = sets:to_list(sets:subtract(Set1, Set2)),
-            ?ERROR("Push data mismatch, extra: ~p, missing: ~p", [ExtraElements, MissingElements])
-    end,
+    %% Fetch push data.
+    ParentPushList = sets:to_list(sets:from_list(get_comment_push_data(ParentId, PostId))),
 
-    %% TODO(murali@): update these conditions after a few weeks to use the deleted field.
     if
-        (PostUid =:= undefined orelse IsPostDeleted =:= true) andalso
-                CommentPublisherUid =:= undefined ->
-            [{error, missing}, {error, missing}, {error, missing}];
-        PostUid =/= undefined andalso CommentPublisherUid =:= undefined ->
-            [{ok, Post}, {error, missing}, {ok, ParentPushList}];
-        PostUid =:= undefined andalso CommentPublisherUid =/= undefined ->
+        IsPostMissing andalso IsCommentMissing ->
+            {{error, missing}, {error, missing}, {error, missing}};
+        not IsPostMissing andalso IsCommentMissing ->
+            {{ok, Post}, {error, missing}, {ok, ParentPushList}};
+        IsPostMissing andalso not IsCommentMissing ->
             ?ERROR("Invalid internal state: postid: ~p, commentid: ~p", [PostId, CommentId]),
-            [{error, missing}, {error, missing}, {error, missing}];
+            {{error, missing}, {error, missing}, {error, missing}};
         true ->
-            [{ok, Post}, {ok, Comment}, {ok, ParentPushList}]
+            {{ok, Post}, {ok, Comment}, {ok, ParentPushList}}
     end.
 
 
-%% Test for now, remove it in a couple of days.
 %% Returns a list of uids to send a push notification for when replying to commentId on postId.
 -spec get_comment_push_data(CommentId :: binary(), PostId :: binary()) -> [binary()].
 get_comment_push_data(undefined, PostId) ->
@@ -379,7 +350,7 @@ get_post_comments(PostId) when is_binary(PostId) ->
             case get_comment(CommentId, PostId) of
                 {ok, Comment} -> [Comment | Acc];
                 {error, _} ->
-                    ?WARNING("Unable to get_comment, commentid: ~p, postid: ~p", [CommentId, PostId]),
+                    ?DEBUG("Unable to get_comment, commentid: ~p, postid: ~p", [CommentId, PostId]),
                     Acc
             end
         end, [], CommentIds),
@@ -580,11 +551,6 @@ post_audience_key(PostId) ->
 -spec comment_key(CommentId :: binary(), PostId :: binary()) -> binary().
 comment_key(CommentId, PostId) ->
     <<?COMMENT_KEY/binary, "{", PostId/binary, "}:", CommentId/binary>>.
-
-
--spec comment_push_list_key(CommentId :: binary(), PostId :: binary()) -> binary().
-comment_push_list_key (CommentId, PostId) ->
-    <<?COMMENT_PUSH_LIST_KEY/binary, "{", PostId/binary, "}:", CommentId/binary>>.
 
 
 -spec post_comments_key(PostId :: binary()) -> binary().
