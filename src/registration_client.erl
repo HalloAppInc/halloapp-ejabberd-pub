@@ -46,9 +46,9 @@ request_sms(Phone, Options) ->
         {{_, 200, _}, _ResHeaders, ResponseBody} ->
             ResData = jiffy:decode(ResponseBody, [return_maps]),
             {ok, ResData};
-        {{_, Code, _}, _ResHeaders, ResponseBody} ->
+        {{_, HTTPCode, _}, _ResHeaders, ResponseBody} ->
             ResData = jiffy:decode(ResponseBody, [return_maps]),
-            {error, {Code, ResData}}
+            {error, {HTTPCode, ResData}}
     end.
 
 -spec register(Phone :: phone(), Code :: binary(), Name :: binary())
@@ -82,7 +82,7 @@ register(Phone, Code, Name, Options) ->
                 <<"result">> := <<"ok">>
             } = ResData,
             {ok, Uid, Password, ResData};
-        {{_, Code, _}, _ResHeaders, ResponseBody} ->
+        {{_, HTTPCode, _}, _ResHeaders, ResponseBody} ->
             ResData = jiffy:decode(ResponseBody, [return_maps]),
-            {error, {Code, ResData}}
+            {error, {HTTPCode, ResData}}
     end.
