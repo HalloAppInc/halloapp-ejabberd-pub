@@ -41,7 +41,7 @@ request_sms(Phone, Options) ->
     Headers = [{"user-agent", UA}],
     Host = maps:get(host, Options, ?DEFAULT_HOST),
     Request = {"http://" ++ Host ++ ":5580/api/registration/request_sms", Headers, "application/json", Body},
-    {ok, Response} = httpc:request(post, Request, [], []),
+    {ok, Response} = httpc:request(post, Request, [{timeout, 30000}], []),
     case Response of
         {{_, 200, _}, _ResHeaders, ResponseBody} ->
             ResData = jiffy:decode(ResponseBody, [return_maps]),
@@ -71,7 +71,7 @@ register(Phone, Code, Name, Options) ->
     Headers = [{"user-agent", UA}],
     Host = maps:get(host, Options, ?DEFAULT_HOST),
     Request = {"http://" ++ Host ++ ":5580/api/registration/register", Headers, "application/json", Body},
-    {ok, Response} = httpc:request(post, Request, [], []),
+    {ok, Response} = httpc:request(post, Request, [{timeout, 30000}], []),
     case Response of
         {{_, 200, _}, _ResHeaders, ResponseBody} ->
             ResData = jiffy:decode(ResponseBody, [return_maps]),
