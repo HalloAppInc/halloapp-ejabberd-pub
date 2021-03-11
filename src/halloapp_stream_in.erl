@@ -407,7 +407,7 @@ handle_info({'DOWN', MRef, _Type, _Object, _Info},
         #{socket_monitor := MRef} = State) ->
     noreply(process_stream_end({socket, closed}, State));
 
-handle_info({tcp, _, Data}, #{socket := Socket} = State) ->
+handle_info({tcp, _, Data}, #{socket := Socket, ip := IP} = State) ->
     noreply(
         case halloapp_socket:recv(Socket, Data) of
             {ok, NewSocket} ->
@@ -418,7 +418,7 @@ handle_info({tcp, _, Data}, #{socket := Socket} = State) ->
                 NewState = State#{socket => NewSocket},
                 send_auth_error(NewState, spub_mismatch);
             {error, Reason} ->
-                ?ERROR("noise error on read Reason: ~p Data: ~p", [Reason, Data]),
+                ?ERROR("noise error on read Reason: ~p Data: ~p, IP: ~p", [Reason, Data, IP]),
                 % TODO: I don't think we should send to the client those specific reasons
                 send_error(State, noise_error)
         end);
