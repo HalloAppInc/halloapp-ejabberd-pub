@@ -309,15 +309,6 @@ get_commands_spec() ->
         args_example = ["example.com"],
         args = [{host, binary}], result = {res, rescode}},
 
-    #ejabberd_commands{name = import_prosody, tags = [mnesia, sql],
-        desc = "Import data from Prosody",
-        longdesc = "Note: this method requires ejabberd compiled with optional tools support "
-            "and package must provide optional luerl dependency.",
-        module = prosody2ejabberd, function = from_dir,
-        args_desc = ["Full path to the Prosody data directory"],
-        args_example = ["/var/lib/prosody/datadump/"],
-        args = [{dir, string}], result = {res, rescode}},
-
     #ejabberd_commands{name = convert_to_yaml, tags = [config],
                     desc = "Convert the input file from Erlang to YAML format",
                     module = ?MODULE, function = convert_to_yaml,
