@@ -45,6 +45,7 @@
     get_all_group_members/1,
     get_invite_link/2,
     reset_invite_link/2,
+    preview_with_invite_link/2,
     join_with_invite_link/2
 ]).
 
@@ -426,6 +427,22 @@ reset_invite_link(Gid, Uid) ->
             ?INFO("Gid: ~s Uid: ~s Link: ~s", [Gid, Uid, Link]),
             maybe_clear_removed_members_set(true, Gid),
             {ok, Link}
+    end.
+
+
+-spec preview_with_invite_link(Uid :: uid(), Link :: binary()) -> {ok, group()} | {error, term()}.
+preview_with_invite_link(Uid, Link) ->
+    ?INFO("Uid: ~s Link: ~s", [Uid, Link]),
+    case model_groups:get_invite_link_gid(Link) of
+        undefined -> {error, invalid_invite};
+        Gid ->
+            WasRemoved = model_groups:is_removed_member(Gid, Uid),
+            if
+                WasRemoved ->
+                    {error, admin_removed};
+                true ->
+                    {ok, model_groups:get_group(Gid)}
+            end
     end.
 
 

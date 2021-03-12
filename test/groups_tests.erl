@@ -28,6 +28,7 @@ group() ->
         groups_invite_link_test,
         groups_invite_link_fail_to_join_after_removed_by_admin_test,
         groups_invite_link_reset_test,
+        groups_invite_link_preview_test,
         groups_set_group_avatar_test,
         groups_not_admin_modify_group_test,
         groups_create_group_creator_is_member_test
@@ -561,8 +562,6 @@ invite_link_test(Conf) ->
                 action = join,
                 gid = Gid,
                 link = FullLink,
-                result = <<"ok">>,
-                reason = undefined,
                 group = GroupSt
             }
         }
@@ -695,8 +694,7 @@ invite_link_reset_test(Conf) ->
 
     #pb_group_invite_link{
         action = join,
-        gid = Gid,
-        result = <<"ok">>
+        gid = Gid
     } = Result3#pb_packet.stanza#pb_iq.payload,
 
     ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
@@ -715,6 +713,42 @@ invite_link_reset_test(Conf) ->
     #pb_error_stanza{
         reason = <<"already_member">>
     } = Result4#pb_packet.stanza#pb_iq.payload,
+
+    {save_config, [{gid, Gid}, {gid2, Gid2}]}.
+
+
+% Uid4 previews the group via the group link
+invite_link_preview_test(Conf) ->
+    {groups_invite_link_reset_test, SConfig} = ?config(saved_config, Conf),
+    Gid = ?config(gid, SConfig),
+    Gid2 = ?config(gid2, SConfig),
+    ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
+    ?assertEqual([?UID1, ?UID3], model_groups:get_member_uids(Gid2)),
+
+    ?assertEqual(true, model_groups:has_invite_link(Gid)),
+    % get the link from the DB.
+    {false, OldLink} = model_groups:get_invite_link(Gid),
+    OldFullLink = mod_groups_api:make_invite_link(OldLink),
+
+    % Uid4 previews the group
+    Id = <<"g_iq_id16">>,
+    PreviewLink = #pb_group_invite_link{
+        action = preview,
+        link = OldFullLink
+    },
+
+    {ok, C4} = ha_client:connect_and_login(?UID4, ?PASSWORD4),
+    Result = ha_client:send_iq(C4, Id, get, PreviewLink),
+    ct:pal("Result ~p", [Result]),
+
+    #pb_group_invite_link{
+        action = preview,
+        link = FullLink,
+        gid = Gid,
+        group = Group
+    } = Result#pb_packet.stanza#pb_iq.payload,
+
+    ?assertEqual(3, length(Group#pb_group_stanza.members)),
 
     {save_config, [{gid, Gid}, {gid2, Gid2}]}.
 

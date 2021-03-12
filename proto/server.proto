@@ -246,6 +246,7 @@ message GroupStanza {
         AUTO_PROMOTE_ADMINS = 9;
         SET_NAME = 10;
         JOIN = 11;
+        PREVIEW = 12;
     }
     Action action = 1;
     string gid = 2;
@@ -282,6 +283,7 @@ message GroupInviteLink {
         GET = 1;
         RESET = 2;
         JOIN = 3;
+        PREVIEW = 4;
     }
     Action action = 1;
     string gid = 2;

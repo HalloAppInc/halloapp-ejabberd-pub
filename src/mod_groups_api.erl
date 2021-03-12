@@ -164,6 +164,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     process_reset_invite_link(IQ, Gid, Uid);
 
 
+%%% preview_with_invite_link %%%
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+    payload = #pb_group_invite_link{action = preview, link = Link}} = IQ) ->
+    process_preview_with_invite_link(IQ, Uid, Link);
+
+
 %%% join_with_invite_link %%%
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_group_invite_link{action = join, link = Link}} = IQ) ->
@@ -276,6 +282,7 @@ process_get_group(IQ, Gid, Uid) ->
         {error, not_member} ->
             pb:make_error(IQ, util:err(not_member));
         {ok, Group} ->
+            % TODO: (nikola) change to make_group_st(Group, get)
             GroupSt = make_group_st(Group),
             pb:make_iq_result(IQ, GroupSt)
     end.
@@ -372,8 +379,7 @@ process_get_invite_link(IQ, Gid, Uid) ->
             PB = #pb_group_invite_link{
                 action = get,
                 gid = Gid,
-                link = make_invite_link(Link),
-                result = <<"ok">>
+                link = make_invite_link(Link)
             },
             pb:make_iq_result(IQ, PB)
     end.
@@ -392,9 +398,29 @@ process_reset_invite_link(IQ, Gid, Uid) ->
             PB = #pb_group_invite_link{
                 action = reset,
                 gid = Gid,
-                link = make_invite_link(Link),
-                result = <<"ok">>,
-                reason = undefined
+                link = make_invite_link(Link)
+            },
+            pb:make_iq_result(IQ, PB)
+    end.
+
+
+-spec process_preview_with_invite_link(IQ :: iq(), Uid :: uid(), FullLink :: binary()) -> iq().
+process_preview_with_invite_link(IQ, Uid, FullLink) ->
+    Link = parse_invite_link(FullLink),
+    ?INFO("Parsing ~p -> ~p", [FullLink, Link]), % TODO: remove this log once its working
+    ?INFO("Uid: ~s Link: ~s", [Uid, Link]),
+    case mod_groups:preview_with_invite_link(Uid, Link) of
+        {error, Reason} ->
+            ?WARNING("Uid: ~s Link: ~s failed ~p", [Uid, Link, Reason]),
+            pb:make_error(IQ, util:err(Reason));
+        {ok, Group} ->
+            ?INFO("Uid: ~s success Link: ~s",
+                [Uid, Link]),
+            PB = #pb_group_invite_link{
+                action = preview,
+                gid = Group#group.gid,
+                link = FullLink,
+                group = make_group_st(Group, preview)
             },
             pb:make_iq_result(IQ, PB)
     end.
@@ -416,9 +442,7 @@ process_join_with_invite_link(IQ, Uid, FullLink) ->
                 action = join,
                 gid = Group#group.gid,
                 link = FullLink,
-                result = <<"ok">>,
-                reason = undefined,
-                group = make_group_st(Group)
+                group = make_group_st(Group, join)
             },
             pb:make_iq_result(IQ, PB)
     end.
@@ -435,7 +459,12 @@ group_info_to_group_st(GroupInfo) ->
 
 -spec make_group_st(Group :: group()) -> pb_group_stanza().
 make_group_st(Group) ->
+    make_group_st(Group, set).
+
+-spec make_group_st(Group :: group(), Action :: atom()) -> pb_group_stanza().
+make_group_st(Group, Action) ->
     #pb_group_stanza{
+        action = Action,
         gid = Group#group.gid,
         name = Group#group.name,
         avatar_id = Group#group.avatar,
