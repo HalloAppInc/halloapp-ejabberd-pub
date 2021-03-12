@@ -254,6 +254,7 @@ message GroupStanza {
     int64 sender_uid = 5 [ebin = true];
     string sender_name = 6;
     repeated GroupMember members = 7;
+    uint32 num_members = 8;
 }
 
 
@@ -282,6 +283,7 @@ message GroupInviteLink {
         GET = 1;
         RESET = 2;
         JOIN = 3;
+        PREVIEW = 4;
     }
     Action action = 1;
     string gid = 2;
