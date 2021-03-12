@@ -45,6 +45,7 @@
     is_admin/2,
     set_name/2,
     set_avatar/2,
+    set_background/2,
     delete_avatar/1,
     has_invite_link/1,
     get_invite_link/1,
@@ -93,6 +94,7 @@ mod_options(_Host) ->
 
 -define(FIELD_NAME, <<"na">>).
 -define(FIELD_AVATAR_ID, <<"av">>).
+-define(FIELD_BACKGROUND, <<"bg">>).
 -define(FIELD_CREATION_TIME, <<"ct">>).
 -define(FIELD_CREATED_BY, <<"crb">>).
 -define(FIELD_INVITE_LINK, <<"il">>).
@@ -182,7 +184,8 @@ get_group(Gid) ->
                 avatar = maps:get(?FIELD_AVATAR_ID, GroupMap, undefined),
                 creation_ts_ms = util_redis:decode_ts(
                     maps:get(?FIELD_CREATION_TIME, GroupMap, undefined)),
-                members = lists:sort(fun member_compare/2, Members)
+                members = lists:sort(fun member_compare/2, Members),
+                background = maps:get(?FIELD_BACKGROUND, GroupMap, undefined)
             }
     end.
 
@@ -352,6 +355,10 @@ set_avatar(Gid, AvatarId) ->
     {ok, _Res} = q(["HSET", group_key(Gid), ?FIELD_AVATAR_ID, AvatarId]),
     ok.
 
+-spec set_background(Gid :: gid(), Background :: binary()) -> ok.
+set_background(Gid, Background) ->
+    {ok, _Res} = q(["HSET", group_key(Gid), ?FIELD_BACKGROUND, Background]),
+    ok.
 
 -spec delete_avatar(Gid :: gid()) -> ok.
 delete_avatar(Gid) ->

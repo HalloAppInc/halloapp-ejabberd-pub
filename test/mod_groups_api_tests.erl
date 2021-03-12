@@ -110,6 +110,17 @@ set_name_IQ(Uid, Gid, Name) ->
             }
     }.
 
+set_background_IQ(Uid, Gid, Background) ->
+    #pb_iq{
+        from_uid = Uid,
+        type = set,
+        payload =
+        #pb_group_stanza{
+            gid = Gid,
+            action = set_background,
+            background = Background
+        }
+    }.
 
 make_group_IQ(Uid, Gid, Type, Action, Changes) ->
     MemberSt = [#pb_group_member{uid = Ouid, action = MAction} || {Ouid, MAction} <- Changes],
@@ -501,6 +512,18 @@ delete_avatar_test() ->
     meck:unload(mod_user_avatar),
     ok.
 
+set_background_test() ->
+    setup(),
+    Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    IQ = set_background_IQ(?UID1, Gid, ?BACKGROUND1),
+    IQRes = mod_groups_api:process_local_iq(IQ),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
+    ExpectedGroupSt = #pb_group_stanza{
+        gid = Gid,
+        background = ?BACKGROUND1
+    },
+    ?assertEqual(ExpectedGroupSt, GroupSt),
+    ok.
 
 publish_group_feed_test() ->
     setup(),

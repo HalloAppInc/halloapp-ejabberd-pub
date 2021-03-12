@@ -326,6 +326,16 @@ delete_avatar_test() ->
     meck:unload(mod_user_avatar),
     ok.
 
+set_background_test() ->
+    setup(),
+    {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
+    Gid = Group#group.gid,
+    ?assertEqual(undefined, Group#group.background),
+    ?assertEqual({ok, ?BACKGROUND1}, mod_groups:set_background(Gid, ?UID1, ?BACKGROUND1)),
+    {ok, GroupNew} = mod_groups:get_group(Gid, ?UID1),
+    ?assertEqual(?BACKGROUND1, GroupNew#group.background),
+    ok.
+
 modify_members_test() ->
     setup(),
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),

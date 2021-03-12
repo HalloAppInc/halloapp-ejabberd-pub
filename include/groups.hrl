@@ -25,6 +25,7 @@
     gid :: gid(),
     name :: binary(),
     avatar :: binary(),
+    background :: binary(),
     creation_ts_ms :: integer(),
     members :: [group_member()]
 }).

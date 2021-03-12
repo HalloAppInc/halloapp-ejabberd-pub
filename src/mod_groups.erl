@@ -38,6 +38,7 @@
     remove_user/2,
     set_name/3,
     set_avatar/3,
+    set_background/3,
     delete_avatar/2,
     send_chat_message/4,
     broadcast_packet/3,
@@ -55,6 +56,7 @@
 -include("groups.hrl").
 -include("feed.hrl").
 -define(MAX_GROUP_NAME_SIZE, 25).
+-define(MAX_BG_LENGTH, 64).
 
 -define(STAT_NS, "HA/groups").
 
@@ -328,6 +330,22 @@ delete_avatar(Gid, Uid) ->
             {ok, GroupInfo#group_info.name}
     end.
 
+-spec set_background(Gid :: gid(), Uid :: uid(), Background :: binary()) ->
+    {ok, Background :: binary(), GroupName :: binary()} | {error, not_member} | {error | background_too_large}.
+set_background(Gid, Uid, Background) ->
+    ?INFO("Gid: ~s Uid: ~s setting background to ~s", [Gid, Uid, Background]),
+    IsTooLong = byte_size(Background) > ?MAX_BG_LENGTH,
+    IsMember = model_groups:check_member(Gid, Uid),
+    if
+        not IsMember -> {error, not_member};
+        IsTooLong -> {error, background_too_large};
+        true ->
+            ok = model_groups:set_background(Gid, Background),
+            ?INFO("Gid: ~s Uid: ~s set background to ~s", [Gid, Uid, Background]),
+            stat:count(?STAT_NS, "set_background"),
+            send_change_background_event(Gid, Uid),
+            {ok, Background}
+    end.
 
 -spec send_chat_message(MsgId :: binary(), Gid :: gid(), Uid :: uid(), MessagePayload :: binary())
             -> {ok, Ts} | {error, atom()}
@@ -718,6 +736,12 @@ send_change_avatar_event(Gid, Uid) ->
     broadcast_update(Group, Uid, change_avatar, [], NamesMap),
     ok.
 
+-spec send_change_background_event(Gid :: gid(), Uid :: uid()) -> ok.
+send_change_background_event(Gid, Uid) ->
+    Group = model_groups:get_group(Gid),
+    NamesMap = model_accounts:get_names([Uid]),
+    broadcast_update(Group, Uid, set_background, [], NamesMap),
+    ok.
 
 % Broadcast the event to all members of the group
 -spec broadcast_update(Group :: group(), Uid :: uid() | undefined, Event :: atom(),

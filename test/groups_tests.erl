@@ -500,6 +500,45 @@ set_name_test(Conf) ->
 
     {save_config, [{gid, Gid}, {gid2, Gid2}]}.
 
+% Uid1 sets the name of the group.
+set_background_test(Conf) ->
+    {groups_get_group_test, SConfig} = ?config(saved_config, Conf),
+    Gid = ?config(gid, SConfig),
+    Gid2 = ?config(gid2, SConfig),
+    ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
+    ?assertEqual([?UID1, ?UID3], model_groups:get_member_uids(Gid2)),
+
+
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+
+    % Get members of group1
+    Id = <<"g_iq_id9">>,
+    SetName = #pb_group_stanza{
+        action = set_background,
+        gid = Gid,
+        background = <<"aquamarine">>
+    },
+
+    Result = ha_client:send_iq(C1, Id, set, SetName),
+    ct:pal("Result ~p", [Result]),
+    % check the result group1
+    #pb_packet{
+        stanza = #pb_iq{
+            id = Id,
+            type = result,
+            payload = #pb_group_stanza{
+                action = set_background,
+                gid = Gid,
+                background = <<"aquamarine">>,
+                members = [
+                ]
+            }
+        }
+    } = Result,
+
+    % TODO: check that others get the group name change.
+
+    {save_config, [{gid, Gid}, {gid2, Gid2}]}.
 
 % Uid1 creates group invite link for Gid and Uid3 joins via the link.
 invite_link_test(Conf) ->

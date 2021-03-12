@@ -247,6 +247,7 @@ message GroupStanza {
         SET_NAME = 10;
         JOIN = 11;
         PREVIEW = 12;
+        SET_BACKGROUND = 13;
     }
     Action action = 1;
     string gid = 2;
@@ -255,6 +256,7 @@ message GroupStanza {
     int64 sender_uid = 5 [ebin = true];
     string sender_name = 6;
     repeated GroupMember members = 7;
+    string background = 8;
 }
 
 

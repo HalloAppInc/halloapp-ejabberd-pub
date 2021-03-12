@@ -141,6 +141,10 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_upload_group_avatar{gid = Gid, data = Data}} = IQ) ->
     process_set_avatar(IQ, Gid, Uid, Data);
 
+%%% set_background
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_stanza{action = set_background, gid = Gid, background = Background}} = IQ) ->
+    process_set_background(IQ, Gid, Uid, Background);
 
 %%% leave_group %%%
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
@@ -352,6 +356,21 @@ set_avatar(Gid, Uid, Base64Data) ->
             end
     end.
 
+process_set_background(IQ, Gid, Uid, Background) ->
+    ?INFO("set_background Gid: ~s Uid: ~s Size: ~p", [Gid, Uid, byte_size(Background)]),
+    case mod_groups:set_background(Gid, Uid, Background) of
+        {error, Reason} ->
+            ?WARNING("Gid: ~s Uid ~s setting background failed ~p", [Gid, Uid, Reason]),
+            pb:make_error(IQ, util:err(Reason));
+        {ok, Background} ->
+            ?INFO("Gid: ~s Uid: ~s Successfully set background ~s",
+                [Gid, Uid, Background]),
+            GroupSt = #pb_group_stanza{
+                gid = Gid,
+                background = Background
+            },
+            pb:make_iq_result(IQ, GroupSt)
+    end.
 
 -spec process_leave_group(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
 process_leave_group(IQ, Gid, Uid) ->

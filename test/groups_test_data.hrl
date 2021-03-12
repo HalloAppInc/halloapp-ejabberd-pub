@@ -39,6 +39,8 @@
 
 -define(IMAGE1, <<"/9j/4AAQSkZJRgABAQEAYABgAAA=">>).
 
+-define(BACKGROUND1, <<"aquamarine">>).
+
 -define(TIMESTAMP, 50).
 
 -define(ID1, <<"id1">>).
