@@ -205,6 +205,7 @@ modules:
   mod_whisper: {}
   mod_upload_media:
     aws_media_region: us-east-1
+    aws_media_bucket: us-e-halloapp-media
     ## Accelerated dualstack endpoint.                                          
     ## Ref: https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html
     aws_media_put_host: us-e-halloapp-media.s3-accelerate.dualstack.amazonaws.com

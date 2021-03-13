@@ -3,11 +3,18 @@
 
 -module(mod_upload_media_opt).
 
+-export([aws_media_bucket/1]).
 -export([aws_media_get_host/1]).
 -export([aws_media_put_host/1]).
 -export([aws_media_region/1]).
 -export([upload_host/1]).
 -export([upload_port/1]).
+
+-spec aws_media_bucket(gen_mod:opts() | global | binary()) -> 'undefined' | binary().
+aws_media_bucket(Opts) when is_map(Opts) ->
+    gen_mod:get_opt(aws_media_bucket, Opts);
+aws_media_bucket(Host) ->
+    gen_mod:get_module_opt(Host, mod_upload_media, aws_media_bucket).
 
 -spec aws_media_get_host(gen_mod:opts() | global | binary()) -> 'undefined' | binary().
 aws_media_get_host(Opts) when is_map(Opts) ->

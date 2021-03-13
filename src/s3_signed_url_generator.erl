@@ -22,18 +22,19 @@
 
 
 -export([
-    init/3,
+    init/4,
     close/0,
     make_signed_url/1,
     make_signed_url/2,
-    make_signed_url/3
+    make_signed_url/3,
+    refresh_url/1
 ]).
 
 
--spec init(Region :: string(), PutHost :: string(), GetHost :: string()) -> ok.
-init(Region, PutHost, GetHost) ->
+-spec init(Region :: string(), Bucket :: string(), PutHost :: string(), GetHost :: string()) -> ok.
+init(Region, Bucket, PutHost, GetHost) ->
     ?INFO("~p", [init]),
-    internal_init(Region, PutHost, GetHost),
+    internal_init(Region, Bucket, PutHost, GetHost),
     ssl:start(),
     erlcloud:start().
 
@@ -72,6 +73,33 @@ make_signed_url(Method, ExpireTime, Key) ->
     end.
 
 
+-spec refresh_url(Url :: string()) -> boolean().
+refresh_url(Url) ->
+    case string:find(Url, "/", trailing) of
+        nomatch -> false;
+        SlashKey ->
+            Key = string:slice(SlashKey, 1),
+            {_, AwsConfig} = erlcloud_aws:auto_config(),
+            try
+                %% Following call with touch the s3 object so that its lifetime will be extended.
+                erlcloud_s3:copy_object(get_bucket(), Key, get_bucket(), Key,
+                    [{metadata_directive, "REPLACE"}, {meta, [{"touch", "true"}]}],
+                    AwsConfig)
+            of
+                {aws_error, _} = Error ->
+                    ?ERROR("Refresh Url Error: ~p", [Error]),
+                    false;
+                Result ->
+                    ?DEBUG("Refresh Url Success: ~p", [Result]),
+                    true
+            catch
+                C:R:S ->
+                    ?ERROR("Refresh Url Error: ~p", lager:pr_stacktrace(S, {C, R})),
+                    false
+            end
+    end.
+
+
 -spec make_signed_url(Method :: atom(), ExpireTime :: integer(),
         Host :: string(), URI :: string()) -> SignedUrl :: string().
 make_signed_url(Method, ExpireTime, Host, URI) ->
@@ -87,7 +115,17 @@ make_signed_url(Method, ExpireTime, Host, URI) ->
 %% To keep the env and configuration variables.
 %%====================================================================
 
-internal_init(Region, PutHost, GetHost) ->
+internal_init(Region, Bucket, PutHost, GetHost) ->
+    ?assert(not is_boolean(Region)),
+    RegionStr = binary_to_list(Region),
+    ?assert(length(RegionStr) > 0),
+    persistent_term:put({?MODULE, region}, RegionStr),
+
+    ?assert(not is_boolean(Bucket)),
+    BucketStr = binary_to_list(Bucket),
+    ?assert(length(BucketStr) > 0),
+    persistent_term:put({?MODULE, bucket}, BucketStr),
+
     ?assert(not is_boolean(Region)),
     RegionStr = binary_to_list(Region),
     ?assert(length(RegionStr) > 0),
@@ -115,11 +153,15 @@ internal_init(Region, PutHost, GetHost) ->
 internal_close() ->
     persistent_term:erase({?MODULE, get_host}),
     persistent_term:erase({?MODULE, put_host}),
+    persistent_term:erase({?MODULE, bucket}),
     persistent_term:erase({?MODULE, region}),
     persistent_term:erase({?MODULE, is_signed_get_needed}).
 
 get_region() ->
     persistent_term:get({?MODULE, region}).
+
+get_bucket() ->
+    persistent_term:get({?MODULE, bucket}).
 
 get_put_host() ->
     persistent_term:get({?MODULE, put_host}).

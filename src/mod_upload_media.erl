@@ -52,6 +52,8 @@ depends(_Host, _Opts) ->
 
 mod_opt_type(aws_media_region) ->
     econf:binary();
+mod_opt_type(aws_media_bucket) ->
+    econf:binary();
 mod_opt_type(aws_media_put_host) ->
     econf:binary();
 mod_opt_type(aws_media_get_host) ->
@@ -64,6 +66,7 @@ mod_opt_type(upload_port) ->
 mod_options(_Host) ->
     [
         {aws_media_region, undefined},
+        {aws_media_bucket, undefined},
         {aws_media_put_host, undefined},
         {aws_media_get_host, undefined},
         {upload_host, undefined},
@@ -75,7 +78,14 @@ mod_options(_Host) ->
 %% iq handlers and api
 %%====================================================================
 
-process_local_iq(#pb_iq{type = get, payload = #pb_upload_media{size = Size}} = IQ) ->
+process_local_iq(
+    #pb_iq{type = get, payload = #pb_upload_media{size = Size, download_url = DUrl}} = IQ)
+        when DUrl =/= undefined andalso length(DUrl) > 0 ->
+    case s3_signed_url_generator:refresh_url(DUrl) of
+        true -> pb:make_iq_result(IQ, #pb_upload_media{download_url = DUrl});
+        false -> process_local_iq(IQ#pb_iq{payload = #pb_upload_media{size = Size}})
+    end;
+ process_local_iq( #pb_iq{type = get, payload = #pb_upload_media{size = Size}} = IQ) ->
     case Size of
         0 ->
             {GetUrl, PutUrl} = generate_s3_urls(),
@@ -127,9 +137,10 @@ generate_resumable_urls(Size, IQ) ->
 -spec initialize_url_generators(Opts :: gen_mod:opts()) -> ok.
 initialize_url_generators(Opts) ->
     Region = mod_upload_media_opt:aws_media_region(Opts),
+    Bucket = mod_upload_media_opt:aws_media_bucket(Opts),
     PutHost = mod_upload_media_opt:aws_media_put_host(Opts),
     GetHost = mod_upload_media_opt:aws_media_get_host(Opts),
-    s3_signed_url_generator:init(Region, PutHost, GetHost),
+    s3_signed_url_generator:init(Region, Bucket, PutHost, GetHost),
 
     UploadHost = mod_upload_media_opt:upload_host(Opts),
     UploadPort = mod_upload_media_opt:upload_port(Opts),
