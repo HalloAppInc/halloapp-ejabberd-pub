@@ -56,6 +56,12 @@ monitor_ejabberd_processes() ->
         fun ({ChildId, _, _, _}) ->
             monitor(ChildId)
         end, supervisor:which_children(ejabberd_gen_mod_sup)),
+
+    %% Monitor all our redis cluster clients - children of redis_sup.
+    lists:foreach(
+        fun ({ChildId, _, _, _}) ->
+            monitor(ChildId)
+        end, supervisor:which_children(redis_sup)),
     ok.
 
 

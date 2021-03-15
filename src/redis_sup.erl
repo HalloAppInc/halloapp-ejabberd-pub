@@ -30,7 +30,10 @@
 %% @doc Starts the supervisor
 -spec(start_link() -> {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+    Result = supervisor:start_link({local, ?SERVER}, ?MODULE, []),
+    %% start child processes for all the clusters.
+    start_children(),
+    Result.
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -55,15 +58,11 @@ init([]) ->
     SupFlags = #{strategy => one_for_one,
         intensity => MaxRestarts,
         period => MaxSecondsBetweenRestarts},
+    {ok, {SupFlags, []}}.
 
-    EredisClusterPool = #{
-        id => eredis_cluster_pool,
-        start => {eredis_cluster_pool, start_link, [{10, 0}]},
-        restart => permanent,
-        shutdown => 5000,
-        type => supervisor,
-        modules => [dynamic]},
 
+-spec start_children() -> ok.
+start_children() ->
     % New redis clients
     ECRedisFriends = create_redis_child_spec(redis_friends, ecredis, ecredis_friends),
     ECRedisAccounts = create_redis_child_spec(redis_accounts, ecredis, ecredis_accounts),
@@ -76,19 +75,21 @@ init([]) ->
     ECRedisFeed = create_redis_child_spec(redis_feed, ecredis, ecredis_feed),
     ECRedisSessions = create_redis_child_spec(redis_sessions, ecredis, ecredis_sessions),
 
-    {ok, {SupFlags, [
-        EredisClusterPool,
-        ECRedisFriends,
-        ECRedisAccounts,
-        ECRedisContacts,
-        ECRedisAuth,
-        ECRedisPhone,
-        ECRedisMessages,
-        ECRedisWhisper,
-        ECRedisGroups,
-        ECRedisFeed,
-        ECRedisSessions
-    ]}}.
+    %% We are dynamically adding the children to the redis_sup supervisor.
+    %% So, if one of the children fails to start here for some reason,
+    %% We'll log an error, but the rest will continue to function meanwhile.
+    start_child(ECRedisFriends),
+    start_child(ECRedisAccounts),
+    start_child(ECRedisContacts),
+    start_child(ECRedisAuth),
+    start_child(ECRedisPhone),
+    start_child(ECRedisMessages),
+    start_child(ECRedisWhisper),
+    start_child(ECRedisGroups),
+    start_child(ECRedisFeed),
+    start_child(ECRedisSessions),
+    ok.
+
 
 %% TODO: can the 1 atoms be the same?
 -spec create_redis_child_spec(RedisService :: atom(),
@@ -104,6 +105,17 @@ create_redis_child_spec(RedisService, RedisClientImpl, RedisServiceClient) ->
         type => worker,
         modules => [dynamic]},
     ChildSpec.
+
+
+-spec start_child(ChildSpec :: supervisor:child_spec()) -> ok.
+start_child(ChildSpec) ->
+    case supervisor:start_child(?SERVER, ChildSpec) of
+        {error, Reason} ->
+            ?CRITICAL("Error starting child: ~p, reason: ~p", [ChildSpec, Reason]),
+            ok;
+        {ok, _} ->
+            ok
+    end.
 
 %%%===================================================================
 %%% Internal functions

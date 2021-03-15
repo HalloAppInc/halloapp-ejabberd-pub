@@ -25,6 +25,7 @@
 start() ->
     ?INFO("start"),
     load_reverse_redis_hash(),
+    %% start supervisor for redis.
     redis_sup:start_link(),
     ?INFO("start done"),
     ok.
