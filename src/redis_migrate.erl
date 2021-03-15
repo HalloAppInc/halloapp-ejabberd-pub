@@ -237,7 +237,7 @@ code_change(OldVersion, State, _Extra) ->
 
 
 get_masters(Service) ->
-    Client = util_redis:get_redis_client(Service),
+    Client = ha_redis:get_client(Service),
     Nodes = ecredis:get_nodes(Client),
     [{Ip, Port} || {node, Ip, Port} <- Nodes].
 

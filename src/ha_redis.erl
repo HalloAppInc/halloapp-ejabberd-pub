@@ -12,7 +12,8 @@
 %% API
 -export([
     start/0,
-    get_slot_key/1
+    get_slot_key/1,
+    get_client/1
 ]).
 
 -include("logger.hrl").
@@ -34,6 +35,13 @@ start() ->
 get_slot_key(Slot) when is_integer(Slot) andalso Slot >= 0 andalso Slot =< ?REDIS_CLUSTER_HASH_SLOTS ->
     Value = ets:lookup_element(?SLOT_TO_KEY, Slot, 2),
     Value.
+
+%% used only in migration modules
+%% example of a service is redis_accounts, corresponding client
+%% would be ecredis_accounts
+get_client(Service) ->
+    list_to_atom("ec" ++ atom_to_list(Service)).
+
 
 
 -spec get_file_path() -> file:filename_all().
