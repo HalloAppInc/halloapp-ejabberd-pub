@@ -15,12 +15,8 @@
 
 -export([
     send_group_message/1,
-    process_local_iq/1,
-    parse_invite_link/1, % Only used in CT
-    make_invite_link/1 % Only used in CT
+    process_local_iq/1
 ]).
-
--define(GROUP_INVITE_URL, <<"https://invite.halloapp.com/">>).
 
 -include("logger.hrl").
 -include("xmpp.hrl").
@@ -379,7 +375,7 @@ process_get_invite_link(IQ, Gid, Uid) ->
             PB = #pb_group_invite_link{
                 action = get,
                 gid = Gid,
-                link = make_invite_link(Link)
+                link = Link
             },
             pb:make_iq_result(IQ, PB)
     end.
@@ -398,16 +394,14 @@ process_reset_invite_link(IQ, Gid, Uid) ->
             PB = #pb_group_invite_link{
                 action = reset,
                 gid = Gid,
-                link = make_invite_link(Link)
+                link = Link
             },
             pb:make_iq_result(IQ, PB)
     end.
 
 
--spec process_preview_with_invite_link(IQ :: iq(), Uid :: uid(), FullLink :: binary()) -> iq().
-process_preview_with_invite_link(IQ, Uid, FullLink) ->
-    Link = parse_invite_link(FullLink),
-    ?INFO("Parsing ~p -> ~p", [FullLink, Link]), % TODO: remove this log once its working
+-spec process_preview_with_invite_link(IQ :: iq(), Uid :: uid(), Link :: binary()) -> iq().
+process_preview_with_invite_link(IQ, Uid, Link) ->
     ?INFO("Uid: ~s Link: ~s", [Uid, Link]),
     case mod_groups:preview_with_invite_link(Uid, Link) of
         {error, Reason} ->
@@ -419,7 +413,7 @@ process_preview_with_invite_link(IQ, Uid, FullLink) ->
             PB = #pb_group_invite_link{
                 action = preview,
                 gid = Group#group.gid,
-                link = FullLink,
+                link = Link,
                 group = make_group_st(Group, preview)
             },
             pb:make_iq_result(IQ, PB)
@@ -427,9 +421,7 @@ process_preview_with_invite_link(IQ, Uid, FullLink) ->
 
 
 -spec process_join_with_invite_link(IQ :: iq(), Uid :: uid(), FullLink :: binary()) -> iq().
-process_join_with_invite_link(IQ, Uid, FullLink) ->
-    Link = parse_invite_link(FullLink),
-    ?INFO("Parsing ~p -> ~p", [FullLink, Link]), % TODO: remove this log once its working
+process_join_with_invite_link(IQ, Uid, Link) ->
     ?INFO("Uid: ~s Link: ~s", [Uid, Link]),
     case mod_groups:join_with_invite_link(Uid, Link) of
         {error, Reason} ->
@@ -441,7 +433,7 @@ process_join_with_invite_link(IQ, Uid, FullLink) ->
             PB = #pb_group_invite_link{
                 action = join,
                 gid = Group#group.gid,
-                link = FullLink,
+                link = Link,
                 group = make_group_st(Group, join)
             },
             pb:make_iq_result(IQ, PB)
@@ -500,16 +492,4 @@ make_member_st(MemberUid, Result, Type) ->
             M#pb_group_member{result = <<"failed">>, reason = util:to_binary(Result)}
     end,
     M2.
-
-
--spec parse_invite_link(FullLink :: binary()) -> Link :: binary().
-parse_invite_link(FullLink) ->
-    lists:last(binary:split(FullLink, <<"/">>, [global])).
-
-
--spec make_invite_link(Link :: binary()) -> FullLink :: binary().
-make_invite_link(Link) ->
-    % TODO: make define
-    <<?GROUP_INVITE_URL/binary, Link/binary>>.
-
 

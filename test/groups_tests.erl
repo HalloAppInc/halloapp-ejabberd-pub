@@ -531,14 +531,12 @@ invite_link_test(Conf) ->
             payload = #pb_group_invite_link{
                 action = get,
                 gid = Gid,
-                link = FullLink
+                link = Link
             }
         }
     } = Result,
 
     ?assertEqual(true, model_groups:has_invite_link(Gid)),
-    Link = mod_groups_api:parse_invite_link(FullLink),
-    FullLink = mod_groups_api:make_invite_link(Link),
     {false, Link} = model_groups:get_invite_link(Gid),
 
 
@@ -548,7 +546,7 @@ invite_link_test(Conf) ->
     Id2 = <<"g_iq_id11">>,
     JoinWithLink = #pb_group_invite_link{
         action = join,
-        link = FullLink
+        link = Link
     },
 
     Result2 = ha_client:send_iq(C3, Id2, set, JoinWithLink),
@@ -561,7 +559,7 @@ invite_link_test(Conf) ->
             payload = #pb_group_invite_link{
                 action = join,
                 gid = Gid,
-                link = FullLink,
+                link = Link,
                 group = GroupSt
             }
         }
@@ -609,14 +607,13 @@ invite_link_fail_to_join_after_removed_by_admin_test(Conf) ->
     ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
     % get the link from the DB.
     {false, Link} = model_groups:get_invite_link(Gid),
-    FullLink = mod_groups_api:make_invite_link(Link),
 
 
     % Uid3 tries to join with the link again but fails with admin_removed reason
     Id2 = <<"g_iq_id13">>,
     JoinWithLink = #pb_group_invite_link{
         action = join,
-        link = FullLink
+        link = Link
     },
 
     {ok, C3} = ha_client:connect_and_login(?UID3, ?PASSWORD3),
@@ -644,7 +641,6 @@ invite_link_reset_test(Conf) ->
     ?assertEqual(true, model_groups:has_invite_link(Gid)),
     % get the link from the DB.
     {false, OldLink} = model_groups:get_invite_link(Gid),
-    OldFullLink = mod_groups_api:make_invite_link(OldLink),
 
     % Uid1 resets the link, Uid3 should not be in the removed set
     true = model_groups:is_removed_member(Gid, ?UID3),
@@ -661,7 +657,7 @@ invite_link_reset_test(Conf) ->
     #pb_group_invite_link{
         action = reset,
         gid = Gid,
-        link = FullLink
+        link = Link
     } = Result#pb_packet.stanza#pb_iq.payload,
 
     ?assertEqual(true, model_groups:has_invite_link(Gid)),
@@ -671,7 +667,7 @@ invite_link_reset_test(Conf) ->
     Id2 = <<"g_iq_id14">>,
     JoinWithLink = #pb_group_invite_link{
         action = join,
-        link = OldFullLink
+        link = OldLink
     },
 
     {ok, C3} = ha_client:connect_and_login(?UID3, ?PASSWORD3),
@@ -686,7 +682,7 @@ invite_link_reset_test(Conf) ->
     Id3 = <<"g_iq_id14">>,
     JoinWithLink2 = #pb_group_invite_link{
         action = join,
-        link = FullLink
+        link = Link
     },
 
     Result3 = ha_client:send_iq(C3, Id3, set, JoinWithLink2),
@@ -704,7 +700,7 @@ invite_link_reset_test(Conf) ->
     Id4 = <<"g_iq_id15">>,
     JoinWithLink3 = #pb_group_invite_link{
         action = join,
-        link = FullLink
+        link = Link
     },
 
     Result4 = ha_client:send_iq(C1, Id4, set, JoinWithLink3),
@@ -727,14 +723,13 @@ invite_link_preview_test(Conf) ->
 
     ?assertEqual(true, model_groups:has_invite_link(Gid)),
     % get the link from the DB.
-    {false, OldLink} = model_groups:get_invite_link(Gid),
-    OldFullLink = mod_groups_api:make_invite_link(OldLink),
+    {false, Link} = model_groups:get_invite_link(Gid),
 
     % Uid4 previews the group
     Id = <<"g_iq_id16">>,
     PreviewLink = #pb_group_invite_link{
         action = preview,
-        link = OldFullLink
+        link = Link
     },
 
     {ok, C4} = ha_client:connect_and_login(?UID4, ?PASSWORD4),
@@ -743,7 +738,7 @@ invite_link_preview_test(Conf) ->
 
     #pb_group_invite_link{
         action = preview,
-        link = FullLink,
+        link = Link,
         gid = Gid,
         group = Group
     } = Result#pb_packet.stanza#pb_iq.payload,
