@@ -82,12 +82,15 @@ process_local_iq(
     #pb_iq{type = get, payload = #pb_upload_media{size = Size, download_url = DUrl}} = IQ)
         when DUrl =/= undefined andalso length(DUrl) > 0 ->
     case s3_signed_url_generator:refresh_url(DUrl) of
-        true -> pb:make_iq_result(IQ, #pb_upload_media{download_url = DUrl});
+        true ->
+            stat:count("HA/media", "refresh_upload"),
+            pb:make_iq_result(IQ, #pb_upload_media{download_url = DUrl});
         false -> process_local_iq(IQ#pb_iq{payload = #pb_upload_media{size = Size}})
     end;
  process_local_iq( #pb_iq{type = get, payload = #pb_upload_media{size = Size}} = IQ) ->
     case Size of
         0 ->
+            stat:count("HA/media", "direct_upload"),
             {GetUrl, PutUrl} = generate_s3_urls(),
             MediaUrl = #pb_media_url{get = GetUrl, put = PutUrl},
             pb:make_iq_result(IQ, #pb_upload_media{url = MediaUrl});
@@ -115,9 +118,12 @@ process_patch_url_result(IQ, PatchResult) ->
         error ->
             %% Attempt to fetch Resumable Patch URL failed.
             ?WARNING("Attempt to fetch resumable patch url failed", []),
+            stat:count("HA/media", "direct_upload"),
             {GetUrl, PutUrl} = generate_s3_urls(),
             #pb_media_url{get = GetUrl, put = PutUrl};
-        {ok, ResumablePatch} -> #pb_media_url{patch = ResumablePatch}
+        {ok, ResumablePatch} ->
+            stat:count("HA/media", "resumable_upload"),
+            #pb_media_url{patch = ResumablePatch}
       end,
     IQResult = pb:make_iq_result(IQ, #pb_upload_media{url = MediaUrl}),
     ejabberd_router:route(IQResult).
