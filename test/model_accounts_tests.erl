@@ -344,11 +344,19 @@ push_coment_test() ->
 count_test() ->
     setup(),
     Slot = eredis_cluster_hash:hash(binary_to_list(?UID1)),
-    ?assertEqual(0, model_accounts:count_accounts(Slot)),
-    ?assertEqual(0, model_accounts:count_registrations(Slot)),
+    ?assertEqual(0, model_accounts:count_accounts()),
+    ?assertEqual(0, model_accounts:count_registrations()),
     ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
     ?assertEqual(1, model_accounts:count_accounts(Slot)),
     ?assertEqual(1, model_accounts:count_registrations(Slot)),
+    ?assertEqual(1, model_accounts:count_registrations()),
+    ?assertEqual(1, model_accounts:count_accounts()),
+
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID3, ?PHONE3, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID4, ?PHONE4, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(4, model_accounts:count_accounts()),
+
     ok.
 
 

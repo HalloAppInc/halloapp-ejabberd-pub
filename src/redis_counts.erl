@@ -14,7 +14,8 @@
 %% API
 -export([
     count_key/2,
-    count_fold/1
+    count_fold/1,
+    count_by_slot/2
 ]).
 
 
@@ -32,4 +33,22 @@ count_fold(Fun) ->
         end,
         0,
         lists:seq(0, ?REDIS_CLUSTER_HASH_SLOTS -1)).
+
+count_by_slot(ClusterName, Fun) ->
+    SlotQueries = lists:map(Fun, lists:seq(0, ?REDIS_CLUSTER_HASH_SLOTS - 1)),
+    Res = ecredis:qmn(ClusterName, SlotQueries),
+    Count = lists:foldl(
+        fun(Result, Acc) ->
+            case Result of
+                {ok, undefined} ->
+                    Acc;
+                {ok, CountBin} ->
+                    Acc + binary_to_integer(CountBin);
+                {error, _} ->
+                    Acc
+            end
+        end,
+        0,
+        Res),
+    Count.
 

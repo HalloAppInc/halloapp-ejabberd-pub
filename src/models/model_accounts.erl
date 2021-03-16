@@ -84,8 +84,10 @@
     get_broadcast_uids/1,
     count_registrations/0,
     count_registrations/1,
-    count_accounts/1,
+    count_registration_query/1,
+    count_accounts_query/1,
     count_accounts/0,
+    count_accounts/1,
     get_traced_uids/0,
     add_uid_to_trace/1,
     remove_uid_from_trace/1,
@@ -569,7 +571,7 @@ get_broadcast_uids(Uid) ->
 
 -spec count_registrations() -> non_neg_integer().
 count_registrations() ->
-    redis_counts:count_fold(fun model_accounts:count_registrations/1).
+    redis_counts:count_by_slot(ecredis_accounts, fun count_registration_query/1).
 
 
 -spec count_registrations(Slot :: non_neg_integer()) -> non_neg_integer().
@@ -581,10 +583,14 @@ count_registrations(Slot) ->
             end,
     Count.
 
+-spec count_registration_query(Slot :: non_neg_integer()) -> non_neg_integer().
+count_registration_query(Slot) ->
+    ["GET", count_registrations_key_slot(Slot)].
+
 
 -spec count_accounts() -> non_neg_integer().
 count_accounts() ->
-    redis_counts:count_fold(fun model_accounts:count_accounts/1).
+    redis_counts:count_by_slot(ecredis_accounts, fun count_accounts_query/1).
 
 
 -spec count_accounts(Slot :: non_neg_integer()) -> non_neg_integer().
@@ -595,6 +601,10 @@ count_accounts(Slot) ->
                 CountBin -> binary_to_integer(CountBin)
             end,
     Count.
+
+-spec count_accounts_query(Slot :: non_neg_integer()) -> non_neg_integer().
+count_accounts_query(Slot) ->
+    ["GET", count_accounts_key_slot(Slot)].
 
 
 -spec count_version_keys() -> map().
