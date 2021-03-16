@@ -104,7 +104,7 @@
 -callback handle_timeout(state()) -> state().
 -callback check_password_fun(xmpp_sasl:mechanism(), state()) -> fun().
 -callback bind(binary(), state()) -> {ok, state()} | {error, stanza_error(), state()}.
--callback is_valid_client_version(binary(), state()) -> true | false.
+-callback get_client_version_ttl(binary(), state()) -> integer().
 -callback tls_options(state()) -> [proplists:property()].
 -callback noise_options(state()) -> [proplists:property()].
 
@@ -594,21 +594,22 @@ process_stream_authentication(#pb_auth_request{uid = Uid, client_mode = ClientMo
          catch _:{?MODULE, undef} -> State1
     end,
     %% Check client_version
-    {NewState, Result, Reason} = case callback(is_valid_client_version, ClientVersion, State2) of
-        false -> {State2, <<"failure">>, <<"invalid client version">>};
-        true ->
+    {NewState, Result, Reason, TimeLeftSec} = case callback(get_client_version_ttl, ClientVersion, State2) of
+        ExpiresInSec when ExpiresInSec =< 0 -> {State2, <<"failure">>, <<"invalid client version">>, 0};
+        ExpiresInSec ->
             %% Bind resource callback
             case callback(bind, Resource, State2) of
                 {ok, #{resource := NewR} = State3} when NewR /= <<"">> ->
-                    {State3,  <<"success">>, <<"welcome to halloapp">>};
+                    {State3,  <<"success">>, <<"welcome to halloapp">>, ExpiresInSec};
                 {error, _, State3} ->
-                    {State3, <<"failure">>, <<"invalid resource">>}
+                    {State3, <<"failure">>, <<"invalid resource">>, ExpiresInSec}
             end
     end,
     AuthResultPkt = #pb_auth_result{
         result = Result,
         reason = Reason,
-        props_hash = base64url:decode(mod_props:get_hash(Uid, ClientVersion))
+        props_hash = base64url:decode(mod_props:get_hash(Uid, ClientVersion)),
+        version_ttl = TimeLeftSec
         %% TODO(murali@): move this logic to decode into mod_props.
     },
     FinalState = send_pkt(NewState, AuthResultPkt),
@@ -629,14 +630,14 @@ process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = Client
     %% Check Uid and Password. TODO(murali@): simplify this even further!
     CheckPW = check_password_fun(<<>>, State1),
     PasswordResult = CheckPW(Uid, <<>>, Pwd),
-    {NewState, Result, Reason} = case PasswordResult of
+    {NewState, Result, Reason, TimeLeftSec} = case PasswordResult of
         false ->
             State2 = try callback(handle_auth_failure, Uid, <<>>, <<>>, State1)
                 catch _:{?MODULE, undef} -> State1
             end,
             case maps:get(account_deleted, State2, undefined) of
-                undefined -> {State2, <<"failure">>, <<"invalid uid or password">>};
-                true -> {State2, <<"failure">>, <<"account_deleted">>}
+                undefined -> {State2, <<"failure">>, <<"invalid uid or password">>, 0};
+                true -> {State2, <<"failure">>, <<"account_deleted">>, 0}
             end;
         true ->
             AuthModule = undefined,
@@ -645,23 +646,24 @@ process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = Client
                 catch _:{?MODULE, undef} -> State2
             end,
             %% Check client_version
-            case callback(is_valid_client_version, ClientVersion, State3) of
-                false ->
-                    {State3, <<"failure">>, <<"invalid client version">>};
-                true ->
+            case callback(get_client_version_ttl, ClientVersion, State3) of
+                ExpiresInSec when ExpiresInSec =< 0 ->
+                    {State3, <<"failure">>, <<"invalid client version">>, 0};
+                ExpiresInSec ->
                     %% Bind resource callback
                     case callback(bind, Resource, State3) of
                         {ok, #{resource := NewR} = State4} when NewR /= <<"">> ->
-                            {State4,  <<"success">>, <<"welcome to halloapp">>};
+                            {State4,  <<"success">>, <<"welcome to halloapp">>, ExpiresInSec};
                         {error, _, State4} ->
-                            {State4, <<"failure">>, <<"invalid resource">>}
+                            {State4, <<"failure">>, <<"invalid resource">>, ExpiresInSec}
                     end
             end
     end,
     AuthResultPkt = #pb_auth_result{
         result = Result,
         reason = Reason,
-        props_hash = base64url:decode(mod_props:get_hash(Uid, ClientVersion))
+        props_hash = base64url:decode(mod_props:get_hash(Uid, ClientVersion)),
+        version_ttl = TimeLeftSec
         %% TODO(murali@): move this logic to decode into mod_props.
     },
     case Result of

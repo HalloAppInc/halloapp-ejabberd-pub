@@ -28,6 +28,7 @@
 -export([
     process_local_iq/1,
     is_valid_version/1,
+    get_version_ttl/1,
     c2s_session_opened/1,
     extend_version_validity/2,
     get_time_left/2     %% test
@@ -87,6 +88,13 @@ is_valid_version(Version) ->
     CurTimestamp = util:now(),
     TimeLeftSec = get_time_left(Version, CurTimestamp),
     TimeLeftSec > 0.
+
+
+-spec get_version_ttl(binary()) -> integer().
+get_version_ttl(Version) ->
+    CurTimestamp = util:now(),
+    TimeLeftSec = get_time_left(Version, CurTimestamp),
+    TimeLeftSec.
 
 
 -spec extend_version_validity(Version :: binary(), ExtendTimeSec :: integer()) -> integer().

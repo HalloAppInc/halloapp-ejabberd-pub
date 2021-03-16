@@ -23,7 +23,7 @@
     noise_options/1,
     bind/2,
     check_password_fun/2,
-    is_valid_client_version/2,
+    get_client_version_ttl/2,
     handle_stream_end/2,
     handle_authenticated_packet/2,
     handle_auth_success/4,
@@ -330,10 +330,8 @@ bind(R, #{user := U, server := S, access := Access, lang := Lang,
     end.
 
 
-is_valid_client_version(ClientVersion, _State) ->
-    % TODO(Nikola): clean up this print once we figure out the different versions bug
-    ?INFO("halloapp_c2s ClientVersion: ~p", [ClientVersion]),
-    mod_client_version:is_valid_version(ClientVersion).
+get_client_version_ttl(ClientVersion, _State) ->
+    mod_client_version:get_version_ttl(ClientVersion).
 
 
 handle_stream_end(Reason, #{lserver := LServer} = State) ->

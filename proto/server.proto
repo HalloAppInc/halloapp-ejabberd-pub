@@ -311,6 +311,7 @@ message AuthResult {
     string result = 1;
     string reason = 2;
     bytes props_hash = 3;
+    int64 version_ttl = 4;
 }
 
 
