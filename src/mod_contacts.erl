@@ -119,12 +119,12 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
 
 -spec remove_user(UserId :: binary(), Server :: binary()) -> ok.
 remove_user(UserId, Server) ->
-    remove_all_contacts(UserId, Server).
+    remove_all_contacts(UserId, Server, true).
 
 
 -spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
 re_register_user(UserId, Server, _Phone) ->
-    remove_all_contacts(UserId, Server).
+    remove_all_contacts(UserId, Server, false).
 
 
 %% TODO: Delay notifying the users about their contact to reduce unnecessary messages to clients.
@@ -244,7 +244,7 @@ handle_delta_contacts(UserId, Server, Contacts) ->
                 (#pb_contact{normalized = Normalized}, Acc) ->
                     [Normalized | Acc]
             end, [], DeleteContactsList),
-    remove_contact_phones(UserId, Server, DeleteContactPhones),
+    remove_contact_phones(UserId, DeleteContactPhones),
     AddContacts = normalize_and_insert_contacts(UserId, Server, AddContactsList, undefined),
 
     %% Send notification to user who invited this user.
@@ -260,10 +260,10 @@ handle_delta_contacts(UserId, Server, Contacts) ->
     AddContacts.
 
 
--spec remove_all_contacts(UserId :: binary(), Server :: binary()) -> ok.
-remove_all_contacts(UserId, Server) ->
+-spec remove_all_contacts(UserId :: binary(), Server :: binary(), IsAccountDeleted :: boolean()) -> ok.
+remove_all_contacts(UserId, _Server, IsAccountDeleted) ->
     {ok, ContactPhones} = model_contacts:get_contacts(UserId),
-    remove_contact_phones(UserId, Server, ContactPhones).
+    remove_contact_phones(UserId, ContactPhones, IsAccountDeleted).
 
 
 -spec finish_sync(UserId :: binary(), Server :: binary(), SyncId :: binary()) -> ok.
@@ -284,8 +284,8 @@ finish_sync(UserId, Server, SyncId) ->
     ?INFO("Full contact sync: uid: ~p, add_contacts: ~p, delete_contacts: ~p",
                 [UserId, sets:to_list(AddContactSet), sets:to_list(DeleteContactSet)]),
     %% TODO(murali@): Update this after moving pubsub to redis.
-    remove_contacts_and_notify(UserId, Server, UserPhone,
-            sets:to_list(DeleteContactSet), OldReverseContactSet),
+    remove_contacts_and_notify(UserId, UserPhone,
+            sets:to_list(DeleteContactSet), OldReverseContactSet, false),
     %% TODO(vipin): newness of contacts in AddContactSet needs to be used in update_and_...(...).
     NewContactRecordList = lists:map(
         fun(ContactPhone) ->
@@ -516,30 +516,38 @@ remove_friend(Uid, Server, Ouid) ->
 %%====================================================================
 
 
+-spec remove_contact_phones(UserId :: binary(), ContactPhones :: [binary()]) -> ok.
+remove_contact_phones(UserId, ContactPhones) ->
+    remove_contact_phones(UserId, ContactPhones, false).
+
+
 -spec remove_contact_phones(
-        UserId :: binary(), Server :: binary(), ContactPhones :: [binary()]) -> ok.
-remove_contact_phones(UserId, Server, ContactPhones) ->
+        UserId :: binary(), ContactPhones :: [binary()], IsAccountDeleted :: boolean()) -> ok.
+remove_contact_phones(UserId, ContactPhones, IsAccountDeleted) ->
     UserPhone = get_phone(UserId),
     {ok, ReverseContactList} = model_contacts:get_contact_uids(UserPhone),
     ReverseContactSet = sets:from_list(ReverseContactList),
     model_contacts:remove_contacts(UserId, ContactPhones),
-    remove_contacts_and_notify(UserId, Server, UserPhone, ContactPhones, ReverseContactSet).
+    remove_contacts_and_notify(UserId, UserPhone, ContactPhones, ReverseContactSet, IsAccountDeleted).
 
 
--spec remove_contacts_and_notify(UserId :: binary(), Server :: binary(), UserPhone :: binary(),
-        ContactPhones :: [binary()], ReverseContactSet :: sets:set(binary())) ->ok.
-remove_contacts_and_notify(UserId, Server, UserPhone, ContactPhones, ReverseContactSet) ->
+-spec remove_contacts_and_notify(UserId :: binary(), UserPhone :: binary(),
+        ContactPhones :: [binary()], ReverseContactSet :: sets:set(binary()),
+        IsAccountDeleted :: boolean()) ->ok.
+remove_contacts_and_notify(UserId, UserPhone, ContactPhones, ReverseContactSet, IsAccountDeleted) ->
     lists:foreach(
             fun(ContactPhone) ->
-                remove_contact_and_notify(UserId, Server, UserPhone, ContactPhone, ReverseContactSet)
+                remove_contact_and_notify(UserId, UserPhone, ContactPhone,
+                        ReverseContactSet, IsAccountDeleted)
             end, ContactPhones).
 
 
 %% Delete all associated info with the contact and the user.
--spec remove_contact_and_notify(UserId :: binary(), Server :: binary(),
-        UserPhone :: binary(), ContactPhone :: binary(),
-        ReverseContactSet :: sets:set(binary())) -> {ok, any()} | {error, any()}.
-remove_contact_and_notify(UserId, Server, UserPhone, ContactPhone, ReverseContactSet) ->
+-spec remove_contact_and_notify(UserId :: binary(), UserPhone :: binary(),
+        ContactPhone :: binary(), ReverseContactSet :: sets:set(binary()),
+        IsAccountDeleted :: boolean()) -> {ok, any()} | {error, any()}.
+remove_contact_and_notify(UserId, UserPhone, ContactPhone, ReverseContactSet, IsAccountDeleted) ->
+    Server = util:get_host(),
     ContactId = obtain_user_id(ContactPhone),
     stat:count("HA/contacts", "remove_contact"),
     case ContactId of
@@ -549,7 +557,13 @@ remove_contact_and_notify(UserId, Server, UserPhone, ContactPhone, ReverseContac
             case sets:is_element(ContactId, ReverseContactSet) of
                 true ->
                     remove_friend(UserId, Server, ContactId),
-                    notify_contact_about_user(UserId, UserPhone, Server, ContactId, none);
+                    case IsAccountDeleted of
+                        true ->
+                            %% dont include userId when account is deleted.
+                            notify_contact_about_user(<<>>, UserPhone, Server, ContactId, none);
+                        false ->
+                            notify_contact_about_user(UserId, UserPhone, Server, ContactId, none)
+                    end;
                 false -> ok
             end,
             ejabberd_hooks:run(remove_contact, Server, [UserId, Server, ContactId])
