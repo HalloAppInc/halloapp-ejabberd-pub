@@ -64,7 +64,6 @@ listen:
       /admin: ejabberd_web_admin
       /api: mod_http_api
       /captcha: ejabberd_captcha
-      /upload: mod_http_upload
       /metrics: mod_prom_exporter
   -
     port: 5280
@@ -179,8 +178,6 @@ modules:
   mod_logs_http_api: {}
   mod_halloapp_http_api: {}
   mod_http_api: {}
-  mod_http_upload:
-    put_url: https://@HOST@:5443/upload
   mod_invites: {}
   mod_offline_halloapp: {}
   mod_packet_filter: {}

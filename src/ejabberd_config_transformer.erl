@@ -318,15 +318,6 @@ transform_module(_Host, mod_http_api, Opts, Acc) ->
 		      true
 	      end, Opts),
     {{mod_http_api, Opts1}, Acc};
-transform_module(_Host, mod_http_upload, Opts, Acc) ->
-    Opts1 = lists:filter(
-	      fun({service_url, _}) ->
-		      warn_deprecated_option(service_url, external_secret),
-		      true;
-		 (_) ->
-		      true
-	      end, Opts),
-    {{mod_http_upload, Opts1}, Acc};
 transform_module(_Host, mod_pubsub, Opts, Acc) ->
     Opts1 = lists:map(
 	      fun({plugins, Plugins}) ->
