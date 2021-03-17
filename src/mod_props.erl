@@ -99,7 +99,9 @@ get_props(Uid, ClientVersion) ->
         max_feed_video_duration => 600, %% duration in seconds for videos on feed.
         max_chat_video_duration => 600, %% duration in seconds for videos in chats.
         private_reactions => false, %% whether client can send private reactions.
-        group_sync_time => 1 * ?WEEKS %% how often should clients sync group metadata
+        group_sync_time => 1 * ?WEEKS, %% how often should clients sync group metadata
+        group_invite_links => false, %% enables group_invite_links on the client.
+        group_background => false %% enables group_background on the client.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -115,7 +117,9 @@ get_uid_based_props(PropMap, Uid) ->
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
-            PropMap1
+            PropMap2 = maps:update(group_invite_links, true, PropMap1),
+            PropMap3 = maps:update(group_background, true, PropMap2),
+            PropMap3
     end.
 
 
