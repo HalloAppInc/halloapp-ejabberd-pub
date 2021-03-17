@@ -107,7 +107,7 @@ route_multicast(FromUid, Destinations, #pb_chat_state{} = Packet) ->
     Packet1 = pb:set_from(Packet, FromUid),
     lists:foreach(
         fun(ToUid) ->
-            route(pb:set_to(Packet, ToUid))
+            route(pb:set_to(Packet1, ToUid))
         end, Destinations),
     ok;
 route_multicast(FromUid, Destinations, Packet) ->
