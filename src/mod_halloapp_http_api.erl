@@ -38,7 +38,7 @@
 
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 process([<<"registration">>, <<"request_sms">>],
-        #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
+        #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
     try
         ?DEBUG("Data:~p", [Data]),
         UserAgent = util_http:get_user_agent(Headers),
@@ -78,11 +78,11 @@ process([<<"registration">>, <<"request_sms">>],
     end;
 
 process([<<"registration">>, <<"register">>],
-        #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
+        #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
     try
         ClientIP = util_http:get_ip(IP, Headers),
         UserAgent = util_http:get_user_agent(Headers),
-        ?INFO("registration request: r:~p ip:~s ua:~s", [Data, ClientIP, UserAgent]),
+        ?INFO("registration request: r:~p ip:~p ua:~s", [Data, ClientIP, UserAgent]),
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
         Code = maps:get(<<"code">>, Payload),
@@ -133,7 +133,7 @@ process([<<"registration">>, <<"register">>],
 %% Newer version of `register` API. Uses spub instead of password.
 %% TODO(vipin): Refactor error handling code.
 process([<<"registration">>, <<"register2">>],
-        #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
+        #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
     try
         ClientIP = util_http:get_ip(IP, Headers),
         UserAgent = util_http:get_user_agent(Headers),
@@ -206,7 +206,7 @@ process([<<"registration">>, <<"register2">>],
     end;
 
 process([<<"registration">>, <<"update_key">>],
-        #request{method = 'POST', data = Data, ip = IP, headers = Headers}) ->
+        #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
     try
         ClientIP = util_http:get_ip(IP, Headers),
         UserAgent = util_http:get_user_agent(Headers),
