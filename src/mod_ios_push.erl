@@ -345,6 +345,7 @@ push_message_item(PushMessageItem, State) ->
         <<"ios">> -> prod;
         <<"ios_dev">> -> dev
     end,
+    Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
     PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
             PushMessageItem#push_message_item.push_info),
     PushType = PushMetadata#push_metadata.push_type,
@@ -354,7 +355,8 @@ push_message_item(PushMessageItem, State) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s", [Uid, Id, ApnsId, ContentId]),
-    mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id, platform => ios}),
+    mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id,
+            platform => ios, client_version => Version, push_type => PushType}),
     {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
             PushType, BuildType, PushMessageItem, State),
     FinalState.

@@ -174,6 +174,7 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
+    Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
     HTTPOptions = [
             {timeout, ?HTTP_TIMEOUT_MILLISEC},
             {connect_timeout, ?HTTP_CONNECT_TIMEOUT_MILLISEC}
@@ -210,7 +211,9 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
                 {ok, FcmId} ->
                     stat:count(?FCM, "success"),
                     ?INFO("Uid:~s push successful for msg-id: ~s, FcmId: ~p", [Uid, Id, FcmId]),
-                    mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => FcmId, platform => android});
+                    PushType = PushMetadata#push_metadata.from_uid,
+                    mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => FcmId,
+                            platform => android, client_version => Version, push_type => PushType});
                 {error, Reason, FcmId} ->
                     stat:count(?FCM, "failure"),
                     ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
