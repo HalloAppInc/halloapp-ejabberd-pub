@@ -54,7 +54,6 @@ user_ack_packet(#pb_ack{id = Id, from_uid = FromUid},
         when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">>;
         ContentType =:= <<"pb_chat_stanza">>; ContentType =:= <<"pb_group_chat">> ->
     ?INFO("Uid: ~s, Id: ~p, ContentType: ~p", [FromUid, Id, ContentType]),
-    Server = util:get_host(),
     Timestamp = util:now(),
     send_receipt(MsgFromId, FromUid, Id, ThreadId, Timestamp),
     log_delivered(ContentType);

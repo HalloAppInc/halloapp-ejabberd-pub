@@ -226,7 +226,7 @@ check_one_time_keys(OneTimeKeysB64) ->
 
 
 -spec check_count_and_notify_user(Uid :: binary(), Server :: binary()) -> ok.
-check_count_and_notify_user(Uid, Server) ->
+check_count_and_notify_user(Uid, _Server) ->
     {ok, Count} = model_whisper_keys:count_otp_keys(Uid),
     ?INFO("Uid: ~s, Count: ~p, MinCount: ~p", [Uid, Count, ?MIN_OTP_KEY_COUNT]),
     case Count < ?MIN_OTP_KEY_COUNT of
@@ -252,7 +252,7 @@ set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys) ->
 
 
 -spec notify_key_subscribers(Uid :: binary(), Server :: binary()) -> ok.
-notify_key_subscribers(Uid, Server) ->
+notify_key_subscribers(Uid, _Server) ->
     ?INFO("Uid: ~s", [Uid]),
     {ok, Ouids} = model_whisper_keys:get_all_key_subscribers(Uid),
     Packet = #pb_msg{

@@ -157,7 +157,6 @@ handle_info({iq_reply, timeout, JID}, State) ->
     {noreply, State#state{timers = Timers}};
 handle_info({timeout, _TRef, {ping, JID}}, State) ->
     Host = State#state.host,
-    From = jid:remove_resource(JID),
     IQ = #pb_iq{to_uid = JID#jid.luser, type = get, payload = #pb_ping{}},
     ejabberd_router:route_iq(IQ, JID,
         gen_mod:get_module_proc(Host, ?MODULE),

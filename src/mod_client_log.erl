@@ -38,6 +38,7 @@
     json_encode/1
 ]).
 -endif.
+-compile([{nowarn_unused_function, [{flush, 0}]}]). % used in tests only
 
 -include("logger.hrl").
 -include("xmpp.hrl").

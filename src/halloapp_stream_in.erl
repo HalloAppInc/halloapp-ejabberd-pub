@@ -800,7 +800,7 @@ socket_send(_, _) ->
 
 -spec encode_packet(SocketState :: socket_state(), Pkt :: pb_packet())
             -> {ok, binary()} | {error, pb_encode_error}.
-encode_packet(#{socket := #socket_state{socket_type = SocketType, sockmod = SockMod}}, Pkt) ->
+encode_packet(#{socket := #socket_state{socket_type = SocketType, sockmod = _SockMod}}, Pkt) ->
     case enif_protobuf:encode(Pkt) of
         {error, Reason} ->
             stat:count("HA/pb_packet", "encode_failure", 1, [{socket_type, SocketType}]),
@@ -816,11 +816,6 @@ encode_packet(#{socket := #socket_state{socket_type = SocketType, sockmod = Sock
 close_socket(#{socket := Socket} = State) ->
     halloapp_socket:close(Socket),
     State#{stream_timeout => infinity, stream_state => disconnected}.
-
-
--spec select_lang(binary(), binary()) -> binary().
-select_lang(Lang, <<"">>) -> Lang;
-select_lang(_, Lang) -> Lang.
 
 
 -spec format_inet_error(atom()) -> string().

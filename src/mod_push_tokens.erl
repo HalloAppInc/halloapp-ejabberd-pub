@@ -99,7 +99,6 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_notification_prefs{push_prefs = PushPrefs}} = IQ) ->
-    Server = util:get_host(),
     ?INFO("Uid: ~s, set-iq for push preferences", [Uid]),
     case PushPrefs of
         [] ->

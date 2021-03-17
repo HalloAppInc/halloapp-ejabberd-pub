@@ -39,6 +39,7 @@
     log_new_user/1
 ]).
 -endif.
+-compile([{nowarn_unused_function, [{log_new_user, 1}]}]). % used in tests only
 
 
 -record(state, {

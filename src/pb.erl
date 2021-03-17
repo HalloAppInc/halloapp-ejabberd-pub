@@ -92,7 +92,7 @@ get_id(#pb_ack{id = Id}) -> Id.
 set_id(#pb_iq{} = Pkt, Id) -> Pkt#pb_iq{id = Id};
 set_id(#pb_msg{} = Pkt, Id) -> Pkt#pb_msg{id = Id};
 set_id(#pb_presence{} = Pkt, Id) -> Pkt#pb_presence{id = Id};
-set_id(#pb_chat_state{} = Pkt, Id) -> Pkt;
+set_id(#pb_chat_state{} = Pkt, _Id) -> Pkt;
 set_id(#pb_ack{} = Pkt, Id) -> Pkt#pb_ack{id = Id}.
 
 

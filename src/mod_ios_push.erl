@@ -447,13 +447,6 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
 get_priority(silent) -> 5;
 get_priority(alert) -> 10.
 
--spec boolean_to_push_type(BoolValue :: boolean()) -> silent | alert.
-boolean_to_push_type(BoolValue) ->
-    case BoolValue of
-        true -> alert;
-        false -> silent
-    end.
-
 
 -spec get_apns_push_type(PushType :: silent | alert) -> binary().
 get_apns_push_type(silent) -> <<"background">>;

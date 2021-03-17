@@ -93,7 +93,6 @@ re_register_user(UserId, _Server, _Phone) ->
 % TODO: (nikola): need common test.
 -spec user_name_updated(Uid :: binary(), Name :: binary()) -> ok.
 user_name_updated(Uid, Name) ->
-    Server = util:get_host(),
     {ok, Phone} = model_accounts:get_phone(Uid),
     % TODO: (nikola): I feel like we should be notifying the contacts instead of the reverse contacts
     % The reverse contacts have phonebook name so they will not care about our push name.

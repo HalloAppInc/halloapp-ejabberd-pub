@@ -256,7 +256,7 @@ handle_delta_contacts(UserId, Server, Contacts) ->
     AddContactsPhoneSet = sets:from_list(AddContactsPhoneList),
 
     %% Check the user account status and current sync info and send notifications if necessary.
-    check_and_send_notifications(UserId, Server, AddContactsPhoneSet, AddContacts),
+    check_and_send_notifications(UserId, AddContactsPhoneSet, AddContacts),
     AddContacts.
 
 
@@ -295,7 +295,7 @@ finish_sync(UserId, Server, SyncId) ->
 
     %% Check the user account status and current sync info and send notifications if necessary.
     %% TODO(murali@): We will be sending duplicate contact messages initially - fix this separately.
-    check_and_send_notifications(UserId, Server, NewContactSet, NewContactRecordList),
+    check_and_send_notifications(UserId, NewContactSet, NewContactRecordList),
 
     %% finish_sync will add various contacts and their reverse mapping in the db.
     model_contacts:finish_sync(UserId, SyncId),
@@ -316,9 +316,9 @@ finish_sync(UserId, Server, SyncId) ->
 
 
 %% TODO(murali@): need to cache user details like phone across all functions in this module.
--spec check_and_send_notifications(UserId :: binary(), Server :: binary(),
+-spec check_and_send_notifications(UserId :: binary(),
         NewContactSet :: sets:set(binary()), NewContactRecordList :: [contact()]) -> ok.
-check_and_send_notifications(UserId, Server, NewContactSet, NewContactRecordList) ->
+check_and_send_notifications(UserId,  NewContactSet, NewContactRecordList) ->
     %% Checks if the user is a new user (meaning joined < 24hrs) andalso
     %% ensure that the user has not already done a non-empty full-contact sync andalso
     %% Checks if the new contact set is not-empty.
@@ -328,14 +328,14 @@ check_and_send_notifications(UserId, Server, NewContactSet, NewContactRecordList
     %% has not synced any contacts yet, and is now syncing non-empty set of contacts.
     case ShouldNotifyFriends of
         true ->
-            do_send_notifications(UserId, Server, NewContactRecordList);
+            do_send_notifications(UserId, NewContactRecordList);
         false -> ok
     end.
 
 
--spec do_send_notifications(UserId :: binary(), Server :: binary(),
+-spec do_send_notifications(UserId :: binary(),
         NewContactRecordList :: [contact()]) -> ok.
-do_send_notifications(UserId, Server, NewContactRecordList) ->
+do_send_notifications(UserId, NewContactRecordList) ->
     %% Send notification to user who invited this user.
     UserPhone = get_phone(UserId),
     %% Fetch all inviter phone numbers.
@@ -347,7 +347,7 @@ do_send_notifications(UserId, Server, NewContactRecordList) ->
                 case sets:is_element(ContactId, InviterUidSet) of
                     true ->
                         ?INFO("Notify Inviter: ~p about user: ~p joining", [ContactId, UserId]),
-                        mod_invites:notify_inviter(UserId, UserPhone, Server,
+                        mod_invites:notify_inviter(UserId, UserPhone,
                                 ContactId, Role, normal, inviter_notice);
                     false ->
                         ?INFO("Notify Friend: ~p about user: ~p joining", [ContactId, UserId]),

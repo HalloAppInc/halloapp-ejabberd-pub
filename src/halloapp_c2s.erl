@@ -303,7 +303,7 @@ check_password_fun(_Mech, #{lserver := _LServer}) ->
 % TODO: make those constants
 bind(R, State) when R =/= <<"android">>, R =/= <<"iphone">>, R =/= <<"ios">> ->
     {error, {invalid_resource, R}, State};
-bind(R, #{user := U, server := S, access := Access, lang := Lang,
+bind(R, #{user := U, server := S, access := Access,
         lserver := LServer, socket := Socket,
         ip := IP} = State) ->
     case resource_conflict_action(U, S, R) of

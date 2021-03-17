@@ -420,7 +420,7 @@ schedule_offline_queue_check(UserId, NewLastMsgOrderId) ->
 
 
 -spec send_end_of_queue_marker(UserId :: binary(), Server :: binary()) -> MsgId :: binary().
-send_end_of_queue_marker(UserId, Server) ->
+send_end_of_queue_marker(UserId, _Server) ->
     MsgId = util:new_msg_id(),
     EndOfQueueMarker = #pb_msg{
         id = MsgId,

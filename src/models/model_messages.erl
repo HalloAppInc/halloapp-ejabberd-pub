@@ -22,6 +22,7 @@
 -ifdef(TEST).
 -compile(export_all).
 -endif.
+-compile([{nowarn_unused_function, [{store_message, 6}]}]).
 
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).

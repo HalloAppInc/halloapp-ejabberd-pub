@@ -92,7 +92,6 @@ user_receive_packet(Acc) ->
 %% Server will send user's chat_state to corresponding recipient in 1-to-1 message
 -spec process_chat_state(Packet :: chat_state(), ThreadId :: binary()) -> ok.
 process_chat_state(Packet, ThreadId) ->
-    Server = util:get_host(),
     FromUid = Packet#pb_chat_state.from_uid,
     NewPacket = Packet#pb_chat_state{to_uid = ThreadId, thread_id = FromUid},
     ?INFO("Uid: ~s, to_uid: ~s, type: ~s, newpacket: ~p",
@@ -105,7 +104,6 @@ process_chat_state(Packet, ThreadId) ->
 %% TODO: call send packet function from mod_groups once the function is ready
 -spec process_group_chat_state(Packet :: chat_state(), ThreadId :: binary()) -> ok.
 process_group_chat_state(Packet, ThreadId) ->
-    Server = util:get_host(),
     FromUid = Packet#pb_chat_state.from_uid,
     case mod_groups:get_group(ThreadId, FromUid) of
         {ok, Group} ->

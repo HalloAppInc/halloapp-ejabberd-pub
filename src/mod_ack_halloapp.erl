@@ -48,7 +48,7 @@ mod_options(_Host) ->
 
 %% Hook called when the server receives a packet.
 %% TODO(murali@): Add logic to send ack only after handling the message properly!
-user_send_packet({Packet, #{lserver := ServerHost} = State} = Acc) ->
+user_send_packet({Packet, State}) ->
     case ?needs_ack_packet(Packet) of
         true -> send_ack(Packet);
         false -> ok

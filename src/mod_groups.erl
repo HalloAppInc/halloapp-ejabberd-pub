@@ -534,9 +534,9 @@ add_members_unsafe_2(Gid, Uid, MemberUids) ->
             case lists:keyfind(OUid, 1, AddResults) of
                 false ->
                     {OUid, add, no_account};
-                {Ouid, false} ->
+                {OUid, false} ->
                     {OUid, add, already_member};
-                {Ouid, true} ->
+                {OUid, true} ->
                     {OUid, add, ok}
             end
         end,

@@ -524,12 +524,6 @@ db_get_sessions(Uid) ->
     {ok, Sessions}.
 
 
--spec get_active_sessions(Mod :: module(), LUser :: binary(), LServer :: binary()) -> [session()].
-get_active_sessions(Mod, LUser, LServer) ->
-    Sessions = get_sessions(Mod, LUser, LServer),
-    lists:filter(fun is_session_active/1, Sessions).
-
-
 -spec is_session_active(Session :: session()) -> boolean().
 is_session_active(Session) ->
     proplists:get_value(mode, Session#session.info) =:= active.
