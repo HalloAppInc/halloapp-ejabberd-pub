@@ -276,7 +276,11 @@ handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) 
         {PushMessageItem, NewPendingMap} ->
             Id = PushMessageItem#push_message_item.id,
             Uid = PushMessageItem#push_message_item.uid,
+            Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
+            PushType = get_push_metadata(PushMessageItem)#push_metadata.push_type,
             ?INFO("Uid: ~s, apns push successful: msg_id: ~s", [Uid, Id]),
+            mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id,
+                    platform => ios, client_version => Version, push_type => PushType}),
             NewPendingMap
     end,
     State#push_state{pendingMap = FinalPendingMap};
@@ -345,9 +349,7 @@ push_message_item(PushMessageItem, State) ->
         <<"ios">> -> prod;
         <<"ios_dev">> -> dev
     end,
-    Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
-    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
-            PushMessageItem#push_message_item.push_info),
+    PushMetadata = get_push_metadata(PushMetadata),
     PushType = PushMetadata#push_metadata.push_type,
     PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType),
     ApnsId = util:uuid_binary(),
@@ -355,8 +357,6 @@ push_message_item(PushMessageItem, State) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s", [Uid, Id, ApnsId, ContentId]),
-    mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id,
-            platform => ios, client_version => Version, push_type => PushType}),
     {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
             PushType, BuildType, PushMessageItem, State),
     FinalState.
@@ -447,6 +447,17 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
 get_priority(silent) -> 5;
 get_priority(alert) -> 10.
 
+-spec boolean_to_push_type(BoolValue :: boolean()) -> silent | alert.
+boolean_to_push_type(BoolValue) ->
+    case BoolValue of
+        true -> alert;
+        false -> silent
+    end.
+
+-spec get_push_metadata(PushMessageItem) -> #push_metadata{}.
+get_push_metadata(PushMessageItem) ->
+    push_util:parse_metadata(PushMessageItem#push_message_item.message,
+        PushMessageItem#push_message_item.push_info).
 
 -spec get_apns_push_type(PushType :: silent | alert) -> binary().
 get_apns_push_type(silent) -> <<"background">>;
@@ -528,11 +539,11 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
 
 -spec send_post_request_to_apns(Uid :: binary(), ApnsId :: binary(), ContentId :: binary(), PayloadBin :: binary(),
         PushType :: alert | silent, BuildType :: build_type(), PushMessageItem :: push_message_item(),
-        State :: push_state()) -> {ok, push_state()} | {{error, any()}, push_state()}.
+        State :: push_state()) -> {ok, push_state()} | {ignored, push_state()} | {{error, any()}, push_state()}.
 send_post_request_to_apns(_Uid, _ApnsId, _ContentId, _PayloadBin, silent, _BuildType, _PushMessageItem, State) ->
     %% Ignore sending silent pushes to ios for two weeks.
     %% Revisit this in 2-weeks (15th Feb) once we have an ios build with fixes for handling silent pushes.
-    {ok, State};
+    {ignored, State};
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, BuildType, PushMessageItem, State) ->
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
     Priority = get_priority(PushType),
