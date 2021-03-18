@@ -291,8 +291,8 @@ update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
             end,
             ok;
         false ->
-            ?ERROR("Uid: ~s, Type: ~s, hash_mismatch, ClientHash: ~p, ServerHash: ~p",
-                    [Uid, Type, ClientHashValue, ServerHashValue]),
+            ?ERROR("Uid: ~s, Type: ~s, hash_mismatch, ClientHash(b64): ~p, ServerHash(b64): ~p",
+                    [Uid, Type, base64url:encode(ClientHashValue), base64url:encode(ServerHashValue)]),
             {error, hash_mismatch, ServerHashValue}
     end.
 
