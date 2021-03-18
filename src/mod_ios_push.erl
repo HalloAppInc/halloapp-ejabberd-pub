@@ -277,7 +277,8 @@ handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) 
             Id = PushMessageItem#push_message_item.id,
             Uid = PushMessageItem#push_message_item.uid,
             Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
-            PushType = get_push_metadata(PushMessageItem)#push_metadata.push_type,
+            PushMetadata = get_push_metadata(PushMessageItem),
+            PushType = PushMetadata#push_metadata.push_type,
             ?INFO("Uid: ~s, apns push successful: msg_id: ~s", [Uid, Id]),
             mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id,
                     platform => ios, client_version => Version, push_type => PushType}),
@@ -349,7 +350,7 @@ push_message_item(PushMessageItem, State) ->
         <<"ios">> -> prod;
         <<"ios_dev">> -> dev
     end,
-    PushMetadata = get_push_metadata(PushMetadata),
+    PushMetadata = get_push_metadata(PushMessageItem),
     PushType = PushMetadata#push_metadata.push_type,
     PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType),
     ApnsId = util:uuid_binary(),
@@ -454,7 +455,7 @@ boolean_to_push_type(BoolValue) ->
         false -> silent
     end.
 
--spec get_push_metadata(PushMessageItem) -> #push_metadata{}.
+-spec get_push_metadata(PushMessageItem :: #push_message_item{}) -> #push_metadata{}.
 get_push_metadata(PushMessageItem) ->
     push_util:parse_metadata(PushMessageItem#push_message_item.message,
         PushMessageItem#push_message_item.push_info).
