@@ -62,6 +62,9 @@ process([<<"registration">>, <<"request_sms">>],
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
             log_request_sms_error(bad_user_agent),
             util_http:return_400();
+        error : invalid_client_version ->
+            ?ERROR("register error: invalid_client_version ~p", [Headers]),
+            util_http:return_400(invalid_client_version);
         error: not_invited ->
             ?INFO("request_sms error: phone not invited ~p", [Data]),
             log_request_sms_error(not_invited),
@@ -105,14 +108,17 @@ process([<<"registration">>, <<"register">>],
                 {result, ok}
             ]})}
     catch
-        error : wrong_sms_code ->
-            ?INFO("register error: code missmatch data:~s", [Data]),
-            log_register_error(wrong_sms_code),
-            util_http:return_400(wrong_sms_code);
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
             log_register_error(bad_user_agent),
             util_http:return_400();
+        error : invalid_client_version ->
+            ?ERROR("register error: invalid_client_version ~p", [Headers]),
+            util_http:return_400(invalid_client_version);
+        error : wrong_sms_code ->
+            ?INFO("register error: code missmatch data:~s", [Data]),
+            log_register_error(wrong_sms_code),
+            util_http:return_400(wrong_sms_code);
         error: {badkey, MissingField} when is_binary(MissingField)->
             BadKeyError = util:to_atom(<<"missing_", MissingField/binary>>),
             log_register_error(BadKeyError),
@@ -169,14 +175,17 @@ process([<<"registration">>, <<"register2">>],
             ]})}
     catch
         % TODO: This code is getting out of hand... Figure out how to simplify the error handling
-        error : wrong_sms_code ->
-            ?INFO("register error: code mismatch data:~s", [Data]),
-            log_register_error(wrong_sms_code),
-            util_http:return_400(wrong_sms_code);
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
             log_register_error(bad_user_agent),
             util_http:return_400();
+        error : invalid_client_version ->
+            ?ERROR("register error: invalid_client_version ~p", [Headers]),
+            util_http:return_400(invalid_client_version);
+        error : wrong_sms_code ->
+            ?INFO("register error: code mismatch data:~s", [Data]),
+            log_register_error(wrong_sms_code),
+            util_http:return_400(wrong_sms_code);
         error : invalid_s_ed_pub ->
             ?ERROR("register error: invalid_s_ed_pub ~p", [Data]),
             log_register_error(invalid_s_ed_pub),
@@ -232,6 +241,9 @@ process([<<"registration">>, <<"update_key">>],
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
             util_http:return_400();
+        error : invalid_client_version ->
+            ?ERROR("register error: invalid_client_version ~p", [Headers]),
+            util_http:return_400(invalid_client_version);
         error : invalid_password ->
             ?INFO("register error: invalid password, data:~s", [Data]),
             util_http:return_400(invalid_password);
@@ -291,7 +303,11 @@ request_sms(Phone, UserAgent) ->
 -spec check_ua(binary()) -> ok | no_return().
 check_ua(UserAgent) ->
     case util_ua:is_hallo_ua(UserAgent) of
-        true -> ok;
+        true ->
+            case mod_client_version:is_valid_version(UserAgent) of
+                true -> ok;
+                false -> error(invalid_client_version) 
+            end;
         false ->
             ?ERROR("Invalid UserAgent:~p", [UserAgent]),
             error(bad_user_agent)
