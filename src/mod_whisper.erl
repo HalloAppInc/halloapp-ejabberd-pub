@@ -26,6 +26,7 @@
 -include("packets.hrl").
 
 -define(MIN_OTP_KEY_COUNT, 10).
+-define(STAT_NS, "HA/whisper").
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -108,6 +109,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
                     pb:make_error(IQ, util:err(invalid_signed_key));
                 true ->
                     ?INFO("Uid: ~s, add_otp_keys", [Uid]),
+                    stat:count(?STAT_NS, "add_otp_keys"),
                     model_whisper_keys:add_otp_keys(Uid, OneTimeKeys),
                     pb:make_iq_result(IQ)
             end
@@ -147,8 +149,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
                     IdentityKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
                     SignedKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.signed_key),
                     OneTimeKeys = case WhisperKeySet#user_whisper_key_set.one_time_key of
-                        undefined -> [];
-                        OneTimeKey -> [util:maybe_base64_decode(OneTimeKey)]
+                        undefined ->
+                            stat:count(?STAT_NS, "empty_otp_key_set"),
+                            [];
+                        OneTimeKey ->
+                            stat:count(?STAT_NS, "otp_key_set_ok"),
+                            [util:maybe_base64_decode(OneTimeKey)]
                     end,
                     pb:make_iq_result(IQ, #pb_whisper_keys{uid = Ouid, identity_key = IdentityKey,
                             signed_key = SignedKey, one_time_keys = OneTimeKeys})
