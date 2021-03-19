@@ -54,7 +54,6 @@ start(normal, _Args) ->
                 ?INFO("starting ejabberd_mnesia"),
                 ejabberd_mnesia:start(),
                 file_queue_init(),
-                maybe_add_nameservers(),
                 ?INFO("starting ejabberd_sup"),
                 case ejabberd_sup:start_link() of
                     {ok, SupPid} ->
@@ -130,18 +129,6 @@ stop(_State) ->
 %%%
 %%% Internal functions
 %%%
-
-%% If ejabberd is running on some Windows machine, get nameservers and add to Erlang
-maybe_add_nameservers() ->
-    case os:type() of
-        {win32, _} -> add_windows_nameservers();
-        _ -> ok
-    end.
-
-add_windows_nameservers() ->
-    IPTs = win32_dns:get_nameservers(),
-    ?INFO("Adding machine's DNS IPs to Erlang system:~n~p", [IPTs]),
-    lists:foreach(fun(IPT) -> inet_db:add_ns(IPT) end, IPTs).
 
 %%%
 %%% PID file
