@@ -98,25 +98,6 @@ transform(_Host, certfiles, CertFiles1, Acc) ->
     CertFiles2 = maps:get(certfiles, Acc, []),
     Acc1 = maps:put(certfiles, CertFiles1 ++ CertFiles2, Acc),
     {true, Acc1};
-transform(_Host, acme, ACME, Acc) ->
-    ACME1 = lists:map(
-	      fun({ca_url, URL} = Opt) ->
-		      case http_uri:parse(binary_to_list(URL)) of
-			  {ok, {_, _, "acme-v01.api.letsencrypt.org", _, _, _}} ->
-			      NewURL = ejabberd_acme:default_directory_url(),
-			      ?WARNING("ACME directory URL ~ts defined in "
-					   "option acme->ca_url is deprecated "
-					   "and was automatically replaced "
-					   "with ~ts. ~ts",
-					   [URL, NewURL, adjust_hint()]),
-			      {ca_url, NewURL};
-			  _ ->
-			      Opt
-		      end;
-		 (Opt) ->
-		      Opt
-	      end, ACME),
-    {{true, {acme, ACME1}}, Acc};
 transform(_Host, _Opt, _Val, Acc) ->
     {true, Acc}.
 

@@ -57,7 +57,6 @@ init([]) ->
         worker(ejabberd_captcha),
         worker(ext_mod),
         supervisor(ejabberd_gen_mod_sup, gen_mod),
-        worker(ejabberd_acme),
         worker(ejabberd_auth),
         worker(ejabberd_oauth),
         worker(ejabberd_monitor) %% must be the last one in the list.
