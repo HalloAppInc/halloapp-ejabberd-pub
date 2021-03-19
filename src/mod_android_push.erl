@@ -181,18 +181,10 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
     ],
     Options = [],
     FcmApiKey = get_fcm_apikey(),
-    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
-            PushMessageItem#push_message_item.push_info),
+    % Dont send any payload to android in the push channel.
     Payload = #{
-            <<"title">> => <<"PushMessage">>,
-            <<"content-id">> => PushMetadata#push_metadata.content_id,
-            <<"content-type">> => PushMetadata#push_metadata.content_type,
-            <<"from-id">> => PushMetadata#push_metadata.from_uid,
-            <<"timestamp">> => PushMetadata#push_metadata.timestamp,
-            <<"thread-id">> => PushMetadata#push_metadata.thread_id,
-            <<"thread-name">> => PushMetadata#push_metadata.thread_name,
-            <<"sender-name">> => PushMetadata#push_metadata.sender_name
-    },
+            <<"title">> => <<"PushMessage">>
+        },
     PushMessage = #{<<"to">> => Token, <<"priority">> => <<"high">>, <<"data">> => Payload},
     Request = {?FCM_GATEWAY, [{"Authorization", "key=" ++ FcmApiKey}],
             "application/json", jiffy:encode(PushMessage)},
