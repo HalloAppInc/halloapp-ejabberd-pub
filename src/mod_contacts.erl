@@ -117,9 +117,17 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
                     contacts = handle_delta_contacts(UserId, Server, Contacts)}).
 
 
--spec remove_user(UserId :: binary(), Server :: binary()) -> ok.
-remove_user(UserId, Server) ->
-    remove_all_contacts(UserId, Server, true).
+%% TODO(murali@): update remove_user to have phone in the hook arguments.
+-spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
+remove_user(Uid, Server) ->
+    {ok, Phone} = model_accounts:get_phone(Uid),
+    remove_all_contacts(Uid, Server, true),
+    {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+    lists:foreach(
+        fun(ContactId) ->
+            notify_contact_about_user(<<>>, Phone, ContactId, none, normal, delete_notice)
+        end, ContactUids),
+    ok.
 
 
 -spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
@@ -139,7 +147,7 @@ register_user(UserId, Server, Phone) ->
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
     lists:foreach(
         fun(ContactId) ->
-            notify_contact_about_user(UserId, Phone, Server, ContactId, none)
+            notify_contact_about_user(UserId, Phone, ContactId, none)
         end, ContactUids).
 
 
@@ -151,7 +159,7 @@ block_uids(Uid, Server, Ouids) ->
             case model_accounts:get_phone(Ouid) of
                 {ok, OPhone} ->
                     remove_friend(Uid, Server, Ouid),
-                    notify_contact_about_user(Ouid, OPhone, Server, Uid, none);
+                    notify_contact_about_user(Ouid, OPhone, Uid, none);
                 {error, missing} -> ok
             end
         end, Ouids),
@@ -177,9 +185,9 @@ unblock_uids(Uid, Server, Ouids) ->
                         true ->
                             WasBlocked = true,
                             add_friend(Uid, Server, Ouid, WasBlocked),
-                            notify_contact_about_user(Ouid, OPhone, Server, Uid, friends);
+                            notify_contact_about_user(Ouid, OPhone, Uid, friends);
                         false ->
-                            notify_contact_about_user(Ouid, OPhone, Server, Uid, none)
+                            notify_contact_about_user(Ouid, OPhone, Uid, none)
                     end;
                 {error, missing} -> ok
             end
@@ -473,7 +481,7 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
             case {ShouldNotify, IsNewContact, IsFriends} of
                 {yes, true, true} ->
                     add_friend(UserId, Server, ContactId),
-                    notify_contact_about_user(UserId, UserPhone, Server, ContactId, Role);
+                    notify_contact_about_user(UserId, UserPhone, ContactId, Role);
                 {_, _, _} -> ok
             end,
             %% Send AvatarId only if ContactId and UserPhone are friends.
@@ -559,10 +567,10 @@ remove_contact_and_notify(UserId, UserPhone, ContactPhone, ReverseContactSet, Is
                     remove_friend(UserId, Server, ContactId),
                     case IsAccountDeleted of
                         true ->
-                            %% dont include userId when account is deleted.
-                            notify_contact_about_user(<<>>, UserPhone, Server, ContactId, none);
+                            %% dont notify the contact here. we will send a separate notification.
+                            ok;
                         false ->
-                            notify_contact_about_user(UserId, UserPhone, Server, ContactId, none)
+                            notify_contact_about_user(UserId, UserPhone, ContactId, none)
                     end;
                 false -> ok
             end,
@@ -577,12 +585,20 @@ remove_contact_and_notify(UserId, UserPhone, ContactPhone, ReverseContactSet, Is
 
 %% Notifies contact about the user using the UserId and the role element to indicate
 %% if they are now friends or not on halloapp.
--spec notify_contact_about_user(UserId :: binary(), UserPhone :: binary(), Server :: binary(),
+-spec notify_contact_about_user(UserId :: binary(), UserPhone :: binary(),
         ContactId :: binary(), Role :: atom()) -> ok.
-notify_contact_about_user(UserId, _UserPhone, _Server, UserId, _Role) ->
+notify_contact_about_user(UserId, _UserPhone, UserId, _Role) ->
     ok;
-notify_contact_about_user(UserId, UserPhone, _Server, ContactId, Role) ->
-    notifications_util:send_contact_notification(UserId, UserPhone, ContactId, Role).
+notify_contact_about_user(UserId, UserPhone, ContactId, Role) ->
+    notify_contact_about_user(UserId, UserPhone, ContactId, Role, normal, normal).
+
+
+-spec notify_contact_about_user(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
+        Role :: atom(), MessageType :: atom(), ContactListType :: atom()) -> ok.
+notify_contact_about_user(UserId, UserPhone, ContactId, Role, MessageType, ContactListType) ->
+    notifications_util:send_contact_notification(UserId, UserPhone, ContactId,
+            Role, MessageType, ContactListType).
+
 
 -spec probe_contact_about_user(UserId :: binary(), UserPhone :: binary(),
         Server :: binary(), ContactId :: binary()) -> ok.

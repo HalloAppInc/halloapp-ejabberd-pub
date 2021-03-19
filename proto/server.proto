@@ -107,6 +107,7 @@ message ContactList {
         NORMAL = 2;
         FRIEND_NOTICE = 3;
         INVITER_NOTICE = 4;
+        DELETE_NOTICE = 5;
     }
     Type type = 1;
     string sync_id = 2;

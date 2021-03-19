@@ -15,22 +15,8 @@
 -include("ha_namespaces.hrl").
 
 -export([
-    send_contact_notification/4,
-    send_contact_notification/5,
     send_contact_notification/6
 ]).
-
-
--spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
-        Role :: atom()) -> ok.
-send_contact_notification(UserId, UserPhone, ContactId, Role) ->
-    send_contact_notification(UserId, UserPhone, ContactId, Role, normal, normal).
-
-
--spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
-        Role :: atom(), MessageType :: atom()) -> ok.
-send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType) ->
-    send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, normal).
 
 
 -spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
