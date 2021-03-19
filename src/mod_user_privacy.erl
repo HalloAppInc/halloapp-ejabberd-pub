@@ -77,10 +77,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     case update_privacy_type(Uid, Type, HashValue, UidEls) of
         ok ->
             pb:make_iq_result(IQ);
-        {error, hash_mismatch, ServerHashValue} ->
+        {error, hash_mismatch, _ServerHashValue} ->
             ?WARNING("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
-            pb:make_error(IQ, #pb_privacy_list_result{
-                    result = <<"failed">>, reason = <<"hash_mismatch">>, hash = ServerHashValue});
+            pb:make_error(IQ, util:err(hash_mismatch));
         {error, invalid_type} ->
             ?WARNING("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
             pb:make_error(IQ, util:err(invalid_type));
@@ -266,7 +265,6 @@ get_privacy_type(Uid) ->
 
 -spec update_privacy_list(Uid :: binary(), Type :: privacy_list_type(),
         ClientHashValue :: binary(), UidEls :: list(uid_el())) -> ok.
-update_privacy_list(_Uid, _Type, _ClientHashValue, []) -> ok;
 update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
     {DeleteUidsList, AddUidsList} = lists:partition(
             fun(#pb_uid_element{action = T}) ->

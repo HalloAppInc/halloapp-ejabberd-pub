@@ -431,7 +431,6 @@ message Iq {
         Ping ping = 12;
         FeedItem feed_item = 13;
         PrivacyList privacy_list = 14;
-        PrivacyListResult privacy_list_result = 15;
         PrivacyLists privacy_lists = 16;
         GroupStanza group_stanza = 17;
         GroupsStanza groups_stanza = 18;
@@ -449,6 +448,7 @@ message Iq {
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
+    reserved 15;
 }
 
 
@@ -586,13 +586,6 @@ message PrivacyList {
     }
     Type type = 1;
     repeated UidElement uid_elements = 2;
-    bytes hash = 3;
-}
-
-
-message PrivacyListResult {
-    string result = 1;
-    string reason = 2;
     bytes hash = 3;
 }
 

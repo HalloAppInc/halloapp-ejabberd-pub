@@ -431,11 +431,9 @@ create_pb_privacy_lists(ActiveType, PbPrivacyLists) ->
     }.
 
 
-create_pb_privacy_list_result(Result, Reason, Hash) ->
-    #pb_privacy_list_result{
-        result = Result,
-        reason = Reason,
-        hash = Hash
+create_pb_error_stanza(Reason, Hash) ->
+    #pb_error_stanza{
+        reason = Reason
     }.
 
 

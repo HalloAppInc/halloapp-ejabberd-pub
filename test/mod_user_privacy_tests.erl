@@ -78,11 +78,9 @@ create_iq_request_privacy_list(Uid, Type, Payload) ->
 create_error_st(Reason) ->
     util:err(Reason).
 
-create_error_hash_st(Reason, Hash) ->
-    #pb_privacy_list_result{
-        result = <<"failed">>,
-        reason = util:to_binary(Reason),
-        hash = Hash
+create_error_hash_st(Reason) ->
+    #pb_error_stanza{
+        reason = util:to_binary(Reason)
     }.
 
 create_iq_response_privacy_list(Uid, Type, Payload) ->
@@ -159,8 +157,8 @@ iq_hash_mismatch_error_test() ->
     SubEl1 = create_privacy_list(only, <<"error">>, [UidEl1]),
     RequestIQ = create_iq_request_privacy_list(?UID1, set, SubEl1),
 
-    ServerHashValue = crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>),
-    SubEl2 = create_error_hash_st(hash_mismatch, ServerHashValue),
+    _ServerHashValue = crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>),
+    SubEl2 = create_error_hash_st(hash_mismatch),
     ExpectedResponseIQ = create_iq_response_privacy_list(?UID1, error, SubEl2),
     ActualResponseIQ = mod_user_privacy:process_local_iq(RequestIQ),
 
@@ -336,5 +334,26 @@ update_privacy_type_block_test() ->
     UidEl2 = create_uid_el(delete, ?UID3),
     ?assertEqual(ok, mod_user_privacy:update_privacy_type(?UID1, block, HashValue2, [UidEl2])),
     ?assertEqual({ok, []}, model_privacy:get_blocked_uids(?UID1)),
+    ok.
+
+
+hash_mismatch_test() ->
+    setup(),
+    setup_accounts([
+        [?UID1, ?PHONE1, ?NAME1, ?UA1]]),
+
+    ?assertEqual(all, mod_user_privacy:get_privacy_type(?UID1)),
+    HashValue1 = crypto:hash(?HASH_FUNC, <<",", ?UID2/binary>>),
+    UidEl1 = create_uid_el(add, ?UID2),
+    ?assertEqual(ok, mod_user_privacy:update_privacy_type(?UID1, only, HashValue1, [UidEl1])),
+    ?assertEqual(only, mod_user_privacy:get_privacy_type(?UID1)),
+    {ok, Res1} = model_privacy:get_only_uids(?UID1),
+    ExpectedList1 = lists:sort([?UID2]),
+    ActualList1 = lists:sort(Res1),
+    ?assertEqual(ExpectedList1, ActualList1),
+
+    HashValue2 = crypto:hash(?HASH_FUNC, <<",", ?UID3/binary>>),
+    ?assertEqual({error, hash_mismatch, HashValue1},
+            mod_user_privacy:update_privacy_type(?UID1, only, HashValue2, [])),
     ok.
 
