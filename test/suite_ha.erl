@@ -89,11 +89,9 @@ setup_test_config(BaseDir, DataDir) ->
 
     {ok, [ConfigPropList]} = fast_yaml:decode_from_file(MainConfigPath, [plain_as_atom, sane_scalars]),
 
-    ConfigPropList1 = lists:keystore(certfiles, 1, ConfigPropList, {certfiles, ['cert.pem']}),
-    ConfigPropList2 = lists:keystore(ca_file, 1, ConfigPropList1, {ca_file, 'ca.pem'}),
-    ConfigPropList3 = lists:keystore(c2s_cafile, 1, ConfigPropList2, {c2s_cafile, 'ca.pem'}),
+    ConfigPropList1 = lists:keystore(<<"certfiles">>, 1, ConfigPropList, {<<"certfiles">>, [<<"cert.pem">>]}),
 
-    ok = file:write_file(ConfigPath, fast_yaml:encode(ConfigPropList3)),
+    ok = file:write_file(ConfigPath, fast_yaml:encode(ConfigPropList1)),
     ConfigPath.
 
 
