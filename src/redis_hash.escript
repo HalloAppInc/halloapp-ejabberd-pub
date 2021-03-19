@@ -3,7 +3,7 @@
 %%! -smp enable -sname redis_hash -mnesia debug verbose
 -mode(compile).
 
--include("../deps/eredis_cluster/include/eredis_cluster.hrl").
+-include("include/crc16_redis.hrl").
 
 %% API.
 -spec hash(string()) -> integer().

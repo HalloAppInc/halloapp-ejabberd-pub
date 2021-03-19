@@ -13,7 +13,6 @@
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 -include("groups.hrl").
--include("eredis_cluster.hrl").
 
 
 %% gen_mod callbacks
@@ -567,7 +566,7 @@ qp(Commands) -> ecredis:qp(ecredis_groups, Commands).
 
 -spec count_groups_key(Gid :: gid()) -> binary().
 count_groups_key(Gid) ->
-    Slot = eredis_cluster_hash:hash(binary_to_list(Gid)),
+    Slot = crc16_redis:hash(binary_to_list(Gid)),
     count_groups_key_slot(Slot).
 
 

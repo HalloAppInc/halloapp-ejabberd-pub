@@ -29,9 +29,9 @@
 
 %% TODO(murali@): Update to use this util function in other redis model files.
 eredis_hash(Key) when is_list(Key) ->
-    eredis_cluster_hash:hash(Key) rem ?NUM_SLOTS;
+    crc16_redis:hash(Key) rem ?NUM_SLOTS;
 eredis_hash(Key) when is_binary(Key) ->
-    eredis_cluster_hash:hash(binary_to_list(Key)) rem ?NUM_SLOTS.
+    crc16_redis:hash(binary_to_list(Key)) rem ?NUM_SLOTS.
 
 
 decode_ts(TsMsBinary) ->

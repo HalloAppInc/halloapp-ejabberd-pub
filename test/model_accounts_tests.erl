@@ -343,7 +343,7 @@ push_coment_test() ->
 
 count_test() ->
     setup(),
-    Slot = eredis_cluster_hash:hash(binary_to_list(?UID1)),
+    Slot = crc16_redis:hash(binary_to_list(?UID1)),
     ?assertEqual(0, model_accounts:count_accounts()),
     ?assertEqual(0, model_accounts:count_registrations()),
     ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),

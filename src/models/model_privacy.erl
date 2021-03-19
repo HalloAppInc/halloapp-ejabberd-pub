@@ -10,7 +10,6 @@
 -behavior(gen_mod).
 
 -include("logger.hrl").
--include("eredis_cluster.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 

@@ -12,9 +12,15 @@
 -include("crc16_redis.hrl").
 %% API
 -export([
+    hash/1,
     crc16/1
 ]).
 
+
+%% API.
+-spec hash(string()) -> integer().
+hash(Key) ->
+    crc16(Key) rem ?REDIS_CLUSTER_HASH_SLOTS.
 
 -spec crc16(string()) -> integer().
 crc16(Key) ->

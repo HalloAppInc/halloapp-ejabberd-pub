@@ -12,7 +12,6 @@
 
 -include("logger.hrl").
 -include("account.hrl").
--include("eredis_cluster.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 -include("time.hrl").
@@ -820,14 +819,14 @@ uids_to_delete_key(Slot) ->
     <<?TO_DELETE_UIDS_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
 
 count_registrations_key(Uid) ->
-    Slot = eredis_cluster_hash:hash(binary_to_list(Uid)),
+    Slot = crc16_redis:hash(binary_to_list(Uid)),
     count_registrations_key_slot(Slot).
 
 count_registrations_key_slot(Slot) ->
     redis_counts:count_key(Slot, ?COUNT_REGISTRATIONS_KEY).
 
 count_accounts_key(Uid) ->
-    Slot = eredis_cluster_hash:hash(binary_to_list(Uid)),
+    Slot = crc16_redis:hash(binary_to_list(Uid)),
     count_accounts_key_slot(Slot).
 
 count_accounts_key_slot(Slot) ->

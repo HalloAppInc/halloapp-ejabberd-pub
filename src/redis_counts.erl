@@ -9,7 +9,7 @@
 -module(redis_counts).
 -author("nikola").
 
--include("eredis_cluster.hrl").
+-include("crc16_redis.hrl").
 
 %% API
 -export([

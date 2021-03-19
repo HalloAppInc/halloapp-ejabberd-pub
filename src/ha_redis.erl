@@ -17,7 +17,7 @@
 ]).
 
 -include("logger.hrl").
--include("eredis_cluster.hrl").
+-include("crc16_redis.hrl").
 
 -define(REVERSE_REDIS_SLOT_MAP_FILE, "reverse_redis_slot_map.data").
 %% ets table slot -> key
