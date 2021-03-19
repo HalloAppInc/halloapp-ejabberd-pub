@@ -181,6 +181,8 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
     ],
     Options = [],
     FcmApiKey = get_fcm_apikey(),
+    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
+            PushMessageItem#push_message_item.push_info),
     % Dont send any payload to android in the push channel.
     Payload = #{
             <<"title">> => <<"PushMessage">>
