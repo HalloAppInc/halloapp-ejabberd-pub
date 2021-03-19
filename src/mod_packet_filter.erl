@@ -60,10 +60,11 @@ mod_options(_Host) ->
 -spec offline_message_version_filter(Acc :: allow | deny, Uid :: binary(), ClientVersion :: binary(),
         OfflineMessage :: offline_message()) -> allow | deny.
 offline_message_version_filter(allow, Uid, ClientVersion,
-        #offline_message{msg_id = MsgId, content_type = ContentType} = _OfflineMessage) ->
+        #offline_message{msg_id = MsgId, content_type = ContentType,
+        message = Message} = _OfflineMessage) ->
     Platform = util_ua:get_client_type(ClientVersion),
     PayloadType = util:to_atom(ContentType),
-    case check_version_rules(Platform, ClientVersion, PayloadType) of
+    case check_content_version_rules(Platform, ClientVersion, PayloadType, Message) of
         false ->
             ?INFO("Uid: ~s, Dropping message for msgid: ~s, content: ~s due to client version: ~s",
                     [Uid, MsgId, PayloadType, ClientVersion]),
@@ -92,6 +93,25 @@ push_version_filter(deny, _, _, _) -> deny.
 %%====================================================================
 %% internal functions.
 %%====================================================================
+
+-spec check_content_version_rules(Platform :: ios | android,
+        ClientVersion :: binary(), ContentType :: atom(), Message :: binary()) -> boolean().
+check_content_version_rules(Platform, ClientVersion, PayloadType, Message) ->
+    case enif_protobuf:decode(Message, pb_packet) of
+        {error, _} ->
+            ?ERROR("Failed decoding message: ~p", [Message]),
+            false;
+        %% remove these delete_notice filters in 2months - 05-18-2021.
+        #pb_packet{stanza = #pb_msg{payload = #pb_contact_list{type = delete_notice}}} ->
+            false;
+        #pb_packet{stanza = #pb_msg{payload = #pb_contact_list{contacts = [Contact]}}} ->
+            case Contact#pb_contact.uid of
+                <<>> -> false;
+                _ -> true
+            end;
+        _ ->
+            check_version_rules(Platform, ClientVersion, PayloadType)
+    end.
 
 
 %% Common Version rules for both push notifications and messages.
