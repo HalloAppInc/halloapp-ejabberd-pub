@@ -355,7 +355,7 @@ do_send_notifications(UserId, NewContactRecordList) ->
                 case sets:is_element(ContactId, InviterUidSet) of
                     true ->
                         ?INFO("Notify Inviter: ~p about user: ~p joining", [ContactId, UserId]),
-                        mod_invites:notify_inviter(UserId, UserPhone,
+                        notifications_util:send_contact_notification(UserId, UserPhone,
                                 ContactId, Role, normal, inviter_notice);
                     false ->
                         ?INFO("Notify Friend: ~p about user: ~p joining", [ContactId, UserId]),

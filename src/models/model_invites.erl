@@ -32,7 +32,6 @@
     get_inviter/1,
     get_inviters_list/1,
     get_sent_invites/1,
-    record_invite_notification/2,
     set_invites_left/2
 ]).
 
@@ -146,17 +145,6 @@ get_inviter(PhoneNum) ->
             {ok, Uid, Ts}
     end.
 
--spec record_invite_notification(PhoneNum :: binary(), Uid :: uid()) -> boolean().
-record_invite_notification(PhoneNum, Uid) ->
-    case is_invited_by(PhoneNum, Uid) of
-        false -> false;
-        true -> 
-            [{ok, Res}, _Result] = 
-                qp_phones([["SETNX", notification_sent_key(PhoneNum, Uid), util:now()],
-                    ["EXPIRE", notification_sent_key(PhoneNum, Uid), ?PUSH_EXPIRATION]]),
-            binary_to_integer(Res) == 1
-    end.
-
 
 -spec get_sent_invites(Uid ::binary()) -> {ok, [binary()]}.
 get_sent_invites(Uid) ->
@@ -185,10 +173,6 @@ ph_invited_by_key(Phone) ->
 -spec ph_invited_by_key_new(Phone :: phone()) -> binary().
 ph_invited_by_key_new(Phone) ->
     <<?INVITED_BY_KEY_NEW/binary, "{", Phone/binary, "}">>.
-
--spec notification_sent_key(Phone :: phone(), Uid :: uid()) -> binary().
-notification_sent_key(Phone, Uid) ->
-    <<?INVITE_NOTIFICATION_KEY/binary, "{", Phone/binary, "}", Uid/binary>>.
 
 -spec record_sent_invite(FromUid :: uid(), ToPhone :: phone(), NumInvsLeft :: binary()) -> ok.
 record_sent_invite(FromUid, ToPhone, NumInvsLeft) ->
