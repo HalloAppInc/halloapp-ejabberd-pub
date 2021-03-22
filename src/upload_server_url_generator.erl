@@ -14,11 +14,11 @@
 -include("logger.hrl").
 
 
--define(BACK_OFF_MS, 100).
--define(CONNECT_TIMEOUT_MS, 8000).
+-define(BACK_OFF_MS, 1000).
+-define(CONNECT_TIMEOUT_MS, 500).
 -define(CONTENT_TYPE, "application/json").
--define(HTTP_TIMEOUT_MS, 10000).
--define(MAX_TRIES, 8).
+-define(HTTP_TIMEOUT_MS, 500).
+-define(MAX_TRIES, 2).
 -define(UPLOAD_SERVER_HTTP_POOL_SIZE, 10).
 
 
@@ -26,17 +26,15 @@
     init/2,
     close/0,
     make_patch_url/2,
-    create_with_retry/3
+    make_patch_url_with_retry/3
 ]).
 
 
--spec init(UploadHost :: binary(), UploadPort :: integer()) -> ok.
-init(UploadHost, UploadPort) ->
-    ?INFO("init UploadHost: ~p, UploadPort: ~p", [UploadHost, UploadPort]),
-    ?assert(not is_boolean(UploadHost)),
-    UploadHostStr = binary_to_list(UploadHost),
-    ?assert(length(UploadHostStr) > 0),
-    persistent_term:put({?MODULE, upload_host}, UploadHostStr),
+-spec init(UploadHosts :: [string()], UploadPort :: integer()) -> ok.
+init(UploadHosts, UploadPort) ->
+    ?INFO("init UploadHosts: ~p, UploadPort: ~p", [UploadHosts, UploadPort]),
+    ?assert(length(UploadHosts) > 0),
+    persistent_term:put({?MODULE, upload_hosts}, UploadHosts),
 
     ?assert(UploadPort > 0),
     ?assert(UploadPort < 65000),
@@ -50,20 +48,31 @@ init(UploadHost, UploadPort) ->
 -spec close() -> ok.
 close() ->
     ?INFO("~p", [close]),
-    persistent_term:erase({?MODULE, upload_host}).
+    persistent_term:erase({?MODULE, upload_hosts}).
 
 
 %% Generates url for Http patch, returns {Key, PatchUrl} via the callback.
 -spec make_patch_url(integer(), any()) -> ok.
 make_patch_url(ContentLength, CBDetails) ->
-    create_with_retry(ContentLength, CBDetails).
+    make_patch_url_with_retry(ContentLength, 0, CBDetails).
 
 
--spec create_with_retry(ContentLength :: integer(), CBDetails :: term()) -> ok.
-create_with_retry(ContentLength, CBDetails) ->
-    create_with_retry(ContentLength, 0, CBDetails).
-create_with_retry(ContentLength, Retries, CBDetails) ->
-    Req = {url(), get_hdrs(ContentLength), ?CONTENT_TYPE, <<>>},
+-spec make_patch_url_with_retry(integer(), integer(), any()) -> ok.
+make_patch_url_with_retry(ContentLength, Retries, CBDetails) ->
+    UploadHosts = get_upload_hosts(),
+    create_with_retry(ContentLength, UploadHosts, Retries, CBDetails).
+
+
+-spec create_with_retry(ContentLength :: integer(), UploadHosts :: [string()],
+    Retries :: integer(), CBDetails :: term()) -> ok.
+create_with_retry(ContentLength, UploadHosts, Retries, CBDetails) ->
+    ToPick = p1_rand:uniform(1, length(UploadHosts)),
+    ?assert(length(UploadHosts) > 0),
+    PickedHost = lists:nth(ToPick, UploadHosts),
+    NewUploadHosts = UploadHosts -- [PickedHost],
+
+    ?INFO("Trying: ~p, retried: ~p times", [PickedHost, Retries]),
+    Req = {url(PickedHost), get_hdrs(ContentLength), ?CONTENT_TYPE, <<>>},
     case httpc:request(post, Req, get_http_opts(), []) of
         {ok, {{_, 201, _}, Headers, _}} ->
            %% Extract location headers.
@@ -71,17 +80,25 @@ create_with_retry(ContentLength, Retries, CBDetails) ->
            [{_, LocationUrl}] = LocationHdr,
            process_location_url({ok, LocationUrl}, CBDetails);
         %% Retry on http errors.
-        {_, Error}
-           when Retries < ?MAX_TRIES ->
-            BackOff = round(math:pow(2, Retries)) * ?BACK_OFF_MS,
-            ?WARNING("~pth request to: ~p, error: ~p, backoff: ~p",
-                    [Retries, get_upload_host(), Error, BackOff]),
-            timer:apply_after(round(math:pow(2, Retries)) * ?BACK_OFF_MS,
-                    ?MODULE, create_with_retry, [ContentLength, Retries+1, CBDetails]);
         {_, Error} ->
-            ?ERROR("Giving up on: ~p, tried: ~p times, error: ~p", [get_upload_host(), Retries, Error]),
-            process_location_url({error, ""}, CBDetails)
-    end.
+            case NewUploadHosts of
+                [] ->
+                    case Retries < ?MAX_TRIES of
+                        true ->
+                            BackOff = round(math:pow(2, Retries)) * ?BACK_OFF_MS,
+                            ?WARNING("~pth retry, last error: ~p, backoff: ~p",
+                                [Retries, Error, BackOff]),
+                            timer:apply_after(round(math:pow(2, Retries)) * ?BACK_OFF_MS,
+                                ?MODULE, make_patch_url_with_retry,
+                                [ContentLength, Retries+1, CBDetails]);
+                        false ->
+                            ?ERROR("Unable to create upload server url after ~p retries", [?MAX_TRIES]),
+                            process_location_url({error, ""}, CBDetails)
+                    end;
+                _ ->
+                    create_with_retry(ContentLength, NewUploadHosts, Retries, CBDetails)
+            end
+  end.
 
 
 %%====================================================================
@@ -97,12 +114,12 @@ process_location_url(Location, CBDetails) ->
     end.
 
 
-url() ->
-    lists:concat([get_protocol() , get_upload_host(), ":",
+url(UploadHost) ->
+    lists:concat([get_protocol() , UploadHost, ":",
             integer_to_list(get_upload_port()), get_upload_path()]).
 
-get_upload_host() ->
-    persistent_term:get({?MODULE, upload_host}).
+get_upload_hosts() ->
+    persistent_term:get({?MODULE, upload_hosts}).
 
 get_upload_port() ->
     persistent_term:get({?MODULE, upload_port}).

@@ -208,8 +208,8 @@ modules:
     ## Cloudfront based distribution.
     ## Ref: https://aws.amazon.com/premiumsupport/knowledge-center/cloudfront-https-requests-s3/
     aws_media_get_host: u-cdn.halloapp.net
-    ## Resumable upload server internal host name.
-    upload_host: u1.ha
+    ## Resumable upload server internal host names.
+    upload_hosts: ["u2.ha","u3.ha"]
     ## Resumable upload server port.
     upload_port: 1080
   mod_receipts: {}
