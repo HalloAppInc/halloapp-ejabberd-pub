@@ -10,5 +10,5 @@
 -define(NUM_INACTIVITY_DAYS, 185).
 
 %% We are ok with deletion of 1% of inactive accounts every week.
--define(ACCEPTABLE_FRACTION, 0.01).
+-define(ACCEPTABLE_FRACTION, 0.015).
 
