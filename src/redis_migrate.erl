@@ -404,6 +404,32 @@ q(Client, Command) -> util_redis:q(Client, Command).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Find number of users with no contacts                      %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+find_empty_contact_list_accounts(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            {ok, ContactList} = model_contacts:get_contacts(Uid),
+            {ok, Version} = model_accounts:get_client_version(Uid),
+            case ContactList of
+                [] ->
+                    ?INFO("Uid: ~p, version: ~p has empty contact list",
+                        [Uid, Version]), % can be undefined version
+                    user_details(Uid); % prints details
+                _ ->
+                    ?INFO("Uid: ~p, version: ~p has contact list of length ~p",
+                        [Uid, Version, length(ContactList)]) % can be undefined version
+            end,
+            ok;
+        _ -> ok
+    end,
+    State.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                         Compute user counts by version                            %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
