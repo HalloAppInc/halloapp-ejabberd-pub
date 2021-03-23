@@ -30,15 +30,20 @@
     code_change/3]).
 
 -define(SERVER, ?MODULE).
+-define(STATS_TIME, 10000). % stats inteval 10s
 
 -record(state, {
     num_bots = 0 :: integer(),
     num_farms = 0 :: integer(),
     farms = [] :: list(pid()),
-    conf = #{} :: map()
+    conf = #{} :: map(),
+    stats = #{} :: map(),
+    tref_stats :: timer:tref()
 }).
 
 -define(CONF, #{
+    http_host => "tf-lb-stress-http-1687168669.us-east-2.elb.amazonaws.com",
+    http_port => "80",
     % action_NAME => {Frequency, ActionArguments}
     action_register => {0.2, {}},
     % TODO: add more actions here
@@ -85,7 +90,8 @@ get_conf() ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore).
 init([]) ->
-    {ok, #state{}}.
+    {ok, Tref} = timer:send_interval(?STATS_TIME, self(), {report_stats}),
+    {ok, #state{tref_stats = Tref}}.
 
 %% @private
 %% @doc Handling call messages
@@ -139,6 +145,18 @@ handle_cast(_Request, State = #state{}) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: #state{}}).
+handle_info({farm_stats, Stats}, State = #state{stats = AllStats}) ->
+    AllStats2 = maps:fold(
+        fun (K, V, Acc) ->
+            maps:update_with(K, fun (V2) -> V2 + V end, V, Acc)
+        end,
+        AllStats,
+        Stats
+    ),
+    {noreply, State#state{stats = AllStats2}};
+handle_info({report_stats}, State = #state{stats = AllStats}) ->
+    ?INFO("TOTAL stats: ~p", [AllStats]),
+    {noreply, State#state{stats = #{}}};
 handle_info(_Info, State = #state{}) ->
     {noreply, State}.
 
@@ -149,7 +167,7 @@ handle_info(_Info, State = #state{}) ->
 %% with Reason. The return value is ignored.
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
         State :: #state{}) -> term()).
-terminate(_Reason, _State = #state{farms = Farms}) ->
+terminate(_Reason, _State = #state{farms = Farms, tref_stats = Tref}) ->
     ?INFO("terminating"),
     lists:map(
         fun(Pid) ->
@@ -157,6 +175,7 @@ terminate(_Reason, _State = #state{farms = Farms}) ->
             ha_bot_farm:stop(Pid)
         end,
         Farms),
+    timer:cancel(Tref),
     ok.
 
 %% @private
@@ -187,7 +206,7 @@ start_farms(NumFarms, BotsPerFarm, Nodes) ->
             Name = list_to_atom("ha_bot_farm_" ++ integer_to_list(Index)),
             ?INFO("Starting farm ~p", [Name]),
             % TODO: use async_call for faster startup
-            {ok, Pid} = rpc:call(Node,  ha_bot_farm, start_link, [Name, BotsPerFarm]),
+            {ok, Pid} = rpc:call(Node,  ha_bot_farm, start_link, [Name, BotsPerFarm, self()]),
             ?INFO("Farm ~p started ~p", [Name, Pid]),
             Pid
         end,

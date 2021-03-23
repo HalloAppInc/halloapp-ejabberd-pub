@@ -14,6 +14,7 @@
 
 -define(DEFAULT_UA, "HalloApp/Android.130").
 -define(DEFAULT_HOST, "localhost").
+-define(DEFAULT_PORT, "5580").
 
 %% API
 -export([
@@ -40,7 +41,8 @@ request_sms(Phone, Options) ->
     UA = maps:get(user_agent, Options, ?DEFAULT_UA),
     Headers = [{"user-agent", UA}],
     Host = maps:get(host, Options, ?DEFAULT_HOST),
-    Request = {"http://" ++ Host ++ ":5580/api/registration/request_sms", Headers, "application/json", Body},
+    Port = maps:get(port, Options, ?DEFAULT_PORT),
+    Request = {"http://" ++ Host ++ ":" ++ Port ++"/api/registration/request_sms", Headers, "application/json", Body},
     {ok, Response} = httpc:request(post, Request, [{timeout, 30000}], []),
     case Response of
         {{_, 200, _}, _ResHeaders, ResponseBody} ->
@@ -70,7 +72,8 @@ register(Phone, Code, Name, Options) ->
     UA = maps:get(user_agent, Options, ?DEFAULT_UA),
     Headers = [{"user-agent", UA}],
     Host = maps:get(host, Options, ?DEFAULT_HOST),
-    Request = {"http://" ++ Host ++ ":5580/api/registration/register", Headers, "application/json", Body},
+    Port = maps:get(port, Options, ?DEFAULT_PORT),
+    Request = {"http://" ++ Host ++ ":" ++ Port ++ "/api/registration/register", Headers, "application/json", Body},
     {ok, Response} = httpc:request(post, Request, [{timeout, 30000}], []),
     case Response of
         {{_, 200, _}, _ResHeaders, ResponseBody} ->

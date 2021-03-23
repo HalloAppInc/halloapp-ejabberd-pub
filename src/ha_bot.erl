@@ -41,9 +41,11 @@
 
 -define(SERVER, ?MODULE).
 -define(TICK_TIME, 1000). % tick inteval 1s
+-define(STATS_TIME, 10000). % stats inteval 10s
 
 -record(state, {
     bot_name :: atom(),
+    parent_pid :: pid(),
     phone :: phone(),
     uid :: uid(),
     password :: binary(),
@@ -51,6 +53,8 @@
     c :: pid(),  % pid of the ha_client
     conf = #{} :: map(),
     tref :: timer:tref(),
+    tref_stats :: timer:tref(),
+    stats = #{} :: map(),
 
     % Not used yet, The bot will store some state below
     contacts_list = #{} :: map(),
@@ -67,7 +71,7 @@
 -spec start_link(Name :: atom()) ->
         {ok, Pid :: pid()} | ignore | {error, Reason :: term()}.
 start_link(Name) ->
-    gen_server:start_link({local, Name}, ?MODULE, [Name], []).
+    gen_server:start_link({local, Name}, ?MODULE, [Name, self()], []).
 
 -spec stop(Name :: term()) -> ok.
 stop(Pid) ->
@@ -108,10 +112,11 @@ disconnect(Pid) ->
 -spec(init(Args :: term()) ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore).
-init([Name]) ->
+init([Name, ParentPid]) ->
     ?INFO("Starting bot: ~p", [Name]),
     {ok, Tref} = timer:send_interval(?TICK_TIME, self(), {tick}),
-    {ok, #state{bot_name = Name, tref = Tref}}.
+    {ok, TrefStats} = timer:send_interval(?STATS_TIME, self(), {send_stats}),
+    {ok, #state{bot_name = Name, parent_pid = ParentPid, tref = Tref, tref_stats = TrefStats}}.
 
 %% @private
 %% @doc Handling call messages
@@ -156,7 +161,7 @@ handle_call(_Request, _From, State = #state{}) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: #state{}}).
-handle_cast({stop}, State = #state{}) ->
+handle_cast({stop}, State) ->
     {stop, normal, State};
 handle_cast(_Request, State = #state{}) ->
     {noreply, State}.
@@ -177,6 +182,9 @@ handle_info({tick}, State = #state{bot_name = Name}) ->
             ?ERROR(lager:pr_stacktrace(S, {C, R})),
             {noreply, State}
     end;
+handle_info({send_stats}, State = #state{bot_name = Name, parent_pid = ParentPid, stats = Stats}) ->
+    ParentPid ! {bot_stats, Stats},
+    {noreply, State#state{stats = #{}}};
 handle_info(_Info, State = #state{}) ->
     {noreply, State}.
 
@@ -187,8 +195,10 @@ handle_info(_Info, State = #state{}) ->
 %% with Reason. The return value is ignored.
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
         State :: #state{}) -> term()).
-terminate(_Reason, _State = #state{c = C, bot_name = BotName}) ->
+terminate(_Reason, _State = #state{c = C, bot_name = BotName, tref = Tref, tref_stats = TrefStats}) ->
     ?INFO("terminating bot ~p", [BotName]),
+    timer:cancel(Tref),
+    timer:cancel(TrefStats),
     case C of
         undefined -> ok;
         _ -> ha_client:stop(C)
@@ -208,11 +218,15 @@ code_change(_OldVsn, State = #state{}, _Extra) ->
 %%%===================================================================
 
 
-do_register(Phone, State) ->
+do_register(Phone, #state{conf = Conf} = State) ->
     ?assert(util:is_test_number(Phone)),
-    {ok, _Res} = registration_client:request_sms(Phone),
+    Options = #{
+        host => maps:get(http_host, Conf),
+        port => maps:get(http_port, Conf)
+    },
+    {ok, _Res} = registration_client:request_sms(Phone, Options),
     Name = gen_random_name(),
-    {ok, Uid, Password, _Resp} = registration_client:register(Phone, <<"111111">>, Name),
+    {ok, Uid, Password, _Resp} = registration_client:register(Phone, <<"111111">>, Name, Options),
     State2 = State#state{
         phone = Phone,
         uid = Uid,
@@ -287,5 +301,11 @@ action_register({_, #state{bot_name = Name, conf = Conf} = State}) ->
     Phone = generate_phone(PhonePattern),
     ?DEBUG("~p doing register Phone: ~p", [Name, Phone]),
     State2 = do_register(Phone, State),
-    State2.
+    State3 = count(State2, "register"),
+    State3.
+
+
+count(State = #state{stats = Stats}, Action) ->
+    Stats2 = maps:update_with(Action, fun (V) -> V + 1 end, 1, Stats),
+    State#state{stats = Stats2}.
 

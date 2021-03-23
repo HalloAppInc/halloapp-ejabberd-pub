@@ -26,6 +26,7 @@
 -define(ENV_PROD, "prod").
 -define(ENV_TEST, "test").
 -define(ENV_GITHUB, "github").
+-define(ENV_STRESS, "stress").
 -define(NOISE_PROD_SECRET_NAME, <<"noise_secret_prod">>).
 -define(NOISE_DEV_SECRET_NAME, <<"noise_secret_dev">>).
 
@@ -41,6 +42,7 @@ get_hallo_env() ->
         ?ENV_PROD -> prod;
         ?ENV_TEST -> test;
         ?ENV_GITHUB -> github;
+        ?ENV_STRESS -> stress;
         _Else -> prod
         %% TODO: %% if nothing is present then update to use test or github.
     end.
@@ -51,6 +53,7 @@ is_testing_env() ->
     case get_hallo_env() of
         test -> true;
         github -> true;
+        stress -> true;
         _ -> false
     end.
 
@@ -81,6 +84,7 @@ get_service(Name) ->
         {localhost, Name} -> {Name, "127.0.0.1", 30001};
         {test, Name} -> {Name, "127.0.0.1", 30001};
         {github, Name} -> {Name, "127.0.0.1", 30001};
+        {stress, Name} -> {Name, "redis-stress1.emlvii.clustercfg.use2.cache.amazonaws.com", 6379};
         {prod, redis_friends} -> {redis_friends, "redis-accounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_accounts} -> {redis_accounts, "redis-accounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_contacts} -> {redis_contacts, "redis-contacts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
@@ -100,6 +104,8 @@ get_default_log_level() ->
         localhost -> 5;
         test -> 5;
         prod -> 4;
-        github -> 4
+        github -> 4;
+        stress -> 4;
+        _ -> 4
     end.
 

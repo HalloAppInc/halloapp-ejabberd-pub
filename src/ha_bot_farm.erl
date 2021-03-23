@@ -12,7 +12,7 @@
 -include("logger.hrl").
 
 -export([
-    start_link/2,
+    start_link/3,
     start_link/0,
     stop/1,
     set_bots/2,
@@ -23,23 +23,27 @@
     code_change/3]).
 
 -define(SERVER, ?MODULE).
+-define(STATS_TIME, 1000). % stats inteval 1s
 
 -record(state, {
     name :: term(),
     num_bots = 0 :: integer(),
     bots = [] :: list(),
-    conf = #{} :: map()
+    conf = #{} :: map(),
+    stats = #{} :: map(),
+    parent_pid :: pid(),
+    tref_stats :: timer:tref()
 }).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
 
-start_link(Name, NumBots) ->
-    gen_server:start_link({global, Name}, ?MODULE, [Name, NumBots], []).
+start_link(Name, NumBots, ParentPid) ->
+    gen_server:start_link({global, Name}, ?MODULE, [Name, NumBots, ParentPid], []).
 
 start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [?SERVER, 0], []).
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [?SERVER, 0, undefined], []).
 
 stop(Pid) ->
     gen_server:stop(Pid, normal, 30000).
@@ -50,10 +54,13 @@ set_bots(Pid, NumBots) ->
 set_conf(Pid, Conf) ->
     gen_server:call(Pid, {set_conf, Conf}, 30000).
 
-init([Name, NumBots]) ->
+init([Name, NumBots, ParentPid]) ->
     ?INFO("Starting Farm: ~p NumBots: ~p", [Name, NumBots]),
+    {ok, TrefStats} = timer:send_interval(?STATS_TIME, self(), {send_stats}),
     State = #state{
-        name = Name
+        name = Name,
+        parent_pid = ParentPid,
+        tref_stats = TrefStats
     },
     State2 = start_bots_to(NumBots, State),
     {ok, State2}.
@@ -75,13 +82,27 @@ handle_call(_Request, _From, State = #state{}) ->
 handle_cast(_Request, State = #state{}) ->
     {noreply, State}.
 
+handle_info({bot_stats, Stats}, State = #state{stats = AllStats}) ->
+    AllStats2 = maps:fold(
+        fun (K, V, Acc) ->
+            maps:update_with(K, fun (V2) -> V2 + V end, V, Acc)
+        end,
+        AllStats,
+        Stats
+    ),
+    {noreply, State#state{stats = AllStats2}};
+handle_info({send_stats}, State = #state{stats = AllStats, parent_pid = ParentPid}) ->
+    ParentPid ! {farm_stats, AllStats},
+    {noreply, State#state{stats = #{}}};
 handle_info(_Info, State = #state{}) ->
+    ?INFO("stuff here ~p", [_Info]),
     {noreply, State}.
 
-terminate(_Reason, State = #state{bots = Bots, name = Name}) ->
-    ?INFO("terminating farm ~p", [Name]),
+terminate(_Reason, State = #state{bots = Bots, name = Name, tref_stats = Tref}) ->
+    ?INFO("terminating farm ~p with ~p bots", [Name, length(Bots)]),
     % stop all the bots
     scale_bots(0, State),
+    timer:cancel(Tref),
     ok.
 
 code_change(_OldVsn, State = #state{}, _Extra) ->
