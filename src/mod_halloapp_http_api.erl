@@ -44,11 +44,12 @@ process([<<"registration">>, <<"request_sms">>],
         ClientIP = util_http:get_ip(IP, Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         Phone = maps:get(<<"phone">>, Payload),
-        ?INFO("payload ~p phone:~p, ua:~p ip:~s ~p",
-            [Payload, Phone, UserAgent, ClientIP, util:is_test_number(Phone)]),
+        GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
+        ?INFO("phone:~p, ua:~p ip:~s payload:~p ",
+            [Phone, UserAgent, ClientIP, Payload]),
 
         check_ua(UserAgent),
-        check_invited(Phone, UserAgent, ClientIP),
+        check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
         request_sms(Phone, UserAgent),
         {200, ?HEADER(?CT_JSON),
             jiffy:encode({[
@@ -344,13 +345,15 @@ check_name(_) ->
     error(invalid_name).
 
 
--spec check_invited(PhoneNum :: binary(), UserAgent :: binary(), IP :: string()) -> ok | erlang:error().
-check_invited(PhoneNum, UserAgent, IP) ->
+-spec check_invited(PhoneNum :: binary(), UserAgent :: binary(), IP :: string(),
+        GroupInviteToken :: binary()) -> ok | erlang:error().
+check_invited(PhoneNum, UserAgent, IP, GroupInviteToken) ->
     Invited = model_invites:is_invited(PhoneNum),
     IsTestNumber = util:is_test_number(PhoneNum),
+    IsInvitedToGroup = is_group_invite_valid(GroupInviteToken),
     IsAllowedVersion = is_version_invite_opened(UserAgent),
     IsIPAllowed = is_ip_invite_opened(IP),
-    case Invited orelse IsTestNumber orelse IsAllowedVersion orelse IsIPAllowed of
+    case Invited orelse IsTestNumber orelse IsInvitedToGroup orelse IsAllowedVersion orelse IsIPAllowed of
         true -> ok;
         false ->
             case model_phone:get_uid(PhoneNum) of
@@ -391,6 +394,15 @@ is_version_invite_opened(UserAgent) ->
 %%        <<"HalloApp/iOS1.0.79", _Rest/binary>> -> true;
 %%        <<"HalloApp/79", _Rest/binary>> -> true;
         _Any -> false
+    end.
+
+-spec is_group_invite_valid(GroupInviteToken :: maybe(binary())) -> boolean().
+is_group_invite_valid(undefined) ->
+    false;
+is_group_invite_valid(GroupInviteToken) ->
+    case model_groups:get_invite_link_gid(GroupInviteToken) of
+        undefined -> false;
+        _Gid -> true
     end.
 
 -spec is_ip_invite_opened(IP :: list()) -> boolean().
