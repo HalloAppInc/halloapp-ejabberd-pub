@@ -19,7 +19,6 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("presence_subs.hrl").
 
@@ -98,7 +97,7 @@ presence_unsubscribe_all(Uid) ->
 
 
 -spec presence_subs_hook(User :: binary(), Server :: binary(),
-        Presence :: presence()) -> {ok, any()} | {error, any()}.
+        Presence :: pb_presence()) -> {ok, any()} | {error, any()}.
 presence_subs_hook(User, Server, #pb_presence{uid = Uid, to_uid = ToUid, type = Type}) ->
     FinalToUid = case {Uid, ToUid} of
         {_, <<>>} ->

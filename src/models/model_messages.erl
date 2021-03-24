@@ -10,7 +10,6 @@
 -behavior(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("offline_message.hrl").
 -include("redis_keys.hrl").
@@ -80,7 +79,7 @@ mod_options(_Host) ->
 -define(FIELD_THREAD_ID, <<"thid">>).
 -define(FIELD_SENT, <<"snt">>).
 
--spec store_message(Message :: message()) -> ok | {error, any()}.
+-spec store_message(Message :: pb_msg()) -> ok | {error, any()}.
 store_message(#pb_msg{} = Message) ->
     ToUid = Message#pb_msg.to_uid,
     FromUid = Message#pb_msg.from_uid,
@@ -194,7 +193,7 @@ count_user_messages(Uid) ->
     {ok, binary_to_integer(Res)}.
 
 
--spec get_all_user_messages(Uid :: uid()) -> {ok, [message()]} | {error, any()}.
+-spec get_all_user_messages(Uid :: uid()) -> {ok, [maybe(offline_message())]} | {error, any()}.
 get_all_user_messages(Uid) ->
     {ok, MsgIds} = q(["ZRANGEBYLEX", message_queue_key(Uid), "-", "+"]),
     Messages = get_all_user_messages(Uid, MsgIds),
@@ -202,7 +201,7 @@ get_all_user_messages(Uid) ->
 
 
 -spec get_user_messages(Uid :: uid(), MinOrderId :: integer(),
-        Limit :: maybe(integer())) -> {ok, [message()]} | {error, any()}.
+        Limit :: maybe(integer())) -> {ok, [maybe(offline_message())]} | {error, any()}.
 get_user_messages(Uid, MinOrderId, Limit) ->
     Part1 = ["ZRANGEBYSCORE", message_queue_key(Uid), MinOrderId, "+inf"],
     Part2 = case Limit of

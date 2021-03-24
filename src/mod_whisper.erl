@@ -20,7 +20,6 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("whisper.hrl").
 -include("ha_types.hrl").
 -include("packets.hrl").

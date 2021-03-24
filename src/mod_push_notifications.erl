@@ -10,7 +10,6 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("account.hrl").
 -include ("push_message.hrl").

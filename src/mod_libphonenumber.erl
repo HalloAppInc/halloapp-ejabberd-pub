@@ -10,7 +10,6 @@
 
 -include("phone_number.hrl").
 -include("logger.hrl").
--include("xmpp.hrl").
 
 -define(US_REGION_ID, <<"US">>).
 

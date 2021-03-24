@@ -17,7 +17,6 @@
 -endif.
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("ejabberd_http.hrl").
 -include("util_http.hrl").
 -include("account.hrl").

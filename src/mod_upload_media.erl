@@ -14,7 +14,6 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 
 %% gen_mod callbacks.
@@ -111,7 +110,7 @@ generate_s3_urls() ->
     {GetUrl, PutUrl}.
 
 
--spec process_patch_url_result(IQ :: iq(), PatchResult :: {ok, binary()} | error) -> ok.
+-spec process_patch_url_result(IQ :: pb_iq(), PatchResult :: {ok, binary()} | error) -> ok.
 process_patch_url_result(IQ, PatchResult) ->
     MediaUrl =
       case PatchResult of
@@ -129,7 +128,7 @@ process_patch_url_result(IQ, PatchResult) ->
     ejabberd_router:route(IQResult).
     
 
--spec generate_resumable_urls(Size :: binary(), IQ :: iq()) -> ok.
+-spec generate_resumable_urls(Size :: binary(), IQ :: pb_iq()) -> ok.
 generate_resumable_urls(Size, IQ) ->
     %% Generate the patch url. Send in details of what needs to be called when
     %% patch url is available.

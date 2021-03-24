@@ -48,7 +48,6 @@
 -endif.
 
 
--include("xmpp.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
 -include("ha_types.hrl").
@@ -79,8 +78,10 @@
     mode => active | passive,
     _ => _
 }.
+
+-type stanza() :: pb_iq() | pb_msg() | pb_ack() | pb_presence() | pb_chat_state().
 -type stream_state() :: accepting | wait_for_authentication | established | disconnected.
--type stop_reason() :: {stream, reset | {in | out, stream_error()}} |
+-type stop_reason() :: {stream, reset | {in | out, pb_ha_error()}} |
                {tls, inet:posix() | atom() | binary()} |
                {socket, inet:posix() | atom()} |
                internal_failure.
@@ -96,14 +97,14 @@
 -callback code_change(term(), state(), term()) -> {ok, state()} | {error, term()}.
 -callback handle_stream_established(state()) -> state().
 -callback handle_stream_end(stop_reason(), state()) -> state().
--callback handle_authenticated_packet(xmpp_element(), state()) -> state().
+-callback handle_authenticated_packet(stanza(), state()) -> state().
 -callback handle_auth_success(binary(), binary(), module(), state()) -> state().
 -callback handle_auth_failure(binary(), binary(), binary(), state()) -> state().
 -callback handle_send(binary(), pb_packet(), ok | {error, inet:posix()}, state()) -> state().
 -callback handle_recv(binary(), pb_packet() | {error, term()}, state()) -> state().
 -callback handle_timeout(state()) -> state().
 -callback check_password_fun(xmpp_sasl:mechanism(), state()) -> fun().
--callback bind(binary(), state()) -> {ok, state()} | {error, stanza_error(), state()}.
+-callback bind(binary(), state()) -> {ok, state()} | {error, any(), state()}.
 -callback get_client_version_ttl(binary(), state()) -> integer().
 -callback tls_options(state()) -> [proplists:property()].
 -callback noise_options(state()) -> [proplists:property()].
@@ -164,8 +165,8 @@ accept(Pid) ->
     cast(Pid, accept).
 
 
--spec send(pid(), xmpp_element()) -> ok;
-        (state(), xmpp_element()) -> state().
+-spec send(pid(), stanza()) -> ok;
+        (state(), stanza()) -> state().
 send(Pid, Pkt) when is_pid(Pid) ->
     cast(Pid, {send, Pkt});
 send(#{owner := Owner} = State, Pkt) when Owner == self() ->
@@ -228,10 +229,6 @@ format_error({socket, Reason}) ->
     format("Connection failed: ~s", [format_inet_error(Reason)]);
 format_error({stream, reset}) ->
     <<"Stream reset by peer">>;
-format_error({stream, {in, #stream_error{} = Err}}) ->
-    format("Stream closed by peer: ~s", [xmpp:format_stream_error(Err)]);
-format_error({stream, {out, #stream_error{} = Err}}) ->
-    format("Stream closed by local host: ~s", [xmpp:format_stream_error(Err)]);
 format_error({tls, Reason}) ->
     format("TLS failed: ~s", [format_tls_error(Reason)]);
 format_error(internal_failure) ->
@@ -489,7 +486,6 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
             end_of_queue_msg_id => undefined,
             crypto => Crypto,
             codec_options => [ignore_els],
-            xmlns => ?NS_CLIENT,
             lang => <<"">>,
             user => <<"">>,
             server => <<"">>,
@@ -554,12 +550,13 @@ process_stream_end(Reason, State) ->
     end.
 
 
--spec process_element(xmpp_element(), state()) -> state().
+-spec process_element(stanza(), state()) -> state().
 process_element(Pkt, #{stream_state := StateName} = State) ->
     FinalState = case Pkt of
         #pb_auth_request{} when StateName == wait_for_authentication ->
             process_auth_request(Pkt, State);
-        #stream_error{} ->
+        #pb_ha_error{} ->
+            ?ERROR("should-never-happen, error stanza from clients"),
             process_stream_end({stream, {in, Pkt}}, State);
         _ when StateName == wait_for_authentication ->
             process_stream_end(un_authenticated, State);
@@ -569,7 +566,7 @@ process_element(Pkt, #{stream_state := StateName} = State) ->
     FinalState.
 
 
--spec process_authenticated_packet(xmpp_element(), state()) -> state().
+-spec process_authenticated_packet(stanza(), state()) -> state().
 process_authenticated_packet(Pkt, State) ->
     case set_from_to(Pkt, State) of
         {ok, Pkt1} ->
@@ -699,8 +696,7 @@ check_password_fun(Mech, State) ->
     end.
 
 
--spec set_from_to(xmpp_element(), state()) -> {ok, xmpp_element()} |
-                          {error, stream_error()}.
+-spec set_from_to(stanza(), state()) -> {ok, stanza()}.
 %% TODO(murali@): cleanup these functions.
 set_from_to(Pkt, #{user := U} = _State) ->
     case pb:is_pb_packet(Pkt) of
@@ -711,7 +707,7 @@ set_from_to(Pkt, #{user := U} = _State) ->
     end.
 
 
--spec send_pkt(state(), xmpp_element()) -> state().
+-spec send_pkt(state(), stanza()) -> state().
 send_pkt(State, PktToSend) ->
     Pkt = case PktToSend of
         #pb_auth_result{} -> PktToSend;
@@ -741,7 +737,7 @@ send_pkt(State, PktToSend) ->
         catch _:{?MODULE, undef} -> State1
     end,
     case Result of
-        _ when is_record(Pkt, stream_error) ->
+        _ when is_record(PktToSend, pb_ha_error) ->
             process_stream_end({stream, {out, Pkt}}, State2);
         ok ->
             State2;
@@ -759,7 +755,7 @@ send_pkt(State, PktToSend) ->
 
 
 %% TODO(murali@): maybe switch error to be an atom!
--spec send_error(state(), xmpp_element() | xmlel(), atom()) -> state().
+-spec send_error(state(), stanza(), atom()) -> state().
 send_error(State, _Pkt, Err) ->
     send_error(State, Err).
 

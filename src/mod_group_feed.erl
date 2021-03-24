@@ -9,7 +9,6 @@
 -behaviour(gen_mod).
 -author('murali').
 
--include("xmpp.hrl").
 -include("logger.hrl").
 -include("feed.hrl").
 -include("groups.hrl").
@@ -308,7 +307,7 @@ broadcast_group_feed_event(Uid, AudienceSet, PushSet, PBGroupFeed) ->
     ok.
 
 
--spec get_message_type(FeedStanza :: feed_st(), PushSet :: set(),
+-spec get_message_type(FeedStanza :: pb_group_feed_item(), PushSet :: set(),
         ToUid :: uid()) -> headline | normal.
 get_message_type(#pb_group_feed_item{action = publish, item = #pb_post{}}, _, _) -> headline;
 get_message_type(#pb_group_feed_item{action = publish, item = #pb_comment{}}, PushSet, Uid) ->

@@ -14,7 +14,6 @@
 
 -include("ha_types.hrl").
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("offline_message.hrl").
 -include("ejabberd_sm.hrl").
@@ -138,7 +137,7 @@ handle_info(Request, State) ->
 %%      API and hooks
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec user_send_ack(State :: state(), Packet :: ack()) -> state().
+-spec user_send_ack(State :: state(), Packet :: pb_ack()) -> state().
 user_send_ack(State, #pb_ack{id = MsgId, from_uid = Uid} = Ack) ->
     ?INFO("Uid: ~s, Ack_MsgId: ~s", [Uid, MsgId]),
 
@@ -152,7 +151,7 @@ user_send_ack(State, #pb_ack{id = MsgId, from_uid = Uid} = Ack) ->
     end.
 
 
--spec accept_ack(State :: state(), Packet :: ack()) -> state().
+-spec accept_ack(State :: state(), Packet :: pb_ack()) -> state().
 accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := PendingAcks} = OfflineQueueParams,
         offline_queue_cleared := IsOfflineQueueCleared} = State,
         #pb_ack{id = MsgId, from_uid = Uid} = Ack) ->
@@ -393,7 +392,7 @@ send_offline_messages(#{user := Uid, server := Server,
     end.
 
 
--spec do_send_offline_messages(Uid :: binary(), MsgsToSend :: [message()]) -> ok.
+-spec do_send_offline_messages(Uid :: binary(), MsgsToSend :: [pb_msg()]) -> ok.
 do_send_offline_messages(Uid, MsgsToSend) ->
     lists:foreach(fun route_offline_message/1, MsgsToSend),
     mark_sent_and_increment_retry_counts(Uid, MsgsToSend),
@@ -452,7 +451,7 @@ route_offline_message(#offline_message{
     ok.
 
 
--spec adjust_and_send_message(Message :: pb_msg() | message(), RetryCount :: integer()) -> ok.
+-spec adjust_and_send_message(Message :: pb_msg(), RetryCount :: integer()) -> ok.
 adjust_and_send_message(#pb_msg{} = Message, RetryCount) ->
     Message1 = Message#pb_msg{retry_count = RetryCount},
     ejabberd_router:route(Message1),
@@ -531,7 +530,7 @@ compute_new_params(RetryCount, Window, PendingAcks, TotalNumOfMessages) ->
     {NewWindow, round(NumMsgToSend)}.
 
 
--spec setup_push_timer(Message :: message()) -> ok.
+-spec setup_push_timer(Message :: pb_msg()) -> ok.
 setup_push_timer(Message) ->
     gen_server:cast(?PROC(), {setup_push_timer, Message}).
 

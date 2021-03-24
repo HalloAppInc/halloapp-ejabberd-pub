@@ -49,7 +49,6 @@
 
 -include("ejabberd_commands.hrl").
 -include("ejabberd_sm.hrl").
--include("xmpp.hrl").
 
 %%%
 %%% gen_mod

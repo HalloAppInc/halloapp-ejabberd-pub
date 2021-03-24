@@ -10,7 +10,6 @@
 -author('murali').
 -behaviour(gen_mod).
 
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("logger.hrl").
 -include("account.hrl").
@@ -88,7 +87,7 @@ set_sender_info(#pb_msg{id = MsgId, from_uid = FromUid} = Message) ->
     set_sender_info(Message, SenderAccount#account.name, SenderAccount#account.client_version).
 
 
--spec set_sender_info(Message :: pb_msg(), Name :: binary(), ClientVersion :: binary()) -> message().
+-spec set_sender_info(Message :: pb_msg(), Name :: binary(), ClientVersion :: binary()) -> pb_msg().
 set_sender_info(#pb_msg{payload = #pb_chat_stanza{} = Chat} = Message, Name, ClientVersion) ->
     Chat1 = Chat#pb_chat_stanza{sender_name = Name, sender_client_version = ClientVersion},
     Message#pb_msg{payload = Chat1};

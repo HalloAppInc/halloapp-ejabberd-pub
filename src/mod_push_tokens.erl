@@ -12,7 +12,6 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("account.hrl").
 -include("packets.hrl").
 
@@ -118,7 +117,7 @@ process_local_iq(#pb_iq{} = IQ) ->
     pb:make_error(IQ, util:err(invalid_iq)).
 
 
--spec update_push_pref(Uid :: binary(), push_pref()) -> ok.
+-spec update_push_pref(Uid :: binary(), pb_push_pref()) -> ok.
 update_push_pref(Uid, #pb_push_pref{name = post, value = Value}) ->
     stat:count("HA/push_prefs", "set_push_post_pref"),
     ?INFO("set ~s's push post pref to be: ~s", [Uid, Value]),

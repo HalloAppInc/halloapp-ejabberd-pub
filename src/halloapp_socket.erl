@@ -36,7 +36,6 @@
     peername/1
 ]).
 
--include("xmpp.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
 -include("socket_state.hrl").

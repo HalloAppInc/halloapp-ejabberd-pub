@@ -10,7 +10,6 @@
 -behaviour(gen_mod).
 -author('murali').
 
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("logger.hrl").
 -include("feed.hrl").
@@ -147,7 +146,7 @@ remove_user(Uid, _Server) ->
 %% TODO(murali@): update payload to be protobuf binary without base64 encoded.
 
 -spec publish_post(Uid :: uid(), PostId :: binary(), PayloadBase64 :: binary(),
-        AudienceListStanza ::[audience_list_st()]) -> {ok, integer()} | {error, any()}.
+        AudienceListStanza ::[pb_audience()]) -> {ok, integer()} | {error, any()}.
 publish_post(_Uid, _PostId, _PayloadBase64, undefined) ->
     {error, no_audience};
 publish_post(Uid, PostId, PayloadBase64, AudienceList) ->

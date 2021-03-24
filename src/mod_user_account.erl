@@ -11,7 +11,6 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("ejabberd_sm.hrl").
 

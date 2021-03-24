@@ -40,7 +40,6 @@
 -deprecated([{add_iq_handler, 6}, {handle, 5}, {iqdisc, 1}]).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("translate.hrl").
 -include("ejabberd_stacktrace.hrl").
@@ -67,7 +66,7 @@ remove_iq_handler(Component, Host, NS) ->
     ets:delete(Component, {Host, NS}),
     ok.
 
--spec handle(iq()) -> ok.
+-spec handle(pb_iq()) -> ok.
 handle(#pb_iq{to_uid = ToUid} = IQ) ->
     Component = case ToUid of
         <<"">> -> ejabberd_local;
@@ -75,7 +74,7 @@ handle(#pb_iq{to_uid = ToUid} = IQ) ->
     end,
     handle(Component, IQ).
 
--spec handle(component(), iq()) -> ok.
+-spec handle(component(), pb_iq()) -> ok.
 %% TODO(murali@): cleanup and have a simpler module after the transition.
 handle(_, #pb_iq{type = T, payload = undefined} = Packet)
         when T == get; T == set ->
@@ -113,8 +112,8 @@ process_iq(_Host, Module, Function, IQ) ->
         ejabberd_router:route(ErrIq)
     end.
 
--spec process_iq(module(), atom(), iq()) -> ignore | iq().
-process_iq(Module, Function, IQ) when is_record(IQ, pb_iq); is_record(IQ, iq) ->
+-spec process_iq(module(), atom(), pb_iq()) -> ignore | pb_iq().
+process_iq(Module, Function, IQ) when is_record(IQ, pb_iq) ->
     Module:Function(IQ).
 
 -spec iqdisc(binary() | global) -> no_queue.
@@ -128,6 +127,6 @@ iqdisc(_Host) ->
 add_iq_handler(Component, Host, NS, Module, Function, _Type) ->
     add_iq_handler(Component, Host, NS, Module, Function).
 
--spec handle(binary(), atom(), atom(), any(), iq()) -> any().
+-spec handle(binary(), atom(), atom(), any(), pb_iq()) -> any().
 handle(Host, Module, Function, _Opts, IQ) ->
     process_iq(Host, Module, Function, IQ).

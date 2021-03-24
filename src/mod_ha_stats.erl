@@ -4,8 +4,8 @@
 -behavior(gen_server).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
+-include("xmpp.hrl").
 -include("time.hrl").
 -include("proc.hrl").
 

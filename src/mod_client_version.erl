@@ -17,7 +17,6 @@
 
 -include("logger.hrl").
 -include("time.hrl").
--include("xmpp.hrl").
 -include("client_version.hrl").
 -include("packets.hrl").
 

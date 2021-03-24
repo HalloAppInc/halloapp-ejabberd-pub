@@ -10,7 +10,6 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("account.hrl").
 -include("offline_message.hrl").
@@ -75,7 +74,7 @@ offline_message_version_filter(deny, _, _, _) -> deny.
 
 
 -spec push_version_filter(Acc :: allow | deny, Uid :: binary(), PushInfo :: push_info(),
-        Message :: message()) -> allow | deny.
+        Message :: pb_msg()) -> allow | deny.
 push_version_filter(allow, Uid, PushInfo, #pb_msg{id = MsgId} = Message) ->
     ClientVersion = PushInfo#push_info.client_version,
     Platform = util_ua:get_client_type(ClientVersion),

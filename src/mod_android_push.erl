@@ -14,7 +14,6 @@
 -behaviour(gen_server).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("push_message.hrl").
 -include("proc.hrl").
 
@@ -67,7 +66,7 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
--spec push(Message :: message(), PushInfo :: push_info()) -> ok.
+-spec push(Message :: pb_msg(), PushInfo :: push_info()) -> ok.
 push(Message, #push_info{os = <<"android">>} = PushInfo) ->
     gen_server:cast(?PROC(), {push_message, Message, PushInfo});
 push(_Message, _PushInfo) ->
@@ -155,7 +154,7 @@ handle_info(Request, State) ->
 %% internal module functions
 %%====================================================================
 
--spec push_message(Message :: message(), PushInfo :: push_info(), State :: push_state()) -> ok.
+-spec push_message(Message :: pb_msg(), PushInfo :: push_info(), State :: push_state()) -> ok.
 push_message(Message, PushInfo, State) ->
     Timestamp = util:now(),
     Uid = pb:get_to(Message),

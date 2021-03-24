@@ -9,7 +9,6 @@
 -module(notifications_util).
 -author('vipin').
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 
 -include("ha_namespaces.hrl").

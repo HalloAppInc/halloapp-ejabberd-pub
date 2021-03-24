@@ -14,12 +14,11 @@
 %% hooks
 -export([user_send_packet/1]).
 
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("logger.hrl").
 
 -define(needs_ack_packet(Pkt),
-        is_record(Pkt, message) orelse is_record(Pkt, pb_msg)).
+        is_record(Pkt, pb_msg)).
 
 %%%===================================================================
 %%% gen_mod API

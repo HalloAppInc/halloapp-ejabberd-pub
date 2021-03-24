@@ -124,7 +124,7 @@ route_multicast(FromUid, Destinations, Packet) ->
     ok.
 
 
--spec route_error(stanza(), stanza_error()) -> ok.
+-spec route_error(stanza(), any()) -> ok.
 route_error(Packet, Err) ->
     Type = pb:get_type(Packet),
     if

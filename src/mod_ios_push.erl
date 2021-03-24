@@ -17,7 +17,6 @@
 -behaviour(gen_server).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("server.hrl").
 -include("push_message.hrl").
@@ -88,7 +87,7 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
--spec push(Message :: message(), PushInfo :: push_info()) -> ok.
+-spec push(Message :: pb_msg(), PushInfo :: push_info()) -> ok.
 push(Message, #push_info{os = Os} = PushInfo)
         when Os =:= <<"ios">>; Os =:= <<"ios_dev">> ->
     gen_server:cast(?PROC(), {push_message, Message, PushInfo});
@@ -326,7 +325,7 @@ handle_apns_response(StatusCode, ApnsId, State) ->
 %%====================================================================
 
 %% TODO(murali@): Figure out a way to better use the message-id.
--spec push_message(Message :: message(), PushInfo :: push_info(),
+-spec push_message(Message :: pb_msg(), PushInfo :: push_info(),
         State :: push_state()) -> push_state().
 push_message(Message, PushInfo, State) ->
     Timestamp = util:now(),

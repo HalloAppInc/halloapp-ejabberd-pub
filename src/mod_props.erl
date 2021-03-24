@@ -12,7 +12,6 @@
 -include("ha_types.hrl").
 -include("logger.hrl").
 -include("props.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("groups.hrl").
 -include("time.hrl").

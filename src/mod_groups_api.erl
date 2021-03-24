@@ -19,7 +19,6 @@
 ]).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("groups.hrl").
 -include("packets.hrl").
 
@@ -181,8 +180,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--spec process_create_group(IQ :: iq(), Uid :: uid(),
-        Name :: binary(), ReqGroupSt :: pb_group_stanza()) -> iq().
+-spec process_create_group(IQ :: pb_iq(), Uid :: uid(),
+        Name :: binary(), ReqGroupSt :: pb_group_stanza()) -> pb_iq().
 process_create_group(IQ, Uid, Name, ReqGroupSt) ->
     ?INFO("create_group Uid: ~s Name: |~s| Group: ~p", [Uid, Name, ReqGroupSt]),
     MemberUids = [M#pb_group_member.uid || M <- ReqGroupSt#pb_group_stanza.members],
@@ -208,7 +207,7 @@ process_create_group(IQ, Uid, Name, ReqGroupSt) ->
     pb:make_iq_result(IQ, GroupStResult).
 
 
--spec process_delete_group(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
+-spec process_delete_group(IQ :: pb_iq(), Gid :: gid(), Uid :: uid()) -> pb_iq().
 process_delete_group(IQ, Gid, Uid) ->
     ?INFO("delete_group Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:delete_group(Gid, Uid) of
@@ -219,8 +218,8 @@ process_delete_group(IQ, Gid, Uid) ->
     end.
 
 
--spec process_modify_members(IQ :: iq(), Gid :: gid(), Uid :: uid(), ReqGroupSt :: pb_group_stanza())
-            -> iq().
+-spec process_modify_members(IQ :: pb_iq(), Gid :: gid(), Uid :: uid(), ReqGroupSt :: pb_group_stanza())
+            -> pb_iq().
 process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
     MembersSt = ReqGroupSt#pb_group_stanza.members,
     Changes = [{M#pb_group_member.uid, M#pb_group_member.action} || M <- MembersSt],
@@ -245,8 +244,8 @@ process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
     end.
 
 
--spec process_modify_admins(IQ :: iq(), Gid :: gid(), Uid :: uid(), ReqGroupSt :: pb_group_stanza())
-            -> iq().
+-spec process_modify_admins(IQ :: pb_iq(), Gid :: gid(), Uid :: uid(), ReqGroupSt :: pb_group_stanza())
+            -> pb_iq().
 process_modify_admins(IQ, Gid, Uid, ReqGroupSt) ->
     MembersSt = ReqGroupSt#pb_group_stanza.members,
     Changes = [{M#pb_group_member.uid, M#pb_group_member.action} || M <- MembersSt],
@@ -275,7 +274,7 @@ process_modify_admins(IQ, Gid, Uid, ReqGroupSt) ->
     end.
 
 
--spec process_get_group(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
+-spec process_get_group(IQ :: pb_iq(), Gid :: gid(), Uid :: uid()) -> pb_iq().
 process_get_group(IQ, Gid, Uid) ->
     ?INFO("get_group Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:get_group(Gid, Uid) of
@@ -288,7 +287,7 @@ process_get_group(IQ, Gid, Uid) ->
     end.
 
 
--spec process_get_groups(IQ :: iq(), Uid :: uid()) -> iq().
+-spec process_get_groups(IQ :: pb_iq(), Uid :: uid()) -> pb_iq().
 process_get_groups(IQ, Uid) ->
     ?INFO("get_groups Uid: ~s", [Uid]),
     GroupInfos = mod_groups:get_groups(Uid),
@@ -300,7 +299,7 @@ process_get_groups(IQ, Uid) ->
     pb:make_iq_result(IQ, ResultSt).
 
 
--spec process_set_name(IQ :: iq(), Gid :: gid(), Uid :: uid(), Name :: name()) -> iq().
+-spec process_set_name(IQ :: pb_iq(), Gid :: gid(), Uid :: uid(), Name :: binary()) -> pb_iq().
 process_set_name(IQ, Gid, Uid, Name) ->
     ?INFO("set_name Gid: ~s Uid: ~s Name: |~p|", [Gid, Uid, Name]),
     case mod_groups:set_name(Gid, Uid, Name) of
@@ -372,7 +371,7 @@ process_set_background(IQ, Gid, Uid, Background) ->
             pb:make_iq_result(IQ, GroupSt)
     end.
 
--spec process_leave_group(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
+-spec process_leave_group(IQ :: pb_iq(), Gid :: gid(), Uid :: uid()) -> pb_iq().
 process_leave_group(IQ, Gid, Uid) ->
     ?INFO("leave_group Gid: ~s Uid: ~s ", [Gid, Uid]),
     case mod_groups:leave_group(Gid, Uid) of
@@ -381,7 +380,7 @@ process_leave_group(IQ, Gid, Uid) ->
     end.
 
 
--spec process_get_invite_link(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
+-spec process_get_invite_link(IQ :: pb_iq(), Gid :: gid(), Uid :: uid()) -> pb_iq().
 process_get_invite_link(IQ, Gid, Uid) ->
     ?INFO("Gid: ~s Uid: ~s ", [Gid, Uid]),
     case mod_groups:get_invite_link(Gid, Uid) of
@@ -400,7 +399,7 @@ process_get_invite_link(IQ, Gid, Uid) ->
     end.
 
 
--spec process_reset_invite_link(IQ :: iq(), Gid :: gid(), Uid :: uid()) -> iq().
+-spec process_reset_invite_link(IQ :: pb_iq(), Gid :: gid(), Uid :: uid()) -> pb_iq().
 process_reset_invite_link(IQ, Gid, Uid) ->
     ?INFO("Gid: ~s Uid: ~s ", [Gid, Uid]),
     case mod_groups:reset_invite_link(Gid, Uid) of
@@ -419,7 +418,7 @@ process_reset_invite_link(IQ, Gid, Uid) ->
     end.
 
 
--spec process_preview_with_invite_link(IQ :: iq(), Uid :: uid(), Link :: binary()) -> iq().
+-spec process_preview_with_invite_link(IQ :: pb_iq(), Uid :: uid(), Link :: binary()) -> pb_iq().
 process_preview_with_invite_link(IQ, Uid, Link) ->
     ?INFO("Uid: ~s Link: ~s", [Uid, Link]),
     case mod_groups:preview_with_invite_link(Uid, Link) of
@@ -439,7 +438,7 @@ process_preview_with_invite_link(IQ, Uid, Link) ->
     end.
 
 
--spec process_join_with_invite_link(IQ :: iq(), Uid :: uid(), FullLink :: binary()) -> iq().
+-spec process_join_with_invite_link(IQ :: pb_iq(), Uid :: uid(), FullLink :: binary()) -> pb_iq().
 process_join_with_invite_link(IQ, Uid, Link) ->
     ?INFO("Uid: ~s Link: ~s", [Uid, Link]),
     case mod_groups:join_with_invite_link(Uid, Link) of

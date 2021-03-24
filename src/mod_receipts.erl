@@ -17,7 +17,6 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("ha_types.hrl").
 -include("offline_message.hrl").
@@ -48,7 +47,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 
 %% Hook triggered when user sent the server an ack stanza for this particular message.
--spec user_ack_packet(Ack :: ack(), OfflineMessage :: offline_message()) -> ok.
+-spec user_ack_packet(Ack :: pb_ack(), OfflineMessage :: offline_message()) -> ok.
 user_ack_packet(#pb_ack{id = Id, from_uid = FromUid},
         #offline_message{content_type = ContentType, from_uid = MsgFromId, thread_id = ThreadId})
         when ContentType =:= <<"chat">>; ContentType =:= <<"group_chat">>;

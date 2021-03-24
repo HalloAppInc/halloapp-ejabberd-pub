@@ -3,11 +3,6 @@
 %%%
 %%% Copyright (C) 2020 HalloApp Inc.
 %%%
-%%% This file handles the iq packet queries with a custom namespace
-%%% (<<"halloapp:user:contacts">>) that we defined.
-%%% We define custom xml records of the following type:
-%%% "contact_list", "contact", "raw", "uuid", role", "normalized" in
-%%% xmpp/specs/xmpp_codec.spec file.
 %%%----------------------------------------------------------------------
 
 -module(mod_contacts).
@@ -15,7 +10,6 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("ha_namespaces.hrl").
 -include("time.hrl").
@@ -237,7 +231,7 @@ get_phone(UserId) ->
     end.
 
 -spec handle_delta_contacts(UserId :: binary(), Server :: binary(),
-        Contacts :: [contact()]) -> [contact()].
+        Contacts :: [pb_contact()]) -> [pb_contact()].
 handle_delta_contacts(UserId, Server, Contacts) ->
     {DeleteContactsList, AddContactsList} = lists:partition(
             fun(#pb_contact{action = Action}) ->
@@ -325,7 +319,7 @@ finish_sync(UserId, Server, SyncId) ->
 
 %% TODO(murali@): need to cache user details like phone across all functions in this module.
 -spec check_and_send_notifications(UserId :: binary(),
-        NewContactSet :: sets:set(binary()), NewContactRecordList :: [contact()]) -> ok.
+        NewContactSet :: sets:set(binary()), NewContactRecordList :: [pb_contact()]) -> ok.
 check_and_send_notifications(UserId,  NewContactSet, NewContactRecordList) ->
     %% Checks if the user is a new user (meaning joined < 24hrs) andalso
     %% ensure that the user has not already done a non-empty full-contact sync andalso
@@ -342,7 +336,7 @@ check_and_send_notifications(UserId,  NewContactSet, NewContactRecordList) ->
 
 
 -spec do_send_notifications(UserId :: binary(),
-        NewContactRecordList :: [contact()]) -> ok.
+        NewContactRecordList :: [pb_contact()]) -> ok.
 do_send_notifications(UserId, NewContactRecordList) ->
     %% Send notification to user who invited this user.
     UserPhone = get_phone(UserId),
@@ -392,7 +386,7 @@ should_notify_friends(UserId, NewContactSet) ->
 
 
 -spec normalize_and_insert_contacts(UserId :: binary(), Server :: binary(),
-        Contacts :: [contact()], SyncId :: undefined | binary()) -> [contact()].
+        Contacts :: [pb_contact()], SyncId :: undefined | binary()) -> [pb_contact()].
 normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
     UserPhone = get_phone(UserId),
     UserRegionId = mod_libphonenumber:get_region_id(UserPhone),
@@ -427,7 +421,7 @@ normalize_and_insert_contacts(UserId, Server, Contacts, SyncId) ->
 -spec normalize_and_update_contact(UserId :: binary(), UserRegionId :: binary(),
         UserPhone :: binary(), OldContactSet :: sets:set(binary()),
         OldReverseContactSet :: sets:set(binary()), Server :: binary(),
-        Contact :: contact(), SyncId :: binary()) -> contact().
+        Contact :: pb_contact(), SyncId :: binary()) -> pb_contact().
 normalize_and_update_contact(_UserId, _UserRegionId, _UserPhone, _OldContactSet,
         _OldReverseContactSet, _Server, #pb_contact{raw = undefined}, _SyncId) ->
     #pb_contact{role = none};
@@ -453,7 +447,7 @@ normalize_and_update_contact(UserId, UserRegionId, UserPhone, OldContactSet,
 
 -spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(),
         OldContactSet :: sets:set(binary()), OldReverseContactSet :: sets:set(binary()),
-        Server :: binary(), ContactPhone :: binary(), ShouldNotify :: atom()) -> contact().
+        Server :: binary(), ContactPhone :: binary(), ShouldNotify :: atom()) -> pb_contact().
 update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet,
         Server, ContactPhone, ShouldNotify) ->
     IsNewContact = not sets:is_element(ContactPhone, OldContactSet),

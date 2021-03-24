@@ -4,11 +4,12 @@
 %%%----------------------------------------------------------------------------
 
 -include("account.hrl").
+-include("packets.hrl").
 
 -record(push_message_item, {
     id :: binary(),
     uid :: binary(),
-    message :: message(),
+    message :: pb_msg(),
     timestamp :: integer(),
     retry_ms :: integer(),
     push_info :: push_info()

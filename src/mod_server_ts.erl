@@ -6,7 +6,6 @@
 -module(mod_server_ts).
 -behaviour(gen_mod).
 
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("logger.hrl").
 

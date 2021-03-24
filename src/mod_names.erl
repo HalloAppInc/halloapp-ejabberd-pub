@@ -20,7 +20,6 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 
 -define(NS_NAME, <<"halloapp:users:name">>).

@@ -9,7 +9,6 @@
 -module(push_util).
 -author('murali').
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include ("push_message.hrl").
 
@@ -181,7 +180,7 @@ parse_metadata(#pb_msg{to_uid = Uid, id = Id}, _PushInfo) ->
 %% Adding a special case to be able to send all alert and silent notifications for contact_list
 %% updates. If we use the content_id which is the phone number in this case: we will not be sending
 %% other pushes for these messages.
--spec record_push_sent(Message :: message()) -> boolean().
+-spec record_push_sent(Message :: pb_msg()) -> boolean().
 record_push_sent(#pb_msg{id = MsgId, to_uid = UserId, payload = Payload})
         when is_record(Payload, pb_contact_list) ->
     model_messages:record_push_sent(UserId, MsgId);
@@ -194,7 +193,7 @@ record_push_sent(Message) ->
     model_messages:record_push_sent(UserId, ContentId).
 
 
--spec get_push_type(MsgType :: message_type(),
+-spec get_push_type(MsgType :: atom(),
         PayloadType :: atom(), PushInfo :: push_info()) -> silent | alert.
 get_push_type(groupchat, pb_group_chat, _PushInfo) -> alert;
 get_push_type(_MsgType, pb_chat_stanza, _PushInfo) -> alert;

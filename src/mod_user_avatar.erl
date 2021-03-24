@@ -11,7 +11,6 @@
 -behaviour(gen_mod).
 
 -include("logger.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 -include("ha_types.hrl").
 -include("ejabberd_stacktrace.hrl").
@@ -132,7 +131,7 @@ check_and_upload_avatar(Base64Data) ->
 %%====================================================================
 
 
--spec process_delete_user_avatar(IQ :: iq(), Uid :: uid()) -> iq().
+-spec process_delete_user_avatar(IQ :: pb_iq(), Uid :: uid()) -> pb_iq().
 process_delete_user_avatar(IQ, Uid) ->
     ?INFO("Uid: ~s deleting avatar", [Uid]),
     delete_user_avatar_internal(Uid, util:get_host()),
@@ -140,7 +139,7 @@ process_delete_user_avatar(IQ, Uid) ->
 
 
 %% TODO(murali@): update functions here to work on binary data after updating group_avatars.
--spec process_set_user_avatar(IQ :: iq(), Uid :: uid(), Base64Data :: binary()) -> iq().
+-spec process_set_user_avatar(IQ :: pb_iq(), Uid :: uid(), Base64Data :: binary()) -> pb_iq().
 process_set_user_avatar(IQ, Uid, Base64Data) ->
     ?INFO("Uid: ~s uploading avatar base64_size: ~p", [Uid, byte_size(Base64Data)]),
     case check_and_upload_avatar(Base64Data) of

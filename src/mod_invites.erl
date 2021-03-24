@@ -14,7 +14,6 @@
 -include("invites.hrl").
 -include("logger.hrl").
 -include("time.hrl").
--include("xmpp.hrl").
 -include("packets.hrl").
 
 %% Export all functions for unit tests
