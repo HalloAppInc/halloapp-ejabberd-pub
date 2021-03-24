@@ -88,6 +88,10 @@ should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
             %% Send pushes for feed messages: both posts and comments.
             true;
 
+        PayloadType =:= pb_contact_list andalso PayloadType#pb_contact_list.type =:= delete_notice ->
+            %% Dont push deleted notice contact notifications to the clients.
+            false;
+
         PayloadType =:= pb_contact_list orelse PayloadType =:= pb_contact_hash ->
             %% Push contact related notifications: could be contact_hash or new relationship notifications.
             true;
