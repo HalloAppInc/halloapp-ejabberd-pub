@@ -12,7 +12,8 @@
     message :: pb_msg(),
     timestamp :: integer(),
     retry_ms :: integer(),
-    push_info :: push_info()
+    push_info :: push_info(),
+    push_type = silent :: alert | silent
 }).
 
 -type push_message_item() :: #push_message_item{}.

@@ -273,8 +273,7 @@ handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) 
             Id = PushMessageItem#push_message_item.id,
             Uid = PushMessageItem#push_message_item.uid,
             Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
-            PushMetadata = get_push_metadata(PushMessageItem),
-            PushType = PushMetadata#push_metadata.push_type,
+            PushType = PushMessageItem#push_message_item.push_type,
             ?INFO("Uid: ~s, apns push successful: msg_id: ~s", [Uid, Id]),
             mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id,
                     platform => ios, client_version => Version, push_type => PushType}),
@@ -330,23 +329,35 @@ handle_apns_response(StatusCode, ApnsId, State) ->
 push_message(Message, PushInfo, State) ->
     Timestamp = util:now(),
     Uid = pb:get_to(Message),
+    PushMetadata = push_util:parse_metadata(Message, PushInfo),
     PushMessageItem = #push_message_item{
             id = pb:get_id(Message),
             uid = Uid,
             message = Message,
             timestamp = Timestamp,
             retry_ms = ?RETRY_INTERVAL_MILLISEC,
-            push_info = PushInfo},
-    push_message_item(PushMessageItem, State).
+            push_info = PushInfo,
+            push_type = PushMetadata#push_metadata.push_type},
+    push_message_item(PushMessageItem, PushMetadata, State).
+
 
 -spec push_message_item(PushMessageItem :: push_message_item(),
         State :: push_state()) -> push_state().
 push_message_item(PushMessageItem, State) ->
+    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
+            PushMessageItem#push_message_item.push_info),
+    NewPushMessageItem = PushMessageItem#push_message_item{
+            push_type = PushMetadata#push_metadata.push_type},
+    push_message_item(NewPushMessageItem, PushMetadata, State).
+
+
+-spec push_message_item(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata(),
+        State :: push_state()) -> push_state().
+push_message_item(PushMessageItem, PushMetadata, State) ->
     BuildType = case PushMessageItem#push_message_item.push_info#push_info.os of
         <<"ios">> -> prod;
         <<"ios_dev">> -> dev
     end,
-    PushMetadata = get_push_metadata(PushMessageItem),
     PushType = PushMetadata#push_metadata.push_type,
     PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType),
     ApnsId = util:uuid_binary(),
@@ -432,11 +443,6 @@ boolean_to_push_type(BoolValue) ->
         false -> silent
     end.
 
--spec get_push_metadata(PushMessageItem :: #push_message_item{}) -> #push_metadata{}.
-get_push_metadata(PushMessageItem) ->
-    push_util:parse_metadata(PushMessageItem#push_message_item.message,
-        PushMessageItem#push_message_item.push_info).
-
 -spec get_apns_push_type(PushType :: silent | alert) -> binary().
 get_apns_push_type(silent) -> <<"background">>;
 get_apns_push_type(alert) -> <<"alert">>.
@@ -509,7 +515,8 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
         message = PayloadBin,   %% Storing it here for now. TODO(murali@): fix this.
         timestamp = util:now(),
         retry_ms = ?RETRY_INTERVAL_MILLISEC,
-        push_info = PushInfo
+        push_info = PushInfo,
+        push_type = PushType
     },
     send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
             PushType, BuildType, PushMessageItem, State).
