@@ -6,24 +6,24 @@
 -include("account.hrl").
 
 -record(push_message_item, {
-	id :: binary(),
-	uid :: binary(),
-	message :: message(),
-	timestamp :: integer(),
-	retry_ms :: integer(),
-	push_info :: push_info()
+    id :: binary(),
+    uid :: binary(),
+    message :: message(),
+    timestamp :: integer(),
+    retry_ms :: integer(),
+    push_info :: push_info()
 }).
 
 -type push_message_item() :: #push_message_item{}.
 
 %% TODO(murali@): Store this pending/retry list info in ets tables/redis and keep the state simple.
 -record(push_state, {
-	pendingMap :: #{},
-	host :: binary(),
-	conn :: pid(),
-	mon :: reference(),
-	dev_conn :: pid(),
-	dev_mon :: reference()
+    pendingMap :: #{},
+    host :: binary(),
+    conn :: pid(),
+    mon :: reference(),
+    dev_conn :: pid(),
+    dev_mon :: reference()
 }).
 
 -type push_state() :: #push_state{}.
@@ -39,16 +39,17 @@
 %% Client must decrypt the packet, decode it and do everything with it.
 -record(push_metadata,
 {
-    content_id = <<>> :: binary(),			%% content-id
-    content_type = <<>> :: binary(),		%% content-type: could be chat, group_chat, group_post, group_comment, feed_post, feed_comment, contact_list.
-    from_uid = <<>> :: binary(),			%% uid of the sender.
-    timestamp = <<>> :: binary(),			%% timestamp of the content.
-    thread_id = <<>> :: binary(),			%% Maps to uid for chat, gid for groupchat, feed for feed.
-    thread_name = <<>> :: binary(),			%% Maps to group_name for groupchat, else irrelevant
-    sender_name = <<>> :: binary(),			%% includes push_name of from_uid.
-    subject = <<>> :: binary(),			%% includes the fallback subject line
-    body = <<>> :: binary(),				%% includes the fallback body line
-    push_type = silent :: alert | silent		%% indicates the push type.
+    content_id = <<>> :: binary(),          %% content-id
+    content_type = <<>> :: binary(),        %% content-type: could be chat, group_chat, group_post, group_comment, feed_post, feed_comment, contact_list.
+    from_uid = <<>> :: binary(),            %% uid of the sender.
+    timestamp = <<>> :: binary(),           %% timestamp of the content.
+    thread_id = <<>> :: binary(),           %% Maps to uid for chat, gid for groupchat, feed for feed.
+    thread_name = <<>> :: binary(),         %% Maps to group_name for groupchat, else irrelevant
+    sender_name = <<>> :: binary(),         %% includes push_name of from_uid.
+    subject = <<>> :: binary(),             %% includes the fallback subject line
+    body = <<>> :: binary(),                %% includes the fallback body line
+    push_type = silent :: alert | silent,   %% indicates the push type.
+    payload = <<>> :: binary()              %% payload of the content to be sent to the client.
 }).
 
 -type push_metadata() :: #push_metadata{}.

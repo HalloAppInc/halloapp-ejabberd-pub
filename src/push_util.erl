@@ -31,7 +31,8 @@ parse_metadata(#pb_msg{id = Id, payload = Payload,
         sender_name = Payload#pb_chat_stanza.sender_name,
         subject = <<"New Message">>,
         body = <<"You got a new message.">>,
-        push_type = alert
+        push_type = alert,
+        payload = Payload#pb_chat_stanza.payload
     };
 
 parse_metadata(#pb_msg{id = Id, payload = Payload,
@@ -46,7 +47,8 @@ parse_metadata(#pb_msg{id = Id, payload = Payload,
         sender_name = Payload#pb_group_chat.sender_name,
         subject = <<"New Group Message">>,
         body = <<"You got a new group message.">>,
-        push_type = alert
+        push_type = alert,
+        payload = Payload#pb_group_chat.payload
     };
 
 %% TODO(murali@): this is not great, we need to send the entire message.
@@ -102,7 +104,8 @@ parse_metadata(#pb_msg{type = MsgType,
         sender_name = Post#pb_post.publisher_name,
         subject = <<"New Notification">>,
         body = <<"New post">>,
-        push_type = get_push_type(MsgType, feed_post, PushInfo)
+        push_type = get_push_type(MsgType, feed_post, PushInfo),
+        payload = Post#pb_post.payload
     };
 
 parse_metadata(#pb_msg{type = MsgType,
@@ -116,7 +119,8 @@ parse_metadata(#pb_msg{type = MsgType,
         sender_name = Comment#pb_comment.publisher_name,
         subject = <<"New Notification">>,
         body = <<"New comment">>,
-        push_type = get_push_type(MsgType, feed_comment, PushInfo)
+        push_type = get_push_type(MsgType, feed_comment, PushInfo),
+        payload = Comment#pb_comment.payload
     };
 
 parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid,
@@ -132,7 +136,8 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid,
         sender_name = Post#pb_post.publisher_name,
         subject = <<"New Group Message">>,
         body = <<"New post">>,
-        push_type = get_push_type(MsgType, PayloadType, PushInfo)
+        push_type = get_push_type(MsgType, PayloadType, PushInfo),
+        payload = Post#pb_post.payload
     };
 
 parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid,
@@ -148,7 +153,8 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid,
         sender_name = Comment#pb_comment.publisher_name,
         subject = <<"New Group Message">>,
         body = <<"New comment">>,
-        push_type = get_push_type(MsgType, PayloadType, PushInfo)
+        push_type = get_push_type(MsgType, PayloadType, PushInfo),
+        payload = Comment#pb_comment.payload
     };
 
 parse_metadata(#pb_msg{id = Id, type = MsgType, payload = #pb_group_stanza{gid = Gid, name = Name,

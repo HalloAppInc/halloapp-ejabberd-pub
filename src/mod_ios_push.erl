@@ -26,11 +26,9 @@
 
 -type build_type() :: prod | dev.
 
-%% TODO(murali@): convert everything to 1 timeunit.
-%% TODO(murali@): move basic timeunits to one header and use it to calculate.
--define(MESSAGE_EXPIRY_TIME_SEC, 86400).           %% seconds in 1 day.
--define(RETRY_INTERVAL_MILLISEC, 30000).           %% 30 seconds.
--define(MESSAGE_MAX_RETRY_TIME_SEC, 600).          %% 10 minutes.
+-define(MESSAGE_EXPIRY_TIME_SEC, 1 * ?DAYS).           %% seconds in 1 day.
+-define(RETRY_INTERVAL_MILLISEC, 30 * ?SECONDS_MS).           %% 30 seconds.
+-define(MESSAGE_MAX_RETRY_TIME_SEC, 10 * ?MINUTES).          %% 10 minutes.
 
 -define(APNS_ID, <<"apns-id">>).
 -define(APNS_PRIORITY, <<"apns-priority">>).
@@ -60,7 +58,6 @@
     send_dev_push/4,
     crash/0    %% test
 ]).
-%% TODO(murali@): remove the crash api after testing.
 
 
 %%====================================================================
@@ -99,8 +96,8 @@ push(_Message, _PushInfo) ->
     ?ERROR("Invalid push_info : ~p", [_PushInfo]).
 
 
-%% TODO(murali@): simplify this further to receive different parts of the payload.
-%% That would be more simpler for client devs.
+%% Added sample payloads for the client teams here:
+%% https://github.com/HalloAppInc/server/pull/291
 -spec send_dev_push(Uid :: binary(), PushInfo :: push_info(),
         PushTypeBin :: binary(), PayloadBin :: binary()) -> ok | {error, any()}.
 send_dev_push(Uid, PushInfo, PushTypeBin, Payload) ->
@@ -390,30 +387,11 @@ get_pid_to_send(dev, State) ->
     {State#push_state.dev_conn, State}.
 
 
-%% TODO(murali@): Need to clean all this parsing stuff logic after the switch to new feed api.
--spec parse_payload(Message :: message()) -> binary().
-parse_payload(#pb_msg{payload = #pb_chat_stanza{payload = Payload}}) ->
-    Payload;
-parse_payload(#pb_msg{payload = #pb_group_chat{payload = Payload}}) ->
-    Payload;
-parse_payload(#pb_msg{payload = #pb_feed_item{item = #pb_post{payload = Payload}}}) ->
-    Payload;
-parse_payload(#pb_msg{payload = #pb_feed_item{item = #pb_comment{payload = Payload}}}) ->
-    Payload;
-parse_payload(#pb_msg{payload = #pb_group_feed_item{item = #pb_post{payload = Payload}}}) ->
-    Payload;
-parse_payload(#pb_msg{payload = #pb_group_feed_item{item = #pb_comment{payload = Payload}}}) ->
-    Payload;
-parse_payload(#pb_msg{}) ->
-    <<>>.
-
-
 %% Details about the content inside the apns push payload are here:
 %% [https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification]
 -spec get_payload(PushMessageItem :: push_message_item(),
         PushMetadata :: push_metadata(), PushType :: silent | alert) -> binary().
 get_payload(PushMessageItem, PushMetadata, PushType) ->
-    Data = parse_payload(PushMessageItem#push_message_item.message),
     PbMessageB64 = base64:encode(enif_protobuf:encode(PushMessageItem#push_message_item.message)),
     MetadataMap = #{
         <<"content-id">> => PushMetadata#push_metadata.content_id,
@@ -426,7 +404,7 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
         %% Ideally clients should decode the pb message and then use this for metrics.
         %% Easier to have this if we start sending it ourselves - filed an issue for ios.
         <<"message-id">> => PushMessageItem#push_message_item.id,
-        <<"data">> => base64:encode(Data),
+        <<"data">> => PushMetadata#push_metadata.payload,
         <<"message">> => PbMessageB64
     },
     BuildTypeMap = case PushType of
