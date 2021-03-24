@@ -75,7 +75,7 @@ parse_metadata(#pb_msg{id = _Id, type = MsgType, payload = Payload} = Message, P
             {<<"friend_notice">>, <<"New Friend">>, <<"Your friend ", Name/binary, " is now on HalloApp">>};
         inviter_notice ->
             {<<"inviter_notice">>, <<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
-        normal ->
+        _ ->
             {<<"contact_notification">>, <<"New Contact">>, <<"New contact notification">>}
     end,
     NewMsgType = {MsgType, Payload#pb_contact_list.type},
