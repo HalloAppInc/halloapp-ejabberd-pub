@@ -180,7 +180,9 @@ smart_send(Phone, Msg, OldResponses) ->
 
     %% TODO(vipin): Fix after we have approval via MessageBird.
     NewGateway2 = case mod_libphonenumber:get_cc(Phone) of
-        <<"CN">> -> twilio;
+        <<"AE">> -> twilio;     %% UAE
+        <<"CA">> -> twilio;     %% Canada
+        <<"CN">> -> twilio;     %% China
         _ -> NewGateway
     end,
     ?DEBUG("Choosen Gateway: ~p", [NewGateway2]),
