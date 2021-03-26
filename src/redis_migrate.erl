@@ -669,7 +669,7 @@ user_details(Uid) ->
         Class:Reason:Stacktrace ->
             ?ERROR("Stacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            io_lib:format("Unable to fetch details", [])
+            ?INFO("Unable to fetch details", [])
     end.
 
 user_details2(Uid) ->
@@ -714,7 +714,7 @@ user_details2(Uid) ->
           calendar:system_time_to_rfc3339(CtMs,
               [{unit, millisecond}, {time_designator, $\s}])
     end,
-    io_lib:format("Last Activity: ~s, Last Status: ~s, Name: ~s, Creation: ~s, Test Phone?: ~s, "
+    ?INFO("Last Activity: ~s, Last Status: ~s, Name: ~s, Creation: ~s, Test Phone?: ~s, "
         "Client Version: ~s, User Agent: ~s, Inactive?: ~s, Internal Inviters: ~s",
         [LastActivityTimeString, ActivityStatus, util:to_list(Name), CreationTimeString,
          IsTestPhone, util:to_list(CV), util:to_list(UA), IsAccountInactive,
