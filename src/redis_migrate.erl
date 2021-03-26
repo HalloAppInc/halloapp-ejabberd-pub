@@ -415,7 +415,10 @@ find_empty_contact_list_accounts(Key, State) ->
         {match, [[FullKey, Uid]]} ->
             ?INFO("Account uid: ~p", [Uid]),
             {ok, ContactList} = model_contacts:get_contacts(Uid),
-            {ok, Version} = model_accounts:get_client_version(Uid),
+            Version = case model_accounts:get_client_version(Uid) of
+                {ok, V} -> V;
+                _ -> undefined
+            end,
             case ContactList of
                 [] ->
                     ?INFO("Uid: ~p, version: ~p has empty contact list",
