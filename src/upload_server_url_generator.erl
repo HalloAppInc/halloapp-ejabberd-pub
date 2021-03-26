@@ -71,7 +71,7 @@ create_with_retry(ContentLength, UploadHosts, Retries, CBDetails) ->
     PickedHost = lists:nth(ToPick, UploadHosts),
     NewUploadHosts = UploadHosts -- [PickedHost],
 
-    ?INFO("Trying: ~p, retried: ~p times", [PickedHost, Retries]),
+    ?INFO("Trying: ~p, retry attempt number: ~p", [PickedHost, Retries]),
     Req = {url(PickedHost), get_hdrs(ContentLength), ?CONTENT_TYPE, <<>>},
     case httpc:request(post, Req, get_http_opts(), []) of
         {ok, {{_, 201, _}, Headers, _}} ->
@@ -86,13 +86,14 @@ create_with_retry(ContentLength, UploadHosts, Retries, CBDetails) ->
                     case Retries < ?MAX_TRIES of
                         true ->
                             BackOff = round(math:pow(2, Retries)) * ?BACK_OFF_MS,
-                            ?WARNING("~pth retry, last error: ~p, backoff: ~p",
-                                [Retries, Error, BackOff]),
+                            ?WARNING("~pth retry backoff: ~p, last error: ~p,",
+                                [Retries+1, BackOff, Error]),
                             timer:apply_after(round(math:pow(2, Retries)) * ?BACK_OFF_MS,
                                 ?MODULE, make_patch_url_with_retry,
                                 [ContentLength, Retries+1, CBDetails]);
                         false ->
-                            ?ERROR("Unable to create upload server url after ~p retries", [?MAX_TRIES]),
+                            ?ERROR("Unable to create upload server url after ~p retries, last error: ~p",
+                                [?MAX_TRIES, Error]),
                             process_location_url({error, ""}, CBDetails)
                     end;
                 _ ->
