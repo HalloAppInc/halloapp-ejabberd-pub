@@ -188,17 +188,17 @@ maybe_delete_inactive_account(Uid, ShouldDelete) ->
                 false ->
                     case ShouldDelete of
                         true ->
-                            ?INFO("Deleting: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
-                                [Uid, Version, VersionDaysLeft, InvitersList]),
+                            ?INFO("Deleting: ~p, Phone: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
+                                [Uid, Phone, Version, VersionDaysLeft, InvitersList]),
                             ejabberd_auth:remove_user(Uid, util:get_host());
                         false ->
-                            ?INFO("Check -- Will delete: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
-                                [Uid, Version, VersionDaysLeft, InvitersList])
+                            ?INFO("Check -- Will delete: ~p, Phone: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
+                                [Uid, Phone, Version, VersionDaysLeft, InvitersList])
                     end;
                 true ->
                     %% Either invited explicitly by an insider or it is an initial account.
-                    ?ERROR("Manual attention needed. Not deleting: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
-                        [Uid, Version, VersionDaysLeft, InvitersList])
+                    ?ERROR("Manual attention needed. Not deleting: ~p, Phone: ~p, Version: ~p, Version validity: ~p days, Invited by: ~p",
+                        [Uid, Phone, Version, VersionDaysLeft, InvitersList])
             end;
         false ->
             ?INFO("Not deleting: ~p, account has become active", [Uid])

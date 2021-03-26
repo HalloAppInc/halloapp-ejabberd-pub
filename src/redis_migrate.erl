@@ -603,9 +603,11 @@ find_inactive_accounts(Key, State) ->
             try
                 case mod_inactive_accounts:is_inactive_user(Uid) of
                     true ->
+                        {ok, Phone} = model_accounts:get_phone(Uid),
+                        ?INFO("Adding Uid: ~p to delete, Phone: ~p", [Uid, Phone]),
                         case DryRun of
                             true ->
-                                  ?INFO("Adding Uid: ~p to delete", [Uid]);
+                                  ok;
                             false ->
                                   model_accounts:add_uid_to_delete(Uid)
                         end;
