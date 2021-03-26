@@ -55,7 +55,8 @@
     check_phone_numbers_run/2,
     refresh_otp_keys_run/2,
     update_version_keys_run/2,
-    find_inactive_accounts/2
+    find_inactive_accounts/2,
+    find_empty_contact_list_accounts/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
