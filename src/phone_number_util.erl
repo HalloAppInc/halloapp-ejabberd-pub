@@ -85,18 +85,24 @@ create_libPhoneNumber_table() ->
 parse_phone_number(PhoneNumber, DefaultRegionId) ->
     Raw = binary_to_list(PhoneNumber),
     PhoneNumberState = #phone_number_state{phone_number = Raw, raw = Raw},
-    case parse_helper(PhoneNumberState, DefaultRegionId) of
-        {error, Reason} ->
-            case length(normalize(Raw)) > 5 of
-                true -> ?WARNING("Failed parsing |~s|, with reason: ~s", [PhoneNumber, Reason]);
-                false -> ?INFO("Failed parsing |~s|, with reason: ~s", [PhoneNumber, Reason])
-            end,
-            {error, Reason};
-        PhoneNumberState2 ->
-            PhoneNumberState3 = is_valid_number_internal(PhoneNumberState2),
-            PhoneNumberState4 = format_number_internal(PhoneNumberState3),
-            ?INFO("parsed |~s| -> ~p", [PhoneNumber, PhoneNumberState4]),
-            {ok, PhoneNumberState4}
+    try
+        case parse_helper(PhoneNumberState, DefaultRegionId) of
+            {error, Reason} ->
+                case length(normalize(Raw)) > 5 of
+                    true -> ?WARNING("Failed parsing |~s|, with reason: ~s", [PhoneNumber, Reason]);
+                    false -> ?INFO("Failed parsing |~s|, with reason: ~s", [PhoneNumber, Reason])
+                end,
+                {error, Reason};
+            PhoneNumberState2 ->
+                PhoneNumberState3 = is_valid_number_internal(PhoneNumberState2),
+                PhoneNumberState4 = format_number_internal(PhoneNumberState3),
+                ?INFO("parsed |~s| -> ~p", [PhoneNumber, PhoneNumberState4]),
+                {ok, PhoneNumberState4}
+        end
+    catch Class:Reason2:St ->
+        ?ERROR("Failed parsing phone |~s| with reason: ~s",
+            [PhoneNumber, lager:pr_stacktrace(St, {Class, Reason2})]),
+        {error, Reason2}
     end.
 
 
@@ -794,7 +800,7 @@ compare_with_national_lengths(PhoneNumber, NationalLengths) ->
 
 %% Gets the max length from a list indicating the range of lengths possible.
 %% Ex: [7-10] should return 10.
-%% Accepted forms are: "[7-10]", "7,10",  "7".
+%% Accepted forms are: "[7-10]", "7,10",  "7", "6,9,10".
 -spec get_max_length(list()) -> integer().
 get_max_length(PossibleLengths) ->
     case string:find(PossibleLengths, "-") of
@@ -803,8 +809,8 @@ get_max_length(PossibleLengths) ->
                 nomatch ->
                     list_to_integer(PossibleLengths);
                 _ ->
-                    Lengths = string:split(PossibleLengths, ","),
-                    list_to_integer(lists:nth(2, Lengths))
+                    Lengths = string:tokens(PossibleLengths, ","),
+                    list_to_integer(lists:last(Lengths))
             end;
         _ ->
             PossibleLengthString = re:replace(PossibleLengths, "[\\[\\]]",
