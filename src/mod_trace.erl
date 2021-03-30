@@ -32,13 +32,17 @@
     register_user/3,
     remove_user/2,
     c2s_handle_recv/3,
-    c2s_handle_send/4
+    c2s_handle_send/4,
+    c2s_session_opened/1,
+    c2s_session_closed/1
 ]).
 
 
 start(Host, Opts) ->
     ?INFO("starting", []),
     gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
+    ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 0),
+    ejabberd_hooks:add(c2s_session_closed, Host, ?MODULE, c2s_session_closed, 0),
     ejabberd_hooks:add(c2s_handle_recv, Host, ?MODULE, c2s_handle_recv, 0),
     ejabberd_hooks:add(c2s_handle_send, Host, ?MODULE, c2s_handle_send, 0),
     ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 10),
@@ -53,6 +57,8 @@ stop(Host) ->
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 10),
     ejabberd_hooks:delete(c2s_handle_send, Host, ?MODULE, c2s_handle_send, 0),
     ejabberd_hooks:delete(c2s_handle_recv, Host, ?MODULE, c2s_handle_recv, 0),
+    ejabberd_hooks:delete(c2s_session_closed, Host, ?MODULE, c2s_session_closed, 0),
+    ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 0),
     ok.
 
 
@@ -234,6 +240,16 @@ c2s_handle_recv(#{user := Uid} = State, Bin, Pkt) ->
 c2s_handle_send(#{user := Uid} = State, Bin, Pkt, _SendResult) ->
     % TODO: maybe we should only log packets we send successfully
     trace_pb_packet(Uid, send, Pkt, Bin),
+    State.
+
+
+c2s_session_opened(#{user := Uid} = State) ->
+    trace_pb_packet(Uid, session_opened, <<>>, <<>>),
+    State.
+
+
+c2s_session_closed(#{user := Uid} = State) ->
+    trace_pb_packet(Uid, session_closed, <<>>, <<>>),
     State.
 
 

@@ -269,8 +269,9 @@ process_terminated(#{sid := SID, socket := Socket,
         false ->
             ok
     end,
+    State1 = ejabberd_hooks:run_fold(c2s_session_closed, Server, State, []),
     bounce_message_queue(SID, JID),
-    State;
+    State1;
 process_terminated(#{socket := Socket, stop_reason := {tls, _}} = State, Reason) ->
     ?WARNING("(~ts) Failed to secure c2s connection: ~ts",
             [halloapp_socket:pp(Socket), format_reason(State, Reason)]),
