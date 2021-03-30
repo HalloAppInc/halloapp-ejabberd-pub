@@ -70,10 +70,14 @@ get_access_key() ->
     Body :: uri_string:uri_string().
 compose_body(Phone, Message) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
+    FromPhone = case mod_libphonenumber:get_cc(Phone) of
+        <<"CA">> -> ?FROM_PHONE_FOR_CANADA;
+        _ -> ?FROM_PHONE_FOR_REST
+    end,
     %% reference is used during callback. TODO(vipin): Need a more useful ?REFERENCE.
     uri_string:compose_query([
         {"recipients", PlusPhone },
-        {"originator", ?FROM_PHONE},
+        {"originator", FromPhone},
         {"reference", ?REFERENCE},
         {"body", Message}
     ], [{encoding, utf8}]).
