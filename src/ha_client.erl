@@ -62,6 +62,7 @@
 
 -type options() :: #{
     auto_send_acks => boolean(),
+    auto_send_pongs => boolean(),
     resource => binary(),
     version => binary(),
     _ => _
@@ -70,11 +71,16 @@
 -define(DEFAUL_UA, <<"HalloApp/Android0.129">>).
 -define(DEFAULT_RESOURCE, <<"android">>).
 
+-define(DEFAULT_OPT, #{
+    auto_send_acks => true,
+    auto_send_pongs => true
+    }).
+
 % TODO: handle acks,
 % TODO: send acks to server.
 
 start_link() ->
-    start_link(#{auto_send_acks => true}).
+    start_link(?DEFAULT_OPT).
 
 start_link(Options) ->
     gen_server:start_link(ha_client, [Options], []).
@@ -83,7 +89,7 @@ start_link(Options) ->
 -spec connect_and_login(Uid :: uid(), Password :: binary()) ->
     {ok, Client :: pid()} | {error, Reason :: term()}.
 connect_and_login(Uid, Password) ->
-    connect_and_login(Uid, Password, #{auto_send_acks => true}).
+    connect_and_login(Uid, Password, ?DEFAULT_OPT).
 
 
 -spec connect_and_login(Uid :: uid(), Password :: binary(), Options :: options()) ->
@@ -338,7 +344,7 @@ handle_info({ha_raw_packet, PacketBytes}, State) ->
     {noreply, NewState};
 
 handle_info({ssl, _Socket, Message}, State) ->
-    ?INFO("recv ~p", [Message]),
+    ?DEBUG("recv ~p", [Message]),
     OldRecvBuf = State#state.recv_buf,
     Buffer = <<OldRecvBuf/binary, Message/binary>>,
     NewRecvBuf = parse_and_queue_ha_packets(Buffer),
@@ -346,21 +352,29 @@ handle_info({ssl, _Socket, Message}, State) ->
     {noreply, NewState};
 
 handle_info(Something, State) ->
-    ?INFO("handle_info ~p", [Something]),
+    ?INFO("ha_client handle_info ~p", [Something]),
     {noreply, State}.
 
 handle_packet(#pb_auth_result{} = Packet, State) ->
     NewState = handle_auth_result(Packet, State),
     {Packet, NewState};
 handle_packet(#pb_packet{stanza = #pb_ack{id = Id} = _Ack} = Packet, State) ->
-    ?INFO_MSG("recv ack: ~s", [Id]),
+    ?DEBUG("recv ack: ~s", [Id]),
     NewState = queue_in(Packet, State),
     {Packet, NewState};
 handle_packet(#pb_packet{stanza = #pb_msg{id = Id}} = Packet,
         #state{options = #{auto_send_acks := AutoSendAcks}} = State) ->
-    ?INFO_MSG("recv msg: ~s", [Id]),
+    ?DEBUG("recv msg: ~s", [Id]),
     State1 = case AutoSendAcks of
         true -> send_ack_internal(Id, State);
+        false -> State
+    end,
+    State2 = queue_in(Packet, State1),
+    {Packet, State2};
+handle_packet(#pb_packet{stanza = #pb_iq{id = Id, type = get, payload = #pb_ping{}}} = Packet,
+        #state{options = #{auto_send_pongs := AutoSendPongs}} = State) ->
+    State1 = case AutoSendPongs of
+        true -> send_pong_internal(Id, State);
         false -> State
     end,
     State2 = queue_in(Packet, State1),
@@ -372,15 +386,15 @@ handle_packet(Packet, State) ->
     {Packet, State}.
 
 handle_raw_packet(PacketBytes, State) ->
-    ?INFO_MSG("got ~p", [PacketBytes]),
+%%    ?DEBUG("got ~p", [PacketBytes]),
     {Packet1, State1} = case State#state.state of
         auth ->
             PBAuthResult = enif_protobuf:decode(PacketBytes, pb_auth_result),
-            ?INFO_MSG("recv pb_auth_result ~p", [PBAuthResult]),
+%%            ?DEBUG("recv pb_auth_result ~p", [PBAuthResult]),
             handle_packet(PBAuthResult, State);
         connected ->
             Packet = enif_protobuf:decode(PacketBytes, pb_packet),
-            ?INFO_MSG("recv packet ~p", [Packet]),
+%%            ?DEBUG("recv packet ~p", [Packet]),
             handle_packet(Packet, State)
     end,
     {Packet1, State1}.
@@ -388,10 +402,10 @@ handle_raw_packet(PacketBytes, State) ->
 handle_auth_result(
         #pb_auth_result{result = Result, reason = Reason, props_hash = _PropsHash} = PBAuthResult,
         State) ->
-    ?INFO("auth result: ~p", [PBAuthResult]),
+%%    ?DEBUG("auth result: ~p", [PBAuthResult]),
     case Result of
         <<"success">> ->
-            ?INFO("auth success", []),
+%%            ?DEBUG("auth success", []),
             State#state{state = connected};
         <<"failure">> ->
             ?INFO("auth failure reason: ~p", [Reason]),
@@ -410,21 +424,32 @@ send_ack_internal(Id, State) ->
     State.
 
 
+-spec send_pong_internal(Id :: any(), State :: state()) -> state().
+send_pong_internal(Id, State) ->
+    Packet = #pb_packet{
+        stanza = #pb_iq{
+            id = Id,
+            type = result
+        }
+    },
+    ok = send_internal(State#state.socket, Packet),
+    State.
+
+
 send_internal(Socket, Message) when is_binary(Message) ->
     Size = byte_size(Message),
     Result = ssl_send(Socket, <<Size:32/big, Message/binary>>),
-    ?INFO("sent message, result: ~p", [Result]),
+%%    ?DEBUG("sent message, result: ~p", [Result]),
     Result;
 send_internal(Socket, PBRecord)
         when is_record(PBRecord, pb_auth_request); is_record(PBRecord, pb_packet) ->
-    ?INFO("Encoding Record ~p", [PBRecord]),
-    % TODO: handle encode error and raise it
+    ?DEBUG("Encoding Record ~p", [PBRecord]),
     case enif_protobuf:encode(PBRecord) of
         {error, Reason} ->
             ?ERROR("Failed to encode PB: Reason ~p Record: ~p", [Reason, PBRecord]),
             erlang:error({protobuf_encode_error, Reason, PBRecord});
         Message ->
-            ?INFO("Message ~p", [Message]),
+%%            ?DEBUG("Message ~p", [Message]),
             send_internal(Socket, Message)
     end.
 
