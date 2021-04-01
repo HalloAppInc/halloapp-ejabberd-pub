@@ -436,13 +436,6 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
 get_priority(silent) -> 5;
 get_priority(alert) -> 10.
 
--spec boolean_to_push_type(BoolValue :: boolean()) -> silent | alert.
-boolean_to_push_type(BoolValue) ->
-    case BoolValue of
-        true -> alert;
-        false -> silent
-    end.
-
 -spec get_apns_push_type(PushType :: silent | alert) -> binary().
 get_apns_push_type(silent) -> <<"background">>;
 get_apns_push_type(alert) -> <<"alert">>.
@@ -525,10 +518,6 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
 -spec send_post_request_to_apns(Uid :: binary(), ApnsId :: binary(), ContentId :: binary(), PayloadBin :: binary(),
         PushType :: alert | silent, BuildType :: build_type(), PushMessageItem :: push_message_item(),
         State :: push_state()) -> {ok, push_state()} | {ignored, push_state()} | {{error, any()}, push_state()}.
-send_post_request_to_apns(_Uid, _ApnsId, _ContentId, _PayloadBin, silent, _BuildType, _PushMessageItem, State) ->
-    %% Ignore sending silent pushes to ios for two weeks.
-    %% Revisit this in 2-weeks (15th Feb) once we have an ios build with fixes for handling silent pushes.
-    {ignored, State};
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, BuildType, PushMessageItem, State) ->
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
     Priority = get_priority(PushType),
