@@ -145,8 +145,10 @@ send_error(State, Err) ->
 
 
 -spec route(pid(), term()) -> boolean().
-route(Pid, Term) ->
-    ejabberd_cluster:send(Pid, Term).
+route(Pid, Term) when is_pid(Pid) ->
+    ejabberd_cluster:send(Pid, Term);
+route(#{owner := Owner} = State, Term) when Owner =:= self() ->
+    halloapp_c2s:process_info(State, Term).
 
 
 -spec set_timeout(state(), timeout()) -> state().
@@ -363,9 +365,7 @@ handle_authenticated_packet(Pkt1, #{lserver := LServer, jid := JID} = State) ->
                user_send_packet, LServer, {Pkt1, State1}, []),
     case Pkt2 of
         drop -> State2;
-        #pb_iq{} ->
-            ejabberd_router:route(Pkt2),
-            State2;
+        #pb_iq{} -> process_iq_out(State2, Pkt2);
         #pb_ack{} -> process_ack_out(State2, Pkt2);
         #pb_chat_state{} -> check_privacy_then_route(State2, Pkt2);
         #pb_msg{} -> check_privacy_then_route(State2, Pkt2);
@@ -490,6 +490,22 @@ process_presence_out(State, _Pres) ->
     %% We dont expect this to happen.
     ?ERROR("Invalid presence stanza: ~p, state: ~p", [_Pres, State]),
     State.
+
+
+process_iq_out(#{user := _Uid, lserver := _Server} = State, #pb_iq{to_uid = ToUid} = Pkt) ->
+    %% TODO(murali@): move this into a common iq handler.
+    case ejabberd_iq:dispatch(Pkt) of
+        %% If the Pkt was a response to an iq request by the server.
+        true -> State;
+        false ->
+            %% If the Pkt is a new request from the client.
+            case ToUid =:= <<>> of
+                true -> gen_iq_handler:handle(State, Pkt);
+                false ->
+                    ?ERROR("Invalid packet received: ~p", [Pkt]),
+                    State
+            end
+    end.
 
 
 process_ack_out(#{user := _Uid, lserver := Server} = State, #pb_ack{} = Pkt) ->

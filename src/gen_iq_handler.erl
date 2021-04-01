@@ -31,8 +31,8 @@
 -export([
     add_iq_handler/5,
     remove_iq_handler/3,
-    handle/1,
     handle/2,
+    handle/3,
     start/1
 ]).
 %% Deprecated functions
@@ -45,6 +45,7 @@
 -include("ejabberd_stacktrace.hrl").
 
 -type component() :: ejabberd_sm | ejabberd_local.
+-type state() :: halloapp_c2s:state().
 
 %%====================================================================
 %% API
@@ -66,50 +67,48 @@ remove_iq_handler(Component, Host, NS) ->
     ets:delete(Component, {Host, NS}),
     ok.
 
--spec handle(pb_iq()) -> ok.
-handle(#pb_iq{to_uid = ToUid} = IQ) ->
+-spec handle(state(), pb_iq()) -> state().
+handle(State, #pb_iq{to_uid = ToUid} = IQ) ->
     Component = case ToUid of
         <<"">> -> ejabberd_local;
         _ -> ejabberd_sm
     end,
-    handle(Component, IQ).
+    handle(State, Component, IQ).
 
--spec handle(component(), pb_iq()) -> ok.
+-spec handle(state(), component(), pb_iq()) -> state().
 %% TODO(murali@): cleanup and have a simpler module after the transition.
-handle(_, #pb_iq{type = T, payload = undefined} = Packet)
+handle(State, _, #pb_iq{type = T, payload = undefined} = Packet)
         when T == get; T == set ->
     ErrIq = pb:make_error(Packet, util:err(invalid_iq)),
-    ejabberd_router:route(ErrIq);
-handle(Component, #pb_iq{type = T, payload = _Payload} = Packet)
+    halloapp_c2s:route(State, {route, ErrIq});
+handle(State, Component, #pb_iq{type = T, payload = _Payload} = Packet)
         when T == get; T == set ->
     PayloadType = util:get_payload_type(Packet),
     Host = util:get_host(),
     case ets:lookup(Component, {Host, PayloadType}) of
         [{_, Module, Function}] ->
-            process_iq(Host, Module, Function, Packet);
+            case process_iq(Host, Module, Function, Packet) of
+                ignore -> State;
+                #pb_iq{} = Iq -> halloapp_c2s:route(State, {route, Iq})
+            end;
         [] ->
             ?ERROR("Invalid iq: ~p", [Packet]),
             ErrIq = pb:make_error(Packet, util:err(invalid_iq)),
-            ejabberd_router:route(ErrIq)
+            halloapp_c2s:route(State, {route, ErrIq})
     end;
-handle(_, #pb_iq{type = T}) when T == result; T == error ->
-    ok.
+handle(State, _, #pb_iq{type = T}) when T == result; T == error ->
+    State.
 
 
--spec process_iq(binary(), atom(), atom(), pb_iq()) -> ok.
+-spec process_iq(binary(), atom(), atom(), pb_iq()) -> #pb_iq{}.
 process_iq(_Host, Module, Function, IQ) ->
-    try process_iq(Module, Function, IQ) of
-        #pb_iq{} = ResIQ ->
-            ejabberd_router:route(ResIQ);
-        ignore ->
-            ok
+    try process_iq(Module, Function, IQ)
     catch ?EX_RULE(Class, Reason, St) ->
         StackTrace = ?EX_STACK(St),
         ?ERROR("Failed to process iq: ~p~n Stacktrace: ~s", [
             IQ,
             lager:pr_stacktrace(StackTrace, {Class, Reason})]),
-        ErrIq = pb:make_error(IQ, util:err(internal_error)),
-        ejabberd_router:route(ErrIq)
+        pb:make_error(IQ, util:err(internal_error))
     end.
 
 -spec process_iq(module(), atom(), pb_iq()) -> ignore | pb_iq().
