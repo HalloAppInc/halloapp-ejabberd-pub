@@ -416,7 +416,7 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
         <<"message-id">> => PushMessageItem#push_message_item.id,
         <<"data">> => base64:encode(PushMetadata#push_metadata.payload),
         <<"message">> => PbMessageB64,
-        <<"retract">> => PushMetadata#push_metadata.retract
+        <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract)
     },
     BuildTypeMap = case PushType of
         alert ->
