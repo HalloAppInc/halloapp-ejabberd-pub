@@ -138,11 +138,33 @@ register_user(UserId, Server, Phone) ->
             probe_contact_about_user(UserId, Phone, Server, ContactId)
         end, PotentialContactUids),
 
+    %% Send notifications to relevant users.
+    send_new_user_notifications(UserId, Phone),
+    ok.
+
+
+-spec send_new_user_notifications(UserId :: binary(), UserPhone :: binary()) -> ok.
+send_new_user_notifications(UserId, Phone) ->
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+    %% Fetch all inviter phone numbers.
+    {ok, InvitersList} = model_invites:get_inviters_list(Phone),
+    InviterUidSet = sets:from_list([InviterUid || {InviterUid, _} <- InvitersList]),
+
+    %% Send only one notification per contact - inviter/contact based.
     lists:foreach(
-        fun(ContactId) ->
-            notify_contact_about_user(UserId, Phone, ContactId, none)
-        end, ContactUids).
+            fun(ContactId) ->
+                case sets:is_element(ContactId, InviterUidSet) of
+                    true ->
+                        ?INFO("Notify Inviter: ~p about user: ~p joining", [ContactId, UserId]),
+                        notifications_util:send_contact_notification(UserId, Phone,
+                                ContactId, none, normal, inviter_notice);
+                    false ->
+                        ?INFO("Notify Contact: ~p about user: ~p joining", [ContactId, UserId]),
+                        notifications_util:send_contact_notification(UserId, Phone,
+                                ContactId, none, normal, contact_notice)
+                end
+            end, ContactUids),
+    ok.
 
 
 -spec block_uids(Uid :: binary(), Server :: binary(), Ouids :: list(binary())) -> ok.
@@ -248,17 +270,6 @@ handle_delta_contacts(UserId, Server, Contacts) ->
             end, [], DeleteContactsList),
     remove_contact_phones(UserId, DeleteContactPhones),
     AddContacts = normalize_and_insert_contacts(UserId, Server, AddContactsList, undefined),
-
-    %% Send notification to user who invited this user.
-    %% Server fix for an issue on the ios client: remove this after 03-10-21.
-    AddContactsPhoneList = lists:foldl(
-            fun (#pb_contact{normalized = undefined}, Acc) -> Acc;
-                (#pb_contact{normalized = NormPhone}, Acc) -> [NormPhone | Acc]
-            end, [], AddContacts),
-    AddContactsPhoneSet = sets:from_list(AddContactsPhoneList),
-
-    %% Check the user account status and current sync info and send notifications if necessary.
-    check_and_send_notifications(UserId, AddContactsPhoneSet, AddContacts),
     AddContacts.
 
 
@@ -289,15 +300,11 @@ finish_sync(UserId, Server, SyncId) ->
     remove_contacts_and_notify(UserId, UserPhone,
             sets:to_list(DeleteContactSet), OldReverseContactSet, false),
     %% TODO(vipin): newness of contacts in AddContactSet needs to be used in update_and_...(...).
-    NewContactRecordList = lists:map(
-        fun(ContactPhone) ->
-            update_and_notify_contact(UserId, UserPhone, OldContactSet,
-                    OldReverseContactSet, Server, ContactPhone, yes)
-        end, sets:to_list(AddContactSet)),
-
-    %% Check the user account status and current sync info and send notifications if necessary.
-    %% TODO(murali@): We will be sending duplicate contact messages initially - fix this separately.
-    check_and_send_notifications(UserId, NewContactSet, NewContactRecordList),
+    lists:map(
+            fun(ContactPhone) ->
+                update_and_notify_contact(UserId, UserPhone, OldContactSet,
+                        OldReverseContactSet, Server, ContactPhone, yes)
+            end, sets:to_list(AddContactSet)),
 
     %% finish_sync will add various contacts and their reverse mapping in the db.
     model_contacts:finish_sync(UserId, SyncId),
@@ -315,69 +322,6 @@ finish_sync(UserId, Server, SyncId) ->
     T = EndTime - StartTime,
     ?INFO("Time taken: ~w us", [T]),
     ok.
-
-
-%% TODO(murali@): need to cache user details like phone across all functions in this module.
--spec check_and_send_notifications(UserId :: binary(),
-        NewContactSet :: sets:set(binary()), NewContactRecordList :: [pb_contact()]) -> ok.
-check_and_send_notifications(UserId,  NewContactSet, NewContactRecordList) ->
-    %% Checks if the user is a new user (meaning joined < 24hrs) andalso
-    %% ensure that the user has not already done a non-empty full-contact sync andalso
-    %% Checks if the new contact set is not-empty.
-    ShouldNotifyFriends = should_notify_friends(UserId, NewContactSet),
-
-    %% ShouldNotifyFriends will be true only if the user is a new user and
-    %% has not synced any contacts yet, and is now syncing non-empty set of contacts.
-    case ShouldNotifyFriends of
-        true ->
-            do_send_notifications(UserId, NewContactRecordList);
-        false -> ok
-    end.
-
-
--spec do_send_notifications(UserId :: binary(),
-        NewContactRecordList :: [pb_contact()]) -> ok.
-do_send_notifications(UserId, NewContactRecordList) ->
-    %% Send notification to user who invited this user.
-    UserPhone = get_phone(UserId),
-    %% Fetch all inviter phone numbers.
-    {ok, InvitersList} = model_invites:get_inviters_list(UserPhone),
-    InviterUidSet = sets:from_list([InviterUid || {InviterUid, _} <- InvitersList]),
-    %% Send only one notification per contact - inviter/friend.
-    lists:foreach(
-            fun(#pb_contact{uid = ContactId, role = friends = Role}) ->
-                case sets:is_element(ContactId, InviterUidSet) of
-                    true ->
-                        ?INFO("Notify Inviter: ~p about user: ~p joining", [ContactId, UserId]),
-                        notifications_util:send_contact_notification(UserId, UserPhone,
-                                ContactId, Role, normal, inviter_notice);
-                    false ->
-                        ?INFO("Notify Friend: ~p about user: ~p joining", [ContactId, UserId]),
-                        notifications_util:send_contact_notification(UserId, UserPhone,
-                                ContactId, Role, normal, friend_notice)
-                end;
-                (#pb_contact{normalized = ContactPhone, uid = ContactId, role = Role}) ->
-                    ?INFO("No push notification to user, phone: ~p, uid: ~p, role: ~p",
-                            [ContactPhone, ContactId, Role]),
-                    ok
-            end, NewContactRecordList),
-    ok.
-
-
--spec should_notify_friends(UserId :: binary(), NewContactSet :: sets:set(binary())) -> boolean().
-should_notify_friends(UserId, NewContactSet) ->
-    %% Check if the user is a new user (meaning joined < 24hrs)
-    {ok, CreationTs} = model_accounts:get_creation_ts_ms(UserId),
-    IsNewUser = CreationTs + ?NOTIFICATION_EXPIRY_MS > util:now_ms(),
-
-    %% Check if this is the first non-empty contact sync.
-    IsFirstNonEmptyContactSync = not sets:is_empty(NewContactSet) andalso
-            not model_accounts:is_first_sync_done(UserId),
-
-    %% Check if it is their first non empty contact sync.
-    %% If not - ignore and dont send notifications.
-    %% If yes - check the account creation time and then decide.
-    IsFirstNonEmptyContactSync andalso IsNewUser.
 
 
 %%====================================================================
