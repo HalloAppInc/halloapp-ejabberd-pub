@@ -51,7 +51,8 @@
     subject = <<>> :: binary(),             %% includes the fallback subject line
     body = <<>> :: binary(),                %% includes the fallback body line
     push_type = silent :: alert | silent,   %% indicates the push type.
-    payload = <<>> :: binary()              %% payload of the content to be sent to the client.
+    payload = <<>> :: binary(),             %% payload of the content to be sent to the client.
+    retract = false :: boolean()            %% indicates whether push is about retracting content.
 }).
 
 -type push_metadata() :: #push_metadata{}.

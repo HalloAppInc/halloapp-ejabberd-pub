@@ -34,6 +34,17 @@ parse_metadata(#pb_msg{id = Id, payload = Payload,
         payload = Payload#pb_chat_stanza.payload
     };
 
+parse_metadata(#pb_msg{id = _Id, payload = Payload,
+        from_uid = FromUid}, _PushInfo) when is_record(Payload, pb_chat_retract) ->
+    #push_metadata{
+        content_id = Payload#pb_chat_retract.id,
+        content_type = <<"chat_retract">>,
+        from_uid = FromUid,
+        thread_id = FromUid,
+        push_type = silent,
+        retract = true
+    };
+
 parse_metadata(#pb_msg{id = Id, payload = Payload,
         from_uid = FromUid}, _PushInfo) when is_record(Payload, pb_group_chat) ->
     #push_metadata{
@@ -48,6 +59,17 @@ parse_metadata(#pb_msg{id = Id, payload = Payload,
         body = <<"You got a new group message.">>,
         push_type = alert,
         payload = Payload#pb_group_chat.payload
+    };
+
+parse_metadata(#pb_msg{id = _Id, payload = Payload,
+        from_uid = FromUid}, _PushInfo) when is_record(Payload, pb_group_chat_retract) ->
+    #push_metadata{
+        content_id = Payload#pb_group_chat_retract.id,
+        content_type = <<"group_chat_retract">>,
+        from_uid = FromUid,
+        thread_id = Payload#pb_group_chat_retract.gid,
+        push_type = silent,
+        retract = true
     };
 
 %% TODO(murali@): this is not great, we need to send the entire message.
@@ -93,7 +115,7 @@ parse_metadata(#pb_msg{id = _Id, type = MsgType, payload = Payload} = Message, P
     };
 
 parse_metadata(#pb_msg{type = MsgType,
-        payload = #pb_feed_item{item = #pb_post{} = Post}} = _Message, PushInfo) ->
+        payload = #pb_feed_item{action = publish, item = #pb_post{} = Post}}, PushInfo) ->
     #push_metadata{
         content_id = Post#pb_post.id,
         content_type = <<"feedpost">>,
@@ -107,8 +129,19 @@ parse_metadata(#pb_msg{type = MsgType,
         payload = Post#pb_post.payload
     };
 
+parse_metadata(#pb_msg{
+        payload = #pb_feed_item{action = retract, item = #pb_post{} = Post}}, _PushInfo) ->
+    #push_metadata{
+        content_id = Post#pb_post.id,
+        content_type = <<"feedpost_retract">>,
+        from_uid = Post#pb_post.publisher_uid,
+        thread_id = <<"feed">>,
+        push_type = silent,
+        retract = true
+    };
+
 parse_metadata(#pb_msg{type = MsgType,
-        payload = #pb_feed_item{item = #pb_comment{} = Comment}} = _Message, PushInfo) ->
+        payload = #pb_feed_item{action = publish, item = #pb_comment{} = Comment}}, PushInfo) ->
     #push_metadata{
         content_id = Comment#pb_comment.id,
         content_type = <<"comment">>,
@@ -122,7 +155,18 @@ parse_metadata(#pb_msg{type = MsgType,
         payload = Comment#pb_comment.payload
     };
 
-parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid,
+parse_metadata(#pb_msg{
+        payload = #pb_feed_item{action = retract, item = #pb_comment{} = Comment}}, _PushInfo) ->
+    #push_metadata{
+        content_id = Comment#pb_comment.id,
+        content_type = <<"comment_retract">>,
+        from_uid = Comment#pb_comment.publisher_uid,
+        thread_id = <<"feed">>,
+        push_type = silent,
+        retract = true
+    };
+
+parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, action = publish,
         item = #pb_post{} = Post} = Payload} = Message, PushInfo) ->
     PayloadType = util:get_payload_type(Message),
     #push_metadata{
@@ -139,7 +183,18 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid,
         payload = Post#pb_post.payload
     };
 
-parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid,
+parse_metadata(#pb_msg{payload = #pb_group_feed_item{gid = Gid, action = retract,
+        item = #pb_post{} = Post} = _Payload} = _Message, _PushInfo) ->
+    #push_metadata{
+        content_id = Post#pb_post.id,
+        content_type = <<"group_post_retract">>,
+        from_uid = Post#pb_post.publisher_uid,
+        thread_id = Gid,
+        push_type = silent,
+        retract = true
+    };
+
+parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, action = publish,
         item = #pb_comment{} = Comment} = Payload} = Message, PushInfo) ->
     PayloadType = util:get_payload_type(Message),
     #push_metadata{
@@ -154,6 +209,17 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid,
         body = <<"New comment">>,
         push_type = get_push_type(MsgType, PayloadType, PushInfo),
         payload = Comment#pb_comment.payload
+    };
+
+parse_metadata(#pb_msg{payload = #pb_group_feed_item{gid = Gid, action = retract,
+        item = #pb_comment{} = Comment} = _Payload} = _Message, _PushInfo) ->
+    #push_metadata{
+        content_id = Comment#pb_comment.id,
+        content_type = <<"group_comment_retract">>,
+        from_uid = Comment#pb_comment.publisher_uid,
+        thread_id = Gid,
+        push_type = silent,
+        retract = true
     };
 
 parse_metadata(#pb_msg{id = Id, type = MsgType, payload = #pb_group_stanza{gid = Gid, name = Name,

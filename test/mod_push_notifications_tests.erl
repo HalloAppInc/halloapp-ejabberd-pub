@@ -23,7 +23,7 @@ feed_push2_test() ->
     PostSt2 = struct_util:create_pb_post(?ID1, ?UID1, undefined, undefined, undefined, undefined),
     FeedSt2 = struct_util:create_feed_item(retract, PostSt2),
     MessageSt2 = struct_util:create_pb_message(?ID1, undefined, undefined, normal, FeedSt2),
-    ?assertEqual(false, mod_push_notifications:should_push(MessageSt2)),
+    ?assertEqual(true, mod_push_notifications:should_push(MessageSt2)),
     ok.
 
 
@@ -38,20 +38,20 @@ group_feed_push2_test() ->
     CommentSt = struct_util:create_pb_comment(?ID3, ?ID1, undefined, undefined, undefined, undefined, undefined),
     FeedSt2 = struct_util:create_group_feed_item(retract, ?GID1, <<>>, undefined, CommentSt),
     MessageSt2 = struct_util:create_pb_message(?ID1, undefined, undefined, normal, FeedSt2),
-    ?assertEqual(false, mod_push_notifications:should_push(MessageSt2)),
+    ?assertEqual(true, mod_push_notifications:should_push(MessageSt2)),
     ok.
 
 
 chat_retract_push1_test() ->
     RetractSt1 = struct_util:create_pb_chat_retract(?ID1),
     MessageSt1 = struct_util:create_pb_message(?ID1, undefined, undefined, chat, RetractSt1),
-    ?assertEqual(false, mod_push_notifications:should_push(MessageSt1)),
+    ?assertEqual(true, mod_push_notifications:should_push(MessageSt1)),
     ok.
 
 chat_retract_push2_test() ->
     RetractSt2 = struct_util:create_pb_groupchat_retract(?ID1, ?GID1),
     MessageSt2 = struct_util:create_pb_message(?ID1, undefined, undefined, groupchat, RetractSt2),
-    ?assertEqual(false, mod_push_notifications:should_push(MessageSt2)),
+    ?assertEqual(true, mod_push_notifications:should_push(MessageSt2)),
     ok.
 
 

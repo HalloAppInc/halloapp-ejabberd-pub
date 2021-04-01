@@ -80,12 +80,24 @@ should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
             %% Push all group chat messages: all messages with type=groupchat and group_chat as the subelement.
             true;
 
+        Type =:= groupchat andalso PayloadType =:= pb_group_chat_retract ->
+            %% Send silent pushes for all group chat retract messages.
+            true;
+
         PayloadType =:= pb_chat_stanza ->
             %% Push chat messages: all messages with chat as the subelement.
             true;
 
+        PayloadType =:= pb_chat_retract ->
+            %% Send silent pushes for all chat retract messages.
+            true;
+
         PayloadType =:= pb_feed_item andalso Payload#pb_feed_item.action =:= publish ->
             %% Send pushes for feed messages: both posts and comments.
+            true;
+
+        PayloadType =:= pb_feed_item andalso Payload#pb_feed_item.action =:= retract ->
+            %% Send silent pushes for retract feed messages: both posts and comments.
             true;
 
         PayloadType =:= pb_contact_list andalso PayloadType#pb_contact_list.type =:= delete_notice ->
@@ -98,6 +110,10 @@ should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
 
         PayloadType =:= pb_group_feed_item andalso Payload#pb_group_feed_item.action =:= publish ->
             %% Push all group feed messages with action = publish.
+            true;
+
+        PayloadType =:= pb_group_feed_item andalso Payload#pb_group_feed_item.action =:= retract ->
+            %% Send silent pushes for all group feed messages with action = retract.
             true;
 
         Type =:= groupchat andalso PayloadType =:= pb_group_stanza ->
