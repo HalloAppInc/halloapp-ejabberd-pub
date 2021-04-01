@@ -752,6 +752,7 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
         gid = Group#group.gid,
         name = Group#group.name,
         avatar_id = Group#group.avatar,
+        background = Group#group.background,
         sender_uid = Uid,
         sender_name = maps:get(Uid, NamesMap, undefined),
         action = Event,
