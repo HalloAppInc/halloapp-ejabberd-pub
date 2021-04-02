@@ -258,7 +258,7 @@ record_push_sent(Message, PushInfo) ->
     PushTypeBin = util:to_binary(PushMetadata#push_metadata.push_type),
     PushId = <<ContentId/binary, PushTypeBin/binary>>,
     UserId = Message#pb_msg.to_uid,
-    model_messages:record_push_sent(UserId, ContentId).
+    model_messages:record_push_sent(UserId, PushId).
 
 
 -spec get_push_type(MsgType :: atom(),
