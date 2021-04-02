@@ -14,7 +14,7 @@
 
 -export([
     parse_metadata/2,
-    record_push_sent/1,
+    record_push_sent/2,
     get_push_type/3
 ]).
 
@@ -94,7 +94,7 @@ parse_metadata(#pb_msg{id = _Id, type = MsgType, payload = Payload} = Message, P
     Name = Contact#pb_contact.name,
     {ContentType, Subject, Body} = case Payload#pb_contact_list.type of
         contact_notice ->
-            {<<"contact_notice">>, <<"New Contact">>, <<"Your contact ", Name/binary, " is now on HalloApp">>};
+            {<<"contact_notice">>, <<"New Contact">>, <<Name/binary, " is now on HalloApp">>};
         inviter_notice ->
             {<<"inviter_notice">>, <<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
         _ ->
@@ -246,15 +246,17 @@ parse_metadata(#pb_msg{to_uid = Uid, id = Id}, _PushInfo) ->
 %% Adding a special case to be able to send all alert and silent notifications for contact_list
 %% updates. If we use the content_id which is the phone number in this case: we will not be sending
 %% other pushes for these messages.
--spec record_push_sent(Message :: pb_msg()) -> boolean().
-record_push_sent(#pb_msg{id = MsgId, to_uid = UserId, payload = Payload})
+-spec record_push_sent(Message :: pb_msg(), PushInfo :: push_info()) -> boolean().
+record_push_sent(#pb_msg{id = MsgId, to_uid = UserId, payload = Payload}, PushInfo)
         when is_record(Payload, pb_contact_list) ->
     model_messages:record_push_sent(UserId, MsgId);
-record_push_sent(Message) ->
+record_push_sent(Message, PushInfo) ->
     %% We parse again for content_id only, so its okay to ignore push_info here.
     %% TODO(murali@): However, it is not clean: that we are parsing this again.
-    PushMetadata = parse_metadata(Message, undefined),
+    PushMetadata = parse_metadata(Message, PushInfo),
     ContentId = PushMetadata#push_metadata.content_id,
+    PushTypeBin = util:to_binary(PushMetadata#push_metadata.push_type),
+    PushId = <<ContentId/binary, PushTypeBin/binary>>,
     UserId = Message#pb_msg.to_uid,
     model_messages:record_push_sent(UserId, ContentId).
 

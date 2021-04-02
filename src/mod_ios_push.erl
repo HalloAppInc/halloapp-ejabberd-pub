@@ -150,7 +150,7 @@ handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     %% in this gen_server instead of outside.
 
     %% Ignore the push notification if it has already been sent.
-    NewState = case push_util:record_push_sent(Message) of
+    NewState = case push_util:record_push_sent(Message, PushInfo) of
         false -> 
                 ?INFO("Push notification already sent for Msg: ~p", [Message]),
                 State;
