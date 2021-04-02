@@ -93,8 +93,8 @@ parse_metadata(#pb_msg{id = _Id, type = MsgType, payload = Payload} = Message, P
     [Contact | _] = Payload#pb_contact_list.contacts,
     Name = Contact#pb_contact.name,
     {ContentType, Subject, Body} = case Payload#pb_contact_list.type of
-        friend_notice ->
-            {<<"friend_notice">>, <<"New Friend">>, <<"Your friend ", Name/binary, " is now on HalloApp">>};
+        contact_notice ->
+            {<<"contact_notice">>, <<"New Contact">>, <<"Your contact ", Name/binary, " is now on HalloApp">>};
         inviter_notice ->
             {<<"inviter_notice">>, <<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
         _ ->
@@ -269,7 +269,7 @@ get_push_type(normal, pb_group_feed_item, _PushInfo) -> silent;
 get_push_type(headline, feed_post, #push_info{post_pref = true}) -> alert;
 get_push_type(headline, feed_comment, #push_info{comment_pref = true}) -> alert;
 get_push_type({headline, _}, pb_contact_list, _PushInfo) -> alert;
-get_push_type({_, friend_notice}, pb_contact_list, _PushInfo) -> alert;
+get_push_type({_, contact_notice}, pb_contact_list, _PushInfo) -> alert;
 get_push_type({_, inviter_notice}, pb_contact_list, _PushInfo) -> alert;
 get_push_type(_MsgType, _PayloadType, _PushInfo) -> silent.
 
