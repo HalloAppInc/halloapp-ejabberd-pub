@@ -108,7 +108,6 @@ message ContactList {
         FRIEND_NOTICE = 3;
         INVITER_NOTICE = 4;
         DELETE_NOTICE = 5;
-        CONTACT_NOTICE = 6;
     }
     Type type = 1;
     string sync_id = 2;
