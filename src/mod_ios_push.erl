@@ -402,6 +402,10 @@ get_pid_to_send(dev, State) ->
 -spec get_payload(PushMessageItem :: push_message_item(),
         PushMetadata :: push_metadata(), PushType :: silent | alert) -> binary().
 get_payload(PushMessageItem, PushMetadata, PushType) ->
+    PayloadB64 = case PushMetadata#push_metadata.payload of
+        undefined -> <<>>;
+        Payload -> base64:encode(Payload)
+    end,
     PbMessageB64 = base64:encode(enif_protobuf:encode(PushMessageItem#push_message_item.message)),
     MetadataMap = #{
         <<"content-id">> => PushMetadata#push_metadata.content_id,
@@ -414,7 +418,7 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
         %% Ideally clients should decode the pb message and then use this for metrics.
         %% Easier to have this if we start sending it ourselves - filed an issue for ios.
         <<"message-id">> => PushMessageItem#push_message_item.id,
-        <<"data">> => base64:encode(PushMetadata#push_metadata.payload),
+        <<"data">> => PayloadB64,
         <<"message">> => PbMessageB64,
         <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract)
     },
