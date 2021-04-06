@@ -449,20 +449,29 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
 -spec encrypt_message(PushMessageItem :: push_message_item(), State :: push_state()) -> binary().
 encrypt_message(#push_message_item{uid = Uid, message = Message},
         #push_state{noise_static_key = S, noise_certificate = Cert}) ->
-    case enif_protobuf:encode(Message) of
-        {error, Reason1} ->
-            ?ERROR("Failed encoding message: ~p, reason: ~p", [Message, Reason1]),
-            <<>>;
-        MsgBin ->
-            case enif_protobuf:encode(#pb_push_content{certificate = Cert, content = MsgBin}) of
-                {error, Reason2} ->
-                    ?ERROR("Failed encoding msg: ~p, cert: ~p, reason: ~p", [Message, Cert, Reason2]),
-                    <<>>;
-                PushContent ->
-                    {ok, #s_pub{s_pub = ClientStaticKey}} = model_auth:get_spub(Uid),
-                    {ok, EncryptedMessage} = ha_enoise:encrypt_x(PushContent, ClientStaticKey, S),
-                    <<?ENC_HEADER, EncryptedMessage/binary>>
-            end
+    try
+        case enif_protobuf:encode(Message) of
+            {error, Reason1} ->
+                ?ERROR("Failed encoding message: ~p, reason: ~p", [Message, Reason1]),
+                <<>>;
+            MsgBin ->
+                case enif_protobuf:encode(#pb_push_content{certificate = Cert, content = MsgBin}) of
+                    {error, Reason2} ->
+                        ?ERROR("Failed encoding msg: ~p, cert: ~p, reason: ~p",
+                                [Message, Cert, Reason2]),
+                        <<>>;
+                    PushContent ->
+                        {ok, #s_pub{s_pub = ClientStaticKey}} = model_auth:get_spub(Uid),
+                        {ok, EncryptedMessage} = ha_enoise:encrypt_x(PushContent,
+                                base64:decode(ClientStaticKey), S),
+                        <<?ENC_HEADER, EncryptedMessage/binary>>
+                end
+        end
+    catch
+        Class: Reason: St ->
+            ?ERROR("Failed encrypting message |~p| with reason: ~s",
+                [Message, lager:pr_stacktrace(St, {Class, Reason})]),
+        <<>>
     end.
 
 
