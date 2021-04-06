@@ -46,8 +46,6 @@
 -define(APNS_DEV_PORT, 443).
 -define(APNS_DEV_CERTFILE_SM, <<"apns_dev.pem">>).
 
--define(ENC_HEADER, <<"0">>).
-
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 %% gen_server API
@@ -464,7 +462,7 @@ encrypt_message(#push_message_item{uid = Uid, message = Message},
                         {ok, #s_pub{s_pub = ClientStaticKey}} = model_auth:get_spub(Uid),
                         {ok, EncryptedMessage} = ha_enoise:encrypt_x(PushContent,
                                 base64:decode(ClientStaticKey), S),
-                        <<?ENC_HEADER, EncryptedMessage/binary>>
+                        <<"0", EncryptedMessage/binary>>
                 end
         end
     catch
