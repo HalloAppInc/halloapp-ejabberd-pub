@@ -66,9 +66,6 @@
 -include("translate.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
--define(NOISE_STATIC_KEY, <<"static_key">>).
--define(NOISE_SERVER_CERTIFICATE, <<"server_certificate">>).
-
 -type state() :: halloapp_stream_in:state().
 -export_type([state/0]).
 
@@ -401,7 +398,7 @@ init([State, Opts]) ->
                 end, Opts),
             State1#{tls_options => TLSOpts1};
         noise ->
-            {NoiseStaticKey, NoiseCertificate} = get_noise_info(),
+            {NoiseStaticKey, NoiseCertificate} = util:gen_noise_key_material(),
 
             [{_, ServerPublic, _}, {_, ServerSecret, _}] = public_key:pem_decode(NoiseStaticKey),
             ServerKeypair = enoise_keypair:new(dh25519, ServerSecret, ServerPublic),
@@ -415,13 +412,6 @@ init([State, Opts]) ->
     Timeout = ejabberd_option:negotiation_timeout(),
     State3 = halloapp_stream_in:set_timeout(State2, Timeout),
     ejabberd_hooks:run_fold(c2s_init, {ok, State3}, [Opts]).
-
-
-%% TODO(vipin): Try and cache the key and certificate.
-get_noise_info() ->
-    [{?NOISE_STATIC_KEY, NoiseStaticKey}, {?NOISE_SERVER_CERTIFICATE, NoiseCertificate}] = 
-        jsx:decode(mod_aws:get_secret(config:get_noise_secret_name())),
-    {base64:decode(NoiseStaticKey), base64:decode(NoiseCertificate)}.
 
 
 handle_call(Request, From, #{lserver := LServer} = State) ->

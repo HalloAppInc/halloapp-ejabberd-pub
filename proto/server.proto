@@ -743,3 +743,11 @@ message DeleteAccount {
     string phone = 1;
 }
 
+
+// PushContent
+message PushContent {
+    bytes certificate = 1;
+    bytes content = 2;
+}
+
+

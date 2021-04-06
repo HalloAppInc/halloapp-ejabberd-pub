@@ -25,7 +25,9 @@
     conn :: pid(),
     mon :: reference(),
     dev_conn :: pid(),
-    dev_mon :: reference()
+    dev_mon :: reference(),
+    noise_static_key :: binary(),
+    noise_certificate :: binary()
 }).
 
 -type push_state() :: #push_state{}.

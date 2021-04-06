@@ -22,6 +22,7 @@
 -include("push_message.hrl").
 -include("feed.hrl").
 -include("proc.hrl").
+-include("password.hrl").
 
 -type build_type() :: prod | dev.
 
@@ -35,7 +36,6 @@
 -define(APNS_TOPIC, <<"apns-topic">>).
 -define(APNS_PUSH_TYPE, <<"apns-push-type">>).
 -define(APNS_COLLAPSE_ID, <<"apns-collapse-id">>).
-
 -define(APP_BUNDLE_ID, <<"com.halloapp.hallo">>).
 
 %% APNS gateway and certificate details.
@@ -45,6 +45,8 @@
 -define(APNS_DEV_GATEWAY, "api.sandbox.push.apple.com").
 -define(APNS_DEV_PORT, 443).
 -define(APNS_DEV_CERTFILE_SM, <<"apns_dev.pem">>).
+
+-define(ENC_HEADER, <<"0">>).
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -114,13 +116,16 @@ crash() ->
 init([Host|_]) ->
     {Pid, Mon} = connect_to_apns(prod),
     {DevPid, DevMon} = connect_to_apns(dev),
+    {NoiseStaticKey, NoiseCertificate} = util:gen_noise_key_material(),
     {ok, #push_state{
             pendingMap = #{},
             host = Host,
             conn = Pid,
             mon = Mon,
             dev_conn = DevPid,
-            dev_mon = DevMon}}.
+            dev_mon = DevMon,
+            noise_static_key = NoiseStaticKey,
+            noise_certificate = NoiseCertificate}}.
 
 
 terminate(_Reason, #push_state{host = _Host, conn = Pid,
@@ -359,7 +364,7 @@ push_message_item(PushMessageItem, PushMetadata, State) ->
         <<"ios_dev">> -> dev
     end,
     PushType = PushMetadata#push_metadata.push_type,
-    PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType),
+    PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType, State),
     ApnsId = util:uuid_binary(),
     ContentId = PushMetadata#push_metadata.content_id,
     Id = PushMessageItem#push_message_item.id,
@@ -399,9 +404,9 @@ get_pid_to_send(dev, State) ->
 
 %% Details about the content inside the apns push payload are here:
 %% [https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification]
--spec get_payload(PushMessageItem :: push_message_item(),
-        PushMetadata :: push_metadata(), PushType :: silent | alert) -> binary().
-get_payload(PushMessageItem, PushMetadata, PushType) ->
+-spec get_payload(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata(),
+        PushType :: silent | alert, State :: push_state()) -> binary().
+get_payload(PushMessageItem, PushMetadata, PushType, State) ->
     PayloadB64 = case PushMetadata#push_metadata.payload of
         undefined -> <<>>;
         Payload -> base64:encode(Payload)
@@ -420,7 +425,9 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
         <<"message-id">> => PushMessageItem#push_message_item.id,
         <<"data">> => PayloadB64,
         <<"message">> => PbMessageB64,
-        <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract)
+        <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract),
+        %% TODO(murali@): remove other fields, 2months after clients switch to this - 07-01-2021.
+        <<"content">> => base64:encode(encrypt_message(PushMessageItem, State))
     },
     BuildTypeMap = case PushType of
         alert ->
@@ -435,6 +442,28 @@ get_payload(PushMessageItem, PushMetadata, PushType) ->
     end,
     PayloadMap = #{<<"aps">> => BuildTypeMap, <<"metadata">> => MetadataMap},
     jiffy:encode(PayloadMap).
+
+
+%% Use noise-x pattern to encrypt the message.
+%% TODO(murali@): Fetch the static key when we fetch the push token itself.
+-spec encrypt_message(PushMessageItem :: push_message_item(), State :: push_state()) -> binary().
+encrypt_message(#push_message_item{uid = Uid, message = Message},
+        #push_state{noise_static_key = S, noise_certificate = Cert}) ->
+    case enif_protobuf:encode(Message) of
+        {error, Reason1} ->
+            ?ERROR("Failed encoding message: ~p, reason: ~p", [Message, Reason1]),
+            <<>>;
+        MsgBin ->
+            case enif_protobuf:encode(#pb_push_content{certificate = Cert, content = MsgBin}) of
+                {error, Reason2} ->
+                    ?ERROR("Failed encoding msg: ~p, cert: ~p, reason: ~p", [Message, Cert, Reason2]),
+                    <<>>;
+                PushContent ->
+                    #s_pub{s_pub = ClientStaticKey} = model_auth:get_spub(Uid),
+                    {ok, EncryptedMessage} = ha_enoise:encrypt_x(PushContent, ClientStaticKey, S),
+                    <<?ENC_HEADER, EncryptedMessage/binary>>
+            end
+    end.
 
 
 -spec get_priority(PushType :: silent | alert) -> integer().
