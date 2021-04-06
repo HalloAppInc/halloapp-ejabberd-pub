@@ -16,6 +16,7 @@
 
 -define(SALT_LENGTH_BYTES, 32).
 -define(PROBE_HASH_LENGTH_BYTES, 2).
+-define(MAX_INVITERS, 2).
 -define(NOTIFICATION_EXPIRY_MS, 1 * ?WEEKS_MS).
 
 %% Export all functions for unit tests
@@ -400,15 +401,24 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
     stat:count("HA/contacts", "add_contact"),
     case ContactId of
         undefined ->
+            %% Dont share potential friends info if the number is already invited by more than MAX_INVITERS.
+            PotentialFriends1 = case model_invites:get_inviters_list(ContactPhone) of
+                {ok, InvitersList} when length(InvitersList) > ?MAX_INVITERS -> 0;
+                _ -> model_contacts:get_contact_uids_size(ContactPhone)
+            end,
             %% TODO(murali@): change this when we switch to contact hashing.
             %% We are looking up redis sequentially for every phone number.
             %% TODO(murali@): this query will make it expensive. fix this with qmn later.
-            NumPotentialFriends = case dev_users:is_dev_uid(UserId) of
-                true -> model_contacts:get_contact_uids_size(ContactPhone);
+            PotentialFriends2 = case dev_users:is_dev_uid(UserId) of
+                true -> PotentialFriends1;
                 false -> 0  %% 0 or undefined is the same for the clients.
             end,
-            #pb_contact{normalized = ContactPhone, uid = undefined,
-                    role = none, num_potential_friends = NumPotentialFriends};
+            #pb_contact{
+                normalized = ContactPhone,
+                uid = undefined,
+                role = none,
+                num_potential_friends = PotentialFriends2
+            };
         _ ->
             %% TODO(murali@): update this to load block-uids once for this request
             %% and use it instead of every redis call.
