@@ -460,7 +460,7 @@ encrypt_message(#push_message_item{uid = Uid, message = Message},
                     <<>>;
                 PushContent ->
                     {ok, #s_pub{s_pub = ClientStaticKey}} = model_auth:get_spub(Uid),
-                    {ok, EncryptedMessage} = ha_enoise:encrypt_x(PushContent, ClientStaticKey, S),
+                    {ok, EncryptedMessage} = ha_enoise:encrypt_x(base64:encode(PushContent), ClientStaticKey, S),
                     <<?ENC_HEADER, EncryptedMessage/binary>>
             end
     end.
