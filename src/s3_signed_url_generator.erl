@@ -75,6 +75,7 @@ make_signed_url(Method, ExpireTime, Key) ->
 
 -spec refresh_url(Url :: string()) -> boolean().
 refresh_url(Url) ->
+    ?INFO("refreshing Url ~p", [Url]),
     case string:find(Url, "/", trailing) of
         nomatch -> false;
         SlashKey ->
@@ -90,7 +91,7 @@ refresh_url(Url) ->
                     ?ERROR("Refresh Url Error: ~p", [Error]),
                     false;
                 Result ->
-                    ?DEBUG("Refresh Url Success: ~p", [Result]),
+                    ?INFO("Refresh Url Success: ~p", [Result]),
                     true
             catch
                 C:R:S ->

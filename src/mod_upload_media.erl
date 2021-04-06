@@ -79,12 +79,16 @@ mod_options(_Host) ->
 
 process_local_iq(
     #pb_iq{type = get, payload = #pb_upload_media{size = Size, download_url = DUrl}} = IQ)
-        when DUrl =/= undefined andalso length(DUrl) > 0 ->
-    case s3_signed_url_generator:refresh_url(DUrl) of
+        when DUrl =/= undefined andalso byte_size(DUrl) > 0 ->
+    ?INFO("refresh_url ~p", [DUrl]),
+    case s3_signed_url_generator:refresh_url(binary_to_list(DUrl)) of
         true ->
+            ?INFO("refresh ok ~p", [DUrl]),
             stat:count("HA/media", "refresh_upload"),
             pb:make_iq_result(IQ, #pb_upload_media{download_url = DUrl});
-        false -> process_local_iq(IQ#pb_iq{payload = #pb_upload_media{size = Size}})
+        false ->
+            ?INFO("fail ~p", [DUrl]),
+            process_local_iq(IQ#pb_iq{payload = #pb_upload_media{size = Size}})
     end;
  process_local_iq( #pb_iq{type = get, payload = #pb_upload_media{size = Size}} = IQ) ->
     case Size of
