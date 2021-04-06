@@ -459,7 +459,7 @@ encrypt_message(#push_message_item{uid = Uid, message = Message},
                     ?ERROR("Failed encoding msg: ~p, cert: ~p, reason: ~p", [Message, Cert, Reason2]),
                     <<>>;
                 PushContent ->
-                    #s_pub{s_pub = ClientStaticKey} = model_auth:get_spub(Uid),
+                    {ok, #s_pub{s_pub = ClientStaticKey}} = model_auth:get_spub(Uid),
                     {ok, EncryptedMessage} = ha_enoise:encrypt_x(PushContent, ClientStaticKey, S),
                     <<?ENC_HEADER, EncryptedMessage/binary>>
             end
