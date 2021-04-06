@@ -354,14 +354,17 @@ set_avatar(Gid, AvatarId) ->
     {ok, _Res} = q(["HSET", group_key(Gid), ?FIELD_AVATAR_ID, AvatarId]),
     ok.
 
--spec set_background(Gid :: gid(), Background :: binary()) -> ok.
-set_background(Gid, Background) ->
-    {ok, _Res} = q(["HSET", group_key(Gid), ?FIELD_BACKGROUND, Background]),
-    ok.
-
 -spec delete_avatar(Gid :: gid()) -> ok.
 delete_avatar(Gid) ->
     {ok, _Res} = q(["HDEL", group_key(Gid), ?FIELD_AVATAR_ID]),
+    ok.
+
+-spec set_background(Gid :: gid(), Background :: maybe(binary())) -> ok.
+set_background(Gid, undefined) ->
+    {ok, _Res} = q(["HDEL", group_key(Gid), ?FIELD_BACKGROUND]),
+    ok;
+set_background(Gid, Background) ->
+    {ok, _Res} = q(["HSET", group_key(Gid), ?FIELD_BACKGROUND, Background]),
     ok.
 
 

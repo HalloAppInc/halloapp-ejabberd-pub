@@ -356,7 +356,11 @@ set_avatar(Gid, Uid, Base64Data) ->
     end.
 
 process_set_background(IQ, Gid, Uid, Background) ->
-    ?INFO("set_background Gid: ~s Uid: ~s Size: ~p", [Gid, Uid, byte_size(Background)]),
+    ByteSize = case Background of
+        undefined -> 0;
+        _ -> byte_size(Background)
+    end,
+    ?INFO("set_background Gid: ~s Uid: ~s Size: ~p", [Gid, Uid, ByteSize]),
     case mod_groups:set_background(Gid, Uid, Background) of
         {error, Reason} ->
             ?WARNING("Gid: ~s Uid ~s setting background failed ~p", [Gid, Uid, Reason]),
@@ -370,6 +374,7 @@ process_set_background(IQ, Gid, Uid, Background) ->
             },
             pb:make_iq_result(IQ, GroupSt)
     end.
+
 
 -spec process_leave_group(IQ :: pb_iq(), Gid :: gid(), Uid :: uid()) -> pb_iq().
 process_leave_group(IQ, Gid, Uid) ->

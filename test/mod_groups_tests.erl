@@ -334,7 +334,11 @@ set_background_test() ->
     ?assertEqual({ok, ?BACKGROUND1}, mod_groups:set_background(Gid, ?UID1, ?BACKGROUND1)),
     {ok, GroupNew} = mod_groups:get_group(Gid, ?UID1),
     ?assertEqual(?BACKGROUND1, GroupNew#group.background),
+    ?assertEqual({ok, undefined}, mod_groups:set_background(Gid, ?UID1, undefined)),
+    {ok, GroupNew2} = mod_groups:get_group(Gid, ?UID1),
+    ?assertEqual(undefined, GroupNew2#group.background),
     ok.
+
 
 modify_members_test() ->
     setup(),

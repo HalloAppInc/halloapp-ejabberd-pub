@@ -313,3 +313,17 @@ clear_removed_members_set_test() ->
     ?assertEqual(false, model_groups:is_removed_member(Gid1, ?UID3)),
     ok.
 
+
+set_background_test() ->
+    setup(),
+    {ok, Gid1} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    Group1 = model_groups:get_group(Gid1),
+    ?assertEqual(undefined, Group1#group.background),
+    model_groups:set_background(Gid1, ?BACKGROUND1),
+    Group2 = model_groups:get_group(Gid1),
+    ?assertEqual(?BACKGROUND1, Group2#group.background),
+    model_groups:set_background(Gid1, undefined),
+    Group3 = model_groups:get_group(Gid1),
+    ?assertEqual(undefined, Group3#group.background),
+    ok.
+

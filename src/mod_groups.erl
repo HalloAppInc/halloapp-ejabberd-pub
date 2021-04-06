@@ -333,7 +333,10 @@ delete_avatar(Gid, Uid) ->
     {ok, Background :: binary(), GroupName :: binary()} | {error, not_member} | {error | background_too_large}.
 set_background(Gid, Uid, Background) ->
     ?INFO("Gid: ~s Uid: ~s setting background to ~s", [Gid, Uid, Background]),
-    IsTooLong = byte_size(Background) > ?MAX_BG_LENGTH,
+    IsTooLong = case Background of
+        undefined -> false;
+        _ -> byte_size(Background) > ?MAX_BG_LENGTH
+    end,
     IsMember = model_groups:check_member(Gid, Uid),
     if
         not IsMember -> {error, not_member};

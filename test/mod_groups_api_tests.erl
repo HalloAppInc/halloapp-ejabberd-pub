@@ -523,6 +523,16 @@ set_background_test() ->
         background = ?BACKGROUND1
     },
     ?assertEqual(ExpectedGroupSt, GroupSt),
+
+    %% unset the background
+    IQ2 = set_background_IQ(?UID1, Gid, undefined),
+    IQ2Res = mod_groups_api:process_local_iq(IQ2),
+    GroupSt2 = tutil:get_result_iq_sub_el(IQ2Res),
+    ExpectedGroupSt2 = #pb_group_stanza{
+        gid = Gid,
+        background = undefined
+    },
+    ?assertEqual(ExpectedGroupSt2, GroupSt2),
     ok.
 
 publish_group_feed_test() ->
