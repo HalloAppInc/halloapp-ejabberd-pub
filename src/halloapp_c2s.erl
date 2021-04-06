@@ -398,13 +398,7 @@ init([State, Opts]) ->
                 end, Opts),
             State1#{tls_options => TLSOpts1};
         noise ->
-            {NoiseStaticKey, NoiseCertificate} = util:gen_noise_key_material(),
-
-            [{_, ServerPublic, _}, {_, ServerSecret, _}] = public_key:pem_decode(NoiseStaticKey),
-            ServerKeypair = enoise_keypair:new(dh25519, ServerSecret, ServerPublic),
-
-            [{_, Certificate, _}] = public_key:pem_decode(NoiseCertificate),
-        
+            {ServerKeypair, Certificate} = util:get_noise_key_material(),
             NoiseOpts = [{noise_static_key, ServerKeypair},
                          {noise_server_certificate, Certificate}],
             State1#{noise_options => NoiseOpts}

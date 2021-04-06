@@ -22,7 +22,7 @@
     timestamp_secs_to_integer/1,
     get_host/0,
     get_upload_server/0,
-    gen_noise_key_material/0,
+    get_noise_key_material/0,
     now_ms/0,
     now/0,
     now_binary/0,
@@ -83,10 +83,15 @@ get_upload_server() ->
 
 
 %% TODO(vipin): Try and cache the key and certificate.
-gen_noise_key_material() ->
-    [{?NOISE_STATIC_KEY, NoiseStaticKey}, {?NOISE_SERVER_CERTIFICATE, NoiseCertificate}] =
-        jsx:decode(mod_aws:get_secret(config:get_noise_secret_name())),
-    {base64:decode(NoiseStaticKey), base64:decode(NoiseCertificate)}.
+get_noise_key_material() ->
+    [{?NOISE_STATIC_KEY, NoiseStaticKeyPair}, {?NOISE_SERVER_CERTIFICATE, NoiseCertificate}] =
+            jsx:decode(mod_aws:get_secret(config:get_noise_secret_name())),
+    NoiseStaticKey = base64:decode(NoiseStaticKeyPair),
+    [{_, ServerPublic, _}, {_, ServerSecret, _}] = public_key:pem_decode(NoiseStaticKey),
+    ServerKeypair = enoise_keypair:new(dh25519, ServerSecret, ServerPublic),
+
+    [{_, Certificate, _}] = public_key:pem_decode(base64:decode(NoiseCertificate)),
+    {ServerKeypair, Certificate}.
 
 
 -spec now_ms() -> integer().

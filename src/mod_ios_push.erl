@@ -116,7 +116,7 @@ crash() ->
 init([Host|_]) ->
     {Pid, Mon} = connect_to_apns(prod),
     {DevPid, DevMon} = connect_to_apns(dev),
-    {NoiseStaticKey, NoiseCertificate} = util:gen_noise_key_material(),
+    {NoiseStaticKey, NoiseCertificate} = util:get_noise_key_material(),
     {ok, #push_state{
             pendingMap = #{},
             host = Host,
@@ -460,7 +460,7 @@ encrypt_message(#push_message_item{uid = Uid, message = Message},
                     <<>>;
                 PushContent ->
                     {ok, #s_pub{s_pub = ClientStaticKey}} = model_auth:get_spub(Uid),
-                    {ok, EncryptedMessage} = ha_enoise:encrypt_x(base64:encode(PushContent), ClientStaticKey, S),
+                    {ok, EncryptedMessage} = ha_enoise:encrypt_x(PushContent, ClientStaticKey, S),
                     <<?ENC_HEADER, EncryptedMessage/binary>>
             end
     end.
