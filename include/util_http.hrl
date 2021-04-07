@@ -40,6 +40,9 @@
 -define(HEADER(CType),
     [CType, ?AC_ALLOW_ORIGIN, ?AC_ALLOW_HEADERS]).
 
+-define(LOCATION_HEADER(Location),
+    {<<"Location">>, Location}).
+
 -type http_response_code() :: integer().
 -type http_header() :: {binary(), binary()}.
 -type http_headers() :: [http_header()].
