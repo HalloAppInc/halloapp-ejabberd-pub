@@ -81,6 +81,7 @@ record_invite(FromUid, ToPhoneNum, NumInvsLeft) ->
 
 -spec is_invited(PhoneNum :: binary()) -> boolean().
 is_invited(PhoneNum) ->
+    % TODO: clean up old code
     {ok, Res} = q_phones(["EXISTS", ph_invited_by_key(PhoneNum)]),
     Ret1 = (binary_to_integer(Res) == 1),
     {ok, Res2} = q_phones(["ZCARD", ph_invited_by_key_new(PhoneNum)]),
@@ -116,6 +117,7 @@ get_inviters_list(PhoneNum) ->
                   ["HGETALL", ph_invited_by_key(PhoneNum)],
                   ["ZRANGE", ph_invited_by_key_new(PhoneNum), 0, -1, "WITHSCORES"]
             ]),
+            % TODO: clean up old code
             InvitersMap = util:list_to_map(InvitersUids),
             case OldResult of
                 [] ->
@@ -170,6 +172,7 @@ acc_invites_key(Uid) ->
 ph_invited_by_key(Phone) ->
     <<?INVITED_BY_KEY/binary, "{", Phone/binary, "}">>.
 
+% TODO: cleanup after migration
 -spec ph_invited_by_key_new(Phone :: phone()) -> binary().
 ph_invited_by_key_new(Phone) ->
     <<?INVITED_BY_KEY_NEW/binary, "{", Phone/binary, "}">>.

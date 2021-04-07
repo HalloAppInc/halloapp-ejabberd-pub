@@ -56,7 +56,8 @@
     refresh_otp_keys_run/2,
     update_version_keys_run/2,
     find_inactive_accounts/2,
-    find_empty_contact_list_accounts/2
+    find_empty_contact_list_accounts/2,
+    migrate_invites_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -658,6 +659,14 @@ check_users_by_whisper_keys(Key, State) ->
         _ -> ok
     end,
     State.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                           Migrate Invites to new keys                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Stage 1. Extend ttl for feed keys.
+migrate_invites_run(Key, State) ->
+    migrate_invites:migrate_invites_run(Key, State).
 
 is_invalid_key(Key) ->
     Key == undefined orelse not is_binary(Key) orelse byte_size(Key) == 0.
