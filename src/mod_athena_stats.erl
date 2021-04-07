@@ -114,27 +114,26 @@ init_erlcloud() ->
 
 query_encryption_stats(State) ->
     try
-        
-        {{_Year, _Month, Day},{_Hour, _Min, _Sec}} = erlang:localtime(),
-        QueryDate = util:to_binary(Day - 7),
+        QueryTimeMs = util:now_ms() - ?WEEKS_MS,
+        QueryTimeMsBin = util:to_binary(QueryTimeMs),
 
         %% Android success rates
-        Query1 = get_success_rates_query(?ANDROID, QueryDate),
+        Query1 = athena_queries:e2e_success_failure_rates_query(?ANDROID, QueryTimeMsBin),
         Token1 = util:new_uuid(),
         {ok, ExecId1} = erlcloud_athena:start_query_execution(Token1, ?ATHENA_DB, Query1, ?ATHENA_RESULT_S3_BUCKET),
 
         %% iOS success rates
-        Query2 = get_success_rates_query(?IOS, QueryDate),
+        Query2 = athena_queries:e2e_success_failure_rates_query(?IOS, QueryTimeMsBin),
         Token2 = util:new_uuid(),
         {ok, ExecId2} = erlcloud_athena:start_query_execution(Token2, ?ATHENA_DB, Query2, ?ATHENA_RESULT_S3_BUCKET),
 
         %% Android decryption reason rates
-        Query3 = get_decryption_reason_rates_query(?ANDROID, QueryDate),
+        Query3 = athena_queries:e2e_decryption_reason_rates_query(?ANDROID, QueryTimeMsBin),
         Token3 = util:new_uuid(),
         {ok, ExecId3} = erlcloud_athena:start_query_execution(Token3, ?ATHENA_DB, Query3, ?ATHENA_RESULT_S3_BUCKET),
 
-        %% Android decryption reason rates
-        Query4 = get_decryption_reason_rates_query(?IOS, QueryDate),
+        %% iOS decryption reason rates
+        Query4 = athena_queries:e2e_decryption_reason_rates_query(?IOS, QueryTimeMsBin),
         Token4 = util:new_uuid(),
         {ok, ExecId4} = erlcloud_athena:start_query_execution(Token4, ?ATHENA_DB, Query4, ?ATHENA_RESULT_S3_BUCKET),
 
@@ -142,8 +141,8 @@ query_encryption_stats(State) ->
         ExecIds = [ExecId1, ExecId2, ExecId3, ExecId4],
 
         %% Ideally, we need to periodically list execution results and search for execids.
-        %% For now, fetch results after 5 minutes - since our queries are simple.
-        {ok, _ResultTref} = timer:apply_after(5 * ?MINUTES_MS, ?MODULE,
+        %% For now, fetch results after 10 minutes - since our queries are simple.
+        {ok, _ResultTref} = timer:apply_after(10 * ?MINUTES_MS, ?MODULE,
                 query_execution_results, [Queries, ExecIds]),
 
         State
@@ -155,7 +154,6 @@ query_encryption_stats(State) ->
     end.
 
 
-
 query_execution_results(Queries, ExecIds, State) ->
     try
         Results = lists:map(fun erlcloud_athena:get_query_results/1, ExecIds),
@@ -163,7 +161,7 @@ query_execution_results(Queries, ExecIds, State) ->
             fun({Query, {ok, Result}}) ->
                 ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
                 ?INFO("query: ~p", [Query]),
-                ?INFO("result: ~p", [ResultRows])
+                pretty_print_result(ResultRows)
                 %% TODO(murali@): send this to opentsdb.
             end, lists:zip(Queries, Results)),
         State
@@ -175,64 +173,21 @@ query_execution_results(Queries, ExecIds, State) ->
     end.
 
 
-%% Query gets the encryption and decryption success rates ordered by version and total number
-%% of messages for both encryption and decryption.
-%% This query will run on a specific platform and on data from Date till current.
--spec get_success_rates_query(Platform :: binary(), Date :: binary()) -> binary().
-get_success_rates_query(Platform, Date) ->
-    Query = <<"
-        SELECT enc_success.version, enc_success.success_rate as enc_success_rate,
-            enc_success.total_count as enc_total_count, dec_success.success_rate as dec_success_rate,
-            dec_success.total_count as dec_total_count
-        FROM
-            (SELECT success.version, ROUND(success.count * 100 / total.count, 2) as success_rate, total.count as total_count
-            FROM
-                (SELECT version, SUM(cast(count AS REAL)) as count
-                FROM \"default\".\"client_crypto_encryption\"
-                    where platform='", Platform/binary, "' AND result='success' AND \"date\" >= '", Date/binary, "'
-                    GROUP BY version) as success
-            JOIN
-                (SELECT version, SUM(cast(count AS REAL)) as count
-                FROM \"default\".\"client_crypto_encryption\"
-                    where platform='", Platform/binary, "' AND \"date\" >= '", Date/binary, "'
-                    GROUP BY version) as total
-                on success.version=total.version) as enc_success
-        JOIN
-            (SELECT success.version, ROUND(success.count * 100 / total.count, 2) as success_rate, total.count as total_count
-            FROM
-                (SELECT version, SUM(cast(count AS REAL)) as count
-                FROM \"default\".\"client_crypto_decryption\"
-                    where platform='", Platform/binary, "' AND result='success' AND \"date\" >= '", Date/binary, "'
-                    GROUP BY version) as success
-            JOIN
-                (SELECT version, SUM(cast(count AS REAL)) as count
-                FROM \"default\".\"client_crypto_decryption\"
-                    where platform='", Platform/binary, "' AND \"date\" >= '", Date/binary, "'
-                    GROUP BY version) as total  on success.version=total.version) as dec_success
-        on enc_success.version=dec_success.version
-        ORDER BY enc_success.version DESC;">>,
-    Query.
+pretty_print_result(Result) ->
+    ?INFO("==========================================================="),
+    pretty_print_internal(Result),
+    ?INFO("==========================================================="),
+    ok.
 
 
-%% Query gets the decryption error rates ordered by version and the error reason.
-%% Also has the number of messages for each of the error reasons.
-%% This query will run on a specific platform and on data from Date till current.
--spec get_decryption_reason_rates_query(Platform :: binary(), Date :: binary()) -> binary().
-get_decryption_reason_rates_query(Platform, Date) ->
-    Query = <<"
-        SELECT reason.version, reason.result,
-            ROUND(reason.count * 100.0 / total.count, 2) as reason_rate,
-            reason.count as reason_count, total.count as total_count
-        FROM
-            (SELECT version, result, SUM(cast(count AS INTEGER)) as count
-            FROM \"default\".\"client_crypto_decryption\"
-                where platform='", Platform/binary, "' AND result!='success' AND \"date\" >= '", Date/binary, "'
-                GROUP BY version, result) as reason
-            JOIN
-            (SELECT version, SUM(cast(count AS INTEGER)) as count
-            FROM \"default\".\"client_crypto_decryption\"
-                where platform='", Platform/binary, "' AND result!='success' AND \"date\" >= '", Date/binary, "'
-                GROUP BY version) as total  on reason.version=total.version
-        ORDER BY reason.version DESC, reason.count DESC;">>,
-    Query.
+pretty_print_internal([#{<<"Data">> := RowValues} | Rest]) ->
+    case RowValues of
+        [] -> ok;
+        _ ->
+            FormatStr = lists:foldl(fun(_, Acc) -> Acc ++ " ~s |" end, "|", RowValues),
+            ?INFO(FormatStr, RowValues)
+    end,
+    pretty_print_internal(Rest);
+pretty_print_internal([]) ->
+    ok.
 
