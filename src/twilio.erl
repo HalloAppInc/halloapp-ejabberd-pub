@@ -17,35 +17,44 @@
 
 -export([
     send_sms/2,
+    send_voice_call/2,
     fetch_message_info/1,
     normalized_status/1,
     compose_body/2  % for debugging.
 ]).
 
 
+-type compose_body_fun() :: fun((phone(), string()) -> string()).
+
 -spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
-    ?INFO("Phone: ~p, Msg: ~p", [Phone, Msg]),
-    URL = ?BASE_URL,
+    sending_helper(Phone, Msg, ?BASE_SMS_URL, fun compose_body/2, "SMS").
+
+-spec send_voice_call(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, voice_call_fail}.
+send_voice_call(Phone, Msg) ->
+    sending_helper(Phone, Msg, ?BASE_VOICE_URL, fun compose_voice_body/2, "Voice Call").
+
+-spec sending_helper(Phone :: phone(), Msg :: string(), BaseUrl :: string(),
+    ComposeBodyFn :: compose_body_fun(), Purpose :: string()) -> {ok, sms_response()} | {error, atom()}.
+sending_helper(Phone, Msg, BaseUrl, ComposeBodyFn, Purpose) ->
+    ?INFO("Phone: ~p, Msg: ~p, Purpose: ~p", [Phone, Msg, Purpose]),
     Headers = fetch_auth_headers(),
     Type = "application/x-www-form-urlencoded",
-    Body = compose_body(Phone, Msg),
+    Body = ComposeBodyFn(Phone, Msg),
     ?DEBUG("Body: ~p", [Body]),
     HTTPOptions = [],
     Options = [],
-    Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
+    Response = httpc:request(post, {BaseUrl, Headers, Type, Body}, HTTPOptions, Options),
     ?DEBUG("Response: ~p", [Response]),
     case Response of
         {ok, {{_, 201, _}, _ResHeaders, ResBody}} ->
-            %% TODO(vipin): Try to check status and send SMS using another provider if needed.
             Json = jiffy:decode(ResBody, [return_maps]),
             Id = maps:get(<<"sid">>, Json),
             Status = normalized_status(maps:get(<<"status">>, Json)),
             {ok, #sms_response{sms_id = Id, status = Status, response = ResBody}};
         _ ->
-            %% TODO(vipin): Try sending the SMS using the second provider.
-            ?ERROR("Sending SMS failed ~p", [Response]),
-            {error, sms_fail}
+            ?ERROR("Sending ~p failed ~p", [Purpose, Response]),
+            {error, list_to_atom(re:replace(string:lowercase(Purpose), " ", "_", [{return, list}]) ++ "_fail")}
     end.
 
 -spec normalized_status(Status :: binary()) -> atom().
@@ -130,6 +139,21 @@ compose_body(Phone, Message) ->
         {"From", ?FROM_PHONE},
         {"Body", Message2},
         {"StatusCallback", ?TWILIOCALLBACK_URL}
+    ], [{encoding, utf8}]).
+
+-spec encode_to_twiml(Msg :: string()) -> string().
+encode_to_twiml(Msg) ->
+    "<Response><Say>" ++ Msg ++ "</Say></Response>".
+
+-spec compose_voice_body(Phone :: phone(), Message :: string()) -> uri_string:uri_string().
+compose_voice_body(Phone, Message) ->
+    %% TODO(vipin): Add voice callback.
+    Message2 = encode_to_twiml(Message),
+    PlusPhone = "+" ++ binary_to_list(Phone),
+    uri_string:compose_query([
+        {"To", PlusPhone },
+        {"From", ?FROM_PHONE},
+        {"Twiml", Message2}
     ], [{encoding, utf8}]).
 
 

@@ -11,7 +11,8 @@
 
 -define(ACCOUNT_SID, "AC50b98f4898fbcc27bfa31980ffd0799a").
 
--define(BASE_URL, "https://api.twilio.com/2010-04-01/Accounts/" ++ ?ACCOUNT_SID ++ "/Messages.json").
+-define(BASE_SMS_URL, "https://api.twilio.com/2010-04-01/Accounts/" ++ ?ACCOUNT_SID ++ "/Messages.json").
+-define(BASE_VOICE_URL, "https://api.twilio.com/2010-04-01/Accounts/" ++ ?ACCOUNT_SID ++ "/Calls.json").
 -define(FROM_PHONE, "+14152339113").
 
 -define(TWILIOCALLBACK_URL, "https://api.halloapp.net/api/smscallback/twilio").

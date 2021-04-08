@@ -20,6 +20,7 @@
 
 -type status() :: accepted | queued | sending | sent | delivered | undelivered | failed | unknown.
 
+%% TODO(vipin): Rename to gateway_response
 -record(sms_response, {
     gateway :: atom(),
     sms_id :: binary(),
