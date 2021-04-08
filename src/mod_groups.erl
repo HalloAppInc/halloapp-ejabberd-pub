@@ -831,8 +831,10 @@ log_stats(API, Results) ->
 
 -spec delete_group_avatar_data(Gid :: gid()) -> ok.
 delete_group_avatar_data(Gid) ->
-    GroupInfo = model_groups:get_group_info(Gid),
-    delete_group_avatar_data(Gid, GroupInfo#group_info.avatar).
+    case model_groups:get_group_info(Gid) of
+        undefined -> ?WARNING("Gid: ~p already deleted", [Gid]);
+        GroupInfo -> delete_group_avatar_data(Gid, GroupInfo#group_info.avatar)
+    end.
 
 
 -spec delete_group_avatar_data(Gid :: gid(), AvatarId :: binary()) -> ok.
