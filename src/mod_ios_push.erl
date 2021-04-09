@@ -422,8 +422,8 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
                 %% Easier to have this if we start sending it ourselves - filed an issue for ios.
                 <<"message-id">> => PushMessageItem#push_message_item.id,
                 <<"message">> => PbMessageB64,
-                <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract),
-                <<"content">> => base64:encode(encrypt_message(PushMessageItem, State))
+                <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract)
+                % <<"content">> => base64:encode(encrypt_message(PushMessageItem, State))
             };
         false ->
             #{
