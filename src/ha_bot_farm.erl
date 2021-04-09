@@ -12,7 +12,7 @@
 -include("logger.hrl").
 
 -export([
-    start_link/3,
+    start/3,
     start_link/0,
     stop/1,
     set_bots/2,
@@ -39,8 +39,8 @@
 %%% Spawning and gen_server implementation
 %%%===================================================================
 
-start_link(Name, NumBots, ParentPid) ->
-    gen_server:start_link({global, Name}, ?MODULE, [Name, NumBots, ParentPid], []).
+start(Name, NumBots, ParentPid) ->
+    gen_server:start({global, Name}, ?MODULE, [Name, NumBots, ParentPid], []).
 
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [?SERVER, 0, undefined], []).
@@ -55,7 +55,11 @@ set_conf(Pid, Conf) ->
     gen_server:call(Pid, {set_conf, Conf}, 30000).
 
 init([Name, NumBots, ParentPid]) ->
-    ?INFO("Starting Farm: ~p NumBots: ~p", [Name, NumBots]),
+    ?INFO("Starting Farm: ~p NumBots: ~p ~p", [Name, NumBots, self()]),
+    % TODO: it feels like this things should be in the ha_client. ha_client should make sure
+    % the pb definitions are loaded and ssl started
+    enif_protobuf:load_cache(server:get_msg_defs()),
+    ssl:start(),
     {ok, TrefStats} = timer:send_interval(?STATS_TIME, self(), {send_stats}),
     State = #state{
         name = Name,

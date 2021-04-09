@@ -15,6 +15,7 @@
 
 -include("ha_types.hrl").
 -include("logger.hrl").
+-include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 
@@ -32,7 +33,11 @@
 
 %% Actions API
 -export([
-    action_register/1
+    action_register/1,
+    action_phonebook_full_sync/1,
+    action_register_and_phonebook/1,
+    action_send_im/1,
+    action_recv_im/1
 ]).
 
 %% gen_server callbacks
@@ -57,10 +62,12 @@
     stats = #{} :: map(),
 
     % Not used yet, The bot will store some state below
-    contacts_list = #{} :: map(),
+    contacts_list = #{} :: map(), % phone => #pb_contact
     posts = #{} :: map(),
     comments = #{} :: map()
 }).
+
+-type state() :: #state{}.
 
 %%%===================================================================
 %%% API
@@ -113,7 +120,7 @@ disconnect(Pid) ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore).
 init([Name, ParentPid]) ->
-    ?INFO("Starting bot: ~p", [Name]),
+    ?INFO("Starting bot: ~p self: ~p parent: ~p", [Name, self(), ParentPid]),
     {ok, Tref} = timer:send_interval(?TICK_TIME, self(), {tick}),
     {ok, TrefStats} = timer:send_interval(?STATS_TIME, self(), {send_stats}),
     {ok, #state{bot_name = Name, parent_pid = ParentPid, tref = Tref, tref_stats = TrefStats}}.
@@ -145,13 +152,8 @@ handle_call({connect}, _From, #state{uid = Uid, password = Password} = State) ->
     {ok, C} = ha_client:connect_and_login(Uid, Password),
     State2 = State#state{c = C},
     {reply, ok, State2};
-handle_call({disconnect}, _From, #state{c = C} = State) ->
-    case C of
-        undefined -> ok;
-        _ -> ha_client:stop(C)
-    end,
-    State2 = State#state{c = undefined},
-    {reply, ok, State2};
+handle_call({disconnect}, _From, State) ->
+    {reply, ok, do_disconnect(State)};
 handle_call(_Request, _From, State = #state{}) ->
     {reply, ok, State}.
 
@@ -172,17 +174,18 @@ handle_cast(_Request, State = #state{}) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: #state{}}).
-handle_info({tick}, State = #state{bot_name = Name}) ->
+handle_info({tick}, State = #state{bot_name = Name, uid = Uid, phone = Phone}) ->
     ?DEBUG("tick ~p", [Name]),
-    try
-        State2 = do_actions(State),
-        {noreply, State2}
+    State2 = try
+        do_actions(State)
     catch
         C:R:S ->
-            ?ERROR(lager:pr_stacktrace(S, {C, R})),
-            {noreply, State}
-    end;
-handle_info({send_stats}, State = #state{bot_name = Name, parent_pid = ParentPid, stats = Stats}) ->
+            ?ERROR("Uid: ~p Phone: ~p Stacktrace: ~s",
+                [Uid, Phone, lager:pr_stacktrace(S, {C, R})]),
+            count(State, "error")
+    end,
+    {noreply, State2};
+handle_info({send_stats}, State = #state{parent_pid = ParentPid, stats = Stats}) ->
     ParentPid ! {bot_stats, Stats},
     {noreply, State#state{stats = #{}}};
 handle_info(_Info, State = #state{}) ->
@@ -289,11 +292,12 @@ generate_phone(PhonePattern) when is_list(PhonePattern) ->
         PhonePattern)).
 
 
+% TODO: arrange the code better: Move the internal functions below. Keep actions together.
 %% Actions implementation
 
 -spec get_actions(Conf :: map()) -> [atom()].
 get_actions(Conf) ->
-    lists:filter(fun (K) -> erlang:function_exported(?MODULE, K, 1) end, maps:keys()).
+    lists:filter(fun (K) -> erlang:function_exported(?MODULE, K, 1) end, maps:keys(Conf)).
 
 
 action_register({_, #state{bot_name = Name, conf = Conf} = State}) ->
@@ -305,7 +309,183 @@ action_register({_, #state{bot_name = Name, conf = Conf} = State}) ->
     State3.
 
 
+action_phonebook_full_sync({{N}, #state{uid = Uid, conf = Conf} = State}) ->
+    ?DEBUG("phonebook N = ~p Uid: ~s", [N, Uid]),
+    PhonePattern = maps:get(phone_pattern, Conf),
+    State2 = ensure_account(State),
+
+    % TODO: its confusing that this is called list but it's a map
+    ContactList = State2#state.contacts_list,
+    NewContactList = case maps:size(ContactList) of
+        N -> maps:keys(ContactList);
+        % we either have not generated the contacts or the contact list
+        % is not the right size, so we generate a new one
+        _X -> generate_contacts(N, PhonePattern)
+    end,
+    State3 = do_phonebook_full_sync(NewContactList, State2),
+    State4 = count(State3, "phonebook_full"),
+    State4.
+
+action_register_and_phonebook({{N}, State}) ->
+    State2 = action_register({{}, State}),
+    action_phonebook_full_sync({{N}, State2}).
+
+action_send_im({{MsgSize}, State}) ->
+    State2 = ensure_connected(ensure_account(State)),
+    Uid = State2#state.uid,
+    Uids = contact_uids(State2),
+
+    Uids2 = case Uids of
+        % If we have no Uids in our ContactList, just send IM to ourselves.
+        [] -> [Uid];
+        _ -> Uids
+    end,
+    % pick random uid to send to
+    ToUid = lists:nth(rand:uniform(length(Uids2)), Uids2),
+    C = State2#state.c,
+    Packet = #pb_packet{stanza = #pb_msg{
+        id = util:random_str(10),
+        from_uid = Uid,
+        to_uid = ToUid,
+        payload = #pb_chat_stanza{
+            payload = util:random_str(MsgSize)
+        }}},
+    % TODO: handle errors here. Maybe reconnect if no connection. Connection sometimes get dropped
+    % because some other bot registers with the same number
+    case ha_client:send(C, Packet) of
+        ok -> count(State2, "send_im");
+        {error, closed} -> do_disconnect(State2)
+    end.
+
+action_recv_im({{}, #state{} = State}) ->
+    State2 = ensure_connected(ensure_account(State)),
+    C = State2#state.c,
+    % get all the messages we received
+    Msgs = ha_client:recv_all_nb(C),
+    State3 = lists:foldl(
+        fun(Msg, S) ->
+            case Msg of
+                #pb_packet{stanza = #pb_msg{payload = #pb_chat_stanza{}}} -> count(S, "recv_im");
+                #pb_packet{stanza = #pb_msg{}} -> count(S, "recv_msg");
+                _ -> S
+            end
+        end,
+        State2,
+        Msgs),
+    State3.
+
+-spec count(State :: #state{}, Action :: string()) -> #state{}.
 count(State = #state{stats = Stats}, Action) ->
     Stats2 = maps:update_with(Action, fun (V) -> V + 1 end, 1, Stats),
     State#state{stats = Stats2}.
 
+% returns a list of uids this bot has as contacts
+contact_uids(#state{contacts_list = ContactList}) ->
+    lists:filtermap(
+        fun (Contact) ->
+            AUid = Contact#pb_contact.uid,
+            case AUid of
+                undefined -> false;
+                <<>> -> false;
+                AUid -> {true, AUid}
+            end
+        end, maps:values(ContactList)).
+
+
+generate_contacts(N, _PhonePattern) when N =< 0 ->
+    [];
+generate_contacts(N, PhonePattern) ->
+    [generate_phone(PhonePattern) | generate_contacts(N - 1, PhonePattern)].
+
+do_phonebook_full_sync(Phones, State) ->
+    Start = util:now_ms(),
+    State2 = ensure_connected(State),
+    C = State2#state.c,
+    PhonebookSync = #pb_contact_list{
+        type = full,
+        sync_id = util:random_str(6),
+        batch_index = 0,
+        is_last = true,
+        contacts = [#pb_contact{raw = P} || P <- Phones]
+    },
+    Id = util:random_str(6),
+    % TODO: handle timeouts here, also handle errors
+    Response = ha_client:send_iq(C, Id, set, PhonebookSync),
+    End = util:now_ms(),
+    #pb_packet{
+        stanza = #pb_iq{
+            id = Id,
+            type = result,
+            payload = #pb_contact_list{
+                contacts = ResultContacts
+            }
+        }
+    } = Response,
+
+    ContactList = lists:map(
+        fun (Contact) ->
+            ?DEBUG("~p", [Contact]),
+            {Contact#pb_contact.raw, Contact}
+        end, ResultContacts),
+
+    State3 = State2#state{contacts_list = maps:from_list(ContactList)},
+    ContactUids = contact_uids(State3),
+    ?INFO("got ~p contacts ~p uids took: ~pms",
+        [length(ResultContacts), length(ContactUids), End - Start]),
+
+    State3.
+
+
+ensure_account(#state{uid = undefined} = State) ->
+    action_register({undefined, State});
+ensure_account(#state{uid = _Uid} = State) ->
+    State.
+
+ensure_connected(#state{c = undefined, uid = undefined} = State) ->
+    do_connect(ensure_account(State));
+ensure_connected(#state{c = undefined} = State) ->
+    do_connect(State);
+ensure_connected(State) ->
+    % we must be connected already
+    State.
+
+do_connect(#state{c = undefined, phone = Phone, uid = Uid, password = Password, conf = Conf} = State) ->
+    % TODO: fix ha_client so that we don't have to pass this custom options for auto_send_acks and so on
+    Options = #{
+        auto_send_acks => true,
+        auto_send_pongs => true
+    },
+    Options2 = case maps:is_key(app_host, Conf) of
+        false -> Options;
+        true -> maps:put(host, maps:get(app_host, Conf), Options)
+    end,
+    Options3 = case maps:is_key(app_port, Conf) of
+        false -> Options2;
+        true -> maps:put(port, maps:get(app_port, Conf), Options2)
+    end,
+    case ha_client:connect_and_login(Uid, Password, Options3) of
+        {ok, C} ->
+            count(State#state{c = C}, "connect");
+        {error, Reason} ->
+            ?INFO("login for Uid: ~p Phone: ~p failed ~p", [Uid, Phone, Reason]),
+            State2 = reset_state(State),
+            count(State2, "reset")
+    end.
+
+
+% remove the phone, uid, password and other field. This will cause a new account to get registered.
+-spec reset_state(State :: state()) -> state().
+reset_state(State) ->
+    State#state{
+        phone = undefined,
+        uid = undefined,
+        password = undefined,
+        name = undefined,
+        c = undefined,
+
+        contacts_list = #{}
+    }.
+
+do_disconnect(#state{c = C} = State) when C =/= undefined ->
+    ha_client:stop(C),
+    State#state{c = undefined}.

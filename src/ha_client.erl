@@ -65,6 +65,8 @@
     auto_send_pongs => boolean(),
     resource => binary(),
     version => binary(),
+    host => string(),
+    port => string(),
     _ => _
 }.
 
@@ -73,11 +75,11 @@
 
 -define(DEFAULT_OPT, #{
     auto_send_acks => true,
-    auto_send_pongs => true
-    }).
+    auto_send_pongs => true,
+    host => "localhost",
+    port => 5210
+}).
 
-% TODO: handle acks,
-% TODO: send acks to server.
 
 start_link() ->
     start_link(?DEFAULT_OPT).
@@ -232,7 +234,9 @@ send_iq(Client, Id, Type, Payload) ->
 
 
 init([Options] = _Args) ->
-    {ok, Socket} = ssl:connect("localhost", 5210, [binary]),
+    Host = maps:get(host, Options, maps:get(host, ?DEFAULT_OPT)),
+    Port = maps:get(port, Options, maps:get(port, ?DEFAULT_OPT)),
+    {ok, Socket} = ssl:connect(Host, Port, [binary]),
     State = #state{
         socket = Socket,
         recv_q = queue:new(),

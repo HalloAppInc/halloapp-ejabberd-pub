@@ -42,11 +42,20 @@
 }).
 
 -define(CONF, #{
-    http_host => "tf-lb-stress-http-1687168669.us-east-2.elb.amazonaws.com",
+%%    http_host => "127.0.0.1",
+%%    http_port => "5580",
+    % TODO: make something so that we don't have to change those all the time
+    http_host => "tf-lb-stress-http-1307834085.us-east-2.elb.amazonaws.com",
     http_port => "80",
+    app_host => "tf-lb-stress-app-bba78369e1c20a78.elb.us-east-2.amazonaws.com",
+    app_port => "5210",
     % action_NAME => {Frequency, ActionArguments}
-    action_register => {0.2, {}},
+%%    action_register => {0.2, {}},
     % TODO: add more actions here
+    action_register_and_phonebook => {0.1, {100}},
+%%    action_phonebook_full_sync => {0.001, {100}},
+%%    action_send_im => {0.5, {100}},
+%%    action_recv_im => {0.2, {}},
     phone_pattern => "12..555...." % dots get replaced with random digits
 }).
 
@@ -167,8 +176,9 @@ handle_info(_Info, State = #state{}) ->
 %% with Reason. The return value is ignored.
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
         State :: #state{}) -> term()).
-terminate(_Reason, _State = #state{farms = Farms, tref_stats = Tref}) ->
-    ?INFO("terminating"),
+
+terminate(Reason, _State = #state{farms = Farms, tref_stats = Tref}) ->
+    ?INFO("terminating ~p", [Reason]),
     lists:map(
         fun(Pid) ->
             ?INFO("Stoping farm ~p", [Pid]),
@@ -204,9 +214,10 @@ start_farms(NumFarms, BotsPerFarm, Nodes) ->
     lists:map(
         fun({Index, Node}) ->
             Name = list_to_atom("ha_bot_farm_" ++ integer_to_list(Index)),
-            ?INFO("Starting farm ~p", [Name]),
+            ?INFO("Starting farm ~p on node ~p", [Name, Node]),
             % TODO: use async_call for faster startup
-            {ok, Pid} = rpc:call(Node,  ha_bot_farm, start_link, [Name, BotsPerFarm, self()]),
+            {ok, Pid} = rpc:call(Node, ha_bot_farm, start, [Name, BotsPerFarm, self()]),
+            % TODO: we should erlang:monitor the farms,
             ?INFO("Farm ~p started ~p", [Name, Pid]),
             Pid
         end,
