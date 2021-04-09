@@ -410,23 +410,38 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
         Payload -> base64:encode(Payload)
     end,
     PbMessageB64 = base64:encode(enif_protobuf:encode(PushMessageItem#push_message_item.message)),
-    MetadataMap = #{
-        <<"content-id">> => PushMetadata#push_metadata.content_id,
-        <<"content-type">> => PushMetadata#push_metadata.content_type,
-        <<"from-id">> => PushMetadata#push_metadata.from_uid,
-        <<"timestamp">> => util:to_binary(PushMetadata#push_metadata.timestamp),
-        <<"thread-id">> => PushMetadata#push_metadata.thread_id,
-        <<"thread-name">> => PushMetadata#push_metadata.thread_name,
-        <<"sender-name">> => PushMetadata#push_metadata.sender_name,
-        %% Ideally clients should decode the pb message and then use this for metrics.
-        %% Easier to have this if we start sending it ourselves - filed an issue for ios.
-        <<"message-id">> => PushMessageItem#push_message_item.id,
-        <<"data">> => PayloadB64,
-        <<"message">> => PbMessageB64,
-        <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract),
-        %% TODO(murali@): remove other fields, 2months after clients switch to this - 07-01-2021.
-        <<"content">> => base64:encode(encrypt_message(PushMessageItem, State))
-    },
+    ClientVersion = PushMessageItem#push_message_item.push_info#push_info.client_version,
+    %% TODO(murali@): remove other fields after 6months - 10-01-2021.
+    %% accounts depending on this data will be deleted by then.
+    %% TODO(murali@): test and remove all fields except message and encrypted content.
+    MetadataMap = case util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.4.108">>) of
+        true ->
+            #{
+                <<"content-id">> => PushMetadata#push_metadata.content_id,
+                %% Ideally clients should decode the pb message and then use this for metrics.
+                %% Easier to have this if we start sending it ourselves - filed an issue for ios.
+                <<"message-id">> => PushMessageItem#push_message_item.id,
+                <<"message">> => PbMessageB64,
+                <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract),
+                <<"content">> => base64:encode(encrypt_message(PushMessageItem, State))
+            };
+        false ->
+            #{
+                <<"content-id">> => PushMetadata#push_metadata.content_id,
+                <<"content-type">> => PushMetadata#push_metadata.content_type,
+                <<"from-id">> => PushMetadata#push_metadata.from_uid,
+                <<"timestamp">> => util:to_binary(PushMetadata#push_metadata.timestamp),
+                <<"thread-id">> => PushMetadata#push_metadata.thread_id,
+                <<"thread-name">> => PushMetadata#push_metadata.thread_name,
+                <<"sender-name">> => PushMetadata#push_metadata.sender_name,
+                %% Ideally clients should decode the pb message and then use this for metrics.
+                %% Easier to have this if we start sending it ourselves - filed an issue for ios.
+                <<"message-id">> => PushMessageItem#push_message_item.id,
+                <<"data">> => PayloadB64,
+                <<"message">> => PbMessageB64,
+                <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract)
+            }
+    end,
     BuildTypeMap = case PushType of
         alert ->
             DataMap = #{
