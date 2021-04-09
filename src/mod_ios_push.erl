@@ -459,10 +459,14 @@ encrypt_message(#push_message_item{uid = Uid, message = Message},
                                 [Message, Cert, Reason2]),
                         <<>>;
                     PushContent ->
-                        {ok, #s_pub{s_pub = ClientStaticKey}} = model_auth:get_spub(Uid),
-                        {ok, EncryptedMessage} = ha_enoise:encrypt_x(PushContent,
-                                base64:decode(ClientStaticKey), S),
-                        <<"0", EncryptedMessage/binary>>
+                        case model_auth:get_spub(Uid) of
+                            {ok, #s_pub{s_pub = undefined}} ->
+                                <<>>;
+                            {ok, #s_pub{s_pub = ClientStaticKey}} ->
+                                {ok, EncryptedMessage} = ha_enoise:encrypt_x(PushContent,
+                                        base64:decode(ClientStaticKey), S),
+                                <<"0", EncryptedMessage/binary>>
+                        end
                 end
         end
     catch
