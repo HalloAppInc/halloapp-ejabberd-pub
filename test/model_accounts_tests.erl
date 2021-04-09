@@ -426,12 +426,12 @@ is_phone_traced_test() ->
 
 get_names_test() ->
     setup(),
-    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
-    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
-    ProfilesMap = model_accounts:get_names([?UID1, ?UID2, ?UID3]),
-    ?assertEqual(2, maps:size(ProfilesMap)),
-    ?assertEqual(?NAME1, maps:get(?UID1, ProfilesMap)),
-    ?assertEqual(?NAME2, maps:get(?UID2, ProfilesMap)),
+    #{} = model_accounts:get_names([]),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2),
+    ResMap = #{?UID1 => ?NAME1, ?UID2 => ?NAME2},
+    ResMap = model_accounts:get_names([?UID1, ?UID2]),
+    ResMap = model_accounts:get_names([?UID1, ?UID2, ?UID3]),
     ok.
 
 

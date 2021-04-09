@@ -51,6 +51,7 @@
     set_name/2,
     get_name/1,
     get_name_binary/1,
+    get_names/1,
     get_creation_ts_ms/1,
     mark_first_sync_done/1,
     is_first_sync_done/1,
@@ -95,7 +96,6 @@
     add_phone_to_trace/1,
     remove_phone_from_trace/1,
     is_phone_traced/1,
-    get_names/1,
     count_version_keys/0,
     cleanup_version_keys/1,
     add_uid_to_delete/1,
@@ -252,6 +252,20 @@ get_name_binary(Uid) ->
         undefined ->  <<>>;
         _ -> Name
     end.
+
+-spec get_names(Uids :: [uid()]) -> map() | {error, any()}.
+get_names([]) -> #{};
+get_names(Uids) ->
+    Commands = lists:map(fun(Uid) -> ["HGET", account_key(Uid), ?FIELD_NAME] end, Uids),
+    Res = qmn(Commands),
+    Result = lists:foldl(
+        fun({Uid, {ok, Name}}, Acc) ->
+            case Name of
+                undefined -> Acc;
+                _ -> Acc#{Uid => Name}
+            end
+        end, #{}, lists:zip(Uids, Res)),
+    Result.
 
 
 -spec set_avatar_id(Uid :: uid(), AvatarId :: binary()) -> ok  | {error, any()}.
@@ -684,19 +698,6 @@ is_phone_traced(Phone) ->
     binary_to_integer(Res) == 1.
 
 
--spec get_names(Uids :: [uid()]) -> names_map().
-get_names(Uids) ->
-    lists:foldl(
-        fun (Uid, M) ->
-            case model_accounts:get_name(Uid) of
-                {ok, undefined} -> M;
-                {ok, Name} -> maps:put(Uid, Name, M)
-            end
-        end,
-        #{},
-        Uids).
-
-
 %%====================================================================
 %% Inactive Uid deletion API.
 %%====================================================================
@@ -765,6 +766,7 @@ mark_inactive_uids(Key) ->
 q(Command) -> ecredis:q(ecredis_accounts, Command).
 qp(Commands) -> ecredis:qp(ecredis_accounts, Commands).
 qn(Command, Node) -> ecredis:qn(ecredis_accounts, Node, Command).
+qmn(Commands) -> ecredis:qmn(ecredis_accounts, Commands).
 get_node_list() -> ecredis:get_nodes(ecredis_accounts).
 
 ts_reply(Res) ->

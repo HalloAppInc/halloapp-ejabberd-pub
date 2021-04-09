@@ -160,13 +160,14 @@ delete_sms_code2_test() ->
 add_phone_test() ->
     setup(),
     %% Test pho:{phone}
+    #{} = model_phone:get_uids([]),
     ok = model_phone:add_phone(?PHONE1, ?UID1),
     ok = model_phone:add_phone(?PHONE2, ?UID2),
     {ok, ?UID1} = model_phone:get_uid(?PHONE1),
     {ok, ?UID2} = model_phone:get_uid(?PHONE2),
     ResMap = #{?PHONE1 => ?UID1, ?PHONE2 => ?UID2},
-    {ok, ResMap} = model_phone:get_uids([?PHONE1, ?PHONE2]),
-    {ok, ResMap} = model_phone:get_uids([?PHONE2, ?PHONE1]).
+    ResMap = model_phone:get_uids([?PHONE1, ?PHONE2]),
+    ResMap = model_phone:get_uids([?PHONE2, ?PHONE1]).
 
 
 delete_phone_test() ->
@@ -175,10 +176,10 @@ delete_phone_test() ->
     ok = model_phone:add_phone(?PHONE1, ?UID1),
     ok = model_phone:add_phone(?PHONE2, ?UID2),
     Res1Map = #{?PHONE1 => ?UID1, ?PHONE2 => ?UID2},
-    {ok, Res1Map} = model_phone:get_uids([?PHONE1, ?PHONE2]),
+    Res1Map = model_phone:get_uids([?PHONE1, ?PHONE2]),
     ok = model_phone:delete_phone(?PHONE1),
-    Res2Map = #{?PHONE1 => undefined, ?PHONE2 => ?UID2},
-    {ok, Res2Map} = model_phone:get_uids([?PHONE1, ?PHONE2]).
+    Res2Map = #{?PHONE2 => ?UID2},
+    Res2Map = model_phone:get_uids([?PHONE1, ?PHONE2]).
 
 
 while(0, _F) -> ok;
@@ -196,7 +197,7 @@ perf_test() ->
   PhonesUidsList = [{integer_to_binary(X), integer_to_binary(X)} || X <- lists:seq(1,N,1)],
   PhonesUidsMap = maps:from_list(PhonesUidsList),
   StartTime = os:system_time(microsecond),
-  {ok, PhonesUidsMap} = model_phone:get_uids(Phones),
+  PhonesUidsMap = model_phone:get_uids(Phones),
   EndTime = os:system_time(microsecond),
   T = EndTime - StartTime,
   io:format("~w operations took ~w ms => ~f ops ", [N, T, N / (T / 1000000)]),

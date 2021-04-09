@@ -353,31 +353,24 @@ get_uid(Phone) ->
     {ok, Res}.
 
 
--spec get_uids(Phones :: [binary()]) -> {ok, map()} | {error, any()}.
+-spec get_uids(Phones :: [binary()]) -> map() | {error, any()}.
+get_uids([]) -> #{};
 get_uids(Phones) ->
-    {PhoneKeysList, PhonesList} = order_phones_by_keys(Phones),
-    UidsList = lists:map(
-            fun(PhoneKeys) ->
-                case PhoneKeys of
-                    [] -> [];
-                    _ ->
-                        {ok, Result} = q(["MGET" | PhoneKeys]),
-                        Result
-                end
-            end, PhoneKeysList),
-    Result = lists:zip(lists:flatten(PhonesList), lists:flatten(UidsList)),
-    PhonesUidsMap = maps:from_list(Result),
-    {ok, PhonesUidsMap}.
+    Commands = lists:map(fun(Phone) -> ["GET" , phone_key(Phone)] end, Phones),
+    Res = qmn(Commands),
+    Result = lists:foldl(
+        fun({Phone, {ok, Uid}}, Acc) ->
+            case Uid of
+                undefined -> Acc;
+                _ -> Acc#{Phone => Uid}
+            end
+        end, #{}, lists:zip(Phones, Res)),
+    Result.
 
 
 q(Command) -> ecredis:q(ecredis_phone, Command).
 qp(Commands) -> ecredis:qp(ecredis_phone, Commands).
-
-
--spec order_phones_by_keys(Phones :: [binary()]) -> {[binary()], [binary()]}.
-order_phones_by_keys(Phones) ->
-    DefaultMap = get_default_slot_map(?MAX_SLOTS, #{}),
-    order_phones_into_slots(Phones, DefaultMap).
+qmn(Commands) -> ecredis:qmn(ecredis_phone, Commands).
 
 
 -spec phone_key(Phone :: phone()) -> binary().
@@ -396,19 +389,6 @@ generate_attempt_id() ->
 -spec phone_key(Phone :: phone(), Slot :: integer()) -> binary().
 phone_key(Phone, Slot) ->
     <<?PHONE_KEY/binary, <<"{">>/binary, Slot/integer, <<"}:">>/binary, Phone/binary>>.
-
-
--spec order_phones_into_slots(Phones :: [binary()], SlotsMap :: map()) -> {[binary()], [binary()]}.
-order_phones_into_slots(Phones, SlotsMap) ->
-    SlotsPhoneMap = lists:foldl(fun(Phone, SMap) ->
-                                    Slot = get_slot(Phone),
-                                    PhoneKey = phone_key(Phone, Slot),
-                                    {PhoneKeyList, PhoneList} = maps:get(Slot, SMap),
-                                    NewPhoneKeyList = [PhoneKey | PhoneKeyList],
-                                    NewPhoneList = [Phone | PhoneList],
-                                    SMap#{Slot => {NewPhoneKeyList, NewPhoneList}}
-                                end, SlotsMap, Phones),
-    lists:unzip(maps:values(SlotsPhoneMap)).
 
 
 -spec get_slot(Phone :: phone()) -> integer().

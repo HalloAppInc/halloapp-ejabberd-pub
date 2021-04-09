@@ -240,12 +240,6 @@ get_role_value(true) -> friends;
 get_role_value(false) -> none.
 
 
--spec obtain_user_id(binary()) -> binary() | undefined.
-obtain_user_id(Phone) ->
-    {ok, Uid} = model_phone:get_uid(Phone),
-    Uid.
-
-
 -spec get_phone(UserId :: binary()) -> binary() | undefined.
 get_phone(UserId) ->
     case model_accounts:get_phone(UserId) of
@@ -300,15 +294,21 @@ finish_sync(UserId, Server, SyncId) ->
             sets:size(NewContactSet), sets:size(AddContactSet), sets:size(DeleteContactSet)]),
     ?INFO("Full contact sync: uid: ~p, add_contacts: ~p, delete_contacts: ~p",
                 [UserId, sets:to_list(AddContactSet), sets:to_list(DeleteContactSet)]),
-    %% TODO(murali@): Update this after moving pubsub to redis.
     remove_contacts_and_notify(UserId, UserPhone,
             sets:to_list(DeleteContactSet), OldReverseContactSet, false),
     %% TODO(vipin): newness of contacts in AddContactSet needs to be used in update_and_...(...).
-    lists:map(
+    %% Convert Phones to pb_contact records.
+    AddContacts1 = lists:map(
             fun(ContactPhone) ->
-                update_and_notify_contact(UserId, UserPhone, OldContactSet,
-                        OldReverseContactSet, BlockedUidSet, ContactPhone, yes)
+                #pb_contact{normalized = ContactPhone}
             end, sets:to_list(AddContactSet)),
+    %% Obtain UserIds for all the normalized phone numbers.
+    AddContacts2 = obtain_user_ids(AddContacts1),
+    lists:map(
+            fun(Contact) ->
+                update_and_notify_contact(UserId, UserPhone, OldContactSet,
+                        OldReverseContactSet, BlockedUidSet, Contact, yes)
+            end, AddContacts2),
 
     %% finish_sync will add various contacts and their reverse mapping in the db.
     model_contacts:finish_sync(UserId, SyncId),
@@ -345,20 +345,32 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     OldContactSet = sets:from_list(OldContactList),
     OldReverseContactSet = sets:from_list(OldReverseContactList),
     BlockedUidSet = sets:from_list(BlockedUids ++ BlockedByUids),
+
+    %% Firstly, normalize all phone numbers received.
+    Contacts1 = normalize_contacts(Contacts, UserRegionId),
+    %% Obtain UserIds for all the normalized phone numbers.
+    Contacts2 = obtain_user_ids(Contacts1),
+    %% Obtain names for all valid userids
+    Contacts3 = obtain_user_names(Contacts2),
+
     %% Construct the list of new contact records to be returned and filter out the phone numbers
     %% that couldn't be normalized.
-    {NewContacts, {NormalizedPhoneNumbers, UnregisteredPhoneNumbers}} = lists:mapfoldr(
+    {Contacts4, {NormalizedPhoneNumbers, UnregisteredPhoneNumbers}} = lists:mapfoldr(
             fun(Contact, {PhoneAcc, UnregisteredPhoneAcc}) ->
-                NewContact = normalize_and_update_contact(
-                        UserId, UserRegionId, UserPhone, OldContactSet,
-                        OldReverseContactSet, BlockedUidSet, Contact, SyncId),
+                NewContact = case SyncId of
+                    undefined -> update_and_notify_contact(UserId, UserPhone, OldContactSet,
+                            OldReverseContactSet, BlockedUidSet, Contact, yes);
+                    _ -> update_and_notify_contact(UserId, UserPhone, OldContactSet,
+                            OldReverseContactSet, BlockedUidSet, Contact, no)
+                end,
                 NewAcc = case {NewContact#pb_contact.normalized, NewContact#pb_contact.uid} of
                     {undefined, _} -> {PhoneAcc, UnregisteredPhoneAcc};
                     {NormPhone, undefined} -> {[NormPhone | PhoneAcc], [NormPhone | UnregisteredPhoneAcc]};
                     {NormPhone, _} -> {[NormPhone | PhoneAcc], UnregisteredPhoneAcc}
                 end,
                 {NewContact, NewAcc}
-            end, {[], []}, Contacts),
+            end, {[], []}, Contacts3),
+
     %% Call the batched API to insert UserId for the unregistered phone numbers.
     model_contacts:add_reverse_hash_contacts(UserId, UnregisteredPhoneNumbers),
     %% Call the batched API to insert the normalized phone numbers.
@@ -366,46 +378,73 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
         undefined -> model_contacts:add_contacts(UserId, NormalizedPhoneNumbers);
         _ -> model_contacts:sync_contacts(UserId, SyncId, NormalizedPhoneNumbers)
     end,
-    NewContacts.
+    Contacts4.
 
 
--spec normalize_and_update_contact(UserId :: binary(), UserRegionId :: binary(),
-        UserPhone :: binary(), OldContactSet :: sets:set(binary()),
-        OldReverseContactSet :: sets:set(binary()), BlockedUidSet :: sets:set(binary()),
-        Contact :: pb_contact(), SyncId :: binary()) -> pb_contact().
-normalize_and_update_contact(_UserId, _UserRegionId, _UserPhone, _OldContactSet,
-        _OldReverseContactSet, _BlockedUidSet, #pb_contact{raw = undefined}, _SyncId) ->
-    #pb_contact{role = none};
-normalize_and_update_contact(UserId, UserRegionId, UserPhone, OldContactSet,
-        OldReverseContactSet, BlockedUidSet, Contact, SyncId) ->
-    RawPhone = Contact#pb_contact.raw,
-    ContactPhone = mod_libphonenumber:normalize(RawPhone, UserRegionId),
-    NewContact = case ContactPhone of
-        undefined ->
-            stat:count("HA/contacts", "normalize_fail"),
-            Contact#pb_contact{role = none, uid = undefined, normalized = undefined};
-        _ ->
-            stat:count("HA/contacts", "normalize_success"),
-            case SyncId of
-                undefined -> update_and_notify_contact(UserId, UserPhone, OldContactSet,
-                        OldReverseContactSet, BlockedUidSet, ContactPhone, yes);
-                _ -> update_and_notify_contact(UserId, UserPhone, OldContactSet,
-                        OldReverseContactSet, BlockedUidSet, ContactPhone, no)
-            end
-    end,
-    NewContact#pb_contact{raw = RawPhone}.
+-spec normalize_contacts(Contacts :: [pb_contact()], UserRegionId :: binary()) -> [pb_contact()].
+normalize_contacts(Contacts, UserRegionId) ->
+    lists:map(
+        fun(#pb_contact{raw = undefined} = Contact) ->
+                ?WARNING("Invalid contact: raw is undefined"),
+                Contact#pb_contact{role = none, uid = undefined, normalized = undefined};
+            (#pb_contact{raw = RawPhone} = Contact) ->
+                ContactPhone = mod_libphonenumber:normalize(RawPhone, UserRegionId),
+                case ContactPhone of
+                    undefined ->
+                        stat:count("HA/contacts", "normalize_fail"),
+                        Contact#pb_contact{role = none, uid = undefined, normalized = undefined};
+                    _ ->
+                        stat:count("HA/contacts", "normalize_success"),
+                        Contact#pb_contact{normalized = ContactPhone}
+                end
+        end, Contacts).
+
+
+-spec obtain_user_ids(Contacts :: [pb_contact()]) -> [pb_contact()].
+obtain_user_ids(Contacts) ->
+    ContactPhones = lists:foldl(
+            fun(#pb_contact{normalized = undefined}, Acc) -> Acc;
+                (#pb_contact{normalized = ContactPhone}, Acc) -> [ContactPhone | Acc]
+            end, [], Contacts),
+    PhoneUidsMap = model_phone:get_uids(ContactPhones),
+    Contacts1 = lists:map(
+            fun(#pb_contact{normalized = ContactPhone} = Contact) ->
+                ContactId = maps:get(ContactPhone, PhoneUidsMap, undefined),
+                Contact#pb_contact{uid = ContactId}
+            end, Contacts),
+    Contacts1.
+
+
+-spec obtain_user_names(Contacts :: [pb_contact()]) -> [pb_contact()].
+obtain_user_names(Contacts) ->
+    ContactIds = lists:foldl(
+            fun(#pb_contact{uid = undefined}, Acc) -> Acc;
+                (#pb_contact{uid = ContactId}, Acc) -> [ContactId | Acc]
+            end, [], Contacts),
+    ContactIdNamesMap = model_accounts:get_names(ContactIds),
+    Contacts1 = lists:map(
+            fun(#pb_contact{uid = undefined} = Contact) -> Contact;
+                (#pb_contact{uid = ContactId} = Contact) ->
+                    ContactName = maps:get(ContactId, ContactIdNamesMap, undefined),
+                    Contact#pb_contact{name = ContactName}
+            end, Contacts),
+    Contacts1.
 
 
 %% TODO(murali@): clean these functions by passing a record with various fields as info.
 -spec update_and_notify_contact(UserId :: binary(), UserPhone :: binary(),
         OldContactSet :: sets:set(binary()), OldReverseContactSet :: sets:set(binary()),
-        BlockedUidSet :: sets:set(binary()), ContactPhone :: binary(),
+        BlockedUidSet :: sets:set(binary()), Contact :: pb_contact(),
         ShouldNotify :: atom()) -> pb_contact().
+update_and_notify_contact(_UserId, _UserPhone, _OldContactSet, _OldReverseContactSet,
+        _BlockedUidSet, #pb_contact{normalized = undefined} = Contact, _ShouldNotify) ->
+    Contact;
 update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet,
-        BlockedUidSet, ContactPhone, ShouldNotify) ->
+        BlockedUidSet, Contact, ShouldNotify) ->
     Server = util:get_host(),
+    ContactPhone = Contact#pb_contact.normalized,
+    ContactId = Contact#pb_contact.uid,
     IsNewContact = not sets:is_element(ContactPhone, OldContactSet),
-    ContactId = obtain_user_id(ContactPhone),
     %% TODO(vipin): Need to fix the stat below.
     stat:count("HA/contacts", "add_contact"),
     case ContactId of
@@ -422,9 +461,7 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
                 true -> PotentialFriends1;
                 false -> 0  %% 0 or undefined is the same for the clients.
             end,
-            #pb_contact{
-                normalized = ContactPhone,
-                uid = undefined,
+            Contact#pb_contact{
                 role = none,
                 num_potential_friends = PotentialFriends2
             };
@@ -444,12 +481,8 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
                 true -> model_accounts:get_avatar_id_binary(ContactId);
                 false -> <<>>   %% Both <<>> or undefined will be the same when interpreted by the clients.
             end,
-            Name = model_accounts:get_name_binary(ContactId),
-            #pb_contact{
-                uid = ContactId,
-                name = Name,
+            Contact#pb_contact{
                 avatar_id = AvatarId,
-                normalized = ContactPhone,
                 role = Role
             }
     end.
@@ -511,7 +544,7 @@ remove_contacts_and_notify(UserId, UserPhone, ContactPhones, ReverseContactSet, 
         IsAccountDeleted :: boolean()) -> {ok, any()} | {error, any()}.
 remove_contact_and_notify(UserId, UserPhone, ContactPhone, ReverseContactSet, IsAccountDeleted) ->
     Server = util:get_host(),
-    ContactId = obtain_user_id(ContactPhone),
+    {ok, ContactId} = model_phone:get_uid(ContactPhone),
     stat:count("HA/contacts", "remove_contact"),
     case ContactId of
         undefined ->
