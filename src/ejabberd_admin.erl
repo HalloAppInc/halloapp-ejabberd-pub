@@ -1144,11 +1144,15 @@ invite_info(Phone) ->
     case model_invites:is_invited(Phone) of
         false -> io:format("This phone number has not been invited~n");
         true ->
-            {ok, Uid, Ts} = model_invites:get_inviter(Phone),
-            {Day, Time} = util:ms_to_datetime_string(binary_to_integer(Ts) * ?SECONDS_MS),
-            {ok, Name} = model_accounts:get_name(Uid),
-            io:format("~s was invited by ~s (~s) on ~s at ~s.~n",
-                [Phone, Name, Uid, Day, Time])
+            {ok, InviterList} = model_invites:get_inviters_list(Phone),
+            lists:foreach(
+                fun ({Uid, Ts}) ->
+                    {Day, Time} = util:ms_to_datetime_string(binary_to_integer(Ts) * ?SECONDS_MS),
+                    {ok, Name} = model_accounts:get_name(Uid),
+                    io:format("~s was invited by ~s (~s) on ~s at ~s.~n",
+                        [Phone, Name, Uid, Day, Time])
+                end,
+                InviterList)
     end,
     ok.
 

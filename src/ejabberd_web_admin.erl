@@ -1888,20 +1888,24 @@ lookup_phone(Phone) ->
         {ok, undefined} ->
             Info = [?XC(<<"p">>, io_lib:format("No account found for phone: ~s", [Phone]))],
             {ok, Code} = model_phone:get_sms_code(Phone),
-            Info2 = case model_invites:get_inviter(Phone) of
-                {ok, undefined} -> Info;
-                {ok, Uid, Ts} ->
+            {ok, InvitersList} = model_invites:get_inviters_list(Phone),
+            Info2 = lists:mapfoldl(
+                fun({Uid, Ts}, Acc) ->
                     {InviteDate, InviteTime} =
                         util:ms_to_datetime_string(binary_to_integer(Ts) * ?SECONDS_MS),
                     Name = model_accounts:get_name_binary(Uid),
-                    Info ++ [
+                    Acc ++ [
                         ?XE(<<"p">>, [
                             ?C(io_lib:format("Invited by ~s (", [Name])),
                             ?A(<<"?search=", Uid/binary>>, [?C(io_lib:format("~s", [Uid]))]),
                             ?C(io_lib:format(") on ~s at ~s", [InviteDate, InviteTime]))
                         ])
                     ]
-            end,
+                end,
+                Info,
+                InvitersList
+            ),
+
             case Code of
                 undefined -> Info2;
                 _ -> Info2 ++ [?A(<<"/admin/sms/?search=", Phone/binary>>,
