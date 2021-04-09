@@ -103,24 +103,10 @@ check_size_of_otks_test() ->
 %% Tests for IQ API
 %% --------------------------------------------	%%
 
-set_whisper_keys_test() ->
-    setup(),
-    {IK, SK, OTKS} = {gen_key(64), gen_key(64), gen_otk(16, 64)},
-    Result = mod_whisper:process_local_iq(create_set_whisper_keys_iq(
-        ?UID1, IK, SK, OTKS)),
-    check_iq_result(Result),
-    {ok, WKS} = model_whisper_keys:get_key_set_without_otp(?UID1),
-    ?assertEqual(base64:encode(IK), WKS#user_whisper_key_set.identity_key),
-    ?assertEqual(base64:encode(SK), WKS#user_whisper_key_set.signed_key),
-    ?assertEqual({ok, 16}, model_whisper_keys:count_otp_keys(?UID1)),
-    ok.
-
 add_whisper_keys_test() ->
     setup(),
-    {IK, SK, OTKS} = {gen_key(64), gen_key(64), gen_otk(16, 64)},
-    Result = mod_whisper:process_local_iq(create_set_whisper_keys_iq(
-        ?UID1, IK, SK, OTKS)),
-    check_iq_result(Result),
+    {IK, SK, OTKS} = {gen_keyb64(64), gen_keyb64(64), gen_otkb64(16, 64)},
+    mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
 
     ?assertEqual({ok, 16}, model_whisper_keys:count_otp_keys(?UID1)),
     OTKS2 = gen_otk(16, 64),
@@ -132,10 +118,8 @@ add_whisper_keys_test() ->
 
 count_whisper_keys_test() ->
     setup(),
-    {IK, SK, OTKS} = {gen_key(64), gen_key(64), gen_otk(16, 64)},
-    Result = mod_whisper:process_local_iq(create_set_whisper_keys_iq(
-        ?UID1, IK, SK, OTKS)),
-    check_iq_result(Result),
+    {IK, SK, OTKS} = {gen_keyb64(64), gen_keyb64(64), gen_otkb64(16, 64)},
+    mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
 
     ?assertEqual({ok, 16}, model_whisper_keys:count_otp_keys(?UID1)),
     Result2 = mod_whisper:process_local_iq(create_count_whisper_keys_iq(
@@ -145,10 +129,8 @@ count_whisper_keys_test() ->
 
 get_whisper_keys_test() ->
     setup(),
-    {IK, SK, OTKS} = {gen_key(64), gen_key(64), gen_otk(16, 64)},
-    Result = mod_whisper:process_local_iq(create_set_whisper_keys_iq(
-        ?UID1, IK, SK, OTKS)),
-    check_iq_result(Result),
+    {IK, SK, OTKS} = {gen_keyb64(64), gen_keyb64(64), gen_otkb64(16, 64)},
+    mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
 
     ?assertEqual({ok, 16}, model_whisper_keys:count_otp_keys(?UID1)),
     Result2 = mod_whisper:process_local_iq(create_get_whisper_keys_iq(
@@ -172,17 +154,6 @@ gen_keyb64(Bytes) ->
 
 gen_key(Bytes) ->
     crypto:strong_rand_bytes(Bytes).
-
-create_set_whisper_keys_iq(Uid, IdentityKey, SignedKey, OneTimeKeys) ->
-    #pb_iq{
-        from_uid = Uid,
-        type = set,
-        payload = #pb_whisper_keys{
-            action = set,
-            identity_key = IdentityKey,
-            signed_key = SignedKey,
-            one_time_keys = OneTimeKeys}
-    }.
 
 create_add_whisper_keys_iq(Uid, OneTimeKeys) ->
     #pb_iq{
@@ -228,9 +199,9 @@ check_iq_result_count(Result, ExpectedCount) ->
 check_iq_result_get(Result, Uid, IK, SK, OTK) ->
     #pb_iq{type = Type, payload = #pb_whisper_keys{action = normal} = WK} = Result,
     ?assertEqual(result, Type),
-    ?assertEqual(IK, WK#pb_whisper_keys.identity_key),
-    ?assertEqual(SK, WK#pb_whisper_keys.signed_key),
-    ?assertEqual([OTK], WK#pb_whisper_keys.one_time_keys),
+    ?assertEqual(base64:decode(IK), WK#pb_whisper_keys.identity_key),
+    ?assertEqual(base64:decode(SK), WK#pb_whisper_keys.signed_key),
+    ?assertEqual([base64:decode(OTK)], WK#pb_whisper_keys.one_time_keys),
     ?assertEqual(Uid, WK#pb_whisper_keys.uid),
     ok.
 

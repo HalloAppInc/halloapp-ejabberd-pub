@@ -64,25 +64,7 @@ mod_options(_Host) ->
 %% iq handlers
 %%====================================================================
 
-%TODO: (nikola) This function will get deleted after clients migrate to setting the initial keys during registration.
-process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_whisper_keys{action = set} = WhisperKeys} = IQ) ->
-    ?INFO("set_keys Uid: ~s", [Uid]),
-    IdentityKey = util:maybe_base64_encode(WhisperKeys#pb_whisper_keys.identity_key),
-    SignedKey = util:maybe_base64_encode(WhisperKeys#pb_whisper_keys.signed_key),
-    OneTimeKeys = lists:map(
-        fun(OneTimeKey) ->
-            util:maybe_base64_encode(OneTimeKey)
-        end, WhisperKeys#pb_whisper_keys.one_time_keys),
-
-    case check_whisper_keys(IdentityKey, SignedKey, OneTimeKeys) of
-        {error, Reason} ->
-            ?ERROR("Invalid iq Reason: ~p iq: ~p", [Reason, IQ]),
-            pb:make_error(IQ, util:err(Reason));
-        ok ->
-            set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys),
-            pb:make_iq_result(IQ)
-    end;
+%% TODO(murali@): add api to rotate signed keys.
 
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_whisper_keys{action = add} = WhisperKeys} = IQ) ->
