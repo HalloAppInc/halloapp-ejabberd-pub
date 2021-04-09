@@ -116,6 +116,8 @@ query_encryption_stats(State) ->
     try
         QueryTimeMs = util:now_ms() - ?WEEKS_MS,
         QueryTimeMsBin = util:to_binary(QueryTimeMs),
+        %% TODO(murali@): cleanup this function to be more simpler
+        %% Get all exported functions from athena_queries and run them all with both ios and android.
 
         %% Android success rates
         Query1 = athena_queries:e2e_success_failure_rates_query(?ANDROID, QueryTimeMsBin),
@@ -137,8 +139,28 @@ query_encryption_stats(State) ->
         Token4 = util:new_uuid(),
         {ok, ExecId4} = erlcloud_athena:start_query_execution(Token4, ?ATHENA_DB, Query4, ?ATHENA_RESULT_S3_BUCKET),
 
-        Queries = [Query1, Query2, Query3, Query4],
-        ExecIds = [ExecId1, ExecId2, ExecId3, ExecId4],
+        %% Android e2e decryption report metrics
+        Query5 = athena_queries:e2e_decryption_report_query(?ANDROID, QueryTimeMsBin),
+        Token5 = util:new_uuid(),
+        {ok, ExecId5} = erlcloud_athena:start_query_execution(Token5, ?ATHENA_DB, Query5, ?ATHENA_RESULT_S3_BUCKET),
+
+        %% iOS e2e decryption report metrics
+        Query6 = athena_queries:e2e_decryption_report_query(?IOS, QueryTimeMsBin),
+        Token6 = util:new_uuid(),
+        {ok, ExecId6} = erlcloud_athena:start_query_execution(Token6, ?ATHENA_DB, Query6, ?ATHENA_RESULT_S3_BUCKET),
+
+        %% Android e2e decryption report metrics with zero rerequest count
+        Query7 = athena_queries:e2e_decryption_report_without_rerequest_query(?ANDROID, QueryTimeMsBin),
+        Token7 = util:new_uuid(),
+        {ok, ExecId7} = erlcloud_athena:start_query_execution(Token7, ?ATHENA_DB, Query7, ?ATHENA_RESULT_S3_BUCKET),
+
+        %% iOS e2e decryption report metrics with zero rerequest count
+        Query8 = athena_queries:e2e_decryption_report_without_rerequest_query(?IOS, QueryTimeMsBin),
+        Token8 = util:new_uuid(),
+        {ok, ExecId8} = erlcloud_athena:start_query_execution(Token8, ?ATHENA_DB, Query8, ?ATHENA_RESULT_S3_BUCKET),
+
+        Queries = [Query1, Query2, Query3, Query4, Query5, Query6, Query7, Query8],
+        ExecIds = [ExecId1, ExecId2, ExecId3, ExecId4, ExecId5, ExecId6, ExecId7, ExecId8],
 
         %% Ideally, we need to periodically list execution results and search for execids.
         %% For now, fetch results after 10 minutes - since our queries are simple.
