@@ -22,7 +22,7 @@ migrate_invites_run(Key, State) ->
         {match, [[_OldKey, Phone]]} ->
             % The old key is hash inb:{PHONE} => {id: Uid, ts: Timestamp}
             % The new key is zset ibn:{PHONE} => zset of Uids ordered by Timestamp
-            {ok, Uid, TsStr} = q(ecredis_phone, ["HGET", model_invites:ph_invited_by_key(Phone), "id", "ts"]),
+            {ok, [Uid, TsStr]} = q(ecredis_phone, ["HMGET", model_invites:ph_invited_by_key(Phone), "id", "ts"]),
             Command =  ["ZADD", model_invites:ph_invited_by_key_new(Phone),
                 util:to_integer(TsStr), Uid],
             case DryRun of

@@ -32,7 +32,9 @@
     get_inviter/1,
     get_inviters_list/1,
     get_sent_invites/1,
-    set_invites_left/2
+    set_invites_left/2,
+    ph_invited_by_key/1,
+    ph_invited_by_key_new/1
 ]).
 
 -define(FIELD_NUM_INV, <<"in">>).
