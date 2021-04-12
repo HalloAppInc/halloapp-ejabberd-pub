@@ -16,7 +16,7 @@
 
 -define(SALT_LENGTH_BYTES, 32).
 -define(PROBE_HASH_LENGTH_BYTES, 2).
--define(MAX_INVITERS, 2).
+-define(MAX_INVITERS, 3).
 -define(NOTIFICATION_EXPIRY_MS, 1 * ?WEEKS_MS).
 
 %% Export all functions for unit tests
@@ -451,7 +451,7 @@ update_and_notify_contact(UserId, UserPhone, OldContactSet, OldReverseContactSet
         undefined ->
             %% Dont share potential friends info if the number is already invited by more than MAX_INVITERS.
             PotentialFriends1 = case model_invites:get_inviters_list(ContactPhone) of
-                {ok, InvitersList} when length(InvitersList) > ?MAX_INVITERS -> 0;
+                {ok, InvitersList} when length(InvitersList) >= ?MAX_INVITERS -> 0;
                 _ -> model_contacts:get_contact_uids_size(ContactPhone)
             end,
             %% TODO(murali@): change this when we switch to contact hashing.
