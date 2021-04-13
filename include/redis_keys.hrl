@@ -101,6 +101,7 @@
 -define(WHISPER_KEY, <<"wk:">>).
 -define(OTP_KEY, <<"wotp:">>).
 -define(SUBSCRIBERS_KEY, <<"wsub:">>).
+-define(E2E_STATS_QUERY_KEY, <<"e2e_stats">>).
 
 %% RedisGroups
 -define(GROUP_KEY, <<"g:">>).

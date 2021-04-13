@@ -28,6 +28,7 @@
 
 -export([
     query_encryption_stats/0,
+    force_query_encryption_stats/0, %% DEBUG-only
     query_execution_results/2
 ]).
 
@@ -92,8 +93,24 @@ code_change(_OldVsn, State, _Extra) ->
 
 -spec query_encryption_stats() -> ok.
 query_encryption_stats() ->
+    case calendar:local_time_to_universal_time(calendar:local_time()) of
+        {_Date, {Hr, _Min, _Sec}} when Hr >= 12 andalso Hr =< 16 -> %% 5AM - 9AM PDT
+            case model_whisper_keys:mark_e2e_stats_query() of
+                true ->
+                    gen_server:cast(?PROC(), query_encryption_stats);
+                false ->
+                    ok
+            end;
+        _ -> ok
+    end,
+    ok.
+
+
+-spec force_query_encryption_stats() -> ok.
+force_query_encryption_stats() ->
     gen_server:cast(?PROC(), query_encryption_stats),
     ok.
+
 
 -spec query_execution_results(Queries :: [binary()], ExecIds :: [binary()]) -> ok.
 query_execution_results(Queries, ExecIds) ->
@@ -179,13 +196,15 @@ query_encryption_stats(State) ->
 query_execution_results(Queries, ExecIds, State) ->
     try
         Results = lists:map(fun erlcloud_athena:get_query_results/1, ExecIds),
+        QueriesAndResults = lists:zip(Queries, Results),
         lists:foreach(
             fun({Query, {ok, Result}}) ->
                 ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
                 ?INFO("query: ~p", [Query]),
                 pretty_print_result(ResultRows)
                 %% TODO(murali@): send this to opentsdb.
-            end, lists:zip(Queries, Results)),
+            end, QueriesAndResults),
+        record_e2e_stats(lists:reverse(QueriesAndResults)),
         State
     catch
         Class : Reason : Stacktrace  ->
@@ -211,5 +230,53 @@ pretty_print_internal([#{<<"Data">> := RowValues} | Rest]) ->
     end,
     pretty_print_internal(Rest);
 pretty_print_internal([]) ->
+    ok.
+
+
+%% input is reversed list of query and results.
+%% It is not great that we have to hardcode platform here.
+%% TODO(murali@): we should be able to lookup all this info from the query itself and report accordingly.
+-spec record_e2e_stats(QueriesAndResults :: [{binary(), map()}]) -> ok.
+record_e2e_stats([]) ->
+    ok;
+record_e2e_stats([{Query, Result} | Rest]) ->
+    ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
+    [HeaderRow | ActualResultRows] = ResultRows,
+    case length(Rest) of
+        0 ->    %% 1st query
+            record_enc_and_dec(ActualResultRows, ?ANDROID);
+        1 ->    %% 2nd query
+            record_enc_and_dec(ActualResultRows, ?IOS);
+        6 ->    %% 7th query
+            record_dec(ActualResultRows, ?ANDROID);
+        7 ->    %% 8th query
+            record_dec(ActualResultRows, ?IOS)
+    end,
+    ok.
+
+
+-spec record_enc_and_dec(ResultRows :: [], Platform :: binary()) -> ok.
+record_enc_and_dec(ResultRows, Platform) ->
+    lists:foreach(
+        fun(ResultRow) ->
+            [Version, EncSuccessRateStr, _, DecSuccessRateStr, _] = maps:get(<<"Data">>, ResultRow),
+            [EncSuccessRate, []] = string:to_float(EncSuccessRateStr),
+            [DecSuccessRate, []] = string:to_float(DecSuccessRateStr),
+            stat:count("HA/e2e", "encryption_rate_by_version", EncSuccessRate,
+                    [{"platform", util:to_list(Platform)}, {"version", util:to_list(Version)}]),
+            stat:count("HA/e2e", "decryption_rate_by_version", DecSuccessRate,
+                    [{"platform", util:to_list(Platform)}, {"version", util:to_list(Version)}])
+        end, ResultRows),
+    ok.
+
+-spec record_dec(ResultRows :: [], Platform :: binary()) -> ok.
+record_dec(ResultRows, Platform) ->
+    lists:foreach(
+        fun(ResultRow) ->
+            [Version, DecSuccessRateStr, _, _] = maps:get(<<"Data">>, ResultRow),
+            [DecSuccessRate, []] = string:to_float(DecSuccessRateStr),
+            stat:count("HA/e2e", "decryption_report_rate_by_version", DecSuccessRate,
+                    [{"platform", util:to_list(Platform)}, {"version", util:to_list(Version)}])
+        end, ResultRows),
     ok.
 

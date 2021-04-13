@@ -13,11 +13,15 @@
 -include("redis_keys.hrl").
 -include("whisper.hrl").
 -include("ha_types.hrl").
+-include("time.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
 -compile(export_all).
 -endif.
+
+%% e2e_stats query key will expire every 12hrs - so that we can query them again.
+-define(E2E_QUERY_EXPIRY, 12 * ?HOURS).
 
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
@@ -37,7 +41,8 @@
     remove_key_subscriber/2,
     get_all_key_subscribers/1,
     remove_all_key_subscribers/1,
-    delete_all_otp_keys/1  %% dangerous function - dont use without talking to the team.
+    delete_all_otp_keys/1,  %% dangerous function - dont use without talking to the team.
+    mark_e2e_stats_query/0
 ]).
 
 %%====================================================================
@@ -161,6 +166,14 @@ get_all_key_subscribers(Uid) ->
 remove_all_key_subscribers(Uid) ->
     {ok, _Res} = q(["DEL", subcribers_key(Uid)]),
     ok.
+
+
+mark_e2e_stats_query() ->
+    [{ok, Exists}, {ok, _}] = qp([
+        ["SETNX", ?E2E_STATS_QUERY_KEY, 1],
+        ["EXPIRE", ?E2E_STATS_QUERY_KEY, ?E2E_QUERY_EXPIRY]
+    ]),
+    Exists =:= <<"1">>.
 
 
 q(Command) -> ecredis:q(ecredis_whisper, Command).
