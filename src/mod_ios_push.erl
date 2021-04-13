@@ -411,12 +411,13 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
     end,
     PbMessageB64 = base64:encode(enif_protobuf:encode(PushMessageItem#push_message_item.message)),
     ClientVersion = PushMessageItem#push_message_item.push_info#push_info.client_version,
+    EncryptedContent = base64:encode(encrypt_message(PushMessageItem, State)),
     %% TODO(murali@): remove other fields after 6months - 10-01-2021.
     %% accounts depending on this data will be deleted by then.
     %% TODO(murali@): test and remove all fields except message and encrypted content.
     MetadataMap = case util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.4.108">>) of
         true ->
-            #{
+            TempMap = #{
                 <<"content-id">> => PushMetadata#push_metadata.content_id,
                 %% Ideally clients should decode the pb message and then use this for metrics.
                 %% Easier to have this if we start sending it ourselves - filed an issue for ios.
@@ -424,7 +425,11 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
                 <<"message">> => PbMessageB64,
                 <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract)
                 % <<"content">> => base64:encode(encrypt_message(PushMessageItem, State))
-            };
+            },
+            case byte_size(EncryptedContent) < 1000 of
+                true -> maps:put(<<"content">>, EncryptedContent, TempMap);
+                false -> TempMap
+            end;
         false ->
             #{
                 <<"content-id">> => PushMetadata#push_metadata.content_id,
