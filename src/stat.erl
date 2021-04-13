@@ -376,7 +376,7 @@ cloudwatch_put_metric_data(Namespace, Metrics)
 
 cloudwatch_put_metric_data_env(prod, Namespace, Metrics) ->
     try
-        ?INFO("~s ~p", [Namespace, length(Metrics)]),
+        ?DEBUG("~s ~p", [Namespace, length(Metrics)]),
         erlcloud_mon:put_metric_data(Namespace, Metrics)
     of
         {error, Reason} ->

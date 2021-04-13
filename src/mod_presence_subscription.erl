@@ -126,7 +126,7 @@ user_receive_packet({#pb_presence{} = Packet, #{presence := PresenceType} = Stat
     case PresenceType of
         available -> Acc;
         _ ->
-            ?INFO("ignored packet: ~p for presence_status: ~P", [Packet, PresenceType]),
+            ?INFO("ignored packet: ~p for presence_status: ~p", [Packet, PresenceType]),
             {stop, {drop, State}}
     end;
 user_receive_packet(Acc) ->
