@@ -35,7 +35,8 @@
 -record(group_info, {
     gid :: gid(),
     name :: binary(),
-    avatar :: binary()
+    avatar :: binary(),
+    background :: binary()
 }).
 
 -type group_info() :: #group_info{}.

@@ -199,7 +199,8 @@ get_group_info(Gid) ->
             #group_info{
                 gid = Gid,
                 name = maps:get(?FIELD_NAME, GroupMap, undefined),
-                avatar = maps:get(?FIELD_AVATAR_ID, GroupMap, undefined)
+                avatar = maps:get(?FIELD_AVATAR_ID, GroupMap, undefined),
+                background = maps:get(?FIELD_BACKGROUND, GroupMap, undefined)
             }
     end.
 

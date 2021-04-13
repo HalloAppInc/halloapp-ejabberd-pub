@@ -370,6 +370,7 @@ get_group_test() ->
         gid = Gid,
         name = ?GROUP_NAME1,
         avatar_id = undefined,
+        background = undefined,
         members = [
             #pb_group_member{uid = ?UID1, name = ?NAME1, type = admin},
             #pb_group_member{uid = ?UID2, name = ?NAME2, type = member},
@@ -405,8 +406,8 @@ get_groups_test() ->
 %%    ?debugVal(GroupsSt, 1000),
     GroupsSet = lists:sort(GroupsSt#pb_groups_stanza.group_stanzas),
     ExpectedGroupsSet = lists:sort([
-        #pb_group_stanza{gid = Gid1, name = ?GROUP_NAME1, avatar_id = undefined},
-        #pb_group_stanza{gid = Gid2, name = ?GROUP_NAME2, avatar_id = undefined}
+        #pb_group_stanza{gid = Gid1, name = ?GROUP_NAME1, avatar_id = undefined, background = undefined},
+        #pb_group_stanza{gid = Gid2, name = ?GROUP_NAME2, avatar_id = undefined, background = undefined}
     ]),
 %%    ?debugVal(ExpectedGroupsSet, 1000),
     ?assertEqual(ExpectedGroupsSet, GroupsSet),
@@ -423,7 +424,8 @@ set_name_test() ->
     ExpectedGroupSt = #pb_group_stanza{
         gid = Gid,
         name = ?GROUP_NAME3,
-        avatar_id = undefined
+        avatar_id = undefined,
+        background = undefined
     },
 %%    ?debugVal(ExpectedGroupSt, 1000),
     ?assertEqual(ExpectedGroupSt, GroupSt),
@@ -535,9 +537,35 @@ set_background_test() ->
     ?assertEqual(ExpectedGroupSt2, GroupSt2),
     ok.
 
+get_groups_background_test() ->
+    setup(),
+    Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    IQ = set_background_IQ(?UID1, Gid, ?BACKGROUND1),
+    IQRes = mod_groups_api:process_local_iq(IQ),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
+    ExpectedGroupSt = #pb_group_stanza{
+        gid = Gid,
+        background = ?BACKGROUND1
+    },
+    ?assertEqual(ExpectedGroupSt, GroupSt),
+
+    % Test get_group returns right background
+    IQ2 = get_group_IQ(?UID2, Gid),
+    IQRes2 = mod_groups_api:process_local_iq(IQ2),
+    GroupSt2 = tutil:get_result_iq_sub_el(IQRes2),
+    ?assertEqual(?BACKGROUND1, GroupSt2#pb_group_stanza.background),
+
+    % Test get_groups returns right backgroud
+
+    IQ3 = get_groups_IQ(?UID3),
+    IQRes3 = mod_groups_api:process_local_iq(IQ3),
+    GroupsSt3 = tutil:get_result_iq_sub_el(IQRes3),
+    [GroupSt3] = GroupsSt3#pb_groups_stanza.group_stanzas,
+    ?assertEqual(?BACKGROUND1, GroupSt3#pb_group_stanza.background),
+    ok.
+
 publish_group_feed_test() ->
     setup(),
-
     % First create the group and set the avatar
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     Server = <<>>,

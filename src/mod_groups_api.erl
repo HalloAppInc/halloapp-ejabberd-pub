@@ -468,7 +468,8 @@ group_info_to_group_st(GroupInfo) ->
     #pb_group_stanza{
         gid = GroupInfo#group_info.gid,
         name = GroupInfo#group_info.name,
-        avatar_id = GroupInfo#group_info.avatar
+        avatar_id = GroupInfo#group_info.avatar,
+        background = GroupInfo#group_info.background
     }.
 
 
@@ -483,6 +484,7 @@ make_group_st(Group, Action) ->
         gid = Group#group.gid,
         name = Group#group.name,
         avatar_id = Group#group.avatar,
+        background = Group#group.background,
         members = make_members_st(Group#group.members)
     }.
 
