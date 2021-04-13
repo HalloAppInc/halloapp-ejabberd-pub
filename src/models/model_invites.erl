@@ -32,8 +32,11 @@
     get_inviters_list/1,
     get_sent_invites/1,
     set_invites_left/2,
-    ph_invited_by_key_new/1
+    ph_invited_by_key_new/1,
+    invites_key/1
 ]).
+
+-define(INVITE_TTL, 60 * ?DAYS).
 
 -define(FIELD_NUM_INV, <<"in">>).
 -define(FIELD_SINV_TS, <<"it">>).
@@ -115,11 +118,16 @@ q_accounts(Command) -> ecredis:q(ecredis_accounts, Command).
 % borrowed from model_accounts.erl
 qp_accounts(Commands) -> ecredis:qp(ecredis_accounts, Commands).
 q_phones(Command) -> ecredis:q(ecredis_phone, Command).
+qp_phones(Commands) -> ecredis:qp(ecredis_phone, Commands).
 
 
 -spec acc_invites_key(Uid :: uid()) -> binary().
 acc_invites_key(Uid) ->
     <<?INVITES_KEY/binary, "{", Uid/binary, "}">>.
+
+-spec invites_key(Uid :: uid()) -> binary().
+invites_key(Uid) ->
+    <<?INVITES2_KEY/binary, "{", Uid/binary, "}">>.
 
 % TODO: Do a migration to clean up the old key. We have old data left in redis with this old key
 %%<<?INVITED_BY_KEY/binary, "{", Phone/binary, "}">>.
@@ -131,16 +139,26 @@ ph_invited_by_key_new(Phone) ->
 
 -spec record_sent_invite(FromUid :: uid(), ToPhone :: phone(), NumInvsLeft :: binary()) -> ok.
 record_sent_invite(FromUid, ToPhone, NumInvsLeft) ->
-    [{ok, _}, {ok, _}] = qp_accounts([
+    Now = util:now(),
+    NowBin = integer_to_binary(Now),
+    [{ok, _}, {ok, _}, {ok, _}] = qp_accounts([
         ["HSET", model_accounts:account_key(FromUid),
             ?FIELD_NUM_INV, NumInvsLeft,
-            ?FIELD_SINV_TS, integer_to_binary(util:now())],
-        ["SADD", acc_invites_key(FromUid), ToPhone]
+            ?FIELD_SINV_TS, NowBin],
+        ["SADD", acc_invites_key(FromUid), ToPhone],
+        ["ZADD", invites_key(FromUid), Now, ToPhone]
+        %% TODO: enable after the we finish migrating from set to zset for invites_key
+%%        ["EXPIRE", invites_key(FromUid), ?INVITE_TTL]
     ]),
     ok.
 
 -spec record_invited_by(FromUid :: uid(), ToPhone :: phone()) -> ok.
 record_invited_by(FromUid, ToPhone) ->
-    {ok, _} = q_phones(["ZADD", ph_invited_by_key_new(ToPhone), util:now(), FromUid]),
+    [{ok, _}] = qp_phones([
+        ["ZADD", ph_invited_by_key_new(ToPhone), util:now(), FromUid]
+        %% TODO: enable after the we finish migrating from set to zset for invites_key
+        %% TODO: also add tests for the expiration
+%%        ["EXPIRE", ph_invited_by_key_new(ToPhone), ?INVITE_TTL]
+    ]),
     ok.
 

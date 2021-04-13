@@ -668,6 +668,10 @@ check_users_by_whisper_keys(Key, State) ->
 cleanup_older_invites_run(Key, State) ->
     migrate_invites:cleanup_older_invites(Key, State).
 
+copy_invite_run(Key, State) ->
+    migrate_invites:copy_invites_run(Key, State).
+
+
 is_invalid_key(Key) ->
     Key == undefined orelse not is_binary(Key) orelse byte_size(Key) == 0.
 

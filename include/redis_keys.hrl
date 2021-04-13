@@ -22,8 +22,10 @@
 -define(TRACED_UIDS_KEY, <<"traced_uids:">>).
 %% set -> {phone}
 -define(TRACED_PHONES_KEY, <<"traced_phones:">>).
-%% store for each phone the last person to invite this phone number and timestamp
+%% Set of phones invited by the user: inv:{Uid} -> set(Phone)
 -define(INVITES_KEY, <<"inv:">>).
+%% SortedSet of phone invited by the user: in2:{Uid} -> zset(Phone, Ts)
+-define(INVITES2_KEY, <<"in2:">>).
 -define(ACTIVE_USERS_ALL_KEY, <<"active_users_all:">>).
 -define(ACTIVE_USERS_IOS_KEY, <<"active_users_ios:">>).
 -define(ACTIVE_USERS_ANDROID_KEY, <<"active_users_android:">>).

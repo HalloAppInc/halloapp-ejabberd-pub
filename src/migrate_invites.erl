@@ -10,8 +10,32 @@
 -include("logger.hrl").
 
 -export([
+    copy_invites_run/2,
     cleanup_older_invites/2
 ]).
+
+copy_invites_run(Key, State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^ibn:{([0-9]+)}", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_OldKey, Phone]]} ->
+            {ok, InvitersList} = model_invites:get_inviters_list(Phone),
+            lists:foreach(
+                fun({Uid, TsBin}) ->
+                    Command = ["ZADD", model_invites:invites_key(Uid), TsBin, Phone],
+                    case DryRun of
+                        true ->
+                            ?INFO("would copy invite ~p", [Command]);
+                        false ->
+                            {ok, Res} = q(ecredis_account, Command),
+                            ?INFO("executing ~p Res: ~p", [Command, Res])
+                    end
+                end,
+                InvitersList),
+            ok;
+        _ -> ok
+    end,
+    State.
 
 
 cleanup_older_invites(Key, State) ->
