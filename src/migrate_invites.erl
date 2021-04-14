@@ -48,7 +48,7 @@ copy_invites_run(Key, State) ->
                         true ->
                             ?INFO("would copy invite ~p", [Command]);
                         false ->
-                            {ok, Res} = q(ecredis_account, Command),
+                            {ok, Res} = q(ecredis_accounts, Command),
                             ?INFO("executing ~p Res: ~p", [Command, Res])
                     end
                 end,

@@ -57,7 +57,8 @@
     update_version_keys_run/2,
     find_inactive_accounts/2,
     find_empty_contact_list_accounts/2,
-    cleanup_older_invites_run/2
+    cleanup_older_invites_run/2,
+    copy_invite_run/2
 ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
