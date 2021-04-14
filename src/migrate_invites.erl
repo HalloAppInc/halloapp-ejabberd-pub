@@ -10,9 +10,30 @@
 -include("logger.hrl").
 
 -export([
+    verify_invites_run/2,
     copy_invites_run/2,
     cleanup_older_invites/2
 ]).
+
+verify_invites_run(Key, State) ->
+    Result = re:run(Key, "^inv:{([0-9]+)}", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_OldKey, Uid]]} ->
+            % The old key is hash inb:{PHONE} => {id: Uid, ts: Timestamp}
+            {ok, Phones1} = q(ecredis_account, ["SMEMBERS", model_invites:acc_invites_key(Uid)]),
+            {ok, Phones2} = q(ecredis_account, ["ZRANGEBYSCORE", model_invites:invites_key(Uid), "-inf", "+inf"]),
+            Phones1Sorted = lists:sort(Phones1),
+            Phones2Sorted = lists:sort(Phones2),
+            case Phones1Sorted =:= Phones2Sorted of
+                true -> ?INFO("Invites match Uid: ~p Phones: ~p", [Uid, Phones1Sorted]);
+                false -> ?WARNING("Invites mismatch Uid: ~p, OldPhones: ~p NewPhones: ~p",
+                    [Uid, Phones1Sorted, Phones2Sorted])
+            end,
+            ok;
+        _ -> ok
+    end,
+    State.
+
 
 copy_invites_run(Key, State) ->
     DryRun = maps:get(dry_run, State, false),

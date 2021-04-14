@@ -33,7 +33,8 @@
     get_sent_invites/1,
     set_invites_left/2,
     ph_invited_by_key_new/1,
-    invites_key/1
+    invites_key/1,
+    acc_invites_key/1
 ]).
 
 -define(INVITE_TTL, 60 * ?DAYS).
@@ -88,9 +89,15 @@ is_invited(PhoneNum) ->
 
 -spec is_invited_by(Phone :: phone(), Uid :: uid()) -> boolean().
 is_invited_by(Phone, Uid) ->
-    {ok, Res} = q_accounts(["SISMEMBER", acc_invites_key(Uid), Phone]),
-    binary_to_integer(Res) == 1.
-
+    [{ok, Res1}, {ok, Res2}] = qp_accounts([
+        ["SISMEMBER", acc_invites_key(Uid), Phone],
+        ["ZSCORE", invites_key(Uid), Phone]
+    ]),
+    Res1Bool = binary_to_integer(Res1) == 1,
+    Res2Bool = Res2 =/= undefined,
+    Match = Res1Bool =:= Res2Bool,
+    ?INFO("Phone:~p Uid:~p ~p ~p Match:~p", [Phone, Uid, Res1Bool, Res2Bool, Match]),
+    Res1Bool.
 
 -spec set_invites_left(Uid :: uid(), NumInvsLeft :: integer()) -> ok.
 set_invites_left(Uid, NumInvsLeft) ->
@@ -107,7 +114,15 @@ get_inviters_list(PhoneNum) ->
 
 -spec get_sent_invites(Uid ::binary()) -> {ok, [binary()]}.
 get_sent_invites(Uid) ->
-    q_accounts(["SMEMBERS", acc_invites_key(Uid)]).
+    {ok, Phones1} = q_accounts(["SMEMBERS", acc_invites_key(Uid)]),
+    {ok, Phones2} = q_accounts(["ZRANGEBYSCORE", invites_key(Uid), "-inf", "+inf"]),
+    Phones1Sorted = lists:sort(Phones1),
+    Phones2Sorted = lists:sort(Phones2),
+    case Phones1Sorted =:= Phones2Sorted of
+        true -> ?INFO("Uid: ~p, match-ok Res: ~p", [Uid, Phones1Sorted]);
+        false -> ?WARNING("Uid: ~p, match-failed ~p | ~p", [Uid, Phones1Sorted, Phones2Sorted])
+    end,
+    {ok, Phones1}.
 
 %%====================================================================
 %% Internal functions
