@@ -1,0 +1,13 @@
+{
+    "applinks": {
+        "apps": [],
+        "details": {
+            "5M78D698HF.com.halloapp.hallo": {
+                "paths": [
+                    "/test/*",
+                    "/invite/*"
+                ]
+            }
+        }
+    }
+}
