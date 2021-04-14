@@ -239,7 +239,7 @@ pretty_print_internal([]) ->
 -spec record_e2e_stats(QueriesAndResults :: [{binary(), map()}]) -> ok.
 record_e2e_stats([]) ->
     ok;
-record_e2e_stats([{Query, Result} | Rest]) ->
+record_e2e_stats([{Query, {ok, Result}} | Rest]) ->
     ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
     [HeaderRow | ActualResultRows] = ResultRows,
     case length(Rest) of
