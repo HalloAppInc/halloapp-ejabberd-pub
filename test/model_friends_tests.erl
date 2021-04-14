@@ -32,6 +32,17 @@ add_friend_test() ->
   ?assertEqual(false, model_friends:is_friend(?UID3, ?UID1)),
   ?assertEqual(false, model_friends:is_friend(?UID1, ?UID3)).
 
+
+add_friends_test() ->
+  setup(),
+  ?assertEqual(ok, model_friends:add_friends(?UID1, [?UID2, ?UID3])),
+  ?assertEqual(true, model_friends:is_friend(?UID1, ?UID2)),
+  ?assertEqual(true, model_friends:is_friend(?UID2, ?UID1)),
+  ?assertEqual(true, model_friends:is_friend(?UID3, ?UID1)),
+  ?assertEqual(true, model_friends:is_friend(?UID1, ?UID3)),
+  ?assertEqual(false, model_friends:is_friend(?UID3, ?UID2)),
+  ?assertEqual(false, model_friends:is_friend(?UID2, ?UID3)).
+
 is_friend_test() ->
   setup(),
   ?assertEqual(false, model_friends:is_friend(?UID1, ?UID2)),

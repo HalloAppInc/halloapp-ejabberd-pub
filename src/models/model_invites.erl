@@ -106,10 +106,26 @@ set_invites_left(Uid, NumInvsLeft) ->
     ok.
 
 
--spec get_inviters_list(PhoneNum :: binary()) -> {ok, [{Uid :: uid(), Timestamp :: binary()}]}.
-get_inviters_list(PhoneNum) ->
+-spec get_inviters_list(PhoneNum :: binary() | list()) ->
+        {ok, [{Uid :: uid(), Timestamp :: binary()}]} | #{}.
+get_inviters_list(PhoneNum) when is_binary(PhoneNum) ->
     {ok, InvitersList} = q_phones(["ZRANGEBYSCORE", ph_invited_by_key_new(PhoneNum), "-inf", "+inf", "WITHSCORES"]),
-    {ok, util_redis:parse_zrange_with_scores(InvitersList)}.
+    {ok, util_redis:parse_zrange_with_scores(InvitersList)};
+get_inviters_list([]) -> #{};
+get_inviters_list(PhoneNums) when is_list(PhoneNums) ->
+    Commands = lists:map(
+        fun(PhoneNum) ->
+            ["ZRANGEBYSCORE", ph_invited_by_key_new(PhoneNum), "-inf", "+inf", "WITHSCORES"]
+        end, PhoneNums),
+    Res = qmn_phones(Commands),
+    Result = lists:foldl(
+        fun({PhoneNum, {ok, InvitersList}}, Acc) ->
+            case InvitersList of
+                [] -> Acc;
+                _ -> Acc#{PhoneNum => util_redis:parse_zrange_with_scores(InvitersList)}
+            end
+        end, #{}, lists:zip(PhoneNums, Res)),
+    Result.
 
 
 -spec get_sent_invites(Uid ::binary()) -> {ok, [binary()]}.
@@ -134,6 +150,7 @@ q_accounts(Command) -> ecredis:q(ecredis_accounts, Command).
 qp_accounts(Commands) -> ecredis:qp(ecredis_accounts, Commands).
 q_phones(Command) -> ecredis:q(ecredis_phone, Command).
 qp_phones(Commands) -> ecredis:qp(ecredis_phone, Commands).
+qmn_phones(Commands) -> ecredis:qmn(ecredis_phone, Commands).
 
 
 -spec acc_invites_key(Uid :: uid()) -> binary().

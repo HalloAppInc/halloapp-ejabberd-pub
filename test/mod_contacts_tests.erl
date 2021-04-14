@@ -108,13 +108,13 @@ normalize_and_insert_contacts_with_syncid_test() ->
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, ?SYNC_ID1),
     ExpectedContacts = [
-        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatar_id = <<>>, uid = ?UID2, role = friends},
+        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatar_id = undefined, uid = ?UID2, role = friends},
         #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3, role = none},
         #pb_contact{raw = ?PHONE4, normalized = ?PHONE4, uid = undefined, role = none},
         #pb_contact{raw = ?PHONE5, normalized = undefined, uid = undefined, role = none},
         #pb_contact{raw = ?PHONE6, normalized = ?PHONE6, uid = undefined, role = none}
     ],
-    ?assertEqual(ExpectedContacts, ActualContacts),
+    ?assertEqual(lists:sort(ExpectedContacts), lists:sort(ActualContacts)),
 
     %% Test if the phones are inserted correctly.
     {ok, ActualSyncPhones} = model_contacts:get_sync_contacts(?UID1, ?SYNC_ID1),
@@ -156,12 +156,12 @@ normalize_and_insert_contacts_without_syncid_test() ->
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, undefined),
     ExpectedContacts = [
-        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatar_id = <<>>, uid = ?UID2, role = friends},
+        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatar_id = undefined, uid = ?UID2, role = friends},
         #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3, role = none},
         #pb_contact{raw = ?PHONE4, normalized = ?PHONE4, uid = undefined, role = none},
         #pb_contact{raw = ?PHONE5, normalized = undefined, uid = undefined, role = none}
     ],
-    ?assertEqual(ExpectedContacts, ActualContacts),
+    ?assertEqual(lists:sort(ExpectedContacts), lists:sort(ActualContacts)),
 
     %% Test if the phones are inserted correctly.
     %% We wont have Phone4: because that number is not registered on our platform.
@@ -199,7 +199,7 @@ normalize_and_insert_contacts_with_blocklist_test() ->
         #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, uid = ?UID2, role = none},
         #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3, role = none}
     ],
-    ?assertEqual(ExpectedContacts, ActualContacts),
+    ?assertEqual(lists:sort(ExpectedContacts), lists:sort(ActualContacts)),
 
     %% Test if the phones are inserted correctly.
     {ok, ActualPhones} = model_contacts:get_contacts(?UID1),

@@ -154,6 +154,17 @@ get_contact_uids_size_test() ->
     ok.
 
 
+get_contacts_uids_size_test() ->
+    setup(),
+    ?assertEqual(#{}, model_contacts:get_contacts_uids_size([])),
+    ok = model_contacts:add_contacts(?UID, [?CONTACT1, ?CONTACT2]),
+    ok = model_contacts:add_contacts(?UID2, [?CONTACT1]),
+    ResMap = #{?CONTACT1 => 2, ?CONTACT2 => 1},
+    ResMap = model_contacts:get_contacts_uids_size([?CONTACT1, ?CONTACT2]),
+    ResMap = model_contacts:get_contacts_uids_size([?CONTACT1, ?CONTACT2, ?CONTACT3]),
+    ok.
+
+
 add_reverse_hash_contacts_test() ->
     setup(),
     ok = model_contacts:add_reverse_hash_contacts(?UID, [?CONTACT1, ?CONTACT2]),

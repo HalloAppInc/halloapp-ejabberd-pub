@@ -57,6 +57,7 @@ clear() ->
 -define(UID3, <<"3">>).
 -define(PHONE3, <<"16505553333">>).
 -define(NAME3, <<"Name3">>).
+-define(AVATAR_ID3, <<"VXGOypdbEeu4UhZ50Wyckw">>).
 -define(USER_AGENT3, <<"HalloApp/Android1.0">>).
 
 -define(UID4, <<"4">>).
@@ -432,6 +433,19 @@ get_names_test() ->
     ResMap = #{?UID1 => ?NAME1, ?UID2 => ?NAME2},
     ResMap = model_accounts:get_names([?UID1, ?UID2]),
     ResMap = model_accounts:get_names([?UID1, ?UID2, ?UID3]),
+    ok.
+
+
+get_avatar_ids_test() ->
+    setup(),
+    #{} = model_accounts:get_avatar_ids([]),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    ok = model_accounts:set_avatar_id(?UID1, ?AVATAR_ID1),
+    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3, ?TS2),
+    ok = model_accounts:set_avatar_id(?UID3, ?AVATAR_ID3),
+    ResMap = #{?UID1 => ?AVATAR_ID1, ?UID3 => ?AVATAR_ID3},
+    ResMap = model_accounts:get_avatar_ids([?UID1, ?UID3]),
+    ResMap = model_accounts:get_avatar_ids([?UID1, ?UID2, ?UID3]),
     ok.
 
 

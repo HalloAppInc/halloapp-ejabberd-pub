@@ -41,6 +41,7 @@
     get_sync_contacts/2,
     get_contact_uids/1,
     get_contact_uids_size/1,
+    get_contacts_uids_size/1,
     get_potential_reverse_contact_uids/1,
     hash_phone/1,
     get_contact_hash_salt/0,
@@ -191,6 +192,21 @@ get_contact_uids_size(Contact) ->
     binary_to_integer(Res).
 
 
+-spec get_contacts_uids_size(Contacts :: [binary()]) -> map() | {error, any()}.
+get_contacts_uids_size([]) -> #{};
+get_contacts_uids_size(Contacts) ->
+    Commands = lists:map(fun(Contact) -> ["SCARD", reverse_key(Contact)] end, Contacts),
+    Res = qmn(Commands),
+    Result = lists:foldl(
+        fun({Contact, {ok, Size}}, Acc) ->
+            case Size of
+                <<"0">> -> Acc;
+                _ -> Acc#{Contact => binary_to_integer(Size)}
+            end
+        end, #{}, lists:zip(Contacts, Res)),
+    Result.
+
+
 -spec get_potential_reverse_contact_uids(Contact :: binary()) -> {ok, [binary()]} | {error, any()}.
 get_potential_reverse_contact_uids(Contact) ->
     {ok, Res} = q(["SMEMBERS", reverse_phone_hash_key(Contact)]),
@@ -243,6 +259,7 @@ get_salt_secret_from_aws() ->
 
 q(Command) -> ecredis:q(ecredis_contacts, Command).
 qp(Commands) -> ecredis:qp(ecredis_contacts, Commands).
+qmn(Commands) -> ecredis:qmn(ecredis_contacts, Commands).
 
 
 -spec contacts_key(Uid :: uid()) -> binary().

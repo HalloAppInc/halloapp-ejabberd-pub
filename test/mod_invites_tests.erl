@@ -208,6 +208,25 @@ invite_set_test() ->
     {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
     ?assertEqual({ok, [?PHONE2]}, model_invites:get_sent_invites(?UID1)).
 
+
+get_inviters_list_test() ->
+    setup(),
+    #{} = model_invites:get_inviters_list([]),
+    ok = model_invites:record_invite(?UID1, ?PHONE2, 1),
+    ok = model_invites:record_invite(?UID1, ?PHONE3, 1),
+    ok = model_invites:record_invite(?UID2, ?PHONE3, 1),
+    ResMap = model_invites:get_inviters_list([?PHONE2, ?PHONE3]),
+    ResMap = model_invites:get_inviters_list([?PHONE1, ?PHONE2, ?PHONE3]),
+
+    Phone2Result = maps:get(?PHONE2, ResMap),
+    Phone2Uids = [Uid || {Uid, _Ts2} <- Phone2Result],
+    ?assertEqual(sets:from_list(Phone2Uids), sets:from_list([?UID1])),
+
+    Phone3Result = maps:get(?PHONE3, ResMap),
+    Phone3Uids = [Uid || {Uid, _Ts2} <- Phone3Result],
+    ?assertEqual(sets:from_list(Phone3Uids), sets:from_list([?UID1, ?UID2])),
+    ok.
+
 %% --------------------------------------------	%%
 %% Tests for internal functions
 %% -------------------------------------------- %%

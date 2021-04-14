@@ -52,6 +52,7 @@
     get_name/1,
     get_name_binary/1,
     get_names/1,
+    get_avatar_ids/1,
     get_creation_ts_ms/1,
     mark_first_sync_done/1,
     is_first_sync_done/1,
@@ -263,6 +264,21 @@ get_names(Uids) ->
             case Name of
                 undefined -> Acc;
                 _ -> Acc#{Uid => Name}
+            end
+        end, #{}, lists:zip(Uids, Res)),
+    Result.
+
+
+-spec get_avatar_ids(Uids :: [uid()]) -> map() | {error, any()}.
+get_avatar_ids([]) -> #{};
+get_avatar_ids(Uids) ->
+    Commands = lists:map(fun(Uid) -> ["HGET", account_key(Uid), ?FIELD_AVATAR_ID] end, Uids),
+    Res = qmn(Commands),
+    Result = lists:foldl(
+        fun({Uid, {ok, AvatarId}}, Acc) ->
+            case AvatarId of
+                undefined -> Acc;
+                _ -> Acc#{Uid => AvatarId}
             end
         end, #{}, lists:zip(Uids, Res)),
     Result.

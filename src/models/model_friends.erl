@@ -26,6 +26,7 @@
 -export([
     get_connection/0,
     add_friend/2,
+    add_friends/2,
     remove_friend/2,
     get_friends/1,
     is_friend/2,
@@ -68,6 +69,14 @@ add_friend(Uid, Buid) ->
     ok.
 
 
+-spec add_friends(Uid :: uid(), Buids :: [uid()]) -> ok | {error, any()}.
+add_friends(Uid, Buids) ->
+    Commands1 = lists:map(fun(Buid) -> ["HSET", key(Uid), Buid, ?USER_VAL] end, Buids),
+    Commands2 = lists:map(fun(Buid) -> ["HSET", key(Buid), Uid, ?USER_VAL] end, Buids),
+    _Res = qmn(Commands1 ++ Commands2),
+    ok.
+
+
 -spec remove_friend(Uid :: uid(), Buid :: uid()) -> ok | {error, any()}.
 remove_friend(Uid, Buid) ->
     {ok, _Res1} = q(["HDEL", key(Uid), Buid]),
@@ -105,6 +114,7 @@ remove_all_friends(Uid) ->
 
 
 q(Command) -> ecredis:q(ecredis_friends, Command).
+qmn(Commands) -> ecredis:qmn(ecredis_friends, Commands).
 
 
 -spec key(Uid :: uid()) -> binary().
