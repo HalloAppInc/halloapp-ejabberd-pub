@@ -136,7 +136,10 @@ get_sent_invites(Uid) ->
     Phones2Sorted = lists:sort(Phones2),
     case Phones1Sorted =:= Phones2Sorted of
         true -> ?INFO("Uid: ~p, match-ok Res: ~p", [Uid, Phones1Sorted]);
-        false -> ?WARNING("Uid: ~p, match-failed ~p | ~p", [Uid, Phones1Sorted, Phones2Sorted])
+        false -> ?WARNING("Uid: ~p, match-failed A: ~p B: ~p A-B: ~p B-A: ~p",
+            [Uid, Phones1Sorted, Phones2Sorted,
+                lists:subtract(Phones1Sorted, Phones2Sorted),
+                lists:subtract(Phones2Sorted, Phones1Sorted)])
     end,
     {ok, Phones1}.
 
