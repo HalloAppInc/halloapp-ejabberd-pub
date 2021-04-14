@@ -78,7 +78,8 @@ mod_options(_Host) ->
 %%====================================================================
 
 process_local_iq(
-    #pb_iq{type = get, payload = #pb_upload_media{size = Size, download_url = DUrl}} = IQ)
+    #pb_iq{type = get, payload = #pb_upload_media{
+        size = Size, download_url = DUrl, type = Type}} = IQ)
         when DUrl =/= undefined andalso byte_size(DUrl) > 0 ->
     ?INFO("refresh_url ~p", [DUrl]),
     case s3_signed_url_generator:refresh_url(binary_to_list(DUrl)) of
@@ -88,11 +89,12 @@ process_local_iq(
             pb:make_iq_result(IQ, #pb_upload_media{download_url = DUrl});
         false ->
             ?INFO("fail ~p", [DUrl]),
-            process_local_iq(IQ#pb_iq{payload = #pb_upload_media{size = Size}})
+            process_local_iq(IQ#pb_iq{payload = #pb_upload_media{size = Size, type = Type}})
     end;
- process_local_iq( #pb_iq{type = get, payload = #pb_upload_media{size = Size}} = IQ) ->
-    case Size of
-        0 ->
+process_local_iq(#pb_iq{type = get, payload = #pb_upload_media{size = Size, type = Type}} = IQ) ->
+    DirectUpload = (Type =:= default andalso Size =:= 0) orelse (Type =:= direct),
+    case DirectUpload of
+        true ->
             stat:count("HA/media", "direct_upload"),
             {GetUrl, PutUrl} = generate_s3_urls(),
             MediaUrl = #pb_media_url{get = GetUrl, put = PutUrl},

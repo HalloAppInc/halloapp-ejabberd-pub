@@ -134,11 +134,11 @@ get_protocol() ->
     "http://".
 
 get_hdrs(ContentLength) ->
-    [
-        {"connection", "keep-alive"},
-        {"Tus-Resumable", "1.0.0"},
-        {"Upload-Length", integer_to_list(ContentLength)}
-    ].
+    ContentHeader = case ContentLength of
+        0 -> {"Upload-Defer-Length", "1"};
+        _ -> {"Upload-Length", integer_to_list(ContentLength)}
+    end,
+    [{"connection", "keep-alive"}, {"Tus-Resumable", "1.0.0"} | ContentHeader].
 
 get_http_opts() ->
     [

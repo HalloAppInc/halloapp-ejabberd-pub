@@ -356,6 +356,12 @@ message UploadMedia {
     int64 size = 1;
     MediaUrl url = 2;
     string download_url = 3;
+    enum Type {
+        DEFAULT = 0;
+        RESUMABLE = 1;
+        DIRECT = 2;
+    }
+    Type type = 4;
 }
 
 
