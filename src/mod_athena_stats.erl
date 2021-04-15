@@ -260,8 +260,8 @@ record_enc_and_dec(ResultRows, Platform) ->
     lists:foreach(
         fun(ResultRow) ->
             [Version, EncSuccessRateStr, _, DecSuccessRateStr, _] = maps:get(<<"Data">>, ResultRow),
-            [EncSuccessRate, []] = string:to_float(EncSuccessRateStr),
-            [DecSuccessRate, []] = string:to_float(DecSuccessRateStr),
+            {EncSuccessRate, <<>>} = string:to_float(EncSuccessRateStr),
+            {DecSuccessRate, <<>>} = string:to_float(DecSuccessRateStr),
             stat:count("HA/e2e", "encryption_rate_by_version", EncSuccessRate,
                     [{"platform", util:to_list(Platform)}, {"version", util:to_list(Version)}]),
             stat:count("HA/e2e", "decryption_rate_by_version", DecSuccessRate,
@@ -274,7 +274,7 @@ record_dec(ResultRows, Platform) ->
     lists:foreach(
         fun(ResultRow) ->
             [Version, DecSuccessRateStr, _, _] = maps:get(<<"Data">>, ResultRow),
-            [DecSuccessRate, []] = string:to_float(DecSuccessRateStr),
+            {DecSuccessRate, <<>>} = string:to_float(DecSuccessRateStr),
             stat:count("HA/e2e", "decryption_report_rate_by_version", DecSuccessRate,
                     [{"platform", util:to_list(Platform)}, {"version", util:to_list(Version)}])
         end, ResultRows),
