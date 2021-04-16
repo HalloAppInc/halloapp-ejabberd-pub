@@ -649,7 +649,6 @@ get_dir(Type) ->
                 {false, true} -> filename:join("..", P);
                 _ -> P
             end,
-            ?INFO("~p", [P2]),
             P2;
         Path -> filename:join([Path, Type])
         end;
