@@ -194,7 +194,7 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
     case Response of
         {ok, {{_, StatusCode5xx, _}, _, ResponseBody}}
                 when StatusCode5xx >= 500 andalso StatusCode5xx < 600 ->
-            stat:count(?FCM, "fcm_error"),
+            stat:count("HA/push", ?FCM, 1, [{"result", "fcm_error"}]),
             ?ERROR("Push failed, Uid: ~s, Token: ~p, recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
             retry_message_item(PushMessageItem);
@@ -202,20 +202,20 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
         {ok, {{_, 200, _}, _, ResponseBody}} ->
             case parse_response(ResponseBody) of
                 {ok, FcmId} ->
-                    stat:count(?FCM, "success"),
+                    stat:count("HA/push", ?FCM, 1, [{"result", "success"}]),
                     ?INFO("Uid:~s push successful for msg-id: ~s, FcmId: ~p", [Uid, Id, FcmId]),
                     PushType = PushMetadata#push_metadata.push_type,
                     mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => FcmId,
                             platform => android, client_version => Version, push_type => PushType});
                 {error, Reason, FcmId} ->
-                    stat:count(?FCM, "failure"),
+                    stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
                     ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
                             [Uid, binary:part(Token, 0, 10), Reason, FcmId]),
                     remove_push_token(Uid, ServerHost)
             end;
 
         {ok, {{_, _, _}, _, ResponseBody}} ->
-            stat:count(?FCM, "failure"),
+            stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
             ?ERROR("Push failed, Uid:~s, token: ~p, non-recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
             remove_push_token(Uid, ServerHost);

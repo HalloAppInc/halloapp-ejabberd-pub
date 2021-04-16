@@ -35,8 +35,8 @@
 
 -define(GOLDEN_RATIO, 1.618).
 
--define(FCM, "HA/fcm").
--define(APNS, "HA/apns").
+-define(FCM, "fcm").
+-define(APNS, "apns").
 
 
 %% TODO(murali@): this list seems getting bigger, we should just send the whole packet as a protobuf binary.
