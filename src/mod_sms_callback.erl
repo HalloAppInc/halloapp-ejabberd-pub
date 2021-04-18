@@ -58,14 +58,14 @@ process([<<"twilio">>],
                 SMSResponse2 = case {IsSigEqual, Status} of
                     {true, sent} ->
                         case twilio:fetch_message_info(Id) of
-                            {ok, SMSResponse} -> SMSResponse#sms_response{status = Status};
-                            {error, _} -> #sms_response{sms_id = Id, gateway = twilio}
+                            {ok, SMSResponse} -> SMSResponse#gateway_response{status = Status};
+                            {error, _} -> #gateway_response{gateway_id = Id, gateway = twilio}
                         end;
-                    {true, _} -> #sms_response{sms_id = Id, gateway = twilio, status = Status};
-                    _ -> #sms_response{sms_id = Id, gateway = twilio}
+                    {true, _} -> #gateway_response{gateway_id = Id, gateway = twilio, status = Status};
+                    _ -> #gateway_response{gateway_id = Id, gateway = twilio}
                 end,
                 add_gateway_callback_info(SMSResponse2),
-                #sms_response{price = Price, currency = Currency} = SMSResponse2,
+                #gateway_response{price = Price, currency = Currency} = SMSResponse2,
                 {Price, Currency}
         end,
         ?INFO("Twilio SMS callback, Id: ~s, To: ~s, From: ~s, Status: ~p, Price: ~p, Currency: ~s",
@@ -114,7 +114,7 @@ process([<<"mbird">>],
                 case IsSigEqual andalso Status =/= undefined of
                     true ->
                         add_gateway_callback_info(
-                            #sms_response{sms_id = Id, gateway = mbird, status = Status,
+                            #gateway_response{gateway_id = Id, gateway = mbird, status = Status,
                             price = RealPrice, currency = Currency});
                     false -> ok
                 end
@@ -128,9 +128,9 @@ process([<<"mbird">>],
             util_http:return_500()
     end.
 
--spec add_gateway_callback_info(SMSResponse :: sms_response()) -> ok.
+-spec add_gateway_callback_info(SMSResponse :: gateway_response()) -> ok.
 add_gateway_callback_info(SMSResponse) ->
-    #sms_response{status = Status} = SMSResponse,
+    #gateway_response{status = Status} = SMSResponse,
     case Status of
         undefined -> ok;
         _ -> model_phone:add_gateway_callback_info(SMSResponse)

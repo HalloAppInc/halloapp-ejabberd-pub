@@ -20,7 +20,7 @@
     compose_voice_body/2  %% for debugging
 ]).
 
--spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, sms_fail}.
+-spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
     ?INFO("Phone: ~p, Msg: ~s", [Phone, Msg]),
     URL = ?BASE_SMS_URL,
@@ -39,13 +39,13 @@ send_sms(Phone, Msg) ->
             Items = maps:get(<<"items">>, Receipients),
             [Item] = Items,
             Status = normalized_status(maps:get(<<"status">>, Item)),
-            {ok, #sms_response{sms_id = Id, status = Status, response = ResBody}};
+            {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
         _ ->
             ?ERROR("Sending SMS failed ~p", [Response]),
             {error, sms_fail}
     end.
 
--spec send_voice_call(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, voice_call_fail}.
+-spec send_voice_call(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, voice_call_fail}.
 send_voice_call(Phone, Msg) ->
     ?INFO("Phone: ~p, Msg: ~s", [Phone, Msg]),
     URL = ?BASE_VOICE_URL,
@@ -63,7 +63,7 @@ send_voice_call(Phone, Msg) ->
             [Data] = maps:get(<<"data">>, Json),
             Id = maps:get(<<"id">>, Data),
             Status = normalized_status(maps:get(<<"status">>, Data)),
-            {ok, #sms_response{sms_id = Id, status = Status, response = ResBody}};
+            {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
         _ ->
             ?ERROR("Sending Voice Call failed ~p", [Response]),
             {error, voice_call_fail}
@@ -73,6 +73,8 @@ send_voice_call(Phone, Msg) ->
 normalized_status(<<"scheduled">>) ->
     accepted;
 normalized_status(<<"buffered">>) ->
+    queued;
+normalized_status(<<"queued">>) ->
     queued;
 normalized_status(<<"sent">>) ->
     sent;

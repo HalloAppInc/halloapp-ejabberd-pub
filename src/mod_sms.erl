@@ -14,7 +14,8 @@
 -include("sms.hrl").
 -include("ha_types.hrl").
 
--callback send_sms(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, sms_fail}.
+-callback send_sms(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, sms_fail}.
+-callback send_voice_call(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, voice_call_fail}.
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -26,6 +27,7 @@
 %% API
 -export([
     request_sms/2,
+    request_otp/3,
     verify_sms/2
 ]).
 
@@ -54,22 +56,26 @@ mod_options(_Host) ->
 
 -spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok | {error, term()}.
 request_sms(Phone, UserAgent) ->
+    request_otp(Phone, UserAgent, sms).
+
+-spec request_otp(Phone :: phone(), UserAgent :: binary(), Method :: atom()) -> ok | {error, term()}.
+request_otp(Phone, UserAgent, Method) ->
     Code = generate_code(util:is_test_number(Phone)),
     {ok, NewAttemptId} = ejabberd_auth:try_enroll(Phone, Code),
     case util:is_test_number(Phone) of
         true -> ok;
         false ->
             {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
-            case send_sms(Phone, Code, UserAgent, OldResponses) of
+            case send_otp(Phone, Code, UserAgent, Method, OldResponses) of
                 {ok, SMSResponse} ->
                     ?INFO("Response: ~p", [SMSResponse]),
                     model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
                     ok;
                 {error, Reason} = Err ->
-                    ?ERROR("Unable to send SMS: ~p Phone: ~p", [Reason, Phone]),
+                    ?ERROR("Unable to send ~p: ~p Phone: ~p", [Method, Reason, Phone]),
                     Err
             end
-     end.
+    end.
 
 -spec verify_sms(Phone :: phone(), Code :: binary()) -> match | nomatch.
 verify_sms(Phone, Code) ->
@@ -85,23 +91,31 @@ verify_sms(Phone, Code) ->
 %%====================================================================
 
 
--spec send_sms(Phone :: phone(), Code :: binary(), UserAgent :: binary(),
-        OldResponses :: [sms_response()]) -> {ok, sms_response()} | {error, term()}.
-send_sms(Phone, Code, UserAgent, OldResponses) ->
-    Msg = prepare_registration_sms(Code, UserAgent),
-    ?DEBUG("preparing to send sms, phone:~p msg:~s", [Phone, Msg]),
-    case smart_send(Phone, Msg, OldResponses) of
+-spec send_otp(Phone :: phone(), Code :: binary(), UserAgent :: binary(), Method :: atom(),
+        OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, term()}.
+send_otp(Phone, Code, UserAgent, Method, OldResponses) ->
+    Msg = prepare_registration_sms(Code, UserAgent, Method),
+    ?DEBUG("preparing to send otp, phone:~p msg:~s", [Phone, Msg]),
+    case smart_send(Phone, Method, Msg, OldResponses) of
         {ok, SMSResponse} ->
             {ok, SMSResponse};
         {error, _Reason} = Err ->
             Err
     end.
 
-
--spec prepare_registration_sms(Code :: binary(), UserAgent :: binary()) -> string().
-prepare_registration_sms(Code, UserAgent) ->
-    AppHash = get_app_hash(UserAgent),
-    io_lib:format("Your HalloApp verification code: ~s~n~n~n~s", [Code, AppHash]).
+%% TODO(vipin): Improve Msg for voice_call. Talk to Dugyu.
+-spec prepare_registration_sms(Code :: binary(), UserAgent :: binary(), Method :: atom()) -> string().
+prepare_registration_sms(Code, UserAgent, Method) ->
+    case Method of
+        voice_call ->
+            DigitByDigit = string:trim(re:replace(Code,".","& . . ",[global, {return,list}])),
+            Msg = io_lib:format("Your HalloApp verification code is ~s . ", [DigitByDigit]),
+            io_lib:format("~s ~s ~s ~s", [Msg, Msg, Msg, Msg]);
+        sms ->
+            AppHash = get_app_hash(UserAgent),
+            io_lib:format("Your HalloApp verification code: ~s~n~n~n~s", [Code, AppHash])
+    end.
+            
 
 -spec generate_code(IsDebug :: boolean()) -> binary().
 generate_code(true) ->
@@ -122,17 +136,20 @@ get_app_hash(UserAgent) ->
 %% On callback from the provider track (success, cost). Investigative logging to track missing
 %% callback.
 
--spec smart_send(Phone :: phone(), Msg :: string(), OldResponses :: [sms_response()]) 
-        -> {ok, sms_response()} | {error, sms_fail}.
-smart_send(Phone, Msg, OldResponses) ->
+-spec smart_send(Phone :: phone(), Method :: atom(), Msg :: string(), OldResponses :: [gateway_response()]) 
+        -> {ok, gateway_response()} | {error, sms_fail} | {error, voice_call_fail}.
+smart_send(Phone, Method, Msg, OldResponses) ->
     {WorkingList, NotWorkingList} = lists:foldl(
-        fun(#sms_response{gateway = Gateway, status = Status}, {Working, NotWorking}) ->
+        fun(#gateway_response{gateway = Gateway, method = Method2, status = Status}, {Working, NotWorking})
+                when Method2 =:= Method ->
             case Status of
                 failed -> {Working, NotWorking ++ [Gateway]};
                 undelivered -> {Working, NotWorking ++ [Gateway]};
                 unknown -> {Working, NotWorking ++ [Gateway]};
                 _ -> {Working ++ [Gateway], NotWorking}
-            end
+            end;
+           (#gateway_response{gateway = _Gateway, method = _Method, status = _Status}, {Working, NotWorking}) ->
+               {Working, NotWorking}
         end, {[], []}, OldResponses),
     
     WorkingSet = sets:from_list(WorkingList),
@@ -168,6 +185,7 @@ smart_send(Phone, Msg, OldResponses) ->
 
     %% Pick any.
     ToPick = p1_rand:uniform(1, length(ToChooseFromList)),
+    ?DEBUG("Picked: ~p, from: ~p", [ToPick, length(ToChooseFromList)]),
     PickedGateway = lists:nth(ToPick, ToChooseFromList),
 
     %% Just in case there is any bug in computation of new gateway.
@@ -184,12 +202,15 @@ smart_send(Phone, Msg, OldResponses) ->
         <<"CN">> -> twilio;     %% China
         _ -> NewGateway
     end,
-    ?DEBUG("Choosen Gateway: ~p", [NewGateway2]),
-    Result = NewGateway2:send_sms(Phone, Msg),
+    ?DEBUG("Chosen Gateway: ~p", [NewGateway2]),
+    Result = case Method of
+        voice_call -> NewGateway2:send_voice_call(Phone, Msg);
+        sms -> NewGateway2:send_sms(Phone, Msg)
+    end,
     ?DEBUG("Result: ~p", [Result]),
     case Result of
         {ok, SMSResponse} -> 
-            SMSResponse2 = SMSResponse#sms_response{gateway = NewGateway},
+            SMSResponse2 = SMSResponse#gateway_response{gateway = NewGateway2, method = Method},
             {ok, SMSResponse2};
         Error -> Error
     end.

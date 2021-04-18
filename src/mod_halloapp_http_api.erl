@@ -38,47 +38,11 @@
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 process([<<"registration">>, <<"request_sms">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
-    try
-        ?DEBUG("Data:~p", [Data]),
-        UserAgent = util_http:get_user_agent(Headers),
-        ClientIP = util_http:get_ip(IP, Headers),
-        Payload = jiffy:decode(Data, [return_maps]),
-        Phone = maps:get(<<"phone">>, Payload),
-        GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
-        ?INFO("phone:~p, ua:~p ip:~s payload:~p ",
-            [Phone, UserAgent, ClientIP, Payload]),
+    process_otp_request(Data, IP, Headers, false);
 
-        check_ua(UserAgent),
-        check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
-        request_sms(Phone, UserAgent),
-        {200, ?HEADER(?CT_JSON),
-            jiffy:encode({[
-                {phone, Phone},
-                {retry_after_secs, ?SMS_RETRY_AFTER_SECS},
-                {result, ok}
-            ]})}
-    catch
-        error : bad_user_agent ->
-            ?ERROR("register error: bad_user_agent ~p", [Headers]),
-            log_request_sms_error(bad_user_agent),
-            util_http:return_400();
-        error : invalid_client_version ->
-            ?ERROR("register error: invalid_client_version ~p", [Headers]),
-            util_http:return_400(invalid_client_version);
-        error: not_invited ->
-            ?INFO("request_sms error: phone not invited ~p", [Data]),
-            log_request_sms_error(not_invited),
-            util_http:return_400(not_invited);
-        error : sms_fail ->
-            ?INFO("request_sms error: sms_failed ~p", [Data]),
-            log_request_sms_error(sms_fail),
-            util_http:return_400(sms_fail);
-        Class : Reason : Stacktrace  ->
-            ?ERROR("request_sms crash: ~s\nStacktrace:~s",
-                [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            log_request_sms_error(server_error),
-            util_http:return_500()
-    end;
+process([<<"registration">>, <<"request_otp">>],
+        #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
+    process_otp_request(Data, IP, Headers, true);
 
 process([<<"registration">>, <<"register">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
@@ -275,6 +239,65 @@ process(Path, Request) ->
     ?WARNING("Bad Request: path: ~p, r:~p", [Path, Request]),
     util_http:return_400().
 
+-spec process_otp_request(Data :: string(), IP :: string(), Headers :: list(),
+    MethodInRequest :: boolean()) -> http_response().
+process_otp_request(Data, IP, Headers, MethodInRequest) ->
+    try
+        ?DEBUG("Data:~p", [Data]),
+        UserAgent = util_http:get_user_agent(Headers),
+        ClientIP = util_http:get_ip(IP, Headers),
+        Payload = jiffy:decode(Data, [return_maps]),
+        Phone = maps:get(<<"phone">>, Payload),
+        Method = case MethodInRequest of
+            false -> <<"sms">>;
+            _ -> maps:get(<<"method">>, Payload)
+        end,
+        GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
+        ?INFO("phone:~p, ua:~p ip:~s method: ~s, payload:~p ",
+            [Phone, UserAgent, ClientIP, Method, Payload]),
+
+        check_ua(UserAgent),
+        Method2 = get_otp_method(Method),
+        check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
+        request_otp(Phone, UserAgent, Method2),
+        {200, ?HEADER(?CT_JSON),
+            jiffy:encode({[
+                {phone, Phone},
+                {retry_after_secs, ?SMS_RETRY_AFTER_SECS},
+                {result, ok}
+            ]})}
+    catch
+        error : bad_user_agent ->
+            ?ERROR("register error: bad_user_agent ~p", [Headers]),
+            log_request_otp_error(bad_user_agent, sms),
+            util_http:return_400();
+        error : invalid_client_version ->
+            ?ERROR("register error: invalid_client_version ~p", [Headers]),
+            util_http:return_400(invalid_client_version);
+        error : bad_method ->
+            ?ERROR("register error: bad_method ~p", [Data]),
+            util_http:return_400(bad_method);
+        error: not_invited ->
+            ?INFO("request_sms error: phone not invited ~p", [Data]),
+            log_request_otp_error(not_invited, sms),
+            util_http:return_400(not_invited);
+        error : sms_fail ->
+            ?INFO("request_sms error: sms_failed ~p", [Data]),
+            log_request_otp_error(sms_fail, sms),
+            case MethodInRequest of
+                false -> util_http:return_400(sms_fail);
+                _ -> util_http:return_400(otp_fail)
+            end;
+        error : voice_call_fail ->
+            ?INFO("request_voice_call error: voice_call_failed ~p", [Data]),
+            log_request_otp_error(voice_call_fail, voice_call),
+            util_http:return_400(otp_fail);
+        Class : Reason : Stacktrace  ->
+            ?ERROR("request_sms crash: ~s\nStacktrace:~s",
+                [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            log_request_otp_error(server_error, otp),
+            util_http:return_500()
+    end.
 
 -spec log_register_error(ErrorType :: atom | string()) -> ok.
 log_register_error(ErrorType) ->
@@ -283,13 +306,18 @@ log_register_error(ErrorType) ->
     ok.
 
 
--spec log_request_sms_error(ErrorType :: atom | string()) -> ok.
-log_request_sms_error(ErrorType) ->
+-spec log_request_otp_error(ErrorType :: atom() | string(), Method :: atom()) -> ok.
+log_request_otp_error(ErrorType, sms) ->
     stat:count("HA/account", "request_sms_errors", 1,
         [{error, ErrorType}]),
+    ok;
+log_request_otp_error(ErrorType, Method) ->
+    stat:count("HA/account", "request_otp_errors", 1,
+        [{error, ErrorType}, {method, Method}]),
     ok.
 
 
+%% TODO(vipin): Remove the following method.
 -spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok | no_return(). % throws sms_fail
 request_sms(Phone, UserAgent) ->
     case mod_sms:request_sms(Phone, UserAgent) of
@@ -297,6 +325,16 @@ request_sms(Phone, UserAgent) ->
         {error, Reason} ->
             ?ERROR("could not send sms Reason: ~p Phone: ~P", [Reason, Phone]),
             erlang:error(sms_fail)
+    end.
+
+
+-spec request_otp(Phone :: phone(), UserAgent :: binary(), Method :: atom()) -> ok | no_return(). % throws otp_fail
+request_otp(Phone, UserAgent, Method) ->
+    case mod_sms:request_otp(Phone, UserAgent, Method) of
+        ok -> ok;
+        {error, Reason} = Error->
+            ?ERROR("could not send otp Reason: ~p Phone: ~P", [Reason, Phone]),
+            Error
     end.
 
 
@@ -313,6 +351,15 @@ check_ua(UserAgent) ->
             error(bad_user_agent)
     end.
 
+-spec get_otp_method(binary()) -> sms | voice_call | no_return().
+get_otp_method(Method) ->
+    case Method of
+        <<"sms">> -> sms;
+        <<"voice_call">> -> voice_call;
+        _ ->
+            ?ERROR("Invalid Method:~p", [Method]),
+            error(bad_method)
+    end.
 
 -spec check_password(binary(), binary()) -> ok.
 check_password(Uid, Password) ->

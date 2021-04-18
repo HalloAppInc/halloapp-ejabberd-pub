@@ -26,16 +26,16 @@
 
 -type compose_body_fun() :: fun((phone(), string()) -> string()).
 
--spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, sms_fail}.
+-spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
     sending_helper(Phone, Msg, ?BASE_SMS_URL, fun compose_body/2, "SMS").
 
--spec send_voice_call(Phone :: phone(), Msg :: string()) -> {ok, sms_response()} | {error, voice_call_fail}.
+-spec send_voice_call(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, voice_call_fail}.
 send_voice_call(Phone, Msg) ->
     sending_helper(Phone, Msg, ?BASE_VOICE_URL, fun compose_voice_body/2, "Voice Call").
 
 -spec sending_helper(Phone :: phone(), Msg :: string(), BaseUrl :: string(),
-    ComposeBodyFn :: compose_body_fun(), Purpose :: string()) -> {ok, sms_response()} | {error, atom()}.
+    ComposeBodyFn :: compose_body_fun(), Purpose :: string()) -> {ok, gateway_response()} | {error, atom()}.
 sending_helper(Phone, Msg, BaseUrl, ComposeBodyFn, Purpose) ->
     ?INFO("Phone: ~p, Msg: ~p, Purpose: ~p", [Phone, Msg, Purpose]),
     Headers = fetch_auth_headers(),
@@ -51,7 +51,7 @@ sending_helper(Phone, Msg, BaseUrl, ComposeBodyFn, Purpose) ->
             Json = jiffy:decode(ResBody, [return_maps]),
             Id = maps:get(<<"sid">>, Json),
             Status = normalized_status(maps:get(<<"status">>, Json)),
-            {ok, #sms_response{sms_id = Id, status = Status, response = ResBody}};
+            {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
         _ ->
             ?ERROR("Sending ~p failed ~p", [Purpose, Response]),
             {error, list_to_atom(re:replace(string:lowercase(Purpose), " ", "_", [{return, list}]) ++ "_fail")}
@@ -78,7 +78,7 @@ normalized_status(_) ->
     unknown.
 
 
--spec fetch_message_info(SMSId :: binary()) -> {ok, sms_response()} | {error, sms_fail}.
+-spec fetch_message_info(SMSId :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
 fetch_message_info(SMSId) ->
     ?INFO("~p", [SMSId]),
     URL = ?SMS_INFO_URL ++ binary_to_list(SMSId) ++ ".json",
@@ -101,8 +101,8 @@ fetch_message_info(SMSId) ->
                 {XX, []} -> abs(XX)
             end,
             Currency = maps:get(<<"price_unit">>, Json),
-            {ok, #sms_response{sms_id = Id, gateway = twilio, status = normalized_status(Status),
-                price = RealPrice, currency = Currency}};
+            {ok, #gateway_response{gateway_id = Id, gateway = twilio, method = sms,
+                status = normalized_status(Status), price = RealPrice, currency = Currency}};
         _ ->
             ?ERROR("SMS fetch info failed ~p", [Response]),
             {error, sms_fail}

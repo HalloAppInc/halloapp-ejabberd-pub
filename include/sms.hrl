@@ -20,10 +20,10 @@
 
 -type status() :: accepted | queued | sending | sent | delivered | undelivered | failed | unknown.
 
-%% TODO(vipin): Rename to gateway_response
--record(sms_response, {
+-record(gateway_response, {
     gateway :: atom(),
-    sms_id :: binary(),
+    method :: sms | voice_call,
+    gateway_id :: binary(),
     status :: status(),
     response :: binary(),
     price :: float(),
@@ -31,7 +31,7 @@
     verified  :: boolean()
 }).
 
--type sms_response()  :: #sms_response{}.
+-type gateway_response()  :: #gateway_response{}.
 
 -define(SMS_REG_TIMESTAMP_INCREMENT, 900).  %% 15 minutes.
 

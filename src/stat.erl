@@ -227,7 +227,7 @@ check_sms_reg2(IncrementalTimestamp, Increment) ->
         case util:is_test_number(Phone) of
             false ->
                 SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
-                #sms_response{gateway = Gateway, status = Status, verified = Success} = SMSResponse, 
+                #gateway_response{gateway = Gateway, status = Status, verified = Success} = SMSResponse, 
                 case {Gateway, Status, Success} of
                     {undefined, _, _} ->
                         ?ERROR("Phone: ~p, AttemptId: ~p (not found), SMS attempt failed",

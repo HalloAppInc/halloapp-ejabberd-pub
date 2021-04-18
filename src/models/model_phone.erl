@@ -79,6 +79,7 @@ mod_options(_Host) ->
 -define(FIELD_CODE, <<"cod">>).
 -define(FIELD_TIMESTAMP, <<"ts">>).
 -define(FIELD_SENDER, <<"sen">>).
+-define(FIELD_METHOD, <<"met">>).
 -define(FIELD_STATUS, <<"sts">>).
 -define(FIELD_PRICE, <<"prc">>).
 -define(FIELD_CURRENCY, <<"cur">>).
@@ -239,49 +240,67 @@ get_verification_attempt_list(Phone) ->
     {ok, VerificationAttemptList}.
 
 
--spec add_gateway_response(Phone :: phone(), AttemptId :: binary(), SMSResponse :: sms_response())
+-spec add_gateway_response(Phone :: phone(), AttemptId :: binary(), SMSResponse :: gateway_response())
       -> ok | {error, any()}.
 add_gateway_response(Phone, AttemptId, SMSResponse) ->
-    #sms_response{sms_id = SMSId, gateway = Gateway, status = Status, response = Response} = SMSResponse,
-    GatewayResponseKey = gateway_response_key(Gateway, SMSId),
+    #gateway_response{
+        gateway_id = GatewayId,
+        gateway = Gateway,
+        method = Method,
+        status = Status,
+        response = Response
+    } = SMSResponse,
+    GatewayResponseKey = gateway_response_key(Gateway, GatewayId),
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
     _Result1 = q([["MULTI"],
                    ["HSET", GatewayResponseKey, ?FIELD_VERIFICATION_ATTEMPT, VerificationAttemptKey],
                    ["EXPIRE", GatewayResponseKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
     GatewayBin = util:to_binary(Gateway),
+    MethodBin = encode_method(Method),
     StatusBin = util:to_binary(Status),
     _Result2 = q([["MULTI"],
-                   ["HSET", VerificationAttemptKey, ?FIELD_SENDER, GatewayBin, ?FIELD_STATUS, StatusBin,
+                   ["HSET", VerificationAttemptKey, ?FIELD_SENDER, GatewayBin,
+                       ?FIELD_METHOD, MethodBin, ?FIELD_STATUS, StatusBin,
                        ?FIELD_RESPONSE, Response],
                    ["EXPIRE", VerificationAttemptKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
     ok.
 
 
--spec get_all_gateway_responses(Phone :: phone()) -> {ok, [sms_response()]} | {error, any()}.
+-spec get_all_gateway_responses(Phone :: phone()) -> {ok, [gateway_response()]} | {error, any()}.
 get_all_gateway_responses(Phone) ->
     {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
     RedisCommands = lists:map(
         fun(AttemptId) ->
-            ["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_STATUS]
+            ["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_METHOD,
+                ?FIELD_STATUS]
         end, VerificationAttemptList),
     ResponseList = case RedisCommands of
         [] -> [];
         _ -> qp(RedisCommands)
     end,
     SMSResponseList = lists:map(
-        fun({ok, [Sender, Status]}) ->
-            #sms_response{gateway = util:to_atom(Sender), status = util:to_atom(Status)}
+        fun({ok, [Sender, Method, Status]}) ->
+            #gateway_response{
+                gateway = util:to_atom(Sender),
+                method = decode_method(Method),
+                status = util:to_atom(Status)
+            }
         end, ResponseList),
     {ok, SMSResponseList}.
 
 
--spec add_gateway_callback_info(SMSResponse :: sms_response()) -> ok | {error, any()}.
-add_gateway_callback_info(SMSResponse) ->
-    #sms_response{sms_id = SMSId, gateway = Gateway, status = Status, price = Price,
-        currency = Currency} = SMSResponse,
-    GatewayResponseKey = gateway_response_key(Gateway, SMSId),
+-spec add_gateway_callback_info(GatewayResponse :: gateway_response()) -> ok | {error, any()}.
+add_gateway_callback_info(GatewayResponse) ->
+    #gateway_response{
+        gateway_id = GatewayId,
+        gateway = Gateway,
+        status = Status,
+        price = Price,
+        currency = Currency
+    } = GatewayResponse,
+    GatewayResponseKey = gateway_response_key(Gateway, GatewayId),
     {ok, VerificationAttemptKey} = q(["HGET", GatewayResponseKey, ?FIELD_VERIFICATION_ATTEMPT]),
     ?assertNotEqual(undefined, Status),
     StatusBin = util:to_binary(Status),
@@ -323,15 +342,20 @@ get_verification_success(Phone, AttemptId) ->
     util_redis:decode_boolean(Res, false).
 
 
--spec get_verification_attempt_summary(Phone :: phone(), AttemptId :: binary()) -> sms_response().
+-spec get_verification_attempt_summary(Phone :: phone(), AttemptId :: binary()) -> gateway_response().
 get_verification_attempt_summary(Phone, AttemptId) ->
-    {ok, Res} = q(["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS]),
-    [Sender, Status, Success] = Res,
-    case {Sender, Status, Success} of
-        {undefined, _, _} -> #sms_response{};
-        {_, _, _} -> #sms_response{gateway = util:to_atom(Sender),
-                status = util:to_atom(Status),
-                verified = util_redis:decode_boolean(Success, false)}
+    {ok, Res} = q(["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_METHOD,
+        ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS]),
+    [Sender, Method, Status, Success] = Res,
+    case {Sender, Method, Status, Success} of
+        {undefined, _, _, _} -> #gateway_response{};
+        {_, _, _, _} ->
+                #gateway_response{
+                    gateway = util:to_atom(Sender),
+                    method = decode_method(Method),
+                    status = util:to_atom(Status),
+                    verified = util_redis:decode_boolean(Success, false)
+                }
     end.
  
 
@@ -371,6 +395,24 @@ get_uids(Phones) ->
 q(Command) -> ecredis:q(ecredis_phone, Command).
 qp(Commands) -> ecredis:qp(ecredis_phone, Commands).
 qmn(Commands) -> ecredis:qmn(ecredis_phone, Commands).
+
+
+-spec encode_method(Method :: sms | voice_call | undefined) -> binary().
+encode_method(Method) ->
+    Method2 = case Method of
+        undefined -> sms;
+        _ -> Method
+    end,
+    util:to_binary(Method2).
+
+
+-spec decode_method(Method :: maybe(binary())) -> sms | voice_call.
+decode_method(Method) ->
+    Method2 = case Method of
+        undefined -> <<"sms">>;
+        _ -> Method
+    end,
+    util:to_atom(Method2).
 
 
 -spec phone_key(Phone :: phone()) -> binary().
@@ -422,9 +464,10 @@ incremental_timestamp_key(IncrementalTS) ->
     <<?INCREMENTAL_TS_KEY/binary, <<"{">>/binary, TSBin/binary, <<"}">>/binary>>.
 
 
--spec gateway_response_key(Gateway :: atom(), SMSId :: binary()) -> binary().
-gateway_response_key(Gateway, SMSId) ->
+-spec gateway_response_key(Gateway :: atom(), GatewayId :: binary()) -> binary().
+gateway_response_key(Gateway, GatewayId) ->
     GatewayBin = util:to_binary(Gateway),
-    <<?GATEWAY_RESPONSE_ID_KEY/binary, <<"{">>/binary, GatewayBin/binary, <<":">>/binary, SMSId/binary, <<"}">>/binary>>.
+    <<?GATEWAY_RESPONSE_ID_KEY/binary, <<"{">>/binary, GatewayBin/binary, <<":">>/binary,
+        GatewayId/binary, <<"}">>/binary>>.
 
 
