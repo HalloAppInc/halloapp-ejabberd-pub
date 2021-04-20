@@ -182,12 +182,8 @@ open_session(SID, User, Server, Resource, Info) ->
 -spec close_session(sid(), binary(), binary(), binary()) -> ok.
 
 close_session(SID, User, Server, Resource) ->
-    % TODO: remote all those nodeprep. They are not needed.
     ?INFO("SID: ~p User: ~p", [SID, User]),
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    LResource = resourceprep(Resource),
-    Sessions = get_sessions(LUser, LServer, LResource),
+    Sessions = get_sessions(User, Server, Resource),
     Info = case lists:keyfind(SID, #session.sid, Sessions) of
        #session{info = I} = Session ->
            delete_session(Session),
@@ -216,9 +212,7 @@ disconnect_removed_user(User, Server) ->
     route(jid:make(User, Server), {close, account_deleted}).
 
 get_user_resources(User, Server) ->
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    Ss = get_sessions(LUser, LServer),
+    Ss = get_sessions(User, Server),
     [element(3, S#session.usr) || S <- clean_session_list(Ss)].
 
 -spec get_user_present_resources(binary(), binary()) -> [tuple()].
@@ -231,10 +225,7 @@ get_user_present_resources(LUser, LServer) ->
 -spec get_user_ip(binary(), binary(), binary()) -> ip().
 
 get_user_ip(User, Server, Resource) ->
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    LResource = resourceprep(Resource),
-    case get_sessions(LUser, LServer, LResource) of
+    case get_sessions(User, Server, Resource) of
         [] ->
             undefined;
         Ss ->
@@ -244,9 +235,7 @@ get_user_ip(User, Server, Resource) ->
 
 -spec get_user_info(binary(), binary()) -> [{binary(), info()}].
 get_user_info(User, Server) ->
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    Ss = get_sessions(LUser, LServer),
+    Ss = get_sessions(User, Server),
     [{LResource, [{node, node(Pid)}, {ts, Ts}, {pid, Pid},
           {priority, Priority} | Info]}
      || #session{usr = {_, _, LResource},
@@ -256,11 +245,10 @@ get_user_info(User, Server) ->
 
 -spec get_user_info(binary(), binary(), binary()) -> info() | offline.
 get_user_info(User, Server, Resource) ->
-    LResource = resourceprep(Resource),
     Results = get_user_info(User, Server),
-    case lists:filter(fun({LResource1, _Info}) -> LResource1 =:= LResource end, Results) of
+    case lists:filter(fun({Resource1, _Info}) -> Resource1 =:= Resource end, Results) of
         [] -> offline;
-        [{LResource, Info}] -> Info
+        [{Resource, Info}] -> Info
     end.
 
 
@@ -269,17 +257,14 @@ get_user_info(User, Server, Resource) ->
                    prio(), presence()) -> ok | {error, notfound}.
 
 set_presence(SID, User, Server, Resource, Priority, Presence) ->
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    LResource = resourceprep(Resource),
-    case get_sessions(LUser, LServer, LResource) of
+    case get_sessions(User, Server, Resource) of
         [] -> {error, notfound};
         Ss ->
             case lists:keyfind(SID, #session.sid, Ss) of
                 #session{info = Info} ->
                     set_session(SID, User, Server, Resource, Priority, Info),
                     ejabberd_hooks:run(set_presence_hook,
-                               LServer,
+                               Server,
                                [User, Server, Resource, Presence]);
                 false ->
                     {error, notfound}
@@ -290,17 +275,14 @@ set_presence(SID, User, Server, Resource, Priority, Presence) ->
                      binary(), binary()) -> ok | {error, notfound}.
 
 unset_presence(SID, User, Server, Resource, Status) ->
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    LResource = resourceprep(Resource),
-    case get_sessions(LUser, LServer, LResource) of
+    case get_sessions(User, Server, Resource) of
         [] -> {error, notfound};
         Ss ->
             case lists:keyfind(SID, #session.sid, Ss) of
                 #session{info = Info} ->
                     set_session(SID, User, Server, Resource, undefined, Info),
                     ejabberd_hooks:run(unset_presence_hook,
-                               LServer,
+                               Server,
                                [User, Server, Resource, Status]);
                 false ->
                     {error, notfound}
@@ -315,7 +297,7 @@ close_session_unset_presence(SID, User, Server,
     ?INFO("SID: ~p User: ~p", [SID, User]),
     close_session(SID, User, Server, Resource),
     ejabberd_hooks:run(unset_presence_hook,
-               nameprep(Server),
+               Server,
                [User, Server, Resource, Status]).
 
 -spec get_session_pid(binary(), binary(), binary()) -> none | pid().
@@ -329,10 +311,7 @@ get_session_pid(User, Server, Resource) ->
 -spec get_session_sid(binary(), binary(), binary()) -> none | sid().
 
 get_session_sid(User, Server, Resource) ->
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    LResource = resourceprep(Resource),
-    case get_sessions(LUser, LServer, LResource) of
+    case get_sessions(User, Server, Resource) of
         [] ->
             none;
         Ss ->
@@ -343,18 +322,13 @@ get_session_sid(User, Server, Resource) ->
 -spec get_session_sids(binary(), binary()) -> [sid()].
 
 get_session_sids(User, Server) ->
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    Sessions = get_sessions(LUser, LServer),
+    Sessions = get_sessions(User, Server),
     [SID || #session{sid = SID} <- Sessions].
 
 -spec get_session_sids(binary(), binary(), binary()) -> [sid()].
 
 get_session_sids(User, Server, Resource) ->
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    LResource = resourceprep(Resource),
-    Sessions = get_sessions(LUser, LServer, LResource),
+    Sessions = get_sessions(User, Server, Resource),
     [SID || #session{sid = SID} <- Sessions].
 
 
@@ -473,11 +447,8 @@ wait_for_c2s_to_terminate(Timeout) ->
                   prio(), info()) -> ok | {error, any()}.
 
 set_session(SID, User, Server, Resource, Priority, Info) ->
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    LResource = resourceprep(Resource),
-    US = {LUser, LServer},
-    USR = {LUser, LServer, LResource},
+    US = {User, Server},
+    USR = {User, Server, Resource},
     set_session(#session{sid = SID, usr = USR, us = US,
              priority = Priority, info = Info}).
 
@@ -706,11 +677,8 @@ clean_session_list([S1, S2 | Rest], Res) ->
 %% On new session, check if some existing connections need to be replace
 -spec check_for_sessions_to_replace(binary(), binary(), binary()) -> ok | replaced.
 check_for_sessions_to_replace(User, Server, Resource) ->
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    LResource = resourceprep(Resource),
-    check_existing_resources(LUser, LServer, LResource),
-    check_max_sessions(LUser, LServer).
+    check_existing_resources(User, Server, Resource),
+    check_max_sessions(User, Server).
 
 -spec check_existing_resources(binary(), binary(), binary()) -> ok.
 check_existing_resources(LUser, LServer, LResource) ->
@@ -733,10 +701,7 @@ is_existing_resource(LUser, LServer, LResource) ->
 
 -spec get_resource_sessions(binary(), binary(), binary()) -> [sid()].
 get_resource_sessions(User, Server, Resource) ->
-    LUser = nodeprep(User),
-    LServer = nameprep(Server),
-    LResource = resourceprep(Resource),
-    [S#session.sid || S <- get_sessions(LUser, LServer, LResource)].
+    [S#session.sid || S <- get_sessions(User, Server, Resource)].
 
 -spec check_max_sessions(binary(), binary()) -> ok | replaced.
 check_max_sessions(LUser, LServer) ->
@@ -905,29 +870,4 @@ kick_user(User, Server, Resource) ->
 
 make_sid() ->
     {misc:unique_timestamp(), self()}.
-
-
-nodeprep(S) ->
-    S2 = jid:nodeprep(S),
-    case S =/= S2 of
-        true -> ?ERROR("nodeprep ~p -> ~p", [S, S2]);
-        false -> ok
-    end,
-    S2.
-
-nameprep(S) ->
-    S2 = jid:nameprep(S),
-    case S =/= S2 of
-        true -> ?ERROR("nameprep ~p -> ~p", [S, S2]);
-        false -> ok
-    end,
-    S2.
-
-resourceprep(S) ->
-    S2 = jid:resourceprep(S),
-    case S =/= S2 of
-        true -> ?ERROR("resourceprep ~p -> ~p", [S, S2]);
-        false -> ok
-    end,
-    S2.
 
