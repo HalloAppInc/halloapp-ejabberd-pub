@@ -8,11 +8,13 @@
 -author('nikola').
 
 -include("logger.hrl").
+-include("time.hrl").
 
 -export([
     verify_invites_run/2,
     copy_invites_run/2,
-    cleanup_older_invites/2
+    cleanup_older_invites/2,
+    copy_from_set_to_zset_run/2
 ]).
 
 verify_invites_run(Key, State) ->
@@ -20,8 +22,8 @@ verify_invites_run(Key, State) ->
     case Result of
         {match, [[_OldKey, Uid]]} ->
             % The old key is hash inb:{PHONE} => {id: Uid, ts: Timestamp}
-            {ok, Phones1} = q(ecredis_account, ["SMEMBERS", model_invites:acc_invites_key(Uid)]),
-            {ok, Phones2} = q(ecredis_account, ["ZRANGEBYSCORE", model_invites:invites_key(Uid), "-inf", "+inf"]),
+            {ok, Phones1} = q(ecredis_accounts, ["SMEMBERS", model_invites:acc_invites_key(Uid)]),
+            {ok, Phones2} = q(ecredis_accounts, ["ZRANGEBYSCORE", model_invites:invites_key(Uid), "-inf", "+inf"]),
             Phones1Sorted = lists:sort(Phones1),
             Phones2Sorted = lists:sort(Phones2),
             case Phones1Sorted =:= Phones2Sorted of
@@ -86,6 +88,50 @@ cleanup_older_invites(Key, State) ->
                     ?INFO("Deleted old invited struct Phone: ~p, Command: ~p Res: ~p",
                         [Phone, Command, Res])
             end;
+        _ -> ok
+    end,
+    State.
+
+copy_from_set_to_zset_run(Key, State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^inv:{([0-9]+)}", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[InvitesSetKey, Uid]]} ->
+            % We have some invites stored here, but we don't know the timestamp store in the zsets
+            {ok, Phones} = q(ecredis_accounts, ["SMEMBERS", InvitesSetKey]),
+
+            lists:foreach(
+                fun(Phone) ->
+                    {ok, Score1} = q(ecredis_phone, ["ZSCORE", model_invites:ph_invited_by_key_new(Phone), Uid]),
+                    {ok, Score2} = q(ecredis_accounts, ["ZSCORE", model_invites:invites_key(Uid), Phone]),
+                    case {Score1, Score2} of
+                        % invite is old and missing from the zsets. Insert in both
+                        {undefined, undefined} ->
+                            ?INFO("Uid: ~p invited Phone: ~p, at unknown time", [Uid, Phone]),
+                            Ts = util:now() - 60 * ?DAYS, % just something old. It will be expired soon anyway
+                            Command1 = ["ZADD", model_invites:ph_invited_by_key_new(Phone), Ts, Uid],
+                            Command2 = ["ZADD", model_invites:invites_key(Uid), Ts, Phone],
+                            case DryRun of
+                                true ->
+                                    ?INFO("Would run ~p", [Command1]),
+                                    ?INFO("Would run ~p", [Command2]);
+                                false ->
+                                    Res1 = q(ecredis_phone, Command1),
+                                    ?INFO("Running ~p -> ~p", [Command1, Res1]),
+                                    Res2 = q(ecredis_accounts, Command2),
+                                    ?INFO("Running ~p -> ~p", [Command2, Res2]),
+                                    ok
+                            end;
+                        % if the score is the same in both zsets everything is good.
+                        {Score1, Score1} ->
+                            ?INFO("All good for Uid: ~p Phone: ~p", [Uid, Phone]);
+                        % if the scores are not the same something is bad, hopefully this does not happen.
+                        Scores ->
+                            ?WARNING("Uid: ~p Phone: ~p Scores: ~p", [Uid, Phone, Scores])
+                    end
+                end,
+                Phones
+            );
         _ -> ok
     end,
     State.
