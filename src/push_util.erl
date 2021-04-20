@@ -28,8 +28,8 @@ parse_metadata(#pb_msg{id = Id, payload = Payload,
         timestamp = Payload#pb_chat_stanza.timestamp,
         thread_id = FromUid,
         sender_name = Payload#pb_chat_stanza.sender_name,
-        subject = <<"New Message">>,
-        body = <<"You got a new message.">>,
+        subject = Payload#pb_chat_stanza.sender_name,
+        body = <<"New Message">>,
         push_type = alert,
         payload = Payload#pb_chat_stanza.payload
     };
@@ -47,16 +47,18 @@ parse_metadata(#pb_msg{id = _Id, payload = Payload,
 
 parse_metadata(#pb_msg{id = Id, payload = Payload,
         from_uid = FromUid}, _PushInfo) when is_record(Payload, pb_group_chat) ->
+    PushName = Payload#pb_chat_stanza.sender_name,
+    GroupName = Payload#pb_group_chat.name,
     #push_metadata{
         content_id = Id,
         content_type = <<"group_chat">>,
         from_uid = FromUid,
         timestamp = Payload#pb_group_chat.timestamp,
         thread_id = Payload#pb_group_chat.gid,
-        thread_name = Payload#pb_group_chat.name,
-        sender_name = Payload#pb_group_chat.sender_name,
-        subject = <<"New Group Message">>,
-        body = <<"You got a new group message.">>,
+        thread_name = GroupName,
+        sender_name = PushName,
+        subject = <<PushName/binary, " @ ", GroupName/binary>>,
+        body = <<"New Group Message">>,
         push_type = alert,
         payload = Payload#pb_group_chat.payload
     };
@@ -94,11 +96,11 @@ parse_metadata(#pb_msg{id = _Id, type = MsgType, payload = Payload} = Message, P
     Name = Contact#pb_contact.name,
     {ContentType, Subject, Body} = case Payload#pb_contact_list.type of
         contact_notice ->
-            {<<"contact_notice">>, <<"New Contact">>, <<Name/binary, " is now on HalloApp">>};
+            {<<"contact_notice">>, <<>>, <<Name/binary, " is now on HalloApp">>};
         inviter_notice ->
-            {<<"inviter_notice">>, <<"Invite Accepted">>, <<Name/binary, " just accepted your invite to join HalloApp">>};
+            {<<"inviter_notice">>, <<>>, <<Name/binary, " just accepted your invite to join HalloApp">>};
         _ ->
-            {<<"contact_notification">>, <<"New Contact">>, <<"New contact notification">>}
+            {<<"contact_notification">>, <<>>, <<Name/binary, " is now on HalloApp">>}
     end,
     NewMsgType = {MsgType, Payload#pb_contact_list.type},
     PayloadType = util:get_payload_type(Message),
@@ -123,7 +125,7 @@ parse_metadata(#pb_msg{type = MsgType,
         timestamp = Post#pb_post.timestamp,
         thread_id = <<"feed">>,
         sender_name = Post#pb_post.publisher_name,
-        subject = <<"New Notification">>,
+        subject = Post#pb_post.publisher_name,
         body = <<"New post">>,
         push_type = get_push_type(MsgType, feed_post, PushInfo),
         payload = Post#pb_post.payload
@@ -149,7 +151,7 @@ parse_metadata(#pb_msg{type = MsgType,
         timestamp = Comment#pb_comment.timestamp,
         thread_id = <<"feed">>,
         sender_name = Comment#pb_comment.publisher_name,
-        subject = <<"New Notification">>,
+        subject = Comment#pb_comment.publisher_name,
         body = <<"New comment">>,
         push_type = get_push_type(MsgType, feed_comment, PushInfo),
         payload = Comment#pb_comment.payload
@@ -169,6 +171,8 @@ parse_metadata(#pb_msg{
 parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, action = publish,
         item = #pb_post{} = Post} = Payload} = Message, PushInfo) ->
     PayloadType = util:get_payload_type(Message),
+    PushName = Post#pb_post.publisher_name,
+    GroupName = Payload#pb_group_feed_item.name,
     #push_metadata{
         content_id = Post#pb_post.id,
         content_type = <<"group_post">>,
@@ -177,7 +181,7 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, 
         thread_id = Gid,
         thread_name = Payload#pb_group_feed_item.name,
         sender_name = Post#pb_post.publisher_name,
-        subject = <<"New Group Message">>,
+        subject = <<PushName/binary, " @ ", GroupName/binary>>,
         body = <<"New post">>,
         push_type = get_push_type(MsgType, PayloadType, PushInfo),
         payload = Post#pb_post.payload
@@ -197,6 +201,8 @@ parse_metadata(#pb_msg{payload = #pb_group_feed_item{gid = Gid, action = retract
 parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, action = publish,
         item = #pb_comment{} = Comment} = Payload} = Message, PushInfo) ->
     PayloadType = util:get_payload_type(Message),
+    PushName = Comment#pb_comment.publisher_name,
+    GroupName = Payload#pb_group_feed_item.name,
     #push_metadata{
         content_id = Comment#pb_comment.id,
         content_type = <<"group_comment">>,
@@ -205,7 +211,7 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, 
         thread_id = Gid,
         thread_name = Payload#pb_group_feed_item.name,
         sender_name = Comment#pb_comment.publisher_name,
-        subject = <<"New Group Message">>,
+        subject = <<PushName/binary, " @ ", GroupName/binary>>,
         body = <<"New comment">>,
         push_type = get_push_type(MsgType, PayloadType, PushInfo),
         payload = Comment#pb_comment.payload
@@ -222,7 +228,7 @@ parse_metadata(#pb_msg{payload = #pb_group_feed_item{gid = Gid, action = retract
         retract = true
     };
 
-parse_metadata(#pb_msg{id = Id, type = MsgType, payload = #pb_group_stanza{gid = Gid, name = Name,
+parse_metadata(#pb_msg{id = Id, type = MsgType, payload = #pb_group_stanza{gid = Gid, name = GroupName,
         sender_uid = Sender, sender_name = SenderName} = _Payload} = Message, PushInfo) ->
     PayloadType = util:get_payload_type(Message),
     #push_metadata{
@@ -231,10 +237,10 @@ parse_metadata(#pb_msg{id = Id, type = MsgType, payload = #pb_group_stanza{gid =
         from_uid = Sender,
         timestamp = <<>>, % All other events have Ts. Maybe we should add Ts to group_st
         thread_id = Gid,
-        thread_name = Name,
+        thread_name = GroupName,
         sender_name = SenderName,
-        subject = <<"New Group">>,
-        body = <<"You got added to new group">>,
+        subject = GroupName,
+        body = <<"You were added to a new group">>,
         push_type = get_push_type(MsgType, PayloadType, PushInfo)
     };
 
