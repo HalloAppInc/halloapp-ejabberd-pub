@@ -204,5 +204,8 @@ get_athena_queries() ->
 
 
 get_athena_modules() ->
-    [athena_encryption].
+    [
+        athena_encryption,
+        athena_push
+    ].
 

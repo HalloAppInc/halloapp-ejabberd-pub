@@ -204,9 +204,8 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
                 {ok, FcmId} ->
                     stat:count("HA/push", ?FCM, 1, [{"result", "success"}]),
                     ?INFO("Uid:~s push successful for msg-id: ~s, FcmId: ~p", [Uid, Id, FcmId]),
-                    PushType = PushMetadata#push_metadata.push_type,
                     mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => FcmId,
-                            platform => android, client_version => Version, push_type => PushType});
+                            platform => android, client_version => Version, push_type => silent});
                 {error, Reason, FcmId} ->
                     stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
                     ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
