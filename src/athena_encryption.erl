@@ -20,12 +20,13 @@
     %% query functions for debug!
     e2e_success_failure_rates/2,
     e2e_decryption_reason_rates/2,
-    e2e_decryption_report/2,
-    e2e_decryption_report_without_rerequest/2,
+    e2e_decryption_report/1,
+    e2e_decryption_report_without_rerequest/1,
 
     %% result processing functions.
     record_enc_and_dec/1,
-    record_dec/1
+    record_dec/1,
+    record_dec_report/1
 ]).
 
 %%====================================================================
@@ -40,10 +41,8 @@ get_queries() ->
         e2e_success_failure_rates(?IOS, QueryTimeMsBin),
         e2e_decryption_reason_rates(?ANDROID, QueryTimeMsBin),
         e2e_decryption_reason_rates(?IOS, QueryTimeMsBin),
-        e2e_decryption_report(?ANDROID, QueryTimeMsBin),
-        e2e_decryption_report(?IOS, QueryTimeMsBin),
-        e2e_decryption_report_without_rerequest(?ANDROID, QueryTimeMsBin),
-        e2e_decryption_report_without_rerequest(?IOS, QueryTimeMsBin)
+        e2e_decryption_report(QueryTimeMsBin),
+        e2e_decryption_report_without_rerequest(QueryTimeMsBin)
     ].
 
 
@@ -124,76 +123,84 @@ e2e_decryption_reason_rates(Platform, TimestampMsBin) ->
 
 
 %% Query gets the decryption report rates ordered by version.
-%% This query will run on a specific platform and on data from TimestampMs till current.
--spec e2e_decryption_report(Platform :: binary(), TimestampMsBin :: binary()) -> athena_query().
-e2e_decryption_report(Platform, TimestampMsBin) ->
+%% This query will run on data from TimestampMs till current.
+-spec e2e_decryption_report(TimestampMsBin :: binary()) -> athena_query().
+e2e_decryption_report(TimestampMsBin) ->
     QueryBin = <<"
-        SELECT success.version, ROUND(success.count * 100.0 / total.count, 2) as success_rate,
+        SELECT success.platform, success.version, success.is_silent,
+            ROUND(success.count * 100.0 / total.count, 2) as success_rate,
             success.count as success_count, total.count as total_count
-    FROM
-        (SELECT version, count(*) as count
         FROM
-            (SELECT \"decryption_report\", \"platform\", MAX(\"version\") as \"version\",
-                MAX(\"timestamp_ms\") as \"timestamp_ms\"
-            FROM \"default\".\"client_decryption_report\"
-            GROUP BY \"decryption_report\", \"platform\")
-        WHERE platform='", Platform/binary, "' AND \"timestamp_ms\" >= '", TimestampMsBin/binary, "'
-            AND \"decryption_report\".\"result\"='ok'
-        GROUP BY version) as success
+            (SELECT platform, version, \"decryption_report\".\"is_silent\" as is_silent, count(*) as count
+            FROM
+                (SELECT \"decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_decryption_report\"
+                GROUP BY \"decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                    AND \"decryption_report\".\"result\"='ok'
+                GROUP BY version, \"decryption_report\".\"is_silent\", platform) as success
         JOIN
-        (SELECT version, count(*) as count
-        FROM
-            (SELECT \"decryption_report\", \"platform\", MAX(\"version\") as \"version\",
-                MAX(\"timestamp_ms\") as \"timestamp_ms\"
-            FROM \"default\".\"client_decryption_report\"
-            GROUP BY \"decryption_report\", \"platform\")
-        WHERE platform='", Platform/binary, "' AND \"timestamp_ms\" >= '", TimestampMsBin/binary, "'
-        GROUP BY version) as total on success.version=total.version
-        order by success.version DESC;">>,
+            (SELECT platform, version, \"decryption_report\".\"is_silent\" as is_silent, count(*) as count
+            FROM
+                (SELECT \"decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_decryption_report\"
+                GROUP BY \"decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                GROUP BY version, \"decryption_report\".\"is_silent\", platform) as total
+        ON success.version=total.version
+            AND success.platform=total.platform
+            AND success.is_silent=total.is_silent
+        ORDER BY success.version DESC;">>,
     #athena_query{
         query_bin = QueryBin,
-        tags = #{"platform" => Platform},
-        result_fun = {?MODULE, record_dec},
+        tags = #{},
+        result_fun = {?MODULE, record_dec_report},
         metrics = ["decryption_report"]
     }.
 
 
 %% Query gets the decryption report rates with rerequest_count = 0, ordered by version.
-%% This query will run on a specific platform and on data from TimestampMs till current.
--spec e2e_decryption_report_without_rerequest(Platform :: binary(), TimestampMs :: binary()) -> athena_query().
-e2e_decryption_report_without_rerequest(Platform, TimestampMs) ->
+%% This query will run on data from TimestampMs till current.
+-spec e2e_decryption_report_without_rerequest(TimestampMsBin :: binary()) -> athena_query().
+e2e_decryption_report_without_rerequest(TimestampMsBin) ->
     QueryBin = <<"
-        SELECT success.version, ROUND(success.count * 100.0 / total.count, 2) as success_rate,
+        SELECT success.platform, success.version, success.is_silent,
+            ROUND(success.count * 100.0 / total.count, 2) as success_rate,
             success.count as success_count, total.count as total_count
-    FROM
-        (SELECT version, count(*) as count
         FROM
-            (SELECT \"decryption_report\", \"platform\", MAX(\"version\") as \"version\",
-                MAX(\"timestamp_ms\") as \"timestamp_ms\"
-            FROM \"default\".\"client_decryption_report\"
-            GROUP BY \"decryption_report\", \"platform\")
-        WHERE platform='", Platform/binary, "' AND \"timestamp_ms\" >= '", TimestampMs/binary, "'
-            AND \"decryption_report\".\"result\"='ok' AND \"decryption_report\".\"rerequest_count\"=0
-        GROUP BY version) as success
+            (SELECT platform, version, \"decryption_report\".\"is_silent\" as is_silent, count(*) as count
+            FROM
+                (SELECT \"decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_decryption_report\"
+                GROUP BY \"decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                    AND \"decryption_report\".\"result\"='ok'
+                    AND \"decryption_report\".\"rerequest_count\"=0
+                GROUP BY version, \"decryption_report\".\"is_silent\", platform) as success
         JOIN
-        (SELECT version, count(*) as count
-        FROM
-            (SELECT \"decryption_report\", \"platform\", MAX(\"version\") as \"version\",
-                MAX(\"timestamp_ms\") as \"timestamp_ms\"
-            FROM \"default\".\"client_decryption_report\"
-            GROUP BY \"decryption_report\", \"platform\")
-        WHERE platform='", Platform/binary, "' AND \"timestamp_ms\" >= '", TimestampMs/binary, "'
-        GROUP BY version) as total on success.version=total.version
-        order by success.version DESC;">>,
+            (SELECT platform, version, \"decryption_report\".\"is_silent\" as is_silent, count(*) as count
+            FROM
+                (SELECT \"decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_decryption_report\"
+                GROUP BY \"decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                GROUP BY version, \"decryption_report\".\"is_silent\", platform) as total
+        ON success.version=total.version
+            AND success.platform=total.platform
+            AND success.is_silent=total.is_silent
+        ORDER BY success.version DESC;">>,
     #athena_query{
         query_bin = QueryBin,
-        tags = #{"platform" => Platform},
-        result_fun = {?MODULE, record_dec},
+        tags = #{},
+        result_fun = {?MODULE, record_dec_report},
         metrics = ["decryption_report0"]
     }.
 
 
-%% TODO(murali@): generalize the result functions
 -spec record_enc_and_dec(Query :: athena_query()) -> ok.
 record_enc_and_dec(Query) ->
     Result = Query#athena_query.result,
@@ -227,6 +234,26 @@ record_dec(Query) ->
             {DecSuccessRate, <<>>} = string:to_float(DecSuccessRateStr),
             stat:count("HA/e2e", Metric1, DecSuccessRate,
                     [{"version", util:to_list(Version)} | TagsAndValues])
+        end, ActualResultRows),
+    ok.
+
+
+%% TODO(murali@): generalize the result functions
+-spec record_dec_report(Query :: athena_query()) -> ok.
+record_dec_report(Query) ->
+    Result = Query#athena_query.result,
+    ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
+    [_HeaderRow | ActualResultRows] = ResultRows,
+    TagsAndValues = maps:to_list(Query#athena_query.tags),
+    [Metric1] = Query#athena_query.metrics,
+    lists:foreach(
+        fun(ResultRow) ->
+            [Platform, Version, IsSilent, DecSuccessRateStr, _, _] = maps:get(<<"Data">>, ResultRow),
+            {DecSuccessRate, <<>>} = string:to_float(DecSuccessRateStr),
+            stat:count("HA/e2e", Metric1, DecSuccessRate,
+                    [{"version", util:to_list(Version)},
+                    {"platform", util:to_list(Platform)},
+                    {"is_silent", util:to_list(IsSilent)} | TagsAndValues])
         end, ActualResultRows),
     ok.
 
