@@ -570,7 +570,6 @@ process_element(Pkt, #{stream_state := StateName} = State) ->
 process_authenticated_packet(Pkt, State) ->
     case set_from_to(Pkt, State) of
         {ok, Pkt1} ->
-            ?INFO("recv: final xmpp: ~p", [Pkt1]),
             try callback(handle_authenticated_packet, Pkt1, State)
             catch _:{?MODULE, undef} ->
                 process_stream_end(service_unavailable, State)
@@ -713,15 +712,11 @@ send_pkt(State, PktToSend) ->
         #pb_auth_result{} -> PktToSend;
         _ -> #pb_packet{stanza = PktToSend}
     end,
-    % TODO: remove this log
-    ?INFO("send pb: ~p", [Pkt]),
     {BinPkt1, Result} = case encode_packet(State, Pkt) of
         {ok, BinPkt} ->
-            % TODO: remove this log
-            ?INFO("send bin: ~p", [BinPkt]),
             {BinPkt, socket_send(State, BinPkt)};
         {error, _} = Err ->
-            ?INFO("failed to encode packet ~p, error ~p", [Pkt, Err]),
+            ?ERROR("failed to encode packet ~p, error ~p", [Pkt, Err]),
             {<<>>, Err}
     end,
     State1 = case Result of

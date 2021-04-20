@@ -63,7 +63,7 @@ push_message_hook(#pb_msg{} = Message) ->
     case should_push(Message) of
         true -> push_message(Message);
         % TODO: make debug, or don't print the full Msg
-        false -> ?INFO("ignoring push: ~p", [Message])
+        false -> ?INFO("ignoring push, MsgId: ~p", [Message#pb_msg.id])
     end,
     Message.
 
@@ -124,7 +124,7 @@ should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
                     MemberSt#pb_group_member.uid =:= ToUid andalso MemberSt#pb_group_member.action =:= add
                 end, Payload#pb_group_stanza.members),
             % TODO: remove this log, here just to make sure it works initially
-            ?INFO("group_st push ~p Message; ~p", [WasAdded, Message]),
+            ?INFO("group_st push ~p MsgId: ~p", [WasAdded, Message#pb_msg.id]),
             WasAdded;
 
         true ->

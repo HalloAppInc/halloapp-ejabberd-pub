@@ -108,7 +108,7 @@ handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     %% Ignore the push notification if it has already been sent.
     case push_util:record_push_sent(Message, PushInfo) of
         false -> 
-                ?INFO("Push notification already sent for Msg: ~p", [Message]),
+                ?INFO("Push notification already sent for MsgId: ~p", [Message#pb_msg.id]),
                 ok;
         true -> push_message(Message, PushInfo, State)
     end,

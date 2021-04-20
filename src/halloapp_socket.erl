@@ -387,7 +387,7 @@ parse(#socket_state{socket = Socket} = SocketData, Data) when is_binary(Data) ->
 parse_pb_data(#socket_state{pb_stream = PBStream, socket = _Socket,
         shaper = _ShaperState} = SocketData, Data) when is_binary(Data) ->
     FinalData = <<PBStream/binary, Data/binary>>,
-    ?INFO("(~s) Parsing data = ~p", [pp(SocketData), FinalData]),
+    ?DEBUG("(~s) Parsing data = ~p", [pp(SocketData), FinalData]),
     {ok, FinalSocketData} = case byte_size(FinalData) > 4 of
         true ->
             <<_ControlByte:8, PacketSize:24, Rest/binary>> = FinalData,
