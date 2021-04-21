@@ -48,7 +48,7 @@
     http_host => "tf-lb-stress-http-1307834085.us-east-2.elb.amazonaws.com",
     http_port => "80",
     app_host => "tf-lb-stress-app-bba78369e1c20a78.elb.us-east-2.amazonaws.com",
-    app_port => "5210",
+    app_port => 5210,
     % action_NAME => {Frequency, ActionArguments}
 %%    action_register => {0.2, {}},
     % TODO: add more actions here

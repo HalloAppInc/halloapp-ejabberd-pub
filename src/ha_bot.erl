@@ -259,6 +259,7 @@ do_actions(#state{conf = Conf} = State) ->
     EndState.
 
 
+-spec freq_to_count(Freq :: float()) -> integer().
 % Freq is in Hz, returns number of times this action should be performed.
 freq_to_count(Freq) when Freq < 1.0 ->
     case rand:uniform() < Freq of
@@ -267,7 +268,7 @@ freq_to_count(Freq) when Freq < 1.0 ->
     end;
 freq_to_count(Freq) when Freq >= 1.0 ->
     X = math:floor(Freq),
-    X + freq_to_count(Freq - X).
+    trunc(X + freq_to_count(Freq - X)).
 
 
 do_action(Action, Freq, Args, State) ->
@@ -469,7 +470,8 @@ do_connect(#state{c = undefined, phone = Phone, uid = Uid, password = Password, 
         {error, Reason} ->
             ?INFO("login for Uid: ~p Phone: ~p failed ~p", [Uid, Phone, Reason]),
             State2 = reset_state(State),
-            count(State2, "reset")
+            State3 = count(State2, "reset"),
+            ensure_connected(State3)
     end.
 
 
