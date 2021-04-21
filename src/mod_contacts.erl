@@ -283,6 +283,8 @@ finish_sync(UserId, _Server, SyncId) ->
     {ok, OldReverseContactList} = model_contacts:get_contact_uids(UserPhone),
     {ok, BlockedUids} = model_privacy:get_blocked_uids(UserId),
     {ok, BlockedByUids} = model_privacy:get_blocked_by_uids(UserId),
+    {ok, OldFriendUids} = model_friends:get_friends(UserId),
+    OldFriendUidSet = sets:from_list(OldFriendUids),
     OldContactSet = sets:from_list(OldContactList),
     NewContactSet = sets:from_list(NewContactList),
     DeleteContactSet = sets:subtract(OldContactSet, NewContactSet),
@@ -306,7 +308,7 @@ finish_sync(UserId, _Server, SyncId) ->
     {_UnRegisteredContacts, RegisteredContacts} = obtain_user_ids(AddContacts),
     %% Set friend relationships for registered contacts and notify.
     {_NonFriendContacts, _FriendContacts} = obtain_roles_and_notify(UserId, UserPhone,
-            RegisteredContacts, OldContactSet, OldReverseContactSet, BlockedUidSet, true),
+            RegisteredContacts, OldContactSet, OldReverseContactSet, OldFriendUidSet, BlockedUidSet, true),
 
     %% finish_sync will add various contacts and their reverse mapping in the db.
     model_contacts:finish_sync(UserId, SyncId),
@@ -340,6 +342,8 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     {ok, OldReverseContactList} = model_contacts:get_contact_uids(UserPhone),
     {ok, BlockedUids} = model_privacy:get_blocked_uids(UserId),
     {ok, BlockedByUids} = model_privacy:get_blocked_by_uids(UserId),
+    {ok, OldFriendUids} = model_friends:get_friends(UserId),
+    OldFriendUidSet = sets:from_list(OldFriendUids),
     OldContactSet = sets:from_list(OldContactList),
     OldReverseContactSet = sets:from_list(OldReverseContactList),
     BlockedUidSet = sets:from_list(BlockedUids ++ BlockedByUids),
@@ -361,7 +365,7 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     RegisteredContacts2 = obtain_names(RegisteredContacts1),
     %% Set friend relationships for registered contacts and notify.
     {NonFriendContacts1, FriendContacts1} = obtain_roles_and_notify(UserId, UserPhone,
-            RegisteredContacts2, OldContactSet, OldReverseContactSet, BlockedUidSet, ShouldNotify),
+            RegisteredContacts2, OldContactSet, OldReverseContactSet, OldFriendUidSet, BlockedUidSet, ShouldNotify),
     %% Obtain avatar_id for all friend contacts.
     FriendContacts2 = obtain_avatar_ids(FriendContacts1),
 
@@ -467,10 +471,10 @@ obtain_names(RegContacts) ->
 %% Splits registered contact records to non-friend and friend contacts.
 %% Sets role for all contacts.
 -spec obtain_roles_and_notify(Uid :: binary(), UserPhone :: binary(), RegContacts :: [pb_contact()],
-        OldContactSet :: sets:set(binary()), OldReverseContactSet :: sets:set(binary()),
+        OldContactSet :: sets:set(binary()), OldReverseContactSet :: sets:set(binary()), OldFriendUidSet :: sets:set(binary()),
         BlockedUidSet :: sets:set(binary()), ShouldNotify :: boolean()) -> {[pb_contact()], [pb_contact()]}.
 obtain_roles_and_notify(Uid, UserPhone, RegContacts, OldContactSet,
-        OldReverseContactSet, BlockedUidSet, ShouldNotify) ->
+        OldReverseContactSet, OldFriendUidSet, BlockedUidSet, ShouldNotify) ->
     Server = util:get_host(),
     {NonFriendContacts, FriendContacts} = lists:foldl(
         fun(#pb_contact{normalized = ContactPhone, uid = ContactId} = Contact,
@@ -495,14 +499,20 @@ obtain_roles_and_notify(Uid, UserPhone, RegContacts, OldContactSet,
             end
         end, {[], []}, RegContacts),
 
+    %% Extract current friends and add only new friends to the database.
+    CurrentFriendUids = extract_uid(FriendContacts),
+    %% These are the new friends we need to add to the database and let other modules know about it.
+    NewFriendUids = lists:filter(
+        fun(FriendUid) ->
+            not sets:is_element(FriendUid, OldFriendUidSet)
+        end, CurrentFriendUids),
     %% Store friend relationships in the database.
-    FriendUids = extract_uid(FriendContacts),
-    ok = model_friends:add_friends(Uid, FriendUids),
-    %% Run hooks.
+    ok = model_friends:add_friends(Uid, NewFriendUids),
+    %% Run add_friend hook only for NewFriendUids - other modules are interested in only new changes to relationships.
     lists:foreach(
         fun(FriendUid) ->
             add_friend_hook(Uid, Server, FriendUid, false)
-        end, FriendUids),
+        end, NewFriendUids),
 
     {NonFriendContacts, FriendContacts}.
 
