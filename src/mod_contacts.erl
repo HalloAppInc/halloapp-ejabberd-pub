@@ -435,7 +435,7 @@ obtain_user_ids(NormContacts) ->
 
 %% Sets potential friends for un-registered contacts.
 -spec obtain_potential_friends(Uid :: binary(), UnRegisteredContacts :: [pb_contact()]) -> [pb_contact()].
-obtain_potential_friends(Uid, UnRegisteredContacts) ->
+obtain_potential_friends(_Uid, UnRegisteredContacts) ->
     ContactPhones = extract_normalized(UnRegisteredContacts),
     PhoneToInvitersMap = model_invites:get_inviters_list(ContactPhones),
     PhoneToContactsMap = model_contacts:get_contacts_uids_size(ContactPhones),
@@ -443,12 +443,11 @@ obtain_potential_friends(Uid, UnRegisteredContacts) ->
         fun(#pb_contact{normalized = ContactPhone} = Contact) ->
             NumInviters = length(maps:get(ContactPhone, PhoneToInvitersMap, [])),
             NumPotentialFriends = maps:get(ContactPhone, PhoneToContactsMap, 0),
-            case dev_users:is_dev_uid(Uid) of
-                false -> Contact; %% 0 or undefined is the same for the clients.
+            case NumInviters >= ?MAX_INVITERS of
                 %% Dont share potential friends info if the number is already invited by more than MAX_INVITERS.
-                _ when NumInviters >= ?MAX_INVITERS -> Contact;
+                true -> Contact;
                 %% TODO(murali@): change this when we switch to contact hashing.
-                _ -> Contact#pb_contact{num_potential_friends = NumPotentialFriends}
+                false -> Contact#pb_contact{num_potential_friends = NumPotentialFriends}
             end
         end, UnRegisteredContacts).
 
