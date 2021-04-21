@@ -24,7 +24,7 @@
 -include("ha_types.hrl").
 -include("packets.hrl").
 
--define(MIN_OTP_KEY_COUNT, 10).
+-define(MIN_OTP_KEY_COUNT, 15).
 -define(STAT_NS, "HA/whisper").
 
 %% gen_mod API.
