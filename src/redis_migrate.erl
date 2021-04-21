@@ -63,6 +63,9 @@
     verify_invites_run/2
 ]).
 
+-type migrate_func() :: atom() | {module(), atom()}.
+-export_type([migrate_func/0]).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%                                          API                                                %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -77,13 +80,16 @@
 % keys it is not interested in, and do some processing on keys it is interested in.
 % Migration functions should be idempotent because a migration might have to be re-run on
 % some range of keys due to Redis Master switch or other reasons.
--spec start_migration(Name :: string(), RedisService :: atom(), Function :: atom()) -> ok.
+-spec start_migration(Name :: string(), RedisService :: atom(), Function :: migrate_func()) -> ok.
 start_migration(Name, RedisService, Function) ->
     start_migration(Name, RedisService, Function, []).
 
 
--spec start_migration(Name :: string(), RedisService :: atom(), Function :: atom(), Options)
+-spec start_migration(Name, RedisService, Function, Options)
             -> ok when
+            Name :: string(),
+            RedisService :: atom(),
+            Function :: migrate_func(),
             Options :: [Option],
             Option ::
                 {execute, parallel | sequential} |
@@ -98,11 +104,19 @@ start_migration(Name, RedisService, Function, Options) ->
 
     RedisMasters = get_masters(RedisService),
     ?INFO("redis masters: ~p", [RedisMasters]),
+    {Mod, Func} = case Function of
+        {M, F} -> {M, F};
+        F -> {?MODULE, F}
+    end,
+    case erlang:function_exported(Mod, Func, 2) of
+        false -> erlang:error("Function ~p:~p is not exported", [Mod, Func]);
+        true -> ok
+    end,
 
     EnumNodes = lists:zip(lists:seq(0, length(RedisMasters) - 1), RedisMasters),
     Job = #{
         service => RedisService,
-        function_name => Function,
+        migrate_func => {Mod, Func},
         interval => proplists:get_value(interval, Options, 1000),
         scan_count => proplists:get_value(scan_count, Options, 100),
         dry_run => proplists:get_value(dry_run, Options, false)
@@ -196,7 +210,7 @@ handle_call(Any, From, State) ->
 
 handle_cast({iterate}, State) ->
     Cursor = maps:get(cursor, State),
-    Function = maps:get(function_name, State),
+    {Mod, Func} = maps:get(migrate_func, State),
     Interval = maps:get(interval, State),
     C = maps:get(c, State),
     Count = maps:get(scan_count, State),
@@ -204,7 +218,7 @@ handle_cast({iterate}, State) ->
     ?DEBUG("NextCursor: ~p, items: ~p", [NextCursor, length(Items)]),
     NewState1 = lists:foldl(
         fun (Key, Acc) ->
-            erlang:apply(?MODULE, Function, [Key, Acc])
+            erlang:apply(Mod, Func, [Key, Acc])
         end,
         State,
         Items),
