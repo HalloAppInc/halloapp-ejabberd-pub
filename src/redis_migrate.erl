@@ -63,8 +63,15 @@
     verify_invites_run/2
 ]).
 
+
 -type migrate_func() :: atom() | {module(), atom()}.
--export_type([migrate_func/0]).
+-type option() ::
+    {execute, parallel | sequential} |
+    {dry_run, true | false} |
+    {scan_count, non_neg_integer()} |
+    {interval, non_neg_integer()}.
+-type options() :: [option()].
+-export_type([migrate_func/0, option/0, options/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%                                          API                                                %%%
@@ -90,12 +97,7 @@ start_migration(Name, RedisService, Function) ->
             Name :: string(),
             RedisService :: atom(),
             Function :: migrate_func(),
-            Options :: [Option],
-            Option ::
-                {execute, parallel | sequential} |
-                {dry_run, true | false} |
-                {scan_count, non_neg_integer()} |
-                {interval, non_neg_integer()}.
+            Options :: options().
 start_migration(Name, RedisService, Function, Options) ->
     ?INFO("Name: ~s RedisService: ~p, Function: ~p", [Name, RedisService, Function]),
 

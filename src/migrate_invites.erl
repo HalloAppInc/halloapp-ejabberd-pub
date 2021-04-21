@@ -14,7 +14,10 @@
     verify_invites_run/2,
     copy_invites_run/2,
     cleanup_older_invites/2,
-    copy_from_set_to_zset_run/2
+    copy_from_set_to_zset_run/2,
+    expire_invites_run/2,
+    cleanup_old_invites_sets_start/1,
+    cleanup_old_invite_sets_run/2
 ]).
 
 verify_invites_run(Key, State) ->
@@ -132,6 +135,51 @@ copy_from_set_to_zset_run(Key, State) ->
                 end,
                 Phones
             );
+        _ -> ok
+    end,
+    State.
+
+
+expire_invites_run(Key, #{service := RService} = State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^(in2|ibn):{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, _Prefix, _ID]]} ->
+            TTL = 60 * ?DAYS,
+            Command = ["EXPIRE", FullKey, TTL],
+            case DryRun of
+                true ->
+                    ?INFO("would expire invite ~p", [Command]);
+                false ->
+                    {ok, Res} = q(RService, Command),
+                    ?INFO("executing ~p Res: ~p", [Command, Res])
+            end,
+            ok;
+        _ -> ok
+    end,
+    State.
+
+
+-spec cleanup_old_invites_sets_start(Options :: redis_migrate:options()) -> ok.
+cleanup_old_invites_sets_start(Options) ->
+    redis_migrate:start_migration("cleanup_old_invites_sets", redis_accounts,
+        {?MODULE, cleanup_old_invite_sets_run}, Options).
+
+
+cleanup_old_invite_sets_run(Key, #{service := RService} = State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^inv:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, _Uid]]} ->
+            Command = ["DEL", FullKey],
+            case DryRun of
+                true ->
+                    ?INFO("would delete old invites set ~p:~p", [RService, Command]);
+                false ->
+                    {ok, Res} = q(RService, Command),
+                    ?INFO("executing ~p:~p Res: ~p", [RService, Command, Res])
+            end,
+            ok;
         _ -> ok
     end,
     State.
