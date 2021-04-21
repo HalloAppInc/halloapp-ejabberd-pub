@@ -89,7 +89,7 @@ code_change(_OldVsn, State, _Extra) ->
 -spec run_athena_queries() -> ok.
 run_athena_queries() ->
     case calendar:local_time_to_universal_time(calendar:local_time()) of
-        {_Date, {Hr, _Min, _Sec}} when Hr >= 12 andalso Hr =< 16 -> %% 5AM - 9AM PDT
+        {_Date, {Hr, _Min, _Sec}} when Hr >= 12 andalso Hr =< 22 -> %% 5AM - 3PM PDT
             case model_whisper_keys:mark_e2e_stats_query() of
                 true ->
                     gen_server:cast(?PROC(), run_athena_queries);
@@ -141,7 +141,7 @@ run_athena_queries(#{queries := Queries} = State) ->
         State
     catch
         Class : Reason : Stacktrace  ->
-            ?ERROR("Error in query_encryption_stats: ~p Stacktrace:~s",
+            ?ERROR("Error in run_athena_queries: ~p Stacktrace:~s",
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             State
     end.
@@ -197,10 +197,11 @@ pretty_print_internal([]) ->
 
 get_athena_queries() ->
     Modules = get_athena_modules(),
-    lists:foldl(
+    Queries = lists:foldl(
         fun(Module, Acc) ->
             [erlang:apply(Module, get_queries, []) | Acc]
-        end, [], Modules).
+        end, [], Modules),
+    lists:flatten(Queries).
 
 
 get_athena_modules() ->
