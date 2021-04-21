@@ -15,11 +15,6 @@
 -include("ha_types.hrl").
 -include("expiration.hrl").
 
-%% Export all functions for unit tests
--ifdef(TEST).
--compile(export_all).
--endif.
-
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
 
@@ -36,6 +31,19 @@
     invites_key/1,
     acc_invites_key/1
 ]).
+
+%% Export functions for unit tests
+-ifdef(TEST).
+-export([
+    is_invited/2,
+    record_invite/4,
+    is_invited_by/3,
+    get_inviters_list/2,
+    get_sent_invites/2,
+    get_invite_ttl/0
+]).
+-endif.
+
 
 -define(INVITE_TTL, 60 * ?DAYS).
 
@@ -67,7 +75,8 @@ mod_options(_Host) ->
 % returns {ok, NumInvitesRemaining, TimestampOfLastInvite}
 -spec get_invites_remaining(Uid :: uid()) -> {ok, maybe(integer()), maybe(integer())}.
 get_invites_remaining(Uid) ->
-    {ok, [Num, Ts]} = q_accounts(["HMGET", model_accounts:account_key(Uid), ?FIELD_NUM_INV, ?FIELD_SINV_TS]),
+    {ok, [Num, Ts]} = q_accounts(["HMGET", model_accounts:account_key(Uid),
+        ?FIELD_NUM_INV, ?FIELD_SINV_TS]),
     case {Num, Ts} of
         {undefined, undefined} -> {ok, undefined, undefined};
         {_, _} -> {ok, binary_to_integer(Num), binary_to_integer(Ts)}
@@ -76,22 +85,43 @@ get_invites_remaining(Uid) ->
 
 -spec record_invite(FromUid :: uid(), ToPhoneNum :: binary(), NumInvsLeft :: integer()) -> ok.
 record_invite(FromUid, ToPhoneNum, NumInvsLeft) ->
-    ok = record_invited_by(FromUid, ToPhoneNum),
-    ok = record_sent_invite(FromUid, ToPhoneNum, integer_to_binary(NumInvsLeft)),
+    record_invite(FromUid, ToPhoneNum, NumInvsLeft, util:now()).
+
+-spec record_invite(FromUid :: uid(), ToPhoneNum :: binary(), NumInvsLeft :: integer(),
+        Ts :: integer()) -> ok.
+record_invite(FromUid, ToPhoneNum, NumInvsLeft, Ts) ->
+    ok = record_invited_by(FromUid, ToPhoneNum, Ts),
+    ok = record_sent_invite(FromUid, ToPhoneNum, NumInvsLeft, Ts),
     ok.
 
 
 -spec is_invited(PhoneNum :: binary()) -> boolean().
 is_invited(PhoneNum) ->
-    {ok, Res} = q_phones(["ZCARD", ph_invited_by_key_new(PhoneNum)]),
-    util_redis:decode_int(Res) > 0.
+    is_invited(PhoneNum, util:now()).
+
+-spec is_invited(PhoneNum :: binary(), Now :: integer()) -> boolean().
+is_invited(PhoneNum, Now) ->
+    {ok, List} = get_inviters_list(PhoneNum, Now),
+    case List of
+        [] -> false;
+        _ -> true
+    end.
 
 
 -spec is_invited_by(Phone :: phone(), Uid :: uid()) -> boolean().
 is_invited_by(Phone, Uid) ->
-    {ok, Res} = q_accounts(["ZSCORE", invites_key(Uid), Phone]),
-    ResBool = Res =/= undefined,
-    ResBool.
+    is_invited_by(Phone, Uid, util:now()).
+
+-spec is_invited_by(Phone :: phone(), Uid :: uid(), Now :: integer()) -> boolean().
+is_invited_by(Phone, Uid, Now) ->
+    {ok, TsBin} = q_accounts(["ZSCORE", invites_key(Uid), Phone]),
+    case TsBin of
+        undefined -> false;
+        _ ->
+            Ts = binary_to_integer(TsBin),
+            % check if the invite is not expired
+            Ts >= Now - ?INVITE_TTL
+    end.
 
 -spec set_invites_left(Uid :: uid(), NumInvsLeft :: integer()) -> ok.
 set_invites_left(Uid, NumInvsLeft) ->
@@ -100,16 +130,20 @@ set_invites_left(Uid, NumInvsLeft) ->
     ok.
 
 
+% TODO: rename the function that takes bunch of phones to something else like get_inviters_list_multi
+% TODO: change the return timestamp to be integer
 -spec get_inviters_list(PhoneNum :: binary() | list()) ->
-        {ok, [{Uid :: uid(), Timestamp :: binary()}]} | #{}.
+    {ok, [{Uid :: uid(), Timestamp :: binary()}]} | #{}.
 get_inviters_list(PhoneNum) when is_binary(PhoneNum) ->
-    {ok, InvitersList} = q_phones(["ZRANGEBYSCORE", ph_invited_by_key_new(PhoneNum), "-inf", "+inf", "WITHSCORES"]),
-    {ok, util_redis:parse_zrange_with_scores(InvitersList)};
+    get_inviters_list(PhoneNum, util:now());
 get_inviters_list([]) -> #{};
 get_inviters_list(PhoneNums) when is_list(PhoneNums) ->
+    StartTime = util:now() - ?INVITE_TTL,
+    StartTimeBin = integer_to_binary(StartTime),
     Commands = lists:map(
         fun(PhoneNum) ->
-            ["ZRANGEBYSCORE", ph_invited_by_key_new(PhoneNum), "-inf", "+inf", "WITHSCORES"]
+            ["ZRANGEBYSCORE", ph_invited_by_key_new(PhoneNum),
+                StartTimeBin, "+inf", "WITHSCORES"]
         end, PhoneNums),
     Res = qmn_phones(Commands),
     Result = lists:foldl(
@@ -121,19 +155,34 @@ get_inviters_list(PhoneNums) when is_list(PhoneNums) ->
         end, #{}, lists:zip(PhoneNums, Res)),
     Result.
 
+-spec get_inviters_list(PhoneNum :: binary(), Now :: integer()) ->
+        {ok, [{Uid :: uid(), Timestamp :: binary()}]}.
+get_inviters_list(PhoneNum, Now) ->
+    StartTime = Now - ?INVITE_TTL,
+    {ok, InvitersList} = q_phones(["ZRANGEBYSCORE", ph_invited_by_key_new(PhoneNum),
+        integer_to_binary(StartTime), "+inf", "WITHSCORES"]),
+    {ok, util_redis:parse_zrange_with_scores(InvitersList)}.
+
 
 -spec get_sent_invites(Uid ::binary()) -> {ok, [binary()]}.
 get_sent_invites(Uid) ->
-    {ok, Phones} = q_accounts(["ZRANGEBYSCORE", invites_key(Uid), "-inf", "+inf"]),
+    get_sent_invites(Uid, util:now()).
+
+-spec get_sent_invites(Uid :: binary(), Now :: integer()) -> {ok, [binary()]}.
+get_sent_invites(Uid, Now) ->
+    StartTime = Now - ?INVITE_TTL,
+    {ok, Phones} = q_accounts(["ZRANGEBYSCORE", invites_key(Uid),
+        integer_to_binary(StartTime), "+inf"]),
     {ok, Phones}.
+
+get_invite_ttl() ->
+    ?INVITE_TTL.
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
-% borrowed from model_accounts.erl
 q_accounts(Command) -> ecredis:q(ecredis_accounts, Command).
-% borrowed from model_accounts.erl
 qp_accounts(Commands) -> ecredis:qp(ecredis_accounts, Commands).
 q_phones(Command) -> ecredis:q(ecredis_phone, Command).
 qp_phones(Commands) -> ecredis:qp(ecredis_phone, Commands).
@@ -148,36 +197,37 @@ acc_invites_key(Uid) ->
 invites_key(Uid) ->
     <<?INVITES2_KEY/binary, "{", Uid/binary, "}">>.
 
-% TODO: Do a migration to clean up the old key. We have old data left in redis with this old key
-%%<<?INVITED_BY_KEY/binary, "{", Phone/binary, "}">>.
-
-% TODO: cleanup after migration
+% TODO: cleanup after migration (rename the key (remove _new))
 -spec ph_invited_by_key_new(Phone :: phone()) -> binary().
 ph_invited_by_key_new(Phone) ->
     <<?INVITED_BY_KEY_NEW/binary, "{", Phone/binary, "}">>.
 
--spec record_sent_invite(FromUid :: uid(), ToPhone :: phone(), NumInvsLeft :: binary()) -> ok.
-record_sent_invite(FromUid, ToPhone, NumInvsLeft) ->
-    Now = util:now(),
-    NowBin = integer_to_binary(Now),
-    [{ok, _}, {ok, _}, {ok, _}] = qp_accounts([
+-spec record_sent_invite(FromUid :: uid(), ToPhone :: phone(), NumInvsLeft :: integer(),
+        Ts :: integer()) -> ok.
+record_sent_invite(FromUid, ToPhone, NumInvsLeft, Ts) ->
+    [{ok, _}, {ok, _}, {ok, _}, {ok, _}, {ok, CountExpiredBin}] = qp_accounts([
         ["HSET", model_accounts:account_key(FromUid),
-            ?FIELD_NUM_INV, NumInvsLeft,
-            ?FIELD_SINV_TS, NowBin],
+            ?FIELD_NUM_INV, integer_to_binary(NumInvsLeft),
+            ?FIELD_SINV_TS, integer_to_binary(Ts)],
         ["SADD", acc_invites_key(FromUid), ToPhone],
-        ["ZADD", invites_key(FromUid), Now, ToPhone]
-        %% TODO: enable after the we finish migrating from set to zset for invites_key
-%%        ["EXPIRE", invites_key(FromUid), ?INVITE_TTL]
+        ["ZADD", invites_key(FromUid), Ts, ToPhone],
+        ["EXPIRE", invites_key(FromUid), ?INVITE_TTL],
+        ["ZREMRANGEBYSCORE", invites_key(FromUid), "-inf", Ts - ?INVITE_TTL]
     ]),
+    % TODO: remove once we know its kind of working
+    CountExpired = binary_to_integer(CountExpiredBin),
+    ?INFO("Uid: ~p, expired ~p invites", [FromUid, CountExpired]),
     ok.
 
--spec record_invited_by(FromUid :: uid(), ToPhone :: phone()) -> ok.
-record_invited_by(FromUid, ToPhone) ->
-    [{ok, _}] = qp_phones([
-        ["ZADD", ph_invited_by_key_new(ToPhone), util:now(), FromUid]
-        %% TODO: enable after the we finish migrating from set to zset for invites_key
-        %% TODO: also add tests for the expiration
-%%        ["EXPIRE", ph_invited_by_key_new(ToPhone), ?INVITE_TTL]
+-spec record_invited_by(FromUid :: uid(), ToPhone :: phone(), Ts :: integer()) -> ok.
+record_invited_by(FromUid, ToPhone, Ts) ->
+    [{ok, _}, {ok, _}, {ok, CountExpiredBin}] = qp_phones([
+        ["ZADD", ph_invited_by_key_new(ToPhone), Ts, FromUid],
+        ["EXPIRE", ph_invited_by_key_new(ToPhone), ?INVITE_TTL],
+        ["ZREMRANGEBYSCORE", ph_invited_by_key_new(ToPhone), "-inf", Ts - ?INVITE_TTL]
     ]),
+    % TODO: remove once we know its kind of working
+    CountExpired = binary_to_integer(CountExpiredBin),
+    ?INFO("Phone: ~p, expired ~p invites", [ToPhone, CountExpired]),
     ok.
 

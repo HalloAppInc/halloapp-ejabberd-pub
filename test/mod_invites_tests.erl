@@ -159,54 +159,6 @@ request_invite_error3_test() ->
     ?assertEqual({?PHONE2, ok, undefined}, mod_invites:request_invite(?UID1, ?PHONE2)),
     ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)).
 
-% tests is_invited
-is_invited__test() ->
-    setup(),
-    ?assertNot(model_invites:is_invited(?PHONE2)),
-    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
-    ?assert(model_invites:is_invited(?PHONE2)).
-
-% tests record_invited_by using old method
-record_invited_by_test() ->
-    setup(),
-    ?assertNot(model_invites:is_invited(?PHONE2)),
-    {ok, []} = model_invites:get_inviters_list(?PHONE2),
-    ok = model_invites:record_invited_by(?UID1, ?PHONE2),
-    ?assert(model_invites:is_invited(?PHONE2)),
-    {ok, [{?UID1, _}]} = model_invites:get_inviters_list(?PHONE2),
-
-    ok = model_invites:record_invited_by(?UID3, ?PHONE2),
-    {ok, [{?UID1, _}, {?UID3, _}]} = model_invites:get_inviters_list(?PHONE2),
-
-    ok = model_invites:record_invited_by(?UID3, ?PHONE2),
-    {ok, [{?UID1, _}, {?UID3, _}]} = model_invites:get_inviters_list(?PHONE2),
-
-    ok = model_invites:record_invited_by(?UID1, ?PHONE2),
-    {ok, Res} = model_invites:get_inviters_list(?PHONE2),
-    Res2 = [Uid || {Uid, _Ts} <- Res],
-    ?assertEqual(sets:from_list(Res2), sets:from_list([?UID1, ?UID3])).
-
-
-% tests who_invited
-who_invited_test() ->
-    setup_bare(),
-    setup(),
-    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
-    {ok, [{Uid1, _Ts}]} = model_invites:get_inviters_list(?PHONE2),
-    ?assertEqual(Uid1, ?UID1),
-    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3),
-    ok = model_phone:add_phone(?PHONE3, ?UID3),
-    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID3, ?PHONE2),
-    {ok, Res3} = model_invites:get_inviters_list(?PHONE2),
-    Res4 = [Uid || {Uid, _Ts2} <- Res3], 
-    ?assertEqual(sets:from_list(Res4), sets:from_list([?UID1, ?UID3])).
-
-% tests set of invited users for accuracy
-invite_set_test() ->
-    setup(),
-    ?assertEqual({ok, []}, model_invites:get_sent_invites(?UID1)),
-    {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
-    ?assertEqual({ok, [?PHONE2]}, model_invites:get_sent_invites(?UID1)).
 
 
 get_inviters_list_test() ->
