@@ -452,7 +452,7 @@ get_commands_spec() ->
     #ejabberd_commands{name = hotload_modules, tags = [server],
         desc = "Hot code reload some modules",
         module = ?MODULE, function = hotload_modules,
-        args=[{modules, modules_list}], result = {res, restuple}},
+        args=[{modules, modules_list}], result = {res, rescode}},
     #ejabberd_commands{name = hot_code_reload, tags = [server],
         desc = "Hot code reload a module",
         module = ?MODULE, function = hot_code_reload,
