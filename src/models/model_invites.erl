@@ -205,11 +205,10 @@ ph_invited_by_key_new(Phone) ->
 -spec record_sent_invite(FromUid :: uid(), ToPhone :: phone(), NumInvsLeft :: integer(),
         Ts :: integer()) -> ok.
 record_sent_invite(FromUid, ToPhone, NumInvsLeft, Ts) ->
-    [{ok, _}, {ok, _}, {ok, _}, {ok, _}, {ok, CountExpiredBin}] = qp_accounts([
+    [{ok, _}, {ok, _}, {ok, _}, {ok, CountExpiredBin}] = qp_accounts([
         ["HSET", model_accounts:account_key(FromUid),
             ?FIELD_NUM_INV, integer_to_binary(NumInvsLeft),
             ?FIELD_SINV_TS, integer_to_binary(Ts)],
-        ["SADD", acc_invites_key(FromUid), ToPhone],
         ["ZADD", invites_key(FromUid), Ts, ToPhone],
         ["EXPIRE", invites_key(FromUid), ?INVITE_TTL],
         ["ZREMRANGEBYSCORE", invites_key(FromUid), "-inf", Ts - ?INVITE_TTL]
