@@ -37,7 +37,8 @@
     action_phonebook_full_sync/1,
     action_register_and_phonebook/1,
     action_send_im/1,
-    action_recv_im/1
+    action_recv_im/1,
+    action_post/1
 ]).
 
 %% gen_server callbacks
@@ -374,6 +375,49 @@ action_recv_im({{}, #state{} = State}) ->
         State2,
         Msgs),
     State3.
+
+action_post({{PostSize, NumRecepients}, State}) ->
+    State2 = ensure_connected(ensure_account(State)),
+    Uid = State2#state.uid,
+    Uids = contact_uids(State2),
+
+    % randomly select upto NumRecepients from the contacts
+    Uids2 = lists:sublist(util:random_shuffle(Uids), NumRecepients),
+
+    C = State2#state.c,
+    FeedItem = #pb_feed_item{
+        action = publish,
+        item = #pb_post {
+            id = util:random_str(10),
+            publisher_uid = Uid,
+            publisher_name = State#state.name,
+            payload = util:random_str(PostSize),
+            audience = #pb_audience{
+                type = all,
+                uids = Uids2
+            }
+        }
+    },
+
+    % TODO: handle errors here. Maybe reconnect if no connection. Connection sometimes get dropped
+    % because some other bot registers with the same number
+    Response = ha_client:send_iq(C, util:random_str(10), set, FeedItem),
+    case Response of
+        {error, closed} -> do_disconnect(State2);
+        _ ->
+            #pb_iq{
+                type = Type,
+                payload = Result
+            } = Response#pb_packet.stanza,
+            case {Type, Result} of
+                {result, Result} ->
+                    count(State2, "post");
+                {error, _} ->
+                    count(State2, "post_error")
+            end
+    end.
+
+%% Internal functions
 
 -spec count(State :: #state{}, Action :: string()) -> #state{}.
 count(State = #state{stats = Stats}, Action) ->

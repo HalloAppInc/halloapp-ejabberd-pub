@@ -29,6 +29,7 @@
     tsms_to_date/1,
     round_to_minute/1,
     random_str/1,
+    random_shuffle/1,
     generate_password/0,
     generate_gid/0,
     type/1,
@@ -145,6 +146,13 @@ random_str(Size) ->
     SS = base64url:encode(crypto:strong_rand_bytes(Size)),
     binary:part(SS, 0, Size).
 
+-spec random_shuffle(L :: list(any())) -> list(any()).
+random_shuffle(L) ->
+    % pair each element of the list with a random number, sort based on the random number, then extract the values
+    % https://stackoverflow.com/a/8820501
+    % this is also O(N*logN) but is much faster then O(N) solutions implementend in erlang
+    % https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
+    [X || {_, X} <- lists:sort([{random:uniform(), N} || N <- L])].
 
 -spec generate_password() -> binary().
 generate_password() ->
