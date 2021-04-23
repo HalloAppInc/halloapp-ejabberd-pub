@@ -15,9 +15,9 @@
 
 
 -define(BACK_OFF_MS, 1000).
--define(CONNECT_TIMEOUT_MS, 500).
+-define(CONNECT_TIMEOUT_MS, 1000).
 -define(CONTENT_TYPE, "application/json").
--define(HTTP_TIMEOUT_MS, 500).
+-define(HTTP_TIMEOUT_MS, 2000).
 -define(MAX_TRIES, 2).
 -define(UPLOAD_SERVER_HTTP_POOL_SIZE, 10).
 
