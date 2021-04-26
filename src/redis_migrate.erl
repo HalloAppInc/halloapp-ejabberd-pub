@@ -56,11 +56,7 @@
     refresh_otp_keys_run/2,
     update_version_keys_run/2,
     find_inactive_accounts/2,
-    find_empty_contact_list_accounts/2,
-    cleanup_older_invites_run/2,
-    copy_invite_run/2,
-    copy_from_set_to_zset_run/2,
-    verify_invites_run/2
+    find_empty_contact_list_accounts/2
 ]).
 
 
@@ -678,23 +674,6 @@ check_users_by_whisper_keys(Key, State) ->
         _ -> ok
     end,
     State.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                           Migrate Invites to new keys                              %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%% Stage 1. Extend ttl for feed keys.
-cleanup_older_invites_run(Key, State) ->
-    migrate_invites:cleanup_older_invites(Key, State).
-
-copy_invite_run(Key, State) ->
-    migrate_invites:copy_invites_run(Key, State).
-
-copy_from_set_to_zset_run(Key, State) ->
-    migrate_invites:copy_from_set_to_zset_run(Key, State).
-
-verify_invites_run(Key, State) ->
-    migrate_invites:verify_invites_run(Key, State).
 
 
 is_invalid_key(Key) ->

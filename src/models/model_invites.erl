@@ -28,8 +28,7 @@
     get_sent_invites/1,
     set_invites_left/2,
     ph_invited_by_key_new/1,
-    invites_key/1,
-    acc_invites_key/1
+    invites_key/1
 ]).
 
 %% Export functions for unit tests
@@ -188,10 +187,6 @@ q_phones(Command) -> ecredis:q(ecredis_phone, Command).
 qp_phones(Commands) -> ecredis:qp(ecredis_phone, Commands).
 qmn_phones(Commands) -> ecredis:qmn(ecredis_phone, Commands).
 
-
--spec acc_invites_key(Uid :: uid()) -> binary().
-acc_invites_key(Uid) ->
-    <<?INVITES_KEY/binary, "{", Uid/binary, "}">>.
 
 -spec invites_key(Uid :: uid()) -> binary().
 invites_key(Uid) ->

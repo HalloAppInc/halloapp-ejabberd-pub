@@ -22,8 +22,6 @@
 -define(TRACED_UIDS_KEY, <<"traced_uids:">>).
 %% set -> {phone}
 -define(TRACED_PHONES_KEY, <<"traced_phones:">>).
-%% Set of phones invited by the user: inv:{Uid} -> set(Phone)
--define(INVITES_KEY, <<"inv:">>).
 %% SortedSet of phone invited by the user: in2:{Uid} -> zset(Phone, Ts)
 -define(INVITES2_KEY, <<"in2:">>).
 -define(ACTIVE_USERS_ALL_KEY, <<"active_users_all:">>).
@@ -46,6 +44,10 @@
 %% To capture list of Uids that need to be deleted because of inactivity.
 -define(TO_DELETE_UIDS_KEY, <<"tdu:">>).
 
+% old deleted/deprecated keys
+%%-define(INVITES_KEY, <<"inv:">>).
+
+
 %%RedisFeed (model_feed)
 -define(POST_KEY, <<"fp:">>).
 -define(POST_AUDIENCE_KEY, <<"fpa:">>).
@@ -56,6 +58,7 @@
 -define(REVERSE_GROUP_POST_KEY, <<"rfg:">>).
 -define(COMMENT_PUSH_LIST_KEY, <<"fcp:">>).
 
+
 %% PrivacyKeys
 -define(WHITELIST_KEY, <<"whi:">>).
 -define(ONLY_KEY, <<"onl:">>).
@@ -65,9 +68,11 @@
 -define(BLOCK_KEY, <<"blo:">>).
 -define(REVERSE_BLOCK_KEY, <<"rbl:">>).
 
+
 %% RedisAuth
 -define(PASSWORD_KEY, <<"pas:">>).
 -define(SPUB_KEY, <<"spb:">>).
+
 
 %% RedisContacts
 -define(CONTACTS_KEY, <<"con:">>).
@@ -77,8 +82,10 @@
 -define(PHONE_HASH_KEY, <<"rph:">>).
 -define(NOT_INVITED_PHONES_KEY, <<"not_invited_phones:">>).
 
+
 %% RedisAccounts (model_friends)
 -define(FRIENDS_KEY, <<"fr:">>).
+
 
 %% RedisMessages
 -define(MESSAGE_KEY, <<"msg:">>).
@@ -94,9 +101,11 @@
 -define(VERIFICATION_ATTEMPT_ID_KEY, <<"vai:">>).
 -define(INCREMENTAL_TS_KEY, <<"ITS:">>).
 -define(GATEWAY_RESPONSE_ID_KEY, <<"gri:">>).
--define(INVITED_BY_KEY, <<"inb:">>).
 -define(INVITED_BY_KEY_NEW, <<"ibn:">>).
 -define(INVITE_NOTIFICATION_KEY, <<"ink:">>).
+
+% old deleted/deprecated keys
+%%-define(INVITED_BY_KEY, <<"inb:">>).
 
 
 %% RedisWhisperKeys
@@ -105,6 +114,7 @@
 -define(SUBSCRIBERS_KEY, <<"wsub:">>).
 -define(E2E_STATS_QUERY_KEY, <<"e2e_stats">>).
 
+
 %% RedisGroups
 -define(GROUP_KEY, <<"g:">>).
 -define(GROUP_MEMBERS_KEY, <<"gm:">>).
@@ -112,6 +122,7 @@
 -define(COUNT_GROUPS_KEY, <<"c_grp:">>).
 -define(GROUP_INVITE_LINK_KEY, <<"gi:">>).  % index from group invite to the gid
 -define(GROUP_REMOVED_SET_KEY, <<"grs:">>). % gid -> set(uid) of user removed from the group
+
 
 %% RedisSessions
 -define(PID_KEY, <<"p:">>).
