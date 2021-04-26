@@ -175,14 +175,13 @@ host_down(Host) ->
 
 -spec open_session(state()) -> {ok, state()} | state().
 open_session(#{user := U, server := S, resource := R, sid := SID, client_version := ClientVersion,
-        ip := IP, auth_module := AuthModule, mode := Mode} = State) ->
+        ip := IP, mode := Mode} = State) ->
     JID = jid:make(U, S, R),
     State1 = change_shaper(State),
     Conn = get_conn_type(State1),
     State2 = State1#{conn => Conn, resource => R, jid => JID},
     Priority = 0,
-    Info = [{ip, IP}, {conn, Conn}, {auth_module, AuthModule},
-            {mode, Mode}, {client_version, ClientVersion}],
+    Info = [{ip, IP}, {conn, Conn}, {mode, Mode}, {client_version, ClientVersion}],
     SocketType = maps:get(socket_type, State),
     stat:count("HA/connections", "socket", 1, [{socket_type, SocketType}]),
     ejabberd_sm:open_session(SID, U, S, R, Priority, Info),
@@ -301,7 +300,7 @@ check_password_fun(_Mech, #{lserver := _LServer}) ->
     end.
 
 % TODO: make those constants
-bind(R, State) when R =/= <<"android">>, R =/= <<"iphone">>, R =/= <<"ios">> ->
+bind(R, State) when R =/= <<"android">>, R =/= <<"iphone">> ->
     {error, {invalid_resource, R}, State};
 bind(R, #{user := U, server := S, access := Access,
         lserver := LServer, socket := Socket,
@@ -339,10 +338,10 @@ handle_stream_end(Reason, #{lserver := LServer} = State) ->
     ejabberd_hooks:run_fold(pb_c2s_closed, LServer, State1, [Reason]).
 
 
-handle_auth_success(User, _Mech, AuthModule,
+%% This will be cleaned up further by nikola.
+handle_auth_success(User, _Mech, _Reason,
             #{lserver := LServer} = State) ->
-    State1 = State#{auth_module => AuthModule},
-    ejabberd_hooks:run_fold(pb_c2s_auth_result, LServer, State1, [true, User]).
+    ejabberd_hooks:run_fold(pb_c2s_auth_result, LServer, State, [true, User]).
 
 
 handle_auth_failure(User, _Mech, Reason, #{lserver := LServer} = State) ->

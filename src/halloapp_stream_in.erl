@@ -114,8 +114,6 @@
 -optional_callbacks([
     handle_stream_established/1,
     handle_stream_end/2,
-    handle_auth_success/4,
-    handle_auth_failure/4,
     handle_send/4,
     handle_recv/3,
     handle_timeout/1
@@ -515,6 +513,7 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
                     State2#{socket => NoiseSocket#socket_state{socket_type = SocketType},
                             socket_type => SocketType};
                 {error, Reason} ->
+                    %% TODO(murali@): Need to send back an eror response to client in case of auth failures.
                     process_stream_end({noise, Reason}, State2)
             end;
         {error, Reason} ->
@@ -586,19 +585,16 @@ process_stream_authentication(#pb_auth_request{uid = Uid, client_mode = ClientMo
     Mode = ClientMode#pb_client_mode.mode,
     ClientVersion = PbClientVersion#pb_client_version.version,
     State1 = State#{user => Uid, client_version => ClientVersion, resource => Resource, mode => Mode},
-    State2 = try callback(handle_auth_success, Uid, <<>>, <<>>, State1)
-         catch _:{?MODULE, undef} -> State1
-    end,
     %% Check client_version
-    {NewState, Result, Reason, TimeLeftSec} = case callback(get_client_version_ttl, ClientVersion, State2) of
-        ExpiresInSec when ExpiresInSec =< 0 -> {State2, <<"failure">>, <<"invalid client version">>, 0};
+    {State3, Result, Reason, TimeLeftSec} = case callback(get_client_version_ttl, ClientVersion, State1) of
+        ExpiresInSec when ExpiresInSec =< 0 -> {State1, <<"failure">>, <<"invalid client version">>, 0};
         ExpiresInSec ->
             %% Bind resource callback
-            case callback(bind, Resource, State2) of
-                {ok, #{resource := NewR} = State3} when NewR /= <<"">> ->
-                    {State3,  <<"success">>, <<"welcome to halloapp">>, ExpiresInSec};
-                {error, _, State3} ->
-                    {State3, <<"failure">>, <<"invalid resource">>, ExpiresInSec}
+            case callback(bind, Resource, State1) of
+                {ok, State2} ->
+                    {State2,  <<"success">>, <<"welcome to halloapp">>, ExpiresInSec};
+                {error, _, State2} ->
+                    {State2, <<"failure">>, <<"invalid resource">>, ExpiresInSec}
             end
     end,
     AuthResultPkt = #pb_auth_result{
@@ -608,15 +604,18 @@ process_stream_authentication(#pb_auth_request{uid = Uid, client_mode = ClientMo
         version_ttl = TimeLeftSec
         %% TODO(murali@): move this logic to decode into mod_props.
     },
-    FinalState = send_pkt(NewState, AuthResultPkt),
     case Result of
-        <<"failure">> -> stop(FinalState);
-        <<"success">> -> FinalState
+        <<"failure">> ->
+            State4 = callback(handle_auth_failure, Uid, noise, Reason, State3),
+            State5 = check_authservice_and_send(State4, AuthResultPkt),
+            stop(State5);
+        <<"success">> ->
+            State4 = callback(handle_auth_success, Uid, noise, success, State3),
+            State5 = send_pkt(State4, AuthResultPkt),
+            State5
     end.
 
 
-%% TODO(murali@): we have duplicate logic for this code, clean it up in one month after we no longer have tls users.
-%% revisit on 03-01-2021.
 -spec process_auth_request(pb_auth_request(), state()) -> state().
 process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = ClientMode,
         client_version = PbClientVersion, resource = Resource}, State) ->
@@ -626,32 +625,24 @@ process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = Client
     %% Check Uid and Password. TODO(murali@): simplify this even further!
     CheckPW = check_password_fun(<<>>, State1),
     PasswordResult = CheckPW(Uid, <<>>, Pwd),
-    {NewState, Result, Reason, TimeLeftSec} = case PasswordResult of
+    {State3, Result, Reason, TimeLeftSec} = case PasswordResult of
         false ->
-            State2 = try callback(handle_auth_failure, Uid, <<>>, <<>>, State1)
-                catch _:{?MODULE, undef} -> State1
-            end,
-            case maps:get(account_deleted, State2, undefined) of
-                undefined -> {State2, <<"failure">>, <<"invalid uid or password">>, 0};
-                true -> {State2, <<"failure">>, <<"account_deleted">>, 0}
+            case model_accounts:is_account_deleted(Uid) of
+                true -> {State1, <<"failure">>, <<"account_deleted">>, 0};
+                false -> {State1, <<"failure">>, <<"invalid uid or password">>, 0}
             end;
         true ->
-            AuthModule = undefined,
-            State2 = State1#{auth_module => AuthModule},
-            State3 = try callback(handle_auth_success, Uid, <<>>, AuthModule, State2)
-                catch _:{?MODULE, undef} -> State2
-            end,
             %% Check client_version
-            case callback(get_client_version_ttl, ClientVersion, State3) of
+            case callback(get_client_version_ttl, ClientVersion, State1) of
                 ExpiresInSec when ExpiresInSec =< 0 ->
-                    {State3, <<"failure">>, <<"invalid client version">>, 0};
+                    {State1, <<"failure">>, <<"invalid client version">>, 0};
                 ExpiresInSec ->
                     %% Bind resource callback
-                    case callback(bind, Resource, State3) of
-                        {ok, #{resource := NewR} = State4} when NewR /= <<"">> ->
-                            {State4,  <<"success">>, <<"welcome to halloapp">>, ExpiresInSec};
-                        {error, _, State4} ->
-                            {State4, <<"failure">>, <<"invalid resource">>, ExpiresInSec}
+                    case callback(bind, Resource, State1) of
+                        {ok, State2} ->
+                            {State2,  <<"success">>, <<"welcome to halloapp">>, ExpiresInSec};
+                        {error, _, State2} ->
+                            {State2, <<"failure">>, <<"invalid resource">>, ExpiresInSec}
                     end
             end
     end,
@@ -664,14 +655,21 @@ process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = Client
     },
     case Result of
         <<"failure">> ->
-            FinalState = case mod_auth_monitor:is_auth_service_normal() of
-                true -> send_pkt(NewState, AuthResultPkt);
-                false -> NewState
-            end,
-            stop(FinalState);
+            State4 = callback(handle_auth_failure, Uid, plaintext, Reason, State3),
+            State5 = check_authservice_and_send(State4, AuthResultPkt),
+            stop(State5);
         <<"success">> ->
-            FinalState = send_pkt(NewState, AuthResultPkt),
-            FinalState
+            State4 = callback(handle_auth_success, Uid, plaintext, ?MODULE, State3),
+            State5 = send_pkt(State4, AuthResultPkt),
+            State5
+    end.
+
+
+-spec check_authservice_and_send(State :: state(), AuthResultPkt :: pb_auth_result()) -> state().
+check_authservice_and_send(State, AuthResultPkt) ->
+    case mod_auth_monitor:is_auth_service_normal() of
+        true -> send_pkt(State, AuthResultPkt);
+        false -> State
     end.
 
 
