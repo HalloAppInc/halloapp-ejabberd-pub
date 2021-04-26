@@ -250,11 +250,12 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
         Phone = maps:get(<<"phone">>, Payload),
         Method = case MethodInRequest of
             false -> <<"sms">>;
-            _ -> maps:get(<<"method">>, Payload)
+            _ -> maps:get(<<"method">>, Payload, <<"sms">>)
         end,
+        LanguageId = maps:get(<<"lang_id">>, Payload, <<"en-US">>),
         GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
-        ?INFO("phone:~p, ua:~p ip:~s method: ~s, payload:~p ",
-            [Phone, UserAgent, ClientIP, Method, Payload]),
+        ?INFO("phone:~p, ua:~p ip:~s method: ~s, language: ~p, payload:~p ",
+            [Phone, UserAgent, ClientIP, Method, LanguageId, Payload]),
 
         check_ua(UserAgent),
         Method2 = get_otp_method(Method),

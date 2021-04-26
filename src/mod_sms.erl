@@ -103,7 +103,7 @@ send_otp(Phone, Code, UserAgent, Method, OldResponses) ->
             Err
     end.
 
-%% TODO(vipin): Improve Msg for voice_call. Talk to Dugyu.
+%% TODO(vipin): Maybe improve Msg for voice_call. Talk to Dugyu.
 -spec prepare_registration_sms(Code :: binary(), UserAgent :: binary(), Method :: atom()) -> string().
 prepare_registration_sms(Code, UserAgent, Method) ->
     case Method of
