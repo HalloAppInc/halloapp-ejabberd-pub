@@ -518,6 +518,20 @@ finish_registration(Phone, Name, UserAgent) ->
     %% Action = login, updates the password.
     %% Action = register, creates a new user id and registers the user for the first time.
     %% Note: We don't need to clear the push token in either of login/register case.
+    log_registration(Action, UserAgent),
+    {ok, Phone, Uid, Password}.
+
+-spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
+finish_registration_spub(Phone, Name, UserAgent, SPub) ->
+    Host = util:get_host(),
+    {ok, Uid, Action} = ejabberd_admin:check_and_register_spub(Phone, Host, SPub, Name, UserAgent),
+    %% Action = login, updates the password.
+    %% Action = register, creates a new user id and registers the user for the first time.
+    %% Note: We don't need to clear the push token in either of login/register case.
+    log_registration(Action, UserAgent),
+    {ok, Phone, Uid}.
+
+log_registration(Action, UserAgent) ->
     case Action of
         login ->
             stat:count("HA/account", "login_by_client_type", 1,
@@ -525,19 +539,7 @@ finish_registration(Phone, Name, UserAgent) ->
         register ->
             stat:count("HA/account", "registration_by_client_type", 1,
                 [{client_type, util_ua:get_client_type(UserAgent)}])
-    end,
-    {ok, Phone, Uid, Password}.
-
--spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
-finish_registration_spub(Phone, Name, UserAgent, SPub) ->
-    Host = util:get_host(),
-    {ok, Uid, _Action} = ejabberd_admin:check_and_register_spub(Phone, Host, SPub, Name, UserAgent),
-    %% Action = login, updates the password.
-    %% Action = register, creates a new user id and registers the user for the first time.
-    %% Note: We don't need to clear the push token in either of login/register case. 
-    stat:count("HA/account", "registration_by_client_type", 1,
-        [{client_type, util_ua:get_client_type(UserAgent)}]),
-    {ok, Phone, Uid}.
+    end.
 
 %% Throws error if the code is wrong
 -spec check_sms_code(phone(), binary()) -> ok.
