@@ -18,7 +18,7 @@ group() ->
 recv_presence_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
-    % UID4 and UID1 are not friends; UID5 has blocked UID1
+    % UID4 does not have contact of UID1; UID5 has blocked UID1
 
     %% Wait and clear out all messages in the queue.
     ha_client:wait_for_eoq(C1),
@@ -76,15 +76,15 @@ recv_presence_test(_Conf) ->
 
 
 %% UID4 and UID5 must receive presence of UID2 only after they subscribe to it.
-%% They will not receive presence of UID1 because they are not friends - even if they subscribe.
+%% They will not receive presence of UID1 because they dont have their phonenumbers - even if they subscribe.
 block1_presence_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
     {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
     {ok, C4} = ha_client:connect_and_login(?UID4, ?PASSWORD4),
     {ok, C5} = ha_client:connect_and_login(?UID5, ?PASSWORD5),
-    % UID4 and UID1 are not friends; UID5 has blocked UID1
-    %% UID2 and UID4 are friends.
-    %% UID2 and UID5 are friends.
+    % UID4 does not have UID1's contact; UID5 has blocked UID1
+    %% UID2 has UID4's contact.
+    %% UID2 has UID5's contact.
 
     %% Wait and clear out all messages in the queue.
     ha_client:wait_for_eoq(C1),

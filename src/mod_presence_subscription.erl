@@ -4,14 +4,15 @@
 %%% Copyright (C) 2020 halloappinc.
 %%%
 %%% This file handles storing and retrieving user's subscriptions to 
-%%% their friend's presence, and also friends who subscribed to 
-%%% a user's presence. This is useful to be able to fetch user's friends presence
+%%% their contact's presence, and also contacts who subscribed to
+%%% a user's presence. This is useful to be able to fetch user's contacts presence
 %%% and broadcast a user's presence.
-%%% This module also helps in retreiving the list of usernames the user is subscribed in
-%%% to be able to fetch their last_seen directly from mod_user_activity.
-%%% This module also fetches the list of jids of the friends to directly
-%%% broadcast a user's presence to them.
 %%% This module also handles all the presence stanzas of type subscribe/unsubscribe.
+%%% Given a user: we share their presence information only to their contacts.
+%%% A subscribes to B, C, D's presence.
+%%% Only B and C have A in their address book and D does not.
+%%% So A can only see B and C's presence.
+%%%
 %%%----------------------------------------------------------------------------------------------
 
 -module(mod_presence_subscription).
@@ -32,11 +33,11 @@
     unset_presence_hook/4,
     re_register_user/3,
     remove_user/2,
-    subscribe_user_to_friend/3,
-    unsubscribe_user_to_friend/3,
-    get_user_subscribed_friends/2,
-    get_user_broadcast_friends/2,
-    remove_friend/3,
+    subscribe/2,
+    unsubscribe/2,
+    get_subscribed_uids/1,
+    get_broadcast_uids/1,
+    remove_contact/3,
     user_receive_packet/1
 ]).
 
@@ -46,7 +47,7 @@ start(Host, _Opts) ->
     ejabberd_hooks:add(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 10),
-    ejabberd_hooks:add(remove_friend, Host, ?MODULE, remove_friend, 50),
+    ejabberd_hooks:add(remove_contact, Host, ?MODULE, remove_contact, 50),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ok.
 
@@ -56,7 +57,7 @@ stop(Host) ->
     ejabberd_hooks:delete(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10),
-    ejabberd_hooks:delete(remove_friend, Host, ?MODULE, remove_friend, 50),
+    ejabberd_hooks:delete(remove_contact, Host, ?MODULE, remove_contact, 50),
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 100),
     ok.
 
@@ -108,18 +109,16 @@ presence_subs_hook(User, Server, #pb_presence{uid = Uid, to_uid = ToUid, type = 
     end,
     case Type of
         subscribe ->
-            check_and_subscribe_user_to_friend(User, Server, FinalToUid);
+            check_and_subscribe(User, Server, FinalToUid);
         unsubscribe ->
-            unsubscribe_user_to_friend(User, Server, FinalToUid)
+            unsubscribe(User, FinalToUid)
     end.
 
 
--spec remove_friend(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.
-remove_friend(Uid, Server, Ouid) ->
-    unsubscribe_user_to_friend(Uid, Server, Ouid),
-    unsubscribe_user_to_friend(Ouid, Server, Uid),
+-spec remove_contact(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.
+remove_contact(Uid, _Server, Ouid) ->
+    unsubscribe(Ouid, Uid),
     ok.
-
 
 %% We route presence stanzas to the client only if the client is available right now.
 user_receive_packet({#pb_presence{} = Packet, #{presence := PresenceType} = State} = Acc)  ->
@@ -137,30 +136,28 @@ user_receive_packet(Acc) ->
 %% API
 %%====================================================================
 
--spec subscribe_user_to_friend(User :: binary(), Server :: binary(),
-        Friend :: binary()) -> {ok, any()} | {error, any()}.
-subscribe_user_to_friend(User, _, User) ->
+-spec subscribe(User :: binary(), Contact :: binary()) -> {ok, any()} | {error, any()}.
+subscribe(User, User) ->
     {ok, ignore_self_subscribe};
-subscribe_user_to_friend(User, _Server, Friend) ->
-    ?INFO("Uid: ~s, Friend: ~s", [User, Friend]),
-    model_accounts:presence_subscribe(User, Friend).
+subscribe(User, Contact) ->
+    ?INFO("Uid: ~s, Contact: ~s", [User, Contact]),
+    model_accounts:presence_subscribe(User, Contact).
 
 
--spec unsubscribe_user_to_friend(User :: binary(), Server :: binary(),
-        Friend :: binary()) -> {ok, any()} | {error, any()}.
-unsubscribe_user_to_friend(User, _Server, Friend) ->
-    ?INFO("Uid: ~s, Friend: ~s", [User, Friend]),
-    model_accounts:presence_unsubscribe(User, Friend).
+-spec unsubscribe(User :: binary(), Contact :: binary()) -> {ok, any()} | {error, any()}.
+unsubscribe(User, Contact) ->
+    ?INFO("Uid: ~s, Contact: ~s", [User, Contact]),
+    model_accounts:presence_unsubscribe(User, Contact).
 
 
--spec get_user_subscribed_friends(User :: binary(), Server :: binary()) -> [binary()].
-get_user_subscribed_friends(User, _Server) ->
+-spec get_subscribed_uids(User :: binary()) -> [binary()].
+get_subscribed_uids(User) ->
     {ok, Result} = model_accounts:get_subscribed_uids(User),
     Result.
 
 
--spec get_user_broadcast_friends(User :: binary(), Server :: binary()) -> [binary()].
-get_user_broadcast_friends(User, _Server) ->
+-spec get_broadcast_uids(User :: binary()) -> [binary()].
+get_broadcast_uids(User) ->
     {ok, Result} = model_accounts:get_broadcast_uids(User),
     Result.
 
@@ -169,17 +166,19 @@ get_user_broadcast_friends(User, _Server) ->
 %% Internal functions
 %%====================================================================
 
--spec check_and_subscribe_user_to_friend(User :: binary(), Server :: binary(),
-        Friend :: binary()) -> ignore | ok | {ok, any()} | {error, any()}.
-check_and_subscribe_user_to_friend(User, Server, Friend) ->
-    case model_friends:is_friend(User, Friend) of
+%% TODO(murali@): use uid and Ouid instead of user and contact variables in this file.
+-spec check_and_subscribe(User :: binary(), Server :: binary(),
+        Contact :: binary()) -> ignore | ok | {ok, any()} | {error, any()}.
+check_and_subscribe(User, Server, Contact) ->
+    {ok, UserPhone} = model_accounts:get_phone(User),
+    case model_contacts:is_contact(Contact, UserPhone) of
         false ->
-            ?INFO("ignore presence_subscribe, Uid: ~s, FriendUid: ~s", [User, Friend]),
+            ?INFO("ignore presence_subscribe, Uid: ~s, ContactUid: ~s", [User, Contact]),
             ignore;
         true ->
-            ?INFO("accept presence_subscribe, Uid: ~s, FriendUid: ~s", [User, Friend]),
-            subscribe_user_to_friend(User, Server, Friend),
-            mod_user_activity:probe_and_send_presence(User, Server, Friend)
+            ?INFO("accept presence_subscribe, Uid: ~s, ContactUid: ~s", [User, Contact]),
+            subscribe(User, Contact),
+            mod_user_activity:probe_and_send_presence(User, Server, Contact)
     end.
 
 
