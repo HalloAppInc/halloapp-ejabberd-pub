@@ -21,7 +21,8 @@
 %% Hooks and API.
 -export([
     process_local_iq/1,
-    re_register_user/3
+    re_register_user/3,
+    group_member_added/3
 ]).
 
 
@@ -29,11 +30,13 @@ start(Host, _Opts) ->
     ?INFO("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_group_feed_item, ?MODULE, process_local_iq),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:add(group_member_added, Host, ?MODULE, group_member_added, 50),
     ok.
 
 stop(Host) ->
     ?INFO("stop", []),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
+    ejabberd_hooks:delete(group_member_added, Host, ?MODULE, group_member_added, 50),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_group_feed_item),
     ok.
 
@@ -113,6 +116,13 @@ re_register_user(Uid, _Server, _Phone) ->
         fun(Gid) ->
             share_group_feed(Gid, Uid)
         end, Gids),
+    ok.
+
+
+-spec group_member_added(Gid :: binary(), Uid :: binary(), AddedByUid :: binary()) -> ok.
+group_member_added(Gid, Uid, AddedByUid) ->
+    ?INFO("Gid: ~p, Uid: ~p, AddedByUid: ~p", [Gid, Uid, AddedByUid]),
+    share_group_feed(Gid, Uid),
     ok.
 
 

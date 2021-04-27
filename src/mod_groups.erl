@@ -529,8 +529,9 @@ add_members_unsafe_2(Gid, Uid, MemberUids) ->
     GoodUids = model_accounts:filter_nonexisting_uids(MemberUids),
     RedisResults = model_groups:add_members(Gid, GoodUids, Uid),
     AddResults = lists:zip(GoodUids, RedisResults),
+    Server = util:get_host(),
     % TODO: this is O(N^2), could be improved.
-    lists:map(
+    Results = lists:map(
         fun (OUid) ->
 
             case lists:keyfind(OUid, 1, AddResults) of
@@ -539,10 +540,12 @@ add_members_unsafe_2(Gid, Uid, MemberUids) ->
                 {OUid, false} ->
                     {OUid, add, already_member};
                 {OUid, true} ->
+                    ejabberd_hooks:run(group_member_added, Server, [Gid, OUid, Uid]),
                     {OUid, add, ok}
             end
         end,
-        MemberUids).
+        MemberUids),
+    Results.
 
 
 -spec remove_members_unsafe(Gid :: gid(), MemberUids :: [uid()]) -> modify_member_results().
