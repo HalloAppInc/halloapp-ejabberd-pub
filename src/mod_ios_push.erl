@@ -426,8 +426,12 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
                 <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract)
                 % <<"content">> => base64:encode(encrypt_message(PushMessageItem, State))
             },
-            case byte_size(EncryptedContent) < 1000 of
-                true -> maps:put(<<"content">>, EncryptedContent, TempMap);
+            EncryptedContentSize = byte_size(EncryptedContent),
+            case EncryptedContentSize < 1000 of
+                true ->
+                    ?INFO("Push contentId: ~p includes encrypted content size: ~p",
+                            [PushMetadata#push_metadata.content_id, EncryptedContentSize]),
+                    maps:put(<<"content">>, EncryptedContent, TempMap);
                 false -> TempMap
             end;
         false ->
