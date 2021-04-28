@@ -518,7 +518,6 @@ finish_registration(Phone, Name, UserAgent) ->
     {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, Password, Name, UserAgent),
     %% Action = login, updates the password.
     %% Action = register, creates a new user id and registers the user for the first time.
-    %% Note: We don't need to clear the push token in either of login/register case.
     log_registration(Action, UserAgent),
     {ok, Phone, Uid, Password}.
 
@@ -528,7 +527,6 @@ finish_registration_spub(Phone, Name, UserAgent, SPub) ->
     {ok, Uid, Action} = ejabberd_admin:check_and_register_spub(Phone, Host, SPub, Name, UserAgent),
     %% Action = login, updates the password.
     %% Action = register, creates a new user id and registers the user for the first time.
-    %% Note: We don't need to clear the push token in either of login/register case.
     log_registration(Action, UserAgent),
     {ok, Phone, Uid}.
 
