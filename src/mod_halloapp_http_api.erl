@@ -417,7 +417,9 @@ check_invited(PhoneNum, UserAgent, IP, GroupInviteToken) ->
     IsInvitedToGroup = is_group_invite_valid(GroupInviteToken),
     IsAllowedVersion = is_version_invite_opened(UserAgent),
     IsIPAllowed = is_ip_invite_opened(IP),
-    case Invited orelse IsTestNumber orelse IsInvitedToGroup orelse IsAllowedVersion orelse IsIPAllowed of
+    IsCCAllowed = is_cc_invite_opened(PhoneNum),
+    case Invited orelse IsTestNumber orelse IsInvitedToGroup orelse IsAllowedVersion orelse
+            IsIPAllowed orelse IsCCAllowed of
         true -> ok;
         false ->
             case model_phone:get_uid(PhoneNum) of
@@ -481,6 +483,19 @@ is_ip_invite_opened(IP) ->
         {error, _} ->
             ?WARNING("failed to parse IP: ~p", [IP]),
             false
+    end.
+
+-spec is_cc_invite_opened(Phone :: binary()) -> boolean().
+is_cc_invite_opened(Phone) ->
+    CC = mod_libphonenumber:get_cc(Phone),
+    case CC of
+        <<"BD">> -> true;  %Bangladesh
+        <<"AL">> -> true;  %Israel
+        <<"NL">> -> true;  %Netherlands
+        <<"NZ">> -> true;  %New Zealand
+        <<"DK">> -> true;  %Denmark
+        <<"AT">> -> true;  %Austria
+        _ -> false
     end.
 
 -spec process_whisper_keys(Uid :: uid(), Payload :: map()) -> ok. % | or exception
