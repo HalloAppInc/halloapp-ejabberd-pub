@@ -55,8 +55,7 @@ mod_options(_Host) ->
 init(_Host) ->
     ?INFO("Start: ~p", [?MODULE]),
     init_erlcloud(),
-    Queries = get_athena_queries(),
-    {ok, #{queries => Queries}}.
+    {ok, #{}}.
 
 terminate(_Reason, #{} = _State) ->
     ?INFO("Terminate: ~p", [?MODULE]),
@@ -71,7 +70,8 @@ handle_info(Info, State) ->
     {noreply, State}.
 
 handle_cast(run_athena_queries, State) ->
-    {noreply, run_athena_queries(State)};
+    Queries = get_athena_queries(),
+    {noreply, run_athena_queries(State#{queries => Queries})};
 handle_cast({fetch_query_results, Queries}, State) ->
     {noreply, fetch_query_results(Queries, State)};
 handle_cast(Msg, State) ->
