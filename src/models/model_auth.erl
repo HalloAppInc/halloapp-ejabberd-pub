@@ -20,6 +20,9 @@
 -compile(export_all).
 -endif.
 
+-define(LOCKED, <<"locked:">>).
+-define(LOCKED_SIZE, byte_size(?LOCKED)).
+
 
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
@@ -31,7 +34,9 @@
     delete_password/1,
     set_spub/2,
     get_spub/1,
-    delete_spub/1
+    delete_spub/1,
+    lock_user/1,
+    unlock_user/1
 ]).
 
 %%====================================================================
@@ -117,6 +122,28 @@ get_spub(Uid) ->
         uid = Uid
     }}.
 
+
+-spec lock_user(Uid :: binary()) -> ok | {error, any()}.
+lock_user(Uid) ->
+    {ok, #s_pub{s_pub = SPub, ts_ms = _TsMs, uid = _Uid}} = get_spub(Uid),
+    {Locked, LockedSize} = {?LOCKED, ?LOCKED_SIZE},
+    case SPub of
+        <<Locked:LockedSize/binary, Rest/binary>> -> ok;
+        _ ->
+            SPub2 = <<?LOCKED/binary, SPub/binary>>,
+            set_spub(Uid, SPub2)
+    end.
+
+
+-spec unlock_user(Uid :: binary()) -> ok | {error, any()}.
+unlock_user(Uid) ->
+    {ok, #s_pub{s_pub = LockedSPub, ts_ms = _TsMs, uid = _Uid}} = get_spub(Uid),
+    {Locked, LockedSize} = {?LOCKED, ?LOCKED_SIZE},
+    case LockedSPub of
+        <<Locked:LockedSize/binary, Rest/binary>> -> set_spub(Uid, Rest);
+        _ -> ok
+    end.
+        
 
 -spec delete_password(Uid :: binary()) -> ok  | {error, any()}.
 delete_password(Uid) ->

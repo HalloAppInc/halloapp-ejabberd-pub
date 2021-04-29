@@ -79,6 +79,17 @@ set_get_spub_test() ->
     ok = model_auth:set_spub(?UID1, ?SPUB1),
     {ok, #s_pub{s_pub = ?SPUB1, uid = ?UID1}} = model_auth:get_spub(?UID1).
 
+lock_user_test() ->
+    setup(),
+    ok = model_auth:set_spub(?UID1, ?SPUB1),
+    ok = model_auth:lock_user(?UID1),
+    {ok, #s_pub{s_pub = Locked}} = model_auth:get_spub(?UID1),
+    ?assertNotEqual(Locked, ?SPUB1),
+    ok = model_auth:unlock_user(?UID1),
+    {ok, #s_pub{s_pub = ?SPUB1}} = model_auth:get_spub(?UID1),
+    ok = model_auth:unlock_user(?UID1),
+    {ok, #s_pub{s_pub = ?SPUB1}} = model_auth:get_spub(?UID1).
+
 delete_spub_test() ->
     setup(),
     ok = model_auth:set_spub(?UID1, ?SPUB1),
