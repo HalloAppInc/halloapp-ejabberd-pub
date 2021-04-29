@@ -26,7 +26,8 @@
     init/2,
     close/0,
     make_patch_url/2,
-    make_patch_url_with_retry/3
+    make_patch_url_with_retry/3,
+    get_hdrs/1  %% for debugging
 ]).
 
 
@@ -138,7 +139,7 @@ get_hdrs(ContentLength) ->
         0 -> {"Upload-Defer-Length", "1"};
         _ -> {"Upload-Length", integer_to_list(ContentLength)}
     end,
-    [{"connection", "keep-alive"}, {"Tus-Resumable", "1.0.0"} | ContentHeader].
+    [{"connection", "keep-alive"}, {"Tus-Resumable", "1.0.0"} , ContentHeader].
 
 get_http_opts() ->
     [
