@@ -352,6 +352,10 @@ share_group_feed(Gid, Uid) ->
     Server = util:get_host(),
     {ok, FeedItems} = model_feed:get_entire_group_feed(Gid),
     {FilteredPosts, FilteredComments} = filter_group_feed_items(Uid, FeedItems),
+    %% Add the touid to the audience list so that they can comment on these posts.
+    FilteredPostIds = [P#post.id || P <- FilteredPosts],
+    ok = model_feed:add_uid_to_audience(Uid, FilteredPostIds),
+
     PostStanzas = lists:map(fun convert_posts_to_groupfeeditem/1, FilteredPosts),
     CommentStanzas = lists:map(fun convert_comments_to_groupfeeditem/1, FilteredComments),
     GroupInfo = model_groups:get_group_info(Gid),
@@ -381,15 +385,12 @@ share_group_feed(Gid, Uid) ->
     ok.
 
 
-% Uid is the user to which we want to send those posts.
-% Posts must have Uid in the audience_list
+%% Uid is the user to which we want to send those posts.
+%% Now, we share all group feed posts to this user.
 -spec filter_group_feed_items(Uid :: uid(), Items :: [post()] | [comment()]) -> {[post()], [comment()]}.
 filter_group_feed_items(Uid, Items) ->
     {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
-    FilteredPosts = lists:filter(
-            fun(Post) ->
-                lists:member(Uid, Post#post.audience_list)
-            end, Posts),
+    FilteredPosts = Posts,
     FilteredPostIdsList = lists:map(fun(Post) -> Post#post.id end, FilteredPosts),
     FilteredPostIdsSet = sets:from_list(FilteredPostIdsList),
     FilteredComments = lists:filter(
