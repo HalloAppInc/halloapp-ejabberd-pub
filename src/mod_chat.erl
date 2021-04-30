@@ -88,8 +88,12 @@ set_sender_info(#pb_msg{id = MsgId, from_uid = FromUid} = Message) ->
 
 
 -spec set_sender_info(Message :: pb_msg(), Name :: binary(), ClientVersion :: binary()) -> pb_msg().
-set_sender_info(#pb_msg{payload = #pb_chat_stanza{} = Chat} = Message, Name, ClientVersion) ->
-    Chat1 = Chat#pb_chat_stanza{sender_name = Name, sender_client_version = ClientVersion},
+set_sender_info(#pb_msg{from_uid = FromUid, payload = #pb_chat_stanza{} = Chat} = Message, Name, ClientVersion) ->
+    {ok, FromPhone} = model_accounts:get_phone(FromUid),
+    Chat1 = Chat#pb_chat_stanza{
+        sender_name = Name,
+        sender_phone = FromPhone,
+        sender_client_version = ClientVersion},
     Message#pb_msg{payload = Chat1};
 
 set_sender_info(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = Chat}} = Message, Name, ClientVersion) ->
