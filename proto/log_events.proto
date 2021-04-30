@@ -31,6 +31,7 @@ message MediaUpload {
   enum Type {
     POST = 0;  // post or group_post
     MESSAGE = 1; // 1v1 message or group_message
+    COMMENT = 2;
   }
   Type type = 2;
   uint32 duration_ms = 3; // time in ms it took to upload all the media and send iq/message
@@ -51,6 +52,7 @@ message MediaDownload {
   enum Type {
     POST = 0;  // post or group_post
     MESSAGE = 1; // 1v1 message or group_message
+    COMMENT = 2;
   }
   Type type = 2;
   uint32 duration_ms = 3; // time in ms it took to download all the media
