@@ -27,7 +27,7 @@
     get_inviters_list/1,
     get_sent_invites/1,
     set_invites_left/2,
-    ph_invited_by_key_new/1,
+    ph_invited_by_key/1,
     invites_key/1
 ]).
 
@@ -141,7 +141,7 @@ get_inviters_list(PhoneNums) when is_list(PhoneNums) ->
     StartTimeBin = integer_to_binary(StartTime),
     Commands = lists:map(
         fun(PhoneNum) ->
-            ["ZRANGEBYSCORE", ph_invited_by_key_new(PhoneNum),
+            ["ZRANGEBYSCORE", ph_invited_by_key(PhoneNum),
                 StartTimeBin, "+inf", "WITHSCORES"]
         end, PhoneNums),
     Res = qmn_phones(Commands),
@@ -158,7 +158,7 @@ get_inviters_list(PhoneNums) when is_list(PhoneNums) ->
         {ok, [{Uid :: uid(), Timestamp :: binary()}]}.
 get_inviters_list(PhoneNum, Now) ->
     StartTime = Now - ?INVITE_TTL,
-    {ok, InvitersList} = q_phones(["ZRANGEBYSCORE", ph_invited_by_key_new(PhoneNum),
+    {ok, InvitersList} = q_phones(["ZRANGEBYSCORE", ph_invited_by_key(PhoneNum),
         integer_to_binary(StartTime), "+inf", "WITHSCORES"]),
     {ok, util_redis:parse_zrange_with_scores(InvitersList)}.
 
@@ -192,10 +192,9 @@ qmn_phones(Commands) -> ecredis:qmn(ecredis_phone, Commands).
 invites_key(Uid) ->
     <<?INVITES2_KEY/binary, "{", Uid/binary, "}">>.
 
-% TODO: cleanup after migration (rename the key (remove _new))
--spec ph_invited_by_key_new(Phone :: phone()) -> binary().
-ph_invited_by_key_new(Phone) ->
-    <<?INVITED_BY_KEY_NEW/binary, "{", Phone/binary, "}">>.
+-spec ph_invited_by_key(Phone :: phone()) -> binary().
+ph_invited_by_key(Phone) ->
+    <<?INVITED_BY_KEY/binary, "{", Phone/binary, "}">>.
 
 -spec record_sent_invite(FromUid :: uid(), ToPhone :: phone(), NumInvsLeft :: integer(),
         Ts :: integer()) -> ok.
@@ -216,9 +215,9 @@ record_sent_invite(FromUid, ToPhone, NumInvsLeft, Ts) ->
 -spec record_invited_by(FromUid :: uid(), ToPhone :: phone(), Ts :: integer()) -> ok.
 record_invited_by(FromUid, ToPhone, Ts) ->
     [{ok, _}, {ok, _}, {ok, CountExpiredBin}] = qp_phones([
-        ["ZADD", ph_invited_by_key_new(ToPhone), Ts, FromUid],
-        ["EXPIRE", ph_invited_by_key_new(ToPhone), ?INVITE_TTL],
-        ["ZREMRANGEBYSCORE", ph_invited_by_key_new(ToPhone), "-inf", Ts - ?INVITE_TTL]
+        ["ZADD", ph_invited_by_key(ToPhone), Ts, FromUid],
+        ["EXPIRE", ph_invited_by_key(ToPhone), ?INVITE_TTL],
+        ["ZREMRANGEBYSCORE", ph_invited_by_key(ToPhone), "-inf", Ts - ?INVITE_TTL]
     ]),
     % TODO: remove once we know its kind of working
     CountExpired = binary_to_integer(CountExpiredBin),

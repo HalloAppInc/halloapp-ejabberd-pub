@@ -101,11 +101,11 @@
 -define(VERIFICATION_ATTEMPT_ID_KEY, <<"vai:">>).
 -define(INCREMENTAL_TS_KEY, <<"ITS:">>).
 -define(GATEWAY_RESPONSE_ID_KEY, <<"gri:">>).
--define(INVITED_BY_KEY_NEW, <<"ibn:">>).
+-define(INVITED_BY_KEY, <<"ibn:">>).
 -define(INVITE_NOTIFICATION_KEY, <<"ink:">>).
 
 % old deleted/deprecated keys
-%%-define(INVITED_BY_KEY, <<"inb:">>).
+%%-define(INVITED_BY_KEY_OLD, <<"inb:">>).
 
 
 %% RedisWhisperKeys
