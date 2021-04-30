@@ -26,8 +26,7 @@
     get_client_version_ttl/2,
     handle_stream_end/2,
     handle_authenticated_packet/2,
-    handle_auth_success/4,
-    handle_auth_failure/4,
+    handle_auth_result/4,
     handle_send/4,
     handle_recv/3
 ]).
@@ -64,6 +63,7 @@
 -include("packets.hrl").
 -include("logger.hrl").
 -include("translate.hrl").
+-include("ha_types.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 -type state() :: halloapp_stream_in:state().
@@ -234,20 +234,30 @@ handle_unexpected_cast(State, Msg) ->
     State.
 
 
-process_auth_result(#{socket := Socket,
-        ip := IP, lserver := LServer} = State, true, User) ->
-    ?INFO("(~ts) Accepted c2s authentication for ~ts@~ts from ~ts",
-            [halloapp_socket:pp(Socket), User, LServer,
+-spec process_auth_result(State :: state(), true | {false, Reason :: binary()},
+        User :: uid()) -> state().
+process_auth_result(#{socket := Socket, ip := IP} = State, true, User) ->
+    ?INFO("(~ts) Accepted c2s authentication for ~ts from ~ts",
+        [halloapp_socket:pp(Socket), User,
             ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
+    stat:count("HA/auth", "success", 1),
     State;
 process_auth_result(#{socket := Socket,ip := IP, lserver := LServer} = State,
         {false, Reason}, User) ->
-    ?WARNING("(~ts) Failed c2s authentication ~tsfrom ~ts: ~ts",
-            [halloapp_socket:pp(Socket),
-            if User /= <<"">> -> ["for ", User, "@", LServer, " "];
-                true -> ""
-            end, ejabberd_config:may_hide_data(misc:ip_to_list(IP)), Reason]),
+    ?WARNING("(~ts) Failed c2s authentication ~tsfrom ~ts: Reason: ~ts",
+        [halloapp_socket:pp(Socket), User,
+            ejabberd_config:may_hide_data(misc:ip_to_list(IP)), Reason]),
+    ReasonTag = auth_result_reason_to_tag(Reason),
+    stat:count("HA/auth", "failure", 1, [{reason, ReasonTag}]),
     State.
+
+-spec auth_result_reason_to_tag(binary()) -> atom().
+auth_result_reason_to_tag(<<"invalid uid or password">>) -> invalid_uid_password;
+auth_result_reason_to_tag(<<"account_deleted">>) -> account_deleted;
+auth_result_reason_to_tag(<<"invalid client version">>) -> invalid_client_version;
+auth_result_reason_to_tag(<<"invalid resource">>) -> invalid_resource;
+auth_result_reason_to_tag(<<"spub_mismatch">>) -> spub_mismatch;
+auth_result_reason_to_tag(_) -> unknown.
 
 
 process_closed(State, Reason) ->
@@ -337,16 +347,8 @@ handle_stream_end(Reason, #{lserver := LServer} = State) ->
     State1 = State#{stop_reason => Reason},
     ejabberd_hooks:run_fold(pb_c2s_closed, LServer, State1, [Reason]).
 
-
-%% This will be cleaned up further by nikola.
-handle_auth_success(User, _Mech, _Reason,
-            #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(pb_c2s_auth_result, LServer, State, [true, User]).
-
-
-handle_auth_failure(User, _Mech, Reason, #{lserver := LServer} = State) ->
-    ejabberd_hooks:run_fold(pb_c2s_auth_result, LServer, State, [{false, Reason}, User]).
-
+handle_auth_result(Uid, Result, _PBAuthResult, #{lserver := LServer} = State) ->
+    ejabberd_hooks:run_fold(pb_c2s_auth_result, LServer, State, [Result, Uid]).
 
 %% TODO(murali@): fix this hook - need not be called for auth request.
 handle_authenticated_packet(Pkt, #{lserver := LServer} = State) when is_record(Pkt, pb_auth_request) ->

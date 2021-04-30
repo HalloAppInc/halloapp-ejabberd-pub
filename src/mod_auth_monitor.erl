@@ -76,7 +76,7 @@ mod_options(_Host) ->
 
 
 -spec process_auth_result(State :: c2s_state(),
-        Result :: true | {false, any()}, Uid :: binary()) -> c2s_state().
+        Result :: true | {false, binary()}, Uid :: binary()) -> c2s_state().
 process_auth_result(State, true, Uid) ->
     TimestampMs = util:now_ms(),
     gen_server:cast(?PROC(), {auth_success, Uid, TimestampMs}),

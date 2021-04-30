@@ -98,8 +98,8 @@
 -callback handle_stream_established(state()) -> state().
 -callback handle_stream_end(stop_reason(), state()) -> state().
 -callback handle_authenticated_packet(stanza(), state()) -> state().
--callback handle_auth_success(binary(), binary(), module(), state()) -> state().
--callback handle_auth_failure(binary(), binary(), binary(), state()) -> state().
+-callback handle_auth_result(
+        maybe(uid()), true | {false, Reason :: binary()}, pb_auth_result(), state()) -> state().
 -callback handle_send(binary(), pb_packet(), ok | {error, inet:posix()}, state()) -> state().
 -callback handle_recv(binary(), pb_packet() | {error, term()}, state()) -> state().
 -callback handle_timeout(state()) -> state().
@@ -411,7 +411,7 @@ handle_info({tcp, _, Data}, #{socket := Socket, ip := IP} = State) ->
                 process_stream_end({socket, einval}, State);
             {error, {spub_mismatch, NewSocket}} ->
                 NewState = State#{socket => NewSocket},
-                send_auth_error(NewState, spub_mismatch);
+                do_process_auth_request(NewState, undefined, false);
             {error, Reason} ->
                 ?ERROR("noise error on read Reason: ~p Data(b64): ~p, IP: ~p", [Reason, base64url:encode(Data), IP]),
                 % TODO: I don't think we should send to the client those specific reasons
@@ -585,35 +585,8 @@ process_stream_authentication(#pb_auth_request{uid = Uid, client_mode = ClientMo
     Mode = ClientMode#pb_client_mode.mode,
     ClientVersion = PbClientVersion#pb_client_version.version,
     State1 = State#{user => Uid, client_version => ClientVersion, resource => Resource, mode => Mode},
-    %% Check client_version
-    {State3, Result, Reason, TimeLeftSec} = case callback(get_client_version_ttl, ClientVersion, State1) of
-        ExpiresInSec when ExpiresInSec =< 0 -> {State1, <<"failure">>, <<"invalid client version">>, 0};
-        ExpiresInSec ->
-            %% Bind resource callback
-            case callback(bind, Resource, State1) of
-                {ok, State2} ->
-                    {State2,  <<"success">>, <<"welcome to halloapp">>, ExpiresInSec};
-                {error, _, State2} ->
-                    {State2, <<"failure">>, <<"invalid resource">>, ExpiresInSec}
-            end
-    end,
-    AuthResultPkt = #pb_auth_result{
-        result = Result,
-        reason = Reason,
-        props_hash = base64url:decode(mod_props:get_hash(Uid, ClientVersion)),
-        version_ttl = TimeLeftSec
-        %% TODO(murali@): move this logic to decode into mod_props.
-    },
-    case Result of
-        <<"failure">> ->
-            State4 = callback(handle_auth_failure, Uid, noise, Reason, State3),
-            State5 = check_authservice_and_send(State4, AuthResultPkt),
-            stop(State5);
-        <<"success">> ->
-            State4 = callback(handle_auth_success, Uid, noise, success, State3),
-            State5 = send_pkt(State4, AuthResultPkt),
-            State5
-    end.
+    % if noise calls this we are authenticated
+    do_process_auth_request(State1, Uid, true).
 
 
 -spec process_auth_request(pb_auth_request(), state()) -> state().
@@ -625,41 +598,54 @@ process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = Client
     %% Check Uid and Password. TODO(murali@): simplify this even further!
     CheckPW = check_password_fun(<<>>, State1),
     PasswordResult = CheckPW(Uid, <<>>, Pwd),
-    {State3, Result, Reason, TimeLeftSec} = case PasswordResult of
+    do_process_auth_request(State1, Uid, PasswordResult).
+
+
+-spec do_process_auth_request(state(), uid(), boolean()) -> state().
+do_process_auth_request(#{client_version := ClientVersion, resource := Resource} = State1, Uid, AuthResult) ->
+    {State3, Result, Reason, TimeLeftSec} = case AuthResult of
         false ->
-            case model_accounts:is_account_deleted(Uid) of
-                true -> {State1, <<"failure">>, <<"account_deleted">>, 0};
-                false -> {State1, <<"failure">>, <<"invalid uid or password">>, 0}
-            end;
+            Reason1 = case Uid of
+                undefined -> <<"spub_mismatch">>;
+                _ ->
+                    case model_accounts:is_account_deleted(Uid) of
+                        true -> <<"account_deleted">>;
+                        false -> <<"invalid uid or password">>
+                    end
+            end,
+            {State1, failure, Reason1, 0};
         true ->
             %% Check client_version
-            case callback(get_client_version_ttl, ClientVersion, State1) of
+            case mod_client_version:get_version_ttl(ClientVersion) of
                 ExpiresInSec when ExpiresInSec =< 0 ->
-                    {State1, <<"failure">>, <<"invalid client version">>, 0};
+                    {State1, failure, <<"invalid client version">>, 0};
                 ExpiresInSec ->
                     %% Bind resource callback
                     case callback(bind, Resource, State1) of
                         {ok, State2} ->
-                            {State2,  <<"success">>, <<"welcome to halloapp">>, ExpiresInSec};
+                            {State2,  success, <<"welcome to halloapp">>, ExpiresInSec};
                         {error, _, State2} ->
-                            {State2, <<"failure">>, <<"invalid resource">>, ExpiresInSec}
+                            {State2, failure, <<"invalid resource">>, ExpiresInSec}
                     end
             end
     end,
     AuthResultPkt = #pb_auth_result{
-        result = Result,
+        result = util:to_binary(Result),
         reason = Reason,
         props_hash = base64url:decode(mod_props:get_hash(Uid, ClientVersion)),
         version_ttl = TimeLeftSec
         %% TODO(murali@): move this logic to decode into mod_props.
     },
+    CombinedResult = case Result of
+        failure -> {false, Reason};
+        success -> true
+    end,
+    State4 = callback(handle_auth_result, Uid, CombinedResult, AuthResultPkt, State3),
     case Result of
-        <<"failure">> ->
-            State4 = callback(handle_auth_failure, Uid, plaintext, Reason, State3),
+        failure ->
             State5 = check_authservice_and_send(State4, AuthResultPkt),
             stop(State5);
-        <<"success">> ->
-            State4 = callback(handle_auth_success, Uid, plaintext, ?MODULE, State3),
+        success ->
             State5 = send_pkt(State4, AuthResultPkt),
             State5
     end.
@@ -752,12 +738,6 @@ send_pkt(State, PktToSend) ->
 send_error(State, _Pkt, Err) ->
     send_error(State, Err).
 
-send_auth_error(State, Err) ->
-    ErrBin = util:to_binary(Err),
-    ?ERROR("Sending auth error due to: ~p and terminating connection", [Err]),
-    AuthResultPkt = #pb_auth_result{result = <<"failure">>, reason = ErrBin},
-    FinalState = send_pkt(State, AuthResultPkt),
-    process_stream_end(Err, FinalState).
 
 send_error(State, Err) ->
     ErrBin = util:to_binary(Err),

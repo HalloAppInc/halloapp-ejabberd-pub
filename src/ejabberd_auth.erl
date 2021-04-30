@@ -33,8 +33,7 @@
     remove_user/3,
     plain_password_required/0,
     store_type/0,
-    password_format/0,
-    process_auth_result/3
+    password_format/0
 ]).
 
 %% gen_server callbacks
@@ -88,28 +87,15 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
-process_auth_result(State, true, Uid) ->
-    ?INFO("Uid: ~p, auth_success", [Uid]),
-    State;
-process_auth_result(State,
-        {false, _Reason}, Uid) ->
-    ?INFO("Uid: ~p, auth_failure", [Uid]),
-    case model_accounts:is_account_deleted(Uid) of
-        true -> State#{account_deleted => true};
-        false -> State
-    end.
-
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
 
 start(Host) ->
-    ejabberd_hooks:add(pb_c2s_auth_result, Host, ?MODULE, process_auth_result, 50),
     ok.
 
 
 stop(Host) ->
-    ejabberd_hooks:delete(pb_c2s_auth_result, Host, ?MODULE, process_auth_result, 50),
     ok.
 
 
