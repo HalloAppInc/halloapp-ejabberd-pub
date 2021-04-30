@@ -377,7 +377,7 @@ action_recv_im({{}, #state{} = State}) ->
     State3.
 
 action_post({{PostSize, NumRecepients}, State}) ->
-    State2 = ensure_connected(ensure_account(State)),
+    State2 = ensure_connected(ensure_account_with_phonebook(State)),
     Uid = State2#state.uid,
     Uids = contact_uids(State2),
 
@@ -479,6 +479,15 @@ do_phonebook_full_sync(Phones, State) ->
         [length(ResultContacts), length(ContactUids), End - Start]),
 
     State3.
+
+ensure_account_with_phonebook(#state{uid = undefined} = State) ->
+    ensure_account_with_phonebook(action_register({undefined, State}));
+ensure_account_with_phonebook(#state{contacts_list = CL, conf = Conf} = State)
+        when map_size(CL) =:= 0 ->
+    N = maps:get(phonebook_size, Conf),
+    action_phonebook_full_sync({{N}, State});
+ensure_account_with_phonebook(State) ->
+    State.
 
 
 ensure_account(#state{uid = undefined} = State) ->

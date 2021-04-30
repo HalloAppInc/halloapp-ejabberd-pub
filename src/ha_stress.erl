@@ -41,6 +41,7 @@
     tref_stats :: timer:tref()
 }).
 
+% TODO: load the conf from files. Have different conf files
 -define(CONF, #{
 %%    http_host => "127.0.0.1",
 %%    http_port => "5580",
@@ -52,10 +53,12 @@
     % action_NAME => {Frequency, ActionArguments}
 %%    action_register => {0.2, {}},
     % TODO: add more actions here
-    action_register_and_phonebook => {0.1, {100}},
+%%    action_register_and_phonebook => {0.1, {100}},
 %%    action_phonebook_full_sync => {0.001, {100}},
 %%    action_send_im => {0.5, {100}},
 %%    action_recv_im => {0.2, {}},
+    action_post => {0.1, {100, 20}},
+    phonebook_size => 300,
     phone_pattern => "12..555...." % dots get replaced with random digits
 }).
 
