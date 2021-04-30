@@ -52,7 +52,7 @@ cleanup_old_invite_sets_run(Key, #{service := RService} = State) ->
                 true ->
                     ?INFO("would delete old invites set ~p:~p", [RService, Command]);
                 false ->
-                    {ok, Res} = q(RService, Command),
+                    {ok, Res} = q(ecredis_accounts, Command),
                     ?INFO("executing ~p:~p Res: ~p", [RService, Command, Res])
             end,
             ok;
