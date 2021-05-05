@@ -254,7 +254,7 @@ record_dec_report(Query) ->
                     [{"version", util:to_list(Version)},
                     {"platform", util:to_list(Platform)},
                     {"is_silent", util:to_list(IsSilent)} | TagsAndValues]),
-            {TotalMsgs, <<>>} = string:to_float(TotalMsgsStr),
+            TotalMsgs = util:to_integer(TotalMsgsStr),
             stat:count("HA/e2e", Metric1 ++ "_count", TotalMsgs,
                     [{"version", util:to_list(Version)},
                     {"platform", util:to_list(Platform)},
