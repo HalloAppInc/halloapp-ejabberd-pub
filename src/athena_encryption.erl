@@ -248,9 +248,14 @@ record_dec_report(Query) ->
     [Metric1] = Query#athena_query.metrics,
     lists:foreach(
         fun(ResultRow) ->
-            [Platform, Version, IsSilent, DecSuccessRateStr, _, _] = maps:get(<<"Data">>, ResultRow),
+            [Platform, Version, IsSilent, DecSuccessRateStr, _, TotalMsgsStr] = maps:get(<<"Data">>, ResultRow),
             {DecSuccessRate, <<>>} = string:to_float(DecSuccessRateStr),
             stat:count("HA/e2e", Metric1, DecSuccessRate,
+                    [{"version", util:to_list(Version)},
+                    {"platform", util:to_list(Platform)},
+                    {"is_silent", util:to_list(IsSilent)} | TagsAndValues]),
+            {TotalMsgs, <<>>} = string:to_float(TotalMsgsStr),
+            stat:count("HA/e2e", Metric1 + "_count", TotalMsgs,
                     [{"version", util:to_list(Version)},
                     {"platform", util:to_list(Platform)},
                     {"is_silent", util:to_list(IsSilent)} | TagsAndValues])
