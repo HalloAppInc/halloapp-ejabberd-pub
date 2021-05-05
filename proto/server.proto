@@ -376,7 +376,6 @@ message ChatStanza {
     bytes public_key = 4;
     int64 one_time_pre_key_id = 5;
     string sender_name = 6;
-    string sender_phone = 7;
 
     // Use >=16 for temporary elements since 1-15 encode smaller
     string sender_log_info = 16;
