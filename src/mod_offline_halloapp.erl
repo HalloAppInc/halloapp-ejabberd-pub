@@ -179,18 +179,9 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
             case IsOfflineQueueCleared of
                 true -> State;
                 false ->
-                    ?assert(PendingAcks > 0),
                     case Window =:= undefined orelse PendingAcks - 1 =< Window / 2 of
                         true ->
-                            %% Temporary condition: I dont expect this code to run for non-dev users.
-                            %% As of now: this code should run only for dev users.
-                            case dev_users:is_dev_uid(Uid) of
-                                false ->
-                                    ?ERROR("Uid: ~s, unexpected c2s state: ~p", [Uid, State]),
-                                    State;
-                                true ->
-                                    send_offline_messages(State1)
-                            end;
+                            send_offline_messages(State1);
                         false ->
                             State1
                     end
@@ -233,8 +224,7 @@ user_receive_packet(Acc) ->
 
 -spec c2s_session_opened(State :: state()) -> state().
 c2s_session_opened(#{mode := active} = State) ->
-    NewState = check_and_send_offline_messages(State),
-    NewState;
+    send_offline_messages(State);
 c2s_session_opened(#{mode := passive} = State) ->
     State.
 
@@ -274,8 +264,7 @@ offline_queue_cleared(Uid, _Server, LastMsgOrderId) ->
 
 -spec user_session_activated(State :: state(), Uid :: binary(), Server :: binary()) -> state().
 user_session_activated(State, _Uid, _Server) ->
-    NewState = check_and_send_offline_messages(State),
-    NewState.
+    send_offline_messages(State).
 
 
 remove_user(User, _Server) ->
@@ -292,18 +281,6 @@ count_user_messages(User) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%      internal functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
--spec check_and_send_offline_messages(State :: state()) -> state().
-check_and_send_offline_messages(#{user := Uid, server := Server} = State) ->
-    %% Use the window algorithm to experiment only on dev users initially.
-    %% TODO(murali@): update this after ensuring everything works correctly.
-    case dev_users:is_dev_uid(Uid) of
-        false ->
-            route_offline_messages(Uid, Server, 0, State);
-        true ->
-            send_offline_messages(State)
-    end.
 
 
 -spec route_offline_messages(UserId :: binary(), Server :: binary(),
