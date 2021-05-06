@@ -602,7 +602,9 @@ process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = Client
 
 
 -spec do_process_auth_request(state(), uid(), boolean()) -> state().
-do_process_auth_request(#{client_version := ClientVersion, resource := Resource} = State1, Uid, AuthResult) ->
+do_process_auth_request(State1, Uid, AuthResult) ->
+    ClientVersion = maps:get(client_version, State1, undefined),
+    Resource = maps:get(resource, State1, undefined),
     {State3, Result, Reason, TimeLeftSec} = case AuthResult of
         false ->
             Reason1 = case Uid of
