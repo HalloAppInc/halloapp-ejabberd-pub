@@ -22,6 +22,7 @@
 %%%-------------------------------------------------------------------
 -module(ejabberd_redis_sup).
 
+% TODO: remove this file.
 -behaviour(supervisor).
 
 %% API

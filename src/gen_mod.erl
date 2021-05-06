@@ -23,7 +23,7 @@
 %%%
 %%%----------------------------------------------------------------------
 -module(gen_mod).
--behaviour(supervisor).
+-behaviour(supervisor3). %https://github.com/klarna/supervisor3
 -author('alexey@process-one.net').
 
 -export([
@@ -96,7 +96,7 @@
 -endif.
 
 start_link() ->
-    case supervisor:start_link({local, ejabberd_gen_mod_sup}, ?MODULE, []) of
+    case supervisor3:start_link({local, ejabberd_gen_mod_sup}, ?MODULE, []) of
         {ok, Pid} ->
             start_modules(),
             {ok, Pid};
@@ -131,11 +131,16 @@ start_child(Mod, Host, Opts) ->
 
 -spec start_child(module(), binary(), opts(), atom()) -> {ok, pid()} | {error, any()}.
 start_child(Mod, Host, Opts, Proc) ->
-    Spec = {Proc, {?GEN_SERVER, start_link,
-           [{local, Proc}, Mod, [Host, Opts],
+    Spec = {
+        Proc,
+        {?GEN_SERVER, start_link, [
+            {local, Proc}, Mod, [Host, Opts],
             ejabberd_config:fsm_limit_opts([])]},
-            transient, timer:minutes(1), worker, [Mod]},
-    supervisor:start_child(ejabberd_gen_mod_sup, Spec).
+        {transient, 1}, % 1 second delay between restarts
+        timer:minutes(1),
+        worker,
+        [Mod]},
+    supervisor3:start_child(ejabberd_gen_mod_sup, Spec).
 
 -spec stop_child(module(), binary()) -> ok | {error, any()}.
 stop_child(Mod, Host) ->
@@ -143,8 +148,8 @@ stop_child(Mod, Host) ->
 
 -spec stop_child(atom()) -> ok | {error, any()}.
 stop_child(Proc) ->
-    supervisor:terminate_child(ejabberd_gen_mod_sup, Proc),
-    supervisor:delete_child(ejabberd_gen_mod_sup, Proc).
+    supervisor3:terminate_child(ejabberd_gen_mod_sup, Proc),
+    supervisor3:delete_child(ejabberd_gen_mod_sup, Proc).
 
 -spec start_modules() -> any().
 start_modules() ->

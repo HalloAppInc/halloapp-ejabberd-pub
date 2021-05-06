@@ -24,6 +24,7 @@
 %%%----------------------------------------------------------------------
 
 -module(ejabberd_listener).
+% TODO: consider using supervisor3
 -behaviour(supervisor).
 -author('alexey@process-one.net').
 -author('ekhramtsov@process-one.net').

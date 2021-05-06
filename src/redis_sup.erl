@@ -10,6 +10,7 @@
 -module(redis_sup).
 -author("nikola").
 
+% TODO: consider using supervisor3
 -behaviour(supervisor).
 
 -include("logger.hrl").

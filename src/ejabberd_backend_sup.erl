@@ -21,6 +21,7 @@
 %%%-------------------------------------------------------------------
 -module(ejabberd_backend_sup).
 
+% TODO: is this file used? Should we use supervisor3
 -behaviour(supervisor).
 -include("logger.hrl").
 

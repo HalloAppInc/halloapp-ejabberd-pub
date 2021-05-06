@@ -21,6 +21,7 @@
 %%%-------------------------------------------------------------------
 -module(ejabberd_db_sup).
 
+% TODO: we probably don't use this file. We have our own redis_sup
 -behaviour(supervisor).
 -include("logger.hrl").
 
