@@ -605,7 +605,7 @@ process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = Client
 do_process_auth_request(State1, Uid, AuthResult) ->
     ClientVersion = maps:get(client_version, State1, undefined),
     Resource = maps:get(resource, State1, undefined),
-    {State3, Result, Reason, TimeLeftSec} = case AuthResult of
+    {State3, Result, Reason, PropsHash, TimeLeftSec} = case AuthResult of
         false ->
             Reason1 = case Uid of
                 undefined -> <<"spub_mismatch">>;
@@ -615,28 +615,29 @@ do_process_auth_request(State1, Uid, AuthResult) ->
                         false -> <<"invalid uid or password">>
                     end
             end,
-            {State1, failure, Reason1, 0};
+            {State1, failure, Reason1, undefined, 0};
         true ->
             %% Check client_version
             case mod_client_version:get_version_ttl(ClientVersion) of
                 ExpiresInSec when ExpiresInSec =< 0 ->
-                    {State1, failure, <<"invalid client version">>, 0};
+                    {State1, failure, <<"invalid client version">>, undefined, 0};
                 ExpiresInSec ->
                     %% Bind resource callback
                     case callback(bind, Resource, State1) of
                         {ok, State2} ->
-                            {State2,  success, <<"welcome to halloapp">>, ExpiresInSec};
+                            %% TODO(murali@): move this logic to decode into mod_props.
+                            ServerPropHash = base64url:decode(mod_props:get_hash(Uid, ClientVersion)),
+                            {State2,  success, <<"welcome to halloapp">>, ServerPropHash, ExpiresInSec};
                         {error, _, State2} ->
-                            {State2, failure, <<"invalid resource">>, ExpiresInSec}
+                            {State2, failure, <<"invalid resource">>, undefined, ExpiresInSec}
                     end
             end
     end,
     AuthResultPkt = #pb_auth_result{
         result = util:to_binary(Result),
         reason = Reason,
-        props_hash = base64url:decode(mod_props:get_hash(Uid, ClientVersion)),
+        props_hash = PropsHash,
         version_ttl = TimeLeftSec
-        %% TODO(murali@): move this logic to decode into mod_props.
     },
     CombinedResult = case Result of
         failure -> {false, Reason};
