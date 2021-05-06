@@ -392,7 +392,7 @@ cloudwatch_put_metric_data_env(prod, Namespace, Metrics) ->
 cloudwatch_put_metric_data_env(localhost, "HA/test" = Namespace, Metrics) ->
     ?INFO("would send: ~s metrics: ~p", [Namespace, Metrics]),
     erlcloud_mon:put_metric_data(Namespace, Metrics);
-cloudwatch_put_metric_data_env(_Env, Namespace, Metrics) ->
+cloudwatch_put_metric_data_env(_Env, _Namespace, _Metrics) ->
     ok.
 
 

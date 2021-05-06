@@ -318,17 +318,6 @@ log_request_otp_error(ErrorType, Method) ->
     ok.
 
 
-%% TODO(vipin): Remove the following method.
--spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok | no_return(). % throws sms_fail
-request_sms(Phone, UserAgent) ->
-    case mod_sms:request_sms(Phone, UserAgent) of
-        ok -> ok;
-        {error, Reason} ->
-            ?ERROR("could not send sms Reason: ~p Phone: ~P", [Reason, Phone]),
-            erlang:error(sms_fail)
-    end.
-
-
 -spec request_otp(Phone :: phone(), UserAgent :: binary(), Method :: atom()) -> ok | no_return(). % throws otp_fail
 request_otp(Phone, UserAgent, Method) ->
     case mod_sms:request_otp(Phone, UserAgent, Method) of

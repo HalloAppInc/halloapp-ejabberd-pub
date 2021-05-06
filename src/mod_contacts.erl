@@ -532,11 +532,6 @@ obtain_avatar_ids(FriendContacts) ->
         end, FriendContacts).
 
 
--spec add_friend(Uid :: binary(), Server :: binary(), Ouid :: binary()) -> ok.
-add_friend(Uid, Server, Ouid) ->
-    add_friend(Uid, Server, Ouid, false).
-
-
 -spec add_friend(Uid :: binary(), Server :: binary(), Ouid :: binary(), WasBlocked :: boolean()) -> ok.
 add_friend(Uid, Server, Ouid, WasBlocked) ->
     ?INFO("~p is friends with ~p", [Uid, Ouid]),

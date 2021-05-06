@@ -91,11 +91,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%% API
 %%%----------------------------------------------------------------------
 
-start(Host) ->
+start(_Host) ->
     ok.
 
 
-stop(Host) ->
+stop(_Host) ->
     ok.
 
 

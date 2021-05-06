@@ -797,7 +797,7 @@ get_stats(global, Lang) ->
 		?XE(<<"tr">>,
 		    [?XCT(<<"td">>, ?T("Online Users:")),
 		     ?XC(<<"td">>, (pretty_string_int(OnlineUsers)))])])])];
-get_stats(Host, Lang) ->
+get_stats(_Host, Lang) ->
     OnlineUsers =
 	ejabberd_sm:ets_count_sessions(),
     RegisteredUsers =
@@ -811,7 +811,7 @@ get_stats(Host, Lang) ->
 		    [?XCT(<<"td">>, ?T("Online Users:")),
 		     ?XC(<<"td">>, (pretty_string_int(OnlineUsers)))])])])].
 
-list_online_users(Host, _Lang) ->
+list_online_users(_Host, _Lang) ->
     USRs = [S#session.usr || S <- ejabberd_sm:dirty_get_my_sessions_list()],
     Users = [{S, U}
 	     || {U, S, _R} <- USRs],

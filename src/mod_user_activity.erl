@@ -159,7 +159,7 @@ store_user_activity(User, _Server, Resource, TimestampMs, Status) ->
 
 -spec broadcast_presence(User :: binary(), Server :: binary(),
         TimestampMs :: undefined | integer(), Status :: undefined | activity_status()) -> ok.
-broadcast_presence(User, Server, TimestampMs, Status) ->
+broadcast_presence(User, _Server, TimestampMs, Status) ->
     LastSeen = case TimestampMs of
         undefined -> undefined;
         _ -> util:ms_to_sec(TimestampMs)

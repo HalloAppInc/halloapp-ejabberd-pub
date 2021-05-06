@@ -29,12 +29,12 @@
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 %% /invite
 process([],
-        #request{method = 'GET', q = Q, data = Data, ip = IP, headers = Headers} = _R) ->
+        #request{method = 'GET', q = Q, ip = IP, headers = Headers} = _R) ->
     try
         GroupToken = proplists:get_value(<<"g">>, Q, <<>>),
         UserAgent = util_http:get_user_agent(Headers),
         Platform = util_http:get_platform(UserAgent),
-        ?INFO("request Q:~p R: ~p, UserAgent ~p Platform: ~p", [Q, _R, UserAgent, Platform]),
+        ?INFO("request Q:~p R: ~p, UserAgent ~p Platform: ~p, IP: ~p", [Q, _R, UserAgent, Platform, IP]),
         Location = case Platform of
             android ->
                 <<?PLAY_STORE_URL/binary, GroupToken/binary>>;

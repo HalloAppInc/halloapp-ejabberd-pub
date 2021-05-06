@@ -128,7 +128,7 @@ lock_user(Uid) ->
     {ok, #s_pub{s_pub = SPub, ts_ms = _TsMs, uid = _Uid}} = get_spub(Uid),
     {Locked, LockedSize} = {?LOCKED, ?LOCKED_SIZE},
     case SPub of
-        <<Locked:LockedSize/binary, Rest/binary>> -> ok;
+        <<Locked:LockedSize/binary, _Rest/binary>> -> ok;
         _ ->
             SPub2 = <<?LOCKED/binary, SPub/binary>>,
             set_spub(Uid, SPub2)

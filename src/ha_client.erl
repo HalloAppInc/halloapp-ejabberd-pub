@@ -404,7 +404,7 @@ handle_raw_packet(PacketBytes, State) ->
     {Packet1, State1}.
 
 handle_auth_result(
-        #pb_auth_result{result = Result, reason = Reason, props_hash = _PropsHash} = PBAuthResult,
+        #pb_auth_result{result = Result, reason = Reason, props_hash = _PropsHash} = _PBAuthResult,
         State) ->
 %%    ?DEBUG("auth result: ~p", [PBAuthResult]),
     case Result of

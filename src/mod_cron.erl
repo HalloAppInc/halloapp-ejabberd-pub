@@ -238,7 +238,7 @@ cron_del(TaskId) ->
 %% Web Admin
 %% ---------------------
 
-web_menu_host(Acc, _Host, Lang) ->
+web_menu_host(Acc, _Host, _Lang) ->
     [{<<"cron">>, <<"Cron Tasks">>} | Acc].
 
 web_page_host(_, Host,

@@ -15,7 +15,12 @@
 
 %% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([
+    get_table_name/0,
+    retrieve_secret/1,
+    get_and_cache_secret/1,
+    get_cached_secret/1
+]).
 -endif.
 
 %% gen_mod API.

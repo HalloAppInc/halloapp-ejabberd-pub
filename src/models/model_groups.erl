@@ -443,7 +443,7 @@ is_removed_member(Gid, Uid) ->
 
 
 -spec add_removed_members(Gid :: gid(), Uids :: [uid()]) -> non_neg_integer().
-add_removed_members(Gid, []) ->
+add_removed_members(_Gid, []) ->
     0;
 add_removed_members(Gid, Uids) ->
     {ok, Res} = q(["SADD", group_removed_set_key(Gid) | Uids]),

@@ -388,7 +388,7 @@ share_group_feed(Gid, Uid) ->
 %% Uid is the user to which we want to send those posts.
 %% Now, we share all group feed posts to this user.
 -spec filter_group_feed_items(Uid :: uid(), Items :: [post()] | [comment()]) -> {[post()], [comment()]}.
-filter_group_feed_items(Uid, Items) ->
+filter_group_feed_items(_Uid, Items) ->
     {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
     FilteredPosts = Posts,
     FilteredPostIdsList = lists:map(fun(Post) -> Post#post.id end, FilteredPosts),

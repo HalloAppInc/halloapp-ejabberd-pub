@@ -244,8 +244,7 @@ parse_metadata(#pb_msg{id = Id, type = MsgType, payload = #pb_group_stanza{gid =
         push_type = get_push_type(MsgType, PayloadType, PushInfo)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_rerequest{} = _Payload} = Message, _PushInfo) ->
-    PayloadType = util:get_payload_type(Message),
+parse_metadata(#pb_msg{id = Id, payload = #pb_rerequest{} = _Payload} = _Message, _PushInfo) ->
     #push_metadata{
         content_id = Id,
         content_type = <<"rerequest">>,
@@ -261,7 +260,7 @@ parse_metadata(#pb_msg{to_uid = Uid, id = Id}, _PushInfo) ->
 %% updates. If we use the content_id which is the phone number in this case: we will not be sending
 %% other pushes for these messages.
 -spec record_push_sent(Message :: pb_msg(), PushInfo :: push_info()) -> boolean().
-record_push_sent(#pb_msg{id = MsgId, to_uid = UserId, payload = Payload}, PushInfo)
+record_push_sent(#pb_msg{id = MsgId, to_uid = UserId, payload = Payload}, _PushInfo)
         when is_record(Payload, pb_contact_list) ->
     model_messages:record_push_sent(UserId, MsgId);
 record_push_sent(Message, PushInfo) ->

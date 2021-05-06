@@ -242,7 +242,7 @@ process_auth_result(#{socket := Socket, ip := IP} = State, true, User) ->
             ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
     stat:count("HA/auth", "success", 1),
     State;
-process_auth_result(#{socket := Socket,ip := IP, lserver := LServer} = State,
+process_auth_result(#{socket := Socket,ip := IP, lserver := _LServer} = State,
         {false, Reason}, User) ->
     ?WARNING("(~ts) Failed c2s authentication ~tsfrom ~ts: Reason: ~ts",
         [halloapp_socket:pp(Socket), User,
