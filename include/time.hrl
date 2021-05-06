@@ -8,6 +8,9 @@
 %%%-------------------------------------------------------------------
 -author("nikola").
 
+-ifndef(TIME_HRL).
+-define(TIME_HRL, 1).
+
 -define(SECONDS, 1).
 -define(SECONDS_MS, 1000).
 
@@ -22,3 +25,5 @@
 
 -define(WEEKS, (7 * ?DAYS)).
 -define(WEEKS_MS, (7 * ?DAYS_MS)).
+
+-endif.
