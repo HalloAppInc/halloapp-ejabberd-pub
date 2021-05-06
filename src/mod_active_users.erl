@@ -77,6 +77,16 @@ update_last_activity(Uid, TimestampMs, Resource) ->
         undefined -> [MainKey];
         _ -> [MainKey, model_active_users:get_active_users_key(Uid, Type)]
     end,
-    ok = model_active_users:set_activity(Uid, TimestampMs, Keys),
+    case model_accounts:get_phone(Uid) of
+        {ok, Phone} ->
+            case util:is_test_number(Phone) of
+                false ->
+                    ok = model_active_users:set_activity(Uid, TimestampMs, Keys);
+                true ->
+                    ok
+            end;
+        {error, missing} ->
+            ?ERROR("Can not find the phone of active user? Uid: ~p", [Uid])
+    end,
     ok.
 

@@ -506,6 +506,7 @@ create_group_internal(Uid, GroupName) ->
             {ok, Gid} = model_groups:create_group(Uid, LGroupName),
             ?INFO("group created Gid: ~s Uid: ~s GroupName: |~s|", [Gid, Uid, LGroupName]),
             stat:count(?STAT_NS, "create"),
+            stat:count(?STAT_NS, "create_by_dev", 1, [{is_dev, dev_users:is_dev_uid(Uid)}]),
             {ok, Gid}
     end.
 

@@ -247,9 +247,14 @@ group_feed_item_retracted(Gid, Uid, ItemId, ItemType) ->
 -spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
 register_user(Uid, _Server, Phone) ->
     ?INFO("counting uid:~s", [Uid]),
-    stat:count("HA/account", "registration"),
-    CC = mod_libphonenumber:get_region_id(Phone),
-    stat:count("HA/account", "registration_by_cc", 1, [{cc, CC}]),
+    case util:is_test_number(Phone) of
+        false ->
+            stat:count("HA/account", "registration"),
+            CC = mod_libphonenumber:get_region_id(Phone),
+            stat:count("HA/account", "registration_by_cc", 1, [{cc, CC}]);
+        true ->
+            stat:count("HA/account", "registration_test_account")
+    end,
     new_user(Uid),
     ok.
 
@@ -295,11 +300,18 @@ user_receive_packet({Packet, _State} = Acc) ->
 -spec count_packet(Namespace :: string(), Action :: string(), Packet :: stanza()) -> ok.
 count_packet(Namespace, _Action, #pb_ack{}) ->
     stat:count(Namespace, "ack");
-count_packet(Namespace, Action, #pb_msg{payload = Payload} = Message) ->
+count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payload = Payload} = Message) ->
     PayloadType = pb:get_payload_type(Message),
     stat:count(Namespace, "message", 1, [{payload_type, PayloadType}]),
     case Payload of
-        #pb_chat_stanza{} -> stat:count("HA/messaging", Action ++ "_im");
+        #pb_chat_stanza{} ->
+            stat:count("HA/messaging", Action ++ "_im"),
+            Uid = case Action of
+                "send" -> FromUid;
+                "receive" -> ToUid
+            end,
+            IsDev = dev_users:is_dev_uid(Uid),
+            stat:count("HA/messaging", Action ++ "_im_by_dev", 1, [{is_dev, IsDev}]);
         #pb_seen_receipt{} -> stat:count("HA/im_receipts", Action ++ "_seen");
         #pb_delivery_receipt{} -> stat:count("HA/im_receipts", Action ++ "_received");
         _ -> ok
