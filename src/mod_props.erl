@@ -101,7 +101,8 @@ get_props(Uid, ClientVersion) ->
         group_sync_time => 1 * ?WEEKS, %% how often should clients sync group metadata
         group_invite_links => false, %% enables group_invite_links on the client.
         group_background => false, %% enables group_background on the client.
-        max_video_bit_rate => 8000000 %% max_video_bit_rate set to 8Mbps.
+        max_video_bit_rate => 8000000, %% max_video_bit_rate set to 8Mbps.
+        new_client_container => false %% indicates whether the client can start sending new container formats.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
