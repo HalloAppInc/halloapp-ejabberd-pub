@@ -13,7 +13,7 @@
 -include("ha_types.hrl").
 -include("redis_keys.hrl").
 -include("sms.hrl").
--include_lib("eunit/include/eunit.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 
 %% Export all functions for unit tests
@@ -153,7 +153,7 @@ get_sms_code_ttl(Phone) ->
     {ok, binary_to_integer(Res)}.
 
 
--spec add_sms_code2(Phone :: phone(), Code :: binary()) -> {ok, binary()}  | {error, any()}.
+-spec add_sms_code2(Phone :: phone(), Code :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
 add_sms_code2(Phone, Code) ->
     %% TODO(vipin): Need to clean verification attempt list when SMS code expire.
     AttemptId = generate_attempt_id(),
@@ -175,7 +175,7 @@ add_sms_code2(Phone, Code) ->
     ?DEBUG("Added at: ~p, Key: ~p", [IncrementalTimestamp, IncrementalTimestampKey]),
     _Result2 = qp([["SADD", IncrementalTimestampKey, term_to_binary({Phone, AttemptId})],
                    ["EXPIRE", IncrementalTimestampKey, ?TTL_INCREMENTAL_TIMESTAMP]]),
-    {ok, AttemptId}.
+    {ok, AttemptId, Timestamp}.
 
 
 %% TODO(vipin): Add unit test.
@@ -190,7 +190,7 @@ get_incremental_attempt_list(IncrementalTimestamp) ->
 delete_sms_code2(Phone) ->
     {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
     RedisCommands = lists:map(
-        fun(AttemptId) ->
+        fun({AttemptId, _TS}) ->
             ["DEL", verification_attempt_key(Phone, AttemptId)]
         end, VerificationAttemptList),
     case RedisCommands of
@@ -207,7 +207,7 @@ delete_sms_code2(Phone) ->
 get_all_sms_codes(Phone) ->
     {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
     RedisCommands = lists:map(
-        fun(AttemptId) ->
+        fun({AttemptId, _TS}) ->
             ["HGET", verification_attempt_key(Phone, AttemptId), ?FIELD_CODE]
         end, VerificationAttemptList),
     SMSCodeList = case RedisCommands of
@@ -215,9 +215,10 @@ get_all_sms_codes(Phone) ->
         _ -> qp(RedisCommands)
     end,
     CombinedList = lists:zipwith(
-        fun(YY, ZZ) ->
-            {ok, Code} = YY,
-            {Code, ZZ}
+        fun(SMSCode, VerificationAttempt) ->
+            {ok, Code} = SMSCode,
+            {Attempt, _TS} = VerificationAttempt,
+            {Code, Attempt}
         end, SMSCodeList, VerificationAttemptList),
     {ok, CombinedList}. 
 
@@ -229,15 +230,12 @@ get_sms_code2(Phone, AttemptId) ->
   {ok, Res}.
 
 
--spec get_verification_attempt_list(Phone :: phone()) -> {ok, [binary()]} | {error, any()}.
+-spec get_verification_attempt_list(Phone :: phone()) -> {ok, [{binary(), binary()}]} | {error, any()}.
 get_verification_attempt_list(Phone) ->
     Deadline = util:now() - ?TTL_SMS_CODE,
-    {ok, VerificationAttemptList} = q(["ZRANGEBYSCORE", verification_attempt_list_key(Phone),
-          integer_to_binary(Deadline), "+inf"]),
-
-    %% NOTE: We have chosen to not insert SMS Gateway tracked using 'add_sms_code_receipt(...)'.
-    %% As a result this method returns partial result during the upgrade.
-    {ok, VerificationAttemptList}.
+    {ok, Res} = q(["ZRANGEBYSCORE", verification_attempt_list_key(Phone),
+          integer_to_binary(Deadline), "+inf", "WITHSCORES"]),
+    {ok, util_redis:parse_zrange_with_scores(Res)}.
 
 
 -spec add_gateway_response(Phone :: phone(), AttemptId :: binary(), SMSResponse :: gateway_response())
@@ -272,22 +270,25 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
 get_all_gateway_responses(Phone) ->
     {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
     RedisCommands = lists:map(
-        fun(AttemptId) ->
+        fun({AttemptId, _TS}) ->
             ["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_METHOD,
-                ?FIELD_STATUS]
+                ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS]
         end, VerificationAttemptList),
     ResponseList = case RedisCommands of
         [] -> [];
         _ -> qp(RedisCommands)
     end,
-    SMSResponseList = lists:map(
-        fun({ok, [Sender, Method, Status]}) ->
+    SMSResponseList = lists:zipwith(
+        fun({AttemptId, AttemptTS}, {ok, [Sender, Method, Status, Success]}) ->
             #gateway_response{
                 gateway = util:to_atom(Sender),
                 method = decode_method(Method),
-                status = util:to_atom(Status)
+                status = util:to_atom(Status),
+                verified = util_redis:decode_boolean(Success, false),
+                attempt_id = AttemptId,
+                attempt_ts = AttemptTS
             }
-        end, ResponseList),
+        end, VerificationAttemptList, ResponseList),
     {ok, SMSResponseList}.
 
 

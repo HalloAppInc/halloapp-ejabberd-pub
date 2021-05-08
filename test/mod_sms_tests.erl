@@ -11,8 +11,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("sms.hrl").
+-include("time.hrl").
 
--compile(export_all).
 
 simple_test() ->
     ?assert(true).
@@ -30,6 +30,26 @@ generate_code_test() ->
     ?assert(Code =< 999999),
     ?assertEqual(<<"111111">>, mod_sms:generate_code(true)),
     ok.
+
+
+is_too_soon_test() ->
+    Now = util:now(),
+    
+    {false, _} = mod_sms:is_too_soon([]),
+    OldResponses = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 10)}],
+    %% Need 30 seconds gap.
+    {true, _} = mod_sms:is_too_soon(OldResponses),
+    OldResponses1 = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 30 * ?SECONDS)}],
+    {false, _} = mod_sms:is_too_soon(OldResponses1),
+    
+    OldResponses2 = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 50 * ?SECONDS)},
+                    #gateway_response{method = sms, attempt_ts = util:to_binary(Now - 21 * ?SECONDS)}],
+    %% Need 60 seconds gap.
+    {true, _} = mod_sms:is_too_soon(OldResponses2),
+    OldResponses3 = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 120 * ?SECONDS)},
+                    #gateway_response{method = sms, attempt_ts = util:to_binary(Now - 60 * ?SECONDS)}],
+    {false, _} = mod_sms:is_too_soon(OldResponses3).
+
 
 % twilio_test() ->
 %     State = mod_sms:make_state(),

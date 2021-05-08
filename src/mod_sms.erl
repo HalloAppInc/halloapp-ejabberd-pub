@@ -13,6 +13,8 @@
 -include("logger.hrl").
 -include("sms.hrl").
 -include("ha_types.hrl").
+-include("time.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -callback send_sms(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, sms_fail}.
 -callback send_voice_call(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, voice_call_fail}.
@@ -28,7 +30,9 @@
 -export([
     request_sms/2,
     request_otp/3,
-    verify_sms/2
+    verify_sms/2,
+    is_too_soon/1,  %% for testing
+    good_next_ts_diff/1  %% for testing
 ]).
 
 %%====================================================================
@@ -54,28 +58,39 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
--spec request_sms(Phone :: phone(), UserAgent :: binary()) -> ok | {error, term()}.
+-spec request_sms(Phone :: phone(), UserAgent :: binary()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 request_sms(Phone, UserAgent) ->
     request_otp(Phone, UserAgent, sms).
 
--spec request_otp(Phone :: phone(), UserAgent :: binary(), Method :: atom()) -> ok | {error, term()}.
+-spec request_otp(Phone :: phone(), UserAgent :: binary(), Method :: atom()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 request_otp(Phone, UserAgent, Method) ->
     Code = generate_code(util:is_test_number(Phone)),
-    {ok, NewAttemptId} = ejabberd_auth:try_enroll(Phone, Code),
     case util:is_test_number(Phone) of
-        true -> ok;
+        true ->
+            {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
+            {ok, 0};
         false ->
             {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
-            case send_otp(Phone, Code, UserAgent, Method, OldResponses) of
-                {ok, SMSResponse} ->
-                    ?INFO("Response: ~p", [SMSResponse]),
-                    model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
-                    ok;
-                {error, Reason} = Err ->
-                    ?ERROR("Unable to send ~p: ~p Phone: ~p", [Method, Reason, Phone]),
-                    Err
+            case is_too_soon(OldResponses) of
+                {true, WaitTs} -> {error, retried_too_soon, WaitTs};
+                {false, _} ->
+                    {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
+                    case send_otp(Phone, Code, UserAgent, Method, OldResponses) of
+                        {ok, SMSResponse} ->
+                            ?INFO("Response: ~p", [SMSResponse]),
+                            model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
+                            SMSResponse2 = SMSResponse#gateway_response{
+                                attempt_id = NewAttemptId, attempt_ts = Timestamp},
+                            AllResponses = OldResponses ++ [SMSResponse2],
+                            NextTs = find_next_ts(AllResponses),
+                            {ok, NextTs - Timestamp};
+                        {error, Reason} = Err ->
+                            ?ERROR("Unable to send ~p: ~p Phone: ~p", [Method, Reason, Phone]),
+                            Err
+                    end
             end
     end.
+
 
 -spec verify_sms(Phone :: phone(), Code :: binary()) -> match | nomatch.
 verify_sms(Phone, Code) ->
@@ -89,6 +104,38 @@ verify_sms(Phone, Code) ->
 
 
 %%====================================================================
+
+-spec is_too_soon(OldResponses :: [gateway_response()]) -> {boolean(), integer()}.
+is_too_soon(OldResponses) ->
+    NextTs = find_next_ts(OldResponses),
+    {NextTs > util:now(), NextTs - util:now()}.
+
+
+-spec find_next_ts(OldResponses :: [gateway_response()]) -> non_neg_integer().
+find_next_ts(OldResponses) ->
+    %% Find the last unsuccessful attempts.
+    ReverseOldResponses = lists:reverse(OldResponses),
+    FailedResponses = lists:takewhile(
+        fun(#gateway_response{verified = Success}) ->
+            Success =/= true
+        end, ReverseOldResponses),
+    OldResponses2 = lists:reverse(FailedResponses),
+    Len = length(OldResponses2),
+    if
+        Len == 0 ->
+            util:now() - 10;
+        true ->
+            %% A good amount of time away from the last unsuccessful attempt. Please note this is
+            %% approximation of exponential backoff.
+            #gateway_response{attempt_ts = LastTs} = lists:nth(Len, OldResponses2),
+            good_next_ts_diff(Len) + util:to_integer(LastTs)
+    end.
+
+
+%% 0 -> 30 seconds -> 60 seconds -> 120 seconds -> 240 seconds ...
+good_next_ts_diff(NumFailedAttempts) ->
+      ?assert(NumFailedAttempts > 0),
+      30 * ?SECONDS * trunc(math:pow(2, NumFailedAttempts - 1)).
 
 
 -spec send_otp(Phone :: phone(), Code :: binary(), UserAgent :: binary(), Method :: atom(),

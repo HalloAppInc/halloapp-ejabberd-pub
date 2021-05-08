@@ -260,13 +260,23 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
         check_ua(UserAgent),
         Method2 = get_otp_method(Method),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
-        request_otp(Phone, UserAgent, Method2),
-        {200, ?HEADER(?CT_JSON),
-            jiffy:encode({[
-                {phone, Phone},
-                {retry_after_secs, ?SMS_RETRY_AFTER_SECS},
-                {result, ok}
-            ]})}
+        case request_otp(Phone, UserAgent, Method2) of
+            {ok, RetryAfterSecs} ->
+                {200, ?HEADER(?CT_JSON),
+                    jiffy:encode({[
+                        {phone, Phone},
+                        {retry_after_secs, RetryAfterSecs},
+                        {result, ok}
+                    ]})};
+            {error, ErrorReason, RetrySecs} ->
+                {400, ?HEADER(?CT_JSON),
+                    jiffy:encode({[
+                        {phone, Phone},
+                        {retry_after_secs, RetrySecs},
+                        {error, ErrorReason},
+                        {result, fail}
+                    ]})}
+        end
     catch
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
@@ -289,6 +299,10 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
                 false -> util_http:return_400(sms_fail);
                 _ -> util_http:return_400(otp_fail)
             end;
+        error : retried_too_soon ->
+            ?INFO("request_otp error: sms_failed ~p", [Data]),
+            log_request_otp_error(retried_too_soon, otp),
+            util_http:return_400(retried_too_soon);
         error : voice_call_fail ->
             ?INFO("request_voice_call error: voice_call_failed ~p", [Data]),
             log_request_otp_error(voice_call_fail, voice_call),
@@ -318,12 +332,15 @@ log_request_otp_error(ErrorType, Method) ->
     ok.
 
 
--spec request_otp(Phone :: phone(), UserAgent :: binary(), Method :: atom()) -> ok | no_return(). % throws otp_fail
+-spec request_otp(Phone :: phone(), UserAgent :: binary(), Method :: atom()) -> {ok, integer()} | no_return(). % throws otp_fail
 request_otp(Phone, UserAgent, Method) ->
     case mod_sms:request_otp(Phone, UserAgent, Method) of
-        ok -> ok;
-        {error, Reason} = Error->
+        {ok, _} = Ret -> Ret;
+        {error, Reason} ->
             ?ERROR("could not send otp Reason: ~p Phone: ~P", [Reason, Phone]),
+            error(Reason);
+        {error, Reason, RetryTs} = Error->
+            ?ERROR("could not send otp Reason: ~p Ts: ~p Phone: ~P", [Reason, RetryTs, Phone]),
             Error
     end.
 

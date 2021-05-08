@@ -84,11 +84,12 @@ request_sms_test() ->
     GoodResponse = {200, ?HEADER(?CT_JSON),
         jiffy:encode({[
             {phone, ?TEST_PHONE},
-            {retry_after_secs, ?SMS_RETRY_AFTER_SECS},
+            {retry_after_secs, 0},
             {result, ok}
         ]})},
-    ?assertEqual(GoodResponse, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
-        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)})),
+    Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)}),
+    ?assertEqual(GoodResponse, Response),
     meck_finish(ejabberd_router).
 
 
@@ -304,7 +305,7 @@ request_and_check_sms_code_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?SMS_CODE)),
-    ok = mod_sms:request_sms(?TEST_PHONE, ?UA),
+    {ok, _} = mod_sms:request_sms(?TEST_PHONE, ?UA),
     ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?BAD_SMS_CODE)),
     ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?SMS_CODE)),
     meck_finish(ejabberd_router).

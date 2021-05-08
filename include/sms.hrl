@@ -16,8 +16,6 @@
 
 -define(TWILIO, <<"twilio">>).
 
--define(SMS_RETRY_AFTER_SECS, 15).
-
 -type status() :: accepted | queued | sending | sent | delivered | undelivered | failed | unknown.
 
 -record(gateway_response, {
@@ -28,7 +26,9 @@
     response :: binary(),
     price :: float(),
     currency :: binary(),
-    verified  :: boolean()
+    verified  :: boolean(),
+    attempt_id :: binary(),
+    attempt_ts :: non_neg_integer()
 }).
 
 -type gateway_response()  :: #gateway_response{}.

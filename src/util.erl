@@ -83,7 +83,6 @@ get_upload_server() ->
     <<"upload.s.halloapp.net">>.
 
 
-%% TODO(vipin): Try and cache the key and certificate.
 get_noise_key_material() ->
     [{?NOISE_STATIC_KEY, NoiseStaticKeyPair}, {?NOISE_SERVER_CERTIFICATE, NoiseCertificate}] =
             jsx:decode(mod_aws:get_secret(config:get_noise_secret_name())),
