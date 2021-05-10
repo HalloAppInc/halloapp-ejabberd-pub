@@ -414,26 +414,20 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
     EncryptedContent = base64:encode(encrypt_message(PushMessageItem, State)),
     %% TODO(murali@): remove other fields after 6months - 10-01-2021.
     %% accounts depending on this data will be deleted by then.
-    %% TODO(murali@): test and remove all fields except message and encrypted content.
-    MetadataMap = case util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.4.108">>) of
+    MetadataMap = case util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.4.111">>) of
         true ->
-            TempMap = #{
-                <<"content-id">> => PushMetadata#push_metadata.content_id,
-                %% Ideally clients should decode the pb message and then use this for metrics.
-                %% Easier to have this if we start sending it ourselves - filed an issue for ios.
-                <<"message-id">> => PushMessageItem#push_message_item.id,
-                <<"message">> => PbMessageB64,
-                <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract)
-                % <<"content">> => base64:encode(encrypt_message(PushMessageItem, State))
-            },
             EncryptedContentSize = byte_size(EncryptedContent),
-            case EncryptedContentSize < 1000 of
-                true ->
-                    ?INFO("Push contentId: ~p includes encrypted content size: ~p",
+            ?INFO("Push contentId: ~p includes encrypted content size: ~p",
                             [PushMetadata#push_metadata.content_id, EncryptedContentSize]),
-                    maps:put(<<"content">>, EncryptedContent, TempMap);
-                false -> TempMap
-            end;
+            case EncryptedContentSize > 3000 of
+                true ->
+                    ?WARNING("Push contentId: ~p size > 3000 bytes", [PushMetadata#push_metadata.content_id]);
+                false ->
+                    ok
+            end,
+            #{
+                <<"content">> => EncryptedContent
+            };
         false ->
             #{
                 <<"content-id">> => PushMetadata#push_metadata.content_id,
