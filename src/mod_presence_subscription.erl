@@ -21,7 +21,6 @@
 
 -include("logger.hrl").
 -include("packets.hrl").
--include("presence_subs.hrl").
 
 
 %% gen_mod API.

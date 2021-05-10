@@ -6,8 +6,8 @@
 %%% @end
 %%% Created : 16. Oct 2020 2:22 PM
 %%%-------------------------------------------------------------------
--ifndef(UTIL_HTTP).
--define(UTIL_HTTP, 1).
+-ifndef(UTIL_HTTP_HRL).
+-define(UTIL_HTTP_HRL, 1).
 
 -define(CT_XML,
     {<<"Content-Type">>, <<"text/xml; charset=utf-8">>}).

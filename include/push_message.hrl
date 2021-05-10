@@ -3,6 +3,10 @@
 %%%
 %%%----------------------------------------------------------------------------
 
+-ifndef(PUSH_MESSAGE_HRL).
+-define(PUSH_MESSAGE_HRL, 1).
+
+
 -include("account.hrl").
 -include("packets.hrl").
 
@@ -59,3 +63,4 @@
 
 -type push_metadata() :: #push_metadata{}.
 
+-endif.

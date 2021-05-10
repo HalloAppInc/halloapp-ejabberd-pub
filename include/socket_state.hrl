@@ -4,6 +4,9 @@
 %%%----------------------------------------------------------------------
 -author('murali').
 
+-ifndef(SOCKET_STATE_HRL).
+-define(SOCKET_STATE_HRL, 1).
+
 
 -type sockmod() :: gen_tcp | fast_tls | enoise | ext_mod().
 -type socket() :: inet:socket() | fast_tls:tls_socket() | ha_enoise:noise_socket() | ext_socket().
@@ -25,3 +28,5 @@
 
 
 -type socket_state() :: #socket_state{}.
+
+-endif.

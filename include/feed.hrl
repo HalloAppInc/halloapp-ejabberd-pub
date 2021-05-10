@@ -3,6 +3,10 @@
 %%%
 %%%----------------------------------------------------------------------
 
+-ifndef(FEED_HRL).
+-define(FEED_HRL, 1).
+
+
 -include("ha_types.hrl").
 -include("time.hrl").
 
@@ -11,44 +15,44 @@
 -type event_type() :: publish | retract | share.
 
 -record(psnode, {
-    id :: binary(),                     		%% node_id
-    uid :: binary(),                    		%% owner_uid
-    type :: node_type(),                		%% node_type
-    creation_ts_ms :: integer()                	%% creation_ts_ms
+    id :: binary(),                             %% node_id
+    uid :: binary(),                            %% owner_uid
+    type :: node_type(),                        %% node_type
+    creation_ts_ms :: integer()                 %% creation_ts_ms
 }).
 
 -type psnode() :: #psnode{}.
 
 -record(item, {
-    key :: {binary(), binary()},        		%% item_id, node_id
-    type :: item_type(),                		%% item_type
-    uid :: binary(),                    		%% publisher_uid
-    creation_ts_ms :: integer(),               	%% creation_ts_ms
-    payload :: any()                    		%% payload
+    key :: {binary(), binary()},                %% item_id, node_id
+    type :: item_type(),                        %% item_type
+    uid :: binary(),                            %% publisher_uid
+    creation_ts_ms :: integer(),                %% creation_ts_ms
+    payload :: any()                            %% payload
 }).
 
 -type item() :: #item{}.
 
 -record(post, {
-	id :: binary(),
-	uid :: uid(),
-	payload :: binary(),
-	audience_type :: atom(),
-	audience_list :: [uid()],
-	ts_ms :: integer(),
-	gid :: binary()
+    id :: binary(),
+    uid :: uid(),
+    payload :: binary(),
+    audience_type :: atom(),
+    audience_list :: [uid()],
+    ts_ms :: integer(),
+    gid :: binary()
 }).
 
 -type post() :: #post{}.
 
 
 -record(comment, {
-	id :: binary(),
-	post_id :: binary(),
-	publisher_uid :: uid(),
-	parent_id :: binary(),
-	payload :: binary(),
-	ts_ms :: integer()
+    id :: binary(),
+    post_id :: binary(),
+    publisher_uid :: uid(),
+    parent_id :: binary(),
+    payload :: binary(),
+    ts_ms :: integer()
 }).
 
 -type comment() :: #comment{}.
@@ -64,3 +68,4 @@
 -define(CATCH_UP_TIME_MS, 1 * ?WEEKS_MS).
 
 
+-endif.

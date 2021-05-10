@@ -10,6 +10,9 @@
 %%%-------------------------------------------------------------------
 -author("nikola").
 
+-ifndef(REDIS_KEYS_HRL).
+-define(REDIS_KEYS_HRL, 1).
+
 %% RedisAccounts (model_accounts)
 -define(ACCOUNT_KEY, <<"acc:">>).
 -define(DELETED_ACCOUNT_KEY, <<"dac:">>).
@@ -128,3 +131,4 @@
 -define(PID_KEY, <<"p:">>).
 -define(SESSIONS_KEY, <<"ss:">>).
 
+-endif.

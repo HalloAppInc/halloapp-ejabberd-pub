@@ -10,6 +10,10 @@
 
 -include("ha_types.hrl").
 
+-ifndef(GROUPS_HRL).
+-define(GROUPS_HRL, 1).
+
+
 -define(NS_GROUPS, <<"halloapp:groups">>).
 -define(NS_GROUPS_FEED, <<"halloapp:group:feed">>).
 
@@ -42,4 +46,6 @@
 -type group_info() :: #group_info{}.
 
 -define(MAX_GROUP_SIZE, 50).
+
+-endif.
 

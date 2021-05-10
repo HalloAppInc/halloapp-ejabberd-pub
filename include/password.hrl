@@ -8,6 +8,10 @@
 %%%-------------------------------------------------------------------
 -author("nikola").
 
+-ifndef(PASSWORD_HRL).
+-define(PASSWORD_HRL, 1).
+
+
 -record(password, {
     uid :: binary(),
     hashed_password :: binary(),
@@ -24,3 +28,4 @@
 -type password() :: #password{}.
 -type s_pub() :: #s_pub{}.
 
+-endif.

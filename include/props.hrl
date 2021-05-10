@@ -8,6 +8,11 @@
 %%%-------------------------------------------------------------------
 -author("josh").
 
+-ifndef(PROPS_HRL).
+-define(PROPS_HRL, 1).
+
+
 -define(NS_PROPS, <<"halloapp:props">>).
 -define(PROPS_SHA_HASH_LENGTH_BYTES, 6).
 
+-endif.

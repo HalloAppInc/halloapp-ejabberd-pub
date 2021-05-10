@@ -5,6 +5,10 @@
 %%%-------------------------------------------------------------------
 -author('vipin').
 
+-ifndef(UTIL_REDIS_HRL).
+-define(UTIL_REDIS_HRL, 1).
 
 -define(NUM_SLOTS, 256).
+
+-endif.
 

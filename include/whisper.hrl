@@ -2,6 +2,9 @@
 %%% Records for whisper_keys and whisper_otp_keys.
 %%%
 %%%----------------------------------------------------------------------
+-ifndef(WHISPER_HRL).
+-define(WHISPER_HRL, 1).
+
 -define(MAX_KEY_SIZE, 512).
 -define(MIN_KEY_SIZE, 32).
 -define(MAX_OTK_LENGTH, 256).
@@ -17,3 +20,4 @@
 
 -type user_whisper_key_set() :: #user_whisper_key_set{}.
 
+-endif.

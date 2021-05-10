@@ -8,6 +8,11 @@
 %% TODO(murali@): update content_type to be atom later.
 -author('murali').
 
+-ifndef(OFFLINE_MESSAGES_HRL).
+-define(OFFLINE_MESSAGES_HRL, 1).
+
+-include("time.hrl").
+
 -record(offline_message,
 {
     msg_id :: binary(),
@@ -26,3 +31,4 @@
 
 -define(MSG_EXPIRATION, (30 * ?DAYS)).
 
+-endif.

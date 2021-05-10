@@ -8,6 +8,9 @@
 %%%
 %%%----------------------------------------------------------------------
 
+-ifndef(PHONE_NUMBER_HRL).
+-define(PHONE_NUMBER_HRL, 1).
+
 -define(FILE_PHONE_NUMBER_METADATA, "PhoneNumberMetadata.xml").
 
 %% name of the table to hold all the country code information.
@@ -67,3 +70,6 @@
     e164_value :: list(),
     country_code_source :: countryCodeSource()
 }).
+
+-endif.
+

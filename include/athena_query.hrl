@@ -3,6 +3,10 @@
 %%%
 %%%----------------------------------------------------------------------------
 
+-ifndef(ATHENA_QUERY_HRL).
+-define(ATHENA_QUERY_HRL, 1).
+
+
 -record(athena_query, {
     query_bin :: binary(),
     query_token :: binary(),
@@ -20,3 +24,4 @@
 -define(ATHENA_DB, <<"default">>).
 -define(ATHENA_RESULT_S3_BUCKET, <<"s3://ha-athena-results">>).
 
+-endif.

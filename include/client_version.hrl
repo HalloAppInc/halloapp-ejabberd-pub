@@ -5,8 +5,14 @@
 %%%-------------------------------------------------------------------
 -author('murali').
 
+-include("time.hrl").
+
+-ifndef(CLIENT_VERSION_HRL).
+-define(CLIENT_VERSION_HRL, 1).
+
 
 -define(VERSION_VALIDITY, 60 * ?DAYS).
 
 -define(NUM_VERSION_SLOTS, 256).
 
+-endif.

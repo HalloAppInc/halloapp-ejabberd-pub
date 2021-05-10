@@ -9,7 +9,6 @@
 -author("nikola").
 
 -ifndef(HA_TYPES).
-
 -define(HA_TYPES, 1).
 
 -type maybe(T) :: T | undefined.

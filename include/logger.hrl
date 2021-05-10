@@ -18,6 +18,9 @@
 %%%
 %%%----------------------------------------------------------------------
 
+-ifndef(LOGGER_HRL).
+-define(LOGGER_HRL, 1).
+
 -define(PRINT(Format, Args), io:format(Format, Args)).
 -compile([{parse_transform, lager_transform}]).
 
@@ -84,3 +87,5 @@
 
 %% Uncomment if you want to debug p1_fsm/gen_fsm
 %%-define(DBGFSM, true).
+
+-endif.
