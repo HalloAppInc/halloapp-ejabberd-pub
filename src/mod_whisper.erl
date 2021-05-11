@@ -115,6 +115,19 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
         undefined ->
             ?ERROR("Invalid iq: ~p", [IQ]),
             pb:make_error(IQ, util:err(undefined_uid));
+        Uid ->
+            %% We allow clients to fetch their own identity keys to ensure they are not out of sync.
+            %% This query does not use any otp keys.
+            {ok, WhisperKeySet} = model_whisper_keys:get_key_set_without_otp(Ouid),
+            IdentityKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
+            SignedKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.signed_key),
+            pb:make_iq_result(IQ,
+                #pb_whisper_keys{
+                    uid = Ouid,
+                    identity_key = IdentityKey,
+                    signed_key = SignedKey,
+                    one_time_keys = []
+                });
         _ ->
             {ok, WhisperKeySet} = model_whisper_keys:get_key_set(Ouid),
             case WhisperKeySet of
