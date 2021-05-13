@@ -49,9 +49,6 @@
     disconnect_removed_user/2,
     get_user_resources/2,
     get_user_present_resources/2,
-    set_presence/6,
-    unset_presence/5,
-    close_session_unset_presence/5,
     dirty_get_my_sessions_list/0,
     ets_count_sessions/0,
     connected_users/0,
@@ -251,57 +248,7 @@ get_user_info(User, Server, Resource) ->
         [{Resource, Info}] -> Info
     end.
 
-
-% TODO: (nikola): Both set_presence and unset_presence can use helper function to get_session
--spec set_presence(sid(), binary(), binary(), binary(),
-                   prio(), presence()) -> ok | {error, notfound}.
-
-set_presence(SID, User, Server, Resource, Priority, Presence) ->
-    case get_sessions(User, Server, Resource) of
-        [] -> {error, notfound};
-        Ss ->
-            case lists:keyfind(SID, #session.sid, Ss) of
-                #session{info = Info} ->
-                    set_session(SID, User, Server, Resource, Priority, Info),
-                    ejabberd_hooks:run(set_presence_hook,
-                               Server,
-                               [User, Server, Resource, Presence]);
-                false ->
-                    {error, notfound}
-            end
-    end.
-
--spec unset_presence(sid(), binary(), binary(),
-                     binary(), binary()) -> ok | {error, notfound}.
-
-unset_presence(SID, User, Server, Resource, Status) ->
-    case get_sessions(User, Server, Resource) of
-        [] -> {error, notfound};
-        Ss ->
-            case lists:keyfind(SID, #session.sid, Ss) of
-                #session{info = Info} ->
-                    set_session(SID, User, Server, Resource, undefined, Info),
-                    ejabberd_hooks:run(unset_presence_hook,
-                               Server,
-                               [User, Server, Resource, Status]);
-                false ->
-                    {error, notfound}
-            end
-    end.
-
--spec close_session_unset_presence(sid(), binary(), binary(),
-                                   binary(), binary()) -> ok.
-
-close_session_unset_presence(SID, User, Server,
-                 Resource, Status) ->
-    ?INFO("SID: ~p User: ~p", [SID, User]),
-    close_session(SID, User, Server, Resource),
-    ejabberd_hooks:run(unset_presence_hook,
-               Server,
-               [User, Server, Resource, Status]).
-
 -spec get_session_pid(binary(), binary(), binary()) -> none | pid().
-
 get_session_pid(User, Server, Resource) ->
     case get_session_sid(User, Server, Resource) of
         {_, PID} -> PID;
@@ -309,7 +256,6 @@ get_session_pid(User, Server, Resource) ->
     end.
 
 -spec get_session_sid(binary(), binary(), binary()) -> none | sid().
-
 get_session_sid(User, Server, Resource) ->
     case get_sessions(User, Server, Resource) of
         [] ->
@@ -320,20 +266,17 @@ get_session_sid(User, Server, Resource) ->
     end.
 
 -spec get_session_sids(binary(), binary()) -> [sid()].
-
 get_session_sids(User, Server) ->
     Sessions = get_sessions(User, Server),
     [SID || #session{sid = SID} <- Sessions].
 
 -spec get_session_sids(binary(), binary(), binary()) -> [sid()].
-
 get_session_sids(User, Server, Resource) ->
     Sessions = get_sessions(User, Server, Resource),
     [SID || #session{sid = SID} <- Sessions].
 
 
 -spec dirty_get_my_sessions_list() -> [#session{}].
-
 dirty_get_my_sessions_list() ->
     ets:match(?SM_LOCAL, '$1').
 
