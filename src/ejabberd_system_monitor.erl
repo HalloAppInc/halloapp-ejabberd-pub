@@ -33,8 +33,7 @@
 -export([start/0, config_reloaded/0]).
 
 %% gen_event callbacks
--export([init/1, handle_event/2, handle_call/2,
-	 handle_info/2, terminate/2, code_change/3]).
+-export([init/1, handle_event/2, handle_call/2, handle_info/2, terminate/2, code_change/3]).
 
 %% We don't use ejabberd logger because lager can be overloaded
 %% too and alarm_handler may get stuck.
@@ -42,15 +41,17 @@
 
 -define(CHECK_INTERVAL, timer:seconds(30)).
 
--record(state, {tref :: undefined | reference(),
-		mref :: undefined | reference()}).
--record(proc_stat, {qlen :: non_neg_integer(),
-		    memory :: non_neg_integer(),
-		    initial_call :: mfa(),
-		    current_function :: mfa(),
-		    ancestors :: [pid() | atom()],
-		    application :: pid() | atom(),
-		    name :: pid() | atom()}).
+-record(state, {
+    tref :: undefined | reference(),
+    mref :: undefined | reference()}).
+-record(proc_stat, {
+    qlen :: non_neg_integer(),
+    memory :: non_neg_integer(),
+    initial_call :: mfa(),
+    current_function :: mfa(),
+    ancestors :: [pid() | atom()],
+    application :: pid() | atom(),
+    name :: pid() | atom()}).
 -type state() :: #state{}.
 -type proc_stat() :: #proc_stat{}.
 -type app_pids() :: #{pid() => atom()}.
@@ -92,14 +93,14 @@ handle_event({clear_alarm, system_memory_high_watermark}, State) ->
     {ok, State#state{tref = undefined}};
 handle_event({set_alarm, {process_memory_high_watermark, Pid}}, State) ->
     case proc_stat(Pid, get_app_pids()) of
-	#proc_stat{name = Name} = ProcStat ->
-	    error_logger:warning_msg(
-	      "Process ~p consumes more than 5% of OS memory (~ts)~n",
-	      [Name, format_proc(ProcStat)]),
-	    handle_overload(State),
-	    {ok, State};
-	_ ->
-	    {ok, State}
+        #proc_stat{name = Name} = ProcStat ->
+            error_logger:warning_msg(
+                "Process ~p consumes more than 5% of OS memory (~ts)~n",
+                [Name, format_proc(ProcStat)]),
+            handle_overload(State),
+            {ok, State};
+        _ ->
+            {ok, State}
     end;
 handle_event({clear_alarm, process_memory_high_watermark}, State) ->
     {ok, State};
@@ -135,87 +136,88 @@ handle_overload(_State, Procs) ->
     AppPids = get_app_pids(),
     {TotalMsgs, ProcsNum, Apps, Stats} = overloaded_procs(AppPids, Procs),
     MaxMsgs = ejabberd_option:oom_queue(),
-    if TotalMsgs >= MaxMsgs ->
-	    SortedStats = lists:reverse(lists:keysort(#proc_stat.qlen, Stats)),
-	    error_logger:warning_msg(
-	      "The system is overloaded with ~b messages "
-	      "queued by ~b process(es) (~b%) "
-	      "from the following applications: ~ts; "
-	      "the top processes are:~n~ts~n",
-	      [TotalMsgs, ProcsNum,
-	       round(ProcsNum*100/length(Procs)),
-	       format_apps(Apps),
-	       format_top_procs(SortedStats)]),
-	    kill(SortedStats, round(TotalMsgs/ProcsNum));
-       true ->
-	    ok
+    if
+        TotalMsgs >= MaxMsgs ->
+            SortedStats = lists:reverse(lists:keysort(#proc_stat.qlen, Stats)),
+            error_logger:warning_msg(
+                "The system is overloaded with ~b messages "
+                "queued by ~b process(es) (~b%) "
+                "from the following applications: ~ts; "
+                "the top processes are:~n~ts~n",
+                [TotalMsgs, ProcsNum,
+                round(ProcsNum*100/length(Procs)),
+                format_apps(Apps),
+                format_top_procs(SortedStats)]),
+            kill(SortedStats, round(TotalMsgs/ProcsNum));
+        true ->
+            ok
     end,
     lists:foreach(fun erlang:garbage_collect/1, Procs).
 
 -spec get_app_pids() -> app_pids().
 get_app_pids() ->
     try application:info() of
-	Info ->
-	    case lists:keyfind(running, 1, Info) of
-		{_, Apps} ->
-		    lists:foldl(
-		      fun({Name, Pid}, M) when is_pid(Pid) ->
-			      maps:put(Pid, Name, M);
-			 (_, M) ->
-			      M
-		      end, #{}, Apps);
-		false ->
-		    #{}
-	    end
+        Info ->
+            case lists:keyfind(running, 1, Info) of
+                {_, Apps} ->
+                    lists:foldl(
+                        fun
+                            ({Name, Pid}, M) when is_pid(Pid) ->
+                                maps:put(Pid, Name, M);
+                            (_, M) ->
+                                M
+                        end, #{}, Apps);
+                false ->
+                    #{}
+            end
     catch _:_ ->
-	    #{}
+        #{}
     end.
 
 -spec overloaded_procs(app_pids(), [pid()])
       -> {non_neg_integer(), non_neg_integer(), dict:dict(), [proc_stat()]}.
 overloaded_procs(AppPids, AllProcs) ->
     lists:foldl(
-      fun(Pid, {TotalMsgs, ProcsNum, Apps, Stats}) ->
-	      case proc_stat(Pid, AppPids) of
-		  #proc_stat{qlen = QLen, application = App} = Stat
-		    when QLen > 0 ->
-		      {TotalMsgs + QLen, ProcsNum + 1,
-		       dict:update_counter(App, QLen, Apps),
-		       [Stat|Stats]};
-		  _ ->
-		      {TotalMsgs, ProcsNum, Apps, Stats}
-	      end
-      end, {0, 0, dict:new(), []}, AllProcs).
+        fun(Pid, {TotalMsgs, ProcsNum, Apps, Stats}) ->
+            case proc_stat(Pid, AppPids) of
+                #proc_stat{qlen = QLen, application = App} = Stat when QLen > 0 ->
+                    {TotalMsgs + QLen, ProcsNum + 1,
+                        dict:update_counter(App, QLen, Apps),
+                        [Stat|Stats]};
+                _ ->
+                    {TotalMsgs, ProcsNum, Apps, Stats}
+            end
+        end, {0, 0, dict:new(), []}, AllProcs).
 
 -spec proc_stat(pid(), app_pids()) -> proc_stat() | undefined.
 proc_stat(Pid, AppPids) ->
     case process_info(Pid, [message_queue_len,
-			    memory,
-			    initial_call,
-			    current_function,
-			    dictionary,
-			    group_leader,
-			    registered_name]) of
-	[{_, MsgLen}, {_, Mem}, {_, InitCall},
-	 {_, CurrFun}, {_, Dict}, {_, GL}, {_, Name}] ->
-	    IntLen = proplists:get_value('$internal_queue_len', Dict, 0),
-	    TrueInitCall = proplists:get_value('$initial_call', Dict, InitCall),
-	    Ancestors = proplists:get_value('$ancestors', Dict, []),
-	    Len = IntLen + MsgLen,
-	    App = maps:get(GL, AppPids, kernel),
-	    RegName = case Name of
-			  [] -> Pid;
-			  _ -> Name
-		      end,
-	    #proc_stat{qlen = Len,
-		       memory = Mem,
-		       initial_call = TrueInitCall,
-		       current_function = CurrFun,
-		       ancestors = Ancestors,
-		       application = App,
-		       name = RegName};
-	_ ->
-	    undefined
+                memory,
+                initial_call,
+                current_function,
+                dictionary,
+                group_leader,
+                registered_name]) of
+        [{_, MsgLen}, {_, Mem}, {_, InitCall}, {_, CurrFun}, {_, Dict}, {_, GL}, {_, Name}] ->
+            IntLen = proplists:get_value('$internal_queue_len', Dict, 0),
+            TrueInitCall = proplists:get_value('$initial_call', Dict, InitCall),
+            Ancestors = proplists:get_value('$ancestors', Dict, []),
+            Len = IntLen + MsgLen,
+            App = maps:get(GL, AppPids, kernel),
+            RegName = case Name of
+                [] -> Pid;
+                _ -> Name
+            end,
+            #proc_stat{
+                qlen = Len,
+                memory = Mem,
+                initial_call = TrueInitCall,
+                current_function = CurrFun,
+                ancestors = Ancestors,
+                application = App,
+                name = RegName};
+        _ ->
+            undefined
     end.
 
 -spec restart_timer(#state{}) -> #state{}.
@@ -228,27 +230,26 @@ restart_timer(State) ->
 format_apps(Apps) ->
     AppList = lists:reverse(lists:keysort(2, dict:to_list(Apps))),
     string:join(
-      [io_lib:format("~p (~b msgs)", [App, Msgs]) || {App, Msgs} <- AppList],
-      ", ").
+        [io_lib:format("~p (~b msgs)", [App, Msgs]) || {App, Msgs} <- AppList],
+        ", ").
 
 -spec format_top_procs([proc_stat()]) -> iodata().
 format_top_procs(Stats) ->
     Stats1 = lists:sublist(Stats, 5),
     string:join(
-      lists:map(
-	fun(#proc_stat{name = Name} = Stat) ->
-		[io_lib:format("** ~w: ", [Name]), format_proc(Stat)]
-	end,Stats1),
+        lists:map(
+            fun(#proc_stat{name = Name} = Stat) ->
+                [io_lib:format("** ~w: ", [Name]), format_proc(Stat)]
+            end, Stats1),
       io_lib:nl()).
 
 -spec format_proc(proc_stat()) -> iodata().
 format_proc(#proc_stat{qlen = Len, memory = Mem, initial_call = InitCall,
-		       current_function = CurrFun, ancestors = Ancs,
-		       application = App}) ->
+        current_function = CurrFun, ancestors = Ancs, application = App}) ->
     io_lib:format(
-      "msgs = ~b, memory = ~b, initial_call = ~ts, "
-      "current_function = ~ts, ancestors = ~w, application = ~w",
-      [Len, Mem, format_mfa(InitCall), format_mfa(CurrFun), Ancs, App]).
+        "msgs = ~b, memory = ~b, initial_call = ~ts, "
+        "current_function = ~ts, ancestors = ~w, application = ~w",
+        [Len, Mem, format_mfa(InitCall), format_mfa(CurrFun), Ancs, App]).
 
 -spec format_mfa(mfa()) -> iodata().
 format_mfa({M, F, A}) when is_atom(M), is_atom(F), is_integer(A) ->
@@ -259,41 +260,42 @@ format_mfa(WTF) ->
 -spec kill([proc_stat()], non_neg_integer()) -> ok.
 kill(Stats, Threshold) ->
     case ejabberd_option:oom_killer() of
-	true ->
-	    do_kill(Stats, Threshold);
-	false ->
-	    ok
+        true ->
+            do_kill(Stats, Threshold);
+        false ->
+            ok
     end.
 
 -spec do_kill([proc_stat()], non_neg_integer()) -> ok.
 do_kill(Stats, Threshold) ->
     Killed = lists:filtermap(
-	       fun(#proc_stat{qlen = Len, name = Name, application = App})
-		     when Len >= Threshold ->
-		       case lists:member(App, excluded_apps()) of
-			   true ->
-			       error_logger:warning_msg(
-				 "Unable to kill process ~p from whitelisted "
-				 "application ~p~n", [Name, App]),
-			       false;
-			   false ->
-			       case kill_proc(Name) of
-				   false ->
-				       false;
-				   Pid ->
-				       {true, Pid}
-			       end
-		       end;
-		  (_) ->
-		       false
-	       end, Stats),
+        fun
+            (#proc_stat{qlen = Len, name = Name, application = App}) when Len >= Threshold ->
+                case lists:member(App, excluded_apps()) of
+                    true ->
+                        error_logger:warning_msg(
+                            "Unable to kill process ~p from whitelisted "
+                            "application ~p~n", [Name, App]),
+                        false;
+                    false ->
+                        case kill_proc(Name) of
+                            false ->
+                                false;
+                            Pid ->
+                                {true, Pid}
+                        end
+               end;
+            (_) ->
+                false
+        end, Stats),
     TotalKilled = length(Killed),
-    if TotalKilled > 0 ->
-	    error_logger:error_msg(
-	      "Killed ~b process(es) consuming more than ~b message(s) each~n",
-	      [TotalKilled, Threshold]);
-       true ->
-	    ok
+    if
+        TotalKilled > 0 ->
+            error_logger:error_msg(
+                "Killed ~b process(es) consuming more than ~b message(s) each~n",
+                [TotalKilled, Threshold]);
+        true ->
+            ok
     end.
 
 -spec kill_proc(pid() | atom()) -> false | pid().
