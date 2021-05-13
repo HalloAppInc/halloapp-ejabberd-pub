@@ -75,13 +75,15 @@ get_platform(UserAgent) ->
 
 -spec get_ip(IP :: tuple(), Headers :: list()) -> list().
 get_ip(IP, Headers) ->
-    ForwardedIP = util_http:get_header('X-Forwarded-For', Headers),
-    case ForwardedIP of
+    ForwardedFor = util_http:get_header('X-Forwarded-For', Headers),
+    case ForwardedFor of
         undefined ->
             case IP of
                 undefined -> "0.0.0.0";
                 IP -> inet:ntoa(IP)
             end;
-        ForwardedIP -> binary_to_list(ForwardedIP)
+        ForwardedFor ->
+            [ClientIP | _Rest] = binary:split(ForwardedFor, <<",">>, [global]),
+            binary_to_list(ClientIP)
     end.
 
