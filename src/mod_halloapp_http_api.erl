@@ -236,8 +236,8 @@ process([<<"registration">>, <<"update_key">>],
 process([<<"_ok">>], _Request) ->
     {200, ?HEADER(?CT_PLAIN), <<"ok">>};
 process(Path, Request) ->
-    ?WARNING("Bad Request: path: ~p, r:~p", [Path, Request]),
-    util_http:return_400().
+    ?INFO("404 Not Found: path: ~p, r:~p", [Path, Request]),
+    util_http:return_404().
 
 -spec process_otp_request(Data :: string(), IP :: string(), Headers :: list(),
     MethodInRequest :: boolean()) -> http_response().

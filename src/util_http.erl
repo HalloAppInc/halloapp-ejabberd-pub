@@ -17,6 +17,7 @@
 -export([
     return_400/0,
     return_400/1,
+    return_404/0,
     return_500/0,
     get_header/2,
     get_user_agent/1,
@@ -26,7 +27,6 @@
 
 -spec return_400(term()) -> http_response().
 return_400(Error) ->
-    ?WARNING("400 ~p", [Error]),
     {400, ?HEADER(?CT_JSON), jiffy:encode({[
         {result, fail},
         {error, Error}]})}.
@@ -35,6 +35,10 @@ return_400(Error) ->
 -spec return_400() -> http_response().
 return_400() ->
     return_400(bad_request).
+
+-spec return_404() -> http_response().
+return_404() ->
+    {404, ?HEADER(?CT_PLAIN), <<"Not Found">>}.
 
 
 -spec return_500() -> http_response().

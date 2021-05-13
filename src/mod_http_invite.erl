@@ -56,8 +56,8 @@ process([],
     end;
 
 process(Path, Request) ->
-    ?WARNING("Bad Request: path: ~p, r:~p", [Path, Request]),
-    util_http:return_400().
+    ?INFO("404 Not Found path: ~p, r:~p", [Path, Request]),
+    util_http:return_404().
 
 
 start(_Host, Opts) ->
