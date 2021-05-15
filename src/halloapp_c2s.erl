@@ -197,37 +197,37 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %% then other servers cant encode this message because the record has a new field. 
 %% similarly the updated server cant encode it because it is missing a field.
 %% so this function helps us transform packets across servers.
-upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
-    case MsgPayload of
-        #pb_chat_stanza{} -> Msg;
-        {pb_chat_stanza, Timestamp, Payload, EncPayload,
-        PublicKey, OneTimeKeyId, SenderName, SenderLogInfo, SenderClientVersion} ->
-            NewMsgPayload = #pb_chat_stanza{
-                timestamp = Timestamp,
-                payload = Payload,
-                enc_payload = EncPayload,
-                public_key = PublicKey,
-                one_time_pre_key_id = OneTimeKeyId,
-                sender_name = SenderName,
-                sender_log_info = SenderLogInfo,
-                sender_client_version = SenderClientVersion
-            },
-            Msg#pb_msg{payload = NewMsgPayload};
-        {pb_chat_stanza, Timestamp, Payload, EncPayload,
-        PublicKey, OneTimeKeyId, SenderName, _SenderPhone, SenderLogInfo, SenderClientVersion} ->
-            NewMsgPayload = #pb_chat_stanza{
-                timestamp = Timestamp,
-                payload = Payload,
-                enc_payload = EncPayload,
-                public_key = PublicKey,
-                one_time_pre_key_id = OneTimeKeyId,
-                sender_name = SenderName,
-                sender_log_info = SenderLogInfo,
-                sender_client_version = SenderClientVersion
-            },
-            Msg#pb_msg{payload = NewMsgPayload};
-        _ -> Msg
-    end;
+% upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
+%     case MsgPayload of
+%         #pb_chat_stanza{} -> Msg;
+%         {pb_chat_stanza, Timestamp, Payload, EncPayload,
+%         PublicKey, OneTimeKeyId, SenderName, SenderLogInfo, SenderClientVersion} ->
+%             NewMsgPayload = #pb_chat_stanza{
+%                 timestamp = Timestamp,
+%                 payload = Payload,
+%                 enc_payload = EncPayload,
+%                 public_key = PublicKey,
+%                 one_time_pre_key_id = OneTimeKeyId,
+%                 sender_name = SenderName,
+%                 sender_log_info = SenderLogInfo,
+%                 sender_client_version = SenderClientVersion
+%             },
+%             Msg#pb_msg{payload = NewMsgPayload};
+%         {pb_chat_stanza, Timestamp, Payload, EncPayload,
+%         PublicKey, OneTimeKeyId, SenderName, _SenderPhone, SenderLogInfo, SenderClientVersion} ->
+%             NewMsgPayload = #pb_chat_stanza{
+%                 timestamp = Timestamp,
+%                 payload = Payload,
+%                 enc_payload = EncPayload,
+%                 public_key = PublicKey,
+%                 one_time_pre_key_id = OneTimeKeyId,
+%                 sender_name = SenderName,
+%                 sender_log_info = SenderLogInfo,
+%                 sender_client_version = SenderClientVersion
+%             },
+%             Msg#pb_msg{payload = NewMsgPayload};
+%         _ -> Msg
+%     end;
 upgrade_packet(Packet) -> Packet.
 
 
