@@ -383,7 +383,7 @@ broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza) ->
         fun(ToUid) ->
             MsgType = get_message_type(ResultStanza, PushSet, ToUid),
             Packet = #pb_msg{
-                id = util:new_msg_id(),
+                id = util_id:new_msg_id(),
                 to_uid = ToUid,
                 type = MsgType,
                 payload = ResultStanza
@@ -442,7 +442,7 @@ send_old_items(FromUid, ToUid, Server) ->
         [] -> ok;
         _ ->
             Packet = #pb_msg{
-                id = util:new_msg_id(),
+                id = util_id:new_msg_id(),
                 to_uid = ToUid,
                 type = normal,
                 payload = #pb_feed_items{
@@ -488,7 +488,7 @@ share_feed_items(Uid, FriendUid, _Server, PostIds) ->
 
     MsgType = normal,
     Packet = #pb_msg{
-        id = util:new_msg_id(),
+        id = util_id:new_msg_id(),
         to_uid = FriendUid,
         type = MsgType,
         payload = #pb_feed_items{

@@ -49,7 +49,7 @@ close() ->
 make_signed_url(Expires) ->
     %% Generate uuid, reference: RFC 4122. Do url friendly base64 encoding of
     %% the uuid.
-    Key = binary_to_list(base64url:encode(uuid:uuid1())),
+    Key = binary_to_list(base64url:encode(util_id:new_uuid())),
     SignedUrl = make_signed_url(put, Expires, Key),
     {Key, SignedUrl}.
 

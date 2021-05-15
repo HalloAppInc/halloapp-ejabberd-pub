@@ -106,7 +106,7 @@ create_group(Uid, Name) ->
 
 -spec create_group(Uid :: uid(), Name :: binary(), Ts :: integer()) -> {ok, Gid :: gid()}.
 create_group(Uid, Name, Ts) ->
-    Gid = util:generate_gid(),
+    Gid = util_id:generate_gid(),
     MemberValue = encode_member_value(admin, util:now_ms(), Uid),
     [{ok, _}, {ok, _}, {ok, _}] = qp([
         ["HSET",

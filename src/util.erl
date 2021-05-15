@@ -31,20 +31,14 @@
     random_str/1,
     random_shuffle/1,
     generate_password/0,
-    generate_gid/0,
     type/1,
     to_integer/1,
     to_atom/1,
     to_binary/1,
     to_list/1,
-    new_msg_id/0,
-    new_avatar_id/0,
     list_to_map/1,
     ms_to_sec/1,
     send_after/2,
-    new_uuid/0,
-    uuid_binary/0,
-    new_short_id/0,
     timestamp_to_datetime/1,
     decode_base_64/1,
     is_test_number/1,
@@ -66,7 +60,6 @@
 -endif.
 
 -define(PASSWORD_SIZE, 24).
--define(GID_SIZE, 22).
 
 -spec get_host() -> binary().
 get_host() ->
@@ -157,11 +150,6 @@ random_shuffle(L) ->
 generate_password() ->
     random_str(?PASSWORD_SIZE).
 
--spec generate_gid() -> binary().
-generate_gid() ->
-    GidPart = random_str(?GID_SIZE - 1),
-    <<"g", GidPart/binary>>.
-
 
 type(X) when is_binary(X) ->
     "binary";
@@ -238,20 +226,6 @@ to_list(Data) ->
             undefined
     end.
 
--spec new_msg_id() -> binary().
-new_msg_id() ->
-    new_base64_uuid().
-
-
--spec new_avatar_id() -> binary().
-new_avatar_id() ->
-    new_base64_uuid().
-
-
--spec new_base64_uuid() -> binary().
-new_base64_uuid() ->
-    base64url:encode(uuid:uuid1()).
-
 
 list_to_map(L) ->
     list_to_map(L, #{}).
@@ -281,22 +255,6 @@ ms_to_sec(MilliSeconds) when is_integer(MilliSeconds) ->
 send_after(TimeoutMs, Msg) ->
     NewTimer = erlang:send_after(TimeoutMs, self(), Msg),
     NewTimer.
-
-
--spec new_uuid() -> binary().
-new_uuid() ->
-    uuid_binary().
-
-
--spec uuid_binary() -> binary().
-uuid_binary() ->
-    list_to_binary(uuid:to_string(uuid:uuid1())).
-
-
-%% wont be unique at scale.
--spec new_short_id() -> binary().
-new_short_id() ->
-    base64url:encode(crypto:strong_rand_bytes(6)).
 
 
 %% does not throw exception return error instead.

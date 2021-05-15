@@ -57,7 +57,7 @@ route(#pb_iq{type = T} = IQ, Proc, Ctx, Timeout) when T == set; T == get ->
 -spec do_route(iq(), atom() | pid(), term(), non_neg_integer()) -> ok.
 do_route(IQ, Proc, Ctx, Timeout) ->
     Expire = current_time() + Timeout,
-    Id = base64url:encode(crypto:strong_rand_bytes(10)),
+    Id = util_id:new_short_id(),
     ets:insert(?MODULE, {Id, Expire, Proc, Ctx}),
     gen_server:cast(?MODULE, {restart_timer, Expire}),
     ejabberd_router:route(pb:set_id(IQ, Id)).

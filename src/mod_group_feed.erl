@@ -306,7 +306,7 @@ broadcast_group_feed_event(Uid, AudienceSet, PushSet, PBGroupFeed) ->
         fun(ToUid) ->
             MsgType = get_message_type(PBGroupFeed, PushSet, ToUid),
             Packet = #pb_msg{
-                id = util:new_msg_id(),
+                id = util_id:new_msg_id(),
                 to_uid = ToUid,
                 from_uid = Uid,
                 type = MsgType,
@@ -370,7 +370,7 @@ share_group_feed(Gid, Uid) ->
         [] -> ok;
         _ ->
             Packet = #pb_msg{
-                id = util:new_msg_id(),
+                id = util_id:new_msg_id(),
                 to_uid = Uid,
                 type = normal,
                 payload = #pb_group_feed_items{

@@ -772,7 +772,7 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     UidsToNotify = sets:from_list(Members ++ AdditionalUids),
     BroadcastUids = sets:to_list(UidsToNotify),
     Packet = #pb_msg{
-        id = util:new_msg_id(),
+        id = util_id:new_msg_id(),
         type = groupchat,
         payload = GroupSt
     },

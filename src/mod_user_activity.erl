@@ -164,7 +164,7 @@ broadcast_presence(User, _Server, TimestampMs, Status) ->
         undefined -> undefined;
         _ -> util:ms_to_sec(TimestampMs)
     end,
-    Presence = #pb_presence{id = util:new_short_id(), from_uid = User, uid = User,
+    Presence = #pb_presence{id = util_id:new_short_id(), from_uid = User, uid = User,
             type = Status, last_seen = LastSeen},
     BroadcastUIDs = mod_presence_subscription:get_broadcast_uids(User),
     ?INFO("Uid: ~s, BroadcastUIDs: ~p, status: ~p", [User, BroadcastUIDs, Status]),
@@ -196,13 +196,13 @@ check_and_send_presence(_, #activity{status = undefined}, _) ->
     ok;
 check_and_send_presence(ToUid, #activity{status = available} = Activity, FromUid) ->
     ?INFO("FromUid: ~s, ToUid: ~s, activity: ~p", [FromUid, ToUid, Activity]),
-    Packet = #pb_presence{id = util:new_short_id(), from_uid = FromUid, to_uid = ToUid,
+    Packet = #pb_presence{id = util_id:new_short_id(), from_uid = FromUid, to_uid = ToUid,
             uid = FromUid, type = available},
     ejabberd_router:route(Packet);
 check_and_send_presence(ToUid,
         #activity{last_activity_ts_ms = LastSeen, status = away} = Activity, FromUid) ->
     ?INFO("FromUid: ~s, ToUid: ~s, activity: ~p", [FromUid, ToUid, Activity]),
-    Packet = #pb_presence{id = util:new_short_id(), from_uid = FromUid, to_uid = ToUid, uid = FromUid,
+    Packet = #pb_presence{id = util_id:new_short_id(), from_uid = FromUid, to_uid = ToUid, uid = FromUid,
             type = away, last_seen = util:ms_to_sec(LastSeen)},
     ejabberd_router:route(Packet).
 

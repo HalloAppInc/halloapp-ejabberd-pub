@@ -127,7 +127,7 @@ run_athena_queries(#{queries := Queries} = State) ->
     try
         Queries1 = lists:map(
             fun(#athena_query{query_bin = QueryBin} = Query) ->
-                Token = util:new_uuid(),
+                Token = util_id:new_uuid(),
                 {ok, ExecToken} = erlcloud_athena:start_query_execution(Token,
                         ?ATHENA_DB, QueryBin, ?ATHENA_RESULT_S3_BUCKET),
                 Query#athena_query{query_token = Token, result_token = ExecToken}

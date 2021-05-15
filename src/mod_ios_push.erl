@@ -363,7 +363,7 @@ push_message_item(PushMessageItem, PushMetadata, State) ->
     end,
     PushType = PushMetadata#push_metadata.push_type,
     PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType, State),
-    ApnsId = util:uuid_binary(),
+    ApnsId = util_id:new_uuid(),
     ContentId = PushMetadata#push_metadata.content_id,
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
@@ -563,8 +563,8 @@ get_apns_port(dev) ->
 send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
     BuildType = dev,
     PushType = util:to_atom(PushTypeBin),
-    ContentId = util:uuid_binary(),
-    ApnsId = util:uuid_binary(),
+    ContentId = util_id:new_long_id(),
+    ApnsId = util_id:new_uuid(),
     PushMessageItem = #push_message_item{
         id = ContentId,
         uid = Uid,

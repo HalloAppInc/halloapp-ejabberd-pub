@@ -209,7 +209,7 @@ user_avatar_published(UserId, _Server, AvatarId) ->
     lists:foreach(
         fun(FriendId) ->
             Message = #pb_msg{
-                id = util:new_msg_id(),
+                id = util_id:new_msg_id(),
                 to_uid = FriendId,
                 payload = #pb_avatar{uid = UserId, id = AvatarId}},
             ejabberd_router:route(Message)
@@ -218,7 +218,7 @@ user_avatar_published(UserId, _Server, AvatarId) ->
 
 -spec upload_avatar(BinaryData :: binary()) -> {ok, avatar_id()} | error.
 upload_avatar(BinaryData) ->
-    AvatarId = util:new_avatar_id(),
+    AvatarId = util_id:new_avatar_id(),
     case upload_avatar(?AWS_BUCKET_NAME, AvatarId, BinaryData) of
         ok -> {ok, AvatarId};
         error -> error

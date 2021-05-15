@@ -37,7 +37,7 @@ send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, Conta
 
     Payload = #pb_contact_list{type = ContactListType, contacts = [Contact]},
     Stanza = #pb_msg{
-        id = util:new_msg_id(),
+        id = util_id:new_msg_id(),
         type = MessageType,
         to_uid = ContactId,
         payload = Payload

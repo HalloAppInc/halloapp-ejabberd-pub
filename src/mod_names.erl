@@ -104,7 +104,7 @@ user_name_updated(Uid, Name) ->
     lists:foreach(
         fun(OUid) ->
             Message = #pb_msg{
-                id = util:new_msg_id(),
+                id = util_id:new_msg_id(),
                 to_uid = OUid,
                 type = normal,
                 payload = #pb_name{uid = Uid, name = Name}

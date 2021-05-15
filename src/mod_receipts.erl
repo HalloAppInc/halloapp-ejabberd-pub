@@ -68,7 +68,7 @@ send_receipt(ToUid, FromUid, Id, ThreadId, Timestamp) ->
     ?INFO("FromUid: ~s, ToUid: ~s, Id: ~p, ThreadId: ~p, Timestamp: ~p",
             [FromUid, ToUid, Id, ThreadId, Timestamp]),
     MessageReceipt = #pb_msg{
-        id = util:new_msg_id(),
+        id = util_id:new_msg_id(),
         to_uid = ToUid,
         from_uid = FromUid,
         payload = #pb_delivery_receipt{

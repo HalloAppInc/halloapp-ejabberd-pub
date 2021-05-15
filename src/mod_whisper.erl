@@ -232,7 +232,7 @@ check_count_and_notify_user(Uid, _Server) ->
     case Count < ?MIN_OTP_KEY_COUNT of
         true ->
             Message = #pb_msg{
-                id = util:new_msg_id(),
+                id = util_id:new_msg_id(),
                 to_uid = Uid,
                 payload = #pb_whisper_keys{uid = Uid, otp_key_count = Count}
             },
@@ -256,7 +256,7 @@ notify_key_subscribers(Uid, _Server) ->
     ?INFO("Uid: ~s", [Uid]),
     {ok, Ouids} = model_whisper_keys:get_all_key_subscribers(Uid),
     Packet = #pb_msg{
-        id = util:new_msg_id(),
+        id = util_id:new_msg_id(),
         payload = #pb_whisper_keys{action = update, uid = Uid}
     },
     ejabberd_router:route_multicast(<<>>, Ouids, Packet),

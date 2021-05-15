@@ -656,7 +656,7 @@ probe_contact_about_user(UserId, UserPhone, Server, ContactId) ->
 send_probe_message(UserId, HashValue, ContactId, Server) ->
     Payload = #pb_contact_hash{hash = HashValue},
     Stanza = #pb_msg{
-        id = util:new_msg_id(),
+        id = util_id:new_msg_id(),
         to_uid = ContactId,
         payload = Payload
     },
