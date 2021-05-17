@@ -65,7 +65,7 @@
     stream_id => binary(),
     stream_version => {non_neg_integer(), non_neg_integer()},
     stream_authenticated => boolean(),
-    crypto => tls | noise,
+    crypto => tls | noise | none,
     ip => {inet:ip_address(), inet:port_number()},
     codec_options => [xmpp:decode_option()],
     xmlns => binary(),
@@ -516,6 +516,8 @@ init_state(#{socket := Socket, mod := Mod} = State, Opts) ->
                     %% TODO(murali@): Need to send back an eror response to client in case of auth failures.
                     process_stream_end({noise, Reason}, State2)
             end;
+        {ok, State2} when Crypto =:= none ->
+            State2#{socket_type => SocketType};
         {error, Reason} ->
             process_stream_end(Reason, State1);
         ignore ->
@@ -711,6 +713,8 @@ send_pkt(State, PktToSend) ->
             State#{socket => SocketData};
         {ok, fast_tls} ->
             State;
+        {ok, gen_tcp} ->
+            State;
         {error, _} ->
             State
     end,
@@ -726,6 +730,8 @@ send_pkt(State, PktToSend) ->
         {ok, noise, _} ->
             State2;
         {ok, fast_tls} ->
+            State2;
+        {ok, none} ->
             State2;
         {error, _Why} ->
             % Queue process_stream_end instead of calling it directly,
@@ -758,7 +764,7 @@ send_error(State, Err) ->
 
 
 -spec socket_send(state(), binary()) ->
-        {ok, noise, halloapp_socket:socket()} | {ok, fast_tls} | {error, inet:posix()}.
+        {ok, noise, halloapp_socket:socket()} | {ok, fast_tls} | {ok, gen_tcp} | {error, inet:posix()}.
 socket_send(#{socket := Sock, stream_state := StateName}, BinPkt) ->
     case BinPkt of
         _ when StateName /= disconnected ->

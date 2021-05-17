@@ -178,11 +178,18 @@ reset_stream(#socket_state{pb_stream = PBStream, sockmod = SockMod,
     end.
 
 
--spec send(socket_state(), iodata()) -> {ok, fast_tls} | {ok, noise, #socket_state{}} |
+-spec send(socket_state(), iodata()) -> {ok, fast_tls} | {ok, gen_tcp} | {ok, noise, #socket_state{}} |
                                         {error, closed | inet:posix()}.
 send(#socket_state{sockmod = SockMod, socket = Socket} = SocketData, Data) ->
     ?DEBUG("(~s) Sending pb bytes on stream = ~p", [pp(SocketData), Data]),
     case SockMod of
+        gen_tcp ->
+            DataSize = byte_size(Data),
+            DataWithSize = <<DataSize:32/big, Data/binary>>,
+            case gen_tcp:send(Socket, DataWithSize) of
+                ok -> {ok, gen_tcp};
+                {error, _} = Err -> Err
+            end;
         ha_enoise ->
             % Noise adds the 4-byte size prefix
             case ha_enoise:send(Socket, Data) of
@@ -203,6 +210,8 @@ send(#socket_state{sockmod = SockMod, socket = Socket} = SocketData, Data) ->
 
 recv(#socket_state{sockmod = SockMod, socket = Socket} = SocketData, Data) ->
     case SockMod of
+        gen_tcp ->
+            parse(SocketData, Data);
         fast_tls ->
             case fast_tls:recv_data(Socket, Data) of
                 {ok, TLSData} -> parse(SocketData, TLSData);

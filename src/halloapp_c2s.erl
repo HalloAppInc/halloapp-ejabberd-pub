@@ -419,6 +419,7 @@ init([State, Opts]) ->
         crypto => Crypto
     },
     State2 = case Crypto of
+        none -> State1;
         tls ->
             TLSOpts1 = lists:filter(
                 fun({certfile, _}) -> true;
@@ -684,7 +685,7 @@ format_reason(_, _) ->
     <<"internal server error">>.
 
 listen_opt_type(crypto) ->
-    econf:enum([tls, noise]).
+    econf:enum([tls, noise, none]).
 
 listen_options() ->
     [{access, all},
