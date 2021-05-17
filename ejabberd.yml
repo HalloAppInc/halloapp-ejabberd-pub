@@ -178,11 +178,7 @@ modules:
   mod_invites: {}
   mod_offline_halloapp: {}
   mod_packet_filter: {}
-  mod_ping:
-    send_pings: true
-    ping_interval: 120
-    ping_ack_timeout: 30
-    timeout_action: kill
+  mod_ping: {}
   mod_props: {}
   mod_feed: {}
   mod_sms: {}

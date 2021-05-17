@@ -36,74 +36,95 @@
 -include("logger.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
+-include("time.hrl").
+-include("ha_types.hrl").
+
+-define(PING_INTERVAL, 120 * ?SECONDS_MS).
+-define(ACK_TIMEOUT, 30 * ?SECONDS_MS).
 
 %% API
 -export([start_ping/2, stop_ping/2]).
 
 %% gen_mod callbacks
--export([start/2, stop/1, reload/3]).
+-export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
 
 %% gen_server callbacks
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
 
 % hooks
--export([iq_ping/1, user_online/3, user_offline/3,
-    user_send/1, mod_opt_type/1, mod_options/1, depends/2]).
+-export([
+    iq_ping/1,
+    sm_register_connection_hook/3,
+    sm_remove_connection_hook/3,
+    user_send_packet/1
+]).
 
 -record(state, {
     host                :: binary(),
-    send_pings          :: boolean(),
-    ping_interval       :: pos_integer(),
-    ping_ack_timeout    :: undefined | non_neg_integer(),
-    timeout_action      :: none | kill,
     timers              :: timers()
 }).
 
--type timers() :: #{ljid() => reference()}.
+%% TODO(murali@): this is not great. it would be nice to have one session object everywhere.
+-record(session_info, {
+    uid :: uid(),
+    resource :: binary(),
+    sid :: term(),
+    mode :: atom()
+}).
+
+-type state() :: #state{}.
+-type session_info() :: #session_info{}.
+-type timers() :: #{session_info() => reference()}.
 
 %%====================================================================
 %% API
 %%====================================================================
--spec start_ping(binary(), jid()) -> ok.
-start_ping(Host, JID) ->
-    Proc = gen_mod:get_module_proc(Host, ?MODULE),
-    gen_server:cast(Proc, {start_ping, JID}).
 
--spec stop_ping(binary(), jid()) -> ok.
-stop_ping(Host, JID) ->
+-spec start_ping(binary(), session_info()) -> ok.
+start_ping(Host, SessionInfo) ->
     Proc = gen_mod:get_module_proc(Host, ?MODULE),
-    gen_server:cast(Proc, {stop_ping, JID}).
+    gen_server:cast(Proc, {start_ping, SessionInfo}).
+
+
+-spec stop_ping(binary(), session_info()) -> ok.
+stop_ping(Host, SessionInfo) ->
+    Proc = gen_mod:get_module_proc(Host, ?MODULE),
+    gen_server:cast(Proc, {stop_ping, SessionInfo}).
 
 %%====================================================================
 %% gen_mod callbacks
 %%====================================================================
+
 start(Host, Opts) ->
     gen_mod:start_child(?MODULE, Host, Opts).
 
+
 stop(Host) ->
     gen_mod:stop_child(?MODULE, Host).
+
 
 reload(Host, NewOpts, OldOpts) ->
     Proc = gen_mod:get_module_proc(Host, ?MODULE),
     gen_server:cast(Proc, {reload, Host, NewOpts, OldOpts}).
 
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
+
 init([Host|_]) ->
     process_flag(trap_exit, true),
     Opts = gen_mod:get_module_opts(Host, ?MODULE),
     State = init_state(Host, Opts),
     register_iq_handlers(Host),
-    case State#state.send_pings of
-        true -> register_hooks(Host);
-        false -> ok
-    end,
+    register_hooks(Host),
     {ok, State}.
+
 
 terminate(_Reason, #state{host = Host}) ->
     unregister_hooks(Host),
     unregister_iq_handlers(Host).
+
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
@@ -111,58 +132,49 @@ handle_call(Request, From, State) ->
     ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
-handle_cast({reload, Host, NewOpts, _OldOpts}, #state{timers = Timers} = OldState) ->
+
+handle_cast({reload, Host, NewOpts, _OldOpts}, #state{timers = Timers} = _OldState) ->
     NewState = init_state(Host, NewOpts),
-    case {NewState#state.send_pings, OldState#state.send_pings} of
-        {true, false} -> register_hooks(Host);
-        {false, true} -> unregister_hooks(Host);
-        _ -> ok
-    end,
+    register_hooks(Host),
     {noreply, NewState#state{timers = Timers}};
-handle_cast({start_ping, JID}, State) ->
-    Timers = add_timer(JID, State#state.ping_interval, State#state.timers),
-    {noreply, State#state{timers = Timers}};
-handle_cast({stop_ping, JID}, State) ->
-    Timers = del_timer(JID, State#state.timers),
-    {noreply, State#state{timers = Timers}};
+handle_cast({start_ping, SessionInfo}, State) ->
+    NewState = add_timer(SessionInfo, State),
+    {noreply, NewState};
+handle_cast({stop_ping, SessionInfo}, State) ->
+    NewState = del_timer(SessionInfo, State),
+    {noreply, NewState};
 handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
-handle_info({iq_reply, #pb_iq{type = error,
-        payload = #error_st{reason = user_session_not_found}}, JID}, State) ->
-    Timers = case State#state.timeout_action of
-        kill ->
-            del_timer(JID, State#state.timers);
-        _ ->
-            State#state.timers
-    end,
-    {noreply, State#state{timers = Timers}};
-handle_info({iq_reply, #pb_iq{}, _JID}, State) ->
+
+handle_info({iq_reply, #pb_iq{type = error, payload = #error_st{reason = user_session_not_found}},
+        SessionInfo}, State) ->
+    NewState = del_timer(SessionInfo, State),
+    {noreply, NewState};
+
+handle_info({iq_reply, #pb_iq{}, _SessionInfo}, State) ->
     {noreply, State};
-handle_info({iq_reply, timeout, JID}, State) ->
-    ?INFO("Uid: ~s ping_timeout", [JID#jid.user]),
-    ejabberd_hooks:run(user_ping_timeout, State#state.host, [JID]),
-    Timers = case State#state.timeout_action of
-        kill ->
-            #jid{user = User, server = Server, resource = Resource} = JID,
-            case ejabberd_sm:get_session_pid(User, Server, Resource) of
-                Pid when is_pid(Pid) -> halloapp_c2s:close(Pid, ping_timeout);
-                _ -> ok
-            end,
-            del_timer(JID, State#state.timers);
-        _ ->
-            State#state.timers
+
+handle_info({iq_reply, timeout, SessionInfo}, State) ->
+    ?INFO("Uid: ~s ping_timeout", [SessionInfo#session_info.uid]),
+    ejabberd_hooks:run(user_ping_timeout, State#state.host, [SessionInfo]),
+    User = SessionInfo#session_info.uid,
+    Resource = SessionInfo#session_info.resource,
+    case ejabberd_sm:get_session_pid(User, State#state.host, Resource) of
+        Pid when is_pid(Pid) -> halloapp_c2s:close(Pid, ping_timeout);
+        _ -> ok
     end,
-    {noreply, State#state{timers = Timers}};
-handle_info({timeout, _TRef, {ping, JID}}, State) ->
+    NewState = del_timer(SessionInfo, State),
+    {noreply, NewState};
+
+handle_info({timeout, _TRef, {ping, SessionInfo}}, State) ->
     Host = State#state.host,
-    IQ = #pb_iq{to_uid = JID#jid.luser, type = get, payload = #pb_ping{}},
-    ejabberd_router:route_iq(IQ, JID,
-        gen_mod:get_module_proc(Host, ?MODULE),
-        State#state.ping_ack_timeout),
-    Timers = add_timer(JID, State#state.ping_interval, State#state.timers),
-    {noreply, State#state{timers = Timers}};
+    IQ = #pb_iq{to_uid = SessionInfo#session_info.uid, type = get, payload = #pb_ping{}},
+    ejabberd_router:route_iq(IQ, SessionInfo, gen_mod:get_module_proc(Host, ?MODULE), ?ACK_TIMEOUT),
+    NewState = add_timer(SessionInfo, State),
+    {noreply, NewState};
+
 handle_info(Info, State) ->
     ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
@@ -179,101 +191,102 @@ iq_ping(#pb_iq{} = IQ) ->
     ?ERROR("Invalid iq: ~p", [IQ]),
     pb:make_error(IQ, util:err(invalid_iq)).
 
--spec user_online(ejabberd_sm:sid(), jid(), ejabberd_sm:info()) -> ok.
-user_online(_SID, JID, _Info) ->
-    start_ping(JID#jid.lserver, JID).
+-spec sm_register_connection_hook(ejabberd_sm:sid(), jid(), ejabberd_sm:info()) -> ok.
+sm_register_connection_hook(SID, JID, Info) ->
+    SessionInfo = #session_info{
+        uid = JID#jid.luser,
+        resource = JID#jid.lresource,
+        sid = SID,
+        mode = proplists:get_value(mode, Info)
+    },
+    start_ping(JID#jid.lserver, SessionInfo).
 
--spec user_offline(ejabberd_sm:sid(), jid(), ejabberd_sm:info()) -> ok.
-user_offline(_SID, JID, _Info) ->
-    stop_ping(JID#jid.lserver, JID).
+-spec sm_remove_connection_hook(ejabberd_sm:sid(), jid(), ejabberd_sm:info()) -> ok.
+sm_remove_connection_hook(SID, JID, Info) ->
+    SessionInfo = #session_info{
+        uid = JID#jid.luser,
+        resource = JID#jid.lresource,
+        sid = SID,
+        mode = proplists:get_value(mode, Info)
+    },
+    stop_ping(JID#jid.lserver, SessionInfo).
 
--spec user_send({stanza(), halloapp_c2s:state()}) -> {stanza(), halloapp_c2s:state()}.
-user_send({Packet, #{jid := JID} = C2SState}) ->
-    start_ping(JID#jid.lserver, JID),
+-spec user_send_packet({stanza(), halloapp_c2s:state()}) -> {stanza(), halloapp_c2s:state()}.
+user_send_packet({Packet, #{jid := JID, sid := SID, mode := Mode} = C2SState}) ->
+    SessionInfo = #session_info{
+        uid = JID#jid.luser,
+        resource = JID#jid.lresource,
+        sid = SID,
+        mode = Mode
+    },
+    start_ping(JID#jid.lserver, SessionInfo),
     {Packet, C2SState}.
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
-init_state(Host, Opts) ->
-    SendPings = mod_ping_opt:send_pings(Opts),
-    PingInterval = mod_ping_opt:ping_interval(Opts),
-    PingAckTimeout = mod_ping_opt:ping_ack_timeout(Opts),
-    TimeoutAction = mod_ping_opt:timeout_action(Opts),
+
+init_state(Host, _Opts) ->
     #state{
         host = Host,
-        send_pings = SendPings,
-        ping_interval = PingInterval,
-        timeout_action = TimeoutAction,
-        ping_ack_timeout = PingAckTimeout,
         timers = #{}
     }.
 
+
 register_hooks(Host) ->
-    ejabberd_hooks:add(sm_register_connection_hook, Host,
-        ?MODULE, user_online, 100),
-    ejabberd_hooks:add(sm_remove_connection_hook, Host,
-        ?MODULE, user_offline, 100),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE,
-        user_send, 100).
+    ejabberd_hooks:add(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
+    ejabberd_hooks:add(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 100),
+    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 100).
+
 
 unregister_hooks(Host) ->
-    ejabberd_hooks:delete(sm_remove_connection_hook, Host,
-        ?MODULE, user_offline, 100),
-    ejabberd_hooks:delete(sm_register_connection_hook, Host,
-        ?MODULE, user_online, 100),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE,
-        user_send, 100).
+    ejabberd_hooks:delete(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 100),
+    ejabberd_hooks:delete(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
+    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 100).
+
 
 register_iq_handlers(Host) ->
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host, pb_ping, ?MODULE, iq_ping),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_ping, ?MODULE, iq_ping).
 
+
 unregister_iq_handlers(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_ping),
     gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, pb_ping).
 
--spec add_timer(jid(), pos_integer(), timers()) -> timers().
-add_timer(JID, Interval, Timers) ->
-    LJID = jid:tolower(JID),
-    NewTimers = case maps:find(LJID, Timers) of
+
+-spec add_timer(SessionInfo :: session_info(), State :: state()) -> state().
+add_timer(SessionInfo, State) ->
+    Timers1 = State#state.timers,
+    Timers2 = case maps:find(SessionInfo, Timers1) of
         {ok, OldTRef} ->
             misc:cancel_timer(OldTRef),
-            maps:remove(LJID, Timers);
+            maps:remove(SessionInfo, Timers1);
         _ ->
-            Timers
+            Timers1
     end,
-    TRef = erlang:start_timer(Interval, self(), {ping, JID}),
-    maps:put(LJID, TRef, NewTimers).
+    TRef = erlang:start_timer(?PING_INTERVAL, self(), {ping, SessionInfo}),
+    Timers3 = maps:put(SessionInfo, TRef, Timers2),
+    State#state{timers = Timers3}.
 
--spec del_timer(jid(), timers()) -> timers().
-del_timer(JID, Timers) ->
-    LJID = jid:tolower(JID),
-    case maps:find(LJID, Timers) of
+
+-spec del_timer(SessionInfo :: session_info(), State :: state()) -> state().
+del_timer(SessionInfo, State) ->
+    Timers1 = State#state.timers,
+    Timers2 = case maps:find(SessionInfo, Timers1) of
         {ok, TRef} ->
             misc:cancel_timer(TRef),
-            maps:remove(LJID, Timers);
+            maps:remove(SessionInfo, Timers1);
         _ ->
-            Timers
-    end.
+            Timers1
+    end,
+    State#state{timers = Timers2}.
+
 
 depends(_Host, _Opts) ->
     [].
 
-mod_opt_type(ping_interval) ->
-    econf:timeout(second);
-mod_opt_type(ping_ack_timeout) ->
-    econf:timeout(second);
-mod_opt_type(send_pings) ->
-    econf:bool();
-mod_opt_type(timeout_action) ->
-    econf:enum([none, kill]).
 
 mod_options(_Host) ->
-    [
-        {ping_interval, timer:minutes(1)},
-        {ping_ack_timeout, undefined},
-        {send_pings, false},
-        {timeout_action, none}
-    ].
+    [].
 
