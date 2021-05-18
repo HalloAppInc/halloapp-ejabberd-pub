@@ -239,6 +239,7 @@ process_info(#{lserver := LServer} = State, {route, Packet}) ->
             stat:count("HA/user_receive_packet", "protobuf"),
             {Packet1, State1} = ejabberd_hooks:run_fold(
                     user_receive_packet, LServer, {NewPacket, State}, []),
+            ?DEBUG("Packet1: ~p, State1: ~p", [Packet1, State1]),
             case Packet1 of
                 drop -> State1;
                 _ -> send(State1, Packet1)
