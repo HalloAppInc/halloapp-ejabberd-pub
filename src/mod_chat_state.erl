@@ -71,12 +71,19 @@ user_send_chatstate(State, #pb_chat_state{thread_id = ThreadId, thread_type = Th
     State.
 
 
-%% We route chat_state stanzas to the client only if the client is available right now.
-user_receive_packet({#pb_chat_state{} = Packet, #{presence := PresenceType} = State} = Acc)  ->
-    case PresenceType of
-        available -> Acc;
-        _ ->
-            ?INFO("ignored packet: ~p for presence_status: ~P", [Packet, PresenceType]),
+%% ChatState stanzas are sent only on active connections when the client has available-presence.
+%% Else, we drop the packet.
+user_receive_packet({#pb_chat_state{} = Packet, #{mode := Mode, presence := PresenceType} = State} = Acc)  ->
+    case Mode of
+        active ->
+            case PresenceType of
+                available -> Acc;
+                away ->
+                    ?INFO("drop packet: ~p on presence_type: ~P", [Packet, PresenceType]),
+                    {stop, {drop, State}}
+            end;
+        passive ->
+            ?INFO("drop packet: ~p on mode: ~P", [Packet, Mode]),
             {stop, {drop, State}}
     end;
 user_receive_packet(Acc) ->

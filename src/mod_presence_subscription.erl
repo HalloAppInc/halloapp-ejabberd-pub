@@ -119,12 +119,13 @@ remove_contact(Uid, _Server, Ouid) ->
     unsubscribe(Ouid, Uid),
     ok.
 
-%% We route presence stanzas to the client only if the client is available right now.
-user_receive_packet({#pb_presence{} = Packet, #{presence := PresenceType} = State} = Acc)  ->
-    case PresenceType of
-        available -> Acc;
-        _ ->
-            ?INFO("ignored packet: ~p for presence_status: ~p", [Packet, PresenceType]),
+%% Presence stanzas are sent only on active connections.
+%% We drop the packet on passive connections.
+user_receive_packet({#pb_presence{} = Packet, #{mode := Mode} = State} = Acc)  ->
+    case Mode of
+        active -> Acc;
+        passive ->
+            ?INFO("drop packet: ~p on mode: ~P", [Packet, Mode]),
             {stop, {drop, State}}
     end;
 user_receive_packet(Acc) ->
