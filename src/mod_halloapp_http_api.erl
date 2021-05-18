@@ -337,10 +337,10 @@ request_otp(Phone, UserAgent, Method) ->
     case mod_sms:request_otp(Phone, UserAgent, Method) of
         {ok, _} = Ret -> Ret;
         {error, Reason} ->
-            ?ERROR("could not send otp Reason: ~p Phone: ~P", [Reason, Phone]),
+            ?ERROR("could not send otp Reason: ~p Phone: ~p", [Reason, Phone]),
             error(Reason);
         {error, Reason, RetryTs} = Error->
-            ?ERROR("could not send otp Reason: ~p Ts: ~p Phone: ~P", [Reason, RetryTs, Phone]),
+            ?ERROR("could not send otp Reason: ~p Ts: ~p Phone: ~p", [Reason, RetryTs, Phone]),
             Error
     end.
 
