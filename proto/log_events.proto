@@ -17,6 +17,7 @@ message EventData {
     MediaComposeLoad media_compose_load = 12;
     PushReceived push_received = 13;
     DecryptionReport decryption_report = 14;
+    Permissions permissions = 15;
   }
 }
 
@@ -95,3 +96,18 @@ message DecryptionReport {
   uint32 time_taken_s = 8;
   bool is_silent = 9;
 }
+
+
+message Permissions {
+  enum Type {
+    CONTACTS = 0;
+    NOTIFICATIONS = 1;
+  }
+  enum Status {
+    ALLOWED = 1;
+    DENIED = 2;
+  }
+  Type type = 1;
+  Status status = 2;
+}
+
