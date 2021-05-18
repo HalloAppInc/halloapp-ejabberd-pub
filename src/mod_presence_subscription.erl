@@ -125,7 +125,7 @@ user_receive_packet({#pb_presence{} = Packet, #{mode := Mode} = State} = Acc)  -
     case Mode of
         active -> Acc;
         passive ->
-            ?INFO("drop packet: ~p on mode: ~P", [Packet, Mode]),
+            ?INFO("drop packet: ~p on mode: ~p", [Packet, Mode]),
             {stop, {drop, State}}
     end;
 user_receive_packet(Acc) ->

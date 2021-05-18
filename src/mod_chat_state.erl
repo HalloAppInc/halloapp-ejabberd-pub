@@ -81,11 +81,11 @@ user_receive_packet({#pb_chat_state{} = Packet, #{mode := Mode} = State} = Acc) 
             case PresenceType of
                 available -> Acc;
                 _ ->
-                    ?INFO("drop packet: ~p on presence_type: ~P", [Packet, PresenceType]),
+                    ?INFO("drop packet: ~p on presence_type: ~p", [Packet, PresenceType]),
                     {stop, {drop, State}}
             end;
         passive ->
-            ?INFO("drop packet: ~p on mode: ~P", [Packet, Mode]),
+            ?INFO("drop packet: ~p on mode: ~p", [Packet, Mode]),
             {stop, {drop, State}}
     end;
 user_receive_packet(Acc) ->
