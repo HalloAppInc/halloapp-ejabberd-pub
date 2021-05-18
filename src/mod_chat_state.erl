@@ -73,13 +73,14 @@ user_send_chatstate(State, #pb_chat_state{thread_id = ThreadId, thread_type = Th
 
 %% ChatState stanzas are sent only on active connections when the client has available-presence.
 %% Else, we drop the packet.
-user_receive_packet({#pb_chat_state{} = Packet, #{mode := Mode, presence := PresenceType} = State} = Acc) ->
-    ?DEBUG("Packet: ~p, state: ~p", [Packet, State]),
+user_receive_packet({#pb_chat_state{} = Packet, #{mode := Mode} = State} = Acc) ->
     case Mode of
         active ->
+            %% Passive sessions will not have presence info in the c2s state.
+            PresenceType = maps:get(presence, State, undefined),
             case PresenceType of
                 available -> Acc;
-                away ->
+                _ ->
                     ?INFO("drop packet: ~p on presence_type: ~P", [Packet, PresenceType]),
                     {stop, {drop, State}}
             end;
