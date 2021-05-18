@@ -17,6 +17,7 @@
 -include("packets.hrl").
 -include("logger.hrl").
 
+-type state() :: halloapp_c2s:state().
 -define(needs_ack_packet(Pkt),
         is_record(Pkt, pb_msg)).
 
@@ -49,20 +50,20 @@ mod_options(_Host) ->
 %% TODO(murali@): Add logic to send ack only after handling the message properly!
 user_send_packet({Packet, State}) ->
     case ?needs_ack_packet(Packet) of
-        true -> send_ack(Packet);
+        true -> send_ack(State, Packet);
         false -> ok
     end,
     {Packet, State}.
 
 
 %% Sends an ack packet.
--spec send_ack(pb_msg()) -> ok.
-send_ack(#pb_msg{id = MsgId, from_uid = Uid} = Packet)
+-spec send_ack(State :: state(), Packet :: pb_msg()) -> ok.
+send_ack(State, #pb_msg{id = MsgId, from_uid = Uid} = Packet)
         when MsgId =:= undefined orelse MsgId =:= <<>> ->
     PayloadType = util:get_payload_type(Packet),
     ?ERROR("uid: ~s, invalid msg_id: ~s, content: ~p", [Uid, MsgId, PayloadType]),
     ok;
-send_ack(#pb_msg{id = MsgId, from_uid = Uid} = Packet) ->
+send_ack(State, #pb_msg{id = MsgId, from_uid = Uid} = Packet) ->
     PayloadType = util:get_payload_type(Packet),
     PacketTs = util:get_timestamp(Packet),
     Timestamp = case {PayloadType, PacketTs} of
@@ -79,5 +80,5 @@ send_ack(#pb_msg{id = MsgId, from_uid = Uid} = Packet) ->
     end,
     AckPacket = #pb_ack{id = MsgId, to_uid = Uid, timestamp = Timestamp},
     ?INFO("uid: ~s, msg_id: ~s", [Uid, MsgId]),
-    ejabberd_router:route(AckPacket).
+    halloapp_c2s:route(State, {route, AckPacket}).
 

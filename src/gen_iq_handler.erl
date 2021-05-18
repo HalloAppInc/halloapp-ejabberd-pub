@@ -87,6 +87,8 @@ handle(State, Component, #pb_iq{type = T, payload = _Payload} = Packet)
     Host = util:get_host(),
     case ets:lookup(Component, {Host, PayloadType}) of
         [{_, Module, Function}] ->
+            %% if we return ignore for our process_local_iq functions:
+            %% we need to ensure to send the iq-response back on the same c2s process.
             case process_iq(Host, Module, Function, Packet) of
                 ignore -> State;
                 #pb_iq{} = Iq -> halloapp_c2s:route(State, {route, Iq})

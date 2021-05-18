@@ -131,7 +131,9 @@ process_patch_url_result(IQ, PatchResult) ->
             #pb_media_url{patch = ResumablePatch}
       end,
     IQResult = pb:make_iq_result(IQ, #pb_upload_media{url = MediaUrl}),
-    ejabberd_router:route(IQResult).
+    %% All of the logic to generate resumable urls is running on the c2s process.
+    %% So use self pid as the destination.
+    halloapp_c2s:route(self(), {route, IQResult}).
     
 
 -spec generate_resumable_urls(Size :: binary(), IQ :: pb_iq()) -> ok.
