@@ -23,6 +23,14 @@ recv_chatstate_test(_Conf) ->
     ha_client:wait_for_eoq(C1),
     ha_client:wait_for_eoq(C2),
 
+    Available = #pb_packet{
+        stanza = #pb_presence{
+            id = <<"id1">>,
+            type = available
+        }
+    },
+    ok = ha_client:send(C2, Available),
+
     TypingChatState = #pb_packet{
         stanza = #pb_chat_state{
             type = typing,
@@ -56,6 +64,16 @@ block_chatstate_test(_Conf) ->
     {ok, C4} = ha_client:connect_and_login(?UID4, ?PASSWORD4),
     {ok, C5} = ha_client:connect_and_login(?UID5, ?PASSWORD5),
     % UID4 and UID1 are not friends; UID5 has blocked UID1
+
+    Available = #pb_packet{
+        stanza = #pb_presence{
+            id = <<"id1">>,
+            type = available
+        }
+    },
+
+    ok = ha_client:send(C4, Available),
+    ok = ha_client:send(C5, Available),
 
     %% Wait and clear out all messages in the queue.
     %% This is used so that when we call recv with a timeout - we get the latest packet.
