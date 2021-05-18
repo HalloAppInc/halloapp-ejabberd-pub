@@ -18,6 +18,9 @@
 -define(MAX_DATAPOINTS_PER_REQUEST, 50).
 -define(MACHINE_KEY, <<"machine">>).
 
+-define(REQUEST_TIMEOUT, 30 * ?SECONDS_MS).
+-define(CONNECTION_TIMEOUT, 10 * ?SECONDS_MS).
+
 %% Export all functions for unit tests
 -ifdef(TEST).
 -export([
@@ -28,7 +31,8 @@
 
 %% API
 -export([
-    put_metrics/2
+    put_metrics/2,
+    do_send_metrics/2
 ]).
 
 put_metrics(Metrics, TimestampMs) when is_map(Metrics) ->
@@ -48,26 +52,36 @@ send_metrics([], _TimestampMs) ->
     ok;
 send_metrics(MetricsList, TimestampMs) ->
     case config:is_prod_env() of
-        true -> do_send_metrics(MetricsList, TimestampMs);
+        true -> spawn(?MODULE, do_send_metrics, [MetricsList, TimestampMs]);
         false -> ok
     end.
 
 -spec do_send_metrics(MetricsList :: [], TimestampMs :: integer()) -> ok | {error, any()}.
 do_send_metrics(MetricsList, TimestampMs) ->
-    URL = ?OPENTSDB_URL,
-    Headers = [],
-    Type = "application/json",
-    Body = compose_body(MetricsList, TimestampMs),
-    HTTPOptions = [],
-    Options = [],
-    ?DEBUG("URL : ~p, body: ~p", [URL, Body]),
-    Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
-    case Response of
-        {ok, {{_, ResCode, _}, _ResHeaders, _ResBody}} when ResCode =:= 200; ResCode =:= 204->
-            ok;
-        _ ->
-            ?ERROR("Failed to send metrics: ~p, body: ~p response: ~p", [MetricsList, Body, Response]),
-            {error, put_failed}
+    try
+        URL = ?OPENTSDB_URL,
+        Headers = [],
+        Type = "application/json",
+        Body = compose_body(MetricsList, TimestampMs),
+        HTTPOptions = [
+            {timeout, ?REQUEST_TIMEOUT},
+            {connect_timeout, ?CONNECTION_TIMEOUT}
+        ],
+        Options = [],
+        ?DEBUG("URL : ~p, body: ~p", [URL, Body]),
+        Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
+        case Response of
+            {ok, {{_, ResCode, _}, _ResHeaders, _ResBody}} when ResCode =:= 200; ResCode =:= 204->
+                ok;
+            _ ->
+                ?ERROR("OpenTSDB error sending metrics: ~p, body: ~p response: ~p",
+                    [MetricsList, Body, Response]),
+                {error, put_failed}
+        end
+    catch
+        Class : Reason : Stacktrace ->
+            ?ERROR("Error: Stacktrace:~s", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            {error, Reason}
     end.
 
 
