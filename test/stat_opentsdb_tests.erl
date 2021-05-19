@@ -31,12 +31,12 @@ setup() ->
     tutil:setup(),
     stringprep:start(),
     clear(),
-    put(?MACHINE_KEY, ?MACHINE_VALUE),
+%%    put(?MACHINE_KEY, ?MACHINE_VALUE),
     ok.
 
 
 clear() ->
-    erase(?MACHINE_KEY),
+%%    erase(?MACHINE_KEY),
     ok.
 
 
@@ -57,23 +57,20 @@ convert_metric_to_map_test() ->
                 <<"timestamp">> => 1612890476217,
                 <<"value">> => 20,
                 <<"tags">> => TagsAndValues
-            }, stat_opentsdb:convert_metric_to_map({Key, Value}, TimestampMs)),
+            }, stat_opentsdb:convert_metric_to_map({Key, Value}, TimestampMs, ?MACHINE_VALUE)),
     ok.
 
 
 compose_tags_test() ->
     setup(),
-    ?assertEqual(#{?MACHINE_KEY => ?MACHINE_VALUE}, stat_opentsdb:compose_tags([])),
+    ?assertEqual(#{?MACHINE_KEY => ?MACHINE_VALUE}, stat_opentsdb:compose_tags([], ?MACHINE_VALUE)),
 
     Dims = [#dimension{name = test1, value = value1}, #dimension{name = "test2", value = 20}],
     ?assertEqual(#{
             ?MACHINE_KEY => ?MACHINE_VALUE,
             <<"test1">> => <<"value1">>,
             <<"test2">> => <<"20">>
-        }, stat_opentsdb:compose_tags(Dims)),
-
-    ?assertEqual(#{
-            ?MACHINE_KEY => ?MACHINE_VALUE
-        }, stat_opentsdb:compose_tags([])),
+        }, stat_opentsdb:compose_tags(Dims, ?MACHINE_VALUE)),
+    
     ok.
 
