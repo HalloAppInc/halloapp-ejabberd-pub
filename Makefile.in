@@ -402,3 +402,12 @@ test:
 .PHONY: src edoc dialyzer Makefile TAGS clean clean-rel distclean rel \
 	install uninstall uninstall-binary uninstall-all translations deps test \
 	quicktest erlang_plt deps_plt ejabberd_plt xref hooks options
+
+
+fetchpb:
+	rm -rf deps/schemas && git clone git@github.com:HalloAppInc/schemas.git deps/schemas
+	cd deps/schemas && make server && cd ../..
+	cp deps/schemas/build/server.proto proto/
+	cp deps/schemas/build/log_events.proto proto/
+	rm -rf deps/schemas
+
