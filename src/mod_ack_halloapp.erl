@@ -49,20 +49,20 @@ mod_options(_Host) ->
 %% Hook called when the server receives a packet.
 %% TODO(murali@): Add logic to send ack only after handling the message properly!
 user_send_packet({Packet, State}) ->
-    case ?needs_ack_packet(Packet) of
+    NewState = case ?needs_ack_packet(Packet) of
         true -> send_ack(State, Packet);
-        false -> ok
+        false -> State
     end,
-    {Packet, State}.
+    {Packet, NewState}.
 
 
-%% Sends an ack packet.
--spec send_ack(State :: state(), Packet :: pb_msg()) -> ok.
+%% Sends an ack packet. Runs on c2s process.
+-spec send_ack(State :: state(), Packet :: pb_msg()) -> state().
 send_ack(State, #pb_msg{id = MsgId, from_uid = Uid} = Packet)
         when MsgId =:= undefined orelse MsgId =:= <<>> ->
     PayloadType = util:get_payload_type(Packet),
     ?ERROR("uid: ~s, invalid msg_id: ~s, content: ~p", [Uid, MsgId, PayloadType]),
-    ok;
+    State;
 send_ack(State, #pb_msg{id = MsgId, from_uid = Uid} = Packet) ->
     PayloadType = util:get_payload_type(Packet),
     PacketTs = util:get_timestamp(Packet),
