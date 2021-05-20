@@ -152,6 +152,7 @@ send_invitee_notice(Uid, InvitersList) ->
             inviters = PbInviters
         }
     },
+    ?INFO("Uid: ~p, MsgId: ~p", [Uid, Packet#pb_msg.id]),
     ejabberd_router:route(Packet),
     ok.
 
