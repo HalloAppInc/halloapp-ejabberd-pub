@@ -131,14 +131,14 @@ give_back_invite(Uid, Phone, InvitersList) ->
 -spec send_invitee_notice(Uid :: binary(), InvitersList :: [{binary(), integer()}]) -> ok.
 send_invitee_notice(Uid, InvitersList) ->
     PbInviters = lists:foldl(
-        fun({InviterUid, Timestamp}, Acc) ->
+        fun({InviterUid, TimestampBin}, Acc) ->
             case model_accounts:get_account(InviterUid) of
                 {ok, Account} ->
                     PbInviter = #pb_inviter{
                         uid = InviterUid,
                         name = Account#account.name,
                         phone = Account#account.phone,
-                        timestamp = Timestamp
+                        timestamp = util:to_integer(TimestampBin)
                     },
                     [PbInviter | Acc];
                 _ -> Acc
