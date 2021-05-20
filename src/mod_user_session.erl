@@ -19,7 +19,7 @@
 
 %% iq handler and API.
 -export([
-    process_local_iq/1
+    process_local_iq/2
 ]).
 
 
@@ -29,7 +29,7 @@
 
 start(Host, _Opts) ->
     ?INFO("start", []),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_client_mode, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_client_mode, ?MODULE, process_local_iq, 2),
     ok.
 
 stop(Host) ->
@@ -51,21 +51,21 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
--spec process_local_iq(IQ :: pb_iq()) -> pb_iq().
+-spec process_local_iq(IQ :: pb_iq(), State :: #{}) -> pb_iq().
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_client_mode{mode = Mode}} = IQ) ->
+        payload = #pb_client_mode{mode = Mode}} = IQ, #{sid := _SID} = State) ->
     Server = util:get_host(),
     ?INFO("Uid: ~s, set-iq for client_mode, mode: ~p", [Uid, Mode]),
     if
         Mode =/= active ->
             ?WARNING("Uid: ~s, received invalid client mode: ~p", [Uid, Mode]),
-            pb:make_error(IQ, util:err(invalid_login_mode));
+            {pb:make_error(IQ, util:err(invalid_login_mode)), State};
         true ->
             ok = ejabberd_sm:activate_session(Uid, Server),
-            pb:make_iq_result(IQ)
+            {pb:make_iq_result(IQ), State}
     end;
-process_local_iq(#pb_iq{} = IQ) ->
-    pb:make_error(IQ, util:err(invalid_request)).
+process_local_iq(#pb_iq{} = IQ, State) ->
+    {pb:make_error(IQ, util:err(invalid_request)), State}.
 
 
 %%====================================================================

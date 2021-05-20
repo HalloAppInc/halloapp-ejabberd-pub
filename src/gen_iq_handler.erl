@@ -30,14 +30,12 @@
 %% API
 -export([
     add_iq_handler/5,
+    add_iq_handler/6,
     remove_iq_handler/3,
     handle/2,
     handle/3,
     start/1
 ]).
-%% Deprecated functions
--export([add_iq_handler/6, handle/5, iqdisc/1]).
--deprecated([{add_iq_handler, 6}, {handle, 5}, {iqdisc, 1}]).
 
 -include("logger.hrl").
 -include("packets.hrl").
@@ -57,9 +55,15 @@ start(Component) ->
         {heir, erlang:group_leader(), none}]),
     ok.
 
+
 -spec add_iq_handler(component(), binary(), binary(), module(), atom()) -> ok.
 add_iq_handler(Component, Host, NS, Module, Function) ->
-    ets:insert(Component, {{Host, NS}, Module, Function}),
+    add_iq_handler(Component, Host, NS, Module, Function, 1).
+
+
+-spec add_iq_handler(component(), binary(), binary(), module(), atom(), integer()) -> ok.
+add_iq_handler(Component, Host, NS, Module, Function, NumArgs) ->
+    ets:insert(Component, {{Host, NS}, Module, Function, NumArgs}),
     ok.
 
 -spec remove_iq_handler(component(), binary(), binary()) -> ok.
@@ -86,12 +90,12 @@ handle(State, Component, #pb_iq{type = T, payload = _Payload} = Packet)
     PayloadType = util:get_payload_type(Packet),
     Host = util:get_host(),
     case ets:lookup(Component, {Host, PayloadType}) of
-        [{_, Module, Function}] ->
+        [{_, Module, Function, NumArgs}] ->
             %% if we return ignore for our process_local_iq functions:
             %% we need to ensure to send the iq-response back on the same c2s process.
-            case process_iq(Host, Module, Function, Packet) of
-                ignore -> State;
-                #pb_iq{} = Iq -> halloapp_c2s:route(State, {route, Iq})
+            case process_iq(Host, Module, Function, NumArgs, Packet, State) of
+                {ignore, NewState} -> NewState;
+                {#pb_iq{} = Iq, NewState} -> halloapp_c2s:route(NewState, {route, Iq})
             end;
         [] ->
             ?ERROR("Invalid iq: ~p", [Packet]),
@@ -102,9 +106,9 @@ handle(State, _, #pb_iq{type = T}) when T == result; T == error ->
     State.
 
 
--spec process_iq(binary(), atom(), atom(), pb_iq()) -> #pb_iq{}.
-process_iq(_Host, Module, Function, IQ) ->
-    try process_iq(Module, Function, IQ)
+-spec process_iq(binary(), atom(), atom(), integer(), pb_iq(), state()) -> #pb_iq{}.
+process_iq(_Host, Module, Function, NumArgs, IQ, State) ->
+    try process_iq(Module, Function, NumArgs, IQ, State)
     catch ?EX_RULE(Class, Reason, St) ->
         StackTrace = ?EX_STACK(St),
         ?ERROR("Failed to process iq: ~p~n Stacktrace: ~s", [
@@ -113,21 +117,12 @@ process_iq(_Host, Module, Function, IQ) ->
         pb:make_error(IQ, util:err(internal_error))
     end.
 
--spec process_iq(module(), atom(), pb_iq()) -> ignore | pb_iq().
-process_iq(Module, Function, IQ) when is_record(IQ, pb_iq) ->
-    Module:Function(IQ).
-
--spec iqdisc(binary() | global) -> no_queue.
-iqdisc(_Host) ->
-    no_queue.
-
-%%====================================================================
-%% Deprecated API
-%%====================================================================
--spec add_iq_handler(module(), binary(), binary(), module(), atom(), any()) -> ok.
-add_iq_handler(Component, Host, NS, Module, Function, _Type) ->
-    add_iq_handler(Component, Host, NS, Module, Function).
-
--spec handle(binary(), atom(), atom(), any(), pb_iq()) -> any().
-handle(Host, Module, Function, _Opts, IQ) ->
-    process_iq(Host, Module, Function, IQ).
+-spec process_iq(module(), atom(), integer(), pb_iq(), state()) -> ignore | pb_iq().
+process_iq(Module, Function, NumArgs, IQ, State) when is_record(IQ, pb_iq) ->
+    case NumArgs of
+        1 -> {Module:Function(IQ), State};
+        2 -> Module:Function(IQ, State);
+        _ ->
+            ?ERROR("Invalid NumArgs: ~p for Module: ~p, Function: ~p", [NumArgs, Module, Function]),
+            ignore
+    end.
