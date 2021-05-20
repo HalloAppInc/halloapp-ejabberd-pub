@@ -496,6 +496,7 @@ message Msg {
         SilentChatStanza silent_chat_stanza = 23;
         GroupFeedItems group_feed_items = 24;
         EndOfQueue end_of_queue = 26;
+        InviteeNotice invitee_notice = 27;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
@@ -756,5 +757,18 @@ message DeleteAccount {
 message PushContent {
     bytes certificate = 1;
     bytes content = 2;
+}
+
+// Invitee Notice
+message InviteeNotice {
+    repeated Inviter inviters = 1;
+}
+
+// Inviter details
+message Inviter {
+    int64 uid = 1 [ebin = true];
+    string name = 2;
+    string phone = 3;
+    int64 timestamp = 4;
 }
 

@@ -11,6 +11,7 @@
 -author("josh").
 -behavior(gen_mod).
 
+-include("account.hrl").
 -include("invites.hrl").
 -include("logger.hrl").
 -include("time.hrl").
@@ -104,20 +105,56 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     end.
 
 
--spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> any().
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
 register_user(Uid, _Server, Phone) ->
-    {ok, Result} = model_invites:get_inviters_list(Phone),
+    {ok, InvitersList} = model_invites:get_inviters_list(Phone),
+    give_back_invite(Uid, Phone, InvitersList),
+    send_invitee_notice(Uid, InvitersList),
+    ok.
+
+%%====================================================================
+%% Internal functions
+%%====================================================================
+
+-spec give_back_invite(Uid :: binary(), Phone :: binary(), InvitersList :: [{binary(), integer()}]) -> ok.
+give_back_invite(Uid, Phone, InvitersList) ->
     lists:foreach(
         fun({InviterUid, _Ts}) ->
             ?INFO("Uid: ~p, Phone: ~p accepted invite. InviterUid: ~p", [Uid, Phone, InviterUid]),
             InvitesRem = get_invites_remaining(InviterUid),
             FinalNumInvsLeft = min(InvitesRem +1, ?MAX_NUM_INVITES),
             ok = model_invites:set_invites_left(InviterUid, FinalNumInvsLeft)
-        end, Result).
+        end, InvitersList),
+    ok.
 
-%%====================================================================
-%% Internal functions
-%%====================================================================
+
+-spec send_invitee_notice(Uid :: binary(), InvitersList :: [{binary(), integer()}]) -> ok.
+send_invitee_notice(Uid, InvitersList) ->
+    PbInviters = lists:foldl(
+        fun({InviterUid, Timestamp}, Acc) ->
+            case model_accounts:get_account(InviterUid) of
+                {ok, Account} ->
+                    PbInviter = #pb_inviter{
+                        uid = InviterUid,
+                        name = Account#account.name,
+                        phone = Account#account.phone,
+                        timestamp = Timestamp
+                    },
+                    [PbInviter | Acc];
+                _ -> Acc
+            end
+        end, [], InvitersList),
+    Packet = #pb_msg{
+        id = util_id:new_msg_id(),
+        to_uid = Uid,
+        type = normal,
+        payload = #pb_invitee_notice{
+            inviters = PbInviters
+        }
+    },
+    ejabberd_router:route(Packet),
+    ok.
+
 
 %% Only use this function to poll current invites left
 %% Do not use info from this function to do anything except relay info to the user
