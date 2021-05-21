@@ -16,7 +16,8 @@
     rename_reverse_contacts_cleanup/2,
     remove_unregistered_numbers_run/2,
     remove_unregistered_numbers_verify/2,
-    expire_sync_keys_run/2
+    trigger_full_sync_run/2,
+    find_empty_contact_list_accounts/2
 ]).
 
 
@@ -135,28 +136,57 @@ remove_unregistered_numbers_verify(Key, State) ->
     State.
 
 
-%%% Stage 1. Set expiry for the data.
-expire_sync_keys_run(Key, State) ->
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                            Trigger full sync                                       %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+trigger_full_sync_run(Key, State) ->
     ?INFO("Key: ~p", [Key]),
     DryRun = maps:get(dry_run, State, false),
-    Result = re:run(Key, "^sync:{([0-9]+)}$", [global, {capture, none}]),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
-        match ->
-            Command = ["EXPIRE", Key, ?SYNC_KEY_TTL],
+        {match, [[_FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
             case DryRun of
                 true ->
-                    ?INFO("would do: ~p", [Command]);
+                    ?INFO("would send empty hash to: ~p", [Uid]);
                 false ->
-                    [{ok, _}, {ok, TTL}] = qp(
-                            ecredis_contacts,
-                            [Command,
-                            ["TTL", Key]]),
-                    ?INFO("key ~p ttl: ~p", [Key, TTL])
+                    ok = mod_contacts:trigger_full_contact_sync(Uid),
+                    ?INFO("sent empty hash to: ~p", [Uid])
             end;
         _ -> ok
     end,
     State.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Find number of users with no contacts                      %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+find_empty_contact_list_accounts(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            {ok, ContactList} = model_contacts:get_contacts(Uid),
+            Version = case model_accounts:get_client_version(Uid) of
+                {ok, V} -> V;
+                _ -> undefined
+            end,
+            case ContactList of
+                [] ->
+                    ?INFO("Uid: ~p, version: ~p has empty contact list",
+                        [Uid, Version]), % can be undefined version
+                    migrate_utils:user_details(Uid); % prints details
+                _ ->
+                    ?INFO("Uid: ~p, version: ~p has contact list of length ~p",
+                        [Uid, Version, length(ContactList)]) % can be undefined version
+            end,
+            ok;
+        _ -> ok
+    end,
+    State.
 
 q(Client, Command) -> util_redis:q(Client, Command).
 qp(Client, Commands) -> util_redis:qp(Client, Commands).

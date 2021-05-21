@@ -21,7 +21,8 @@
 -export([
     manage/0,
     is_inactive_user/1,
-    check_and_delete_accounts/1  %% for testing, TODO(vipin): delete after testing.
+    check_and_delete_accounts/1,  %% for testing, TODO(vipin): delete after testing.
+    find_inactive_accounts/2
 ]).
 
 %%====================================================================
@@ -59,7 +60,8 @@ manage() ->
                     ?INFO("On Monday, create list of inactive Uids", []),
                      model_accounts:cleanup_uids_to_delete_keys(),
                      redis_migrate:start_migration("Find Inactive Accounts", redis_accounts,
-                         find_inactive_accounts, [{dry_run, false}, {execute, sequential}]);
+                         {?MODULE, find_inactive_accounts},
+                         [{dry_run, false}, {execute, sequential}]);
                 false ->
                     ?INFO("On Monday list of inactive Uids already created", [])
             end;
@@ -205,4 +207,37 @@ maybe_delete_inactive_account(Uid, ShouldDelete) ->
     end,
     ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Generate List of inactive users                            %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+find_inactive_accounts(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            try
+                case mod_inactive_accounts:is_inactive_user(Uid) of
+                    true ->
+                        {ok, Phone} = model_accounts:get_phone(Uid),
+                        ?INFO("Adding Uid: ~p to delete, Phone: ~p", [Uid, Phone]),
+                        case DryRun of
+                            true ->
+                                ok;
+                            false ->
+                                model_accounts:add_uid_to_delete(Uid)
+                        end;
+                    false -> ok
+                end
+            catch
+                Class:Reason:Stacktrace ->
+                    ?ERROR("Stacktrace:~s", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+                    ?ERROR("Unable to get last activity: ~p", [Uid])
+            end,
+            ok;
+        _ -> ok
+    end,
+    State.
 
