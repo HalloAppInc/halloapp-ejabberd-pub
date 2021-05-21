@@ -171,7 +171,9 @@ handle_info({iq_reply, timeout, SessionInfo}, State) ->
 handle_info({timeout, _TRef, {ping, SessionInfo}}, State) ->
     Host = State#state.host,
     IQ = #pb_iq{to_uid = SessionInfo#session_info.uid, type = get, payload = #pb_ping{}},
-    ejabberd_router:route_iq(IQ, SessionInfo, gen_mod:get_module_proc(Host, ?MODULE), ?ACK_TIMEOUT),
+    PingPid = gen_mod:get_module_proc(Host, ?MODULE),
+    {_, UserPid} = SessionInfo#session_info.sid,
+    ejabberd_iq:route(IQ, UserPid, PingPid, SessionInfo, ?ACK_TIMEOUT),
     NewState = add_timer(SessionInfo, State),
     {noreply, NewState};
 

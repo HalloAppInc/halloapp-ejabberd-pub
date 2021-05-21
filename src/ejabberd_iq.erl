@@ -28,7 +28,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, route/4, dispatch/1]).
+-export([start_link/0, route/4, route/5, dispatch/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -51,16 +51,23 @@ start_link() ->
 
 -spec route(iq(), atom() | pid(), term(), non_neg_integer()) -> ok.
 route(#pb_iq{type = T} = IQ, Proc, Ctx, Timeout) when T == set; T == get ->
-    do_route(IQ, Proc, Ctx, Timeout).
+    do_route(IQ, undefined, Proc, Ctx, Timeout).
 
+-spec route(iq(), pid(), atom() | pid(), term(), non_neg_integer()) -> ok.
+route(#pb_iq{type = T} = IQ, UserPid, Proc, Ctx, Timeout) when T == set; T == get ->
+    do_route(IQ, UserPid, Proc, Ctx, Timeout).
 
--spec do_route(iq(), atom() | pid(), term(), non_neg_integer()) -> ok.
-do_route(IQ, Proc, Ctx, Timeout) ->
+-spec do_route(iq(), pid(), atom() | pid(), term(), non_neg_integer()) -> ok.
+do_route(IQ, UserPid, Proc, Ctx, Timeout) ->
     Expire = current_time() + Timeout,
     Id = util_id:new_short_id(),
     ets:insert(?MODULE, {Id, Expire, Proc, Ctx}),
     gen_server:cast(?MODULE, {restart_timer, Expire}),
-    ejabberd_router:route(pb:set_id(IQ, Id)).
+    FinalIQ = pb:set_id(IQ, Id),
+    case UserPid of
+        undefined -> ejabberd_router:route(FinalIQ);
+        _ -> halloapp_c2s:route(UserPid, FinalIQ)
+    end.
 
 
 -spec dispatch(iq()) -> boolean().
