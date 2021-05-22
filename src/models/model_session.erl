@@ -96,7 +96,8 @@ del_session(Uid, Session) ->
 -spec get_sessions(Uid :: binary()) -> [session()].
 get_sessions(Uid) ->
     {ok, SessionsBin} = q(["HVALS", sessions_key(Uid)]),
-    lists:map(fun binary_to_term/1, SessionsBin).
+    Results = lists:map(fun binary_to_term/1, SessionsBin),
+    lists:map(fun upgrade_session/1, Results).
 
 
 -spec get_pid(Uid :: binary()) -> maybe(pid()).
@@ -111,6 +112,12 @@ get_pid(Uid) ->
 % Instead you should get bad_client or client_not_initialized
 q(Command) -> ecredis:q(ecredis_sessions, Command).
 qp(Commands) -> ecredis:qp(ecredis_sessions, Commands).
+
+upgrade_session(#session{} = Session) -> Session;
+upgrade_session({session, SID, USR, US, Priority, _Mode, Info}) ->
+    #session{sid = SID, usr = USR, us = US, priority = Priority, info = Info};
+upgrade_session({session, SID, USR, US, Priority, Info}) ->
+    #session{sid = SID, usr = USR, us = US, priority = Priority, info = Info}.
 
 
 -spec pid_key(Uid :: uid()) -> binary().
