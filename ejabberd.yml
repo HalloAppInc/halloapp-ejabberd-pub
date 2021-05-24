@@ -222,6 +222,7 @@ modules:
   mod_libphonenumber: {}
   mod_user_privacy: {}
   mod_inactive_accounts: {}
+  mod_retention: {}
   model_phone: {}
   model_friends: {}
   model_accounts: {}
