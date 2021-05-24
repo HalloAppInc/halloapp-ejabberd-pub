@@ -158,14 +158,14 @@ tarball.
 ## Install on macOS
 Clone the repository using SSH instead of HTTPS. To generate the SSH key can refer to this link: https://help.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh
 
-Make sure install erlang with version 22 using Homebrew. 
+Make sure install erlang with version 23 using Homebrew. 
 
-`brew install erlang@22`
+`brew install erlang@23`
 
 In terminal, enter `erl` to see whether erlang works fine. If not, run
 `vi ~/.zshrc` and modify the content to be 
 
-`export PATH=/usr/local/opt/erlang@22/bin:$PATH`. Use `source ~/.zshrc` to run the updated script. 
+`export PATH=/usr/local/opt/erlang@23/bin:$PATH`. Use `source ~/.zshrc` to run the updated script. 
 
 Configure ejabberd to use custom OpenSSL, Yaml, iconv. [Resource](https://docs.ejabberd.im/admin/installation/#macos). 
 
@@ -182,7 +182,7 @@ Run following commands to compile and run ejabberd.
 ./configure 
 make 
 sudo make install
-sudo /usr/local/sbin/ejabberdctl live
+HALLO_ENV=localhost EJABBERD_CONFIG_PATH=ejabberd.yml erl -pa ebin -pa deps/*/ebin -s ejabberd
 ```
 
 __Note__:
