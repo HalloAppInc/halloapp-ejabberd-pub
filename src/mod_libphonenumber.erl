@@ -78,7 +78,6 @@ get_region_id(Number) ->
                 _ ->
                     ?US_REGION_ID
             end,
-    ?INFO("~s -> ~s", [Number, Result]),
     Result.
 
 
