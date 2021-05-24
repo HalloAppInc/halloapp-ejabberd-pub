@@ -26,7 +26,7 @@ start(_Host, _Opts) ->
             application:ensure_all_started(erlcron),
             % TODO: change this one to {weekly, mon, {9, am}} when it works well
             erlcron:cron(dump_accounts, {
-                {daily, {2, 10, pm}},
+                {daily, {9, 25, pm}},
                 {?MODULE, dump_accounts, []}
             }),
 
