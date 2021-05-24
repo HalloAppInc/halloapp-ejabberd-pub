@@ -66,7 +66,7 @@ do_route(IQ, UserPid, Proc, Ctx, Timeout) ->
     FinalIQ = pb:set_id(IQ, Id),
     case UserPid of
         undefined -> ejabberd_router:route(FinalIQ);
-        _ -> halloapp_c2s:route(UserPid, FinalIQ)
+        _ -> halloapp_c2s:route(UserPid, {route, FinalIQ})
     end.
 
 
