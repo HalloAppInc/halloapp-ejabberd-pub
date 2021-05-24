@@ -24,7 +24,7 @@
 -define(SM_CACHE, sm_cache).
 -define(SM_LOCAL, sm_local).
 
--record(session, {sid, usr, us, priority, info = []}).
+-record(session, {sid, usr, us, priority, mode, info = []}).
 -record(session_counter, {vhost, count}).
 % TODO: (nikola): it would make more sense if we just use unix timestamp instead of erlang:timestamp()
 -type sid() :: {erlang:timestamp(), pid()}.

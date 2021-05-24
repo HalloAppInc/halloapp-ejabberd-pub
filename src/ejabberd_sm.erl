@@ -163,12 +163,12 @@ push_message(#pb_msg{} = Packet) ->
 
 
 -spec open_session(sid(), binary(), binary(), binary(), prio(), info()) -> ok.
-
 open_session(SID, User, Server, Resource, Priority, Info) ->
-    set_session(SID, User, Server, Resource, Priority, Info),
+    Mode = proplists:get_value(mode, Info),
+    set_session(SID, User, Server, Resource, Priority, Mode, Info),
     check_for_sessions_to_replace(User, Server, Resource),
     JID = jid:make(User, Server, Resource),
-    ?INFO("U: ~p S: ~p R: ~p JID: ~p", [User, Server, Resource, JID]),
+    ?INFO("U: ~p S: ~p R: ~p JID: ~p, Mode: ~p", [User, Server, Resource, JID, Mode]),
     ejabberd_hooks:run(sm_register_connection_hook, JID#jid.lserver, [SID, JID, Info]).
 
 -spec open_session(sid(), binary(), binary(), binary(), info()) -> ok.
@@ -387,12 +387,11 @@ wait_for_c2s_to_terminate(Timeout) ->
     end.
 
 -spec set_session(sid(), binary(), binary(), binary(),
-                  prio(), info()) -> ok | {error, any()}.
-
-set_session(SID, User, Server, Resource, Priority, Info) ->
+                  prio(), atom(), info()) -> ok | {error, any()}.
+set_session(SID, User, Server, Resource, Priority, Mode, Info) ->
     US = {User, Server},
     USR = {User, Server, Resource},
-    set_session(#session{sid = SID, usr = USR, us = US,
+    set_session(#session{sid = SID, usr = USR, us = US, mode = Mode,
              priority = Priority, info = Info}).
 
 -spec set_session(#session{}) -> ok | {error, any()}.

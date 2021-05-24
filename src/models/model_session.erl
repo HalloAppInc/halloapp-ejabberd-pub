@@ -117,7 +117,8 @@ upgrade_session(#session{} = Session) -> Session;
 upgrade_session({session, SID, USR, US, Priority, _Mode, Info}) ->
     #session{sid = SID, usr = USR, us = US, priority = Priority, info = Info};
 upgrade_session({session, SID, USR, US, Priority, Info}) ->
-    #session{sid = SID, usr = USR, us = US, priority = Priority, info = Info}.
+    Mode = proplists:get_value(mode, Info),
+    #session{sid = SID, usr = USR, us = US, priority = Priority, mode = Mode, info = Info}.
 
 
 -spec pid_key(Uid :: uid()) -> binary().
