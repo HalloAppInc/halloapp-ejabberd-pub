@@ -23,17 +23,17 @@ start(_Host, _Opts) ->
     ?INFO("starting", []),
     case util_aws:get_machine_name() of
         <<"s-test">> ->
-%%            % TODO: change this one to {weekly, mon, {9, am}} when it works well
-%%            erlcron:cron(dump_accounts, {
-%%                {daily, {2, pm}},
-%%                {?MODULE, dump_accounts, []}
-%%            }),
-%%
-%%            erlcron:cron(weekly_retention, {
-%%                {weekly, mon, {11, am}},
-%%                {?MODULE, compute_retention, []}
-%%            });
-            ok;
+            application:ensure_all_started(erlcron),
+            % TODO: change this one to {weekly, mon, {9, am}} when it works well
+            erlcron:cron(dump_accounts, {
+                {daily, {2, 10, pm}},
+                {?MODULE, dump_accounts, []}
+            }),
+
+            erlcron:cron(weekly_retention, {
+                {weekly, mon, {11, am}},
+                {?MODULE, compute_retention, []}
+            });
         _ -> ok
     end,
     ok.
@@ -43,9 +43,8 @@ stop(_Host) ->
     ?INFO("stopping", []),
     case util_aws:get_machine_name() of
         <<"s-test">> ->
-%%            erlcron:cancel(dump_accounts),
-%%            erlcron:cancel(weekly_retention);
-            ok;
+            erlcron:cancel(dump_accounts),
+            erlcron:cancel(weekly_retention);
         _ -> ok
     end,
     ok.
