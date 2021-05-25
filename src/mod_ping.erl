@@ -39,7 +39,8 @@
 -include("time.hrl").
 -include("ha_types.hrl").
 
--define(PING_INTERVAL, 120 * ?SECONDS_MS).
+-define(PING_ACTIVE_INTERVAL, 120 * ?SECONDS_MS).
+-define(PING_PASSIVE_INTERVAL, 60 * ?SECONDS_MS).
 -define(ACK_TIMEOUT, 30 * ?SECONDS_MS).
 
 %% API
@@ -267,7 +268,8 @@ add_timer(SessionInfo, State) ->
         _ ->
             Timers1
     end,
-    TRef = erlang:start_timer(?PING_INTERVAL, self(), {ping, SessionInfo}),
+    PingInterval = fetch_ping_interval(SessionInfo),
+    TRef = erlang:start_timer(PingInterval, self(), {ping, SessionInfo}),
     Timers3 = maps:put(SessionInfo, TRef, Timers2),
     State#state{timers = Timers3}.
 
@@ -283,6 +285,10 @@ del_timer(SessionInfo, State) ->
             Timers1
     end,
     State#state{timers = Timers2}.
+
+
+fetch_ping_interval(#session_info{mode = active}) -> ?PING_ACTIVE_INTERVAL;
+fetch_ping_interval(#session_info{mode = passive}) -> ?PING_PASSIVE_INTERVAL.
 
 
 depends(_Host, _Opts) ->

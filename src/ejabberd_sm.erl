@@ -41,7 +41,7 @@
     route/2,
     open_session/5,
     open_session/6,
-    activate_session/2,
+    check_and_activate_session/2,
     is_session_active/1,
     close_session/4,
     push_message/1,
@@ -63,7 +63,6 @@
     get_user_info/2,
     get_user_info/3,
     get_user_ip/3,
-    get_max_user_sessions/2,
     is_existing_resource/3,
     get_commands_spec/0,
     host_up/1,
@@ -87,8 +86,9 @@
 
 -record(state, {}).
 
-%% default value for the maximum number of user connections
--define(MAX_USER_SESSIONS, infinity).
+%% we allow atmost one active session per user.
+%% maximum number of passive sessions for a user.
+-define(MAX_PASSIVE_SESSIONS, 5).
 % How long to wait for all c2s process to terminate, during shutdown
 -define(SHUTDOWN_TIMEOUT_MS, 3000).
 
@@ -165,19 +165,17 @@ push_message(#pb_msg{} = Packet) ->
 -spec open_session(sid(), binary(), binary(), binary(), prio(), info()) -> ok.
 open_session(SID, User, Server, Resource, Priority, Info) ->
     Mode = proplists:get_value(mode, Info),
+    check_for_sessions_to_replace(User, Server, Resource, Mode),
     set_session(SID, User, Server, Resource, Priority, Mode, Info),
-    check_for_sessions_to_replace(User, Server, Resource),
     JID = jid:make(User, Server, Resource),
     ?INFO("U: ~p S: ~p R: ~p JID: ~p, Mode: ~p", [User, Server, Resource, JID, Mode]),
     ejabberd_hooks:run(sm_register_connection_hook, JID#jid.lserver, [SID, JID, Info]).
 
 -spec open_session(sid(), binary(), binary(), binary(), info()) -> ok.
-
 open_session(SID, User, Server, Resource, Info) ->
     open_session(SID, User, Server, Resource, undefined, Info).
 
 -spec close_session(sid(), binary(), binary(), binary()) -> ok.
-
 close_session(SID, User, Server, Resource) ->
     ?INFO("SID: ~p User: ~p", [SID, User]),
     Sessions = get_sessions(User, Server, Resource),
@@ -392,7 +390,7 @@ set_session(SID, User, Server, Resource, Priority, Mode, Info) ->
     US = {User, Server},
     USR = {User, Server, Resource},
     set_session(#session{sid = SID, usr = USR, us = US, mode = Mode,
-             priority = Priority, info = Info}).
+        priority = Priority, info = Info}).
 
 -spec set_session(#session{}) -> ok | {error, any()}.
 set_session(#session{sid = Sid, us = {LUser, _LServer}} = Session) ->
@@ -406,6 +404,11 @@ set_session(#session{sid = Sid, us = {LUser, _LServer}} = Session) ->
     ets_insert_sesssion(Session),
     Res.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% get_sessions: includes both passive and active.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 -spec get_sessions(binary(), binary()) -> [#session{}].
 get_sessions(LUser, _LServer) ->
     case db_get_sessions(LUser) of
@@ -418,12 +421,57 @@ get_sessions(LUser, LServer, <<"">>) ->
     get_sessions(LUser, LServer);
 get_sessions(LUser, LServer, LResource) ->
     Sessions = get_sessions(LUser, LServer),
-    [S || S <- Sessions, element(3, S#session.usr) == LResource].
+    filter_sessions(Sessions, LResource).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% get_active_sessions: includes only active sessions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec get_active_sessions(binary(), binary()) -> [#session{}].
+get_active_sessions(LUser, _LServer) ->
+    case db_get_active_sessions(LUser) of
+        {ok, Ss} -> delete_dead(Ss);
+        _ -> []
+    end.
+
+
+-spec get_active_sessions(binary(), binary(), binary()) -> [#session{}].
+get_active_sessions(LUser, LServer, <<"">>) ->
+    get_active_sessions(LUser, LServer);
+get_active_sessions(LUser, LServer, LResource) ->
+    Sessions = get_active_sessions(LUser, LServer),
+    filter_sessions(Sessions, LResource).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% get_passive_sessions: includes only passive sessions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec get_passive_sessions(binary(), binary()) -> [#session{}].
+get_passive_sessions(LUser, _LServer) ->
+    case db_get_passive_sessions(LUser) of
+        {ok, Ss} -> delete_dead(Ss);
+        _ -> []
+    end.
+
+
+-spec get_passive_sessions(binary(), binary(), binary()) -> [#session{}].
+get_passive_sessions(LUser, LServer, <<"">>) ->
+    get_passive_sessions(LUser, LServer);
+get_passive_sessions(LUser, LServer, LResource) ->
+    Sessions = get_passive_sessions(LUser, LServer),
+    filter_sessions(Sessions, LResource).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% db related functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec db_set_session(Session :: session()) -> ok.
 db_set_session(Session) ->
     {Uid, _Server} = Session#session.us,
-    {ok, _OldPid} = model_session:set_session(Uid, Session),
+    ok = model_session:set_session(Uid, Session),
     ok.
 
 -spec db_delete_session(Session :: session()) -> ok.
@@ -431,9 +479,22 @@ db_delete_session(Session) ->
     {Uid, _Server} = Session#session.us,
     model_session:del_session(Uid, Session).
 
+
 -spec db_get_sessions(uid()) -> {ok, [#session{}]}.
 db_get_sessions(Uid) ->
     Sessions = model_session:get_sessions(Uid),
+    {ok, Sessions}.
+
+
+-spec db_get_active_sessions(uid()) -> {ok, [#session{}]}.
+db_get_active_sessions(Uid) ->
+    Sessions = model_session:get_active_sessions(Uid),
+    {ok, Sessions}.
+
+
+-spec db_get_passive_sessions(uid()) -> {ok, [#session{}]}.
+db_get_passive_sessions(Uid) ->
+    Sessions = model_session:get_passive_sessions(Uid),
     {ok, Sessions}.
 
 
@@ -442,33 +503,66 @@ is_session_active(Session) ->
     proplists:get_value(mode, Session#session.info) =:= active.
 
 
-%% This code should go away once we have access to c2s state when processing iqs.
-%% mod_user_session can directly update the state of the c2s process in that case.
-%% TODO(murali@): add new process_local_iq function that also has c2s process state.
--spec activate_session(Uid :: binary(), Server :: binary()) -> ok.
-activate_session(Uid, Server) ->
-    case get_sessions(Uid, Server) of
+-spec filter_sessions(Sessions :: [session()], Resource :: binary()) -> [session()].
+filter_sessions(Sessions, Resource) ->
+    [S || S <- Sessions, element(3, S#session.usr) == Resource].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Activates a passive session with SID.
+-spec check_and_activate_session(Uid :: binary(), SID :: term()) -> ok.
+check_and_activate_session(Uid, SID) ->
+    Server = util:get_host(),
+    %% Fetch current active sessions and close if necessary.
+    case get_active_sessions(Uid, Server) of
         {ok, []} ->
-            ?ERROR("No sessions found for uid: ~s", [Uid]);
+            %% No active sessions found.
+            ?INFO("No active sessions found for Uid: ~s", [Uid]),
+            activate_passive_session(Uid, SID);
+        {ok, [#session{sid = SID, mode = active}]} ->
+            %% Session is already active. Nothing to do here.
+            ?WARNING("Uid: ~s, user session is already active.", [Uid]);
         {ok, [Session]} ->
+            %% Some other active session is found in db.
+            %% Close that session and activate existing passive session.
+            {_, Pid} = Session#session.sid,
+            ?INFO("Sending replaced to session: ~p, Uid: ~p", [Session#session.sid, Uid]),
+            halloapp_c2s:route(Pid, replaced),
+            activate_passive_session(Uid, SID);
+        {ok, Sessions} ->
+            ?CRITICAL("Should never happen: multiple active sessions found, Uid: ~p", [Uid]),
+            lists:foreach(
+                fun(#session{sid = {_, Pid}} = Session) ->
+                    ?INFO("Sending replaced to session: ~p, Uid: ~p", [Session#session.sid, Uid]),
+                    halloapp_c2s:route(Pid, replaced)
+                end, Sessions),
+            activate_passive_session(Uid, SID)
+    end.
+
+
+-spec activate_passive_session(Uid :: binary(), SID :: term()) -> ok.
+activate_passive_session(Uid, SID) ->
+    %% Lookup session using key.
+    case model_session:get_session(Uid, SID) of
+        {error, missing} ->
+            ?ERROR("No sessions found for Sid: ~s", [SID]);
+        {ok, Session} ->
             {Uid, _} = Session#session.us,
             {_, Pid} = Session#session.sid,
             Info = Session#session.info,
-            CurrentMode = proplists:get_value(mode, Session#session.info),
+            CurrentMode = Session#session.mode,
             case CurrentMode of
                 active ->
-                    ?WARNING("Uid: ~s, user session is already active.", [Uid]);
+                    %% this should not happen since we already check this in activate_session.
+                    ?ERROR("Uid: ~s, user session: ~p is already active.", [Uid, SID]);
                 passive ->
-                    ?INFO("Uid: ~s, activating user_session", [Uid]),
+                    ?INFO("Uid: ~s, activating user_session: ~p", [Uid, SID]),
                     NewInfo = lists:keyreplace(mode, 1, Info, {mode, active}),
-                    NewSession = Session#session{info = NewInfo},
+                    NewSession = Session#session{info = NewInfo, mode = active},
                     halloapp_c2s:route(Pid, activate_session),
                     set_session(NewSession)
-            end;
-        {ok, _} ->
-            ?ERROR("Multiple sessions found for uid: ~s", [Uid])
-            %% Ideally, we could use resource to match the session,
-            %% but we dont need this until we support multiple devices per user.
+            end
     end.
 
 
@@ -504,6 +598,10 @@ remote_is_process_alive(Pid) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Any kind of routing logic here: always use active sessions.
+%%%%% Passive sessions have their own logic separately to route on their own c2s process.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 -spec do_route(jid(), term()) -> any().
 do_route(#jid{lresource = <<"">>} = To, Term) ->
     lists:foreach(
@@ -513,10 +611,15 @@ do_route(#jid{lresource = <<"">>} = To, Term) ->
 do_route(To, Term) ->
     ?DEBUG("Broadcasting ~p to ~ts", [Term, jid:encode(To)]),
     {U, S, R} = jid:tolower(To),
-    case get_sessions(U, S, R) of
+    case get_active_sessions(U, S, R) of
         [] ->
             ?DEBUG("Dropping broadcast to unavailable resourse: ~p", [Term]);
         Ss ->
+            NumSessions = length(Ss),
+            case NumSessions > 1 of
+                true -> ?WARNING("Uid: ~p, NumSessions: ~p", [U, NumSessions]);
+                false -> ok
+            end,
             Session = lists:max(Ss),
             Pid = element(2, Session#session.sid),
             ?DEBUG("Sending to process ~p: ~p", [Pid, Term]),
@@ -540,7 +643,7 @@ do_route(Packet) ->
     LUser = pb:get_to(Packet),
     LServer = util:get_host(),
     LResource = <<>>,
-    case get_sessions(LUser, LServer, LResource) of
+    case get_active_sessions(LUser, LServer, LResource) of
         [] ->
             case Packet of
             #pb_presence{} ->
@@ -571,9 +674,8 @@ route_message(#pb_msg{} = Packet) ->
         allow ->
             %% Store the message regardless of user having sessions or not.
             store_offline_message(Packet),
-            %% Irrespective of whether the session is passive or active:
-            %% send the message to the user's c2s process if it exists.
-            case get_sessions(LUser, LServer, <<>>) of
+            %% send the message to the user's active c2s process if it exists.
+            case get_active_sessions(LUser, LServer, <<>>) of
                 [] ->
                     %% If no online sessions, just send push via apple/google
                     push_message(Packet);
@@ -617,57 +719,42 @@ clean_session_list([S1, S2 | Rest], Res) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% On new session, check if some existing connections need to be replace
--spec check_for_sessions_to_replace(binary(), binary(), binary()) -> ok | replaced.
-check_for_sessions_to_replace(User, Server, Resource) ->
-    check_existing_resources(User, Server, Resource),
-    check_max_sessions(User, Server).
-
--spec check_existing_resources(binary(), binary(), binary()) -> ok.
-check_existing_resources(LUser, LServer, LResource) ->
-    Ss = get_sessions(LUser, LServer, LResource),
-    if Ss == [] -> ok;
+-spec check_for_sessions_to_replace(binary(), binary(), binary(), atom()) -> ok | replaced.
+check_for_sessions_to_replace(User, Server, _Resource, active) ->
+    %% Replace any active sessions if available.
+    lists:foreach(
+        fun(#session{sid = {_, Pid} = SID}) ->
+            ?INFO("Sending replaced to session: ~p, Uid: ~p", [SID, User]),
+            halloapp_c2s:route(Pid, replaced)
+        end, get_active_sessions(User, Server)),
+    ok;
+check_for_sessions_to_replace(User, Server, _Resource, passive) ->
+    %% Replace oldest passive session if we exceed our limit of max_passive_sessions.
+    PassiveSessions = get_passive_sessions(User, Server),
+    NumSessions = length(PassiveSessions),
+    case length(PassiveSessions) < ?MAX_PASSIVE_SESSIONS of
         true ->
-        SIDs = [SID || #session{sid = SID} <- Ss],
-        MaxSID = lists:max(SIDs),
-        lists:foreach(fun ({_, Pid} = S) when S /= MaxSID ->
-                        halloapp_c2s:route(Pid, replaced);
-                    (_) -> ok
-                    end,
-                    SIDs)
+            ?INFO("Uid: ~p, NumSessions: ~p", [User, PassiveSessions]),
+            ok;
+        false ->
+            SIDs = [SID || #session{sid = SID} <- PassiveSessions],
+            SIDsToReplace = lists:sublist(lists:reverse(lists:sort(SIDs)),
+                ?MAX_PASSIVE_SESSIONS, NumSessions - ?MAX_PASSIVE_SESSIONS),
+            lists:foreach(
+                fun({_, Pid} = SID) ->
+                    ?INFO("Sending replaced to session: ~p, Uid: ~p", [SID, User]),
+                    halloapp_c2s:route(Pid, replaced)
+                end, SIDsToReplace)
     end.
 
--spec is_existing_resource(binary(), binary(), binary()) -> boolean().
 
+-spec is_existing_resource(binary(), binary(), binary()) -> boolean().
 is_existing_resource(LUser, LServer, LResource) ->
     [] /= get_resource_sessions(LUser, LServer, LResource).
 
 -spec get_resource_sessions(binary(), binary(), binary()) -> [sid()].
 get_resource_sessions(User, Server, Resource) ->
     [S#session.sid || S <- get_sessions(User, Server, Resource)].
-
--spec check_max_sessions(binary(), binary()) -> ok | replaced.
-check_max_sessions(LUser, LServer) ->
-    Ss = get_sessions(LUser, LServer),
-    MaxSessions = get_max_user_sessions(LUser, LServer),
-    if
-        length(Ss) =< MaxSessions -> ok;
-        true ->
-            #session{sid = {_, Pid}} = lists:min(Ss),
-            halloapp_c2s:route(Pid, replaced)
-    end.
-
-%% Get the user_max_session setting
-%% This option defines the max number of time a given users are allowed to
-%% log in
-%% Defaults to infinity
--spec get_max_user_sessions(binary(), binary()) -> infinity | non_neg_integer().
-get_max_user_sessions(LUser, Host) ->
-    case ejabberd_shaper:match(Host, max_user_sessions,
-                   jid:make(LUser, Host)) of
-        Max when is_integer(Max) -> Max;
-        infinity -> infinity;
-        _ -> ?MAX_USER_SESSIONS
-    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

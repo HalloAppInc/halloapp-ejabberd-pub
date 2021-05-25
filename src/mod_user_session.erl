@@ -53,7 +53,7 @@ mod_options(_Host) ->
 
 -spec process_local_iq(IQ :: pb_iq(), State :: #{}) -> pb_iq().
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_client_mode{mode = Mode}} = IQ, #{sid := _SID} = State) ->
+        payload = #pb_client_mode{mode = Mode}} = IQ, #{sid := SID} = State) ->
     Server = util:get_host(),
     ?INFO("Uid: ~s, set-iq for client_mode, mode: ~p", [Uid, Mode]),
     if
@@ -61,7 +61,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
             ?WARNING("Uid: ~s, received invalid client mode: ~p", [Uid, Mode]),
             {pb:make_error(IQ, util:err(invalid_login_mode)), State};
         true ->
-            ok = ejabberd_sm:activate_session(Uid, Server),
+            ok = ejabberd_sm:activate_session(Uid, SID),
             {pb:make_iq_result(IQ), State}
     end;
 process_local_iq(#pb_iq{} = IQ, State) ->
