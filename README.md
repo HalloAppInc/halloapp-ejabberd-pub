@@ -158,7 +158,7 @@ tarball.
 ## Install on macOS
 Clone the repository using SSH instead of HTTPS. To generate the SSH key can refer to this link: https://help.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh
 
-Make sure install erlang with version 23 using Homebrew. 
+Make sure install erlang with version 23 using Homebrew (currently version 24 is not backwards compatible).
 
 `brew install erlang@23`
 
@@ -181,14 +181,13 @@ Run following commands to compile and run ejabberd.
 ./configure --enable-user=ejabberd --enable-mysql
 ./configure 
 make 
-sudo make install
 HALLO_ENV=localhost EJABBERD_CONFIG_PATH=ejabberd.yml erl -pa ebin -pa deps/*/ebin -s ejabberd
 ```
 
 __Note__:
 The above will likely not work right off the bat. A bandaid solution until the `configure.ac` file is modified is the following:
 1. Set `export LDFLAGS="-L/usr/local/opt/openssl/lib"` along with setting the other flags as above.
-2. Immediately after running `./configure`, `unset LDFLAGS`
+2. Immediately after running `./configure` and before running `make`, `unset LDFLAGS`
 
 Development
 -----------
@@ -213,6 +212,20 @@ After the initial setup next time you will just need to do
 
 
 ### 2. Tests
+Make sure to install AWS CLI https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-mac.html#cliv2-mac-install-cmd:
+
+On MacOS:
+    curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+    sudo installer -pkg AWSCLIV2.pkg -target /
+
+Set configurations:
+```
+aws configure
+AWS Access Key ID: (given separately)
+AWS Secret Access Key: (given separately)
+Default region name: us-east-1
+Default output format: (press enter)
+```
 
 Halloapp unit test run like this:
 
@@ -222,7 +235,11 @@ In order to assist in the development of ejabberd, and particularly the
 execution of the test suite, a Vagrant environment is available at
 https://github.com/processone/ejabberd-vagrant-dev.
 
-
+Halloapp suite test:
+ 
+    HALLO_ENV=test ./rebar ct suite=ha
+    
+ 
 ### 3. Running
 
 To start ejabberd in development mode from the repository directory, you can
