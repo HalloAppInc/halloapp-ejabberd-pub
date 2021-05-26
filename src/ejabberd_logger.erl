@@ -140,7 +140,8 @@ do_start(Level) ->
     LogRotateDate = get_string_env(log_rotate_date, ""),
     LogRotateSize = get_integer_env(log_rotate_size, 10*1024*1024),
     LogRotateCount = get_integer_env(log_rotate_count, 1),
-    LogRateLimit = get_integer_env(log_rate_limit, 100),
+    % Allowed number of log lines per sec
+    LogRateLimit = get_integer_env(log_rate_limit, 1000),
 
     % Add the module:function:line
     HalloappFormatterConfigConsole = [
