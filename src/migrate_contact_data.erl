@@ -9,6 +9,7 @@
 
 -include("logger.hrl").
 -include("contacts.hrl").
+-include("account.hrl").
 
 -export([
     rename_reverse_contacts_run/2,
@@ -17,7 +18,8 @@
     remove_unregistered_numbers_run/2,
     remove_unregistered_numbers_verify/2,
     trigger_full_sync_run/2,
-    find_empty_contact_list_accounts/2
+    find_empty_contact_list_accounts/2,
+    find_messy_accounts/2
 ]).
 
 
@@ -182,6 +184,37 @@ find_empty_contact_list_accounts(Key, State) ->
                 _ ->
                     ?INFO("Uid: ~p, version: ~p has contact list of length ~p",
                         [Uid, Version, length(ContactList)]) % can be undefined version
+            end,
+            ok;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%          Finds accounts with zero contacts, but non-zero friends                   %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+find_messy_accounts(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            {ok, ContactList} = model_contacts:get_contacts(Uid),
+            {ok, FriendsList} = model_friends:get_friends(Uid),
+            NumContactsList = length(ContactList),
+            NumFriendsList = length(FriendsList),
+            {ok, Account} = model_accounts:get_account(Uid),
+            ClientVersion = Account#account.client_version,
+            LastSeenTsMs = Account#account.last_activity_ts_ms,
+            case NumContactsList =:= 0 andalso NumFriendsList =/= 0 of
+                true ->
+                    ?INFO("Uid: ~p, NumContactsList: ~p, NumFriendsList: ~p, version: ~p, last_seen: ~p",
+                            [Uid, NumContactsList, NumFriendsList, ClientVersion, LastSeenTsMs]),
+                    ok;
+                false ->
+                    ok
             end,
             ok;
         _ -> ok
