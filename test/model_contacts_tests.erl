@@ -100,24 +100,19 @@ remove_all_contacts_test() ->
 
 empty_sync_contacts_test() ->
     setup(),
-    ok = model_contacts:finish_sync(?UID, ?SID),
+    {error, _} = model_contacts:finish_sync(?UID, ?SID),
     {ok, []} = model_contacts:get_contacts(?UID),
 
     ok = model_contacts:sync_contacts(?UID, ?SID, [?CONTACT3]),
     ok = model_contacts:finish_sync(?UID, ?SID),
     {ok, [?CONTACT3]} = model_contacts:get_contacts(?UID),
 
-    %% Sync with empty contacts and ensure that old contacts are deleted.
-    ok = model_contacts:sync_contacts(?UID, ?SID, []),
-    ok = model_contacts:finish_sync(?UID, ?SID),
-    {ok, []} = model_contacts:get_contacts(?UID),
+    %% We no longer do finish_sync with empty lists
     ok.
 
 
 sync_contacts_test() ->
     setup(),
-    %% Empty contacts with syncid should still work fine.
-    ok = model_contacts:finish_sync(?UID, ?SID),
     ok = model_contacts:add_contact(?UID, ?CONTACT1),
     ok = model_contacts:add_contact(?UID, ?CONTACT2),
     ok = model_contacts:sync_contacts(?UID, ?SID, [?CONTACT3]),

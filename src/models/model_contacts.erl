@@ -145,22 +145,30 @@ sync_contacts(Uid, Sid, ContactList) ->
 
 -spec finish_sync(Uid :: uid(), Sid :: binary()) -> ok  | {error, any()}.
 finish_sync(Uid, Sid) ->
-    {ok, RemovedContactList} = q(["SDIFF", contacts_key(Uid), sync_key(Uid, Sid)]),
-    {ok, AddedContactList} = q(["SDIFF", sync_key(Uid, Sid), contacts_key(Uid)]),
-    lists:foreach(
-        fun(Contact) ->
-            {ok, _} = q(["SREM", reverse_key(Contact), Uid])
-        end, RemovedContactList),
-    lists:foreach(
-        fun(Contact) ->
-            {ok, _} = q(["SADD", reverse_key(Contact), Uid])
-        end, AddedContactList),
-    %% Empty contact sync should still work fine, so check if sync_key exists or not.
-    {ok, _Res} = case q(["EXISTS", sync_key(Uid, Sid)]) of
-        {ok, <<"0">>} -> q(["DEL", contacts_key(Uid)]);
-        {ok, <<"1">>} -> q(["RENAME", sync_key(Uid, Sid), contacts_key(Uid)])
-    end,
-    ok.
+    case q(["PERSIST", sync_key(Uid, Sid)]) of
+        {ok, <<"0">>} ->
+            %% Can happen in rare case if the client takes 31 days to complete the sync.
+            {error, expired_sync};
+        {ok, <<"1">>} ->
+            {ok, RemovedContactList} = q(["SDIFF", contacts_key(Uid), sync_key(Uid, Sid)]),
+            {ok, AddedContactList} = q(["SDIFF", sync_key(Uid, Sid), contacts_key(Uid)]),
+            lists:foreach(
+                fun(Contact) ->
+                    {ok, _} = q(["SREM", reverse_key(Contact), Uid])
+                end, RemovedContactList),
+            lists:foreach(
+                fun(Contact) ->
+                    {ok, _} = q(["SADD", reverse_key(Contact), Uid])
+                end, AddedContactList),
+            %% Empty contact sync should still work fine, so check if sync_key exists or not.
+            {ok, _Res} = case q(["EXISTS", sync_key(Uid, Sid)]) of
+                {ok, <<"0">>} ->
+                    q(["DEL", contacts_key(Uid)]);
+                {ok, <<"1">>} ->
+                    q(["RENAME", sync_key(Uid, Sid), contacts_key(Uid)])
+            end,
+            ok
+    end.
 
 
 -spec is_contact(Uid :: uid(), Contact :: binary()) -> boolean() | {error, any()}.
@@ -303,4 +311,3 @@ get_contact_hash_salt() ->
         _ ->
             {ok, ?DUMMY_SALT}
     end.
-

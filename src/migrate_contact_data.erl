@@ -19,7 +19,8 @@
     remove_unregistered_numbers_verify/2,
     trigger_full_sync_run/2,
     find_empty_contact_list_accounts/2,
-    find_messy_accounts/2
+    find_messy_accounts/2,
+    fix_contacts_ttl/2
 ]).
 
 
@@ -215,6 +216,28 @@ find_messy_accounts(Key, State) ->
                     ok;
                 false ->
                     ok
+            end,
+            ok;
+        _ -> ok
+    end,
+    State.
+
+fix_contacts_ttl(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^con:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            ?INFO("uid: ~p", [Uid]),
+            {ok, TTL} = q(ecredis_contacts, ["TTL", FullKey]),
+            ?INFO("TTL ~p ~p", [FullKey, TTL]),
+            Command = ["PERSIST", FullKey],
+            case DryRun of
+                true ->
+                    ?INFO("Would execute ~p", [Command]);
+                false ->
+                    Res = q(ecredis_contacts, Command),
+                    ?INFO("did ~p -> ~p", [Command, Res])
             end,
             ok;
         _ -> ok

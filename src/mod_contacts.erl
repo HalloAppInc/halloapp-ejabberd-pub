@@ -73,7 +73,6 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %%====================================================================
 %% iq handlers
 %%====================================================================
-
 process_local_iq(#pb_iq{from_uid = UserId, type = set,
         payload = #pb_contact_list{type = full, contacts = Contacts, sync_id = SyncId, batch_index = Index,
             is_last = Last}} = IQ) ->
@@ -95,9 +94,19 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
         false -> ok;
         true ->
             stat:count("HA/contacts", "sync_full_finish"),
-            %% Unfinished finish_sync will need the next full sync to send all the relevant
-            %% notifications (some might be sent more than once).
-            spawn(?MODULE, finish_sync, [UserId, Server, SyncId])
+
+            case model_contacts:get_sync_contacts(UserId, SyncId) of
+                {ok, []} ->
+                    ?INFO("Uid: ~p full sync with empty contacts. Will remove all contacts",
+                        [UserId]),
+                    stat:count("HA/contacts", "sync_full_finish_empty"),
+                    remove_all_contacts(UserId, false);
+                {ok, SyncContacts} ->
+                    stat:count("HA/contacts", "sync_full_contacts_finish", length(SyncContacts)),
+                    %% Unfinished finish_sync will need the next full sync to send all the relevant
+                    %% notifications (some might be sent more than once).
+                    spawn(?MODULE, finish_sync, [UserId, Server, SyncId])
+            end
     end,
     EndTime = os:system_time(microsecond),
     T = EndTime - StartTime,
@@ -116,7 +125,7 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
 -spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
 remove_user(Uid, Server) ->
     {ok, Phone} = model_accounts:get_phone(Uid),
-    remove_all_contacts(Uid, Server, true),
+    remove_all_contacts(Uid, true),
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
     lists:foreach(
         fun(ContactId) ->
@@ -126,8 +135,8 @@ remove_user(Uid, Server) ->
 
 
 -spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-re_register_user(UserId, Server, _Phone) ->
-    remove_all_contacts(UserId, Server, false).
+re_register_user(UserId, _Server, _Phone) ->
+    remove_all_contacts(UserId, false).
 
 
 %% TODO: Delay notifying the users about their contact to reduce unnecessary messages to clients.
@@ -268,8 +277,8 @@ handle_delta_contacts(UserId, Server, Contacts) ->
     AddContacts.
 
 
--spec remove_all_contacts(UserId :: binary(), Server :: binary(), IsAccountDeleted :: boolean()) -> ok.
-remove_all_contacts(UserId, _Server, IsAccountDeleted) ->
+-spec remove_all_contacts(UserId :: binary(), IsAccountDeleted :: boolean()) -> ok.
+remove_all_contacts(UserId, IsAccountDeleted) ->
     {ok, ContactPhones} = model_contacts:get_contacts(UserId),
     remove_contact_phones(UserId, ContactPhones, IsAccountDeleted).
 
@@ -311,7 +320,11 @@ finish_sync(UserId, _Server, SyncId) ->
             RegisteredContacts, OldContactSet, OldReverseContactSet, OldFriendUidSet, BlockedUidSet, true),
 
     %% finish_sync will add various contacts and their reverse mapping in the db.
-    model_contacts:finish_sync(UserId, SyncId),
+    case model_contacts:finish_sync(UserId, SyncId) of
+        {error, _} = Error ->
+            ?ERROR("contact sync failed: ~p Uid: ~p SyncId: ~p", [Error, UserId, SyncId]);
+        ok -> ok
+    end,
 
     %% Check if any new contacts were uploaded in this sync - if yes - then update sync status.
     %% checking this will help us set this field only for non-empty full contact sync.
