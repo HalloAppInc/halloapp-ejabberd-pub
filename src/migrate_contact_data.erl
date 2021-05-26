@@ -206,16 +206,20 @@ find_messy_accounts(Key, State) ->
             {ok, FriendsList} = model_friends:get_friends(Uid),
             NumContactsList = length(ContactList),
             NumFriendsList = length(FriendsList),
-            {ok, Account} = model_accounts:get_account(Uid),
-            ClientVersion = Account#account.client_version,
-            LastSeenTsMs = Account#account.last_activity_ts_ms,
-            case NumContactsList =:= 0 andalso NumFriendsList =/= 0 of
-                true ->
-                    ?INFO("Uid: ~p, NumContactsList: ~p, NumFriendsList: ~p, version: ~p, last_seen: ~p",
-                            [Uid, NumContactsList, NumFriendsList, ClientVersion, LastSeenTsMs]),
-                    ok;
-                false ->
-                    ok
+            case model_accounts:get_account(Uid) of
+                {ok, Account} ->
+                    ClientVersion = Account#account.client_version,
+                    LastSeenTsMs = Account#account.last_activity_ts_ms,
+                    case NumContactsList =:= 0 andalso NumFriendsList =/= 0 of
+                        true ->
+                            ?INFO("Uid: ~p, NumContactsList: ~p, NumFriendsList: ~p, version: ~p, last_seen: ~p",
+                                    [Uid, NumContactsList, NumFriendsList, ClientVersion, LastSeenTsMs]),
+                            ok;
+                        false ->
+                            ok
+                    end;
+                _ ->
+                    ?ERROR("Uid: ~p, no account exists here", [Uid])
             end,
             ok;
         _ -> ok
