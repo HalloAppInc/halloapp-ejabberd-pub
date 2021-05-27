@@ -48,3 +48,6 @@
 
 -define(PAYLOAD1, <<"payload1">>).
 
+-define(ENC_SENDER_STATE2, <<"enc_sender_state2">>).
+-define(ENC_SENDER_STATE3, <<"enc_sender_state3">>).
+
