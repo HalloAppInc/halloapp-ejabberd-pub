@@ -37,7 +37,7 @@ dummy_test(_Conf) ->
 % Create group with Uid1 and Uid2, make sure Uid2 gets msg about the group.
 % We need the group to test the group feed
 create_group_test(_Conf) ->
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     Id = <<"g_iq_id1">>,
     Payload = #pb_group_stanza{
@@ -81,7 +81,7 @@ post_test(Conf) ->
     Gid = ?config(gid, SConfig),
     ?assertEqual([?UID1, ?UID2, ?UID3, ?UID4], model_groups:get_member_uids(Gid)),
 
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Uid1 makes a post to the group
     Id = <<"g_iq_id2">>,
@@ -138,7 +138,7 @@ post_test(Conf) ->
                 }
             } = GroupFeedItem
         end,
-        [{?UID2, ?PASSWORD2}, {?UID3, ?PASSWORD3}, {?UID4, ?PASSWORD4}]),
+        [{?UID2, ?KEYPAIR2}, {?UID3, ?KEYPAIR3}, {?UID4, ?KEYPAIR4}]),
 
     {save_config, [{gid, Gid}]}.
 
@@ -149,7 +149,7 @@ comment_test(Conf) ->
     Gid = ?config(gid, SConfig),
     ?assertEqual([?UID1, ?UID2, ?UID3, ?UID4], model_groups:get_member_uids(Gid)),
 
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
 
     % Uid2 makes a post to the group
     Id = <<"g_iq_id3">>,
@@ -212,7 +212,7 @@ comment_test(Conf) ->
                 }
             } = GroupFeedItem
         end,
-        [{?UID1, ?PASSWORD1}, {?UID3, ?PASSWORD3}, {?UID4, ?PASSWORD4}]),
+        [{?UID1, ?KEYPAIR1}, {?UID3, ?KEYPAIR3}, {?UID4, ?KEYPAIR4}]),
 
     {save_config, [{gid, Gid}]}.
 
@@ -223,7 +223,7 @@ retract_comment_test(Conf) ->
     Gid = ?config(gid, SConfig),
     ?assertEqual([?UID1, ?UID2, ?UID3, ?UID4], model_groups:get_member_uids(Gid)),
 
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
 
     % Uid2 retracts the comment
     Id = <<"g_iq_id4">>,
@@ -280,7 +280,7 @@ retract_comment_test(Conf) ->
                 }
             } = GroupFeedItem
         end,
-        [{?UID1, ?PASSWORD1}, {?UID3, ?PASSWORD3}, {?UID4, ?PASSWORD4}]),
+        [{?UID1, ?KEYPAIR1}, {?UID3, ?KEYPAIR3}, {?UID4, ?KEYPAIR4}]),
 
     {save_config, [{gid, Gid}]}.
 
@@ -291,7 +291,7 @@ retract_post_test(Conf) ->
     Gid = ?config(gid, SConfig),
     ?assertEqual([?UID1, ?UID2, ?UID3, ?UID4], model_groups:get_member_uids(Gid)),
 
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Uid1 makes a post to the group
     Id = <<"g_iq_id5">>,
@@ -342,7 +342,7 @@ retract_post_test(Conf) ->
                 }
             } = GroupFeedItem
         end,
-        [{?UID2, ?PASSWORD2}, {?UID3, ?PASSWORD3}, {?UID4, ?PASSWORD4}]),
+        [{?UID2, ?KEYPAIR2}, {?UID3, ?KEYPAIR3}, {?UID4, ?KEYPAIR4}]),
 
     {save_config, [{gid, Gid}]}.
 

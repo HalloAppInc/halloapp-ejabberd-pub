@@ -23,8 +23,8 @@ dummy_test(_Conf) ->
     ok.
 
 make_post_test(_Conf) ->
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     % UID4 and UID1 are not friends; UID5 has blocked UID1
     PbAudience = struct_util:create_pb_audience(only, [?UID2, ?UID3, ?UID4, ?UID5]),
     PbPost = struct_util:create_pb_post(?POST_ID1, ?UID1, ?NAME1, ?PAYLOAD1, PbAudience, ?TS1),
@@ -74,8 +74,8 @@ make_post_test(_Conf) ->
     } = RecvMsg,
 
 
-    {ok, C4} = ha_client:connect_and_login(?UID4, ?PASSWORD4),
-    {ok, C5} = ha_client:connect_and_login(?UID5, ?PASSWORD5),
+    {ok, C4} = ha_client:connect_and_login(?UID4, ?KEYPAIR4),
+    {ok, C5} = ha_client:connect_and_login(?UID5, ?KEYPAIR5),
 
     confirm_no_feed_item(C4, #pb_post{id = ?POST_ID1}),
     confirm_no_feed_item(C5, #pb_post{id = ?POST_ID1}),
@@ -83,8 +83,8 @@ make_post_test(_Conf) ->
 
 
 make_comment_test(_Conf) ->
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
 
     % we don't have a parent comment id right now, hence it is left as the default value <<>>
     PbComment1 = struct_util:create_pb_comment(?COMMENT_ID1, ?POST_ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD1, ?TS2),
@@ -135,16 +135,16 @@ make_comment_test(_Conf) ->
         }
     } = RecvMsg,
 
-    {ok, C4} = ha_client:connect_and_login(?UID4, ?PASSWORD4),
-    {ok, C5} = ha_client:connect_and_login(?UID5, ?PASSWORD5),
+    {ok, C4} = ha_client:connect_and_login(?UID4, ?KEYPAIR4),
+    {ok, C5} = ha_client:connect_and_login(?UID5, ?KEYPAIR5),
 
     confirm_no_feed_item(C4, #pb_comment{id = ?COMMENT_ID1}),
     confirm_no_feed_item(C5, #pb_comment{id = ?COMMENT_ID1}),
     ok.
 
 retract_comment_test(_Conf) ->
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
-    {ok, C3} = ha_client:connect_and_login(?UID3, ?PASSWORD3),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
+    {ok, C3} = ha_client:connect_and_login(?UID3, ?KEYPAIR3),
 
     PbComment1 = struct_util:create_pb_comment(?COMMENT_ID1, ?POST_ID1, <<>>, ?UID2, <<"">>, <<"">>, ?TS3),
     PbFeedItem = struct_util:create_feed_item(retract, PbComment1),
@@ -190,8 +190,8 @@ retract_comment_test(_Conf) ->
     ok.
 
 retract_post_test(_Conf) ->
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
 
     PbPost = struct_util:create_pb_post(?POST_ID1, ?UID1, ?NAME1, ?PAYLOAD1, undefined, ?TS1),
     PbFeedItem = struct_util:create_feed_item(retract, PbPost), % retract previous post

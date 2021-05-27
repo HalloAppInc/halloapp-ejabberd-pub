@@ -15,8 +15,8 @@ dummy_test(_Conf) ->
     ok.
 
 send_im_test(_Conf) ->
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     ha_client:send(C1, #pb_packet{
         % the {msg} part is annoying
         stanza = #pb_msg{

@@ -39,7 +39,7 @@ dummy_test(_Conf) ->
 
 % create group with Uid1 and Uid2, make sure Uid2 gets msg about the group
 create_group_test(Conf) ->
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
     Id = <<"g_iq_id1">>,
     Payload = #pb_group_stanza{
         action = create,
@@ -74,7 +74,7 @@ create_group_test(Conf) ->
     ct:pal("Group Gid ~p", [Gid]),
     ct:pal("Group Config ~p", [Conf]),
 
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     GroupMsg = ha_client:wait_for_msg(C2, pb_group_stanza),
     GroupSt = GroupMsg#pb_packet.stanza#pb_msg.payload,
     #pb_group_stanza{
@@ -99,7 +99,7 @@ add_members_test(Conf) ->
     ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
 
     % Uid1 adds Uid3 to the group
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     Id = <<"g_iq_id2">>,
     Payload = #pb_group_stanza{
@@ -147,7 +147,7 @@ add_members_test(Conf) ->
                 ]
             } = GroupSt
         end,
-        [{?UID2, ?PASSWORD2}, {?UID3, ?PASSWORD3}]),
+        [{?UID2, ?KEYPAIR2}, {?UID3, ?KEYPAIR3}]),
     {save_config, [{gid, Gid}]}.
 
 % Uid1 removes Uid3 to the group. Make sure Uid2 and Uid3 get msg about the group change
@@ -157,7 +157,7 @@ remove_members_test(Conf) ->
     ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
 
     % Uid1 adds Uid3 to the group
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     Id = <<"g_iq_id3">>,
     Payload = #pb_group_stanza{
@@ -207,7 +207,7 @@ remove_members_test(Conf) ->
                 ]
             } = GroupSt
         end,
-        [{?UID2, ?PASSWORD2}, {?UID3, ?PASSWORD3}]),
+        [{?UID2, ?KEYPAIR2}, {?UID3, ?KEYPAIR3}]),
 
     ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
     {save_config, [{gid, Gid}]}.
@@ -220,7 +220,7 @@ promote_admin_test(Conf) ->
     ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
 
 
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     ?assertEqual(false, model_groups:is_admin(Gid, ?UID2)),
     % Uid1 makes Uid2 admin
@@ -254,7 +254,7 @@ promote_admin_test(Conf) ->
     } = PromoteResult,
     ?assertEqual(true, model_groups:is_admin(Gid, ?UID2)),
 
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     GroupMsg = ha_client:wait_for_msg(C2, pb_group_stanza),
     GroupSt = GroupMsg#pb_packet.stanza#pb_msg.payload,
     ct:pal("GroupSt : ~p", [GroupSt]),
@@ -280,7 +280,7 @@ demote_admin_test(Conf) ->
     ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
 
 
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     ?assertEqual(true, model_groups:is_admin(Gid, ?UID2)),
     % Uid1 demotes Uid2
@@ -313,7 +313,7 @@ demote_admin_test(Conf) ->
     } = DemoteResult,
     ?assertEqual(false, model_groups:is_admin(Gid, ?UID2)),
 
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     GroupMsg = ha_client:wait_for_msg(C2, pb_group_stanza),
     GroupSt = GroupMsg#pb_packet.stanza#pb_msg.payload,
     ct:pal("GroupSt : ~p", [GroupSt]),
@@ -338,7 +338,7 @@ get_groups_test(Conf) ->
     Gid = ?config(gid, SConfig),
     ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
 
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % create second group, this way Uid1 is in 2 groups
     Id = <<"g_iq_id6">>,
@@ -402,7 +402,7 @@ get_group_test(Conf) ->
     ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
     ?assertEqual([?UID1, ?UID3], model_groups:get_member_uids(Gid2)),
 
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Get members of group1
     Id = <<"g_iq_id8">>,
@@ -469,7 +469,7 @@ set_name_test(Conf) ->
     ?assertEqual([?UID1, ?UID3], model_groups:get_member_uids(Gid2)),
 
 
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Get members of group1
     Id = <<"g_iq_id9">>,
@@ -509,7 +509,7 @@ set_background_test(Conf) ->
     ?assertEqual([?UID1, ?UID3], model_groups:get_member_uids(Gid2)),
 
 
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Get members of group1
     Id = <<"g_iq_id9">>,
@@ -551,7 +551,7 @@ invite_link_test(Conf) ->
     ?assertEqual(false, model_groups:has_invite_link(Gid)),
     ?assertEqual(false, model_groups:has_invite_link(Gid2)),
 
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Get members of group1
     Id = <<"g_iq_id10">>,
@@ -579,7 +579,7 @@ invite_link_test(Conf) ->
     {false, Link} = model_groups:get_invite_link(Gid),
 
 
-    {ok, C3} = ha_client:connect_and_login(?UID3, ?PASSWORD3),
+    {ok, C3} = ha_client:connect_and_login(?UID3, ?KEYPAIR3),
 
     % Uid3 joins with the link
     Id2 = <<"g_iq_id11">>,
@@ -621,7 +621,7 @@ invite_link_fail_to_join_after_removed_by_admin_test(Conf) ->
     ?assertEqual(true, model_groups:has_invite_link(Gid)),
 
     % Uid1 removes Uid3 to the group
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     Id = <<"g_iq_id12">>,
     Payload = #pb_group_stanza{
@@ -655,7 +655,7 @@ invite_link_fail_to_join_after_removed_by_admin_test(Conf) ->
         link = Link
     },
 
-    {ok, C3} = ha_client:connect_and_login(?UID3, ?PASSWORD3),
+    {ok, C3} = ha_client:connect_and_login(?UID3, ?KEYPAIR3),
     Result2 = ha_client:send_iq(C3, Id2, set, JoinWithLink),
     ct:pal("Result ~p", [Result2]),
 
@@ -689,7 +689,7 @@ invite_link_reset_test(Conf) ->
         gid = Gid
     },
 
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
     Result = ha_client:send_iq(C1, Id, set, ResetLink),
     ct:pal("Result ~p", [Result]),
 
@@ -709,7 +709,7 @@ invite_link_reset_test(Conf) ->
         link = OldLink
     },
 
-    {ok, C3} = ha_client:connect_and_login(?UID3, ?PASSWORD3),
+    {ok, C3} = ha_client:connect_and_login(?UID3, ?KEYPAIR3),
     Result2 = ha_client:send_iq(C3, Id2, set, JoinWithLink),
     ct:pal("Result ~p", [Result2]),
 
@@ -771,7 +771,7 @@ invite_link_preview_test(Conf) ->
         link = Link
     },
 
-    {ok, C4} = ha_client:connect_and_login(?UID4, ?PASSWORD4),
+    {ok, C4} = ha_client:connect_and_login(?UID4, ?KEYPAIR4),
     Result = ha_client:send_iq(C4, Id, get, PreviewLink),
     ct:pal("Result ~p", [Result]),
 
@@ -795,7 +795,7 @@ not_admin_modify_group_test(Conf) ->
 
 % Uid1 creates group and passes Uid1(self) and Uid2 as members. Trying to make sure Uid1 is admin
 create_group_creator_is_member_test(Conf) ->
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     Id = <<"g_iq_id20">>,
     Payload = #pb_group_stanza{
@@ -832,7 +832,7 @@ create_group_creator_is_member_test(Conf) ->
 
     ct:pal("Group Config ~p", [Conf]),
 
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     _GroupMsg = ha_client:wait_for_msg(C2, pb_group_stanza),
 
     {save_config, [{gid, Gid}]}.

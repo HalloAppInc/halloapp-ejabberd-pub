@@ -28,8 +28,8 @@ get_trace_log() ->
 % slow
 slow_log_test(_Conf) ->
     mod_trace:start_trace(?UID1),
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     SendMsg = #pb_packet{
         stanza = #pb_msg{
             id = <<"msgid1">>,

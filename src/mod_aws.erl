@@ -12,6 +12,7 @@
 
 -include("logger.hrl").
 -include("time.hrl").
+-define(NOISE_SECRET_DEV_FILE, "noise_secret_dev").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -76,7 +77,14 @@ get_secret(SecretName) ->
                 Secret -> Secret
             end;
         false ->
-            ?DUMMY_SECRET
+            %% This allows use to noise in our ct test suite.
+            case SecretName =:= <<"noise_secret_dev">> of
+                true ->
+                    FileName = filename:join(misc:data_dir(), ?NOISE_SECRET_DEV_FILE),
+                    {ok, SecretBin} = file:read_file(FileName),
+                    SecretBin;
+                false -> ?DUMMY_SECRET
+            end
     end.
 
 %%====================================================================

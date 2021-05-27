@@ -16,8 +16,8 @@ group() ->
 
 %% UID2 must receive presence status of UID1 only after subscribing to it.
 recv_presence_test(_Conf) ->
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     % UID4 does not have contact of UID1; UID5 has blocked UID1
 
     %% Wait and clear out all messages in the queue.
@@ -78,10 +78,10 @@ recv_presence_test(_Conf) ->
 %% UID4 and UID5 must receive presence of UID2 only after they subscribe to it.
 %% They will not receive presence of UID1 because they dont have their phonenumbers - even if they subscribe.
 block1_presence_test(_Conf) ->
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
-    {ok, C4} = ha_client:connect_and_login(?UID4, ?PASSWORD4),
-    {ok, C5} = ha_client:connect_and_login(?UID5, ?PASSWORD5),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
+    {ok, C4} = ha_client:connect_and_login(?UID4, ?KEYPAIR4),
+    {ok, C5} = ha_client:connect_and_login(?UID5, ?KEYPAIR5),
     % UID4 does not have UID1's contact; UID5 has blocked UID1
     %% UID2 has UID4's contact.
     %% UID2 has UID5's contact.

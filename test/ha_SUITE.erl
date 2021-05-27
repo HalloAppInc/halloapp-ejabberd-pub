@@ -115,15 +115,15 @@ create_test_accounts() ->
     flush_db(),
     % TODO: instead of the model functions it is better to use the higher level API.
     ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA, ?TS1),
-    ok = ejabberd_auth:set_password(?UID1, ?PASSWORD1),
+    ok = ejabberd_auth:set_spub(?UID1, ?SPUB1),
     ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA, ?TS2),
-    ok = ejabberd_auth:set_password(?UID2, ?PASSWORD2),
+    ok = ejabberd_auth:set_spub(?UID2, ?SPUB2),
     ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?UA, ?TS3),
-    ok = ejabberd_auth:set_password(?UID3, ?PASSWORD3),
+    ok = ejabberd_auth:set_spub(?UID3, ?SPUB3),
     ok = model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?UA, ?TS4),
-    ok = ejabberd_auth:set_password(?UID4, ?PASSWORD4),
+    ok = ejabberd_auth:set_spub(?UID4, ?SPUB4),
     ok = model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?UA, ?TS4),
-    ok = ejabberd_auth:set_password(?UID5, ?PASSWORD5),
+    ok = ejabberd_auth:set_spub(?UID5, ?SPUB5),
 
     ok = model_contacts:add_contact(?UID1, ?PHONE2),
     ok = model_contacts:add_contact(?UID2, ?PHONE1),
@@ -150,7 +150,7 @@ create_test_accounts() ->
 
 
 ping_test(_Conf) ->
-    {ok, C} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
     Id = <<"iq_id_1">>,
     Payload = #pb_ping{},
     Result = ha_client:send_iq(C, Id, get, Payload),
@@ -168,8 +168,8 @@ delete_account_test(_Conf) ->
     Phone = <<"14703381473">>,
     ok = model_accounts:create_account(?UID7, Phone, ?NAME3, ?UA, ?TS1),
     ok = model_phone:add_phone(Phone, ?UID7),
-    ok = ejabberd_auth:set_password(?UID7, ?PASSWORD1),
-    {ok, C} = ha_client:connect_and_login(?UID7, ?PASSWORD1),
+    ok = ejabberd_auth:set_spub(?UID7, ?SPUB1),
+    {ok, C} = ha_client:connect_and_login(?UID7, ?KEYPAIR1),
     Id = <<"iq_id_1">>,
     Payload = #pb_delete_account{phone = <<"+14703381473">>},
     Result = ha_client:send_iq(C, Id, set, Payload),

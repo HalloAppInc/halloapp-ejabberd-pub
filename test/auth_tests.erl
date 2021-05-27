@@ -34,22 +34,22 @@ check_accounts_test(_Conf) ->
 no_user_test(_Conf) ->
     % UID6 does not exist
     false = model_accounts:account_exists(?UID6),
-    {error, 'invalid uid or password'} = ha_client:connect_and_login(?UID6, <<"wrong_password">>),
+    {error, spub_mismatch} = ha_client:connect_and_login(?UID6, ?KEYPAIR1),
     ok.
 
 bad_password_test(_Conf) ->
     true = model_accounts:account_exists(?UID1),
-    {error, 'invalid uid or password'} = ha_client:connect_and_login(?UID1, <<"wrong_password">>),
+    {error, spub_mismatch} = ha_client:connect_and_login(?UID1, ?KEYPAIR2),
     ok.
 
 bad_resource_test(_Conf) ->
     true = model_accounts:account_exists(?UID1),
-    {error, 'invalid resource'} = ha_client:connect_and_login(?UID1, ?PASSWORD1,
+    {error, 'invalid resource'} = ha_client:connect_and_login(?UID1, ?KEYPAIR1,
         #{resource => <<"bad_resource">>}),
     ok.
 
 login_success_test(_Conf) ->
-    {ok, C} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
+    {ok, C} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
     ok = ha_client:stop(C),
     ok.
 

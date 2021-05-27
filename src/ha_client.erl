@@ -16,6 +16,9 @@
 -include("logger.hrl").
 -include("ha_types.hrl").
 -include("packets.hrl").
+-include("ha_enoise.hrl").
+
+-type keypair() :: enoise:noise_keypair().
 
 %% API
 -export([
@@ -55,7 +58,8 @@
     recv_q :: list(),
     state = auth :: auth | connected,
     recv_buf = <<>> :: binary(),
-    options :: options()
+    options :: options(),
+    noise_socket :: noise_socket()
 }).
 
 -type state() :: #state{}.
@@ -70,6 +74,7 @@
     _ => _
 }.
 
+%% TODO(murali@): add version based tests.
 -define(DEFAUL_UA, <<"HalloApp/Android0.129">>).
 -define(DEFAULT_RESOURCE, <<"android">>).
 
@@ -77,7 +82,7 @@
     auto_send_acks => true,
     auto_send_pongs => true,
     host => "localhost",
-    port => 5210
+    port => 5222
 }).
 
 
@@ -88,17 +93,17 @@ start_link(Options) ->
     gen_server:start_link(ha_client, [Options], []).
 
 
--spec connect_and_login(Uid :: uid(), Password :: binary()) ->
+-spec connect_and_login(Uid :: uid(), Keypair :: keypair()) ->
     {ok, Client :: pid()} | {error, Reason :: term()}.
-connect_and_login(Uid, Password) ->
-    connect_and_login(Uid, Password, ?DEFAULT_OPT).
+connect_and_login(Uid, Keypair) ->
+    connect_and_login(Uid, Keypair, ?DEFAULT_OPT).
 
 
--spec connect_and_login(Uid :: uid(), Password :: binary(), Options :: options()) ->
+-spec connect_and_login(Uid :: uid(), Keypair :: keypair(), Options :: options()) ->
         {ok, Client :: pid()} | {error, Reason :: term()}.
-connect_and_login(Uid, Password, Options) ->
+connect_and_login(Uid, Keypair, Options) ->
     {ok, C} = start_link(Options),
-    Result = login(C, Uid, Password),
+    Result = login(C, Uid, Keypair),
     case Result of
         #pb_auth_result{result = <<"success">>} ->
             {ok, C};
@@ -207,9 +212,9 @@ send_recv(Client, Packet) ->
 
 
 % send pb_auth_request message
--spec login(Client :: pid(), Uid :: uid(), Password :: binary()) -> ok.
-login(Client, Uid, Password) ->
-    gen_server:call(Client, {login, Uid, Password}).
+-spec login(Client :: pid(), Uid :: uid(), Keypair :: keypair()) -> ok.
+login(Client, Uid, Keypair) ->
+    gen_server:call(Client, {login, Uid, Keypair}).
 
 -spec send_iq(Client :: pid(), Id :: any(), Type :: atom(), Payload :: term()) ->
         {ok, pb_iq()} | {error, any()}.
@@ -236,27 +241,35 @@ send_iq(Client, Id, Type, Payload) ->
 init([Options] = _Args) ->
     Host = maps:get(host, Options, maps:get(host, ?DEFAULT_OPT)),
     Port = maps:get(port, Options, maps:get(port, ?DEFAULT_OPT)),
-    {ok, Socket} = ssl:connect(Host, Port, [binary]),
+    %% TODO: use a default root_public key to verify the certificate.
+
+    %% Connect via tcp
+    {ok, Socket} = gen_tcp:connect(Host, Port, [binary, {active, true}]),
+
     State = #state{
         socket = Socket,
         recv_q = queue:new(),
         state = auth,
         recv_buf = <<"">>,
-        options = Options
+        options = Options,
+        noise_socket = undefined
     },
     {ok, State}.
 
 
 terminate(_Reason, State) ->
-    Socket = State#state.socket,
-    ssl_close(Socket),
+    NoiseSocket = State#state.noise_socket,
+    noise_close(NoiseSocket),
     ok.
 
 
 handle_call({send, Message}, _From, State) ->
-    Socket = State#state.socket,
-    Result = send_internal(Socket, Message),
-    {reply, Result, State};
+    NoiseSocket = State#state.noise_socket,
+    {Result, NoiseSocket2} = case send_internal(NoiseSocket, Message) of
+        {ok, NoiseSocket1} -> {ok, NoiseSocket1};
+        Error -> {Error, NoiseSocket}
+    end,
+    {reply, Result, State#state{noise_socket = NoiseSocket2}};
 
 
 handle_call({recv_nb}, _From, State) ->
@@ -291,21 +304,12 @@ handle_call({recv, TimeoutMs}, _From, State) ->
     end,
     {reply, Result, NewState2};
 
-handle_call({login, Uid, Passwd}, _From,
-        #state{options = Options} = State) ->
-    Socket = State#state.socket,
-    HaAuth = #pb_auth_request{
-        uid = Uid,
-        pwd = Passwd,
-        client_mode = #pb_client_mode{mode = active},
-        %% TODO(murali@): add version based tests.
-        client_version = #pb_client_version{
-            version = maps:get(version, Options, ?DEFAUL_UA)},
-        resource = maps:get(resource, Options, ?DEFAULT_RESOURCE)
-    },
-    send_internal(Socket, HaAuth),
-    ?assert(auth =:= State#state.state),
-    {Result, NewState} = receive_wait(State),
+handle_call({login, Uid, ClientKeypair}, _From, State) ->
+    %% TODO: add other noise patterns.
+    %% TODO: use root_pub key to verify the certificate received from the server.
+    %% Using xx always for now.
+    {Result, NewState} = noise_xx(Uid, ClientKeypair, State),
+
     {reply, Result, NewState};
 
 handle_call({wait_for, MatchFun}, _From, State) ->
@@ -347,12 +351,14 @@ handle_info({ha_raw_packet, PacketBytes}, State) ->
     {_Packet, NewState} = handle_raw_packet(PacketBytes, State),
     {noreply, NewState};
 
-handle_info({ssl, _Socket, Message}, State) ->
-    ?DEBUG("recv ~p", [Message]),
-    OldRecvBuf = State#state.recv_buf,
-    Buffer = <<OldRecvBuf/binary, Message/binary>>,
-    NewRecvBuf = parse_and_queue_ha_packets(Buffer),
-    NewState = State#state{recv_buf = NewRecvBuf},
+handle_info({tcp, _TcpSock, EncryptedData}, #state{noise_socket = NoiseSocket} = State) ->
+    NewState = case ha_enoise:recv_data(NoiseSocket, EncryptedData) of
+        {ok, NoiseSocket1, [], _Payload} ->
+            State#state{noise_socket = NoiseSocket1};
+        {ok, NoiseSocket1, Decrypted, <<>>} ->
+            send_to_self(Decrypted),
+            State#state{noise_socket = NoiseSocket1}
+    end,
     {noreply, NewState};
 
 handle_info(Something, State) ->
@@ -390,15 +396,15 @@ handle_packet(Packet, State) ->
     {Packet, State}.
 
 handle_raw_packet(PacketBytes, State) ->
-%%    ?DEBUG("got ~p", [PacketBytes]),
+   % ?DEBUG("got ~p", [PacketBytes]),
     {Packet1, State1} = case State#state.state of
         auth ->
             PBAuthResult = enif_protobuf:decode(PacketBytes, pb_auth_result),
-%%            ?DEBUG("recv pb_auth_result ~p", [PBAuthResult]),
+            % ?DEBUG("recv pb_auth_result ~p", [PBAuthResult]),
             handle_packet(PBAuthResult, State);
         connected ->
             Packet = enif_protobuf:decode(PacketBytes, pb_packet),
-%%            ?DEBUG("recv packet ~p", [Packet]),
+            % ?DEBUG("recv packet ~p", [Packet]),
             handle_packet(Packet, State)
     end,
     {Packet1, State1}.
@@ -406,10 +412,10 @@ handle_raw_packet(PacketBytes, State) ->
 handle_auth_result(
         #pb_auth_result{result = Result, reason = Reason, props_hash = _PropsHash} = _PBAuthResult,
         State) ->
-%%    ?DEBUG("auth result: ~p", [PBAuthResult]),
+    % ?DEBUG("auth result: ~p", [PBAuthResult]),
     case Result of
         <<"success">> ->
-%%            ?DEBUG("auth success", []),
+            % ?DEBUG("auth success", []),
             State#state{state = connected};
         <<"failure">> ->
             ?INFO("auth failure reason: ~p", [Reason]),
@@ -424,8 +430,8 @@ send_ack_internal(Id, State) ->
             timestamp = util:now()
         }
     },
-    ok = send_internal(State#state.socket, Packet),
-    State.
+    {ok, NoiseSocket} = send_internal(State#state.noise_socket, Packet),
+    State#state{noise_socket = NoiseSocket}.
 
 
 -spec send_pong_internal(Id :: any(), State :: state()) -> state().
@@ -436,16 +442,15 @@ send_pong_internal(Id, State) ->
             type = result
         }
     },
-    ok = send_internal(State#state.socket, Packet),
-    State.
+    {ok, NoiseSocket} = send_internal(State#state.noise_socket, Packet),
+    State#state{noise_socket = NoiseSocket}.
 
 
-send_internal(Socket, Message) when is_binary(Message) ->
-    Size = byte_size(Message),
-    Result = ssl_send(Socket, <<Size:32/big, Message/binary>>),
-%%    ?DEBUG("sent message, result: ~p", [Result]),
-    Result;
-send_internal(Socket, PBRecord)
+send_internal(NoiseSocket, Message) when is_binary(Message) ->
+    {ok, NoiseSocket1} = ha_enoise:send(NoiseSocket, Message),
+    % ?DEBUG("sent message, result: ~p", [NoiseSocket]),
+    {ok, NoiseSocket1};
+send_internal(NoiseSocket, PBRecord)
         when is_record(PBRecord, pb_auth_request); is_record(PBRecord, pb_packet) ->
     ?DEBUG("Encoding Record ~p", [PBRecord]),
     case enif_protobuf:encode(PBRecord) of
@@ -453,8 +458,8 @@ send_internal(Socket, PBRecord)
             ?ERROR("Failed to encode PB: Reason ~p Record: ~p", [Reason, PBRecord]),
             erlang:error({protobuf_encode_error, Reason, PBRecord});
         Message ->
-%%            ?DEBUG("Message ~p", [Message]),
-            send_internal(Socket, Message)
+            % ?DEBUG("Message ~p", [Message]),
+            send_internal(NoiseSocket, Message)
     end.
 
 
@@ -466,33 +471,30 @@ receive_wait(State) ->
 
 -spec receive_wait(State :: state(), TimeoutMs :: integer() | infinity) ->
         {Packet :: maybe(pb_packet()), NewState :: state()}.
-receive_wait(State, TimeoutMs) ->
+receive_wait(#state{socket = TcpSock, noise_socket = NoiseSocket} = State, TimeoutMs) ->
     receive
         {ha_raw_packet, PacketBytes} ->
             handle_raw_packet(PacketBytes, State);
-        {ssl, _Socket, _SocketBytes} = Pkt ->
-            {noreply, NewState} = handle_info(Pkt, State),
-            receive_wait(NewState)
+        {tcp, TcpSock, EncryptedData} ->
+            case ha_enoise:recv_data(NoiseSocket, EncryptedData) of
+                {ok, NoiseSocket1, [], _Payload} ->
+                    receive_wait(State#state{noise_socket = NoiseSocket1});
+                {ok, NoiseSocket1, Decrypted, <<>>} ->
+                    send_to_self(Decrypted),
+                    receive_wait(State#state{noise_socket = NoiseSocket1})
+            end
     after TimeoutMs ->
         {undefined, State}
     end.
 
 
-parse_and_queue_ha_packets(Buffer) ->
-    case byte_size(Buffer) >= 4 of
-        true ->
-            <<_ControlByte:8, PacketSize:24, Rest/binary>> = Buffer,
-            case byte_size(Rest) >= PacketSize of
-                true ->
-                    <<Packet:PacketSize/binary, Rem/binary>> = Rest,
-                    self() ! {ha_raw_packet, Packet},
-                    parse_and_queue_ha_packets(Rem);
-                false ->
-                    Buffer
-            end;
-        false ->
-            Buffer
-    end.
+-spec send_to_self(DecryptedPkts :: [binary()]) -> ok.
+send_to_self(DecryptedPkts) ->
+    lists:foreach(
+        fun(Pkt) ->
+            self() ! {ha_raw_packet, Pkt}
+        end, DecryptedPkts),
+    ok.
 
 
 -spec network_receive_until(State :: state(), fun((term()) -> boolean())) -> {pb_packet(), state()}.
@@ -514,15 +516,55 @@ queue_in(Packet, State) ->
     State#state{recv_q = queue:in(Packet, State#state.recv_q)}.
 
 
--spec ssl_close(Socket :: any()) -> ok | {error, any()}.
-ssl_close(undefined) ->
+-spec noise_close(NoiseSocket :: any()) -> ok | {error, any()}.
+noise_close(undefined) ->
     ?ERROR("Socket is undefined"),
     ok;
-ssl_close(Socket) ->
-    ssl:close(Socket).
+noise_close(NoiseSocket) ->
+    ha_enoise:close(NoiseSocket).
 
 
--spec ssl_send(Socket :: any(), Data :: binary()) -> ok | {error, any()}.
-ssl_send(Socket, Data) ->
-    ssl:send(Socket, Data).
+%% Performs xx pattern handshake with the server.
+-spec noise_xx(Uid :: binary(), ClientKeypair :: keypair(), State :: state()) -> {any(), state()}.
+noise_xx(Uid, ClientKeypair, #state{options = Options, socket = TcpSock} = State) ->
+    %% Initialize noise state ourselves.
+    %% ha_enoise provides apis only for server side.
+    Protocol = enoise_protocol:from_name(?NOISE_PATTERN_XX),
+    NoiseOptions = [{noise, Protocol}, {s, ClientKeypair}],
+    {ok, Crypto} = enoise:handshake(NoiseOptions, initiator),
+    NoiseSocket = #noise_socket{tcpsock = TcpSock, crypto = Crypto, pattern = ?NOISE_PATTERN_XX},
+
+    %% send <<"HA00">> header.
+    gen_tcp:send(TcpSock, <<"HA00">>),
+
+    %% send xx_a handshake message: message A.
+    case noise_handshake_util:send_data(NoiseSocket, <<>>, xx_a) of
+        {ok, NoiseSocket1} ->
+            %% receive message B
+            {ok, MsgB, NoiseSocket2} = noise_handshake_util:recv_loop(NoiseSocket1),
+
+            %% read messageB and update state
+            {ok, NoiseSocket3} = noise_handshake_util:read_data(NoiseSocket2, MsgB),
+
+            HaAuth = #pb_auth_request{
+                uid = Uid,
+                client_mode = #pb_client_mode{mode = active},
+                client_version = #pb_client_version{
+                    version = maps:get(version, Options, ?DEFAUL_UA)
+                },
+                resource = maps:get(resource, Options, ?DEFAULT_RESOURCE)
+            },
+            ClientConfig = enif_protobuf:encode(HaAuth),
+            % send message C and complete handshake
+            {ok, NoiseSocket4} = noise_handshake_util:send_data(NoiseSocket3, ClientConfig, xx_c),
+
+            %% Set noise header.
+            NoiseSocket5 = NoiseSocket4#noise_socket{header = <<"HA00">>},
+
+            %% wait to receive response.
+            {Response, State1} = receive_wait(State#state{noise_socket = NoiseSocket5}),
+            {Response, State1};
+        Error ->
+            {Error, State}
+    end.
 

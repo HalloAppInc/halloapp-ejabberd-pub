@@ -15,8 +15,8 @@ group() ->
 
 
 recv_chatstate_test(_Conf) ->
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     % UID4 and UID1 are not friends; UID5 has blocked UID1
 
     %% Wait and clear out all messages in the queue.
@@ -50,7 +50,7 @@ recv_chatstate_test(_Conf) ->
     ?assertEqual(?UID1, RecvChatState#pb_packet.stanza#pb_chat_state.thread_id),
 
     ha_client:stop(C2),
-    {ok, C2_2} = ha_client:connect_and_login(?UID2, ?PASSWORD2),
+    {ok, C2_2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     %% This is used so that when we call recv with a timeout - we get the latest packet.
     ha_client:wait_for_eoq(C2_2),
     ha_client:clear_queue(C2_2),
@@ -60,9 +60,9 @@ recv_chatstate_test(_Conf) ->
 
 
 block_chatstate_test(_Conf) ->
-    {ok, C1} = ha_client:connect_and_login(?UID1, ?PASSWORD1),
-    {ok, C4} = ha_client:connect_and_login(?UID4, ?PASSWORD4),
-    {ok, C5} = ha_client:connect_and_login(?UID5, ?PASSWORD5),
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C4} = ha_client:connect_and_login(?UID4, ?KEYPAIR4),
+    {ok, C5} = ha_client:connect_and_login(?UID5, ?KEYPAIR5),
     % UID4 and UID1 are not friends; UID5 has blocked UID1
 
     Available = #pb_packet{
