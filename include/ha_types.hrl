@@ -27,6 +27,8 @@
 -type property() :: {pname(), pvalue()}.
 -type proplist() :: [property()].
 
+-type mode() :: active | passive.
+
 -type(avatar_id() :: binary()).
 
 -endif.

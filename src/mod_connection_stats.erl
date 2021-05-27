@@ -14,6 +14,7 @@
 -include("time.hrl").
 -include("xmpp.hrl").
 -include("proc.hrl").
+-include("ha_types.hrl").
 
 
 %% gen_mod API.
@@ -22,8 +23,8 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export([
-    sm_register_connection_hook/3,
-    sm_remove_connection_hook/3
+    sm_register_connection_hook/4,
+    sm_remove_connection_hook/4
 ]).
 
 %% API
@@ -134,16 +135,16 @@ handle_cast(Request, State) ->
 
 
 -spec sm_register_connection_hook(SID :: ejabberd_sm:sid(),
-        JID :: jid(), Info :: ejabberd_sm:info()) -> ok.
-sm_register_connection_hook(_SID, #jid{luser = Uid} = _JID, Info) ->
+        JID :: jid(), Mode :: mode(), Info :: ejabberd_sm:info()) -> ok.
+sm_register_connection_hook(_SID, #jid{luser = Uid} = _JID, _Mode, Info) ->
     ClientVersion = proplists:get_value(client_version, Info),
     gen_server:cast(?PROC(), {add_connection, Uid, ClientVersion}),
     ok.
 
 
 -spec sm_remove_connection_hook(SID :: ejabberd_sm:sid(),
-        JID :: jid(), Info :: ejabberd_sm:info()) -> ok.
-sm_remove_connection_hook(_SID, #jid{luser = Uid} = _JID, Info) ->
+        JID :: jid(), Mode :: mode(), Info :: ejabberd_sm:info()) -> ok.
+sm_remove_connection_hook(_SID, #jid{luser = Uid} = _JID, _Mode, Info) ->
     ClientVersion = proplists:get_value(client_version, Info),
     gen_server:cast(?PROC(), {remove_connection, Uid, ClientVersion}),
     ok.

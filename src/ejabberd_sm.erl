@@ -39,8 +39,7 @@
     prep_stop/0,
     route/1,
     route/2,
-    open_session/5,
-    open_session/6,
+    open_session/7,
     check_and_activate_session/2,
     is_session_active/1,
     close_session/4,
@@ -83,6 +82,7 @@
 -include("ejabberd_stacktrace.hrl").
 -include("translate.hrl").
 -include ("account.hrl").
+-include("ha_types.hrl").
 
 -record(state, {}).
 
@@ -162,32 +162,31 @@ push_message(#pb_msg{} = Packet) ->
     ejabberd_hooks:run_fold(push_message_hook, Server, Packet, []).
 
 
--spec open_session(sid(), binary(), binary(), binary(), prio(), info()) -> ok.
-open_session(SID, User, Server, Resource, Priority, Info) ->
-    Mode = proplists:get_value(mode, Info),
+-spec open_session(sid(), binary(), binary(), binary(), prio(), mode(), info()) -> ok.
+open_session(SID, User, Server, Resource, Priority, Mode, Info) ->
     check_for_sessions_to_replace(User, Server, Resource, Mode),
     set_session(SID, User, Server, Resource, Priority, Mode, Info),
     JID = jid:make(User, Server, Resource),
     ?INFO("U: ~p S: ~p R: ~p JID: ~p, Mode: ~p", [User, Server, Resource, JID, Mode]),
-    ejabberd_hooks:run(sm_register_connection_hook, JID#jid.lserver, [SID, JID, Info]).
+    ejabberd_hooks:run(sm_register_connection_hook, JID#jid.lserver, [SID, JID, Mode, Info]).
 
--spec open_session(sid(), binary(), binary(), binary(), info()) -> ok.
-open_session(SID, User, Server, Resource, Info) ->
-    open_session(SID, User, Server, Resource, undefined, Info).
 
 -spec close_session(sid(), binary(), binary(), binary()) -> ok.
 close_session(SID, User, Server, Resource) ->
     ?INFO("SID: ~p User: ~p", [SID, User]),
-    Sessions = get_sessions(User, Server, Resource),
-    Info = case lists:keyfind(SID, #session.sid, Sessions) of
-       #session{info = I} = Session ->
-           delete_session(Session),
-           I;
-       _ ->
-           []
-    end,
     JID = jid:make(User, Server, Resource),
-    ejabberd_hooks:run(sm_remove_connection_hook, JID#jid.lserver, [SID, JID, Info]).
+    Sessions = get_sessions(User, Server, Resource),
+    {Mode, Info} = case lists:keyfind(SID, #session.sid, Sessions) of
+        #session{mode = M, info = I} = Session ->
+            delete_session(Session),
+            {M, I};
+        _ ->
+            ?WARNING("Unable to find session, User: ~p, SID: ~p", [User, SID]),
+            {undefined, []}
+    end,
+    %% TODO(murali@): Fix this hook to only have SID and JID here.
+    ejabberd_hooks:run(sm_remove_connection_hook, JID#jid.lserver, [SID, JID, Mode, Info]),
+    ok.
 
 -spec bounce_sm_packet({warn | term(), stanza()}) -> any().
 bounce_sm_packet({warn, Packet} = Acc) ->
@@ -385,7 +384,7 @@ wait_for_c2s_to_terminate(Timeout) ->
     end.
 
 -spec set_session(sid(), binary(), binary(), binary(),
-                  prio(), atom(), info()) -> ok | {error, any()}.
+                  prio(), mode(), info()) -> ok | {error, any()}.
 set_session(SID, User, Server, Resource, Priority, Mode, Info) ->
     US = {User, Server},
     USR = {User, Server, Resource},
@@ -550,7 +549,6 @@ activate_passive_session(Uid, SID) ->
         {ok, Session} ->
             {Uid, _} = Session#session.us,
             {_, Pid} = Session#session.sid,
-            Info = Session#session.info,
             CurrentMode = Session#session.mode,
             case CurrentMode of
                 active ->
@@ -558,8 +556,7 @@ activate_passive_session(Uid, SID) ->
                     ?ERROR("Uid: ~s, user session: ~p is already active.", [Uid, SID]);
                 passive ->
                     ?INFO("Uid: ~s, activating user_session: ~p", [Uid, SID]),
-                    NewInfo = lists:keyreplace(mode, 1, Info, {mode, active}),
-                    NewSession = Session#session{info = NewInfo, mode = active},
+                    NewSession = Session#session{mode = active},
                     halloapp_c2s:route(Pid, activate_session),
                     set_session(NewSession)
             end
