@@ -21,6 +21,7 @@
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
 -export([
+    run_query/1,
     run_athena_queries/0,
     force_run_athena_queries/0, %% DEBUG-only
     fetch_query_results/1
@@ -69,6 +70,8 @@ handle_info(Info, State) ->
     ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
+handle_cast({run_query, Query}, State) ->
+    {noreply, run_athena_queries(State#{queries => [Query]})};
 handle_cast(run_athena_queries, State) ->
     Queries = get_athena_queries(),
     {noreply, run_athena_queries(State#{queries => Queries})};
@@ -100,6 +103,9 @@ run_athena_queries() ->
     end,
     ok.
 
+run_query(Query) ->
+    gen_server:cast(?PROC(), {run_query, Query}).
+
 
 -spec force_run_athena_queries() -> ok.
 force_run_athena_queries() ->
@@ -130,6 +136,7 @@ run_athena_queries(#{queries := Queries} = State) ->
                 Token = util_id:new_uuid(),
                 {ok, ExecToken} = erlcloud_athena:start_query_execution(Token,
                         ?ATHENA_DB, QueryBin, ?ATHENA_RESULT_S3_BUCKET),
+                ?INFO("ExecToken: ~p", [ExecToken]),
                 Query#athena_query{query_token = Token, result_token = ExecToken}
             end, Queries),
 
@@ -138,7 +145,7 @@ run_athena_queries(#{queries := Queries} = State) ->
         {ok, _ResultTref} = timer:apply_after(10 * ?MINUTES_MS, ?MODULE,
                 fetch_query_results, [Queries1]),
 
-        State
+        State#{queries => Queries1}
     catch
         Class : Reason : Stacktrace  ->
             ?ERROR("Error in run_athena_queries: ~p Stacktrace:~s",
@@ -183,13 +190,11 @@ pretty_print_result(Result) ->
     ok.
 
 
+pretty_print_internal([#{<<"Data">> := []} | Rest]) ->
+    pretty_print_internal(Rest);
 pretty_print_internal([#{<<"Data">> := RowValues} | Rest]) ->
-    case RowValues of
-        [] -> ok;
-        _ ->
-            FormatStr = lists:foldl(fun(_, Acc) -> Acc ++ " ~s |" end, "|", RowValues),
-            ?INFO(FormatStr, RowValues)
-    end,
+    FormatStr = lists:foldl(fun(_, Acc) -> Acc ++ " ~s |" end, "|", RowValues),
+    ?INFO(FormatStr, RowValues),
     pretty_print_internal(Rest);
 pretty_print_internal([]) ->
     ok.
@@ -207,6 +212,7 @@ get_athena_queries() ->
 get_athena_modules() ->
     [
         athena_encryption,
-        athena_push
+        athena_push,
+        mod_retention
     ].
 

@@ -7,6 +7,7 @@
 -include("time.hrl").
 -include("ha_types.hrl").
 -include("account.hrl").
+-include("athena_query.hrl").
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
@@ -15,7 +16,9 @@
 -export([
     compute_retention/0,
     dump_accounts/0,
-    dump_accounts_run/2
+    dump_accounts_run/2,
+    get_queries/0,
+    weekly_user_retention_result/1
 ]).
 
 
@@ -105,3 +108,68 @@ dump_account(Uid) ->
         Class : Reason : St ->
             ?ERROR("failed to dump account to log: ~p", lager:pr(St, {Class, Reason}))
     end.
+
+
+get_queries() ->
+    [weekly_user_retention()].
+
+weekly_user_retention() ->
+    Query = "
+    SELECT
+        from_unixtime(creation_week * 7 * 24 * 60 * 60) as creation_week_date,
+        max(now / (7 * 24 * 60 * 60) - creation_week) as week,
+        count(*) as total,
+        count_if(last_activity > now - (7 * 24 * 60 * 60)) as active,
+        histogram(last_activity > now - (7 * 24 * 60 * 60)) as active_map
+
+    FROM (
+        SELECT
+            uid,
+            MAX(last_activity / 1000) as last_activity,
+            cast(to_unixtime(now()) as integer) as now,
+            MAX(creation_ts_ms) / (7 * 24 * 60 * 60 * 1000) as creation_week
+
+        FROM \"default\".\"server_accounts\"
+        GROUP BY uid)
+
+    GROUP BY creation_week
+    ORDER BY creation_week DESC ;
+    ",
+
+    #athena_query{
+        query_bin = list_to_binary(Query),
+        result_fun = {?MODULE, weekly_user_retention_result},
+        % TODO: Why is this a list?
+        metrics = ["user_retention_weekly"]
+    }.
+
+-spec weekly_user_retention_result(Query :: athena_query()) -> ok.
+weekly_user_retention_result(Query) ->
+    [Metric1] = Query#athena_query.metrics,
+    Result = Query#athena_query.result,
+    ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
+    [_HeaderRow | ActualResultRows] = ResultRows,
+    lists:foreach(
+        fun(ResultRow) ->
+            ?INFO("ResultRow ~p", [ResultRow]),
+            [DateStr, WeekStr, TotalStr, ActiveStr, _ActiveMap | _] =
+                maps:get(<<"Data">>, ResultRow),
+            [Cohort, _] = string:split(DateStr, " "),
+            Total = util:to_integer(TotalStr),
+            Active = util:to_integer(ActiveStr),
+            Percentage = 100 * Active / Total,
+            Week = util:to_integer(WeekStr),
+            ?INFO("Date ~p Total ~p Active ~p Percentage ~.1f Week ~p",
+                [Cohort, Total, Active, Percentage, Week]),
+            stat:count("HA/retention", Metric1 + ".percentage",
+                Percentage,
+                [{"cohort", Cohort}, {"week", Week}]),
+            stat:count("HA/retention", Metric1 + ".counts",
+                Total,
+                [{"cohort", Cohort}, {"week", Week}, {"count", "total"}]),
+            stat:count("HA/retention", Metric1 + ".counts",
+                Active,
+                [{"cohort", Cohort}, {"week", Week}, {"count", "active"}]),
+            ok
+        end, ActualResultRows),
+    ok.
