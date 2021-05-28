@@ -63,6 +63,9 @@
 
 -spec new(sockmod(), socket(), [proplists:property()]) -> socket_state().
 new(SockMod, Socket, Opts) ->
+    %% Disable Nagle's algorithm
+    ok = inet:setopts(Socket, [{nodelay, true}]),
+    %% TODO(@ethan): we could set the keepalive option here as well
     MaxStanzaSize = proplists:get_value(max_stanza_size, Opts, infinity),
     SockPeer =  proplists:get_value(sock_peer_name, Opts, none),
     PBStream = case get_owner(SockMod, Socket) of
@@ -181,6 +184,12 @@ reset_stream(#socket_state{pb_stream = PBStream, sockmod = SockMod,
 -spec send(socket_state(), iodata()) -> {ok, fast_tls} | {ok, gen_tcp} | {ok, noise, #socket_state{}} |
                                         {error, closed | inet:posix()}.
 send(#socket_state{sockmod = SockMod, socket = Socket} = SocketData, Data) ->
+    case byte_size(Data) of
+        DataLen when DataLen < 32 ->
+            ?WARNING("Sending (~p bytes) packet: ~p. Consider coalescing packets as Nagle's is disabled.", [DataLen, Data]);
+        _ ->
+            ok
+    end,
     ?DEBUG("(~s) Sending pb bytes on stream = ~p", [pp(SocketData), Data]),
     case SockMod of
         gen_tcp ->
