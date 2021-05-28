@@ -197,37 +197,72 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %% then other servers cant encode this message because the record has a new field. 
 %% similarly the updated server cant encode it because it is missing a field.
 %% so this function helps us transform packets across servers.
-% upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
-%     case MsgPayload of
-%         #pb_chat_stanza{} -> Msg;
-%         {pb_chat_stanza, Timestamp, Payload, EncPayload,
-%         PublicKey, OneTimeKeyId, SenderName, SenderLogInfo, SenderClientVersion} ->
-%             NewMsgPayload = #pb_chat_stanza{
-%                 timestamp = Timestamp,
-%                 payload = Payload,
-%                 enc_payload = EncPayload,
-%                 public_key = PublicKey,
-%                 one_time_pre_key_id = OneTimeKeyId,
-%                 sender_name = SenderName,
-%                 sender_log_info = SenderLogInfo,
-%                 sender_client_version = SenderClientVersion
-%             },
-%             Msg#pb_msg{payload = NewMsgPayload};
-%         {pb_chat_stanza, Timestamp, Payload, EncPayload,
-%         PublicKey, OneTimeKeyId, SenderName, _SenderPhone, SenderLogInfo, SenderClientVersion} ->
-%             NewMsgPayload = #pb_chat_stanza{
-%                 timestamp = Timestamp,
-%                 payload = Payload,
-%                 enc_payload = EncPayload,
-%                 public_key = PublicKey,
-%                 one_time_pre_key_id = OneTimeKeyId,
-%                 sender_name = SenderName,
-%                 sender_log_info = SenderLogInfo,
-%                 sender_client_version = SenderClientVersion
-%             },
-%             Msg#pb_msg{payload = NewMsgPayload};
-%         _ -> Msg
-%     end;
+upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
+    case MsgPayload of
+        #pb_group_feed_item{} -> Msg;
+        {pb_group_feed_item, Action, Gid, Name, AvatarId, Item} ->
+            NewMsgPayload = #pb_group_feed_item{
+                action = Action,
+                gid = Gid,
+                name = Name,
+                avatar_id = AvatarId,
+                item = Item
+            },
+            Msg#pb_msg{payload = NewMsgPayload};
+        {pb_group_feed_item, Action, Gid, Name, AvatarId, Item, _SenderStateBundles,
+        _EncSenderState, _AudienceHash} ->
+            NewItem = case Item of
+                #pb_post{} -> Item;
+                #pb_comment{} -> Item;
+                {pb_post, Id, PublisherUid, Payload, Audience, Timestamp, PublisherName} ->
+                     #pb_post{
+                         id = Id,
+                         publisher_uid = PublisherUid,
+                         payload = Payload,
+                         audience = Audience,
+                         timestamp = Timestamp,
+                         publisher_name = PublisherName
+                     };
+                 {pb_post, Id, PublisherUid, Payload, Audience, Timestamp, PublisherName, _EncPayload} ->
+                     #pb_post{
+                         id = Id,
+                         publisher_uid = PublisherUid,
+                         payload = Payload,
+                         audience = Audience,
+                         timestamp = Timestamp,
+                         publisher_name = PublisherName
+                     };
+                 {pb_comment, Id, PostId, ParentCommentId, PublisherUid, PublisherName, Payload, Timestamp} ->
+                     #pb_comment{
+                         id = Id,
+                         post_id = PostId,
+                         parent_comment_id = ParentCommentId,
+                         publisher_uid = PublisherUid,
+                         publisher_name = PublisherName,
+                         payload = Payload,
+                         timestamp = Timestamp
+                     };
+                 {pb_comment, Id, PostId, ParentCommentId, PublisherUid, PublisherName, Payload, Timestamp, _EncPayload} ->
+                     #pb_comment{
+                         id = Id,
+                         post_id = PostId,
+                         parent_comment_id = ParentCommentId,
+                         publisher_uid = PublisherUid,
+                         publisher_name = PublisherName,
+                         payload = Payload,
+                         timestamp = Timestamp
+                     }
+            end,
+            NewMsgPayload = #pb_group_feed_item{
+                action = Action,
+                gid = Gid,
+                name = Name,
+                avatar_id = AvatarId,
+                item = NewItem
+            },
+            Msg#pb_msg{payload = NewMsgPayload};
+        _ -> Msg
+    end;
 upgrade_packet(Packet) -> Packet.
 
 
