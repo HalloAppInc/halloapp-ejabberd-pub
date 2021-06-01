@@ -20,7 +20,8 @@
     trigger_full_sync_run/2,
     find_empty_contact_list_accounts/2,
     find_messy_accounts/2,
-    fix_contacts_ttl/2
+    fix_contacts_ttl/2,
+    fix_messy_accounts/2
 ]).
 
 
