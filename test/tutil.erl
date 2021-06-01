@@ -21,7 +21,11 @@
     get_error_iq_sub_el/1,
     cleardb/1,
     meck_init/3,
-    meck_finish/1
+    meck_finish/1,
+    gen_keyb64/1,
+    gen_otkb64/2,
+    gen_otk/2,
+    gen_whisper_keys/2
 ]).
 
 
@@ -81,3 +85,18 @@ meck_finish(Mod) ->
     ?assert(meck:validate(Mod)),
     meck:unload(Mod).
 
+
+gen_otkb64(N, Bytes) ->
+    [gen_keyb64(Bytes) || _X <- lists:seq(1, N)].
+
+gen_otk(N, Bytes) ->
+    [gen_key(Bytes) || _X <- lists:seq(1, N)].
+
+gen_keyb64(Bytes) ->
+    base64:encode(gen_key(round(math:ceil(Bytes * 3 / 4)))).
+
+gen_key(Bytes) ->
+    crypto:strong_rand_bytes(Bytes).
+
+gen_whisper_keys(N, Bytes) ->
+    {gen_keyb64(Bytes), gen_keyb64(Bytes), gen_otkb64(N, Bytes)}.

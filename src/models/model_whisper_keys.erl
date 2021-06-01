@@ -35,6 +35,7 @@
     add_otp_keys/2,
     get_key_set/1,
     get_key_set_without_otp/1,
+    get_identity_keys/1,
     remove_all_keys/1,
     count_otp_keys/1,
     add_key_subscriber/2,
@@ -133,6 +134,21 @@ get_key_set_without_otp(Uid) ->
     {ok, Result}.
 
 
+-spec get_identity_keys(Uids :: [uid()]) -> map() | {error, any()}.
+get_identity_keys(Uids) ->
+    Commands = [["HGET", whisper_key(Uid), ?FIELD_IDENTITY_KEY] || Uid <- Uids],
+    Res = qmn(Commands),
+    Result = lists:foldl(
+        fun({Uid, {ok, IdentityKey}}, Acc) ->
+            case IdentityKey of
+                undefined -> Acc;
+                _ -> Acc#{Uid => IdentityKey}
+            end
+        end, #{}, lists:zip(Uids, Res)),
+    Result.
+     
+
+
 -spec count_otp_keys(Uid :: uid()) -> {ok, integer()} | {error, any()}.
 count_otp_keys(Uid) ->
     {ok, Count} = q(["LLEN", otp_key(Uid)]),
@@ -178,6 +194,7 @@ mark_e2e_stats_query() ->
 
 q(Command) -> ecredis:q(ecredis_whisper, Command).
 qp(Commands) -> ecredis:qp(ecredis_whisper, Commands).
+qmn(Commands) -> ecredis:qmn(ecredis_whisper, Commands).
 
 
 -spec whisper_key(Uid :: uid()) -> binary().
