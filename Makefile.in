@@ -232,6 +232,10 @@ install: all copy-files
 	#	&& $(INSTALL) -b -m 640 $(G_USER) ejabberdctl.cfg.example $(ETCDIR)/ejabberdctl.cfg-new \
 	#	|| $(INSTALL) -b -m 640 $(G_USER) ejabberdctl.cfg.example $(ETCDIR)/ejabberdctl.cfg
 	$(INSTALL) -b -S .bak -m 644 $(G_USER) inetrc $(ETCDIR)/inetrc
+
+	# Setup hotswap folder. This craetes the hotswap folder where we can put modified code.
+	$(INSTALL) -d $(LIBDIR)/zzz_hotswap/ebin
+
 	#
 	# Administration script
 	[ -d $(SBINDIR) ] || $(INSTALL) -d -m 755 $(SBINDIR)
