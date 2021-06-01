@@ -231,6 +231,68 @@ find_messy_accounts(Key, State) ->
     end,
     State.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                Fix messy accounts                                  %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+fix_messy_accounts(Key, State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            ?INFO("Account uid: ~p", [Uid]),
+            try
+                case model_accounts:get_account(Uid) of
+                    {ok, Account} ->
+                        {ok, ContactList} = model_contacts:get_contacts(Uid),
+                        {ok, FriendsList} = model_friends:get_friends(Uid),
+                        NumContactsList = length(ContactList),
+                        NumFriendsList = length(FriendsList),
+                        ClientVersion = Account#account.client_version,
+                        LastSeenTsMs = Account#account.last_activity_ts_ms,
+                        Phone = Account#account.phone,
+                        case NumContactsList =:= 0 andalso NumFriendsList =/= 0 of
+                            true ->
+                                {ok, FriendUids} = model_friends:get_friends(Uid),
+                                lists:foreach(
+                                    fun(FriendUid) ->
+                                        %% Re-add them as contacts both ways to ensure consistency in our database.
+                                        case model_accounts:get_phone(FriendUid) of
+                                            {ok, FriendPhone} when FriendPhone =/= undefined ->
+                                                case DryRun of
+                                                    true ->
+                                                        ?INFO("Uid: ~p, FriendUid: ~p, phone: ~p, FriendPhone: ~p",
+                                                            [Uid, FriendUid, Phone, FriendPhone]);
+                                                    false ->
+                                                        ok = model_contacts:add_contact(FriendUid, Phone),
+                                                        ok = model_contacts:add_contact(Uid, FriendPhone),
+                                                        ?INFO("added Uid: ~p, FriendUid: ~p, phone: ~p, FriendPhone: ~p",
+                                                            [Uid, FriendUid, Phone, FriendPhone])
+                                                end;
+                                            _ ->
+                                                ?ERROR("Invalid account uid: ~p", [FriendUid])
+                                        end
+                                    end, FriendUids),
+                                ok;
+                            false ->
+                                ok
+                        end;
+                    _ ->
+                        ?ERROR("Uid: ~p, no account exists here", [Uid])
+                end
+            catch
+                _:_ ->
+                    ?ERROR("Uid: ~p, no account exception here", [Uid])
+            end,
+            ok;
+        _ -> ok
+    end,
+    State.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                              Fix contacts keys ttl                                 %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 fix_contacts_ttl(Key, State) ->
     ?INFO("Key: ~p", [Key]),
     DryRun = maps:get(dry_run, State, false),
