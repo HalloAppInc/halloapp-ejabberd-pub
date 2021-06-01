@@ -106,8 +106,8 @@ message Permissions {
     NOTIFICATIONS = 1;
   }
   enum Status {
-    ALLOWED = 1;
-    DENIED = 2;
+    ALLOWED = 0;
+    DENIED = 1;
   }
   Type type = 1;
   Status status = 2;
