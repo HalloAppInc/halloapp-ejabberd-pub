@@ -45,14 +45,6 @@ listen:
     # change to crypto: none for stress tests
     crypto: tls
   -
-    port: 5208
-    ip: "::"
-    module: halloapp_c2s
-    max_stanza_size: 262144
-    shaper: c2s_shaper
-    access: c2s
-    crypto: noise
-  -
     port: 5443
     ip: "::"
     module: ejabberd_http
