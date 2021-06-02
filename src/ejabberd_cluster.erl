@@ -41,8 +41,6 @@
     get_known_nodes/0,
     join/1,
     leave/1,
-    node_id/0,
-    get_node_by_id/1,
     send/2,
     wait_for_sync/1
 ]).
@@ -60,8 +58,6 @@
 -callback get_known_nodes() -> [node()].
 -callback join(node()) -> ok | {error, any()}.
 -callback leave(node()) -> ok | {error, any()}.
--callback node_id() -> binary().
--callback get_node_by_id(binary()) -> node().
 -callback send({atom(), node()}, term()) -> boolean().
 -callback wait_for_sync(timeout()) -> ok | {error, any()}.
 
@@ -143,18 +139,6 @@ join(Node) ->
 leave(Node) ->
     Mod = get_mod(),
     Mod:leave(Node).
-
-
--spec node_id() -> binary().
-node_id() ->
-    Mod = get_mod(),
-    Mod:node_id().
-
-
--spec get_node_by_id(binary()) -> node().
-get_node_by_id(ID) ->
-    Mod = get_mod(),
-    Mod:get_node_by_id(ID).
 
 
 %% Note that false positive returns are possible, while false negatives are not.
