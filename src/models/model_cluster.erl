@@ -2,7 +2,8 @@
 %%% File: model_cluster.erl
 %%% Copyright (C) 2020, HalloApp, Inc.
 %%%
-%%% This model implements redis operations on sessions.
+%%% This model implements redis operation for storing and manipulating the
+%%% list of nodes that are in the ejabberd cluster.
 %%%
 %%%------------------------------------------------------------------------------------
 -module(model_cluster).
@@ -69,8 +70,6 @@ remove_node(Node) ->
     Res =:= <<"1">>.
 
 
-% TODO: if you pass the wrong client name for example 'ecredis_food' you get strange error.
-% Instead you should get bad_client or client_not_initialized
 q(Command) -> ecredis:q(ecredis_sessions, Command).
 
 
