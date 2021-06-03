@@ -184,7 +184,6 @@ modules:
   mod_user_activity: {}
   mod_engaged_users: {}
   mod_connection_stats: {}
-  mod_cron: {}
   mod_whisper: {}
   mod_upload_media:
     aws_media_region: us-east-1
