@@ -319,12 +319,21 @@ gauge_internal(State, Namespace, Metric, Value, Tags) ->
 
 process_count_internal(State, Namespace, Metric, Value, Tags, Type) ->
     NewState1 = maybe_rotate_data(State),
-    DataPoint = make_statistic_set(Value),
-    Tags1 = fix_tags(Tags),
-    Key = make_key(Namespace, Metric, Tags1, "Count"),
-    #{agg_map := AggMap} = NewState1,
-    AggMap1 = update_state(Key, DataPoint, AggMap, Type),
-    NewState1#{agg_map => AggMap1}.
+    try
+        DataPoint = make_statistic_set(Value),
+        Tags1 = fix_tags(Tags),
+        Key = make_key(Namespace, Metric, Tags1, "Count"),
+        #{agg_map := AggMap} = NewState1,
+        AggMap1 = update_state(Key, DataPoint, AggMap, Type),
+        NewState1#{agg_map => AggMap1}
+    catch
+        error : {badtagvalue, V} : St ->
+            ?ERROR("Invalid Tags value: ~p: ~p:~p ~p", [V, Namespace, Metric, Tags]),
+            NewState1;
+        error : {badtagname, N} : St ->
+            ?ERROR("Invalid Tags name: ~p: ~p:~p ~p", [N, Namespace, Metric, Tags]),
+            NewState1
+    end.
 
 
 -spec maybe_rotate_data(State :: map()) -> map().
@@ -476,15 +485,17 @@ fix_tag_value(Value) when is_atom(Value); is_list(Value); is_binary(Value) ->
     StrValue = util:to_list(Value),
     case string:find(StrValue, " ") of
         nomatch -> ok;
-        _ -> ?ERROR("Tag Value has spaces |~p|", [Value])
+        _ ->
+            ?ERROR("Tag Value has spaces |~p|", [Value]),
+            error({badtagvalue, Value})
     end,
     StrValue;
-fix_tag_value(_) ->
-    error(badtagvalue).
+fix_tag_value(V) ->
+    error({badtagvalue, V}).
 
 
 fix_tag_name(Name) when is_atom(Name); is_list(Name) ->
     util:to_list(Name);
-fix_tag_name(_) ->
-    error(badtagname).
+fix_tag_name(Name) ->
+    error({badtagname, Name}).
 
