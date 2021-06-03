@@ -164,10 +164,12 @@ push_message(#pb_msg{} = Packet) ->
 
 -spec open_session(sid(), binary(), binary(), binary(), prio(), mode(), info()) -> ok.
 open_session(SID, User, Server, Resource, Priority, Mode, Info) ->
+    ClientVersion = proplists:get_value(client_version, Info, undefined),
     check_for_sessions_to_replace(User, Server, Resource, Mode),
     set_session(SID, User, Server, Resource, Priority, Mode, Info),
     JID = jid:make(User, Server, Resource),
-    ?INFO("U: ~p S: ~p R: ~p JID: ~p, Mode: ~p", [User, Server, Resource, JID, Mode]),
+    ?INFO("U: ~p R: ~p Mode: ~p, ClientVersion: ~p",
+        [User, Resource, Mode, ClientVersion]),
     ejabberd_hooks:run(sm_register_connection_hook, JID#jid.lserver, [SID, JID, Mode, Info]).
 
 
