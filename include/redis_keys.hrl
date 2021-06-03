@@ -131,4 +131,7 @@
 -define(PID_KEY, <<"p:">>).
 -define(SESSIONS_KEY, <<"ss:">>).
 
+% cluster key store in RedisSessions
+-define(CLUSTER_KEY, <<"cluster_nodes:">>).
+
 -endif.
