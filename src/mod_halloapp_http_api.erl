@@ -539,7 +539,7 @@ finish_registration(Phone, Name, UserAgent) ->
     {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, Password, Name, UserAgent),
     %% Action = login, updates the password.
     %% Action = register, creates a new user id and registers the user for the first time.
-    log_registration(Action, UserAgent),
+    log_registration(Phone, Action, UserAgent),
     {ok, Phone, Uid, Password}.
 
 -spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
@@ -548,17 +548,19 @@ finish_registration_spub(Phone, Name, UserAgent, SPub) ->
     {ok, Uid, Action} = ejabberd_admin:check_and_register_spub(Phone, Host, SPub, Name, UserAgent),
     %% Action = login, updates the password.
     %% Action = register, creates a new user id and registers the user for the first time.
-    log_registration(Action, UserAgent),
+    log_registration(Phone, Action, UserAgent),
     {ok, Phone, Uid}.
 
-log_registration(Action, UserAgent) ->
-    case Action of
-        login ->
+log_registration(Phone, Action, UserAgent) ->
+    case {Action, util:is_test_number(Phone)} of
+        {login, false} ->
             stat:count("HA/account", "login_by_client_type", 1,
                 [{client_type, util_ua:get_client_type(UserAgent)}]);
-        register ->
+        {register, false} ->
             stat:count("HA/account", "registration_by_client_type", 1,
-                [{client_type, util_ua:get_client_type(UserAgent)}])
+                [{client_type, util_ua:get_client_type(UserAgent)}]);
+        {_, true} ->
+            ok
     end.
 
 %% Throws error if the code is wrong
