@@ -61,7 +61,7 @@ process_local_iq(#pb_iq{type = get, from_uid = Uid,
     case TimeLeftSec > 0 of
         true ->
             ?INFO("client_version version: ~p, valid for ~p seconds", [Version, TimeLeftSec]),
-            check_and_set_user_agent(Version, Uid);
+            ok;
         false ->
             ?INFO("client_version version: ~p, expired ~p seconds ago",
                 [Version, abs(TimeLeftSec)])
@@ -154,17 +154,6 @@ check_and_migrate_otpkeys(Uid, ClientVersion) ->
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ok.
 
-
-%% Temp code to repair missing data during signup process
-check_and_set_user_agent(Version, Uid) ->
-    Result = model_accounts:get_signup_user_agent(Uid),
-    case Result of
-        {error, missing} ->
-            % TODO(nikola): check if this is still happening, maybe we can remove this code
-            model_accounts:set_user_agent(Uid, Version),
-            ?WARNING("User agent for uid:~p updated to ~p",[Uid, Version]);
-        _ -> ok
-    end.
 
 %% Gets the time left in seconds for a client version.
 %% If the client version is new, then we insert it into the table with the
