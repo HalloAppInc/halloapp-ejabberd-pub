@@ -18,7 +18,8 @@
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 -export([process/2]).
 
--define(APPLE_APP_SITE_ASSOCIATION, "apple-app-site-association").
+-define(APPLE_APP_SITE_ASSOCIATION, <<"apple-app-site-association">>).
+-define(ASSET_LINKS, <<"assetlinks.json">>).
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -27,10 +28,10 @@
 %TODO: we can make this more generic and just statically server any file from a folder.
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 %% /.well-known
-process([<<"apple-app-site-association">>],
-        #request{method = 'GET'} = _R) ->
+process([FileBin], #request{method = 'GET'} = _R)
+        when FileBin =:= ?APPLE_APP_SITE_ASSOCIATION orelse FileBin =:= ?ASSET_LINKS->
     try
-        FileName = filename:join(misc:data_dir(), ?APPLE_APP_SITE_ASSOCIATION),
+        FileName = filename:join(misc:data_dir(), FileBin),
         {200, [?CT_PLAIN], {file, FileName}}
     catch
         error : Reason : Stacktrace ->

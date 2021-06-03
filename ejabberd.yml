@@ -58,6 +58,7 @@ listen:
     module: ejabberd_http
     request_handlers:
       /.well-known: mod_http_well_known
+      /invite/.well-known: mod_http_well_known
       /invite: mod_http_invite
       /api/logs: mod_logs_http_api
       /api/smscallback: mod_sms_callback
