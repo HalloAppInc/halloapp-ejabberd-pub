@@ -56,16 +56,16 @@ mod_options(_Host) ->
 -spec get_nodes() -> [node()].
 get_nodes() ->
     {ok, Nodes} = q(["SMEMBERS", cluster_key()]),
-    lists:map(fun binary_to_atom/1, Nodes).
+    lists:map(fun util:to_atom/1, Nodes).
 
 -spec add_node(Node :: node()) -> boolean().
 add_node(Node) ->
-    {ok, Res} = q(["SADD", cluster_key(), atom_to_binary(Node)]),
+    {ok, Res} = q(["SADD", cluster_key(), atom_to_list(Node)]),
     Res =:= <<"1">>.
 
 -spec remove_node(Node :: node()) -> boolean().
 remove_node(Node) ->
-    {ok, Res} = q(["SREM", cluster_key(), atom_to_binary(Node)]),
+    {ok, Res} = q(["SREM", cluster_key(), atom_to_list(Node)]),
     Res =:= <<"1">>.
 
 
