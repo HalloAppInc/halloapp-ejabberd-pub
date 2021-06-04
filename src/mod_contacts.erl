@@ -123,7 +123,7 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
 
 %% TODO(murali@): update remove_user to have phone in the hook arguments.
 -spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
-remove_user(Uid, Server) ->
+remove_user(Uid, _Server) ->
     {ok, Phone} = model_accounts:get_phone(Uid),
     remove_all_contacts(Uid, true),
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone),

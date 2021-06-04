@@ -25,7 +25,7 @@ setup() ->
     ok.
 
 
-create_delete_account_iq(Uid, Server, Type, Phone) ->
+create_delete_account_iq(Uid, _Server, Type, Phone) ->
     #pb_iq{
         from_uid = Uid,
         type = Type,

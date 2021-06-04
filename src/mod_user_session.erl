@@ -54,7 +54,6 @@ mod_options(_Host) ->
 -spec process_local_iq(IQ :: pb_iq(), State :: #{}) -> pb_iq().
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_client_mode{mode = Mode}} = IQ, #{sid := SID} = State) ->
-    Server = util:get_host(),
     ?INFO("Uid: ~s, set-iq for client_mode, mode: ~p", [Uid, Mode]),
     if
         Mode =/= active ->

@@ -568,7 +568,6 @@ publish_group_feed_test() ->
     setup(),
     % First create the group and set the avatar
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
-    Server = <<>>,
     meck:new(ejabberd_router, [passthrough]),
     meck:expect(ejabberd_router, route_multicast,
         fun(_FromUid, BroadcastUids, Packet) ->
@@ -617,7 +616,6 @@ retract_group_feed_test() ->
     Timestamp = util:now_ms(),
     ok = model_feed:publish_post(?ID2, ?UID1, <<>>, all, [?UID1, ?UID2, ?UID3], Timestamp, Gid),
     ok = model_feed:publish_comment(?ID1, ?ID2, ?UID2, <<>>, <<>>, Timestamp),
-    Server = <<>>,
     meck:new(ejabberd_router, [passthrough]),
     meck:expect(ejabberd_router, route_multicast,
         fun(_FromUid, BroadcastUids, Packet) ->

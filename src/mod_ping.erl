@@ -195,7 +195,7 @@ iq_ping(#pb_iq{} = IQ) ->
     pb:make_error(IQ, util:err(invalid_iq)).
 
 -spec sm_register_connection_hook(ejabberd_sm:sid(), jid(), mode(), ejabberd_sm:info()) -> ok.
-sm_register_connection_hook(SID, JID, Mode, Info) ->
+sm_register_connection_hook(SID, JID, Mode, _Info) ->
     SessionInfo = #session_info{
         uid = JID#jid.luser,
         resource = JID#jid.lresource,
@@ -205,7 +205,7 @@ sm_register_connection_hook(SID, JID, Mode, Info) ->
     start_ping(JID#jid.lserver, SessionInfo).
 
 -spec sm_remove_connection_hook(ejabberd_sm:sid(), jid(), mode(), ejabberd_sm:info()) -> ok.
-sm_remove_connection_hook(SID, JID, Mode, Info) ->
+sm_remove_connection_hook(SID, JID, Mode, _Info) ->
     SessionInfo = #session_info{
         uid = JID#jid.luser,
         resource = JID#jid.lresource,

@@ -439,13 +439,6 @@ get_slot(Phone) ->
     crc16:crc16(binary_to_list(Phone)) rem ?MAX_SLOTS.
 
 
--spec get_default_slot_map(Slot :: integer(), Map :: map()) -> map().
-get_default_slot_map(1, Map) ->
-    Map#{0 => {[], []}};
-get_default_slot_map(Num, Map) ->
-    get_default_slot_map(Num - 1, Map#{Num - 1 => {[], []}}).
-
-
 %% TODO(vipin): It should be CODE_KEY instead of PHONE_KEY.
 -spec code_key(Phone :: phone()) -> binary().
 code_key(Phone) ->

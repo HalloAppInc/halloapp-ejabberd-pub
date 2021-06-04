@@ -327,10 +327,10 @@ process_count_internal(State, Namespace, Metric, Value, Tags, Type) ->
         AggMap1 = update_state(Key, DataPoint, AggMap, Type),
         NewState1#{agg_map => AggMap1}
     catch
-        error : {badtagvalue, V} : St ->
+        error : {badtagvalue, V} ->
             ?ERROR("Invalid Tags value: ~p: ~p:~p ~p", [V, Namespace, Metric, Tags]),
             NewState1;
-        error : {badtagname, N} : St ->
+        error : {badtagname, N} ->
             ?ERROR("Invalid Tags name: ~p: ~p:~p ~p", [N, Namespace, Metric, Tags]),
             NewState1
     end.
