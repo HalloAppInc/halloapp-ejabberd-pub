@@ -627,8 +627,7 @@ do_process_auth_request(State1, Uid, AuthResult) ->
                     %% Bind resource callback
                     case callback(bind, Resource, State1) of
                         {ok, State2} ->
-                            %% TODO(murali@): move this logic to decode into mod_props.
-                            ServerPropHash = base64url:decode(mod_props:get_hash(Uid, ClientVersion)),
+                            ServerPropHash = mod_props:get_hash(Uid, ClientVersion),
                             {State2,  success, <<"welcome to halloapp">>, ServerPropHash, ExpiresInSec};
                         {error, _, State2} ->
                             {State2, failure, <<"invalid resource">>, undefined, ExpiresInSec}

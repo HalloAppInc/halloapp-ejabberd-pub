@@ -14,13 +14,13 @@
 -include("packets.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--define(HASH_LENGTH, (?PROPS_SHA_HASH_LENGTH_BYTES * 4 / 3)).
+-define(HASH_LENGTH, ?PROPS_SHA_HASH_LENGTH_BYTES).
 -define(UID, <<"1">>).
 -define(UID2, <<"2">>).
 -define(UID3, <<"3">>).
 -define(PHONE, <<"16175280000">>).
 -define(DEV_UID, <<"1000000000045484920">>).  % michael's uid is on the dev list
--define(TEST_UID, <<"3">>).
+-define(TEST_UID, <<"4">>).
 -define(TEST_PHONE, <<"16175550000">>).
 -define(TEST_PROPLIST, [
     {some_test_prop, "value"},
@@ -65,7 +65,7 @@ iq_test() ->
     Hash = mod_props:generate_hash(SortedProplist),
     Actual = mod_props:make_response(#pb_iq{type = get}, SortedProplist, Hash),
     Expected = #pb_iq{type = result, payload =
-        #pb_props{hash = base64url:decode(Hash), props = [
+        #pb_props{hash = Hash, props = [
             #pb_prop{name = <<"groups">>, value = <<"true">>},
             #pb_prop{name = <<"max_group_size">>, value = <<"25">>},
             #pb_prop{name = <<"pi">>, value = float_to_binary(3.14)},

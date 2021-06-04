@@ -141,7 +141,7 @@ get_client_based_props(PropMap, undefined, _) ->
 generate_hash(SortedProplist) ->
     Json = jsx:encode(SortedProplist),
     <<HashValue:?PROPS_SHA_HASH_LENGTH_BYTES/binary, _Rest/binary>> = crypto:hash(sha256, Json),
-    base64url:encode(HashValue).
+    HashValue.
 
 
 get_props_and_hash(Uid, ClientVersion) ->
@@ -153,6 +153,6 @@ get_props_and_hash(Uid, ClientVersion) ->
 make_response(IQ, SortedProplist, Hash) ->
     Props = [#pb_prop{name = util:to_binary(Key), value = util:to_binary(Val)} ||
             {Key, Val} <- SortedProplist],
-    Prop = #pb_props{hash = base64url:decode(Hash), props = Props},
+    Prop = #pb_props{hash = Hash, props = Props},
     pb:make_iq_result(IQ, Prop).
 
