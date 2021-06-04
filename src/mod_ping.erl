@@ -21,6 +21,11 @@
 %%% with this program; if not, write to the Free Software Foundation, Inc.,
 %%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %%%
+%%% TODO(murali@): using maps in a process_state and then canceling and creating timers
+%%% over and over is not great. this will get very overloaded at scale: we should have each
+%%% c2s process manage their own timers to ping or not and act accordingly
+%%% and use an ets table to store.
+%%%
 %%%----------------------------------------------------------------------
 
 -module(mod_ping).
@@ -259,28 +264,28 @@ unregister_iq_handlers(Host) ->
 
 
 -spec add_timer(SessionInfo :: session_info(), State :: state()) -> state().
-add_timer(SessionInfo, State) ->
+add_timer(#session_info{sid = SID} = SessionInfo, State) ->
     Timers1 = State#state.timers,
-    Timers2 = case maps:find(SessionInfo, Timers1) of
-        {ok, OldTRef} ->
+    Timers2 = case maps:find(SID, Timers1) of
+        {ok, {SessionInfo, OldTRef}} ->
             misc:cancel_timer(OldTRef),
-            maps:remove(SessionInfo, Timers1);
+            maps:remove(SID, Timers1);
         _ ->
             Timers1
     end,
     PingInterval = fetch_ping_interval(SessionInfo),
     TRef = erlang:start_timer(PingInterval, self(), {ping, SessionInfo}),
-    Timers3 = maps:put(SessionInfo, TRef, Timers2),
+    Timers3 = maps:put(SID, {SessionInfo, TRef}, Timers2),
     State#state{timers = Timers3}.
 
 
 -spec del_timer(SessionInfo :: session_info(), State :: state()) -> state().
-del_timer(SessionInfo, State) ->
+del_timer(#session_info{sid = SID} = SessionInfo, State) ->
     Timers1 = State#state.timers,
-    Timers2 = case maps:find(SessionInfo, Timers1) of
-        {ok, TRef} ->
+    Timers2 = case maps:find(SID, Timers1) of
+        {ok, {SessionInfo, TRef}} ->
             misc:cancel_timer(TRef),
-            maps:remove(SessionInfo, Timers1);
+            maps:remove(SID, Timers1);
         _ ->
             Timers1
     end,
