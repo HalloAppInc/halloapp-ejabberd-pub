@@ -523,16 +523,16 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
     {ok, FriendUids} = model_friends:get_friends(Uid),
     AudienceSet = sets:from_list(AudienceList),
 
-    %% Intersect the audience-set with friends, but include the post-owner's uid as well.
-    %% TODO(murali@): we dont need to add uid in the future here.
-    %% remove this part in 1 month: 03-15-2021.
-    NewAudienceSet = sets:add_element(Uid, sets:intersection(AudienceSet, sets:from_list(FriendUids))),
+    %% Intersect the audience-set with friends.
+    %% post-owner's uid is already included in the audience,
+    %% but it may be removed during intersection.
+    NewAudienceSet = sets:intersection(AudienceSet, sets:from_list(FriendUids)),
     FinalAudienceSet = case Action of
         publish -> sets:subtract(NewAudienceSet, sets:from_list(BlockedUids));
-        retract -> sets:add_element(Uid, AudienceSet)
+        retract -> AudienceSet
     end,
-    %% TODO(murali@): Send the final audience set back to the client in the response.
-    FinalAudienceSet.
+    %% Always add Uid to the audience set.
+    sets:add_element(Uid, AudienceSet).
 
 
 -spec convert_posts_to_feed_items(post()) -> pb_post().
