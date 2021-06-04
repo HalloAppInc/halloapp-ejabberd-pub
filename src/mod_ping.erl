@@ -62,7 +62,8 @@
     iq_ping/1,
     sm_register_connection_hook/4,
     sm_remove_connection_hook/4,
-    user_send_packet/1
+    user_send_packet/1,
+    user_session_activated/3
 ]).
 
 -record(state, {
@@ -230,6 +231,20 @@ user_send_packet({Packet, #{jid := JID, sid := SID, mode := Mode} = C2SState}) -
     start_ping(JID#jid.lserver, SessionInfo),
     {Packet, C2SState}.
 
+-spec user_session_activated(C2SState :: halloapp_c2s:state(), Uid :: binary(), SID :: sid()) -> state().
+user_session_activated(#{jid := JID, sid := SID, mode := Mode} = C2SState, Uid, SID) ->
+    ?INFO("Uid: ~p, SID: ~p", [Uid, SID]),
+    SessionInfo = #session_info{
+        uid = Uid,
+        resource = JID#jid.lresource,
+        sid = SID,
+        mode = Mode
+    },
+    %% This will now update the timer with the new ping interval for this session.
+    start_ping(JID#jid.lserver, SessionInfo),
+    C2SState.
+
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -244,13 +259,15 @@ init_state(Host, _Opts) ->
 register_hooks(Host) ->
     ejabberd_hooks:add(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
     ejabberd_hooks:add(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 100),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 100).
+    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 100),
+    ejabberd_hooks:add(user_session_activated, Host, ?MODULE, user_session_activated, 50).
 
 
 unregister_hooks(Host) ->
     ejabberd_hooks:delete(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 100),
     ejabberd_hooks:delete(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 100).
+    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 100),
+    ejabberd_hooks:delete(user_session_activated, Host, ?MODULE, user_session_activated, 50).
 
 
 register_iq_handlers(Host) ->

@@ -27,6 +27,10 @@
 -type property() :: {pname(), pvalue()}.
 -type proplist() :: [property()].
 
+% TODO(nikola): it would make more sense if we just use unix timestamp instead of erlang:timestamp()
+-type sid() :: {timestamp(), pid()}.
+-type timestamp() :: erlang:timestamp().
+
 -type mode() :: active | passive.
 
 -type(avatar_id() :: binary()).

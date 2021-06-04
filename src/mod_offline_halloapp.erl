@@ -262,8 +262,8 @@ offline_queue_cleared(Uid, _Server, LastMsgOrderId) ->
     ok.
 
 
--spec user_session_activated(State :: state(), Uid :: binary(), Server :: binary()) -> state().
-user_session_activated(State, _Uid, _Server) ->
+-spec user_session_activated(State :: state(), Uid :: binary(), SID :: sid()) -> state().
+user_session_activated(State, _Uid, _SID) ->
     send_offline_messages(State).
 
 
