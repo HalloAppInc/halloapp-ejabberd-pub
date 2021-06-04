@@ -481,7 +481,8 @@ fix_tags(Tags) ->
 fix_tag({Name, Value})  ->
     {fix_tag_name(Name), fix_tag_value(Value)}.
 
-fix_tag_value(Value) when is_atom(Value); is_list(Value); is_binary(Value) ->
+fix_tag_value(Value) when is_atom(Value); is_list(Value);
+        is_binary(Value); is_integer(Value) ->
     StrValue = util:to_list(Value),
     case string:find(StrValue, " ") of
         nomatch -> ok;
