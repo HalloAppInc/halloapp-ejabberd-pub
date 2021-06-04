@@ -32,7 +32,7 @@ process([FileBin], #request{method = 'GET'} = _R)
         when FileBin =:= ?APPLE_APP_SITE_ASSOCIATION orelse FileBin =:= ?ASSET_LINKS->
     try
         FileName = filename:join(misc:data_dir(), FileBin),
-        {200, [?CT_PLAIN], {file, FileName}}
+        {200, [?CT_JSON], {file, FileName}}
     catch
         error : Reason : Stacktrace ->
             ?ERROR("logs unknown error: Stacktrace:~s",
