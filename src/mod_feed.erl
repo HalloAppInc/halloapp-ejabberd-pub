@@ -532,7 +532,7 @@ get_feed_audience_set(Action, Uid, AudienceList) ->
         retract -> AudienceSet
     end,
     %% Always add Uid to the audience set.
-    sets:add_element(Uid, AudienceSet).
+    sets:add_element(Uid, FinalAudienceSet).
 
 
 -spec convert_posts_to_feed_items(post()) -> pb_post().
