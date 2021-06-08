@@ -11,8 +11,6 @@
 -include("logger.hrl").
 -include("packets.hrl").
 
--include("ha_namespaces.hrl").
-
 -export([
     send_contact_notification/6
 ]).

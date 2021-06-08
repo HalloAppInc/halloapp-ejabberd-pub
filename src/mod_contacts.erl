@@ -11,7 +11,6 @@
 
 -include("logger.hrl").
 -include("packets.hrl").
--include("ha_namespaces.hrl").
 -include("time.hrl").
 
 -define(SALT_LENGTH_BYTES, 32).
