@@ -106,7 +106,7 @@ handle(State, _, #pb_iq{type = T}) when T == result; T == error ->
     State.
 
 
--spec process_iq(binary(), atom(), atom(), integer(), pb_iq(), state()) -> #pb_iq{}.
+-spec process_iq(binary(), atom(), atom(), integer(), pb_iq(), state()) -> {pb_iq(), state()}.
 process_iq(_Host, Module, Function, NumArgs, IQ, State) ->
     try process_iq(Module, Function, NumArgs, IQ, State)
     catch ?EX_RULE(Class, Reason, St) ->
@@ -114,7 +114,7 @@ process_iq(_Host, Module, Function, NumArgs, IQ, State) ->
         ?ERROR("Failed to process iq: ~p~n Stacktrace: ~s", [
             IQ,
             lager:pr_stacktrace(StackTrace, {Class, Reason})]),
-        pb:make_error(IQ, util:err(internal_error))
+        {pb:make_error(IQ, util:err(internal_error)), State}
     end.
 
 -spec process_iq(module(), atom(), integer(), pb_iq(), state()) -> {ignore | pb_iq(), state()}.
