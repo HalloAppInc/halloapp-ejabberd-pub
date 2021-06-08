@@ -175,14 +175,15 @@ make_pb_comment(CommentId, PostId, PublisherUid,
         timestamp = Timestamp
     }.
 
-make_pb_group_feed_item(Gid, Name, AvatarId, Action, Item, SenderStateBundles) ->
+make_pb_group_feed_item(Gid, Name, AvatarId, Action, Item, SenderStateBundles, AudienceHash) ->
     #pb_group_feed_item{
         gid = Gid,
         name = Name,
         avatar_id = AvatarId,
         action = Action,
         item = Item,
-        sender_state_bundles = SenderStateBundles
+        sender_state_bundles = SenderStateBundles,
+        audience_hash = AudienceHash
     }.
 
 make_group_feed_iq(Uid, GroupFeedSt) ->
@@ -289,6 +290,25 @@ delete_group_error_test() ->
     ok.
 
 
+create_group_with_identity_keys(Uid, Name, Members) ->
+    List = Members ++ [Uid],
+    SortedList = lists:sort(List),
+    {IKBinList, UidToIKMap} = lists:foldl(
+        fun(MemberUid, Acc) ->
+            {IK, SK, OTKS} = tutil:gen_whisper_keys(16, 64),
+            mod_whisper:set_keys_and_notify(MemberUid, IK, SK, OTKS),
+            IKBin = base64:decode(IK),
+            {IKList, IKMap} = Acc,
+            {[IKBin | IKList], maps:put(MemberUid, IK, IKMap)}
+        end, {[], #{}}, SortedList),
+    AudienceHash = crypto:hash(?SHA256, lists:reverse(IKBinList)),
+    <<TruncAudienceHash:?TRUNC_HASH_LENGTH/binary, _Rem/binary>> = AudienceHash,
+    IQ = create_group_IQ(Uid, Name, Members),
+    IQRes = mod_groups_api:process_local_iq(IQ),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
+    #pb_group_stanza{gid = Gid} = GroupSt,
+    {Gid, TruncAudienceHash, UidToIKMap}.
+
 create_group(Uid, Name, Members) ->
     IQ = create_group_IQ(Uid, Name, Members),
     IQRes = mod_groups_api:process_local_iq(IQ),
@@ -393,30 +413,26 @@ get_group_test() ->
 
 get_group_identity_keys_test() ->
     setup(),
-    {IK, SK, OTKS} = tutil:gen_whisper_keys(16, 64),
-    mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
-    {IK2, SK2, OTKS2} = tutil:gen_whisper_keys(16, 64),
-    mod_whisper:set_keys_and_notify(?UID2, IK2, SK2, OTKS2),
-    {IK3, SK3, OTKS3} = tutil:gen_whisper_keys(16, 64),
-    mod_whisper:set_keys_and_notify(?UID3, IK3, SK3, OTKS3),
-    Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    {Gid, LocalHash, IKMap} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     IQ = get_group_identity_keys(?UID1, Gid),
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
+    IK1 = maps:get(?UID1, IKMap, undefined),
+    IK2 = maps:get(?UID2, IKMap, undefined),
+    IK3 = maps:get(?UID3, IKMap, undefined),
     #pb_group_stanza{
         gid = Gid,
         name = ?GROUP_NAME1,
         avatar_id = undefined,
         background = undefined,
         members = [
-            #pb_group_member{uid = ?UID1, name = ?NAME1, type = admin, identity_key = IK},
+            #pb_group_member{uid = ?UID1, name = ?NAME1, type = admin, identity_key = IK1},
             #pb_group_member{uid = ?UID2, name = ?NAME2, type = member, identity_key = IK2},
-            #pb_group_member{uid = ?UID3, name = ?NAME3, type = member, identity_key = IK3}],
+            #pb_group_member{uid = ?UID3, name = ?NAME3, type = member, identity_key = IK3}
+        ],
         audience_hash = AudienceHash
     } = GroupSt,
     ?assertEqual(?TRUNC_HASH_LENGTH, byte_size(AudienceHash)),
-    <<LocalHash:?TRUNC_HASH_LENGTH/binary, _Rem/binary>> =
-        crypto:hash(?SHA256, [base64:decode(IK), base64:decode(IK2), base64:decode(IK3)]),
     ?assertEqual(LocalHash, AudienceHash),
     ok.
 
@@ -604,24 +620,44 @@ get_groups_background_test() ->
     ?assertEqual(?BACKGROUND1, GroupSt3#pb_group_stanza.background),
     ok.
 
-publish_group_feed_test() ->
+publish_group_feed_bad_audience_hash_test() ->
     setup(),
     % First create the group and set the avatar
-    Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    {Gid, _LocalHash, _IKMap} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     meck:new(ejabberd_router, [passthrough]),
-    %% TODO(vipin): route_multicast not used in mod_group_feed anymore.
-    meck:expect(ejabberd_router, route_multicast,
-        fun(_FromUid, BroadcastUids, Packet) ->
-            [SubEl] = Packet#message.sub_els,
-            ?assertEqual(?GROUP_NAME1, SubEl#group_feed_st.name),
-            ?assertEqual(undefined, SubEl#group_feed_st.avatar_id),
-            ?assertEqual([], SubEl#group_feed_st.comments),
-            [Post] = SubEl#group_feed_st.posts,
-            ?assertEqual(?UID1, Post#group_post_st.publisher_uid),
-            ?assertNotEqual(undefined, Post#group_post_st.timestamp),
-            ?assertEqual(lists:sort([?UID2, ?UID3]), lists:sort(BroadcastUids)),
-            ok
-        end),
+    meck:expect(ejabberd_router, route_multicast, fun (_, _, _) -> ok end),
+    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+
+    PostSt = make_pb_post(?ID1, <<>>, <<>>, ?PAYLOAD1, undefined),
+    SenderStateBundles = create_sender_state_bundles(
+        [{?UID2, ?ENC_SENDER_STATE2}, {?UID3, ?ENC_SENDER_STATE3}]),
+    GroupFeedSt = make_pb_group_feed_item(Gid, <<>>, undefined, publish, PostSt, SenderStateBundles, ?BAD_HASH),
+    GroupFeedIq = make_group_feed_iq(?UID1, GroupFeedSt),
+    ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
+
+    SubEl = ResultIQ#pb_iq.payload,
+    ?assertEqual(error, ResultIQ#pb_iq.type),
+
+    ?assertEqual(<<"audience_hash_mismatch">>, SubEl#pb_error_stanza.reason),
+    ?assertEqual(0, meck:num_calls(ejabberd_router, route_multicast, '_')),
+    ?assertEqual(0, meck:num_calls(ejabberd_router, route, '_')),
+    ?assert(meck:validate(ejabberd_router)),
+    meck:unload(ejabberd_router),
+
+    {error, missing} = model_feed:get_post(?ID1),
+    ok.
+
+publish_group_feed_with_audience_hash_test() ->
+    publish_group_feed_helper(true).
+
+publish_group_feed_without_audience_hash_test() ->
+    publish_group_feed_helper(false).
+
+publish_group_feed_helper(WithAudienceHash) ->
+    setup(),
+    % First create the group and set the avatar
+    {Gid, AudienceHash, _} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    meck:new(ejabberd_router, [passthrough]),
 
     meck:expect(ejabberd_router, route,
         fun(Packet) ->
@@ -641,7 +677,10 @@ publish_group_feed_test() ->
     PostSt = make_pb_post(?ID1, <<>>, <<>>, ?PAYLOAD1, undefined),
     SenderStateBundles = create_sender_state_bundles(
         [{?UID2, ?ENC_SENDER_STATE2}, {?UID3, ?ENC_SENDER_STATE3}]),
-    GroupFeedSt = make_pb_group_feed_item(Gid, <<>>, undefined, publish, PostSt, SenderStateBundles),
+    GroupFeedSt = case WithAudienceHash of
+        true -> make_pb_group_feed_item(Gid, <<>>, undefined, publish, PostSt, SenderStateBundles, AudienceHash);
+        false -> make_pb_group_feed_item(Gid, <<>>, undefined, publish, PostSt, SenderStateBundles, <<>>)
+    end,
     GroupFeedIq = make_group_feed_iq(?UID1, GroupFeedSt),
     ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 
@@ -676,20 +715,6 @@ retract_group_feed_test() ->
     ok = model_feed:publish_post(?ID2, ?UID1, <<>>, all, [?UID1, ?UID2, ?UID3], Timestamp, Gid),
     ok = model_feed:publish_comment(?ID1, ?ID2, ?UID2, <<>>, <<>>, Timestamp),
     meck:new(ejabberd_router, [passthrough]),
-    %% TODO(vipin): route_multicast not used in mod_group_feed anymore.
-    meck:expect(ejabberd_router, route_multicast,
-        fun(_FromUid, BroadcastUids, Packet) ->
-            ?debugFmt("Route Multicast Packet: ~p", [Packet]),
-            [SubEl] = Packet#message.sub_els,
-            ?assertEqual(?GROUP_NAME1, SubEl#group_feed_st.name),
-            ?assertEqual(undefined, SubEl#group_feed_st.avatar_id),
-            ?assertEqual([], SubEl#group_feed_st.posts),
-            [Comment] = SubEl#group_feed_st.comments,
-            ?assertEqual(?UID2, Comment#group_comment_st.publisher_uid),
-            ?assertNotEqual(undefined, Comment#group_comment_st.timestamp),
-            ?assertEqual(lists:sort([?UID1, ?UID3]), lists:sort(BroadcastUids)),
-            ok
-        end),
 
     meck:expect(ejabberd_router, route,
         fun(Packet) ->
@@ -707,7 +732,7 @@ retract_group_feed_test() ->
 
     CommentSt = make_pb_comment(?ID1, ?ID2, <<>>, <<>>, <<>>, <<>>, undefined),
     SenderStateBundles = create_sender_state_bundles([]),
-    GroupFeedSt = make_pb_group_feed_item(Gid, <<>>, undefined, retract, CommentSt, SenderStateBundles),
+    GroupFeedSt = make_pb_group_feed_item(Gid, <<>>, undefined, retract, CommentSt, SenderStateBundles, <<>>),
     GroupFeedIq = make_group_feed_iq(?UID2, GroupFeedSt),
     ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 

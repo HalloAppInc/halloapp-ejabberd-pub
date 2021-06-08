@@ -114,6 +114,7 @@ re_register_user(Uid, _Server, _Phone) ->
     ?INFO("Uid: ~s, Gids: ~p", [Uid, Gids]),
     lists:foreach(
         fun(Gid) ->
+            ok = model_groups:delete_audience_hash(Gid),
             share_group_feed(Gid, Uid)
         end, Gids),
     ok.
@@ -136,36 +137,52 @@ group_member_added(Gid, Uid, AddedByUid) ->
         GroupFeedSt :: pb_group_feed_item()) -> {ok, pb_group_feed_item()} | {error, atom()}.
 publish_post(Gid, Uid, PostId, PayloadBase64, GroupFeedSt) ->
     ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
-    Server = util:get_host(),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
             {error, not_member};
         true ->
-            AudienceType = group,
-            AudienceList = model_groups:get_member_uids(Gid),
-            AudienceSet = sets:from_list(AudienceList),
-            PushSet = AudienceSet,
             GroupInfo = model_groups:get_group_info(Gid),
-            {ok, SenderName} = model_accounts:get_name(Uid),
-
-            {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
-                {error, missing} ->
-                    TimestampMs = util:now_ms(),
-                    ok = model_feed:publish_post(PostId, Uid, PayloadBase64,
-                            AudienceType, AudienceList, TimestampMs, Gid),
-                    ejabberd_hooks:run(group_feed_item_published, Server, [Gid, Uid, PostId, post]),
-                    {ok, TimestampMs};
-                {ok, ExistingPost} ->
-                    {ok, ExistingPost#post.ts_ms}
-            end,
-
-            NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
-                    SenderName, GroupFeedSt, FinalTimestampMs),
-            ?INFO("Fan Out MSG: ~p", [NewGroupFeedSt]),
-            ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
-            {ok, NewGroupFeedSt}
+            IsHashMatch = check_audience_hash(
+                GroupFeedSt#pb_group_feed_item.audience_hash,
+                GroupInfo#group_info.audience_hash,
+                Gid, Uid, publish_post),
+            case IsHashMatch of
+                false -> {error, audience_hash_mismatch};
+                _ ->
+                    publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, GroupFeedSt)
+            end
     end.
+
+
+-spec publish_post_unsafe(GroupInfo :: group_info(), Uid :: uid(), PostId :: binary(),
+        PayloadBase64 :: binary(), GroupFeedSt :: pb_group_feed_item())
+            -> {ok, pb_group_feed_item()} | {error, atom()}.
+publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, GroupFeedSt) ->
+    Server = util:get_host(),
+    AudienceType = group,
+    Gid = GroupInfo#group_info.gid,
+    AudienceList = model_groups:get_member_uids(Gid),
+    AudienceSet = sets:from_list(AudienceList),
+    PushSet = AudienceSet,
+    {ok, SenderName} = model_accounts:get_name(Uid),
+    
+    {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
+        {error, missing} ->
+            TimestampMs = util:now_ms(),
+            ok = model_feed:publish_post(PostId, Uid, PayloadBase64,
+                    AudienceType, AudienceList, TimestampMs, Gid),
+            ejabberd_hooks:run(group_feed_item_published, Server, [Gid, Uid, PostId, post]),
+            {ok, TimestampMs};
+        {ok, ExistingPost} ->
+            {ok, ExistingPost#post.ts_ms}
+    end,
+    
+    NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid, SenderName, GroupFeedSt,
+        FinalTimestampMs),
+    ?INFO("Fan Out MSG: ~p", [NewGroupFeedSt]),
+    ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
+    {ok, NewGroupFeedSt}.
 
 
 -spec publish_comment(Gid :: gid(), Uid :: uid(), CommentId :: binary(),
@@ -173,50 +190,67 @@ publish_post(Gid, Uid, PostId, PayloadBase64, GroupFeedSt) ->
         GroupFeedSt :: pb_group_feed_item()) -> {ok, pb_group_feed_item()} | {error, atom()}.
 publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, PayloadBase64, GroupFeedSt) ->
     ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
-    Server = util:get_host(),
     case model_groups:check_member(Gid, Uid) of
         false ->
             %% also possible the group does not exists
             {error, not_member};
         true ->
             GroupInfo = model_groups:get_group_info(Gid),
-            {ok, SenderName} = model_accounts:get_name(Uid),
-
-            case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
-                {{error, missing}, _, _} ->
-                    {error, invalid_post_id};
-                {{ok, Post}, {ok, Comment}, {ok, ParentPushList}} ->
-                    %% Comment with same id already exists: duplicate request from the client.
-                    TimestampMs = Comment#comment.ts_ms,
-                    PostOwnerUid = Post#post.uid,
-                    AudienceList = Post#post.audience_list,
-                    AudienceSet = sets:from_list(AudienceList),
-                    PushSet = sets:from_list([PostOwnerUid, Uid | ParentPushList]),
-
-                    NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
-                            SenderName, GroupFeedSt, TimestampMs),
-                    ?INFO("Fan Out MSG: ~p", [NewGroupFeedSt]),
-                    ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
-                    {ok, NewGroupFeedSt};
-
-                {{ok, Post}, {error, _}, {ok, ParentPushList}} ->
-                    TimestampMs = util:now_ms(),
-                    PostOwnerUid = Post#post.uid,
-                    AudienceList = Post#post.audience_list,
-                    AudienceSet = sets:from_list(AudienceList),
-                    PushSet = sets:from_list([PostOwnerUid, Uid | ParentPushList]),
-
-                    ok = model_feed:publish_comment(CommentId, PostId, Uid,
-                            ParentCommentId, PayloadBase64, TimestampMs),
-                    ejabberd_hooks:run(group_feed_item_published, Server,
-                            [Gid, Uid, CommentId, comment]),
-
-                    NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
-                            SenderName, GroupFeedSt, TimestampMs),
-                    ?INFO("Fan Out MSG: ~p", [NewGroupFeedSt]),
-                    ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
-                    {ok, NewGroupFeedSt}
+            IsHashMatch = check_audience_hash(
+                GroupFeedSt#pb_group_feed_item.audience_hash,
+                GroupInfo#group_info.audience_hash,
+                Gid, Uid, publish_comment),
+            case IsHashMatch of
+                false -> {error, audience_hash_mismatch};
+                _ ->
+                    publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId,
+                        PayloadBase64, GroupFeedSt)
             end
+    end.
+
+
+-spec publish_comment_unsafe(GroupInfo :: group_info(), Uid :: uid(), CommentId :: binary(),
+          PostId :: binary(), ParentCommentId :: binary(), PayloadBase64 :: binary(),
+          GroupFeedSt :: pb_group_feed_item()) -> {ok, pb_group_feed_item()} | {error, atom()}.
+publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, PayloadBase64, GroupFeedSt) ->
+    Server = util:get_host(),
+    Gid = GroupInfo#group_info.gid,
+    {ok, SenderName} = model_accounts:get_name(Uid),
+
+    case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
+        {{error, missing}, _, _} ->
+            {error, invalid_post_id};
+        {{ok, Post}, {ok, Comment}, {ok, ParentPushList}} ->
+            %% Comment with same id already exists: duplicate request from the client.
+            TimestampMs = Comment#comment.ts_ms,
+            PostOwnerUid = Post#post.uid,
+            AudienceList = Post#post.audience_list,
+            AudienceSet = sets:from_list(AudienceList),
+            PushSet = sets:from_list([PostOwnerUid, Uid | ParentPushList]),
+
+            NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
+                    SenderName, GroupFeedSt, TimestampMs),
+            ?INFO("Fan Out MSG: ~p", [NewGroupFeedSt]),
+            ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
+            {ok, NewGroupFeedSt};
+
+        {{ok, Post}, {error, _}, {ok, ParentPushList}} ->
+            TimestampMs = util:now_ms(),
+            PostOwnerUid = Post#post.uid,
+            AudienceList = Post#post.audience_list,
+            AudienceSet = sets:from_list(AudienceList),
+            PushSet = sets:from_list([PostOwnerUid, Uid | ParentPushList]),
+
+            ok = model_feed:publish_comment(CommentId, PostId, Uid,
+                    ParentCommentId, PayloadBase64, TimestampMs),
+            ejabberd_hooks:run(group_feed_item_published, Server,
+                    [Gid, Uid, CommentId, comment]),
+
+            NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
+                    SenderName, GroupFeedSt, TimestampMs),
+            ?INFO("Fan Out MSG: ~p", [NewGroupFeedSt]),
+            ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
+            {ok, NewGroupFeedSt}
     end.
 
 
@@ -295,6 +329,69 @@ retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
                             {ok, NewGroupFeedSt}
                     end
             end
+    end.
+
+
+-spec check_audience_hash(
+      IQAudienceHash :: binary(), GroupAudienceHash :: binary(),
+      Gid :: gid(), Uid :: uid(), Action :: atom()) -> boolean().
+check_audience_hash(IQAudienceHash, GroupAudienceHash, Gid, Uid, Action) ->
+    %% TODO(vipin): Report of match/mismatch via stats.
+    case IQAudienceHash of
+        undefined -> true;
+        <<>> -> true;
+        _ ->
+            try
+                NewHash = compute_and_set_audience_hash(GroupAudienceHash, Gid, Uid),
+                RetVal = NewHash =:= IQAudienceHash,
+                PrintMsg = "Audience Hash Check 1, IQ: ~p, Group: ~p, Gid: ~p, Uid: ~p, Action: ~p, "
+                           "Match: ~p",
+                PrintArg1 = [base64url:encode(IQAudienceHash), base64url:encode(NewHash), Gid, Uid,
+                            Action, RetVal],
+                case RetVal of
+                    false ->
+                        ?WARNING(PrintMsg, PrintArg1);
+                    _ ->
+                        ?INFO(PrintMsg, PrintArg1)
+                end,
+                case {RetVal, GroupAudienceHash} of
+                    {true, _} -> RetVal;
+                    {false, undefined} -> RetVal;
+                    {false, _} ->
+                        NewHash2 = compute_and_set_audience_hash(undefined, Gid, Uid),
+                        RetVal2 = NewHash2 =:= IQAudienceHash,
+                        PrintMsg2 = "Audience Hash Check 2, IQ: ~p, Group: ~p, Gid: ~p, Uid: ~p, "
+                            "Action: ~p, Match: ~p",
+                        PrintArg2 = [base64url:encode(IQAudienceHash), base64url:encode(NewHash2),
+                            Gid, Uid, Action, RetVal2],
+                        case RetVal2 of
+                            false ->
+                                ?WARNING(PrintMsg2, PrintArg2);
+                            _ ->
+                                ?INFO(PrintMsg2, PrintArg2)
+                        end,
+                        RetVal2
+                end
+            catch
+                error : _ -> false
+            end
+    end.
+
+
+-spec compute_and_set_audience_hash(CurrentHash :: binary(), Gid :: gid(), Uid :: uid()) -> binary() | no_return().
+compute_and_set_audience_hash(CurrentHash, Gid, Uid) ->
+    case CurrentHash of
+        undefined ->
+            case mod_groups:get_member_identity_keys(Gid, Uid) of
+                {ok, Group} ->
+                    ComputedHash = Group#group.audience_hash,
+                    ok = model_groups:set_audience_hash(Gid, ComputedHash),
+                    ComputedHash;
+                {error, Reason} = Error ->
+                    ?ERROR("Failed to compute hash, Gid: ~p, Uid: ~p, Error: ~p", [Gid, Uid, Error]),
+                    error(Reason)
+            end;
+        _ -> CurrentHash
     end.
 
 

@@ -51,3 +51,6 @@
 -define(ENC_SENDER_STATE2, <<"enc_sender_state2">>).
 -define(ENC_SENDER_STATE3, <<"enc_sender_state3">>).
 
+-define(BAD_HASH, <<"bad">>).
+-define(AUDIENCE_HASH, <<"123456">>).
+

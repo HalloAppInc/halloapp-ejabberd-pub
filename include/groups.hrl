@@ -43,7 +43,8 @@
     gid :: gid(),
     name :: binary(),
     avatar :: binary(),
-    background :: binary()
+    background :: binary(),
+    audience_hash :: binary()
 }).
 
 -type group_info() :: #group_info{}.

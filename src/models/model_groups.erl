@@ -45,6 +45,8 @@
     set_name/2,
     set_avatar/2,
     set_background/2,
+    set_audience_hash/2,
+    delete_audience_hash/1,
     delete_avatar/1,
     has_invite_link/1,
     get_invite_link/1,
@@ -97,6 +99,7 @@ mod_options(_Host) ->
 -define(FIELD_CREATION_TIME, <<"ct">>).
 -define(FIELD_CREATED_BY, <<"crb">>).
 -define(FIELD_INVITE_LINK, <<"il">>).
+-define(FIELD_AUDIENCE_HASH, <<"ah">>).
 
 
 -spec create_group(Uid :: uid(), Name :: binary()) -> {ok, Gid :: gid()}.
@@ -200,7 +203,8 @@ get_group_info(Gid) ->
                 gid = Gid,
                 name = maps:get(?FIELD_NAME, GroupMap, undefined),
                 avatar = maps:get(?FIELD_AVATAR_ID, GroupMap, undefined),
-                background = maps:get(?FIELD_BACKGROUND, GroupMap, undefined)
+                background = maps:get(?FIELD_BACKGROUND, GroupMap, undefined),
+                audience_hash = maps:get(?FIELD_AUDIENCE_HASH, GroupMap, undefined)
             }
     end.
 
@@ -229,17 +233,19 @@ add_members(Gid, Uids, AdminUid) ->
             ["HSETNX", K, Uid, Val]
         end,
         Uids),
-    RedisResults = qp(Commands),
+    NewCommands = Commands ++ [delete_audience_hash_command(Gid)],
+    {ok, RedisResults} = multi_exec(NewCommands),
+    NewResults = lists:droplast(RedisResults),
     lists:foreach(
         fun (Uid) ->
             {ok, _Res} = q(["SADD", user_groups_key(Uid), Gid])
         end,
         Uids),
     lists:map(
-        fun ({ok, Res}) ->
+        fun (Res) ->
             binary_to_integer(Res) =:= 1
         end,
-        RedisResults).
+        NewResults).
 
 
 -spec remove_member(Gid :: gid(), Uid :: uid()) -> {ok, boolean()}.
@@ -254,17 +260,19 @@ remove_members(_Gid, []) ->
 remove_members(Gid, Uids) ->
     GidKey = members_key(Gid),
     Commands = [["HDEL", GidKey, U] || U <- Uids],
-    Results = qp(Commands),
+    NewCommands = Commands ++ [delete_audience_hash_command(Gid)],
+    {ok, Results} = multi_exec(NewCommands),
+    NewResults = lists:droplast(Results),
     lists:foreach(
         fun (Uid) ->
             {ok, _Res2} = q(["SREM", user_groups_key(Uid), Gid])
         end,
         Uids),
     lists:map(
-        fun ({ok, Res}) ->
+        fun (Res) ->
             binary_to_integer(Res) =:= 1
         end,
-        Results).
+        NewResults).
 
 
 -spec promote_admin(Gid :: gid(), Uid :: uid()) -> {ok, boolean()} | {error, not_member}.
@@ -368,6 +376,15 @@ set_background(Gid, Background) ->
     {ok, _Res} = q(["HSET", group_key(Gid), ?FIELD_BACKGROUND, Background]),
     ok.
 
+-spec set_audience_hash(Gid :: gid(), AudienceHash :: binary()) -> ok.
+set_audience_hash(Gid, AudienceHash) ->
+    {ok, _Res} = q(["HSET", group_key(Gid), ?FIELD_AUDIENCE_HASH, AudienceHash]),
+    ok.
+
+-spec delete_audience_hash(Gid :: gid()) -> ok.
+delete_audience_hash(Gid) ->
+    {ok, _Res} = q(delete_audience_hash_command(Gid)),
+    ok.
 
 -spec has_invite_link(Gid :: gid()) -> boolean().
 has_invite_link(Gid) ->
@@ -462,6 +479,10 @@ remove_removed_members(Gid, Uids) ->
 clear_removed_members_set(Gid) ->
     {ok, _} = q(["DEL", group_removed_set_key(Gid)]),
     ok.
+
+
+delete_audience_hash_command(Gid) ->
+    ["HDEL", group_key(Gid), ?FIELD_AUDIENCE_HASH].
 
 
 gen_group_invite_link() ->
@@ -566,6 +587,12 @@ group_removed_set_key(Gid) ->
 
 q(Command) -> ecredis:q(ecredis_groups, Command).
 qp(Commands) -> ecredis:qp(ecredis_groups, Commands).
+
+multi_exec(Commands) ->
+    WrappedCommands = lists:append([[["MULTI"]], Commands, [["EXEC"]]]),
+    Results = qp(WrappedCommands),
+    [ExecResult | _Rest] = lists:reverse(Results),
+    ExecResult.
 
 
 -spec count_groups_key(Gid :: gid()) -> binary().

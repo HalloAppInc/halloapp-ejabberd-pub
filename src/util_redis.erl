@@ -23,6 +23,8 @@
     encode_boolean/1,
     decode_boolean/1,
     decode_boolean/2,
+    encode_b64/1,
+    decode_b64/1,
     parse_zrange_with_scores/1
 ]).
 
@@ -68,6 +70,12 @@ decode_boolean(<<"0">>) -> false.
 decode_boolean(<<"1">>, _DefaultValue) -> true;
 decode_boolean(<<"0">>, _DefaultValue) -> false;
 decode_boolean(_, DefaultValue) -> DefaultValue.
+
+encode_b64(undefined) -> undefined;
+encode_b64(Value) -> base64url:encode(Value).
+
+decode_b64(undefined) -> undefined;
+decode_b64(Value) -> base64url:decode(Value).
 
 
 -spec parse_zrange_with_scores(L :: []) -> [{term(), term()}].

@@ -327,3 +327,24 @@ set_background_test() ->
     ?assertEqual(undefined, Group3#group.background),
     ok.
 
+
+audience_hash_test() ->
+    setup(),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    Group1 = model_groups:get_group_info(Gid),
+    ?assertEqual(undefined, Group1#group_info.audience_hash),
+
+    ?assertEqual(ok, model_groups:delete_audience_hash(Gid)),
+    Group3 = model_groups:get_group_info(Gid),
+    ?assertEqual(undefined, Group3#group_info.audience_hash),
+
+    ?assertEqual(ok, model_groups:set_audience_hash(Gid, ?AUDIENCE_HASH)),
+    Group2 = model_groups:get_group_info(Gid),
+    ?assertEqual(?AUDIENCE_HASH, Group2#group_info.audience_hash),
+
+    ?assertEqual(ok, model_groups:delete_audience_hash(Gid)),
+    Group3 = model_groups:get_group_info(Gid),
+    ?assertEqual(undefined, Group3#group_info.audience_hash),
+    ok.
+
+

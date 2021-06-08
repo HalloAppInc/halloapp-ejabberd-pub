@@ -245,6 +245,7 @@ get_member_identity_keys(Gid, Uid) ->
                     ?ERROR("could not find the group: ~p uid: ~p", [Gid, Uid]),
                     {error, not_member};
                 Group ->
+                    %% Above call has returned members in sorted order by member Uids.
                     get_member_identity_keys_unsafe(Group)
             end
     end.
@@ -259,6 +260,7 @@ get_member_identity_keys_unsafe(Group) ->
         fun(#group_member{uid = Uid2} = Member2) ->
             Member2#group_member{identity_key = maps:get(Uid2, IdentityKeysMap, undefined)}
         end, GroupMembers),
+    %% GroupMembers has members in sorted order by member Uids.
     IKList = lists:foldl(
         fun(#group_member{uid = Uid2, identity_key = IdentityKey}, Acc) ->
             case IdentityKey of
