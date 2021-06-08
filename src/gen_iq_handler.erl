@@ -117,12 +117,16 @@ process_iq(_Host, Module, Function, NumArgs, IQ, State) ->
         pb:make_error(IQ, util:err(internal_error))
     end.
 
--spec process_iq(module(), atom(), integer(), pb_iq(), state()) -> ignore | pb_iq().
+-spec process_iq(module(), atom(), integer(), pb_iq(), state()) -> {ignore | pb_iq(), state()}.
 process_iq(Module, Function, NumArgs, IQ, State) when is_record(IQ, pb_iq) ->
     case NumArgs of
         1 -> {Module:Function(IQ), State};
-        2 -> Module:Function(IQ, State);
+        2 ->
+            case Module:Function(IQ, State) of
+                {ResponseIQ, NewState} = Result -> Result;
+                ResponseIQ -> {ResponseIQ, State}
+            end;
         _ ->
             ?ERROR("Invalid NumArgs: ~p for Module: ~p, Function: ~p", [NumArgs, Module, Function]),
-            ignore
+            {ignore, State}
     end.
