@@ -58,7 +58,7 @@ mod_options(_Host) ->
 %%====================================================================
 
 process_local_iq(#pb_iq{from_uid = Uid, type = get} = IQ,
-        #{client_version := ClientVersion} = C2SState) ->
+        #{client_version := ClientVersion} = _C2SState) ->
     IsDev = dev_users:is_dev_uid(Uid),
     {Hash, SortedProplist} = get_props_and_hash(Uid, ClientVersion),
     ?INFO("Uid:~s (dev = ~s) requesting props. hash = ~s, proplist = ~p",
