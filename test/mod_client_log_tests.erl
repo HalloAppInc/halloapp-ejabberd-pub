@@ -108,7 +108,7 @@ client_log_test() ->
         create_pb_event_data(undefined, android, <<"0.1.2">>, ?EVENT2)
     ],
     IQ = create_client_log_IQ(?UID1, Counts, Events),
-    IQRes = mod_client_log:process_local_iq(IQ),
+    IQRes = mod_client_log:process_local_iq(IQ, #{client_version => <<"HalloApp/Android0.129">>}),
     tutil:assert_empty_result_iq(IQRes),
     kill_gen_server(),
     ok.
@@ -125,7 +125,7 @@ client_log_bad_namespace_test() ->
         create_pb_event_data(undefined, android, <<"0.1.2">>, undefined)
     ],
     IQ = create_client_log_IQ(?UID1, Counts, Events),
-    IQRes = mod_client_log:process_local_iq(IQ),
+    IQRes = mod_client_log:process_local_iq(IQ, #{client_version => <<"HalloApp/Android0.129">>}),
     ?assertEqual(util:err(bad_request), tutil:get_error_iq_sub_el(IQRes)),
     ok.
 

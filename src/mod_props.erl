@@ -23,7 +23,7 @@
 
 %% gen_mod API.
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
--export([process_local_iq/1]).
+-export([process_local_iq/2]).
 
 %% API
 -export([
@@ -37,7 +37,7 @@
 %%====================================================================
 
 start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_props, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_props, ?MODULE, process_local_iq, 2),
     ok.
 
 stop(Host) ->
@@ -57,9 +57,9 @@ mod_options(_Host) ->
 %% IQ handler
 %%====================================================================
 
-process_local_iq(#pb_iq{from_uid = Uid, type = get} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = get} = IQ,
+        #{client_version := ClientVersion} = C2SState) ->
     IsDev = dev_users:is_dev_uid(Uid),
-    {ok, ClientVersion} = model_accounts:get_client_version(Uid),
     {Hash, SortedProplist} = get_props_and_hash(Uid, ClientVersion),
     ?INFO("Uid:~s (dev = ~s) requesting props. hash = ~s, proplist = ~p",
         [Uid, IsDev, Hash, SortedProplist]),

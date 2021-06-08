@@ -21,7 +21,7 @@
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
 -export([
-    process_local_iq/1,
+    process_local_iq/2,
     process_client_count_log_st/3,
     trigger_upload_aws/0,
     log_event/2,
@@ -61,7 +61,7 @@
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
     gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_client_log, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_client_log, ?MODULE, process_local_iq, 2),
     ok.
 
 
@@ -220,12 +220,10 @@ date_from_filename(Filename) ->
 %%====================================================================
 
 % client_log
--spec process_local_iq(pb_iq()) -> pb_iq().
-process_local_iq(#pb_iq{type = set, from_uid = Uid,
-        payload = #pb_client_log{} = ClientLogsSt} = IQ) ->
+-spec process_local_iq(pb_iq(), halloapp_c2s:state()) -> pb_iq().
+process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_client_log{} = ClientLogsSt} = IQ,
+        #{client_version := ClientVersion} = State) ->
     try
-        %% TODO(murali@): access resource from state instead of doing the db query.
-        {ok, ClientVersion} = model_accounts:get_client_version(Uid),
         Platform = util_ua:get_client_type(ClientVersion),
         case process_client_count_log_st(Uid, ClientLogsSt, Platform) of
             ok ->
@@ -240,7 +238,7 @@ process_local_iq(#pb_iq{type = set, from_uid = Uid,
             pb:make_error(IQ, util:err(server_error))
     end;
 
-process_local_iq(#pb_iq{} = IQ) ->
+process_local_iq(#pb_iq{} = IQ, State) ->
     pb:make_error(IQ, util:err(bad_request)).
 
 -spec process_client_count_log_st(Uid :: maybe(uid()) | undefined, ClientLogSt :: pb_client_log(),
