@@ -39,10 +39,9 @@
 -export([
     get_nodes/0,
     get_known_nodes/0,
-    join/1,
+    join/0,
     leave/1,
-    send/2,
-    wait_for_sync/1
+    send/2
 ]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -52,14 +51,6 @@
 -include("logger.hrl").
 
 -type dst() :: pid() | atom() | {atom(), node()}.
-
--callback init() -> ok | {error, any()}.
--callback get_nodes() -> [node()].
--callback get_known_nodes() -> [node()].
--callback join(node()) -> ok | {error, any()}.
--callback leave(node()) -> ok | {error, any()}.
--callback send({atom(), node()}, term()) -> boolean().
--callback wait_for_sync(timeout()) -> ok | {error, any()}.
 
 -record(state, {}).
 
@@ -119,27 +110,79 @@ eval_everywhere(Nodes, Module, Function, Args) ->
 
 -spec get_nodes() -> [node()].
 get_nodes() ->
-    Mod = get_mod(),
-    Mod:get_nodes().
+    [node() | erlang:nodes()].
 
 
 -spec get_known_nodes() -> [node()].
 get_known_nodes() ->
-    Mod = get_mod(),
-    Mod:get_known_nodes().
+    model_cluster:get_nodes().
 
 
--spec join(node()) -> ok | {error, any()}.
-join(Node) ->
-    Mod = get_mod(),
-    Mod:join(Node).
+-spec join() -> ok | {error, any()}.
+join() ->
+    AddRes = model_cluster:add_node(node()),
+    ?INFO("This node: ~p is joining the cluster. new: ~p", [node(), AddRes]),
+    RedisNodes = model_cluster:get_nodes(),
+    lists:foreach(
+        fun(RNode) ->
+            case net_adm:ping(RNode) of
+                pong ->
+                    ?INFO("Successful connected to node ~p", [RNode]);
+                pang ->
+                    ?WARNING("Failed to ping node ~p", [RNode])
+            end
+        end,
+        RedisNodes),
+    Nodes = get_nodes(),
+    ?INFO("Nodes: ~p RedisNodes: ~p", [Nodes, RedisNodes]),
+    case Nodes of
+        [] ->
+            % TODO: keep trying for up to 1m to ping nodes
+            ?ERROR("Failed to join the cluster"),
+            {error, join_failed};
+        _ -> ok
+    end.
 
 
 -spec leave(node()) -> ok | {error, any()}.
+leave(Node) when Node == node() ->
+    Cluster = get_nodes()--[Node],
+    leave_self(Cluster);
 leave(Node) ->
-    Mod = get_mod(),
-    Mod:leave(Node).
+    case net_adm:ping(Node) of
+        pong ->
+            ?INFO("Asking node: ~p to leave", [Node]),
+            Res = rpc:call(Node, ?MODULE, leave, [Node], 10000),
+            ?INFO("node:~p leave rpc result: ~p", [Res]),
+            Res;
+        pang ->
+            RemoveResult = model_cluster:remove_node(Node),
+            ?INFO("Kicking node: ~p from the cluster. RemoveResult ~p",
+                [Node, RemoveResult]),
+            % TODO: delete this code after this change is deployed.
+            case mnesia:del_table_copy(schema, Node) of
+                {atomic, ok} -> ok;
+                {aborted, Reason} -> {error, Reason}
+            end
+    end.
 
+leave_self([]) ->
+    {error, {no_cluster, node()}};
+leave_self([Master | _]) ->
+    RemoveRes = model_cluster:remove_node(node()),
+    ?INFO("This node ~p is leaving the ejabbed cluster. RemoveRes: ~p", [RemoveRes]),
+    application:stop(ejabberd),
+    application:stop(mnesia),
+    % TODO: why the spawn? maybe we want the leave command to complete and
+    % return result on the terminal?
+    spawn(
+        fun() ->
+            % TODO: delete this mnesia code, after this change gets deployed
+            rpc:call(Master, mnesia, del_table_copy, [schema, node()]),
+            mnesia:delete_schema([node()]),
+            erlang:halt(0)
+        end),
+    ok.
 
 %% Note that false positive returns are possible, while false negatives are not.
 %% In other words: positive return value (i.e. 'true') doesn't guarantee
@@ -161,14 +204,10 @@ send(Pid, Msg) when is_pid(Pid) andalso node(Pid) == node() ->
             false
     end;
 send(Dst, Msg) ->
-    Mod = get_mod(),
-    Mod:send(Dst, Msg).
-
-
--spec wait_for_sync(timeout()) -> ok | {error, any()}.
-wait_for_sync(Timeout) ->
-    Mod = get_mod(),
-    Mod:wait_for_sync(Timeout).
+    case erlang:send(Dst, Msg, [nosuspend, noconnect]) of
+        ok -> true;
+        _ -> false
+    end.
 
 
 %%%===================================================================
@@ -193,19 +232,18 @@ set_ticktime() ->
 
 init([]) ->
     set_ticktime(),
+    % TODO: Delete this codepath for connecting to nodes based on config list
     Nodes = ejabberd_option:cluster_nodes(),
     lists:foreach(
-            fun(Node) ->
-                net_kernel:connect_node(Node)
-            end, Nodes),
-    Mod = get_mod(),
-    case Mod:init() of
-        ok ->
-            ejabberd_hooks:add(config_reloaded, ?MODULE, set_ticktime, 50),
-            {ok, #state{}};
-        {error, Reason} ->
-            {stop, Reason}
-    end.
+        fun(Node) ->
+            % we are not sure what is the difference between connect_node and ping
+            net_kernel:connect_node(Node)
+        end, Nodes),
+    % TODO: join should try for 1m and page if it fails,
+    % but ejabberd start should resume
+    join(),
+    ejabberd_hooks:add(config_reloaded, ?MODULE, set_ticktime, 50),
+    {ok, #state{}}.
 
 handle_call(Request, From, State) ->
     ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
@@ -215,6 +253,7 @@ handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
+% TODO: (nikola) Can not find who sends those?
 handle_info({node_up, Node}, State) ->
     ?INFO("Node ~ts has joined", [Node]),
     {noreply, State};
@@ -235,10 +274,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-get_mod() ->
-    Backend = ejabberd_option:cluster_backend(),
-    list_to_existing_atom("ejabberd_cluster_" ++ atom_to_list(Backend)).
 
 
 rpc_timeout() ->

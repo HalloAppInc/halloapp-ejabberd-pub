@@ -43,7 +43,7 @@
     dump_config/1,
     convert_to_yaml/2,
     %% Cluster
-    join_cluster/1, leave_cluster/1, list_cluster/0,
+    join_cluster/0, leave_cluster/1, list_cluster/0,
     %% Erlang
     update_list/0, update/1,
     %% Accounts
@@ -279,11 +279,9 @@ get_commands_spec() ->
         result = {res, rescode}},
 
     #ejabberd_commands{name = join_cluster, tags = [cluster],
-        desc = "Join this node into the cluster handled by Node",
+        desc = "Join the ejabberd cluster (using Redis)",
         module = ?MODULE, function = join_cluster,
-        args_desc = ["Nodename of the node to join"],
-        args_example = [<<"ejabberd1@machine7">>],
-        args = [{node, binary}],
+        args = [],
         result = {res, rescode}},
     #ejabberd_commands{name = leave_cluster, tags = [cluster],
         desc = "Remove and shutdown Node from the running cluster",
@@ -843,8 +841,8 @@ convert_to_yaml(In, Out) ->
 %%% Cluster management
 %%%
 
-join_cluster(NodeBin) ->
-    ejabberd_cluster:join(list_to_atom(binary_to_list(NodeBin))).
+join_cluster() ->
+    ejabberd_cluster:join().
 
 leave_cluster(NodeBin) ->
     ejabberd_cluster:leave(list_to_atom(binary_to_list(NodeBin))).

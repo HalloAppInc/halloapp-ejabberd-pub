@@ -60,8 +60,6 @@ start(normal, _Args) ->
                         ?INFO("Ejabberd supervisor started"),
                         ejabberd_system_monitor:start(),
                         register_elixir_config_hooks(),
-                        ?INFO("ejabberd_cluster wait_for_sync"),
-                        ejabberd_cluster:wait_for_sync(infinity),
                         ejabberd_hooks:run(ejabberd_started, []),
                         ejabberd:check_apps(),
                         {T2, _} = statistics(wall_clock),
