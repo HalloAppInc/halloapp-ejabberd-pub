@@ -100,9 +100,11 @@ get_props(Uid, ClientVersion) ->
         private_reactions => false, %% whether client can send private reactions.
         group_sync_time => 1 * ?WEEKS, %% how often should clients sync group metadata
         group_invite_links => false, %% enables group_invite_links on the client.
-        group_background => false, %% enables group_background on the client.
+        group_background => true, %% enables group_background on the client.
         max_video_bit_rate => 8000000, %% max_video_bit_rate set to 8Mbps.
-        new_client_container => false %% indicates whether the client can start sending new container formats.
+        new_client_container => false, %% indicates whether the client can start sending new container formats.
+        voice_notes => false, %% enables voice notes in 1-1 messages on client.
+        media_comments => false  %% enables media comments.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -119,8 +121,9 @@ get_uid_based_props(PropMap, Uid) ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
             PropMap2 = maps:update(group_invite_links, true, PropMap1),
-            PropMap3 = maps:update(group_background, true, PropMap2),
-            PropMap3
+            PropMap3 = maps:update(voice_notes, true, PropMap2),
+            PropMap4 = maps:update(media_comments, true, PropMap3),
+            PropMap4
     end.
 
 
