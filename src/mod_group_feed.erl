@@ -302,29 +302,15 @@ retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
         PushSet :: set(), PBGroupFeed :: pb_group_feed_item()) -> ok.
 broadcast_group_feed_event(Uid, AudienceSet, PushSet, PBGroupFeed) ->
     BroadcastUids = sets:to_list(sets:del_element(Uid, AudienceSet)),
-    StateBundles = PBGroupFeed#pb_group_feed_item.sender_state_bundles,
-    PBGroupFeed2 = PBGroupFeed#pb_group_feed_item{
-        sender_state_bundles = []
-    },
-    StateBundlesMap = case StateBundles of
-        undefined -> #{};
-        _ -> lists:foldl(
-                 fun(StateBundle, Acc) ->
-                     Uid2 = StateBundle#pb_sender_state_bundle.uid,
-                     EncState = StateBundle#pb_sender_state_bundle.enc_sender_state,
-                     Acc#{Uid2 => EncState}
-                 end, #{}, StateBundles)
-    end,
     lists:foreach(
         fun(ToUid) ->
-            MsgType = get_message_type(PBGroupFeed2, PushSet, ToUid),
-            PBGroupFeed3 = add_sender_state(PBGroupFeed2, ToUid, StateBundlesMap),
+            MsgType = get_message_type(PBGroupFeed, PushSet, ToUid),
             Packet = #pb_msg{
                 id = util_id:new_msg_id(),
                 to_uid = ToUid,
                 from_uid = Uid,
                 type = MsgType,
-                payload = PBGroupFeed3
+                payload = PBGroupFeed
             },
             ejabberd_router:route(Packet)
         end, BroadcastUids),
@@ -340,15 +326,6 @@ get_message_type(#pb_group_feed_item{action = publish, item = #pb_comment{}}, Pu
         false -> normal
     end;
 get_message_type(#pb_group_feed_item{action = retract}, _, _) -> normal.
-
-
--spec add_sender_state(GroupFeedSt :: pb_group_feed_item(),
-        ToUid :: uid(), StateBundlesMap :: #{}) -> pb_group_feed_item().
-add_sender_state(GroupFeedSt, Uid, StateBundlesMap) ->
-    EncSenderState2 = maps:get(Uid, StateBundlesMap, undefined),
-    GroupFeedSt#pb_group_feed_item{
-        enc_sender_state = EncSenderState2
-    }.
 
 
 -spec make_pb_group_feed_item(GroupInfo :: group_info(), Uid :: uid(), SenderName :: binary(),

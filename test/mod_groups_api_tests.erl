@@ -57,10 +57,6 @@ create_group_IQ(Uid, Name, Uids) ->
             }
     }.
 
-create_sender_state_bundles(SenderStateTuples) ->
-    [#pb_sender_state_bundle{uid = Ouid, enc_sender_state = EncSenderState}
-        || {Ouid, EncSenderState} <- SenderStateTuples].
-
 
 delete_group_IQ(Uid, Gid) ->
     make_group_IQ(Uid, Gid, set, delete, []).
@@ -175,14 +171,13 @@ make_pb_comment(CommentId, PostId, PublisherUid,
         timestamp = Timestamp
     }.
 
-make_pb_group_feed_item(Gid, Name, AvatarId, Action, Item, SenderStateBundles) ->
+make_pb_group_feed_item(Gid, Name, AvatarId, Action, Item) ->
     #pb_group_feed_item{
         gid = Gid,
         name = Name,
         avatar_id = AvatarId,
         action = Action,
-        item = Item,
-        sender_state_bundles = SenderStateBundles
+        item = Item
     }.
 
 make_group_feed_iq(Uid, GroupFeedSt) ->
@@ -609,7 +604,6 @@ publish_group_feed_test() ->
     % First create the group and set the avatar
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     meck:new(ejabberd_router, [passthrough]),
-    %% TODO(vipin): route_multicast not used in mod_group_feed anymore.
     meck:expect(ejabberd_router, route_multicast,
         fun(_FromUid, BroadcastUids, Packet) ->
             [SubEl] = Packet#message.sub_els,
@@ -623,25 +617,8 @@ publish_group_feed_test() ->
             ok
         end),
 
-    meck:expect(ejabberd_router, route,
-        fun(Packet) ->
-            ?assertEqual(?UID1, Packet#pb_msg.from_uid),
-            ?assert(Packet#pb_msg.to_uid =:= ?UID2 orelse Packet#pb_msg.to_uid =:= ?UID3),
-            SubEl = Packet#pb_msg.payload,
-            ?assertEqual(?GROUP_NAME1, SubEl#pb_group_feed_item.name),
-            ?assertEqual(undefined, SubEl#pb_group_feed_item.avatar_id),
-            Post = SubEl#pb_group_feed_item.item,
-            ?assertEqual(?UID1, Post#pb_post.publisher_uid),
-            ?assertNotEqual(undefined, Post#pb_post.timestamp),
-            ?assert(SubEl#pb_group_feed_item.enc_sender_state =:= ?ENC_SENDER_STATE2 orelse
-                SubEl#pb_group_feed_item.enc_sender_state =:= ?ENC_SENDER_STATE3),
-            ok
-        end),
-
     PostSt = make_pb_post(?ID1, <<>>, <<>>, ?PAYLOAD1, undefined),
-    SenderStateBundles = create_sender_state_bundles(
-        [{?UID2, ?ENC_SENDER_STATE2}, {?UID3, ?ENC_SENDER_STATE3}]),
-    GroupFeedSt = make_pb_group_feed_item(Gid, <<>>, undefined, publish, PostSt, SenderStateBundles),
+    GroupFeedSt = make_pb_group_feed_item(Gid, <<>>, undefined, publish, PostSt),
     GroupFeedIq = make_group_feed_iq(?UID1, GroupFeedSt),
     ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 
@@ -652,7 +629,6 @@ publish_group_feed_test() ->
     GroupPostSt = SubEl#pb_group_feed_item.item,
     ?assertEqual(?UID1, GroupPostSt#pb_post.publisher_uid),
     ?assertNotEqual(undefined, GroupPostSt#pb_post.timestamp),
-    ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
     ?assert(meck:validate(ejabberd_router)),
     meck:unload(ejabberd_router),
 
@@ -676,10 +652,8 @@ retract_group_feed_test() ->
     ok = model_feed:publish_post(?ID2, ?UID1, <<>>, all, [?UID1, ?UID2, ?UID3], Timestamp, Gid),
     ok = model_feed:publish_comment(?ID1, ?ID2, ?UID2, <<>>, <<>>, Timestamp),
     meck:new(ejabberd_router, [passthrough]),
-    %% TODO(vipin): route_multicast not used in mod_group_feed anymore.
     meck:expect(ejabberd_router, route_multicast,
         fun(_FromUid, BroadcastUids, Packet) ->
-            ?debugFmt("Route Multicast Packet: ~p", [Packet]),
             [SubEl] = Packet#message.sub_els,
             ?assertEqual(?GROUP_NAME1, SubEl#group_feed_st.name),
             ?assertEqual(undefined, SubEl#group_feed_st.avatar_id),
@@ -691,23 +665,8 @@ retract_group_feed_test() ->
             ok
         end),
 
-    meck:expect(ejabberd_router, route,
-        fun(Packet) ->
-            ?assertEqual(?UID2, Packet#pb_msg.from_uid),
-            ?assert(Packet#pb_msg.to_uid =:= ?UID1 orelse Packet#pb_msg.to_uid =:= ?UID3),
-            SubEl = Packet#pb_msg.payload,
-            ?assertEqual(?GROUP_NAME1, SubEl#pb_group_feed_item.name),
-            ?assertEqual(undefined, SubEl#pb_group_feed_item.avatar_id),
-            Comment = SubEl#pb_group_feed_item.item,
-            ?assertEqual(?UID2, Comment#pb_comment.publisher_uid),
-            ?assertNotEqual(undefined, Comment#pb_comment.timestamp),
-            ?assertEqual(SubEl#pb_group_feed_item.enc_sender_state, undefined),
-            ok
-        end),
-
     CommentSt = make_pb_comment(?ID1, ?ID2, <<>>, <<>>, <<>>, <<>>, undefined),
-    SenderStateBundles = create_sender_state_bundles([]),
-    GroupFeedSt = make_pb_group_feed_item(Gid, <<>>, undefined, retract, CommentSt, SenderStateBundles),
+    GroupFeedSt = make_pb_group_feed_item(Gid, <<>>, undefined, retract, CommentSt),
     GroupFeedIq = make_group_feed_iq(?UID2, GroupFeedSt),
     ResultIQ = mod_group_feed:process_local_iq(GroupFeedIq),
 
@@ -717,7 +676,6 @@ retract_group_feed_test() ->
     GroupCommentSt = SubEl#pb_group_feed_item.item,
     ?assertEqual(?UID2, GroupCommentSt#pb_comment.publisher_uid),
     ?assertNotEqual(undefined, GroupCommentSt#pb_comment.timestamp),
-    ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
     ?assert(meck:validate(ejabberd_router)),
     meck:unload(ejabberd_router),
 

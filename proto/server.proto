@@ -144,8 +144,6 @@ message Post {
     Audience audience = 4;
     int64 timestamp = 5;
     string publisher_name = 6;
-    // Serialized EncryptedPayload (from client.proto).
-    bytes enc_payload = 7;
 }
 
 message Comment {
@@ -156,8 +154,6 @@ message Comment {
     string publisher_name = 5;
     bytes payload = 6;
     int64 timestamp = 7;
-    // Serialized EncryptedPayload (from client.proto).
-    bytes enc_payload = 8;
 }
 
 
@@ -189,11 +185,6 @@ message FeedItems {
 }
 
 
-message SenderStateBundle {
-    bytes enc_sender_state = 1;
-    int64 uid = 2 [ebin = true];
-}
-
 message GroupFeedItem {
     enum Action {
         PUBLISH = 0;
@@ -207,13 +198,6 @@ message GroupFeedItem {
         Post post = 5;
         Comment comment = 6;
     }
-    // Sent by the publisher.
-    repeated SenderStateBundle sender_state_bundles = 7;
-
-    // Meant for the receiver, computed by the server using `sender_state_bundles`.
-    bytes enc_sender_state = 8;
-
-    bytes audience_hash = 9;
 }
 
 
@@ -536,7 +520,6 @@ message Msg {
         GroupFeedItems group_feed_items = 24;
         EndOfQueue end_of_queue = 26;
         InviteeNotice invitee_notice = 27;
-        GroupFeedRerequest group_feed_rerequest = 28;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
@@ -695,15 +678,6 @@ message Rerequest {
   int64 one_time_pre_key_id = 4;
   bytes session_setup_ephemeral_key = 5;
   bytes message_ephemeral_key = 6;
-}
-
-
-// Group Feed Rerequest
-
-message GroupFeedRerequest {
-  string gid = 1;
-  // Post id or Comment id.
-  string id = 2;
 }
 
 
