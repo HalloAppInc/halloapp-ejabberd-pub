@@ -199,6 +199,23 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %% so this function helps us transform packets across servers.
 upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
     case MsgPayload of
+        %% feed_item
+        #pb_feed_item{} -> Msg;
+        {pb_feed_item, _Action, _Item, _ShareStanzas} = OldItem ->
+            Msg#pb_msg{
+                payload = upgrade_feed_item(OldItem)
+            };
+
+        %% feed_items
+        #pb_feed_items{} -> Msg;
+        {pb_feed_items, Uid, [{pb_feed_item, _Action, _Item, _ShareStanza}] = OldItems} ->
+            NewItems = [upgrade_feed_item(OldItem) || OldItem <- OldItems],
+            NewMsgPayload = #pb_feed_items{
+                uid = Uid,
+                items = NewItems
+            },
+            Msg#pb_msg{payload = NewMsgPayload};
+
         %% group_feed_items
         #pb_group_feed_items{} -> Msg;
         {pb_group_feed_items, Gid, Name, AvatarId, 
@@ -254,32 +271,22 @@ upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
     end;
 upgrade_packet(Packet) -> Packet.
 
+
+upgrade_feed_item(Old) ->
+    case Old of
+        #pb_feed_item{} -> Old;
+        {pb_feed_item, Action, Item, ShareStanzas} ->
+            NewItem = upgrade_item(Item),
+            #pb_feed_item{
+                action = Action,
+                item = NewItem,
+                share_stanzas = ShareStanzas
+            }
+      end.
+ 
 upgrade_group_feed_item(Old) ->
     {pb_group_feed_item, Action, Gid, Name, AvatarId, Item} = Old,
-    NewItem = case Item of
-        %% post
-        #pb_post{} -> Item;
-        {pb_post, Id, PublisherUid, Payload, Audience, Timestamp, PublisherName} ->
-             #pb_post{
-                 id = Id,
-                 publisher_uid = PublisherUid,
-                 payload = Payload,
-                 audience = Audience,
-                 timestamp = Timestamp,
-                 publisher_name = PublisherName
-             };
-        #pb_comment{} -> Item;
-        {pb_comment, Id, PostId, ParentCommentId, PublisherUid, PublisherName, Payload, Timestamp} ->
-            #pb_comment{
-                id = Id,
-                post_id = PostId,
-                parent_comment_id = ParentCommentId,
-                publisher_uid = PublisherUid,
-                publisher_name = PublisherName,
-                payload = Payload,
-                timestamp = Timestamp
-            }
-    end,
+    NewItem = upgrade_item(Item),
     #pb_group_feed_item{
         action = Action,
         gid = Gid,
@@ -291,9 +298,28 @@ upgrade_group_feed_item(Old) ->
 downgrade_group_feed_item(Old) ->
     {pb_group_feed_item, Action, Gid, Name, AvatarId, Item, _SenderStateBundles,
         _EncSenderState, _AudienceHash} = Old,
-    NewItem = case Item of
+    NewItem = upgrade_item(Item),
+    #pb_group_feed_item{
+        action = Action,
+        gid = Gid,
+        name = Name,
+        avatar_id = AvatarId,
+        item = NewItem
+    }.
+ 
+upgrade_item(Old) ->
+    case Old of
         %% post
-        #pb_post{} -> Item;
+        #pb_post{} -> Old;
+        {pb_post, Id, PublisherUid, Payload, Audience, Timestamp, PublisherName} ->
+             #pb_post{
+                 id = Id,
+                 publisher_uid = PublisherUid,
+                 payload = Payload,
+                 audience = Audience,
+                 timestamp = Timestamp,
+                 publisher_name = PublisherName
+             };
         {pb_post, Id, PublisherUid, Payload, Audience, Timestamp, PublisherName, _EncPayload} ->
              #pb_post{
                  id = Id,
@@ -305,7 +331,17 @@ downgrade_group_feed_item(Old) ->
              };
 
         %% comment
-        #pb_comment{} -> Item;
+        #pb_comment{} -> Old;
+        {pb_comment, Id, PostId, ParentCommentId, PublisherUid, PublisherName, Payload, Timestamp} ->
+            #pb_comment{
+                id = Id,
+                post_id = PostId,
+                parent_comment_id = ParentCommentId,
+                publisher_uid = PublisherUid,
+                publisher_name = PublisherName,
+                payload = Payload,
+                timestamp = Timestamp
+            };
         {pb_comment, Id, PostId, ParentCommentId, PublisherUid, PublisherName, Payload, Timestamp,
                 _EncPayload} ->
             #pb_comment{
@@ -317,15 +353,8 @@ downgrade_group_feed_item(Old) ->
                 payload = Payload,
                 timestamp = Timestamp
             }
-    end,
-    #pb_group_feed_item{
-        action = Action,
-        gid = Gid,
-        name = Name,
-        avatar_id = AvatarId,
-        item = NewItem
-    }.
- 
+    end.
+
 upgrade_group_stanza(Old) ->
     {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members,
         Background} = Old,
