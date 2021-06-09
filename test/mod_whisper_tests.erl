@@ -27,75 +27,75 @@ clear() ->
 
 
 gen_key64_test() ->
-    ?assertEqual(12, byte_size(tutil:gen_keyb64(12))),
-    ?assertEqual(16, byte_size(tutil:gen_keyb64(13))),
-    ?assertEqual(16, byte_size(tutil:gen_keyb64(14))),
-    ?assertEqual(16, byte_size(tutil:gen_keyb64(15))),
-    ?assertEqual(16, byte_size(tutil:gen_keyb64(16))),
+    ?assertEqual(12, byte_size(gen_keyb64(12))),
+    ?assertEqual(16, byte_size(gen_keyb64(13))),
+    ?assertEqual(16, byte_size(gen_keyb64(14))),
+    ?assertEqual(16, byte_size(gen_keyb64(15))),
+    ?assertEqual(16, byte_size(gen_keyb64(16))),
     ok.
 
 gen_otk_test() ->
-    ?assertEqual(5, length(tutil:gen_otkb64(5, 10))),
-    [Key | _Rest] = tutil:gen_otkb64(5, 12),
+    ?assertEqual(5, length(gen_otkb64(5, 10))),
+    [Key | _Rest] = gen_otkb64(5, 12),
     ?assertEqual(12, byte_size(Key)),
     ok.
 
 check_whisper_keys_test() ->
-    ?assertEqual(ok, mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(10, 32))),
+    ?assertEqual(ok, mod_whisper:check_whisper_keys(gen_keyb64(64), gen_keyb64(64), gen_otkb64(10, 32))),
     ok.
 
 bad_base64_key_test() ->
     ?assertEqual(
         {error, bad_base64_key},
-        mod_whisper:check_whisper_keys(<<"()">>, tutil:gen_keyb64(64), tutil:gen_otkb64(10, 32))),
+        mod_whisper:check_whisper_keys(<<"()">>, gen_keyb64(64), gen_otkb64(10, 32))),
     ?assertEqual(
         {error, bad_base64_key},
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), <<"()">>, tutil:gen_otkb64(10, 32))),
+        mod_whisper:check_whisper_keys(gen_keyb64(64), <<"()">>, gen_otkb64(10, 32))),
     ?assertEqual(
         {error, bad_base64_one_time_keys},
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), tutil:gen_keyb64(64), [<<"()">> | tutil:gen_otkb64(10, 32)])),
+        mod_whisper:check_whisper_keys(gen_keyb64(64), gen_keyb64(64), [<<"()">> | gen_otkb64(10, 32)])),
     ok.
 
 missing_identity_key_test() ->
     ?assertEqual({error, missing_identity_key},
-        mod_whisper:check_whisper_keys(<<>>, tutil:gen_keyb64(64), tutil:gen_otkb64(10, 32))),
+        mod_whisper:check_whisper_keys(<<>>, gen_keyb64(64), gen_otkb64(10, 32))),
     ok.
 
 missing_signed_key_test() ->
     ?assertEqual({error, missing_signed_key},
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), <<>>, tutil:gen_otkb64(10, 32))),
+        mod_whisper:check_whisper_keys(gen_keyb64(64), <<>>, gen_otkb64(10, 32))),
     ok.
 
 too_big_key_test() ->
     ?assertEqual({error, too_big_identity_key},
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(?MAX_KEY_SIZE + 10), tutil:gen_keyb64(64), tutil:gen_otkb64(10, 32))),
+        mod_whisper:check_whisper_keys(gen_keyb64(?MAX_KEY_SIZE + 10), gen_keyb64(64), gen_otkb64(10, 32))),
     ?assertEqual({error, too_big_signed_key},
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), tutil:gen_keyb64(?MAX_KEY_SIZE + 10), tutil:gen_otkb64(10, 32))),
+        mod_whisper:check_whisper_keys(gen_keyb64(64), gen_keyb64(?MAX_KEY_SIZE + 10), gen_otkb64(10, 32))),
     ok.
 
 too_small_key_test() ->
     ?assertEqual({error, too_small_identity_key},
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(?MIN_KEY_SIZE - 5), tutil:gen_keyb64(64), tutil:gen_otkb64(10, 32))),
+        mod_whisper:check_whisper_keys(gen_keyb64(?MIN_KEY_SIZE - 5), gen_keyb64(64), gen_otkb64(10, 32))),
     ?assertEqual({error, too_small_signed_key},
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), tutil:gen_keyb64(?MIN_KEY_SIZE - 5), tutil:gen_otkb64(10, 32))),
+        mod_whisper:check_whisper_keys(gen_keyb64(64), gen_keyb64(?MIN_KEY_SIZE - 5), gen_otkb64(10, 32))),
     ok.
 
 check_length_of_otks_test() ->
     ?assertEqual(ok,
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(?MIN_OTK_LENGTH, 32))),
+        mod_whisper:check_whisper_keys(gen_keyb64(64), gen_keyb64(64), gen_otkb64(?MIN_OTK_LENGTH, 32))),
     ?assertEqual({error, too_few_one_time_keys},
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(?MIN_OTK_LENGTH - 1, 32))),
+        mod_whisper:check_whisper_keys(gen_keyb64(64), gen_keyb64(64), gen_otkb64(?MIN_OTK_LENGTH - 1, 32))),
     ?assertEqual(ok,
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(?MAX_OTK_LENGTH, 32))),
+        mod_whisper:check_whisper_keys(gen_keyb64(64), gen_keyb64(64), gen_otkb64(?MAX_OTK_LENGTH, 32))),
     ?assertEqual({error, too_many_one_time_keys},
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(?MAX_OTK_LENGTH + 1, 32))),
+        mod_whisper:check_whisper_keys(gen_keyb64(64), gen_keyb64(64), gen_otkb64(?MAX_OTK_LENGTH + 1, 32))),
     ok.
 
 check_size_of_otks_test() ->
     ?assertEqual({error, too_big_one_time_keys},
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(?MIN_OTK_LENGTH, ?MAX_KEY_SIZE + 10))),
+        mod_whisper:check_whisper_keys(gen_keyb64(64), gen_keyb64(64), gen_otkb64(?MIN_OTK_LENGTH, ?MAX_KEY_SIZE + 10))),
     ?assertEqual({error, too_small_one_time_keys},
-        mod_whisper:check_whisper_keys(tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(?MIN_OTK_LENGTH, ?MIN_KEY_SIZE - 10))),
+        mod_whisper:check_whisper_keys(gen_keyb64(64), gen_keyb64(64), gen_otkb64(?MIN_OTK_LENGTH, ?MIN_KEY_SIZE - 10))),
     ok.
 
 
@@ -105,11 +105,11 @@ check_size_of_otks_test() ->
 
 add_whisper_keys_test() ->
     setup(),
-    {IK, SK, OTKS} = {tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(16, 64)},
+    {IK, SK, OTKS} = {gen_keyb64(64), gen_keyb64(64), gen_otkb64(16, 64)},
     mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
 
     ?assertEqual({ok, 16}, model_whisper_keys:count_otp_keys(?UID1)),
-    OTKS2 = tutil:gen_otk(16, 64),
+    OTKS2 = gen_otk(16, 64),
     Result2 = mod_whisper:process_local_iq(create_add_whisper_keys_iq(
         ?UID1, OTKS2)),
     ?assertEqual({ok, 32}, model_whisper_keys:count_otp_keys(?UID1)),
@@ -118,7 +118,7 @@ add_whisper_keys_test() ->
 
 count_whisper_keys_test() ->
     setup(),
-    {IK, SK, OTKS} = {tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(16, 64)},
+    {IK, SK, OTKS} = {gen_keyb64(64), gen_keyb64(64), gen_otkb64(16, 64)},
     mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
 
     ?assertEqual({ok, 16}, model_whisper_keys:count_otp_keys(?UID1)),
@@ -129,7 +129,7 @@ count_whisper_keys_test() ->
 
 get_whisper_keys_test() ->
     setup(),
-    {IK, SK, OTKS} = {tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(16, 64)},
+    {IK, SK, OTKS} = {gen_keyb64(64), gen_keyb64(64), gen_otkb64(16, 64)},
     mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
 
     ?assertEqual({ok, 16}, model_whisper_keys:count_otp_keys(?UID1)),
@@ -142,6 +142,18 @@ get_whisper_keys_test() ->
 %% -------------------------------------------- %%
 %% Helper functions
 %% --------------------------------------------	%%
+
+gen_otkb64(N, Bytes) ->
+    [gen_keyb64(Bytes) || _X <- lists:seq(1, N)].
+
+gen_otk(N, Bytes) ->
+    [gen_key(Bytes) || _X <- lists:seq(1, N)].
+
+gen_keyb64(Bytes) ->
+    base64:encode(gen_key(round(math:ceil(Bytes * 3 / 4)))).
+
+gen_key(Bytes) ->
+    crypto:strong_rand_bytes(Bytes).
 
 create_add_whisper_keys_iq(Uid, OneTimeKeys) ->
     #pb_iq{
