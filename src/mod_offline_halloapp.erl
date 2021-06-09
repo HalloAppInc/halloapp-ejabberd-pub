@@ -153,7 +153,7 @@ user_send_ack(State, #pb_ack{id = MsgId, from_uid = Uid} = Ack) ->
 
 -spec accept_ack(State :: state(), Packet :: pb_ack()) -> state().
 accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := PendingAcks} = OfflineQueueParams,
-        offline_queue_cleared := IsOfflineQueueCleared} = State,
+        offline_queue_cleared := IsOfflineQueueCleared, mode := Mode} = State,
         #pb_ack{id = MsgId, from_uid = Uid} = Ack) ->
     Server = util:get_host(),
     {ok, OfflineMessage} = model_messages:get_message(Uid, MsgId),
@@ -179,7 +179,8 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
             case IsOfflineQueueCleared of
                 true -> State;
                 false ->
-                    case Window =:= undefined orelse PendingAcks - 1 =< Window / 2 of
+                    case (Window =:= undefined orelse PendingAcks - 1 =< Window / 2)
+                            andalso Mode =:= active of
                         true ->
                             send_offline_messages(State1);
                         false ->
@@ -312,7 +313,9 @@ route_offline_messages(UserId, Server, LastMsgOrderId, State) ->
 
 
 -spec send_offline_messages(State :: state()) -> state().
-send_offline_messages(#{user := Uid, server := Server,
+send_offline_messages(#{mode := passive} = State) ->
+    State;
+send_offline_messages(#{mode := active, user := Uid, server := Server,
         offline_queue_params := #{window := Window, pending_acks := PendingAcks,
         last_msg_order_id := LastMsgOrderId} = OfflineQueueParams} = State) ->
     case model_messages:get_user_messages(Uid, LastMsgOrderId + 1, Window) of
