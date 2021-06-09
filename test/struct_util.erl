@@ -936,8 +936,8 @@ create_auth_result(Result, Reason, PropsHash) ->
 
 create_pb_auth_result(Result, Reason, PropsHash) ->
     #pb_auth_result{
-        result = Result,
-        reason = Reason,
+        result_string = Result,
+        reason_string = Reason,
         props_hash = PropsHash
     }.
 

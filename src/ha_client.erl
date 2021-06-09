@@ -105,11 +105,11 @@ connect_and_login(Uid, Keypair, Options) ->
     {ok, C} = start_link(Options),
     Result = login(C, Uid, Keypair),
     case Result of
-        #pb_auth_result{result = <<"success">>} ->
+        #pb_auth_result{result_string = <<"success">>} ->
             {ok, C};
-        #pb_auth_result{result = <<"failure">>, reason = Reason} ->
+        #pb_auth_result{result_string = <<"failure">>, reason = Reason} ->
             stop(C),
-            {error, binary_to_atom(Reason, utf8)};
+            {error, Reason};
         Any ->
             stop(C),
             {error, {unexpected_result, Any}}
@@ -410,7 +410,7 @@ handle_raw_packet(PacketBytes, State) ->
     {Packet1, State1}.
 
 handle_auth_result(
-        #pb_auth_result{result = Result, reason = Reason, props_hash = _PropsHash} = _PBAuthResult,
+        #pb_auth_result{result_string = Result, reason_string = Reason, props_hash = _PropsHash} = _PBAuthResult,
         State) ->
     % ?DEBUG("auth result: ~p", [PBAuthResult]),
     case Result of

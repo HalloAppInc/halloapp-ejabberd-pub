@@ -602,7 +602,7 @@ process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = Client
     PasswordResult = CheckPW(Uid, <<>>, Pwd),
     do_process_auth_request(State1, Uid, PasswordResult).
 
-
+%%TODO: End of August 2021- cleanup the fields in auth_result function.
 -spec do_process_auth_request(state(), uid(), boolean()) -> state().
 do_process_auth_request(State1, Uid, AuthResult) ->
     ClientVersion = maps:get(client_version, State1, undefined),
@@ -610,11 +610,11 @@ do_process_auth_request(State1, Uid, AuthResult) ->
     {State3, Result, Reason, PropsHash, TimeLeftSec} = case AuthResult of
         false ->
             Reason1 = case Uid of
-                undefined -> <<"spub_mismatch">>;
+                undefined -> spub_mismatch;
                 _ ->
                     case model_accounts:is_account_deleted(Uid) of
-                        true -> <<"account_deleted">>;
-                        false -> <<"invalid uid or password">>
+                        true -> account_deleted;
+                        false -> invalid_uid_or_password
                     end
             end,
             {State1, failure, Reason1, undefined, 0};
@@ -622,23 +622,25 @@ do_process_auth_request(State1, Uid, AuthResult) ->
             %% Check client_version
             case mod_client_version:get_version_ttl(ClientVersion) of
                 ExpiresInSec when ExpiresInSec =< 0 ->
-                    {State1, failure, <<"invalid client version">>, undefined, 0};
+                    {State1, failure, invalid_client_version, undefined, 0};
                 ExpiresInSec ->
                     %% Bind resource callback
                     case callback(bind, Resource, State1) of
                         {ok, State2} ->
                             ServerPropHash = mod_props:get_hash(Uid, ClientVersion),
-                            {State2,  success, <<"welcome to halloapp">>, ServerPropHash, ExpiresInSec};
+                            {State2,  success, ok, ServerPropHash, ExpiresInSec};
                         {error, _, State2} ->
-                            {State2, failure, <<"invalid resource">>, undefined, ExpiresInSec}
+                            {State2, failure, invalid_resource, undefined, ExpiresInSec}
                     end
             end
     end,
     AuthResultPkt = #pb_auth_result{
-        result = util:to_binary(Result),
-        reason = Reason,
+        result_string = util:to_binary(Result),
+        reason_string = map_to_string_reason(Reason),
         props_hash = PropsHash,
-        version_ttl = TimeLeftSec
+        version_ttl = TimeLeftSec,
+        result = Result,
+        reason = Reason
     },
     CombinedResult = case Result of
         failure -> {false, Reason};
@@ -654,6 +656,16 @@ do_process_auth_request(State1, Uid, AuthResult) ->
             State5
     end.
 
+-spec map_to_string_reason(Reason :: atom()) -> string().
+map_to_string_reason(Reason) -> 
+    case Reason of
+        account_deleted -> "account deleted";
+        invalid_uid_or_password -> "invalid uid or password";
+        spub_mismatch -> "spub mismatch";
+        invalid_client_version -> "invalid client version";
+        invalid_resource -> "invalid resource";
+        ok -> "welcome to halloapp"
+    end.
 
 -spec check_authservice_and_send(State :: state(), AuthResultPkt :: pb_auth_result()) -> state().
 check_authservice_and_send(State, AuthResultPkt) ->

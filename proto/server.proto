@@ -313,10 +313,26 @@ message AuthRequest {
 
 // Left them to be string for now, will update these later as necessary.
 message AuthResult {
-    string result = 1;
-    string reason = 2;
+    enum Result {
+        UNKNOWN = 0;
+        SUCCESS = 1;
+        FAILURE = 2;
+    }
+    enum Reason {
+        UNKNOWN = 0;
+        OK = 1;
+        SPUB_MISMATCH = 2;
+        INVALID_CLIENT_VERSION = 3;
+        INVALID_RESOURCE = 4;
+        ACCOUNT_DELETED = 5;
+        INVALID_UID_OR_PASSWORD = 6;
+    }
+    string result_string = 1;
+    string reason_string = 2;
     bytes props_hash = 3;
     int64 version_ttl = 4;
+    Result result = 5;
+    Reason reason = 6;
 }
 
 

@@ -44,7 +44,7 @@ bad_password_test(_Conf) ->
 
 bad_resource_test(_Conf) ->
     true = model_accounts:account_exists(?UID1),
-    {error, 'invalid resource'} = ha_client:connect_and_login(?UID1, ?KEYPAIR1,
+    {error, invalid_resource} = ha_client:connect_and_login(?UID1, ?KEYPAIR1,
         #{resource => <<"bad_resource">>}),
     ok.
 
