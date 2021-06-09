@@ -117,12 +117,6 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
     process_get_group(IQ, Gid, Uid);
 
 
-%%% get_member_identity_keys %%%
-process_local_iq(#pb_iq{from_uid = Uid, type = get,
-        payload = #pb_group_stanza{action = get_member_identity_keys, gid = Gid} = _ReqGroupSt} = IQ) ->
-    process_get_member_identity_keys(IQ, Gid, Uid);
-
-
 %%% get_groups %%%
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_groups_stanza{action = get}} = IQ) ->
@@ -284,19 +278,6 @@ process_modify_admins(IQ, Gid, Uid, ReqGroupSt) ->
 process_get_group(IQ, Gid, Uid) ->
     ?INFO("get_group Gid: ~s Uid: ~s", [Gid, Uid]),
     case mod_groups:get_group(Gid, Uid) of
-        {error, not_member} ->
-            pb:make_error(IQ, util:err(not_member));
-        {ok, Group} ->
-            % TODO: (nikola) change to make_group_st(Group, get)
-            GroupSt = make_group_st(Group),
-            pb:make_iq_result(IQ, GroupSt)
-    end.
-
-
--spec process_get_member_identity_keys(IQ :: pb_iq(), Gid :: gid(), Uid :: uid()) -> pb_iq().
-process_get_member_identity_keys(IQ, Gid, Uid) ->
-    ?INFO("get_member_identity_keys Gid: ~s Uid: ~s", [Gid, Uid]),
-    case mod_groups:get_member_identity_keys(Gid, Uid) of
         {error, not_member} ->
             pb:make_error(IQ, util:err(not_member));
         {ok, Group} ->
@@ -504,8 +485,7 @@ make_group_st(Group, Action) ->
         name = Group#group.name,
         avatar_id = Group#group.avatar,
         background = Group#group.background,
-        members = make_members_st(Group#group.members),
-        audience_hash = Group#group.audience_hash
+        members = make_members_st(Group#group.members)
     }.
 
 
@@ -516,8 +496,7 @@ make_members_st(Members) ->
     [#pb_group_member{
         uid = M#group_member.uid,
         type = M#group_member.type,
-        name = maps:get(M#group_member.uid, NamesMap, undefined),
-        identity_key = M#group_member.identity_key
+        name = maps:get(M#group_member.uid, NamesMap, undefined)
     } || M <- Members].
 
 

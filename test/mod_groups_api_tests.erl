@@ -74,10 +74,6 @@ get_group_IQ(Uid, Gid) ->
     make_group_IQ(Uid, Gid, get, get, []).
 
 
-get_group_identity_keys(Uid, Gid) ->
-    make_group_IQ(Uid, Gid, get, get_member_identity_keys, []).
-
-
 leave_group_IQ(Uid, Gid) ->
     make_group_IQ(Uid, Gid, set, leave, []).
 
@@ -376,43 +372,12 @@ get_group_test() ->
         avatar_id = undefined,
         background = undefined,
         members = [
-            #pb_group_member{uid = ?UID1, name = ?NAME1, type = admin, identity_key = undefined},
-            #pb_group_member{uid = ?UID2, name = ?NAME2, type = member, identity_key = undefined},
-            #pb_group_member{uid = ?UID3, name = ?NAME3, type = member, identity_key = undefined}],
-        audience_hash = undefined
+            #pb_group_member{uid = ?UID1, name = ?NAME1, type = admin},
+            #pb_group_member{uid = ?UID2, name = ?NAME2, type = member},
+            #pb_group_member{uid = ?UID3, name = ?NAME3, type = member}]
     },
 %%    ?debugVal(ExpectedGroupSt, 1000),
     ?assertEqual(ExpectedGroupSt, GroupSt),
-    ok.
-
-
-get_group_identity_keys_test() ->
-    setup(),
-    {IK, SK, OTKS} = tutil:gen_whisper_keys(16, 64),
-    mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
-    {IK2, SK2, OTKS2} = tutil:gen_whisper_keys(16, 64),
-    mod_whisper:set_keys_and_notify(?UID2, IK2, SK2, OTKS2),
-    {IK3, SK3, OTKS3} = tutil:gen_whisper_keys(16, 64),
-    mod_whisper:set_keys_and_notify(?UID3, IK3, SK3, OTKS3),
-    Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
-    IQ = get_group_identity_keys(?UID1, Gid),
-    IQRes = mod_groups_api:process_local_iq(IQ),
-    GroupSt = tutil:get_result_iq_sub_el(IQRes),
-    #pb_group_stanza{
-        gid = Gid,
-        name = ?GROUP_NAME1,
-        avatar_id = undefined,
-        background = undefined,
-        members = [
-            #pb_group_member{uid = ?UID1, name = ?NAME1, type = admin, identity_key = IK},
-            #pb_group_member{uid = ?UID2, name = ?NAME2, type = member, identity_key = IK2},
-            #pb_group_member{uid = ?UID3, name = ?NAME3, type = member, identity_key = IK3}],
-        audience_hash = AudienceHash
-    } = GroupSt,
-    ?assertEqual(?TRUNC_HASH_LENGTH, byte_size(AudienceHash)),
-    <<LocalHash:?TRUNC_HASH_LENGTH/binary, _Rem/binary>> =
-        crypto:hash(?SHA256, [base64:decode(IK), base64:decode(IK2), base64:decode(IK3)]),
-    ?assertEqual(LocalHash, AudienceHash),
     ok.
 
 

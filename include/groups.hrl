@@ -12,7 +12,6 @@
 
 -ifndef(GROUPS_HRL).
 -define(GROUPS_HRL, 1).
--define(TRUNC_HASH_LENGTH, 6).
 
 
 -define(NS_GROUPS, <<"halloapp:groups">>).
@@ -21,8 +20,7 @@
 -record(group_member, {
     uid :: uid(),
     type :: member | admin,
-    joined_ts_ms :: non_neg_integer(),
-    identity_key :: binary()
+    joined_ts_ms :: non_neg_integer()
 }).
 
 -type group_member() :: #group_member{}.
@@ -33,8 +31,7 @@
     avatar :: binary(),
     background :: binary(),
     creation_ts_ms :: integer(),
-    members :: [group_member()],
-    audience_hash :: binary()
+    members :: [group_member()]
 }).
 
 -type group() :: #group{}.
@@ -49,7 +46,6 @@
 -type group_info() :: #group_info{}.
 
 -define(MAX_GROUP_SIZE, 50).
--define(SHA256, sha256).
 
 -endif.
 

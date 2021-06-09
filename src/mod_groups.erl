@@ -33,7 +33,6 @@
     demote_admins/3,
     modify_admins/3,
     get_group/2,
-    get_member_identity_keys/2,
     get_group_info/2,
     get_groups/1,
     remove_user/2,
@@ -234,50 +233,6 @@ get_group(Gid, Uid) ->
             end
     end.
 
-
--spec get_member_identity_keys(Gid :: gid(), Uid :: uid()) -> {ok, group()} | {error, not_member}.
-get_member_identity_keys(Gid, Uid) ->
-    case model_groups:is_member(Gid, Uid) of
-        false -> {error, not_member};
-        true ->
-            case model_groups:get_group(Gid) of
-                undefined ->
-                    ?ERROR("could not find the group: ~p uid: ~p", [Gid, Uid]),
-                    {error, not_member};
-                Group ->
-                    get_member_identity_keys_unsafe(Group)
-            end
-    end.
-
-
--spec get_member_identity_keys_unsafe(Group :: group()) -> {ok, group()} | {error, any()}.
-get_member_identity_keys_unsafe(Group) ->
-    GroupMembers = Group#group.members,
-    Uids = [Member#group_member.uid || Member <- GroupMembers],
-    IdentityKeysMap = model_whisper_keys:get_identity_keys(Uids),
-    GroupMembers2 = lists:map(
-        fun(#group_member{uid = Uid2} = Member2) ->
-            Member2#group_member{identity_key = maps:get(Uid2, IdentityKeysMap, undefined)}
-        end, GroupMembers),
-    IKList = lists:foldl(
-        fun(#group_member{uid = Uid2, identity_key = IdentityKey}, Acc) ->
-            case IdentityKey of
-                undefined ->
-                    ?ERROR("Uid: ~p identity key is invalid", [Uid2]),
-                    Acc;
-                _ ->
-                    IdentityKeyBin = base64:decode(IdentityKey),
-                    [IdentityKeyBin | Acc]
-            end
-        end, [], GroupMembers2),
-    AudienceHash = crypto:hash(?SHA256, lists:reverse(IKList)),
-    <<TruncAudienceHash:?TRUNC_HASH_LENGTH/binary, _Rem/binary>> = AudienceHash,
-    Group2 = Group#group{
-        members = GroupMembers2,
-        audience_hash = TruncAudienceHash
-    },
-    {ok, Group2}.
- 
 
 -spec get_group_info(Gid :: gid(), Uid :: uid())
             -> {ok, group_info()} | {error, not_member | no_group}.

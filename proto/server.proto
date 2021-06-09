@@ -232,9 +232,6 @@ message GroupMember {
     string avatar_id = 5;
     string result = 6;
     string reason = 7;
-
-    // Identity key to be returned on `GET_MEMBER_IDENTITY_KEYS` IQ.
-    bytes identity_key = 8;
 }
 
 
@@ -254,7 +251,6 @@ message GroupStanza {
         JOIN = 11;
         PREVIEW = 12;
         SET_BACKGROUND = 13;
-        GET_MEMBER_IDENTITY_KEYS = 14;
     }
     Action action = 1;
     string gid = 2;
@@ -264,9 +260,6 @@ message GroupStanza {
     string sender_name = 6;
     repeated GroupMember members = 7;
     string background = 8;
-
-    // Audience hash to be returned on `GET_MEMBER_IDENTITY_KEYS` IQ.
-    bytes audience_hash = 9;
 }
 
 
