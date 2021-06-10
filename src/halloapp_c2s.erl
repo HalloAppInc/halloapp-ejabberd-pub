@@ -402,6 +402,13 @@ upgrade_group_member(Old) ->
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
     NewPacket = upgrade_packet(Packet),
+    %% TODO(vipin): Remove enif_protobuf:encode(...) after upgrade is done.
+    case enif_protobuf:encode(NewPacket) of
+        {error, Reason} ->
+            ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
+        _ ->
+            ok
+    end,
     case verify_incoming_packet(State, NewPacket) of
         allow ->
             %% TODO(murali@): remove temp counts after clients transition.
