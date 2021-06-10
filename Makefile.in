@@ -415,3 +415,31 @@ fetchpb:
 	cp deps/schemas/build/log_events.proto proto/
 	rm -rf deps/schemas
 
+
+translate:
+	# creates temporary directories to work with.
+	rm -rf temp
+	mkdir -p temp
+	mkdir -p temp/msgs
+	mkdir -p priv/msgs
+	# clone ios repo
+	git clone git@github.com:HalloAppInc/halloapp-ios.git temp/halloapp-ios
+	# copies all translation strings related folders.
+	find temp/halloapp-ios/Halloapp/*.lproj -type d | xargs -I{} cp -r {} temp/msgs/
+	# deletes all files except the files that contain the exact translations.
+	find temp/msgs/*.lproj -type f ! -name 'Localizable.strings' -delete
+	rm -rf temp/msgs/Base.lproj temp/msgs/en.lproj
+	# rename all files to be 'langId.strings'
+	cd temp/msgs/ && for subdir in *; do mv -v $$subdir $${subdir//.lproj/}; done;
+	cd temp/msgs/ && for subdir in *; do mv $$subdir/Localizable.strings $$subdir.txt; done;
+	cd temp/msgs/ && rm -r */;
+	# filter out all server translations and delete the rest of the lines.
+	cd temp/msgs/ && for file in *; do grep '\"server.*' $$file > $$file.strings; done;
+	# remove any other files if any.
+	find temp/msgs/ -type f ! -name '*.strings' -delete;
+	cd temp/msgs/ && for file in *; do mv -v $$file $${file//.txt.strings/.strings}; done;
+	# move them to the msgs directory.
+	cp temp/msgs/* priv/msgs/
+	# cleanup.
+	rm -rf temp
+

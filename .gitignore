@@ -9,6 +9,7 @@
 .idea/
 .eunit/
 *.iml
+/temp/
 /crash.log*
 /error.log*
 /ejabberd.log*
