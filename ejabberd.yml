@@ -197,6 +197,7 @@ modules:
   mod_client_version: {}
   mod_prom_exporter: {}
   mod_push_tokens: {}
+  mod_translate: {}
   mod_push_notifications: {}
   mod_ios_push: {}
   mod_android_push: {}

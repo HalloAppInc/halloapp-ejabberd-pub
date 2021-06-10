@@ -1,0 +1,9 @@
+"server.new.comment" = "Yeni yorum";
+"server.new.contact" = "%@ şimdi HalloApp'te";
+"server.new.group" = "Yeni bir gruba eklendin";
+"server.new.group.message" = "Yeni grup mesajı";
+"server.new.inviter" = "%@ HalloApp davetini kabul etti 🎉";
+"server.new.message" = "Yeni mesaj";
+"server.new.post" = "Yeni gönderi";
+"server.sms.verification" = "HalloApp doğrulama kodun";
+"server.voicecall.verification" = "HalloApp doğrulama kodun: ";

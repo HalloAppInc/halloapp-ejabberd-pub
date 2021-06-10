@@ -11,6 +11,7 @@
 -include("logger.hrl").
 -include("packets.hrl").
 -include ("push_message.hrl").
+-include("translate.hrl").
 
 -export([
     parse_metadata/2,
@@ -20,7 +21,7 @@
 
 -spec parse_metadata(Message :: pb_msg(), PushInfo :: push_info()) -> push_metadata().
 parse_metadata(#pb_msg{id = Id, payload = Payload,
-        from_uid = FromUid}, _PushInfo) when is_record(Payload, pb_chat_stanza) ->
+        from_uid = FromUid}, PushInfo) when is_record(Payload, pb_chat_stanza) ->
     #push_metadata{
         content_id = Id,
         content_type = <<"chat">>,
@@ -29,7 +30,7 @@ parse_metadata(#pb_msg{id = Id, payload = Payload,
         thread_id = FromUid,
         sender_name = Payload#pb_chat_stanza.sender_name,
         subject = Payload#pb_chat_stanza.sender_name,
-        body = <<"New Message">>,
+        body = ?TR(<<"server.new.message">>, PushInfo#push_info.lang_id),
         push_type = alert,
         payload = Payload#pb_chat_stanza.payload
     };
@@ -46,7 +47,7 @@ parse_metadata(#pb_msg{id = _Id, payload = Payload,
     };
 
 parse_metadata(#pb_msg{id = Id, payload = Payload,
-        from_uid = FromUid}, _PushInfo) when is_record(Payload, pb_group_chat) ->
+        from_uid = FromUid}, PushInfo) when is_record(Payload, pb_group_chat) ->
     PushName = Payload#pb_chat_stanza.sender_name,
     GroupName = Payload#pb_group_chat.name,
     #push_metadata{
@@ -58,7 +59,7 @@ parse_metadata(#pb_msg{id = Id, payload = Payload,
         thread_name = GroupName,
         sender_name = PushName,
         subject = <<PushName/binary, " @ ", GroupName/binary>>,
-        body = <<"New Group Message">>,
+        body = ?TR(<<"server.new.group.message">>, PushInfo#push_info.lang_id),
         push_type = alert,
         payload = Payload#pb_group_chat.payload
     };
@@ -96,11 +97,14 @@ parse_metadata(#pb_msg{id = _Id, type = MsgType, payload = Payload} = Message, P
     Name = Contact#pb_contact.name,
     {ContentType, Subject, Body} = case Payload#pb_contact_list.type of
         contact_notice ->
-            {<<"contact_notice">>, <<>>, <<Name/binary, " is now on HalloApp">>};
+            NewBody = ?TR(<<"server.new.contact">>, [Name], PushInfo#push_info.lang_id),
+            {<<"contact_notice">>, <<>>, <<NewBody/binary>>};
         inviter_notice ->
-            {<<"inviter_notice">>, <<>>, <<Name/binary, " just accepted your invite to join HalloApp">>};
+            NewBody = ?TR(<<"server.new.inviter">>, [Name], PushInfo#push_info.lang_id),
+            {<<"inviter_notice">>, <<>>, <<NewBody/binary>>};
         _ ->
-            {<<"contact_notification">>, <<>>, <<Name/binary, " is now on HalloApp">>}
+            NewBody = ?TR(<<"server.new.contact">>, [Name], PushInfo#push_info.lang_id),
+            {<<"contact_notification">>, <<>>, <<NewBody/binary>>}
     end,
     NewMsgType = {MsgType, Payload#pb_contact_list.type},
     PayloadType = util:get_payload_type(Message),
@@ -126,7 +130,7 @@ parse_metadata(#pb_msg{type = MsgType,
         thread_id = <<"feed">>,
         sender_name = Post#pb_post.publisher_name,
         subject = Post#pb_post.publisher_name,
-        body = <<"New post">>,
+        body = ?TR(<<"server.new.post">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, feed_post, PushInfo),
         payload = Post#pb_post.payload
     };
@@ -152,7 +156,7 @@ parse_metadata(#pb_msg{type = MsgType,
         thread_id = <<"feed">>,
         sender_name = Comment#pb_comment.publisher_name,
         subject = Comment#pb_comment.publisher_name,
-        body = <<"New comment">>,
+        body = ?TR(<<"server.new.comment">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, feed_comment, PushInfo),
         payload = Comment#pb_comment.payload
     };
@@ -182,7 +186,7 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, 
         thread_name = Payload#pb_group_feed_item.name,
         sender_name = Post#pb_post.publisher_name,
         subject = <<PushName/binary, " @ ", GroupName/binary>>,
-        body = <<"New post">>,
+        body = ?TR(<<"server.new.post">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, PayloadType, PushInfo),
         payload = Post#pb_post.payload
     };
@@ -212,7 +216,7 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, 
         thread_name = Payload#pb_group_feed_item.name,
         sender_name = Comment#pb_comment.publisher_name,
         subject = <<PushName/binary, " @ ", GroupName/binary>>,
-        body = <<"New comment">>,
+        body = ?TR(<<"server.new.comment">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, PayloadType, PushInfo),
         payload = Comment#pb_comment.payload
     };
@@ -240,7 +244,7 @@ parse_metadata(#pb_msg{id = Id, type = MsgType, payload = #pb_group_stanza{gid =
         thread_name = GroupName,
         sender_name = SenderName,
         subject = GroupName,
-        body = <<"You were added to a new group">>,
+        body = ?TR(<<"server.new.group">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, PayloadType, PushInfo)
     };
 
