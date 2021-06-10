@@ -761,9 +761,13 @@ send_error(State, _Pkt, Err) ->
 
 send_error(State, Err) ->
     ErrBin = util:to_binary(Err),
+    ErrStr = util:to_list(Err),
+    stat:count("HA/connection", "errors", 1, [{"type", ErrStr}]),
     case Err of
         _ when Err =:= shutdown; Err =:= replaced ->
             ?INFO("Sending ~p and stoping", [Err]);
+        _ when Err =:= session_kicked; Err =:= session_replaced ->
+            ?WARNING("Sending: ~p and stopping", [Err]);
         _ ->
             ?ERROR("Sending ~p and stopping", [Err])
     end,
