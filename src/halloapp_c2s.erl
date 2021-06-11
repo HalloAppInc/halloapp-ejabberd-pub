@@ -197,218 +197,75 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %% then other servers cant encode this message because the record has a new field. 
 %% similarly the updated server cant encode it because it is missing a field.
 %% so this function helps us transform packets across servers.
-upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
-    case MsgPayload of
-        %% feed_item
-        {pb_feed_item, _Action, _Item, _ShareStanzas} = OldItem ->
-            Msg#pb_msg{
-                payload = upgrade_feed_item(OldItem)
-            };
-
-        %% feed_items
-        {pb_feed_items, Uid, OldItems} ->
-            NewMsgPayload = #pb_feed_items{
-                uid = Uid,
-                items = [upgrade_feed_item(OldItem) || OldItem <- OldItems]
-            },
-            Msg#pb_msg{payload = NewMsgPayload};
-
-        %% group_feed_items
-        {pb_group_feed_items, Gid, Name, AvatarId, OldItems} ->
-            NewMsgPayload = #pb_group_feed_items{
-                gid = Gid,
-                name = Name,
-                avatar_id = AvatarId,
-                items = [upgrade_group_feed_item(OldItem) || OldItem <- OldItems]
-            },
-            Msg#pb_msg{payload = NewMsgPayload};
-
-        %% group_feed_item
-        #pb_group_feed_item{} -> Msg;
-        %% upgrade
-        {pb_group_feed_item, _Action, _Gid, _Name, _AvatarId, _Item} = OldItem ->
-            Msg#pb_msg{
-                payload = upgrade_group_feed_item(OldItem)
-            };
-        %% downgrade
-        {pb_group_feed_item, _Action, _Gid, _Name, _AvatarId, _Item, _SenderStateBundles,
-                _EncSenderState, _AudienceHash} = OldItem ->
-            Msg#pb_msg{
-                payload = upgrade_group_feed_item(OldItem)
-            };
-
-        %% group_stanza
-        #pb_group_stanza{} -> Msg;
-        %% upgrade
-        {pb_group_stanza, _Action, _Gid, _Name, _AvatarId, _SenderUid, _SenderName,
-                _Members, _Background} = OldStanza ->
-            Msg#pb_msg{
-                payload = upgrade_group_stanza(OldStanza)
-            };
-        %% downgrade
-        {pb_group_stanza, _Action, _Gid, _Name, _AvatarId, _SenderUid, _SenderName,
-                _Members, _Background, _AudienceHash} = OldStanza ->
-            Msg#pb_msg{
-                payload = upgrade_group_stanza(OldStanza)
-            };
-
-        _ -> Msg
-    end;
+%%upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
+%%    case MsgPayload of
+%%        %% feed_item
+%%        {pb_feed_item, _Action, _Item, _ShareStanzas} = OldItem ->
+%%            Msg#pb_msg{
+%%                payload = upgrade_feed_item(OldItem)
+%%            };
+%%
+%%        %% feed_items
+%%        {pb_feed_items, Uid, OldItems} ->
+%%            NewMsgPayload = #pb_feed_items{
+%%                uid = Uid,
+%%                items = [upgrade_feed_item(OldItem) || OldItem <- OldItems]
+%%            },
+%%            Msg#pb_msg{payload = NewMsgPayload};
+%%
+%%        %% group_feed_items
+%%        {pb_group_feed_items, Gid, Name, AvatarId, OldItems} ->
+%%            NewMsgPayload = #pb_group_feed_items{
+%%                gid = Gid,
+%%                name = Name,
+%%                avatar_id = AvatarId,
+%%                items = [upgrade_group_feed_item(OldItem) || OldItem <- OldItems]
+%%            },
+%%            Msg#pb_msg{payload = NewMsgPayload};
+%%
+%%        %% group_feed_item
+%%        #pb_group_feed_item{} -> Msg;
+%%        %% upgrade
+%%        {pb_group_feed_item, _Action, _Gid, _Name, _AvatarId, _Item} = OldItem ->
+%%            Msg#pb_msg{
+%%                payload = upgrade_group_feed_item(OldItem)
+%%            };
+%%        %% downgrade
+%%        {pb_group_feed_item, _Action, _Gid, _Name, _AvatarId, _Item, _SenderStateBundles,
+%%                _EncSenderState, _AudienceHash} = OldItem ->
+%%            Msg#pb_msg{
+%%                payload = upgrade_group_feed_item(OldItem)
+%%            };
+%%
+%%        %% group_stanza
+%%        #pb_group_stanza{} -> Msg;
+%%        %% upgrade
+%%        {pb_group_stanza, _Action, _Gid, _Name, _AvatarId, _SenderUid, _SenderName,
+%%                _Members, _Background} = OldStanza ->
+%%            Msg#pb_msg{
+%%                payload = upgrade_group_stanza(OldStanza)
+%%            };
+%%        %% downgrade
+%%        {pb_group_stanza, _Action, _Gid, _Name, _AvatarId, _SenderUid, _SenderName,
+%%                _Members, _Background, _AudienceHash} = OldStanza ->
+%%            Msg#pb_msg{
+%%                payload = upgrade_group_stanza(OldStanza)
+%%            };
+%%
+%%        _ -> Msg
+%%    end;
 upgrade_packet(Packet) -> Packet.
-
-
-upgrade_feed_item(Old) ->
-    {pb_feed_item, Action, Item, ShareStanzas} = Old,
-    #pb_feed_item{
-        action = Action,
-        item = upgrade_item(Item),
-        share_stanzas = ShareStanzas
-    }.
- 
-upgrade_group_feed_item(Old) ->
-    case Old of
-        #pb_group_feed_item{} -> Old;
-        %% upgrade
-        {pb_group_feed_item, Action, Gid, Name, AvatarId, Item} ->
-            #pb_group_feed_item{
-                action = Action,
-                gid = Gid,
-                name = Name,
-                avatar_id = AvatarId,
-                item = upgrade_item(Item)
-            };
-        %% downgrade
-        {pb_group_feed_item, Action, Gid, Name, AvatarId, Item, _SenderStateBundles,
-                _EncSenderState, _AudienceHash} ->
-            #pb_group_feed_item{
-                action = Action,
-                gid = Gid,
-                name = Name,
-                avatar_id = AvatarId,
-                item = upgrade_item(Item)
-            }
-    end.
- 
-upgrade_item(Old) ->
-    case Old of
-        %% post
-        #pb_post{} -> Old;
-        %% upgrade
-        {pb_post, Id, PublisherUid, Payload, Audience, Timestamp, PublisherName} ->
-             #pb_post{
-                 id = Id,
-                 publisher_uid = PublisherUid,
-                 payload = Payload,
-                 audience = Audience,
-                 timestamp = Timestamp,
-                 publisher_name = PublisherName
-             };
-        %% downgrade
-        {pb_post, Id, PublisherUid, Payload, Audience, Timestamp, PublisherName, _EncPayload} ->
-             #pb_post{
-                 id = Id,
-                 publisher_uid = PublisherUid,
-                 payload = Payload,
-                 audience = Audience,
-                 timestamp = Timestamp,
-                 publisher_name = PublisherName
-             };
-
-        %% comment
-        #pb_comment{} -> Old;
-        %% upgrade
-        {pb_comment, Id, PostId, ParentCommentId, PublisherUid, PublisherName, Payload, Timestamp} ->
-            #pb_comment{
-                id = Id,
-                post_id = PostId,
-                parent_comment_id = ParentCommentId,
-                publisher_uid = PublisherUid,
-                publisher_name = PublisherName,
-                payload = Payload,
-                timestamp = Timestamp
-            };
-        %% downgrade
-        {pb_comment, Id, PostId, ParentCommentId, PublisherUid, PublisherName, Payload, Timestamp,
-                _EncPayload} ->
-            #pb_comment{
-                id = Id,
-                post_id = PostId,
-                parent_comment_id = ParentCommentId,
-                publisher_uid = PublisherUid,
-                publisher_name = PublisherName,
-                payload = Payload,
-                timestamp = Timestamp
-            }
-    end.
-
-upgrade_group_stanza(Old) ->
-    case Old of
-        #pb_group_stanza{} -> Old;
-        %% upgrade
-        {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members,
-                Background} ->
-            #pb_group_stanza{
-                action = Action,
-                gid = Gid,
-                name = Name,
-                avatar_id = AvatarId,
-                sender_uid = SenderUid,
-                sender_name = SenderName,
-                members = [upgrade_group_member(Member) || Member <- Members],
-                background = Background
-            };
-        %% downgrade
-        {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members,
-                Background, _AudienceHash} ->
-            #pb_group_stanza{
-                action = Action,
-                gid = Gid,
-                name = Name,
-                avatar_id = AvatarId,
-                sender_uid = SenderUid,
-                sender_name = SenderName,
-                members = [upgrade_group_member(Member) || Member <- Members],
-                background = Background
-            }
-    end.
-
-upgrade_group_member(Old) ->
-    case Old of
-        #pb_group_member{} -> Old;
-        %% upgrade
-        {pb_group_member, Action, Uid, Type, Name, AvatarId, Result, Reason} ->
-            #pb_group_member{
-                action = Action,
-                uid = Uid,
-                type = Type,
-                name = Name,
-                avatar_id = AvatarId,
-                result = Result,
-                reason = Reason
-            };
-        %% downgrade
-        {pb_group_member, Action, Uid, Type, Name, AvatarId, Result, Reason, _IdentityKey} ->
-            #pb_group_member{
-                action = Action,
-                uid = Uid,
-                type = Type,
-                name = Name,
-                avatar_id = AvatarId,
-                result = Result,
-                reason = Reason
-            }
-    end.
 
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
     NewPacket = upgrade_packet(Packet),
-    %% TODO(vipin): Remove enif_protobuf:encode(...) after upgrade is done.
-    case enif_protobuf:encode(NewPacket) of
-        {error, Reason} ->
-            ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
-        _ ->
-            ok
-    end,
+    %% TODO: Remove enif_protobuf:encode(...) after upgrade is done.
+    %%case enif_protobuf:encode(NewPacket) of
+    %%    {error, Reason} ->
+    %%        ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
+    %%    _ ->
+    %%        ok
+    %%end,
     case verify_incoming_packet(State, NewPacket) of
         allow ->
             %% TODO(murali@): remove temp counts after clients transition.
