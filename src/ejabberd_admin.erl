@@ -47,7 +47,7 @@
     %% Erlang
     update_list/0, update/1,
     %% Accounts
-    register/3, unregister/2,check_and_register/5, check_and_register_spub/5,
+    check_and_register/5, unregister/2,
     registered_users/1,
     enroll/3, unenroll/2,
     get_user_passcode/2,
@@ -660,31 +660,10 @@ update_module(ModuleNameString) ->
 %%% Account management
 %%%
 
-%% TODO(vipin): Remove after all clients use SPub.
-check_and_register(Phone, Host, Password, Name, UserAgent) ->
-    case is_my_host(Host) of
-        true -> check_and_register(Phone, Host, Password, <<>>, Name, UserAgent);
-        false -> {error, cannot_register, 10001, "Unknown virtual host"}
-    end.
 
-check_and_register_spub(Phone, Host, SPub, Name, UserAgent) ->
-    case is_my_host(Host) of
-        true -> check_and_register(Phone, Host, <<>>, SPub, Name, UserAgent);
-        false -> {error, cannot_register, 10001, "Unknown virtual host"}
-    end.
-
-
-check_and_register(Phone, Host, Password, SPub, Name, UserAgent) ->
-    Result = case Password of
-      <<>> ->
-          ?assert(byte_size(SPub) > 0),
-          ejabberd_auth:check_and_register(Phone, Host, SPub, fun ejabberd_auth:set_spub/2,
-                                           Name, UserAgent);
-      _ ->
-          ?assert(byte_size(Password) > 0),
-          ejabberd_auth:check_and_register(Phone, Host, Password, fun ejabberd_auth:set_password/2,
-                                           Name, UserAgent)
-    end,
+check_and_register(Phone, Host, SPub, Name, UserAgent) ->
+    ?assert(byte_size(SPub) > 0),
+    Result = ejabberd_auth:check_and_register(Phone, Host, SPub, Name, UserAgent),
     case Result of
         {ok, Uid, login} ->
             ?INFO("Login into existing account uid:~p for phone:~p", [Uid, Phone]),
@@ -697,24 +676,6 @@ check_and_register(Phone, Host, Password, SPub, Name, UserAgent) ->
             {error, Reason, 10001, "Login/Registration failed"}
     end.
 
-register(User, Host, Password) ->
-    case is_my_host(Host) of
-    true ->
-        case ejabberd_auth:try_register(User, Host, Password) of
-        ok ->
-            {ok, io_lib:format("User ~ts@~ts successfully registered", [User, Host])};
-        {error, exists} ->
-            Msg = io_lib:format("User ~ts@~ts already registered", [User, Host]),
-            {error, conflict, 10090, Msg};
-        {error, Reason} ->
-            ErrReason = list_to_binary(io_lib:format(?T("error condition: ~p"), [Reason])),
-            String = io_lib:format("Can't register user ~ts@~ts at node ~p: ~ts",
-                       [User, Host, node(), ErrReason]),
-            {error, cannot_register, 10001, String}
-        end;
-    false ->
-        {error, cannot_register, 10001, "Unknown virtual host"}
-    end.
 
 unregister(User, Host) ->
     case is_my_host(Host) of

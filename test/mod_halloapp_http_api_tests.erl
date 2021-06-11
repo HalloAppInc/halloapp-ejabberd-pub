@@ -128,13 +128,13 @@ register_test() ->
         #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)}),
     [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, RegPass},
         {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(RegInfo),
-    ?assert(ejabberd_auth:check_password(Uid, RegPass)),
+    ?assert(ejabberd_auth:check_spub(Uid, RegPass)),
     %% RE-reg
     {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER_PATH,
         #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)}),
     [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, Pass},
         {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
-    ?assert(ejabberd_auth:check_password(Uid, Pass)),
+    ?assert(ejabberd_auth:check_spub(Uid, Pass)),
     meck_finish(ejabberd_sm),
     meck_finish(ejabberd_router).
 
@@ -153,7 +153,7 @@ register_and_whisper_test() ->
         #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)}),
     [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, RegPass},
         {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(RegInfo),
-    ?assert(ejabberd_auth:check_password(Uid, RegPass)),
+    ?assert(ejabberd_auth:check_spub(Uid, RegPass)),
     WhisperKeySet = #user_whisper_key_set{
         uid = Uid,
         identity_key = ?IDENTITY_KEY,
@@ -166,6 +166,7 @@ register_and_whisper_test() ->
     meck_finish(ejabberd_sm),
     meck_finish(ejabberd_router).
 
+%% TODO: cleanup this file to remove register codepath and tests.
 register_spub_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
@@ -228,7 +229,7 @@ update_key_test() ->
         #request{method = 'POST', data = RegisterData, ip = ?IP,  headers = ?REGISTER_HEADERS(?UA)}),
     [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, Pass},
         {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
-    ?assert(ejabberd_auth:check_password(Uid, Pass)),
+    ?assert(ejabberd_auth:check_spub(Uid, Pass)),
 
     KeyPair = ha_enoise:generate_signature_keypair(),
     {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},

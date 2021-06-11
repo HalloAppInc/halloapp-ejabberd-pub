@@ -30,6 +30,8 @@
 -export([start/2, stop/1, reload/3, init/1, depends/2, mod_options/1]).
 -export([process/2]).
 
+%% TODO: cleanup old code in this file and old password related stuff.
+
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
@@ -370,7 +372,7 @@ get_otp_method(Method) ->
 
 -spec check_password(binary(), binary()) -> ok.
 check_password(Uid, Password) ->
-    case ejabberd_auth:check_password(Uid, Password) of
+    case ejabberd_auth:check_spub(Uid, Password) of
         true -> ok;
         false ->
             ?ERROR("Invalid Password for Uid:~p", [Uid]),
@@ -532,6 +534,7 @@ update_key(Uid, SPub) ->
     stat:count("HA/account", "update_s_pub"),
     model_auth:set_spub(Uid, SPub).
 
+%% TODO: remove this function.
 -spec finish_registration(phone(), binary(), binary()) -> {ok, phone(), binary(), binary()}.
 finish_registration(Phone, Name, UserAgent) ->
     Password = util:generate_password(),
@@ -545,7 +548,7 @@ finish_registration(Phone, Name, UserAgent) ->
 -spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
 finish_registration_spub(Phone, Name, UserAgent, SPub) ->
     Host = util:get_host(),
-    {ok, Uid, Action} = ejabberd_admin:check_and_register_spub(Phone, Host, SPub, Name, UserAgent),
+    {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, SPub, Name, UserAgent),
     %% Action = login, updates the password.
     %% Action = register, creates a new user id and registers the user for the first time.
     log_registration(Phone, Action, UserAgent),
