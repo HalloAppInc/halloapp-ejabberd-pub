@@ -85,7 +85,6 @@ process_group_chat_state_test() ->
 setup() ->
     tutil:setup(),
     {ok, _} = application:ensure_all_started(stringprep),
-    {ok, _} = application:ensure_all_started(bcrypt),
     ha_redis:start(),
     clear(),
     ok.

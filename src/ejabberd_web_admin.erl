@@ -50,8 +50,8 @@
 	       [{<<"type">>, Type}, {<<"name">>, Name},
 		{<<"value">>, Value}]))).
 
--define(ADMIN_SALT, "$2a$06$xQC4tnm3SKZbJgYwoQqka.").
--define(ADMIN_HASH, "$2a$06$xQC4tnm3SKZbJgYwoQqka.kL5pWFLdltuW1A.dIfaOUmPgKtnAkfS").
+-define(SALT, <<"ln5Y37dM3ig=">>).	%% 12 bytes.
+-define(ADMIN_HASH, <<"aehRQ5_l00lvBPam2q5SspKIvyTdekaZ5hEuOOOZSvw">>).
 
 %%%==================================
 %%%% get_acl_access
@@ -223,7 +223,7 @@ process(RPath,
 get_auth_admin(Auth, HostHTTP, RPath, Method) ->
     case Auth of
 	  {<<"admin">>, Pass} ->
-		  case bcrypt:hashpw(binary_to_list(Pass), ?ADMIN_SALT) of
+		  case base64url:encode(crypto:hash(sha256, <<Pass/binary, ?SALT/binary>>)) of
 			  {ok, ?ADMIN_HASH} -> {ok, {element(1, Auth), ejabberd_config:get_option(host)}};
 			  _ -> {unauthorized, bad_admin_pass}
 		  end;
