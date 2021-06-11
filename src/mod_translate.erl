@@ -180,7 +180,7 @@ read_and_load_file(LangId, FilePath) ->
 -spec lookup_english_string(Token :: binary()) -> binary().
 lookup_english_string(<<"server.new.message">>) -> <<"New Message">>;
 lookup_english_string(<<"server.new.group.message">>) -> <<"New Group Message">>;
-lookup_english_string(<<"server.new.inviter">>) -> <<"%@ just accepted your invite to join HalloApp 🎉">>;
+lookup_english_string(<<"server.new.inviter">>) -> <<"%@ just accepted your invite to join HalloApp 🎉"/utf8>>;
 lookup_english_string(<<"server.new.contact">>) -> <<"%@ is now on HalloApp">>;
 lookup_english_string(<<"server.new.post">>) -> <<"New Post">>;
 lookup_english_string(<<"server.new.comment">>) -> <<"New Comment">>;
