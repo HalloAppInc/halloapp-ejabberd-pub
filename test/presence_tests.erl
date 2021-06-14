@@ -100,9 +100,6 @@ block1_presence_test(_Conf) ->
         }
     },
 
-    ok = ha_client:send(C1, Available),
-    ok = ha_client:send(C2, Available),
-
     Subscribe1 = #pb_packet{
         stanza = #pb_presence{
             id = <<"id2">>,
@@ -119,31 +116,32 @@ block1_presence_test(_Conf) ->
         }
     },
 
+    ok = ha_client:send(C1, Available),
+    ok = ha_client:send(C2, Available),
+
+    % We need to give some time for the requests on C1 and C2 to get processed
+    timer:sleep(100),
+
     ok = ha_client:send(C4, Subscribe1),
     ok = ha_client:send(C5, Subscribe1),
 
     ok = ha_client:send(C4, Subscribe2),
     ok = ha_client:send(C5, Subscribe2),
 
+    PresenceWaitFun = fun (P) ->
+        case P of
+            #pb_packet{stanza = #pb_presence{}} -> true;
+            _Any -> false
+        end
+    end,
+
     %% ensure you get C2's presence fine.
-    RecvPresence4 = ha_client:wait_for(C4,
-        fun (P) ->
-            case P of
-                #pb_packet{stanza = #pb_presence{}} -> true;
-                _Any -> false
-            end
-        end),
+    RecvPresence4 = ha_client:wait_for(C4, PresenceWaitFun),
     ?assertEqual(available, RecvPresence4#pb_packet.stanza#pb_presence.type),
     ?assertEqual(?UID2, RecvPresence4#pb_packet.stanza#pb_presence.from_uid),
 
     %% ensure you get C2's presence fine.
-    RecvPresence5 = ha_client:wait_for(C5,
-        fun (P) ->
-            case P of
-                #pb_packet{stanza = #pb_presence{}} -> true;
-                _Any -> false
-            end
-        end),
+    RecvPresence5 = ha_client:wait_for(C5, PresenceWaitFun),
     ?assertEqual(available, RecvPresence5#pb_packet.stanza#pb_presence.type),
     ?assertEqual(?UID2, RecvPresence5#pb_packet.stanza#pb_presence.from_uid),
     ok.
