@@ -231,6 +231,9 @@ set_ticktime() ->
 %%%===================================================================
 
 init([]) ->
+    % our process wants to know when nodes in the erlang cluster go up or down.
+    % we will get nodeup and nodedown messages
+    ok = net_kernel:monitor_nodes(true, [{node_type, visible}, nodedown_reason]),
     set_ticktime(),
     % TODO: Delete this codepath for connecting to nodes based on config list
     Nodes = ejabberd_option:cluster_nodes(),
@@ -253,18 +256,19 @@ handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
-% TODO: (nikola) Can not find who sends those?
-handle_info({node_up, Node}, State) ->
-    ?INFO("Node ~ts has joined", [Node]),
+handle_info({nodeup, Node, _InfoList}, State) ->
+    ?INFO("Node ~ts has joined the cluster.", [Node]),
     {noreply, State};
-handle_info({node_down, Node}, State) ->
-    ?INFO("Node ~ts has left", [Node]),
+handle_info({nodedown, Node, InfoList}, State) ->
+    Reason = proplists:get_value(nodedown_reason, InfoList),
+    ?INFO("Node ~ts has left the cluster. Reason:~p", [Node, Reason]),
     {noreply, State};
 handle_info(Info, State) ->
     ?WARNING("Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
+    ok = net_kernel:monitor_nodes(false, [{node_type, visible}, nodedown_reason]),
     ejabberd_hooks:delete(config_reloaded, ?MODULE, set_ticktime, 50).
 
 code_change(_OldVsn, State, _Extra) ->
