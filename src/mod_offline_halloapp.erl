@@ -172,20 +172,9 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
             ?INFO("Uid: ~s, Window: ~p, PendingAcks: ~p, offline_queue_cleared: ~p",
                     [Uid, Window, PendingAcks, IsOfflineQueueCleared]),
 
-            %% If OfflineQueue is cleared: nothing to do.
-            %% If OfflineQueue is not cleared: we need to check if we can send more messages.
-            %% We check if the window size is undefined or
-            %% if number of messages outstanding is half the window size.
-            case IsOfflineQueueCleared of
-                true -> State;
-                false ->
-                    case (Window =:= undefined orelse PendingAcks - 1 =< Window / 2)
-                            andalso Mode =:= active of
-                        true ->
-                            send_offline_messages(State1);
-                        false ->
-                            State1
-                    end
+            case Mode of
+                active -> check_offline_queue(State1);
+                passive -> State1
             end
     end.
 
@@ -282,6 +271,26 @@ count_user_messages(User) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%      internal functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+-spec check_offline_queue(State :: state()) -> state().
+check_offline_queue(#{offline_queue_params := #{window := Window,
+        pending_acks  := PendingAcks} = OfflineQueueParams,
+        offline_queue_cleared := IsOfflineQueueCleared, mode := active} = State) ->
+    %% If OfflineQueue is cleared: nothing to do.
+    %% If OfflineQueue is not cleared: we need to check if we can send more messages.
+    %% We check if the window size is undefined or
+    %% if number of messages outstanding is half the window size.
+    case IsOfflineQueueCleared of
+        true -> State;
+        false ->
+            case (Window =:= undefined orelse PendingAcks =< Window / 2) of
+                true ->
+                    send_offline_messages(State);
+                false ->
+                    State
+            end
+    end.
 
 
 -spec route_offline_messages(UserId :: binary(), Server :: binary(),
