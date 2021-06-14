@@ -1,24 +1,9 @@
 %%%-------------------------------------------------------------------
-%%% @author Evgeny Khramtsov <ekhramtsov@process-one.net>
-%%% Created :  5 Jul 2017 by Evgeny Khramtsov <ekhramtsov@process-one.net>
+%%% ejabberd_cluster module provide API to interact with the cluster of
+%%% erlang nodes that together form the ejabberd cluster.
 %%%
-%%%
-%%% ejabberd, Copyright (C) 2002-2019   ProcessOne
-%%%
-%%% This program is free software; you can redistribute it and/or
-%%% modify it under the terms of the GNU General Public License as
-%%% published by the Free Software Foundation; either version 2 of the
-%%% License, or (at your option) any later version.
-%%%
-%%% This program is distributed in the hope that it will be useful,
-%%% but WITHOUT ANY WARRANTY; without even the implied warranty of
-%%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-%%% General Public License for more details.
-%%%
-%%% You should have received a copy of the GNU General Public License along
-%%% with this program; if not, write to the Free Software Foundation, Inc.,
-%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-%%%
+%%% We use the erlang:nodes() api to represent the nodes that are currently
+%%% in the cluster. We also use Redis Set to help new nodes join the cluster.
 %%%-------------------------------------------------------------------
 -module(ejabberd_cluster).
 -behaviour(gen_server).
@@ -146,8 +131,8 @@ join() ->
 
 -spec leave(node()) -> ok | {error, any()}.
 leave(Node) when Node == node() ->
-    Cluster = get_nodes()--[Node],
-    leave_self(Cluster);
+    ?INFO("Our node ~p is leaving the ejabberd cluster ~p", [Node, get_nodes()]),
+    leave_self();
 leave(Node) ->
     case net_adm:ping(Node) of
         pong ->
@@ -156,29 +141,21 @@ leave(Node) ->
             ?INFO("node:~p leave rpc result: ~p", [Res]),
             Res;
         pang ->
+            % In this case the node that is leaving is already dead.
             RemoveResult = model_cluster:remove_node(Node),
-            ?INFO("Kicking node: ~p from the cluster. RemoveResult ~p",
-                [Node, RemoveResult]),
-            % TODO: delete this code after this change is deployed.
-            case mnesia:del_table_copy(schema, Node) of
-                {atomic, ok} -> ok;
-                {aborted, Reason} -> {error, Reason}
-            end
+            ?INFO("Kicking node: ~p from the cluster ~p. RemoveResult ~p",
+                [Node, get_nodes(), RemoveResult]),
+            ok
     end.
 
-leave_self([]) ->
-    {error, {no_cluster, node()}};
-leave_self([Master | _]) ->
+leave_self() ->
     RemoveRes = model_cluster:remove_node(node()),
     ?INFO("This node ~p is leaving the ejabbed cluster. RemoveRes: ~p", [RemoveRes]),
     application:stop(ejabberd),
     application:stop(mnesia),
-    % TODO: why the spawn? maybe we want the leave command to complete and
-    % return result on the terminal?
+    % Using spawn to allow the leave ctl command to complete. Process exits later
     spawn(
         fun() ->
-            % TODO: delete this mnesia code, after this change gets deployed
-            rpc:call(Master, mnesia, del_table_copy, [schema, node()]),
             mnesia:delete_schema([node()]),
             erlang:halt(0)
         end),
