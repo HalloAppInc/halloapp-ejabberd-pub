@@ -103,13 +103,9 @@ extract_auth(#request{auth = HTTPAuth, ip = {IP, _}, opts = Opts}) ->
 		   catch _:{bad_jid, _} ->
 		       {error, invalid_auth}
 		   end;
-	       {oauth, Token, _} ->
-		   case ejabberd_oauth:check_token(Token) of
-		       {ok, {U, S}, Scope} ->
-			   #{usr => {U, S, <<"">>}, oauth_scope => Scope, caller_server => S};
-		       {false, Reason} ->
-			   {error, Reason}
-		   end;
+	       {oauth, _Token, _} ->
+               % TODO: format this file
+               {error, no_oauth};
 	       invalid ->
 		   {error, invalid_auth};
 	       _ ->

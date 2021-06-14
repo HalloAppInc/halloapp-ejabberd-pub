@@ -177,8 +177,6 @@ opt_type(oauth_cache_missed) ->
     econf:bool();
 opt_type(oauth_cache_size) ->
     econf:pos_int(infinity);
-opt_type(oauth_db_type) ->
-    econf:db_type(ejabberd_oauth);
 opt_type(oauth_expire) ->
     econf:non_neg_int();
 opt_type(oauth_use_cache) ->
@@ -382,8 +380,6 @@ options() -> [%% Top-priority options
         fun(Host) -> ejabberd_config:get_option({cache_missed, Host}) end},
     {oauth_cache_size,
         fun(Host) -> ejabberd_config:get_option({cache_size, Host}) end},
-    {oauth_db_type,
-        fun(Host) -> ejabberd_config:default_db(Host, ejabberd_oauth) end},
     {oauth_expire, 4294967},
     {oauth_use_cache,
         fun(Host) -> ejabberd_config:get_option({use_cache, Host}) end},

@@ -189,20 +189,10 @@ matches_definition({_Name, {From, Who, What}}, Cmd, Module, Tag, Host, CallerInf
 			      acl:match_acl(Host, Acl, CallerInfo);
 			 ({acl, Acl}) when Scope == none ->
 			      acl:match_acl(Host, Acl, CallerInfo);
-			 ({oauth, {Scopes, List}}) when Scope /= none ->
-			      case ejabberd_oauth:scope_in_scope_list(Scope, Scopes) of
-				  true ->
-				      lists:any(
-					fun({access, Access}) ->
-						acl:match_rule(Host, Access, CallerInfo) == allow;
-					   ({acl, Name} = Acl) when is_atom(Name) ->
-						acl:match_acl(Host, Acl, CallerInfo);
-					   ({acl, Acl}) ->
-						acl:match_acl(Host, Acl, CallerInfo)
-					end, List);
-				  _ ->
-				      false
-			      end;
+			 ({oauth, {_Scopes, _List}}) when Scope /= none ->
+				 % TODO: format this file
+				 ?ERROR("OAuth was deleted"),
+				 false;
 			 (_) ->
 			      false
 		      end, Who);
