@@ -110,6 +110,8 @@ join() ->
     RedisNodes = model_cluster:get_nodes(),
     lists:foreach(
         fun(RNode) ->
+            % we are not sure what is the difference between
+            % net_kernel:connect_node and net_adm:ping
             case net_adm:ping(RNode) of
                 pong ->
                     ?INFO("Successful connected to node ~p", [RNode]);
@@ -212,13 +214,6 @@ init([]) ->
     % we will get nodeup and nodedown messages
     ok = net_kernel:monitor_nodes(true, [{node_type, visible}, nodedown_reason]),
     set_ticktime(),
-    % TODO: Delete this codepath for connecting to nodes based on config list
-    Nodes = ejabberd_option:cluster_nodes(),
-    lists:foreach(
-        fun(Node) ->
-            % we are not sure what is the difference between connect_node and ping
-            net_kernel:connect_node(Node)
-        end, Nodes),
     % TODO: join should try for 1m and page if it fails,
     % but ejabberd start should resume
     join(),

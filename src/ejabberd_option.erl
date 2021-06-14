@@ -30,8 +30,6 @@
 -export([captcha_limit/0]).
 -export([captcha_url/0]).
 -export([certfiles/0]).
--export([cluster_backend/0]).
--export([cluster_nodes/0]).
 -export([default_db/0, default_db/1]).
 -export([default_ram_db/0, default_ram_db/1]).
 -export([define_macro/0, define_macro/1]).
@@ -264,14 +262,6 @@ captcha_url() ->
 -spec certfiles() -> 'undefined' | [binary()].
 certfiles() ->
     ejabberd_config:get_option({certfiles, global}).
-
--spec cluster_backend() -> atom().
-cluster_backend() ->
-    ejabberd_config:get_option({cluster_backend, global}).
-
--spec cluster_nodes() -> [atom()].
-cluster_nodes() ->
-    ejabberd_config:get_option({cluster_nodes, global}).
 
 -spec default_db() -> 'mnesia' | 'sql'.
 default_db() ->

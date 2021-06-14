@@ -100,10 +100,6 @@ opt_type(captcha_url) ->
     econf:url();
 opt_type(certfiles) ->
     econf:list(econf:binary());
-opt_type(cluster_backend) ->
-    econf:db_type(ejabberd_cluster);
-opt_type(cluster_nodes) ->
-    econf:list(econf:atom(), [unique]);
 opt_type(default_db) ->
     econf:enum([mnesia, sql]);
 opt_type(default_ram_db) ->
@@ -357,8 +353,6 @@ options() -> [%% Top-priority options
     {captcha_limit, infinity},
     {captcha_url, undefined},
     {certfiles, undefined},
-    {cluster_backend, mnesia},
-    {cluster_nodes, []},
     {define_macro, []},
     {disable_sasl_mechanisms, []},
     {domain_balancing, #{}},
@@ -483,8 +477,6 @@ globals() -> [
     captcha_limit,
     captcha_url,
     certfiles,
-    cluster_backend,
-    cluster_nodes,
     domain_balancing,
     ext_api_path_oauth,
     fqdn,
