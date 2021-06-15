@@ -389,7 +389,8 @@ get_account(Uid) ->
             creation_ts_ms = util_redis:decode_ts(maps:get(?FIELD_CREATION_TIME, M)),
             last_activity_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
             activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined)),
-            client_version = maps:get(?FIELD_CLIENT_VERSION, M, undefined)
+            client_version = maps:get(?FIELD_CLIENT_VERSION, M, undefined),
+            lang_id = maps:get(?FIELD_PUSH_LANGUAGE_ID, M, undefined)
         },
     {ok, Account}.
 

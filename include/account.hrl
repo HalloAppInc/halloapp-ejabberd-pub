@@ -22,7 +22,8 @@
     signup_user_agent :: binary(),
     client_version :: binary(),
     last_activity_ts_ms :: integer() | undefined,
-    activity_status :: activity_status() | undefined
+    activity_status :: activity_status() | undefined,
+    lang_id :: binary() | undefined
 }).
 
 -type account() :: #account{}.
