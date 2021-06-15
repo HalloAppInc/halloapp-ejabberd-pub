@@ -186,7 +186,8 @@ reset_stream(#socket_state{pb_stream = PBStream, sockmod = SockMod,
 send(#socket_state{sockmod = SockMod, socket = Socket} = SocketData, Data) ->
     case byte_size(Data) of
         DataLen when DataLen < 32 ->
-            ?WARNING("Sending (~p bytes) packet: ~p. Consider coalescing packets as Nagle's is disabled.", [DataLen, Data]);
+            ?INFO("Sending (~p bytes) base64 encoded packet: ~p,
+                Consider coalescing packets as Nagle's is disabled.", [DataLen, base64:encode(Data)]);
         _ ->
             ok
     end,
