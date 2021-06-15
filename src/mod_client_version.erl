@@ -155,32 +155,19 @@ check_and_migrate_otpkeys(Uid, ClientVersion) ->
     ok.
 
 
--spec get_time_left(Version :: binary(),
-        CurTimestamp :: non_neg_integer()) -> integer().
-get_time_left(Version, CurTimestamp) ->
-    case util_ua:is_valid_version(Version) of
-        false ->
-            ?INFO("Invalid ClientVersion: ~s", [Version]),
-            0;
-        true ->
-            get_time_left_internal(Version, CurTimestamp)
-    end.
-
-
 %% Gets the time left in seconds for a client version.
 %% If the client version is new, then we insert it into the table with the
 %% current timestamp as the released date. If not, we fetch and compute the number of seconds left
 %% using the max_days config option of the module.
--spec get_time_left_internal(Version :: binary(),
-        CurTimestamp :: non_neg_integer()) -> integer().
-get_time_left_internal(undefined, _CurTimestamp) ->
+-spec get_time_left(binary(), non_neg_integer()) -> integer().
+get_time_left(undefined, _CurTimestamp) ->
     0;
-get_time_left_internal(Version, CurTimestamp) ->
+get_time_left(Version, CurTimestamp) ->
     case model_client_version:set_version_ts(Version, CurTimestamp) of
         true -> ?INFO("New version ~s inserted at ~p", [Version, CurTimestamp]);
         false -> ok
     end,
-    % TODO: we can combine the get with the set query here.
+    % TODO: we can combine the get with the set.
     VerTs = model_client_version:get_version_ts(Version),
     case VerTs of
         undefined ->

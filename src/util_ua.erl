@@ -21,16 +21,8 @@
     is_hallo_ua/1,
     resource_to_client_type/1,
     is_version_greater_than/2,
-    is_version_less_than/2,
-    is_valid_version/1
+    is_version_less_than/2
 ]).
-
-
--spec is_valid_version(Version :: binary()) -> boolean().
-is_valid_version(undefined) -> false;
-is_valid_version(Version) ->
-    ClientType = get_client_type(Version),
-    ClientType =:= android orelse ClientType =:= ios.
 
 
 -spec get_client_type(RawUserAgent :: binary()) -> maybe(client_type()).
