@@ -179,6 +179,7 @@ process(["status"], _Version) ->
             ?STATUS_ERROR;
         true ->
             print("ejabberd ~ts is running in that node~n", [ejabberd_option:version()]),
+            print("Hotswap modules: ~s~n", [string:join(ejabberd_admin:hotswap_modules(), " ")]),
             ?STATUS_SUCCESS
     end;
 

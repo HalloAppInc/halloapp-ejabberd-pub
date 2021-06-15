@@ -74,7 +74,8 @@
     list_changed_modules/0,
     hotload_modules/1,
     hot_code_reload/0,
-    get_commands_spec/0
+    get_commands_spec/0,
+    hotswap_modules/0
 ]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -497,20 +498,17 @@ hotload_modules(ModifiedModules) ->
                     true -> [Module | Acc];
                     false ->
                         ?ERROR("Can't purge: ~p: there is a process using it", [Module]),
-                        io:format("Can't purge: ~p: there is a process using it", [Module]),
+                        io:format("Can't purge: ~p: there is a process using it~n", [Module]),
                         error(failed_to_purge)
                 end
             end, [], ModifiedModules),
         {ok, Prepared} = code:prepare_loading(ModifiedModules),
         ok = code:finish_loading(Prepared),
         ?INFO("Hotloaded following modules: ~p", [lists:sort(ModifiedModules)]),
-        io:format("Hotloaded following modules: ~p", [lists:sort(ModifiedModules)])
+        io:format("Hotloaded following modules: ~p~n", [lists:sort(ModifiedModules)])
     catch
-        error: Reason ->
-            io:format("Failed to hotload modules, reason: ~p", [Reason]),
-            {error, Reason};
         Class: Reason: Stacktrace ->
-            io:format("hotload_code error: ~s",
+            io:format("hotload_code error: ~s~n",
                     [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             {error, Reason}
     end.
@@ -587,7 +585,16 @@ status() ->
         {value, {_, _, Version}} ->
         {ok, io_lib:format("ejabberd ~ts is running in that node", [Version])}
     end,
-    {Is_running, String1 ++ String2}.
+    String3 = io_lib:format("Hotswap modules: ~s", [string:join(hotswap_modules(), " ")]),
+    {Is_running, String1 ++ String2 ++ String3}.
+
+hotswap_modules() ->
+    case file:list_dir("/home/ha/pkg/ejabberd/current/lib/zzz_hotswap/ebin/") of
+        {error, _Reason} -> [];
+        {ok, ModulesFiles} ->
+            Modules = [lists:nth(1, string:split(M, ".beam")) || M <- ModulesFiles],
+            lists:sort(Modules)
+    end.
 
 reopen_log() ->
     ejabberd_hooks:run(reopen_log_hook, []),
