@@ -605,9 +605,9 @@ set_loglevel(LogLevel) ->
 %%%
 
 stop_kindly(DelaySeconds, AnnouncementTextString) ->
-    Subject = (str:format("Server stop in ~p seconds!", [DelaySeconds])),
+    _Subject = (str:format("Server stop in ~p seconds!", [DelaySeconds])),
     WaitingDesc = (str:format("Waiting ~p seconds", [DelaySeconds])),
-    AnnouncementText = list_to_binary(AnnouncementTextString),
+    _AnnouncementText = list_to_binary(AnnouncementTextString),
     Steps = [
         {"Stopping ejabberd port listeners", ejabberd_listener, stop_listeners, []},
         {WaitingDesc, timer, sleep, [DelaySeconds * 1000]},

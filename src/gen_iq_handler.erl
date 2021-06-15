@@ -123,7 +123,7 @@ process_iq(Module, Function, NumArgs, IQ, State) when is_record(IQ, pb_iq) ->
         1 -> {Module:Function(IQ), State};
         2 ->
             case Module:Function(IQ, State) of
-                {ResponseIQ, NewState} = Result -> Result;
+                {_ResponseIQ, _NewState} = Result -> Result;
                 ResponseIQ -> {ResponseIQ, State}
             end;
         _ ->

@@ -222,7 +222,7 @@ date_from_filename(Filename) ->
 % client_log
 -spec process_local_iq(pb_iq(), halloapp_c2s:state()) -> pb_iq().
 process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_client_log{} = ClientLogsSt} = IQ,
-        #{client_version := ClientVersion} = State) ->
+        #{client_version := ClientVersion} = _State) ->
     try
         Platform = util_ua:get_client_type(ClientVersion),
         case process_client_count_log_st(Uid, ClientLogsSt, Platform) of
@@ -238,7 +238,7 @@ process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_client_log{} =
             pb:make_error(IQ, util:err(server_error))
     end;
 
-process_local_iq(#pb_iq{} = IQ, State) ->
+process_local_iq(#pb_iq{} = IQ, _State) ->
     pb:make_error(IQ, util:err(bad_request)).
 
 -spec process_client_count_log_st(Uid :: maybe(uid()) | undefined, ClientLogSt :: pb_client_log(),

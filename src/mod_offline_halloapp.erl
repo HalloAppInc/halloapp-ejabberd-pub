@@ -275,7 +275,7 @@ count_user_messages(User) ->
 
 -spec check_offline_queue(State :: state()) -> state().
 check_offline_queue(#{offline_queue_params := #{window := Window,
-        pending_acks  := PendingAcks} = OfflineQueueParams,
+        pending_acks  := PendingAcks} = _OfflineQueueParams,
         offline_queue_cleared := IsOfflineQueueCleared, mode := active} = State) ->
     %% If OfflineQueue is cleared: nothing to do.
     %% If OfflineQueue is not cleared: we need to check if we can send more messages.
