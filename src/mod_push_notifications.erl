@@ -143,6 +143,7 @@ push_message(#pb_msg{id = MsgId, to_uid = User} = Message) ->
             % TODO: add stat:count here to count this
             ?INFO("Uid: ~s, MsgId: ~p ignore push: no push token", [User, MsgId]);
         _ ->
+            log_invalid_langId(PushInfo),
             ClientVersion = PushInfo#push_info.client_version,
             case ejabberd_hooks:run_fold(push_version_filter, Server, allow, [User, PushInfo, Message]) of
                 allow ->
@@ -162,4 +163,13 @@ push_message(Message, #push_info{os = <<"android">>} = PushInfo) ->
 push_message(Message, #push_info{os = Os} = PushInfo)
         when Os =:= <<"ios">>; Os =:= <<"ios_dev">> ->
     mod_ios_push:push(Message, PushInfo).
+
+
+-spec log_invalid_langId(PushInfo :: push_info()) -> ok.
+log_invalid_langId(#push_info{uid = Uid, lang_id = LangId} = PushInfo) ->
+    case LangId of
+        undefined ->
+            ?WARNING("Uid: ~p, Invalid lang_id: ~p", [Uid, LangId]);
+        _ -> ok
+    end.
 
