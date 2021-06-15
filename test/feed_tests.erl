@@ -31,13 +31,11 @@ make_post_test(_Conf) ->
     PbPost = struct_util:create_pb_post(?POST_ID1, ?UID1, ?NAME1, ?PAYLOAD1, PbAudience, ?TS1),
     PbFeedItem = struct_util:create_feed_item(publish, PbPost),
 
-    IqId = util:random_str(10),
-    IqRes = ha_client:send_iq(C1, IqId, set, PbFeedItem),
+    IqRes = ha_client:send_iq(C1, set, PbFeedItem),
 
     % make sure IQ was successful
     #pb_packet{
         stanza = #pb_iq{
-            id = IqId,
             type = result,
             payload = #pb_feed_item{
                 action = publish,
@@ -91,12 +89,10 @@ make_comment_test(_Conf) ->
     PbComment1 = struct_util:create_pb_comment(?COMMENT_ID1, ?POST_ID1, <<>>, ?UID2, ?NAME2, ?PAYLOAD1, ?TS2),
     PbFeedItem = struct_util:create_feed_item(publish, PbComment1),
 
-    IqId = util:random_str(10),
-    IqRes = ha_client:send_iq(C2, IqId, set, PbFeedItem),
+    IqRes = ha_client:send_iq(C2, set, PbFeedItem),
     % make sure IQ was successful, payload is empty here, only timestamp relevant
     #pb_packet{
         stanza = #pb_iq{
-            id = IqId,
             type = result,
             payload = #pb_feed_item{
                 action = publish,
@@ -150,13 +146,11 @@ retract_comment_test(_Conf) ->
     PbComment1 = struct_util:create_pb_comment(?COMMENT_ID1, ?POST_ID1, <<>>, ?UID2, <<"">>, <<"">>, ?TS3),
     PbFeedItem = struct_util:create_feed_item(retract, PbComment1),
 
-    IqId = util:random_str(10),
-    IqRes = ha_client:send_iq(C2, IqId, set, PbFeedItem),
+    IqRes = ha_client:send_iq(C2, set, PbFeedItem),
 
     % make sure IQ was successful
     #pb_packet{
         stanza = #pb_iq{
-            id = IqId,
             type = result,
             payload = #pb_feed_item{
                 action = retract,
@@ -197,13 +191,11 @@ retract_post_test(_Conf) ->
     PbPost = struct_util:create_pb_post(?POST_ID1, ?UID1, ?NAME1, ?PAYLOAD1, undefined, ?TS1),
     PbFeedItem = struct_util:create_feed_item(retract, PbPost), % retract previous post
 
-    IqId = util:random_str(10),
-    IqRes = ha_client:send_iq(C1, IqId, set, PbFeedItem),
+    IqRes = ha_client:send_iq(C1, set, PbFeedItem),
 
     % make sure IQ was successful
     #pb_packet{
         stanza = #pb_iq{
-            id = IqId,
             type = result,
             payload = #pb_feed_item{
                 action = retract,

@@ -25,7 +25,7 @@ recv_chatstate_test(_Conf) ->
 
     Available = #pb_packet{
         stanza = #pb_presence{
-            id = <<"id1">>,
+            id = util_id:new_short_id(),
             type = available
         }
     },
@@ -67,7 +67,7 @@ block_chatstate_test(_Conf) ->
 
     Available = #pb_packet{
         stanza = #pb_presence{
-            id = <<"id1">>,
+            id = util_id:new_short_id(),
             type = available
         }
     },

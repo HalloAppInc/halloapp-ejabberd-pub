@@ -18,10 +18,11 @@ dummy_test(_Conf) ->
 send_im_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
     {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
+    MsgId = util_id:new_msg_id(),
     ha_client:send(C1, #pb_packet{
         % the {msg} part is annoying
         stanza = #pb_msg{
-            id = <<"msgid1">>,
+            id = MsgId,
             type = chat,
             from_uid = ?UID1,
             to_uid = ?UID2,
@@ -30,23 +31,23 @@ send_im_test(_Conf) ->
     Ack = ha_client:wait_for(C1,
         fun (P) ->
             case P of
-                #pb_packet{stanza = #pb_ack{id = Id}} -> true;
+                #pb_packet{stanza = #pb_ack{id = MsgId}} -> true;
                 _Any -> false
             end
         end),
     #pb_packet{
-        stanza = #pb_ack{id = <<"msgid1">>, timestamp = _ServerTs}
+        stanza = #pb_ack{id = MsgId, timestamp = _ServerTs}
     } = Ack,
     RecvMsg = ha_client:wait_for(C2,
         fun (P) ->
             case P of
-                #pb_packet{stanza = #pb_msg{id = <<"msgid1">>}} -> true;
+                #pb_packet{stanza = #pb_msg{id = MsgId}} -> true;
                 _Any -> false
             end
         end),
     #pb_packet{
         stanza = #pb_msg{
-            id = <<"msgid1">>,
+            id = MsgId,
             type = chat,
             from_uid = ?UID1,
             to_uid = ?UID2,
@@ -63,10 +64,11 @@ delete_account_msg_test(_Conf) ->
     ok = ejabberd_auth:set_spub(?UID8, ?SPUB1),
     {ok, C2} = ha_client:connect_and_login(?UID8, ?KEYPAIR1),
     Payload = #pb_delete_account{phone = ?PHONE1},
-    Result = ha_client:send_iq(C2, <<"iq_id_1">>, set, Payload),
+    Result = ha_client:send_iq(C2, set, Payload),
+    MsgId1 = util_id:new_msg_id(),
     ha_client:send(C1, #pb_packet{
         stanza = #pb_msg{
-            id = <<"msgid1">>,
+            id = MsgId1,
             type = chat,
             from_uid = ?UID1,
             to_uid = ?UID8,
@@ -74,23 +76,23 @@ delete_account_msg_test(_Conf) ->
     Ack = ha_client:wait_for(C1,
         fun (P) ->
             case P of
-                #pb_packet{stanza = #pb_ack{id = Id}} -> true;
+                #pb_packet{stanza = #pb_ack{id = MsgId1}} -> true;
                 _Any -> false
             end
         end),
     #pb_packet{
-        stanza = #pb_ack{id = <<"msgid1">>, timestamp = _ServerTs}
+        stanza = #pb_ack{id = MsgId1, timestamp = _ServerTs}
     } = Ack,
     RecvMsg = ha_client:wait_for(C1,
         fun (P) ->
             case P of
-                #pb_packet{stanza = #pb_msg{id = <<"msgid1">>}} -> true;
+                #pb_packet{stanza = #pb_msg{id = MsgId1}} -> true;
                 _Any -> false
             end
         end),
     #pb_packet{
         stanza = #pb_msg{
-            id = <<"msgid1">>,
+            id = MsgId1,
             type = error,
             from_uid = ?UID8,
             to_uid = ?UID1,

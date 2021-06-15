@@ -40,7 +40,6 @@ dummy_test(_Conf) ->
 % create group with Uid1 and Uid2, make sure Uid2 gets msg about the group
 create_group_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
-    Id = <<"g_iq_id1">>,
     Payload = #pb_group_stanza{
         action = create,
         name = ?GROUP_NAME1,
@@ -49,11 +48,10 @@ create_group_test(Conf) ->
         }]
     },
     % check the create_group result
-    Result = ha_client:send_iq(C1, Id, set, Payload),
+    Result = ha_client:send_iq(C1, set, Payload),
 %%    ct:pal("Result ~p", [Result]),
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_stanza{
                 action = create,
@@ -101,7 +99,6 @@ add_members_test(Conf) ->
     % Uid1 adds Uid3 to the group
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
-    Id = <<"g_iq_id2">>,
     Payload = #pb_group_stanza{
         gid = Gid,
         action = modify_members,
@@ -111,11 +108,10 @@ add_members_test(Conf) ->
         ]
     },
     % check the  result
-    Result = ha_client:send_iq(C1, Id, set, Payload),
+    Result = ha_client:send_iq(C1, set, Payload),
     ct:pal("Result ~p", [Result]),
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_stanza{
                 gid = Gid,
@@ -159,7 +155,7 @@ remove_members_test(Conf) ->
     % Uid1 adds Uid3 to the group
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
-    Id = <<"g_iq_id3">>,
+%%    Id = <<"g_iq_id3">>,
     Payload = #pb_group_stanza{
         gid = Gid,
         action = modify_members,
@@ -169,11 +165,10 @@ remove_members_test(Conf) ->
         ]
     },
     % check the  result
-    Result = ha_client:send_iq(C1, Id, set, Payload),
+    Result = ha_client:send_iq(C1, set, Payload),
     ct:pal("Result ~p", [Result]),
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_stanza{
                 gid = Gid,
@@ -224,7 +219,6 @@ promote_admin_test(Conf) ->
 
     ?assertEqual(false, model_groups:is_admin(Gid, ?UID2)),
     % Uid1 makes Uid2 admin
-    Id = <<"g_iq_id4">>,
     Payload = #pb_group_stanza{
         gid = Gid,
         action = modify_admins,
@@ -233,12 +227,11 @@ promote_admin_test(Conf) ->
         }]
     },
 
-    PromoteResult = ha_client:send_iq(C1, Id, set, Payload),
+    PromoteResult = ha_client:send_iq(C1, set, Payload),
     % check the result
     ct:pal("Result : ~p", [PromoteResult]),
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_stanza{
                 action = modify_admins,
@@ -284,7 +277,6 @@ demote_admin_test(Conf) ->
 
     ?assertEqual(true, model_groups:is_admin(Gid, ?UID2)),
     % Uid1 demotes Uid2
-    Id = <<"g_iq_id5">>,
     Payload = #pb_group_stanza{
         gid = Gid,
         action = modify_admins,
@@ -293,12 +285,11 @@ demote_admin_test(Conf) ->
         }]
     },
 
-    DemoteResult = ha_client:send_iq(C1, Id, set, Payload),
+    DemoteResult = ha_client:send_iq(C1, set, Payload),
     % check the result
     ct:pal("Result : ~p", [DemoteResult]),
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_stanza{
                 action = modify_admins,
@@ -341,7 +332,6 @@ get_groups_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % create second group, this way Uid1 is in 2 groups
-    Id = <<"g_iq_id6">>,
     CreateGroup = #pb_group_stanza{
         action = create,
         name = ?GROUP_NAME2,
@@ -350,10 +340,9 @@ get_groups_test(Conf) ->
         }]
     },
     % check the create_group result
-    Result = ha_client:send_iq(C1, Id, set, CreateGroup),
+    Result = ha_client:send_iq(C1, set, CreateGroup),
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_stanza{
                 gid = Gid2,
@@ -369,11 +358,9 @@ get_groups_test(Conf) ->
     GetGroups = #pb_groups_stanza{
         action = get
     },
-    Id2 = <<"g_iq_id7">>,
-    GroupsResult = ha_client:send_iq(C1, Id2, get, GetGroups),
+    GroupsResult = ha_client:send_iq(C1, get, GetGroups),
     #pb_packet{
         stanza = #pb_iq{
-            id = Id2,
             type = result,
             payload = #pb_groups_stanza{
                 action = get,
@@ -405,18 +392,16 @@ get_group_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Get members of group1
-    Id = <<"g_iq_id8">>,
     GetGroup1 = #pb_group_stanza{
         action = get,
         gid = Gid
     },
 
-    Group1Result = ha_client:send_iq(C1, Id, get, GetGroup1),
+    Group1Result = ha_client:send_iq(C1, get, GetGroup1),
     ct:pal("Group1Result ~p", [Group1Result]),
     % check the result group1
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_stanza{
                 action = set, % TODO: Why set
@@ -432,18 +417,16 @@ get_group_test(Conf) ->
 
 
     % Get members of group2
-    Id2 = <<"g_iq_id9">>,
     GetGroup2 = #pb_group_stanza{
         action = get,
         gid = Gid2
     },
 
-    Group2Result = ha_client:send_iq(C1, Id2, get, GetGroup2),
+    Group2Result = ha_client:send_iq(C1, get, GetGroup2),
     ct:pal("Group1Result ~p", [Group2Result]),
     % check the result group2
     #pb_packet{
         stanza = #pb_iq{
-            id = Id2,
             type = result,
             payload = #pb_group_stanza{
                 action = set, % TODO: Why set
@@ -472,19 +455,17 @@ set_name_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Get members of group1
-    Id = <<"g_iq_id9">>,
     SetName = #pb_group_stanza{
         action = set_name,
         gid = Gid,
         name = ?GROUP_NAME1_CHANGED
     },
 
-    Result = ha_client:send_iq(C1, Id, set, SetName),
+    Result = ha_client:send_iq(C1, set, SetName),
     ct:pal("Result ~p", [Result]),
     % check the result group1
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_stanza{
                 action = set, % TODO: Why set
@@ -512,19 +493,17 @@ set_background_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Get members of group1
-    Id = <<"g_iq_id9">>,
     SetName = #pb_group_stanza{
         action = set_background,
         gid = Gid,
         background = <<"aquamarine">>
     },
 
-    Result = ha_client:send_iq(C1, Id, set, SetName),
+    Result = ha_client:send_iq(C1, set, SetName),
     ct:pal("Result ~p", [Result]),
     % check the result group1
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_stanza{
                 action = set_background,
@@ -554,18 +533,16 @@ invite_link_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Get members of group1
-    Id = <<"g_iq_id10">>,
     GetLink = #pb_group_invite_link{
         action = get,
         gid = Gid
     },
 
-    Result = ha_client:send_iq(C1, Id, get, GetLink),
+    Result = ha_client:send_iq(C1, get, GetLink),
     ct:pal("Result ~p", [Result]),
     % check the result group1
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_invite_link{
                 action = get,
@@ -582,18 +559,16 @@ invite_link_test(Conf) ->
     {ok, C3} = ha_client:connect_and_login(?UID3, ?KEYPAIR3),
 
     % Uid3 joins with the link
-    Id2 = <<"g_iq_id11">>,
     JoinWithLink = #pb_group_invite_link{
         action = join,
         link = Link
     },
 
-    Result2 = ha_client:send_iq(C3, Id2, set, JoinWithLink),
+    Result2 = ha_client:send_iq(C3, set, JoinWithLink),
     ct:pal("Result ~p", [Result2]),
 
     #pb_packet{
         stanza = #pb_iq{
-            id = Id2,
             type = result,
             payload = #pb_group_invite_link{
                 action = join,
@@ -623,7 +598,6 @@ invite_link_fail_to_join_after_removed_by_admin_test(Conf) ->
     % Uid1 removes Uid3 to the group
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
-    Id = <<"g_iq_id12">>,
     Payload = #pb_group_stanza{
         gid = Gid,
         action = modify_members,
@@ -632,7 +606,7 @@ invite_link_fail_to_join_after_removed_by_admin_test(Conf) ->
         ]
     },
 
-    Result = ha_client:send_iq(C1, Id, set, Payload),
+    Result = ha_client:send_iq(C1, set, Payload),
     ct:pal("Result ~p", [Result]),
     #pb_group_stanza{
         gid = Gid,
@@ -649,14 +623,13 @@ invite_link_fail_to_join_after_removed_by_admin_test(Conf) ->
 
 
     % Uid3 tries to join with the link again but fails with admin_removed reason
-    Id2 = <<"g_iq_id13">>,
     JoinWithLink = #pb_group_invite_link{
         action = join,
         link = Link
     },
 
     {ok, C3} = ha_client:connect_and_login(?UID3, ?KEYPAIR3),
-    Result2 = ha_client:send_iq(C3, Id2, set, JoinWithLink),
+    Result2 = ha_client:send_iq(C3, set, JoinWithLink),
     ct:pal("Result ~p", [Result2]),
 
     #pb_error_stanza{
@@ -683,14 +656,13 @@ invite_link_reset_test(Conf) ->
 
     % Uid1 resets the link, Uid3 should not be in the removed set
     true = model_groups:is_removed_member(Gid, ?UID3),
-    Id = <<"g_iq_id13">>,
     ResetLink = #pb_group_invite_link{
         action = reset,
         gid = Gid
     },
 
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
-    Result = ha_client:send_iq(C1, Id, set, ResetLink),
+    Result = ha_client:send_iq(C1, set, ResetLink),
     ct:pal("Result ~p", [Result]),
 
     #pb_group_invite_link{
@@ -703,14 +675,13 @@ invite_link_reset_test(Conf) ->
     false = model_groups:is_removed_member(Gid, ?UID3),
 
     % Uid3 tries to join with the old link again but fails with invalid_invite reason
-    Id2 = <<"g_iq_id14">>,
     JoinWithLink = #pb_group_invite_link{
         action = join,
         link = OldLink
     },
 
     {ok, C3} = ha_client:connect_and_login(?UID3, ?KEYPAIR3),
-    Result2 = ha_client:send_iq(C3, Id2, set, JoinWithLink),
+    Result2 = ha_client:send_iq(C3, set, JoinWithLink),
     ct:pal("Result ~p", [Result2]),
 
     #pb_error_stanza{
@@ -718,13 +689,12 @@ invite_link_reset_test(Conf) ->
     } = Result2#pb_packet.stanza#pb_iq.payload,
 
     % Uid3 tries to join with the new link again and succeeds.
-    Id3 = <<"g_iq_id14">>,
     JoinWithLink2 = #pb_group_invite_link{
         action = join,
         link = Link
     },
 
-    Result3 = ha_client:send_iq(C3, Id3, set, JoinWithLink2),
+    Result3 = ha_client:send_iq(C3, set, JoinWithLink2),
     ct:pal("Result ~p", [Result3]),
 
     #pb_group_invite_link{
@@ -736,13 +706,12 @@ invite_link_reset_test(Conf) ->
 
 
     % Uid1 tries to join with the new link but fails with already_member reason
-    Id4 = <<"g_iq_id15">>,
     JoinWithLink3 = #pb_group_invite_link{
         action = join,
         link = Link
     },
 
-    Result4 = ha_client:send_iq(C1, Id4, set, JoinWithLink3),
+    Result4 = ha_client:send_iq(C1, set, JoinWithLink3),
     ct:pal("Result ~p", [Result4]),
 
     #pb_error_stanza{
@@ -765,14 +734,13 @@ invite_link_preview_test(Conf) ->
     {false, Link} = model_groups:get_invite_link(Gid),
 
     % Uid4 previews the group
-    Id = <<"g_iq_id16">>,
     PreviewLink = #pb_group_invite_link{
         action = preview,
         link = Link
     },
 
     {ok, C4} = ha_client:connect_and_login(?UID4, ?KEYPAIR4),
-    Result = ha_client:send_iq(C4, Id, get, PreviewLink),
+    Result = ha_client:send_iq(C4, get, PreviewLink),
     ct:pal("Result ~p", [Result]),
 
     #pb_group_invite_link{
@@ -786,10 +754,10 @@ invite_link_preview_test(Conf) ->
 
     {save_config, [{gid, Gid}, {gid2, Gid2}]}.
 
-set_group_avatar_test(Conf) ->
+set_group_avatar_test(_Conf) ->
     ok.
 
-not_admin_modify_group_test(Conf) ->
+not_admin_modify_group_test(_Conf) ->
     ok.
 
 
@@ -797,7 +765,6 @@ not_admin_modify_group_test(Conf) ->
 create_group_creator_is_member_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
-    Id = <<"g_iq_id20">>,
     Payload = #pb_group_stanza{
         action = create,
         name = ?GROUP_NAME3,
@@ -807,13 +774,12 @@ create_group_creator_is_member_test(Conf) ->
         ]
     },
 
-    Result = ha_client:send_iq(C1, Id, set, Payload),
+    Result = ha_client:send_iq(C1, set, Payload),
     ct:pal("Create Group Result : ~p", [Result]),
 
     % check the create_group result
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_stanza{
                 gid = Gid,

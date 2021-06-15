@@ -39,7 +39,6 @@ dummy_test(_Conf) ->
 create_group_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
-    Id = <<"g_iq_id1">>,
     Payload = #pb_group_stanza{
         action = create,
         name = ?GROUP_NAME1,
@@ -49,12 +48,11 @@ create_group_test(_Conf) ->
             #pb_group_member{uid = ?UID4}
         ]
     },
-    Result = ha_client:send_iq(C1, Id, set, Payload),
+    Result = ha_client:send_iq(C1, set, Payload),
     % check the create_group result
     ct:pal("Result ~p", [Result]),
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_stanza{
                 action = create,
@@ -84,7 +82,6 @@ post_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Uid1 makes a post to the group
-    Id = <<"g_iq_id2">>,
     Payload = #pb_group_feed_item{
         action = publish,
         gid = Gid,
@@ -94,12 +91,11 @@ post_test(Conf) ->
         }
     },
 
-    Result = ha_client:send_iq(C1, Id, set, Payload),
+    Result = ha_client:send_iq(C1, set, Payload),
     ct:pal("Post result ~p", [Result]),
     % check the result of the iq
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_feed_item{
                 gid = Gid,
@@ -152,7 +148,6 @@ comment_test(Conf) ->
     {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
 
     % Uid2 makes a post to the group
-    Id = <<"g_iq_id3">>,
     Payload = #pb_group_feed_item{
         action = publish,
         gid = Gid,
@@ -164,12 +159,11 @@ comment_test(Conf) ->
         }
     },
 
-    Comment = ha_client:send_iq(C2, Id, set, Payload),
+    Comment = ha_client:send_iq(C2, set, Payload),
     ct:pal("Comment result ~p", [Comment]),
     % check the result of the iq
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_feed_item{
                 gid = Gid,
@@ -226,7 +220,6 @@ retract_comment_test(Conf) ->
     {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
 
     % Uid2 retracts the comment
-    Id = <<"g_iq_id4">>,
     Payload = #pb_group_feed_item{
         action = retract,
         gid = Gid,
@@ -236,12 +229,11 @@ retract_comment_test(Conf) ->
         }
     },
 
-    RetractComment = ha_client:send_iq(C2, Id, set, Payload),
+    RetractComment = ha_client:send_iq(C2, set, Payload),
     ct:pal("RetractComment result ~p", [RetractComment]),
     % check the result of the iq
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_feed_item{
                 gid = Gid,
@@ -294,7 +286,6 @@ retract_post_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
 
     % Uid1 makes a post to the group
-    Id = <<"g_iq_id5">>,
     Payload = #pb_group_feed_item{
         action = retract,
         gid = Gid,
@@ -303,12 +294,11 @@ retract_post_test(Conf) ->
         }
     },
 
-    RetractPost = ha_client:send_iq(C1, Id, set, Payload),
+    RetractPost = ha_client:send_iq(C1, set, Payload),
     ct:pal("RetractPost result ~p", [RetractPost]),
     % check the result of the iq
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_group_feed_item{
                 gid = Gid,

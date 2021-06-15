@@ -38,6 +38,7 @@
     wait_for_msg/2,
     wait_for_eoq/1,
     login/3,
+    send_iq/3,
     send_iq/4,
     send_ack/2,
     clear_queue/1
@@ -216,8 +217,11 @@ send_recv(Client, Packet) ->
 login(Client, Uid, Keypair) ->
     gen_server:call(Client, {login, Uid, Keypair}).
 
--spec send_iq(Client :: pid(), Id :: any(), Type :: atom(), Payload :: term()) ->
-        {ok, pb_iq()} | {error, any()}.
+-spec send_iq(Client :: pid(), Type :: atom(), Payload :: term()) -> pb_iq().
+send_iq(Client, Type, Payload) ->
+    send_iq(Client, util_id:new_short_id(), Type, Payload).
+
+-spec send_iq(Client :: pid(), Id :: any(), Type :: atom(), Payload :: term()) -> pb_iq().
 send_iq(Client, Id, Type, Payload) ->
     Packet = #pb_packet{
         stanza = #pb_iq{
