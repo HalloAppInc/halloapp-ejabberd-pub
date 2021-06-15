@@ -19,10 +19,14 @@
 -export([start/2, stop/1, mod_options/1, depends/2]).
 
 -export([
-    manage/0,
+    schedule/0,
+    unschedule/0,
     is_inactive_user/1,
     check_and_delete_accounts/1,  %% for testing, TODO(vipin): delete after testing.
-    find_inactive_accounts/2
+    find_inactive_accounts/2,
+    find_uids/0,
+    check_uids/0,
+    delete_uids/0
 ]).
 
 %%====================================================================
@@ -31,11 +35,19 @@
 
 start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
+    case util_aws:get_machine_name() of
+        <<"s-test">> -> schedule();
+        _ -> ok
+    end,
     ok.
 
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
+    case util_aws:get_machine_name() of
+        <<"s-test">> -> unschedule();
+        _ -> ok
+    end,
     ok.
 
 depends(_Host, _Opts) ->
@@ -49,62 +61,68 @@ mod_options(_Host) ->
 %% api
 %%====================================================================
 
--spec manage() -> ok.
-manage() ->
-    {Date, {Hr, _Min, _Sec}} = calendar:local_time_to_universal_time(calendar:local_time()),
-    ToExecute = calc_step_to_execute(calendar:day_of_the_week(Date), Hr),
-    case ToExecute of
-        find_uids ->
-            case model_accounts:mark_inactive_uids_gen_start() of
-                true ->
-                    ?INFO("On Monday, create list of inactive Uids", []),
-                     model_accounts:cleanup_uids_to_delete_keys(),
-                     redis_migrate:start_migration("Find Inactive Accounts", redis_accounts,
-                         {?MODULE, find_inactive_accounts},
-                         [{dry_run, false}, {execute, sequential}]);
-                false ->
-                    ?INFO("On Monday list of inactive Uids already created", [])
-            end;
-        check_uids ->
-            case model_accounts:mark_inactive_uids_check_start() of
-                true ->
-                    ?INFO("On Tuesday, Start checking of inactive Uids using above list", []),
-                    check_and_delete_accounts(false);
-                false ->
-                    ?INFO("On Tuesday, checking of inactive Uids already started", [])
-            end;
-         delete_uids ->
-            case model_accounts:mark_inactive_uids_deletion_start() of
-                true ->
-                    ?INFO("On Wednesday, Start deletion of inactive Uids using above list", []),
-                    check_and_delete_accounts(true);
-                false ->
-                    ?INFO("On Wednesday, deletion of inactive Uids already started", [])
-            end;
-       _ ->
-            ?INFO("Nothing to be done", []),
-            ok
+-spec schedule() -> ok.
+schedule() ->
+    %% All jobs below try to run every hour between 10am-3pm PT (6-11pm UTC)
+    %% Find Uids to delete on Monday.
+    erlcron:cron(find_uids, {
+        {weekly, mon, {every, {1, h}, {between, {6, pm}, {11, pm}}}},
+        {?MODULE, find_uids, []}
+    }),
+    %% Check Uids found above on Tuesday.
+    erlcron:cron(check_uids, {
+        {weekly, tue, {every, {1, hr}, {between, {6, pm}, {11, pm}}}},
+        {?MODULE, check_uids, []}
+    }),
+    %% Delete Uids found above on Wednesday.
+    erlcron:cron(delete_uids, {
+        {weekly, wed, {every, {1, hr}, {between, {6, pm}, {11, pm}}}},
+        {?MODULE, delete_uids, []}
+    }),
+    ok.
+
+-spec unschedule() -> ok.
+unschedule() ->
+    erlcron:cancel(find_uids),
+    erlcron:cancel(check_uids),
+    erlcron:cancel(delete_uids),
+    ok.
+
+-spec find_uids() -> ok.
+find_uids() ->
+    case model_accounts:mark_inactive_uids_gen_start() of
+        true ->
+            ?INFO("On Monday, create list of inactive Uids", []),
+             model_accounts:cleanup_uids_to_delete_keys(),
+             redis_migrate:start_migration("Find Inactive Accounts", redis_accounts,
+                 {?MODULE, find_inactive_accounts},
+                 [{dry_run, false}, {execute, sequential}]);
+        false ->
+            ?INFO("On Monday list of inactive Uids already created", [])
     end,
     ok.
 
+-spec check_uids() -> ok.
+check_uids() ->
+    case model_accounts:mark_inactive_uids_check_start() of
+        true ->
+            ?INFO("On Tuesday, Start checking of inactive Uids using above list", []),
+            check_and_delete_accounts(false);
+        false ->
+            ?INFO("On Tuesday, checking of inactive Uids already started", [])
+    end,
+    ok.
 
-calc_step_to_execute(DayOfWeek, Hr) ->
-    %% Ok to run between 10AM and 4PM PST.
-    IsHrOk = (Hr > 18) and (Hr < 24),
-    case {DayOfWeek, IsHrOk} of
-        {1, true} ->
-            %% Find Uids to delete on Monday.
-            find_uids;
-        {2, true} ->
-            %% Check Uids found above on Tuesday.
-            check_uids;
-        {3, true} ->
-            %% Delete Uids found above on Wednesday.
-            delete_uids;
-        {_, _} ->
-            none
-    end.
-
+-spec delete_uids() -> ok.
+delete_uids() ->
+    case model_accounts:mark_inactive_uids_deletion_start() of
+        true ->
+            ?INFO("On Wednesday, Start deletion of inactive Uids using above list", []),
+            check_and_delete_accounts(true);
+        false ->
+            ?INFO("On Wednesday, deletion of inactive Uids already started", [])
+    end,
+    ok.
             
 -spec is_inactive_user(Uid :: uid()) -> boolean().
 is_inactive_user(Uid) ->
