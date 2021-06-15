@@ -418,13 +418,7 @@ recv_eoq(Client) ->
 
 -spec wait_until_eoq(Client :: pid()) -> ok.
 wait_until_eoq(Client) ->
-    ha_client:wait_for(Client,
-        fun (P) ->
-            case P of
-                #pb_packet{stanza = #pb_msg{payload = #pb_end_of_queue{}}} -> true;
-                _Any -> false
-            end
-        end),
+    ha_client:wait_for_eoq(Client),
     ok.
 
 
