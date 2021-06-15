@@ -16,7 +16,8 @@ group() ->
         feed_make_post_test,
         feed_make_comment_test,
         feed_retract_comment_test,
-        feed_retract_post_test
+        feed_retract_post_test,
+        feed_audience_test
     ]}.
 
 dummy_test(_Conf) ->
@@ -235,6 +236,107 @@ retract_post_test(_Conf) ->
         }
     } = RecvMsg,
     ok.
+
+
+audience_test(_Conf) ->
+    %% UID1 is friends with UID2 and UID3
+    %% UID5 blocked UID1
+    %% UID1 is not friends with UID4.
+    %% In this test - UID1 makes a post with the rest in the audience.
+    %% However, server must distribute the content to only UID2 and UID3.
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
+    {ok, C3} = ha_client:connect_and_login(?UID3, ?KEYPAIR3),
+    {ok, C4} = ha_client:connect_and_login(?UID4, ?KEYPAIR4),
+    {ok, C5} = ha_client:connect_and_login(?UID5, ?KEYPAIR5),
+
+    ha_client:wait_for_eoq(C1),
+    ha_client:wait_for_eoq(C2),
+    ha_client:wait_for_eoq(C3),
+    ha_client:wait_for_eoq(C4),
+    ha_client:wait_for_eoq(C5),
+    ha_client:clear_queue(C1),
+    ha_client:clear_queue(C2),
+    ha_client:clear_queue(C3),
+    ha_client:clear_queue(C4),
+    ha_client:clear_queue(C5),
+
+    %% UID1 publishes a post.
+    PbAudience = struct_util:create_pb_audience(all, [?UID2, ?UID3, ?UID4, ?UID5]),
+    PbPost = struct_util:create_pb_post(?POST_ID1, ?UID1, ?NAME1, ?PAYLOAD1, PbAudience, ?TS1),
+    PbFeedItem = struct_util:create_feed_item(publish, PbPost),
+    IqId = util:random_str(10),
+    IqRes = ha_client:send_iq(C1, IqId, set, PbFeedItem),
+
+    % make sure IQ was successful
+    #pb_packet{
+        stanza = #pb_iq{
+            id = IqId,
+            type = result,
+            payload = #pb_feed_item{
+                action = publish,
+                item = #pb_post{
+                    id = ?POST_ID1,
+                    publisher_uid = ?UID1,
+                    publisher_name = ?NAME1
+                }
+            }
+        }
+    } = IqRes,
+
+    %% UID2 must receive the post.
+    RecvMsg1 = ha_client:wait_for(C2,
+        fun (P) ->
+            case P of
+                #pb_packet{stanza = #pb_msg{payload = #pb_feed_item{}}} -> true;
+                _Any -> false
+            end
+        end),
+    #pb_packet{
+        stanza = #pb_msg{
+            type = headline,
+            to_uid = ?UID2,
+            payload = #pb_feed_item{
+                action = publish,
+                item = #pb_post{
+                    id = ?POST_ID1,
+                    publisher_uid = ?UID1,
+                    publisher_name = ?NAME1,
+                    payload = ?PAYLOAD1
+                }
+            }
+        }
+    } = RecvMsg1,
+
+    %% UID3 must receive the post.
+    RecvMsg2 = ha_client:wait_for(C3,
+        fun (P) ->
+            case P of
+                #pb_packet{stanza = #pb_msg{payload = #pb_feed_item{}}} -> true;
+                _Any -> false
+            end
+        end),
+    #pb_packet{
+        stanza = #pb_msg{
+            type = headline,
+            to_uid = ?UID3,
+            payload = #pb_feed_item{
+                action = publish,
+                item = #pb_post{
+                    id = ?POST_ID1,
+                    publisher_uid = ?UID1,
+                    publisher_name = ?NAME1,
+                    payload = ?PAYLOAD1
+                }
+            }
+        }
+    } = RecvMsg2,
+
+    %% UID4 and UID5 must not receive anything.
+    ?assertEqual(undefined, ha_client:recv(C4, 100)),
+    ?assertEqual(undefined, ha_client:recv(C5, 100)),
+    ok.
+
 
 confirm_no_feed_item(Client, Item) ->
     ha_client:wait_for_eoq(Client),

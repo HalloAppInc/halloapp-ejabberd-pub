@@ -135,8 +135,6 @@ create_test_accounts() ->
 
     ok = model_contacts:add_contact(?UID1, ?PHONE5),
     ok = model_contacts:add_contact(?UID5, ?PHONE1),
-    ok = model_friends:add_friend(?UID1, ?UID5),
-
     ok = model_privacy:block_uid(?UID5, ?UID1),
 
     ok = model_contacts:add_contact(?UID2, ?PHONE5),
