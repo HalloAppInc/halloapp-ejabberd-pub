@@ -304,24 +304,15 @@ process_auth_result(#{socket := Socket, ip := IP} = State, true, User) ->
     State;
 process_auth_result(#{socket := Socket,ip := IP, lserver := _LServer} = State,
         {false, Reason}, User) ->
-    ReasonTag = auth_result_reason_to_tag(Reason),
     Format = "(~ts) Failed c2s authentication ~ts from ~ts: Reason: ~ts",
     Args = [halloapp_socket:pp(Socket), User,
                ejabberd_config:may_hide_data(misc:ip_to_list(IP)), Reason],
-    case ReasonTag of
+    case Reason of
         invalid_client_version -> ?INFO(Format, Args);
         _ -> ?WARNING(Format, Args)
     end,
-    stat:count("HA/auth", "failure", 1, [{reason, ReasonTag}]),
+    stat:count("HA/auth", "failure", 1, [{reason, Reason}]),
     State.
-
--spec auth_result_reason_to_tag(binary()) -> atom().
-auth_result_reason_to_tag(<<"invalid uid or password">>) -> invalid_uid_password;
-auth_result_reason_to_tag(<<"account_deleted">>) -> account_deleted;
-auth_result_reason_to_tag(<<"invalid client version">>) -> invalid_client_version;
-auth_result_reason_to_tag(<<"invalid resource">>) -> invalid_resource;
-auth_result_reason_to_tag(<<"spub_mismatch">>) -> spub_mismatch;
-auth_result_reason_to_tag(_) -> unknown.
 
 
 process_closed(State, Reason) ->
