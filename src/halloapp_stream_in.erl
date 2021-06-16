@@ -661,7 +661,7 @@ map_to_string_reason(Reason) ->
     case Reason of
         account_deleted -> "account deleted";
         invalid_uid_or_password -> "invalid uid or password";
-        spub_mismatch -> "spub mismatch";
+        spub_mismatch -> "spub_mismatch";
         invalid_client_version -> "invalid client version";
         invalid_resource -> "invalid resource";
         ok -> "welcome to halloapp"
