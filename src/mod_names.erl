@@ -1,10 +1,7 @@
 %%%---------------------------------------------------------------------------------
 %%% File    : mod_names.erl
 %%%
-%%% Copyright (C) 2020 halloappinc.
-%%%
-%%% This file handles the iq stanza queries with a custom namespace
-%%% (<<"halloapp:users:name">>) that we defined in xmpp/specs/xmpp_codec.spec file.
+%%% Copyright (C) 2021 HalloApp Inc.
 %%%
 %%% The module handles both set and get iq stanzas.
 %%% iq-set stanza is used to set the name of the sender.
@@ -21,8 +18,6 @@
 
 -include("logger.hrl").
 -include("packets.hrl").
-
--define(NS_NAME, <<"halloapp:users:name">>).
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -45,14 +40,12 @@
 
 
 start(Host, _Opts) ->
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_NAME, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_name, ?MODULE, process_local_iq),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(user_name_updated, Host, ?MODULE, user_name_updated, 50),
     ok.
 
 stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_NAME),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_name),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(user_name_updated, Host, ?MODULE, user_name_updated, 50),
@@ -123,5 +116,3 @@ set_name(Uid, Name) ->
     ok = model_accounts:set_name(Uid, Name),
     ejabberd_hooks:run(user_name_updated, Server, [Uid, Name]),
     ok.
-
-

@@ -447,7 +447,7 @@ upload_and_delete_file(ObjectKey, Path) ->
     file:delete(Path),
     ok.
 
--spec upload_s3(atom, list(), string(), binary()) -> ok.
+-spec upload_s3(atom(), list(), string(), binary()) -> ok.
 upload_s3(prod, Headers, ObjectKey, Data) ->
     Result = erlcloud_s3:put_object(binary_to_list(
         ?S3_CLIENT_LOGS_BUCKET), ObjectKey, Data, [], Headers),
