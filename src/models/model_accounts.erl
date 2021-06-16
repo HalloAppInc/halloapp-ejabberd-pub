@@ -23,6 +23,8 @@
 %% Validity period for transient keys created during inactive accounts deletion.
 -define(INACTIVE_UIDS_VALIDITY, 12 * ?HOURS).
 
+-define(EXPORT_TTL, 10 * ?DAYS).
+
 %% Export all functions for unit tests
 -ifdef(TEST).
 -compile(export_all).
@@ -105,7 +107,10 @@
     cleanup_uids_to_delete_keys/0,
     mark_inactive_uids_gen_start/0,
     mark_inactive_uids_deletion_start/0,
-    mark_inactive_uids_check_start/0
+    mark_inactive_uids_check_start/0,
+    get_export/1,
+    start_export/2,
+    test_set_export_time/2 % For tests only
 ]).
 
 %%====================================================================
@@ -152,6 +157,10 @@ mod_options(_Host) ->
 
 %% Field to capture creation of list with inactive uids and their deletion.
 -define(FIELD_INACTIVE_UIDS_STATUS, <<"ius">>).
+
+%% Export Field
+-define(FIELD_EXPORT_START_TS, <<"est">>).
+-define(FIELD_EXPORT_ID, <<"eur">>).
 
 
 %%====================================================================
@@ -774,6 +783,37 @@ mark_inactive_uids(Key) ->
     ]),
     Exists =:= <<"1">>.
 
+-spec get_export(Uid :: uid()) -> {ok, StartTs :: integer(), ExportId :: binary()} | {error, missing}.
+get_export(Uid) ->
+    {ok, [StartTsBin, ExportId]} = q(["HMGET", export_data_key(Uid),
+        ?FIELD_EXPORT_START_TS, ?FIELD_EXPORT_ID]),
+    case StartTsBin of
+        undefined -> {error, missing};
+        _ ->
+            {ok, util_redis:decode_ts(StartTsBin), ExportId}
+    end.
+
+-spec start_export(Uid :: uid(), ExportId :: string()) -> {ok, Ts :: integer()} | {error, already_started}.
+start_export(Uid, ExportId) ->
+    Ts = util:now(),
+    {ok, TTL} = q(["TTL", export_data_key(Uid)]),
+    case binary_to_integer(TTL) < 0 of
+        true ->
+            [{ok, _}, {ok, _}, {ok, _}] = qp([
+                ["HSET", export_data_key(Uid), ?FIELD_EXPORT_START_TS, Ts],
+                ["HSET", export_data_key(Uid), ?FIELD_EXPORT_ID, ExportId],
+                ["EXPIRE", export_data_key(Uid), ?EXPORT_TTL]
+            ]),
+            {ok, Ts};
+        false ->
+            {error, already_started}
+    end.
+
+-spec test_set_export_time(Uid :: uid(), Ts :: integer()) -> ok.
+test_set_export_time(Uid, Ts) ->
+    {ok, _} = q(["HSET", export_data_key(Uid), ?FIELD_EXPORT_START_TS, Ts]),
+    ok.
+
 
 %%====================================================================
 %% Internal redis functions.
@@ -850,4 +890,7 @@ count_accounts_key(Uid) ->
 
 count_accounts_key_slot(Slot) ->
     redis_counts:count_key(Slot, ?COUNT_ACCOUNTS_KEY).
+
+export_data_key(Uid) ->
+    <<?EXPORT_DATA_KEY/binary, "{", Uid/binary, "}">>.
 

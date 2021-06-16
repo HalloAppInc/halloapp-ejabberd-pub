@@ -493,6 +493,7 @@ message Iq {
         UploadGroupAvatar group_avatar = 27;
         DeleteAccount delete_account = 28;
         GroupInviteLink group_invite_link = 31;
+        ExportData export_data = 32;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -800,6 +801,19 @@ message NoiseMessage {
 message DeleteAccount {
     string phone = 1;
 }
+
+
+// User request to export data
+message ExportData {
+    int64 data_ready_ts = 1;
+    enum Status {
+        PENDING = 0;
+        READY = 1;
+    }
+    Status status = 2;
+    string data_url = 3;
+}
+
 
 
 // PushContent

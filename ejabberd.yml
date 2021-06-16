@@ -218,6 +218,7 @@ modules:
   model_feed: {}
   stat: {}
   mod_admin_extra: {}
+  mod_export: {}
 
 ### Local Variables:
 ### mode: yaml

@@ -140,5 +140,12 @@ subscriber_key_test() ->
     ?assertEqual({ok, []}, model_whisper_keys:get_all_key_subscribers(?UID1)).
 
 
-
+export_keys_test() ->
+    setup(),
+    ?assertEqual({ok, undefined}, model_whisper_keys:get_key_set(?UID1)),
+    ?assertEqual(ok, model_whisper_keys:set_keys(?UID1, ?IDENTITY_KEY1, ?SIGNED_KEY1,
+        [?OTP1_KEY1, ?OTP1_KEY2, ?OTP1_KEY3])),
+    ?assertEqual(
+        {ok, ?IDENTITY_KEY1, ?SIGNED_KEY1, [?OTP1_KEY1, ?OTP1_KEY2, ?OTP1_KEY3]},
+        model_whisper_keys:export_keys(?UID1)).
 

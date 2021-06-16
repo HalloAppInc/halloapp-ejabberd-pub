@@ -43,7 +43,8 @@
     get_all_key_subscribers/1,
     remove_all_key_subscribers/1,
     delete_all_otp_keys/1,  %% dangerous function - dont use without talking to the team.
-    mark_e2e_stats_query/0
+    mark_e2e_stats_query/0,
+    export_keys/1
 ]).
 
 %%====================================================================
@@ -80,6 +81,7 @@ set_keys(Uid, IdentityKey, SignedPreKey, OtpKeys) ->
             ["HSET", whisper_key(Uid),
                 ?FIELD_IDENTITY_KEY, IdentityKey,
                 ?FIELD_SIGNEDPRE_KEY, SignedPreKey],
+            % Note: We are doing LPUSH and RPOP so our otks are stored in reverse
             ["LPUSH", otp_key(Uid) | OtpKeys],
             ["EXEC"]],
     _Results = qp(PipeCommands),
@@ -95,6 +97,7 @@ add_otp_keys(Uid, OtpKeys) ->
 %% dangerous function - dont use without notice to the team.
 -spec delete_all_otp_keys(Uid :: uid()) -> ok.
 delete_all_otp_keys(Uid) ->
+    % TODO: Just DEL is better
     {ok, _Res} = q(["LTRIM", otp_key(Uid), 1, 0]),
     ok.
 
@@ -146,7 +149,6 @@ get_identity_keys(Uids) ->
             end
         end, #{}, lists:zip(Uids, Res)),
     Result.
-     
 
 
 -spec count_otp_keys(Uid :: uid()) -> {ok, integer()} | {error, any()}.
@@ -190,6 +192,15 @@ mark_e2e_stats_query() ->
         ["EXPIRE", ?E2E_STATS_QUERY_KEY, ?E2E_QUERY_EXPIRY]
     ]),
     Exists =:= <<"1">>.
+
+
+-spec export_keys(Uid :: uid()) ->
+        {ok, IdentityKey :: binary(), SignedPreKey :: binary(), OneTimeKeys ::[binary()]}.
+export_keys(Uid) ->
+    {ok, [IdentityKey, SignedPreKey]} = q(["HMGET", whisper_key(Uid),
+        ?FIELD_IDENTITY_KEY, ?FIELD_SIGNEDPRE_KEY]),
+    {ok, OTKs} = q(["LRANGE", otp_key(Uid), 0, -1]),
+    {ok, IdentityKey, SignedPreKey, lists:reverse(OTKs)}.
 
 
 q(Command) -> ecredis:q(ecredis_whisper, Command).

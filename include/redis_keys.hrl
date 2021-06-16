@@ -47,6 +47,8 @@
 %% To capture list of Uids that need to be deleted because of inactivity.
 -define(TO_DELETE_UIDS_KEY, <<"tdu:">>).
 
+-define(EXPORT_DATA_KEY, <<"eda:">>).
+
 % old deleted/deprecated keys
 %%-define(INVITES_KEY, <<"inv:">>).
 

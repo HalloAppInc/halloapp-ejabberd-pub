@@ -527,6 +527,17 @@ check_uid_to_delete_test() ->
     ?assertEqual(false, model_accounts:mark_inactive_uids_check_start()),
     ok.
 
+start_export_test() ->
+    setup(),
+    {ok, _Ts} = model_accounts:start_export(?UID1, util:random_str(20)),
+    ?assertEqual({error, already_started}, model_accounts:start_export(?UID1, util:random_str(20))),
+    ok.
 
+get_export_test() ->
+    setup(),
+    ExportId = util:random_str(20),
+    {ok, Ts} = model_accounts:start_export(?UID1, ExportId),
+    ?assertEqual({ok, Ts, ExportId}, model_accounts:get_export(?UID1)),
+    ok.
 
 
