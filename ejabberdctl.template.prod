@@ -137,7 +137,7 @@ exec_cmd()
 exec_erl()
 {
     NODE=$1; shift
-    exec_cmd "$ERL" ${S:--}name "$NODE" $ERLANG_OPTS "$@"
+    exec_cmd "$ERL" -kernel shell_history enabled ${S:--}name "$NODE" $ERLANG_OPTS "$@"
 }
 exec_iex()
 {
