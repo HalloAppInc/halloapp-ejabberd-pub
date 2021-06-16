@@ -143,15 +143,15 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
             false -> <<"sms">>;
             _ -> maps:get(<<"method">>, Payload, <<"sms">>)
         end,
-        LanguageId = maps:get(<<"lang_id">>, Payload, <<"en-US">>),
+        LangId = maps:get(<<"lang_id">>, Payload, <<"en-US">>),
         GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
-        ?INFO("phone:~p, ua:~p ip:~s method: ~s, language: ~p, payload:~p ",
-            [Phone, UserAgent, ClientIP, Method, LanguageId, Payload]),
+        ?INFO("phone:~p, ua:~p ip:~s method: ~s, langId: ~p, payload:~p ",
+            [Phone, UserAgent, ClientIP, Method, LangId, Payload]),
 
         check_ua(UserAgent),
         Method2 = get_otp_method(Method),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
-        case request_otp(Phone, UserAgent, Method2) of
+        case request_otp(Phone, LangId, UserAgent, Method2) of
             {ok, RetryAfterSecs} ->
                 {200, ?HEADER(?CT_JSON),
                     jiffy:encode({[
@@ -223,9 +223,10 @@ log_request_otp_error(ErrorType, Method) ->
     ok.
 
 
--spec request_otp(Phone :: phone(), UserAgent :: binary(), Method :: atom()) -> {ok, integer()} | no_return(). % throws otp_fail
-request_otp(Phone, UserAgent, Method) ->
-    case mod_sms:request_otp(Phone, UserAgent, Method) of
+-spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(),
+        Method :: atom()) -> {ok, integer()} | no_return(). % throws otp_fail
+request_otp(Phone, LangId, UserAgent, Method) ->
+    case mod_sms:request_otp(Phone, LangId, UserAgent, Method) of
         {ok, _} = Ret -> Ret;
         {error, Reason} ->
             ?ERROR("could not send otp Reason: ~p Phone: ~p", [Reason, Phone]),

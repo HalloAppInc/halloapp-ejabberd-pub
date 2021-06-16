@@ -14,6 +14,7 @@
 -include("sms.hrl").
 -include("ha_types.hrl").
 -include("time.hrl").
+-include("translate.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 -callback send_sms(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, sms_fail}.
@@ -29,7 +30,7 @@
 %% API
 -export([
     request_sms/2,
-    request_otp/3,
+    request_otp/4,
     verify_sms/2,
     is_too_soon/1,  %% for testing
     good_next_ts_diff/1  %% for testing
@@ -60,10 +61,11 @@ mod_options(_Host) ->
 
 -spec request_sms(Phone :: phone(), UserAgent :: binary()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 request_sms(Phone, UserAgent) ->
-    request_otp(Phone, UserAgent, sms).
+    request_otp(Phone, <<"en-US">>, UserAgent, sms).
 
--spec request_otp(Phone :: phone(), UserAgent :: binary(), Method :: atom()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
-request_otp(Phone, UserAgent, Method) ->
+-spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom()) ->
+        {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
+request_otp(Phone, LangId, UserAgent, Method) ->
     Code = generate_code(util:is_test_number(Phone)),
     case util:is_test_number(Phone) of
         true ->
@@ -75,7 +77,7 @@ request_otp(Phone, UserAgent, Method) ->
                 {true, WaitTs} -> {error, retried_too_soon, WaitTs};
                 {false, _} ->
                     {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
-                    case send_otp(Phone, Code, UserAgent, Method, OldResponses) of
+                    case send_otp(Phone, LangId, Code, UserAgent, Method, OldResponses) of
                         {ok, SMSResponse} ->
                             ?INFO("Response: ~p", [SMSResponse]),
                             model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
@@ -138,10 +140,11 @@ good_next_ts_diff(NumFailedAttempts) ->
       30 * ?SECONDS * trunc(math:pow(2, NumFailedAttempts - 1)).
 
 
--spec send_otp(Phone :: phone(), Code :: binary(), UserAgent :: binary(), Method :: atom(),
-        OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, term()}.
-send_otp(Phone, Code, UserAgent, Method, OldResponses) ->
-    Msg = prepare_registration_sms(Code, UserAgent, Method),
+-spec send_otp(Phone :: phone(), LangId :: binary(), Code :: binary(), UserAgent :: binary(),
+        Method :: atom(), OldResponses :: [gateway_response()]) ->
+        {ok, gateway_response()} | {error, term()}.
+send_otp(Phone, LangId, Code, UserAgent, Method, OldResponses) ->
+    Msg = prepare_registration_sms(Code, LangId, UserAgent, Method),
     ?DEBUG("preparing to send otp, phone:~p msg:~s", [Phone, Msg]),
     case smart_send(Phone, Method, Msg, OldResponses) of
         {ok, SMSResponse} ->
@@ -151,16 +154,18 @@ send_otp(Phone, Code, UserAgent, Method, OldResponses) ->
     end.
 
 %% TODO(vipin): Maybe improve Msg for voice_call. Talk to Dugyu.
--spec prepare_registration_sms(Code :: binary(), UserAgent :: binary(), Method :: atom()) -> string().
-prepare_registration_sms(Code, UserAgent, Method) ->
+-spec prepare_registration_sms(Code :: binary(), LangId :: binary(),
+        UserAgent :: binary(), Method :: atom()) -> string().
+prepare_registration_sms(Code, LangId, UserAgent, Method) ->
     case Method of
         voice_call ->
             DigitByDigit = string:trim(re:replace(Code,".","& . . ",[global, {return,list}])),
             Msg = io_lib:format("Your HalloApp verification code is ~s . ", [DigitByDigit]),
             io_lib:format("~s ~s ~s ~s", [Msg, Msg, Msg, Msg]);
         sms ->
+            SmsMsgBin = ?TR(<<"server.sms.verification">>, LangId),
             AppHash = get_app_hash(UserAgent),
-            io_lib:format("Your HalloApp verification code: ~s~n~n~n~s", [Code, AppHash])
+            io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash])
     end.
             
 
