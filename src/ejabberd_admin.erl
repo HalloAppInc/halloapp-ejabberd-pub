@@ -1056,8 +1056,30 @@ remove_phone_trace(Phone) ->
     mod_trace:remove_phone(PhoneBin),
     ok.
 
+format_contact_list(Uid) ->
+    {ok, ContactPhones} = model_contacts:get_contacts(Uid),
+    {ok, Friends} = model_friends:get_friends(Uid),
+    PhoneToUidMap = model_phone:get_uids(ContactPhones),
+    UidToNameMap = model_accounts:get_names(maps:values(PhoneToUidMap)),
+    PhoneToNameMap = maps:map(fun(_P, U) -> maps:get(U, UidToNameMap) end, PhoneToUidMap),
+    ContactList = [{
+        case maps:get(CPhone, PhoneToUidMap, undefined) of      % Friend or Contact
+            undefined -> "C";
+            FUid ->
+                case lists:member(FUid, Friends) of
+                    true -> "F";
+                    false -> "C"
+                end
+        end,
+        binary_to_integer(CPhone),                              % Phone,
+        maps:get(CPhone, PhoneToUidMap, ""),                    % Uid,
+        maps:get(CPhone, PhoneToNameMap, "")                    % Name
+    } || CPhone <- ContactPhones],
+    NumFriends = length([1 || {CorF, _P, _U, _N} <- ContactList, CorF =:= "F"]),
+    {ok, ContactList, NumFriends}.
 
 uid_info(Uid) ->
+    ?INFO("Admin requesting account info for uid: ~s", [Uid]),
     case model_accounts:account_exists(Uid) of
         false -> io:format("There is no account associated with uid: ~s~n", [Uid]);
         true ->
@@ -1074,11 +1096,11 @@ uid_info(Uid) ->
                 [LastActiveDate, LastActiveTime, ActivityStatus]),
             io:format("Current Version: ~s~n", [Account#account.client_version]),
 
-            {ok, Friends} = model_friends:get_friends(Uid),
-            io:format("Friend list (~p):~n", [length(Friends)]),
-            FNameMap = model_accounts:get_names(Friends),
-            [io:format("  ~s (~s)~n", [FName, FUid]) ||
-                {FUid, FName} <- maps:to_list(FNameMap), FName =/= <<>>],
+            {ok, ContactList, NumFriends} = format_contact_list(Uid),
+            io:format("Contact list (~p, ~p are friends):~n",
+                [length(ContactList), NumFriends]),
+            [io:format("  ~s ~w ~s ~s~n", [CorF, CPhone, FUid, FName]) ||
+                {CorF, CPhone, FUid, FName} <- ContactList],
 
             Gids = model_groups:get_groups(Uid),
             io:format("Group list (~p):~n", [length(Gids)]),
