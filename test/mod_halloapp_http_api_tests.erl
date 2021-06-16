@@ -39,19 +39,12 @@
     {'Accept',<<"*/*">>},
     {'User-Agent',UA},
     {'Host',<<"127.0.0.1:5580">>}]).
--define(REGISTER_PATH, [<<"registration">>, <<"register">>]).
 -define(REGISTER_HEADERS(UA), [
     {'Content-Type',<<"application/x-www-form-urlencoded">>},
     {'Content-Length',<<"58">>},
     {'Accept',<<"*/*">>},
     {'User-Agent',UA},
     {'Host',<<"127.0.0.1:5580">>}]).
--define(REGISTER_DATA(Phone, Code, Name),
-    jsx:encode([{<<"phone">>, Phone}, {<<"code">>, Code}, {<<"name">>, Name}])).
--define(REGISTER_DATA_W(Phone, Code, Name, WhisperKey, SignedKey, OneTimeKeys),
-    jsx:encode([{<<"phone">>, Phone}, {<<"code">>, Code}, {<<"name">>, Name},
-        {<<"identity_key">>, WhisperKey}, {<<"signed_key">>, SignedKey},
-        {<<"one_time_keys">>, OneTimeKeys}])).
 
 -define(REGISTER2_PATH, [<<"registration">>, <<"register2">>]).
 -define(REGISTER2_DATA(Phone, Code, Name, SEdPub, SignedPhrase),
@@ -108,64 +101,6 @@ request_sms_test_phone_test() ->
     meck_finish(ejabberd_router).
 
 
-register_test() ->
-    setup(),
-    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
-    Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
-    ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
-    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
-        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)}),
-    BadCodeData = ?REGISTER_DATA(?TEST_PHONE, ?BAD_SMS_CODE, ?NAME),
-    BadCodeError = util_http:return_400(wrong_sms_code),
-    ?assertEqual(BadCodeError, mod_halloapp_http_api:process(?REGISTER_PATH,
-        #request{method = 'POST', data = BadCodeData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)})),
-    GoodData = ?REGISTER_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME),
-    BadUserAgentError = util_http:return_400(),
-    ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REGISTER_PATH,
-        #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REGISTER_HEADERS(?BAD_UA)})),
-    {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER_PATH,
-        #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, RegPass},
-        {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(RegInfo),
-    ?assert(ejabberd_auth:check_spub(Uid, RegPass)),
-    %% RE-reg
-    {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER_PATH,
-        #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, Pass},
-        {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
-    ?assert(ejabberd_auth:check_spub(Uid, Pass)),
-    meck_finish(ejabberd_sm),
-    meck_finish(ejabberd_router).
-
-% TODO: add tests for bad keys (too small, too large, too few, too many)
-register_and_whisper_test() ->
-    setup(),
-    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
-    Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
-    ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
-    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
-        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)}),
-    OneTimeKeys = [?ONE_TIME_KEY || _X <- lists:seq(0, 9)],
-    GoodData = ?REGISTER_DATA_W(?TEST_PHONE, ?SMS_CODE, ?NAME, ?IDENTITY_KEY, ?SIGNED_KEY, OneTimeKeys),
-    {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER_PATH,
-        #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, RegPass},
-        {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(RegInfo),
-    ?assert(ejabberd_auth:check_spub(Uid, RegPass)),
-    WhisperKeySet = #user_whisper_key_set{
-        uid = Uid,
-        identity_key = ?IDENTITY_KEY,
-        signed_key = ?SIGNED_KEY,
-        one_time_key = ?ONE_TIME_KEY
-    },
-    ?assertEqual({ok, WhisperKeySet}, model_whisper_keys:get_key_set(Uid)),
-    ?assertEqual({ok, 9}, model_whisper_keys:count_otp_keys(Uid)),
-
-    meck_finish(ejabberd_sm),
-    meck_finish(ejabberd_router).
-
 %% TODO: cleanup this file to remove register codepath and tests.
 register_spub_test() ->
     setup(),
@@ -215,51 +150,6 @@ register_spub_test() ->
     SPub2 = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub2),
     ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub2))),
     meck_finish(ejabberd_sm),
-    meck_finish(ejabberd_router).
-
-update_key_test() ->
-    setup(),
-    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
-    ok = model_invites:record_invite(?UID, ?PHONE, 4),
-    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
-        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)}),
-    RegisterData = ?REGISTER_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME),
-    {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER_PATH,
-        #request{method = 'POST', data = RegisterData, ip = ?IP,  headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE}, {<<"password">>, Pass},
-        {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
-    ?assert(ejabberd_auth:check_spub(Uid, Pass)),
-
-    KeyPair = ha_enoise:generate_signature_keypair(),
-    {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
-    SignedMessage = enacl:sign("HALLO", SEdSecret),
-    SEdPubEncoded = base64:encode(SEdPub),
-    SignedMessageEncoded = base64:encode(SignedMessage),
-
-    BadData1 = ?UPDATE_KEY_DATA(Uid, ?BAD_PASSWORD, SEdPubEncoded, SignedMessageEncoded),
-    ?assertEqual(util_http:return_400(invalid_password),
-                 mod_halloapp_http_api:process(?UPDATE_KEY_PATH, #request{method = 'POST',
-         data = BadData1, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)})),
-
-    BadData2 = ?UPDATE_KEY_DATA(Uid, Pass, SEdPubEncoded, base64:encode(?BAD_SIGNED_MESSAGE)),
-    ?assertEqual(util_http:return_400(unable_to_open_signed_phrase),
-                 mod_halloapp_http_api:process(?UPDATE_KEY_PATH, #request{method = 'POST',
-         data = BadData2, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)})),
-
-    BadSignedMessage = enacl:sign("BAD", SEdSecret),
-    BadSignedMessageEncoded = base64:encode(BadSignedMessage),
-    BadData3 = ?UPDATE_KEY_DATA(Uid, Pass, SEdPubEncoded, BadSignedMessageEncoded),
-    ?assertEqual(util_http:return_400(invalid_signed_phrase),
-                 mod_halloapp_http_api:process(?UPDATE_KEY_PATH, #request{method = 'POST',
-         data = BadData3,  ip = ?IP, headers = ?REGISTER_HEADERS(?UA)})),
-
-    UpdateKeyData = ?UPDATE_KEY_DATA(Uid, Pass, SEdPubEncoded, SignedMessageEncoded),
-    {200, ?HEADER(?CT_JSON), Info2} = mod_halloapp_http_api:process(?UPDATE_KEY_PATH,
-        #request{method = 'POST', data = UpdateKeyData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"result">>, <<"ok">>}] = jsx:decode(Info2),
-    SPub = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub),
-    ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub))),
     meck_finish(ejabberd_router).
 
 
@@ -343,31 +233,6 @@ check_invited_by_group_invite_test() ->
     ?assertEqual(ok, mod_halloapp_http_api:check_invited(
         ?PHONE, <<"">>, ?IP1, Token)),
     ok.
-
-log_if_registration_error_test() ->
-    setup(),
-    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
-    meck_init(stat, count, fun(_,_,_,_) -> "Logged a metric!" end),
-
-    BadCodeData = ?REGISTER_DATA(?TEST_PHONE, ?BAD_SMS_CODE, ?NAME),
-    BadCodeError = util_http:return_400(wrong_sms_code),
-    ?assertEqual(BadCodeError, mod_halloapp_http_api:process(?REGISTER_PATH,
-        #request{method = 'POST', data = BadCodeData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)})),
-    ?assert(meck:called(stat, count, ["HA/account", "register_errors", 1,
-        [{error, wrong_sms_code}]])),
-
-    GoodData = ?REGISTER_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME),
-    BadUserAgentError = util_http:return_400(),
-    ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REGISTER_PATH,
-        #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REGISTER_HEADERS(?BAD_UA)})),
-    ?assert(meck:called(stat, count, ["HA/account", "register_errors", 1,
-        [{error, bad_user_agent}]])),
-
-    meck_finish(stat),
-    meck_finish(ejabberd_sm),
-    meck_finish(ejabberd_router).
-
 
 
 %%%----------------------------------------------------------------------

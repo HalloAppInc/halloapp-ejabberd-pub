@@ -12,7 +12,7 @@
 
 -include("ha_types.hrl").
 
--define(DEFAULT_UA, "HalloApp/Android.130").
+-define(DEFAULT_UA, "HalloApp/Android1.130").
 -define(DEFAULT_HOST, "localhost").
 -define(DEFAULT_PORT, "5580").
 
@@ -62,10 +62,18 @@ register(Phone, Code, Name) ->
             -> {ok, Uid :: uid(), Password :: binary(), Response :: map()} | {error, term()}.
 register(Phone, Code, Name, Options) ->
     setup(),
+    %% TODO: tests should generate these keys.
+    KeyPair = ha_enoise:generate_signature_keypair(),
+    {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+    SignedMessage = enacl:sign("HALLO", SEdSecret),
+    SEdPubEncoded = base64:encode(SEdPub),
+    SignedMessageEncoded = base64:encode(SignedMessage),
     Body = jiffy:encode(#{
         <<"phone">> => Phone,
         <<"code">> => Code,
-        <<"name">> => Name
+        <<"name">> => Name,
+        <<"s_ed_pub">> => SEdPubEncoded,
+        <<"signed_phrase">> => SignedMessageEncoded
         % TODO: add support for whisper keys
     }),
 
@@ -73,18 +81,17 @@ register(Phone, Code, Name, Options) ->
     Headers = [{"user-agent", UA}],
     Host = maps:get(host, Options, ?DEFAULT_HOST),
     Port = maps:get(port, Options, ?DEFAULT_PORT),
-    Request = {"http://" ++ Host ++ ":" ++ Port ++ "/api/registration/register", Headers, "application/json", Body},
+    Request = {"http://" ++ Host ++ ":" ++ Port ++ "/api/registration/register2", Headers, "application/json", Body},
     {ok, Response} = httpc:request(post, Request, [{timeout, 30000}], []),
     case Response of
         {{_, 200, _}, _ResHeaders, ResponseBody} ->
             ResData = jiffy:decode(ResponseBody, [return_maps]),
             #{
-                <<"password">> := Password,
                 <<"uid">> := Uid,
                 <<"phone">> := Phone,
                 <<"result">> := <<"ok">>
             } = ResData,
-            {ok, Uid, Password, ResData};
+            {ok, Uid, ResData};
         {{_, HTTPCode, _}, _ResHeaders, ResponseBody} ->
             ResData = jiffy:decode(ResponseBody, [return_maps]),
             {error, {HTTPCode, ResData}}

@@ -46,62 +46,6 @@ process([<<"registration">>, <<"request_otp">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
     process_otp_request(Data, IP, Headers, true);
 
-process([<<"registration">>, <<"register">>],
-        #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
-    try
-        ClientIP = util_http:get_ip(IP, Headers),
-        UserAgent = util_http:get_user_agent(Headers),
-        ?INFO("registration request: r:~p ip:~p ua:~s", [Data, ClientIP, UserAgent]),
-        Payload = jiffy:decode(Data, [return_maps]),
-        Phone = maps:get(<<"phone">>, Payload),
-        Code = maps:get(<<"code">>, Payload),
-        Name = maps:get(<<"name">>, Payload),
-
-        check_ua(UserAgent),
-        check_sms_code(Phone, Code),
-        LName = check_name(Name),
-
-        {ok, Phone, Uid, Password} = finish_registration(Phone, LName, UserAgent),
-        process_whisper_keys(Uid, Payload),
-
-        ?INFO("registration complete uid:~s, phone:~s", [Uid, Phone]),
-        {200, ?HEADER(?CT_JSON),
-            jiffy:encode({[
-                {uid, Uid},
-                {phone, Phone},
-                {password, Password},
-                {name, LName},
-                {result, ok}
-            ]})}
-    catch
-        error : bad_user_agent ->
-            ?ERROR("register error: bad_user_agent ~p", [Headers]),
-            log_register_error(bad_user_agent),
-            util_http:return_400();
-        error : invalid_client_version ->
-            ?ERROR("register error: invalid_client_version ~p", [Headers]),
-            util_http:return_400(invalid_client_version);
-        error : wrong_sms_code ->
-            ?INFO("register error: code missmatch data:~s", [Data]),
-            log_register_error(wrong_sms_code),
-            util_http:return_400(wrong_sms_code);
-        error: {badkey, MissingField} when is_binary(MissingField)->
-            BadKeyError = util:to_atom(<<"missing_", MissingField/binary>>),
-            log_register_error(BadKeyError),
-            util_http:return_400(BadKeyError);
-        error: {wk_error, Reason} ->
-            log_register_error(wk_error),
-            util_http:return_400(Reason);
-        error: invalid_name ->
-            log_register_error(invalid_name),
-            util_http:return_400(invalid_name);
-        error : Reason : Stacktrace  ->
-            log_register_error(server_error),
-            ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
-            util_http:return_500()
-    end;
-
-
 %% Newer version of `register` API. Uses spub instead of password.
 %% TODO(vipin): Refactor error handling code.
 process([<<"registration">>, <<"register2">>],
@@ -177,61 +121,6 @@ process([<<"registration">>, <<"register2">>],
         error : Reason : Stacktrace  ->
             log_register_error(server_error),
             ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
-            util_http:return_500()
-    end;
-
-process([<<"registration">>, <<"update_key">>],
-        #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
-    try
-        ClientIP = util_http:get_ip(IP, Headers),
-        UserAgent = util_http:get_user_agent(Headers),
-        ?INFO("update_key request: r:~p ip:~s ua:~s", [Data, ClientIP, UserAgent]),
-        Payload = jiffy:decode(Data, [return_maps]),
-        Uid = maps:get(<<"uid">>, Payload),
-        Password = maps:get(<<"password">>, Payload),
-        SEdPub = maps:get(<<"s_ed_pub">>, Payload),
-        SignedPhrase = maps:get(<<"signed_phrase">>, Payload),
-
-        check_ua(UserAgent),
-        check_password(Uid, Password),
-        SEdPubBin = base64:decode(SEdPub),
-        check_s_ed_pub_size(SEdPubBin),
-        SignedPhraseBin = base64:decode(SignedPhrase),
-        check_signed_phrase(SignedPhraseBin, SEdPubBin),
-
-        SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
-        ok = update_key(Uid, SPub),
-        ?INFO("update key complete uid:~s", [Uid]),
-        {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
-    catch
-        error : bad_user_agent ->
-            ?ERROR("register error: bad_user_agent ~p", [Headers]),
-            util_http:return_400();
-        error : invalid_client_version ->
-            ?ERROR("register error: invalid_client_version ~p", [Headers]),
-            util_http:return_400(invalid_client_version);
-        error : invalid_password ->
-            ?INFO("register error: invalid password, data:~s", [Data]),
-            util_http:return_400(invalid_password);
-        error : invalid_s_ed_pub ->
-            ?ERROR("register error: invalid_s_ed_pub ~p", [Data]),
-            util_http:return_400(invalid_s_ed_pub);
-        error : invalid_signed_phrase ->
-            ?ERROR("register error: invalid_signed_phrase ~p", [Data]),
-            util_http:return_400(invalid_signed_phrase);
-        error : unable_to_open_signed_phrase ->
-            ?ERROR("register error: unable_to_open_signed_phrase ~p", [Data]),
-            util_http:return_400(unable_to_open_signed_phrase);
-        error: {badkey, <<"uid">>} ->
-            util_http:return_400(missing_uid);
-        error: {badkey, <<"password">>} ->
-            util_http:return_400(missing_password);
-        error: {badkey, <<"s_ed_pub">>} ->
-            util_http:return_400(missing_s_ed_pub);
-        error: {badkey, <<"signed_phrase">>} ->
-            util_http:return_400(missing_signed_phrase);
-        error : Reason : Stacktrace  ->
-            ?ERROR("update key error: ~p, ~p", [Reason, Stacktrace]),
             util_http:return_500()
     end;
 
@@ -368,15 +257,6 @@ get_otp_method(Method) ->
         _ ->
             ?ERROR("Invalid Method:~p", [Method]),
             error(bad_method)
-    end.
-
--spec check_password(binary(), binary()) -> ok.
-check_password(Uid, Password) ->
-    case ejabberd_auth:check_spub(Uid, Password) of
-        true -> ok;
-        false ->
-            ?ERROR("Invalid Password for Uid:~p", [Uid]),
-            error(invalid_password)
     end.
 
 -spec check_s_ed_pub_size(SEdPub :: binary()) -> ok | error.
@@ -534,22 +414,12 @@ update_key(Uid, SPub) ->
     stat:count("HA/account", "update_s_pub"),
     model_auth:set_spub(Uid, SPub).
 
-%% TODO: remove this function.
--spec finish_registration(phone(), binary(), binary()) -> {ok, phone(), binary(), binary()}.
-finish_registration(Phone, Name, UserAgent) ->
-    Password = util:generate_password(),
-    Host = util:get_host(),
-    {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, Password, Name, UserAgent),
-    %% Action = login, updates the password.
-    %% Action = register, creates a new user id and registers the user for the first time.
-    log_registration(Phone, Action, UserAgent),
-    {ok, Phone, Uid, Password}.
 
 -spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
 finish_registration_spub(Phone, Name, UserAgent, SPub) ->
     Host = util:get_host(),
     {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, SPub, Name, UserAgent),
-    %% Action = login, updates the password.
+    %% Action = login, updates the spub.
     %% Action = register, creates a new user id and registers the user for the first time.
     log_registration(Phone, Action, UserAgent),
     {ok, Phone, Uid}.
