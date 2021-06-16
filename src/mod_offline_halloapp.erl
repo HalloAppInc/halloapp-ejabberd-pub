@@ -163,7 +163,9 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
             State;
         _ ->
             RetryCount = OfflineMessage#offline_message.retry_count,
-            CountTagValue = "retry" ++ util:to_list(RetryCount),
+            %% This is the retryCount for sending it the next time,
+            %% so, we need to decrement this value for our counters.
+            CountTagValue = "retry" ++ util:to_list(RetryCount - 1),
             stat:count("HA/offline_messages", "retry_count", 1, [{count, CountTagValue}]),
             ok = model_messages:ack_message(Uid, MsgId),
             ejabberd_hooks:run(user_ack_packet, Server, [Ack, OfflineMessage]),
