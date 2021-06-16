@@ -257,13 +257,11 @@ audience_test(_Conf) ->
     PbAudience = struct_util:create_pb_audience(all, [?UID2, ?UID3, ?UID4, ?UID5]),
     PbPost = struct_util:create_pb_post(?POST_ID1, ?UID1, ?NAME1, ?PAYLOAD1, PbAudience, ?TS1),
     PbFeedItem = struct_util:create_feed_item(publish, PbPost),
-    IqId = util:random_str(10),
-    IqRes = ha_client:send_iq(C1, IqId, set, PbFeedItem),
+    IqRes = ha_client:send_iq(C1, set, PbFeedItem),
 
     % make sure IQ was successful
     #pb_packet{
         stanza = #pb_iq{
-            id = IqId,
             type = result,
             payload = #pb_feed_item{
                 action = publish,

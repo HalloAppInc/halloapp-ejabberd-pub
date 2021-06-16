@@ -401,7 +401,7 @@ action_post({{PostSize, NumRecepients}, State}) ->
 
     % TODO: handle errors here. Maybe reconnect if no connection. Connection sometimes get dropped
     % because some other bot registers with the same number
-    Response = ha_client:send_iq(C, util:random_str(10), set, FeedItem),
+    Response = ha_client:send_iq(C, set, FeedItem),
     case Response of
         {error, closed} -> do_disconnect(State2);
         _ ->
@@ -453,13 +453,11 @@ do_phonebook_full_sync(Phones, State) ->
         is_last = true,
         contacts = [#pb_contact{raw = P} || P <- Phones]
     },
-    Id = util:random_str(6),
     % TODO: handle timeouts here, also handle errors
-    Response = ha_client:send_iq(C, Id, set, PhonebookSync),
+    Response = ha_client:send_iq(C, set, PhonebookSync),
     End = util:now_ms(),
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = #pb_contact_list{
                 contacts = ResultContacts

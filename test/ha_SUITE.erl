@@ -151,12 +151,10 @@ create_test_accounts() ->
 
 ping_test(_Conf) ->
     {ok, C} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
-    Id = <<"iq_id_1">>,
     Payload = #pb_ping{},
-    Result = ha_client:send_iq(C, Id, get, Payload),
+    Result = ha_client:send_iq(C, get, Payload),
     #pb_packet{
         stanza = #pb_iq{
-            id = Id,
             type = result,
             payload = undefined
         }
@@ -170,9 +168,8 @@ delete_account_test(_Conf) ->
     ok = model_phone:add_phone(Phone, ?UID7),
     ok = ejabberd_auth:set_spub(?UID7, ?SPUB1),
     {ok, C} = ha_client:connect_and_login(?UID7, ?KEYPAIR1),
-    Id = <<"iq_id_1">>,
     Payload = #pb_delete_account{phone = <<"+14703381473">>},
-    Result = ha_client:send_iq(C, Id, set, Payload),
+    Result = ha_client:send_iq(C, set, Payload),
     ?assertEqual(result, Result#pb_packet.stanza#pb_iq.type),
     ?assertEqual(#pb_delete_account{}, Result#pb_packet.stanza#pb_iq.payload),
     ok.
