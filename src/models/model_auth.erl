@@ -29,9 +29,6 @@
 
 %% API
 -export([
-    set_password/3,
-    get_password/1,
-    delete_password/1,
     set_spub/2,
     get_spub/1,
     delete_spub/1,
@@ -61,29 +58,8 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
--define(FIELD_SALT, <<"sal">>).
--define(FIELD_HASHED_PASSWORD, <<"hpw">>).
 -define(FIELD_TIMESTAMP_MS, <<"tms">>).
 -define(FIELD_S_PUB, <<"spb">>).
-
--spec set_password(Uid :: uid(), Salt :: binary(), HashedPassword :: binary()) ->
-    ok  | {error, any()}.
-set_password(Uid, Salt, HashedPassword) ->
-    set_password(Uid, Salt, HashedPassword, util:now_ms()).
-
-
--spec set_password(Uid :: uid(), Salt :: binary(), HashedPassword :: binary(),
-        TimestampMs :: integer()) -> ok  | {error, any()}.
-set_password(Uid, Salt, HashedPassword, TimestampMs) ->
-    Commands = [
-        ["DEL", password_key(Uid)],
-        ["HSET", password_key(Uid),
-            ?FIELD_SALT, Salt,
-            ?FIELD_HASHED_PASSWORD, HashedPassword,
-            ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)]
-    ],
-    {ok, [_DelResult, <<"3">>]} = multi_exec(Commands),
-    ok.
 
 
 -spec set_spub(Uid :: binary(), SPub :: binary()) -> ok  | {error, any()}.
@@ -97,19 +73,6 @@ set_spub(Uid, SPub) ->
     ],
     {ok, [_DelResult, <<"2">>]} = multi_exec(Commands),
     ok.
-
-
-%% TODO: spec says this function returns {error, missing}, but it does not
--spec get_password(Uid :: uid()) -> {ok, password()} | {error, missing}.
-get_password(Uid) ->
-    {ok, [Salt, HashedPassword, TsMsBinary]} = q(["HMGET", password_key(Uid),
-        ?FIELD_SALT, ?FIELD_HASHED_PASSWORD, ?FIELD_TIMESTAMP_MS]),
-    {ok, #password{
-        salt = Salt,
-        hashed_password = HashedPassword,
-        ts_ms = util_redis:decode_ts(TsMsBinary),
-        uid = Uid
-    }}.
 
 
 -spec get_spub(Uid :: binary()) -> {ok, binary()} | {error, missing}.
@@ -143,12 +106,6 @@ unlock_user(Uid) ->
         <<Locked:LockedSize/binary, Rest/binary>> -> set_spub(Uid, Rest);
         _ -> ok
     end.
-        
-
--spec delete_password(Uid :: binary()) -> ok  | {error, any()}.
-delete_password(Uid) ->
-    {ok, _Res} = q(["DEL", password_key(Uid)]),
-    ok.
 
 
 -spec delete_spub(Uid :: binary()) -> ok  | {error, any()}.
@@ -167,10 +124,6 @@ multi_exec(Commands) ->
     [ExecResult|_Rest] = lists:reverse(Results),
     ExecResult.
 
-
--spec password_key(binary()) -> binary().
-password_key(Uid) ->
-    <<?PASSWORD_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 -spec spub_key(binary()) -> binary().
 spub_key(Uid) ->
