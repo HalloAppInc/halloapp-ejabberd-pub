@@ -39,6 +39,7 @@
 % zset of all client version
 -define(CLIENT_VERSION_ALL_KEY, <<"all_client_versions:">>).
 -define(VERSION_KEY, <<"v:">>).
+-define(LANG_KEY, <<"l:">>).
 %% To capture creation of inactive uids and start of their deletion.
 -define(INACTIVE_UIDS_GEN_KEY, <<"inactive_uids_gen">>).
 -define(INACTIVE_UIDS_DELETION_KEY, <<"inactive_uids_deletion">>).

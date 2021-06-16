@@ -124,6 +124,10 @@ version_key_test() ->
     setup(),
     ?assertEqual(<<"v:{1}">>, model_accounts:version_key(1)).
 
+lang_key_test() ->
+    setup(),
+    ?assertEqual(<<"l:{1}">>, model_accounts:lang_key(1)).
+
 
 create_account_test() ->
     setup(),
@@ -322,6 +326,34 @@ push_token_test() ->
     ?assertEqual(ok, model_accounts:set_push_token(?UID2, ?PUSH_TOKEN_OS2,
             ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2, ?PUSH_LANG_ID2)),
     ?assertEqual({ok, ?PUSH_INFO2}, model_accounts:get_push_token(?UID2)).
+
+
+lang_id_count_test() ->
+    setup(),
+    persistent_term:put(lang_id, true),
+    LangCountsMap1 = model_accounts:count_lang_keys(),
+    ?assertEqual(0, maps:get(?PUSH_LANG_ID1, LangCountsMap1, 0)),
+    ?assertEqual(0, maps:get(?PUSH_LANG_ID2, LangCountsMap1, 0)),
+
+    ok = model_accounts:set_push_token(?UID1, ?PUSH_TOKEN_OS1,
+            ?PUSH_TOKEN1, ?PUSH_TOKEN_TIMESTAMP1, ?PUSH_LANG_ID1),
+    LangCountsMap2 = model_accounts:count_lang_keys(),
+    ?assertEqual(1, maps:get(?PUSH_LANG_ID1, LangCountsMap2, 0)),
+    ?assertEqual(0, maps:get(?PUSH_LANG_ID2, LangCountsMap2, 0)),
+
+    ok = model_accounts:set_push_token(?UID2, ?PUSH_TOKEN_OS2,
+            ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2, ?PUSH_LANG_ID1),
+    LangCountsMap3 = model_accounts:count_lang_keys(),
+    ?assertEqual(2, maps:get(?PUSH_LANG_ID1, LangCountsMap3, 0)),
+    ?assertEqual(0, maps:get(?PUSH_LANG_ID2, LangCountsMap3, 0)),
+
+    ok = model_accounts:set_push_token(?UID2, ?PUSH_TOKEN_OS2,
+            ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2, ?PUSH_LANG_ID2),
+    LangCountsMap4 = model_accounts:count_lang_keys(),
+    ?assertEqual(1, maps:get(?PUSH_LANG_ID1, LangCountsMap4, 0)),
+    ?assertEqual(1, maps:get(?PUSH_LANG_ID2, LangCountsMap4, 0)),
+    persistent_term:erase(lang_id),
+    ok.
 
 
 push_post_test() ->

@@ -44,6 +44,7 @@
     trigger_count_users/0,
     trigger_zset_cleanup/0,
     trigger_count_users_by_version/0,
+    trigger_count_users_by_langid/0,
     trigger_check_sms_reg/0,
     compute_counts_by_version/0,
     compute_counts/0,
@@ -144,6 +145,10 @@ trigger_count_users() ->
 trigger_count_users_by_version() ->
     spawn(?MODULE, compute_counts_by_version, []).
 
+-spec trigger_count_users_by_langid() -> ok.
+trigger_count_users_by_langid() ->
+    spawn(?MODULE, compute_counts_by_langid, []).
+
 -spec trigger_check_sms_reg() -> ok.
 trigger_check_sms_reg() ->
     spawn(?MODULE, check_sms_reg, []).
@@ -204,6 +209,22 @@ compute_counts_by_version() ->
     ?INFO("Counting took ~p ms", [End - Start]),
     ok.
 
+
+compute_counts_by_langid() ->
+    ?INFO("LangId counts start"),
+    Start = util:now_ms(),
+
+    LangCountsMap = model_accounts:count_lang_keys(),
+    maps:foreach(
+        fun({LangId, Count}) ->
+            stat:gauge("HA/lang_id", "all_users", Count, [{lang_id, LangId}])
+        end, LangCountsMap),
+
+    End = util:now_ms(),
+    ?INFO("Counting took ~p ms", [End - Start]),
+    ok.
+
+
 check_sms_reg() ->
     ?INFO("Check SMS reg start"),
     Start = util:now_ms(),
@@ -261,7 +282,8 @@ init(_Stuff) ->
             {ok, _Tref4} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_version, []),
             {ok, _Tref5} = timer:apply_interval(1 * ?HOURS_MS, mod_athena_stats, run_athena_queries, []),
             {ok, _Tref6} = timer:apply_interval(15 * ?MINUTES_MS, ?MODULE, trigger_check_sms_reg, []),
-            {ok, _Tref7} = timer:apply_interval(1 * ?HOURS_MS, mod_inactive_accounts, manage, []);
+            {ok, _Tref7} = timer:apply_interval(1 * ?HOURS_MS, mod_inactive_accounts, manage, []),
+            {ok, _Tref4} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_langid, []);
         _ ->
             ok
     end,

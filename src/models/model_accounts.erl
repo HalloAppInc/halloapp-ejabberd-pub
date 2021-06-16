@@ -36,6 +36,7 @@
 -export([
     account_key/1,
     version_key/1,
+    lang_key/1,
     uids_to_delete_key/1
 ]).
 
@@ -72,6 +73,7 @@
     get_push_info/1,
     set_push_token/5,
     get_push_token/1,
+    get_lang_id/1,
     remove_push_token/1,
     remove_push_info/1,
     set_push_post_pref/2,
@@ -101,6 +103,7 @@
     is_phone_traced/1,
     count_version_keys/0,
     cleanup_version_keys/1,
+    count_lang_keys/0,
     add_uid_to_delete/1,
     get_uids_to_delete/1,
     count_uids_to_delete/0,
@@ -206,11 +209,12 @@ delete_account(Uid) ->
     DeletionTsMs = util:now_ms(),
     case q(["HMGET", account_key(Uid), ?FIELD_PHONE,
             ?FIELD_CREATION_TIME, ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS,
-            ?FIELD_USER_AGENT, ?FIELD_CLIENT_VERSION]) of
+            ?FIELD_USER_AGENT, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID]) of
         {ok, [undefined | _]} ->
             ?WARNING("Looks like it is already deleted, Uid: ~p", [Uid]),
             ok;
-        {ok, [_Phone, CreationTsMsBin, LastActivityTsMs, ActivityStatus, UserAgent, ClientVersion]} ->
+        {ok, [_Phone, CreationTsMsBin, LastActivityTsMs, ActivityStatus,
+                UserAgent, ClientVersion, LangId]} ->
             [{ok, _}, RenameResult, {ok, _}, DecrResult] = qp([
                 ["HSET", deleted_uid_key(Uid),
                             ?FIELD_CREATION_TIME, CreationTsMsBin,
@@ -229,9 +233,27 @@ delete_account(Uid) ->
                 {error, Error} ->
                     ?ERROR("Uid: ~s account delete failed ~p", [Uid, Error])
             end,
+            decrement_version_and_lang_counters(Uid, ClientVersion, LangId),
             {ok, _} = DecrResult;
         {error, _} ->
             ?ERROR("Error, fetching details: ~p", [Uid]),
+            ok
+    end,
+    ok.
+
+
+-spec decrement_version_and_lang_counters(Uid :: binary(), ClientVersion :: binary(), LangId :: binary()) -> ok.
+decrement_version_and_lang_counters(Uid, ClientVersion, LangId) ->
+    %% Decrement version counter
+    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+    VersionSlot = HashSlot rem ?NUM_VERSION_SLOTS,
+    {ok, _} = q(["HINCRBY", version_key(VersionSlot), ClientVersion, -1]),
+    case persistent_term:get(lang_id, undefined) =:= true andalso LangId =/= undefined of
+        true ->
+            %% Decrement lang counter
+            LangSlot = HashSlot rem ?NUM_SLOTS,
+            {ok, _} = q(["HINCRBY", lang_key(LangSlot), LangId, -1]);
+        _ ->
             ok
     end,
     ok.
@@ -408,16 +430,48 @@ get_account(Uid) ->
 %% Push-tokens related API
 %%====================================================================
 
+-spec get_lang_id(Uid :: binary()) -> {ok, binary() | undefined}.
+get_lang_id(Uid) ->
+    {ok, LangId} = q(["HGET", account_key(Uid), ?FIELD_PUSH_LANGUAGE_ID]),
+    {ok, LangId}.
 
+
+%% We will first run a migration to set values appropriately for lang_id keys on all slots.
+%% Then set the value for lang_id key in persistent_term storage.
+%% In the next diff - we can cleanup this code.
 -spec set_push_token(Uid :: uid(), Os :: binary(), PushToken :: binary(),
         TimestampMs :: integer(), LangId :: binary()) -> ok.
 set_push_token(Uid, Os, PushToken, TimestampMs, LangId) ->
-    {ok, _Res} = q(
-            ["HMSET", account_key(Uid),
+    {ok, OldLangId} = get_lang_id(Uid),
+    {ok, _Res} = q(["HMSET", account_key(Uid),
             ?FIELD_PUSH_OS, Os,
             ?FIELD_PUSH_TOKEN, PushToken,
             ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
             ?FIELD_PUSH_LANGUAGE_ID, LangId]),
+    update_lang_counters(Uid, LangId, OldLangId),
+    ok.
+
+
+-spec update_lang_counters(Uid :: binary(), LangId :: binary(), OldLangId :: binary()) -> ok.
+update_lang_counters(Uid, LangId, OldLangId) ->
+    case persistent_term:get(lang_id, undefined) of
+        true ->
+            HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+            LangSlot = HashSlot rem ?NUM_SLOTS,
+            case OldLangId of
+                undefined ->
+                    [{ok, _}] = qp([["HINCRBY", lang_key(LangSlot), LangId, 1]]),
+                    ok;
+                LangId -> ok;
+                OldLangId ->
+                    [{ok, _}, {ok, _}] = qp([
+                            ["HINCRBY", lang_key(LangSlot), LangId, 1],
+                            ["HINCRBY", lang_key(LangSlot), OldLangId, -1]
+                        ]),
+                    ok
+            end;
+        _ -> ok
+    end,
     ok.
 
 
@@ -467,8 +521,7 @@ get_push_info(Uid) ->
 
 -spec remove_push_info(Uid :: uid()) -> ok | {error, missing}.
 remove_push_info(Uid) ->
-    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN,
-            ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID]),
+    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID]),
     ok.
 
 
@@ -670,6 +723,18 @@ cleanup_version_keys(Versions) ->
     ok.
 
 
+-spec count_lang_keys() -> map().
+count_lang_keys() ->
+    lists:foldl(
+        fun (Slot, Acc) ->
+            {ok, Res} = q(["HGETALL", lang_key(Slot)]),
+            LangIdMap = util:list_to_map(Res),
+            util:add_and_merge_maps(Acc, LangIdMap)
+        end,
+        #{},
+        lists:seq(0, ?NUM_SLOTS - 1)).
+
+
 
 %%====================================================================
 %% Tracing related API
@@ -869,6 +934,10 @@ broadcast_key(Uid) ->
 version_key(Slot) ->
     SlotBinary = integer_to_binary(Slot),
     <<?VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
+
+lang_key(Slot) ->
+    SlotBinary = integer_to_binary(Slot),
+    <<?LANG_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
 
 inactive_uids_mark_key(Key) ->
     <<?TO_DELETE_UIDS_KEY/binary, <<":">>/binary, Key/binary>>.
