@@ -41,7 +41,8 @@
     send_iq/3,
     send_iq/4,
     send_ack/2,
-    clear_queue/1
+    clear_queue/1,
+    next_id/1
 ]).
 
 -export([
@@ -60,7 +61,8 @@
     state = auth :: auth | connected,
     recv_buf = <<>> :: binary(),
     options :: options(),
-    noise_socket :: noise_socket()
+    noise_socket :: noise_socket(),
+    iq_id :: binary()
 }).
 
 -type state() :: #state{}.
@@ -174,6 +176,9 @@ stop(Client) ->
 clear_queue(Client) ->
     gen_server:call(Client, {clear_queue}).
 
+-spec next_id(Client :: pid()) -> binary().
+next_id(Client) ->
+    gen_server:call(Client, {next_id}).
 
 % Check the received messages for the first message where Func(Message) returns true.
 % If no such message is already received it waits for such message to arrive from the server.
@@ -219,7 +224,7 @@ login(Client, Uid, Keypair) ->
 
 -spec send_iq(Client :: pid(), Type :: atom(), Payload :: term()) -> pb_iq().
 send_iq(Client, Type, Payload) ->
-    send_iq(Client, util_id:new_short_id(), Type, Payload).
+    send_iq(Client, next_id(Client), Type, Payload).
 
 -spec send_iq(Client :: pid(), Id :: any(), Type :: atom(), Payload :: term()) -> pb_iq().
 send_iq(Client, Id, Type, Payload) ->
@@ -256,7 +261,8 @@ init([Options] = _Args) ->
         state = auth,
         recv_buf = <<"">>,
         options = Options,
-        noise_socket = undefined
+        noise_socket = undefined,
+        iq_id = util_id:new_short_id()
     },
     {ok, State}.
 
@@ -343,7 +349,11 @@ handle_call({wait_for, MatchFun}, _From, State) ->
     {reply, Packet2, NewState2};
 
 handle_call({clear_queue}, _From, State) ->
-    {reply, ok, State#state{recv_q = queue:new()}}.
+    {reply, ok, State#state{recv_q = queue:new()}};
+
+handle_call({next_id}, _From, #state{iq_id = LastId} = State) ->
+    NextId = util_id:next_short_id(LastId),
+    {reply, NextId, State#state{iq_id = NextId}}.
 
 
 handle_cast(Something, State) ->

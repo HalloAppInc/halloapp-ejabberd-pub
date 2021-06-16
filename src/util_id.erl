@@ -19,7 +19,8 @@
     new_avatar_id/0,
     new_long_id/0,
     new_short_id/0,
-    new_uuid/0
+    new_uuid/0,
+    next_short_id/1
 ]).
 
 -define(GID_SIZE, 22).
@@ -59,4 +60,13 @@ new_long_id() ->
 -spec new_short_id() -> binary().
 new_short_id() ->
     base64url:encode(crypto:strong_rand_bytes(3)).
+
+-spec next_short_id(Id :: binary()) -> binary().
+next_short_id(Id) when byte_size(Id) < 8 ->
+    Bin = base64url:decode(Id),
+    BitSize = byte_size(Bin) * 8,
+    <<IntId:BitSize/integer>> = Bin,
+    IntId2 = (IntId + 1) rem trunc(math:pow(2, BitSize)),
+    Bin2 = <<IntId2:BitSize/integer>>,
+    base64url:encode(Bin2).
 
