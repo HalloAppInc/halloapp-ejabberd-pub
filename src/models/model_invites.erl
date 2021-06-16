@@ -44,7 +44,7 @@
 -endif.
 
 
--define(INVITE_TTL, 60 * ?DAYS).
+-define(INVITE_TTL, 90 * ?DAYS).
 
 -define(FIELD_NUM_INV, <<"in">>).
 -define(FIELD_SINV_TS, <<"it">>).
