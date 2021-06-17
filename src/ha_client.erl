@@ -36,10 +36,13 @@
     wait_for/2,
     wait_for_msg/1,
     wait_for_msg/2,
+    wait_for_ack/2,
     wait_for_eoq/1,
     login/3,
     send_iq/3,
     send_iq/4,
+    send_msg/4,
+    send_msg/5,
     send_ack/2,
     clear_queue/1,
     next_id/1
@@ -74,18 +77,21 @@
     version => binary(),
     host => string(),
     port => string(),
+    mode => atom(),
     _ => _
 }.
 
 %% TODO(murali@): add version based tests.
--define(DEFAUL_UA, <<"HalloApp/Android0.129">>).
+-define(DEFAULT_MODE, active).
+-define(DEFAULT_UA, <<"HalloApp/Android0.129">>).
 -define(DEFAULT_RESOURCE, <<"android">>).
 
 -define(DEFAULT_OPT, #{
     auto_send_acks => true,
     auto_send_pongs => true,
     host => "localhost",
-    port => 5222
+    port => 5222,
+    mode => active
 }).
 
 
@@ -134,6 +140,29 @@ send_ack(Client, MsgId) ->
         }
     },
     send(Client, AckPacket).
+
+
+-spec send_msg(Client :: pid(), Type :: atom(), ToUid :: binary(),
+    Payload :: term()) -> ok | {error, closed | inet:posix()}.
+send_msg(Client, Type, ToUid, Payload) ->
+    Id = util_id:new_msg_id(),
+    send_msg(Client, Id, Type, ToUid, Payload).
+
+
+-spec send_msg(Client :: pid(), Id :: binary(), Type :: atom(), ToUid :: binary(),
+    Payload :: term()) -> ok | {error, closed | inet:posix()}.
+send_msg(Client, Id, Type, ToUid, Payload) ->
+    Packet = #pb_packet{
+        stanza = #pb_msg{
+            id = Id,
+            to_uid = ToUid,
+            type = Type,
+            payload = Payload
+        }
+    },
+    send(Client, Packet),
+    Response = wait_for_ack(Client, Id),
+    ok.
 
 
 % Get the next received message or undefined if no message is received.
@@ -207,6 +236,17 @@ wait_for_msg(Client, PayloadTag) ->
                 _Any -> false
             end
         end).
+
+
+-spec wait_for_ack(Client :: pid(), Id :: binary()) -> pb_packet().
+wait_for_ack(Client, Id) ->
+    wait_for(Client,
+            fun (P) ->
+                case P of
+                    #pb_packet{stanza = #pb_ack{id = Id}} -> true;
+                    _Any -> false
+                end
+            end).
 
 -spec wait_for_eoq(Client :: pid()) -> pb_packet().
 wait_for_eoq(Client) ->
@@ -562,9 +602,9 @@ noise_xx(Uid, ClientKeypair, #state{options = Options, socket = TcpSock} = State
 
             HaAuth = #pb_auth_request{
                 uid = Uid,
-                client_mode = #pb_client_mode{mode = active},
+                client_mode = #pb_client_mode{mode = maps:get(mode, Options, ?DEFAULT_MODE)},
                 client_version = #pb_client_version{
-                    version = maps:get(version, Options, ?DEFAUL_UA)
+                    version = maps:get(version, Options, ?DEFAULT_UA)
                 },
                 resource = maps:get(resource, Options, ?DEFAULT_RESOURCE)
             },

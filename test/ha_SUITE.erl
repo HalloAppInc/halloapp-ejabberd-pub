@@ -54,7 +54,8 @@ groups() -> [
     chatstate_tests:group(),
     presence_tests:group(),
     window_tests:group(),
-    export_tests:group()
+    export_tests:group(),
+    mode_tests:group()
 ].
 
 % List of all the tests or group of tests that are part of this SUITE.
@@ -74,6 +75,7 @@ all() -> [
     {group, chatstate},
     {group, presence},
     {group, export},
+    {group, mode},
     dummy_test,
     ping_test,
     delete_account_test,
