@@ -41,11 +41,19 @@ clear() ->
 
 
 create_group_IQ(Uid, Name) ->
-    create_group_IQ(Uid, Name, []).
+    create_group_IQ(Uid, Name, [], false).
 
 
 create_group_IQ(Uid, Name, Uids) ->
-    MemberSt = [#pb_group_member{uid = Ouid} || Ouid <- Uids],
+    create_group_IQ(Uid, Name, Uids, false).
+
+
+create_group_IQ(Uid, Name, Uids, IsShuffle) ->
+    Uids2 = case IsShuffle of
+        true -> util:random_shuffle(Uids);
+        false -> Uids
+    end,
+    MemberSt = [#pb_group_member{uid = Ouid} || Ouid <- Uids2],
     #pb_iq{
         from_uid = Uid,
         type = set,
@@ -303,14 +311,18 @@ create_group_with_identity_keys(Uid, Name, Members) ->
         end, {[], #{}}, SortedList),
     AudienceHash = crypto:hash(?SHA256, lists:reverse(IKBinList)),
     <<TruncAudienceHash:?TRUNC_HASH_LENGTH/binary, _Rem/binary>> = AudienceHash,
-    IQ = create_group_IQ(Uid, Name, Members),
+    IQ = create_group_IQ(Uid, Name, Members, true),
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
     #pb_group_stanza{gid = Gid} = GroupSt,
     {Gid, TruncAudienceHash, UidToIKMap}.
 
 create_group(Uid, Name, Members) ->
-    IQ = create_group_IQ(Uid, Name, Members),
+    create_group(Uid, Name, Members, false).
+
+
+create_group(Uid, Name, Members, IsShuffle) ->
+    IQ = create_group_IQ(Uid, Name, Members, IsShuffle),
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
     #pb_group_stanza{gid = Gid} = GroupSt,
