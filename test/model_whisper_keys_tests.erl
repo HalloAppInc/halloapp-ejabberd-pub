@@ -149,3 +149,18 @@ export_keys_test() ->
         {ok, ?IDENTITY_KEY1, ?SIGNED_KEY1, [?OTP1_KEY1, ?OTP1_KEY2, ?OTP1_KEY3]},
         model_whisper_keys:export_keys(?UID1)).
 
+
+get_identity_keys_test() ->
+    setup(),
+    ?assertEqual(#{}, model_whisper_keys:get_identity_keys([?UID1, ?UID2, ?UID3])),
+
+    ?assertEqual(ok, model_whisper_keys:set_keys(?UID1, ?IDENTITY_KEY1, ?SIGNED_KEY1,
+            [?OTP1_KEY1, ?OTP1_KEY2, ?OTP1_KEY3])),
+    ?assertEqual(#{?UID1 => ?IDENTITY_KEY1},
+        model_whisper_keys:get_identity_keys([?UID1, ?UID2, ?UID3])),
+
+    ?assertEqual(ok, model_whisper_keys:set_keys(?UID2, ?IDENTITY_KEY2, ?SIGNED_KEY2,
+            [?OTP2_KEY1, ?OTP2_KEY2, ?OTP2_KEY3])),
+    ?assertEqual(#{?UID1 => ?IDENTITY_KEY1, ?UID2 => ?IDENTITY_KEY2},
+        model_whisper_keys:get_identity_keys([?UID1, ?UID2, ?UID3])).
+
