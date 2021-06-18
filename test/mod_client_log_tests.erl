@@ -44,7 +44,13 @@ setup() ->
     os:putenv("EJABBERD_LOG_PATH", "../logs/"),
     del_dir(mod_client_log:client_log_dir()),
     filelib:ensure_dir(filename:join([mod_client_log:client_log_dir(), "FILE"])), % making sure fresh copy at each test
+    tutil:setup(),
+    ha_redis:start(),
+    clear(),
     ok.
+
+clear() ->
+  tutil:cleardb(redis_accounts).
 
 make_timer() ->
     {ok, Tref1} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, fun() -> ok end, []),
