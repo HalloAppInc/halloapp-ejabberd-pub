@@ -53,3 +53,9 @@ login_success_test(_Conf) ->
     ok = ha_client:stop(C),
     ok.
 
+spub_mismatch_test(_Conf) ->
+    true = model_accounts:account_exists(?UID1),
+    %% using a wrong keypair here.
+    {error, spub_mismatch} = ha_client:connect_and_login(?UID1, ?KEYPAIR2),
+    ok.
+
