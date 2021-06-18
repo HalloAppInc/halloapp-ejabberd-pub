@@ -57,7 +57,6 @@ init([]) ->
         worker(ejabberd_captcha),
         worker(ext_mod),
         supervisor(ejabberd_gen_mod_sup, gen_mod),
-        worker(ejabberd_auth),
         worker(ejabberd_monitor) %% must be the last one in the list.
         %% ejabberd_monitor needs to be started last always, since it monitors all the other processes.
     ]}}.

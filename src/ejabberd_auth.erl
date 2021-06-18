@@ -8,7 +8,6 @@
 -module(ejabberd_auth).
 -author('alexey@process-one.net').
 -author('josh').
--behaviour(gen_server).
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -17,7 +16,6 @@
 
 %% External exports
 -export([
-    start_link/0,
     set_spub/2,
     check_spub/2,
     try_enroll/2,
@@ -28,9 +26,6 @@
     remove_user/2
 ]).
 
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
-
 -include("logger.hrl").
 -include("password.hrl").
 -include("account.hrl").
@@ -39,59 +34,10 @@
 -define(SALT_LENGTH, 16).
 -define(HOST, util:get_host()).
 
-%%%----------------------------------------------------------------------
-%%% Gen Server API
-%%%----------------------------------------------------------------------
-
--spec start_link() -> {ok, pid()} | {error, any()}.
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
-
-
-init([]) ->
-    start(?HOST),
-    {ok, #{}}.
-
-
-handle_call(Request, From, State) ->
-    ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
-    {noreply, State}.
-
-
-handle_cast(Msg, State) ->
-    ?WARNING("Unexpected cast: ~p", [Msg]),
-    {noreply, State}.
-
-
-handle_info(Info, State) ->
-    ?WARNING("Unexpected info: ~p", [Info]),
-    {noreply, State}.
-
-
-terminate(_Reason, _State) ->
-    stop(?HOST).
-
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
 
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
-
-start(_Host) ->
-    ok.
-
-
-stop(_Host) ->
-    ok.
-
-
--spec store_type() -> plain | scram | external.
-store_type() ->
-    external.
-
 
 -spec check_spub(binary(), binary()) -> false | true.
 check_spub(Uid, SPub) ->
