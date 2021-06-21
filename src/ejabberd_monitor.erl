@@ -183,7 +183,6 @@ compose_alerts_body(Alertname, Service, Severity, Message) ->
 
 get_processes_to_monitor() ->
     [
-        ejabberd_auth,
         ejabberd_local,
         ejabberd_cluster,
         ejabberd_iq,
