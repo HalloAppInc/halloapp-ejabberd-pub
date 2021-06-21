@@ -23,7 +23,7 @@ remove_password_key(Key, State) ->
             Command = ["DEL", Key],
             case DryRun of
                 true ->
-                    ?INFO("Key: ~p, would run command: ~p", [Command]);
+                    ?INFO("Key: ~p, would run command: ~p", [Key, Command]);
                 false ->
                     ok = ecredis:q(ecredis_auth, Command)
             end;

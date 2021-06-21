@@ -76,7 +76,8 @@
 
 
 %% RedisAuth
--define(PASSWORD_KEY, <<"pas:">>).
+%% old deleted/deprecated key
+% -define(PASSWORD_KEY, <<"pas:">>).
 -define(SPUB_KEY, <<"spb:">>).
 
 
