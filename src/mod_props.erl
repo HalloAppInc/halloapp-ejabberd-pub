@@ -94,7 +94,7 @@ get_props(Uid, ClientVersion) ->
         group_feed => true, %% whether the client can access group_feed or not.
         combine_feed => true, %% whether to combine content from group_feed and home feed.
         silent_chat_messages => 0, %% number of silent_chats client can send.
-        cleartext_chat_messages => true, %% whether to disable cleartext chat messages.
+        cleartext_chat_messages => false, %% whether to send cleartext chat messages.
         max_feed_video_duration => 600, %% duration in seconds for videos on feed.
         max_chat_video_duration => 600, %% duration in seconds for videos in chats.
         private_reactions => false, %% whether client can send private reactions.
