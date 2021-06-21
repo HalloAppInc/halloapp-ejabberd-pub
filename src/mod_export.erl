@@ -32,7 +32,8 @@
     reload/3,
     depends/2,
     mod_options/1,
-    process_local_iq/1
+    process_local_iq/1,
+    export_bucket/0
 ]).
 
 
@@ -86,6 +87,10 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
                 status = pending},
             pb:make_iq_result(IQ, Payload)
     end.
+
+-spec export_bucket() -> string().
+export_bucket() ->
+    ?S3_EXPORT_BUCKET.
 
 
 %%====================================================================
@@ -150,9 +155,9 @@ encode_data(DataMap) ->
 
 -spec get_url(ExportId :: binary()) -> string().
 get_url(ExportId) ->
-    %% TODO: make sure we redirect halloapp.net/export to this
+    %% mod_http_export will redirect to s3
     %% "https://" ++ ?S3_EXPORT_BUCKET ++ ".s3.amazonaws.com/"
-    URL = "https://halloapp.net/export/" ++ binary_to_list(ExportId),
+    URL = "https://halloapp.com/export/" ++ binary_to_list(ExportId),
     URL.
 
 -spec upload_data(ExportId :: binary(), Data :: iodata()) -> ok.

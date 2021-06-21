@@ -55,7 +55,7 @@ export_test(_Conf) ->
         status = ready
     } = Result2Payload,
 
-    ?assertEqual("https://halloapp.net/export/" ++ binary_to_list(ExportId),
+    ?assertEqual("https://halloapp.com/export/" ++ binary_to_list(ExportId),
         binary_to_list(DataUrl)),
 
     % TODO: figure out how to test the actual data

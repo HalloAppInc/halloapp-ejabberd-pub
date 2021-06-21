@@ -6,9 +6,9 @@
 %%% @end
 %%% Created : 08. Apr 2021 11:42 AM
 %%%-------------------------------------------------------------------
+% TODO: does the name have to start with mod_ when this is not gen_mod
 -module(mod_http_invite).
 -author("nikola").
--behaviour(gen_mod).
 
 -include("logger.hrl").
 -include("ejabberd_http.hrl").
@@ -19,7 +19,6 @@
 -define(APP_STORE_URL, <<"https://apps.apple.com/us/app/halloapp/id1501583052">>).
 
 %% API
--export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 -export([process/2]).
 
 %%%----------------------------------------------------------------------
@@ -29,12 +28,13 @@
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 %% /invite
 process([],
-        #request{method = 'GET', q = Q, ip = IP, headers = Headers} = _R) ->
+        #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
     try
         GroupToken = proplists:get_value(<<"g">>, Q, <<>>),
         UserAgent = util_http:get_user_agent(Headers),
         Platform = util_http:get_platform(UserAgent),
-        ?INFO("request Q:~p R: ~p, UserAgent ~p Platform: ~p, IP: ~p", [Q, _R, UserAgent, Platform, IP]),
+        IP = util_http:get_ip(NetIP, Headers),
+        ?INFO("request Q:~p UserAgent ~p Platform: ~p, IP: ~p", [Q, UserAgent, Platform, IP]),
         Location = case Platform of
             android ->
                 <<?PLAY_STORE_URL/binary, GroupToken/binary>>;
@@ -50,7 +50,7 @@ process([],
         {302, [?LOCATION_HEADER(Location)], <<"">>}
     catch
         error : Reason : Stacktrace ->
-            ?ERROR("logs unknown error: Stacktrace:~s",
+            ?ERROR("error: Stacktrace:~s",
                 [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
             {302, [?LOCATION_HEADER(?HALLOAPP_COM)], <<"">>}
     end;
@@ -59,21 +59,3 @@ process(Path, Request) ->
     ?INFO("404 Not Found path: ~p, r:~p", [Path, Request]),
     util_http:return_404().
 
-
-start(_Host, Opts) ->
-    ?INFO("start ~w ~p", [?MODULE, Opts]),
-    ok.
-
-stop(_Host) ->
-    ?INFO("stop ~w", [?MODULE]),
-    ok.
-
-reload(_Host, _NewOpts, _OldOpts) ->
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
--spec mod_options(binary()) -> [{atom(), term()}].
-mod_options(_Host) ->
-    [].
