@@ -348,6 +348,8 @@ finish_sync(UserId, _Server, SyncId) ->
 -spec normalize_and_insert_contacts(UserId :: binary(), Server :: binary(),
         Contacts :: [pb_contact()], SyncId :: undefined | binary()) -> [pb_contact()].
 normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
+    Time1 = os:system_time(microsecond),
+    ?INFO("Uid: ~p, NumContacts: ~p", [UserId, length(Contacts)]),
     UserPhone = get_phone(UserId),
     UserRegionId = mod_libphonenumber:get_region_id(UserPhone),
     {ok, OldContactList} = model_contacts:get_contacts(UserId),
@@ -369,20 +371,39 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
 
     %% Firstly, normalize all phone numbers received.
     {UnNormalizedContacts1, NormalizedContacts1} = normalize_contacts(Contacts, UserRegionId),
+    Time2 = os:system_time(microsecond),
+    ?INFO("Timetaken:normalize_contacts: ~w us", [Time2 - Time1]),
+
     %% Obtain UserIds for all the normalized phone numbers.
     {UnRegisteredContacts1, RegisteredContacts1} = obtain_user_ids(NormalizedContacts1),
+    Time3 = os:system_time(microsecond),
+    ?INFO("Timetaken:obtain_user_ids: ~w us", [Time3 - Time2]),
+
     %% Obtain potential_friends for unregistered contacts.
     UnRegisteredContacts2 = obtain_potential_friends(UserId, UnRegisteredContacts1),
+    Time4 = os:system_time(microsecond),
+    ?INFO("Timetaken:obtain_potential_friends: ~w us", [Time4 - Time3]),
+
     %% Obtain names for all registered contacts.
     RegisteredContacts2 = obtain_names(RegisteredContacts1),
+    Time5 = os:system_time(microsecond),
+    ?INFO("Timetaken:obtain_names: ~w us", [Time5 - Time4]),
+
     %% Set friend relationships for registered contacts and notify.
     {NonFriendContacts1, FriendContacts1} = obtain_roles_and_notify(UserId, UserPhone,
             RegisteredContacts2, OldContactSet, OldReverseContactSet, OldFriendUidSet, BlockedUidSet, ShouldNotify),
+    Time6 = os:system_time(microsecond),
+    ?INFO("Timetaken:obtain_roles_and_notify: ~w us", [Time6 - Time5]),
+
     %% Obtain avatar_id for all friend contacts.
     FriendContacts2 = obtain_avatar_ids(FriendContacts1),
+    Time7 = os:system_time(microsecond),
+    ?INFO("Timetaken:obtain_avatar_ids: ~w us", [Time7 - Time6]),
 
     NormalizedPhoneNumbers = extract_normalized(NormalizedContacts1),
     UnRegisteredPhoneNumbers = extract_normalized(UnRegisteredContacts2),
+    Time8 = os:system_time(microsecond),
+    ?INFO("Timetaken:extract_normalized: ~w us", [Time8 - Time7]),
 
     %% Call the batched API to insert UserId for the unregistered phone numbers.
     model_contacts:add_reverse_hash_contacts(UserId, UnRegisteredPhoneNumbers),
@@ -391,6 +412,8 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
         undefined -> model_contacts:add_contacts(UserId, NormalizedPhoneNumbers);
         _ -> model_contacts:sync_contacts(UserId, SyncId, NormalizedPhoneNumbers)
     end,
+    Time9 = os:system_time(microsecond),
+    ?INFO("Timetaken:sync/add_contacts: ~w us", [Time9 - Time8]),
 
     %% Return all contacts. Includes the following:
     %% - un-normalized phone numbers
