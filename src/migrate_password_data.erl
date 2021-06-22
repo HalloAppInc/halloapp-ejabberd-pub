@@ -25,8 +25,8 @@ remove_password_key(Key, State) ->
                 true ->
                     ?INFO("Key: ~p, would run command: ~p", [Key, Command]);
                 false ->
-                    Result = ecredis:q(ecredis_auth, Command),
-                    ?INFO("Key: ~p, result: ~p", [Key, Result])
+                    Res = ecredis:q(ecredis_auth, Command),
+                    ?INFO("Key: ~p, result: ~p", [Key, Res])
             end;
         _ -> ok
     end,
