@@ -32,7 +32,7 @@ request_sms_test(_Conf) ->
     ct:pal("~p", [Resp]),
     #{
         <<"phone">> := ?PHONE10,
-        <<"retry_after_secs">> := 0,
+        <<"retry_after_secs">> := 30,
         <<"result">> := <<"ok">>
     } = Resp,
     ok.

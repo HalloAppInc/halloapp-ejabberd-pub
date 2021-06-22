@@ -30,7 +30,7 @@ init() ->
 send_sms(Phone, Msg) ->
     ?INFO("Phone: ~p, Msg: ~s", [Phone, Msg]),
     URL = ?BASE_SMS_URL,
-    Headers = [{"Authorization", "AccessKey " ++ get_access_key()}],
+    Headers = [{"Authorization", "AccessKey " ++ get_access_key(util:is_test_number(Phone))}],
     Type = "application/x-www-form-urlencoded",
     Body = compose_body(Phone, Msg),
     HTTPOptions = [],
@@ -55,7 +55,7 @@ send_sms(Phone, Msg) ->
 send_voice_call(Phone, Msg) ->
     ?INFO("Phone: ~p, Msg: ~s", [Phone, Msg]),
     URL = ?BASE_VOICE_URL,
-    Headers = [{"Authorization", "AccessKey " ++ get_access_key()}],
+    Headers = [{"Authorization", "AccessKey " ++ get_access_key(util:is_test_number(Phone))}],
     Type = "application/json",
     Body = compose_voice_body(Phone, Msg),
     ?DEBUG("Body: ~p", [Body]),
@@ -93,8 +93,11 @@ normalized_status(<<"expired">>) ->
 normalized_status(_) ->
     unknown.
 
--spec get_access_key() -> string().
-get_access_key() ->
+-spec get_access_key(IsTest :: boolean()) -> string().
+get_access_key(true) ->
+    Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"MBirdTest">>)), [return_maps]),
+    binary_to_list(maps:get(<<"access_key">>, Json));
+get_access_key(false) ->
     Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"MBird">>)), [return_maps]),
     binary_to_list(maps:get(<<"access_key">>, Json)).
 

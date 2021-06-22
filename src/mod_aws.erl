@@ -71,19 +71,18 @@ mod_options(_Host) ->
 -spec get_secret(SecretName :: binary()) -> binary().
 get_secret(SecretName) ->
     case config:is_prod_env() of
-        true ->
-            case get_cached_secret(SecretName) of
-                undefined -> get_and_cache_secret(SecretName);
-                Secret -> Secret
-            end;
+        true -> get_secret_internal(SecretName);
         false ->
-            %% This allows use to noise in our ct test suite.
-            case SecretName =:= <<"noise_secret_dev">> of
-                true ->
+            case SecretName of
+                %% This allows us to use noise in our ct test suite.
+                <<"noise_secret_dev">> ->
                     FileName = filename:join(misc:data_dir(), ?NOISE_SECRET_DEV_FILE),
                     {ok, SecretBin} = file:read_file(FileName),
                     SecretBin;
-                false -> ?DUMMY_SECRET
+                %% This allows us to ping an SMS provider's test API
+                <<"TwilioTest">> -> get_secret_internal(SecretName);
+                <<"MBirdTest">> -> get_secret_internal(SecretName);
+                _ -> ?DUMMY_SECRET
             end
     end.
 
@@ -116,8 +115,13 @@ get_cached_secret(SecretName) ->
             end
     end.
 
+-spec get_secret_internal(SecretName :: binary()) -> binary().
+get_secret_internal(SecretName) ->
+    case get_cached_secret(SecretName) of
+        undefined -> get_and_cache_secret(SecretName);
+        Secret -> Secret
+    end.
 
 % for testing only
 get_table_name() ->
     ?SECRETS_TABLE.
-

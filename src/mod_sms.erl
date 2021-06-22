@@ -69,14 +69,17 @@ request_sms(Phone, UserAgent) ->
 -spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom()) ->
     {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 request_otp(Phone, LangId, UserAgent, Method) ->
+    Code = generate_code(util:is_test_number(Phone) andalso not config:is_prod_env()),
     case {config:is_prod_env(), util:is_test_number(Phone)} of
-        {false, true} -> 
-            {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, generate_code(true)),
-            {ok, 0};
-        {_, _} -> 
-            Code = generate_code(false),
-            case util:is_test_number(Phone) of
-                true -> send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method);
+        {true, true} -> send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method);
+        {_, _} ->
+            case config:is_testing_env() andalso config:get_hallo_env() =/= stress of
+                %% avoid next step which is to send the sms
+                % TODO: if we allow github env access to the test secrets only we can
+                % have our CI test this as well.
+                true ->
+                    {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
+                    {ok, 30};
                 false -> send_otp(Phone, LangId, Phone, Code, UserAgent, Method)
             end
     end.
@@ -114,6 +117,9 @@ send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method)->
                 end
     end. 
 
+-spec send_otp(OtpPhone :: phone(), LangId :: binary(), Phone :: phone(), Code :: binary(),
+        UserAgent :: binary(), Method :: atom()) -> {ok, non_neg_integer()} | {error, term()} |
+        {error, term(), non_neg_integer()}.
 send_otp(OtpPhone, LangId, Phone, Code, UserAgent, Method) ->
     {ok, OldResponses} = model_phone:get_all_gateway_responses(OtpPhone),
     case is_too_soon(OldResponses) of

@@ -37,17 +37,19 @@ init() ->
 
 -spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
-    sending_helper(Phone, Msg, ?BASE_SMS_URL, fun compose_body/2, "SMS").
+    AccountSid = get_account_sid(util:is_test_number(Phone)),
+    sending_helper(Phone, Msg, ?BASE_SMS_URL(AccountSid), fun compose_body/2, "SMS").
 
 -spec send_voice_call(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, voice_call_fail}.
 send_voice_call(Phone, Msg) ->
-    sending_helper(Phone, Msg, ?BASE_VOICE_URL, fun compose_voice_body/2, "Voice Call").
+    AccountSid = get_account_sid(util:is_test_number(Phone)),
+    sending_helper(Phone, Msg, ?BASE_VOICE_URL(AccountSid), fun compose_voice_body/2, "Voice Call").
 
 -spec sending_helper(Phone :: phone(), Msg :: string(), BaseUrl :: string(),
     ComposeBodyFn :: compose_body_fun(), Purpose :: string()) -> {ok, gateway_response()} | {error, atom()}.
 sending_helper(Phone, Msg, BaseUrl, ComposeBodyFn, Purpose) ->
     ?INFO("Phone: ~p, Msg: ~p, Purpose: ~p", [Phone, Msg, Purpose]),
-    Headers = fetch_auth_headers(),
+    Headers = fetch_auth_headers(util:is_test_number(Phone)),
     Type = "application/x-www-form-urlencoded",
     Body = ComposeBodyFn(Phone, Msg),
     ?DEBUG("Body: ~p", [Body]),
@@ -92,7 +94,7 @@ fetch_message_info(SMSId) ->
     ?INFO("~p", [SMSId]),
     URL = ?SMS_INFO_URL ++ binary_to_list(SMSId) ++ ".json",
     ?INFO("URL: ~s", [URL]),
-    Headers = fetch_auth_headers(),
+    Headers = fetch_auth_headers(false),
     HTTPOptions = [],
     Options = [],
     Response = httpc:request(get, {URL, Headers}, HTTPOptions, Options),
@@ -117,16 +119,20 @@ fetch_message_info(SMSId) ->
             {error, sms_fail}
     end.
 
--spec fetch_tokens() -> {string(), string()}.
-fetch_tokens() ->
+-spec fetch_tokens(IsTest :: boolean()) -> {string(), string()}.
+fetch_tokens(true) ->
+    Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"TwilioTest">>)), [return_maps]),
+    {binary_to_list(maps:get(<<"account_sid">>, Json)),
+        binary_to_list(maps:get(<<"auth_token">>, Json))};
+fetch_tokens(false) ->
     Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"Twilio">>)), [return_maps]),
     {binary_to_list(maps:get(<<"account_sid">>, Json)),
      binary_to_list(maps:get(<<"auth_token">>, Json))}.
 
 
--spec fetch_auth_headers() -> string().
-fetch_auth_headers() ->
-    {AccountSid, AuthToken} = fetch_tokens(),
+-spec fetch_auth_headers(IsTest :: boolean()) -> string().
+fetch_auth_headers(IsTest) ->
+    {AccountSid, AuthToken} = fetch_tokens(IsTest),
     AuthStr = base64:encode_to_string(AccountSid ++ ":" ++ AuthToken),
     [{"Authorization", "Basic " ++ AuthStr}].
 
@@ -143,10 +149,9 @@ encode_based_on_country(Phone, Msg) ->
 compose_body(Phone, Message) ->
     Message2 = encode_based_on_country(Phone, Message),
     PlusPhone = "+" ++ binary_to_list(Phone),
-    FromPhone = util_sms:lookup_from_phone(twilio_options),
     uri_string:compose_query([
         {"To", PlusPhone },
-        {"From", FromPhone},
+        {"From", get_from_phone(util:is_test_number(Phone))},
         {"Body", Message2},
         {"StatusCallback", ?TWILIOCALLBACK_URL}
     ], [{encoding, utf8}]).
@@ -162,8 +167,21 @@ compose_voice_body(Phone, Message) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
     uri_string:compose_query([
         {"To", PlusPhone },
-        {"From", ?FROM_PHONE},
+        {"From", get_from_phone(util:is_test_number(Phone))},
         {"Twiml", Message2}
     ], [{encoding, utf8}]).
 
+-spec get_account_sid(IsTestNum :: boolean()) -> string().
+get_account_sid(IsTestNum) ->
+    case IsTestNum of
+        true -> ?TEST_ACCOUNT_SID;
+        false -> ?PROD_ACCOUNT_SID
+    end.
+
+-spec get_from_phone(IsTestNum :: boolean()) -> phone().
+get_from_phone(IsTestNum) ->
+    case IsTestNum of
+        true -> ?FROM_TEST_PHONE;
+        false -> util_sms:lookup_from_phone(twilio_options)
+    end.
 

@@ -16,7 +16,7 @@
 -include("sms.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--define(UID, <<"1000000000159020147">>).
+-define(UID, <<"1000000000332736727">>).
 -define(PHONE, <<"14703381473">>).
 -define(TEST_PHONE, <<"16175550000">>).
 -define(NAME, <<"Josh">>).
@@ -67,8 +67,6 @@ request_sms_test() ->
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(stat, count, fun(_,_,_,_) -> "Logged a metric!" end),
     meck_init(model_phone, add_gateway_response, fun(_, _, _) -> ok end),
-    meck_init(mod_sms, send_otp_internal, fun(_,_,_,_,_,_) -> {ok, #gateway_response{attempt_ts = util:now()}} end),
-    meck_init(config, is_prod_env, fun() -> true end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, <<"HalloApp/Android0.127">>, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -87,10 +85,37 @@ request_sms_test() ->
     Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)}),
     ?assertEqual(GoodResponse, Response),
-    ?assert(meck:called(mod_sms, send_otp_internal, [?PHONE, '_', '_', '_', '_', '_'])),
     meck_finish(model_phone),
-    meck_finish(mod_sms),
+    meck_finish(ejabberd_router).
+
+% tests functionality of getting the sms code for a test number in prod env
+% sms code should be sent to the inviter of the test number
+request_sms_prod_test() ->
+    setup(),
+    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    meck_init(model_phone, add_gateway_response, fun(_, _, _) -> ok end),
+    meck_init(config, is_prod_env, fun() -> true end),
+    meck_init(mod_sms, send_otp_internal,
+        fun(P,_,_,_,_,_) ->
+            self() ! P,
+            {ok, #gateway_response{attempt_ts = util:now()}}
+        end),
+    Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
+    ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, <<"HalloApp/Android0.127">>, 16175550000),
+    ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
+    GoodResponse = {200, ?HEADER(?CT_JSON),
+        jiffy:encode({[
+            {phone, ?TEST_PHONE},
+            {retry_after_secs, 30},
+            {result, ok}
+        ]})},
+    Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)}),
+    ?assertEqual(GoodResponse, Response),
+    ?assertEqual(1, collect(?PHONE, 250, 1)),
+    meck_finish(model_phone),
     meck_finish(config),
+    meck_finish(mod_sms),
     meck_finish(ejabberd_router).
 
 request_sms_test_phone_test() ->
@@ -266,7 +291,6 @@ check_has_inviter_test() ->
 %%%----------------------------------------------------------------------
 %%% Internal functions
 %%%----------------------------------------------------------------------
-
 setup() ->
     tutil:setup(),
     {ok, _} = application:ensure_all_started(stringprep),
@@ -289,4 +313,15 @@ meck_init(Mod, FunName, Fun) ->
 meck_finish(Mod) ->
     ?assert(meck:validate(Mod)),
     meck:unload(Mod).
+
+collect(Msg, Timeout, Count) ->
+    collect(Msg, Timeout, 0, Count).
+collect(_Msg, _Timeout, Count, Count) ->
+    Count;
+collect(Msg, Timeout, I, Count) ->
+    receive
+        Msg -> collect(Msg, Timeout, I+1, Count)
+    after
+        Timeout -> I
+    end.
 
