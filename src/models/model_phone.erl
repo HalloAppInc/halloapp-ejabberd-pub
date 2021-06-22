@@ -7,7 +7,6 @@
 %%%------------------------------------------------------------------------------------
 -module(model_phone).
 -author("murali").
--behavior(gen_mod).
 
 -include("logger.hrl").
 -include("ha_types.hrl").
@@ -20,9 +19,6 @@
 -ifdef(TEST).
 -export([phone_key/1]).
 -endif.
-
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
 
 
 %% API
@@ -53,23 +49,6 @@
     get_verification_success/2,
     get_verification_attempt_summary/2
 ]).
-
-
-%%====================================================================
-%% gen_mod callbacks
-%%====================================================================
-
-start(_Host, _Opts) ->
-    ok.
-
-stop(_Host) ->
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
-mod_options(_Host) ->
-    [].
 
 %%====================================================================
 %% API

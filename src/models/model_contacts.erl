@@ -7,7 +7,6 @@
 %%%------------------------------------------------------------------------------------
 -module(model_contacts).
 -author("murali").
--behavior(gen_mod).
 
 -include("logger.hrl").
 -include("redis_keys.hrl").
@@ -19,14 +18,12 @@
 -compile(export_all).
 -endif.
 
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
-
 -export([contacts_key/1, sync_key/2, reverse_key/1]).
 
 
 %% API
 -export([
+    init/0,
     add_contact/2,
     add_contacts/2,
     add_reverse_hash_contact/2,
@@ -53,21 +50,12 @@
 %% gen_mod callbacks
 %%====================================================================
 
-start(_Host, _Opts) ->
+init() ->
     create_ets_options_table(),
     fetch_and_store_salt(),
      % Making sure we have salt
     {ok, _Salt} = model_contacts:get_contact_hash_salt(),
     ok.
-
-stop(_Host) ->
-    ok.
-
-depends(_Host, _Opts) ->
-    [{mod_aws, hard}].
-
-mod_options(_Host) ->
-    [].
 
 %%====================================================================
 %% API

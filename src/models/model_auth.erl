@@ -8,7 +8,6 @@
 %%%-------------------------------------------------------------------
 -module(model_auth).
 -author("nikola").
--behavior(gen_mod).
 
 -include("logger.hrl").
 -include("password.hrl").
@@ -23,10 +22,6 @@
 -define(LOCKED, <<"locked:">>).
 -define(LOCKED_SIZE, byte_size(?LOCKED)).
 
-
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
-
 %% API
 -export([
     set_spub/2,
@@ -35,24 +30,6 @@
     lock_user/1,
     unlock_user/1
 ]).
-
-%%====================================================================
-%% gen_mod callbacks
-%%====================================================================
-
-start(_Host, _Opts) ->
-    ?INFO("start ~w", [?MODULE]),
-    ok.
-
-stop(_Host) ->
-    ?INFO("stop ~w", [?MODULE]),
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
-mod_options(_Host) ->
-    [].
 
 %%====================================================================
 %% API

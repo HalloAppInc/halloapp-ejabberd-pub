@@ -42,6 +42,7 @@
 ]).
 
 start(Host, _Opts) ->
+    ok = model_contacts:init(),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_contact_list, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 100),

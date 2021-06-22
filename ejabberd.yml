@@ -208,15 +208,6 @@ modules:
   mod_user_privacy: {}
   mod_inactive_accounts: {}
   mod_retention: {}
-  model_phone: {}
-  model_friends: {}
-  model_accounts: {}
-  model_privacy: {}
-  model_contacts: {}
-  model_messages: {}
-  model_auth: {}
-  model_whisper_keys: {}
-  model_feed: {}
   stat: {}
   mod_admin_extra: {}
   mod_export: {}

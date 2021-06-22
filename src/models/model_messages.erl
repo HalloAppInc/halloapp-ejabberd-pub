@@ -7,7 +7,6 @@
 %%%------------------------------------------------------------------------------------
 -module(model_messages).
 -author('murali').
--behavior(gen_mod).
 
 -include("logger.hrl").
 -include("packets.hrl").
@@ -22,9 +21,6 @@
 -compile(export_all).
 -endif.
 -compile([{nowarn_unused_function, [{store_message, 6}]}]).
-
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
 
 
 %% API
@@ -43,26 +39,6 @@
     record_push_sent/2,
     mark_sent/2
 ]).
-
-
-%%====================================================================
-%% gen_mod callbacks
-%%====================================================================
-
-
-start(_Host, _Opts) ->
-    _Res = get_store_message_script(),
-    ok.
-
-stop(_Host) ->
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
-mod_options(_Host) ->
-    [].
-
 
 %%====================================================================
 %% API

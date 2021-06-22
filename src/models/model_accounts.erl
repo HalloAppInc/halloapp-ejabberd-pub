@@ -8,7 +8,6 @@
 %%%-------------------------------------------------------------------
 -module(model_accounts).
 -author("nikola").
--behavior(gen_mod).
 
 -include("logger.hrl").
 -include("account.hrl").
@@ -29,9 +28,6 @@
 -ifdef(TEST).
 -compile(export_all).
 -endif.
-
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
 
 -export([
     account_key/1,
@@ -115,24 +111,6 @@
     start_export/2,
     test_set_export_time/2 % For tests only
 ]).
-
-%%====================================================================
-%% gen_mod callbacks
-%%====================================================================
-
-start(_Host, _Opts) ->
-    ?INFO("start ~w", [?MODULE]),
-    ok.
-
-stop(_Host) ->
-    ?INFO("stop ~w", [?MODULE]),
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
-mod_options(_Host) ->
-    [].
 
 %%====================================================================
 %% API

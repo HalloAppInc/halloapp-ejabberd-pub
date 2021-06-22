@@ -8,14 +8,10 @@
 %%%------------------------------------------------------------------------------------
 -module(model_cluster).
 -author("nikola").
--behavior(gen_mod).
 
 -include("logger.hrl").
 -include("ha_types.hrl").
 -include("redis_keys.hrl").
-
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
 
 
 %% API
@@ -32,23 +28,6 @@
     cluster_key/0
 ]).
 -endif.
-
-
-%%====================================================================
-%% gen_mod callbacks
-%%====================================================================
-
-start(_Host, _Opts) ->
-    ok.
-
-stop(_Host) ->
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
-mod_options(_Host) ->
-    [].
 
 %%====================================================================
 %% API

@@ -7,16 +7,12 @@
 %%%------------------------------------------------------------------------------------
 -module(model_invites).
 -author("josh").
--behavior(gen_mod).
 
 -include("logger.hrl").
 -include("time.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 -include("expiration.hrl").
-
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
 
 %% API
 -export([
@@ -48,24 +44,6 @@
 
 -define(FIELD_NUM_INV, <<"in">>).
 -define(FIELD_SINV_TS, <<"it">>).
-
-
-%%====================================================================
-%% gen_mod callbacks
-%%====================================================================
-
-start(_Host, _Opts) ->
-    ok.
-
-stop(_Host) ->
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
-mod_options(_Host) ->
-    [].
-
 
 %%====================================================================
 %% API

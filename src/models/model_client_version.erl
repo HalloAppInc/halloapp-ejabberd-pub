@@ -8,15 +8,10 @@
 %%%-------------------------------------------------------------------
 -module(model_client_version).
 -author("nikola").
--behavior(gen_mod).
 
 -include("logger.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
-
-% TODO: we don't really need our models to be gen_mod
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
 
 %% API
 -export([
@@ -31,24 +26,6 @@
     version_key/1
 ]).
 -endif.
-
-%%====================================================================
-%% gen_mod callbacks
-%%====================================================================
-
-start(_Host, _Opts) ->
-    ?INFO("start ~w", [?MODULE]),
-    ok.
-
-stop(_Host) ->
-    ?INFO("stop ~w", [?MODULE]),
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
-mod_options(_Host) ->
-    [].
 
 %%====================================================================
 %% API

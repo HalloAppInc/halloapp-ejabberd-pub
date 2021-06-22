@@ -16,7 +16,6 @@
 %%%------------------------------------------------------------------------------------
 -module(model_feed).
 -author('murali').
--behavior(gen_mod).
 
 -include("logger.hrl").
 -include("redis_keys.hrl").
@@ -26,9 +25,6 @@
 -ifdef(TEST).
 -compile(export_all).
 -endif.
-
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
 
 -export([post_key/1, comment_key/2, post_comments_key/1, reverse_post_key/1]).
 
@@ -58,26 +54,6 @@
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
-
-%%====================================================================
-%% gen_mod callbacks
-%%====================================================================
-
-
-start(_Host, _Opts) ->
-    ?INFO("start ~w", [?MODULE]),
-    ok.
-
-stop(_Host) ->
-    ?INFO("start ~w", [?MODULE]),
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
-mod_options(_Host) ->
-    [].
-
 
 %%====================================================================
 %% API

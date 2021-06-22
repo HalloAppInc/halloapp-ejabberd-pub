@@ -7,16 +7,10 @@
 %%%------------------------------------------------------------------------------------
 -module(model_groups).
 -author("nikola").
--behavior(gen_mod).
-
 -include("logger.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 -include("groups.hrl").
-
-
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
 
 -define(GROUP_INVITE_LINK_SIZE, 24).
 
@@ -72,22 +66,6 @@
     user_groups_key/1
 ]).
 -endif.
-
-%%====================================================================
-%% gen_mod callbacks
-%%====================================================================
-
-start(_Host, _Opts) ->
-    ok.
-
-stop(_Host) ->
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
-mod_options(_Host) ->
-    [].
 
 %%====================================================================
 %% API

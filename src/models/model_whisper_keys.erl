@@ -7,7 +7,6 @@
 %%%------------------------------------------------------------------------------------
 -module(model_whisper_keys).
 -author('murali').
--behavior(gen_mod).
 
 -include("logger.hrl").
 -include("redis_keys.hrl").
@@ -22,9 +21,6 @@
 
 %% e2e_stats query key will expire every 12hrs - so that we can query them again.
 -define(E2E_QUERY_EXPIRY, 12 * ?HOURS).
-
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
 
 -export([whisper_key/1, otp_key/1, subcribers_key/1]).
 
@@ -46,22 +42,6 @@
     mark_e2e_stats_query/0,
     export_keys/1
 ]).
-
-%%====================================================================
-%% gen_mod callbacks
-%%====================================================================
-
-start(_Host, _Opts) ->
-    ok.
-
-stop(_Host) ->
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
-mod_options(_Host) ->
-    [].
 
 %%====================================================================
 %% API

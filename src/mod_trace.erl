@@ -67,7 +67,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 
 depends(_Host, _Opts) ->
-    [{model_accounts, hard}].
+    [].
 
 
 mod_options(_Host) ->

@@ -56,9 +56,9 @@ stop(_Host) ->
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
-% TODO: models should not be modules
+
 depends(_Host, _Opts) ->
-    [{model_accounts, hard}].
+    [].
 
 
 mod_options(_Host) ->

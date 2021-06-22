@@ -8,16 +8,12 @@
 %%%-------------------------------------------------------------------
 -module(model_friends).
 -author("nikola").
--behavior(gen_mod).
 
 -include("logger.hrl").
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 
 -import(lists, [map/2]).
-
-%% gen_mod callbacks
--export([start/2, stop/1, depends/2, mod_options/1]).
 
 -export([key/1]).
 
@@ -33,27 +29,6 @@
     set_friends/2,
     remove_all_friends/1
 ]).
-
-
-%%====================================================================
-%% gen_mod callbacks
-%%====================================================================
-
-
-start(_Host, _Opts) ->
-    ?INFO("start ~w", [?MODULE]),
-    ok.
-
-stop(_Host) ->
-    ?INFO("start ~w", [?MODULE]),
-    ok.
-
-depends(_Host, _Opts) ->
-    [].
-
-mod_options(_Host) ->
-    [].
-
 
 %%====================================================================
 %% API
