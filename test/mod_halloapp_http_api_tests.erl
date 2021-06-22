@@ -16,7 +16,7 @@
 -include("sms.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--define(UID, <<"1">>).
+-define(UID, <<"1000000000159020147">>).
 -define(PHONE, <<"14703381473">>).
 -define(TEST_PHONE, <<"16175550000">>).
 -define(NAME, <<"Josh">>).
@@ -66,7 +66,11 @@ request_sms_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(stat, count, fun(_,_,_,_) -> "Logged a metric!" end),
+    meck_init(model_phone, add_gateway_response, fun(_, _, _) -> ok end),
+    meck_init(mod_sms, send_otp_internal, fun(_,_,_,_,_,_) -> {ok, #gateway_response{attempt_ts = util:now()}} end),
+    meck_init(config, is_prod_env, fun() -> true end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
+    ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, <<"HalloApp/Android0.127">>, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     BadUserAgentError = util_http:return_400(),
     ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
@@ -77,14 +81,17 @@ request_sms_test() ->
     GoodResponse = {200, ?HEADER(?CT_JSON),
         jiffy:encode({[
             {phone, ?TEST_PHONE},
-            {retry_after_secs, 0},
+            {retry_after_secs, 30},
             {result, ok}
         ]})},
     Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)}),
     ?assertEqual(GoodResponse, Response),
+    ?assert(meck:called(mod_sms, send_otp_internal, [?PHONE, '_', '_', '_', '_', '_'])),
+    meck_finish(model_phone),
+    meck_finish(mod_sms),
+    meck_finish(config),
     meck_finish(ejabberd_router).
-
 
 request_sms_test_phone_test() ->
     setup(),
@@ -232,6 +239,19 @@ check_invited_by_group_invite_test() ->
         ?PHONE, <<"">>, ?IP1, undefined)),
     ?assertEqual(ok, mod_halloapp_http_api:check_invited(
         ?PHONE, <<"">>, ?IP1, Token)),
+    ok.
+ 
+check_empty_inviter_list() ->
+    setup(),
+    ?assertEqual({error, not_invited}, mod_sms:send_otp_to_inviter(?TEST_PHONE, undefined, undefined, undefined, undefined)),
+    ok. 
+
+check_has_inviter_test() -> 
+    setup(),
+    meck_init(config, is_prod_env, fun() -> true end), 
+    ?assertError(not_invited, mod_halloapp_http_api:check_invited(
+                ?TEST_PHONE, <<"">>, ?IP1, undefined)),
+    meck_finish(config),
     ok.
 
 

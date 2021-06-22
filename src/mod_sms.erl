@@ -33,7 +33,8 @@
     request_otp/4,
     verify_sms/2,
     is_too_soon/1,  %% for testing
-    good_next_ts_diff/1  %% for testing
+    good_next_ts_diff/1, %% for testing
+    send_otp_internal/6
 ]).
 
 %%====================================================================
@@ -64,32 +65,17 @@ request_sms(Phone, UserAgent) ->
     request_otp(Phone, <<"en-US">>, UserAgent, sms).
 
 -spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom()) ->
-        {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
+    {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 request_otp(Phone, LangId, UserAgent, Method) ->
-    Code = generate_code(util:is_test_number(Phone)),
-    case util:is_test_number(Phone) of
-        true ->
-            {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
+    case {config:is_prod_env(), util:is_test_number(Phone)} of
+        {false, true} -> 
+            {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, generate_code(true)),
             {ok, 0};
-        false ->
-            {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
-            case is_too_soon(OldResponses) of
-                {true, WaitTs} -> {error, retried_too_soon, WaitTs};
-                {false, _} ->
-                    {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
-                    case send_otp(Phone, LangId, Code, UserAgent, Method, OldResponses) of
-                        {ok, SMSResponse} ->
-                            ?INFO("Response: ~p", [SMSResponse]),
-                            model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
-                            SMSResponse2 = SMSResponse#gateway_response{
-                                attempt_id = NewAttemptId, attempt_ts = Timestamp},
-                            AllResponses = OldResponses ++ [SMSResponse2],
-                            NextTs = find_next_ts(AllResponses),
-                            {ok, NextTs - Timestamp};
-                        {error, Reason} = Err ->
-                            ?ERROR("Unable to send ~p: ~p Phone: ~p", [Method, Reason, Phone]),
-                            Err
-                    end
+        {_, _} -> 
+            Code = generate_code(false),
+            case util:is_test_number(Phone) of
+                true -> send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method);
+                false -> send_otp(Phone, LangId, Phone, Code, UserAgent, Method)
             end
     end.
 
@@ -102,6 +88,50 @@ verify_sms(Phone, Code) ->
         {value, {_, AttemptId2}} ->
             model_phone:add_verification_success(Phone, AttemptId2),
             match
+    end.
+
+-spec send_otp_to_inviter (Phone :: phone(), LangId :: binary(), Code :: binary(), UserAgent :: binary(), Method ::
+    atom()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
+send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method)->
+    {ok, InvitersList} = model_invites:get_inviters_list(Phone),
+    case length(InvitersList) of 
+        0 ->
+            ?ERROR("No last known inviter of phone: ~p", [Phone]), 
+            {error, not_invited};
+        _ ->
+            {Uid, _} = lists:last(InvitersList),
+                case model_accounts:get_phone(Uid) of 
+                    {error, missing} = Error -> 
+                        ?ERROR("Missing phone of id: ~p", [Uid]),
+                        Error;
+                    {ok, InviterPhone} -> 
+                        case test_users:is_test_uid(Uid) of
+                            true -> send_otp(InviterPhone, LangId, Phone, Code, UserAgent, Method);
+                            false -> {error, not_invited}
+                        end
+                end
+    end. 
+
+send_otp(OtpPhone, LangId, Phone, Code, UserAgent, Method) ->
+    {ok, OldResponses} = model_phone:get_all_gateway_responses(OtpPhone),
+    case is_too_soon(OldResponses) of
+        {true, WaitTs} -> {error, retried_too_soon, WaitTs};
+        {false, _} ->
+            {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
+            case mod_sms:send_otp_internal(OtpPhone, LangId, Code, UserAgent, Method, OldResponses) of
+                {ok, SMSResponse} ->
+                    ?INFO("Response: ~p", [SMSResponse]),
+                    model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
+                    SMSResponse2 = SMSResponse#gateway_response{
+                        attempt_id = NewAttemptId, attempt_ts = Timestamp},
+                    AllResponses = OldResponses ++ [SMSResponse2],
+                    NextTs = find_next_ts(AllResponses),
+                    {ok, NextTs - Timestamp};
+                {error, Reason} = Err ->
+                    ?ERROR("Unable to send ~p: ~p  OtpPhone: ~p Phone: ~p ",
+                        [Method, Reason, Phone, OtpPhone]),
+                    Err
+            end
     end.
 
 
@@ -140,10 +170,9 @@ good_next_ts_diff(NumFailedAttempts) ->
       30 * ?SECONDS * trunc(math:pow(2, NumFailedAttempts - 1)).
 
 
--spec send_otp(Phone :: phone(), LangId :: binary(), Code :: binary(), UserAgent :: binary(),
-        Method :: atom(), OldResponses :: [gateway_response()]) ->
-        {ok, gateway_response()} | {error, term()}.
-send_otp(Phone, LangId, Code, UserAgent, Method, OldResponses) ->
+-spec send_otp_internal(Phone :: phone(), LangId :: binary(), Code :: binary(), UserAgent :: binary(),
+    Method :: atom(), OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, term()}.
+send_otp_internal(Phone, LangId, Code, UserAgent, Method, OldResponses) ->
     Msg = prepare_registration_sms(Code, LangId, UserAgent, Method),
     ?DEBUG("preparing to send otp, phone:~p msg:~s", [Phone, Msg]),
     case smart_send(Phone, Method, Msg, OldResponses) of
@@ -167,7 +196,7 @@ prepare_registration_sms(Code, LangId, UserAgent, Method) ->
             AppHash = get_app_hash(UserAgent),
             io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash])
     end.
-            
+
 
 -spec generate_code(IsDebug :: boolean()) -> binary().
 generate_code(true) ->
@@ -266,4 +295,3 @@ smart_send(Phone, Method, Msg, OldResponses) ->
             {ok, SMSResponse2};
         Error -> Error
     end.
-

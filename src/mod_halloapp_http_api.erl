@@ -307,17 +307,21 @@ check_invited(PhoneNum, UserAgent, IP, GroupInviteToken) ->
     IsAllowedVersion = is_version_invite_opened(UserAgent),
     IsIPAllowed = is_ip_invite_opened(IP),
     IsCCAllowed = is_cc_invite_opened(PhoneNum),
-    case Invited orelse IsTestNumber orelse IsInvitedToGroup orelse IsAllowedVersion orelse
+    IsProduction = config:is_prod_env(),
+    case Invited orelse IsInvitedToGroup orelse IsAllowedVersion orelse
             IsIPAllowed orelse IsCCAllowed of
         true -> ok;
         false ->
-            case model_phone:get_uid(PhoneNum) of
-                {ok, undefined} ->
-                    log_not_invited(PhoneNum),
-
-                    erlang:error(not_invited);
-                {ok, _Uid} ->
-                    ok
+            case {IsProduction, IsTestNumber} of 
+                {false, true} -> ok;
+                {_,_} ->
+                    case model_phone:get_uid(PhoneNum) of
+                        {ok, undefined} ->
+                            log_not_invited(PhoneNum),
+                            erlang:error(not_invited);
+                        {ok, _Uid} ->
+                            ok
+                    end
             end
     end.
 
