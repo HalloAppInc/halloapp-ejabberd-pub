@@ -38,7 +38,8 @@ count_lang_run(Key, State) ->
                         true ->
                             ?INFO("Uid: ~p, would run command: ~p", [Uid, Command]);
                         false ->
-                            ok = ecredis:q(ecredis_accounts, Command)
+                            Res = ecredis:q(ecredis_accounts, Command),
+                            ?INFO("Uid: ~p, result: ~p", [Uid, Res])
                     end
             end;
         _ -> ok
