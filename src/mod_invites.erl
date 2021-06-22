@@ -196,7 +196,12 @@ request_invite(FromUid, ToPhoneNum) ->
             ?INFO("Uid: ~s Phone: ~s invite successful, ~p invites left",
                 [FromUid, ToPhoneNum, InvitesLeft]),
             stat:count(?NS_INVITE_STATS, "invite_success"),
-            model_invites:record_invite(FromUid, NormalizedPhone, InvitesLeft - 1),
+            % In prod, registration of test number won't decrease the # of invites a user has
+            NumInvitesLeft = case config:is_prod_env() and util:is_test_number(ToPhoneNum) of 
+                    true -> InvitesLeft;
+                    false -> InvitesLeft - 1
+                end,
+            model_invites:record_invite(FromUid, NormalizedPhone, NumInvitesLeft),
             {ToPhoneNum, ok, undefined}
     end.
 

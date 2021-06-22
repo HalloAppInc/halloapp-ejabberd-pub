@@ -26,6 +26,8 @@
 -define(NAME3, <<"Name3">>).
 -define(USER_AGENT3, <<"HalloApp/Android1.0">>).
 
+-define(TEST_PHONE1, <<"16175550000">>).
+
 %% -------------------------------------------- %%
 %% Tests for IQ API
 %% --------------------------------------------	%%
@@ -159,7 +161,16 @@ request_invite_error3_test() ->
     ?assertEqual({?PHONE2, ok, undefined}, mod_invites:request_invite(?UID1, ?PHONE2)),
     ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)).
 
-
+% tests that a test number in production will not decrease invite limit
+request_invite_error4_test() ->
+    setup(),
+    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    meck_init(config, is_prod_env, fun() -> true end),
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual({?TEST_PHONE1, ok, undefined}, mod_invites:request_invite(?UID1, ?TEST_PHONE1)),
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    meck_finish(config),
+    meck_finish(ejabberd_router).
 
 get_inviters_list_test() ->
     setup(),
@@ -230,6 +241,14 @@ setup_bare() ->
     ha_redis:start(),
     clear(),
     ok.
+
+meck_init(Mod, FunName, Fun) ->
+    meck:new(Mod, [passthrough]),
+    meck:expect(Mod, FunName, Fun).
+
+meck_finish(Mod) ->
+    ?assert(meck:validate(Mod)),
+    meck:unload(Mod).
 
 clear() ->
     tutil:cleardb(redis_accounts),
