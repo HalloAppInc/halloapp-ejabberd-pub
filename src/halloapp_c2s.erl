@@ -69,6 +69,7 @@
 -type state() :: halloapp_stream_in:state().
 -export_type([state/0]).
 
+-define(BUGGY_ANDROID_VERSION, "HalloApp/Android0.147").
 
 %%%===================================================================
 %%% ejabberd_listener API
@@ -294,7 +295,7 @@ handle_unexpected_cast(State, Msg) ->
     State.
 
 
--spec process_auth_result(State :: state(), true | {false, Reason :: binary()},
+-spec process_auth_result(State :: state(), true | {false, Reason :: atom()},
         User :: uid()) -> state().
 process_auth_result(#{socket := Socket, ip := IP} = State, true, User) ->
     ?INFO("(~ts) Accepted c2s authentication for ~ts from ~ts",
@@ -302,13 +303,17 @@ process_auth_result(#{socket := Socket, ip := IP} = State, true, User) ->
             ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
     stat:count("HA/auth", "success", 1),
     State;
-process_auth_result(#{socket := Socket,ip := IP, lserver := _LServer} = State,
+process_auth_result(#{socket := Socket, ip := IP, lserver := _LServer,
+        client_version := ClientVersion} = State,
         {false, Reason}, User) ->
-    Format = "(~ts) Failed c2s authentication ~ts from ~ts: Reason: ~ts",
+    Format = "(~ts) Failed c2s authentication ~ts from ~ts: v:~ts Reason: ~ts",
     Args = [halloapp_socket:pp(Socket), User,
-               ejabberd_config:may_hide_data(misc:ip_to_list(IP)), Reason],
-    case Reason of
-        invalid_client_version -> ?INFO(Format, Args);
+        ejabberd_config:may_hide_data(misc:ip_to_list(IP)), ClientVersion, Reason],
+    % Android before v0.147 would not disconnect and stop connecting
+    IsOldAndroid = util_ua:is_android(ClientVersion) andalso
+        util_ua:is_version_less_than(ClientVersion, ?BUGGY_ANDROID_VERSION),
+    case {Reason, IsOldAndroid} of
+        {invalid_client_version, true} -> ?INFO(Format, Args);
         _ -> ?WARNING(Format, Args)
     end,
     stat:count("HA/auth", "failure", 1, [{reason, Reason}]),
