@@ -61,6 +61,6 @@ delete_account_iq2_test() ->
     tutil:meck_finish(ejabberd_auth),
 
     ?assertEqual(util:err(invalid_request), tutil:get_error_iq_sub_el(IQRes1)),
-    ?assertEqual(ignore, IQRes2),
+    ?assertEqual(util:err(invalid_phone), tutil:get_error_iq_sub_el(IQRes2)),
     ok.
 
