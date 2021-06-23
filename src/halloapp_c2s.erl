@@ -303,18 +303,25 @@ process_auth_result(#{socket := Socket, ip := IP} = State, true, User) ->
             ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
     stat:count("HA/auth", "success", 1),
     State;
-process_auth_result(#{socket := Socket, ip := IP, lserver := _LServer,
-        client_version := ClientVersion} = State,
+process_auth_result(#{socket := Socket, ip := IP, lserver := _LServer} = State,
         {false, Reason}, User) ->
+    ClientVersion = maps:get(client_version, State, undefined),
     Format = "(~ts) Failed c2s authentication ~ts from ~ts: v:~ts Reason: ~ts",
     Args = [halloapp_socket:pp(Socket), User,
         ejabberd_config:may_hide_data(misc:ip_to_list(IP)), ClientVersion, Reason],
-    % Android before v0.147 would not disconnect and stop connecting
-    IsOldAndroid = util_ua:is_android(ClientVersion) andalso
-        util_ua:is_version_less_than(ClientVersion, ?BUGGY_ANDROID_VERSION),
-    case {Reason, IsOldAndroid} of
-        {invalid_client_version, true} -> ?INFO(Format, Args);
-        _ -> ?WARNING(Format, Args)
+    case {Reason, ClientVersion} of
+        {_, undefined} ->
+            ?WARNING(Format, Args);
+        {invalid_client_version, _} ->
+            % Android before v0.147 would not disconnect and stop connecting
+            IsOldAndroid = util_ua:is_android(ClientVersion) andalso
+                    util_ua:is_version_less_than(ClientVersion, ?BUGGY_ANDROID_VERSION),
+            case IsOldAndroid of
+                true -> ?INFO(Format, Args);
+                false -> ?WARNING(Format, Args)
+            end;
+        _ ->
+            ?WARNING(Format, Args)
     end,
     stat:count("HA/auth", "failure", 1, [{reason, Reason}]),
     State.
