@@ -26,6 +26,8 @@ jobs:
       run: ./configure
     - name: Compile
       run: make
+    - name: Install ejabberd
+      run: sudo make install
     - name: Run unit tests
       run: ./rebar eunit
       env:
