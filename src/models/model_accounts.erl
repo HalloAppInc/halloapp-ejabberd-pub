@@ -226,7 +226,7 @@ decrement_version_and_lang_counters(Uid, ClientVersion, LangId) ->
     HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
     VersionSlot = HashSlot rem ?NUM_VERSION_SLOTS,
     {ok, _} = q(["HINCRBY", version_key(VersionSlot), ClientVersion, -1]),
-    case persistent_term:get(lang_id, undefined) =:= true andalso LangId =/= undefined of
+    case LangId =/= undefined of
         true ->
             %% Decrement lang counter
             LangSlot = HashSlot rem ?NUM_SLOTS,
@@ -432,23 +432,19 @@ set_push_token(Uid, Os, PushToken, TimestampMs, LangId) ->
 
 -spec update_lang_counters(Uid :: binary(), LangId :: binary(), OldLangId :: binary()) -> ok.
 update_lang_counters(Uid, LangId, OldLangId) ->
-    case persistent_term:get(lang_id, undefined) of
-        true ->
-            HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
-            LangSlot = HashSlot rem ?NUM_SLOTS,
-            case OldLangId of
-                undefined ->
-                    [{ok, _}] = qp([["HINCRBY", lang_key(LangSlot), LangId, 1]]),
-                    ok;
-                LangId -> ok;
-                OldLangId ->
-                    [{ok, _}, {ok, _}] = qp([
-                            ["HINCRBY", lang_key(LangSlot), LangId, 1],
-                            ["HINCRBY", lang_key(LangSlot), OldLangId, -1]
-                        ]),
-                    ok
-            end;
-        _ -> ok
+    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+    LangSlot = HashSlot rem ?NUM_SLOTS,
+    case OldLangId of
+        undefined ->
+            [{ok, _}] = qp([["HINCRBY", lang_key(LangSlot), LangId, 1]]),
+            ok;
+        LangId -> ok;
+        OldLangId ->
+            [{ok, _}, {ok, _}] = qp([
+                    ["HINCRBY", lang_key(LangSlot), LangId, 1],
+                    ["HINCRBY", lang_key(LangSlot), OldLangId, -1]
+                ]),
+            ok
     end,
     ok.
 
