@@ -10,7 +10,8 @@
 group() ->
     {presence, [sequence], [
         presence_recv_presence_test,
-        presence_block1_presence_test
+        presence_block1_presence_test,
+        presence_block2_presence_test
     ]}.
 
 
@@ -77,6 +78,7 @@ recv_presence_test(_Conf) ->
 
 %% UID4 and UID5 must receive presence of UID2 only after they subscribe to it.
 %% They will not receive presence of UID1 because they dont have their phonenumbers - even if they subscribe.
+%% tests receiving presence of blocked contact only in 1 direction.
 block1_presence_test(_Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
     {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
@@ -144,6 +146,61 @@ block1_presence_test(_Conf) ->
     RecvPresence5 = ha_client:wait_for(C5, PresenceWaitFun),
     ?assertEqual(available, RecvPresence5#pb_packet.stanza#pb_presence.type),
     ?assertEqual(?UID2, RecvPresence5#pb_packet.stanza#pb_presence.from_uid),
+    ok.
+
+
+%% UID1 and UID5 must not receive presence of each other when they block it.
+%% tests subscribing in both directions.
+block2_presence_test(_Conf) ->
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C5} = ha_client:connect_and_login(?UID5, ?KEYPAIR5),
+    % UID5 has blocked UID1
+
+    Available = #pb_packet{
+        stanza = #pb_presence{
+            id = <<"id1">>,
+            type = available
+        }
+    },
+
+    ok = ha_client:send(C1, Available),
+    ok = ha_client:send(C5, Available),
+
+    % We need to give some time for the requests on C1 and C5 to get processed
+    timer:sleep(100),
+
+    %% Wait and clear out all messages in the queue.
+    ha_client:wait_for_eoq(C1),
+    ha_client:wait_for_eoq(C5),
+    ha_client:clear_queue(C1),
+    ha_client:clear_queue(C5),
+
+    Subscribe1 = #pb_packet{
+        stanza = #pb_presence{
+            id = <<"id2">>,
+            type = subscribe,
+            to_uid = ?UID5
+        }
+    },
+
+    Subscribe2 = #pb_packet{
+        stanza = #pb_presence{
+            id = <<"id3">>,
+            type = subscribe,
+            to_uid = ?UID1
+        }
+    },
+
+    ok = ha_client:send(C1, Subscribe1),
+    ok = ha_client:send(C5, Subscribe2),
+
+    timer:sleep(100),
+
+    ?assertEqual(undefined, ha_client:recv(C1, 200)),
+    ?assertEqual(undefined, ha_client:recv(C5, 200)),
+
+    ha_client:stop(C1),
+    ha_client:stop(C5),
     ok.
 
 

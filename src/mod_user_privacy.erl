@@ -147,7 +147,9 @@ privacy_check_packet(allow, _State, #pb_presence{type = Type}, out = _Dir)
 privacy_check_packet(allow, _State, #pb_presence{type = Type} = Packet, out = Dir)
         when Type =:= subscribe; Type =:= unsubscribe ->
     %% inspect requests to another user's presence.
-    check_blocked(Packet, Dir);
+    %% subscribe and unsubscribe requests must be checked from receiver's perspective.
+    %% so we reverse the direction and then check for blocked.
+    check_blocked(Packet, in);
 
 privacy_check_packet(allow, _State, #pb_chat_state{thread_type = group_chat} = _Packet, out) ->
     %% always allow typing indicators in groups.
@@ -182,19 +184,29 @@ remove_user(Uid, _Server) ->
 %% internal functions.
 %%====================================================================
 
+%% TODO: add tests for all kinds of stanzas.
 %% We allow message payloads of types: delivery_receipts, seen_receipts,
-%% group_chats and retract stanzas between any users including blocked users.
+%% group_chats, group_feed and retract stanzas between any users including blocked users.
 %% For all other stanzas/categories: we are not sure.
 %% since we need to check the relationship between the sender and receiver.
 -spec is_payload_always_allowed(PayloadType :: atom()) -> boolean().
-is_payload_always_allowed(receipt_response) -> true;
-is_payload_always_allowed(receipt_seen) -> true;
-is_payload_always_allowed(group_chat) -> true;
-is_payload_always_allowed(chat_retract_st) -> true;
-is_payload_always_allowed(groupchat_retract_st) -> true;
-is_payload_always_allowed(group_st) -> true;
+%% seen and delivery receipts.
+is_payload_always_allowed(pb_seen_receipt) -> true;
+is_payload_always_allowed(pb_delivery_receipt) -> true;
+%% group stanzas.
+is_payload_always_allowed(pb_group_stanza) -> true;
+%% group chat stanzas.
+is_payload_always_allowed(pb_group_chat) -> true;
+is_payload_always_allowed(pb_groupchat_retract) -> true;
+%% group feed stanzas.
+is_payload_always_allowed(pb_group_feed_item) -> true;
+is_payload_always_allowed(pb_group_feed_items) -> true;
+is_payload_always_allowed(pb_group_feed_rerequest) -> true;
+%% server generated.
+is_payload_always_allowed(pb_end_of_queue) -> true;
+is_payload_always_allowed(pb_error_stanza) -> true;
+%% everything else.
 is_payload_always_allowed(_) -> false.
-
 
 
 -spec check_blocked(Packet :: stanza(), Dir :: in | out) -> allow | deny.
