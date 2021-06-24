@@ -325,22 +325,19 @@ retract_comment(PublisherUid, CommentId, PostId) ->
 -spec process_share_posts(Uid :: uid(), Server :: binary(),
         SharePostSt :: pb_share_stanza()) -> pb_share_stanza().
 process_share_posts(Uid, Server, SharePostSt) ->
+    %% clients dont know the relationship anymore,
+    %% so server should decide whether to broadcast or not.
     Ouid = SharePostSt#pb_share_stanza.uid,
     case model_friends:is_friend(Uid, Ouid) of
         true ->
             PostIds = [PostId || PostId <- SharePostSt#pb_share_stanza.post_ids],
-            share_feed_items(Uid, Ouid, Server, PostIds),
-            #pb_share_stanza{
-                uid = Ouid,
-                result = <<"ok">>
-            };
-        false ->
-            #pb_share_stanza{
-                uid = Ouid,
-                result = <<"failed">>,
-                reason = <<"invalid_friend_uid">>
-            }
-    end.
+            share_feed_items(Uid, Ouid, Server, PostIds);
+        false -> ok
+    end,
+    #pb_share_stanza{
+        uid = Ouid,
+        result = <<"ok">>
+    }.
 
 
 -spec make_pb_feed_post(Action :: action_type(), PostId :: binary(),

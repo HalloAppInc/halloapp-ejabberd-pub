@@ -406,19 +406,19 @@ retract_not_authorized_comment_test() ->
         fun retract_not_authorized_comment/0}.
 
 
-share_post_error() ->
+share_post_non_friend() ->
     setup(),
     %% publish post and add non-friend
     ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
     ShareIQ = get_share_iq(?UID1, ?UID2, [?POST_ID1], ?SERVER),
     ResultIQ = mod_feed:process_local_iq(ShareIQ),
-    ExpectedResultIQ = get_share_error_result(?UID1, ?UID2, ?SERVER),
+    ExpectedResultIQ = get_share_iq_result(?UID1, ?UID2, ?SERVER),
     ?assertEqual(ExpectedResultIQ#iq.sub_els, ResultIQ#iq.sub_els),
     ok.
 
-share_post_error_test() ->
+share_post_non_friend_test() ->
     {timeout, 30,
-        fun share_post_error/0}.
+        fun share_post_non_friend/0}.
 
 
 share_post_iq() ->
