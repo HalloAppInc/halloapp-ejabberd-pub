@@ -331,7 +331,7 @@ process_closed(State, Reason) ->
     stop(State#{stop_reason => Reason}).
 
 
-process_terminated(#{sid := SID, socket := Socket,
+process_terminated(#{sid := SID, socket := Socket, mode := Mode,
         jid := JID, user := Uid, server := Server, resource := Resource} = State,
         Reason) ->
     Status = format_reason(State, Reason),
@@ -340,7 +340,7 @@ process_terminated(#{sid := SID, socket := Socket,
     ejabberd_sm:close_session(SID, Uid, Server, Resource),
     case maps:is_key(pres_last, State) of
         true ->
-            ejabberd_hooks:run(unset_presence_hook, Server, [Uid, Server, Resource, Status]);
+            ejabberd_hooks:run(unset_presence_hook, Server, [Uid, Mode, Resource, Reason]);
         false ->
             ok
     end,

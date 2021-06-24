@@ -92,9 +92,16 @@ set_presence_hook(User, Server, Resource, #pb_presence{type = StatusType}) ->
     check_and_probe_contacts_presence(User, Server, StatusType).
 
 
--spec unset_presence_hook(User :: binary(), Server :: binary(),
-        Resource :: binary(), PStatus :: binary()) -> ok.
-unset_presence_hook(User, Server, Resource, _PStatus) ->
+-spec unset_presence_hook(User :: binary(), Mode :: atom(),
+        Resource :: binary(), Reason :: atom()) -> ok.
+%% when an account is deleted, we terminate the connection session.
+%% as part of that: we unset presence info and run this hook,
+%% but since this uid is deleted, we can ignore this hook here.
+unset_presence_hook(_User, _Mode, _Resource, account_deleted) -> ok;
+%% passive connections should not affect your presence behavior.
+unset_presence_hook(_User, passive, _Resource, _Reason) -> ok;
+unset_presence_hook(User, active, Resource, _Reason) ->
+    Server = util:get_host(),
     store_and_broadcast_presence(User, Server, Resource, away).
 
 

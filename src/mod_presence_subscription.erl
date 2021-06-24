@@ -84,9 +84,11 @@ remove_user(Uid, _Server) ->
     presence_unsubscribe_all(Uid).
 
 
--spec unset_presence_hook(Uid :: binary(), Server :: binary(),
-        Resource :: binary(), Status :: binary()) -> {ok, any()} | {error, any()}.
-unset_presence_hook(Uid, _Server, _Resource, _Status) ->
+-spec unset_presence_hook(Uid :: binary(), Mode :: atom(),
+        Resource :: binary(), Reason :: atom()) -> {ok, any()} | {error, any()}.
+%% passive connections should not affect your presence behavior.
+unset_presence_hook(_Uid, passive, _Resource, _Reason) -> ok;
+unset_presence_hook(Uid, active, _Resource, _Reason) ->
     presence_unsubscribe_all(Uid).
 
 
