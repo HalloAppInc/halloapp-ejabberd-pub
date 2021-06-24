@@ -216,10 +216,11 @@ compute_counts_by_langid() ->
     Start = util:now_ms(),
 
     LangCountsMap = model_accounts:count_lang_keys(),
-    maps:foreach(
+    LangCountsList = maps:to_list(LangCountsMap),
+    lists:foreach(
         fun({LangId, Count}) ->
             stat:gauge("HA/lang_id", "all_users", Count, [{lang_id, LangId}])
-        end, LangCountsMap),
+        end, LangCountsList),
 
     End = util:now_ms(),
     ?INFO("Counting took ~p ms", [End - Start]),
