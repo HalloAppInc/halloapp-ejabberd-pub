@@ -192,7 +192,7 @@ prepare_registration_sms(Code, LangId, UserAgent, Method) ->
             Msg = io_lib:format("Your HalloApp verification code is ~s . ", [DigitByDigit]),
             io_lib:format("~s ~s ~s ~s", [Msg, Msg, Msg, Msg]);
         sms ->
-            SmsMsgBin = ?TR(<<"server.sms.verification">>, LangId),
+            {SmsMsgBin, _} = mod_translate:translate(<<"server.sms.verification">>, LangId),
             AppHash = get_app_hash(UserAgent),
             io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash])
     end.

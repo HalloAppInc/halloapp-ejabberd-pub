@@ -64,30 +64,31 @@ mod_options(_Host) ->
 %% API
 %%====================================================================
 
--spec translate(Token :: binary(), LangId :: binary()) -> TranslatedMsg :: binary().
+-spec translate(Token :: binary(), LangId :: binary()) ->
+        {TranslatedMsg :: binary(), ResultLangId :: binary()}.
 translate(Token, LangId) ->
     translate(Token, [], LangId).
 
 
 -spec translate(Token :: binary(), Args :: [binary()],
-        LangId :: binary()) -> TranslatedMsg :: binary().
+        LangId :: binary()) -> {TranslatedMsg :: binary(), ResultLangId :: binary()}.
 translate(Token, Args, LangId) ->
     try
-        Translation = case LangId of
+        {Translation, ResultLangId} = case LangId of
             <<"en-US">> ->
                 count_lang_id(?ENG_LANG_ID),
-                lookup_english_string(Token);
+                {lookup_english_string(Token), ?ENG_LANG_ID};
             _ ->
                 lookup_translation(Token, LangId)
         end,
         TranslatedString = format_translation(Translation, Args),
-        TranslatedString
+        {TranslatedString, ResultLangId}
     catch
         Class:Reason:Stacktrace ->
             ?ERROR("Failed translating Token: ~p, Args:~p, LangId: ~p", [Token, Args, LangId]),
             ?ERROR("Stacktrace:~s", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             Translation2 = lookup_english_string(Token),
-            format_translation(Translation2, Args)
+            {format_translation(Translation2, Args), ?ENG_LANG_ID}
     end.
 
 
@@ -119,12 +120,12 @@ lookup_translation(Token, LangId) ->
     case ets:lookup(?TRANSLATIONS, {Token, LangId}) of
         [{_, Translation}] ->
             count_lang_id(LangId),
-            Translation;
+            {Translation, LangId};
         [{_, Translation} | _] ->
             ?WARNING("More than one translation exists, Token: ~p, LangId: ~p",
                 [Token, LangId]),
             count_lang_id(LangId),
-            Translation;
+            {Translation, LangId};
         [] ->
             %% If no translations exists, try shortening the id and lookup again.
             ShortLangId = shorten_lang_id(LangId),
@@ -133,26 +134,26 @@ lookup_translation(Token, LangId) ->
                 %% since translations dont exist.
                 <<"en">> ->
                     count_lang_id(?ENG_LANG_ID),
-                    lookup_english_string(Token);
+                    {lookup_english_string(Token), ?ENG_LANG_ID};
                 LangId ->
                     count_lang_id(?ENG_LANG_ID),
-                    lookup_english_string(Token);
+                    {lookup_english_string(Token), ?ENG_LANG_ID};
                 _ ->
                     %% Lookup translations using the shortId, else fallback to the default string.
                     case ets:lookup(?TRANSLATIONS, {Token, ShortLangId}) of
                         [{_, Translation}] ->
                             count_lang_id(ShortLangId),
-                            Translation;
+                            {Translation, LangId};
                         [{_, Translation} | _] ->
                             ?WARNING("More than one translation exists, Token: ~p, LangId: ~p",
                                 [Token, LangId]),
                             count_lang_id(ShortLangId),
-                            Translation;
+                            {Translation, LangId};
                         _ ->
                             ?WARNING("Unable to find translation for Token: ~p, LangId: ~p",
                                 [Token, LangId]),
                             count_lang_id(?ENG_LANG_ID),
-                            lookup_english_string(Token)
+                            {lookup_english_string(Token), ?ENG_LANG_ID}
                     end
             end
     end.

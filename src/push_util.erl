@@ -30,7 +30,7 @@ parse_metadata(#pb_msg{id = Id, payload = Payload,
         thread_id = FromUid,
         sender_name = Payload#pb_chat_stanza.sender_name,
         subject = Payload#pb_chat_stanza.sender_name,
-        body = ?TR(<<"server.new.message">>, PushInfo#push_info.lang_id),
+        body = translate(<<"server.new.message">>, PushInfo#push_info.lang_id),
         push_type = alert,
         payload = Payload#pb_chat_stanza.payload
     };
@@ -59,7 +59,7 @@ parse_metadata(#pb_msg{id = Id, payload = Payload,
         thread_name = GroupName,
         sender_name = PushName,
         subject = <<PushName/binary, " @ ", GroupName/binary>>,
-        body = ?TR(<<"server.new.group.message">>, PushInfo#push_info.lang_id),
+        body = translate(<<"server.new.group.message">>, PushInfo#push_info.lang_id),
         push_type = alert,
         payload = Payload#pb_group_chat.payload
     };
@@ -97,13 +97,13 @@ parse_metadata(#pb_msg{id = _Id, type = MsgType, payload = Payload} = Message, P
     Name = Contact#pb_contact.name,
     {ContentType, Subject, Body} = case Payload#pb_contact_list.type of
         contact_notice ->
-            NewBody = ?TR(<<"server.new.contact">>, [Name], PushInfo#push_info.lang_id),
+            NewBody = translate(<<"server.new.contact">>, [Name], PushInfo#push_info.lang_id),
             {<<"contact_notice">>, <<>>, <<NewBody/binary>>};
         inviter_notice ->
-            NewBody = ?TR(<<"server.new.inviter">>, [Name], PushInfo#push_info.lang_id),
+            NewBody = translate(<<"server.new.inviter">>, [Name], PushInfo#push_info.lang_id),
             {<<"inviter_notice">>, <<>>, <<NewBody/binary>>};
         _ ->
-            NewBody = ?TR(<<"server.new.contact">>, [Name], PushInfo#push_info.lang_id),
+            NewBody = translate(<<"server.new.contact">>, [Name], PushInfo#push_info.lang_id),
             {<<"contact_notification">>, <<>>, <<NewBody/binary>>}
     end,
     NewMsgType = {MsgType, Payload#pb_contact_list.type},
@@ -130,7 +130,7 @@ parse_metadata(#pb_msg{type = MsgType,
         thread_id = <<"feed">>,
         sender_name = Post#pb_post.publisher_name,
         subject = Post#pb_post.publisher_name,
-        body = ?TR(<<"server.new.post">>, PushInfo#push_info.lang_id),
+        body = translate(<<"server.new.post">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, feed_post, PushInfo),
         payload = Post#pb_post.payload
     };
@@ -156,7 +156,7 @@ parse_metadata(#pb_msg{type = MsgType,
         thread_id = <<"feed">>,
         sender_name = Comment#pb_comment.publisher_name,
         subject = Comment#pb_comment.publisher_name,
-        body = ?TR(<<"server.new.comment">>, PushInfo#push_info.lang_id),
+        body = translate(<<"server.new.comment">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, feed_comment, PushInfo),
         payload = Comment#pb_comment.payload
     };
@@ -186,7 +186,7 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, 
         thread_name = Payload#pb_group_feed_item.name,
         sender_name = Post#pb_post.publisher_name,
         subject = <<PushName/binary, " @ ", GroupName/binary>>,
-        body = ?TR(<<"server.new.post">>, PushInfo#push_info.lang_id),
+        body = translate(<<"server.new.post">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, PayloadType, PushInfo),
         payload = Post#pb_post.payload
     };
@@ -216,7 +216,7 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, 
         thread_name = Payload#pb_group_feed_item.name,
         sender_name = Comment#pb_comment.publisher_name,
         subject = <<PushName/binary, " @ ", GroupName/binary>>,
-        body = ?TR(<<"server.new.comment">>, PushInfo#push_info.lang_id),
+        body = translate(<<"server.new.comment">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, PayloadType, PushInfo),
         payload = Comment#pb_comment.payload
     };
@@ -244,7 +244,7 @@ parse_metadata(#pb_msg{id = Id, type = MsgType, payload = #pb_group_stanza{gid =
         thread_name = GroupName,
         sender_name = SenderName,
         subject = GroupName,
-        body = ?TR(<<"server.new.group">>, PushInfo#push_info.lang_id),
+        body = translate(<<"server.new.group">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, PayloadType, PushInfo)
     };
 
@@ -276,6 +276,16 @@ record_push_sent(Message, PushInfo) ->
     PushId = <<ContentId/binary, PushTypeBin/binary>>,
     UserId = Message#pb_msg.to_uid,
     model_messages:record_push_sent(UserId, PushId).
+
+
+-spec translate(Token :: binary(), LangId :: binary()) -> binary().
+translate(Token, LangId) ->
+    translate(Token, [], LangId).
+
+-spec translate(Token :: binary(), Args :: [binary()], LangId :: binary()) -> binary().
+translate(Token, Args, LangId) ->
+    {Translation, _ResultLangId} = mod_translate:translate(Token, Args, LangId),
+    Translation.
 
 
 -spec get_push_type(MsgType :: atom(),
