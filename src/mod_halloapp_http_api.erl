@@ -60,6 +60,7 @@ process([<<"registration">>, <<"register2">>],
         Name = maps:get(<<"name">>, Payload),
         SEdPub = maps:get(<<"s_ed_pub">>, Payload),
         SignedPhrase = maps:get(<<"signed_phrase">>, Payload),
+        GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
 
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
@@ -76,13 +77,17 @@ process([<<"registration">>, <<"register2">>],
         process_whisper_keys(Uid, Payload),
 
         ?INFO("registration complete uid:~s, phone:~s", [Uid, Phone]),
-        {200, ?HEADER(?CT_JSON),
-            jiffy:encode({[
-                {uid, Uid},
-                {phone, Phone},
-                {name, LName},
-                {result, ok}
-            ]})}
+        Result = #{
+            uid => Uid,
+            phone => Phone,
+            name => LName,
+            result => ok
+        },
+        Result2 = case GroupInviteToken of
+            undefined -> Result;
+            _ -> Result#{group_invite_result => maybe_join_group(Uid, GroupInviteToken)}
+        end,
+        {200, ?HEADER(?CT_JSON), jiffy:encode(Result2)}
     catch
         % TODO: This code is getting out of hand... Figure out how to simplify the error handling
         error : bad_user_agent ->
@@ -451,6 +456,15 @@ check_sms_code(Phone, Code) ->
         nomatch ->
             ?INFO("Codes mismatch, phone:~s, code:~s", [Phone, Code]),
             error(wrong_sms_code)
+    end.
+
+-spec maybe_join_group(Uid :: uid(), Link :: binary()) -> ok | atom().
+maybe_join_group(_Uid, undefined) ->
+    invalid_invite;
+maybe_join_group(Uid, Link) ->
+    case mod_groups:join_with_invite_link(Uid, Link) of
+        {ok, _} -> ok;
+        {error, Reason} -> Reason
     end.
 
 

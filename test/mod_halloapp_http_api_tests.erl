@@ -139,8 +139,12 @@ register_spub_test() ->
     meck_finish(stat),
     {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER2_PATH,
         #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE},
-        {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(RegInfo),
+    #{
+        <<"uid">> := Uid,
+        <<"phone">> := ?TEST_PHONE,
+        <<"name">> := ?NAME,
+        <<"result">> := <<"ok">>
+    } = jiffy:decode(RegInfo, [return_maps]),
     SPub = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub),
     ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub))),
     %% Re-reg
@@ -152,8 +156,12 @@ register_spub_test() ->
     GoodData2 = ?REGISTER2_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME, SEdPubEncoded2, SignedMessageEncoded2),
     {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER2_PATH,
         #request{method = 'POST', data = GoodData2, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)}),
-    [{<<"uid">>, Uid}, {<<"phone">>, ?TEST_PHONE},
-        {<<"name">>, ?NAME}, {<<"result">>, <<"ok">>}] = jsx:decode(Info),
+    #{
+        <<"uid">> := Uid,
+        <<"phone">> := ?TEST_PHONE,
+        <<"name">> := ?NAME,
+        <<"result">> := <<"ok">>
+    } = jiffy:decode(Info, [return_maps]),
     SPub2 = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub2),
     ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub2))),
     meck_finish(ejabberd_sm),
