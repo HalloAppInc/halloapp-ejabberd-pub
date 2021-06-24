@@ -197,7 +197,7 @@ request_invite(FromUid, ToPhoneNum) ->
                 [FromUid, ToPhoneNum, InvitesLeft]),
             stat:count(?NS_INVITE_STATS, "invite_success"),
             % In prod, registration of test number won't decrease the # of invites a user has
-            NumInvitesLeft = case config:is_prod_env() and util:is_test_number(ToPhoneNum) of 
+            NumInvitesLeft = case config:is_prod_env() and util:is_test_number(NormalizedPhone) of
                     true -> InvitesLeft;
                     false -> InvitesLeft - 1
                 end,
