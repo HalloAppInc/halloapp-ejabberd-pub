@@ -248,7 +248,7 @@ Run the eunit tests:
 
 Run the Common Tests:
 
-    HALLO_ENV=test ./rebar ct suite=ha
+    HALLO_ENV=test ./rebar ct suites=ha
 
 ### 4. Running
 
