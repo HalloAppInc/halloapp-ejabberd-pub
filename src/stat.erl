@@ -47,6 +47,7 @@
     trigger_count_users_by_langid/0,
     trigger_check_sms_reg/0,
     compute_counts_by_version/0,
+    compute_counts_by_langid/0,
     compute_counts/0,
     check_sms_reg/0
 ]).
