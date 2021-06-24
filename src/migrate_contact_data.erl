@@ -15,7 +15,8 @@
     remove_unregistered_numbers_run/2,
     remove_unregistered_numbers_verify/2,
     trigger_full_sync_run/2,
-    find_empty_contact_list_accounts/2
+    find_empty_contact_list_accounts/2,
+    remove_phone_hash_key/2
 ]).
 
 
@@ -118,6 +119,30 @@ find_empty_contact_list_accounts(Key, State) ->
         _ -> ok
     end,
     State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Remove reverse keys of hashed phones                      %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+remove_phone_hash_key(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^rph:.*", [global, {capture, all, binary}]),
+    case Result of
+        {match, _} ->
+            Command = ["DEL", Key],
+            case DryRun of
+                true ->
+                    ?INFO("Key: ~p, would run command: ~p", [Key, Command]);
+                false ->
+                    Res = ecredis:q(ecredis_contacts, Command),
+                    ?INFO("Key: ~p, result: ~p", [Key, Res])
+            end;
+        _ -> ok
+    end,
+    State.
+
 
 
 q(Client, Command) -> util_redis:q(Client, Command).

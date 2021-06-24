@@ -121,11 +121,11 @@ normalize_and_insert_contacts_with_syncid_test() ->
     ExpectedSyncPhones = [?PHONE2, ?PHONE3, ?PHONE4, ?PHONE6],
     ?assertEqual(lists:sort(ExpectedSyncPhones), lists:sort(ActualSyncPhones)),
 
-    %% Test if uid is correctly inserted for unregistered phone numbers.
-    {ok, ActualUids1} = model_contacts:get_potential_reverse_contact_uids(?PHONE4),
-    {ok, ActualUids2} = model_contacts:get_potential_reverse_contact_uids(?PHONE6),
-    ?assert(lists:member(?UID1, ActualUids1)),
-    ?assert(lists:member(?UID1, ActualUids2)),
+    % %% Test if uid is correctly inserted for unregistered phone numbers.
+    % {ok, ActualUids1} = model_contacts:get_potential_reverse_contact_uids(?PHONE4),
+    % {ok, ActualUids2} = model_contacts:get_potential_reverse_contact_uids(?PHONE6),
+    % ?assert(lists:member(?UID1, ActualUids1)),
+    % ?assert(lists:member(?UID1, ActualUids2)),
 
     %% Ensure contacts are still empty and only inserted with syncid.
     ?assertEqual({ok, []}, model_contacts:get_contacts(?UID1)),
@@ -170,9 +170,9 @@ normalize_and_insert_contacts_without_syncid_test() ->
     ExpectedPhones = [?PHONE2, ?PHONE3, ?PHONE4, ?PHONE6],
     ?assertEqual(lists:sort(ExpectedPhones), lists:sort(ActualPhones)),
 
-    %% Test if uid is correctly inserted for unregistered phone numbers.
-    {ok, ActualUids} = model_contacts:get_potential_reverse_contact_uids(?PHONE4),
-    ?assert(lists:member(?UID1, ActualUids)),
+    % %% Test if uid is correctly inserted for unregistered phone numbers.
+    % {ok, ActualUids} = model_contacts:get_potential_reverse_contact_uids(?PHONE4),
+    % ?assert(lists:member(?UID1, ActualUids)),
     ok.
 
 

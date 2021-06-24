@@ -142,11 +142,12 @@ re_register_user(UserId, _Server, _Phone) ->
 %% TODO: Delay notifying the users about their contact to reduce unnecessary messages to clients.
 -spec register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
 register_user(UserId, Server, Phone) ->
-    {ok, PotentialContactUids} = model_contacts:get_potential_reverse_contact_uids(Phone),
-    lists:foreach(
-        fun(ContactId) ->
-            probe_contact_about_user(UserId, Phone, Server, ContactId)
-        end, PotentialContactUids),
+    %% Disabled logic for contact hashing.
+    % {ok, PotentialContactUids} = model_contacts:get_potential_reverse_contact_uids(Phone),
+    % lists:foreach(
+    %     fun(ContactId) ->
+    %         probe_contact_about_user(UserId, Phone, Server, ContactId)
+    %     end, PotentialContactUids),
 
     %% Send notifications to relevant users.
     send_new_user_notifications(UserId, Phone),
@@ -406,8 +407,9 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     Time8 = os:system_time(microsecond),
     ?INFO("Timetaken:extract_normalized: ~w us", [Time8 - Time7]),
 
+    %% Dont store hashes yet, since we disabled contact hashing.
     %% Call the batched API to insert UserId for the unregistered phone numbers.
-    model_contacts:add_reverse_hash_contacts(UserId, UnRegisteredPhoneNumbers),
+    % model_contacts:add_reverse_hash_contacts(UserId, UnRegisteredPhoneNumbers),
     %% Call the batched API to insert the normalized phone numbers.
     case SyncId of
         undefined -> model_contacts:add_contacts(UserId, NormalizedPhoneNumbers);
