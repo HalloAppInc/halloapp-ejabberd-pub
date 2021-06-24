@@ -71,10 +71,11 @@ add_contacts(_Uid, []) ->
     ok;
 add_contacts(Uid, ContactList) ->
     {ok, _Res} = q(["SADD", contacts_key(Uid) | ContactList]),
-    lists:foreach(
+    ReverseKeyCommands = lists:map(
         fun(Contact) ->
-            {ok, _} = q(["SADD", reverse_key(Contact), Uid])
+            ["SADD", reverse_key(Contact), Uid]
         end, ContactList),
+    qmn(ReverseKeyCommands),
     ok.
 
 
@@ -140,14 +141,16 @@ finish_sync(Uid, Sid) ->
         {ok, <<"1">>} ->
             {ok, RemovedContactList} = q(["SDIFF", contacts_key(Uid), sync_key(Uid, Sid)]),
             {ok, AddedContactList} = q(["SDIFF", sync_key(Uid, Sid), contacts_key(Uid)]),
-            lists:foreach(
+            ReverseKeyCommands1 = lists:map(
                 fun(Contact) ->
-                    {ok, _} = q(["SREM", reverse_key(Contact), Uid])
+                    ["SREM", reverse_key(Contact), Uid]
                 end, RemovedContactList),
-            lists:foreach(
+            ReverseKeyCommands2 = lists:map(
                 fun(Contact) ->
-                    {ok, _} = q(["SADD", reverse_key(Contact), Uid])
+                    ["SADD", reverse_key(Contact), Uid]
                 end, AddedContactList),
+            qmn(ReverseKeyCommands1 ++ ReverseKeyCommands2),
+
             %% Empty contact sync should still work fine, so check if sync_key exists or not.
             {ok, _Res} = case q(["EXISTS", sync_key(Uid, Sid)]) of
                 {ok, <<"0">>} ->
