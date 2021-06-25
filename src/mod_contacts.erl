@@ -372,7 +372,7 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     end,
 
     %% Firstly, normalize all phone numbers received.
-    {UnNormalizedContacts1, NormalizedContacts1} = normalize_contacts(Contacts, UserRegionId),
+    {UnNormalizedContacts1, NormalizedContacts1} = normalize_contacts(UserId, Contacts, UserRegionId),
     Time2 = os:system_time(microsecond),
     ?INFO("Timetaken:normalize_contacts: ~w us", [Time2 - Time1]),
 
@@ -428,33 +428,16 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
 
 %% Splits contact records to unnormalized and normalized contacts.
 %% Sets normalized field for normalized contacts.
--spec normalize_contacts(Contacts :: [pb_contact()],
+-spec normalize_contacts(UserId :: binary(), Contacts :: [pb_contact()],
         UserRegionId :: binary()) -> {[pb_contact()], [pb_contact()]}.
-normalize_contacts(Contacts, UserRegionId) ->
+normalize_contacts(UserId, Contacts, UserRegionId) ->
+    {ok, NormContacts} = mod_contact_norm:normalize(UserId, Contacts, UserRegionId),
     lists:foldl(
-        fun(#pb_contact{raw = undefined} = Contact, {UnNormAcc, NormAcc}) ->
-                ?WARNING("Invalid contact: raw is undefined"),
-                NewContact = Contact#pb_contact{
-                    role = none,
-                    uid = undefined,
-                    normalized = undefined},
-                {[NewContact | UnNormAcc], NormAcc};
-            (#pb_contact{raw = RawPhone} = Contact, {UnNormAcc, NormAcc}) ->
-                ContactPhone = mod_libphonenumber:normalize(RawPhone, UserRegionId),
-                case ContactPhone of
-                    undefined ->
-                        stat:count("HA/contacts", "normalize_fail"),
-                        NewContact = Contact#pb_contact{
-                            role = none,
-                            uid = undefined,
-                            normalized = undefined},
-                        {[NewContact | UnNormAcc], NormAcc};
-                    _ ->
-                        stat:count("HA/contacts", "normalize_success"),
-                        NewContact = Contact#pb_contact{normalized = ContactPhone},
-                        {UnNormAcc, [NewContact | NormAcc]}
-                end
-        end, {[], []}, Contacts).
+        fun(#pb_contact{normalized = undefined} = Contact, {UnNormAcc, NormAcc}) ->
+                {[Contact | UnNormAcc], NormAcc};
+            (Contact, {UnNormAcc, NormAcc}) ->
+                {UnNormAcc, [Contact | NormAcc]}
+        end, {[], []}, NormContacts).
 
 
 %% Splits normalized contact records to unregistered and registered contacts.
