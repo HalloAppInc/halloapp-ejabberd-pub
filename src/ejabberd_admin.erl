@@ -69,6 +69,7 @@
     uid_info/1,
     phone_info/1,
     group_info/1,
+    get_sms_codes/1,
     send_ios_push/3,
     update_code_paths/0,
     list_changed_modules/0,
@@ -433,6 +434,12 @@ get_commands_spec() ->
         args_desc = ["Group ID (gid)"],
         args_example = [<<"gmWxatkspbosFeZQmVoQ0f">>],
         args=[{gid, binary}], result = {res, rescode}},
+    #ejabberd_commands{name = get_sms_codes, tags = [server],
+        desc = "Get SMS registration code for phone number",
+        module = ?MODULE, function = get_sms_codes,
+        args_desc = ["Phone number"],
+        args_example = [<<"12065555586">>],
+        args=[{phone, binary}], result = {res, rescode}},
     #ejabberd_commands{name = send_ios_push, tags = [server],
         desc = "Send an ios push",
         module = ?MODULE, function = send_ios_push,
@@ -1185,6 +1192,17 @@ send_ios_push(Uid, PushType, Payload) ->
             end
     end.
 
+
+get_sms_codes(Phone) ->
+    {ok, RawList} = model_phone:get_all_sms_codes(Phone),
+    case RawList of
+        [] -> io:format("No SMS codes associated with phone: ~s", [Phone]);
+        _ ->
+            Codes = [Code || {Code, _AttemptId} <- RawList],
+            io:format("SMS codes for phone: ~s~n", [Phone]),
+            [io:format("  ~s~n", [Code]) || Code <- Codes]
+    end,
+    ok.
 
 -spec is_my_host(binary()) -> boolean().
 is_my_host(Host) ->
