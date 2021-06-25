@@ -51,8 +51,7 @@
     get_timestamp/1,
     add_and_merge_maps/2,
     maybe_base64_encode/1,
-    maybe_base64_decode/1,
-    enumerate/1
+    maybe_base64_decode/1
 ]).
 
 %% Export all functions for unit tests
@@ -350,16 +349,4 @@ maybe_base64_encode(Data) -> base64:encode(Data).
 -spec maybe_base64_decode(maybe(binary())) -> maybe(binary()).
 maybe_base64_decode(undefined) -> undefined;
 maybe_base64_decode(Data) -> base64:decode(Data).
-
-
--spec enumerate(Limit :: integer()) -> [integer()].
-enumerate(Limit) ->
-    enumerate(0, Limit, 1, []).
-
--spec enumerate(Start :: integer(), End :: integer(),
-    Step :: integer(), Acc :: [integer()]) -> [integer()].
-enumerate(Start, End, _Step, Acc) when Start >= End -> lists:reverse(Acc);
-enumerate(Start, End, Step, Acc) ->
-    NewAcc = [Start | Acc],
-    enumerate(Start+Step, End, Step, NewAcc).
 
