@@ -25,6 +25,7 @@ dummy_test(_Conf) ->
     ok.
 
 export_test(_Conf) ->
+    % TODO: It would be nice if we have uid that is not dev user
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
     Id = <<"iq_id1">>,
     Payload = #pb_export_data{
@@ -38,11 +39,11 @@ export_test(_Conf) ->
         status = pending
     } = Result1Payload,
 
-    ?assert(erlang:abs(util:now() + 3*?DAYS - ReadyTs) < 10),
+    ?assert(erlang:abs(util:now() + 1 * ?MINUTES - ReadyTs) < 10),
 
     {ok, OriginalStartTs, ExportId} = model_accounts:get_export(?UID1),
-    % set fake time in the database, making it look like the export request happened 3 days ago.
-    model_accounts:test_set_export_time(?UID1, util:now() - 3*?DAYS - 100),
+    % set fake time in the database, making it look like the export request happened N time ago
+    model_accounts:test_set_export_time(?UID1, util:now() - 1 * ?MINUTES - 10),
     {ok, ModifiedStartTs, ExportId} = model_accounts:get_export(?UID1),
     ct:pal("Create Group Result : ~p ~p", [OriginalStartTs, ModifiedStartTs]),
 

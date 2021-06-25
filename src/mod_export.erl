@@ -38,6 +38,7 @@
 
 
 -define(EXPORT_WAIT, 3 * ?DAYS).
+-define(DEV_EXPORT_WAIT, 1 * ?MINUTES).
 -define(S3_EXPORT_BUCKET, "halloapp-export").
 -define(AVATAR_CDN, "https://avatar-cdn.halloapp.net/").
 
@@ -66,9 +67,10 @@ mod_options(_Host) ->
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_export_data{}} = IQ) ->
     ?INFO("Uid: ~s, export iq", [Uid]),
+    ExportWait = get_export_wait(Uid),
     case model_accounts:get_export(Uid) of
         {ok, StartTs, ExportId} ->
-            case StartTs + ?EXPORT_WAIT < util:now() of
+            case StartTs + ExportWait < util:now() of
                 true ->
                     Payload = IQ#pb_iq.payload#pb_export_data{
                         status = ready,
@@ -76,14 +78,14 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
                     pb:make_iq_result(IQ, Payload);
                 false ->
                     Payload = IQ#pb_iq.payload#pb_export_data{
-                        data_ready_ts = StartTs + ?EXPORT_WAIT,
+                        data_ready_ts = StartTs + ExportWait,
                         status = pending},
                     pb:make_iq_result(IQ, Payload)
             end;
         {error, missing} ->
             {ok, StartTs} = start_export(Uid),
             Payload = IQ#pb_iq.payload#pb_export_data{
-                data_ready_ts = StartTs + ?EXPORT_WAIT,
+                data_ready_ts = StartTs + ExportWait,
                 status = pending},
             pb:make_iq_result(IQ, Payload)
     end.
@@ -92,6 +94,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 export_bucket() ->
     ?S3_EXPORT_BUCKET.
 
+get_export_wait(Uid) ->
+    case dev_users:is_dev_uid(Uid) of
+        true -> ?DEV_EXPORT_WAIT;
+        false -> ?EXPORT_WAIT
+    end.
+
 
 %%====================================================================
 %% internal functions
@@ -99,6 +107,7 @@ export_bucket() ->
 
 start_export(Uid) ->
     ExportId = util:random_str(32),
+    % TODO: handle the error case
     {ok, Ts} = model_accounts:start_export(Uid, ExportId),
     DataMap = export_data(Uid),
     Data = encode_data(DataMap),
@@ -169,11 +178,14 @@ upload_s3(ObjectKey, Data) ->
     upload_s3(config:get_hallo_env(), ObjectKey, Data),
     ok.
 
--spec upload_s3(atom(), list(), binary()) -> ok.
+-spec upload_s3(atom(), binary(), binary()) -> ok.
 upload_s3(prod, ObjectKey, Data) ->
+    {ok, _} = application:ensure_all_started(erlcloud),
+    {ok, Config} = erlcloud_aws:auto_config(),
+    erlcloud_aws:configure(Config),
     Result = erlcloud_s3:put_object(
-        ?S3_EXPORT_BUCKET, ObjectKey, Data),
-    ?INFO("ObjectName: ~s, Result: ~p", [ObjectKey, Result]),
+        ?S3_EXPORT_BUCKET, binary_to_list(ObjectKey), Data),
+    ?INFO("ObjectName: ~p, Result: ~p", [ObjectKey, Result]),
     ok;
 upload_s3(_, ObjectKey, Data) ->
     ?INFO("would have uploaded: ~p with data: ~p", [ObjectKey, Data]),
