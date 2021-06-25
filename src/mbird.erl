@@ -14,11 +14,17 @@
 
 %% API
 -export([
+    init/0,
     send_sms/2,
     send_voice_call/2,
     normalized_status/1,
     compose_voice_body/2  %% for debugging
 ]).
+
+init() ->
+    FromPhoneList = ["+12022213975", "+12029511227", "+12029511244"],
+    util_sms:init_helper(mbird_options, FromPhoneList).
+
 
 -spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
@@ -137,6 +143,6 @@ compose_voice_body(Phone, Message) ->
 get_from_phone(Phone) ->
     case mod_libphonenumber:get_cc(Phone) of
         <<"CA">> -> ?FROM_PHONE_FOR_CANADA;
-        _ -> ?FROM_PHONE_FOR_REST
+        _ -> util_sms:lookup_from_phone(mbird_options)
     end.
 

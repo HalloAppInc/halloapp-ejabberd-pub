@@ -43,6 +43,8 @@
 
 start(_Host, _Opts) ->
     ?INFO("start ~w ~p", [?MODULE, self()]),
+    ok = twilio:init(),
+    ok = mbird:init(),
     ok.
 
 stop(_Host) ->

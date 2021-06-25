@@ -16,6 +16,7 @@
 -include("sms.hrl").
 
 -export([
+    init/0,
     send_sms/2,
     send_voice_call/2,
     fetch_message_info/1,
@@ -25,6 +26,14 @@
 
 
 -type compose_body_fun() :: fun((phone(), string()) -> string()).
+
+init() ->
+    FromPhoneList = [
+        "+14152339113", "+14155733553", "+14155733627", "+14153636140", "+14155392793",
+        "+14155733851", "+14156254554", "+14154495283", "+14155733859", "+14155733842"
+    ],
+    util_sms:init_helper(twilio_options, FromPhoneList).
+
 
 -spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, sms_fail}.
 send_sms(Phone, Msg) ->
@@ -134,9 +143,10 @@ encode_based_on_country(Phone, Msg) ->
 compose_body(Phone, Message) ->
     Message2 = encode_based_on_country(Phone, Message),
     PlusPhone = "+" ++ binary_to_list(Phone),
+    FromPhone = util_sms:lookup_from_phone(twilio_options),
     uri_string:compose_query([
         {"To", PlusPhone },
-        {"From", ?FROM_PHONE},
+        {"From", FromPhone},
         {"Body", Message2},
         {"StatusCallback", ?TWILIOCALLBACK_URL}
     ], [{encoding, utf8}]).
