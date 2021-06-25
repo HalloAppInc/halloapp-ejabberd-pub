@@ -27,7 +27,8 @@
 -export([
     process_local_iq/1,
     get_invites_remaining/1,
-    register_user/3
+    register_user/3,
+    request_invite/2
 ]).
 
 -define(NS_INVITE, <<"halloapp:invites">>).
@@ -112,6 +113,34 @@ register_user(Uid, _Server, Phone) ->
     send_invitee_notice(Uid, InvitersList),
     ok.
 
+
+-spec request_invite(FromUid :: uid(), ToPhoneNum :: phone()) -> {ToPhoneNum :: phone(),
+    ok | failed, maybe(invalid_number | no_invites_left | existing_user)}.
+request_invite(FromUid, ToPhoneNum) ->
+    stat:count(?NS_INVITE_STATS, "requests"),
+    stat:count(?NS_INVITE_STATS, "requests_by_dev", 1, [{is_dev, dev_users:is_dev_uid(FromUid)}]),
+    case can_send_invite(FromUid, ToPhoneNum) of
+        {error, already_invited} ->
+            ?INFO("Uid: ~s Phone: ~s already_invited", [FromUid, ToPhoneNum]),
+            stat:count(?NS_INVITE_STATS, "invite_duplicate"),
+            {ToPhoneNum, ok, undefined};
+        {error, Reason} ->
+            ?INFO("Uid: ~s Phone: ~s error ~p", [FromUid, ToPhoneNum, Reason]),
+            stat:count(?NS_INVITE_STATS, "invite_error_" ++ atom_to_list(Reason)),
+            {ToPhoneNum, failed, Reason};
+        {ok, InvitesLeft, NormalizedPhone} ->
+            ?INFO("Uid: ~s Phone: ~s invite successful, ~p invites left",
+                [FromUid, ToPhoneNum, InvitesLeft]),
+            stat:count(?NS_INVITE_STATS, "invite_success"),
+            % In prod, registration of test number won't decrease the # of invites a user has
+            NumInvitesLeft = case config:is_prod_env() and util:is_test_number(NormalizedPhone) of
+                                 true -> InvitesLeft;
+                                 false -> InvitesLeft - 1
+                             end,
+            model_invites:record_invite(FromUid, NormalizedPhone, NumInvitesLeft),
+            {ToPhoneNum, ok, undefined}
+    end.
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -177,33 +206,6 @@ get_time_until_refresh() ->
 get_time_until_refresh(CurrEpochTime) ->
     get_next_sunday_midnight(CurrEpochTime) - CurrEpochTime.
 
-% this function should return {ok, NumInvitesRemaining}
--spec request_invite(FromUid :: binary(), ToPhoneNum :: binary()) -> {ToPhoneNum :: binary(),
-        ok | error, undefined | no_invites_left | existing_user | invalid_number}.
-request_invite(FromUid, ToPhoneNum) ->
-    stat:count(?NS_INVITE_STATS, "requests"),
-    stat:count(?NS_INVITE_STATS, "requests_by_dev", 1, [{is_dev, dev_users:is_dev_uid(FromUid)}]),
-    case can_send_invite(FromUid, ToPhoneNum) of
-        {error, already_invited} ->
-            ?INFO("Uid: ~s Phone: ~s already_invited", [FromUid, ToPhoneNum]),
-            stat:count(?NS_INVITE_STATS, "invite_duplicate"),
-            {ToPhoneNum, ok, undefined};
-        {error, Reason} ->
-            ?INFO("Uid: ~s Phone: ~s error ~p", [FromUid, ToPhoneNum, Reason]),
-            stat:count(?NS_INVITE_STATS, "invite_error_" ++ atom_to_list(Reason)),
-            {ToPhoneNum, failed, Reason};
-        {ok, InvitesLeft, NormalizedPhone} ->
-            ?INFO("Uid: ~s Phone: ~s invite successful, ~p invites left",
-                [FromUid, ToPhoneNum, InvitesLeft]),
-            stat:count(?NS_INVITE_STATS, "invite_success"),
-            % In prod, registration of test number won't decrease the # of invites a user has
-            NumInvitesLeft = case config:is_prod_env() and util:is_test_number(NormalizedPhone) of
-                    true -> InvitesLeft;
-                    false -> InvitesLeft - 1
-                end,
-            model_invites:record_invite(FromUid, NormalizedPhone, NumInvitesLeft),
-            {ToPhoneNum, ok, undefined}
-    end.
 
 can_send_invite(FromUid, ToPhone) ->
     {ok, UserPhone} = model_accounts:get_phone(FromUid),

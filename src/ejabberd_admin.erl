@@ -70,6 +70,7 @@
     phone_info/1,
     group_info/1,
     get_sms_codes/1,
+    send_invite/2,
     send_ios_push/3,
     update_code_paths/0,
     list_changed_modules/0,
@@ -428,6 +429,12 @@ get_commands_spec() ->
         args_desc = ["Phone number"],
         args_example = [<<"12065555586">>],
         args=[{phone, binary}], result = {res, rescode}},
+    #ejabberd_commands{name = send_invite, tags = [server],
+        desc = "Send an invite",
+        module = ?MODULE, function = send_invite,
+        args_desc = ["Uid of inviter", "Phone number of invitee"],
+        args_example = [<<"1000000000121550191">>, <<"12065555586">>],
+        args=[{uid, binary}, {phone, binary}], result = {res, rescode}},
     #ejabberd_commands{name = group_info, tags = [server],
         desc = "Get information about a group",
         module = ?MODULE, function = group_info,
@@ -1203,6 +1210,21 @@ get_sms_codes(Phone) ->
             [io:format("  ~s~n", [Code]) || Code <- Codes]
     end,
     ok.
+
+
+send_invite(FromUid, ToPhone) ->
+    case model_accounts:account_exists(FromUid) of
+        true ->
+            case mod_invites:request_invite(FromUid, ToPhone) of
+                {_ToPhone, ok, undefined} ->
+                    io:format("Uid ~s marked phone ~s as invited~n", [FromUid, ToPhone]);
+                {_ToPhone, failed, Reason} ->
+                    io:format("Failed to send invite: ~s~n", [Reason])
+            end;
+        false -> io:format("No account associated with uid: ~s~n", [FromUid])
+    end,
+    ok.
+
 
 -spec is_my_host(binary()) -> boolean().
 is_my_host(Host) ->
