@@ -110,7 +110,7 @@ process_local_iq(#pb_iq{type = get, payload = #pb_upload_media{size = Size, type
 
 -spec generate_s3_urls() -> {GetUrl :: binary(), PutUrl :: binary()}.
 generate_s3_urls() ->
-    {Key, PutUrl} = s3_signed_url_generator:make_signed_url(3600),
+    {Key, PutUrl} = s3_signed_url_generator:make_signed_url(604800),
     %% Url to read content with max expiry.
     GetUrl = s3_signed_url_generator:make_signed_url(604800, Key),
     {GetUrl, PutUrl}.
