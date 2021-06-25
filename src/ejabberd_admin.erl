@@ -1215,11 +1215,15 @@ get_sms_codes(Phone) ->
 send_invite(FromUid, ToPhone) ->
     case model_accounts:account_exists(FromUid) of
         true ->
-            case mod_invites:request_invite(FromUid, ToPhone) of
-                {_ToPhone, ok, undefined} ->
-                    io:format("Uid ~s marked phone ~s as invited~n", [FromUid, ToPhone]);
-                {_ToPhone, failed, Reason} ->
-                    io:format("Failed to send invite: ~s~n", [Reason])
+            case dev_users:is_dev_uid(FromUid) of
+                true ->
+                    case mod_invites:request_invite(FromUid, ToPhone) of
+                        {_ToPhone, ok, undefined} ->
+                            io:format("Uid ~s marked phone ~s as invited~n", [FromUid, ToPhone]);
+                        {_ToPhone, failed, Reason} ->
+                            io:format("Failed to send invite: ~s~n", [Reason])
+                    end;
+                false -> io:format("Uid ~s is not a dev user", [FromUid])
             end;
         false -> io:format("No account associated with uid: ~s~n", [FromUid])
     end,
