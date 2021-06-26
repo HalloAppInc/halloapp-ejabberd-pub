@@ -72,6 +72,10 @@ translate(Token, LangId) ->
 
 -spec translate(Token :: binary(), Args :: [binary()],
         LangId :: binary()) -> {TranslatedMsg :: binary(), ResultLangId :: binary()}.
+translate(Token, Args, undefined) ->
+    %% TODO(murali@): handle undefined for now.
+    translate(Token, Args, ?ENG_LANG_ID);
+
 translate(Token, Args, LangId) ->
     try
         {Translation, ResultLangId} = case LangId of
