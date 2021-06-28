@@ -15,7 +15,7 @@
 -include("util_http.hrl").
 
 %% API
--export([start/2, stop/1, reload/3, init/1, depends/2, mod_options/1]).
+-export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 -export([process/2]).
 
 %%%----------------------------------------------------------------------
@@ -37,24 +37,20 @@ process(Path, Request) ->
     {404, ?HEADER(?CT_PLAIN), "Not Found"}.
 
 
-start(Host, Opts) ->
+start(_Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),
     application:ensure_started(prometheus),
-    gen_mod:start_child(?MODULE, Host, Opts).
+    ok.
 
-stop(Host) ->
+stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    gen_mod:stop_child(?MODULE, Host).
+    ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
 depends(_Host, _Opts) ->
     [].
-
-init(_Stuff) ->
-    ?INFO("~w init ~p", [?MODULE, _Stuff]),
-    {ok, {}}.
 
 -spec mod_options(binary()) -> [{atom(), term()}].
 mod_options(_Host) ->
