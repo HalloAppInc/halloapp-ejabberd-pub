@@ -99,7 +99,7 @@ find_empty_contact_list_accounts(Key, State) ->
     ?INFO("Key: ~p", [Key]),
     Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
-        {match, [[FullKey, Uid]]} ->
+        {match, [[_FullKey, Uid]]} ->
             ?INFO("Account uid: ~p", [Uid]),
             {ok, ContactList} = model_contacts:get_contacts(Uid),
             Version = case model_accounts:get_client_version(Uid) of

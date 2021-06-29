@@ -166,7 +166,7 @@ push_message(Message, #push_info{os = Os} = PushInfo)
 
 
 -spec log_invalid_langId(PushInfo :: push_info()) -> ok.
-log_invalid_langId(#push_info{uid = Uid, lang_id = LangId} = PushInfo) ->
+log_invalid_langId(#push_info{uid = Uid, lang_id = LangId} = _PushInfo) ->
     case LangId of
         undefined ->
             ?WARNING("Uid: ~p, Invalid lang_id: ~p", [Uid, LangId]);

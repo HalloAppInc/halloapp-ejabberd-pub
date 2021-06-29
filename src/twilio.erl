@@ -28,8 +28,6 @@
     compose_voice_body/3    %% for debugging
 ]).
 
--type compose_body_fun() :: fun((phone(), string()) -> string()).
-
 init() ->
     FromPhoneList = [
         "+14152339113", "+14155733553", "+14155733627", "+14153636140", "+14155392793",
@@ -52,7 +50,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail}.
-send_voice_call(Phone, Code, LangId, UserAgent) ->
+send_voice_call(Phone, Code, LangId, _UserAgent) ->
     AccountSid = get_account_sid(util:is_test_number(Phone)),
     {VoiceMsgBin, TranslatedLangId} = case is_voice_lang_available(LangId) of
         true ->

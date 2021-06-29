@@ -141,7 +141,7 @@ re_register_user(UserId, _Server, _Phone) ->
 
 %% TODO: Delay notifying the users about their contact to reduce unnecessary messages to clients.
 -spec register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-register_user(UserId, Server, Phone) ->
+register_user(UserId, _Server, Phone) ->
     %% Disabled logic for contact hashing.
     % {ok, PotentialContactUids} = model_contacts:get_potential_reverse_contact_uids(Phone),
     % lists:foreach(
@@ -403,7 +403,7 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     ?INFO("Timetaken:obtain_avatar_ids: ~w us", [Time7 - Time6]),
 
     NormalizedPhoneNumbers = extract_normalized(NormalizedContacts1),
-    UnRegisteredPhoneNumbers = extract_normalized(UnRegisteredContacts2),
+    _UnRegisteredPhoneNumbers = extract_normalized(UnRegisteredContacts2),
     Time8 = os:system_time(microsecond),
     ?INFO("Timetaken:extract_normalized: ~w us", [Time8 - Time7]),
 

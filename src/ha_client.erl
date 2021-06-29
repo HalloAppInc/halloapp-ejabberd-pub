@@ -161,7 +161,7 @@ send_msg(Client, Id, Type, ToUid, Payload) ->
         }
     },
     send(Client, Packet),
-    Response = wait_for_ack(Client, Id),
+    _Response = wait_for_ack(Client, Id),
     ok.
 
 
