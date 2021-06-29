@@ -810,9 +810,11 @@ message ExportData {
     UNKNOWN = 0;
     PENDING = 1;
     READY = 2;
+    NOT_STARTED = 3;
   }
   Status status = 2;
   string data_url = 3;
+  int64 available_until_ts = 4;
 }
 
 

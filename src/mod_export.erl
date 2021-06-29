@@ -64,24 +64,28 @@ mod_options(_Host) ->
 %% iq handlers
 %%====================================================================
 
-process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_export_data{}} = IQ) ->
-    ?INFO("Uid: ~s, export iq", [Uid]),
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+    payload = #pb_export_data{}} = IQ) ->
+    ?INFO("Uid: ~s, export iq GET", [Uid]),
     ExportWait = get_export_wait(Uid),
     case model_accounts:get_export(Uid) of
-        {ok, StartTs, ExportId} ->
-            case StartTs + ExportWait < util:now() of
-                true ->
-                    Payload = IQ#pb_iq.payload#pb_export_data{
-                        status = ready,
-                        data_url = get_url(ExportId)},
-                    pb:make_iq_result(IQ, Payload);
-                false ->
-                    Payload = IQ#pb_iq.payload#pb_export_data{
-                        data_ready_ts = StartTs + ExportWait,
-                        status = pending},
-                    pb:make_iq_result(IQ, Payload)
-            end;
+        {ok, StartTs, ExportId, TTL} ->
+            Payload = make_export_status(ExportId, StartTs, TTL, ExportWait),
+            pb:make_iq_result(IQ, Payload);
+        {error, missing} ->
+            Payload = IQ#pb_iq.payload#pb_export_data{
+                status = not_started},
+            pb:make_iq_result(IQ, Payload)
+    end;
+
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_export_data{}} = IQ) ->
+    ?INFO("Uid: ~s, export iq SET", [Uid]),
+    ExportWait = get_export_wait(Uid),
+    case model_accounts:get_export(Uid) of
+        {ok, StartTs, ExportId, TTL} ->
+            Payload = make_export_status(ExportId, StartTs, TTL, ExportWait),
+            pb:make_iq_result(IQ, Payload);
         {error, missing} ->
             {ok, StartTs} = start_export(Uid),
             Payload = IQ#pb_iq.payload#pb_export_data{
@@ -104,6 +108,20 @@ get_export_wait(Uid) ->
 %%====================================================================
 %% internal functions
 %%====================================================================
+
+make_export_status(ExportId, StartTs, TTL, ExportWait) ->
+    case StartTs + ExportWait < util:now() of
+        true ->
+            #pb_export_data{
+                status = ready,
+                available_until_ts = util:now() + TTL,
+                data_url = get_url(ExportId)};
+        false ->
+            #pb_export_data{
+                data_ready_ts = StartTs + ExportWait,
+                status = pending}
+    end.
+
 
 start_export(Uid) ->
     ExportId = util:random_str(32),

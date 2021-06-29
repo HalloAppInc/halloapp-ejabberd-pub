@@ -822,14 +822,25 @@ mark_inactive_uids(Key) ->
     ]),
     Exists =:= <<"1">>.
 
--spec get_export(Uid :: uid()) -> {ok, StartTs :: integer(), ExportId :: binary()} | {error, missing}.
+-spec get_export(Uid :: uid()) ->
+    {ok, StartTs :: integer(), ExportId :: binary(), TTL :: integer()} | {error, missing}.
 get_export(Uid) ->
     {ok, [StartTsBin, ExportId]} = q(["HMGET", export_data_key(Uid),
         ?FIELD_EXPORT_START_TS, ?FIELD_EXPORT_ID]),
     case StartTsBin of
         undefined -> {error, missing};
         _ ->
-            {ok, util_redis:decode_ts(StartTsBin), ExportId}
+            {ok, TTLBin} = q(["TTL", export_data_key(Uid)]),
+            TTL = case binary_to_integer(TTLBin) of
+                -2 ->
+                    ?ERROR("Export Key ~s is missing?", [export_data_key(Uid)]),
+                    ?EXPORT_TTL;
+                -1 ->
+                    ?ERROR("Export Key ~s doesn't have TTL", [export_data_key(Uid)]),
+                    ?EXPORT_TTL;
+                X -> X
+            end,
+            {ok, util_redis:decode_ts(StartTsBin), ExportId, TTL}
     end.
 
 -spec start_export(Uid :: uid(), ExportId :: string()) -> {ok, Ts :: integer()} | {error, already_started}.

@@ -18,10 +18,26 @@
 group() ->
     {export, [sequence], [
         export_dummy_test,
+        export_get_export_test,
         export_export_test
     ]}.
 
 dummy_test(_Conf) ->
+    ok.
+
+get_export_test(_Conf) ->
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    Payload = #pb_export_data{
+    },
+    % export data
+    Result1 = ha_client:send_iq(C1, get, Payload),
+    Result1Payload = Result1#pb_packet.stanza#pb_iq.payload,
+    #pb_export_data{
+        data_ready_ts = 0,
+        available_until_ts = 0,
+        data_url = <<>>,
+        status = not_started
+    } = Result1Payload,
     ok.
 
 export_test(_Conf) ->
@@ -41,10 +57,10 @@ export_test(_Conf) ->
 
     ?assert(erlang:abs(util:now() + 1 * ?MINUTES - ReadyTs) < 10),
 
-    {ok, OriginalStartTs, ExportId} = model_accounts:get_export(?UID1),
+    {ok, OriginalStartTs, ExportId, _TTL} = model_accounts:get_export(?UID1),
     % set fake time in the database, making it look like the export request happened N time ago
     model_accounts:test_set_export_time(?UID1, util:now() - 1 * ?MINUTES - 10),
-    {ok, ModifiedStartTs, ExportId} = model_accounts:get_export(?UID1),
+    {ok, ModifiedStartTs, ExportId, TTL} = model_accounts:get_export(?UID1),
     ct:pal("Create Group Result : ~p ~p", [OriginalStartTs, ModifiedStartTs]),
 
     % make the same request
@@ -52,9 +68,14 @@ export_test(_Conf) ->
     Result2Payload = Result2#pb_packet.stanza#pb_iq.payload,
     #pb_export_data{
         data_ready_ts = ReadyTs2,
+        available_until_ts = AvailableUntilTs,
         data_url = DataUrl,
         status = ready
     } = Result2Payload,
+
+    % make sure the expected time and the returned times are close
+    ExpectedAvailableUntilTs = util:now() + TTL,
+    ?assert(erlang:abs(ExpectedAvailableUntilTs - AvailableUntilTs) < 10),
 
     ?assertEqual("https://halloapp.com/export/" ++ binary_to_list(ExportId),
         binary_to_list(DataUrl)),

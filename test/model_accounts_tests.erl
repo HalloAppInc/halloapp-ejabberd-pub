@@ -569,7 +569,8 @@ get_export_test() ->
     setup(),
     ExportId = util:random_str(20),
     {ok, Ts} = model_accounts:start_export(?UID1, ExportId),
-    ?assertEqual({ok, Ts, ExportId}, model_accounts:get_export(?UID1)),
+    {ok, Ts, ExportId, TTL} = model_accounts:get_export(?UID1),
+    ?assertEqual("integer", util:type(TTL)),
     ok.
 
 
