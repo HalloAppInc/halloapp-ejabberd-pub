@@ -69,7 +69,7 @@
 -type state() :: halloapp_stream_in:state().
 -export_type([state/0]).
 
--define(BUGGY_ANDROID_VERSION, "HalloApp/Android0.147").
+-define(BUGGY_ANDROID_VERSION, <<"HalloApp/Android0.147">>).
 
 %%%===================================================================
 %%% ejabberd_listener API
