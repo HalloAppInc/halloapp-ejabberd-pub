@@ -48,6 +48,7 @@
     get_invite_link/2,
     reset_invite_link/2,
     preview_with_invite_link/2,
+    web_preview_invite_link/1,
     join_with_invite_link/2
 ]).
 
@@ -509,6 +510,22 @@ preview_with_invite_link(Uid, Link) ->
                     {error, admin_removed};
                 true ->
                     {ok, model_groups:get_group(Gid)}
+            end
+    end.
+
+
+-spec web_preview_invite_link(Link :: binary()) -> {ok, GroupName :: binary()} | {error, term()}.
+web_preview_invite_link(Link) ->
+    ?INFO("Link: ~s", [Link]),
+    case model_groups:get_invite_link_gid(Link) of
+        undefined -> {error, invalid_invite};
+        Gid ->
+            case model_groups:get_group_info(Gid) of
+                undefined ->
+                    ?ERROR("Group not found ~p", [Gid]),
+                    {error, invalid_invite};
+                #group_info{name = Name} ->
+                    {ok, Name}
             end
     end.
 

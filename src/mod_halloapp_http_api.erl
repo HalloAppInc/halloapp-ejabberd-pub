@@ -129,6 +129,38 @@ process([<<"registration">>, <<"register2">>],
             util_http:return_500()
     end;
 
+%% Return the group name based on group_invite_token
+process([<<"registration">>, <<"get_group_info">>],
+        #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
+    try
+        ClientIP = util_http:get_ip(IP, Headers),
+        UserAgent = util_http:get_user_agent(Headers),
+        ?INFO("get_group_info request: r:~p ip:~s ua:~s", [Data, ClientIP, UserAgent]),
+        Payload = jiffy:decode(Data, [return_maps]),
+        GroupInviteToken = maps:get(<<"group_invite_token">>, Payload),
+
+        check_ua(UserAgent),
+        case mod_groups:web_preview_invite_link(GroupInviteToken) of
+            {error, invalid_invite} ->
+                util_http:return_400(invalid_invite);
+            {ok, Name} ->
+                {200, ?HEADER(?CT_JSON), jiffy:encode(#{result => ok, name => Name})}
+        end
+    catch
+        error : bad_user_agent ->
+            ?ERROR("get_group_info error: bad_user_agent ~p", [Headers]),
+            util_http:return_400();
+        error : invalid_client_version ->
+            ?ERROR("get_group_info error: invalid_client_version ~p", [Headers]),
+            util_http:return_400(invalid_client_version);
+        error: {badkey, MissingField} when is_binary(MissingField)->
+            BadKeyError = util:to_atom(<<"missing_", MissingField/binary>>),
+            util_http:return_400(BadKeyError);
+        error : Reason : Stacktrace  ->
+            ?ERROR("get_group_info error: ~p, ~p", [Reason, Stacktrace]),
+            util_http:return_500()
+    end;
+
 process([<<"_ok">>], _Request) ->
     {200, ?HEADER(?CT_PLAIN), <<"ok">>};
 process(Path, Request) ->

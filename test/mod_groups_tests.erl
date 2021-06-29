@@ -404,3 +404,11 @@ get_all_group_members_test() ->
     {ok, _, _} = mod_groups:create_group(?UID1, ?GROUP_NAME2, [?UID2, ?UID4]),
     ?assertEqual(sets:from_list([?UID2, ?UID3, ?UID4]), mod_groups:get_all_group_members(?UID1)),
     ok.
+
+web_preview_invite_link_test() ->
+    setup(),
+    {ok, Group, _} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    Gid = Group#group.gid,
+    {ok, Link} = mod_groups:get_invite_link(Gid, ?UID1),
+    ?assertEqual({ok, ?GROUP_NAME1}, mod_groups:web_preview_invite_link(Link)),
+    ok.

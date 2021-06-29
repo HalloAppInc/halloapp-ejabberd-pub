@@ -14,6 +14,7 @@
 -include("ejabberd_http.hrl").
 -include("whisper.hrl").
 -include("sms.hrl").
+-include("groups.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(UID, <<"1000000000332736727">>).
@@ -33,18 +34,10 @@
 -define(SIGNED_KEY, <<"Tmlrb2xhIHdyb3RlIHRoaXMgbmljZSBtZXNzYWdlIG1ha2luZyBzdXJlIGl0IGlzIGxvbmcgCg==">>).
 -define(ONE_TIME_KEY, <<"VGhpcyBpcyBvbmUgdGltZSBrZXkgZm9yIHRlc3RzIHRoYXQgaXMgbG9uZwo=">>).
 -define(REQUEST_SMS_PATH, [<<"registration">>, <<"request_sms">>]).
--define(REQUEST_SMS_HEADERS(UA), [
-    {'Content-Type',<<"application/x-www-form-urlencoded">>},
-    {'Content-Length',<<"24">>},
-    {'Accept',<<"*/*">>},
-    {'User-Agent',UA},
-    {'Host',<<"127.0.0.1:5580">>}]).
--define(REGISTER_HEADERS(UA), [
-    {'Content-Type',<<"application/x-www-form-urlencoded">>},
-    {'Content-Length',<<"58">>},
-    {'Accept',<<"*/*">>},
-    {'User-Agent',UA},
-    {'Host',<<"127.0.0.1:5580">>}]).
+-define(REQUEST_GET_GROUP_INFO_PATH, [<<"registration">>, <<"get_group_info">>]).
+-define(REQUEST_HEADERS(UA), [
+    {'Content-Type',<<"application/json">>},
+    {'User-Agent',UA}]).
 
 -define(REGISTER2_PATH, [<<"registration">>, <<"register2">>]).
 -define(REGISTER2_DATA(Phone, Code, Name, SEdPub, SignedPhrase),
@@ -72,7 +65,7 @@ request_sms_test() ->
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     BadUserAgentError = util_http:return_400(),
     ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
-        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?BAD_UA)})),
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?BAD_UA)})),
     ?assert(meck:called(stat, count, ["HA/account", "request_sms_errors", 1,
         [{error, bad_user_agent}]])),
     meck_finish(stat),
@@ -83,7 +76,7 @@ request_sms_test() ->
             {result, ok}
         ]})},
     Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
-        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)}),
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(GoodResponse, Response),
     meck_finish(model_phone),
     meck_finish(ejabberd_router).
@@ -110,7 +103,7 @@ request_sms_prod_test() ->
             {result, ok}
         ]})},
     Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
-        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)}),
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(GoodResponse, Response),
     ?assertEqual(1, collect(?PHONE, 250, 1)),
     meck_finish(model_phone),
@@ -126,7 +119,7 @@ request_sms_test_phone_test() ->
     Data = jsx:encode([{<<"phone">>, ?PHONE}]),
     NotInvitedError = util_http:return_400(not_invited),
     ?assertEqual(NotInvitedError, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
-        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)})),
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)})),
     ?assert(meck:called(stat, count, ["HA/account", "request_sms_errors", 1,
         [{error, not_invited}]])),
     meck_finish(stat),
@@ -142,7 +135,7 @@ register_spub_test() ->
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
-        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_SMS_HEADERS(?UA)}),
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     KeyPair = ha_enoise:generate_signature_keypair(),
     {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
     SignedMessage = enacl:sign("HALLO", SEdSecret),
@@ -152,18 +145,18 @@ register_spub_test() ->
                                   SignedMessageEncoded),
     BadCodeError = util_http:return_400(wrong_sms_code),
     ?assertEqual(BadCodeError, mod_halloapp_http_api:process(?REGISTER2_PATH,
-        #request{method = 'POST', data = BadCodeData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)})),
+        #request{method = 'POST', data = BadCodeData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)})),
     ?assert(meck:called(stat, count, ["HA/account", "register_errors", 1,
         [{error, wrong_sms_code}]])),
     GoodData = ?REGISTER2_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME, SEdPubEncoded, SignedMessageEncoded),
     BadUserAgentError = util_http:return_400(),
     ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REGISTER2_PATH,
-        #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REGISTER_HEADERS(?BAD_UA)})),
+        #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REQUEST_HEADERS(?BAD_UA)})),
     ?assert(meck:called(stat, count, ["HA/account", "register_errors", 1,
         [{error, bad_user_agent}]])),
     meck_finish(stat),
     {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER2_PATH,
-        #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)}),
+        #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     #{
         <<"uid">> := Uid,
         <<"phone">> := ?TEST_PHONE,
@@ -180,7 +173,7 @@ register_spub_test() ->
     SignedMessageEncoded2 = base64:encode(SignedMessage2),
     GoodData2 = ?REGISTER2_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME, SEdPubEncoded2, SignedMessageEncoded2),
     {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER2_PATH,
-        #request{method = 'POST', data = GoodData2, ip = ?IP, headers = ?REGISTER_HEADERS(?UA)}),
+        #request{method = 'POST', data = GoodData2, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     #{
         <<"uid">> := Uid,
         <<"phone">> := ?TEST_PHONE,
@@ -285,6 +278,34 @@ check_has_inviter_test() ->
     ?assertError(not_invited, mod_halloapp_http_api:check_invited(
                 ?TEST_PHONE, <<"">>, ?IP1, undefined)),
     meck_finish(config),
+    ok.
+
+
+get_group_info_test() ->
+    setup(),
+    GroupName = <<"GroupName1">>,
+    {ok, Group} = mod_groups:create_group(?UID, GroupName),
+    Gid = Group#group.gid,
+    ?assertEqual(true, model_groups:is_admin(Gid, ?UID)),
+    {ok, Link} = mod_groups:get_invite_link(Gid, ?UID),
+    Data = jiffy:encode(#{group_invite_token => Link}),
+    {200, _, ResultJson} = mod_halloapp_http_api:process(?REQUEST_GET_GROUP_INFO_PATH,
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
+    Result = jiffy:decode(ResultJson, [return_maps]),
+    ExpectedResult = #{<<"result">> => <<"ok">>, <<"name">> => GroupName},
+    ?assertEqual(ExpectedResult, Result),
+
+    BadData = jiffy:encode(#{group_invite_token => <<"foobar">>}),
+    ?assertEqual(
+        util_http:return_400(invalid_invite),
+        mod_halloapp_http_api:process(?REQUEST_GET_GROUP_INFO_PATH,
+            #request{method = 'POST', data = BadData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)})),
+
+    ?assertEqual(
+        util_http:return_400(),
+        mod_halloapp_http_api:process(?REQUEST_GET_GROUP_INFO_PATH,
+            #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?BAD_UA)})),
+
     ok.
 
 
