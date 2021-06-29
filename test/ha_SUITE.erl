@@ -15,7 +15,9 @@
     all/0,
     groups/0,
     init_per_suite/1,
-    end_per_suite/1
+    end_per_suite/1,
+    init_per_group/2,
+    end_per_group/2
 ]).
 
 %% Tests
@@ -55,7 +57,8 @@ groups() -> [
     presence_tests:group(),
     window_tests:group(),
     export_tests:group(),
-    mode_tests:group()
+    mode_tests:group(),
+    monitor_tests:group()
 ].
 
 % List of all the tests or group of tests that are part of this SUITE.
@@ -76,6 +79,7 @@ all() -> [
     {group, presence},
     {group, export},
     {group, mode},
+    {group, monitor},
     dummy_test,
     ping_test,
     delete_account_test,
@@ -84,6 +88,27 @@ all() -> [
 
 privacy_lists_tests() -> [dummy_test].
 misc_tests() ->[dummy_test].
+
+
+init_per_group(monitor, _Config) ->
+    %% for consecutive_failures_test
+%%    meck:new(alerts, [passthrough, no_link]),
+%%    meck:expect(alerts, send_unreachable_process_alert,
+%%        fun(_, _) -> CollectPid ! alert end),
+    ok;
+
+init_per_group(_, _Config) ->
+    ok.
+
+end_per_group(monitor, _Config) ->
+    %% for consecutive_failures_test
+%%    ?assert(meck:validate(alerts)),
+%%    meck:unload(alerts)
+    ok;
+
+end_per_group(_, _Config) ->
+    ok.
+
 
 % TODO: figure out what to do with APNS push failing
 init_per_suite(InitConfigData) ->
@@ -107,6 +132,7 @@ start_ejabberd(_Config) ->
 
 end_per_suite(_Config) ->
     application:stop(ejabberd).
+
 
 flush_db() ->
     % TODO: Instead of this we should somehow clear the redis before

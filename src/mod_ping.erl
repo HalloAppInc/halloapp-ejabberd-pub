@@ -141,6 +141,9 @@ handle_call(Request, From, State) ->
     {noreply, State}.
 
 
+handle_cast({ping, Id, Ts, From}, State) ->
+    util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
+    {noreply, State};
 handle_cast({reload, Host, NewOpts, _OldOpts}, #state{timers = Timers} = _OldState) ->
     NewState = init_state(Host, NewOpts),
     register_hooks(Host),

@@ -100,6 +100,9 @@ handle_call(_Request, _From, State) ->
     {reply, {error, invalid_request}, State}.
 
 
+handle_cast({ping, Id, Ts, From}, State) ->
+    util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
+    {noreply, State};
 handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     ?DEBUG("push_message: ~p", [Message]),
     %% TODO(vipin): We need to evaluate the cost of recording the push in Redis

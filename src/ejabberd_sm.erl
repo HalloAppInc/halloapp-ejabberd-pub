@@ -303,6 +303,9 @@ handle_call(Request, From, State) ->
     ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
 
+handle_cast({ping, Id, Ts, From}, State) ->
+    util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
+    {noreply, State};
 handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.

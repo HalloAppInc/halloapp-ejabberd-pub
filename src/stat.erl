@@ -326,6 +326,10 @@ handle_cast({trigger_send}, State) ->
     NewState = maybe_rotate_data(State),
     {noreply, NewState};
 
+handle_cast({ping, Id, Ts, From}, State) ->
+    util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
+    {noreply, State};
+
 handle_cast(_Message, State) ->
     {noreply, State}.
 

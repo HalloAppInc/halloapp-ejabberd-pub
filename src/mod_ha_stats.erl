@@ -118,6 +118,10 @@ handle_call(_Message, _From, State) ->
     ?ERROR("unexpected call ~p from ", _Message),
     {reply, ok, State}.
 
+handle_cast({ping, Id, Ts, From}, State) ->
+    util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
+    {noreply, State};
+
 handle_cast({new_user, Uid}, #state{new_user_map = NUMap} = State) ->
     NUMap2 = NUMap#{Uid => #new_user_stats{registered_at = util:now()}},
     _Tref = erlang:send_after(?LOG_NEW_USER_TIME, self(), {log_new_user, Uid}),

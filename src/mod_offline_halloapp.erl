@@ -108,6 +108,10 @@ handle_call(Request, _From, State) ->
     {reply, {error, bad_arg}, State}.
 
 
+handle_cast({ping, Id, Ts, From}, State) ->
+    util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
+    {noreply, State};
+
 handle_cast({setup_push_timer, Message}, State) ->
     util:send_after(?MESSAGE_RESPONSE_TIMEOUT_MILLISEC, {push_offline_message, Message}),
     {noreply, State};
