@@ -48,7 +48,7 @@ parse_metadata(#pb_msg{id = _Id, payload = Payload,
 
 parse_metadata(#pb_msg{id = Id, payload = Payload,
         from_uid = FromUid}, PushInfo) when is_record(Payload, pb_group_chat) ->
-    PushName = Payload#pb_chat_stanza.sender_name,
+    PushName = Payload#pb_group_chat.sender_name,
     GroupName = Payload#pb_group_chat.name,
     #push_metadata{
         content_id = Id,
