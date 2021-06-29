@@ -17,8 +17,10 @@
 -include("translate.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
--callback send_sms(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, sms_fail}.
--callback send_voice_call(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, voice_call_fail}.
+-callback send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
+-callback send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail}.
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -181,28 +183,13 @@ good_next_ts_diff(NumFailedAttempts) ->
 -spec send_otp_internal(Phone :: phone(), LangId :: binary(), Code :: binary(), UserAgent :: binary(),
     Method :: atom(), OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, term()}.
 send_otp_internal(Phone, LangId, Code, UserAgent, Method, OldResponses) ->
-    Msg = prepare_registration_sms(Code, LangId, UserAgent, Method),
-    ?DEBUG("preparing to send otp, phone:~p msg:~s", [Phone, Msg]),
-    case smart_send(Phone, Method, Msg, OldResponses) of
+    ?DEBUG("preparing to send otp, phone:~p code:~p, LangId: ~p, UserAgent: ~p",
+        [Phone, Code, LangId, UserAgent]),
+    case smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) of
         {ok, SMSResponse} ->
             {ok, SMSResponse};
         {error, _Reason} = Err ->
             Err
-    end.
-
-%% TODO(vipin): Maybe improve Msg for voice_call. Talk to Dugyu.
--spec prepare_registration_sms(Code :: binary(), LangId :: binary(),
-        UserAgent :: binary(), Method :: atom()) -> string().
-prepare_registration_sms(Code, LangId, UserAgent, Method) ->
-    case Method of
-        voice_call ->
-            DigitByDigit = string:trim(re:replace(Code,".","& . . ",[global, {return,list}])),
-            Msg = io_lib:format("Your HalloApp verification code is ~s . ", [DigitByDigit]),
-            io_lib:format("~s ~s ~s ~s", [Msg, Msg, Msg, Msg]);
-        sms ->
-            {SmsMsgBin, _} = mod_translate:translate(<<"server.sms.verification">>, LangId),
-            AppHash = get_app_hash(UserAgent),
-            io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash])
     end.
 
 
@@ -213,21 +200,14 @@ generate_code(false) ->
     list_to_binary(io_lib:format("~6..0w", [crypto:rand_uniform(0, 999999)])).
 
 
--spec get_app_hash(binary()) -> binary().
-get_app_hash(UserAgent) ->
-    case {util_ua:is_android_debug(UserAgent), util_ua:is_android(UserAgent)} of
-        {true, true} -> ?ANDROID_DEBUG_HASH;
-        {false, true} -> ?ANDROID_RELEASE_HASH;
-        _ -> <<"">>
-    end.
-
 %% TODO(vipin)
 %% On callback from the provider track (success, cost). Investigative logging to track missing
 %% callback.
 
--spec smart_send(Phone :: phone(), Method :: atom(), Msg :: string(), OldResponses :: [gateway_response()]) 
+-spec smart_send(Phone :: phone(), Code :: binary(), LangId :: binary(),
+        UserAgent :: binary(), Method :: atom(), OldResponses :: [gateway_response()]) 
         -> {ok, gateway_response()} | {error, sms_fail} | {error, voice_call_fail}.
-smart_send(Phone, Method, Msg, OldResponses) ->
+smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
     {WorkingList, NotWorkingList} = lists:foldl(
         fun(#gateway_response{gateway = Gateway, method = Method2, status = Status}, {Working, NotWorking})
                 when Method2 =:= Method ->
@@ -293,8 +273,8 @@ smart_send(Phone, Method, Msg, OldResponses) ->
     end,
     ?DEBUG("Chosen Gateway: ~p", [NewGateway2]),
     Result = case Method of
-        voice_call -> NewGateway2:send_voice_call(Phone, Msg);
-        sms -> NewGateway2:send_sms(Phone, Msg)
+        voice_call -> NewGateway2:send_voice_call(Phone, Code, LangId, UserAgent);
+        sms -> NewGateway2:send_sms(Phone, Code, LangId, UserAgent)
     end,
     ?DEBUG("Result: ~p", [Result]),
     case Result of

@@ -35,4 +35,6 @@
 
 -define(SMS_REG_TIMESTAMP_INCREMENT, 900).  %% 15 minutes.
 
+-define(ENG_LANG_ID, <<"en-US">>).
+
 -endif.

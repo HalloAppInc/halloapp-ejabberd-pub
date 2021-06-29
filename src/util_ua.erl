@@ -10,10 +10,12 @@
 -author("nikola").
 
 -include("ha_types.hrl").
+-include("sms.hrl").
 
 %% API
 -export([
     get_client_type/1,
+    get_app_hash/1,
     is_android/1,
     is_ios/1,
     is_android_debug/1,
@@ -32,6 +34,14 @@ get_client_type(RawUserAgent) ->
         {true, false} -> android;
         {false, true} -> ios;
         _ -> undefined
+    end.
+
+-spec get_app_hash(UserAgent :: binary()) -> binary().
+get_app_hash(UserAgent) ->
+    case {is_android_debug(UserAgent), is_android(UserAgent)} of
+        {true, true} -> ?ANDROID_DEBUG_HASH;
+        {false, true} -> ?ANDROID_RELEASE_HASH;
+        _ -> <<"">>
     end.
 
 -spec is_android_debug(binary()) -> boolean().

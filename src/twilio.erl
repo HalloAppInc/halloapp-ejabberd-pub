@@ -15,15 +15,18 @@
 -include("ha_types.hrl").
 -include("sms.hrl").
 
+%% TODO(vipin): Maybe improve Msg for voice_call. Talk to Dugyu.
+%% TODO: optimize calls for get_lang_id.
+
 -export([
     init/0,
-    send_sms/2,
-    send_voice_call/2,
+    send_sms/4,
+    send_voice_call/4,
     fetch_message_info/1,
     normalized_status/1,
-    compose_body/2  % for debugging.
+    compose_body/3,     %% for debugging.
+    compose_voice_body/3    %% for debugging
 ]).
-
 
 -type compose_body_fun() :: fun((phone(), string()) -> string()).
 
@@ -35,23 +38,42 @@ init() ->
     util_sms:init_helper(twilio_options, FromPhoneList).
 
 
--spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, sms_fail}.
-send_sms(Phone, Msg) ->
+%% TODO: check about refactoring prepare_msg code in twilio.hrl and mbird.hrl
+-spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
+send_sms(Phone, Code, LangId, UserAgent) ->
     AccountSid = get_account_sid(util:is_test_number(Phone)),
-    sending_helper(Phone, Msg, ?BASE_SMS_URL(AccountSid), fun compose_body/2, "SMS").
+    {SmsMsgBin, TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
+    AppHash = util_ua:get_app_hash(UserAgent),
+    Msg = io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
+    TwilioLangId = get_twilio_lang(TranslatedLangId),
+    sending_helper(Phone, Msg, TwilioLangId, ?BASE_VOICE_URL(AccountSid), fun compose_body/3, "SMS").
 
--spec send_voice_call(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, voice_call_fail}.
-send_voice_call(Phone, Msg) ->
+
+-spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail}.
+send_voice_call(Phone, Code, LangId, UserAgent) ->
     AccountSid = get_account_sid(util:is_test_number(Phone)),
-    sending_helper(Phone, Msg, ?BASE_VOICE_URL(AccountSid), fun compose_voice_body/2, "Voice Call").
+    {VoiceMsgBin, TranslatedLangId} = case is_voice_lang_available(LangId) of
+        true ->
+            mod_translate:translate(<<"server.voicecall.verification">>, LangId);
+        false ->
+            mod_translate:translate(<<"server.voicecall.verification">>, ?ENG_LANG_ID)
+    end,
+    TwilioLangId = get_twilio_lang(TranslatedLangId),
+    DigitByDigit = string:trim(re:replace(Code, ".", "& . . ", [global, {return,list}])),
+    VoiceMsg = io_lib:format("~s ~s . ", [VoiceMsgBin, DigitByDigit]),
+    FinalMsg = io_lib:format("~s ~s ~s ~s", [VoiceMsg, VoiceMsg, VoiceMsg, VoiceMsg]),
+    sending_helper(Phone, FinalMsg, TwilioLangId, ?BASE_VOICE_URL(AccountSid), fun compose_voice_body/3, "Voice Call").
 
--spec sending_helper(Phone :: phone(), Msg :: string(), BaseUrl :: string(),
-    ComposeBodyFn :: compose_body_fun(), Purpose :: string()) -> {ok, gateway_response()} | {error, atom()}.
-sending_helper(Phone, Msg, BaseUrl, ComposeBodyFn, Purpose) ->
+
+-spec sending_helper(Phone :: phone(), Msg :: string(), TwilioLangId :: binary(), BaseUrl :: string(),
+    ComposeBodyFn :: term(), Purpose :: string()) -> {ok, gateway_response()} | {error, atom()}.
+sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
     ?INFO("Phone: ~p, Msg: ~p, Purpose: ~p", [Phone, Msg, Purpose]),
     Headers = fetch_auth_headers(util:is_test_number(Phone)),
     Type = "application/x-www-form-urlencoded",
-    Body = ComposeBodyFn(Phone, Msg),
+    Body = ComposeBodyFn(Phone, Msg, TwilioLangId),
     ?DEBUG("Body: ~p", [Body]),
     HTTPOptions = [],
     Options = [],
@@ -145,8 +167,9 @@ encode_based_on_country(Phone, Msg) ->
     end.
 
 
--spec compose_body(Phone :: phone(), Message :: string()) -> uri_string:uri_string().
-compose_body(Phone, Message) ->
+-spec compose_body(Phone :: phone(), Message :: string(),
+        TwilioLangId :: binary()) -> uri_string:uri_string().
+compose_body(Phone, Message, _TwilioLangId) ->
     Message2 = encode_based_on_country(Phone, Message),
     PlusPhone = "+" ++ binary_to_list(Phone),
     uri_string:compose_query([
@@ -156,14 +179,15 @@ compose_body(Phone, Message) ->
         {"StatusCallback", ?TWILIOCALLBACK_URL}
     ], [{encoding, utf8}]).
 
--spec encode_to_twiml(Msg :: string()) -> string().
-encode_to_twiml(Msg) ->
-    "<Response><Say>" ++ Msg ++ "</Say></Response>".
+-spec encode_to_twiml(Msg :: string(), TwilioLangId :: string()) -> string().
+encode_to_twiml(Msg, TwilioLangId) ->
+    "<Response><Say voice=\"alice\" language=\"" ++ TwilioLangId ++ "\">" ++ Msg ++ "</Say></Response>".
 
--spec compose_voice_body(Phone :: phone(), Message :: string()) -> uri_string:uri_string().
-compose_voice_body(Phone, Message) ->
+-spec compose_voice_body(Phone :: phone(), Message :: string(),
+        TwilioLangId :: string()) -> uri_string:uri_string().
+compose_voice_body(Phone, Message, TwilioLangId) ->
     %% TODO(vipin): Add voice callback.
-    Message2 = encode_to_twiml(Message),
+    Message2 = encode_to_twiml(Message, TwilioLangId),
     PlusPhone = "+" ++ binary_to_list(Phone),
     uri_string:compose_query([
         {"To", PlusPhone },
@@ -184,4 +208,70 @@ get_from_phone(IsTestNum) ->
         true -> ?FROM_TEST_PHONE;
         false -> util_sms:lookup_from_phone(twilio_options)
     end.
+
+-spec is_voice_lang_available(LangId :: binary()) -> boolean().
+is_voice_lang_available(LangId) ->
+    %% If a corresponding twilio language other than en-US is available,
+    %% then we must translate the message.
+    get_twilio_lang(LangId) =/= "en-US".
+
+
+%% Doc: https://www.twilio.com/docs/voice/twiml/say#attributes-alice
+-spec get_twilio_lang(LangId :: binary()) -> string().
+get_twilio_lang(LangId) ->
+    TwilioLangMap = get_twilio_lang_map(),
+    maps:get(LangId, TwilioLangMap, ?ENG_LANG_ID).
+
+
+get_twilio_lang_map() ->
+    #{
+        %% Danish, Denmark
+        <<"da">> => "da-DK",
+        %% German, Germany
+        <<"de">> => "de-DE",
+        %% English, Australia
+        <<"en-AU">> => "en-AU",
+        %% English, Canada
+        <<"en-CA">> => "en-CA",
+        %% English, UK
+        <<"en-GB">> => "en-GB",
+        %% English, India
+        <<"en-IN">> => "en-IN",
+        %% English, United States
+        <<"en-US">> => "en-US",
+        %% Catalan, Spain
+        <<"ca">> => "ca-ES",
+        %% Spanish, Spain
+        <<"es">> => "es-ES",
+        %% Finnish, Finland
+        <<"fi">> => "fi-FI",
+        %% French, France
+        <<"fr">> => "fr-FR",
+        %% Italian, Italy
+        <<"it">> => "it-IT",
+        %% Japanese, Japan
+        <<"ja">> => "ja-JP",
+        %% Korean, Korea
+        <<"ko">> => "ko-KR",
+        %% Norwegian, Norway
+        <<"nb">> => "nb-NO",
+        %% Dutch, Netherlands
+        <<"nl">> => "nl-NL",
+        %% Polish-Poland
+        <<"pl">> => "pl-PL",
+        %% Portuguese, Brazil
+        <<"pt-BR">> => "pt-BR",
+        %% Portuguese, Portugal
+        <<"pt-PT">> => "pt-PT",
+        %% Russian, Russia
+        <<"ru">> => "ru-RU",
+        %% Swedish, Sweden
+        <<"sv">> => "sv-SE",
+        %% Chinese (Mandarin)
+        <<"zh-CN">> => "zh-CN",
+        %% Chinese (Cantonese)
+        <<"zh-HK">> => "zh-HK",
+        %% Chinese (Taiwanese Mandarin)
+        <<"zh-TW">> => "zh-TW"
+    }.
 

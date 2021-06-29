@@ -18,9 +18,10 @@ simple_test() ->
     ?assert(true).
 
 get_app_hash_test() ->
-    ?assertEqual(?ANDROID_DEBUG_HASH, mod_sms:get_app_hash("HalloApp/Android1.0.0D")),
-    ?assertEqual(?ANDROID_RELEASE_HASH, mod_sms:get_app_hash("HalloApp/Android1.0.0")),
-    ?assertEqual(<<"">>, mod_sms:get_app_hash("HalloApp/random")),
+    ?assertEqual(?ANDROID_DEBUG_HASH, util_ua:get_app_hash("HalloApp/Android1.0.0D")),
+    ?assertEqual(?ANDROID_RELEASE_HASH, util_ua:get_app_hash("HalloApp/Android1.0.0")),
+    ?assertEqual(<<"">>, util_ua:get_app_hash("HalloApp/iOS1.2.93")),
+    ?assertEqual(<<"">>, util_ua:get_app_hash("HalloApp/random")),
     ok.
 
 generate_code_test() ->

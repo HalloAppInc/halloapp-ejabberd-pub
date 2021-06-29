@@ -12,13 +12,16 @@
 -include("ha_types.hrl").
 -include("sms.hrl").
 
+%% TODO: optimize calls for get_lang_id.
+
 %% API
 -export([
     init/0,
-    send_sms/2,
-    send_voice_call/2,
+    send_sms/4,
+    send_voice_call/4,
     normalized_status/1,
-    compose_voice_body/2  %% for debugging
+    compose_body/2,     %% for debugging
+    compose_voice_body/3  %% for debugging
 ]).
 
 init() ->
@@ -26,8 +29,13 @@ init() ->
     util_sms:init_helper(mbird_options, FromPhoneList).
 
 
--spec send_sms(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, sms_fail}.
-send_sms(Phone, Msg) ->
+-spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
+send_sms(Phone, Code, LangId, UserAgent) ->
+    {SmsMsgBin, _TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
+    AppHash = util_ua:get_app_hash(UserAgent),
+    Msg = io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
+
     ?INFO("Phone: ~p, Msg: ~s", [Phone, Msg]),
     URL = ?BASE_SMS_URL,
     Headers = [{"Authorization", "AccessKey " ++ get_access_key(util:is_test_number(Phone))}],
@@ -51,13 +59,25 @@ send_sms(Phone, Msg) ->
             {error, sms_fail}
     end.
 
--spec send_voice_call(Phone :: phone(), Msg :: string()) -> {ok, gateway_response()} | {error, voice_call_fail}.
-send_voice_call(Phone, Msg) ->
-    ?INFO("Phone: ~p, Msg: ~s", [Phone, Msg]),
+-spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail}.
+send_voice_call(Phone, Code, LangId, UserAgent) ->
+    {VoiceMsgBin, TranslatedLangId} = case is_voice_lang_available(LangId) of
+        true ->
+            mod_translate:translate(<<"server.voicecall.verification">>, LangId);
+        false ->
+            mod_translate:translate(<<"server.voicecall.verification">>, ?ENG_LANG_ID)
+    end,
+    MbirdLangId = get_mbird_lang(TranslatedLangId),
+    DigitByDigit = string:trim(re:replace(Code, ".", "& . . ", [global, {return,list}])),
+    VoiceMsg = io_lib:format("~s ~s . ", [VoiceMsgBin, DigitByDigit]),
+    FinalMsg = io_lib:format("~s ~s ~s ~s", [VoiceMsg, VoiceMsg, VoiceMsg, VoiceMsg]),
+
+    ?INFO("Phone: ~p, FinalMsg: ~s", [Phone, FinalMsg]),
     URL = ?BASE_VOICE_URL,
     Headers = [{"Authorization", "AccessKey " ++ get_access_key(util:is_test_number(Phone))}],
     Type = "application/json",
-    Body = compose_voice_body(Phone, Msg),
+    Body = compose_voice_body(Phone, FinalMsg, MbirdLangId),
     ?DEBUG("Body: ~p", [Body]),
     HTTPOptions = [],
     Options = [],
@@ -116,11 +136,12 @@ compose_body(Phone, Message) ->
         {"body", Message}
     ], [{encoding, utf8}]).
 
--spec compose_voice_body(Phone, Message) -> Body when
+-spec compose_voice_body(Phone, Message, MbirdLangId) -> Body when
     Phone :: phone(),
     Message :: string(),
+    MbirdLangId :: binary(),
     Body :: uri_string:uri_string().
-compose_voice_body(Phone, Message) ->
+compose_voice_body(Phone, Message, MbirdLangId) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
     FromPhone = get_from_phone(Phone),
     %% TODO(vipin): 1. Add the callback.
@@ -134,8 +155,9 @@ compose_voice_body(Phone, Message) ->
                 <<"action">> => <<"say">>,
                 <<"options">> => #{
                     <<"payload">> => list_to_binary(Message),
+                    %% This preference is ignored if the desired voice is not available for the selected language.
                     <<"voice">> => <<"male">>,
-                    <<"language">> => <<"en-US">>
+                    <<"language">> => MbirdLangId
                 }
             }]
         }
@@ -148,4 +170,123 @@ get_from_phone(Phone) ->
         <<"CA">> -> ?FROM_PHONE_FOR_CANADA;
         _ -> util_sms:lookup_from_phone(mbird_options)
     end.
+
+
+-spec is_voice_lang_available(LangId :: binary()) -> boolean().
+is_voice_lang_available(LangId) ->
+    %% If a corresponding mbird language other than en-US is available,
+    %% then we must translate the message.
+    get_mbird_lang(LangId) =/= <<"en-US">>.
+
+
+%% Doc: https://developers.messagebird.com/api/voice-calling/#supported-languages
+-spec get_mbird_lang(LangId :: binary()) -> binary().
+get_mbird_lang(LangId) ->
+    MbirdLangMap = get_mbird_lang_map(),
+    maps:get(LangId, MbirdLangMap, ?ENG_LANG_ID).
+
+
+get_mbird_lang_map() ->
+    #{
+        %% Arabic (Saudi Arabia)
+        <<"ar">> => <<"ar-SA">>,
+        %% Bulgarian (Bulgaria)
+        <<"bg">> => <<"bg-BG">>,
+        %% Catalan (Spain)
+        <<"ca">> => <<"ca-ES">>,
+        %% Czech (Czechia)
+        <<"cs">> => <<"cs-CZ">>,
+        %% Welsh (United Kingdom)
+        <<"cy">> => <<"cy-GB">>,
+        %% Danish (Denmark)
+        <<"da">> => <<"da-DK">>,
+        %% German (Germany)
+        <<"de">> => <<"de-DE">>,
+        %% Greek (Greece)
+        <<"el">> => <<"el-GR">>,
+        %% Australian English
+        <<"en-AU">> => <<"en-AU">>,
+        %% Canadian English
+        <<"en-CA">> => <<"en-CA">>,
+        %% British English
+        <<"en-GB">> => <<"en-GB">>,
+        %% English (Ireland)
+        <<"en-IE">> => <<"en-IE">>,
+        %% English (India)
+        <<"en-IN">> => <<"en-IN">>,
+        %% American English
+        <<"en-US">> => <<"en-US">>,
+        %% European Spanish
+        <<"es">> => <<"es-ES">>,
+        %% Finnish (Finland)
+        <<"fi">> => <<"fi-FI">>,
+        %% Filipino (Philippines)
+        <<"fil">> => <<"fil-PH">>,
+        %% French (France)
+        <<"fr">> => <<"fr-FR">>,
+        %% Gujarati (India)
+        <<"gu">> => <<"gu-IN">>,
+        %% Hebrew (Israel)
+        <<"he">> => <<"he-IL">>,
+        %% Hindi (India)
+        <<"hi">> => <<"hi-IN">>,
+        %% Croatian (Croatia)
+        <<"hr">> => <<"hr-HR">>,
+        %% Hungarian (Hungary)
+        <<"hu">> => <<"hu-HU">>,
+        %% Indonesian (Indonesia)
+        <<"id">> => <<"id-ID">>,
+        %% Icelandic (Iceland)
+        <<"is">> => <<"is-IS">>,
+        %% Italian (Italy)
+        <<"it">> => <<"it-IT">>,
+        %% Japanese (Japan)
+        <<"ja">> => <<"ja-JP">>,
+        %% Kannada (India)
+        <<"kn">> => <<"kn-IN">>,
+        %% Korean (South Korea)
+        <<"ko">> => <<"ko-KR">>,
+        %% Malayalam (India)
+        <<"ml">> => <<"ml-IN">>,
+        %% Malay (Malaysia)
+        <<"ms">> => <<"ms-MY">>,
+        %% Norwegian Bokmål (Norway)
+        <<"nb">> => <<"nb-NO">>,
+        %% Dutch (Netherlands)
+        <<"nl">> => <<"nl-NL">>,
+        %% Polish (Poland)
+        <<"pl">> => <<"Polish (Poland)">>,
+        %% Brazilian Portuguese
+        <<"pt-BR">> => <<"pt-BR">>,
+        %% European Portuguese
+        <<"pt-PT">> => <<"pt-PT">>,
+        %% Romanian (Romania)
+        <<"ro">> => <<"ro-RO">>,
+        %% Russian (Russia)
+        <<"ru">> => <<"ru-RU">>,
+        %% Slovak (Slovakia)
+        <<"sk">> => <<"sk-SK">>,
+        %% Slovenian (Slovenia)
+        <<"sl-SI">> => <<"sl-SI">>,
+        %% Swedish (Sweden)
+        <<"sv">> => <<"sv-SE">>,
+        %% Tamil (India)
+        <<"ta">> => <<"ta-IN">>,
+        %% Telugu (India)
+        <<"te">> => <<"te-IN">>,
+        %% Thai (Thailand)
+        <<"th">> => <<"th-TH">>,
+        %% Turkish (Turkey)
+        <<"tr">> => <<"tr-TR">>,
+        %% Ukrainian (Ukraine)
+        <<"uk">> => <<"uk-UA">>,
+        %% Vietnamese (Vietnam)
+        <<"vi">> => <<"vi-VN">>,
+        %% Chinese (China)
+        <<"zh-CN">> => <<"zh-CN">>,
+        %% Chinese (Hong Kong SAR China)
+        <<"zh-HK">> => <<"zh-HK">>,
+        %% Chinese (Taiwan)
+        <<"zh-TW">> => <<"zh-TW">>
+    }.
 
