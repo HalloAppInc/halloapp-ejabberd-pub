@@ -432,8 +432,7 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
 -spec normalize_contacts(UserId :: binary(), Contacts :: [pb_contact()],
         UserRegionId :: binary()) -> {[pb_contact()], [pb_contact()]}.
 normalize_contacts(UserId, Contacts, UserRegionId) ->
-    % {ok, NormContacts} = mod_contact_norm:normalize(UserId, Contacts, UserRegionId),
-    NormContacts = mod_contact_norm:normalize(Contacts, UserRegionId),
+    {ok, NormContacts} = mod_contact_norm:normalize(UserId, Contacts, UserRegionId),
     lists:foldl(
         fun(#pb_contact{normalized = undefined} = Contact, {UnNormAcc, NormAcc}) ->
                 {[Contact | UnNormAcc], NormAcc};
