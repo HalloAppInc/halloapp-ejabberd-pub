@@ -43,6 +43,7 @@
 -include("xmpp.hrl").
 -include("time.hrl").
 -include("ha_types.hrl").
+-include("proc.hrl").
 
 -define(PING_ACTIVE_INTERVAL, 120 * ?SECONDS_MS).
 -define(PING_PASSIVE_INTERVAL, 60 * ?SECONDS_MS).
@@ -103,11 +104,11 @@ stop_ping(Host, SessionInfo) ->
 %%====================================================================
 
 start(Host, Opts) ->
-    gen_mod:start_child(?MODULE, Host, Opts).
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()).
 
 
-stop(Host) ->
-    gen_mod:stop_child(?MODULE, Host).
+stop(_Host) ->
+    gen_mod:stop_child(?PROC()).
 
 
 reload(Host, NewOpts, OldOpts) ->
