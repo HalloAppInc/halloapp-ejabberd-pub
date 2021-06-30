@@ -67,7 +67,9 @@
     add_phone_trace/1,
     remove_phone_trace/1,
     uid_info/1,
+    uid_info_with_all_contacts/1,
     phone_info/1,
+    phone_info_with_all_contacts/1,
     group_info/1,
     get_sms_codes/1,
     send_invite/2,
@@ -423,9 +425,21 @@ get_commands_spec() ->
         args_desc = ["Account UID"],
         args_example = [<<"1000000024384563984">>],
         args=[{uid, binary}], result = {res, rescode}},
+    #ejabberd_commands{name = uid_info_with_all_contacts, tags = [server],
+        desc = "Get information associated with a user account",
+        module = ?MODULE, function = uid_info_with_all_contacts,
+        args_desc = ["Account UID"],
+        args_example = [<<"1000000024384563984">>],
+        args=[{uid, binary}], result = {res, rescode}},
     #ejabberd_commands{name = phone_info, tags = [server],
         desc = "Get information associated with a phone number",
         module = ?MODULE, function = phone_info,
+        args_desc = ["Phone number"],
+        args_example = [<<"12065555586">>],
+        args=[{phone, binary}], result = {res, rescode}},
+    #ejabberd_commands{name = phone_info_with_all_contacts, tags = [server],
+        desc = "Get information associated with a phone number",
+        module = ?MODULE, function = phone_info_with_all_contacts,
         args_desc = ["Phone number"],
         args_example = [<<"12065555586">>],
         args=[{phone, binary}], result = {res, rescode}},
@@ -1092,7 +1106,14 @@ format_contact_list(Uid) ->
     NumFriends = length([1 || {CorF, _P, _U, _N} <- ContactList, CorF =:= "F"]),
     {ok, ContactList, NumFriends}.
 
+
+uid_info_with_all_contacts(Uid) ->
+    uid_info(Uid, [show_all_contacts]).
+
 uid_info(Uid) ->
+    uid_info(Uid, []).
+
+uid_info(Uid, Options) ->
     ?INFO("Admin requesting account info for uid: ~s", [Uid]),
     case model_accounts:account_exists(Uid) of
         false -> io:format("There is no account associated with uid: ~s~n", [Uid]);
@@ -1111,10 +1132,14 @@ uid_info(Uid) ->
             io:format("Current Version: ~s~n", [Account#account.client_version]),
 
             {ok, ContactList, NumFriends} = format_contact_list(Uid),
+            ContactList2 = case lists:member(show_all_contacts, Options) of
+                true -> ContactList;
+                false -> lists:filter(fun({_, _, Uid, _}) -> Uid =/= "" end, ContactList)
+            end,
             io:format("Contact list (~p, ~p are friends):~n",
-                [length(ContactList), NumFriends]),
+                [length(ContactList2), NumFriends]),
             [io:format("  ~s ~w ~s ~s~n", [CorF, CPhone, FUid, FName]) ||
-                {CorF, CPhone, FUid, FName} <- ContactList],
+                {CorF, CPhone, FUid, FName} <- ContactList2],
 
             Gids = model_groups:get_groups(Uid),
             io:format("Group list (~p):~n", [length(Gids)]),
@@ -1132,12 +1157,18 @@ uid_info(Uid) ->
     ok.
 
 
+phone_info_with_all_contacts(Phone) ->
+    phone_info(Phone, [show_all_contacts]).
+
 phone_info(Phone) ->
+    phone_info(Phone, []).
+
+phone_info(Phone, Options) ->
     case model_phone:get_uid(Phone) of
         {ok, undefined} ->
             io:format("No account associated with phone: ~s~n", [Phone]),
             invite_info(Phone);
-        {ok, Uid} -> uid_info(Uid)
+        {ok, Uid} -> uid_info(Uid, Options)
     end,
     ok.
 
@@ -1235,4 +1266,3 @@ is_my_host(Host) ->
     try ejabberd_router:is_my_host(Host)
     catch _:{invalid_domain, _} -> false
     end.
-
