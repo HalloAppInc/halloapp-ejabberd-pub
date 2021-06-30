@@ -21,9 +21,10 @@
 -include_lib("stdlib/include/assert.hrl").
 
 -define(MESSAGE_RESPONSE_TIMEOUT_MILLISEC, 30000).  %% 30 seconds.
--define(MAX_RETRY_COUNT, 10).
+-define(MAX_RETRY_COUNT, 5).
 -define(RETRY_INTERVAL_MILLISEC, 30000).    %% 30 sec.
 -define(MAX_WINDOW, 64).
+-define(RATE_COEFFECIENT, 8).
 
 
 -type state() :: halloapp_c2s:state().
@@ -457,7 +458,7 @@ filter_messages(_ClientVersion, undefined) ->
 %% Withhold messages after max retry_count.
 filter_messages(_ClientVersion, #offline_message{msg_id = MsgId, to_uid = Uid,
         retry_count = RetryCount, message = Message})
-        when RetryCount >= ?MAX_RETRY_COUNT ->
+        when RetryCount > ?MAX_RETRY_COUNT ->
     ?WARNING("Withhold offline message after max retries, Uid: ~p, msg_id: ~p, message(b64): ~p",
             [Uid, MsgId, base64url:encode(Message)]),
     ok = model_messages:withhold_message(Uid, MsgId),
@@ -504,11 +505,11 @@ store_message(#pb_msg{} = Message) ->
 compute_new_params(RetryCount, Window, PendingAcks, TotalNumOfMessages) ->
     NewWindow = case RetryCount > 1 of
         true ->
-            ExpDrop = round(math:pow(2, RetryCount - 2)),
+            ExpDrop = round(math:pow(?RATE_COEFFECIENT, RetryCount - 2)),
             ExpWindow = max(1, ?MAX_WINDOW / ExpDrop),
             case Window of
                 undefined -> round(ExpWindow);
-                _ -> round(min(ExpWindow, Window * 2))
+                _ -> round(min(ExpWindow, Window * ?RATE_COEFFECIENT))
             end;
         false ->
             undefined
