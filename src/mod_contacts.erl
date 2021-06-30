@@ -34,7 +34,8 @@
     re_register_user/3,
     block_uids/3,
     unblock_uids/3,
-    trigger_full_contact_sync/1
+    trigger_full_contact_sync/1,
+    notify_friends/3
 ]).
 
 -export([
@@ -317,8 +318,9 @@ finish_sync(UserId, _Server, SyncId) ->
     %% Obtain UserIds for all the normalized phone numbers.
     {_UnRegisteredContacts, RegisteredContacts} = obtain_user_ids(AddContacts),
     %% Set friend relationships for registered contacts and notify.
-    {_NonFriendContacts, _FriendContacts} = obtain_roles_and_notify(UserId, UserPhone,
-            RegisteredContacts, OldContactSet, OldReverseContactSet, OldFriendUidSet, BlockedUidSet, true),
+    {_NonFriendContacts, FriendContacts} = obtain_roles(RegisteredContacts,
+            OldReverseContactSet, BlockedUidSet),
+    add_and_notify_friends(UserId, UserPhone, FriendContacts, OldFriendUidSet),
 
     %% finish_sync will add various contacts and their reverse mapping in the db.
     case model_contacts:finish_sync(UserId, SyncId) of
@@ -360,16 +362,10 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     {ok, BlockedByUids} = model_privacy:get_blocked_by_uids(UserId),
     {ok, OldFriendUids} = model_friends:get_friends(UserId),
     OldFriendUidSet = sets:from_list(OldFriendUids),
-    OldContactSet = sets:from_list(OldContactList),
+    %% TODO(murali@): remove if unused.
+    _OldContactSet = sets:from_list(OldContactList),
     OldReverseContactSet = sets:from_list(OldReverseContactList),
     BlockedUidSet = sets:from_list(BlockedUids ++ BlockedByUids),
-
-    %% If it is a delta-sync - undefined syncId, we need to notify contacts,
-    %% otherwise, we will notify them at the end in finish_sync(...)
-    ShouldNotify = case SyncId of
-        undefined -> true;
-        _ -> false
-    end,
 
     %% Firstly, normalize all phone numbers received.
     {UnNormalizedContacts1, NormalizedContacts1} = normalize_contacts(UserId, Contacts, UserRegionId),
@@ -392,8 +388,8 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     ?INFO("Timetaken:obtain_names: ~w us", [Time5 - Time4]),
 
     %% Set friend relationships for registered contacts and notify.
-    {NonFriendContacts1, FriendContacts1} = obtain_roles_and_notify(UserId, UserPhone,
-            RegisteredContacts2, OldContactSet, OldReverseContactSet, OldFriendUidSet, BlockedUidSet, ShouldNotify),
+    {NonFriendContacts1, FriendContacts1} = obtain_roles(RegisteredContacts2,
+            OldReverseContactSet, BlockedUidSet),
     Time6 = os:system_time(microsecond),
     ?INFO("Timetaken:obtain_roles_and_notify: ~w us", [Time6 - Time5]),
 
@@ -411,9 +407,14 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     %% Call the batched API to insert UserId for the unregistered phone numbers.
     % model_contacts:add_reverse_hash_contacts(UserId, UnRegisteredPhoneNumbers),
     %% Call the batched API to insert the normalized phone numbers.
+    %% If it is a delta-sync - undefined syncId, we need to notify contacts,
+    %% otherwise, we will notify them at the end in finish_sync(...)
     case SyncId of
-        undefined -> model_contacts:add_contacts(UserId, NormalizedPhoneNumbers);
-        _ -> model_contacts:sync_contacts(UserId, SyncId, NormalizedPhoneNumbers)
+        undefined ->
+            model_contacts:add_contacts(UserId, NormalizedPhoneNumbers),
+            add_and_notify_friends(UserId, UserPhone, FriendContacts2, OldFriendUidSet);
+        _ ->
+            model_contacts:sync_contacts(UserId, SyncId, NormalizedPhoneNumbers)
     end,
     Time9 = os:system_time(microsecond),
     ?INFO("Timetaken:sync/add_contacts: ~w us", [Time9 - Time8]),
@@ -492,25 +493,15 @@ obtain_names(RegContacts) ->
 
 %% Splits registered contact records to non-friend and friend contacts.
 %% Sets role for all contacts.
--spec obtain_roles_and_notify(Uid :: binary(), UserPhone :: binary(), RegContacts :: [pb_contact()],
-        OldContactSet :: sets:set(binary()), OldReverseContactSet :: sets:set(binary()), OldFriendUidSet :: sets:set(binary()),
-        BlockedUidSet :: sets:set(binary()), ShouldNotify :: boolean()) -> {[pb_contact()], [pb_contact()]}.
-obtain_roles_and_notify(Uid, UserPhone, RegContacts, OldContactSet,
-        OldReverseContactSet, OldFriendUidSet, BlockedUidSet, ShouldNotify) ->
-    Server = util:get_host(),
+-spec obtain_roles(RegContacts :: [pb_contact()], OldReverseContactSet :: sets:set(binary()),
+        BlockedUidSet :: sets:set(binary())) -> {[pb_contact()], [pb_contact()]}.
+obtain_roles(RegContacts, OldReverseContactSet, BlockedUidSet) ->
     {NonFriendContacts, FriendContacts} = lists:foldl(
-        fun(#pb_contact{normalized = ContactPhone, uid = ContactId} = Contact,
+        fun(#pb_contact{normalized = _ContactPhone, uid = ContactId} = Contact,
                 {NonFriendAcc, FriendAcc}) ->
-            IsNewContact = not sets:is_element(ContactPhone, OldContactSet),
             IsFriends = sets:is_element(ContactId, OldReverseContactSet) andalso
                     not sets:is_element(ContactId, BlockedUidSet),
             Role = get_role_value(IsFriends),
-            %% Notify the new contact and update its friends table.
-            case {ShouldNotify, IsNewContact, IsFriends} of
-                {true, true, true} ->
-                    notify_contact_about_user(Uid, UserPhone, ContactId, Role);
-                {_, _, _} -> ok
-            end,
             %% Update Acc
             NewContact = Contact#pb_contact{role = Role},
             case IsFriends of
@@ -520,7 +511,12 @@ obtain_roles_and_notify(Uid, UserPhone, RegContacts, OldContactSet,
                     {[NewContact | NonFriendAcc], FriendAcc}
             end
         end, {[], []}, RegContacts),
+    {NonFriendContacts, FriendContacts}.
 
+
+-spec add_and_notify_friends(Uid :: binary(), UserPhone :: binary(), FriendContacts :: [pb_contact()],
+        OldFriendUidSet :: sets:set(binary())) -> ok.
+add_and_notify_friends(Uid, UserPhone, FriendContacts, OldFriendUidSet) ->
     %% Extract current friends and add only new friends to the database.
     CurrentFriendUids = extract_uid(FriendContacts),
     %% These are the new friends we need to add to the database and let other modules know about it.
@@ -530,13 +526,28 @@ obtain_roles_and_notify(Uid, UserPhone, RegContacts, OldContactSet,
         end, CurrentFriendUids),
     %% Store friend relationships in the database.
     ok = model_friends:add_friends(Uid, NewFriendUids),
-    %% Run add_friend hook only for NewFriendUids - other modules are interested in only new changes to relationships.
-    lists:foreach(
-        fun(FriendUid) ->
-            add_friend_hook(Uid, Server, FriendUid, false)
-        end, NewFriendUids),
+    %% Notify new friends and run hooks in a separate process.
+    spawn(?MODULE, notify_friends, [Uid, UserPhone, NewFriendUids]),
+    ok.
 
-    {NonFriendContacts, FriendContacts}.
+
+-spec notify_friends(Uid :: binary(), UserPhone :: binary(), NewFriendUids :: [binary()]) -> ok.
+notify_friends(Uid, UserPhone, NewFriendUids) ->
+    ?INFO("Uid: ~p, Notifying friends: ~p", [Uid, NewFriendUids]),
+    Server = util:get_host(),
+    %% Run add_friend hook only for NewFriendUids - other modules are interested in only new changes to relationships.
+    try
+        lists:foreach(
+            fun(FriendUid) ->
+                notify_contact_about_user(Uid, UserPhone, FriendUid, friends),
+                add_friend_hook(Uid, Server, FriendUid, false)
+            end, NewFriendUids)
+    catch
+        Class:Reason:Stacktrace ->
+            ?ERROR("Failed notify_friends Uid: ~p, Stacktrace:~s",
+                [Uid, lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+    end,
+    ok.
 
 
 %% Sets avatar_ids for all registered contacts.

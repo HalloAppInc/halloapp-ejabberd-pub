@@ -462,17 +462,10 @@ new_user_inviters_list3_notification_test() ->
         #pb_contact{raw = ?PHONE1, normalized = undefined}
     ],
 
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
-
     mod_contacts:handle_delta_contacts(?UID2, ?SERVER, InputContacts),
 
     {ok, Result} = model_contacts:get_contacts(?UID2),
     ?assertEqual(sets:from_list([?PHONE1, ?PHONE3]), sets:from_list(Result)),
-
-    ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
-    meck:validate(ejabberd_router),
-    meck:unload(ejabberd_router),
     ok.
 
 
@@ -492,17 +485,10 @@ new_user_friends_list1_notification_test() ->
         #pb_contact{raw = ?PHONE1}
     ],
 
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
-
     mod_contacts:handle_delta_contacts(?UID2, ?SERVER, InputContacts),
 
     {ok, Result} = model_contacts:get_contacts(?UID2),
     ?assertEqual(sets:from_list([?PHONE1, ?PHONE3]), sets:from_list(Result)),
-
-    ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),
-    meck:validate(ejabberd_router),
-    meck:unload(ejabberd_router),
     ok.
 
 
@@ -524,16 +510,9 @@ new_user_friends_list2_notification_test() ->
 
     mod_contacts:normalize_and_insert_contacts(?UID2, ?SERVER, InputContacts, ?SYNC_ID1),
 
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
-
     mod_contacts:finish_sync(?UID2, ?SERVER, ?SYNC_ID1),
     {ok, Result} = model_contacts:get_contacts(?UID2),
     ?assertEqual(sets:from_list([?PHONE1, ?PHONE3]), sets:from_list(Result)),
-
-    ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),
-    meck:validate(ejabberd_router),
-    meck:unload(ejabberd_router),
     ok.
 
 
@@ -556,16 +535,9 @@ new_user_friends_list3_notification_test() ->
 
     mod_contacts:normalize_and_insert_contacts(?UID2, ?SERVER, InputContacts, ?SYNC_ID1),
 
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
-
     mod_contacts:finish_sync(?UID2, ?SERVER, ?SYNC_ID1),
     {ok, Result} = model_contacts:get_contacts(?UID2),
     ?assertEqual(sets:from_list([?PHONE1, ?PHONE3]), sets:from_list(Result)),
-
-    ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
-    meck:validate(ejabberd_router),
-    meck:unload(ejabberd_router),
     ok.
 
 
@@ -592,16 +564,9 @@ new_user_friends_list4_notification_test() ->
 
     mod_contacts:normalize_and_insert_contacts(?UID2, ?SERVER, InputContacts, ?SYNC_ID1),
 
-    meck:new(ejabberd_router, [passthrough]),
-    meck:expect(ejabberd_router, route, fun(_) -> ok end),
-
     mod_contacts:finish_sync(?UID2, ?SERVER, ?SYNC_ID1),
     {ok, Result} = model_contacts:get_contacts(?UID2),
     ?assertEqual(sets:from_list([?PHONE1, ?PHONE3]), sets:from_list(Result)),
-
-    ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
-    meck:validate(ejabberd_router),
-    meck:unload(ejabberd_router),
     ok.
 
 
