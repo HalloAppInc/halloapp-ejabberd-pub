@@ -53,13 +53,14 @@
     comments = 0 :: non_neg_integer()
 }).
 
--define(CLEANUP_INTERVAL, 1 * ?HOURS).
+-define(CLEANUP_INTERVAL, 1 * ?HOURS_MS).
 -define(LOG_NEW_USER_TIME, 1 * ?MINUTES_MS).
 
 start_link() ->
     gen_server:start_link({local, ?PROC()}, ?MODULE, [], []).
 
-start(Host, _Opts) ->
+start(Host, Opts) ->
+    application:ensure_all_started(prometheus),
     ejabberd_hooks:add(feed_item_published, Host, ?MODULE, feed_item_published, 50),
     ejabberd_hooks:add(group_feed_item_published, Host, ?MODULE, group_feed_item_published, 50),
     ejabberd_hooks:add(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),
@@ -71,6 +72,7 @@ start(Host, _Opts) ->
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 50),
     ejabberd_hooks:add(feed_share_old_items, Host, ?MODULE, feed_share_old_items, 50),
+    gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     ok.
 
 
@@ -86,6 +88,7 @@ stop(Host) ->
     ejabberd_hooks:delete(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),
     ejabberd_hooks:delete(group_feed_item_retracted, Host, ?MODULE, group_feed_item_retracted, 50),
     ejabberd_hooks:delete(feed_share_old_items, Host, ?MODULE, feed_share_old_items, 50),
+    gen_mod:stop_child(?PROC()),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
