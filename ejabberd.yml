@@ -19,12 +19,12 @@ hosts:
 
 ### loglevel is now controlled by the environment localhost,test is 5, prod is 4
 ### loglevel: 5
-### 300MB
-log_rotate_size: 314572800
+### 500MB
+log_rotate_size: 524288000
 ### Rotate at midnight
 log_rotate_date: "$D0"
 log_rotate_count: 15
-log_rate_limit: 5000
+log_rate_limit: 10000
 
 listen:
   -
