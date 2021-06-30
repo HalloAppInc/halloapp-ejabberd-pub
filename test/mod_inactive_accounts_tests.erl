@@ -70,7 +70,10 @@ setup_erlcron() ->
     ok.
 
 cleanup_erlcron() ->
+    %% prevents INFO REPORT generation
+    error_logger:tty(false),
     application:stop(erlcron),
+    error_logger:tty(true),
     ok.
 
 setup() ->
