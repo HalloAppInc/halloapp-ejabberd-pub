@@ -198,6 +198,7 @@ message GroupFeedItem {
     enum Action {
         PUBLISH = 0;
         RETRACT = 1;
+        SHARE = 2;
     }
     Action action = 1;
     string gid = 2;
@@ -455,6 +456,28 @@ message EndOfQueue {
 }
 
 
+// History Resend Message
+
+message HistoryResend {
+    string gid = 1;
+    string id = 2;
+    int64 sender_uid = 3 [ebin = true];
+    repeated int64 receiver_uids = 4 [ebin = true];
+
+    bytes payload = 5;
+    // Encrypted payload using the group feed channel.
+    bytes enc_payload = 6;
+
+    // Sent by the sender.
+    repeated SenderStateBundle sender_state_bundles = 7;
+
+    // Meant for the receiver, selected by the server from `sender_state_bundles`.
+    bytes enc_sender_state = 8;
+
+    bytes audience_hash = 9;
+}
+
+
 // IQ
 
 message Iq {
@@ -493,7 +516,8 @@ message Iq {
         UploadGroupAvatar group_avatar = 27;
         DeleteAccount delete_account = 28;
         GroupInviteLink group_invite_link = 31;
-        ExportData export_data = 32;
+        HistoryResend history_resend = 32;
+        ExportData export_data = 33;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -538,6 +562,7 @@ message Msg {
         EndOfQueue end_of_queue = 26;
         InviteeNotice invitee_notice = 27;
         GroupFeedRerequest group_feed_rerequest = 28;
+        HistoryResend history_resend = 29;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
@@ -705,6 +730,16 @@ message GroupFeedRerequest {
   string gid = 1;
   // Post id or Comment id.
   string id = 2;
+
+  // To capture the type of decryption failure.
+  enum RerequestType {
+      // Unable to decrypt post/comment's payload
+      PAYLOAD = 0;
+
+      // Unable to decrypt sender state.
+      SENDER_STATE = 1;
+  }
+  RerequestType rerequest_type = 3;
 }
 
 
