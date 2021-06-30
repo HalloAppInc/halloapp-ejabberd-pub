@@ -11,7 +11,7 @@
 -include("ha_types.hrl").
 -include("logger.hrl").
 
--define(DEFAULT_SIZE, 100).
+-define(DEFAULT_SIZE, 300 * 1024).  %% 300KiB
 
 %% API
 -export([
@@ -47,7 +47,8 @@ run_upload_client(0, _Options, Pid) ->
 run_upload_client(RemainingRequests, Options, Pid) ->
     Size = maps:get(size, Options, ?DEFAULT_SIZE),
     {ok, PatchUrl} = upload_client:request_upload(Size, Options),
-    {ok, DownloadUrl} = upload_client:upload_data(PatchUrl, 0, Size),
+    {ok, Offset} = upload_client:request_offset(PatchUrl),
+    {ok, DownloadUrl} = upload_client:upload_data(PatchUrl, Offset, Size),
     ?INFO("Pid: ~p, download location: ~p", [self(), DownloadUrl]),
     run_upload_client(RemainingRequests - 1, Options, Pid).
 

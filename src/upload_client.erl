@@ -18,6 +18,7 @@
 -export([
     request_upload/1,
     request_upload/2,
+    request_offset/1,
     upload_data/3
 ]).
 
@@ -48,6 +49,21 @@ request_upload(Size, Options) ->
             {error, {HTTPCode, ResponseBody}}
     end.
 
+
+-spec request_offset(PatchUrl :: list()) -> {ok, integer()} | {error, term()}.
+request_offset(PatchUrl) ->
+    setup(),
+    Headers = [{"Tus-Resumable", "1.0.0"}],
+    Request = {PatchUrl, Headers},
+    {ok, Response} = httpc:request(head, Request, [{timeout, 30000}], []),
+    case Response of
+        {{_, 200, _}, ResHeaders, _ResponseBody} ->
+            OffsetHdr = [Offset || {"upload-offset", _} = Offset <- ResHeaders],
+            [{_, OffsetStr}] = OffsetHdr,
+            {ok, util:to_integer(OffsetStr)};
+        {{_, HTTPCode, _}, _ResHeaders, ResponseBody} ->
+            {error, {HTTPCode, ResponseBody}}
+    end.
 
 -spec upload_data(PatchUrl :: list(), Offset :: integer(), Size :: integer()) -> {ok, list()} | {error, term()}.
 upload_data(PatchUrl, Offset, Size) ->
