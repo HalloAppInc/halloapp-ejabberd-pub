@@ -78,20 +78,22 @@ mod_options(_Host) ->
 %%====================================================================
 
 process_local_iq(
-    #pb_iq{type = get, payload = #pb_upload_media{
+    #pb_iq{from_uid = Uid, type = get, payload = #pb_upload_media{
         size = Size, download_url = DUrl, type = Type}} = IQ)
         when DUrl =/= undefined andalso byte_size(DUrl) > 0 ->
-    ?INFO("refresh_url ~p", [DUrl]),
+    ?INFO("Uid: ~p, refresh_url ~p", [Uid, DUrl]),
     case s3_signed_url_generator:refresh_url(binary_to_list(DUrl)) of
         true ->
-            ?INFO("refresh ok ~p", [DUrl]),
+            ?INFO("Uid: ~p, refresh ok ~p", [Uid, DUrl]),
             stat:count("HA/media", "refresh_upload"),
             pb:make_iq_result(IQ, #pb_upload_media{download_url = DUrl});
         false ->
-            ?INFO("fail ~p", [DUrl]),
+            ?INFO("Uid: ~p, failed refreshing ~p", [Uid, DUrl]),
             process_local_iq(IQ#pb_iq{payload = #pb_upload_media{size = Size, type = Type}})
     end;
-process_local_iq(#pb_iq{type = get, payload = #pb_upload_media{size = Size, type = Type}} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+        payload = #pb_upload_media{size = Size, type = Type}} = IQ) ->
+    ?INFO("Uid: ~p, Type: ~p, Size: ~p", [Uid, Type, Size]),
     DirectUpload = (Type =:= default andalso Size =:= 0) orelse (Type =:= direct),
     case DirectUpload of
         true ->
@@ -131,6 +133,7 @@ process_patch_url_result(IQ, PatchResult) ->
             #pb_media_url{patch = ResumablePatch}
       end,
     IQResult = pb:make_iq_result(IQ, #pb_upload_media{url = MediaUrl}),
+    ?INFO("Uid: ~p, MediaUrl: ~p", [IQResult#pb_iq.to_uid, MediaUrl]),
     %% All of the logic to generate resumable urls is running on the c2s process.
     %% So use self pid as the destination.
     halloapp_c2s:route(self(), {route, IQResult}).

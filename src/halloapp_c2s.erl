@@ -534,6 +534,7 @@ process_presence_out(#{user := User, server := Server} = State,
 
 process_presence_out(#{sid := _SID, user := Uid, lserver := Server, resource := Resource} = State,
         #pb_presence{type = Type} = Presence) when Type == available; Type == away ->
+    ?INFO("Uid: ~p, Resource: ~p, Type: ~p", [Uid, Resource, Type]),
     %% We run the set_presence_hook,
     %% since these presence stanzas are about updating user's activity status.
     ejabberd_hooks:run(set_presence_hook, Server, [Uid, Server, Resource, Presence]),

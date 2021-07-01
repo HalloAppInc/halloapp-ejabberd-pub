@@ -88,6 +88,7 @@ re_register_user(Uid, Server, Phone) ->
 -spec set_presence_hook(User :: binary(), Server :: binary(),
         Resource :: binary(), Presence :: presence()) -> ok.
 set_presence_hook(User, Server, Resource, #pb_presence{type = StatusType}) ->
+    ?INFO("Uid: ~p, Resource: ~p, StatusType: ~p", [User, Resource, StatusType]),
     store_and_broadcast_presence(User, Server, Resource, StatusType),
     check_and_probe_contacts_presence(User, Server, StatusType).
 

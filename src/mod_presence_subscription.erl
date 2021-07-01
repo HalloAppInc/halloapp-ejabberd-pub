@@ -108,6 +108,7 @@ presence_subs_hook(User, Server, #pb_presence{uid = Uid, to_uid = ToUid, type = 
         _ ->
             ToUid
     end,
+    ?INFO("Uid: ~p, type: ~p toUid: ~p", [User, Type, ToUid]),
     case Type of
         subscribe ->
             check_and_subscribe(User, Server, FinalToUid);

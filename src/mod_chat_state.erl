@@ -59,9 +59,10 @@ user_send_chatstate(State, #pb_chat_state{thread_id = <<>>}) ->
 
 user_send_chatstate(State, #pb_chat_state{thread_id = ThreadId, thread_type = ThreadType} = Packet) ->
     Type = Packet#pb_chat_state.type,
+    FromUid = Packet#pb_chat_state.from_uid,
     stat:count("HA/chat_state", atom_to_list(Type), 1, [{thread_type, ThreadType}]),
-    ?INFO("thread_id: ~s, thread_type: ~s, type: ~s",
-            [ThreadId, ThreadType, Type]),
+    ?INFO("Uid: ~s, thread_id: ~s, thread_type: ~s, type: ~s",
+        [FromUid, ThreadId, ThreadType, Type]),
     case ThreadType of
         chat ->
             process_chat_state(Packet, ThreadId);

@@ -112,6 +112,7 @@ user_name_updated(Uid, Name) ->
 
 -spec set_name(Uid :: binary(), Name :: binary()) -> ok.
 set_name(Uid, Name) ->
+    ?INFO("Uid: ~p, Name: ~p", [Uid, Name]),
     Server = util:get_host(),
     ok = model_accounts:set_name(Uid, Name),
     ejabberd_hooks:run(user_name_updated, Server, [Uid, Name]),

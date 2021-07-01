@@ -98,11 +98,14 @@ parse(Number, RegionId) ->
         {ok, PhoneNumberState} ->
             case PhoneNumberState#phone_number_state.valid of
                 true ->
+                    ?INFO("success parsed |~s| -> ~p", [Number, PhoneNumberState]),
                     list_to_binary(PhoneNumberState#phone_number_state.e164_value);
                 _ ->
+                    ?WARNING("Failed parsing |~s|", [Number]),
                     <<>> % Use empty string as normalized number for now.
             end;
-        _ ->
+        {error, Reason} ->
+            ?WARNING("Failed parsing |~s|, with reason: ~s", [Number, Reason]),
             <<>> % Use empty string as normalized number for now.
     end.
 

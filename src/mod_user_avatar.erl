@@ -205,6 +205,7 @@ update_user_avatar(UserId, Server, AvatarId) ->
 
 -spec user_avatar_published(UserId :: binary(), Server :: binary(), AvatarId :: binary()) -> ok.
 user_avatar_published(UserId, _Server, AvatarId) ->
+    ?INFO("Uid: ~p, AvatarId: ~p", [UserId, AvatarId]),
     {ok, Friends} = model_friends:get_friends(UserId),
     lists:foreach(
         fun(FriendId) ->

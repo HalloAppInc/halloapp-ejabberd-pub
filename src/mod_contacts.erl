@@ -117,6 +117,7 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
 process_local_iq(#pb_iq{from_uid = UserId, type = set,
         payload = #pb_contact_list{type = delta, contacts = Contacts,
             batch_index = _Index, is_last = _Last}} = IQ) ->
+    ?INFO("Delta contact sync, Uid: ~p, num_changes: ~p", [UserId, length(Contacts)]),
     Server = util:get_host(),
     pb:make_iq_result(IQ, #pb_contact_list{type = normal,
                     contacts = handle_delta_contacts(UserId, Server, Contacts)}).
@@ -125,6 +126,7 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
 %% TODO(murali@): update remove_user to have phone in the hook arguments.
 -spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
 remove_user(Uid, _Server) ->
+    ?INFO("Uid: ~p", [Uid]),
     {ok, Phone} = model_accounts:get_phone(Uid),
     remove_all_contacts(Uid, true),
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
@@ -136,13 +138,15 @@ remove_user(Uid, _Server) ->
 
 
 -spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-re_register_user(UserId, _Server, _Phone) ->
+re_register_user(UserId, _Server, Phone) ->
+    ?INFO("Uid: ~p, Phone: ~p", [UserId, Phone]),
     remove_all_contacts(UserId, false).
 
 
 %% TODO: Delay notifying the users about their contact to reduce unnecessary messages to clients.
 -spec register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
 register_user(UserId, _Server, Phone) ->
+    ?INFO("Uid: ~p, Phone: ~p", [UserId, Phone]),
     %% Disabled logic for contact hashing.
     % {ok, PotentialContactUids} = model_contacts:get_potential_reverse_contact_uids(Phone),
     % lists:foreach(
@@ -265,6 +269,8 @@ handle_delta_contacts(UserId, Server, Contacts) ->
             fun(#pb_contact{action = Action}) ->
                 Action =:= delete
             end, Contacts),
+    ?INFO("Uid: ~p, NumDeleteContacts: ~p, NumAddContacts: ~p",
+            [UserId, length(DeleteContactsList), length(AddContactsList)]),
     DeleteContactPhones = lists:foldl(
             fun(#pb_contact{normalized = undefined}, Acc) ->
                     ?ERROR("Uid: ~s, UserId, sending invalid_contacts", [UserId]),
