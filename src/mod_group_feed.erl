@@ -523,6 +523,7 @@ filter_group_feed_items(_Uid, Items) ->
 -spec convert_posts_to_groupfeeditem(post()) -> pb_post().
 convert_posts_to_groupfeeditem(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs}) ->
     #pb_group_feed_item{
+        action = share,
         item = #pb_post{
             id = PostId,
             publisher_uid = Uid,
@@ -537,6 +538,7 @@ convert_posts_to_groupfeeditem(#post{id = PostId, uid = Uid, payload = PayloadBa
 convert_comments_to_groupfeeditem(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
         parent_id = ParentId, payload = PayloadBase64, ts_ms = TimestampMs}) ->
     #pb_group_feed_item{
+        action = share,
         item = #pb_comment{
             id = CommentId,
             post_id = PostId,
