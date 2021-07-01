@@ -99,7 +99,7 @@ get_props(Uid, ClientVersion) ->
         max_chat_video_duration => 600, %% duration in seconds for videos in chats.
         private_reactions => false, %% whether client can send private reactions.
         group_sync_time => 1 * ?WEEKS, %% how often should clients sync group metadata
-        group_invite_links => false, %% enables group_invite_links on the client.
+        group_invite_links => true, %% enables group_invite_links on the client.
         group_background => true, %% enables group_background on the client.
         max_video_bit_rate => 8000000, %% max_video_bit_rate set to 8Mbps.
         new_client_container => false, %% indicates whether the client can start sending new container formats.
@@ -120,10 +120,9 @@ get_uid_based_props(PropMap, Uid) ->
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
-            PropMap2 = maps:update(group_invite_links, true, PropMap1),
-            PropMap3 = maps:update(voice_notes, true, PropMap2),
-            PropMap4 = maps:update(media_comments, true, PropMap3),
-            PropMap4
+            PropMap2 = maps:update(voice_notes, true, PropMap1),
+            PropMap3 = maps:update(media_comments, true, PropMap2),
+            PropMap3
     end.
 
 
