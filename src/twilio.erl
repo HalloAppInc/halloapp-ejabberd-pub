@@ -45,7 +45,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
     AppHash = util_ua:get_app_hash(UserAgent),
     Msg = io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
     TwilioLangId = get_twilio_lang(TranslatedLangId),
-    sending_helper(Phone, Msg, TwilioLangId, ?BASE_VOICE_URL(AccountSid), fun compose_body/3, "SMS").
+    sending_helper(Phone, Msg, TwilioLangId, ?BASE_SMS_URL(AccountSid), fun compose_body/3, "SMS").
 
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
@@ -75,7 +75,9 @@ sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
     ?DEBUG("Body: ~p", [Body]),
     HTTPOptions = [],
     Options = [],
-    Response = httpc:request(post, {BaseUrl, Headers, Type, Body}, HTTPOptions, Options),
+    Request = {BaseUrl, Headers, Type, Body},
+    ?DEBUG("Request: ~p", [Request]),
+    Response = httpc:request(post, Request, HTTPOptions, Options),
     ?DEBUG("Response: ~p", [Response]),
     case Response of
         {ok, {{_, 201, _}, _ResHeaders, ResBody}} ->
