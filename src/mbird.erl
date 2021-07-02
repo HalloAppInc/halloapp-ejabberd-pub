@@ -70,7 +70,7 @@ send_voice_call(Phone, Code, LangId, UserAgent) ->
     end,
     MbirdLangId = get_mbird_lang(TranslatedLangId),
     DigitByDigit = string:trim(re:replace(Code, ".", "& . . ", [global, {return,list}])),
-    VoiceMsg = io_lib:format("~s ~s . ", [VoiceMsgBin, DigitByDigit]),
+    VoiceMsg = io_lib:format("~s . . ~s . ", [VoiceMsgBin, DigitByDigit]),
     FinalMsg = io_lib:format("~s ~s ~s ~s", [VoiceMsg, VoiceMsg, VoiceMsg, VoiceMsg]),
 
     ?INFO("Phone: ~p, FinalMsg: ~s", [Phone, FinalMsg]),

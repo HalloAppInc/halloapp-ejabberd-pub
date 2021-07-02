@@ -60,7 +60,7 @@ send_voice_call(Phone, Code, LangId, _UserAgent) ->
     end,
     TwilioLangId = get_twilio_lang(TranslatedLangId),
     DigitByDigit = string:trim(re:replace(Code, ".", "& . . ", [global, {return,list}])),
-    VoiceMsg = io_lib:format("~s ~s . ", [VoiceMsgBin, DigitByDigit]),
+    VoiceMsg = io_lib:format("~s . . ~s . ", [VoiceMsgBin, DigitByDigit]),
     FinalMsg = io_lib:format("~s ~s ~s ~s", [VoiceMsg, VoiceMsg, VoiceMsg, VoiceMsg]),
     sending_helper(Phone, FinalMsg, TwilioLangId, ?BASE_VOICE_URL(AccountSid), fun compose_voice_body/3, "Voice Call").
 
