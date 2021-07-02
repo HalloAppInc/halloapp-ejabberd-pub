@@ -17,7 +17,9 @@
     get_arn/0,
     is_jabber_iam_role/1,
     get_secret/1,
-    get_machine_name/0
+    get_machine_name/0,
+    run_command/1,
+    run_command/2
 ]).
 
 -spec get_arn() -> maybe(binary()).
@@ -69,5 +71,32 @@ get_machine_name() ->
             util:to_binary(string:trim(Result));
         false ->
             undefined
+    end.
+
+
+-spec run_command([string()]) -> ok.
+run_command(Components) ->
+    run_command(Components, []).
+
+
+-spec run_command([string()], proplists:proplist()) -> ok | string() | maps:map().
+run_command(Components, Options) ->
+    Command = util:join_strings(["aws" | Components], " "),
+    Response = os:cmd(Command),
+    case proplists:get_value(enforce_json, Options) of
+        undefined ->
+            Response;
+        true ->
+            try
+                jiffy:decode(Response, [return_maps])
+            catch
+                Class:Reason:Stacktrace ->
+                    %% Raise an exception if Response is not an encoded json.
+                    %% Desirable for fail-fast design.
+                    ?ERROR("AWS command failed: ~p, Response: ~p, Stacktrace: ~p",
+                            [Command, Response, lager:pr_stacktrace(Stacktrace,
+                            {Class, Reason})]),
+                    error(aws_error, [Components, Options])
+            end
     end.
 

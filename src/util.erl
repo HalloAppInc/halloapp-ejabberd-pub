@@ -28,6 +28,7 @@
     now_ms/0,
     now/0,
     now_binary/0,
+    now_prettystring/0,
     tsms_to_date/1,
     round_to_minute/1,
     random_str/1,
@@ -46,6 +47,7 @@
     is_test_number/1,
     join_binary/2,
     join_binary/3,
+    join_strings/2,
     err/1,
     ms_to_datetime_string/1,
     get_shard/0,
@@ -106,6 +108,20 @@ now() ->
 -spec now_binary() -> binary().
 now_binary() ->
     integer_to_binary(util:now()).
+
+
+-spec now_prettystring() -> string().
+now_prettystring() ->
+    {{Year, Month, Day}, {Hour, Minute, Second}} = calendar:universal_time(),
+    join_strings([
+        integer_to_list(Year),
+        binary_to_list(iolist_to_binary(io_lib:format("~2..0w", [Month]))),
+        binary_to_list(iolist_to_binary(io_lib:format("~2..0w", [Day]))),
+        binary_to_list(iolist_to_binary(io_lib:format("~2..0w", [Hour]))),
+        binary_to_list(iolist_to_binary(io_lib:format("~2..0w", [Minute]))),
+        binary_to_list(iolist_to_binary(io_lib:format("~2..0w", [Second])))
+    ], "-").
+
 
 
 -spec tsms_to_date(TsMs :: integer()) -> {integer(), integer(), integer()}.
@@ -298,6 +314,11 @@ join_binary(_Char, [], FinalString) -> FinalString;
 join_binary(Char, [Element | Rest], FinalString) ->
     NewFinalString = <<FinalString/binary, Char/binary, Element/binary>>,
     join_binary(Char, Rest, NewFinalString).
+
+
+-spec join_strings([string()], string()) -> string().
+join_strings(Components, Separator) ->
+    lists:append(lists:join(Separator, Components)).
 
 
 -spec err(Reason :: atom()) -> pb_error_stanza().
