@@ -39,7 +39,7 @@ request_upload(Size, Options) ->
     Host = maps:get(host, Options, ?DEFAULT_HOST),
     Port = maps:get(port, Options, ?DEFAULT_PORT),
     Request = {"http://" ++ Host ++ ":" ++ Port ++"/files/", Headers, "application/json", <<>>},
-    {ok, Response} = httpc:request(post, Request, [{timeout, 30000}], []),
+    {ok, Response} = httpc:request(post, Request, [{timeout, 10000}], []),
     case Response of
         {{_, 201, _}, ResHeaders, _ResponseBody} ->
             LocationHdr = [Location || {"location", _} = Location <- ResHeaders],
@@ -55,7 +55,7 @@ request_offset(PatchUrl) ->
     setup(),
     Headers = [{"Tus-Resumable", "1.0.0"}],
     Request = {PatchUrl, Headers},
-    {ok, Response} = httpc:request(head, Request, [{timeout, 30000}], []),
+    {ok, Response} = httpc:request(head, Request, [{timeout, 10000}], []),
     case Response of
         {{_, 200, _}, ResHeaders, _ResponseBody} ->
             OffsetHdr = [Offset || {"upload-offset", _} = Offset <- ResHeaders],
@@ -71,7 +71,7 @@ upload_data(PatchUrl, Offset, Size) ->
     Headers = [{"Tus-Resumable", "1.0.0"}, {"Upload-Offset", integer_to_list(Offset)}],
     Body = crypto:strong_rand_bytes(Size),
     Request = {PatchUrl, Headers, "application/offset+octet-stream", Body},
-    {ok, Response} = httpc:request(patch, Request, [{timeout, 30000}], []),
+    {ok, Response} = httpc:request(patch, Request, [{timeout, 10000}], []),
     case Response of
         {{_, 204, _}, ResHeaders, _ResponseBody} ->
             LocationHdr = [Location || {"download-location", _} = Location <- ResHeaders],
