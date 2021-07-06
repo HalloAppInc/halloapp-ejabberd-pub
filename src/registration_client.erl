@@ -24,6 +24,15 @@
     register/4
 ]).
 
+%% Noise related definitions.
+-define(CURVE_KEY_TYPE, dh25519).
+-record(kp,
+{
+    type :: atom(),
+    sec  :: binary(),
+    pub  :: binary()
+}).
+
 
 setup() ->
     application:ensure_started(inets).
@@ -42,7 +51,8 @@ request_sms(Phone, Options) ->
     Headers = [{"user-agent", UA}],
     Host = maps:get(host, Options, ?DEFAULT_HOST),
     Port = maps:get(port, Options, ?DEFAULT_PORT),
-    Request = {"http://" ++ Host ++ ":" ++ Port ++"/api/registration/request_sms", Headers, "application/json", Body},
+    Protocol = get_http_protocol(),
+    Request = {Protocol ++ Host ++ ":" ++ Port ++"/api/registration/request_sms", Headers, "application/json", Body},
     {ok, Response} = httpc:request(post, Request, [{timeout, 30000}], []),
     case Response of
         {{_, 200, _}, _ResHeaders, ResponseBody} ->
@@ -65,6 +75,13 @@ register(Phone, Code, Name, Options) ->
     %% TODO: tests should generate these keys.
     KeyPair = ha_enoise:generate_signature_keypair(),
     {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+
+    %% Convert these signing keys to curve keys.
+    {CurveSecret, CurvePub} = {enacl:crypto_sign_ed25519_secret_to_curve25519(maps:get(secret, KeyPair)),
+     enacl:crypto_sign_ed25519_public_to_curve25519(maps:get(public, KeyPair))},
+    %% TODO: move this code to have an api for these keys.
+    ClientKeyPair = #kp{type = ?CURVE_KEY_TYPE, sec = CurveSecret, pub = CurvePub},
+
     SignedMessage = enacl:sign("HALLO", SEdSecret),
     SEdPubEncoded = base64:encode(SEdPub),
     SignedMessageEncoded = base64:encode(SignedMessage),
@@ -81,7 +98,8 @@ register(Phone, Code, Name, Options) ->
     Headers = [{"user-agent", UA}],
     Host = maps:get(host, Options, ?DEFAULT_HOST),
     Port = maps:get(port, Options, ?DEFAULT_PORT),
-    Request = {"http://" ++ Host ++ ":" ++ Port ++ "/api/registration/register2", Headers, "application/json", Body},
+    Protocol = get_http_protocol(),
+    Request = {Protocol ++ Host ++ ":" ++ Port ++ "/api/registration/register2", Headers, "application/json", Body},
     {ok, Response} = httpc:request(post, Request, [{timeout, 30000}], []),
     case Response of
         {{_, 200, _}, _ResHeaders, ResponseBody} ->
@@ -91,8 +109,16 @@ register(Phone, Code, Name, Options) ->
                 <<"phone">> := Phone,
                 <<"result">> := <<"ok">>
             } = ResData,
-            {ok, Uid, ResData};
+            {ok, Uid, ClientKeyPair, ResData};
         {{_, HTTPCode, _}, _ResHeaders, ResponseBody} ->
             ResData = jiffy:decode(ResponseBody, [return_maps]),
             {error, {HTTPCode, ResData}}
+    end.
+
+
+get_http_protocol() ->
+    HalloEnv = config:get_hallo_env(),
+    case HalloEnv =:= test orelse HalloEnv =:= github of
+        true -> "http://";
+        false -> "https://"
     end.

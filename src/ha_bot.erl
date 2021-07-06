@@ -54,7 +54,7 @@
     parent_pid :: pid(),
     phone :: phone(),
     uid :: uid(),
-    password :: binary(),
+    keypair :: tuple(),
     name :: binary(),
     c :: pid(),  % pid of the ha_client
     conf = #{} :: map(),
@@ -93,13 +93,13 @@ set_conf(Pid, Conf) ->
     gen_server:call(Pid, {set_conf, Conf}).
 
 -spec register(Pid :: pid(), Phone :: phone()) ->
-        {ok, Uid :: uid(), Password :: binary()} | {error, term()}.
+        {ok, Uid :: uid(), KeyPair :: tuple()} | {error, term()}.
 register(Pid, Phone) ->
     gen_server:call(Pid, {register, Phone}).
 
--spec set_account(Pid :: pid(), Phone :: phone(), Uid :: uid(), Password :: binary()) -> ok.
-set_account(Pid, Phone, Uid, Password) ->
-    gen_server:call(Pid, {set_account, Phone, Uid, Password}).
+-spec set_account(Pid :: pid(), Phone :: phone(), Uid :: uid(), KeyPair :: tuple()) -> ok.
+set_account(Pid, Phone, Uid, KeyPair) ->
+    gen_server:call(Pid, {set_account, Phone, Uid, KeyPair}).
 
 -spec connect(Pid :: pid()) -> ok | {error, term()}.
 connect(Pid) ->
@@ -141,16 +141,16 @@ handle_call({set_conf, Conf}, _From, State) ->
 handle_call({register, Phone}, _From, State) ->
     State2 = do_register(Phone, State),
     {reply, {ok, State2#state.uid}, State2};
-handle_call({set_account, Phone, Uid, Password}, _From, State) ->
+handle_call({set_account, Phone, Uid, KeyPair}, _From, State) ->
     State2 = State#state{
         phone = Phone,
         uid = Uid,
-        password = Password,
+        keypair = KeyPair,
         name = gen_random_name() % TODO: make the caller pass the name
     },
     {reply, ok, State2};
-handle_call({connect}, _From, #state{uid = Uid, password = Password} = State) ->
-    {ok, C} = ha_client:connect_and_login(Uid, Password),
+handle_call({connect}, _From, #state{uid = Uid, keypair = KeyPair} = State) ->
+    {ok, C} = ha_client:connect_and_login(Uid, KeyPair),
     State2 = State#state{c = C},
     {reply, ok, State2};
 handle_call({disconnect}, _From, State) ->
@@ -230,11 +230,11 @@ do_register(Phone, #state{conf = Conf} = State) ->
     },
     {ok, _Res} = registration_client:request_sms(Phone, Options),
     Name = gen_random_name(),
-    {ok, Uid, Password, _Resp} = registration_client:register(Phone, <<"111111">>, Name, Options),
+    {ok, Uid, KeyPair, _Resp} = registration_client:register(Phone, <<"111111">>, Name, Options),
     State2 = State#state{
         phone = Phone,
         uid = Uid,
-        password = Password,
+        keypair = KeyPair,
         name = Name
     },
     State2.
@@ -501,7 +501,7 @@ ensure_connected(State) ->
     % we must be connected already
     State.
 
-do_connect(#state{c = undefined, phone = Phone, uid = Uid, password = Password, conf = Conf} = State) ->
+do_connect(#state{c = undefined, phone = Phone, uid = Uid, keypair = KeyPair, conf = Conf} = State) ->
     % TODO: fix ha_client so that we don't have to pass this custom options for auto_send_acks and so on
     Options = #{
         auto_send_acks => true,
@@ -515,7 +515,7 @@ do_connect(#state{c = undefined, phone = Phone, uid = Uid, password = Password, 
         false -> Options2;
         true -> maps:put(port, maps:get(app_port, Conf), Options2)
     end,
-    case ha_client:connect_and_login(Uid, Password, Options3) of
+    case ha_client:connect_and_login(Uid, KeyPair, Options3) of
         {ok, C} ->
             count(State#state{c = C}, "connect");
         {error, Reason} ->
@@ -526,13 +526,13 @@ do_connect(#state{c = undefined, phone = Phone, uid = Uid, password = Password, 
     end.
 
 
-% remove the phone, uid, password and other field. This will cause a new account to get registered.
+% remove the phone, uid, keypair and other field. This will cause a new account to get registered.
 -spec reset_state(State :: state()) -> state().
 reset_state(State) ->
     State#state{
         phone = undefined,
         uid = undefined,
-        password = undefined,
+        keypair = undefined,
         name = undefined,
         c = undefined,
 

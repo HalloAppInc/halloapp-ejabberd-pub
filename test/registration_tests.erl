@@ -84,9 +84,8 @@ register_fail_test(_Conf) ->
     ok.
 
 
-% TODO: this test should eventually switch to register2
 register_test(_Conf) ->
-    {ok, Uid, Data} = registration_client:register(?PHONE10, <<"111111">>, ?NAME10),
+    {ok, Uid, _ClientKeyPair, Data} = registration_client:register(?PHONE10, <<"111111">>, ?NAME10),
     ct:pal("~p", [Data]),
     #{
         <<"name">> := ?NAME10,
