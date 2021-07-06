@@ -200,6 +200,11 @@ user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, retry_count = RetryCoun
 
 %% If OfflineQueue is cleared: send all messages.
 %% If not, send only offline messages: they have retry_count >=1.
+
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, payload = #pb_end_of_queue{}} = _Message,
+        _State} = Acc) ->
+    ?INFO("Uid: ~s MsgId: ~s sending end-of-queue", [ToUid, MsgId]),
+    Acc;
 user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, retry_count = RetryCount} = Message,
         #{mode := active, offline_queue_cleared := false} = State} = _Acc) when RetryCount =:= 0 ->
     ?INFO("Uid: ~s MsgId: ~s, retry_count: ~p", [ToUid, MsgId, RetryCount]),
