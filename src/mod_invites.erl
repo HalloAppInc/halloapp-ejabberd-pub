@@ -27,6 +27,7 @@
 -export([
     process_local_iq/1,
     get_invites_remaining/1,
+    get_invites_remaining2/1,
     register_user/3,
     request_invite/2
 ]).
@@ -68,7 +69,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get} = IQ) ->
     case AccExists of
         false -> pb:make_error(IQ, util:err(no_account));
         true ->
-            InvsRem = get_invites_remaining(Uid),
+            InvsRem = get_invites_remaining2(Uid),
             Time = get_time_until_refresh(),
             ?INFO("Uid: ~s has ~p invites left, next invites at ~p", [Uid, InvsRem, Time]),
             Result = #pb_invites_response{
@@ -98,7 +99,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
                         #pb_invite{phone = Ph, result = Result, reason = Reason}
                     end, Results),
             Ret = #pb_invites_response{
-                invites_left = get_invites_remaining(Uid),
+                invites_left = get_invites_remaining2(Uid),
                 time_until_refresh = get_time_until_refresh(),
                 invites = NewInviteList
             },
@@ -133,10 +134,11 @@ request_invite(FromUid, ToPhoneNum) ->
                 [FromUid, ToPhoneNum, InvitesLeft]),
             stat:count(?NS_INVITE_STATS, "invite_success"),
             % In prod, registration of test number won't decrease the # of invites a user has
-            NumInvitesLeft = case config:is_prod_env() and util:is_test_number(NormalizedPhone) of
-                                 true -> InvitesLeft;
-                                 false -> InvitesLeft - 1
-                             end,
+            NumInvitesLeft = case config:is_prod_env() and
+                    (util:is_test_number(NormalizedPhone) or not ?IS_INVITE_REQUIRED) of
+                 true -> InvitesLeft;
+                 false -> InvitesLeft - 1
+             end,
             model_invites:record_invite(FromUid, NormalizedPhone, NumInvitesLeft),
             {ToPhoneNum, ok, undefined}
     end.
@@ -198,6 +200,12 @@ get_invites_remaining(Uid) ->
         MidnightSunday =< Ts -> Num
     end.
 
+-spec get_invites_remaining2(Uid :: binary()) -> integer().
+get_invites_remaining2(Uid) ->
+    case ?IS_INVITE_REQUIRED of
+        true -> get_invites_remaining(Uid);
+        false -> ?INF_INVITES
+    end.
 
 -spec get_time_until_refresh() -> integer().
 get_time_until_refresh() ->
@@ -221,8 +229,8 @@ can_send_invite(FromUid, ToPhone) ->
                         true -> {error, already_invited};
                         false ->
                             InvsRem = get_invites_remaining(FromUid),
-                            case InvsRem of
-                                0 -> {error, no_invites_left};
+                            case {InvsRem, ?IS_INVITE_REQUIRED} of
+                                {0, true} -> {error, no_invites_left};
                                 _ -> {ok, InvsRem, NormPhone}
                             end
                     end;
