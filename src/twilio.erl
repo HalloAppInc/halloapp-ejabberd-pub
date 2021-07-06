@@ -85,6 +85,19 @@ sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
             Id = maps:get(<<"sid">>, Json),
             Status = normalized_status(maps:get(<<"status">>, Json)),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
+        {ok, {{_, 400, _}, _ResHeaders, ResBody}} ->
+            Json = jiffy:decode(ResBody, [return_maps]),
+            case maps:get(<<"code">>, Json, undefined) =:= ?INVALID_TO_PHONE_CODE andalso
+                    util:is_test_number(Phone) of
+                true ->
+                    %% TODO: hardcoding params here is not great.
+                    Id = util:random_str(20),
+                    Status = queued,
+                    {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
+                false ->
+                    ?ERROR("Sending ~p failed ~p", [Purpose, Response]),
+                    {error, list_to_atom(re:replace(string:lowercase(Purpose), " ", "_", [{return, list}]) ++ "_fail")}
+            end;
         _ ->
             ?ERROR("Sending ~p failed ~p", [Purpose, Response]),
             {error, list_to_atom(re:replace(string:lowercase(Purpose), " ", "_", [{return, list}]) ++ "_fail")}

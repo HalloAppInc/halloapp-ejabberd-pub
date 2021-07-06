@@ -26,4 +26,6 @@
 -define(SMS_INFO_URL,
     "https://api.twilio.com/2010-04-01/Accounts/" ++ ?PROD_ACCOUNT_SID ++ "/Messages/").
 
+-define(INVALID_TO_PHONE_CODE, 21211).
+
 -endif.
