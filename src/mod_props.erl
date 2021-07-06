@@ -87,6 +87,7 @@ get_hash(Uid, ClientVersion) ->
 get_props(Uid, ClientVersion) ->
     PropMap1 = #{
         dev => false, %% whether the client is dev or not.
+        contact_sync_frequency => 1 * ?DAYS, %% how often should clients sync all contacts.
         max_group_size => ?MAX_GROUP_SIZE, %% max limit on the group size.
         max_post_media_items => 10, %% max number of media_items client can post.
         groups => true, %% whether the client can create groups or not.
