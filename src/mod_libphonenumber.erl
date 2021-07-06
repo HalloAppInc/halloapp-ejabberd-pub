@@ -101,11 +101,14 @@ parse(Number, RegionId) ->
                     ?INFO("success parsed |~s| -> ~p", [Number, PhoneNumberState]),
                     list_to_binary(PhoneNumberState#phone_number_state.e164_value);
                 _ ->
-                    ?WARNING("Failed parsing |~s|", [Number]),
+                    ?INFO("Failed parsing |~s| -> ~p", [Number, PhoneNumberState]),
                     <<>> % Use empty string as normalized number for now.
             end;
         {error, Reason} ->
-            ?WARNING("Failed parsing |~s|, with reason: ~s", [Number, Reason]),
+            case length(phone_number_util:normalize(binary_to_list(Number))) > 5 of
+                true -> ?INFO("Failed parsing |~s|, with reason: ~s", [Number, Reason]);
+                false -> ?INFO("Failed parsing |~s|, with reason: ~s", [Number, Reason])
+            end,
             <<>> % Use empty string as normalized number for now.
     end.
 

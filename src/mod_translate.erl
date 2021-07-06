@@ -154,7 +154,7 @@ lookup_translation(Token, LangId) ->
                             count_lang_id(ShortLangId),
                             {Translation, LangId};
                         _ ->
-                            ?WARNING("Unable to find translation for Token: ~p, LangId: ~p",
+                            ?INFO("Unable to find translation for Token: ~p, LangId: ~p",
                                 [Token, LangId]),
                             count_lang_id(?ENG_LANG_ID),
                             {lookup_english_string(Token), ?ENG_LANG_ID}
