@@ -16,7 +16,8 @@
     remove_unregistered_numbers_verify/2,
     trigger_full_sync_run/2,
     find_empty_contact_list_accounts/2,
-    remove_phone_hash_key/2
+    remove_phone_hash_key/2,
+    remove_stale_sync_key/2
 ]).
 
 
@@ -138,6 +139,31 @@ remove_phone_hash_key(Key, State) ->
                 false ->
                     Res = ecredis:q(ecredis_contacts, Command),
                     ?INFO("Key: ~p, result: ~p", [Key, Res])
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+remove_stale_sync_key(Key, State) ->
+%%    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^sync:.*", [global, {capture, all, binary}]),
+    case Result of
+        {match, _} ->
+            {ok, TTL} = q(ecredis_contacts, ["TTL", Key]),
+            ?INFO("Key ~p has TTL ~p", [Key, TTL]),
+            case TTL of
+                <<"-1">> ->
+                    Command = ["DEL", Key],
+                    case DryRun of
+                        true ->
+                            ?INFO("Key: ~p, would run command: ~p", [Key, Command]);
+                        false ->
+                            Res = q(ecredis_contacts, Command),
+                            ?INFO("Key: ~p, result: ~p", [Key, Res])
+                    end;
+                _ -> ok
             end;
         _ -> ok
     end,
