@@ -35,7 +35,11 @@
 get_invites_test() ->
     setup(),
     Result = mod_invites:process_local_iq(create_get_iq(?UID1)),
-    ?assertEqual(ok, check_invites_iq_correctness(Result, ?MAX_NUM_INVITES)).
+    ExpNumInvites = case ?IS_INVITE_REQUIRED of
+        false -> ?INF_INVITES;
+        true -> ?MAX_NUM_INVITES
+    end,
+    ?assertEqual(ok, check_invites_iq_correctness(Result, ExpNumInvites)).
 
 get_invites_error_test() ->
     setup_bare(),
@@ -54,19 +58,19 @@ send_invites_error1_test() ->
     },
     ?assertEqual(Expected, Actual).
 
-% tests no_invites_left error
-send_invites_error2_test() ->
-    setup(),
-    Result = mod_invites:process_local_iq(create_big_invite_iq(?UID1)),
-    ?assertEqual(ok, check_invites_iq_correctness(Result, 0)),
-    Oks = [#pb_invite{phone = integer_to_binary(Ph), result = <<"ok">>} ||
-        Ph <- lists:seq(16175289000,16175289000 + ?MAX_NUM_INVITES - 1)],
-    Expected = lists:append(Oks,
-        [#pb_invite{
-            phone = integer_to_binary(16175289000 + ?MAX_NUM_INVITES),
-            result = <<"failed">>, reason = <<"no_invites_left">>
-        }]),
-    ?assertEqual(Expected, get_invite_subel_list(Result)).
+%%% tests no_invites_left error
+%%send_invites_error2_test() ->
+%%    setup(),
+%%    Result = mod_invites:process_local_iq(create_big_invite_iq(?UID1)),
+%%    ?assertEqual(ok, check_invites_iq_correctness(Result, 0)),
+%%    Oks = [#pb_invite{phone = integer_to_binary(Ph), result = <<"ok">>} ||
+%%        Ph <- lists:seq(16175289000,16175289000 + ?MAX_NUM_INVITES - 1)],
+%%    Expected = lists:append(Oks,
+%%        [#pb_invite{
+%%            phone = integer_to_binary(16175289000 + ?MAX_NUM_INVITES),
+%%            result = <<"failed">>, reason = <<"no_invites_left">>
+%%        }]),
+%%    ?assertEqual(Expected, get_invite_subel_list(Result)).
 
 % tests existing_user error
 send_invites_error3_test() ->
@@ -81,13 +85,21 @@ send_invites_error3_test() ->
         #pb_invite{phone = <<"212">>, result = <<"failed">>, reason = <<"invalid_number">>}
     ],
     ?assertEqual(Expected, get_invite_subel_list(Actual)),
-    ?assertEqual(ok, check_invites_iq_correctness(Actual, ?MAX_NUM_INVITES - 2)).
+    ExpNumInvites = case ?IS_INVITE_REQUIRED of
+        false -> ?INF_INVITES;
+        true -> ?MAX_NUM_INVITES
+    end,
+    ?assertEqual(ok, check_invites_iq_correctness(Actual, ExpNumInvites)).
 
 % tests invalid_phone error
 send_invites_error4_test() ->
     setup(),
     Result = mod_invites:process_local_iq(create_invite_iq(?UID1)),
-    ?assertEqual(ok, check_invites_iq_correctness(Result, ?MAX_NUM_INVITES - 3)),
+    ExpNumInvites = case ?IS_INVITE_REQUIRED of
+        false -> ?INF_INVITES;
+        true -> ?MAX_NUM_INVITES
+    end,
+    ?assertEqual(ok, check_invites_iq_correctness(Result, ExpNumInvites)),
     Expected = [
         #pb_invite{phone = ?PHONE2, result = <<"ok">>},
         #pb_invite{phone = <<"16175283002">>, result = <<"ok">>},
@@ -101,13 +113,17 @@ register_user_hook_test() ->
     setup(),
     ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
     mod_invites:request_invite(?UID1, ?PHONE2),
-    ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)),
     mod_invites:request_invite(?UID1, ?PHONE3),
-    ?assertEqual(?MAX_NUM_INVITES - 2, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)),
     ok = mod_invites:register_user(?UID2, <<>>, ?PHONE2),
-    ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)),
     ok = mod_invites:register_user(?UID3, <<>>, ?PHONE3),
     ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)),
     ok.
 
 %% -------------------------------------------- %%
@@ -123,8 +139,10 @@ reset_invs_for_first_time_test() ->
 get_invites_remaining1_test() ->
     setup(),
     ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)),
     ?assertEqual({?PHONE2, ok, undefined}, mod_invites:request_invite(?UID1, ?PHONE2)),
-    ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)).
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)).
 
 % tests get_time_until_refresh function on a randomly chosen timestamp
 time_until_refresh1_test() ->
@@ -147,19 +165,24 @@ request_invite_error2_test() ->
     setup(),
     [mod_invites:request_invite(?UID1, integer_to_binary(Phone)) ||
         Phone <- lists:seq(16175289000, 16175289000 + ?MAX_NUM_INVITES)],
-    ?assertEqual({?PHONE2, failed, no_invites_left}, mod_invites:request_invite(?UID1, ?PHONE2)),
-    ?assertEqual(0, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual({?PHONE2, ok, undefined}, mod_invites:request_invite(?UID1, ?PHONE2)),
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)),
     ?assertEqual({<<"16175289000">>, ok, undefined}, mod_invites:request_invite(?UID1, <<"16175289000">>)),
-    ?assertEqual(0, mod_invites:get_invites_remaining(?UID1)).
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)).
 
 % tests that a duplicate invite will not decrease invite limit
 request_invite_error3_test() ->
     setup(),
     ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)),
     ?assertEqual({?PHONE2, ok, undefined}, mod_invites:request_invite(?UID1, ?PHONE2)),
-    ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)),
     ?assertEqual({?PHONE2, ok, undefined}, mod_invites:request_invite(?UID1, ?PHONE2)),
-    ?assertEqual(?MAX_NUM_INVITES - 1, mod_invites:get_invites_remaining(?UID1)).
+    ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
+    ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)).
 
 % tests that a test number in production will not decrease invite limit
 request_invite_error4_test() ->

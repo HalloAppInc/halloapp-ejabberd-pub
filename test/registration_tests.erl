@@ -38,13 +38,13 @@ request_sms_test(_Conf) ->
     ok.
 
 request_sms_fail_test(_Conf) ->
-    % use some random non-test number, get not_invited
-    {error, {400, Resp}} = registration_client:request_sms(<<12066580001>>),
-    ct:pal("~p", [Resp]),
-    #{
-        <<"result">> := <<"fail">>,
-        <<"error">> := <<"not_invited">>
-    } = Resp,
+%%    % use some random non-test number, get not_invited
+%%    {error, {400, Resp}} = registration_client:request_sms(<<12066580001>>),
+%%    ct:pal("~p", [Resp]),
+%%    #{
+%%        <<"result">> := <<"fail">>,
+%%        <<"error">> := <<"not_invited">>
+%%    } = Resp,
 
     % use some random non-test number, get not_invited
     {error, {400, Resp2}} = registration_client:request_sms(<<12066580001>>, #{user_agent => "BadUserAgent/1.0"}),

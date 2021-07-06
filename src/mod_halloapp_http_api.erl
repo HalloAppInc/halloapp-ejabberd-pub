@@ -23,6 +23,7 @@
 -include("ha_types.hrl").
 -include("whisper.hrl").
 -include("sms.hrl").
+-include("invites.hrl").
 
 -define(MSG_TO_SIGN, <<"HALLO">>).
 
@@ -338,6 +339,12 @@ check_name(_) ->
 -spec check_invited(PhoneNum :: binary(), UserAgent :: binary(), IP :: string(),
         GroupInviteToken :: binary()) -> ok | erlang:error().
 check_invited(PhoneNum, UserAgent, IP, GroupInviteToken) ->
+    case ?IS_INVITE_REQUIRED of
+        true -> check_invited_internal(PhoneNum, UserAgent, IP, GroupInviteToken);
+        false -> ok
+    end.
+
+check_invited_internal(PhoneNum, UserAgent, IP, GroupInviteToken) ->
     Invited = model_invites:is_invited(PhoneNum),
     IsTestNumber = util:is_test_number(PhoneNum),
     IsInvitedToGroup = is_group_invite_valid(GroupInviteToken),
