@@ -339,7 +339,7 @@ check_invited_by_group_invite_test() ->
         ?PHONE, <<"">>, ?IP1, Token)),
     ok.
  
-check_empty_inviter_list() ->
+check_empty_inviter_list_test() ->
     setup(),
     ?assertEqual({error, not_invited}, mod_sms:send_otp_to_inviter(?TEST_PHONE, undefined, undefined, undefined, undefined)),
     ok. 
