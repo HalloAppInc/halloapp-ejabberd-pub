@@ -38,11 +38,20 @@
 -define(REQUEST_HEADERS(UA), [
     {'Content-Type',<<"application/json">>},
     {'User-Agent',UA}]).
+-define(GERMAN_LANG_ID, <<"de">>).
+-define(BAD_PUSH_OS, <<"ios_app">>).
+-define(PUSH_OS, <<"ios_appclip">>).
+-define(PUSH_TOKEN, <<"7f15acdc75e10914e483ce9314779ad2b10ebd9bce586e8352d0971b9772c026">>).
 
 -define(REGISTER2_PATH, [<<"registration">>, <<"register2">>]).
 -define(REGISTER2_DATA(Phone, Code, Name, SEdPub, SignedPhrase),
     jsx:encode([{<<"phone">>, Phone}, {<<"code">>, Code}, {<<"name">>, Name},
                 {<<"s_ed_pub">>, SEdPub}, {<<"signed_phrase">>, SignedPhrase}])).
+
+-define(REGISTER3_DATA(Phone, Code, Name, SEdPub, SignedPhrase, LangId, PushOs, PushToken),
+    jsx:encode([{<<"phone">>, Phone}, {<<"code">>, Code}, {<<"name">>, Name},
+                {<<"s_ed_pub">>, SEdPub}, {<<"signed_phrase">>, SignedPhrase},
+                {<<"lang_id">>, LangId}, {<<"push_os">>, PushOs}, {<<"push_token">>, PushToken}])).
 
 -define(UPDATE_KEY_PATH, [<<"registration">>, <<"update_key">>]).
 -define(UPDATE_KEY_DATA(UId, Pass, SEdPub, SignedPhrase),
@@ -132,7 +141,6 @@ request_sms_test_phone_test() ->
     meck_finish(ejabberd_router).
 
 
-%% TODO: cleanup this file to remove register codepath and tests.
 register_spub_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
@@ -188,6 +196,62 @@ register_spub_test() ->
     } = jiffy:decode(Info, [return_maps]),
     SPub2 = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub2),
     ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub2))),
+    meck_finish(ejabberd_sm),
+    meck_finish(ejabberd_router).
+
+
+register_push_token_test() ->
+    setup(),
+    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
+    Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
+    ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
+    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
+    KeyPair = ha_enoise:generate_signature_keypair(),
+    {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+    SignedMessage = enacl:sign("HALLO", SEdSecret),
+    SEdPubEncoded = base64:encode(SEdPub),
+    SignedMessageEncoded = base64:encode(SignedMessage),
+    GoodData1 = ?REGISTER3_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME,
+        SEdPubEncoded, SignedMessageEncoded, ?GERMAN_LANG_ID, ?BAD_PUSH_OS, ?PUSH_TOKEN),
+    {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER2_PATH,
+        #request{method = 'POST', data = GoodData1,
+        ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
+    #{
+        <<"uid">> := Uid,
+        <<"phone">> := ?TEST_PHONE,
+        <<"name">> := ?NAME,
+        <<"result">> := <<"ok">>
+    } = jiffy:decode(RegInfo, [return_maps]),
+    SPub = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub),
+    ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub))),
+    {ok, PushInfo1} = model_accounts:get_push_info(Uid),
+    ?assertEqual(undefined, PushInfo1#push_info.lang_id),
+    ?assertEqual(undefined, PushInfo1#push_info.os),
+    ?assertEqual(undefined, PushInfo1#push_info.token),
+    %% Re-reg with correct Os
+    KeyPair2 = ha_enoise:generate_signature_keypair(),
+    {SEdSecret2, SEdPub2} = {maps:get(secret, KeyPair2), maps:get(public, KeyPair2)},
+    SignedMessage2 = enacl:sign("HALLO", SEdSecret2),
+    SEdPubEncoded2 = base64:encode(SEdPub2),
+    SignedMessageEncoded2 = base64:encode(SignedMessage2),
+    GoodData2 = ?REGISTER3_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME,
+        SEdPubEncoded2, SignedMessageEncoded2, ?GERMAN_LANG_ID, ?PUSH_OS, ?PUSH_TOKEN),
+    {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER2_PATH,
+        #request{method = 'POST', data = GoodData2, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
+    #{
+        <<"uid">> := Uid,
+        <<"phone">> := ?TEST_PHONE,
+        <<"name">> := ?NAME,
+        <<"result">> := <<"ok">>
+    } = jiffy:decode(Info, [return_maps]),
+    SPub2 = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub2),
+    ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub2))),
+    {ok, PushInfo2} = model_accounts:get_push_info(Uid),
+    ?assertEqual(?GERMAN_LANG_ID, PushInfo2#push_info.lang_id),
+    ?assertEqual(?PUSH_OS, PushInfo2#push_info.os),
+    ?assertEqual(?PUSH_TOKEN, PushInfo2#push_info.token),
     meck_finish(ejabberd_sm),
     meck_finish(ejabberd_router).
 

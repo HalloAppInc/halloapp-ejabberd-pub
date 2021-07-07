@@ -76,6 +76,7 @@ process([<<"registration">>, <<"register2">>],
 
         {ok, Phone, Uid} = finish_registration_spub(Phone, LName, UserAgent, SPub),
         process_whisper_keys(Uid, Payload),
+        process_push_token(Uid, Payload),
 
         ?INFO("registration complete uid:~s, phone:~s", [Uid, Phone]),
         Result = #{
@@ -462,6 +463,22 @@ get_and_check_whisper_keys(Payload) ->
 update_key(Uid, SPub) ->
     stat:count("HA/account", "update_s_pub"),
     model_auth:set_spub(Uid, SPub).
+
+
+-spec process_push_token(Uid :: uid(), Payload :: map()) -> ok.
+process_push_token(Uid, Payload) ->
+    LangId = maps:get(<<"lang_id">>, Payload, <<"en-US">>),
+    PushToken = maps:get(<<"push_token">>, Payload, undefined),
+    PushOs = maps:get(<<"push_os">>, Payload, undefined),
+    case PushToken =/= undefined andalso mod_push_tokens:is_appclip_push_os(PushOs) of
+        true ->
+            ok = mod_push_tokens:register_push_info(Uid, PushOs, PushToken, LangId),
+            ?INFO("Uid: ~p, registered push_info, os: ~p, lang_id: ~p", [Uid, PushOs, LangId]),
+            ok;
+        false ->
+            ?INFO("Uid: ~s, could not process push token", [Uid]),
+            ok
+    end.
 
 
 -spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.

@@ -24,7 +24,9 @@
     remove_push_token/2,
     re_register_user/3,
     remove_user/2,
-    register_push_info/5
+    register_push_info/4,
+    is_valid_push_os/1,
+    is_appclip_push_os/1
 ]).
 
 
@@ -80,7 +82,6 @@ remove_user(UserId, Server) ->
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_push_register{lang_id = LangId,
         push_token = #pb_push_token{os = OsAtom, token = Token}}} = IQ) ->
-    Server = util:get_host(),
     ?INFO("Uid: ~s, set-iq for push_token", [Uid]),
     Os = util:to_binary(OsAtom),
     IsValidOs = is_valid_push_os(Os),
@@ -92,7 +93,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
             ?WARNING("Uid: ~s, invalid os attribute: ~s!", [Uid, Os]),
             pb:make_error(IQ, util:err(invalid_os));
         true ->
-            ok = register_push_info(Uid, Server, Os, Token, LangId),
+            ok = register_push_info(Uid, Os, Token, LangId),
             pb:make_iq_result(IQ)
     end;
 
@@ -129,9 +130,9 @@ update_push_pref(Uid, #pb_push_pref{name = comment, value = Value}) ->
 
 
 %% TODO(murali@): add counters by push languageId.
--spec register_push_info(Uid :: binary(), Server :: binary(),
-        Os :: binary(), Token :: binary(), LangId :: binary()) -> ok.
-register_push_info(Uid, _Server, Os, Token, LangId) ->
+-spec register_push_info(Uid :: binary(), Os :: binary(),
+        Token :: binary(), LangId :: binary()) -> ok.
+register_push_info(Uid, Os, Token, LangId) ->
     LanguageId = get_language_id(LangId),
     TimestampMs = util:now_ms(),
     ok = model_accounts:set_push_token(Uid, Os, Token, TimestampMs, LanguageId),
@@ -160,10 +161,17 @@ get_language_id(LangId) -> LangId.
 -spec is_valid_push_os(Os :: binary()) -> boolean().
 is_valid_push_os(<<"ios">>) ->
     true;
+is_valid_push_os(<<"ios_appclip">>) ->
+    true;
 is_valid_push_os(<<"ios_dev">>) ->
     true;
 is_valid_push_os(<<"android">>) ->
     true;
 is_valid_push_os(_) ->
     false.
+
+
+-spec is_appclip_push_os(Os :: binary()) -> boolean().
+is_appclip_push_os(<<"ios_appclip">>) -> true;
+is_appclip_push_os(_) -> false.
 

@@ -777,7 +777,7 @@ register_push(User, Host, Os, Token) ->
     case is_my_host(Host) of
         true ->
             %% todo(murali@): we will not need this eventually.
-            case mod_push_tokens:register_push_info(User, Host, Os, Token, <<"en-US">>) of
+            case mod_push_tokens:register_push_info(User, Os, Token, <<"en-US">>) of
                 {ok, _} ->
                     {ok, io_lib:format("User ~ts@~ts successfully registered for push notifications", [User, Host])};
                 {error, Reason} ->
