@@ -121,9 +121,8 @@ get_uid_based_props(PropMap, Uid) ->
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
-            PropMap2 = maps:update(voice_notes, true, PropMap1),
-            PropMap3 = maps:update(media_comments, true, PropMap2),
-            PropMap3
+            PropMap2 = maps:update(media_comments, true, PropMap1),
+            PropMap2
     end.
 
 
