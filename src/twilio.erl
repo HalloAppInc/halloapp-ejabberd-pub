@@ -187,7 +187,7 @@ compose_body(Phone, Message, _TwilioLangId) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
     uri_string:compose_query([
         {"To", PlusPhone },
-        {"From", get_from_phone(util:is_test_number(Phone))},
+        {"MessagingServiceSid", ?MESSAGE_SERVICE_SID},
         {"Body", Message2},
         {"StatusCallback", ?TWILIOCALLBACK_URL}
     ], [{encoding, utf8}]).

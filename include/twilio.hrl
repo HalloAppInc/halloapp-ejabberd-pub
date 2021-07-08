@@ -11,6 +11,7 @@
 
 -define(TEST_ACCOUNT_SID, "ACe9c5dfe8bc211f52e4e235aadfa2df1b").
 -define(PROD_ACCOUNT_SID, "AC50b98f4898fbcc27bfa31980ffd0799a").
+-define(MESSAGE_SERVICE_SID, "MG19c741731dbb39c649fa376b224e0324").
 
 -define(BASE_SMS_URL(AccountSid),
     "https://api.twilio.com/2010-04-01/Accounts/" ++ AccountSid ++ "/Messages.json").
