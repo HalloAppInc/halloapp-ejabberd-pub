@@ -43,7 +43,7 @@ normalize_contacts(Uid, Contacts, RegionId) ->
     ?INFO("Uid: ~p, NumContacts: ~p, RegionId: ~p", [Uid, length(Contacts), RegionId]),
     Batches = split_into_batches(Contacts),
     %% runs the function in parallel on the batches and returns results.
-    try rpc:pmap({?MODULE, normalize}, [RegionId], Batches) of
+    try util_rpc:pmap({?MODULE, normalize}, [RegionId], Batches) of
         BatchResults ->
              NormalizedContacts = lists:umerge(BatchResults),
             {ok, NormalizedContacts}
