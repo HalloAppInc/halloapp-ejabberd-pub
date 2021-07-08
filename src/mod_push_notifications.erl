@@ -166,10 +166,12 @@ push_message(Message, #push_info{os = Os} = PushInfo)
 
 
 -spec log_invalid_langId(PushInfo :: push_info()) -> ok.
-log_invalid_langId(#push_info{uid = Uid, lang_id = LangId} = _PushInfo) ->
-    case LangId of
-        undefined ->
+log_invalid_langId(#push_info{uid = Uid,
+        lang_id = LangId, client_version = ClientVersion} = _PushInfo) ->
+    case mod_client_version:is_valid_version(ClientVersion) =:= true andalso
+            LangId =:= undefined of
+        true ->
             ?WARNING("Uid: ~p, Invalid lang_id: ~p", [Uid, LangId]);
-        _ -> ok
+        false -> ok
     end.
 
