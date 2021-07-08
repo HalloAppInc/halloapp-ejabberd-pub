@@ -83,7 +83,10 @@ log_delivered(<<"chat">>) ->
 log_delivered(<<"pb_chat_stanza">>) ->
     stat:count("HA/im_receipts", "delivered");
 log_delivered(<<"group_chat">>) ->
-    stat:count("HA/group_im_receipts", "delivered").
+    stat:count("HA/group_im_receipts", "delivered");
+log_delivered(<<"pb_group_chat">>) ->
+    stat:count("HA/group_im_receipts", "delivered");
+log_delivered(_) -> ok.
 
 
 % Try to extract the gid from the binary message
