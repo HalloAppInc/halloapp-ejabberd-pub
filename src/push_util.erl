@@ -264,6 +264,10 @@ parse_metadata(#pb_msg{to_uid = Uid, id = Id}, _PushInfo) ->
 %% updates. If we use the content_id which is the phone number in this case: we will not be sending
 %% other pushes for these messages.
 -spec record_push_sent(Message :: pb_msg(), PushInfo :: push_info()) -> boolean().
+record_push_sent(#pb_msg{rerequest_count = RerequestCount}, _PushInfo) when RerequestCount > 0 ->
+    %% Always send push notifications for rerequested messages.
+    %% These are messages with some content: so we need to let the user know.
+    true;
 record_push_sent(#pb_msg{id = MsgId, to_uid = UserId, payload = Payload}, _PushInfo)
         when is_record(Payload, pb_contact_list) ->
     model_messages:record_push_sent(UserId, MsgId);

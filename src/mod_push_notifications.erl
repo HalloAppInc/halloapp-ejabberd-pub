@@ -69,9 +69,6 @@ push_message_hook(#pb_msg{} = Message) ->
 
 %% Determine whether message should be pushed or not.. based on the content.
 -spec should_push(Message :: pb_msg()) -> boolean().
-should_push(#pb_msg{rerequest_count = RerequestCount} = _Message)
-        when RerequestCount > 0 ->
-    false;
 should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
     PayloadType = util:get_payload_type(Message),
     if
