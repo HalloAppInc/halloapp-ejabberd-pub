@@ -357,6 +357,9 @@ finish_sync(UserId, _Server, SyncId) ->
 
 -spec normalize_and_insert_contacts(UserId :: binary(), Server :: binary(),
         Contacts :: [pb_contact()], SyncId :: undefined | binary()) -> [pb_contact()].
+normalize_and_insert_contacts(UserId, _Server, [], _SyncId) ->
+    ?INFO("Uid: ~p, NumContacts: ~p", [UserId, 0]),
+    [];
 normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     Time1 = os:system_time(microsecond),
     ?INFO("Uid: ~p, NumContacts: ~p", [UserId, length(Contacts)]),
