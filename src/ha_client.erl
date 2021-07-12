@@ -24,6 +24,8 @@
 -export([
     start_link/0,
     start_link/1,
+    start_monitor/0,
+    start_monitor/1,
     stop/1,
     connect_and_login/2,
     connect_and_login/3,
@@ -101,6 +103,11 @@ start_link() ->
 start_link(Options) ->
     gen_server:start_link(ha_client, [Options], []).
 
+start_monitor() ->
+    start_monitor(?DEFAULT_OPT).
+
+start_monitor(Options) ->
+    gen_server:start_monitor(ha_client, [Options], []).
 
 -spec connect_and_login(Uid :: uid(), Keypair :: keypair()) ->
     {ok, Client :: pid()} | {error, Reason :: term()}.
@@ -111,7 +118,13 @@ connect_and_login(Uid, Keypair) ->
 -spec connect_and_login(Uid :: uid(), Keypair :: keypair(), Options :: options()) ->
         {ok, Client :: pid()} | {error, Reason :: term()}.
 connect_and_login(Uid, Keypair, Options) ->
-    {ok, C} = start_link(Options),
+    {ok, C} = case maps:get(monitor, Options, false) of
+        true ->
+            {ok, {Client, _Mon}} = start_monitor(Options),
+            {ok, Client};
+        false ->
+            start_link(Options)
+    end,
     Result = login(C, Uid, Keypair),
     case Result of
         #pb_auth_result{result_string = <<"success">>} ->

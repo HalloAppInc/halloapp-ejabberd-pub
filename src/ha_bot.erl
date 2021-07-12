@@ -237,6 +237,7 @@ do_register(Phone, #state{conf = Conf} = State) ->
         keypair = KeyPair,
         name = Name
     },
+    ?INFO("register phone:~s uid: ~s", [Phone, Uid]),
     State2.
 
 
@@ -505,7 +506,8 @@ do_connect(#state{c = undefined, phone = Phone, uid = Uid, keypair = KeyPair, co
     % TODO: fix ha_client so that we don't have to pass this custom options for auto_send_acks and so on
     Options = #{
         auto_send_acks => true,
-        auto_send_pongs => true
+        auto_send_pongs => true,
+        monitor => true
     },
     Options2 = case maps:is_key(app_host, Conf) of
         false -> Options;
