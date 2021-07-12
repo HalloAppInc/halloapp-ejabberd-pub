@@ -36,7 +36,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
     AppHash = util_ua:get_app_hash(UserAgent),
     Msg = io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
 
-    ?INFO("Phone: ~p, Msg: ~s", [Phone, Msg]),
+    ?INFO("Phone: ~p, Msg: ~p", [Phone, Msg]),
     URL = ?BASE_SMS_URL,
     Headers = [{"Authorization", "AccessKey " ++ get_access_key(util:is_test_number(Phone))}],
     Type = "application/x-www-form-urlencoded",
