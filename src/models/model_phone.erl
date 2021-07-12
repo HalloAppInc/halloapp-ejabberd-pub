@@ -44,6 +44,7 @@
     get_all_gateway_responses/1,
     get_verification_attempt_list/1,
     add_gateway_callback_info/1,
+    get_verification_attempt_key/1,
     get_gateway_response_status/2,
     add_verification_success/2,
     get_verification_success/2,
@@ -299,6 +300,22 @@ add_gateway_callback_info(GatewayResponse) ->
     end,
     _Result = qp(RedisCommands),
     ok.
+
+
+-spec get_verification_attempt_key(GatewayResponse :: gateway_response()) ->
+    {ok, maybe(binary())} | {error, any()}.
+get_verification_attempt_key(GatewayResponse) ->
+    #gateway_response{
+        gateway_id = GatewayId,
+        gateway = Gateway,
+        status = Status,
+        price = Price,
+        currency = Currency
+    } = GatewayResponse,
+    GatewayResponseKey = gateway_response_key(Gateway, GatewayId),
+    {ok, VerificationAttemptKey} = q(["HGET", GatewayResponseKey, ?FIELD_VERIFICATION_ATTEMPT]),
+    {ok, VerificationAttemptKey}.
+
 
 -spec get_gateway_response_status(Phone :: phone(), AttemptId :: binary())
     -> {ok, atom()} | {error, any()}.

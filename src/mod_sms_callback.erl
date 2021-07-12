@@ -13,11 +13,14 @@
 -compile(export_all).
 -endif.
 
+-include("time.hrl").
 -include("logger.hrl").
 -include("ejabberd_http.hrl").
 -include("util_http.hrl").
 -include("twilio.hrl").
 -include("sms.hrl").
+
+-define(CALLBACK_DELAY, 10 * ?SECONDS_MS).
 
 
 %% API
@@ -128,12 +131,22 @@ process([<<"mbird">>],
             util_http:return_500()
     end.
 
+
+%% It turns out the gateway can sometimes give us callback at the same time
+%% when responding to our request. Both these run on separate processes.
+%% There is a race condition between storing our request and the callback.
+%% So, we inject a manual delay here to ensure it works fine.
+%% TODO: it would be better to change this datastructure - needs more migration work.
 -spec add_gateway_callback_info(SMSResponse :: gateway_response()) -> ok.
 add_gateway_callback_info(SMSResponse) ->
     #gateway_response{status = Status} = SMSResponse,
-    case Status of
-        undefined -> ok;
-        _ -> model_phone:add_gateway_callback_info(SMSResponse)
+    {ok, VerificationAttemptKey} = model_phone:get_verification_attempt_key(),
+    case {Status, VerificationAttemptKey} of
+        {undefined, _} -> ok;
+        {_, undefined} ->
+            timer:apply_after(?CALLBACK_DELAY, model_phone, add_gateway_callback_info, [SMSResponse]);
+        _ ->
+            model_phone:add_gateway_callback_info(SMSResponse)
     end.
 
 start(Host, Opts) ->
