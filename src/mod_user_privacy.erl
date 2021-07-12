@@ -362,7 +362,6 @@ add_uids_to_privacy_list(Uid, mute, Ouids) ->
     stat:count(?STAT_PRIVACY, "mute", length(Ouids)),
     ok;
 add_uids_to_privacy_list(Uid, block, Ouids) ->
-    model_privacy:remove_only_uids(Uid, Ouids),
     Server = util:get_host(),
     ejabberd_hooks:run(block_uids, Server, [Uid, Server, Ouids]),
     model_privacy:block_uids(Uid, Ouids),
