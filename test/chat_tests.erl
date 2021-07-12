@@ -55,6 +55,8 @@ send_im_test(_Conf) ->
                 payload = <<"HELLO">>,
                 sender_name = ?NAME1}}
     } = RecvMsg,
+    ok = ha_client:stop(C1),
+    ok = ha_client:stop(C2),
     ok.
 
 delete_account_msg_test(_Conf) ->
@@ -101,5 +103,7 @@ delete_account_msg_test(_Conf) ->
             }
         }   
     } = RecvMsg,
+    ok = ha_client:stop(C1),
+    ok = ha_client:stop(C2),
     ok.
 

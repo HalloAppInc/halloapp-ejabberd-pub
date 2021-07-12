@@ -40,6 +40,8 @@ dummy_test(_Conf) ->
 % create group with Uid1 and Uid2, make sure Uid2 gets msg about the group
 create_group_test(Conf) ->
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
+
     Payload = #pb_group_stanza{
         action = create,
         name = ?GROUP_NAME1,
@@ -72,7 +74,6 @@ create_group_test(Conf) ->
     ct:pal("Group Gid ~p", [Gid]),
     ct:pal("Group Config ~p", [Conf]),
 
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     GroupMsg = ha_client:wait_for_msg(C2, pb_group_stanza),
     GroupSt = GroupMsg#pb_packet.stanza#pb_msg.payload,
     #pb_group_stanza{
@@ -85,6 +86,10 @@ create_group_test(Conf) ->
             #pb_group_member{uid = ?UID2, action = add, type = member, name = ?NAME2}
         ]
     } = GroupSt,
+
+    ok = ha_client:stop(C1),
+    ok = ha_client:stop(C2),
+
 
     {save_config, [{gid, Gid}]}.
 
@@ -125,12 +130,15 @@ add_members_test(Conf) ->
         }
     } = Result,
 
+    ok = ha_client:stop(C1),
+
     % make sure Uid2 and Uid3 get message about the group modification
     lists:map(
         fun({User, Password}) ->
             {ok, C2} = ha_client:connect_and_login(User, Password),
             GroupMsg = ha_client:wait_for_msg(C2, pb_group_stanza),
             GroupSt = GroupMsg#pb_packet.stanza#pb_msg.payload,
+            ok = ha_client:stop(C2),
             #pb_group_stanza{
                 action = modify_members,
                 gid = Gid,
