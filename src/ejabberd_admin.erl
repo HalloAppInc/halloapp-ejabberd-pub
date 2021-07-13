@@ -73,6 +73,7 @@
     group_info/1,
     get_sms_codes/1,
     send_invite/2,
+    reset_sms_backoff/1,
     send_ios_push/3,
     update_code_paths/0,
     list_changed_modules/0,
@@ -468,6 +469,12 @@ get_commands_spec() ->
         args_example = [<<"123">>, <<"alert">>, <<"GgMSAUg=">>],
         args=[{uid, binary}, {push_type, binary}, {payload, binary}],
         result = {res, rescode}},
+    #ejabberd_commands{name = reset_sms_backoff, tags = [server],
+        desc = "Delete the SMS gateway history for a phone number",
+        module = ?MODULE, function = reset_sms_backoff,
+        args_desc = ["Phone number"],
+        args_example = [<<"12065555586">>],
+        args=[{phone, binary}], result = {res, rescode}},
     #ejabberd_commands{name = update_code_paths, tags = [server],
         desc = "update codepaths to the newly released folder.",
         module = ?MODULE, function = update_code_paths,
@@ -1204,6 +1211,14 @@ group_info(Gid) ->
             [io:format("    ~s (~s) | ~s | joined on ~s at ~s~n", [Name, Uid, Type, Date, Time])
                 || {Uid, Type, {Date, Time}, Name} <- Members]
     end,
+    ok.
+
+
+reset_sms_backoff(Phone) ->
+    ?INFO("Reset SMS backoff for: ~p", [Phone]),
+    {ok, Attempts} = model_phone:get_verification_attempt_list(Phone),
+    {AttemptId, _Ts} = lists:last(Attempts),
+    model_phone:add_verification_success(Phone, AttemptId),
     ok.
 
 
