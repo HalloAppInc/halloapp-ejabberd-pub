@@ -1218,8 +1218,13 @@ group_info(Gid) ->
 reset_sms_backoff(Phone) ->
     ?INFO("Reset SMS backoff for: ~p", [Phone]),
     {ok, Attempts} = model_phone:get_verification_attempt_list(Phone),
-    {AttemptId, _Ts} = lists:last(Attempts),
-    model_phone:add_verification_success(Phone, AttemptId),
+    case Attempts of
+        [] -> io:format("Nothing to reset~n");
+        _ ->
+            {AttemptId, _Ts} = lists:last(Attempts),
+            model_phone:add_verification_success(Phone, AttemptId),
+            io:format("Successfully reset SMS backoff for ~p~n", [Phone])
+    end,
     ok.
 
 
