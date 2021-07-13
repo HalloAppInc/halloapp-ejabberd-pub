@@ -122,6 +122,10 @@ message ContactHash {
     bytes hash = 1;
 }
 
+message ContactSyncError {
+    int32 retry_after_secs = 1;
+}
+
 
 
 
@@ -518,6 +522,7 @@ message Iq {
         GroupInviteLink group_invite_link = 31;
         HistoryResend history_resend = 32;
         ExportData export_data = 33;
+        ContactSyncError contact_sync_error = 34;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use

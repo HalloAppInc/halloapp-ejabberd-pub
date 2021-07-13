@@ -12,11 +12,7 @@
 -include("logger.hrl").
 -include("packets.hrl").
 -include("time.hrl").
-
--define(SALT_LENGTH_BYTES, 32).
--define(PROBE_HASH_LENGTH_BYTES, 2).
--define(MAX_INVITERS, 3).
--define(NOTIFICATION_EXPIRY_MS, 1 * ?WEEKS_MS).
+-include("contacts.hrl").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -35,7 +31,11 @@
     block_uids/3,
     unblock_uids/3,
     trigger_full_contact_sync/1,
-    notify_friends/3
+    notify_friends/3,
+    set_full_sync_retry_time/0,
+    set_full_sync_error_percent/1,
+    set_full_sync_retry_time/1,
+    get_sync_error_retry_time/0
 ]).
 
 -export([
@@ -43,7 +43,9 @@
 ]).
 
 start(Host, _Opts) ->
+    ?INFO("start: ~w", [?MODULE]),
     ok = model_contacts:init(),
+    create_contact_options_table(),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_contact_list, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 100),
@@ -53,12 +55,14 @@ start(Host, _Opts) ->
     ok.
 
 stop(Host) ->
+    ?INFO("stop: ~w", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_contact_list),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 100),
     ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
     ejabberd_hooks:delete(block_uids, Host, ?MODULE, block_uids, 50),
     ejabberd_hooks:delete(unblock_uids, Host, ?MODULE, unblock_uids, 50),
+    delete_contact_options_table(),
     ok.
 
 depends(_Host, _Opts) ->
@@ -71,12 +75,48 @@ reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
 
+set_full_sync_error_percent(SyncErrorPercent)
+        when SyncErrorPercent >= 0 andalso SyncErrorPercent < 100 ->
+    true = ets:insert(?CONTACT_OPTIONS_TABLE,
+        {sync_error_percent, SyncErrorPercent}),
+    ok.
+
+
+set_full_sync_retry_time() ->
+    set_full_sync_retry_time(1 * ?DAYS).
+
+set_full_sync_retry_time(SyncRetryTime) ->
+    true = ets:insert(?CONTACT_OPTIONS_TABLE,
+        {sync_error_retry_time, SyncRetryTime}),
+    ok.
+
+
+get_sync_error_retry_time() ->
+    case lookup_contact_options_table(sync_error_retry_time) of
+        [] -> undefined;
+        [{sync_error_retry_time, SyncRetryTime}] -> SyncRetryTime
+    end.
+
+
 %%====================================================================
 %% iq handlers
 %%====================================================================
-process_local_iq(#pb_iq{from_uid = UserId, type = set,
-        payload = #pb_contact_list{type = full, contacts = Contacts, sync_id = SyncId, batch_index = Index,
-            is_last = Last}} = IQ) ->
+
+
+process_local_iq(#pb_iq{from_uid = UserId,
+        payload = #pb_contact_list{type = full, sync_id = SyncId}} = IQ) ->
+    case check_contact_sync_gate(UserId, SyncId) of
+        allow -> process_iq(IQ);
+        {deny, RetryAfterSecs} ->
+            pb:make_error(IQ, #pb_contact_sync_error{retry_after_secs = RetryAfterSecs})
+    end;
+process_local_iq(#pb_iq{payload = #pb_contact_list{type = delta}} = IQ) ->
+    %% Dont interrupt delta syncs.
+    process_iq(IQ).
+
+
+process_iq(#pb_iq{from_uid = UserId, type = set, payload = #pb_contact_list{type = full,
+        contacts = Contacts, sync_id = SyncId, batch_index = Index, is_last = Last}} = IQ) ->
     Server = util:get_host(),
     StartTime = os:system_time(microsecond), 
     ?INFO("Full contact sync Uid: ~p, sync_id: ~p, batch_index: ~p, is_last: ~p, num_contacts: ~p",
@@ -114,7 +154,7 @@ process_local_iq(#pb_iq{from_uid = UserId, type = set,
     ?INFO("Time taken: ~w us", [T]),
     ResultIQ;
 
-process_local_iq(#pb_iq{from_uid = UserId, type = set,
+process_iq(#pb_iq{from_uid = UserId, type = set,
         payload = #pb_contact_list{type = delta, contacts = Contacts,
             batch_index = _Index, is_last = _Last}} = IQ) ->
     ?INFO("Delta contact sync, Uid: ~p, num_changes: ~p", [UserId, length(Contacts)]),
@@ -140,7 +180,10 @@ remove_user(Uid, _Server) ->
 -spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
 re_register_user(UserId, _Server, Phone) ->
     ?INFO("Uid: ~p, Phone: ~p", [UserId, Phone]),
-    remove_all_contacts(UserId, false).
+    remove_all_contacts(UserId, false),
+    %% Clear first sync status upon re-registration.
+    model_accounts:delete_first_sync_status(UserId),
+    ok.
 
 
 %% TODO: Delay notifying the users about their contact to reduce unnecessary messages to clients.
@@ -705,4 +748,89 @@ send_probe_message(UserId, HashValue, ContactId, Server) ->
             [{ContactId, Server}, UserId, Stanza]),
     ejabberd_router:route(Stanza).
 
+
+%%============================================================================
+%% contact_sync_table helper functions
+%%============================================================================
+
+
+-spec check_contact_sync_gate(UserId :: binary(), SyncId :: binary()) -> allow | {deny, integer()}.
+check_contact_sync_gate(UserId, SyncId) ->
+    case lookup_contact_options_table(sync_error_percent) of
+        [] ->
+            allow;
+        [{sync_error_percent, 0}] ->
+            %% No error returned for any iq, process all of them.
+            allow;
+        [{sync_error_percent, SyncErrorPercent}] ->
+            %% return error for SyncErrorPercent of users.
+            %% Hash the syncid to a random bucket.
+            %% Return error for all buckets with value < SyncErrorPercent
+            %% This is nice because, users will receive error responses on all
+            %% their full-sync iqs sent in batches. Otherwise, we could run into
+            %% cases like where we process half the batch and ignore the rest.
+
+            %% Hash the syncid to a bucket.
+            Bucket = hash_syncid_to_bucket(SyncId),
+            %% Return error only if the user has already finished their first full contact sync
+            %% and if the SyncId falls into the first SyncErrorPercent Buckets.
+            case model_accounts:is_first_sync_done(UserId) andalso Bucket < SyncErrorPercent of
+                false ->
+                    allow;
+                true ->
+                    JitterValue = random:uniform(?MAX_JITTER_VALUE),
+                    %% Calculate the jitter value and add it to the return value.
+                    FinalRetryTime = case lookup_contact_options_table(sync_error_retry_time) of
+                        [] -> ?DEFAULT_SYNC_RETRY_TIME + JitterValue;
+                        [{sync_error_retry_time, SyncRetryTime}] -> SyncRetryTime + JitterValue
+                    end,
+                    {deny, FinalRetryTime}
+            end
+    end.
+
+
+lookup_contact_options_table(Key) ->
+    case ets_contact_table_exists() of
+        true ->
+            ets:lookup(?CONTACT_OPTIONS_TABLE, Key);
+        false ->
+            []
+    end.
+
+
+%% TODO: move all this to a common keystore table.
+%% issue: https://github.com/HalloAppInc/halloapp-ejabberd/issues/2101
+ets_contact_table_exists() ->
+    case ets:whereis(?CONTACT_OPTIONS_TABLE) of
+        undefined -> false;
+        _ -> true
+    end.
+
+
+create_contact_options_table() ->
+    ?INFO("Creating contact_sync table."),
+    try
+        ?INFO("Trying to create a table for contact_options in ets", []),
+        ets:new(?CONTACT_OPTIONS_TABLE, [set, public, named_table, {read_concurrency, true}]),
+        ok
+    catch
+        Error:badarg ->
+            ?WARNING("Failed to create a table for contact_options in ets: ~p", [Error]),
+            error
+    end,
+    ok.
+
+
+delete_contact_options_table() ->
+    case ets_contact_table_exists() of
+        true ->
+            ets:delete(?CONTACT_OPTIONS_TABLE);
+        false ->
+            []
+    end.
+
+
+-spec hash_syncid_to_bucket(SyncId :: binary()) -> integer().
+hash_syncid_to_bucket(SyncId) ->
+    crc16_redis:crc16(util:to_list(SyncId)) rem 100.
 

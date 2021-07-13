@@ -10,6 +10,7 @@
 -include("xmpp.hrl").
 -include("packets.hrl").
 -include("logger.hrl").
+-include("contacts.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -49,6 +50,8 @@ setup() ->
     ejabberd_hooks:start_link(),
     ha_redis:start(),
     mod_libphonenumber:start(undefined, []),
+    mod_contacts:stop(?SERVER),
+    mod_contacts:start(?SERVER, []),
     clear(),
     ok.
 
@@ -81,6 +84,35 @@ insert_contacts(Uid, Phones) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%                        Tests                                 %%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+trigger_sync_error_test() ->
+    setup(),
+    tutil:meck_init(mod_contacts, hash_syncid_to_bucket, fun(_) -> 1 end),
+    tutil:meck_init(model_accounts, is_first_sync_done, fun(_) -> true end),
+    SyncErrorPercent = 25,
+    ok = mod_contacts:set_full_sync_error_percent(SyncErrorPercent),
+    ok = mod_contacts:set_full_sync_retry_time(?DEFAULT_SYNC_RETRY_TIME),
+    [{sync_error_percent, SyncErrorPercent1}] = ets:lookup(contact_options, sync_error_percent),
+    [{sync_error_retry_time, SyncRetryTime1}] = ets:lookup(contact_options, sync_error_retry_time),
+    ?assertEqual(SyncRetryTime1, ?DEFAULT_SYNC_RETRY_TIME),
+    ?assertEqual(SyncErrorPercent1, SyncErrorPercent),
+
+    ok = mod_contacts:set_full_sync_error_percent(20),
+    ok = mod_contacts:set_full_sync_retry_time(43200),
+    [{sync_error_percent, SyncErrorPercent2}] = ets:lookup(contact_options, sync_error_percent),
+    [{sync_error_retry_time, SyncRetryTime2}] = ets:lookup(contact_options, sync_error_retry_time),
+    ?assertEqual(SyncRetryTime2, 43200),
+    ?assertEqual(SyncErrorPercent2, 20),
+
+    ResultIQ = mod_contacts:process_local_iq(#pb_iq{payload = #pb_contact_list{type = full}}),
+    ?assertEqual(error, ResultIQ#pb_iq.type),
+    #pb_contact_sync_error{retry_after_secs = RetryAfterSecs} = ResultIQ#pb_iq.payload,
+    ?assert(RetryAfterSecs > 43200),
+    ?assert(RetryAfterSecs < 43200 + ?MAX_JITTER_VALUE),
+    tutil:meck_finish(mod_contacts),
+    tutil:meck_finish(model_accounts),
+    ok.
 
 
 normalize_and_insert_contacts_with_syncid_test() ->

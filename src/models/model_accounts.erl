@@ -55,6 +55,7 @@
     get_creation_ts_ms/1,
     mark_first_sync_done/1,
     is_first_sync_done/1,
+    delete_first_sync_status/1,
     delete_name/1,
     set_avatar_id/2,
     delete_avatar_id/1,
@@ -345,6 +346,12 @@ mark_first_sync_done(Uid) ->
 is_first_sync_done(Uid) ->
     {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_SYNC_STATUS]),
     Res =:= <<"1">>.
+
+
+-spec delete_first_sync_status(Uid :: uid()) -> ok | {error, missing}.
+delete_first_sync_status(Uid) ->
+    {ok, _} = q(["HDEL", account_key(Uid), ?FIELD_SYNC_STATUS]),
+    ok.
 
 
 -spec set_user_agent(Uid :: uid(), UserAgent :: binary()) -> ok.

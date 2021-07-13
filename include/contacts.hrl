@@ -11,4 +11,12 @@
 -define(DUMMY_SALT, <<"y2c8wq3bvMIQNLlghqsXAS7bwEetE0Q=">>).
 -define(SYNC_KEY_TTL, 31*?DAYS).
 
+-define(MAX_JITTER_VALUE, 2 * ?HOURS).
+-define(DEFAULT_SYNC_RETRY_TIME, 1 * ?DAYS).
+-define(CONTACT_OPTIONS_TABLE, contact_options).
+-define(SALT_LENGTH_BYTES, 32).
+-define(PROBE_HASH_LENGTH_BYTES, 2).
+-define(MAX_INVITERS, 3).
+-define(NOTIFICATION_EXPIRY_MS, 1 * ?WEEKS_MS).
+
 -endif.
