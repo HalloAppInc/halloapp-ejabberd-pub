@@ -123,7 +123,7 @@ send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method)->
         UserAgent :: binary(), Method :: atom()) -> {ok, non_neg_integer()} | {error, term()} |
         {error, term(), non_neg_integer()}.
 send_otp(OtpPhone, LangId, Phone, Code, UserAgent, Method) ->
-    {ok, OldResponses} = model_phone:get_all_gateway_responses(OtpPhone),
+    {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
     case is_too_soon(OldResponses) of
         {true, WaitTs} -> {error, retried_too_soon, WaitTs};
         {false, _} ->
