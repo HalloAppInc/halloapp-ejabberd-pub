@@ -223,7 +223,7 @@ smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
     
     WorkingSet = sets:from_list(WorkingList),
     NotWorkingSet = sets:from_list(NotWorkingList),
-    ConsiderList = [twilio, mbird],
+    ConsiderList = sms_gateay_list:get_sms_gateway_list(),
     ConsiderSet = sets:from_list(ConsiderList),
 
     %% Don't want to try using NotWorkingSet.
