@@ -54,7 +54,7 @@ mod_options(_Host) ->
 -spec process_local_iq(IQ :: pb_iq()) -> pb_iq().
 %% This phone must be sent with the country code.
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_delete_account{phone = RawPhone}} = IQ) ->
+        payload = #pb_delete_account{phone = RawPhone}} = IQ) when RawPhone =/= undefined ->
     Server = util:get_host(),
     ?INFO("Uid: ~s, delete_account iq, raw_phone: ~p", [Uid, RawPhone]),
     NormPhone = mod_libphonenumber:normalize(RawPhone, <<"US">>),
@@ -70,6 +70,11 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
             ?INFO("Uid: ~s, Failed delete_account", [Uid]),
             pb:make_error(IQ, util:err(invalid_phone))
     end;
+
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_delete_account{phone = undefined}} = IQ) ->
+    ?INFO("Uid: ~s, delete_account iq, raw_phone is undefined", [Uid]),
+    pb:make_error(IQ, util:err(invalid_phone));
 
 process_local_iq(#pb_iq{} = IQ) ->
     pb:make_error(IQ, util:err(invalid_request)).
