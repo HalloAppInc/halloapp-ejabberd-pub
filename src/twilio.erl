@@ -24,6 +24,7 @@
     send_voice_call/4,
     fetch_message_info/1,
     normalized_status/1,
+    send_feedback/2,
     compose_body/3,     %% for debugging.
     compose_voice_body/3    %% for debugging
 ]).
@@ -287,4 +288,10 @@ get_twilio_lang_map() ->
         %% Chinese (Taiwanese Mandarin)
         <<"zh-TW">> => "zh-TW"
     }.
+
+
+% Todo: Implement if sending feedback back to twilio
+-spec send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.
+send_feedback(_Phone, _AllVerifyInfo) ->
+    ok. 
 

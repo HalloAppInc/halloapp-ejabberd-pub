@@ -13,6 +13,9 @@
 -include("sms.hrl").
 -include("time.hrl").
 
+-define(PHONE, <<"14703381473">>).
+-define(TEST_PHONE, <<"16175550000">>).
+
 
 simple_test() ->
     ?assert(true).
@@ -25,11 +28,11 @@ get_app_hash_test() ->
     ok.
 
 generate_code_test() ->
-    CodeBin = mod_sms:generate_code(false),
+    CodeBin = mod_sms:generate_code(?PHONE),
     Code = binary_to_integer(CodeBin),
     ?assert(Code >= 0),
     ?assert(Code =< 999999),
-    ?assertEqual(<<"111111">>, mod_sms:generate_code(true)),
+    ?assertEqual(<<"111111">>, mod_sms:generate_code(?TEST_PHONE)),
     ok.
 
 

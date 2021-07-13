@@ -17,15 +17,18 @@
 -define(TIME1, 1533626578).
 -define(CODE2, <<"285789">>).
 -define(TIME2, 1586907979).
+-define(CODE3, <<"538213">>).
 -define(SENDER, <<"api.halloapp.net">>).
 -define(RECEIPT, <<"{\"name\": \"value\"}">>).
 -define(TTL_24HR_SEC, 86400).
 -define(DELAY_SEC, 10).
 -define(SMSID1, <<"smsid1">>).
 -define(SMSID2, <<"smsid2">>).
+-define(SMSID3, <<"smsid3">>).
 -define(STATUS, sent).
 -define(GATEWAY1, gw1).
 -define(GATEWAY2, gw2).
+-define(GATEWAY3, twilio_verify).
 -define(CALLBACK_STATUS1, delivered).
 -define(CALLBACK_STATUS2, failed).
 -define(PRICE1, 0.07).
@@ -96,7 +99,7 @@ add_sms_details_test() ->
 add_sms_gateway_response_test() ->
     setup(),
     {ok, []} = model_phone:get_verification_attempt_list(?PHONE1),
-    {ok, []} = model_phone:get_all_sms_codes(?PHONE1),
+    {ok, []} = model_phone:get_all_verification_info(?PHONE1),
     {ok, AttemptId, _} = model_phone:add_sms_code2(?PHONE1, ?CODE1),
     ok = model_phone:add_gateway_response(?PHONE1, AttemptId,
         #gateway_response{gateway=?GATEWAY1, gateway_id=?SMSID1, status=?STATUS, response=?RECEIPT}),
@@ -108,9 +111,18 @@ add_sms_gateway_response_test() ->
     {ok, [{AttemptId, Ts}, {AttemptId2, Ts2}]} = model_phone:get_verification_attempt_list(?PHONE1),
     ok = model_phone:add_gateway_response(?PHONE1, AttemptId2,
         #gateway_response{gateway=?GATEWAY2, gateway_id=?SMSID2, status=?STATUS, response=?RECEIPT}),
+    timer:sleep(timer:seconds(1)),
+    {ok, AttemptId3, _} = model_phone:add_sms_code2(?PHONE1, ?CODE3),
+    {ok, [{AttemptId, Ts}, {AttemptId2, Ts2}, {AttemptId3, Ts3}]} = model_phone:get_verification_attempt_list(?PHONE1),
+    ok = model_phone:add_gateway_response(?PHONE1, AttemptId3,
+        #gateway_response{gateway=?GATEWAY3, gateway_id=?SMSID3, status=?STATUS, response=?RECEIPT}),
     {ok, ?CODE1} = model_phone:get_sms_code2(?PHONE1, AttemptId),
     {ok, ?CODE2} = model_phone:get_sms_code2(?PHONE1, AttemptId2),
-    {ok, [{?CODE1, AttemptId}, {?CODE2, AttemptId2}]} = model_phone:get_all_sms_codes(?PHONE1),
+    {ok, ?CODE3} = model_phone:get_sms_code2(?PHONE1, AttemptId3),
+    {ok, [#verification_info{attempt_id = AttemptId, code = ?CODE1, sid = ?SMSID1},
+        #verification_info{attempt_id = AttemptId2, code = ?CODE2, sid = ?SMSID2},
+        #verification_info{attempt_id = AttemptId3, code = ?CODE3, sid = ?SMSID3}]}
+            = model_phone:get_all_verification_info(?PHONE1),
     ok = model_phone:add_gateway_callback_info(
         #gateway_response{gateway=?GATEWAY1, gateway_id=?SMSID1, status=?CALLBACK_STATUS1,
             price=?PRICE1, currency=?CURRENCY1}),
@@ -119,23 +131,36 @@ add_sms_gateway_response_test() ->
     ok = model_phone:add_gateway_callback_info(
         #gateway_response{gateway=?GATEWAY2, gateway_id=?SMSID2, status=?CALLBACK_STATUS2,
             price=?PRICE2, currency=?CURRENCY2}),
+    timer:sleep(timer:seconds(1)),
+    ok = model_phone:add_gateway_callback_info(
+        #gateway_response{gateway=?GATEWAY3, gateway_id=?SMSID3, status=?CALLBACK_STATUS1,
+            price=?PRICE2}),
     {ok, ?CALLBACK_STATUS1} = model_phone:get_gateway_response_status(?PHONE1, AttemptId),
     {ok, ?CALLBACK_STATUS2} = model_phone:get_gateway_response_status(?PHONE1, AttemptId2),
+    {ok, ?CALLBACK_STATUS1} = model_phone:get_gateway_response_status(?PHONE1, AttemptId3),
     AllResponses = [#gateway_response{gateway=?GATEWAY1, method=sms, status=?CALLBACK_STATUS1,
                                       verified=false, attempt_id=AttemptId, attempt_ts=Ts},
                     #gateway_response{gateway=?GATEWAY2, method=sms, status=?CALLBACK_STATUS2,
-                                      verified=false, attempt_id=AttemptId2, attempt_ts=Ts2}],
+                                      verified=false, attempt_id=AttemptId2, attempt_ts=Ts2},
+                    #gateway_response{gateway=?GATEWAY3, method=sms, status=?CALLBACK_STATUS1,
+                                        verified=false, attempt_id=AttemptId3, attempt_ts=Ts3}],
     {ok, []} = model_phone:get_all_gateway_responses(?PHONE2),
     {ok, AllResponses} = model_phone:get_all_gateway_responses(?PHONE1),
     ok = model_phone:add_verification_success(?PHONE1, AttemptId),
     true = model_phone:get_verification_success(?PHONE1, AttemptId),
     false = model_phone:get_verification_success(?PHONE1, AttemptId2),
+    false = model_phone:get_verification_success(?PHONE1, AttemptId3),
     #gateway_response{gateway=?GATEWAY2, method=sms, status=?CALLBACK_STATUS2, verified=false} =
           model_phone:get_verification_attempt_summary(?PHONE1, AttemptId2),
     ok = model_phone:add_verification_success(?PHONE1, AttemptId2),
     true = model_phone:get_verification_success(?PHONE1, AttemptId2),
     #gateway_response{gateway=?GATEWAY2, method=sms, status=?CALLBACK_STATUS2, verified=true} =
-          model_phone:get_verification_attempt_summary(?PHONE1, AttemptId2).
+          model_phone:get_verification_attempt_summary(?PHONE1, AttemptId2),
+    ok = model_phone:add_verification_success(?PHONE1, AttemptId3),
+    true = model_phone:get_verification_success(?PHONE1, AttemptId3),
+    #gateway_response{gateway=?GATEWAY3, method=sms, status=?CALLBACK_STATUS1, verified=true} =  
+        model_phone:get_verification_attempt_summary(?PHONE1, AttemptId3).
+
 
 delete_sms_code_test() ->
     setup(),
@@ -151,12 +176,12 @@ delete_sms_code_test() ->
 delete_sms_code2_test() ->
     setup(),
     {ok, []} = model_phone:get_verification_attempt_list(?PHONE1),
-    {ok, []} = model_phone:get_all_sms_codes(?PHONE1),
+    {ok, []} = model_phone:get_all_verification_info(?PHONE1),
     {ok, _, _} = model_phone:add_sms_code2(?PHONE1, ?CODE1),
     {ok, _, _} = model_phone:add_sms_code2(?PHONE1, ?CODE2),
     ok = model_phone:delete_sms_code2(?PHONE1),
     {ok, []} = model_phone:get_verification_attempt_list(?PHONE1),
-    {ok, []} = model_phone:get_all_sms_codes(?PHONE1).
+    {ok, []} = model_phone:get_all_verification_info(?PHONE1).
 
 
 add_phone_test() ->

@@ -20,6 +20,7 @@
     send_sms/4,
     send_voice_call/4,
     normalized_status/1,
+    send_feedback/2,
     compose_body/2,     %% for debugging
     compose_voice_body/3  %% for debugging
 ]).
@@ -289,4 +290,10 @@ get_mbird_lang_map() ->
         %% Chinese (Taiwan)
         <<"zh-TW">> => <<"zh-TW">>
     }.
+
+
+% Todo: Implement if sending feedback back to mbird
+-spec send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.
+send_feedback(_Phone, _AllVerifyInfo) ->
+    ok. 
 

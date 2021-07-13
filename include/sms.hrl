@@ -33,6 +33,17 @@
 
 -type gateway_response()  :: #gateway_response{}.
 
+-record(verification_info,
+{
+    attempt_id :: binary(),
+    gateway :: atom(),
+    code :: binary(),
+    sid :: binary(),
+    ts :: non_neg_integer()
+}).
+
+-type verification_info() :: #verification_info{}.
+
 -define(SMS_REG_TIMESTAMP_INCREMENT, 900).  %% 15 minutes.
 
 -define(ENG_LANG_ID, <<"en-US">>).

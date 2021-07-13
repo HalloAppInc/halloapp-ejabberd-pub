@@ -91,6 +91,7 @@
 -include("time.hrl").
 -include("translate.hrl").
 -include("ejabberd_commands.hrl").
+-include("sms.hrl").
 
 -record(state, {}).
 
@@ -768,13 +769,13 @@ unenroll(Phone, Host) ->
 
 get_user_passcode(Phone, _Host) ->
     ?INFO("phone:~s", [Phone]),
-    case model_phone:get_all_sms_codes(Phone) of
+    case model_phone:get_all_verification_info(Phone) of
         {ok, []} ->
             Msg = io_lib:format("Phone ~ts does not have a code", [Phone]),
             {error, conflict, 10090, Msg};
         {ok, PasscodeTuples} ->
             ?assert(is_list(PasscodeTuples)),
-            [{Passcode, _} | _Rest] = PasscodeTuples,
+            [#verification_info{code = Passcode} | _Rest] = PasscodeTuples,
             {ok, Passcode};
         {error, _} ->
             {error, "db-failure, unable to obtain passcode"}
@@ -1247,11 +1248,11 @@ send_ios_push(Uid, PushType, Payload) ->
 
 
 get_sms_codes(Phone) ->
-    {ok, RawList} = model_phone:get_all_sms_codes(Phone),
+    {ok, RawList} = model_phone:get_all_verification_info(Phone),
     case RawList of
         [] -> io:format("No SMS codes associated with phone: ~s", [Phone]);
         _ ->
-            Codes = [Code || {Code, _AttemptId} <- RawList],
+            Codes = [Code || #verification_info{code = Code} <- RawList],
             io:format("SMS codes for phone: ~s~n", [Phone]),
             [io:format("  ~s~n", [Code]) || Code <- Codes]
     end,

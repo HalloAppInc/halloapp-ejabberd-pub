@@ -21,6 +21,7 @@
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
 -callback send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail}.
+-callback send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.
 
 %% Export all functions for unit tests
 -ifdef(TEST).
@@ -71,29 +72,32 @@ request_sms(Phone, UserAgent) ->
 -spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom()) ->
     {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 request_otp(Phone, LangId, UserAgent, Method) ->
-    Code = generate_code(util:is_test_number(Phone) andalso not config:is_prod_env()),
-    case {config:is_prod_env(), util:is_test_number(Phone)} of
-        {true, true} -> send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method);
-        {_, _} ->
-            case config:is_testing_env() andalso config:get_hallo_env() =/= stress of
-                %% avoid next step which is to send the sms
-                % TODO: if we allow github env access to the test secrets only we can
-                % have our CI test this as well.
-                true ->
-                    {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
-                    {ok, 30};
-                false -> send_otp(Phone, LangId, Phone, Code, UserAgent, Method)
-            end
+    Code = generate_code(Phone),
+    case {config:get_hallo_env(), util:is_test_number(Phone)} of
+        {prod, true} -> send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method);
+        {prod, _} -> send_otp(Phone, LangId, Phone, Code, UserAgent, Method);
+        {stress, _} -> send_otp(Phone, LangId, Phone, Code, UserAgent, Method);
+        {_,_} ->
+            {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
+            {ok, 30}
     end.
 
 
 -spec verify_sms(Phone :: phone(), Code :: binary()) -> match | nomatch.
 verify_sms(Phone, Code) ->
-    {ok, AllSMSCodes} = model_phone:get_all_sms_codes(Phone),
-    case lists:search(fun({FetchedCode, _}) -> FetchedCode =:= Code end, AllSMSCodes) of
+    {ok, AllVerifyInfo} = model_phone:get_all_verification_info(Phone),
+    case lists:search(fun(FetchedInfo) -> FetchedInfo#verification_info.code =:= Code end, AllVerifyInfo) of
         false -> nomatch;
-        {value, {_, AttemptId2}} ->
-            model_phone:add_verification_success(Phone, AttemptId2),
+        {value, FetchedInfo} ->
+            #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
+            ok = model_phone:add_verification_success(Phone, AttemptId),
+            GatewayAtom = util:to_atom(Gateway),
+            case GatewayAtom of
+                undefined ->
+                    ?ERROR("Missing gateway of Phone:~p AttemptId: ~p", [Phone, AttemptId]),
+                    ok;
+                _ -> GatewayAtom:send_feedback(Phone, AllVerifyInfo)
+            end,
             match
     end.
 
@@ -193,17 +197,19 @@ send_otp_internal(Phone, LangId, Code, UserAgent, Method, OldResponses) ->
     end.
 
 
--spec generate_code(IsDebug :: boolean()) -> binary().
-generate_code(true) ->
-    <<"111111">>;
-generate_code(false) ->
-    list_to_binary(io_lib:format("~6..0w", [crypto:rand_uniform(0, 999999)])).
+-spec generate_code(Phone :: phone()) -> binary().
+generate_code(Phone) ->
+    TestProd = util:is_test_number(Phone) andalso not config:is_prod_env(),
+    case TestProd of
+        true -> <<"111111">>;
+        false -> list_to_binary(io_lib:format("~6..0w", [crypto:rand_uniform(0, 999999)]))
+    end.
 
 
 %% TODO(vipin)
 %% On callback from the provider track (success, cost). Investigative logging to track missing
 %% callback.
-
+%% Extend twilio_verify to other countries (currently only China)
 -spec smart_send(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary(), Method :: atom(), OldResponses :: [gateway_response()]) 
         -> {ok, gateway_response()} | {error, sms_fail} | {error, voice_call_fail}.
@@ -268,7 +274,7 @@ smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
     %% TODO(vipin): Fix after we have approval via MessageBird.
     NewGateway2 = case mod_libphonenumber:get_cc(Phone) of
         <<"AE">> -> twilio;     %% UAE
-        <<"CN">> -> twilio;     %% China
+        <<"CN">> -> twilio_verify;     %% China
         _ -> NewGateway
     end,
     ?DEBUG("Chosen Gateway: ~p", [NewGateway2]),

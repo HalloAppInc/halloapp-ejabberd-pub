@@ -39,7 +39,7 @@
     get_incremental_attempt_list/1,
     delete_sms_code2/1,
     get_sms_code2/2,
-    get_all_sms_codes/1,
+    get_all_verification_info/1,
     add_gateway_response/3,
     get_all_gateway_responses/1,
     get_verification_attempt_list/1,
@@ -65,6 +65,7 @@
 -define(FIELD_CURRENCY, <<"cur">>).
 -define(FIELD_RECEIPT, <<"rec">>).
 -define(FIELD_RESPONSE, <<"res">>).
+-define(FIELD_SID, <<"sid">>).
 -define(FIELD_VERIFICATION_ATTEMPT, <<"fva">>).
 -define(FIELD_VERIFICATION_SUCCESS, <<"suc">>).
 -define(TTL_SMS_CODE, 86400).
@@ -183,24 +184,24 @@ delete_sms_code2(Phone) ->
     ok.
 
 
--spec get_all_sms_codes(Phone :: phone()) -> {ok, [{binary(), binary()}]} | {error, any()}.
-get_all_sms_codes(Phone) ->
+-spec get_all_verification_info(Phone :: phone()) -> {ok, [verification_info()]} | {error, any()}.
+get_all_verification_info(Phone) ->
     {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
     RedisCommands = lists:map(
         fun({AttemptId, _TS}) ->
-            ["HGET", verification_attempt_key(Phone, AttemptId), ?FIELD_CODE]
+            ["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_CODE, ?FIELD_SENDER, ?FIELD_SID]
         end, VerificationAttemptList),
-    SMSCodeList = case RedisCommands of
+    VerifyInfoList = case RedisCommands of
         [] -> [];
         _ -> qp(RedisCommands)
     end,
     CombinedList = lists:zipwith(
-        fun(SMSCode, VerificationAttempt) ->
-            {ok, Code} = SMSCode,
-            {Attempt, _TS} = VerificationAttempt,
-            {Code, Attempt}
-        end, SMSCodeList, VerificationAttemptList),
-    {ok, CombinedList}. 
+        fun(VerifyInfo, VerificationAttempt) ->
+            {ok, [Code, Gateway, Sid]} = VerifyInfo,
+            {Attempt, TS} = VerificationAttempt,
+            #verification_info{gateway = Gateway, attempt_id = Attempt, code = Code, sid = Sid, ts = TS}
+        end, VerifyInfoList, VerificationAttemptList),
+    {ok, CombinedList}.
 
 
 -spec get_sms_code2(Phone :: phone(), AttemptId :: binary()) -> {ok, binary()} | {error, any()}.
@@ -237,10 +238,11 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
     GatewayBin = util:to_binary(Gateway),
     MethodBin = encode_method(Method),
     StatusBin = util:to_binary(Status),
+    SidBin = util:to_binary(GatewayId),
     _Result2 = q([["MULTI"],
                    ["HSET", VerificationAttemptKey, ?FIELD_SENDER, GatewayBin,
                        ?FIELD_METHOD, MethodBin, ?FIELD_STATUS, StatusBin,
-                       ?FIELD_RESPONSE, Response],
+                       ?FIELD_RESPONSE, Response, ?FIELD_SID, SidBin],
                    ["EXPIRE", VerificationAttemptKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
     ok.
@@ -286,17 +288,20 @@ add_gateway_callback_info(GatewayResponse) ->
     ?assertNotEqual(undefined, Status),
     StatusBin = util:to_binary(Status),
     StatusCommand = ["HSET", VerificationAttemptKey, ?FIELD_STATUS, StatusBin],
-    PriceCommands = case Price of
+    PriceCommand = case Price of
         undefined -> [];
         _ ->
-            ?assertNotEqual(undefined, Currency),
             PriceBin = util:to_binary(Price),
-            [["HSET", VerificationAttemptKey, ?FIELD_PRICE, PriceBin],
-             ["HSET", VerificationAttemptKey, ?FIELD_CURRENCY, Currency]]
+            ["HSET", VerificationAttemptKey, ?FIELD_PRICE, PriceBin]
     end,
-    RedisCommands = case PriceCommands of
-        [] -> [StatusCommand];
-        _ -> [StatusCommand] ++ PriceCommands
+    CurrencyCommand = case Currency of
+        undefined -> [];
+        _ -> ["HSET", VerificationAttemptKey, ?FIELD_CURRENCY, Currency]
+    end, 
+    RedisCommands = case {PriceCommand, CurrencyCommand} of
+        {[],_} -> [StatusCommand];
+        {_, []} -> [StatusCommand] ++ [PriceCommand];
+        {_, _} -> [StatusCommand] ++ [PriceCommand] ++ [CurrencyCommand]
     end,
     _Result = qp(RedisCommands),
     ok.

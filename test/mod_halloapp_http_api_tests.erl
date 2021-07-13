@@ -96,7 +96,7 @@ request_sms_prod_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(model_phone, add_gateway_response, fun(_, _, _) -> ok end),
-    meck_init(config, is_prod_env, fun() -> true end),
+    meck_init(config, get_hallo_env, fun() -> prod end),
     meck_init(mod_sms, send_otp_internal,
         fun(P,_,_,_,_,_) ->
             self() ! P,
@@ -120,10 +120,11 @@ request_sms_prod_test() ->
     meck_finish(mod_sms),
     meck_finish(ejabberd_router).
 
+
 backoff_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
-    meck_init(config, is_prod_env, fun() -> true end),
+    meck_init(config, get_hallo_env, fun() -> prod end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, ?UA, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -181,6 +182,7 @@ register_spub_test() ->
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
     meck_init(stat, count, fun(_,_,_,_) -> 1 end),
+    meck_init(twilio_verify, send_feedback, fun(_,_) -> ok end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
@@ -231,6 +233,7 @@ register_spub_test() ->
     } = jiffy:decode(Info, [return_maps]),
     SPub2 = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub2),
     ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub2))),
+    meck_finish(twilio_verify),
     meck_finish(ejabberd_sm),
     meck_finish(ejabberd_router).
 
@@ -335,10 +338,12 @@ check_invited_reregister_test() ->
 request_and_check_sms_code_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    meck_init(twilio_verify, send_feedback, fun(_,_) -> ok end),
     ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?SMS_CODE)),
     {ok, _} = mod_sms:request_sms(?TEST_PHONE, ?UA),
     ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?BAD_SMS_CODE)),
     ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?SMS_CODE)),
+    meck_finish(twilio_verify),
     meck_finish(ejabberd_router).
 
 
