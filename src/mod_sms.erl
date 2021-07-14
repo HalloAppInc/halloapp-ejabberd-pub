@@ -271,10 +271,62 @@ smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
             twilio
     end,
 
-    %% TODO(vipin): Fix after we have approval via MessageBird.
+    %% TODO(vipin): Fix as and when we get approval. Replace the following using redis.
     NewGateway2 = case mod_libphonenumber:get_cc(Phone) of
         <<"AE">> -> twilio;     %% UAE
+        <<"AL">> -> twilio;     %% Albania
+        <<"AM">> -> twilio_verify;     %% Armenia
+        <<"BG">> -> twilio;     %% Bulgaria
+        <<"BL">> -> twilio_verify;     %% Belarus
         <<"CN">> -> twilio_verify;     %% China
+        <<"CU">> -> twilio_verify;     %% Cuba
+        <<"TD">> -> twilio_verify;     %% Chad
+        <<"CD">> -> twilio;     %% Congo
+        <<"CG">> -> twilio;     %% Congo
+        <<"EG">> -> twilio_verify;     %% Egypt
+        <<"ET">> -> mbird;      %% Ethiopia
+        <<"GH">> -> twilio;     %% GHANA
+        <<"ID">> -> twilio_verify;     %% Indonesia
+        <<"IR">> -> twilio_verify;     %% Iran
+        <<"IL">> -> mbird;      %% Israel
+        <<"JP">> -> mbird;      %% Japan
+        <<"JO">> -> twilio_verify;     %% Jordan
+        <<"KZ">> -> twilio_verify;     %% Kazakhstan
+        <<"KE">> -> twilio_verify;     %% Kenya
+        <<"KW">> -> twilio_verify;     %% Kuwait
+        <<"LB">> -> mbird;      %% Lebanon
+        <<"MK">> -> twilio;     %% Macedonia
+        <<"MW">> -> twilio_verify;     %% Malawi
+        <<"ML">> -> twilio;     %% Mali
+        <<"ME">> -> twilio;     %% Montenegro
+        <<"MA">> -> twilio_verify;     %% Morocco
+        <<"MX">> -> mbird;      %% Mexico
+        <<"MZ">> -> twilio;     %% Mozambique
+        <<"MM">> -> mbird;      %% Myanmar
+        <<"NP">> -> twilio_verify;     %% Nepal
+        <<"NG">> -> twilio_verify;     %% Nigeria
+        <<"OM">> -> twilio_verify;     %% Oman
+        <<"PK">> -> twilio_verify;     %% Pakistan
+        <<"PS">> -> mbird;      %% Palestine
+        <<"PE">> -> twilio;     %% Peru
+        <<"PH">> -> twilio_verify;     %% Philippines
+        <<"QA">> -> twilio_verify;     %% Qatar
+        <<"RO">> -> twilio;     %% Romania
+        <<"RU">> -> twilio_verify;     %% Russia
+        <<"SA">> -> twilio_verify;     %% Saudi Arabia
+        <<"SN">> -> twilio;     %% Senegal
+        <<"RS">> -> twilio;     %% Serbia
+        <<"LK">> -> twilio_verify;     %% Sri Lanka
+        <<"SD">> -> mbird;      %% Sudan
+        <<"TZ">> -> twilio_verify;     %% Tanzania
+        <<"TH">> -> twilio_verify;     %% Thailand
+        <<"TN">> -> mbird;      %% Tunisia
+        <<"TG">> -> twilio;     %% Togo
+        <<"UA">> -> twilio_verify;     %% Ukraine
+        <<"UZ">> -> twilio;     %% Uzbekistan
+        <<"VN">> -> twilio_verify;     %% Vietnam
+        <<"ZM">> -> twilio_verify;     %% Zambia
+        <<"ZW">> -> mbird;      %% Zimbabwe
         _ -> NewGateway
     end,
     ?DEBUG("Chosen Gateway: ~p", [NewGateway2]),
