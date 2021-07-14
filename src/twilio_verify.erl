@@ -108,7 +108,7 @@ compose_send_body(Phone, Code, Method) ->
 -spec compose_feedback_body() -> uri_string:uri_string().
 compose_feedback_body() ->
     uri_string:compose_query([
-        {"Status", approved}
+        {"Status", <<"approved">>}
     ], [{encoding, utf8}]).
 
 
