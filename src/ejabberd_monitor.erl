@@ -33,7 +33,8 @@
     get_monitored_procs/0,
     ping_procs/0,
     monitor/2,
-    get_state_history/1
+    get_state_history/1,
+    try_remonitor/1
 ]).
 
 %%====================================================================
@@ -65,6 +66,14 @@ get_state_history(Mod) ->
     case ets:lookup(?MONITOR_TABLE, Mod) of
         [] -> [];
         [{Mod, StateHistory}] -> StateHistory
+    end.
+
+try_remonitor(Proc) ->
+    case whereis(Proc) of
+        undefined ->
+            ?ERROR("Process ~p unable to be found, cannot remonitor", [Proc]),
+            {ok, _TRef} = timer:apply_after(?REMONITOR_DELAY_MS, ?MODULE, try_remonitor, [Proc]);
+        _Pid -> gen_server:cast(?MODULE, {monitor, Proc, not lists:member(Proc, get_supervisors())})
     end.
 
 get_gen_servers() ->
@@ -159,6 +168,7 @@ handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors} = S
         _ -> alerts:send_process_down_alert(Proc, <<"Process is dead">>)
     end,
     NewMonitors = maps:remove(Ref, State#state.monitors),
+    {ok, _TRef} = timer:apply_after(?REMONITOR_DELAY_MS, ?MODULE, try_remonitor, [Proc]),
     FinalState = State#state{monitors = NewMonitors},
     {noreply, FinalState};
 

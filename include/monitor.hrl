@@ -47,6 +47,13 @@
         false -> 5 * ?SECONDS_MS      % prod timeout
     end).
 
+% if a process goes down, attempt to remonitor it after REMONITOR_DELAY_MS
+-define(REMONITOR_DELAY_MS,
+    case config:is_testing_env() of
+        true -> 50;   % ms      % shorter delay so tests run faster
+        false -> 500  % ms      % prod value
+    end).
+
 % length (in chars) of the id attached to each ping
 -define(ID_LENGTH, 16).
 

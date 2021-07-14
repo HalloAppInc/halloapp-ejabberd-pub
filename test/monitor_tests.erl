@@ -23,7 +23,8 @@ group() ->
     {monitor, [sequence], [
         monitor_ping_test,
         monitor_dummy_test,
-        monitor_failed_ping_test
+        monitor_failed_ping_test,
+        monitor_remonitor_test
 %%        monitor_consecutive_failures_test
     ]}.
 
@@ -54,6 +55,18 @@ failed_ping_test(_Conf) ->
     timer:sleep(100),   % allow time for state to be checked
     true = lists:member(?FAIL_STATE, ejabberd_monitor:get_state_history(?BAD_PROC)).
 
+remonitor_test(_Conf) ->
+    InitialPid = whereis(?BAD_PROC),
+    undefined =/= InitialPid,
+    true = is_monitored_gen_server(?BAD_PROC),
+    ha_bad_process:kill(),
+    ejabberd_monitor:ping_procs(),     % ?BAD_PROC doesn't get killed until next ping
+    timer:sleep(?REMONITOR_DELAY_MS),
+    FinalPid = whereis(?BAD_PROC),
+    InitialPid =/= FinalPid,
+    undefined =/= FinalPid,
+    true = is_monitored_gen_server(?BAD_PROC).
+
 %% TODO(josh): figure out how to test this
 %%consecutive_failures_test(_Conf) ->
 %%    #{state := slow} = sys:get_state(?BAD_PROC),
@@ -61,4 +74,10 @@ failed_ping_test(_Conf) ->
 %%        lists:seq(1, ?CONSECUTIVE_FAILURE_THRESHOLD)),
 %%    timer:sleep(?PING_TIMEOUT * ?CONSECUTIVE_FAILURE_THRESHOLD),
 %%    %% figure out some way to test if alert was sent
+
+
+%%% Internal functions %%%
+
+is_monitored_gen_server(Mod) ->
+    lists:member(Mod, (sys:get_state(ejabberd_monitor))#state.gen_servers).
 
