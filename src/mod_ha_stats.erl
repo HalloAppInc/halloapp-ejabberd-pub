@@ -140,7 +140,7 @@ handle_cast({log_share_old_items, Uid, NumPosts, NumComments}, #state{new_user_m
                 posts = Posts + NumPosts,
                 comments = Comments + NumComments}};
         undefined ->
-            ?WARNING("User ~s not found in map", [Uid]),
+            ?INFO("User ~s not found in map", [Uid]),
             NUMap
     end,
     {noreply, State#state{new_user_map = NUMap2}};
