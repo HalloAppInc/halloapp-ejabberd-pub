@@ -108,6 +108,7 @@ process_local_iq(#pb_iq{from_uid = UserId,
     case check_contact_sync_gate(UserId, SyncId) of
         allow -> process_iq(IQ);
         {deny, RetryAfterSecs} ->
+            ?INFO("Uid: ~p, sync_error, retry_after: ~p", [UserId, RetryAfterSecs]),
             pb:make_error(IQ, #pb_contact_sync_error{retry_after_secs = RetryAfterSecs})
     end;
 process_local_iq(#pb_iq{payload = #pb_contact_list{type = delta}} = IQ) ->
@@ -778,6 +779,7 @@ check_contact_sync_gate(UserId, SyncId) ->
                 false ->
                     allow;
                 true ->
+                    ?INFO("Uid: ~p, deny contact_sync, SyncId: ~p", [UserId, SyncId]),
                     JitterValue = random:uniform(?MAX_JITTER_VALUE),
                     %% Calculate the jitter value and add it to the return value.
                     FinalRetryTime = case lookup_contact_options_table(sync_error_retry_time) of
