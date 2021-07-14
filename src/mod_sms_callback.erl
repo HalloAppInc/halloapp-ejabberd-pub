@@ -140,7 +140,7 @@ process([<<"mbird">>],
 -spec add_gateway_callback_info(SMSResponse :: gateway_response()) -> ok.
 add_gateway_callback_info(SMSResponse) ->
     #gateway_response{status = Status} = SMSResponse,
-    {ok, VerificationAttemptKey} = model_phone:get_verification_attempt_key(),
+    {ok, VerificationAttemptKey} = model_phone:get_verification_attempt_key(SMSResponse),
     case {Status, VerificationAttemptKey} of
         {undefined, _} -> ok;
         {_, undefined} ->
