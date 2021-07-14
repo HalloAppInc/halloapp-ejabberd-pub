@@ -323,6 +323,7 @@ handle_cast({gauge, Namespace, Metric, Value, Tags}, State) ->
     {noreply, NewState};
 
 handle_cast({trigger_send}, State) ->
+    ?INFO("maybe rotate data"),
     NewState = maybe_rotate_data(State),
     {noreply, NewState};
 
@@ -380,10 +381,13 @@ maybe_rotate_data(State) ->
 
 -spec send_data(TimeSeconds :: integer(), MetricsMap :: map()) -> ok.
 send_data(TimeSeconds, MetricsMap) when is_map(MetricsMap) ->
+    ?INFO("sending stats..."),
+    Ts = util:now_ms(),
     TimeMilliSeconds = TimeSeconds * ?SECONDS_MS,
     Data = prepare_data(MetricsMap, TimeMilliSeconds),
     send_to_cloudwatch(Data),
     stat_opentsdb:put_metrics(MetricsMap, TimeMilliSeconds),
+    ?INFO("stats sent (took ~pms)", [util:now_ms() - Ts]),
     ok.
 
 
