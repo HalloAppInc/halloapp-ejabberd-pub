@@ -69,7 +69,7 @@ send_feedback(Phone, AllVerifyInfo) ->
             Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
             ?DEBUG("Response: ~p", [Response]),
             case Response of
-                {ok, {{_, 201, _}, _ResHeaders, ResBody}} ->
+                {ok, {{_, 200, _}, _ResHeaders, ResBody}} ->
                     Json = jiffy:decode(ResBody, [return_maps]),
                     Id = maps:get(<<"sid">>, Json),
                     Price = maps:get(<<"amount">>, Json),
@@ -79,8 +79,8 @@ send_feedback(Phone, AllVerifyInfo) ->
                         {error, _} -> undefined;
                         {XX, []} -> abs(XX)
                     end,
-                    GatewayResponse = {ok, #gateway_response{gateway_id = Id, gateway = twilio_verify,
-                        status = accepted, price = RealPrice}},
+                    GatewayResponse = #gateway_response{gateway_id = Id, gateway = twilio_verify,
+                        status = accepted, price = RealPrice},
                     ok = model_phone:add_gateway_callback_info(GatewayResponse);
                 _ ->
                     ?ERROR("Feedback info failed, Phone:~p AttemptId: ~p Response: ~p", [Phone, AttemptId, Response])

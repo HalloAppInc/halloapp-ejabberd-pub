@@ -37,6 +37,7 @@
     verify_sms/2,
     is_too_soon/1,  %% for testing
     good_next_ts_diff/1, %% for testing
+    send_otp/6, %% for testing
     send_otp_internal/6
 ]).
 
