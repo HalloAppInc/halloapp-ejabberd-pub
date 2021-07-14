@@ -51,7 +51,6 @@
 %%====================================================================
 
 init() ->
-    create_ets_options_table(),
     fetch_and_store_salt(),
      % Making sure we have salt
     {ok, _Salt} = model_contacts:get_contact_hash_salt(),
@@ -237,15 +236,11 @@ cleanup_not_invited_phones(MinScore) ->
 %% Internal functions
 %%====================================================================
 
--spec create_ets_options_table() -> atom().
-create_ets_options_table() ->
-    ets:new(contact_options, [named_table, set, public, {read_concurrency, true}]).
-
 
 -spec fetch_and_store_salt() -> ok.
 fetch_and_store_salt() ->
     Salt = get_salt_secret_from_aws(),
-    ets:insert(contact_options, {contact_hash_salt, Salt}),
+    ets:insert(?CONTACT_OPTIONS_TABLE, {contact_hash_salt, Salt}),
     ok.
 
 
@@ -297,7 +292,7 @@ hash_phone(Phone) ->
 get_contact_hash_salt() ->
     case config:get_hallo_env() of
         prod ->
-            Result = ets:lookup_element(contact_options, contact_hash_salt, 2),
+            Result = ets:lookup_element(?CONTACT_OPTIONS_TABLE, contact_hash_salt, 2),
             {ok, Result};
         _ ->
             {ok, ?DUMMY_SALT}
