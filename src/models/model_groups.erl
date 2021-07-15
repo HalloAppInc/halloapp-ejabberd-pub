@@ -104,11 +104,11 @@ create_group(Uid, Name, Ts) ->
 -spec delete_group(Gid :: gid()) -> ok.
 delete_group(Gid) ->
     MemberUids = get_member_uids(Gid),
-    lists:foreach(
+    RemoveCommands = lists:map(
         fun (Uid) ->
-            {ok, _} = q(["SREM", user_groups_key(Uid), Gid])
-        end,
-        MemberUids),
+            ["SREM", user_groups_key(Uid), Gid]
+        end, MemberUids),
+    qmn(RemoveCommands),
     ok = delete_empty_group(Gid),
     ok.
 
@@ -214,11 +214,11 @@ add_members(Gid, Uids, AdminUid) ->
     NewCommands = Commands ++ [delete_audience_hash_command(Gid)],
     {ok, RedisResults} = multi_exec(NewCommands),
     NewResults = lists:droplast(RedisResults),
-    lists:foreach(
+    AddCommands = lists:map(
         fun (Uid) ->
-            {ok, _Res} = q(["SADD", user_groups_key(Uid), Gid])
-        end,
-        Uids),
+            ["SADD", user_groups_key(Uid), Gid]
+        end, Uids),
+    qmn(AddCommands),
     lists:map(
         fun (Res) ->
             binary_to_integer(Res) =:= 1
@@ -241,11 +241,11 @@ remove_members(Gid, Uids) ->
     NewCommands = Commands ++ [delete_audience_hash_command(Gid)],
     {ok, Results} = multi_exec(NewCommands),
     NewResults = lists:droplast(Results),
-    lists:foreach(
+    RemoveCommands = lists:map(
         fun (Uid) ->
-            {ok, _Res2} = q(["SREM", user_groups_key(Uid), Gid])
-        end,
-        Uids),
+            ["SREM", user_groups_key(Uid), Gid]
+        end, Uids),
+    qmn(RemoveCommands),
     lists:map(
         fun (Res) ->
             binary_to_integer(Res) =:= 1
@@ -565,6 +565,7 @@ group_removed_set_key(Gid) ->
 
 q(Command) -> ecredis:q(ecredis_groups, Command).
 qp(Commands) -> ecredis:qp(ecredis_groups, Commands).
+qmn(Commands) -> util_redis:run_qmn(ecredis_groups, Commands).
 
 multi_exec(Commands) ->
     WrappedCommands = lists:append([[["MULTI"]], Commands, [["EXEC"]]]),

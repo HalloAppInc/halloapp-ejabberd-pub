@@ -348,3 +348,36 @@ audience_hash_test() ->
     ok.
 
 
+% delete_group_perf_test() ->
+%     tutil:perf(
+%         10,
+%         fun() -> setup() end,
+%         fun() ->
+%             {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+%             model_groups:add_members(Gid, [?UID2, ?UID3, ?UID4, ?UID5], ?UID1),
+%             model_groups:delete_group(Gid)
+%         end
+%     ).
+
+
+% remove_member_perf_test() ->
+%     tutil:perf(
+%         10,
+%         fun() -> setup() end,
+%         fun() ->
+%             {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+%             model_groups:remove_members(Gid, [?UID1, ?UID2, ?UID3, ?UID4])
+%         end
+%     ).
+
+
+% add_member_perf_test() ->
+%     tutil:perf(
+%         10,
+%         fun() -> setup() end,
+%         fun() ->
+%             {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+%             model_groups:add_members(Gid, [?UID2, ?UID3, ?UID4, ?UID5], ?UID1)
+%         end
+%     ).
+
