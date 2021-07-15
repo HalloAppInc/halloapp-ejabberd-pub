@@ -126,7 +126,8 @@ block_uids(Uid, Ouids) ->
     BlockKey = block_key(Uid),
     Commands = lists:map(fun(Ouid) -> ["SADD", BlockKey, Ouid] end, Ouids),
     _Results = qp(Commands),
-    lists:foreach(fun(Ouid) -> q(["SADD", reverse_block_key(Ouid), Uid]) end, Ouids),
+    AddCommands = lists:map(fun(Ouid) -> ["SADD", reverse_block_key(Ouid), Uid] end, Ouids),
+    qmn(AddCommands),
     ok.
 
 
@@ -175,7 +176,8 @@ unblock_uid(Uid, Ouid) ->
 unblock_uids(_Uid, []) -> ok;
 unblock_uids(Uid, Ouids) ->
     {ok, _Res} = q(["SREM", block_key(Uid) | Ouids]),
-    lists:foreach(fun(Ouid) -> q(["SREM", reverse_block_key(Ouid), Uid]) end, Ouids),
+    ReverseCommands = lists:map(fun(Ouid) -> ["SREM", reverse_block_key(Ouid), Uid] end, Ouids),
+    qmn(ReverseCommands),
     ok.
 
 -spec get_only_uids(Uid :: uid()) -> {ok, list(binary())}.
@@ -272,6 +274,7 @@ decode_feed_privacy_list_type(undefined) -> all. %% default option is all.
 
 q(Command) -> ecredis:q(ecredis_accounts, Command).
 qp(Commands) -> ecredis:qp(ecredis_accounts, Commands).
+qmn(Commands) -> util_redis:run_qmn(ecredis_accounts, Commands).
 
 
 only_key(Uid) ->

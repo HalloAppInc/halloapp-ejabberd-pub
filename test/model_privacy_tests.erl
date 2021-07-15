@@ -162,3 +162,19 @@ is_blocked_test() ->
     ?assertEqual(ok, model_privacy:remove_user(?UID1)),
     ?assertEqual({ok, []}, model_privacy:get_blocked_uids(?UID1)).
 
+
+% block_perf_test() ->
+%     tutil:perf(
+%         1000,
+%         fun() -> setup() end,
+%         fun() -> ok = model_privacy:block_uids(?UID1, [?UID2, ?UID2, ?UID2, ?UID3, ?UID3]) end
+%     ).
+
+
+% unblock_perf_test() ->
+%     tutil:perf(
+%         1000,
+%         fun() -> setup() end, 
+%         fun() -> ok = model_privacy:unblock_uids(?UID1, [?UID2, ?UID2, ?UID2, ?UID3, ?UID3]) end
+%     ).
+
