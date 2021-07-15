@@ -57,14 +57,13 @@ failed_ping_test(_Conf) ->
 
 remonitor_test(_Conf) ->
     InitialPid = whereis(?BAD_PROC),
-    undefined =/= InitialPid,
+    true = undefined =/= InitialPid,
     true = is_monitored_gen_server(?BAD_PROC),
-    ha_bad_process:kill(),
-    ejabberd_monitor:ping_procs(),     % ?BAD_PROC doesn't get killed until next ping
-    timer:sleep(?REMONITOR_DELAY_MS),
+    ok = ha_bad_process:kill(),
+    timer:sleep(?REMONITOR_DELAY_MS * 2),
     FinalPid = whereis(?BAD_PROC),
-    InitialPid =/= FinalPid,
-    undefined =/= FinalPid,
+    true = InitialPid =/= FinalPid,
+    true = undefined =/= FinalPid,
     true = is_monitored_gen_server(?BAD_PROC).
 
 %% TODO(josh): figure out how to test this

@@ -45,7 +45,11 @@ be_mostly_slow() ->
     ok = gen_server:call(?PROC(), {update_behavior, mostly_slow}).
 
 kill() ->
-    ok = gen_server:call(?PROC(), {update_behavior, kill}).
+    try gen_server:call(?PROC(), {update_behavior, kill}) of
+        _ -> error(failed_to_kill)
+    catch
+        exit:{killed, _} -> ok
+    end.
 
 get(Key) ->
     gen_server:call(?PROC(), {get, Key}).
@@ -88,7 +92,10 @@ terminate(_Reason, _State) ->
 
 
 handle_call({update_behavior, Behavior}, _From, State) ->
-    {reply, ok, State#{state := Behavior}};
+    case Behavior of
+        kill -> {stop, killed, State};
+        _ -> {reply, ok, State#{state := Behavior}}
+    end;
 handle_call(Request, From, State) ->
     ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
@@ -107,7 +114,6 @@ handle_cast({ping, Id, Ts, From}, State) ->
                 false -> ok
             end,
             util_monitor:send_ack(self(), From, {ack, Id, Ts, self()});
-        kill -> {stop, killed, State};
         _ -> ?WARNING("Unexpected state: ~p", [maps:get(State, state)])
     end,
     {noreply, State};
