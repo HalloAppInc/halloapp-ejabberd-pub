@@ -271,7 +271,7 @@ request_otp(Phone, LangId, UserAgent, Method) ->
             ?ERROR("could not send otp Reason: ~p Phone: ~p", [Reason, Phone]),
             error(Reason);
         {error, Reason, RetryTs} = Error->
-            ?ERROR("could not send otp Reason: ~p Ts: ~p Phone: ~p", [Reason, RetryTs, Phone]),
+            ?INFO("could not send otp Reason: ~p Ts: ~p Phone: ~p", [Reason, RetryTs, Phone]),
             Error
     end.
 
