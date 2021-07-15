@@ -144,7 +144,7 @@ send_otp(OtpPhone, LangId, Phone, Code, UserAgent, Method) ->
                     {ok, NextTs - Timestamp};
                 {error, Reason} = Err ->
                     ?ERROR("Unable to send ~p: ~p  OtpPhone: ~p Phone: ~p ",
-                        [Method, Reason, Phone, OtpPhone]),
+                        [Method, Reason, OtpPhone, Phone]),
                     Err
             end
     end.
