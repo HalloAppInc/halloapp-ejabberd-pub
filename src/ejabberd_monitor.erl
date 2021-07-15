@@ -227,7 +227,8 @@ check_states(#state{gen_servers = GenServers} = State) ->
             case check_consecutive_fails(Mod, StateHistory) of
                 error -> ok;
                 ok -> check_slow_process(Mod, StateHistory)
-            end
+            end,
+            send_stats(Mod, StateHistory)
         end,
         GenServers),
     State.
@@ -289,6 +290,11 @@ get_num_fails(StateList) ->
         0,
         StateList
     ).
+
+send_stats(Mod, StateHistory) ->
+    Window = ?MINUTES_MS div ?PING_INTERVAL_MS,
+    SuccessRate = 1 - (get_num_fails(lists:sublist(StateHistory, Window)) / Window),
+    stat:gauge(?NS, "process_uptime", round(SuccessRate * 100), [{process_name, Mod}]).
 
 get_state_memory_size() ->
     ?STATE_HISTORY_LENGTH_MS div ?PING_INTERVAL_MS.

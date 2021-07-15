@@ -5,6 +5,8 @@
 
 -define(MONITOR_TABLE, ha_monitor).
 
+-define(NS, "HA/monitoring").
+
 -type fail_state() :: fail.
 -type alive_state() :: ok.
 -type proc_state() :: alive_state() | fail_state().
@@ -24,11 +26,11 @@
 %%====================================================================
 
 % processes are pinged every PING_INTERVAL_MS ms
--define(PING_INTERVAL_MS, 5 * ?SECONDS_MS).
+-define(PING_INTERVAL_MS, (5 * ?SECONDS_MS)).
 
 % save recent process states for STATE_HISTORY_LENGTH_MS seconds
 % actual history saved will be between STATE_HISTORY_LENGTH_MS and (2 * STATE_HISTORY_LENGTH)
--define(STATE_HISTORY_LENGTH_MS, 10 * ?MINUTES_MS).
+-define(STATE_HISTORY_LENGTH_MS, (10 * ?MINUTES_MS)).
 
 % if there are CONSECUTIVE_FAILURE_THRESHOLD failures in a row, trigger an alert
 -define(CONSECUTIVE_FAILURE_THRESHOLD,
@@ -38,13 +40,13 @@
     end).
 
 % if there are >= 50% fails for HALF_FAILURE_THRESHOLD_MS minutes, trigger an alert
--define(HALF_FAILURE_THRESHOLD_MS, 2 * ?MINUTES_MS).
+-define(HALF_FAILURE_THRESHOLD_MS, (2 * ?MINUTES_MS)).
 
 % a process will fail the ping if it takes longer than PING_TIMEOUT_MS to reply
 -define(PING_TIMEOUT_MS,
     case config:is_testing_env() of
         true -> 50;  % ms             % shorter timeout so tests run faster
-        false -> 5 * ?SECONDS_MS      % prod timeout
+        false -> (5 * ?SECONDS_MS)      % prod timeout
     end).
 
 % if a process goes down, attempt to remonitor it after REMONITOR_DELAY_MS
