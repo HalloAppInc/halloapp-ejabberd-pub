@@ -323,7 +323,6 @@ handle_cast({gauge, Namespace, Metric, Value, Tags}, State) ->
     {noreply, NewState};
 
 handle_cast({trigger_send}, State) ->
-    ?INFO("maybe rotate data"),
     NewState = maybe_rotate_data(State),
     {noreply, NewState};
 
