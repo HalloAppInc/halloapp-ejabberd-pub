@@ -25,7 +25,9 @@
     gen_keyb64/1,
     gen_otkb64/2,
     gen_otk/2,
-    gen_whisper_keys/2
+    gen_whisper_keys/2,
+    while/2,
+    perf/3
 ]).
 
 
@@ -100,3 +102,20 @@ gen_key(Bytes) ->
 
 gen_whisper_keys(N, Bytes) ->
     {gen_keyb64(Bytes), gen_keyb64(Bytes), gen_otkb64(N, Bytes)}.
+
+
+while(0, _F) -> ok;
+while(N, F) ->
+    erlang:apply(F, []),
+    while(N -1, F).
+
+
+perf(N, SetupFun, F) ->
+    SetupFun,
+    StartTime = util:now_ms(),
+    tutil:while(N, F),
+    EndTime = util:now_ms(),
+    T = EndTime - StartTime,
+    % ?debugFmt("~w operations took ~w ms => ~f ops ", [N, T, N / (T / 1000)]),
+    {ok, T}.
+

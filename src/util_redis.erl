@@ -25,7 +25,8 @@
     decode_boolean/2,
     encode_b64/1,
     decode_b64/1,
-    parse_zrange_with_scores/1
+    parse_zrange_with_scores/1,
+    run_qmn/2
 ]).
 
 
@@ -59,6 +60,7 @@ encode_maybe_binary(Bin) -> Bin.
 
 q(Client, Command) -> ecredis:q(Client, Command).
 qp(Client, Commands) -> ecredis:qp(Client, Commands).
+qmn(Client, Commands) -> ecredis:qmn(Client, Commands).
 
 
 encode_boolean(true) -> <<"1">>;
@@ -86,4 +88,15 @@ parse_zrange_with_scores([], Res) ->
     lists:reverse(Res);
 parse_zrange_with_scores([El, Score | Rest], Res) ->
     parse_zrange_with_scores(Rest, [{El, Score} | Res]).
+
+
+-spec run_qmn(Client :: atom(), Commands :: list()) -> list().
+run_qmn(Client, Commands) ->
+    case Commands of
+        [] -> [];
+        _ ->
+            Responses = qmn(Client, Commands),
+            lists:foreach(fun(Response) -> {ok, _} = Response end, Responses),
+            Responses
+    end.
 

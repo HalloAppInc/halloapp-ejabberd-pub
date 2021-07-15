@@ -574,3 +574,18 @@ get_export_test() ->
     ok.
 
 
+% cleanup_perf_test() ->
+%     tutil:perf(
+%         100,
+%         fun() -> setup() end,
+%         fun() -> ok = model_accounts:cleanup_uids_to_delete_keys() end
+%     ).
+
+
+% unsubscribe_perf_test() ->
+%     tutil:perf(
+%         100,
+%         fun() -> setup() end,
+%         fun() -> ok = model_accounts:presence_unsubscribe_all(?UID1) end
+%     ).
+

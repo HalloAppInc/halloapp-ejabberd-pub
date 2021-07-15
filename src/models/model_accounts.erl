@@ -617,10 +617,11 @@ presence_unsubscribe(Uid, Buid) ->
 -spec presence_unsubscribe_all(Uid :: uid()) -> ok.
 presence_unsubscribe_all(Uid) ->
     {ok, Buids} = q(["SMEMBERS", subscribe_key(Uid)]),
-    lists:foreach(fun (Buid) ->
-            {ok, _Res} = q(["SREM", broadcast_key(Buid), Uid])
+    UnsubscribeCommands = lists:map(fun (Buid) ->
+            ["SREM", broadcast_key(Buid), Uid]
         end,
         Buids),
+    qmn(UnsubscribeCommands),
     {ok, _} = q(["DEL", subscribe_key(Uid)]),
     ok.
 
@@ -696,11 +697,12 @@ count_version_keys() ->
 cleanup_version_keys([]) ->
     ok;
 cleanup_version_keys(Versions) ->
-    lists:foreach(
+    CleanupCommands = lists:map(
         fun (Slot) ->
-            {ok, _} = q(["HDEL", version_key(Slot) | Versions])
+            ["HDEL", version_key(Slot) | Versions]
         end,
         lists:seq(0, ?NUM_VERSION_SLOTS - 1)),
+    qmn(CleanupCommands),
     ok.
 
 
@@ -799,11 +801,12 @@ count_uids_to_delete() ->
 
 -spec cleanup_uids_to_delete_keys() -> ok.
 cleanup_uids_to_delete_keys() ->
-    lists:foreach(
+    DeleteCommands = lists:map(
         fun (Slot) ->
-            {ok, _} = q(["DEL", uids_to_delete_key(Slot)])
+            ["DEL", uids_to_delete_key(Slot)]
         end,
         lists:seq(0, ?NUM_SLOTS - 1)),
+    qmn(DeleteCommands),    
     ok.
 
 
@@ -880,7 +883,7 @@ test_set_export_time(Uid, Ts) ->
 q(Command) -> ecredis:q(ecredis_accounts, Command).
 qp(Commands) -> ecredis:qp(ecredis_accounts, Commands).
 qn(Command, Node) -> ecredis:qn(ecredis_accounts, Node, Command).
-qmn(Commands) -> ecredis:qmn(ecredis_accounts, Commands).
+qmn(Commands) -> util_redis:run_qmn(ecredis_accounts, Commands).
 get_node_list() -> ecredis:get_nodes(ecredis_accounts).
 
 ts_reply(Res) ->
