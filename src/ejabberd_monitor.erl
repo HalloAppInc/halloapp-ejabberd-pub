@@ -32,7 +32,7 @@
 -export([
     get_monitored_procs/0,
     ping_procs/0,
-    monitor/2,
+    monitor/1,
     get_state_history/1,
     try_remonitor/1
 ]).
@@ -56,9 +56,9 @@ get_monitored_procs() ->
 ping_procs() ->
     gen_server:cast(?MODULE, ping_procs).
 
--spec monitor(Proc :: atom() | pid(), IsGenServer :: boolean()) -> ok.
-monitor(Proc, IsGenServer) ->
-    gen_server:cast(?MODULE, {monitor, Proc, IsGenServer}),
+-spec monitor(Proc :: atom() | pid()) -> ok.
+monitor(Proc) ->
+    gen_server:cast(?MODULE, {monitor, Proc}),
     ok.
 
 -spec get_state_history(Mod :: atom()) -> list(proc_state()).
@@ -73,7 +73,7 @@ try_remonitor(Proc) ->
         undefined ->
             ?ERROR("Process ~p unable to be found, cannot remonitor", [Proc]),
             {ok, _TRef} = timer:apply_after(?REMONITOR_DELAY_MS, ?MODULE, try_remonitor, [Proc]);
-        _Pid -> gen_server:cast(?MODULE, {monitor, Proc, not lists:member(Proc, get_supervisors())})
+        _Pid -> gen_server:cast(?MODULE, {monitor, Proc})
     end.
 
 get_gen_servers() ->
@@ -127,12 +127,12 @@ handle_cast(ping_procs, State) ->
     NewState3 = send_pings(NewState2),
     {noreply, NewState3};
 
-handle_cast({monitor, Proc, IsGenServer}, #state{monitors = Monitors, gen_servers = GenServers} = State) ->
+handle_cast({monitor, Proc}, #state{monitors = Monitors, gen_servers = GenServers} = State) ->
     Pid = whereis(Proc),
     ?INFO("Monitoring process name: ~p, pid: ~p", [Proc, Pid]),
     Ref = erlang:monitor(process, Proc),
     NewState = State#state{monitors = Monitors#{Ref => Proc}},
-    NewState2 = case IsGenServer of
+    NewState2 = case is_gen_server(Proc) of
         true -> NewState#state{gen_servers = [Proc | GenServers]};
         false -> NewState
     end,
@@ -168,8 +168,9 @@ handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors} = S
         _ -> alerts:send_process_down_alert(Proc, <<"Process is dead">>)
     end,
     NewMonitors = maps:remove(Ref, State#state.monitors),
+    NewGenServers = lists:delete(Proc, State#state.gen_servers),
     {ok, _TRef} = timer:apply_after(?REMONITOR_DELAY_MS, ?MODULE, try_remonitor, [Proc]),
-    FinalState = State#state{monitors = NewMonitors},
+    FinalState = State#state{monitors = NewMonitors, gen_servers = NewGenServers},
     {noreply, FinalState};
 
 handle_info(Info, State) ->
@@ -187,18 +188,17 @@ code_change(_OldVsn, State, _Extra) ->
 monitor_ejabberd_processes() ->
     %% TODO: we pass true/false to monitor if a mod is a gen_server,
     %% we should update this to be more dynamic
-    lists:foreach(fun(Mod) -> ejabberd_monitor:monitor(Mod, true) end, get_gen_servers()),
-    lists:foreach(fun(Mod) -> ejabberd_monitor:monitor(Mod, false) end, get_supervisors()),
+    lists:foreach(fun(Mod) -> ejabberd_monitor:monitor(Mod) end, get_supervisors() ++ get_gen_servers()),
     %% Monitor all our child gen_servers of ejabberd_gen_mod_sup.
     lists:foreach(
         fun ({ChildId, _, _, _}) ->
-            ejabberd_monitor:monitor(ChildId, true)
+            ejabberd_monitor:monitor(ChildId)
         end, supervisor:which_children(ejabberd_gen_mod_sup)),
 
     %% Monitor all our redis cluster clients - children of redis_sup.
     lists:foreach(
         fun ({ChildId, _, _, _}) ->
-            ejabberd_monitor:monitor(ChildId, true)
+            ejabberd_monitor:monitor(ChildId)
         end, supervisor:which_children(redis_sup)),
     ok.
 
@@ -292,4 +292,7 @@ get_num_fails(StateList) ->
 
 get_state_memory_size() ->
     ?STATE_HISTORY_LENGTH_MS div ?PING_INTERVAL_MS.
+
+is_gen_server(Proc) ->
+    not lists:member(Proc, get_supervisors()).
 
