@@ -396,15 +396,17 @@ check_has_inviter_test() ->
 get_group_info_test() ->
     setup(),
     GroupName = <<"GroupName1">>,
+    Avatar = <<"avatar1">>,
     {ok, Group} = mod_groups:create_group(?UID, GroupName),
     Gid = Group#group.gid,
+    mod_groups:set_avatar(Gid, ?UID, Avatar),
     ?assertEqual(true, model_groups:is_admin(Gid, ?UID)),
     {ok, Link} = mod_groups:get_invite_link(Gid, ?UID),
     Data = jiffy:encode(#{group_invite_token => Link}),
     {200, _, ResultJson} = mod_halloapp_http_api:process(?REQUEST_GET_GROUP_INFO_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     Result = jiffy:decode(ResultJson, [return_maps]),
-    ExpectedResult = #{<<"result">> => <<"ok">>, <<"name">> => GroupName},
+    ExpectedResult = #{<<"result">> => <<"ok">>, <<"name">> => GroupName, <<"avatar">> => Avatar},
     ?assertEqual(ExpectedResult, Result),
 
     BadData = jiffy:encode(#{group_invite_token => <<"foobar">>}),

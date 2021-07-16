@@ -410,5 +410,7 @@ web_preview_invite_link_test() ->
     {ok, Group, _} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     Gid = Group#group.gid,
     {ok, Link} = mod_groups:get_invite_link(Gid, ?UID1),
-    ?assertEqual({ok, ?GROUP_NAME1}, mod_groups:web_preview_invite_link(Link)),
+    ?assertEqual(
+        {ok, ?GROUP_NAME1, null},
+        mod_groups:web_preview_invite_link(Link)),
     ok.

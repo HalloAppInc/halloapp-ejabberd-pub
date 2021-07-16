@@ -145,8 +145,12 @@ process([<<"registration">>, <<"get_group_info">>],
         case mod_groups:web_preview_invite_link(GroupInviteToken) of
             {error, invalid_invite} ->
                 util_http:return_400(invalid_invite);
-            {ok, Name} ->
-                {200, ?HEADER(?CT_JSON), jiffy:encode(#{result => ok, name => Name})}
+            {ok, Name, Avatar} ->
+                {200, ?HEADER(?CT_JSON), jiffy:encode(#{
+                    result => ok,
+                    name => Name,
+                    avatar => Avatar
+                })}
         end
     catch
         error : bad_user_agent ->

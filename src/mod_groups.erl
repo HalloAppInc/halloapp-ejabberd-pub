@@ -514,7 +514,8 @@ preview_with_invite_link(Uid, Link) ->
     end.
 
 
--spec web_preview_invite_link(Link :: binary()) -> {ok, GroupName :: binary()} | {error, term()}.
+-spec web_preview_invite_link(Link :: binary()) ->
+    {ok, GroupName :: binary(), Avatar :: binary() | null} | {error, term()}.
 web_preview_invite_link(Link) ->
     ?INFO("Link: ~s", [Link]),
     case model_groups:get_invite_link_gid(Link) of
@@ -524,8 +525,12 @@ web_preview_invite_link(Link) ->
                 undefined ->
                     ?ERROR("Group not found ~p", [Gid]),
                     {error, invalid_invite};
-                #group_info{name = Name} ->
-                    {ok, Name}
+                #group_info{name = Name, avatar = Avatar} ->
+                    Avatar2 = case Avatar of
+                        undefined -> null;
+                        _ -> Avatar
+                    end,
+                    {ok, Name, Avatar2}
             end
     end.
 
