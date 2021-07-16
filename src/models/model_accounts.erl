@@ -47,6 +47,7 @@
     is_account_deleted/1,
     get_account/1,
     get_phone/1,
+    get_phones/1,
     set_name/2,
     get_name/1,
     get_name_binary/1,
@@ -328,6 +329,15 @@ get_phone(Uid) ->
         undefined -> {error, missing};
         Res -> {ok, Res}
     end.
+
+
+get_phones(Uids) ->
+    Commands = lists:map(
+        fun(Uid) ->
+            ["HGET", account_key(Uid), ?FIELD_PHONE]
+        end, Uids),
+    Results = qmn(Commands),
+    lists:map(fun({ok, Result}) -> Result end, Results).
 
 
 -spec get_creation_ts_ms(Uid :: uid()) -> {ok, integer()} | {error, missing}.

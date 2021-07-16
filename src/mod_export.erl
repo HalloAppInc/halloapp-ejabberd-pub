@@ -284,8 +284,20 @@ get_privacy_lists(Uid) ->
 
     #{
         active_type => PrivacyType,
-        only_list => OnlyList,
-        except_list => ExceptList,
-        blocked_list => BlockedList,
-        mute_list => MuteList
+        only_list => format_privacy_list(OnlyList),
+        except_list => format_privacy_list(ExceptList),
+        blocked_list => format_privacy_list(BlockedList),
+        mute_list => format_privacy_list(MuteList)
     }.
+
+format_privacy_list(Uids) ->
+    Phones = model_accounts:get_phones(Uids),
+    lists:map(
+        fun
+            ({Uid, undefined}) ->
+                #{uid => Uid, phone => undefined};
+            ({Uid, Phone}) ->
+                #{uid => Uid, phone => <<"+", Phone/binary>>}
+        end,
+        lists:zip(Uids, Phones)).
+
