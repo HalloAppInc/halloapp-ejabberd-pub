@@ -143,7 +143,7 @@ get_latest_verify_info(AllVerifyInfoList) ->
         fun(Info) ->
             Info#verification_info.gateway =/= <<"twilio_verify">>
         end, lists:reverse(AllVerifyInfoList)),
-    Deadline = integer_to_binary(util:now() - ?TTL_SMS_SID),
+    Deadline = util:now() - ?TTL_SMS_SID,
     case TwilioVerifyList of
         [] -> [];
         _ ->

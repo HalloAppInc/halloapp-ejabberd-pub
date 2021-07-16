@@ -199,7 +199,8 @@ get_all_verification_info(Phone) ->
         fun(VerifyInfo, VerificationAttempt) ->
             {ok, [Code, Gateway, Sid]} = VerifyInfo,
             {Attempt, TS} = VerificationAttempt,
-            #verification_info{gateway = Gateway, attempt_id = Attempt, code = Code, sid = Sid, ts = TS}
+            #verification_info{gateway = Gateway, attempt_id = Attempt,
+                code = Code, sid = Sid, ts = binary_to_integer(TS)}
         end, VerifyInfoList, VerificationAttemptList),
     {ok, CombinedList}.
 
