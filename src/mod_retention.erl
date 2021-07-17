@@ -107,7 +107,7 @@ dump_account(Uid) ->
         ok
     catch
         Class : Reason : St ->
-            ?ERROR("failed to dump account to log: ~p", [lager:pr(St, {Class, Reason})])
+            ?ERROR("failed to dump account to log: ~p", [lager:pr_stacktrace(St, {Class, Reason})])
     end.
 
 
