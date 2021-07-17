@@ -287,7 +287,6 @@ smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
         <<"CZ">> -> twilio_verify;     %% Czech Republic
         <<"EG">> -> twilio_verify;     %% Egypt
         <<"ET">> -> mbird;      %% Ethiopia
-        <<"GH">> -> twilio;     %% GHANA
         <<"ID">> -> twilio_verify;     %% Indonesia
         <<"IR">> -> twilio_verify;     %% Iran
         <<"JO">> -> twilio_verify;     %% Jordan
