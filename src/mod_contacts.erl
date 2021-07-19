@@ -380,10 +380,10 @@ finish_sync(UserId, _Server, SyncId) ->
     end,
 
     ?INFO("FullSync stats: uid: ~p, NumNewContacts: ~p, NumUidContacts: ~p, NumFriendContacts: ~p",
-        [UserId, lists:length(NewContactList), lists:length(RegisteredContacts), lists:length(FriendContacts)]),
-    stat:count("HA/contacts", "sync_new_contacts", lists:length(NewContactList)),
-    stat:count("HA/contacts", "sync_uid_contacts", lists:length(RegisteredContacts)),
-    stat:count("HA/contacts", "sync_friend_contacts", lists:length(FriendContacts)),
+        [UserId, length(NewContactList), length(RegisteredContacts), length(FriendContacts)]),
+    stat:count("HA/contacts", "sync_new_contacts", length(NewContactList)),
+    stat:count("HA/contacts", "sync_uid_contacts", length(RegisteredContacts)),
+    stat:count("HA/contacts", "sync_friend_contacts", length(FriendContacts)),
 
 
     %% Check if any new contacts were uploaded in this sync - if yes - then update sync status.
