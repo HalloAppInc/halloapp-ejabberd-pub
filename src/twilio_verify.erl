@@ -26,22 +26,22 @@
 
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
-send_sms(Phone, Code, _LangId, _UserAgent) ->
-    send_verification(Phone, Code, "sms").
+send_sms(Phone, Code, LangId, _UserAgent) ->
+    send_verification(Phone, Code, LangId, "sms").
 
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, call_fail}.
-send_voice_call(Phone, Code, _LangId, _UserAgent) -> 
-    send_verification(Phone, Code, "call").
+send_voice_call(Phone, Code, LangId, _UserAgent) -> 
+    send_verification(Phone, Code, LangId, "call").
 
 
--spec send_verification(Phone :: phone(), Code :: binary(), Method :: string())
+-spec send_verification(Phone :: phone(), Code :: binary(), LangId :: binary(), Method :: string())
      -> {ok, gateway_response()} | {error, sms_fail} | {error, call_fail}.
-send_verification(Phone, Code, Method) ->
+send_verification(Phone, Code, LangId, Method) ->
     URL = ?VERIFICATION_URL,
     [Headers, Type, HTTPOptions, Options] = fetch_headers(),
-    Body = compose_send_body(Phone, Code, Method),
+    Body = compose_send_body(Phone, Code, LangId, Method),
     ?DEBUG("Body: ~p", [Body]),
     Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
     ?DEBUG("Response: ~p", [Response]),
@@ -95,13 +95,15 @@ fetch_headers() ->
     [Headers, Type, [], []].
 
 
--spec compose_send_body(Phone :: phone(), Code :: binary(), Method :: string()) -> uri_string:uri_string().
-compose_send_body(Phone, Code, Method) ->
+-spec compose_send_body(Phone :: phone(), Code :: binary(), LangId :: binary(),
+        Method :: string()) -> uri_string:uri_string().
+compose_send_body(Phone, Code, LangId, Method) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
     uri_string:compose_query([
         {"To", PlusPhone },
         {"Channel", Method},
-        {"CustomCode", Code}
+        {"CustomCode", Code},
+        {"Locale", get_verify_lang(LangId)}
     ], [{encoding, utf8}]).
 
 
@@ -154,4 +156,88 @@ get_latest_verify_info(AllVerifyInfoList) ->
                 false -> []
             end
     end.
+
+
+%% Doc: https://www.twilio.com/docs/verify/supported-languages
+-spec get_verify_lang(LangId :: binary()) -> string().
+get_verify_lang(LangId) ->
+    VerifyLangMap = get_verify_lang_map(),
+    maps:get(LangId, VerifyLangMap, ?ENG_LANG_ID).
+
+
+get_verify_lang_map() ->
+    #{
+        %% Afrikaans
+        <<"af">> => "af",
+        %% Arabic
+        <<"ar">> => "ar",
+        %% Catalan
+        <<"ca">> => "ca",
+        %% Chinese (Simplified using mainland terms)
+        <<"zh">> => "zh",
+        %% Chinese (Simplified using mainland terms)
+        <<"zh-CN">> => "zh-CN",
+        %% Chinese (Simplified using Hong Kong terms)
+        <<"zh-HK">> => "zh-HK",
+        %% Croatian
+        <<"hr">> => "hr",
+        %% Czech
+        <<"cs">> => "cs",
+        %% Danish
+        <<"da">> => "da",
+        %% Dutch
+        <<"nl">> => "nl",
+        %% English (American)
+        <<"en-US">> => "en",
+        %% English (British)
+        <<"en-GB">> => "en-GB",
+        %% Finnish
+        <<"fi">> => "fi",
+        %% French
+        <<"fr">> => "fr",
+        %% German
+        <<"de">> => "de",
+        %% Greek
+        <<"el">> => "el",
+        %% Hebrew
+        <<"he">> => "he",
+        %% Hindi
+        <<"hi">> => "hi",
+        %% Hungarian
+        <<"hu">> => "hu",
+        %% Indonesian
+        <<"id">> => "id",
+        %% Italian
+        <<"it">> => "it",
+        %% Japanese
+        <<"ja">> => "ja",
+        %% Korean
+        <<"ko">> => "ko",
+        %% Malay
+        <<"ms">> => "ms",
+        %% Norwegian
+        <<"nb">> => "nb",
+        %% Polish
+        <<"pl">> => "pl",
+        %% Portuguese - Brazil
+        <<"pt-BR">> => "pt-BR",
+        %% Portuguese
+        <<"pt-PT">> => "pt",
+        %% Romanian
+        <<"ro">> => "ro",
+        %% Russian
+        <<"ru">> => "ru",
+        %% Spanish
+        <<"es">> => "es",
+        %% Swedish
+        <<"sv">> => "sv",
+        %% Tagalog
+        <<"tl">> => "tl",
+        %% Thai
+        <<"th">> => "th",
+        %% Turkish
+        <<"tr">> => "tr",
+        %% Vietnamese
+        <<"vi">> => "vi"
+    }.
 
