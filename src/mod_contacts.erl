@@ -379,6 +379,13 @@ finish_sync(UserId, _Server, SyncId) ->
         ok -> ok
     end,
 
+    ?INFO("FullSync stats: uid: ~p, NumNewContacts: ~p, NumUidContacts: ~p, NumFriendContacts: ~p",
+        [UserId, lists:length(NewContactList), lists:length(RegisteredContacts), lists:length(FriendContacts)]),
+    stat:count("HA/contacts", "sync_new_contacts", lists:length(NewContactList)),
+    stat:count("HA/contacts", "sync_uid_contacts", lists:length(RegisteredContacts)),
+    stat:count("HA/contacts", "sync_friend_contacts", lists:length(FriendContacts)),
+
+
     %% Check if any new contacts were uploaded in this sync - if yes - then update sync status.
     %% checking this will help us set this field only for non-empty full contact sync.
     case NewContactList =/= [] of
@@ -471,6 +478,9 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     end,
     Time9 = os:system_time(microsecond),
     ?INFO("Timetaken:sync/add_contacts: ~w us", [Time9 - Time8]),
+
+    ?INFO("Uid: ~p, NumContacts: ~p, NumUidContacts: ~p, NumFriendContacts: ~p",
+        [UserId, length(Contacts), length(RegisteredContacts2), length(FriendContacts2)]),
 
     %% Return all contacts. Includes the following:
     %% - un-normalized phone numbers
