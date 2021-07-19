@@ -35,7 +35,8 @@
     set_full_sync_retry_time/0,
     set_full_sync_error_percent/1,
     set_full_sync_retry_time/1,
-    get_sync_error_retry_time/0
+    get_full_sync_error_percent/0,
+    get_full_sync_retry_time/0
 ]).
 
 -export([
@@ -76,7 +77,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 
 set_full_sync_error_percent(SyncErrorPercent)
-        when SyncErrorPercent >= 0 andalso SyncErrorPercent < 100 ->
+        when SyncErrorPercent >= 0 andalso SyncErrorPercent =< 100 ->
     true = ets:insert(?CONTACT_OPTIONS_TABLE,
         {sync_error_percent, SyncErrorPercent}),
     ok.
@@ -91,7 +92,14 @@ set_full_sync_retry_time(SyncRetryTime) ->
     ok.
 
 
-get_sync_error_retry_time() ->
+get_full_sync_error_percent() ->
+    case lookup_contact_options_table(sync_error_percent) of
+        [] -> undefined;
+        [{sync_error_percent, SyncErrorPercent}] -> SyncErrorPercent
+    end.
+
+
+get_full_sync_retry_time() ->
     case lookup_contact_options_table(sync_error_retry_time) of
         [] -> undefined;
         [{sync_error_retry_time, SyncRetryTime}] -> SyncRetryTime
