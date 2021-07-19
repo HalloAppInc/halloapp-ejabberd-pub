@@ -98,16 +98,16 @@ parse(Number, RegionId) ->
         {ok, PhoneNumberState} ->
             case PhoneNumberState#phone_number_state.valid of
                 true ->
-                    ?INFO("success parsed |~s| -> ~p", [Number, PhoneNumberState]),
+                    phone_norm:info("success parsed |~s| -> ~p", [Number, PhoneNumberState]),
                     list_to_binary(PhoneNumberState#phone_number_state.e164_value);
                 _ ->
-                    ?INFO("Failed parsing |~s| -> ~p", [Number, PhoneNumberState]),
+                    phone_norm:info("Failed parsing |~s| -> ~p", [Number, PhoneNumberState]),
                     <<>> % Use empty string as normalized number for now.
             end;
         {error, Reason} ->
             case length(phone_number_util:normalize(binary_to_list(Number))) > 5 of
-                true -> ?INFO("Failed parsing |~s|, with reason: ~s", [Number, Reason]);
-                false -> ?INFO("Failed parsing |~s|, with reason: ~s", [Number, Reason])
+                true -> phone_norm:error("Failed parsing |~s|, with reason: ~s", [Number, Reason]);
+                false -> phone_norm:warning("Failed parsing |~s|, with reason: ~s", [Number, Reason])
             end,
             <<>> % Use empty string as normalized number for now.
     end.

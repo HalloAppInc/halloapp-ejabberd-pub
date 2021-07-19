@@ -136,6 +136,7 @@ do_start(Level) ->
     Dir = filename:dirname(ConsoleLog),
     ErrorLog = filename:join([Dir, "error.log"]),
     MsgTraceLog = filename:join([Dir, "msg_trace.log"]),
+    PhoneNormLog = filename:join([Dir, "phone_norm.log"]),
     CrashLog = filename:join([Dir, "crash.log"]),
     LogRotateDate = get_string_env(log_rotate_date, ""),
     LogRotateSize = get_integer_env(log_rotate_size, 10*1024*1024),
@@ -191,6 +192,21 @@ do_start(Level) ->
                     {level, info},
                     {formatter, lager_default_formatter},
                     {formatter_config, HalloappTraceFormatterConfig},
+                    {date, LogRotateDate},
+                    {count, LogRotateCount},
+                    {size, 0}]
+                }]
+            },
+            {async_threshold, 500},
+            {async_threshold_window, 50}]
+        },
+        {phone_norm_lager_event, [
+            {handlers, [
+                {lager_file_backend, [
+                    {file, PhoneNormLog},
+                    {level, info},
+                    {formatter, lager_default_formatter},
+                    {formatter_config, HalloappFormatterConfigFile},
                     {date, LogRotateDate},
                     {count, LogRotateCount},
                     {size, 0}]

@@ -95,7 +95,7 @@ parse_phone_number(PhoneNumber, DefaultRegionId) ->
                 {ok, PhoneNumberState4}
         end
     catch Class:Reason2:St ->
-        ?ERROR("Failed parsing phone |~s| with reason: ~s",
+        phone_norm:error("Failed parsing phone |~s| with reason: ~s",
             [PhoneNumber, lager:pr_stacktrace(St, {Class, Reason2})]),
         {error, Reason2}
     end.
