@@ -44,7 +44,7 @@ ping_test(_Conf) ->
                 _ -> ok
             end
         end,
-        (sys:get_state(ejabberd_monitor))#state.gen_servers).
+        (sys:get_state(?MONITOR_GEN_SERVER))#state.gen_servers).
 
 failed_ping_test(_Conf) ->
     ha_bad_process:be_slow(),
@@ -78,5 +78,5 @@ remonitor_test(_Conf) ->
 %%% Internal functions %%%
 
 is_monitored_gen_server(Mod) ->
-    lists:member(Mod, (sys:get_state(ejabberd_monitor))#state.gen_servers).
+    lists:member(Mod, (sys:get_state(?MONITOR_GEN_SERVER))#state.gen_servers).
 

@@ -231,8 +231,9 @@ handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
-handle_info({nodeup, Node, _InfoList}, State) ->
+handle_info({nodeup, Node, InfoList}, State) ->
     ?INFO("Node ~ts has joined the cluster.", [Node]),
+    ejabberd_hooks:run(new_node, [Node, InfoList]),
     {noreply, State};
 handle_info({nodedown, Node, InfoList}, State) ->
     Reason = proplists:get_value(nodedown_reason, InfoList),

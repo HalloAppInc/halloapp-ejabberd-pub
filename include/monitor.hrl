@@ -5,6 +5,8 @@
 
 -define(MONITOR_TABLE, ha_monitor).
 
+-define(MONITOR_GEN_SERVER, {global, ejabberd_monitor:get_registered_name()}).
+
 -define(NS, "HA/monitoring").
 
 -type fail_state() :: fail.
@@ -14,11 +16,13 @@
 -define(ALIVE_STATE, ok).
 -define(FAIL_STATE, fail).
 
+%% TODO(josh): remove global_monitoring from state after all machines have globally registered ejabberd monitors
 -record(state, {
     monitors :: maps:map(),
     active_pings :: maps:map(),
     gen_servers :: [atom()],
-    tref :: timer:tref()
+    tref :: timer:tref(),
+    global_monitoring :: boolean()
 }).
 
 %%====================================================================

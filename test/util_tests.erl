@@ -20,3 +20,10 @@ random_shuffle_test() ->
     ?assertEqual(L, lists:sort(Result)),
     ?assertEqual([], util:random_shuffle([])),
     ok.
+
+get_shard_test() ->
+    ?assertEqual(util:get_stest_shard_num(), util:get_shard('ejabberd@s-test')),
+    ?assertEqual(4, util:get_shard('ejabberd@prod4')),
+    ?assertEqual(12, util:get_shard('ejabberd@prod12')),
+    ?assertEqual(undefined, util:get_shard('ejabberd@localhost')).
+

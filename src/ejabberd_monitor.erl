@@ -32,33 +32,47 @@
 -export([
     get_monitored_procs/0,
     ping_procs/0,
+    new_node/2,
     monitor/1,
     get_state_history/1,
-    try_remonitor/1
+    try_remonitor/1,
+    get_registered_name/0,
+    get_registered_name/1,
+    %% TODO(josh): remove this api after all machines have globally registered ejabberd monitors
+    enable_global_monitoring/0
 ]).
 
 %%====================================================================
 %% API
 %%====================================================================
 
+enable_global_monitoring() ->
+    gen_server:call(?MONITOR_GEN_SERVER, enable_global_monitoring),
+    monitor_other_monitors(),
+    ok.
+
 start_link() ->
     ?INFO("Starting monitoring process: ~p", [?MODULE]),
-    Result = gen_server:start_link({local, ?MODULE}, ?MODULE, [], []),
+    Result = gen_server:start_link(?MONITOR_GEN_SERVER, ?MODULE, [], []),
     monitor_ejabberd_processes(),
+    monitor_other_monitors(),
     Result.
 
 stop() ->
     ejabberd_sup:stop_child(?MODULE).
 
 get_monitored_procs() ->
-    gen_server:call(?MODULE, get_monitored_procs).
+    gen_server:call(?MONITOR_GEN_SERVER, get_monitored_procs).
 
 ping_procs() ->
-    gen_server:cast(?MODULE, ping_procs).
+    gen_server:cast(?MONITOR_GEN_SERVER, ping_procs).
+
+new_node(Node, _InfoList) ->
+    monitor({global, ejabberd_monitor:get_registered_name(Node)}).
 
 -spec monitor(Proc :: atom() | pid()) -> ok.
 monitor(Proc) ->
-    gen_server:cast(?MODULE, {monitor, Proc}),
+    gen_server:cast(?MONITOR_GEN_SERVER, {monitor, Proc}),
     ok.
 
 -spec get_state_history(Mod :: atom()) -> list(proc_state()).
@@ -68,12 +82,31 @@ get_state_history(Mod) ->
         [{Mod, StateHistory}] -> StateHistory
     end.
 
+try_remonitor({global, Name} = Proc) ->
+    case global:whereis_name(Name) of
+        undefined ->
+            {ok, _TRef} = timer:apply_after(?REMONITOR_DELAY_MS, ?MODULE, try_remonitor, [Proc]);
+        _Pid -> monitor(Proc)
+    end;
 try_remonitor(Proc) ->
     case whereis(Proc) of
         undefined ->
             ?ERROR("Process ~p unable to be found, cannot remonitor", [Proc]),
             {ok, _TRef} = timer:apply_after(?REMONITOR_DELAY_MS, ?MODULE, try_remonitor, [Proc]);
-        _Pid -> gen_server:cast(?MODULE, {monitor, Proc})
+        _Pid -> monitor(Proc)
+    end.
+
+get_registered_name() ->
+    get_registered_name(node()).
+
+-spec get_registered_name(Node :: atom()) -> atom().
+get_registered_name(Node) ->
+    Shard = util:get_shard(Node),
+    case Shard of
+        undefined ->
+            [Name | _] = string:split(util:to_list(Node), <<"@">>),
+            util:to_atom(lists:concat([?MODULE, ".", Name]));
+        _ -> util:to_atom(lists:concat([?MODULE, ".", Shard]))
     end.
 
 get_gen_servers() ->
@@ -100,18 +133,28 @@ get_supervisors() ->
 
 %% Since, if this process crashes: restarting this process will lose all our monitor references.
 init([]) ->
-    ?INFO("Start: ~p", [?MODULE]),
+    ?INFO("Start: ~p", [?MONITOR_GEN_SERVER]),
     {ok, TRef} = timer:apply_interval(?PING_INTERVAL_MS, ?MODULE, ping_procs, []),
     ets:new(?MONITOR_TABLE, [named_table, public]),
-    {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [], tref = TRef}}.
+    ejabberd_hooks:add(new_node, ?MODULE, new_node, 0),
+    {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [], tref = TRef,
+        global_monitoring = false}}.
 
 
 terminate(_Reason, #state{tref = TRef} = _State) ->
-    ?INFO("Terminate: ~p", [?MODULE]),
+    ?INFO("Terminate: ~p", [?MONITOR_GEN_SERVER]),
     timer:cancel(TRef),
     ets:delete(?MONITOR_TABLE),
+    ejabberd_hooks:delete(new_node, ?MODULE, monitor, 0),
     ok.
 
+%% TODO(josh): remove this api after all machines have globally registered ejabberd monitors
+handle_call(get_global_monitoring_status, _From, #state{global_monitoring = GM} = State) ->
+    {reply, GM, State};
+
+%% TODO(josh): remove this api after all machines have globally registered ejabberd monitors
+handle_call(enable_global_monitoring, _From, State) ->
+    {reply, ok, State#state{global_monitoring = true}};
 
 handle_call(get_monitored_procs, _From, #state{monitors = Monitors} = State) ->
     {reply, maps:values(Monitors), State};
@@ -127,6 +170,33 @@ handle_cast(ping_procs, State) ->
     NewState3 = send_pings(NewState2),
     {noreply, NewState3};
 
+handle_cast({monitor, {global, Name} = Proc}, #state{monitors = Monitors, gen_servers = GenServers,
+        global_monitoring = GM} = State) ->
+    %% TODO(josh): remove this case after all machines have globally registered ejabberd monitors
+    case GM of
+        false -> NewState2 = State;
+        true ->
+            Pid = global:whereis_name(Name),
+            NewState2 = case lists:member(Proc, maps:values(Monitors)) of
+                true -> State;
+                false ->
+                    NewState = case Pid of
+                        undefined ->
+                           try_remonitor(Proc),
+                           State;
+                        _ ->
+                           ?INFO("Monitoring global process name: ~p, pid: ~p", [Name, Pid]),
+                           Ref = erlang:monitor(process, Pid),
+                           State#state{monitors = Monitors#{Ref => Proc}}
+                    end,
+                    case lists:member(Proc, GenServers) of
+                        true -> NewState;
+                        false -> NewState#state{gen_servers = [Proc | GenServers]}
+                    end
+            end
+    end,
+    {noreply, NewState2};
+
 handle_cast({monitor, Proc}, #state{monitors = Monitors, gen_servers = GenServers} = State) ->
     Pid = whereis(Proc),
     ?INFO("Monitoring process name: ~p, pid: ~p", [Proc, Pid]),
@@ -137,6 +207,10 @@ handle_cast({monitor, Proc}, #state{monitors = Monitors, gen_servers = GenServer
         false -> NewState
     end,
     {noreply, NewState2};
+
+handle_cast({ping, Id, Ts, From}, State) ->
+    util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
+    {noreply, State};
 
 handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
@@ -165,7 +239,16 @@ handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors} = S
     Proc = maps:get(Ref, Monitors, undefined),
     case Proc of
         undefined -> ?ERROR("Monitor's reference missing: ~p", [Ref]);
-        _ -> alerts:send_process_down_alert(Proc, <<"Process is dead">>)
+        {global, Name} ->
+            case Reason of
+                shutdown -> ?INFO("Remote monitor at ~p shutdown", [node(Pid)]);
+                _ -> alerts:send_process_down_alert(Name, <<"Monitor is dead">>)
+            end;
+        _ ->
+            [_, Node] = binary:split(util:to_binary(node()), <<"@">>),
+            BProc = util:to_binary(Proc),
+            Name = <<BProc/binary, ".", Node/binary>>,
+            alerts:send_process_down_alert(Name, <<"Process is dead">>)
     end,
     NewMonitors = maps:remove(Ref, State#state.monitors),
     NewGenServers = lists:delete(Proc, State#state.gen_servers),
@@ -186,8 +269,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 
 monitor_ejabberd_processes() ->
-    %% TODO: we pass true/false to monitor if a mod is a gen_server,
-    %% we should update this to be more dynamic
     lists:foreach(fun(Mod) -> ejabberd_monitor:monitor(Mod) end, get_supervisors() ++ get_gen_servers()),
     %% Monitor all our child gen_servers of ejabberd_gen_mod_sup.
     lists:foreach(
@@ -201,6 +282,34 @@ monitor_ejabberd_processes() ->
             ejabberd_monitor:monitor(ChildId)
         end, supervisor:which_children(redis_sup)),
     ok.
+
+
+monitor_other_monitors() ->
+    %% TODO(josh): remove this api after all machines have globally registered ejabberd monitors
+    case gen_server:call(?MONITOR_GEN_SERVER, get_global_monitoring_status) of
+        false -> ok;
+        true ->
+            STestShardNum = util:get_stest_shard_num(),
+            ToMonitor = case util:get_shard() of
+                undefined -> all;
+                STestShardNum -> all;
+                0 -> stest;
+                1 -> stest;
+                2 -> stest;
+                _ -> none
+            end,
+            MonitorList = case ToMonitor of
+                all ->
+                  lists:map(
+                      fun(N) -> {global, get_registered_name(N)} end,
+                      nodes());
+                stest -> [{global, get_registered_name('ejabberd@s-test')}];
+                none -> []
+            end,
+            lists:foreach(fun monitor/1, MonitorList)
+    end,
+    ok.
+
 
 check_ping_map(#state{active_pings = PingMap} = State) ->
     %% Check Ping Map and record ?FAIL_STATE for any leftover pings
@@ -294,7 +403,12 @@ get_num_fails(StateList) ->
 send_stats(Mod, StateHistory) ->
     Window = ?MINUTES_MS div ?PING_INTERVAL_MS,
     SuccessRate = 1 - (get_num_fails(lists:sublist(StateHistory, Window)) / Window),
-    stat:gauge(?NS, "process_uptime", round(SuccessRate * 100), [{process_name, Mod}]).
+    ProcName = case Mod of
+        {global, Name} -> Name;
+        _ -> Mod
+    end,
+    stat:gauge(?NS, "process_uptime", round(SuccessRate * 100), [{process_name, ProcName}]),
+    ok.
 
 get_state_memory_size() ->
     ?STATE_HISTORY_LENGTH_MS div ?PING_INTERVAL_MS.

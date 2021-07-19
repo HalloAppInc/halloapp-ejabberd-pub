@@ -16,6 +16,8 @@
 -define(NOISE_STATIC_KEY, <<"static_key">>).
 -define(NOISE_SERVER_CERTIFICATE, <<"server_certificate">>).
 
+-define(STEST_SHARD_NUM, 100).
+
 -export([
     timestamp_to_binary/1,
     cur_timestamp/0,
@@ -46,6 +48,9 @@
     join_binary/3,
     err/1,
     ms_to_datetime_string/1,
+    get_shard/0,
+    get_shard/1,
+    get_stest_shard_num/0,
     get_payload_type/1,
     set_timestamp/2,
     get_timestamp/1,
@@ -310,6 +315,22 @@ ms_to_datetime_string(Ms) ->
             {Date, Time}
     end.
 
+
+-spec get_shard() -> maybe(non_neg_integer()).
+get_shard() ->
+    get_shard(node()).
+
+-spec get_shard(Node :: atom()) -> maybe(non_neg_integer()).
+get_shard(Node) ->
+    [_Name, NodeBin] = binary:split(to_binary(Node), <<"@">>),
+    case NodeBin of
+        <<"s-test">> -> ?STEST_SHARD_NUM;
+        <<"prod", N/binary>> -> to_integer(N);
+        _ -> undefined
+    end.
+
+-spec get_stest_shard_num() -> non_neg_integer().
+get_stest_shard_num() -> ?STEST_SHARD_NUM.
 
 -spec get_payload_type(Packet :: stanza()) -> atom.
 get_payload_type(#pb_iq{} = Pkt) -> pb:get_payload_type(Pkt);
