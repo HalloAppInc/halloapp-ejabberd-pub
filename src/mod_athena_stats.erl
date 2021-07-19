@@ -259,5 +259,6 @@ get_athena_modules() ->
     [
         athena_encryption,
         athena_push,
-        mod_retention
+        mod_retention,
+        athena_media
     ].

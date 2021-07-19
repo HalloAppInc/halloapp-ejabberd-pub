@@ -32,8 +32,16 @@
 %% API
 -export([
     put_metrics/2,
-    do_send_metrics/3
+    do_send_request/1,
+    put/1
 ]).
+
+-type datapoint() :: #{
+    metric := binary(),
+    timestamp := integer(),
+    value := integer() | float(),
+    tags := map()
+}.
 
 put_metrics(Metrics, TimestampMs) when is_map(Metrics) ->
     MachineName = util_aws:get_machine_name(),
@@ -52,20 +60,46 @@ put_metrics(Metrics, TimestampMs, MachineName) ->
 send_metrics([], _TimestampMs, _MachineName) ->
     ok;
 send_metrics(MetricsList, TimestampMs, MachineName) ->
+    try
+        send_request(compose_body(MetricsList, TimestampMs, MachineName))
+    catch
+        Class : Reason : Stacktrace ->
+            ?ERROR("Error:~s", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            {error, Reason}
+    end.
+
+-spec put(DataPoints :: list(datapoint())) -> ok | {error, any()}.
+put([]) ->
+    ok;
+put(DataPoints) ->
+    try
+        {NowList, LaterList} = lists:split(
+            min(?MAX_DATAPOINTS_PER_REQUEST, length(DataPoints)),
+            DataPoints),
+        send_request(jiffy:encode(NowList)),
+        put(LaterList)
+    catch
+        Class : Reason : Stacktrace ->
+            ?ERROR("Error:~s", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            {error, Reason}
+    end.
+
+
+-spec send_request(Body :: binary()) -> ok.
+send_request(Body) ->
     case config:is_prod_env() of
         true ->
-            spawn(?MODULE, do_send_metrics, [MetricsList, TimestampMs, MachineName]);
+            spawn(?MODULE, do_send_request, [Body]),
+            ok;
         false -> ok
     end.
 
--spec do_send_metrics(MetricsList :: [], TimestampMs :: integer(), MachineName :: binary())
-            -> ok | {error, any()}.
-do_send_metrics(MetricsList, TimestampMs, MachineName) ->
+do_send_request(Body) ->
     try
         URL = ?OPENTSDB_URL,
         Headers = [],
         Type = "application/json",
-        Body = compose_body(MetricsList, TimestampMs, MachineName),
+        Body = Body,
         HTTPOptions = [
             {timeout, ?REQUEST_TIMEOUT},
             {connect_timeout, ?CONNECTION_TIMEOUT}
@@ -77,8 +111,8 @@ do_send_metrics(MetricsList, TimestampMs, MachineName) ->
             {ok, {{_, ResCode, _}, _ResHeaders, _ResBody}} when ResCode =:= 200; ResCode =:= 204->
                 ok;
             _ ->
-                ?ERROR("OpenTSDB error sending metrics: ~p, body: ~p response: ~p",
-                    [MetricsList, Body, Response]),
+                ?ERROR("OpenTSDB error sending, body: ~p response: ~p",
+                    [Body, Response]),
                 {error, put_failed}
         end
     catch
@@ -131,4 +165,3 @@ compose_tags(Dimensions, MachineName) ->
             ?ERROR("Too many tags here ~p", [TagsAndValues]),
             #{}
     end.
-

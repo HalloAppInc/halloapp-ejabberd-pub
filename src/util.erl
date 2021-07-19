@@ -51,7 +51,8 @@
     get_timestamp/1,
     add_and_merge_maps/2,
     maybe_base64_encode/1,
-    maybe_base64_decode/1
+    maybe_base64_decode/1,
+    yesterday/0
 ]).
 
 %% Export all functions for unit tests
@@ -350,3 +351,8 @@ maybe_base64_encode(Data) -> base64:encode(Data).
 maybe_base64_decode(undefined) -> undefined;
 maybe_base64_decode(Data) -> base64:decode(Data).
 
+
+-spec yesterday() -> calendar:date().
+yesterday() ->
+    {Date, _} = calendar:universal_time(),
+    calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 1).
