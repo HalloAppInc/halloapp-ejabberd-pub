@@ -24,6 +24,7 @@
     run_query/1,
     run_athena_queries/0,
     force_run_athena_queries/0, %% DEBUG-only
+    check_queries/0,
     fetch_query_results/1
 ]).
 
@@ -56,12 +57,19 @@ mod_options(_Host) ->
 init(_Host) ->
     ?INFO("Start: ~p", [?MODULE]),
     init_erlcloud(),
-    {ok, #{}}.
+    {ok, Tref} = timer:apply_interval(10 * ?SECONDS_MS, ?MODULE,
+        check_queries, []),
+    % TODO: change queries to be map of execution id to query
+    {ok, #{check_queries_tref => Tref, queries => []}}.
 
-terminate(_Reason, #{} = _State) ->
+terminate(_Reason, #{check_queries_tref := Tref} = _State) ->
     ?INFO("Terminate: ~p", [?MODULE]),
+    {ok, _} = timer:cancel(Tref),
     ok.
 
+handle_call(check_queries, _From, State) ->
+    {Result, State2} = check_queries_internal(State),
+    {reply, Result, State2};
 handle_call(Request, From, State) ->
     ?WARNING("Unexpected call from ~p: ~p", [From, Request]),
     {noreply, State}.
@@ -78,8 +86,8 @@ handle_cast({run_query, Query}, State) ->
 handle_cast(run_athena_queries, State) ->
     Queries = get_athena_queries(),
     {noreply, run_athena_queries(State#{queries => Queries})};
-handle_cast({fetch_query_results, Queries}, State) ->
-    {noreply, fetch_query_results(Queries, State)};
+handle_cast({fetch_query_results, ExecutionId}, State) ->
+    {noreply, fetch_query_results_internal(ExecutionId, State)};
 handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
@@ -115,10 +123,15 @@ force_run_athena_queries() ->
     gen_server:cast(?PROC(), run_athena_queries),
     ok.
 
+-spec check_queries() -> ok.
+check_queries() ->
+    gen_server:call(?PROC(), check_queries).
 
--spec fetch_query_results(Queries :: [athena_query()]) -> ok.
-fetch_query_results(Queries) ->
-    gen_server:cast(?PROC(), {fetch_query_results, Queries}),
+
+-spec fetch_query_results(ExecutionId :: binary()) -> ok.
+fetch_query_results(ExecutionId) ->
+    ?INFO("~p", [ExecutionId]),
+    gen_server:cast(?PROC(), {fetch_query_results, ExecutionId}),
     ok.
 
 
@@ -143,11 +156,7 @@ run_athena_queries(#{queries := Queries} = State) ->
                 Query#athena_query{query_token = Token, result_token = ExecToken}
             end, Queries),
 
-        %% Ideally, we need to periodically list execution results and search for execids.
-        %% For now, fetch results after 10 minutes - since our queries are simple.
-        {ok, _ResultTref} = timer:apply_after(10 * ?MINUTES_MS, ?MODULE,
-                fetch_query_results, [Queries1]),
-
+        %% TODO: here we should be adding to the queries.
         State#{queries => Queries1}
     catch
         Class : Reason : Stacktrace  ->
@@ -156,33 +165,67 @@ run_athena_queries(#{queries := Queries} = State) ->
             State
     end.
 
+check_queries_internal(#{queries := []} = State) ->
+    {ok, State};
+check_queries_internal(#{queries := Queries} = State) ->
+    QueryExecutionIds = [Q#athena_query.result_token || Q <- Queries],
+    ?INFO("checking queries ~s", [QueryExecutionIds]),
+    case erlcloud_athena:batch_get_query_execution(QueryExecutionIds) of
+        {ok, Result} ->
+            ?INFO("Result:~p", [Result]),
+            Executions = maps:get(<<"QueryExecutions">>, Result, []),
+            lists:foreach(
+                fun (Execution) ->
+                    Id = maps:get(<<"QueryExecutionId">>, Execution),
+                    Query = maps:get(<<"Query">>, Execution),
+                    Status = maps:get(<<"Status">>, Execution, #{}),
+                    QState = maps:get(<<"State">>, Status, <<"UNKNOWN">>),
+                    case QState of
+                        <<"SUCCEEDED">> ->
+                            ?INFO("Query DONE ID: ~s Query: ~p", [Id, Query]),
+                            fetch_query_results(Id);
+                        _ ->
+                            ?INFO("QueryId ~s State: ~s", [Id, QState])
+                    end
+                end,
+                Executions
+            ),
+            {ok, State};
+        {error, Reason} ->
+            ?ERROR("reason: ~p", [Reason]),
+            {ok, State}
+    end.
 
-fetch_query_results(Queries, State) ->
+fetch_query_results_internal(ExecutionId, #{queries := Queries} = State) ->
     try
-        QueriesWithResults = lists:map(
-            fun(Query) ->
-                {ok, Result} = erlcloud_athena:get_query_results(Query#athena_query.result_token),
-                Query#athena_query{result = Result}
+        ?INFO("fetching results for ~s", [ExecutionId]),
+        {[Query], OtherQueries} = lists:partition(
+            fun(Q) ->
+                Q#athena_query.result_token =:= ExecutionId
             end, Queries),
 
-        lists:foreach(
-            fun(#athena_query{query_bin = QueryBin, result = Result} = Query) ->
-                ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
-                ?INFO("query: ~p", [QueryBin]),
-                pretty_print_result(ResultRows),
-                case Query#athena_query.result_fun of
-                    undefined -> ok;
-                    {Mod, Fun} ->
-                        %% Apply result function
-                        ok = erlang:apply(Mod, Fun, [Query])
-                end
-            end, QueriesWithResults),
-        State
+        {ok, Result} = erlcloud_athena:get_query_results(ExecutionId),
+        Query2 = Query#athena_query{result = Result},
+
+        process_result(Query2),
+        State#{queries => OtherQueries}
     catch
         Class : Reason : Stacktrace  ->
             ?ERROR("Error in query_execution_results: ~p Stacktrace:~s",
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             State
+    end.
+
+
+process_result(#athena_query{query_bin = QueryBin, result = Result} = Query) ->
+    ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
+    ?INFO("query: ~p", [QueryBin]),
+    pretty_print_result(ResultRows),
+    case Query#athena_query.result_fun of
+        undefined -> ok;
+        {Mod, Fun} ->
+            %% Apply result function
+            ok = erlang:apply(Mod, Fun, [Query])
     end.
 
 
@@ -218,4 +261,3 @@ get_athena_modules() ->
         athena_push,
         mod_retention
     ].
-
