@@ -384,8 +384,11 @@ send_data(TimeSeconds, MetricsMap) when is_map(MetricsMap) ->
     Ts = util:now_ms(),
     TimeMilliSeconds = TimeSeconds * ?SECONDS_MS,
     Data = prepare_data(MetricsMap, TimeMilliSeconds),
+    ?INFO("prepared ~p data points", [maps:size(Data)]),
     send_to_cloudwatch(Data),
+    ?INFO("stats sent to cloudwatch"),
     stat_opentsdb:put_metrics(MetricsMap, TimeMilliSeconds),
+    ?INFO("stats sent to opentsdb"),
     ?INFO("stats sent (took ~pms)", [util:now_ms() - Ts]),
     ok.
 
