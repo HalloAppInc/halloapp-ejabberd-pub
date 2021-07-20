@@ -59,8 +59,8 @@ init(_Host) ->
     init_erlcloud(),
     {ok, Tref} = timer:apply_interval(10 * ?SECONDS_MS, ?MODULE,
         check_queries, []),
-    % TODO: change queries to be map of execution id to query
-    {ok, #{check_queries_tref => Tref, queries => []}}.
+
+    {ok, #{check_queries_tref => Tref, queries => #{}}}.
 
 terminate(_Reason, #{check_queries_tref := Tref} = _State) ->
     ?INFO("Terminate: ~p", [?MODULE]),
@@ -82,10 +82,12 @@ handle_cast({ping, Id, Ts, From}, State) ->
     util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
     {noreply, State};
 handle_cast({run_query, Query}, State) ->
-    {noreply, run_athena_queries(State#{queries => [Query]})};
+    State2 = run_query_internal(Query, State),
+    {noreply, State2};
 handle_cast(run_athena_queries, State) ->
     Queries = get_athena_queries(),
-    {noreply, run_athena_queries(State#{queries => Queries})};
+    State2 = run_queries_internal(Queries, State),
+    {noreply, State2};
 handle_cast({fetch_query_results, ExecutionId}, State) ->
     {noreply, fetch_query_results_internal(ExecutionId, State)};
 handle_cast(Msg, State) ->
@@ -145,19 +147,17 @@ init_erlcloud() ->
     erlcloud_aws:configure(Config),
     ok.
 
-run_athena_queries(#{queries := Queries} = State) ->
+-spec run_query_internal(Query :: athena_query(), State :: #{}) -> State2 :: #{}.
+run_query_internal(Query, #{queries := Queries} = State) ->
     try
-        Queries1 = lists:map(
-            fun(#athena_query{query_bin = QueryBin} = Query) ->
-                Token = util_id:new_uuid(),
-                {ok, ExecToken} = erlcloud_athena:start_query_execution(Token,
-                        ?ATHENA_DB, QueryBin, ?ATHENA_RESULT_S3_BUCKET),
-                ?INFO("ExecToken: ~p", [ExecToken]),
-                Query#athena_query{query_token = Token, result_token = ExecToken}
-            end, Queries),
+        #athena_query{query_bin = QueryBin} = Query,
+        Token = util_id:new_uuid(),
+        {ok, ExecToken} = erlcloud_athena:start_query_execution(Token,
+            ?ATHENA_DB, QueryBin, ?ATHENA_RESULT_S3_BUCKET),
+        ?INFO("ExecToken: ~p", [ExecToken]),
+        Query2 = Query#athena_query{query_token = Token, result_token = ExecToken},
 
-        %% TODO: here we should be adding to the queries.
-        State#{queries => Queries1}
+        State#{queries => maps:put(ExecToken, Query2, Queries)}
     catch
         Class : Reason : Stacktrace  ->
             ?ERROR("Error in run_athena_queries: ~p Stacktrace:~s",
@@ -165,10 +165,18 @@ run_athena_queries(#{queries := Queries} = State) ->
             State
     end.
 
-check_queries_internal(#{queries := []} = State) ->
+-spec run_queries_internal(Queries ::  list(athena_query()), State :: #{}) -> State2 :: #{}.
+run_queries_internal([], State) ->
+    State;
+run_queries_internal([Query | Rest], State) ->
+    State2 = run_query_internal(Query, State),
+    run_queries_internal(Rest, State2).
+
+
+check_queries_internal(#{queries := Queries} = State) when map_size(Queries) =:= 0 ->
     {ok, State};
 check_queries_internal(#{queries := Queries} = State) ->
-    QueryExecutionIds = [Q#athena_query.result_token || Q <- Queries],
+    QueryExecutionIds = maps:keys(Queries),
     ?INFO("checking queries ~s", [QueryExecutionIds]),
     case erlcloud_athena:batch_get_query_execution(QueryExecutionIds) of
         {ok, Result} ->
@@ -199,16 +207,14 @@ check_queries_internal(#{queries := Queries} = State) ->
 fetch_query_results_internal(ExecutionId, #{queries := Queries} = State) ->
     try
         ?INFO("fetching results for ~s", [ExecutionId]),
-        {[Query], OtherQueries} = lists:partition(
-            fun(Q) ->
-                Q#athena_query.result_token =:= ExecutionId
-            end, Queries),
+        % remove the query
+        {Query, Queries2} = maps:take(ExecutionId, Queries),
 
         {ok, Result} = erlcloud_athena:get_query_results(ExecutionId),
         Query2 = Query#athena_query{result = Result},
 
         process_result(Query2),
-        State#{queries => OtherQueries}
+        State#{queries => Queries2}
     catch
         Class : Reason : Stacktrace  ->
             ?ERROR("Error in query_execution_results: ~p Stacktrace:~s",
