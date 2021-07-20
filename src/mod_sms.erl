@@ -285,7 +285,7 @@ smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
         <<"AM">> -> twilio_verify;     %% Armenia
         <<"BG">> -> twilio;     %% Bulgaria
         <<"BL">> -> twilio_verify;     %% Belarus
-        <<"CN">> -> twilio;     %% China, switch to twilio_verify once vetting is done
+        <<"CN">> -> twilio_verify;     %% China, check once vetting is done
         <<"CU">> -> twilio_verify;     %% Cuba
         <<"TD">> -> twilio_verify;     %% Chad
         <<"CD">> -> twilio;     %% Congo
