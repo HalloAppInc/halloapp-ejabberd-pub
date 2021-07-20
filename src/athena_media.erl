@@ -15,7 +15,9 @@
 %% All query functions must end with query.
 -export([
     %% callback for behavior function.
-    get_queries/0
+    get_queries/0,
+    backfill/3,
+    backfill_all/0
 ]).
 
 %%====================================================================
@@ -29,6 +31,26 @@ get_queries() ->
         media_download_status_query(Yesterday)
     ].
 
+-spec backfill(QueryFun, FromDate, ToDate) -> ok when
+    QueryFun :: fun((calendar:date()) -> athena_query()),
+    FromDate :: calendar:date(),
+    ToDate :: calendar:date().
+backfill(QueryFun, FromDate, ToDate)
+        when FromDate > ToDate ->
+    ok;
+backfill(QueryFun, FromDate, ToDate)  ->
+    DayBefore = util:day_before(ToDate),
+    mod_athena_stats:run_query(QueryFun(ToDate)),
+    backfill(QueryFun, FromDate, DayBefore).
+
+backfill_all() ->
+    FromDate = {2021, 05, 01},
+    ToDate = {2021, 07, 19},
+    Funcs = [
+        fun media_upload_status_query/1,
+        fun media_download_status_query/1
+    ],
+    [backfill(F, FromDate, ToDate) || F <- Funcs].
 
 %%====================================================================
 %% media queries

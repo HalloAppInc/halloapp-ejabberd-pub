@@ -356,3 +356,7 @@ maybe_base64_decode(Data) -> base64:decode(Data).
 yesterday() ->
     {Date, _} = calendar:universal_time(),
     calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 1).
+
+-spec day_before(Date :: calendar:date()) -> calendar:date().
+day_before(Date) ->
+    calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 1).
