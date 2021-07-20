@@ -145,14 +145,14 @@ process_iq(#pb_iq{from_uid = UserId, type = set, payload = #pb_contact_list{type
         true ->
             stat:count("HA/contacts", "sync_full_finish"),
 
-            case model_contacts:get_sync_contacts(UserId, SyncId) of
-                {ok, []} ->
+            case model_contacts:count_sync_contacts(UserId, SyncId) of
+                {ok, 0} ->
                     ?INFO("Uid: ~p full sync with empty contacts. Will remove all contacts",
                         [UserId]),
                     stat:count("HA/contacts", "sync_full_finish_empty"),
                     remove_all_contacts(UserId, false);
-                {ok, SyncContacts} ->
-                    stat:count("HA/contacts", "sync_full_contacts_finish", length(SyncContacts)),
+                {ok, NumSyncContacts} ->
+                    stat:count("HA/contacts", "sync_full_contacts_finish", NumSyncContacts),
                     %% Unfinished finish_sync will need the next full sync to send all the relevant
                     %% notifications (some might be sent more than once).
                     spawn(?MODULE, finish_sync, [UserId, Server, SyncId])
@@ -365,6 +365,7 @@ finish_sync(UserId, _Server, SyncId) ->
             sets:size(NewContactSet), sets:size(AddContactSet), sets:size(DeleteContactSet)]),
     ?INFO("Full contact sync: uid: ~p, add_contacts: ~p, delete_contacts: ~p",
                 [UserId, sets:to_list(AddContactSet), sets:to_list(DeleteContactSet)]),
+    stat:count("HA/contacts", "add_contact", sets:size(AddContactSet)),
     remove_contacts_and_notify(UserId, UserPhone,
             sets:to_list(DeleteContactSet), OldReverseContactSet, false),
     %% Convert Phones to pb_contact records.
@@ -480,6 +481,7 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     case SyncId of
         undefined ->
             model_contacts:add_contacts(UserId, NormalizedPhoneNumbers),
+            stat:count("HA/contacts", "add_contact", length(NormalizedPhoneNumbers)),
             add_and_notify_friends(UserId, UserPhone, FriendContacts2, OldFriendUidSet);
         _ ->
             model_contacts:sync_contacts(UserId, SyncId, NormalizedPhoneNumbers)

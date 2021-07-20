@@ -36,6 +36,7 @@
     is_contact/2,
     get_contacts/1,
     get_sync_contacts/2,
+    count_sync_contacts/2,
     get_contact_uids/1,
     get_contact_uids_size/1,
     get_contacts_uids_size/1,
@@ -177,6 +178,12 @@ get_contacts(Uid) ->
 get_sync_contacts(Uid, Sid) ->
     {ok, Res} = q(["SMEMBERS", sync_key(Uid, Sid)]),
     {ok, Res}.
+
+
+-spec count_sync_contacts(Uid :: uid(), Sid :: binary()) -> {ok, integer()} | {error, any()}.
+count_sync_contacts(Uid, Sid) ->
+    {ok, Res} = q(["SCARD", sync_key(Uid, Sid)]),
+    {ok, binary_to_integer(Res)}.
 
 
 -spec get_contact_uids(Contact :: binary()) -> {ok, [binary()]} | {error, any()}.
