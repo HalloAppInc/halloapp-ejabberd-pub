@@ -57,3 +57,5 @@ XmppAddr.hrl
 /.rebar
 /Mnesia.*
 /test/ha_SUITE_data/ejabberd.auto.yml
+phone_norm.log
+
