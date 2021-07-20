@@ -92,6 +92,8 @@ verify_sms(Phone, Code) ->
         {value, FetchedInfo} ->
             #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
             ok = model_phone:add_verification_success(Phone, AttemptId),
+            stat:count("HA/registration", "verify_sms",
+                [{gateway, Gateway}, {cc, mod_libphonenumber:get_cc(Phone)}]),
             GatewayAtom = util:to_atom(Gateway),
             case GatewayAtom of
                 undefined ->
@@ -133,6 +135,9 @@ send_otp(OtpPhone, LangId, Phone, Code, UserAgent, Method) ->
         {true, WaitTs} -> {error, retried_too_soon, WaitTs};
         {false, _} ->
             {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
+            stat:count("HA/registration", "send_otp"),
+            stat:count("HA/registration", "send_otp_by_cc", 1,
+                [{cc, mod_libphonenumber:get_cc(Phone)}]),
             case mod_sms:send_otp_internal(OtpPhone, LangId, Code, UserAgent, Method, OldResponses) of
                 {ok, SMSResponse} ->
                     ?INFO("Response: ~p", [SMSResponse]),
@@ -273,7 +278,8 @@ smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
     end,
 
     %% TODO(vipin): Fix as and when we get approval. Replace the following using redis.
-    NewGateway2 = case mod_libphonenumber:get_cc(Phone) of
+    CC = mod_libphonenumber:get_cc(Phone),
+    NewGateway2 = case CC of
         <<"AE">> -> twilio;     %% UAE
         <<"AL">> -> twilio;     %% Albania
         <<"AM">> -> twilio_verify;     %% Armenia
@@ -324,11 +330,13 @@ smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
         <<"ZM">> -> twilio;     %% Zambia
         _ -> NewGateway
     end,
-    ?DEBUG("Chosen Gateway: ~p", [NewGateway2]),
+    ?INFO("Phone: ~s CC: ~s Chosen Gateway: ~p ~p", [Phone, CC, NewGateway2, Method]),
     Result = case Method of
         voice_call -> NewGateway2:send_voice_call(Phone, Code, LangId, UserAgent);
         sms -> NewGateway2:send_sms(Phone, Code, LangId, UserAgent)
     end,
+    stat:count("HA/registration", "send_otp_by_gateway", 1,
+        [{gateway, NewGateway2}, {method, Method}, {cc, CC}]),
     ?DEBUG("Result: ~p", [Result]),
     case Result of
         {ok, SMSResponse} -> 
