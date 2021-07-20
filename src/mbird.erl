@@ -135,7 +135,7 @@ compose_body(Phone, Message) ->
         {"originator", FromPhone},
         {"reference", ?REFERENCE},
         {"body", Message}
-    ], [{encoding, utf8}]).
+    ], [{encoding, latin1}]).
 
 -spec compose_voice_body(Phone, Message, MbirdLangId) -> Body when
     Phone :: phone(),
