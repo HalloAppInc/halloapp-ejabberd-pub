@@ -1286,14 +1286,25 @@ send_ios_push(Uid, PushType, Payload) ->
     end.
 
 
-get_sms_codes(Phone) ->
-    {ok, RawList} = model_phone:get_all_verification_info(Phone),
-    case RawList of
-        [] -> io:format("No SMS codes associated with phone: ~s", [Phone]);
-        _ ->
-            Codes = [Code || #verification_info{code = Code} <- RawList],
-            io:format("SMS codes for phone: ~s~n", [Phone]),
-            [io:format("  ~s~n", [Code]) || Code <- Codes]
+get_sms_codes(PhoneRaw) ->
+    ?INFO("Admin requesting SMS codes for ~p", [PhoneRaw]),
+    Phone = case PhoneRaw of
+        <<"+", _Rest/binary>> ->  PhoneRaw;
+        _ -> <<"+", PhoneRaw/binary>>
+    end,
+    case mod_libphonenumber:normalize(Phone, <<"US">>) of
+        undefined ->
+            io:format("Phone number invalid~n"),
+            io:format("Try entering only the numbers, no additional characters~n");
+        NormalizedPhone ->
+            {ok, RawList} = model_phone:get_all_verification_info(NormalizedPhone),
+            case RawList of
+                [] -> io:format("No SMS codes associated with phone: ~s", [NormalizedPhone]);
+                _ ->
+                    Codes = [Code || #verification_info{code = Code} <- RawList],
+                    io:format("SMS codes for phone: ~s~n", [NormalizedPhone]),
+                    [io:format("  ~s~n", [Code]) || Code <- Codes]
+            end
     end,
     ok.
 
