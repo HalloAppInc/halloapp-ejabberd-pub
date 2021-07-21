@@ -80,7 +80,9 @@
     hotload_modules/1,
     hot_code_reload/0,
     get_commands_spec/0,
-    hotswap_modules/0
+    hotswap_modules/0,
+    get_full_sync_error_percent/0,
+    get_full_sync_retry_time/0
 ]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -491,7 +493,29 @@ get_commands_spec() ->
     #ejabberd_commands{name = hot_code_reload, tags = [server],
         desc = "Hot code reload a module",
         module = ?MODULE, function = hot_code_reload,
-        args=[], result = {res, restuple}}
+        args=[], result = {res, restuple}},
+    #ejabberd_commands{name = set_full_sync_error_percent, tags = [server],
+        desc = "Sets the full sync error percentage, >= 0 and =< 100 ",
+        module = mod_contacts, function = set_full_sync_error_percent,
+        args_desc = ["Percentage"],
+        args_example = [50],
+        args=[{percent, integer}],
+        result = {res, rescode}},
+    #ejabberd_commands{name = set_full_sync_retry_time, tags = [server],
+        desc = "Sets the full sync retry_time - default is 1 day",
+        module = mod_contacts, function = set_full_sync_retry_time,
+        args_desc = ["Time"],
+        args_example = [86400],
+        args=[{retry_time, integer}],
+        result = {res, rescode}},
+    #ejabberd_commands{name = get_full_sync_error_percent, tags = [server],
+        desc = "Sets the full sync error percentage, >= 0 and =< 100 ",
+        module = ?MODULE, function = get_full_sync_error_percent,
+        result = {res, rescode}},
+    #ejabberd_commands{name = get_full_sync_retry_time, tags = [server],
+        desc = "Sets the full sync retry_time - default is 1 day",
+        module = ?MODULE, function = get_full_sync_retry_time,
+        result = {res, rescode}}
     ].
 
 
@@ -1225,6 +1249,16 @@ reset_sms_backoff(Phone) ->
             model_phone:add_verification_success(Phone, AttemptId),
             io:format("Successfully reset SMS backoff for ~p~n", [Phone])
     end,
+    ok.
+
+
+get_full_sync_error_percent() ->
+    io:format("full_sync_error_percent: ~p", [mod_contacts:get_full_sync_error_percent()]),
+    ok.
+
+
+get_full_sync_retry_time() ->
+    io:format("full_sync_retry_time: ~p", [mod_contacts:get_full_sync_retry_time()]),
     ok.
 
 
