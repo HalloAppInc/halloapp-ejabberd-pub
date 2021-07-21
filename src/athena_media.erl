@@ -28,7 +28,11 @@ get_queries() ->
     Yesterday = util:yesterday(),
     [
         media_upload_status_query(Yesterday),
-        media_download_status_query(Yesterday)
+        media_download_status_query(Yesterday),
+        media_upload_timing_all_query(Yesterday),
+        media_upload_timing_by_platform_query(Yesterday),
+        media_download_timing_all_query(Yesterday),
+        media_download_timing_by_platform_query(Yesterday)
     ].
 
 -spec backfill(QueryFun, FromDate, ToDate) -> ok when
@@ -48,7 +52,11 @@ backfill_all() ->
     ToDate = {2021, 07, 19},
     Funcs = [
         fun media_upload_status_query/1,
-        fun media_download_status_query/1
+        fun media_download_status_query/1,
+        fun media_upload_timing_all_query/1,
+        fun media_upload_timing_by_platform_query/1,
+        fun media_download_timing_all_query/1,
+        fun media_download_timing_by_platform_query/1
     ],
     [backfill(F, FromDate, ToDate) || F <- Funcs].
 
@@ -98,5 +106,95 @@ media_download_status_query({_Year, Month, Date}) ->
         query_bin = QueryBin,
         result_fun = {athena_results, send_to_opentsdb},
         metrics = {"HA" , "media_download.status"}
+    }.
+
+
+media_download_timing_by_platform_query({_Year, Month, Date}) ->
+    MonthBin = iolist_to_binary(io_lib:format("~2.2.0w", [Month])),
+    DateBin = iolist_to_binary(io_lib:format("~2.2.0w", [Date])),
+    QueryBin = <<"
+    SELECT platform,
+         (min(cast(timestamp_ms AS bigint)) / (24*60*60*1000)) * 24*60*60 AS timestamp,
+         approx_percentile(media_download.duration_ms, 0.5) AS p50,
+         approx_percentile(media_download.duration_ms, 0.75) AS p75,
+         approx_percentile(media_download.duration_ms, 0.90) AS p90,
+         approx_percentile(media_download.duration_ms, 0.95) AS p95,
+         approx_percentile(media_download.duration_ms, 0.99) AS p99
+    FROM \"default\".\"client_media_download\"
+    WHERE month='", MonthBin/binary, "'AND date='", DateBin/binary, "'
+        AND media_download.status='ok'
+    GROUP BY  platform;
+    ">>,
+    #athena_query{
+        query_bin = QueryBin,
+        result_fun = {athena_results, percentiles},
+        metrics = {"HA" , "media_download.timing_by_platform"}
+    }.
+
+
+media_download_timing_all_query({_Year, Month, Date}) ->
+    MonthBin = iolist_to_binary(io_lib:format("~2.2.0w", [Month])),
+    DateBin = iolist_to_binary(io_lib:format("~2.2.0w", [Date])),
+    QueryBin = <<"
+    SELECT 'all' as platform,
+         (min(cast(timestamp_ms AS bigint)) / (24*60*60*1000)) * 24*60*60 AS timestamp,
+         approx_percentile(media_download.duration_ms, 0.5) AS p50,
+         approx_percentile(media_download.duration_ms, 0.75) AS p75,
+         approx_percentile(media_download.duration_ms, 0.90) AS p90,
+         approx_percentile(media_download.duration_ms, 0.95) AS p95,
+         approx_percentile(media_download.duration_ms, 0.99) AS p99
+    FROM \"default\".\"client_media_download\"
+    WHERE month='", MonthBin/binary, "'AND date='", DateBin/binary, "'
+        AND media_download.status='ok';
+    ">>,
+    #athena_query{
+        query_bin = QueryBin,
+        result_fun = {athena_results, percentiles},
+        metrics = {"HA" , "media_download.timing"}
+    }.
+
+
+media_upload_timing_by_platform_query({_Year, Month, Date}) ->
+    MonthBin = iolist_to_binary(io_lib:format("~2.2.0w", [Month])),
+    DateBin = iolist_to_binary(io_lib:format("~2.2.0w", [Date])),
+    QueryBin = <<"
+    SELECT platform,
+         (min(cast(timestamp_ms AS bigint)) / (24*60*60*1000)) * 24*60*60 AS timestamp,
+         approx_percentile(media_upload.duration_ms, 0.5) AS p50,
+         approx_percentile(media_upload.duration_ms, 0.75) AS p75,
+         approx_percentile(media_upload.duration_ms, 0.90) AS p90,
+         approx_percentile(media_upload.duration_ms, 0.95) AS p95,
+         approx_percentile(media_upload.duration_ms, 0.99) AS p99
+    FROM \"default\".\"client_media_upload\"
+    WHERE month='", MonthBin/binary, "'AND date='", DateBin/binary, "'
+        AND media_upload.status='ok'
+    GROUP BY  platform;
+    ">>,
+    #athena_query{
+        query_bin = QueryBin,
+        result_fun = {athena_results, percentiles},
+        metrics = {"HA" , "media_upload.timing_by_platform"}
+    }.
+
+
+media_upload_timing_all_query({_Year, Month, Date}) ->
+    MonthBin = iolist_to_binary(io_lib:format("~2.2.0w", [Month])),
+    DateBin = iolist_to_binary(io_lib:format("~2.2.0w", [Date])),
+    QueryBin = <<"
+    SELECT 'all' as platform,
+         (min(cast(timestamp_ms AS bigint)) / (24*60*60*1000)) * 24*60*60 AS timestamp,
+         approx_percentile(media_upload.duration_ms, 0.5) AS p50,
+         approx_percentile(media_upload.duration_ms, 0.75) AS p75,
+         approx_percentile(media_upload.duration_ms, 0.90) AS p90,
+         approx_percentile(media_upload.duration_ms, 0.95) AS p95,
+         approx_percentile(media_upload.duration_ms, 0.99) AS p99
+    FROM \"default\".\"client_media_upload\"
+    WHERE month='", MonthBin/binary, "'AND date='", DateBin/binary, "'
+        AND media_upload.status='ok';
+    ">>,
+    #athena_query{
+        query_bin = QueryBin,
+        result_fun = {athena_results, percentiles},
+        metrics = {"HA" , "media_upload.timing"}
     }.
 
