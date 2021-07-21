@@ -309,6 +309,7 @@ smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
         <<"MM">> -> mbird;      %% Myanmar
         <<"NP">> -> twilio_verify;     %% Nepal
         <<"NG">> -> twilio;     %% Nigeria
+        <<"NZ">> -> twilio_verify;     %% New Zealand
         <<"OM">> -> twilio_verify;     %% Oman
         <<"PK">> -> twilio;     %% Pakistan
         <<"PS">> -> mbird;      %% Palestine
