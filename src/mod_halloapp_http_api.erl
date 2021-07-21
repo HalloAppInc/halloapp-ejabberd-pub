@@ -269,13 +269,15 @@ log_request_otp_error(ErrorType, Method) ->
 -spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(),
         Method :: atom()) -> {ok, integer()} | no_return(). % throws otp_fail
 request_otp(Phone, LangId, UserAgent, Method) ->
+    CountryCode = mod_libphonenumber:get_cc(Phone),
     case mod_sms:request_otp(Phone, LangId, UserAgent, Method) of
         {ok, _} = Ret -> Ret;
         {error, Reason} ->
-            ?ERROR("could not send otp Reason: ~p Phone: ~p", [Reason, Phone]),
+            ?ERROR("could not send otp Reason: ~p Phone: ~p, cc: ~p", [Reason, Phone, CountryCode]),
             error(Reason);
         {error, Reason, RetryTs} = Error->
-            ?INFO("could not send otp Reason: ~p Ts: ~p Phone: ~p", [Reason, RetryTs, Phone]),
+            ?INFO("could not send otp Reason: ~p Ts: ~p Phone: ~p, cc: ~p",
+                [Reason, RetryTs, Phone, CountryCode]),
             Error
     end.
 

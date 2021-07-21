@@ -693,7 +693,7 @@ route_message(#pb_msg{} = Packet) ->
             %% Ignore the packet and stop routing it now.
             ok;
         {deny, invalid_to_uid} ->
-            ?ERROR("Invalid To uid: ~s packet received: ~p", [LUser, Packet]),
+            ?INFO("Invalid To uid: ~s packet received: ~p", [LUser, Packet]),
             Err = util:err(invalid_to_uid),
             ErrorPacket = pb:make_error(Packet, Err),
             ejabberd_router:route(ErrorPacket)

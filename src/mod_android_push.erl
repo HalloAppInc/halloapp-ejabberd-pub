@@ -211,8 +211,14 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
                             platform => android, client_version => Version, push_type => silent});
                 {error, Reason, FcmId} ->
                     stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
-                    ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
-                            [Uid, binary:part(Token, 0, 10), Reason, FcmId]),
+                    case Reason =:= not_registered orelse Reason =:= invalid_registration of
+                        true ->
+                            ?INFO("Push failed: User Error, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
+                                [Uid, binary:part(Token, 0, 10), Reason, FcmId]);
+                        false ->
+                            ?ERROR("Push failed: Server Error, Uid:~s, token: ~p, reason: ~p, FcmId: ~p",
+                                [Uid, binary:part(Token, 0, 10), Reason, FcmId])
+                    end,
                     remove_push_token(Uid, ServerHost)
             end;
 
@@ -256,10 +262,10 @@ parse_response(ResponseBody) ->
         0 ->
             case proplists:get_value(<<"error">>, Result) of
                 <<"NotRegistered">> ->
-                    ?ERROR("FCM error: NotRegistered", []),
+                    ?INFO("FCM error: NotRegistered", []),
                     {error, not_registered, FcmId};
                 <<"InvalidRegistration">> ->
-                    ?ERROR("FCM error: InvalidRegistration", []),
+                    ?INFO("FCM error: InvalidRegistration", []),
                     {error, invalid_registration, FcmId};
                 Error ->
                     ?ERROR("FCM error: ~s", [Error]),
