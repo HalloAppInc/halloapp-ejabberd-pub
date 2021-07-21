@@ -122,7 +122,8 @@ get_uid_based_props(PropMap, Uid) ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
             PropMap2 = maps:update(media_comments, true, PropMap1),
-            PropMap2
+            PropMap3 = maps:update(new_client_container, true, PropMap2),
+            PropMap3
     end.
 
 
