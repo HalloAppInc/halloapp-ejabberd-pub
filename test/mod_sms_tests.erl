@@ -40,14 +40,14 @@ is_too_soon_test() ->
     Now = util:now(),
     
     {false, _} = mod_sms:is_too_soon([]),
-    OldResponses = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 10)}],
+    OldResponses = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 10), status = sent}],
     %% Need 30 seconds gap.
     {true, _} = mod_sms:is_too_soon(OldResponses),
     OldResponses1 = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 30 * ?SECONDS)}],
     {false, _} = mod_sms:is_too_soon(OldResponses1),
     
-    OldResponses2 = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 50 * ?SECONDS)},
-                    #gateway_response{method = sms, attempt_ts = util:to_binary(Now - 21 * ?SECONDS)}],
+    OldResponses2 = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 50 * ?SECONDS), status = sent},
+                    #gateway_response{method = sms, attempt_ts = util:to_binary(Now - 21 * ?SECONDS), status = sent}],
     %% Need 60 seconds gap.
     {true, _} = mod_sms:is_too_soon(OldResponses2),
     OldResponses3 = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 120 * ?SECONDS)},

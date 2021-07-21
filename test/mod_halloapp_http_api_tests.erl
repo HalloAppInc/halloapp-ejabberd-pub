@@ -100,7 +100,7 @@ request_sms_prod_test() ->
     meck_init(mod_sms, send_otp_internal,
         fun(P,_,_,_,_,_) ->
             self() ! P,
-            {ok, #gateway_response{attempt_ts = util:now()}}
+            {ok, #gateway_response{attempt_ts = util:now(), status = sent}}
         end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, <<"HalloApp/Android0.127">>, 16175550000),
@@ -128,7 +128,9 @@ backoff_test() ->
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, ?UA, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
-    {ok, _AttemptId1, _} = model_phone:add_sms_code2(?TEST_PHONE, ?SMS_CODE),
+    {ok, AttemptId1, _} = model_phone:add_sms_code2(?TEST_PHONE, ?SMS_CODE),
+    ok = model_phone:add_gateway_response(?TEST_PHONE, AttemptId1,
+        #gateway_response{gateway = gw1, gateway_id = <<"gw1">>, status = sent}),
     BadResponse = {400, ?HEADER(?CT_JSON),
         jiffy:encode({[
             {phone, ?TEST_PHONE},
@@ -141,7 +143,9 @@ backoff_test() ->
     ?assertEqual(BadResponse, Response),
     %% Sleep for 1 seconds so the timestamp for Attempt1 and Attempt2 is different.
     timer:sleep(timer:seconds(1)),
-    {ok, _AttemptId2, _} = model_phone:add_sms_code2(?TEST_PHONE, ?SMS_CODE),
+    {ok, AttemptId2, _} = model_phone:add_sms_code2(?TEST_PHONE, ?SMS_CODE),
+    ok = model_phone:add_gateway_response(?TEST_PHONE, AttemptId2,
+        #gateway_response{gateway = gw2, gateway_id = <<"gw2">>, status = sent}),
     BadResponse2 = {400, ?HEADER(?CT_JSON),
         jiffy:encode({[
             {phone, ?TEST_PHONE},
@@ -152,6 +156,30 @@ backoff_test() ->
     Response2 = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(BadResponse2, Response2),
+    meck_finish(config),
+    meck_finish(ejabberd_router).
+
+
+retried_server_error_test() ->
+    setup(),
+    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    meck_init(config, get_hallo_env, fun() -> prod end),
+    meck_init(mod_sms, send_otp_internal, fun(_,_,_,_,_,_) -> {error, sms_fail} end),
+    Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
+    ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, ?UA, 16175550000),
+    ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
+    ServerBadResponse = {400, ?HEADER(?CT_JSON),
+        jiffy:encode({[
+            {result, fail},
+            {error, sms_fail}
+        ]})},
+    Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
+    ?assertEqual(ServerBadResponse, Response),
+    Response2 = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
+    ?assertEqual(ServerBadResponse, Response2),
+    meck_finish(mod_sms),
     meck_finish(config),
     meck_finish(ejabberd_router).
 

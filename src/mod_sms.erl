@@ -165,11 +165,12 @@ is_too_soon(OldResponses) ->
 
 -spec find_next_ts(OldResponses :: [gateway_response()]) -> non_neg_integer().
 find_next_ts(OldResponses) ->
-    %% Find the last unsuccessful attempts.
+    %% Find the last unsuccessful attempts (ignoring when sms/otp fails on server side).
     ReverseOldResponses = lists:reverse(OldResponses),
     FailedResponses = lists:takewhile(
-        fun(#gateway_response{verified = Success}) ->
-            Success =/= true
+        fun(#gateway_response{verified = Success, status=Status}) ->
+            Success =/= true andalso
+            Status =/= undelivered andalso Status =/= failed andalso Status =/= unknown andalso Status =/= undefined
         end, ReverseOldResponses),
     OldResponses2 = lists:reverse(FailedResponses),
     Len = length(OldResponses2),
