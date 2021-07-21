@@ -407,18 +407,23 @@ get_client_version(Uid) ->
 get_account(Uid) ->
     {ok, Res} = q(["HGETALL", account_key(Uid)]),
     M = util:list_to_map(Res),
-    Account = #account{
-            uid = Uid,
-            phone = maps:get(?FIELD_PHONE, M),
-            name = maps:get(?FIELD_NAME, M),
-            signup_user_agent = maps:get(?FIELD_USER_AGENT, M),
-            creation_ts_ms = util_redis:decode_ts(maps:get(?FIELD_CREATION_TIME, M)),
-            last_activity_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
-            activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined)),
-            client_version = maps:get(?FIELD_CLIENT_VERSION, M, undefined),
-            lang_id = maps:get(?FIELD_PUSH_LANGUAGE_ID, M, undefined)
-        },
-    {ok, Account}.
+    Phone = maps:get(?FIELD_PHONE, M, undefined),
+    case Phone of
+        undefined -> {error, missing};
+        _ ->
+            Account = #account{
+                    uid = Uid,
+                    phone = Phone,
+                    name = maps:get(?FIELD_NAME, M),
+                    signup_user_agent = maps:get(?FIELD_USER_AGENT, M),
+                    creation_ts_ms = util_redis:decode_ts(maps:get(?FIELD_CREATION_TIME, M)),
+                    last_activity_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
+                    activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined)),
+                    client_version = maps:get(?FIELD_CLIENT_VERSION, M, undefined),
+                    lang_id = maps:get(?FIELD_PUSH_LANGUAGE_ID, M, undefined)
+                },
+            {ok, Account}
+    end.
 
 
 %%====================================================================
