@@ -77,8 +77,8 @@ process([<<"registration">>, <<"register2">>],
         {ok, Phone, Uid} = finish_registration_spub(Phone, LName, UserAgent, SPub),
         process_whisper_keys(Uid, Payload),
         process_push_token(Uid, Payload),
-
-        ?INFO("registration complete uid:~s, phone:~s", [Uid, Phone]),
+        CC = mod_libphonenumber:get_region_id(Phone),
+        ?INFO("registration complete uid:~s, phone:~s, country_code:~s", [Uid, Phone, CC]),
         Result = #{
             uid => Uid,
             phone => Phone,
