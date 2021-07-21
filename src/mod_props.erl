@@ -123,7 +123,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap1 = maps:update(dev, true, PropMap),
             PropMap2 = maps:update(media_comments, true, PropMap1),
             PropMap3 = maps:update(new_client_container, true, PropMap2),
-            PropMap3
+            PropMap4 = maps:update(voice_notes, true, PropMap3),
+            PropMap4
     end.
 
 
