@@ -56,7 +56,7 @@
 -type tag() :: {Name :: atom(), Value :: tag_value()}.
 -type tags() :: [tag()].
 
--define(SMS_REG_CHECK_INCREMENTS, 2).
+-define(SMS_REG_CHECK_INCREMENTS, 1).
 
 -export_type([
     tag/0,
@@ -231,7 +231,7 @@ check_sms_reg() ->
     ?INFO("Check SMS reg start"),
     Start = util:now_ms(),
     IncrementalTimestamp = util:now() div ?SMS_REG_TIMESTAMP_INCREMENT,
-    check_sms_reg2(IncrementalTimestamp, ?SMS_REG_CHECK_INCREMENTS),
+    check_sms_reg2(IncrementalTimestamp - 2, ?SMS_REG_CHECK_INCREMENTS),
 
     End = util:now_ms(),
     ?INFO("Check SMS reg took ~p ms", [End - Start]),
@@ -250,14 +250,19 @@ check_sms_reg2(IncrementalTimestamp, Increment) ->
         case util:is_test_number(Phone) of
             false ->
                 SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
+                CC = mod_libphonenumber:get_cc(Phone),
                 #gateway_response{gateway = Gateway, status = Status, verified = Success} = SMSResponse, 
                 case {Gateway, Status, Success} of
                     {undefined, _, _} ->
-                        ?ERROR("Phone: ~p, AttemptId: ~p (not found), SMS attempt failed",
-                            [Phone, AttemptId]);
+                        stat:count("HA/registration", "otp_attempt_error", 1,
+                            [{gateway, Gateway}, {cc, CC}]),
+                        ?INFO("CC: ~p, Phone: ~p, AttemptId: ~p (not found), SMS attempt failed",
+                            [CC, Phone, AttemptId]);
                     {_, _, false} ->
-                        ?ERROR("Phone: ~p AttemptId: ~p failed via Gateway: ~p, Status: ~p",
-                            [Phone, AttemptId, Gateway, Status]);
+                        stat:count("HA/registration", "otp_attempt_error", 1,
+                            [{gateway, Gateway}, {cc, CC}, {status, Status}]),
+                        ?INFO("CC: ~p, Phone: ~p AttemptId: ~p failed via Gateway: ~p, Status: ~p",
+                            [CC, Phone, AttemptId, Gateway, Status]);
                     {_, _, true} ->
                           ok
                 end;
