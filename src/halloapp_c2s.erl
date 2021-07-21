@@ -331,6 +331,7 @@ process_closed(State, Reason) ->
     stop(State#{stop_reason => Reason}).
 
 
+%% TODO (murali@): Fix reason to be an atom and cleanup.
 process_terminated(#{sid := SID, socket := Socket, mode := Mode,
         jid := JID, user := Uid, server := Server, resource := Resource} = State,
         Reason) ->

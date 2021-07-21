@@ -150,7 +150,8 @@ reply(Ref, Reply) ->
 stop(Pid) when is_pid(Pid) ->
     cast(Pid, stop);
 stop(#{owner := Owner} = State) when Owner == self() ->
-    terminate(normal, State),
+    Reason = maps:get(stop_reason, State, normal),
+    terminate(Reason, State),
     try erlang:nif_error(normal)
     catch _:_ -> exit(normal)
     end;

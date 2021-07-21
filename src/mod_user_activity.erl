@@ -98,7 +98,7 @@ set_presence_hook(User, Server, Resource, #pb_presence{type = StatusType}) ->
 %% when an account is deleted, we terminate the connection session.
 %% as part of that: we unset presence info and run this hook,
 %% but since this uid is deleted, we can ignore this hook here.
-unset_presence_hook(_User, _Mode, _Resource, account_deleted) -> ok;
+unset_presence_hook(_User, _Mode, _Resource, {socket, account_deleted}) -> ok;
 %% passive connections should not affect your presence behavior.
 unset_presence_hook(_User, passive, _Resource, _Reason) -> ok;
 unset_presence_hook(User, active, Resource, _Reason) ->
