@@ -25,7 +25,8 @@
     run_athena_queries/0,
     force_run_athena_queries/0, %% DEBUG-only
     check_queries/0,
-    fetch_query_results/1
+    fetch_query_results/1,
+    delete_query/1
 ]).
 
 %%====================================================================
@@ -90,6 +91,9 @@ handle_cast(run_athena_queries, State) ->
     {noreply, State2};
 handle_cast({fetch_query_results, ExecutionId}, State) ->
     {noreply, fetch_query_results_internal(ExecutionId, State)};
+handle_cast({delete_query, Id}, #{queries := Queries} = State) ->
+    State2 = State#{queries => maps:remove(Id, Queries)},
+    {noreply, State2};
 handle_cast(Msg, State) ->
     ?WARNING("Unexpected cast: ~p", [Msg]),
     {noreply, State}.
@@ -135,6 +139,10 @@ fetch_query_results(ExecutionId) ->
     ?INFO("~p", [ExecutionId]),
     gen_server:cast(?PROC(), {fetch_query_results, ExecutionId}),
     ok.
+
+-spec delete_query(ExecutionId :: binary()) -> ok.
+delete_query(ExecutionId) ->
+    gen_server:cast(?PROC(), {delete_query, ExecutionId}).
 
 
 %%====================================================================
@@ -190,8 +198,11 @@ check_queries_internal(#{queries := Queries} = State) ->
                     QState = maps:get(<<"State">>, Status, <<"UNKNOWN">>),
                     case QState of
                         <<"SUCCEEDED">> ->
-                            ?INFO("Query DONE ID: ~s Query: ~p", [Id, Query]),
+                            ?INFO("Query SUCCEEDED ID: ~s Query: ~p", [Id, Query]),
                             fetch_query_results(Id);
+                        <<"FAILED">> ->
+                            ?ERROR("Query FAILED ID: ~s Query: ~p", [Id, Query]),
+                            delete_query(Id);
                         _ ->
                             ?INFO("QueryId ~s State: ~s", [Id, QState])
                     end
