@@ -22,6 +22,7 @@
 %% API
 -export([
     send_to_opentsdb/1,
+    percentiles/1,
     percentile/1
 ]).
 
@@ -66,6 +67,10 @@ send_to_opentsdb(Query) ->
 % Table must have 2 special colums: timestamp and value.
 % All other colums are treated as tags, where the tag name is
 % the column name and the tag value is the value.
+-spec percentiles(Query :: athena_query()) -> ok.
+percentiles(Query) ->
+    percentile(Query).
+
 -spec percentile(Query :: athena_query()) -> ok.
 percentile(Query) ->
     Result = Query#athena_query.result,

@@ -97,7 +97,7 @@ media_download_status_query({_Year, Month, Date}) ->
             version,
             media_download.status AS status,
             count(*) AS value
-    FROM default.client_download_upload
+    FROM default.client_media_download
     WHERE month='", MonthBin/binary, "'AND date='", DateBin/binary, "'
     GROUP BY  platform, version, media_download.status
     ORDER BY  platform, version, media_download.status;
