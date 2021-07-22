@@ -97,6 +97,8 @@ normalize_phone_country_code_test() ->
     ?assertEqual(<<"35948123456">>, mod_libphonenumber:normalize(<<"+35948123456">>, ?REGION_US)),
     %% Turkey
     ?assertEqual(<<"905012345678">>, mod_libphonenumber:normalize(<<"+905012345678">>, ?REGION_US)),
+    %% Philippines
+    ?assertEqual(<<"639912178825">>, mod_libphonenumber:normalize(<<"+639912178825">>, ?REGION_US)),
     %% Invalid
     ?assertEqual(undefined, mod_libphonenumber:normalize(<<"+91 415 412 1848">>, ?REGION_US)),
     %% Invalid
@@ -141,6 +143,8 @@ normalize_phone_national_prefix_test() ->
     ?assertEqual(<<"35948123456">>, mod_libphonenumber:normalize(<<"+359-0-48123456">>, ?REGION_US)),
     %% Turkey
     ?assertEqual(<<"905012345678">>, mod_libphonenumber:normalize(<<"+90-0-5012345678">>, ?REGION_US)),
+    %% Philippines
+    ?assertEqual(<<"639912178825">>, mod_libphonenumber:normalize(<<"+63-0-9912178825">>, ?REGION_US)),
     %% Invalid
     ?assertEqual(undefined, mod_libphonenumber:normalize(<<"+91 415 412 1848">>, ?REGION_US)),
     %% Invalid
@@ -183,6 +187,8 @@ normalize_without_phone_country_code_test() ->
     ?assertEqual(<<"35948123456">>, mod_libphonenumber:normalize(<<"48123456">>, <<"BG">>)),
     %% Turkey
     ?assertEqual(<<"905012345678">>, mod_libphonenumber:normalize(<<"5012345678">>, <<"TR">>)),
+    %% Philippines
+    ?assertEqual(<<"639912178825">>, mod_libphonenumber:normalize(<<"9912178825">>, <<"PH">>)),
     ok.
 
 
@@ -219,6 +225,8 @@ normalize_phone_international_code_test() ->
     ?assertEqual(<<"14703381473">>, mod_libphonenumber:normalize(<<"0014703381473">>, <<"BG">>)),
     %% Turkey
     ?assertEqual(<<"14703381473">>, mod_libphonenumber:normalize(<<"0014703381473">>, <<"TK">>)),
+    %% Philippines
+    ?assertEqual(<<"639912178825">>, mod_libphonenumber:normalize(<<"00639912178825">>, <<"PH">>)),
     ok.
 
 
