@@ -12,6 +12,8 @@
 -include("ha_types.hrl").
 -include("sms.hrl").
 
+-define(MBIRD_ENG_LANG_ID, <<"en-US">>).
+
 %% TODO: optimize calls for get_lang_id.
 
 %% API
@@ -184,7 +186,7 @@ is_voice_lang_available(LangId) ->
 -spec get_mbird_lang(LangId :: binary()) -> binary().
 get_mbird_lang(LangId) ->
     MbirdLangMap = get_mbird_lang_map(),
-    maps:get(LangId, MbirdLangMap, ?ENG_LANG_ID).
+    maps:get(LangId, MbirdLangMap, ?MBIRD_ENG_LANG_ID).
 
 
 get_mbird_lang_map() ->

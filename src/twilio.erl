@@ -15,6 +15,9 @@
 -include("ha_types.hrl").
 -include("sms.hrl").
 
+
+-define(TWILIO_ENG_LANG_ID, <<"en-US">>).
+
 %% TODO(vipin): Maybe improve Msg for voice_call. Talk to Dugyu.
 %% TODO: optimize calls for get_lang_id.
 
@@ -231,10 +234,10 @@ is_voice_lang_available(LangId) ->
 
 
 %% Doc: https://www.twilio.com/docs/voice/twiml/say#attributes-alice
--spec get_twilio_lang(LangId :: binary()) -> string().
+-spec get_twilio_lang(LangId :: binary()) -> binary().
 get_twilio_lang(LangId) ->
     TwilioLangMap = get_twilio_lang_map(),
-    maps:get(LangId, TwilioLangMap, ?ENG_LANG_ID).
+    maps:get(LangId, TwilioLangMap, ?TWILIO_ENG_LANG_ID).
 
 
 get_twilio_lang_map() ->

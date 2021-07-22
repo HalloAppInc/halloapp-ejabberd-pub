@@ -21,6 +21,7 @@
     get_latest_verify_info/1   %% Need for test.
 ]).
 
+-define(TWILIO_VERIFY_ENG_LANG_ID, "en").
 -define(TTL_SMS_SID, 600).
 
 
@@ -162,7 +163,7 @@ get_latest_verify_info(AllVerifyInfoList) ->
 -spec get_verify_lang(LangId :: binary()) -> string().
 get_verify_lang(LangId) ->
     VerifyLangMap = get_verify_lang_map(),
-    maps:get(LangId, VerifyLangMap, ?ENG_LANG_ID).
+    maps:get(LangId, VerifyLangMap, ?TWILIO_VERIFY_ENG_LANG_ID).
 
 
 get_verify_lang_map() ->
