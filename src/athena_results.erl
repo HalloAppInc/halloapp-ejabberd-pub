@@ -36,7 +36,7 @@ send_to_opentsdb(Query) ->
     [HeaderRow | ActualResultRows] = ResultRows,
     {NS, Metric} = Query#athena_query.metrics,
     Namespace =  string:replace(NS, "/", ".", all),
-    Metric = util:to_binary(Namespace ++ "." ++ Metric),
+    FullMetric = util:to_binary(Namespace ++ "." ++ Metric),
 
     TsdbPoints = lists:map(
         fun(DataRow) ->
@@ -45,7 +45,7 @@ send_to_opentsdb(Query) ->
             Timestamp = maps:get(?TIMESTAMP_CN, Data),
             Tags = maps:remove(?VALUE_CN, maps:remove(?TIMESTAMP_CN, Data)),
             #{
-                metric =>  Metric,
+                metric =>  FullMetric,
                 timestamp => Timestamp,
                 value => Value,
                 tags => Tags
@@ -73,7 +73,7 @@ percentile(Query) ->
     [HeaderRow | ActualResultRows] = ResultRows,
     {NS, Metric} = Query#athena_query.metrics,
     Namespace =  string:replace(NS, "/", ".", all),
-    Metric = util:to_binary(Namespace ++ "." ++ Metric),
+    FullMetric = util:to_binary(Namespace ++ "." ++ Metric),
 
     TsdbPoints = lists:map(
         fun(DataRow) ->
@@ -88,7 +88,7 @@ percentile(Query) ->
                         _ ->
                             Tags2 = maps:put(<<"percentile">>,  Percentile, Tags),
                             {true, #{
-                                metric =>  Metric,
+                                metric =>  FullMetric,
                                 timestamp => Timestamp,
                                 value => Value,
                                 tags => Tags2
