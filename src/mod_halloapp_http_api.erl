@@ -29,7 +29,10 @@
 
 %% API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
--export([process/2]).
+-export([
+    process/2,
+    check_blocked/1  %% for testing
+]).
 
 %% TODO: cleanup old code in this file and old password related stuff.
 
@@ -194,6 +197,7 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
         check_ua(UserAgent),
         Method2 = get_otp_method(Method),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
+        check_blocked(ClientIP),
         case request_otp(Phone, LangId, UserAgent, Method2) of
             {ok, RetryAfterSecs} ->
                 {200, ?HEADER(?CT_JSON),
@@ -212,6 +216,10 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
                     ]})}
         end
     catch
+        error : ip_blocked ->
+            ?ERROR("register error: ip_blocked ~p", [Headers]),
+            log_request_otp_error(ip_blocked, sms),
+            util_http:return_400();
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
             log_request_otp_error(bad_user_agent, sms),
@@ -342,6 +350,13 @@ check_name(Name) when is_binary(Name) ->
 check_name(_) ->
     error(invalid_name).
 
+-spec check_blocked(IP :: string()) -> ok | erlang:error().
+check_blocked(IP) ->
+    case is_ip_blocked(IP) of
+        true -> erlang:error(ip_blocked);
+        false -> ok
+    end.
+
 
 -spec check_invited(PhoneNum :: binary(), UserAgent :: binary(), IP :: string(),
         GroupInviteToken :: binary()) -> ok | erlang:error().
@@ -413,6 +428,21 @@ is_group_invite_valid(GroupInviteToken) ->
     case model_groups:get_invite_link_gid(GroupInviteToken) of
         undefined -> false;
         _Gid -> true
+    end.
+
+%% TODO: Manage list of blocked ips in redis.
+-spec is_ip_blocked(IP :: list()) -> boolean().
+is_ip_blocked(IP) ->
+    case inet:parse_address(IP) of
+        {ok, IPTuple} ->
+            case IPTuple of
+                % 38.91.106.225 sending bot requests from CC:AZ
+                {38, 91, 106, 225} -> true;
+                _ -> false
+            end;
+        {error, _} ->
+            ?WARNING("failed to parse IP: ~p", [IP]),
+            false
     end.
 
 -spec is_ip_invite_opened(IP :: list()) -> boolean().
