@@ -127,7 +127,7 @@ media_download_timing_by_platform_query({_Year, Month, Date}) ->
     ">>,
     #athena_query{
         query_bin = QueryBin,
-        result_fun = {athena_results, percentiles},
+        result_fun = {athena_results, percentile},
         metrics = {"HA" , "media_download.timing_by_platform"}
     }.
 
@@ -149,7 +149,7 @@ media_download_timing_all_query({_Year, Month, Date}) ->
     ">>,
     #athena_query{
         query_bin = QueryBin,
-        result_fun = {athena_results, percentiles},
+        result_fun = {athena_results, percentile},
         metrics = {"HA" , "media_download.timing"}
     }.
 
@@ -172,7 +172,7 @@ media_upload_timing_by_platform_query({_Year, Month, Date}) ->
     ">>,
     #athena_query{
         query_bin = QueryBin,
-        result_fun = {athena_results, percentiles},
+        result_fun = {athena_results, percentile},
         metrics = {"HA" , "media_upload.timing_by_platform"}
     }.
 
@@ -194,7 +194,7 @@ media_upload_timing_all_query({_Year, Month, Date}) ->
     ">>,
     #athena_query{
         query_bin = QueryBin,
-        result_fun = {athena_results, percentiles},
+        result_fun = {athena_results, percentile},
         metrics = {"HA" , "media_upload.timing"}
     }.
 
