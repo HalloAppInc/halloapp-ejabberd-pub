@@ -17,7 +17,8 @@
     trigger_full_sync_run/2,
     find_empty_contact_list_accounts/2,
     remove_phone_hash_key/2,
-    remove_stale_sync_key/2
+    remove_stale_sync_key/2,
+    mark_first_sync_run/2
 ]).
 
 
@@ -170,7 +171,29 @@ remove_stale_sync_key(Key, State) ->
     State.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                        Mark users with their first sync done                    %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+mark_first_sync_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            {ok, ContactList} = model_contacts:get_contacts(Uid),
+            NumContacts = length(ContactList),
+            case DryRun of
+                false ->
+                    {ok, IsFirstSync} = model_accounts:mark_first_sync_done(Uid),
+                    ?INFO("Account uid: ~p, NumContacts: ~p, IsFirstSync: ~p",
+                        [Uid, NumContacts, IsFirstSync]);
+                true ->
+                    ?INFO("Account uid: ~p, NumContacts: ~p", [Uid, NumContacts])
+            end,
+            ok;
+        _ -> ok
+    end,
+    State.
 
 q(Client, Command) -> util_redis:q(Client, Command).
-qp(Client, Commands) -> util_redis:qp(Client, Commands).
-

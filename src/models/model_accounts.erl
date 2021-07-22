@@ -54,6 +54,9 @@
     get_names/1,
     get_avatar_ids/1,
     get_creation_ts_ms/1,
+    mark_first_non_empty_sync_done/1,
+    is_first_non_empty_sync_done/1,
+    delete_first_non_empty_sync_status/1,
     mark_first_sync_done/1,
     is_first_sync_done/1,
     delete_first_sync_status/1,
@@ -124,7 +127,8 @@
 -define(FIELD_AVATAR_ID, <<"av">>).
 -define(FIELD_CREATION_TIME, <<"ct">>).
 -define(FIELD_DELETION_TIME, <<"dt">>).
--define(FIELD_SYNC_STATUS, <<"sy">>).
+-define(FIELD_SYNC_STATUS, <<"fsy">>).
+-define(FIELD_NON_EMPTY_SYNC_STATUS, <<"sy">>).
 -define(FIELD_NUM_INV, <<"in">>).  % from model_invites, but is part of the account structure
 -define(FIELD_SINV_TS, <<"it">>).  % from model_invites, but is part of the account structure
 -define(FIELD_LAST_ACTIVITY, <<"la">>).
@@ -344,6 +348,24 @@ get_phones(Uids) ->
 get_creation_ts_ms(Uid) ->
     {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_CREATION_TIME]),
     ts_reply(Res).
+
+
+-spec mark_first_non_empty_sync_done(Uid :: uid()) -> {ok, boolean()} | {error, missing}.
+mark_first_non_empty_sync_done(Uid) ->
+    {ok, Exists} = q(["HSETNX", account_key(Uid), ?FIELD_NON_EMPTY_SYNC_STATUS, 1]),
+    {ok, Exists =:= <<"1">>}.
+
+
+-spec is_first_non_empty_sync_done(Uid :: uid()) -> boolean() | {error, missing}.
+is_first_non_empty_sync_done(Uid) ->
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_NON_EMPTY_SYNC_STATUS]),
+    Res =:= <<"1">>.
+
+
+-spec delete_first_non_empty_sync_status(Uid :: uid()) -> ok | {error, missing}.
+delete_first_non_empty_sync_status(Uid) ->
+    {ok, _} = q(["HDEL", account_key(Uid), ?FIELD_NON_EMPTY_SYNC_STATUS]),
+    ok.
 
 
 -spec mark_first_sync_done(Uid :: uid()) -> {ok, boolean()} | {error, missing}.

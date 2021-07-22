@@ -94,6 +94,7 @@ dump_account(Uid) ->
     try
         ?INFO("Account uid: ~p", [Uid]),
         {ok, Account} = model_accounts:get_account(Uid),
+        NumContacts = model_contacts:count_contacts(Uid),
         CC = mod_libphonenumber:get_cc(Account#account.phone),
         mod_client_log:log_event(<<"server.accounts">>, #{
             uid => Account#account.uid,
@@ -102,7 +103,8 @@ dump_account(Uid) ->
             signup_version => Account#account.signup_user_agent,
             signup_platform => util_ua:get_client_type(Account#account.signup_user_agent),
             cc => CC,
-            lang_id => Account#account.lang_id
+            lang_id => Account#account.lang_id,
+            num_contacts => NumContacts
         }),
         ok
     catch

@@ -192,6 +192,7 @@ re_register_user(UserId, _Server, Phone) ->
     remove_all_contacts(UserId, false),
     %% Clear first sync status upon re-registration.
     model_accounts:delete_first_sync_status(UserId),
+    model_accounts:delete_first_non_empty_sync_status(UserId),
     ok.
 
 
@@ -214,6 +215,7 @@ register_user(UserId, _Server, Phone) ->
 -spec send_new_user_notifications(UserId :: binary(), UserPhone :: binary()) -> ok.
 send_new_user_notifications(UserId, Phone) ->
     {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+    stat:count("HA/contacts", "add_contact", length(ContactUids)),
     %% Fetch all inviter phone numbers.
     {ok, InvitersList} = model_invites:get_inviters_list(Phone),
     InviterUidSet = sets:from_list([InviterUid || {InviterUid, _} <- InvitersList]),
@@ -360,9 +362,12 @@ finish_sync(UserId, _Server, SyncId) ->
     AddContactSet = sets:subtract(NewContactSet, OldContactSet),
     OldReverseContactSet = sets:from_list(OldReverseContactList),
     BlockedUidSet = sets:from_list(BlockedUids ++ BlockedByUids),
+
+    NumOldContacts = sets:size(OldContactSet),
+    NumNewContacts = sets:size(NewContactSet),
     ?INFO("Full contact sync stats: uid: ~p, old_contacts: ~p, new_contacts: ~p, "
-            "add_contacts: ~p, delete_contacts: ~p", [UserId, sets:size(OldContactSet),
-            sets:size(NewContactSet), sets:size(AddContactSet), sets:size(DeleteContactSet)]),
+            "add_contacts: ~p, delete_contacts: ~p", [UserId, NumOldContacts,
+            NumNewContacts, sets:size(AddContactSet), sets:size(DeleteContactSet)]),
     ?INFO("Full contact sync: uid: ~p, add_contacts: ~p, delete_contacts: ~p",
                 [UserId, sets:to_list(AddContactSet), sets:to_list(DeleteContactSet)]),
     stat:count("HA/contacts", "add_contact", sets:size(AddContactSet)),
@@ -388,25 +393,40 @@ finish_sync(UserId, _Server, SyncId) ->
         ok -> ok
     end,
 
+    NumUidContacts = length(RegisteredContacts),
+    NumFriendContacts = length(FriendContacts),
     ?INFO("FullSync stats: uid: ~p, NumNewContacts: ~p, NumUidContacts: ~p, NumFriendContacts: ~p",
-        [UserId, length(NewContactList), length(RegisteredContacts), length(FriendContacts)]),
-    stat:count("HA/contacts", "sync_new_contacts", length(NewContactList)),
-    stat:count("HA/contacts", "sync_uid_contacts", length(RegisteredContacts)),
-    stat:count("HA/contacts", "sync_friend_contacts", length(FriendContacts)),
-
+        [UserId, NumNewContacts, NumUidContacts, NumFriendContacts]),
+    stat:count("HA/contacts", "add_contact", length(AddContacts)),
+    stat:count("HA/contacts", "add_uid_contact", length(RegisteredContacts)),
 
     %% Check if any new contacts were uploaded in this sync - if yes - then update sync status.
     %% checking this will help us set this field only for non-empty full contact sync.
     case NewContactList =/= [] of
         true ->
-            {ok, Result} = model_accounts:mark_first_sync_done(UserId),
-            ?INFO("Uid: ~p, mark_first_sync_done: ~p", [UserId, Result]);
+            {ok, Result} = model_accounts:mark_first_non_empty_sync_done(UserId),
+            ?INFO("Uid: ~p, mark_first_non_empty_sync_done: ~p", [UserId, Result]);
         false -> ok
     end,
 
+    %% Set status for first sync - could be empty/non-empty!
+    {ok, IsFirstSync} = model_accounts:mark_first_sync_done(UserId),
+    count_first_syncs(UserId, IsFirstSync, NumNewContacts),
     EndTime = os:system_time(microsecond),
     T = EndTime - StartTime,
     ?INFO("Time taken: ~w us", [T]),
+    ok.
+
+
+count_first_syncs(UserId, IsFirstSync, NumNewContacts) ->
+    ?INFO("Uid: ~p, IsFirstSync: ~p, NumNewContacts: ~p", [UserId, IsFirstSync, NumNewContacts]),
+    IsEmpty = NumNewContacts =:= 0,
+    case IsFirstSync of
+        true ->
+            stat:count("HA/contacts", "first_contact_sync", 1, [{is_empty, IsEmpty}]);
+        false ->
+            ok
+    end,
     ok.
 
 
@@ -482,6 +502,7 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
         undefined ->
             model_contacts:add_contacts(UserId, NormalizedPhoneNumbers),
             stat:count("HA/contacts", "add_contact", length(NormalizedPhoneNumbers)),
+            stat:count("HA/contacts", "add_uid_contact", length(RegisteredContacts1)),
             add_and_notify_friends(UserId, UserPhone, FriendContacts2, OldFriendUidSet);
         _ ->
             model_contacts:sync_contacts(UserId, SyncId, NormalizedPhoneNumbers)

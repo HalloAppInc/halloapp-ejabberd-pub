@@ -36,10 +36,12 @@ keys_test() ->
 add_contact_test() ->
     setup(),
     {ok, []} = model_contacts:get_contacts(?UID),
+    ?assertEqual(0, model_contacts:count_contacts(?UID)),
     {ok, []} = model_contacts:get_contact_uids(?CONTACT1),
     ok = model_contacts:add_contact(?UID, ?CONTACT1),
     %% Test con:{uid}
     {ok, [?CONTACT1]} = model_contacts:get_contacts(?UID),
+    ?assertEqual(1, model_contacts:count_contacts(?UID)),
     %% Test rev:{phone}
     {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT1).
 
@@ -48,9 +50,11 @@ add_contacts_test() ->
     setup(),
     ok = model_contacts:add_contacts(?UID, []),
     {ok, []} = model_contacts:get_contacts(?UID),
+    ?assertEqual(0, model_contacts:count_contacts(?UID)),
     ok = model_contacts:add_contacts(?UID, [?CONTACT1, ?CONTACT2]),
     %% Test con:{uid}
     {ok, [?CONTACT1, ?CONTACT2]} = model_contacts:get_contacts(?UID),
+    ?assertEqual(2, model_contacts:count_contacts(?UID)),
     {ok, []} = model_contacts:get_contact_uids(?CONTACT3),
     %% Test rev:{phone}
     {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT1),
@@ -65,6 +69,7 @@ remove_contact_test() ->
     ok = model_contacts:remove_contact(?UID, ?CONTACT1),
     %% Test con:{uid}
     {ok, [?CONTACT2]} = model_contacts:get_contacts(?UID),
+    ?assertEqual(1, model_contacts:count_contacts(?UID)),
     %% Test rev:{phone}
     {ok, []} = model_contacts:get_contact_uids(?CONTACT1),
     {ok, [?UID]} = model_contacts:get_contact_uids(?CONTACT2).
@@ -76,9 +81,11 @@ remove_contacts_test() ->
     ok = model_contacts:add_contact(?UID, ?CONTACT2),
     ok = model_contacts:remove_contacts(?UID, []),
     {ok, [?CONTACT1, ?CONTACT2]} = model_contacts:get_contacts(?UID),
+    ?assertEqual(2, model_contacts:count_contacts(?UID)),
     ok = model_contacts:remove_contacts(?UID, [?CONTACT1, ?CONTACT2]),
     %% Test con:{uid}
     {ok, []} = model_contacts:get_contacts(?UID),
+    ?assertEqual(0, model_contacts:count_contacts(?UID)),
     %% Test rev:{phone}
     {ok, []} = model_contacts:get_contact_uids(?CONTACT1),
     {ok, []} = model_contacts:get_contact_uids(?CONTACT2).
@@ -90,9 +97,11 @@ remove_all_contacts_test() ->
     ok = model_contacts:add_contact(?UID, ?CONTACT2),
      %% Test con:{uid}
     {ok, [?CONTACT1, ?CONTACT2]} = model_contacts:get_contacts(?UID),
+    ?assertEqual(2, model_contacts:count_contacts(?UID)),
     ok = model_contacts:remove_all_contacts(?UID),
     %% Test con:{uid}
     {ok, []} = model_contacts:get_contacts(?UID),
+    ?assertEqual(0, model_contacts:count_contacts(?UID)),
     %% Test rev:{phone}
     {ok, []} = model_contacts:get_contact_uids(?CONTACT1),
     {ok, []} = model_contacts:get_contact_uids(?CONTACT2).
