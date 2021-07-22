@@ -46,11 +46,10 @@
     trigger_zset_cleanup/0,
     trigger_count_users_by_version/0,
     trigger_count_users_by_langid/0,
-    trigger_check_sms_reg/0,
+    trigger_check_sms_reg/1,
     compute_counts_by_version/0,
     compute_counts_by_langid/0,
-    compute_counts/0,
-    check_sms_reg/0
+    compute_counts/0
 ]).
 
 -type tag_value() :: atom() | string() | binary().
@@ -157,9 +156,9 @@ trigger_count_users_by_version() ->
 trigger_count_users_by_langid() ->
     spawn(?MODULE, compute_counts_by_langid, []).
 
--spec trigger_check_sms_reg() -> ok.
-trigger_check_sms_reg() ->
-    spawn(?MODULE, check_sms_reg, []).
+-spec trigger_check_sms_reg(TimeInterval :: atom()) -> ok.
+trigger_check_sms_reg(TimeInterval) ->
+    spawn(stat_sms, check_sms_reg, [TimeInterval]).
 
 % TODO: this logic should move to new module mod_active_users
 -spec trigger_zset_cleanup() -> ok.
@@ -234,53 +233,6 @@ compute_counts_by_langid() ->
     ok.
 
 
-check_sms_reg() ->
-    ?INFO("Check SMS reg start"),
-    Start = util:now_ms(),
-    IncrementalTimestamp = util:now() div ?SMS_REG_TIMESTAMP_INCREMENT,
-    check_sms_reg2(IncrementalTimestamp - 2, ?SMS_REG_CHECK_INCREMENTS),
-
-    End = util:now_ms(),
-    ?INFO("Check SMS reg took ~p ms", [End - Start]),
-    ok.
- 
--spec check_sms_reg2(IncrementalTimestamp :: integer(), Increment :: integer()) -> ok.
-check_sms_reg2(_IncrementalTimestamp, 0) ->
-    ?DEBUG("Stopping"),
-    ok;
-check_sms_reg2(IncrementalTimestamp, Increment) ->
-    ?DEBUG("Processing increment: ~p", [Increment]),
-    ToInspect = IncrementalTimestamp - Increment,
-    List = model_phone:get_incremental_attempt_list(ToInspect),
-    lists:foreach(fun({Phone, AttemptId}) ->
-        ?INFO("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
-        case util:is_test_number(Phone) of
-            false ->
-                SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
-                CC = mod_libphonenumber:get_cc(Phone),
-                #gateway_response{gateway = Gateway, status = Status, verified = Success} = SMSResponse, 
-                case {Gateway, Status, Success} of
-                    {undefined, _, _} ->
-                        stat:count("HA/registration", "otp_attempt_error", 1,
-                            [{gateway, Gateway}, {cc, CC}]),
-                        ?INFO("CC: ~p, Phone: ~p, AttemptId: ~p (not found), SMS attempt failed",
-                            [CC, Phone, AttemptId]);
-                    {_, _, false} ->
-                        stat:count("HA/registration", "otp_attempt_error", 1,
-                            [{gateway, Gateway}, {cc, CC}, {status, Status}]),
-                        ?INFO("CC: ~p, Phone: ~p AttemptId: ~p failed via Gateway: ~p, Status: ~p",
-                            [CC, Phone, AttemptId, Gateway, Status]);
-                    {_, _, true} ->
-                          ok
-                end;
-            true ->
-                ok
-        end
-        end,
-        List),
-    check_sms_reg2(IncrementalTimestamp, Increment - 1). 
-
-
 init(_Stuff) ->
     % Each Erlang process has to do the configure
     % TODO: maybe make module where this erlcloud configure should go
@@ -296,8 +248,9 @@ init(_Stuff) ->
             {ok, _Tref3} = timer:apply_interval(10 * ?MINUTES_MS, ?MODULE, trigger_zset_cleanup, []),
             {ok, _Tref4} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_version, []),
             {ok, _Tref5} = timer:apply_interval(1 * ?HOURS_MS, mod_athena_stats, run_athena_queries, []),
-            {ok, _Tref6} = timer:apply_interval(15 * ?MINUTES_MS, ?MODULE, trigger_check_sms_reg, []),
-            {ok, _Tref7} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_langid, []);
+            {ok, _Tref6} = timer:apply_interval(15 * ?MINUTES_MS, ?MODULE, trigger_check_sms_reg, [recent]),
+            {ok, _Tref7} = timer:apply_interval(4 * ?HOURS_MS, ?MODULE, trigger_check_sms_reg, [past]),
+            {ok, _Tref8} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_langid, []);
         _ ->
             ok
     end,
