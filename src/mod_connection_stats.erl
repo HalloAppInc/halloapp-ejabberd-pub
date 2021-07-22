@@ -74,7 +74,7 @@ init([Host|_]) ->
 
 terminate(_Reason, #{host := Host} = _State) ->
     ejabberd_hooks:delete(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 50),
-    ejabberd_hooks:remove(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 50),
+    ejabberd_hooks:delete(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 50),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

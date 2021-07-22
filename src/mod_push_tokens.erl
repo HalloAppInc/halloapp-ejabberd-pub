@@ -47,7 +47,7 @@ stop(Host) ->
     ?INFO("stop", []),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_push_register),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_notification_prefs),
-    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 10),
+    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 10),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 10),
     ok.
 

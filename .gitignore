@@ -58,4 +58,4 @@ XmppAddr.hrl
 /Mnesia.*
 /test/ha_SUITE_data/ejabberd.auto.yml
 phone_norm.log
-
+src/hooks_type_test.erl

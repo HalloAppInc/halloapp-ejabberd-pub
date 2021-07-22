@@ -93,7 +93,7 @@ terminate(_Reason, #{host := Host} = _State) ->
     ejabberd_hooks:delete(user_send_ack, Host, ?MODULE, user_send_ack, 50),
     ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 100),
     ejabberd_hooks:delete(user_session_activated, Host, ?MODULE, user_session_activated, 50),
-    ejabberd_hooks:add(offline_queue_cleared, Host, ?MODULE, offline_queue_cleared, 50),
+    ejabberd_hooks:delete(offline_queue_cleared, Host, ?MODULE, offline_queue_cleared, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
