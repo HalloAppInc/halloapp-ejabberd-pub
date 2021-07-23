@@ -74,6 +74,7 @@
     get_sms_codes/1,
     send_invite/2,
     reset_sms_backoff/1,
+    delete_account/1,
     send_ios_push/3,
     update_code_paths/0,
     list_changed_modules/0,
@@ -478,6 +479,12 @@ get_commands_spec() ->
         args_desc = ["Phone number"],
         args_example = [<<"12065555586">>],
         args=[{phone, binary}], result = {res, rescode}},
+    #ejabberd_commands{name = delete_account, tags = [server],
+        desc = "Delete an account",
+        module = ?MODULE, function = delete_account,
+        args_desc = ["Uid"],
+        args_example = [<<"1000000000121550191">>],
+        args=[{uid, binary}], result = {res, rescode}},
     #ejabberd_commands{name = update_code_paths, tags = [server],
         desc = "update codepaths to the newly released folder.",
         module = ?MODULE, function = update_code_paths,
@@ -1324,6 +1331,13 @@ send_invite(FromUid, ToPhone) ->
             end;
         false -> io:format("No account associated with uid: ~s~n", [FromUid])
     end,
+    ok.
+
+
+delete_account(Uid) ->
+    ?INFO("Admin initiated account deletion for uid: ~p", [Uid]),
+    ejabberd_auth:remove_user(Uid, util:get_host()),
+    io:format("Account deleted: ~p~n", [Uid]),
     ok.
 
 
