@@ -71,6 +71,7 @@
     phone_info/1,
     phone_info_with_all_contacts/1,
     group_info/1,
+    session_info/1,
     get_sms_codes/1,
     send_invite/2,
     reset_sms_backoff/1,
@@ -95,6 +96,7 @@
 -include("translate.hrl").
 -include("ejabberd_commands.hrl").
 -include("sms.hrl").
+-include("ejabberd_sm.hrl").
 
 -record(state, {}).
 
@@ -460,6 +462,12 @@ get_commands_spec() ->
         args_desc = ["Group ID (gid)"],
         args_example = [<<"gmWxatkspbosFeZQmVoQ0f">>],
         args=[{gid, binary}], result = {res, rescode}},
+    #ejabberd_commands{name = session_info, tags = [server],
+        desc = "Get information associated with a user's session",
+        module = ?MODULE, function = session_info,
+        args_desc = ["Account UID"],
+        args_example = [<<"1000000024384563984">>],
+        args=[{uid, binary}], result = {res, rescode}},
     #ejabberd_commands{name = get_sms_codes, tags = [server],
         desc = "Get SMS registration code for phone number",
         module = ?MODULE, function = get_sms_codes,
@@ -1242,6 +1250,25 @@ group_info(Gid) ->
             io:format("~s (~s), created on ~s at ~s:~n", [GName, Gid, CreateDate, CreateTime]),
             [io:format("    ~s (~s) | ~s | joined on ~s at ~s~n", [Name, Uid, Type, Date, Time])
                 || {Uid, Type, {Date, Time}, Name} <- Members]
+    end,
+    ok.
+
+
+session_info(Uid) ->
+    ?INFO("Admin requesting session info for uid: ~p", [Uid]),
+    Sessions = ejabberd_sm:get_sessions(Uid, util:get_host()),
+    case Sessions of
+        [] -> io:format("User ~p currently has no sessions~n", [Uid]);
+        _ ->
+            io:format("User ~p has ~p sessions~n", [Uid, length(Sessions)]),
+            lists:foreach(
+                fun
+                    (#session{sid = {_Ts, Pid} = Sid, usr = {_U, _S, R}, mode = Mode, info = Info}) ->
+                        Node = node(Pid),
+                        io:format("~p session on node: ~p, sid: ~p, resource: ~p, info: ~p~n",
+                            [Mode, Node, Sid, R, Info])
+                end,
+                Sessions)
     end,
     ok.
 
