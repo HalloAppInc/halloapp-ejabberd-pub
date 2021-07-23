@@ -93,23 +93,27 @@ dump_accounts_run(Key, State) ->
 dump_account(Uid) ->
     try
         ?INFO("Account uid: ~p", [Uid]),
-        {ok, Account} = model_accounts:get_account(Uid),
-        NumContacts = model_contacts:count_contacts(Uid),
-        CC = mod_libphonenumber:get_cc(Account#account.phone),
-        mod_client_log:log_event(<<"server.accounts">>, #{
-            uid => Account#account.uid,
-            creation_ts_ms => Account#account.creation_ts_ms,
-            last_activity => Account#account.last_activity_ts_ms,
-            signup_version => Account#account.signup_user_agent,
-            signup_platform => util_ua:get_client_type(Account#account.signup_user_agent),
-            cc => CC,
-            lang_id => Account#account.lang_id,
-            num_contacts => NumContacts
-        }),
-        ok
+        case model_accounts:get_account(Uid) of
+            {error, missing} -> ok;
+            {ok, Account} ->
+                NumContacts = model_contacts:count_contacts(Uid),
+                CC = mod_libphonenumber:get_cc(Account#account.phone),
+                mod_client_log:log_event(<<"server.accounts">>, #{
+                    uid => Account#account.uid,
+                    creation_ts_ms => Account#account.creation_ts_ms,
+                    last_activity => Account#account.last_activity_ts_ms,
+                    signup_version => Account#account.signup_user_agent,
+                    signup_platform => util_ua:get_client_type(Account#account.signup_user_agent),
+                    cc => CC,
+                    lang_id => Account#account.lang_id,
+                    num_contacts => NumContacts
+                }),
+                ok
+        end
     catch
         Class : Reason : St ->
-            ?ERROR("failed to dump account to log: ~p", [lager:pr_stacktrace(St, {Class, Reason})])
+            ?ERROR("failed to dump account Uid: ~p, to log: ~p",
+                [Uid, lager:pr_stacktrace(St, {Class, Reason})])
     end.
 
 
