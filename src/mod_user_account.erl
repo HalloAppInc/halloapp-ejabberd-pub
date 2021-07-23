@@ -61,7 +61,14 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     NormPhoneBin = util:to_binary(NormPhone),
     case model_accounts:get_phone(Uid) of
         {ok, NormPhoneBin} when NormPhoneBin =/= undefined ->
+            Platform = case model_accounts:get_client_version(Uid) of
+                {ok, Version} ->
+                    util_ua:get_client_type(Version);
+                {error, missing} -> undefined
+            end,
             ok = ejabberd_auth:remove_user(Uid, Server),
+            CC = mod_libphonenumber:get_cc(NormPhoneBin),
+            stat:count("HA/account", "delete", 1, [{cc, CC}, {platform, Platform}]),
             ResponseIq = pb:make_iq_result(IQ, #pb_delete_account{}),
             ejabberd_router:route(ResponseIq),
             ok = ejabberd_sm:disconnect_removed_user(Uid, Server),
@@ -83,4 +90,3 @@ process_local_iq(#pb_iq{} = IQ) ->
 %%====================================================================
 %% internal functions.
 %%====================================================================
-
