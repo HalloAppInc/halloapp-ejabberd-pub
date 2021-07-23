@@ -20,6 +20,7 @@
 -define(UID, <<"1000000000332736727">>).
 -define(PHONE, <<"14703381473">>).
 -define(TEST_PHONE, <<"16175550000">>).
+-define(BAD_PHONE, <<"1617555">>).
 -define(NAME, <<"Josh">>).
 -define(SERVER, <<"s.halloapp.net">>).
 -define(UA, <<"HalloApp/iPhone1.0">>).
@@ -75,6 +76,12 @@ request_sms_test() ->
     BadUserAgentError = util_http:return_400(),
     ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?BAD_UA)})),
+
+    BadPhoneData = jsx:encode([{<<"phone">>, ?BAD_PHONE}]),
+    BadPhoneError = util_http:return_400(invalid_phone_number),
+    ?assertEqual(BadPhoneError, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = BadPhoneData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)})),
+
     ?assert(meck:called(stat, count, ["HA/account", "request_sms_errors", 1,
         [{error, bad_user_agent}]])),
     meck_finish(stat),
@@ -458,6 +465,7 @@ setup() ->
     tutil:setup(),
     {ok, _} = application:ensure_all_started(stringprep),
     ha_redis:start(),
+    mod_libphonenumber:start(<<>>, <<>>),
     clear(),
     ok.
 

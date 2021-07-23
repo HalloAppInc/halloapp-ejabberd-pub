@@ -59,12 +59,13 @@ process([<<"registration">>, <<"register2">>],
         UserAgent = util_http:get_user_agent(Headers),
         ?INFO("spub registration request: r:~p ip:~s ua:~s", [Data, ClientIP, UserAgent]),
         Payload = jiffy:decode(Data, [return_maps]),
-        Phone = maps:get(<<"phone">>, Payload),
+        RawPhone = maps:get(<<"phone">>, Payload),
         Code = maps:get(<<"code">>, Payload),
         Name = maps:get(<<"name">>, Payload),
         SEdPub = maps:get(<<"s_ed_pub">>, Payload),
         SignedPhrase = maps:get(<<"signed_phrase">>, Payload),
         GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
+        Phone = normalize(RawPhone),
 
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
@@ -99,6 +100,10 @@ process([<<"registration">>, <<"register2">>],
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
             log_register_error(bad_user_agent),
             util_http:return_400();
+        error : invalid_phone_number ->
+            ?ERROR("register error: invalid_phone_number ~p", [Headers]),
+            log_request_otp_error(invalid_phone_number, sms),
+            util_http:return_400(invalid_phone_number);
         error : invalid_client_version ->
             ?ERROR("register error: invalid_client_version ~p", [Headers]),
             util_http:return_400(invalid_client_version);
@@ -184,15 +189,16 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
         UserAgent = util_http:get_user_agent(Headers),
         ClientIP = util_http:get_ip(IP, Headers),
         Payload = jiffy:decode(Data, [return_maps]),
-        Phone = maps:get(<<"phone">>, Payload),
+        RawPhone = maps:get(<<"phone">>, Payload),
         Method = case MethodInRequest of
             false -> <<"sms">>;
             _ -> maps:get(<<"method">>, Payload, <<"sms">>)
         end,
         LangId = maps:get(<<"lang_id">>, Payload, <<"en-US">>),
         GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
-        ?INFO("phone:~p, ua:~p ip:~s method: ~s, langId: ~p, payload:~p ",
-            [Phone, UserAgent, ClientIP, Method, LangId, Payload]),
+        ?INFO("raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, payload:~p ",
+            [RawPhone, UserAgent, ClientIP, Method, LangId, Payload]),
+        Phone = normalize(RawPhone),
 
         check_ua(UserAgent),
         Method2 = get_otp_method(Method),
@@ -220,6 +226,10 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
             ?ERROR("register error: ip_blocked ~p", [Headers]),
             log_request_otp_error(ip_blocked, sms),
             util_http:return_400();
+        error : invalid_phone_number ->
+            ?ERROR("register error: invalid_phone_number ~p", [Headers]),
+            log_request_otp_error(invalid_phone_number, MethodInRequest),
+            util_http:return_400(invalid_phone_number);
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [Headers]),
             log_request_otp_error(bad_user_agent, sms),
@@ -355,6 +365,24 @@ check_blocked(IP) ->
     case is_ip_blocked(IP) of
         true -> erlang:error(ip_blocked);
         false -> ok
+    end.
+
+
+-spec normalize(RawPhone :: binary()) -> binary() | no_return(). %throws invalid_phone_number
+normalize(RawPhone) ->
+    % RawPhone.
+    E164Phone = case RawPhone of
+        <<"+", _Rest/binary>> -> RawPhone;
+        _ -> <<"+", RawPhone/binary>>
+    end,
+    case mod_libphonenumber:normalize(E164Phone, <<"US">>) of
+        undefined ->
+            %% We dont expect to hit this error that often as of now.
+            %% TODO: update after observing this in release.
+            ?ERROR("Invalid raw_phone:~p", [RawPhone]),
+            error(invalid_phone_number);
+        Phone ->
+            Phone
     end.
 
 

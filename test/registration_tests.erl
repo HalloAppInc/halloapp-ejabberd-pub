@@ -46,13 +46,22 @@ request_sms_fail_test(_Conf) ->
 %%        <<"error">> := <<"not_invited">>
 %%    } = Resp,
 
-    % use some random non-test number, get not_invited
-    {error, {400, Resp2}} = registration_client:request_sms(<<12066580001>>, #{user_agent => "BadUserAgent/1.0"}),
+    % use some random non-test number, get bad_request
+    {error, {400, Resp2}} = registration_client:request_sms(<<"12066580001">>, #{user_agent => "BadUserAgent/1.0"}),
     ct:pal("~p", [Resp2]),
     #{
         <<"result">> := <<"fail">>,
         <<"error">> := <<"bad_request">>
     } = Resp2,
+    ok,
+
+    % use some random non-test number, get not_invited
+    {error, {400, Resp3}} = registration_client:request_sms(<<"123">>, #{user_agent => "HalloApp/iOS1.2.93"}),
+    ct:pal("~p", [Resp3]),
+    #{
+        <<"result">> := <<"fail">>,
+        <<"error">> := <<"invalid_phone_number">>
+    } = Resp3,
     ok.
 
 
