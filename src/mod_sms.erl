@@ -38,7 +38,8 @@
     is_too_soon/1,  %% for testing
     good_next_ts_diff/1, %% for testing
     send_otp/5, %% for testing
-    send_otp_internal/5
+    send_otp_internal/5,
+    pick_gw/2  %% for testing
 ]).
 
 %%====================================================================
@@ -262,8 +263,10 @@ smart_send(Phone, LangId, UserAgent, Method, OldResponses) ->
     end,
     ?DEBUG("Choose from: ~p", [ToChooseFromList]),
 
-    %% Pick any.
-    ToPick = p1_rand:uniform(1, length(ToChooseFromList)),
+    CC = mod_libphonenumber:get_cc(Phone),
+
+    %% Pick one based on past performance.
+    ToPick = pick_gw(ToChooseFromList, CC),
     ?DEBUG("Picked: ~p, from: ~p", [ToPick, length(ToChooseFromList)]),
     PickedGateway = lists:nth(ToPick, ToChooseFromList),
 
@@ -276,7 +279,6 @@ smart_send(Phone, LangId, UserAgent, Method, OldResponses) ->
     end,
 
     %% TODO(vipin): Fix as and when we get approval. Replace the following using redis.
-    CC = mod_libphonenumber:get_cc(Phone),
     NewGateway2 = case CC of
         <<"AE">> -> twilio;     %% UAE
         <<"AL">> -> twilio;     %% Albania
@@ -349,3 +351,49 @@ smart_send(Phone, LangId, UserAgent, Method, OldResponses) ->
             {ok, SMSResponse2};
         {error, Reason} -> {error, NewGateway2, Reason}
     end.
+
+-spec pick_gw(ChooseFrom :: [atom()], CC :: binary()) -> non_neg_integer().
+pick_gw(ChooseFrom, CC) ->
+    GWScores = get_gw_scores(ChooseFrom, CC),
+    Sum = lists:sum(GWScores),
+    GWWeights = [XX/Sum || XX <- GWScores],
+    RandNo = random:uniform(),
+    ?DEBUG("Generated rand: ~p, Weights: ~p", [RandNo, GWWeights]),
+
+    %% Select first index that satisfy the gateway weight criteria. Selection uses the computed
+    %% weights for each gateway. We iterate over the list using a uniformly generated random
+    %% number between 0.0 and 1.0 and keep subtracting the weight from the left until the remainder
+    %% is negative and then we stop.
+    %%
+    %% E.g. If the weights are [0.1, 0.2, 0.3, 0.4] and the random number is 0.5, the third gateway
+    %% will be chosen.
+    %%
+    %% https://stackoverflow.com/questions/1761626/weighted-random-numbers
+    %%
+    %% TODO(vipin): Pick a faster algorithm.
+    {Picked, LeftOver} = lists:foldl(
+        fun(XX, {I, Left}) ->
+            case Left > 0 of
+                true -> {I + 1, Left - XX};
+                _ -> {I, Left}
+            end
+        end, {0, RandNo}, GWWeights),
+    true = (LeftOver =< 0),
+    ?DEBUG("Picked index: ~p, LeftOver: ~p", [Picked, LeftOver]),
+    Picked.
+
+-spec get_gw_scores(ChooseFrom :: [atom()], CC :: binary()) -> list().
+get_gw_scores(ChooseFrom, _CC) ->
+    %% TODO(vipin): Need to incorporate country specific score for each gateway.
+    GlobalMap = #{mbird => 0.8, twilio => 0.8, twilio_verify => 0.5},
+    RetVal = lists:map(
+        fun(XX) ->
+            case maps:find(XX, GlobalMap) of
+                {ok, Score} -> Score;
+                _ -> ?DEFAULT_GATEWAY_SCORE
+            end
+        end, ChooseFrom),
+    ?DEBUG("GWs: ~p, Scores: ~p", [ChooseFrom, RetVal]),
+    RetVal.
+
+

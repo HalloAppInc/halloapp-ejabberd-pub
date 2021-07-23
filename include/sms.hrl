@@ -48,4 +48,6 @@
 
 -define(ENG_LANG_ID, <<"en-US">>).
 
+-define(DEFAULT_GATEWAY_SCORE, 0.1).
+
 -endif.
