@@ -9,6 +9,9 @@
 -ifndef(UTIL_HTTP_HRL).
 -define(UTIL_HTTP_HRL, 1).
 
+-define(CT_HTML,
+    {<<"Content-Type">>, <<"text/html; charset=utf-8">>}).
+
 -define(CT_XML,
     {<<"Content-Type">>, <<"text/xml; charset=utf-8">>}).
 
