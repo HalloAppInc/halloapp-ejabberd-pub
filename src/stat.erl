@@ -42,6 +42,7 @@
 -export([
     trigger_send/0,
     trigger_count_users/0,
+    trigger_count_sessions/0,
     trigger_zset_cleanup/0,
     trigger_count_users_by_version/0,
     trigger_count_users_by_langid/0,
@@ -141,6 +142,12 @@ trigger_send() ->
 trigger_count_users() ->
     spawn(?MODULE, compute_counts, []).
 
+%% TODO(murali@): we need stats for both active and passive sessions on the server.
+-spec trigger_count_sessions() -> ok.
+trigger_count_sessions() ->
+    %% Add counters for total number of connections on the machine.
+    gauge("HA/connections", "total_sessions", ejabberd_sm:ets_count_sessions(), []),
+    ok.
 
 -spec trigger_count_users_by_version() -> ok.
 trigger_count_users_by_version() ->
@@ -282,6 +289,7 @@ init(_Stuff) ->
     erlcloud_aws:configure(Config),
     %% TODO(vipin): Move the background jobs in a different module.
     {ok, _Tref1} = timer:apply_interval(1 * ?SECONDS_MS, ?MODULE, trigger_send, []),
+    {ok, _} = timer:apply_interval(10 * ?SECONDS_MS, ?MODULE, trigger_count_sessions),
     case util_aws:get_machine_name() of
         <<"s-test">> ->
             {ok, _Tref2} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, trigger_count_users, []),
