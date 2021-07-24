@@ -222,7 +222,10 @@ get_time_until_refresh(CurrEpochTime) ->
 can_send_invite(FromUid, ToPhone) ->
     {ok, UserPhone} = model_accounts:get_phone(FromUid),
     RegionId = mod_libphonenumber:get_region_id(UserPhone),
-    NormPhone = mod_libphonenumber:normalize(prepend_plus(ToPhone), RegionId),
+    %% Clients are expected to send us the normalized version of the phone number that server
+    %% sent them during contact sync.
+    %% So we re-add the plus sign and check if the number is valid.
+    NormPhone = mod_libphonenumber:normalize(mod_libphonenumber:prepend_plus(ToPhone), RegionId),
     case NormPhone of
         undefined -> {error, invalid_number};
         _ ->
@@ -257,14 +260,4 @@ get_last_sunday_midnight(CurrTime) ->
 -spec get_next_sunday_midnight(CurrTime :: non_neg_integer()) -> non_neg_integer().
 get_next_sunday_midnight(CurrTime) ->
     get_last_sunday_midnight(CurrTime) + ?WEEKS.
-
-
-%%% IQ helper functions %%%
-
-
-prepend_plus(RawPhone) ->
-    case RawPhone of
-        <<"+", _Rest/binary>> ->  RawPhone;
-        _ -> <<"+", RawPhone/binary>>
-    end.
 

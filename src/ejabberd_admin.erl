@@ -1295,10 +1295,7 @@ send_ios_push(Uid, PushType, Payload) ->
 
 get_sms_codes(PhoneRaw) ->
     ?INFO("Admin requesting SMS codes for ~p", [PhoneRaw]),
-    Phone = case PhoneRaw of
-        <<"+", _Rest/binary>> ->  PhoneRaw;
-        _ -> <<"+", PhoneRaw/binary>>
-    end,
+    Phone = mod_libphonenumber:prepend_plus(PhoneRaw),
     case mod_libphonenumber:normalize(Phone, <<"US">>) of
         undefined ->
             io:format("Phone number invalid~n"),

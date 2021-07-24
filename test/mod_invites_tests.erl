@@ -217,13 +217,6 @@ get_inviters_list_test() ->
 %% Tests for internal functions
 %% -------------------------------------------- %%
 
-% tests that a + is put in front of phone numbers, if needed
-prepend_plus_test() ->
-    Number = <<"359 (88) 558 6764">>,
-    NumberWithPlus = <<"+359 (88) 558 6764">>,
-    ?assertEqual(NumberWithPlus, mod_invites:prepend_plus(Number)),
-    ?assertEqual(NumberWithPlus, mod_invites:prepend_plus(NumberWithPlus)).
-
 % tests the ability to get the next sunday at midnight for a chosen time
 next_sunday1_test() ->
     TestTime = 1585045819,

@@ -24,6 +24,14 @@ setup() ->
 %%%%%%%%%%%%                        Tests                                 %%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% tests that a + is put in front of phone numbers, if needed
+prepend_plus_test() ->
+    Number = <<"359 (88) 558 6764">>,
+    NumberWithPlus = <<"+359 (88) 558 6764">>,
+    ?assertEqual(NumberWithPlus, mod_libphonenumber:prepend_plus(Number)),
+    ?assertEqual(NumberWithPlus, mod_libphonenumber:prepend_plus(NumberWithPlus)).
+
+
 %% TODO(murali@): update these unit tests after we return e164 format number.
 
 get_region_test() ->

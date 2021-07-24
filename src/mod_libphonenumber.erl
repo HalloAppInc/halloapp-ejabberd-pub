@@ -26,7 +26,8 @@
 -export([
     get_cc/1,
     get_region_id/1,
-    normalize/2
+    normalize/2,
+    prepend_plus/1
 ]).
 
 
@@ -52,6 +53,14 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %% normalize phone numbers
 %%====================================================================
 
+-spec prepend_plus(Phone :: binary()) -> binary().
+prepend_plus(RawPhone) ->
+    case RawPhone of
+        <<"+", _Rest/binary>> ->  RawPhone;
+        _ -> <<"+", RawPhone/binary>>
+    end.
+
+
 % returns two letter ISO country code given well formatter phone
 -spec get_cc(Phone :: binary()) -> binary().
 get_cc(Phone) ->
@@ -60,10 +69,7 @@ get_cc(Phone) ->
 %% TODO(murali@): ensure these numbers are already in e164 format.
 -spec get_region_id(Number :: binary()) -> binary().
 get_region_id(Number) ->
-    RawIntlNumber = case Number of
-            <<"+", _Rest/binary>> ->  Number;
-            _ -> <<"+", Number/binary>>
-        end,
+    RawIntlNumber = prepend_plus(Number),
     Result = case phone_number_util:parse_phone_number(RawIntlNumber, ?US_REGION_ID) of
                 {ok, PhoneNumberState} ->
                     case PhoneNumberState#phone_number_state.valid of

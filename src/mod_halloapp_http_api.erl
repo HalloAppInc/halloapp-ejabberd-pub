@@ -370,11 +370,10 @@ check_blocked(IP) ->
 
 -spec normalize(RawPhone :: binary()) -> binary() | no_return(). %throws invalid_phone_number
 normalize(RawPhone) ->
+    %% We explicitly ask the clients to remove the plus in this case.
+    %% So, we try to re-add here before normalizing.
     % RawPhone.
-    E164Phone = case RawPhone of
-        <<"+", _Rest/binary>> -> RawPhone;
-        _ -> <<"+", RawPhone/binary>>
-    end,
+    E164Phone = mod_libphonenumber:prepend_plus(RawPhone),
     case mod_libphonenumber:normalize(E164Phone, <<"US">>) of
         undefined ->
             %% We dont expect to hit this error that often as of now.
