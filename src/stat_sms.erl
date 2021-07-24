@@ -33,8 +33,8 @@ check_sms_reg(TimeWindow) ->
     %% T - 60 mins, T - 45 minutes, T - 30 minutes, T - 15 minutes, T = current increment.
     %% --------- past ----------->  <-- recent ---> <--- last ---> <---- current ----
     case TimeWindow of
-        recent -> check_sms_reg2(TimeWindow, IncrementalTimestamp - 2, 1);    %% Last to Last time slot
-        past -> check_sms_reg2(TimeWindow, IncrementalTimestamp - 96, 94)     %% Last 94 full time slots
+        recent -> check_sms_reg2(TimeWindow, IncrementalTimestamp - 2, IncrementalTimestamp - 1);    %% Last to Last time slot
+        past -> check_sms_reg2(TimeWindow, IncrementalTimestamp - 96, IncrementalTimestamp - 2)     %% Last 94 full time slots
     end,
     print_sms_stats(TimeWindow, ets:first(sms_stats_table_name(TimeWindow))),
     ets:delete(sms_stats_table_name(TimeWindow)),
@@ -59,17 +59,16 @@ print_sms_stats(TimeWindow, Key) ->
     end,
     print_sms_stats(TimeWindow, ets:next(sms_stats_table_name(TimeWindow), Key)).
  
--spec check_sms_reg2(TimeWindow :: atom(), IncrementalTimestamp :: integer(), Increment :: integer()) -> ok.
-check_sms_reg2(_TimeWindow, _IncrementalTimestamp, 0) ->
+-spec check_sms_reg2(TimeWindow :: atom(), IncrementalTimestamp :: integer(), FinalIncrement :: integer()) -> ok.
+check_sms_reg2(_TimeWindow, FinalIncrement, FinalIncrement) ->
     ?DEBUG("Stopping"),
     ok;
-check_sms_reg2(TimeWindow, IncrementalTimestamp, Increment) ->
-    ?INFO("~p Processing increment: ~p", [TimeWindow, Increment]),
-    ToInspect = IncrementalTimestamp - Increment,
+check_sms_reg2(TimeWindow, IncrementalTimestamp, FinalIncrement) ->
+    ?INFO("~p Processing time slot: ~p, increment: ~p", [TimeWindow, IncrementalTimestamp, FinalIncrement]),
     %% TODO(vipin): Need to reduce size of the list returned.
-    List = model_phone:get_incremental_attempt_list(ToInspect),
+    List = model_phone:get_incremental_attempt_list(IncrementalTimestamp),
     lists:foreach(fun({Phone, AttemptId}) ->
-        ?INFO("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
+        ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
         case util:is_test_number(Phone) of
             false ->
                 SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
@@ -99,7 +98,7 @@ check_sms_reg2(TimeWindow, IncrementalTimestamp, Increment) ->
         end
         end,
         List),
-    check_sms_reg2(TimeWindow, IncrementalTimestamp, Increment - 1).
+    check_sms_reg2(TimeWindow, IncrementalTimestamp + 1, FinalIncrement).
 
 report_stat(TimeWindow, Metrics, Gateway, CC, Status) ->
     case TimeWindow of
