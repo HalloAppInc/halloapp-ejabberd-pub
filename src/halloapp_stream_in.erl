@@ -763,15 +763,16 @@ send_error(State, _Pkt, Err) ->
     send_error(State, Err).
 
 
-send_error(State, Err) ->
+send_error(#{user := Uid} = State, Err) ->
     ErrBin = util:to_binary(Err),
     ErrStr = util:to_list(Err),
+    IsDev = dev_users:is_dev_uid(Uid),
     stat:count("HA/connection", "errors", 1, [{"type", ErrStr}]),
     case Err of
         _ when Err =:= shutdown; Err =:= replaced ->
             ?INFO("Sending ~p and stoping", [Err]);
         _ when Err =:= session_kicked; Err =:= session_replaced ->
-            ?WARNING("Sending: ~p and stopping", [Err]);
+            ?WARNING("Sending: ~p to Uid: ~p, IsDev: ~p and stopping", [Err, Uid, IsDev]);
         _ ->
             ?ERROR("Sending ~p and stopping", [Err])
     end,

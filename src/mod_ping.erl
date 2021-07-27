@@ -164,11 +164,12 @@ handle_info({iq_reply, #pb_iq{type = error, payload = #error_st{reason = user_se
     NewState = del_timer(SessionInfo, State),
     {noreply, NewState};
 
-handle_info({iq_reply, #pb_iq{}, _SessionInfo}, State) ->
+handle_info({iq_reply, #pb_iq{}, SessionInfo}, State) ->
+    ?INFO("receive_ping, Uid: ~s, SessionInfo: ~p", [SessionInfo#session_info.uid, SessionInfo]),
     {noreply, State};
 
 handle_info({iq_reply, timeout, SessionInfo}, State) ->
-    ?INFO("Uid: ~s ping_timeout", [SessionInfo#session_info.uid]),
+    ?INFO("ping_timeout, Uid: ~s, SessionInfo: ~p", [SessionInfo#session_info.uid, SessionInfo]),
     ejabberd_hooks:run(user_ping_timeout, State#state.host, [SessionInfo]),
     User = SessionInfo#session_info.uid,
     Resource = SessionInfo#session_info.resource,
@@ -181,9 +182,11 @@ handle_info({iq_reply, timeout, SessionInfo}, State) ->
 
 handle_info({timeout, _TRef, {ping, SessionInfo}}, State) ->
     Host = State#state.host,
+    Uid = SessionInfo#session_info.uid,
+    {_, UserPid} = SessionInfo#session_info.sid,
+    ?INFO("send_ping to Uid: ~p, SessionInfo: ~p", [Uid, SessionInfo]),
     IQ = #pb_iq{to_uid = SessionInfo#session_info.uid, type = get, payload = #pb_ping{}},
     PingPid = gen_mod:get_module_proc(Host, ?MODULE),
-    {_, UserPid} = SessionInfo#session_info.sid,
     ejabberd_iq:route(IQ, UserPid, PingPid, SessionInfo, ?ACK_TIMEOUT),
     NewState = add_timer(SessionInfo, State),
     {noreply, NewState};
