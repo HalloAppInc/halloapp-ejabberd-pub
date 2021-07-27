@@ -95,6 +95,8 @@ verify_sms(Phone, Code) ->
             stat:count("HA/registration", "verify_sms", 1,
                 [{gateway, Gateway}, {cc, mod_libphonenumber:get_cc(Phone)}]),
             GatewayAtom = util:to_atom(Gateway),
+            ?INFO("Phone: ~p, sending feedback to gateway: ~p, attemptId: ~p",
+                [Phone, Gateway, AttemptId]),
             case GatewayAtom of
                 undefined ->
                     ?ERROR("Missing gateway of Phone:~p AttemptId: ~p", [Phone, AttemptId]),
