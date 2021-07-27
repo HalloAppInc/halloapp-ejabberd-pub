@@ -18,7 +18,8 @@
     find_empty_contact_list_accounts/2,
     remove_phone_hash_key/2,
     remove_stale_sync_key/2,
-    mark_first_sync_run/2
+    mark_first_sync_run/2,
+    cleanup_reverse_index_run/2
 ]).
 
 
@@ -195,5 +196,40 @@ mark_first_sync_run(Key, State) ->
         _ -> ok
     end,
     State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                        Cleanup reverse index run                                  %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+cleanup_reverse_index_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^rev:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[ReverseKey, Phone]]} ->
+            {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+            NumContactUids = length(ContactUids),
+            lists:foreach(
+                fun(ContactUid) ->
+                    case model_accounts:get_account(ContactUid) of
+                        {ok, _} -> ok;
+                        {error, missing} ->
+                            Command = ["SREM", ReverseKey, ContactUid],
+                            case DryRun of
+                                false ->
+                                    ?INFO("Phone: ~p, ContactUid: ~p is missing, command: ~p",
+                                        [Phone, ContactUid, Command]);
+                                true ->
+                                    {ok, Result} = q(ecredis_contacts, Command),
+                                    ?INFO("Phone: ~p, ContactUid: ~p is missing, removed res: ~p",
+                                        [Phone, ContactUid, Result])
+                            end
+                    end
+                end, ContactUids);
+        _ -> ok
+    end,
+    State.
+
 
 q(Client, Command) -> util_redis:q(Client, Command).
