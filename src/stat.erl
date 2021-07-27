@@ -146,6 +146,8 @@ trigger_count_users() ->
 trigger_count_sessions() ->
     %% Add counters for total number of connections on the machine.
     gauge("HA/connections", "total_sessions", ejabberd_sm:ets_count_sessions(), []),
+    gauge("HA/connections", "total_active_sessions", ejabberd_sm:ets_count_active_sessions(), []),
+    gauge("HA/connections", "total_passive_sessions", ejabberd_sm:ets_count_passive_sessions(), []),
     ok.
 
 -spec trigger_count_users_by_version() -> ok.

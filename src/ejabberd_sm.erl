@@ -50,6 +50,8 @@
     get_user_present_resources/2,
     dirty_get_my_sessions_list/0,
     ets_count_sessions/0,
+    ets_count_active_sessions/0,
+    ets_count_passive_sessions/0,
     connected_users/0,
     connected_users_number/0,
     user_resources/2,
@@ -775,7 +777,69 @@ ets_init() ->
         {write_concurrency, true},
         {read_concurrency, true}
     ]),
+    ets:new(?SM_COUNTERS, [
+        set,
+        public,
+        named_table,
+        {keypos, 1},
+        {write_concurrency, true},
+        {read_concurrency, true}
+    ]),
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SM_COUNTERS ets table to count active vs passive sessions.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ets_sm_counters_exists() ->
+    case ets:whereis(?SM_COUNTERS) of
+        undefined -> false;
+        _ -> true
+    end.
+
+-spec ets_increment_counter(session()) -> ok.
+ets_increment_counter(#session{mode=Mode} = _Session) ->
+    case ets_sm_counters_exists() of
+        true ->
+            ets:update_counter(?SM_COUNTERS, Mode, 1, {Mode, 0});
+        false ->
+            ?WARNING("ets table ~p is gone", [?SM_COUNTERS]),
+            ok
+    end.
+
+-spec ets_decrement_counter(session()) -> ok.
+ets_decrement_counter(#session{mode=Mode} = _Session) ->
+    case ets_sm_counters_exists() of
+        true ->
+            ets:update_counter(?SM_COUNTERS, Mode, -1, {Mode, 0});
+        false ->
+            ?WARNING("ets table ~p is gone", [?SM_COUNTERS]),
+            ok
+    end.
+
+-spec ets_count_active_sessions() -> integer().
+ets_count_active_sessions() ->
+    ets_count_mode_sessions(active).
+
+-spec ets_count_passive_sessions() -> integer().
+ets_count_passive_sessions() ->
+    ets_count_mode_sessions(passive).
+
+-spec ets_count_mode_sessions(Mode :: atom()) -> integer().
+ets_count_mode_sessions(Mode) ->
+    try
+        ets:lookup_element(?SM_COUNTERS, Mode, 2)
+    catch
+        Class : Reason : St ->
+        ?ERROR("crashed ets_count_mode_sessions, table: ~p, Mode: ~p Stacktrace: ~ts",
+            [?SM_COUNTERS, Mode, lager:pr_stacktrace(St, {Class, Reason})]),
+        0
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SM_LOCAL ets table to hold all sessions.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 ets_sm_local_exists() ->
     case ets:whereis(?SM_LOCAL) of
@@ -789,7 +853,9 @@ ets_sm_local_exists() ->
 ets_insert_sesssion(#session{} = Session) ->
     case ets_sm_local_exists() of
         true ->
-            ets:insert(?SM_LOCAL, Session);
+            Result = ets:insert(?SM_LOCAL, Session),
+            ets_increment_counter(Session),
+            Result;
         false ->
             ?WARNING("ets table ~p is gone", [?SM_LOCAL]),
             false
@@ -800,7 +866,9 @@ ets_insert_sesssion(#session{} = Session) ->
 ets_delete_session(#session{} = Session) ->
     case ets_sm_local_exists() of
         true ->
-            ets:delete_object(?SM_LOCAL, Session);
+            Result = ets:delete_object(?SM_LOCAL, Session),
+            ets_decrement_counter(Session),
+            Result;
         false ->
             ?WARNING("ets table ~p is gone", [?SM_LOCAL]),
             false

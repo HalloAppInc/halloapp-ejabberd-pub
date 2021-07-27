@@ -23,6 +23,7 @@
 
 -define(SM_CACHE, sm_cache).
 -define(SM_LOCAL, sm_local).
+-define(SM_COUNTERS, sm_counters).
 
 -record(session, {sid, usr, us, priority, mode, info = []}).
 -record(session_counter, {vhost, count}).
