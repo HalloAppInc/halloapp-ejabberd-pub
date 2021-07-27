@@ -256,6 +256,12 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
             log_request_otp_error(retried_too_soon, otp),
             util_http:return_400(retried_too_soon);
         error : voice_call_fail ->
+            %% Twilio and MBird return voice_call_fail
+            ?INFO("request_voice_call error: voice_call_failed ~p", [Data]),
+            log_request_otp_error(voice_call_fail, voice_call),
+            util_http:return_400(otp_fail);
+        error : call_fail ->
+            %% Twilio_verify returns call_fail
             ?INFO("request_voice_call error: voice_call_failed ~p", [Data]),
             log_request_otp_error(voice_call_fail, voice_call),
             util_http:return_400(otp_fail);

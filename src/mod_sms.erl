@@ -110,7 +110,7 @@ send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method)->
     {ok, InvitersList} = model_invites:get_inviters_list(Phone),
     case length(InvitersList) of 
         0 ->
-            ?ERROR("No last known inviter of phone: ~p", [Phone]), 
+            ?INFO("No last known inviter of phone: ~p", [Phone]),
             {error, not_invited};
         _ ->
             {Uid, _} = lists:last(InvitersList),
@@ -148,7 +148,8 @@ send_otp(OtpPhone, LangId, Phone, Code, UserAgent, Method) ->
                     NextTs = find_next_ts(AllResponses),
                     {ok, NextTs - Timestamp};
                 {error, Reason} = Err ->
-                    ?ERROR("Unable to send ~p: ~p  OtpPhone: ~p Phone: ~p ",
+                    %% We log an error inside the gateway already.
+                    ?INFO("Unable to send ~p: ~p  OtpPhone: ~p Phone: ~p ",
                         [Method, Reason, OtpPhone, Phone]),
                     Err
             end
