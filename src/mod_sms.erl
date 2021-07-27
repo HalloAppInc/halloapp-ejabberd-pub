@@ -37,8 +37,8 @@
     verify_sms/2,
     is_too_soon/1,  %% for testing
     good_next_ts_diff/1, %% for testing
-    send_otp/6, %% for testing
-    send_otp_internal/6
+    send_otp/5, %% for testing
+    send_otp_internal/5
 ]).
 
 %%====================================================================
@@ -73,13 +73,12 @@ request_sms(Phone, UserAgent) ->
 -spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom()) ->
     {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 request_otp(Phone, LangId, UserAgent, Method) ->
-    Code = generate_code(Phone),
     case {config:get_hallo_env(), util:is_test_number(Phone)} of
-        {prod, true} -> send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method);
-        {prod, _} -> send_otp(Phone, LangId, Phone, Code, UserAgent, Method);
-        {stress, _} -> send_otp(Phone, LangId, Phone, Code, UserAgent, Method);
+        {prod, true} -> send_otp_to_inviter(Phone, LangId, UserAgent, Method);
+        {prod, _} -> send_otp(Phone, LangId, Phone, UserAgent, Method);
+        {stress, _} -> send_otp(Phone, LangId, Phone, UserAgent, Method);
         {_,_} ->
-            {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
+            {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, generate_code(Phone)),
             {ok, 30}
     end.
 
@@ -106,9 +105,9 @@ verify_sms(Phone, Code) ->
             match
     end.
 
--spec send_otp_to_inviter (Phone :: phone(), LangId :: binary(), Code :: binary(), UserAgent :: binary(), Method ::
+-spec send_otp_to_inviter (Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method ::
     atom()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
-send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method)->
+send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
     {ok, InvitersList} = model_invites:get_inviters_list(Phone),
     case length(InvitersList) of 
         0 ->
@@ -122,31 +121,28 @@ send_otp_to_inviter(Phone, LangId, Code, UserAgent, Method)->
                         Error;
                     {ok, InviterPhone} -> 
                         case test_users:is_test_uid(Uid) of
-                            true -> send_otp(InviterPhone, LangId, Phone, Code, UserAgent, Method);
+                            true -> send_otp(InviterPhone, LangId, Phone, UserAgent, Method);
                             false -> {error, not_invited}
                         end
                 end
     end. 
 
--spec send_otp(OtpPhone :: phone(), LangId :: binary(), Phone :: phone(), Code :: binary(),
-        UserAgent :: binary(), Method :: atom()) -> {ok, non_neg_integer()} | {error, term()} |
-        {error, term(), non_neg_integer()}.
-send_otp(OtpPhone, LangId, Phone, Code, UserAgent, Method) ->
+-spec send_otp(OtpPhone :: phone(), LangId :: binary(), Phone :: phone(), UserAgent :: binary(),
+        Method :: atom()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
+send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
     {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
     case is_too_soon(OldResponses) of
         {true, WaitTs} -> {error, retried_too_soon, WaitTs};
         {false, _} ->
-            {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
             stat:count("HA/registration", "send_otp"),
             stat:count("HA/registration", "send_otp_by_cc", 1,
                 [{cc, mod_libphonenumber:get_cc(Phone)}]),
-            case mod_sms:send_otp_internal(OtpPhone, LangId, Code, UserAgent, Method, OldResponses) of
+            case mod_sms:send_otp_internal(OtpPhone, LangId, UserAgent, Method, OldResponses) of
                 {ok, SMSResponse} ->
                     ?INFO("Response: ~p", [SMSResponse]),
+                    #gateway_response{attempt_id = NewAttemptId, attempt_ts = Timestamp} = SMSResponse,
                     model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
-                    SMSResponse2 = SMSResponse#gateway_response{
-                        attempt_id = NewAttemptId, attempt_ts = Timestamp},
-                    AllResponses = OldResponses ++ [SMSResponse2],
+                    AllResponses = OldResponses ++ [SMSResponse],
                     NextTs = find_next_ts(AllResponses),
                     {ok, NextTs - Timestamp};
                 {error, Reason} = Err ->
@@ -194,12 +190,12 @@ good_next_ts_diff(NumFailedAttempts) ->
       30 * ?SECONDS * trunc(math:pow(2, NumFailedAttempts - 1)).
 
 
--spec send_otp_internal(Phone :: phone(), LangId :: binary(), Code :: binary(), UserAgent :: binary(),
-    Method :: atom(), OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, term()}.
-send_otp_internal(Phone, LangId, Code, UserAgent, Method, OldResponses) ->
-    ?DEBUG("preparing to send otp, phone:~p code:~p, LangId: ~p, UserAgent: ~p",
-        [Phone, Code, LangId, UserAgent]),
-    case smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) of
+-spec send_otp_internal(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom(),
+        OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, term()}.
+send_otp_internal(Phone, LangId, UserAgent, Method, OldResponses) ->
+    ?DEBUG("preparing to send otp, phone:~p, LangId: ~p, UserAgent: ~p",
+        [Phone, LangId, UserAgent]),
+    case smart_send(Phone, LangId, UserAgent, Method, OldResponses) of
         {ok, SMSResponse} ->
             {ok, SMSResponse};
         {error, _Reason} = Err ->
@@ -219,11 +215,9 @@ generate_code(Phone) ->
 %% TODO(vipin)
 %% On callback from the provider track (success, cost). Investigative logging to track missing
 %% callback.
-%% Extend twilio_verify to other countries (currently only China)
--spec smart_send(Phone :: phone(), Code :: binary(), LangId :: binary(),
-        UserAgent :: binary(), Method :: atom(), OldResponses :: [gateway_response()]) 
-        -> {ok, gateway_response()} | {error, sms_fail} | {error, voice_call_fail}.
-smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
+-spec smart_send(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom(), OldResponses
+        :: [gateway_response()]) -> {ok, gateway_response()} | {error, sms_fail} | {error, voice_call_fail}.
+smart_send(Phone, LangId, UserAgent, Method, OldResponses) ->
     {WorkingList, NotWorkingList} = lists:foldl(
         fun(#gateway_response{gateway = Gateway, method = Method2, status = Status}, {Working, NotWorking})
                 when Method2 =:= Method ->
@@ -335,7 +329,12 @@ smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
         <<"ZM">> -> twilio;     %% Zambia
         _ -> NewGateway
     end,
-    ?INFO("Phone: ~s CC: ~s Chosen Gateway: ~p ~p", [Phone, CC, NewGateway2, Method]),
+    Code = case NewGateway2 of
+        mbird_verify -> <<"999999">>;
+        _ -> generate_code(Phone)
+    end,
+    ?INFO("Phone: ~s CC: ~s Chosen Gateway: ~p ~p Code: ~p", [Phone, CC, NewGateway2, Method, Code]),
+    {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
     Result = case Method of
         voice_call -> NewGateway2:send_voice_call(Phone, Code, LangId, UserAgent);
         sms -> NewGateway2:send_sms(Phone, Code, LangId, UserAgent)
@@ -345,7 +344,8 @@ smart_send(Phone, Code, LangId, UserAgent, Method, OldResponses) ->
     ?DEBUG("Result: ~p", [Result]),
     case Result of
         {ok, SMSResponse} -> 
-            SMSResponse2 = SMSResponse#gateway_response{gateway = NewGateway2, method = Method},
+            SMSResponse2 = SMSResponse#gateway_response{attempt_id = NewAttemptId,
+                attempt_ts = Timestamp, gateway = NewGateway2, method = Method},
             {ok, SMSResponse2};
         Error -> Error
     end.
