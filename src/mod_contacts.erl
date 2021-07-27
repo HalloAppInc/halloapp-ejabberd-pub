@@ -518,7 +518,29 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     %% - normalized but unregistered contacts
     %% - registered but non-friend contacts
     %% - registered and friend contacts.
-    UnNormalizedContacts1 ++ UnRegisteredContacts2 ++ NonFriendContacts1 ++ FriendContacts2.
+    Result = UnNormalizedContacts1 ++ UnRegisteredContacts2 ++ NonFriendContacts1 ++ FriendContacts2,
+
+    %% TODO(murali@): temporarily log some users raw phones.
+    log_raw_phones(UserId, UserPhone, Contacts),
+    Result.
+
+
+-spec log_raw_phones(UserId :: binary(), UserPhone :: binary(), Contacts :: [pb_contact()]) -> ok.
+log_raw_phones(UserId, UserPhone, Contacts) ->
+    case UserPhone of
+        <<"54", _Rest/binary>> ->
+            %% Log phone numbers from users in argentina.
+            RawPhones = extract_raw(Contacts),
+            ?INFO("Uid: ~p, UserPhone: ~p, Contacts: ~p", [UserId, UserPhone, RawPhones]),
+            ok;
+        <<"52", _Rest/binary>> ->
+            %% Log phone numbers from users in mexico.
+            RawPhones = extract_raw(Contacts),
+            ?INFO("Uid: ~p, UserPhone: ~p, Contacts: ~p", [UserId, UserPhone, RawPhones]),
+            ok;
+        _ -> ok
+    end,
+    ok.
 
 
 %% Splits contact records to unnormalized and normalized contacts.
@@ -685,6 +707,12 @@ extract_normalized(Contacts) ->
 -spec extract_uid(Contacts :: [pb_contact()]) -> [binary()].
 extract_uid(Contacts) ->
     lists:map(fun(Contact) -> Contact#pb_contact.uid end, Contacts).
+
+
+-spec extract_raw(Contacts :: [pb_contact()]) -> [binary()].
+extract_raw(Contacts) ->
+    lists:map(fun(Contact) -> Contact#pb_contact.raw end, Contacts).
+
 
 
 %%====================================================================
