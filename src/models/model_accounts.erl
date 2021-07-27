@@ -24,9 +24,14 @@
 
 -define(EXPORT_TTL, 10 * ?DAYS).
 
-%% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([
+    deleted_account_key/1,
+    subscribe_key/1,
+    broadcast_key/1,
+    count_registrations_key/1,
+    count_accounts_key/1
+    ]).
 -endif.
 
 -export([

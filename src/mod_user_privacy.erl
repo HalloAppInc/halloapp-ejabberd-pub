@@ -18,9 +18,8 @@
 -define(COMMA_CHAR, <<",">>).
 -define(HASH_FUNC, sha256).
 
-%% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([update_privacy_type/4]).
 -endif.
 
 %% gen_mod API

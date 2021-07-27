@@ -11,9 +11,14 @@
 -author("nikola").
 -behaviour(gen_mod).
 
-%% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([
+    check_ua/1,
+    check_name/1,
+    check_invited/4,
+    check_sms_code/2,
+    is_version_invite_opened/1
+]).
 -endif.
 
 -include("logger.hrl").

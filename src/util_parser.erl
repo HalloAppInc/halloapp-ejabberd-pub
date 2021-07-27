@@ -15,10 +15,6 @@
     maybe_base64_encode_binary/1
 ]).
 
-%% Export all functions for unit tests
--ifdef(TEST).
--compile(export_all).
--endif.
 
 
 maybe_convert_to_binary(undefined) -> undefined;

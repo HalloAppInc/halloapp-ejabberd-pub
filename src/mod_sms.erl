@@ -23,9 +23,11 @@
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail}.
 -callback send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.
 
-%% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([
+    generate_code/1,
+    send_otp_to_inviter/5
+]).
 -endif.
 
 %% gen_mod callbacks

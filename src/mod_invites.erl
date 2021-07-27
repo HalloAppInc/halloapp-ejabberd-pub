@@ -17,9 +17,13 @@
 -include("time.hrl").
 -include("packets.hrl").
 
-%% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([
+    get_time_until_refresh/0,
+    get_time_until_refresh/1,
+    get_last_sunday_midnight/1,
+    get_next_sunday_midnight/1
+]).
 -endif.
 
 %% gen_mod API.

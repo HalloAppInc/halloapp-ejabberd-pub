@@ -14,10 +14,6 @@
 -include("ha_types.hrl").
 -include("time.hrl").
 
-%% Export all functions for unit tests
--ifdef(TEST).
--compile(export_all).
--endif.
 
 %% e2e_stats query key will expire every 12hrs - so that we can query them again.
 -define(E2E_QUERY_EXPIRY, 12 * ?HOURS).
