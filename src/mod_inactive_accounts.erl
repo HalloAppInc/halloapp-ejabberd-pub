@@ -152,7 +152,7 @@ check_and_delete_accounts(ShouldDelete) ->
 
     %% Ok to delete, if to delete is within acceptable fraction and no dev account is slated for
     %% deletion.
-    IsAcceptable = (Fraction > 0.0001) and (Fraction < ?ACCEPTABLE_FRACTION) and IsNoDevAccount,
+    IsAcceptable = (Fraction < ?ACCEPTABLE_FRACTION) and IsNoDevAccount,
     case IsAcceptable of
         false -> 
             ?ERROR("Not deleting inactive accounts. NumInactive: ~p, Total: ~p, Fraction: ~p, No dev account?: ~p",
