@@ -212,12 +212,12 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
                         {retry_after_secs, RetryAfterSecs},
                         {result, ok}
                     ]})};
-            {error, ErrorReason, RetrySecs} ->
+            {error, retried_too_soon, RetrySecs} ->
                 {400, ?HEADER(?CT_JSON),
                     jiffy:encode({[
                         {phone, Phone},
                         {retry_after_secs, RetrySecs},
-                        {error, ErrorReason},
+                        {error, retried_too_soon},
                         {result, fail}
                     ]})}
         end

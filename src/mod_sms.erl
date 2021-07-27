@@ -145,11 +145,11 @@ send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
                     AllResponses = OldResponses ++ [SMSResponse],
                     NextTs = find_next_ts(AllResponses),
                     {ok, NextTs - Timestamp};
-                {error, Reason} = Err ->
+                {error, GW, Reason} = _Err ->
                     %% We log an error inside the gateway already.
-                    ?INFO("Unable to send ~p: ~p  OtpPhone: ~p Phone: ~p ",
-                        [Method, Reason, OtpPhone, Phone]),
-                    Err
+                    ?INFO("Unable to send ~p: ~p, Gateway: ~p, OtpPhone: ~p Phone: ~p ",
+                        [Method, Reason, GW, OtpPhone, Phone]),
+                    {error, Reason}
             end
     end.
 
@@ -191,14 +191,14 @@ good_next_ts_diff(NumFailedAttempts) ->
 
 
 -spec send_otp_internal(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom(),
-        OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, term()}.
+        OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, atom(), term()}.
 send_otp_internal(Phone, LangId, UserAgent, Method, OldResponses) ->
     ?DEBUG("preparing to send otp, phone:~p, LangId: ~p, UserAgent: ~p",
         [Phone, LangId, UserAgent]),
     case smart_send(Phone, LangId, UserAgent, Method, OldResponses) of
         {ok, SMSResponse} ->
             {ok, SMSResponse};
-        {error, _Reason} = Err ->
+        {error, _GW, _Reason} = Err ->
             Err
     end.
 
@@ -216,7 +216,7 @@ generate_code(Phone) ->
 %% On callback from the provider track (success, cost). Investigative logging to track missing
 %% callback.
 -spec smart_send(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom(), OldResponses
-        :: [gateway_response()]) -> {ok, gateway_response()} | {error, sms_fail} | {error, voice_call_fail}.
+        :: [gateway_response()]) -> {ok, gateway_response()} | {error, atom(), sms_fail} | {error, atom(), call_fail} | {error, atom(), voice_call_fail}.
 smart_send(Phone, LangId, UserAgent, Method, OldResponses) ->
     {WorkingList, NotWorkingList} = lists:foldl(
         fun(#gateway_response{gateway = Gateway, method = Method2, status = Status}, {Working, NotWorking})
@@ -347,5 +347,5 @@ smart_send(Phone, LangId, UserAgent, Method, OldResponses) ->
             SMSResponse2 = SMSResponse#gateway_response{attempt_id = NewAttemptId,
                 attempt_ts = Timestamp, gateway = NewGateway2, method = Method},
             {ok, SMSResponse2};
-        Error -> Error
+        {error, Reason} -> {error, NewGateway2, Reason}
     end.

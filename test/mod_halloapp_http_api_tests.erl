@@ -171,7 +171,7 @@ retried_server_error_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(config, get_hallo_env, fun() -> prod end),
-    meck_init(mod_sms, send_otp_internal, fun(_,_,_,_,_) -> {error, sms_fail} end),
+    meck_init(mod_sms, send_otp_internal, fun(_,_,_,_,_) -> {error, gw, sms_fail} end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, ?UA, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
