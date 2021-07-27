@@ -831,7 +831,7 @@ ets_count_mode_sessions(Mode) ->
         ets:lookup_element(?SM_COUNTERS, Mode, 2)
     catch
         Class : Reason : St ->
-        ?ERROR("crashed ets_count_mode_sessions, table: ~p, Mode: ~p Stacktrace: ~ts",
+        ?INFO("crashed ets_count_mode_sessions, table: ~p, Mode: ~p Stacktrace: ~ts",
             [?SM_COUNTERS, Mode, lager:pr_stacktrace(St, {Class, Reason})]),
         0
     end.
