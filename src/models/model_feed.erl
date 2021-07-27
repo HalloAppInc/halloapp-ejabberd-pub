@@ -21,14 +21,9 @@
 -include("redis_keys.hrl").
 -include("feed.hrl").
 
+%% Export all functions for unit tests
 -ifdef(TEST).
--export([
-    post_audience_key/1,
-    get_comment_push_data/2,
-    cleanup_reverse_index/1,
-    cleanup_group_reverse_index/1,
-    reverse_group_post_key/1
-    ]).
+-compile(export_all).
 -endif.
 
 -export([post_key/1, comment_key/2, post_comments_key/1, reverse_post_key/1]).

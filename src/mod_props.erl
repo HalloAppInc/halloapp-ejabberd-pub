@@ -16,11 +16,9 @@
 -include("groups.hrl").
 -include("time.hrl").
 
+%% Export all functions for unit tests
 -ifdef(TEST).
--export([
-    generate_hash/1,
-    make_response/3    
-]).
+-compile(export_all).
 -endif.
 
 %% gen_mod API.

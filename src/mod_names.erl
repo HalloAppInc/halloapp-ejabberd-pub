@@ -19,8 +19,9 @@
 -include("logger.hrl").
 -include("packets.hrl").
 
+%% Export all functions for unit tests
 -ifdef(TEST).
--export([set_name/2]).
+-compile(export_all).
 -endif.
 
 %% gen_mod API.

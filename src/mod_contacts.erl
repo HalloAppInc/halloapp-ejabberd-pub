@@ -14,12 +14,9 @@
 -include("time.hrl").
 -include("contacts.hrl").
 
+%% Export all functions for unit tests
 -ifdef(TEST).
--export([
-    hash_syncid_to_bucket/1,
-    normalize_and_insert_contacts/4,
-    handle_delta_contacts/3
-]).
+-compile(export_all).
 -endif.
 
 %% gen_mod API.

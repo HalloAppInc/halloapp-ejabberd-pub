@@ -25,6 +25,10 @@
 
 -define(GID_SIZE, 22).
 
+%% Export all functions for unit tests
+-ifdef(TEST).
+-compile(export_all).
+-endif.
 
 -spec generate_gid() -> binary().
 generate_gid() ->

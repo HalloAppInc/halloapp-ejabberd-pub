@@ -19,8 +19,9 @@
 -include("time.hrl").
 
 
+%% Export all functions for unit tests
 -ifdef(TEST).
--export([format_privacy_list/1]).
+-compile(export_all).
 -endif.
 
 %% gen_mod API.

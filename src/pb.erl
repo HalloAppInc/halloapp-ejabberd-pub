@@ -30,6 +30,10 @@
     set_id/2
 ]).
 
+%% Export all functions for unit tests
+-ifdef(TEST).
+-compile(export_all).
+-endif.
 
 
 -spec get_to(pb_packet()) -> binary().

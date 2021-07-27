@@ -55,6 +55,10 @@
     yesterday/0
 ]).
 
+%% Export all functions for unit tests
+-ifdef(TEST).
+-compile(export_all).
+-endif.
 
 -define(PASSWORD_SIZE, 24).
 

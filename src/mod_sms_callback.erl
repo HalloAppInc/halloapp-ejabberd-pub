@@ -8,6 +8,10 @@
 -author("vipin").
 -behaviour(gen_mod).
 
+%% Export all functions for unit tests
+-ifdef(TEST).
+-compile(export_all).
+-endif.
 
 -include("time.hrl").
 -include("logger.hrl").
