@@ -60,7 +60,7 @@ remonitor_test(_Conf) ->
     true = undefined =/= InitialPid,
     true = is_monitored_gen_server(?BAD_PROC),
     ok = ha_bad_process:kill(),
-    timer:sleep(?REMONITOR_DELAY_MS * 2),
+    timer:sleep(?REMONITOR_DELAY_MS * 5),
     FinalPid = whereis(?BAD_PROC),
     true = InitialPid =/= FinalPid,
     true = undefined =/= FinalPid,
