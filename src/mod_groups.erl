@@ -479,6 +479,10 @@ get_invite_link(Gid, Uid) ->
         false -> {error, not_admin};
         true ->
             {IsNew, Link} = model_groups:get_invite_link(Gid),
+            case IsNew =:= true of
+                true -> stat:count(?STAT_NS, "create_invite_link");
+                false -> ok
+            end,
             ?INFO("Gid: ~s Uid: ~s Link: ~s new: ~p", [Gid, Uid, Link, IsNew]),
             maybe_clear_removed_members_set(IsNew, Gid),
             {ok, Link}
@@ -494,6 +498,7 @@ reset_invite_link(Gid, Uid) ->
             Link = model_groups:reset_invite_link(Gid),
             ?INFO("Gid: ~s Uid: ~s Link: ~s", [Gid, Uid, Link]),
             maybe_clear_removed_members_set(true, Gid),
+            stat:count(?STAT_NS, "reset_invite_link"),
             {ok, Link}
     end.
 
