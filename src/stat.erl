@@ -243,7 +243,7 @@ init(_Stuff) ->
     erlcloud_aws:configure(Config),
     %% TODO(vipin): Move the background jobs in a different module.
     {ok, _Tref1} = timer:apply_interval(1 * ?SECONDS_MS, ?MODULE, trigger_send, []),
-    {ok, _} = timer:apply_interval(10 * ?SECONDS_MS, ?MODULE, trigger_count_sessions),
+    {ok, _} = timer:apply_interval(10 * ?SECONDS_MS, ?MODULE, trigger_count_sessions, []),
     case util_aws:get_machine_name() of
         <<"s-test">> ->
             {ok, _Tref2} = timer:apply_interval(5 * ?MINUTES_MS, ?MODULE, trigger_count_users, []),
