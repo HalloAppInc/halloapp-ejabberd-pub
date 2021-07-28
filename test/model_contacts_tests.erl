@@ -257,3 +257,39 @@ perf_test() ->
             perf_test1(X)
         end),
     {ok, N}.
+
+
+% generate_contacts(N) ->
+%     lists:map(fun(X) -> integer_to_binary(X) end, lists:seq(1,N)).
+
+
+% add_contacts_perf_test() ->
+%     tutil:perf(
+%         1000,
+%         fun() -> setup() end,
+%         fun() -> model_contacts:add_reverse_hash_contacts(?UID, generate_contacts(200)) end
+%     ).
+
+
+% remove_contacts_perf_test() ->
+%     tutil:perf(
+%         100,
+%         fun() -> setup() end,
+%         fun() ->
+%             ContactList = generate_contacts(200),
+%             lists:foreach(fun(X) -> ok = model_contacts:add_contact(?UID, X) end, ContactList),
+%             ok = model_contacts:remove_contacts(?UID, ContactList)
+%         end
+%     ).
+
+
+% remove_all_contacts_perf_test() ->
+%     tutil:perf(
+%         100,
+%         fun() -> setup() end,
+%         fun() ->
+%             lists:foreach(fun(X) -> ok = model_contacts:add_contact(?UID, X) end, generate_contacts(200)),
+%             ok = model_contacts:remove_all_contacts(?UID)
+%         end
+%     ).
+

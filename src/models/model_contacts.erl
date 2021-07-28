@@ -87,10 +87,11 @@ add_reverse_hash_contact(Uid, Contact) ->
 
 -spec add_reverse_hash_contacts(Uid :: uid(), ContactList :: [binary()]) -> ok | {error, any()}.
 add_reverse_hash_contacts(Uid, ContactList) ->
-    lists:foreach(
+    Commands = lists:map(
         fun(Contact) ->
-            {ok, _} = q(["SADD", reverse_phone_hash_key(Contact), Uid])
+            ["SADD", reverse_phone_hash_key(Contact), Uid]
         end, ContactList),
+    qmn(Commands),
     ok.
 
 
@@ -104,20 +105,22 @@ remove_contacts(_Uid, []) ->
     ok;
 remove_contacts(Uid, ContactList) ->
     {ok, _Res} = q(["SREM", contacts_key(Uid) | ContactList]),
-    lists:foreach(
+    Commands = lists:map(
         fun(Contact) ->
-            {ok, _} = q(["SREM", reverse_key(Contact), Uid])
+            ["SREM", reverse_key(Contact), Uid]
         end, ContactList),
+    qmn(Commands),
     ok.
 
 
 -spec remove_all_contacts(Uid :: uid()) -> ok  | {error, any()}.
 remove_all_contacts(Uid) ->
     {ok, ContactList} = q(["SMEMBERS", contacts_key(Uid)]),
-    lists:foreach(
+    Commands = lists:map(
         fun(Contact) ->
-            {ok, _} = q(["SREM", reverse_key(Contact), Uid])
+            ["SREM", reverse_key(Contact), Uid]
         end, ContactList),
+    qmn(Commands),
     {ok, _Res} = q(["DEL", contacts_key(Uid)]),
     ok.
 
@@ -267,7 +270,7 @@ get_salt_secret_from_aws() ->
 
 q(Command) -> ecredis:q(ecredis_contacts, Command).
 qp(Commands) -> ecredis:qp(ecredis_contacts, Commands).
-qmn(Commands) -> ecredis:qmn(ecredis_contacts, Commands).
+qmn(Commands) -> util_redis:run_qmn(ecredis_contacts, Commands).
 
 
 -spec contacts_key(Uid :: uid()) -> binary().
