@@ -1,0 +1,9 @@
+"server.new.comment" = "Nový komentář";
+"server.new.contact" = "%@ je nyní na HalloApp";
+"server.new.group" = "Byli jste přidáni do nové skupiny";
+"server.new.group.message" = "Nová skupinová zpráva";
+"server.new.inviter" = "%@ právě přijal vaše pozvání přidat se na HalloApp 🎉";
+"server.new.message" = "Nová zpráva";
+"server.new.post" = "Nový příspěvek";
+"server.sms.verification" = "Váš ověřovací kód HalloApp";
+"server.voicecall.verification" = "Váš ověřovací kód HalloApp je";

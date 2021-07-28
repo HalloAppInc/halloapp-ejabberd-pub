@@ -1,0 +1,9 @@
+"server.new.comment" = "Novo comentário";
+"server.new.contact" = "%@ está agora no HalloApp";
+"server.new.group" = "Você foi adicionado a um novo grupo";
+"server.new.group.message" = "Nova mensagem de grupo";
+"server.new.inviter" = "%@ acabou de aceitar seu convite para se juntar ao HalloApp 🎉";
+"server.new.message" = "Nova mensagem";
+"server.new.post" = "Nova postagem";
+"server.sms.verification" = "Seu código de verificação do HalloApp";
+"server.voicecall.verification" = "Seu código de verificação do HalloApp é";

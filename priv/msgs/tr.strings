@@ -6,4 +6,4 @@
 "server.new.message" = "Yeni mesaj";
 "server.new.post" = "Yeni gönderi";
 "server.sms.verification" = "HalloApp doğrulama kodun";
-"server.voicecall.verification" = "HalloApp doğrulama kodun: ";
+"server.voicecall.verification" = "HalloApp doğrulama kodun";
