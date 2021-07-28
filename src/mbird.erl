@@ -263,6 +263,8 @@ get_mbird_lang_map() ->
         <<"pt-BR">> => <<"pt-BR">>,
         %% European Portuguese
         <<"pt-PT">> => <<"pt-PT">>,
+        %% European Portuguese
+        <<"pt">> => <<"pt-PT">>,
         %% Romanian (Romania)
         <<"ro">> => <<"ro-RO">>,
         %% Russian (Russia)

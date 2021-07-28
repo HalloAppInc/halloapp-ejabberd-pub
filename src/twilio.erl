@@ -16,7 +16,7 @@
 -include("sms.hrl").
 
 
--define(TWILIO_ENG_LANG_ID, <<"en-US">>).
+-define(TWILIO_ENG_LANG_ID, "en-US").
 
 %% TODO(vipin): Maybe improve Msg for voice_call. Talk to Dugyu.
 %% TODO: optimize calls for get_lang_id.
@@ -280,6 +280,8 @@ get_twilio_lang_map() ->
         <<"pt-BR">> => "pt-BR",
         %% Portuguese, Portugal
         <<"pt-PT">> => "pt-PT",
+        %% Portuguese, Portugal,
+        <<"pt">> => "pt",
         %% Russian, Russia
         <<"ru">> => "ru-RU",
         %% Swedish, Sweden

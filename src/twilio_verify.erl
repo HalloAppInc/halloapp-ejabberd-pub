@@ -224,6 +224,8 @@ get_verify_lang_map() ->
         <<"pt-BR">> => "pt-BR",
         %% Portuguese
         <<"pt-PT">> => "pt",
+        %% Portuguese
+        <<"pt">> => "pt",
         %% Romanian
         <<"ro">> => "ro",
         %% Russian
