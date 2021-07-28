@@ -281,7 +281,7 @@ get_twilio_lang_map() ->
         %% Portuguese, Portugal
         <<"pt-PT">> => "pt-PT",
         %% Portuguese, Portugal,
-        <<"pt">> => "pt",
+        <<"pt">> => "pt-PT",
         %% Russian, Russia
         <<"ru">> => "ru-RU",
         %% Swedish, Sweden
