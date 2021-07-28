@@ -246,3 +246,16 @@ get_555_number_region_test() ->
     ok.
 
 
+normalize_argentina_test() ->
+    setup(),
+
+    %% Argentina - with country code.
+    ?assertEqual(<<"5491123456789">>, mod_libphonenumber:normalize(<<"5491123456789">>, <<"AR">>)),
+    %% Argentina - with country code.
+    ?assertEqual(<<"5491123456789">>, mod_libphonenumber:normalize(<<"541123456789">>, <<"AR">>)),
+    %% Argentina
+    ?assertEqual(<<"5491123456789">>, mod_libphonenumber:normalize(<<"91123456789">>, <<"AR">>)),
+    %% Argentina
+    ?assertEqual(<<"5491123456789">>, mod_libphonenumber:normalize(<<"1123456789">>, <<"AR">>)),
+    ok.
+

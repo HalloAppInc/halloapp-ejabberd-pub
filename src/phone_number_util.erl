@@ -189,12 +189,14 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
             %% The national number is just the normalized version of the number
             %% we were given to parse.
             NewRegionMetadata = RegionMetadata,
-            NormalizedNationalNumber = normalize(PhoneNumberState2#phone_number_state.national_number),
+            PotentialNationalNumber1 = PhoneNumberState2#phone_number_state.national_number,
+            NormalizedNationalNumber = adjust_national_number(PotentialNationalNumber1, RegionMetadata),
             NewCountryCodeSource = PhoneNumberState2#phone_number_state.country_code_source,
             CountryCode = RegionMetadata#region_metadata.attributes#attributes.country_code;
         PhoneNumberState2 ->
             CountryCode = PhoneNumberState2#phone_number_state.country_code,
-            NormalizedNationalNumber = PhoneNumberState2#phone_number_state.national_number,
+            PotentialNationalNumber1 = PhoneNumberState2#phone_number_state.national_number,
+            NormalizedNationalNumber = adjust_national_number(PotentialNationalNumber1, RegionMetadata),
             NewCountryCodeSource = PhoneNumberState2#phone_number_state.country_code_source,
             NewRegionMetadata =
             case libphonenumber_ets:match_object_on_country_code(CountryCode) of
@@ -231,8 +233,8 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
                                                         raw = Raw,
                                                         country_code_source = NewCountryCodeSource
                                                     }, NewRegionMetadata),
-            PotentialNationalNumber = NewState#phone_number_state.national_number,
-            Res = test_number_length(PotentialNationalNumber, NewRegionMetadata),
+            PotentialNationalNumber2 = NewState#phone_number_state.national_number,
+            Res = test_number_length(PotentialNationalNumber2, NewRegionMetadata),
             if
                 Res =/= tooShort andalso Res =/= isPossibleLocalOnly andalso
                                                     Res =/= invalidLength ->
@@ -254,6 +256,25 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
                     end
             end
     end.
+
+
+%% Handle special cases for Argentina.
+-spec adjust_national_number(string(), #region_metadata{}) -> string().
+adjust_national_number(NationalNumber, RegionMetadata) ->
+    PotentialNationalNumber = util:to_binary(NationalNumber),
+    NumberToNormalize = case {RegionMetadata, PotentialNationalNumber} of
+        {#region_metadata{id = <<"AR">>}, <<"549", Rest/binary>>} ->
+            <<"9", Rest/binary>>;
+        {#region_metadata{id = <<"AR">>}, <<"54", Rest/binary>>} ->
+            <<"9", Rest/binary>>;
+        {#region_metadata{id = <<"AR">>}, <<"9", Rest/binary>>} ->
+            <<"9", Rest/binary>>;
+        {#region_metadata{id = <<"AR">>}, Rest} ->
+            <<"9", Rest/binary>>;
+        _ ->
+            PotentialNationalNumber
+    end,
+    normalize(util:to_list(NumberToNormalize)).
 
 
 %% Tries to extract a country calling code from a number. This method will return zero if no
