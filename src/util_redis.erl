@@ -92,11 +92,7 @@ parse_zrange_with_scores([El, Score | Rest], Res) ->
 
 -spec run_qmn(Client :: atom(), Commands :: list()) -> list().
 run_qmn(Client, Commands) ->
-    case Commands of
-        [] -> [];
-        _ ->
-            Responses = qmn(Client, Commands),
-            lists:foreach(fun(Response) -> {ok, _} = Response end, Responses),
-            Responses
-    end.
+    Responses = qmn(Client, Commands),
+    lists:foreach(fun(Response) -> {ok, _} = Response end, Responses),
+    Responses.
 
