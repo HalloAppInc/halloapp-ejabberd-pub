@@ -90,14 +90,12 @@
 
 -spec start_ping(binary(), session_info()) -> ok.
 start_ping(Host, SessionInfo) ->
-    Proc = gen_mod:get_module_proc(Host, ?MODULE),
-    gen_server:cast(Proc, {start_ping, SessionInfo}).
+    gen_server:cast(?PROC(), {start_ping, SessionInfo}).
 
 
 -spec stop_ping(binary(), session_info()) -> ok.
 stop_ping(Host, SessionInfo) ->
-    Proc = gen_mod:get_module_proc(Host, ?MODULE),
-    gen_server:cast(Proc, {stop_ping, SessionInfo}).
+    gen_server:cast(?PROC(), {stop_ping, SessionInfo}).
 
 %%====================================================================
 %% gen_mod callbacks
