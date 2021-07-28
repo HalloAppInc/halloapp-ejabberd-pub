@@ -260,7 +260,9 @@ register_user(Uid, _Server, Phone) ->
         false ->
             stat:count("HA/account", "registration"),
             CC = mod_libphonenumber:get_region_id(Phone),
-            stat:count("HA/account", "registration_by_cc", 1, [{cc, CC}]);
+            stat:count("HA/account", "registration_by_cc", 1, [{cc, CC}]),
+            stat:count("HA/account", "registration_invites", 1,
+                [{is_invited, model_invites:is_invited(Phone)}]);
         true ->
             stat:count("HA/account", "registration_test_account")
     end,
