@@ -173,8 +173,14 @@ push_message(Message, PushInfo, State) ->
 
 -spec push_message_item(PushMessageItem :: push_message_item(), State :: push_state()) -> ok.
 push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
+    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
+            PushMessageItem#push_message_item.push_info),
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
+    ContentId = PushMetadata#push_metadata.content_id,
+    ContentType = PushMetadata#push_metadata.content_type,
+    ?INFO("Uid: ~s, MsgId: ~s, ContentId: ~s, ContentType: ~s", [Uid, Id, ContentId, ContentType]),
+
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
     Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
     HTTPOptions = [
@@ -183,8 +189,6 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
     ],
     Options = [],
     FcmApiKey = get_fcm_apikey(),
-    % PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
-    %         PushMessageItem#push_message_item.push_info),
     % Dont send any payload to android in the push channel.
     Payload = #{
             <<"title">> => <<"PushMessage">>

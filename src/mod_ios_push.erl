@@ -370,7 +370,9 @@ push_message_item(PushMessageItem, PushMetadata, State) ->
     ContentId = PushMetadata#push_metadata.content_id,
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
-    ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s", [Uid, Id, ApnsId, ContentId]),
+    ContentType = PushMetadata#push_metadata.content_type,
+    ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s, ContentType: ~s",
+        [Uid, Id, ApnsId, ContentId, ContentType]),
     {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
             PushType, BuildType, PushMessageItem, State),
     FinalState.
