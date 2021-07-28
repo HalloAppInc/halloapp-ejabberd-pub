@@ -16,5 +16,5 @@
 %% Allows ability to turn off specific gateways.
 -spec get_sms_gateway_list() -> [atom()].
 get_sms_gateway_list() ->
-    [twilio, mbird].
+    [twilio, mbird, twilio_verify].
 
