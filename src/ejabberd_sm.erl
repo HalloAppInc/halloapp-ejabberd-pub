@@ -64,6 +64,7 @@
     get_user_info/2,
     get_user_info/3,
     get_user_ip/3,
+    get_sessions/2,
     is_existing_resource/3,
     get_commands_spec/0,
     host_up/1,
