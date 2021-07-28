@@ -161,3 +161,19 @@ create_accounts(Num) ->
     end,
     create_accounts(Num - 1).
 
+
+% active_users_perf_test() ->
+%     tutil:perf(
+%         100,
+%         fun() -> setup() end,
+%         fun() -> model_active_users:count_active_users_between(all, 0, inf) end
+%     ).
+
+
+% engaged_users_perf_test()->
+%     tutil:perf(
+%         100,
+%         fun() -> setup() end,
+%         fun() -> model_active_users:count_engaged_users_between(all, 0, inf) end
+%     ).
+

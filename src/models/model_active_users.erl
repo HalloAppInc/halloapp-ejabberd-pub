@@ -39,27 +39,25 @@
 -spec count_active_users_between(Type :: activity_type(), LowerBound :: non_neg_integer(),
         UpperBound :: non_neg_integer()) -> non_neg_integer().
 count_active_users_between(Type, LowerBound, UpperBound) ->
-    lists:foldl(
-        fun (Slot, Acc) ->
+    Commands = lists:map(
+        fun (Slot) ->
             Key = get_active_users_key_slot(Slot, Type),
-            Acc + count_active_users_by_key(Key, LowerBound, UpperBound)
-        end,
-        0,
-        lists:seq(0, ?NUM_SLOTS - 1)
-    ).
+            ["ZCOUNT", Key, LowerBound, UpperBound]
+        end, lists:seq(0, ?NUM_SLOTS - 1)),
+    Results = qmn(Commands),
+    lists:foldl(fun({ok, Result}, Sum) -> binary_to_integer(Result) + Sum end, 0, Results).
 
 
 -spec count_engaged_users_between(Type :: activity_type(), LowerBound :: non_neg_integer(),
         UpperBound :: non_neg_integer()) -> non_neg_integer().
 count_engaged_users_between(Type, LowerBound, UpperBound) ->
-    lists:foldl(
-        fun (Slot, Acc) ->
+    Commands = lists:map(
+        fun (Slot) ->
             Key = get_engaged_users_key_slot(Slot, Type),
-            Acc + count_active_users_by_key(Key, LowerBound, UpperBound)
-        end,
-        0,
-        lists:seq(0, ?NUM_SLOTS - 1)
-    ).
+            ["ZCOUNT", Key, LowerBound, UpperBound]
+        end, lists:seq(0, ?NUM_SLOTS - 1)),
+    Results = qmn(Commands),
+    lists:foldl(fun({ok, Result}, Sum) -> binary_to_integer(Result) + Sum end, 0, Results).
 
 
 -spec get_active_users_key(Uid :: uid()) -> binary().
@@ -135,13 +133,6 @@ cleanup_by_slot(Slot) ->
     Count.
 
 
--spec count_active_users_by_key(Key :: binary(), LowerBound :: non_neg_integer(),
-        UpperBound :: non_neg_integer()) -> non_neg_integer().
-count_active_users_by_key(Key, LowerBound, UpperBound) ->
-    {ok, Result} = q(["ZCOUNT", Key, LowerBound, UpperBound]),
-    binary_to_integer(Result).
-
-
 hash(Key) ->
     crc16:crc16(Key) rem ?NUM_SLOTS.
 
@@ -175,4 +166,8 @@ q(Command) -> ecredis:q(ecredis_accounts, Command).
 qp(Commands) ->
     ecredis:qp(ecredis_accounts, Commands).
 
+
+% borrowed from model_accounts.erl
+qmn(Commands) ->
+    util_redis:run_qmn(ecredis_accounts, Commands).
 
