@@ -54,6 +54,7 @@
     get_payload_type/1,
     set_timestamp/2,
     get_timestamp/1,
+    get_protocol/1,
     add_and_merge_maps/2,
     maybe_base64_encode/1,
     maybe_base64_decode/1,
@@ -361,6 +362,15 @@ get_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_st
 get_timestamp(#pb_msg{payload = #pb_seen_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_delivery_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{}) -> undefined.
+
+
+-spec get_protocol({inet:address(), inet:port_number()}) -> ipv4 | ipv6.
+get_protocol({{_, _, _, _}, _}) ->
+    ipv4;
+get_protocol({{0, 0, 0, 0, 0, _, _, _}, _}) ->
+    ipv4;
+get_protocol({{_, _, _, _, _, _, _, _}, _}) ->
+    ipv6.
 
 
 -spec maybe_base64_encode(maybe(binary())) -> maybe(binary()).
