@@ -11,6 +11,7 @@
 
 -export([
     check_accounts_run/2,
+    log_account_info_run/2,
     check_phone_numbers_run/2
 ]).
 
@@ -38,6 +39,34 @@ check_accounts_run(Key, State) ->
                                 [Uid, Phone, PhoneUid]),
                             ok
                     end
+            end;
+        _ -> ok
+    end,
+    State.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Check all phone number accounts                        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+log_account_info_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            {ok, Phone} = q(ecredis_accounts, ["HGET", FullKey, <<"ph">>]),
+            case Phone of
+                undefined ->
+                    ?INFO("Uid: ~p, Phone is undefined!", [Uid]);
+                _ ->
+                    NumContacts = model_contacts:count_contacts(Uid),
+                    {ok, Friends} = model_friends:get_friends(Uid),
+                    {ok, Contacts} = model_contacts:get_contacts(Uid),
+                    UidContacts = model_phone:get_uids(Contacts),
+                    NumUidContacts = length(maps:to_list(UidContacts)),
+                    NumFriends = length(Friends),
+                    CC = mod_libphonenumber:get_cc(Phone),
+                    ?INFO("Account Uid: ~p, Phone: ~p, CC: ~p, NumContacts: ~p, NumUidContacts: ~p, NumFriends: ~p",
+                        [Uid, Phone, CC, NumContacts, NumUidContacts, NumFriends])
             end;
         _ -> ok
     end,
