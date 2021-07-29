@@ -38,7 +38,7 @@
     is_too_soon/1,  %% for testing
     good_next_ts_diff/1, %% for testing
     send_otp/5, %% for testing
-    send_otp_internal/5,
+    send_otp_internal/6,
     pick_gw/2  %% for testing
 ]).
 
@@ -138,7 +138,7 @@ send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
             stat:count("HA/registration", "send_otp"),
             stat:count("HA/registration", "send_otp_by_cc", 1,
                 [{cc, mod_libphonenumber:get_cc(Phone)}]),
-            case mod_sms:send_otp_internal(OtpPhone, LangId, UserAgent, Method, OldResponses) of
+            case mod_sms:send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) of
                 {ok, SMSResponse} ->
                     ?INFO("Response: ~p", [SMSResponse]),
                     #gateway_response{attempt_id = NewAttemptId, attempt_ts = Timestamp} = SMSResponse,
@@ -191,12 +191,12 @@ good_next_ts_diff(NumFailedAttempts) ->
       30 * ?SECONDS * trunc(math:pow(2, NumFailedAttempts - 1)).
 
 
--spec send_otp_internal(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom(),
+-spec send_otp_internal(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom(),
         OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, atom(), term()}.
-send_otp_internal(Phone, LangId, UserAgent, Method, OldResponses) ->
+send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
     ?DEBUG("preparing to send otp, phone:~p, LangId: ~p, UserAgent: ~p",
-        [Phone, LangId, UserAgent]),
-    case smart_send(Phone, LangId, UserAgent, Method, OldResponses) of
+        [OtpPhone, LangId, UserAgent]),
+    case smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) of
         {ok, SMSResponse} ->
             {ok, SMSResponse};
         {error, _GW, _Reason} = Err ->
@@ -216,9 +216,9 @@ generate_code(Phone) ->
 %% TODO(vipin)
 %% On callback from the provider track (success, cost). Investigative logging to track missing
 %% callback.
--spec smart_send(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom(), OldResponses
+-spec smart_send(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom(), OldResponses
         :: [gateway_response()]) -> {ok, gateway_response()} | {error, atom(), sms_fail} | {error, atom(), call_fail} | {error, atom(), voice_call_fail}.
-smart_send(Phone, LangId, UserAgent, Method, OldResponses) ->
+smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
     {WorkingList, NotWorkingList} = lists:foldl(
         fun(#gateway_response{gateway = Gateway, method = Method2, status = Status}, {Working, NotWorking})
                 when Method2 =:= Method ->
@@ -263,7 +263,7 @@ smart_send(Phone, LangId, UserAgent, Method, OldResponses) ->
     end,
     ?DEBUG("Choose from: ~p", [ToChooseFromList]),
 
-    CC = mod_libphonenumber:get_cc(Phone),
+    CC = mod_libphonenumber:get_cc(OtpPhone),
 
     %% Pick one based on past performance.
     ToPick = pick_gw(ToChooseFromList, CC),
@@ -335,11 +335,12 @@ smart_send(Phone, LangId, UserAgent, Method, OldResponses) ->
         mbird_verify -> <<"999999">>;
         _ -> generate_code(Phone)
     end,
-    ?INFO("Phone: ~s CC: ~s Chosen Gateway: ~p ~p Code: ~p", [Phone, CC, NewGateway2, Method, Code]),
+    ?INFO("Enrolling: ~s, Using Phone: ~s CC: ~s Chosen Gateway: ~p to send ~p Code: ~p",
+        [Phone, OtpPhone, CC, NewGateway2, Method, Code]),
     {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
     Result = case Method of
-        voice_call -> NewGateway2:send_voice_call(Phone, Code, LangId, UserAgent);
-        sms -> NewGateway2:send_sms(Phone, Code, LangId, UserAgent)
+        voice_call -> NewGateway2:send_voice_call(OtpPhone, Code, LangId, UserAgent);
+        sms -> NewGateway2:send_sms(OtpPhone, Code, LangId, UserAgent)
     end,
     stat:count("HA/registration", "send_otp_by_gateway", 1,
         [{gateway, NewGateway2}, {method, Method}, {cc, CC}]),
