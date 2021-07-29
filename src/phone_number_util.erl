@@ -190,13 +190,12 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
             %% we were given to parse.
             NewRegionMetadata = RegionMetadata,
             PotentialNationalNumber1 = PhoneNumberState2#phone_number_state.national_number,
-            NormalizedNationalNumber = adjust_national_number(PotentialNationalNumber1, RegionMetadata),
+            NormalizedNationalNumber = adjust_national_number(PotentialNationalNumber1, NewRegionMetadata),
             NewCountryCodeSource = PhoneNumberState2#phone_number_state.country_code_source,
             CountryCode = RegionMetadata#region_metadata.attributes#attributes.country_code;
         PhoneNumberState2 ->
             CountryCode = PhoneNumberState2#phone_number_state.country_code,
             PotentialNationalNumber1 = PhoneNumberState2#phone_number_state.national_number,
-            NormalizedNationalNumber = adjust_national_number(PotentialNationalNumber1, RegionMetadata),
             NewCountryCodeSource = PhoneNumberState2#phone_number_state.country_code_source,
             NewRegionMetadata =
             case libphonenumber_ets:match_object_on_country_code(CountryCode) of
@@ -204,7 +203,8 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
                     Match;
                 _ ->
                     RegionMetadata
-            end
+            end,
+            NormalizedNationalNumber = adjust_national_number(PotentialNationalNumber1, NewRegionMetadata)
     end,
     case NewRegionMetadata of
         undefined ->
