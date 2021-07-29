@@ -35,7 +35,8 @@
     gauge/3,
     gauge/4,
     reload_aws_config/0,
-    get_aws_config/0
+    get_aws_config/0,
+    send_to_cloudwatch/1
 ]).
 
 % Trigger funcitons
@@ -353,10 +354,10 @@ send_data(TimeSeconds, MetricsMap) when is_map(MetricsMap) ->
     TimeMilliSeconds = TimeSeconds * ?SECONDS_MS,
     Data = prepare_data(MetricsMap, TimeMilliSeconds),
     ?INFO("prepared ~p data points", [maps:size(Data)]),
-    send_to_cloudwatch(Data),
-    ?INFO("stats sent to cloudwatch"),
-    stat_opentsdb:put_metrics(MetricsMap, TimeMilliSeconds),
-    ?INFO("stats sent to opentsdb"),
+    CloudWatchPid = spawn(?MODULE, send_to_cloudwatch, [Data]),
+    ?INFO("stats sent to cloudwatch – pid: ~p", [CloudWatchPid]),
+    OpenTsdbPid = spawn(stat_opentsdb, put_metrics, [MetricsMap, TimeMilliSeconds]),
+    ?INFO("stats sent to opentsdb – pid: ~p", [OpenTsdbPid]),
     ?INFO("stats sent (took ~pms)", [util:now_ms() - Ts]),
     ok.
 
