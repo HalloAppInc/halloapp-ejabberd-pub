@@ -163,7 +163,7 @@ get_latest_verify_info(AllVerifyInfoList) ->
 -spec get_verify_lang(LangId :: binary()) -> string().
 get_verify_lang(LangId) ->
     VerifyLangMap = get_verify_lang_map(),
-    maps:get(LangId, VerifyLangMap, ?TWILIO_VERIFY_ENG_LANG_ID).
+    util_gateway:get_gateway_lang(LangId, VerifyLangMap, ?TWILIO_VERIFY_ENG_LANG_ID).
 
 
 get_verify_lang_map() ->
@@ -175,11 +175,11 @@ get_verify_lang_map() ->
         %% Catalan
         <<"ca">> => "ca",
         %% Chinese (Simplified using mainland terms)
-        <<"zh">> => "zh",
-        %% Chinese (Simplified using mainland terms)
         <<"zh-CN">> => "zh-CN",
         %% Chinese (Simplified using Hong Kong terms)
         <<"zh-HK">> => "zh-HK",
+        %% Chinese (Simplified using mainland terms) - fallback
+        <<"zh">> => "zh",
         %% Croatian
         <<"hr">> => "hr",
         %% Czech
@@ -192,6 +192,8 @@ get_verify_lang_map() ->
         <<"en-US">> => "en",
         %% English (British)
         <<"en-GB">> => "en-GB",
+        %% English (American) - fallback
+        <<"en">> => "en",
         %% Finnish
         <<"fi">> => "fi",
         %% French
@@ -224,7 +226,7 @@ get_verify_lang_map() ->
         <<"pt-BR">> => "pt-BR",
         %% Portuguese
         <<"pt-PT">> => "pt",
-        %% Portuguese
+        %% Portuguese - fallback
         <<"pt">> => "pt",
         %% Romanian
         <<"ro">> => "ro",

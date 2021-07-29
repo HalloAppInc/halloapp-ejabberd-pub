@@ -237,7 +237,7 @@ is_voice_lang_available(LangId) ->
 -spec get_twilio_lang(LangId :: binary()) -> binary().
 get_twilio_lang(LangId) ->
     TwilioLangMap = get_twilio_lang_map(),
-    maps:get(LangId, TwilioLangMap, ?TWILIO_ENG_LANG_ID).
+    util_gateway:get_gateway_lang(LangId, TwilioLangMap, ?TWILIO_ENG_LANG_ID).
 
 
 get_twilio_lang_map() ->
@@ -256,6 +256,8 @@ get_twilio_lang_map() ->
         <<"en-IN">> => "en-IN",
         %% English, United States
         <<"en-US">> => "en-US",
+        %% English, United States - fallback
+        <<"en">> => "en-US",
         %% Catalan, Spain
         <<"ca">> => "ca-ES",
         %% Spanish, Spain
@@ -280,7 +282,7 @@ get_twilio_lang_map() ->
         <<"pt-BR">> => "pt-BR",
         %% Portuguese, Portugal
         <<"pt-PT">> => "pt-PT",
-        %% Portuguese, Portugal,
+        %% Portuguese, Portugal - fallback
         <<"pt">> => "pt-PT",
         %% Russian, Russia
         <<"ru">> => "ru-RU",
@@ -291,7 +293,9 @@ get_twilio_lang_map() ->
         %% Chinese (Cantonese)
         <<"zh-HK">> => "zh-HK",
         %% Chinese (Taiwanese Mandarin)
-        <<"zh-TW">> => "zh-TW"
+        <<"zh-TW">> => "zh-TW",
+        %% Chinese (Mandarin) - fallback
+        <<"zh">> => "zh-CN"
     }.
 
 

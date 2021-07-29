@@ -186,7 +186,7 @@ is_voice_lang_available(LangId) ->
 -spec get_mbird_lang(LangId :: binary()) -> binary().
 get_mbird_lang(LangId) ->
     MbirdLangMap = get_mbird_lang_map(),
-    maps:get(LangId, MbirdLangMap, ?MBIRD_ENG_LANG_ID).
+    util_gateway:get_gateway_lang(LangId, MbirdLangMap, ?MBIRD_ENG_LANG_ID).
 
 
 get_mbird_lang_map() ->
@@ -219,6 +219,8 @@ get_mbird_lang_map() ->
         <<"en-IN">> => <<"en-IN">>,
         %% American English
         <<"en-US">> => <<"en-US">>,
+        %% American English - fallback
+        <<"en">> => <<"en-US">>,
         %% European Spanish
         <<"es">> => <<"es-ES">>,
         %% Finnish (Finland)
@@ -263,7 +265,7 @@ get_mbird_lang_map() ->
         <<"pt-BR">> => <<"pt-BR">>,
         %% European Portuguese
         <<"pt-PT">> => <<"pt-PT">>,
-        %% European Portuguese
+        %% European Portuguese - fallback
         <<"pt">> => <<"pt-PT">>,
         %% Romanian (Romania)
         <<"ro">> => <<"ro-RO">>,
@@ -272,7 +274,7 @@ get_mbird_lang_map() ->
         %% Slovak (Slovakia)
         <<"sk">> => <<"sk-SK">>,
         %% Slovenian (Slovenia)
-        <<"sl-SI">> => <<"sl-SI">>,
+        <<"sl">> => <<"sl-SI">>,
         %% Swedish (Sweden)
         <<"sv">> => <<"sv-SE">>,
         %% Tamil (India)
@@ -292,7 +294,9 @@ get_mbird_lang_map() ->
         %% Chinese (Hong Kong SAR China)
         <<"zh-HK">> => <<"zh-HK">>,
         %% Chinese (Taiwan)
-        <<"zh-TW">> => <<"zh-TW">>
+        <<"zh-TW">> => <<"zh-TW">>,
+        % Chinese (China) - fallback
+        <<"zh">> => <<"zh-CN">>
     }.
 
 

@@ -25,7 +25,9 @@
     translate/2,
     translate/3,
     reload_translations/0,
-    ets_translations_exist/0
+    ets_translations_exist/0,
+    shorten_lang_id/1,
+    normalize_langid/1
 ]).
 
 
@@ -131,33 +133,43 @@ lookup_translation(Token, LangId) ->
             count_lang_id(LangId),
             {Translation, LangId};
         [] ->
-            %% If no translations exists, try shortening the id and lookup again.
-            ShortLangId = shorten_lang_id(LangId),
-            case ShortLangId of
-                %% If shortLangId is english: then use default string,
-                %% since translations dont exist.
-                <<"en">> ->
-                    count_lang_id(?ENG_LANG_ID),
-                    {lookup_english_string(Token), ?ENG_LANG_ID};
-                LangId ->
-                    count_lang_id(?ENG_LANG_ID),
-                    {lookup_english_string(Token), ?ENG_LANG_ID};
-                _ ->
-                    %% Lookup translations using the shortId, else fallback to the default string.
-                    case ets:lookup(?TRANSLATIONS, {Token, ShortLangId}) of
-                        [{_, Translation}] ->
-                            count_lang_id(ShortLangId),
-                            {Translation, LangId};
-                        [{_, Translation} | _] ->
-                            ?WARNING("More than one translation exists, Token: ~p, LangId: ~p",
-                                [Token, LangId]),
-                            count_lang_id(ShortLangId),
-                            {Translation, LangId};
-                        _ ->
-                            ?INFO("Unable to find translation for Token: ~p, LangId: ~p",
-                                [Token, LangId]),
+            %% If no translations exists, try uppercasing the region and lookup again.
+            NormalizedLangId = normalize_langid(LangId),
+            case ets:lookup(?TRANSLATIONS, {Token, NormalizedLangId}) of
+                [{_, Translation}] ->
+                    count_lang_id(NormalizedLangId),
+                    {Translation, LangId};
+                [{_, Translation} | _] ->
+                    ?WARNING("More than one translation exists, Token: ~p, LangId: ~p",
+                        [Token, NormalizedLangId]),
+                    count_lang_id(NormalizedLangId),
+                    {Translation, LangId};
+                [] ->
+                    %% If no translations exists, try shortening the id and lookup again.
+                    ShortLangId = shorten_lang_id(LangId),
+                    case ShortLangId of
+                        %% If shortLangId is english: then use default string,
+                        %% since translations dont exist.
+                        _ when ShortLangId =:= <<"en">> orelse ShortLangId =:= LangId ->
                             count_lang_id(?ENG_LANG_ID),
-                            {lookup_english_string(Token), ?ENG_LANG_ID}
+                            {lookup_english_string(Token), ?ENG_LANG_ID};
+                        _ ->
+                            %% Lookup translations using the shortId, else fallback to the default string.
+                            case ets:lookup(?TRANSLATIONS, {Token, ShortLangId}) of
+                                [{_, Translation}] ->
+                                    count_lang_id(ShortLangId),
+                                    {Translation, LangId};
+                                [{_, Translation} | _] ->
+                                    ?WARNING("More than one translation exists, Token: ~p, LangId: ~p",
+                                        [Token, LangId]),
+                                    count_lang_id(ShortLangId),
+                                    {Translation, LangId};
+                                _ ->
+                                    ?INFO("Unable to find translation for Token: ~p, LangId: ~p",
+                                        [Token, LangId]),
+                                    count_lang_id(?ENG_LANG_ID),
+                                    {lookup_english_string(Token), ?ENG_LANG_ID}
+                            end
                     end
             end
     end.
@@ -217,6 +229,17 @@ shorten_lang_id(LangId) ->
     case str:tokens(LangId, <<"-">>) of
         [] -> LangId;
         [ShortId | _] -> ShortId
+    end.
+
+
+%% normalized the langId by uppercasing the region.
+-spec normalize_langid(LangId :: binary()) -> binary().
+normalize_langid(LangId) ->
+    case str:tokens(LangId, <<"-">>) of
+        [] -> LangId;
+        [ShortId, Region] ->
+            UppercaseRegion = util:to_binary(string:uppercase(util:to_list(Region))),
+            <<ShortId/binary, "-", UppercaseRegion/binary>>
     end.
 
 
