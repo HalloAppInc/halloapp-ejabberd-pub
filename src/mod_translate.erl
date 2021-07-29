@@ -237,9 +237,11 @@ shorten_lang_id(LangId) ->
 normalize_langid(LangId) ->
     case str:tokens(LangId, <<"-">>) of
         [] -> LangId;
+        [LangId] -> LangId;
         [ShortId, Region] ->
             UppercaseRegion = util:to_binary(string:uppercase(util:to_list(Region))),
-            <<ShortId/binary, "-", UppercaseRegion/binary>>
+            <<ShortId/binary, "-", UppercaseRegion/binary>>;
+        [ShortId | _] -> ShortId
     end.
 
 
