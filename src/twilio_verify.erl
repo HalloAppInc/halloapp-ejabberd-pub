@@ -28,18 +28,18 @@
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
 send_sms(Phone, Code, LangId, _UserAgent) ->
-    send_verification(Phone, Code, LangId, "sms").
+    sending_helper(Phone, Code, LangId, "sms").
 
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, call_fail}.
 send_voice_call(Phone, Code, LangId, _UserAgent) -> 
-    send_verification(Phone, Code, LangId, "call").
+    sending_helper(Phone, Code, LangId, "call").
 
 
--spec send_verification(Phone :: phone(), Code :: binary(), LangId :: binary(), Method :: string())
+-spec sending_helper(Phone :: phone(), Code :: binary(), LangId :: binary(), Method :: string())
      -> {ok, gateway_response()} | {error, sms_fail} | {error, call_fail}.
-send_verification(Phone, Code, LangId, Method) ->
+sending_helper(Phone, Code, LangId, Method) ->
     URL = ?VERIFICATION_URL,
     [Headers, Type, HTTPOptions, Options] = fetch_headers(),
     Body = compose_send_body(Phone, Code, LangId, Method),
