@@ -36,7 +36,8 @@
     set_full_sync_error_percent/1,
     set_full_sync_retry_time/1,
     get_full_sync_error_percent/0,
-    get_full_sync_retry_time/0
+    get_full_sync_retry_time/0,
+    normalize_and_insert_contacts/4
 ]).
 
 -export([

@@ -23,6 +23,7 @@
 
 %% API
 -export([
+    phone_key/1,
     add_sms_code/4,
     add_sms_code_receipt/2,
     delete_sms_code/1,
