@@ -829,13 +829,23 @@ ets_count_passive_sessions() ->
 -spec ets_count_mode_sessions(Mode :: atom()) -> integer().
 ets_count_mode_sessions(Mode) ->
     try
-        ets:lookup_element(?SM_COUNTERS, Mode, 2)
+        %% lookup won't throw exception if no keys match Mode
+        SessionList = ets:lookup(?SM_COUNTERS, Mode),
+        case SessionList of
+            %% if no keys match Mode, then there are no Mode sessions
+            [] ->
+                0;
+            _ ->
+                element(2, lists:nth(0, SessionList))
+        end
+            
     catch
         Class : Reason : St ->
         ?INFO("crashed ets_count_mode_sessions, table: ~p, Mode: ~p Stacktrace: ~ts",
             [?SM_COUNTERS, Mode, lager:pr_stacktrace(St, {Class, Reason})]),
         0
     end.
+    
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
