@@ -262,7 +262,7 @@ normalize_argentina_test() ->
     %% Argentina
     ?assertEqual(<<"5491123456789">>, mod_libphonenumber:normalize(<<"1123456789">>, <<"AR">>)),
 
-    %% Numbers with country code and without 9 should still normalize fine from other places.
+    %% Numbers with country code and with/without 9 should still normalize fine from other places.
     %% Argentina - with country code.
     ?assertEqual(<<"5491123456789">>, mod_libphonenumber:normalize(<<"+5491123456789">>, <<"US">>)),
     %% Argentina - with country code.
@@ -271,5 +271,33 @@ normalize_argentina_test() ->
     ?assertEqual(<<"5491123456789">>, mod_libphonenumber:normalize(<<"+5491123456789">>, <<"IN">>)),
     %% Argentina - with country code.
     ?assertEqual(<<"5491123456789">>, mod_libphonenumber:normalize(<<"+541123456789">>, <<"IN">>)),
+    ok.
+
+
+normalize_mexico_test() ->
+    setup(),
+
+    %% Mexico - with country code.
+    ?assertEqual(<<"526182602005">>, mod_libphonenumber:normalize(<<"+5216182602005">>, <<"MX">>)),
+    %% Mexico - with country code.
+    ?assertEqual(<<"526182602005">>, mod_libphonenumber:normalize(<<"5216182602005">>, <<"MX">>)),
+    %% Mexico - with country code.
+    ?assertEqual(<<"526182602005">>, mod_libphonenumber:normalize(<<"+526182602005">>, <<"MX">>)),
+    %% Mexico - with country code.
+    ?assertEqual(<<"526182602005">>, mod_libphonenumber:normalize(<<"5216182602005">>, <<"MX">>)),
+    %% Mexico
+    ?assertEqual(<<"526182602005">>, mod_libphonenumber:normalize(<<"16182602005">>, <<"MX">>)),
+    %% Mexico
+    ?assertEqual(<<"526182602005">>, mod_libphonenumber:normalize(<<"6182602005">>, <<"MX">>)),
+
+    %% Numbers with country code and with/without 1 should still normalize fine from other places.
+    %% Mexico - with country code.
+    ?assertEqual(<<"526182602005">>, mod_libphonenumber:normalize(<<"+5216182602005">>, <<"US">>)),
+    %% Mexico - with country code.
+    ?assertEqual(<<"526182602005">>, mod_libphonenumber:normalize(<<"+5216182602005">>, <<"US">>)),
+    %% Mexico - with country code.
+    ?assertEqual(<<"526182602005">>, mod_libphonenumber:normalize(<<"+526182602005">>, <<"IN">>)),
+    %% Mexico - with country code.
+    ?assertEqual(<<"526182602005">>, mod_libphonenumber:normalize(<<"+526182602005">>, <<"IN">>)),
     ok.
 
