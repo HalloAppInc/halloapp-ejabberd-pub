@@ -835,10 +835,9 @@ ets_count_mode_sessions(Mode) ->
             %% if no keys match Mode, then there are no Mode sessions
             [] ->
                 0;
-            _ ->
-                element(2, lists:nth(0, SessionList))
+            [{Mode, Count}] ->
+                Count
         end
-            
     catch
         Class : Reason : St ->
         ?INFO("crashed ets_count_mode_sessions, table: ~p, Mode: ~p Stacktrace: ~ts",
@@ -980,4 +979,3 @@ kick_user(User, Server, Resource) ->
 
 make_sid() ->
     {misc:unique_timestamp(), self()}.
-
