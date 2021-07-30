@@ -979,3 +979,4 @@ kick_user(User, Server, Resource) ->
 
 make_sid() ->
     {misc:unique_timestamp(), self()}.
+
