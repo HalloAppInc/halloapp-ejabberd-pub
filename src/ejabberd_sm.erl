@@ -830,8 +830,8 @@ ets_count_passive_sessions() ->
 ets_count_mode_sessions(Mode) ->
     try
         %% lookup won't throw exception if no keys match Mode
-        SessionList = ets:lookup(?SM_COUNTERS, Mode),
-        case SessionList of
+        SessionCounters = ets:lookup(?SM_COUNTERS, Mode),
+        case SessionCounters of
             %% if no keys match Mode, then there are no Mode sessions
             [] ->
                 0;
