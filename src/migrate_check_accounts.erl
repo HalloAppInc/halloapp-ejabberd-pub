@@ -13,7 +13,8 @@
     check_accounts_run/2,
     log_account_info_run/2,
     check_phone_numbers_run/2,
-    check_argentina_numbers_run/2
+    check_argentina_numbers_run/2,
+    check_mexico_numbers_run/2
 ]).
 
 
@@ -125,6 +126,32 @@ check_argentina_numbers_run(Key, State) ->
         _ -> ok
     end,
     State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Check all mexico accounts                        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+check_mexico_numbers_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            {ok, Phone} = q(ecredis_accounts, ["HGET", FullKey, <<"ph">>]),
+            case Phone of
+                undefined ->
+                    ?INFO("Uid: ~p, Phone is undefined!", [Uid]);
+                <<"521", _Rest/binary>> ->
+                    ?INFO("Account uid: ~p, phone: ~p - invalid_phone", [Uid, Phone]);
+                <<"52", _Rest/binary>> ->
+                    ?INFO("Account uid: ~p, phone: ~p - valid_phone", [Uid, Phone]);
+                _ ->
+                    ok
+            end;
+        _ -> ok
+    end,
+    State.
+
 
 q(Client, Command) -> util_redis:q(Client, Command).
 qp(Client, Commands) -> util_redis:qp(Client, Commands).
