@@ -469,6 +469,8 @@ is_ip_blocked(IP) ->
     case inet:parse_address(IP) of
         {ok, IPTuple} ->
             case IPTuple of
+                % NOTE: 24.5.49.25 is office ip
+                %
                 % 38.91.106.225 sending bot requests from CC:AZ
                 {38, 91, 106, 225} -> true;
                 % "2400:adc7:908:db00:e4b1:e4e0:ca6a:2da6" bot requests from CC:AZ
@@ -497,6 +499,18 @@ is_ip_blocked(IP) ->
                 {9225,16483,27653,51044,0,0,43722,9231} -> true;
                 % "89.237.192.209"
                 {89,237,192,209} -> true;
+                % "119.160.58.21"
+                {119,160,58,21} -> true;
+                % "119.160.58.10"
+                {119,160,58,10} -> true;
+                % "2401:4900:5b08:fbbb::e28:dcae"
+                {9217,18688,23304,64443,0,0,3624,56494} -> true;
+                % "103.255.4.254"
+                {103,255,4,254} -> true;
+                % "182.186.127.1"
+                {182,186,127,1} -> true;
+                % "111.119.187.11"
+                {111,119,187,11} -> true;
                 _ -> false
             end;
         {error, _} ->
