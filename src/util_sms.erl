@@ -9,11 +9,14 @@
 -module(util_sms).
 -author('vipin').
 
+-include_lib("stdlib/include/assert.hrl").
 -include("logger.hrl").
+-include("time.hrl").
 
 -export([
     init_helper/2,
-    lookup_from_phone/1
+    lookup_from_phone/1,
+    good_next_ts_diff/1
 ]).
 
 -spec init_helper(GWOptions :: atom(), FromPhoneList :: [list()]) -> ok.
@@ -36,4 +39,11 @@ lookup_from_phone(GWOptions) ->
     PhoneIndex = ets:update_counter(GWOptions, from_phone_index, 1) rem ListLength,
     [{_, FromPhone}] = ets:lookup(GWOptions, "from_phone_" ++ integer_to_list(PhoneIndex + 1)),
     FromPhone.
+
+
+%% 0 -> 30 seconds -> 60 seconds -> 120 seconds -> 240 seconds ...
+-spec good_next_ts_diff(NumFailedAttempts :: integer()) -> integer().
+good_next_ts_diff(NumFailedAttempts) ->
+      ?assert(NumFailedAttempts > 0),
+      30 * ?SECONDS * trunc(math:pow(2, NumFailedAttempts - 1)).
 

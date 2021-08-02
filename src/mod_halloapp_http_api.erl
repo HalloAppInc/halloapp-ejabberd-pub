@@ -31,7 +31,7 @@
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 -export([
     process/2,
-    check_blocked/1  %% for testing
+    check_blocked/2  %% for testing
 ]).
 
 %% TODO: cleanup old code in this file and old password related stuff.
@@ -69,6 +69,7 @@ process([<<"registration">>, <<"register2">>],
 
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
+        ok = delete_client_ip(ClientIP, Phone),
         LName = check_name(Name),
 
         SEdPubBin = base64:decode(SEdPub),
@@ -203,15 +204,25 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
         check_ua(UserAgent),
         Method2 = get_otp_method(Method),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
-        check_blocked(ClientIP),
-        case request_otp(Phone, LangId, UserAgent, Method2) of
-            {ok, RetryAfterSecs} ->
-                {200, ?HEADER(?CT_JSON),
-                    jiffy:encode({[
-                        {phone, Phone},
-                        {retry_after_secs, RetryAfterSecs},
-                        {result, ok}
-                    ]})};
+        case check_blocked(ClientIP, Phone) of
+            ok ->
+                case request_otp(Phone, LangId, UserAgent, Method2) of
+                    {ok, RetryAfterSecs} ->
+                        {200, ?HEADER(?CT_JSON),
+                            jiffy:encode({[
+                                {phone, Phone},
+                                {retry_after_secs, RetryAfterSecs},
+                                {result, ok}
+                            ]})};
+                    {error, retried_too_soon, RetrySecs} ->
+                        {400, ?HEADER(?CT_JSON),
+                            jiffy:encode({[
+                                {phone, Phone},
+                                {retry_after_secs, RetrySecs},
+                                {error, retried_too_soon},
+                                {result, fail}
+                            ]})}
+                end;
             {error, retried_too_soon, RetrySecs} ->
                 {400, ?HEADER(?CT_JSON),
                     jiffy:encode({[
@@ -366,10 +377,11 @@ check_name(Name) when is_binary(Name) ->
 check_name(_) ->
     error(invalid_name).
 
--spec check_blocked(IP :: string()) -> ok | erlang:error().
-check_blocked(IP) ->
-    case is_ip_blocked(IP) of
-        true -> erlang:error(ip_blocked);
+-spec check_blocked(IP :: string(), Phone :: binary()) -> ok | {error, retried_too_soon, integer()}.
+check_blocked(IP, Phone) ->
+    CC = mod_libphonenumber:get_cc(Phone),
+    case is_ip_blocked(IP, CC) of
+        {true, RetrySecs} -> {error, retried_too_soon, RetrySecs};
         false -> ok
     end.
 
@@ -463,60 +475,60 @@ is_group_invite_valid(GroupInviteToken) ->
         _Gid -> true
     end.
 
-%% TODO: Manage list of blocked ips in redis.
--spec is_ip_blocked(IP :: list()) -> boolean().
-is_ip_blocked(IP) ->
-    case inet:parse_address(IP) of
-        {ok, IPTuple} ->
-            case IPTuple of
-                % NOTE: 24.5.49.25 is office ip
-                %
-                % 38.91.106.225 sending bot requests from CC:AZ
-                {38, 91, 106, 225} -> true;
-                % "2400:adc7:908:db00:e4b1:e4e0:ca6a:2da6" bot requests from CC:AZ
-                {9216,44487,2312,56064,58545,58592,51818,11686} -> true;
-                % "2409:4063:4d87:6f16:a614:2231:7afc:8b3a" bot requests from CC:UA
-                {9225,16483,19847,28438,42516,8753,31484,35642} -> true;
-                % "2409:4063:6c05:c764::aaca:240f" bot requests from CC:LY
-                {9225,16483,27653,51044,0,0,43722,9231} -> true;
-                % "2409:4063:6e1a:f99c::44ca:f208"
-                {9225,16483,28186,63900,0,0,17610,61960} -> true;
-                % "2409:4063:6e13:96e5::44ca:5800"
-                {9225,16483,28179,38629,0,0,17610,22528} -> true;
-                % "2401:4900:45cc:183a:b2f8:db04:2436:eb5c"
-                {9217,18688,17868,6202,45816,56068,9270,60252} -> true;
-                % "2401:4900:5aab:65d3:2912:270f:8627:2755"
-                {9217,18688,23211,26067,10514,9999,34343,10069} -> true;
-                % "2409:4063:4d87:6f16:1978:32b4:291f:8288"
-                {9225,16483,19847,28438,6520,12980,10527,33416} -> true;
-                % "47.8.23.141"
-                {47,8,23,141} -> true;
-                % "2409:4063:2202:d74d:33dd:75b:1b8f:49ed"
-                {9225,16483,8706,55117,13277,1883,7055,18925} -> true;
-                % "2409:4063:6e16:aec::448a:f80c"
-                {9225,16483,28182,2796,0,0,17546,63500} -> true;
-                % "2409:4063:6c05:c764::aaca:240f"
-                {9225,16483,27653,51044,0,0,43722,9231} -> true;
-                % "89.237.192.209"
-                {89,237,192,209} -> true;
-                % "119.160.58.21"
-                {119,160,58,21} -> true;
-                % "119.160.58.10"
-                {119,160,58,10} -> true;
-                % "2401:4900:5b08:fbbb::e28:dcae"
-                {9217,18688,23304,64443,0,0,3624,56494} -> true;
-                % "103.255.4.254"
-                {103,255,4,254} -> true;
-                % "182.186.127.1"
-                {182,186,127,1} -> true;
-                % "111.119.187.11"
-                {111,119,187,11} -> true;
-                _ -> false
-            end;
-        {error, _} ->
-            ?WARNING("failed to parse IP: ~p", [IP]),
-            false
+-spec delete_client_ip(IP :: list(), CC :: binary()) -> boolean().
+delete_client_ip(IP, CC) ->
+    case is_country_blockable(CC) of
+        true -> model_ip_addresses:delete_ip_address(IP, CC);
+        false -> ok
     end.
+
+
+-spec is_ip_blocked(IP :: list(), CC :: binary()) -> false | {true, integer()}.
+is_ip_blocked(IP, CC) ->
+    case is_country_blockable(CC) of
+        false ->
+            false;
+        true ->
+            CurrentTs = util:now(),
+            {ok, {Count, LastTs}} = model_ip_addresses:get_ip_address_info(IP, CC),
+            IsIpBlocked = case {Count, LastTs} of
+                {undefined, _} ->
+                    false;
+                {_, undefined} ->
+                    false;
+                {_, _} ->
+                    NextTs = util_sms:good_next_ts_diff(Count) + LastTs,
+                    case NextTs > CurrentTs of
+                        true -> {true, NextTs - CurrentTs};
+                        false -> false
+                    end
+            end,
+            case IsIpBlocked of
+                false ->
+                      ok = model_ip_addresses:add_ip_address(IP, CC, CurrentTs),
+                      false;
+                {true, _} = Error ->
+                      Error
+            end
+    end.
+
+-spec is_country_blockable(CC :: binary()) -> boolean().
+is_country_blockable(CC) ->
+    case CC of
+        <<"KG">> -> true;  % Kyrgyzstan, 996
+        <<"LY">> -> true;  % Libya, 218
+        <<"LK">> -> true;  % Sri Lanka, 94
+        <<"MR">> -> true;  % Mauritania, 222
+        <<"MD">> -> true;  % Maldova, 373
+        <<"NG">> -> true;  % Nigeria, 234
+        <<"RU">> -> true;  % Russia, 7
+        <<"SN">> -> true;  % Senegal, 221
+        <<"TW">> -> true;  % Taiwan, 886
+        <<"UA">> -> true;  % Ukraine, 380
+        <<"UZ">> -> true;  % Uzbekistan, 998
+        _ -> false
+    end.
+ 
 
 -spec is_ip_invite_opened(IP :: list()) -> boolean().
 is_ip_invite_opened(IP) ->

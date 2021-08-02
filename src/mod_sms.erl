@@ -36,7 +36,6 @@
     request_otp/4,
     verify_sms/2,
     is_too_soon/1,  %% for testing
-    good_next_ts_diff/1, %% for testing
     send_otp/5, %% for testing
     send_otp_internal/6,
     pick_gw/2  %% for testing
@@ -181,14 +180,8 @@ find_next_ts(OldResponses) ->
             %% A good amount of time away from the last unsuccessful attempt. Please note this is
             %% approximation of exponential backoff.
             #gateway_response{attempt_ts = LastTs} = lists:nth(Len, OldResponses2),
-            good_next_ts_diff(Len) + util:to_integer(LastTs)
+            util_sms:good_next_ts_diff(Len) + util:to_integer(LastTs)
     end.
-
-
-%% 0 -> 30 seconds -> 60 seconds -> 120 seconds -> 240 seconds ...
-good_next_ts_diff(NumFailedAttempts) ->
-      ?assert(NumFailedAttempts > 0),
-      30 * ?SECONDS * trunc(math:pow(2, NumFailedAttempts - 1)).
 
 
 -spec send_otp_internal(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom(),
