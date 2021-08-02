@@ -112,6 +112,7 @@
 -define(INVITE_NOTIFICATION_KEY, <<"ink:">>).
 
 -define(IP_KEY, <<"ip:">>).
+-define(PHONE_PATTERN_KEY, <<"pp:">>).
 
 % old deleted/deprecated keys
 %%-define(INVITED_BY_KEY_OLD, <<"inb:">>).

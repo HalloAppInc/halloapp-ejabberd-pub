@@ -36,6 +36,8 @@
 -define(CURRENCY1, <<"USD">>).
 -define(CURRENCY2, <<"USD">>).
 
+-define(PHONE_PATTERN1, <<"147033814">>).
+-define(PHONE_PATTERN2, <<"165044430">>).
 
 setup() ->
     tutil:setup(),
@@ -207,6 +209,26 @@ delete_phone_test() ->
     ok = model_phone:delete_phone(?PHONE1),
     Res2Map = #{?PHONE2 => ?UID2},
     Res2Map = model_phone:get_uids([?PHONE1, ?PHONE2]).
+
+phone_pattern_test() ->
+    setup(),
+    ok = model_phone:delete_phone_pattern(?PHONE_PATTERN1),
+    ok = model_phone:delete_phone_pattern(?PHONE_PATTERN2),
+    {ok, {undefined, undefined}} = model_phone:get_phone_pattern_info(?PHONE_PATTERN1),
+    {ok, {undefined, undefined}} = model_phone:get_phone_pattern_info(?PHONE_PATTERN2),
+    ok = model_phone:add_phone_pattern(?PHONE_PATTERN1, ?TIME1),
+    {ok, {1, ?TIME1}} = model_phone:get_phone_pattern_info(?PHONE_PATTERN1),
+    {ok, {undefined, undefined}} = model_phone:get_phone_pattern_info(?PHONE_PATTERN2),
+    ok = model_phone:add_phone_pattern(?PHONE_PATTERN1, ?TIME2),
+    {ok, {2, ?TIME2}} = model_phone:get_phone_pattern_info(?PHONE_PATTERN1),
+    ok = model_phone:add_phone_pattern(?PHONE_PATTERN2, ?TIME1),
+    {ok, {1, ?TIME1}} = model_phone:get_phone_pattern_info(?PHONE_PATTERN2),
+    ok = model_phone:add_phone_pattern(?PHONE_PATTERN2, ?TIME2),
+    {ok, {2, ?TIME2}} = model_phone:get_phone_pattern_info(?PHONE_PATTERN2),
+    ok = model_phone:delete_phone_pattern(?PHONE_PATTERN1),
+    ok = model_phone:delete_phone_pattern(?PHONE_PATTERN2),
+    {ok, {undefined, undefined}} = model_phone:get_phone_pattern_info(?PHONE_PATTERN1),
+    {ok, {undefined, undefined}} = model_phone:get_phone_pattern_info(?PHONE_PATTERN2).
 
 
 while(0, _F) -> ok;

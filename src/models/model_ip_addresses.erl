@@ -35,11 +35,13 @@
 -spec add_ip_address(IPAddress :: list(), CC :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
 add_ip_address(IPAddress, CC, Timestamp) ->
     IPBin = util:to_binary(IPAddress),
-    _Results = q([["MULTI"],
-                    ["HINCRBY", ip_key(IPBin, CC), ?FIELD_COUNT, 1],
-                    ["HSET", ip_key(IPBin, CC), ?FIELD_TIMESTAMP, util:to_binary(Timestamp)],
-                    ["EXPIRE", ip_key(IPBin, CC), ?TTL_IP_ADDRESS],
-                    ["EXEC"]]),
+    _Results = q([
+        ["MULTI"],
+        ["HINCRBY", ip_key(IPBin, CC), ?FIELD_COUNT, 1],
+        ["HSET", ip_key(IPBin, CC), ?FIELD_TIMESTAMP, util:to_binary(Timestamp)],
+        ["EXPIRE", ip_key(IPBin, CC), ?TTL_IP_ADDRESS],
+        ["EXEC"]
+    ]),
     ok.
 
 

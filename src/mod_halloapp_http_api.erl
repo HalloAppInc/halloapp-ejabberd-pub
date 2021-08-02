@@ -70,6 +70,7 @@ process([<<"registration">>, <<"register2">>],
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
         ok = delete_client_ip(ClientIP, Phone),
+        ok = delete_phone_pattern(Phone),
         LName = check_name(Name),
 
         SEdPubBin = base64:decode(SEdPub),
@@ -381,10 +382,22 @@ check_name(_) ->
 check_blocked(IP, Phone) ->
     CC = mod_libphonenumber:get_cc(Phone),
     case is_ip_blocked(IP, CC) of
-        {true, RetrySecs} -> {error, retried_too_soon, RetrySecs};
-        false -> ok
+        {true, RetrySecs} ->
+            ?INFO("Ip: ~s, blocked for Phone: ~p, Retry after: ~p", [IP, Phone, RetrySecs]),
+            {error, retried_too_soon, RetrySecs};
+        false ->
+            case is_phone_pattern_blocked(extract_phone_pattern(Phone), CC) of
+                {true, RetrySecs} ->
+                    ?INFO("Phone Pattern blocked for Phone: ~p, Retry after: ~p", [Phone, RetrySecs]),
+                    {error, retried_too_soon, RetrySecs};
+                false -> ok
+            end
     end.
 
+extract_phone_pattern(Phone) ->
+    PhonePatternLength = byte_size(Phone) - 3,
+    <<PhonePattern:PhonePatternLength/binary, _Last/binary>> = Phone,
+    PhonePattern.
 
 -spec normalize(RawPhone :: binary()) -> binary() | no_return(). %throws invalid_phone_number
 normalize(RawPhone) ->
@@ -475,12 +488,22 @@ is_group_invite_valid(GroupInviteToken) ->
         _Gid -> true
     end.
 
--spec delete_client_ip(IP :: list(), CC :: binary()) -> boolean().
-delete_client_ip(IP, CC) ->
+-spec delete_client_ip(IP :: list(), Phone :: binary()) -> ok.
+delete_client_ip(IP, Phone) ->
+    CC = mod_libphonenumber:get_region_id(Phone),
     case is_country_blockable(CC) of
         true -> model_ip_addresses:delete_ip_address(IP, CC);
         false -> ok
     end.
+
+-spec delete_phone_pattern(Phone :: binary()) -> ok.
+delete_phone_pattern(Phone) ->
+    CC = mod_libphonenumber:get_region_id(Phone),
+    case is_country_blockable(CC) of
+        true -> model_phone:delete_phone_pattern(extract_phone_pattern(Phone));
+        false -> ok
+    end.
+
 
 
 -spec is_ip_blocked(IP :: list(), CC :: binary()) -> false | {true, integer()}.
@@ -506,6 +529,35 @@ is_ip_blocked(IP, CC) ->
             case IsIpBlocked of
                 false ->
                       ok = model_ip_addresses:add_ip_address(IP, CC, CurrentTs),
+                      false;
+                {true, _} = Error ->
+                      Error
+            end
+    end.
+
+-spec is_phone_pattern_blocked(PhonePattern :: binary(), CC :: binary()) -> false | {true, integer()}.
+is_phone_pattern_blocked(PhonePattern, CC) ->
+    case is_country_blockable(CC) of
+        false ->
+            false;
+        true ->
+            CurrentTs = util:now(),
+            {ok, {Count, LastTs}} = model_phone:get_phone_pattern_info(PhonePattern),
+            IsBlocked = case {Count, LastTs} of
+                {undefined, _} ->
+                    false;
+                {_, undefined} ->
+                    false;
+                {_, _} ->
+                    NextTs = util_sms:good_next_ts_diff(Count) + LastTs,
+                    case NextTs > CurrentTs of
+                        true -> {true, NextTs - CurrentTs};
+                        false -> false
+                    end
+            end,
+            case IsBlocked of
+                false ->
+                      ok = model_phone:add_phone_pattern(PhonePattern, CurrentTs),
                       false;
                 {true, _} = Error ->
                       Error

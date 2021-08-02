@@ -49,7 +49,10 @@
     get_gateway_response_status/2,
     add_verification_success/2,
     get_verification_success/2,
-    get_verification_attempt_summary/2
+    get_verification_attempt_summary/2,
+    add_phone_pattern/2,
+    get_phone_pattern_info/1,
+    delete_phone_pattern/1
 ]).
 
 %%====================================================================
@@ -58,6 +61,7 @@
 
 
 -define(FIELD_CODE, <<"cod">>).
+-define(FIELD_COUNT, <<"ct">>).
 -define(FIELD_TIMESTAMP, <<"ts">>).
 -define(FIELD_SENDER, <<"sen">>).
 -define(FIELD_METHOD, <<"met">>).
@@ -76,6 +80,9 @@
 -define(TTL_INCREMENTAL_TIMESTAMP, 86400).
 
 -define(TTL_VERIFICATION_ATTEMPTS, 30 * 86400).  %% 30 days
+
+%% TTL for phone pattern data: 1 day.
+-define(TTL_PHONE_PATTERN, 86400).
 
 
 -spec add_sms_code(Phone :: phone(), Code :: binary(), Timestamp :: integer(),
@@ -395,6 +402,28 @@ get_uids(Phones) ->
         end, #{}, lists:zip(Phones, Res)),
     Result.
 
+-spec add_phone_pattern(PhonePattern :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
+add_phone_pattern(PhonePattern, Timestamp) ->
+    _Results = q([
+        ["MULTI"],
+        ["HINCRBY", phone_pattern_key(PhonePattern), ?FIELD_COUNT, 1],
+        ["HSET", phone_pattern_key(PhonePattern), ?FIELD_TIMESTAMP, util:to_binary(Timestamp)],
+        ["EXPIRE", phone_pattern_key(PhonePattern), ?TTL_PHONE_PATTERN],
+        ["EXEC"]
+    ]),
+    ok.
+
+
+-spec get_phone_pattern_info(PhonePattern :: binary()) -> {ok, {maybe(integer()), maybe(integer())}}  | {error, any()}.
+get_phone_pattern_info(PhonePattern) ->
+    {ok, [Count, Timestamp]} = q(["HMGET", phone_pattern_key(PhonePattern), ?FIELD_COUNT, ?FIELD_TIMESTAMP]),
+    {ok, {util_redis:decode_int(Count), util_redis:decode_ts(Timestamp)}}.
+
+
+-spec delete_phone_pattern(PhonePattern :: binary()) -> ok  | {error, any()}.
+delete_phone_pattern(PhonePattern) ->
+    _Results = q(["DEL", phone_pattern_key(PhonePattern)]),
+    ok.
 
 q(Command) -> ecredis:q(ecredis_phone, Command).
 qp(Commands) -> ecredis:qp(ecredis_phone, Commands).
@@ -423,6 +452,11 @@ decode_method(Method) ->
 phone_key(Phone) ->
     Slot = get_slot(Phone),
     phone_key(Phone, Slot).
+
+
+-spec phone_pattern_key(PhonePattern :: binary()) -> binary().
+phone_pattern_key(PhonePattern) ->
+    <<?PHONE_PATTERN_KEY/binary, <<"{">>/binary, PhonePattern/binary, <<"}">>/binary>>.
 
 
 -spec generate_attempt_id() -> binary().
