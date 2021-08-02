@@ -81,8 +81,8 @@
 
 -define(TTL_VERIFICATION_ATTEMPTS, 30 * 86400).  %% 30 days
 
-%% TTL for phone pattern data: 1 day.
--define(TTL_PHONE_PATTERN, 86400).
+%% TTL for phone pattern data: 1 hour.
+-define(TTL_PHONE_PATTERN, 3600).
 
 
 -spec add_sms_code(Phone :: phone(), Code :: binary(), Timestamp :: integer(),

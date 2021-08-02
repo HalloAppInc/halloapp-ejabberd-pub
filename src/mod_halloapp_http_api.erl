@@ -31,7 +31,9 @@
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 -export([
     process/2,
-    check_blocked/2  %% for testing
+    check_blocked/2,  %% for testing
+    delete_client_ip/2,  %% for testing
+    delete_phone_pattern/1  %% for testing
 ]).
 
 %% TODO: cleanup old code in this file and old password related stuff.
@@ -381,17 +383,15 @@ check_name(_) ->
 -spec check_blocked(IP :: string(), Phone :: binary()) -> ok | {error, retried_too_soon, integer()}.
 check_blocked(IP, Phone) ->
     CC = mod_libphonenumber:get_cc(Phone),
-    case is_ip_blocked(IP, CC) of
-        {true, RetrySecs} ->
-            ?INFO("Ip: ~s, blocked for Phone: ~p, Retry after: ~p", [IP, Phone, RetrySecs]),
-            {error, retried_too_soon, RetrySecs};
-        false ->
-            case is_phone_pattern_blocked(extract_phone_pattern(Phone), CC) of
-                {true, RetrySecs} ->
-                    ?INFO("Phone Pattern blocked for Phone: ~p, Retry after: ~p", [Phone, RetrySecs]),
-                    {error, retried_too_soon, RetrySecs};
-                false -> ok
-            end
+    ?DEBUG("CC: ~p", [CC]),
+    Result1 = is_ip_blocked(IP, CC),
+    Result2 = is_phone_pattern_blocked(extract_phone_pattern(Phone), CC),
+    ?INFO("IP blocked result: ~p, Phone pattern blocked result: ~p", [Result1, Result2]),
+    case {Result1, Result2} of
+        {false, false} -> ok;
+        {{true, RetrySecs1}, false} -> {error, retried_too_soon, RetrySecs1};
+        {false, {true, RetrySecs2}} -> {error, retried_too_soon, RetrySecs2};
+        {{true, RetrySecsA}, {true, RetrySecsB}} -> {error, retried_too_soon, lists:max([RetrySecsA, RetrySecsB])}
     end.
 
 extract_phone_pattern(Phone) ->
@@ -514,6 +514,7 @@ is_ip_blocked(IP, CC) ->
         true ->
             CurrentTs = util:now(),
             {ok, {Count, LastTs}} = model_ip_addresses:get_ip_address_info(IP, CC),
+            ?DEBUG("IP: ~s, CC: ~p, Count: ~p, LastTs: ~p, CurrentTs: ~p", [IP, CC, Count, LastTs, CurrentTs]),
             IsIpBlocked = case {Count, LastTs} of
                 {undefined, _} ->
                     false;
@@ -521,6 +522,7 @@ is_ip_blocked(IP, CC) ->
                     false;
                 {_, _} ->
                     NextTs = util_sms:good_next_ts_diff(Count) + LastTs,
+                    ?DEBUG("NexTs: ~p", [NextTs]),
                     case NextTs > CurrentTs of
                         true -> {true, NextTs - CurrentTs};
                         false -> false
@@ -543,6 +545,7 @@ is_phone_pattern_blocked(PhonePattern, CC) ->
         true ->
             CurrentTs = util:now(),
             {ok, {Count, LastTs}} = model_phone:get_phone_pattern_info(PhonePattern),
+            ?DEBUG("PhonePattern: ~p, CC: ~p, Count: ~p, LastTs: ~p, CurrentTs: ~p", [PhonePattern, CC, Count, LastTs, CurrentTs]),
             IsBlocked = case {Count, LastTs} of
                 {undefined, _} ->
                     false;
@@ -550,6 +553,7 @@ is_phone_pattern_blocked(PhonePattern, CC) ->
                     false;
                 {_, _} ->
                     NextTs = util_sms:good_next_ts_diff(Count) + LastTs,
+                    ?DEBUG("NexTs: ~p", [NextTs]),
                     case NextTs > CurrentTs of
                         true -> {true, NextTs - CurrentTs};
                         false -> false
