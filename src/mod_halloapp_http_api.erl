@@ -385,8 +385,9 @@ check_blocked(IP, Phone) ->
     CC = mod_libphonenumber:get_cc(Phone),
     ?DEBUG("CC: ~p", [CC]),
     Result1 = is_ip_blocked(IP, CC),
-    Result2 = is_phone_pattern_blocked(extract_phone_pattern(Phone), CC),
-    ?INFO("IP blocked result: ~p, Phone pattern blocked result: ~p", [Result1, Result2]),
+    PhonePattern = extract_phone_pattern(Phone, CC),
+    Result2 = is_phone_pattern_blocked(PhonePattern, CC),
+    ?INFO("IP: ~s blocked result: ~p, Phone: ~p, CC: ~p pattern: ~p blocked result: ~p", [IP, Result1, Phone, CC, PhonePattern, Result2]),
     case {Result1, Result2} of
         {false, false} -> ok;
         {{true, RetrySecs1}, false} -> {error, retried_too_soon, RetrySecs1};
@@ -394,8 +395,12 @@ check_blocked(IP, Phone) ->
         {{true, RetrySecsA}, {true, RetrySecsB}} -> {error, retried_too_soon, lists:max([RetrySecsA, RetrySecsB])}
     end.
 
-extract_phone_pattern(Phone) ->
-    PhonePatternLength = byte_size(Phone) - 3,
+extract_phone_pattern(Phone, CC) ->
+    TruncateLen = case CC of
+        <<"MD">> -> 5;
+        _ -> 3
+    end,
+    PhonePatternLength = byte_size(Phone) - TruncateLen,
     <<PhonePattern:PhonePatternLength/binary, _Last/binary>> = Phone,
     PhonePattern.
 
@@ -500,7 +505,7 @@ delete_client_ip(IP, Phone) ->
 delete_phone_pattern(Phone) ->
     CC = mod_libphonenumber:get_region_id(Phone),
     case is_country_blockable(CC) of
-        true -> model_phone:delete_phone_pattern(extract_phone_pattern(Phone));
+        true -> model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC));
         false -> ok
     end.
 
