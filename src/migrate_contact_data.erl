@@ -217,13 +217,13 @@ cleanup_reverse_index_run(Key, State) ->
                         {error, missing} ->
                             Command = ["SREM", ReverseKey, ContactUid],
                             case DryRun of
-                                false ->
+                                true ->
                                     ?INFO("Phone: ~p, ContactUid: ~p is missing, command: ~p",
                                         [Phone, ContactUid, Command]);
-                                true ->
-                                    {ok, Result} = q(ecredis_contacts, Command),
+                                false ->
+                                    {ok, Result2} = q(ecredis_contacts, Command),
                                     ?INFO("Phone: ~p, ContactUid: ~p is missing, removed res: ~p",
-                                        [Phone, ContactUid, Result])
+                                        [Phone, ContactUid, Result2])
                             end
                     end
                 end, ContactUids);
