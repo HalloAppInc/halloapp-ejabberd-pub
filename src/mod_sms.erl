@@ -38,7 +38,8 @@
     is_too_soon/1,  %% for testing
     send_otp/5, %% for testing
     send_otp_internal/6,
-    pick_gw/2  %% for testing
+    pick_gw/2,  %% for testing,
+    send_otp_to_inviter/4 %% for testing,
 ]).
 
 %%====================================================================
@@ -137,7 +138,7 @@ send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
             stat:count("HA/registration", "send_otp"),
             stat:count("HA/registration", "send_otp_by_cc", 1,
                 [{cc, mod_libphonenumber:get_cc(Phone)}]),
-            case mod_sms:send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) of
+            case send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) of
                 {ok, SMSResponse} ->
                     ?INFO("Response: ~p", [SMSResponse]),
                     #gateway_response{attempt_id = NewAttemptId, attempt_ts = Timestamp} = SMSResponse,

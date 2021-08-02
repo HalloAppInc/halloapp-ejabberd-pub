@@ -99,16 +99,17 @@ request_sms_test() ->
 
 % tests functionality of getting the sms code for a test number in prod env
 % sms code should be sent to the inviter of the test number
+% registration should still happen using the test number
 request_sms_prod_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(model_phone, add_gateway_response, fun(_, _, _) -> ok end),
     meck_init(config, get_hallo_env, fun() -> prod end),
-    meck_init(mod_sms, send_otp_internal,
-        fun(P,_,_,_,_,_) ->
-            self() ! P,
-            {ok, #gateway_response{attempt_ts = util:now(), status = sent}}
-        end),
+    GtwyResp = {ok, #gateway_response{attempt_ts = util:now(), status = sent}},
+    % only meck network requests
+    meck_init(mbird, send_sms, fun(P,_,_,_) -> self() ! P, GtwyResp end),
+    meck_init(twilio, send_sms, fun(P,_,_,_) -> self() ! P, GtwyResp end),
+    meck_init(twilio_verify, send_sms, fun(P,_,_,_) -> self() ! P, GtwyResp end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, <<"HalloApp/Android0.127">>, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -122,9 +123,15 @@ request_sms_prod_test() ->
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(GoodResponse, Response),
     ?assertEqual(1, collect(?PHONE, 250, 1)),
+    ?assert(meck:called(model_phone, add_sms_code2, [?TEST_PHONE, '_'])),
+    ?assert(meck:called(mbird, send_sms, [?PHONE,'_','_','_']) orelse
+            meck:called(twilio, send_sms, [?PHONE,'_','_','_']) orelse
+            meck:called(twilio_verify, send_sms, [?PHONE,'_','_','_'])),
+    meck_finish(mbird),
+    meck_finish(twilio),
+    meck_finish(twilio_verify),
     meck_finish(model_phone),
     meck_finish(config),
-    meck_finish(mod_sms),
     meck_finish(ejabberd_router).
 
 
@@ -166,12 +173,17 @@ backoff_test() ->
     meck_finish(config),
     meck_finish(ejabberd_router).
 
-
+% when gateways fail (sms_fail), check that users can still make requests
+% without having to wait (avoid retired_too_soon error)
 retried_server_error_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(config, get_hallo_env, fun() -> prod end),
-    meck_init(mod_sms, send_otp_internal, fun(_,_,_,_,_,_) -> {error, gw, sms_fail} end),
+    ErrMsg = {error, sms_fail},
+    % only meck network requests
+    meck_init(mbird, send_sms, fun(_,_,_,_) -> ErrMsg end),
+    meck_init(twilio, send_sms, fun(_,_,_,_) -> ErrMsg end),
+    meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> ErrMsg end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, ?UA, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -186,7 +198,9 @@ retried_server_error_test() ->
     Response2 = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(ServerBadResponse, Response2),
-    meck_finish(mod_sms),
+    meck_finish(mbird),
+    meck_finish(twilio),
+    meck_finish(twilio_verify),
     meck_finish(config),
     meck_finish(ejabberd_router).
 
@@ -416,7 +430,9 @@ check_invited_by_group_invite_test() ->
  
 check_empty_inviter_list_test() ->
     setup(),
+    meck:new(mod_sms, [passthrough]),
     ?assertEqual({error, not_invited}, mod_sms:send_otp_to_inviter(?TEST_PHONE, undefined, undefined, undefined)),
+    meck_finish(mod_sms),
     ok. 
 
 check_has_inviter_test() -> 
