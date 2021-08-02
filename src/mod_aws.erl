@@ -11,16 +11,18 @@
 -behavior(gen_mod).
 
 -include("logger.hrl").
+-include("mod_aws.hrl").
 -include("time.hrl").
 -define(NOISE_SECRET_DEV_FILE, "noise_secret_dev").
 
 %% Export all functions for unit tests
 -ifdef(TEST).
 -export([
-    get_table_name/0,
     retrieve_secret/1,
     get_and_cache_secret/1,
-    get_cached_secret/1
+    get_and_cache_ips/0,
+    get_cached_secret/1,
+    get_cached_ips/0
 ]).
 -endif.
 
@@ -29,11 +31,9 @@
 
 %% API
 -export([
-    get_secret/1
+    get_secret/1,
+    get_ejabberd_ips/0
 ]).
-
--define(SECRETS_TABLE, aws_secrets).
--define(DUMMY_SECRET, <<"dummy_secret">>).
 
 %%====================================================================
 %% gen_mod functions
@@ -43,6 +43,7 @@ start(_Host, _Opts) ->
     try
         ?INFO("Trying to create a table for mod_aws in ets", []),
         ets:new(?SECRETS_TABLE, [named_table, public, {read_concurrency, true}]),
+        ets:new(?IP_TABLE, [named_table, public, {read_concurrency, true}]),
         ok
     catch
         Error:badarg ->
@@ -53,6 +54,7 @@ start(_Host, _Opts) ->
 
 stop(_Host) ->
     ets:delete(?SECRETS_TABLE),
+    ets:delete(?IP_TABLE),
     ok.
 
 depends(_Host, _Opts) ->
@@ -86,6 +88,14 @@ get_secret(SecretName) ->
             end
     end.
 
+
+-spec get_ejabberd_ips() -> [string()].
+get_ejabberd_ips() ->
+    case config:is_prod_env() of
+        true -> get_ips_internal();
+        false -> ?LOCALHOST_IPS
+    end.
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -97,11 +107,33 @@ retrieve_secret(SecretName) ->
     Json.
 
 
+-spec retrieve_ejabberd_ips() -> [string()].
+retrieve_ejabberd_ips() ->
+    {ok, Config} = erlcloud_aws:auto_config(),
+    Filters = [{"instance-state-name", "running"}, {"instance.group-name", "ejabberd-sg"}],
+    {ok, Res} = erlcloud_ec2:describe_instances([], Filters, Config),
+    lists:map(
+        fun(Ele) ->
+            [_, _, {instances_set,[InfoList]}] = Ele,
+            {ip_address, IpAddr} = lists:keyfind(ip_address, 1, InfoList),
+            IpAddr
+        end,
+        Res
+    ).
+
+
 -spec get_and_cache_secret(SecretName :: binary()) -> binary().
 get_and_cache_secret(SecretName) ->
     Secret = retrieve_secret(SecretName),
     true = ets:insert(?SECRETS_TABLE, {SecretName, Secret, util:now_ms()}),
     Secret.
+
+
+-spec get_and_cache_ips() -> [string()].
+get_and_cache_ips() ->
+    Ips = retrieve_ejabberd_ips(),
+    true = ets:insert(?IP_TABLE, {ip_list, Ips, util:now_ms()}),
+    Ips.
 
 
 -spec get_cached_secret(SecretName :: binary()) -> undefined | binary().
@@ -115,6 +147,19 @@ get_cached_secret(SecretName) ->
             end
     end.
 
+
+-spec get_cached_ips() -> [string()] | undefined.
+get_cached_ips() ->
+    case ets:lookup(?IP_TABLE, ip_list) of
+        [] -> undefined;
+        [{ip_list, IpList, Ts}] ->
+            case (util:now_ms() - Ts) > ?DAYS_MS of
+                true -> get_and_cache_ips();
+                false -> IpList
+            end
+    end.
+
+
 -spec get_secret_internal(SecretName :: binary()) -> binary().
 get_secret_internal(SecretName) ->
     case get_cached_secret(SecretName) of
@@ -122,6 +167,11 @@ get_secret_internal(SecretName) ->
         Secret -> Secret
     end.
 
-% for testing only
-get_table_name() ->
-    ?SECRETS_TABLE.
+
+-spec get_ips_internal() -> [string()].
+get_ips_internal() ->
+    case get_cached_ips() of
+        undefined -> get_and_cache_ips();
+        Ips -> Ips
+    end.
+
