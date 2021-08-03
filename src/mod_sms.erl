@@ -39,6 +39,8 @@
     send_otp/5, %% for testing
     send_otp_internal/6,
     pick_gw/2,  %% for testing,
+    generate_code/1,  %% for testing
+    smart_send/6,  %% for testing
     send_otp_to_inviter/4 %% for testing,
 ]).
 
