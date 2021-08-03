@@ -372,8 +372,14 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
         [{gateway, Gateway}, {method, Method}, {cc, CC}]),
     ?DEBUG("Result: ~p", [Result]),
     case Result of
-        {ok, _SMSResponse} ->
-            {ok, CurrentSMSResponse};
+        {ok, SMSResponse} ->
+            SMSResponse2 = SMSResponse#gateway_response{
+                attempt_ts = CurrentSMSResponse#gateway_response.attempt_ts,
+                method = Method,
+                attempt_id = CurrentSMSResponse#gateway_response.attempt_id,
+                gateway = Gateway
+                },
+            {ok, SMSResponse2};
         {error, Reason, retry} ->
             ToChooseFromList = lists:delete(Gateway, GatewayList),
             case ToChooseFromList of

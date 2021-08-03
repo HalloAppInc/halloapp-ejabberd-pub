@@ -179,7 +179,7 @@ retried_server_error_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(config, get_hallo_env, fun() -> prod end),
-    ErrMsg = {error, sms_fail},
+    ErrMsg = {error, sms_fail, no_retry},
     % only meck network requests
     meck_init(mbird, send_sms, fun(_,_,_,_) -> ErrMsg end),
     meck_init(twilio, send_sms, fun(_,_,_,_) -> ErrMsg end),
