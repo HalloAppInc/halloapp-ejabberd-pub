@@ -138,6 +138,7 @@ send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
             stat:count("HA/registration", "send_otp"),
             stat:count("HA/registration", "send_otp_by_cc", 1,
                 [{cc, mod_libphonenumber:get_cc(Phone)}]),
+            stat:count("HA/registration", "send_otp_by_lang", 1, [{lang_id, util:to_list(LangId)}]),
             case send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) of
                 {ok, SMSResponse} ->
                     ?INFO("Response: ~p", [SMSResponse]),
