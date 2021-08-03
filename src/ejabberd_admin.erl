@@ -872,13 +872,7 @@ dump_config(Path) ->
         {invalid_file, Reason}
     end.
 
-convert_to_yaml(In, Out) ->
-    case ejabberd_config:convert_to_yaml(In, Out) of
-    ok -> {ok, ""};
-    Err ->
-        Reason = ejabberd_config:format_error(Err),
-        {invalid_config, Reason}
-    end.
+convert_to_yaml(_In, _Out) -> {invalid_config, not_yml}.
 
 %%%
 %%% Cluster management

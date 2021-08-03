@@ -35,7 +35,7 @@
 -export([version/0]).
 -export([default_db/2, default_db/3, default_ram_db/2, default_ram_db/3]).
 -export([beams/1, validators/1, globals/0, may_hide_data/1]).
--export([dump/0, dump/1, convert_to_yaml/1, convert_to_yaml/2]).
+-export([dump/0, dump/1]).
 
 %% Deprecated functions
 -export([get_option/2, set_option/2]).
@@ -335,20 +335,6 @@ validators(Disallowed) ->
 		 end, Modules),
     {Validators, Required}.
 
--spec convert_to_yaml(file:filename()) -> ok | error_return().
-convert_to_yaml(File) ->
-    convert_to_yaml(File, stdout).
-
--spec convert_to_yaml(file:filename(),
-                      stdout | file:filename()) -> ok | error_return().
-convert_to_yaml(File, Output) ->
-    case read_erlang_file(File, []) of
-	{ok, Y} ->
-	    dump(Y, Output);
-	Err ->
-	    Err
-    end.
-
 -spec format_error(error_return()) -> string().
 format_error({error, Reason, Ctx}) ->
     econf:format_error(Reason, Ctx);
@@ -488,8 +474,7 @@ read_file(File, Opts) ->
 			      false -> []
 			  end,
 		  read_yaml_files([File|Files], lists:flatten(Opts1));
-	      _ ->
-		  read_erlang_file(File, lists:flatten(Opts1))
+	      _ -> error(config_must_be_yml)
 	  end,
     case Ret of
 	{ok, Y} ->
@@ -510,13 +495,6 @@ read_yaml_files(Files, Opts) ->
 	      Err
       end, {ok, []}, Files).
 
-read_erlang_file(File, _) ->
-    case ejabberd_old_config:read_file(File) of
-	{ok, Y} ->
-	    econf:replace_macros(Y);
-	Err ->
-	    Err
-    end.
 
 -spec validate(term()) -> {ok, [{atom(), term()}]} | error_return().
 validate(Y1) ->
