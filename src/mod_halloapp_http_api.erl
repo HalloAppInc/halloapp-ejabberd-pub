@@ -397,7 +397,11 @@ check_blocked(IP, Phone) ->
 
 extract_phone_pattern(Phone, CC) ->
     TruncateLen = case CC of
+        <<"LV">> -> 5;
+        <<"LS">> -> 5;
         <<"MD">> -> 5;
+        <<"MR">> -> 5;
+        <<"TN">> -> 5;
         _ -> 3
     end,
     PhonePatternLength = byte_size(Phone) - TruncateLen,
@@ -576,17 +580,29 @@ is_phone_pattern_blocked(PhonePattern, CC) ->
 -spec is_country_blockable(CC :: binary()) -> boolean().
 is_country_blockable(CC) ->
     case CC of
+        <<"AL">> -> true;
+        <<"BA">> -> true;
+        <<"DZ">> -> true;
+        <<"GB">> -> true;
+        <<"GE">> -> true;
+        <<"GT">> -> true;
         <<"KG">> -> true;  % Kyrgyzstan, 996
+        <<"LV">> -> true;
+        <<"LS">> -> true;
         <<"LY">> -> true;  % Libya, 218
         <<"LK">> -> true;  % Sri Lanka, 94
+        <<"MA">> -> true;
         <<"MR">> -> true;  % Mauritania, 222
         <<"MD">> -> true;  % Maldova, 373
         <<"NG">> -> true;  % Nigeria, 234
         <<"RU">> -> true;  % Russia, 7
         <<"SN">> -> true;  % Senegal, 221
         <<"TW">> -> true;  % Taiwan, 886
+        <<"TN">> -> true;
+        <<"TR">> -> true;
         <<"UA">> -> true;  % Ukraine, 380
         <<"UZ">> -> true;  % Uzbekistan, 998
+        <<"ZW">> -> true;
         _ -> false
     end.
  
