@@ -218,22 +218,10 @@ process_otp_request(Data, IP, Headers, MethodInRequest) ->
                                 {result, ok}
                             ]})};
                     {error, retried_too_soon, RetrySecs} ->
-                        {400, ?HEADER(?CT_JSON),
-                            jiffy:encode({[
-                                {phone, Phone},
-                                {retry_after_secs, RetrySecs},
-                                {error, retried_too_soon},
-                                {result, fail}
-                            ]})}
+                        return_retried_too_soon(Phone, RetrySecs, Method)
                 end;
             {error, retried_too_soon, RetrySecs} ->
-                {400, ?HEADER(?CT_JSON),
-                    jiffy:encode({[
-                        {phone, Phone},
-                        {retry_after_secs, RetrySecs},
-                        {error, retried_too_soon},
-                        {result, fail}
-                    ]})}
+                return_retried_too_soon(Phone, RetrySecs, Method)
         end
     catch
         error : ip_blocked ->
@@ -293,7 +281,19 @@ log_register_error(ErrorType) ->
     ok.
 
 
--spec log_request_otp_error(ErrorType :: atom() | string(), Method :: atom()) -> ok.
+-spec return_retried_too_soon(Phone :: phone(), RetrySecs :: integer(), Method :: binary()) -> http_response().
+return_retried_too_soon(Phone, RetrySecs, Method) ->
+    CC = mod_libphonenumber:get_cc(Phone),
+    stat:count("HA/account", "request_otp_errors", 1, [{error, retried_too_soon}, {cc, CC}, {method, Method}]),
+    {400, ?HEADER(?CT_JSON),
+        jiffy:encode({[
+            {phone, Phone},
+            {retry_after_secs, RetrySecs},
+            {error, retried_too_soon},
+            {result, fail}
+        ]})}.
+
+ -spec log_request_otp_error(ErrorType :: atom() | string(), Method :: atom()) -> ok.
 log_request_otp_error(ErrorType, sms) ->
     stat:count("HA/account", "request_sms_errors", 1,
         [{error, ErrorType}]),
