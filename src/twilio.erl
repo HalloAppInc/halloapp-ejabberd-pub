@@ -42,7 +42,7 @@ init() ->
 
 %% TODO: check about refactoring prepare_msg code in twilio.hrl and mbird.hrl
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
-        UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.
 send_sms(Phone, Code, LangId, UserAgent) ->
     AccountSid = get_account_sid(util:is_test_number(Phone)),
     {SmsMsgBin, TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
@@ -53,7 +53,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
 
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
-        UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail}.
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail, retry | no_retry}.
 send_voice_call(Phone, Code, LangId, _UserAgent) ->
     AccountSid = get_account_sid(util:is_test_number(Phone)),
     {VoiceMsgBin, TranslatedLangId} = case is_voice_lang_available(LangId) of
@@ -70,7 +70,7 @@ send_voice_call(Phone, Code, LangId, _UserAgent) ->
 
 
 -spec sending_helper(Phone :: phone(), Msg :: string(), TwilioLangId :: binary(), BaseUrl :: string(),
-    ComposeBodyFn :: term(), Purpose :: string()) -> {ok, gateway_response()} | {error, atom()}.
+    ComposeBodyFn :: term(), Purpose :: string()) -> {ok, gateway_response()} | {error, atom(), atom()}.
 sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
     ?INFO("Phone: ~p, Msg: ~p, Purpose: ~p", [Phone, Msg, Purpose]),
     Headers = fetch_auth_headers(util:is_test_number(Phone)),
@@ -83,13 +83,14 @@ sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
     ?DEBUG("Request: ~p", [Request]),
     Response = httpc:request(post, Request, HTTPOptions, Options),
     ?DEBUG("Response: ~p", [Response]),
+    ErrMsg = list_to_atom(re:replace(string:lowercase(Purpose), " ", "_", [{return, list}]) ++ "_fail"),
     case Response of
         {ok, {{_, 201, _}, _ResHeaders, ResBody}} ->
             Json = jiffy:decode(ResBody, [return_maps]),
             Id = maps:get(<<"sid">>, Json),
             Status = normalized_status(maps:get(<<"status">>, Json)),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
-        {ok, {{_, 400, _}, _ResHeaders, ResBody}} ->
+        {ok, {{_, ResponseCode, _}, _ResHeaders, ResBody}} when ResponseCode == 400 ->
             Json = jiffy:decode(ResBody, [return_maps]),
             case maps:get(<<"code">>, Json, undefined) =:= ?INVALID_TO_PHONE_CODE andalso
                     util:is_test_number(Phone) of
@@ -99,12 +100,16 @@ sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
                     Status = queued,
                     {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
                 false ->
-                    ?ERROR("Sending ~p failed ~p", [Purpose, Response]),
-                    {error, list_to_atom(re:replace(string:lowercase(Purpose), " ", "_", [{return, list}]) ++ "_fail")}
+                    ?ERROR("Sending ~p failed (retry) ~p", [Purpose, Response]),
+                    {error, ErrMsg, retry}
             end;
+        {ok, {{_, ResponseCode, _}, _ResHeaders, _ResBody}} when ResponseCode > 400 ->
+            % Todo: limit which response codes cause a new gateway attempt
+            ?ERROR("Sending ~p failed (retry) ~p", [Purpose, Response]),
+            {error, ErrMsg, retry};
         _ ->
-            ?ERROR("Sending ~p failed ~p", [Purpose, Response]),
-            {error, list_to_atom(re:replace(string:lowercase(Purpose), " ", "_", [{return, list}]) ++ "_fail")}
+            ?ERROR("Sending ~p failed (no_retry) ~p", [Response]),
+            {error, ErrMsg, no_retry}
     end.
 
 -spec normalized_status(Status :: binary()) -> atom().

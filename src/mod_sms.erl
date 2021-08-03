@@ -210,9 +210,8 @@ generate_code(Phone) ->
 %% TODO(vipin)
 %% On callback from the provider track (success, cost). Investigative logging to track missing
 %% callback.
--spec smart_send(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom(), OldResponses
-        :: [gateway_response()]) -> {ok, gateway_response()} | {error, atom(), sms_fail} | {error, atom(), call_fail} | {error, atom(), voice_call_fail}.
-smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
+-spec generate_gateway_list(Method :: atom(), OldResponses :: [gateway_response()]) -> [atom()].
+generate_gateway_list(Method, OldResponses) ->
     {WorkingList, NotWorkingList} = lists:foldl(
         fun(#gateway_response{gateway = Gateway, method = Method2, status = Status}, {Working, NotWorking})
                 when Method2 =:= Method ->
@@ -255,25 +254,15 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
         {0, _} -> WorkingList2;  %% We have tried all the GWs. Will try again using what has worked.
         {_, _} -> TryList        %% We will try using GWs we have not tried.
     end,
-    ?DEBUG("Choose from: ~p", [ToChooseFromList]),
+    ToChooseFromList2 = lists:usort(ToChooseFromList ++ ConsiderList), %% should be a subset of ConsiderList
+    ?DEBUG("Choose from: ~p", [ToChooseFromList2]),
+    ToChooseFromList2.
 
-    CC = mod_libphonenumber:get_cc(OtpPhone),
 
-    %% Pick one based on past performance.
-    ToPick = pick_gw(ToChooseFromList, CC),
-    ?DEBUG("Picked: ~p, from: ~p", [ToPick, length(ToChooseFromList)]),
-    PickedGateway = lists:nth(ToPick, ToChooseFromList),
-
-    %% Just in case there is any bug in computation of new gateway.
-    NewGateway = case sets:is_element(PickedGateway, ConsiderSet) of
-        true -> PickedGateway;
-        false ->
-            ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderList]),
-            twilio
-    end,
-
+-spec gateway_cc_filter(CC :: binary()) -> atom().
+gateway_cc_filter(CC) ->
     %% TODO(vipin): Fix as and when we get approval. Replace the following using redis.
-    NewGateway2 = case CC of
+    case CC of
         <<"AE">> -> twilio;     %% UAE
         <<"AL">> -> twilio;     %% Albania
         <<"AM">> -> twilio_verify;     %% Armenia
@@ -323,7 +312,39 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
         <<"UZ">> -> twilio;     %% Uzbekistan
         <<"VN">> -> twilio_verify;     %% Vietnam
         <<"ZM">> -> twilio;     %% Zambia
-        _ -> NewGateway
+        _ -> unrestricted % will choose in smart_send
+    end.
+
+
+-spec smart_send(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(),
+        Method :: atom(), OldResponses :: [gateway_response()]) -> {ok, gateway_response()} |
+        {error, atom(), sms_fail} | {error, atom(), call_fail} | {error, atom(), voice_call_fail}.
+smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
+    CC = mod_libphonenumber:get_cc(OtpPhone),
+    % check if country has restricted gateway first
+    NewGateway = gateway_cc_filter(CC),
+    {NewGateway2, ToChooseFromList} = case NewGateway of
+        unrestricted ->
+            ChooseFromList = generate_gateway_list(Method, OldResponses),
+            ConsiderList = sms_gateway_list:get_sms_gateway_list(),
+            ConsiderSet = sets:from_list(ConsiderList),
+
+            %% Pick one based on past performance.
+            ToPick = pick_gw(ChooseFromList, CC),
+            ?DEBUG("Picked: ~p, from: ~p", [ToPick, length(ChooseFromList)]),
+            PickedGateway = lists:nth(ToPick, ChooseFromList),
+
+            %% Just in case there is any bug in computation of new gateway.
+            PickedGateway2 = case sets:is_element(PickedGateway, ConsiderSet) of
+                true -> PickedGateway;
+                false ->
+                    ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderList]),
+                    twilio
+            end,
+            {PickedGateway2, ChooseFromList};
+        _ -> % matched with a country with specific gateway
+            ChooseFromList = [NewGateway],
+            {NewGateway, ChooseFromList}
     end,
     Code = case NewGateway2 of
         mbird_verify -> <<"999999">>;
@@ -332,20 +353,42 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
     ?INFO("Enrolling: ~s, Using Phone: ~s CC: ~s Chosen Gateway: ~p to send ~p Code: ~p",
         [Phone, OtpPhone, CC, NewGateway2, Method, Code]),
     {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
+    CurrentSMSResponse = #gateway_response{attempt_id = NewAttemptId,
+        attempt_ts = Timestamp, method = Method, gateway = NewGateway2},
+    smart_send_internal(OtpPhone, Code, LangId, UserAgent, CC, CurrentSMSResponse, ToChooseFromList).
+
+
+-spec smart_send_internal(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent ::
+        binary(), CC :: binary(), CurrentSMSResponse :: gateway_response(), GatewayList ::
+        [atom()]) -> {ok, gateway_response()} | {error, atom(), atom()}.
+smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, GatewayList) ->
+    #gateway_response{gateway = Gateway, method = Method} = CurrentSMSResponse,
+    ?INFO("Using Phone: ~s, Choosing gateway: ~p out of ~p", [Phone, Gateway, GatewayList]),
     Result = case Method of
-        voice_call -> NewGateway2:send_voice_call(OtpPhone, Code, LangId, UserAgent);
-        sms -> NewGateway2:send_sms(OtpPhone, Code, LangId, UserAgent)
+        voice_call -> Gateway:send_voice_call(Phone, Code, LangId, UserAgent);
+        sms -> Gateway:send_sms(Phone, Code, LangId, UserAgent)
     end,
     stat:count("HA/registration", "send_otp_by_gateway", 1,
-        [{gateway, NewGateway2}, {method, Method}, {cc, CC}]),
+        [{gateway, Gateway}, {method, Method}, {cc, CC}]),
     ?DEBUG("Result: ~p", [Result]),
     case Result of
-        {ok, SMSResponse} -> 
-            SMSResponse2 = SMSResponse#gateway_response{attempt_id = NewAttemptId,
-                attempt_ts = Timestamp, gateway = NewGateway2, method = Method},
-            {ok, SMSResponse2};
-        {error, Reason} -> {error, NewGateway2, Reason}
+        {ok, _SMSResponse} ->
+            {ok, CurrentSMSResponse};
+        {error, Reason, retry} ->
+            ToChooseFromList = lists:delete(Gateway, GatewayList),
+            case ToChooseFromList of
+                [] ->
+                    {error, Gateway, Reason};
+                _ -> % pick from curated list
+                    ToPick = pick_gw(ToChooseFromList, CC),
+                    PickedGateway = lists:nth(ToPick, ToChooseFromList),
+                    NewSMSResponse = CurrentSMSResponse#gateway_response{gateway = PickedGateway},
+                    smart_send_internal(Phone, Code, LangId, UserAgent, CC, NewSMSResponse, ToChooseFromList)
+            end;
+        {error, Reason, no_retry} ->
+            {error, Gateway, Reason}
     end.
+
 
 -spec pick_gw(ChooseFrom :: [atom()], CC :: binary()) -> non_neg_integer().
 pick_gw(ChooseFrom, CC) ->

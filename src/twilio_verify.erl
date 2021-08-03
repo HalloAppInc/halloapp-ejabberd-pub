@@ -26,19 +26,19 @@
 
 
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
-        UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.
 send_sms(Phone, Code, LangId, _UserAgent) ->
     sending_helper(Phone, Code, LangId, "sms").
 
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
-        UserAgent :: binary()) -> {ok, gateway_response()} | {error, call_fail}.
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, call_fail, retry | no_retry}.
 send_voice_call(Phone, Code, LangId, _UserAgent) -> 
     sending_helper(Phone, Code, LangId, "call").
 
 
 -spec sending_helper(Phone :: phone(), Code :: binary(), LangId :: binary(), Method :: string())
-     -> {ok, gateway_response()} | {error, sms_fail} | {error, call_fail}.
+     -> {ok, gateway_response()} | {error, sms_fail, atom()} | {error, call_fail, atom()}.
 sending_helper(Phone, Code, LangId, Method) ->
     URL = ?VERIFICATION_URL,
     [Headers, Type, HTTPOptions, Options] = fetch_headers(),
@@ -52,9 +52,14 @@ sending_helper(Phone, Code, LangId, Method) ->
             Id = maps:get(<<"sid">>, Json),  
             Status = normalized_status(maps:get(<<"status">>, Json)),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
+        {ok, {{_, ResponseCode, _}, _ResHeaders, _ResBody}} when ResponseCode >= 400 ->
+            ?ERROR("Sending ~p failed (retry) ~p", [Method, Response]),
+            ErrMsg = list_to_atom(re:replace(string:lowercase(Method), " ", "_", [{return, list}]) ++ "_fail"),
+            {error, ErrMsg, retry};
         _ ->
-            ?ERROR("Sending ~p to ~p failed: ~p", [Method, Phone, Response]),
-            {error, list_to_atom(re:replace(string:lowercase(Method), " ", "_", [{return, list}]) ++ "_fail")}
+            ?ERROR("Sending ~p to ~p failed (no_retry): ~p", [Method, Phone, Response]),
+            ErrMsg = list_to_atom(re:replace(string:lowercase(Method), " ", "_", [{return, list}]) ++ "_fail"),
+            {error, ErrMsg, no_retry}
     end.
 
 

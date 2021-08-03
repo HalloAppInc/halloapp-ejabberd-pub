@@ -64,3 +64,67 @@ is_too_soon_test() ->
 % %%    ?debugVal(Body),
 %     ok.
 
+
+choose_other_gateway_test() ->
+    setup(),
+    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    meck_init(twilio, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+    meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+    meck_init(mbird, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+    {error, _, sms_fail} = mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, []),
+    % check if all gateways were attempted
+    ?assert(meck:called(twilio, send_sms, ['_','_','_','_'])),
+    ?assert(meck:called(twilio_verify, send_sms, ['_','_','_','_'])),
+    ?assert(meck:called(mbird, send_sms, ['_','_','_','_'])),
+    meck_finish(mbird),
+    meck_finish(twilio),
+    meck_finish(twilio_verify),
+    % check eventual success if starting at a failed gateway, but other works
+    TwilGtwy = #gateway_response{gateway = twilio, method = sms},
+    MbirdGtwy = #gateway_response{gateway = mbird, method = sms},
+    TVerifyGtwy = #gateway_response{gateway = twilio_verify, method = sms},
+    meck_init(mbird, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+    meck_init(twilio, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+    meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> {ok, TVerifyGtwy} end),
+    {ok, #gateway_response{gateway = twilio_verify}} =
+        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, [TwilGtwy, TVerifyGtwy, MbirdGtwy]),
+    ?assert(meck:called(twilio, send_sms, ['_','_','_','_']) orelse
+            meck:called(mbird, send_sms, ['_','_','_','_']) orelse
+            meck:called(twilio_verify, send_sms, ['_','_','_','_'])),
+    % Test restricted country gateways
+    meck_init(mod_libphonenumber, get_cc, fun(_) -> <<"CN">> end),
+    {ok, #gateway_response{gateway = twilio_verify}} =
+        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, []),
+    meck_finish(mod_libphonenumber),
+    meck_finish(twilio),
+    meck_finish(twilio_verify),
+    meck_finish(mbird),
+    meck_finish(ejabberd_router).
+
+
+%%%----------------------------------------------------------------------
+%%% Internal functions
+%%%----------------------------------------------------------------------
+setup() ->
+    tutil:setup(),
+    {ok, _} = application:ensure_all_started(stringprep),
+    ha_redis:start(),
+    clear(),
+    ok.
+
+
+clear() ->
+    tutil:cleardb(redis_accounts),
+    tutil:cleardb(redis_whisper),
+    ok.
+
+
+meck_init(Mod, FunName, Fun) ->
+    meck:new(Mod, [passthrough]),
+    meck:expect(Mod, FunName, Fun).
+
+
+meck_finish(Mod) ->
+    ?assert(meck:validate(Mod)),
+    meck:unload(Mod).
+
