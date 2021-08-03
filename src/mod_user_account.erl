@@ -56,31 +56,41 @@ mod_options(_Host) ->
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_delete_account{phone = RawPhone}} = IQ) when RawPhone =/= undefined ->
     Server = util:get_host(),
-    ?INFO("Uid: ~s, delete_account iq, raw_phone: ~p", [Uid, RawPhone]),
-    NormPhone = mod_libphonenumber:normalize(RawPhone, <<"US">>),
-    NormPhoneBin = util:to_binary(NormPhone),
+    ?INFO("delete_account Uid: ~s, raw_phone: ~p", [Uid, RawPhone]),
     case model_accounts:get_phone(Uid) of
-        {ok, NormPhoneBin} when NormPhoneBin =/= undefined ->
-            Platform = case model_accounts:get_client_version(Uid) of
-                {ok, Version} ->
-                    util_ua:get_client_type(Version);
-                {error, missing} -> undefined
-            end,
-            ok = ejabberd_auth:remove_user(Uid, Server),
-            CC = mod_libphonenumber:get_cc(NormPhoneBin),
-            stat:count("HA/account", "delete", 1, [{cc, CC}, {platform, Platform}]),
-            ResponseIq = pb:make_iq_result(IQ, #pb_delete_account{}),
-            ejabberd_router:route(ResponseIq),
-            ok = ejabberd_sm:disconnect_removed_user(Uid, Server),
-            ignore;
+        {ok, UidPhone} when UidPhone =/= undefined ->
+            %% We now normalize against the user's own region.
+            %% So user need not enter their own country code in order to delete their account.
+            CountryCode = mod_libphonenumber:get_cc(UidPhone),
+            NormPhone = mod_libphonenumber:normalize(RawPhone, CountryCode),
+            NormPhoneBin = util:to_binary(NormPhone),
+            case UidPhone =:= NormPhoneBin of
+                false ->
+                    ?INFO("delete_account failed Uid: ~s", [Uid]),
+                    pb:make_error(IQ, util:err(invalid_phone));
+                true ->
+                    Platform = case model_accounts:get_client_version(Uid) of
+                        {ok, Version} ->
+                            util_ua:get_client_type(Version);
+                        {error, missing} -> undefined
+                    end,
+                    ok = ejabberd_auth:remove_user(Uid, Server),
+                    CC = mod_libphonenumber:get_cc(NormPhoneBin),
+                    stat:count("HA/account", "delete", 1, [{cc, CC}, {platform, Platform}]),
+                    ResponseIq = pb:make_iq_result(IQ, #pb_delete_account{}),
+                    ejabberd_router:route(ResponseIq),
+                    ok = ejabberd_sm:disconnect_removed_user(Uid, Server),
+                    ?INFO("delete_account success Uid: ~s", [Uid]),
+                    ignore
+            end;
         _ ->
-            ?INFO("Uid: ~s, Failed delete_account", [Uid]),
+            ?INFO("delete_account failed Uid: ~s", [Uid]),
             pb:make_error(IQ, util:err(invalid_phone))
     end;
 
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_delete_account{phone = undefined}} = IQ) ->
-    ?INFO("Uid: ~s, delete_account iq, raw_phone is undefined", [Uid]),
+    ?INFO("delete_account, Uid: ~s, raw_phone is undefined", [Uid]),
     pb:make_error(IQ, util:err(invalid_phone));
 
 process_local_iq(#pb_iq{} = IQ) ->
