@@ -131,14 +131,11 @@ probe_and_send_presence(Uid, Server, Ouid) ->
 store_and_broadcast_presence(_, _, _, undefined) ->
     {ok, ignore_undefined_presence};
 store_and_broadcast_presence(User, Server, Resource, away) ->
+    %% we update last seen even if the previous last seen was away - since we record the timestamp.
+    check_for_first_login(User, Server),
     TimestampMs = util:now_ms(),
-    case get_user_activity(User, Server) of
-        #activity{status = away} ->
-            {ok, ignore_away_presence};
-        _ ->
-            store_user_activity(User, Server, Resource, TimestampMs, away),
-            broadcast_presence(User, Server, TimestampMs, away)
-    end;
+    store_user_activity(User, Server, Resource, TimestampMs, away),
+    broadcast_presence(User, Server, TimestampMs, away);
 store_and_broadcast_presence(User, Server, Resource, available) ->
     check_for_first_login(User, Server),
     TimestampMs = util:now_ms(),
