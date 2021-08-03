@@ -382,17 +382,21 @@ check_name(_) ->
 
 -spec check_blocked(IP :: string(), Phone :: binary()) -> ok | {error, retried_too_soon, integer()}.
 check_blocked(IP, Phone) ->
-    CC = mod_libphonenumber:get_cc(Phone),
-    ?DEBUG("CC: ~p", [CC]),
-    Result1 = is_ip_blocked(IP, CC),
-    PhonePattern = extract_phone_pattern(Phone, CC),
-    Result2 = is_phone_pattern_blocked(PhonePattern, CC),
-    ?INFO("IP: ~s blocked result: ~p, Phone: ~p, CC: ~p pattern: ~p blocked result: ~p", [IP, Result1, Phone, CC, PhonePattern, Result2]),
-    case {Result1, Result2} of
-        {false, false} -> ok;
-        {{true, RetrySecs1}, false} -> {error, retried_too_soon, RetrySecs1};
-        {false, {true, RetrySecs2}} -> {error, retried_too_soon, RetrySecs2};
-        {{true, RetrySecsA}, {true, RetrySecsB}} -> {error, retried_too_soon, lists:max([RetrySecsA, RetrySecsB])}
+    case util:is_test_number(Phone) of
+        false ->
+            CC = mod_libphonenumber:get_cc(Phone),
+            ?DEBUG("CC: ~p", [CC]),
+            Result1 = is_ip_blocked(IP, CC),
+            PhonePattern = extract_phone_pattern(Phone, CC),
+            Result2 = is_phone_pattern_blocked(PhonePattern, CC),
+            ?INFO("IP: ~s blocked result: ~p, Phone: ~p, CC: ~p pattern: ~p blocked result: ~p", [IP, Result1, Phone, CC, PhonePattern, Result2]),
+            case {Result1, Result2} of
+                {false, false} -> ok;
+                {{true, RetrySecs1}, false} -> {error, retried_too_soon, RetrySecs1};
+                {false, {true, RetrySecs2}} -> {error, retried_too_soon, RetrySecs2};
+                {{true, RetrySecsA}, {true, RetrySecsB}} -> {error, retried_too_soon, lists:max([RetrySecsA, RetrySecsB])}
+            end;
+        true -> ok
     end.
 
 extract_phone_pattern(Phone, CC) ->
@@ -517,33 +521,28 @@ delete_phone_pattern(Phone) ->
 
 -spec is_ip_blocked(IP :: list(), CC :: binary()) -> false | {true, integer()}.
 is_ip_blocked(IP, CC) ->
-    case is_country_blockable(CC) of
-        false ->
+    CurrentTs = util:now(),
+    {ok, {Count, LastTs}} = model_ip_addresses:get_ip_address_info(IP, CC),
+    ?DEBUG("IP: ~s, CC: ~p, Count: ~p, LastTs: ~p, CurrentTs: ~p", [IP, CC, Count, LastTs, CurrentTs]),
+    IsIpBlocked = case {Count, LastTs} of
+        {undefined, _} ->
             false;
-        true ->
-            CurrentTs = util:now(),
-            {ok, {Count, LastTs}} = model_ip_addresses:get_ip_address_info(IP, CC),
-            ?DEBUG("IP: ~s, CC: ~p, Count: ~p, LastTs: ~p, CurrentTs: ~p", [IP, CC, Count, LastTs, CurrentTs]),
-            IsIpBlocked = case {Count, LastTs} of
-                {undefined, _} ->
-                    false;
-                {_, undefined} ->
-                    false;
-                {_, _} ->
-                    NextTs = util_sms:good_next_ts_diff(Count) + LastTs,
-                    ?DEBUG("NexTs: ~p", [NextTs]),
-                    case NextTs > CurrentTs of
-                        true -> {true, NextTs - CurrentTs};
-                        false -> false
-                    end
-            end,
-            case IsIpBlocked of
-                false ->
-                      ok = model_ip_addresses:add_ip_address(IP, CC, CurrentTs),
-                      false;
-                {true, _} = Error ->
-                      Error
+        {_, undefined} ->
+            false;
+        {_, _} ->
+            NextTs = util_sms:good_next_ts_diff(Count) + LastTs,
+            ?DEBUG("NexTs: ~p", [NextTs]),
+            case NextTs > CurrentTs of
+                true -> {true, NextTs - CurrentTs};
+                false -> false
             end
+    end,
+    case IsIpBlocked of
+        false ->
+              ok = model_ip_addresses:add_ip_address(IP, CC, CurrentTs),
+              false;
+        {true, _} = Error ->
+              Error
     end.
 
 -spec is_phone_pattern_blocked(PhonePattern :: binary(), CC :: binary()) -> false | {true, integer()}.
@@ -581,28 +580,68 @@ is_phone_pattern_blocked(PhonePattern, CC) ->
 is_country_blockable(CC) ->
     case CC of
         <<"AL">> -> true;
+        <<"AM">> -> true;
+        <<"AO">> -> true;
+        <<"AG">> -> true;
         <<"BA">> -> true;
+        <<"BI">> -> true;
+        <<"BJ">> -> true;
+        <<"BO">> -> true;
+        <<"BY">> -> true;
+        <<"CA">> -> true;
+        <<"CD">> -> true;
+        <<"CH">> -> true;
+        <<"CU">> -> true;
+        <<"CV">> -> true;
+        <<"CF">> -> true;
+        <<"DO">> -> true;
         <<"DZ">> -> true;
+        <<"EH">> -> true;
+        <<"ER">> -> true;
+        <<"EC">> -> true;
         <<"GB">> -> true;
         <<"GE">> -> true;
+        <<"GM">> -> true;
         <<"GT">> -> true;
+        <<"HN">> -> true;
+        <<"HR">> -> true;
+        <<"IM">> -> true;
         <<"KG">> -> true;  % Kyrgyzstan, 996
+        <<"KM">> -> true;
+        <<"LB">> -> true;
         <<"LV">> -> true;
         <<"LS">> -> true;
         <<"LY">> -> true;  % Libya, 218
         <<"LK">> -> true;  % Sri Lanka, 94
         <<"MA">> -> true;
+        <<"MC">> -> true;
+        <<"MG">> -> true;
+        <<"MK">> -> true;
+        <<"MM">> -> true;
+        <<"MZ">> -> true;
         <<"MR">> -> true;  % Mauritania, 222
         <<"MD">> -> true;  % Maldova, 373
+        <<"NI">> -> true;
         <<"NG">> -> true;  % Nigeria, 234
+        <<"PH">> -> true;
+        <<"QA">> -> true;
+        <<"RW">> -> true;
         <<"RU">> -> true;  % Russia, 7
+        <<"SA">> -> true;
+        <<"SI">> -> true;
+        <<"SS">> -> true;
+        <<"SO">> -> true;
         <<"SN">> -> true;  % Senegal, 221
         <<"TW">> -> true;  % Taiwan, 886
         <<"TN">> -> true;
         <<"TR">> -> true;
+        <<"TJ">> -> true;
         <<"UA">> -> true;  % Ukraine, 380
+        <<"UY">> -> true;
         <<"UZ">> -> true;  % Uzbekistan, 998
+        <<"YE">> -> true;
         <<"ZW">> -> true;
+        <<"ZM">> -> true;
         _ -> false
     end.
  
