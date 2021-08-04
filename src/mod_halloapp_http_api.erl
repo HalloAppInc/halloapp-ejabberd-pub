@@ -382,7 +382,8 @@ check_name(_) ->
 
 -spec check_blocked(IP :: string(), Phone :: binary()) -> ok | {error, retried_too_soon, integer()}.
 check_blocked(IP, Phone) ->
-    case util:is_test_number(Phone) orelse model_invites:is_invited(Phone) of
+    IsInvited = model_invites:is_invited(Phone),
+    case util:is_test_number(Phone) orelse IsInvited of
         false ->
             CC = mod_libphonenumber:get_cc(Phone),
             ?DEBUG("CC: ~p", [CC]),
@@ -396,7 +397,9 @@ check_blocked(IP, Phone) ->
                 {false, {true, RetrySecs2}} -> {error, retried_too_soon, RetrySecs2};
                 {{true, RetrySecsA}, {true, RetrySecsB}} -> {error, retried_too_soon, lists:max([RetrySecsA, RetrySecsB])}
             end;
-        true -> ok
+        true ->
+            ?INFO("IP: ~s blocked result: ~p, Phone: ~p, is_invited: ~p", [IP, false, Phone, IsInvited]),
+            ok
     end.
 
 extract_phone_pattern(Phone, CC) ->
