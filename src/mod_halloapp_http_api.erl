@@ -621,6 +621,7 @@ is_country_blockable(CC) ->
         <<"FM">> -> true;
         <<"FK">> -> true;
         <<"GA">> -> true;
+        <<"GH">> -> true;
         <<"GB">> -> true;
         <<"GD">> -> true;
         <<"GL">> -> true;
