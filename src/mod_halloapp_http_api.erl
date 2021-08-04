@@ -580,66 +580,138 @@ is_phone_pattern_blocked(PhonePattern, CC) ->
 is_country_blockable(CC) ->
     case CC of
         <<"AL">> -> true;
+        <<"AI">> -> true;
         <<"AM">> -> true;
+        <<"AN">> -> true;
+        <<"AS">> -> true;
         <<"AO">> -> true;
         <<"AG">> -> true;
+        <<"AF">> -> true;
+        <<"AZ">> -> true;
         <<"BA">> -> true;
+        <<"BE">> -> true;
+        <<"BF">> -> true;
+        <<"BG">> -> true;
         <<"BI">> -> true;
         <<"BJ">> -> true;
         <<"BO">> -> true;
         <<"BY">> -> true;
         <<"CA">> -> true;
         <<"CD">> -> true;
+        <<"CI">> -> true;
+        <<"CG">> -> true;
         <<"CH">> -> true;
         <<"CU">> -> true;
         <<"CV">> -> true;
         <<"CF">> -> true;
+        <<"CK">> -> true;
+        <<"CL">> -> true;
+        <<"CM">> -> true;
         <<"DO">> -> true;
+        <<"DM">> -> true;
         <<"DZ">> -> true;
         <<"EH">> -> true;
+        <<"ES">> -> true;
         <<"ER">> -> true;
         <<"EC">> -> true;
+        <<"EE">> -> true;
+        <<"FR">> -> true;
+        <<"FI">> -> true;
+        <<"FJ">> -> true;
+        <<"FM">> -> true;
+        <<"FK">> -> true;
+        <<"GA">> -> true;
         <<"GB">> -> true;
+        <<"GD">> -> true;
+        <<"GL">> -> true;
         <<"GE">> -> true;
         <<"GM">> -> true;
+        <<"GN">> -> true;
         <<"GT">> -> true;
+        <<"GW">> -> true;
+        <<"GQ">> -> true;
         <<"HN">> -> true;
         <<"HR">> -> true;
+        <<"HT">> -> true;
         <<"IM">> -> true;
+        <<"JM">> -> true;
         <<"KG">> -> true;  % Kyrgyzstan, 996
         <<"KM">> -> true;
+        <<"KI">> -> true;
+        <<"KP">> -> true;
+        <<"KM">> -> true;
+        <<"KY">> -> true;
         <<"LB">> -> true;
+        <<"LC">> -> true;
         <<"LV">> -> true;
+        <<"LR">> -> true;
         <<"LS">> -> true;
+        <<"LT">> -> true;
         <<"LY">> -> true;  % Libya, 218
         <<"LK">> -> true;  % Sri Lanka, 94
         <<"MA">> -> true;
+        <<"ME">> -> true;
         <<"MC">> -> true;
         <<"MG">> -> true;
         <<"MK">> -> true;
+        <<"ML">> -> true;
         <<"MM">> -> true;
+        <<"MV">> -> true;
+        <<"MW">> -> true;
+        <<"MS">> -> true;
+        <<"MT">> -> true;
         <<"MZ">> -> true;
         <<"MR">> -> true;  % Mauritania, 222
         <<"MD">> -> true;  % Maldova, 373
+        <<"NE">> -> true;
+        <<"NC">> -> true;
+        <<"NF">> -> true;
         <<"NI">> -> true;
+        <<"NL">> -> true;
         <<"NG">> -> true;  % Nigeria, 234
+        <<"OM">> -> true;
         <<"PH">> -> true;
+        <<"PE">> -> true;
+        <<"PM">> -> true;
+        <<"PG">> -> true;
+        <<"PT">> -> true;
+        <<"PW">> -> true;
         <<"QA">> -> true;
         <<"RW">> -> true;
+        <<"RS">> -> true;
         <<"RU">> -> true;  % Russia, 7
         <<"SA">> -> true;
+        <<"SB">> -> true;
+        <<"SR">> -> true;
+        <<"SM">> -> true;
+        <<"SC">> -> true;
         <<"SI">> -> true;
         <<"SS">> -> true;
         <<"SO">> -> true;
+        <<"SL">> -> true;
+        <<"SY">> -> true;
         <<"SN">> -> true;  % Senegal, 221
         <<"TW">> -> true;  % Taiwan, 886
+        <<"TC">> -> true;
+        <<"TL">> -> true;
+        <<"TG">> -> true;
+        <<"TD">> -> true;
         <<"TN">> -> true;
+        <<"TO">> -> true;
         <<"TR">> -> true;
         <<"TJ">> -> true;
+        <<"TZ">> -> true;
+        <<"VC">> -> true;
+        <<"VU">> -> true;
         <<"UA">> -> true;  % Ukraine, 380
         <<"UY">> -> true;
+        <<"UG">> -> true;
         <<"UZ">> -> true;  % Uzbekistan, 998
+        <<"VG">> -> true;
+        <<"WS">> -> true;
+        <<"XK">> -> true;
         <<"YE">> -> true;
+        <<"ZA">> -> true;
         <<"ZW">> -> true;
         <<"ZM">> -> true;
         _ -> false
