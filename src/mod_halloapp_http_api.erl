@@ -382,7 +382,7 @@ check_name(_) ->
 
 -spec check_blocked(IP :: string(), Phone :: binary()) -> ok | {error, retried_too_soon, integer()}.
 check_blocked(IP, Phone) ->
-    case util:is_test_number(Phone) of
+    case util:is_test_number(Phone) orelse model_invites:is_invited(Phone) of
         false ->
             CC = mod_libphonenumber:get_cc(Phone),
             ?DEBUG("CC: ~p", [CC]),
