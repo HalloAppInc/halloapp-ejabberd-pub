@@ -37,19 +37,12 @@
     get_state_history/1,
     try_remonitor/1,
     get_registered_name/0,
-    get_registered_name/1,
-    %% TODO(josh): remove this api after all machines have globally registered ejabberd monitors
-    enable_global_monitoring/0
+    get_registered_name/1
 ]).
 
 %%====================================================================
 %% API
 %%====================================================================
-
-enable_global_monitoring() ->
-    gen_server:call(?MONITOR_GEN_SERVER, enable_global_monitoring),
-    monitor_other_monitors(),
-    ok.
 
 start_link() ->
     ?INFO("Starting monitoring process: ~p", [?MODULE]),
@@ -137,8 +130,7 @@ init([]) ->
     {ok, TRef} = timer:apply_interval(?PING_INTERVAL_MS, ?MODULE, ping_procs, []),
     ets:new(?MONITOR_TABLE, [named_table, public]),
     ejabberd_hooks:add(new_node, ?MODULE, new_node, 0),
-    {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [], tref = TRef,
-        global_monitoring = false}}.
+    {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [], tref = TRef}}.
 
 
 terminate(_Reason, #state{tref = TRef} = _State) ->
@@ -148,13 +140,6 @@ terminate(_Reason, #state{tref = TRef} = _State) ->
     ejabberd_hooks:delete(new_node, ?MODULE, monitor, 0),
     ok.
 
-%% TODO(josh): remove this api after all machines have globally registered ejabberd monitors
-handle_call(get_global_monitoring_status, _From, #state{global_monitoring = GM} = State) ->
-    {reply, GM, State};
-
-%% TODO(josh): remove this api after all machines have globally registered ejabberd monitors
-handle_call(enable_global_monitoring, _From, State) ->
-    {reply, ok, State#state{global_monitoring = true}};
 
 handle_call(get_monitored_procs, _From, #state{monitors = Monitors} = State) ->
     {reply, maps:values(Monitors), State};
@@ -170,29 +155,23 @@ handle_cast(ping_procs, State) ->
     NewState3 = send_pings(NewState2),
     {noreply, NewState3};
 
-handle_cast({monitor, {global, Name} = Proc}, #state{monitors = Monitors, gen_servers = GenServers,
-        global_monitoring = GM} = State) ->
-    %% TODO(josh): remove this case after all machines have globally registered ejabberd monitors
-    case GM of
-        false -> NewState2 = State;
-        true ->
-            Pid = global:whereis_name(Name),
-            NewState2 = case lists:member(Proc, maps:values(Monitors)) of
-                true -> State;
-                false ->
-                    NewState = case Pid of
-                        undefined ->
-                           try_remonitor(Proc),
-                           State;
-                        _ ->
-                           ?INFO("Monitoring global process name: ~p, pid: ~p", [Name, Pid]),
-                           Ref = erlang:monitor(process, Pid),
-                           State#state{monitors = Monitors#{Ref => Proc}}
-                    end,
-                    case lists:member(Proc, GenServers) of
-                        true -> NewState;
-                        false -> NewState#state{gen_servers = [Proc | GenServers]}
-                    end
+handle_cast({monitor, {global, Name} = Proc}, #state{monitors = Monitors, gen_servers = GenServers} = State) ->
+    Pid = global:whereis_name(Name),
+    NewState2 = case lists:member(Proc, maps:values(Monitors)) of
+        true -> State;
+        false ->
+            NewState = case Pid of
+                undefined ->
+                   try_remonitor(Proc),
+                   State;
+                _ ->
+                   ?INFO("Monitoring global process name: ~p, pid: ~p", [Name, Pid]),
+                   Ref = erlang:monitor(process, Pid),
+                   State#state{monitors = Monitors#{Ref => Proc}}
+            end,
+            case lists:member(Proc, GenServers) of
+                true -> NewState;
+                false -> NewState#state{gen_servers = [Proc | GenServers]}
             end
     end,
     {noreply, NewState2};
@@ -285,29 +264,24 @@ monitor_ejabberd_processes() ->
 
 
 monitor_other_monitors() ->
-    %% TODO(josh): remove this api after all machines have globally registered ejabberd monitors
-    case gen_server:call(?MONITOR_GEN_SERVER, get_global_monitoring_status) of
-        false -> ok;
-        true ->
-            STestShardNum = util:get_stest_shard_num(),
-            ToMonitor = case util:get_shard() of
-                undefined -> all;
-                STestShardNum -> all;
-                0 -> stest;
-                1 -> stest;
-                2 -> stest;
-                _ -> none
-            end,
-            MonitorList = case ToMonitor of
-                all ->
-                  lists:map(
-                      fun(N) -> {global, get_registered_name(N)} end,
-                      nodes());
-                stest -> [{global, get_registered_name('ejabberd@s-test')}];
-                none -> []
-            end,
-            lists:foreach(fun monitor/1, MonitorList)
+    STestShardNum = util:get_stest_shard_num(),
+    ToMonitor = case util:get_shard() of
+        undefined -> all;
+        STestShardNum -> all;
+        0 -> stest;
+        1 -> stest;
+        2 -> stest;
+        _ -> none
     end,
+    MonitorList = case ToMonitor of
+        all ->
+          lists:map(
+              fun(N) -> {global, get_registered_name(N)} end,
+              nodes());
+        stest -> [{global, get_registered_name('ejabberd@s-test')}];
+        none -> []
+    end,
+    lists:foreach(fun monitor/1, MonitorList),
     ok.
 
 
