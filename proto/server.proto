@@ -466,19 +466,18 @@ message HistoryResend {
     string gid = 1;
     string id = 2;
     int64 sender_uid = 3 [ebin = true];
-    repeated int64 receiver_uids = 4 [ebin = true];
 
-    bytes payload = 5;
+    bytes payload = 4;
     // Encrypted payload using the group feed channel.
-    bytes enc_payload = 6;
+    bytes enc_payload = 5;
 
     // Sent by the sender.
-    repeated SenderStateBundle sender_state_bundles = 7;
+    repeated SenderStateBundle sender_state_bundles = 6;
 
     // Meant for the receiver, selected by the server from `sender_state_bundles`.
-    bytes enc_sender_state = 8;
+    bytes enc_sender_state = 7;
 
-    bytes audience_hash = 9;
+    bytes audience_hash = 8;
 }
 
 
@@ -875,5 +874,10 @@ message Inviter {
     string name = 2;
     string phone = 3;
     int64 timestamp = 4;
+}
+
+// Identity Key
+message IdentityKey {
+  bytes public_key = 1;
 }
 

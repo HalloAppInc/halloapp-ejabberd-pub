@@ -101,7 +101,10 @@ gen_key(Bytes) ->
     crypto:strong_rand_bytes(Bytes).
 
 gen_whisper_keys(N, Bytes) ->
-    {gen_keyb64(Bytes), gen_keyb64(Bytes), gen_otkb64(N, Bytes)}.
+    PbIK = #pb_identity_key{
+        public_key = gen_key(round(math:ceil(Bytes * 3 / 4)))
+    },
+    {base64:encode(enif_protobuf:encode(PbIK)), gen_keyb64(Bytes), gen_otkb64(N, Bytes)}.
 
 
 while(0, _F) -> ok;

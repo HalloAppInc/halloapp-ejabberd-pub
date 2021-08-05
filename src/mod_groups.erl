@@ -270,7 +270,14 @@ get_member_identity_keys_unsafe(Group) ->
                     Acc;
                 _ ->
                     IdentityKeyBin = base64:decode(IdentityKey),
-                    [IdentityKeyBin | Acc]
+                    % Need to parse IdentityKeyBin as per identity_key proto
+                    try enif_protobuf:decode(IdentityKeyBin, pb_identity_key) of
+                        #pb_identity_key{public_key = IPublicKey} ->
+                            [IPublicKey | Acc]
+                    catch Class : Reason : St ->
+                        ?ERROR("failed to parse identity key: ~p, Uid: ~p",
+                            [IdentityKey, Uid2, lager:pr_stacktrace(St, {Class, Reason})])
+                    end
             end
         end, [], GroupMembers2),
     AudienceHash = crypto:hash(?SHA256, lists:reverse(IKList)),

@@ -17,6 +17,7 @@
 
 
 setup() ->
+    enif_protobuf:load_cache(server:get_msg_defs()),
     tutil:setup(),
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
@@ -310,8 +311,16 @@ create_group_with_identity_keys(Uid, Name, Members) ->
             {IK, SK, OTKS} = tutil:gen_whisper_keys(16, 64),
             mod_whisper:set_keys_and_notify(MemberUid, IK, SK, OTKS),
             IKBin = base64:decode(IK),
+            IKBin2 = try enif_protobuf:decode(IKBin, pb_identity_key) of
+                #pb_identity_key{public_key = IKPublicKey} ->
+                    IKPublicKey
+            catch Class : Reason : St ->
+                ?debugFmt("failed to parse identity key: ~p, Uid: ~p", 
+                    [IK, MemberUid, lager:pr_stacktrace(St, {Class, Reason})]),
+                ?assert(false)
+            end,
             {IKList, IKMap} = Acc,
-            {[IKBin | IKList], maps:put(MemberUid, IK, IKMap)}
+            {[IKBin2 | IKList], maps:put(MemberUid, IK, IKMap)}
         end, {[], #{}}, SortedList),
     AudienceHash = crypto:hash(?SHA256, lists:reverse(IKBinList)),
     <<TruncAudienceHash:?TRUNC_HASH_LENGTH/binary, _Rem/binary>> = AudienceHash,
