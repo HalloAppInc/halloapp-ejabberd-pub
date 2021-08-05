@@ -26,15 +26,19 @@
 %%====================================================================
 
 %% TODO(murali@): add counters here.
+-spec send_process_down_alert(Proc :: binary(), Message :: binary()) -> ok.
 send_process_down_alert(Proc, Message) ->
-    send_alert(<<"Process Down">>, util:to_binary(Proc), <<"critical">>, Message).
+    send_alert(<<"Process Down: ", Proc/binary>>, Proc, <<"critical">>, Message).
 
+-spec send_unreachable_process_alert(Proc :: binary(), Message :: binary()) -> ok.
 send_unreachable_process_alert(Proc, Message) ->
-    send_alert(<<"Process Unreachable">>, util:to_binary(Proc), <<"critical">>, Message).
+    send_alert(<<"Process Unreachable: ", Proc/binary>>, Proc, <<"critical">>, Message).
 
+-spec send_slow_process_alert(Proc :: binary(), Message :: binary()) -> ok.
 send_slow_process_alert(Proc, Message) ->
-    send_alert(<<"Process Slow">>, util:to_binary(Proc), <<"critical">>, Message).
+    send_alert(<<"Process Slow: ", Proc/binary>>, Proc, <<"critical">>, Message).
 
+-spec send_alert(Alertname :: binary(), Service :: binary(), Severity :: binary(), Message :: binary()) -> ok.
 send_alert(Alertname, Service, Severity, Message) ->
     URL = ?ALERTS_MANAGER_URL,
     Headers = [],

@@ -221,13 +221,13 @@ handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitors = Monitors} = S
         {global, Name} ->
             case Reason of
                 shutdown -> ?INFO("Remote monitor at ~p shutdown", [node(Pid)]);
-                _ -> alerts:send_process_down_alert(Name, <<"Monitor is dead">>)
+                _ -> alerts:send_process_down_alert(util:to_binary(Name), <<"Monitor is dead">>)
             end;
         _ ->
             [_, Node] = binary:split(util:to_binary(node()), <<"@">>),
             BProc = util:to_binary(Proc),
             Name = <<BProc/binary, ".", Node/binary>>,
-            alerts:send_process_down_alert(Name, <<"Process is dead">>)
+            alerts:send_process_down_alert(util:to_binary(Name), <<"Process is dead">>)
     end,
     NewMonitors = maps:remove(Ref, State#state.monitors),
     NewGenServers = lists:delete(Proc, State#state.gen_servers),
@@ -333,8 +333,9 @@ check_consecutive_fails(Mod, StateHistory) ->
         true ->
             ?CRITICAL("Sending unreachable process alert for: ~p", [Mod]),
             BinNumConsecFails = util:to_binary(?CONSECUTIVE_FAILURE_THRESHOLD),
-            Msg = <<"Process has failed last ", BinNumConsecFails/binary, "pings">>,
-            alerts:send_unreachable_process_alert(Mod, Msg),
+            BinMod = proc_to_binary(Mod),
+            Msg = <<BinMod/binary, " has failed last ", BinNumConsecFails/binary, "pings">>,
+            alerts:send_unreachable_process_alert(BinMod, Msg),
             error
     end.
 
@@ -345,8 +346,9 @@ check_slow_process(Mod, StateHistory) ->
         false -> ok;
         true ->
             ?CRITICAL("Sending slow process alert for: ~p", [Mod]),
-            Msg = <<"Process failing >= 50% of pings">>,
-            alerts:send_slow_process_alert(Mod, Msg),
+            BinMod = proc_to_binary(Mod),
+            Msg = <<BinMod/binary, " failing >= 50% of pings">>,
+            alerts:send_slow_process_alert(BinMod, Msg),
             error
     end.
 
@@ -383,6 +385,12 @@ send_stats(Mod, StateHistory) ->
     end,
     stat:gauge(?NS, "process_uptime", round(SuccessRate * 100), [{process_name, ProcName}]),
     ok.
+
+proc_to_binary(Proc) ->
+    case Proc of
+        {global, Name} -> util:to_binary(Name);
+        _ -> util:to_binary(Proc)
+    end.
 
 get_state_memory_size() ->
     ?STATE_HISTORY_LENGTH_MS div ?PING_INTERVAL_MS.
