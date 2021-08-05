@@ -12,6 +12,7 @@
 -include("ha_types.hrl").
 -include("redis_keys.hrl").
 -include("sms.hrl").
+-include("time.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 
@@ -78,8 +79,8 @@
 -define(TTL_SMS_CODE, 86400).
 -define(MAX_SLOTS, 8).
 
-%% TTL for SMS reg data: 1 day, in case the background task does not run for 1 day
--define(TTL_INCREMENTAL_TIMESTAMP, 86400).
+%% TTL for SMS reg data: 2 1/2 days, in case the background task does not run for a period
+-define(TTL_INCREMENTAL_TIMESTAMP, 2 * ?DAYS + 12 * ?HOURS).
 
 -define(TTL_VERIFICATION_ATTEMPTS, 30 * 86400).  %% 30 days
 

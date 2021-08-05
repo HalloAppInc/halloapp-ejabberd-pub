@@ -16,8 +16,22 @@
 
 %% API
 -export([
-    check_sms_reg/1
+    check_sms_reg/1,
+    check_gw_stats/0
 ]).
+
+-ifdef(TEST).
+%% debugging purposes
+-include_lib("eunit/include/eunit.hrl").
+-export([
+    gather_scoring_data/2,
+    get_gwcc_atom/2,
+    sms_stats_table_name/1,
+    print_sms_stats/2,
+    process_all_scores/0
+]).
+-endif.
+
 
 %%%=============================================================================
 %%% API
@@ -42,16 +56,36 @@ check_sms_reg(TimeWindow) ->
         recent ->
             %% Last to Last time slot
             check_sms_reg_internal(TimeWindow, IncrementalTimestamp - 2,
-                    IncrementalTimestamp - 1);
+                    IncrementalTimestamp - 3),
+            check_gw_stats();
         past ->
             %% Last 94 full time slots
-            check_sms_reg_internal(TimeWindow, IncrementalTimestamp - 96,
-                    IncrementalTimestamp - 2)
+            check_sms_reg_internal(TimeWindow, IncrementalTimestamp - 3,
+                    IncrementalTimestamp - 97)
     end,
     print_sms_stats(TimeWindow, ets:first(sms_stats_table_name(TimeWindow))),
     ets:delete(sms_stats_table_name(TimeWindow)),
     End = util:now_ms(),
     ?INFO("Check SMS reg took ~p ms", [End - Start]),
+    ok.
+
+
+-spec check_gw_stats() -> ok.
+check_gw_stats() ->
+    ?INFO("Check Gateway scores start"),
+    Start = util:now_ms(),
+    % make a new table for storing scoring stats
+    ets:new(?GW_SCORE_TABLE, [named_table, ordered_set, public]),
+    CurrentIncrement = util:now() div ?SMS_REG_TIMESTAMP_INCREMENT,
+    IncrementToProcess = CurrentIncrement - 2,
+    % using the same 15 minute increments as explained above, start at `recent`
+    % increment and iterate backwards in time up to 48 hours (192 increments).
+    gather_scoring_data(IncrementToProcess, IncrementToProcess - ?MAX_SCORING_INTERVAL_COUNT),
+    % computes and prints all scores from raw counts
+    process_all_scores(),
+    ets:delete(?GW_SCORE_TABLE),
+    End = util:now_ms(),
+    ?INFO("Check Gateway Scores took ~p ms", [End - Start]),
     ok.
 
 %%%=============================================================================
@@ -67,7 +101,6 @@ check_sms_reg_internal(_TimeWindow, FinalIncrement, FinalIncrement) ->
 check_sms_reg_internal(TimeWindow, IncrementalTimestamp, FinalIncrement) ->
     ?INFO("~p Processing time slot: ~p, increment: ~p", [TimeWindow,
             IncrementalTimestamp, FinalIncrement]),
-    %% TODO(vipin): Need to reduce size of the list returned.
     IncrementalAttemptList = model_phone:get_incremental_attempt_list(IncrementalTimestamp),
     lists:foreach(
         fun({Phone, AttemptId})  ->
@@ -79,21 +112,88 @@ check_sms_reg_internal(TimeWindow, IncrementalTimestamp, FinalIncrement) ->
                     do_check_sms_reg(TimeWindow, Phone, AttemptId)
             end
         end, IncrementalAttemptList),
-    check_sms_reg_internal(TimeWindow, IncrementalTimestamp + 1, FinalIncrement).
+    check_sms_reg_internal(TimeWindow, IncrementalTimestamp - 1, FinalIncrement).
 
 
--spec do_check_sms_reg(TimeWindow :: atom(), Phone :: phone(),
-        AttemptId :: binary()) -> ok.
+-spec gather_scoring_data(CurrentIncrement :: integer(), FinalIncrement :: integer()) -> ok.
+gather_scoring_data(FinalIncrement, FinalIncrement) ->
+    ok;
+
+gather_scoring_data(CurrentIncrement, FinalIncrement) ->
+    ?INFO("Processing scores in time slot: ~p, until: ~p", [CurrentIncrement,
+            FinalIncrement]),
+    % moving backwards in time, FirstIncrement always >= CurrentIncrement
+    % FinalIncrement + ?MAX_SCORING_INTERVAL_COUNT is the first increment examined (recent)
+    % because FinalIncrement = FirstIncrement - MAX_INTERVALS
+    NumExaminedIncrements = (FinalIncrement + ?MAX_SCORING_INTERVAL_COUNT) - CurrentIncrement,
+    process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements),
+    gather_scoring_data(CurrentIncrement - 1, FinalIncrement),
+    ok.
+
+
+-spec process_incremental_scoring_data(CurrentIncrement :: integer(),
+        NumExaminedIncrements :: integer()) -> ok.
+process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements) ->
+    %% TODO(vipin): Need to reduce size of the list returned.
+    IncrementalAttemptList = model_phone:get_incremental_attempt_list(CurrentIncrement),
+    % TODO(Luke) - Implement a map here to track which metrics have used this increment
+    % instead of the global counter
+    lists:foreach(
+        fun({Phone, AttemptId})  ->
+            ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
+            case util:is_test_number(Phone) of
+                true ->
+                    ok;
+                %% only process if there's a possibility we'd use the data
+                false ->
+                    process_scoring_datum(Phone, AttemptId, NumExaminedIncrements)
+            end
+        end, 
+        IncrementalAttemptList),
+    ok.
+
+
+-spec process_scoring_datum(Phone :: phone(), AttemptId :: binary(),
+        NumExaminedIncrements :: integer()) -> ok.
+process_scoring_datum(Phone, AttemptId, NumExaminedIncrements) ->
+    CC = mod_libphonenumber:get_cc(Phone),
+    SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
+    #gateway_response{gateway = Gateway, status = _Status, verified = Success} = SMSResponse,
+    GatewayCC = case get_gwcc_atom(Gateway, CC) of
+        {ok, GWCC} -> GWCC;
+        {error, undefined} -> 
+            ?ERROR("unable to create gwcc atom from ~p and ~p", [Gateway, CC]),
+            undefined
+    end,
+    % possibly increment global score
+    case should_inc(gw, Gateway, NumExaminedIncrements) of
+        true -> 
+            inc_scoring_data(gw, Gateway, Success);
+        false -> ok
+    end,
+    % possibly increment country-specific score
+    case should_inc(gwcc, GatewayCC, NumExaminedIncrements) of
+        true -> 
+            inc_scoring_data(gwcc, GatewayCC, Success);
+        false -> ok
+    end.
+
+
+-spec do_check_sms_reg(TimeWindow :: atom(), Phone :: phone(),AttemptId :: binary()) -> ok.
 do_check_sms_reg(TimeWindow, Phone, AttemptId) ->
     CC = mod_libphonenumber:get_cc(Phone),
     SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
     #gateway_response{gateway = Gateway, status = Status,
-            verified = Success} = SMSResponse, 
+            verified = Success} = SMSResponse,
     report_stat(TimeWindow, "otp_attempt", Gateway, CC, Status),
     inc_sms_stats(TimeWindow, gw, Gateway, total),
     inc_sms_stats(TimeWindow, cc, util:to_atom(CC), total),
-    GatewayBin = util:to_binary(Gateway),
-    GatewayCC = util:to_atom(<<GatewayBin/binary, <<"-">>/binary, CC/binary>>),
+    GatewayCC = case get_gwcc_atom(Gateway, CC) of
+        {ok, GWCC} -> GWCC;
+        {error, undefined} -> 
+            ?ERROR("unable to create gwcc atom from ~p and ~p", [Gateway, CC]),
+            undefined
+    end,
     inc_sms_stats(TimeWindow, gwcc, GatewayCC, total),
     case {Gateway, Status, Success} of
         {_, _, _} when Gateway =:= undefined orelse Success =:= false ->
@@ -110,6 +210,75 @@ do_check_sms_reg(TimeWindow, Phone, AttemptId) ->
     end.
 
 
+-spec inc_scoring_data(VariableType :: atom(), VariableName :: atom(), Success :: boolean()) -> ok.
+inc_scoring_data(VariableType, VariableName, Success) ->
+    TotalKey = {VariableType, VariableName, total},
+    ets:update_counter(?GW_SCORE_TABLE, TotalKey, 1, {TotalKey, 0}),
+    case Success of
+        false -> 
+            ErrKey = {VariableType, VariableName, error},
+            ets:update_counter(?GW_SCORE_TABLE, ErrKey, 1, {ErrKey, 0});
+        true -> ok
+    end,
+    ok.
+
+
+-spec inc_sms_stats(atom(), atom(), atom(), atom()) -> ok.
+inc_sms_stats(TimeWindow, VariableType, Variable, CountType) ->
+    TableName = sms_stats_table_name(TimeWindow),
+    Key = {VariableType, Variable, CountType},
+    ets:update_counter(TableName, Key, 1, {Key, 0}),
+    ok.
+
+
+-spec should_inc(VariableType :: atom(), Variable :: atom(),
+        NumExaminedIncrements :: integer()) -> tuple().
+should_inc(_, _, NumExaminedIncrements) 
+        when NumExaminedIncrements < ?MIN_SCORING_INTERVAL_COUNT -> true;
+
+% checks if the variable needs more data and if the increment has been used yet
+should_inc(VariableType, VariableName, NumExaminedIncrements) ->
+    TotalKey = {VariableType, VariableName, total},
+    WantMoreData = needs_more_data(TotalKey),
+
+    % TODO(Luke) - Implement a map here to track which metrics have used this increment
+    % instead of the global counter -- "pass in a map/state to basically keep track of the 
+    % gateway/gateway-cc types using this interval and just use that instead of looking up
+    % and matching a counter.."
+    IntervalKey = {VariableType, VariableName, num_examined_increments},
+    % HaveInspectedIncrement captures whether or not we've already used some data
+    % for this variable (i.e. gateway-cc combo or gw) from the current interval
+    % If so, then we will finish logging data from the current interval
+    HaveUsedIncrement = case ets:lookup(?GW_SCORE_TABLE, IntervalKey) of
+        [{IntervalKey, NumExaminedIncrements}] -> true;
+        [{IntervalKey, _PreviousIntervalSize}] -> false;
+        [] -> false
+    end,
+
+    % update per-metric increment counter here if we need more data and haven't already 
+    % touched this increment
+    case {WantMoreData, HaveUsedIncrement} of
+        {true, false} ->
+            VarIntervalKey = {VariableType, VariableName, num_examined_increments},
+            true = ets:insert(?GW_SCORE_TABLE, {VarIntervalKey, NumExaminedIncrements});
+        {_, _} -> ok
+    end,
+
+    % true if we want more data or if we've already used this increment
+    WantMoreData orelse HaveUsedIncrement.
+
+
+%% evaluates if the given variable has more than the minimum required number of 
+%% data points (currently 20)
+-spec needs_more_data(VariableKey :: tuple()) -> boolean().
+needs_more_data(VariableKey) ->
+    case ets:lookup(?GW_SCORE_TABLE, VariableKey) of
+        [{_VariableKey, Count}] when Count < ?MIN_TEXTS_TO_SCORE_GW -> true;
+        [{_VariableKey, Count}] when Count >= ?MIN_TEXTS_TO_SCORE_GW -> false;
+        [] -> true
+    end.
+
+
 -spec print_sms_stats(TimeWindow :: atom(), Key :: term()) -> ok.
 print_sms_stats(_TimeWindow, '$end_of_table') ->
     ok;
@@ -120,14 +289,64 @@ print_sms_stats(TimeWindow, Key) ->
     PrintList = [TimeWindow, Var2, Var3, Value],
     case Var1 of
         cc ->
-            ?INFO("~p SMS Stats, Country: ~p, ~p: ~p", PrintList);
+            ?INFO("~p SMS_Stats, Country: ~p, ~p: ~p", PrintList);
         gw ->
-            ?INFO("~p SMS Stats, Gateway: ~p, ~p: ~p", PrintList);
+            ?INFO("~p SMS_Stats, Gateway: ~p, ~p: ~p", PrintList);
         gwcc ->
-            ?INFO("~p SMS Stats, Gateway Country Combo: ~p, ~p: ~p", PrintList)
+            ?INFO("~p SMS_Stats, Gateway_Country_Combo: ~p, ~p: ~p", PrintList)
     end,
     print_sms_stats(TimeWindow, ets:next(sms_stats_table_name(TimeWindow), Key)).
- 
+
+
+%% iterates through all 'total' entries, calculates the corresponding score, and prints
+-spec process_all_scores() -> ok.
+process_all_scores() ->
+    Entries = ets:match(?GW_SCORE_TABLE, {{'$1', '$2', total}, '$3'}),
+    lists:foreach(fun compute_and_print_score/1, Entries).
+
+
+-spec compute_and_print_score(VarTypeNameTotal :: list()) -> ok.
+compute_and_print_score([VarType, VarName, TotalCount]) ->
+    ErrKey = {VarType, VarName, error},
+    ErrCount = case ets:lookup(?GW_SCORE_TABLE, ErrKey) of
+        [{ErrKey, ECount}] -> ECount;
+        [] -> 0
+    end,
+    Score = case compute_score(ErrCount, TotalCount) of
+        {ok, S} -> S;
+        {error, insufficient_data} -> nan
+    end,
+    Category = get_category(VarType),
+    PrintList = [?GW_SCORE_TABLE, Category, VarName, Score],
+    ?INFO("~p SMS_Stats, ~s: ~p, score: ~p", PrintList),
+    ok.
+
+
+-spec compute_score(ErrCount :: integer(), TotalCount :: integer()) -> 
+        {ok, Score :: integer()} | {error, insufficient_data}.
+compute_score(ErrCount, TotalCount) ->
+    case TotalCount >= ?MIN_TEXTS_TO_SCORE_GW of
+        true -> {ok, ((TotalCount - ErrCount) * 100) div TotalCount};
+        false -> {error, insufficient_data}
+    end.
+
+
+-spec get_category(VarType :: atom()) -> string().
+get_category(gw) ->
+    "Gateway";
+get_category(gwcc) ->
+    "Gateway_Country_Combo".
+
+
+-spec get_gwcc_atom(Gateway :: atom(), CC :: binary()) -> {ok, atom()} | {error, undefined}.
+get_gwcc_atom(Gateway, CC) ->
+    GatewayBin = util:to_binary(Gateway),
+    GatewayCC = util:to_atom(<<GatewayBin/binary, <<"_">>/binary, CC/binary>>),
+    case GatewayCC of
+        undefined -> {error, undefined};
+        _ -> {ok, GatewayCC}
+    end.
+
 
 -spec sms_stats_table_name(atom()) -> atom().
 sms_stats_table_name(TimeWindow) ->
@@ -142,10 +361,4 @@ report_stat(past, _Metrics, _Gateway, _CC, _Status) ->
 report_stat(recent, Metrics, Gateway, CC, Status) ->
     stat:count("HA/registration", Metrics, 1,
             [{gateway, Gateway}, {cc, CC}, {status, Status}]).
-
-
--spec inc_sms_stats(atom(), atom(), atom(), atom()) -> ok.
-inc_sms_stats(TimeWindow, VariableType, Variable, CountType) ->
-    Key = {VariableType, Variable, CountType},
-    ets:update_counter(sms_stats_table_name(TimeWindow), Key, 1, {Key, 0}).
 
