@@ -43,12 +43,18 @@ send_alert(Alertname, Service, Severity, Message) ->
     HTTPOptions = [],
     Options = [],
     ?DEBUG("alerts_url : ~p", [URL]),
-    Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
-    case Response of
-        {ok, {{_, 200, _}, _ResHeaders, _ResBody}} ->
-            ?INFO("Sent an alert successfully.", []);
+    case config:get_hallo_env() of
+        localhost -> ?CRITICAL("~s alert: service = ~s, severity = ~s, message = ~s",
+            [Alertname, Service, Severity, Message]);
         _ ->
-            ?CRITICAL("Failed sending an alert: ~p", [Response])
+            Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
+            case Response of
+                {ok, {{_, 200, _}, _ResHeaders, _ResBody}} ->
+                    ?INFO("Sent an alert successfully.", []);
+                _ ->
+                    ?CRITICAL("Failed to send ~p alert: service = ~s, severity = ~s, message = ~s, resp: ~p",
+                        [Alertname, Service, Severity, Message, Response])
+            end
     end,
     ok.
 
