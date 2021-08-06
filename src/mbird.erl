@@ -57,9 +57,19 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             [Item] = Items,
             Status = normalized_status(maps:get(<<"status">>, Item)),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
-        {ok, {{_, ResponseCode, _}, _ResHeaders, _ResBody}} when ResponseCode >= 400 ->
-            ?ERROR("Sending SMS failed (retry) ~p", [Response]),
-            {error, sms_fail, retry};
+        {ok, {{_, ResponseCode, _}, _ResHeaders, ResBody}} when ResponseCode >= 400 ->
+            ErrCode = util_sms:get_response_code(ResBody),
+            case ErrCode of
+                ?NO_RECIPIENTS_CODE ->
+                    ?INFO("Sending SMS failed, Code ~p, response ~p (no_retry)", [ErrCode, Response]),
+                    {error, sms_fail, no_retry};
+                ?BLACKLIST_NUM_CODE ->
+                    ?INFO("Sending SMS failed, Code ~p, response ~p (no_retry)", [ErrCode, Response]),
+                    {error, sms_fail, no_retry};
+                _ ->
+                    ?ERROR("Sending SMS failed, Code ~p, response ~p (retry)", [ErrCode, Response]),
+                    {error, sms_fail, retry}
+            end;
         _ ->
             ?ERROR("Sending SMS failed (no_retry) ~p", [Response]),
             {error, sms_fail, no_retry}
@@ -96,9 +106,19 @@ send_voice_call(Phone, Code, LangId, UserAgent) ->
             Id = maps:get(<<"id">>, Data),
             Status = normalized_status(maps:get(<<"status">>, Data)),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
-        {ok, {{_, ResponseCode, _}, _ResHeaders, _ResBody}} when ResponseCode >= 400 ->
-            ?ERROR("Sending Voice Call failed (retry) ~p", [Response]),
-            {error, voice_call_fail, retry};
+        {ok, {{_, ResponseCode, _}, _ResHeaders, ResBody}} when ResponseCode >= 400 ->
+            ErrCode = util_sms:get_response_code(ResBody),
+            case ErrCode of
+                ?NO_RECIPIENTS_CODE ->
+                    ?INFO("Sending Voice Call failed, Code ~p, response ~p (no_retry)", [ErrCode, Response]),
+                    {error, voice_call_fail, no_retry};
+                ?BLACKLIST_NUM_CODE ->
+                    ?INFO("Sending Voice Call failed, Code ~p, response ~p (no_retry)", [ErrCode, Response]),
+                    {error, voice_call_fail, no_retry};
+                _ ->
+                    ?ERROR("Sending Voice Call failed, Code ~p, response ~p (retry)", [ErrCode, Response]),
+                    {error, voice_call_fail, retry}
+            end;
         _ ->
             ?ERROR("Sending Voice Call failed (no_retry) ~p", [Response]),
             {error, voice_call_fail, no_retry}

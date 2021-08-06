@@ -90,23 +90,24 @@ sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
             Id = maps:get(<<"sid">>, Json),
             Status = normalized_status(maps:get(<<"status">>, Json)),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
-        {ok, {{_, ResponseCode, _}, _ResHeaders, ResBody}} when ResponseCode == 400 ->
-            Json = jiffy:decode(ResBody, [return_maps]),
-            case maps:get(<<"code">>, Json, undefined) =:= ?INVALID_TO_PHONE_CODE andalso
-                    util:is_test_number(Phone) of
-                true ->
+        {ok, {{_, ResponseCode, _}, _ResHeaders, ResBody}} when ResponseCode >= 400 ->
+            ErrCode = util_sms:get_response_code(ResBody),
+            case {ErrCode, util:is_test_number(Phone)} of
+                {_, true} ->
                     %% TODO: hardcoding params here is not great.
                     Id = util:random_str(20),
                     Status = queued,
                     {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
-                false ->
-                    ?ERROR("Sending ~p failed (retry) ~p", [Purpose, Response]),
+                {?INVALID_TO_PHONE_CODE, false} ->
+                    ?INFO("Sending ~p failed, Code ~p, response ~p (no_retry)", [Purpose, ErrCode, Response]),
+                    {error, ErrMsg, no_retry};
+                {?NOT_ALLOWED_CALL_CODE, false} ->
+                    ?INFO("Sending ~p failed, Code ~p, response ~p (no_retry)", [Purpose, ErrCode, Response]),
+                    {error, ErrMsg, no_retry};
+                _ ->
+                    ?ERROR("Sending ~p failed, Code ~p, response ~p (retry)", [Purpose, ErrCode, Response]),
                     {error, ErrMsg, retry}
             end;
-        {ok, {{_, ResponseCode, _}, _ResHeaders, _ResBody}} when ResponseCode > 400 ->
-            % Todo: limit which response codes cause a new gateway attempt
-            ?ERROR("Sending ~p failed (retry) ~p", [Purpose, Response]),
-            {error, ErrMsg, retry};
         _ ->
             ?ERROR("Sending ~p failed (no_retry) ~p", [Response]),
             {error, ErrMsg, no_retry}

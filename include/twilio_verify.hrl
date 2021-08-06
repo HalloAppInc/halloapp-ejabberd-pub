@@ -13,5 +13,8 @@
 
 -define(VERIFICATION_URL, "https://verify.twilio.com/v2/Services/" ++ ?SERVICE_SID ++ "/Verifications/").
 
+-define(INVALID_TO_PHONE_CODE, 21211). % 'To' number not a valid phone number
+-define(NOT_ALLOWED_CALL_CODE, 21216). % Account not allowed to call
+
 -endif.
 

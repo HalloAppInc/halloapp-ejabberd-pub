@@ -15,4 +15,7 @@
 -define(FROM_PHONE_FOR_REST, "+12022213975").
 -define(REFERENCE, "HALLOAPP").
 
+-define(NO_RECIPIENTS_CODE, 9). % No (correct) recipients found
+-define(BLACKLIST_NUM_CODE, 12). % Number is blacklisted
+
 -endif.

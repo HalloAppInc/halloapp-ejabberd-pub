@@ -52,10 +52,20 @@ sending_helper(Phone, Code, LangId, Method) ->
             Id = maps:get(<<"sid">>, Json),  
             Status = normalized_status(maps:get(<<"status">>, Json)),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
-        {ok, {{_, ResponseCode, _}, _ResHeaders, _ResBody}} when ResponseCode >= 400 ->
-            ?ERROR("Sending ~p failed (retry) ~p", [Method, Response]),
+        {ok, {{_, ResponseCode, _}, _ResHeaders, ResBody}} when ResponseCode >= 400 ->
+            ErrCode = util_sms:get_response_code(ResBody),
             ErrMsg = list_to_atom(re:replace(string:lowercase(Method), " ", "_", [{return, list}]) ++ "_fail"),
-            {error, ErrMsg, retry};
+            case ErrCode of
+                ?INVALID_TO_PHONE_CODE ->
+                    ?INFO("Sending ~p to ~p failed, Code ~p, response ~p (no_retry)", [Method, Phone, ErrCode, Response]),
+                    {error, ErrMsg, no_retry};
+                ?NOT_ALLOWED_CALL_CODE ->
+                    ?INFO("Sending ~p to ~p failed, Code ~p, response ~p (no_retry)", [Method, Phone, ErrCode, Response]),
+                    {error, ErrMsg, no_retry};
+                _ ->
+                    ?ERROR("Sending ~p to ~p failed, Code ~p, response ~p (retry)", [Method, Phone, ErrCode, Response]),
+                    {error, ErrMsg, retry}
+            end;
         _ ->
             ?ERROR("Sending ~p to ~p failed (no_retry): ~p", [Method, Phone, Response]),
             ErrMsg = list_to_atom(re:replace(string:lowercase(Method), " ", "_", [{return, list}]) ++ "_fail"),

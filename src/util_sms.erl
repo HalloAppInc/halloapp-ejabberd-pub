@@ -16,7 +16,8 @@
 -export([
     init_helper/2,
     lookup_from_phone/1,
-    good_next_ts_diff/1
+    good_next_ts_diff/1,
+    get_response_code/1
 ]).
 
 -spec init_helper(GWOptions :: atom(), FromPhoneList :: [list()]) -> ok.
@@ -46,4 +47,11 @@ lookup_from_phone(GWOptions) ->
 good_next_ts_diff(NumFailedAttempts) ->
       ?assert(NumFailedAttempts > 0),
       30 * ?SECONDS * trunc(math:pow(2, NumFailedAttempts - 1)).
+
+
+-spec get_response_code(ResBody :: iolist()) -> integer().
+get_response_code(ResBody) ->
+    Json = jiffy:decode(ResBody, [return_maps]),
+    ErrCode = maps:get(<<"code">>, Json, undefined),
+    ErrCode.
 
