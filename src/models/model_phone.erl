@@ -39,6 +39,7 @@
     add_sms_code2/2,
     get_incremental_attempt_list/1,
     delete_sms_code2/1,
+    update_sms_code/3,
     get_sms_code2/2,
     get_all_verification_info/1,
     add_gateway_response/3,
@@ -197,7 +198,8 @@ get_all_verification_info(Phone) ->
     {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
     RedisCommands = lists:map(
         fun({AttemptId, _TS}) ->
-            ["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_CODE, ?FIELD_SENDER, ?FIELD_SID]
+            ["HMGET", verification_attempt_key(Phone, AttemptId),
+                ?FIELD_CODE, ?FIELD_SENDER, ?FIELD_SID, ?FIELD_STATUS]
         end, VerificationAttemptList),
     VerifyInfoList = case RedisCommands of
         [] -> [];
@@ -205,10 +207,10 @@ get_all_verification_info(Phone) ->
     end,
     CombinedList = lists:zipwith(
         fun(VerifyInfo, VerificationAttempt) ->
-            {ok, [Code, Gateway, Sid]} = VerifyInfo,
+            {ok, [Code, Gateway, Sid, Status]} = VerifyInfo,
             {Attempt, TS} = VerificationAttempt,
             #verification_info{gateway = Gateway, attempt_id = Attempt,
-                code = Code, sid = Sid, ts = binary_to_integer(TS)}
+                code = Code, sid = Sid, ts = binary_to_integer(TS), status = Status}
         end, VerifyInfoList, VerificationAttemptList),
     {ok, CombinedList}.
 
@@ -218,6 +220,15 @@ get_sms_code2(Phone, AttemptId) ->
   VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
   {ok, Res} = q(["HGET", VerificationAttemptKey, ?FIELD_CODE]),
   {ok, Res}.
+
+
+% Mbird_verify has a default code of <<"999999">>. In approved attempts, we want
+% to update the code so that it can be used to verify again (up to 24hrs).
+-spec update_sms_code(Phone :: phone(), Code :: binary(), AttemptId :: binary()) -> ok.
+update_sms_code(Phone, Code, AttemptId) ->
+    VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+    _Res = q(["HSET", VerificationAttemptKey, ?FIELD_CODE, Code]),
+    ok.
 
 
 -spec get_verification_attempt_list(Phone :: phone()) -> {ok, [{binary(), binary()}]} | {error, any()}.

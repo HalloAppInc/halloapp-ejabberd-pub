@@ -39,7 +39,8 @@
     gateway :: atom(),
     code :: binary(),
     sid :: binary(),
-    ts :: non_neg_integer()
+    ts :: non_neg_integer(),
+    status :: status()
 }).
 
 -type verification_info() :: #verification_info{}.

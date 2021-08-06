@@ -89,24 +89,41 @@ request_otp(Phone, LangId, UserAgent, Method) ->
 -spec verify_sms(Phone :: phone(), Code :: binary()) -> match | nomatch.
 verify_sms(Phone, Code) ->
     {ok, AllVerifyInfo} = model_phone:get_all_verification_info(Phone),
-    case lists:search(fun(FetchedInfo) -> FetchedInfo#verification_info.code =:= Code end, AllVerifyInfo) of
-        false -> nomatch;
-        {value, FetchedInfo} ->
-            #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
-            ok = model_phone:add_verification_success(Phone, AttemptId),
-            stat:count("HA/registration", "verify_sms", 1,
-                [{gateway, Gateway}, {cc, mod_libphonenumber:get_cc(Phone)}]),
-            GatewayAtom = util:to_atom(Gateway),
-            ?INFO("Phone: ~p, sending feedback to gateway: ~p, attemptId: ~p",
-                [Phone, Gateway, AttemptId]),
-            case GatewayAtom of
-                undefined ->
-                    ?ERROR("Missing gateway of Phone:~p AttemptId: ~p", [Phone, AttemptId]),
-                    ok;
-                _ -> GatewayAtom:send_feedback(Phone, AllVerifyInfo)
-            end,
-            match
+    case lists:search(
+        fun(FetchedInfo) ->
+            #verification_info{status = Status, gateway = Gateway, code = FetchedCode} = FetchedInfo,
+            % non-mbird_verify gateways, regardless of status, should be checked normally
+            % mbird_verify gateways with an accepted status will have an updated code to check
+            FetchedCode =:= Code andalso (Gateway =/= <<"mbird_verify">> orelse Status =:= <<"accepted">>)
+        end, AllVerifyInfo) of
+            false ->
+                case mbird_verify:verify_code(Phone, Code, AllVerifyInfo) of
+                    nomatch -> nomatch;
+                    {match, MbirdMatch} -> add_verification_success(Phone, MbirdMatch, AllVerifyInfo)
+                end;
+            {value, FetchedInfo} ->
+                add_verification_success(Phone, FetchedInfo, AllVerifyInfo)
     end.
+
+
+-spec add_verification_success(Phone :: phone(), FetchedInfo :: verification_info(),
+        AllVerifyInfo :: [verification_info()]) -> match.
+add_verification_success(Phone, FetchedInfo, AllVerifyInfo) ->
+    #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
+    ok = model_phone:add_verification_success(Phone, AttemptId),
+    stat:count("HA/registration", "verify_sms",
+        [{gateway, Gateway}, {cc, mod_libphonenumber:get_cc(Phone)}]),
+    GatewayAtom = util:to_atom(Gateway),
+    ?INFO("Phone: ~p, sending feedback to gateway: ~p, attemptId: ~p",
+                [Phone, Gateway, AttemptId]),
+    case GatewayAtom of
+        undefined ->
+            ?ERROR("Missing gateway of Phone:~p AttemptId: ~p", [Phone, AttemptId]),
+            ok;
+        _ -> GatewayAtom:send_feedback(Phone, AllVerifyInfo)
+    end,
+    match.
+
 
 -spec send_otp_to_inviter (Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method ::
     atom()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
