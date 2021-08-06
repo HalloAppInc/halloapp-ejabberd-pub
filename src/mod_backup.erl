@@ -507,7 +507,7 @@ get_redises() ->
         % redis_groups,
         % redis_messages,
         % redis_phone,
-        % redis_sessions,
+        redis_sessions,
         redis_whisper
     ].
 
