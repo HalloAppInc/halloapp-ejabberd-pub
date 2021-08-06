@@ -663,6 +663,7 @@ is_country_blockable(CC) ->
         <<"HR">> -> true;
         <<"HT">> -> true;
         <<"HU">> -> true;
+        <<"ID">> -> true;
         <<"IE">> -> true;
         <<"IL">> -> true;
         <<"IQ">> -> true;
