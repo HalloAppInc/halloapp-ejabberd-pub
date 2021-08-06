@@ -26,7 +26,6 @@ start(_Host, _Opts) ->
     ?INFO("starting", []),
     case util_aws:get_machine_name() of
         <<"s-test">> ->
-            application:ensure_all_started(erlcron),
             % TODO: change this one to {weekly, mon, {9, am}} when it works well
             erlcron:cron(dump_accounts, {
                 {daily, {9, 25, pm}},
