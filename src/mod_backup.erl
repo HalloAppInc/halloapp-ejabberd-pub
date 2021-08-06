@@ -518,8 +518,8 @@ get_redis_ids() ->
         true ->
             Redises = get_redises(),
             lists:map(
-                fun(RedisId) ->
-                    {RedisId, Host, _Port} = config:get_service(RedisId),
+                fun(RedisAtom) ->
+                    {RedisAtom, Host, _Port} = config:get_service(RedisAtom),
                     [RedisId, _Rest] = string:split(Host, "."),
                     RedisId
                 end, Redises);
