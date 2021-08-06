@@ -200,52 +200,38 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %% then other servers cant encode this message because the record has a new field. 
 %% similarly the updated server cant encode it because it is missing a field.
 %% so this function helps us transform packets across servers.
-upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
-    case MsgPayload of
-        %% group_feed_items
-        {pb_group_feed_items, Gid, Name, AvatarId, OldItems} ->
-            NewMsgPayload = #pb_group_feed_items{
-                gid = Gid,
-                name = Name,
-                avatar_id = AvatarId,
-                items = [upgrade_group_feed_item(OldItem) || OldItem <- OldItems]
-            },
-            Msg#pb_msg{payload = NewMsgPayload};
-
-        %% group_feed_item
-        {pb_group_feed_item, _Action, _Gid, _Name, _AvatarId, _Item, _SenderStateBundles,
-                _EncSenderState, _AudienceHash} = OldItem ->
-            Msg#pb_msg{
-                payload = upgrade_group_feed_item(OldItem)
-            };
-        _ -> Msg
-    end;
+%% upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
+%%     case MsgPayload of
+%%         %% group_feed_items
+%%         {pb_group_feed_items, Gid, Name, AvatarId, OldItems} ->
+%%             NewMsgPayload = #pb_group_feed_items{
+%%                 gid = Gid,
+%%                 name = Name,
+%%                 avatar_id = AvatarId,
+%%                 items = [upgrade_group_feed_item(OldItem) || OldItem <- OldItems]
+%%             },
+%%             Msg#pb_msg{payload = NewMsgPayload};
+%% 
+%%         %% group_feed_item
+%%         {pb_group_feed_item, _Action, _Gid, _Name, _AvatarId, _Item, _SenderStateBundles,
+%%                 _EncSenderState, _AudienceHash} = OldItem ->
+%%             Msg#pb_msg{
+%%                 payload = upgrade_group_feed_item(OldItem)
+%%             };
+%%         _ -> Msg
+%%     end;
 upgrade_packet(Packet) -> Packet.
 
-
-upgrade_group_feed_item(Old) ->
-    case Old of
-        %% downgrade, get rid of SenderStateBundles, EncSenderState | SenderState, AudienceHash.
-        {pb_group_feed_item, Action, Gid, Name, AvatarId, Item, _SenderStateBundles,
-                _EncSenderState, _AudienceHash} ->
-            #pb_group_feed_item{
-                action = Action,
-                gid = Gid,
-                name = Name,
-                avatar_id = AvatarId,
-                item = Item
-            }
-    end.
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
     NewPacket = upgrade_packet(Packet),
     %% TODO: Remove enif_protobuf:encode(...) after upgrade is done.
-    case enif_protobuf:encode(NewPacket) of
-        {error, Reason} ->
-            ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
-        _ ->
-            ok
-    end,
+    %% case enif_protobuf:encode(NewPacket) of
+    %%     {error, Reason} ->
+    %%         ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
+    %%     _ ->
+    %%         ok
+    %% end,
     case verify_incoming_packet(State, NewPacket) of
         allow ->
             %% TODO(murali@): remove temp counts after clients transition.
