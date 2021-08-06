@@ -156,8 +156,9 @@ get_latest_verify_info(AllVerifyInfoList) ->
         [] -> [];
         _ ->
             [Latest | _Rest] = TwilioVerifyList,
-            #verification_info{attempt_id = AttemptId, sid = Sid, ts = Timestamp} = Latest,
-            case Deadline < Timestamp of
+            #verification_info{attempt_id = AttemptId, sid = Sid, ts = Timestamp, status = Status} = Latest,
+            % If status is accepted, approval was previously sent - avoid duplicate feedback
+            case Deadline < Timestamp andalso Status =/= <<"accepted">> of
                 true -> [AttemptId, Sid];
                 false -> []
             end

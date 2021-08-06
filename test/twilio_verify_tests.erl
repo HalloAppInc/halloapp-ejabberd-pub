@@ -39,13 +39,23 @@ get_latest_twilio_verify_test() ->
     {ok, VerifyList} = model_phone:get_all_verification_info(?PHONE),
     [] = twilio_verify:get_latest_verify_info(VerifyList),
     timer:sleep(timer:seconds(1)),
+    % check that latest twilio_verify attempt is returned
     {ok, AttemptId2, _} = model_phone:add_sms_code2(?PHONE, ?CODE2),
     ok = model_phone:add_gateway_response(?PHONE, AttemptId2,
         #gateway_response{gateway=?GATEWAY2, gateway_id=?SMSID2}),
+    GatewayResponse2 = #gateway_response{gateway_id = ?SMSID2,
+        gateway =?GATEWAY2, status = accepted},
+    ok = model_phone:add_gateway_callback_info(GatewayResponse2),
     timer:sleep(timer:seconds(1)),
     {ok, AttemptId3, _} = model_phone:add_sms_code2(?PHONE, ?CODE3),
     ok = model_phone:add_gateway_response(?PHONE, AttemptId3,
         #gateway_response{gateway=?GATEWAY2, gateway_id=?SMSID3}),
     {ok, VerifyList2} = model_phone:get_all_verification_info(?PHONE),
-    [AttemptId3, ?SMSID3] = twilio_verify:get_latest_verify_info(VerifyList2).
+    [AttemptId3, ?SMSID3] = twilio_verify:get_latest_verify_info(VerifyList2),
+    % check for no duplicate feedback approval
+    GatewayResponse3 = #gateway_response{gateway_id = ?SMSID3,
+        gateway =?GATEWAY2, status = accepted},
+    ok = model_phone:add_gateway_callback_info(GatewayResponse3),
+    {ok, VerifyList3} = model_phone:get_all_verification_info(?PHONE),
+    [] = twilio_verify:get_latest_verify_info(VerifyList3).
 
