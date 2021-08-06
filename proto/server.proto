@@ -752,7 +752,7 @@ message GroupFeedRerequest {
 }
 
 
-// Seen and Delivery Receipts
+// Seen, Delivery and Played Receipts
 
 message SeenReceipt {
     string id = 1;
@@ -766,6 +766,11 @@ message DeliveryReceipt {
     int64 timestamp = 3;
 }
 
+message PlayedReceipt {
+    string id = 1;
+    string thread_id = 2;
+    int64 timestamp = 3;
+}
 
 
 

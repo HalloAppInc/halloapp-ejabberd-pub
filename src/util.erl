@@ -361,7 +361,7 @@ get_payload_type(_) -> undefined.
 
 
 %% Currently, we only set/get timestamps for different message stanzas:
-%% chat/group_chat/silent_chat/seen/deliveryreceipt stanzas.
+%% chat/group_chat/silent_chat/seen/delivery/playedreceipt stanzas.
 
 -spec set_timestamp(pb_msg(), binary()) -> stanza().
 set_timestamp(#pb_msg{payload = #pb_group_chat{} = GroupChat} = Msg, T) ->
@@ -374,6 +374,8 @@ set_timestamp(#pb_msg{payload = #pb_delivery_receipt{} = DeliveryReceipt} = Msg,
     Msg#pb_msg{payload = DeliveryReceipt#pb_delivery_receipt{timestamp = T}};
 set_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_stanza{} = Chat} = SilentChat} = Msg, T) ->
     Msg#pb_msg{payload = SilentChat#pb_silent_chat_stanza{chat_stanza = Chat#pb_chat_stanza{timestamp = T}}};
+set_timestamp(#pb_msg{payload = #pb_played_receipt{} = PlayedReceipt} = Msg, T) ->
+    Msg#pb_msg{payload = PlayedReceipt#pb_played_receipt{timestamp = T}};
 set_timestamp(Packet, _T) -> Packet.
 
 
