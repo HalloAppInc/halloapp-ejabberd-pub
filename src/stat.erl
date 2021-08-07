@@ -239,7 +239,6 @@ compute_counts_by_langid() ->
 init(_Stuff) ->
     % Each Erlang process has to do the configure
     % TODO: maybe make module where this erlcloud configure should go
-    {ok, _} = application:ensure_all_started(erlcloud),
     {ok, Config} = erlcloud_aws:auto_config(),
     erlcloud_aws:configure(Config),
     %% TODO(vipin): Move the background jobs in a different module.

@@ -198,7 +198,6 @@ upload_s3(ObjectKey, Data) ->
 
 -spec upload_s3(atom(), binary(), binary()) -> ok.
 upload_s3(prod, ObjectKey, Data) ->
-    {ok, _} = application:ensure_all_started(erlcloud),
     {ok, Config} = erlcloud_aws:auto_config(),
     erlcloud_aws:configure(Config),
     Result = erlcloud_s3:put_object(

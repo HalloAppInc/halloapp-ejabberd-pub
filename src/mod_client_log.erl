@@ -124,7 +124,6 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 init_erlcloud() ->
-    {ok, _} = application:ensure_all_started(erlcloud),
     {ok, Config} = erlcloud_aws:auto_config(),
     erlcloud_aws:configure(Config),
     ok.

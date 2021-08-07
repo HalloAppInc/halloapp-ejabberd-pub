@@ -60,7 +60,6 @@ start_link() ->
     gen_server:start_link({local, ?PROC()}, ?MODULE, [], []).
 
 start(Host, Opts) ->
-    application:ensure_all_started(prometheus),
     ejabberd_hooks:add(feed_item_published, Host, ?MODULE, feed_item_published, 50),
     ejabberd_hooks:add(group_feed_item_published, Host, ?MODULE, group_feed_item_published, 50),
     ejabberd_hooks:add(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),

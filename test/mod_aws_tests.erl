@@ -90,6 +90,7 @@ mock_get_ec2_instances(_, _, _) ->
 
 setup() ->
     ok = mod_aws:start(util:get_host(), []),
+    application:ensure_all_started(erlcloud),
     meck:new(erlcloud_sm),
     meck:expect(erlcloud_sm, get_secret_value, fun mock_get_secret_value/2),
     meck:new(erlcloud_ec2),

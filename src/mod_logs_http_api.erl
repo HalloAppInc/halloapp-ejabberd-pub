@@ -178,7 +178,6 @@ do_upload_log(ObjectKey, Data) ->
 init_erlcloud() ->
     % TODO: this code is duplicated in other modules using erlcloud...
     % one solution is to make a module to initialize erlcloud and make other modules depend on it
-    {ok, _} = application:ensure_all_started(erlcloud),
     {ok, Config} = erlcloud_aws:auto_config(),
     erlcloud_aws:configure(Config),
     ok.
