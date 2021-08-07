@@ -83,7 +83,7 @@
 -define(MAX_WAIT_RETRIES, 500). %% 2 hours, 5 minutes
 -define(NUM_BACKUPS_WARNING_THRESHOLD, 47).
 %% TODO: determine a good warning threshold
--define(MIN_BACKUP_SIZE_WARNING_THRESHOLD, 5 * 1000000). %% 5 MB
+-define(MIN_BACKUP_SIZE_WARNING_THRESHOLD, 10 * 1024). %% 10KB
 
 %%%=============================================================================
 %%% END MACROS
@@ -233,7 +233,8 @@ health_check_redis_backups(RedisId) ->
         case NumUniqueBackups < ?NUM_BACKUPS_WARNING_THRESHOLD of
             true ->
                 %% TODO(@ethan): use alerts.erl to send an alert
-                ?ERROR("[~p] currently has ~p backups in S3",
+                %% TODO: change INFO to ERROR on september 6 2021
+                ?INFO("[~p] currently has ~p backups in S3",
                         [RedisId, NumUniqueBackups]);
             false ->
                 ?INFO("[~p] currently has ~p backups in S3",
