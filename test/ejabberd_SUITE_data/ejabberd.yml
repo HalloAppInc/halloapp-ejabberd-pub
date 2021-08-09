@@ -83,7 +83,6 @@ listen:
     request_handlers:
       "/api": mod_http_api
       "/upload": mod_http_upload
-      "/captcha": ejabberd_captcha
   -
     port: COMPONENT_PORT
     module: ejabberd_service

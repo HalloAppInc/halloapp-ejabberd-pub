@@ -54,7 +54,6 @@ init([]) ->
         worker(ejabberd_router),
         worker(ejabberd_local),
         worker(ejabberd_sm),
-        worker(ejabberd_captcha),
         worker(ext_mod),
         supervisor(ejabberd_gen_mod_sup, gen_mod),
         worker(ejabberd_monitor) %% must be the last one in the list.

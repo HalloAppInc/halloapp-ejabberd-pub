@@ -43,7 +43,6 @@ listen:
     request_handlers:
       /admin: ejabberd_web_admin
       /api: mod_http_api
-      /captcha: ejabberd_captcha
       /metrics: mod_prom_exporter
   -
     port: 5280

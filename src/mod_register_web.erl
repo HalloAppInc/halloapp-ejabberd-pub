@@ -333,7 +333,6 @@ form_new_post(Q) ->
       [_Username, _Host, _Password, _Password2, false, false] ->
 	  {error, passwords_not_identical};
       [_Username, _Host, _Password, _Password2, Id, Key] ->
-	  ejabberd_captcha:check_captcha(Id, Key),
 	  {error, passwords_not_identical};
       _ -> {error, wrong_parameters}
     end.
@@ -352,43 +351,14 @@ form_new_post(Username, Host, Password,
 	      {false, false}) ->
     register_account(Username, Host, Password);
 form_new_post(Username, Host, Password, {Id, Key}) ->
-    case ejabberd_captcha:check_captcha(Id, Key) of
-      captcha_valid ->
-	  register_account(Username, Host, Password);
-      captcha_non_valid -> {error, captcha_non_valid};
-      captcha_not_found -> {error, captcha_non_valid}
-    end.
+	  register_account(Username, Host, Password).
 
 %%%----------------------------------------------------------------------
 %%% Formulary Captcha support for new GET/POST
 %%%----------------------------------------------------------------------
 
 build_captcha_li_list(Lang, IP) ->
-    case ejabberd_captcha:is_feature_available() of
-      true -> build_captcha_li_list2(Lang, IP);
-      false -> []
-    end.
-
-build_captcha_li_list2(Lang, IP) ->
-    SID = <<"">>,
-    From = #jid{user = <<"">>, server = <<"test">>,
-		resource = <<"">>},
-    To = #jid{user = <<"">>, server = <<"test">>,
-	      resource = <<"">>},
-    Args = [],
-    case ejabberd_captcha:create_captcha(
-	   SID, From, To, Lang, IP, Args) of
-	{ok, Id, _, _} ->
-	    case ejabberd_captcha:build_captcha_html(Id, Lang) of
-		{_, {CImg, CText, CId, CKey}} ->
-		    [?XE(<<"li">>,
-			 [CText, ?C(<<" ">>), CId, CKey, ?BR, CImg])];
-		Error ->
-		    throw(Error)
-	    end;
-	Error ->
-	    throw(Error)
-    end.
+    [].
 
 %%%----------------------------------------------------------------------
 %%% Formulary change password GET

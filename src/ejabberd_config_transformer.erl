@@ -170,11 +170,7 @@ replace_request_handlers(Opts) ->
     Handlers = proplists:get_value(request_handlers, Opts, []),
     Handlers1 =
 	lists:foldl(
-	  fun({captcha, true}, Acc) ->
-		  Handler = {<<"/captcha">>, ejabberd_captcha},
-		  warn_replaced_handler(captcha, Handler),
-		  [Handler|Acc];
-	     ({register, true}, Acc) ->
+	  fun({register, true}, Acc) ->
 		  Handler = {<<"/register">>, mod_register_web},
 		  warn_replaced_handler(register, Handler),
 		  [Handler|Acc];
