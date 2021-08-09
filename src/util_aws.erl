@@ -42,7 +42,7 @@ is_jabber_iam_role(Arn) ->
         <<"arn:aws:sts::356247613230:assumed-role/Jabber-instance-perms/", _Rest/binary>> ->
             true;
         %% Allow stest
-        <<"arn:aws:iam::356247613230:instance-profile/s-test-perms", _Rest/binary>> ->
+        <<"arn:aws:iam::356247613230:assumed-role/s-test-perms", _Rest/binary>> ->
             true;
         _Any ->
             false
