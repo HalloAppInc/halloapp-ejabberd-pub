@@ -552,3 +552,27 @@ get_comment5(Timestamp) ->
         ts_ms = Timestamp
     }.
 
+
+% get_posts_comments_perf_test() ->
+%     tutil:perf(
+%         100,
+%         fun() -> setup() end,
+%         fun() ->
+%             setup(),
+%             Timestamp1 = util:now_ms(),
+%             ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+%             ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
+%                     ?UID1, ?COMMENT_ID1, ?COMMENT_PAYLOAD1, Timestamp1),
+%             ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
+%                     ?UID2, ?COMMENT_ID2, ?COMMENT_PAYLOAD2, Timestamp1),
+%             ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
+%                     ?UID1, ?COMMENT_ID3, ?COMMENT_PAYLOAD3, Timestamp1),
+%             ok = model_feed:publish_comment(?COMMENT_ID4, ?POST_ID1,
+%                     ?UID1, ?COMMENT_ID4, ?COMMENT_PAYLOAD4, Timestamp1),
+%             ok = model_feed:publish_comment(?COMMENT_ID5, ?POST_ID1,
+%                     ?UID1, ?COMMENT_ID5, ?COMMENT_PAYLOAD5, Timestamp1),
+%             {ok, _} = model_feed:get_post_and_its_comments(?POST_ID1),
+%             ok
+%         end
+%     ).
+

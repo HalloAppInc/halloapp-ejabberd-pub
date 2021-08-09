@@ -230,9 +230,34 @@ get_comment(CommentId, PostId) ->
     {ok, [PublisherUid, ParentCommentId, Payload, TimestampMs, IsDeletedBin]} = q(
         ["HMGET", comment_key(CommentId, PostId),
             ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]),
+    process_comment(CommentId, PostId, PublisherUid, ParentCommentId, Payload, TimestampMs, IsDeletedBin).
+
+
+-spec get_comments(CommentIds :: [binary()], PostId :: binary()) -> [{ok, comment()} | {error, any()}].
+get_comments(CommentIds, PostId) ->
+    Commands = lists:map(
+        fun(CommentId) ->
+            ["HMGET", comment_key(CommentId, PostId),
+            ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID, ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]
+        end, CommentIds),
+    AllComments = qmn(Commands),
+    Comments = lists:zipwith(
+        fun(Comment, CommentId) ->
+            {ok, [PublisherUid, ParentCommentId, Payload, TimestampMs, IsDeletedBin]} = Comment,
+            process_comment(CommentId, PostId, PublisherUid,ParentCommentId,Payload, TimestampMs, IsDeletedBin)
+        end, AllComments, CommentIds),
+    Comments.
+
+
+-spec process_comment(CommentId :: binary(), PostId :: binary(), PublisherUid :: binary(),
+        ParentCommentId :: binary(), Payload :: binary(), TimestampMs :: binary(),
+        IsDeletedBin :: binary()) -> {ok, comment()} | {error, any()}.
+process_comment(CommentId, PostId, PublisherUid, ParentCommentId, Payload, TimestampMs, IsDeletedBin) ->
     IsDeleted = util_redis:decode_boolean(IsDeletedBin, false),
     case PublisherUid =:= undefined orelse IsDeleted =:= true of
-        true -> {error, missing};
+        true ->
+            ?DEBUG("Unable to get_comment, commentid: ~p, postid: ~p", [CommentId, PostId]),
+            {error, missing};
         false -> {ok, #comment{
             id = CommentId,
             post_id = PostId,
@@ -321,15 +346,14 @@ get_comment_push_data(CommentId, PostId) ->
 -spec get_post_comments(PostId :: binary()) -> {ok, [comment()]} | {error, any()}.
 get_post_comments(PostId) when is_binary(PostId) ->
     {ok, CommentIds} = q(["ZRANGEBYSCORE", post_comments_key(PostId), "-inf", "+inf"]),
-    Comments = lists:foldr(
-        fun(CommentId, Acc) ->
-            case get_comment(CommentId, PostId) of
-                {ok, Comment} -> [Comment | Acc];
-                {error, _} ->
-                    ?DEBUG("Unable to get_comment, commentid: ~p, postid: ~p", [CommentId, PostId]),
-                    Acc
+    AllCommentsInfo = get_comments(CommentIds, PostId),
+    Comments = lists:filtermap(
+        fun(Comment) ->
+            case Comment of
+                {ok, CommentInfo} -> {true, CommentInfo};
+                _ -> false
             end
-        end, [], CommentIds),
+        end, AllCommentsInfo),
     {ok, Comments}.
 
 
@@ -512,6 +536,7 @@ decode_comment_key(CommentKey) ->
 
 q(Command) -> ecredis:q(ecredis_feed, Command).
 qp(Commands) -> ecredis:qp(ecredis_feed, Commands).
+qmn(Commands) -> util_redis:run_qmn(ecredis_feed, Commands).
 
 
 -spec post_key(PostId :: binary()) -> binary().
