@@ -501,13 +501,13 @@ put_redis_metadata(RedisId, RedisMetadata) ->
 -spec get_redises() -> [atom()].
 get_redises() ->
     [
-        % redis_accounts,
-        % redis_auth,
-        % redis_contacts,
-        % redis_feed,
-        % redis_groups,
-        % redis_messages,
-        % redis_phone,
+        redis_accounts,
+        redis_auth,
+        redis_contacts,
+        redis_feed,
+        redis_groups,
+        redis_messages,
+        redis_phone,
         redis_sessions,
         redis_whisper
     ].
