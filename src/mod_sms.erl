@@ -111,7 +111,7 @@ verify_sms(Phone, Code) ->
 add_verification_success(Phone, FetchedInfo, AllVerifyInfo) ->
     #verification_info{attempt_id = AttemptId, gateway = Gateway} = FetchedInfo,
     ok = model_phone:add_verification_success(Phone, AttemptId),
-    stat:count("HA/registration", "verify_sms",
+    stat:count("HA/registration", "verify_sms", 1,
         [{gateway, Gateway}, {cc, mod_libphonenumber:get_cc(Phone)}]),
     GatewayAtom = util:to_atom(Gateway),
     ?INFO("Phone: ~p, sending feedback to gateway: ~p, attemptId: ~p",
