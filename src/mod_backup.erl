@@ -436,7 +436,7 @@ log_last_backup(RedisId, Now, Metadata) ->
     LastBackup = maps:get(?LAST_BACKUP_START_KEY, Metadata, 0),
     TimeSinceLastBackup = Now - LastBackup,
     {Days, Hours, Minutes, Seconds} = humanize_time(TimeSinceLastBackup),
-    case TimeSinceLastBackup > ?DAILY_BACKUP_INTERVAL of
+    case TimeSinceLastBackup >= ?DAILY_BACKUP_INTERVAL of
         true ->
             ?ERROR("[~p] Time since last hourly backup: ~p days, "
                 ++ "~p:~p:~p", [RedisId, Days, Hours, Minutes, Seconds]);
@@ -454,7 +454,7 @@ folder_and_new_backup_times(RedisId, Now, Metadata) ->
     {Days, Hours, Minutes, Seconds} = humanize_time(TimeSinceLastDailyBackup),
     ?INFO("[~p] Time since last daily backup: ~p days, ~p:~p:~p",
             [RedisId, Days, Hours, Minutes, Seconds]),
-    case TimeSinceLastDailyBackup > ?DAILY_BACKUP_INTERVAL of
+    case TimeSinceLastDailyBackup >= ?DAILY_BACKUP_INTERVAL of
         true ->
             ?INFO("[~p] Backup type needed: Long term", [RedisId]),
             {?LONG_TERM_FOLDER, Metadata#{?LAST_BACKUP_START_KEY => Now, 
