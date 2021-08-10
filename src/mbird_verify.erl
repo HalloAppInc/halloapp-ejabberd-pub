@@ -13,6 +13,8 @@
 -include("time.hrl").
 
 
+-define(MBIRD_VERIFY_ENG_LANG_ID, <<"en-us">>).
+
 %% API
 -export([
     send_sms/4,
@@ -25,23 +27,23 @@
 
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
-send_sms(Phone, _Code, _LangId, _UserAgent) ->
-    sending_helper(Phone, "sms").
+send_sms(Phone, _Code, LangId, _UserAgent) ->
+    sending_helper(Phone, LangId, "sms").
 
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, tts_fail}.
-send_voice_call(Phone, _Code, _LangId, _UserAgent) -> 
-    sending_helper(Phone, "tts").
+send_voice_call(Phone, _Code, LangId, _UserAgent) ->
+    sending_helper(Phone, LangId, "tts").
 
 
--spec sending_helper(Phone :: phone(), Method :: string())
+-spec sending_helper(Phone :: phone(), LangId :: binary(), Method :: string())
         -> {ok, gateway_response()} | {error, sms_fail} | {error, tts_fail}.
-sending_helper(Phone, Method) ->
+sending_helper(Phone, LangId, Method) ->
     URL = ?BASE_URL,
     Type = "application/x-www-form-urlencoded",
     [Headers, Type, HTTPOptions, Options] = fetch_headers(Phone),
-    Body = compose_body(Phone, Method),
+    Body = compose_body(Phone, LangId, Method),
     ?DEBUG("Body: ~p", [Body]),
     Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
     ?DEBUG("Response: ~p", [Response]),
@@ -107,14 +109,19 @@ fetch_headers(Phone) ->
     [Headers, Type, [], []].
 
 
--spec compose_body(Phone :: phone(), Method :: string()) -> uri_string:uri_string().
-compose_body(Phone,  Method) ->
+-spec compose_body(Phone :: phone(), Method :: string(), LangId :: binary()) -> uri_string:uri_string().
+compose_body(Phone, LangId, Method) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
-    uri_string:compose_query([
+    Message = [
         {"recipient", PlusPhone},
         {"type", Method},
         {"timeout", util:to_binary(?DAYS)}
-    ], [{encoding, latin1}]).
+    ],
+    FullMessage = case Method of
+        "tts" -> Message ++ [{"language", get_verify_lang(LangId)}];
+        _ -> Message
+    end,
+    uri_string:compose_query(FullMessage, [{encoding, latin1}]).
 
 
 % verified - correct code was entered
@@ -147,4 +154,90 @@ get_access_key(false) ->
 -spec send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.
 send_feedback(_Phone, _AllVerifyInfo) ->
     ok. 
+
+
+%% Doc: https://developers.messagebird.com/api/verify/#request-a-verify (language)
+-spec get_verify_lang(LangId :: binary()) -> binary().
+get_verify_lang(LangId) ->
+    VerifyLangMap = get_verify_lang_map(),
+    util_gateway:get_gateway_lang(LangId, VerifyLangMap, ?MBIRD_VERIFY_ENG_LANG_ID).
+
+
+get_verify_lang_map() ->
+    #{
+        %% Welsh (United Kingdom)
+        <<"cy">> => <<"cy-gb">>,
+        %% Danish (Denmark)
+        <<"da">> => <<"da-dk">>,
+        %% German (Germany)
+        <<"de">> => <<"de-de">>,
+        %% Greek (Greece)
+        <<"el">> => <<"el-gr">>,
+        %% Australian English
+        <<"en-AU">> => <<"en-au">>,
+        %% British English
+        <<"en-GB">> => <<"en-gb">>,
+        %% English (Welsh)
+        <<"en-GB-WLS">> => <<"en-gb-wls">>,
+        %% English (India)
+        <<"en-IN">> => <<"en-in">>,
+        %% American English
+        <<"en-US">> => <<"en-us">>,
+        %% American English - fallback
+        <<"en">> => <<"en-us">>,
+        %% European Spanish
+        <<"es">> => <<"es-es">>,
+        %% Spanish (Mexico)
+        <<"es-MX">> => <<"es-mx">>,
+        %% Spanish (United States)
+        <<"es-US">> => <<"es-us">>,
+        %% French (Canada)
+        <<"fr-CA">> => <<"fr-ca">>,
+        %% French (France)
+        <<"fr">> => <<"fr-fr">>,
+        %% Indonesian (Indonesia)
+        <<"id">> => <<"id-id">>,
+        %% Icelandic (Iceland)
+        <<"is">> => <<"is-is">>,
+        %% Italian (Italy)
+        <<"it">> => <<"it-it">>,
+        %% Japanese (Japan)
+        <<"ja">> => <<"ja-jp">>,
+        %% Korean (South Korea)
+        <<"ko">> => <<"ko-kr">>,
+        %% Malay (Malaysia)
+        <<"ms">> => <<"ms-my">>,
+        %% Norwegian Bokmål (Norway)
+        <<"nb">> => <<"nb-no">>,
+        %% Dutch (Netherlands)
+        <<"nl">> => <<"nl-nl">>,
+        %% Polish (Poland)
+        <<"pl">> => <<"pl-pl">>,
+        %% Brazilian Portuguese
+        <<"pt-BR">> => <<"pt-br">>,
+        %% European Portuguese
+        <<"pt-PT">> => <<"pt-pt">>,
+        %% European Portuguese - fallback
+        <<"pt">> => <<"pt-pt">>,
+        %% Romanian (Romania)
+        <<"ro">> => <<"ro-ro">>,
+        %% Russian (Russia)
+        <<"ru">> => <<"ru-ru">>,
+        %% Swedish (Sweden)
+        <<"sv">> => <<"sv-se">>,
+        %% Tamil (India)
+        <<"ta">> => <<"ta-in">>,
+        %% Thai (Thailand)
+        <<"th">> => <<"th-th">>,
+        %% Turkish (Turkey)
+        <<"tr">> => <<"tr-tr">>,
+        %% Vietnamese (Vietnam)
+        <<"vi">> => <<"vi-vn">>,
+        %% Chinese (China)
+        <<"zh-CN">> => <<"zh-cn">>,
+        %% Chinese (Hong Kong SAR China)
+        <<"zh-HK">> => <<"zh-hk">>,
+        %% Chinese (China) - fallback
+        <<"zh">> => <<"zh-cn">>
+    }.
 
