@@ -572,6 +572,7 @@ message Msg {
         InviteeNotice invitee_notice = 27;
         GroupFeedRerequest group_feed_rerequest = 28;
         HistoryResend history_resend = 29;
+        PlayedReceipt played_receipt = 30;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
