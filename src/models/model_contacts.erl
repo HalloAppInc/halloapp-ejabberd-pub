@@ -13,9 +13,8 @@
 -include("ha_types.hrl").
 -include("contacts.hrl").
 
-%% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([reverse_phone_hash_key/1]).
 -endif.
 
 -export([contacts_key/1, sync_key/2, reverse_key/1]).

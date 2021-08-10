@@ -14,9 +14,8 @@
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 
-%% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([spub_key/1]).
 -endif.
 
 -define(LOCKED, <<"locked:">>).

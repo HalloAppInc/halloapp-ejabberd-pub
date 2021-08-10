@@ -16,9 +16,15 @@
 -include("time.hrl").
 -include("expiration.hrl").
 
-%% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([
+    store_message/6,
+    store_message/7,
+    message_key/2,
+    withhold_message_key/2,
+    message_queue_key/1,
+    message_order_key/1
+    ]).
 -endif.
 -compile([{nowarn_unused_function, [{store_message, 6}]}]).
 

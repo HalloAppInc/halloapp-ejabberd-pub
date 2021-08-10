@@ -9,9 +9,8 @@
 -author('alexey@process-one.net').
 -author('josh').
 
-%% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([ha_try_register/4]).
 -endif.
 
 %% External exports

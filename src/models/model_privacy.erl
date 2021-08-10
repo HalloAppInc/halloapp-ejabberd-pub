@@ -12,9 +12,14 @@
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 
-%% Export all functions for unit tests
 -ifdef(TEST).
--compile(export_all).
+-export([
+    mute_key/1,
+    except_key/1,
+    only_key/1,
+    block_key/1,
+    reverse_block_key/1
+    ]).
 -endif.
 
 %% API
