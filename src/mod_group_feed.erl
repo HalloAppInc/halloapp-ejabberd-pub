@@ -105,6 +105,16 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
             pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
             pb:make_iq_result(IQ, NewGroupFeedSt)
+    end;
+
+%% HistoryResend.
+process_local_iq(#pb_iq{from_uid = Uid, type = set, payload = #pb_history_resend{
+        gid = Gid} = HistoryResendSt} = IQ) ->
+    case resend_history(Gid, Uid, HistoryResendSt) of
+        {error, Reason} ->
+            pb:make_error(IQ, util:err(Reason));
+        {ok, NewHistoryResendSt} ->
+            pb:make_iq_result(IQ, NewHistoryResendSt)
     end.
 
 
@@ -149,7 +159,7 @@ publish_post(Gid, Uid, PostId, PayloadBase64, GroupFeedSt) ->
                 Gid, Uid, publish_post),
             case IsHashMatch of
                 false -> {error, audience_hash_mismatch};
-                _ ->
+                true ->
                     publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, GroupFeedSt)
             end
     end.
@@ -202,7 +212,7 @@ publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, PayloadBase64, Gro
                 Gid, Uid, publish_comment),
             case IsHashMatch of
                 false -> {error, audience_hash_mismatch};
-                _ ->
+                true ->
                     publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId,
                         PayloadBase64, GroupFeedSt)
             end
@@ -332,6 +342,41 @@ retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
     end.
 
 
+-spec resend_history(Gid :: gid(), Uid :: uid(), HistoryResendSt :: pb_history_resend())
+        -> {ok, pb_group_feed_item()} | {error, atom()}.
+resend_history(Gid, Uid, HistoryResendSt) ->
+    ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
+    case model_groups:is_admin(Gid, Uid) of
+        false ->
+            %% also possible the group does not exists
+            {error, not_admin};
+        true ->
+            GroupInfo = model_groups:get_group_info(Gid),
+            IsHashMatch = check_audience_hash(
+                HistoryResendSt#pb_history_resend.audience_hash,
+                GroupInfo#group_info.audience_hash,
+                Gid, Uid, resend_history),
+            case IsHashMatch of
+                false -> {error, audience_hash_mismatch};
+                true ->
+                    resend_history_unsafe(GroupInfo, Uid, HistoryResendSt)
+            end
+    end.
+
+
+-spec resend_history_unsafe(GroupInfo :: group_info(), Uid :: uid(),
+        HistoryResendSt :: pb_group_feed_item())
+            -> {ok, pb_group_feed_item()} | {error, atom()}.
+resend_history_unsafe(GroupInfo, Uid, HistoryResendSt) ->
+    Gid = GroupInfo#group_info.gid,
+    AudienceList = model_groups:get_member_uids(Gid),
+    AudienceSet = sets:from_list(AudienceList),
+    NewHistoryResendSt = HistoryResendSt#pb_history_resend{sender_uid = Uid},
+    ?INFO("Fan Out MSG: ~p", [NewHistoryResendSt]),
+    ok = broadcast_history_resend_event(Uid, AudienceSet, NewHistoryResendSt),
+    {ok, NewHistoryResendSt}.
+
+
 -spec check_audience_hash(
       IQAudienceHash :: binary(), GroupAudienceHash :: binary(),
       Gid :: gid(), Uid :: uid(), Action :: atom()) -> boolean().
@@ -427,6 +472,37 @@ broadcast_group_feed_event(Uid, AudienceSet, PushSet, PBGroupFeed) ->
         end, BroadcastUids),
     ok.
 
+-spec broadcast_history_resend_event(Uid :: uid(), AudienceSet :: set(),
+        PBHistoryResend :: pb_history_resend()) -> ok.
+broadcast_history_resend_event(Uid, AudienceSet, PBHistoryResend) ->
+    BroadcastUids = sets:to_list(sets:del_element(Uid, AudienceSet)),
+    StateBundles = PBHistoryResend#pb_history_resend.sender_state_bundles,
+    PBHistoryResend2 = PBHistoryResend#pb_history_resend{
+        sender_state_bundles = []
+    },
+    StateBundlesMap = case StateBundles of
+        undefined -> #{};
+        _ -> lists:foldl(
+                 fun(StateBundle, Acc) ->
+                     Uid2 = StateBundle#pb_sender_state_bundle.uid,
+                     SenderState = StateBundle#pb_sender_state_bundle.sender_state,
+                     Acc#{Uid2 => SenderState}
+                 end, #{}, StateBundles)
+    end,
+    lists:foreach(
+        fun(ToUid) ->
+            PBHistoryResend3 = add_sender_state2(PBHistoryResend2, ToUid, StateBundlesMap),
+            Packet = #pb_msg{
+                id = util_id:new_msg_id(),
+                to_uid = ToUid,
+                from_uid = Uid,
+                type = normal,
+                payload = PBHistoryResend3
+            },
+            ejabberd_router:route(Packet)
+        end, BroadcastUids),
+    ok.
+
 
 -spec get_message_type(FeedStanza :: pb_group_feed_item(), PushSet :: set(),
         ToUid :: uid()) -> headline | normal.
@@ -444,6 +520,15 @@ get_message_type(#pb_group_feed_item{action = retract}, _, _) -> normal.
 add_sender_state(GroupFeedSt, Uid, StateBundlesMap) ->
     SenderState = maps:get(Uid, StateBundlesMap, undefined),
     GroupFeedSt#pb_group_feed_item{
+        sender_state = SenderState
+    }.
+
+
+-spec add_sender_state2(HistoryResendSt :: pb_history_resend(),
+        ToUid :: uid(), StateBundlesMap :: #{}) -> pb_history_resend().
+add_sender_state2(HistoryResendSt, Uid, StateBundlesMap) ->
+    SenderState = maps:get(Uid, StateBundlesMap, undefined),
+    HistoryResendSt#pb_history_resend{
         sender_state = SenderState
     }.
 

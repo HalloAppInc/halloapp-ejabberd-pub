@@ -218,6 +218,22 @@ make_group_feed_iq(Uid, GroupFeedSt) ->
         payload = GroupFeedSt
     }.
 
+make_pb_history_resend(Gid, Id, Payload, SenderStateBundles, AudienceHash) ->
+    #pb_history_resend{
+        gid = Gid,
+        id = Id,
+        payload = Payload,
+        sender_state_bundles = SenderStateBundles,
+        audience_hash = AudienceHash
+    }.
+
+make_history_resend_iq(Uid, HistoryResendSt) ->
+    #pb_iq{
+        from_uid = Uid,
+        type = set,
+        payload = HistoryResendSt
+    }.
+
 
 mod_groups_api_test() ->
     setup(),
@@ -778,6 +794,97 @@ publish_group_feed_helper(WithAudienceHash) ->
     ?assertEqual(group, Post#post.audience_type),
     ?assertEqual(lists:sort([?UID1, ?UID2, ?UID3]), lists:sort(Post#post.audience_list)),
     ?assertEqual(Gid, Post#post.gid),
+    ok.
+
+history_resend_bad_audience_hash_test() ->
+    setup(),
+    % First create the group and set the avatar
+    {Gid, _LocalHash, _IKMap} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    meck:new(ejabberd_router, [passthrough]),
+    meck:expect(ejabberd_router, route_multicast, fun (_, _, _) -> ok end),
+    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+
+    SenderStateBundles = create_sender_state_bundles(
+        [{?UID2, ?ENC_SENDER_STATE2}, {?UID3, ?ENC_SENDER_STATE3}]),
+    HistoryResendSt = make_pb_history_resend(Gid, ?ID1, ?PAYLOAD1, SenderStateBundles, ?BAD_HASH),
+    HistoryResendIq = make_history_resend_iq(?UID1, HistoryResendSt),
+    ResultIQ = mod_group_feed:process_local_iq(HistoryResendIq),
+
+    SubEl = ResultIQ#pb_iq.payload,
+    ?assertEqual(error, ResultIQ#pb_iq.type),
+
+    ?assertEqual(<<"audience_hash_mismatch">>, SubEl#pb_error_stanza.reason),
+    ?assertEqual(0, meck:num_calls(ejabberd_router, route_multicast, '_')),
+    ?assertEqual(0, meck:num_calls(ejabberd_router, route, '_')),
+    ?assert(meck:validate(ejabberd_router)),
+    meck:unload(ejabberd_router),
+    ok.
+
+history_resend_non_admin_test() ->
+    setup(),
+    % First create the group and set the avatar
+    {Gid, AudienceHash, _IKMap} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    meck:new(ejabberd_router, [passthrough]),
+    meck:expect(ejabberd_router, route_multicast, fun (_, _, _) -> ok end),
+    meck:expect(ejabberd_router, route, fun(_) -> ok end),
+
+    SenderStateBundles = create_sender_state_bundles(
+        [{?UID2, ?ENC_SENDER_STATE2}, {?UID3, ?ENC_SENDER_STATE3}]),
+    HistoryResendSt = make_pb_history_resend(Gid, ?ID1, ?PAYLOAD1, SenderStateBundles, AudienceHash),
+    HistoryResendIq = make_history_resend_iq(?UID2, HistoryResendSt),
+    ResultIQ = mod_group_feed:process_local_iq(HistoryResendIq),
+
+    SubEl = ResultIQ#pb_iq.payload,
+    ?assertEqual(error, ResultIQ#pb_iq.type),
+
+    ?assertEqual(<<"not_admin">>, SubEl#pb_error_stanza.reason),
+    ?assertEqual(0, meck:num_calls(ejabberd_router, route_multicast, '_')),
+    ?assertEqual(0, meck:num_calls(ejabberd_router, route, '_')),
+    ?assert(meck:validate(ejabberd_router)),
+    meck:unload(ejabberd_router),
+    ok.
+
+history_resend_with_audience_hash_test() ->
+    history_resend_helper(true).
+
+history_resend_without_audience_hash_test() ->
+    history_resend_helper(false).
+
+history_resend_helper(WithAudienceHash) ->
+    setup(),
+    % First create the group and set the avatar
+    {Gid, AudienceHash, _} = create_group_with_identity_keys(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    meck:new(ejabberd_router, [passthrough]),
+
+    meck:expect(ejabberd_router, route,
+        fun(Packet) ->
+            ?assertEqual(?UID1, Packet#pb_msg.from_uid),
+            ?assert(Packet#pb_msg.to_uid =:= ?UID2 orelse Packet#pb_msg.to_uid =:= ?UID3),
+            SubEl = Packet#pb_msg.payload,
+            ?assertEqual(SubEl#pb_history_resend.payload, ?PAYLOAD1),
+            ?assert(SubEl#pb_history_resend.sender_state =:= create_sender_state(?ENC_SENDER_STATE2) orelse
+                SubEl#pb_history_resend.sender_state =:= create_sender_state(?ENC_SENDER_STATE3)),
+            ok
+        end),
+
+    SenderStateBundles = create_sender_state_bundles(
+        [{?UID2, ?ENC_SENDER_STATE2}, {?UID3, ?ENC_SENDER_STATE3}]),
+    St = case WithAudienceHash of
+        true -> make_pb_history_resend(Gid, ?ID1, ?PAYLOAD1, SenderStateBundles, AudienceHash);
+        false -> make_pb_history_resend(Gid, ?ID1, ?PAYLOAD1, SenderStateBundles, <<>>)
+    end,
+    Iq = make_history_resend_iq(?UID1, St),
+    ResultIQ = mod_group_feed:process_local_iq(Iq),
+
+    SubEl = ResultIQ#pb_iq.payload,
+    ?assertEqual(result, ResultIQ#pb_iq.type),
+
+    ?assertEqual(Gid, SubEl#pb_history_resend.gid),
+    ?assertEqual(?UID1, SubEl#pb_history_resend.sender_uid),
+    ?assertEqual(SubEl#pb_history_resend.payload, ?PAYLOAD1),
+    ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
+    ?assert(meck:validate(ejabberd_router)),
+    meck:unload(ejabberd_router),
     ok.
 
 
