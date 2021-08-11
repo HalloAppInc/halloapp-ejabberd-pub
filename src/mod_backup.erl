@@ -253,7 +253,7 @@ health_check_redis_backups(RedisId) ->
             end, BackupSizeMap)
     catch
         error:Reason:Stacktrace ->
-            ?ERROR("[~p] Backup Failed. Reason: ~p, Stacktrace: ~p", [RedisId,
+            ?ERROR("[~p] Health Check Failed. Reason: ~p, Stacktrace: ~p", [RedisId,
                     Reason, Stacktrace])
     end,
     ok.
