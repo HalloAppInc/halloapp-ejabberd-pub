@@ -37,12 +37,12 @@
 -define(XAC(Name, Attrs, Text),
 	?XAE(Name, Attrs, [?C(Text)])).
 
--define(CT(Text), ?C((translate:translate(Lang, Text)))).
+-define(CT(Text), ?C((Text))).
 
--define(XCT(Name, Text), ?XC(Name, (translate:translate(Lang, Text)))).
+-define(XCT(Name, Text), ?XC(Name, (Text))).
 
 -define(XACT(Name, Attrs, Text),
-	?XAC(Name, Attrs, (translate:translate(Lang, Text)))).
+	?XAC(Name, Attrs, (Text))).
 
 -define(LI(Els), ?XE(<<"li">>, Els)).
 
@@ -51,7 +51,7 @@
 
 -define(AC(URL, Text), ?A(URL, [?C(Text)])).
 
--define(ACT(URL, Text), ?AC(URL, (translate:translate(Lang, Text)))).
+-define(ACT(URL, Text), ?AC(URL, (Text))).
 
 -define(P, ?X(<<"p">>)).
 
@@ -65,7 +65,7 @@
 	     {<<"value">>, Value}])).
 
 -define(INPUTT(Type, Name, Value),
-	?INPUT(Type, Name, (translate:translate(Lang, Value)))).
+	?INPUT(Type, Name, (Value))).
 
 -define(INPUTS(Type, Name, Value, Size),
 	?XA(<<"input">>,
@@ -73,7 +73,7 @@
 	     {<<"value">>, Value}, {<<"size">>, Size}])).
 
 -define(INPUTST(Type, Name, Value, Size),
-	?INPUT(Type, Name, (translate:translate(Lang, Value)), Size)).
+	?INPUT(Type, Name, (Value), Size)).
 
 -define(ACLINPUT(Text),
 	?XE(<<"td">>,
@@ -90,7 +90,7 @@
 	?XAC(<<"p">>, [{<<"class">>, <<"result">>}], Text)).
 
 %% Guide Link
--define(XREST(Text), ?XRES((translate:translate(Lang, Text)))).
+-define(XREST(Text), ?XRES((Text))).
 
 -define(GL(Ref, Title),
 	?XAE(<<"div">>, [{<<"class">>, <<"guidelink">>}],

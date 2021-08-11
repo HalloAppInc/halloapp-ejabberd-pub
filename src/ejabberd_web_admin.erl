@@ -155,7 +155,7 @@ url_to_path(URL) -> str:tokens(URL, <<"/">>).
 %%%% process/2
 
 process([<<"server">>, SHost | RPath] = Path,
-	#request{auth = Auth, lang = Lang, host = HostHTTP,
+	#request{auth = Auth, host = HostHTTP,
 		 method = Method} =
 	    Request) ->
     Host = jid:nameprep(SHost),
@@ -190,7 +190,7 @@ process([<<"server">>, SHost | RPath] = Path,
       false -> ejabberd_web:error(not_found)
     end;
 process(RPath,
-	#request{auth = Auth, lang = Lang, host = HostHTTP,
+	#request{auth = Auth, host = HostHTTP,
 		 method = Method} =
 	    Request) ->
     case get_auth_admin(Auth, HostHTTP, RPath, Method) of
@@ -391,7 +391,7 @@ logo_fill() ->
 %%%% process_admin
 
 process_admin(global, #request{path = [], lang = Lang}, AJID) ->
-    make_xhtml((?H1GL((translate:translate(Lang, ?T("Administration"))), <<"">>,
+    make_xhtml((?H1GL((?T("Administration")), <<"">>,
 		      <<"Contents">>))
 		 ++
 		 [?XE(<<"ul">>,
@@ -433,7 +433,7 @@ process_admin(_Host, #request{path = [<<"additions.js">>]}, _) ->
      additions_js()};
 process_admin(global, #request{path = [<<"vhosts">>], lang = Lang}, AJID) ->
     Res = list_vhosts(Lang, AJID),
-    make_xhtml((?H1GL((translate:translate(Lang, ?T("Virtual Hosts"))),
+    make_xhtml((?H1GL((?T("Virtual Hosts")),
 		      <<"virtual-hosting">>, ?T("Virtual Hosting")))
 		 ++ Res,
 	       global, Lang, AJID);
@@ -469,7 +469,7 @@ process_admin(Host, #request{path = [<<"last-activity">>],
 		list_last_activity(Host, Lang, false, Month);
 	    _ -> list_last_activity(Host, Lang, true, Month)
 	  end,
-    PageH1 = ?H1GL(translate:translate(Lang, ?T("Users Last Activity")), <<"mod-last">>, <<"mod_last">>),
+    PageH1 = ?H1GL(?T("Users Last Activity"), <<"mod-last">>, <<"mod_last">>),
     make_xhtml(PageH1 ++
 		 [?XAE(<<"form">>,
 		       [{<<"action">>, <<"">>}, {<<"method">>, <<"post">>}],
@@ -486,10 +486,10 @@ process_admin(Host, #request{path = [<<"last-activity">>],
 							[{<<"value">>, O}]),
 						     V)
 					end,
-					[{<<"month">>, translate:translate(Lang, ?T("Last month"))},
-					 {<<"year">>, translate:translate(Lang, ?T("Last year"))},
+					[{<<"month">>, ?T("Last month")},
+					 {<<"year">>, ?T("Last year")},
 					 {<<"all">>,
-					  translate:translate(Lang, ?T("All activity"))}]))),
+					  ?T("All activity")}]))),
 			?C(<<" ">>),
 			?INPUTT(<<"submit">>, <<"ordinary">>,
 				?T("Show Ordinary Table")),
@@ -500,7 +500,7 @@ process_admin(Host, #request{path = [<<"last-activity">>],
 	       Host, Lang, AJID);
 process_admin(Host, #request{path = [<<"stats">>], lang = Lang}, AJID) ->
     Res = get_stats(Host, Lang),
-    PageH1 = ?H1GL(translate:translate(Lang, ?T("Statistics")), <<"mod-stats">>, <<"mod_stats">>),
+    PageH1 = ?H1GL(?T("Statistics"), <<"mod-stats">>, <<"mod_stats">>),
     make_xhtml(PageH1 ++ Res, Host, Lang, AJID);
 process_admin(Host, #request{path = [<<"user">>, U],
 			     q = Query, lang = Lang}, AJID) ->
@@ -586,7 +586,7 @@ list_vhosts(Lang, JID) ->
 				Hosts),
     list_vhosts2(Lang, HostsAllowed).
 
-list_vhosts2(Lang, Hosts) ->
+list_vhosts2(_Lang, Hosts) ->
     SHosts = lists:sort(Hosts),
     [?XE(<<"table">>,
 	 [?XE(<<"thead">>,
@@ -656,12 +656,12 @@ list_users(Host, Query, Lang, URLFunc) ->
 	    [{<<"action">>, <<"">>}, {<<"method">>, <<"post">>}],
 	    ([?XE(<<"table">>,
 		  [?XE(<<"tr">>,
-		       [?XC(<<"td">>, <<(translate:translate(Lang, ?T("User")))/binary, ":">>),
+		       [?XC(<<"td">>, <<(?T("User"))/binary, ":">>),
 			?XE(<<"td">>,
 			    [?INPUT(<<"text">>, <<"newusername">>, <<"">>)]),
 			?XE(<<"td">>, [?C(<<" @ ", Host/binary>>)])]),
 		   ?XE(<<"tr">>,
-		       [?XC(<<"td">>, <<(translate:translate(Lang, ?T("Password")))/binary, ":">>),
+		       [?XC(<<"td">>, <<(?T("Password"))/binary, ":">>),
 			?XE(<<"td">>,
 			    [?INPUT(<<"password">>, <<"newuserpassword">>,
 				    <<"">>)]),
@@ -707,7 +707,7 @@ list_users_in_diapason(Host, Diap, Lang, URLFunc) ->
     [list_given_users(Host, Sub, <<"../../">>, Lang,
 		      URLFunc)].
 
-list_given_users(Host, Users, Prefix, Lang, URLFunc) ->
+list_given_users(Host, Users, Prefix, _Lang, URLFunc) ->
     ModOffline = get_offlinemsg_module(Host),
     ?XE(<<"table">>,
 	[?XE(<<"thead">>,
@@ -730,7 +730,7 @@ list_given_users(Host, Users, Prefix, Lang, URLFunc) ->
 					    of
 					  [] ->
 					      case get_last_info(User, Server) of
-						not_found -> translate:translate(Lang, ?T("Never"));
+						not_found -> ?T("Never");
 						{ok, Shift, _Status} ->
 						    TimeStamp = {Shift div
 								   1000000,
@@ -748,7 +748,7 @@ list_given_users(Host, Users, Prefix, Lang, URLFunc) ->
 										    Minute,
 										    Second]))
 					      end;
-					  _ -> translate:translate(Lang, ?T("Online"))
+					  _ -> ?T("Online")
 					end,
 				?XE(<<"tr">>,
 				    [?XE(<<"td">>,
@@ -786,7 +786,7 @@ su_to_list({Server, User}) ->
 %%%==================================
 %%%% get_stats
 
-get_stats(global, Lang) ->
+get_stats(global, _Lang) ->
     OnlineUsers = ejabberd_sm:connected_users_number(),
     RegisteredUsers = ejabberd_auth:count_users(),
     [?XAE(<<"table">>, [],
@@ -797,7 +797,7 @@ get_stats(global, Lang) ->
 		?XE(<<"tr">>,
 		    [?XCT(<<"td">>, ?T("Online Users:")),
 		     ?XC(<<"td">>, (pretty_string_int(OnlineUsers)))])])])];
-get_stats(_Host, Lang) ->
+get_stats(_Host, _Lang) ->
     OnlineUsers =
 	ejabberd_sm:ets_count_sessions(),
     RegisteredUsers =
@@ -897,7 +897,7 @@ user_info(User, Server, Query, Lang) ->
 		       of
 		     [] ->
 			 case get_last_info(User, Server) of
-			   not_found -> translate:translate(Lang, ?T("Never"));
+			   not_found -> ?T("Never");
 			   {ok, Shift, _Status} ->
 			       TimeStamp = {Shift div 1000000,
 					    Shift rem 1000000, 0},
@@ -908,10 +908,9 @@ user_info(User, Server, Query, Lang) ->
 							       Hour, Minute,
 							       Second]))
 			 end;
-		     _ -> translate:translate(Lang, ?T("Online"))
+		     _ -> ?T("Online")
 		   end,
-    [?XC(<<"h1">>, (str:format(translate:translate(Lang, ?T("User ~ts")),
-                                                [us_to_list(US)])))]
+    [?XC(<<"h1">>, (str:format(?T("User ~ts"), [us_to_list(US)])))]
       ++
       case Res of
 	ok -> [?XREST(?T("Submitted"))];
@@ -961,7 +960,7 @@ user_parse_query1(Action, User, Server, Query) ->
       Res -> Res
     end.
 
-list_last_activity(Host, Lang, Integral, Period) ->
+list_last_activity(Host, _Lang, Integral, Period) ->
     TimeStamp = erlang:system_time(second),
     case Period of
       <<"all">> -> TS = 0, Days = infinity;
@@ -1024,7 +1023,7 @@ histogram([], _Integral, _Current, Count, Hist) ->
 %%%==================================
 %%%% get_nodes
 
-get_nodes(Lang) ->
+get_nodes(_Lang) ->
     RunningNodes = ejabberd_cluster:get_nodes(),
     StoppedNodes = ejabberd_cluster:get_known_nodes()
 		     -- RunningNodes,
@@ -1067,7 +1066,7 @@ get_node(global, Node, [], Query, Lang) ->
     Base = get_base_path(global, Node),
     MenuItems2 = make_menu_items(global, Node, Base, Lang),
     [?XC(<<"h1">>,
-	 (str:format(translate:translate(Lang, ?T("Node ~p")), [Node])))]
+	 (str:format(?T("Node ~p"), [Node])))]
       ++
       case Res of
 	ok -> [?XREST(?T("Submitted"))];
@@ -1089,7 +1088,7 @@ get_node(global, Node, [], Query, Lang) ->
 get_node(Host, Node, [], _Query, Lang) ->
     Base = get_base_path(Host, Node),
     MenuItems2 = make_menu_items(Host, Node, Base, Lang),
-    [?XC(<<"h1">>, (str:format(translate:translate(Lang, ?T("Node ~p")), [Node]))),
+    [?XC(<<"h1">>, (str:format(?T("Node ~p"), [Node]))),
      ?XE(<<"ul">>, MenuItems2)];
 get_node(global, Node, [<<"db">>], Query, Lang) ->
     case ejabberd_cluster:call(Node, mnesia, system_info, [tables]) of
@@ -1145,7 +1144,7 @@ get_node(global, Node, [<<"db">>], Query, Lang) ->
 			   end,
 			   STables),
 	  [?XC(<<"h1">>,
-	       (str:format(translate:translate(Lang, ?T("Database Tables at ~p")),
+	       (str:format(?T("Database Tables at ~p"),
                                             [Node]))
 	  )]
 	    ++
@@ -1180,10 +1179,10 @@ get_node(global, Node, [<<"backup">>], Query, Lang) ->
 	     nothing -> [];
 	     ok -> [?XREST(?T("Submitted"))];
 	     {error, Error} ->
-		 [?XRES(<<(translate:translate(Lang, ?T("Error")))/binary, ": ",
+		 [?XRES(<<(?T("Error"))/binary, ": ",
 			  ((str:format("~p", [Error])))/binary>>)]
 	   end,
-    [?XC(<<"h1">>, (str:format(translate:translate(Lang, ?T("Backup of ~p")), [Node])))]
+    [?XC(<<"h1">>, (str:format(?T("Backup of ~p"), [Node])))]
       ++
       ResS ++
 	[?XCT(<<"p">>,
@@ -1319,7 +1318,7 @@ get_node(global, Node, [<<"backup">>], Query, Lang) ->
 			       ?XE(<<"td">>,
 				   [?INPUTT(<<"submit">>, <<"import_dir">>,
 					    ?T("OK"))])])])])])];
-get_node(global, Node, [<<"stats">>], _Query, Lang) ->
+get_node(global, Node, [<<"stats">>], _Query, _Lang) ->
     UpTime = ejabberd_cluster:call(Node, erlang, statistics,
 		      [wall_clock]),
     UpTimeS = (str:format("~.3f",
@@ -1337,7 +1336,7 @@ get_node(global, Node, [<<"stats">>], _Query, Lang) ->
     TransactionsLogged = ejabberd_cluster:call(Node, mnesia, system_info,
 				  [transaction_log_writes]),
     [?XC(<<"h1">>,
-	 (str:format(translate:translate(Lang, ?T("Statistics of ~p")), [Node]))),
+	 (str:format(?T("Statistics of ~p"), [Node]))),
      ?XAE(<<"table">>, [],
 	  [?XE(<<"tbody">>,
 	       [?XE(<<"tr">>,
@@ -1368,7 +1367,7 @@ get_node(global, Node, [<<"stats">>], _Query, Lang) ->
 		    [?XCT(<<"td">>, ?T("Transactions Logged:")),
 		     ?XAC(<<"td">>, [{<<"class">>, <<"alignright">>}],
 			  (pretty_string_int(TransactionsLogged)))])])])];
-get_node(global, Node, [<<"update">>], Query, Lang) ->
+get_node(global, Node, [<<"update">>], Query, _Lang) ->
     ejabberd_cluster:call(Node, code, purge, [ejabberd_update]),
     Res = node_update_parse_query(Node, Query),
     ejabberd_cluster:call(Node, code, load_file, [ejabberd_update]),
@@ -1405,7 +1404,7 @@ get_node(global, Node, [<<"update">>], Query, Lang) ->
     FmtLowLevelScript = (?XC(<<"pre">>,
 			     (str:format("~p", [LowLevelScript])))),
     [?XC(<<"h1">>,
-	 (str:format(translate:translate(Lang, ?T("Update ~p")), [Node])))]
+	 (str:format(?T("Update ~p"), [Node])))]
       ++
       case Res of
 	ok -> [?XREST(?T("Submitted"))];
@@ -1459,7 +1458,7 @@ node_parse_query(Node, Query) ->
 	  end
     end.
 
-make_select_host(Lang, Name) ->
+make_select_host(_Lang, Name) ->
     ?XAE(<<"select">>,
 	 [{<<"name">>, Name}],
 	 (lists:map(fun (Host) ->
@@ -1468,7 +1467,7 @@ make_select_host(Lang, Name) ->
 		    end,
 		    ejabberd_config:get_option(hosts)))).
 
-db_storage_select(ID, Opt, Lang) ->
+db_storage_select(ID, Opt, _Lang) ->
     ?XAE(<<"select">>,
 	 [{<<"name">>, <<"table", ID/binary>>}],
 	 (lists:map(fun ({O, Desc}) ->
@@ -1834,13 +1833,13 @@ make_menu_item(header, 2, URI, Name, _Lang) ->
 make_menu_item(header, 3, URI, Name, _Lang) ->
     ?LI([?XAE(<<"div">>, [{<<"id">>, <<"navheadsubsub">>}],
 	      [?AC(URI, Name)])]);
-make_menu_item(item, 1, URI, Name, Lang) ->
+make_menu_item(item, 1, URI, Name, _Lang) ->
     ?LI([?XAE(<<"div">>, [{<<"id">>, <<"navitem">>}],
 	      [?ACT(URI, Name)])]);
-make_menu_item(item, 2, URI, Name, Lang) ->
+make_menu_item(item, 2, URI, Name, _Lang) ->
     ?LI([?XAE(<<"div">>, [{<<"id">>, <<"navitemsub">>}],
 	      [?ACT(URI, Name)])]);
-make_menu_item(item, 3, URI, Name, Lang) ->
+make_menu_item(item, 3, URI, Name, _Lang) ->
     ?LI([?XAE(<<"div">>, [{<<"id">>, <<"navitemsubsub">>}],
 	      [?ACT(URI, Name)])]).
 

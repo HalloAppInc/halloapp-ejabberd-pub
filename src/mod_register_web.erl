@@ -119,46 +119,43 @@ process([<<"change_password">>],
 	    {400, [], <<"Host not served">>}
     end;
 process([<<"new">>],
-	#request{method = 'POST', q = Q, ip = {Ip, _Port},
-		 lang = Lang, host = _HTTPHost}) ->
+	#request{method = 'POST', q = Q, ip = {Ip, _Port}, host = _HTTPHost}) ->
     case form_new_post(Q) of
       {success, ok, {Username, Host, _Password}} ->
 	  Jid = jid:make(Username, Host),
           mod_register:send_registration_notifications(?MODULE, Jid, Ip),
-	  Text = translate:translate(Lang, ?T("Your Jabber account was successfully created.")),
+	  Text = ?T("Your Jabber account was successfully created."),
 	  {200, [], Text};
       Error ->
 	  ErrorText =
-                list_to_binary([translate:translate(Lang, ?T("There was an error creating the account: ")),
-                                translate:translate(Lang, get_error_text(Error))]),
+                list_to_binary([?T("There was an error creating the account: "),
+                                get_error_text(Error)]),
 	  {404, [], ErrorText}
     end;
 process([<<"delete">>],
-	#request{method = 'POST', q = Q, lang = Lang,
-		 host = _HTTPHost}) ->
+	#request{method = 'POST', q = Q, host = _HTTPHost}) ->
     case form_del_post(Q) of
       {atomic, ok} ->
-	  Text = translate:translate(Lang, ?T("Your Jabber account was successfully deleted.")),
+	  Text = ?T("Your Jabber account was successfully deleted."),
 	  {200, [], Text};
       Error ->
 	  ErrorText =
-                list_to_binary([translate:translate(Lang, ?T("There was an error deleting the account: ")),
-                                translate:translate(Lang, get_error_text(Error))]),
+                list_to_binary([?T("There was an error deleting the account: "),
+                                get_error_text(Error)]),
 	  {404, [], ErrorText}
     end;
 %% TODO: Currently only the first vhost is usable. The web request record
 %% should include the host where the POST was sent.
 process([<<"change_password">>],
-	#request{method = 'POST', q = Q, lang = Lang,
-		 host = _HTTPHost}) ->
+	#request{method = 'POST', q = Q, host = _HTTPHost}) ->
     case form_changepass_post(Q) of
       {atomic, ok} ->
-	  Text = translate:translate(Lang, ?T("The password of your Jabber account was successfully changed.")),
+	  Text = ?T("The password of your Jabber account was successfully changed."),
 	  {200, [], Text};
       Error ->
 	  ErrorText =
-                list_to_binary([translate:translate(Lang, ?T("There was an error changing the password: ")),
-                                translate:translate(Lang, get_error_text(Error))]),
+                list_to_binary([?T("There was an error changing the password: "),
+                                get_error_text(Error)]),
 	  {404, [], ErrorText}
     end;
 
@@ -207,7 +204,7 @@ meta() ->
 %%% Index page
 %%%----------------------------------------------------------------------
 
-index_page(Lang) ->
+index_page(_Lang) ->
     HeadEls = [meta(),
 	       ?XCT(<<"title">>,
 		    ?T("Jabber Account Registration")),
@@ -246,7 +243,7 @@ form_new_get(Host, Lang, IP) ->
 		ejabberd_web:error(not_allowed)
     end.
 
-form_new_get2(Host, Lang, CaptchaEls) ->
+form_new_get2(Host, _Lang, CaptchaEls) ->
     HeadEls = [meta(),
 	       ?XCT(<<"title">>,
 		    ?T("Register a Jabber account")),
@@ -278,7 +275,7 @@ form_new_get2(Host, Lang, CaptchaEls) ->
 				      ?T("This is case insensitive: macbeth is "
 					 "the same that MacBeth and Macbeth.")),
 				 ?XC(<<"li">>,
-				     <<(translate:translate(Lang, ?T("Characters not allowed:")))/binary,
+				     <<(?T("Characters not allowed:"))/binary,
 				       " \" & ' / : < > @ ">>)])]),
 		       ?XE(<<"li">>,
 			   [?CT(?T("Server:")), ?C(<<" ">>),
@@ -357,14 +354,14 @@ form_new_post(Username, Host, Password, {Id, Key}) ->
 %%% Formulary Captcha support for new GET/POST
 %%%----------------------------------------------------------------------
 
-build_captcha_li_list(Lang, IP) ->
+build_captcha_li_list(_Lang, _IP) ->
     [].
 
 %%%----------------------------------------------------------------------
 %%% Formulary change password GET
 %%%----------------------------------------------------------------------
 
-form_changepass_get(Host, Lang) ->
+form_changepass_get(Host, _Lang) ->
     HeadEls = [meta(),
 	       ?XCT(<<"title">>, ?T("Change Password")),
 	       ?XA(<<"link">>,
@@ -468,7 +465,7 @@ check_password(Username, _Host, Password) ->
 %%% Formulary delete account GET
 %%%----------------------------------------------------------------------
 
-form_del_get(Host, Lang) ->
+form_del_get(Host, _Lang) ->
     HeadEls = [meta(),
 	       ?XCT(<<"title">>,
 		    ?T("Unregister a Jabber account")),

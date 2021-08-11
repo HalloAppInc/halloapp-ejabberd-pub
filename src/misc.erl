@@ -393,10 +393,9 @@ read_lua(File) ->
     read_file(filename:join(lua_dir(), File)).
 
 -spec get_descr(binary(), binary()) -> binary().
-get_descr(Lang, Text) ->
-    Desc = translate:translate(Lang, Text),
+get_descr(_Lang, Text) ->
     Copyright = ejabberd_config:get_copyright(),
-    <<Desc/binary, $\n, Copyright/binary>>.
+    <<Text/binary, $\n, Copyright/binary>>.
 
 -spec intersection(list(), list()) -> list().
 intersection(L1, L2) ->
