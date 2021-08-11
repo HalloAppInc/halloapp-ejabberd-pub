@@ -124,7 +124,9 @@ register_user(Uid, _Server, Phone) ->
 request_invite(FromUid, ToPhoneNum) ->
     stat:count(?NS_INVITE_STATS, "requests"),
     stat:count(?NS_INVITE_STATS, "requests_by_dev", 1, [{is_dev, dev_users:is_dev_uid(FromUid)}]),
-    case can_send_invite(FromUid, ToPhoneNum) of
+    {ok, FromPhone} = model_accounts:get_phone(FromUid),
+    FromRegionId = mod_libphonenumber:get_region_id(FromPhone),
+    case can_send_invite(FromUid, ToPhoneNum, FromRegionId) of
         {error, already_invited} ->
             ?INFO("Uid: ~s Phone: ~s already_invited", [FromUid, ToPhoneNum]),
             stat:count(?NS_INVITE_STATS, "invite_duplicate"),
@@ -137,6 +139,9 @@ request_invite(FromUid, ToPhoneNum) ->
             ?INFO("Uid: ~s Phone: ~s invite successful, ~p invites left",
                 [FromUid, ToPhoneNum, InvitesLeft]),
             stat:count(?NS_INVITE_STATS, "invite_success"),
+            ToRegionId = mod_libphonenumber:get_region_id(ToPhoneNum),
+            stat:count(?NS_INVITE_STATS, "inviter_country", 1, [{country, FromRegionId}]),
+            stat:count(?NS_INVITE_STATS, "invited_country", 1, [{country, ToRegionId}]),
             % In prod, registration of test number won't decrease the # of invites a user has
             NumInvitesLeft = case should_decr_invites(NormalizedPhone) of
                 true -> InvitesLeft;
@@ -223,9 +228,7 @@ get_time_until_refresh(CurrEpochTime) ->
     get_next_sunday_midnight(CurrEpochTime) - CurrEpochTime.
 
 
-can_send_invite(FromUid, ToPhone) ->
-    {ok, UserPhone} = model_accounts:get_phone(FromUid),
-    RegionId = mod_libphonenumber:get_region_id(UserPhone),
+can_send_invite(FromUid, ToPhone, RegionId) ->
     %% Clients are expected to send us the normalized version of the phone number that server
     %% sent them during contact sync.
     %% So we re-add the plus sign and check if the number is valid.
