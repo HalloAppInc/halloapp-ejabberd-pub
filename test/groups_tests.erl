@@ -412,7 +412,7 @@ get_group_test(Conf) ->
         stanza = #pb_iq{
             type = result,
             payload = #pb_group_stanza{
-                action = set, % TODO: Why set
+                action = get,
                 gid = Gid,
                 name = ?GROUP_NAME1,
                 members = [
@@ -437,7 +437,7 @@ get_group_test(Conf) ->
         stanza = #pb_iq{
             type = result,
             payload = #pb_group_stanza{
-                action = set, % TODO: Why set
+                action = get,
                 gid = Gid2,
                 name = ?GROUP_NAME2,
                 members = [

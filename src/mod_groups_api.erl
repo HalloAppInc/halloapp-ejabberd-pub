@@ -135,6 +135,13 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     process_set_name(IQ, Gid, Uid, Name);
 
 
+%%% set_description %%%
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_stanza{action = change_description,
+        gid = Gid, description = Description} = _ReqGroupSt} = IQ) ->
+    process_set_description(IQ, Gid, Uid, Description);
+
+
 %%% delete_avatar
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_upload_group_avatar{gid = Gid, data = undefined}} = IQ) ->
@@ -287,8 +294,7 @@ process_get_group(IQ, Gid, Uid) ->
         {error, not_member} ->
             pb:make_error(IQ, util:err(not_member));
         {ok, Group} ->
-            % TODO: (nikola) change to make_group_st(Group, get)
-            GroupSt = make_group_st(Group),
+            GroupSt = make_group_st(Group, get),
             pb:make_iq_result(IQ, GroupSt)
     end.
 
@@ -300,8 +306,7 @@ process_get_member_identity_keys(IQ, Gid, Uid) ->
         {error, not_member} ->
             pb:make_error(IQ, util:err(not_member));
         {ok, Group} ->
-            % TODO: (nikola) change to make_group_st(Group, get)
-            GroupSt = make_group_st(Group),
+            GroupSt = make_group_st(Group, get_member_identity_keys),
             pb:make_iq_result(IQ, GroupSt)
     end.
 
@@ -324,6 +329,20 @@ process_set_name(IQ, Gid, Uid, Name) ->
     case mod_groups:set_name(Gid, Uid, Name) of
         {error, invalid_name} ->
             pb:make_error(IQ, util:err(invalid_name));
+        {error, not_member} ->
+            pb:make_error(IQ, util:err(not_member));
+        ok ->
+            {ok, GroupInfo} = mod_groups:get_group_info(Gid, Uid),
+            pb:make_iq_result(IQ, group_info_to_group_st(GroupInfo))
+    end.
+
+
+-spec process_set_description(IQ :: pb_iq(), Gid :: gid(), Uid :: uid(), Description :: binary()) -> pb_iq().
+process_set_description(IQ, Gid, Uid, Description) ->
+    ?INFO("set_description Gid: ~s Uid: ~s Description: |~p|", [Gid, Uid, Description]),
+    case mod_groups:set_description(Gid, Uid, Description) of
+        {error, invalid_description} ->
+            pb:make_error(IQ, util:err(invalid_description));
         {error, not_member} ->
             pb:make_error(IQ, util:err(not_member));
         ok ->
@@ -487,6 +506,7 @@ group_info_to_group_st(GroupInfo) ->
     #pb_group_stanza{
         gid = GroupInfo#group_info.gid,
         name = GroupInfo#group_info.name,
+        description = GroupInfo#group_info.description,
         avatar_id = GroupInfo#group_info.avatar,
         background = GroupInfo#group_info.background
     }.
@@ -498,10 +518,16 @@ make_group_st(Group) ->
 
 -spec make_group_st(Group :: group(), Action :: atom()) -> pb_group_stanza().
 make_group_st(Group, Action) ->
+    Description = case Action of
+        _ when Action =:= get; Action =:= preview; Action =:= join ->
+            Group#group.description;
+        _ -> undefined
+    end,
     #pb_group_stanza{
         action = Action,
         gid = Group#group.gid,
         name = Group#group.name,
+        description = Description,
         avatar_id = Group#group.avatar,
         background = Group#group.background,
         members = make_members_st(Group#group.members),

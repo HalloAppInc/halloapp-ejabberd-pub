@@ -130,6 +130,19 @@ set_name_IQ(Uid, Gid, Name) ->
             }
     }.
 
+
+set_description_IQ(Uid, Gid, Description) ->
+    #pb_iq{
+        from_uid = Uid,
+        type = set,
+        payload =
+            #pb_group_stanza{
+                gid = Gid,
+                action = change_description,
+                description = Description
+            }
+    }.
+
 set_background_IQ(Uid, Gid, Background) ->
     #pb_iq{
         from_uid = Uid,
@@ -420,8 +433,10 @@ get_group_test() ->
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
 %%    ?debugVal(GroupSt, 1000),
     ExpectedGroupSt = #pb_group_stanza{
+        action = get,
         gid = Gid,
         name = ?GROUP_NAME1,
+        description = undefined,
         avatar_id = undefined,
         background = undefined,
         members = [
@@ -445,10 +460,12 @@ get_group_identity_keys_test() ->
     IK2 = maps:get(?UID2, IKMap, undefined),
     IK3 = maps:get(?UID3, IKMap, undefined),
     #pb_group_stanza{
+        action = get_member_identity_keys,
         gid = Gid,
         name = ?GROUP_NAME1,
         avatar_id = undefined,
         background = undefined,
+        description = undefined,
         members = [
             #pb_group_member{uid = ?UID1, name = ?NAME1, type = admin, identity_key = IK1},
             #pb_group_member{uid = ?UID2, name = ?NAME2, type = member, identity_key = IK2},
@@ -486,8 +503,10 @@ get_groups_test() ->
 %%    ?debugVal(GroupsSt, 1000),
     GroupsSet = lists:sort(GroupsSt#pb_groups_stanza.group_stanzas),
     ExpectedGroupsSet = lists:sort([
-        #pb_group_stanza{gid = Gid1, name = ?GROUP_NAME1, avatar_id = undefined, background = undefined},
-        #pb_group_stanza{gid = Gid2, name = ?GROUP_NAME2, avatar_id = undefined, background = undefined}
+        #pb_group_stanza{gid = Gid1, name = ?GROUP_NAME1,
+            description = undefined, avatar_id = undefined, background = undefined},
+        #pb_group_stanza{gid = Gid2, name = ?GROUP_NAME2,
+            description = undefined, avatar_id = undefined, background = undefined}
     ]),
 %%    ?debugVal(ExpectedGroupsSet, 1000),
     ?assertEqual(ExpectedGroupsSet, GroupsSet),
@@ -505,7 +524,8 @@ set_name_test() ->
         gid = Gid,
         name = ?GROUP_NAME3,
         avatar_id = undefined,
-        background = undefined
+        background = undefined,
+        description = undefined
     },
 %%    ?debugVal(ExpectedGroupSt, 1000),
     ?assertEqual(ExpectedGroupSt, GroupSt),
@@ -521,6 +541,38 @@ set_name_error_test() ->
     ?assertEqual(util:err(invalid_name), Error),
 
     IQ2 = set_name_IQ(?UID2, Gid, ?GROUP_NAME2),
+    IQRes2 = mod_groups_api:process_local_iq(IQ2),
+    Error2 = tutil:get_error_iq_sub_el(IQRes2),
+    ?assertEqual(util:err(not_member), Error2),
+    ok.
+
+
+set_description_test() ->
+    setup(),
+    Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    IQ = set_description_IQ(?UID1, Gid, ?GROUP_DESCRIPTION1),
+    IQRes = mod_groups_api:process_local_iq(IQ),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
+    ExpectedGroupSt = #pb_group_stanza{
+        gid = Gid,
+        name = ?GROUP_NAME1,
+        description = ?GROUP_DESCRIPTION1,
+        avatar_id = undefined,
+        background = undefined
+    },
+    ?assertEqual(ExpectedGroupSt, GroupSt),
+    ok.
+
+
+set_description_error_test() ->
+    setup(),
+    Gid = create_group(?UID1, ?GROUP_NAME1, []),
+    IQ = set_description_IQ(?UID1, Gid, undefined),
+    IQRes = mod_groups_api:process_local_iq(IQ),
+    Error = tutil:get_error_iq_sub_el(IQRes),
+    ?assertEqual(util:err(invalid_description), Error),
+
+    IQ2 = set_name_IQ(?UID2, Gid, ?GROUP_DESCRIPTION1),
     IQRes2 = mod_groups_api:process_local_iq(IQ2),
     Error2 = tutil:get_error_iq_sub_el(IQRes2),
     ?assertEqual(util:err(not_member), Error2),

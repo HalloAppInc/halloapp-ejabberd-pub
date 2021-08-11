@@ -37,6 +37,7 @@
     is_member/2,
     is_admin/2,
     set_name/2,
+    set_description/2,
     set_avatar/2,
     set_background/2,
     set_audience_hash/2,
@@ -72,6 +73,7 @@
 %%====================================================================
 
 -define(FIELD_NAME, <<"na">>).
+-define(FIELD_DESCRIPTION, <<"de">>).
 -define(FIELD_AVATAR_ID, <<"av">>).
 -define(FIELD_BACKGROUND, <<"bg">>).
 -define(FIELD_CREATION_TIME, <<"ct">>).
@@ -161,6 +163,7 @@ get_group(Gid) ->
             #group{
                 gid = Gid,
                 name = maps:get(?FIELD_NAME, GroupMap, undefined),
+                description = maps:get(?FIELD_DESCRIPTION, GroupMap, undefined),
                 avatar = maps:get(?FIELD_AVATAR_ID, GroupMap, undefined),
                 creation_ts_ms = util_redis:decode_ts(
                     maps:get(?FIELD_CREATION_TIME, GroupMap, undefined)),
@@ -180,6 +183,7 @@ get_group_info(Gid) ->
             #group_info{
                 gid = Gid,
                 name = maps:get(?FIELD_NAME, GroupMap, undefined),
+                description = maps:get(?FIELD_DESCRIPTION, GroupMap, undefined),
                 avatar = maps:get(?FIELD_AVATAR_ID, GroupMap, undefined),
                 background = maps:get(?FIELD_BACKGROUND, GroupMap, undefined),
                 audience_hash = maps:get(?FIELD_AUDIENCE_HASH, GroupMap, undefined)
@@ -333,6 +337,12 @@ check_member(Gid, Uid) ->
 -spec set_name(Gid :: gid(), Name :: binary()) -> ok.
 set_name(Gid, Name) ->
     {ok, _Res} = q(["HSET", group_key(Gid), ?FIELD_NAME, Name]),
+    ok.
+
+
+-spec set_description(Gid :: gid(), Description :: binary()) -> ok.
+set_description(Gid, Description) ->
+    {ok, _Res} = q(["HSET", group_key(Gid), ?FIELD_DESCRIPTION, Description]),
     ok.
 
 

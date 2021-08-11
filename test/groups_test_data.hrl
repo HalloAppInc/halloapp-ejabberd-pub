@@ -9,8 +9,12 @@
 -author("nikola").
 
 -define(GROUP_NAME1, <<"Test Group 1">>).
--define(GROUP_NAME2, <<"Test Group 2">>).
+-define(GROUP_NAME2_LONG_NAME, <<"Test Group 2.............£¤">>).
+-define(GROUP_NAME2, <<"Test Group 2.............">>).
 -define(GROUP_NAME3, <<"Test Group 3">>).
+
+-define(GROUP_DESCRIPTION1, <<"Test Group Description1">>).
+-define(GROUP_DESCRIPTION2, <<"Test Group Description2£">>).
 
 -define(UID1, <<"1">>).
 -define(UID2, <<"2">>).

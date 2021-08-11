@@ -30,6 +30,7 @@
 -record(group, {
     gid :: gid(),
     name :: binary(),
+    description :: binary(),
     avatar :: binary(),
     background :: binary(),
     creation_ts_ms :: integer(),
@@ -42,6 +43,7 @@
 -record(group_info, {
     gid :: gid(),
     name :: binary(),
+    description :: binary(),
     avatar :: binary(),
     background :: binary(),
     audience_hash :: binary()

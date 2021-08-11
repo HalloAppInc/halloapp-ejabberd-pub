@@ -295,9 +295,23 @@ set_name_test() ->
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
     ?assertEqual(?GROUP_NAME1, Group#group.name),
-    ?assertEqual(ok, mod_groups:set_name(Gid, ?UID1, ?GROUP_NAME2)),
+    ?assertEqual(ok, mod_groups:set_name(Gid, ?UID1, ?GROUP_NAME2_LONG_NAME)),
     {ok, GroupNew} = mod_groups:get_group(Gid, ?UID1),
     ?assertEqual(?GROUP_NAME2, GroupNew#group.name),
+    ok.
+
+
+set_description_test() ->
+    setup(),
+    {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
+    Gid = Group#group.gid,
+    ?assertEqual(undefined, Group#group.description),
+    ?assertEqual(ok, mod_groups:set_description(Gid, ?UID1, ?GROUP_DESCRIPTION1)),
+    {ok, GroupNew} = mod_groups:get_group(Gid, ?UID1),
+    ?assertEqual(?GROUP_DESCRIPTION1, GroupNew#group.description),
+    ?assertEqual(ok, mod_groups:set_description(Gid, ?UID1, ?GROUP_DESCRIPTION2)),
+    {ok, GroupNew2} = mod_groups:get_group(Gid, ?UID1),
+    ?assertEqual(?GROUP_DESCRIPTION2, GroupNew2#group.description),
     ok.
 
 set_avatar_test() ->

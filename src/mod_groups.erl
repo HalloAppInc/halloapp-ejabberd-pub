@@ -38,6 +38,7 @@
     get_groups/1,
     remove_user/2,
     set_name/3,
+    set_description/3,
     set_avatar/3,
     set_background/3,
     delete_avatar/2,
@@ -57,6 +58,7 @@
 -include("groups.hrl").
 -include("feed.hrl").
 -define(MAX_GROUP_NAME_SIZE, 25).
+-define(MAX_GROUP_DESCRIPTION_SIZE, 2000).
 -define(MAX_BG_LENGTH, 64).
 
 -define(STAT_NS, "HA/groups").
@@ -341,6 +343,27 @@ set_name(Gid, Uid, Name) ->
                     ?INFO("Gid: ~s Uid: ~s set name to |~s|", [Gid, Uid, LName]),
                     stat:count(?STAT_NS, "set_name"),
                     send_change_name_event(Gid, Uid),
+                    ok
+            end
+    end.
+
+
+-spec set_description(Gid :: gid(), Uid :: uid(),
+        Description :: binary()) -> ok | {error, invalid_description | not_member}.
+set_description(Gid, Uid, Description) ->
+    ?INFO("Gid: ~s Uid: ~s Description: |~s|", [Gid, Uid, Description]),
+    case validate_group_description(Description) of
+        {error, _Reason} = E -> E;
+        {ok, LDescription} ->
+            case model_groups:check_member(Gid, Uid) of
+                false ->
+                    %% also possible the group does not exists
+                    {error, not_member};
+                true ->
+                    ok = model_groups:set_description(Gid, LDescription),
+                    ?INFO("Gid: ~s Uid: ~s set description to |~s|", [Gid, Uid, LDescription]),
+                    stat:count(?STAT_NS, "set_description"),
+                    send_change_description_event(Gid, Uid),
                     ok
             end
     end.
@@ -672,7 +695,8 @@ maybe_delete_empty_group(Gid) ->
 validate_group_name(<<"">>) ->
     {error, invalid_name};
 validate_group_name(Name) when is_binary(Name) ->
-    LName = string:slice(Name, 0, ?MAX_GROUP_NAME_SIZE),
+    MaxGroupNameSize = min(byte_size(Name), ?MAX_GROUP_NAME_SIZE),
+    <<LName:MaxGroupNameSize/binary, _Rest/binary>> = Name,
     case LName =:= Name of
         false -> ?WARNING("Truncating group name to |~s| size was: ~p", [LName, byte_size(Name)]);
         true -> ok
@@ -680,6 +704,20 @@ validate_group_name(Name) when is_binary(Name) ->
     {ok, LName};
 validate_group_name(_Name) ->
     {error, invalid_name}.
+
+
+-spec validate_group_description(Description :: binary()) -> {ok, binary()} | {error, invalid_description}.
+validate_group_description(Description) when is_binary(Description) ->
+    MaxGroupDescSize = min(byte_size(Description), ?MAX_GROUP_DESCRIPTION_SIZE),
+    <<LDescription:MaxGroupDescSize/binary, _Rest/binary>> = Description,
+    case LDescription =:= Description of
+        false -> ?WARNING("Truncating group description to |~s| size was: ~p",
+                [LDescription, byte_size(Description)]);
+        true -> ok
+    end,
+    {ok, LDescription};
+validate_group_description(_Description) ->
+    {error, invalid_description}.
 
 
 -spec promote_admins_unsafe(Gid :: gid(), Uids :: [uid()])
@@ -813,6 +851,14 @@ send_change_name_event(Gid, Uid) ->
     Group = model_groups:get_group(Gid),
     NamesMap = model_accounts:get_names([Uid]),
     broadcast_update(Group, Uid, change_name, [], NamesMap),
+    ok.
+
+
+-spec send_change_description_event(Gid :: gid(), Uid :: uid()) -> ok.
+send_change_description_event(Gid, Uid) ->
+    Group = model_groups:get_group(Gid),
+    NamesMap = model_accounts:get_names([Uid]),
+    broadcast_update(Group, Uid, change_description, [], NamesMap),
     ok.
 
 
