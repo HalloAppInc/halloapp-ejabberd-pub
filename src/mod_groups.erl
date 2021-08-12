@@ -282,7 +282,15 @@ get_member_identity_keys_unsafe(Group) ->
                     end
             end
         end, [], GroupMembers2),
-    AudienceHash = crypto:hash(?SHA256, lists:reverse(IKList)),
+    XorIKList = case length(IKList) of
+        0 -> [];
+        Len ->
+            Start = [0 || _ <- lists:seq(1, byte_size(lists:last(IKList)))],
+            lists:foldl(fun(XX, Acc) ->
+                lists:zipwith(fun(X, Y) -> X bxor Y end, Acc, util:to_list(XX))
+            end, Start, IKList)
+    end,
+    AudienceHash = crypto:hash(?SHA256, XorIKList),
     <<TruncAudienceHash:?TRUNC_HASH_LENGTH/binary, _Rem/binary>> = AudienceHash,
     Group2 = Group#group{
         members = GroupMembers2,

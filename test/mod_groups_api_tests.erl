@@ -332,31 +332,38 @@ delete_group_error_test() ->
 
 
 create_group_with_identity_keys(Uid, Name, Members) ->
+    {SampleIK, _, _} = tutil:gen_whisper_keys(16, 64),
+    SampleIKBin = decode_ik(SampleIK),
+    StartIKList = [0 || _XX <- lists:seq(1, byte_size(SampleIKBin))],
     List = Members ++ [Uid],
-    SortedList = lists:sort(List),
-    {IKBinList, UidToIKMap} = lists:foldl(
+    {FinalIKAcc, UidToIKMap} = lists:foldl(
         fun(MemberUid, Acc) ->
             {IK, SK, OTKS} = tutil:gen_whisper_keys(16, 64),
             mod_whisper:set_keys_and_notify(MemberUid, IK, SK, OTKS),
-            IKBin = base64:decode(IK),
-            IKBin2 = try enif_protobuf:decode(IKBin, pb_identity_key) of
-                #pb_identity_key{public_key = IKPublicKey} ->
-                    IKPublicKey
-            catch Class : Reason : St ->
-                ?debugFmt("failed to parse identity key: ~p, Uid: ~p", 
-                    [IK, MemberUid, lager:pr_stacktrace(St, {Class, Reason})]),
-                ?assert(false)
-            end,
-            {IKList, IKMap} = Acc,
-            {[IKBin2 | IKList], maps:put(MemberUid, IK, IKMap)}
-        end, {[], #{}}, SortedList),
-    AudienceHash = crypto:hash(?SHA256, lists:reverse(IKBinList)),
+            IKBin2 = decode_ik(IK),
+            {XorIK, IKMap} = Acc,
+            NewIKAcc = lists:zipwith(fun(X, Y) -> X bxor Y end, XorIK, util:to_list(IKBin2)),
+            {NewIKAcc, maps:put(MemberUid, IK, IKMap)}
+        end, {StartIKList, #{}}, List),
+    AudienceHash = crypto:hash(?SHA256, FinalIKAcc),
     <<TruncAudienceHash:?TRUNC_HASH_LENGTH/binary, _Rem/binary>> = AudienceHash,
     IQ = create_group_IQ(Uid, Name, Members, true),
     IQRes = mod_groups_api:process_local_iq(IQ),
     GroupSt = tutil:get_result_iq_sub_el(IQRes),
     #pb_group_stanza{gid = Gid} = GroupSt,
     {Gid, TruncAudienceHash, UidToIKMap}.
+
+
+decode_ik(IK) ->
+    IKBin2 = try enif_protobuf:decode(base64:decode(IK), pb_identity_key) of
+        #pb_identity_key{public_key = IKPublicKey} ->
+            IKPublicKey
+    catch Class : Reason : St ->
+        ?debugFmt("failed to parse identity key: ~p", 
+            [IK, lager:pr_stacktrace(St, {Class, Reason})]),
+        ?assert(false)
+    end.
+
 
 create_group(Uid, Name, Members) ->
     create_group(Uid, Name, Members, false).
