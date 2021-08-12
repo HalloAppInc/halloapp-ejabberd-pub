@@ -512,10 +512,7 @@ is_group_invite_valid(GroupInviteToken) ->
 -spec delete_client_ip(IP :: list(), Phone :: binary()) -> ok.
 delete_client_ip(IP, Phone) ->
     CC = mod_libphonenumber:get_region_id(Phone),
-    case is_country_blockable(CC) of
-        true -> model_ip_addresses:delete_ip_address(IP, CC);
-        false -> ok
-    end.
+    model_ip_addresses:delete_ip_address(IP, CC).
 
 -spec delete_phone_pattern(Phone :: binary()) -> ok.
 delete_phone_pattern(Phone) ->
