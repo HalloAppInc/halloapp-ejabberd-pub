@@ -40,7 +40,8 @@
     {execute, parallel | sequential} |
     {dry_run, true | false} |
     {scan_count, non_neg_integer()} |
-    {interval, non_neg_integer()}.
+    {interval, non_neg_integer()} |
+    {max_count, non_neg_integer()}.
 -type options() :: [option()].
 -export_type([migrate_func/0, option/0, options/0]).
 
@@ -92,7 +93,8 @@ start_migration(Name, RedisService, Function, Options) ->
         migrate_func => {Mod, Func},
         interval => proplists:get_value(interval, Options, 1000),
         scan_count => proplists:get_value(scan_count, Options, 100),
-        dry_run => proplists:get_value(dry_run, Options, false)
+        dry_run => proplists:get_value(dry_run, Options, false),
+        max_count => propslists:get_value(max_count, Options, 5000) % per master
     },
     Pids = lists:map(
         fun ({Index, {RedisHost, RedisPort}}) ->
@@ -146,8 +148,8 @@ iterate(Name) ->
 
 
 -spec init(Job :: #{}) -> {ok, any()}.
-init(#{redis_host := RedisHost, redis_port := RedisPort,
-        interval := Interval, dry_run := DryRun, scan_count := ScanCount} = Job) ->
+init(#{redis_host := RedisHost, redis_port := RedisPort, interval := Interval,
+        dry_run := DryRun, scan_count := ScanCount, max_count := MaxCount} = Job) ->
     ?INFO("Migration started: pid: ~p, Job: ~p", [self(), Job]),
     process_flag(trap_exit, true),
     {ok, C} = eredis:start_link(RedisHost, RedisPort),
@@ -187,8 +189,9 @@ handle_cast({iterate}, State) ->
     Interval = maps:get(interval, State),
     C = maps:get(c, State),
     Count = maps:get(scan_count, State),
+    MaxCount = maps:get(max_count, State),
     {ok, [NextCursor, Items]} = eredis:q(C, ["SCAN", Cursor, "COUNT", Count]),
-    ?DEBUG("NextCursor: ~p, items: ~p", [NextCursor, length(Items)]),
+    ?DEBUG("NextCursor: ~p, items: ~p, Max limit left: ~p", [NextCursor, length(Items), MaxCount]),
     NewState1 = lists:foldl(
         fun (Key, Acc) ->
             erlang:apply(Mod, Func, [Key, Acc])
@@ -197,15 +200,23 @@ handle_cast({iterate}, State) ->
         Items),
     case NextCursor of
         <<"0">> ->
-            ?INFO("scan done", []),
+            ?INFO("scan done - all keys scanned", []),
             {stop, normal, NewState1};
         _ ->
-            TRef = erlang:send_after(Interval, self(), {'$gen_cast', {iterate}}),
-            NewState2 = NewState1#{
-                cursor := NextCursor,
-                tref := TRef
-            },
-            {noreply, NewState2}
+            RemainingCount = MaxCount - util:to_integer(Count),
+            case RemainingCount > 0 of
+                true ->
+                    TRef = erlang:send_after(Interval, self(), {'$gen_cast', {iterate}}),
+                    NewState2 = NewState1#{
+                        cursor := NextCursor,
+                        tref := TRef,
+                        max_count := RemainingCount
+                    },
+                    {noreply, NewState2};
+                false ->
+                    ?INFO("scan done - reached max limit", []),
+                    {stop, normal, NewState1}
+            end
     end;
 
 
