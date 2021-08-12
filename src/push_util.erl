@@ -255,6 +255,13 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_rerequest{} = _Payload} = _Message
         push_type = silent
     };
 
+parse_metadata(#pb_msg{id = Id, payload = #pb_group_feed_rerequest{} = _Payload} = _Message, _PushInfo) ->
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"group_feed_rerequest">>,
+        push_type = silent
+    };
+
 parse_metadata(#pb_msg{to_uid = Uid, id = Id}, _PushInfo) ->
     ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     #push_metadata{}.
@@ -305,5 +312,6 @@ get_push_type({headline, _}, pb_contact_list, _PushInfo) -> alert;
 get_push_type({_, contact_notice}, pb_contact_list, _PushInfo) -> alert;
 get_push_type({_, inviter_notice}, pb_contact_list, _PushInfo) -> alert;
 get_push_type(_MsgType, pb_rerequest, _PushInfo) -> silent;
+get_push_type(_MsgType, pb_group_feed_rerequest, _PushInfo) -> silent;
 get_push_type(_MsgType, _PayloadType, _PushInfo) -> silent.
 

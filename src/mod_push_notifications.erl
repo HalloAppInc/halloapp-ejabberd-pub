@@ -116,6 +116,10 @@ should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
             %% Send silent pushes for rerequest stanzas.
             true;
 
+        PayloadType =:= pb_group_feed_rerequest ->
+            %% Send silent pushes for group feed rerequest stanzas.
+            true;
+
         Type =:= groupchat andalso PayloadType =:= pb_group_stanza ->
             %% Push when someone is added to a group
             ToUid = Message#pb_msg.to_uid,
