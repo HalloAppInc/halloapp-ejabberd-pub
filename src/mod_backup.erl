@@ -190,16 +190,16 @@ unschedule(RedisId) ->
 -spec backup_redis(RedisId :: string()) -> ok.
 backup_redis(RedisId) ->
     try
-        RedisMetadata = get_redis_metadata(RedisId),
-        Now = util:now(),
-        log_last_backup(RedisId, Now, RedisMetadata),
-        {Folder, RedisMetadata2} = folder_and_new_backup_times(RedisId, Now, RedisMetadata),
+        LastBackup = get_last_backup_time(RedisId),
+        BackupStartTime = util:now(),
+        Folder = get_backup_folder(RedisId, LastBackup, BackupStartTime),
+        log_last_backup(RedisId, LastBackup, BackupStartTime),
         case redis_status(RedisId) of
             <<"available">> ->
                 ?INFO("[~p] Performing backup", [RedisId]),
                 BackupName = create_elasticache_backup(RedisId),
                 copy_backup_to_s3(Folder, BackupName),
-                put_redis_metadata(RedisId, RedisMetadata2),
+                set_last_backup_time(RedisId, BackupStartTime),
                 delete_elasticache_backups(RedisId),
                 stat:count("HA/backups", "successful_backups", 1,
                         [{redis, RedisId}, {storage_time, Folder}]);
@@ -431,12 +431,13 @@ get_objects_with_prefix(Prefix) ->
     proplists:get_value(contents, Response).
 
 
--spec log_last_backup(RedisId :: string(), Now :: integer(), Metadata :: maps:map()) -> ok.
-log_last_backup(RedisId, Now, Metadata) ->
-    LastBackup = maps:get(?LAST_BACKUP_START_KEY, Metadata, 0),
+%% @doc Log the last backup. Log as error if it's been more than 1 day since the
+%%   last backup; otherwise, log as info.
+-spec log_last_backup(RedisId :: string(), LastBackup :: integer(), Now :: integer()) -> ok.
+log_last_backup(RedisId, LastBackup, Now) ->
     TimeSinceLastBackup = Now - LastBackup,
     {Days, Hours, Minutes, Seconds} = humanize_time(TimeSinceLastBackup),
-    case TimeSinceLastBackup >= ?DAILY_BACKUP_INTERVAL of
+    case TimeSinceLastBackup >= 1 * ?DAYS of
         true ->
             ?ERROR("[~p] Time since last hourly backup: ~p days, "
                 ++ "~p:~p:~p", [RedisId, Days, Hours, Minutes, Seconds]);
@@ -446,22 +447,27 @@ log_last_backup(RedisId, Now, Metadata) ->
     end.
 
 
--spec folder_and_new_backup_times(RedisId :: string(), Now :: integer(), Metadata :: maps:map()) ->
-        {string, maps:map()}.
-folder_and_new_backup_times(RedisId, Now, Metadata) ->
-    LastDailyBackup = maps:get(?LAST_DAILY_BACKUP_START_KEY, Metadata, 0),
-    TimeSinceLastDailyBackup = Now - LastDailyBackup,
-    {Days, Hours, Minutes, Seconds} = humanize_time(TimeSinceLastDailyBackup),
-    ?INFO("[~p] Time since last daily backup: ~p days, ~p:~p:~p",
-            [RedisId, Days, Hours, Minutes, Seconds]),
-    case TimeSinceLastDailyBackup >= ?DAILY_BACKUP_INTERVAL of
+%% We want to take a long-term backup once a day at 00:00 UTC; all other backups
+%%   should be short-term. This is easy to check if we ensure that the first
+%%   backup of every UTC day is long-term.
+%% To determine whether a backup should be long-term or short-term, we check when
+%%   the last backup was taken. If the date of the last backup is strictly smaller
+%%   than the current date, this should be a long-term backup, as it's the first
+%%   backup of the day; otherwise, we've already taken a long-term backup today,
+%%   so this backup should be a short-term backup.
+-spec get_backup_folder(RedisId :: string(), LastBackup :: integer(), Now :: integer()) -> string().
+get_backup_folder(RedisId, LastBackup, Now) ->
+    {LastBackupDate, _LastBackupHMS} = calendar:system_time_to_universal_time(LastBackup, seconds),
+    {NowDate, _NowHMS} = calendar:system_time_to_universal_time(Now, seconds),
+    LastBackupGregorianDays = calendar:date_to_gregorian_days(LastBackupDate),
+    NowGregorianDays = calendar:date_to_gregorian_days(NowDate),
+    case LastBackupGregorianDays < NowGregorianDays of
         true ->
             ?INFO("[~p] Backup type needed: Long term", [RedisId]),
-            {?LONG_TERM_FOLDER, Metadata#{?LAST_BACKUP_START_KEY => Now, 
-                    ?LAST_DAILY_BACKUP_START_KEY => Now}};
+            ?LONG_TERM_FOLDER;
         false ->
             ?INFO("[~p] Backup type needed: Short term", [RedisId]),
-            {?SHORT_TERM_FOLDER, Metadata#{?LAST_BACKUP_START_KEY => Now}}
+            ?SHORT_TERM_FOLDER
     end.
 
 
@@ -476,25 +482,27 @@ objects_to_backup_size_map(Objects) ->
         end, maps:new(), Objects).
 
 
--spec get_redis_metadata(RedisId :: string()) -> maps:map().
-get_redis_metadata(RedisId) ->
+-spec get_last_backup_time(RedisId :: string()) -> integer().
+get_last_backup_time(RedisId) ->
     try
         RedisMetadataPath = RedisId ++ ?METADATA_EXTENSION,
         Response = erlcloud_s3:get_object(?BACKUP_BUCKET, RedisMetadataPath),
         JsonEncoded = proplists:get_value(content, Response),
-        jiffy:decode(JsonEncoded, [return_maps])
+        Json = jiffy:decode(JsonEncoded, [return_maps]),
+        maps:get(?LAST_BACKUP_START_KEY, Json)
     catch
         _Class:_Reason:_Stacktace ->
             ?ERROR("[~p] Redis metadata not present or malformed. Creating new metadata object",
                     [RedisId]),
-            maps:new()
+            0
     end.
 
 
--spec put_redis_metadata(RedisId :: string(), RedisMetadata :: maps:map()) -> ok.
-put_redis_metadata(RedisId, RedisMetadata) ->
+-spec set_last_backup_time(RedisId :: string(), BackupStartTime :: integer()) -> ok.
+set_last_backup_time(RedisId, BackupStartTime) ->
     RedisMetadataPath = RedisId ++ ?METADATA_EXTENSION,
-    erlcloud_s3:put_object(?BACKUP_BUCKET, RedisMetadataPath, jiffy:encode(RedisMetadata)).
+    JsonBinary = jiffy:encode(#{?LAST_BACKUP_START_KEY => BackupStartTime}),
+    erlcloud_s3:put_object(?BACKUP_BUCKET, RedisMetadataPath, JsonBinary).
 
 
 %% TODO(@ethan): move this into redis_sup
