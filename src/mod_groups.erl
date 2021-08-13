@@ -889,6 +889,11 @@ send_change_background_event(Gid, Uid) ->
         Results :: modify_member_results(), NamesMap :: names_map()) -> ok.
 broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     MembersSt = make_members_st(Event, Results, NamesMap),
+    %% broadcast description only on change_description events, else- leave it undefined.
+    Description = case Event of
+        change_description -> Group#group.description;
+        _ -> undefined
+    end,
 
     GroupSt = #pb_group_stanza{
         gid = Group#group.gid,
@@ -898,7 +903,8 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
         sender_uid = Uid,
         sender_name = maps:get(Uid, NamesMap, undefined),
         action = Event,
-        members = MembersSt
+        members = MembersSt,
+        description = Description
     },
 
     Members = [M#group_member.uid || M <- Group#group.members],
