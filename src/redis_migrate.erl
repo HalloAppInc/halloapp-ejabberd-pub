@@ -94,7 +94,8 @@ start_migration(Name, RedisService, Function, Options) ->
         interval => proplists:get_value(interval, Options, 1000),
         scan_count => proplists:get_value(scan_count, Options, 100),
         dry_run => proplists:get_value(dry_run, Options, false),
-        max_count => propslists:get_value(max_count, Options, 5000) % per master
+        max_count => proplists:get_value(max_count, Options, 5000), % per master
+        counters_map => #{}
     },
     Pids = lists:map(
         fun ({Index, {RedisHost, RedisPort}}) ->
@@ -201,6 +202,7 @@ handle_cast({iterate}, State) ->
     case NextCursor of
         <<"0">> ->
             ?INFO("scan done - all keys scanned", []),
+            redis_patterns:process_scan(NewState1),
             {stop, normal, NewState1};
         _ ->
             RemainingCount = MaxCount - util:to_integer(Count),
@@ -215,6 +217,7 @@ handle_cast({iterate}, State) ->
                     {noreply, NewState2};
                 false ->
                     ?INFO("scan done - reached max limit", []),
+                    redis_patterns:process_scan(NewState1),
                     {stop, normal, NewState1}
             end
     end;
