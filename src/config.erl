@@ -27,6 +27,7 @@
 -define(ENV_TEST, "test").
 -define(ENV_GITHUB, "github").
 -define(ENV_STRESS, "stress").
+-define(ENV_DOCKER, "docker").
 -define(NOISE_PROD_SECRET_NAME, <<"noise_secret_prod">>).
 -define(NOISE_PROD2_SECRET_NAME, <<"noise_secret_prod2">>).
 -define(NOISE_DEV_SECRET_NAME, <<"noise_secret_dev">>).
@@ -44,6 +45,7 @@ get_hallo_env() ->
         ?ENV_TEST -> test;
         ?ENV_GITHUB -> github;
         ?ENV_STRESS -> stress;
+        ?ENV_DOCKER -> docker;
         _Else -> prod
         %% TODO: %% if nothing is present then update to use test or github.
     end.
@@ -85,6 +87,7 @@ get_service(Name) ->
         {localhost, Name} -> {Name, "127.0.0.1", 30001};
         {test, Name} -> {Name, "127.0.0.1", 30001};
         {github, Name} -> {Name, "127.0.0.1", 30001};
+        {docker, Name} -> {Name, "docker.emlvii.clustercfg.use2.cache.amazonaws.com", 6379}; % check if it exists
         {stress, Name} -> {Name, "redis-stress1.emlvii.clustercfg.use2.cache.amazonaws.com", 6379};
         {prod, redis_friends} -> {redis_friends, "redis-accounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
         {prod, redis_accounts} -> {redis_accounts, "redis-accounts.zsin4n.clustercfg.use1.cache.amazonaws.com", 6379};
@@ -107,6 +110,7 @@ get_default_log_level() ->
         prod -> 4;
         github -> 4;
         stress -> 4;
+        docker -> 4;
         _ -> 4
     end.
 
