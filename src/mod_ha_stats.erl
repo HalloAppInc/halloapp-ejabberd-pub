@@ -3,6 +3,7 @@
 -behaviour(gen_mod).
 -behavior(gen_server).
 
+-include("sms.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
 -include("xmpp.hrl").
@@ -261,7 +262,21 @@ register_user(Uid, _Server, Phone) ->
             CC = mod_libphonenumber:get_region_id(Phone),
             stat:count("HA/account", "registration_by_cc", 1, [{cc, CC}]),
             stat:count("HA/account", "registration_invites", 1,
-                [{is_invited, model_invites:is_invited(Phone)}]);
+                [{is_invited, model_invites:is_invited(Phone)}]),
+            %% Fetch their last verified response and count the registration with that lang_id.
+            {ok, GatewayResponses} = model_phone:get_all_gateway_responses(Phone),
+            LangId = case lists:search(
+                    fun(GatewayResponse) ->
+                        GatewayResponse#gateway_response.verified
+                    end, GatewayResponses) of
+                {value, VerifiedResponse} ->
+                    VerifiedResponse#gateway_response.lang_id;
+                false ->
+                    undefined
+            end,
+            stat:count("HA/account", "registration_by_lang_id", 1,
+                [{lang_id, util:to_list(LangId)}]),
+            ok;
         true ->
             stat:count("HA/account", "registration_test_account")
     end,

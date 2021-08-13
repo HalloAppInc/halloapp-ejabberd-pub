@@ -62,6 +62,7 @@
 
 
 -define(FIELD_CODE, <<"cod">>).
+-define(FIELD_LANGID, <<"lid">>).
 -define(FIELD_COUNT, <<"ct">>).
 -define(FIELD_TIMESTAMP, <<"ts">>).
 -define(FIELD_SENDER, <<"sen">>).
@@ -247,7 +248,8 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
         gateway = Gateway,
         method = Method,
         status = Status,
-        response = Response
+        response = Response,
+        lang_id = LangId
     } = SMSResponse,
     GatewayResponseKey = gateway_response_key(Gateway, GatewayId),
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
@@ -262,7 +264,8 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
     _Result2 = q([["MULTI"],
                    ["HSET", VerificationAttemptKey, ?FIELD_SENDER, GatewayBin,
                        ?FIELD_METHOD, MethodBin, ?FIELD_STATUS, StatusBin,
-                       ?FIELD_RESPONSE, Response, ?FIELD_SID, SidBin],
+                       ?FIELD_RESPONSE, Response, ?FIELD_SID, SidBin,
+                       ?FIELD_LANGID, LangId],
                    ["EXPIRE", VerificationAttemptKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
     ok.
@@ -274,21 +277,22 @@ get_all_gateway_responses(Phone) ->
     RedisCommands = lists:map(
         fun({AttemptId, _TS}) ->
             ["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_METHOD,
-                ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS]
+                ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS, ?FIELD_LANGID]
         end, VerificationAttemptList),
     ResponseList = case RedisCommands of
         [] -> [];
         _ -> qp(RedisCommands)
     end,
     SMSResponseList = lists:zipwith(
-        fun({AttemptId, AttemptTS}, {ok, [Sender, Method, Status, Success]}) ->
+        fun({AttemptId, AttemptTS}, {ok, [Sender, Method, Status, Success, LangId]}) ->
             #gateway_response{
                 gateway = util:to_atom(Sender),
                 method = decode_method(Method),
                 status = util:to_atom(Status),
                 verified = util_redis:decode_boolean(Success, false),
                 attempt_id = AttemptId,
-                attempt_ts = AttemptTS
+                attempt_ts = AttemptTS,
+                lang_id = util_redis:decode_binary(LangId)
             }
         end, VerificationAttemptList, ResponseList),
     {ok, SMSResponseList}.
@@ -367,16 +371,17 @@ get_verification_success(Phone, AttemptId) ->
 -spec get_verification_attempt_summary(Phone :: phone(), AttemptId :: binary()) -> gateway_response().
 get_verification_attempt_summary(Phone, AttemptId) ->
     {ok, Res} = q(["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_METHOD,
-        ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS]),
-    [Sender, Method, Status, Success] = Res,
-    case {Sender, Method, Status, Success} of
-        {undefined, _, _, _} -> #gateway_response{};
-        {_, _, _, _} ->
+        ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS, ?FIELD_LANGID]),
+    [Sender, Method, Status, Success, LangId] = Res,
+    case {Sender, Method, Status, Success, LangId} of
+        {undefined, _, _, _, _} -> #gateway_response{};
+        {_, _, _, _, _} ->
                 #gateway_response{
                     gateway = util:to_atom(Sender),
                     method = decode_method(Method),
                     status = util:to_atom(Status),
-                    verified = util_redis:decode_boolean(Success, false)
+                    verified = util_redis:decode_boolean(Success, false),
+                    lang_id = LangId
                 }
     end.
  

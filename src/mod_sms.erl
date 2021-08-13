@@ -399,7 +399,8 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
                 attempt_ts = CurrentSMSResponse#gateway_response.attempt_ts,
                 method = Method,
                 attempt_id = CurrentSMSResponse#gateway_response.attempt_id,
-                gateway = Gateway
+                gateway = Gateway,
+                lang_id = LangId
                 },
             {ok, SMSResponse2};
         {error, Reason, retry} ->

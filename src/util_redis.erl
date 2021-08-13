@@ -19,6 +19,7 @@
     encode_maybe_binary/1,
     q/2,
     qp/2,
+    decode_binary/1,
     eredis_hash/1,
     encode_boolean/1,
     decode_boolean/1,
@@ -46,6 +47,10 @@ decode_int(Bin) ->
         undefined -> undefined;
         _ -> binary_to_integer(Bin)
     end.
+
+
+decode_binary(<<"undefined">>) -> undefined;
+decode_binary(Bin) -> Bin.
 
 
 -spec decode_maybe_binary(Bin :: binary()) -> undefined | binary().

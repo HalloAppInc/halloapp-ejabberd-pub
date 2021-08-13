@@ -28,7 +28,8 @@
     currency :: binary(),
     verified  :: boolean(),
     attempt_id :: binary(),
-    attempt_ts :: non_neg_integer()
+    attempt_ts :: non_neg_integer(),
+    lang_id :: binary()
 }).
 
 -type gateway_response()  :: #gateway_response{}.
