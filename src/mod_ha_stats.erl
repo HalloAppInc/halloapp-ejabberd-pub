@@ -337,7 +337,11 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
             end,
             IsDev = dev_users:is_dev_uid(Uid),
             stat:count("HA/messaging", Action ++ "_im_by_dev", 1, [{is_dev, IsDev}]);
-        #pb_seen_receipt{} -> stat:count("HA/im_receipts", Action ++ "_seen");
+        #pb_seen_receipt{thread_id = ThreadId} ->
+            case ThreadId of
+                undefined -> stat:count("HA/im_receipts", Action ++ "_seen");
+                _ -> stat:count("HA/feed_receipts", Action ++ "_seen")
+            end;
         #pb_delivery_receipt{} -> stat:count("HA/im_receipts", Action ++ "_received");
         _ -> ok
     end;
