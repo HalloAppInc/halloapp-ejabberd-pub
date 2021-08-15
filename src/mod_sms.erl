@@ -43,7 +43,8 @@
     pick_gw/2,  %% for testing,
     generate_code/1,  %% for testing
     smart_send/6,  %% for testing
-    send_otp_to_inviter/4 %% for testing,
+    send_otp_to_inviter/4, %% for testing
+    generate_gateway_list/2  %% for testing
 ]).
 
 %%====================================================================
@@ -260,25 +261,24 @@ generate_gateway_list(Method, OldResponses) ->
 
     %% Need to give preference to GW in GoodSet that is not in WorkingSet.
     TrySet = sets:subtract(GoodSet, SupportedWorkingSet),
-    TryList = sets:to_list(TrySet),
 
     %% To eliminate duplicates.
     WorkingList2 = sets:to_list(SupportedWorkingSet),
-    ?DEBUG("Working: ~p", [WorkingList2]),
-    ?DEBUG("Not Working: ~p", [NotWorkingList]),
-    ?DEBUG("Try: ~p", [TryList]),
-    ?DEBUG("Consider: ~p", [ConsiderList]),
+    ?DEBUG("Working: ~p", [sets:to_list(SupportedWorkingSet)]),
+    ?DEBUG("Not Working: ~p", [sets:to_list(NotWorkingSet)]),
+    ?DEBUG("Try: ~p", [sets:to_list(TrySet)]),
+    ?DEBUG("Consider: ~p", [sets:to_list(ConsiderSet)]),
 
     %% If length(TryList) > 0 pick any from TryList, else if length(WorkingListi2) > 0 pick any from
     %% WorkingList2. If both have no elements pick any from ConsiderList.
-    ToChooseFromList = case {length(TryList), length(WorkingList2)} of
-        {0, 0} -> ConsiderList;  %% None of the GWs we have support for has worked.
-        {0, _} -> WorkingList2;  %% We have tried all the GWs. Will try again using what has worked.
-        {_, _} -> TryList        %% We will try using GWs we have not tried.
+    ToChooseFromSet = case {sets:size(TrySet), sets:size(SupportedWorkingSet)} of
+        {0, 0} -> ConsiderSet;  %% None of the GWs we have support for has worked.
+        {0, _} -> SupportedWorkingSet;  %% We have tried all the GWs. Will try again using what has worked.
+        {_, _} -> TrySet        %% We will try using GWs we have not tried.
     end,
-    ToChooseFromList2 = lists:usort(ToChooseFromList ++ ConsiderList), %% should be a subset of ConsiderList
-    ?DEBUG("Choose from: ~p", [ToChooseFromList2]),
-    ToChooseFromList2.
+    ToChooseFromList = sets:to_list(sets:intersection(ToChooseFromSet, ConsiderSet)), %% should be a subset of ConsiderList
+    ?DEBUG("Choose from: ~p", [ToChooseFromList]),
+    ToChooseFromList.
 
 
 -spec gateway_cc_filter(CC :: binary()) -> atom().
@@ -353,7 +353,7 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
 
             %% Pick one based on past performance.
             ToPick = pick_gw(ChooseFromList, CC),
-            ?DEBUG("Picked: ~p, from: ~p", [ToPick, length(ChooseFromList)]),
+            ?INFO("Picked: ~p, from: ~p", [ToPick, length(ChooseFromList)]),
             PickedGateway = lists:nth(ToPick, ChooseFromList),
 
             %% Just in case there is any bug in computation of new gateway.
@@ -421,11 +421,12 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
 
 -spec pick_gw(ChooseFrom :: [atom()], CC :: binary()) -> non_neg_integer().
 pick_gw(ChooseFrom, CC) ->
+    %% TODO(vipin): Change INFO to DEBUG.
     GWScores = get_gw_scores(ChooseFrom, CC),
     Sum = lists:sum(GWScores),
     GWWeights = [XX/Sum || XX <- GWScores],
     RandNo = random:uniform(),
-    ?DEBUG("Generated rand: ~p, Weights: ~p", [RandNo, GWWeights]),
+    ?INFO("Generated rand: ~p, Weights: ~p", [RandNo, GWWeights]),
 
     %% Select first index that satisfy the gateway weight criteria. Selection uses the computed
     %% weights for each gateway. We iterate over the list using a uniformly generated random
@@ -446,7 +447,7 @@ pick_gw(ChooseFrom, CC) ->
             end
         end, {0, RandNo}, GWWeights),
     true = (LeftOver =< 0),
-    ?DEBUG("Picked index: ~p, LeftOver: ~p", [Picked, LeftOver]),
+    ?INFO("Picked index: ~p, LeftOver: ~p", [Picked, LeftOver]),
     Picked.
 
 -spec get_gw_scores(ChooseFrom :: [atom()], CC :: binary()) -> list().
