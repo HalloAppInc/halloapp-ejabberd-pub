@@ -153,7 +153,7 @@ get_cached_ips() ->
     case ets:lookup(?IP_TABLE, ip_list) of
         [] -> undefined;
         [{ip_list, IpList, Ts}] ->
-            case (util:now_ms() - Ts) > ?DAYS_MS of
+            case (util:now_ms() - Ts) > (4 * ?HOURS_MS) of
                 true -> get_and_cache_ips();
                 false -> IpList
             end

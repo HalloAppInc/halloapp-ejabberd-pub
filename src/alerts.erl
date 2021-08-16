@@ -11,9 +11,11 @@
 
 %% API
 -export([
+    send_port_slow_alert/2,
+    send_port_unreachable_alert/2,
     send_process_down_alert/2,
-    send_unreachable_process_alert/2,
-    send_slow_process_alert/2,
+    send_process_slow_alert/2,
+    send_process_unreachable_alert/2,
     send_alert/4
 ]).
 
@@ -24,19 +26,32 @@
 %%====================================================================
 %% API
 %%====================================================================
+%% TODO@murali: add counters here
 
-%% TODO(murali@): add counters here.
+-spec send_port_slow_alert(Host :: binary(), Message :: binary()) -> ok.
+send_port_slow_alert(Host, Message) ->
+    send_alert(<<Host/binary, "'s /api/_ok page is slow">>, Host, <<"critical">>, Message).
+
+
+-spec send_port_unreachable_alert(Proc :: binary(), Message :: binary()) -> ok.
+send_port_unreachable_alert(Host, Message) ->
+    send_alert(<<Host/binary, "'s /api/_ok page unreachable">>, Host, <<"critical">>, Message).
+
+
 -spec send_process_down_alert(Proc :: binary(), Message :: binary()) -> ok.
 send_process_down_alert(Proc, Message) ->
     send_alert(<<"Process Down: ", Proc/binary>>, Proc, <<"critical">>, Message).
 
--spec send_unreachable_process_alert(Proc :: binary(), Message :: binary()) -> ok.
-send_unreachable_process_alert(Proc, Message) ->
+
+-spec send_process_slow_alert(Proc :: binary(), Message :: binary()) -> ok.
+send_process_slow_alert(Proc, Message) ->
+    send_alert(<<"Process Slow: ", Proc/binary>>, Proc, <<"critical">>, Message).
+
+
+-spec send_process_unreachable_alert(Proc :: binary(), Message :: binary()) -> ok.
+send_process_unreachable_alert(Proc, Message) ->
     send_alert(<<"Process Unreachable: ", Proc/binary>>, Proc, <<"critical">>, Message).
 
--spec send_slow_process_alert(Proc :: binary(), Message :: binary()) -> ok.
-send_slow_process_alert(Proc, Message) ->
-    send_alert(<<"Process Slow: ", Proc/binary>>, Proc, <<"critical">>, Message).
 
 -spec send_alert(Alertname :: binary(), Service :: binary(), Severity :: binary(), Message :: binary()) -> ok.
 send_alert(Alertname, Service, Severity, Message) ->

@@ -4,6 +4,7 @@
 -include("time.hrl").
 
 -define(MONITOR_TABLE, ha_monitor).
+-define(HTTP_TABLE, mod_http_checker).
 
 -define(MONITOR_GEN_SERVER, {global, ejabberd_monitor:get_registered_name()}).
 

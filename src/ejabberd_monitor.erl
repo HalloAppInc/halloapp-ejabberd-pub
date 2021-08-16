@@ -74,10 +74,7 @@ monitor(Proc) ->
 
 -spec get_state_history(Mod :: atom()) -> list(proc_state()).
 get_state_history(Mod) ->
-    case ets:lookup(?MONITOR_TABLE, Mod) of
-        [] -> [];
-        [{Mod, StateHistory}] -> StateHistory
-    end.
+    util_monitor:get_state_history(?MONITOR_TABLE, Mod).
 
 try_remonitor({global, Name} = Proc) ->
     case global:whereis_name(Name) of
@@ -311,78 +308,58 @@ check_states(#state{gen_servers = GenServers} = State) ->
     lists:foreach(
         fun(Mod) ->
             StateHistory = get_state_history(Mod),
-            case check_consecutive_fails(Mod, StateHistory) of
-                error -> ok;
-                ok -> check_slow_process(Mod, StateHistory)
-            end,
+            %% do checks until one returns true (meaning an alert has been sent)
+            check_consecutive_fails(Mod, StateHistory) orelse check_slow_process(Mod, StateHistory),
             send_stats(Mod, StateHistory)
         end,
         GenServers),
     State.
+
 
 send_pings(#state{active_pings = PingMap, gen_servers = GenServers} = State) ->
     %% Send ping to each monitored gen_server
     NewPingMap = lists:foldl(fun send_ping/2, PingMap, GenServers),
     State#state{active_pings = NewPingMap}.
 
+
 send_ping(Proc, AccMap) ->
     Id = util:random_str(?ID_LENGTH),
     gen_server:cast(Proc, {ping, Id, util:now_ms(), self()}),
     maps:put(Id, Proc, AccMap).
 
+
 check_consecutive_fails(Mod, StateHistory) ->
-    NumFails = get_num_fails(lists:sublist(StateHistory, ?CONSECUTIVE_FAILURE_THRESHOLD)),
-    case NumFails >= ?CONSECUTIVE_FAILURE_THRESHOLD of
-        false -> ok;
+    case util_monitor:check_consecutive_fails(StateHistory) of
+        false -> false;
         true ->
-            ?CRITICAL("Sending unreachable process alert for: ~p", [Mod]),
-            BinNumConsecFails = util:to_binary(?CONSECUTIVE_FAILURE_THRESHOLD),
+            ?ERROR("Sending unreachable process alert for: ~p", [Mod]),
             BinMod = proc_to_binary(Mod),
-            Msg = <<BinMod/binary, " has failed last ", BinNumConsecFails/binary, "pings">>,
-            alerts:send_unreachable_process_alert(BinMod, Msg),
-            error
+            BinNumConsecFails = util:to_binary(?CONSECUTIVE_FAILURE_THRESHOLD),
+            Msg = <<BinMod/binary, " has failed last ", BinNumConsecFails/binary, " pings">>,
+            alerts:send_process_unreachable_alert(BinMod, Msg),
+            true
     end.
 
+
 check_slow_process(Mod, StateHistory) ->
-    Window = ?HALF_FAILURE_THRESHOLD_MS div ?PING_INTERVAL_MS,
-    NumFails = get_num_fails(lists:sublist(StateHistory, Window)),
-    case NumFails >= (0.5 * Window) of
-        false -> ok;
+    case util_monitor:check_slow(StateHistory) of
+        false -> false;
         true ->
-            ?CRITICAL("Sending slow process alert for: ~p", [Mod]),
+            ?ERROR("Sending slow process alert for: ~p", [Mod]),
             BinMod = proc_to_binary(Mod),
-            Msg = <<BinMod/binary, " failing >= 50% of pings">>,
-            alerts:send_slow_process_alert(BinMod, Msg),
-            error
+            alerts:send_process_unreachable_alert(BinMod, <<BinMod/binary, " failing >= 50% of pings">>),
+            true
     end.
+
 
 -spec record_state(Mod :: atom(), State :: proc_state()) -> ok.
 record_state(Mod, State) ->
-    PrevStates = get_state_history(Mod),
-    % reduce the list only when it becomes twice as large as intended history size
-    NewStates = case length(PrevStates) > 2 * get_state_memory_size() of
-        false -> [State | PrevStates];
-        true ->
-            NewPrevStates = lists:sublist(PrevStates, get_state_memory_size() - 1),
-            [State | NewPrevStates]
-    end,
-    true = ets:insert(?MONITOR_TABLE, [{Mod, NewStates}]),
-    ok.
+    util_monitor:record_state(?MONITOR_TABLE, Mod, State).
 
--spec get_num_fails(StateList :: list(proc_state())) -> list(fail_state()).
-get_num_fails(StateList) ->
-    lists:foldl(
-        fun
-            (?ALIVE_STATE, Acc) -> Acc;
-            (?FAIL_STATE, Acc) -> Acc + 1
-        end,
-        0,
-        StateList
-    ).
 
 send_stats(Mod, StateHistory) ->
     Window = ?MINUTES_MS div ?PING_INTERVAL_MS,
-    SuccessRate = 1 - (get_num_fails(lists:sublist(StateHistory, Window)) / Window),
+    SuccessRate = 1 - (util_monitor:get_num_fails(lists:sublist(StateHistory, Window)) / Window),
     ProcName = case Mod of
         {global, Name} -> Name;
         _ -> Mod
@@ -390,14 +367,13 @@ send_stats(Mod, StateHistory) ->
     stat:gauge(?NS, "process_uptime", round(SuccessRate * 100), [{process_name, ProcName}]),
     ok.
 
+
 proc_to_binary(Proc) ->
     case Proc of
         {global, Name} -> util:to_binary(Name);
         _ -> util:to_binary(Proc)
     end.
 
-get_state_memory_size() ->
-    ?STATE_HISTORY_LENGTH_MS div ?PING_INTERVAL_MS.
 
 is_gen_server(Proc) ->
     not lists:member(Proc, get_supervisors()).

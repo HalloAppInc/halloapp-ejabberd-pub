@@ -212,6 +212,7 @@ modules:
   mod_export: {}
   ha_bad_process: {}
   mod_backup: {}
+  mod_http_checker: {}
 
 ### Local Variables:
 ### mode: yaml
