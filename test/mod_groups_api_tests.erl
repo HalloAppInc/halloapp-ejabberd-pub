@@ -592,8 +592,15 @@ set_description_error_test() ->
     Gid = create_group(?UID1, ?GROUP_NAME1, []),
     IQ = set_description_IQ(?UID1, Gid, undefined),
     IQRes = mod_groups_api:process_local_iq(IQ),
-    Error = tutil:get_error_iq_sub_el(IQRes),
-    ?assertEqual(util:err(invalid_description), Error),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
+    ExpectedGroupSt = #pb_group_stanza{
+        gid = Gid,
+        name = ?GROUP_NAME1,
+        description = <<>>,
+        avatar_id = undefined,
+        background = undefined
+    },
+    ?assertEqual(ExpectedGroupSt, GroupSt),
 
     IQ2 = set_name_IQ(?UID2, Gid, ?GROUP_DESCRIPTION1),
     IQRes2 = mod_groups_api:process_local_iq(IQ2),
