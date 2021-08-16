@@ -724,6 +724,8 @@ validate_group_description(Description) when is_binary(Description) ->
         true -> ok
     end,
     {ok, LDescription};
+validate_group_description(Description) when Description =:= undefined ->
+    {ok, <<>>};
 validate_group_description(_Description) ->
     {error, invalid_description}.
 
