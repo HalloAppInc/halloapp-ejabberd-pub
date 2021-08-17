@@ -110,7 +110,9 @@ retrieve_secret(SecretName) ->
 -spec retrieve_ejabberd_ips() -> [string()].
 retrieve_ejabberd_ips() ->
     {ok, Config} = erlcloud_aws:auto_config(),
-    Filters = [{"instance-state-name", "running"}, {"instance.group-name", "ejabberd-sg"}],
+    Filters = [{"tag:Name", ["s-test", "prod*"]}],
+    %% TODO: see if aws function below can take --query pararm,
+    %% so we don't have to do the map
     {ok, Res} = erlcloud_ec2:describe_instances([], Filters, Config),
     lists:map(
         fun(Ele) ->
