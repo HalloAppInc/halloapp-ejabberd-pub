@@ -78,6 +78,8 @@ check_gw_stats() ->
     ets:new(?GW_SCORE_TABLE, [named_table, ordered_set, public]),
     CurrentIncrement = util:now() div ?SMS_REG_TIMESTAMP_INCREMENT,
     IncrementToProcess = CurrentIncrement - 2,
+    ?INFO("Processing scores in time slot: ~p, until: ~p", [IncrementToProcess,
+            IncrementToProcess - ?MAX_SCORING_INTERVAL_COUNT]),
     % using the same 15 minute increments as explained above, start at `recent`
     % increment and iterate backwards in time up to 48 hours (192 increments).
     gather_scoring_data(IncrementToProcess, IncrementToProcess - ?MAX_SCORING_INTERVAL_COUNT),
@@ -120,8 +122,6 @@ gather_scoring_data(FinalIncrement, FinalIncrement) ->
     ok;
 
 gather_scoring_data(CurrentIncrement, FinalIncrement) ->
-    ?INFO("Processing scores in time slot: ~p, until: ~p", [CurrentIncrement,
-            FinalIncrement]),
     % moving backwards in time, FirstIncrement always >= CurrentIncrement
     % FinalIncrement + ?MAX_SCORING_INTERVAL_COUNT is the first increment examined (recent)
     % because FinalIncrement = FirstIncrement - MAX_INTERVALS
@@ -215,7 +215,7 @@ inc_scoring_data(VariableType, VariableName, Success) ->
     TotalKey = {VariableType, VariableName, total},
     ets:update_counter(?GW_SCORE_TABLE, TotalKey, 1, {TotalKey, 0}),
     case Success of
-        false -> 
+        _ when Success =:= undefined orelse Success =:= false-> 
             ErrKey = {VariableType, VariableName, error},
             ets:update_counter(?GW_SCORE_TABLE, ErrKey, 1, {ErrKey, 0});
         true -> ok
