@@ -141,8 +141,7 @@ process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements) ->
     % instead of the global counter
     lists:foreach(
         fun({Phone, AttemptId})  ->
-            % TODO(Luke) make this DEBUG
-            ?INFO("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
+            ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
             case util:is_test_number(Phone) of
                 true ->
                     ok;
