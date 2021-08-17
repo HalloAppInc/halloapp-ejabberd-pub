@@ -22,6 +22,7 @@ message EventData {
     DecryptionReport decryption_report = 14;
     Permissions permissions = 15;
     MediaObjectDownload media_object_download = 16;
+    GroupDecryptionReport group_decryption_report = 17;
   }
 }
 
@@ -140,6 +141,28 @@ message DecryptionReport {
   uint32 rerequest_count = 7;
   uint32 time_taken_s = 8;
   bool is_silent = 9;
+}
+
+
+message GroupDecryptionReport {
+  enum Status {
+    UNKNOWN = 0;
+    OK = 1;
+    FAIL = 2;
+  }
+  Status result = 1;
+  string reason = 2;
+  string msg_id = 3;
+  string gid = 4;
+  enum ItemType {
+    UNKNOWN = 0;
+    POST = 1;
+    COMMENT = 2;
+  }
+  ItemType item_type = 5;
+  string original_version = 6; // at time msg id was first encountered
+  uint32 rerequest_count = 7;
+  uint32 time_taken_s = 8;
 }
 
 
