@@ -517,11 +517,7 @@ delete_client_ip(IP, Phone) ->
 -spec delete_phone_pattern(Phone :: binary()) -> ok.
 delete_phone_pattern(Phone) ->
     CC = mod_libphonenumber:get_region_id(Phone),
-    case is_country_blockable(CC) of
-        true -> model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC));
-        false -> ok
-    end.
-
+    model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC)).
 
 
 -spec is_ip_blocked(IP :: list(), CC :: binary()) -> false | {true, integer()}.
@@ -552,33 +548,28 @@ is_ip_blocked(IP, CC) ->
 
 -spec is_phone_pattern_blocked(PhonePattern :: binary(), CC :: binary()) -> false | {true, integer()}.
 is_phone_pattern_blocked(PhonePattern, CC) ->
-    case is_country_blockable(CC) of
-        false ->
+    CurrentTs = util:now(),
+    {ok, {Count, LastTs}} = model_phone:get_phone_pattern_info(PhonePattern),
+    ?DEBUG("PhonePattern: ~p, CC: ~p, Count: ~p, LastTs: ~p, CurrentTs: ~p", [PhonePattern, CC, Count, LastTs, CurrentTs]),
+    IsBlocked = case {Count, LastTs} of
+        {undefined, _} ->
             false;
-        true ->
-            CurrentTs = util:now(),
-            {ok, {Count, LastTs}} = model_phone:get_phone_pattern_info(PhonePattern),
-            ?DEBUG("PhonePattern: ~p, CC: ~p, Count: ~p, LastTs: ~p, CurrentTs: ~p", [PhonePattern, CC, Count, LastTs, CurrentTs]),
-            IsBlocked = case {Count, LastTs} of
-                {undefined, _} ->
-                    false;
-                {_, undefined} ->
-                    false;
-                {_, _} ->
-                    NextTs = util_sms:good_next_ts_diff(Count) + LastTs,
-                    ?DEBUG("NexTs: ~p", [NextTs]),
-                    case NextTs > CurrentTs of
-                        true -> {true, NextTs - CurrentTs};
-                        false -> false
-                    end
-            end,
-            case IsBlocked of
-                false ->
-                      ok = model_phone:add_phone_pattern(PhonePattern, CurrentTs),
-                      false;
-                {true, _} = Error ->
-                      Error
+        {_, undefined} ->
+            false;
+        {_, _} ->
+            NextTs = util_sms:good_next_ts_diff(Count) + LastTs,
+            ?DEBUG("NexTs: ~p", [NextTs]),
+            case NextTs > CurrentTs of
+                true -> {true, NextTs - CurrentTs};
+                false -> false
             end
+    end,
+    case IsBlocked of
+        false ->
+              ok = model_phone:add_phone_pattern(PhonePattern, CurrentTs),
+              false;
+        {true, _} = Error ->
+              Error
     end.
 
 -spec is_country_blockable(CC :: binary()) -> boolean().
@@ -651,7 +642,6 @@ is_country_blockable(CC) ->
         <<"GL">> -> true;
         <<"GE">> -> true;
         <<"GF">> -> true;
-        <<"GH">> -> true;
         <<"GI">> -> true;
         <<"GM">> -> true;
         <<"GN">> -> true;
@@ -746,7 +736,6 @@ is_country_blockable(CC) ->
         <<"SD">> -> true;
         <<"SR">> -> true;
         <<"SM">> -> true;
-        <<"SR">> -> true;
         <<"SV">> -> true;
         <<"SX">> -> true;
         <<"SC">> -> true;
@@ -769,7 +758,6 @@ is_country_blockable(CC) ->
         <<"TJ">> -> true;
         <<"TZ">> -> true;
         <<"TT">> -> true;
-        <<"TW">> -> true;
         <<"VC">> -> true;
         <<"VE">> -> true;
         <<"VU">> -> true;
