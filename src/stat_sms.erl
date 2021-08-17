@@ -78,8 +78,6 @@ check_gw_stats() ->
     ets:new(?GW_SCORE_TABLE, [named_table, ordered_set, public]),
     CurrentIncrement = util:now() div ?SMS_REG_TIMESTAMP_INCREMENT,
     IncrementToProcess = CurrentIncrement - 2,
-    ?INFO("Processing scores in time slot: ~p, until: ~p", [IncrementToProcess,
-            IncrementToProcess - ?MAX_SCORING_INTERVAL_COUNT]),
     % using the same 15 minute increments as explained above, start at `recent`
     % increment and iterate backwards in time up to 48 hours (192 increments).
     gather_scoring_data(IncrementToProcess, IncrementToProcess - ?MAX_SCORING_INTERVAL_COUNT),
@@ -123,6 +121,9 @@ gather_scoring_data(FinalIncrement, FinalIncrement) ->
 
 gather_scoring_data(CurrentIncrement, FinalIncrement) ->
     % moving backwards in time, FirstIncrement always >= CurrentIncrement
+    % TODO(Luke) Make this DEBUG
+    ?INFO("Processing scores in time slot: ~p, until: ~p", [CurrentIncrement,
+            FinalIncrement]),
     % FinalIncrement + ?MAX_SCORING_INTERVAL_COUNT is the first increment examined (recent)
     % because FinalIncrement = FirstIncrement - MAX_INTERVALS
     NumExaminedIncrements = (FinalIncrement + ?MAX_SCORING_INTERVAL_COUNT) - CurrentIncrement,
@@ -140,7 +141,8 @@ process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements) ->
     % instead of the global counter
     lists:foreach(
         fun({Phone, AttemptId})  ->
-            ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
+            % TODO(Luke) make this DEBUG
+            ?INFO("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
             case util:is_test_number(Phone) of
                 true ->
                     ok;
@@ -212,6 +214,8 @@ do_check_sms_reg(TimeWindow, Phone, AttemptId) ->
 
 -spec inc_scoring_data(VariableType :: atom(), VariableName :: atom(), Success :: boolean()) -> ok.
 inc_scoring_data(VariableType, VariableName, Success) ->
+    % TODO(Luke) Make this DEBUG
+    ?INFO("Type: ~p Name: ~p Success: ~p", [VariableType, VariableName, Success]),
     TotalKey = {VariableType, VariableName, total},
     ets:update_counter(?GW_SCORE_TABLE, TotalKey, 1, {TotalKey, 0}),
     case Success of
@@ -316,9 +320,10 @@ compute_and_print_score([VarType, VarName, TotalCount]) ->
         {ok, S} -> S;
         {error, insufficient_data} -> nan
     end,
+    SuccessCount = TotalCount - ErrCount,
     Category = get_category(VarType),
-    PrintList = [?GW_SCORE_TABLE, Category, VarName, Score],
-    ?INFO("~p SMS_Stats, ~s: ~p, score: ~p", PrintList),
+    PrintList = [Category, VarName, Score, SuccessCount, TotalCount],
+    ?INFO("SMS_Stats, ~s: ~p, score: ~p (~p/~p)", PrintList),
     ok.
 
 
