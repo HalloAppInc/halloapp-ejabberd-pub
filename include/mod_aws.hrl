@@ -8,6 +8,11 @@
 %%%-------------------------------------------------------------------
 -author("josh").
 
+-define(TABLES, [
+    ?IP_TABLE,
+    ?SECRETS_TABLE
+]).
+
 -define(SECRETS_TABLE, aws_secrets).
 -define(DUMMY_SECRET, <<"dummy_secret">>).
 

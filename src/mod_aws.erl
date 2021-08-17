@@ -31,6 +31,8 @@
 
 %% API
 -export([
+    clear_cache/0,
+    clear_cache/1,
     get_secret/1,
     get_ejabberd_ips/0
 ]).
@@ -41,9 +43,12 @@
 
 start(_Host, _Opts) ->
     try
-        ?INFO("Trying to create a table for mod_aws in ets", []),
-        ets:new(?SECRETS_TABLE, [named_table, public, {read_concurrency, true}]),
-        ets:new(?IP_TABLE, [named_table, public, {read_concurrency, true}]),
+        ?INFO("Trying to create tables for mod_aws in ets", []),
+        lists:foreach(
+            fun(Table) ->
+                ets:new(Table, [named_table, public, {read_concurrency, true}])
+            end,
+            ?TABLES),
         ok
     catch
         Error:badarg ->
@@ -53,8 +58,7 @@ start(_Host, _Opts) ->
     ok.
 
 stop(_Host) ->
-    ets:delete(?SECRETS_TABLE),
-    ets:delete(?IP_TABLE),
+    lists:foreach(fun ets:delete/1, ?TABLES),
     ok.
 
 depends(_Host, _Opts) ->
@@ -69,6 +73,18 @@ mod_options(_Host) ->
 %%====================================================================
 %% API
 %%====================================================================
+
+-spec clear_cache() -> ok.
+clear_cache() ->
+    lists:foreach(fun clear_cache/1, ?TABLES),
+    ok.
+
+
+-spec clear_cache(Table :: ets:tab()) -> ok.
+clear_cache(Table) ->
+    ets:delete_all_objects(Table),
+    ok.
+
 
 -spec get_secret(SecretName :: binary()) -> binary().
 get_secret(SecretName) ->
