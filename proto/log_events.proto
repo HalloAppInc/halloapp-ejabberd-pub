@@ -12,7 +12,8 @@ message EventData {
   Platform platform = 2;  // client platform `android` or `ios`
   string version = 3;  // client version (eg.`0.94`)
   uint64 timestamp_ms = 4; // set by server to indicate when event was received
-  reserved 5 to 9;  // for future fields like country code, carrier or others
+  string cc = 5;  // 2 letter country code
+  reserved 6 to 9;  // for future fields like carrier or others
   oneof edata {
     MediaUpload media_upload = 10;
     MediaDownload media_download = 11;
@@ -20,6 +21,7 @@ message EventData {
     PushReceived push_received = 13;
     DecryptionReport decryption_report = 14;
     Permissions permissions = 15;
+    MediaObjectDownload media_object_download = 16;
   }
 }
 
@@ -27,6 +29,47 @@ enum Platform {
   UNKNOWN = 0;
   IOS = 1;
   ANDROID = 2;
+}
+
+message MediaObjectDownload {
+  string id = 1;  // id of post or message
+  uint64 index = 2;  // 0-based index of the media item in the post/msg
+  enum Type {
+    POST = 0;
+    MESSAGE = 1;
+    COMMENT = 2;
+  }
+  Type type = 3;
+  enum MediaType {
+    PHOTO = 0;
+    VIDEO = 1;
+    AUDIO = 2;
+  }
+  MediaType media_type = 4;
+  uint64 duration_ms = 5;  // time in ms it took to download the media object
+  uint64 size = 6;  // byte size of the object
+  uint64 progress_bytes = 7;  // number of bytes downloaded during this attempt
+  enum Cdn {
+    UNKNOWN = 0;
+    CLOUDFRONT = 1;
+  }
+  Cdn cdn = 8;  // should be cloudfront for now
+  string cdn_pop = 9;  // value of the `x-amz-cf-pop` result header
+  string cdn_id = 10;  // value of the `x-amz-cf-id` result header
+  enum CdnCache {
+    UNKNOWN = 0;
+    HIT = 1;
+    MISS = 2;
+    REFRESH_HIT = 3;
+    REFRESH_MISS = 4;
+  }
+  CdnCache cdn_cache = 11;
+  enum Status {
+    OK = 0;
+    FAIL = 1;
+  }
+  Status status = 12;
+  uint64 retry_count = 13;  // number of attempts to download, either so far or until status=ok
 }
 
 message MediaUpload {
