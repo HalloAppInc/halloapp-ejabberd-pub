@@ -115,11 +115,13 @@ init(SockMod, Socket, Opts) ->
         false -> [compression_none | TLSOpts1];
         true -> TLSOpts1
     end,
-    TLSOpts3 = case ejabberd_pkix:get_certfile(ejabberd_config:get_myname()) of
-        error -> TLSOpts2;
-        {ok, CertFile} -> [{certfile, CertFile}|TLSOpts2]
-    end,
-    TLSOpts = [verify_none | TLSOpts3],
+    %% commented out when ejabberd_pkix was removed
+%%    TLSOpts3 = case ejabberd_pkix:get_certfile(ejabberd_config:get_myname()) of
+%%        error -> TLSOpts2;
+%%        {ok, CertFile} -> [{certfile, CertFile}|TLSOpts2]
+%%    end,
+%%    TLSOpts = [verify_none | TLSOpts3],
+    TLSOpts = [verify_none | TLSOpts2],
     {SockMod1, Socket1} = if
         TLSEnabled ->
             inet:setopts(Socket, [{recbuf, ?RECV_BUF}]),

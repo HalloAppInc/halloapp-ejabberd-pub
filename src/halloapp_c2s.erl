@@ -340,11 +340,13 @@ process_terminated(State, _Reason) ->
 
 
 tls_options(#{lserver := LServer, tls_options := DefaultOpts}) ->
-    TLSOpts = case ejabberd_pkix:get_certfile(LServer) of
-        error -> DefaultOpts;
-        {ok, CertFile} -> lists:keystore(certfile, 1, DefaultOpts, {certfile, CertFile})
-    end,
-    TLSOpts.
+    %% commented out when ejabberd_pkix was removed
+%%    TLSOpts = case ejabberd_pkix:get_certfile(LServer) of
+%%        error -> DefaultOpts;
+%%        {ok, CertFile} -> lists:keystore(certfile, 1, DefaultOpts, {certfile, CertFile})
+%%    end,
+%%    TLSOpts.
+    DefaultOpts.
 
 noise_options(#{lserver := _LServer, noise_options := DefaultOpts}) ->
     DefaultOpts.
