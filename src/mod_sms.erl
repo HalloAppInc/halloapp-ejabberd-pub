@@ -425,7 +425,7 @@ pick_gw(ChooseFrom, CC) ->
     GWScores = get_gw_scores(ChooseFrom, CC),
     Sum = lists:sum(GWScores),
     GWWeights = [XX/Sum || XX <- GWScores],
-    RandNo = random:uniform(),
+    RandNo = rand:uniform(),
     ?INFO("Generated rand: ~p, Weights: ~p", [RandNo, GWWeights]),
 
     %% Select first index that satisfy the gateway weight criteria. Selection uses the computed
