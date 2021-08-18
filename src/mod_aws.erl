@@ -10,6 +10,7 @@
 -author("josh").
 -behavior(gen_mod).
 
+-include("ha_types.hrl").
 -include("logger.hrl").
 -include("mod_aws.hrl").
 -include("time.hrl").
@@ -20,9 +21,9 @@
 -export([
     retrieve_secret/1,
     get_and_cache_secret/1,
-    get_and_cache_ips/0,
+    get_and_cache_machines/0,
     get_cached_secret/1,
-    get_cached_ips/0
+    get_cached_machines/0
 ]).
 -endif.
 
@@ -34,7 +35,7 @@
     clear_cache/0,
     clear_cache/1,
     get_secret/1,
-    get_ejabberd_ips/0
+    get_ejabberd_machines/0
 ]).
 
 %%====================================================================
@@ -105,10 +106,10 @@ get_secret(SecretName) ->
     end.
 
 
--spec get_ejabberd_ips() -> [string()].
-get_ejabberd_ips() ->
+-spec get_ejabberd_machines() -> [{MachineName :: string(), Ip :: string()}].
+get_ejabberd_machines() ->
     case config:is_prod_env() of
-        true -> get_ips_internal();
+        true -> get_machines_internal();
         false -> ?LOCALHOST_IPS
     end.
 
@@ -123,8 +124,8 @@ retrieve_secret(SecretName) ->
     Json.
 
 
--spec retrieve_ejabberd_ips() -> [string()].
-retrieve_ejabberd_ips() ->
+-spec retrieve_ejabberd_machines() -> [{string(), string()}].
+retrieve_ejabberd_machines() ->
     {ok, Config} = erlcloud_aws:auto_config(),
     Filters = [{"tag:Name", ["s-test", "prod*"]}],
     %% TODO: see if aws function below can take --query pararm,
@@ -134,7 +135,16 @@ retrieve_ejabberd_ips() ->
         fun(Ele) ->
             [_, _, {instances_set,[InfoList]}] = Ele,
             {ip_address, IpAddr} = lists:keyfind(ip_address, 1, InfoList),
-            IpAddr
+            {tag_set, Tags} = lists:keyfind(tag_set, 1, InfoList),
+            [Name] = lists:filtermap(
+                fun([{key, Key},{value, Val}]) ->
+                    case Key =:= "Name" of
+                        false -> false;
+                        true -> {true, Val}
+                    end
+                end,
+                Tags),
+            {Name, IpAddr}
         end,
         Res
     ).
@@ -147,14 +157,14 @@ get_and_cache_secret(SecretName) ->
     Secret.
 
 
--spec get_and_cache_ips() -> [string()].
-get_and_cache_ips() ->
-    Ips = retrieve_ejabberd_ips(),
+-spec get_and_cache_machines() -> [{string(), string()}].
+get_and_cache_machines() ->
+    Ips = retrieve_ejabberd_machines(),
     true = ets:insert(?IP_TABLE, {ip_list, Ips, util:now_ms()}),
     Ips.
 
 
--spec get_cached_secret(SecretName :: binary()) -> undefined | binary().
+-spec get_cached_secret(SecretName :: binary()) -> maybe(binary()).
 get_cached_secret(SecretName) ->
     case ets:lookup(?SECRETS_TABLE, SecretName) of
         [] -> undefined;
@@ -166,13 +176,13 @@ get_cached_secret(SecretName) ->
     end.
 
 
--spec get_cached_ips() -> [string()] | undefined.
-get_cached_ips() ->
+-spec get_cached_machines() -> maybe([{string(), string()}]).
+get_cached_machines() ->
     case ets:lookup(?IP_TABLE, ip_list) of
         [] -> undefined;
         [{ip_list, IpList, Ts}] ->
             case (util:now_ms() - Ts) > (4 * ?HOURS_MS) of
-                true -> get_and_cache_ips();
+                true -> get_and_cache_machines();
                 false -> IpList
             end
     end.
@@ -186,10 +196,10 @@ get_secret_internal(SecretName) ->
     end.
 
 
--spec get_ips_internal() -> [string()].
-get_ips_internal() ->
-    case get_cached_ips() of
-        undefined -> get_and_cache_ips();
+-spec get_machines_internal() -> [{string(), string()}].
+get_machines_internal() ->
+    case get_cached_machines() of
+        undefined -> get_and_cache_machines();
         Ips -> Ips
     end.
 

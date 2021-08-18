@@ -149,39 +149,39 @@ send_http_requests(#{mrefs := MRefs} = State) ->
     maps:put(mrefs, NewMRefs, State).
 
 
-send_stats(Ip, StateHistory) ->
+send_stats(Name, StateHistory) ->
     Window = ?MINUTES_MS div ?PING_INTERVAL_MS,
     SuccessRate = 1 - (util_monitor:get_num_fails(lists:sublist(StateHistory, Window)) / Window),
-    stat:gauge(?NS, "port_uptime", round(SuccessRate * 100), [{ip, Ip}]),
+    stat:gauge(?NS, "port_uptime", round(SuccessRate * 100), [{ip, Name}]),
     ok.
 
 %%====================================================================
 %% Checker functions
 %%====================================================================
 
--spec check_consecutive_fails(Ip :: string(), StateHistory :: [proc_state()]) -> boolean().
-check_consecutive_fails(Ip, StateHistory) ->
+-spec check_consecutive_fails({Name :: string(), Ip :: string()}, StateHistory :: [proc_state()]) -> boolean().
+check_consecutive_fails({Name, Ip}, StateHistory) ->
     case util_monitor:check_consecutive_fails(StateHistory) of
         false -> false;
         true ->
-            ?ERROR("Sending unreachable port alert for ip: ~p, url: ~p", [Ip, get_url_from_ip(Ip)]),
-            BinIp = util:to_binary(Ip),
+            ?ERROR("Sending unreachable port alert for ~p (~p), url: ~p", [Name, Ip, get_url_from_ip(Ip)]),
+            BinName = util:to_binary(Name),
             BinNumConsecFails = util:to_binary(?CONSECUTIVE_FAILURE_THRESHOLD),
-            Msg = <<BinIp/binary, "'s /api/_ok page has failed last ", BinNumConsecFails/binary, " pings">>,
-            alerts:send_port_unreachable_alert(BinIp, Msg),
+            Msg = <<BinName/binary, "'s /api/_ok page has failed last ", BinNumConsecFails/binary, " pings">>,
+            alerts:send_port_unreachable_alert(BinName, Msg),
             true
     end.
 
 
--spec check_slow(Ip :: string(), StateHistory :: [proc_state()]) -> boolean().
-check_slow(Ip, StateHistory) ->
+-spec check_slow({Name :: string(), Ip :: string()}, StateHistory :: [proc_state()]) -> boolean().
+check_slow({Name, Ip}, StateHistory) ->
     case util_monitor:check_slow(StateHistory) of
         false -> false;
         true ->
-            ?ERROR("Sending slow process alert for ip: ~p, url: ~p", [Ip, get_url_from_ip(Ip)]),
-            BinIp = util:to_binary(Ip),
-            Msg = <<BinIp/binary, " failing >= 50% of pings to its /api/_ok page">>,
-            alerts:send_port_slow_alert(BinIp, Msg),
+            ?ERROR("Sending slow process alert for ~p (~p), url: ~p", [Name, Ip, get_url_from_ip(Ip)]),
+            BinName = util:to_binary(Name),
+            Msg = <<BinName/binary, " failing >= 50% of pings to its /api/_ok page">>,
+            alerts:send_port_slow_alert(BinName, Msg),
             true
     end.
 
@@ -189,11 +189,12 @@ check_slow(Ip, StateHistory) ->
 check_states(State) ->
     %% Check state histories and maybe trigger an alert
     lists:foreach(
-        fun(Ip) ->
+        fun({Name, Ip}) ->
             StateHistory = get_state_history(Ip),
             %% do checks until one returns true (meaning an alert has been sent)
-            check_consecutive_fails(Ip, StateHistory) orelse check_slow(Ip, StateHistory),
-            send_stats(Ip, StateHistory)
+            check_consecutive_fails({Name, Ip}, StateHistory)
+                orelse check_slow({Name, Ip}, StateHistory),
+            send_stats(Name, StateHistory)
         end,
         get_all_ips()),
     State.
@@ -203,18 +204,19 @@ check_states(State) ->
 %%====================================================================
 
 get_static_urls() -> [
-    "https://api.halloapp.net:443/api/_ok"
+    {"load_balancer", "https://api.halloapp.net:443/api/_ok"}
 ].
 
 
 get_all_ips() ->
-    IpsFromUrl = lists:map(fun(Url) -> get_ip_from_url(Url) end, get_static_urls()),
-    lists:concat([IpsFromUrl, mod_aws:get_ejabberd_ips()]).
+    IpsFromUrl = lists:map(fun({Name, Url}) -> {Name, get_ip_from_url(Url)} end, get_static_urls()),
+    lists:concat([IpsFromUrl, mod_aws:get_ejabberd_machines()]).
 
 
 get_all_urls() ->
-    UrlsFromIp = lists:map(fun(Ip) -> get_url_from_ip(Ip) end, mod_aws:get_ejabberd_ips()),
-    lists:concat([UrlsFromIp, get_static_urls()]).
+    UrlsFromIp = lists:map(fun({_Name, Ip}) -> get_url_from_ip(Ip) end, mod_aws:get_ejabberd_machines()),
+    StaticUrls = lists:map(fun({_Name, Url}) -> Url end, get_static_urls()),
+    lists:concat([UrlsFromIp, StaticUrls]).
 
 
 get_ip_from_url(Url) ->

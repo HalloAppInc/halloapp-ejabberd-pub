@@ -17,4 +17,4 @@
 -define(DUMMY_SECRET, <<"dummy_secret">>).
 
 -define(IP_TABLE, aws_ips).
--define(LOCALHOST_IPS, ["127.0.0.1"]).
+-define(LOCALHOST_IPS, [{"localhost", "127.0.0.1"}]).

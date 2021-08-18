@@ -52,10 +52,10 @@ get_cached_secret_test() ->
 get_cached_ips_test() ->
     setup(),
     ?assertNot(ets:member(?IP_TABLE, ?LOCALHOST_IPS)),
-    ?assertEqual(undefined, mod_aws:get_cached_ips()),
-    ?assertEqual(?LOCALHOST_IPS, mod_aws:get_and_cache_ips()),
+    ?assertEqual(undefined, mod_aws:get_cached_machines()),
+    ?assertEqual(?LOCALHOST_IPS, mod_aws:get_and_cache_machines()),
     ?assert(ets:member(?IP_TABLE, ip_list)),
-    ?assertEqual(?LOCALHOST_IPS, mod_aws:get_cached_ips()),
+    ?assertEqual(?LOCALHOST_IPS, mod_aws:get_cached_machines()),
     finish().
 
 
@@ -83,8 +83,8 @@ mock_get_secret_value(SecretName, _Opts) ->
 
 % mock format of what erlcloud_ec2:describe_instances would return
 mock_get_ec2_instances(_, _, _) ->
-    [Ip] = ?LOCALHOST_IPS,
-    Res = [[a, b, {instances_set, [[{ip_address, Ip}]]}]],
+    [{Name, Ip}] = ?LOCALHOST_IPS,
+    Res = [[a, b, {instances_set, [[{ip_address, Ip}, {tag_set, [[{key, "Name"}, {value, Name}]]}]]}]],
     {ok, Res}.
 
 
