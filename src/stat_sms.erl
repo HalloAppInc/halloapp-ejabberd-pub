@@ -28,7 +28,8 @@
     get_gwcc_atom/2,
     sms_stats_table_name/1,
     print_sms_stats/2,
-    process_all_scores/0
+    process_all_scores/0,
+    compute_score/2
 ]).
 -endif.
 
@@ -75,7 +76,7 @@ check_gw_stats() ->
     ?INFO("Check Gateway scores start"),
     Start = util:now_ms(),
     % make a new table for storing scoring stats
-    ets:new(?GW_SCORE_TABLE, [named_table, ordered_set, public]),
+    ets:new(?SCORE_DATA_TABLE, [named_table, ordered_set, public]),
     CurrentIncrement = util:now() div ?SMS_REG_TIMESTAMP_INCREMENT,
     IncrementToProcess = CurrentIncrement - 2,
     % using the same 15 minute increments as explained above, start at `recent`
@@ -85,7 +86,7 @@ check_gw_stats() ->
     gather_scoring_data(IncrementToProcess, IncrementToProcess - ?MAX_SCORING_INTERVAL_COUNT),
     % computes and prints all scores from raw counts
     process_all_scores(),
-    ets:delete(?GW_SCORE_TABLE),
+    ets:delete(?SCORE_DATA_TABLE),
     End = util:now_ms(),
     ?INFO("Check Gateway Scores took ~p ms", [End - Start]),
     ok.
@@ -219,12 +220,14 @@ do_check_sms_reg(TimeWindow, Phone, AttemptId) ->
 -spec inc_scoring_data(VariableType :: atom(), VariableName :: atom(), Success :: boolean()) -> ok.
 inc_scoring_data(VariableType, VariableName, Success) ->
     ?DEBUG("Type: ~p Name: ~p Success: ~p", [VariableType, VariableName, Success]),
-    TotalKey = {VariableType, VariableName, total},
-    ets:update_counter(?GW_SCORE_TABLE, TotalKey, 1, {TotalKey, 0}),
+    DataKey = {VariableType, VariableName},
+    ets:update_counter(?SCORE_DATA_TABLE, DataKey, {?TOTAL_POS, 1}, {DataKey, 0, 0}),
     case Success of
-        _ when Success =:= undefined orelse Success =:= false-> 
-            ErrKey = {VariableType, VariableName, error},
-            ets:update_counter(?GW_SCORE_TABLE, ErrKey, 1, {ErrKey, 0});
+        _ when Success =:= undefined orelse Success =:= false->
+            % intentionally not providing a default value here; total and 
+            % error counter use the same key, so if it's not supplied by
+            % the above update_counter something's gone seriously wrong
+            ets:update_counter(?SCORE_DATA_TABLE, DataKey, {?ERROR_POS, 1});
         true -> ok
     end,
     ok.
@@ -245,20 +248,20 @@ should_inc(_, _, NumExaminedIncrements)
 
 % checks if the variable needs more data and if the increment has been used yet
 should_inc(VariableType, VariableName, NumExaminedIncrements) ->
-    TotalKey = {VariableType, VariableName, total},
-    WantMoreData = needs_more_data(TotalKey),
+    DataKey = {VariableType, VariableName},
+    WantMoreData = needs_more_data(DataKey),
 
     % TODO(Luke) - Implement a map here to track which metrics have used this increment
     % instead of the global counter -- "pass in a map/state to basically keep track of the 
     % gateway/gateway-cc types using this interval and just use that instead of looking up
     % and matching a counter.."
-    IntervalKey = {VariableType, VariableName, num_examined_increments},
+    VarIntervalKey = {VariableType, VariableName, num_examined_increments},
     % HaveInspectedIncrement captures whether or not we've already used some data
     % for this variable (i.e. gateway-cc combo or gw) from the current interval
     % If so, then we will finish logging data from the current interval
-    HaveUsedIncrement = case ets:lookup(?GW_SCORE_TABLE, IntervalKey) of
-        [{IntervalKey, NumExaminedIncrements}] -> true;
-        [{IntervalKey, _PreviousIntervalSize}] -> false;
+    HaveUsedIncrement = case ets:lookup(?SCORE_DATA_TABLE, VarIntervalKey) of
+        [{VarIntervalKey, NumExaminedIncrements}] -> true;
+        [{VarIntervalKey, _PreviousIntervalSize}] -> false;
         [] -> false
     end,
 
@@ -266,8 +269,7 @@ should_inc(VariableType, VariableName, NumExaminedIncrements) ->
     % touched this increment
     case {WantMoreData, HaveUsedIncrement} of
         {true, false} ->
-            VarIntervalKey = {VariableType, VariableName, num_examined_increments},
-            true = ets:insert(?GW_SCORE_TABLE, {VarIntervalKey, NumExaminedIncrements});
+            true = ets:insert(?SCORE_DATA_TABLE, {VarIntervalKey, NumExaminedIncrements});
         {_, _} -> ok
     end,
 
@@ -279,9 +281,9 @@ should_inc(VariableType, VariableName, NumExaminedIncrements) ->
 %% data points (currently 20)
 -spec needs_more_data(VariableKey :: tuple()) -> boolean().
 needs_more_data(VariableKey) ->
-    case ets:lookup(?GW_SCORE_TABLE, VariableKey) of
-        [{_VariableKey, Count}] when Count < ?MIN_TEXTS_TO_SCORE_GW -> true;
-        [{_VariableKey, Count}] when Count >= ?MIN_TEXTS_TO_SCORE_GW -> false;
+    case ets:lookup(?SCORE_DATA_TABLE, VariableKey) of
+        [{_VariableKey, _ErrCount, TotalCount}] when TotalCount < ?MIN_TEXTS_TO_SCORE_GW -> true;
+        [{_VariableKey, _ErrCount, TotalCount}] when TotalCount >= ?MIN_TEXTS_TO_SCORE_GW -> false;
         [] -> true
     end.
 
@@ -308,17 +310,12 @@ print_sms_stats(TimeWindow, Key) ->
 %% iterates through all 'total' entries, calculates the corresponding score, and prints
 -spec process_all_scores() -> ok.
 process_all_scores() ->
-    Entries = ets:match(?GW_SCORE_TABLE, {{'$1', '$2', total}, '$3'}),
+    Entries = ets:match(?SCORE_DATA_TABLE, {{'$1', '$2'}, '$3', '$4'}),
     lists:foreach(fun compute_and_print_score/1, Entries).
 
 
 -spec compute_and_print_score(VarTypeNameTotal :: list()) -> ok.
-compute_and_print_score([VarType, VarName, TotalCount]) ->
-    ErrKey = {VarType, VarName, error},
-    ErrCount = case ets:lookup(?GW_SCORE_TABLE, ErrKey) of
-        [{ErrKey, ECount}] -> ECount;
-        [] -> 0
-    end,
+compute_and_print_score([VarType, VarName, ErrCount, TotalCount]) ->
     Score = case compute_score(ErrCount, TotalCount) of
         {ok, S} -> S;
         {error, insufficient_data} -> nan

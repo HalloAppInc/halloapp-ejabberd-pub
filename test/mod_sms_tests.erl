@@ -113,7 +113,7 @@ sms_stats_threshold_test() ->
     AttemptIdList21 = make_attempts(?PHONE1, ?GATEWAY2, ?SMSID3, G2P1Total),
     0 = verify_attempts(G2P1Successes, ?PHONE1, AttemptIdList21),
 
-    TableName = ?GW_SCORE_TABLE,
+    TableName = ?SCORE_DATA_TABLE,
     CurrentIncrement = (util:now() div ?SMS_REG_TIMESTAMP_INCREMENT),
     ets:new(TableName, [named_table, ordered_set, public]),
     stat_sms:gather_scoring_data(CurrentIncrement, CurrentIncrement - ?MAX_SCORING_INTERVAL_COUNT),
@@ -157,20 +157,12 @@ make_attempts(Phone, Gateway, SmsId, NumAttempts, Acc) ->
 -spec get_score(TotalKey :: tuple(), ErrKey :: tuple()) -> {ok, Score :: integer()} | 
         {error, insufficient_data}.
 get_score(VarType, VarName) ->
-    TotalKey = {VarType, VarName, total},
-    ErrKey = {VarType, VarName, error},
-    TotalCount = case ets:lookup(?GW_SCORE_TABLE, TotalKey) of
-        [{TotalKey, TCount}] -> TCount;
-        [] -> 0
+    DataKey = {VarType, VarName},
+    {ErrCount, TotalCount} = case ets:lookup(?SCORE_DATA_TABLE, DataKey) of
+        [{DataKey, ECount, TCount}] -> {ECount, TCount};
+        [] -> {0, 0}
     end,
-    ErrCount = case ets:lookup(?GW_SCORE_TABLE, ErrKey) of
-        [{ErrKey, ECount}] -> ECount;
-        [] -> 0
-    end,
-    case TotalCount >= ?MIN_TEXTS_TO_SCORE_GW of
-        true -> {ok, ((TotalCount - ErrCount) * 100) div TotalCount};
-        false -> {error, insufficient_data}
-    end.
+    stat_sms:compute_score(ErrCount, TotalCount).
 
 
     % twilio_test() ->
