@@ -80,6 +80,8 @@ check_gw_stats() ->
     IncrementToProcess = CurrentIncrement - 2,
     % using the same 15 minute increments as explained above, start at `recent`
     % increment and iterate backwards in time up to 48 hours (192 increments).
+    ?INFO("Processing scores from time slots ~p to ~p", [IncrementToProcess,
+            IncrementToProcess - ?MAX_SCORING_INTERVAL_COUNT]),
     gather_scoring_data(IncrementToProcess, IncrementToProcess - ?MAX_SCORING_INTERVAL_COUNT),
     % computes and prints all scores from raw counts
     process_all_scores(),
@@ -121,9 +123,12 @@ gather_scoring_data(FinalIncrement, FinalIncrement) ->
 
 gather_scoring_data(CurrentIncrement, FinalIncrement) ->
     % moving backwards in time, FirstIncrement always >= CurrentIncrement
-    % TODO(Luke) Make this DEBUG
-    ?INFO("Processing scores in time slot: ~p, until: ~p", [CurrentIncrement,
-            FinalIncrement]),
+    LogMsg = "Processing scores in time slot: ~p, until: ~p",
+    LogList = [CurrentIncrement, FinalIncrement],
+    case CurrentIncrement rem 25 =:= 0 of
+        true -> ?INFO(LogMsg, LogList);
+        false -> ?DEBUG(LogMsg, LogList)
+    end,
     % FinalIncrement + ?MAX_SCORING_INTERVAL_COUNT is the first increment examined (recent)
     % because FinalIncrement = FirstIncrement - MAX_INTERVALS
     NumExaminedIncrements = (FinalIncrement + ?MAX_SCORING_INTERVAL_COUNT) - CurrentIncrement,
@@ -213,8 +218,7 @@ do_check_sms_reg(TimeWindow, Phone, AttemptId) ->
 
 -spec inc_scoring_data(VariableType :: atom(), VariableName :: atom(), Success :: boolean()) -> ok.
 inc_scoring_data(VariableType, VariableName, Success) ->
-    % TODO(Luke) Make this DEBUG
-    ?INFO("Type: ~p Name: ~p Success: ~p", [VariableType, VariableName, Success]),
+    ?DEBUG("Type: ~p Name: ~p Success: ~p", [VariableType, VariableName, Success]),
     TotalKey = {VariableType, VariableName, total},
     ets:update_counter(?GW_SCORE_TABLE, TotalKey, 1, {TotalKey, 0}),
     case Success of
