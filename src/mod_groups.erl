@@ -412,6 +412,7 @@ delete_avatar(Gid, Uid) ->
             ok = model_groups:delete_avatar(Gid),
             ?INFO("Gid: ~s Uid: ~s deleted avatar", [Gid, Uid]),
             stat:count(?STAT_NS, "delete_avatar"),
+            send_change_avatar_event(Gid, Uid),
             {ok, GroupInfo#group_info.name}
     end.
 

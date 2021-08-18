@@ -22,6 +22,7 @@ group() ->
         groups_get_groups_test,
         groups_get_group_test,
         groups_set_name_test,
+        % TODO: add tests for set_avatar and delete_avatar.
         % TODO: move the group_invite_link tests into another file. Because this file is kind of long.
         % TODO: add a test to check that being added to a group removes you
         % from the removed_members_set
