@@ -45,6 +45,7 @@ decode_ts(TsMsBinary) ->
 decode_int(Bin) ->
     case Bin of
         undefined -> undefined;
+        <<"undefined">> -> undefined;
         _ -> binary_to_integer(Bin)
     end.
 

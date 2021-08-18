@@ -17,7 +17,8 @@
 %% API
 -export([
     check_sms_reg/1,
-    check_gw_stats/0
+    check_gw_stats/0,
+    get_gwcc_atom_safe/2
 ]).
 
 -ifdef(TEST).
@@ -26,10 +27,11 @@
 -export([
     gather_scoring_data/2,
     get_gwcc_atom/2,
+    get_recent_score/1,
     sms_stats_table_name/1,
     print_sms_stats/2,
     process_all_scores/0,
-    compute_score/2
+    compute_recent_score/2
 ]).
 -endif.
 
@@ -90,6 +92,28 @@ check_gw_stats() ->
     End = util:now_ms(),
     ?INFO("Check Gateway Scores took ~p ms", [End - Start]),
     ok.
+
+
+%% Returns the current recent score
+-spec get_recent_score(VarName :: atom()) -> 
+        {ok, integer()} | {error, insufficient_data} | {error, not_found}.
+get_recent_score(VarName) ->
+    {ok, AggScore} = model_gw_score:get_recent_score(VarName),
+    case AggScore of
+        undefined -> {error, insufficient_data};
+        _ -> {ok, AggScore}
+    end.
+
+
+-spec get_gwcc_atom_safe(Gateway :: atom(), CC :: atom()) -> GatewayCC :: atom().
+get_gwcc_atom_safe(Gateway, CC) ->
+    GatewayCC = case get_gwcc_atom(Gateway, CC) of
+        {ok, GWCC} -> GWCC;
+        {error, undefined} -> 
+            ?ERROR("unable to create gwcc atom from ~p and ~p", [Gateway, CC]),
+            undefined
+    end,
+    GatewayCC.
 
 %%%=============================================================================
 %%% INTERNAL FUNCTIONS
@@ -316,10 +340,11 @@ process_all_scores() ->
 
 -spec compute_and_print_score(VarTypeNameTotal :: list()) -> ok.
 compute_and_print_score([VarType, VarName, ErrCount, TotalCount]) ->
-    Score = case compute_score(ErrCount, TotalCount) of
+    Score = case compute_recent_score(ErrCount, TotalCount) of
         {ok, S} -> S;
         {error, insufficient_data} -> nan
     end,
+    update_redis_score(VarName, Score),
     SuccessCount = TotalCount - ErrCount,
     Category = get_category(VarType),
     PrintList = [Category, VarName, Score, SuccessCount, TotalCount],
@@ -327,14 +352,36 @@ compute_and_print_score([VarType, VarName, ErrCount, TotalCount]) ->
     ok.
 
 
--spec compute_score(ErrCount :: integer(), TotalCount :: integer()) -> 
+-spec compute_recent_score(ErrCount :: integer(), TotalCount :: integer()) -> 
         {ok, Score :: integer()} | {error, insufficient_data}.
-compute_score(ErrCount, TotalCount) ->
+compute_recent_score(ErrCount, TotalCount) ->
     case TotalCount >= ?MIN_TEXTS_TO_SCORE_GW of
         true -> {ok, ((TotalCount - ErrCount) * 100) div TotalCount};
         false -> {error, insufficient_data}
     end.
 
+
+-spec update_redis_score(VarName :: atom(), RecentScore :: integer()) -> ok.
+update_redis_score(VarName, RecentScore)->
+    {ok, OldAggScore} = model_gw_score:get_aggregate_score(VarName),
+    NewAggScore = case {RecentScore, OldAggScore} of 
+        {nan, _} -> OldAggScore;
+        {_, undefined} -> RecentScore;
+        {_, _} -> combine_scores(RecentScore, OldAggScore)
+    end,
+    StoreRecentScore = case RecentScore of
+        nan -> undefined;
+        _ -> RecentScore
+            
+    end,
+    model_gw_score:store_score(VarName, StoreRecentScore, NewAggScore),
+    ok.
+
+-spec combine_scores(RecentScore :: integer(), AggScore :: integer()) -> integer().
+combine_scores(RecentScore, AggScore) ->
+    NewScore = (RecentScore * ?RECENT_SCORE_WEIGHT) + 
+        (AggScore * (1.0 - ?RECENT_SCORE_WEIGHT)),
+    trunc(NewScore) div 1.
 
 -spec get_category(VarType :: atom()) -> string().
 get_category(gw) ->

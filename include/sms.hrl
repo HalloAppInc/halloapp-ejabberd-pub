@@ -66,6 +66,7 @@
 -define(MAX_SCORING_INTERVAL_COUNT, (?MAX_SCORING_TIME div ?SMS_REG_TIMESTAMP_INCREMENT)). %% 48 hours 
 -define(ERROR_POS, 2).
 -define(TOTAL_POS, 3).
+-define(RECENT_SCORE_WEIGHT, 0.8).
 
 
 -define(ENG_LANG_ID, <<"en-US">>).

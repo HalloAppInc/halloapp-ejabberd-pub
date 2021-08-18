@@ -352,9 +352,12 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
             ConsiderSet = sets:from_list(ConsiderList),
 
             %% Pick one based on past performance.
-            ToPick = pick_gw(ChooseFromList, CC),
+            {ToPick, NewPick} = pick_gw(ChooseFromList, CC),
             ?INFO("Picked: ~p, from: ~p", [ToPick, length(ChooseFromList)]),
             PickedGateway = lists:nth(ToPick, ChooseFromList),
+
+            NewPickedGateway = lists:nth(NewPick, ChooseFromList),
+            ?INFO("Current Selection: ~p, New Selection: ~p", [PickedGateway, NewPickedGateway]),
 
             %% Just in case there is any bug in computation of new gateway.
             PickedGateway2 = case sets:is_element(PickedGateway, ConsiderSet) of
@@ -374,6 +377,7 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
     end,
     ?INFO("Enrolling: ~s, Using Phone: ~s CC: ~s Chosen Gateway: ~p to send ~p Code: ~p",
         [Phone, OtpPhone, CC, NewGateway2, Method, Code]),
+        
     {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
     CurrentSMSResponse = #gateway_response{attempt_id = NewAttemptId,
         attempt_ts = Timestamp, method = Method, gateway = NewGateway2},
@@ -409,8 +413,10 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
                 [] ->
                     {error, Gateway, Reason};
                 _ -> % pick from curated list
-                    ToPick = pick_gw(ToChooseFromList, CC),
+                    {ToPick, NewPick} = pick_gw(ToChooseFromList, CC),
                     PickedGateway = lists:nth(ToPick, ToChooseFromList),
+                    NewPickedGateway = lists:nth(NewPick, ToChooseFromList),
+                    ?INFO("Current Selection: ~p, New Selection: ~p", [PickedGateway, NewPickedGateway]),
                     NewSMSResponse = CurrentSMSResponse#gateway_response{gateway = PickedGateway},
                     smart_send_internal(Phone, Code, LangId, UserAgent, CC, NewSMSResponse, ToChooseFromList)
             end;
@@ -419,15 +425,29 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
     end.
 
 
+%% TODO(Luke): Make this return the gateway itself instead of an index
 -spec pick_gw(ChooseFrom :: [atom()], CC :: binary()) -> non_neg_integer().
 pick_gw(ChooseFrom, CC) ->
     %% TODO(vipin): Change INFO to DEBUG.
     GWScores = get_gw_scores(ChooseFrom, CC),
-    Sum = lists:sum(GWScores),
-    GWWeights = [XX/Sum || XX <- GWScores],
+    GWWeights = util:normalize_scores(GWScores),
+    
+    NewGWScores = get_new_gw_scores(ChooseFrom, CC),
+    NewGWWeights = util:normalize_scores(NewGWScores),
+    
     RandNo = rand:uniform(),
-    ?INFO("Generated rand: ~p, Weights: ~p", [RandNo, GWWeights]),
 
+    {Picked, _LeftOver} = rand_weighted_selection(RandNo, GWWeights),
+    % simulate what we would pick if we used country-specific scores
+    {NewPicked, _NewLeftOver} = rand_weighted_selection(RandNo, NewGWWeights),
+
+    ?INFO("Generated rand: ~p, Weights: ~p, Picked: ~p, New Weights: ~p, New Picked: ~p",
+        [RandNo, GWWeights, Picked, NewGWWeights, NewPicked]),
+    {Picked, NewPicked}.
+
+
+-spec rand_weighted_selection(RandNo :: float(), Weights :: list()) -> {integer(), float()}.
+rand_weighted_selection(RandNo, Weights) ->
     %% Select first index that satisfy the gateway weight criteria. Selection uses the computed
     %% weights for each gateway. We iterate over the list using a uniformly generated random
     %% number between 0.0 and 1.0 and keep subtracting the weight from the left until the remainder
@@ -439,16 +459,16 @@ pick_gw(ChooseFrom, CC) ->
     %% https://stackoverflow.com/questions/1761626/weighted-random-numbers
     %%
     %% TODO(vipin): Pick a faster algorithm.
-    {Picked, LeftOver} = lists:foldl(
+    {PickedIdx, LeftOver} = lists:foldl(
         fun(XX, {I, Left}) ->
             case Left > 0 of
                 true -> {I + 1, Left - XX};
                 _ -> {I, Left}
             end
-        end, {0, RandNo}, GWWeights),
+        end, {0, RandNo}, Weights),
     true = (LeftOver =< 0),
-    ?INFO("Picked index: ~p, LeftOver: ~p", [Picked, LeftOver]),
-    Picked.
+    {PickedIdx, LeftOver}.
+
 
 -spec get_gw_scores(ChooseFrom :: [atom()], CC :: binary()) -> list().
 get_gw_scores(ChooseFrom, _CC) ->
@@ -463,5 +483,42 @@ get_gw_scores(ChooseFrom, _CC) ->
         end, ChooseFrom),
     ?DEBUG("GWs: ~p, Scores: ~p", [ChooseFrom, RetVal]),
     RetVal.
+
+
+-spec get_new_gw_scores(ChooseFrom :: [atom()], CC :: binary()) -> list().
+get_new_gw_scores(ChooseFrom, CC) ->
+    RetVal = lists:map(
+        fun(Gateway) ->
+            get_gwcc_score(Gateway, CC)
+        end, ChooseFrom),
+    ?DEBUG("GWs: ~p, Scores: ~p", [ChooseFrom, RetVal]),
+    RetVal.
+
+
+%% Tries to retieve country-specific gateway score. If insufficient data (nan),
+%% returns global gateway score instead. If unable to retrieve that as well, 
+%% returns default gateway score as a last resort.
+-spec get_gwcc_score(Gateway :: atom(), CC :: atom()) -> Score :: integer().
+get_gwcc_score(Gateway, CC) ->
+    GatewayCC = stat_sms:get_gwcc_atom_safe(Gateway, CC),
+    case model_gw_score:get_aggregate_score(GatewayCC) of
+        {ok, undefined} -> 
+            ?DEBUG("Using Global score for ~p", [GatewayCC]),
+            {ok, GlobalScore} = get_aggregate_score(Gateway),
+            GlobalScore;
+        {ok, Score} -> Score
+    end.
+
+
+%% overloaded function to be able to return a default value
+-spec get_aggregate_score(Gateway :: atom()) -> {ok, integer()}.
+get_aggregate_score(Gateway) ->
+    {ok, AggScore} = model_gw_score:get_aggregate_score(Gateway),
+    RetScore = case AggScore of
+        undefined -> ?DEFAULT_GATEWAY_SCORE;
+        _ when AggScore >= 0 -> AggScore;
+        _ -> ?DEFAULT_GATEWAY_SCORE
+    end,
+    {ok, RetScore}. 
 
 

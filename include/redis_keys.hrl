@@ -122,6 +122,8 @@
 -define(IP_KEY, <<"ip:">>).
 -define(PHONE_PATTERN_KEY, <<"pp:">>).
 
+-define(GW_SCORE_KEY, <<"scr:">>).
+
 % old deleted/deprecated keys
 %%-define(INVITED_BY_KEY_OLD, <<"inb:">>).
 

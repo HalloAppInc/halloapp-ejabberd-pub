@@ -60,7 +60,8 @@
     add_and_merge_maps/2,
     maybe_base64_encode/1,
     maybe_base64_decode/1,
-    yesterday/0
+    yesterday/0,
+    normalize_scores/1
 ]).
 
 
@@ -411,3 +412,12 @@ yesterday() ->
 -spec day_before(Date :: calendar:date()) -> calendar:date().
 day_before(Date) ->
     calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 1).
+
+
+%% takes a list of scores and returns normalized scores between 0 & 1
+-spec normalize_scores(ScoreList :: list()) -> list().
+normalize_scores(ScoreList) ->
+    Sum = lists:sum(ScoreList),
+    NormalizedList = [XX/Sum || XX <- ScoreList],
+    NormalizedList.
+
