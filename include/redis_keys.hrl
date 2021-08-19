@@ -74,6 +74,14 @@
 -define(BLOCK_KEY, <<"blo:">>).
 -define(REVERSE_BLOCK_KEY, <<"rbl:">>).
 
+% new keys in privacy cluster.
+-define(ONLY_PHONE_KEY, <<"onp:">>).
+-define(EXCEPT_PHONE_KEY, <<"exp:">>).
+-define(MUTE_PHONE_KEY, <<"mup:">>).
+-define(BLOCK_PHONE_KEY, <<"blp:">>).
+-define(REVERSE_BLOCK_PHONE_KEY, <<"rbp:">>).
+-define(BLOCK_UID_KEY, <<"bli:">>).
+-define(REVERSE_BLOCK_UID_KEY, <<"rbi:">>).
 
 %% RedisAuth
 %% old deleted/deprecated key

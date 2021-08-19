@@ -175,7 +175,9 @@ privacy_check_packet(deny, _State, _Pkt, _Dir) ->
 
 -spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
 remove_user(Uid, _Server) ->
-    model_privacy:remove_user(Uid),
+    %% TODO (murali@): Update hook to include phone.
+    {ok, Phone} = model_accounts:get_phone(Uid),
+    model_privacy:remove_user(Uid, Phone),
     ok.
 
 
