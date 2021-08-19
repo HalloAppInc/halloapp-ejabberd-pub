@@ -207,7 +207,12 @@ process_scoring_datum(Phone, AttemptId, NumExaminedIncrements) ->
         true -> 
             inc_scoring_data(gwcc, GatewayCC, Success);
         false -> ok
-    end.
+    end,
+    ets:update_counter(?SCORE_DATA_TABLE, {gw, Gateway}, {?TOTAL_SEEN_POS, 1}, 
+            {{gw, Gateway}, 0, 0, 0}),
+    ets:update_counter(?SCORE_DATA_TABLE, {gwcc, GatewayCC}, {?TOTAL_SEEN_POS, 1}, 
+            {{gwcc, GatewayCC}, 0, 0, 0}),
+    ok.
 
 
 -spec do_check_sms_reg(TimeWindow :: atom(), Phone :: phone(),AttemptId :: binary()) -> ok.
@@ -245,7 +250,7 @@ do_check_sms_reg(TimeWindow, Phone, AttemptId) ->
 inc_scoring_data(VariableType, VariableName, Success) ->
     ?DEBUG("Type: ~p Name: ~p Success: ~p", [VariableType, VariableName, Success]),
     DataKey = {VariableType, VariableName},
-    ets:update_counter(?SCORE_DATA_TABLE, DataKey, {?TOTAL_POS, 1}, {DataKey, 0, 0}),
+    ets:update_counter(?SCORE_DATA_TABLE, DataKey, {?TOTAL_POS, 1}, {DataKey, 0, 0, 0}),
     case Success of
         _ when Success =:= undefined orelse Success =:= false->
             % intentionally not providing a default value here; total and 
@@ -306,8 +311,10 @@ should_inc(VariableType, VariableName, NumExaminedIncrements) ->
 -spec needs_more_data(VariableKey :: tuple()) -> boolean().
 needs_more_data(VariableKey) ->
     case ets:lookup(?SCORE_DATA_TABLE, VariableKey) of
-        [{_VariableKey, _ErrCount, TotalCount}] when TotalCount < ?MIN_TEXTS_TO_SCORE_GW -> true;
-        [{_VariableKey, _ErrCount, TotalCount}] when TotalCount >= ?MIN_TEXTS_TO_SCORE_GW -> false;
+        [{_VariableKey, _ErrCount, TotalCount, _TSeen}] 
+            when TotalCount < ?MIN_TEXTS_TO_SCORE_GW -> true;
+        [{_VariableKey, _ErrCount, TotalCount, _TSeen}] 
+            when TotalCount >= ?MIN_TEXTS_TO_SCORE_GW -> false;
         [] -> true
     end.
 
@@ -334,26 +341,30 @@ print_sms_stats(TimeWindow, Key) ->
 %% iterates through all 'total' entries, calculates the corresponding score, and prints
 -spec process_all_scores() -> ok.
 process_all_scores() ->
-    Entries = ets:match(?SCORE_DATA_TABLE, {{'$1', '$2'}, '$3', '$4'}),
+    Entries = ets:match(?SCORE_DATA_TABLE, {{'$1', '$2'}, '$3', '$4', '$5'}),
     lists:foreach(fun compute_and_print_score/1, Entries).
 
 
 -spec compute_and_print_score(VarTypeNameTotal :: list()) -> ok.
-compute_and_print_score([VarType, VarName, ErrCount, TotalCount]) ->
-    SuccessCount = TotalCount - ErrCount,
+compute_and_print_score([VarType, VarName, ErrCount, TotalCounted, TotalSeen]) ->
+    SuccessCount = TotalCounted - ErrCount,
     Category = get_category(VarType),
-    Score = case compute_recent_score(ErrCount, TotalCount) of
+    Score = case compute_recent_score(ErrCount, TotalCounted) of
         {ok, S} when S < ?MIN_SMS_CONVERSION_SCORE ->
             ?ERROR("Low SMS conversion, ~s: ~p, score: ~p (~p/~p)", 
-                [Category, VarName, S, SuccessCount, TotalCount]),
+                [Category, VarName, S, SuccessCount, TotalCounted]),
             S;
         {ok, S} ->
             S;
         {error, insufficient_data} -> nan
     end,
     update_redis_score(VarName, Score),
-    ?INFO("SMS_Stats ~s: ~p, score: ~p (~p/~p)",
-        [Category, VarName, Score, SuccessCount, TotalCount]),
+    case Score of 
+        nan -> ?DEBUG("SMS_Stats, ~s: ~p, score: ~p (~p/~p) seen: ~p", 
+            [Category, VarName, Score, SuccessCount, TotalCounted, TotalSeen]);
+        _ -> ?INFO("SMS_Stats, ~s: ~p, score: ~p (~p/~p) seen: ~p", 
+            [Category, VarName, Score, SuccessCount, TotalCounted, TotalSeen])
+    end,
     ok.
 
 
