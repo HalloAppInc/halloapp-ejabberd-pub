@@ -16,6 +16,10 @@
 -define(DEFAULT_HOST, "localhost").
 -define(DEFAULT_PORT, "5580").
 
+-define(IDENTITY_KEY, <<"ZGFkc2FkYXNma2xqc2RsZmtqYXNkbGtmamFzZGxrZmphc2xrZGZqYXNsO2tkCgo=">>).
+-define(SIGNED_KEY, <<"Tmlrb2xhIHdyb3RlIHRoaXMgbmljZSBtZXNzYWdlIG1ha2luZyBzdXJlIGl0IGlzIGxvbmcgCg==">>).
+-define(ONE_TIME_KEY, <<"VGhpcyBpcyBvbmUgdGltZSBrZXkgZm9yIHRlc3RzIHRoYXQgaXMgbG9uZwo=">>).
+
 %% API
 -export([
     request_sms/1,
@@ -90,8 +94,12 @@ register(Phone, Code, Name, Options) ->
         <<"code">> => Code,
         <<"name">> => Name,
         <<"s_ed_pub">> => SEdPubEncoded,
-        <<"signed_phrase">> => SignedMessageEncoded
-        % TODO: add support for whisper keys
+        <<"signed_phrase">> => SignedMessageEncoded,
+        % TODO: add support for whisper keys - autogenerate keys here.
+        <<"identity_key">> => ?IDENTITY_KEY,
+        <<"signed_key">> => ?SIGNED_KEY,
+        <<"one_time_keys">> => [?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY,
+            ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY]
     }),
 
     UA = maps:get(user_agent, Options, ?DEFAULT_UA),

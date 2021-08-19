@@ -36,6 +36,8 @@
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 -export([
     process/2,
+    process_otp_request/1,
+    process_register_request/1,
     check_blocked/2,  %% for testing
     delete_client_ip/2,  %% for testing
     delete_phone_pattern/1  %% for testing
@@ -51,11 +53,11 @@
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 process([<<"registration">>, <<"request_sms">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
-    process_otp_request(Data, IP, Headers, false);
+    process_otp_request(Data, IP, Headers);
 
 process([<<"registration">>, <<"request_otp">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
-    process_otp_request(Data, IP, Headers, true);
+    process_otp_request(Data, IP, Headers);
 
 %% Newer version of `register` API. Uses spub instead of password.
 %% TODO(vipin): Refactor error handling code.
@@ -69,82 +71,38 @@ process([<<"registration">>, <<"register2">>],
         RawPhone = maps:get(<<"phone">>, Payload),
         Code = maps:get(<<"code">>, Payload),
         Name = maps:get(<<"name">>, Payload),
-        SEdPub = maps:get(<<"s_ed_pub">>, Payload),
-        SignedPhrase = maps:get(<<"signed_phrase">>, Payload),
+        SEdPubB64 = maps:get(<<"s_ed_pub">>, Payload),
+        SignedPhraseB64 = maps:get(<<"signed_phrase">>, Payload),
         GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
-        Phone = normalize(RawPhone),
+        IdentityKeyB64 = maps:get(<<"identity_key">>, Payload),
+        SignedKeyB64 = maps:get(<<"signed_key">>, Payload),
+        OneTimeKeysB64 = maps:get(<<"one_time_keys">>, Payload),
+        RawData = Payload#{headers => Headers, ip => IP},
 
-        check_ua(UserAgent),
-        check_sms_code(Phone, Code),
-        ok = delete_client_ip(ClientIP, Phone),
-        ok = delete_phone_pattern(Phone),
-        LName = check_name(Name),
-
-        SEdPubBin = base64:decode(SEdPub),
-        check_s_ed_pub_size(SEdPubBin),
-        SignedPhraseBin = base64:decode(SignedPhrase),
-        check_signed_phrase(SignedPhraseBin, SEdPubBin),
-
-        SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
-
-        {ok, Phone, Uid} = finish_registration_spub(Phone, LName, UserAgent, SPub),
-        process_whisper_keys(Uid, Payload),
-        process_push_token(Uid, Payload),
-        CC = mod_libphonenumber:get_region_id(Phone),
-        ?INFO("registration complete uid:~s, phone:~s, country_code:~s", [Uid, Phone, CC]),
-        Result = #{
-            uid => Uid,
-            phone => Phone,
-            name => LName,
-            result => ok
+        RequestData = #{
+            raw_phone => RawPhone, name => Name, ua => UserAgent, code => Code,
+            ip => ClientIP, group_invite_token => GroupInviteToken, s_ed_pub => SEdPubB64,
+            signed_phrase => SignedPhraseB64, id_key => IdentityKeyB64, sd_key => SignedKeyB64,
+            otp_keys => OneTimeKeysB64, push_payload => Payload, raw_data => RawData
         },
-        Result2 = case GroupInviteToken of
-            undefined -> Result;
-            _ -> Result#{group_invite_result => maybe_join_group(Uid, GroupInviteToken)}
-        end,
-        {200, ?HEADER(?CT_JSON), jiffy:encode(Result2)}
+        case process_register_request(RequestData) of
+            {ok, Result} ->
+                {200, ?HEADER(?CT_JSON), jiffy:encode(Result)};
+            {error, internal_server_error} ->
+                util_http:return_500();
+            {error, bad_user_agent} ->
+                util_http:return_400();
+            {error, Reason} ->
+                util_http:return_400(Reason)
+        end
     catch
-        % TODO: This code is getting out of hand... Figure out how to simplify the error handling
-        error : bad_user_agent ->
-            ?ERROR("register error: bad_user_agent ~p", [Headers]),
-            log_register_error(bad_user_agent),
-            util_http:return_400();
-        error : invalid_phone_number ->
-            ?ERROR("register error: invalid_phone_number ~p", [Headers]),
-            log_request_otp_error(invalid_phone_number, sms),
-            util_http:return_400(invalid_phone_number);
-        error : invalid_client_version ->
-            ?ERROR("register error: invalid_client_version ~p", [Headers]),
-            util_http:return_400(invalid_client_version);
-        error : wrong_sms_code ->
-            ?INFO("register error: code mismatch data:~s", [Data]),
-            log_register_error(wrong_sms_code),
-            util_http:return_400(wrong_sms_code);
-        error : invalid_s_ed_pub ->
-            ?ERROR("register error: invalid_s_ed_pub ~p", [Data]),
-            log_register_error(invalid_s_ed_pub),
-            util_http:return_400(invalid_s_ed_pub);
-        error : invalid_signed_phrase ->
-            ?ERROR("register error: invalid_signed_phrase ~p", [Data]),
-            log_register_error(invalid_signed_phrase),
-            util_http:return_400(invalid_signed_phrase);
-        error : unable_to_open_signed_phrase ->
-            ?ERROR("register error: unable_to_open_signed_phrase ~p", [Data]),
-            log_register_error(unable_to_open_signed_phrase),
-            util_http:return_400(unable_to_open_signed_phrase);
         error: {badkey, MissingField} when is_binary(MissingField)->
             BadKeyError = util:to_atom(<<"missing_", MissingField/binary>>),
             log_register_error(BadKeyError),
             util_http:return_400(BadKeyError);
-        error: {wk_error, Reason} ->
-            log_register_error(wk_error),
-            util_http:return_400(Reason);
-        error: invalid_name ->
-            log_register_error(invalid_name),
-            util_http:return_400(invalid_name);
-        error : Reason : Stacktrace  ->
+        error : Reason2 : Stacktrace  ->
             log_register_error(server_error),
-            ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
+            ?ERROR("register error: ~p, ~p", [Reason2, Stacktrace]),
             util_http:return_500()
     end;
 
@@ -190,94 +148,196 @@ process(Path, Request) ->
     ?INFO("404 Not Found: path: ~p, r:~p", [Path, Request]),
     util_http:return_404().
 
--spec process_otp_request(Data :: string(), IP :: string(), Headers :: list(),
-    MethodInRequest :: boolean()) -> http_response().
-process_otp_request(Data, IP, Headers, MethodInRequest) ->
+-spec process_otp_request(Data :: string(), IP :: string(), Headers :: list()) -> http_response().
+process_otp_request(Data, IP, Headers) ->
     try
         ?DEBUG("Data:~p", [Data]),
         UserAgent = util_http:get_user_agent(Headers),
         ClientIP = util_http:get_ip(IP, Headers),
         Payload = jiffy:decode(Data, [return_maps]),
         RawPhone = maps:get(<<"phone">>, Payload),
-        Method = case MethodInRequest of
-            false -> <<"sms">>;
-            _ -> maps:get(<<"method">>, Payload, <<"sms">>)
-        end,
+        MethodBin = maps:get(<<"method">>, Payload, <<"sms">>),
         LangId = maps:get(<<"lang_id">>, Payload, <<"en-US">>),
         GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
         ?INFO("raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, payload:~p ",
-            [RawPhone, UserAgent, ClientIP, Method, LangId, Payload]),
-        Phone = normalize(RawPhone),
+            [RawPhone, UserAgent, ClientIP, MethodBin, LangId, Payload]),
+        RawData = Payload#{headers => Headers, ip => IP},
+        RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
+            ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => RawData
+        },
+        case process_otp_request(RequestData) of
+            {ok, Phone, RetryAfterSecs} ->
+                {200, ?HEADER(?CT_JSON),
+                    jiffy:encode({[
+                        {phone, Phone},
+                        {retry_after_secs, RetryAfterSecs},
+                        {result, ok}
+                    ]})};
+            {error, retried_too_soon, Phone, RetryAfterSecs} ->
+                return_retried_too_soon(Phone, RetryAfterSecs, MethodBin);
+            {error, internal_server_error} ->
+                util_http:return_500();
+            {error, ip_blocked} ->
+                util_http:return_400();
+            {error, bad_user_agent} ->
+                util_http:return_400();
+            {error, Reason} ->
+                util_http:return_400(Reason)
+        end
+    catch
+        error: {badkey, MissingField} when is_binary(MissingField)->
+            BadKeyError = util:to_atom(<<"missing_", MissingField/binary>>),
+            log_register_error(BadKeyError),
+            util_http:return_400(BadKeyError);
+        error : Reason2 : Stacktrace  ->
+            log_register_error(server_error),
+            ?ERROR("register error: ~p, ~p", [Reason2, Stacktrace]),
+            util_http:return_500()
+    end.
 
+
+
+-spec process_otp_request(RequestData :: #{}) ->
+    {ok, integer()} | {error, retried_too_soon, integer()} | {error, any()}.
+process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent, method := MethodBin,
+        ip := ClientIP, group_invite_token := GroupInviteToken, raw_data := RawData}) ->
+    try
+        Phone = normalize(RawPhone),
         check_ua(UserAgent),
-        Method2 = get_otp_method(Method),
+        Method = get_otp_method(MethodBin),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
         case check_blocked(ClientIP, Phone) of
             ok ->
-                case request_otp(Phone, LangId, UserAgent, Method2) of
-                    {ok, RetryAfterSecs} ->
-                        {200, ?HEADER(?CT_JSON),
-                            jiffy:encode({[
-                                {phone, Phone},
-                                {retry_after_secs, RetryAfterSecs},
-                                {result, ok}
-                            ]})};
-                    {error, retried_too_soon, RetrySecs} ->
-                        return_retried_too_soon(Phone, RetrySecs, Method)
+                case request_otp(Phone, LangId, UserAgent, Method) of
+                    {ok, RetryAfterSecs} -> {ok, Phone, RetryAfterSecs};
+                    {error, retried_too_soon, RetryAfterSecs} -> {error, retried_too_soon, Phone, RetryAfterSecs}
                 end;
-            {error, retried_too_soon, RetrySecs} ->
-                return_retried_too_soon(Phone, RetrySecs, Method)
+            {error, retried_too_soon, RetryAfterSecs} ->
+                {error, retried_too_soon, Phone, RetryAfterSecs}
         end
     catch
         error : ip_blocked ->
-            ?ERROR("register error: ip_blocked ~p", [Headers]),
+            ?ERROR("register error: ip_blocked ~p", [RawData]),
             log_request_otp_error(ip_blocked, sms),
-            util_http:return_400();
+            {error, ip_blocked};
         error : invalid_phone_number ->
-            ?ERROR("register error: invalid_phone_number ~p", [Headers]),
-            log_request_otp_error(invalid_phone_number, MethodInRequest),
-            util_http:return_400(invalid_phone_number);
+            ?ERROR("register error: invalid_phone_number ~p", [RawData]),
+            log_request_otp_error(invalid_phone_number, MethodBin),
+            {error, invalid_phone_number};
         error : bad_user_agent ->
-            ?ERROR("register error: bad_user_agent ~p", [Headers]),
+            ?ERROR("register error: bad_user_agent ~p", [RawData]),
             log_request_otp_error(bad_user_agent, sms),
-            util_http:return_400();
+            {error, bad_user_agent};
         error : invalid_client_version ->
-            ?ERROR("register error: invalid_client_version ~p", [Headers]),
-            util_http:return_400(invalid_client_version);
+            ?ERROR("register error: invalid_client_version ~p", [RawData]),
+            {error, invalid_client_version};
         error : bad_method ->
-            ?ERROR("register error: bad_method ~p", [Data]),
-            util_http:return_400(bad_method);
-        error: not_invited ->
-            ?INFO("request_sms error: phone not invited ~p", [Data]),
+            ?ERROR("register error: bad_method ~p", [RawData]),
+            {error, bad_method};
+        error : not_invited ->
+            ?INFO("request_sms error: phone not invited ~p", [RawData]),
             log_request_otp_error(not_invited, sms),
-            util_http:return_400(not_invited);
+            {error, not_invited};
         error : sms_fail ->
-            ?INFO("request_sms error: sms_failed ~p", [Data]),
+            ?INFO("request_sms error: sms_failed ~p", [RawData]),
             log_request_otp_error(sms_fail, sms),
-            case MethodInRequest of
-                false -> util_http:return_400(sms_fail);
-                _ -> util_http:return_400(otp_fail)
-            end;
+            {error, otp_fail};
         error : retried_too_soon ->
-            ?INFO("request_otp error: sms_failed ~p", [Data]),
+            ?INFO("request_otp error: sms_failed ~p", [RawData]),
             log_request_otp_error(retried_too_soon, otp),
-            util_http:return_400(retried_too_soon);
+            {error, retried_too_soon};
         error : voice_call_fail ->
             %% Twilio and MBird return voice_call_fail
-            ?INFO("request_voice_call error: voice_call_failed ~p", [Data]),
+            ?INFO("request_voice_call error: voice_call_failed ~p", [RawData]),
             log_request_otp_error(voice_call_fail, voice_call),
-            util_http:return_400(otp_fail);
+            {error, otp_fail};
         error : call_fail ->
             %% Twilio_verify returns call_fail
-            ?INFO("request_voice_call error: voice_call_failed ~p", [Data]),
+            ?INFO("request_voice_call error: voice_call_failed ~p", [RawData]),
             log_request_otp_error(voice_call_fail, voice_call),
-            util_http:return_400(otp_fail);
-        Class : Reason : Stacktrace  ->
+            {error, otp_fail};
+        Class : Reason : Stacktrace ->
             ?ERROR("request_sms crash: ~s\nStacktrace:~s",
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             log_request_otp_error(server_error, otp),
-            util_http:return_500()
+            {error, internal_server_error}
     end.
+
+
+%% TODO (murali@): using a map is not great. try to use the original record itself.
+-spec process_register_request(RequestData :: #{}) -> {ok, #{}} | {error, any()}.
+process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent, code := Code,
+        ip := ClientIP, group_invite_token := GroupInviteToken, s_ed_pub := SEdPubB64,
+        signed_phrase := SignedPhraseB64, id_key := IdentityKeyB64, sd_key := SignedKeyB64,
+        otp_keys := OneTimeKeysB64, push_payload := PushPayload, raw_data := RawData}) ->
+    try
+        Phone = normalize(RawPhone),
+        check_ua(UserAgent),
+        check_sms_code(Phone, Code),
+        ok = delete_client_ip(ClientIP, Phone),
+        ok = delete_phone_pattern(Phone),
+        LName = check_name(Name),
+        SEdPubBin = base64:decode(SEdPubB64),
+        check_s_ed_pub_size(SEdPubBin),
+        SignedPhraseBin = base64:decode(SignedPhraseB64),
+        check_signed_phrase(SignedPhraseBin, SEdPubBin),
+        SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
+        {ok, Phone, Uid} = finish_registration_spub(Phone, LName, UserAgent, SPub),
+        process_whisper_keys(Uid, IdentityKeyB64, SignedKeyB64, OneTimeKeysB64),
+        process_push_token(Uid, PushPayload),
+        CC = mod_libphonenumber:get_region_id(Phone),
+        ?INFO("registration complete uid:~s, phone:~s, country_code:~s", [Uid, Phone, CC]),
+        Result = #{
+            uid => Uid,
+            phone => Phone,
+            name => LName,
+            result => ok
+        },
+        Result2 = case GroupInviteToken of
+            undefined -> Result;
+            _ -> Result#{group_invite_result => maybe_join_group(Uid, GroupInviteToken)}
+        end,
+        {ok, Result2}
+    catch
+        error : bad_user_agent ->
+            ?ERROR("register error: bad_user_agent ~p", [RawData]),
+            log_register_error(bad_user_agent),
+            {error, bad_user_agent};
+        error : invalid_phone_number ->
+            ?ERROR("register error: invalid_phone_number ~p", [RawData]),
+            log_register_error(invalid_phone_number),
+            {error, invalid_phone_number};
+        error : invalid_client_version ->
+            ?ERROR("register error: invalid_client_version ~p", [RawData]),
+            {error, invalid_client_version};
+        error : wrong_sms_code ->
+            ?INFO("register error: code mismatch data:~s", [RawData]),
+            log_register_error(wrong_sms_code),
+            {error, wrong_sms_code};
+        error : invalid_s_ed_pub ->
+            ?ERROR("register error: invalid_s_ed_pub ~p", [RawData]),
+            log_register_error(invalid_s_ed_pub),
+            {error, invalid_s_ed_pub};
+        error : invalid_signed_phrase ->
+            ?ERROR("register error: invalid_signed_phrase ~p", [RawData]),
+            log_register_error(invalid_signed_phrase),
+            {error, invalid_signed_phrase};
+        error : unable_to_open_signed_phrase ->
+            ?ERROR("register error: unable_to_open_signed_phrase ~p", [RawData]),
+            log_register_error(unable_to_open_signed_phrase),
+            {error, unable_to_open_signed_phrase};
+        error: {wk_error, Reason} ->
+            log_register_error(wk_error),
+            {error, Reason};
+        error: invalid_name ->
+            log_register_error(invalid_name),
+            {error, invalid_name};
+        error : Reason : Stacktrace  ->
+            log_register_error(server_error),
+            ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
+            {error, internal_server_error}
+    end.
+
 
 -spec log_register_error(ErrorType :: atom | string()) -> ok.
 log_register_error(ErrorType) ->
@@ -804,24 +864,17 @@ is_cc_invite_opened(Phone) ->
         _ -> false
     end.
 
--spec process_whisper_keys(Uid :: uid(), Payload :: map()) -> ok. % | or exception
-process_whisper_keys(Uid, Payload) ->
-    % check if client is passing identity_key and the other whisper keys,
-    % this is optional for now will be mandatory later
-    case maps:is_key(<<"identity_key">>, Payload) of
-        true ->
-            ?INFO("setting keys Uid: ~s", [Uid]),
-            {IdentityKey, SignedKey, OneTimeKeys} = get_and_check_whisper_keys(Payload),
-            ok = mod_whisper:set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys);
-        false ->
-            ok
-    end.
+-spec process_whisper_keys(Uid :: uid(), IdentityKeyB64 :: binary(), SignedKeyB64 :: binary(),
+    OneTimeKeysB64 :: [binary()]) -> ok. % | or exception
+process_whisper_keys(Uid, IdentityKeyB64, SignedKeyB64, OneTimeKeysB64) ->
+    ?INFO("setting keys Uid: ~s", [Uid]),
+    {IdentityKey, SignedKey, OneTimeKeys} = get_and_check_whisper_keys(IdentityKeyB64,
+        SignedKeyB64, OneTimeKeysB64),
+    ok = mod_whisper:set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys).
 
--spec get_and_check_whisper_keys(Payload :: map()) -> {binary(), binary(), [binary()]}.
-get_and_check_whisper_keys(Payload) ->
-    IdentityKeyB64 = maps:get(<<"identity_key">>, Payload),
-    SignedKeyB64 = maps:get(<<"signed_key">>, Payload),
-    OneTimeKeysB64 = maps:get(<<"one_time_keys">>, Payload),
+-spec get_and_check_whisper_keys(IdentityKeyB64 :: binary(), SignedKeyB64 :: binary(),
+    OneTimeKeysB64 :: [binary()]) -> {binary(), binary(), [binary()]}.
+get_and_check_whisper_keys(IdentityKeyB64, SignedKeyB64, OneTimeKeysB64) ->
     case mod_whisper:check_whisper_keys(IdentityKeyB64, SignedKeyB64, OneTimeKeysB64) of
         {error, Reason} -> error({wk_error, Reason});
         ok -> {IdentityKeyB64, SignedKeyB64, OneTimeKeysB64}
@@ -833,11 +886,11 @@ update_key(Uid, SPub) ->
     model_auth:set_spub(Uid, SPub).
 
 
--spec process_push_token(Uid :: uid(), Payload :: map()) -> ok.
-process_push_token(Uid, Payload) ->
-    LangId = maps:get(<<"lang_id">>, Payload, <<"en-US">>),
-    PushToken = maps:get(<<"push_token">>, Payload, undefined),
-    PushOs = maps:get(<<"push_os">>, Payload, undefined),
+-spec process_push_token(Uid :: uid(), PushPayload :: map()) -> ok.
+process_push_token(Uid, PushPayload) ->
+    LangId = maps:get(<<"lang_id">>, PushPayload, <<"en-US">>),
+    PushToken = maps:get(<<"push_token">>, PushPayload, undefined),
+    PushOs = maps:get(<<"push_os">>, PushPayload, undefined),
     case PushToken =/= undefined andalso mod_push_tokens:is_appclip_push_os(PushOs) of
         true ->
             ok = mod_push_tokens:register_push_info(Uid, PushOs, PushToken, LangId),

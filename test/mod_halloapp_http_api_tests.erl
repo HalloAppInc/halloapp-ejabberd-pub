@@ -44,20 +44,28 @@
 -define(PUSH_OS, <<"ios_appclip">>).
 -define(PUSH_TOKEN, <<"7f15acdc75e10914e483ce9314779ad2b10ebd9bce586e8352d0971b9772c026">>).
 
+-define(WHISPER_KEY_DATA, [{<<"identity_key">>, ?IDENTITY_KEY}, {<<"signed_key">>, ?SIGNED_KEY},
+                {<<"one_time_keys">>, [?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY,
+                    ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY,
+                    ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY]}]).
+
 -define(REGISTER2_PATH, [<<"registration">>, <<"register2">>]).
 -define(REGISTER2_DATA(Phone, Code, Name, SEdPub, SignedPhrase),
     jsx:encode([{<<"phone">>, Phone}, {<<"code">>, Code}, {<<"name">>, Name},
-                {<<"s_ed_pub">>, SEdPub}, {<<"signed_phrase">>, SignedPhrase}])).
+                {<<"s_ed_pub">>, SEdPub}, {<<"signed_phrase">>, SignedPhrase}] ++
+                ?WHISPER_KEY_DATA)).
 
 -define(REGISTER3_DATA(Phone, Code, Name, SEdPub, SignedPhrase, LangId, PushOs, PushToken),
     jsx:encode([{<<"phone">>, Phone}, {<<"code">>, Code}, {<<"name">>, Name},
                 {<<"s_ed_pub">>, SEdPub}, {<<"signed_phrase">>, SignedPhrase},
-                {<<"lang_id">>, LangId}, {<<"push_os">>, PushOs}, {<<"push_token">>, PushToken}])).
+                {<<"lang_id">>, LangId}, {<<"push_os">>, PushOs}, {<<"push_token">>, PushToken}] ++
+                ?WHISPER_KEY_DATA)).
 
 -define(UPDATE_KEY_PATH, [<<"registration">>, <<"update_key">>]).
 -define(UPDATE_KEY_DATA(UId, Pass, SEdPub, SignedPhrase),
     jsx:encode([{<<"uid">>, UId}, {<<"password">>, Pass},
-                {<<"s_ed_pub">>, SEdPub}, {<<"signed_phrase">>, SignedPhrase}])).
+                {<<"s_ed_pub">>, SEdPub}, {<<"signed_phrase">>, SignedPhrase}] ++
+                ?WHISPER_KEY_DATA)).
 
 -define(IP, {{0,0,0,0,0,65535,32512,1}, 5580}).
 
@@ -190,7 +198,7 @@ retried_server_error_test() ->
     ServerBadResponse = {400, ?HEADER(?CT_JSON),
         jiffy:encode({[
             {result, fail},
-            {error, sms_fail}
+            {error, otp_fail}
         ]})},
     Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
