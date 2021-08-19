@@ -32,7 +32,7 @@
 -export([
     get_monitored_procs/0,
     ping_procs/0,
-    new_node/2,
+    node_up/2,
     monitor/1,
     get_state_history/1,
     try_remonitor/1,
@@ -60,7 +60,7 @@ get_monitored_procs() ->
 ping_procs() ->
     gen_server:cast(?MONITOR_GEN_SERVER, ping_procs).
 
-new_node(Node, _InfoList) ->
+node_up(Node, _InfoList) ->
     %% 5s delay is to ensure the new node is fully initialized
     %% so we don't get one or two 'missed ping' log msgs from
     %% the new node's monitor
@@ -130,7 +130,7 @@ init([]) ->
     ?INFO("Start: ~p", [?MONITOR_GEN_SERVER]),
     {ok, TRef} = timer:apply_interval(?PING_INTERVAL_MS, ?MODULE, ping_procs, []),
     ets:new(?MONITOR_TABLE, [named_table, public]),
-    ejabberd_hooks:add(new_node, ?MODULE, new_node, 0),
+    ejabberd_hooks:add(node_up, ?MODULE, node_up, 10),
     {ok, #state{monitors = #{}, active_pings = #{}, gen_servers = [], tref = TRef}}.
 
 
@@ -138,7 +138,7 @@ terminate(_Reason, #state{tref = TRef} = _State) ->
     ?INFO("Terminate: ~p", [?MONITOR_GEN_SERVER]),
     timer:cancel(TRef),
     ets:delete(?MONITOR_TABLE),
-    ejabberd_hooks:delete(new_node, ?MODULE, monitor, 0),
+    ejabberd_hooks:delete(node_up, ?MODULE, node_up, 10),
     ok.
 
 

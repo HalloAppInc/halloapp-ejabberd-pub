@@ -38,6 +38,9 @@
     get_ejabberd_machines/0
 ]).
 
+%% Hooks
+-export([node_up/2, node_down/2]).
+
 %%====================================================================
 %% gen_mod functions
 %%====================================================================
@@ -56,9 +59,13 @@ start(_Host, _Opts) ->
             ?WARNING("Failed to create a table for mod_aws in ets: ~p", [Error]),
             error
     end,
+    ejabberd_hooks:add(node_up, ?MODULE, node_up, 0),
+    ejabberd_hooks:add(node_down, ?MODULE, node_down, 0),
     ok.
 
 stop(_Host) ->
+    ejabberd_hooks:delete(node_up, ?MODULE, node_up, 0),
+    ejabberd_hooks:delete(node_down, ?MODULE, node_down, 0),
     lists:foreach(fun ets:delete/1, ?TABLES),
     ok.
 
@@ -83,6 +90,7 @@ clear_cache() ->
 
 -spec clear_cache(Table :: ets:tab()) -> ok.
 clear_cache(Table) ->
+    ?INFO("Clearing mod_aws cache for ~p", [Table]),
     ets:delete_all_objects(Table),
     ok.
 
@@ -112,6 +120,14 @@ get_ejabberd_machines() ->
         true -> get_machines_internal();
         false -> ?LOCALHOST_IPS
     end.
+
+%%====================================================================
+%% Hooks
+%%====================================================================
+
+node_up(_Node, _InfoList) -> clear_cache().
+
+node_down(_Node, _InfoList) -> clear_cache().
 
 %%====================================================================
 %% Internal functions
