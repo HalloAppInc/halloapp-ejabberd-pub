@@ -322,7 +322,8 @@ print_sms_stats(TimeWindow, Key) ->
     PrintList = [TimeWindow, Var2, Var3, Value],
     case Var1 of
         cc ->
-            ?INFO("~p SMS_Stats, Country: ~p, ~p: ~p", PrintList);
+            ?INFO("~p SMS_Stats, Country: ~p, ~p: ~p", PrintList),
+            check_possible_spam(TimeWindow, Var2, Var3, Value);
         gw ->
             ?INFO("~p SMS_Stats, Gateway: ~p, ~p: ~p", PrintList);
         gwcc ->
@@ -422,4 +423,24 @@ report_stat(past, _Metrics, _Gateway, _CC, _Status) ->
 report_stat(recent, Metrics, Gateway, CC, Status) ->
     stat:count("HA/registration", Metrics, 1,
             [{gateway, Gateway}, {cc, CC}, {status, Status}]).
+
+
+-spec check_possible_spam(TimeWindow :: atom(), CC :: atom(), CountType :: atom(), 
+        TotalCount :: integer()) -> ok.
+check_possible_spam(TimeWindow, CC, total, TotalCount) when TotalCount >= ?SPAM_THRESHOLD_PER_INCREMENT ->
+    ErrCount = case ets:lookup(sms_stats_table_name(TimeWindow), {cc, CC, error}) of
+        [{{cc, CC, error}, Count}] -> Count;
+        [] -> 0
+    end,
+    case ErrCount =:= TotalCount of
+        true ->
+            alerts:send_alert(<<"Possible Spam: ", CC/binary>>, otp, alert, 
+                    <<"Received ", TotalCount/binary, "unconverted otp requests 
+                    in recent 15 minute interval">>),
+            ok;
+        false -> ok
+    end,
+    ok;
+check_possible_spam(_TimeWindow, _CC, _CountType, _TotalCount) ->
+    ok.
 

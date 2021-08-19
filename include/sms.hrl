@@ -49,6 +49,9 @@
 
 -type verification_info() :: #verification_info{}.
 
+% number of sms requests in a single increment without conversion from a country to alert as possible spam
+-define(SPAM_THRESHOLD_PER_INCREMENT, 30).
+
 
 %% for testing purposes
 -ifdef(TEST).
