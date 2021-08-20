@@ -169,24 +169,30 @@ process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements) ->
     IncrementalAttemptList = model_phone:get_incremental_attempt_list(CurrentIncrement),
     % TODO(Luke) - Implement a map here to track which metrics have used this increment
     % instead of the global counter
-    lists:foreach(
-        fun({Phone, AttemptId})  ->
-            ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
-            case util:is_test_number(Phone) of
-                true ->
-                    ok;
-                %% only process if there's a possibility we'd use the data
-                false ->
-                    process_scoring_datum(Phone, AttemptId, NumExaminedIncrements)
-            end
-        end, 
-        IncrementalAttemptList),
+    IncRequired = NumExaminedIncrements < ?MIN_SCORING_INTERVAL_COUNT,
+    IncrementMap = #{must_inc => IncRequired},
+    lists:foldl(
+        fun({Phone, AttemptId}, AccIncMap)  ->
+            process_attempt_score(Phone, AttemptId, AccIncMap)
+        end, IncrementMap, IncrementalAttemptList),
     ok.
 
 
--spec process_scoring_datum(Phone :: phone(), AttemptId :: binary(),
-        NumExaminedIncrements :: integer()) -> ok.
-process_scoring_datum(Phone, AttemptId, NumExaminedIncrements) ->
+-spec process_attempt_score(Phone :: phone(), AttemptId :: binary(), IncrementMap :: map()) -> map().
+process_attempt_score(Phone, AttemptId, IncrementMap) -> 
+    ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
+    IncrementMap2 = case util:is_test_number(Phone) of
+        true ->
+            IncrementMap;
+        false ->
+            process_scoring_datum(Phone, AttemptId, IncrementMap)
+    end,
+    IncrementMap2.
+
+
+-spec process_scoring_datum(Phone :: phone(), AttemptId :: binary(), IncrementMap :: map()) -> 
+        {UsedGateway :: boolean(), Gateway :: atom(), UsedCC :: boolean(), GatewayCC :: atom()}.
+process_scoring_datum(Phone, AttemptId, IncrementMap) ->
     CC = mod_libphonenumber:get_cc(Phone),
     SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
     #gateway_response{gateway = Gateway, status = _Status, verified = Success} = SMSResponse,
@@ -197,22 +203,24 @@ process_scoring_datum(Phone, AttemptId, NumExaminedIncrements) ->
             undefined
     end,
     % possibly increment global score
-    case should_inc(gw, Gateway, NumExaminedIncrements) of
+    IncrementMap2 = case should_inc(gw, Gateway, IncrementMap) of
         true -> 
-            inc_scoring_data(gw, Gateway, Success);
-        false -> ok
+            inc_scoring_data(gw, Gateway, Success),
+            IncrementMap#{Gateway => true};
+        false -> IncrementMap
     end,
     % possibly increment country-specific score
-    case should_inc(gwcc, GatewayCC, NumExaminedIncrements) of
+    IncrementMap3 = case should_inc(gwcc, GatewayCC, IncrementMap2) of
         true -> 
-            inc_scoring_data(gwcc, GatewayCC, Success);
-        false -> ok
+            inc_scoring_data(gwcc, GatewayCC, Success),
+            IncrementMap2#{GatewayCC => true};
+        false -> IncrementMap2
     end,
     ets:update_counter(?SCORE_DATA_TABLE, {gw, Gateway}, {?TOTAL_SEEN_POS, 1}, 
             {{gw, Gateway}, 0, 0, 0}),
     ets:update_counter(?SCORE_DATA_TABLE, {gwcc, GatewayCC}, {?TOTAL_SEEN_POS, 1}, 
             {{gwcc, GatewayCC}, 0, 0, 0}),
-    ok.
+    IncrementMap3.
 
 
 -spec do_check_sms_reg(TimeWindow :: atom(), Phone :: phone(),AttemptId :: binary()) -> ok.
@@ -270,36 +278,21 @@ inc_sms_stats(TimeWindow, VariableType, Variable, CountType) ->
     ok.
 
 
--spec should_inc(VariableType :: atom(), Variable :: atom(),
-        NumExaminedIncrements :: integer()) -> tuple().
-should_inc(_, _, NumExaminedIncrements) 
-        when NumExaminedIncrements < ?MIN_SCORING_INTERVAL_COUNT -> true;
+-spec should_inc(VariableType :: atom(), VariableName :: atom(),
+        IncrementMap :: map()) -> tuple().
+should_inc(_, _, #{must_inc := true}) -> true;
 
 % checks if the variable needs more data and if the increment has been used yet
-should_inc(VariableType, VariableName, NumExaminedIncrements) ->
+should_inc(VariableType, VariableName, IncrementMap) ->
     DataKey = {VariableType, VariableName},
     WantMoreData = needs_more_data(DataKey),
 
-    % TODO(Luke) - Implement a map here to track which metrics have used this increment
-    % instead of the global counter -- "pass in a map/state to basically keep track of the 
-    % gateway/gateway-cc types using this interval and just use that instead of looking up
-    % and matching a counter.."
-    VarIntervalKey = {VariableType, VariableName, num_examined_increments},
     % HaveInspectedIncrement captures whether or not we've already used some data
     % for this variable (i.e. gateway-cc combo or gw) from the current interval
     % If so, then we will finish logging data from the current interval
-    HaveUsedIncrement = case ets:lookup(?SCORE_DATA_TABLE, VarIntervalKey) of
-        [{VarIntervalKey, NumExaminedIncrements}] -> true;
-        [{VarIntervalKey, _PreviousIntervalSize}] -> false;
-        [] -> false
-    end,
-
-    % update per-metric increment counter here if we need more data and haven't already 
-    % touched this increment
-    case {WantMoreData, HaveUsedIncrement} of
-        {true, false} ->
-            true = ets:insert(?SCORE_DATA_TABLE, {VarIntervalKey, NumExaminedIncrements});
-        {_, _} -> ok
+    HaveUsedIncrement = case IncrementMap of
+        #{VariableName := true} -> true;
+        _ -> false
     end,
 
     % true if we want more data or if we've already used this increment
