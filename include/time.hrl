@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 27. May 2020 4:43 PM
 %%%-------------------------------------------------------------------
--author("nikola").
+% -author("nikola").
 
 -ifndef(TIME_HRL).
 -define(TIME_HRL, 1).

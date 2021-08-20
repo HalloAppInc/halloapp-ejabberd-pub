@@ -11,21 +11,26 @@
 -author("nikola").
 
 -include("ha_types.hrl").
+-include("packets.hrl").
 
--define(DEFAULT_UA, "HalloApp/Android1.130").
+-define(DEFAULT_UA, "HalloApp/Android1.180").
 -define(DEFAULT_HOST, "localhost").
 -define(DEFAULT_PORT, "5580").
 
 -define(IDENTITY_KEY, <<"ZGFkc2FkYXNma2xqc2RsZmtqYXNkbGtmamFzZGxrZmphc2xrZGZqYXNsO2tkCgo=">>).
 -define(SIGNED_KEY, <<"Tmlrb2xhIHdyb3RlIHRoaXMgbmljZSBtZXNzYWdlIG1ha2luZyBzdXJlIGl0IGlzIGxvbmcgCg==">>).
 -define(ONE_TIME_KEY, <<"VGhpcyBpcyBvbmUgdGltZSBrZXkgZm9yIHRlc3RzIHRoYXQgaXMgbG9uZwo=">>).
+-define(ONE_TIME_KEYS, [?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY,
+        ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY]).
 
 %% API
 -export([
     request_sms/1,
     request_sms/2,
     register/3,
-    register/4
+    register/4,
+    compose_otp_noise_request/2,
+    compose_verify_otp_noise_request/3
 ]).
 
 %% Noise related definitions.
@@ -98,8 +103,7 @@ register(Phone, Code, Name, Options) ->
         % TODO: add support for whisper keys - autogenerate keys here.
         <<"identity_key">> => ?IDENTITY_KEY,
         <<"signed_key">> => ?SIGNED_KEY,
-        <<"one_time_keys">> => [?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY,
-            ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY, ?ONE_TIME_KEY]
+        <<"one_time_keys">> => ?ONE_TIME_KEYS
     }),
 
     UA = maps:get(user_agent, Options, ?DEFAULT_UA),
@@ -130,3 +134,40 @@ get_http_protocol() ->
         true -> "http://";
         false -> "https://"
     end.
+
+
+-spec compose_otp_noise_request(Phone :: phone(), Options :: map()) -> {ok, pb_register_request()}.
+compose_otp_noise_request(Phone, Options) ->
+    setup(),
+    OtpRequestPkt = #pb_otp_request {
+        phone = Phone,
+        method = maps:get(method, Options, sms),
+        lang_id = maps:get(lang_id, Options, <<"en-US">>),
+        user_agent = maps:get(user_agent, Options, ?DEFAULT_UA)
+    },
+    RegisterRequestPkt = #pb_register_request{
+        request = OtpRequestPkt
+    },
+    {ok, RegisterRequestPkt}.
+
+
+-spec compose_verify_otp_noise_request(Phone :: phone(), Code :: binary(),
+    Options :: map()) -> {ok, pb_register_request()}.
+compose_verify_otp_noise_request(Phone, Code, Options) ->
+    setup(),
+    VerifyOtpRequestPkt = #pb_verify_otp_request {
+        phone = Phone,
+        code = Code,
+        name = maps:get(name, Options, undefined),
+        static_key = maps:get(static_key, Options, undefined),
+        signed_phrase = maps:get(signed_phrase, Options, undefined),
+        identity_key = maps:get(identity_key, Options, ?IDENTITY_KEY),
+        signed_key = maps:get(signed_key, Options, ?SIGNED_KEY),
+        one_time_keys = maps:get(one_time_keys, Options, ?ONE_TIME_KEYS),
+        user_agent = maps:get(user_agent, Options, ?DEFAULT_UA)
+    },
+    RegisterRequestPkt = #pb_register_request{
+        request = VerifyOtpRequestPkt
+    },
+    {ok, RegisterRequestPkt}.
+

@@ -19,6 +19,7 @@
     connect/5,
     starttls/2,
     startnoise/2,
+    startnoise/3,
     noise_check_spub/2,
     reset_stream/1,
     send/2,
@@ -148,18 +149,25 @@ noise_check_spub(SPub, Auth) ->
 
 -spec startnoise(socket_state(), [proplists:property()]) -> {ok, socket_state()} |
         {error, inet:posix() | atom() | binary()}.
-startnoise(#socket_state{sockmod = gen_tcp, socket = Socket} = SocketData, NoiseOpts) ->
+startnoise(SocketData, NoiseOpts) ->
+    startnoise(SocketData, NoiseOpts, fun noise_check_spub/2).
+
+startnoise(SocketData, NoiseOpts, VerifyFun) ->
+    tcp_to_noise(SocketData, NoiseOpts, VerifyFun).
+
+
+tcp_to_noise(#socket_state{sockmod = gen_tcp, socket = Socket} = SocketData, NoiseOpts, VerifyFun) ->
     {StaticKey, Certificate} = extract_noise_keys(NoiseOpts),
-    case ha_enoise:tcp_to_noise(Socket, StaticKey, Certificate, fun noise_check_spub/2) of
+    case ha_enoise:tcp_to_noise(Socket, StaticKey, Certificate, VerifyFun) of
         {ok, NoiseSocket} ->
-            SocketData1 = SocketData#socket_state{socket = NoiseSocket, sockmod = ha_enoise},
+            SocketData1 = SocketData#socket_state{socket = NoiseSocket, sockmod = ha_enoise, socket_type = noise},
             SocketData2 = reset_stream(SocketData1),
             {ok, SocketData2};
         {error, _} = Err ->
             ?ERROR("Failed to start noise, key: ~p, cert: ~p", [StaticKey, Certificate]),
             Err
     end;
-startnoise(_, _) ->
+tcp_to_noise(_, _, _) ->
     erlang:error(badarg).
 
 

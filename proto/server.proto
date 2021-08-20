@@ -699,6 +699,7 @@ message PushToken {
         ANDROID = 0;
         IOS = 1;
         IOS_DEV = 2;
+        IOS_APPCLIP = 3;
     }
     Os os = 1;
     string token = 2;
@@ -894,3 +895,108 @@ message IdentityKey {
   bytes public_key = 1;
 }
 
+
+// Registration
+
+message RegisterRequest {
+    oneof request {
+        OtpRequest otp_request = 1;
+        VerifyOtpRequest verify_request = 2;
+    }
+}
+
+message RegisterResponse {
+    oneof response {
+        OtpResponse otp_response = 1;
+        VerifyOtpResponse verify_response = 2;
+    }
+}
+
+message OtpRequest {
+    string phone = 1;
+    enum Method {
+        SMS = 0;
+        VOICE_CALL = 1;
+    }
+    Method method = 2;
+    string lang_id = 3;
+    string group_invite_token = 4;
+    string user_agent = 5;
+}
+
+message OtpResponse {
+    string phone = 1;
+    enum Result {
+        UNKNOWN = 0;
+        SUCCESS = 1;
+        FAILURE = 2;
+    }
+    Result result = 2;
+    enum Reason {
+        UNKNOWN = 0;
+        INVALID_PHONE_NUMBER = 1;
+        INVALID_CLIENT_VERSION = 2;
+        BAD_METHOD = 3;
+        OTP_FAIL = 4;
+        NOT_INVITED = 5;
+        INVALID_GROUP_INVITE_TOKEN = 6;
+        RETRIED_TOO_SOON = 7;
+        BAD_REQUEST = 8;
+        INTERNAL_SERVER_ERROR = 9;
+    }
+    Reason reason = 3;
+    int64 retry_after_secs = 4;
+}
+
+message VerifyOtpRequest {
+    string phone = 1;
+    string code = 2;
+    string name = 3;
+    bytes static_key = 4;
+    bytes signed_phrase = 5;
+    bytes identity_key = 6;
+    bytes signed_key = 7;
+    repeated bytes one_time_keys = 8;
+    string group_invite_token = 9;
+    PushRegister push_register = 10; // Only for ios-appclip
+    string user_agent = 11;
+}
+
+message VerifyOtpResponse {
+    string phone = 1;
+    int64 uid = 2 [ebin = true];
+    string name = 3;
+    enum Result {
+        UNKNOWN = 0;
+        SUCCESS = 1;
+        FAILURE = 2;
+    }
+    Result result = 4;
+    enum Reason {
+        UNKNOWN = 0;
+        INVALID_PHONE_NUMBER = 1;
+        INVALID_CLIENT_VERSION = 2;
+        WRONG_SMS_CODE = 3;
+        MISSING_PHONE = 4;
+        MISSING_CODE = 5;
+        MISSING_NAME = 6;
+        INVALID_NAME = 7;
+        MISSING_IDENTITY_KEY = 8;
+        MISSING_SIGNED_KEY = 9;
+        MISSING_ONE_TIME_KEYS = 10;
+        BAD_BASE64_KEY = 11;
+        INVALID_ONE_TIME_KEYS = 12;
+        TOO_FEW_ONE_TIME_KEYS = 13;
+        TOO_MANY_ONE_TIME_KEYS = 14;
+        TOO_BIG_IDENTITY_KEY = 15;
+        TOO_BIG_SIGNED_KEY = 16;
+        TOO_BIG_ONE_TIME_KEYS = 17;
+        INVALID_S_ED_PUB = 18;
+        INVALID_SIGNED_PHRASE = 19;
+        UNABLE_TO_OPEN_SIGNED_PHRASE = 20;
+        BAD_REQUEST = 21;
+        INTERNAL_SERVER_ERROR = 22;
+    }
+    Reason reason = 5;
+    string group_invite_result = 6;
+}

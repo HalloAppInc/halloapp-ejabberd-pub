@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 31. Mar 2020 3:00 PM
 %%%-------------------------------------------------------------------
--author("nikola").
+% -author("nikola").
 
 -ifndef(SMS_HRL).
 -define(SMS_HRL, true).
