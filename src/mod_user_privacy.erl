@@ -18,8 +18,10 @@
 -define(COMMA_CHAR, <<",">>).
 -define(HASH_FUNC, sha256).
 
+-type phone_el() :: #pb_phone_element{}.
+
 -ifdef(TEST).
--export([update_privacy_type/4]).
+-export([update_privacy_type/4, update_privacy_type2/4]).
 -endif.
 
 %% gen_mod API
@@ -30,7 +32,8 @@
     process_local_iq/1,
     privacy_check_packet/4,
     get_privacy_type/1,
-    remove_user/2
+    remove_user/2,
+    register_user/3
 ]).
 
 
@@ -43,6 +46,7 @@ start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_privacy_list, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_privacy_lists, ?MODULE, process_local_iq),
     ejabberd_hooks:add(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
+    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
@@ -51,6 +55,7 @@ stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_privacy_list),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_privacy_lists),
     ejabberd_hooks:delete(privacy_check_packet, Host, ?MODULE, privacy_check_packet, 30),
+    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
@@ -71,7 +76,25 @@ mod_options(_Host) ->
 
 -spec process_local_iq(IQ :: pb_iq()) -> pb_iq().
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_privacy_list{type = Type, hash = HashValue, uid_elements = UidEls}} = IQ) ->
+        payload = #pb_privacy_list{type = Type, hash = HashValue,
+        uid_elements = [], phone_elements = PhoneEls}} = IQ) ->
+    ?INFO("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
+    case update_privacy_type2(Uid, Type, HashValue, PhoneEls) of
+        ok ->
+            pb:make_iq_result(IQ);
+        {error, hash_mismatch, _ServerHashValue} ->
+            ?WARNING("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
+            pb:make_error(IQ, util:err(hash_mismatch));
+        {error, invalid_type} ->
+            ?WARNING("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
+            pb:make_error(IQ, util:err(invalid_type));
+        {error, unexpected_phones} ->
+            ?WARNING("Uid: ~s, unexpected_phones for type: ~p", [Uid, Type]),
+            pb:make_error(IQ, util:err(unexpected_phones))
+    end;
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_privacy_list{type = Type, hash = HashValue,
+        uid_elements = UidEls, phone_elements = []}} = IQ) ->
     ?INFO("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
     case update_privacy_type(Uid, Type, HashValue, UidEls) of
         ok ->
@@ -82,9 +105,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         {error, invalid_type} ->
             ?WARNING("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
             pb:make_error(IQ, util:err(invalid_type));
-        {error, unexcepted_uids} ->
-            ?WARNING("Uid: ~s, unexcepted_uids for type: ~p", [Uid, Type]),
-            pb:make_error(IQ, util:err(unexcepted_uids))
+        {error, unexpected_uids} ->
+            ?WARNING("Uid: ~s, unexpected_uids for type: ~p", [Uid, Type]),
+            pb:make_error(IQ, util:err(unexpected_uids))
     end;
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_privacy_lists{lists = PrivacyLists}} = IQ) ->
@@ -181,6 +204,13 @@ remove_user(Uid, _Server) ->
     ok.
 
 
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
+register_user(Uid, _Server, Phone) ->
+    ?INFO("Uid: ~p, Phone: ~p", [Uid, Phone]),
+    model_privacy:register_user(Uid, Phone),
+    ok.
+
+
 %%====================================================================
 %% internal functions.
 %%====================================================================
@@ -227,8 +257,9 @@ check_blocked(FromUid, ToUid, Packet, Dir) ->
     Id = pb:get_id(Packet),
     PacketType = element(1, Packet),
     IsBlocked = case Dir of
-        in -> model_privacy:is_blocked(ToUid, FromUid);
-        out -> model_privacy:is_blocked(FromUid, ToUid)
+        %% Use updated functions here to check both old and new keys.
+        in -> model_privacy:is_blocked2(ToUid, FromUid);
+        out -> model_privacy:is_blocked2(FromUid, ToUid)
     end,
     case IsBlocked of
         true ->
@@ -258,8 +289,32 @@ update_privacy_type(Uid, Type, HashValue, UidEls) when Type =:= except; Type =:=
 update_privacy_type(Uid, Type, HashValue, UidEls) when Type =:= mute; Type =:= block ->
     update_privacy_list(Uid, Type, HashValue, UidEls);
 update_privacy_type(_Uid, all, _, _) ->
-    {error, unexcepted_uids};
+    {error, unexpected_uids};
 update_privacy_type(_Uid, _, _, _) ->
+    {error, invalid_type}.
+
+
+%% for phone-based privacy lists.
+-spec update_privacy_type2(Uid :: binary(), Type :: privacy_list_type(),
+        HashValue :: binary(), PhoneEls :: list(binary())) -> ok | {error, any(), any()}.
+update_privacy_type2(Uid, all = Type, _HashValue, []) ->
+    set_privacy_type(Uid, Type),
+    stat:count(?STAT_PRIVACY, "all_phones"),
+    ok;
+update_privacy_type2(Uid, Type, HashValue, PhoneEls) when Type =:= except; Type =:= only ->
+    case update_privacy_list2(Uid, Type, HashValue, PhoneEls) of
+        ok ->
+            set_privacy_type(Uid, Type),
+            stat:count(?STAT_PRIVACY, atom_to_list(Type) ++ "_phones"),
+            ok;
+        {error, _Reason, _ServerHashValue} = Error ->
+            Error
+    end;
+update_privacy_type2(Uid, Type, HashValue, PhoneEls) when Type =:= mute; Type =:= block ->
+    update_privacy_list2(Uid, Type, HashValue, PhoneEls);
+update_privacy_type2(_Uid, all, _, _) ->
+    {error, unexpected_phones};
+update_privacy_type2(_Uid, _, _, _) ->
     {error, invalid_type}.
 
 
@@ -292,14 +347,34 @@ update_privacy_list(Uid, Type, ClientHashValue, UidEls) ->
     case ServerHashValue =:= ClientHashValue orelse ClientHashValue =:= undefined of
         true ->
             ?INFO("Uid: ~s, Type: ~s, hash values match", [Uid, Type]),
-            case DeleteUids of
-                [] -> ok;
-                _ -> remove_uids_from_privacy_list(Uid, Type, DeleteUids)
-            end,
-            case AddUids of
-                [] -> ok;
-                _ -> add_uids_to_privacy_list(Uid, Type, AddUids)
-            end,
+            remove_uids_from_privacy_list(Uid, Type, DeleteUids),
+            add_uids_to_privacy_list(Uid, Type, AddUids),
+            ok;
+        false ->
+            ?ERROR("Uid: ~s, Type: ~s, hash_mismatch, ClientHash(b64): ~p, ServerHash(b64): ~p",
+                    [Uid, Type, base64url:encode(ClientHashValue), base64url:encode(ServerHashValue)]),
+            {error, hash_mismatch, ServerHashValue}
+    end.
+
+
+%% for phone-based privacy lists.
+-spec update_privacy_list2(Uid :: binary(), Type :: privacy_list_type(),
+        ClientHashValue :: binary(), PhoneEls :: list(phone_el())) -> ok.
+update_privacy_list2(Uid, Type, ClientHashValue, PhoneEls) ->
+    {DeletePhonesList, AddPhonesList} = lists:partition(
+            fun(#pb_phone_element{action = T}) ->
+                T =:= delete
+            end, PhoneEls),
+    DeletePhones = lists:map(fun extract_phone/1, DeletePhonesList),
+    AddPhones = lists:map(fun extract_phone/1, AddPhonesList),
+    ?INFO("Uid: ~s, Type: ~p, DeletePhones: ~p, AddPhones: ~p", [Uid, Type, DeletePhones, AddPhones]),
+    ServerHashValue = compute_hash_value2(Uid, Type, DeletePhones, AddPhones),
+    log_counters(ServerHashValue, ClientHashValue),
+    case ServerHashValue =:= ClientHashValue of
+        true ->
+            ?INFO("Uid: ~s, Type: ~s, hash values match", [Uid, Type]),
+            remove_phones_from_privacy_list(Uid, Type, DeletePhones),
+            add_phones_to_privacy_list(Uid, Type, AddPhones),
             ok;
         false ->
             ?ERROR("Uid: ~s, Type: ~s, hash_mismatch, ClientHash(b64): ~p, ServerHash(b64): ~p",
@@ -327,8 +402,29 @@ compute_hash_value(Uid, Type, DeleteUids, AddUids) ->
     HashValue.
 
 
+%% for phone-based privacy lists.
+-spec compute_hash_value2(Uid :: binary(), Type :: privacy_list_type(),
+        DeletePhones :: [binary()], AddPhones :: [binary()]) -> binary().
+compute_hash_value2(Uid, Type, DeletePhones, AddPhones) ->
+    {ok, OPhones} = case Type of
+        except -> model_privacy:get_except_phones(Uid);
+        only -> model_privacy:get_only_phones(Uid);
+        mute -> model_privacy:get_mutelist_phones(Uid);
+        block -> model_privacy:get_blocked_phones(Uid)
+    end,
+    OPhonesSet = sets:from_list(OPhones),
+    DeleteSet = sets:from_list(DeletePhones),
+    AddSet = sets:from_list(AddPhones),
+    FinalList = sets:to_list(sets:union(sets:subtract(OPhonesSet, DeleteSet), AddSet)),
+    FinalString = util:join_binary(?COMMA_CHAR, lists:sort(FinalList), <<>>),
+    HashValue = crypto:hash(?HASH_FUNC, FinalString),
+    ?INFO("Uid: ~s, Type: ~p, HashValue: ~p", [Uid, Type, HashValue]),
+    HashValue.
+
+
 -spec remove_uids_from_privacy_list(Uid :: binary(),
         Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
+remove_uids_from_privacy_list(_Uid, _, []) -> ok;
 remove_uids_from_privacy_list(Uid, except, Ouids) ->
     model_privacy:remove_except_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, "remove_except", length(Ouids)),
@@ -350,6 +446,7 @@ remove_uids_from_privacy_list(Uid, block, Ouids) ->
 
 -spec add_uids_to_privacy_list(Uid :: binary(),
         Type :: privacy_list_type(), Ouids :: list(binary())) -> ok.
+add_uids_to_privacy_list(_Uid, _, []) -> ok;
 add_uids_to_privacy_list(Uid, except, Ouids) ->
     model_privacy:add_except_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, "add_except", length(Ouids)),
@@ -367,6 +464,53 @@ add_uids_to_privacy_list(Uid, block, Ouids) ->
     ejabberd_hooks:run(block_uids, Server, [Uid, Server, Ouids]),
     model_privacy:block_uids(Uid, Ouids),
     stat:count(?STAT_PRIVACY, "block", length(Ouids)),
+    ok.
+
+
+-spec remove_phones_from_privacy_list(Uid :: binary(),
+        Type :: privacy_list_type(), Phones :: list(binary())) -> ok.
+remove_phones_from_privacy_list(_Uid, _, []) -> ok;
+remove_phones_from_privacy_list(Uid, except, Phones) ->
+    model_privacy:remove_except_phones(Uid, Phones),
+    stat:count(?STAT_PRIVACY, "remove_except_phones", length(Phones)),
+    ok;
+remove_phones_from_privacy_list(Uid, only, Phones) ->
+    model_privacy:remove_only_phones(Uid, Phones),
+    stat:count(?STAT_PRIVACY, "remove_only_phones", length(Phones)),
+    ok;
+remove_phones_from_privacy_list(Uid, mute, Phones) ->
+    model_privacy:unmute_phones(Uid, Phones),
+    stat:count(?STAT_PRIVACY, "unmute_phones", length(Phones)),
+    ok;
+remove_phones_from_privacy_list(Uid, block, Phones) ->
+    Ouids = maps:values(model_phone:get_uids(Phones)),
+    model_privacy:unblock_phones(Uid, Phones),
+    stat:count(?STAT_PRIVACY, "unblock_phones", length(Phones)),
+    Server = util:get_host(),
+    ejabberd_hooks:run(unblock_uids, Server, [Uid, Server, Ouids]).
+
+
+-spec add_phones_to_privacy_list(Uid :: binary(),
+        Type :: privacy_list_type(), Phones :: list(binary())) -> ok.
+add_phones_to_privacy_list(_Uid, _, []) -> ok;
+add_phones_to_privacy_list(Uid, except, Phones) ->
+    model_privacy:add_except_phones(Uid, Phones),
+    stat:count(?STAT_PRIVACY, "add_except_phones", length(Phones)),
+    ok;
+add_phones_to_privacy_list(Uid, only, Phones) ->
+    model_privacy:add_only_phones(Uid, Phones),
+    stat:count(?STAT_PRIVACY, "add_only_phones", length(Phones)),
+    ok;
+add_phones_to_privacy_list(Uid, mute, Phones) ->
+    model_privacy:mute_phones(Uid, Phones),
+    stat:count(?STAT_PRIVACY, "mute_phones", length(Phones)),
+    ok;
+add_phones_to_privacy_list(Uid, block, Phones) ->
+    Ouids = maps:values(model_phone:get_uids(Phones)),
+    model_privacy:block_phones(Uid, Phones),
+    stat:count(?STAT_PRIVACY, "block_phones", length(Phones)),
+    Server = util:get_host(),
+    ejabberd_hooks:run(block_uids, Server, [Uid, Server, Ouids]),
     ok.
 
 
@@ -388,16 +532,29 @@ get_privacy_lists(Uid, [Type | Rest], Result) ->
         mute -> model_privacy:get_mutelist_uids(Uid);
         block -> model_privacy:get_blocked_uids(Uid)
     end,
+    {ok, Phones} = case Type of
+        except -> model_privacy:get_except_phones(Uid);
+        only -> model_privacy:get_only_phones(Uid);
+        mute -> model_privacy:get_mutelist_phones(Uid);
+        block -> model_privacy:get_blocked_phones(Uid)
+    end,
     UidEls = lists:map(
         fun(Ouid) ->
             #pb_uid_element{uid = Ouid}
         end, Ouids),
-    PrivacyList = #pb_privacy_list{type = Type, uid_elements = UidEls},
+    PhoneEls = lists:map(
+        fun(Phone) ->
+            #pb_phone_element{phone = Phone}
+        end, Phones),
+    PrivacyList = #pb_privacy_list{type = Type, uid_elements = UidEls, phone_elements = PhoneEls},
     get_privacy_lists(Uid, Rest, [PrivacyList | Result]).
 
 
 -spec extract_uid(UidEl :: pb_uid_element()) -> binary().
 extract_uid(#pb_uid_element{uid = Uid}) -> Uid.
+
+-spec extract_phone(PhoneEl :: pb_phone_element()) -> binary().
+extract_phone(#pb_phone_element{phone = Phone}) -> Phone.
 
 -spec log_counters(ServerHashValue :: binary(), ClientHashValue :: binary() | undefined) -> ok.
 log_counters(_, undefined) ->

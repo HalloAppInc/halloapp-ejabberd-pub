@@ -664,6 +664,15 @@ message UidElement {
     int64 uid = 2 [ebin = true];
 }
 
+message PhoneElement {
+    enum Action {
+        ADD = 0;
+        DELETE = 1;
+    }
+    Action action = 1;
+    string phone = 2;
+}
+
 message PrivacyList {
     enum Type {
         ALL = 0;
@@ -675,6 +684,7 @@ message PrivacyList {
     Type type = 1;
     repeated UidElement uid_elements = 2;
     bytes hash = 3;
+    repeated PhoneElement phone_elements = 4;
 }
 
 
