@@ -469,10 +469,13 @@ check_blocked(IP, Phone) ->
 
 extract_phone_pattern(Phone, CC) ->
     TruncateLen = case CC of
+        <<"AZ">> -> 7;
+        <<"ES">> -> 6;
         <<"LV">> -> 5;
         <<"LS">> -> 5;
         <<"MD">> -> 5;
         <<"MR">> -> 5;
+        <<"PK">> -> 7;
         <<"TN">> -> 5;
         _ -> 3
     end,
