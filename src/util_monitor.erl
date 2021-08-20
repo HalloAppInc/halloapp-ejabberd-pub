@@ -74,9 +74,9 @@ check_consecutive_fails(StateHistory) ->
     NumFails >= ?CONSECUTIVE_FAILURE_THRESHOLD.
 
 
--spec check_slow(StateHistory :: [proc_state()]) -> boolean().
+-spec check_slow(StateHistory :: [proc_state()]) -> {boolean(), non_neg_integer()}.
 check_slow(StateHistory) ->
     Window = ?HALF_FAILURE_THRESHOLD_MS div ?PING_INTERVAL_MS,
     NumFails = util_monitor:get_num_fails(lists:sublist(StateHistory, Window)),
-    NumFails >= (0.5 * Window).
+    {NumFails >= (0.5 * Window), round(NumFails / Window * 100)}.
 

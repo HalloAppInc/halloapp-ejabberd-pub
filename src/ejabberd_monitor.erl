@@ -343,11 +343,12 @@ check_consecutive_fails(Mod, StateHistory) ->
 
 check_slow_process(Mod, StateHistory) ->
     case util_monitor:check_slow(StateHistory) of
-        false -> false;
-        true ->
+        {false, _} -> false;
+        {true, PercentFails} ->
             ?ERROR("Sending slow process alert for: ~p", [Mod]),
             BinMod = proc_to_binary(Mod),
-            alerts:send_process_unreachable_alert(BinMod, <<BinMod/binary, " failing >= 50% of pings">>),
+            Msg = <<BinMod/binary, " failing ", (util:to_binary(PercentFails))/binary ,"% of pings">>,
+            alerts:send_process_unreachable_alert(BinMod, Msg),
             true
     end.
 

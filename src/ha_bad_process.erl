@@ -109,7 +109,7 @@ handle_cast({ping, Id, Ts, From}, State) ->
             util_monitor:send_ack(self(), From, {ack, Id, Ts, self()});
         mostly_slow ->
             %% Make sure we are slow 60% of the time to test process slow alert
-            case rand:uniform() > 0.6 of
+            case rand:uniform() > 0.4 of
                 true -> timer:sleep(?PING_TIMEOUT_MS + 1 * ?SECONDS_MS);
                 false -> ok
             end,

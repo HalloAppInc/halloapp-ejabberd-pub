@@ -176,11 +176,11 @@ check_consecutive_fails({Name, Ip}, StateHistory) ->
 -spec check_slow({Name :: string(), Ip :: string()}, StateHistory :: [proc_state()]) -> boolean().
 check_slow({Name, Ip}, StateHistory) ->
     case util_monitor:check_slow(StateHistory) of
-        false -> false;
-        true ->
+        {false, _} -> false;
+        {true, PercentFails} ->
             ?ERROR("Sending slow process alert for ~p (~p), url: ~p", [Name, Ip, get_url_from_ip(Ip)]),
             BinName = util:to_binary(Name),
-            Msg = <<BinName/binary, " failing >= 50% of pings to its /api/_ok page">>,
+            Msg = <<BinName/binary, " failing ", (util:to_binary(PercentFails))/binary," of pings to its /api/_ok page">>,
             alerts:send_port_slow_alert(BinName, Msg),
             true
     end.
