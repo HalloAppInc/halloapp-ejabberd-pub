@@ -50,7 +50,7 @@ mod_options(_Host) ->
 user_send_packet({#pb_msg{id = MsgId} = Packet, State}) ->
     Timestamp = util:now(),
     Packet1 = util:set_timestamp(Packet, Timestamp),
-    ?DEBUG("setting timestamp MsgId: ~s Ts: ~s", [MsgId, Timestamp]),
+    ?INFO("setting timestamp MsgId: ~p Ts: ~p", [MsgId, Timestamp]),
     {Packet1, State};
 
 user_send_packet({_Packet, _State} = Acc) ->

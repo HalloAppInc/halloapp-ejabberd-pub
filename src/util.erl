@@ -380,6 +380,7 @@ get_timestamp(#pb_msg{payload = #pb_chat_stanza{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_stanza{timestamp = T}}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_seen_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_delivery_receipt{timestamp = T}}) -> T;
+get_timestamp(#pb_msg{payload = #pb_played_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{}) -> undefined.
 
 
