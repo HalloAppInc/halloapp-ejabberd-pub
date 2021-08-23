@@ -348,16 +348,12 @@ maybe_rotate_data(State) ->
 
 -spec send_data(TimeSeconds :: integer(), MetricsMap :: map()) -> ok.
 send_data(TimeSeconds, MetricsMap) when is_map(MetricsMap) ->
-    ?INFO("sending stats..."),
-    Ts = util:now_ms(),
     TimeMilliSeconds = TimeSeconds * ?SECONDS_MS,
     Data = prepare_data(MetricsMap, TimeMilliSeconds),
-    ?INFO("prepared ~p data points", [maps:size(Data)]),
-    CloudWatchPid = spawn(?MODULE, send_to_cloudwatch, [Data]),
-    ?INFO("stats sent to cloudwatch – pid: ~p", [CloudWatchPid]),
+    CloudwatchPid = spawn(?MODULE, send_to_cloudwatch, [Data]),
     OpenTsdbPid = spawn(stat_opentsdb, put_metrics, [MetricsMap, TimeMilliSeconds]),
-    ?INFO("stats sent to opentsdb – pid: ~p", [OpenTsdbPid]),
-    ?INFO("stats sent (took ~pms)", [util:now_ms() - Ts]),
+    ?INFO("Spawned processes to send stats. Cloudwatch: ~p, OpenTSDB: ~p",
+        [CloudwatchPid, OpenTsdbPid]),
     ok.
 
 
