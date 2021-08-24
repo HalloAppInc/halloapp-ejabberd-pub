@@ -240,6 +240,38 @@ normalize_and_insert_contacts_with_blocklist_test() ->
     ok.
 
 
+normalize_and_insert_contacts_with_blocklist2_test() ->
+    setup(),
+    setup_accounts([
+        [?UID1, ?PHONE1, ?NAME1, ?UA1],
+        [?UID2, ?PHONE2, ?NAME2, ?UA2],
+        [?UID3, ?PHONE3, ?NAME3, ?UA3]]),
+    InputContacts = [
+        #pb_contact{raw = ?PHONE2},
+        #pb_contact{raw = ?PHONE3}
+    ],
+    insert_contacts(?UID2, [?PHONE1]),
+    ok = model_privacy:block_phone(?UID2, ?PHONE1),
+
+    %% setup here is that there are three accounts UID1, UID2 and UID3.
+    %% UID2 has UID1's phone number.
+    %% UID2 blocks UID1, now when UID1 syncs and adds UID2's number: they still should not be friends.
+
+    %% Test output contact records.
+    ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, undefined),
+    ExpectedContacts = [
+        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, uid = ?UID2, role = none},
+        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3, role = none}
+    ],
+    ?assertEqual(lists:sort(ExpectedContacts), lists:sort(ActualContacts)),
+
+    %% Test if the phones are inserted correctly.
+    {ok, ActualPhones} = model_contacts:get_contacts(?UID1),
+    ExpectedPhones = [?PHONE2, ?PHONE3],
+    ?assertEqual(lists:sort(ExpectedPhones), lists:sort(ActualPhones)),
+    ok.
+
+
 finish_sync_test() ->
     setup(),
     setup_accounts([
@@ -331,6 +363,38 @@ unblock_uids_test() ->
     ?assertEqual({ok, []}, model_friends:get_friends(?UID2)),
 
     model_privacy:unblock_uid(?UID2, ?UID1),
+    mod_contacts:unblock_uids(?UID2, ?SERVER, [?UID1]),
+    %% Now UID2 unblocks UID1: so now they should be friends.
+    ?assertEqual({ok, [?UID2]}, model_friends:get_friends(?UID1)),
+    ?assertEqual({ok, [?UID1]}, model_friends:get_friends(?UID2)),
+    ok.
+
+
+unblock_phones_test() ->
+    setup(),
+    setup_accounts([
+        [?UID1, ?PHONE1, ?NAME1, ?UA1],
+        [?UID2, ?PHONE2, ?NAME2, ?UA2]]),
+
+    insert_contacts(?UID2, [?PHONE1, ?PHONE3]),
+    insert_contacts(?UID1, [?PHONE2, ?PHONE3]),
+    model_privacy:block_phone(?UID1, ?PHONE2),
+    model_privacy:block_phone(?UID2, ?PHONE1),
+
+    %% setup here is that there are three accounts UID1, UID2 and UID3.
+    %% UID2 and UID1's are not friends, since both of them blocked each other.
+    %% If one of them unblocks the other: they still are not friends, since the other block still exists.
+    %% Only when both unblock each other, friend relationships must be re-added.
+
+    ?assertEqual({ok, []}, model_friends:get_friends(?UID1)),
+    ?assertEqual({ok, []}, model_friends:get_friends(?UID2)),
+    model_privacy:unblock_phone(?UID1, ?PHONE2),
+    mod_contacts:unblock_uids(?UID1, ?SERVER, [?UID2]),
+    %% UID1 unblocks UID2: but UID2 still blocks UID1: so they should still not be friends.
+    ?assertEqual({ok, []}, model_friends:get_friends(?UID1)),
+    ?assertEqual({ok, []}, model_friends:get_friends(?UID2)),
+
+    model_privacy:unblock_phone(?UID2, ?PHONE1),
     mod_contacts:unblock_uids(?UID2, ?SERVER, [?UID1]),
     %% Now UID2 unblocks UID1: so now they should be friends.
     ?assertEqual({ok, [?UID2]}, model_friends:get_friends(?UID1)),

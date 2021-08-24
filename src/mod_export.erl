@@ -278,6 +278,12 @@ get_privacy_lists(Uid) ->
     {ok, ExceptList} = model_privacy:get_except_uids(Uid),
     {ok, BlockedList} = model_privacy:get_blocked_uids(Uid),
     {ok, MuteList} = model_privacy:get_mutelist_uids(Uid),
+
+    {ok, OnlyPhonesList} = model_privacy:get_only_phones(Uid),
+    {ok, ExceptPhonesList} = model_privacy:get_except_phones(Uid),
+    {ok, BlockedPhonesList} = model_privacy:get_blocked_phones(Uid),
+    {ok, MutePhonesList} = model_privacy:get_mutelist_phones(Uid),
+
     {ok, PrivacyType} = model_privacy:get_privacy_type(Uid),
 
     #{
@@ -285,7 +291,11 @@ get_privacy_lists(Uid) ->
         only_list => format_privacy_list(OnlyList),
         except_list => format_privacy_list(ExceptList),
         blocked_list => format_privacy_list(BlockedList),
-        mute_list => format_privacy_list(MuteList)
+        mute_list => format_privacy_list(MuteList),
+        only_phones_list => format_privacy_list2(OnlyPhonesList),
+        except_phones_list => format_privacy_list2(ExceptPhonesList),
+        blocked_phones_list => format_privacy_list2(BlockedPhonesList),
+        mute_phones_list => format_privacy_list2(MutePhonesList)
     }.
 
 format_privacy_list(Uids) ->
@@ -295,7 +305,13 @@ format_privacy_list(Uids) ->
             ({Uid, undefined}) ->
                 #{uid => Uid, phone => undefined};
             ({Uid, Phone}) ->
-                #{uid => Uid, phone => <<"+", Phone/binary>>}
+                #{uid => Uid, phone => mod_libphonenumber:prepend_plus(Phone)}
         end,
         lists:zip(Uids, Phones)).
+
+format_privacy_list2(Phones) ->
+    lists:map(
+        fun (Phone) ->
+                #{phone => mod_libphonenumber:prepend_plus(Phone)}
+        end, Phones).
 

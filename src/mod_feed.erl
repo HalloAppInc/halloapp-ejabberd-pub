@@ -516,7 +516,7 @@ get_posts_and_comments(PostIds) ->
 
 -spec get_feed_audience_set(Action :: event_type(), Uid :: uid(), AudienceList :: [uid()]) -> set().
 get_feed_audience_set(Action, Uid, AudienceList) ->
-    {ok, BlockedUids} = model_privacy:get_blocked_uids(Uid),
+    {ok, BlockedUids} = model_privacy:get_blocked_uids2(Uid),
     {ok, FriendUids} = model_friends:get_friends(Uid),
     AudienceSet = sets:from_list(AudienceList),
 

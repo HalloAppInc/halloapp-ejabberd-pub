@@ -259,7 +259,7 @@ block_uids(Uid, Server, Ouids) ->
 -spec unblock_uids(Uid :: binary(), Server :: binary(), Ouids :: list(binary())) -> ok.
 unblock_uids(Uid, Server, Ouids) ->
     {ok, Phone} = model_accounts:get_phone(Uid),
-    {ok, ReverseBlockList} = model_privacy:get_blocked_by_uids(Uid),
+    {ok, ReverseBlockList} = model_privacy:get_blocked_by_uids2(Uid),
     ReverseBlockSet = sets:from_list(ReverseBlockList),
     lists:foreach(
         fun(Ouid) ->
@@ -356,8 +356,8 @@ finish_sync(UserId, _Server, SyncId) ->
     {ok, OldContactList} = model_contacts:get_contacts(UserId),
     {ok, NewContactList} = model_contacts:get_sync_contacts(UserId, SyncId),
     {ok, OldReverseContactList} = model_contacts:get_contact_uids(UserPhone),
-    {ok, BlockedUids} = model_privacy:get_blocked_uids(UserId),
-    {ok, BlockedByUids} = model_privacy:get_blocked_by_uids(UserId),
+    {ok, BlockedUids} = model_privacy:get_blocked_uids2(UserId),
+    {ok, BlockedByUids} = model_privacy:get_blocked_by_uids2(UserId),
     {ok, OldFriendUids} = model_friends:get_friends(UserId),
     OldFriendUidSet = sets:from_list(OldFriendUids),
     OldContactSet = sets:from_list(OldContactList),
@@ -451,8 +451,8 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     UserRegionId = mod_libphonenumber:get_region_id(UserPhone),
     {ok, OldContactList} = model_contacts:get_contacts(UserId),
     {ok, OldReverseContactList} = model_contacts:get_contact_uids(UserPhone),
-    {ok, BlockedUids} = model_privacy:get_blocked_uids(UserId),
-    {ok, BlockedByUids} = model_privacy:get_blocked_by_uids(UserId),
+    {ok, BlockedUids} = model_privacy:get_blocked_uids2(UserId),
+    {ok, BlockedByUids} = model_privacy:get_blocked_by_uids2(UserId),
     {ok, OldFriendUids} = model_friends:get_friends(UserId),
     OldFriendUidSet = sets:from_list(OldFriendUids),
     %% TODO(murali@): remove if unused.
