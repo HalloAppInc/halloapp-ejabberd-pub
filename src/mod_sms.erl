@@ -353,11 +353,11 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
 
             %% Pick one based on past performance.
             {ToPick, NewPick} = pick_gw(ChooseFromList, CC),
-            ?INFO("Picked: ~p, from: ~p", [ToPick, length(ChooseFromList)]),
             PickedGateway = lists:nth(ToPick, ChooseFromList),
 
             NewPickedGateway = lists:nth(NewPick, ChooseFromList),
-            ?INFO("Current Selection: ~p, New Selection: ~p", [PickedGateway, NewPickedGateway]),
+            ?INFO("Current Selection: ~p:~p, New Selection: ~p:~p, CC: ~p",
+                [PickedGateway, ToPick, NewPickedGateway, NewPick, CC]),
 
             %% Just in case there is any bug in computation of new gateway.
             PickedGateway2 = case sets:is_element(PickedGateway, ConsiderSet) of
@@ -416,7 +416,8 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
                     {ToPick, NewPick} = pick_gw(ToChooseFromList, CC),
                     PickedGateway = lists:nth(ToPick, ToChooseFromList),
                     NewPickedGateway = lists:nth(NewPick, ToChooseFromList),
-                    ?INFO("Current Selection: ~p, New Selection: ~p", [PickedGateway, NewPickedGateway]),
+                    ?INFO("Current Selection: ~p:~p, New Selection: ~p:~p, CC: ~p",
+                        [PickedGateway, ToPick, NewPickedGateway, NewPick, CC]),
                     NewSMSResponse = CurrentSMSResponse#gateway_response{gateway = PickedGateway},
                     smart_send_internal(Phone, Code, LangId, UserAgent, CC, NewSMSResponse, ToChooseFromList)
             end;
@@ -428,7 +429,6 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
 %% TODO(Luke): Make this return the gateway itself instead of an index
 -spec pick_gw(ChooseFrom :: [atom()], CC :: binary()) -> non_neg_integer().
 pick_gw(ChooseFrom, CC) ->
-    %% TODO(vipin): Change INFO to DEBUG.
     GWScores = get_gw_scores(ChooseFrom, CC),
     GWWeights = util:normalize_scores(GWScores),
     
@@ -441,7 +441,7 @@ pick_gw(ChooseFrom, CC) ->
     % simulate what we would pick if we used country-specific scores
     {NewPicked, _NewLeftOver} = rand_weighted_selection(RandNo, NewGWWeights),
 
-    ?INFO("Generated rand: ~p, Weights: ~p, Picked: ~p, New Weights: ~p, New Picked: ~p",
+    ?DEBUG("Generated rand: ~p, Weights: ~p, Picked: ~p, New Weights: ~p, New Picked: ~p",
         [RandNo, GWWeights, Picked, NewGWWeights, NewPicked]),
     {Picked, NewPicked}.
 
