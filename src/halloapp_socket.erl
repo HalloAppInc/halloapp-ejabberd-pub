@@ -235,7 +235,7 @@ recv(#socket_state{sockmod = SockMod, socket = Socket} = SocketData, Data) ->
                 {ok, TLSData} -> parse(SocketData, TLSData);
                 {error, _} = Err -> Err
             end;
-         ha_enoise ->
+        ha_enoise ->
             case ha_enoise_recv_data(Socket, Data) of
                 {ok, NoiseSocket, NoiseData, Payload} ->
                     SocketData1 = SocketData#socket_state{socket = NoiseSocket},
