@@ -387,7 +387,7 @@ request_otp(Phone, LangId, UserAgent, Method) ->
 
 -spec check_ua(binary()) -> ok | no_return().
 check_ua(UserAgent) ->
-    case util_ua:is_hallo_ua(UserAgent) of
+    case util_ua:is_valid_ua(UserAgent) of
         true ->
             case mod_client_version:is_valid_version(UserAgent) of
                 true -> ok;

@@ -20,7 +20,7 @@
     is_ios/1,
     is_android_debug/1,
     is_android_release/1,
-    is_hallo_ua/1,
+    is_valid_ua/1,
     resource_to_client_type/1,
     is_version_greater_than/2,
     is_version_less_than/2
@@ -46,21 +46,21 @@ get_app_hash(UserAgent) ->
 
 -spec is_android_debug(binary()) -> boolean().
 is_android_debug(UserAgent) ->
-    case re_match(UserAgent, "HalloApp\/Android.*D$") of
+    case re_match(UserAgent, "^HalloApp\/Android.*D$") of
         match -> true;
         nomatch -> false
     end.
 
 -spec is_android(binary()) -> boolean().
 is_android(UserAgent) ->
-    case re_match(UserAgent, "HalloApp\/Android.*$") of
+    case re_match(UserAgent, "^HalloApp\/Android.*$") of
         match -> true;
         nomatch -> false
     end.
 
 -spec is_ios(binary()) -> boolean().
 is_ios(UserAgent) ->
-    case re_match(UserAgent, "HalloApp\/iOS.*$") of
+    case re_match(UserAgent, "^HalloApp\/iOS.*$") of
         match -> true;
         nomatch -> false
     end.
@@ -70,12 +70,10 @@ is_android_release(UserAgent) ->
     is_android(UserAgent) and not is_android_debug(UserAgent).
 
 
--spec is_hallo_ua(binary()) -> boolean().
-is_hallo_ua(UserAgent) ->
-    case re_match(UserAgent, "^HalloApp\/") of
-        match -> true;
-        nomatch -> false
-    end.
+-spec is_valid_ua(binary()) -> boolean().
+is_valid_ua(UserAgent) ->
+    is_android(UserAgent) orelse is_ios(UserAgent).
+
 
 -spec re_match(iodata(), any()) -> {match | nomatch}.
 re_match(Subject, RE) ->

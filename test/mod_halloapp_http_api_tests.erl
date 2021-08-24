@@ -23,7 +23,7 @@
 -define(BAD_PHONE, <<"1617555">>).
 -define(NAME, <<"Josh">>).
 -define(SERVER, <<"s.halloapp.net">>).
--define(UA, <<"HalloApp/iPhone1.0">>).
+-define(UA, <<"HalloApp/iOS1.8.151">>).
 -define(BAD_UA, <<"BadUserAgent/1.0">>).
 -define(IP1, "1.1.1.1").
 -define(APPLE_IP, "17.3.4.5").

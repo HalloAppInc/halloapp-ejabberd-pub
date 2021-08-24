@@ -84,16 +84,18 @@ set_client_version(Uid, ClientVersion) ->
 %% Checks if a version is valid or not with respect to the current timestamp.
 -spec is_valid_version(binary()) -> boolean().
 is_valid_version(Version) ->
-    CurTimestamp = util:now(),
-    TimeLeftSec = get_time_left(Version, CurTimestamp),
-    TimeLeftSec > 0.
+    get_version_ttl(Version) > 0.
 
 
 -spec get_version_ttl(binary()) -> integer().
 get_version_ttl(Version) ->
-    CurTimestamp = util:now(),
-    TimeLeftSec = get_time_left(Version, CurTimestamp),
-    TimeLeftSec.
+    case util_ua:is_valid_ua(Version) of
+        false -> 0;
+        true ->
+            CurTimestamp = util:now(),
+            TimeLeftSec = get_time_left(Version, CurTimestamp),
+            TimeLeftSec
+    end.
 
 
 -spec extend_version_validity(Version :: binary(), ExtendTimeSec :: integer()) -> integer().

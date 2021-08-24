@@ -34,12 +34,13 @@ is_android_test() ->
     ?assertEqual(false, util_ua:is_android("")),
     ok.
 
-is_hallo_ua_test() ->
-    ?assertEqual(true, util_ua:is_hallo_ua("HalloApp/Android1.2.3")),
-    ?assertEqual(true, util_ua:is_hallo_ua("HalloApp/Android1.2.3D")),
-    ?assertEqual(true, util_ua:is_hallo_ua("HalloApp/iOS1.2.3")),
-    ?assertEqual(true, util_ua:is_hallo_ua("HalloApp/other")),
-    ?assertEqual(false, util_ua:is_hallo_ua("Not")),
+is_valid_ua_test() ->
+    ?assertEqual(true, util_ua:is_valid_ua("HalloApp/Android1.2.3")),
+    ?assertEqual(true, util_ua:is_valid_ua("HalloApp/Android1.2.3D")),
+    ?assertEqual(true, util_ua:is_valid_ua("HalloApp/iOS1.2.3")),
+    ?assertEqual(false, util_ua:is_valid_ua("HalloApp/other")),
+    ?assertEqual(false, util_ua:is_valid_ua("Not")),
+    ?assertEqual(false, util_ua:is_valid_ua("something HalloApp/Android1.2.3")),
     ok.
 
 get_client_type_test() ->
