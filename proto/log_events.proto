@@ -51,14 +51,14 @@ message MediaObjectDownload {
   uint64 size = 6;  // byte size of the object
   uint64 progress_bytes = 7;  // number of bytes downloaded during this attempt
   enum Cdn {
-    UNKNOWN = 0;
+    UNKNOWN_CDN = 0;
     CLOUDFRONT = 1;
   }
   Cdn cdn = 8;  // should be cloudfront for now
   string cdn_pop = 9;  // value of the `x-amz-cf-pop` result header
   string cdn_id = 10;  // value of the `x-amz-cf-id` result header
   enum CdnCache {
-    UNKNOWN = 0;
+    UNKNOWN_CACHE = 0;
     HIT = 1;
     MISS = 2;
     REFRESH_HIT = 3;
@@ -146,7 +146,7 @@ message DecryptionReport {
 
 message GroupDecryptionReport {
   enum Status {
-    UNKNOWN = 0;
+    UNKNOWN_STATUS = 0;
     OK = 1;
     FAIL = 2;
   }
@@ -155,7 +155,7 @@ message GroupDecryptionReport {
   string msg_id = 3;
   string gid = 4;
   enum ItemType {
-    UNKNOWN = 0;
+    UNKNOWN_TYPE = 0;
     POST = 1;
     COMMENT = 2;
   }

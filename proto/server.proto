@@ -938,13 +938,13 @@ message OtpRequest {
 message OtpResponse {
     string phone = 1;
     enum Result {
-        UNKNOWN = 0;
+        UNKNOWN_RESULT = 0;
         SUCCESS = 1;
         FAILURE = 2;
     }
     Result result = 2;
     enum Reason {
-        UNKNOWN = 0;
+        UNKNOWN_REASON = 0;
         INVALID_PHONE_NUMBER = 1;
         INVALID_CLIENT_VERSION = 2;
         BAD_METHOD = 3;
@@ -978,13 +978,13 @@ message VerifyOtpResponse {
     int64 uid = 2 [ebin = true];
     string name = 3;
     enum Result {
-        UNKNOWN = 0;
+        UNKNOWN_RESULT = 0;
         SUCCESS = 1;
         FAILURE = 2;
     }
     Result result = 4;
     enum Reason {
-        UNKNOWN = 0;
+        UNKNOWN_REASON = 0;
         INVALID_PHONE_NUMBER = 1;
         INVALID_CLIENT_VERSION = 2;
         WRONG_SMS_CODE = 3;

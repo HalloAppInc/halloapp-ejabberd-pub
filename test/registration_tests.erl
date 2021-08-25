@@ -150,7 +150,7 @@ request_otp_noise_test(_Conf) ->
         response = #pb_otp_response{
             phone = Phone,
             result = success,
-            reason = unknown,
+            reason = unknown_reason,
             retry_after_secs = 30
     }},
     % ?debugFmt("response: ~p", [ActualResponse]),
@@ -207,7 +207,7 @@ request_otp_noise2_test(_Conf) ->
         response = #pb_otp_response{
             phone = Phone,
             result = success,
-            reason = unknown,
+            reason = unknown_reason,
             retry_after_secs = 30
     }},
     % ?debugFmt("response: ~p", [ActualResponse]),
