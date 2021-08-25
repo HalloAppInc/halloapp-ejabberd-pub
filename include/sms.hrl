@@ -74,6 +74,8 @@
 
 -define(ENG_LANG_ID, <<"en-US">>).
 
+%% Score is between 0, 1. Multiply by 100 to get percent score.
 -define(DEFAULT_GATEWAY_SCORE, 0.1).
+-define(DEFAULT_GATEWAY_SCORE_PERCENT, ?DEFAULT_GATEWAY_SCORE * 100).
 
 -endif.

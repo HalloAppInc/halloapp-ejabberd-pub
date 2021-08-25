@@ -263,14 +263,13 @@ generate_gateway_list(Method, OldResponses) ->
     TrySet = sets:subtract(GoodSet, SupportedWorkingSet),
 
     %% To eliminate duplicates.
-    WorkingList2 = sets:to_list(SupportedWorkingSet),
     ?DEBUG("Working: ~p", [sets:to_list(SupportedWorkingSet)]),
     ?DEBUG("Not Working: ~p", [sets:to_list(NotWorkingSet)]),
     ?DEBUG("Try: ~p", [sets:to_list(TrySet)]),
     ?DEBUG("Consider: ~p", [sets:to_list(ConsiderSet)]),
 
-    %% If length(TryList) > 0 pick any from TryList, else if length(WorkingListi2) > 0 pick any from
-    %% WorkingList2. If both have no elements pick any from ConsiderList.
+    %% If length(TryList) > 0 pick any from TryList, else if size(SupportedWorkingSet) > 0 pick any from
+    %% SupportedWokringSet. If both have no elements pick any from ConsiderList.
     ToChooseFromSet = case {sets:size(TrySet), sets:size(SupportedWorkingSet)} of
         {0, 0} -> ConsiderSet;  %% None of the GWs we have support for has worked.
         {0, _} -> SupportedWorkingSet;  %% We have tried all the GWs. Will try again using what has worked.
@@ -352,12 +351,9 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
             ConsiderSet = sets:from_list(ConsiderList),
 
             %% Pick one based on past performance.
-            {ToPick, NewPick} = pick_gw(ChooseFromList, CC),
-            PickedGateway = lists:nth(ToPick, ChooseFromList),
-
-            NewPickedGateway = lists:nth(NewPick, ChooseFromList),
-            ?INFO("Current Selection: ~p:~p, New Selection: ~p:~p, CC: ~p",
-                [PickedGateway, ToPick, NewPickedGateway, NewPick, CC]),
+            {PickedGateway, NewPickedGateway} = pick_gw(ChooseFromList, CC),
+            ?INFO("Current Selection: ~p, New Selection: ~p, CC: ~p",
+                [PickedGateway, NewPickedGateway, CC]),
 
             %% Just in case there is any bug in computation of new gateway.
             PickedGateway2 = case sets:is_element(PickedGateway, ConsiderSet) of
@@ -413,11 +409,9 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
                 [] ->
                     {error, Gateway, Reason};
                 _ -> % pick from curated list
-                    {ToPick, NewPick} = pick_gw(ToChooseFromList, CC),
-                    PickedGateway = lists:nth(ToPick, ToChooseFromList),
-                    NewPickedGateway = lists:nth(NewPick, ToChooseFromList),
-                    ?INFO("Current Selection: ~p:~p, New Selection: ~p:~p, CC: ~p",
-                        [PickedGateway, ToPick, NewPickedGateway, NewPick, CC]),
+                    {PickedGateway, NewPickedGateway} = pick_gw(ToChooseFromList, CC),
+                    ?INFO("Current Selection: ~p, New Selection: ~p, CC: ~p",
+                        [PickedGateway, NewPickedGateway, CC]),
                     NewSMSResponse = CurrentSMSResponse#gateway_response{gateway = PickedGateway},
                     smart_send_internal(Phone, Code, LangId, UserAgent, CC, NewSMSResponse, ToChooseFromList)
             end;
@@ -426,8 +420,7 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
     end.
 
 
-%% TODO(Luke): Make this return the gateway itself instead of an index
--spec pick_gw(ChooseFrom :: [atom()], CC :: binary()) -> non_neg_integer().
+-spec pick_gw(ChooseFrom :: [atom()], CC :: binary()) -> {atom(), atom()}.
 pick_gw(ChooseFrom, CC) ->
     GWScores = get_gw_scores(ChooseFrom, CC),
     GWWeights = util:normalize_scores(GWScores),
@@ -443,7 +436,7 @@ pick_gw(ChooseFrom, CC) ->
 
     ?DEBUG("Generated rand: ~p, Weights: ~p, Picked: ~p, New Weights: ~p, New Picked: ~p",
         [RandNo, GWWeights, Picked, NewGWWeights, NewPicked]),
-    {Picked, NewPicked}.
+    {lists:nth(Picked, ChooseFrom), lists:nth(NewPicked, ChooseFrom)}.
 
 
 -spec rand_weighted_selection(RandNo :: float(), Weights :: list()) -> {integer(), float()}.
@@ -506,7 +499,8 @@ get_gwcc_score(Gateway, CC) ->
             ?DEBUG("Using Global score for ~p", [GatewayCC]),
             {ok, GlobalScore} = get_aggregate_score(Gateway),
             GlobalScore;
-        {ok, Score} -> Score
+        {ok, Score} when Score > ?DEFAULT_GATEWAY_SCORE_PERCENT -> Score;
+        {ok, _} -> ?DEFAULT_GATEWAY_SCORE_PERCENT
     end.
 
 
@@ -515,9 +509,9 @@ get_gwcc_score(Gateway, CC) ->
 get_aggregate_score(Gateway) ->
     {ok, AggScore} = model_gw_score:get_aggregate_score(Gateway),
     RetScore = case AggScore of
-        undefined -> ?DEFAULT_GATEWAY_SCORE;
-        _ when AggScore >= 0 -> AggScore;
-        _ -> ?DEFAULT_GATEWAY_SCORE
+        undefined -> ?DEFAULT_GATEWAY_SCORE_PERCENT;
+        _ when AggScore > ?DEFAULT_GATEWAY_SCORE_PERCENT -> AggScore;
+        _ -> ?DEFAULT_GATEWAY_SCORE_PERCENT
     end,
     {ok, RetScore}. 
 
