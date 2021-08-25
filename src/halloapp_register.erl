@@ -268,6 +268,7 @@ terminate(Reason, State) ->
 -spec process_element(stanza(), state()) -> state().
 process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
         #{ip := ClientIP} = State) ->
+    stat:count("HA/registration", "request_otp_request", 1, [{protocol, "noise"}]),
     RawPhone = OtpRequest#pb_otp_request.phone,
     MethodBin = util:to_binary(OtpRequest#pb_otp_request.method),
     LangId = OtpRequest#pb_otp_request.lang_id,
@@ -314,6 +315,7 @@ process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
     send(State, #pb_register_response{response = OtpResponse});
 process_element(#pb_register_request{request = #pb_verify_otp_request{} = VerifyOtpRequest},
         #{ip := ClientIP} = State) ->
+    stat:count("HA/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
     RawPhone = VerifyOtpRequest#pb_verify_otp_request.phone,
     Name = VerifyOtpRequest#pb_verify_otp_request.name,
     Code = VerifyOtpRequest#pb_verify_otp_request.code,

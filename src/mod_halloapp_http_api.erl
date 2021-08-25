@@ -57,6 +57,7 @@ process([<<"registration">>, <<"request_sms">>],
 
 process([<<"registration">>, <<"request_otp">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
+    stat:count("HA/registration", "request_otp_request", 1, [{protocol, "https"}]),
     process_otp_request(Data, IP, Headers);
 
 %% Newer version of `register` API. Uses spub instead of password.
@@ -78,6 +79,7 @@ process([<<"registration">>, <<"register2">>],
         SignedKeyB64 = maps:get(<<"signed_key">>, Payload),
         OneTimeKeysB64 = maps:get(<<"one_time_keys">>, Payload),
         RawData = Payload#{headers => Headers, ip => IP},
+        stat:count("HA/registration", "verify_otp_request", 1, [{protocol, "https"}]),
 
         RequestData = #{
             raw_phone => RawPhone, name => Name, ua => UserAgent, code => Code,
