@@ -64,7 +64,7 @@ translate_de_test() ->
         mod_translate:translate(<<"server.new.message">>, <<"de">>)),
     ?assertEqual({<<"Neuer Beitrag">>, <<"de">>},
         mod_translate:translate(<<"server.new.post">>, <<"de">>)),
-    ?assertEqual({<<"murali ist nun auch auf HalloApp">>, <<"de">>},
+    ?assertEqual({<<"murali ist jetzt auf HalloApp">>, <<"de">>},
         mod_translate:translate(<<"server.new.contact">>, [<<"murali">>], <<"de">>)),
     ok.
 
