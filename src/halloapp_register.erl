@@ -99,7 +99,8 @@ stop(Pid) when is_pid(Pid) ->
     cast(Pid, stop);
 stop(#{owner := Owner} = State) when Owner =:= self() ->
     Reason = maps:get(stop_reason, State, normal),
-    erlang:error(Reason);
+    ?INFO("Stopping process, reason: ~p", [Reason]),
+    exit(normal);
 stop(_) ->
     erlang:error(badarg).
 
@@ -259,10 +260,10 @@ handle_info(Info, State) ->
     noreply(State).
 
 
+%% internal function of p1_server.
 -spec terminate(term(), state()) -> state().
 terminate(Reason, State) ->
-    ?ERROR("terminating, reason: ~p, state: ~p", [Reason, State]),
-    process_stream_end(Reason, State).
+    State.
 
 
 %%%===================================================================
