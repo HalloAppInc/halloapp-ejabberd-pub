@@ -340,15 +340,20 @@ process_all_scores() ->
 
 -spec compute_and_print_score(VarTypeNameTotal :: list()) -> ok.
 compute_and_print_score([VarType, VarName, ErrCount, TotalCount]) ->
+    SuccessCount = TotalCount - ErrCount,
+    Category = get_category(VarType),
     Score = case compute_recent_score(ErrCount, TotalCount) of
-        {ok, S} -> S;
+        {ok, S} when S < ?MIN_SMS_CONVERSION_SCORE ->
+            ?ERROR("Low SMS conversion, ~s: ~p, score: ~p (~p/~p)", 
+                [Category, VarName, S, SuccessCount, TotalCount]),
+            S;
+        {ok, S} ->
+            S;
         {error, insufficient_data} -> nan
     end,
     update_redis_score(VarName, Score),
-    SuccessCount = TotalCount - ErrCount,
-    Category = get_category(VarType),
-    PrintList = [Category, VarName, Score, SuccessCount, TotalCount],
-    ?INFO("SMS_Stats, ~s: ~p, score: ~p (~p/~p)", PrintList),
+    ?INFO("SMS_Stats ~s: ~p, score: ~p (~p/~p)",
+        [Category, VarName, Score, SuccessCount, TotalCount]),
     ok.
 
 

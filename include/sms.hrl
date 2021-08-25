@@ -69,6 +69,8 @@
 -define(TOTAL_POS, 3).
 -define(RECENT_SCORE_WEIGHT, 0.8).
 
+-define(MIN_SMS_CONVERSION_SCORE, 20).
+
 
 -define(ENG_LANG_ID, <<"en-US">>).
 
