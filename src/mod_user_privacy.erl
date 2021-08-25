@@ -77,24 +77,7 @@ mod_options(_Host) ->
 -spec process_local_iq(IQ :: pb_iq()) -> pb_iq().
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_privacy_list{type = Type, hash = HashValue,
-        uid_elements = [], phone_elements = PhoneEls}} = IQ) ->
-    ?INFO("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
-    case update_privacy_type2(Uid, Type, HashValue, PhoneEls) of
-        ok ->
-            pb:make_iq_result(IQ);
-        {error, hash_mismatch, _ServerHashValue} ->
-            ?WARNING("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
-            pb:make_error(IQ, util:err(hash_mismatch));
-        {error, invalid_type} ->
-            ?WARNING("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
-            pb:make_error(IQ, util:err(invalid_type));
-        {error, unexpected_phones} ->
-            ?WARNING("Uid: ~s, unexpected_phones for type: ~p", [Uid, Type]),
-            pb:make_error(IQ, util:err(unexpected_phones))
-    end;
-process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_privacy_list{type = Type, hash = HashValue,
-        uid_elements = UidEls, phone_elements = []}} = IQ) ->
+        uid_elements = UidEls, phone_elements = [], using_phones = false}} = IQ) ->
     ?INFO("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
     case update_privacy_type(Uid, Type, HashValue, UidEls) of
         ok ->
@@ -108,6 +91,24 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         {error, unexpected_uids} ->
             ?WARNING("Uid: ~s, unexpected_uids for type: ~p", [Uid, Type]),
             pb:make_error(IQ, util:err(unexpected_uids))
+    end;
+%% Use Uid's client_version to filter out requests.
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_privacy_list{type = Type, hash = HashValue,
+        uid_elements = [], phone_elements = PhoneEls, using_phones = true}} = IQ) ->
+    ?INFO("Uid: ~s, set-iq for privacy_list, type: ~p", [Uid, Type]),
+    case update_privacy_type2(Uid, Type, HashValue, PhoneEls) of
+        ok ->
+            pb:make_iq_result(IQ);
+        {error, hash_mismatch, _ServerHashValue} ->
+            ?WARNING("Uid: ~s, hash_mismatch type: ~p", [Uid, Type]),
+            pb:make_error(IQ, util:err(hash_mismatch));
+        {error, invalid_type} ->
+            ?WARNING("Uid: ~s, invalid privacy_list_type: ~p", [Uid, Type]),
+            pb:make_error(IQ, util:err(invalid_type));
+        {error, unexpected_phones} ->
+            ?WARNING("Uid: ~s, unexpected_phones for type: ~p", [Uid, Type]),
+            pb:make_error(IQ, util:err(unexpected_phones))
     end;
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_privacy_lists{lists = PrivacyLists}} = IQ) ->

@@ -685,6 +685,7 @@ message PrivacyList {
     repeated UidElement uid_elements = 2;
     bytes hash = 3;
     repeated PhoneElement phone_elements = 4;
+    bool using_phones = 5;
 }
 
 
