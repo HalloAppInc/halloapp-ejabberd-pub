@@ -98,7 +98,8 @@ close(_, _) ->
 stop(Pid) when is_pid(Pid) ->
     cast(Pid, stop);
 stop(#{owner := Owner} = State) when Owner =:= self() ->
-    handle_cast(stop, State);
+    Reason = maps:get(stop_reason, State, normal),
+    erlang:error(Reason);
 stop(_) ->
     erlang:error(badarg).
 
@@ -152,7 +153,10 @@ init([Mod, {SockMod, Socket}, Opts]) ->
 handle_cast(stop, State) ->
     {stop, normal, State};
 handle_cast({close, Reason}, State) ->
-    noreply(process_stream_end(Reason, State));
+    case is_disconnected(State) of
+        true -> {stop, normal, State};
+        false -> noreply(process_stream_end(Reason, State))
+    end;
 handle_cast({send, Pkt}, State) ->
     noreply(send_pkt(State, Pkt));
 handle_cast(accept, #{socket := Socket, sockmod := SockMod,
@@ -177,8 +181,8 @@ handle_cast(accept, #{socket := Socket, sockmod := SockMod,
                 true -> noreply(State3);
                 false -> handle_info({tcp, Socket, <<>>}, State3)
             end;
-        {error, _} ->
-            stop(State)
+        {error, Reason} ->
+            process_stream_end(Reason, State)
     end;
 handle_cast(Cast, State) ->
     ?ERROR("unexpected cast: ~p, state: ~p", [Cast, State]),
@@ -388,13 +392,13 @@ is_disconnected(#{stream_state := StreamState}) ->
 
 -spec process_stream_end(stop_reason(), state()) -> state().
 process_stream_end(Reason, #{stream_state := disconnected} = State) ->
-    ?ERROR("stream already disconnected, State: ~p", [Reason, State]),
     State;
 process_stream_end(Reason, State) ->
     ?INFO("closing stream, reason: ~p", [Reason]),
-    State1 = close_socket(State),
-    stop(State1),
-    State1.
+    State1 = State#{stop_reason => Reason},
+    State2 = close_socket(State1),
+    stop(State2),
+    State2.
 
 
 -spec close_socket(state()) -> state().
