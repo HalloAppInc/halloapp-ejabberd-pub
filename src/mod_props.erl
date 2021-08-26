@@ -92,18 +92,14 @@ get_props(Uid, ClientVersion) ->
         contact_sync_frequency => 1 * ?DAYS, %% how often should clients sync all contacts.
         max_group_size => ?MAX_GROUP_SIZE, %% max limit on the group size.
         max_post_media_items => 10, %% max number of media_items client can post.
-        groups => true, %% whether the client can create groups or not.
         group_chat => false, %% whether the client can access group_chat or not.
         group_feed => true, %% whether the client can access group_feed or not.
-        combine_feed => true, %% whether to combine content from group_feed and home feed.
         silent_chat_messages => 0, %% number of silent_chats client can send.
-        cleartext_chat_messages => false, %% whether to send cleartext chat messages.
         max_feed_video_duration => 600, %% duration in seconds for videos on feed.
         max_chat_video_duration => 600, %% duration in seconds for videos in chats.
         private_reactions => false, %% whether client can send private reactions.
         group_sync_time => 1 * ?WEEKS, %% how often should clients sync group metadata
         group_invite_links => true, %% enables group_invite_links on the client.
-        group_background => true, %% enables group_background on the client.
         max_video_bit_rate => 8000000, %% max_video_bit_rate set to 8Mbps.
         new_client_container => false, %% indicates whether the client can start sending new container formats.
         voice_notes => false, %% enables voice notes in 1-1 messages on client.
@@ -132,11 +128,12 @@ get_uid_based_props(PropMap, Uid) ->
 
 -spec get_client_based_props(PropMap :: map(),
         ClientType :: atom(), ClientVersion :: binary()) -> map().
-get_client_based_props(PropMap, android, _ClientVersion) ->
-    maps:update(groups, true, PropMap);
-get_client_based_props(PropMap, ios, ClientVersion) ->
-    Result = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS0.3.75">>),
-    maps:update(groups, Result, PropMap);
+get_client_based_props(PropMap, android, ClientVersion) ->
+    %% All versions starting Android0.163 will be using this prop now.
+    Result = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android0.162">>),
+    maps:update(new_client_container, Result, PropMap);
+get_client_based_props(PropMap, ios, _ClientVersion) ->
+    PropMap;
 get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
 

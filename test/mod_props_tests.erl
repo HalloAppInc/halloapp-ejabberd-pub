@@ -50,16 +50,6 @@ hash_test() ->
     teardown().
 
 
-hash_client_version_test() ->
-    setup(),
-    Hash1 = mod_props:get_hash(?UID),
-    Hash2 = mod_props:get_hash(?UID2),
-    Hash3 = mod_props:get_hash(?UID3),
-    ?assertEqual(Hash1, Hash2),
-    ?assertNotEqual(Hash1, Hash3),
-    teardown().
-
-
 iq_test() ->
     SortedProplist = lists:keysort(1, ?TEST_PROPLIST),
     Hash = mod_props:generate_hash(SortedProplist),
