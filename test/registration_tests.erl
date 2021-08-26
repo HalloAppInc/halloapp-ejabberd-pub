@@ -336,7 +336,7 @@ verify_otp_fail_noise_test(_Conf) ->
         response = #pb_otp_response{
             phone = Phone,
             result = success,
-            reason = unknown,
+            reason = unknown_reason,
             retry_after_secs = 30
     }},
     ?debugFmt("response: ~p", [ActualResponse]),
