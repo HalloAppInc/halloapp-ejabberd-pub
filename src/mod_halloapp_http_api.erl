@@ -313,7 +313,7 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
             ?ERROR("register error: invalid_client_version ~p", [RawData]),
             {error, invalid_client_version};
         error : wrong_sms_code ->
-            ?INFO("register error: code mismatch data:~s", [RawData]),
+            ?INFO("register error: code mismatch data:~p", [RawData]),
             log_register_error(wrong_sms_code),
             {error, wrong_sms_code};
         error : invalid_s_ed_pub ->
