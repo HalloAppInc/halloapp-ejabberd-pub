@@ -59,12 +59,12 @@
 -else.
 -define(SMS_REG_TIMESTAMP_INCREMENT, 900 * ?SECONDS).  %% 15 minutes.
 -define(MIN_SCORING_TIME, 2 * ?HOURS). %% 2 hours
--define(MAX_SCORING_TIME, 2 * ?DAYS). %% 48 hours
+-define(MAX_SCORING_TIME, 7 * ?DAYS). %% 7 days
 -define(MIN_TEXTS_TO_SCORE_GW, 10).
 -endif.
 -define(SCORE_DATA_TABLE, sms_gw_score_data).
 -define(MIN_SCORING_INTERVAL_COUNT, (?MIN_SCORING_TIME div ?SMS_REG_TIMESTAMP_INCREMENT)). 
--define(MAX_SCORING_INTERVAL_COUNT, (?MAX_SCORING_TIME div ?SMS_REG_TIMESTAMP_INCREMENT)). %% 48 hours 
+-define(MAX_SCORING_INTERVAL_COUNT, (?MAX_SCORING_TIME div ?SMS_REG_TIMESTAMP_INCREMENT)). %% 7 days
 -define(ERROR_POS, 2).
 -define(TOTAL_POS, 3).
 -define(RECENT_SCORE_WEIGHT, 0.8).

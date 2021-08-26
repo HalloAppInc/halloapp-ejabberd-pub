@@ -81,7 +81,7 @@
 -define(MAX_SLOTS, 8).
 
 %% TTL for SMS reg data: 2 1/2 days, in case the background task does not run for a period
--define(TTL_INCREMENTAL_TIMESTAMP, 2 * ?DAYS + 12 * ?HOURS).
+-define(TTL_INCREMENTAL_TIMESTAMP, 7 * ?DAYS + 12 * ?HOURS).
 
 -define(TTL_VERIFICATION_ATTEMPTS, 30 * 86400).  %% 30 days
 
