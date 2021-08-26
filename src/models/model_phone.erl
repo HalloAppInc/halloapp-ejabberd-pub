@@ -76,6 +76,7 @@
 -define(FIELD_SID, <<"sid">>).
 -define(FIELD_VERIFICATION_ATTEMPT, <<"fva">>).
 -define(FIELD_VERIFICATION_SUCCESS, <<"suc">>).
+-define(FIELD_VALID, <<"val">>).
 -define(TTL_SMS_CODE, 86400).
 -define(MAX_SLOTS, 8).
 
@@ -155,7 +156,7 @@ add_sms_code2(Phone, Code) ->
     _Results = q([["MULTI"],
                    ["ZADD", VerificationAttemptListKey, Timestamp, AttemptId],
                    ["EXPIRE", VerificationAttemptListKey, ?TTL_VERIFICATION_ATTEMPTS],
-                   ["HSET", VerificationAttemptKey, ?FIELD_CODE, Code],
+                   ["HSET", VerificationAttemptKey, ?FIELD_CODE, Code, ?FIELD_VALID, "1"],
                    ["EXPIRE", VerificationAttemptKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
 
@@ -201,7 +202,7 @@ get_all_verification_info(Phone) ->
     RedisCommands = lists:map(
         fun({AttemptId, _TS}) ->
             ["HMGET", verification_attempt_key(Phone, AttemptId),
-                ?FIELD_CODE, ?FIELD_SENDER, ?FIELD_SID, ?FIELD_STATUS]
+                ?FIELD_CODE, ?FIELD_SENDER, ?FIELD_SID, ?FIELD_STATUS, ?FIELD_VALID]
         end, VerificationAttemptList),
     VerifyInfoList = case RedisCommands of
         [] -> [];
@@ -209,12 +210,22 @@ get_all_verification_info(Phone) ->
     end,
     CombinedList = lists:zipwith(
         fun(VerifyInfo, VerificationAttempt) ->
-            {ok, [Code, Gateway, Sid, Status]} = VerifyInfo,
+            {ok, [Code, Gateway, Sid, Status, Validity]} = VerifyInfo,
             {Attempt, TS} = VerificationAttempt,
-            #verification_info{gateway = Gateway, attempt_id = Attempt,
-                code = Code, sid = Sid, ts = binary_to_integer(TS), status = Status}
+            #verification_info{
+                gateway = Gateway,
+                attempt_id = Attempt,
+                code = Code,
+                sid = Sid,
+                ts = binary_to_integer(TS),
+                status = Status,
+                valid = util_redis:decode_boolean(Validity, false)
+            }
         end, VerifyInfoList, VerificationAttemptList),
-    {ok, CombinedList}.
+    %% Filter and return only valid attempts.
+    FinalVerificationInfo = lists:filter(
+        fun (#verification_info{valid = Validity}) -> Validity end, CombinedList),
+    {ok, FinalVerificationInfo}.
 
 
 -spec get_sms_code2(Phone :: phone(), AttemptId :: binary()) -> {ok, binary()} | {error, any()}.
@@ -359,6 +370,18 @@ get_gateway_response_status(Phone, AttemptId) ->
 add_verification_success(Phone, AttemptId) ->
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
     _Res = q(["HSET", VerificationAttemptKey, ?FIELD_VERIFICATION_SUCCESS, "1"]),
+    invalidate_old_attempts(Phone),
+    ok.
+
+
+-spec invalidate_old_attempts(Phone :: phone()) -> ok | {error, any()}.
+invalidate_old_attempts(Phone) ->
+    {ok, VerificationAttemptList} = get_verification_attempt_list(Phone),
+    RedisCommands = lists:map(
+        fun({AttId, _TS}) ->
+            ["HSET", verification_attempt_key(Phone, AttId), ?FIELD_VALID, "0"]
+        end, VerificationAttemptList),
+    qp(RedisCommands),
     ok.
 
 

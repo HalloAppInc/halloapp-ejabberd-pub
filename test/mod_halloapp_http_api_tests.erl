@@ -242,6 +242,7 @@ register_spub_test() ->
     meck_init(twilio_verify, send_feedback, fun(_,_) -> ok end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
+    %% Request1
     mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     KeyPair = ha_enoise:generate_signature_keypair(),
@@ -263,6 +264,9 @@ register_spub_test() ->
     ?assert(meck:called(stat, count, ["HA/account", "register_errors", 1,
         [{error, bad_user_agent}]])),
     meck_finish(stat),
+    %% Request2
+    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER2_PATH,
         #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     #{
@@ -279,6 +283,9 @@ register_spub_test() ->
     SignedMessage2 = enacl:sign("HALLO", SEdSecret2),
     SEdPubEncoded2 = base64:encode(SEdPub2),
     SignedMessageEncoded2 = base64:encode(SignedMessage2),
+    %% Request3
+    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     GoodData2 = ?REGISTER2_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME, SEdPubEncoded2, SignedMessageEncoded2),
     {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER2_PATH,
         #request{method = 'POST', data = GoodData2, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
@@ -301,6 +308,7 @@ register_push_token_test() ->
     meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
+    %% Request1
     mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     KeyPair = ha_enoise:generate_signature_keypair(),
@@ -333,6 +341,9 @@ register_push_token_test() ->
     SignedMessageEncoded2 = base64:encode(SignedMessage2),
     GoodData2 = ?REGISTER3_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME,
         SEdPubEncoded2, SignedMessageEncoded2, ?GERMAN_LANG_ID, ?PUSH_OS, ?PUSH_TOKEN),
+    %% Request2
+    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER2_PATH,
         #request{method = 'POST', data = GoodData2, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     #{

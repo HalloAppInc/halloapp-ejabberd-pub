@@ -15,6 +15,10 @@
 
 -define(PHONE, <<"14703381473">>).
 -define(TEST_PHONE, <<"16175550000">>).
+-define(CODE1, <<"041200">>).
+-define(CODE2, <<"084752">>).
+-define(SID1, <<"sid1">>).
+-define(SID2, <<"sid2">>).
 
 
 simple_test() ->
@@ -100,6 +104,21 @@ choose_other_gateway_test() ->
     meck_finish(twilio_verify),
     meck_finish(mbird),
     meck_finish(ejabberd_router).
+
+
+disable_otp_after_success_test() ->
+    {ok, AttemptId1, _} = model_phone:add_sms_code2(?PHONE, ?CODE1),
+    ok = model_phone:add_gateway_response(?PHONE, AttemptId1,
+        #gateway_response{gateway = twilio, gateway_id = ?SID1, status = sent}),
+    %% Sleep for 1 seconds so the timestamp for Attempt1 and Attempt2 is different.
+    timer:sleep(timer:seconds(1)),
+    {ok, AttemptId2, _} = model_phone:add_sms_code2(?PHONE, ?CODE2),
+    ok = model_phone:add_gateway_response(?PHONE, AttemptId2,
+        #gateway_response{gateway = twilio, gateway_id = ?SID2, status = sent}),
+    ?assertEqual(match, mod_sms:verify_sms(?PHONE, ?CODE1)),
+    ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?CODE1)),
+    ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?CODE2)),
+    ok.
 
 
 %%%----------------------------------------------------------------------

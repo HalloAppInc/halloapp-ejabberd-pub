@@ -43,7 +43,8 @@
     code :: binary(),
     sid :: binary(),
     ts :: non_neg_integer(),
-    status :: status()
+    status :: status(),
+    valid :: boolean()
 }).
 
 -type verification_info() :: #verification_info{}.

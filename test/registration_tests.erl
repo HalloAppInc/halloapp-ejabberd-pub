@@ -108,6 +108,7 @@ register_fail_test(_Conf) ->
 
 
 register_test(_Conf) ->
+    registration_client:request_sms(?PHONE10, #{}),
     {ok, Uid, _ClientKeyPair, Data} = registration_client:register(?PHONE10, <<"111111">>, ?NAME10),
     ct:pal("~p", [Data]),
     #{
