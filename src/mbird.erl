@@ -44,6 +44,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
     Headers = [{"Authorization", "AccessKey " ++ get_access_key(util:is_test_number(Phone))}],
     Type = "application/x-www-form-urlencoded",
     Body = compose_body(Phone, Msg),
+    ?DEBUG("Body: ~p", [Body]),
     HTTPOptions = [],
     Options = [],
     Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
@@ -77,7 +78,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent :: binary()) ->
         {ok, gateway_response()} | {error, voice_call_fail, retry | no_retry}.
-send_voice_call(Phone, Code, LangId, UserAgent) ->
+send_voice_call(Phone, Code, LangId, _UserAgent) ->
     {VoiceMsgBin, TranslatedLangId} = case is_voice_lang_available(LangId) of
         true ->
             mod_translate:translate(<<"server.voicecall.verification">>, LangId);
@@ -156,14 +157,45 @@ get_access_key(false) ->
     Body :: uri_string:uri_string().
 compose_body(Phone, Message) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
-    FromPhone = get_from_phone(Phone),
+    CC = mod_libphonenumber:get_cc(Phone),
     %% reference is used during callback. TODO(vipin): Need a more useful ?REFERENCE.
     uri_string:compose_query([
         {"recipients", PlusPhone },
-        {"originator", FromPhone},
+        {"originator", get_originator(CC)},
         {"reference", ?REFERENCE},
         {"body", Message}
     ], [{encoding, latin1}]).
+
+-spec get_originator(CC :: binary()) -> string().
+%% TODO: Need to explore other countries for Alphanumeric SenderId.
+%% https://support.messagebird.com/hc/en-us/articles/360017673738-Complete-list-of-sender-ID-availability-and-restrictions
+%% TODO: Need to explore "inbox" for CA
+%% https://developers.messagebird.com/api/sms-messaging#sticky-vmn
+get_originator(CC) ->
+    case CC of
+        <<"AL">> -> ?HALLOAPP_SENDER_ID;
+        <<"CD">> -> ?HALLOAPP_SENDER_ID;
+        <<"CG">> -> ?HALLOAPP_SENDER_ID;
+        <<"IR">> -> ?HALLOAPP_SENDER_ID;
+        <<"MW">> -> ?HALLOAPP_SENDER_ID;
+        <<"ML">> -> ?HALLOAPP_SENDER_ID;
+        <<"NP">> -> ?HALLOAPP_SENDER_ID;
+        <<"NG">> -> ?HALLOAPP_SENDER_ID;
+        <<"OM">> -> ?HALLOAPP_SENDER_ID;
+        <<"PK">> -> ?HALLOAPP_SENDER_ID;
+        <<"PE">> -> ?HALLOAPP_SENDER_ID;
+        <<"PH">> -> ?HALLOAPP_SENDER_ID;
+        <<"LK">> -> ?HALLOAPP_SENDER_ID;
+        <<"TH">> -> ?HALLOAPP_SENDER_ID;
+        <<"TG">> -> ?HALLOAPP_SENDER_ID;
+        <<"ZM">> -> ?HALLOAPP_SENDER_ID;
+        <<"US">> -> ?STICKY_VMN;
+        <<"NL">> -> ?STICKY_VMN;
+        <<"GB">> -> ?STICKY_VMN;
+        <<"CA">> -> ?FROM_PHONE_FOR_CANADA;
+        %% TODO: Need to explore using just one phone for the rest
+        _ -> util_sms:lookup_from_phone(mbird_options)
+    end.
 
 -spec compose_voice_body(Phone, Message, MbirdLangId) -> Body when
     Phone :: phone(),

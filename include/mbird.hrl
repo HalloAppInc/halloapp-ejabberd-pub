@@ -18,4 +18,6 @@
 -define(NO_RECIPIENTS_CODE, 9). % No (correct) recipients found
 -define(BLACKLIST_NUM_CODE, 12). % Number is blacklisted
 
+-define(STICKY_VMN, "inbox").
+
 -endif.

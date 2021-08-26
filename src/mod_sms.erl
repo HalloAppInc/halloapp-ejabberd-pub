@@ -285,54 +285,36 @@ gateway_cc_filter(CC) ->
     %% TODO(vipin): Fix as and when we get approval. Replace the following using redis.
     case CC of
         <<"AE">> -> twilio;     %% UAE
-        <<"AL">> -> twilio;     %% Albania
-        <<"AM">> -> twilio_verify;     %% Armenia
+        <<"AM">> -> twilio;     %% Armenia
         <<"BG">> -> twilio;     %% Bulgaria
         <<"BL">> -> twilio_verify;     %% Belarus
         <<"CN">> -> twilio_verify;     %% China, check once vetting is done
         <<"CU">> -> twilio_verify;     %% Cuba
         <<"TD">> -> twilio_verify;     %% Chad
-        <<"CD">> -> twilio;     %% Congo
-        <<"CG">> -> twilio;     %% Congo
         <<"CZ">> -> twilio_verify;     %% Czech Republic
-        <<"EG">> -> twilio_verify;     %% Egypt
-        <<"ET">> -> mbird;      %% Ethiopia
+        <<"EG">> -> twilio;     %% Egypt
         <<"ID">> -> twilio_verify;     %% Indonesia
-        <<"IR">> -> twilio_verify;     %% Iran
-        <<"JO">> -> twilio_verify;     %% Jordan
+        <<"JO">> -> twilio;     %% Jordan
         <<"KZ">> -> twilio_verify;     %% Kazakhstan
         <<"KE">> -> twilio_verify;     %% Kenya
         <<"KW">> -> twilio_verify;     %% Kuwait
         <<"MK">> -> twilio;     %% Macedonia
-        <<"MW">> -> twilio_verify;     %% Malawi
-        <<"ML">> -> twilio;     %% Mali
         <<"ME">> -> twilio;     %% Montenegro
         <<"MA">> -> twilio_verify;     %% Morocco
         <<"MX">> -> mbird;      %% Mexico
         <<"MZ">> -> twilio;     %% Mozambique
         <<"MM">> -> mbird;      %% Myanmar
-        <<"NP">> -> twilio_verify;     %% Nepal
-        <<"NG">> -> twilio;     %% Nigeria
         <<"NZ">> -> twilio_verify;     %% New Zealand
-        <<"OM">> -> twilio_verify;     %% Oman
-        <<"PK">> -> twilio;     %% Pakistan
-        <<"PS">> -> mbird;      %% Palestine
-        <<"PE">> -> twilio;     %% Peru
-        <<"PH">> -> twilio_verify;     %% Philippines
+        <<"PH">> -> mbird;     %% Philippines
         <<"QA">> -> twilio_verify;     %% Qatar
         <<"RO">> -> twilio;     %% Romania
         <<"RU">> -> twilio_verify;     %% Russia
-        <<"SA">> -> twilio_verify;     %% Saudi Arabia
-        <<"SN">> -> twilio;     %% Senegal
+        <<"SA">> -> twilio;     %% Saudi Arabia
         <<"RS">> -> twilio;     %% Serbia
-        <<"LK">> -> twilio_verify;     %% Sri Lanka
         <<"TZ">> -> twilio_verify;     %% Tanzania
-        <<"TH">> -> twilio_verify;     %% Thailand
-        <<"TG">> -> twilio;     %% Togo
         <<"UA">> -> twilio;     %% Ukraine
         <<"UZ">> -> twilio;     %% Uzbekistan
         <<"VN">> -> twilio_verify;     %% Vietnam
-        <<"ZM">> -> twilio;     %% Zambia
         _ -> unrestricted % will choose in smart_send
     end.
 
