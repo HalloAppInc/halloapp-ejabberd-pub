@@ -262,7 +262,7 @@ handle_info(Info, State) ->
 
 %% internal function of p1_server.
 -spec terminate(term(), state()) -> state().
-terminate(Reason, State) ->
+terminate(_Reason, State) ->
     State.
 
 
@@ -280,7 +280,8 @@ process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
     GroupInviteToken = OtpRequest#pb_otp_request.group_invite_token,
     UserAgent = OtpRequest#pb_otp_request.user_agent,
     RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
-        ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => OtpRequest
+        ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => OtpRequest,
+        protocol => noise
     },
     OtpResponse = case mod_halloapp_http_api:process_otp_request(RequestData) of
         {ok, Phone, RetryAfterSecs} ->
@@ -294,6 +295,12 @@ process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
                 phone = Phone,
                 result = failure,
                 reason = retried_too_soon,
+                retry_after_secs = RetryAfterSecs
+            };
+        {error, dropped, Phone, RetryAfterSecs} ->
+            #pb_otp_response{
+                phone = Phone,
+                result = success,
                 retry_after_secs = RetryAfterSecs
             };
         {error, internal_server_error} ->
@@ -392,7 +399,7 @@ is_disconnected(#{stream_state := StreamState}) ->
 
 
 -spec process_stream_end(stop_reason(), state()) -> state().
-process_stream_end(Reason, #{stream_state := disconnected} = State) ->
+process_stream_end(_Reason, #{stream_state := disconnected} = State) ->
     State;
 process_stream_end(Reason, State) ->
     ?INFO("closing stream, reason: ~p", [Reason]),

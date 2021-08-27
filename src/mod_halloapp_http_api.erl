@@ -38,7 +38,7 @@
     process/2,
     process_otp_request/1,
     process_register_request/1,
-    check_blocked/3,  %% for testing
+    check_blocked/4,  %% for testing
     delete_client_ip/2,  %% for testing
     delete_phone_pattern/2  %% for testing
 ]).
@@ -165,7 +165,7 @@ process_otp_request(Data, IP, Headers) ->
             [RawPhone, UserAgent, ClientIP, MethodBin, LangId, Payload]),
         RawData = Payload#{headers => Headers, ip => IP},
         RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
-            ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => RawData
+            ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => RawData, protocol => tls
         },
         case process_otp_request(RequestData) of
             {ok, Phone, RetryAfterSecs} ->
@@ -177,6 +177,8 @@ process_otp_request(Data, IP, Headers) ->
                     ]})};
             {error, retried_too_soon, Phone, RetryAfterSecs} ->
                 return_retried_too_soon(Phone, RetryAfterSecs, MethodBin);
+            {error, dropped, Phone, RetryAfterSecs} ->
+                return_dropped(Phone, RetryAfterSecs, MethodBin);
             {error, internal_server_error} ->
                 util_http:return_500();
             {error, ip_blocked} ->
@@ -202,20 +204,21 @@ process_otp_request(Data, IP, Headers) ->
 -spec process_otp_request(RequestData :: #{}) ->
     {ok, integer()} | {error, retried_too_soon, integer()} | {error, any()}.
 process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent, method := MethodBin,
-        ip := ClientIP, group_invite_token := GroupInviteToken, raw_data := RawData}) ->
+        ip := ClientIP, group_invite_token := GroupInviteToken, raw_data := RawData,
+        protocol := Protocol}) ->
     try
         Phone = normalize(RawPhone),
         check_ua(UserAgent),
         Method = get_otp_method(MethodBin),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
-        case check_blocked(ClientIP, Phone, UserAgent) of
+        case check_blocked(ClientIP, Phone, UserAgent, Protocol =:= noise) of
             ok ->
                 case request_otp(Phone, LangId, UserAgent, Method) of
                     {ok, RetryAfterSecs} -> {ok, Phone, RetryAfterSecs};
                     {error, retried_too_soon, RetryAfterSecs} -> {error, retried_too_soon, Phone, RetryAfterSecs}
                 end;
             {error, retried_too_soon, RetryAfterSecs} ->
-                {error, retried_too_soon, Phone, RetryAfterSecs}
+                {error, dropped, Phone, RetryAfterSecs}
         end
     catch
         error : ip_blocked ->
@@ -360,6 +363,17 @@ return_retried_too_soon(Phone, RetrySecs, Method) ->
             {result, fail}
         ]})}.
 
+-spec return_dropped(Phone :: phone(), RetrySecs :: integer(), Method :: binary()) -> http_response().
+return_dropped(Phone, RetrySecs, Method) ->
+    CC = mod_libphonenumber:get_cc(Phone),
+    stat:count("HA/account", "request_otp_errors", 1, [{error, dropped}, {cc, CC}, {method, Method}]),
+    {200, ?HEADER(?CT_JSON),
+        jiffy:encode({[
+            {phone, Phone},
+            {retry_after_secs, RetrySecs},
+            {result, ok}
+        ]})}.
+
  -spec log_request_otp_error(ErrorType :: atom() | string(), Method :: atom()) -> ok.
 log_request_otp_error(ErrorType, sms) ->
     stat:count("HA/account", "request_sms_errors", 1,
@@ -447,10 +461,10 @@ check_name(Name) when is_binary(Name) ->
 check_name(_) ->
     error(invalid_name).
 
--spec check_blocked(IP :: string(), Phone :: binary(), UserAgent :: binary()) -> ok | {error, retried_too_soon, integer()}.
-check_blocked(IP, Phone, UserAgent) ->
+-spec check_blocked(IP :: string(), Phone :: binary(), UserAgent :: binary(), IsNoise :: boolean()) -> ok | {error, retried_too_soon, integer()}.
+check_blocked(IP, Phone, UserAgent, IsNoise) ->
     IsInvited = model_invites:is_invited(Phone),
-    case util:is_test_number(Phone) orelse IsInvited of
+    case util:is_test_number(Phone) orelse IsInvited orelse IsNoise of
         false ->
             CC = mod_libphonenumber:get_cc(Phone),
             ?DEBUG("CC: ~p", [CC]),
@@ -465,7 +479,8 @@ check_blocked(IP, Phone, UserAgent) ->
                 {{true, RetrySecsA}, {true, RetrySecsB}} -> {error, retried_too_soon, lists:max([RetrySecsA, RetrySecsB])}
             end;
         true ->
-            ?INFO("IP: ~s blocked result: ~p, Phone: ~p, is_invited: ~p", [IP, false, Phone, IsInvited]),
+            ?INFO("IP: ~s blocked result: ~p, Phone: ~p, is_invited: ~p, is_noise : ~p",
+                [IP, false, Phone, IsInvited, IsNoise]),
             ok
     end.
 
