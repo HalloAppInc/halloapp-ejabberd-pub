@@ -38,9 +38,9 @@
     process/2,
     process_otp_request/1,
     process_register_request/1,
-    check_blocked/2,  %% for testing
+    check_blocked/3,  %% for testing
     delete_client_ip/2,  %% for testing
-    delete_phone_pattern/1  %% for testing
+    delete_phone_pattern/2  %% for testing
 ]).
 
 %% TODO: cleanup old code in this file and old password related stuff.
@@ -208,7 +208,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         check_ua(UserAgent),
         Method = get_otp_method(MethodBin),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
-        case check_blocked(ClientIP, Phone) of
+        case check_blocked(ClientIP, Phone, UserAgent) of
             ok ->
                 case request_otp(Phone, LangId, UserAgent, Method) of
                     {ok, RetryAfterSecs} -> {ok, Phone, RetryAfterSecs};
@@ -277,7 +277,7 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         check_ua(UserAgent),
         check_sms_code(Phone, Code),
         ok = delete_client_ip(ClientIP, Phone),
-        ok = delete_phone_pattern(Phone),
+        ok = delete_phone_pattern(Phone, UserAgent),
         LName = check_name(Name),
         SEdPubBin = base64:decode(SEdPubB64),
         check_s_ed_pub_size(SEdPubBin),
@@ -447,15 +447,15 @@ check_name(Name) when is_binary(Name) ->
 check_name(_) ->
     error(invalid_name).
 
--spec check_blocked(IP :: string(), Phone :: binary()) -> ok | {error, retried_too_soon, integer()}.
-check_blocked(IP, Phone) ->
+-spec check_blocked(IP :: string(), Phone :: binary(), UserAgent :: binary()) -> ok | {error, retried_too_soon, integer()}.
+check_blocked(IP, Phone, UserAgent) ->
     IsInvited = model_invites:is_invited(Phone),
     case util:is_test_number(Phone) orelse IsInvited of
         false ->
             CC = mod_libphonenumber:get_cc(Phone),
             ?DEBUG("CC: ~p", [CC]),
             Result1 = is_ip_blocked(IP, CC),
-            PhonePattern = extract_phone_pattern(Phone, CC),
+            PhonePattern = extract_phone_pattern(Phone, CC, UserAgent),
             Result2 = is_phone_pattern_blocked(PhonePattern, CC),
             ?INFO("IP: ~s blocked result: ~p, Phone: ~p, CC: ~p pattern: ~p blocked result: ~p", [IP, Result1, Phone, CC, PhonePattern, Result2]),
             case {Result1, Result2} of
@@ -469,20 +469,24 @@ check_blocked(IP, Phone) ->
             ok
     end.
 
-extract_phone_pattern(Phone, CC) ->
-    TruncateLen = case CC of
-        <<"AZ">> -> 7;
-        <<"ES">> -> 6;
-        <<"IQ">> -> 5;
-        <<"KZ">> -> 5;
-        <<"LV">> -> 5;
-        <<"LS">> -> 5;
-        <<"MD">> -> 5;
-        <<"MR">> -> 5;
-        <<"PK">> -> 7;
-        <<"RU">> -> 5;
-        <<"TN">> -> 5;
-        <<"UZ">> -> 5;
+extract_phone_pattern(Phone, CC, UserAgent) ->
+    TruncateLen = case {CC, util_ua:is_blockable(UserAgent)} of
+        {<<"AZ">>, _} -> 7;
+        {<<"ES">>, true} -> 6;
+        {<<"ES">>, false} -> 5;
+        {<<"IQ">>, _} -> 5;
+        {<<"KG">>, _} -> 5;
+        {<<"KZ">>, _} -> 5;
+        {<<"LV">>, _} -> 5;
+        {<<"LS">>, _} -> 5;
+        {<<"MD">>, _} -> 5;
+        {<<"MR">>, _} -> 5;
+        {<<"PK">>, true} -> 7;
+        {<<"PK">>, false} -> 5;
+        {<<"RU">>, true} -> 7;
+        {<<"RU">>, false} -> 4;
+        {<<"TN">>, _} -> 5;
+        {<<"UZ">>, _} -> 5;
         _ -> 3
     end,
     PhonePatternLength = byte_size(Phone) - TruncateLen,
@@ -583,10 +587,10 @@ delete_client_ip(IP, Phone) ->
     CC = mod_libphonenumber:get_region_id(Phone),
     model_ip_addresses:delete_ip_address(IP, CC).
 
--spec delete_phone_pattern(Phone :: binary()) -> ok.
-delete_phone_pattern(Phone) ->
+-spec delete_phone_pattern(Phone :: binary(), UserAgent :: binary()) -> ok.
+delete_phone_pattern(Phone, UserAgent) ->
     CC = mod_libphonenumber:get_region_id(Phone),
-    model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC)).
+    model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC, UserAgent)).
 
 
 -spec is_ip_blocked(IP :: list(), CC :: binary()) -> false | {true, integer()}.
