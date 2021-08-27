@@ -328,18 +328,22 @@ init([Options] = _Args) ->
     %% TODO: use a default root_public key to verify the certificate.
 
     %% Connect via tcp
-    {ok, Socket} = gen_tcp:connect(Host, Port, [binary, {active, true}]),
-
-    State = #state{
-        socket = Socket,
-        recv_q = queue:new(),
-        state = maps:get(state, Options, auth),
-        recv_buf = <<"">>,
-        options = Options,
-        noise_socket = undefined,
-        iq_id = util_id:new_short_id()
-    },
-    {ok, State}.
+    case gen_tcp:connect(Host, Port, [binary, {active, true}], 5000) of
+        {ok, Socket} ->
+            State = #state{
+                socket = Socket,
+                recv_q = queue:new(),
+                state = maps:get(state, Options, auth),
+                recv_buf = <<"">>,
+                options = Options,
+                noise_socket = undefined,
+                iq_id = util_id:new_short_id()
+            },
+            {ok, State};
+        {error, Reason} ->
+            ?ERROR("Cannot connect to ~p: ~p", [Host, Reason]),
+            {stop, {error, Reason}}
+    end.
 
 
 terminate(_Reason, State) ->

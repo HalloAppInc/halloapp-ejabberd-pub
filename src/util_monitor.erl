@@ -19,7 +19,9 @@
     record_state/3,
     send_ack/3,
     check_consecutive_fails/1,
-    check_slow/1
+    check_consecutive_fails/2,
+    check_slow/1,
+    check_slow/2
 ]).
 
 %%====================================================================
@@ -47,12 +49,19 @@ get_state_history(Table, Key) ->
 
 -spec record_state(Table :: ets:tab(), Key :: term(), State :: proc_state()) -> ok.
 record_state(Table, Key, State) ->
+    record_state(Table, Key, State, []).
+
+-spec record_state(Table :: ets:tab(), Key :: term(), State :: proc_state(), Opts :: opts()) -> ok.
+record_state(Table, Key, State, Opts) ->
+    OptMap = maps:from_list(Opts),
+    PingInterval = maps:get(ping_interval_ms, OptMap, ?PING_INTERVAL_MS),
+    StateHistoryLenMs = maps:get(state_history_length_ms, OptMap, ?STATE_HISTORY_LENGTH_MS),
     PrevStates = get_state_history(Table, Key),
     % reduce the list only when it becomes twice as large as intended history size
-    NewStates = case length(PrevStates) > 2 * (?STATE_HISTORY_LENGTH_MS div ?PING_INTERVAL_MS) of
+    NewStates = case length(PrevStates) > 2 * (StateHistoryLenMs div PingInterval) of
         false -> [State | PrevStates];
         true ->
-            NewPrevStates = lists:sublist(PrevStates, (?STATE_HISTORY_LENGTH_MS div ?PING_INTERVAL_MS) - 1),
+            NewPrevStates = lists:sublist(PrevStates, (StateHistoryLenMs div PingInterval) - 1),
             [State | NewPrevStates]
     end,
     true = ets:insert(Table, {Key, NewStates}),
@@ -70,13 +79,31 @@ send_ack(_From, To, Msg) ->
 
 -spec check_consecutive_fails(StateHistory :: [proc_state()]) -> boolean().
 check_consecutive_fails(StateHistory) ->
-    NumFails = util_monitor:get_num_fails(lists:sublist(StateHistory, ?CONSECUTIVE_FAILURE_THRESHOLD)),
-    NumFails >= ?CONSECUTIVE_FAILURE_THRESHOLD.
+    check_consecutive_fails(StateHistory, []).
+
+-spec check_consecutive_fails(StateHistory :: [proc_state()], Opts :: opts()) -> boolean().
+check_consecutive_fails(StateHistory, Opts) ->
+    OptMap = maps:from_list(Opts),
+    ConsecFailThreshold = maps:get(consec_fail_threshold, OptMap, ?CONSECUTIVE_FAILURE_THRESHOLD),
+    NumFails = util_monitor:get_num_fails(lists:sublist(StateHistory, ConsecFailThreshold)),
+    NumFails >= ConsecFailThreshold.
 
 
 -spec check_slow(StateHistory :: [proc_state()]) -> {boolean(), non_neg_integer()}.
 check_slow(StateHistory) ->
-    Window = ?HALF_FAILURE_THRESHOLD_MS div ?PING_INTERVAL_MS,
-    NumFails = util_monitor:get_num_fails(lists:sublist(StateHistory, Window)),
-    {NumFails >= (0.5 * Window), round(NumFails / Window * 100)}.
+    check_slow(StateHistory, []).
+
+-spec check_slow(StateHistory :: [proc_state()], Opts :: opts()) -> {boolean(), non_neg_integer()}.
+check_slow(StateHistory, Opts) ->
+    case length(StateHistory) of
+        0 -> {false, 0};
+        _ ->
+            OptMap = maps:from_list(Opts),
+            HalfFailThreshold = maps:get(half_fail_threshold_ms, OptMap, ?HALF_FAILURE_THRESHOLD_MS),
+            PingInterval = maps:get(ping_interval_ms, OptMap, ?PING_INTERVAL_MS),
+            Window = HalfFailThreshold div PingInterval,
+            StateHistoryWindow = lists:sublist(StateHistory, Window),
+            NumFails = util_monitor:get_num_fails(StateHistoryWindow),
+            {NumFails >= (0.5 * Window), round(NumFails / length(StateHistoryWindow) * 100)}
+    end.
 

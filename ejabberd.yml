@@ -221,6 +221,7 @@ modules:
   ha_bad_process: {}
   mod_backup: {}
   mod_http_checker: {}
+  mod_noise_checker: {}
 
 ### Local Variables:
 ### mode: yaml

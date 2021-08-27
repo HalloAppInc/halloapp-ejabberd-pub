@@ -11,6 +11,8 @@
 
 %% API
 -export([
+    send_noise_slow_alert/2,
+    send_noise_unreachable_alert/2,
     send_port_slow_alert/2,
     send_port_unreachable_alert/2,
     send_process_down_alert/2,
@@ -27,6 +29,15 @@
 %% API
 %%====================================================================
 %% TODO@murali: add counters here
+
+-spec send_noise_slow_alert(Host :: binary(), Message :: binary()) -> ok.
+send_noise_slow_alert(Host, Message) ->
+    send_alert(<<Host/binary, " noise slow">>, Host, <<"critical">>, Message).
+
+
+-spec send_noise_unreachable_alert(Proc :: binary(), Message :: binary()) -> ok.
+send_noise_unreachable_alert(Host, Message) ->
+    send_alert(<<Host/binary, " noise unreachable">>, Host, <<"critical">>, Message).
 
 -spec send_port_slow_alert(Host :: binary(), Message :: binary()) -> ok.
 send_port_slow_alert(Host, Message) ->
