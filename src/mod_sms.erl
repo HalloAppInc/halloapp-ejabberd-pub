@@ -292,9 +292,9 @@ gateway_cc_filter(CC) ->
         <<"CU">> -> twilio_verify;     %% Cuba
         <<"TD">> -> twilio_verify;     %% Chad
         <<"CZ">> -> twilio_verify;     %% Czech Republic
-        <<"EG">> -> twilio;     %% Egypt
+        <<"EG">> -> twilio_verify;     %% Egypt
         <<"ID">> -> twilio_verify;     %% Indonesia
-        <<"JO">> -> twilio;     %% Jordan
+        <<"JO">> -> twilio_verify;     %% Jordan
         <<"KZ">> -> twilio_verify;     %% Kazakhstan
         <<"KE">> -> twilio_verify;     %% Kenya
         <<"KW">> -> twilio_verify;     %% Kuwait
@@ -303,9 +303,9 @@ gateway_cc_filter(CC) ->
         <<"MA">> -> twilio_verify;     %% Morocco
         <<"MX">> -> mbird;      %% Mexico
         <<"MZ">> -> twilio;     %% Mozambique
-        <<"MM">> -> mbird;      %% Myanmar
+        <<"MM">> -> twilio_verify;      %% Myanmar
         <<"NZ">> -> twilio_verify;     %% New Zealand
-        <<"PH">> -> mbird;     %% Philippines
+        <<"PH">> -> twilio_verify;     %% Philippines
         <<"QA">> -> twilio_verify;     %% Qatar
         <<"RO">> -> twilio;     %% Romania
         <<"RU">> -> twilio_verify;     %% Russia
