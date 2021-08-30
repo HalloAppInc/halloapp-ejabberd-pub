@@ -110,6 +110,9 @@ process([<<"registration">>, <<"register2">>],
 
 %% Return the group name based on group_invite_token
 process([<<"registration">>, <<"get_group_info">>],
+        #request{method = 'OPTIONS'}) ->
+    {204, ?OPTIONS_HEADER, []};
+process([<<"registration">>, <<"get_group_info">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
     try
         ClientIP = util_http:get_ip(IP, Headers),
