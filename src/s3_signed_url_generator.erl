@@ -14,11 +14,14 @@
 -include("erlcloud_aws.hrl").
 -include_lib("lhttpc/include/lhttpc_types.hrl").
 -include("logger.hrl").
+-include("time.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 
 %% Name of env variable to decide if we need signed Http GET.
 -define(IsSignedGetNeeded, "HALLO_MEDIA_IS_SIGNED_GET").
+
+-define(S3_OBJECT_EXPIRES, 30 * ?DAYS).
 
 
 -export([
@@ -82,9 +85,19 @@ refresh_url(Url) ->
             Key = string:slice(SlashKey, 1),
             {_, AwsConfig} = erlcloud_aws:auto_config(),
             try
-                %% Following call with touch the s3 object so that its lifetime will be extended.
+                % update the Expires value
+                % http-date looks like this: Wed, 21 Oct 2015 07:28:00 GMT
+                ExpireValue = httpd_util:rfc1123_date(
+                    calendar:gregorian_seconds_to_datetime(calendar:datetime_to_gregorian_seconds(
+                        calendar:local_time()) + ?S3_OBJECT_EXPIRES)),
+                %% Following call will touch the s3 object so that its lifetime will be extended.
                 erlcloud_s3:copy_object(get_bucket(), Key, get_bucket(), Key,
-                    [{metadata_directive, "REPLACE"}, {meta, [{"touch", "true"}]}],
+                    [
+                        {metadata_directive, "REPLACE"},
+                        {meta, [
+                            {"Cache-Control", "public"},
+                            {"Expires", ExpireValue},
+                            {"touch", "true"}]}],
                     AwsConfig)
             of
                 {aws_error, _} = Error ->
