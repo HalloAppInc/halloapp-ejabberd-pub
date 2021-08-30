@@ -224,7 +224,7 @@ get_auth_admin(Auth, HostHTTP, RPath, Method) ->
     case Auth of
 	  {<<"admin">>, Pass} ->
 		  case base64url:encode(crypto:hash(sha256, <<Pass/binary, ?SALT/binary>>)) of
-			  {ok, ?ADMIN_HASH} -> {ok, {element(1, Auth), ejabberd_config:get_option(host)}};
+			  ?ADMIN_HASH -> {ok, {element(1, Auth), ejabberd_config:get_option(host)}};
 			  _ -> {unauthorized, bad_admin_pass}
 		  end;
       {SJID, Pass} ->
