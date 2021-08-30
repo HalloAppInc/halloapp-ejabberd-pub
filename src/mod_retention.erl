@@ -17,7 +17,6 @@
     compute_retention/0,
     dump_accounts/0,
     dump_accounts_run/2,
-    get_queries/0,
     weekly_user_retention_result/1
 ]).
 
@@ -26,14 +25,13 @@ start(_Host, _Opts) ->
     ?INFO("starting", []),
     case util_aws:get_machine_name() of
         <<"s-test">> ->
-            % TODO: change this one to {weekly, mon, {9, am}} when it works well
             erlcron:cron(dump_accounts, {
-                {daily, {9, 25, pm}},
+                {weekly, tue, {22, 00}},
                 {?MODULE, dump_accounts, []}
             }),
 
             erlcron:cron(weekly_retention, {
-                {weekly, mon, {11, am}},
+                {weekly, tue, {23, 00}},
                 {?MODULE, compute_retention, []}
             });
         _ -> ok
@@ -66,7 +64,7 @@ mod_options(_Host) ->
 -spec compute_retention() -> ok.
 compute_retention() ->
     ?INFO("computing retention"),
-    % TODO: implement. Run some athena query
+    mod_athena_stats:run_query(weekly_user_retention()),
     ok.
 
 
@@ -115,9 +113,6 @@ dump_account(Uid) ->
                 [Uid, lager:pr_stacktrace(St, {Class, Reason})])
     end.
 
-
-get_queries() ->
-    [weekly_user_retention()].
 
 weekly_user_retention() ->
     Query = "
