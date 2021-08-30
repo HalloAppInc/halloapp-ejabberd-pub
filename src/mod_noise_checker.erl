@@ -190,7 +190,7 @@ record_state(Ip, State) ->
 send_stats(Name, StateHistory) ->
     Window = ?MINUTES_MS div ?NOISE_PING_INTERVAL_MS,
     SuccessRate = 1 - (util_monitor:get_num_fails(lists:sublist(StateHistory, Window)) / Window),
-    stat:gauge(?NS, "noise_uptime", round(SuccessRate * 100), [{machine, Name}]),
+    stat:gauge(?NS, "noise_uptime", round(SuccessRate * 100), [{host, Name}]),
     ok.
 
 %%====================================================================

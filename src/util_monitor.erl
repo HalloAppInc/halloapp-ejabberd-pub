@@ -17,6 +17,7 @@
     get_num_fails/1,
     get_state_history/2,
     record_state/3,
+    record_state/4,
     send_ack/3,
     check_consecutive_fails/1,
     check_consecutive_fails/2,
