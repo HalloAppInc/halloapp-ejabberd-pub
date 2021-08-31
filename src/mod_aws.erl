@@ -16,6 +16,10 @@
 -include("time.hrl").
 -define(NOISE_SECRET_DEV_FILE, "noise_secret_dev").
 
+%% Configurable cache reset times
+-define(SECRETS_CACHE_REFRESH_TIME_MS, (1 * ?DAYS_MS)).
+-define(MACHINES_CACHE_REFRESH_TIME_MS, (4 * ?HOURS_MS)).
+
 %% Export all functions for unit tests
 -ifdef(TEST).
 -export([
@@ -185,7 +189,7 @@ get_cached_secret(SecretName) ->
     case ets:lookup(?SECRETS_TABLE, SecretName) of
         [] -> undefined;
         [{SecretName, Secret, Ts}] ->
-            case (util:now_ms() - Ts) > ?DAYS_MS of
+            case (util:now_ms() - Ts) > ?SECRETS_CACHE_REFRESH_TIME_MS of
                 true -> get_and_cache_secret(SecretName);
                 false -> Secret
             end
@@ -197,7 +201,7 @@ get_cached_machines() ->
     case ets:lookup(?IP_TABLE, ip_list) of
         [] -> undefined;
         [{ip_list, IpList, Ts}] ->
-            case (util:now_ms() - Ts) > (4 * ?HOURS_MS) of
+            case (util:now_ms() - Ts) > ?MACHINES_CACHE_REFRESH_TIME_MS of
                 true -> get_and_cache_machines();
                 false -> IpList
             end
