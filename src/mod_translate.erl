@@ -119,8 +119,11 @@ format_translation(Translation, [Arg | RestArgs]) ->
 
 
 %% Looks up translation for Token in the ets table using LangId.
--spec lookup_translation(Token :: binary(), LangId :: binary()) -> Translation :: binary().
-lookup_translation(Token, LangId) ->
+-spec lookup_translation(Token :: binary(), OriginalLangId :: binary()) -> Translation :: binary().
+lookup_translation(Token, OriginalLangId) ->
+    %% Recast LangId for some cases.
+    LangId = recast_langid(OriginalLangId),
+
     %% If LangId is not en-US, lookup the translations table.
     %% if we dont find them in our translation table: we can return the english version.
     case ets:lookup(?TRANSLATIONS, {Token, LangId}) of
@@ -259,4 +262,12 @@ count_lang_id(LangId) ->
     stat:count("HA/translate", "lang", 1, [{"lang_id", LangIdList}]),
     ok.
 
+
+-spec recast_langid(LangId :: binary()) -> binary().
+%% We remap some language ids to something else for all translations.
+%% Some android versions use 'in' and some use 'id' for indonesian language.
+%% So we translate to the more standard langid here.
+recast_langid(<<"in">>) -> <<"id">>;
+recast_langid(<<"in", RestLangId/binary>>) -> <<"id", RestLangId/binary>>;
+recast_langid(LangId) -> LangId.
 
