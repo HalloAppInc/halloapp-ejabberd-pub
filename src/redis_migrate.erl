@@ -54,11 +54,13 @@
 % all nodes in the erlang cluster.
 %
 % Function must have the following spec:
-% -spec f(Key :: binary(), State :: #{}) -> NewState when NewState :: #{}.
+% -spec f(Key :: binary(), State :: #{}) -> ok | stop | {ok, NewState :: #{}} | {stop, NewState :: #{}}.
 % The function will be called for each key stored in the RedisCluster. Function should ignore
 % keys it is not interested in, and do some processing on keys it is interested in.
 % Migration functions should be idempotent because a migration might have to be re-run on
 % some range of keys due to Redis Master switch or other reasons.
+% Migration functions can ask the migration to terminate by returning stop or {stop, State}.
+% Migration functions can also store their own date in the State.
 -spec start_migration(Name :: string(), RedisService :: atom(), Function :: migrate_func()) -> ok.
 start_migration(Name, RedisService, Function) ->
     start_migration(Name, RedisService, Function, []).
@@ -93,9 +95,7 @@ start_migration(Name, RedisService, Function, Options) ->
         migrate_func => {Mod, Func},
         interval => proplists:get_value(interval, Options, 1000),
         scan_count => proplists:get_value(scan_count, Options, 100),
-        dry_run => proplists:get_value(dry_run, Options, false),
-        max_count => proplists:get_value(max_count, Options, 5000), % per master
-        counters_map => #{}
+        dry_run => proplists:get_value(dry_run, Options, false)
     },
     Pids = lists:map(
         fun ({Index, {RedisHost, RedisPort}}) ->
@@ -150,7 +150,7 @@ iterate(Name) ->
 
 -spec init(Job :: #{}) -> {ok, any()}.
 init(#{redis_host := RedisHost, redis_port := RedisPort, interval := Interval,
-        dry_run := DryRun, scan_count := ScanCount, max_count := MaxCount} = Job) ->
+        dry_run := DryRun, scan_count := ScanCount} = Job) ->
     ?INFO("Migration started: pid: ~p, Job: ~p", [self(), Job]),
     process_flag(trap_exit, true),
     {ok, C} = eredis:start_link(RedisHost, RedisPort),
@@ -190,42 +190,36 @@ handle_cast({iterate}, State) ->
     Interval = maps:get(interval, State),
     C = maps:get(c, State),
     Count = maps:get(scan_count, State),
-    MaxCount = maps:get(max_count, State),
     {ok, [NextCursor, Items]} = eredis:q(C, ["SCAN", Cursor, "COUNT", Count]),
-    ?DEBUG("NextCursor: ~p, items: ~p, Max limit left: ~p", [NextCursor, length(Items), MaxCount]),
-    NewState1 = lists:foldl(
-        fun (Key, Acc) ->
-            erlang:apply(Mod, Func, [Key, Acc])
-        end,
+    ?DEBUG("NextCursor: ~p, items: ~p", [NextCursor, length(Items)]),
+    {Result, NewState1} = iterate_keys(
+        fun (Key, S) -> erlang:apply(Mod, Func, [Key, S]) end,
         State,
         Items),
-    case NextCursor of
-        <<"0">> ->
-            ?INFO("scan done - all keys scanned", []),
+
+    case {Result, NextCursor} of
+        {stop, _} ->
+            ?INFO("scan aborted by stop"),
+            % TODO(Nikola): Remove the redis_patterns:process_scan from here. We should
+            % add generic mechanism for migrations to collect data and execute a function on
+            % all the data from all masters.
             redis_patterns:process_scan(NewState1),
             {stop, normal, NewState1};
-        _ ->
-            RemainingCount = MaxCount - util:to_integer(Count),
-            case RemainingCount > 0 of
-                true ->
-                    TRef = erlang:send_after(Interval, self(), {'$gen_cast', {iterate}}),
-                    NewState2 = NewState1#{
-                        cursor := NextCursor,
-                        tref := TRef,
-                        max_count := RemainingCount
-                    },
-                    {noreply, NewState2};
-                false ->
-                    ?INFO("scan done - reached max limit", []),
-                    redis_patterns:process_scan(NewState1),
-                    {stop, normal, NewState1}
-            end
+        {ok, <<"0">>} ->
+            ?INFO("scan done - all keys scanned"),
+            redis_patterns:process_scan(NewState1),
+            {stop, normal, NewState1};
+        {ok, _} ->
+            TRef = erlang:send_after(Interval, self(), {'$gen_cast', {iterate}}),
+            NewState2 = NewState1#{
+                cursor := NextCursor,
+                tref := TRef
+            },
+            {noreply, NewState2}
     end;
-
 
 handle_cast(_Message, State) -> {noreply, State}.
 handle_info(_Message, State) -> {noreply, State}.
-
 
 terminate(Reason, State) ->
     ?INFO("terminating ~p State: ~p", [Reason, State]),
@@ -267,7 +261,26 @@ get_execute_option(Options) ->
         Other -> erlang:error({wrong_execute_option, Other})
     end.
 
-q(Client, Command) -> util_redis:q(Client, Command).
+
+-spec iterate_keys(fun(), State :: map(), Keys :: list(string())) ->
+    {ok, State :: map()} | {stop, State :: map()}.
+iterate_keys(_Func, State, []) ->
+    {ok, State};
+iterate_keys(Func, State, [Key | Rest]) ->
+    {Res, State3} = case Func(Key, State) of
+        ok -> {ok, State};
+        stop -> {stop, State};
+        {ok, State2} -> {ok, State2};
+        {stop, State2} -> {ok, State2};
+        _ -> {ok, State}
+    end,
+    case Res of
+        stop ->
+            ?INFO("terminating migration by stop request ~p", State3),
+            {stop, State3};
+        ok ->
+            iterate_keys(Func, State3, Rest)
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%                                 Migration functions                                        %%%
