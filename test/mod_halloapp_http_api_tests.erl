@@ -118,6 +118,7 @@ request_sms_prod_test() ->
     meck_init(mbird, send_sms, fun(P,_,_,_) -> self() ! P, GtwyResp end),
     meck_init(twilio, send_sms, fun(P,_,_,_) -> self() ! P, GtwyResp end),
     meck_init(twilio_verify, send_sms, fun(P,_,_,_) -> self() ! P, GtwyResp end),
+    meck_init(mbird_verify, send_sms, fun(P,_,_,_) -> self() ! P, GtwyResp end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, <<"HalloApp/Android0.127">>, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -134,10 +135,12 @@ request_sms_prod_test() ->
     ?assert(meck:called(model_phone, add_sms_code2, [?TEST_PHONE, '_'])),
     ?assert(meck:called(mbird, send_sms, [?PHONE,'_','_','_']) orelse
             meck:called(twilio, send_sms, [?PHONE,'_','_','_']) orelse
+            meck:called(mbird_verify, send_sms, [?PHONE,'_','_','_']) orelse
             meck:called(twilio_verify, send_sms, [?PHONE,'_','_','_'])),
     meck_finish(mbird),
     meck_finish(twilio),
     meck_finish(twilio_verify),
+    meck_finish(mbird_verify),
     meck_finish(model_phone),
     meck_finish(config),
     meck_finish(ejabberd_router).
@@ -192,6 +195,7 @@ retried_server_error_test() ->
     meck_init(mbird, send_sms, fun(_,_,_,_) -> ErrMsg end),
     meck_init(twilio, send_sms, fun(_,_,_,_) -> ErrMsg end),
     meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> ErrMsg end),
+    meck_init(mbird_verify, send_sms, fun(_,_,_,_) -> ErrMsg end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, ?UA, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -209,6 +213,7 @@ retried_server_error_test() ->
     meck_finish(mbird),
     meck_finish(twilio),
     meck_finish(twilio_verify),
+    meck_finish(mbird_verify),
     meck_finish(config),
     meck_finish(ejabberd_router).
 

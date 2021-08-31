@@ -75,6 +75,7 @@ choose_other_gateway_test() ->
     meck_init(twilio, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     meck_init(mbird, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+    meck_init(mbird_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     {error, _, sms_fail} = mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, []),
     % check if all gateways were attempted
     ?assert(meck:called(twilio, send_sms, ['_','_','_','_'])),
@@ -83,17 +84,21 @@ choose_other_gateway_test() ->
     meck_finish(mbird),
     meck_finish(twilio),
     meck_finish(twilio_verify),
+    meck_finish(mbird_verify),
     % check eventual success if starting at a failed gateway, but other works
     TwilGtwy = #gateway_response{gateway = twilio, method = sms},
     MbirdGtwy = #gateway_response{gateway = mbird, method = sms},
+    MbirdVerifyGtwy = #gateway_response{gateway = mbird_verify, method = sms},
     TVerifyGtwy = #gateway_response{gateway = twilio_verify, method = sms},
     meck_init(mbird, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+    meck_init(mbird_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     meck_init(twilio, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> {ok, TVerifyGtwy} end),
     {ok, #gateway_response{gateway = twilio_verify}} =
-        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, [TwilGtwy, TVerifyGtwy, MbirdGtwy]),
+        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, [TwilGtwy, TVerifyGtwy, MbirdGtwy, MbirdVerifyGtwy]),
     ?assert(meck:called(twilio, send_sms, ['_','_','_','_']) orelse
             meck:called(mbird, send_sms, ['_','_','_','_']) orelse
+            meck:called(mbird_verify, send_sms, ['_','_','_','_']) orelse
             meck:called(twilio_verify, send_sms, ['_','_','_','_'])),
     % Test restricted country gateways
     meck_init(mod_libphonenumber, get_cc, fun(_) -> <<"CN">> end),
@@ -103,6 +108,7 @@ choose_other_gateway_test() ->
     meck_finish(twilio),
     meck_finish(twilio_verify),
     meck_finish(mbird),
+    meck_finish(mbird_verify),
     meck_finish(ejabberd_router).
 
 

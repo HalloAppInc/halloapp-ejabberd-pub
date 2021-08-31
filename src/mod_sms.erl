@@ -193,9 +193,10 @@ find_next_ts(OldResponses) ->
     %% Find the last unsuccessful attempts (ignoring when sms/otp fails on server side).
     ReverseOldResponses = lists:reverse(OldResponses),
     FailedResponses = lists:takewhile(
-        fun(#gateway_response{verified = Success, status=Status}) ->
-            Success =/= true andalso
-            Status =/= undelivered andalso Status =/= failed andalso Status =/= unknown andalso Status =/= undefined
+        fun(#gateway_response{verified = Success, status=Status, valid=Validity}) ->
+            Success =/= true andalso Validity =/= false andalso
+            Status =/= undelivered andalso Status =/= failed andalso Status =/= unknown andalso
+            Status =/= undefined
         end, ReverseOldResponses),
     OldResponses2 = lists:reverse(FailedResponses),
     Len = length(OldResponses2),
@@ -336,14 +337,14 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
 
             %% Pick one based on past performance.
             {PickedGateway, NewPickedGateway} = pick_gw(ChooseFromList, CC),
-            ?INFO("Current Selection: ~p, New Selection: ~p, CC: ~p",
+            ?INFO("Old Selection: ~p, Current Selection: ~p, CC: ~p",
                 [PickedGateway, NewPickedGateway, CC]),
 
             %% Just in case there is any bug in computation of new gateway.
-            PickedGateway2 = case sets:is_element(PickedGateway, ConsiderSet) of
-                true -> PickedGateway;
+            PickedGateway2 = case sets:is_element(NewPickedGateway, ConsiderSet) of
+                true -> NewPickedGateway;
                 false ->
-                    ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderList]),
+                    ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [NewPickedGateway, ConsiderList]),
                     twilio
             end,
             {PickedGateway2, ChooseFromList};
@@ -394,9 +395,9 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
                     {error, Gateway, Reason};
                 _ -> % pick from curated list
                     {PickedGateway, NewPickedGateway} = pick_gw(ToChooseFromList, CC),
-                    ?INFO("Current Selection: ~p, New Selection: ~p, CC: ~p",
-                        [PickedGateway, NewPickedGateway, CC]),
-                    NewSMSResponse = CurrentSMSResponse#gateway_response{gateway = PickedGateway},
+                    ?INFO("Current Selection: ~p, Old Selection: ~p, CC: ~p",
+                        [NewPickedGateway, PickedGateway, CC]),
+                    NewSMSResponse = CurrentSMSResponse#gateway_response{gateway = NewPickedGateway},
                     smart_send_internal(Phone, Code, LangId, UserAgent, CC, NewSMSResponse, ToChooseFromList)
             end;
         {error, Reason, no_retry} ->

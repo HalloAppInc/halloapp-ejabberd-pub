@@ -289,14 +289,14 @@ get_all_gateway_responses(Phone) ->
     RedisCommands = lists:map(
         fun({AttemptId, _TS}) ->
             ["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_METHOD,
-                ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS, ?FIELD_LANGID]
+                ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS, ?FIELD_LANGID, ?FIELD_VALID]
         end, VerificationAttemptList),
     ResponseList = case RedisCommands of
         [] -> [];
         _ -> qp(RedisCommands)
     end,
     SMSResponseList = lists:zipwith(
-        fun({AttemptId, AttemptTS}, {ok, [Sender, Method, Status, Success, LangId]}) ->
+        fun({AttemptId, AttemptTS}, {ok, [Sender, Method, Status, Success, LangId, Validity]}) ->
             #gateway_response{
                 gateway = util:to_atom(Sender),
                 method = decode_method(Method),
@@ -304,7 +304,8 @@ get_all_gateway_responses(Phone) ->
                 verified = util_redis:decode_boolean(Success, false),
                 attempt_id = AttemptId,
                 attempt_ts = AttemptTS,
-                lang_id = util_redis:decode_binary(LangId)
+                lang_id = util_redis:decode_binary(LangId),
+                valid = util_redis:decode_boolean(Validity, false)
             }
         end, VerificationAttemptList, ResponseList),
     {ok, SMSResponseList}.

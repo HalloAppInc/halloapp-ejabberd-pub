@@ -31,7 +31,8 @@
     verified  :: boolean(),
     attempt_id :: binary(),
     attempt_ts :: non_neg_integer(),
-    lang_id :: binary()
+    lang_id :: binary(),
+    valid :: boolean()
 }).
 
 -type gateway_response()  :: #gateway_response{}.
