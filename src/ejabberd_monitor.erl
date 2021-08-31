@@ -61,11 +61,11 @@ ping_procs() ->
     gen_server:cast(?MONITOR_GEN_SERVER, ping_procs).
 
 node_up(Node, _InfoList) ->
-    %% 5s delay is to ensure the new node is fully initialized
+    %% 15s delay is to ensure the new node is fully initialized
     %% so we don't get one or two 'missed ping' log msgs from
     %% the new node's monitor
     Args = [{global, ejabberd_monitor:get_registered_name(Node)}],
-    {ok, _TRef} = timer:apply_after(5 * ?SECONDS_MS, ?MODULE, monitor, Args).
+    {ok, _TRef} = timer:apply_after(15 * ?SECONDS_MS, ?MODULE, monitor, Args).
 
 -spec monitor(Proc :: atom() | pid()) -> ok.
 monitor(Proc) ->
