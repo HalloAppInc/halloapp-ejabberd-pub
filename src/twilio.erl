@@ -23,6 +23,8 @@
 
 -export([
     init/0,
+    can_send_sms/1,
+    can_send_voice_call/1,
     send_sms/4,
     send_voice_call/4,
     fetch_message_info/1,
@@ -39,6 +41,13 @@ init() ->
     ],
     util_sms:init_helper(twilio_options, FromPhoneList).
 
+
+-spec can_send_sms(CC :: binary()) -> boolean().
+can_send_sms(_CC) ->
+    true.
+-spec can_send_voice_call(CC :: binary()) -> boolean().
+can_send_voice_call(_CC) ->
+    true.
 
 %% TODO: check about refactoring prepare_msg code in twilio.hrl and mbird.hrl
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),

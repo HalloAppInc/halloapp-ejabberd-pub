@@ -17,11 +17,15 @@
 -include("translate.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
+-callback can_send_sms(CC :: binary()) -> boolean().
+-callback can_send_voice_call(CC :: binary()) -> boolean().
 -callback send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
 -callback send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail}.
 -callback send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.
+
+-type method() :: sms | voice_call.
 
 -ifdef(TEST).
 -export([
@@ -76,7 +80,7 @@ mod_options(_Host) ->
 request_sms(Phone, UserAgent) ->
     request_otp(Phone, <<"en-US">>, UserAgent, sms).
 
--spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom()) ->
+-spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: method()) ->
     {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 request_otp(Phone, LangId, UserAgent, Method) ->
     case {config:get_hallo_env(), util:is_test_number(Phone)} of
@@ -153,7 +157,7 @@ send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
     end. 
 
 -spec send_otp(OtpPhone :: phone(), LangId :: binary(), Phone :: phone(), UserAgent :: binary(),
-        Method :: atom()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
+        Method :: method()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
     {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
     case is_too_soon(OldResponses) of
@@ -211,7 +215,7 @@ find_next_ts(OldResponses) ->
     end.
 
 
--spec send_otp_internal(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: atom(),
+-spec send_otp_internal(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: method(),
         OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, atom(), term()}.
 send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
     ?DEBUG("preparing to send otp, phone:~p, LangId: ~p, UserAgent: ~p",
@@ -236,7 +240,7 @@ generate_code(Phone) ->
 %% TODO(vipin)
 %% On callback from the provider track (success, cost). Investigative logging to track missing
 %% callback.
--spec generate_gateway_list(Method :: atom(), OldResponses :: [gateway_response()]) -> [atom()].
+-spec generate_gateway_list(Method :: method(), OldResponses :: [gateway_response()]) -> [atom()].
 generate_gateway_list(Method, OldResponses) ->
     {WorkingList, NotWorkingList} = lists:foldl(
         fun(#gateway_response{gateway = Gateway, method = Method2, status = Status}, {Working, NotWorking})
@@ -282,7 +286,7 @@ generate_gateway_list(Method, OldResponses) ->
     ?DEBUG("Choose from: ~p", [ToChooseFromList]),
     ToChooseFromList.
 
-
+% TODO: migrate this logic to the filter_gateways API.
 -spec gateway_cc_filter(CC :: binary()) -> atom().
 gateway_cc_filter(CC) ->
     %% TODO(vipin): Fix as and when we get approval. Replace the following using redis.
@@ -321,9 +325,28 @@ gateway_cc_filter(CC) ->
         _ -> unrestricted % will choose in smart_send
     end.
 
+-spec filter_gateways(CC :: binary(), Method :: method(), GatewayList :: list(atom())) -> list(atom()).
+filter_gateways(CC, Method, GatewayList) ->
+    Function = case Method of
+        sms -> can_send_sms;
+        voice_call -> can_send_voice_call
+    end,
+    ResultList = lists:filter(
+        fun (Gateway) ->
+            Gateway:Function(CC)
+        end,
+        GatewayList),
+    case ResultList of
+        [] ->
+            ?ERROR("No gateway after filter CC:~s ~p ~p -> ~p",
+                [CC, Method, GatewayList, ResultList]),
+            GatewayList;
+        _ -> ResultList
+    end.
+
 
 -spec smart_send(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(),
-        Method :: atom(), OldResponses :: [gateway_response()]) -> {ok, gateway_response()} |
+        Method :: method(), OldResponses :: [gateway_response()]) -> {ok, gateway_response()} |
         {error, atom(), sms_fail} | {error, atom(), call_fail} | {error, atom(), voice_call_fail}.
 smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
     CC = mod_libphonenumber:get_cc(OtpPhone),
@@ -332,11 +355,12 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
     {NewGateway2, ToChooseFromList} = case NewGateway of
         unrestricted ->
             ChooseFromList = generate_gateway_list(Method, OldResponses),
+            ChooseFromList2 = filter_gateways(CC, Method, ChooseFromList),
             ConsiderList = sms_gateway_list:get_sms_gateway_list(),
             ConsiderSet = sets:from_list(ConsiderList),
 
             %% Pick one based on past performance.
-            {PickedGateway, NewPickedGateway} = pick_gw(ChooseFromList, CC),
+            {PickedGateway, NewPickedGateway} = pick_gw(ChooseFromList2, CC),
             ?INFO("Old Selection: ~p, Current Selection: ~p, CC: ~p",
                 [PickedGateway, NewPickedGateway, CC]),
 

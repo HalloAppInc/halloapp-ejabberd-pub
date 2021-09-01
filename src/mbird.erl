@@ -19,6 +19,8 @@
 %% API
 -export([
     init/0,
+    can_send_sms/1,
+    can_send_voice_call/1,
     send_sms/4,
     send_voice_call/4,
     normalized_status/1,
@@ -31,6 +33,13 @@ init() ->
     FromPhoneList = ["+12022213975", "+12029511227", "+12029511244"],
     util_sms:init_helper(mbird_options, FromPhoneList).
 
+
+-spec can_send_sms(CC :: binary()) -> boolean().
+can_send_sms(_CC) ->
+    true.
+-spec can_send_voice_call(CC :: binary()) -> boolean().
+can_send_voice_call(_CC) ->
+    true.
 
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent :: binary()) ->
         {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.

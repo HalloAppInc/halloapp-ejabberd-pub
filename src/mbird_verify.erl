@@ -17,6 +17,8 @@
 
 %% API
 -export([
+    can_send_sms/1,
+    can_send_voice_call/1,
     send_sms/4,
     send_voice_call/4,
     send_feedback/2,
@@ -24,6 +26,13 @@
     verify_code/3
 ]).
 
+
+-spec can_send_sms(CC :: binary()) -> boolean().
+can_send_sms(_CC) ->
+    true.
+-spec can_send_voice_call(CC :: binary()) -> boolean().
+can_send_voice_call(_CC) ->
+    true.
 
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.
