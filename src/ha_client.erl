@@ -394,18 +394,14 @@ handle_call({recv, TimeoutMs}, _From, State) ->
     {reply, Result, NewState2};
 
 handle_call({login, Uid, ClientKeypair}, _From, State) ->
-    %% TODO: add other noise patterns.
     %% TODO: use root_pub key to verify the certificate received from the server.
-    %% Using xx always for now.
-    {Result, NewState} = noise_xx(Uid, ClientKeypair, State),
+    {Result, NewState} = noise_login(Uid, ClientKeypair, State),
 
     {reply, Result, NewState};
 
 handle_call({connect_and_send, Pkt, ClientKeypair}, _From, State) ->
-    %% TODO: add other noise patterns.
     %% TODO: use root_pub key to verify the certificate received from the server.
-    %% Using xx always for now.
-    {Result, NewState} = perform_noise_xx(Pkt, ClientKeypair, State),
+    {Result, NewState} = connect_and_send_internal(Pkt, ClientKeypair, State),
 
     {reply, Result, NewState};
 
@@ -631,9 +627,9 @@ noise_close(NoiseSocket) ->
     ha_enoise:close(NoiseSocket).
 
 
-%% Performs xx pattern handshake with the server.
--spec noise_xx(Uid :: binary(), ClientKeypair :: keypair(), State :: state()) -> {any(), state()}.
-noise_xx(Uid, ClientKeypair, #state{options = Options} = State) ->
+%% Performs xx/ik pattern handshake with the server.
+-spec noise_login(Uid :: binary(), ClientKeypair :: keypair(), State :: state()) -> {any(), state()}.
+noise_login(Uid, ClientKeypair, #state{options = Options} = State) ->
     HaAuth = #pb_auth_request{
         uid = Uid,
         client_mode = #pb_client_mode{mode = maps:get(mode, Options, ?DEFAULT_MODE)},
@@ -642,8 +638,19 @@ noise_xx(Uid, ClientKeypair, #state{options = Options} = State) ->
         },
         resource = maps:get(resource, Options, ?DEFAULT_RESOURCE)
     },
-    perform_noise_xx(HaAuth, ClientKeypair, State).
+    connect_and_send_internal(HaAuth, ClientKeypair, State).
 
+
+
+-spec connect_and_send_internal(Uid :: binary(), ClientKeypair :: keypair(), State :: state()) -> {any(), state()}.
+connect_and_send_internal(PktToSend, ClientKeypair, #state{options = Options} = State) ->
+    case maps:get(server_static_pubkey, Options, undefined) of
+        undefined -> perform_noise_xx(PktToSend, ClientKeypair, State);
+        ServerStaticPubKey -> perform_noise_ik(PktToSend, ClientKeypair, ServerStaticPubKey, State)
+    end.
+
+
+-spec perform_noise_xx(Uid :: binary(), ClientKeypair :: keypair(), State :: state()) -> {any(), state()}.
 perform_noise_xx(PktToSend, ClientKeypair, #state{socket = TcpSock} = State) ->
     %% Initialize noise state ourselves.
     %% ha_enoise provides apis only for server side.
@@ -673,6 +680,32 @@ perform_noise_xx(PktToSend, ClientKeypair, #state{socket = TcpSock} = State) ->
 
             %% wait to receive response.
             {Response, State1} = receive_wait(State#state{noise_socket = NoiseSocket5}),
+            {Response, State1};
+        Error ->
+            {Error, State}
+    end.
+
+
+perform_noise_ik(PktToSend, ClientKeypair, ServerStaticPubKey, #state{socket = TcpSock} = State) ->
+    %% Initialize noise state ourselves.
+    %% ha_enoise provides apis only for server side.
+    Protocol = enoise_protocol:from_name(?NOISE_PATTERN_IK),
+    NoiseOptions = [
+        {noise, Protocol}, {s, ClientKeypair}, {rs, enoise_keypair:new(dh25519, ServerStaticPubKey)}
+    ],
+    {ok, Crypto} = enoise:handshake(NoiseOptions, initiator),
+    NoiseSocket = #noise_socket{tcpsock = TcpSock, crypto = Crypto, pattern = ?NOISE_PATTERN_IK},
+
+    %% send <<"HA00">> header.
+    gen_tcp:send(TcpSock, <<"HA00">>),
+
+    ClientConfig = enif_protobuf:encode(PktToSend),
+    %% send ik_a handshake message: message A.
+    case noise_handshake_util:send_data(NoiseSocket, ClientConfig, ik_a) of
+        {ok, NoiseSocket1} ->
+            %% receive message B
+            %% wait to receive response.
+            {Response, State1} = receive_wait(State#state{noise_socket = NoiseSocket1}),
             {Response, State1};
         Error ->
             {Error, State}

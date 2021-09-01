@@ -25,6 +25,7 @@
     get_host/0,
     get_upload_server/0,
     get_noise_key_material/0,
+    get_noise_static_pubkey/0,
     now_ms/0,
     now/0,
     now_binary/0,
@@ -91,6 +92,14 @@ get_noise_key_material() ->
 
     [{_, Certificate, _}] = public_key:pem_decode(base64:decode(NoiseCertificate)),
     {ServerKeypair, Certificate}.
+
+
+get_noise_static_pubkey() ->
+    [{?NOISE_STATIC_KEY, NoiseStaticKeyPair}, {?NOISE_SERVER_CERTIFICATE, NoiseCertificate}] =
+            jsx:decode(mod_aws:get_secret(config:get_noise_secret_name())),
+    NoiseStaticKey = base64:decode(NoiseStaticKeyPair),
+    [{_, ServerStaticPubKey, _}, {_, _, _}] = public_key:pem_decode(NoiseStaticKey),
+    ServerStaticPubKey.
 
 
 -spec now_ms() -> integer().

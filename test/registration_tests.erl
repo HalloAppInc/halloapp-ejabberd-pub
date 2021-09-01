@@ -42,6 +42,7 @@ group() ->
         registration_register_test,
         registration_request_and_verify_otp_noise_test,
         registration_request_and_verify_otp_noise2_test,
+        registration_request_and_verify_otp_noise3_test,
         registration_request_otp_noise_invalid_phone_fail_test,
         registration_request_otp_noise_bad_request_fail_test,
         registration_verify_otp_fail_noise_test
@@ -229,6 +230,70 @@ request_and_verify_otp_noise2_test(_Conf) ->
         {ok, [#verification_info{code = Code} | _]} -> Code
     end,
     VerifyOtpOptions = #{name => Name, static_key => SEdPub, signed_phrase => SignedMessage},
+    {ok, VerifyOtpRequestPkt} = registration_client:compose_verify_otp_noise_request(Phone, OtpCode, VerifyOtpOptions),
+
+    %% Send verify_otp request on a different connection.
+    {ok, Client2, ActualResponse2} = ha_client:connect_and_send(VerifyOtpRequestPkt, ClientKeyPair, ConnectOptions),
+
+    %% Check result.
+    % ?debugFmt("response2: ~p", [ActualResponse2]),
+    Response2 = ActualResponse2#pb_register_response.response,
+    ?assertEqual(Phone, Response2#pb_verify_otp_response.phone),
+    ?assertEqual(success, Response2#pb_verify_otp_response.result),
+    ?assertEqual(Name, Response2#pb_verify_otp_response.name),
+    ok.
+
+
+request_and_verify_otp_noise3_test(_Conf) ->
+    Phone = ?PHONE11,
+    Name = ?NAME11,
+
+    %% Compose RequestOtp
+    RequestOtpOptions = #{},
+    {ok, RegisterRequestPkt} = registration_client:compose_otp_noise_request(Phone, RequestOtpOptions),
+
+    %% Generate NoiseKeys.
+    KeyPair = ha_enoise:generate_signature_keypair(),
+    {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+    %% Convert these signing keys to curve keys.
+    {CurveSecret, CurvePub} = {enacl:crypto_sign_ed25519_secret_to_curve25519(maps:get(secret, KeyPair)),
+     enacl:crypto_sign_ed25519_public_to_curve25519(maps:get(public, KeyPair))},
+    %% TODO: move this code to have an api for these keys.
+    ClientKeyPair = #kp{type = ?CURVE_KEY_TYPE, sec = CurveSecret, pub = CurvePub},
+    SignedMessage = enacl:sign("HALLO", SEdSecret),
+    % SEdPubEncoded = base64:encode(SEdPub),
+    % SignedMessageEncoded = base64:encode(SignedMessage),
+
+    %% Connect and requestOtp
+    ConnectOptions = #{host => "localhost", port => 5208, state => register},
+    {ok, Client, ActualResponse} = ha_client:connect_and_send(RegisterRequestPkt, ClientKeyPair, ConnectOptions),
+
+    %% Check result.
+    ExpectedResponse = #pb_register_response{
+        response = #pb_otp_response{
+            phone = Phone,
+            result = success,
+            reason = unknown_reason,
+            retry_after_secs = 30
+    }},
+    % ?debugFmt("response: ~p", [ActualResponse]),
+    ?assertEqual(ExpectedResponse, ActualResponse),
+
+    %% Disconnect client.
+    ha_client:stop(Client),
+
+    %% Compose VerifyOtpRequest
+    OtpCode = case model_phone:get_all_verification_info(Phone) of
+        {ok, []} -> undefined;
+        {ok, [#verification_info{code = Code} | _]} -> Code
+    end,
+    ServerStaticPubKey = util:get_noise_static_pubkey(),
+    VerifyOtpOptions = #{
+        name => Name,
+        static_key => SEdPub,
+        signed_phrase => SignedMessage,
+        server_static_pubkey => ServerStaticPubKey
+    },
     {ok, VerifyOtpRequestPkt} = registration_client:compose_verify_otp_noise_request(Phone, OtpCode, VerifyOtpOptions),
 
     %% Send verify_otp request on a different connection.
