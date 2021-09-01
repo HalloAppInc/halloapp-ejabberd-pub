@@ -222,6 +222,7 @@ modules:
   mod_backup: {}
   mod_http_checker: {}
   mod_noise_checker: {}
+  mod_redis_checker: {}
 
 ### Local Variables:
 ### mode: yaml

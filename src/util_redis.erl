@@ -13,6 +13,7 @@
 
 %% API
 -export([
+    parse_info/1,
     decode_ts/1,
     decode_int/1,
     decode_maybe_binary/1,
@@ -29,6 +30,20 @@
     parse_zrange_with_scores/1,
     run_qmn/2
 ]).
+
+
+%% for parsing INFO command results
+-spec parse_info(RawResult :: binary()) -> [{Name :: binary(), Value :: binary()}].
+parse_info(RawResult) ->
+    Terms = binary:split(RawResult, <<"\r\n">>, [global, trim_all]),
+    lists:map(
+        fun(Term) ->
+            case binary:split(Term, <<":">>, [global]) of
+                [Name, Value] -> {Name, Value};
+                _ -> {undefined, undefined}
+            end
+        end,
+        Terms).
 
 
 %% TODO(murali@): Update to use this util function in other redis model files.

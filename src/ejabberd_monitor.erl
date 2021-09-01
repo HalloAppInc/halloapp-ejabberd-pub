@@ -256,11 +256,11 @@ monitor_ejabberd_processes() ->
             ejabberd_monitor:monitor(ChildId)
         end, supervisor:which_children(ejabberd_gen_mod_sup)),
 
-    %% Monitor all our redis cluster clients - children of redis_sup.
+    %% Monitor all our redis cluster clients
     lists:foreach(
-        fun ({ChildId, _, _, _}) ->
-            ejabberd_monitor:monitor(ChildId)
-        end, supervisor:which_children(redis_sup)),
+        fun (ClusterId) ->
+            ejabberd_monitor:monitor(ClusterId)
+        end, ha_redis:get_redis_clients()),
     ok.
 
 
