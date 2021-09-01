@@ -121,7 +121,6 @@ process([<<"registration">>, <<"get_group_info">>],
         Payload = jiffy:decode(Data, [return_maps]),
         GroupInviteToken = maps:get(<<"group_invite_token">>, Payload),
 
-        check_ua(UserAgent),
         case mod_groups:web_preview_invite_link(GroupInviteToken) of
             {error, invalid_invite} ->
                 util_http:return_400(invalid_invite);
@@ -133,9 +132,6 @@ process([<<"registration">>, <<"get_group_info">>],
                 })}
         end
     catch
-        error : bad_user_agent ->
-            ?ERROR("get_group_info error: bad_user_agent ~p", [Headers]),
-            util_http:return_400();
         error : invalid_client_version ->
             ?ERROR("get_group_info error: invalid_client_version ~p", [Headers]),
             util_http:return_400(invalid_client_version);

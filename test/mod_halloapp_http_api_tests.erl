@@ -485,11 +485,6 @@ get_group_info_test() ->
         mod_halloapp_http_api:process(?REQUEST_GET_GROUP_INFO_PATH,
             #request{method = 'POST', data = BadData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)})),
 
-    ?assertEqual(
-        util_http:return_400(),
-        mod_halloapp_http_api:process(?REQUEST_GET_GROUP_INFO_PATH,
-            #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?BAD_UA)})),
-
     ok.
 
 
