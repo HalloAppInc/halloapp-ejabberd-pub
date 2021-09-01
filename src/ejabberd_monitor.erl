@@ -296,10 +296,6 @@ check_ping_map(#state{active_pings = PingMap} = State) ->
         end,
         0,
         maps:values(PingMap)),
-    case NumFailedPings > 0 of
-        true -> ?WARNING("~p failed pings", [NumFailedPings]);
-        false -> ok
-    end,
     {State#state{active_pings = #{}}, NumFailedPings}.
 
 
