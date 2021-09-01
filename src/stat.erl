@@ -209,7 +209,7 @@ compute_counts_by_version() ->
         fun(Version) ->
             CountsByVersion = maps:get(Version, VersionCountsMap, 0),
             Platform = util_ua:get_client_type(Version),
-            IsValid = maps:is_key(Version, ValidVersionsMap),
+            IsValid = util:to_list(maps:is_key(Version, ValidVersionsMap)),
             stat:gauge("HA/client_version", "all_users", CountsByVersion,
                     [{version, Version}, {platform, Platform}, [{valid, IsValid}]])
         end, AllVersions),
