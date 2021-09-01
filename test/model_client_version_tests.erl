@@ -17,6 +17,9 @@
 -define(VERSION2, <<"Android2">>).
 -define(TS2, 2).
 
+-define(VERSION3, <<"Android3">>).
+-define(TS3, 3).
+
 setup() ->
     ha_redis:start(),
     clear(),
@@ -55,7 +58,10 @@ get_versions_test() ->
     setup(),
     ?assertEqual(true, model_client_version:set_version_ts(?VERSION1, ?TS1)),
     ?assertEqual(true, model_client_version:set_version_ts(?VERSION2, ?TS2)),
+    ?assertEqual(true, model_client_version:set_version_ts(?VERSION3, ?TS3)),
     ?assertEqual({ok, [?VERSION1]}, model_client_version:get_versions(?TS1, ?TS1)),
     ?assertEqual({ok, [?VERSION1, ?VERSION2]}, model_client_version:get_versions(?TS1, ?TS2)),
+    ?assertEqual({ok, [?VERSION2, ?VERSION3]}, model_client_version:get_versions(?TS2, ?TS3)),
+    ?assertEqual({ok, [?VERSION1, ?VERSION2, ?VERSION3]}, model_client_version:get_all_versions()),
     ok.
 

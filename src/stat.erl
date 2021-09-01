@@ -200,21 +200,19 @@ compute_counts_by_version() ->
     NowSec = util:now(),
     VersionExpiry = ?VERSION_VALIDITY,
     DeadlineSec = NowSec - VersionExpiry,
-    {ok, Versions} = model_client_version:get_versions(DeadlineSec, NowSec),
+    {ok, AllVersions} = model_client_version:get_all_versions(),
+    {ok, ValidVersions} = model_client_version:get_versions(DeadlineSec, NowSec),
+    ValidVersionsMap = maps:from_list(lists:map(fun(V) -> {V, 1} end, ValidVersions)),
 
     VersionCountsMap = model_accounts:count_version_keys(),
     lists:foreach(
         fun(Version) ->
             CountsByVersion = maps:get(Version, VersionCountsMap, 0),
             Platform = util_ua:get_client_type(Version),
+            IsValid = maps:is_key(Version, ValidVersionsMap),
             stat:gauge("HA/client_version", "all_users", CountsByVersion,
-                    [{version, Version}, {platform, Platform}])
-        end, Versions),
-    %% Cleanup old version fields if any.
-    ExistingVersions = maps:keys(VersionCountsMap),
-    DeleteVersions = lists:subtract(ExistingVersions, Versions),
-    ok = model_accounts:cleanup_version_keys(DeleteVersions),
-
+                    [{version, Version}, {platform, Platform}, [{valid, IsValid}]])
+        end, AllVersions),
     End = util:now_ms(),
     ?INFO("Counting took ~p ms", [End - Start]),
     ok.

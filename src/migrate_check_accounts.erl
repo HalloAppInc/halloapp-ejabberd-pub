@@ -8,13 +8,15 @@
 -author('murali').
 
 -include("logger.hrl").
+-include("client_version.hrl").
 
 -export([
     check_accounts_run/2,
     log_account_info_run/2,
     check_phone_numbers_run/2,
     check_argentina_numbers_run/2,
-    check_mexico_numbers_run/2
+    check_mexico_numbers_run/2,
+    check_version_counters_run/2
 ]).
 
 
@@ -153,6 +155,47 @@ check_mexico_numbers_run(Key, State) ->
     State.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                          Check all version counters                        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+check_version_counters_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            case q(ecredis_accounts, ["HGET", FullKey, <<"cv">>]) of
+                {ok, undefined} -> ok;
+                {ok, Version} ->
+                    case util_ua:is_valid_ua(Version) of
+                        false -> ?INFO("Uid: ~p, client_version: ~p, Invalid", [Uid, Version]);
+                        true ->
+                            case mod_client_version:is_valid_version(Version) of
+                                true ->
+                                    ?INFO("Uid: ~p, client_version: ~p, Ignoring", [Uid, Version]);
+                                false ->
+                                    %% increment version counter
+                                    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+                                    VersionSlot = HashSlot rem ?NUM_VERSION_SLOTS,
+                                    Command = ["HINCRBY", model_accounts:version_key(VersionSlot), Version, 1],
+                                    case DryRun of
+                                        true ->
+                                            ?INFO("Uid: ~p, client_version: ~p, Will execute command: ~p",
+                                                [Uid, Version, Command]);
+                                        false ->
+                                            Res = q(ecredis_accounts, Command),
+                                            ?INFO("Uid: ~p, client_version: ~p, Increment counter result: ~p",
+                                                [Uid, Version, Res])
+                                    end
+                            end
+                    end
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+
 q(Client, Command) -> util_redis:q(Client, Command).
-qp(Client, Commands) -> util_redis:qp(Client, Commands).
 

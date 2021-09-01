@@ -15,17 +15,13 @@
 
 %% API
 -export([
+    version_key/1,
     get_version_ts/1,
     set_version_ts/2,
     get_versions/2,
+    get_all_versions/0,
     update_version_ts/2
 ]).
-% Only test exports
--ifdef(TEST).
--export([
-    version_key/1
-]).
--endif.
 
 %%====================================================================
 %% API
@@ -59,6 +55,13 @@ update_version_ts(Version, Ts) ->
 get_versions(MinTs, MaxTs) ->
     {ok, Versions} = q(
         ["ZRANGEBYSCORE", all_versions_key(), integer_to_binary(MinTs), integer_to_binary(MaxTs)]),
+    {ok, Versions}.
+
+
+-spec get_all_versions() -> {ok, [binary()]}.
+get_all_versions() ->
+    {ok, Versions} = q(
+        ["ZRANGEBYSCORE", all_versions_key(), "-inf", "+inf"]),
     {ok, Versions}.
 
 
