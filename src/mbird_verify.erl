@@ -26,19 +26,19 @@
 
 
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
-        UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.
 send_sms(Phone, _Code, LangId, _UserAgent) ->
     sending_helper(Phone, LangId, "sms").
 
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
-        UserAgent :: binary()) -> {ok, gateway_response()} | {error, tts_fail}.
+        UserAgent :: binary()) -> {ok, gateway_response()} | {error, tts_fail, retry | no_retry}.
 send_voice_call(Phone, _Code, LangId, _UserAgent) ->
     sending_helper(Phone, LangId, "tts").
 
 
 -spec sending_helper(Phone :: phone(), LangId :: binary(), Method :: string())
-        -> {ok, gateway_response()} | {error, sms_fail} | {error, tts_fail}.
+        -> {ok, gateway_response()} | {error, sms_fail, retry | no_retry} | {error, tts_fail, retry | no_retry}.
 sending_helper(Phone, LangId, Method) ->
     URL = ?BASE_URL,
     Type = "application/x-www-form-urlencoded",
@@ -55,8 +55,9 @@ sending_helper(Phone, LangId, Method) ->
             ?INFO("Id: ~p Status: ~p Response ~p", [Id, Status, ResBody]),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
         _ ->
+            %% TODO: observe error response codes and retry only in appropriate cases.
             ?ERROR("Sending ~p to ~p failed: ~p", [Method, Phone, Response]),
-            {error, list_to_atom(re:replace(string:lowercase(Method), " ", "_", [{return, list}]) ++ "_fail")}
+            {error, list_to_atom(re:replace(string:lowercase(Method), " ", "_", [{return, list}]) ++ "_fail"), retry}
     end.
 
 

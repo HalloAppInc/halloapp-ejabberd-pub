@@ -264,6 +264,11 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
             ?INFO("request_voice_call error: voice_call_failed ~p", [RawData]),
             log_request_otp_error(voice_call_fail, voice_call),
             {error, otp_fail};
+        error : tts_fail ->
+            %% MBird_verify returns tts_fail
+            ?INFO("request_voice_call error: voice_call_failed ~p", [RawData]),
+            log_request_otp_error(voice_call_fail, voice_call),
+            {error, otp_fail};
         Class : Reason : Stacktrace ->
             ?ERROR("request_sms crash: ~s\nStacktrace:~s",
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
