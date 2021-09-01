@@ -78,29 +78,52 @@ send_feedback(Phone, AllVerifyInfo) ->
     case get_latest_verify_info(AllVerifyInfo) of
         [] -> ok;
         [AttemptId, Sid] ->
-            URL = ?VERIFICATION_URL ++ binary_to_list(Sid),
-            [Headers, Type, HTTPOptions, Options] = fetch_headers(),
-            Body = compose_feedback_body(),
-            ?DEBUG("Body: ~p", [Body]),
-            Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
-            ?DEBUG("Response: ~p", [Response]),
-            case Response of
-                {ok, {{_, 200, _}, _ResHeaders, ResBody}} ->
-                    Json = jiffy:decode(ResBody, [return_maps]),
-                    Id = maps:get(<<"sid">>, Json),
-                    Price = maps:get(<<"amount">>, Json),
-                    RealPrice = case try string:to_float(binary_to_list(Price))
-                    catch _:_ -> {error, no_float}
-                    end of
-                        {error, _} -> undefined;
-                        {XX, []} -> abs(XX)
-                    end,
-                    GatewayResponse = #gateway_response{gateway_id = Id, gateway = twilio_verify,
-                        status = accepted, price = RealPrice},
-                    ok = model_phone:add_gateway_callback_info(GatewayResponse);
-                _ ->
-                    ?ERROR("Feedback info failed, Phone:~p AttemptId: ~p Response: ~p", [Phone, AttemptId, Response])
+            case send_feedback_internal(Phone, AttemptId, Sid) of
+                ok -> ok;
+                {error, Response} ->
+                    %% Try exactly one more time incase we fail to send feedback and log an error.
+                    case send_feedback_internal(Phone, AttemptId, Sid) of
+                        ok -> ok;
+                        {error, Response2} ->
+                            ?INFO("Feedback info failed, Phone:~p AttemptId: ~p Response: ~p",
+                                [Phone, AttemptId, Response2])
+                    end
             end
+    end.
+
+
+-spec send_feedback_internal(Phone :: phone(), AttemptId :: binary(),
+    Sid :: binary()) -> ok | {error, any()}.
+send_feedback_internal(Phone, AttemptId, Sid) ->
+    URL = ?VERIFICATION_URL ++ binary_to_list(Sid),
+    [Headers, Type, HTTPOptions, Options] = fetch_headers(),
+    Body = compose_feedback_body(),
+    ?DEBUG("Body: ~p", [Body]),
+    Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
+    ?DEBUG("Response: ~p", [Response]),
+    case Response of
+        {ok, {{_, 200, _}, _ResHeaders, ResBody}} ->
+            Json = jiffy:decode(ResBody, [return_maps]),
+            Id = maps:get(<<"sid">>, Json),
+            Price = maps:get(<<"amount">>, Json),
+            RealPrice = case try string:to_float(binary_to_list(Price))
+            catch _:_ -> {error, no_float}
+            end of
+                {error, _} -> undefined;
+                {XX, []} -> abs(XX)
+            end,
+            GatewayResponse = #gateway_response{gateway_id = Id, gateway = twilio_verify,
+                status = accepted, price = RealPrice},
+            ok = model_phone:add_gateway_callback_info(GatewayResponse),
+            ok;
+        {ok, {{_, 404, _}, _ResHeaders, ResBody}} ->
+            ?INFO("Feedback info failed, Phone:~p AttemptId: ~p Response: ~p",
+                [Phone, AttemptId, Response]),
+            ok;
+        _ ->
+            ?INFO("Feedback info failed, Phone:~p AttemptId: ~p Response: ~p",
+                [Phone, AttemptId, Response]),
+            {error, Response}
     end.
 
 

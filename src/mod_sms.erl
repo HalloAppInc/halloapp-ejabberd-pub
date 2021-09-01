@@ -123,7 +123,9 @@ add_verification_success(Phone, FetchedInfo, AllVerifyInfo) ->
         undefined ->
             ?ERROR("Missing gateway of Phone:~p AttemptId: ~p", [Phone, AttemptId]),
             ok;
-        _ -> GatewayAtom:send_feedback(Phone, AllVerifyInfo)
+        _ ->
+            %% spawn a new process for sending feedback.
+            spawn(GatewayAtom, send_feedback, [Phone, AllVerifyInfo])
     end,
     match.
 
