@@ -505,6 +505,9 @@ mark_sent_and_increment_retry_counts(UserId, OfflineMsgs) ->
 store_message(#pb_msg{payload = #pb_end_of_queue{}} = _Message) ->
     %% ignore storing end_of_queue marker packets.
     ok;
+store_message(#pb_msg{payload = #pb_wake_up{}} = _Message) ->
+    %% ignore storing SMSApp client wakeup packets.
+    ok;
 store_message(#pb_msg{} = Message) ->
     ok = model_messages:store_message(Message),
     ok.

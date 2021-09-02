@@ -269,6 +269,14 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_request_logs{} = _Payload} = _Mess
         push_type = silent
     };
 
+parse_metadata(#pb_msg{id = Id, payload = #pb_wake_up{} = _Payload} = _Message, 
+        #push_info{} = _PushInfo) ->
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"sms_app_wakeup">>,
+        push_type = silent
+    };
+
 parse_metadata(#pb_msg{to_uid = Uid, id = Id}, _PushInfo) ->
     ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     #push_metadata{}.

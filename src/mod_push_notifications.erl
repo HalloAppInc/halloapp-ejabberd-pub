@@ -133,6 +133,10 @@ should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
                 end, Payload#pb_group_stanza.members),
             WasAdded;
 
+        PayloadType =:= pb_wake_up ->
+            %% Push sms_app wakeup notifications
+            true;
+        
         true ->
             %% Ignore everything else.
             false

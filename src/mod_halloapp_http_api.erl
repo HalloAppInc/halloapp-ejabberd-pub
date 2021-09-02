@@ -207,7 +207,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         protocol := Protocol}) ->
     try
         Phone = normalize(RawPhone),
-        check_ua(UserAgent),
+        check_ua(UserAgent, Phone),
         Method = get_otp_method(MethodBin),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
         case check_blocked(ClientIP, Phone, UserAgent, Protocol =:= noise) of
@@ -281,7 +281,7 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         otp_keys := OneTimeKeysB64, push_payload := PushPayload, raw_data := RawData}) ->
     try
         Phone = normalize(RawPhone),
-        check_ua(UserAgent),
+        check_ua(UserAgent, Phone),
         check_sms_code(Phone, Code),
         ok = delete_client_ip(ClientIP, Phone),
         ok = delete_phone_pattern(Phone, UserAgent),
@@ -402,6 +402,21 @@ request_otp(Phone, LangId, UserAgent, Method) ->
             ?INFO("could not send otp Reason: ~p Ts: ~p Phone: ~p, cc: ~p",
                 [Reason, RetryTs, Phone, CountryCode]),
             Error
+    end.
+
+
+-spec check_ua(binary(), phone()) -> ok | no_return().
+check_ua(UserAgent, Phone) ->
+    case sms_app:is_sms_app(Phone) of
+        true -> 
+            %% force sms_app clients to be android
+            case util_ua:is_android(UserAgent) of
+                true -> ok;
+                false -> 
+                    ?ERROR("SMSApp must be Android, got:~p", [UserAgent]),
+                    error(bad_user_agent)
+            end;
+        false -> check_ua(UserAgent)
     end.
 
 

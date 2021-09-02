@@ -44,6 +44,7 @@
 -include("time.hrl").
 -include("ha_types.hrl").
 -include("proc.hrl").
+-include("ejabberd_sm.hrl").
 
 -define(PING_ACTIVE_INTERVAL, 120 * ?SECONDS_MS).
 -define(PING_PASSIVE_INTERVAL, 60 * ?SECONDS_MS).
@@ -72,13 +73,6 @@
     timers              :: timers()
 }).
 
-%% TODO(murali@): this is not great. it would be nice to have one session object everywhere.
--record(session_info, {
-    uid :: uid(),
-    resource :: binary(),
-    sid :: term(),
-    mode :: atom()
-}).
 
 -type state() :: #state{}.
 -type session_info() :: #session_info{}.
@@ -165,6 +159,7 @@ handle_info({iq_reply, #pb_iq{}, SessionInfo}, State) ->
     ?INFO("receive_ping, Uid: ~s, SessionInfo: ~p", [SessionInfo#session_info.uid, SessionInfo]),
     {noreply, State};
 
+%% handler for when the device doesn't respond to a ping w/in 30s.
 handle_info({iq_reply, timeout, SessionInfo}, State) ->
     ?INFO("ping_timeout, Uid: ~s, SessionInfo: ~p", [SessionInfo#session_info.uid, SessionInfo]),
     ejabberd_hooks:run(user_ping_timeout, State#state.host, [SessionInfo]),
@@ -177,6 +172,7 @@ handle_info({iq_reply, timeout, SessionInfo}, State) ->
     NewState = del_timer(SessionInfo, State),
     {noreply, NewState};
 
+%% handler for ping timer. sends new ping to device
 handle_info({timeout, _TRef, {ping, SessionInfo}}, State) ->
     Uid = SessionInfo#session_info.uid,
     {_, UserPid} = SessionInfo#session_info.sid,

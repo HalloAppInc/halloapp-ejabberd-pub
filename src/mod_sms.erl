@@ -58,15 +58,17 @@
 %% gen_mod callbacks
 %%====================================================================
 
-start(_Host, _Opts) ->
+start(Host, _Opts) ->
     ?INFO("start ~w ~p", [?MODULE, self()]),
     ok = twilio:init(),
     ok = mbird:init(),
     ok = clickatell:init(),
+    ok = sms_app:init(Host),
     ok.
 
-stop(_Host) ->
+stop(Host) ->
     ?INFO("stop ~w ~p", [?MODULE, self()]),
+    ok = sms_app:stop(Host),
     ok.
 
 depends(_Host, _Opts) ->

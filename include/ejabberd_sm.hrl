@@ -24,6 +24,7 @@
 -define(SM_CACHE, sm_cache).
 -define(SM_LOCAL, sm_local).
 -define(SM_COUNTERS, sm_counters).
+-include("ha_types.hrl").
 
 -record(session, {sid, usr, us, priority, mode, info = []}).
 -record(session_counter, {vhost, count}).
@@ -36,5 +37,13 @@
 -type prio() :: undefined | integer().
 
 -type session() :: #session{}.
+
+%% TODO(murali@): this is not great. it would be nice to have one session object everywhere.
+-record(session_info, {
+    uid :: uid(),
+    resource :: binary(),
+    sid :: term(),
+    mode :: atom()
+}).
 
 -endif.
