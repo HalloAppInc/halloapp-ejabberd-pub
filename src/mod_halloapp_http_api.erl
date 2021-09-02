@@ -494,7 +494,8 @@ extract_phone_pattern(Phone, CC, UserAgent) ->
         {<<"ES">>, true} -> 6;
         {<<"ES">>, false} -> 5;
         {<<"IQ">>, _} -> 5;
-        {<<"KG">>, _} -> 5;
+        {<<"KG">>, true} -> 7;
+        {<<"KG">>, false} -> 5;
         {<<"KZ">>, _} -> 5;
         {<<"LV">>, _} -> 5;
         {<<"LS">>, _} -> 5;
