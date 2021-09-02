@@ -265,10 +265,13 @@ check_alive(Id) ->
 
 -spec check_alive(Id :: atom(), Node :: rnode() | none) -> boolean().
 check_alive(Id, Node) ->
-    StateHistory = case Node of
-        none -> get_state_history(Id, ?CLUSTER_CAN_CONNECT_KEY);
-        _ -> get_state_history(Id, Node, ?CAN_CONNECT_KEY)
+    {StateHistory, StatName} = case Node of
+        none ->
+            {get_state_history(Id, ?CLUSTER_CAN_CONNECT_KEY), util:to_list(?CLUSTER_CAN_CONNECT_KEY)};
+        _ ->
+            {get_state_history(Id, Node, ?CAN_CONNECT_KEY), util:to_list(?CAN_CONNECT_KEY)}
     end,
+    send_stats(StatName, Id, Node, StateHistory),
     check_consecutive_connect_fails(Id, Node, StateHistory)
         orelse check_slow_connection(Id, Node, StateHistory).
 
@@ -291,12 +294,14 @@ check_slow_connection(Id, Node, StateHistory) ->
 -spec check_can_get(Id :: atom(), Node :: rnode()) -> boolean().
 check_can_get(Id, Node) ->
     StateHistory = get_state_history(Id, Node, ?GET_KEY),
+    send_stats(util:to_list(?GET_KEY), Id, Node, StateHistory),
     check_can_x(Id, Node, StateHistory, <<"get">>).
 
 
 -spec check_can_set(Id :: atom(), Node :: rnode()) -> boolean().
 check_can_set(Id, Node) ->
     StateHistory = get_state_history(Id, Node, ?SET_KEY),
+    send_stats(util:to_list(?SET_KEY), Id, Node, StateHistory),
     check_can_x(Id, Node, StateHistory, <<"set">>).
 
 
@@ -341,6 +346,7 @@ check_consecutive_connect_fails(Id, Node, StateHistory) ->
 -spec check_has_slaves(Id :: atom(), Node :: rnode()) -> boolean().
 check_has_slaves(Id, Node) ->
     StateHistory = get_state_history(Id, Node, ?HAS_SLAVES_KEY),
+    send_stats(util:to_list(?HAS_SLAVES_KEY), Id, Node, StateHistory),
     Window = lists:sublist(StateHistory, ?MISSING_SLAVE_THRESHOLD_MS div ?PING_INTERVAL_MS),
     case util_monitor:get_num_fails(Window) =:= (?MISSING_SLAVE_THRESHOLD_MS div ?PING_INTERVAL_MS) of
         false -> false;
@@ -415,6 +421,18 @@ record_state(Id, Type, State) ->
 
 record_state(Id, Node, Type, State) ->
     util_monitor:record_state(?REDIS_TABLE, make_key(Id, Node, Type), State).
+
+
+-spec send_stats(StatName :: string(), Id :: atom(), Node :: rnode() | none, StateHistory :: [proc_state()]) -> ok.
+send_stats(StatName, Id, Node, StateHistory) ->
+    Window = ?MINUTES_MS div ?PING_INTERVAL_MS,
+    SuccessRate = 1 - (util_monitor:get_num_fails(lists:sublist(StateHistory, Window)) / Window),
+    StrNode = case Node of
+        #node{address = Host, port = Port} -> lists:concat([Host, "/", util:to_list(Port)]);
+        none -> "no_node"
+    end,
+    stat:gauge(?NS, StatName, round(SuccessRate * 100), [{cluster_id, Id}, {node, StrNode}]),
+    ok.
 
 
 %% returns {true, SetVal} if successful, false otherwise
