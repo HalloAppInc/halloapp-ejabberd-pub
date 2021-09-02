@@ -18,6 +18,7 @@
 -define(HALLOAPP_COM, <<"https://halloapp.com">>).
 -define(PLAY_STORE_URL, <<"https://play.google.com/store/apps/details?id=com.halloapp&referrer=ginvite-">>).
 -define(APP_STORE_URL, <<"https://apps.apple.com/us/app/halloapp/id1501583052">>).
+-define(HA_APPCLIP_URL, <<"https://halloapp.com/appclip/?g=">>).
 
 %% API
 -export([process/2]).
@@ -81,7 +82,7 @@ process([],
                 {redirect, <<?PLAY_STORE_URL/binary, GroupToken/binary>>};
             ios ->
                 case AppClip of
-                    <<"1">> -> webpage;
+                    <<"1">> -> {redirect, <<?HA_APPCLIP_URL/binary, GroupToken/binary>>};
                     _ -> {redirect, <<?APP_STORE_URL/binary>>}
                 end;
 %%                <<?INVITE_SUBDOMAIN/binary, GroupToken/binary>>;
