@@ -45,7 +45,9 @@
     is_too_soon/1,  %% for testing
     send_otp/5, %% for testing
     send_otp_internal/6,
-    pick_gw/2,  %% for testing,
+    pick_gw/3,  %% for testing,
+    rand_weighted_selection/2,  %% for testing
+    max_weight_selection/1,  %% for testing
     generate_code/1,  %% for testing
     smart_send/6,  %% for testing
     send_otp_to_inviter/4, %% for testing
@@ -242,7 +244,7 @@ generate_code(Phone) ->
 %% TODO(vipin)
 %% On callback from the provider track (success, cost). Investigative logging to track missing
 %% callback.
--spec generate_gateway_list(Method :: method(), OldResponses :: [gateway_response()]) -> [atom()].
+-spec generate_gateway_list(Method :: method(), OldResponses :: [gateway_response()]) -> {boolean(), [atom()]}.
 generate_gateway_list(Method, OldResponses) ->
     {WorkingList, NotWorkingList} = lists:foldl(
         fun(#gateway_response{gateway = Gateway, method = Method2, status = Status}, {Working, NotWorking})
@@ -256,11 +258,16 @@ generate_gateway_list(Method, OldResponses) ->
            (#gateway_response{gateway = _Gateway, method = _Method, status = _Status}, {Working, NotWorking}) ->
                {Working, NotWorking}
         end, {[], []}, OldResponses),
-    
+
     WorkingSet = sets:from_list(WorkingList),
     NotWorkingSet = sets:from_list(NotWorkingList),
     ConsiderList = sms_gateway_list:get_sms_gateway_list(),
     ConsiderSet = sets:from_list(ConsiderList),
+
+    IsFirstAttempt = case {sets:size(WorkingSet), sets:size(NotWorkingSet)} of
+        {0, 0} -> true;
+        {_, _} -> false
+    end,
 
     %% Don't want to try using NotWorkingSet.
     GoodSet = sets:subtract(ConsiderSet, NotWorkingSet),
@@ -286,7 +293,7 @@ generate_gateway_list(Method, OldResponses) ->
     end,
     ToChooseFromList = sets:to_list(sets:intersection(ToChooseFromSet, ConsiderSet)), %% should be a subset of ConsiderList
     ?DEBUG("Choose from: ~p", [ToChooseFromList]),
-    ToChooseFromList.
+    {IsFirstAttempt, ToChooseFromList}.
 
 % TODO: migrate this logic to the filter_gateways API.
 -spec gateway_cc_filter(CC :: binary()) -> atom().
@@ -356,13 +363,13 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
     NewGateway = gateway_cc_filter(CC),
     {NewGateway2, ToChooseFromList} = case NewGateway of
         unrestricted ->
-            ChooseFromList = generate_gateway_list(Method, OldResponses),
+            {IsFirstAttempt, ChooseFromList} = generate_gateway_list(Method, OldResponses),
             ChooseFromList2 = filter_gateways(CC, Method, ChooseFromList),
             ConsiderList = sms_gateway_list:get_sms_gateway_list(),
             ConsiderSet = sets:from_list(ConsiderList),
 
             %% Pick one based on past performance.
-            {PickedGateway, NewPickedGateway} = pick_gw(ChooseFromList2, CC),
+            {PickedGateway, NewPickedGateway} = pick_gw(ChooseFromList2, CC, IsFirstAttempt),
             ?INFO("Old Selection: ~p, Current Selection: ~p, CC: ~p",
                 [PickedGateway, NewPickedGateway, CC]),
 
@@ -420,7 +427,7 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
                 [] ->
                     {error, Gateway, Reason};
                 _ -> % pick from curated list
-                    {PickedGateway, NewPickedGateway} = pick_gw(ToChooseFromList, CC),
+                    {PickedGateway, NewPickedGateway} = pick_gw(ToChooseFromList, CC, false),
                     ?INFO("Current Selection: ~p, Old Selection: ~p, CC: ~p",
                         [NewPickedGateway, PickedGateway, CC]),
                     NewSMSResponse = CurrentSMSResponse#gateway_response{gateway = NewPickedGateway},
@@ -431,23 +438,48 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
     end.
 
 
--spec pick_gw(ChooseFrom :: [atom()], CC :: binary()) -> {atom(), atom()}.
-pick_gw(ChooseFrom, CC) ->
+-spec pick_gw(ChooseFrom :: [atom()], CC :: binary(), IsFirstAttempt :: boolean()) -> {atom(), atom()}.
+pick_gw(ChooseFrom, CC, IsFirstAttempt) ->
     GWScores = get_gw_scores(ChooseFrom, CC),
     GWWeights = util:normalize_scores(GWScores),
     
     NewGWScores = get_new_gw_scores(ChooseFrom, CC),
     NewGWWeights = util:normalize_scores(NewGWScores),
-    
     RandNo = rand:uniform(),
 
-    {Picked, _LeftOver} = rand_weighted_selection(RandNo, GWWeights),
-    % simulate what we would pick if we used country-specific scores
-    {NewPicked, _NewLeftOver} = rand_weighted_selection(RandNo, NewGWWeights),
+    {Picked2, NewPicked2} = case IsFirstAttempt of
+        true ->
+            % Pick based on random weighted selection
+            {Picked, _LeftOver} = rand_weighted_selection(RandNo, GWWeights),
+            % Pick based on country-specific scores
+            {NewPicked, _NewLeftOver} = rand_weighted_selection(RandNo, NewGWWeights),
+            {Picked, NewPicked};
+        false ->
+            % Pick the gateway with the max score.
+            Picked3 = max_weight_selection(GWWeights),
+            NewPicked3 = max_weight_selection(NewGWWeights),
+            {Picked3, NewPicked3}
+    end,
 
-    ?DEBUG("Generated rand: ~p, Weights: ~p, Picked: ~p, New Weights: ~p, New Picked: ~p",
-        [RandNo, GWWeights, Picked, NewGWWeights, NewPicked]),
-    {lists:nth(Picked, ChooseFrom), lists:nth(NewPicked, ChooseFrom)}.
+    ?DEBUG("Generated rand: ~p, Weights: ~p, Picked: ~p, New Weights: ~p, New Picked: ~p, IsFirst: ~p",
+        [RandNo, GWWeights, Picked2, NewGWWeights, NewPicked2, IsFirstAttempt]),
+    {lists:nth(Picked2, ChooseFrom), lists:nth(NewPicked2, ChooseFrom)}.
+
+
+-spec max_weight_selection(Weights :: list()) -> integer().
+max_weight_selection(Weights) ->
+    %% If the weights are [0.5, 0.6, 0.3, 0.4], the second gateway will be chosen.
+    {PickedIdx, Len, Max2} = lists:foldl(
+        fun(XX, {I, J, Max}) ->
+            ?DEBUG("Processing : ~p, I: ~p, Old Max: ~p", [XX, I, Max]),
+            case XX > Max of
+                true -> {J + 1, J + 1, XX};
+                _ -> {I, J + 1, Max}
+            end
+        end, {0, 0, -0.1}, Weights),
+    ?DEBUG("Len: ~p, length: ~p, picked: ~p", [Len, length(Weights), Max2]),
+    Len = length(Weights),
+    PickedIdx.
 
 
 -spec rand_weighted_selection(RandNo :: float(), Weights :: list()) -> {integer(), float()}.
