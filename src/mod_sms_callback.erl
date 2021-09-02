@@ -125,7 +125,72 @@ process([<<"mbird">>],
         error : Reason : Stacktrace  ->
             ?ERROR("MessageBird SMS callback error: ~p, ~p", [Reason, Stacktrace]),
             util_http:return_500()
-    end.
+    end;
+
+% https://api.halloapp.net/api/smscallback/vonage
+%% https://developer.nexmo.com/concepts/guides/webhooks
+%% https://developer.nexmo.com/messaging/sms/guides/delivery-receipts
+%% Example Receipt:
+%%{
+%%  "err-code": "0",
+%%  "message-timestamp": "2018-10-25 12:10:29",
+%%  "messageId": "0B00000127FDBC63",
+%%  "msisdn": "447547232824",
+%%  "network-code": "23410",
+%%  "price": "0.03330000",
+%%  "scts": "1810251310",
+%%  "status": "delivered",
+%%  "to": "Vonage"
+%%}
+%%
+process([<<"vonage">>],
+    #request{method = 'GET', q = Q, ip = IP, headers = Headers} = Request) ->
+    try
+        ClientIP = util_http:get_ip(IP, Headers),
+        UserAgent = util_http:get_user_agent(Headers),
+        ?INFO("Vonage SMS callback: Query:~p ip:~s ua:~s, headers:~p",
+            [Q, ClientIP, UserAgent, Headers]),
+        % TODO: extract the fields
+%%        MsgId = proplists:get_value(<<"messageId">>, Q),
+%%        Recipient = proplists:get_value(<<"recipient">>, Q),
+%%        Status = vonage:normalized_status(proplists:get_value(<<"status">>, Q)),
+%%        Price = binary_to_list(proplists:get_value(<<"price">>, Q)),
+%%        RealPrice = case string:to_float(Price) of
+%%            {error, _} -> undefined;
+%%            {RealPrice2, []} -> RealPrice2
+%%        end,
+%%        Currency = <<"EUR">>,
+        %% token = request.headers.get("Authorization")[7:]
+        TokenFull = util_http:get_header(<<"Authorization">>, Headers),
+        Token = binary:part(TokenFull, 7, size(TokenFull) - 7),
+
+        JWK = #{
+            <<"kty">> => <<"oct">>,
+            <<"k">> => base64url:encode(vonage:get_api_secret())
+        },
+        case jose_jwt:verify(JWK, Token) of
+            {true, Data, Signature} ->
+                ?INFO("Vonage delivery receipt decoded: Data:~p, Sig:~p Q:~p",
+                    [Data, Signature, Q]);
+            Value ->
+                ?WARNING("Vonage failed to decode delviery Value:~p Request: ~p",
+                    [Value, Request])
+        end,
+
+%%                add_gateway_callback_info(
+%%                    #gateway_response{gateway_id = Id, gateway = mbird, status = Status,
+%%                        price = RealPrice, currency = Currency});
+
+        {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
+    catch
+        error : Reason : Stacktrace  ->
+            ?ERROR("Vonage SMS callback error: ~p, ~p", [Reason, Stacktrace]),
+            util_http:return_500()
+    end;
+
+process(Path, Request) ->
+    ?INFO("404 Not Found path: ~p, r:~p", [Path, Request]),
+    util_http:return_404().
 
 
 %% It turns out the gateway can sometimes give us callback at the same time
