@@ -120,23 +120,29 @@ connect_and_login(Uid, Keypair) ->
 -spec connect_and_login(Uid :: uid(), Keypair :: keypair(), Options :: options()) ->
         {ok, Client :: pid()} | {error, Reason :: term()}.
 connect_and_login(Uid, Keypair, Options) ->
-    {ok, C} = case maps:get(monitor, Options, false) of
+    StartResult = case maps:get(monitor, Options, false) of
         true ->
-            {ok, {Client, _Mon}} = start_monitor(Options),
-            {ok, Client};
+            case start_monitor(Options) of
+                {ok, {Client, _Mon}} -> {ok, Client};
+                {error, _} = Err -> Err
+            end;
         false ->
             start_link(Options)
     end,
-    Result = login(C, Uid, Keypair),
-    case Result of
-        #pb_auth_result{result_string = <<"success">>} ->
-            {ok, C};
-        #pb_auth_result{result_string = <<"failure">>, reason = Reason} ->
-            stop(C),
-            {error, Reason};
-        Any ->
-            stop(C),
-            {error, {unexpected_result, Any}}
+    case StartResult of
+        {ok, C} ->
+            Result = login(C, Uid, Keypair),
+            case Result of
+                #pb_auth_result{result_string = <<"success">>} ->
+                    {ok, C};
+                #pb_auth_result{result_string = <<"failure">>, reason = Reason} ->
+                    stop(C),
+                    {error, Reason};
+                Any ->
+                    stop(C),
+                    {error, {unexpected_result, Any}}
+            end;
+        {error, _} = Err1 -> Err1
     end.
 
 
