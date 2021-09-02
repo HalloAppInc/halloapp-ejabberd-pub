@@ -161,21 +161,21 @@ process([<<"vonage">>],
 %%        end,
 %%        Currency = <<"EUR">>,
         %% token = request.headers.get("Authorization")[7:]
-        TokenFull = util_http:get_header(<<"Authorization">>, Headers),
-        Token = binary:part(TokenFull, 7, size(TokenFull) - 7),
-
-        JWK = #{
-            <<"kty">> => <<"oct">>,
-            <<"k">> => base64url:encode(vonage:get_api_secret())
-        },
-        case jose_jwt:verify(JWK, Token) of
-            {true, Data, Signature} ->
-                ?INFO("Vonage delivery receipt decoded: Data:~p, Sig:~p Q:~p",
-                    [Data, Signature, Q]);
-            Value ->
-                ?WARNING("Vonage failed to decode delviery Value:~p Request: ~p",
-                    [Value, Request])
-        end,
+%%        TokenFull = util_http:get_header(<<"Authorization">>, Headers),
+%%        Token = binary:part(TokenFull, 7, size(TokenFull) - 7),
+%%
+%%        JWK = #{
+%%            <<"kty">> => <<"oct">>,
+%%            <<"k">> => base64url:encode(vonage:get_api_secret())
+%%        },
+%%        case jose_jwt:verify(JWK, Token) of
+%%            {true, Data, Signature} ->
+%%                ?INFO("Vonage delivery receipt decoded: Data:~p, Sig:~p Q:~p",
+%%                    [Data, Signature, Q]);
+%%            Value ->
+%%                ?WARNING("Vonage failed to decode delviery Value:~p Request: ~p",
+%%                    [Value, Request])
+%%        end,
 
 %%                add_gateway_callback_info(
 %%                    #gateway_response{gateway_id = Id, gateway = mbird, status = Status,
