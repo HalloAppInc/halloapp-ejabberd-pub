@@ -343,7 +343,7 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
 get_server() ->
     case config:is_prod_env() of
         true ->
-            util_aws:get_machine_name();
+            util:get_machine_name();
         false ->
             <<"localhost">>
     end.

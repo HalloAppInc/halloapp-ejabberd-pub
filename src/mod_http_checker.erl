@@ -41,13 +41,13 @@ ping_ports() ->
 %%====================================================================
 
 start(Host, Opts) ->
-    case util_aws:get_machine_name() of
+    case util:get_machine_name() of
         <<"s-test">> -> gen_mod:start_child(?MODULE, Host, Opts, ?PROC());
         _ -> ok
     end.
 
 stop(_Host) ->
-    case util_aws:get_machine_name() of
+    case util:get_machine_name() of
         <<"s-test">> -> gen_mod:stop_child(?PROC());
         _ -> ok
     end.

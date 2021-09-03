@@ -35,7 +35,7 @@
 
 start(_Host, _Opts) ->
     ?INFO("start ~w", [?MODULE]),
-    case util_aws:get_machine_name() of
+    case util:get_machine_name() of
         <<"s-test">> -> schedule();
         _ -> ok
     end,
@@ -44,7 +44,7 @@ start(_Host, _Opts) ->
 
 stop(_Host) ->
     ?INFO("stop ~w", [?MODULE]),
-    case util_aws:get_machine_name() of
+    case util:get_machine_name() of
         <<"s-test">> -> unschedule();
         _ -> ok
     end,

@@ -23,7 +23,7 @@
 
 start(_Host, _Opts) ->
     ?INFO("starting", []),
-    case util_aws:get_machine_name() of
+    case util:get_machine_name() of
         <<"s-test">> ->
             erlcron:cron(dump_accounts, {
                 {weekly, tue, {22, 00}},
@@ -41,7 +41,7 @@ start(_Host, _Opts) ->
 
 stop(_Host) ->
     ?INFO("stopping", []),
-    case util_aws:get_machine_name() of
+    case util:get_machine_name() of
         <<"s-test">> ->
             erlcron:cancel(dump_accounts),
             erlcron:cancel(weekly_retention);

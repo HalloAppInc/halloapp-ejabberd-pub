@@ -63,6 +63,8 @@ get_secret(SecretName) ->
             undefined
     end.
 
+
+%% In most cases, you should use util:get_machine_name instead
 -spec get_machine_name() -> binary().
 get_machine_name() ->
     %% TODO(murali@): cache this instead of querying everytime.

@@ -62,7 +62,8 @@
     maybe_base64_encode/1,
     maybe_base64_decode/1,
     yesterday/0,
-    normalize_scores/1
+    normalize_scores/1,
+    get_machine_name/0
 ]).
 
 
@@ -429,4 +430,10 @@ normalize_scores(ScoreList) ->
     Sum = lists:sum(ScoreList),
     NormalizedList = [XX/Sum || XX <- ScoreList],
     NormalizedList.
+
+
+-spec get_machine_name() -> binary().
+get_machine_name() ->
+    {ok, Name} = inet:gethostname(),
+    util:to_binary(Name).
 

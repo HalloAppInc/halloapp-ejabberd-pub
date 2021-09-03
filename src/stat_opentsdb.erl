@@ -44,7 +44,7 @@
 }.
 
 put_metrics(Metrics, TimestampMs) when is_map(Metrics) ->
-    MachineName = util_aws:get_machine_name(),
+    MachineName = util:get_machine_name(),
     put_metrics(maps:to_list(Metrics), TimestampMs, MachineName).
 
 put_metrics(Metrics, TimestampMs, MachineName) when length(Metrics) > ?MAX_DATAPOINTS_PER_REQUEST ->
