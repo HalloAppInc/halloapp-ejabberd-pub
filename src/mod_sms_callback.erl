@@ -18,6 +18,8 @@
 
 -define(CALLBACK_DELAY, 10 * ?SECONDS_MS).
 
+% called after
+-export([add_gateway_callback_info/2]).
 
 %% API
 -export([start/2, stop/1, reload/3, init/1, depends/2, mod_options/1]).
@@ -166,7 +168,7 @@ process([<<"vonage">>],
         Currency = <<"EUR">>,
         ?INFO("Delivery receipt Vonage: Phone: ~s Status: ~s MsgId:~s ErrCode:~s MCCMNC:~s Price:~p(~s)",
             [Phone, RealStatus, MsgId, ErrCode, MCCMNC, RealPrice, Currency]),
-
+%%        ok
         add_gateway_callback_info(
             #gateway_response{gateway_id = MsgId, gateway = vonage, status = Status,
                 price = RealPrice, currency = Currency})
@@ -188,12 +190,19 @@ process(Path, Request) ->
 %% TODO: it would be better to change this datastructure - needs more migration work.
 -spec add_gateway_callback_info(SMSResponse :: gateway_response()) -> ok.
 add_gateway_callback_info(SMSResponse) ->
+    add_gateway_callback_info(SMSResponse, 0).
+
+-spec add_gateway_callback_info(SMSResponse :: gateway_response(), Retries :: integer()) -> ok.
+add_gateway_callback_info(SMSResponse, Retries) when Retries > 2 ->
+    ?WARNING("Failed to store receipt ~p", [SMSResponse]),
+    ok;
+add_gateway_callback_info(SMSResponse, Retries) ->
     #gateway_response{status = Status} = SMSResponse,
     {ok, VerificationAttemptKey} = model_phone:get_verification_attempt_key(SMSResponse),
     case {Status, VerificationAttemptKey} of
         {undefined, _} -> ok;
         {_, undefined} ->
-            timer:apply_after(?CALLBACK_DELAY, model_phone, add_gateway_callback_info, [SMSResponse]);
+            timer:apply_after(?CALLBACK_DELAY, ?MODULE, add_gateway_callback_info, [SMSResponse, Retries + 1]);
         _ ->
             model_phone:add_gateway_callback_info(SMSResponse)
     end.
