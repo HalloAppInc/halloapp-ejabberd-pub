@@ -17,6 +17,7 @@
 -include("translate.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
+-callback init() -> ok.
 -callback can_send_sms(CC :: binary()) -> boolean().
 -callback can_send_voice_call(CC :: binary()) -> boolean().
 -callback send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),

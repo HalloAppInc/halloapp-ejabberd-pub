@@ -37,6 +37,7 @@ can_send_voice_call(_CC) ->
     % TODO: Voice calls are not implemented yet.
     false.
 
+%% https://docs.clickatell.com/channels/sms-channels/sms-api-reference/#operation/sendMessageREST_1
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent :: binary()) ->
         {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.
 send_sms(Phone, Code, LangId, UserAgent) ->
@@ -76,7 +77,8 @@ send_sms(Phone, Code, LangId, UserAgent) ->
     end.
 
 % TODO: Does not support voice calls yet
-send_voice_call(_Phone, _Code, _LangId, _UserAgent) ->
+send_voice_call(Phone, _Code, _LangId, _UserAgent) ->
+    ?ERROR("Clickatell voice calls are not implemented. Phone: ~s", [Phone]),
     {error, voice_call_fail, retry}.
 
 -spec normalized_status(IsAccepted :: boolean()) -> atom().
@@ -94,15 +96,19 @@ get_secret(Name, Key) ->
     Json = jiffy:decode(binary_to_list(mod_aws:get_secret(Name)), [return_maps]),
     binary_to_list(maps:get(Key, Json)).
 
+%% `from` and `mo` weren't found in the actual documentation.
+%% https://stackoverflow.com/questions/36584831/clickatell-http-api-send-message-fails-with-routing-error-status-9
 -spec compose_body(Phone, Message) -> Body when
     Phone :: phone(),
     Message :: string(),
     Body :: string().
 compose_body(Phone, Message) ->
-   Mp = #{<<"to">> => [Phone],
-          <<"from">> => util:to_binary(get_originator()),
-          <<"text">> => util:to_binary(Message),
-          <<"mo">> => <<"1">>},
+    Mp = #{
+       <<"to">> => [Phone],
+       <<"from">> => util:to_binary(get_originator()),
+       <<"text">> => util:to_binary(Message),
+       <<"mo">> => <<"1">>
+    },
     jiffy:encode(Mp).
 
 -spec get_originator() -> string().

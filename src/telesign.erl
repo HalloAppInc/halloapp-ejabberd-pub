@@ -25,8 +25,7 @@
 ]).
 
 init() ->
-    FromPhoneList = ["TBD"],
-    util_sms:init_helper(telesign_options, FromPhoneList).
+    ok.
 
 -spec can_send_sms(CC :: binary()) -> boolean().
 can_send_sms(_CC) ->
@@ -37,6 +36,7 @@ can_send_voice_call(_CC) ->
     % TODO: Voice calls are not implemented yet.
     false.
 
+%% https://enterprise.telesign.com/api-reference/apis/sms-verify-api/reference/post-verify-sms
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent :: binary()) ->
         {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.
 send_sms(Phone, Code, LangId, UserAgent) ->
@@ -75,7 +75,8 @@ send_sms(Phone, Code, LangId, UserAgent) ->
     end.
 
 % TODO: Does not support voice calls yet
-send_voice_call(_Phone, _Code, _LangId, _UserAgent) ->
+send_voice_call(Phone, _Code, _LangId, _UserAgent) ->
+    ?ERROR("Telesign voice calls are not implemented. Phone: ~s", [Phone]),
     {error, voice_call_fail, retry}.
 
 -spec normalized_status(Code :: integer()) -> atom().
@@ -113,7 +114,7 @@ get_secret(Name, Key) ->
     Body :: uri_string:uri_string().
 compose_body(Phone, Template, Code) ->
     uri_string:compose_query([
-        {"phone_number", Phone },
+        {"phone_number", Phone},
         {"verify_code", Code},
         {"template", Template}
     ], [{encoding, latin1}]).
