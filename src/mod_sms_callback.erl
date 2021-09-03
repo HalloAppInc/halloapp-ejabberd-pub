@@ -168,10 +168,10 @@ process([<<"vonage">>],
         Currency = <<"EUR">>,
         ?INFO("Delivery receipt Vonage: Phone: ~s Status: ~s MsgId:~s ErrCode:~s MCCMNC:~s Price:~p(~s)",
             [Phone, RealStatus, MsgId, ErrCode, MCCMNC, RealPrice, Currency]),
-%%        ok
         add_gateway_callback_info(
             #gateway_response{gateway_id = MsgId, gateway = vonage, status = Status,
-                price = RealPrice, currency = Currency})
+                price = RealPrice, currency = Currency}),
+        {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
     catch
         error : Reason : Stacktrace  ->
             ?ERROR("Vonage SMS callback error: ~p, ~p \nRequest:~p", [Reason, Stacktrace, Request]),
@@ -205,7 +205,8 @@ add_gateway_callback_info(SMSResponse, Retries) ->
             timer:apply_after(?CALLBACK_DELAY, ?MODULE, add_gateway_callback_info, [SMSResponse, Retries + 1]);
         _ ->
             model_phone:add_gateway_callback_info(SMSResponse)
-    end.
+    end,
+    ok.
 
 start(Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),
