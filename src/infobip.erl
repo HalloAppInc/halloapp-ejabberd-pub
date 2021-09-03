@@ -25,6 +25,7 @@
 ]).
 
 -define(BASE_SMS_URL, "https://k36v11.api.infobip.com/sms/2/text/advanced").
+-define(CALLBACK_URL, "https://api.halloapp.net/api/smscallback/infobip").
 
 init() ->
     ok.
@@ -155,7 +156,9 @@ compose_body(Phone, Message) ->
         messages => [#{
             from => <<"HalloApp">>, % TODO: maybe do phone numbers?
             destinations => [#{to => util:to_binary(PlusPhone)}],
-            text => util:to_binary(Message)
+            text => util:to_binary(Message),
+            notifyUrl => ?CALLBACK_URL,
+            notifyContentType => <<"application/json">>
     }]}).
 
 
