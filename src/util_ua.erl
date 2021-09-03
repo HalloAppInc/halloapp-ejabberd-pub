@@ -72,6 +72,7 @@ is_android_release(UserAgent) ->
 
 
 -spec is_valid_ua(binary()) -> boolean().
+is_valid_ua(undefined) -> false;
 is_valid_ua(UserAgent) ->
     is_android(UserAgent) orelse is_ios(UserAgent).
 
