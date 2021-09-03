@@ -89,12 +89,12 @@
 %%====================================================================
 
 -spec start_ping(binary(), session_info()) -> ok.
-start_ping(Host, SessionInfo) ->
+start_ping(_Host, SessionInfo) ->
     gen_server:cast(?PROC(), {start_ping, SessionInfo}).
 
 
 -spec stop_ping(binary(), session_info()) -> ok.
-stop_ping(Host, SessionInfo) ->
+stop_ping(_Host, SessionInfo) ->
     gen_server:cast(?PROC(), {stop_ping, SessionInfo}).
 
 %%====================================================================
@@ -110,8 +110,7 @@ stop(_Host) ->
 
 
 reload(Host, NewOpts, OldOpts) ->
-    Proc = gen_mod:get_module_proc(Host, ?MODULE),
-    gen_server:cast(Proc, {reload, Host, NewOpts, OldOpts}).
+    gen_server:cast(?PROC(), {reload, Host, NewOpts, OldOpts}).
 
 
 %%====================================================================
@@ -179,13 +178,11 @@ handle_info({iq_reply, timeout, SessionInfo}, State) ->
     {noreply, NewState};
 
 handle_info({timeout, _TRef, {ping, SessionInfo}}, State) ->
-    Host = State#state.host,
     Uid = SessionInfo#session_info.uid,
     {_, UserPid} = SessionInfo#session_info.sid,
     ?INFO("send_ping to Uid: ~p, SessionInfo: ~p", [Uid, SessionInfo]),
     IQ = #pb_iq{to_uid = SessionInfo#session_info.uid, type = get, payload = #pb_ping{}},
-    PingPid = gen_mod:get_module_proc(Host, ?MODULE),
-    ejabberd_iq:route(IQ, UserPid, PingPid, SessionInfo, ?ACK_TIMEOUT),
+    ejabberd_iq:route(IQ, UserPid, ?PROC(), SessionInfo, ?ACK_TIMEOUT),
     NewState = add_timer(SessionInfo, State),
     {noreply, NewState};
 
