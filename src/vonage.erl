@@ -22,6 +22,7 @@
     send_voice_call/4,
     send_feedback/2,
     get_api_secret/0,
+    normalized_status/1,
     compose_body/2     %% for debugging
 ]).
 
@@ -109,6 +110,24 @@ decode_response(ResBody) ->
                     {error, Status, ErrorText, Network}
             end
     end.
+
+-spec normalized_status(Status :: binary()) -> atom().
+normalized_status(<<"accepted">>) ->
+    accepted;
+normalized_status(<<"delivered">>) ->
+    delivered;
+normalized_status(<<"buffered">>) ->
+    queued;
+normalized_status(<<"expired">>) ->
+    failed;
+normalized_status(<<"failed">>) ->
+    failed;
+normalized_status(<<"rejected">>) ->
+    failed;
+normalized_status(<<"unknown">>) ->
+    unknown;
+normalized_status(_) ->
+    unknown.
 
 
 -spec get_api_key() -> string().

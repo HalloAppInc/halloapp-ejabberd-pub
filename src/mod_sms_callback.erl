@@ -132,59 +132,47 @@ process([<<"mbird">>],
 %% https://developer.nexmo.com/messaging/sms/guides/delivery-receipts
 %% Example Receipt:
 %%{
-%%  "err-code": "0",
-%%  "message-timestamp": "2018-10-25 12:10:29",
-%%  "messageId": "0B00000127FDBC63",
-%%  "msisdn": "447547232824",
-%%  "network-code": "23410",
-%%  "price": "0.03330000",
-%%  "scts": "1810251310",
-%%  "status": "delivered",
-%%  "to": "Vonage"
+%%    "msisdn": "12066585586",
+%%    "to": "18445443434",
+%%    "network-code": "310260",
+%%    "messageId": "15000001FDB8525C",
+%%    "price": "0.00828000",
+%%    "status": "delivered",
+%%    "scts": "2109022321",
+%%    "err-code": "0",
+%%    "api-key": "77939d62",
+%%    "message-timestamp": "2021-09-02 23:21:22"
 %%}
-%%
 process([<<"vonage">>],
-    #request{method = 'GET', q = Q, ip = IP, headers = Headers} = Request) ->
+    #request{method = 'POST', data = Data, ip = IP, headers = Headers} = Request) ->
     try
         ClientIP = util_http:get_ip(IP, Headers),
         UserAgent = util_http:get_user_agent(Headers),
-        ?INFO("Vonage SMS callback: Query:~p ip:~s ua:~s, headers:~p",
-            [Q, ClientIP, UserAgent, Headers]),
-        % TODO: extract the fields
-%%        MsgId = proplists:get_value(<<"messageId">>, Q),
-%%        Recipient = proplists:get_value(<<"recipient">>, Q),
-%%        Status = vonage:normalized_status(proplists:get_value(<<"status">>, Q)),
-%%        Price = binary_to_list(proplists:get_value(<<"price">>, Q)),
-%%        RealPrice = case string:to_float(Price) of
-%%            {error, _} -> undefined;
-%%            {RealPrice2, []} -> RealPrice2
-%%        end,
-%%        Currency = <<"EUR">>,
-        %% token = request.headers.get("Authorization")[7:]
-%%        TokenFull = util_http:get_header(<<"Authorization">>, Headers),
-%%        Token = binary:part(TokenFull, 7, size(TokenFull) - 7),
-%%
-%%        JWK = #{
-%%            <<"kty">> => <<"oct">>,
-%%            <<"k">> => base64url:encode(vonage:get_api_secret())
-%%        },
-%%        case jose_jwt:verify(JWK, Token) of
-%%            {true, Data, Signature} ->
-%%                ?INFO("Vonage delivery receipt decoded: Data:~p, Sig:~p Q:~p",
-%%                    [Data, Signature, Q]);
-%%            Value ->
-%%                ?WARNING("Vonage failed to decode delviery Value:~p Request: ~p",
-%%                    [Value, Request])
-%%        end,
+        ?INFO("Vonage SMS callback: Data:~p ip:~s ua:~s, headers:~p",
+            [Data, ClientIP, UserAgent, Headers]),
+        Payload = jiffy:decode(Data, [return_maps]),
+        MsgId = maps:get(<<"messageId">>, Payload),
+        Phone = maps:get(<<"msisdn">>, Payload),
+        From = maps:get(<<"to">>, Payload),
+        MCCMNC = maps:get(<<"network-code">>, Payload, undefined),
+        RealStatus = maps:get(<<"status">>, Payload),
+        Status = vonage:normalized_status(RealStatus),
+        ErrCode = maps:get(<<"err-code">>, Payload),
+        Price = binary_to_list(maps:get(<<"price">>, Payload)),
+        RealPrice = case string:to_float(Price) of
+            {error, _} -> undefined;
+            {RealPrice2, []} -> RealPrice2
+        end,
+        Currency = <<"EUR">>,
+        ?INFO("Delivery receipt Vonage: Phone: ~s Status: ~s MsgId:~s ErrCode:~s MCCMNC:~s Price:~p(~s)",
+            [Phone, RealStatus, MsgId, ErrCode, MCCMNC, RealPrice, Currency]),
 
-%%                add_gateway_callback_info(
-%%                    #gateway_response{gateway_id = Id, gateway = mbird, status = Status,
-%%                        price = RealPrice, currency = Currency});
-
-        {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
+        add_gateway_callback_info(
+            #gateway_response{gateway_id = MsgId, gateway = vonage, status = Status,
+                price = RealPrice, currency = Currency})
     catch
         error : Reason : Stacktrace  ->
-            ?ERROR("Vonage SMS callback error: ~p, ~p", [Reason, Stacktrace]),
+            ?ERROR("Vonage SMS callback error: ~p, ~p \nRequest:~p", [Reason, Stacktrace, Request]),
             util_http:return_500()
     end;
 
