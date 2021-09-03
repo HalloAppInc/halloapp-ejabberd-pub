@@ -60,24 +60,6 @@
     begin lager:critical([{fmt, Format}, {args, Args}], Format, Args), ok end).
 
 
-%% Keep the old ones for now.
-%% TODO(murali@): remove them eventually.
--define(INFO_MSG(Format, Args),
-    begin lager:info(Format, Args), ok end).
-
-
--define(WARNING_MSG(Format, Args),
-    begin lager:warning([{fmt, Format}, {args, Args}], Format, Args), ok end).
-
-
--define(ERROR_MSG(Format, Args),
-    begin lager:error([{fmt, Format}, {args, Args}], Format, Args), ok end).
-
-
--define(CRITICAL_MSG(Format, Args),
-    begin lager:critical([{fmt, Format}, {args, Args}], Format, Args), ok end).
-
-
 %% Use only when trying to troubleshoot test problem with ExUnit
 -define(EXUNIT_LOG(Format, Args),
         case lists:keyfind(logger, 1, application:loaded_applications()) of

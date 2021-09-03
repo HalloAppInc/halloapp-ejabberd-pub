@@ -68,11 +68,11 @@ process([<<"device">>],
         #request{method = 'POST', q = Q, data = Data, ip = IP} = _R) ->
     try
         {Uid, Phone, Version, _Msg} = parse_logs_query(Q),
-        ?INFO_MSG("Logs from Uid: ~p Phone: ~p Version: ~p: ip: ~p", [Uid, Phone, Version, IP]),
+        ?INFO("Logs from Uid: ~p Phone: ~p Version: ~p: ip: ~p", [Uid, Phone, Version, IP]),
         ok = check_data(Data),
         Date = iso8601:format(now()),
         ObjectKey = make_object_key(Uid, Phone, Date, Version),
-        ?INFO_MSG("ObjectKey: ~p", [ObjectKey]),
+        ?INFO("ObjectKey: ~p", [ObjectKey]),
 
         case upload_log(ObjectKey, Data) of
             ok ->
@@ -108,7 +108,7 @@ parse_logs_query(Q) ->
     Phone = proplists:get_value(<<"phone">>, Q, <<"NOPHONE">>),
     Version = proplists:get_value(<<"version">>, Q, <<"">>),
     Msg = proplists:get_value(<<"msg">>, Q, <<"">>),
-    ?INFO_MSG("~p ~p ~p ~p", [Uid, Phone, Version, Msg]),
+    ?INFO("~p ~p ~p ~p", [Uid, Phone, Version, Msg]),
     case Uid of
         <<"NOUID">> -> ok;
         _ ->

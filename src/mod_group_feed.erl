@@ -566,9 +566,9 @@ share_group_feed(Gid, Uid) ->
     GroupInfo = model_groups:get_group_info(Gid),
 
     FilteredPostIds = [P#post.id || P <- FilteredPosts],
-    ?INFO_MSG("sending Gid: ~s ToUid: ~s ~p posts and ~p comments",
+    ?INFO("sending Gid: ~s ToUid: ~s ~p posts and ~p comments",
             [Gid, Uid, length(PostStanzas), length(CommentStanzas)]),
-    ?INFO_MSG("sending Gid: ~s ToUid: ~s posts: ~p", [Gid, Uid, FilteredPostIds]),
+    ?INFO("sending Gid: ~s ToUid: ~s posts: ~p", [Gid, Uid, FilteredPostIds]),
     ejabberd_hooks:run(group_feed_share_old_items, Server,
             [Gid, Uid, length(PostStanzas), length(CommentStanzas)]),
     case PostStanzas of

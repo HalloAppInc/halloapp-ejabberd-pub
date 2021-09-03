@@ -330,7 +330,7 @@ get_groups(Uid) ->
 
 -spec remove_user(Uid :: uid(), Server :: binary()) -> ok.
 remove_user(Uid, _Server) ->
-    ?INFO_MSG("Uid: ~s", [Uid]),
+    ?INFO("Uid: ~s", [Uid]),
     Gids = model_groups:get_groups(Uid),
     lists:foreach(fun(Gid) -> leave_group(Gid, Uid) end, Gids),
     ok.

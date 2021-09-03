@@ -427,9 +427,9 @@ send_old_items(FromUid, ToUid, Server) ->
     FilteredPostIds = [P#post.id || P <- FilteredPosts],
     ok = model_feed:add_uid_to_audience(ToUid, FilteredPostIds),
 
-    ?INFO_MSG("sending FromUid: ~s ToUid: ~s ~p posts and ~p comments",
+    ?INFO("sending FromUid: ~s ToUid: ~s ~p posts and ~p comments",
         [FromUid, ToUid, length(PostStanzas), length(CommentStanzas)]),
-    ?INFO_MSG("sending FromUid: ~s ToUid: ~s posts: ~p",
+    ?INFO("sending FromUid: ~s ToUid: ~s posts: ~p",
         [FromUid, ToUid, FilteredPostIds]),
 
     ejabberd_hooks:run(feed_share_old_items, Server,

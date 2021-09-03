@@ -151,7 +151,7 @@ handle_cast({cleanup}, #state{new_user_map = NUMap} = State) ->
             NUS#new_user_stats.registered_at > util:now() - ?CLEANUP_INTERVAL
         end,
         NUMap),
-    ?INFO_MSG("cleanup old ~p -> new ~p", [maps:size(NUMap), maps:size(NUMap2)]),
+    ?INFO("cleanup old ~p -> new ~p", [maps:size(NUMap), maps:size(NUMap2)]),
     {noreply, State#state{new_user_map = NUMap2}};
 
 
