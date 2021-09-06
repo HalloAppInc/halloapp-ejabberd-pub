@@ -250,6 +250,7 @@ generate_gateway_list(Method, OldResponses) ->
         fun(#gateway_response{gateway = Gateway, method = Method2, status = Status}, {Working, NotWorking})
                 when Method2 =:= Method ->
             case Status of
+                canceled -> {Working, NotWorking ++ [Gateway]};
                 failed -> {Working, NotWorking ++ [Gateway]};
                 undelivered -> {Working, NotWorking ++ [Gateway]};
                 unknown -> {Working, NotWorking ++ [Gateway]};

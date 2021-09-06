@@ -37,6 +37,7 @@
     generate_password/0,
     type/1,
     to_integer/1,
+    to_float/1,
     to_atom/1,
     to_binary/1,
     to_list/1,
@@ -206,16 +207,47 @@ type(_X) ->
 
 -spec to_integer(any()) -> integer() | undefined.
 to_integer(Data) ->
-    case type(Data) of
-        "binary" -> binary_to_integer(Data);
-        "list" -> list_to_integer(Data);
-        "float" -> round(Data);
-        "integer" -> Data;
-        _ ->
-            ?ERROR("Failed converting data to integer: ~p", [Data]),
-            undefined
+    try
+        case type(Data) of
+            "binary" -> binary_to_integer(Data);
+            "list" -> list_to_integer(Data);
+            "float" -> round(Data);
+            "integer" -> Data;
+            _ ->
+                ?ERROR("Failed converting data to integer: ~p", [Data]),
+                undefined
+        end
+    catch _:badarg ->
+        ?ERROR("Failed converting data to integer: ~p", [Data]),
+        undefined
     end.
 
+
+-spec to_float(any()) -> float() | undefined.
+to_float(Data) ->
+    Str = to_list(Data),
+    case Str of
+        undefined ->
+            ?ERROR("Failed converting data to list: ~p", [Data]),
+            undefined;
+        _ ->
+            case string:to_float(Str) of
+                {error, _} ->
+                    Int = to_integer(Str),
+                    case Int of
+                        undefined ->
+                            ?ERROR("Failed converting data to float: ~p", [Data]),
+                            undefined;
+                        _ -> float(Int)
+                    end;
+                {Float, []} ->
+                    Float;
+                {_, _} ->
+                    ?ERROR("Failed converting data to float: ~p", [Data]),
+                    undefined
+            end
+    end.
+ 
 
 to_atom(Data) ->
     case type(Data) of

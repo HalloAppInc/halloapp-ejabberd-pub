@@ -18,7 +18,7 @@
 
 -define(TWILIO, <<"twilio">>).
 
--type status() :: accepted | queued | sending | sent | delivered | undelivered | failed | unknown.
+-type status() :: accepted | queued | sending | sent | delivered | undelivered | failed | canceled | unknown.
 
 -record(gateway_response, {
     gateway :: atom(),

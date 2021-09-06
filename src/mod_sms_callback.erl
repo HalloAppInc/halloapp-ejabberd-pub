@@ -254,6 +254,109 @@ process([<<"infobip">>],
             util_http:return_500()
     end;
 
+%% https://docs.clickatell.com/archive/channels/advanced-message-send-archived/callback-push-status-and-cost-notification/
+%% {
+%% "data": {
+%% "apiId": 105511,
+%% "apiMessageId": "b61bef4ab5aeb2770607c1c49721b440",
+%% "clientMessageId": "",
+%% "timestamp": 1437470173,
+%% "to": "27999044453",
+%% "from": "",
+%% "charge": 2.0,
+%% "messageStatus": "004"
+%% }
+%% }
+process([<<"clickatell">>],
+    #request{method = 'POST', data = Data, ip = IP, headers = Headers} = Request) ->
+    try
+        ClientIP = util_http:get_ip(IP, Headers),
+        UserAgent = util_http:get_user_agent(Headers),
+        ?INFO("Clickatell SMS callback: Data:~p ip:~s ua:~s, headers:~p",
+            [Data, ClientIP, UserAgent, Headers]),
+        Payload = jiffy:decode(Data, [return_maps]),
+        Data = maps:get(<<"data">>, Payload),
+        ApiId = maps:get(<<"apiId">>, Data),
+        MessageId = maps:get(<<"apiMessageId">>, Data),
+        ClientMessageId = maps:get(<<"clientMessageId">>, Data),
+        Timestamp = maps:get(<<"timestamp">>, Data),
+        To = maps:get(<<"to">>, Data),
+        From = maps:get(<<"from">>, Data),
+        Charge = util:to_float(maps:get(<<"charge">>, Data)),
+        Currency = <<"USD">>,
+        Status = util:to_integer(maps:get(<<"status">>, Data)),
+        Status2 = clickatell:normalized_status(Status),
+        ?INFO("Delivery receipt Clickatell: Phone(to): ~s, Phone(from): ~s, Status: ~s, "
+              "Status2: ~p, MessageId: ~p, ClientMessageId: ~p, "
+              "Charge: ~p, ApiId: ~p, Timestamp: ~p",
+            [To, From, Status, Status2, MessageId, ClientMessageId, Charge, ApiId, Timestamp]),
+        add_gateway_callback_info(
+            #gateway_response{gateway_id = MessageId, gateway = clickatell, status = Status2,
+                price = Charge, currency = Currency}),
+        {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
+    catch
+        error : Reason : Stacktrace  ->
+            ?ERROR("Clickatell SMS callback error: ~p, ~p~nRequest:~p", [Reason, Stacktrace, Request]),
+            util_http:return_500()
+    end;
+
+%% https://enterprise.telesign.com/api-reference/apis/sms-verify-api/reference/callback-service
+%% POST /callback_endpoint HTTP/1.1
+%% Host: your-callback-url.com
+%% { 
+%%   "status": { 
+%%      "updated_on": "2016-07-08T20:52:46.417428Z", 
+%%      "code": 200, 
+%%      "description": "Delivered to handset" 
+%%    }, 
+%%    "submit_timestamp": "2016-07-08T20:52:41.203000Z", 
+%%    "errors": [], 
+%%    "reference_id": "2557312299CC1304904080F4BE17BFB4",
+%%    "verify": { 
+%%      "code_state": "UNKNOWN", 
+%%      "code_entered": null 
+%%    }, 
+%%    "sub_resource": "sms", 
+%%    "additional_info": {
+%%     "message_parts_count": 1,
+%%     "price": "0.5112",
+%%     "mnc": "03",
+%%     "mcc": "220",
+%%     "currency": "USD"
+%%   }
+%% }
+process([<<"telesign">>],
+    #request{method = 'POST', data = Data, ip = IP, headers = Headers} = Request) ->
+    try
+        ClientIP = util_http:get_ip(IP, Headers),
+        UserAgent = util_http:get_user_agent(Headers),
+        ?INFO("Telesign SMS callback: Data:~p ip:~s ua:~s, headers:~p",
+            [Data, ClientIP, UserAgent, Headers]),
+        Payload = jiffy:decode(Data, [return_maps]),
+        StatusMap = maps:get(<<"status">>, Payload),
+        StatusCode = maps:get(<<"code">>, StatusMap),
+        Status = telesign:normalized_status(StatusCode),
+        StatusDescription = maps:get(<<"description">>, StatusMap),
+        ReferenceId = maps:get(<<"reference_id">>, Payload),
+        AdditionalInfo = maps:get(<<"additional_info">>, Payload),
+        Price = util:to_float(maps:get(<<"price">>, AdditionalInfo)),
+        Currency = maps:get(<<"currency">>, AdditionalInfo),
+        Mnc = maps:get(<<"mnc">>, AdditionalInfo),
+        Mcc = maps:get(<<"mcc">>, AdditionalInfo),
+        SubmitTimestamp = maps:get(<<"submit_timestamp">>, Payload),
+        ?INFO("Delivery receipt Telesign: Status: ~s, StatusDescr: ~p, MsgId:~s, Price:~p(~s) "
+            "Mnc: ~p, Mcc: ~p, SubmitTimestamp: ~p",
+            [StatusCode, StatusDescription, ReferenceId, Price, Currency, Mnc, Mcc, SubmitTimestamp]),
+        add_gateway_callback_info(
+            #gateway_response{gateway_id = ReferenceId, gateway = telesign, status = Status,
+                price = Price, currency = Currency}),
+        {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
+    catch
+        error : Reason : Stacktrace  ->
+            ?ERROR("Telesign SMS callback error: ~p, ~p~nRequest:~p", [Reason, Stacktrace, Request]),
+            util_http:return_500()
+    end;
+
 
 process(Path, Request) ->
     ?INFO("404 Not Found path: ~p, r:~p", [Path, Request]),

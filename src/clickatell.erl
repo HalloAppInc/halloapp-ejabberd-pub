@@ -21,7 +21,8 @@
     send_sms/4,
     send_voice_call/4,
     send_feedback/2,
-    compose_body/2     %% for debugging
+    compose_body/2,     %% for debugging
+    normalized_status/1
 ]).
 
 init() ->
@@ -62,9 +63,23 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             Messages = maps:get(<<"message">>, Data),
             [Message] = Messages,
             Id = maps:get(<<"apiMessageId">>, Message),
-            IsAccepted = maps:get(<<"accepted">>, Message),
-            Status = normalized_status(IsAccepted),
-            {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
+            Status = case maps:get(<<"accepted">>, Message) of
+                true -> accepted;
+                false -> undelivered
+            end,
+            %% TODO: Inspect error codes.
+            %% https://www.clickatell.com/developers/api-documentation/error-codes/
+            ErrorCode = maps:get(<<"errorCode">>, Message),
+            Error = maps:get(<<"error">>, Message),
+            ErrorDescr = maps:get(<<"errorDescription">>, Message),
+            ?INFO("SMS to Phone: ~p, gw: clickatell, Status: ~p, Id:~p, ErrorCode: ~p, Error: ~p, "
+                "Error descr: ~p", [Phone, Status, Id, ErrorCode, Error, ErrorDescr]),
+            case Status of
+                accepted ->
+                    {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
+                _ ->
+                    {error, sms_fail, retry}
+            end;
         {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}}->
             ?ERROR("Sending SMS failed Phone:~p, HTTPCode: ~p, response ~p",
                 [Phone, HttpStatus, Response]),
@@ -81,9 +96,34 @@ send_voice_call(Phone, _Code, _LangId, _UserAgent) ->
     ?ERROR("Clickatell voice calls are not implemented. Phone: ~s", [Phone]),
     {error, voice_call_fail, retry}.
 
--spec normalized_status(IsAccepted :: boolean()) -> atom().
-normalized_status(true) ->
-    accepted;
+%% https://www.clickatell.com/developers/api-documentation/message-status-codes/
+-spec normalized_status(StatusCode :: integer()) -> atom().
+normalized_status(1) ->
+    unknown;
+normalized_status(2) ->
+    queued;
+normalized_status(3) ->
+    delivered;
+normalized_status(4) ->
+    delivered;
+normalized_status(5) ->
+    failed;
+normalized_status(6) ->
+    canceled;
+normalized_status(7) ->
+    failed;
+normalized_status(9) ->
+    failed;
+normalized_status(10) ->
+    undelivered;
+normalized_status(11) ->
+    queued;
+normalized_status(12) ->
+    failed;
+normalized_status(13) ->
+    canceled;
+normalized_status(14) ->
+    undelivered;
 normalized_status(_) ->
     unknown.
 

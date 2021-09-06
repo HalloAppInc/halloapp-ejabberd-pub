@@ -21,7 +21,8 @@
     send_sms/4,
     send_voice_call/4,
     send_feedback/2,
-    compose_body/3     %% for debugging
+    compose_body/3,     %% for debugging
+    normalized_status/1
 ]).
 
 init() ->
@@ -60,17 +61,32 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             Json = jiffy:decode(ResBody, [return_maps]),
             Id = maps:get(<<"reference_id">>, Json),
             Status = maps:get(<<"status">>, Json),
-            Code2 = maps:get(<<"code">>, Status),
-            Status2 = normalized_status(Code2),
-            {ok, #gateway_response{gateway_id = Id, status = Status2, response = ResBody}};
+            StatusCode = maps:get(<<"code">>, Status),
+            Status2 = normalized_status(StatusCode),
+            AdditionalInfo = maps:get(<<"additional_info">>, Json),
+            Price = util:to_float(maps:get(<<"price">>, AdditionalInfo)),
+            Mnc = maps:get(<<"mnc">>, AdditionalInfo),
+            Mcc = maps:get(<<"mcc">>, AdditionalInfo),
+            ?INFO("SMS to Phone: ~p, gw: telesign, Status: ~p, Id:~p, StatusCode: ~p, Status2: ~p, "
+                "Price: ~p, Mnc: ~p, Mcc: ~p",
+                [Phone, Status, Id, StatusCode, Status2, Price, Mnc, Mcc]),
+            OkResponse = {ok, #gateway_response{gateway_id = Id, status = Status2, price = Price,
+                response = ResBody}},
+            FailedResponse = {error, sms_fail, retry},
+            case Status2 of
+                accepted -> OkResponse;
+                queued -> OkResponse;
+                sent -> OkResponse;
+                delivered -> OkResponse;
+                _ -> FailedResponse
+            end;
         {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}}->
             ?ERROR("Sending SMS failed Phone:~p, HTTPCode: ~p, response ~p",
                 [Phone, HttpStatus, Response]),
             {error, sms_fail, retry};
         _ ->
             % TODO: In all the gateways we don't retry in this case. But I'm not sure why.
-            ?ERROR("Sending SMS failed Phone:~p (no_retry) ~p",
-                [Phone, Response]),
+            ?ERROR("Sending SMS failed Phone:~p (no_retry) ~p", [Phone, Response]),
             {error, sms_fail, no_retry}
     end.
 
@@ -79,11 +95,47 @@ send_voice_call(Phone, _Code, _LangId, _UserAgent) ->
     ?ERROR("Telesign voice calls are not implemented. Phone: ~s", [Phone]),
     {error, voice_call_fail, retry}.
 
+%% https://enterprise.telesign.com/api-reference/apis/sms-verify-api/how-to-guides/verify-by-sms-with-your-own-code
 -spec normalized_status(Code :: integer()) -> atom().
 normalized_status(200) ->
     delivered;
+normalized_status(201) ->
+    delivered;
 normalized_status(203) ->
     sent;
+normalized_status(207) ->
+    undelivered;
+%% TODO: temporary phone error, maybe retry.
+normalized_status(210) ->
+    undelivered;
+normalized_status(211) ->
+    undelivered;
+normalized_status(220) ->
+    undelivered;
+normalized_status(221) ->
+    undelivered;
+normalized_status(222) ->
+    undelivered;
+normalized_status(229) ->
+    undelivered;
+normalized_status(230) ->
+    undelivered;
+normalized_status(231) ->
+    undelivered;
+normalized_status(233) ->
+    undelivered;
+normalized_status(234) ->
+    undelivered;
+normalized_status(237) ->
+    undelivered;
+normalized_status(238) ->
+    undelivered;
+normalized_status(250) ->
+    undelivered;
+normalized_status(251) ->
+    undelivered;
+normalized_status(286) ->
+    undelivered;
 normalized_status(290) ->
     accepted;
 normalized_status(291) ->
@@ -115,16 +167,10 @@ get_secret(Name, Key) ->
 compose_body(Phone, Template, Code) ->
     uri_string:compose_query([
         {"phone_number", Phone},
+        {"sender_id", ?HALLOAPP_SENDER_ID},
         {"verify_code", Code},
         {"template", Template}
     ], [{encoding, latin1}]).
-
-%%-spec get_originator() -> string().
-%%get_originator() ->
-%%    get_from_phone().
-%%
-%%get_from_phone() ->
-%%    util_sms:lookup_from_phone(clickatell_options).
 
 % TODO: Implement if sending feedback back to gateway
 -spec send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.
