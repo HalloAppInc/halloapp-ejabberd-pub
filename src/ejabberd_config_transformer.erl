@@ -168,23 +168,6 @@ transform_request_handlers(Opts) ->
 
 replace_request_handlers(Opts) ->
     Handlers = proplists:get_value(request_handlers, Opts, []),
-    Handlers1 =
-	lists:foldl(
-	  fun({register, true}, Acc) ->
-		  Handler = {<<"/register">>, mod_register_web},
-		  warn_replaced_handler(register, Handler),
-		  [Handler|Acc];
-	     ({web_admin, true}, Acc) ->
-		  Handler = {<<"/admin">>, ejabberd_web_admin},
-		  warn_replaced_handler(web_admin, Handler),
-		  [Handler|Acc];
-	     (_, Acc) ->
-		  Acc
-	  end, Handlers, Opts),
-    Handlers2 = lists:map(
-		  fun(PathMod) ->
-			  PathMod
-		  end, Handlers1),
     Opts1 = lists:filtermap(
 	      fun({captcha, _}) -> false;
 		 ({register, _}) -> false;
@@ -201,9 +184,9 @@ replace_request_handlers(Opts) ->
 		      false;
 		 (_) -> true
 	      end, Opts),
-    case Handlers2 of
+    case Handlers of
 	[] -> Opts1;
-	_ -> [{request_handlers, Handlers2}|Opts1]
+	_ -> [{request_handlers, Handlers}|Opts1]
     end.
 
 remove_xmlrpc_access_commands(Opts) ->
