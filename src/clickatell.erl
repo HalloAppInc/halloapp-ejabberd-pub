@@ -65,7 +65,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             IsAccepted = maps:get(<<"accepted">>, Message),
             Status = normalized_status(IsAccepted),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
-        {ok, {{_, HttpStatus, _}, _ResHeaders, ResBody}}->
+        {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}}->
             ?ERROR("Sending SMS failed Phone:~p, HTTPCode: ~p, response ~p",
                 [Phone, HttpStatus, Response]),
             {error, sms_fail, retry};

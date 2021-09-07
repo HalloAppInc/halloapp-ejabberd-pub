@@ -31,6 +31,10 @@
     active_users_types/0,
     engaged_users_types/0
 ]).
+-compile([{nowarn_unused_function, [
+    {q, 1},
+    {qp, 1}
+]}]).
 
 %%====================================================================
 %% API

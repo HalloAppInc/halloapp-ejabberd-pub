@@ -189,15 +189,6 @@ replace_request_handlers(Opts) ->
 	_ -> [{request_handlers, Handlers}|Opts1]
     end.
 
-remove_xmlrpc_access_commands(Opts) ->
-    lists:filter(
-      fun({access_commands, _}) ->
-	      warn_removed_option(access_commands, api_permissions),
-	      false;
-	 (_) ->
-	      true
-      end, Opts).
-
 remove_inet_options(Opts) ->
     lists:filter(
       fun({Opt, _}) when Opt == inet; Opt == inet6 ->
@@ -344,24 +335,9 @@ warn_replaced_module(From, To, Type) ->
 		 "replaced by ~ts with db_type: ~ts. ~ts",
 		 [From, To, Type, adjust_hint()]).
 
-warn_removed_module(Mod) ->
-    ?WARNING("Module ~ts is deprecated and was automatically "
-		 "removed from the configuration. ~ts", [Mod, adjust_hint()]).
-
-warn_replaced_handler(Opt, {Path, Module}) ->
-    ?WARNING("Listening option '~ts' is deprecated "
-		 "and was automatically replaced by "
-		 "HTTP request handler: \"~ts\" -> ~ts. ~ts",
-		 [Opt, Path, Module, adjust_hint()]).
-
 warn_deprecated_option(OldOpt, NewOpt) ->
     ?WARNING("Option '~ts' is deprecated. Use option '~ts' instead.",
 		 [OldOpt, NewOpt]).
-
-warn_replaced_option(OldOpt, NewOpt) ->
-    ?WARNING("Option '~ts' is deprecated and was automatically "
-		 "replaced by '~ts'. ~ts",
-		 [OldOpt, NewOpt, adjust_hint()]).
 
 warn_removed_option(Opt) ->
     ?WARNING("Option '~ts' is deprecated and has no effect anymore. "
@@ -376,10 +352,6 @@ warn_removed_module_option(Opt, Mod) ->
 		 "and has no effect anymore. ~ts",
 		 [Opt, Mod, adjust_hint()]).
 
-warn_huge_timeout(Opt, T) when is_integer(T), T >= 1000 ->
-    ?WARNING("Value '~B' of option '~ts' is too big, "
-		 "are you sure you have set seconds?",
-		 [T, Opt]);
 warn_huge_timeout(_, _) ->
     ok.
 

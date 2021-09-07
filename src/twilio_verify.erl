@@ -15,6 +15,7 @@
 -include("sms.hrl").
 
 -export([
+    init/0,
     can_send_sms/1,
     can_send_voice_call/1,
     send_sms/4,
@@ -26,6 +27,10 @@
 -define(TWILIO_VERIFY_ENG_LANG_ID, "en").
 -define(TTL_SMS_SID, 600).
 
+
+-spec init() -> ok.
+init() ->
+    ok.
 
 -spec can_send_sms(CC :: binary()) -> boolean().
 can_send_sms(_CC) ->
@@ -89,7 +94,7 @@ send_feedback(Phone, AllVerifyInfo) ->
         [AttemptId, Sid] ->
             case send_feedback_internal(Phone, AttemptId, Sid) of
                 ok -> ok;
-                {error, Response} ->
+                {error, _Response} ->
                     %% Try exactly one more time incase we fail to send feedback and log an error.
                     case send_feedback_internal(Phone, AttemptId, Sid) of
                         ok -> ok;
@@ -125,7 +130,7 @@ send_feedback_internal(Phone, AttemptId, Sid) ->
                 status = accepted, price = RealPrice},
             ok = model_phone:add_gateway_callback_info(GatewayResponse),
             ok;
-        {ok, {{_, 404, _}, _ResHeaders, ResBody}} ->
+        {ok, {{_, 404, _}, _ResHeaders, _ResBody}} ->
             ?INFO("Feedback info failed, Phone:~p AttemptId: ~p Response: ~p",
                 [Phone, AttemptId, Response]),
             ok;

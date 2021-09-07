@@ -20,6 +20,10 @@
     get_ip_address_info/2,
     delete_ip_address/2
 ]).
+-compile([{nowarn_unused_function, [
+    {q, 1},
+    {qp, 1}
+    ]}]).
 
 %%====================================================================
 %% API

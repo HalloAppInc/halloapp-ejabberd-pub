@@ -38,6 +38,9 @@
     get_invite_ttl/0
 ]).
 -endif.
+-compile([{nowarn_unused_function, [
+    {get_invite_ttl, 0}
+    ]}]).
 
 
 -define(INVITE_TTL, 90 * ?DAYS).

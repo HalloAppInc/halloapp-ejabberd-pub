@@ -124,7 +124,7 @@ handle_info({'DOWN', Ref , process, _Pid, normal}, #{mrefs := MRefs} = State) ->
             %% since reason is normal, it is okay to ignore this case
             %% it's probably an ha_client process closing
             MRefs;
-        Host ->
+        _Host ->
             %% this case means a spawned do_noise_login process
             %% closed, in which case record_state has already been called
             maps:remove(Ref, MRefs)

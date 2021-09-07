@@ -17,6 +17,7 @@
 
 %% API
 -export([
+    init/0,
     can_send_sms/1,
     can_send_voice_call/1,
     send_sms/4,
@@ -26,6 +27,9 @@
     verify_code/3
 ]).
 
+-spec init() -> ok.
+init() ->
+    ok.
 
 -spec can_send_sms(CC :: binary()) -> boolean().
 can_send_sms(_CC) ->

@@ -349,10 +349,7 @@ add_gateway_callback_info(GatewayResponse) ->
 get_verification_attempt_key(GatewayResponse) ->
     #gateway_response{
         gateway_id = GatewayId,
-        gateway = Gateway,
-        status = Status,
-        price = Price,
-        currency = Currency
+        gateway = Gateway
     } = GatewayResponse,
     GatewayResponseKey = gateway_response_key(Gateway, GatewayId),
     {ok, VerificationAttemptKey} = q(["HGET", GatewayResponseKey, ?FIELD_VERIFICATION_ATTEMPT]),

@@ -924,9 +924,9 @@ test_set_export_time(Uid, Ts) ->
 
 q(Command) -> ecredis:q(ecredis_accounts, Command).
 qp(Commands) -> ecredis:qp(ecredis_accounts, Commands).
-qn(Command, Node) -> ecredis:qn(ecredis_accounts, Node, Command).
+%%qn(Command, Node) -> ecredis:qn(ecredis_accounts, Node, Command).
 qmn(Commands) -> util_redis:run_qmn(ecredis_accounts, Commands).
-get_node_list() -> ecredis:get_nodes(ecredis_accounts).
+%%get_node_list() -> ecredis:get_nodes(ecredis_accounts).
 
 ts_reply(Res) ->
     case util_redis:decode_ts(Res) of

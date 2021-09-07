@@ -63,7 +63,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             Code2 = maps:get(<<"code">>, Status),
             Status2 = normalized_status(Code2),
             {ok, #gateway_response{gateway_id = Id, status = Status2, response = ResBody}};
-        {ok, {{_, HttpStatus, _}, _ResHeaders, ResBody}}->
+        {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}}->
             ?ERROR("Sending SMS failed Phone:~p, HTTPCode: ~p, response ~p",
                 [Phone, HttpStatus, Response]),
             {error, sms_fail, retry};
@@ -119,12 +119,12 @@ compose_body(Phone, Template, Code) ->
         {"template", Template}
     ], [{encoding, latin1}]).
 
--spec get_originator() -> string().
-get_originator() ->
-    get_from_phone().
-
-get_from_phone() ->
-    util_sms:lookup_from_phone(clickatell_options).
+%%-spec get_originator() -> string().
+%%get_originator() ->
+%%    get_from_phone().
+%%
+%%get_from_phone() ->
+%%    util_sms:lookup_from_phone(clickatell_options).
 
 % TODO: Implement if sending feedback back to gateway
 -spec send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.

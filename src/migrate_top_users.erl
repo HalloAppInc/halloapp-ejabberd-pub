@@ -44,7 +44,3 @@ top_users(Key, State) ->
     end,
     State.
 
-
-q(Client, Command) -> util_redis:q(Client, Command).
-qp(Client, Commands) -> util_redis:qp(Client, Commands).
-

@@ -200,6 +200,7 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %% then other servers cant encode this message because the record has a new field. 
 %% similarly the updated server cant encode it because it is missing a field.
 %% so this function helps us transform packets across servers.
+% TODO: cleanup this code if we no longer need it.
 upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
     case MsgPayload of
         #pb_group_stanza{} -> Msg;

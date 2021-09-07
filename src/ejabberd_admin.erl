@@ -686,10 +686,9 @@ set_loglevel(LogLevel) ->
 %%% Stop Kindly
 %%%
 
-stop_kindly(DelaySeconds, AnnouncementTextString) ->
+stop_kindly(DelaySeconds, _AnnouncementTextString) ->
     _Subject = (str:format("Server stop in ~p seconds!", [DelaySeconds])),
     WaitingDesc = (str:format("Waiting ~p seconds", [DelaySeconds])),
-    _AnnouncementText = list_to_binary(AnnouncementTextString),
     Steps = [
         {"Stopping ejabberd port listeners", ejabberd_listener, stop_listeners, []},
         {WaitingDesc, timer, sleep, [DelaySeconds * 1000]},
@@ -1175,7 +1174,7 @@ uid_info(Uid, Options) ->
             {ok, ContactList, NumFriends} = format_contact_list(Uid),
             ContactList2 = case lists:member(show_all_contacts, Options) of
                 true -> ContactList;
-                false -> lists:filter(fun({_, _, Uid, _}) -> Uid =/= "" end, ContactList)
+                false -> lists:filter(fun({_, _, AUid, _}) -> AUid =/= "" end, ContactList)
             end,
             io:format("Contact list (~p, ~p are friends):~n",
                 [length(ContactList2), NumFriends]),

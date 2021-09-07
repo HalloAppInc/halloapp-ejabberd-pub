@@ -39,7 +39,7 @@ get_queries() ->
     QueryFun :: fun((calendar:date()) -> athena_query()),
     FromDate :: calendar:date(),
     ToDate :: calendar:date().
-backfill(QueryFun, FromDate, ToDate)
+backfill(_QueryFun, FromDate, ToDate)
         when FromDate > ToDate ->
     ok;
 backfill(QueryFun, FromDate, ToDate)  ->

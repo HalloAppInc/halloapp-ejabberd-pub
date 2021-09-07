@@ -30,6 +30,10 @@
     sessions_key/1
 ]).
 -endif.
+-compile([{nowarn_unused_function, [
+    {q, 1},
+    {qp, 1}
+]}]).
 
 %%====================================================================
 %% API
@@ -84,10 +88,13 @@ get_passive_sessions(Uid) ->
         end, get_sessions(Uid)).
 
 
+% TODO: make sure this warning don't happen, then we can clean up.
 upgrade_session(#session{} = Session) -> Session;
 upgrade_session({session, SID, USR, US, Priority, _Mode, Info}) ->
+    ?WARNING("Should not happen SID:~p", [SID]),
     #session{sid = SID, usr = USR, us = US, priority = Priority, info = Info};
 upgrade_session({session, SID, USR, US, Priority, Info}) ->
+    ?WARNING("Should not happen SID:~p", [SID]),
     Mode = proplists:get_value(mode, Info),
     #session{sid = SID, usr = USR, us = US, priority = Priority, mode = Mode, info = Info}.
 

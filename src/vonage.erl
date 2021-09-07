@@ -76,7 +76,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
                         status = accepted,
                         response = ResBody}}
             end;
-        {ok, {{_, HttpStatus, _}, _ResHeaders, ResBody}}->
+        {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}}->
             ?ERROR("Sending SMS failed Phone:~p, HTTPCode: ~p, response ~p",
                 [Phone, HttpStatus, Response]),
             {error, sms_fail, retry};
