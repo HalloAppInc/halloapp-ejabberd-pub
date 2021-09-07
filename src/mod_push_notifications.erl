@@ -165,7 +165,7 @@ push_message(Message, #push_info{os = Os} = PushInfo)
         when Os =:= <<"ios">>; Os =:= <<"ios_dev">> ->
     mod_ios_push:push(Message, PushInfo);
 
-push_message(#pb_msg{id = MsgId, to_uid = Uid} = Message, #push_info{os = <<"ios_appclip">>}) ->
+push_message(#pb_msg{id = MsgId, to_uid = Uid}, #push_info{os = <<"ios_appclip">>}) ->
     ?INFO("ignoring ios_appclip push, Uid: ~p, MsgId: ~p", [Uid, MsgId]),
     ok.
 

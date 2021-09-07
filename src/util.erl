@@ -62,6 +62,7 @@
     maybe_base64_encode/1,
     maybe_base64_decode/1,
     yesterday/0,
+    day_before/1,
     normalize_scores/1,
     get_machine_name/0
 ]).
@@ -96,7 +97,7 @@ get_noise_key_material() ->
 
 
 get_noise_static_pubkey() ->
-    [{?NOISE_STATIC_KEY, NoiseStaticKeyPair}, {?NOISE_SERVER_CERTIFICATE, NoiseCertificate}] =
+    [{?NOISE_STATIC_KEY, NoiseStaticKeyPair}, {?NOISE_SERVER_CERTIFICATE, _NoiseCertificate}] =
             jsx:decode(mod_aws:get_secret(config:get_noise_secret_name())),
     NoiseStaticKey = base64:decode(NoiseStaticKeyPair),
     [{_, ServerStaticPubKey, _}, {_, _, _}] = public_key:pem_decode(NoiseStaticKey),

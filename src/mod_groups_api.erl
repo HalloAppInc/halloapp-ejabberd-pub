@@ -512,10 +512,6 @@ group_info_to_group_st(GroupInfo) ->
     }.
 
 
--spec make_group_st(Group :: group()) -> pb_group_stanza().
-make_group_st(Group) ->
-    make_group_st(Group, set).
-
 -spec make_group_st(Group :: group(), Action :: atom()) -> pb_group_stanza().
 make_group_st(Group, Action) ->
     Description = case Action of

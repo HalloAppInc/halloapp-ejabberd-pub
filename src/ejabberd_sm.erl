@@ -70,7 +70,9 @@
     host_up/1,
     host_down/1,
     make_sid/0,
-    config_reloaded/0
+    config_reloaded/0,
+    get_passive_sessions/2,
+    get_passive_sessions/3
 ]).
 
 %% TODO(murali@): This module has to be refactored soon!!

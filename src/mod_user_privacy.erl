@@ -167,7 +167,7 @@ privacy_check_packet(allow, _State, #pb_presence{type = Type}, out = _Dir)
     %% always allow presence stanzas updating their own status.
     allow;
 
-privacy_check_packet(allow, _State, #pb_presence{type = Type} = Packet, out = Dir)
+privacy_check_packet(allow, _State, #pb_presence{type = Type} = Packet, out = _Dir)
         when Type =:= subscribe; Type =:= unsubscribe ->
     %% inspect requests to another user's presence.
     %% subscribe and unsubscribe requests must be checked from receiver's perspective.

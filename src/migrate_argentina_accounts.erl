@@ -63,7 +63,7 @@ adjust_phones_run(Key, State) ->
     Result = re:run(Key, "^pho.*:([0-9]+)$", [global, {capture, all, binary}]),
     DryRun = maps:get(dry_run, State, false),
     case Result of
-        {match, [[FullKey, Phone]]} ->
+        {match, [[_FullKey, Phone]]} ->
             case Phone of
                 <<"549", _Rest/binary>> -> ok;
                 <<"54", Rest/binary>> ->

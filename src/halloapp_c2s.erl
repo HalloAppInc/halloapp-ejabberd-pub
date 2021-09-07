@@ -204,7 +204,7 @@ upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
     case MsgPayload of
         #pb_group_stanza{} -> Msg;
         %% pb_group_stanza
-        {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members, Background, AudienceHash, Description} ->
+        {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members, Background, AudienceHash, _Description} ->
             NewMsgPayload = #pb_group_stanza{
                 action = Action,
                 gid = Gid,
@@ -339,13 +339,7 @@ process_terminated(State, _Reason) ->
 %%%===================================================================
 
 
-tls_options(#{lserver := LServer, tls_options := DefaultOpts}) ->
-    %% commented out when ejabberd_pkix was removed
-%%    TLSOpts = case ejabberd_pkix:get_certfile(LServer) of
-%%        error -> DefaultOpts;
-%%        {ok, CertFile} -> lists:keystore(certfile, 1, DefaultOpts, {certfile, CertFile})
-%%    end,
-%%    TLSOpts.
+tls_options(#{tls_options := DefaultOpts}) ->
     DefaultOpts.
 
 noise_options(#{lserver := _LServer, noise_options := DefaultOpts}) ->

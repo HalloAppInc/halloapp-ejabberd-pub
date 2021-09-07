@@ -799,14 +799,14 @@ notify_contact_about_user(UserId, UserPhone, ContactId, Role, MessageType, Conta
     notifications_util:send_contact_notification(UserId, UserPhone, ContactId,
             Role, MessageType, ContactListType).
 
-
--spec probe_contact_about_user(UserId :: binary(), UserPhone :: binary(),
-        Server :: binary(), ContactId :: binary()) -> ok.
-probe_contact_about_user(UserId, UserPhone, Server, ContactId) ->
-    ?INFO("UserId: ~s, ContactId: ~s", [UserId, ContactId]),
-    <<HashValue:?PROBE_HASH_LENGTH_BYTES/binary, _Rest/binary>> = crypto:hash(sha256, UserPhone),
-    send_probe_message(UserId, HashValue, ContactId, Server),
-    ok.
+%% Keep for now.
+%%-spec probe_contact_about_user(UserId :: binary(), UserPhone :: binary(),
+%%        Server :: binary(), ContactId :: binary()) -> ok.
+%%probe_contact_about_user(UserId, UserPhone, Server, ContactId) ->
+%%    ?INFO("UserId: ~s, ContactId: ~s", [UserId, ContactId]),
+%%    <<HashValue:?PROBE_HASH_LENGTH_BYTES/binary, _Rest/binary>> = crypto:hash(sha256, UserPhone),
+%%    send_probe_message(UserId, HashValue, ContactId, Server),
+%%    ok.
 
 
 -spec send_probe_message(UserId :: binary(), HashValue :: binary(),

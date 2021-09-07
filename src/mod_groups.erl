@@ -284,7 +284,7 @@ get_member_identity_keys_unsafe(Group) ->
         end, [], GroupMembers2),
     XorIKList = case length(IKList) of
         0 -> [];
-        Len ->
+        _Len ->
             Start = [0 || _ <- lists:seq(1, byte_size(lists:last(IKList)))],
             lists:foldl(fun(XX, Acc) ->
                 lists:zipwith(fun(X, Y) -> X bxor Y end, Acc, util:to_list(XX))
