@@ -575,6 +575,7 @@ message Msg {
         GroupFeedRerequest group_feed_rerequest = 28;
         HistoryResend history_resend = 29;
         PlayedReceipt played_receipt = 30;
+        RequestLogs request_logs = 31;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
@@ -906,6 +907,10 @@ message IdentityKey {
   bytes public_key = 1;
 }
 
+// Logs request
+message RequestLogs {
+  int64 timestamp = 1;
+}
 
 // Registration
 

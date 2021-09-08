@@ -262,6 +262,13 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_group_feed_rerequest{} = _Payload}
         push_type = silent
     };
 
+parse_metadata(#pb_msg{id = Id, payload = #pb_request_logs{} = _Payload} = _Message, _PushInfo) ->
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"pb_request_logs">>,
+        push_type = silent
+    };
+
 parse_metadata(#pb_msg{to_uid = Uid, id = Id}, _PushInfo) ->
     ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     #push_metadata{}.

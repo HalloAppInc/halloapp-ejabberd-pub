@@ -12,7 +12,8 @@
 -include("packets.hrl").
 
 -export([
-    send_contact_notification/6
+    send_contact_notification/6,
+    send_request_logs_notification/1
 ]).
 
 
@@ -42,5 +43,19 @@ send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, Conta
     },
     ?DEBUG("Notifying contact: ~p about user: ~p using stanza: ~p",
             [{ContactId, Server}, UserId, Stanza]),
+    ejabberd_router:route(Stanza).
+
+
+-spec send_request_logs_notification(Uid :: binary()) -> ok.
+send_request_logs_notification(Uid) ->
+    Timestamp = util:now(),
+    Payload = #pb_request_logs{timestamp = Timestamp},
+    MsgId = util_id:new_msg_id(),
+    Stanza = #pb_msg{
+        id = MsgId,
+        to_uid = Uid,
+        payload = Payload
+    },
+    ?INFO("sending request_logs msgId: ~p, Uid: ~p", [MsgId, Uid]),
     ejabberd_router:route(Stanza).
 

@@ -84,7 +84,9 @@
     get_commands_spec/0,
     hotswap_modules/0,
     get_full_sync_error_percent/0,
-    get_full_sync_retry_time/0
+    get_full_sync_retry_time/0,
+    request_phone_logs/1,
+    request_uid_logs/1
 ]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -481,6 +483,18 @@ get_commands_spec() ->
         args_example = [<<"123">>, <<"alert">>, <<"GgMSAUg=">>],
         args=[{uid, binary}, {push_type, binary}, {payload, binary}],
         result = {res, rescode}},
+    #ejabberd_commands{name = request_phone_logs, tags = [server],
+        desc = "Send request_logs notification",
+        module = ?MODULE, function = request_phone_logs,
+        args_desc = ["Phone"],
+        args_example = [<<"14703381473">>],
+        args=[{phone, binary}], result = {res, rescode}},
+    #ejabberd_commands{name = request_uid_logs, tags = [server],
+        desc = "Send request_logs notification",
+        module = ?MODULE, function = request_uid_logs,
+        args_desc = ["Uid"],
+        args_example = [<<"1000000024384563984">>],
+        args=[{uid, binary}], result = {res, rescode}},
     #ejabberd_commands{name = reset_sms_backoff, tags = [server],
         desc = "Delete the SMS gateway history for a phone number",
         module = ?MODULE, function = reset_sms_backoff,
@@ -1363,3 +1377,26 @@ is_my_host(Host) ->
     try ejabberd_router:is_my_host(Host)
     catch _:{invalid_domain, _} -> false
     end.
+
+
+-spec request_phone_logs(Phone :: binary()) -> ok.
+request_phone_logs(Phone) ->
+    case model_phone:get_uid(Phone) of
+        {ok, Uid} ->
+            request_uid_logs(Uid),
+            io:format("Sent request_logs notification to phone: ~s~n", [Phone]);
+        _ ->
+            io:format("No account associated with phone: ~s~n", [Phone])
+    end.
+
+
+-spec request_uid_logs(Uid :: binary()) -> ok.
+request_uid_logs(Uid) ->
+    case model_accounts:get_account(Uid) of
+        {ok, _Account} ->
+            notifications_util:send_request_logs_notification(Uid),
+            io:format("Sent request_logs notification to uid: ~s~n", [Uid]);
+        _ ->
+            io:format("No account associated with uid: ~s~n", [Uid])
+    end.
+
