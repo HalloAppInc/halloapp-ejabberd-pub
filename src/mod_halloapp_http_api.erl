@@ -472,10 +472,14 @@ check_blocked(IP, Phone, UserAgent, IsNoise) ->
         false ->
             CC = mod_libphonenumber:get_cc(Phone),
             ?DEBUG("CC: ~p", [CC]),
-            Result1 = is_ip_blocked(IP, CC),
+            Result1 = is_ip_blocked(IP, CC, UserAgent),
             PhonePattern = extract_phone_pattern(Phone, CC, UserAgent),
-            Result2 = is_phone_pattern_blocked(PhonePattern, CC),
-            ?INFO("IP: ~s blocked result: ~p, Phone: ~p, CC: ~p pattern: ~p blocked result: ~p", [IP, Result1, Phone, CC, PhonePattern, Result2]),
+            ?DEBUG("Phone Pattern: ~p", [PhonePattern]),
+            Result2 = case PhonePattern =:= Phone of
+                true -> false;
+                false -> is_phone_pattern_blocked(PhonePattern, CC)
+            end,
+            ?INFO("IP: ~s blocked result: ~p, Phone: ~p, CC: ~p pattern: ~p blocked result: ~p, UA: ~p", [IP, Result1, Phone, CC, PhonePattern, Result2, UserAgent]),
             case {Result1, Result2} of
                 {false, false} -> ok;
                 {{true, RetrySecs1}, false} -> {error, retried_too_soon, RetrySecs1};
@@ -490,24 +494,34 @@ check_blocked(IP, Phone, UserAgent, IsNoise) ->
 
 extract_phone_pattern(Phone, CC, UserAgent) ->
     TruncateLen = case {CC, util_ua:is_blockable(UserAgent)} of
-        {<<"AZ">>, _} -> 7;
-        {<<"ES">>, true} -> 6;
-        {<<"ES">>, false} -> 5;
-        {<<"IQ">>, _} -> 5;
+        {<<"AZ">>, true} -> 7;
+        {<<"AZ">>, false} -> 0;
+        {<<"ES">>, true} -> 7;
+        {<<"ES">>, false} -> 0;
+        {<<"IQ">>, true} -> 7;
+        {<<"IQ">>, false} -> 0;
         {<<"KG">>, true} -> 7;
-        {<<"KG">>, false} -> 5;
-        {<<"KZ">>, _} -> 5;
-        {<<"LV">>, _} -> 5;
-        {<<"LS">>, _} -> 5;
-        {<<"MD">>, _} -> 5;
-        {<<"MR">>, _} -> 5;
+        {<<"KG">>, false} -> 0;
+        {<<"KZ">>, true} -> 7;
+        {<<"KZ">>, false} -> 0;
+        {<<"LV">>, true} -> 7;
+        {<<"LV">>, false} -> 0;
+        {<<"LS">>, true} -> 7;
+        {<<"LS">>, false} -> 0;
+        {<<"MD">>, true} -> 7;
+        {<<"MD">>, false} -> 0;
+        {<<"MR">>, true} -> 7;
+        {<<"MR">>, false} -> 0;
         {<<"PK">>, true} -> 7;
-        {<<"PK">>, false} -> 5;
+        {<<"PK">>, false} -> 0;
         {<<"RU">>, true} -> 7;
-        {<<"RU">>, false} -> 4;
-        {<<"TN">>, _} -> 5;
-        {<<"UZ">>, _} -> 5;
-        _ -> 3
+        {<<"RU">>, false} -> 0;
+        {<<"TN">>, true} -> 7;
+        {<<"TN">>, false} -> 0;
+        {<<"UZ">>, true} -> 7;
+        {<<"UZ">>, false} -> 0;
+        {_, true} -> 3;
+        {_, false} -> 0
     end,
     PhonePatternLength = byte_size(Phone) - TruncateLen,
     <<PhonePattern:PhonePatternLength/binary, _Last/binary>> = Phone,
@@ -611,6 +625,14 @@ delete_client_ip(IP, Phone) ->
 delete_phone_pattern(Phone, UserAgent) ->
     CC = mod_libphonenumber:get_region_id(Phone),
     model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC, UserAgent)).
+
+
+-spec is_ip_blocked(IP :: list(), CC :: binary(), UserAgent :: binary()) -> false | {true, integer()}.
+is_ip_blocked(IP, CC, UserAgent) ->
+    case util_ua:is_blockable(UserAgent) of
+        false -> false;
+        true -> is_ip_blocked(IP, CC)
+    end.
 
 
 -spec is_ip_blocked(IP :: list(), CC :: binary()) -> false | {true, integer()}.
