@@ -302,6 +302,7 @@ gateway_cc_filter(CC) ->
     case CC of
         <<"AE">> -> twilio;     %% UAE
         <<"AM">> -> twilio;     %% Armenia
+        <<"BE">> -> twilio_verify;     %% Belgium
         <<"BG">> -> twilio;     %% Bulgaria
         <<"BL">> -> twilio_verify;     %% Belarus
         <<"CN">> -> twilio_verify;     %% China, check once vetting is done
