@@ -43,7 +43,7 @@
     request_sms/2,
     request_otp/4,
     verify_sms/2,
-    is_too_soon/1,  %% for testing
+    is_too_soon/2,  %% for testing
     send_otp/5, %% for testing
     send_otp_internal/6,
     pick_gw/3,  %% for testing,
@@ -167,7 +167,7 @@ send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
         Method :: method()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
     {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
-    case is_too_soon(OldResponses) of
+    case is_too_soon(Method, OldResponses) of
         {true, WaitTs} -> {error, retried_too_soon, WaitTs};
         {false, _} ->
             stat:count("HA/registration", "send_otp"),
@@ -193,10 +193,23 @@ send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
 
 %%====================================================================
 
--spec is_too_soon(OldResponses :: [gateway_response()]) -> {boolean(), integer()}.
-is_too_soon(OldResponses) ->
-    NextTs = find_next_ts(OldResponses),
-    {NextTs > util:now(), NextTs - util:now()}.
+-spec is_too_soon(Method :: method(), OldResponses :: [gateway_response()]) -> {boolean(), integer()}.
+is_too_soon(Method, OldResponses) ->
+    ReverseOldResponses = lists:reverse(OldResponses),
+    SmsResponses = lists:filter(
+        fun(#gateway_response{method = Method2}) ->
+            Method2 =/= voice_call
+        end, ReverseOldResponses),
+    ?DEBUG("Sms: ~p", [SmsResponses]),
+    Len = length(SmsResponses),
+    case {Method, Len} of
+        {voice_call, 0} ->
+            ?INFO("Rejecting: ~p, Prev non voice len: ~p, OldResponses: ~p", [Method, Len, OldResponses]),
+            {true, 30};
+        {_, _} ->
+            NextTs = find_next_ts(OldResponses),
+            {NextTs > util:now(), NextTs - util:now()}
+    end.
 
 
 -spec find_next_ts(OldResponses :: [gateway_response()]) -> non_neg_integer().

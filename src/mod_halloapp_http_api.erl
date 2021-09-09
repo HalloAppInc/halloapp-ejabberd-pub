@@ -514,38 +514,88 @@ check_blocked(IP, Phone, UserAgent, IsNoise) ->
 
 extract_phone_pattern(Phone, CC, UserAgent) ->
     TruncateLen = case {CC, util_ua:is_blockable(UserAgent)} of
+        {<<"AD">>, true} -> 7;
+        {<<"AD">>, false} -> 3;
+        {<<"AF">>, true} -> 7;
+        {<<"AF">>, false} -> 3;
         {<<"AZ">>, true} -> 7;
-        {<<"AZ">>, false} -> 5;
+        {<<"AZ">>, false} -> 3;
+        {<<"BE">>, true} -> 7;
+        {<<"BE">>, false} -> 3;
+        {<<"BF">>, true} -> 7;
+        {<<"BF">>, false} -> 3;
+        {<<"BS">>, true} -> 7;
+        {<<"BS">>, false} -> 3;
+        {<<"BY">>, true} -> 7;
+        {<<"BY">>, false} -> 3;
+        {<<"CH">>, true} -> 7;
+        {<<"CH">>, false} -> 3;
+        {<<"CW">>, true} -> 7;
+        {<<"CW">>, false} -> 3;
+        {<<"EE">>, true} -> 7;
+        {<<"EE">>, false} -> 3;
         {<<"ES">>, true} -> 7;
         {<<"ES">>, false} -> 3;
+        {<<"GB">>, true} -> 7;
+        {<<"GB">>, false} -> 3;
+        {<<"GW">>, true} -> 7;
+        {<<"GW">>, false} -> 3;
+        {<<"GN">>, true} -> 7;
+        {<<"GN">>, false} -> 3;
+        {<<"GG">>, true} -> 7;
+        {<<"GG">>, false} -> 3;
+        {<<"DZ">>, true} -> 7;
+        {<<"DZ">>, false} -> 3;
         {<<"IQ">>, true} -> 7;
         {<<"IQ">>, false} -> 3;
+        {<<"IR">>, true} -> 7;
+        {<<"IR">>, false} -> 3;
         {<<"KG">>, true} -> 7;
         {<<"KG">>, false} -> 3;
         {<<"KZ">>, true} -> 7;
         {<<"KZ">>, false} -> 3;
         {<<"KW">>, true} -> 7;
-        {<<"KW">>, false} -> 5;
+        {<<"KW">>, false} -> 3;
+        {<<"KE">>, true} -> 7;
+        {<<"KE">>, false} -> 3;
+        {<<"LT">>, true} -> 7;
+        {<<"LT">>, false} -> 3;
         {<<"LV">>, true} -> 7;
         {<<"LV">>, false} -> 3;
         {<<"LS">>, true} -> 7;
         {<<"LS">>, false} -> 3;
+        {<<"LK">>, true} -> 7;
+        {<<"LK">>, false} -> 3;
         {<<"MD">>, true} -> 7;
         {<<"MD">>, false} -> 3;
+        {<<"ML">>, true} -> 7;
+        {<<"ML">>, false} -> 3;
         {<<"MR">>, true} -> 7;
         {<<"MR">>, false} -> 3;
+        {<<"MK">>, true} -> 7;
+        {<<"MK">>, false} -> 3;
         {<<"PK">>, true} -> 7;
         {<<"PK">>, false} -> 3;
         {<<"RU">>, true} -> 7;
         {<<"RU">>, false} -> 3;
+        {<<"SD">>, true} -> 7;
+        {<<"SD">>, false} -> 3;
+        {<<"SN">>, true} -> 7;
+        {<<"SN">>, false} -> 3;
         {<<"TN">>, true} -> 7;
         {<<"TN">>, false} -> 3;
+        {<<"TR">>, true} -> 7;
+        {<<"TR">>, false} -> 3;
+        {<<"TZ">>, true} -> 7;
+        {<<"TZ">>, false} -> 3;
+        {<<"TW">>, true} -> 7;
+        {<<"TW">>, false} -> 3;
         {<<"UZ">>, true} -> 7;
         {<<"UZ">>, false} -> 3;
         {<<"UA">>, true} -> 7;
-        {<<"UA">>, false} -> 5;
-        {_, true} -> 3;
-        {_, false} -> 0
+        {<<"UA">>, false} -> 3;
+        {_, true} -> 5;
+        {_, false} -> 3
     end,
     PhonePatternLength = byte_size(Phone) - TruncateLen,
     <<PhonePattern:PhonePatternLength/binary, _Last/binary>> = Phone,
