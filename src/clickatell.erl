@@ -129,12 +129,7 @@ normalized_status(_) ->
 
 -spec get_auth_token() -> string().
 get_auth_token() ->
-    get_secret(<<"Clickatell">>, <<"auth_token">>).
-
--spec get_secret(Name :: binary(), Key :: binary()) -> string().
-get_secret(Name, Key) ->
-    Json = jiffy:decode(binary_to_list(mod_aws:get_secret(Name)), [return_maps]),
-    binary_to_list(maps:get(Key, Json)).
+    mod_aws:get_secret_value(<<"Clickatell">>, <<"auth_token">>).
 
 %% `from` and `mo` weren't found in the actual documentation.
 %% https://stackoverflow.com/questions/36584831/clickatell-http-api-send-message-fails-with-routing-error-status-9

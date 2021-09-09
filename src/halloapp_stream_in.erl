@@ -772,10 +772,10 @@ send_error(#{user := Uid} = State, Err) ->
         _ when Err =:= shutdown; Err =:= replaced ->
             ?INFO("Sending ~p and stoping", [Err]);
         _ when Err =:= session_kicked; Err =:= session_replaced ->
-            M = jsx:decode(mod_aws:get_secret(<<"mod_noise_checker">>), [return_maps]),
-            case maps:get(<<"uid">>, M) of
-                Uid -> ok;  % don't log anything for noise checker uid
-                _ -> ?WARNING("Sending: ~p to Uid: ~p, IsDev: ~p and stopping", [Err, Uid, IsDev])
+            NoiseCheckerUid = mod_noise_checker:get_uid(),
+            case NoiseCheckerUid =:= Uid of
+                true -> ok;  % don't log anything for noise checker uid
+                false -> ?WARNING("Sending: ~p to Uid: ~p, IsDev: ~p and stopping", [Err, Uid, IsDev])
             end;
         _ ->
             ?ERROR("Sending ~p and stopping", [Err])

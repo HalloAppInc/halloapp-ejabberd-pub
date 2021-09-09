@@ -14,7 +14,7 @@
 
 -define(SECRET1, <<"Secret1">>).
 -define(SECRET2, <<"Secret2">>).
--define(SECRET1_VALUE, <<"data">>).
+-define(SECRET1_VALUE, <<"{\"api_key\": \"data\"}">>).
 
 %%====================================================================
 %% Tests
@@ -68,6 +68,15 @@ get_secret_test() ->
     ?assertEqual(?DUMMY_SECRET, mod_aws:get_secret(?SECRET2)),
     finish().
 
+get_secret_value_test() ->
+    setup(),
+    meck:new(mod_aws, [passthrough]),
+    meck:expect(mod_aws, get_secret, fun(_Name) -> ?SECRET1_VALUE end),
+    ?assertEqual("data", mod_aws:get_secret_value(?SECRET1, <<"api_key">>)),
+    meck:unload(mod_aws),
+    finish(),
+    ok.
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -89,6 +98,9 @@ mock_get_ec2_instances(_, _, _) ->
 
 
 setup() ->
+    meck:new(ejabberd_hooks),
+    meck:expect(ejabberd_hooks, add, fun(_,_,_,_) -> ok end),
+    meck:expect(ejabberd_hooks, delete, fun(_,_,_,_) -> ok end),
     ok = mod_aws:start(util:get_host(), []),
     application:ensure_all_started(erlcloud),
     meck:new(erlcloud_sm),
@@ -104,5 +116,6 @@ finish() ->
     meck:unload(erlcloud_sm),
     ?assert(meck:validate(erlcloud_ec2)),
     meck:unload(erlcloud_ec2),
+    meck:unload(ejabberd_hooks),
     ok.
 

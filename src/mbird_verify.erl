@@ -157,11 +157,9 @@ normalized_status(_) ->
 
 -spec get_access_key(IsTest :: boolean()) -> string().
 get_access_key(true) ->
-    Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"MBirdTest">>)), [return_maps]),
-    binary_to_list(maps:get(<<"access_key">>, Json));
+    mod_aws:get_secret_value(<<"MBirdTest">>, <<"access_key">>);
 get_access_key(false) ->
-    Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"MBird">>)), [return_maps]),
-    binary_to_list(maps:get(<<"access_key">>, Json)).
+    mod_aws:get_secret_value(<<"MBird">>, <<"access_key">>).
 
 
 % Todo: Implement if sending feedback back to mbird_verify

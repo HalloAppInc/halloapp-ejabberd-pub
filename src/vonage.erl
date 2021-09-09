@@ -132,16 +132,12 @@ normalized_status(_) ->
 
 -spec get_api_key() -> string().
 get_api_key() ->
-    get_secret(<<"Vonage">>, <<"api_key">>).
+    mod_aws:get_secret_value(<<"Vonage">>, <<"api_key">>).
 
 -spec get_api_secret() -> string().
 get_api_secret() ->
-    get_secret(<<"Vonage">>, <<"api_secret">>).
+    mod_aws:get_secret_value(<<"Vonage">>, <<"api_secret">>).
 
--spec get_secret(Name :: binary(), Key :: binary()) -> string().
-get_secret(Name, Key) ->
-    Json = jiffy:decode(binary_to_list(mod_aws:get_secret(Name)), [return_maps]),
-    binary_to_list(maps:get(Key, Json)).
 
 -spec compose_body(Phone, Message) -> Body when
     Phone :: phone(),

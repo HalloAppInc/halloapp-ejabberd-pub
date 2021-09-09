@@ -39,6 +39,7 @@
     clear_cache/0,
     clear_cache/1,
     get_secret/1,
+    get_secret_value/2,
     get_ejabberd_machines/0
 ]).
 
@@ -116,6 +117,11 @@ get_secret(SecretName) ->
                 _ -> ?DUMMY_SECRET
             end
     end.
+
+-spec get_secret_value(Name :: binary(), Key :: binary()) -> string().
+get_secret_value(Name, Key) ->
+    Json = jiffy:decode(mod_aws:get_secret(Name), [return_maps]),
+    util:to_list(maps:get(Key, Json)).
 
 
 -spec get_ejabberd_machines() -> [{MachineName :: string(), Ip :: string()}].

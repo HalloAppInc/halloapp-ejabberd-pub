@@ -181,7 +181,7 @@ fetch_tokens(true) ->
 fetch_tokens(false) ->
     Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"Twilio">>)), [return_maps]),
     {binary_to_list(maps:get(<<"account_sid">>, Json)),
-     binary_to_list(maps:get(<<"auth_token">>, Json))}.
+        binary_to_list(maps:get(<<"auth_token">>, Json))}.
 
 
 -spec fetch_auth_headers(IsTest :: boolean()) -> string().

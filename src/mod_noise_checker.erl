@@ -20,6 +20,7 @@
 
 %% API
 -export([
+    get_uid/0,
     do_noise_logins/0,
     do_noise_login/2,
     get_state_history/1
@@ -251,18 +252,15 @@ get_all_hosts() ->
 
 
 get_uid() ->
-    Map = jsx:decode(mod_aws:get_secret(<<"mod_noise_checker">>), [return_maps]),
-    maps:get(<<"uid">>, Map).
+    util:to_binary(mod_aws:get_secret_value(<<"mod_noise_checker">>, <<"uid">>)).
 
 
 get_public_key() ->
-    Map = jsx:decode(mod_aws:get_secret(<<"mod_noise_checker">>), [return_maps]),
-    RawKey = maps:get(<<"public_ec_key">>, Map),
+    RawKey = mod_aws:get_secret_value(<<"mod_noise_checker">>, <<"public_ec_key">>),
     base64url:decode(RawKey).
 
 
 get_secret_key() ->
-    Map = jsx:decode(mod_aws:get_secret(<<"mod_noise_checker">>), [return_maps]),
-    RawKey = maps:get(<<"secret_ec_key">>, Map),
+    RawKey = mod_aws:get_secret_value(<<"mod_noise_checker">>, <<"secret_ec_key">>),
     base64url:decode(RawKey).
 

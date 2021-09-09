@@ -149,16 +149,10 @@ normalized_status(_) ->
 
 -spec get_auth_token() -> string().
 get_auth_token() ->
-    CustomerId = get_secret(<<"Telesign">>, <<"customer_id">>),
-    ApiKey = get_secret(<<"Telesign">>, <<"api_key">>),
-    util:to_list(base64:encode(<<CustomerId/binary, <<":">>/binary, ApiKey/binary>>)).
+    CustomerId = mod_aws:get_secret_value(<<"Telesign">>, <<"customer_id">>),
+    ApiKey = mod_aws:get_secret_value(<<"Telesign">>, <<"api_key">>),
+    util:to_list(base64:encode(CustomerId ++  ":" ++  ApiKey)).
     
-
--spec get_secret(Name :: binary(), Key :: binary()) -> string().
-get_secret(Name, Key) ->
-    Json = jiffy:decode(binary_to_list(mod_aws:get_secret(Name)), [return_maps]),
-    maps:get(Key, Json).
-
 -spec compose_body(Phone, Template, Code) -> Body when
     Phone :: phone(),
     Template :: string(),

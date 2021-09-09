@@ -169,6 +169,7 @@ compose_feedback_body() ->
 
 -spec fetch_tokens() -> {string(), string()}.
 fetch_tokens() ->
+    % TODO: reuse this function from twilio module
     Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"Twilio">>)), [return_maps]),
     {binary_to_list(maps:get(<<"account_sid">>, Json)),
      binary_to_list(maps:get(<<"auth_token">>, Json))}.

@@ -288,6 +288,7 @@ remove_push_token(Uid, Server) ->
 %%====================================================================
 
 get_fcm_info() ->
+    % TODO: switch to jiffy
     jsx:decode(mod_aws:get_secret(<<"fcm">>)).
 
 

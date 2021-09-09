@@ -91,6 +91,8 @@ get_upload_server() ->
 
 
 get_noise_key_material() ->
+    % TODO: switch form jsx to jiffy, it is faster
+    % TODO: we can save ourselves the json decoding every time, by caching the result
     [{?NOISE_STATIC_KEY, NoiseStaticKeyPair}, {?NOISE_SERVER_CERTIFICATE, NoiseCertificate}] =
             jsx:decode(mod_aws:get_secret(config:get_noise_secret_name())),
     NoiseStaticKey = base64:decode(NoiseStaticKeyPair),

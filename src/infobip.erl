@@ -143,8 +143,7 @@ normalized_status(_) ->
 
 -spec get_api_key() -> string().
 get_api_key() ->
-    Json = jiffy:decode(binary_to_list(mod_aws:get_secret(<<"Infobip">>)), [return_maps]),
-    binary_to_list(maps:get(<<"api_key">>, Json)).
+    mod_aws:get_secret_value(<<"Infobip">>, <<"api_key">>).
 
 -spec compose_body(Phone, Message) -> Body when
     Phone :: phone(),
