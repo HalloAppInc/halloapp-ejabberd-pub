@@ -112,7 +112,7 @@ parse_logs_query(Q) ->
     case Uid of
         <<"NOUID">> -> ok;
         _ ->
-            case util:to_integer(Uid) =:= undefined orelse byte_size(Uid) =/= util_uid:uid_size() of
+            case util:to_integer_maybe(Uid) =:= undefined orelse byte_size(Uid) =/= util_uid:uid_size() of
                 true -> error({invalid_uid, Uid});
                 false -> ok
             end
@@ -120,7 +120,7 @@ parse_logs_query(Q) ->
     case Phone of
         <<"NOPHONE">> -> ok;
         _ ->
-            case util:to_integer(Phone) =:= undefined orelse byte_size(Phone) > 20 of
+            case util:to_integer_maybe(Phone) =:= undefined orelse byte_size(Phone) > 20 of
                 true -> error({invalid_phone, Phone});
                 false -> ok
             end

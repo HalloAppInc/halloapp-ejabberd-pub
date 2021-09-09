@@ -58,7 +58,7 @@ iq_test() ->
         #pb_props{hash = Hash, props = [
             #pb_prop{name = <<"groups">>, value = <<"true">>},
             #pb_prop{name = <<"max_group_size">>, value = <<"25">>},
-            #pb_prop{name = <<"pi">>, value = float_to_binary(3.14)},
+            #pb_prop{name = <<"pi">>, value = float_to_binary(3.14, [{decimals, 2}])},
             #pb_prop{name = <<"some_test_prop">>, value = <<"value">>}]}},
     ?assertEqual(Expected, Actual).
 

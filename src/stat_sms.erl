@@ -417,6 +417,7 @@ get_gwcc_atom(Gateway, CC) ->
 -spec sms_stats_table_name(atom()) -> atom().
 sms_stats_table_name(TimeWindow) ->
     TimeWindowBinary = util:to_binary(TimeWindow),
+    % FIXME: here we are going to create unlimited number of atoms
     util:to_atom(<<<<"sms_stats">>/binary, TimeWindowBinary/binary>>).
 
 

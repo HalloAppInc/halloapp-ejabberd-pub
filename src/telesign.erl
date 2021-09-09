@@ -64,7 +64,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             StatusCode = maps:get(<<"code">>, Status),
             Status2 = normalized_status(StatusCode),
             AdditionalInfo = maps:get(<<"additional_info">>, Json),
-            Price = util:to_float(maps:get(<<"price">>, AdditionalInfo)),
+            Price = util:to_float_maybe(maps:get(<<"price">>, AdditionalInfo)),
             Mnc = maps:get(<<"mnc">>, AdditionalInfo),
             Mcc = maps:get(<<"mcc">>, AdditionalInfo),
             ?INFO("SMS to Phone: ~p, gw: telesign, Status: ~p, Id:~p, StatusCode: ~p, Status2: ~p, "

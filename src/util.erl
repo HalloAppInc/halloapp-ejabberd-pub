@@ -34,13 +34,17 @@
     round_to_minute/1,
     random_str/1,
     random_shuffle/1,
-    generate_password/0,
     type/1,
     to_integer/1,
+    to_integer_maybe/1,
     to_float/1,
+    to_float_maybe/1,
     to_atom/1,
+    to_atom_maybe/1,
     to_binary/1,
+    to_binary_maybe/1,
     to_list/1,
+    to_list_maybe/1,
     list_to_map/1,
     ms_to_sec/1,
     send_after/2,
@@ -178,10 +182,6 @@ random_shuffle(L) ->
     % https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
     [X || {_, X} <- lists:sort([{random:uniform(), N} || N <- L])].
 
--spec generate_password() -> binary().
-generate_password() ->
-    random_str(?PASSWORD_SIZE).
-
 
 type(X) when is_binary(X) ->
     "binary";
@@ -205,50 +205,53 @@ type(_X) ->
     "unknown".
 
 
--spec to_integer(any()) -> integer() | undefined.
+-spec to_integer(any()) -> integer() | no_return().
 to_integer(Data) ->
-    try
-        case type(Data) of
-            "binary" -> binary_to_integer(Data);
-            "list" -> list_to_integer(Data);
-            "float" -> round(Data);
-            "integer" -> Data;
-            _ ->
-                ?ERROR("Failed converting data to integer: ~p", [Data]),
-                undefined
-        end
-    catch _:badarg ->
-        ?ERROR("Failed converting data to integer: ~p", [Data]),
-        undefined
-    end.
-
-
--spec to_float(any()) -> float() | undefined.
-to_float(Data) ->
-    Str = to_list(Data),
-    case Str of
-        undefined ->
-            ?ERROR("Failed converting data to list: ~p", [Data]),
-            undefined;
+    case type(Data) of
+        "binary" -> binary_to_integer(Data);
+        "list" -> list_to_integer(Data);
+        "float" -> round(Data);
+        "integer" -> Data;
         _ ->
-            case string:to_float(Str) of
-                {error, _} ->
-                    Int = to_integer(Str),
-                    case Int of
-                        undefined ->
-                            ?ERROR("Failed converting data to float: ~p", [Data]),
-                            undefined;
-                        _ -> float(Int)
-                    end;
-                {Float, []} ->
-                    Float;
-                {_, _} ->
-                    ?ERROR("Failed converting data to float: ~p", [Data]),
-                    undefined
-            end
+            erlang:error(badarg, [Data])
     end.
- 
 
+-spec to_integer_maybe(any()) -> maybe(integer()).
+to_integer_maybe(Data) ->
+    try to_integer(Data)
+    catch
+        error : badarg : _ ->
+            ?ERROR("Failed converting data to integer: ~p", [Data]),
+            undefined
+    end.
+
+
+-spec to_float(any()) -> float() | no_return().
+to_float(Data) when is_float(Data) ->
+    Data;
+to_float(Data) when is_integer(Data) ->
+    float(Data);
+to_float(Data) when is_list(Data) ->
+    case string:to_float(Data) of
+        {Float, ""} -> Float;
+        {error, _} -> float(to_integer(Data));
+        _ -> erlang:error(badarg, [Data])
+    end;
+to_float(Data) when is_binary(Data) ->
+    to_float(binary_to_list(Data));
+to_float(Data) ->
+    erlang:error(badarg, [Data]).
+
+-spec to_float_maybe(Data :: any()) -> maybe(float()).
+to_float_maybe(Data) ->
+    try to_float(Data)
+    catch
+        error : badarg ->
+            ?ERROR("Failed converting data to float: ~p", [Data]),
+            undefined
+    end.
+
+-spec to_atom(Data :: any()) -> atom() | no_return().
 to_atom(Data) ->
     case type(Data) of
         "binary" -> binary_to_atom(Data, utf8);
@@ -256,20 +259,37 @@ to_atom(Data) ->
         "boolean" -> Data;
         "list" -> list_to_atom(Data);
         _ ->
-            ?ERROR("Failed converting data to atom: ~p", [Data]),
+            erlang:error(badarg, [Data])
+    end.
+
+-spec to_atom_maybe(Data :: any()) -> maybe(atom()).
+to_atom_maybe(Data) ->
+    try to_atom(Data)
+    catch
+        error : badarg ->
+            ?ERROR("failed to convert to atom: ~p", [Data]),
             undefined
     end.
 
-% TODO: add spec
+-spec to_binary(Data :: any()) -> binary() | no_return().
 to_binary(Data) ->
     case type(Data) of
         "binary" -> Data;
-        "atom" -> atom_to_binary(Data, utf8);
         "boolean" -> atom_to_binary(Data, utf8);
+        "atom" -> atom_to_binary(Data, utf8);
         "list" -> list_to_binary(Data);
         "integer" -> integer_to_binary(Data);
-        "float" -> float_to_binary(Data);
+        "float" -> float_to_binary(Data, [{decimals, 15}, compact]);
         _ ->
+            erlang:error(badarg, [Data])
+    end.
+
+% returns empty binary on error
+-spec to_binary_maybe(Data :: any()) -> maybe(binary()).
+to_binary_maybe(Data) ->
+    try to_binary(Data)
+    catch
+        error : badarg ->
             ?ERROR("Failed converting data to binary: ~p", [Data]),
             % TODO: change to undefined
             <<>>
@@ -283,12 +303,19 @@ to_list(Data) ->
         "atom" -> atom_to_list(Data);
         "boolean" -> atom_to_list(Data);
         "integer" -> integer_to_list(Data);
-        "float" -> float_to_list(Data);
+        "float" -> float_to_list(Data, [{decimals, 15}, compact]);
         _ ->
+            erlang:error(badarg, [Data])
+    end.
+
+-spec to_list_maybe(Data :: any()) -> maybe(list()).
+to_list_maybe(Data) ->
+    try to_list(Data)
+    catch
+        error : badarg ->
             ?ERROR("Failed converting data to list: ~p", [Data]),
             undefined
     end.
-
 
 list_to_map(L) ->
     list_to_map(L, #{}).
@@ -296,6 +323,8 @@ list_to_map(L) ->
 list_to_map([K, V | Rest], Map) ->
     Map2 = maps:put(K, V, Map),
     list_to_map(Rest, Map2);
+list_to_map([_X], _Map) ->
+    erlang:error(badarg);
 list_to_map([], Map) ->
     Map.
 
