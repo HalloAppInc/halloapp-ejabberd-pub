@@ -486,13 +486,19 @@ day_before(Date) ->
     calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(Date) - 1).
 
 
-%% takes a list of scores and returns normalized scores between 0 & 1
--spec normalize_scores(ScoreList :: list()) -> list().
-normalize_scores(ScoreList) ->
-    Sum = lists:sum(ScoreList),
-    NormalizedList = [XX/Sum || XX <- ScoreList],
-    NormalizedList.
 
+%% takes a map/list of gateway scores and returns normalized scores between 0 & 1
+-spec normalize_scores(Scores :: list() | map()) -> list() | map().
+normalize_scores(Scores) when is_list(Scores)->
+    Sum = lists:sum(Scores),
+    NormalizedList = [XX/Sum || XX <- Scores],
+    NormalizedList;
+normalize_scores(Scores) when is_map(Scores)->
+    Sum = lists:sum(maps:values(Scores)),
+    NormalizedScores = maps:map(
+        fun(_GW, Score) -> Score/Sum end,
+        Scores),
+    NormalizedScores.
 
 -spec get_machine_name() -> binary().
 get_machine_name() ->

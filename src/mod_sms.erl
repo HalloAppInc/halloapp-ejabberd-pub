@@ -31,7 +31,8 @@
 -ifdef(TEST).
 -export([
     generate_code/1,
-    send_otp_to_inviter/4
+    send_otp_to_inviter/4,
+    get_gw_scores/2
 ]).
 -endif.
 
@@ -451,88 +452,87 @@ pick_gw(ChooseFrom, CC, IsFirstAttempt) ->
     NewGWWeights = util:normalize_scores(NewGWScores),
     RandNo = rand:uniform(),
 
-    {Picked2, NewPicked2} = case IsFirstAttempt of
+    {Gateway, NewGateway} = case IsFirstAttempt of
         true ->
             % Pick based on random weighted selection
-            {Picked, _LeftOver} = rand_weighted_selection(RandNo, GWWeights),
+            PickedGW = rand_weighted_selection(RandNo, GWWeights),
             % Pick based on country-specific scores
-            {NewPicked, _NewLeftOver} = rand_weighted_selection(RandNo, NewGWWeights),
-            {Picked, NewPicked};
+            NewPickedGW = rand_weighted_selection(RandNo, NewGWWeights),
+            {PickedGW, NewPickedGW};
         false ->
             % Pick the gateway with the max score.
-            Picked3 = max_weight_selection(GWWeights),
-            NewPicked3 = max_weight_selection(NewGWWeights),
-            {Picked3, NewPicked3}
+            PickedGW = max_weight_selection(GWWeights),
+            NewPickedGW = max_weight_selection(NewGWWeights),
+            {PickedGW, NewPickedGW}
     end,
 
-    ?DEBUG("Generated rand: ~p, Weights: ~p, Picked: ~p, New Weights: ~p, New Picked: ~p, IsFirst: ~p",
-        [RandNo, GWWeights, Picked2, NewGWWeights, NewPicked2, IsFirstAttempt]),
-    {lists:nth(Picked2, ChooseFrom), lists:nth(NewPicked2, ChooseFrom)}.
+    ?DEBUG("Generated rand: ~p, Weights: ~p, Pickerd: ~p, New Weights: ~p, New Picked: ~p, IsFirst: ~p",
+        [RandNo, GWWeights, Gateway, NewGWWeights, NewGateway, IsFirstAttempt]),
+    ?INFO("Picked ~p Weights: ~p, Rand: ~p IsFirst: ~p",
+        [Gateway, GWWeights, RandNo, IsFirstAttempt]),
+    ?INFO("NewPicked ~p Weights: ~p, Rand: ~p IsFirst: ~p",
+        [NewGateway, NewGWWeights, RandNo, IsFirstAttempt]),
+    {Gateway, NewGateway}.
 
 
--spec max_weight_selection(Weights :: list()) -> integer().
+-spec max_weight_selection(Weights :: #{atom() => float()}) -> atom().
 max_weight_selection(Weights) ->
     %% If the weights are [0.5, 0.6, 0.3, 0.4], the second gateway will be chosen.
-    {PickedIdx, Len, Max2} = lists:foldl(
-        fun(XX, {I, J, Max}) ->
-            ?DEBUG("Processing : ~p, I: ~p, Old Max: ~p", [XX, I, Max]),
-            case XX > Max of
-                true -> {J + 1, J + 1, XX};
-                _ -> {I, J + 1, Max}
+    {BestGW, BestScore} = maps:fold(
+        fun(Gateway, Score, {CurrGW, Max}) ->
+            case Score > Max of
+                true -> {Gateway, Score};
+                _ -> {CurrGW, Max}
             end
-        end, {0, 0, -0.1}, Weights),
-    ?DEBUG("Len: ~p, length: ~p, picked: ~p", [Len, length(Weights), Max2]),
-    Len = length(Weights),
-    PickedIdx.
+        end, {undefined, -0.1}, Weights),
+    ?DEBUG("BestGW: ~p Score: ~p Weights: ~p", [BestGW, BestScore, Weights]),
+    BestGW.
 
 
--spec rand_weighted_selection(RandNo :: float(), Weights :: list()) -> {integer(), float()}.
+-spec rand_weighted_selection(RandNo :: float(), Weights :: #{atom() => float()}) -> atom().
 rand_weighted_selection(RandNo, Weights) ->
-    %% Select first index that satisfy the gateway weight criteria. Selection uses the computed
-    %% weights for each gateway. We iterate over the list using a uniformly generated random
-    %% number between 0.0 and 1.0 and keep subtracting the weight from the left until the remainder
-    %% is negative and then we stop.
+    %% Select gateway randomly based on weights. Selection uses the computed
+    %% weights for each gateway. We iterate over the weights using a uniformly generated random
+    %% number between 0.0 and 1.0 and keep subtracting the weight from the number until the
+    %% number is negative and then we stop.
     %%
-    %% E.g. If the weights are [0.1, 0.2, 0.3, 0.4] and the random number is 0.5, the third gateway
-    %% will be chosen.
     %%
     %% https://stackoverflow.com/questions/1761626/weighted-random-numbers
     %%
-    %% TODO(vipin): Pick a faster algorithm.
-    {PickedIdx, LeftOver} = lists:foldl(
-        fun(XX, {I, Left}) ->
+    {PickedGateway, LeftOver} = maps:fold(
+        fun(Gateway, Score, {CurrGW, Left}) ->
             case Left > 0 of
-                true -> {I + 1, Left - XX};
-                _ -> {I, Left}
+                true -> {Gateway, Left - Score};
+                _ -> {CurrGW, Left}
             end
         end, {0, RandNo}, Weights),
     true = (LeftOver =< 0),
-    {PickedIdx, LeftOver}.
+    PickedGateway.
 
 
--spec get_gw_scores(ChooseFrom :: [atom()], CC :: binary()) -> list().
+-spec get_gw_scores(ChooseFrom :: [atom()], CC :: binary()) -> #{atom() => float()}.
 get_gw_scores(ChooseFrom, _CC) ->
-    %% TODO(vipin): Need to incorporate country specific score for each gateway.
     GlobalMap = #{mbird => 0.8, twilio => 0.8, twilio_verify => 0.5},
-    RetVal = lists:map(
-        fun(XX) ->
-            case maps:find(XX, GlobalMap) of
-                {ok, Score} -> Score;
-                _ -> ?DEFAULT_GATEWAY_SCORE
+    FinalMap = lists:foldl(
+        fun(Gateway, Acc) ->
+            case maps:find(Gateway, GlobalMap) of
+                {ok, Score} -> Acc#{Gateway => Score};
+                _ -> Acc#{Gateway => ?DEFAULT_GATEWAY_SCORE}
             end
-        end, ChooseFrom),
-    ?DEBUG("GWs: ~p, Scores: ~p", [ChooseFrom, RetVal]),
-    RetVal.
+        end, #{}, ChooseFrom),
+    ?DEBUG("Gateway Scores: ~p", [FinalMap]),
+    FinalMap.
 
 
--spec get_new_gw_scores(ChooseFrom :: [atom()], CC :: binary()) -> list().
+-spec get_new_gw_scores(ChooseFrom :: [atom()], CC :: binary()) -> #{atom() => integer()}.
 get_new_gw_scores(ChooseFrom, CC) ->
     RetVal = lists:map(
         fun(Gateway) ->
-            get_gwcc_score(Gateway, CC)
+            {Gateway, get_gwcc_score(Gateway, CC)}
         end, ChooseFrom),
-    ?DEBUG("GWs: ~p, Scores: ~p", [ChooseFrom, RetVal]),
-    RetVal.
+    ScoreMap = maps:from_list(RetVal),
+    ?DEBUG("Gateway Scores: ~p", [ScoreMap]),
+    ScoreMap.
 
 
 %% Tries to retieve country-specific gateway score. If insufficient data (nan),

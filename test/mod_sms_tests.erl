@@ -126,6 +126,40 @@ disable_otp_after_success_test() ->
     ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?CODE2)),
     ok.
 
+max_weight_selection_test() ->
+    ?assertEqual(mbird, mod_sms:max_weight_selection(#{twilio => 0.2, mbird => 0.5, vonage => 0.3})),
+    Picked = mod_sms:max_weight_selection(#{twilio => 0.2, mbird => 0.4, vonage => 0.4}),
+    ?assert(Picked =:= mbird orelse Picked =:= vonage),
+    ?assertEqual(twilio, mod_sms:max_weight_selection(#{twilio => 1})),
+    ?assertEqual(undefined, mod_sms:max_weight_selection(#{})),
+    ok.
+
+% We call the rand_weighted selection 10 times, starting with 0.05 and adding 0.1 every time.catch
+% Then we count how many times each gateway got picked, we expect the numbers to be the selection
+% weights times 10.
+rand_weighted_selection_test() ->
+    M = #{twilio => 0.2, mbird => 0.5, vonage => 0.3},
+    % generates [0.05, 0.15, ... 0.95] numbers so we can makes sure everything is picked
+    % the expected number of times
+    Points = [X/10 + 0.05 || X <- lists:seq(0, 9)],
+    Picked = lists:map(
+        fun (Point) ->
+            mod_sms:rand_weighted_selection(Point, M)
+        end, Points),
+    Counters = lists:foldl(
+        fun (Gateway, AccMap) ->
+            maps:put(Gateway, maps:get(Gateway, AccMap, 0) + 1, AccMap)
+        end, #{}, Picked),
+    ?assertEqual(#{twilio => 2, mbird => 5, vonage => 3}, Counters),
+    ok.
+
+get_gw_scores_test() ->
+    ?assertEqual(#{mbird => 0.8, twilio => 0.8},
+        mod_sms:get_gw_scores([mbird, twilio], <<"US">>)),
+    ?assertEqual(#{mbird => 0.8, foo => ?DEFAULT_GATEWAY_SCORE},
+        mod_sms:get_gw_scores([mbird, foo], <<"US">>)),
+    ok.
+
 
 %%%----------------------------------------------------------------------
 %%% Internal functions

@@ -37,7 +37,6 @@ type_test() ->
     ?assertEqual("map", util:type(#{})),
     ?assertEqual("tuple", util:type({a, b})),
     ?assertEqual("bitstring", util:type(<<0:1,4:6>>)),
-
     ok.
 
 to_integer_test() ->
@@ -120,4 +119,10 @@ list_to_map_test() ->
     ?assertEqual(#{k1 => v1}, util:list_to_map([k1, v1])),
     ?assertEqual(#{k1 => v1, k2 => v2}, util:list_to_map([k1, v1, k2, v2])),
     ?assertError(badarg, util:list_to_map([k1, v1, foo])),
+    ok.
+
+normalize_scores_test() ->
+    ?assertEqual([0.2, 0.3, 0.5], util:normalize_scores([2,3,5])),
+    ?assertEqual(#{a => 0.2, b => 0.3, c => 0.5},
+        util:normalize_scores(#{a => 2, b => 3, c => 5})),
     ok.
