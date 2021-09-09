@@ -31,6 +31,7 @@
 -include("invites.hrl").
 
 -define(MSG_TO_SIGN, <<"HALLO">>).
+-define(IP_BACKOFF_THRESHOLD, 5).
 
 %% API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -487,7 +488,7 @@ check_blocked(IP, Phone, UserAgent, IsNoise) ->
         false ->
             CC = mod_libphonenumber:get_cc(Phone),
             ?DEBUG("CC: ~p", [CC]),
-            Result1 = is_ip_blocked(IP, CC, UserAgent),
+            Result1 = is_ip_blocked(IP, CC),
             PhonePattern = extract_phone_pattern(Phone, CC, UserAgent),
             ?DEBUG("Phone Pattern: ~p", [PhonePattern]),
             Result2 = case PhonePattern =:= Phone of
@@ -664,8 +665,10 @@ is_ip_blocked(IP, CC) ->
             false;
         {_, undefined} ->
             false;
+        {_, _} when Count =< ?IP_BACKOFF_THRESHOLD ->
+            false;
         {_, _} ->
-            NextTs = util_sms:good_next_ts_diff(Count) + LastTs,
+            NextTs = util_sms:good_next_ts_diff(Count - ?IP_BACKOFF_THRESHOLD) + LastTs,
             ?DEBUG("NexTs: ~p", [NextTs]),
             case NextTs > CurrentTs of
                 true -> {true, NextTs - CurrentTs};
