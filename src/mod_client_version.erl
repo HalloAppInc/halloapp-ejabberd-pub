@@ -70,7 +70,6 @@ process_local_iq(#pb_iq{type = get, from_uid = Uid,
 
 
 c2s_session_opened(#{user := Uid, client_version := ClientVersion} = State) ->
-    check_and_migrate_otpkeys(Uid, ClientVersion),
     ok = set_client_version(Uid, ClientVersion),
     State.
 
@@ -117,44 +116,6 @@ extend_version_validity(Version, ExtendTimeSec) ->
 %%====================================================================
 %% internal functions
 %%====================================================================
-
--spec check_and_migrate_otpkeys(Uid :: binary(), ClientVersion :: binary()) -> ok.
-check_and_migrate_otpkeys(Uid, ClientVersion) ->
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %% extra logic to clear out otp keys for older versions as they upgrade.
-    %% Remove this code for ios on 04-03-2021.
-    %% Remove this code for android in 2months - 05-03-2021.
-    %% Run migration to delete otp keys of old accounts if any.
-    %% Refresh keys if ios and if older version =< 1.2.91 and newer version > 1.2.91 (or)
-    %% Refresh keys if android if old version =< 0.131 and newer version > 0.131.
-    case model_accounts:get_client_version(Uid) of
-        {ok, OldVersion} ->
-            ClientType = util_ua:get_client_type(ClientVersion),
-            IsNewVersionGreater = case ClientType of
-                ios -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.2.91">>);
-                android -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android0.131">>);
-                undefined -> false  %% ignore account
-            end,
-            IsOldVersionGreater = case {ClientType, OldVersion} of
-                {_, undefined} -> false;
-                {ios, _} -> util_ua:is_version_greater_than(OldVersion, <<"HalloApp/iOS1.2.91">>);
-                {android, _} -> util_ua:is_version_greater_than(OldVersion, <<"HalloApp/Android0.131">>);
-                {undefined, _} -> false  %% ignore account
-            end,
-            %% refresh otp keys for all
-            %% - ios accounts with version > 1.2.91
-            %% - android accounts with version > 0.131
-            case not IsOldVersionGreater andalso IsNewVersionGreater of
-                false -> ok;
-                true ->
-                    ?INFO("Uid: ~p, OldVersion: ~p, NewVersion: ~p", [Uid, OldVersion, ClientVersion]),
-                    ok = mod_whisper:refresh_otp_keys(Uid)
-            end;
-        _ ->
-            ?INFO("No client version found for uid: ~p, probably new user", [Uid])
-    end,
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    ok.
 
 
 %% Gets the time left in seconds for a client version.
