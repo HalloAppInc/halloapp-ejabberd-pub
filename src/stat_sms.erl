@@ -438,11 +438,11 @@ check_possible_spam(TimeWindow, CC, total, TotalCount) when TotalCount >= ?SPAM_
         [{{cc, CC, error}, Count}] -> Count;
         [] -> 0
     end,
+    ?DEBUG("CC: ~p, Total: ~p, Error: ~p", [CC, TotalCount, ErrCount]),
     case ErrCount =:= TotalCount of
         true ->
-            alerts:send_alert(<<"Possible Spam: ", CC/binary>>, otp, alert, 
-                    <<"Received ", TotalCount/binary, "unconverted otp requests 
-                    in recent 15 minute interval">>),
+            ?ERROR("Possible OTP spam, CC: ~p, Invoked: ~p unconverted otp requests in recent 15 mins",
+                [CC, TotalCount]),
             ok;
         false -> ok
     end,
