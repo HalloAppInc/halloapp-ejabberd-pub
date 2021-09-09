@@ -81,6 +81,7 @@ is_valid_ua(UserAgent) ->
 is_blockable(UserAgent) ->
     case UserAgent of
         <<"HalloApp/Android0.172">> -> true;
+        <<"HalloApp/Android0.179">> -> true;
         _ -> false
     end.
 
