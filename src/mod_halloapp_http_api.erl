@@ -536,7 +536,7 @@ extract_phone_pattern(Phone, CC, UserAgent) ->
         {<<"UZ">>, true} -> 7;
         {<<"UZ">>, false} -> 0;
         {<<"UA">>, true} -> 7;
-        {<<"UA">>, false} -> 0;
+        {<<"UA">>, false} -> 5;
         {_, true} -> 3;
         {_, false} -> 0
     end,
