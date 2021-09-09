@@ -150,8 +150,13 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 %%% set_avatar
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_upload_group_avatar{gid = Gid, data = Data}} = IQ) ->
-    process_set_avatar(IQ, Gid, Uid, Data);
+        payload = #pb_upload_group_avatar{gid = Gid, data = Data, full_data = FullData}} = IQ) ->
+    %% TODO(murali@): remove this case after 12-08-2021.
+    FinalFullData = case FullData of
+        undefined -> Data;
+        _ -> FullData
+    end,
+    process_set_avatar(IQ, Gid, Uid, Data, FinalFullData);
 
 %%% set_background
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
@@ -361,10 +366,10 @@ process_delete_avatar(IQ, Gid, Uid) ->
     end.
 
 
-process_set_avatar(IQ, Gid, Uid, Data) ->
-    ?INFO("set_avatar Gid: ~s Uid: ~s Size: ~p", [Gid, Uid, byte_size(Data)]),
-    Base64Data = base64:encode(Data),
-    case set_avatar(Gid, Uid, Base64Data) of
+process_set_avatar(IQ, Gid, Uid, Data, FullData) ->
+    ?INFO("set_avatar Gid: ~s Uid: ~s SmallSize: ~p, FullSize: ~p",
+        [Gid, Uid, byte_size(Data), byte_size(FullData)]),
+    case set_avatar(Gid, Uid, Data, FullData) of
         {error, Reason} ->
             ?WARNING("Gid: ~s Uid ~s setting avatar failed ~p", [Gid, Uid, Reason]),
             pb:make_error(IQ, util:err(Reason));
@@ -380,13 +385,13 @@ process_set_avatar(IQ, Gid, Uid, Data) ->
     end.
 
 
--spec set_avatar(Gid :: gid(), Uid :: uid(), Base64Data :: binary()) ->
+-spec set_avatar(Gid :: gid(), Uid :: uid(), Data :: binary(), FullData :: binary()) ->
         {ok, AvatarId :: binary(), GroupName :: binary()} | {error, atom()}.
-set_avatar(Gid, Uid, Base64Data) ->
+set_avatar(Gid, Uid, Data, FullData) ->
     case model_groups:check_member(Gid, Uid) of
         false -> {error, not_member};
         true ->
-            case mod_user_avatar:check_and_upload_avatar(Base64Data) of
+            case mod_user_avatar:check_and_upload_avatar(Data, FullData) of
                 {error, Reason} -> {error, Reason};
                 {ok, AvatarId} ->
                     mod_groups:set_avatar(Gid, Uid, AvatarId)

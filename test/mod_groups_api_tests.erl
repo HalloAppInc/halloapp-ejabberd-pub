@@ -623,7 +623,7 @@ leave_group_test() ->
 set_avatar_test() ->
     setup(),
     meck:new(mod_user_avatar, [passthrough]),
-    meck:expect(mod_user_avatar, check_and_upload_avatar, fun (_) -> {ok, ?AVATAR1} end),
+    meck:expect(mod_user_avatar, check_and_upload_avatar, fun (_, _) -> {ok, ?AVATAR1} end),
 
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
     IQ = set_avatar_IQ(?UID2, Gid),
@@ -646,7 +646,7 @@ set_avatar_test() ->
 delete_avatar_test() ->
     setup(),
     meck:new(mod_user_avatar, [passthrough]),
-    meck:expect(mod_user_avatar, check_and_upload_avatar, fun (_) -> {ok, ?AVATAR1} end),
+    meck:expect(mod_user_avatar, check_and_upload_avatar, fun (_, _) -> {ok, ?AVATAR1} end),
     meck:expect(mod_user_avatar, delete_avatar_s3, fun (_) -> ok end),
 
     % First create the group and set the avatar

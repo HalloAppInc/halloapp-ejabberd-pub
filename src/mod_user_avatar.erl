@@ -17,8 +17,8 @@
 
 -define(AVATAR_OPTIONS_ETS, user_avatar_options).
 -define(AWS_BUCKET_NAME, <<"halloapp-avatars">>).
--define(MAX_AVATAR_SIZE, 51200).    %% 50KB
--define(MAX_AVATAR_DIM, 256).
+-define(MAX_SMALL_AVATAR_SIZE, 51200).     %% 50KB
+-define(MAX_FULL_AVATAR_SIZE, 512000).     %% 500KB
 
 
 %% gen_mod API.
@@ -29,7 +29,7 @@
     process_local_iq/1,
     remove_user/2,
     user_avatar_published/3,
-    check_and_upload_avatar/1,
+    check_and_upload_avatar/2,
     delete_avatar_s3/1
 ]).
 
@@ -71,13 +71,19 @@ mod_options(_Host) ->
 
 %%% delete_user_avatar %%%
 process_local_iq(#pb_iq{from_uid = UserId, type = set,
-        payload = #pb_upload_avatar{data = Data}} = IQ) when Data =:= undefined ->
+        payload = #pb_upload_avatar{data = Data, full_data = _FullData}} = IQ)
+        when Data =:= undefined ->  %% orelse FullData =:= undefined - uncomment after 12-08-2021.
     process_delete_user_avatar(IQ, UserId);
 
 %%% set_user_avatar %%%
 process_local_iq(#pb_iq{from_uid = UserId, type = set,
-        payload = #pb_upload_avatar{data = Data}} = IQ) ->
-    process_set_user_avatar(IQ, UserId, base64:encode(Data));
+        payload = #pb_upload_avatar{data = Data, full_data = FullData}} = IQ) ->
+    %% TODO(murali@): remove this case after 12-08-2021.
+    FinalFullData = case FullData of
+        undefined -> Data;
+        _ -> FullData
+    end,
+    process_set_user_avatar(IQ, UserId, Data, FinalFullData);
 
 %%% get_avatar (friend) %%%
 process_local_iq(#pb_iq{from_uid = UserId, type = get,
@@ -106,22 +112,22 @@ remove_user(UserId, Server) ->
 
 
 % TODO: get the W and H from the image data and make sure they are <= 256
--spec check_and_upload_avatar(Base64Data :: binary()) ->
+-spec check_and_upload_avatar(SmallData :: binary(), FullData :: binary()) ->
         {ok, avatar_id()} | {error, bad_data | max_size | bad_format | upload_error}.
-check_and_upload_avatar(Base64Data) ->
-    case util:decode_base_64(Base64Data) of
-        {error, bad_data} -> {error, bad_data};
-        {ok, Data} ->
-            DataSize = byte_size(Data),
-            IsJpeg = is_jpeg(Data),
-            if
-                DataSize > ?MAX_AVATAR_SIZE -> {error, max_size};
-                IsJpeg =:= false -> {error, bad_format};
-                true ->
-                    case upload_avatar(Data) of
-                        error -> {error, upload_error};
-                        {ok, AvatarId} -> {ok, AvatarId}
-                    end
+check_and_upload_avatar(SmallData, FullData) ->
+    SmallDataSize = byte_size(SmallData),
+    IsSmallImageJpeg = is_jpeg(SmallData),
+    FullDataSize = byte_size(FullData),
+    IsFullImageJpeg = is_jpeg(FullData),
+    if
+        SmallDataSize > ?MAX_SMALL_AVATAR_SIZE -> {error, max_size};
+        FullDataSize > ?MAX_FULL_AVATAR_SIZE -> {error, max_size};
+        IsSmallImageJpeg =:= false -> {error, bad_format};
+        IsFullImageJpeg =:= false -> {error, bad_format};
+        true ->
+            case upload_avatar(SmallData, FullData) of
+                error -> {error, upload_error};
+                {ok, AvatarId} -> {ok, AvatarId}
             end
     end.
 
@@ -139,10 +145,12 @@ process_delete_user_avatar(IQ, Uid) ->
 
 
 %% TODO(murali@): update functions here to work on binary data after updating group_avatars.
--spec process_set_user_avatar(IQ :: pb_iq(), Uid :: uid(), Base64Data :: binary()) -> pb_iq().
-process_set_user_avatar(IQ, Uid, Base64Data) ->
-    ?INFO("Uid: ~s uploading avatar base64_size: ~p", [Uid, byte_size(Base64Data)]),
-    case check_and_upload_avatar(Base64Data) of
+-spec process_set_user_avatar(IQ :: pb_iq(), Uid :: uid(),
+    Data :: binary(), FullData :: binary()) -> pb_iq().
+process_set_user_avatar(IQ, Uid, Data, FullData) ->
+    ?INFO("Uid: ~s uploading avatar small_size: ~p, full_size: ~p",
+        [Uid, byte_size(Data), byte_size(FullData)]),
+    case check_and_upload_avatar(Data, FullData) of
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason));
         {ok, AvatarId} ->
@@ -217,23 +225,26 @@ user_avatar_published(UserId, _Server, AvatarId) ->
         end, Friends).
 
 
--spec upload_avatar(BinaryData :: binary()) -> {ok, avatar_id()} | error.
-upload_avatar(BinaryData) ->
+-spec upload_avatar(SmallData :: binary(), FullData :: binary()) -> {ok, avatar_id()} | error.
+upload_avatar(SmallData, FullData) ->
     AvatarId = util_id:new_avatar_id(),
-    case upload_avatar(?AWS_BUCKET_NAME, AvatarId, BinaryData) of
+    case upload_avatar(?AWS_BUCKET_NAME, AvatarId, SmallData, FullData) of
         ok -> {ok, AvatarId};
         error -> error
     end.
 
 
--spec upload_avatar(BucketName :: binary(), AvatarId :: avatar_id(), BinaryData :: binary())
-        -> ok | error.
-upload_avatar(BucketName, AvatarId, BinaryData) ->
+-spec upload_avatar(BucketName :: binary(), AvatarId :: avatar_id(),
+        SmallData :: binary(), FullData :: binary()) -> ok | error.
+upload_avatar(BucketName, AvatarId, SmallData, FullData) ->
     Headers = [{"content-type", "image/jpeg"}],
     try
-        Result = erlcloud_s3:put_object(binary_to_list(
-                BucketName), binary_to_list(AvatarId), BinaryData, [], Headers),
-        ?INFO("AvatarId: ~s, Result: ~p", [AvatarId, Result]),
+        SmallAvatarId = binary_to_list(AvatarId),
+        Result1 = erlcloud_s3:put_object(binary_to_list(BucketName), SmallAvatarId, SmallData, [], Headers),
+        FullAvatarId = binary_to_list(AvatarId) ++ "-full",
+        Result2 = erlcloud_s3:put_object(binary_to_list(BucketName), FullAvatarId, FullData, [], Headers),
+        ?INFO("AvatarId: ~s, Result_small: ~p, Result_full: ~p",
+            [FullAvatarId, Result1, Result2]),
         ok
     catch ?EX_RULE(Class, Reason, St) ->
         StackTrace = ?EX_STACK(St),
