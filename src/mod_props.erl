@@ -29,7 +29,6 @@
 
 %% API
 -export([
-    get_hash/1,
     get_hash/2,
     get_props/2    %% debug only
 ]).
@@ -70,14 +69,6 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get} = IQ,
 %%====================================================================
 %% API
 %%====================================================================
-
-%% deprecated but still used by xmpp clients.
-%% TODO(murali@): remove this in 1 month.
--spec get_hash(Uid :: binary()) -> binary().
-get_hash(Uid) ->
-    {ok, ClientVersion} = model_accounts:get_client_version(Uid),
-    get_hash(Uid, ClientVersion).
-
 
 -spec get_hash(Uid :: binary(), ClientVersion :: binary()) -> binary().
 get_hash(Uid, ClientVersion) ->

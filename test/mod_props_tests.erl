@@ -28,6 +28,7 @@
     {groups, true},
     {pi, 3.14}
 ]).
+-define(CLIENT_VERSION1, <<"HalloApp/iOS1.8.151">>).
 
 %% ----------------------------------------------
 %% Tests
@@ -35,8 +36,8 @@
 
 hash_length_test() ->
     setup(),
-    Hash1 = mod_props:get_hash(?UID),
-    Hash2 = mod_props:get_hash(?DEV_UID),
+    Hash1 = mod_props:get_hash(?UID, ?CLIENT_VERSION1),
+    Hash2 = mod_props:get_hash(?DEV_UID, ?CLIENT_VERSION1),
     ?assert(?HASH_LENGTH == byte_size(Hash1)),
     ?assert(?HASH_LENGTH == byte_size(Hash2)),
     teardown().
@@ -44,8 +45,8 @@ hash_length_test() ->
 
 hash_test() ->
     setup(),
-    Hash1 = mod_props:get_hash(?UID),
-    Hash2 = mod_props:get_hash(?DEV_UID),
+    Hash1 = mod_props:get_hash(?UID, ?CLIENT_VERSION1),
+    Hash2 = mod_props:get_hash(?DEV_UID, ?CLIENT_VERSION1),
     ?assertNotEqual(Hash1, Hash2),
     teardown().
 

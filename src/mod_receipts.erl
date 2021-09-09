@@ -90,7 +90,6 @@ log_delivered(_) -> ok.
 
 
 % Try to extract the gid from the binary message
-%% TODO(murali@): cleanup this function once we switch everything to protobuf.
 -spec get_thread_id(Message :: pb_msg()) -> maybe(binary()).
 get_thread_id(#pb_msg{payload = Payload}) ->
     case Payload of

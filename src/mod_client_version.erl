@@ -54,18 +54,11 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 process_local_iq(#pb_iq{type = get, from_uid = Uid,
         payload = #pb_client_version{version = Version}} = IQ) ->
-    % TODO(Nikola): clean up this print once we figure out the different versions bug
-    ?INFO("mod_client_version Uid: ~s ClientVersion ~p", [Uid, Version]),
     CurTimestamp = util:now(),
     TimeLeftSec = get_time_left(Version, CurTimestamp),
-    case TimeLeftSec > 0 of
-        true ->
-            ?INFO("client_version version: ~p, valid for ~p seconds", [Version, TimeLeftSec]),
-            ok;
-        false ->
-            ?INFO("client_version version: ~p, expired ~p seconds ago",
-                [Version, abs(TimeLeftSec)])
-    end,
+    Validity = TimeLeftSec > 0,
+    ?INFO("Uid: ~s ClientVersion ~p, TimeLeftSec: ~p, Validity: ~p",
+        [Uid, Version, TimeLeftSec, Validity]),
     pb:make_iq_result(IQ, #pb_client_version{version = Version, expires_in_seconds = TimeLeftSec}).
 
 

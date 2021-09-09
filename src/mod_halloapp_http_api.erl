@@ -44,8 +44,6 @@
     delete_phone_pattern/2  %% for testing
 ]).
 
-%% TODO: cleanup old code in this file and old password related stuff.
-
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
@@ -54,6 +52,7 @@
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 process([<<"registration">>, <<"request_sms">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
+    ?INFO("Invalid old request_sms request, Data: ~p, Headers: ~p", [Data, Headers]),
     process_otp_request(Data, IP, Headers);
 
 process([<<"registration">>, <<"request_otp">>],

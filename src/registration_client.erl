@@ -61,7 +61,7 @@ request_sms(Phone, Options) ->
     Host = maps:get(host, Options, ?DEFAULT_HOST),
     Port = maps:get(port, Options, ?DEFAULT_PORT),
     Protocol = get_http_protocol(),
-    Request = {Protocol ++ Host ++ ":" ++ Port ++"/api/registration/request_sms", Headers, "application/json", Body},
+    Request = {Protocol ++ Host ++ ":" ++ Port ++"/api/registration/request_otp", Headers, "application/json", Body},
     {ok, Response} = httpc:request(post, Request, [{timeout, 30000}], []),
     case Response of
         {{_, 200, _}, _ResHeaders, ResponseBody} ->

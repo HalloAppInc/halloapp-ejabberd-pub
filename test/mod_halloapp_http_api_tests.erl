@@ -34,7 +34,7 @@
 -define(IDENTITY_KEY, <<"ZGFkc2FkYXNma2xqc2RsZmtqYXNkbGtmamFzZGxrZmphc2xrZGZqYXNsO2tkCgo=">>).
 -define(SIGNED_KEY, <<"Tmlrb2xhIHdyb3RlIHRoaXMgbmljZSBtZXNzYWdlIG1ha2luZyBzdXJlIGl0IGlzIGxvbmcgCg==">>).
 -define(ONE_TIME_KEY, <<"VGhpcyBpcyBvbmUgdGltZSBrZXkgZm9yIHRlc3RzIHRoYXQgaXMgbG9uZwo=">>).
--define(REQUEST_SMS_PATH, [<<"registration">>, <<"request_sms">>]).
+-define(REQUEST_OTP_PATH, [<<"registration">>, <<"request_otp">>]).
 -define(REQUEST_GET_GROUP_INFO_PATH, [<<"registration">>, <<"get_group_info">>]).
 -define(REQUEST_HEADERS(UA), [
     {'Content-Type',<<"application/json">>},
@@ -82,12 +82,12 @@ request_sms_test() ->
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, <<"HalloApp/Android0.127">>, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     BadUserAgentError = util_http:return_400(),
-    ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    ?assertEqual(BadUserAgentError, mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?BAD_UA)})),
 
     BadPhoneData = jsx:encode([{<<"phone">>, ?BAD_PHONE}]),
     BadPhoneError = util_http:return_400(invalid_phone_number),
-    ?assertEqual(BadPhoneError, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    ?assertEqual(BadPhoneError, mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = BadPhoneData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)})),
 
     ?assert(meck:called(stat, count, ["HA/account", "request_sms_errors", 1,
@@ -99,7 +99,7 @@ request_sms_test() ->
             {retry_after_secs, 30},
             {result, ok}
         ]})},
-    Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    Response = mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(GoodResponse, Response),
     meck_finish(model_phone),
@@ -128,7 +128,7 @@ request_sms_prod_test() ->
             {retry_after_secs, 30},
             {result, ok}
         ]})},
-    Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    Response = mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(GoodResponse, Response),
     ?assertEqual(1, collect(?PHONE, 250, 1)),
@@ -163,7 +163,7 @@ backoff_test() ->
             {error, retried_too_soon},
             {result, fail}
         ]})},
-    Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    Response = mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(BadResponse, Response),
     %% Sleep for 1 seconds so the timestamp for Attempt1 and Attempt2 is different.
@@ -178,7 +178,7 @@ backoff_test() ->
             {error, retried_too_soon},
             {result, fail}
         ]})},
-    Response2 = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    Response2 = mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(BadResponse2, Response2),
     meck_finish(config),
@@ -204,10 +204,10 @@ retried_server_error_test() ->
             {result, fail},
             {error, otp_fail}
         ]})},
-    Response = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    Response = mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(ServerBadResponse, Response),
-    Response2 = mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    Response2 = mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(ServerBadResponse, Response2),
     meck_finish(mbird),
@@ -231,7 +231,7 @@ request_sms_test_phone_test() ->
             {result, ok}
         ]})},
 %%    NotInvitedError = util_http:return_400(not_invited),
-    ?assertEqual(GoodResponse, mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    ?assertEqual(GoodResponse, mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)})),
 %%    ?assert(meck:called(stat, count, ["HA/account", "request_sms_errors", 1,
 %%        [{error, not_invited}]])),
@@ -248,7 +248,7 @@ register_spub_test() ->
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     %% Request1
-    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     KeyPair = ha_enoise:generate_signature_keypair(),
     {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
@@ -270,7 +270,7 @@ register_spub_test() ->
         [{error, bad_user_agent}]])),
     meck_finish(stat),
     %% Request2
-    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     {200, ?HEADER(?CT_JSON), RegInfo} = mod_halloapp_http_api:process(?REGISTER2_PATH,
         #request{method = 'POST', data = GoodData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
@@ -289,7 +289,7 @@ register_spub_test() ->
     SEdPubEncoded2 = base64:encode(SEdPub2),
     SignedMessageEncoded2 = base64:encode(SignedMessage2),
     %% Request3
-    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     GoodData2 = ?REGISTER2_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME, SEdPubEncoded2, SignedMessageEncoded2),
     {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER2_PATH,
@@ -314,7 +314,7 @@ register_push_token_test() ->
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     %% Request1
-    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     KeyPair = ha_enoise:generate_signature_keypair(),
     {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
@@ -347,7 +347,7 @@ register_push_token_test() ->
     GoodData2 = ?REGISTER3_DATA(?TEST_PHONE, ?SMS_CODE, ?NAME,
         SEdPubEncoded2, SignedMessageEncoded2, ?GERMAN_LANG_ID, ?PUSH_OS, ?PUSH_TOKEN),
     %% Request2
-    mod_halloapp_http_api:process(?REQUEST_SMS_PATH,
+    mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     {200, ?HEADER(?CT_JSON), Info} = mod_halloapp_http_api:process(?REGISTER2_PATH,
         #request{method = 'POST', data = GoodData2, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),

@@ -142,7 +142,6 @@ trigger_send() ->
 trigger_count_users() ->
     spawn(?MODULE, compute_counts, []).
 
-%% TODO(murali@): we need stats for both active and passive sessions on the server.
 -spec trigger_count_sessions() -> ok.
 trigger_count_sessions() ->
     %% Add counters for total number of connections on the machine.
