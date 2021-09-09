@@ -10,6 +10,7 @@
 
 -include("logger.hrl").
 
+-define(MAX_KEY_COUNT, 2000).
 
 %% API
 -export([
@@ -22,10 +23,11 @@
 -spec process_keys(Key :: binary(), State :: map()) -> map().
 process_keys(Key, State) ->
     ?INFO("Key: ~p", [Key]),
+    NumProcessedKeys = maps:get(num_processed_keys, State, 0),
     RedisService = maps:get(service, State),
     Client = ha_redis:get_client(RedisService),
     {ok, MemUsage} = ecredis:q(Client, ["MEMORY", "USAGE", Key]),
-    case MemUsage of
+    State1 = case MemUsage of
         undefined ->
             ?ERROR("Key: ~p with invalid memory usage: ~p", [Key, MemUsage]),
             State;
@@ -38,10 +40,15 @@ process_keys(Key, State) ->
             end,
             Map = maps:get(counters_map, State, #{}),
             NewMap = maps:update_with(KeyPrefix, Increment, [1, util:to_integer(MemUsage)], Map),
-            State1 = State#{
+            State#{
                 counters_map => NewMap
-            },
-            State1
+            }
+    end,
+    FinalNumProcessedKeys = NumProcessedKeys + 1,
+    State2 = State1#{num_processed_keys => FinalNumProcessedKeys},
+    case FinalNumProcessedKeys > ?MAX_KEY_COUNT of
+        true -> {stop, State2};
+        false -> {ok, State2}
     end.
 
 
