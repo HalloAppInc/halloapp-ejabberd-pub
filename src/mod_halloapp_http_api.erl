@@ -33,6 +33,9 @@
 -define(MSG_TO_SIGN, <<"HALLO">>).
 -define(IP_BACKOFF_THRESHOLD, 5).
 
+%% Country code in order to apply ip based backoff indepedent of country
+-define(GLOBAL_CC_CODE, <<"__">>).
+
 %% API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 -export([
@@ -487,7 +490,7 @@ check_blocked(IP, Phone, UserAgent, IsNoise) ->
         false ->
             CC = mod_libphonenumber:get_cc(Phone),
             ?DEBUG("CC: ~p", [CC]),
-            Result1 = is_ip_blocked(IP, CC),
+            Result1 = is_ip_blocked(IP, ?GLOBAL_CC_CODE),
             PhonePattern = extract_phone_pattern(Phone, CC, UserAgent),
             ?DEBUG("Phone Pattern: ~p", [PhonePattern]),
             Result2 = case PhonePattern =:= Phone of
@@ -636,9 +639,10 @@ is_group_invite_valid(GroupInviteToken) ->
     end.
 
 -spec delete_client_ip(IP :: list(), Phone :: binary()) -> ok.
-delete_client_ip(IP, Phone) ->
-    CC = mod_libphonenumber:get_region_id(Phone),
-    model_ip_addresses:delete_ip_address(IP, CC).
+delete_client_ip(IP, _Phone) ->
+    %% TODO(vipin): delete the next line if satisfied.
+    %% CC = mod_libphonenumber:get_region_id(Phone),
+    model_ip_addresses:delete_ip_address(IP, ?GLOBAL_CC_CODE).
 
 -spec delete_phone_pattern(Phone :: binary(), UserAgent :: binary()) -> ok.
 delete_phone_pattern(Phone, UserAgent) ->
