@@ -37,6 +37,7 @@
 
 %% Country code in order to apply ip based backoff indepedent of country
 -define(GLOBAL_CC_CODE, <<"__">>).
+-define(PHONE_PATTERN_BACKOFF_THRESHOLD, 15).
 
 %% API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -92,7 +93,7 @@ process([<<"registration">>, <<"register2">>],
             raw_phone => RawPhone, name => Name, ua => UserAgent, code => Code,
             ip => ClientIP, group_invite_token => GroupInviteToken, s_ed_pub => SEdPubB64,
             signed_phrase => SignedPhraseB64, id_key => IdentityKeyB64, sd_key => SignedKeyB64,
-            otp_keys => OneTimeKeysB64, push_payload => Payload, raw_data => RawData
+            otp_keys => OneTimeKeysB64, push_payload => Payload, raw_data => RawData, protocol => https
         },
         case process_register_request(RequestData) of
             {ok, Result} ->
@@ -172,7 +173,7 @@ process_otp_request(Data, IP, Headers) ->
             [RawPhone, UserAgent, ClientIP, MethodBin, LangId, Payload]),
         RawData = Payload#{headers => Headers, ip => IP},
         RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
-            ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => RawData, protocol => tls
+            ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => RawData, protocol => https
         },
         case process_otp_request(RequestData) of
             {ok, Phone, RetryAfterSecs} ->
@@ -219,7 +220,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         check_ua(UserAgent, Phone),
         Method = get_otp_method(MethodBin),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
-        case check_blocked(ClientIP, Phone, UserAgent, Protocol =:= noise) of
+        case check_blocked(ClientIP, Phone, UserAgent, Protocol =:= https) of
             ok ->
                 case request_otp(Phone, LangId, UserAgent, Method) of
                     {ok, RetryAfterSecs} -> {ok, Phone, RetryAfterSecs};
@@ -288,13 +289,14 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
 process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent, code := Code,
         ip := ClientIP, group_invite_token := GroupInviteToken, s_ed_pub := SEdPubB64,
         signed_phrase := SignedPhraseB64, id_key := IdentityKeyB64, sd_key := SignedKeyB64,
-        otp_keys := OneTimeKeysB64, push_payload := PushPayload, raw_data := RawData}) ->
+        otp_keys := OneTimeKeysB64, push_payload := PushPayload, raw_data := RawData,
+        protocol := Protocol}) ->
     try
         Phone = normalize(RawPhone),
         check_ua(UserAgent, Phone),
         check_sms_code(Phone, Code),
         ok = delete_client_ip(ClientIP, Phone),
-        ok = delete_phone_pattern(Phone, UserAgent),
+        ok = delete_phone_pattern(Phone, Protocol =:= https),
         LName = check_name(Name),
         SEdPubBin = base64:decode(SEdPubB64),
         check_s_ed_pub_size(SEdPubBin),
@@ -490,8 +492,8 @@ check_name(Name) when is_binary(Name) ->
 check_name(_) ->
     error(invalid_name).
 
--spec check_blocked(IP :: string(), Phone :: binary(), UserAgent :: binary(), IsNoise :: boolean()) -> ok | {error, retried_too_soon, integer()}.
-check_blocked(IP, Phone, UserAgent, IsNoise) ->
+-spec check_blocked(IP :: string(), Phone :: binary(), UserAgent :: binary(), IsHttps :: boolean()) -> ok | {error, retried_too_soon, integer()}.
+check_blocked(IP, Phone, UserAgent, IsHttps) ->
     IsInvited = model_invites:is_invited(Phone),
     case util:is_test_number(Phone) orelse IsInvited of
         false ->
@@ -509,7 +511,7 @@ check_blocked(IP, Phone, UserAgent, IsNoise) ->
                         {true, RetrySecs1} -> {true, {ip_block, RetrySecs1}}
                     end
             end,
-            PhonePattern = extract_phone_pattern(Phone, CC, UserAgent),
+            PhonePattern = extract_phone_pattern(Phone, CC, IsHttps),
             ?DEBUG("Phone Pattern: ~p", [PhonePattern]),
             Result2 = case Result1 of
                 {true, _} -> Result1;
@@ -517,26 +519,26 @@ check_blocked(IP, Phone, UserAgent, IsNoise) ->
                     case PhonePattern =:= Phone of
                         true -> false;
                         false ->
-                            case is_phone_pattern_blocked(PhonePattern, CC) of
+                            case is_phone_pattern_blocked(PhonePattern, CC, IsHttps) of
                                 false -> false;
                                 {true, RetrySecs2} -> {true, {phone_block, RetrySecs2}}
                             end
                     end
             end,
             ?INFO("IP: ~s Phone: ~p, CC: ~p pattern: ~p UA: ~p, blocked result: ~p, is_noise: ~p",
-                [IP, Phone, CC, PhonePattern, UserAgent, Result2, IsNoise]),
+                [IP, Phone, CC, PhonePattern, UserAgent, Result2, not IsHttps]),
             case Result2 of
                 false -> ok;
                 {true, {_Reason, RetrySecs3}} -> {error, retried_too_soon, RetrySecs3}
             end;
         true ->
             ?INFO("IP: ~s blocked result: ~p, Phone: ~p, is_invited: ~p, is_noise: ~p",
-                [IP, false, Phone, IsInvited, IsNoise]),
+                [IP, false, Phone, IsInvited, not IsHttps]),
             ok
     end.
 
-extract_phone_pattern(Phone, CC, UserAgent) ->
-    TruncateLen = case {CC, util_ua:is_blockable(UserAgent)} of
+extract_phone_pattern(Phone, CC, IsHttps) ->
+    TruncateLen = case {CC, IsHttps} of
         {<<"AD">>, true} -> 7;
         {<<"AD">>, false} -> 3;
         {<<"AF">>, true} -> 7;
@@ -718,10 +720,10 @@ delete_client_ip(IP, _Phone) ->
     %% clear timestamp on blocked ip address as well.
     model_ip_addresses:clear_blocked_ip_address(IP).
 
--spec delete_phone_pattern(Phone :: binary(), UserAgent :: binary()) -> ok.
-delete_phone_pattern(Phone, UserAgent) ->
+-spec delete_phone_pattern(Phone :: binary(), IsHttps :: boolean()) -> ok.
+delete_phone_pattern(Phone, IsHttps) ->
     CC = mod_libphonenumber:get_region_id(Phone),
-    model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC, UserAgent)).
+    model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC, IsHttps)).
 
 
 -spec is_ip_blocked(IP :: list(), CC :: binary()) -> false | {true, integer()}.
@@ -774,18 +776,25 @@ is_ip_in_blocklist(IP) ->
     end.
 
 
--spec is_phone_pattern_blocked(PhonePattern :: binary(), CC :: binary()) -> false | {true, integer()}.
-is_phone_pattern_blocked(PhonePattern, CC) ->
+-spec is_phone_pattern_blocked(PhonePattern :: binary(), CC :: binary(), IsHttps :: boolean()) -> false | {true, integer()}.
+is_phone_pattern_blocked(PhonePattern, CC, IsHttps) ->
+    BackoffThreshold = case IsHttps of
+        false -> ?PHONE_PATTERN_BACKOFF_THRESHOLD;
+        true -> 0
+    end,
     CurrentTs = util:now(),
     {ok, {Count, LastTs}} = model_phone:get_phone_pattern_info(PhonePattern),
-    ?DEBUG("PhonePattern: ~p, CC: ~p, Count: ~p, LastTs: ~p, CurrentTs: ~p", [PhonePattern, CC, Count, LastTs, CurrentTs]),
+    ?DEBUG("PhonePattern: ~p, CC: ~p, Count: ~p, LastTs: ~p, CurrentTs: ~p, BackoffThreshold: ~p",
+        [PhonePattern, CC, Count, LastTs, CurrentTs, BackoffThreshold]),
     IsBlocked = case {Count, LastTs} of
         {undefined, _} ->
             false;
         {_, undefined} ->
             false;
+        {_, _} when Count =< BackoffThreshold ->
+            false;
         {_, _} ->
-            NextTs = util_sms:good_next_ts_diff(Count) + LastTs,
+            NextTs = util_sms:good_next_ts_diff(Count - BackoffThreshold) + LastTs,
             ?DEBUG("NexTs: ~p", [NextTs]),
             case NextTs > CurrentTs of
                 true -> {true, NextTs - CurrentTs};

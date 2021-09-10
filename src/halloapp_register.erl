@@ -352,7 +352,8 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
         raw_phone => RawPhone, name => Name, ua => UserAgent, code => Code,
         ip => ClientIP, group_invite_token => GroupInviteToken, s_ed_pub => SEdPubB64,
         signed_phrase => SignedPhraseB64, id_key => IdentityKeyB64, sd_key => SignedKeyB64,
-        otp_keys => OneTimeKeysB64, push_payload => PushPayload, raw_data => VerifyOtpRequest
+        otp_keys => OneTimeKeysB64, push_payload => PushPayload, raw_data => VerifyOtpRequest,
+        protocol => noise
     },
     VerifyOtpResponse = case mod_halloapp_http_api:process_register_request(RequestData) of
         {ok, Result} ->

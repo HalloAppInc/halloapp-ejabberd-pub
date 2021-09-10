@@ -23,8 +23,7 @@
     is_valid_ua/1,
     resource_to_client_type/1,
     is_version_greater_than/2,
-    is_version_less_than/2,
-    is_blockable/1
+    is_version_less_than/2
 ]).
 
 
@@ -75,15 +74,6 @@ is_android_release(UserAgent) ->
 is_valid_ua(undefined) -> false;
 is_valid_ua(UserAgent) ->
     is_android(UserAgent) orelse is_ios(UserAgent).
-
-
--spec is_blockable(binary()) -> boolean().
-is_blockable(UserAgent) ->
-    case UserAgent of
-        <<"HalloApp/Android0.172">> -> true;
-        <<"HalloApp/Android0.179">> -> true;
-        _ -> false
-    end.
 
 
 -spec re_match(iodata(), any()) -> {match | nomatch}.
