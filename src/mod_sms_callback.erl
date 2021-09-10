@@ -266,6 +266,13 @@ process([<<"infobip">>],
 %% "messageStatus": "004"
 %% }
 %% }
+%% Clickatell tests validity of the callback by using HTTP GET.
+process([<<"clickatell">>],
+        #request{method = 'GET', q = Q, ip = IP, headers = Headers}) ->
+    ?INFO("Clickatell SMS callback, Http Get, q: ~p, IP: ~p, Headers: ~p",
+        [Q, IP, Headers]),
+    {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})};
+
 process([<<"clickatell">>],
     #request{method = 'POST', data = Data, ip = IP, headers = Headers} = Request) ->
     try

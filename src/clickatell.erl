@@ -69,10 +69,10 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             end,
             %% TODO: Inspect error codes.
             %% https://www.clickatell.com/developers/api-documentation/error-codes/
-            ErrorCode = maps:get(<<"errorCode">>, Message),
-            Error = maps:get(<<"error">>, Message),
-            ErrorDescr = maps:get(<<"errorDescription">>, Message),
-            ?INFO("SMS to Phone: ~p, gw: clickatell, Status: ~p, Id:~p, ErrorCode: ~p, Error: ~p, "
+            ErrorCode = maps:get(<<"errorCode">>, Message, undefined),
+            Error = maps:get(<<"error">>, Message, undefined),
+            ErrorDescr = maps:get(<<"errorDescription">>, Message, undefined),
+            ?INFO("SMS to Phone: ~p, gw: clickatell, Status: ~p, Id: ~p, ErrorCode: ~p, Error: ~p, "
                 "Error descr: ~p", [Phone, Status, Id, ErrorCode, Error, ErrorDescr]),
             case Status of
                 accepted ->
