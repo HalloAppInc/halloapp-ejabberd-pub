@@ -350,9 +350,10 @@ process([<<"telesign">>],
         Mnc = maps:get(<<"mnc">>, AdditionalInfo),
         Mcc = maps:get(<<"mcc">>, AdditionalInfo),
         SubmitTimestamp = maps:get(<<"submit_timestamp">>, Payload),
-        ?INFO("Delivery receipt Telesign: Status: ~s, StatusDescr: ~p, MsgId:~s, Price:~p(~s) "
+        %% TODO(vipin): Need to check auth to make sure we get legitimate callbacks.
+        ?INFO("Delivery receipt Telesign: Status: ~p, StatusDescr: ~p, MsgId: ~p, Price:~p(~p) "
             "Mnc: ~p, Mcc: ~p, SubmitTimestamp: ~p",
-            [StatusCode, StatusDescription, ReferenceId, Price, Currency, Mnc, Mcc, SubmitTimestamp]),
+            [Status, StatusDescription, ReferenceId, Price, Currency, Mnc, Mcc, SubmitTimestamp]),
         add_gateway_callback_info(
             #gateway_response{gateway_id = ReferenceId, gateway = telesign, status = Status,
                 price = Price, currency = Currency}),

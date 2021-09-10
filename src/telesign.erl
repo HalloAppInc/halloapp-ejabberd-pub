@@ -63,15 +63,9 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             Status = maps:get(<<"status">>, Json),
             StatusCode = maps:get(<<"code">>, Status),
             Status2 = normalized_status(StatusCode),
-            AdditionalInfo = maps:get(<<"additional_info">>, Json),
-            Price = util:to_float_maybe(maps:get(<<"price">>, AdditionalInfo)),
-            Mnc = maps:get(<<"mnc">>, AdditionalInfo),
-            Mcc = maps:get(<<"mcc">>, AdditionalInfo),
-            ?INFO("SMS to Phone: ~p, gw: telesign, Status: ~p, Id:~p, StatusCode: ~p, Status2: ~p, "
-                "Price: ~p, Mnc: ~p, Mcc: ~p",
-                [Phone, Status, Id, StatusCode, Status2, Price, Mnc, Mcc]),
-            OkResponse = {ok, #gateway_response{gateway_id = Id, status = Status2, price = Price,
-                response = ResBody}},
+            ?INFO("SMS to Phone: ~p, gw: telesign, Status: ~p, Id:~p, StatusCode: ~p, Status2: ~p",
+                [Phone, Status, Id, StatusCode, Status2]),
+            OkResponse = {ok, #gateway_response{gateway_id = Id, status = Status2, response = ResBody}},
             FailedResponse = {error, sms_fail, retry},
             case Status2 of
                 accepted -> OkResponse;
