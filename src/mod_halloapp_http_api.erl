@@ -42,6 +42,8 @@
     process/2,
     process_otp_request/1,
     process_register_request/1,
+    insert_blocklist/0,
+    insert_blocklist/2,
     check_blocked/4,  %% for testing
     delete_client_ip/2,  %% for testing
     delete_phone_pattern/2  %% for testing
@@ -819,6 +821,22 @@ maybe_join_group(Uid, Link) ->
         {ok, _} -> ok;
         {error, Reason} -> Reason
     end.
+
+-spec insert_blocklist() -> ok.
+insert_blocklist() ->
+    insert_blocklist(<<"ha_block_list_3000.txt">>, <<"ha">>).
+
+-spec insert_blocklist(FileName :: binary(), Name :: binary()) -> ok.
+insert_blocklist(FileName, Name) ->
+    FullFileName = filename:join(misc:data_dir(), FileName),
+    {ok, Data} = file:read_file(FullFileName),
+    Ips = binary:split(Data, <<"\n">>, [global]),
+    lists:foreach(
+        fun(IP) ->
+            model_ip_addresses:add_blocked_ip_address(IP, Name)
+        end,
+        Ips),
+    ok.
 
 
 start(_Host, Opts) ->
