@@ -28,10 +28,12 @@
 -include("ha_types.hrl").
 -include("whisper.hrl").
 -include("sms.hrl").
+-include("time.hrl").
 -include("invites.hrl").
 
 -define(MSG_TO_SIGN, <<"HALLO">>).
 -define(IP_BACKOFF_THRESHOLD, 5).
+-define(BLOCK_IP_BACKOFF_TIME, 12 * ?HOURS).
 
 %% Country code in order to apply ip based backoff indepedent of country
 -define(GLOBAL_CC_CODE, <<"__">>).
@@ -492,19 +494,37 @@ check_blocked(IP, Phone, UserAgent, IsNoise) ->
         false ->
             CC = mod_libphonenumber:get_cc(Phone),
             ?DEBUG("CC: ~p", [CC]),
-            Result1 = is_ip_blocked(IP, ?GLOBAL_CC_CODE),
+            Result0 = case is_ip_in_blocklist(IP) of
+                false -> false;
+                {true, RetrySecs0} -> {true, {blocklist, RetrySecs0}}
+            end,
+            Result1 = case Result0 of
+                {true, _} -> Result0;
+                false ->
+                    case is_ip_blocked(IP, ?GLOBAL_CC_CODE) of
+                        false -> false;
+                        {true, RetrySecs1} -> {true, {ip_block, RetrySecs1}}
+                    end
+            end,
             PhonePattern = extract_phone_pattern(Phone, CC, UserAgent),
             ?DEBUG("Phone Pattern: ~p", [PhonePattern]),
-            Result2 = case PhonePattern =:= Phone of
-                true -> false;
-                false -> is_phone_pattern_blocked(PhonePattern, CC)
+            Result2 = case Result1 of
+                {true, _} -> Result1;
+                false ->
+                    case PhonePattern =:= Phone of
+                        true -> false;
+                        false ->
+                            case is_phone_pattern_blocked(PhonePattern, CC) of
+                                false -> false;
+                                {true, RetrySecs2} -> {true, {phone_block, RetrySecs2}}
+                            end
+                    end
             end,
-            ?INFO("IP: ~s blocked result: ~p, Phone: ~p, CC: ~p pattern: ~p blocked result: ~p, UA: ~p", [IP, Result1, Phone, CC, PhonePattern, Result2, UserAgent]),
-            case {Result1, Result2} of
-                {false, false} -> ok;
-                {{true, RetrySecs1}, false} -> {error, retried_too_soon, RetrySecs1};
-                {false, {true, RetrySecs2}} -> {error, retried_too_soon, RetrySecs2};
-                {{true, RetrySecsA}, {true, RetrySecsB}} -> {error, retried_too_soon, lists:max([RetrySecsA, RetrySecsB])}
+            ?INFO("IP: ~s Phone: ~p, CC: ~p pattern: ~p UA: ~p, blocked result: ~p",
+                [IP, Result1, Phone, CC, PhonePattern, UserAgent, Result2]),
+            case Result2 of
+                false -> ok;
+                {true, {_Reason, RetrySecs3}} -> {error, retried_too_soon, RetrySecs3}
             end;
         true ->
             ?INFO("IP: ~s blocked result: ~p, Phone: ~p, is_invited: ~p, is_noise : ~p",
@@ -694,20 +714,14 @@ is_group_invite_valid(GroupInviteToken) ->
 delete_client_ip(IP, _Phone) ->
     %% TODO(vipin): delete the next line if satisfied.
     %% CC = mod_libphonenumber:get_region_id(Phone),
-    model_ip_addresses:delete_ip_address(IP, ?GLOBAL_CC_CODE).
+    model_ip_addresses:delete_ip_address(IP, ?GLOBAL_CC_CODE),
+    %% clear timestamp on blocked ip address as well.
+    model_ip_addresses:clear_blocked_ip_address(IP).
 
 -spec delete_phone_pattern(Phone :: binary(), UserAgent :: binary()) -> ok.
 delete_phone_pattern(Phone, UserAgent) ->
     CC = mod_libphonenumber:get_region_id(Phone),
     model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC, UserAgent)).
-
-
--spec is_ip_blocked(IP :: list(), CC :: binary(), UserAgent :: binary()) -> false | {true, integer()}.
-is_ip_blocked(IP, CC, UserAgent) ->
-    case util_ua:is_blockable(UserAgent) of
-        false -> false;
-        true -> is_ip_blocked(IP, CC)
-    end.
 
 
 -spec is_ip_blocked(IP :: list(), CC :: binary()) -> false | {true, integer()}.
@@ -732,11 +746,33 @@ is_ip_blocked(IP, CC) ->
     end,
     case IsIpBlocked of
         false ->
-              ok = model_ip_addresses:add_ip_address(IP, CC, CurrentTs),
-              false;
-        {true, _} = Error ->
-              Error
+            ok = model_ip_addresses:add_ip_address(IP, CC, CurrentTs),
+            false;
+        {true, _} = Result ->
+            Result
     end.
+
+
+-spec is_ip_in_blocklist(IP :: list()) -> false | {true, integer()}.
+is_ip_in_blocklist(IP) ->
+    CurrentTs = util:now(),
+    case model_ip_addresses:is_ip_blocked(IP) of
+        false -> false;
+        {true, undefined} ->
+            model_ip_addresses:record_blocked_ip_address(IP, CurrentTs),
+            false;
+        {true, Timestamp} ->
+            %% IP is in our blocklist - so allow only 1 per block_ip_backoff_time.
+            TimeDiff = CurrentTs - Timestamp - ?BLOCK_IP_BACKOFF_TIME,
+            case TimeDiff > 0 of
+                true ->
+                    model_ip_addresses:record_blocked_ip_address(IP, CurrentTs),
+                    false;
+                false ->
+                    {true, TimeDiff}
+            end
+    end.
+
 
 -spec is_phone_pattern_blocked(PhonePattern :: binary(), CC :: binary()) -> false | {true, integer()}.
 is_phone_pattern_blocked(PhonePattern, CC) ->
