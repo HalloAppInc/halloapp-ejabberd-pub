@@ -118,11 +118,12 @@
 -define(GATEWAY_RESPONSE_ID_KEY, <<"gri:">>).
 -define(INVITED_BY_KEY, <<"ibn:">>).
 -define(INVITE_NOTIFICATION_KEY, <<"ink:">>).
-
--define(IP_KEY, <<"ip:">>).
 -define(PHONE_PATTERN_KEY, <<"pp:">>).
 
 -define(GW_SCORE_KEY, <<"scr:">>).
+
+-define(IP_KEY, <<"ip:">>).
+-define(BLOCK_IP_KEY, <<"bip:">>).
 
 % old deleted/deprecated keys
 %%-define(INVITED_BY_KEY_OLD, <<"inb:">>).

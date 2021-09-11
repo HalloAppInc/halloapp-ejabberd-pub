@@ -46,3 +46,36 @@ ip_address_test() ->
     {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP1, ?CC1),
     {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP2, ?CC2).
 
+
+block_ip_address_test() ->
+    setup(),
+    ?assertEqual(false, model_ip_addresses:is_ip_blocked(?IP1)),
+    ?assertEqual(false, model_ip_addresses:is_ip_blocked(?IP2)),
+    ok = model_ip_addresses:remove_blocked_ip_address(?IP1),
+    ok = model_ip_addresses:remove_blocked_ip_address(?IP2),
+    ?assertEqual(false, model_ip_addresses:is_ip_blocked(?IP1)),
+    ?assertEqual(false, model_ip_addresses:is_ip_blocked(?IP2)),
+
+    %% Add ip1 to blocklist.
+    ?assertEqual(ok, model_ip_addresses:add_blocked_ip_address(?IP1, <<"ha">>)),
+    ?assertEqual({true, undefined}, model_ip_addresses:is_ip_blocked(?IP1)),
+    ?assertEqual(false, model_ip_addresses:is_ip_blocked(?IP2)),
+
+    %% Add ip2 to blocklist
+    ?assertEqual(ok, model_ip_addresses:add_blocked_ip_address(?IP2, <<"maxm">>)),
+    ?assertEqual({true, undefined}, model_ip_addresses:is_ip_blocked(?IP1)),
+    ?assertEqual({true, undefined}, model_ip_addresses:is_ip_blocked(?IP2)),
+
+    %% Record time and clear time.
+    Timestamp1 = util:now(),
+    ?assertEqual(ok, model_ip_addresses:record_blocked_ip_address(?IP1, Timestamp1)),
+    ?assertEqual({true, Timestamp1}, model_ip_addresses:is_ip_blocked(?IP1)),
+    ?assertEqual(ok, model_ip_addresses:clear_blocked_ip_address(?IP1)),
+    ?assertEqual({true, undefined}, model_ip_addresses:is_ip_blocked(?IP1)),
+
+    ok = model_ip_addresses:remove_blocked_ip_address(?IP1),
+    ok = model_ip_addresses:remove_blocked_ip_address(?IP2),
+    ?assertEqual(false, model_ip_addresses:is_ip_blocked(?IP1)),
+    ?assertEqual(false, model_ip_addresses:is_ip_blocked(?IP2)),
+    ok.
+
