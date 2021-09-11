@@ -240,7 +240,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
             log_request_otp_error(bad_user_agent, sms),
             {error, bad_user_agent};
         error : invalid_client_version ->
-            ?ERROR("register error: invalid_client_version ~p", [RawData]),
+            ?INFO("register error: invalid_client_version ~p", [RawData]),
             {error, invalid_client_version};
         error : bad_method ->
             ?ERROR("register error: bad_method ~p", [RawData]),
