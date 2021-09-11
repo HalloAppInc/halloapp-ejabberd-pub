@@ -521,7 +521,7 @@ check_blocked(IP, Phone, UserAgent, IsNoise) ->
                     end
             end,
             ?INFO("IP: ~s Phone: ~p, CC: ~p pattern: ~p UA: ~p, blocked result: ~p",
-                [IP, Result1, Phone, CC, PhonePattern, UserAgent, Result2]),
+                [IP, Phone, CC, PhonePattern, UserAgent, Result2]),
             case Result2 of
                 false -> ok;
                 {true, {_Reason, RetrySecs3}} -> {error, retried_too_soon, RetrySecs3}
