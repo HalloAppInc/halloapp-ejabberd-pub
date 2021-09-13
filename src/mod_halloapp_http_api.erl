@@ -490,7 +490,7 @@ check_name(_) ->
 -spec check_blocked(IP :: string(), Phone :: binary(), UserAgent :: binary(), IsNoise :: boolean()) -> ok | {error, retried_too_soon, integer()}.
 check_blocked(IP, Phone, UserAgent, IsNoise) ->
     IsInvited = model_invites:is_invited(Phone),
-    case util:is_test_number(Phone) orelse IsInvited orelse IsNoise of
+    case util:is_test_number(Phone) orelse IsInvited of
         false ->
             CC = mod_libphonenumber:get_cc(Phone),
             ?DEBUG("CC: ~p", [CC]),
@@ -520,8 +520,8 @@ check_blocked(IP, Phone, UserAgent, IsNoise) ->
                             end
                     end
             end,
-            ?INFO("IP: ~s Phone: ~p, CC: ~p pattern: ~p UA: ~p, blocked result: ~p",
-                [IP, Phone, CC, PhonePattern, UserAgent, Result2]),
+            ?INFO("IP: ~s Phone: ~p, CC: ~p pattern: ~p UA: ~p, blocked result: ~p, is_noise: ~p",
+                [IP, Phone, CC, PhonePattern, UserAgent, Result2, IsNoise]),
             case Result2 of
                 false -> ok;
                 {true, {_Reason, RetrySecs3}} -> {error, retried_too_soon, RetrySecs3}
