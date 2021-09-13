@@ -285,6 +285,7 @@ process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
     },
     OtpResponse = case mod_halloapp_http_api:process_otp_request(RequestData) of
         {ok, Phone, RetryAfterSecs} ->
+            stat:count("HA/registration", "request_otp_success", 1, [{protocol, "noise"}]),
             #pb_otp_response{
                 phone = Phone,
                 result = success,
@@ -355,6 +356,7 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
     },
     VerifyOtpResponse = case mod_halloapp_http_api:process_register_request(RequestData) of
         {ok, Result} ->
+            stat:count("HA/registration", "verify_otp_success", 1, [{protocol, "noise"}]),
             #pb_verify_otp_response{
                 uid = maps:get(uid, Result),
                 phone = maps:get(phone, Result),

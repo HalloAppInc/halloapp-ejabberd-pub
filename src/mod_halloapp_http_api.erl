@@ -96,6 +96,7 @@ process([<<"registration">>, <<"register2">>],
         },
         case process_register_request(RequestData) of
             {ok, Result} ->
+                stat:count("HA/registration", "verify_otp_success", 1, [{protocol, "https"}]),
                 {200, ?HEADER(?CT_JSON), jiffy:encode(Result)};
             {error, internal_server_error} ->
                 util_http:return_500();
@@ -175,6 +176,7 @@ process_otp_request(Data, IP, Headers) ->
         },
         case process_otp_request(RequestData) of
             {ok, Phone, RetryAfterSecs} ->
+                stat:count("HA/registration", "request_otp_success", 1, [{protocol, "https"}]),
                 {200, ?HEADER(?CT_JSON),
                     jiffy:encode({[
                         {phone, Phone},
