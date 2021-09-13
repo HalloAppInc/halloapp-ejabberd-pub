@@ -529,7 +529,7 @@ check_blocked(IP, Phone, UserAgent, IsNoise) ->
                 {true, {_Reason, RetrySecs3}} -> {error, retried_too_soon, RetrySecs3}
             end;
         true ->
-            ?INFO("IP: ~s blocked result: ~p, Phone: ~p, is_invited: ~p, is_noise : ~p",
+            ?INFO("IP: ~s blocked result: ~p, Phone: ~p, is_invited: ~p, is_noise: ~p",
                 [IP, false, Phone, IsInvited, IsNoise]),
             ok
     end.
