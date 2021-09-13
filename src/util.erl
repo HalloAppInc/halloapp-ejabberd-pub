@@ -91,10 +91,12 @@ get_upload_server() ->
 
 
 get_noise_key_material() ->
-    % TODO: switch form jsx to jiffy, it is faster
-    % TODO: we can save ourselves the json decoding every time, by caching the result
-    [{?NOISE_STATIC_KEY, NoiseStaticKeyPair}, {?NOISE_SERVER_CERTIFICATE, NoiseCertificate}] =
-            jsx:decode(mod_aws:get_secret(config:get_noise_secret_name())),
+    % TODO: mod_aws caches the secret, but we can save ourselves the
+    % json decoding and the rest of the computation
+    NoiseSecret = jiffy:decode(mod_aws:get_secret(config:get_noise_secret_name()), [return_maps]),
+    NoiseStaticKeyPair = maps:get(?NOISE_STATIC_KEY, NoiseSecret),
+    NoiseCertificate = maps:get(?NOISE_SERVER_CERTIFICATE, NoiseSecret),
+
     NoiseStaticKey = base64:decode(NoiseStaticKeyPair),
     [{_, ServerPublic, _}, {_, ServerSecret, _}] = public_key:pem_decode(NoiseStaticKey),
     ServerKeypair = enoise_keypair:new(dh25519, ServerSecret, ServerPublic),
@@ -104,8 +106,9 @@ get_noise_key_material() ->
 
 
 get_noise_static_pubkey() ->
-    [{?NOISE_STATIC_KEY, NoiseStaticKeyPair}, {?NOISE_SERVER_CERTIFICATE, _NoiseCertificate}] =
-            jsx:decode(mod_aws:get_secret(config:get_noise_secret_name())),
+    NoiseSecret = jiffy:decode(mod_aws:get_secret(config:get_noise_secret_name()), [return_maps]),
+    NoiseStaticKeyPair = maps:get(?NOISE_STATIC_KEY, NoiseSecret),
+
     NoiseStaticKey = base64:decode(NoiseStaticKeyPair),
     [{_, ServerStaticPubKey, _}, {_, _, _}] = public_key:pem_decode(NoiseStaticKey),
     ServerStaticPubKey.

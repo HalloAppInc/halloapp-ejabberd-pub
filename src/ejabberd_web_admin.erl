@@ -1992,7 +1992,7 @@ generate_sms_info(Phone) ->
             XhtmlReceipt = case Receipt =:= <<>> orelse Receipt =:= undefined of
                 true -> [?C("No receipt found.")];
                 false ->
-                    Json = jsx:decode(Receipt),
+                    Json = jiffy:decode(Receipt),
                     json_to_xhtml(Json, [], 2)
             end,
             {ok, TTL} = model_phone:get_sms_code_ttl(Phone),
@@ -2032,6 +2032,8 @@ seconds_to_string(N) ->
 
 
 -spec json_to_xhtml(list(tuple()), [], non_neg_integer()) -> list(tuple()).
+json_to_xhtml({Proplist}, [], IndentLevel) when is_list(Proplist)->
+	json_to_xhtml(Proplist, [?C("{"), ?BR], IndentLevel);
 json_to_xhtml(Proplist, [], IndentLevel) when is_list(Proplist)->
     json_to_xhtml(Proplist, [?C("{"), ?BR], IndentLevel);
 

@@ -42,7 +42,7 @@ twilio_callback_test() ->
     Data = uri_string:compose_query(?TWILIO_CALLBACK_QS(?TEST_PHONE, ?PHONE, <<"delivered">>)),
     {200, ?HEADER(?CT_JSON), Info} = mod_sms_callback:process(?TWILIO_CALLBACK_PATH,
         #request{method = 'POST', data = Data, headers = ?TWILIO_CALLBACK_HEADERS(?UA)}),
-    [{<<"result">>, <<"ok">>}] = jsx:decode(Info),
+    #{<<"result">> := <<"ok">>} = jiffy:decode(Info, [return_maps]),
     ok.
 
 mbird_callback_test() ->
@@ -50,7 +50,7 @@ mbird_callback_test() ->
     Q = ?MBIRD_CALLBACK_QS(?PHONE, <<"delivered">>),
     {200, ?HEADER(?CT_JSON), Info} = mod_sms_callback:process(?MBIRD_CALLBACK_PATH,
         #request{method = 'GET', q = Q, headers = ?MBIRD_CALLBACK_HEADERS(?UA)}),
-    [{<<"result">>, <<"ok">>}] = jsx:decode(Info).
+    #{<<"result">> := <<"ok">>} = jiffy:decode(Info, [return_maps]).
 
 %%%----------------------------------------------------------------------
 %%% Internal functions

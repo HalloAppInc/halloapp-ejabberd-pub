@@ -83,7 +83,7 @@ crash() ->
 %%====================================================================
 
 init([Host|_]) ->
-    get_fcm_info(),
+    _ = get_fcm_apikey(),
     {ok, #push_state{host = Host}}.
 
 
@@ -287,13 +287,8 @@ remove_push_token(Uid, Server) ->
 %% FCM stuff
 %%====================================================================
 
-get_fcm_info() ->
-    % TODO: switch to jiffy
-    jsx:decode(mod_aws:get_secret(<<"fcm">>)).
-
 
 -spec get_fcm_apikey() -> string().
 get_fcm_apikey() ->
-    [{<<"apikey">>, Res}] = get_fcm_info(),
-    binary_to_list(Res).
+    mod_aws:get_secret_value(<<"fcm">>, <<"apikey">>).
 
