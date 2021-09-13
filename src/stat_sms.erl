@@ -349,8 +349,17 @@ compute_and_print_score([VarType, VarName, ErrCount, TotalCounted, TotalSeen]) -
     Category = get_category(VarType),
     Score = case compute_recent_score(ErrCount, TotalCounted) of
         {ok, S} when S < ?MIN_SMS_CONVERSION_SCORE ->
-            ?ERROR("Low SMS conversion, ~s: ~p, score: ~p (~p/~p)", 
-                [Category, VarName, S, SuccessCount, TotalCounted]),
+            %% TODO: change the INFO to ERROR once spam noise has subsided.
+            LogMsg = "Low SMS conversion, ~s: ~p, score: ~p (~p/~p)",
+            LogList = [Category, VarName, S, SuccessCount, TotalCounted],
+            %% Print as Error once every 4 hours. Assumption is that this method is run every
+            %% 15 minutes. Print as Info otherwise.
+            CurrentTime = util:now(),
+            case CurrentTime div ?HOURS rem 4 =:= 0 andalso
+                CurrentTime div 15 * ?MINUTES rem 4 =:= 0 of
+                true -> ?ERROR(LogMsg, LogList);
+                false -> ?INFO(LogMsg, LogList)
+            end,
             S;
         {ok, S} ->
             S;
