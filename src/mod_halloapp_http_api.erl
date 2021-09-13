@@ -766,12 +766,12 @@ is_ip_in_blocklist(IP) ->
         {true, Timestamp} ->
             %% IP is in our blocklist - so allow only 1 per block_ip_backoff_time.
             TimeDiff = CurrentTs - Timestamp - ?BLOCK_IP_BACKOFF_TIME,
-            case TimeDiff > 0 of
+            case TimeDiff >= 0 of
                 true ->
                     model_ip_addresses:record_blocked_ip_address(IP, CurrentTs),
                     false;
                 false ->
-                    {true, TimeDiff}
+                    {true, 0 - TimeDiff}
             end
     end.
 
