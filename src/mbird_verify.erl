@@ -32,11 +32,11 @@ init() ->
     ok.
 
 -spec can_send_sms(CC :: binary()) -> boolean().
-can_send_sms(_CC) ->
-    true.
+can_send_sms(CC) ->
+    mbird:is_cc_supported(CC).
 -spec can_send_voice_call(CC :: binary()) -> boolean().
-can_send_voice_call(_CC) ->
-    true.
+can_send_voice_call(CC) ->
+    mbird:is_cc_supported(CC).
 
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.

@@ -25,6 +25,7 @@
     send_voice_call/4,
     normalized_status/1,
     send_feedback/2,
+    is_cc_supported/1,
     compose_body/2,     %% for debugging
     compose_voice_body/3  %% for debugging
 ]).
@@ -35,11 +36,52 @@ init() ->
 
 
 -spec can_send_sms(CC :: binary()) -> boolean().
-can_send_sms(_CC) ->
-    true.
+can_send_sms(CC) ->
+    is_cc_supported(CC).
 -spec can_send_voice_call(CC :: binary()) -> boolean().
-can_send_voice_call(_CC) ->
-    true.
+can_send_voice_call(CC) ->
+    is_cc_supported(CC).
+
+-spec is_cc_supported(CC :: binary()) -> boolean().
+is_cc_supported(CC) ->
+    case CC of
+        <<"AE">> -> false;     %% UAE
+        <<"AM">> -> false;     %% Armenia
+        <<"BE">> -> false;     %% Belgium
+        <<"BG">> -> false;     %% Bulgaria
+        <<"BL">> -> false;     %% Belarus
+        <<"CH">> -> false;     %% Switzerland
+        <<"CN">> -> false;     %% China
+        <<"CU">> -> false;     %% Cuba
+        <<"TD">> -> false;     %% Chad
+        <<"CZ">> -> false;     %% Czech Republic
+        <<"EG">> -> false;     %% Egypt
+        <<"IL">> -> false;     %% Israel
+        <<"ID">> -> false;     %% Indonesia
+        <<"JO">> -> false;     %% Jordan
+        <<"KZ">> -> false;     %% Kazakhstan
+        <<"KE">> -> false;     %% Kenya
+        <<"KW">> -> false;     %% Kuwait
+        <<"MK">> -> false;     %% Macedonia
+        <<"ME">> -> false;     %% Montenegro
+        <<"MA">> -> false;     %% Morocco
+        <<"MZ">> -> false;     %% Mozambique
+        <<"MM">> -> false;     %% Myanmar
+        <<"NP">> -> false;     %% Nepal
+        <<"NZ">> -> false;     %% New Zealand
+        <<"PH">> -> false;     %% Philippines
+        <<"QA">> -> false;     %% Qatar
+        <<"RO">> -> false;     %% Romania
+        <<"RU">> -> false;     %% Russia
+        <<"SA">> -> false;     %% Saudi Arabia
+        <<"RS">> -> false;     %% Serbia
+        <<"TZ">> -> false;     %% Tanzania
+        <<"UA">> -> false;     %% Ukraine
+        <<"UZ">> -> false;     %% Uzbekistan
+        <<"VN">> -> false;     %% Vietnam
+        _ -> true
+    end.
+
 
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent :: binary()) ->
         {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.

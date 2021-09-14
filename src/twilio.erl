@@ -43,11 +43,40 @@ init() ->
 
 
 -spec can_send_sms(CC :: binary()) -> boolean().
-can_send_sms(_CC) ->
-    true.
+can_send_sms(CC) ->
+    is_cc_supported(CC).
 -spec can_send_voice_call(CC :: binary()) -> boolean().
-can_send_voice_call(_CC) ->
-    true.
+can_send_voice_call(CC) ->
+    is_cc_supported(CC).
+
+is_cc_supported(CC) ->
+    case CC of
+        <<"BE">> -> false;     %% Belgium
+        <<"BL">> -> false;     %% Belarus
+        <<"CH">> -> false;     %% Switzerland
+        <<"CN">> -> false;     %% China
+        <<"CU">> -> false;     %% Cuba
+        <<"TD">> -> false;     %% Chad
+        <<"CZ">> -> false;     %% Czech Republic
+        <<"EG">> -> false;     %% Egypt
+        <<"IL">> -> false;     %% Israel
+        <<"ID">> -> false;     %% Indonesia
+        <<"JO">> -> false;     %% Jordan
+        <<"KZ">> -> false;     %% Kazakhstan
+        <<"KE">> -> false;     %% Kenya
+        <<"KW">> -> false;     %% Kuwait
+        <<"MA">> -> false;     %% Morocco
+        <<"MM">> -> false;     %% Myanmar
+        <<"NP">> -> false;     %% Nepal
+        <<"NZ">> -> false;     %% New Zealand
+        <<"PH">> -> false;     %% Philippines
+        <<"QA">> -> false;     %% Qatar
+        <<"RU">> -> false;     %% Russia
+        <<"TZ">> -> false;     %% Tanzania
+        <<"VN">> -> false;     %% Vietnam
+        _ -> true
+    end.
+
 
 %% TODO: check about refactoring prepare_msg code in twilio.hrl and mbird.hrl
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),

@@ -310,45 +310,6 @@ generate_gateway_list(Method, OldResponses) ->
     ?DEBUG("Choose from: ~p", [ToChooseFromList]),
     {IsFirstAttempt, ToChooseFromList}.
 
-% TODO: migrate this logic to the filter_gateways API.
--spec gateway_cc_filter(CC :: binary()) -> atom().
-gateway_cc_filter(CC) ->
-    %% TODO(vipin): Fix as and when we get approval. Replace the following using redis.
-    case CC of
-        <<"AE">> -> twilio;     %% UAE
-        <<"AM">> -> twilio;     %% Armenia
-        <<"BE">> -> twilio_verify;     %% Belgium
-        <<"BG">> -> twilio;     %% Bulgaria
-        <<"BL">> -> twilio_verify;     %% Belarus
-        <<"CN">> -> twilio_verify;     %% China, check once vetting is done
-        <<"CU">> -> twilio_verify;     %% Cuba
-        <<"TD">> -> twilio_verify;     %% Chad
-        <<"CZ">> -> twilio_verify;     %% Czech Republic
-        <<"EG">> -> twilio_verify;     %% Egypt
-        <<"ID">> -> twilio_verify;     %% Indonesia
-        <<"JO">> -> twilio_verify;     %% Jordan
-        <<"KZ">> -> twilio_verify;     %% Kazakhstan
-        <<"KE">> -> twilio_verify;     %% Kenya
-        <<"KW">> -> twilio_verify;     %% Kuwait
-        <<"MK">> -> twilio;     %% Macedonia
-        <<"ME">> -> twilio;     %% Montenegro
-        <<"MA">> -> twilio_verify;     %% Morocco
-        <<"MX">> -> mbird;      %% Mexico
-        <<"MZ">> -> twilio;     %% Mozambique
-        <<"MM">> -> twilio_verify;      %% Myanmar
-        <<"NZ">> -> twilio_verify;     %% New Zealand
-        <<"PH">> -> twilio_verify;     %% Philippines
-        <<"QA">> -> twilio_verify;     %% Qatar
-        <<"RO">> -> twilio;     %% Romania
-        <<"RU">> -> twilio_verify;     %% Russia
-        <<"SA">> -> twilio;     %% Saudi Arabia
-        <<"RS">> -> twilio;     %% Serbia
-        <<"TZ">> -> twilio_verify;     %% Tanzania
-        <<"UA">> -> twilio;     %% Ukraine
-        <<"UZ">> -> twilio;     %% Uzbekistan
-        <<"VN">> -> twilio_verify;     %% Vietnam
-        _ -> unrestricted % will choose in smart_send
-    end.
 
 -spec filter_gateways(CC :: binary(), Method :: method(), GatewayList :: list(atom())) -> list(atom()).
 filter_gateways(CC, Method, GatewayList) ->
@@ -375,42 +336,34 @@ filter_gateways(CC, Method, GatewayList) ->
         {error, atom(), sms_fail} | {error, atom(), call_fail} | {error, atom(), voice_call_fail}.
 smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
     CC = mod_libphonenumber:get_cc(OtpPhone),
-    % check if country has restricted gateway first
-    NewGateway = gateway_cc_filter(CC),
-    {NewGateway2, ToChooseFromList} = case NewGateway of
-        unrestricted ->
-            {IsFirstAttempt, ChooseFromList} = generate_gateway_list(Method, OldResponses),
-            ChooseFromList2 = filter_gateways(CC, Method, ChooseFromList),
-            ConsiderList = sms_gateway_list:get_sms_gateway_list(),
-            ConsiderSet = sets:from_list(ConsiderList),
 
-            %% Pick one based on past performance.
-            PickedGateway = pick_gw(ChooseFromList2, CC, IsFirstAttempt),
-            ?INFO("Phone: ~s Picked Gateway: ~p CC: ~s", [Phone, PickedGateway, CC]),
+    {IsFirstAttempt, ChooseFromList} = generate_gateway_list(Method, OldResponses),
+    ChooseFromList2 = filter_gateways(CC, Method, ChooseFromList),
+    ConsiderList = sms_gateway_list:get_sms_gateway_list(),
+    ConsiderSet = sets:from_list(ConsiderList),
 
-            %% Just in case there is any bug in computation of new gateway.
-            PickedGateway2 = case sets:is_element(PickedGateway, ConsiderSet) of
-                true -> PickedGateway;
-                false ->
-                    ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderList]),
-                    twilio
-            end,
-            {PickedGateway2, ChooseFromList};
-        _ -> % matched with a country with specific gateway
-            ChooseFromList = [NewGateway],
-            {NewGateway, ChooseFromList}
+    %% Pick one based on past performance.
+    PickedGateway = pick_gw(ChooseFromList2, CC, IsFirstAttempt),
+    ?INFO("Phone: ~s Picked Gateway: ~p CC: ~s", [Phone, PickedGateway, CC]),
+
+    %% Just in case there is any bug in computation of new gateway.
+    PickedGateway2 = case sets:is_element(PickedGateway, ConsiderSet) of
+        true -> PickedGateway;
+        false ->
+            ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderList]),
+            twilio
     end,
-    Code = case NewGateway2 of
+    Code = case PickedGateway2 of
         mbird_verify -> <<"999999">>;
         _ -> generate_code(Phone)
     end,
     ?INFO("Enrolling: ~s, Using Phone: ~s CC: ~s Chosen Gateway: ~p to send ~p Code: ~p",
-        [Phone, OtpPhone, CC, NewGateway2, Method, Code]),
+        [Phone, OtpPhone, CC, PickedGateway2, Method, Code]),
         
     {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
     CurrentSMSResponse = #gateway_response{attempt_id = NewAttemptId,
-        attempt_ts = Timestamp, method = Method, gateway = NewGateway2},
-    smart_send_internal(OtpPhone, Code, LangId, UserAgent, CC, CurrentSMSResponse, ToChooseFromList).
+        attempt_ts = Timestamp, method = Method, gateway = PickedGateway2},
+    smart_send_internal(OtpPhone, Code, LangId, UserAgent, CC, CurrentSMSResponse, ChooseFromList).
 
 
 -spec smart_send_internal(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent ::

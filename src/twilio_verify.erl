@@ -33,10 +33,13 @@ init() ->
     ok.
 
 -spec can_send_sms(CC :: binary()) -> boolean().
-can_send_sms(_CC) ->
-    true.
+can_send_sms(CC) ->
+    is_cc_supported(CC).
 -spec can_send_voice_call(CC :: binary()) -> boolean().
-can_send_voice_call(_CC) ->
+can_send_voice_call(CC) ->
+    is_cc_supported(CC).
+
+is_cc_supported(_CC) ->
     true.
 
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
