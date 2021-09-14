@@ -22,7 +22,8 @@
 
 -define(MESSAGE_RESPONSE_TIMEOUT_MILLISEC, 30000).  %% 30 seconds.
 -define(MAX_RETRY_COUNT, 5).
--define(RETRY_INTERVAL_MILLISEC, 30000).    %% 30 sec.
+-define(RETRY_INTERVAL_MILLISEC, 10000).    %% 10 sec.
+-define(MAX_OFFLINE_CHECK_RETRIES, 3).      %% 3 times - every 10 seconds.
 -define(MAX_WINDOW, 64).
 -define(RATE_COEFFECIENT, 8).
 
@@ -42,7 +43,7 @@
     user_session_activated/3,
     remove_user/2,
     count_user_messages/1,
-    offline_queue_cleared/3,
+    offline_queue_check/5,
     route_offline_messages/4  % DEBUG
 ]).
 
@@ -81,7 +82,7 @@ init([Host|_]) ->
     ejabberd_hooks:add(user_send_ack, Host, ?MODULE, user_send_ack, 50),
     ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 100),
     ejabberd_hooks:add(user_session_activated, Host, ?MODULE, user_session_activated, 50),
-    ejabberd_hooks:add(offline_queue_cleared, Host, ?MODULE, offline_queue_cleared, 50),
+    ejabberd_hooks:add(offline_queue_check, Host, ?MODULE, offline_queue_check, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
     {ok, #{host => Host}}.
 
@@ -93,7 +94,7 @@ terminate(_Reason, #{host := Host} = _State) ->
     ejabberd_hooks:delete(user_send_ack, Host, ?MODULE, user_send_ack, 50),
     ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 100),
     ejabberd_hooks:delete(user_session_activated, Host, ?MODULE, user_session_activated, 50),
-    ejabberd_hooks:delete(offline_queue_cleared, Host, ?MODULE, offline_queue_cleared, 50),
+    ejabberd_hooks:delete(offline_queue_check, Host, ?MODULE, offline_queue_check, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
     ok.
 
@@ -231,28 +232,31 @@ c2s_session_opened(#{mode := passive} = State) ->
     State.
 
 
--spec offline_queue_cleared(Uid :: binary(), Server :: binary(), LastMsgOrderId :: integer()) -> ok.
-offline_queue_cleared(Uid, _Server, LastMsgOrderId) ->
+-spec offline_queue_check(Uid :: binary(), Server :: binary(),
+    LastMsgOrderId :: integer(), RetryCount :: integer(), LeftOverMsgIds :: [binary()]) -> ok.
+offline_queue_check(#{client_version := ClientVersion} = State, Uid,
+        LastMsgOrderId, RetryCount, LeftOverMsgIds) when RetryCount >= ?MAX_OFFLINE_CHECK_RETRIES ->
     ?INFO("Uid: ~s", [Uid]),
     case model_messages:get_user_messages(Uid, LastMsgOrderId + 1, undefined) of
         {ok, true, []} -> ok;
         {ok, true, OfflineMessages} ->
-            %% TODO(murali@): fetch this from state instead - update the hook to include state.
-            {ok, ClientVersion} = model_accounts:get_client_version(Uid),
             %% Applying filter to remove certain messages.
-            FilteredMsgs1 = lists:filter(
-                    fun(OfflineMessage) ->
-                        filter_messages(ClientVersion, OfflineMessage)
-                    end, OfflineMessages),
+            FilteredMsgs1 = filter_offline_messages(ClientVersion, OfflineMessages),
             %% Filter messages again that were just sent to the client.
-            %% Note that, we do this "additional filter" for the sent field only after offline queue
-            %% is marked as cleared. so any messages on the past connection will be sent to the
-            %% client before the queue is cleared in this new connection.
-            FilteredMsgs2 = lists:filter(
-                    fun(#offline_message{sent = Sent}) -> Sent =/= true end, FilteredMsgs1),
+            FilteredMsgs2 = filter_sent_messages(FilteredMsgs1),
+            FilteredMsgIds2 = extract_msgid(FilteredMsgs2),
             NumFilteredMsgs = length(FilteredMsgs2),
+            LeftOverMsgIdSet = sets:from_list(LeftOverMsgIds),
             case NumFilteredMsgs > 0 of
                 true ->
+                    lists:foreach(
+                        fun(MsgId) ->
+                            case sets:is_element(MsgId, LeftOverMsgIdSet) of
+                                true -> ?ERROR("Uid: ~s, still has MsgId: ~p in their offline queue");
+                                false -> ok
+                            end
+                        end, FilteredMsgIds2),
+                    %% TODO: make this info if we dont encounter any errors in 1 month [10-01-2021].
                     ?WARNING("Uid: ~s has ~p messages to send again after offline queue cleared.",
                         [Uid, NumFilteredMsgs]);
                 false ->
@@ -261,7 +265,22 @@ offline_queue_cleared(Uid, _Server, LastMsgOrderId) ->
             end,
             do_send_offline_messages(Uid, FilteredMsgs2)
     end,
-    ok.
+    State;
+offline_queue_check(#{client_version := ClientVersion} = State, Uid,
+        LastMsgOrderId, RetryCount, _LeftOverMsgIds) ->
+    ?INFO("Uid: ~s", [Uid]),
+    NewLeftOverMsgIds = case model_messages:get_user_messages(Uid, LastMsgOrderId + 1, undefined) of
+        {ok, true, []} -> [];
+        {ok, true, OfflineMessages} ->
+            %% Applying filter to remove certain messages.
+            FilteredMsgs1 = filter_offline_messages(ClientVersion, OfflineMessages),
+            %% Filter messages again that were just sent to the client.
+            FilteredMsgs2 = filter_sent_messages(FilteredMsgs1),
+            FilteredMsgIds2 = extract_msgid(FilteredMsgs2),
+            FilteredMsgIds2
+    end,
+    schedule_offline_queue_check(Uid, LastMsgOrderId, RetryCount + 1, NewLeftOverMsgIds),
+    State.
 
 
 -spec user_session_activated(State :: state(), Uid :: binary(), SID :: sid()) -> state().
@@ -283,6 +302,23 @@ count_user_messages(User) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%      internal functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec filter_sent_messages([offline_message()]) -> [offline_message()].
+filter_sent_messages(OfflineMessages) ->
+    %% Filter messages again that were just sent to the client.
+    %% Note that, we do this "additional filter" for the sent field only after offline queue
+    %% is marked as cleared. so any messages on the past connection will be sent to the
+    %% client before the queue is cleared in this new connection.
+    lists:filter(
+        fun(#offline_message{sent = Sent}) -> Sent =/= true end,
+        OfflineMessages).
+
+
+-spec extract_msgid([offline_message()]) -> [binary()].
+extract_msgid(OfflineMessages) ->
+    lists:map(
+        fun(#offline_message{msg_id = MsgId}) -> MsgId end,
+        OfflineMessages).
 
 
 -spec check_offline_queue(State :: state()) -> state().
@@ -315,10 +351,7 @@ route_offline_messages(UserId, Server, LastMsgOrderId, State) ->
 
     ClientVersion = maps:get(client_version, State, undefined),
     %% Applying filter to remove certain messages.
-    FilteredOfflineMessages = lists:filter(
-            fun(OfflineMessage) ->
-                filter_messages(ClientVersion, OfflineMessage)
-            end, OfflineMessages),
+    FilteredOfflineMessages = filter_offline_messages(ClientVersion, OfflineMessages),
     ?INFO("Uid: ~s has ~p offline messages after order_id: ~p",
             [UserId, length(FilteredOfflineMessages), LastMsgOrderId]),
     lists:foreach(fun route_offline_message/1, FilteredOfflineMessages),
@@ -347,10 +380,7 @@ send_offline_messages(#{mode := active, user := Uid, server := Server,
         {ok, EndOfQueue, OfflineMessages} ->
             ClientVersion = maps:get(client_version, State, undefined),
             %% Applying filter to remove certain messages.
-            FilteredOfflineMessages = lists:filter(
-                    fun(OfflineMessage) ->
-                        filter_messages(ClientVersion, OfflineMessage)
-                    end, OfflineMessages),
+            FilteredOfflineMessages = filter_offline_messages(ClientVersion, OfflineMessages),
             TotalNumOfMessages = length(FilteredOfflineMessages),
             case FilteredOfflineMessages of
                 [] ->
@@ -406,16 +436,18 @@ do_send_offline_messages(Uid, MsgsToSend) ->
 mark_offline_queue_cleared(UserId, Server, NewLastMsgOrderId, State) ->
     %% TODO(murali@): use end_of_queue marker for time to clear out the offline queue.
     EndOfQueueMsgId = send_end_of_queue_marker(UserId, Server),
-    schedule_offline_queue_check(UserId, NewLastMsgOrderId),
+    schedule_offline_queue_check(UserId, NewLastMsgOrderId, 0, []),
+    ejabberd_hooks:run(offline_queue_cleared, Server, [UserId, NewLastMsgOrderId]),
     State#{offline_queue_cleared => true, end_of_queue_msg_id => EndOfQueueMsgId}.
 
 
 %% We check our offline_queue after sometime even after we flush out all messages.
 %% Because other processes could end up storing some messages here.
--spec schedule_offline_queue_check(UserId :: binary(), NewLastMsgOrderId :: integer()) -> ok.
-schedule_offline_queue_check(UserId, NewLastMsgOrderId) ->
-    ?INFO("Uid: ~s, send offline_queue_cleared notice to c2s process: ~p", [UserId, self()]),
-    erlang:send_after(?RETRY_INTERVAL_MILLISEC, self(), {offline_queue_cleared, NewLastMsgOrderId}),
+-spec schedule_offline_queue_check(UserId :: binary(), NewLastMsgOrderId :: integer(),
+    RetryCount :: integer(), LeftOverMsgIds :: [binary()]) -> ok.
+schedule_offline_queue_check(UserId, NewLastMsgOrderId, RetryCount, LeftOverMsgIds) ->
+    ?INFO("Uid: ~s, send offline_queue_check notice to c2s process: ~p", [UserId, self()]),
+    erlang:send_after(?RETRY_INTERVAL_MILLISEC, self(), {offline_queue_check, NewLastMsgOrderId, RetryCount, LeftOverMsgIds}),
     ok.
 
 
@@ -457,6 +489,15 @@ adjust_and_send_message(#pb_msg{} = Message, RetryCount) ->
     Message1 = Message#pb_msg{retry_count = RetryCount},
     ejabberd_router:route(Message1),
     ok.
+
+
+-spec filter_offline_messages(ClientVersion :: binary(),
+    OfflineMessages :: [offline_message()]) -> [offline_message()].
+filter_offline_messages(ClientVersion, OfflineMessages) ->
+    lists:filter(
+        fun(OfflineMessage) ->
+            filter_messages(ClientVersion, OfflineMessage)
+        end, OfflineMessages).
 
 
 %% Filter undefined messages

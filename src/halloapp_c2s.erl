@@ -475,12 +475,12 @@ handle_info(activate_session, #{user := Uid, server := Server, mode := passive, 
     State1 = State#{mode => active},
     State2 = ejabberd_hooks:run_fold(user_session_activated, Server, State1, [Uid, SID]),
     State2;
-handle_info({offline_queue_cleared, LastMsgOrderId},
+handle_info({offline_queue_check, LastMsgOrderId, RetryCount, LeftOverMsgIds},
         #{user := Uid, lserver := Server} = State) ->
-    ?INFO("Uid: ~s, offline_queue is now cleared", [Uid]),
-    NewState = State#{offline_queue_cleared => true},
-    ejabberd_hooks:run(offline_queue_cleared, Server, [Uid, Server, LastMsgOrderId]),
-    NewState;
+    ?INFO("Uid: ~s, offline_queue_check, LastMsgOrderId: ~p, RetryCount: ~p, LeftOverMsgIds: ~p",
+        [Uid, LastMsgOrderId, RetryCount, LeftOverMsgIds]),
+    ejabberd_hooks:run_fold(offline_queue_check, Server, State,
+        [Uid, LastMsgOrderId, RetryCount, LeftOverMsgIds]);
 handle_info(Info, #{lserver := LServer} = State) ->
     ejabberd_hooks:run_fold(pb_c2s_handle_info, LServer, State, [Info]).
 
