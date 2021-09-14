@@ -158,13 +158,6 @@ rand_weighted_selection_test() ->
     ?assertEqual(#{twilio => 2, mbird => 5, vonage => 3}, Counters),
     ok.
 
-get_gw_scores_test() ->
-    ?assertEqual(#{mbird => 0.8, twilio => 0.8},
-        mod_sms:get_gw_scores([mbird, twilio], <<"US">>)),
-    ?assertEqual(#{mbird => 0.8, foo => ?DEFAULT_GATEWAY_SCORE},
-        mod_sms:get_gw_scores([mbird, foo], <<"US">>)),
-    ok.
-
 
 %%%----------------------------------------------------------------------
 %%% Internal functions

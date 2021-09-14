@@ -31,8 +31,7 @@
 -ifdef(TEST).
 -export([
     generate_code/1,
-    send_otp_to_inviter/4,
-    get_gw_scores/2
+    send_otp_to_inviter/4
 ]).
 -endif.
 
@@ -43,15 +42,14 @@
     request_sms/2,
     request_otp/4,
     verify_sms/2,
+    % TODO: move all the testing ones to the -ifdef(TEST)
     is_too_soon/2,  %% for testing
     send_otp/5, %% for testing
     send_otp_internal/6,
     pick_gw/3,  %% for testing,
     rand_weighted_selection/2,  %% for testing
     max_weight_selection/1,  %% for testing
-    generate_code/1,  %% for testing
     smart_send/6,  %% for testing
-    send_otp_to_inviter/4, %% for testing
     generate_gateway_list/2  %% for testing
 ]).
 
@@ -387,15 +385,14 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
             ConsiderSet = sets:from_list(ConsiderList),
 
             %% Pick one based on past performance.
-            {PickedGateway, NewPickedGateway} = pick_gw(ChooseFromList2, CC, IsFirstAttempt),
-            ?INFO("Old Selection: ~p, Current Selection: ~p, CC: ~p",
-                [PickedGateway, NewPickedGateway, CC]),
+            PickedGateway = pick_gw(ChooseFromList2, CC, IsFirstAttempt),
+            ?INFO("Phone: ~s Picked Gateway: ~p CC: ~s", [Phone, PickedGateway, CC]),
 
             %% Just in case there is any bug in computation of new gateway.
-            PickedGateway2 = case sets:is_element(NewPickedGateway, ConsiderSet) of
-                true -> NewPickedGateway;
+            PickedGateway2 = case sets:is_element(PickedGateway, ConsiderSet) of
+                true -> PickedGateway;
                 false ->
-                    ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [NewPickedGateway, ConsiderList]),
+                    ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderList]),
                     twilio
             end,
             {PickedGateway2, ChooseFromList};
@@ -444,11 +441,11 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
             case ToChooseFromList of
                 [] ->
                     {error, Gateway, Reason};
-                _ -> % pick from curated list
-                    {PickedGateway, NewPickedGateway} = pick_gw(ToChooseFromList, CC, false),
-                    ?INFO("Current Selection: ~p, Old Selection: ~p, CC: ~p",
-                        [NewPickedGateway, PickedGateway, CC]),
-                    NewSMSResponse = CurrentSMSResponse#gateway_response{gateway = NewPickedGateway},
+                _ ->
+                    % pick from curated list
+                    PickedGateway = pick_gw(ToChooseFromList, CC, false),
+                    ?INFO("Phone: ~s Picked Gateway: ~p, CC: ~p", [Phone, PickedGateway, CC]),
+                    NewSMSResponse = CurrentSMSResponse#gateway_response{gateway = PickedGateway},
                     smart_send_internal(Phone, Code, LangId, UserAgent, CC, NewSMSResponse, ToChooseFromList)
             end;
         {error, Reason, no_retry} ->
@@ -456,36 +453,25 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
     end.
 
 
--spec pick_gw(ChooseFrom :: [atom()], CC :: binary(), IsFirstAttempt :: boolean()) -> {atom(), atom()}.
+-spec pick_gw(ChooseFrom :: [atom()], CC :: binary(), IsFirstAttempt :: boolean()) -> Gateway :: atom().
 pick_gw(ChooseFrom, CC, IsFirstAttempt) ->
-    GWScores = get_gw_scores(ChooseFrom, CC),
+    GWScores = get_new_gw_scores(ChooseFrom, CC),
     GWWeights = util:normalize_scores(GWScores),
-    
-    NewGWScores = get_new_gw_scores(ChooseFrom, CC),
-    NewGWWeights = util:normalize_scores(NewGWScores),
     RandNo = rand:uniform(),
 
-    {Gateway, NewGateway} = case IsFirstAttempt of
+    Gateway = case IsFirstAttempt of
         true ->
-            % Pick based on random weighted selection
-            PickedGW = rand_weighted_selection(RandNo, GWWeights),
             % Pick based on country-specific scores
-            NewPickedGW = rand_weighted_selection(RandNo, NewGWWeights),
-            {PickedGW, NewPickedGW};
+            rand_weighted_selection(RandNo, GWWeights);
         false ->
             % Pick the gateway with the max score.
-            PickedGW = max_weight_selection(GWWeights),
-            NewPickedGW = max_weight_selection(NewGWWeights),
-            {PickedGW, NewPickedGW}
+            max_weight_selection(GWWeights)
     end,
 
-    ?DEBUG("Generated rand: ~p, Weights: ~p, Pickerd: ~p, New Weights: ~p, New Picked: ~p, IsFirst: ~p",
-        [RandNo, GWWeights, Gateway, NewGWWeights, NewGateway, IsFirstAttempt]),
     ?INFO("Picked ~p Weights: ~p, Rand: ~p IsFirst: ~p",
         [Gateway, GWWeights, RandNo, IsFirstAttempt]),
-    ?INFO("NewPicked ~p Weights: ~p, Rand: ~p IsFirst: ~p",
-        [NewGateway, NewGWWeights, RandNo, IsFirstAttempt]),
-    {Gateway, NewGateway}.
+
+    Gateway.
 
 
 -spec max_weight_selection(Weights :: #{atom() => float()}) -> atom().
@@ -521,20 +507,6 @@ rand_weighted_selection(RandNo, Weights) ->
         end, {0, RandNo}, Weights),
     true = (LeftOver =< 0),
     PickedGateway.
-
-
--spec get_gw_scores(ChooseFrom :: [atom()], CC :: binary()) -> #{atom() => float()}.
-get_gw_scores(ChooseFrom, _CC) ->
-    GlobalMap = #{mbird => 0.8, twilio => 0.8, twilio_verify => 0.5},
-    FinalMap = lists:foldl(
-        fun(Gateway, Acc) ->
-            case maps:find(Gateway, GlobalMap) of
-                {ok, Score} -> Acc#{Gateway => Score};
-                _ -> Acc#{Gateway => ?DEFAULT_GATEWAY_SCORE}
-            end
-        end, #{}, ChooseFrom),
-    ?DEBUG("Gateway Scores: ~p", [FinalMap]),
-    FinalMap.
 
 
 -spec get_new_gw_scores(ChooseFrom :: [atom()], CC :: binary()) -> #{atom() => integer()}.
