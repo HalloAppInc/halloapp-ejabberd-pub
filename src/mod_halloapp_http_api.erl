@@ -234,7 +234,8 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
             log_request_otp_error(ip_blocked, sms),
             {error, ip_blocked};
         error : invalid_phone_number ->
-            ?ERROR("register error: invalid_phone_number ~p", [RawData]),
+            %% Make this error after we block the https api.
+            ?INFO("register error: invalid_phone_number ~p", [RawData]),
             log_request_otp_error(invalid_phone_number, MethodBin),
             {error, invalid_phone_number};
         error : bad_user_agent ->
@@ -631,9 +632,6 @@ normalize(RawPhone) ->
     E164Phone = mod_libphonenumber:prepend_plus(RawPhone),
     case mod_libphonenumber:normalize(E164Phone, <<"US">>) of
         undefined ->
-            %% We dont expect to hit this error that often as of now.
-            %% TODO: update after observing this in release.
-            ?ERROR("Invalid raw_phone:~p", [RawPhone]),
             error(invalid_phone_number);
         Phone ->
             Phone
