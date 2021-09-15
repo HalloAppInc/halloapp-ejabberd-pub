@@ -456,9 +456,7 @@ check_invited_by_group_invite_test() ->
  
 check_empty_inviter_list_test() ->
     setup(),
-    meck:new(mod_sms, [passthrough]),
     ?assertEqual({error, not_invited}, mod_sms:send_otp_to_inviter(?TEST_PHONE, undefined, undefined, undefined)),
-    meck_finish(mod_sms),
     ok. 
 
 check_has_inviter_test() -> 

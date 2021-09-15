@@ -133,6 +133,7 @@ get_auth_token() ->
 
 %% `from` and `mo` weren't found in the actual documentation.
 %% https://stackoverflow.com/questions/36584831/clickatell-http-api-send-message-fails-with-routing-error-status-9
+%% `callback` = `7` indicates to clickatell to return all 7 parameters in the callback
 -spec compose_body(Phone, Message) -> Body when
     Phone :: phone(),
     Message :: string(),
@@ -142,7 +143,8 @@ compose_body(Phone, Message) ->
        <<"to">> => [Phone],
        <<"from">> => util:to_binary(get_originator()),
        <<"text">> => util:to_binary(Message),
-       <<"mo">> => <<"1">>
+       <<"mo">> => <<"1">>,
+       <<"callback">> => <<"7">>
     },
     jiffy:encode(Mp).
 
