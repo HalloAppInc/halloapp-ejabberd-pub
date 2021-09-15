@@ -35,8 +35,6 @@
 -define(IP_BACKOFF_THRESHOLD, 5).
 -define(BLOCK_IP_BACKOFF_TIME, 12 * ?HOURS).
 
-%% Country code in order to apply ip based backoff indepedent of country
--define(GLOBAL_CC_CODE, <<"__">>).
 -define(PHONE_PATTERN_BACKOFF_THRESHOLD, 15).
 
 %% API
@@ -48,7 +46,7 @@
     insert_blocklist/0,
     insert_blocklist/2,
     check_blocked/4,  %% for testing
-    delete_client_ip/2,  %% for testing
+    delete_client_ip/1,  %% for testing
     delete_phone_pattern/2  %% for testing
 ]).
 
@@ -295,7 +293,7 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         Phone = normalize(RawPhone),
         check_ua(UserAgent, Phone),
         check_sms_code(Phone, Code),
-        ok = delete_client_ip(ClientIP, Phone),
+        ok = delete_client_ip(ClientIP),
         ok = delete_phone_pattern(Phone, Protocol =:= https),
         LName = check_name(Name),
         SEdPubBin = base64:decode(SEdPubB64),
@@ -499,7 +497,7 @@ check_blocked(IP, Phone, UserAgent, IsHttps) ->
             Result1 = case Result0 of
                 {true, _} -> Result0;
                 false ->
-                    case is_ip_blocked(IP, ?GLOBAL_CC_CODE) of
+                    case is_ip_blocked(IP) of
                         false -> false;
                         {true, RetrySecs1} -> {true, {ip_block, RetrySecs1}}
                     end
@@ -705,11 +703,9 @@ is_group_invite_valid(GroupInviteToken) ->
         _Gid -> true
     end.
 
--spec delete_client_ip(IP :: list(), Phone :: binary()) -> ok.
-delete_client_ip(IP, _Phone) ->
-    %% TODO(vipin): delete the next line if satisfied.
-    %% CC = mod_libphonenumber:get_region_id(Phone),
-    model_ip_addresses:delete_ip_address(IP, ?GLOBAL_CC_CODE),
+-spec delete_client_ip(IP :: list()) -> ok.
+delete_client_ip(IP) ->
+    model_ip_addresses:delete_ip_address(IP),
     %% clear timestamp on blocked ip address as well.
     model_ip_addresses:clear_blocked_ip_address(IP).
 
@@ -719,11 +715,11 @@ delete_phone_pattern(Phone, IsHttps) ->
     model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC, IsHttps)).
 
 
--spec is_ip_blocked(IP :: list(), CC :: binary()) -> false | {true, integer()}.
-is_ip_blocked(IP, CC) ->
+-spec is_ip_blocked(IP :: list()) -> false | {true, integer()}.
+is_ip_blocked(IP) ->
     CurrentTs = util:now(),
-    {ok, {Count, LastTs}} = model_ip_addresses:get_ip_address_info(IP, CC),
-    ?DEBUG("IP: ~s, CC: ~p, Count: ~p, LastTs: ~p, CurrentTs: ~p", [IP, CC, Count, LastTs, CurrentTs]),
+    {ok, {Count, LastTs}} = model_ip_addresses:get_ip_address_info(IP),
+    ?DEBUG("IP: ~s, Count: ~p, LastTs: ~p, CurrentTs: ~p", [IP, Count, LastTs, CurrentTs]),
     IsIpBlocked = case {Count, LastTs} of
         {undefined, _} ->
             false;
@@ -741,7 +737,7 @@ is_ip_blocked(IP, CC) ->
     end,
     case IsIpBlocked of
         false ->
-            ok = model_ip_addresses:add_ip_address(IP, CC, CurrentTs),
+            ok = model_ip_addresses:add_ip_address(IP, CurrentTs),
             false;
         {true, _} = Result ->
             Result

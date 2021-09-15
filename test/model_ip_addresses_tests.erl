@@ -28,23 +28,23 @@ clear() ->
 
 ip_address_test() ->
     setup(),
-    ok = model_ip_addresses:delete_ip_address(?IP1, ?CC1),
-    ok = model_ip_addresses:delete_ip_address(?IP2, ?CC2),
-    {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP1, ?CC1),
-    {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP2, ?CC2),
-    ok = model_ip_addresses:add_ip_address(?IP1, ?CC1, ?TIME1),
-    {ok, {1, ?TIME1}} = model_ip_addresses:get_ip_address_info(?IP1, ?CC1),
-    {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP2, ?CC2),
-    ok = model_ip_addresses:add_ip_address(?IP1, ?CC1, ?TIME2),
-    {ok, {2, ?TIME2}} = model_ip_addresses:get_ip_address_info(?IP1, ?CC1),
-    ok = model_ip_addresses:add_ip_address(?IP2, ?CC2, ?TIME1),
-    {ok, {1, ?TIME1}} = model_ip_addresses:get_ip_address_info(?IP2, ?CC2),
-    ok = model_ip_addresses:add_ip_address(?IP2, ?CC2, ?TIME2),
-    {ok, {2, ?TIME2}} = model_ip_addresses:get_ip_address_info(?IP2, ?CC2),
-    ok = model_ip_addresses:delete_ip_address(?IP1, ?CC1),
-    ok = model_ip_addresses:delete_ip_address(?IP2, ?CC2),
-    {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP1, ?CC1),
-    {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP2, ?CC2).
+    ok = model_ip_addresses:delete_ip_address(?IP1),
+    ok = model_ip_addresses:delete_ip_address(?IP2),
+    {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP1),
+    {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP2),
+    ok = model_ip_addresses:add_ip_address(?IP1, ?TIME1),
+    {ok, {1, ?TIME1}} = model_ip_addresses:get_ip_address_info(?IP1),
+    {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP2),
+    ok = model_ip_addresses:add_ip_address(?IP1, ?TIME2),
+    {ok, {2, ?TIME2}} = model_ip_addresses:get_ip_address_info(?IP1),
+    ok = model_ip_addresses:add_ip_address(?IP2, ?TIME1),
+    {ok, {1, ?TIME1}} = model_ip_addresses:get_ip_address_info(?IP2),
+    ok = model_ip_addresses:add_ip_address(?IP2, ?TIME2),
+    {ok, {2, ?TIME2}} = model_ip_addresses:get_ip_address_info(?IP2),
+    ok = model_ip_addresses:delete_ip_address(?IP1),
+    ok = model_ip_addresses:delete_ip_address(?IP2),
+    {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP1),
+    {ok, {undefined, undefined}} = model_ip_addresses:get_ip_address_info(?IP2).
 
 
 block_ip_address_test() ->

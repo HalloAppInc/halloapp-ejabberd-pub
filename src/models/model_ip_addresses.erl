@@ -16,9 +16,9 @@
 
 %% API
 -export([
-    add_ip_address/3,
-    get_ip_address_info/2,
-    delete_ip_address/2,
+    add_ip_address/2,
+    get_ip_address_info/1,
+    delete_ip_address/1,
     is_ip_blocked/1,
     add_blocked_ip_address/2,
     remove_blocked_ip_address/1,
@@ -41,31 +41,31 @@
 %% TTL for ip address data: 1 day.
 -define(TTL_IP_ADDRESS, 86400).
 
-%% TODO: vipin will update these functions to work based on just the ip address.
--spec add_ip_address(IPAddress :: list(), CC :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
-add_ip_address(IPAddress, CC, Timestamp) ->
+
+-spec add_ip_address(IPAddress :: list(), Timestamp :: integer()) -> ok  | {error, any()}.
+add_ip_address(IPAddress, Timestamp) ->
     IPBin = util:to_binary(IPAddress),
     _Results = q([
         ["MULTI"],
-        ["HINCRBY", ip_key(IPBin, CC), ?FIELD_COUNT, 1],
-        ["HSET", ip_key(IPBin, CC), ?FIELD_TIMESTAMP, util:to_binary(Timestamp)],
-        ["EXPIRE", ip_key(IPBin, CC), ?TTL_IP_ADDRESS],
+        ["HINCRBY", ip_key(IPBin), ?FIELD_COUNT, 1],
+        ["HSET", ip_key(IPBin), ?FIELD_TIMESTAMP, util:to_binary(Timestamp)],
+        ["EXPIRE", ip_key(IPBin), ?TTL_IP_ADDRESS],
         ["EXEC"]
     ]),
     ok.
 
 
--spec get_ip_address_info(IPAddress :: list(), CC :: binary()) -> {ok, {maybe(integer()), maybe(integer())}}  | {error, any()}.
-get_ip_address_info(IPAddress, CC) ->
+-spec get_ip_address_info(IPAddress :: list()) -> {ok, {maybe(integer()), maybe(integer())}}  | {error, any()}.
+get_ip_address_info(IPAddress) ->
     IPBin = util:to_binary(IPAddress),
-    {ok, [Count, Timestamp]} = q(["HMGET", ip_key(IPBin, CC), ?FIELD_COUNT, ?FIELD_TIMESTAMP]),
+    {ok, [Count, Timestamp]} = q(["HMGET", ip_key(IPBin), ?FIELD_COUNT, ?FIELD_TIMESTAMP]),
     {ok, {util_redis:decode_int(Count), util_redis:decode_ts(Timestamp)}}.
 
 
--spec delete_ip_address(IPAddress :: list(), CC :: binary()) -> ok  | {error, any()}.
-delete_ip_address(IPAddress, CC) ->
+-spec delete_ip_address(IPAddress :: list()) -> ok  | {error, any()}.
+delete_ip_address(IPAddress) ->
     IPBin = util:to_binary(IPAddress),
-    _Results = q(["DEL", ip_key(IPBin, CC)]),
+    _Results = q(["DEL", ip_key(IPBin)]),
     ok.
 
 
@@ -115,9 +115,10 @@ q(Command) -> ecredis:q(ecredis_phone, Command).
 qp(Commands) -> ecredis:qp(ecredis_phone, Commands).
 
 
--spec ip_key(IPBin :: binary(), CC :: binary()) -> binary().
-ip_key(IPBin, CC) ->
-    <<?IP_KEY/binary, <<"{">>/binary, IPBin/binary, <<"}:">>/binary, CC/binary>>.
+-spec ip_key(IPBin :: binary()) -> binary().
+ip_key(IPBin) ->
+    <<?IP_KEY/binary, "{", IPBin/binary, "}:">>.
+
 
 
 -spec block_ip_key(IPAddress :: list()) -> binary().
