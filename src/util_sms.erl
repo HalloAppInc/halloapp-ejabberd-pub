@@ -42,11 +42,13 @@ lookup_from_phone(GWOptions) ->
     FromPhone.
 
 
-%% 0 -> 30 seconds -> 60 seconds -> 120 seconds -> 240 seconds ...
+%% 0 -> 30 seconds -> 60 seconds -> 120 seconds -> 240 seconds ... capped at 24H
 -spec good_next_ts_diff(NumFailedAttempts :: integer()) -> integer().
 good_next_ts_diff(NumFailedAttempts) ->
-      ?assert(NumFailedAttempts > 0),
-      30 * ?SECONDS * trunc(math:pow(2, NumFailedAttempts - 1)).
+    ?assert(NumFailedAttempts > 0),
+    CappedFailedAttempts = min(NumFailedAttempts - 1, 13),
+    Diff = 30 * ?SECONDS * trunc(math:pow(2, CappedFailedAttempts)),
+    min(Diff, 24 * ?HOURS).
 
 
 -spec get_response_code(ResBody :: iolist()) -> integer().
