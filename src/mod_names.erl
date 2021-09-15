@@ -18,6 +18,7 @@
 
 -include("logger.hrl").
 -include("packets.hrl").
+-include("account.hrl").
 
 -ifdef(TEST).
 -export([set_name/2]).
@@ -33,7 +34,8 @@
     mod_options/1,
     process_local_iq/1,
     re_register_user/3,
-    user_name_updated/2
+    user_name_updated/2,
+    check_name/1
 ]).
 
 
@@ -67,8 +69,15 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_name{uid = Ouid, name = Name}} = IQ) ->
     case Ouid =:= <<>> orelse Ouid =:= Uid of
       true ->
-        set_name(Uid, Name),
-        pb:make_iq_result(IQ);
+        case check_name(Name) of
+            {ok, LName} ->
+                set_name(Uid, LName),
+                %% TODO(murali@): we should return the name in the result here.
+                pb:make_iq_result(IQ);
+            {error, Reason} ->
+                ?ERROR("Uid: ~p, Invalid name, Reason: ~p", [Uid, Reason]),
+                pb:make_error(IQ, util:err(Reason))
+        end;
       false ->
         ?ERROR("Uid: ~p, Invalid userid in the iq-set request: ~p", [Uid, Ouid]),
         pb:make_error(IQ, util:err(invalid_uid))
@@ -116,3 +125,21 @@ set_name(Uid, Name) ->
     ok = model_accounts:set_name(Uid, Name),
     ejabberd_hooks:run(user_name_updated, Server, [Uid, Name]),
     ok.
+
+
+-spec check_name(Name :: binary()) -> {ok, binary()} | {error, any()}.
+check_name(<<"">>) ->
+    {error, invalid_name};
+check_name(Name) when is_binary(Name) ->
+    LName = string:slice(Name, 0, ?MAX_NAME_SIZE),
+    case LName =:= Name of
+        false ->
+            ?WARNING("Truncating user name to |~s| size was: ~p", [LName, byte_size(Name)]),
+            ok;
+        true ->
+            ok
+    end,
+    {ok, LName};
+check_name(_) ->
+    {error, invalid_name}.
+

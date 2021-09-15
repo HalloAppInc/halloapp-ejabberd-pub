@@ -57,8 +57,8 @@
 -include("packets.hrl").
 -include("groups.hrl").
 -include("feed.hrl").
--define(MAX_GROUP_NAME_SIZE, 25).
--define(MAX_GROUP_DESCRIPTION_SIZE, 2000).
+-define(MAX_GROUP_NAME_SIZE, 25).   %% 25 utf8 characters
+-define(MAX_GROUP_DESCRIPTION_SIZE, 500).   %% 500 utf8 characters
 -define(MAX_BG_LENGTH, 64).
 
 -define(STAT_NS, "HA/groups").
@@ -704,8 +704,7 @@ maybe_delete_empty_group(Gid) ->
 validate_group_name(<<"">>) ->
     {error, invalid_name};
 validate_group_name(Name) when is_binary(Name) ->
-    MaxGroupNameSize = min(byte_size(Name), ?MAX_GROUP_NAME_SIZE),
-    <<LName:MaxGroupNameSize/binary, _Rest/binary>> = Name,
+    LName = string:slice(Name, 0, ?MAX_GROUP_NAME_SIZE),
     case LName =:= Name of
         false -> ?WARNING("Truncating group name to |~s| size was: ~p", [LName, byte_size(Name)]);
         true -> ok
@@ -717,8 +716,7 @@ validate_group_name(_Name) ->
 
 -spec validate_group_description(Description :: binary()) -> {ok, binary()} | {error, invalid_description}.
 validate_group_description(Description) when is_binary(Description) ->
-    MaxGroupDescSize = min(byte_size(Description), ?MAX_GROUP_DESCRIPTION_SIZE),
-    <<LDescription:MaxGroupDescSize/binary, _Rest/binary>> = Description,
+    LDescription = string:slice(Description, 0, ?MAX_GROUP_DESCRIPTION_SIZE),
     case LDescription =:= Description of
         false -> ?WARNING("Truncating group description to |~s| size was: ~p",
                 [LDescription, byte_size(Description)]);

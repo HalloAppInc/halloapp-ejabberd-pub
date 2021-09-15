@@ -478,19 +478,12 @@ check_signed_phrase(SignedPhrase, SEdPub) ->
 
 
 -spec check_name(Name :: binary()) -> binary() | any().
-check_name(<<"">>) ->
-    error(invalid_name);
-check_name(Name) when is_binary(Name) ->
-    LName = string:slice(Name, 0, ?MAX_NAME_SIZE),
-    case LName =:= Name of
-        false ->
-            ?WARNING("Truncating user name to |~s| size was: ~p", [LName, byte_size(Name)]);
-        true ->
-            ok
-    end,
-    LName;
-check_name(_) ->
-    error(invalid_name).
+check_name(Name) ->
+    case mod_names:check_name(Name) of
+        {ok, LName} -> LName;
+        {error, Reason} -> error(Reason)
+    end.
+
 
 -spec check_blocked(IP :: string(), Phone :: binary(), UserAgent :: binary(), IsHttps :: boolean()) -> ok | {error, retried_too_soon, integer()}.
 check_blocked(IP, Phone, UserAgent, IsHttps) ->

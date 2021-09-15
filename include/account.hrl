@@ -54,6 +54,6 @@
 
 -type push_info() :: #push_info{}.
 
--define(MAX_NAME_SIZE, 25).
+-define(MAX_NAME_SIZE, 25).   %% 25 utf8 characters
 
 -endif.
