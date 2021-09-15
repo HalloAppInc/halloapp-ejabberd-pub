@@ -14,7 +14,7 @@ import "log_events.proto";
 
 message UploadAvatar {
     string id = 1 [deprecated = true];
-    bytes data = 2; // compressed binary jpeg data.
+    bytes data = 2; // scaled-down binary jpeg data.
     bytes full_data = 3; // full binary jpeg data.
 }
 
@@ -30,7 +30,7 @@ message Avatars {
 
 message UploadGroupAvatar {
     string gid = 1;
-    bytes data = 2; // compressed binary jpeg data.
+    bytes data = 2; // scaled-down binary jpeg data.
     bytes full_data = 3; // full binary jpeg data.
 }
 
