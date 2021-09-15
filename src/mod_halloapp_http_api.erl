@@ -219,7 +219,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         check_ua(UserAgent, Phone),
         Method = get_otp_method(MethodBin),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
-        case check_blocked(ClientIP, Phone, UserAgent, Protocol =:= https) of
+        case check_otp_allowed(Phone, ClientIP, UserAgent, Method, Protocol =:= https) of
             ok ->
                 case request_otp(Phone, LangId, UserAgent, Method) of
                     {ok, RetryAfterSecs} ->
@@ -228,8 +228,11 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
                         log_request_otp_error(retried_too_soon, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
                         {error, retried_too_soon, Phone, RetryAfterSecs}
                 end;
-            {error, {BlockReason, RetryAfterSecs}} ->
-                log_request_otp_error(BlockReason, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
+            {error, {retried_too_soon, RetryAfterSecs}} ->
+                log_request_otp_error(retried_too_soon, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
+                {error, retried_too_soon, Phone, RetryAfterSecs};
+            {error, {Reason2, RetryAfterSecs}} ->
+                log_request_otp_error(Reason2, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
                 {error, dropped, Phone, RetryAfterSecs}
         end
     catch
@@ -504,8 +507,18 @@ check_name(Name) ->
     end.
 
 
+-spec check_otp_allowed(Phone :: binary(), IP :: binary(), UserAgent :: binary(), Method :: atom(),
+        IsHttps :: boolean())
+        -> ok | {error, {Reason :: atom(), integer()}}.
+check_otp_allowed(Phone, IP, UserAgent, Method, IsHttps) ->
+    case mod_sms:check_otp_request_too_soon(Phone, Method) of
+        false -> check_blocked(IP, Phone, UserAgent, IsHttps);
+        {true, X} -> {error, {retried_too_soon, X}}
+    end.
+
+
 -spec check_blocked(IP :: string(), Phone :: binary(), UserAgent :: binary(), IsHttps :: boolean())
-        -> ok | {error, {Reason :: atom(), RetryAfter :: integer()}}.
+            -> ok | {error, {Reason :: atom(), RetryAfter :: integer()}}.
 check_blocked(IP, Phone, UserAgent, IsHttps) ->
     IsInvited = model_invites:is_invited(Phone),
     case util:is_test_number(Phone) orelse IsInvited of

@@ -35,12 +35,14 @@
 ]).
 -endif.
 
+
 %% gen_mod callbacks
 -export([start/2, stop/1, depends/2, mod_options/1]).
 %% API
 -export([
     request_sms/2,
     request_otp/4,
+    check_otp_request_too_soon/2,
     verify_sms/2,
     % TODO: move all the testing ones to the -ifdef(TEST)
     is_too_soon/2,  %% for testing
@@ -97,6 +99,20 @@ request_otp(Phone, LangId, UserAgent, Method) ->
             {ok, 30}
     end.
 
+-spec check_otp_request_too_soon(Phone :: binary(), Method :: atom()) -> false | {true, integer()}.
+check_otp_request_too_soon(Phone, Method) ->
+    Check = case {config:get_hallo_env(), util:is_test_number(Phone)} of
+        {prod, true} -> check;
+        {prod, _} -> check;
+        {stress, _} -> check;
+        {_, _} -> ok
+    end,
+    case Check of
+        ok -> false;
+        check ->
+            {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
+            is_too_soon(Method, OldResponses)
+    end.
 
 -spec verify_sms(Phone :: phone(), Code :: binary()) -> match | nomatch.
 verify_sms(Phone, Code) ->
@@ -165,27 +181,23 @@ send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
         Method :: method()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
     {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
-    case is_too_soon(Method, OldResponses) of
-        {true, WaitTs} -> {error, retried_too_soon, WaitTs};
-        {false, _} ->
-            stat:count("HA/registration", "send_otp"),
-            stat:count("HA/registration", "send_otp_by_cc", 1,
-                [{cc, mod_libphonenumber:get_cc(Phone)}]),
-            stat:count("HA/registration", "send_otp_by_lang", 1, [{lang_id, util:to_list(LangId)}]),
-            case send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) of
-                {ok, SMSResponse} ->
-                    ?INFO("Response: ~p", [SMSResponse]),
-                    #gateway_response{attempt_id = NewAttemptId, attempt_ts = Timestamp} = SMSResponse,
-                    model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
-                    AllResponses = OldResponses ++ [SMSResponse],
-                    NextTs = find_next_ts(AllResponses),
-                    {ok, NextTs - Timestamp};
-                {error, GW, Reason} = _Err ->
-                    %% We log an error inside the gateway already.
-                    ?INFO("Unable to send ~p: ~p, Gateway: ~p, OtpPhone: ~p Phone: ~p ",
-                        [Method, Reason, GW, OtpPhone, Phone]),
-                    {error, Reason}
-            end
+    stat:count("HA/registration", "send_otp"),
+    stat:count("HA/registration", "send_otp_by_cc", 1,
+        [{cc, mod_libphonenumber:get_cc(Phone)}]),
+    stat:count("HA/registration", "send_otp_by_lang", 1, [{lang_id, util:to_list(LangId)}]),
+    case send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) of
+        {ok, SMSResponse} ->
+            ?INFO("Response: ~p", [SMSResponse]),
+            #gateway_response{attempt_id = NewAttemptId, attempt_ts = Timestamp} = SMSResponse,
+            model_phone:add_gateway_response(Phone, NewAttemptId, SMSResponse),
+            AllResponses = OldResponses ++ [SMSResponse],
+            NextTs = find_next_ts(AllResponses),
+            {ok, NextTs - Timestamp};
+        {error, GW, Reason} = _Err ->
+            %% We log an error inside the gateway already.
+            ?INFO("Unable to send ~p: ~p, Gateway: ~p, OtpPhone: ~p Phone: ~p ",
+                [Method, Reason, GW, OtpPhone, Phone]),
+            {error, Reason}
     end.
 
 
@@ -203,10 +215,14 @@ is_too_soon(Method, OldResponses) ->
     case {Method, Len} of
         {voice_call, 0} ->
             ?INFO("Rejecting: ~p, Prev non voice len: ~p, OldResponses: ~p", [Method, Len, OldResponses]),
+            % TODO(nikola): Ideally in this case will not tell the spammers anything.
             {true, 30};
         {_, _} ->
             NextTs = find_next_ts(OldResponses),
-            {NextTs > util:now(), NextTs - util:now()}
+            case NextTs > util:now() of
+                true -> {true, NextTs - util:now()};
+                false -> false
+            end
     end.
 
 

@@ -146,6 +146,8 @@ request_sms_prod_test() ->
     meck_finish(ejabberd_router).
 
 
+% TODO: this a bad test. It changes the environment to prod :( Bad things can happen.
+% TODO: Also a bad test because it has 1 second sleep.
 backoff_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
