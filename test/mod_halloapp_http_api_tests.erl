@@ -90,8 +90,8 @@ request_sms_test() ->
     ?assertEqual(BadPhoneError, mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = BadPhoneData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)})),
 
-    ?assert(meck:called(stat, count, ["HA/account", "request_sms_errors", 1,
-        [{error, bad_user_agent}]])),
+    ?assert(meck:called(stat, count, ["HA/account", "request_otp_errors", 1,
+        [{error, bad_user_agent}, {method, sms}]])),
     meck_finish(stat),
     GoodResponse = {200, ?HEADER(?CT_JSON),
         jiffy:encode({[

@@ -214,6 +214,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         ip := ClientIP, group_invite_token := GroupInviteToken, raw_data := RawData,
         protocol := Protocol}) ->
     try
+        log_otp_request(RawPhone, MethodBin, UserAgent, ClientIP, Protocol),
         Phone = normalize(RawPhone),
         check_ua(UserAgent, Phone),
         Method = get_otp_method(MethodBin),
@@ -221,63 +222,65 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         case check_blocked(ClientIP, Phone, UserAgent, Protocol =:= https) of
             ok ->
                 case request_otp(Phone, LangId, UserAgent, Method) of
-                    {ok, RetryAfterSecs} -> {ok, Phone, RetryAfterSecs};
-                    {error, retried_too_soon, RetryAfterSecs} -> {error, retried_too_soon, Phone, RetryAfterSecs}
+                    {ok, RetryAfterSecs} ->
+                        {ok, Phone, RetryAfterSecs};
+                    {error, retried_too_soon, RetryAfterSecs} ->
+                        log_request_otp_error(retried_too_soon, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
+                        {error, retried_too_soon, Phone, RetryAfterSecs}
                 end;
-            {error, retried_too_soon, RetryAfterSecs} ->
+            {error, {BlockReason, RetryAfterSecs}} ->
+                log_request_otp_error(BlockReason, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
                 {error, dropped, Phone, RetryAfterSecs}
         end
     catch
-        error : ip_blocked ->
-            ?ERROR("register error: ip_blocked ~p", [RawData]),
-            log_request_otp_error(ip_blocked, sms),
-            {error, ip_blocked};
         error : invalid_phone_number ->
             %% Make this error after we block the https api.
             ?INFO("register error: invalid_phone_number ~p", [RawData]),
-            log_request_otp_error(invalid_phone_number, MethodBin),
+            log_request_otp_error(invalid_phone_number, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, invalid_phone_number};
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [RawData]),
-            log_request_otp_error(bad_user_agent, sms),
+            log_request_otp_error(bad_user_agent, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, bad_user_agent};
         error : invalid_client_version ->
             ?INFO("register error: invalid_client_version ~p", [RawData]),
+            log_request_otp_error(invalid_client_version, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, invalid_client_version};
         error : bad_method ->
             ?ERROR("register error: bad_method ~p", [RawData]),
+            log_request_otp_error(bad_method, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, bad_method};
         error : not_invited ->
             ?INFO("request_sms error: phone not invited ~p", [RawData]),
-            log_request_otp_error(not_invited, sms),
+            log_request_otp_error(not_invited, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, not_invited};
         error : sms_fail ->
             ?INFO("request_sms error: sms_failed ~p", [RawData]),
-            log_request_otp_error(sms_fail, sms),
+            log_request_otp_error(sms_fail, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, otp_fail};
         error : retried_too_soon ->
             ?INFO("request_otp error: sms_failed ~p", [RawData]),
-            log_request_otp_error(retried_too_soon, otp),
+            log_request_otp_error(retried_too_soon, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, retried_too_soon};
         error : voice_call_fail ->
             %% Twilio and MBird return voice_call_fail
             ?INFO("request_voice_call error: voice_call_failed ~p", [RawData]),
-            log_request_otp_error(voice_call_fail, voice_call),
+            log_request_otp_error(voice_call_fail, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, otp_fail};
         error : call_fail ->
             %% Twilio_verify returns call_fail
             ?INFO("request_voice_call error: voice_call_failed ~p", [RawData]),
-            log_request_otp_error(voice_call_fail, voice_call),
+            log_request_otp_error(voice_call_fail, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, otp_fail};
         error : tts_fail ->
             %% MBird_verify returns tts_fail
             ?INFO("request_voice_call error: voice_call_failed ~p", [RawData]),
-            log_request_otp_error(voice_call_fail, voice_call),
+            log_request_otp_error(voice_call_fail, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, otp_fail};
         Class : Reason : Stacktrace ->
             ?ERROR("request_sms crash: ~s\nStacktrace:~s",
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            log_request_otp_error(server_error, otp),
+            log_request_otp_error(server_error, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, internal_server_error}
     end.
 
@@ -388,14 +391,32 @@ return_dropped(Phone, RetrySecs, Method) ->
             {result, ok}
         ]})}.
 
- -spec log_request_otp_error(ErrorType :: atom() | string(), Method :: atom()) -> ok.
-log_request_otp_error(ErrorType, sms) ->
-    stat:count("HA/account", "request_sms_errors", 1,
-        [{error, ErrorType}]),
-    ok;
-log_request_otp_error(ErrorType, Method) ->
+ -spec log_request_otp_error(ErrorType :: atom() | string(), Method :: binary() | atom(),
+        RawPhone :: binary(), UserAgent :: binary(), IP :: binary(), Protocol :: atom()) -> ok.
+log_request_otp_error(ErrorType, Method, RawPhone, UserAgent, ClientIP, Protocol) ->
+    CleanMethod = case Method of
+        <<"sms">> -> sms;
+        <<"voice_call">> -> voice_call;
+        _ -> unknown
+    end,
     stat:count("HA/account", "request_otp_errors", 1,
-        [{error, ErrorType}, {method, Method}]),
+        [{error, ErrorType}, {method, CleanMethod}]),
+
+    % TODO: this code is duplicated with normalize function
+    Phone = mod_libphonenumber:normalize(mod_libphonenumber:prepend_plus(RawPhone), <<"US">>),
+    Event = #{
+        % TODO: add log path for the successful requests, include gateway, price and other info like mcc, mnc
+        result => error,
+        error => ErrorType,
+        phone => Phone,
+        phone_raw => RawPhone,
+        cc => mod_libphonenumber:get_cc(RawPhone),
+        method => CleanMethod,
+        user_agent => UserAgent,
+        ip => ClientIP,
+        protocol => Protocol
+    },
+    mod_client_log:log_event(<<"server.otp_request_result">>, Event),
     ok.
 
 
@@ -483,7 +504,8 @@ check_name(Name) ->
     end.
 
 
--spec check_blocked(IP :: string(), Phone :: binary(), UserAgent :: binary(), IsHttps :: boolean()) -> ok | {error, retried_too_soon, integer()}.
+-spec check_blocked(IP :: string(), Phone :: binary(), UserAgent :: binary(), IsHttps :: boolean())
+        -> ok | {error, {Reason :: atom(), RetryAfter :: integer()}}.
 check_blocked(IP, Phone, UserAgent, IsHttps) ->
     IsInvited = model_invites:is_invited(Phone),
     case util:is_test_number(Phone) orelse IsInvited of
@@ -520,7 +542,7 @@ check_blocked(IP, Phone, UserAgent, IsHttps) ->
                 [IP, Phone, CC, PhonePattern, UserAgent, Result2, not IsHttps]),
             case Result2 of
                 false -> ok;
-                {true, {_Reason, RetrySecs3}} -> {error, retried_too_soon, RetrySecs3}
+                {true, {Reason, RetrySecs3}} -> {error, {Reason, RetrySecs3}}
             end;
         true ->
             ?INFO("IP: ~s blocked result: ~p, Phone: ~p, is_invited: ~p, is_noise: ~p",
@@ -884,6 +906,18 @@ log_registration(Phone, Action, UserAgent) ->
         {_, true} ->
             ok
     end.
+
+log_otp_request(RawPhone, Method, UserAgent, ClientIP, Protocol) ->
+    Event = #{
+        raw_phone => RawPhone,
+        cc => mod_libphonenumber:get_cc(RawPhone),
+        method => Method,
+        user_agent => UserAgent,
+        ip => ClientIP,
+        protocol => Protocol
+    },
+    mod_client_log:log_event(<<"server.otp_request">>, Event).
+
 
 %% Throws error if the code is wrong
 -spec check_sms_code(phone(), binary()) -> ok.
