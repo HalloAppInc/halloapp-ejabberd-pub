@@ -19,7 +19,8 @@
     remove_phone_hash_key/2,
     remove_stale_sync_key/2,
     mark_first_sync_run/2,
-    cleanup_reverse_index_run/2
+    cleanup_reverse_index_run/2,
+    cleanup_codekey_run/2
 ]).
 
 
@@ -227,6 +228,29 @@ cleanup_reverse_index_run(Key, State) ->
                             end
                     end
                 end, ContactUids);
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                        Cleanup code_key run                               %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+cleanup_codekey_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^pho:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Phone]]} ->
+            Command = ["DEL", FullKey],
+            case DryRun of
+                true ->
+                    ?INFO("Phone: ~p, Command: ~p", [Phone, Command]);
+                false ->
+                    {ok, Result2} = q(ecredis_phone, Command),
+                    ?INFO("Phone: ~p, removed res: ~p", [Phone, Result2])
+            end;
         _ -> ok
     end,
     State.

@@ -25,18 +25,10 @@
 %% API
 -export([
     phone_key/1,
-    add_sms_code/4,
-    add_sms_code_receipt/2,
-    delete_sms_code/1,
-    get_sms_code/1,
     add_phone/2,
     delete_phone/1,
     get_uid/1,
     get_uids/1,
-    get_sms_code_sender/1,
-    get_sms_code_timestamp/1,
-    get_sms_code_receipt/1,
-    get_sms_code_ttl/1,
     add_sms_code2/2,
     get_incremental_attempt_list/1,
     delete_sms_code2/1,
@@ -87,63 +79,6 @@
 
 %% TTL for phone pattern data: 1 hour.
 -define(TTL_PHONE_PATTERN, 86400).
-
-
--spec add_sms_code(Phone :: phone(), Code :: binary(), Timestamp :: integer(),
-                Sender :: binary()) -> ok  | {error, any()}.
-add_sms_code(Phone, Code, Timestamp, Sender) ->
-    _Results = q([["MULTI"],
-                    ["HSET", code_key(Phone),
-                    ?FIELD_CODE, Code,
-                    ?FIELD_TIMESTAMP, integer_to_binary(Timestamp),
-                    ?FIELD_SENDER, Sender],
-                    ["EXPIRE", code_key(Phone), ?TTL_SMS_CODE],
-                    ["EXEC"]]),
-    ok.
-
-
--spec add_sms_code_receipt(Phone :: phone(), Receipt :: binary()) -> ok  | {error, any()}.
-add_sms_code_receipt(Phone, Receipt) ->
-    _Results = q(["HSET", code_key(Phone), ?FIELD_RECEIPT, Receipt]),
-    ok.
-
-
--spec delete_sms_code(Phone :: phone()) -> ok  | {error, any()}.
-delete_sms_code(Phone) ->
-    {ok, _Res} = q(["DEL", code_key(Phone)]),
-    ok.
-
-
--spec get_sms_code(Phone :: phone()) -> {ok, maybe(binary())} | {error, any()}.
-get_sms_code(Phone) ->
-    {ok, Res} = q(["HGET", code_key(Phone), ?FIELD_CODE]),
-    {ok, Res}.
-
-
--spec get_sms_code_timestamp(Phone :: phone()) -> {ok, maybe(integer())} | {error, any()}.
-get_sms_code_timestamp(Phone) ->
-    {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_TIMESTAMP]),
-    {ok, util_redis:decode_ts(Res)}.
-
-
--spec get_sms_code_sender(Phone :: phone()) -> {ok, maybe(binary())} | {error, any()}.
-get_sms_code_sender(Phone) ->
-    {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_SENDER]),
-    {ok, Res}.
-
-
--spec get_sms_code_receipt(Phone :: phone()) -> {ok, maybe(binary())} | {error, any()}.
-get_sms_code_receipt(Phone) ->
-    {ok, Res} = q(["HGET" , code_key(Phone), ?FIELD_RECEIPT]),
-    {ok, Res}.
-
-
-% -1 means key does not have TTL set.
-% -2 means key does not exist.
--spec get_sms_code_ttl(Phone :: phone()) -> {ok, integer()} | {error, any()}.
-get_sms_code_ttl(Phone) ->
-    {ok, Res} = q(["TTL" , code_key(Phone)]),
-    {ok, binary_to_integer(Res)}.
 
 
 -spec add_sms_code2(Phone :: phone(), Code :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
@@ -512,12 +447,6 @@ phone_key(Phone, Slot) ->
 -spec get_slot(Phone :: phone()) -> integer().
 get_slot(Phone) ->
     crc16:crc16(binary_to_list(Phone)) rem ?MAX_SLOTS.
-
-
-%% TODO(vipin): It should be CODE_KEY instead of PHONE_KEY.
--spec code_key(Phone :: phone()) -> binary().
-code_key(Phone) ->
-    <<?PHONE_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
 
 -spec verification_attempt_list_key(Phone :: phone()) -> binary().
 verification_attempt_list_key(Phone) ->

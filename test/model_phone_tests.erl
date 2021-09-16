@@ -64,39 +64,6 @@ phone_key_test() ->
         model_phone:phone_key(?PHONE2)),
     ok.
 
-add_sms_code_test() ->
-    setup(),
-    %% Test cod:{phone}
-    {ok, undefined} = model_phone:get_sms_code(?PHONE1),
-    ok = model_phone:add_sms_code(?PHONE1, ?CODE1, ?TIME1, ?SENDER),
-    {ok, undefined} = model_phone:get_sms_code_receipt(?PHONE1),
-    {ok, ?CODE1} = model_phone:get_sms_code(?PHONE1).
-
-
-add_sms_details_test() ->
-    setup(),
-    %% Test cod:{phone}
-    {ok, undefined} = model_phone:get_sms_code(?PHONE1),
-    {ok, undefined} = model_phone:get_sms_code(?PHONE2),
-    ok = model_phone:add_sms_code(?PHONE1, ?CODE1, ?TIME1, ?SENDER),
-    ok = model_phone:add_sms_code(?PHONE2, ?CODE2, ?TIME2, ?SENDER),
-    {ok, undefined} = model_phone:get_sms_code_receipt(?PHONE1),
-    {ok, undefined} = model_phone:get_sms_code_receipt(?PHONE2),
-    ok = model_phone:add_sms_code_receipt(?PHONE1, ?RECEIPT),
-    ok = model_phone:add_sms_code_receipt(?PHONE2, ?RECEIPT),
-    {ok, ?CODE1} = model_phone:get_sms_code(?PHONE1),
-    {ok, ?CODE2} = model_phone:get_sms_code(?PHONE2),
-    {ok, ?TIME1} = model_phone:get_sms_code_timestamp(?PHONE1),
-    {ok, ?TIME2} = model_phone:get_sms_code_timestamp(?PHONE2),
-    {ok, ?SENDER} = model_phone:get_sms_code_sender(?PHONE1),
-    {ok, ?SENDER} = model_phone:get_sms_code_sender(?PHONE2),
-    {ok, ?RECEIPT} = model_phone:get_sms_code_receipt(?PHONE1),
-    {ok, ?RECEIPT} = model_phone:get_sms_code_receipt(?PHONE2),
-    {ok, TTL1} = model_phone:get_sms_code_ttl(?PHONE1),
-    {ok, TTL2} = model_phone:get_sms_code_ttl(?PHONE2),
-    true = TTL1 =< ?TTL_24HR_SEC andalso TTL1 > ?TTL_24HR_SEC - ?DELAY_SEC,
-    true = TTL2 =< ?TTL_24HR_SEC andalso TTL2 > ?TTL_24HR_SEC - ?DELAY_SEC.
-
 
 add_sms_gateway_response_test() ->
     setup(),
@@ -162,17 +129,6 @@ add_sms_gateway_response_test() ->
     true = model_phone:get_verification_success(?PHONE1, AttemptId3),
     #gateway_response{gateway=?GATEWAY3, method=sms, status=?CALLBACK_STATUS1, verified=true} =  
         model_phone:get_verification_attempt_summary(?PHONE1, AttemptId3).
-
-
-delete_sms_code_test() ->
-    setup(),
-    %% Test cod:{phone}
-    ok = model_phone:add_sms_code(?PHONE1, ?CODE1, ?TIME1, ?SENDER),
-    {ok, ?CODE1} = model_phone:get_sms_code(?PHONE1),
-    {ok, undefined} = model_phone:get_sms_code_receipt(?PHONE1),
-    ok = model_phone:delete_sms_code(?PHONE1),
-    {ok, undefined} = model_phone:get_sms_code(?PHONE1),
-    {ok, undefined} = model_phone:get_sms_code_receipt(?PHONE1).
 
 
 delete_sms_code2_test() ->

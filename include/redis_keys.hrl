@@ -111,7 +111,8 @@
 
 %% RedisPhone
 -define(PHONE_KEY, <<"pho:">>).
--define(CODE_KEY, <<"cod:">>).
+%% old deleted key
+%%-define(CODE_KEY, <<"cod:">>).
 -define(VERIFICATION_ATTEMPT_LIST_KEY, <<"val:">>).
 -define(VERIFICATION_ATTEMPT_ID_KEY, <<"vai:">>).
 -define(INCREMENTAL_TS_KEY, <<"ITS:">>).
