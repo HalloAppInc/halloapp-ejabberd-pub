@@ -52,7 +52,7 @@
     rand_weighted_selection/2,  %% for testing
     max_weight_selection/1,  %% for testing
     smart_send/6,  %% for testing
-    generate_gateway_list/2  %% for testing
+    generate_gateway_list/3  %% for testing
 ]).
 
 %%====================================================================
@@ -274,8 +274,8 @@ generate_code(Phone) ->
 %% TODO(vipin)
 %% On callback from the provider track (success, cost). Investigative logging to track missing
 %% callback.
--spec generate_gateway_list(Method :: method(), OldResponses :: [gateway_response()]) -> {boolean(), [atom()]}.
-generate_gateway_list(Method, OldResponses) ->
+-spec generate_gateway_list(CC :: binary(), Method :: method(), OldResponses :: [gateway_response()]) -> {boolean(), [atom()]}.
+generate_gateway_list(CC, Method, OldResponses) ->
     {WorkingList, NotWorkingList} = lists:foldl(
         fun(#gateway_response{gateway = Gateway, method = Method2, status = Status}, {Working, NotWorking})
                 when Method2 =:= Method ->
@@ -292,7 +292,10 @@ generate_gateway_list(Method, OldResponses) ->
 
     WorkingSet = sets:from_list(WorkingList),
     NotWorkingSet = sets:from_list(NotWorkingList),
-    ConsiderList = sms_gateway_list:get_sms_gateway_list(),
+
+    FullConsiderList = sms_gateway_list:get_sms_gateway_list(),
+    ConsiderList = filter_gateways(CC, Method, FullConsiderList),
+
     ConsiderSet = sets:from_list(ConsiderList),
 
     IsFirstAttempt = case {sets:size(WorkingSet), sets:size(NotWorkingSet)} of
@@ -353,13 +356,15 @@ filter_gateways(CC, Method, GatewayList) ->
 smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
     CC = mod_libphonenumber:get_cc(OtpPhone),
 
-    {IsFirstAttempt, ChooseFromList} = generate_gateway_list(Method, OldResponses),
-    ChooseFromList2 = filter_gateways(CC, Method, ChooseFromList),
-    ConsiderList = sms_gateway_list:get_sms_gateway_list(),
+    {IsFirstAttempt, ChooseFromList} = generate_gateway_list(CC, Method, OldResponses),
+
+    FullConsiderList = sms_gateway_list:get_sms_gateway_list(),
+    ConsiderList = filter_gateways(CC, Method, FullConsiderList),
+
     ConsiderSet = sets:from_list(ConsiderList),
 
     %% Pick one based on past performance.
-    PickedGateway = pick_gw(ChooseFromList2, CC, IsFirstAttempt),
+    PickedGateway = pick_gw(ChooseFromList, CC, IsFirstAttempt),
     ?INFO("Phone: ~s Picked Gateway: ~p CC: ~s", [Phone, PickedGateway, CC]),
 
     %% Just in case there is any bug in computation of new gateway.
