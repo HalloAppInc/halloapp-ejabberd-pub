@@ -31,14 +31,7 @@ init() ->
 -spec can_send_sms(CC :: binary()) -> boolean().
 can_send_sms(CC) ->
     case CC of
-        <<"AE">> -> false;     %% UAE
-        <<"BL">> -> false;     %% Belarus
         <<"CN">> -> false;     %% China
-        <<"ID">> -> false;     %% Indonesia
-        <<"JO">> -> false;     %% Jordan
-        <<"KW">> -> false;     %% Kuwait
-        <<"QA">> -> false;     %% Qatar
-        <<"RU">> -> false;     %% Russia
         <<"SA">> -> false;     %% Saudi Arabia
         <<"US">> -> false;     %% USA
         <<"VN">> -> false;     %% Vietnam

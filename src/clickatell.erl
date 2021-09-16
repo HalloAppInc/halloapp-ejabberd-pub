@@ -30,9 +30,39 @@ init() ->
     util_sms:init_helper(clickatell_options, FromPhoneList).
 
 -spec can_send_sms(CC :: binary()) -> boolean().
-can_send_sms(_CC) ->
-    % TODO: This gateway is disabled for now. We will enable it slowly
-    false.
+can_send_sms(CC) ->
+    case CC of
+        <<"BY">> -> false;     %% Belarus
+        <<"CN">> -> false;     %% China
+        <<"CU">> -> false;     %% Cuba
+        <<"EG">> -> false;     %% Egypt
+        <<"GH">> -> false;     %% Ghana
+        <<"IN">> -> false;     %% India
+        <<"ID">> -> false;     %% Indonesia
+        <<"IR">> -> false;     %% Iran
+        <<"JO">> -> false;     %% Jordan
+        <<"KE">> -> false;     %% Kenya
+        <<"KW">> -> false;     %% Kuwait
+        <<"MW">> -> false;     %% Malawi
+        <<"MA">> -> false;     %% Morocco
+        <<"NG">> -> false;     %% Nigeria
+        <<"OM">> -> false;     %% Oman
+        <<"PK">> -> false;     %% Pakistan
+        <<"PH">> -> false;     %% Philippines
+        <<"QA">> -> false;     %% Qatar
+        <<"RO">> -> false;     %% Romania
+        <<"RU">> -> false;     %% Russia
+        <<"SA">> -> false;     %% Saudi Arabia
+        <<"LK">> -> false;     %% Sri Lanka
+        <<"TZ">> -> false;     %% Tanzania
+        <<"TH">> -> false;     %% Thailand
+        <<"TR">> -> false;     %% Turkey
+        <<"AE">> -> false;     %% UAE
+        <<"US">> -> false;     %% USA
+        <<"VN">> -> false;     %% Vietnam
+        _ -> true
+    end.
+
 -spec can_send_voice_call(CC :: binary()) -> boolean().
 can_send_voice_call(_CC) ->
     % TODO: Voice calls are not implemented yet.

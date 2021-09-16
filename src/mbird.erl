@@ -47,36 +47,20 @@ is_cc_supported(CC) ->
     case CC of
         <<"AE">> -> false;     %% UAE
         <<"AM">> -> false;     %% Armenia
-        <<"BE">> -> false;     %% Belgium
         <<"BG">> -> false;     %% Bulgaria
-        <<"BL">> -> false;     %% Belarus
-        <<"CH">> -> false;     %% Switzerland
         <<"CN">> -> false;     %% China
         <<"CU">> -> false;     %% Cuba
-        <<"TD">> -> false;     %% Chad
         <<"CZ">> -> false;     %% Czech Republic
-        <<"EG">> -> false;     %% Egypt
-        <<"IL">> -> false;     %% Israel
-        <<"ID">> -> false;     %% Indonesia
         <<"JO">> -> false;     %% Jordan
         <<"KZ">> -> false;     %% Kazakhstan
         <<"KE">> -> false;     %% Kenya
         <<"KW">> -> false;     %% Kuwait
-        <<"MK">> -> false;     %% Macedonia
-        <<"ME">> -> false;     %% Montenegro
-        <<"MA">> -> false;     %% Morocco
         <<"MZ">> -> false;     %% Mozambique
-        <<"MM">> -> false;     %% Myanmar
-        <<"NP">> -> false;     %% Nepal
         <<"NZ">> -> false;     %% New Zealand
-        <<"PH">> -> false;     %% Philippines
-        <<"QA">> -> false;     %% Qatar
         <<"RO">> -> false;     %% Romania
         <<"RU">> -> false;     %% Russia
         <<"SA">> -> false;     %% Saudi Arabia
         <<"RS">> -> false;     %% Serbia
-        <<"TZ">> -> false;     %% Tanzania
-        <<"UA">> -> false;     %% Ukraine
         <<"UZ">> -> false;     %% Uzbekistan
         <<"VN">> -> false;     %% Vietnam
         _ -> true

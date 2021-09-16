@@ -51,25 +51,18 @@ can_send_voice_call(CC) ->
 
 is_cc_supported(CC) ->
     case CC of
-        <<"BE">> -> false;     %% Belgium
-        <<"BL">> -> false;     %% Belarus
         <<"CH">> -> false;     %% Switzerland
         <<"CN">> -> false;     %% China
         <<"CU">> -> false;     %% Cuba
         <<"TD">> -> false;     %% Chad
         <<"CZ">> -> false;     %% Czech Republic
-        <<"EG">> -> false;     %% Egypt
-        <<"IL">> -> false;     %% Israel
+        <<"JP">> -> false;     %% Japan
         <<"ID">> -> false;     %% Indonesia
-        <<"JO">> -> false;     %% Jordan
         <<"KZ">> -> false;     %% Kazakhstan
         <<"KE">> -> false;     %% Kenya
-        <<"KW">> -> false;     %% Kuwait
         <<"MA">> -> false;     %% Morocco
         <<"MM">> -> false;     %% Myanmar
-        <<"NP">> -> false;     %% Nepal
         <<"NZ">> -> false;     %% New Zealand
-        <<"PH">> -> false;     %% Philippines
         <<"QA">> -> false;     %% Qatar
         <<"RU">> -> false;     %% Russia
         <<"TZ">> -> false;     %% Tanzania

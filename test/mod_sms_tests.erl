@@ -82,11 +82,13 @@ choose_other_gateway_test() ->
     meck_init(mbird, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     meck_init(mbird_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     meck_init(telesign, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+    meck_init(clickatell, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     {error, _, sms_fail} = mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, []),
     % check if all gateways were attempted
     ?assert(meck:called(twilio, send_sms, ['_','_','_','_'])),
     ?assert(meck:called(twilio_verify, send_sms, ['_','_','_','_'])),
     ?assert(meck:called(mbird, send_sms, ['_','_','_','_'])),
+    meck_finish(clickatell),
     meck_finish(telesign),
     meck_finish(mbird),
     meck_finish(twilio),
@@ -98,23 +100,27 @@ choose_other_gateway_test() ->
     MbirdVerifyGtwy = #gateway_response{gateway = mbird_verify, method = sms},
     TVerifyGtwy = #gateway_response{gateway = twilio_verify, method = sms},
     TelesignGtwy = #gateway_response{gateway = telesign, method = sms},
+    ClickatellGtwy = #gateway_response{gateway = clickatell, method = sms},
     meck_init(mbird, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     meck_init(mbird_verify, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     meck_init(twilio, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> {ok, TVerifyGtwy} end),
     meck_init(telesign, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
+    meck_init(clickatell, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     {ok, #gateway_response{gateway = twilio_verify}} =
         mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, [TwilGtwy, TVerifyGtwy, MbirdGtwy, MbirdVerifyGtwy, TelesignGtwy]),
     ?assert(meck:called(twilio, send_sms, ['_','_','_','_']) orelse
             meck:called(mbird, send_sms, ['_','_','_','_']) orelse
             meck:called(mbird_verify, send_sms, ['_','_','_','_']) orelse
             meck:called(telesign, send_sms, ['_','_','_','_']) orelse
+            meck:called(clickatell, send_sms, ['_','_','_','_']) orelse
             meck:called(twilio_verify, send_sms, ['_','_','_','_'])),
     % Test restricted country gateways
     meck_init(mod_libphonenumber, get_cc, fun(_) -> <<"CN">> end),
     {ok, #gateway_response{gateway = twilio_verify}} =
         mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, []),
     meck_finish(mod_libphonenumber),
+    meck_finish(clickatell),
     meck_finish(telesign),
     meck_finish(twilio),
     meck_finish(twilio_verify),
