@@ -30,38 +30,26 @@
 
 -define(CURRENT_LIB_PATH, "/home/ha/pkg/ejabberd/current/lib/").
 
--include_lib("stdlib/include/assert.hrl").
-
 -export([
     start_link/0,
     %% Server
-    status/0, reopen_log/0, rotate_log/0,
+    status/0,
+    reopen_log/0,
+    rotate_log/0,
     set_loglevel/1,
     stop_kindly/2,
-    registered_vhosts/0,
     reload_config/0,
     dump_config/1,
     convert_to_yaml/2,
     %% Cluster
-    join_cluster/0, leave_cluster/1, list_cluster/0,
+    join_cluster/0,
+    leave_cluster/1,
+    list_cluster/0,
     %% Erlang
-    update_list/0, update/1,
-    %% Accounts
-    check_and_register/5, unregister/2,
-    registered_users/1,
-    enroll/3, unenroll/2,
-    get_user_passcode/2,
-    register_push/4, unregister_push/2,
-    %% Mnesia
-    set_master/1,
-    backup_mnesia/1, restore_mnesia/1,
-    dump_mnesia/1, dump_table/2, load_mnesia/1,
-    mnesia_info/0, mnesia_table_info/1,
-    install_fallback_mnesia/1,
-    dump_to_textfile/1, dump_to_textfile/2,
-    mnesia_change_nodename/4,
-    restore/1, % Still used by some modules
+    update_list/0,
+    update/1,
     clear_cache/0,
+    %% HalloApp functions
     add_uid_trace/1,
     remove_uid_trace/1,
     add_phone_trace/1,
@@ -211,81 +199,6 @@ get_commands_spec() ->
         args = [{module, string}],
         result = {res, restuple}},
 
-    #ejabberd_commands{name = register, tags = [accounts],
-        desc = "Register a user",
-        policy = admin,
-        module = ?MODULE, function = register,
-        args_desc = ["Username", "Local vhost served by ejabberd", "Password"],
-        args_example = [<<"bob">>, <<"example.com">>, <<"SomEPass44">>],
-        args = [{user, binary}, {host, binary}, {password, binary}],
-        result = {res, restuple}},
-    #ejabberd_commands{name = unregister, tags = [accounts],
-        desc = "Unregister a user",
-                    policy = admin,
-        module = ?MODULE, function = unregister,
-        args_desc = ["Username", "Local vhost served by ejabberd"],
-        args_example = [<<"bob">>, <<"example.com">>],
-        args = [{user, binary}, {host, binary}],
-        result = {res, restuple}},
-    #ejabberd_commands{name = registered_users, tags = [accounts],
-        desc = "List all registered users in HOST",
-        module = ?MODULE, function = registered_users,
-        args_desc = ["Local vhost"],
-        args_example = [<<"example.com">>],
-        result_desc = "List of registered accounts usernames",
-        result_example = [<<"user1">>, <<"user2">>],
-        args = [{host, binary}],
-        result = {users, {list, {username, string}}}},
-
-    #ejabberd_commands{name = enroll, tags = [accounts],
-                    desc = "Enroll a user",
-                    policy = admin,
-                    module = ?MODULE, function = enroll,
-                    args_desc = ["Username", "Local vhost served by ejabberd", "Passcode"],
-                    args_example = [<<"bob">>, <<"example.com">>, <<"442368">>],
-                    args = [{user, binary}, {host, binary}, {passcode, binary}],
-                    result = {res, restuple}},
-    #ejabberd_commands{name = unenroll, tags = [accounts],
-                    desc = "Unenroll a user",
-                    policy = admin,
-                    module = ?MODULE, function = unenroll,
-                    args_desc = ["Username", "Local vhost served by ejabberd"],
-                    args_example = [<<"bob">>, <<"example.com">>],
-                    args = [{user, binary}, {host, binary}],
-                    result = {res, restuple}},
-    #ejabberd_commands{name = get_user_passcode, tags = [accounts],
-                    desc = "Get the passcode of an enrolled user",
-                    policy = admin,
-                    module = ?MODULE, function = get_user_passcode,
-                    args_desc = ["Username", "Local vhost served by ejabberd"],
-                    args_example = [<<"bob">>, <<"example.com">>],
-                    args = [{user, binary}, {host, binary}],
-                    result = {res, restuple}},
-
-    #ejabberd_commands{name = register_push, tags = [accounts],
-                    desc = "Register a user for push notifications",
-                    policy = admin,
-                    module = ?MODULE, function = register_push,
-                    args_desc = ["Username", "Local vhost served by ejabberd", "os: either ios or android", "push token"],
-                    args_example = [<<"bob">>, <<"example.com">>, <<"ios">>, <<"3ad47856cbdjfk....48489">>],
-                    args = [{user, binary}, {host, binary}, {os, binary}, {token, binary}],
-                    result = {res, restuple}},
-    #ejabberd_commands{name = unregister_push, tags = [accounts],
-                    desc = "Unregister a user for push notifications",
-                    policy = admin,
-                    module = ?MODULE, function = unregister_push,
-                    args_desc = ["Username", "Local vhost served by ejabberd"],
-                    args_example = [<<"bob">>, <<"example.com">>],
-                    args = [{user, binary}, {host, binary}],
-                    result = {res, restuple}},
-
-    #ejabberd_commands{name = registered_vhosts, tags = [server],
-        desc = "List all registered vhosts in SERVER",
-        module = ?MODULE, function = registered_vhosts,
-        result_desc = "List of available vhosts",
-        result_example = [<<"example.com">>, <<"anon.example.com">>],
-        args = [],
-        result = {vhosts, {list, {vhost, string}}}},
     #ejabberd_commands{name = reload_config, tags = [server, config],
         desc = "Reload config file in memory",
         module = ?MODULE, function = reload_config,
@@ -313,13 +226,6 @@ get_commands_spec() ->
         result_example = [ejabberd1@machine7, ejabberd1@machine8],
         args = [],
         result = {nodes, {list, {node, atom}}}},
-
-    #ejabberd_commands{name = convert_to_scram, tags = [sql],
-        desc = "Convert the passwords in 'users' ODBC table to SCRAM",
-        module = ejabberd_auth_sql, function = convert_to_scram,
-        args_desc = ["Vhost which users' passwords will be scrammed"],
-        args_example = ["example.com"],
-        args = [{host, binary}], result = {res, rescode}},
 
     #ejabberd_commands{name = convert_to_yaml, tags = [config],
                     desc = "Convert the input file from Erlang to YAML format",
@@ -751,124 +657,6 @@ update_module(ModuleNameString) ->
     {error, Reason} -> {error, Reason}
     end.
 
-%%%
-%%% Account management
-%%%
-
-
-check_and_register(Phone, Host, SPub, Name, UserAgent) ->
-    ?assert(byte_size(SPub) > 0),
-    Result = ejabberd_auth:check_and_register(Phone, Host, SPub, Name, UserAgent),
-    case Result of
-        {ok, Uid, login} ->
-            ?INFO("Login into existing account uid:~p for phone:~p", [Uid, Phone]),
-            {ok, Uid, login};
-        {ok, Uid, register} ->
-            ?INFO("Registering new account uid:~p for phone:~p", [Uid, Phone]),
-            {ok, Uid, register};
-        {error, Reason} ->
-            ?INFO("Login/Registration for phone:~p failed. ~p", [Phone, Reason]),
-            {error, Reason, 10001, "Login/Registration failed"}
-    end.
-
-
-unregister(User, Host) ->
-    case is_my_host(Host) of
-    true ->
-        ejabberd_auth:remove_user(User, Host),
-        {ok, ""};
-    false ->
-        {error, "Unknown virtual host"}
-    end.
-
-registered_users(Host) ->
-    case is_my_host(Host) of
-    true ->
-        Users = ejabberd_auth:get_users(),
-        SUsers = lists:sort(Users),
-        lists:map(fun({U, _S}) -> U end, SUsers);
-    false ->
-        {error, "Unknown virtual host"}
-    end.
-
-enroll(User, Host, Passcode) ->
-    case is_my_host(Host) of
-        true ->
-            case ejabberd_auth:try_enroll(User, Passcode) of
-                {ok, _} ->
-                    ?INFO("Phone ~s successfully enrolled", [User]),
-                    {ok, io_lib:format("User ~ts@~ts successfully enrolled", [User, Host])};
-                {error, Reason} ->
-                    ?ERROR("Failed to enroll phone ~s, Reason: ~p", [User, Reason]),
-                    ErrReason = list_to_binary(io_lib:format(?T("error condition: ~p"), [Reason])),
-                    String = io_lib:format("Can't enroll user ~ts@~ts at node ~p: ~ts",
-                                           [User, Host, node(), ErrReason]),
-                    {error, cannot_enroll, 10001, String}
-            end;
-        false ->
-            {error, cannot_enroll, 10001, "Unknown virtual host"}
-    end.
-
-unenroll(Phone, Host) ->
-    case is_my_host(Host) of
-        true ->
-            ?INFO("phone:~s", [Phone]),
-            ok = model_phone:delete_sms_code2(Phone),
-            {ok, ""};
-        false ->
-            {error, "Unknown virtual host"}
-    end.
-
-get_user_passcode(Phone, _Host) ->
-    ?INFO("phone:~s", [Phone]),
-    case model_phone:get_all_verification_info(Phone) of
-        {ok, []} ->
-            Msg = io_lib:format("Phone ~ts does not have a code", [Phone]),
-            {error, conflict, 10090, Msg};
-        {ok, PasscodeTuples} ->
-            ?assert(is_list(PasscodeTuples)),
-            [#verification_info{code = Passcode} | _Rest] = PasscodeTuples,
-            {ok, Passcode};
-        {error, _} ->
-            {error, "db-failure, unable to obtain passcode"}
-    end.
-
-register_push(User, Host, Os, Token) ->
-    case is_my_host(Host) of
-        true ->
-            %% todo(murali@): we will not need this eventually.
-            case mod_push_tokens:register_push_info(User, Os, Token, <<"en-US">>) of
-                {ok, _} ->
-                    {ok, io_lib:format("User ~ts@~ts successfully registered for push notifications", [User, Host])};
-                {error, Reason} ->
-                    ErrReason = list_to_binary(io_lib:format(?T("error condition: ~p"), [Reason])),
-                    String = io_lib:format("Can't register user ~ts@~ts at node ~p for push notifications: ~ts",
-                                           [User, Host, node(), ErrReason]),
-                    {error, cannot_register_push, 10001, String}
-            end;
-        false ->
-            {error, cannot_register_push, 10001, "Unknown virtual host"}
-    end.
-
-unregister_push(User, Host) ->
-    case is_my_host(Host) of
-        true ->
-            case mod_push_tokens:remove_push_token(User, Host) of
-                ok ->
-                    {ok, io_lib:format("User ~ts@~ts successfully unregistered for push notifications", [User, Host])};
-                {error, Reason} ->
-                    ErrReason = list_to_binary(io_lib:format(?T("error condition: ~p"), [Reason])),
-                    String = io_lib:format("Can't unregister user ~ts@~ts at node ~p for push notifications: ~ts",
-                                           [User, Host, node(), ErrReason]),
-                    {error, cannot_unregister_push, 10001, String}
-            end;
-        false ->
-            {error, cannot_unregister_push, 10001, "Unknown virtual host"}
-    end.
-
-registered_vhosts() ->
-    ejabberd_option:hosts().
-
 reload_config() ->
     case ejabberd_config:reload() of
     ok -> {ok, ""};
@@ -900,216 +688,13 @@ leave_cluster(NodeBin) ->
 list_cluster() ->
     ejabberd_cluster:get_nodes().
 
-%%%
-%%% Mnesia management
-%%%
-
-set_master("self") ->
-    set_master(node());
-set_master(NodeString) when is_list(NodeString) ->
-    set_master(list_to_atom(NodeString));
-set_master(Node) when is_atom(Node) ->
-    case mnesia:set_master_nodes([Node]) of
-        ok ->
-        {ok, ""};
-    {error, Reason} ->
-        String = io_lib:format("Can't set master node ~p at node ~p:~n~p",
-                   [Node, node(), Reason]),
-        {error, String}
-    end.
-
-backup_mnesia(Path) when is_binary(Path) ->
-    backup_mnesia(binary_to_list(Path));
-backup_mnesia(Path) ->
-    case mnesia:backup(Path) of
-        ok ->
-        {ok, ""};
-    {error, Reason} ->
-        String = io_lib:format("Can't store backup in ~p at node ~p: ~p",
-                   [filename:absname(Path), node(), Reason]),
-        {cannot_backup, String}
-    end.
-
-restore_mnesia(Path) ->
-    case ejabberd_admin:restore(Path) of
-    {atomic, _} ->
-        {ok, ""};
-    {aborted,{no_exists,Table}} ->
-        String = io_lib:format("Can't restore backup from ~p at node ~p: Table ~p does not exist.",
-                   [filename:absname(Path), node(), Table]),
-        {table_not_exists, String};
-    {aborted,enoent} ->
-        String = io_lib:format("Can't restore backup from ~p at node ~p: File not found.",
-                   [filename:absname(Path), node()]),
-        {file_not_found, String}
-    end.
-
-%% Mnesia database restore
-%% This function is called from ejabberd_ctl, ejabberd_web_admin and
-%% mod_configure/adhoc
-restore(Path) ->
-    mnesia:restore(Path, [{keep_tables,keep_tables()},
-              {default_op, skip_tables}]).
-
-%% This function return a list of tables that should be kept from a previous
-%% version backup.
-%% Obsolete tables or tables created by module who are no longer used are not
-%% restored and are ignored.
-keep_tables() ->
-    lists:flatten([acl, passwd, config,
-           keep_modules_tables()]).
-
-%% Returns the list of modules tables in use, according to the list of actually
-%% loaded modules
-keep_modules_tables() ->
-    lists:map(fun(Module) -> module_tables(Module) end,
-          gen_mod:loaded_modules(ejabberd_config:get_myname())).
-
-%% TODO: This mapping should probably be moved to a callback function in each
-%% module.
-%% Mapping between modules and their tables
-module_tables(mod_privacy) -> [privacy];
-module_tables(mod_private) -> [private_storage];
-module_tables(mod_pubsub) -> [pubsub_node];
-module_tables(mod_roster) -> [roster];
-module_tables(mod_shared_roster) -> [sr_group, sr_user];
-module_tables(mod_vcard) -> [vcard, vcard_search];
-module_tables(_Other) -> [].
-
-get_local_tables() ->
-    Tabs1 = lists:delete(schema, mnesia:system_info(local_tables)),
-    Tabs = lists:filter(
-         fun(T) ->
-             case mnesia:table_info(T, storage_type) of
-             disc_copies -> true;
-             disc_only_copies -> true;
-             _ -> false
-             end
-         end, Tabs1),
-    Tabs.
-
-dump_mnesia(Path) ->
-    Tabs = get_local_tables(),
-    dump_tables(Path, Tabs).
-
-dump_table(Path, STable) ->
-    Table = list_to_atom(STable),
-    dump_tables(Path, [Table]).
-
-dump_tables(Path, Tables) ->
-    case dump_to_textfile(Path, Tables) of
-    ok ->
-        {ok, ""};
-    {error, Reason} ->
-            String = io_lib:format("Can't store dump in ~p at node ~p: ~p",
-                   [filename:absname(Path), node(), Reason]),
-        {cannot_dump, String}
-    end.
-
-dump_to_textfile(File) ->
-    Tabs = get_local_tables(),
-    dump_to_textfile(File, Tabs).
-
-dump_to_textfile(File, Tabs) ->
-    dump_to_textfile(mnesia:system_info(is_running), Tabs, file:open(File, [write])).
-dump_to_textfile(yes, Tabs, {ok, F}) ->
-    Defs = lists:map(
-         fun(T) -> {T, [{record_name, mnesia:table_info(T, record_name)},
-                {attributes, mnesia:table_info(T, attributes)}]}
-         end,
-         Tabs),
-    io:format(F, "~p.~n", [{tables, Defs}]),
-    lists:foreach(fun(T) -> dump_tab(F, T) end, Tabs),
-    file:close(F);
-dump_to_textfile(_, _, {ok, F}) ->
-    file:close(F),
-    {error, mnesia_not_running};
-dump_to_textfile(_, _, {error, Reason}) ->
-    {error, Reason}.
-
-dump_tab(F, T) ->
-    W = mnesia:table_info(T, wild_pattern),
-    {atomic,All} = mnesia:transaction(
-             fun() -> mnesia:match_object(T, W, read) end),
-    lists:foreach(
-      fun(Term) -> io:format(F,"~p.~n", [setelement(1, Term, T)]) end, All).
-
-load_mnesia(Path) ->
-    case mnesia:load_textfile(Path) of
-        {atomic, ok} ->
-            {ok, ""};
-        {error, Reason} ->
-            String = io_lib:format("Can't load dump in ~p at node ~p: ~p",
-                   [filename:absname(Path), node(), Reason]),
-        {cannot_load, String}
-    end.
-
-mnesia_info() ->
-    lists:flatten(io_lib:format("~p", [mnesia:system_info(all)])).
-
-mnesia_table_info(Table) ->
-    ATable = list_to_atom(Table),
-    lists:flatten(io_lib:format("~p", [mnesia:table_info(ATable, all)])).
-
-install_fallback_mnesia(Path) ->
-    case mnesia:install_fallback(Path) of
-    ok ->
-        {ok, ""};
-    {error, Reason} ->
-        String = io_lib:format("Can't install fallback from ~p at node ~p: ~p",
-                   [filename:absname(Path), node(), Reason]),
-        {cannot_fallback, String}
-    end.
-
-mnesia_change_nodename(FromString, ToString, Source, Target) ->
-    From = list_to_atom(FromString),
-    To = list_to_atom(ToString),
-    Switch =
-    fun
-        (Node) when Node == From ->
-        io:format("     - Replacing nodename: '~p' with: '~p'~n", [From, To]),
-        To;
-        (Node) when Node == To ->
-        %% throw({error, already_exists});
-        io:format("     - Node: '~p' will not be modified (it is already '~p')~n", [Node, To]),
-        Node;
-        (Node) ->
-        io:format("     - Node: '~p' will not be modified (it is not '~p')~n", [Node, From]),
-        Node
-    end,
-    Convert =
-    fun
-        ({schema, db_nodes, Nodes}, Acc) ->
-        io:format(" +++ db_nodes ~p~n", [Nodes]),
-        {[{schema, db_nodes, lists:map(Switch,Nodes)}], Acc};
-        ({schema, version, Version}, Acc) ->
-        io:format(" +++ version: ~p~n", [Version]),
-        {[{schema, version, Version}], Acc};
-        ({schema, cookie, Cookie}, Acc) ->
-        io:format(" +++ cookie: ~p~n", [Cookie]),
-        {[{schema, cookie, Cookie}], Acc};
-        ({schema, Tab, CreateList}, Acc) ->
-        io:format("~n * Checking table: '~p'~n", [Tab]),
-        Keys = [ram_copies, disc_copies, disc_only_copies],
-        OptSwitch =
-            fun({Key, Val}) ->
-                case lists:member(Key, Keys) of
-                true ->
-                    io:format("   + Checking key: '~p'~n", [Key]),
-                    {Key, lists:map(Switch, Val)};
-                false-> {Key, Val}
-                end
-            end,
-        Res = {[{schema, Tab, lists:map(OptSwitch, CreateList)}], Acc},
-        Res;
-        (Other, Acc) ->
-        {[Other], Acc}
-    end,
-    mnesia:traverse_backup(Source, Target, Convert, switched).
-
 clear_cache() ->
     Nodes = ejabberd_cluster:get_nodes(),
     lists:foreach(fun(T) -> ets_cache:clear(T, Nodes) end, ets_cache:all()).
+
+%%%
+%%% HalloApp functions
+%%%
 
 add_uid_trace(Uid) ->
     UidBin = list_to_binary(Uid),
@@ -1370,13 +955,6 @@ delete_account(Uid) ->
     ejabberd_auth:remove_user(Uid, util:get_host()),
     io:format("Account deleted: ~p~n", [Uid]),
     ok.
-
-
--spec is_my_host(binary()) -> boolean().
-is_my_host(Host) ->
-    try ejabberd_router:is_my_host(Host)
-    catch _:{invalid_domain, _} -> false
-    end.
 
 
 -spec request_phone_logs(Phone :: binary()) -> ok.

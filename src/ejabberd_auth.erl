@@ -29,6 +29,7 @@
 -include("password.hrl").
 -include("account.hrl").
 -include("sms.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -define(SALT_LENGTH, 16).
 -define(HOST, util:get_host()).
@@ -58,29 +59,19 @@ set_spub(Uid, SPub) ->
     ok.
 
 
--spec check_and_register(binary(), binary(), binary(), binary(), binary()) ->
-    {ok, binary(), register | login} |
-    {error, db_failure | not_allowed | exists | invalid_jid}.
-check_and_register(Phone, Server, Cred, Name, UserAgent) ->
-    case model_phone:get_uid(Phone) of
-        {ok, undefined} ->
-            case ha_try_register(Phone, Cred, Name, UserAgent) of
-                {ok, _, UserId} ->
-                    ejabberd_hooks:run(register_user, Server, [UserId, Server, Phone]),
-                    {ok, UserId, register};
-                Err -> Err
-            end;
-        {ok, UserId} ->
-            re_register_user(UserId, Server, Phone),
-            case set_spub(UserId, Cred) of
-                ok ->
-                    ok = model_accounts:set_name(UserId, Name),
-                    ok = model_accounts:set_user_agent(UserId, UserAgent),
-                    SessionCount = ejabberd_sm:kick_user(UserId, Server),
-                    ?INFO("~p removed from ~p sessions", [UserId, SessionCount]),
-                    {ok, UserId, login};
-                Err -> Err
-            end
+check_and_register(Phone, Host, SPub, Name, UserAgent) ->
+    ?assert(byte_size(SPub) > 0),
+    Result = check_and_register_internal(Phone, Host, SPub, Name, UserAgent),
+    case Result of
+        {ok, Uid, login} ->
+            ?INFO("Login into existing account uid:~p for phone:~p", [Uid, Phone]),
+            {ok, Uid, login};
+        {ok, Uid, register} ->
+            ?INFO("Registering new account uid:~p for phone:~p", [Uid, Phone]),
+            {ok, Uid, register};
+        {error, Reason} ->
+            ?INFO("Login/Registration for phone:~p failed. ~p", [Phone, Reason]),
+            {error, Reason}
     end.
 
 
@@ -122,6 +113,32 @@ remove_user(User, Server) ->
 %%%----------------------------------------------------------------------
 %%% Internal functions
 %%%----------------------------------------------------------------------
+
+-spec check_and_register_internal(binary(), binary(), binary(), binary(), binary()) ->
+    {ok, binary(), register | login} |
+    {error, db_failure | not_allowed | exists | invalid_jid}.
+check_and_register_internal(Phone, Server, Cred, Name, UserAgent) ->
+    case model_phone:get_uid(Phone) of
+        {ok, undefined} ->
+            case ha_try_register(Phone, Cred, Name, UserAgent) of
+                {ok, _, UserId} ->
+                    ejabberd_hooks:run(register_user, Server, [UserId, Server, Phone]),
+                    {ok, UserId, register};
+                Err -> Err
+            end;
+        {ok, UserId} ->
+            re_register_user(UserId, Server, Phone),
+            case set_spub(UserId, Cred) of
+                ok ->
+                    ok = model_accounts:set_name(UserId, Name),
+                    ok = model_accounts:set_user_agent(UserId, UserAgent),
+                    SessionCount = ejabberd_sm:kick_user(UserId, Server),
+                    ?INFO("~p removed from ~p sessions", [UserId, SessionCount]),
+                    {ok, UserId, login};
+                Err -> Err
+            end
+    end.
+
 
 ha_try_register(Phone, Cred, Name, UserAgent) ->
     ?INFO("phone:~s", [Phone]),

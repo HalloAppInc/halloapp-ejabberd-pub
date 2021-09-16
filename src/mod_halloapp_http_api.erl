@@ -902,7 +902,7 @@ process_push_token(Uid, PushPayload) ->
 -spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
 finish_registration_spub(Phone, Name, UserAgent, SPub) ->
     Host = util:get_host(),
-    {ok, Uid, Action} = ejabberd_admin:check_and_register(Phone, Host, SPub, Name, UserAgent),
+    {ok, Uid, Action} = ejabberd_auth:check_and_register(Phone, Host, SPub, Name, UserAgent),
     %% Action = login, updates the spub.
     %% Action = register, creates a new user id and registers the user for the first time.
     log_registration(Phone, Action, UserAgent),
