@@ -271,7 +271,7 @@ iterate_keys(Func, State, [Key | Rest]) ->
         ok -> {ok, State};
         stop -> {stop, State};
         {ok, State2} -> {ok, State2};
-        {stop, State2} -> {ok, State2};
+        {stop, State2} -> {stop, State2};
         _ -> {ok, State}
     end,
     case Res of
