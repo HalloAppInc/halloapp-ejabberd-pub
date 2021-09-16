@@ -71,6 +71,8 @@
     host_down/1,
     make_sid/0,
     config_reloaded/0,
+    is_user_online/1,
+    get_active_sessions/2,
     get_passive_sessions/2,
     get_passive_sessions/3
 ]).
@@ -288,6 +290,14 @@ dirty_get_my_sessions_list() ->
 -spec config_reloaded() -> ok.
 config_reloaded() ->
     ok.
+
+
+-spec is_user_online(User :: binary()) -> boolean().
+is_user_online(User) ->
+    case get_active_sessions(User, util:get_host()) of
+        {ok, []} -> false;
+        {ok, _} -> true
+    end.
 
 %%====================================================================
 %% gen_server callbacks

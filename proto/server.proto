@@ -531,6 +531,8 @@ message Iq {
         HistoryResend history_resend = 32;
         ExportData export_data = 33;
         ContactSyncError contact_sync_error = 34;
+        ClientOtpRequest client_otp_request = 35; // only for sms_app gateway use
+        ClientOtpResponse client_otp_response = 36; // only for sms_app gateway use
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -1018,6 +1020,35 @@ message VerifyOtpResponse {
     }
     Reason reason = 5;
     string group_invite_result = 6;
+}
+
+message ClientOtpRequest {
+    enum Method {
+        SMS = 0;
+        VOICE_CALL = 1;
+    }
+    Method method = 1;
+    string phone = 2;
+    string content = 3;
+}
+
+message ClientOtpResponse {
+    enum Result {
+        UNKNOWN_RESULT = 0;
+        SUCCESS = 1;
+        FAILURE = 2;
+    }
+    Result result = 1;
+
+    enum Reason {
+        UNKNOWN_REASON = 0;
+        SETUP_ISSUE = 1;
+        PERMISSION_ISSUE = 2;
+        FORMATTING_ISSUE = 3;
+        // Client should retry a few times in this case.
+        NETWORKING_ISSUE = 4;
+    }
+    Reason reason = 2;
 }
 
 message WakeUp {

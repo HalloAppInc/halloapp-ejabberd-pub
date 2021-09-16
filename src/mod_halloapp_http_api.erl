@@ -441,7 +441,7 @@ request_otp(Phone, LangId, UserAgent, Method) ->
 
 -spec check_ua(binary(), phone()) -> ok | no_return().
 check_ua(UserAgent, Phone) ->
-    case sms_app:is_sms_app(Phone) of
+    case mod_sms_app:is_sms_app(Phone) of
         true -> 
             %% force sms_app clients to be android
             case util_ua:is_android(UserAgent) of

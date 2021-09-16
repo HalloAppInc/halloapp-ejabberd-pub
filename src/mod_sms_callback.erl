@@ -19,7 +19,7 @@
 -define(CALLBACK_DELAY, 10 * ?SECONDS_MS).
 
 % called after
--export([add_gateway_callback_info/2]).
+-export([add_gateway_callback_info/1, add_gateway_callback_info/2]).
 
 %% API
 -export([start/2, stop/1, reload/3, init/1, depends/2, mod_options/1]).
