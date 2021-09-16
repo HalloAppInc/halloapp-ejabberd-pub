@@ -440,8 +440,8 @@ pick_gw(ChooseFrom, CC, IsFirstAttempt) ->
             max_weight_selection(GWWeights)
     end,
 
-    ?INFO("Picked ~p Weights: ~p, Rand: ~p IsFirst: ~p",
-        [Gateway, GWWeights, RandNo, IsFirstAttempt]),
+    ?INFO("Picked ~p Weights: ~p, Rand: ~p IsFirst: ~p, CC: ~p",
+        [Gateway, GWWeights, RandNo, IsFirstAttempt, CC]),
 
     Gateway.
 
@@ -488,7 +488,7 @@ get_new_gw_scores(ChooseFrom, CC) ->
             {Gateway, get_gwcc_score(Gateway, CC)}
         end, ChooseFrom),
     ScoreMap = maps:from_list(RetVal),
-    ?DEBUG("Gateway Scores: ~p", [ScoreMap]),
+    ?INFO("CC: ~p, Gateway Scores: ~p", [CC, ScoreMap]),
     ScoreMap.
 
 
@@ -500,7 +500,7 @@ get_gwcc_score(Gateway, CC) ->
     GatewayCC = stat_sms:get_gwcc_atom_safe(Gateway, CC),
     case model_gw_score:get_aggregate_score(GatewayCC) of
         {ok, undefined} -> 
-            ?DEBUG("Using Global score for ~p", [GatewayCC]),
+            ?INFO("Using Global score for ~p", [GatewayCC]),
             {ok, GlobalScore} = get_aggregate_score(Gateway),
             GlobalScore;
         {ok, Score} when Score > ?DEFAULT_GATEWAY_SCORE_PERCENT -> Score;

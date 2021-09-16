@@ -5,7 +5,7 @@
 %%% This model handles all the redis db queries that are related to gateway scoring.
 %%% Each score entry contains two scores: recent and aggregate. Scores are always out
 %%% of 100, and essentially represent the percentage of otp requests that result 
-%%% in a new user registration.g
+%%% in a new user registration.
 %%%     - recent scores are outputted by stat_sms:check_gw_scores/0 and represent the
 %%%         success rate of otp requests over the most recent interval s.t. 
 %%%         2 hours <= IntervalLength <= 48 Hours and the interval contains at least 
