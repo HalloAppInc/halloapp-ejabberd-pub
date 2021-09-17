@@ -42,9 +42,7 @@ can_send_voice_call(_CC) ->
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent :: binary()) ->
         {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.
 send_sms(Phone, Code, LangId, UserAgent) ->
-    {SmsMsgBin, _TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
-    AppHash = util_ua:get_app_hash(UserAgent),
-    Msg = io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
+    {Msg, _TranslatedLangId} = util_sms:get_sms_message(UserAgent, Code, LangId),
 
     ?INFO("Phone: ~p, Msg: ~p", [Phone, Msg]),
     URL = ?BASE_SMS_URL,

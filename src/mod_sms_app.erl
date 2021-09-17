@@ -287,9 +287,7 @@ send_sms_internal(OtpInfo, State) ->
     UserAgent = OtpInfo#otp_info.user_agent,
     Method = OtpInfo#otp_info.method,
     UsedPhones = OtpInfo#otp_info.used_phones,
-    {SmsMsgBin, _TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
-    AppHash = util_ua:get_app_hash(UserAgent),
-    Msg = io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
+    {Msg, _TranslatedLangId} = util_sms:get_sms_message(UserAgent, Code, LangId),
     case pick_from_phone(UsedPhones, ?SMS_APP_PHONE_LIST) of
         {error, Reason} ->
             ?ERROR("sms_app clients unavailable, reason: ~p, OtpInfo: ~p", [Reason, OtpInfo]),

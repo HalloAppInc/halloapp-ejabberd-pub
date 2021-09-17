@@ -76,9 +76,7 @@ is_cc_supported(CC) ->
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.
 send_sms(Phone, Code, LangId, UserAgent) ->
     AccountSid = get_account_sid(util:is_test_number(Phone)),
-    {SmsMsgBin, TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
-    AppHash = util_ua:get_app_hash(UserAgent),
-    Msg = io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
+    {Msg, TranslatedLangId} = util_sms:get_sms_message(UserAgent, Code, LangId),
     TwilioLangId = get_twilio_lang(TranslatedLangId),
     sending_helper(Phone, Msg, TwilioLangId, ?BASE_SMS_URL(AccountSid), fun compose_body/3, "SMS").
 

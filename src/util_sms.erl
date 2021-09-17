@@ -17,7 +17,8 @@
     init_helper/2,
     lookup_from_phone/1,
     good_next_ts_diff/1,
-    get_response_code/1
+    get_response_code/1,
+    get_sms_message/3
 ]).
 
 -spec init_helper(GWOptions :: atom(), FromPhoneList :: [list()]) -> ok.
@@ -56,4 +57,13 @@ get_response_code(ResBody) ->
     Json = jiffy:decode(ResBody, [return_maps]),
     ErrCode = maps:get(<<"code">>, Json, undefined),
     ErrCode.
+
+
+-spec get_sms_message(UserAgent :: binary(), Code :: binary(), LangId :: binary()) 
+        -> {Msg :: binary(), TranslatedLangId :: binary()}.
+get_sms_message(UserAgent, Code, LangId) ->
+    {SmsMsgBin, TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
+    AppHash = util_ua:get_app_hash(UserAgent),
+    Msg = io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
+    {Msg, TranslatedLangId}.
 
