@@ -25,6 +25,7 @@
 -callback send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, voice_call_fail}.
 -callback send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.
+-optional_callbacks([init/0]).
 
 -type method() :: sms | voice_call.
 
@@ -61,9 +62,7 @@
 
 start(_Host, _Opts) ->
     ?INFO("start ~w ~p", [?MODULE, self()]),
-    ok = twilio:init(),
-    ok = mbird:init(),
-    ok = clickatell:init(),
+    lists:foreach(fun init_gateway/1, sms_gateway_list:all()),
     ok.
 
 stop(_Host) ->
@@ -223,6 +222,19 @@ is_too_soon(Method, OldResponses) ->
             end
     end.
 
+-spec init_gateway(Gateway :: atom()) -> ok.
+init_gateway(Gateway) ->
+    case erlang:function_exported(Gateway, init, 0) of
+        true ->
+            try Gateway:init()
+            catch
+                Class : Reason : Stacktrace  ->
+                    ?ERROR("Failed to initialize sms Gateways:~s ~p Stacktrace:~s",
+                        [Gateway, Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+            end;
+        false -> ok
+    end.
+
 
 -spec find_next_ts(OldResponses :: [gateway_response()]) -> non_neg_integer().
 find_next_ts(OldResponses) ->
@@ -291,7 +303,7 @@ generate_gateway_list(CC, Method, OldResponses) ->
     WorkingSet = sets:from_list(WorkingList),
     NotWorkingSet = sets:from_list(NotWorkingList),
 
-    FullConsiderList = sms_gateway_list:get_sms_gateway_list(),
+    FullConsiderList = sms_gateway_list:enabled(),
     ConsiderList = filter_gateways(CC, Method, FullConsiderList),
 
     ConsiderSet = sets:from_list(ConsiderList),
@@ -356,7 +368,7 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
 
     {IsFirstAttempt, ChooseFromList} = generate_gateway_list(CC, Method, OldResponses),
 
-    FullConsiderList = sms_gateway_list:get_sms_gateway_list(),
+    FullConsiderList = sms_gateway_list:enabled(),
     ConsiderList = filter_gateways(CC, Method, FullConsiderList),
 
     ConsiderSet = sets:from_list(ConsiderList),

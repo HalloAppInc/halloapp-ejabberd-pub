@@ -8,13 +8,40 @@
 -module(sms_gateway_list).
 -author("vipin").
 
-
 -export([
-    get_sms_gateway_list/0
+    all/0,
+    enabled/0
 ]).
 
-%% Allows ability to turn off specific gateways.
--spec get_sms_gateway_list() -> [atom()].
-get_sms_gateway_list() ->
-    [twilio, mbird, twilio_verify, mbird_verify, telesign, clickatell].
+-define(ALL_GATEWAYS, [
+    twilio,
+    twilio_verify,
+    mbird,
+    mbird_verify,
+    vonage,
+    infobip,
+    telesign,
+    clickatell,
+    mod_sms_app
+]).
+
+
+-define(ENABLED_GATEWAYS, [
+    twilio,
+    mbird,
+    twilio_verify,
+    mbird_verify,
+    telesign,
+    clickatell
+]).
+
+% Returns list of all gateways
+-spec all() -> [atom()].
+all() ->
+    ?ALL_GATEWAYS.
+
+%% Returns gateways we currently use in production
+-spec enabled() -> [atom()].
+enabled() ->
+    ?ENABLED_GATEWAYS.
 
