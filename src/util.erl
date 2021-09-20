@@ -488,7 +488,7 @@ is_ipv6(IpAddress) ->
 parse_ip_address({IpAddress, Port}) ->
     case util:is_ipv4(IpAddress) of
         true -> inet:ntoa(inet:ipv4_mapped_ipv6_address(IpAddress));
-        false -> inet:nta(IpAddress)
+        false -> inet:ntoa(IpAddress)
     end.
 
 
