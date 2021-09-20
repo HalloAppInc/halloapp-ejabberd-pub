@@ -165,10 +165,10 @@ handle_cast(accept, #{socket := Socket, sockmod := SockMod,
     TcpSocket = halloapp_socket:new(SockMod, Socket, Opts),
     SocketMonitor = halloapp_socket:monitor(TcpSocket),
     case halloapp_socket:peername(TcpSocket) of
-        {ok, {IpAddress, _Port} = _IP} ->
+        {ok, {_IpAddress, _Port} = IpAddressAndPort} ->
             State1 = maps:remove(sockmod, State),
-            ?DEBUG("NoiseOpts : ~p", [NoiseOpts]),
-            ClientIP = inet:ntoa(IpAddress),
+            ClientIP = util:parse_ip_address(IpAddressAndPort),
+            ?DEBUG("NoiseOpts : ~p, ClientIP: ~p", [NoiseOpts, ClientIP]),
             State2 = State1#{socket => TcpSocket, socket_monitor => SocketMonitor, ip => ClientIP},
             %% Note that the verifyFun is empty in this case.
             State3 = case halloapp_socket:startnoise(TcpSocket, NoiseOpts, fun (_, _) -> ok end) of

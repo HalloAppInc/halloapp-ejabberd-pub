@@ -261,6 +261,7 @@ handle_cast(accept, #{socket := Socket, socket_mod := SockMod, socket_opts := Op
     SocketMonitor = halloapp_socket:monitor(PbSocket),
     case halloapp_socket:peername(PbSocket) of
         {ok, IP} ->
+            %% TODO(murali@): parse ip address properly.
             State1 = maps:remove(socket_mod, State),
             State2 = maps:remove(socket_opts, State1),
             State3 = State2#{socket => PbSocket, socket_monitor => SocketMonitor, ip => IP},

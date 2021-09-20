@@ -63,6 +63,9 @@
     set_timestamp/2,
     get_timestamp/1,
     get_protocol/1,
+    is_ipv4/1,
+    is_ipv6/1,
+    parse_ip_address/1,
     add_and_merge_maps/2,
     maybe_base64_encode/1,
     maybe_base64_decode/1,
@@ -469,6 +472,24 @@ get_protocol({{0, 0, 0, 0, 0, _, _, _}, _}) ->
     ipv4;
 get_protocol({{_, _, _, _, _, _, _, _}, _}) ->
     ipv6.
+
+
+-spec is_ipv4(inet:address()) -> boolean().
+is_ipv4(IpAddress) ->
+    get_protocol({IpAddress, undefined}) =:= ipv4.
+
+
+-spec is_ipv6(inet:address()) -> boolean().
+is_ipv6(IpAddress) ->
+    get_protocol({IpAddress, undefined}) =:= ipv6.
+
+
+-spec parse_ip_address({inet:address(), inet:port_number()}) -> list().
+parse_ip_address({IpAddress, Port}) ->
+    case util:is_ipv4(IpAddress) of
+        true -> inet:ntoa(inet:ipv4_mapped_ipv6_address(IpAddress));
+        false -> inet:nta(IpAddress)
+    end.
 
 
 -spec maybe_base64_encode(maybe(binary())) -> maybe(binary()).
