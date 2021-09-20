@@ -94,7 +94,7 @@ get_props(Uid, ClientVersion) ->
         max_video_bit_rate => 8000000, %% max_video_bit_rate set to 8Mbps.
         new_client_container => false, %% indicates whether the client can start sending new container formats.
         voice_notes => false, %% enables voice notes in 1-1 messages on client.
-        media_comments => false  %% enables media comments.
+        media_comments => true  %% enables media comments.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -110,10 +110,9 @@ get_uid_based_props(PropMap, Uid) ->
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
-            PropMap2 = maps:update(media_comments, true, PropMap1),
-            PropMap3 = maps:update(new_client_container, true, PropMap2),
-            PropMap4 = maps:update(voice_notes, true, PropMap3),
-            PropMap4
+            PropMap2 = maps:update(new_client_container, true, PropMap1),
+            PropMap3 = maps:update(voice_notes, true, PropMap2),
+            PropMap3
     end.
 
 
