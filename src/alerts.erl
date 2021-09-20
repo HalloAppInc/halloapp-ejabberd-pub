@@ -64,6 +64,7 @@ send_process_unreachable_alert(Proc, Message) ->
     send_alert(<<"Process Unreachable: ", Proc/binary>>, Proc, <<"critical">>, Message).
 
 
+% TODO(nikola): this API would be better if doesn't only accept binaries
 -spec send_alert(Alertname :: binary(), Service :: binary(), Severity :: binary(), Message :: binary()) -> ok.
 send_alert(Alertname, Service, Severity, Message) ->
     URL = ?ALERTS_MANAGER_URL,

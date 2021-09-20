@@ -33,11 +33,15 @@
 %% hooks
 -export([set_ticktime/0]).
 
+-include("time.hrl").
 -include("logger.hrl").
 
 -type dst() :: pid() | atom() | {atom(), node()}.
 
 -record(state, {}).
+
+-define(CLUSTER_JOIN_RETRY_INTERVAL, 5 * ?SECONDS_MS).
+-define(CLUSTER_JOIN_RETRY_DURATION, 60 * ?SECONDS_MS).
 
 %%%===================================================================
 %%% API
@@ -107,6 +111,12 @@ get_known_nodes() ->
 join() ->
     AddRes = model_cluster:add_node(node()),
     ?INFO("This node: ~p is joining the cluster. new: ~p", [node(), AddRes]),
+    UntilTsMs = util:now_ms() + ?CLUSTER_JOIN_RETRY_DURATION,
+    join_until(UntilTsMs).
+
+
+-spec join_until(UntilTsMs :: integer()) -> ok | {error, Reason :: term()}.
+join_until(UntilTsMs) ->
     RedisNodes = model_cluster:get_nodes(),
     lists:foreach(
         fun(RNode) ->
@@ -124,9 +134,22 @@ join() ->
     ?INFO("Nodes: ~p RedisNodes: ~p", [Nodes, RedisNodes]),
     case Nodes of
         [] ->
-            % TODO: keep trying for up to 1m to ping nodes
-            ?ERROR("Failed to join the cluster"),
-            {error, join_failed};
+            ?ERROR("Failed to join the cluster, retrying in ~p seconds",
+                [?CLUSTER_JOIN_RETRY_INTERVAL]),
+            timer:sleep(?CLUSTER_JOIN_RETRY_INTERVAL),
+            case util:now_ms() < UntilTsMs of
+                true ->
+                    join_until(UntilTsMs);
+                false ->
+                    ?ERROR("Final attempt to join the cluster failed"),
+
+                    Msg = io_lib:format("Node ~s on ~s has failed to join the ejabberd cluster. "
+                        "RedisNodes: ~p", [node(), util:get_machine_name(), RedisNodes]),
+                    alerts:send_alert(<<"Ejabberd node has failed to join the cluster">>,
+                        <<"Ejabberd">>, <<"critical">>, iolist_to_binary(Msg)),
+
+                    {error, join_failed}
+            end;
         _ -> ok
     end.
 
