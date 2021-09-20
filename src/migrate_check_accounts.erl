@@ -16,7 +16,8 @@
     check_phone_numbers_run/2,
     check_argentina_numbers_run/2,
     check_mexico_numbers_run/2,
-    check_version_counters_run/2
+    check_version_counters_run/2,
+    log_recent_account_info_run2/2
 ]).
 
 
@@ -189,6 +190,43 @@ check_version_counters_run(Key, State) ->
                                                 [Uid, Version, Res])
                                     end
                             end
+                    end
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                          Log all recent account info counts                      %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+log_recent_account_info_run2(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            {ok, [Phone, CreationTimeMsBin]} = q(ecredis_accounts, ["HMGET", FullKey, <<"ph">>, <<"ct">>]),
+            case Phone of
+                undefined ->
+                    ?INFO("Uid: ~p, Phone is undefined!", [Uid]);
+                _ ->
+                    CreationTimeMs = util:to_integer(CreationTimeMsBin),
+                    RegisteredInLastMonth = CreationTimeMs > util:now_ms() - 31 * ?DAYS_MS,
+                    RegisteredInLastTwoWeeks = CreationTimeMs > util:now_ms() - 15 * ?DAYS_MS,
+                    case RegisteredInLastMonth of
+                        true ->
+                            NumContacts = model_contacts:count_contacts(Uid),
+                            {ok, Friends} = model_friends:get_friends(Uid),
+                            {ok, Contacts} = model_contacts:get_contacts(Uid),
+                            UidContacts = model_phone:get_uids(Contacts),
+                            NumUidContacts = length(maps:to_list(UidContacts)),
+                            NumFriends = length(Friends),
+                            CC = mod_libphonenumber:get_cc(Phone),
+                            ?INFO("Account Uid: ~p, Phone: ~p, CC: ~p, RegisteredInLastMonth: ~p, RegisteredInLastTwoWeeks: ~p, NumContacts: ~p, NumUidContacts: ~p, NumFriends: ~p",
+                                [Uid, Phone, CC, RegisteredInLastMonth, RegisteredInLastTwoWeeks, NumContacts, NumUidContacts, NumFriends]);
+                        false ->
+                            ok
                     end
             end;
         _ -> ok
