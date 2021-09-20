@@ -456,7 +456,9 @@ check_invited_by_group_invite_test() ->
  
 check_empty_inviter_list_test() ->
     setup(),
-    ?assertEqual({error, not_invited}, mod_sms:send_otp_to_inviter(?TEST_PHONE, undefined, undefined, undefined)),
+    ?assertEqual({ok, 30}, mod_sms:send_otp_to_inviter(?TEST_PHONE, undefined, undefined, undefined)),
+    % making sure something got stored in the db
+    {ok, [_PhoneVerification]} = model_phone:get_all_verification_info(?TEST_PHONE),
     ok. 
 
 check_has_inviter_test() -> 

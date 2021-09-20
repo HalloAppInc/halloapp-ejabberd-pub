@@ -31,8 +31,7 @@
 
 -ifdef(TEST).
 -export([
-    generate_code/1,
-    send_otp_to_inviter/4
+    generate_code/1
 ]).
 -endif.
 
@@ -53,7 +52,8 @@
     rand_weighted_selection/2,  %% for testing
     max_weight_selection/1,  %% for testing
     smart_send/6,  %% for testing
-    generate_gateway_list/3  %% for testing
+    generate_gateway_list/3,  %% for testing
+    send_otp_to_inviter/4  %% for testing
 ]).
 
 %%====================================================================
@@ -91,10 +91,15 @@ request_otp(Phone, LangId, UserAgent, Method) ->
         {prod, true} -> send_otp_to_inviter(Phone, LangId, UserAgent, Method);
         {prod, _} -> send_otp(Phone, LangId, Phone, UserAgent, Method);
         {stress, _} -> send_otp(Phone, LangId, Phone, UserAgent, Method);
-        {_,_} ->
-            {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, generate_code(Phone)),
-            {ok, 30}
+        {_,_} -> just_enroll(Phone)
     end.
+
+% Just generate and store code for this user. Mostly called for test phones or in localhost/test
+-spec just_enroll(Phone :: binary()) -> {ok, integer()}.
+just_enroll(Phone) ->
+    {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, generate_code(Phone)),
+    {ok, 30}.
+
 
 -spec check_otp_request_too_soon(Phone :: binary(), Method :: atom()) -> false | {true, integer()}.
 check_otp_request_too_soon(Phone, Method) ->
@@ -156,22 +161,22 @@ add_verification_success(Phone, FetchedInfo, AllVerifyInfo) ->
     atom()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
     {ok, InvitersList} = model_invites:get_inviters_list(Phone),
-    case length(InvitersList) of 
-        0 ->
-            ?INFO("No last known inviter of phone: ~p", [Phone]),
-            {error, not_invited};
+    case InvitersList of
+        [] ->
+            ?INFO("No inviter of phone: ~s", [Phone]),
+            just_enroll(Phone);
         _ ->
             {Uid, _} = lists:last(InvitersList),
-                case model_accounts:get_phone(Uid) of 
-                    {error, missing} = Error -> 
-                        ?ERROR("Missing phone of id: ~p", [Uid]),
-                        Error;
-                    {ok, InviterPhone} -> 
-                        case test_users:is_test_uid(Uid) of
-                            true -> send_otp(InviterPhone, LangId, Phone, UserAgent, Method);
-                            false -> {error, not_invited}
-                        end
-                end
+            case model_accounts:get_phone(Uid) of
+                {error, missing} ->
+                    ?ERROR("Missing phone of uid: ~s", [Uid]),
+                    just_enroll(Phone);
+                {ok, InviterPhone} ->
+                    case test_users:is_test_uid(Uid) of
+                        true -> send_otp(InviterPhone, LangId, Phone, UserAgent, Method);
+                        false -> just_enroll(Phone)
+                    end
+            end
     end. 
 
 -spec send_otp(OtpPhone :: phone(), LangId :: binary(), Phone :: phone(), UserAgent :: binary(),
