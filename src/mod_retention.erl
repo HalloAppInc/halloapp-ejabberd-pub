@@ -93,7 +93,12 @@ dump_account(Uid) ->
         case model_accounts:get_account(Uid) of
             {error, missing} -> ok;
             {ok, Account} ->
-                NumContacts = model_contacts:count_contacts(Uid),
+                {ok, Friends} = model_friends:get_friends(Uid),
+                {ok, Contacts} = model_contacts:get_contacts(Uid),
+                UidContacts = model_phone:get_uids(Contacts),
+                NumContacts = length(Contacts),
+                NumUidContacts = length(maps:to_list(UidContacts)),
+                NumFriends = length(Friends),
                 CC = mod_libphonenumber:get_cc(Account#account.phone),
                 mod_client_log:log_event(<<"server.accounts">>, #{
                     uid => Account#account.uid,
@@ -103,7 +108,9 @@ dump_account(Uid) ->
                     signup_platform => util_ua:get_client_type(Account#account.signup_user_agent),
                     cc => CC,
                     lang_id => Account#account.lang_id,
-                    num_contacts => NumContacts
+                    num_contacts => NumContacts,
+                    num_uid_contacts => NumUidContacts,
+                    num_friends => NumFriends
                 }),
                 ok
         end
