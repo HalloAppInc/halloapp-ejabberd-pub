@@ -72,7 +72,8 @@
     yesterday/0,
     day_before/1,
     normalize_scores/1,
-    get_machine_name/0
+    get_machine_name/0,
+    repair_utf8/1
 ]).
 
 
@@ -530,4 +531,14 @@ normalize_scores(Scores) when is_map(Scores)->
 get_machine_name() ->
     {ok, Name} = inet:gethostname(),
     util:to_binary(Name).
+
+
+-spec repair_utf8(Bin :: binary()) -> binary().
+repair_utf8(<<>>) -> <<>>;
+repair_utf8(Bin) when is_binary(Bin) ->
+    NewBin = binary:part(Bin, {0, byte_size(Bin) -1}),
+    case unicode:characters_to_nfc_list(NewBin) of
+        {error, _, _} -> repair_utf8(NewBin);
+        _ -> NewBin
+    end.
 

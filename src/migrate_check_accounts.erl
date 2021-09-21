@@ -17,7 +17,8 @@
     check_argentina_numbers_run/2,
     check_mexico_numbers_run/2,
     check_version_counters_run/2,
-    log_recent_account_info_run2/2
+    log_recent_account_info_run2/2,
+    check_push_name_run/2
 ]).
 
 
@@ -237,6 +238,31 @@ log_recent_account_info_run2(Key, State) ->
     end,
     State.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                          Check push name run for accounts                      %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+check_push_name_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    DryRun = maps:get(dry_run, State, false),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            {ok, Name} = model_accounts:get_name(Uid),
+            case unicode:characters_to_nfc_list(Name) of
+                {error, _, _} ->
+                    FinalName = util:repair_utf8(Name),
+                    ?INFO("Uid: ~p, Invalid PushName: ~p, FinalName: ~p", [Uid, Name, FinalName]),
+                    case DryRun of
+                        false -> ok = model_accounts:set_name(Uid, FinalName);
+                        true -> ok
+                    end;
+                _ -> ok
+            end;
+        _ -> ok
+    end,
+    State.
 
 
 q(Client, Command) -> util_redis:q(Client, Command).
