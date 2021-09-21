@@ -21,6 +21,7 @@
     send_sms/4,
     send_voice_call/4,
     send_feedback/2,
+    compose_send_body/5,  %% Need for testing.
     get_latest_verify_info/1   %% Need for test.
 ]).
 
@@ -44,22 +45,22 @@ is_cc_supported(_CC) ->
 
 -spec send_sms(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, sms_fail, retry | no_retry}.
-send_sms(Phone, Code, LangId, _UserAgent) ->
-    sending_helper(Phone, Code, LangId, "sms").
+send_sms(Phone, Code, LangId, UserAgent) ->
+    sending_helper(Phone, Code, LangId, UserAgent, "sms").
 
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(),
         UserAgent :: binary()) -> {ok, gateway_response()} | {error, call_fail, retry | no_retry}.
-send_voice_call(Phone, Code, LangId, _UserAgent) -> 
-    sending_helper(Phone, Code, LangId, "call").
+send_voice_call(Phone, Code, LangId, UserAgent) -> 
+    sending_helper(Phone, Code, LangId, UserAgent, "call").
 
 
--spec sending_helper(Phone :: phone(), Code :: binary(), LangId :: binary(), Method :: string())
-     -> {ok, gateway_response()} | {error, sms_fail, atom()} | {error, call_fail, atom()}.
-sending_helper(Phone, Code, LangId, Method) ->
+-spec sending_helper(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent :: binary(),
+        Method :: string()) -> {ok, gateway_response()} | {error, sms_fail, atom()} | {error, call_fail, atom()}.
+sending_helper(Phone, Code, LangId, UserAgent, Method) ->
     URL = ?VERIFICATION_URL,
     [Headers, Type, HTTPOptions, Options] = fetch_headers(),
-    Body = compose_send_body(Phone, Code, LangId, Method),
+    Body = compose_send_body(Phone, Code, LangId, UserAgent, Method),
     ?DEBUG("Body: ~p", [Body]),
     Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
     ?DEBUG("Response: ~p", [Response]),
@@ -151,16 +152,25 @@ fetch_headers() ->
     [Headers, Type, [], []].
 
 
--spec compose_send_body(Phone :: phone(), Code :: binary(), LangId :: binary(),
+-spec compose_send_body(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent :: binary(),
         Method :: string()) -> uri_string:uri_string().
-compose_send_body(Phone, Code, LangId, Method) ->
+compose_send_body(Phone, Code, LangId, UserAgent, Method) ->
     PlusPhone = "+" ++ binary_to_list(Phone),
-    uri_string:compose_query([
+    InputParams =[
         {"To", PlusPhone },
         {"Channel", Method},
         {"CustomCode", Code},
         {"Locale", get_verify_lang(LangId)}
-    ], [{encoding, utf8}]).
+    ],
+    AppHash = case Method of
+        "sms" -> util_ua:get_app_hash(UserAgent);
+        "call" -> <<"">>
+    end,
+    InputParams2 = case AppHash of
+        <<"">> -> InputParams;
+        _ -> InputParams ++ [{"AppHash", binary_to_list(AppHash)}]
+    end,
+    uri_string:compose_query(InputParams2, [{encoding, utf8}]).
 
 
 -spec compose_feedback_body() -> uri_string:uri_string().
