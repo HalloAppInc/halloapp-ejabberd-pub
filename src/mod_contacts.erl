@@ -539,7 +539,7 @@ obtain_user_ids(NormContacts) ->
             ContactId = maps:get(ContactPhone, PhoneUidsMap, undefined),
             case ContactId of
                 undefined ->
-                    {[Contact#pb_contact{uid = undefined, role = undefined} | UnRegAcc], RegAcc};
+                    {[Contact#pb_contact{uid = undefined} | UnRegAcc], RegAcc};
                 _ ->
                     {UnRegAcc, [Contact#pb_contact{uid = ContactId} | RegAcc]}
             end
@@ -587,12 +587,11 @@ partition_friends(RegContacts, OldReverseContactSet, BlockedUidSet) ->
             IsFriends = sets:is_element(ContactId, OldReverseContactSet) andalso
                     not sets:is_element(ContactId, BlockedUidSet),
             %% dont need to notify clients about changes in role-relationship.
-            NewContact = Contact#pb_contact{role = undefined},
             case IsFriends of
                 true ->
-                    {NonFriendAcc, [NewContact | FriendAcc]};
+                    {NonFriendAcc, [Contact | FriendAcc]};
                 false ->
-                    {[NewContact | NonFriendAcc], FriendAcc}
+                    {[Contact | NonFriendAcc], FriendAcc}
             end
         end, {[], []}, RegContacts),
     {NonFriendContacts, FriendContacts}.

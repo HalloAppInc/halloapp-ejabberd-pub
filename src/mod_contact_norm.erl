@@ -61,7 +61,6 @@ normalize(Contacts, RegionId) ->
         fun (#pb_contact{raw = undefined} = Contact) ->
                 ?WARNING("Invalid contact: raw is undefined"),
                 Contact#pb_contact{
-                    role = undefined,
                     uid = undefined,
                     normalized = undefined};
             (#pb_contact{raw = RawPhone} = Contact) ->
@@ -70,7 +69,6 @@ normalize(Contacts, RegionId) ->
                     undefined ->
                         stat:count("HA/contacts", "normalize_fail"),
                         Contact#pb_contact{
-                            role = undefined,
                             uid = undefined,
                             normalized = undefined};
                     _ ->

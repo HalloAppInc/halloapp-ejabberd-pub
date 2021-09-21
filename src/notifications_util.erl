@@ -32,8 +32,7 @@ send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, Conta
         uid = UserId,
         name = Name,
         avatar_id = AvatarId,
-        normalized = UserPhone,
-        role = undefined
+        normalized = UserPhone
     },
 
     Payload = #pb_contact_list{type = ContactListType, contacts = [Contact]},

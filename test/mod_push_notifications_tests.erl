@@ -69,7 +69,7 @@ chat_push2_test() ->
 
 
 contact_push1_test() ->
-    Contact1 = struct_util:create_pb_contact(add, ?RAW1, ?NORM1, ?UID1, ?ID1, ?NAME1, <<"friends">>),
+    Contact1 = struct_util:create_pb_contact(add, ?RAW1, ?NORM1, ?UID1, ?ID1, ?NAME1),
     ContactList1 = struct_util:create_pb_contact_list(full, ?ID1, 0, true, [Contact1]),
     MessageSt1 = struct_util:create_pb_message(?ID1, undefined, undefined, normal, ContactList1),
     ?assertEqual(true, mod_push_notifications:should_push(MessageSt1)),

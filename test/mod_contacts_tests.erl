@@ -140,11 +140,11 @@ normalize_and_insert_contacts_with_syncid_test() ->
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, ?SYNC_ID1),
     ExpectedContacts = [
-        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatar_id = undefined, uid = ?UID2, role = undefined},
-        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3, role = undefined},
-        #pb_contact{raw = ?PHONE4, normalized = ?PHONE4, uid = undefined, role = undefined},
-        #pb_contact{raw = ?PHONE5, normalized = undefined, uid = undefined, role = undefined},
-        #pb_contact{raw = ?PHONE6, normalized = ?PHONE6, uid = undefined, role = undefined}
+        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatar_id = undefined, uid = ?UID2},
+        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3},
+        #pb_contact{raw = ?PHONE4, normalized = ?PHONE4, uid = undefined},
+        #pb_contact{raw = ?PHONE5, normalized = undefined, uid = undefined},
+        #pb_contact{raw = ?PHONE6, normalized = ?PHONE6, uid = undefined}
     ],
     ?assertEqual(lists:sort(ExpectedContacts), lists:sort(ActualContacts)),
 
@@ -188,10 +188,10 @@ normalize_and_insert_contacts_without_syncid_test() ->
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, undefined),
     ExpectedContacts = [
-        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatar_id = undefined, uid = ?UID2, role = undefined},
-        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3, role = undefined},
-        #pb_contact{raw = ?PHONE4, normalized = ?PHONE4, uid = undefined, role = undefined},
-        #pb_contact{raw = ?PHONE5, normalized = undefined, uid = undefined, role = undefined}
+        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, avatar_id = undefined, uid = ?UID2},
+        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3},
+        #pb_contact{raw = ?PHONE4, normalized = ?PHONE4, uid = undefined},
+        #pb_contact{raw = ?PHONE5, normalized = undefined, uid = undefined}
     ],
     ?assertEqual(lists:sort(ExpectedContacts), lists:sort(ActualContacts)),
 
@@ -228,8 +228,8 @@ normalize_and_insert_contacts_with_blocklist_test() ->
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, undefined),
     ExpectedContacts = [
-        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, uid = ?UID2, role = undefined},
-        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3, role = undefined}
+        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, uid = ?UID2},
+        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3}
     ],
     ?assertEqual(lists:sort(ExpectedContacts), lists:sort(ActualContacts)),
 
@@ -260,8 +260,8 @@ normalize_and_insert_contacts_with_blocklist2_test() ->
     %% Test output contact records.
     ActualContacts = mod_contacts:normalize_and_insert_contacts(?UID1, ?SERVER, InputContacts, undefined),
     ExpectedContacts = [
-        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, uid = ?UID2, role = undefined},
-        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3, role = undefined}
+        #pb_contact{raw = ?PHONE2, normalized = ?PHONE2, name = ?NAME2, uid = ?UID2},
+        #pb_contact{raw = ?PHONE3, normalized = ?PHONE3, name = ?NAME3, uid = ?UID3}
     ],
     ?assertEqual(lists:sort(ExpectedContacts), lists:sort(ActualContacts)),
 

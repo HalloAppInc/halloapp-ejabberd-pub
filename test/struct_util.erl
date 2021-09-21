@@ -677,26 +677,24 @@ create_pb_chat_stanza(Timestamp, SenderName, Payload, EncPayload, PublicKey, One
     }.
 
 
-create_contact(Type, Raw, Normalized, UserId, AvatarId, Name, Role) ->
+create_contact(Type, Raw, Normalized, UserId, AvatarId, Name) ->
     #contact{
         type = Type, 
         raw = Raw, 
         normalized = Normalized,
         userid = UserId, 
         avatarid = AvatarId,
-        name = Name,
-        role = Role
+        name = Name
     }.
 
-create_pb_contact(Action, Raw, Normalized, UserId, AvatarId, Name, Role) ->
+create_pb_contact(Action, Raw, Normalized, UserId, AvatarId, Name) ->
     #pb_contact{
         action = Action, 
         raw = Raw, 
         normalized = Normalized,
         uid = UserId, 
         avatar_id = AvatarId,
-        name = Name,
-        role = Role
+        name = Name
     }.
 
 

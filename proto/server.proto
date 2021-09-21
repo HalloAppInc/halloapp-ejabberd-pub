@@ -94,13 +94,9 @@ message Contact {
     string normalized = 3;
     int64 uid = 4 [ebin = true];
     string avatar_id = 5;
-    enum Role {
-        FRIENDS = 0;
-        NONE = 1;
-    }
-    Role role = 6;
     string name = 7;
     int64 num_potential_friends = 8;
+    reserved 6; // can be used after Jan 31st.
 }
 
 message ContactList {
