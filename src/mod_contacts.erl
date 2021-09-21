@@ -230,12 +230,10 @@ send_new_user_notifications(UserId, Phone) ->
                 case sets:is_element(ContactId, InviterUidSet) of
                     true ->
                         ?INFO("Notify Inviter: ~p about user: ~p joining", [ContactId, UserId]),
-                        notifications_util:send_contact_notification(UserId, Phone,
-                                ContactId, none, normal, inviter_notice);
+                        notify_contact_about_user(UserId, Phone, ContactId, none, normal, inviter_notice);
                     false ->
                         ?INFO("Notify Contact: ~p about user: ~p joining", [ContactId, UserId]),
-                        notifications_util:send_contact_notification(UserId, Phone,
-                                ContactId, none, normal, contact_notice)
+                        notify_contact_about_user(UserId, Phone, ContactId, none, normal, contact_notice)
                 end
             end, ContactUids),
     ok.
@@ -246,12 +244,7 @@ block_uids(Uid, Server, Ouids) ->
     %% TODO(murali@): Add batched api for friends.
     lists:foreach(
         fun(Ouid) ->
-            case model_accounts:get_phone(Ouid) of
-                {ok, OPhone} ->
-                    remove_friend(Uid, Server, Ouid),
-                    notify_contact_about_user(Ouid, OPhone, Uid, none);
-                {error, missing} -> ok
-            end
+            remove_friend(Uid, Server, Ouid)
         end, Ouids),
     ok.
 
@@ -277,7 +270,7 @@ unblock_uids(Uid, Server, Ouids) ->
                             add_friend(Uid, Server, Ouid, WasBlocked),
                             notify_contact_about_user(Ouid, OPhone, Uid, friends);
                         false ->
-                            notify_contact_about_user(Ouid, OPhone, Uid, none)
+                            ok
                     end;
                 {error, missing} -> ok
             end
@@ -306,11 +299,6 @@ count_full_sync(0) ->
 count_full_sync(_Index) ->
     stat:count("HA/contacts", "sync_full_part"),
     ok.
-
-
--spec get_role_value(atom()) -> atom().
-get_role_value(true) -> friends;
-get_role_value(false) -> none.
 
 
 -spec get_phone(UserId :: binary()) -> binary() | undefined.
@@ -385,10 +373,10 @@ finish_sync(UserId, _Server, SyncId) ->
 
     %% Obtain UserIds for all the normalized phone numbers.
     {_UnRegisteredContacts, RegisteredContacts} = obtain_user_ids(AddContacts),
-    %% Set friend relationships for registered contacts and notify.
-    {_NonFriendContacts, FriendContacts} = obtain_roles(RegisteredContacts,
+    %% Split contacts based on friend relationships for registered contacts.
+    {_NonFriendContacts, FriendContacts} = partition_friends(RegisteredContacts,
             OldReverseContactSet, BlockedUidSet),
-    add_and_notify_friends(UserId, UserPhone, FriendContacts, OldFriendUidSet),
+    add_friends_and_notify(UserId, UserPhone, FriendContacts, OldFriendUidSet),
 
     %% finish_sync will add various contacts and their reverse mapping in the db.
     case model_contacts:finish_sync(UserId, SyncId) of
@@ -480,11 +468,11 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     Time5 = os:system_time(microsecond),
     ?INFO("Timetaken:obtain_names: ~w us", [Time5 - Time4]),
 
-    %% Set friend relationships for registered contacts and notify.
-    {NonFriendContacts1, FriendContacts1} = obtain_roles(RegisteredContacts2,
+    %% Split contacts based on friend relationships for registered contacts.
+    {NonFriendContacts1, FriendContacts1} = partition_friends(RegisteredContacts2,
             OldReverseContactSet, BlockedUidSet),
     Time6 = os:system_time(microsecond),
-    ?INFO("Timetaken:obtain_roles_and_notify: ~w us", [Time6 - Time5]),
+    ?INFO("Timetaken:partition_friends_and_notify: ~w us", [Time6 - Time5]),
 
     %% Obtain avatar_id for all friend contacts.
     FriendContacts2 = obtain_avatar_ids(FriendContacts1),
@@ -507,7 +495,7 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
             model_contacts:add_contacts(UserId, NormalizedPhoneNumbers),
             stat:count("HA/contacts", "add_contact", length(NormalizedPhoneNumbers)),
             stat:count("HA/contacts", "add_uid_contact", length(RegisteredContacts1)),
-            add_and_notify_friends(UserId, UserPhone, FriendContacts2, OldFriendUidSet);
+            add_friends_and_notify(UserId, UserPhone, FriendContacts2, OldFriendUidSet);
         _ ->
             model_contacts:sync_contacts(UserId, SyncId, NormalizedPhoneNumbers)
     end,
@@ -523,28 +511,7 @@ normalize_and_insert_contacts(UserId, _Server, Contacts, SyncId) ->
     %% - registered but non-friend contacts
     %% - registered and friend contacts.
     Result = UnNormalizedContacts1 ++ UnRegisteredContacts2 ++ NonFriendContacts1 ++ FriendContacts2,
-
-    %% TODO(murali@): temporarily log some users raw phones.
-    log_raw_phones(UserId, UserPhone, Contacts),
     Result.
-
-
--spec log_raw_phones(UserId :: binary(), UserPhone :: binary(), Contacts :: [pb_contact()]) -> ok.
-log_raw_phones(UserId, UserPhone, Contacts) ->
-    case UserPhone of
-        <<"54", _Rest/binary>> ->
-            %% Log phone numbers from users in argentina.
-            RawPhones = extract_raw(Contacts),
-            ?INFO("Uid: ~p, UserPhone: ~p, Contacts: ~p", [UserId, UserPhone, RawPhones]),
-            ok;
-        <<"52", _Rest/binary>> ->
-            %% Log phone numbers from users in mexico.
-            RawPhones = extract_raw(Contacts),
-            ?INFO("Uid: ~p, UserPhone: ~p, Contacts: ~p", [UserId, UserPhone, RawPhones]),
-            ok;
-        _ -> ok
-    end,
-    ok.
 
 
 %% Splits contact records to unnormalized and normalized contacts.
@@ -572,7 +539,7 @@ obtain_user_ids(NormContacts) ->
             ContactId = maps:get(ContactPhone, PhoneUidsMap, undefined),
             case ContactId of
                 undefined ->
-                    {[Contact#pb_contact{uid = undefined, role = none} | UnRegAcc], RegAcc};
+                    {[Contact#pb_contact{uid = undefined, role = undefined} | UnRegAcc], RegAcc};
                 _ ->
                     {UnRegAcc, [Contact#pb_contact{uid = ContactId} | RegAcc]}
             end
@@ -611,18 +578,16 @@ obtain_names(RegContacts) ->
 
 
 %% Splits registered contact records to non-friend and friend contacts.
-%% Sets role for all contacts.
--spec obtain_roles(RegContacts :: [pb_contact()], OldReverseContactSet :: sets:set(binary()),
+-spec partition_friends(RegContacts :: [pb_contact()], OldReverseContactSet :: sets:set(binary()),
         BlockedUidSet :: sets:set(binary())) -> {[pb_contact()], [pb_contact()]}.
-obtain_roles(RegContacts, OldReverseContactSet, BlockedUidSet) ->
+partition_friends(RegContacts, OldReverseContactSet, BlockedUidSet) ->
     {NonFriendContacts, FriendContacts} = lists:foldl(
         fun(#pb_contact{normalized = _ContactPhone, uid = ContactId} = Contact,
                 {NonFriendAcc, FriendAcc}) ->
             IsFriends = sets:is_element(ContactId, OldReverseContactSet) andalso
                     not sets:is_element(ContactId, BlockedUidSet),
-            Role = get_role_value(IsFriends),
-            %% Update Acc
-            NewContact = Contact#pb_contact{role = Role},
+            %% dont need to notify clients about changes in role-relationship.
+            NewContact = Contact#pb_contact{role = undefined},
             case IsFriends of
                 true ->
                     {NonFriendAcc, [NewContact | FriendAcc]};
@@ -633,9 +598,9 @@ obtain_roles(RegContacts, OldReverseContactSet, BlockedUidSet) ->
     {NonFriendContacts, FriendContacts}.
 
 
--spec add_and_notify_friends(Uid :: binary(), UserPhone :: binary(), FriendContacts :: [pb_contact()],
+-spec add_friends_and_notify(Uid :: binary(), UserPhone :: binary(), FriendContacts :: [pb_contact()],
         OldFriendUidSet :: sets:set(binary())) -> ok.
-add_and_notify_friends(Uid, UserPhone, FriendContacts, OldFriendUidSet) ->
+add_friends_and_notify(Uid, UserPhone, FriendContacts, OldFriendUidSet) ->
     %% Extract current friends and add only new friends to the database.
     CurrentFriendUids = extract_uid(FriendContacts),
     %% These are the new friends we need to add to the database and let other modules know about it.
@@ -754,7 +719,7 @@ remove_contacts_and_notify(UserId, UserPhone, ContactPhones, ReverseContactSet, 
 -spec remove_contact_and_notify(UserId :: binary(), UserPhone :: binary(),
         ContactPhone :: binary(), ReverseContactSet :: sets:set(binary()),
         IsAccountDeleted :: boolean()) -> {ok, any()} | {error, any()}.
-remove_contact_and_notify(UserId, UserPhone, ContactPhone, ReverseContactSet, IsAccountDeleted) ->
+remove_contact_and_notify(UserId, _UserPhone, ContactPhone, ReverseContactSet, IsAccountDeleted) ->
     Server = util:get_host(),
     {ok, ContactId} = model_phone:get_uid(ContactPhone),
     stat:count("HA/contacts", "remove_contact"),
@@ -770,7 +735,8 @@ remove_contact_and_notify(UserId, UserPhone, ContactPhone, ReverseContactSet, Is
                             %% dont notify the contact here. we will send a separate notification.
                             ok;
                         false ->
-                            notify_contact_about_user(UserId, UserPhone, ContactId, none)
+                            %% dont need to notify clients about changes in role-relationship.
+                            ok
                     end;
                 false -> ok
             end,
@@ -783,8 +749,7 @@ remove_contact_and_notify(UserId, UserPhone, ContactPhone, ReverseContactSet, Is
 %%====================================================================
 
 
-%% Notifies contact about the user using the UserId and the role element to indicate
-%% if they are now friends or not on halloapp.
+%% Notifies contact about the user using the UserId on halloapp.
 -spec notify_contact_about_user(UserId :: binary(), UserPhone :: binary(),
         ContactId :: binary(), Role :: atom()) -> ok.
 notify_contact_about_user(UserId, _UserPhone, UserId, _Role) ->
@@ -794,10 +759,9 @@ notify_contact_about_user(UserId, UserPhone, ContactId, Role) ->
 
 
 -spec notify_contact_about_user(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
-        Role :: atom(), MessageType :: atom(), ContactListType :: atom()) -> ok.
+    Role :: atom(), MessageType :: atom(), ContactListType :: atom()) -> ok.
 notify_contact_about_user(UserId, UserPhone, ContactId, Role, MessageType, ContactListType) ->
-    notifications_util:send_contact_notification(UserId, UserPhone, ContactId,
-            Role, MessageType, ContactListType).
+    notifications_util:send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, ContactListType).
 
 %% Keep for now.
 %%-spec probe_contact_about_user(UserId :: binary(), UserPhone :: binary(),

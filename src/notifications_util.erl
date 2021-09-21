@@ -17,6 +17,8 @@
 ]).
 
 
+%% We dont include the role in the message anymore.
+%% We only use it to send avatarId information to the clients.
 -spec send_contact_notification(UserId :: binary(), UserPhone :: binary(), ContactId :: binary(),
         Role :: atom(), MessageType :: atom(), ContactListType :: atom()) -> ok.
 send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, ContactListType) ->
@@ -31,7 +33,7 @@ send_contact_notification(UserId, UserPhone, ContactId, Role, MessageType, Conta
         name = Name,
         avatar_id = AvatarId,
         normalized = UserPhone,
-        role = Role
+        role = undefined
     },
 
     Payload = #pb_contact_list{type = ContactListType, contacts = [Contact]},
