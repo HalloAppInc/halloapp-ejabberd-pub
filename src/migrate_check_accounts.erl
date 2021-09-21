@@ -93,12 +93,16 @@ check_phone_numbers_run(Key, State) ->
                 undefined ->
                     ?ERROR("Phone: ~p, Uid is undefined!", [Uid]);
                 _ ->
-                    {ok, UidPhone} = model_accounts:get_phone(Uid),
-                    case UidPhone =/= undefined andalso UidPhone =:= Phone of
-                        true -> ok;
-                        false ->
-                            ?ERROR("phone: ~p, uid: ~p, uidphone: ~p", [Uid, Phone, UidPhone]),
-                            ok
+                    case model_accounts:get_phone(Uid) of
+                        {ok, UidPhone} ->
+                            case UidPhone =/= undefined andalso UidPhone =:= Phone of
+                                true -> ok;
+                                false ->
+                                    ?ERROR("phone: ~p, uid: ~p, uidphone: ~p", [Phone, Uid, UidPhone]),
+                                    ok
+                            end;
+                        {error, missing} ->
+                            ?ERROR("phone: ~p, Invalid uid: ~p", [Phone, Uid])
                     end
             end;
         _ -> ok
