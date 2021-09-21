@@ -107,17 +107,6 @@ mod_receipts_load_test() ->
     ok.
 
 
-encode_decode_test() ->
-    setup(),
-    Msg = <<"<message to='1@s.halloapp.net' from='2@s.halloapp.net' id='msgid1' xmlns='jabber:client'><chat timestamp='15000000000' xmlns='halloapp:chat:messages'/></message>">>,
-    El = fxml_stream:parse_element(Msg),
-    Packet = xmpp:decode(El),
-    El2 = xmpp:encode(Packet),
-    Msg2 = fxml:element_to_binary(El2),
-    ?assertEqual(Msg, Msg2),
-    ok.
-
-
 send_1on1_delivery_receipt_test() ->
     setup(),
     % msg from UID2 to UID1

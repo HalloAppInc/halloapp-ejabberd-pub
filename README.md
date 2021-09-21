@@ -65,6 +65,7 @@ Configure ejabberd to use custom OpenSSL, Yaml, iconv. [Resource](https://docs.e
     brew install git elixir openssl expat libyaml libiconv libgd sqlite rebar rebar3 automake autoconf libsodium
     export CFLAGS="-I/usr/local/opt/openssl/include -I/usr/local/include -I/usr/local/opt/expat/include"
     export CPPFLAGS="-I/usr/local/opt/openssl/include/ -I/usr/local/include -I/usr/local/opt/expat/include"
+    export LDFLAGS="-L/usr/local/opt/openssl/lib"
 
 
 ##### On Linux
@@ -82,26 +83,20 @@ Run following commands to compile ejabberd
     # optionally install to get ejabberdctl to work
     sudo make install
 
-__Note (Mac)__:
-The above will likely not work right off the bat. A bandaid solution until the `configure.ac` file is modified is the following:
-1. Set `export LDFLAGS="-L/usr/local/opt/openssl/lib"` along with setting the other flags as above.
-2. Immediately after running `./configure` and before running `make`, `unset LDFLAGS`
-
-
 ### 3. Ejabberd Tests
 Run the eunit tests:
 
-    HALLO_ENV=test ./rebar eunit
+    make eunit
 
 Run the Common Tests:
 
-    HALLO_ENV=test ./rebar ct suites=ha
+    make ct
 
 ### 4. Running
 
 Start Ejabberd on localhost, you don't need the `make install` to run ejabberd
 
-    HALLO_ENV=localhost EJABBERD_CONFIG_PATH=ejabberd.yml erl -kernel shell_history enabled -pa ebin -pa deps/*/ebin -s ejabberd
+    make run
 
 ### 5. AWS 
 Make sure to install AWS CLI https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-mac.html#cliv2-mac-install-cmd:

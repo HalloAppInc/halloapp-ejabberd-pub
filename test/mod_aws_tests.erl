@@ -97,25 +97,37 @@ mock_get_ec2_instances(_, _, _) ->
     {ok, Res}.
 
 
+-spec meck_init(Module :: module(), MockedAndReplacementFuns :: [{atom(), function()}]) -> ok.
+meck_init(Module, MockedAndReplacementFuns) ->
+    meck:new(Module),
+    lists:foreach(
+        fun({MockedFun, ReplacementFun}) ->
+            meck:expect(Module, MockedFun, ReplacementFun)
+        end,
+        MockedAndReplacementFuns),
+    ok.
+
+
+meck_finish(Module) ->
+    ?assert(meck:validate(Module)),
+    meck:unload(Module),
+    ok.
+
+
 setup() ->
-    meck:new(ejabberd_hooks),
-    meck:expect(ejabberd_hooks, add, fun(_,_,_,_) -> ok end),
-    meck:expect(ejabberd_hooks, delete, fun(_,_,_,_) -> ok end),
+    meck_init(ejabberd_hooks, [{add, fun(_, _, _, _) -> ok end},
+        {delete, fun(_, _, _, _) -> ok end}]),
     ok = mod_aws:start(util:get_host(), []),
     application:ensure_all_started(erlcloud),
-    meck:new(erlcloud_sm),
-    meck:expect(erlcloud_sm, get_secret_value, fun mock_get_secret_value/2),
-    meck:new(erlcloud_ec2),
-    meck:expect(erlcloud_ec2, describe_instances, fun mock_get_ec2_instances/3),
+    meck_init(erlcloud_sm, [{get_secret_value, fun mock_get_secret_value/2}]),
+    meck_init(erlcloud_ec2, [{describe_instances, fun mock_get_ec2_instances/3}]),
     ok.
 
 
 finish() ->
     ok = mod_aws:stop(util:get_host()),
-    ?assert(meck:validate(erlcloud_sm)),
-    meck:unload(erlcloud_sm),
-    ?assert(meck:validate(erlcloud_ec2)),
-    meck:unload(erlcloud_ec2),
-    meck:unload(ejabberd_hooks),
+    meck_finish(ejabberd_hooks),
+    meck_finish(erlcloud_sm),
+    meck_finish(erlcloud_ec2),
     ok.
 

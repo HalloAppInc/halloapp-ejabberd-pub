@@ -22,7 +22,7 @@
 init_config(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
-    [_, _|Tail] = lists:reverse(filename:split(DataDir)),
+    [_, _, _, _, _, _|Tail] = lists:reverse(filename:split(DataDir)),
     BaseDir = filename:join(lists:reverse(Tail)),
     ConfigPath = setup_test_config(BaseDir, DataDir),
     LogPath = filename:join([PrivDir, "ejabberd.log"]),
