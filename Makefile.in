@@ -342,6 +342,7 @@ clean:
 	rm -rf $(DEPSDIR)/.got
 	rm -rf $(DEPSDIR)/.built
 	rm -rf test/*.beam
+	rm -rf _build/test/
 	rm -rf src/proto/*.erl
 	rm -rf include/proto/*.hrl
 	$(REBAR) clean
