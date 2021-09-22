@@ -40,30 +40,6 @@ generate_code_test() ->
     ok.
 
 
-is_too_soon_test() ->
-    Now = util:now(),
-    
-    false = mod_sms:is_too_soon(sms, []),
-    OldResponses = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 10), status = sent}],
-    %% Need 30 seconds gap.
-    {true, _} = mod_sms:is_too_soon(sms, OldResponses),
-    OldResponses1 = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 30 * ?SECONDS)}],
-    false = mod_sms:is_too_soon(sms, OldResponses1),
-    
-    OldResponses2 = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 50 * ?SECONDS), status = sent},
-                    #gateway_response{method = sms, attempt_ts = util:to_binary(Now - 21 * ?SECONDS), status = sent}],
-    %% Need 60 seconds gap.
-    {true, _} = mod_sms:is_too_soon(sms, OldResponses2),
-    OldResponses3 = [#gateway_response{method = sms, attempt_ts = util:to_binary(Now - 120 * ?SECONDS)},
-                    #gateway_response{method = sms, attempt_ts = util:to_binary(Now - 60 * ?SECONDS)}],
-    false = mod_sms:is_too_soon(sms, OldResponses3),
-
-    {true, _} = mod_sms:is_too_soon(voice_call, []),
-    OldResponses4 = [#gateway_response{method = voice_call, attempt_ts = util:to_binary(Now - 10), status = sent}],
-    %% Need 30 seconds gap.
-    {true, _} = mod_sms:is_too_soon(voice_call, OldResponses4).
-
-
     % twilio_test() ->
 %     State = mod_sms:make_state(),
 %     Body = mod_sms:compose_twilio_body(<<"123">>, "test"),

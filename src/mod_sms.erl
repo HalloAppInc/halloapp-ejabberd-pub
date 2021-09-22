@@ -42,10 +42,11 @@
 -export([
     request_sms/2,
     request_otp/4,
-    check_otp_request_too_soon/2,
+%%    check_otp_request_too_soon/2,
     verify_sms/2,
+    find_next_ts/1,
     % TODO: move all the testing ones to the -ifdef(TEST)
-    is_too_soon/2,  %% for testing
+%%    is_too_soon/2,  %% for testing
     send_otp/5, %% for testing
     send_otp_internal/6,
     pick_gw/3,  %% for testing,
@@ -94,27 +95,13 @@ request_otp(Phone, LangId, UserAgent, Method) ->
         {_,_} -> just_enroll(Phone)
     end.
 
+
 % Just generate and store code for this user. Mostly called for test phones or in localhost/test
 -spec just_enroll(Phone :: binary()) -> {ok, integer()}.
 just_enroll(Phone) ->
     {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, generate_code(Phone)),
     {ok, 30}.
 
-
--spec check_otp_request_too_soon(Phone :: binary(), Method :: atom()) -> false | {true, integer()}.
-check_otp_request_too_soon(Phone, Method) ->
-    Check = case {config:get_hallo_env(), util:is_test_number(Phone)} of
-        {prod, true} -> check;
-        {prod, _} -> check;
-        {stress, _} -> check;
-        {_, _} -> ok
-    end,
-    case Check of
-        ok -> false;
-        check ->
-            {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
-            is_too_soon(Method, OldResponses)
-    end.
 
 -spec verify_sms(Phone :: phone(), Code :: binary()) -> match | nomatch.
 verify_sms(Phone, Code) ->
@@ -202,30 +189,7 @@ send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
             {error, Reason}
     end.
 
-
 %%====================================================================
-
--spec is_too_soon(Method :: method(), OldResponses :: [gateway_response()]) -> {boolean(), integer()}.
-is_too_soon(Method, OldResponses) ->
-    ReverseOldResponses = lists:reverse(OldResponses),
-    SmsResponses = lists:filter(
-        fun(#gateway_response{method = Method2}) ->
-            Method2 =/= voice_call
-        end, ReverseOldResponses),
-    ?DEBUG("Sms: ~p", [SmsResponses]),
-    Len = length(SmsResponses),
-    case {Method, Len} of
-        {voice_call, 0} ->
-            ?INFO("Rejecting: ~p, Prev non voice len: ~p, OldResponses: ~p", [Method, Len, OldResponses]),
-            % TODO(nikola): Ideally in this case will not tell the spammers anything.
-            {true, 30};
-        {_, _} ->
-            NextTs = find_next_ts(OldResponses),
-            case NextTs > util:now() of
-                true -> {true, NextTs - util:now()};
-                false -> false
-            end
-    end.
 
 -spec init_gateway(Gateway :: atom()) -> ok.
 init_gateway(Gateway) ->

@@ -32,10 +32,7 @@
 -include("invites.hrl").
 
 -define(MSG_TO_SIGN, <<"HALLO">>).
--define(IP_BACKOFF_THRESHOLD, 5).
--define(BLOCK_IP_BACKOFF_TIME, 12 * ?HOURS).
 
--define(PHONE_PATTERN_BACKOFF_THRESHOLD, 15).
 
 %% API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -44,10 +41,7 @@
     process_otp_request/1,
     process_register_request/1,
     insert_blocklist/0,
-    insert_blocklist/2,
-    check_blocked/4,  %% for testing
-    delete_client_ip/1,  %% for testing
-    delete_phone_pattern/2  %% for testing
+    insert_blocklist/2
 ]).
 
 %%%----------------------------------------------------------------------
@@ -219,7 +213,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         check_ua(UserAgent, Phone),
         Method = get_otp_method(MethodBin),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
-        case check_otp_allowed(Phone, ClientIP, UserAgent, Method, Protocol =:= https) of
+        case otp_checker:check(Phone, ClientIP, UserAgent, Method, Protocol) of
             ok ->
                 case request_otp(Phone, LangId, UserAgent, Method) of
                     {ok, RetryAfterSecs} ->
@@ -228,12 +222,12 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
                         log_request_otp_error(retried_too_soon, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
                         {error, retried_too_soon, Phone, RetryAfterSecs}
                 end;
-            {error, {retried_too_soon, RetryAfterSecs}} ->
+            {error, retried_too_soon, RetryAfterSecs} ->
                 log_request_otp_error(retried_too_soon, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
                 {error, retried_too_soon, Phone, RetryAfterSecs};
-            {error, {Reason2, RetryAfterSecs}} ->
-                log_request_otp_error(Reason2, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
-                {error, dropped, Phone, RetryAfterSecs}
+            {blocked, BlockedReason, _ExtraInfo} ->
+                log_request_otp_error(BlockedReason, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
+                {error, dropped, Phone, 30} % 30 is the default success
         end
     catch
         error : invalid_phone_number ->
@@ -299,8 +293,7 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         Phone = normalize(RawPhone),
         check_ua(UserAgent, Phone),
         check_sms_code(Phone, Code),
-        ok = delete_client_ip(ClientIP),
-        ok = delete_phone_pattern(Phone, Protocol =:= https),
+        ok = otp_checker:otp_delivered(Phone, ClientIP, Protocol),
         LName = check_name(Name),
         SEdPubBin = base64:decode(SEdPubB64),
         check_s_ed_pub_size(SEdPubBin),
@@ -507,151 +500,6 @@ check_name(Name) ->
     end.
 
 
--spec check_otp_allowed(Phone :: binary(), IP :: binary(), UserAgent :: binary(), Method :: atom(),
-        IsHttps :: boolean())
-        -> ok | {error, {Reason :: atom(), integer()}}.
-check_otp_allowed(Phone, IP, UserAgent, Method, IsHttps) ->
-    case mod_sms:check_otp_request_too_soon(Phone, Method) of
-        false -> check_blocked(IP, Phone, UserAgent, IsHttps);
-        {true, X} -> {error, {retried_too_soon, X}}
-    end.
-
-
--spec check_blocked(IP :: string(), Phone :: binary(), UserAgent :: binary(), IsHttps :: boolean())
-            -> ok | {error, {Reason :: atom(), RetryAfter :: integer()}}.
-check_blocked(IP, Phone, UserAgent, IsHttps) ->
-    IsInvited = model_invites:is_invited(Phone),
-    case util:is_test_number(Phone) orelse IsInvited of
-        false ->
-            CC = mod_libphonenumber:get_cc(Phone),
-            ?DEBUG("CC: ~p", [CC]),
-            Result0 = case is_ip_in_blocklist(IP) of
-                false -> false;
-                {true, RetrySecs0} -> {true, {blocklist, RetrySecs0}}
-            end,
-            Result1 = case Result0 of
-                {true, _} -> Result0;
-                false ->
-                    case is_ip_blocked(IP) of
-                        false -> false;
-                        {true, RetrySecs1} -> {true, {ip_block, RetrySecs1}}
-                    end
-            end,
-            PhonePattern = extract_phone_pattern(Phone, CC, IsHttps),
-            ?DEBUG("Phone Pattern: ~p", [PhonePattern]),
-            Result2 = case Result1 of
-                {true, _} -> Result1;
-                false ->
-                    case PhonePattern =:= Phone of
-                        true -> false;
-                        false ->
-                            case is_phone_pattern_blocked(PhonePattern, CC, IsHttps) of
-                                false -> false;
-                                {true, RetrySecs2} -> {true, {phone_block, RetrySecs2}}
-                            end
-                    end
-            end,
-            ?INFO("IP: ~s Phone: ~p, CC: ~p pattern: ~p UA: ~p, blocked result: ~p, is_noise: ~p",
-                [IP, Phone, CC, PhonePattern, UserAgent, Result2, not IsHttps]),
-            case Result2 of
-                false -> ok;
-                {true, {Reason, RetrySecs3}} -> {error, {Reason, RetrySecs3}}
-            end;
-        true ->
-            ?INFO("IP: ~s blocked result: ~p, Phone: ~p, is_invited: ~p, is_noise: ~p",
-                [IP, false, Phone, IsInvited, not IsHttps]),
-            ok
-    end.
-
-extract_phone_pattern(Phone, CC, IsHttps) ->
-    TruncateLen = case {CC, IsHttps} of
-        {<<"AD">>, true} -> 7;
-        {<<"AD">>, false} -> 3;
-        {<<"AF">>, true} -> 7;
-        {<<"AF">>, false} -> 3;
-        {<<"AZ">>, true} -> 7;
-        {<<"AZ">>, false} -> 3;
-        {<<"BE">>, true} -> 7;
-        {<<"BE">>, false} -> 3;
-        {<<"BF">>, true} -> 7;
-        {<<"BF">>, false} -> 3;
-        {<<"BS">>, true} -> 7;
-        {<<"BS">>, false} -> 3;
-        {<<"BY">>, true} -> 7;
-        {<<"BY">>, false} -> 3;
-        {<<"CH">>, true} -> 7;
-        {<<"CH">>, false} -> 3;
-        {<<"CW">>, true} -> 7;
-        {<<"CW">>, false} -> 3;
-        {<<"EE">>, true} -> 7;
-        {<<"EE">>, false} -> 3;
-        {<<"ES">>, true} -> 7;
-        {<<"ES">>, false} -> 3;
-        {<<"GB">>, true} -> 7;
-        {<<"GB">>, false} -> 3;
-        {<<"GW">>, true} -> 7;
-        {<<"GW">>, false} -> 3;
-        {<<"GN">>, true} -> 7;
-        {<<"GN">>, false} -> 3;
-        {<<"GG">>, true} -> 7;
-        {<<"GG">>, false} -> 3;
-        {<<"DZ">>, true} -> 7;
-        {<<"DZ">>, false} -> 3;
-        {<<"IQ">>, true} -> 7;
-        {<<"IQ">>, false} -> 3;
-        {<<"IR">>, true} -> 7;
-        {<<"IR">>, false} -> 3;
-        {<<"KG">>, true} -> 7;
-        {<<"KG">>, false} -> 3;
-        {<<"KZ">>, true} -> 7;
-        {<<"KZ">>, false} -> 3;
-        {<<"KW">>, true} -> 7;
-        {<<"KW">>, false} -> 3;
-        {<<"KE">>, true} -> 7;
-        {<<"KE">>, false} -> 3;
-        {<<"LT">>, true} -> 7;
-        {<<"LT">>, false} -> 3;
-        {<<"LV">>, true} -> 7;
-        {<<"LV">>, false} -> 3;
-        {<<"LS">>, true} -> 7;
-        {<<"LS">>, false} -> 3;
-        {<<"LK">>, true} -> 7;
-        {<<"LK">>, false} -> 3;
-        {<<"MD">>, true} -> 7;
-        {<<"MD">>, false} -> 3;
-        {<<"ML">>, true} -> 7;
-        {<<"ML">>, false} -> 3;
-        {<<"MR">>, true} -> 7;
-        {<<"MR">>, false} -> 3;
-        {<<"MK">>, true} -> 7;
-        {<<"MK">>, false} -> 3;
-        {<<"PK">>, true} -> 7;
-        {<<"PK">>, false} -> 3;
-        {<<"RU">>, true} -> 7;
-        {<<"RU">>, false} -> 3;
-        {<<"SD">>, true} -> 7;
-        {<<"SD">>, false} -> 3;
-        {<<"SN">>, true} -> 7;
-        {<<"SN">>, false} -> 3;
-        {<<"TN">>, true} -> 7;
-        {<<"TN">>, false} -> 3;
-        {<<"TR">>, true} -> 7;
-        {<<"TR">>, false} -> 3;
-        {<<"TZ">>, true} -> 7;
-        {<<"TZ">>, false} -> 3;
-        {<<"TW">>, true} -> 7;
-        {<<"TW">>, false} -> 3;
-        {<<"UZ">>, true} -> 7;
-        {<<"UZ">>, false} -> 3;
-        {<<"UA">>, true} -> 7;
-        {<<"UA">>, false} -> 3;
-        {_, true} -> 5;
-        {_, false} -> 3
-    end,
-    PhonePatternLength = byte_size(Phone) - TruncateLen,
-    <<PhonePattern:PhonePatternLength/binary, _Last/binary>> = Phone,
-    PhonePattern.
-
 -spec normalize(RawPhone :: binary()) -> binary() | no_return(). %throws invalid_phone_number
 normalize(RawPhone) ->
     %% We explicitly ask the clients to remove the plus in this case.
@@ -736,101 +584,6 @@ is_group_invite_valid(GroupInviteToken) ->
     case model_groups:get_invite_link_gid(GroupInviteToken) of
         undefined -> false;
         _Gid -> true
-    end.
-
--spec delete_client_ip(IP :: list()) -> ok.
-delete_client_ip(IP) ->
-    model_ip_addresses:delete_ip_address(IP),
-    %% clear timestamp on blocked ip address as well.
-    model_ip_addresses:clear_blocked_ip_address(IP).
-
--spec delete_phone_pattern(Phone :: binary(), IsHttps :: boolean()) -> ok.
-delete_phone_pattern(Phone, IsHttps) ->
-    CC = mod_libphonenumber:get_region_id(Phone),
-    model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC, IsHttps)).
-
-
--spec is_ip_blocked(IP :: list()) -> false | {true, integer()}.
-is_ip_blocked(IP) ->
-    CurrentTs = util:now(),
-    {ok, {Count, LastTs}} = model_ip_addresses:get_ip_address_info(IP),
-    ?DEBUG("IP: ~s, Count: ~p, LastTs: ~p, CurrentTs: ~p", [IP, Count, LastTs, CurrentTs]),
-    IsIpBlocked = case {Count, LastTs} of
-        {undefined, _} ->
-            false;
-        {_, undefined} ->
-            false;
-        {_, _} when Count =< ?IP_BACKOFF_THRESHOLD ->
-            false;
-        {_, _} ->
-            NextTs = util_sms:good_next_ts_diff(Count - ?IP_BACKOFF_THRESHOLD) + LastTs,
-            ?DEBUG("NexTs: ~p", [NextTs]),
-            case NextTs > CurrentTs of
-                true -> {true, NextTs - CurrentTs};
-                false -> false
-            end
-    end,
-    case IsIpBlocked of
-        false ->
-            ok = model_ip_addresses:add_ip_address(IP, CurrentTs),
-            false;
-        {true, _} = Result ->
-            Result
-    end.
-
-
--spec is_ip_in_blocklist(IP :: list()) -> false | {true, integer()}.
-is_ip_in_blocklist(IP) ->
-    CurrentTs = util:now(),
-    case model_ip_addresses:is_ip_blocked(IP) of
-        false -> false;
-        {true, undefined} ->
-            model_ip_addresses:record_blocked_ip_address(IP, CurrentTs),
-            false;
-        {true, Timestamp} ->
-            %% IP is in our blocklist - so allow only 1 per block_ip_backoff_time.
-            TimeDiff = CurrentTs - Timestamp - ?BLOCK_IP_BACKOFF_TIME,
-            case TimeDiff >= 0 of
-                true ->
-                    model_ip_addresses:record_blocked_ip_address(IP, CurrentTs),
-                    false;
-                false ->
-                    {true, 0 - TimeDiff}
-            end
-    end.
-
-
--spec is_phone_pattern_blocked(PhonePattern :: binary(), CC :: binary(), IsHttps :: boolean()) -> false | {true, integer()}.
-is_phone_pattern_blocked(PhonePattern, CC, IsHttps) ->
-    BackoffThreshold = case IsHttps of
-        false -> ?PHONE_PATTERN_BACKOFF_THRESHOLD;
-        true -> 0
-    end,
-    CurrentTs = util:now(),
-    {ok, {Count, LastTs}} = model_phone:get_phone_pattern_info(PhonePattern),
-    ?DEBUG("PhonePattern: ~p, CC: ~p, Count: ~p, LastTs: ~p, CurrentTs: ~p, BackoffThreshold: ~p",
-        [PhonePattern, CC, Count, LastTs, CurrentTs, BackoffThreshold]),
-    IsBlocked = case {Count, LastTs} of
-        {undefined, _} ->
-            false;
-        {_, undefined} ->
-            false;
-        {_, _} when Count =< BackoffThreshold ->
-            false;
-        {_, _} ->
-            NextTs = util_sms:good_next_ts_diff(Count - BackoffThreshold) + LastTs,
-            ?DEBUG("NexTs: ~p", [NextTs]),
-            case NextTs > CurrentTs of
-                true -> {true, NextTs - CurrentTs};
-                false -> false
-            end
-    end,
-    case IsBlocked of
-        false ->
-              ok = model_phone:add_phone_pattern(PhonePattern, CurrentTs),
-              false;
-        {true, _} = Error ->
-              Error
     end.
 
 

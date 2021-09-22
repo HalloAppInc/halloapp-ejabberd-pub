@@ -59,6 +59,7 @@ add_ip_address(IPAddress, Timestamp) ->
 get_ip_address_info(IPAddress) ->
     IPBin = util:to_binary(IPAddress),
     {ok, [Count, Timestamp]} = q(["HMGET", ip_key(IPBin), ?FIELD_COUNT, ?FIELD_TIMESTAMP]),
+    % TODO: if we return {0, 0} instead of {undefined, undefined} the caller code will be better
     {ok, {util_redis:decode_int(Count), util_redis:decode_ts(Timestamp)}}.
 
 
