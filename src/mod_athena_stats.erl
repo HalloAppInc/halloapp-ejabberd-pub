@@ -274,6 +274,7 @@ get_athena_queries() ->
 get_athena_modules() ->
     [
         athena_encryption,
+        athena_group_encryption,
         athena_push,
         athena_media
     ].
