@@ -206,7 +206,7 @@ masters_have_slaves(Id, Nodes) ->
 
 %% check if can connect to master and if they have >= MIN_SLAVE_THRESHOLD slaves
 master_has_slaves(Id, Node) ->
-    case ecredis:qn(Id, Node, ["INFO", "replication"]) of
+    case catch ecredis:qn(Id, Node, ["INFO", "replication"]) of
         {ok, RawRes} ->
             record_state(Id, Node, ?CAN_CONNECT_KEY, ?ALIVE_STATE),
             ResMap = maps:from_list(util_redis:parse_info(RawRes)),
@@ -229,6 +229,10 @@ master_has_slaves(Id, Node) ->
             end;
         {error, Err} ->
             ?ERROR("Can't connect to ~p ~p: ~p", [Id, Node, Err]),
+            record_state(Id, Node, ?CAN_CONNECT_KEY, ?FAIL_STATE);
+        {'EXIT', {Reason, Stacktrace}} ->
+            ?ERROR("Redis query failed ~p:~p Reason ~p Stacktrace: ~p",
+                [Id, Node, Reason, lager:pr_stacktrace(Stacktrace)]),
             record_state(Id, Node, ?CAN_CONNECT_KEY, ?FAIL_STATE)
     end.
 
@@ -365,12 +369,17 @@ check_has_slaves(Id, Node) ->
 %% Internal functions
 %%====================================================================
 
+% TODO: we need to do something with the result of this function. If the delete failed,
+% this should be counted as some sort of failure
 delete_redis_key(Id, Node, Slot) ->
     SlotKey = ha_redis:get_slot_key(Slot),
-    case ecredis:qn(Id, Node, ["DEL", ?REDIS_KEY(SlotKey)]) of
+    case catch ecredis:qn(Id, Node, ["DEL", ?REDIS_KEY(SlotKey)]) of
         {ok, <<"1">>} -> ok;
         Resp -> ?WARNING("Issue deleting redis_checker key ~p, response: ~p",
-            [?REDIS_KEY(SlotKey), Resp])
+            [?REDIS_KEY(SlotKey), Resp]);
+        {'EXIT', {Reason, St}} ->
+            ?ERROR("Delete check failed ~p:~p Slot: ~p Reason: ~p Stacktrace: ~p",
+                [Id, Node, Slot, Reason, lager:pr_stacktrace(St)])
     end.
 
 
@@ -440,12 +449,17 @@ try_set(Id, Node, Slot) ->
     SlotKey = ha_redis:get_slot_key(Slot),
     Val = util:now_ms(),
     Cmd = ["SET", ?REDIS_KEY(SlotKey), Val],
-    case ecredis:qn(Id, Node, Cmd) of
+    case catch ecredis:qn(Id, Node, Cmd) of
         {ok, <<"OK">>} ->
             record_state(Id, Node, ?SET_KEY, ?ALIVE_STATE),
             {true, Val};
         {error, Err} ->
             ?ERROR("Failed to set at ~p for ~p ~p: ~p", [?REDIS_KEY(SlotKey), Id, Node, Err]),
+            record_state(Id, Node, ?SET_KEY, ?FAIL_STATE),
+            false;
+        {'EXIT', {Reason, St}} ->
+            ?ERROR("Failed to set at ~p for ~p ~p: ~p Stacktrace ~p",
+                [?REDIS_KEY(SlotKey), Id, Node, Reason, lager:pr_stacktrace(St)]),
             record_state(Id, Node, ?SET_KEY, ?FAIL_STATE),
             false
     end.
@@ -455,13 +469,17 @@ try_get(Id, Node, Slot, Val) ->
     SlotKey = ha_redis:get_slot_key(Slot),
     Cmd = ["GET", ?REDIS_KEY(SlotKey)],
     BinVal = util:to_binary(Val),
-    case ecredis:qn(Id, Node, Cmd) of
+    case catch ecredis:qn(Id, Node, Cmd) of
         {ok, BinVal} -> record_state(Id, Node, ?GET_KEY, ?ALIVE_STATE);
         {ok, OtherVal} ->
             ?ERROR("Got unexpected value ~p at ~p ~p, expected ~p", [OtherVal, Id, Node, BinVal]),
             record_state(Id, Node, ?GET_KEY, ?FAIL_STATE);
         {error, Err} ->
             ?ERROR("Failed to get at ~p for ~p ~p: ~p", [?REDIS_KEY(SlotKey), Id, Node, Err]),
+            record_state(Id, Node, ?GET_KEY, ?FAIL_STATE);
+        {'EXIT', {Reason, St}} ->
+            ?ERROR("Failed to get at ~p for ~p ~p: ~p Stacktrace ~p",
+                [?REDIS_KEY(SlotKey), Id, Node, Reason, lager:pr_stacktrace(St)]),
             record_state(Id, Node, ?GET_KEY, ?FAIL_STATE)
     end.
 
