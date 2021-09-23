@@ -60,6 +60,7 @@ sending_helper(Phone, LangId, Method) ->
     ?DEBUG("Body: ~p", [Body]),
     Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
     ?DEBUG("Response: ~p", [Response]),
+    MethodFailMsg = list_to_atom(re:replace(string:lowercase(Method), " ", "_", [{return, list}]) ++ "_fail"),
     case Response of
         {ok, {{_, 201, _}, _ResHeaders, ResBody}} ->
             Json = jiffy:decode(ResBody, [return_maps]),
@@ -67,10 +68,19 @@ sending_helper(Phone, LangId, Method) ->
             Status = normalized_status(maps:get(<<"status">>, Json)),
             ?INFO("Id: ~p Status: ~p Response ~p", [Id, Status, ResBody]),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
-        _ ->
-            %% TODO: observe error response codes and retry only in appropriate cases.
-            ?ERROR("Sending ~p to ~p failed: ~p", [Method, Phone, Response]),
-            {error, list_to_atom(re:replace(string:lowercase(Method), " ", "_", [{return, list}]) ++ "_fail"), retry}
+        {ok, {{_, ResponseCode, _}, _ResHeaders, ResBody}} when ResponseCode >= 400 ->
+            ErrCode = util_sms:get_mbird_response_code(ResBody),
+            case ErrCode of
+                ?INVALID_RECIPIENTS_CODE ->
+                    ?INFO("Sending ~p failed, Code ~p, response ~p (no_retry)", [Method, ErrCode, Response]),
+                    {error, MethodFailMsg, no_retry};
+                _ ->
+                    ?ERROR("Sending ~p failed, Code ~p, response ~p (retry)", [Method, ErrCode, Response]),
+                    {error, MethodFailMsg, retry}
+            end;
+         _ ->
+            ?ERROR("Sending ~p to ~p failed: ~p (retry)", [Method, Phone, Response]),
+            {error, MethodFailMsg, retry}
     end.
 
 
@@ -97,7 +107,7 @@ verify_code(Phone, Code, AllVerifyInfo) ->
 verify_code_internal(Phone, Code, Sid) ->
     [Headers, _Type, HTTPOptions, Options] = fetch_headers(Phone),
     URL = ?VERIFY_URL(Sid, Code),
-    ?INFO("Phone:~p URL: ~p Headers:~p", [URL, Headers]),
+    ?INFO("Phone:~p URL: ~p Headers:~p", [Phone, URL, Headers]),
     Response = httpc:request(get, {URL, Headers}, HTTPOptions, Options),
     ?INFO("Response: ~p", [Response]),
     case Response of        

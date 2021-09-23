@@ -17,6 +17,7 @@
     init_helper/2,
     lookup_from_phone/1,
     good_next_ts_diff/1,
+    get_mbird_response_code/1,
     get_response_code/1,
     get_sms_message/3
 ]).
@@ -50,6 +51,18 @@ good_next_ts_diff(NumFailedAttempts) ->
     CappedFailedAttempts = min(NumFailedAttempts - 1, 13),
     Diff = 30 * ?SECONDS * trunc(math:pow(2, CappedFailedAttempts)),
     min(Diff, 24 * ?HOURS).
+
+
+-spec get_mbird_response_code(ResBody :: iolist()) -> integer().
+get_mbird_response_code(ResBody) ->
+    Json = jiffy:decode(ResBody, [return_maps]),
+    Errors = maps:get(<<"errors">>, Json, undefined),
+    case Errors of
+        undefined -> undefined;
+        _ ->
+            [ErrMp] = Errors,
+            maps:get(<<"code">>, ErrMp, undefined)
+    end.
 
 
 -spec get_response_code(ResBody :: iolist()) -> integer().

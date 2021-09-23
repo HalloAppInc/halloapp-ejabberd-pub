@@ -85,9 +85,9 @@ sending_helper(Phone, Code, LangId, UserAgent, Method) ->
                     {error, ErrMsg, retry}
             end;
         _ ->
-            ?ERROR("Sending ~p to ~p failed (no_retry): ~p", [Method, Phone, Response]),
+            ?ERROR("Sending ~p to ~p failed (retry): ~p", [Method, Phone, Response]),
             ErrMsg = list_to_atom(re:replace(string:lowercase(Method), " ", "_", [{return, list}]) ++ "_fail"),
-            {error, ErrMsg, no_retry}
+            {error, ErrMsg, retry}
     end.
 
 

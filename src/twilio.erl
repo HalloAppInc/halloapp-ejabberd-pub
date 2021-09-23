@@ -138,8 +138,8 @@ sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
                     {error, ErrMsg, retry}
             end;
         _ ->
-            ?ERROR("Sending ~p failed (no_retry) ~p", [Response]),
-            {error, ErrMsg, no_retry}
+            ?ERROR("Sending ~p failed (retry) ~p", [Response]),
+            {error, ErrMsg, retry}
     end.
 
 -spec normalized_status(Status :: binary()) -> atom().

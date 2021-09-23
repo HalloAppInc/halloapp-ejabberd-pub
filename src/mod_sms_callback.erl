@@ -292,7 +292,7 @@ process([<<"clickatell">>],
         Currency = <<"TBD">>,
         Status = util:to_integer_maybe(maps:get(<<"messageStatus">>, Data2)),
         Status2 = clickatell:normalized_status(Status),
-        ?INFO("Delivery receipt Clickatell: Phone(to): ~s, Phone(from): ~s, Status: ~s, "
+        ?INFO("Delivery receipt Clickatell: Phone(to): ~p, Phone(from): ~p, Status: ~p, "
               "Status2: ~p, MessageId: ~p, ClientMessageId: ~p, "
               "Charge: ~p, ApiId: ~p, Timestamp: ~p",
             [To, From, Status, Status2, MessageId, ClientMessageId, Charge, ApiId, Timestamp]),

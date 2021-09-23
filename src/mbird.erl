@@ -92,7 +92,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             Status = normalized_status(maps:get(<<"status">>, Item)),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
         {ok, {{_, ResponseCode, _}, _ResHeaders, ResBody}} when ResponseCode >= 400 ->
-            ErrCode = util_sms:get_response_code(ResBody),
+            ErrCode = util_sms:get_mbird_response_code(ResBody),
             case ErrCode of
                 ?NO_RECIPIENTS_CODE ->
                     ?INFO("Sending SMS failed, Code ~p, response ~p (no_retry)", [ErrCode, Response]),
@@ -105,8 +105,8 @@ send_sms(Phone, Code, LangId, UserAgent) ->
                     {error, sms_fail, retry}
             end;
         _ ->
-            ?ERROR("Sending SMS failed (no_retry) ~p", [Response]),
-            {error, sms_fail, no_retry}
+            ?ERROR("Sending SMS failed (retry) ~p", [Response]),
+            {error, sms_fail, retry}
     end.
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent :: binary()) ->
@@ -141,7 +141,7 @@ send_voice_call(Phone, Code, LangId, _UserAgent) ->
             Status = normalized_status(maps:get(<<"status">>, Data)),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
         {ok, {{_, ResponseCode, _}, _ResHeaders, ResBody}} when ResponseCode >= 400 ->
-            ErrCode = util_sms:get_response_code(ResBody),
+            ErrCode = util_sms:get_mbird_response_code(ResBody),
             case ErrCode of
                 ?NO_RECIPIENTS_CODE ->
                     ?INFO("Sending Voice Call failed, Code ~p, response ~p (no_retry)", [ErrCode, Response]),
@@ -154,8 +154,8 @@ send_voice_call(Phone, Code, LangId, _UserAgent) ->
                     {error, voice_call_fail, retry}
             end;
         _ ->
-            ?ERROR("Sending Voice Call failed (no_retry) ~p", [Response]),
-            {error, voice_call_fail, no_retry}
+            ?ERROR("Sending Voice Call failed (retry) ~p", [Response]),
+            {error, voice_call_fail, retry}
     end.
 
 -spec normalized_status(Status :: binary()) -> atom().

@@ -80,14 +80,13 @@ send_sms(Phone, Code, LangId, UserAgent) ->
                 delivered -> OkResponse;
                 _ -> FailedResponse
             end;
-        {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}}->
-            ?ERROR("Sending SMS failed Phone:~p, HTTPCode: ~p, response ~p",
+        {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}} ->
+            ?ERROR("Sending SMS failed Phone:~p (retry), HTTPCode: ~p, response ~p",
                 [Phone, HttpStatus, Response]),
             {error, sms_fail, retry};
         _ ->
-            % TODO: In all the gateways we don't retry in this case. But I'm not sure why.
-            ?ERROR("Sending SMS failed Phone:~p (no_retry) ~p", [Phone, Response]),
-            {error, sms_fail, no_retry}
+            ?ERROR("Sending SMS failed Phone:~p (retry) ~p", [Phone, Response]),
+            {error, sms_fail, retry}
     end.
 
 % TODO: Does not support voice calls yet

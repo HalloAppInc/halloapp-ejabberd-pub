@@ -275,7 +275,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
             log_request_otp_error(voice_call_fail, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, otp_fail};
         Class : Reason : Stacktrace ->
-            ?ERROR("request_sms crash: ~s\nStacktrace:~s",
+            ?ERROR("request_sms crash: ~p\nStacktrace:~s",
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             log_request_otp_error(server_error, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, internal_server_error}
