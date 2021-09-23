@@ -72,8 +72,12 @@ is_sms_app(Phone) ->
 
 -spec is_sms_app_uid(Uid :: uid()) -> boolean().
 is_sms_app_uid(Uid) -> 
-    {ok, Phone} = model_accounts:get_phone(Uid),
-    is_sms_app(Phone).
+    case model_accounts:get_phone(Uid) of
+        {ok, Phone} -> is_sms_app(Phone);
+        {error, missing} ->
+            ?ERROR("Invalid Uid: ~p, missing phone", [Uid]),
+            false
+    end.
 
 
 -spec wake_up_device(Uid :: uid()) -> ok.
