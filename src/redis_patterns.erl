@@ -38,10 +38,10 @@ process_keys(Key, State) ->
                 [NumCount, MemCount] = X,
                 [NumCount + 1, MemCount + util:to_integer(MemUsage)]
             end,
-            Map = maps:get(counters_map, State, #{}),
+            Map = maps:get(counters, State, #{}),
             NewMap = maps:update_with(KeyPrefix, Increment, [1, util:to_integer(MemUsage)], Map),
             State#{
-                counters_map => NewMap
+                counters => NewMap
             }
     end,
     FinalNumProcessedKeys = NumProcessedKeys + 1,
@@ -53,9 +53,8 @@ process_keys(Key, State) ->
 
 
 % Displays key count stats by number, memory (bytes), and percentage
--spec process_scan(State :: map()) -> ok.
-process_scan(State) ->
-    Map = maps:get(counters_map, State, #{}),
+-spec process_scan(Map :: map()) -> ok.
+process_scan(Map) ->
     [TotalKeys, TotalMem] = maps:fold(
         fun(_Key, Value, Sum) ->
             [Num, Mem] = Value,

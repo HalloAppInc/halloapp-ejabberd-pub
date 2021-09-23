@@ -27,11 +27,8 @@
 -export([
     start_migration/3,
     start_migration/4,
-    start/2,
     stop/1,
-    reset/1,
-    get_progress/1,
-    iterate/1
+    get_progress/1
 ]).
 
 
@@ -40,8 +37,7 @@
     {execute, parallel | sequential} |
     {dry_run, true | false} |
     {scan_count, non_neg_integer()} |
-    {interval, non_neg_integer()} |
-    {max_count, non_neg_integer()}.
+    {interval, non_neg_integer()}.
 -type options() :: [option()].
 -export_type([migrate_func/0, option/0, options/0]).
 
@@ -73,6 +69,30 @@ start_migration(Name, RedisService, Function) ->
             Function :: migrate_func(),
             Options :: options().
 start_migration(Name, RedisService, Function, Options) ->
+    Args = [Name, RedisService, Function, Options],
+    ProcName = {global, util:to_atom(Name)},
+    {ok, Pid} = gen_server:start_link(ProcName, ?MODULE, Args, []),
+    ?INFO("MainProcess for migration, ProcName: ~p, Pid: ~p", [ProcName, Pid]),
+    ok.
+
+
+-spec stop(ServerRef :: gen_server:start_ref()) -> ok.
+stop(ServerRef) ->
+    %% Stopping this gen_server should stop all its children - since all these are linked processes.
+    gen_server:stop(ServerRef).
+
+
+% Return the progress of this migration in percent as float.
+-spec get_progress(Name :: string()) -> float().
+get_progress(Name) ->
+    gen_server:call(Name, {get_progress}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%                                   gen_server API                                            %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+init([Name, RedisService, Function, Options]) ->
     ?INFO("Name: ~s RedisService: ~p, Function: ~p", [Name, RedisService, Function]),
 
     Nodes = get_execution_nodes(Options),
@@ -102,69 +122,24 @@ start_migration(Name, RedisService, Function, Options) ->
             % make job for each redis master
             AJob = Job#{
                 redis_host => RedisHost,
-                redis_port => RedisPort
+                redis_port => RedisPort,
+                main_pid => self()    %% main process to report the results back to.
             },
 
             % pick the next node (round robin) where to run the scan
             Node = element(1 + (Index rem size(NodesArr)), NodesArr),
             PName = Name ++ "." ++ integer_to_list(Index),
-            spawn_link(Node, ?MODULE, start, [PName, AJob])
+            %% TODO(murali@): make this a monitor to produce partial results.
+            redis_migrate_worker:spawn_link(Node, [PName, AJob])
         end,
         EnumNodes),
     ?INFO("pids: ~p", [Pids]),
     ?INFO("nodes: ~p", [Nodes]),
-    ok.
-
-
--spec start(Name :: string(), Job :: map()) -> gen_server:start_ref().
-start(Name, Job) ->
-    ?INFO("Starting migration ~s on Node: ~p, Job: ~p", [Name, node(), Job]),
-    gen_server:start({global, Name}, ?MODULE, Job, []).
-
-
--spec stop(ServerRef :: gen_server:start_ref()) -> ok.
-stop(ServerRef) ->
-    gen_server:stop(ServerRef).
-
-
-% Reset the scan of particular shard of the migration
--spec reset(Name :: string()) -> ok.
-reset(Name) ->
-    gen_server:call({global, Name}, {reset}).
-
-
-% Return the progress of this migration in percent as float.
--spec get_progress(Name :: string()) -> float().
-get_progress(Name) ->
-    gen_server:call({global, Name}, {get_progress}).
-
-
-iterate(Name) ->
-    gen_server:call({global, Name}, {iterate}).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%                                   gen_server API                                            %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
--spec init(Job :: #{}) -> {ok, any()}.
-init(#{redis_host := RedisHost, redis_port := RedisPort, interval := Interval,
-        dry_run := DryRun, scan_count := ScanCount} = Job) ->
-    ?INFO("Migration started: pid: ~p, Job: ~p", [self(), Job]),
-    process_flag(trap_exit, true),
-    {ok, C} = eredis:start_link(RedisHost, RedisPort),
-    ?INFO("connection ok: ~p", [C]),
-
-    TRef = erlang:send_after(Interval, self(), {'$gen_cast', {iterate}}),
-    State = Job#{
-        cursor => <<"0">>,
-        c => C,
-        tref => TRef,
-        dry_run => DryRun,
-        scan_count => integer_to_binary(ScanCount)
-    },
-    {ok, State}.
+    {ok, #{
+        children => Pids,
+        conclude_func => proplists:get_value(conclude_func, Options, undefined),
+        reports => []
+    }}.
 
 
 handle_call({get_progress}, _From, State) ->
@@ -172,51 +147,48 @@ handle_call({get_progress}, _From, State) ->
     % TODO: compute the migration progress based on the cursor.
     {reply, 0.0, State};
 
-
-handle_call({reset}, From, State) ->
-    ?INFO("resetting from ~p", [From]),
-    NewState = State#{cursor := <<"0">>},
-    {reply, ok, NewState};
-
-
 handle_call(Any, From, State) ->
     ?ERROR("Unhandled message: ~p from: ~p", [Any, From]),
     {reply, ignore, State}.
 
 
-handle_cast({iterate}, State) ->
-    Cursor = maps:get(cursor, State),
-    {Mod, Func} = maps:get(migrate_func, State),
-    Interval = maps:get(interval, State),
-    C = maps:get(c, State),
-    Count = maps:get(scan_count, State),
-    {ok, [NextCursor, Items]} = eredis:q(C, ["SCAN", Cursor, "COUNT", Count]),
-    ?DEBUG("NextCursor: ~p, items: ~p", [NextCursor, length(Items)]),
-    {Result, NewState1} = iterate_keys(
-        fun (Key, S) -> erlang:apply(Mod, Func, [Key, S]) end,
-        State,
-        Items),
+handle_cast({report, ChildReport}, State) ->
+    %% Store report received by the child process.
+    NumChildren = length(maps:get(children, State)),
+    CurReports = maps:get(reports, State),
+    NewReports = CurReports ++ [ChildReport],
+    NewState = State#{reports => NewReports},
+    NumReports = length(NewReports),
+    %% TODO: We should have a nicer way to check if all the child processes are done or not.
+    %% If we received reports from all children - then process all of them.
+    case NumReports =:= NumChildren of
+        true ->
+            gen_server:cast(self(), {process_reports});
+        false ->
+            ?INFO("Waiting for more reports, NumReports: ~p, NumChildren: ~p",
+                [NumReports, NumChildren])
+    end,
+    {noreply, NewState};
 
-    case {Result, NextCursor} of
-        {stop, _} ->
-            ?INFO("scan aborted by stop"),
-            % TODO(Nikola): Remove the redis_patterns:process_scan from here. We should
-            % add generic mechanism for migrations to collect data and execute a function on
-            % all the data from all masters.
-            redis_patterns:process_scan(NewState1),
-            {stop, normal, NewState1};
-        {ok, <<"0">>} ->
-            ?INFO("scan done - all keys scanned"),
-            redis_patterns:process_scan(NewState1),
-            {stop, normal, NewState1};
-        {ok, _} ->
-            TRef = erlang:send_after(Interval, self(), {'$gen_cast', {iterate}}),
-            NewState2 = NewState1#{
-                cursor := NextCursor,
-                tref := TRef
-            },
-            {noreply, NewState2}
-    end;
+handle_cast({process_reports}, State) ->
+    %% TODO: Have the conclude function take the list of reports and then act accordingly.
+    %% Process all the reports received.
+    Reports = maps:get(reports, State),
+    %% Iterate through all the reports and then combine the counters with the same key.
+    FinalReport = lists:foldl(
+        fun(Report1, AccReport) ->
+            %% TODO: this is not great - assumes counter key-values are always list.
+            Fun = fun(K,V1) -> [X+Y || {X,Y} <- lists:zip(V1, maps:get(K, AccReport, [0, 0]))] end,
+            maps:map(Fun, Report1)
+        end, #{}, Reports),
+    %% Obtain the function to conclude and process this report.
+    case maps:get(conclude_func, State, undefined) of
+        undefined -> ?INFO("No conclude_func defined");
+        {Mod, Func} ->
+            ?INFO("Applying conclude_func, Mod: ~p, Func: ~p", [Mod, Func]),
+            erlang:apply(Mod, Func, [FinalReport])
+    end,
+    {stop, normal, State};
 
 handle_cast(_Message, State) -> {noreply, State}.
 handle_info(_Message, State) -> {noreply, State}.
@@ -260,31 +232,6 @@ get_execute_option(Options) ->
         sequential -> sequential;
         Other -> erlang:error({wrong_execute_option, Other})
     end.
-
-
--spec iterate_keys(fun(), State :: map(), Keys :: list(string())) ->
-    {ok, State :: map()} | {stop, State :: map()}.
-iterate_keys(_Func, State, []) ->
-    {ok, State};
-iterate_keys(Func, State, [Key | Rest]) ->
-    {Res, State3} = case Func(Key, State) of
-        ok -> {ok, State};
-        stop -> {stop, State};
-        {ok, State2} -> {ok, State2};
-        {stop, State2} -> {stop, State2};
-        _ -> {ok, State}
-    end,
-    case Res of
-        stop ->
-            ?INFO("terminating migration by stop request ~p", State3),
-            {stop, State3};
-        ok ->
-            iterate_keys(Func, State3, Rest)
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%                                 Migration functions                                        %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 
