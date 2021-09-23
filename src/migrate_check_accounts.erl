@@ -67,9 +67,17 @@ log_account_info_run(Key, State) ->
                     NumContacts = model_contacts:count_contacts(Uid),
                     {ok, Friends} = model_friends:get_friends(Uid),
                     {ok, Contacts} = model_contacts:get_contacts(Uid),
+                    IsSelfContact = model_contacts:is_contact(Uid, Phone),
                     UidContacts = model_phone:get_uids(Contacts),
-                    NumUidContacts = length(maps:to_list(UidContacts)),
-                    NumFriends = length(Friends),
+                    case IsSelfContact of
+                        true -> NumUidContacts = length(maps:to_list(UidContacts)) - 1;
+                        false -> NumUidContacts = length(maps:to_list(UidContacts))
+                    end,
+                    IsSelfFriends = model_friends:is_friend(Uid, Uid),
+                    case IsSelfFriends of
+                        true -> NumFriends = length(Friends) - 1;
+                        false -> NumFriends = length(Friends)
+                    end,
                     CC = mod_libphonenumber:get_cc(Phone),
                     ?INFO("Account Uid: ~p, Phone: ~p, CC: ~p, NumContacts: ~p, NumUidContacts: ~p, NumFriends: ~p",
                         [Uid, Phone, CC, NumContacts, NumUidContacts, NumFriends])
@@ -224,9 +232,17 @@ log_recent_account_info_run2(Key, State) ->
                             NumContacts = model_contacts:count_contacts(Uid),
                             {ok, Friends} = model_friends:get_friends(Uid),
                             {ok, Contacts} = model_contacts:get_contacts(Uid),
+                            IsSelfContact = model_contacts:is_contact(Uid, Phone),
                             UidContacts = model_phone:get_uids(Contacts),
-                            NumUidContacts = length(maps:to_list(UidContacts)),
-                            NumFriends = length(Friends),
+                            case IsSelfContact of
+                                true -> NumUidContacts = length(maps:to_list(UidContacts)) - 1;
+                                false -> NumUidContacts = length(maps:to_list(UidContacts))
+                            end,
+                            IsSelfFriends = model_friends:is_friend(Uid, Uid),
+                            case IsSelfFriends of
+                                true -> NumFriends = length(Friends) - 1;
+                                false -> NumFriends = length(Friends)
+                            end,
                             CC = mod_libphonenumber:get_cc(Phone),
                             ?INFO("Account Uid: ~p, Phone: ~p, CC: ~p, RegisteredInLastMonth: ~p, RegisteredInLastTwoWeeks: ~p, NumContacts: ~p, NumUidContacts: ~p, NumFriends: ~p",
                                 [Uid, Phone, CC, RegisteredInLastMonth, RegisteredInLastTwoWeeks, NumContacts, NumUidContacts, NumFriends]);
