@@ -38,3 +38,11 @@ jobs:
       # Environment variable used by ejabberd to connect to redis
       env:
         HALLO_ENV: github
+    - name: Publish CT suite Logs
+      uses: actions/upload-artifact@v2
+      if: ${{ always() }}
+      with:
+          name: ha_suite_logs
+          retention-days: 7
+          path: |
+              _build/test/logs/*
