@@ -225,7 +225,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
             {error, retried_too_soon, RetryAfterSecs} ->
                 log_request_otp_error(retried_too_soon, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
                 {error, retried_too_soon, Phone, RetryAfterSecs};
-            {blocked, BlockedReason, _ExtraInfo} ->
+            {block, BlockedReason, _ExtraInfo} ->
                 log_request_otp_error(BlockedReason, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
                 {error, dropped, Phone, 30} % 30 is the default success
         end
