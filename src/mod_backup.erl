@@ -233,8 +233,7 @@ health_check_redis_backups(RedisId) ->
         case NumUniqueBackups < ?NUM_BACKUPS_WARNING_THRESHOLD of
             true ->
                 %% TODO(@ethan): use alerts.erl to send an alert
-                %% TODO: change INFO to ERROR on september 6 2021
-                ?INFO("[~p] currently has ~p backups in S3",
+                ?ERROR("[~p] currently has ~p backups in S3",
                         [RedisId, NumUniqueBackups]);
             false ->
                 ?INFO("[~p] currently has ~p backups in S3",
@@ -505,27 +504,11 @@ set_last_backup_time(RedisId, BackupStartTime) ->
     erlcloud_s3:put_object(?BACKUP_BUCKET, RedisMetadataPath, JsonBinary).
 
 
-%% TODO(@ethan): move this into redis_sup
--spec get_redises() -> [atom()].
-get_redises() ->
-    [
-        redis_accounts,
-        redis_auth,
-        redis_contacts,
-        redis_feed,
-        redis_groups,
-        redis_messages,
-        redis_phone,
-        redis_sessions,
-        redis_whisper
-    ].
-
-
 -spec get_redis_ids() -> [string()].
 get_redis_ids() ->
     case config:is_prod_env() of
         true ->
-            Redises = get_redises(),
+            Redises = redis_sup:get_redises(),
             lists:map(
                 fun(RedisAtom) ->
                     {RedisAtom, Host, _Port} = config:get_service(RedisAtom),

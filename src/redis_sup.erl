@@ -17,7 +17,10 @@
 -include("ha_types.hrl").
 
 %% API
--export([start_link/0]).
+-export([
+    start_link/0,
+    get_redises/0
+]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -117,6 +120,21 @@ start_child(ChildSpec) ->
         {ok, _} ->
             ok
     end.
+
+
+-spec get_redises() -> [atom()].
+get_redises() ->
+    [
+        redis_accounts,
+        redis_auth,
+        redis_contacts,
+        redis_feed,
+        redis_groups,
+        redis_messages,
+        redis_phone,
+        redis_sessions,
+        redis_whisper
+    ].
 
 %%%===================================================================
 %%% Internal functions
