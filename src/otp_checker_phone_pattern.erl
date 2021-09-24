@@ -28,7 +28,7 @@ check_otp_request(Phone, _IP, _UserAgent, _Method, Protocol) ->
         false ->
             case is_phone_pattern_blocked(PhonePattern, CC, Protocol) of
                 false -> ok;
-                true -> {blocked, phone_pattern, {PhonePattern}}
+                true -> {block, phone_pattern, {PhonePattern}}
             end
     end.
 

@@ -37,7 +37,7 @@ check_otp_request(_Phone, IP, _UserAgent, _Method, _Protocol) ->
             case NextTs > CurrentTs of
                 true ->
                     case Count > ?IP_RETURN_ERROR_THRESHOLD of
-                        true -> {blocked, ip_block, {IP, Count, LastTs}};
+                        true -> {block, ip_block, {IP, Count, LastTs}};
                         false -> {error, retry_too_soon, NextTs - CurrentTs}
                     end;
                 false -> ok
