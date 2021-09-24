@@ -164,21 +164,21 @@ e2e_decryption_report_without_rerequest(TimestampMsBin) ->
         FROM
             (SELECT platform, version, count(*) as count
             FROM
-                (SELECT \"decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
                     MAX(\"timestamp_ms\") as \"timestamp_ms\"
                 FROM \"default\".\"client_group_decryption_report\"
-                GROUP BY \"decryption_report\", \"platform\")
+                GROUP BY \"group_decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
-                    AND \"decryption_report\".\"result\"='ok'
-                    AND \"decryption_report\".\"rerequest_count\"=0
+                    AND \"group_decryption_report\".\"result\"='ok'
+                    AND \"group_decryption_report\".\"rerequest_count\"=0
                 GROUP BY version, platform) as success
         JOIN
             (SELECT platform, version, count(*) as count
             FROM
-                (SELECT \"decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
                     MAX(\"timestamp_ms\") as \"timestamp_ms\"
                 FROM \"default\".\"client_group_decryption_report\"
-                GROUP BY \"decryption_report\", \"platform\")
+                GROUP BY \"group_decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
                 GROUP BY version, platform) as total
         ON success.version=total.version
