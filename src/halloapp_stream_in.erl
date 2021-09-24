@@ -417,8 +417,8 @@ handle_info({tcp, _, Data}, #{socket := Socket, ip := IP} = State) ->
             {error, Reason} ->
                 %% making these errors to be info - since we dont see any of our clients having issues.
                 %% will keep monitoring these and update if necessary.
-                ?INFO("noise error on read Reason(b64): ~p Data(b64): ~p, IP: ~p",
-                    [base64url:encode(Reason), base64url:encode(Data), IP]),
+                ?INFO("noise error on read Reason: ~p Data(b64): ~p, IP: ~p",
+                    [Reason, base64url:encode(Data), IP]),
                 % TODO: I don't think we should send to the client those specific reasons
                 send_error(State, noise_error)
         end);
