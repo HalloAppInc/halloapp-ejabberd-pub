@@ -183,6 +183,12 @@ message FeedItem {
         Comment comment = 3;
     }
     repeated ShareStanza share_stanzas = 4;
+
+    // Sent by the publisher.
+    repeated SenderStateBundle sender_state_bundles = 7;
+
+    // Meant for the receiver, computed by the server using `sender_state_bundles`.
+    SenderStateWithKeyInfo sender_state = 8;
 }
 
 message FeedItems {
@@ -577,6 +583,8 @@ message Msg {
         PlayedReceipt played_receipt = 30;
         RequestLogs request_logs = 31;
         WakeUp wakeup = 32; // only for use with SMSApp clients
+        HomeFeedRerequest home_feed_rerequest = 33;
+        FeedItems historical_content = 34;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
@@ -766,6 +774,26 @@ message GroupFeedRerequest {
       SENDER_STATE = 1;
   }
   RerequestType rerequest_type = 3;
+}
+
+
+// Home Feed Rerequest
+
+message HomeFeedRerequest {
+  // Post id or Comment id.
+  string id = 1;
+
+  // To capture the type of decryption failure.
+  enum RerequestType {
+      UNKNOWN_TYPE = 0;
+
+      // Unable to decrypt post/comment's payload
+      PAYLOAD = 1;
+
+      // Unable to decrypt sender state.
+      SENDER_STATE = 2;
+  }
+  RerequestType rerequest_type = 2;
 }
 
 
