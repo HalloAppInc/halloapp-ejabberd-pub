@@ -14,6 +14,8 @@
 
 % API
 -export([
+    schedule/0,
+    unschedule/0,
     compute_retention/0,
     dump_accounts/0,
     dump_accounts_run/2,
@@ -25,29 +27,37 @@ start(_Host, _Opts) ->
     ?INFO("starting", []),
     case util:get_machine_name() of
         <<"s-test">> ->
-            erlcron:cron(dump_accounts, {
-                {weekly, tue, {22, 00}},
-                {?MODULE, dump_accounts, []}
-            }),
-
-            erlcron:cron(weekly_retention, {
-                {weekly, tue, {23, 00}},
-                {?MODULE, compute_retention, []}
-            });
+            schedule();
         _ -> ok
     end,
     ok.
+
+-spec schedule() -> ok.
+schedule() ->
+    erlcron:cron(dump_accounts, {
+        {weekly, tue, {10, pm}},
+        {?MODULE, dump_accounts, []}
+    }),
+    
+    erlcron:cron(weekly_retention, {
+        {weekly, tue, {11, pm}},
+        {?MODULE, compute_retention, []}
+    }).
 
 
 stop(_Host) ->
     ?INFO("stopping", []),
     case util:get_machine_name() of
         <<"s-test">> ->
-            erlcron:cancel(dump_accounts),
-            erlcron:cancel(weekly_retention);
+            unschedule();
         _ -> ok
     end,
     ok.
+
+-spec unschedule() -> ok.
+unschedule() ->
+    erlcron:cancel(dump_accounts),
+    erlcron:cancel(weekly_retention).
 
 
 reload(_Host, _NewOpts, _OldOpts) ->
