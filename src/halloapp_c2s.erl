@@ -28,7 +28,9 @@
     handle_authenticated_packet/2,
     handle_auth_result/4,
     handle_send/4,
-    handle_recv/3
+    handle_recv/3,
+    upgrade_packet/1,
+    downgrade_feed_item/1
 ]).
 
 %% Hooks
@@ -237,16 +239,16 @@ upgrade_packet(Packet) -> Packet.
 downgrade_feed_item(Item) ->
     case Item of
         #pb_feed_item{} -> Item;
-        {pb_feed_item, Action, Item, ShareStanzas, _SenderStateBundles, _SenderState} ->
+        {pb_feed_item, Action, FeedItem, ShareStanzas, _SenderStateBundles, _SenderState} ->
             #pb_feed_item{
                 action = Action,
-                item = Item,
+                item = FeedItem,
                 share_stanzas = ShareStanzas
             };
-        {pb_feed_item, Action, Item, ShareStanzas} ->
+        {pb_feed_item, Action, FeedItem, ShareStanzas} ->
             #pb_feed_item{
                 action = Action,
-                item = Item,
+                item = FeedItem,
                 share_stanzas = ShareStanzas
             }
     end.
