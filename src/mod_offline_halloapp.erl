@@ -252,7 +252,7 @@ offline_queue_check(#{client_version := ClientVersion} = State, Uid,
                     lists:foreach(
                         fun(MsgId) ->
                             case sets:is_element(MsgId, LeftOverMsgIdSet) of
-                                true -> ?ERROR("Uid: ~s, still has MsgId: ~p in their offline queue");
+                                true -> ?ERROR("Uid: ~s, still has MsgId: ~p in their offline queue", [Uid, MsgId]);
                                 false -> ok
                             end
                         end, FilteredMsgIds2),
