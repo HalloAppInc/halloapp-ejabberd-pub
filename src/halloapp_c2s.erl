@@ -207,8 +207,21 @@ upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
             Msg#pb_msg{
                 payload = downgrade_feed_item(NewItem)
             };
+        {pb_feed_item, _Action, _Item, _ShareStanza} = NewItem ->
+            Msg#pb_msg{
+                payload = downgrade_feed_item(NewItem)
+            };
         #pb_feed_items{} -> Msg;
-        {pb_feed_items, Uid, [{pb_feed_item, _Action, _Item, _ShareStanza, _SenderStateBundles, _SenderState}] = NewItems} ->
+        {pb_feed_items, Uid, [{pb_feed_item, _Action, _Item, _ShareStanza, _SenderStateBundles, _SenderState} | _] = NewItems} ->
+            OldItems = [downgrade_feed_item(NewItem) || NewItem <- NewItems],
+            NewMsgPayload = #pb_feed_items{
+                uid = Uid,
+                items = OldItems
+            },
+            Msg#pb_msg{
+                payload = NewMsgPayload
+            };
+        {pb_feed_items, Uid, [{pb_feed_item, _Action, _Item, _ShareStanza} | _] = NewItems} ->
             OldItems = [downgrade_feed_item(NewItem) || NewItem <- NewItems],
             NewMsgPayload = #pb_feed_items{
                 uid = Uid,
@@ -225,6 +238,12 @@ downgrade_feed_item(Item) ->
     case Item of
         #pb_feed_item{} -> Item;
         {pb_feed_item, Action, Item, ShareStanzas, _SenderStateBundles, _SenderState} ->
+            #pb_feed_item{
+                action = Action,
+                item = Item,
+                share_stanzas = ShareStanzas
+            };
+        {pb_feed_item, Action, Item, ShareStanzas} ->
             #pb_feed_item{
                 action = Action,
                 item = Item,
