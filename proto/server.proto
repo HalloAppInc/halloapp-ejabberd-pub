@@ -185,10 +185,10 @@ message FeedItem {
     repeated ShareStanza share_stanzas = 4;
 
     // Sent by the publisher.
-    repeated SenderStateBundle sender_state_bundles = 7;
+    repeated SenderStateBundle sender_state_bundles = 5;
 
     // Meant for the receiver, computed by the server using `sender_state_bundles`.
-    SenderStateWithKeyInfo sender_state = 8;
+    SenderStateWithKeyInfo sender_state = 6;
 }
 
 message FeedItems {
