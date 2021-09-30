@@ -169,16 +169,19 @@ get_auth_token() ->
 compose_body(Phone, Message) ->
     Mp = #{
        <<"to">> => [Phone],
-       <<"from">> => util:to_binary(get_originator()),
+       <<"from">> => util:to_binary(get_originator(Phone)),
        <<"text">> => util:to_binary(Message),
        <<"mo">> => <<"1">>,
        <<"callback">> => <<"7">>
     },
     jiffy:encode(Mp).
 
--spec get_originator() -> string().
-get_originator() ->
-    get_from_phone().
+-spec get_originator(Phone :: phone()) -> string().
+get_originator(Phone) ->
+    case mod_libphonenumber:get_cc(Phone) of
+        <<"US">> -> get_from_phone();
+        _ -> ?HALLOAPP_SENDER_ID
+    end.
 
 get_from_phone() ->
     util_sms:lookup_from_phone(clickatell_options).
