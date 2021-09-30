@@ -29,8 +29,7 @@
     handle_auth_result/4,
     handle_send/4,
     handle_recv/3,
-    upgrade_packet/1,
-    downgrade_feed_item/1
+    upgrade_packet/1
 ]).
 
 %% Hooks
@@ -202,67 +201,67 @@ open_session(#{user := U, server := S, resource := R, sid := SID, client_version
 %% then other servers cant encode this message because the record has a new field. 
 %% similarly the updated server cant encode it because it is missing a field.
 %% so this function helps us transform packets across servers.
-upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
-    case MsgPayload of
-        #pb_feed_item{} -> Msg;
-        {pb_feed_item, _Action, _Item, _ShareStanza, _SenderStateBundles, _SenderState} = NewItem ->
-            Msg#pb_msg{
-                payload = downgrade_feed_item(NewItem)
-            };
-        {pb_feed_item, _Action, _Item, _ShareStanza} = NewItem ->
-            Msg#pb_msg{
-                payload = downgrade_feed_item(NewItem)
-            };
-        #pb_feed_items{} -> Msg;
-        {pb_feed_items, Uid, [{pb_feed_item, _Action, _Item, _ShareStanza, _SenderStateBundles, _SenderState} | _] = NewItems} ->
-            OldItems = [downgrade_feed_item(NewItem) || NewItem <- NewItems],
-            NewMsgPayload = #pb_feed_items{
-                uid = Uid,
-                items = OldItems
-            },
-            Msg#pb_msg{
-                payload = NewMsgPayload
-            };
-        {pb_feed_items, Uid, [{pb_feed_item, _Action, _Item, _ShareStanza} | _] = NewItems} ->
-            OldItems = [downgrade_feed_item(NewItem) || NewItem <- NewItems],
-            NewMsgPayload = #pb_feed_items{
-                uid = Uid,
-                items = OldItems
-            },
-            Msg#pb_msg{
-                payload = NewMsgPayload
-            };
-        _ -> Msg
-    end;
+% upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
+%     case MsgPayload of
+%         #pb_feed_item{} -> Msg;
+%         {pb_feed_item, _Action, _Item, _ShareStanza, _SenderStateBundles, _SenderState} = NewItem ->
+%             Msg#pb_msg{
+%                 payload = downgrade_feed_item(NewItem)
+%             };
+%         {pb_feed_item, _Action, _Item, _ShareStanza} = NewItem ->
+%             Msg#pb_msg{
+%                 payload = downgrade_feed_item(NewItem)
+%             };
+%         #pb_feed_items{} -> Msg;
+%         {pb_feed_items, Uid, [{pb_feed_item, _Action, _Item, _ShareStanza, _SenderStateBundles, _SenderState} | _] = NewItems} ->
+%             OldItems = [downgrade_feed_item(NewItem) || NewItem <- NewItems],
+%             NewMsgPayload = #pb_feed_items{
+%                 uid = Uid,
+%                 items = OldItems
+%             },
+%             Msg#pb_msg{
+%                 payload = NewMsgPayload
+%             };
+%         {pb_feed_items, Uid, [{pb_feed_item, _Action, _Item, _ShareStanza} | _] = NewItems} ->
+%             OldItems = [downgrade_feed_item(NewItem) || NewItem <- NewItems],
+%             NewMsgPayload = #pb_feed_items{
+%                 uid = Uid,
+%                 items = OldItems
+%             },
+%             Msg#pb_msg{
+%                 payload = NewMsgPayload
+%             };
+%         _ -> Msg
+%     end;
 upgrade_packet(Packet) -> Packet.
 
-downgrade_feed_item(Item) ->
-    case Item of
-        #pb_feed_item{} -> Item;
-        {pb_feed_item, Action, FeedItem, ShareStanzas, _SenderStateBundles, _SenderState} ->
-            #pb_feed_item{
-                action = Action,
-                item = FeedItem,
-                share_stanzas = ShareStanzas
-            };
-        {pb_feed_item, Action, FeedItem, ShareStanzas} ->
-            #pb_feed_item{
-                action = Action,
-                item = FeedItem,
-                share_stanzas = ShareStanzas
-            }
-    end.
+% downgrade_feed_item(Item) ->
+%     case Item of
+%         #pb_feed_item{} -> Item;
+%         {pb_feed_item, Action, FeedItem, ShareStanzas, _SenderStateBundles, _SenderState} ->
+%             #pb_feed_item{
+%                 action = Action,
+%                 item = FeedItem,
+%                 share_stanzas = ShareStanzas
+%             };
+%         {pb_feed_item, Action, FeedItem, ShareStanzas} ->
+%             #pb_feed_item{
+%                 action = Action,
+%                 item = FeedItem,
+%                 share_stanzas = ShareStanzas
+%             }
+%     end.
 
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
     NewPacket = upgrade_packet(Packet),
     %% TODO: Remove enif_protobuf:encode(...) after upgrade is done.
-    case enif_protobuf:encode(NewPacket) of
-        {error, Reason} ->
-            ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
-        _ ->
-            ok
-    end,
+    % case enif_protobuf:encode(NewPacket) of
+    %     {error, Reason} ->
+    %         ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
+    %     _ ->
+    %         ok
+    % end,
     case verify_incoming_packet(State, NewPacket) of
         allow ->
             %% TODO(murali@): remove temp counts after clients transition.
