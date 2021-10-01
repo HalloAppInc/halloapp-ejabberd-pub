@@ -343,7 +343,7 @@ create_group_with_identity_keys(Uid, Name, Members) ->
             IKBin2 = decode_ik(IK),
             {XorIK, IKMap} = Acc,
             NewIKAcc = lists:zipwith(fun(X, Y) -> X bxor Y end, XorIK, util:to_list(IKBin2)),
-            {NewIKAcc, maps:put(MemberUid, IK, IKMap)}
+            {NewIKAcc, maps:put(MemberUid, base64:decode(IK), IKMap)}
         end, {StartIKList, #{}}, List),
     AudienceHash = crypto:hash(?SHA256, FinalIKAcc),
     <<TruncAudienceHash:?TRUNC_HASH_LENGTH/binary, _Rem/binary>> = AudienceHash,

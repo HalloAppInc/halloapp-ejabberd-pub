@@ -31,7 +31,9 @@
     remove_all_keys/1,
     count_otp_keys/1,
     add_key_subscriber/2,
+    add_key_subscribers/2,
     remove_key_subscriber/2,
+    remove_key_subscribers/2,
     get_all_key_subscribers/1,
     remove_all_key_subscribers/1,
     delete_all_otp_keys/1,  %% dangerous function - dont use without talking to the team.
@@ -144,10 +146,23 @@ add_key_subscriber(Uid, SubscriberUid) ->
     {ok, _Res} = q(["SADD", subcribers_key(Uid), SubscriberUid]),
     ok.
 
+-spec add_key_subscribers(Uid :: uid(), SubscriberUids :: [uid()]) -> ok | {error, any()}.
+add_key_subscribers(_Uid, []) -> ok;
+add_key_subscribers(Uid, SubscriberUids) ->
+    {ok, _Res} = q(["SADD", subcribers_key(Uid) | SubscriberUids]),
+    ok.
+
 
 -spec remove_key_subscriber(Uid :: uid(), SubscriberUid :: uid()) -> ok | {error, any()}.
 remove_key_subscriber(Uid, SubscriberUid) ->
     {ok, _Res} = q(["SREM", subcribers_key(Uid), SubscriberUid]),
+    ok.
+
+
+-spec remove_key_subscribers(Uid :: uid(), SubscriberUids :: [uid()]) -> ok | {error, any()}.
+remove_key_subscribers(_Uid, []) -> ok;
+remove_key_subscribers(Uid, SubscriberUids) ->
+    {ok, _Res} = q(["SREM", subcribers_key(Uid) | SubscriberUids]),
     ok.
 
 

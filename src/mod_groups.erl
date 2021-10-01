@@ -257,28 +257,27 @@ get_member_identity_keys(Gid, Uid) ->
 -spec get_member_identity_keys_unsafe(Group :: group()) -> {ok, group()} | {error, any()}.
 get_member_identity_keys_unsafe(Group) ->
     GroupMembers = Group#group.members,
-    Uids = [Member#group_member.uid || Member <- GroupMembers],
-    IdentityKeysMap = model_whisper_keys:get_identity_keys(Uids),
+    MemberUids = [Member#group_member.uid || Member <- GroupMembers],
+    IdentityKeysMap = model_whisper_keys:get_identity_keys(MemberUids),
     GroupMembers2 = lists:map(
         fun(#group_member{uid = Uid2} = Member2) ->
-            Member2#group_member{identity_key = maps:get(Uid2, IdentityKeysMap, undefined)}
+            Member2#group_member{identity_key = base64:decode(maps:get(Uid2, IdentityKeysMap, <<>>))}
         end, GroupMembers),
     %% GroupMembers has members in sorted order by member Uids.
     IKList = lists:foldl(
-        fun(#group_member{uid = Uid2, identity_key = IdentityKey}, Acc) ->
-            case IdentityKey of
-                undefined ->
+        fun(#group_member{uid = Uid2, identity_key = IdentityKeyBin}, Acc) ->
+            case IdentityKeyBin of
+                <<>> ->
                     ?ERROR("Uid: ~p identity key is invalid", [Uid2]),
                     Acc;
                 _ ->
-                    IdentityKeyBin = base64:decode(IdentityKey),
                     % Need to parse IdentityKeyBin as per identity_key proto
                     try enif_protobuf:decode(IdentityKeyBin, pb_identity_key) of
                         #pb_identity_key{public_key = IPublicKey} ->
                             [IPublicKey | Acc]
                     catch Class : Reason : St ->
                         ?ERROR("failed to parse identity key: ~p, Uid: ~p",
-                            [IdentityKey, Uid2, lager:pr_stacktrace(St, {Class, Reason})])
+                            [IdentityKeyBin, Uid2, lager:pr_stacktrace(St, {Class, Reason})])
                     end
             end
         end, [], GroupMembers2),

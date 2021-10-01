@@ -255,11 +255,15 @@ set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys) ->
 notify_key_subscribers(Uid, _Server) ->
     ?INFO("Uid: ~s", [Uid]),
     {ok, Ouids} = model_whisper_keys:get_all_key_subscribers(Uid),
+    %% TODO (murali@): make this a qmn query.
+    GroupUids = lists:merge(lists:map(fun model_groups:get_member_uids/1, model_groups:get_groups(Uid))),
+    %% Ensure that we dont route the update message to ourselves.
+    SubscriberUids = sets:to_list(sets:del_element(Uid, sets:from_list(Ouids ++ GroupUids))),
     Packet = #pb_msg{
         id = util_id:new_msg_id(),
         payload = #pb_whisper_keys{action = update, uid = Uid}
     },
-    ejabberd_router:route_multicast(<<>>, Ouids, Packet),
+    ejabberd_router:route_multicast(<<>>, SubscriberUids, Packet),
     ok.
 
 
