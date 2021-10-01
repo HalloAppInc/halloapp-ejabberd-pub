@@ -48,7 +48,8 @@ get_dev_uids() ->
         %%%%%%%%%%%%%%%% contractors %%%%%%%%%%%%%%%%%
         <<"1000000000877204287">>,  %% Vasil
         <<"1000000000186868017">>,  %% Stefan
-        <<"1000000000121562547">>   %% Stefan test phone
+        <<"1000000000121562547">>,  %% Stefan test phone
+        <<"1000000000794464373">>   %% Sandra Kremmeicke - german translator
     ].
 
 
