@@ -108,7 +108,7 @@ refresh_url(Url) ->
                     true
             catch
                 C:R:S ->
-                    ?ERROR("Refresh Url Error: ~p", [lager:pr_stacktrace(S, {C, R})]),
+                    ?ERROR("Refresh Url Error: ~s", [lager:pr_stacktrace(S, {C, R})]),
                     false
             end
     end.
