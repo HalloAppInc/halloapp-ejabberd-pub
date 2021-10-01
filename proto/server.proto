@@ -894,6 +894,11 @@ message NoiseMessage {
 
 message DeleteAccount {
     string phone = 1;
+    enum Reason {
+        UNKNOWN_DELETE_REASON = 0;
+    }
+    Reason reason = 2;
+    string feedback = 3;
 }
 
 // User Data Export

@@ -7,6 +7,7 @@
 -author('murali').
 
 -include("xmpp.hrl").
+-include("account.hrl").
 -include("packets.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -37,18 +38,26 @@ create_delete_account_iq(Uid, _Server, Type, Phone) ->
 
 delete_account_iq1_test() ->
     setup(),
-    tutil:meck_init(model_accounts, get_phone, fun(_) -> {ok, ?NORM_PHONE1} end),
+    tutil:meck_init(model_accounts, get_account, fun(_) -> {ok, #account{phone = ?NORM_PHONE1}} end),
+    tutil:meck_init(model_friends, get_friends, fun(_) -> {ok, []} end),
+    tutil:meck_init(model_contacts, get_contacts, fun(_) -> {ok, []} end),
+    tutil:meck_init(model_phone, get_uids, fun(_) -> #{} end),
+    tutil:meck_init(mod_client_log, log_event, fun(_, _) -> ok end),
     tutil:meck_init(ejabberd_auth, remove_user, fun(_, _) -> ok end),
     IQ = create_delete_account_iq(?UID1, ?SERVER1, set, ?PHONE1),
     IQRes = mod_user_account:process_local_iq(IQ),
     tutil:meck_finish(model_accounts),
+    tutil:meck_finish(model_friends),
+    tutil:meck_finish(model_contacts),
+    tutil:meck_finish(model_phone),
+    tutil:meck_finish(mod_client_log),
     tutil:meck_finish(ejabberd_auth),
     ?assertEqual(ignore, IQRes),
     ok.
 
 
 delete_account_iq2_test() ->
-    tutil:meck_init(model_accounts, get_phone, fun(_) -> {ok, ?NORM_PHONE1} end),
+    tutil:meck_init(model_accounts, get_account, fun(_) -> {ok, #account{phone = ?NORM_PHONE1}} end),
     tutil:meck_init(ejabberd_auth, remove_user, fun(_, _) -> ok end),
 
     IQ1 = create_delete_account_iq(?UID1, ?SERVER1, get, undefined),
