@@ -74,7 +74,7 @@ can_send_voice_call(_CC) ->
 send_sms(Phone, Code, LangId, UserAgent) ->
     {Msg, _TranslatedLangId} = util_sms:get_sms_message(UserAgent, Code, LangId),
 
-    ?INFO("Phone: ~p, Msg: ~p", [Phone, Msg]),
+    ?INFO("Phone: ~s Msg: ~p", [Phone, Msg]),
     URL = ?BASE_SMS_URL,
     Headers = [{"X-Version", "1"}, {"Authorization", "bearer " ++ get_auth_token()}],
     Type = "application/json",
@@ -100,23 +100,20 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             ErrorCode = maps:get(<<"errorCode">>, Message, undefined),
             Error = maps:get(<<"error">>, Message, undefined),
             ErrorDescr = maps:get(<<"errorDescription">>, Message, undefined),
-            ?INFO("SMS to Phone: ~p, gw: clickatell, Status: ~p, Id: ~p, ErrorCode: ~p, Error: ~p, "
-                "Error descr: ~p", [Phone, Status, Id, ErrorCode, Error, ErrorDescr]),
             case Status of
                 accepted ->
                     {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
                 _ ->
+                    ?INFO("Sending SMS failed, ErrorCode: ~p Error: ~p Error descr: ~p response: ~p (retry)",
+                        [ErrorCode, Error, ErrorDescr, Response]),
                     {error, sms_fail, retry}
             end;
         {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}}->
-            ?ERROR("Sending SMS failed Phone:~p, HTTPCode: ~p, response ~p",
-                [Phone, HttpStatus, Response]),
+            ?ERROR("Sending SMS failed, HTTPCode: ~p, response ~p (retry)", [HttpStatus, Response]),
             {error, sms_fail, retry};
         _ ->
-            % TODO: In all the gateways we don't retry in this case. But I'm not sure why.
-            ?ERROR("Sending SMS failed Phone:~p (no_retry) ~p",
-                [Phone, Response]),
-            {error, sms_fail, no_retry}
+            ?ERROR("Sending SMS failed, response ~p (retry)", [Response]),
+            {error, sms_fail, retry}
     end.
 
 % TODO: Does not support voice calls yet

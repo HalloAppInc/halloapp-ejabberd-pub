@@ -123,7 +123,7 @@ send_voice_call(Phone, Code, LangId, _UserAgent) ->
     VoiceMsg = io_lib:format("~s . . ~s . ", [VoiceMsgBin, DigitByDigit]),
     FinalMsg = io_lib:format("~s ~s ~s ~s", [VoiceMsg, VoiceMsg, VoiceMsg, VoiceMsg]),
 
-    ?INFO("Phone: ~p, FinalMsg: ~s", [Phone, FinalMsg]),
+    ?INFO("Phone: ~p, Msg: ~s", [Phone, FinalMsg]),
     URL = ?BASE_VOICE_URL,
     Headers = [{"Authorization", "AccessKey " ++ get_access_key(util:is_test_number(Phone))}],
     Type = "application/json",

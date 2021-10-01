@@ -131,7 +131,7 @@ add_verification_success(Phone, FetchedInfo, AllVerifyInfo) ->
     stat:count("HA/registration", "verify_sms", 1,
         [{gateway, Gateway}, {cc, mod_libphonenumber:get_cc(Phone)}]),
     GatewayAtom = util:to_atom(Gateway),
-    ?INFO("Phone: ~p, sending feedback to gateway: ~p, attemptId: ~p",
+    ?INFO("Phone: ~s sending feedback to gateway: ~s attemptId: ~s",
                 [Phone, Gateway, AttemptId]),
     case GatewayAtom of
         undefined ->
@@ -184,7 +184,7 @@ send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
             {ok, NextTs - Timestamp};
         {error, GW, Reason} = _Err ->
             %% We log an error inside the gateway already.
-            ?INFO("Unable to send ~p: ~p, Gateway: ~p, OtpPhone: ~p Phone: ~p ",
+            ?INFO("Unable to send ~p: ~p, Gateway: ~p, OtpPhone: ~s Phone: ~s ",
                 [Method, Reason, GW, OtpPhone, Phone]),
             {error, Reason}
     end.
@@ -344,7 +344,7 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
 
     %% Pick one based on past performance.
     PickedGateway = pick_gw(ChooseFromList, CC, IsFirstAttempt),
-    ?INFO("Phone: ~s Picked Gateway: ~p CC: ~s", [Phone, PickedGateway, CC]),
+    ?DEBUG("Phone: ~s Picked Gateway: ~p CC: ~s", [Phone, PickedGateway, CC]),
 
     %% Just in case there is any bug in computation of new gateway.
     PickedGateway2 = case sets:is_element(PickedGateway, ConsiderSet) of
@@ -357,7 +357,7 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
         mbird_verify -> <<"999999">>;
         _ -> generate_code(Phone)
     end,
-    ?INFO("Enrolling: ~s, Using Phone: ~s CC: ~s Chosen Gateway: ~p to send ~p Code: ~p",
+    ?INFO("Enrolling: ~s Using Phone: ~s CC: ~s Chosen Gateway: ~p to send ~p Code: ~s",
         [Phone, OtpPhone, CC, PickedGateway2, Method, Code]),
         
     {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
@@ -397,7 +397,7 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
                 _ ->
                     % pick from curated list
                     PickedGateway = pick_gw(ToChooseFromList, CC, false),
-                    ?INFO("Phone: ~s Picked Gateway: ~p, CC: ~p", [Phone, PickedGateway, CC]),
+                    ?DEBUG("Phone: ~s Picked Gateway: ~p, CC: ~p", [Phone, PickedGateway, CC]),
                     NewSMSResponse = CurrentSMSResponse#gateway_response{gateway = PickedGateway},
                     smart_send_internal(Phone, Code, LangId, UserAgent, CC, NewSMSResponse, ToChooseFromList)
             end;
@@ -421,7 +421,7 @@ pick_gw(ChooseFrom, CC, IsFirstAttempt) ->
             max_weight_selection(GWWeights)
     end,
 
-    ?INFO("Picked ~p Weights: ~p, Rand: ~p IsFirst: ~p, CC: ~p",
+    ?INFO("Picked ~p Weights: ~p Rand: ~p IsFirst: ~p CC: ~s",
         [Gateway, GWWeights, RandNo, IsFirstAttempt, CC]),
 
     Gateway.
@@ -469,7 +469,7 @@ get_new_gw_scores(ChooseFrom, CC) ->
             {Gateway, get_gwcc_score(Gateway, CC)}
         end, ChooseFrom),
     ScoreMap = maps:from_list(RetVal),
-    ?INFO("CC: ~p, Gateway Scores: ~p", [CC, ScoreMap]),
+    ?DEBUG("CC: ~p, Gateway Scores: ~p", [CC, ScoreMap]),
     ScoreMap.
 
 

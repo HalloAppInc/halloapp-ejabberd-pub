@@ -37,7 +37,7 @@ process([<<"twilio">>],
     try
         ClientIP = util_http:get_ip(IP, Headers),
         UserAgent = util_http:get_user_agent(Headers),
-        ?INFO("Twilio SMS callback: data:~p ip:~s ua:~s, headers:~p", [Data, ClientIP, UserAgent, Headers]),
+        ?INFO("Twilio SMS callback: data: ~p ip: ~s ua: ~s headers: ~p", [Data, ClientIP, UserAgent, Headers]),
         QueryList = uri_string:dissect_query(Data),
         Id = proplists:get_value(<<"SmsSid">>, QueryList),
         To = proplists:get_value(<<"To">>, QueryList),
@@ -53,7 +53,7 @@ process([<<"twilio">>],
                 AuthToken = mod_aws:get_secret_value(<<"TwilioMaster">>, <<"auth_token">>),
                 DerivedSignature = base64:encode(crypto:hmac(sha, AuthToken, Url)),
                 IsSigEqual = (TwilioSignature =:= DerivedSignature),
-                ?INFO("Twilio signature: ~s, DerivedSignature: ~s, Match: ~p",
+                ?DEBUG("Twilio signature: ~s DerivedSignature: ~s Match: ~p",
                     [TwilioSignature, DerivedSignature, IsSigEqual]),
                 SMSResponse2 = case {IsSigEqual, Status} of
                     {true, sent} ->
@@ -68,7 +68,7 @@ process([<<"twilio">>],
                 #gateway_response{price = Price, currency = Currency} = SMSResponse2,
                 {Price, Currency}
         end,
-        ?INFO("Twilio SMS callback, Id: ~s, To: ~s, From: ~s, Status: ~p, Price: ~p, Currency: ~s",
+        ?INFO("Twilio SMS callback, Id: ~s To: ~s From: ~s Status: ~p Price: ~p Currency: ~s",
             [Id, To, From, Status, SMSPrice, SMSCurrency]),
         {200, ?HEADER(?CT_JSON), jiffy:encode({[{result, ok}]})}
     catch
@@ -109,7 +109,7 @@ process([<<"mbird">>],
                 DerivedSignature = base64:encode(
                     crypto:hmac(sha256, SignatureKey, FlatRequest)),
                 IsSigEqual = (MBirdSignature =:= DerivedSignature),
-                ?INFO("MessageBird signature: ~s, DerivedSignature: ~s, Match: ~p",
+                ?DEBUG("MessageBird signature: ~s, DerivedSignature: ~s, Match: ~p",
                     [MBirdSignature, DerivedSignature, IsSigEqual]),
                 case IsSigEqual andalso Status =/= undefined of
                     true ->
@@ -284,18 +284,15 @@ process([<<"clickatell">>],
         Data2 = maps:get(<<"data">>, Payload),
         ApiId = maps:get(<<"apiId">>, Data2),
         MessageId = maps:get(<<"apiMessageId">>, Data2),
-        ClientMessageId = maps:get(<<"clientMessageId">>, Data2),
         Timestamp = maps:get(<<"timestamp">>, Data2),
         To = maps:get(<<"to">>, Data2),
-        From = maps:get(<<"from">>, Data2),
         Charge = util:to_float_maybe(maps:get(<<"charge">>, Data2)),
         Currency = <<"TBD">>,
         Status = util:to_integer_maybe(maps:get(<<"messageStatus">>, Data2)),
         Status2 = clickatell:normalized_status(Status),
-        ?INFO("Delivery receipt Clickatell: Phone(to): ~p, Phone(from): ~p, Status: ~p, "
-              "Status2: ~p, MessageId: ~p, ClientMessageId: ~p, "
-              "Charge: ~p, ApiId: ~p, Timestamp: ~p",
-            [To, From, Status, Status2, MessageId, ClientMessageId, Charge, ApiId, Timestamp]),
+        ?INFO("Delivery receipt Clickatell: Phone(to): ~s Status: ~s "
+              "Status2: ~p MessageId: ~s Charge: ~s ApiId: ~s Timestamp: ~s",
+            [To, Status, Status2, MessageId, Charge, ApiId, Timestamp]),
         add_gateway_callback_info(
             #gateway_response{gateway_id = MessageId, gateway = clickatell, status = Status2,
                 price = Charge, currency = Currency}),
@@ -351,8 +348,8 @@ process([<<"telesign">>],
         Mcc = maps:get(<<"mcc">>, AdditionalInfo),
         SubmitTimestamp = maps:get(<<"submit_timestamp">>, Payload),
         %% TODO(vipin): Need to check auth to make sure we get legitimate callbacks.
-        ?INFO("Delivery receipt Telesign: Status: ~p, StatusDescr: ~p, MsgId: ~p, Price:~p(~p) "
-            "Mnc: ~p, Mcc: ~p, SubmitTimestamp: ~p",
+        ?INFO("Delivery receipt Telesign: Status: ~p StatusDescr: ~s MsgId: ~s Price: ~s(~s) "
+            "Mnc: ~s Mcc: ~s SubmitTimestamp: ~s",
             [Status, StatusDescription, ReferenceId, Price, Currency, Mnc, Mcc, SubmitTimestamp]),
         add_gateway_callback_info(
             #gateway_response{gateway_id = ReferenceId, gateway = telesign, status = Status,

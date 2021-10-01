@@ -101,7 +101,7 @@ send_voice_call(Phone, Code, LangId, _UserAgent) ->
 -spec sending_helper(Phone :: phone(), Msg :: string(), TwilioLangId :: binary(), BaseUrl :: string(),
     ComposeBodyFn :: term(), Purpose :: string()) -> {ok, gateway_response()} | {error, atom(), atom()}.
 sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
-    ?INFO("Phone: ~p, Msg: ~p, Purpose: ~p", [Phone, Msg, Purpose]),
+    ?INFO("Phone: ~s Msg: ~p Purpose: ~s", [Phone, Msg, Purpose]),
     Headers = fetch_auth_headers(util:is_test_number(Phone)),
     Type = "application/x-www-form-urlencoded",
     Body = ComposeBodyFn(Phone, Msg, TwilioLangId),
@@ -165,9 +165,9 @@ normalized_status(_) ->
 
 -spec fetch_message_info(SMSId :: binary()) -> {ok, gateway_response()} | {error, sms_fail}.
 fetch_message_info(SMSId) ->
-    ?INFO("~p", [SMSId]),
+    ?INFO("~s", [SMSId]),
     URL = ?SMS_INFO_URL ++ binary_to_list(SMSId) ++ ".json",
-    ?INFO("URL: ~s", [URL]),
+    ?DEBUG("URL: ~s", [URL]),
     Headers = fetch_auth_headers(false),
     HTTPOptions = [],
     Options = [],

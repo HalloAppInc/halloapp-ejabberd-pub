@@ -69,8 +69,6 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             Status = maps:get(<<"status">>, Json),
             StatusCode = maps:get(<<"code">>, Status),
             Status2 = normalized_status(StatusCode),
-            ?INFO("SMS to Phone: ~p, gw: telesign, Status: ~p, Id:~p, StatusCode: ~p, Status2: ~p",
-                [Phone, Status, Id, StatusCode, Status2]),
             OkResponse = {ok, #gateway_response{gateway_id = Id, status = Status2, response = ResBody}},
             FailedResponse = {error, sms_fail, retry},
             case Status2 of
@@ -78,7 +76,10 @@ send_sms(Phone, Code, LangId, UserAgent) ->
                 queued -> OkResponse;
                 sent -> OkResponse;
                 delivered -> OkResponse;
-                _ -> FailedResponse
+                _ ->
+                    ?INFO("Sending SMS failed, Phone: ~s Id: ~s StatusCode: ~p, Status: ~p (retry)",
+                          [Phone, Id, StatusCode, Status2]),
+                    FailedResponse
             end;
         {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}} ->
             ?ERROR("Sending SMS failed Phone:~p (retry), HTTPCode: ~p, response ~p",

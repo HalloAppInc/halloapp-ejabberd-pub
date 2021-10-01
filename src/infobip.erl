@@ -100,13 +100,12 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             Status = normalized_status(StatusGroupName),
             OkResponse = {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}},
             FailedResponse = {error, sms_fail, retry},
-            ?INFO("SMS to Phone:~p gw:infobip ~p:~p Id:~p",
-                [Phone, StatusGroupName, StatusName, Id]),
+            ?INFO("SMS to Phone: ~s ~p:~p Id: ~p", [Phone, StatusGroupName, StatusName, Id]),
             case Status of
                 accepted -> OkResponse;
                 delivered -> OkResponse;
                 _ ->
-                    ?INFO("Sending SMS failed Phone:~p ~p:~p Desc:~p ResBody:~p",
+                    ?INFO("Sending SMS failed Phone: ~s ~p:~p Desc: ~p response: ~p (retry)",
                         [Phone, StatusGroupName, StatusName, StatusDesc, ResBody]),
                     FailedResponse
             end;
