@@ -110,12 +110,11 @@ send_sms(Phone, Code, LangId, UserAgent) ->
                     FailedResponse
             end;
         {ok, {{_, ResponseCode, _}, _ResHeaders, _ResBody}} when ResponseCode >= 400 ->
-            ?ERROR("Sending SMS failed, Code ~p, response ~p (retry)", [ResponseCode, Response]),
+            ?ERROR("Sending SMS failed, Phone: ~s Code ~p, response ~p (retry)", [Phone, ResponseCode, Response]),
             {error, sms_fail, retry};
         _ ->
-            % TODO: we should retry this case
-            ?ERROR("Sending SMS failed (no_retry) ~p", [Response]),
-            {error, sms_fail, no_retry}
+            ?ERROR("Sending SMS failed, Phone: ~s (retry) ~p", [Phone, Response]),
+            {error, sms_fail, retry}
     end.
 
 -spec send_voice_call(Phone :: phone(), Code :: binary(), LangId :: binary(), UserAgent :: binary()) ->

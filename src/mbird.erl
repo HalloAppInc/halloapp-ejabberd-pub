@@ -84,6 +84,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
     ?DEBUG("Response: ~p", [Response]),
     case Response of
         {ok, {{_, 201, _}, _ResHeaders, ResBody}} ->
+            ?INFO("Success: ~s", [Phone]),
             Json = jiffy:decode(ResBody, [return_maps]),
             Id = maps:get(<<"id">>, Json),
             Receipients = maps:get(<<"recipients">>, Json),
@@ -95,17 +96,17 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             ErrCode = util_sms:get_mbird_response_code(ResBody),
             case ErrCode of
                 ?NO_RECIPIENTS_CODE ->
-                    ?INFO("Sending SMS failed, Code ~p, response ~p (no_retry)", [ErrCode, Response]),
+                    ?INFO("Sending SMS failed, Phone: ~s Code ~p, response ~p (no_retry)", [Phone, ErrCode, Response]),
                     {error, sms_fail, no_retry};
                 ?BLACKLIST_NUM_CODE ->
-                    ?INFO("Sending SMS failed, Code ~p, response ~p (no_retry)", [ErrCode, Response]),
+                    ?INFO("Sending SMS failed, Phone: ~s Code ~p, response ~p (no_retry)", [Phone, ErrCode, Response]),
                     {error, sms_fail, no_retry};
                 _ ->
-                    ?ERROR("Sending SMS failed, Code ~p, response ~p (retry)", [ErrCode, Response]),
+                    ?ERROR("Sending SMS failed, Phone: ~s Code ~p, response ~p (retry)", [Phone, ErrCode, Response]),
                     {error, sms_fail, retry}
             end;
         _ ->
-            ?ERROR("Sending SMS failed (retry) ~p", [Response]),
+            ?ERROR("Sending SMS failed, Phone: ~s (retry) response ~p", [Phone, Response]),
             {error, sms_fail, retry}
     end.
 

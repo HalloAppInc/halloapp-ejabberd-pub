@@ -102,17 +102,18 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             ErrorDescr = maps:get(<<"errorDescription">>, Message, undefined),
             case Status of
                 accepted ->
+                    ?INFO("Success: ~s", [Phone]),
                     {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
                 _ ->
-                    ?INFO("Sending SMS failed, ErrorCode: ~p Error: ~p Error descr: ~p response: ~p (retry)",
-                        [ErrorCode, Error, ErrorDescr, Response]),
+                    ?INFO("Sending SMS failed, Phone: ~s ErrorCode: ~p Error: ~p Error descr: ~p response: ~p (retry)",
+                        [Phone, ErrorCode, Error, ErrorDescr, Response]),
                     {error, sms_fail, retry}
             end;
         {ok, {{_, HttpStatus, _}, _ResHeaders, _ResBody}}->
-            ?ERROR("Sending SMS failed, HTTPCode: ~p, response ~p (retry)", [HttpStatus, Response]),
+            ?ERROR("Sending SMS failed, Phone: ~s HTTPCode: ~p, response ~p (retry)", [Phone, HttpStatus, Response]),
             {error, sms_fail, retry};
         _ ->
-            ?ERROR("Sending SMS failed, response ~p (retry)", [Response]),
+            ?ERROR("Sending SMS failed, Phone: ~s response ~p (retry)", [Phone, Response]),
             {error, sms_fail, retry}
     end.
 

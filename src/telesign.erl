@@ -72,10 +72,10 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             OkResponse = {ok, #gateway_response{gateway_id = Id, status = Status2, response = ResBody}},
             FailedResponse = {error, sms_fail, retry},
             case Status2 of
-                accepted -> OkResponse;
-                queued -> OkResponse;
-                sent -> OkResponse;
-                delivered -> OkResponse;
+                Status3 when Status3 =:= accepted orelse Status3 =:= queued orelse Status3 =:= sent orelse
+                    Status3 =:= delivered ->
+                    ?INFO("Success: ~s", [Phone]),
+                    OkResponse;
                 _ ->
                     ?INFO("Sending SMS failed, Phone: ~s Id: ~s StatusCode: ~p, Status: ~p (retry)",
                           [Phone, Id, StatusCode, Status2]),

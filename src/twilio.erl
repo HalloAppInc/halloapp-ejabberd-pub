@@ -115,6 +115,7 @@ sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
     ErrMsg = list_to_atom(re:replace(string:lowercase(Purpose), " ", "_", [{return, list}]) ++ "_fail"),
     case Response of
         {ok, {{_, 201, _}, _ResHeaders, ResBody}} ->
+            ?INFO("Success: ~s", [Phone]),
             Json = jiffy:decode(ResBody, [return_maps]),
             Id = maps:get(<<"sid">>, Json),
             Status = normalized_status(maps:get(<<"status">>, Json)),
@@ -123,22 +124,23 @@ sending_helper(Phone, Msg, TwilioLangId, BaseUrl, ComposeBodyFn, Purpose) ->
             ErrCode = util_sms:get_response_code(ResBody),
             case {ErrCode, util:is_test_number(Phone)} of
                 {_, true} ->
+                    ?INFO("Success: ~s", [Phone]),
                     %% TODO: hardcoding params here is not great.
                     Id = util:random_str(20),
                     Status = queued,
                     {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
                 {?INVALID_TO_PHONE_CODE, false} ->
-                    ?INFO("Sending ~p failed, Code ~p, response ~p (no_retry)", [Purpose, ErrCode, Response]),
+                    ?INFO("Sending ~p failed, Phone: ~s Code ~p, response ~p (no_retry)", [Purpose, Phone, ErrCode, Response]),
                     {error, ErrMsg, no_retry};
                 {?NOT_ALLOWED_CALL_CODE, false} ->
-                    ?INFO("Sending ~p failed, Code ~p, response ~p (no_retry)", [Purpose, ErrCode, Response]),
+                    ?INFO("Sending ~p failed, Phone: ~s Code ~p, response ~p (no_retry)", [Purpose, Phone, ErrCode, Response]),
                     {error, ErrMsg, no_retry};
                 _ ->
-                    ?ERROR("Sending ~p failed, Code ~p, response ~p (retry)", [Purpose, ErrCode, Response]),
+                    ?ERROR("Sending ~p failed, Phone: ~s Code ~p, response ~p (retry)", [Purpose, Phone, ErrCode, Response]),
                     {error, ErrMsg, retry}
             end;
         _ ->
-            ?ERROR("Sending ~p failed (retry) ~p", [Response]),
+            ?ERROR("Sending failed Phone: ~s response ~p (retry) ~p", [Phone, Response]),
             {error, ErrMsg, retry}
     end.
 
