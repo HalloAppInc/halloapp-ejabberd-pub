@@ -70,7 +70,7 @@ start(Host, _Opts) ->
 
 stop(Host) ->
     ?INFO("stop ~w ~p", [?MODULE, self()]),
-    ejabberd_hooks:remove(on_user_first_login, Host, ?MODULE, on_user_first_login, 1),
+    ejabberd_hooks:delete(on_user_first_login, Host, ?MODULE, on_user_first_login, 1),
     ok.
 
 depends(_Host, _Opts) ->
