@@ -36,7 +36,6 @@
     set_presence_hook/4,
     unset_presence_hook/4,
     register_user/3,
-    re_register_user/3,
     get_user_activity/2,
     probe_and_send_presence/3
 ]).
@@ -45,14 +44,12 @@
 start(Host, _Opts) ->
     ejabberd_hooks:add(set_presence_hook, Host, ?MODULE, set_presence_hook, 1),
     ejabberd_hooks:add(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
-    ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50).
+    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50).
 
 stop(Host) ->
     ejabberd_hooks:delete(set_presence_hook, Host, ?MODULE, set_presence_hook, 1),
     ejabberd_hooks:delete(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
-    ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50).
+    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50).
 
 depends(_Host, _Opts) ->
     [].
@@ -75,11 +72,6 @@ register_user(User, Server, _Phone) ->
     Status = undefined,
     TimestampMs = util:now_ms(),
     store_user_activity(User, Server, undefined, TimestampMs, Status).
-
-
--spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-re_register_user(Uid, Server, Phone) ->
-    register_user(Uid, Server, Phone).
 
 
 %% set_presence_hook checks and stores the user activity, and also broadcast users presence
@@ -140,21 +132,9 @@ store_and_broadcast_presence(User, Server, Resource, away) ->
             broadcast_presence(User, Server, TimestampMs, away)
     end;
 store_and_broadcast_presence(User, Server, Resource, available) ->
-    check_for_first_login(User, Server),
     TimestampMs = util:now_ms(),
     store_user_activity(User, Server, Resource, TimestampMs, available),
     broadcast_presence(User, Server, undefined, available).
-
-
--spec check_for_first_login(User :: binary(), Server :: binary()) -> ok.
-check_for_first_login(User, Server) ->
-    case get_user_activity(User, Server) of
-        #activity{status = undefined} ->
-            ?INFO("Uid: ~s, on_user_first_login", [User]),
-            ejabberd_hooks:run(on_user_first_login, Server, [User, Server]);
-        _ ->
-            ok
-    end.
 
 
 -spec store_user_activity(User :: binary(), Server :: binary(), TimestampMs :: integer(),

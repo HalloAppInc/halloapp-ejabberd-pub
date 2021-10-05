@@ -18,7 +18,8 @@
     check_mexico_numbers_run/2,
     check_version_counters_run/2,
     log_recent_account_info_run2/2,
-    check_push_name_run/2
+    check_push_name_run/2,
+    set_login_run/2
 ]).
 
 
@@ -275,6 +276,33 @@ check_push_name_run(Key, State) ->
                         true -> ok
                     end;
                 _ -> ok
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                       Check all user accounts for login status                      %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+set_login_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            {ok, ActivityStatus} = q(ecredis_accounts, ["HGET", FullKey, <<"st">>]),
+            case ActivityStatus of
+                undefined -> ?INFO("Uid: ~s, ActivityStatus is undefined");
+                _ ->
+                    case DryRun of
+                        false ->
+                            Result = model_auth:set_login(Uid),
+                            ?INFO("Uid: ~s, Result: ~p", [Uid, Result]);
+                        true ->
+                            ?INFO("Uid: ~s, will login status")
+                    end
             end;
         _ -> ok
     end,

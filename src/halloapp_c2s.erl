@@ -176,20 +176,32 @@ host_down(Host) ->
 
 
 -spec open_session(state()) -> {ok, state()} | state().
-open_session(#{user := U, server := S, resource := R, sid := SID, client_version := ClientVersion,
-        ip := IP, mode := Mode} = State) ->
-    JID = jid:make(U, S, R),
+open_session(#{user := Uid, server := Server, resource := Resource,
+        sid := SID, client_version := ClientVersion, ip := IP, mode := Mode} = State) ->
+    JID = jid:make(Uid, Server, Resource),
     State1 = change_shaper(State),
     Conn = get_conn_type(State1),
-    State2 = State1#{conn => Conn, resource => R, jid => JID},
+    State2 = State1#{conn => Conn, resource => Resource, jid => JID},
     Priority = 0,
     Info = [{ip, IP}, {conn, Conn}, {client_version, ClientVersion}],
     SocketType = maps:get(socket_type, State),
     Protocol = util:get_protocol(IP),
     stat:count("HA/connections", "ip", 1, [{protocol, Protocol}]),
     stat:count("HA/connections", "socket", 1, [{socket_type, SocketType}]),
-    ejabberd_sm:open_session(SID, U, S, R, Priority, Mode, Info),
+    check_first_login(Uid, Server),
+    ejabberd_sm:open_session(SID, Uid, Server, Resource, Priority, Mode, Info),
     halloapp_stream_in:establish(State2).
+
+
+-spec check_first_login(Uid :: binary(), Server :: binary()) -> ok.
+check_first_login(Uid, Server) ->
+    case model_auth:set_login(Uid) of
+        true ->
+            ?INFO("Uid: ~s, on_user_first_login", [Uid]),
+            ejabberd_hooks:run(on_user_first_login, Server, [Uid, Server]);
+        false -> ok
+    end,
+    ok.
 
 
 %%%===================================================================

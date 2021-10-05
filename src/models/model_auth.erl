@@ -27,7 +27,8 @@
     get_spub/1,
     delete_spub/1,
     lock_user/1,
-    unlock_user/1
+    unlock_user/1,
+    set_login/1
 ]).
 
 %%====================================================================
@@ -36,6 +37,7 @@
 
 -define(FIELD_TIMESTAMP_MS, <<"tms">>).
 -define(FIELD_S_PUB, <<"spb">>).
+-define(FIELD_LOGIN_STATUS, <<"log">>).
 
 
 -spec set_spub(Uid :: binary(), SPub :: binary()) -> ok  | {error, any()}.
@@ -60,6 +62,12 @@ get_spub(Uid) ->
         ts_ms = util_redis:decode_ts(TsMsBinary),
         uid = Uid
     }}.
+
+
+-spec set_login(Uid :: binary()) -> boolean().
+set_login(Uid) ->
+    {ok, Exists} = q(["HSETNX", spub_key(Uid), ?FIELD_LOGIN_STATUS, 1]),
+    Exists =:= <<"1">>.
 
 
 -spec lock_user(Uid :: binary()) -> ok | {error, any()}.
