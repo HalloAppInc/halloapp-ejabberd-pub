@@ -93,7 +93,7 @@ on_user_first_login(Uid, _Server) ->
     case model_accounts:get_phone(Uid) of
         {ok, Phone} ->
             ok = model_phone:invalidate_old_attempts(Phone),
-            ?INFO("Uid: ~s Phone: ~s invalidate_old_attempts");
+            ?INFO("Uid: ~s Phone: ~s invalidate_old_attempts", [Uid, Phone]);
         {error, missing} ->
             ?ERROR("Uid: ~s missing_phone", [Uid])
     end,

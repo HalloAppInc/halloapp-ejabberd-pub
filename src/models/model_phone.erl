@@ -314,7 +314,10 @@ invalidate_old_attempts(Phone) ->
         fun({AttId, _TS}) ->
             ["HSET", verification_attempt_key(Phone, AttId), ?FIELD_VALID, "0"]
         end, VerificationAttemptList),
-    qp(RedisCommands),
+    case RedisCommands of
+        [] -> ok;
+        _ -> qp(RedisCommands)
+    end,
     ok.
 
 
