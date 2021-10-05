@@ -22,7 +22,9 @@
 -export([
     process_local_iq/1,
     re_register_user/3,
-    group_member_added/3
+    group_member_added/3,
+    retract_post/4,
+    retract_comment/5
 ]).
 
 
