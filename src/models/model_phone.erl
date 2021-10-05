@@ -46,7 +46,8 @@
     get_verification_attempt_summary/2,
     add_phone_pattern/2,
     get_phone_pattern_info/1,
-    delete_phone_pattern/1
+    delete_phone_pattern/1,
+    invalidate_old_attempts/1
 ]).
 
 %%====================================================================
@@ -303,7 +304,6 @@ get_gateway_response_status(Phone, AttemptId) ->
 add_verification_success(Phone, AttemptId) ->
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
     _Res = q(["HSET", VerificationAttemptKey, ?FIELD_VERIFICATION_SUCCESS, "1"]),
-    invalidate_old_attempts(Phone),
     ok.
 
 

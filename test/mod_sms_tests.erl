@@ -115,6 +115,11 @@ disable_otp_after_success_test() ->
     ok = model_phone:add_gateway_response(?PHONE, AttemptId2,
         #gateway_response{gateway = twilio, gateway_id = ?SID2, status = sent}),
     ?assertEqual(match, mod_sms:verify_sms(?PHONE, ?CODE1)),
+    ?assertEqual(match, mod_sms:verify_sms(?PHONE, ?CODE1)),
+    ?assertEqual(match, mod_sms:verify_sms(?PHONE, ?CODE2)),
+
+    %% Invalidate old codes.
+    ok = model_phone:invalidate_old_attempts(?PHONE),
     ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?CODE1)),
     ?assertEqual(nomatch, mod_sms:verify_sms(?PHONE, ?CODE2)),
     ok.

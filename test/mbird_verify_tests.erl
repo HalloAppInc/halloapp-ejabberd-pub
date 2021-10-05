@@ -45,7 +45,12 @@ verify_test() ->
     false = model_phone:get_verification_success(?PHONE, AttemptId2),
     % confirm error with default mbird code
     nomatch = mod_sms:verify_sms(?PHONE, ?MBIRD_CODE),
-    % this will now fail after prev validation
+    %% match without going through mbird_verify after prev validation
+    match = mod_sms:verify_sms(?PHONE, ?CODE),
+
+    %% Invalidate old codes.
+    ok = model_phone:invalidate_old_attempts(?PHONE),
+    %% this will now fail after invalidating old codes.
     nomatch = mod_sms:verify_sms(?PHONE, ?CODE),
     {ok, AllVerifyInfo} = model_phone:get_all_verification_info(?PHONE),
     nomatch = mbird_verify:verify_code(?PHONE, ?CODE, AllVerifyInfo),

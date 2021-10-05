@@ -40,6 +40,7 @@
 -export([start/2, stop/1, depends/2, mod_options/1]).
 %% API
 -export([
+    on_user_first_login/2,
     request_sms/2,
     request_otp/4,
 %%    check_otp_request_too_soon/2,
@@ -61,13 +62,15 @@
 %% gen_mod callbacks
 %%====================================================================
 
-start(_Host, _Opts) ->
+start(Host, _Opts) ->
     ?INFO("start ~w ~p", [?MODULE, self()]),
     lists:foreach(fun init_gateway/1, sms_gateway_list:all()),
+    ejabberd_hooks:add(on_user_first_login, Host, ?MODULE, on_user_first_login, 1),
     ok.
 
-stop(_Host) ->
+stop(Host) ->
     ?INFO("stop ~w ~p", [?MODULE, self()]),
+    ejabberd_hooks:remove(on_user_first_login, Host, ?MODULE, on_user_first_login, 1),
     ok.
 
 depends(_Host, _Opts) ->
@@ -80,6 +83,22 @@ mod_options(_Host) ->
 %%====================================================================
 %% API
 %%====================================================================
+
+%% We use this hook to invalidate all past otp attempts.
+%% Another way to fix this would be to store client's noise-pubkey when requesting_sms
+%% and allow codes to be valid as long as client is using the same noise-pubkey.
+-spec on_user_first_login(Uid :: uid(), Server :: binary()) -> ok.
+on_user_first_login(Uid, _Server) ->
+    %% This hook is run on a successful login after every registration.
+    case model_accounts:get_phone(Uid) of
+        {ok, Phone} ->
+            ok = model_phone:invalidate_old_attempts(Phone),
+            ?INFO("Uid: ~s Phone: ~s invalidate_old_attempts");
+        {error, missing} ->
+            ?ERROR("Uid: ~s missing_phone", [Uid])
+    end,
+    ok.
+
 
 -spec request_sms(Phone :: phone(), UserAgent :: binary()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 request_sms(Phone, UserAgent) ->

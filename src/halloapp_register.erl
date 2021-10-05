@@ -422,9 +422,11 @@ close_socket(#{socket := Socket} = State) ->
 send_pkt(#{socket := #socket_state{socket_type = SocketType} = Socket} = State, PktToSend) ->
     case enif_protobuf:encode(PktToSend) of
         BinPkt when is_binary(BinPkt) ->
+            ByteSize = byte_size(BinPkt),
             stat:count("HA/pb_packet", "encode_success", 1, [{socket_type, SocketType}]),
             case halloapp_socket:send(Socket, BinPkt) of
                 {ok, noise, SocketData} ->
+                    ?INFO("successfully sent_pkt to client: ~p", [ByteSize]),
                     State#{socket => SocketData};
                 {error, _} = Err ->
                     ?ERROR("failed to send packet ~p, error ~p", [PktToSend, Err]),
