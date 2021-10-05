@@ -72,8 +72,15 @@ remove_member_test() ->
     {ok, true} = model_groups:add_member(Gid, ?UID2, ?UID1),
     {ok, true} = model_groups:add_member(Gid, ?UID3, ?UID1),
     ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
+
+    ?assertEqual(ok, model_groups:set_audience_hash(Gid, ?AUDIENCE_HASH)),
     {ok, true} = model_groups:remove_member(Gid, ?UID2),
+    Group2 = model_groups:get_group_info(Gid),
+    ?assertEqual(undefined, Group2#group_info.audience_hash),
+    ?assertEqual(ok, model_groups:set_audience_hash(Gid, ?AUDIENCE_HASH)),
     {ok, false} = model_groups:remove_member(Gid, ?UID2),
+    Group3 = model_groups:get_group_info(Gid),
+    ?assertEqual(undefined, Group3#group_info.audience_hash),
     ?assertEqual([?UID1, ?UID3], model_groups:get_member_uids(Gid)),
     ok.
 
