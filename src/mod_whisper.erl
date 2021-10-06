@@ -109,7 +109,6 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_whisper_keys{uid = Ouid, action = get}} = IQ) ->
     %%TODO(murali@): check if user is allowed to access keys of username.
-    Server = util:get_host(),
     ?INFO("get_keys Uid: ~s, Ouid: ~s", [Uid, Ouid]),
     case Ouid of
         undefined ->
@@ -129,30 +128,45 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
                     one_time_keys = []
                 });
         _ ->
-            {ok, WhisperKeySet} = model_whisper_keys:get_key_set(Ouid),
-            case WhisperKeySet of
-                undefined ->
-                    pb:make_iq_result(IQ, #pb_whisper_keys{uid = Ouid});
-                _ ->
-                    %% Uid requests keys of Ouid to establish a session.
-                    %% We need to add Uid as subscriber of Ouid's keys and vice-versa.
-                    %% When a user resets their keys on the server: these subscribers are then notified.
-                    ok = model_whisper_keys:add_key_subscriber(Ouid, Uid),
-                    ok = model_whisper_keys:add_key_subscriber(Uid, Ouid),
-                    check_count_and_notify_user(Ouid, Server),
-                    IdentityKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
-                    SignedKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.signed_key),
-                    OneTimeKeys = case WhisperKeySet#user_whisper_key_set.one_time_key of
-                        undefined ->
-                            stat:count(?STAT_NS, "empty_otp_key_set"),
-                            [];
-                        OneTimeKey ->
-                            stat:count(?STAT_NS, "otp_key_set_ok"),
-                            [util:maybe_base64_decode(OneTimeKey)]
-                    end,
-                    pb:make_iq_result(IQ, #pb_whisper_keys{uid = Ouid, identity_key = IdentityKey,
-                            signed_key = SignedKey, one_time_keys = OneTimeKeys})
+            {IdentityKey, SignedKey, OneTimeKeys} = get_key_set(Ouid, Uid),
+            pb:make_iq_result(IQ,
+                #pb_whisper_keys{
+                    uid = Ouid,
+                    identity_key = IdentityKey,
+                    signed_key = SignedKey,
+                    one_time_keys = OneTimeKeys
+            })
+    end;
+
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+        payload = #pb_whisper_keys_collection{collection = Collection}} = IQ) ->
+    Ouids = lists:filtermap(
+        fun(#pb_whisper_keys{uid = Ouid}) ->
+            %% Filter out own Uid and undefined uids.
+            case Ouid =/= undefined andalso Ouid =/= Uid of
+                true -> {true, Ouid};
+                false -> false
             end
+        end, Collection),
+    ?INFO("get_keys Uid: ~s, Ouids: ~s", [Uid, Ouids]),
+
+    case Ouids of
+        [] ->
+            ?ERROR("Invalid iq: ~p", [IQ]),
+            pb:make_error(IQ, util:err(undefined_uids));
+        _ ->
+            ResultCollection = lists:map(
+                fun(Ouid) ->
+                    %% TODO(murali@): use qmn here!
+                    {IdentityKey, SignedKey, OneTimeKeys} = get_key_set(Ouid, Uid),
+                    #pb_whisper_keys{
+                        uid = Ouid,
+                        identity_key = IdentityKey,
+                        signed_key = SignedKey,
+                        one_time_keys = OneTimeKeys
+                    }
+                end, Ouids),
+            pb:make_iq_result(IQ, #pb_whisper_keys_collection{collection = ResultCollection})
     end.
 
 
@@ -192,6 +206,35 @@ refresh_otp_keys(Uid) ->
 %%====================================================================
 %% internal functions
 %%====================================================================
+
+%% Uid is requesting keyset of Ouid.
+-spec get_key_set(Ouid :: binary(), Uid :: binary()) -> {binary(), binary(), [binary()]}.
+get_key_set(Ouid, Uid) ->
+    Server = util:get_host(),
+    {ok, WhisperKeySet} = model_whisper_keys:get_key_set(Ouid),
+    case WhisperKeySet of
+        undefined ->
+            ?ERROR("Ouid: ~s WhisperKeySet is empty", [Ouid]),
+            {undefined, undefined, undefined};
+        _ ->
+            %% Uid requests keys of Ouid to establish a session.
+            %% We need to add Uid as subscriber of Ouid's keys and vice-versa.
+            %% When a user resets their keys on the server: these subscribers are then notified.
+            ok = model_whisper_keys:add_key_subscriber(Ouid, Uid),
+            ok = model_whisper_keys:add_key_subscriber(Uid, Ouid),
+            check_count_and_notify_user(Ouid, Server),
+            IdentityKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
+            SignedKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.signed_key),
+            OneTimeKeys = case WhisperKeySet#user_whisper_key_set.one_time_key of
+                undefined ->
+                    stat:count(?STAT_NS, "empty_otp_key_set"),
+                    [];
+                OneTimeKey ->
+                    stat:count(?STAT_NS, "otp_key_set_ok"),
+                    [util:maybe_base64_decode(OneTimeKey)]
+            end,
+            {IdentityKey, SignedKey, OneTimeKeys}
+    end.
 
 
 -spec check_whisper_keys(IdentityKeyB64 :: binary(), SignedKeyB64 :: binary())

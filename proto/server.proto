@@ -535,6 +535,7 @@ message Iq {
         ContactSyncError contact_sync_error = 34;
         ClientOtpRequest client_otp_request = 35; // only for sms_app gateway use
         ClientOtpResponse client_otp_response = 36; // only for sms_app gateway use
+        WhisperKeysCollection whisper_keys_collection = 37;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -865,6 +866,12 @@ message WhisperKeys {
     bytes signed_key = 4;
     int32 otp_key_count = 5;
     repeated bytes one_time_keys = 6;
+}
+
+
+message WhisperKeysCollection {
+    // Action is always get.
+    repeated WhisperKeys collection = 1;
 }
 
 

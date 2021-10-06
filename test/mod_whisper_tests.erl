@@ -133,10 +133,31 @@ get_whisper_keys_test() ->
     mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
 
     ?assertEqual({ok, 16}, model_whisper_keys:count_otp_keys(?UID1)),
-    Result2 = mod_whisper:process_local_iq(create_get_whisper_keys_iq(
+    Result = mod_whisper:process_local_iq(create_get_whisper_keys_iq(
         ?UID2, ?UID1)),
-    check_iq_result_get(Result2, ?UID1, IK, SK, lists:nth(1, OTKS)),
+    ?assertEqual(result, Result#pb_iq.type),
+    check_wk_result(Result#pb_iq.payload, ?UID1, IK, SK, lists:nth(1, OTKS)),
     ?assertEqual({ok, 15}, model_whisper_keys:count_otp_keys(?UID1)),
+    ok.
+
+
+get_whisper_keys_collection_test() ->
+    setup(),
+    {IK, SK, OTKS} = {tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(16, 64)},
+    mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
+    {IK2, SK2, OTKS2} = {tutil:gen_keyb64(64), tutil:gen_keyb64(64), tutil:gen_otkb64(16, 64)},
+    mod_whisper:set_keys_and_notify(?UID2, IK2, SK2, OTKS2),
+    ?assertEqual({ok, 16}, model_whisper_keys:count_otp_keys(?UID1)),
+    ?assertEqual({ok, 16}, model_whisper_keys:count_otp_keys(?UID2)),
+
+    Result = mod_whisper:process_local_iq(create_get_whisper_keys_collection_iq(
+        ?UID3, [?UID1, ?UID2])),
+    ?assertEqual(result, Result#pb_iq.type),
+    [WK1, WK2] = Result#pb_iq.payload#pb_whisper_keys_collection.collection,
+    check_wk_result(WK1, ?UID1, IK, SK, lists:nth(1, OTKS)),
+    check_wk_result(WK2, ?UID2, IK2, SK2, lists:nth(1, OTKS2)),
+    ?assertEqual({ok, 15}, model_whisper_keys:count_otp_keys(?UID1)),
+    ?assertEqual({ok, 15}, model_whisper_keys:count_otp_keys(?UID2)),
     ok.
 
 %% -------------------------------------------- %%
@@ -171,6 +192,16 @@ create_get_whisper_keys_iq(Uid, Ouid) ->
             action = get}
     }.
 
+create_get_whisper_keys_collection_iq(Uid, Ouids) ->
+    Collection = lists:map(
+        fun(Ouid) -> #pb_whisper_keys{uid = Ouid, action = get} end,
+        Ouids),
+    #pb_iq{
+        from_uid = Uid,
+        type = get,
+        payload = #pb_whisper_keys_collection{collection = Collection}
+    }.
+
 check_iq_result(Result) ->
     #pb_iq{type = Type, payload = Payload} = Result,
     ?assertEqual(result, Type),
@@ -184,9 +215,8 @@ check_iq_result_count(Result, ExpectedCount) ->
     ?assertEqual(ExpectedCount, Count),
     ok.
 
-check_iq_result_get(Result, Uid, IK, SK, OTK) ->
-    #pb_iq{type = Type, payload = #pb_whisper_keys{action = normal} = WK} = Result,
-    ?assertEqual(result, Type),
+check_wk_result(WK, Uid, IK, SK, OTK) ->
+    ?assertEqual(normal, WK#pb_whisper_keys.action),
     ?assertEqual(base64:decode(IK), WK#pb_whisper_keys.identity_key),
     ?assertEqual(base64:decode(SK), WK#pb_whisper_keys.signed_key),
     ?assertEqual([base64:decode(OTK)], WK#pb_whisper_keys.one_time_keys),
