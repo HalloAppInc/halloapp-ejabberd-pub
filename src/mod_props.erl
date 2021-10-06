@@ -120,11 +120,20 @@ get_uid_based_props(PropMap, Uid) ->
 -spec get_client_based_props(PropMap :: map(),
         ClientType :: atom(), ClientVersion :: binary()) -> map().
 get_client_based_props(PropMap, android, ClientVersion) ->
-    %% All versions starting Android0.163 will be using this prop now.
+    %% All android versions starting v0.163
     Result = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android0.162">>),
-    maps:update(new_client_container, Result, PropMap);
-get_client_based_props(PropMap, ios, _ClientVersion) ->
-    PropMap;
+    PropMap1 = maps:update(new_client_container, Result, PropMap),
+    %% All android versions starting v0.197
+    Result2 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android0.196">>),
+    PropMap2 = maps:update(voice_notes, Result2, PropMap1),
+    PropMap2;
+
+get_client_based_props(PropMap, ios, ClientVersion) ->
+    %% All ios versions starting v1.10.167
+    Result = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.10.166">>),
+    PropMap1 = maps:update(voice_notes, Result, PropMap),
+    PropMap1;
+
 get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
 
