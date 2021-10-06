@@ -215,7 +215,7 @@ get_key_set(Ouid, Uid) ->
     case WhisperKeySet of
         undefined ->
             ?ERROR("Ouid: ~s WhisperKeySet is empty", [Ouid]),
-            {undefined, undefined, undefined};
+            {undefined, undefined, []};
         _ ->
             %% Uid requests keys of Ouid to establish a session.
             %% We need to add Uid as subscriber of Ouid's keys and vice-versa.
