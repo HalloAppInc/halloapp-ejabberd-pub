@@ -333,18 +333,26 @@ handle_apns_response(StatusCode, ApnsId, State) ->
 -spec push_message(Message :: pb_msg(), PushInfo :: push_info(),
         State :: push_state()) -> push_state().
 push_message(Message, PushInfo, State) ->
-    Timestamp = util:now(),
+    MsgId = pb:get_id(Message),
     Uid = pb:get_to(Message),
-    PushMetadata = push_util:parse_metadata(Message, PushInfo),
-    PushMessageItem = #push_message_item{
-            id = pb:get_id(Message),
+    try
+        Timestamp = util:now(),
+        PushMetadata = push_util:parse_metadata(Message, PushInfo),
+        PushMessageItem = #push_message_item{
+            id = MsgId,
             uid = Uid,
             message = Message,
             timestamp = Timestamp,
             retry_ms = ?RETRY_INTERVAL_MILLISEC,
             push_info = PushInfo,
             push_type = PushMetadata#push_metadata.push_type},
-    push_message_item(PushMessageItem, PushMetadata, State).
+        push_message_item(PushMessageItem, PushMetadata, State)
+    catch
+        Class: Reason: Stacktrace ->
+            ?ERROR("Failed to push MsgId: ~s ToUid: ~s crash:~s",
+                [MsgId, Uid, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            ok
+    end.
 
 
 -spec push_message_item(PushMessageItem :: push_message_item(),

@@ -159,16 +159,24 @@ handle_info(Request, State) ->
 
 -spec push_message(Message :: pb_msg(), PushInfo :: push_info(), State :: push_state()) -> ok.
 push_message(Message, PushInfo, State) ->
-    Timestamp = util:now(),
+    MsgId = pb:get_id(Message),
     Uid = pb:get_to(Message),
-    PushMessageItem = #push_message_item{
-            id = pb:get_id(Message),
-            uid = Uid,
-            message = Message,
-            timestamp = Timestamp,
-            retry_ms = ?RETRY_INTERVAL_MILLISEC,
-            push_info = PushInfo},
-    push_message_item(PushMessageItem, State).
+    try
+        Timestamp = util:now(),
+        PushMessageItem = #push_message_item{
+                id = MsgId,
+                uid = Uid,
+                message = Message,
+                timestamp = Timestamp,
+                retry_ms = ?RETRY_INTERVAL_MILLISEC,
+                push_info = PushInfo},
+        push_message_item(PushMessageItem, State)
+    catch
+        Class: Reason: Stacktrace ->
+            ?ERROR("Failed to push MsgId: ~s ToUid: ~s crash:~s",
+                [MsgId, Uid, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            ok
+    end.
 
 
 -spec push_message_item(PushMessageItem :: push_message_item(), State :: push_state()) -> ok.
