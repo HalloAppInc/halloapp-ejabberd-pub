@@ -47,6 +47,7 @@
     to_list_maybe/1,
     list_to_map/1,
     ms_to_sec/1,
+    sec_to_ms/1,
     send_after/2,
     timestamp_to_datetime/1,
     decode_base_64/1,
@@ -352,6 +353,11 @@ ms_to_sec(MilliSeconds) when is_integer(MilliSeconds) ->
     MilliSeconds div 1000.
 
 
+-spec sec_to_ms(Seconds :: integer()) -> integer().
+sec_to_ms(Seconds) when is_integer(Seconds) ->
+    Seconds * 1000.
+
+
 -spec send_after(TimeoutMs :: integer(), Msg :: any()) -> reference().
 send_after(TimeoutMs, Msg) ->
     NewTimer = erlang:send_after(TimeoutMs, self(), Msg),
@@ -463,6 +469,9 @@ get_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_st
 get_timestamp(#pb_msg{payload = #pb_seen_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_delivery_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_played_receipt{timestamp = T}}) -> T;
+%% Clients set their own timestamp on these group_feed_item messages - because they are rerequests.
+get_timestamp(#pb_msg{payload = #pb_group_feed_item{item = #pb_post{timestamp = T}}}) -> util:now();
+get_timestamp(#pb_msg{payload = #pb_group_feed_item{item = #pb_comment{timestamp = T}}}) -> util:now();
 get_timestamp(#pb_msg{}) -> undefined.
 
 

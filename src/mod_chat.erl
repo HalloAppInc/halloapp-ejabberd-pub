@@ -62,14 +62,15 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
             % TODO: (nikola): I don't think this can happen
             ?WARNING("MsgID: ~s Type: ~s has no FromUid", [MsgId, PayloadType]),
             Packet;
-        not is_record(Payload, pb_chat_stanza) andalso not is_record(Payload, pb_silent_chat_stanza) ->
-            Packet;
-        true ->
+        is_record(Payload, pb_chat_stanza) orelse is_record(Payload, pb_silent_chat_stanza) ->
             case is_record(Payload, pb_chat_stanza) of
                 true -> ejabberd_hooks:run_fold(user_send_im, LServer, [FromUid, MsgId, ToUid]);
                 false -> ok
             end,
-            set_sender_info(Packet)
+            set_sender_info(Packet);
+        true ->
+            %% Everything else.
+            Packet
     end,
     {Packet1, State};
 

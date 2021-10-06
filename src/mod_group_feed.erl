@@ -20,11 +20,13 @@
 
 %% Hooks and API.
 -export([
+    user_send_packet/1,
     process_local_iq/1,
     re_register_user/3,
     group_member_added/3,
     retract_post/4,
-    retract_comment/5
+    retract_comment/5,
+    make_pb_group_feed_item/5
 ]).
 
 
@@ -33,12 +35,14 @@ start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_group_feed_item, ?MODULE, process_local_iq),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(group_member_added, Host, ?MODULE, group_member_added, 50),
+    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     ok.
 
 stop(Host) ->
     ?INFO("stop", []),
     ejabberd_hooks:delete(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:delete(group_member_added, Host, ?MODULE, group_member_added, 50),
+    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_group_feed_item),
     ok.
 
@@ -55,6 +59,15 @@ mod_options(_Host) ->
 %%====================================================================
 %% feed: IQs
 %%====================================================================
+
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_group_feed_item{} = _Payload} = Packet, State} = _Acc) ->
+    PayloadType = util:get_payload_type(Packet),
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s", [FromUid, PayloadType, ToUid, MsgId]),
+    Packet1 = set_group_and_sender_info(Packet),
+    {Packet1, State};
+user_send_packet({_Packet, _State} = Acc) ->
+    Acc.
 
 %% Publish post.
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
@@ -143,6 +156,27 @@ group_member_added(Gid, Uid, AddedByUid) ->
 %% Internal functions
 %%====================================================================
 
+-spec set_group_and_sender_info(Message :: pb_msg()) -> pb_msg().
+set_group_and_sender_info(#pb_msg{id = MsgId, from_uid = FromUid,
+        payload = #pb_group_feed_item{} = GroupFeedItem} = Message) ->
+    Gid = GroupFeedItem#pb_group_feed_item.gid,
+    %% TODO: setting timestamp this way is not great.
+    Timestamp = case GroupFeedItem#pb_group_feed_item.item of
+        #pb_post{timestamp = undefined} ->
+            %% TODO: murali@: remove this code after both clients implement it properly.
+            ?WARNING("MsgId: ~p, Timestamp is missing", [MsgId]),
+            util:now();
+        #pb_comment{timestamp = undefined} ->
+            ?WARNING("MsgId: ~p, Timestamp is missing", [MsgId]),
+            util:now();
+        #pb_post{timestamp = T} -> T;
+        #pb_comment{timestamp = T} -> T
+    end,
+    GroupInfo = model_groups:get_group_info(Gid),
+    {ok, SenderName} = model_accounts:get_name(FromUid),
+    NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, FromUid, SenderName, GroupFeedItem, Timestamp),
+    Message#pb_msg{payload = NewGroupFeedSt}.
+
 
 %% TODO(murali@): log stats for different group-feed activity.
 -spec publish_post(Gid :: gid(), Uid :: uid(), PostId :: binary(), PayloadBase64 :: binary(),
@@ -191,7 +225,7 @@ publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, GroupFeedSt) ->
     end,
     
     NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid, SenderName, GroupFeedSt,
-        FinalTimestampMs),
+        util:ms_to_sec(FinalTimestampMs)),
     ?INFO("Fan Out MSG: ~p", [NewGroupFeedSt]),
     ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
     {ok, NewGroupFeedSt}.
@@ -241,7 +275,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
             PushSet = sets:from_list([PostOwnerUid, Uid | ParentPushList]),
 
             NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
-                    SenderName, GroupFeedSt, TimestampMs),
+                    SenderName, GroupFeedSt, util:ms_to_sec(TimestampMs)),
             ?INFO("Fan Out MSG: ~p", [NewGroupFeedSt]),
             ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
             {ok, NewGroupFeedSt};
@@ -259,7 +293,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
                     [Gid, Uid, CommentId, comment]),
 
             NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
-                    SenderName, GroupFeedSt, TimestampMs),
+                    SenderName, GroupFeedSt, util:ms_to_sec(TimestampMs)),
             ?INFO("Fan Out MSG: ~p", [NewGroupFeedSt]),
             ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
             {ok, NewGroupFeedSt}
@@ -295,7 +329,7 @@ retract_post(Gid, Uid, PostId, GroupFeedSt) ->
                                     [Gid, Uid, PostId, post]),
 
                             NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
-                                    SenderName, GroupFeedSt, TimestampMs),
+                                    SenderName, GroupFeedSt, util:ms_to_sec(TimestampMs)),
                             ?INFO("Fan Out MSG: ~p", [NewGroupFeedSt]),
                             ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
                             {ok, NewGroupFeedSt}
@@ -335,7 +369,7 @@ retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
                                     [Gid, Uid, CommentId, comment]),
 
                             NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
-                                    SenderName, GroupFeedSt, TimestampMs),
+                                    SenderName, GroupFeedSt, util:ms_to_sec(TimestampMs)),
                             ?INFO("Fan Out MSG: ~p", [NewGroupFeedSt]),
                             ok = broadcast_group_feed_event(Uid, AudienceSet, PushSet, NewGroupFeedSt),
                             {ok, NewGroupFeedSt}
@@ -537,8 +571,7 @@ add_sender_state2(HistoryResendSt, Uid, StateBundlesMap) ->
 
 -spec make_pb_group_feed_item(GroupInfo :: group_info(), Uid :: uid(), SenderName :: binary(),
         GroupFeedSt :: pb_group_feed_item(), Ts :: integer()) -> pb_group_feed_item().
-make_pb_group_feed_item(GroupInfo, Uid, SenderName, GroupFeedSt, TsMs) ->
-    Ts = util:ms_to_sec(TsMs),
+make_pb_group_feed_item(GroupInfo, Uid, SenderName, GroupFeedSt, Ts) ->
     Item = case GroupFeedSt#pb_group_feed_item.item of
         #pb_post{} = Post ->
             Post#pb_post{publisher_uid = Uid, publisher_name = SenderName, timestamp = Ts};
