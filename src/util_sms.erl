@@ -77,6 +77,6 @@ get_response_code(ResBody) ->
 get_sms_message(UserAgent, Code, LangId) ->
     {SmsMsgBin, TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
     AppHash = util_ua:get_app_hash(UserAgent),
-    Msg = io_lib:format("~s: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
+    Msg = io_lib:format("~ts: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
     {Msg, TranslatedLangId}.
 

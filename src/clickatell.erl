@@ -79,7 +79,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
     Headers = [{"X-Version", "1"}, {"Authorization", "bearer " ++ get_auth_token()}],
     Type = "application/json",
     Body = compose_body(Phone, Msg),
-    ?DEBUG("Body: ~p", [Body]),
+    ?INFO("Phone: ~s Body: ~p", [Phone, Body]),
     HTTPOptions = [],
     Options = [],
     Response = httpc:request(post, {URL, Headers, Type, Body}, HTTPOptions, Options),
@@ -165,12 +165,15 @@ get_auth_token() ->
     Message :: string(),
     Body :: string().
 compose_body(Phone, Message) ->
+    Unicode = unicode:characters_to_binary(Message, unicode, utf16),
+    Text = str:to_hexlist(Unicode),
     Mp = #{
        <<"to">> => [Phone],
        <<"from">> => util:to_binary(get_originator(Phone)),
-       <<"text">> => util:to_binary(Message),
+       <<"text">> => Text,
        <<"mo">> => <<"1">>,
-       <<"callback">> => <<"7">>
+       <<"callback">> => <<"7">>,
+       <<"unicode">> => <<"1">>
     },
     jiffy:encode(Mp).
 

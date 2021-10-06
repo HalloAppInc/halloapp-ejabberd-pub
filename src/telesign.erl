@@ -49,7 +49,7 @@ can_send_voice_call(_CC) ->
 send_sms(Phone, Code, LangId, UserAgent) ->
     {SmsMsgBin, _TranslatedLangId} = mod_translate:translate(<<"server.sms.verification">>, LangId),
     AppHash = util_ua:get_app_hash(UserAgent),
-    Msg = io_lib:format("~s: $$CODE$$~n~n~n~s", [SmsMsgBin, AppHash]),
+    Msg = io_lib:format("~ts: $$CODE$$~n~n~n~s", [SmsMsgBin, AppHash]),
 
     ?INFO("Phone: ~p, Msg: ~p", [Phone, Msg]),
     URL = ?BASE_SMS_URL,
@@ -164,7 +164,7 @@ compose_body(Phone, Template, Code) ->
         {"sender_id", ?HALLOAPP_SENDER_ID},
         {"verify_code", Code},
         {"template", Template}
-    ], [{encoding, latin1}]).
+    ], [{encoding, unicode}]).
 
 % TODO: Implement if sending feedback back to gateway
 -spec send_feedback(Phone :: phone(), AllVerifyInfo :: list()) -> ok.

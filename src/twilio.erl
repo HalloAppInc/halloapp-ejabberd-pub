@@ -231,7 +231,7 @@ compose_body(Phone, Message, _TwilioLangId) ->
         {"MessagingServiceSid", ?MESSAGE_SERVICE_SID},
         {"Body", Message2},
         {"StatusCallback", ?TWILIOCALLBACK_URL}
-    ], [{encoding, latin1}]).
+    ], [{encoding, unicode}]).
 
 -spec encode_to_twiml(Msg :: string(), TwilioLangId :: string()) -> string().
 encode_to_twiml(Msg, TwilioLangId) ->

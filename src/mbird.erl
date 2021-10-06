@@ -196,7 +196,7 @@ compose_body(Phone, Message) ->
         {"originator", get_originator(CC)},
         {"reference", ?REFERENCE},
         {"body", Message}
-    ], [{encoding, latin1}]).
+    ], [{encoding, unicode}]).
 
 -spec get_originator(CC :: binary()) -> string().
 %% TODO: Need to explore other countries for Alphanumeric SenderId.
