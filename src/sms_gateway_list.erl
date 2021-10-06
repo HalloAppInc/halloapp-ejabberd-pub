@@ -31,8 +31,7 @@
     mbird,
     twilio_verify,
     mbird_verify,
-    telesign,
-    clickatell
+    telesign
 ]).
 
 % Returns list of all gateways
