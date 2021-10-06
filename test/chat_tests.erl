@@ -66,7 +66,7 @@ delete_account_msg_test(_Conf) ->
     ok = ejabberd_auth:set_spub(?UID8, ?SPUB1),
     {ok, C2} = ha_client:connect_and_login(?UID8, ?KEYPAIR1),
     Payload = #pb_delete_account{phone = ?PHONE1},
-    Result = ha_client:send_iq(C2, set, Payload),
+    _Result = ha_client:send_iq(C2, set, Payload),
     MsgId1 = util_id:new_msg_id(),
     ha_client:send(C1, #pb_packet{
         stanza = #pb_msg{

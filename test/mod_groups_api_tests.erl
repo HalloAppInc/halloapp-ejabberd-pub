@@ -355,7 +355,7 @@ create_group_with_identity_keys(Uid, Name, Members) ->
 
 
 decode_ik(IK) ->
-    IKBin2 = try enif_protobuf:decode(base64:decode(IK), pb_identity_key) of
+    _IKBin2 = try enif_protobuf:decode(base64:decode(IK), pb_identity_key) of
         #pb_identity_key{public_key = IKPublicKey} ->
             IKPublicKey
     catch Class : Reason : St ->

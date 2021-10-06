@@ -375,11 +375,11 @@ delete_redis_key(Id, Node, Slot) ->
     SlotKey = ha_redis:get_slot_key(Slot),
     case catch ecredis:qn(Id, Node, ["DEL", ?REDIS_KEY(SlotKey)]) of
         {ok, <<"1">>} -> ok;
-        Resp -> ?WARNING("Issue deleting redis_checker key ~p, response: ~p",
-            [?REDIS_KEY(SlotKey), Resp]);
         {'EXIT', {Reason, St}} ->
             ?ERROR("Delete check failed ~p:~p Slot: ~p Reason: ~p Stacktrace: ~p",
-                [Id, Node, Slot, Reason, lager:pr_stacktrace(St)])
+                [Id, Node, Slot, Reason, lager:pr_stacktrace(St)]);
+        Resp -> ?WARNING("Issue deleting redis_checker key ~p, response: ~p",
+            [?REDIS_KEY(SlotKey), Resp])
     end.
 
 

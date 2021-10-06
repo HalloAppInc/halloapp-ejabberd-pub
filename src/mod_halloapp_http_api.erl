@@ -630,11 +630,6 @@ get_and_check_whisper_keys(IdentityKeyB64, SignedKeyB64, OneTimeKeysB64) ->
         ok -> {IdentityKeyB64, SignedKeyB64, OneTimeKeysB64}
     end.
 
--spec update_key(binary(), binary()) -> {ok, binary(), binary()}.
-update_key(Uid, SPub) ->
-    stat:count("HA/account", "update_s_pub"),
-    model_auth:set_spub(Uid, SPub).
-
 
 -spec process_push_token(Uid :: uid(), PushPayload :: map()) -> ok.
 process_push_token(Uid, PushPayload) ->

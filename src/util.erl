@@ -495,7 +495,7 @@ is_ipv6(IpAddress) ->
 
 
 -spec parse_ip_address({inet:address(), inet:port_number()}) -> list().
-parse_ip_address({IpAddress, Port}) ->
+parse_ip_address({IpAddress, _Port}) ->
     case util:is_ipv4(IpAddress) of
         true -> inet:ntoa(inet:ipv4_mapped_ipv6_address(IpAddress));
         false -> inet:ntoa(IpAddress)

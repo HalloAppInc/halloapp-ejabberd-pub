@@ -29,7 +29,7 @@ get_trace_log() ->
 slow_log_test(_Conf) ->
     mod_trace:start_trace(?UID1),
     {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
-    {ok, C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
+    {ok, _C2} = ha_client:connect_and_login(?UID2, ?KEYPAIR2),
     SendMsg = #pb_packet{
         stanza = #pb_msg{
             id = <<"msgid1">>,
@@ -42,7 +42,7 @@ slow_log_test(_Conf) ->
     Ack = ha_client:wait_for(C1,
         fun (P) ->
             case P of
-                #pb_packet{stanza = #pb_ack{id = Id}} -> true;
+                #pb_packet{stanza = #pb_ack{id = _Id}} -> true;
                 _Any -> false
             end
         end),

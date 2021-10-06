@@ -42,28 +42,28 @@ while(N, F) ->
 % crc16 200000 operations took 144 ms => 1388888 ops
 % crc16_redis: 200000 operations took 891 ms => 224466 ops
 crc16_perf_test() ->
-    StartTime = util:now_ms(),
+    % StartTime = util:now_ms(),
     N = 2000,
     while(N,
         fun (X) ->
             crc16:crc16(integer_to_list(X) ++ integer_to_list(X))
         end),
-    EndTime = util:now_ms(),
-    T = EndTime - StartTime,
+    % EndTime = util:now_ms(),
+    % T = EndTime - StartTime,
     %% ?debugFmt("crc16 ~w operations took ~w ms => ~f ops ",
     %%    [N, T, N / ((T + 1) / 1000)]),
     ok.
 
 
 crc16_redis_perf_test() ->
-    StartTime = util:now_ms(),
+    % StartTime = util:now_ms(),
     N = 2000,
     while(N,
         fun (X) ->
             crc16_redis:crc16(integer_to_list(X) ++ integer_to_list(X))
         end),
-    EndTime = util:now_ms(),
-    T = EndTime - StartTime,
+    % EndTime = util:now_ms(),
+    % T = EndTime - StartTime,
     %% ?debugFmt("crc16_redis: ~w operations took ~w ms => ~f ops ",
     %%    [N, T, N / ((T + 1) / 1000)]),
     ok.

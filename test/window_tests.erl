@@ -390,7 +390,7 @@ offline_msg2_test(_Conf) ->
 
 -spec send_message(Client :: pid(), FromUid :: integer(), ToUid :: integer(),
         StartId :: integer(), EndId :: integer(), Msgs :: [#pb_packet{}]) -> [#pb_packet{}].
-send_message(Client, FromUid, ToUid, StartId, EndId, Msgs) ->
+send_message(Client, FromUid, ToUid, StartId, EndId, _Msgs) ->
     MsgStanza = #pb_msg{
             type = chat,
             from_uid = FromUid,
@@ -427,11 +427,11 @@ send_acks(Client, StartId, EndId) ->
 -spec recv_acks(Client :: pid(), StartId :: integer(), EndId :: integer()) -> ok.
 recv_acks(Client, StartId, EndId) ->
     lists:map(
-        fun(SeqId) ->
-            RecvAck = ha_client:wait_for(Client,
+        fun(_SeqId) ->
+            _RecvAck = ha_client:wait_for(Client,
                 fun (P) ->
                     case P of
-                        #pb_packet{stanza = #pb_ack{id = Id}} -> true;
+                        #pb_packet{stanza = #pb_ack{id = _Id}} -> true;
                         _Any -> false
                     end
                 end)

@@ -59,8 +59,7 @@ del_session(Uid, Session) ->
 -spec get_sessions(Uid :: binary()) -> [session()].
 get_sessions(Uid) ->
     {ok, SessionsBin} = q(["HVALS", sessions_key(Uid)]),
-    Results = lists:map(fun binary_to_term/1, SessionsBin),
-    lists:map(fun upgrade_session/1, Results).
+    lists:map(fun binary_to_term/1, SessionsBin).
 
 
 -spec get_session(Uid :: binary(), SID :: term()) -> session().
@@ -68,7 +67,7 @@ get_session(Uid, SID) ->
     SIDKey = term_to_binary(SID),
     case q(["HGET", sessions_key(Uid), SIDKey]) of
         {ok, undefined} -> {error, missing};
-        {ok, SessionBin} -> {ok, upgrade_session(binary_to_term(SessionBin))}
+        {ok, SessionBin} -> {ok, binary_to_term(SessionBin)}
     end.
 
 
@@ -86,17 +85,6 @@ get_passive_sessions(Uid) ->
         fun(#session{mode = passive}) -> true;
             (_) -> false
         end, get_sessions(Uid)).
-
-
-% TODO: make sure this warning don't happen, then we can clean up.
-upgrade_session(#session{} = Session) -> Session;
-upgrade_session({session, SID, USR, US, Priority, _Mode, Info}) ->
-    ?WARNING("Should not happen SID:~p", [SID]),
-    #session{sid = SID, usr = USR, us = US, priority = Priority, info = Info};
-upgrade_session({session, SID, USR, US, Priority, Info}) ->
-    ?WARNING("Should not happen SID:~p", [SID]),
-    Mode = proplists:get_value(mode, Info),
-    #session{sid = SID, usr = USR, us = US, priority = Priority, mode = Mode, info = Info}.
 
 
 % TODO: if you pass the wrong client name for example 'ecredis_food' you get strange error.

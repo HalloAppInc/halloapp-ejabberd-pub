@@ -67,7 +67,7 @@ export_test(_Conf) ->
     Result2 = ha_client:send_iq(C1, Id, set, Payload),
     Result2Payload = Result2#pb_packet.stanza#pb_iq.payload,
     #pb_export_data{
-        data_ready_ts = ReadyTs2,
+        data_ready_ts = _ReadyTs2,
         available_until_ts = AvailableUntilTs,
         data_url = DataUrl,
         status = ready

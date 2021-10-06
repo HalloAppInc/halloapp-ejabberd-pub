@@ -57,7 +57,7 @@ create_name_st(Uid, Name) ->
         name = Name
     }.
 
-get_set_name_iq(Uid, Ouid, Name, Server) ->
+get_set_name_iq(Uid, Ouid, Name) ->
     NameSt = create_name_st(Ouid, Name),
     #pb_iq{
         from_uid = Uid,
@@ -66,7 +66,7 @@ get_set_name_iq(Uid, Ouid, Name, Server) ->
         payload = NameSt
     }.
 
-get_set_name_iq_result(Uid, Server) ->
+get_set_name_iq_result(Uid) ->
     #pb_iq{
         from_uid = <<>>,
         type = result,
@@ -75,7 +75,7 @@ get_set_name_iq_result(Uid, Server) ->
     }.
 
 
-get_error_iq_result(Reason, Uid, Server) ->
+get_error_iq_result(Reason, Uid) ->
     #pb_iq{
         from_uid = <<>>,
         type = error,
@@ -98,9 +98,9 @@ set_name_iq_test() ->
     ?assertEqual(?NAME1, model_accounts:get_name_binary(?UID1)),
 
     %% setting a different name to the same uid with set-iq.
-    NameIQ = get_set_name_iq(?UID1, ?UID1, ?NAME2, ?SERVER),
+    NameIQ = get_set_name_iq(?UID1, ?UID1, ?NAME2),
     ResultIQ1 = mod_names:process_local_iq(NameIQ),
-    ExpectedResultIQ = get_set_name_iq_result(?UID1, ?SERVER),
+    ExpectedResultIQ = get_set_name_iq_result(?UID1),
     ?assertEqual(ExpectedResultIQ, ResultIQ1),
 
     %% make sure name is now updated to be name2.
@@ -112,9 +112,9 @@ set_name_iq_error_test() ->
     setup(),
 
     %% setting uid name with wrong iq. expect an error.
-    NameIQ = get_set_name_iq(?UID1, ?UID2, ?NAME1, ?SERVER),
+    NameIQ = get_set_name_iq(?UID1, ?UID2, ?NAME1),
     ResultIQ1 = mod_names:process_local_iq(NameIQ),
-    ExpectedResultIQ = get_error_iq_result(invalid_uid, ?UID1, ?SERVER),
+    ExpectedResultIQ = get_error_iq_result(invalid_uid, ?UID1),
     ?assertEqual(ExpectedResultIQ, ResultIQ1),
     ok.
 

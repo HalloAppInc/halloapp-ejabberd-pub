@@ -18,7 +18,7 @@
 
 %% Export all functions for unit tests
 -ifdef(TEST).
--export([phone_key/1]).
+-export([]).
 -endif.
 
 

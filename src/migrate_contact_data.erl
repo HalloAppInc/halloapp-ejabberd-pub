@@ -210,7 +210,7 @@ cleanup_reverse_index_run(Key, State) ->
     case Result of
         {match, [[ReverseKey, Phone]]} ->
             {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
-            _NumContactUids = length(ContactUids),
+            % _NumContactUids = length(ContactUids),
             lists:foreach(
                 fun(ContactUid) ->
                     case model_accounts:get_account(ContactUid) of

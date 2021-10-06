@@ -17,7 +17,6 @@
 -ifdef(TEST).
 -export([
     hash_syncid_to_bucket/1,
-    normalize_and_insert_contacts/4,
     handle_delta_contacts/3
 ]).
 -endif.
@@ -675,12 +674,6 @@ extract_normalized(Contacts) ->
 -spec extract_uid(Contacts :: [pb_contact()]) -> [binary()].
 extract_uid(Contacts) ->
     lists:map(fun(Contact) -> Contact#pb_contact.uid end, Contacts).
-
-
--spec extract_raw(Contacts :: [pb_contact()]) -> [binary()].
-extract_raw(Contacts) ->
-    lists:map(fun(Contact) -> Contact#pb_contact.raw end, Contacts).
-
 
 
 %%====================================================================

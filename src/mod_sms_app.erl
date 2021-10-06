@@ -179,8 +179,8 @@ handle_call(stop, _From, State) ->
 
 %% send sms callback
 handle_call({send_sms, OtpInfo}, _From, State) ->
-    #{to_phone := Phone, code := Code, lang_id := LangId, user_agent := UserAgent,
-        method := Method, used_phones := UsedPhones} = OtpInfo,
+    #{to_phone := _Phone, code := _Code, lang_id := _LangId, user_agent := _UserAgent,
+        method := _Method, used_phones := _UsedPhones} = OtpInfo,
     case send_sms_internal(OtpInfo, State) of
         {error, Reason, NewState} ->
             {reply, {error, Reason, retry}, NewState};
@@ -209,9 +209,9 @@ handle_cast({wake_up, Uid}, State) ->
     {noreply, State};
 handle_cast({send_sms, OtpInfo}, State) ->
     case send_sms_internal(OtpInfo, State) of
-        {error, Reason, NewState} ->
+        {error, _Reason, NewState} ->
             {noreply, NewState};
-        {ok, Response, NewState} ->
+        {ok, _Response, NewState} ->
             {noreply, NewState}
     end;
 handle_cast({ping, Id, Ts, From}, State) ->

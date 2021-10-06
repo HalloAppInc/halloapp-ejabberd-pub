@@ -84,7 +84,7 @@ choose_other_gateway_test() ->
     meck_init(telesign, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     meck_init(clickatell, send_sms, fun(_,_,_,_) -> {error, sms_fail, retry} end),
     {ok, #gateway_response{gateway = twilio_verify}} =
-        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, [TwilGtwy, TVerifyGtwy, MbirdGtwy, MbirdVerifyGtwy, TelesignGtwy]),
+        mod_sms:smart_send(?PHONE, ?PHONE, <<>>, <<>>, sms, [TwilGtwy, TVerifyGtwy, MbirdGtwy, MbirdVerifyGtwy, TelesignGtwy, ClickatellGtwy]),
     ?assert(meck:called(twilio, send_sms, ['_','_','_','_']) orelse
             meck:called(mbird, send_sms, ['_','_','_','_']) orelse
             meck:called(mbird_verify, send_sms, ['_','_','_','_']) orelse

@@ -233,7 +233,7 @@ request_and_verify_otp_noise2_test(_Conf) ->
     {ok, VerifyOtpRequestPkt} = registration_client:compose_verify_otp_noise_request(Phone, OtpCode, VerifyOtpOptions),
 
     %% Send verify_otp request on a different connection.
-    {ok, Client2, ActualResponse2} = ha_client:connect_and_send(VerifyOtpRequestPkt, ClientKeyPair, ConnectOptions),
+    {ok, _Client2, ActualResponse2} = ha_client:connect_and_send(VerifyOtpRequestPkt, ClientKeyPair, ConnectOptions),
 
     %% Check result.
     % ?debugFmt("response2: ~p", [ActualResponse2]),
@@ -297,7 +297,7 @@ request_and_verify_otp_noise3_test(_Conf) ->
     {ok, VerifyOtpRequestPkt} = registration_client:compose_verify_otp_noise_request(Phone, OtpCode, VerifyOtpOptions),
 
     %% Send verify_otp request on a different connection.
-    {ok, Client2, ActualResponse2} = ha_client:connect_and_send(VerifyOtpRequestPkt, ClientKeyPair, ConnectOptions),
+    {ok, _Client2, ActualResponse2} = ha_client:connect_and_send(VerifyOtpRequestPkt, ClientKeyPair, ConnectOptions),
 
     %% Check result.
     % ?debugFmt("response2: ~p", [ActualResponse2]),
@@ -310,7 +310,6 @@ request_and_verify_otp_noise3_test(_Conf) ->
 
 request_otp_noise_invalid_phone_fail_test(_Conf) ->
     Phone = <<"14055887">>,
-    Name = ?NAME11,
 
     %% Compose RequestOtp - invalid phonenumber
     RequestOtpOptions = #{},
@@ -318,7 +317,7 @@ request_otp_noise_invalid_phone_fail_test(_Conf) ->
 
     %% Generate NoiseKeys.
     KeyPair = ha_enoise:generate_signature_keypair(),
-    {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+    {_SEdSecret, _SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
     %% Convert these signing keys to curve keys.
     {CurveSecret, CurvePub} = {enacl:crypto_sign_ed25519_secret_to_curve25519(maps:get(secret, KeyPair)),
      enacl:crypto_sign_ed25519_public_to_curve25519(maps:get(public, KeyPair))},
@@ -327,7 +326,7 @@ request_otp_noise_invalid_phone_fail_test(_Conf) ->
 
     %% Connect and requestOtp - should fail because of invalid phonenumber.
     ConnectOptions = #{host => "localhost", port => 5208, state => register},
-    {ok, Client, ActualResponse} = ha_client:connect_and_send(RegisterRequestPkt, ClientKeyPair, ConnectOptions),
+    {ok, _Client, ActualResponse} = ha_client:connect_and_send(RegisterRequestPkt, ClientKeyPair, ConnectOptions),
 
     %% Check result.
     ExpectedResponse = #pb_register_response{
@@ -342,7 +341,6 @@ request_otp_noise_invalid_phone_fail_test(_Conf) ->
 
 request_otp_noise_bad_request_fail_test(_Conf) ->
     Phone = ?PHONE11,
-    Name = ?NAME11,
 
     %% Compose RequestOtp - bad useragent
     RequestOtpOptions = #{user_agent => <<"BadUserAgent/1.0">>},
@@ -350,7 +348,7 @@ request_otp_noise_bad_request_fail_test(_Conf) ->
 
     %% Generate NoiseKeys.
     KeyPair = ha_enoise:generate_signature_keypair(),
-    {SEdSecret, SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+    {_SEdSecret, _SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
     %% Convert these signing keys to curve keys.
     {CurveSecret, CurvePub} = {enacl:crypto_sign_ed25519_secret_to_curve25519(maps:get(secret, KeyPair)),
      enacl:crypto_sign_ed25519_public_to_curve25519(maps:get(public, KeyPair))},
@@ -359,7 +357,7 @@ request_otp_noise_bad_request_fail_test(_Conf) ->
 
     %% Connect and requestOtp - should fail because of bad useragent.
     ConnectOptions = #{host => "localhost", port => 5208, state => register},
-    {ok, Client, ActualResponse} = ha_client:connect_and_send(RegisterRequestPkt, ClientKeyPair, ConnectOptions),
+    {ok, _Client, ActualResponse} = ha_client:connect_and_send(RegisterRequestPkt, ClientKeyPair, ConnectOptions),
 
     %% Check result - bad useragent request - so should fail.
     ExpectedResponse = #pb_register_response{
