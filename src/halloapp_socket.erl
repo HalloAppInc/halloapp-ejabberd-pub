@@ -30,6 +30,7 @@
     get_sockmod/1,
     get_transport/1,
     get_peer_certificate/2,
+    get_peer_static_key/1,
     get_verify_result/1,
     close/1,
     pp/1,
@@ -320,6 +321,21 @@ get_peer_certificate(#socket_state{sockmod = SockMod, socket = Socket}, Type) ->
     case erlang:function_exported(SockMod, get_peer_certificate, 2) of
         true -> SockMod:get_peer_certificate(Socket, Type);
         false -> error
+    end.
+
+-spec get_peer_static_key(socket_state()) -> {ok, binary()} | error.
+get_peer_static_key(#socket_state{sockmod = SockMod, socket = Socket}) ->
+    case erlang:function_exported(SockMod, get_peer_static_key, 1) of
+        true ->
+            try
+                SockMod:get_peer_static_key(Socket)
+            catch 
+                Class:Reason:Stacktrace ->
+                    ?ERROR("Stacktrace: ~p", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+                    error
+            end;
+        false ->
+            error
     end.
 
 

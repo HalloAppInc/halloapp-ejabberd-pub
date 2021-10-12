@@ -206,14 +206,15 @@ process_otp_request(Data, IP, Headers) ->
     {ok, integer()} | {error, retried_too_soon, integer()} | {error, any()}.
 process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent, method := MethodBin,
         ip := ClientIP, group_invite_token := GroupInviteToken, raw_data := RawData,
-        protocol := Protocol}) ->
+        protocol := Protocol} = RequestData) ->
     try
+        RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
         log_otp_request(RawPhone, MethodBin, UserAgent, ClientIP, Protocol),
         Phone = normalize(RawPhone),
         check_ua(UserAgent, Phone),
         Method = get_otp_method(MethodBin),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
-        case otp_checker:check(Phone, ClientIP, UserAgent, Method, Protocol) of
+        case otp_checker:check(Phone, ClientIP, UserAgent, Method, Protocol, RemoteStaticKey) of
             ok ->
                 case request_otp(Phone, LangId, UserAgent, Method) of
                     {ok, RetryAfterSecs} ->
@@ -288,12 +289,13 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         ip := ClientIP, group_invite_token := GroupInviteToken, s_ed_pub := SEdPubB64,
         signed_phrase := SignedPhraseB64, id_key := IdentityKeyB64, sd_key := SignedKeyB64,
         otp_keys := OneTimeKeysB64, push_payload := PushPayload, raw_data := RawData,
-        protocol := Protocol}) ->
+        protocol := Protocol} = RequestData) ->
     try
+        RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
         Phone = normalize(RawPhone),
         check_ua(UserAgent, Phone),
         check_sms_code(Phone, Code),
-        ok = otp_checker:otp_delivered(Phone, ClientIP, Protocol),
+        ok = otp_checker:otp_delivered(Phone, ClientIP, Protocol, RemoteStaticKey),
         LName = check_name(Name),
         SEdPubBin = base64:decode(SEdPubB64),
         check_s_ed_pub_size(SEdPubBin),

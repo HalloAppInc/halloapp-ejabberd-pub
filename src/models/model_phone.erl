@@ -47,7 +47,10 @@
     add_phone_pattern/2,
     get_phone_pattern_info/1,
     delete_phone_pattern/1,
-    invalidate_old_attempts/1
+    invalidate_old_attempts/1,
+    add_static_key/2,
+    get_static_key_info/1,
+    delete_static_key/1
 ]).
 
 %%====================================================================
@@ -73,14 +76,18 @@
 -define(TTL_SMS_CODE, 86400).
 -define(MAX_SLOTS, 8).
 
-%% TTL for SMS reg data: 2 1/2 days, in case the background task does not run for a period
+%% TTL for SMS reg data: 7 1/2 days, in case the background task does not run for a period
 -define(TTL_INCREMENTAL_TIMESTAMP, 7 * ?DAYS + 12 * ?HOURS).
 
 -define(TTL_VERIFICATION_ATTEMPTS, 30 * 86400).  %% 30 days
 
-%% TTL for phone pattern data: 1 hour.
+%% TTL for phone pattern data: 24 hour.
 -define(TTL_PHONE_PATTERN, 86400).
 
+%% TTL for remote static key: 24 hour.
+-define(TTL_REMOTE_STATIC_KEY, 86400).
+
+-define(TRUNC_STATIC_KEY_LENGTH, 8).
 
 -spec add_sms_code2(Phone :: phone(), Code :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
 add_sms_code2(Phone, Code) ->
@@ -401,6 +408,37 @@ delete_phone_pattern(PhonePattern) ->
     _Results = q(["DEL", phone_pattern_key(PhonePattern)]),
     ok.
 
+
+-spec add_static_key(StaticKey :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
+add_static_key(StaticKey, Timestamp) ->
+    Trunc = truncate_static_key(StaticKey),
+    _Results = q([
+        ["MULTI"],
+        ["HINCRBY", remote_static_key(Trunc), ?FIELD_COUNT, 1],
+        ["HSET", remote_static_key(Trunc), ?FIELD_TIMESTAMP, util:to_binary(Timestamp)],
+        ["EXPIRE", remote_static_key(Trunc), ?TTL_REMOTE_STATIC_KEY],
+        ["EXEC"]
+    ]),
+    ok.
+
+
+-spec get_static_key_info(StaticKey :: binary()) -> {ok, {maybe(integer()), maybe(integer())}}  | {error, any()}.
+get_static_key_info(StaticKey) ->
+    Trunc = truncate_static_key(StaticKey),
+    {ok, [Count, Timestamp]} = q(["HMGET", remote_static_key(Trunc), ?FIELD_COUNT, ?FIELD_TIMESTAMP]),
+    {ok, {util_redis:decode_int(Count), util_redis:decode_ts(Timestamp)}}.
+
+
+-spec delete_static_key(StaticKey :: list()) -> ok  | {error, any()}.
+delete_static_key(StaticKey) ->
+    Trunc = truncate_static_key(StaticKey),
+    _Results = q(["DEL", remote_static_key(Trunc)]),
+    ok.
+
+truncate_static_key(StaticKey) ->
+    <<Trunc:?TRUNC_STATIC_KEY_LENGTH/binary, _Rem/binary>> = StaticKey,
+    Trunc.
+
 q(Command) -> ecredis:q(ecredis_phone, Command).
 qp(Commands) -> ecredis:qp(ecredis_phone, Commands).
 qmn(Commands) -> ecredis:qmn(ecredis_phone, Commands).
@@ -470,5 +508,9 @@ gateway_response_key(Gateway, GatewayId) ->
     GatewayBin = util:to_binary(Gateway),
     <<?GATEWAY_RESPONSE_ID_KEY/binary, <<"{">>/binary, GatewayBin/binary, <<":">>/binary,
         GatewayId/binary, <<"}">>/binary>>.
+
+-spec remote_static_key(StaticKey :: binary()) -> binary().
+remote_static_key(StaticKey) ->
+    <<?REMOTE_STATIC_KEY/binary, "{", StaticKey/binary, "}:">>.
 
 

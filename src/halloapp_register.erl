@@ -272,16 +272,17 @@ terminate(_Reason, State) ->
 
 -spec process_element(stanza(), state()) -> state().
 process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
-        #{ip := ClientIP} = State) ->
+        #{socket := Socket, ip := ClientIP} = State) ->
     stat:count("HA/registration", "request_otp_request", 1, [{protocol, "noise"}]),
     RawPhone = OtpRequest#pb_otp_request.phone,
     MethodBin = util:to_binary(OtpRequest#pb_otp_request.method),
     LangId = OtpRequest#pb_otp_request.lang_id,
     GroupInviteToken = OtpRequest#pb_otp_request.group_invite_token,
     UserAgent = OtpRequest#pb_otp_request.user_agent,
+    RemoteStaticKey = get_peer_static_key(Socket),
     RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
         ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => OtpRequest,
-        protocol => noise
+        protocol => noise, remote_static_key => RemoteStaticKey
     },
     OtpResponse = case mod_halloapp_http_api:process_otp_request(RequestData) of
         {ok, Phone, RetryAfterSecs} ->
@@ -327,7 +328,7 @@ process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
     end,
     send(State, #pb_register_response{response = OtpResponse});
 process_element(#pb_register_request{request = #pb_verify_otp_request{} = VerifyOtpRequest},
-        #{ip := ClientIP} = State) ->
+        #{socket := Socket, ip := ClientIP} = State) ->
     stat:count("HA/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
     RawPhone = VerifyOtpRequest#pb_verify_otp_request.phone,
     Name = VerifyOtpRequest#pb_verify_otp_request.name,
@@ -348,12 +349,13 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
     end,
     GroupInviteToken = VerifyOtpRequest#pb_verify_otp_request.group_invite_token,
     UserAgent = VerifyOtpRequest#pb_verify_otp_request.user_agent,
+    RemoteStaticKey = get_peer_static_key(Socket),
     RequestData = #{
         raw_phone => RawPhone, name => Name, ua => UserAgent, code => Code,
         ip => ClientIP, group_invite_token => GroupInviteToken, s_ed_pub => SEdPubB64,
         signed_phrase => SignedPhraseB64, id_key => IdentityKeyB64, sd_key => SignedKeyB64,
         otp_keys => OneTimeKeysB64, push_payload => PushPayload, raw_data => VerifyOtpRequest,
-        protocol => noise
+        protocol => noise, remote_static_key => RemoteStaticKey
     },
     VerifyOtpResponse = case mod_halloapp_http_api:process_register_request(RequestData) of
         {ok, Result} ->
@@ -386,6 +388,15 @@ process_element(Pkt, State) ->
     ?ERROR("Invalid packet received: ~p", [Pkt]),
     process_stream_end(invalid_packet, State).
 
+get_peer_static_key(Socket) ->
+    RetVal = halloapp_socket:get_peer_static_key(Socket),
+    case RetVal of
+        error ->
+            ?ERROR("Unable to get remote static key, socket: ~p", [Socket]),
+            undefined;
+        {ok, StaticKey} ->
+            StaticKey
+    end.
 
 %% This ensures the connection is not idle for longer than TimeoutMs milliseconds.
 -spec noreply(state()) -> noreply().

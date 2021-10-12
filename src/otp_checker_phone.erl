@@ -15,20 +15,20 @@
 
 %% API
 -export([
-    check_otp_request/5,
-    otp_delivered/3,
+    check_otp_request/6,
+    otp_delivered/4,
     is_too_soon/2
 ]).
 
 
-check_otp_request(Phone, _IP, _UserAgent, Method, _Protocol) ->
+check_otp_request(Phone, _IP, _UserAgent, Method, _Protocol, _RemoteStaticKey) ->
     case check_otp_request_too_soon(Phone, Method) of
         false -> ok;
         block -> {block, voice_call_before_sms, undefined};
         {true, Seconds} -> {error, retried_too_soon, Seconds}
     end.
 
-otp_delivered(_Phone, _ClientIP, _Protocol) ->
+otp_delivered(_Phone, _ClientIP, _Protocol, _RemoteStaticKey) ->
     ok.
 
 

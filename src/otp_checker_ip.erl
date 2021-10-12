@@ -17,12 +17,12 @@
 
 %% API
 -export([
-    check_otp_request/5,
-    otp_delivered/3
+    check_otp_request/6,
+    otp_delivered/4
 ]).
 
 
-check_otp_request(_Phone, IP, _UserAgent, _Method, _Protocol) ->
+check_otp_request(_Phone, IP, _UserAgent, _Method, _Protocol, _RemoteStaticKey) ->
     CurrentTs = util:now(),
     {ok, {Count, LastTs}} = model_ip_addresses:get_ip_address_info(IP),
     Result = case {Count, LastTs} of
@@ -47,7 +47,7 @@ check_otp_request(_Phone, IP, _UserAgent, _Method, _Protocol) ->
     Result.
 
 
-otp_delivered(Phone, IP, _Protocol) ->
+otp_delivered(Phone, IP, _Protocol, _RemoteStaticKey) ->
     {ok, {Count, _LastTs}} = model_ip_addresses:get_ip_address_info(IP),
     case Count =/= undefined andalso Count > ?IP_RETURN_ERROR_THRESHOLD of
         true -> ?ERROR("OTP delivered to Phone ~s but IP ~s has ~s Attempts", [Phone, IP, Count]);

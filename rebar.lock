@@ -88,7 +88,7 @@
   0},
  {<<"ha_enoise">>,
   {git,"git@github.com:HalloAppInc/ha_enoise.git",
-       {ref,"2ca29bac694902cbb068c105f7855cf90d256706"}},
+       {ref,"638360b4d1765affe44678a9915dbcba61718a1b"}},
   0},
  {<<"iso8601">>,
   {git,"https://github.com/erlsci/iso8601.git",

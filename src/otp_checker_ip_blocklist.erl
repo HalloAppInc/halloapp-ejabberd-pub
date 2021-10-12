@@ -17,13 +17,13 @@
 
 %% API
 -export([
-    check_otp_request/5,
+    check_otp_request/6,
     is_blocked/1,
-    otp_delivered/3
+    otp_delivered/4
 ]).
 
 % see spec in otp_checker
-check_otp_request(_Phone, IP, _UserAgent, _Method, _Protocol) ->
+check_otp_request(_Phone, IP, _UserAgent, _Method, _Protocol, _RemoteStaticKey) ->
     case is_blocked(IP) of
         true -> {block, ip_blocklist, undefined};
         false -> ok
@@ -51,7 +51,7 @@ is_blocked(IP) ->
     end.
 
 
-otp_delivered(Phone, IP, _Protocol) ->
+otp_delivered(Phone, IP, _Protocol, _RemoteStaticKey) ->
     % check if users are able to register from blocked ips
     case model_ip_addresses:is_ip_blocked(IP) of
         {true, _} ->

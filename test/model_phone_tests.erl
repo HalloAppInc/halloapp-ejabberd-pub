@@ -39,6 +39,9 @@
 -define(PHONE_PATTERN1, <<"147033814">>).
 -define(PHONE_PATTERN2, <<"165044430">>).
 
+-define(STATIC_KEY1, <<"1static_key1">>).
+-define(STATIC_KEY2, <<"2static_key2">>).
+
 setup() ->
     tutil:setup(),
     ha_redis:start(),
@@ -185,6 +188,26 @@ phone_pattern_test() ->
     ok = model_phone:delete_phone_pattern(?PHONE_PATTERN2),
     {ok, {undefined, undefined}} = model_phone:get_phone_pattern_info(?PHONE_PATTERN1),
     {ok, {undefined, undefined}} = model_phone:get_phone_pattern_info(?PHONE_PATTERN2).
+
+remote_static_key_test() ->
+    setup(),
+    ok = model_phone:delete_static_key(?STATIC_KEY1),
+    ok = model_phone:delete_static_key(?STATIC_KEY2),
+    {ok, {undefined, undefined}} = model_phone:get_static_key_info(?STATIC_KEY1),
+    {ok, {undefined, undefined}} = model_phone:get_static_key_info(?STATIC_KEY2),
+    ok = model_phone:add_static_key(?STATIC_KEY1, ?TIME1),
+    {ok, {1, ?TIME1}} = model_phone:get_static_key_info(?STATIC_KEY1),
+    {ok, {undefined, undefined}} = model_phone:get_static_key_info(?STATIC_KEY2),
+    ok = model_phone:add_static_key(?STATIC_KEY1, ?TIME2),
+    {ok, {2, ?TIME2}} = model_phone:get_static_key_info(?STATIC_KEY1),
+    ok = model_phone:add_static_key(?STATIC_KEY2, ?TIME1),
+    {ok, {1, ?TIME1}} = model_phone:get_static_key_info(?STATIC_KEY2),
+    ok = model_phone:add_static_key(?STATIC_KEY2, ?TIME2),
+    {ok, {2, ?TIME2}} = model_phone:get_static_key_info(?STATIC_KEY2),
+    ok = model_phone:delete_static_key(?STATIC_KEY1),
+    ok = model_phone:delete_static_key(?STATIC_KEY2),
+    {ok, {undefined, undefined}} = model_phone:get_static_key_info(?STATIC_KEY1),
+    {ok, {undefined, undefined}} = model_phone:get_static_key_info(?STATIC_KEY2).
 
 
 while(0, _F) -> ok;

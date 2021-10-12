@@ -120,6 +120,7 @@
 -define(INVITED_BY_KEY, <<"ibn:">>).
 -define(INVITE_NOTIFICATION_KEY, <<"ink:">>).
 -define(PHONE_PATTERN_KEY, <<"pp:">>).
+-define(REMOTE_STATIC_KEY, <<"rs:">>).
 
 -define(GW_SCORE_KEY, <<"scr:">>).
 

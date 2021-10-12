@@ -15,10 +15,10 @@
 -define(PHONE_PATTERN_BACKOFF_THRESHOLD, 15).
 
 %% API
--export([check_otp_request/5, otp_delivered/3]).
+-export([check_otp_request/6, otp_delivered/4]).
 
 
-check_otp_request(Phone, _IP, _UserAgent, _Method, Protocol) ->
+check_otp_request(Phone, _IP, _UserAgent, _Method, Protocol, _RemoteStaticKey) ->
     % TODO: pass the CC as argument
     CC = mod_libphonenumber:get_cc(Phone),
     PhonePattern = extract_phone_pattern(Phone, CC, Protocol),
@@ -113,7 +113,7 @@ extract_phone_pattern(Phone, CC, Protocol) ->
     PhonePattern.
 
 
-otp_delivered(Phone, _ClientIP, Protocol) ->
+otp_delivered(Phone, _ClientIP, Protocol, _RemoteStaticKey) ->
     CC = mod_libphonenumber:get_region_id(Phone),
     model_phone:delete_phone_pattern(extract_phone_pattern(Phone, CC, Protocol)).
 
