@@ -152,7 +152,7 @@ message GroupDecryptionReport {
   }
   Status result = 1;
   string reason = 2;
-  string msg_id = 3;
+  string content_id = 3;
   string gid = 4;
   enum ItemType {
     UNKNOWN_TYPE = 0;
