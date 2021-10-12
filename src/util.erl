@@ -470,8 +470,8 @@ get_timestamp(#pb_msg{payload = #pb_seen_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_delivery_receipt{timestamp = T}}) -> T;
 get_timestamp(#pb_msg{payload = #pb_played_receipt{timestamp = T}}) -> T;
 %% Clients set their own timestamp on these group_feed_item messages - because they are rerequests.
-get_timestamp(#pb_msg{payload = #pb_group_feed_item{item = #pb_post{timestamp = T}}}) -> util:now();
-get_timestamp(#pb_msg{payload = #pb_group_feed_item{item = #pb_comment{timestamp = T}}}) -> util:now();
+get_timestamp(#pb_msg{payload = #pb_group_feed_item{item = #pb_post{timestamp = _T}}}) -> util:now();
+get_timestamp(#pb_msg{payload = #pb_group_feed_item{item = #pb_comment{timestamp = _T}}}) -> util:now();
 get_timestamp(#pb_msg{}) -> undefined.
 
 
