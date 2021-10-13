@@ -262,6 +262,13 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_group_feed_rerequest{} = _Payload}
         push_type = silent
     };
 
+parse_metadata(#pb_msg{id = Id, payload = #pb_home_feed_rerequest{} = _Payload} = _Message, _PushInfo) ->
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"home_feed_rerequest">>,
+        push_type = silent
+    };
+
 parse_metadata(#pb_msg{id = Id, payload = #pb_request_logs{} = _Payload} = _Message, _PushInfo) ->
     #push_metadata{
         content_id = Id,
@@ -328,5 +335,6 @@ get_push_type({_, contact_notice}, pb_contact_list, _PushInfo) -> alert;
 get_push_type({_, inviter_notice}, pb_contact_list, _PushInfo) -> alert;
 get_push_type(_MsgType, pb_rerequest, _PushInfo) -> silent;
 get_push_type(_MsgType, pb_group_feed_rerequest, _PushInfo) -> silent;
+get_push_type(_MsgType, pb_home_feed_rerequest, _PushInfo) -> silent;
 get_push_type(_MsgType, _PayloadType, _PushInfo) -> silent.
 

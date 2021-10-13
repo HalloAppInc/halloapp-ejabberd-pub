@@ -69,6 +69,7 @@ send_ack(State, #pb_msg{id = MsgId, from_uid = Uid} = Packet) ->
     Timestamp = case {PayloadType, PacketTs} of
         {pb_rerequest, _} -> util:now();
         {pb_group_feed_rerequest, _} -> util:now();
+        {pb_home_feed_rerequest, _} -> util:now();
         {pb_group_chat_retract, _} -> util:now();
         {pb_chat_retract, _} -> util:now();
         {_, undefined} ->
