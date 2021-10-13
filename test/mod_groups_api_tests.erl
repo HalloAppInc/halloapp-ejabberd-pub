@@ -332,20 +332,19 @@ delete_group_error_test() ->
 
 
 create_group_with_identity_keys(Uid, Name, Members) ->
-    {SampleIK, _, _} = tutil:gen_whisper_keys(16, 64),
-    SampleIKBin = decode_ik(SampleIK),
-    StartIKList = [0 || _XX <- lists:seq(1, byte_size(SampleIKBin))],
     List = Members ++ [Uid],
-    {FinalIKAcc, UidToIKMap} = lists:foldl(
+    {FinalIKAcc, UidToIKMap, SizeIKBits2} = lists:foldl(
         fun(MemberUid, Acc) ->
             {IK, SK, OTKS} = tutil:gen_whisper_keys(16, 64),
             mod_whisper:set_keys_and_notify(MemberUid, IK, SK, OTKS),
             IKBin2 = decode_ik(IK),
-            {XorIK, IKMap} = Acc,
-            NewIKAcc = lists:zipwith(fun(X, Y) -> X bxor Y end, XorIK, util:to_list(IKBin2)),
-            {NewIKAcc, maps:put(MemberUid, base64:decode(IK), IKMap)}
-        end, {StartIKList, #{}}, List),
-    AudienceHash = crypto:hash(?SHA256, FinalIKAcc),
+            SizeIKBits = byte_size(IKBin2) * 8,
+            <<IKInt:SizeIKBits>> = IKBin2,
+            {XorIK, IKMap, _} = Acc,
+            NewIKAcc = XorIK bxor IKInt,
+            {NewIKAcc, maps:put(MemberUid, base64:decode(IK), IKMap), SizeIKBits}
+        end, {0, #{}, 0}, List),
+    AudienceHash = crypto:hash(?SHA256, <<FinalIKAcc:SizeIKBits2>>),
     <<TruncAudienceHash:?TRUNC_HASH_LENGTH/binary, _Rem/binary>> = AudienceHash,
     IQ = create_group_IQ(Uid, Name, Members, true),
     IQRes = mod_groups_api:process_local_iq(IQ),
