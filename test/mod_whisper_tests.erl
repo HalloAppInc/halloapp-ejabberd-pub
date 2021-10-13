@@ -14,6 +14,7 @@
 
 
 setup() ->
+    enif_protobuf:load_cache(server:get_msg_defs()),
     tutil:setup(),
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
@@ -160,6 +161,22 @@ get_whisper_keys_collection_test() ->
     ?assertEqual({ok, 15}, model_whisper_keys:count_otp_keys(?UID2)),
     ok.
 
+
+get_trunc_whisper_keys_collection_test() ->
+    setup(),
+    {IK, SK, OTKS} = tutil:gen_whisper_keys(16, 64),
+    mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
+    {IK2, SK2, OTKS2} = tutil:gen_whisper_keys(16, 64),
+    mod_whisper:set_keys_and_notify(?UID2, IK2, SK2, OTKS2),
+
+    Result = mod_whisper:process_local_iq(create_get_trunc_whisper_keys_collection_iq(
+        ?UID3, [?UID1, ?UID2, ?UID3, undefined])),
+    ?assertEqual(result, Result#pb_iq.type),
+    [WK1, WK2] = Result#pb_iq.payload#pb_trunc_whisper_keys_collection.collection,
+    check_trunc_ik(WK1, IK),
+    check_trunc_ik(WK2, IK2),
+    ok.
+
 %% -------------------------------------------- %%
 %% Helper functions
 %% --------------------------------------------	%%
@@ -202,6 +219,16 @@ create_get_whisper_keys_collection_iq(Uid, Ouids) ->
         payload = #pb_whisper_keys_collection{collection = Collection}
     }.
 
+create_get_trunc_whisper_keys_collection_iq(Uid, Ouids) ->
+    Collection = lists:map(
+        fun(Ouid) -> #pb_trunc_whisper_keys{uid = Ouid} end,
+        Ouids),
+    #pb_iq{
+        from_uid = Uid,
+        type = get,
+        payload = #pb_trunc_whisper_keys_collection{collection = Collection}
+    }.
+
 check_iq_result(Result) ->
     #pb_iq{type = Type, payload = Payload} = Result,
     ?assertEqual(result, Type),
@@ -223,7 +250,19 @@ check_wk_result(WK, Uid, IK, SK, OTK) ->
     ?assertEqual(Uid, WK#pb_whisper_keys.uid),
     ok.
 
-
+check_trunc_ik(WK, IK) ->
+    TruncIK = WK#pb_trunc_whisper_keys.trunc_public_identity_key,
+    IKBin = base64:decode(IK),
+    TruncIKey1 = try enif_protobuf:decode(IKBin, pb_identity_key) of
+        #pb_identity_key{public_key = IPublicKey} ->
+            <<TruncIKey:?TRUNC_IKEY_LENGTH/binary, _Rest/binary>> = IPublicKey,
+            TruncIKey
+    catch Class : Reason : St ->
+        ?assert(false)
+    end,
+    ?assertEqual(TruncIK, TruncIKey1),
+    ok.
+ 
 
 % TODO: test the subscription logic
 % TODO: test the delete user logic

@@ -536,6 +536,7 @@ message Iq {
         ClientOtpRequest client_otp_request = 35; // only for sms_app gateway use
         ClientOtpResponse client_otp_response = 36; // only for sms_app gateway use
         WhisperKeysCollection whisper_keys_collection = 37;
+        TruncWhisperKeysCollection trunc_whisper_keys_collection = 42;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
@@ -868,9 +869,22 @@ message WhisperKeys {
 }
 
 
+message TruncWhisperKeys {
+    int64 uid = 1 [ebin = true];
+    // The following field is first 4 bytes of the public part of the identity key.
+    bytes trunc_public_identity_key = 2;
+}
+
+
 message WhisperKeysCollection {
     // Action is always get.
     repeated WhisperKeys collection = 1;
+}
+
+
+message TruncWhisperKeysCollection {
+    // Action is always get.
+    repeated TruncWhisperKeys collection = 1;
 }
 
 

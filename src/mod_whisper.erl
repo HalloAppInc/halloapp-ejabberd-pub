@@ -43,12 +43,14 @@
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_whisper_keys, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_whisper_keys_collection, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_trunc_whisper_keys_collection, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ok.
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_whisper_keys),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_whisper_keys_collection),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_trunc_whisper_keys_collection),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ok.
 
@@ -169,9 +171,50 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
                     }
                 end, Ouids),
             pb:make_iq_result(IQ, #pb_whisper_keys_collection{collection = ResultCollection})
+    end;
+
+
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+        payload = #pb_trunc_whisper_keys_collection{collection = Collection}} = IQ) ->
+    Ouids = [WhisperKeys#pb_trunc_whisper_keys.uid || WhisperKeys <- Collection,
+                WhisperKeys#pb_trunc_whisper_keys.uid =/= undefined],
+    ?INFO("get_trunc_identity_keys Uid: ~s, Ouids: ~p", [Uid, Ouids]),
+
+    case Ouids of
+        [] ->
+            ?ERROR("Invalid iq: ~p", [IQ]),
+            pb:make_error(IQ, util:err(undefined_uids));
+        _ ->
+            IdentityKeysMap = model_whisper_keys:get_identity_keys(Ouids),
+            ResultCollection = construct_result(IdentityKeysMap, Ouids),
+            pb:make_iq_result(IQ, #pb_trunc_whisper_keys_collection{collection = ResultCollection})
     end.
 
 
+construct_result(IdentityKeysMap, Ouids) ->
+    lists:filtermap(
+        fun(Ouid) ->
+            IdentityKeyBin = base64:decode(maps:get(Ouid, IdentityKeysMap, <<>>)),
+            case IdentityKeyBin of
+                <<>> ->
+                    ?ERROR("Unable to find identity key for Uid: ~p", [Ouid]),
+                    false;
+                _ ->
+                    try enif_protobuf:decode(IdentityKeyBin, pb_identity_key) of
+                        #pb_identity_key{public_key = IPublicKey} ->
+                            <<TruncIKey:?TRUNC_IKEY_LENGTH/binary, _Rest/binary>> = IPublicKey,
+                            {true, #pb_trunc_whisper_keys{
+                                uid = Ouid,
+                                trunc_public_identity_key = TruncIKey
+                            }}
+                    catch Class : Reason : St ->
+                        ?ERROR("failed to parse identity key: ~p, Uid: ~p",
+                            [IdentityKeyBin, Ouid, lager:pr_stacktrace(St, {Class, Reason})]),
+                        false
+                    end
+            end
+        end, Ouids).
+ 
 -spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
 remove_user(Uid, _Server) ->
     ?INFO("Uid: ~s", [Uid]),

@@ -10,6 +10,7 @@
 -define(MAX_OTK_LENGTH, 256).
 -define(MIN_OTK_LENGTH, 10).
 
+-define(TRUNC_IKEY_LENGTH, 4).
 
 -record(user_whisper_key_set, {
     uid :: binary(),
