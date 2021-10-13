@@ -72,7 +72,6 @@ process([],
         #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
     try
         GroupToken = proplists:get_value(<<"g">>, Q, <<>>),
-        AppClip = proplists:get_value(<<"appclip">>, Q, <<"0">>),
         UserAgent = util_http:get_user_agent(Headers),
         Platform = util_http:get_platform(UserAgent),
         IP = util_http:get_ip(NetIP, Headers),
@@ -81,11 +80,7 @@ process([],
             android ->
                 {redirect, <<?PLAY_STORE_URL/binary, GroupToken/binary>>};
             ios ->
-                case AppClip of
-                    <<"1">> -> {redirect, <<?HA_APPCLIP_URL/binary, GroupToken/binary>>};
-                    _ -> {redirect, <<?APP_STORE_URL/binary>>}
-                end;
-%%                <<?INVITE_SUBDOMAIN/binary, GroupToken/binary>>;
+                {redirect, <<?HA_APPCLIP_URL/binary, GroupToken/binary>>};
             unknown ->
                 {redirect, ?HALLOAPP_COM};
             Something ->
