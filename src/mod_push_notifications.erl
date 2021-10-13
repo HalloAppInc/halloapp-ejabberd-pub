@@ -124,6 +124,14 @@ should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
             %% Send silent pushes for home feed rerequest stanzas.
             true;
 
+        PayloadType =:= pb_group_feed_items ->
+            %% Send silent pushes for group feed items stanzas.
+            true;
+
+        PayloadType =:= pb_feed_items ->
+            %% Send silent pushes for home feed items stanzas.
+            true;
+
         PayloadType =:= pb_request_logs ->
             %% Send silent pushes for request logs notification
             true;

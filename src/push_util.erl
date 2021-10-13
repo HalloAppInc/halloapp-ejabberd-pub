@@ -269,6 +269,20 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_home_feed_rerequest{} = _Payload} 
         push_type = silent
     };
 
+parse_metadata(#pb_msg{id = Id, payload = #pb_group_feed_items{} = _Payload} = _Message, _PushInfo) ->
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"group_feed_items">>,
+        push_type = silent
+    };
+
+parse_metadata(#pb_msg{id = Id, payload = #pb_feed_items{} = _Payload} = _Message, _PushInfo) ->
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"feed_items">>,
+        push_type = silent
+    };
+
 parse_metadata(#pb_msg{id = Id, payload = #pb_request_logs{} = _Payload} = _Message, _PushInfo) ->
     #push_metadata{
         content_id = Id,

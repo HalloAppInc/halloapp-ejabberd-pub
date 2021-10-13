@@ -21,6 +21,7 @@
 
 %% Hooks and API.
 -export([
+    user_send_packet/1,
     process_local_iq/1,
     add_friend/4,
     remove_user/2
@@ -31,12 +32,14 @@ start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_feed_item, ?MODULE, process_local_iq),
     ejabberd_hooks:add(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     ok.
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_feed_item),
     ejabberd_hooks:delete(add_friend, Host, ?MODULE, add_friend, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
@@ -52,6 +55,23 @@ mod_options(_Host) ->
 %%====================================================================
 %% feed: IQs
 %%====================================================================
+
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_feed_item{}} = Packet, State} = _Acc) ->
+    PayloadType = util:get_payload_type(Packet),
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s", [FromUid, PayloadType, ToUid, MsgId]),
+    Packet1 = set_sender_info(Packet),
+    {Packet1, State};
+
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_feed_items{}} = Packet, State} = _Acc) ->
+    PayloadType = util:get_payload_type(Packet),
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s", [FromUid, PayloadType, ToUid, MsgId]),
+    Packet1 = set_sender_info(Packet),
+    {Packet1, State};
+
+user_send_packet({_Packet, _State} = Acc) ->
+    Acc.
 
 %% Publish post.
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
@@ -143,6 +163,51 @@ remove_user(Uid, _Server) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+-spec set_sender_info(Message :: pb_msg()) -> pb_msg().
+set_sender_info(#pb_msg{id = MsgId, payload = #pb_feed_items{items = Items} = FeedItems} = Message) ->
+    NewItems = [set_ts_and_publisher_name(MsgId, Item) || Item <- Items],
+    NewFeedItems = FeedItems#pb_feed_items{
+        items = NewItems
+    },
+    Message#pb_msg{payload = NewFeedItems};
+    
+set_sender_info(#pb_msg{id = MsgId, payload = #pb_feed_item{} = FeedItem} = Message) ->
+    NewFeedItem = set_ts_and_publisher_name(MsgId, FeedItem),
+    Message#pb_msg{payload = NewFeedItem}.
+
+set_ts_and_publisher_name(MsgId, #pb_feed_item{item = Item} = FeedItem) ->
+    %% TODO: remove code to get, set the timestamp after both clients implement it properly.
+    {Timestamp, PublisherUid} = case Item of
+        #pb_post{timestamp = undefined} ->
+            ?WARNING("MsgId: ~p, Timestamp is missing", [MsgId]),
+            {util:now(), Item#pb_post.publisher_uid};
+        #pb_comment{timestamp = undefined} ->
+            ?WARNING("MsgId: ~p, Timestamp is missing", [MsgId]),
+            {util:now(), Item#pb_comment.publisher_uid};
+        #pb_post{timestamp = T} -> {T, Item#pb_post.publisher_uid};
+        #pb_comment{timestamp = T} -> {T, Item#pb_comment.publisher_uid}
+    end,
+    {ok, SenderName} = model_accounts:get_name(PublisherUid),
+    case Item of
+        #pb_post{} -> 
+            Item2 = Item#pb_post{
+                timestamp = Timestamp,
+                publisher_name = SenderName
+            },
+            FeedItem#pb_feed_item{
+                item = Item2
+            };
+        #pb_comment{} ->
+            Item2 = Item#pb_comment{
+                timestamp = Timestamp,
+                publisher_name = SenderName
+            },
+            FeedItem#pb_feed_item{
+                item = Item2
+            }
+    end.
+
 
 %% TODO(murali@): update payload to be protobuf binary without base64 encoded.
 
