@@ -42,11 +42,13 @@
 
 start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_whisper_keys, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_whisper_keys_collection, ?MODULE, process_local_iq),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ok.
 
 stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_whisper_keys),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_whisper_keys_collection),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ok.
 
