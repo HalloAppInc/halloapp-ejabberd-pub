@@ -361,8 +361,13 @@ process_delete_avatar(IQ, Gid, Uid) ->
     case mod_groups:delete_avatar(Gid, Uid) of
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason));
-        {ok, _GroupName} ->
-            pb:make_iq_result(IQ)
+        {ok, GroupName} ->
+            GroupSt = #pb_group_stanza{
+                gid = Gid,
+                name = GroupName,
+                avatar_id = <<>>
+            },
+            pb:make_iq_result(IQ, GroupSt)
     end.
 
 

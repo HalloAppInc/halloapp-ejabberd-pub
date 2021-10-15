@@ -666,7 +666,11 @@ delete_avatar_test() ->
     IQ2 = delete_avatar_IQ(?UID2, Gid),
     IQRes2 = mod_groups_api:process_local_iq(IQ2),
     ?assertEqual(result, IQRes2#pb_iq.type),
-    ?assertEqual(undefined, IQRes2#pb_iq.payload),
+    ?assertEqual(#pb_group_stanza{
+        gid = Gid,
+        name = ?GROUP_NAME1,
+        avatar_id = <<>>
+    }, IQRes2#pb_iq.payload),
 
     GroupInfo2 = model_groups:get_group_info(Gid),
     ?assertEqual(undefined, GroupInfo2#group_info.avatar),
