@@ -76,6 +76,7 @@
     get_signup_user_agent/1,
     set_client_version/2,
     get_client_version/1,
+    set_device_info/3,
     get_push_info/1,
     set_push_token/5,
     get_push_token/1,
@@ -146,6 +147,8 @@
 -define(FIELD_PUSH_POST, <<"pp">>).
 -define(FIELD_PUSH_COMMENT, <<"pc">>).
 -define(FIELD_PUSH_LANGUAGE_ID, <<"pl">>).
+-define(FIELD_DEVICE, <<"dvc">>).
+-define(FIELD_OS_VERSION, <<"osv">>).
 
 %% Field to capture creation of list with inactive uids and their deletion.
 -define(FIELD_INACTIVE_UIDS_STATUS, <<"ius">>).
@@ -196,14 +199,17 @@ create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
 -spec delete_account(Uid :: uid()) -> ok.
 delete_account(Uid) ->
     DeletionTsMs = util:now_ms(),
+    %% TODO(murali@): this code is kind of ugly.
+    %% Just get all fields and use map.
     case q(["HMGET", account_key(Uid), ?FIELD_PHONE,
             ?FIELD_CREATION_TIME, ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS,
-            ?FIELD_USER_AGENT, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID]) of
+            ?FIELD_USER_AGENT, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID,
+            ?FIELD_DEVICE, ?FIELD_OS_VERSION]) of
         {ok, [undefined | _]} ->
             ?WARNING("Looks like it is already deleted, Uid: ~p", [Uid]),
             ok;
         {ok, [_Phone, CreationTsMsBin, LastActivityTsMs, ActivityStatus,
-                UserAgent, ClientVersion, LangId]} ->
+                UserAgent, ClientVersion, LangId, Device, OsVersion]} ->
             [{ok, _}, RenameResult, {ok, _}, DecrResult] = qp([
                 ["HSET", deleted_uid_key(Uid),
                             ?FIELD_CREATION_TIME, CreationTsMsBin,
@@ -211,7 +217,9 @@ delete_account(Uid) ->
                             ?FIELD_ACTIVITY_STATUS, ActivityStatus,
                             ?FIELD_USER_AGENT, UserAgent,
                             ?FIELD_CLIENT_VERSION, ClientVersion,
-                            ?FIELD_DELETION_TIME, integer_to_binary(DeletionTsMs)],
+                            ?FIELD_DELETION_TIME, integer_to_binary(DeletionTsMs),
+                            ?FIELD_DEVICE, Device,
+                            ?FIELD_OS_VERSION, OsVersion],
                 ["RENAME", account_key(Uid), deleted_account_key(Uid)],
                 ["EXPIRE", deleted_account_key(Uid), ?DELETED_ACCOUNT_TTL],
                 ["DECR", count_accounts_key(Uid)]
@@ -430,6 +438,15 @@ get_client_version(Uid) ->
     end.
 
 
+-spec set_device_info(Uid :: uid(), Device :: maybe(binary()), OsVersion :: maybe(binary())) -> ok.
+set_device_info(_Uid, undefined, undefined) ->
+    %% TODO: murali@: temporary until clients send us this - check-in on 12-20-2021.
+    ok;
+set_device_info(Uid, Device, OsVersion) ->
+    {ok, _} = q(["HMSET", account_key(Uid), ?FIELD_DEVICE, Device, ?FIELD_OS_VERSION, OsVersion]),
+    ok.
+
+
 -spec get_account(Uid :: uid()) -> {ok, account()} | {error, missing}.
 get_account(Uid) ->
     {ok, Res} = q(["HGETALL", account_key(Uid)]),
@@ -447,7 +464,9 @@ get_account(Uid) ->
                     last_activity_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
                     activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined)),
                     client_version = maps:get(?FIELD_CLIENT_VERSION, M, undefined),
-                    lang_id = maps:get(?FIELD_PUSH_LANGUAGE_ID, M, undefined)
+                    lang_id = maps:get(?FIELD_PUSH_LANGUAGE_ID, M, undefined),
+                    device = maps:get(?FIELD_DEVICE, M, undefined),
+                    os_version = maps:get(?FIELD_OS_VERSION, M, undefined)
                 },
             {ok, Account}
     end.

@@ -120,7 +120,9 @@ dump_account(Uid) ->
                     lang_id => Account#account.lang_id,
                     num_contacts => NumContacts,
                     num_uid_contacts => NumUidContacts,
-                    num_friends => NumFriends
+                    num_friends => NumFriends,
+                    device => Account#account.device,
+                    os_version => Account#account.os_version
                 }),
                 ok
         end

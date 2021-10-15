@@ -62,15 +62,12 @@ process_local_iq(#pb_iq{type = get, from_uid = Uid,
     pb:make_iq_result(IQ, #pb_client_version{version = Version, expires_in_seconds = TimeLeftSec}).
 
 
-c2s_session_opened(#{user := Uid, client_version := ClientVersion} = State) ->
-    ok = set_client_version(Uid, ClientVersion),
-    State.
-
-
--spec set_client_version(Uid :: binary(), ClientVersion :: binary()) -> boolean().
-set_client_version(Uid, ClientVersion) ->
+c2s_session_opened(#{user := Uid, client_version := ClientVersion,
+        device := Device, os_version := OsVersion} = State) ->
+    %% TODO: combine these redis calls.
     ok = model_accounts:set_client_version(Uid, ClientVersion),
-    ok.
+    ok = model_accounts:set_device_info(Uid, Device, OsVersion),
+    State.
 
 
 %% Checks if a version is valid or not with respect to the current timestamp.

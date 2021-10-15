@@ -598,10 +598,19 @@ process_stream_authentication(#pb_auth_request{uid = Uid, client_mode = ClientMo
 
 -spec process_auth_request(pb_auth_request(), state()) -> state().
 process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = ClientMode,
-        client_version = PbClientVersion, resource = Resource}, State) ->
+        client_version = PbClientVersion, resource = Resource, device_info = DeviceInfo}, State) ->
+    Device = DeviceInfo#pb_device_info.device,
+    OsVersion = DeviceInfo#pb_device_info.os_version,
     Mode = ClientMode#pb_client_mode.mode,
     ClientVersion = PbClientVersion#pb_client_version.version,
-    State1 = State#{user => Uid, client_version => ClientVersion, resource => Resource, mode => Mode},
+    State1 = State#{
+        user => Uid,
+        client_version => ClientVersion,
+        resource => Resource,
+        mode => Mode,
+        device => Device,
+        os_version => OsVersion
+    },
     %% Check Uid and Password. TODO(murali@): simplify this even further!
     CheckPW = check_password_fun(<<>>, State1),
     PasswordResult = CheckPW(Uid, <<>>, Pwd),

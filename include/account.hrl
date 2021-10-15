@@ -23,7 +23,9 @@
     client_version :: binary(),
     last_activity_ts_ms :: integer() | undefined,
     activity_status :: activity_status() | undefined,
-    lang_id :: binary() | undefined
+    lang_id :: binary() | undefined,
+    device :: binary() | undefined,
+    os_version :: binary() | undefined
 }).
 
 -type account() :: #account{}.

@@ -58,7 +58,10 @@ message ClientVersion {
     int64 expires_in_seconds = 2;
 }
 
-
+message DeviceInfo {
+    string device = 1;    // Brand + ":" + Model Ex: "Iphone:12 Pro" / "OnePlus:KB2005".
+    string os_version = 2;    // "14.8" for iOS / "29" for API level in Android.
+}
 
 
 // Client Log
@@ -348,6 +351,7 @@ message AuthRequest {
     ClientMode client_mode = 3;
     ClientVersion client_version = 4;
     string resource = 5;
+    DeviceInfo device_info = 6;
 }
 
 // Left them to be string for now, will update these later as necessary.

@@ -130,6 +130,8 @@ log_delete_account(Account, Reason, Feedback) ->
         signup_platform => util_ua:get_client_type(Account#account.signup_user_agent),
         cc => CC,
         lang_id => Account#account.lang_id,
+        device => Account#account.device,
+        os_version => Account#account.os_version,
         num_contacts => NumContacts,
         num_uid_contacts => NumUidContacts,
         num_friends => NumFriends,

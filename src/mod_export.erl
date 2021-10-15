@@ -143,7 +143,9 @@ export_data(Uid) ->
         created_at_ms => Acc#account.creation_ts_ms,
         signup_device => Acc#account.signup_user_agent,
         client_version => Acc#account.client_version,
-        last_activity_ts_ms => Acc#account.last_activity_ts_ms
+        last_activity_ts_ms => Acc#account.last_activity_ts_ms,
+        device => Acc#account.device,
+        os_version => Acc#account.os_version
     },
     Account2 = case model_accounts:get_avatar_id_binary(Uid) of
         <<>> -> Account;
