@@ -19,7 +19,8 @@
     get_call_servers/3,
     start_call/5,
     user_receive_packet/1,
-    user_send_packet/1
+    user_send_packet/1,
+    get_stun_turn_servers/0  % for tests
 ]).
 
 %% gen_mod api
