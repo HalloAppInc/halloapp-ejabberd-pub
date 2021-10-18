@@ -588,19 +588,41 @@ process_authenticated_packet(Pkt, State) ->
 %% Noise based stream authentication - indicated by successful completion of the handshake.
 -spec process_stream_authentication(pb_auth_request(), state()) -> state().
 process_stream_authentication(#pb_auth_request{uid = Uid, client_mode = ClientMode,
-        client_version = PbClientVersion, resource = Resource}, State) ->
+        client_version = PbClientVersion, resource = Resource, device_info = DeviceInfo}, State) ->
+    case DeviceInfo of
+        undefined ->
+            Device = undefined,
+            OsVersion = undefined;
+        #pb_device_info{} ->
+            Device = DeviceInfo#pb_device_info.device,
+            OsVersion = DeviceInfo#pb_device_info.os_version
+    end,
     Mode = ClientMode#pb_client_mode.mode,
     ClientVersion = PbClientVersion#pb_client_version.version,
-    State1 = State#{user => Uid, client_version => ClientVersion, resource => Resource, mode => Mode},
+    State1 = State#{
+        user => Uid,
+        client_version => ClientVersion,
+        resource => Resource,
+        mode => Mode,
+        device => Device,
+        os_version => OsVersion
+    },
     % if noise calls this we are authenticated
     do_process_auth_request(State1, Uid, true).
 
 
+%% TODO(murali@:) cleanup this file to have only noise-auth login.
 -spec process_auth_request(pb_auth_request(), state()) -> state().
 process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = ClientMode,
         client_version = PbClientVersion, resource = Resource, device_info = DeviceInfo}, State) ->
-    Device = DeviceInfo#pb_device_info.device,
-    OsVersion = DeviceInfo#pb_device_info.os_version,
+    case DeviceInfo of
+        undefined ->
+            Device = undefined,
+            OsVersion = undefined;
+        #pb_device_info{} ->
+            Device = DeviceInfo#pb_device_info.device,
+            OsVersion = DeviceInfo#pb_device_info.os_version
+    end,
     Mode = ClientMode#pb_client_mode.mode,
     ClientVersion = PbClientVersion#pb_client_version.version,
     State1 = State#{
