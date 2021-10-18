@@ -157,6 +157,7 @@ modules:
   mod_group_feed: {}
   mod_ha_stats: {}
   mod_logs_http_api: {}
+  mod_geodb: {}
   mod_halloapp_http_api: {}
   mod_http_api: {}
   mod_invites: {}

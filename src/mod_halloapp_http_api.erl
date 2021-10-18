@@ -161,8 +161,10 @@ process_otp_request(Data, IP, Headers) ->
         MethodBin = maps:get(<<"method">>, Payload, <<"sms">>),
         LangId = maps:get(<<"lang_id">>, Payload, <<"en-US">>),
         GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
-        ?INFO("raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, payload:~p ",
-            [RawPhone, UserAgent, ClientIP, MethodBin, LangId, Payload]),
+        PhoneCC = mod_libphonenumber:get_region_id(RawPhone),
+        IPCC = mod_geodb:lookup(ClientIP),
+        ?INFO("raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, Phone CC: ~p IP CC: ~p payload:~p ",
+            [RawPhone, UserAgent, ClientIP, MethodBin, LangId, PhoneCC, IPCC, Payload]),
         RawData = Payload#{headers => Headers, ip => IP},
         RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
             ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => RawData, protocol => https
@@ -732,7 +734,7 @@ reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
 depends(_Host, _Opts) ->
-    [{mod_sms, hard}].
+    [{mod_sms, hard}, {mod_geodb, hard}].
 
 -spec mod_options(binary()) -> [{atom(), term()}].
 mod_options(_Host) ->
