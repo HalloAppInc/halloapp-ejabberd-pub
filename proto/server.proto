@@ -566,7 +566,7 @@ message IncomingCall {
 }
 
 //RFC 4566 https://datatracker.ietf.org/doc/html/rfc4566#section-5.14
-message IceCandicate {
+message IceCandidate {
     string call_id = 1;
     string sdp_media_id = 2;
     int32 sdp_media_line_index = 3;
@@ -701,7 +701,7 @@ message Msg {
         CallRinging call_ringing = 35;
         AnswerCall answer_call = 36;
         EndCall end_call = 37;
-        IceCandicate ice_candidate = 38;
+        IceCandidate ice_candidate = 38;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
