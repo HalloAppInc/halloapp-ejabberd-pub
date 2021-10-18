@@ -63,23 +63,8 @@ send_ack(State, #pb_msg{id = MsgId, from_uid = Uid} = Packet)
     PayloadType = util:get_payload_type(Packet),
     ?ERROR("uid: ~s, invalid msg_id: ~s, content: ~p", [Uid, MsgId, PayloadType]),
     State;
-send_ack(State, #pb_msg{id = MsgId, from_uid = Uid} = Packet) ->
-    PayloadType = util:get_payload_type(Packet),
-    PacketTs = util:get_timestamp(Packet),
-    Timestamp = case {PayloadType, PacketTs} of
-        {pb_rerequest, _} -> util:now();
-        {pb_group_feed_rerequest, _} -> util:now();
-        {pb_home_feed_rerequest, _} -> util:now();
-        {pb_group_chat_retract, _} -> util:now();
-        {pb_chat_retract, _} -> util:now();
-        {_, undefined} ->
-            ?WARNING("Uid: ~s, timestamp is undefined, msg_id: ~s", [Uid, MsgId]),
-            util:now();
-        {_, <<>>} ->
-            ?WARNING("Uid: ~s, timestamp is empty, msg_id: ~s", [Uid, MsgId]),
-            util:now();
-        {_, PacketTs} -> util:to_integer(PacketTs)
-    end,
+send_ack(State, #pb_msg{id = MsgId, from_uid = Uid}) ->
+    Timestamp = util:now(),
     AckPacket = #pb_ack{id = MsgId, to_uid = Uid, timestamp = Timestamp},
     ?INFO("uid: ~s, msg_id: ~s", [Uid, MsgId]),
     halloapp_c2s:route(State, {route, AckPacket}).

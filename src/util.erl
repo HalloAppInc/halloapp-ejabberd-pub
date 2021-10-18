@@ -62,7 +62,6 @@
     get_stest_shard_num/0,
     get_payload_type/1,
     set_timestamp/2,
-    get_timestamp/1,
     get_protocol/1,
     is_ipv4/1,
     is_ipv6/1,
@@ -461,25 +460,6 @@ set_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_st
 set_timestamp(#pb_msg{payload = #pb_played_receipt{} = PlayedReceipt} = Msg, T) ->
     Msg#pb_msg{payload = PlayedReceipt#pb_played_receipt{timestamp = T}};
 set_timestamp(Packet, _T) -> Packet.
-
-
--spec get_timestamp(pb_msg()) -> binary() | undefined.
-get_timestamp(#pb_msg{payload = #pb_chat_stanza{timestamp = T}}) -> T;
-get_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_stanza{timestamp = T}}}) -> T;
-get_timestamp(#pb_msg{payload = #pb_seen_receipt{timestamp = T}}) -> T;
-get_timestamp(#pb_msg{payload = #pb_delivery_receipt{timestamp = T}}) -> T;
-get_timestamp(#pb_msg{payload = #pb_played_receipt{timestamp = T}}) -> T;
-%% Clients set their own timestamp on these group_feed_item messages - because they are rerequests.
-get_timestamp(#pb_msg{payload = #pb_group_feed_item{item = #pb_post{timestamp = _T}}}) -> util:now();
-get_timestamp(#pb_msg{payload = #pb_group_feed_item{item = #pb_comment{timestamp = _T}}}) -> util:now();
-%% Clients set their own timestamp on these feed_item messages - because they are rerequests.
-get_timestamp(#pb_msg{payload = #pb_feed_item{item = #pb_post{timestamp = _T}}}) -> util:now();
-get_timestamp(#pb_msg{payload = #pb_feed_item{item = #pb_comment{timestamp = _T}}}) -> util:now();
-%% Clients set their own timestamp on these group_feed_items messages - because they are for historical content.
-get_timestamp(#pb_msg{payload = #pb_group_feed_items{}}) -> util:now();
-%% Clients set their own timestamp on these feed_items messages - because they are for historical content.
-get_timestamp(#pb_msg{payload = #pb_feed_items{}}) -> util:now();
-get_timestamp(#pb_msg{}) -> undefined.
 
 
 -spec get_protocol({inet:address(), inet:port_number()}) -> ipv4 | ipv6.
