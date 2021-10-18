@@ -15,6 +15,7 @@
 
 -type uid() :: binary().
 -type gid() :: binary().
+-type call_id() :: binary().
 
 -type phone() :: binary().
 

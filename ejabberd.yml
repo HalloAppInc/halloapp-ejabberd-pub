@@ -215,6 +215,8 @@ modules:
   mod_http_checker: {}
   mod_noise_checker: {}
   mod_redis_checker: {}
+  mod_calls_api: {}
+  mod_calls: {}
 
 ### Local Variables:
 ### mode: yaml

@@ -495,6 +495,108 @@ message HistoryResend {
     bytes audience_hash = 8;
 }
 
+// Calls
+enum CallType {
+    UNKNOWN = 0;
+    AUDIO = 1;
+    VIDEO = 2;
+}
+
+message StunServer {
+    string host = 1;
+    uint32 port = 2;
+}
+
+message TurnServer {
+    string host = 1;
+    uint32 port = 2;
+    string username = 3;
+    string password = 4;
+}
+
+message GetCallServers {
+    string call_id = 1;
+    int64 peer_uid = 2 [ebin = true];
+    CallType call_type = 3;
+}
+
+message GetCallServersResult {
+    enum Result {
+        UNKNOWN = 0;
+        OK = 1;
+        FAIL = 2;
+    }
+    Result result = 1;
+    repeated StunServer stun_servers = 2;
+    repeated TurnServer turn_servers = 3;
+}
+
+message StartCall {
+    string call_id = 1;
+    int64 peer_uid = 2 [ebin = true];
+    CallType call_type = 3;
+    WebRtcSessionDescription webrtc_offer = 4;
+}
+
+message StartCallResult {
+    enum Result {
+        UNKNOWN = 0;
+        OK = 1;
+        FAIL = 2;  // TODO:(nikola) we will likely have to add some sort of reasons here
+    }
+    Result result = 1;
+    repeated StunServer stun_servers = 2;
+    repeated TurnServer turn_servers = 3;
+    int64 timestamp_ms = 4;
+}
+
+message WebRtcSessionDescription {
+    bytes enc_payload = 1;
+    bytes public_key = 2;
+    int32 one_time_pre_key_id = 3;
+}
+
+message IncomingCall {
+    string call_id = 1;
+    CallType call_type = 2;
+    WebRtcSessionDescription webrtc_offer = 3;
+    repeated StunServer stun_servers = 4;
+    repeated TurnServer turn_servers = 5;
+    int64 timestamp_ms = 6;
+}
+
+//RFC 4566 https://datatracker.ietf.org/doc/html/rfc4566#section-5.14
+message IceCandicate {
+    string call_id = 1;
+    string sdp_media_id = 2;
+    int32 sdp_media_line_index = 3;
+    string sdp = 4;
+}
+
+// send when the receiver of the calls starts ringing.
+message CallRinging {
+    string call_id = 1;
+    int64 timestamp_ms = 2;
+}
+
+message AnswerCall {
+    string call_id = 1;
+    WebRtcSessionDescription webrtc_answer = 2;
+    int64 timestamp_ms = 3;
+}
+
+message EndCall {
+    string call_id = 1;
+    enum Reason {
+        UNKNOWN = 0;
+        REJECT = 1;
+        BUSY = 2;
+        TIMEOUT = 3;
+        CALL_END = 4;
+    }
+    Reason reason = 2;
+    int64 timestamp_ms = 3;
+}
 
 // IQ
 
@@ -540,6 +642,10 @@ message Iq {
         ClientOtpRequest client_otp_request = 35; // only for sms_app gateway use
         ClientOtpResponse client_otp_response = 36; // only for sms_app gateway use
         WhisperKeysCollection whisper_keys_collection = 37;
+        GetCallServers get_call_servers = 38;
+        GetCallServersResult get_call_servers_result = 39;
+        StartCall start_call = 40;
+        StartCallResult start_call_result = 41;
         TruncWhisperKeysCollection trunc_whisper_keys_collection = 42;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
@@ -558,6 +664,7 @@ message Msg {
         GROUPCHAT = 2;
         HEADLINE = 3;
         CHAT = 4;       // Not used yet.
+        CALL = 5;
     }
     Type type = 2;
     int64 to_uid = 3 [ebin = true];
@@ -590,6 +697,11 @@ message Msg {
         RequestLogs request_logs = 31;
         WakeUp wakeup = 32; // only for use with SMSApp clients
         HomeFeedRerequest home_feed_rerequest = 33;
+        IncomingCall incoming_call = 34;
+        CallRinging call_ringing = 35;
+        AnswerCall answer_call = 36;
+        EndCall end_call = 37;
+        IceCandicate ice_candidate = 38;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
