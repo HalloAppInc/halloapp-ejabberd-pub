@@ -92,6 +92,7 @@ get_props(Uid, ClientVersion) ->
         group_sync_time => 1 * ?WEEKS, %% how often should clients sync group metadata
         group_invite_links => true, %% enables group_invite_links on the client.
         max_video_bit_rate => 8000000, %% max_video_bit_rate set to 8Mbps.
+        audio_note_bit_rate => 96000, %% audio_note_bit_rate set to 96Kbps.
         new_client_container => false, %% indicates whether the client can start sending new container formats.
         voice_notes => false, %% enables voice notes in 1-1 messages on client.
         media_comments => true,  %% enables media comments.
