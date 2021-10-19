@@ -211,6 +211,7 @@ publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, GroupFeedSt) ->
     AudienceList = model_groups:get_member_uids(Gid),
     AudienceSet = sets:from_list(AudienceList),
     PushSet = AudienceSet,
+    MediaCounters = GroupFeedSt#pb_group_feed_item.item#pb_post.media_counters,
     {ok, SenderName} = model_accounts:get_name(Uid),
     
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
@@ -218,7 +219,7 @@ publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, GroupFeedSt) ->
             TimestampMs = util:now_ms(),
             ok = model_feed:publish_post(PostId, Uid, PayloadBase64,
                     AudienceType, AudienceList, TimestampMs, Gid),
-            ejabberd_hooks:run(group_feed_item_published, Server, [Gid, Uid, PostId, post]),
+            ejabberd_hooks:run(group_feed_item_published, Server, [Gid, Uid, PostId, post, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             {ok, ExistingPost#post.ts_ms}
@@ -262,6 +263,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
     Server = util:get_host(),
     Gid = GroupInfo#group_info.gid,
     {ok, SenderName} = model_accounts:get_name(Uid),
+    MediaCounters = GroupFeedSt#pb_group_feed_item.item#pb_comment.media_counters,
 
     case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
         {{error, missing}, _, _} ->
@@ -290,7 +292,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
             ok = model_feed:publish_comment(CommentId, PostId, Uid,
                     ParentCommentId, PayloadBase64, TimestampMs),
             ejabberd_hooks:run(group_feed_item_published, Server,
-                    [Gid, Uid, CommentId, comment]),
+                    [Gid, Uid, CommentId, comment, MediaCounters]),
 
             NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
                     SenderName, GroupFeedSt, util:ms_to_sec(TimestampMs)),

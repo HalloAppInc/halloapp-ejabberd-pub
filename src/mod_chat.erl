@@ -64,7 +64,9 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
             Packet;
         is_record(Payload, pb_chat_stanza) orelse is_record(Payload, pb_silent_chat_stanza) ->
             case is_record(Payload, pb_chat_stanza) of
-                true -> ejabberd_hooks:run_fold(user_send_im, LServer, [FromUid, MsgId, ToUid]);
+                true ->
+                    MediaCounters = Payload#pb_chat_stanza.media_counters,
+                    ejabberd_hooks:run_fold(user_send_im, LServer, [FromUid, MsgId, ToUid, MediaCounters]);
                 false -> ok
             end,
             set_sender_info(Packet);

@@ -95,7 +95,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     ParentCommentId = Comment#pb_comment.parent_comment_id,
     PayloadBase64 = base64:encode(Comment#pb_comment.payload),
     EncPayload = Comment#pb_comment.enc_payload,
-    case publish_comment(Uid, CommentId, PostId, ParentCommentId, PayloadBase64, EncPayload) of
+    MediaCounters = Comment#pb_comment.media_counters,
+    case publish_comment(Uid, CommentId, PostId, ParentCommentId,
+            PayloadBase64, EncPayload, MediaCounters) of
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_comment(Action, CommentId, PostId,
                     ParentCommentId, Uid, <<>>, <<>>, ResultTsMs),
@@ -221,6 +223,7 @@ publish_post(Uid, PostId, PayloadBase64, AudienceList, HomeFeedSt) ->
     Action = publish,
     FeedAudienceType = AudienceList#pb_audience.type,
     FeedAudienceList = AudienceList#pb_audience.uids,
+    MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
     %% Include own Uid in the audience list always.
     UpdatedAudienceList = [Uid | FeedAudienceList],
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
@@ -230,8 +233,7 @@ publish_post(Uid, PostId, PayloadBase64, AudienceList, HomeFeedSt) ->
                 [Uid, PostId, FeedAudienceType, length(UpdatedAudienceList)]),
             ok = model_feed:publish_post(PostId, Uid, PayloadBase64,
                     FeedAudienceType, UpdatedAudienceList, TimestampMs),
-            ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, FeedAudienceType]),
-
+            ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, FeedAudienceType, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             {ok, ExistingPost#post.ts_ms}
@@ -254,11 +256,12 @@ broadcast_post(Action, PostId, Uid, PayloadBase64, TimestampMs, FeedAudienceList
 
 -spec publish_comment(Uid :: uid(), CommentId :: binary(), PostId :: binary(),
         ParentCommentId :: binary(), PayloadBase64 :: binary(),
-        EncPayload :: binary()) -> {ok, integer()} | {error, any()}.
-publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64, EncPayload) ->
+        EncPayload :: binary(), MediaCounters :: pb_media_counters()) -> {ok, integer()} | {error, any()}.
+publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64, EncPayload, MediaCounters) ->
     ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = publish,
+
     case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
         {{error, missing}, _, _} ->
             {error, invalid_post_id};
@@ -288,7 +291,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
                             ParentCommentId, PayloadBase64, TimestampMs),
                     ejabberd_hooks:run(feed_item_published, Server, [PublisherUid, CommentId,
-                                       comment, Post#post.audience_type]),
+                                       comment, Post#post.audience_type, MediaCounters]),
                     broadcast_comment(Action, CommentId, PostId, ParentCommentId,
                         PublisherUid, PayloadBase64, EncPayload, TimestampMs, FeedAudienceSet, NewPushList),
                     {ok, TimestampMs};

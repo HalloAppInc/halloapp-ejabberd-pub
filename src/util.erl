@@ -73,7 +73,9 @@
     day_before/1,
     normalize_scores/1,
     get_machine_name/0,
-    repair_utf8/1
+    repair_utf8/1,
+    get_media_type/1,
+    get_detailed_media_type/1
 ]).
 
 
@@ -536,5 +538,40 @@ repair_utf8(Bin) when is_binary(Bin) ->
     case unicode:characters_to_nfc_list(NewBin) of
         {error, _, _} -> repair_utf8(NewBin);
         _ -> NewBin
+    end.
+
+
+-spec get_media_type(MediaCounters :: pb_media_counters()) -> maybe(atom()).
+get_media_type(undefined) -> undefined;
+get_media_type(MediaCounters) ->
+    NumImages = MediaCounters#pb_media_counters.num_images,
+    NumVideos = MediaCounters#pb_media_counters.num_videos,
+    NumAudio = MediaCounters#pb_media_counters.num_audio,
+
+    case {NumImages, NumVideos, NumAudio} of
+        {0, 0, 0} -> text;
+        {_, _, _} when NumAudio =:= 0 -> album;
+        _ -> audio
+    end.
+
+
+-spec get_detailed_media_type(MediaCounters :: pb_media_counters()) -> maybe(atom()).
+get_detailed_media_type(undefined) -> undefined;
+get_detailed_media_type(MediaCounters) ->
+    NumImages = MediaCounters#pb_media_counters.num_images,
+    NumVideos = MediaCounters#pb_media_counters.num_videos,
+    NumAudio = MediaCounters#pb_media_counters.num_audio,
+
+    case {NumImages, NumVideos, NumAudio} of
+        {0, 0, 0} -> text;
+        {_, _, _} when NumAudio =:= 0; NumAudio =:= undefined ->
+            if
+                NumImages =:= 1 andalso NumVideos =:= 0 -> image;
+                NumImages > 1 andalso NumVideos =:= 0 -> images;
+                NumVideos =:= 1 andalso NumImages =:= 0 -> video;
+                NumVideos > 1 andalso NumImages =:= 0 -> videos;
+                true -> album
+            end;
+        _ -> audio
     end.
 

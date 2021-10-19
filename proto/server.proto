@@ -132,6 +132,12 @@ message ContactSyncError {
 
 // Pubsub
 
+message MediaCounters {
+    int32 num_images = 1;
+    int32 num_videos = 2;
+    int32 num_audio = 3;
+}
+
 message Audience {
     enum Type {
         ALL = 0;
@@ -151,6 +157,7 @@ message Post {
     string publisher_name = 6;
     // Serialized EncryptedPayload (from client.proto).
     bytes enc_payload = 7;
+    MediaCounters media_counters = 8;
 }
 
 message Comment {
@@ -163,6 +170,7 @@ message Comment {
     int64 timestamp = 7;
     // Serialized EncryptedPayload (from client.proto).
     bytes enc_payload = 8;
+    MediaCounters media_counters = 9;
 }
 
 
@@ -437,6 +445,7 @@ message ChatStanza {
     int64 one_time_pre_key_id = 5;
     string sender_name = 6;
     string sender_phone = 7;
+    MediaCounters media_counters = 8;
 
     // Use >=16 for temporary elements since 1-15 encode smaller
     string sender_log_info = 16;

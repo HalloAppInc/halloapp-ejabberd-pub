@@ -22,10 +22,11 @@
 ]).
 
 -export([
+    user_send_im/4,
     feed_share_old_items/4,
-    feed_item_published/4,
+    feed_item_published/5,
     feed_item_retracted/3,
-    group_feed_item_published/4,
+    group_feed_item_published/5,
     group_feed_item_retracted/4,
     register_user/3,
     re_register_user/3,
@@ -61,6 +62,7 @@ start_link() ->
     gen_server:start_link({local, ?PROC()}, ?MODULE, [], []).
 
 start(Host, Opts) ->
+    ejabberd_hooks:add(user_send_im, Host, ?MODULE, user_send_im, 50),
     ejabberd_hooks:add(feed_item_published, Host, ?MODULE, feed_item_published, 50),
     ejabberd_hooks:add(group_feed_item_published, Host, ?MODULE, group_feed_item_published, 50),
     ejabberd_hooks:add(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),
@@ -77,6 +79,7 @@ start(Host, Opts) ->
 
 
 stop(Host) ->
+    ejabberd_hooks:delete(user_send_im, Host, ?MODULE, user_send_im, 50),
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 50),
     ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:delete(remove_friend, Host, ?MODULE, remove_friend, 50),
@@ -193,9 +196,18 @@ trigger_cleanup() ->
     gen_server:cast(?PROC(), {cleanup}).
 
 
+
+-spec user_send_im(FromUid :: binary(), MsgId :: binary(),
+    ToUid :: binary(), MediaCounters :: pb_media_counters()) -> ok.
+user_send_im(_FromUid, _MsgId, _ToUid, MediaCounters) ->
+    %% TODO: move im counters logic here.
+    report_media_counters(chat, MediaCounters),
+    ok.
+
+
 -spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: atom(),
-        FeedAudienceType :: atom()) -> ok.
-feed_item_published(Uid, ItemId, ItemType, FeedAudienceType) ->
+        FeedAudienceType :: atom(), MediaCounters :: pb_media_counters()) -> ok.
+feed_item_published(Uid, ItemId, ItemType, FeedAudienceType, MediaCounters) ->
     ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
     {ok, Phone} = model_accounts:get_phone(Uid),
     CC = mod_libphonenumber:get_cc(Phone),
@@ -203,12 +215,14 @@ feed_item_published(Uid, ItemId, ItemType, FeedAudienceType) ->
     case ItemType of
         post ->
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            report_media_counters(post, MediaCounters),
             stat:count("HA/feed", "post"),
             stat:count("HA/feed", "post_by_cc", 1, [{cc, CC}]),
             stat:count("HA/feed", "post_by_dev", 1, [{is_dev, IsDev}]),
             stat:count("HA/feed", "post_by_audience_type", 1, [{type, FeedAudienceType}]);
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            report_media_counters(comment, MediaCounters),
             stat:count("HA/feed", "comment"),
             stat:count("HA/feed", "comment_by_cc", 1, [{cc, CC}]),
             stat:count("HA/feed", "comment_by_dev", 1, [{is_dev, IsDev}]);
@@ -224,8 +238,9 @@ feed_item_retracted(Uid, ItemId, ItemType) ->
     ok.
 
 
--spec group_feed_item_published(Gid :: binary(), Uid :: binary(), ItemId :: binary(), ItemType :: atom()) -> ok.
-group_feed_item_published(Gid, Uid, ItemId, ItemType) ->
+-spec group_feed_item_published(Gid :: binary(), Uid :: binary(),
+    ItemId :: binary(), ItemType :: atom(), MediaCounters :: pb_media_counters()) -> ok.
+group_feed_item_published(Gid, Uid, ItemId, ItemType, MediaCounters) ->
     ?INFO("counting Gid: ~p, Uid:~p, ItemId: ~p, ItemType:~p", [Gid, Uid, ItemId, ItemType]),
     {ok, Phone} = model_accounts:get_phone(Uid),
     CC = mod_libphonenumber:get_cc(Phone),
@@ -233,11 +248,13 @@ group_feed_item_published(Gid, Uid, ItemId, ItemType) ->
     case ItemType of
         post ->
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            report_media_counters(group_post, MediaCounters),
             stat:count("HA/group_feed", "post"),
             stat:count("HA/group_feed", "post_by_cc", 1, [{cc, CC}]),
             stat:count("HA/group_feed", "post_by_dev", 1, [{is_dev, IsDev}]);
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            report_media_counters(group_comment, MediaCounters),
             stat:count("HA/group_feed", "comment"),
             stat:count("HA/group_feed", "comment_by_cc", 1, [{cc, CC}]),
             stat:count("HA/group_feed", "comment_by_dev", 1, [{is_dev, IsDev}]);
@@ -361,3 +378,44 @@ feed_share_old_items(_FromUid, ToUid, NumPosts, NumComments) ->
     stat:count("HA/feed", "initial_feed", NumComments, [{type, comment}]),
     log_share_old_items(ToUid, NumPosts, NumComments),
     ok.
+
+-spec report_media_counters(ContentType :: atom(), MediaCounters :: pb_media_counters()) -> ok.
+report_media_counters(_ContentType, undefined) -> ok;
+report_media_counters(ContentType, MediaCounters) ->
+    try
+        ContentTypeList = util:to_list(ContentType),
+        MediaType = util:get_detailed_media_type(MediaCounters),
+        stat:count("HA/media", "agg_content", 1,
+                [{"content_type", ContentTypeList}, {"media_type", util:to_list(MediaType)}]),
+
+        NumImages = MediaCounters#pb_media_counters.num_images,
+        NumVideos = MediaCounters#pb_media_counters.num_videos,
+        NumAudio = MediaCounters#pb_media_counters.num_audio,
+        %% Count images.
+        if
+            NumImages =:= 0 -> ok;
+            true ->
+                stat:count("HA/media", "agg_media", NumImages,
+                    [{"content_type", ContentTypeList}, {"media_type", "image"}])
+        end,
+        %% Count videos.
+        if
+            NumVideos =:= 0 -> ok;
+            true ->
+                stat:count("HA/media", "agg_media", NumVideos,
+                    [{"content_type", ContentTypeList}, {"media_type", "video"}])
+        end,
+        %% Count audio notes.
+        if
+            NumAudio =:= 0 -> ok;
+            true ->
+                stat:count("HA/media", "agg_media", NumAudio,
+                    [{"content_type", ContentTypeList}, {"media_type", "audio"}])
+        end,
+        ok
+    catch
+        Class: Reason: Stacktrace ->
+            ?ERROR("report_media_counters failed, Stacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+    end.
+
