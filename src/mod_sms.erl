@@ -229,10 +229,8 @@ find_next_ts(OldResponses) ->
     %% Find the last unsuccessful attempts (ignoring when sms/otp fails on server side).
     ReverseOldResponses = lists:reverse(OldResponses),
     FailedResponses = lists:takewhile(
-        fun(#gateway_response{verified = Success, status=Status, valid=Validity}) ->
-            Success =/= true andalso Validity =/= false andalso
-            Status =/= undelivered andalso Status =/= failed andalso Status =/= unknown andalso
-            Status =/= undefined
+        fun(#gateway_response{verified = Success, status = Status, valid = Validity}) ->
+            Success =/= true andalso Validity =/= false andalso is_successful_otp_attempt(Status)
         end, ReverseOldResponses),
     OldResponses2 = lists:reverse(FailedResponses),
     Len = length(OldResponses2),
@@ -245,6 +243,10 @@ find_next_ts(OldResponses) ->
             #gateway_response{attempt_ts = LastTs} = lists:nth(Len, OldResponses2),
             util_sms:good_next_ts_diff(Len) + util:to_integer(LastTs)
     end.
+
+is_successful_otp_attempt(Status) ->
+    Status =/= undelivered andalso Status =/= failed andalso
+        Status =/= unknown andalso Status =/= undefined.
 
 
 -spec send_otp_internal(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: method(),
