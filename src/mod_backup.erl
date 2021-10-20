@@ -82,7 +82,8 @@
 -define(AWS_RETRY_WINDOW, 15 * ?SECONDS_MS).
 -define(MAX_WAIT_RETRIES, 500). %% 2 hours, 5 minutes
 -define(NUM_BACKUPS_WARNING_THRESHOLD, 47).
-%% TODO: determine a good warning threshold
+%% redis-sessions is the smallest. it is just a bit more than 10KB.
+%% intent of the following macro is to capture deletion of almost all data.
 -define(MIN_BACKUP_SIZE_WARNING_THRESHOLD, 10 * 1024). %% 10KB
 
 %%%=============================================================================
@@ -230,9 +231,14 @@ health_check_redis_backups(RedisId) ->
         ?INFO("BackupSizeMap: ~p~n", [BackupSizeMap]),
         stat:gauge("HA/backups", "num_backups", NumUniqueBackups,
                 [{redis, RedisId}]),
+        RedisIdBin = util:to_binary(RedisId),
         case NumUniqueBackups < ?NUM_BACKUPS_WARNING_THRESHOLD of
             true ->
-                %% TODO(@ethan): use alerts.erl to send an alert
+                Msg1 = <<RedisIdBin/binary, " currently has ",
+                    (util:to_binary(NumUniqueBackups))/binary,
+                    " backups in S3. Need to have atleast ",
+                    (util:to_binary(?NUM_BACKUPS_WARNING_THRESHOLD))/binary>>,
+                alerts:send_alert(<<"Not enough Backups">>, RedisIdBin/binary, <<"critical">>, Msg1),
                 ?ERROR("[~p] currently has ~p backups in S3",
                         [RedisId, NumUniqueBackups]);
             false ->
@@ -243,7 +249,12 @@ health_check_redis_backups(RedisId) ->
             fun(BackupName, Size) ->
                 case Size < ?MIN_BACKUP_SIZE_WARNING_THRESHOLD of
                     true ->
-                        %% TODO(@ethan): use alerts.erl to send an alert
+                        Msg2 = <<RedisIdBin/binary, "'s backup ",
+                            (util:to_binary(BackupName))/binary,
+                            " is only ", (util:to_binary(Size))/binary,
+                            " bytes. Need to have atleast ",
+                            (util:to_binary(?MIN_BACKUP_SIZE_WARNING_THRESHOLD))/binary, " bytes">>,
+                        alerts:send_alert(<<"Backup very small">>, RedisIdBin/binary, <<"critical">>, Msg2),
                         ?ERROR("[~p] Backup ~p is only ~p bytes",
                                 [RedisId, BackupName, Size]);
                     false ->
