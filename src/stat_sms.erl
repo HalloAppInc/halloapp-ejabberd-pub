@@ -426,8 +426,7 @@ get_gwcc_atom(Gateway, CC) ->
 -spec sms_stats_table_name(atom()) -> atom().
 sms_stats_table_name(TimeWindow) ->
     TimeWindowBinary = util:to_binary(TimeWindow),
-    % FIXME: it looks like we can potentially create lots of atoms. This could lead to
-    % memory problems. We should consider not using atoms.
+    %% Possible values of TimeWindow is `recent` and `past`. Number of created atoms is bounded.
     util:to_atom(<<<<"sms_stats">>/binary, TimeWindowBinary/binary>>).
 
 
