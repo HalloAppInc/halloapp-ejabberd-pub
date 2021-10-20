@@ -34,7 +34,7 @@
 ]).
 
 
--spec init(Region :: string(), Bucket :: string(), PutHost :: string(), GetHost :: string()) -> ok.
+-spec init(Region :: binary(), Bucket :: binary(), PutHost :: binary(), GetHost :: binary()) -> ok.
 init(Region, Bucket, PutHost, GetHost) ->
     ?INFO("~p", [init]),
     internal_init(Region, Bucket, PutHost, GetHost),
@@ -154,6 +154,9 @@ internal_init(Region, Bucket, PutHost, GetHost) ->
     GetHostStr = binary_to_list(GetHost),
     ?assert(length(GetHostStr) > 0),
     persistent_term:put({?MODULE, get_host}, GetHostStr),
+
+    ?INFO("Region: ~s, Bucket: ~s, PutHost: ~s, GetHost: ~s",
+        [RegionStr, BucketStr, PutHostStr, GetHostStr]),
 
     % Do we need to generate signed 'GET' from S3, default false.
     Val = os:getenv(?IsSignedGetNeeded),

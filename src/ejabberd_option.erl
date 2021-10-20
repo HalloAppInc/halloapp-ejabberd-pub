@@ -60,7 +60,6 @@
 -export([oauth_cache_life_time/0]).
 -export([oauth_cache_missed/0]).
 -export([oauth_cache_size/0]).
--export([oauth_db_type/0]).
 -export([oauth_expire/0]).
 -export([oauth_use_cache/0]).
 -export([oom_killer/0]).
@@ -421,10 +420,6 @@ oauth_cache_missed() ->
 -spec oauth_cache_size() -> 'infinity' | pos_integer().
 oauth_cache_size() ->
     ejabberd_config:get_option({oauth_cache_size, global}).
-
--spec oauth_db_type() -> atom().
-oauth_db_type() ->
-    ejabberd_config:get_option({oauth_db_type, global}).
 
 -spec oauth_expire() -> non_neg_integer().
 oauth_expire() ->

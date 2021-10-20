@@ -4,9 +4,6 @@
 %%% Copyright (C) 2021 HalloApp Inc.
 %%%
 %%% This file manages upload media metadata.
-%%% This module expects {aws_media_region, aws_media_put_host,
-%%% aws_media_get_host} to be present in ejabberd.yml file.
-%%% If not specified, loading of this module will fail.
 %%%----------------------------------------------------------------------
 
 -module(mod_upload_media).
@@ -16,8 +13,21 @@
 -include("logger.hrl").
 -include("packets.hrl").
 
+-define(AWS_MEDIA_REGION, <<"us-east-1">>).
+-define(AWS_MEDIA_BUCKET, <<"us-e-halloapp-media">>).
+%% Accelerated dualstack endpoint.
+%% Ref: https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html
+-define(AWS_MEDIA_PUT_HOST, <<"us-e-halloapp-media.s3-accelerate.dualstack.amazonaws.com">>).
+%% Cloudfront based distribution.
+%% Ref: https://aws.amazon.com/premiumsupport/knowledge-center/cloudfront-https-requests-s3/
+-define(AWS_MEDIA_GET_HOST, <<"u-cdn.halloapp.net">>).
+%% Resumable upload server internal host names.
+-define(UPLOAD_HOSTS, ["u2.ha","u3.ha"]).
+%% Resumable upload server port.
+-define(UPLOAD_PORT, 1080).
+
 %% gen_mod callbacks.
--export([start/2, stop/1, reload/3, mod_opt_type/1, mod_options/1, depends/2]).
+-export([start/2, stop/1, reload/3, mod_options/1, depends/2]).
 
 %% hooks and api.
 -export([
@@ -31,13 +41,13 @@
 %%====================================================================
 
 start(Host, Opts) ->
-    ?INFO("start ~w ~p", [?MODULE, self()]),
-    initialize_url_generators(Opts),
+    ?INFO("start ~w ~p", [?MODULE, Opts]),
+    initialize_url_generators(),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_upload_media, ?MODULE, process_local_iq),
     ok.
 
 stop(Host) ->
-    ?INFO("stop ~w ~p", [?MODULE, self()]),
+    ?INFO("stop ~w ~p", [?MODULE]),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_upload_media),
     s3_signed_url_generator:close(),
     upload_server_url_generator:close(),
@@ -49,28 +59,8 @@ reload(_Host, _NewOpts, _OldOpts) ->
 depends(_Host, _Opts) ->
     [].
 
-mod_opt_type(aws_media_region) ->
-    econf:binary();
-mod_opt_type(aws_media_bucket) ->
-    econf:binary();
-mod_opt_type(aws_media_put_host) ->
-    econf:binary();
-mod_opt_type(aws_media_get_host) ->
-    econf:binary();
-mod_opt_type(upload_hosts) ->
-    econf:non_empty(econf:list(econf:string(), [unique]));
-mod_opt_type(upload_port) ->
-    econf:int().
-
 mod_options(_Host) ->
-    [
-        {aws_media_region, undefined},
-        {aws_media_bucket, undefined},
-        {aws_media_put_host, undefined},
-        {aws_media_get_host, undefined},
-        {upload_hosts, []},
-        {upload_port, undefined}
-    ].
+    [].
 
 
 %%====================================================================
@@ -150,16 +140,10 @@ generate_resumable_urls(Size, IQ) ->
 %% internal functions
 %%====================================================================
 
--spec initialize_url_generators(Opts :: gen_mod:opts()) -> ok.
-initialize_url_generators(Opts) ->
-    Region = mod_upload_media_opt:aws_media_region(Opts),
-    Bucket = mod_upload_media_opt:aws_media_bucket(Opts),
-    PutHost = mod_upload_media_opt:aws_media_put_host(Opts),
-    GetHost = mod_upload_media_opt:aws_media_get_host(Opts),
-    s3_signed_url_generator:init(Region, Bucket, PutHost, GetHost),
-
-    UploadHosts = mod_upload_media_opt:upload_hosts(Opts),
-    UploadPort = mod_upload_media_opt:upload_port(Opts),
-    upload_server_url_generator:init(UploadHosts, UploadPort),
+-spec initialize_url_generators() -> ok.
+initialize_url_generators() ->
+    s3_signed_url_generator:init(?AWS_MEDIA_REGION, ?AWS_MEDIA_BUCKET, ?AWS_MEDIA_PUT_HOST,
+        ?AWS_MEDIA_GET_HOST),
+    upload_server_url_generator:init(?UPLOAD_HOSTS, ?UPLOAD_PORT),
     ok.
 

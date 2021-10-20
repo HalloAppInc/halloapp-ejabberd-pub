@@ -177,19 +177,7 @@ modules:
   mod_engaged_users: {}
   mod_connection_stats: {}
   mod_whisper: {}
-  mod_upload_media:
-    aws_media_region: us-east-1
-    aws_media_bucket: us-e-halloapp-media
-    ## Accelerated dualstack endpoint.                                          
-    ## Ref: https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html
-    aws_media_put_host: us-e-halloapp-media.s3-accelerate.dualstack.amazonaws.com
-    ## Cloudfront based distribution.
-    ## Ref: https://aws.amazon.com/premiumsupport/knowledge-center/cloudfront-https-requests-s3/
-    aws_media_get_host: u-cdn.halloapp.net
-    ## Resumable upload server internal host names.
-    upload_hosts: ["u2.ha","u3.ha"]
-    ## Resumable upload server port.
-    upload_port: 1080
+  mod_upload_media: {}
   mod_receipts: {}
   mod_presence_subscription: {}
   mod_client_log: {}
