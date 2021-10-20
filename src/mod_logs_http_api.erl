@@ -49,7 +49,7 @@ process([<<"counts_and_events">>],
             {error, _} ->
                 error(invalid_pb)
         end,
-        {200, ?HEADER(?CT_PLAIN), <<"ok">>}
+        {200, ?HEADER(?CT_JSON), jiffy:encode(#{result => ok})}
     catch
         error : invalid_pb ->
             ?WARNING("invalid pb ~p", [Data]),
@@ -76,7 +76,7 @@ process([<<"device">>],
 
         case upload_log(ObjectKey, Data) of
             ok ->
-                {200, ?HEADER(?CT_PLAIN), <<"ok">>};
+                {200, ?HEADER(?CT_JSON), jiffy:encode(#{result => ok})};
             error ->
                 util_http:return_500()
         end
@@ -127,6 +127,7 @@ parse_logs_query(Q) ->
     end,
     case Version of
         <<"Android", _Rest/binary>> when byte_size(Version) < 20 -> ok;
+        <<"ios", _Rest/binary>> when byte_size(Version) < 20 -> ok;
         _ -> error({invalid_version, Version})
     end,
     Msg2 = binary:part(Msg, 0, min(byte_size(Msg), 1000)),
