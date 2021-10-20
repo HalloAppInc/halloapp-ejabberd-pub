@@ -100,6 +100,9 @@ refresh_url(Url) ->
                             {"touch", "true"}]}],
                     AwsConfig)
             of
+                {aws_error, {http_error, 404, _, Msg}} ->
+                    ?INFO("Refresh Url failed. Object not found: ~p", [Key]),
+                    false;
                 {aws_error, _} = Error ->
                     ?ERROR("Refresh Url Error: ~p", [Error]),
                     false;
