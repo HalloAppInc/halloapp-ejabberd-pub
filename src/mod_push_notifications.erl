@@ -148,7 +148,19 @@ should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
         PayloadType =:= pb_wake_up ->
             %% Push sms_app wakeup notifications
             true;
-        
+
+        %% Send push notifications for all call related messages.
+        PayloadType =:= pb_incoming_call ->
+            true;
+        PayloadType =:= pb_call_ringing ->
+            true;
+        PayloadType =:= pb_answer_call ->
+            true;
+        PayloadType =:= pb_end_call ->
+            true;
+        PayloadType =:= pb_ice_candidate ->
+            true;
+
         true ->
             %% Ignore everything else.
             false

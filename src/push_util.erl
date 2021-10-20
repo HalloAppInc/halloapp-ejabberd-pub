@@ -298,6 +298,46 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_wake_up{} = _Payload} = _Message,
         push_type = silent
     };
 
+parse_metadata(#pb_msg{id = Id, payload = #pb_incoming_call{call_id = CallId} = _Payload} = _Message,
+        #push_info{} = _PushInfo) ->
+    #push_metadata{
+        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_type = <<"incoming_call">>,
+        push_type = silent
+    };
+
+parse_metadata(#pb_msg{id = Id, payload = #pb_call_ringing{call_id = CallId} = _Payload} = _Message,
+        #push_info{} = _PushInfo) ->
+    #push_metadata{
+        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_type = <<"call_ringing">>,
+        push_type = silent
+    };
+
+parse_metadata(#pb_msg{id = Id, payload = #pb_answer_call{call_id = CallId} = _Payload} = _Message,
+        #push_info{} = _PushInfo) ->
+    #push_metadata{
+        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_type = <<"answer_call">>,
+        push_type = silent
+    };
+
+parse_metadata(#pb_msg{id = Id, payload = #pb_end_call{call_id = CallId} = _Payload} = _Message,
+        #push_info{} = _PushInfo) ->
+    #push_metadata{
+        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_type = <<"end_call">>,
+        push_type = silent
+    };
+
+parse_metadata(#pb_msg{id = Id, payload = #pb_ice_candidate{call_id = CallId} = _Payload} = _Message,
+        #push_info{} = _PushInfo) ->
+    #push_metadata{
+        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_type = <<"ice_candidate">>,
+        push_type = silent
+    };
+
 parse_metadata(#pb_msg{to_uid = Uid, id = Id}, _PushInfo) ->
     ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     #push_metadata{}.
