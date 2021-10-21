@@ -36,7 +36,8 @@ get_dev_uids() ->
         <<"1000000000893731049">>,  %% Michael test phone
         <<"1000000000739856658">>,  %% Murali
         <<"1000000000773653288">>,  %% Murali test phone
-        <<"1000000000291212306">>,  %% Murali test phone2
+        <<"1000000000212763494">>,  %% Murali test phone2
+        <<"1000000000490675850">>,  %% Murali test phone3
         <<"1000000000332736727">>,  %% Neeraj
         <<"1000000000162508063">>,  %% Neeraj test phone
         <<"1000000000379188160">>,  %% Nikola
@@ -45,6 +46,7 @@ get_dev_uids() ->
         <<"1000000000648327036">>,  %% Vipin
         <<"1000000000244183554">>,  %% Nandini
         <<"1000000000009202844">>,  %% Nandini test phone
+        <<"1000000000773991293">>,  %% Nandini test phone-2
         <<"1000000000619182623">>,  %% Alisa
         %%%%%%%%%%%%%%%% contractors %%%%%%%%%%%%%%%%%
         <<"1000000000877204287">>,  %% Vasil
@@ -66,7 +68,8 @@ is_dev_uid(Uid) ->
 
 is_murali(<<"1000000000739856658">>) -> true;  %% Murali
 is_murali(<<"1000000000773653288">>) -> true;  %% Murali android
-is_murali(<<"1000000000291212306">>) -> true;  %% Murali Iphone
+is_murali(<<"1000000000212763494">>) -> true;  %% Murali Iphone
+is_murali(<<"1000000000490675850">>) -> true;  %% Murali Iphone2
 is_murali(_) -> false.
 
 
