@@ -42,6 +42,9 @@
 -define(STATIC_KEY1, <<"1static_key1">>).
 -define(STATIC_KEY2, <<"2static_key2">>).
 
+-define(PHONE_CC1, <<"NI">>).
+-define(PHONE_CC2, <<"ID">>).
+
 setup() ->
     tutil:setup(),
     ha_redis:start(),
@@ -208,6 +211,26 @@ remote_static_key_test() ->
     ok = model_phone:delete_static_key(?STATIC_KEY2),
     {ok, {undefined, undefined}} = model_phone:get_static_key_info(?STATIC_KEY1),
     {ok, {undefined, undefined}} = model_phone:get_static_key_info(?STATIC_KEY2).
+
+phone_cc_test() ->
+    setup(),
+    ok = model_phone:delete_phone_cc(?PHONE_CC1),
+    ok = model_phone:delete_phone_cc(?PHONE_CC2),
+    {ok, {undefined, undefined}} = model_phone:get_phone_cc_info(?PHONE_CC1),
+    {ok, {undefined, undefined}} = model_phone:get_phone_cc_info(?PHONE_CC2),
+    ok = model_phone:add_phone_cc(?PHONE_CC1, ?TIME1),
+    {ok, {1, ?TIME1}} = model_phone:get_phone_cc_info(?PHONE_CC1),
+    {ok, {undefined, undefined}} = model_phone:get_phone_cc_info(?PHONE_CC2),
+    ok = model_phone:add_phone_cc(?PHONE_CC1, ?TIME2),
+    {ok, {2, ?TIME2}} = model_phone:get_phone_cc_info(?PHONE_CC1),
+    ok = model_phone:add_phone_cc(?PHONE_CC2, ?TIME1),
+    {ok, {1, ?TIME1}} = model_phone:get_phone_cc_info(?PHONE_CC2),
+    ok = model_phone:add_phone_cc(?PHONE_CC2, ?TIME2),
+    {ok, {2, ?TIME2}} = model_phone:get_phone_cc_info(?PHONE_CC2),
+    ok = model_phone:delete_phone_cc(?PHONE_CC1),
+    ok = model_phone:delete_phone_cc(?PHONE_CC2),
+    {ok, {undefined, undefined}} = model_phone:get_phone_cc_info(?PHONE_CC1),
+    {ok, {undefined, undefined}} = model_phone:get_phone_cc_info(?PHONE_CC2).
 
 
 while(0, _F) -> ok;

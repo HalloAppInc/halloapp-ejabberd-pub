@@ -50,7 +50,10 @@
     invalidate_old_attempts/1,
     add_static_key/2,
     get_static_key_info/1,
-    delete_static_key/1
+    delete_static_key/1,
+    add_phone_cc/2,
+    get_phone_cc_info/1,
+    delete_phone_cc/1
 ]).
 
 %%====================================================================
@@ -88,6 +91,9 @@
 -define(TTL_REMOTE_STATIC_KEY, 86400).
 
 -define(TRUNC_STATIC_KEY_LENGTH, 8).
+
+%% TTL for phone cc: 24 hour.
+-define(TTL_PHONE_CC, 86400).
 
 -spec add_sms_code2(Phone :: phone(), Code :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
 add_sms_code2(Phone, Code) ->
@@ -435,6 +441,29 @@ delete_static_key(StaticKey) ->
     _Results = q(["DEL", remote_static_key(Trunc)]),
     ok.
 
+-spec add_phone_cc(CC :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
+add_phone_cc(CC, Timestamp) ->
+    _Results = q([
+        ["MULTI"],
+        ["HINCRBY", phone_cc_key(CC), ?FIELD_COUNT, 1],
+        ["HSET", phone_cc_key(CC), ?FIELD_TIMESTAMP, util:to_binary(Timestamp)],
+        ["EXPIRE", phone_cc_key(CC), ?TTL_PHONE_CC],
+        ["EXEC"]
+    ]),
+    ok.
+
+
+-spec get_phone_cc_info(CC :: binary()) -> {ok, {maybe(integer()), maybe(integer())}}  | {error, any()}.
+get_phone_cc_info(CC) ->
+    {ok, [Count, Timestamp]} = q(["HMGET", phone_cc_key(CC), ?FIELD_COUNT, ?FIELD_TIMESTAMP]),
+    {ok, {util_redis:decode_int(Count), util_redis:decode_ts(Timestamp)}}.
+
+
+-spec delete_phone_cc(CC :: binary()) -> ok  | {error, any()}.
+delete_phone_cc(CC) ->
+    _Results = q(["DEL", phone_cc_key(CC)]),
+    ok.
+
 truncate_static_key(StaticKey) ->
     <<Trunc:?TRUNC_STATIC_KEY_LENGTH/binary, _Rem/binary>> = StaticKey,
     Trunc.
@@ -508,9 +537,13 @@ gateway_response_key(Gateway, GatewayId) ->
     GatewayBin = util:to_binary(Gateway),
     <<?GATEWAY_RESPONSE_ID_KEY/binary, <<"{">>/binary, GatewayBin/binary, <<":">>/binary,
         GatewayId/binary, <<"}">>/binary>>.
-
 -spec remote_static_key(StaticKey :: binary()) -> binary().
 remote_static_key(StaticKey) ->
     <<?REMOTE_STATIC_KEY/binary, "{", StaticKey/binary, "}:">>.
+
+
+-spec phone_cc_key(CC :: binary()) -> binary().
+phone_cc_key(CC) ->
+    <<?PHONE_CC_KEY/binary, "{", CC/binary, "}:">>.
 
 

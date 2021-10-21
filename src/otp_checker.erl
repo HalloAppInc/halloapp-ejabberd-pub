@@ -41,7 +41,8 @@
     otp_checker_remote_static_key,
     otp_checker_ip_blocklist,
     otp_checker_ip,
-    otp_checker_phone_pattern
+    otp_checker_phone_pattern,
+    otp_checker_ip_geo
 ]).
 
 -spec check(Phone :: binary(), IP :: binary(), UserAgent :: binary(),
