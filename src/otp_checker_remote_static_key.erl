@@ -11,7 +11,7 @@
 -include("logger.hrl").
 
 %% For typing mistakes.
--define(BACKOFF_THRESHOLD, 5).
+-define(BACKOFF_THRESHOLD, 3).
 
 %% For spammers.
 -define(ERROR_THRESHOLD, 10).
@@ -41,17 +41,9 @@ check_otp_request(Phone, IP, _UserAgent, _Method, _Protocol, RemoteStaticKey) ->
                 true ->
                     case Count > ?ERROR_THRESHOLD of
                         true ->
-                            ?INFO("Need to block static key: ~p count: ~p last ts: ~p Phone: ~s IP: ~s",
-                                [util:maybe_base64_encode(RemoteStaticKey), Count, LastTs, Phone, IP]),
-                            %% TODO, uncomment
-                            %% {block, static_key_block, {RemoteStaticKey, Count, LastTs}};
-                            ok;
+                            {block, static_key_block, {util:maybe_base64_encode(RemoteStaticKey), Count, LastTs}};
                         false ->
-                            ?INFO("Need to slow down static key: ~p count: ~p last ts: ~p Phone: ~s IP: ~s",
-                                [util:maybe_base64_encode(RemoteStaticKey), Count, LastTs, Phone, IP]),
-                            %% TODO, uncomment
-                            %% {error, retried_too_soon, NextTs - CurrentTs}
-                            ok
+                            {error, retried_too_soon, NextTs - CurrentTs}
                     end;
                 false -> ok
             end
