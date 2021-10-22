@@ -33,6 +33,7 @@
 start(Host, _Opts) ->
     ?INFO("start", []),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_group_feed_item, ?MODULE, process_local_iq),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_history_resend, ?MODULE, process_local_iq),
     ejabberd_hooks:add(re_register_user, Host, ?MODULE, re_register_user, 50),
     ejabberd_hooks:add(group_member_added, Host, ?MODULE, group_member_added, 50),
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
@@ -44,6 +45,7 @@ stop(Host) ->
     ejabberd_hooks:delete(group_member_added, Host, ?MODULE, group_member_added, 50),
     ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_group_feed_item),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_history_resend),
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
