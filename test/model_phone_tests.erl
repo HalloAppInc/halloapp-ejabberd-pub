@@ -45,6 +45,9 @@
 -define(PHONE_CC1, <<"NI">>).
 -define(PHONE_CC2, <<"ID">>).
 
+-define(HASHCASH_CHALLENGE1, <<"hashcash1">>).
+-define(HASHCASH_CHALLENGE2, <<"hashcash2">>).
+
 setup() ->
     tutil:setup(),
     ha_redis:start(),
@@ -231,6 +234,16 @@ phone_cc_test() ->
     ok = model_phone:delete_phone_cc(?PHONE_CC2),
     {ok, {undefined, undefined}} = model_phone:get_phone_cc_info(?PHONE_CC1),
     {ok, {undefined, undefined}} = model_phone:get_phone_cc_info(?PHONE_CC2).
+
+hashcash_challenge_test() ->
+    setup(),
+    not_found = model_phone:delete_hashcash_challenge(?HASHCASH_CHALLENGE1),
+    not_found = model_phone:delete_hashcash_challenge(?HASHCASH_CHALLENGE2),
+    ok = model_phone:add_hashcash_challenge(?HASHCASH_CHALLENGE1),
+    not_found = model_phone:delete_hashcash_challenge(?HASHCASH_CHALLENGE2),
+    ok = model_phone:add_hashcash_challenge(?HASHCASH_CHALLENGE2),
+    ok = model_phone:delete_hashcash_challenge(?HASHCASH_CHALLENGE1),
+    ok = model_phone:delete_hashcash_challenge(?HASHCASH_CHALLENGE2).
 
 
 while(0, _F) -> ok;

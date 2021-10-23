@@ -122,6 +122,7 @@
 -define(PHONE_PATTERN_KEY, <<"pp:">>).
 -define(REMOTE_STATIC_KEY, <<"rs:">>).
 -define(PHONE_CC_KEY, <<"pcc:">>).
+-define(HASHCASH_KEY, <<"hca:">>).
 
 -define(GW_SCORE_KEY, <<"scr:">>).
 

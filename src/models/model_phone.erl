@@ -53,7 +53,9 @@
     delete_static_key/1,
     add_phone_cc/2,
     get_phone_cc_info/1,
-    delete_phone_cc/1
+    delete_phone_cc/1,
+    add_hashcash_challenge/1,
+    delete_hashcash_challenge/1
 ]).
 
 %%====================================================================
@@ -94,6 +96,9 @@
 
 %% TTL for phone cc: 24 hour.
 -define(TTL_PHONE_CC, 86400).
+
+%% TTL for hashcash cc: 6 hour.
+-define(TTL_HASHCASH, 6 * ?HOURS).
 
 -spec add_sms_code2(Phone :: phone(), Code :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
 add_sms_code2(Phone, Code) ->
@@ -464,6 +469,20 @@ delete_phone_cc(CC) ->
     _Results = q(["DEL", phone_cc_key(CC)]),
     ok.
 
+
+-spec add_hashcash_challenge(Challenge :: binary()) -> ok  | {error, any()}.
+add_hashcash_challenge(Challenge) ->
+    _Results = q(["SET", hashcash_key(Challenge), "1", "EX", ?TTL_HASHCASH]),
+    ok.
+
+
+-spec delete_hashcash_challenge(Challenge :: binary()) -> ok  | not_found.
+delete_hashcash_challenge(Challenge) ->
+    case q(["DEL", hashcash_key(Challenge)]) of
+        {ok, <<"0">>} -> not_found;
+        {ok, <<"1">>} -> ok
+    end.
+
 truncate_static_key(StaticKey) ->
     <<Trunc:?TRUNC_STATIC_KEY_LENGTH/binary, _Rem/binary>> = StaticKey,
     Trunc.
@@ -537,6 +556,7 @@ gateway_response_key(Gateway, GatewayId) ->
     GatewayBin = util:to_binary(Gateway),
     <<?GATEWAY_RESPONSE_ID_KEY/binary, <<"{">>/binary, GatewayBin/binary, <<":">>/binary,
         GatewayId/binary, <<"}">>/binary>>.
+
 -spec remote_static_key(StaticKey :: binary()) -> binary().
 remote_static_key(StaticKey) ->
     <<?REMOTE_STATIC_KEY/binary, "{", StaticKey/binary, "}:">>.
@@ -545,5 +565,11 @@ remote_static_key(StaticKey) ->
 -spec phone_cc_key(CC :: binary()) -> binary().
 phone_cc_key(CC) ->
     <<?PHONE_CC_KEY/binary, "{", CC/binary, "}:">>.
+
+
+-spec hashcash_key(Challenge :: binary()) -> binary().
+hashcash_key(Challenge) ->
+    <<?HASHCASH_KEY/binary, "{", Challenge/binary, "}:">>.
+
 
 
