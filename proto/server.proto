@@ -1102,6 +1102,7 @@ message RegisterRequest {
     oneof request {
         OtpRequest otp_request = 1;
         VerifyOtpRequest verify_request = 2;
+        HashcashRequest hashcash_request = 3;
     }
 }
 
@@ -1109,7 +1110,16 @@ message RegisterResponse {
     oneof response {
         OtpResponse otp_response = 1;
         VerifyOtpResponse verify_response = 2;
+        HashcashResponse hashcash_response = 3;
     }
+}
+
+message HashcashRequest {
+    string country_code = 1;
+}
+
+message HashcashResponse {
+    string hashcash_challenge = 1;
 }
 
 message OtpRequest {
@@ -1122,6 +1132,8 @@ message OtpRequest {
     string lang_id = 3;
     string group_invite_token = 4;
     string user_agent = 5;
+    string hashcash_solution = 6;
+    int64 hashcash_solution_time_taken_ms = 7;
 }
 
 message OtpResponse {
@@ -1143,6 +1155,8 @@ message OtpResponse {
         RETRIED_TOO_SOON = 7;
         BAD_REQUEST = 8;
         INTERNAL_SERVER_ERROR = 9;
+        INVALID_HASHCASH_NONCE = 10;
+        WRONG_HASHCASH_SOLUTION = 11;
     }
     Reason reason = 3;
     int64 retry_after_secs = 4;

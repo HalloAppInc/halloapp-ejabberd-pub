@@ -271,6 +271,17 @@ terminate(_Reason, State) ->
 %%%===================================================================
 
 -spec process_element(stanza(), state()) -> state().
+process_element(#pb_register_request{request = #pb_hashcash_request{} = HashcashRequest},
+        #{ip := ClientIP} = State) ->
+    stat:count("HA/registration", "request_hashcash_request", 1, [{protocol, "noise"}]),
+    CC = HashcashRequest#pb_hashcash_request.country_code,
+    RequestData = #{country_code => CC, ip => ClientIP, raw_data => HashcashRequest,
+        protocol => noise
+    },
+    {ok, HashcashChallenge} = mod_halloapp_http_api:process_hashcash_request(RequestData),
+    stat:count("HA/registration", "request_hashcash_success", 1, [{protocol, "noise"}]),
+    HashcashResponse = #pb_hashcash_response{hashcash_challenge = HashcashChallenge},
+    send(State, #pb_register_response{response = HashcashResponse});
 process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
         #{socket := Socket, ip := ClientIP} = State) ->
     stat:count("HA/registration", "request_otp_request", 1, [{protocol, "noise"}]),
@@ -279,10 +290,14 @@ process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
     LangId = OtpRequest#pb_otp_request.lang_id,
     GroupInviteToken = OtpRequest#pb_otp_request.group_invite_token,
     UserAgent = OtpRequest#pb_otp_request.user_agent,
+    HashcashSolution = OtpRequest#pb_otp_request.hashcash_solution,
+    HashcashSolutionTimeTakenMs = OtpRequest#pb_otp_request.hashcash_solution_time_taken_ms,
     RemoteStaticKey = get_peer_static_key(Socket),
     RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
         ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => OtpRequest,
-        protocol => noise, remote_static_key => RemoteStaticKey
+        protocol => noise, remote_static_key => RemoteStaticKey,
+        hashcash_solution => HashcashSolution,
+        hashcash_solution_time_taken_ms => HashcashSolutionTimeTakenMs
     },
     OtpResponse = case mod_halloapp_http_api:process_otp_request(RequestData) of
         {ok, Phone, RetryAfterSecs} ->

@@ -68,6 +68,11 @@
                 ?WHISPER_KEY_DATA)).
 
 -define(IP, {{0,0,0,0,0,65535,32512,1}, 5580}).
+-define(CC1, <<"IN">>).
+-define(HASHCASH_UA, <<"HalloApp/Android10.197">>).
+-define(BAD_HASHCASH_SOLUTION, <<"BadSolution">>).
+-define(HASHCASH_TIME_TAKEN_MS, 100).
+-define(REQUEST_HASHCASH_PATH, [<<"registration">>, <<"request_hashcash">>]).
 
 %%%----------------------------------------------------------------------
 %%% IQ tests
@@ -143,6 +148,45 @@ request_sms_prod_test() ->
     meck_finish(mbird_verify),
     meck_finish(model_phone),
     meck_finish(config),
+    meck_finish(ejabberd_router).
+
+
+request_sms_hashcash_test() ->
+    setup(),
+    meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    % meck network requests
+    meck_init(mod_sms, request_otp, fun(P, _, _, _) -> self() ! P, {ok, 30} end),
+    Data = jiffy:encode({[{<<"phone">>, ?TEST_PHONE}, {<<"hashcash_solution">>, ?BAD_HASHCASH_SOLUTION}]}),
+    ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, ?UA, 16175550000),
+    ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
+    Response = mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
+        #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?HASHCASH_UA)}),
+    BadHashcashResponse = util_http:return_400(wrong_hashcash_solution),
+    ?assertEqual(BadHashcashResponse, Response),
+
+    HashcashRequestData = jiffy:encode({[{<<"country_code">>, ?CC1}]}),
+    HashcashResponse = mod_halloapp_http_api:process(?REQUEST_HASHCASH_PATH,
+        #request{method = 'POST', data = HashcashRequestData, ip = ?IP,
+            headers = ?REQUEST_HEADERS(?HASHCASH_UA)}),
+    {200, ?HEADER(?CT_JSON), JsonResponse} = HashcashResponse,
+    DecodeJson = jiffy:decode(JsonResponse, [return_maps]),
+    Challenge = maps:get(<<"hashcash_challenge">>, DecodeJson, <<>>),
+    <<"H:", _Rem/binary>> = Challenge,
+
+    Solution = util_hashcash:solve_challenge(Challenge),
+    Data2 = jiffy:encode({[{<<"phone">>, ?TEST_PHONE}, {<<"hashcash_solution">>, Solution}]}),
+    Response2 = mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
+        #request{method = 'POST', data = Data2, ip = ?IP, headers = ?REQUEST_HEADERS(?HASHCASH_UA)}),
+    GoodResponse = {200, ?HEADER(?CT_JSON),
+        jiffy:encode({[
+            {phone, ?TEST_PHONE},
+            {retry_after_secs, 30},
+            {result, ok}
+        ]})},
+    ?assertEqual(GoodResponse, Response2),
+    ?assertEqual(1, collect(?TEST_PHONE, 250, 1)),
+    ?assert(meck:called(mod_sms, request_otp, [?TEST_PHONE,'_','_','_'])),
+    meck_finish(mod_sms),
     meck_finish(ejabberd_router).
 
 
@@ -493,6 +537,25 @@ get_group_info_test() ->
             #request{method = 'POST', data = BadData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)})),
 
     ok.
+
+hashcash_test() ->
+    Challenge = mod_halloapp_http_api:create_hashcash_challenge(?CC1, ?IP1),
+    BadSolution = <<Challenge/binary, ":", ?BAD_HASHCASH_SOLUTION/binary>>,
+    %% The following line is not certain to succeed all the time.
+    {error, wrong_hashcash_solution} = mod_halloapp_http_api:check_hashcash_solution(
+        BadSolution, ?HASHCASH_TIME_TAKEN_MS),
+    {error, invalid_hashcash_nonce} = mod_halloapp_http_api:check_hashcash_solution(
+        BadSolution, ?HASHCASH_TIME_TAKEN_MS),
+    Challenge2 = mod_halloapp_http_api:create_hashcash_challenge(?CC1, ?IP1),
+    _StartTime = util:now_ms(),
+    GoodSolution = util_hashcash:solve_challenge(Challenge2),
+    _EndTime = util:now_ms(),
+    %% ?debugFmt("Created hashcash challenge: ~p, Solution: ~p, took: ~pms",
+    %%    [Challenge2, GoodSolution, EndTime - StartTime]),
+    ok = mod_halloapp_http_api:check_hashcash_solution(GoodSolution, ?HASHCASH_TIME_TAKEN_MS),
+    {error, invalid_hashcash_nonce} = mod_halloapp_http_api:check_hashcash_solution(
+        GoodSolution, ?HASHCASH_TIME_TAKEN_MS).
+
 
 
 %%%----------------------------------------------------------------------

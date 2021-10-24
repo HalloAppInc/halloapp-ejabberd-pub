@@ -17,7 +17,9 @@
     check_name/1,
     check_invited/4,
     check_sms_code/2,
-    is_version_invite_opened/1
+    is_version_invite_opened/1,
+    create_hashcash_challenge/2,
+    check_hashcash_solution/2
 ]).
 -endif.
 
@@ -33,11 +35,17 @@
 
 -define(MSG_TO_SIGN, <<"HALLO">>).
 
+-define(HASHCASH_EXPIRE_IN, 21600).
+-define(HASHCASH_DIFFICULTY, 20).
+-define(DEV_HASHCASH_DIFFICULTY, 10).
+-define(HASHCASH_THRESHOLD_MS, 30 * ?SECONDS_MS).
+
 
 %% API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
 -export([
     process/2,
+    process_hashcash_request/1,
     process_otp_request/1,
     process_register_request/1,
     insert_blocklist/0,
@@ -55,13 +63,17 @@ process([<<"registration">>, <<"request_sms">>],
     ?INFO("Invalid old request_sms request, Data: ~p, Headers: ~p", [Data, Headers]),
     process_otp_request(Data, IP, Headers);
 
+process([<<"registration">>, <<"request_hashcash">>],
+        #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
+    stat:count("HA/registration", "request_hashcash", 1, [{protocol, "https"}]),
+    process_hashcash_request(Data, IP, Headers);
+
 process([<<"registration">>, <<"request_otp">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
     stat:count("HA/registration", "request_otp_request", 1, [{protocol, "https"}]),
     process_otp_request(Data, IP, Headers);
 
 %% Newer version of `register` API. Uses spub instead of password.
-%% TODO(vipin): Refactor error handling code.
 process([<<"registration">>, <<"register2">>],
         #request{method = 'POST', data = Data, ip = {IP, _Port}, headers = Headers}) ->
     try
@@ -150,7 +162,25 @@ process(Path, Request) ->
     ?INFO("404 Not Found: path: ~p, r:~p", [Path, Request]),
     util_http:return_404().
 
--spec process_otp_request(Data :: string(), IP :: string(), Headers :: list()) -> http_response().
+-spec process_hashcash_request(Data :: string(), IP :: string(), Headers :: list()) -> http_response().
+process_hashcash_request(Data, IP, Headers) ->
+    try
+        ?DEBUG("Data:~p", [Data]),
+        ClientIP = util_http:get_ip(IP, Headers),
+        Payload = jiffy:decode(Data, [return_maps]),
+        CC = maps:get(<<"country_code">>, Payload, <<>>),
+        RawData = Payload#{headers => Headers, ip => IP},
+        RequestData = #{ip => ClientIP, raw_data => RawData, cc => CC, protocol => https},
+        {ok, HashcashChallenge} =  process_hashcash_request(RequestData),
+        stat:count("HA/registration", "request_hashcash_success", 1, [{protocol, "https"}]),
+        {200, ?HEADER(?CT_JSON), jiffy:encode({[{hashcash_challenge, HashcashChallenge}]})}
+    catch 
+        error : Reason2 : Stacktrace  ->
+            ?ERROR("hashcash request error: ~p, ~p", [Reason2, Stacktrace]),
+            util_http:return_500()
+    end.
+
+ -spec process_otp_request(Data :: string(), IP :: string(), Headers :: list()) -> http_response().
 process_otp_request(Data, IP, Headers) ->
     try
         ?DEBUG("Data:~p", [Data]),
@@ -161,13 +191,19 @@ process_otp_request(Data, IP, Headers) ->
         MethodBin = maps:get(<<"method">>, Payload, <<"sms">>),
         LangId = maps:get(<<"lang_id">>, Payload, <<"en-US">>),
         GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
+        HashcashSolution = maps:get(<<"hashcash_solution">>, Payload, <<>>),
+        HashcashSolutionTimeTakenMs = maps:get(<<"hashcash_solution_time_taken_ms">>, Payload, -1),
         PhoneCC = mod_libphonenumber:get_region_id(RawPhone),
         IPCC = mod_geodb:lookup(ClientIP),
-        ?INFO("raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, Phone CC: ~p IP CC: ~p payload:~p ",
-            [RawPhone, UserAgent, ClientIP, MethodBin, LangId, PhoneCC, IPCC, Payload]),
+        ?INFO("raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, Phone CC: ~p IP CC: ~p "
+            "Hashcash solution: ~p time taken: ~pms payload:~p ",
+            [RawPhone, UserAgent, ClientIP, MethodBin, LangId, PhoneCC, IPCC, HashcashSolution,
+            HashcashSolutionTimeTakenMs, Payload]),
         RawData = Payload#{headers => Headers, ip => IP},
         RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
-            ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => RawData, protocol => https
+            ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => RawData,
+            hashcash_solution => HashcashSolution, hashcash_solution_time_taken_ms => HashcashSolutionTimeTakenMs,
+            protocol => https
         },
         case process_otp_request(RequestData) of
             {ok, Phone, RetryAfterSecs} ->
@@ -203,6 +239,22 @@ process_otp_request(Data, IP, Headers) ->
     end.
 
 
+-spec process_hashcash_request(RequestData :: #{}) -> {ok, binary()}.
+process_hashcash_request(#{cc := CC, ip := ClientIP}) ->
+    Challenge = create_hashcash_challenge(CC, ClientIP),
+    {ok, Challenge}.
+
+-spec create_hashcash_challenge(CC :: binary(), IP :: binary()) -> binary().
+create_hashcash_challenge(_CC, _IP) ->
+    Challenge = util_hashcash:construct_challenge(get_hashcash_difficulty(), ?HASHCASH_EXPIRE_IN), 
+    ok = model_phone:add_hashcash_challenge(Challenge),
+    Challenge.
+
+get_hashcash_difficulty() ->
+    case config:get_hallo_env() of
+        prod -> ?HASHCASH_DIFFICULTY;
+        _ -> ?DEV_HASHCASH_DIFFICULTY
+    end.
 
 -spec process_otp_request(RequestData :: #{}) ->
     {ok, integer()} | {error, retried_too_soon, integer()} | {error, any()}.
@@ -211,9 +263,12 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         protocol := Protocol} = RequestData) ->
     try
         RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
+        HashcashSolution = maps:get(hashcash_solution, RequestData, <<>>),
+        HashcashSolutionTimeTakenMs = maps:get(hashcash_solution_time_taken_ms, RequestData, 0),
         log_otp_request(RawPhone, MethodBin, UserAgent, ClientIP, Protocol),
         Phone = normalize(RawPhone),
         check_ua(UserAgent, Phone),
+        check_hashcash(UserAgent, HashcashSolution, HashcashSolutionTimeTakenMs),
         Method = get_otp_method(MethodBin),
         check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
         case otp_checker:check(Phone, ClientIP, UserAgent, Method, Protocol, RemoteStaticKey) of
@@ -277,6 +332,14 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
             ?INFO("request_voice_call error: voice_call_failed ~p", [RawData]),
             log_request_otp_error(voice_call_fail, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, otp_fail};
+        error : invalid_hashcash_nonce ->
+            ?INFO("invalid hashcash nonce ~p", [RawData]),
+            log_request_otp_error(invalid_hashcash_nonce, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
+            {error, invalid_hashcash_nonce};
+        error : wrong_hashcash_solution ->
+            ?INFO("wrong hashcash solution ~p", [RawData]),
+            log_request_otp_error(wrong_hashcash_solution, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
+            {error, wrong_hashcash_solution};
         Class : Reason : Stacktrace ->
             ?ERROR("request_sms crash: ~p\nStacktrace:~s",
                 [Reason, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
@@ -284,6 +347,19 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
             {error, internal_server_error}
     end.
 
+is_hashcash_enabled(_UserAgent, Solution) ->
+    %% TODO(vipin): Fix the actual client version and uncomment once clients start sending
+    %% appropriate hashcash_solution.
+    case Solution of
+        undefined -> false;
+        _ -> byte_size(Solution) > 10
+    end.
+    %% ClientType = util_ua:get_client_type(UserAgent),
+    %% case ClientType of
+    %%    android -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/Android10.202">>);
+    %%    ios -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/iOS1.11.172">>)
+    %% end.
+ 
 
 %% TODO (murali@): using a map is not great. try to use the original record itself.
 -spec process_register_request(RequestData :: #{}) -> {ok, #{}} | {error, any()}.
@@ -435,7 +511,17 @@ request_otp(Phone, LangId, UserAgent, Method) ->
             Error
     end.
 
-
+-spec check_hashcash(UserAgent :: binary(), Solution :: binary(), TimeTakenMs :: integer()) -> ok | no_return().
+check_hashcash(UserAgent, Solution, TimeTakenMs) ->
+    case is_hashcash_enabled(UserAgent, Solution) of
+        true ->
+            check_hashcash_solution_throw_error(Solution, TimeTakenMs);
+        false ->
+            HashcashResponse = check_hashcash_solution(Solution, TimeTakenMs),
+            ?INFO("hashcash solution: ~p, Time taken: ~pms, Response: ~p",
+                [Solution, TimeTakenMs, HashcashResponse])
+    end.
+ 
 -spec check_ua(binary(), phone()) -> ok | no_return().
 check_ua(UserAgent, Phone) ->
     case mod_sms_app:is_sms_app(Phone) of
@@ -515,6 +601,38 @@ normalize(RawPhone) ->
             error(invalid_phone_number);
         Phone ->
             Phone
+    end.
+
+check_hashcash_solution_throw_error(HashcashSolution, HashcashSolutionTimeTakenMs) ->
+    case check_hashcash_solution(HashcashSolution, HashcashSolutionTimeTakenMs) of
+        ok -> ok;
+        {error, Reason} ->
+            error(Reason)
+    end.
+
+-spec check_hashcash_solution(HashcashSolution :: binary(), HashcashSolutionTimeTakenMs :: binary())
+      -> ok | {error, atom()}.
+check_hashcash_solution(HashcashSolution, HashcashSolutionTimeTakenMs) ->
+    case HashcashSolutionTimeTakenMs > ?HASHCASH_THRESHOLD_MS of
+        true ->
+            ?ERROR("Hashcash solution took > 30 seconds, Time taken: ~pms", [HashcashSolutionTimeTakenMs]);
+        false -> ok
+    end,
+    case util_hashcash:extract_challenge(HashcashSolution) of
+        {error, wrong_hashcash_solution} = Error ->
+            Error;
+        {Difficulty, HashcashChallenge} ->
+            check_hashcash_challenge_validity(Difficulty, HashcashChallenge, HashcashSolution)
+    end.
+
+check_hashcash_challenge_validity(Difficulty, Challenge, Solution) ->
+    case model_phone:delete_hashcash_challenge(Challenge) of
+        not_found -> {error, invalid_hashcash_nonce};
+        ok ->
+           case util_hashcash:validate_solution(Difficulty, Solution) of
+                true -> ok;
+                _ -> {error, wrong_hashcash_solution}
+            end
     end.
 
 
