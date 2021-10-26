@@ -216,24 +216,8 @@ check_first_login(Uid, Server) ->
 upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
     PayloadType = util:get_payload_type(Msg),
     case PayloadType of
-        pb_chat_stanza ->
-            Msg#pb_msg{payload = upgrade_chat_stanza(MsgPayload)};
-
-        pb_feed_item ->
-            Msg#pb_msg{payload = upgrade_feed_item(MsgPayload)};
-
         pb_group_feed_item ->
             Msg#pb_msg{payload = upgrade_group_feed_item(MsgPayload)};
-
-        pb_feed_items ->
-            NewItems = [upgrade_feed_item(Item) || Item <- MsgPayload#pb_feed_items.items],
-            NewMsgPayload = #pb_feed_items{
-                uid = MsgPayload#pb_feed_items.uid,
-                items = NewItems
-            },
-            Msg#pb_msg{
-                payload = NewMsgPayload
-            };
 
         pb_group_feed_items ->
             NewItems = [upgrade_group_feed_item(Item) || Item <- MsgPayload#pb_group_feed_items.items],
@@ -252,109 +236,30 @@ upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
     end;
 upgrade_packet(Packet) -> Packet.
 
-
-upgrade_chat_stanza(ChatStanza) ->
-    case ChatStanza of
-        #pb_chat_stanza{} -> ChatStanza;
-        {pb_chat_stanza, Timestamp, Payload, EncPayload, PublicKey, OtpKeyId, SenderName, SenderPhone, SenderLogInfo, SenderClientVersion} ->
-            #pb_chat_stanza{
-                timestamp = Timestamp,
-                payload = Payload,
-                enc_payload = EncPayload,
-                public_key = PublicKey,
-                one_time_pre_key_id = OtpKeyId,
-                sender_name = SenderName,
-                sender_phone = SenderPhone,
-                sender_log_info = SenderLogInfo,
-                sender_client_version = SenderClientVersion
-            };
-        {pb_chat_stanza, Timestamp, Payload, EncPayload, PublicKey, OtpKeyId, SenderName, SenderPhone, _MediaCounters, SenderLogInfo, SenderClientVersion} ->
-            #pb_chat_stanza{
-                timestamp = Timestamp,
-                payload = Payload,
-                enc_payload = EncPayload,
-                public_key = PublicKey,
-                one_time_pre_key_id = OtpKeyId,
-                sender_name = SenderName,
-                sender_phone = SenderPhone,
-                sender_log_info = SenderLogInfo,
-                sender_client_version = SenderClientVersion
-            }
-    end.
-
-
-upgrade_feed_item(FeedItemStanza) ->
-    Item = FeedItemStanza#pb_feed_item.item,
-    ItemType = util:to_atom(element(1, Item)),
-    NewItem = case ItemType of
-        pb_post -> upgrade_post_stanza(Item);
-        pb_comment -> upgrade_comment_stanza(Item);
-        _ -> Item
-    end,
-    FeedItemStanza#pb_feed_item{item = NewItem}.
-
-
 upgrade_group_feed_item(GroupFeedItemStanza) ->
-    Item = GroupFeedItemStanza#pb_group_feed_item.item,
-    ItemType = util:to_atom(element(1, Item)),
-    NewItem = case ItemType of
-        pb_post -> upgrade_post_stanza(Item);
-        pb_comment -> upgrade_comment_stanza(Item);
-        _ -> Item
-    end,
-    GroupFeedItemStanza#pb_group_feed_item{item = NewItem}.
-
-
-upgrade_post_stanza(PostStanza) ->
-    case PostStanza of
-        #pb_post{} -> PostStanza;
-        {pb_post, Id, PublisherUid, Payload, Audience, Timestamp, PublisherName, EncPayload} ->
-            #pb_post{
-                id = Id,
-                publisher_uid = PublisherUid,
-                payload = Payload,
-                audience = Audience,
-                timestamp = Timestamp,
-                publisher_name = PublisherName,
-                enc_payload = EncPayload
+    case GroupFeedItemStanza of
+        #pb_group_feed_item{} -> GroupFeedItemStanza;
+        {pb_group_feed_item, Action, Gid, Name, AvatarId, Item, SenderStateBundles, SenderState, AudienceHash} ->
+            #pb_group_feed_item{
+                action = Action,
+                gid = Gid,
+                name = Name,
+                avatar_id = AvatarId,
+                item = Item,
+                sender_state_bundles = SenderStateBundles,
+                sender_state = SenderState,
+                audience_hash = AudienceHash
             };
-        {pb_post, Id, PublisherUid, Payload, Audience, Timestamp, PublisherName, EncPayload, _MediaCounters} ->
-            #pb_post{
-                id = Id,
-                publisher_uid = PublisherUid,
-                payload = Payload,
-                audience = Audience,
-                timestamp = Timestamp,
-                publisher_name = PublisherName,
-                enc_payload = EncPayload
-            }
-    end.
-
-
-upgrade_comment_stanza(CommentStanza) ->
-    case CommentStanza of
-        #pb_comment{} -> CommentStanza;
-        {pb_comment, Id, PostId, ParentId, PublisherUid, PublisherName, Payload, Timestamp, EncPayload} ->
-            #pb_comment{
-                id = Id,
-                post_id = PostId,
-                parent_comment_id = ParentId,
-                publisher_uid = PublisherUid,
-                publisher_name = PublisherName,
-                payload = Payload,
-                timestamp = Timestamp,
-                enc_payload = EncPayload
-            };
-        {pb_comment, Id, PostId, ParentId, PublisherUid, PublisherName, Payload, Timestamp, EncPayload, _MediaCounters} ->
-            #pb_comment{
-                id = Id,
-                post_id = PostId,
-                parent_comment_id = ParentId,
-                publisher_uid = PublisherUid,
-                publisher_name = PublisherName,
-                payload = Payload,
-                timestamp = Timestamp,
-                enc_payload = EncPayload
+        {pb_group_feed_item, Action, Gid, Name, AvatarId, Item, SenderStateBundles, SenderState, AudienceHash, SenderLogInfo, SenderClientVersion} ->
+            #pb_group_feed_item{
+                action = Action,
+                gid = Gid,
+                name = Name,
+                avatar_id = AvatarId,
+                item = Item,
+                sender_state_bundles = SenderStateBundles,
+                sender_state = SenderState,
+                audience_hash = AudienceHash
             }
     end.
 
@@ -362,12 +267,12 @@ upgrade_comment_stanza(CommentStanza) ->
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
     NewPacket = upgrade_packet(Packet),
     %% TODO: Remove enif_protobuf:encode(...) after upgrade is done.
-    % case enif_protobuf:encode(NewPacket) of
-    %     {error, Reason} ->
-    %         ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
-    %     _ ->
-    %         ok
-    % end,
+    case enif_protobuf:encode(NewPacket) of
+        {error, Reason} ->
+            ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
+        _ ->
+            ok
+    end,
     case verify_incoming_packet(State, NewPacket) of
         allow ->
             %% TODO(murali@): remove temp counts after clients transition.
