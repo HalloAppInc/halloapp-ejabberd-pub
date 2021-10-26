@@ -163,6 +163,8 @@ message GroupDecryptionReport {
   string original_version = 6; // at time msg id was first encountered
   uint32 rerequest_count = 7;
   uint32 time_taken_s = 8;
+  Platform sender_platform = 9;
+  string sender_version = 10;
 }
 
 
