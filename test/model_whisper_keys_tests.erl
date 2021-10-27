@@ -63,8 +63,7 @@ clear() ->
 
 key_test() ->
     ?assertEqual(<<"wk:{1}">>, model_whisper_keys:whisper_key(<<"1">>)),
-    ?assertEqual(<<"wotp:{1}">>, model_whisper_keys:otp_key(<<"1">>)),
-    ?assertEqual(<<"wsub:{1}">>, model_whisper_keys:subcribers_key(<<"1">>)).
+    ?assertEqual(<<"wotp:{1}">>, model_whisper_keys:otp_key(<<"1">>)).
 
 
 setup_keys_test() ->
@@ -122,22 +121,6 @@ count_otp_key2_test() ->
             [?OTP2_KEY1, ?OTP2_KEY2])),
     ?assertEqual({ok, 3}, model_whisper_keys:count_otp_keys(?UID1)),
     ?assertEqual({ok, 2}, model_whisper_keys:count_otp_keys(?UID2)).
-
-
-subscriber_key_test() ->
-    setup(),
-    ?assertEqual({ok, []}, model_whisper_keys:get_all_key_subscribers(?UID1)),
-    ?assertEqual(ok, model_whisper_keys:add_key_subscriber(?UID1, ?UID2)),
-    ?assertEqual({ok, [?UID2]}, model_whisper_keys:get_all_key_subscribers(?UID1)),
-    ?assertEqual(ok, model_whisper_keys:remove_key_subscriber(?UID1, ?UID2)),
-    ?assertEqual({ok, []}, model_whisper_keys:get_all_key_subscribers(?UID1)),
-
-    ?assertEqual(ok, model_whisper_keys:add_key_subscriber(?UID1, ?UID2)),
-    ?assertEqual(ok, model_whisper_keys:add_key_subscriber(?UID1, ?UID3)),
-    {ok, Res} = model_whisper_keys:get_all_key_subscribers(?UID1),
-    ?assertEqual(sets:from_list(Res), sets:from_list([?UID2, ?UID3])),
-    ?assertEqual(ok, model_whisper_keys:remove_all_key_subscribers(?UID1)),
-    ?assertEqual({ok, []}, model_whisper_keys:get_all_key_subscribers(?UID1)).
 
 
 export_keys_test() ->

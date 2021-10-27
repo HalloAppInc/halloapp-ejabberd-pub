@@ -32,7 +32,7 @@
 %% IQ handlers and hooks.
 -export([
     process_local_iq/1,
-    notify_key_subscribers/2,
+    notify_key_subscribers/1,
     set_keys_and_notify/4,
     remove_user/2,
     check_whisper_keys/3,
@@ -218,8 +218,7 @@ construct_result(IdentityKeysMap, Ouids) ->
 -spec remove_user(Uid :: binary(), Server :: binary()) -> ok.
 remove_user(Uid, _Server) ->
     ?INFO("Uid: ~s", [Uid]),
-    model_whisper_keys:remove_all_keys(Uid),
-    model_whisper_keys:remove_all_key_subscribers(Uid).
+    model_whisper_keys:remove_all_keys(Uid).
 
 
 -spec check_whisper_keys(IdentityKeyB64 :: binary(), SignedKeyB64 :: binary(),
@@ -254,7 +253,7 @@ refresh_otp_keys(Uid) ->
 
 %% Uid is requesting keyset of Ouid.
 -spec get_key_set(Ouid :: binary(), Uid :: binary()) -> {binary(), binary(), [binary()]}.
-get_key_set(Ouid, Uid) ->
+get_key_set(Ouid, _Uid) ->
     Server = util:get_host(),
     {ok, WhisperKeySet} = model_whisper_keys:get_key_set(Ouid),
     case WhisperKeySet of
@@ -263,10 +262,6 @@ get_key_set(Ouid, Uid) ->
             {undefined, undefined, []};
         _ ->
             %% Uid requests keys of Ouid to establish a session.
-            %% We need to add Uid as subscriber of Ouid's keys and vice-versa.
-            %% When a user resets their keys on the server: these subscribers are then notified.
-            ok = model_whisper_keys:add_key_subscriber(Ouid, Uid),
-            ok = model_whisper_keys:add_key_subscriber(Uid, Ouid),
             check_count_and_notify_user(Ouid, Server),
             IdentityKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
             SignedKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.signed_key),
@@ -335,23 +330,39 @@ check_count_and_notify_user(Uid, _Server) ->
 set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys) ->
     ?INFO("Uid: ~s, set_keys", [Uid]),
     ok = model_whisper_keys:set_keys(Uid, IdentityKey, SignedKey, OneTimeKeys),
-    ok = notify_key_subscribers(Uid, util:get_host()),
+    ok = notify_key_subscribers(Uid),
     ok.
 
 
--spec notify_key_subscribers(Uid :: binary(), Server :: binary()) -> ok.
-notify_key_subscribers(Uid, _Server) ->
+-spec notify_key_subscribers(Uid :: binary()) -> ok.
+notify_key_subscribers(Uid) ->
     ?INFO("Uid: ~s", [Uid]),
-    {ok, Ouids} = model_whisper_keys:get_all_key_subscribers(Uid),
-    %% TODO (murali@): make this a qmn query.
-    GroupUids = lists:merge(lists:map(fun model_groups:get_member_uids/1, model_groups:get_groups(Uid))),
-    %% Ensure that we dont route the update message to ourselves.
-    SubscriberUids = sets:to_list(sets:del_element(Uid, sets:from_list(Ouids ++ GroupUids))),
-    Packet = #pb_msg{
-        id = util_id:new_msg_id(),
-        payload = #pb_whisper_keys{action = update, uid = Uid}
-    },
-    ejabberd_router:route_multicast(<<>>, SubscriberUids, Packet),
+    %% We construct a list of potential subscribers and send the update notification to all of them.
+
+    %% Phone reverse index.
+    case model_accounts:get_phone(Uid) of
+        {ok, Phone} ->
+            {ok, Ouids1} = model_contacts:get_contact_uids(Phone),
+            %% Contact Phones. -- uid may not have any - since we clear contacts on registration.
+            {ok, ContactPhones} = model_contacts:get_contacts(Uid),
+            PhoneToUidMap = model_phone:get_uids(ContactPhones),
+            Ouids2 = maps:values(PhoneToUidMap),
+
+            %% GroupMember-Uids.
+            %% TODO (murali@): make this a qmn query.
+            Ouids3 = lists:merge(lists:map(fun model_groups:get_member_uids/1, model_groups:get_groups(Uid))),
+            %% Ensure that we dont route the update message to ourselves.
+            SubscriberUids = sets:to_list(sets:del_element(Uid, sets:from_list(Ouids1 ++ Ouids2 ++ Ouids3))),
+
+            Packet = #pb_msg{
+                id = util_id:new_msg_id(),
+                payload = #pb_whisper_keys{action = update, uid = Uid}
+            },
+            ?INFO("Uid: ~s Notifying ~p Uids about key change", [Uid, len(SubscriberUids)]),
+            ejabberd_router:route_multicast(<<>>, SubscriberUids, Packet);
+        {error, missing} ->
+            ?ERROR("Uid: ~s missing phone", [Uid])
+    end,
     ok.
 
 

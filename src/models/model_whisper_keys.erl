@@ -18,7 +18,7 @@
 %% e2e_stats query key will expire every 12hrs - so that we can query them again.
 -define(E2E_QUERY_EXPIRY, 12 * ?HOURS).
 
--export([whisper_key/1, otp_key/1, subcribers_key/1]).
+-export([whisper_key/1, otp_key/1]).
 
 
 %% API
@@ -30,12 +30,6 @@
     get_identity_keys/1,
     remove_all_keys/1,
     count_otp_keys/1,
-    add_key_subscriber/2,
-    add_key_subscribers/2,
-    remove_key_subscriber/2,
-    remove_key_subscribers/2,
-    get_all_key_subscribers/1,
-    remove_all_key_subscribers/1,
     delete_all_otp_keys/1,  %% dangerous function - dont use without talking to the team.
     mark_e2e_stats_query/0,
     export_keys/1
@@ -141,42 +135,6 @@ remove_all_keys(Uid) ->
     ok.
 
 
--spec add_key_subscriber(Uid :: uid(), SubscriberUid :: uid()) -> ok | {error, any()}.
-add_key_subscriber(Uid, SubscriberUid) ->
-    {ok, _Res} = q(["SADD", subcribers_key(Uid), SubscriberUid]),
-    ok.
-
--spec add_key_subscribers(Uid :: uid(), SubscriberUids :: [uid()]) -> ok | {error, any()}.
-add_key_subscribers(_Uid, []) -> ok;
-add_key_subscribers(Uid, SubscriberUids) ->
-    {ok, _Res} = q(["SADD", subcribers_key(Uid) | SubscriberUids]),
-    ok.
-
-
--spec remove_key_subscriber(Uid :: uid(), SubscriberUid :: uid()) -> ok | {error, any()}.
-remove_key_subscriber(Uid, SubscriberUid) ->
-    {ok, _Res} = q(["SREM", subcribers_key(Uid), SubscriberUid]),
-    ok.
-
-
--spec remove_key_subscribers(Uid :: uid(), SubscriberUids :: [uid()]) -> ok | {error, any()}.
-remove_key_subscribers(_Uid, []) -> ok;
-remove_key_subscribers(Uid, SubscriberUids) ->
-    {ok, _Res} = q(["SREM", subcribers_key(Uid) | SubscriberUids]),
-    ok.
-
-
--spec get_all_key_subscribers(Uid :: uid()) -> {ok, list(binary())} | {error, any()}.
-get_all_key_subscribers(Uid) ->
-    q(["SMEMBERS", subcribers_key(Uid)]).
-
-
--spec remove_all_key_subscribers(Uid :: uid()) -> ok | {error, any()}.
-remove_all_key_subscribers(Uid) ->
-    {ok, _Res} = q(["DEL", subcribers_key(Uid)]),
-    ok.
-
-
 mark_e2e_stats_query() ->
     [{ok, Exists}, {ok, _}] = qp([
         ["SETNX", ?E2E_STATS_QUERY_KEY, 1],
@@ -207,10 +165,4 @@ whisper_key(Uid) ->
 -spec otp_key(Uid :: uid()) -> binary().
 otp_key(Uid) ->
     <<?OTP_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
-
-
--spec subcribers_key(Uid :: uid()) -> binary().
-subcribers_key(Uid) ->
-    <<?SUBSCRIBERS_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
-
 
