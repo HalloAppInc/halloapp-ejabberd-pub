@@ -25,13 +25,9 @@
 
 %% Extracts {Difficulty: Tag 2, Challenge: Everything other than last Tag} from Solution.
 -spec extract_challenge(Solution :: binary()) -> {error, atom()} | {integer(), binary()}.
-extract_challenge(Solution) ->
+extract_challenge(Solution) when is_binary(Solution) ->
     %% Example: `H:20:21600:halloapp.net:4PF4B5e0_spEr0b3n0OM4g:SHA-256:eHQPAA`
-    Segments = try binary:split(Solution, <<":">>, [global])
-    catch C:R:St ->
-        ?ERROR("Stacktrace: ~s", [lager:pr_stacktrace(St, {C, R})]),
-        []
-    end,
+    Segments = binary:split(Solution, <<":">>, [global]),
     NumSegments = length(Segments),
     if
         NumSegments =/= 7 ->
@@ -50,7 +46,8 @@ extract_challenge(Solution) ->
                 -1 -> {error, wrong_hashcash_solution};
                 _ -> {DifficultyInt, Challenge}
             end
-    end.
+    end;
+extract_challenge(_) -> {error, wrong_hashcash_solution}.
 
 -spec construct_challenge(Difficulty :: integer(), ExpireIn :: integer()) -> binary().
 construct_challenge(Difficulty, ExpireIn) ->
