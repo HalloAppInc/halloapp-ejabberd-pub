@@ -27,7 +27,11 @@
 -spec extract_challenge(Solution :: binary()) -> {error, atom()} | {integer(), binary()}.
 extract_challenge(Solution) ->
     %% Example: `H:20:21600:halloapp.net:4PF4B5e0_spEr0b3n0OM4g:SHA-256:eHQPAA`
-    Segments = binary:split(Solution, <<":">>, [global]),
+    Segments = try binary:split(Solution, <<":">>, [global])
+    catch C:R:St ->
+        ?ERROR("Stacktrace: ~s", [lager:pr_stacktrace(St, {C, R})]),
+        []
+    end,
     NumSegments = length(Segments),
     if
         NumSegments =/= 7 ->

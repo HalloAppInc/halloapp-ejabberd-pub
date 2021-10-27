@@ -7,6 +7,8 @@
 -include_lib("eunit/include/eunit.hrl").
 
 extract_challenge_test() ->
+    {error, wrong_hashcash_solution} = util_hashcash:extract_challenge(undefined),
+    {error, wrong_hashcash_solution} = util_hashcash:extract_challenge(<<>>),
     {error, wrong_hashcash_solution} = util_hashcash:extract_challenge(
         <<"H:20:21600:halloapp.net:4PF4B5e0_spEr0b3n0OM4g:SHA-256">>),
     {error, wrong_hashcash_solution} = util_hashcash:extract_challenge(
