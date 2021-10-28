@@ -40,6 +40,10 @@ clear() ->
         token = ?PUSH_TOKEN1, timestamp_ms = ?PUSH_TOKEN_TIMESTAMP1,
         post_pref = undefined, comment_pref = undefined, lang_id = ?PUSH_LANG_ID1}).
 
+-define(VOIP_PUSH_INFO1, #push_info{uid = ?UID1,
+        voip_token = ?PUSH_TOKEN1, timestamp_ms = ?PUSH_TOKEN_TIMESTAMP1,
+        post_pref = undefined, comment_pref = undefined, lang_id = ?PUSH_LANG_ID1}).
+
 -define(UID2, <<"2">>).
 -define(PHONE2, <<"16505552222">>).
 -define(NAME2, <<"Name2">>).
@@ -326,6 +330,17 @@ push_token_test() ->
     ?assertEqual(ok, model_accounts:set_push_token(?UID2, ?PUSH_TOKEN_OS2,
             ?PUSH_TOKEN2, ?PUSH_TOKEN_TIMESTAMP2, ?PUSH_LANG_ID2)),
     ?assertEqual({ok, ?PUSH_INFO2}, model_accounts:get_push_token(?UID2)).
+
+
+voip_token_test() ->
+    setup(),
+    ?assertEqual({ok, undefined}, model_accounts:get_push_token(?UID1)),
+    ?assertEqual(ok, model_accounts:set_voip_token(?UID1,
+        ?PUSH_TOKEN1, ?PUSH_TOKEN_TIMESTAMP1, ?PUSH_LANG_ID1)),
+    ?assertEqual({ok, ?VOIP_PUSH_INFO1}, model_accounts:get_push_token(?UID1)),
+    ?assertEqual(ok, model_accounts:remove_push_token(?UID1)),
+    ?assertEqual({ok, undefined}, model_accounts:get_push_token(?UID1)),
+    ok.
 
 
 lang_id_count_test() ->

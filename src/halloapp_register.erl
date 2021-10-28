@@ -359,7 +359,7 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
             #{
                 <<"lang_id">> => LangId,
                 <<"push_token">> => PbPushToken#pb_push_token.token,
-                <<"push_os">> => PbPushToken#pb_push_token.os
+                <<"push_os">> => PbPushToken#pb_push_token.token_type
             }
     end,
     GroupInviteToken = VerifyOtpRequest#pb_verify_otp_request.group_invite_token,

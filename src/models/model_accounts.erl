@@ -80,6 +80,7 @@
     get_push_info/1,
     set_push_token/5,
     get_push_token/1,
+    set_voip_token/4,
     get_lang_id/1,
     remove_push_token/1,
     remove_push_info/1,
@@ -147,6 +148,7 @@
 -define(FIELD_PUSH_POST, <<"pp">>).
 -define(FIELD_PUSH_COMMENT, <<"pc">>).
 -define(FIELD_PUSH_LANGUAGE_ID, <<"pl">>).
+-define(FIELD_VOIP_TOKEN, <<"pvt">>).
 -define(FIELD_DEVICE, <<"dvc">>).
 -define(FIELD_OS_VERSION, <<"osv">>).
 
@@ -485,15 +487,31 @@ get_lang_id(Uid) ->
 %% We will first run a migration to set values appropriately for lang_id keys on all slots.
 %% Then set the value for lang_id key in persistent_term storage.
 %% In the next diff - we can cleanup this code.
--spec set_push_token(Uid :: uid(), Os :: binary(), PushToken :: binary(),
+-spec set_push_token(Uid :: uid(), TokenType :: binary(), PushToken :: binary(),
         TimestampMs :: integer(), LangId :: binary()) -> ok.
-set_push_token(Uid, Os, PushToken, TimestampMs, LangId) ->
+set_push_token(Uid, TokenType, PushToken, TimestampMs, LangId) ->
     {ok, OldLangId} = get_lang_id(Uid),
-    {ok, _Res} = q(["HMSET", account_key(Uid),
-            ?FIELD_PUSH_OS, Os,
+    {ok, _Res} = q([
+            "HMSET", account_key(Uid),
+            ?FIELD_PUSH_OS, TokenType,
             ?FIELD_PUSH_TOKEN, PushToken,
             ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
-            ?FIELD_PUSH_LANGUAGE_ID, LangId]),
+            ?FIELD_PUSH_LANGUAGE_ID, LangId
+        ]),
+    update_lang_counters(Uid, LangId, OldLangId),
+    ok.
+
+
+-spec set_voip_token(Uid :: binary(), VoipToken :: binary(),
+    TimestampMs :: integer(), LangId :: binary()) -> ok.
+set_voip_token(Uid, VoipToken, TimestampMs, LangId) ->
+    {ok, OldLangId} = get_lang_id(Uid),
+    {ok, _Res} = q([
+            "HMSET", account_key(Uid),
+            ?FIELD_VOIP_TOKEN, VoipToken,
+            ?FIELD_PUSH_TIMESTAMP, integer_to_binary(TimestampMs),
+            ?FIELD_PUSH_LANGUAGE_ID, LangId
+        ]),
     update_lang_counters(Uid, LangId, OldLangId),
     ok.
 
@@ -517,20 +535,19 @@ update_lang_counters(Uid, LangId, OldLangId) ->
     ok.
 
 
-%% TODO(murali@): No one is using this function: delete it.
 -spec get_push_token(Uid :: uid()) -> {ok, maybe(push_info())} | {error, missing}.
 get_push_token(Uid) ->
-    {ok, [Os, Token, TimestampMs, LangId]} = q(
+    {ok, [Os, Token, TimestampMs, LangId, VoipToken]} = q(
             ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN,
-                    ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID]),
-    Res = case Token of
-        undefined ->
-            undefined;
-        _ -> 
+                    ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID, ?FIELD_VOIP_TOKEN]),
+    Res = case Token =:= undefined andalso VoipToken =:= undefined of
+        true -> undefined;
+        false ->
             #push_info{
                 uid = Uid, 
                 os = Os, 
                 token = Token, 
+                voip_token = VoipToken,
                 timestamp_ms = util_redis:decode_ts(TimestampMs),
                 lang_id = LangId
             }
@@ -540,18 +557,22 @@ get_push_token(Uid) ->
 
 -spec remove_push_token(Uid :: uid()) -> ok | {error, missing}.
 remove_push_token(Uid) ->
-    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP]),
+    {ok, _Res} = q(["HDEL", account_key(Uid),
+        ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP, ?FIELD_VOIP_TOKEN]),
     ok.
 
 
 -spec get_push_info(Uid :: uid()) -> {ok, maybe(push_info())} | {error, missing}.
 get_push_info(Uid) ->
-    {ok, [Os, Token, TimestampMs, PushPost, PushComment, ClientVersion, LangId]} = q(
+    {ok, [Os, Token, TimestampMs, PushPost, PushComment, ClientVersion, LangId, VoipToken]} = q(
             ["HMGET", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP,
-            ?FIELD_PUSH_POST, ?FIELD_PUSH_COMMENT, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID]),
-    Res = #push_info{uid = Uid, 
-            os = Os, 
-            token = Token, 
+            ?FIELD_PUSH_POST, ?FIELD_PUSH_COMMENT, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID,
+            ?FIELD_VOIP_TOKEN]),
+    Res = #push_info{
+            uid = Uid,
+            os = Os,
+            token = Token,
+            voip_token = VoipToken,
             timestamp_ms = util_redis:decode_ts(TimestampMs),
             post_pref = boolean_decode(PushPost, true),
             comment_pref = boolean_decode(PushComment, true),
@@ -563,7 +584,8 @@ get_push_info(Uid) ->
 
 -spec remove_push_info(Uid :: uid()) -> ok | {error, missing}.
 remove_push_info(Uid) ->
-    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN, ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID]),
+    {ok, _Res} = q(["HDEL", account_key(Uid), ?FIELD_PUSH_OS, ?FIELD_PUSH_TOKEN,
+        ?FIELD_PUSH_TIMESTAMP, ?FIELD_PUSH_LANGUAGE_ID, ?FIELD_VOIP_TOKEN]),
     ok.
 
 

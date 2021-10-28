@@ -847,13 +847,14 @@ message PrivacyLists {
 // Push Tokens
 
 message PushToken {
-    enum Os {
+    enum TokenType {
         ANDROID = 0;
         IOS = 1;
         IOS_DEV = 2;
         IOS_APPCLIP = 3;
+        IOS_VOIP = 4;
     }
-    Os os = 1;
+    TokenType token_type = 1;
     string token = 2;
 }
 

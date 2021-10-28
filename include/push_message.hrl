@@ -30,6 +30,8 @@
     mon :: reference(),
     dev_conn :: pid(),
     dev_mon :: reference(),
+    voip_conn :: pid(),
+    voip_mon :: reference(),
     noise_static_key :: binary(),
     noise_certificate :: binary()
 }).

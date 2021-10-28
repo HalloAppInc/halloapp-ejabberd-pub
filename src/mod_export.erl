@@ -216,6 +216,7 @@ get_push_info(Uid) ->
     #{
         os => PushInfo#push_info.os,
         token => PushInfo#push_info.token,
+        voip_token => PushInfo#push_info.voip_token,
         timestamp_ms => PushInfo#push_info.timestamp_ms,
         push_post_pref => PushInfo#push_info.post_pref,
         push_comment_pref => PushInfo#push_info.comment_pref,

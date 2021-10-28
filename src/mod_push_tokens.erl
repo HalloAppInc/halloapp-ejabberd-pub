@@ -20,13 +20,13 @@
 %% iq handler and API.
 -export([
     process_local_iq/1,
-    get_push_info/2,
+    get_push_info/1,
     remove_push_token/2,
     re_register_user/3,
     remove_user/2,
     register_push_info/4,
-    is_valid_push_os/1,
-    is_appclip_push_os/1
+    is_valid_token_type/1,
+    is_appclip_token_type/1
 ]).
 
 
@@ -81,19 +81,20 @@ remove_user(UserId, Server) ->
 -spec process_local_iq(IQ :: pb_iq()) -> pb_iq().
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_push_register{lang_id = LangId,
-        push_token = #pb_push_token{os = OsAtom, token = Token}}} = IQ) ->
-    ?INFO("Uid: ~s, set-iq for push_token", [Uid]),
-    Os = util:to_binary(OsAtom),
-    IsValidOs = is_valid_push_os(Os),
+        push_token = #pb_push_token{token_type = TokenTypeAtom, token = Token}}} = IQ) ->
+    ?INFO("Uid: ~s, set_push_token, TokenType: ~p", [Uid, TokenTypeAtom]),
+    %% TODO: switch to using atoms everywhere.
+    TokenType = util:to_binary(TokenTypeAtom),
+    IsValidTokenType = is_valid_token_type(TokenType),
     if
         Token =:= <<>> ->
             ?WARNING("Uid: ~s, received push token is empty!", [Uid]),
             pb:make_error(IQ, util:err(invalid_push_token));
-        IsValidOs =:= false ->
-            ?WARNING("Uid: ~s, invalid os attribute: ~s!", [Uid, Os]),
-            pb:make_error(IQ, util:err(invalid_os));
+        IsValidTokenType =:= false ->
+            ?WARNING("Uid: ~s, invalid token_type attribute: ~s!", [Uid, TokenType]),
+            pb:make_error(IQ, util:err(invalid_token_type));
         true ->
-            ok = register_push_info(Uid, Os, Token, LangId),
+            ok = register_push_info(Uid, TokenType, Token, LangId),
             pb:make_iq_result(IQ)
     end;
 
@@ -130,18 +131,24 @@ update_push_pref(Uid, #pb_push_pref{name = comment, value = Value}) ->
 
 
 %% TODO(murali@): add counters by push languageId.
--spec register_push_info(Uid :: binary(), Os :: binary(),
+-spec register_push_info(Uid :: binary(), TokenType :: binary(),
         Token :: binary(), LangId :: binary()) -> ok.
-register_push_info(Uid, Os, Token, LangId) ->
+register_push_info(Uid, TokenType, Token, LangId) when TokenType =:= ?IOS_VOIP_TOKEN_TYPE ->
     LanguageId = get_language_id(LangId),
     TimestampMs = util:now_ms(),
-    ok = model_accounts:set_push_token(Uid, Os, Token, TimestampMs, LanguageId),
+    ok = model_accounts:set_voip_token(Uid, Token, TimestampMs, LanguageId),
+    stat:count("HA/push_tokens", "set_voip_token"),
+    ok;
+register_push_info(Uid, TokenType, Token, LangId) ->
+    LanguageId = get_language_id(LangId),
+    TimestampMs = util:now_ms(),
+    ok = model_accounts:set_push_token(Uid, TokenType, Token, TimestampMs, LanguageId),
     stat:count("HA/push_tokens", "set_push_token"),
     ok.
 
 
--spec get_push_info(Uid :: binary(), Server :: binary()) -> undefined | push_info().
-get_push_info(Uid, _Server) ->
+-spec get_push_info(Uid :: binary()) -> push_info().
+get_push_info(Uid) ->
     {ok, RedisPushInfo} = model_accounts:get_push_info(Uid),
     RedisPushInfo.
 
@@ -158,20 +165,19 @@ get_language_id(undefined) -> <<"en-US">>;
 get_language_id(LangId) -> LangId.
 
 
--spec is_valid_push_os(Os :: binary()) -> boolean().
-is_valid_push_os(<<"ios">>) ->
-    true;
-is_valid_push_os(<<"ios_appclip">>) ->
-    true;
-is_valid_push_os(<<"ios_dev">>) ->
-    true;
-is_valid_push_os(<<"android">>) ->
-    true;
-is_valid_push_os(_) ->
-    false.
+-spec is_valid_token_type(TokenType :: binary()) -> boolean().
+is_valid_token_type(TokenType) ->
+    case TokenType of
+        ?IOS_TOKEN_TYPE -> true;
+        ?IOS_DEV_TOKEN_TYPE -> true;
+        ?IOS_APPCLIP_TOKEN_TYPE -> true;
+        ?IOS_VOIP_TOKEN_TYPE -> true;
+        ?ANDROID_TOKEN_TYPE -> true;
+        _ -> false
+    end.
 
 
--spec is_appclip_push_os(Os :: binary()) -> boolean().
-is_appclip_push_os(<<"ios_appclip">>) -> true;
-is_appclip_push_os(_) -> false.
+-spec is_appclip_token_type(TokenType :: binary()) -> boolean().
+is_appclip_token_type(?IOS_APPCLIP_TOKEN_TYPE) -> true;
+is_appclip_token_type(_) -> false.
 

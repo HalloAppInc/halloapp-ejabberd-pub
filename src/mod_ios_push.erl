@@ -24,7 +24,7 @@
 -include("proc.hrl").
 -include("password.hrl").
 
--type build_type() :: prod | dev.
+-type endpoint_type() :: prod | dev | voip.
 
 -define(MESSAGE_EXPIRY_TIME_SEC, 1 * ?DAYS).           %% seconds in 1 day.
 -define(RETRY_INTERVAL_MILLISEC, 30 * ?SECONDS_MS).           %% 30 seconds.
@@ -45,6 +45,8 @@
 -define(APNS_DEV_GATEWAY, "api.sandbox.push.apple.com").
 -define(APNS_DEV_PORT, 443).
 -define(APNS_DEV_CERTFILE_SM, <<"apns_dev.pem">>).
+-define(APNS_VOIP_CERTFILE_SM, <<"voip_prod.pem">>).
+-define(IOS_ENDPOINT_TYPES, [prod, dev, voip]).
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -88,8 +90,8 @@ mod_options(_Host) ->
 %%====================================================================
 
 -spec push(Message :: pb_msg(), PushInfo :: push_info()) -> ok.
-push(Message, #push_info{os = Os} = PushInfo)
-        when Os =:= <<"ios">>; Os =:= <<"ios_dev">> ->
+push(Message, #push_info{os = Os, voip_token = VoipToken} = PushInfo)
+        when Os =:= <<"ios">>; Os =:= <<"ios_dev">>; VoipToken =/= undefined ->
     gen_server:cast(?PROC(), {push_message, Message, PushInfo});
 push(_Message, _PushInfo) ->
     ?ERROR("Invalid push_info : ~p", [_PushInfo]).
@@ -114,6 +116,7 @@ crash() ->
 init([Host|_]) ->
     {Pid, Mon} = connect_to_apns(prod),
     {DevPid, DevMon} = connect_to_apns(dev),
+    {VoipPid, VoipMon} = connect_to_apns(voip),
     {NoiseStaticKey, NoiseCertificate} = util:get_noise_key_material(),
     {ok, #push_state{
             pendingMap = #{},
@@ -122,16 +125,20 @@ init([Host|_]) ->
             mon = Mon,
             dev_conn = DevPid,
             dev_mon = DevMon,
+            voip_conn = VoipPid,
+            voip_mon = VoipMon,
             noise_static_key = NoiseStaticKey,
             noise_certificate = NoiseCertificate}}.
 
 
-terminate(_Reason, #push_state{host = _Host, conn = Pid,
-        mon = Mon, dev_conn = DevPid, dev_mon = DevMon}) ->
+terminate(_Reason, #push_state{host = _Host, conn = Pid, mon = Mon,
+        dev_conn = DevPid, dev_mon = DevMon, voip_conn = VoipPid, voip_mon = VoipMon}) ->
     demonitor(Mon),
     gun:close(Pid),
     demonitor(DevMon),
     gun:close(DevPid),
+    demonitor(VoipMon),
+    gun:close(VoipPid),
     ok.
 
 
@@ -172,11 +179,11 @@ handle_cast(_Request, State) ->
     {noreply, State}.
 
 
--spec connect_to_apns(BuildType :: build_type()) -> {pid(), reference()} | {undefined, undefined}.
-connect_to_apns(BuildType) ->
-    ApnsGateway = get_apns_gateway(BuildType),
-    {Cert, Key} = get_apns_cert(BuildType),
-    ApnsPort = get_apns_port(BuildType),
+-spec connect_to_apns(EndpointType :: endpoint_type()) -> {pid(), reference()} | {undefined, undefined}.
+connect_to_apns(EndpointType) ->
+    ApnsGateway = get_apns_gateway(EndpointType),
+    {Cert, Key} = get_apns_cert(EndpointType),
+    ApnsPort = get_apns_port(EndpointType),
     RetryFun = fun retry_function/2,
     Options = #{
         protocols => [http2],
@@ -185,21 +192,21 @@ connect_to_apns(BuildType) ->
         retry_timeout => 5000,             %% Time between retries in milliseconds.
         retry_fun => RetryFun
     },
-    ?INFO("BuildType: ~s, Gateway: ~s, Port: ~p", [BuildType, ApnsGateway, ApnsPort]),
+    ?INFO("EndpointType: ~s, Gateway: ~s, Port: ~p", [EndpointType, ApnsGateway, ApnsPort]),
     case gun:open(ApnsGateway, ApnsPort, Options) of
         {ok, Pid} ->
             Mon = monitor(process, Pid),
             case gun:await_up(Pid, Mon) of
                 {ok, Protocol} ->
-                    ?INFO("BuildType: ~s, connection successful pid: ~p, protocol: ~p, monitor: ~p",
-                            [BuildType, Pid, Protocol, Mon]),
+                    ?INFO("EndpointType: ~s, connection successful pid: ~p, protocol: ~p, monitor: ~p",
+                            [EndpointType, Pid, Protocol, Mon]),
                     {Pid, Mon};
                 {error, Reason} ->
-                    ?ERROR("BuildType: ~s, Failed to connect to apns: ~p", [BuildType, Reason]),
+                    ?ERROR("EndpointType: ~s, Failed to connect to apns: ~p", [EndpointType, Reason]),
                     {undefined, undefined}
             end;
         {error, Reason} ->
-            ?ERROR("BuildType: ~s, Failed to connect to apns: ~p", [BuildType, Reason]),
+            ?ERROR("EndpointType: ~s, Failed to connect to apns: ~p", [EndpointType, Reason]),
             {undefined, undefined}
     end.
 
@@ -368,9 +375,13 @@ push_message_item(PushMessageItem, State) ->
 -spec push_message_item(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata(),
         State :: push_state()) -> push_state().
 push_message_item(PushMessageItem, PushMetadata, State) ->
-    BuildType = case PushMessageItem#push_message_item.push_info#push_info.os of
-        <<"ios">> -> prod;
-        <<"ios_dev">> -> dev
+    EndpointType = case util:is_voip_message(PushMessageItem#push_message_item.message) of
+        true -> voip;
+        false ->
+            case PushMessageItem#push_message_item.push_info#push_info.os of
+                <<"ios">> -> prod;
+                <<"ios_dev">> -> dev
+            end
     end,
     PushType = PushMetadata#push_metadata.push_type,
     PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType, State),
@@ -382,7 +393,7 @@ push_message_item(PushMessageItem, PushMetadata, State) ->
     ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s, ContentType: ~s",
         [Uid, Id, ApnsId, ContentId, ContentType]),
     {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
-            PushType, BuildType, PushMessageItem, State),
+            PushType, EndpointType, PushMessageItem, State),
     FinalState.
 
 
@@ -399,18 +410,23 @@ retry_message_item(PushMessageItem) ->
     setup_timer({retry, PushMessageItem}, RetryTime).
 
 
--spec get_pid_to_send(BuildType :: build_type(),
+-spec get_pid_to_send(EndpointType :: endpoint_type(),
         State :: push_state()) -> {pid() | undefined, push_state()}.
-get_pid_to_send(prod = BuildType, #push_state{conn = undefined} = State) ->
-    {Pid, Mon} = connect_to_apns(BuildType),
+get_pid_to_send(prod = EndpointType, #push_state{conn = undefined} = State) ->
+    {Pid, Mon} = connect_to_apns(EndpointType),
     {Pid, State#push_state{conn = Pid, mon = Mon}};
 get_pid_to_send(prod, State) ->
     {State#push_state.conn, State};
-get_pid_to_send(dev = BuildType, #push_state{dev_conn = undefined} = State) ->
-    {DevPid, DevMon} = connect_to_apns(BuildType),
+get_pid_to_send(dev = EndpointType, #push_state{dev_conn = undefined} = State) ->
+    {DevPid, DevMon} = connect_to_apns(EndpointType),
     {DevPid, State#push_state{dev_conn = DevPid, dev_mon = DevMon}};
 get_pid_to_send(dev, State) ->
-    {State#push_state.dev_conn, State}.
+    {State#push_state.dev_conn, State};
+get_pid_to_send(voip = EndpointType, #push_state{voip_conn = undefined} = State) ->
+    {VoipPid, VoipMon} = connect_to_apns(EndpointType),
+    {VoipPid, State#push_state{voip_conn = VoipPid, voip_mon = VoipMon}};
+get_pid_to_send(voip, State) ->
+    {State#push_state.voip_conn, State}.
 
 
 %% Details about the content inside the apns push payload are here:
@@ -458,7 +474,7 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
                 <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract)
             }
     end,
-    BuildTypeMap = case PushType of
+    ApsMap = case PushType of
         alert ->
             DataMap = #{
                 <<"title">> => PushMetadata#push_metadata.subject,
@@ -469,7 +485,7 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
         silent ->
             #{<<"content-available">> => <<"1">>}
     end,
-    PayloadMap = #{<<"aps">> => BuildTypeMap, <<"metadata">> => MetadataMap},
+    PayloadMap = #{<<"aps">> => ApsMap, <<"metadata">> => MetadataMap},
     jiffy:encode(PayloadMap).
 
 
@@ -543,38 +559,41 @@ setup_timer(Msg, TimeoutSec) ->
 %% Module Options
 %%====================================================================
 
--spec get_apns_gateway(BuildType :: build_type()) -> list().
-get_apns_gateway(prod) ->
-    ?APNS_GATEWAY;
-get_apns_gateway(dev) ->
-    ?APNS_DEV_GATEWAY.
+-spec get_apns_gateway(EndpointType :: endpoint_type()) -> list().
+get_apns_gateway(prod) -> ?APNS_GATEWAY;
+get_apns_gateway(dev) -> ?APNS_DEV_GATEWAY;
+get_apns_gateway(voip) -> ?APNS_GATEWAY.
 
 
+-spec get_apns_secret_name(EndpointType :: endpoint_type()) -> binary().
+get_apns_secret_name(prod) -> ?APNS_CERTFILE_SM;
+get_apns_secret_name(dev) -> ?APNS_DEV_CERTFILE_SM;
+get_apns_secret_name(voip) -> ?APNS_VOIP_CERTFILE_SM.
 
--spec get_apns_cert(BuildType :: build_type()) -> tuple().
-get_apns_cert(BuildType) ->
-    SecretName = case BuildType of
-        prod -> ?APNS_CERTFILE_SM;
-        dev -> ?APNS_DEV_CERTFILE_SM
-    end,
+
+-spec get_apns_cert(EndpointType :: endpoint_type()) -> tuple().
+get_apns_cert(EndpointType) ->
+    SecretName = get_apns_secret_name(EndpointType),
     Secret = mod_aws:get_secret(SecretName),
     Arr = public_key:pem_decode(Secret),
     [{_, CertBin, _}, {Asn1Type, KeyBin, _}] = Arr,
     Key = {Asn1Type, KeyBin},
     {CertBin, Key}.
 
--spec get_apns_port(BuildType :: build_type()) -> integer().
+-spec get_apns_port(EndpointType :: endpoint_type()) -> integer().
 get_apns_port(prod) ->
     ?APNS_PORT;
 get_apns_port(dev) ->
-    ?APNS_DEV_PORT.
+    ?APNS_DEV_PORT;
+get_apns_port(voip) ->
+    ?APNS_PORT.
 
 
 -spec send_dev_push_internal(Uid :: binary(), PushInfo :: push_info(),
         PushTypeBin :: binary(), PayloadBin :: binary(),
         State :: push_state()) -> {ok, push_state()} | {{error, any()}, push_state()}.
 send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
-    BuildType = dev,
+    EndpointType = dev,
     PushType = util:to_atom(PushTypeBin),
     ContentId = util_id:new_long_id(),
     ApnsId = util_id:new_uuid(),
@@ -588,13 +607,13 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
         push_type = PushType
     },
     send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
-            PushType, BuildType, PushMessageItem, State).
+            PushType, EndpointType, PushMessageItem, State).
 
 
 -spec send_post_request_to_apns(Uid :: binary(), ApnsId :: binary(), ContentId :: binary(), PayloadBin :: binary(),
-        PushType :: alert | silent, BuildType :: build_type(), PushMessageItem :: push_message_item(),
+        PushType :: alert | silent, EndpointType :: endpoint_type(), PushMessageItem :: push_message_item(),
         State :: push_state()) -> {ok, push_state()} | {ignored, push_state()} | {{error, any()}, push_state()}.
-send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, BuildType, PushMessageItem, State) ->
+send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
     Priority = get_priority(PushType),
     DevicePath = get_device_path(Token),
@@ -608,7 +627,7 @@ send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, BuildTyp
         {?APNS_COLLAPSE_ID, ContentId}
     ],
     ?INFO("Uid: ~s, ApnsId: ~s, ContentId: ~s", [Uid, ApnsId, ContentId]),
-    case get_pid_to_send(BuildType, State) of
+    case get_pid_to_send(EndpointType, State) of
         {undefined, NewState} ->
             ?ERROR("error: invalid_pid to send this push, Uid: ~p, ApnsId: ~p", [Uid, ApnsId]),
             {{error, cannot_connect}, NewState};

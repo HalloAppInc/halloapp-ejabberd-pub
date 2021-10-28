@@ -9,6 +9,7 @@
 -author('murali').
 -behaviour(gen_mod).
 
+-include("ha_types.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
 -include("account.hrl").
@@ -167,36 +168,67 @@ should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
     end.
 
 
+% TODO: add stat:count here to count invalid_token failures.
 -spec push_message(Message :: pb_msg()) -> ok.
-push_message(#pb_msg{id = MsgId, to_uid = User} = Message) ->
-    Server = util:get_host(),
-    PushInfo = mod_push_tokens:get_push_info(User, Server),
+push_message(#pb_msg{id = _MsgId, to_uid = User} = Message) ->
+    PushInfo = mod_push_tokens:get_push_info(User),
+    ClientType = util_ua:get_client_type(PushInfo#push_info.client_version),
+    push_message(Message, PushInfo, ClientType).
+
+
+-spec push_message(Message :: pb_msg(), PushInfo :: push_info(), Os :: client_type()) -> ok.
+push_message(#pb_msg{id = MsgId, to_uid = User} = _Message, PushInfo, undefined) ->
+    ?ERROR("Uid: ~s, MsgId: ~p ignore push: invalid client version: ~p",
+        [User, MsgId, PushInfo#push_info.client_version]);
+push_message(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo, android) ->
     case PushInfo#push_info.token of
         undefined ->
-            % TODO: add stat:count here to count this
+            %% invalid fcm-token for android.
             ?INFO("Uid: ~s, MsgId: ~p ignore push: no push token", [User, MsgId]);
         _ ->
-            log_invalid_langId(PushInfo),
-            ClientVersion = PushInfo#push_info.client_version,
-            case ejabberd_hooks:run_fold(push_version_filter, Server, allow, [User, PushInfo, Message]) of
-                allow ->
-                    ?INFO("Uid: ~s, MsgId: ~p", [User, MsgId]),
-                    push_message(Message, PushInfo);
-                deny ->
-                    ?INFO("Uid: ~s, MsgId: ~p ignore push: invalid client version: ~p",
-                            [User, MsgId, ClientVersion])
-            end
+            push_message_internal(Message, PushInfo)
+    end;
+push_message(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo, ios) ->
+    case {util:is_voip_message(Message), PushInfo#push_info.voip_token, PushInfo#push_info.token} of
+        {true, undefined, _} ->
+            %% voip message with invalid voip token - should never happen.
+            ?WARNING("Uid: ~s, MsgId: ~p ignore push: no voip-push token", [User, MsgId]);
+        {true, _, _} ->
+            %% voip message with valid voip token.
+            push_message_internal(Message, PushInfo);
+        {false, _, undefined} ->
+            %% normal message with invalid apns token.
+            ?INFO("Uid: ~s, MsgId: ~p ignore push: no push token", [User, MsgId]);
+        {false, _, _} ->
+            %% normal message with valid apns token.
+            push_message_internal(Message, PushInfo)
+    end.
+
+
+-spec push_message_internal(Message :: pb_msg(), PushInfo :: push_info()) -> ok.
+push_message_internal(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo) ->
+    Server = util:get_host(),
+    log_invalid_langId(PushInfo),
+    ClientVersion = PushInfo#push_info.client_version,
+    case ejabberd_hooks:run_fold(push_version_filter, Server, allow, [User, PushInfo, Message]) of
+        allow ->
+            ?INFO("Uid: ~s, MsgId: ~p", [User, MsgId]),
+            push_message(Message, PushInfo);
+        deny ->
+            ?INFO("Uid: ~s, MsgId: ~p ignore push: invalid client version: ~p",
+                    [User, MsgId, ClientVersion])
     end.
 
 
 -spec push_message(Message :: pb_msg(), PushInfo :: push_info()) -> ok.
 push_message(Message, #push_info{os = <<"android">>} = PushInfo) ->
     mod_android_push:push(Message, PushInfo);
-
 push_message(Message, #push_info{os = Os} = PushInfo)
         when Os =:= <<"ios">>; Os =:= <<"ios_dev">> ->
     mod_ios_push:push(Message, PushInfo);
-
+push_message(Message, #push_info{voip_token = VoipToken} = PushInfo)
+        when VoipToken =/= undefined ->
+    mod_ios_push:push(Message, PushInfo);
 push_message(#pb_msg{id = MsgId, to_uid = Uid}, #push_info{os = <<"ios_appclip">>}) ->
     ?INFO("ignoring ios_appclip push, Uid: ~p, MsgId: ~p", [Uid, MsgId]),
     ok.

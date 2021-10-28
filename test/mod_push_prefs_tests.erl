@@ -88,10 +88,10 @@ setup_accounts(Accounts) ->
 post_pref_test() ->
     setup(),
     setup_accounts([[?UID1, ?PHONE1, ?NAME1, ?UA1]]),
-    PushInfo1 = mod_push_tokens:get_push_info(?UID1, ?SERVER),
+    PushInfo1 = mod_push_tokens:get_push_info(?UID1),
     ?assertEqual(true, PushInfo1#push_info.post_pref),
     mod_push_tokens:process_local_iq(create_set_pref_iq(?UID1, [?POST_PREF])),
-    PushInfo2 = mod_push_tokens:get_push_info(?UID1, ?SERVER),
+    PushInfo2 = mod_push_tokens:get_push_info(?UID1),
     ?assertEqual(false, PushInfo2#push_info.post_pref).
 
 
@@ -99,10 +99,10 @@ comment_pref_test() ->
     setup(),
     setup_accounts([
         [?UID2, ?PHONE2, ?NAME2, ?UA2]]),
-    PushInfo1 = mod_push_tokens:get_push_info(?UID2, ?SERVER),
+    PushInfo1 = mod_push_tokens:get_push_info(?UID2),
     ?assertEqual(true, PushInfo1#push_info.comment_pref),
     mod_push_tokens:process_local_iq(create_set_pref_iq(?UID2, [?COMMENT_PREF])),
-    PushInfo2 = mod_push_tokens:get_push_info(?UID2, ?SERVER),
+    PushInfo2 = mod_push_tokens:get_push_info(?UID2),
     ?assertEqual(false, PushInfo2#push_info.comment_pref).
 
 
@@ -110,11 +110,11 @@ post_and_comment_pref_test() ->
     setup(),
     setup_accounts([
         [?UID3, ?PHONE3, ?NAME3, ?UA3]]),
-    PushInfo1 = mod_push_tokens:get_push_info(?UID3, ?SERVER),
+    PushInfo1 = mod_push_tokens:get_push_info(?UID3),
     ?assertEqual(true, PushInfo1#push_info.post_pref),
     ?assertEqual(true, PushInfo1#push_info.comment_pref),
     mod_push_tokens:process_local_iq(create_set_pref_iq(?UID3, [?POST_PREF, ?COMMENT_PREF])),
-    PushInfo2 = mod_push_tokens:get_push_info(?UID3, ?SERVER),
+    PushInfo2 = mod_push_tokens:get_push_info(?UID3),
     ?assertEqual(false, PushInfo2#push_info.post_pref),
     ?assertEqual(false, PushInfo2#push_info.comment_pref).
 

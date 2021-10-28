@@ -47,6 +47,7 @@
     uid :: binary(),
     os :: binary(),
     token :: binary(),
+    voip_token :: binary(),
     timestamp_ms :: integer(),
     post_pref :: maybe(boolean()),
     comment_pref :: maybe(boolean()),
@@ -55,6 +56,12 @@
 }).
 
 -type push_info() :: #push_info{}.
+
+-define(ANDROID_TOKEN_TYPE, <<"android">>).
+-define(IOS_TOKEN_TYPE, <<"ios">>).
+-define(IOS_DEV_TOKEN_TYPE, <<"ios_dev">>).
+-define(IOS_APPCLIP_TOKEN_TYPE, <<"ios_appclip">>).
+-define(IOS_VOIP_TOKEN_TYPE, <<"ios_voip">>).
 
 -define(MAX_NAME_SIZE, 25).   %% 25 utf8 characters
 
