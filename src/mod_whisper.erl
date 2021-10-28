@@ -358,7 +358,7 @@ notify_key_subscribers(Uid) ->
                 id = util_id:new_msg_id(),
                 payload = #pb_whisper_keys{action = update, uid = Uid}
             },
-            ?INFO("Uid: ~s Notifying ~p Uids about key change", [Uid, len(SubscriberUids)]),
+            ?INFO("Uid: ~s Notifying ~p Uids about key change", [Uid, length(SubscriberUids)]),
             ejabberd_router:route_multicast(<<>>, SubscriberUids, Packet);
         {error, missing} ->
             ?ERROR("Uid: ~s missing phone", [Uid])
