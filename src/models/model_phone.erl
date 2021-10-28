@@ -18,7 +18,9 @@
 
 %% Export all functions for unit tests
 -ifdef(TEST).
--export([]).
+-export([
+    q/1
+]).
 -endif.
 
 
@@ -55,7 +57,10 @@
     get_phone_cc_info/1,
     delete_phone_cc/1,
     add_hashcash_challenge/1,
-    delete_hashcash_challenge/1
+    delete_hashcash_challenge/1,
+    add_phone_code_attempt/2,
+    get_phone_code_attempts/2,
+    phone_attempt_key/2
 ]).
 
 %%====================================================================
@@ -100,6 +105,9 @@
 %% TTL for hashcash cc: 6 hour.
 -define(TTL_HASHCASH, 6 * ?HOURS).
 
+%% TTL for phone code guessing attempt counter
+-define(TTL_PHONE_ATTEMPT, 7 * ?DAYS).
+
 -spec add_sms_code2(Phone :: phone(), Code :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
 add_sms_code2(Phone, Code) ->
     %% TODO(vipin): Need to clean verification attempt list when SMS code expire.
@@ -107,6 +115,7 @@ add_sms_code2(Phone, Code) ->
     Timestamp = util:now(),
     VerificationAttemptListKey = verification_attempt_list_key(Phone),
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+    % TODO: we should use qp here. Not sure how this works.
     _Results = q([["MULTI"],
                    ["ZADD", VerificationAttemptListKey, Timestamp, AttemptId],
                    ["EXPIRE", VerificationAttemptListKey, ?TTL_VERIFICATION_ATTEMPTS],
@@ -219,6 +228,7 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
     } = SMSResponse,
     GatewayResponseKey = gateway_response_key(Gateway, GatewayId),
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
+    % TODO: we should use qp here. Not sure how this works.
     _Result1 = q([["MULTI"],
                    ["HSET", GatewayResponseKey, ?FIELD_VERIFICATION_ATTEMPT, VerificationAttemptKey],
                    ["EXPIRE", GatewayResponseKey, ?TTL_VERIFICATION_ATTEMPTS],
@@ -227,6 +237,7 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
     MethodBin = encode_method(Method),
     StatusBin = util:to_binary(Status),
     SidBin = util:to_binary(GatewayId),
+    % TODO: we should use qp here. Not sure how this works.
     _Result2 = q([["MULTI"],
                    ["HSET", VerificationAttemptKey, ?FIELD_SENDER, GatewayBin,
                        ?FIELD_METHOD, MethodBin, ?FIELD_STATUS, StatusBin,
@@ -398,6 +409,7 @@ get_uids(Phones) ->
 
 -spec add_phone_pattern(PhonePattern :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
 add_phone_pattern(PhonePattern, Timestamp) ->
+    % TODO: we should use qp here. Not sure how this works.
     _Results = q([
         ["MULTI"],
         ["HINCRBY", phone_pattern_key(PhonePattern), ?FIELD_COUNT, 1],
@@ -423,6 +435,7 @@ delete_phone_pattern(PhonePattern) ->
 -spec add_static_key(StaticKey :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
 add_static_key(StaticKey, Timestamp) ->
     Trunc = truncate_static_key(StaticKey),
+    % TODO: we should use qp here. Not sure how this works.
     _Results = q([
         ["MULTI"],
         ["HINCRBY", remote_static_key(Trunc), ?FIELD_COUNT, 1],
@@ -448,6 +461,7 @@ delete_static_key(StaticKey) ->
 
 -spec add_phone_cc(CC :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
 add_phone_cc(CC, Timestamp) ->
+    % TODO: we should use qp here. Not sure how this works.
     _Results = q([
         ["MULTI"],
         ["HINCRBY", phone_cc_key(CC), ?FIELD_COUNT, 1],
@@ -483,6 +497,25 @@ delete_hashcash_challenge(Challenge) ->
         {ok, <<"1">>} -> ok
     end.
 
+
+-spec add_phone_code_attempt(Phone :: binary(), Timestamp :: integer()) -> integer().
+add_phone_code_attempt(Phone, Timestamp) ->
+    Key = phone_attempt_key(Phone, Timestamp),
+    {ok, [Res, _]} = multi_exec([
+        ["INCR", Key],
+        ["EXPIRE", Key, ?TTL_PHONE_ATTEMPT]
+    ]),
+    util_redis:decode_int(Res).
+
+-spec get_phone_code_attempts(Phone :: binary(), Timestamp :: integer()) -> maybe(integer()).
+get_phone_code_attempts(Phone, Timestamp) ->
+    Key = phone_attempt_key(Phone, Timestamp),
+    {ok, Res} = q(["GET", Key]),
+    case Res of
+        undefined -> 0;
+        Res -> util:to_integer(Res)
+    end.
+
 truncate_static_key(StaticKey) ->
     <<Trunc:?TRUNC_STATIC_KEY_LENGTH/binary, _Rem/binary>> = StaticKey,
     Trunc.
@@ -491,6 +524,12 @@ q(Command) -> ecredis:q(ecredis_phone, Command).
 qp(Commands) -> ecredis:qp(ecredis_phone, Commands).
 qmn(Commands) -> ecredis:qmn(ecredis_phone, Commands).
 
+% TODO(nikola): this is the same as model_groups. We should move this in the ecredis
+multi_exec(Commands) ->
+    WrappedCommands = lists:append([[["MULTI"]], Commands, [["EXEC"]]]),
+    Results = qp(WrappedCommands),
+    [ExecResult | _Rest] = lists:reverse(Results),
+    ExecResult.
 
 -spec encode_method(Method :: sms | voice_call | undefined) -> binary().
 encode_method(Method) ->
@@ -541,6 +580,7 @@ get_slot(Phone) ->
 verification_attempt_list_key(Phone) ->
     <<?VERIFICATION_ATTEMPT_LIST_KEY/binary, <<"{">>/binary, Phone/binary, <<"}">>/binary>>.
 
+
 -spec verification_attempt_key(Phone :: phone(), AttemptId :: binary()) -> binary().
 verification_attempt_key(Phone, AttemptId) ->
     <<?VERIFICATION_ATTEMPT_ID_KEY/binary, <<"{">>/binary, Phone/binary, <<"}:">>/binary, AttemptId/binary>>.
@@ -571,5 +611,9 @@ phone_cc_key(CC) ->
 hashcash_key(Challenge) ->
     <<?HASHCASH_KEY/binary, "{", Challenge/binary, "}:">>.
 
+-spec phone_attempt_key(Phone :: binary(), Timestamp :: integer() ) -> binary().
+phone_attempt_key(Phone, Timestamp) ->
+    Day = util:to_binary(Timestamp / ?DAYS),
+    <<?PHONE_ATTEMPT_KEY/binary, "{", Phone/binary, "}:", Day/binary>>.
 
 

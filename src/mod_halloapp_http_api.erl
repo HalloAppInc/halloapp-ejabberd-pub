@@ -39,6 +39,8 @@
 -define(HASHCASH_DIFFICULTY, 10).
 -define(DEV_HASHCASH_DIFFICULTY, 10).
 -define(HASHCASH_THRESHOLD_MS, 30 * ?SECONDS_MS).
+%% allow 10 attempts to guess the code per day
+-define(MAX_SMS_CODE_ATTEMPTS, 10).
 
 
 %% API
@@ -430,6 +432,10 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         error: invalid_name ->
             log_register_error(invalid_name),
             {error, invalid_name};
+        error: too_many_sms_code_checks ->
+            log_register_error(too_many_sms_code_checks),
+            %% Specify new error reason in the spec
+            {error, wrong_sms_code};
         error : Reason : Stacktrace  ->
             log_register_error(server_error),
             ?ERROR("register error: ~p, ~p", [Reason, Stacktrace]),
@@ -805,6 +811,7 @@ log_otp_request(RawPhone, Method, UserAgent, ClientIP, Protocol) ->
 %% Throws error if the code is wrong
 -spec check_sms_code(phone(), binary()) -> ok.
 check_sms_code(Phone, Code) ->
+    check_excessive_sms_code_attempts(Phone),
     case mod_sms:verify_sms(Phone, Code) of
         match -> 
             ?DEBUG("Code match phone:~s code:~s", [Phone, Code]),
@@ -812,6 +819,19 @@ check_sms_code(Phone, Code) ->
         nomatch ->
             ?INFO("Codes mismatch, phone:~s, code:~s", [Phone, Code]),
             error(wrong_sms_code)
+    end.
+
+% Throws error if too many attempts
+-spec check_excessive_sms_code_attempts(Phone :: binary()) -> ok | no_return().
+check_excessive_sms_code_attempts(Phone) ->
+    NumAttempts = model_phone:add_phone_code_attempt(Phone, util:now()),
+    ?INFO("Phone: ~s has made ~s attempts to guess the sms code", [Phone, NumAttempts]),
+    case NumAttempts > ?MAX_SMS_CODE_ATTEMPTS of
+        true ->
+            ?ERROR("Too many sms code attempts Phone: ~p NumAttempts: ~p", [Phone, NumAttempts]),
+            error(too_many_sms_code_checks);
+        false ->
+            ok
     end.
 
 -spec maybe_join_group(Uid :: uid(), Link :: binary()) -> ok | atom().

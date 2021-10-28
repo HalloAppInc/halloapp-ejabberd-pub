@@ -245,6 +245,21 @@ hashcash_challenge_test() ->
     ok = model_phone:delete_hashcash_challenge(?HASHCASH_CHALLENGE1),
     ok = model_phone:delete_hashcash_challenge(?HASHCASH_CHALLENGE2).
 
+phone_attempt_test() ->
+    setup(),
+    Now = util:now(),
+    ?assertEqual(0, model_phone:get_phone_code_attempts(?PHONE1, Now)),
+    ?assertEqual(1, model_phone:add_phone_code_attempt(?PHONE1, Now)),
+    ?assertEqual(2, model_phone:add_phone_code_attempt(?PHONE1, Now)),
+    ?assertEqual(3, model_phone:add_phone_code_attempt(?PHONE1, Now)),
+    ?assertEqual(0, model_phone:get_phone_code_attempts(?PHONE2, Now)),
+
+    % check things are expiring
+    {ok, TTLBin} = model_phone:q(["TTL", model_phone:phone_attempt_key(?PHONE1, Now)]),
+    TTL = util_redis:decode_int(TTLBin),
+    ?assertEqual(true, TTL > 0),
+    ok.
+
 
 while(0, _F) -> ok;
 while(N, F) ->

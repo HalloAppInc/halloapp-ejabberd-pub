@@ -22,8 +22,10 @@
 
 -define(PHONE10, <<"12065550010">>).
 -define(PHONE11, <<"12065550011">>).
+-define(PHONE12, <<"12065550012">>).
 -define(NAME10, <<"Elon Musk10">>).
 -define(NAME11, <<"Elon Musk11">>).
+-define(NAME12, <<"Elon Spammer12">>).
 
 %% Noise related definitions.
 -define(CURVE_KEY_TYPE, dh25519).
@@ -438,3 +440,17 @@ verify_otp_fail_noise_test(_Conf) ->
 %% TODO(murali@): add different failure cases in tests.
 %% TODO(murali@): use IK handshake as well - extend ha_client to perform IK handshake.
 
+%% TODO(nikola): this test can fail sometimes if running right at midnight UTC...
+too_many_attempts_register_test(_Conf) ->
+    registration_client:request_sms(?PHONE12, #{}),
+    % try to guess the code bunch of times to get blocked
+    lists:map(
+        fun(Code) ->
+            {ok, wrong_sms_code} = registration_client:register(?PHONE12, util:to_binary(Code), ?NAME12)
+        end,
+        lists:seq(111112, 111132)),
+
+    % trying the right code should fail
+    {error, wrong_sms_code} = registration_client:register(?PHONE12, <<"111111">>, ?NAME12),
+    ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE12)),
+    ok.

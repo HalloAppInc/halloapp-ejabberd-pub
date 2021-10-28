@@ -123,6 +123,7 @@
 -define(REMOTE_STATIC_KEY, <<"rs:">>).
 -define(PHONE_CC_KEY, <<"pcc:">>).
 -define(HASHCASH_KEY, <<"hca:">>).
+-define(PHONE_ATTEMPT_KEY, <<"pca:">>).
 
 -define(GW_SCORE_KEY, <<"scr:">>).
 
