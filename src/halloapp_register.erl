@@ -273,9 +273,9 @@ terminate(_Reason, State) ->
 -spec process_element(stanza(), state()) -> state().
 process_element(#pb_register_request{request = #pb_hashcash_request{} = HashcashRequest},
         #{ip := ClientIP} = State) ->
-    stat:count("HA/registration", "request_hashcash_request", 1, [{protocol, "noise"}]),
+    stat:count("HA/registration", "request_hashcash", 1, [{protocol, "noise"}]),
     CC = HashcashRequest#pb_hashcash_request.country_code,
-    RequestData = #{country_code => CC, ip => ClientIP, raw_data => HashcashRequest,
+    RequestData = #{cc => CC, ip => ClientIP, raw_data => HashcashRequest,
         protocol => noise
     },
     {ok, HashcashChallenge} = mod_halloapp_http_api:process_hashcash_request(RequestData),
