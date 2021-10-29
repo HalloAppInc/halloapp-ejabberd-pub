@@ -39,8 +39,9 @@ schedule() ->
         {?MODULE, dump_accounts, []}
     }),
     
+    %% Files written by dump_accounts will be sent to S3 the next day.
     erlcron:cron(weekly_retention, {
-        {weekly, tue, {11, pm}},
+        {weekly, wed, {01, am}},
         {?MODULE, compute_retention, []}
     }).
 
