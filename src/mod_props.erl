@@ -84,16 +84,12 @@ get_props(Uid, ClientVersion) ->
         max_group_size => ?MAX_GROUP_SIZE, %% max limit on the group size.
         max_post_media_items => 10, %% max number of media_items client can post.
         group_chat => false, %% whether the client can access group_chat or not.
-        group_feed => true, %% whether the client can access group_feed or not.
-        silent_chat_messages => 0, %% number of silent_chats client can send.
         max_feed_video_duration => 600, %% duration in seconds for videos on feed.
         max_chat_video_duration => 600, %% duration in seconds for videos in chats.
         private_reactions => false, %% whether client can send private reactions.
         group_sync_time => 1 * ?WEEKS, %% how often should clients sync group metadata
-        group_invite_links => true, %% enables group_invite_links on the client.
         max_video_bit_rate => 8000000, %% max_video_bit_rate set to 8Mbps.
         audio_note_bit_rate => 96000, %% audio_note_bit_rate set to 96Kbps.
-        new_client_container => false, %% indicates whether the client can start sending new container formats.
         voice_notes => false, %% enables voice notes in 1-1 messages on client.
         media_comments => true,  %% enables media comments.
         cleartext_group_feed => true, %% whether client must send unencrypted content in group_feed.
@@ -115,23 +111,19 @@ get_uid_based_props(PropMap, Uid) ->
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
-            PropMap2 = maps:update(new_client_container, true, PropMap1),
-            PropMap3 = maps:update(voice_notes, true, PropMap2),
-            PropMap4 = maps:update(audio_calls, true, PropMap3),
-            PropMap4
+            PropMap2 = maps:update(voice_notes, true, PropMap1),
+            PropMap3 = maps:update(audio_calls, true, PropMap2),
+            PropMap3
     end.
 
 
 -spec get_client_based_props(PropMap :: map(),
         ClientType :: atom(), ClientVersion :: binary()) -> map().
 get_client_based_props(PropMap, android, ClientVersion) ->
-    %% All android versions starting v0.163
-    Result = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android0.162">>),
-    PropMap1 = maps:update(new_client_container, Result, PropMap),
     %% All android versions starting v0.197
     Result2 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android0.196">>),
-    PropMap2 = maps:update(voice_notes, Result2, PropMap1),
-    PropMap2;
+    PropMap1 = maps:update(voice_notes, Result2, PropMap),
+    PropMap1;
 
 get_client_based_props(PropMap, ios, ClientVersion) ->
     %% All ios versions starting v1.10.167
