@@ -96,7 +96,10 @@ get_props(Uid, ClientVersion) ->
         new_client_container => false, %% indicates whether the client can start sending new container formats.
         voice_notes => false, %% enables voice notes in 1-1 messages on client.
         media_comments => true,  %% enables media comments.
-        cleartext_group_feed => true %% whether client must send unencrypted content in group_feed
+        cleartext_group_feed => true, %% whether client must send unencrypted content in group_feed.
+        audio_calls => false, %% whether clients can make audio calls.
+        video_calls => false, %% whether clients can make video calls.
+        call_wait_timeout => 60 %% time (sec) to wait before ending the call on timeout when remote party is not responding.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -114,7 +117,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap1 = maps:update(dev, true, PropMap),
             PropMap2 = maps:update(new_client_container, true, PropMap1),
             PropMap3 = maps:update(voice_notes, true, PropMap2),
-            PropMap3
+            PropMap4 = maps:update(audio_calls, true, PropMap3),
+            PropMap4
     end.
 
 
