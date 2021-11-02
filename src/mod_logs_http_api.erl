@@ -17,7 +17,7 @@
 -include("ha_types.hrl").
 -include("packets.hrl").
 
--define(MAX_LOG_SIZE, 10485760). % 10MB
+-define(MAX_LOG_SIZE, 20971520). % 20MB
 % Zip files must start with those 4 bytes
 -define(ZIP_PREFIX, 16#50, 16#4b, 16#03, 16#04).
 -define(S3_CLIENT_LOGS_BUCKET, <<"halloapp-client-logs">>).
