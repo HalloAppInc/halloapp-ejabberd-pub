@@ -279,7 +279,18 @@ last_activity_test() ->
     {ok, NewLastActivity} = model_accounts:get_last_activity(?UID1),
     ?assertEqual(?UID1, NewLastActivity#activity.uid),
     ?assertEqual(Now, NewLastActivity#activity.last_activity_ts_ms),
-    ?assertEqual(?AS1, NewLastActivity#activity.status).
+    ?assertEqual(?AS1, NewLastActivity#activity.status),
+    #{} = model_accounts:get_last_activity_ts_ms([]),
+    #{} = model_accounts:get_last_activity_ts_ms([?UID2, ?UID3]),
+    FirstMap = model_accounts:get_last_activity_ts_ms([?UID1]),
+    ?assertEqual(Now, maps:get(?UID1, FirstMap, undefined)),
+    ?assertEqual(undefined, maps:get(?UID2, FirstMap, undefined)),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2),
+    Now2 = util:now_ms(),
+    ok = model_accounts:set_last_activity(?UID2, Now2, ?AS1),
+    SecondMap = model_accounts:get_last_activity_ts_ms([?UID1, ?UID2]),
+    ?assertEqual(Now, maps:get(?UID1, SecondMap, undefined)),
+    ?assertEqual(Now2, maps:get(?UID2, SecondMap, undefined)).
 
 
 subscribe_test() ->

@@ -71,6 +71,7 @@
     get_avatar_id/1,
     get_avatar_id_binary/1,
     get_last_activity/1,
+    get_last_activity_ts_ms/1,
     set_last_activity/3,
     set_user_agent/2,
     get_signup_user_agent/1,
@@ -681,6 +682,21 @@ get_last_activity(Uid) ->
                         status = util:to_atom(ActivityStatus)}
         end,
     {ok, Res}.
+
+
+-spec get_last_activity_ts_ms(Uids :: [uid()]) -> map() | {error, any()}.
+get_last_activity_ts_ms([]) -> #{};
+get_last_activity_ts_ms(Uids) ->
+    Commands = lists:map(fun(Uid) -> ["HGET", account_key(Uid), ?FIELD_LAST_ACTIVITY] end, Uids),
+    Res = qmn(Commands),
+    Result = lists:foldl(
+        fun({Uid, {ok, TimestampMs}}, Acc) ->
+            case util_redis:decode_ts(TimestampMs) of
+                undefined -> Acc;
+                TsMs -> Acc#{Uid => TsMs}
+            end
+        end, #{}, lists:zip(Uids, Res)),
+    Result.
 
 
 -spec presence_subscribe(Uid :: uid(), Buid :: binary()) -> ok.
