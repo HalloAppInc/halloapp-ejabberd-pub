@@ -215,6 +215,7 @@ feed_item_published(Uid, ItemId, ItemType, FeedAudienceType, MediaCounters) ->
     case ItemType of
         post ->
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            mod_client_log:log_user_event(Uid, post_published),
             report_media_counters(post, MediaCounters),
             stat:count("HA/feed", "post"),
             stat:count("HA/feed", "post_by_cc", 1, [{cc, CC}]),
@@ -222,6 +223,7 @@ feed_item_published(Uid, ItemId, ItemType, FeedAudienceType, MediaCounters) ->
             stat:count("HA/feed", "post_by_audience_type", 1, [{type, FeedAudienceType}]);
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            mod_client_log:log_user_event(Uid, comment_published),
             report_media_counters(comment, MediaCounters),
             stat:count("HA/feed", "comment"),
             stat:count("HA/feed", "comment_by_cc", 1, [{cc, CC}]),
@@ -234,6 +236,7 @@ feed_item_published(Uid, ItemId, ItemType, FeedAudienceType, MediaCounters) ->
 -spec feed_item_retracted(Uid :: binary(), ItemId :: binary(), ItemType :: atom()) -> ok.
 feed_item_retracted(Uid, ItemId, ItemType) ->
     ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
+    mod_client_log:log_user_event(Uid, item_retracted),
     stat:count("HA/feed", "retract_" ++ atom_to_list(ItemType)),
     ok.
 
@@ -248,12 +251,14 @@ group_feed_item_published(Gid, Uid, ItemId, ItemType, MediaCounters) ->
     case ItemType of
         post ->
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            mod_client_log:log_user_event(Uid, group_post_published),
             report_media_counters(group_post, MediaCounters),
             stat:count("HA/group_feed", "post"),
             stat:count("HA/group_feed", "post_by_cc", 1, [{cc, CC}]),
             stat:count("HA/group_feed", "post_by_dev", 1, [{is_dev, IsDev}]);
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
+            mod_client_log:log_user_event(Uid, group_comment_published),
             report_media_counters(group_comment, MediaCounters),
             stat:count("HA/group_feed", "comment"),
             stat:count("HA/group_feed", "comment_by_cc", 1, [{cc, CC}]),
@@ -266,6 +271,7 @@ group_feed_item_published(Gid, Uid, ItemId, ItemType, MediaCounters) ->
 -spec group_feed_item_retracted(Gid :: binary(), Uid :: binary(), ItemId :: binary(), ItemType :: atom()) -> ok.
 group_feed_item_retracted(Gid, Uid, ItemId, ItemType) ->
     ?INFO("counting Gid: ~p, Uid:~p, ItemId: ~p, ItemType:~p", [Gid, Uid, ItemId, ItemType]),
+    mod_client_log:log_user_event(Uid, item_retracted),
     stat:count("HA/group_feed", "retract_" ++ atom_to_list(ItemType)),
     ok.
 
@@ -349,15 +355,37 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
         #pb_chat_stanza{} ->
             stat:count("HA/messaging", Action ++ "_im"),
             Uid = case Action of
-                "send" -> FromUid;
-                "receive" -> ToUid
+                "send" ->
+                    mod_client_log:log_user_event(FromUid, im_sent),
+                    FromUid;
+                "receive" ->
+                    mod_client_log:log_user_event(ToUid, im_recv),
+                    ToUid
             end,
             IsDev = dev_users:is_dev_uid(Uid),
             stat:count("HA/messaging", Action ++ "_im_by_dev", 1, [{is_dev, IsDev}]);
         #pb_seen_receipt{thread_id = ThreadId} ->
             case ThreadId of
-                undefined -> stat:count("HA/im_receipts", Action ++ "_seen");
-                _ -> stat:count("HA/feed_receipts", Action ++ "_seen")
+                undefined ->
+                    stat:count("HA/im_receipts", Action ++ "_seen"),
+                    case Action of
+                        "send" ->
+                            %% FromUid saw im
+                            mod_client_log:log_user_event(FromUid, im_send_seen);
+                        "receive" ->
+                            %% ToUid's im was seen
+                            mod_client_log:log_user_event(ToUid, im_receive_seen)
+                    end;
+                _ ->
+                    stat:count("HA/feed_receipts", Action ++ "_seen"),
+                    case Action of
+                        "send" ->
+                            %% FromUid saw post
+                            mod_client_log:log_user_event(FromUid, post_send_seen);
+                        "receive" ->
+                            %% ToUid's post was seen
+                            mod_client_log:log_user_event(ToUid, post_receive_seen)
+                    end
             end;
         #pb_delivery_receipt{} -> stat:count("HA/im_receipts", Action ++ "_received");
         _ -> ok

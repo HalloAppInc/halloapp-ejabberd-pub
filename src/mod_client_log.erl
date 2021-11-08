@@ -25,7 +25,8 @@
     process_client_count_log_st/3,
     trigger_upload_aws/0,
     log_event/2,
-    log_event/5
+    log_event/5,
+    log_user_event/2
 ]).
 
 -ifdef(TEST).
@@ -45,6 +46,7 @@
 -include("ha_types.hrl").
 -include("packets.hrl").
 -include("proc.hrl").
+-include("user_events.hrl").
 
 -define(NS_CLIENT_LOG, <<"halloapp:client_log">>).
 -define(CLIENT_NS, <<"client.">>).
@@ -507,6 +509,22 @@ log_event(FullNamespace, EventDataMap) ->
     ?INFO("~p, ~p, ~p", [FullNamespace, Date, JsonBin]),
     write_log(FullNamespace, Date, JsonBin),
     ok.
+
+-spec log_user_event(Uid :: uid(), EventType :: user_event_type()) -> ok.
+log_user_event(Uid, EventType) ->
+    try
+        Event = #{
+            uid => Uid,
+            event_type => EventType,
+            ts => util:now()
+        },
+        log_event(<<"server.user_event">>, Event)
+    catch
+        Class : Reason : St ->
+            ?ERROR("failed to log event: ~p Uid: ~p, to log. ~p",
+                [EventType, Uid, lager:pr_stacktrace(St, {Class, Reason})])
+    end.
+
 
 % used for tests to ensure a gen_server cast finishes before an assert
 flush() ->
