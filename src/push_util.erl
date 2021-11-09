@@ -303,7 +303,7 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_incoming_call{call_id = CallId} = 
     #push_metadata{
         content_id = <<CallId/binary, "-", Id/binary>>,
         content_type = <<"incoming_call">>,
-        push_type = silent
+        push_type = alert
     };
 
 parse_metadata(#pb_msg{id = Id, payload = #pb_call_ringing{call_id = CallId} = _Payload} = _Message,

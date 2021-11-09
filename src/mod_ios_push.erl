@@ -24,11 +24,12 @@
 -include("proc.hrl").
 -include("password.hrl").
 
--type endpoint_type() :: prod | dev | voip.
+-type endpoint_type() :: prod | dev | voip_dev | voip_prod.
 
--define(MESSAGE_EXPIRY_TIME_SEC, 1 * ?DAYS).           %% seconds in 1 day.
--define(RETRY_INTERVAL_MILLISEC, 30 * ?SECONDS_MS).           %% 30 seconds.
--define(MESSAGE_MAX_RETRY_TIME_SEC, 10 * ?MINUTES).          %% 10 minutes.
+-define(MESSAGE_EXPIRY_TIME_SEC, 1 * ?DAYS).    %% seconds in 1 day.
+-define(RETRY_INTERVAL_MILLISEC, 30 * ?SECONDS_MS).    %% 30 seconds.
+-define(MESSAGE_MAX_RETRY_TIME_SEC, 10 * ?MINUTES).    %% 10 minutes.
+-define(MAX_PUSH_PAYLOAD_SIZE, 3500).   % 3500 bytes.
 
 -define(APNS_ID, <<"apns-id">>).
 -define(APNS_PRIORITY, <<"apns-priority">>).
@@ -37,6 +38,7 @@
 -define(APNS_PUSH_TYPE, <<"apns-push-type">>).
 -define(APNS_COLLAPSE_ID, <<"apns-collapse-id">>).
 -define(APP_BUNDLE_ID, <<"com.halloapp.hallo">>).
+-define(APP_VOIP_BUNDLE_ID, <<"com.halloapp.hallo.voip">>).
 
 %% APNS gateway and certificate details.
 -define(APNS_GATEWAY, "api.push.apple.com").
@@ -46,7 +48,7 @@
 -define(APNS_DEV_PORT, 443).
 -define(APNS_DEV_CERTFILE_SM, <<"apns_dev.pem">>).
 -define(APNS_VOIP_CERTFILE_SM, <<"voip_prod.pem">>).
--define(IOS_ENDPOINT_TYPES, [prod, dev, voip]).
+-define(IOS_ENDPOINT_TYPES, [prod, dev, voip_prod, voip_dev]).
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -116,7 +118,9 @@ crash() ->
 init([Host|_]) ->
     {Pid, Mon} = connect_to_apns(prod),
     {DevPid, DevMon} = connect_to_apns(dev),
-    {VoipPid, VoipMon} = connect_to_apns(voip),
+    {VoipPid, VoipMon} = connect_to_apns(voip_prod),
+    {VoipDevPid, VoipDevMon} = connect_to_apns(voip_dev),
+    %% TODO: Move all voip push logic to its own gen_server.
     {NoiseStaticKey, NoiseCertificate} = util:get_noise_key_material(),
     {ok, #push_state{
             pendingMap = #{},
@@ -127,18 +131,23 @@ init([Host|_]) ->
             dev_mon = DevMon,
             voip_conn = VoipPid,
             voip_mon = VoipMon,
+            voip_dev_conn = VoipDevPid,
+            voip_dev_mon = VoipDevMon,
             noise_static_key = NoiseStaticKey,
             noise_certificate = NoiseCertificate}}.
 
 
-terminate(_Reason, #push_state{host = _Host, conn = Pid, mon = Mon,
-        dev_conn = DevPid, dev_mon = DevMon, voip_conn = VoipPid, voip_mon = VoipMon}) ->
+terminate(_Reason, #push_state{host = _Host, conn = Pid, mon = Mon, dev_conn = DevPid,
+        dev_mon = DevMon, voip_conn = VoipPid, voip_mon = VoipMon,
+        voip_dev_conn = VoipDevPid, voip_dev_mon = VoipDevMon}) ->
     demonitor(Mon),
     gun:close(Pid),
     demonitor(DevMon),
     gun:close(DevPid),
     demonitor(VoipMon),
     gun:close(VoipPid),
+    demonitor(VoipDevMon),
+    gun:close(VoipDevPid),
     ok.
 
 
@@ -253,19 +262,35 @@ handle_info({'DOWN', DevMon, process, DevPid, Reason},
     {NewDevPid, NewDevMon} = connect_to_apns(dev),
     {noreply, State#push_state{dev_conn = NewDevPid, dev_mon = NewDevMon}};
 
+handle_info({'DOWN', VoipMon, process, VoipPid, Reason},
+        #push_state{voip_conn = VoipPid, voip_mon = VoipMon} = State) ->
+    ?INFO("voip_prod gun_down pid: ~p, mon: ~p, reason: ~p", [VoipPid, VoipMon, Reason]),
+    {NewVoipPid, NewVoipMon} = connect_to_apns(voip_prod),
+    {noreply, State#push_state{voip_conn = NewVoipPid, voip_mon = NewVoipMon}};
+
+handle_info({'DOWN', VoipDevMon, process, VoipDevPid, Reason},
+        #push_state{voip_dev_conn = VoipDevPid, voip_dev_mon = VoipDevMon} = State) ->
+    ?INFO("voip_dev gun_down pid: ~p, mon: ~p, reason: ~p", [VoipDevPid, VoipDevMon, Reason]),
+    {NewVoipDevPid, NewVoipDevMon} = connect_to_apns(voip_dev),
+    {noreply, State#push_state{voip_dev_conn = NewVoipDevPid, voip_dev_mon = NewVoipDevMon}};
+
 handle_info({'DOWN', _Mon, process, Pid, Reason}, State) ->
-    ?ERROR("down message from gun pid: ~p, reason: ~p, state: ~p", [Pid, Reason, State]),
+    ?ERROR("down message from gun pid: ~p, reason: ~p", [Pid, Reason]),
     {noreply, State};
 
-handle_info({gun_response, ConnPid, StreamRef, fin, StatusCode, Headers}, State) ->
+handle_info({gun_response, ConnPid, StreamRef, _, StatusCode, Headers}, State) ->
     ?DEBUG("gun_response: conn_pid: ~p, streamref: ~p, status: ~p, headers: ~p",
             [ConnPid, StreamRef, StatusCode, Headers]),
     ApnsId = proplists:get_value(?APNS_ID, Headers, undefined),
     NewState = handle_apns_response(StatusCode, ApnsId, State),
     {noreply, NewState};
 
+handle_info({gun_data, ConnPid, StreamRef, _, Response}, State) ->
+    ?INFO("gun_data: conn_pid: ~p, streamref: ~p, data: ~p", [ConnPid, StreamRef, Response]),
+    {noreply, State};
+
 handle_info(Request, State) ->
-    ?DEBUG("unknown request: ~p, state: ~p", [Request, State]),
+    ?DEBUG("unknown request: ~p", [Request]),
     {noreply, State}.
 
 
@@ -375,13 +400,13 @@ push_message_item(PushMessageItem, State) ->
 -spec push_message_item(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata(),
         State :: push_state()) -> push_state().
 push_message_item(PushMessageItem, PushMetadata, State) ->
-    EndpointType = case util:is_voip_message(PushMessageItem#push_message_item.message) of
-        true -> voip;
-        false ->
-            case PushMessageItem#push_message_item.push_info#push_info.os of
-                <<"ios">> -> prod;
-                <<"ios_dev">> -> dev
-            end
+    Message = PushMessageItem#push_message_item.message,
+    Os = PushMessageItem#push_message_item.push_info#push_info.os,
+    EndpointType = case {util:is_voip_incoming_message(Message), Os} of
+        {true, <<"ios">>} -> voip_prod;
+        {true, <<"ios_dev">>} -> voip_dev;
+        {false, <<"ios">>} -> prod;
+        {false, <<"ios_dev">>} -> dev
     end,
     PushType = PushMetadata#push_metadata.push_type,
     PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType, State),
@@ -422,11 +447,16 @@ get_pid_to_send(dev = EndpointType, #push_state{dev_conn = undefined} = State) -
     {DevPid, State#push_state{dev_conn = DevPid, dev_mon = DevMon}};
 get_pid_to_send(dev, State) ->
     {State#push_state.dev_conn, State};
-get_pid_to_send(voip = EndpointType, #push_state{voip_conn = undefined} = State) ->
+get_pid_to_send(voip_prod = EndpointType, #push_state{voip_conn = undefined} = State) ->
     {VoipPid, VoipMon} = connect_to_apns(EndpointType),
     {VoipPid, State#push_state{voip_conn = VoipPid, voip_mon = VoipMon}};
-get_pid_to_send(voip, State) ->
-    {State#push_state.voip_conn, State}.
+get_pid_to_send(voip_prod, State) ->
+    {State#push_state.voip_conn, State};
+get_pid_to_send(voip_dev = EndpointType, #push_state{voip_dev_conn = undefined} = State) ->
+    {VoipDevPid, VoipDevMon} = connect_to_apns(EndpointType),
+    {VoipDevPid, State#push_state{voip_dev_conn = VoipDevPid, voip_dev_mon = VoipDevMon}};
+get_pid_to_send(voip_dev, State) ->
+    {State#push_state.voip_dev_conn, State}.
 
 
 %% Details about the content inside the apns push payload are here:
@@ -448,9 +478,10 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
             EncryptedContentSize = byte_size(EncryptedContent),
             ?INFO("Push contentId: ~p includes encrypted content size: ~p",
                             [PushMetadata#push_metadata.content_id, EncryptedContentSize]),
-            case EncryptedContentSize > 3000 of
+            case EncryptedContentSize > ?MAX_PUSH_PAYLOAD_SIZE of
                 true ->
-                    ?WARNING("Push contentId: ~p size > 3000 bytes", [PushMetadata#push_metadata.content_id]);
+                    ?WARNING("Push contentId: ~p size: ~p > max_payload_size",
+                        [PushMetadata#push_metadata.content_id, EncryptedContentSize]);
                 false ->
                     ok
             end,
@@ -524,19 +555,6 @@ encrypt_message(#push_message_item{uid = Uid, message = Message},
     end.
 
 
--spec get_priority(PushType :: silent | alert) -> integer().
-get_priority(silent) -> 5;
-get_priority(alert) -> 10.
-
--spec get_apns_push_type(PushType :: silent | alert) -> binary().
-get_apns_push_type(silent) -> <<"background">>;
-get_apns_push_type(alert) -> <<"alert">>.
-
--spec get_device_path(DeviceId :: binary()) -> binary().
-get_device_path(DeviceId) ->
-  <<"/3/device/", DeviceId/binary>>.
-
-
 -spec retry_function(Retries :: non_neg_integer(), Opts :: map()) -> map().
 retry_function(Retries, Opts) ->
     Timeout = maps:get(retry_timeout, Opts, 5000),
@@ -562,13 +580,15 @@ setup_timer(Msg, TimeoutSec) ->
 -spec get_apns_gateway(EndpointType :: endpoint_type()) -> list().
 get_apns_gateway(prod) -> ?APNS_GATEWAY;
 get_apns_gateway(dev) -> ?APNS_DEV_GATEWAY;
-get_apns_gateway(voip) -> ?APNS_GATEWAY.
+get_apns_gateway(voip_prod) -> ?APNS_GATEWAY;
+get_apns_gateway(voip_dev) -> ?APNS_DEV_GATEWAY.
 
 
 -spec get_apns_secret_name(EndpointType :: endpoint_type()) -> binary().
 get_apns_secret_name(prod) -> ?APNS_CERTFILE_SM;
 get_apns_secret_name(dev) -> ?APNS_DEV_CERTFILE_SM;
-get_apns_secret_name(voip) -> ?APNS_VOIP_CERTFILE_SM.
+get_apns_secret_name(voip_prod) -> ?APNS_VOIP_CERTFILE_SM;
+get_apns_secret_name(voip_dev) -> ?APNS_VOIP_CERTFILE_SM.
 
 
 -spec get_apns_cert(EndpointType :: endpoint_type()) -> tuple().
@@ -581,12 +601,50 @@ get_apns_cert(EndpointType) ->
     {CertBin, Key}.
 
 -spec get_apns_port(EndpointType :: endpoint_type()) -> integer().
-get_apns_port(prod) ->
-    ?APNS_PORT;
-get_apns_port(dev) ->
-    ?APNS_DEV_PORT;
-get_apns_port(voip) ->
-    ?APNS_PORT.
+get_apns_port(prod) -> ?APNS_PORT;
+get_apns_port(dev) -> ?APNS_DEV_PORT;
+get_apns_port(voip_prod) -> ?APNS_PORT;
+get_apns_port(voip_dev) -> ?APNS_DEV_PORT.
+
+
+-spec get_bundle_id(EndpointType :: endpoint_type()) -> binary().
+get_bundle_id(prod) -> ?APP_BUNDLE_ID;
+get_bundle_id(dev) -> ?APP_BUNDLE_ID;
+get_bundle_id(voip_prod) -> ?APP_VOIP_BUNDLE_ID;
+get_bundle_id(voip_dev) -> ?APP_VOIP_BUNDLE_ID.
+
+
+-spec get_priority(EndpointType :: endpoint_type(), PushType :: silent | alert) -> integer().
+get_priority(voip_prod, _) -> 10;
+get_priority(voip_dev, _) -> 10;
+get_priority(_, silent) -> 5;
+get_priority(_, alert) -> 10.
+
+
+-spec get_apns_push_type(EndpointType :: endpoint_type(), PushType :: silent | alert) -> binary().
+get_apns_push_type(voip_prod, _) -> <<"voip">>;
+get_apns_push_type(voip_dev, _) -> <<"voip">>;
+get_apns_push_type(_, silent) -> <<"background">>;
+get_apns_push_type(_, alert) -> <<"alert">>.
+
+
+-spec get_device_path(EndpointType :: endpoint_type(), PushInfo :: push_info()) -> binary().
+get_device_path(EndpointType, PushInfo) ->
+    DeviceToken = case EndpointType of
+        voip_prod -> PushInfo#push_info.voip_token;
+        voip_dev -> PushInfo#push_info.voip_token;
+        _ -> PushInfo#push_info.token
+    end,
+    <<"/3/device/", DeviceToken/binary>>.
+
+
+-spec get_expiry_time(EndpointType :: endpoint_type(), PushMessageItem :: push_message_item()) -> integer().
+get_expiry_time(EndpointType, PushMessageItem) ->
+    case EndpointType of
+        voip_prod -> 0;
+        voip_dev -> 0;
+        _ -> PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC
+    end.
 
 
 -spec send_dev_push_internal(Uid :: binary(), PushInfo :: push_info(),
@@ -614,16 +672,15 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
         PushType :: alert | silent, EndpointType :: endpoint_type(), PushMessageItem :: push_message_item(),
         State :: push_state()) -> {ok, push_state()} | {ignored, push_state()} | {{error, any()}, push_state()}.
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
-    Token = PushMessageItem#push_message_item.push_info#push_info.token,
-    Priority = get_priority(PushType),
-    DevicePath = get_device_path(Token),
-    ExpiryTime = PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC,
+    Priority = get_priority(EndpointType, PushType),
+    DevicePath = get_device_path(EndpointType, PushMessageItem#push_message_item.push_info),
+    ExpiryTime = get_expiry_time(EndpointType, PushMessageItem),
     HeadersList = [
         {?APNS_ID, ApnsId},
         {?APNS_PRIORITY, integer_to_binary(Priority)},
         {?APNS_EXPIRY, integer_to_binary(ExpiryTime)},
-        {?APNS_TOPIC, ?APP_BUNDLE_ID},
-        {?APNS_PUSH_TYPE, get_apns_push_type(PushType)},
+        {?APNS_TOPIC, get_bundle_id(EndpointType)},
+        {?APNS_PUSH_TYPE, get_apns_push_type(EndpointType, PushType)},
         {?APNS_COLLAPSE_ID, ContentId}
     ],
     ?INFO("Uid: ~s, ApnsId: ~s, ContentId: ~s", [Uid, ApnsId, ContentId]),
@@ -632,6 +689,8 @@ send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, Endpoint
             ?ERROR("error: invalid_pid to send this push, Uid: ~p, ApnsId: ~p", [Uid, ApnsId]),
             {{error, cannot_connect}, NewState};
         {Pid, NewState} ->
+            ?DEBUG("Post Request Pid: ~p, DevicePath: ~p, HeadersList: ~p, PayloadBin: ~p",
+                [Pid, DevicePath, HeadersList, PayloadBin]),
             _StreamRef = gun:post(Pid, DevicePath, HeadersList, PayloadBin),
             FinalState = add_to_pending_map(ApnsId, PushMessageItem, NewState),
             {ok, FinalState}

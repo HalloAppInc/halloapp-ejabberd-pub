@@ -153,14 +153,6 @@ should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
         %% Send push notifications for all call related messages.
         PayloadType =:= pb_incoming_call ->
             true;
-        PayloadType =:= pb_call_ringing ->
-            true;
-        PayloadType =:= pb_answer_call ->
-            true;
-        PayloadType =:= pb_end_call ->
-            true;
-        PayloadType =:= pb_ice_candidate ->
-            true;
 
         true ->
             %% Ignore everything else.
@@ -189,7 +181,7 @@ push_message(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo, android) ->
             push_message_internal(Message, PushInfo)
     end;
 push_message(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo, ios) ->
-    case {util:is_voip_message(Message), PushInfo#push_info.voip_token, PushInfo#push_info.token} of
+    case {util:is_voip_incoming_message(Message), PushInfo#push_info.voip_token, PushInfo#push_info.token} of
         {true, undefined, _} ->
             %% voip message with invalid voip token - should never happen.
             ?WARNING("Uid: ~s, MsgId: ~p ignore push: no voip-push token", [User, MsgId]);

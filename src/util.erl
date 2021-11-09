@@ -76,7 +76,7 @@
     repair_utf8/1,
     get_media_type/1,
     get_detailed_media_type/1,
-    is_voip_message/1
+    is_voip_incoming_message/1
 ]).
 
 
@@ -577,14 +577,10 @@ get_detailed_media_type(MediaCounters) ->
     end.
 
 
--spec is_voip_message(Message :: pb_msg()) -> boolean().
-is_voip_message(#pb_msg{} = Message) ->
+-spec is_voip_incoming_message(Message :: pb_msg()) -> boolean().
+is_voip_incoming_message(#pb_msg{} = Message) ->
     case get_payload_type(Message) of
         pb_incoming_call -> true;
-        pb_call_ringing -> true;
-        pb_answer_call -> true;
-        pb_end_call -> true;
-        pb_ice_candidate -> true;
         _ -> false
     end.
 
