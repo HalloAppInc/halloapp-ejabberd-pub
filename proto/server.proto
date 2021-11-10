@@ -65,6 +65,7 @@ message DeviceInfo {
 }
 
 
+
 // Client Log
 
 message ClientLog {
@@ -603,10 +604,14 @@ message EndCall {
     string call_id = 1;
     enum Reason {
         UNKNOWN = 0;
-        REJECT = 1;
-        BUSY = 2;
-        TIMEOUT = 3;
-        CALL_END = 4;
+        REJECT = 1;             // receiver rejects the incoming call
+        BUSY = 2;               // receiver is in another call
+        TIMEOUT = 3;            // sender or receiver times out the call after ringing for some time.
+        CALL_END = 4;           // initiator or receiver end the call.
+        CANCEL = 5;             // initiator hangups before the call connects.
+        DECRYPTION_FAILED = 6;  // receiver could not decrypt the content.
+        ENCRYPTION_FAILED = 7;  // receiver could not encrypt the answer.
+        SYSTEM_ERROR = 8;       // system errors or crashes.
     }
     Reason reason = 2;
     int64 timestamp_ms = 3;
