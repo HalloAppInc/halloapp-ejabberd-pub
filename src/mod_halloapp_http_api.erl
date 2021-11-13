@@ -619,6 +619,7 @@ check_hashcash_solution_throw_error(HashcashSolution, HashcashSolutionTimeTakenM
 -spec check_hashcash_solution(HashcashSolution :: binary(), HashcashSolutionTimeTakenMs :: binary())
       -> ok | {error, atom()}.
 check_hashcash_solution(HashcashSolution, HashcashSolutionTimeTakenMs) ->
+    ?INFO("Hashcash solution took: ~p ms", [HashcashSolutionTimeTakenMs]),
     case HashcashSolutionTimeTakenMs > ?HASHCASH_THRESHOLD_MS of
         true ->
             ?ERROR("Hashcash solution took > 30 seconds, Time taken: ~pms", [HashcashSolutionTimeTakenMs]);
