@@ -826,7 +826,7 @@ check_sms_code(Phone, Code) ->
 -spec check_excessive_sms_code_attempts(Phone :: binary()) -> ok | no_return().
 check_excessive_sms_code_attempts(Phone) ->
     NumAttempts = model_phone:add_phone_code_attempt(Phone, util:now()),
-    ?INFO("Phone: ~s has made ~s attempts to guess the sms code", [Phone, NumAttempts]),
+    ?INFO("Phone: ~s has made ~p attempts to guess the sms code", [Phone, NumAttempts]),
     case NumAttempts > ?MAX_SMS_CODE_ATTEMPTS of
         true ->
             ?ERROR("Too many sms code attempts Phone: ~p NumAttempts: ~p", [Phone, NumAttempts]),
