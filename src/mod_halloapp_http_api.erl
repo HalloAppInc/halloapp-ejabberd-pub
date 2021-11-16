@@ -350,12 +350,13 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
     end.
 
 is_hashcash_enabled(_UserAgent, Solution) ->
+    false.
     %% TODO(vipin): Fix the actual client version and uncomment once clients start sending
     %% appropriate hashcash_solution.
-    case Solution of
-        undefined -> false;
-        _ -> byte_size(Solution) > 10
-    end.
+    %% case Solution of
+    %%     undefined -> false;
+    %%     _ -> byte_size(Solution) > 10
+    %% end.
     %% ClientType = util_ua:get_client_type(UserAgent),
     %% case ClientType of
     %%    android -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/Android10.202">>);

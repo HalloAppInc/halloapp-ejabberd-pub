@@ -151,7 +151,8 @@ request_sms_prod_test() ->
     meck_finish(ejabberd_router).
 
 
-request_sms_hashcash_test() ->
+%% TODO(vipin): Enable it
+request_sms_hashcash_test_disable() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     % meck network requests
