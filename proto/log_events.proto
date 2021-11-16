@@ -181,3 +181,29 @@ message Permissions {
   Status status = 2;
 }
 
+
+message Call {
+  enum CallType {
+    UNKNOWN_TYPE = 0;
+    AUDIO = 1;
+    VIDEO = 2;
+  }
+  enum CallDirection {
+    UNKNOWN_DIRECTION = 0;
+    OUTGOING = 1;
+    INCOMING = 2;
+  }
+  string call_id = 1;
+  uint64 peer_uid = 2;
+  CallType type = 3;
+  CallDirection direction = 4;
+  bool answered = 5;              // true if the call was answered
+  bool connected = 6;             // true if the webrtc connects successful
+  uint64 duration_ms = 7;         // number of ms this call was in the in-call state
+  string end_call_reason = 9;     // string representation of the end call reason as defined in the EndCall.Reason
+  bool local_end_call = 10;       // true if the end call happened locally, or false if the end call was received remotely
+  bool is_wifi = 11;              // true if the call started on wifi false otherwise
+
+  string webrtc_stats = 20;       // json serialized version of the result of peer_connection.get_stats at the end of
+                                  // the call
+}
