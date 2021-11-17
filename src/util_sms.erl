@@ -53,23 +53,34 @@ good_next_ts_diff(NumFailedAttempts) ->
     min(Diff, 24 * ?HOURS).
 
 
--spec get_mbird_response_code(ResBody :: iolist()) -> integer().
+-spec get_mbird_response_code(ResBody :: iolist()) -> integer() | undefined.
 get_mbird_response_code(ResBody) ->
-    Json = jiffy:decode(ResBody, [return_maps]),
-    Errors = maps:get(<<"errors">>, Json, undefined),
-    case Errors of
-        undefined -> undefined;
-        _ ->
-            [ErrMp] = Errors,
-            maps:get(<<"code">>, ErrMp, undefined)
+    try
+        Json = jiffy:decode(ResBody, [return_maps]),
+        Errors = maps:get(<<"errors">>, Json, undefined),
+        case Errors of
+            undefined -> undefined;
+            _ ->
+                [ErrMp] = Errors,
+                maps:get(<<"code">>, ErrMp, undefined)
+        end
+    catch Class : Reason : St ->
+        ?ERROR("failed to parse response : ~s, exception: ~s",
+            [ResBody, lager:pr_stacktrace(St, {Class, Reason})]),
+        undefined
     end.
 
 
--spec get_response_code(ResBody :: iolist()) -> integer().
+-spec get_response_code(ResBody :: iolist()) -> integer() | undefined.
 get_response_code(ResBody) ->
-    Json = jiffy:decode(ResBody, [return_maps]),
-    ErrCode = maps:get(<<"code">>, Json, undefined),
-    ErrCode.
+    try
+        Json = jiffy:decode(ResBody, [return_maps]),
+        maps:get(<<"code">>, Json, undefined)
+    catch Class : Reason : St ->
+        ?ERROR("failed to parse response : ~s, exception: ~s",
+            [ResBody, lager:pr_stacktrace(St, {Class, Reason})]),
+        undefined
+    end.
 
 
 -spec get_sms_message(UserAgent :: binary(), Code :: binary(), LangId :: binary()) 

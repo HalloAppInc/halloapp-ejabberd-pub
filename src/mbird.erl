@@ -92,7 +92,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
             [Item] = Items,
             Status = normalized_status(maps:get(<<"status">>, Item)),
             {ok, #gateway_response{gateway_id = Id, status = Status, response = ResBody}};
-        {ok, {{_, ResponseCode, _}, _ResHeaders, ResBody}} when ResponseCode >= 400 ->
+        {ok, {{_, ResponseCode, _}, _ResHeaders, ResBody}} when ResponseCode >= 400 andalso ResponseCode < 500 ->
             ErrCode = util_sms:get_mbird_response_code(ResBody),
             case ErrCode of
                 ?NO_RECIPIENTS_CODE ->
