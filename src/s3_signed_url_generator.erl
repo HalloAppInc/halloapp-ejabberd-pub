@@ -91,27 +91,25 @@ refresh_url(Url) ->
                     calendar:gregorian_seconds_to_datetime(calendar:datetime_to_gregorian_seconds(
                         calendar:local_time()) + ?S3_OBJECT_EXPIRES)),
                 %% Following call will touch the s3 object so that its lifetime will be extended.
-                erlcloud_s3:copy_object(get_bucket(), Key, get_bucket(), Key,
+                Result = erlcloud_s3:copy_object(get_bucket(), Key, get_bucket(), Key,
                     [
                         {metadata_directive, "REPLACE"},
                         {meta, [
                             {"Cache-Control", "public"},
                             {"Expires", ExpireValue},
                             {"touch", "true"}]}],
-                    AwsConfig)
-            of
-                {aws_error, {http_error, 404, _, Msg}} ->
+                    AwsConfig),
+                ?INFO("Refresh Url Success: ~p", [Result]),
+                true
+            catch
+                error: {aws_error, {http_error, 404, _, _Msg}} ->
                     ?INFO("Refresh Url failed. Object not found: ~p", [Key]),
                     false;
-                {aws_error, _} = Error ->
-                    ?ERROR("Refresh Url Error: ~p", [Error]),
+                error: {aws_error, Reason} ->
+                    ?ERROR("Refresh Url Error: ~p", [Reason]),
                     false;
-                Result ->
-                    ?INFO("Refresh Url Success: ~p", [Result]),
-                    true
-            catch
-                C:R:S ->
-                    ?ERROR("Refresh Url Error: ~s", [lager:pr_stacktrace(S, {C, R})]),
+                Class : Reason2 : St ->
+                    ?ERROR("Refresh Url Error: ~p", [lager:pr_stacktrace(St, {Class, Reason2})]),
                     false
             end
     end.
