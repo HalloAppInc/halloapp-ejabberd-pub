@@ -672,6 +672,15 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
         PushType :: alert | silent, EndpointType :: endpoint_type(), PushMessageItem :: push_message_item(),
         State :: push_state()) -> {ok, push_state()} | {ignored, push_state()} | {{error, any()}, push_state()}.
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
+    case {PushType, EndpointType} of
+        {silent, dev} ->
+            ?INFO("Ignoring silent push, Uid: ~s ApnsId: ~s ContentId: ~s", [Uid, ApnsId, ContentId]),
+            {ok, State};
+        _ -> send_post_request_to_apns_internal(Uid, ApnsId, ContentId,
+                PayloadBin, PushType, EndpointType, PushMessageItem, State)
+    end.
+
+send_post_request_to_apns_internal(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
     Priority = get_priority(EndpointType, PushType),
     DevicePath = get_device_path(EndpointType, PushMessageItem#push_message_item.push_info),
     ExpiryTime = get_expiry_time(EndpointType, PushMessageItem),
