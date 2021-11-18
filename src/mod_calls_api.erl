@@ -26,7 +26,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% get_call_servers %%%
-process_local_iq(#pb_iq{from_uid = Uid, type = set,
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_get_call_servers{call_id = CallId, peer_uid = PeerUid, call_type = CallType}} = IQ)
         when CallType =:= audio orelse CallType =:= video ->
     process_get_call_servers(IQ, Uid, PeerUid, CallId, CallType);

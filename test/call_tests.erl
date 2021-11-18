@@ -98,7 +98,7 @@ get_call_servers_test(_Conf) ->
         peer_uid = ?UID2
     },
 
-    Result = ha_client:send_iq(C1, set, Payload),
+    Result = ha_client:send_iq(C1, get, Payload),
 
     #pb_packet{
         stanza = #pb_iq{
