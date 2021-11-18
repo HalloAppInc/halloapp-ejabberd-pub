@@ -672,11 +672,12 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
         PushType :: alert | silent, EndpointType :: endpoint_type(), PushMessageItem :: push_message_item(),
         State :: push_state()) -> {ok, push_state()} | {ignored, push_state()} | {{error, any()}, push_state()}.
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
-    case {PushType, EndpointType} of
-        {silent, _} ->
-            ?INFO("Ignoring silent push, Uid: ~s ApnsId: ~s ContentId: ~s", [Uid, ApnsId, ContentId]),
+    IsDev = dev_users:is_dev_uid(Uid),
+    case IsDev =:= true andalso PushType =:= silent of
+        true ->
+            ?INFO("Ignoring silent push, DevUid: ~s ApnsId: ~s ContentId: ~s", [Uid, ApnsId, ContentId]),
             {ok, State};
-        _ -> send_post_request_to_apns_internal(Uid, ApnsId, ContentId,
+        false -> send_post_request_to_apns_internal(Uid, ApnsId, ContentId,
                 PayloadBin, PushType, EndpointType, PushMessageItem, State)
     end.
 
