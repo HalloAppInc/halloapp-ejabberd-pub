@@ -95,7 +95,10 @@ get_props(Uid, ClientVersion) ->
         cleartext_group_feed => true, %% whether client must send unencrypted content in group_feed.
         audio_calls => false, %% whether clients can make audio calls.
         video_calls => false, %% whether clients can make video calls.
-        call_wait_timeout => 60 %% time (sec) to wait before ending the call on timeout when remote party is not responding.
+        call_wait_timeout => 60, %% time (sec) to wait before ending the call on timeout when remote party is not responding.
+        streaming_upload_chunk_size =>  65536, %% size of media streaming upload chunk size, 64KB.
+        streaming_initial_download_size => 5242880, %% size of intial download while media streaming, 5MB.
+        streaming_sending_enabled => false %% whether streaming is enabled.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -113,7 +116,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap1 = maps:update(dev, true, PropMap),
             PropMap2 = maps:update(voice_notes, true, PropMap1),
             PropMap3 = maps:update(audio_calls, true, PropMap2),
-            PropMap3
+            PropMap4 = maps:update(streaming_sending_enabled, true, PropMap3),
+            PropMap4
     end.
 
 
