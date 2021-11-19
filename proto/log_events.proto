@@ -23,6 +23,7 @@ message EventData {
     Permissions permissions = 15;
     MediaObjectDownload media_object_download = 16;
     GroupDecryptionReport group_decryption_report = 17;
+    Call Call = 18;
   }
 }
 
