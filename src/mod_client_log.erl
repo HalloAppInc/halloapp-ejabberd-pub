@@ -420,9 +420,9 @@ post_process({EJson}) ->
             CallData2 = case proplists:lookup(<<"webrtc_stats">>, CallData) of
                 none -> {CallData};
                 {<<"webrtc_stats">>, Stats} ->
-                    {lists:keyreplace(<<"webrtc_stats">>, 1, CallData, jiffy:decode(Stats))}
+                    {lists:keyreplace(<<"webrtc_stats">>, 1, CallData, {<<"webrtc_stats">>, jiffy:decode(Stats)})}
             end,
-            {lists:keyreplace(<<"call">>, 1, EJson, CallData2)}
+            {lists:keyreplace(<<"call">>, 1, EJson, {<<"call">>,CallData2})}
     end.
 
 %%====================================================================
