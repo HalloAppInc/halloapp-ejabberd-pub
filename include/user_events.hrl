@@ -8,6 +8,6 @@
 
 -type(user_event_type() :: im_sent | im_recv | post_published | comment_published | group_post_published |
     group_comment_published | im_send_seen | im_receive_seen | post_send_seen | post_receive_seen |
-    item_retracted).
+    item_retracted | invite_recorded | invite_accepted | group_invite_recorded | group_invite_accepted).
 
 -endif.

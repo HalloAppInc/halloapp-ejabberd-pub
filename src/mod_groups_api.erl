@@ -443,6 +443,7 @@ process_get_invite_link(IQ, Gid, Uid) ->
         {ok, Link} ->
             ?INFO("Gid: ~s Uid: ~s success Link: ~s",
                 [Gid, Uid, Link]),
+            mod_client_log:log_user_event(Uid, group_invite_recorded),
             PB = #pb_group_invite_link{
                 action = get,
                 gid = Gid,
@@ -462,6 +463,7 @@ process_reset_invite_link(IQ, Gid, Uid) ->
         {ok, Link} ->
             ?INFO("Gid: ~s Uid: ~s success Link: ~s",
                 [Gid, Uid, Link]),
+            mod_client_log:log_user_event(Uid, group_invite_recorded),
             PB = #pb_group_invite_link{
                 action = reset,
                 gid = Gid,
@@ -501,6 +503,7 @@ process_join_with_invite_link(IQ, Uid, Link) ->
         {ok, Group} ->
             ?INFO("Uid: ~s success Link: ~s",
                 [Uid, Link]),
+            mod_client_log:log_user_event(Uid, group_invite_accepted),
             PB = #pb_group_invite_link{
                 action = join,
                 gid = Group#group.gid,
