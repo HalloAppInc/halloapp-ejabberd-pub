@@ -413,16 +413,16 @@ json_encode(PBBin) ->
 
 %% webrtc_stats in the the call event is json encoded string. This function
 %% helps to unpack it
-post_process(EJson) ->
+post_process({EJson}) ->
     case proplists:lookup(<<"call">>, EJson) of
-        none -> EJson;
-        {<<"call">>, CallData} ->
+        none -> {EJson};
+        {<<"call">>, {CallData}} ->
             CallData2 = case proplists:lookup(<<"webrtc_stats">>, CallData) of
-                none -> CallData;
+                none -> {CallData};
                 {<<"webrtc_stats">>, Stats} ->
-                    lists:keyreplace(<<"webrtc_stats">>, 1, CallData, jiffy:decode(Stats))
+                    {lists:keyreplace(<<"webrtc_stats">>, 1, CallData, jiffy:decode(Stats))}
             end,
-            lists:keyreplace(<<"call">>, 1, EJson, CallData2)
+            {lists:keyreplace(<<"call">>, 1, EJson, CallData2)}
     end.
 
 %%====================================================================
