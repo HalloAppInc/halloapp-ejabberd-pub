@@ -221,6 +221,9 @@ lookup_english_string(<<"server.new.comment">>) -> <<"New Comment">>;
 lookup_english_string(<<"server.new.group">>) -> <<"You were added to a new group">>;
 lookup_english_string(<<"server.sms.verification">>) -> <<"Your HalloApp verification code">>;
 lookup_english_string(<<"server.voicecall.verification">>) -> <<"Your HalloApp verification code is">>;
+%% TODO: murali@: update these strings as necessary.
+lookup_english_string(<<"server.marketing.title">>) -> <<"Hallo there!">>;
+lookup_english_string(<<"server.marketing.body">>) -> <<"Invite your friends to enjoy HalloApp!">>;
 lookup_english_string(Token) ->
     ?ERROR("unknown string: ~p", [Token]),
     Token.

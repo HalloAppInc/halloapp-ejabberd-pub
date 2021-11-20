@@ -20,7 +20,8 @@
 
 %% hooks
 -export([
-    push_message_hook/1
+    push_message_hook/1,
+    push_marketing_alert/1
 ]).
 
 -ifdef(TEST).
@@ -154,6 +155,10 @@ should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
         PayloadType =:= pb_incoming_call ->
             true;
 
+        %% Send marketing alerts to users.
+        PayloadType =:= pb_marketing_alert ->
+            true;
+
         true ->
             %% Ignore everything else.
             false
@@ -235,4 +240,16 @@ log_invalid_langId(#push_info{uid = Uid,
             ?WARNING("Uid: ~p, Invalid lang_id: ~p", [Uid, LangId]);
         false -> ok
     end.
+
+
+-spec push_marketing_alert(Uid :: binary()) -> ok.
+push_marketing_alert(Uid) ->
+    MsgId = util_id:new_msg_id(),
+    Message = #pb_msg{
+        id = MsgId,
+        to_uid = Uid,
+        payload = #pb_marketing_alert{}
+    },
+    push_message(Message),
+    ok.
 

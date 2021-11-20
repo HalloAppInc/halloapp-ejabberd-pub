@@ -721,6 +721,7 @@ message Msg {
         AnswerCall answer_call = 36;
         EndCall end_call = 37;
         IceCandidate ice_candidate = 38;
+        MarketingAlert marketing_alert = 39;    // only for server use
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
@@ -1251,5 +1252,8 @@ message ClientOtpResponse {
 }
 
 message WakeUp {
+}
+
+message MarketingAlert {
 }
 

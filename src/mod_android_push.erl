@@ -197,11 +197,29 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
     ],
     Options = [],
     FcmApiKey = get_fcm_apikey(),
-    % Dont send any payload to android in the push channel.
-    Payload = #{
-            <<"title">> => <<"PushMessage">>
+
+    DataMap = #{
+            <<"title">> => PushMetadata#push_metadata.subject,
+            <<"body">> => PushMetadata#push_metadata.body
         },
-    PushMessage = #{<<"to">> => Token, <<"priority">> => <<"high">>, <<"data">> => Payload},
+    ContentMap = case PushMetadata#push_metadata.push_type of
+        direct_alert ->
+            ChannelId = case util_ua:is_version_greater_than(Version, <<"HalloApp/Android0.216">>) of
+                true -> <<"broadcast_notifications">>;
+                false -> <<"critical_notifications">>
+            end,
+            DirectAlertMap = DataMap#{
+                <<"sound">> => <<"default">>,
+                <<"icon">> => <<"ic_notification">>,
+                <<"android_channel_id">> => ChannelId,
+                <<"color">> => <<"#ff4500">>
+            },
+            #{ <<"notification">> => DirectAlertMap };
+        _ ->
+            % Dont send any payload to android in the push channel.
+            #{ <<"data">> => DataMap }
+    end,
+    PushMessage = ContentMap#{<<"to">> => Token, <<"priority">> => <<"high">>},
     Request = {?FCM_GATEWAY, [{"Authorization", "key=" ++ FcmApiKey}],
             "application/json", jiffy:encode(PushMessage)},
     %% TODO(murali@): Switch to using an asynchronous http client.

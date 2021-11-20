@@ -513,6 +513,12 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
             },
             %% Setting mutable-content flag allows the ios client to modify the push notification.
             #{<<"alert">> => DataMap, <<"sound">> => <<"default">>, <<"mutable-content">> => <<"1">>};
+        direct_alert ->
+            DataMap = #{
+                <<"title">> => PushMetadata#push_metadata.subject,
+                <<"body">> => PushMetadata#push_metadata.body
+            },
+            #{<<"alert">> => DataMap, <<"sound">> => <<"default">>};
         silent ->
             #{<<"content-available">> => <<"1">>}
     end,
@@ -618,14 +624,16 @@ get_bundle_id(voip_dev) -> ?APP_VOIP_BUNDLE_ID.
 get_priority(voip_prod, _) -> 10;
 get_priority(voip_dev, _) -> 10;
 get_priority(_, silent) -> 5;
-get_priority(_, alert) -> 10.
+get_priority(_, alert) -> 10;
+get_priority(_, direct_alert) -> 10.
 
 
 -spec get_apns_push_type(EndpointType :: endpoint_type(), PushType :: silent | alert) -> binary().
 get_apns_push_type(voip_prod, _) -> <<"voip">>;
 get_apns_push_type(voip_dev, _) -> <<"voip">>;
 get_apns_push_type(_, silent) -> <<"background">>;
-get_apns_push_type(_, alert) -> <<"alert">>.
+get_apns_push_type(_, alert) -> <<"alert">>;
+get_apns_push_type(_, direct_alert) -> <<"alert">>.
 
 
 -spec get_device_path(EndpointType :: endpoint_type(), PushInfo :: push_info()) -> binary().

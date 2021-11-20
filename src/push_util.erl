@@ -338,6 +338,15 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_ice_candidate{call_id = CallId} = 
         push_type = silent
     };
 
+parse_metadata(#pb_msg{id = Id, payload = #pb_marketing_alert{}} = _Message, #push_info{} = PushInfo) ->
+    #push_metadata{
+        content_id = Id,
+        content_type = <<"marketing_alert">>,
+        subject = translate(<<"server.marketing.title">>, PushInfo#push_info.lang_id),
+        body = translate(<<"server.marketing.body">>, PushInfo#push_info.lang_id),
+        push_type = direct_alert
+    };
+
 parse_metadata(#pb_msg{to_uid = Uid, id = Id}, _PushInfo) ->
     ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     #push_metadata{}.
