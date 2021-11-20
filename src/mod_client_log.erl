@@ -325,7 +325,7 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
             Data when is_binary(Data) ->
                 Json = json_encode(Data),
                 write_log(FullNamespace, Date, Json),
-                ?INFO("~s, ~s, ~p, ~p", [FullNamespace, Uid, TsMs, Data]),
+                ?INFO("~s, ~s, ~p, size:~p", [FullNamespace, Uid, TsMs, size(Data)]),
                 ok
         end
         % TODO: log the event into CloudWatch Log or Kinesis Stream or S3
@@ -408,7 +408,22 @@ has_error(Result) ->
 json_encode(PBBin) ->
     DecodedMessage = log_events:decode_msg(PBBin, pb_event_data),
     EJson = log_events:to_json(DecodedMessage),
-    jiffy:encode(EJson).
+    EJson2 = post_process(EJson),
+    jiffy:encode(EJson2).
+
+%% webrtc_stats in the the call event is json encoded string. This function
+%% helps to unpack it
+post_process(EJson) ->
+    case proplists:lookup(<<"call">>, EJson) of
+        none -> EJson;
+        {<<"call">>, CallData} ->
+            CallData2 = case proplists:lookup(<<"webrtc_stats">>, CallData) of
+                none -> CallData;
+                {<<"webrtc_stats">>, Stats} ->
+                    lists:keyreplace(<<"webrtc_stats">>, 1, CallData, jiffy:decode(Stats))
+            end,
+            lists:keyreplace(<<"call">>, 1, EJson, CallData2)
+    end.
 
 %%====================================================================
 %% Event log helper functions

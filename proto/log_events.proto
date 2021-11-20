@@ -23,7 +23,7 @@ message EventData {
     Permissions permissions = 15;
     MediaObjectDownload media_object_download = 16;
     GroupDecryptionReport group_decryption_report = 17;
-    Call Call = 18;
+    Call call = 18;
   }
 }
 
@@ -194,6 +194,11 @@ message Call {
     OUTGOING = 1;
     INCOMING = 2;
   }
+  enum NetworkType {
+    UNKNOWN_NETWORK = 0;
+    WIFI = 1;
+    CELLULAR = 2;
+  }
   string call_id = 1;
   uint64 peer_uid = 2;
   CallType type = 3;
@@ -203,7 +208,7 @@ message Call {
   uint64 duration_ms = 7;         // number of ms this call was in the in-call state
   string end_call_reason = 9;     // string representation of the end call reason as defined in the EndCall.Reason
   bool local_end_call = 10;       // true if the end call happened locally, or false if the end call was received remotely
-  bool is_wifi = 11;              // true if the call started on wifi false otherwise
+  NetworkType network_type = 11;  // wifi or cellular
 
   string webrtc_stats = 20;       // json serialized version of the result of peer_connection.get_stats at the end of
                                   // the call
