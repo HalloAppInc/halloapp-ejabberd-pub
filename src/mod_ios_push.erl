@@ -680,14 +680,19 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
         PushType :: alert | silent, EndpointType :: endpoint_type(), PushMessageItem :: push_message_item(),
         State :: push_state()) -> {ok, push_state()} | {ignored, push_state()} | {{error, any()}, push_state()}.
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
-    IsDev = dev_users:is_dev_uid(Uid),
-    case IsDev =:= true andalso PushType =:= silent of
+    Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
+    NewPushType = case util_ua:is_version_greater_than(Version, <<"HalloApp/iOS1.12.182">>) of
         true ->
-            ?INFO("Ignoring silent push, DevUid: ~s ApnsId: ~s ContentId: ~s", [Uid, ApnsId, ContentId]),
-            {ok, State};
-        false -> send_post_request_to_apns_internal(Uid, ApnsId, ContentId,
-                PayloadBin, PushType, EndpointType, PushMessageItem, State)
-    end.
+            case PushType of
+                silent -> ?INFO("Overriding PushType to be alert for Uid: ~p", [Uid]);
+                _ -> ok
+            end,
+            alert;
+        false ->
+            PushType
+    end,
+    send_post_request_to_apns_internal(Uid, ApnsId, ContentId,
+        PayloadBin, NewPushType, EndpointType, PushMessageItem, State).
 
 send_post_request_to_apns_internal(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
     Priority = get_priority(EndpointType, PushType),
