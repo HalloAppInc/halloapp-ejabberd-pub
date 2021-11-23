@@ -365,12 +365,17 @@ delete_elasticache_backups(RedisId) ->
     lists:foreach(
         fun(BackupMetadata) ->
             BackupName = maps:get(<<"SnapshotName">>, BackupMetadata),
-            DeleteSnapshotJson = util_aws:run_command([
-                    "elasticache", "delete-snapshot",
-                    "--snapshot-name", binary_to_list(BackupName),
-                    "--region", ?REGION], [enforce_json]),
-            ?INFO("~p~n", [DeleteSnapshotJson]),
-            ?INFO("Deleted ~p from elasticache", [BackupName])
+            try
+                DeleteSnapshotJson = util_aws:run_command([
+                        "elasticache", "delete-snapshot",
+                        "--snapshot-name", binary_to_list(BackupName),
+                        "--region", ?REGION], [enforce_json]),
+                ?INFO("~p~n", [DeleteSnapshotJson]),
+                ?INFO("Deleted ~p from elasticache", [BackupName])
+            catch Class:Reason:Stacktrace ->
+                ?ERROR("Unable to delete backup: ~p, error: ~p", [BackupName,
+                    lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+            end
         end, BackupMetadataList),
     ok.
 
