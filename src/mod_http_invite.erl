@@ -23,38 +23,6 @@
 %% API
 -export([process/2]).
 
--define(INVITE_HTML_PAGE,
-<<"
-<!doctype html>
-
-<html lang=\"en\">
-<head>
-  <meta charset=\"utf-8\">
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-
-  <title>HalloApp Group Invite</title>
-  <meta name=\"description\" content=\"HalloApp GroupA simple HTML5 Template for new projects.\">
-
-  <meta property=\"og:title\" content=\"HalloApp Group Invite\">
-  <meta property=\"og:type\" content=\"website\">
-  <meta property=\"og:url\" content=\"https://halloapp.com/invite/\">
-  <meta property=\"og:description\" content=\"HalloApp Group Invite\">
-  <meta property=\"og:image\" content=\"https://halloapp.com/images/favicon.ico\">
-
-  <meta name=\"apple-itunes-app\" content=\"app-id=1501583052, app-clip-bundle-id=com.halloapp.hallo.Clip\">
-
-  <link rel=\"icon\" href=\"https://halloapp.com/images/favicon.ico\">
-
-</head>
-
-<body>
-  You have been invited to a HalloApp Group.
-  <br/>
-  Please open the app clip.
-</body>
-</html>
-">>).
-
 %% https://halloapp.com/invite?g=ABCDEF in our group invite urls.
 %% from the halloapp.com CDN we server /invite pages from the Origin
 %% https://api.halloapp.net/invite?g=ABCDEF which is handled here.
@@ -76,24 +44,19 @@ process([],
         Platform = util_http:get_platform(UserAgent),
         IP = util_http:get_ip(NetIP, Headers),
         ?INFO("request Q:~p UserAgent ~p Platform: ~p, IP: ~p", [Q, UserAgent, Platform, IP]),
-        Result = case Platform of
+        RedirectLocation = case Platform of
             android ->
-                {redirect, <<?PLAY_STORE_URL/binary, GroupToken/binary>>};
+                <<?PLAY_STORE_URL/binary, GroupToken/binary>>;
             ios ->
-                {redirect, <<?HA_APPCLIP_URL/binary, GroupToken/binary>>};
+                <<?HA_APPCLIP_URL/binary, GroupToken/binary>>;
             unknown ->
-                {redirect, ?HALLOAPP_COM};
+                ?HALLOAPP_COM;
             Something ->
                 ?WARNING("unexpected Platform ~p", [Something]),
-                {redirect, ?HALLOAPP_COM}
+                ?HALLOAPP_COM
         end,
-        case Result of
-            {redirect, Location} ->
-                ?INFO("redirecting to ~p", [Location]),
-                {302, [?LOCATION_HEADER(Location)], <<"">>};
-            webpage ->
-                {200, ?HEADER(?CT_HTML), ?INVITE_HTML_PAGE}
-        end
+        ?INFO("redirecting to ~p", [RedirectLocation]),
+        {302, [?LOCATION_HEADER(RedirectLocation)], <<"">>}
     catch
         error : Reason : Stacktrace ->
             ?ERROR("error: Stacktrace:~s",
