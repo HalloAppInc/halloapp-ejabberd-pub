@@ -148,7 +148,7 @@ request_invite(FromUid, ToPhoneNum) ->
                 false -> InvitesLeft - 1
             end,
             model_invites:record_invite(FromUid, NormalizedPhone, NumInvitesLeft),
-            mod_client_log:log_user_event(FromUid, invite_recorded),
+            ha_events:log_user_event(FromUid, invite_recorded),
             {ToPhoneNum, ok, undefined}
     end.
 
@@ -166,7 +166,7 @@ give_back_invite(Uid, Phone, InvitersList) ->
     lists:foreach(
         fun({InviterUid, _Ts}) ->
             ?INFO("Uid: ~p, Phone: ~p accepted invite. InviterUid: ~p", [Uid, Phone, InviterUid]),
-            mod_client_log:log_user_event(InviterUid, invite_accepted),
+            ha_events:log_user_event(InviterUid, invite_accepted),
             InvitesRem = get_invites_remaining(InviterUid),
             FinalNumInvsLeft = min(InvitesRem +1, ?MAX_NUM_INVITES),
             ok = model_invites:set_invites_left(InviterUid, FinalNumInvsLeft)

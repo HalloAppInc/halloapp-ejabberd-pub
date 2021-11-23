@@ -42,8 +42,8 @@ setup() ->
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
     os:putenv("EJABBERD_LOG_PATH", "../logs/"),
-    del_dir(mod_client_log:client_log_dir()),
-    filelib:ensure_dir(filename:join([mod_client_log:client_log_dir(), "FILE"])), % making sure fresh copy at each test
+    del_dir(ha_events:client_log_dir()),
+    filelib:ensure_dir(filename:join([ha_events:client_log_dir(), "FILE"])), % making sure fresh copy at each test
     tutil:setup(),
     ha_redis:start(),
     clear(),
@@ -95,7 +95,7 @@ mod_client_log_test() ->
     Host = <<"s.halloapp.net">>,
     ?assertEqual(ok, mod_client_log:start(Host, [])),
     ?assertEqual(ok, mod_client_log:stop(Host)),
-    ?assertEqual([], mod_client_log:depends(Host, [])),
+    ?assertEqual([{ha_events, hard}], mod_client_log:depends(Host, [])),
     ?assertEqual([], mod_client_log:mod_options(Host)),
     meck:unload(gen_mod),
     ok.
@@ -140,9 +140,9 @@ verify_s3_upload_test() ->
     start_gen_server(),
     Filename = get_log_file(today(), 1),
     file:write_file(Filename, ?TERM), % write a dummy file
-    mod_client_log:trigger_upload_aws(),
-    mod_client_log:flush(),
-    {ok, FileList} = file:list_dir(mod_client_log:client_log_dir()),
+    ha_events:trigger_upload_aws(),
+    ha_events:flush(),
+    {ok, FileList} = file:list_dir(ha_events:client_log_dir()),
     ?assertEqual([], FileList), % confirming file is deleted after s3 upload
     kill_gen_server(),
     ok.
@@ -156,17 +156,17 @@ more_complicated_s3_upload_test() ->
     file:write_file(Filename, ?TERM),
     file:write_file(FileOlder, ?TERM),
     file:write_file(FileEvenOlder, ?TERM),
-    mod_client_log:trigger_upload_aws(),
-    mod_client_log:flush(),
-    {ok, FileList} = file:list_dir(mod_client_log:client_log_dir()),
+    ha_events:trigger_upload_aws(),
+    ha_events:flush(),
+    {ok, FileList} = file:list_dir(ha_events:client_log_dir()),
     ?assert(length(FileList) < 3), % at least one file has been uploaded and deleted
-    mod_client_log:trigger_upload_aws(),
-    mod_client_log:flush(),
-    {ok, FileList2} = file:list_dir(mod_client_log:client_log_dir()),
+    ha_events:trigger_upload_aws(),
+    ha_events:flush(),
+    {ok, FileList2} = file:list_dir(ha_events:client_log_dir()),
     ?assert(length(FileList2) < 2), % at least two files have been uploaded and deleted
-    mod_client_log:trigger_upload_aws(),
-    mod_client_log:flush(),
-    {ok, FileList3} = file:list_dir(mod_client_log:client_log_dir()),
+    ha_events:trigger_upload_aws(),
+    ha_events:flush(),
+    {ok, FileList3} = file:list_dir(ha_events:client_log_dir()),
     ?assert(length(FileList3) == 0),
     kill_gen_server(),
     ok.
@@ -182,10 +182,10 @@ file_contents_test() ->
     % start with a clean slate
     file:delete(Filename),
     Today = today(),
-    mod_client_log:write_log(?NS1, Today, Json),
-    mod_client_log:write_log(?NS1, Today, Json),
-    mod_client_log:write_log(?NS1, Today, Json),
-    mod_client_log:flush(),
+    ha_events:write_log(?NS1, Today, Json),
+    ha_events:write_log(?NS1, Today, Json),
+    ha_events:write_log(?NS1, Today, Json),
+    ha_events:flush(),
     {ok, Data} = file:read_file(Filename),
     JsonString = binary_to_list(Data),
     Lines = string:tokens(JsonString, "\n"),
@@ -204,8 +204,8 @@ write_event_test() ->
     Filename = get_log_file(today(), 0, FullNamespace),
     % start with a clean slate
     file:delete(Filename),
-    mod_client_log:log_event(FullNamespace, EventData, 100, android, <<"0.1.2">>),
-    mod_client_log:flush(),
+    ha_events:log_event(FullNamespace, EventData, 100, android, <<"0.1.2">>),
+    ha_events:flush(),
     {ok, Data} = file:read_file(Filename),
     JsonString = binary_to_list(Data),
     Lines = string:tokens(JsonString, "\n"),
@@ -221,14 +221,14 @@ today() ->
 get_log_file(Date, NumDaysBack) ->
     New = calendar:date_to_gregorian_days(Date) - NumDaysBack,
     NewDate = calendar:gregorian_days_to_date(New),
-    DateStr = mod_client_log:make_date_str(NewDate),
-    mod_client_log:file_path(?NS1, DateStr).
+    DateStr = ha_events:make_date_str(NewDate),
+    ha_events:file_path(?NS1, DateStr).
 
 get_log_file(Date, NumDaysBack, Namespace) ->
     New = calendar:date_to_gregorian_days(Date) - NumDaysBack,
     NewDate = calendar:gregorian_days_to_date(New),
-    DateStr = mod_client_log:make_date_str(NewDate),
-    mod_client_log:file_path(Namespace, DateStr).
+    DateStr = ha_events:make_date_str(NewDate),
+    ha_events:file_path(Namespace, DateStr).
 
 del_dir(Directory) ->
     % list all files and delete each of them
@@ -247,14 +247,14 @@ del_dir(Directory) ->
 start_gen_server() ->
     try
         mock_s3(),
-        mod_client_log:start_link()
+        ha_events:start_link()
     catch
         % to guard against already_started exception
         {error, _} -> ok
     end.
 
 kill_gen_server() ->
-    mod_client_log:terminate(shutdown, #{tref => make_timer()}),
+    ha_events:terminate(shutdown, #{tref => make_timer()}),
     finish_s3_mock().
 
 mock_s3() ->

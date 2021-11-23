@@ -123,7 +123,7 @@ log_delete_account(Account, Reason, Feedback) ->
     NumUidContacts = length(maps:to_list(UidContacts)),
     NumFriends = length(Friends),
     CC = mod_libphonenumber:get_cc(Phone),
-    mod_client_log:log_event(<<"server.deleted_accounts">>, #{
+    ha_events:log_event(<<"server.deleted_accounts">>, #{
         creation_ts_ms => Account#account.creation_ts_ms,
         last_activity => Account#account.last_activity_ts_ms,
         signup_version => Account#account.signup_user_agent,

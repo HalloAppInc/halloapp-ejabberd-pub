@@ -111,7 +111,7 @@ dump_account(Uid) ->
                 NumUidContacts = length(maps:to_list(UidContacts)),
                 NumFriends = length(Friends),
                 CC = mod_libphonenumber:get_cc(Account#account.phone),
-                mod_client_log:log_event(<<"server.accounts">>, #{
+                ha_events:log_event(<<"server.accounts">>, #{
                     uid => Account#account.uid,
                     creation_ts_ms => Account#account.creation_ts_ms,
                     last_activity => Account#account.last_activity_ts_ms,

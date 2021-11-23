@@ -148,6 +148,7 @@ shaper_rules:
   s2s_shaper: fast
 
 modules:
+  ha_events: {}
   mod_user_account: {}
   mod_auth_monitor: {}
   mod_aws: {}

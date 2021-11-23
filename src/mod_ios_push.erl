@@ -313,7 +313,7 @@ handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) 
             Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
             PushType = PushMessageItem#push_message_item.push_type,
             ?INFO("Uid: ~s, apns push successful: msg_id: ~s", [Uid, Id]),
-            mod_client_log:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id,
+            ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id,
                     platform => ios, client_version => Version, push_type => PushType}),
             NewPendingMap
     end,

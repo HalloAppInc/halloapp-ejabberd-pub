@@ -499,7 +499,7 @@ log_request_otp_error(ErrorType, Method, RawPhone, UserAgent, ClientIP, Protocol
         ip => ClientIP,
         protocol => Protocol
     },
-    mod_client_log:log_event(<<"server.otp_request_result">>, Event),
+    ha_events:log_event(<<"server.otp_request_result">>, Event),
     ok.
 
 
@@ -807,7 +807,7 @@ log_otp_request(RawPhone, Method, UserAgent, ClientIP, Protocol) ->
         ip => ClientIP,
         protocol => Protocol
     },
-    mod_client_log:log_event(<<"server.otp_request">>, Event).
+    ha_events:log_event(<<"server.otp_request">>, Event).
 
 
 %% Throws error if the code is wrong
