@@ -5,7 +5,8 @@
             {
                 "appID": "5M78D698HF.com.halloapp.hallo",
                 "paths": [
-                    "/invite/*"
+                    "/invite/*",
+                    "/appclip/.*"
                 ]
             }
         ]
