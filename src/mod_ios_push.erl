@@ -416,10 +416,12 @@ push_message_item(PushMessageItem, PushMetadata, State) ->
     NewPushType = case util_ua:is_version_greater_than(Version, <<"HalloApp/iOS1.12.182">>) of
         true ->
             case PushMetadata#push_metadata.push_type of
-                silent -> ?INFO("Overriding PushType to be alert for Uid: ~p", [Uid]);
-                _ -> ok
-            end,
-            alert;
+                silent ->
+                    ?INFO("Overriding PushType to be alert for Uid: ~p", [Uid]),
+                    alert;
+                _ ->
+                    PushMetadata#push_metadata.push_type
+            end;
         false ->
             PushMetadata#push_metadata.push_type
     end,
