@@ -63,7 +63,7 @@ get_call_servers(_Uid, _PeerUid, _CallType) ->
         -> {ok, {list(pb_stun_server()), list(pb_turn_server())}}.
 start_call(CallId, Uid, PeerUid, CallType, Offer) ->
     % TODO: (nikola): check if we should allow Uid to call Ouid. For now everything is allowed.
-    stat:count("HA/call", "start_call"),
+    stat:count("HA/call", "start_call", 1, [{type, CallType}]),
     {StunServers, TurnServers} = get_stun_turn_servers(),
     IncomingCallMsg = #pb_incoming_call{
         call_id = CallId,
@@ -88,8 +88,9 @@ start_call(CallId, Uid, PeerUid, CallType, Offer) ->
 
 % TODO: (nikola) code is kind of duplicated..
 user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
-        payload = #pb_incoming_call{call_id = CallId}}, _State} = Acc) ->
+        payload = #pb_incoming_call{call_id = CallId, call_type = CallType}}, _State} = Acc) ->
     ?INFO("CallId: ~s incoming FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, FromUid, ToUid, MsgId]),
+    stat:count("HA/call", "incoming_call", 1, [{type, CallType}]),
     Acc;
 user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         payload = #pb_call_ringing{call_id = CallId}}, _State} = Acc) ->
@@ -123,6 +124,7 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         payload = #pb_end_call{call_id = CallId, reason = Reason} = Payload} = Msg, State}) ->
     ?INFO("CallId: ~s end_call (~s) FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, Reason, FromUid, ToUid, MsgId]),
     stat:count("HA/call", "end_call"),
+    stat:count("HA/call", "end_call", 1, [{reason, Reason}]),
     Ts = util:now_ms(),
     Msg1 = Msg#pb_msg{payload = Payload#pb_end_call{timestamp_ms = Ts}},
     {Msg1, State};
