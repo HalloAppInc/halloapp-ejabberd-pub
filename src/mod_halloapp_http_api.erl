@@ -15,9 +15,7 @@
 -export([
     check_ua/1,
     check_name/1,
-    check_invited/4,
     check_sms_code/2,
-    is_version_invite_opened/1,
     create_hashcash_challenge/2,
     check_hashcash_solution/2
 ]).
@@ -261,7 +259,7 @@ get_hashcash_difficulty() ->
 -spec process_otp_request(RequestData :: #{}) ->
     {ok, integer()} | {error, retried_too_soon, integer()} | {error, any()}.
 process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent, method := MethodBin,
-        ip := ClientIP, group_invite_token := GroupInviteToken, raw_data := RawData,
+        ip := ClientIP, raw_data := RawData,
         protocol := Protocol} = RequestData) ->
     try
         RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
@@ -272,7 +270,6 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         check_ua(UserAgent, Phone),
         check_hashcash(UserAgent, HashcashSolution, HashcashSolutionTimeTakenMs),
         Method = get_otp_method(MethodBin),
-        check_invited(Phone, UserAgent, ClientIP, GroupInviteToken),
         case otp_checker:check(Phone, ClientIP, UserAgent, Method, Protocol, RemoteStaticKey) of
             ok ->
                 case request_otp(Phone, LangId, UserAgent, Method) of
@@ -349,7 +346,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
             {error, internal_server_error}
     end.
 
-is_hashcash_enabled(_UserAgent, Solution) ->
+is_hashcash_enabled(_UserAgent, _Solution) ->
     false.
     %% TODO(vipin): Fix the actual client version and uncomment once clients start sending
     %% appropriate hashcash_solution.
@@ -643,106 +640,6 @@ check_hashcash_challenge_validity(Difficulty, Challenge, Solution) ->
             end
     end.
 
-
--spec check_invited(PhoneNum :: binary(), UserAgent :: binary(), IP :: string(),
-        GroupInviteToken :: binary()) -> ok | erlang:error().
-check_invited(PhoneNum, UserAgent, IP, GroupInviteToken) ->
-    case ?IS_INVITE_REQUIRED of
-        true -> check_invited_internal(PhoneNum, UserAgent, IP, GroupInviteToken);
-        false -> ok
-    end.
-
-check_invited_internal(PhoneNum, UserAgent, IP, GroupInviteToken) ->
-    Invited = model_invites:is_invited(PhoneNum),
-    IsTestNumber = util:is_test_number(PhoneNum),
-    IsInvitedToGroup = is_group_invite_valid(GroupInviteToken),
-    IsAllowedVersion = is_version_invite_opened(UserAgent),
-    IsIPAllowed = is_ip_invite_opened(IP),
-    IsCCAllowed = is_cc_invite_opened(PhoneNum),
-    IsProduction = config:is_prod_env(),
-    case Invited orelse IsInvitedToGroup orelse IsAllowedVersion orelse
-            IsIPAllowed orelse IsCCAllowed of
-        true -> ok;
-        false ->
-            case {IsProduction, IsTestNumber} of 
-                {false, true} -> ok;
-                {_,_} ->
-                    case model_phone:get_uid(PhoneNum) of
-                        {ok, undefined} ->
-                            log_not_invited(PhoneNum),
-                            erlang:error(not_invited);
-                        {ok, _Uid} ->
-                            ok
-                    end
-            end
-    end.
-
--spec log_not_invited(PhoneNum :: binary()) -> ok.
-log_not_invited(PhoneNum) ->
-    try
-        CC = mod_libphonenumber:get_cc(PhoneNum),
-        NumPossibleFriends = model_contacts:get_contact_uids_size(PhoneNum),
-        HasSomeone = NumPossibleFriends =/= 0,
-        ?INFO("Phone: ~s (~s) is not invited. Has ~p possible friends", [PhoneNum, CC, NumPossibleFriends]),
-        New = model_contacts:add_not_invited_phone(PhoneNum),
-        case New of
-            true ->
-                stat:count("HA/registration", "not_invited", 1),
-                stat:count("HA/registration", "not_invited_by_cc", 1, [{"cc", CC}]),
-                stat:count("HA/registration", "not_invited_by_has_possible_friends", 1,
-                        [{"has_someone", HasSomeone}]);
-            false -> ok
-        end,
-        ok
-    catch
-        Class : Reason : St ->
-            ?ERROR("Stacktrace: ~s", [lager:pr_stacktrace(St, {Class, Reason})])
-    end.
-
--spec is_version_invite_opened(UserAgent :: binary()) -> boolean().
-is_version_invite_opened(UserAgent) ->
-    case UserAgent of
-%%        <<"HalloApp/iOS1.0.79", _Rest/binary>> -> true;
-%%        <<"HalloApp/79", _Rest/binary>> -> true;
-        _Any -> false
-    end.
-
--spec is_group_invite_valid(GroupInviteToken :: maybe(binary())) -> boolean().
-is_group_invite_valid(undefined) ->
-    false;
-is_group_invite_valid(GroupInviteToken) ->
-    case model_groups:get_invite_link_gid(GroupInviteToken) of
-        undefined -> false;
-        _Gid -> true
-    end.
-
-
--spec is_ip_invite_opened(IP :: list()) -> boolean().
-is_ip_invite_opened(IP) ->
-    case inet:parse_address(IP) of
-        {ok, IPTuple} ->
-            case IPTuple of
-                % Apple owns 17.0.0.0/8
-                {17, _, _, _} -> true;
-                _ -> false
-            end;
-        {error, _} ->
-            ?WARNING("failed to parse IP: ~p", [IP]),
-            false
-    end.
-
--spec is_cc_invite_opened(Phone :: binary()) -> boolean().
-is_cc_invite_opened(Phone) ->
-    CC = mod_libphonenumber:get_cc(Phone),
-    case CC of
-        <<"BD">> -> true;  %Bangladesh
-        <<"AL">> -> true;  %Israel
-        <<"NL">> -> true;  %Netherlands
-        <<"NZ">> -> true;  %New Zealand
-        <<"DK">> -> true;  %Denmark
-        <<"AT">> -> true;  %Austria
-        _ -> false
-    end.
 
 -spec process_whisper_keys(Uid :: uid(), IdentityKeyB64 :: binary(), SignedKeyB64 :: binary(),
     OneTimeKeysB64 :: [binary()]) -> ok. % | or exception

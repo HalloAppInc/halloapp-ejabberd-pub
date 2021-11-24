@@ -434,27 +434,6 @@ check_name_test() ->
     ?assertError(invalid_name, mod_halloapp_http_api:check_name(not_a_name)).
 
 
-check_invited_test() ->
-    setup(),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?TEST_PHONE, <<"">>, ?IP1, undefined)),
-
-%%    ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE, <<"">>, ?IP1, undefined)),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE, <<"">>, ?IP1, undefined)),
-    model_invites:record_invite(?UID, ?PHONE, 4),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE, <<"">>, ?IP1, undefined)),
-    ok.
-
-
-check_invited_reregister_test() ->
-    setup(),
-    % make sure existing user can re-register
-%%    ?assertError(not_invited, mod_halloapp_http_api:check_invited(?PHONE, <<"">>, ?IP1, undefined)),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE, <<"">>, ?IP1, undefined)),
-    {ok, _Pass, _Uid} = ejabberd_auth:ha_try_register(?PHONE, <<"pass">>, ?NAME, ?UA),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(?PHONE, <<"">>, ?IP1, undefined)),
-    ok.
-
-
 request_and_check_sms_code_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
@@ -467,51 +446,11 @@ request_and_check_sms_code_test() ->
     meck_finish(ejabberd_router).
 
 
-is_version_invite_opened_test() ->
-%%    ?assertEqual(true, mod_halloapp_http_api:is_version_invite_opened(<<"HalloApp/iOS1.0.79">>)),
-    ?assertEqual(false, mod_halloapp_http_api:is_version_invite_opened(<<"HalloApp/iOS1.1">>)),
-    ok.
-
-
-check_invited_by_version_test() ->
-    setup(),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(
-        <<"16501231234">>, <<"HalloApp/iOS1.0.79">>, ?IP1, undefined)),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(
-        <<"16501231234">>, <<"HalloApp/iOS1.1">>, ?IP1, undefined)),
-    ok.
-
-check_invited_by_ip_test() ->
-    setup(),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(
-        ?PHONE, <<"">>, ?APPLE_IP, undefined)),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(
-        ?PHONE, <<"">>, ?IP1, undefined)),
-    ok.
-
-check_invited_by_group_invite_test() ->
-    setup(),
-    {ok, Gid} = model_groups:create_group(?UID, <<"Gname">>),
-    {true, Token} = model_groups:get_invite_link(Gid),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(
-        ?PHONE, <<"">>, ?IP1, undefined)),
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(
-        ?PHONE, <<"">>, ?IP1, Token)),
-    ok.
- 
 check_empty_inviter_list_test() ->
     setup(),
     ?assertEqual({ok, 30}, mod_sms:send_otp_to_inviter(?TEST_PHONE, undefined, undefined, undefined)),
     % making sure something got stored in the db
     {ok, [_PhoneVerification]} = model_phone:get_all_verification_info(?TEST_PHONE),
-    ok. 
-
-check_has_inviter_test() -> 
-    setup(),
-    meck_init(config, is_prod_env, fun() -> true end), 
-    ?assertEqual(ok, mod_halloapp_http_api:check_invited(
-                ?TEST_PHONE, <<"">>, ?IP1, undefined)),
-    meck_finish(config),
     ok.
 
 

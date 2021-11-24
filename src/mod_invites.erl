@@ -142,11 +142,8 @@ request_invite(FromUid, ToPhoneNum) ->
             ToRegionId = mod_libphonenumber:get_region_id(ToPhoneNum),
             stat:count(?NS_INVITE_STATS, "inviter_country", 1, [{country, FromRegionId}]),
             stat:count(?NS_INVITE_STATS, "invited_country", 1, [{country, ToRegionId}]),
-            % In prod, registration of test number won't decrease the # of invites a user has
-            NumInvitesLeft = case should_decr_invites(NormalizedPhone) of
-                true -> InvitesLeft;
-                false -> InvitesLeft - 1
-            end,
+            % we used to decrement the invites, not any more
+            NumInvitesLeft = InvitesLeft,
             model_invites:record_invite(FromUid, NormalizedPhone, NumInvitesLeft),
             ha_events:log_user_event(FromUid, invite_recorded),
             {ToPhoneNum, ok, undefined}
@@ -155,11 +152,6 @@ request_invite(FromUid, ToPhoneNum) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-
--spec should_decr_invites(Phone :: binary()) -> boolean().
-should_decr_invites(Phone) ->
-    (config:is_prod_env() and util:is_test_number(Phone))
-        or not ?IS_INVITE_REQUIRED.
 
 -spec give_back_invite(Uid :: binary(), Phone :: binary(), InvitersList :: [{binary(), integer()}]) -> ok.
 give_back_invite(Uid, Phone, InvitersList) ->
@@ -216,11 +208,8 @@ get_invites_remaining(Uid) ->
     end.
 
 -spec get_invites_remaining2(Uid :: binary()) -> integer().
-get_invites_remaining2(Uid) ->
-    case ?IS_INVITE_REQUIRED of
-        true -> get_invites_remaining(Uid);
-        false -> ?INF_INVITES
-    end.
+get_invites_remaining2(_Uid) ->
+    ?INF_INVITES.
 
 -spec get_time_until_refresh() -> integer().
 get_time_until_refresh() ->
@@ -245,10 +234,7 @@ can_send_invite(FromUid, ToPhone, RegionId) ->
                         true -> {error, already_invited};
                         false ->
                             InvsRem = get_invites_remaining(FromUid),
-                            case {InvsRem, ?IS_INVITE_REQUIRED} of
-                                {0, true} -> {error, no_invites_left};
-                                _ -> {ok, InvsRem, NormPhone}
-                            end
+                            {ok, InvsRem, NormPhone}
                     end;
                 {ok, _} -> {error, existing_user}
             end

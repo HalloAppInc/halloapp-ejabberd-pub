@@ -35,10 +35,7 @@
 get_invites_test() ->
     setup(),
     Result = mod_invites:process_local_iq(create_get_iq(?UID1)),
-    ExpNumInvites = case ?IS_INVITE_REQUIRED of
-        false -> ?INF_INVITES;
-        true -> ?MAX_NUM_INVITES
-    end,
+    ExpNumInvites = ?INF_INVITES,
     ?assertEqual(ok, check_invites_iq_correctness(Result, ExpNumInvites)).
 
 get_invites_error_test() ->
@@ -85,20 +82,14 @@ send_invites_error3_test() ->
         #pb_invite{phone = <<"212">>, result = <<"failed">>, reason = <<"invalid_number">>}
     ],
     ?assertEqual(Expected, get_invite_subel_list(Actual)),
-    ExpNumInvites = case ?IS_INVITE_REQUIRED of
-        false -> ?INF_INVITES;
-        true -> ?MAX_NUM_INVITES
-    end,
+    ExpNumInvites = ?INF_INVITES,
     ?assertEqual(ok, check_invites_iq_correctness(Actual, ExpNumInvites)).
 
 % tests invalid_phone error
 send_invites_error4_test() ->
     setup(),
     Result = mod_invites:process_local_iq(create_invite_iq(?UID1)),
-    ExpNumInvites = case ?IS_INVITE_REQUIRED of
-        false -> ?INF_INVITES;
-        true -> ?MAX_NUM_INVITES
-    end,
+    ExpNumInvites = ?INF_INVITES,
     ?assertEqual(ok, check_invites_iq_correctness(Result, ExpNumInvites)),
     Expected = [
         #pb_invite{phone = ?PHONE2, result = <<"ok">>},
