@@ -1,12 +1,22 @@
 {
     "applinks": {
-        "apps": [],
         "details": [
             {
                 "appID": "5M78D698HF.com.halloapp.hallo",
-                "paths": [
-                    "/invite/*",
-                    "/appclip/.*"
+                "components": [
+                    {
+                         "#": "no_universal_links",
+                         "exclude": true,
+                         "comment": "Matches any URL whose fragment equals no_universal_links and instructs the system not to open it as a universal link"
+                    },
+                    {
+                        "/": "/invite/*",
+                        "comment": "Matches group invite links"
+                    },
+                    {
+                        "/": "/appclip/*",
+                        "comment": "Matches the appclip webpage"
+                    }
                 ]
             }
         ]
