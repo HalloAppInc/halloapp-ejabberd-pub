@@ -692,10 +692,6 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
         PushType :: alert | silent, EndpointType :: endpoint_type(), PushMessageItem :: push_message_item(),
         State :: push_state()) -> {ok, push_state()} | {ignored, push_state()} | {{error, any()}, push_state()}.
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
-    send_post_request_to_apns_internal(Uid, ApnsId, ContentId,
-        PayloadBin, PushType, EndpointType, PushMessageItem, State).
-
-send_post_request_to_apns_internal(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
     Priority = get_priority(EndpointType, PushType),
     DevicePath = get_device_path(EndpointType, PushMessageItem#push_message_item.push_info),
     ExpiryTime = get_expiry_time(EndpointType, PushMessageItem),
