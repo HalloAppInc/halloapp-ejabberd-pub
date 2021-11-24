@@ -120,8 +120,10 @@ process_count(Uid, #pb_count{namespace = Namespace, metric = Metric, count = Cou
         % TODO: make sure to override duplicate keys in Tags with ServerTags
         %% TODO(murali@): remove these logs eventually.
         ?INFO("~s, ~s, ~s, ~p, ~p", [FullNamespace, Metric, Uid, Tags2, Count]),
-        stat:count(binary_to_list(FullNamespace), binary_to_list(Metric), Count, Tags2),
-        log_count(FullNamespace, Metric, Uid, Tags2, Count),
+        HookName = util:to_atom(<<"count_", FullNamespace/binary>>),
+        {Metric2, Count2, Tags3} = ejabberd_hooks:run_fold(HookName, {Metric, Count, Tags2}, []),
+        stat:count(binary_to_list(FullNamespace), binary_to_list(Metric2), Count2, Tags3),
+        log_count(FullNamespace, Metric2, Uid, Tags3, Count2),
         ok
     catch
         error : bad_namespace : _ ->
@@ -155,9 +157,10 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
             Uid -> binary_to_integer(Uid)
         end,
         Event2 = Event#pb_event_data{uid = UidInt, timestamp_ms = TsMs},
-        case enif_protobuf:encode(Event2) of
+        Event3 = ejabberd_hooks:run_fold(util:to_atom(<<"event_", Namespace/binary>>), Event2, []),
+        case enif_protobuf:encode(Event3) of
             {error, Reason1} ->
-                ?ERROR("Failed to process event ~p, Event: ~p", [Reason1, Event]),
+                ?ERROR("Failed to process event ~p, Event: ~p", [Reason1, Event3]),
                 {error, bad_arg};
             Data when is_binary(Data) ->
                 Json = json_encode(Data),
@@ -178,6 +181,7 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
             {error, badarg}
     end.
 
+-spec get_namespace(Edata :: tuple()) -> binary().
 get_namespace(Edata) when is_tuple(Edata) ->
     Namespace1 = atom_to_list(element(1, Edata)),
     % removing the "pb_"

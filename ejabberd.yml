@@ -207,6 +207,7 @@ modules:
   mod_redis_checker: {}
   mod_calls_api: {}
   mod_calls: {}
+  mod_call_stats: {}
 
 ### Local Variables:
 ### mode: yaml
