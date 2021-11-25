@@ -312,9 +312,11 @@ handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) 
             Uid = PushMessageItem#push_message_item.uid,
             Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
             PushType = PushMessageItem#push_message_item.push_type,
+            ContentType = PushMessageItem#push_message_item.content_type,
             ?INFO("Uid: ~s, apns push successful: msg_id: ~s", [Uid, Id]),
             ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id,
-                    platform => ios, client_version => Version, push_type => PushType}),
+                    platform => ios, client_version => Version, push_type => PushType,
+                    content_type => ContentType}),
             NewPendingMap
     end,
     State#push_state{pendingMap = FinalPendingMap};
@@ -377,7 +379,8 @@ push_message(Message, PushInfo, State) ->
             timestamp = Timestamp,
             retry_ms = ?RETRY_INTERVAL_MILLISEC,
             push_info = PushInfo,
-            push_type = PushMetadata#push_metadata.push_type},
+            push_type = PushMetadata#push_metadata.push_type,
+            content_type = PushMetadata#push_metadata.content_type},
         push_message_item(PushMessageItem, PushMetadata, State)
     catch
         Class: Reason: Stacktrace ->
@@ -393,7 +396,8 @@ push_message_item(PushMessageItem, State) ->
     PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
             PushMessageItem#push_message_item.push_info),
     NewPushMessageItem = PushMessageItem#push_message_item{
-            push_type = PushMetadata#push_metadata.push_type},
+            push_type = PushMetadata#push_metadata.push_type,
+            content_type = PushMetadata#push_metadata.content_type},
     push_message_item(NewPushMessageItem, PushMetadata, State).
 
 

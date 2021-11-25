@@ -63,24 +63,30 @@ get_cc(Phone) ->
     get_region_id(Phone).
 
 %% TODO(murali@): ensure these numbers are already in e164 format.
--spec get_region_id(Number :: binary()) -> binary().
+-spec get_region_id(Number :: binary()) -> binary() | undefined.
 get_region_id(Number) ->
-    RawIntlNumber = prepend_plus(Number),
-    Result = case phone_number_util:parse_phone_number(RawIntlNumber, ?US_REGION_ID) of
-                {ok, PhoneNumberState} ->
-                    case PhoneNumberState#phone_number_state.valid of
-                        true ->
-                            case phone_number_util:get_region_id_for_number(PhoneNumberState) of
-                                {error, _} -> ?US_REGION_ID;
-                                Code -> Code
-                            end;
-                        false ->
-                            ?US_REGION_ID
-                    end;
-                _ ->
-                    ?US_REGION_ID
-            end,
-    Result.
+    try
+        RawIntlNumber = prepend_plus(Number),
+        Result = case phone_number_util:parse_phone_number(RawIntlNumber, ?US_REGION_ID) of
+                    {ok, PhoneNumberState} ->
+                        case PhoneNumberState#phone_number_state.valid of
+                            true ->
+                                case phone_number_util:get_region_id_for_number(PhoneNumberState) of
+                                    {error, _} -> ?US_REGION_ID;
+                                    Code -> Code
+                                end;
+                            false ->
+                                ?US_REGION_ID
+                        end;
+                    _ ->
+                        ?US_REGION_ID
+                end,
+        Result
+    catch Class:Reason:Stacktrace ->
+        ?INFO("Unable to process number: ~p, error: ~p", [Number,
+            lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            undefined
+    end.
 
 
 -spec normalize(Number :: binary(), RegionId :: binary()) -> binary() | undefined.

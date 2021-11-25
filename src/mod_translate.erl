@@ -14,6 +14,7 @@
 
 -define(TRANSLATIONS, ha_translations).
 -define(ARG_PATTERN, "%@").
+-define(SHORT_ENG_LANG_ID, <<"en">>).
 -define(ENG_LANG_ID, <<"en-US">>).
 
 %% gen_mod callbacks
@@ -27,7 +28,8 @@
     reload_translations/0,
     ets_translations_exist/0,
     shorten_lang_id/1,
-    normalize_langid/1
+    normalize_langid/1,
+    is_langid_english/1
 ]).
 
 
@@ -235,6 +237,14 @@ shorten_lang_id(LangId) ->
     case str:tokens(LangId, <<"-">>) of
         [] -> LangId;
         [ShortId | _] -> ShortId
+    end.
+
+
+-spec is_langid_english(LangId :: binary()) -> boolean().
+is_langid_english(LangId) ->
+    case shorten_lang_id(LangId) of
+        ?SHORT_ENG_LANG_ID -> true;
+        _ -> false
     end.
 
 
