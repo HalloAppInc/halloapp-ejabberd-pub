@@ -140,7 +140,7 @@
   0},
  {<<"supervisor3">>,
   {git,"https://github.com/klarna/supervisor3",
-       {ref,"c11256561ad70052b25cedd6307261e5643f0550"}},
+       {ref,"05c242eab8c433258196e673764485b958449748"}},
   0},
  {<<"tls_certificate_check">>,{pkg,<<"tls_certificate_check">>,<<"1.9.0">>},1},
  {<<"uuid">>,
