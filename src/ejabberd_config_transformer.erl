@@ -352,9 +352,6 @@ warn_removed_module_option(Opt, Mod) ->
 		 "and has no effect anymore. ~ts",
 		 [Opt, Mod, adjust_hint()]).
 
-warn_huge_timeout(_, _) ->
-    ok.
-
 adjust_hint() ->
     "Please adjust your configuration file accordingly. "
     "Hint: run `ejabberdctl dump-config` command to view current "
