@@ -11,6 +11,8 @@
 
 -include("ha_types.hrl").
 
+-define(NOISE_CHECKER_PHONE, <<"16175552222">>).
+
 %% API
 -export([
     get_dev_uids/0,
@@ -64,6 +66,8 @@ is_dev_uid(Uid) ->
     case model_accounts:get_phone(Uid) of
         {error, missing} ->
             IsUIDDev;
+        {ok, ?NOISE_CHECKER_PHONE} ->
+            false;
         {ok, Phone} ->
             util:is_test_number(Phone) orelse IsUIDDev
     end.
