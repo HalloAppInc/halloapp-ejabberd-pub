@@ -42,6 +42,8 @@
 
 -define(FIELD_IDENTITY_KEY, <<"idk">>).
 -define(FIELD_SIGNEDPRE_KEY, <<"spk">>).
+% unix timestamp when the keys are first set
+-define(FIELD_CREATE_TS_MS_KEY, <<"cts">>).
 
 
 -spec set_keys(Uid :: uid(), IdentityKey :: binary(),
@@ -52,7 +54,8 @@ set_keys(Uid, IdentityKey, SignedPreKey, OtpKeys) ->
             ["DEL", whisper_key(Uid), otp_key(Uid)],
             ["HSET", whisper_key(Uid),
                 ?FIELD_IDENTITY_KEY, IdentityKey,
-                ?FIELD_SIGNEDPRE_KEY, SignedPreKey],
+                ?FIELD_SIGNEDPRE_KEY, SignedPreKey,
+                ?FIELD_CREATE_TS_MS_KEY, util:to_binary(util:now_ms())],
             % Note: We are doing LPUSH and RPOP so our otks are stored in reverse
             ["LPUSH", otp_key(Uid) | OtpKeys],
             ["EXEC"]],
@@ -69,8 +72,7 @@ add_otp_keys(Uid, OtpKeys) ->
 %% dangerous function - dont use without notice to the team.
 -spec delete_all_otp_keys(Uid :: uid()) -> ok.
 delete_all_otp_keys(Uid) ->
-    % TODO: Just DEL is better
-    {ok, _Res} = q(["LTRIM", otp_key(Uid), 1, 0]),
+    {ok, _Res} = q(["DEL", otp_key(Uid)]),
     ok.
 
 
@@ -94,8 +96,9 @@ get_key_set(Uid) ->
 
 -spec get_key_set_without_otp(Uid :: uid()) -> {ok, maybe(user_whisper_key_set())} | {error, any()}.
 get_key_set_without_otp(Uid) ->
-    {ok, [IdentityKey, SignedPreKey]} = q(["HMGET", whisper_key(Uid),
-            ?FIELD_IDENTITY_KEY, ?FIELD_SIGNEDPRE_KEY]),
+    {ok, [IdentityKey, SignedPreKey, Ts]} = q(["HMGET", whisper_key(Uid),
+            ?FIELD_IDENTITY_KEY, ?FIELD_SIGNEDPRE_KEY, ?FIELD_CREATE_TS_MS_KEY]),
+    CreatedAtMs = util_redis:decode_ts(Ts),
     Result = case IdentityKey =:= undefined orelse SignedPreKey =:= undefined of
         true -> undefined;
         false ->
@@ -103,7 +106,8 @@ get_key_set_without_otp(Uid) ->
                 uid = Uid,
                 identity_key = IdentityKey,
                 signed_key = SignedPreKey,
-                one_time_key = undefined
+                one_time_key = undefined,
+                timestamp_ms = CreatedAtMs
             }
     end,
     {ok, Result}.

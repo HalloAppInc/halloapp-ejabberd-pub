@@ -147,3 +147,16 @@ get_identity_keys_test() ->
     ?assertEqual(#{?UID1 => ?IDENTITY_KEY1, ?UID2 => ?IDENTITY_KEY2},
         model_whisper_keys:get_identity_keys([?UID1, ?UID2, ?UID3])).
 
+
+get_key_set_without_otp_test() ->
+    setup(),
+    ?assertEqual({ok, undefined}, model_whisper_keys:get_key_set_without_otp(?UID1)),
+    ?assertEqual(ok, model_whisper_keys:set_keys(?UID1, ?IDENTITY_KEY1, ?SIGNED_KEY1,
+        [?OTP1_KEY1, ?OTP1_KEY2, ?OTP1_KEY3])),
+
+    {ok, WisperKeySet} = model_whisper_keys:get_key_set_without_otp(?UID1),
+    ?assertEqual(?IDENTITY_KEY1, WisperKeySet#user_whisper_key_set.identity_key),
+    ?assertEqual(?SIGNED_KEY1, WisperKeySet#user_whisper_key_set.signed_key),
+    ?assertEqual(undefined, WisperKeySet#user_whisper_key_set.one_time_key),
+    ?assert((util:now_ms() - WisperKeySet#user_whisper_key_set.timestamp_ms) < 1000),
+    ok.

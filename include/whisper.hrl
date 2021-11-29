@@ -4,6 +4,7 @@
 %%%----------------------------------------------------------------------
 -ifndef(WHISPER_HRL).
 -define(WHISPER_HRL, 1).
+-include("ha_types.hrl").
 
 -define(MAX_KEY_SIZE, 512).
 -define(MIN_KEY_SIZE, 32).
@@ -16,7 +17,8 @@
     uid :: binary(),
     identity_key :: binary(),
     signed_key :: binary(),
-    one_time_key :: binary()
+    one_time_key :: binary(),
+    timestamp_ms :: maybe(integer())
 }).
 
 -type user_whisper_key_set() :: #user_whisper_key_set{}.

@@ -112,7 +112,6 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_whisper_keys{uid = Ouid, action = get}} = IQ) ->
-    %%TODO(murali@): check if user is allowed to access keys of username.
     ?INFO("get_keys Uid: ~s, Ouid: ~s", [Uid, Ouid]),
     case Ouid of
         undefined ->
@@ -122,6 +121,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
             %% We allow clients to fetch their own identity keys to ensure they are not out of sync.
             %% This query does not use any otp keys.
             {ok, WhisperKeySet} = model_whisper_keys:get_key_set_without_otp(Ouid),
+            ?INFO("Uid: ~s requesting own keys: IK: ~p SK: ~p", [Uid,
+                WhisperKeySet#user_whisper_key_set.identity_key,
+                WhisperKeySet#user_whisper_key_set.signed_key]),
             IdentityKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
             SignedKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.signed_key),
             pb:make_iq_result(IQ,
@@ -253,7 +255,7 @@ refresh_otp_keys(Uid) ->
 
 %% Uid is requesting keyset of Ouid.
 -spec get_key_set(Ouid :: binary(), Uid :: binary()) -> {binary(), binary(), [binary()]}.
-get_key_set(Ouid, _Uid) ->
+get_key_set(Ouid, Uid) ->
     Server = util:get_host(),
     {ok, WhisperKeySet} = model_whisper_keys:get_key_set(Ouid),
     case WhisperKeySet of
@@ -263,6 +265,8 @@ get_key_set(Ouid, _Uid) ->
         _ ->
             %% Uid requests keys of Ouid to establish a session.
             check_count_and_notify_user(Ouid, Server),
+            ?INFO("Uid: ~s Ouid: ~s Ouid IK: ~p", [Uid, Ouid,
+                WhisperKeySet#user_whisper_key_set.identity_key]),
             IdentityKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
             SignedKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.signed_key),
             OneTimeKeys = case WhisperKeySet#user_whisper_key_set.one_time_key of
@@ -328,7 +332,7 @@ check_count_and_notify_user(Uid, _Server) ->
 -spec set_keys_and_notify(Uid :: uid(), IdentityKey :: binary(), SignedKey :: binary(),
         OneTimeKeys :: [binary()]) -> ok.
 set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys) ->
-    ?INFO("Uid: ~s, set_keys", [Uid]),
+    ?INFO("Uid: ~s, set_keys IK: ~p SK: ~p", [Uid, IdentityKey, SignedKey]),
     ok = model_whisper_keys:set_keys(Uid, IdentityKey, SignedKey, OneTimeKeys),
     ok = notify_key_subscribers(Uid),
     ok.
