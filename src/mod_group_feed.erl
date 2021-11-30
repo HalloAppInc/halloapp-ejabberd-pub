@@ -411,10 +411,9 @@ resend_history_unsafe(GroupInfo, Uid, HistoryResendSt) ->
     Gid = GroupInfo#group_info.gid,
     AudienceList = model_groups:get_member_uids(Gid),
     AudienceSet = sets:from_list(AudienceList),
-    NewHistoryResendSt = HistoryResendSt#pb_history_resend{sender_uid = Uid},
-    ?INFO("Fan Out MSG: ~p", [NewHistoryResendSt]),
-    ok = broadcast_history_resend_event(Uid, AudienceSet, NewHistoryResendSt),
-    {ok, NewHistoryResendSt}.
+    ?INFO("Fan Out MSG: ~p", [HistoryResendSt]),
+    ok = broadcast_history_resend_event(Uid, AudienceSet, HistoryResendSt),
+    {ok, HistoryResendSt}.
 
 
 -spec check_audience_hash(

@@ -495,7 +495,6 @@ message EndOfQueue {
 message HistoryResend {
     string gid = 1;
     string id = 2;
-    int64 sender_uid = 3 [ebin = true];
 
     bytes payload = 4;
     // Encrypted payload using the group feed channel.
@@ -900,7 +899,7 @@ message Rerequest {
 
 message GroupFeedRerequest {
   string gid = 1;
-  // Post id or Comment id.
+  // Post id or Comment id or HistoryResend id
   string id = 2;
 
   // To capture the type of decryption failure.

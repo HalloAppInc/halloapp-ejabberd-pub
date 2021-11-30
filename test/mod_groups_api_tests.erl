@@ -897,7 +897,6 @@ history_resend_helper(WithAudienceHash) ->
     ?assertEqual(result, ResultIQ#pb_iq.type),
 
     ?assertEqual(Gid, SubEl#pb_history_resend.gid),
-    ?assertEqual(?UID1, SubEl#pb_history_resend.sender_uid),
     ?assertEqual(SubEl#pb_history_resend.payload, ?PAYLOAD1),
     ?assertEqual(2, meck:num_calls(ejabberd_router, route, '_')),
     ?assert(meck:validate(ejabberd_router)),
