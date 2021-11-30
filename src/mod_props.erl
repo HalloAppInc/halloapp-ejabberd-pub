@@ -110,7 +110,13 @@ get_props(Uid, ClientVersion) ->
 -spec get_uid_based_props(PropMap :: map(), Uid :: binary()) -> map().
 get_uid_based_props(PropMap, Uid) ->
     case dev_users:is_dev_uid(Uid) of
-        false -> PropMap;
+        false ->
+            case is_audio_call_enabled(Uid) of
+                false -> PropMap;
+                true ->
+                    PropMap1 = maps:update(audio_calls, true, PropMap),
+                    PropMap1
+            end;
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
@@ -141,6 +147,12 @@ get_client_based_props(PropMap, undefined, _) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+-spec is_audio_call_enabled(Uid :: binary()) -> boolean().
+is_audio_call_enabled(<<"1000000000052736684">>) -> true;   %% Sunisha
+is_audio_call_enabled(Uid) ->
+    dev_users:is_dev_uid(Uid).
+
 
 generate_hash(SortedProplist) ->
     Json = jsx:encode(SortedProplist),
