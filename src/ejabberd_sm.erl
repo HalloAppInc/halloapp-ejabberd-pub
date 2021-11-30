@@ -702,7 +702,9 @@ route_message(#pb_msg{} = Packet) ->
                     Pid = element(2, Session#session.sid),
                     ?INFO("route To: ~s -> pid ~p MsgId: ~s", [LUser, Pid, MsgId]),
                     % NOTE: message will be lost if the dest PID dies while routing
-                    halloapp_c2s:route(Pid, {route, Packet})
+                    halloapp_c2s:route(Pid, {route, Packet}),
+                    %% This hook can now be used to send push notifications for messages always.
+                    ejabberd_hooks:run(push_message_always_hook, LServer, [Packet])
             end;
         {deny, privacy_violation} ->
             %% Ignore the packet and stop routing it now.
