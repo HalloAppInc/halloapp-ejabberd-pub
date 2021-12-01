@@ -47,10 +47,12 @@ mod_options(_Host) ->
 %%====================================================================
 
 -spec event_call(Event :: pb_event_data()) -> pb_event_data().
-event_call(#pb_event_data{uid = Uid, platform = Platform, cc = CC,
+event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
         edata = #pb_call{
-            call_id = CallId, peer_uid = PeerUid, type = CallType, answered = Answered,
+            call_id = CallId, peer_uid = PeerUidInt, type = CallType, answered = Answered,
             duration_ms = DurationMs, end_call_reason = EndCallReason}} = Event) ->
+    Uid = util:to_binary(UidInt),
+    PeerUid = util:to_binary(PeerUidInt),
     ?INFO("CallID: ~s Uid: ~s PeerUid: ~s Type: ~s Duration: ~.1fs",
         [CallId, Uid, PeerUid, CallType, DurationMs / 1000]),
     PeerCC = case model_accounts:get_phone(PeerUid) of
