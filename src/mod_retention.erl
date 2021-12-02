@@ -40,8 +40,9 @@ schedule() ->
     }),
     
     %% Files written by dump_accounts will be sent to S3 the next day.
+    %% Glue crawler run at 2am. We need to run computation after that.
     erlcron:cron(weekly_retention, {
-        {weekly, wed, {01, am}},
+        {weekly, wed, {03, am}},
         {?MODULE, compute_retention, []}
     }).
 
