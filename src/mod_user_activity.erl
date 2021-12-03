@@ -141,6 +141,7 @@ store_and_broadcast_presence(User, Server, Resource, available) ->
         Resource :: binary() | undefined, Status :: undefined | activity_status()) -> {ok, any()} | {error, any()}.
 store_user_activity(User, _Server, Resource, TimestampMs, Status) ->
     ?INFO("Uid: ~s, tsms: ~p, Status: ~p", [User, TimestampMs, Status]),
+    ha_events:log_user_event(User, app_opened),
     mod_active_users:update_last_activity(User, TimestampMs, Resource),
     model_accounts:set_last_activity(User, TimestampMs, Status).
 
