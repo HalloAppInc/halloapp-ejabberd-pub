@@ -111,14 +111,16 @@ create_redis_child_spec(RedisService, RedisClientImpl, RedisServiceClient) ->
     ChildSpec.
 
 
--spec start_child(ChildSpec :: supervisor:child_spec()) -> ok.
+-spec start_child(ChildSpec :: supervisor:child_spec()) -> ok | no_return().
 start_child(ChildSpec) ->
     case supervisor:start_child(?SERVER, ChildSpec) of
+        {ok, _} ->
+            ok;
+        {error, {already_started, _}} ->
+            ok;
         {error, Reason} ->
             ?CRITICAL("Error starting child: ~p, reason: ~p", [ChildSpec, Reason]),
-            ok;
-        {ok, _} ->
-            ok
+            erlang:error(unable_to_connect, [ChildSpec, Reason])
     end.
 
 
