@@ -236,6 +236,7 @@ publish_post(Uid, PostId, PayloadBase64, AudienceList, HomeFeedSt) ->
             ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, FeedAudienceType, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
+            ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
             {ok, ExistingPost#post.ts_ms}
     end,
     broadcast_post(Action, PostId, Uid, PayloadBase64, FinalTimestampMs, UpdatedAudienceList, HomeFeedSt),
@@ -267,6 +268,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
             {error, invalid_post_id};
         {{ok, Post}, {ok, Comment}, {ok, ParentPushList}} ->
             %% Comment with same id already exists: duplicate request from the client.
+            ?INFO("Uid: ~s PostId: ~s CommentId: ~s already published", [PublisherUid, PostId, CommentId]),
             TimestampMs = Comment#comment.ts_ms,
             PostOwnerUid = Post#post.uid,
             FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),

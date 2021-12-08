@@ -224,6 +224,7 @@ publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, GroupFeedSt) ->
             ejabberd_hooks:run(group_feed_item_published, Server, [Gid, Uid, PostId, post, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
+            ?INFO("Uid: ~s Gid: ~s PostId: ~s already published", [Gid, Uid, PostId]),
             {ok, ExistingPost#post.ts_ms}
     end,
     
@@ -272,6 +273,8 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
             {error, invalid_post_id};
         {{ok, Post}, {ok, Comment}, {ok, ParentPushList}} ->
             %% Comment with same id already exists: duplicate request from the client.
+            ?INFO("Uid: ~s Gid: ~s PostId: ~s CommentId: ~s already published",
+                [Gid, Uid, PostId, CommentId]),
             TimestampMs = Comment#comment.ts_ms,
             PostOwnerUid = Post#post.uid,
             AudienceList = Post#post.audience_list,
