@@ -897,7 +897,7 @@ message Rerequest {
     bytes message_ephemeral_key = 6;
     enum ContentType {
         CHAT = 0;
-        CALLS = 1;
+        CALL = 1;
     }
     ContentType content_type = 7;
 }
