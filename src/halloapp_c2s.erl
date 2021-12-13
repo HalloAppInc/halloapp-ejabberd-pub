@@ -213,66 +213,59 @@ check_first_login(Uid, Server) ->
 %% then other servers cant encode this message because the record has a new field. 
 %% similarly the updated server cant encode it because it is missing a field.
 %% so this function helps us transform packets across servers.
-% upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
-%     PayloadType = util:get_payload_type(Msg),
-%     case PayloadType of
-%         pb_group_feed_item ->
-%             Msg#pb_msg{payload = upgrade_group_feed_item(MsgPayload)};
+upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
+    PayloadType = util:get_payload_type(Msg),
+    case PayloadType of
+        pb_group_stanza ->
+            NewMsgPayload = upgrade_group_stanza(MsgPayload),
+            Msg#pb_msg{payload = NewMsgPayload};
 
-%         pb_group_feed_items ->
-%             NewItems = [upgrade_group_feed_item(Item) || Item <- MsgPayload#pb_group_feed_items.items],
-%             NewMsgPayload = #pb_group_feed_items{
-%                 gid = MsgPayload#pb_group_feed_items.gid,
-%                 name = MsgPayload#pb_group_feed_items.name,
-%                 avatar_id = MsgPayload#pb_group_feed_items.avatar_id,
-%                 items = NewItems
-%             },
-%             Msg#pb_msg{
-%                 payload = NewMsgPayload
-%             };
+        _ -> Msg
 
-%         _ -> Msg
-
-%     end;
+    end;
 upgrade_packet(Packet) -> Packet.
 
-% upgrade_group_feed_item(GroupFeedItemStanza) ->
-%     case GroupFeedItemStanza of
-%         #pb_group_feed_item{} -> GroupFeedItemStanza;
-%         {pb_group_feed_item, Action, Gid, Name, AvatarId, Item, SenderStateBundles, SenderState, AudienceHash} ->
-%             #pb_group_feed_item{
-%                 action = Action,
-%                 gid = Gid,
-%                 name = Name,
-%                 avatar_id = AvatarId,
-%                 item = Item,
-%                 sender_state_bundles = SenderStateBundles,
-%                 sender_state = SenderState,
-%                 audience_hash = AudienceHash
-%             };
-%         {pb_group_feed_item, Action, Gid, Name, AvatarId, Item, SenderStateBundles, SenderState, AudienceHash, SenderLogInfo, SenderClientVersion} ->
-%             #pb_group_feed_item{
-%                 action = Action,
-%                 gid = Gid,
-%                 name = Name,
-%                 avatar_id = AvatarId,
-%                 item = Item,
-%                 sender_state_bundles = SenderStateBundles,
-%                 sender_state = SenderState,
-%                 audience_hash = AudienceHash
-%             }
-%     end.
+upgrade_group_stanza(GroupStanza) ->
+    case GroupStanza of
+        #pb_group_stanza{} -> GroupStanza;
+        {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members, Background, AudienceHash, Description} ->
+            #pb_group_stanza{
+                action = Action,
+                gid = Gid,
+                name = Name,
+                avatar_id = AvatarId,
+                sender_uid = SenderUid,
+                sender_name = SenderName,
+                members = Members,
+                background = Background,
+                audience_hash = AudienceHash,
+                description = Description
+            };
+        {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members, Background, AudienceHash, Description, _HistoryResend} ->
+            #pb_group_stanza{
+                action = Action,
+                gid = Gid,
+                name = Name,
+                avatar_id = AvatarId,
+                sender_uid = SenderUid,
+                sender_name = SenderName,
+                members = Members,
+                background = Background,
+                audience_hash = AudienceHash,
+                description = Description
+            }
+    end.
 
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
     NewPacket = upgrade_packet(Packet),
-    %% TODO: Remove enif_protobuf:encode(...) after upgrade is done.
-    % case enif_protobuf:encode(NewPacket) of
-    %     {error, Reason} ->
-    %         ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
-    %     _ ->
-    %         ok
-    % end,
+    % TODO: Remove enif_protobuf:encode(...) after upgrade is done.
+    case enif_protobuf:encode(NewPacket) of
+        {error, Reason} ->
+            ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
+        _ ->
+            ok
+    end,
     case verify_incoming_packet(State, NewPacket) of
         allow ->
             %% TODO(murali@): remove temp counts after clients transition.
