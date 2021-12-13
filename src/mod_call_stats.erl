@@ -50,15 +50,15 @@ mod_options(_Host) ->
 event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
         edata = #pb_call{
             call_id = CallId, peer_uid = PeerUidInt, type = CallType, answered = Answered,
-            duration_ms = DurationMs, end_call_reason = EndCallReason}} = Event) ->
+            duration_ms = PBDurationMs, end_call_reason = EndCallReason}} = Event) ->
     Uid = util:to_binary(UidInt),
     PeerUid = util:to_binary(PeerUidInt),
-    DurationSec = case DurationMs of
+    DurationMs = case PBDurationMs of
         undefined -> 0;
-        _ -> DurationMs / 1000
+        _ -> PBDurationMs / 1000
     end,
     ?INFO("CallID: ~s Uid: ~s PeerUid: ~s Type: ~s Duration: ~.1fs",
-        [CallId, Uid, PeerUid, CallType, DurationSec]),
+        [CallId, Uid, PeerUid, CallType, DurationMs / 1000]),
     PeerCC = case model_accounts:get_phone(PeerUid) of
         {ok, PeerPhone} -> mod_libphonenumber:get_cc(PeerPhone);
         % TODO(nikola) make mod_libphonenumber return ZZ?
