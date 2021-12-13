@@ -224,6 +224,10 @@ upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
             NewMsgPayload = upgrade_rerequest_stanza(MsgPayload),
             Msg#pb_msg{payload = NewMsgPayload};
 
+        pb_incoming_call ->
+            NewMsgPayload = upgrade_call_stanza(MsgPayload),
+            Msg#pb_msg{payload = NewMsgPayload};
+
         _ -> Msg
 
     end;
@@ -280,6 +284,30 @@ upgrade_rerequest_stanza(RerequestStanza) ->
                 one_time_pre_key_id = OneTimeKeyId,
                 session_setup_ephemeral_key = SessionKey,
                 message_ephemeral_key = EphemeralKey
+            }
+    end.
+
+
+upgrade_call_stanza(CallStanza) ->
+    case CallStanza of
+        #pb_incoming_call{} -> CallStanza;
+        {pb_incoming_call, CallId, CallType, WebRtcOffer, StunServers, TurnServers, TimestampMs} ->
+            #pb_incoming_call{
+                call_id = CallId,
+                call_type = CallType,
+                webrtc_offer = WebRtcOffer,
+                stun_servers = StunServers,
+                turn_servers = TurnServers,
+                timestamp_ms = TimestampMs
+            };
+        {pb_incoming_call, CallId, CallType, WebRtcOffer, StunServers, TurnServers, TimestampMs, _ServerSentTimestampMs} ->
+            #pb_incoming_call{
+                call_id = CallId,
+                call_type = CallType,
+                webrtc_offer = WebRtcOffer,
+                stun_servers = StunServers,
+                turn_servers = TurnServers,
+                timestamp_ms = TimestampMs
             }
     end.
 
