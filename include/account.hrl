@@ -25,7 +25,8 @@
     activity_status :: activity_status() | undefined,
     lang_id :: binary() | undefined,
     device :: binary() | undefined,
-    os_version :: binary() | undefined
+    os_version :: binary() | undefined,
+    last_ipaddress :: binary() | undefined
 }).
 
 -type account() :: #account{}.

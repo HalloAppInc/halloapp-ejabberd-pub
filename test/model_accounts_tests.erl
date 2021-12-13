@@ -293,6 +293,16 @@ last_activity_test() ->
     ?assertEqual(Now2, maps:get(?UID2, SecondMap, undefined)).
 
 
+last_ipaddress_test() ->
+    setup(),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    undefined = model_accounts:get_last_ipaddress(?UID1),
+
+    ok = model_accounts:set_last_ipaddress(?UID1, <<"73.223.182.178">>),
+    <<"73.223.182.178">> = model_accounts:get_last_ipaddress(?UID1),
+    ok.
+
+
 subscribe_test() ->
     setup(),
     ok = model_accounts:presence_subscribe(?UID1, ?UID2),

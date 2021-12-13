@@ -175,8 +175,10 @@ open_session(SID, User, Server, Resource, Priority, Mode, Info) ->
     check_for_sessions_to_replace(User, Server, Resource, Mode),
     set_session(SID, User, Server, Resource, Priority, Mode, Info),
     JID = jid:make(User, Server, Resource),
-    ?INFO("U: ~p R: ~p Mode: ~p, ClientVersion: ~p",
-        [User, Resource, Mode, ClientVersion]),
+    IP = proplists:get_value(ip, Info),
+    CC = mod_geodb:lookup(IP),
+    ?INFO("U: ~p R: ~p Mode: ~p, ClientVersion: ~p, IP: ~s, CC: ~s",
+        [User, Resource, Mode, ClientVersion, IP, CC]),
     ejabberd_hooks:run(sm_register_connection_hook, JID#jid.lserver, [SID, JID, Mode, Info]).
 
 

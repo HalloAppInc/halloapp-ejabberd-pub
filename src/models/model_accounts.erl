@@ -73,6 +73,8 @@
     get_last_activity/1,
     get_last_activity_ts_ms/1,
     set_last_activity/3,
+    set_last_ipaddress/2,
+    get_last_ipaddress/1,
     set_user_agent/2,
     get_signup_user_agent/1,
     set_client_version/2,
@@ -139,6 +141,7 @@
 -define(FIELD_NON_EMPTY_SYNC_STATUS, <<"sy">>).
 -define(FIELD_NUM_INV, <<"in">>).  % from model_invites, but is part of the account structure
 -define(FIELD_SINV_TS, <<"it">>).  % from model_invites, but is part of the account structure
+-define(FIELD_LAST_IPADDRESS, <<"lip">>).
 -define(FIELD_LAST_ACTIVITY, <<"la">>).
 -define(FIELD_ACTIVITY_STATUS, <<"st">>).
 -define(FIELD_USER_AGENT, <<"ua">>).
@@ -469,7 +472,8 @@ get_account(Uid) ->
                     client_version = maps:get(?FIELD_CLIENT_VERSION, M, undefined),
                     lang_id = maps:get(?FIELD_PUSH_LANGUAGE_ID, M, undefined),
                     device = maps:get(?FIELD_DEVICE, M, undefined),
-                    os_version = maps:get(?FIELD_OS_VERSION, M, undefined)
+                    os_version = maps:get(?FIELD_OS_VERSION, M, undefined),
+                    last_ipaddress = util:to_list(maps:get(?FIELD_LAST_IPADDRESS, M, undefined))
                 },
             {ok, Account}
     end.
@@ -653,6 +657,23 @@ filter_nonexisting_uids(Uids) ->
 is_account_deleted(Uid) ->
     {ok, Res} = q(["EXISTS", deleted_uid_key(Uid)]),
     binary_to_integer(Res) > 0.
+
+
+%%====================================================================
+%% Store Last IP address
+%%====================================================================
+
+
+-spec set_last_ipaddress(Uid :: uid(), IPAddress :: list()) -> ok.
+set_last_ipaddress(Uid, IPAddress) ->
+    {ok, _Res1} = q(["HSET", account_key(Uid), ?FIELD_LAST_IPADDRESS, util:to_binary(IPAddress)]),
+    ok.
+
+
+-spec get_last_ipaddress(Uid :: uid()) -> maybe(binary()).
+get_last_ipaddress(Uid) ->
+    {ok, IPAddress} = q(["HGET", account_key(Uid), ?FIELD_LAST_IPADDRESS]),
+    util_redis:decode_binary(IPAddress).
 
 
 %%====================================================================

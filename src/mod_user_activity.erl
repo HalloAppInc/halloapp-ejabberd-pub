@@ -37,19 +37,22 @@
     unset_presence_hook/4,
     register_user/3,
     get_user_activity/2,
-    probe_and_send_presence/3
+    probe_and_send_presence/3,
+    sm_register_connection_hook/4
 ]).
 
 
 start(Host, _Opts) ->
     ejabberd_hooks:add(set_presence_hook, Host, ?MODULE, set_presence_hook, 1),
     ejabberd_hooks:add(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50).
+    ejabberd_hooks:add(register_user, Host, ?MODULE, register_user, 50),
+    ejabberd_hooks:add(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 50).
 
 stop(Host) ->
     ejabberd_hooks:delete(set_presence_hook, Host, ?MODULE, set_presence_hook, 1),
     ejabberd_hooks:delete(unset_presence_hook, Host, ?MODULE, unset_presence_hook, 1),
-    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50).
+    ejabberd_hooks:delete(register_user, Host, ?MODULE, register_user, 50),
+    ejabberd_hooks:delete(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 50).
 
 depends(_Host, _Opts) ->
     [].
@@ -96,6 +99,18 @@ unset_presence_hook(_User, passive, _Resource, _Reason) -> ok;
 unset_presence_hook(User, active, Resource, _Reason) ->
     Server = util:get_host(),
     store_and_broadcast_presence(User, Server, Resource, away).
+
+
+-spec sm_register_connection_hook(SID :: ejabberd_sm:sid(),
+        JID :: jid(), Mode :: mode(), Info :: ejabberd_sm:info()) -> ok.
+sm_register_connection_hook(_SID, #jid{luser = Uid} = _JID, _Mode, Info) ->
+    IP = proplists:get_value(ip, Info),
+    case IP of
+        undefined -> ?ERROR("Missing IP for Uid: ~p", [Uid]);
+        _ ->
+            ok = model_accounts:set_last_ipaddress(Uid, IP)
+    end,
+    ok.
 
 
 %%====================================================================
