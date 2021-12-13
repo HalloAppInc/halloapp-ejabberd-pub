@@ -272,15 +272,14 @@ upgrade_rerequest_stanza(RerequestStanza) ->
                 session_setup_ephemeral_key = SessionKey,
                 message_ephemeral_key = EphemeralKey
             };
-        {pb_rerequest, Id, IdentityKey, SignedPreKeyId, OneTimeKeyId, SessionKey, EphemeralKey, ContentType} ->
+        {pb_rerequest, Id, IdentityKey, SignedPreKeyId, OneTimeKeyId, SessionKey, EphemeralKey, _ContentType} ->
             #pb_rerequest{
                 id = Id,
                 identity_key = IdentityKey,
                 signed_pre_key_id = SignedPreKeyId,
                 one_time_pre_key_id = OneTimeKeyId,
                 session_setup_ephemeral_key = SessionKey,
-                message_ephemeral_key = EphemeralKey,
-                content_type = ContentType
+                message_ephemeral_key = EphemeralKey
             }
     end.
 
