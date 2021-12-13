@@ -104,10 +104,11 @@ unset_presence_hook(User, active, Resource, _Reason) ->
 -spec sm_register_connection_hook(SID :: ejabberd_sm:sid(),
         JID :: jid(), Mode :: mode(), Info :: ejabberd_sm:info()) -> ok.
 sm_register_connection_hook(_SID, #jid{luser = Uid} = _JID, _Mode, Info) ->
-    IP = proplists:get_value(ip, Info),
-    case IP of
+    IPInfo = proplists:get_value(ip, Info),
+    case IPInfo of
         undefined -> ?ERROR("Missing IP for Uid: ~p", [Uid]);
         _ ->
+            IP = util:parse_ip_address(IPInfo),
             ok = model_accounts:set_last_ipaddress(Uid, IP)
     end,
     ok.
