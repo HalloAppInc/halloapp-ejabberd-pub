@@ -99,7 +99,8 @@ get_props(Uid, ClientVersion) ->
         streaming_upload_chunk_size =>  65536, %% size of media streaming upload chunk size, 64KB.
         streaming_initial_download_size => 5242880, %% size of intial download while media streaming, 5MB.
         streaming_sending_enabled => false, %% whether streaming is enabled.
-        flat_comments => false %% whether clients display a flat comment structure similar to chat.
+        flat_comments => false, %% whether clients display a flat comment structure similar to chat.
+        voice_posts => false %% whether to enable voice posts
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -125,7 +126,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap3 = maps:update(audio_calls, true, PropMap2),
             PropMap4 = maps:update(streaming_sending_enabled, true, PropMap3),
             PropMap5 = maps:update(flat_comments, true, PropMap4),
-            PropMap5
+            PropMap6 = maps:update(voice_posts, true, PropMap5),
+            PropMap6
     end.
 
 
