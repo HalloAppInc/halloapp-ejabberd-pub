@@ -220,6 +220,10 @@ upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
             NewMsgPayload = upgrade_group_stanza(MsgPayload),
             Msg#pb_msg{payload = NewMsgPayload};
 
+        pb_rerequest ->
+            NewMsgPayload = upgrade_rerequest_stanza(MsgPayload),
+            Msg#pb_msg{payload = NewMsgPayload};
+
         _ -> Msg
 
     end;
@@ -253,6 +257,30 @@ upgrade_group_stanza(GroupStanza) ->
                 background = Background,
                 audience_hash = AudienceHash,
                 description = Description
+            }
+    end.
+
+upgrade_rerequest_stanza(RerequestStanza) ->
+    case RerequestStanza of
+        #pb_rerequest{} -> RerequestStanza;
+        {pb_rerequest, Id, IdentityKey, SignedPreKeyId, OneTimeKeyId, SessionKey, EphemeralKey} ->
+            #pb_rerequest{
+                id = Id,
+                identity_key = IdentityKey,
+                signed_pre_key_id = SignedPreKeyId,
+                one_time_pre_key_id = OneTimeKeyId,
+                session_setup_ephemeral_key = SessionKey,
+                message_ephemeral_key = EphemeralKey
+            };
+        {pb_rerequest, Id, IdentityKey, SignedPreKeyId, OneTimeKeyId, SessionKey, EphemeralKey, ContentType} ->
+            #pb_rerequest{
+                id = Id,
+                identity_key = IdentityKey,
+                signed_pre_key_id = SignedPreKeyId,
+                one_time_pre_key_id = OneTimeKeyId,
+                session_setup_ephemeral_key = SessionKey,
+                message_ephemeral_key = EphemeralKey,
+                content_type = ContentType
             }
     end.
 
