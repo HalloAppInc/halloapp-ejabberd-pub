@@ -316,6 +316,8 @@ message GroupStanza {
     // Audience hash to be returned on `GET_MEMBER_IDENTITY_KEYS` IQ.
     bytes audience_hash = 9;
     string description = 10;
+    // HistoryResend to be sent or received only on adding-members iq.
+    HistoryResend history_resend = 11;
 }
 
 

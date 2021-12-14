@@ -191,7 +191,7 @@ publish_post(Gid, Uid, PostId, PayloadBase64, GroupFeedSt) ->
             {error, not_member};
         true ->
             GroupInfo = model_groups:get_group_info(Gid),
-            IsHashMatch = check_audience_hash(
+            IsHashMatch = mod_groups:check_audience_hash(
                 GroupFeedSt#pb_group_feed_item.audience_hash,
                 GroupInfo#group_info.audience_hash,
                 Gid, Uid, publish_post),
@@ -246,7 +246,7 @@ publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, PayloadBase64, Gro
             {error, not_member};
         true ->
             GroupInfo = model_groups:get_group_info(Gid),
-            IsHashMatch = check_audience_hash(
+            IsHashMatch = mod_groups:check_audience_hash(
                 GroupFeedSt#pb_group_feed_item.audience_hash,
                 GroupInfo#group_info.audience_hash,
                 Gid, Uid, publish_comment),
@@ -395,7 +395,7 @@ resend_history(Gid, Uid, HistoryResendSt) ->
             {error, not_admin};
         true ->
             GroupInfo = model_groups:get_group_info(Gid),
-            IsHashMatch = check_audience_hash(
+            IsHashMatch = mod_groups:check_audience_hash(
                 HistoryResendSt#pb_history_resend.audience_hash,
                 GroupInfo#group_info.audience_hash,
                 Gid, Uid, resend_history),
@@ -417,69 +417,6 @@ resend_history_unsafe(GroupInfo, Uid, HistoryResendSt) ->
     ?INFO("Fan Out MSG: ~p", [HistoryResendSt]),
     ok = broadcast_history_resend_event(Uid, AudienceSet, HistoryResendSt),
     {ok, HistoryResendSt}.
-
-
--spec check_audience_hash(
-      IQAudienceHash :: binary(), GroupAudienceHash :: binary(),
-      Gid :: gid(), Uid :: uid(), Action :: atom()) -> boolean().
-check_audience_hash(IQAudienceHash, GroupAudienceHash, Gid, Uid, Action) ->
-    %% TODO(vipin): Report of match/mismatch via stats.
-    case IQAudienceHash of
-        undefined -> true;
-        <<>> -> true;
-        _ ->
-            try
-                NewHash = compute_and_set_audience_hash(GroupAudienceHash, Gid, Uid),
-                RetVal = NewHash =:= IQAudienceHash,
-                PrintMsg = "Audience Hash Check 1, IQ: ~p, Group: ~p, Gid: ~p, Uid: ~p, Action: ~p, "
-                           "Match: ~p",
-                PrintArg1 = [base64url:encode(IQAudienceHash), base64url:encode(NewHash), Gid, Uid,
-                            Action, RetVal],
-                case RetVal of
-                    false ->
-                        ?WARNING(PrintMsg, PrintArg1);
-                    _ ->
-                        ?INFO(PrintMsg, PrintArg1)
-                end,
-                case {RetVal, GroupAudienceHash} of
-                    {true, _} -> RetVal;
-                    {false, undefined} -> RetVal;
-                    {false, _} ->
-                        NewHash2 = compute_and_set_audience_hash(undefined, Gid, Uid),
-                        RetVal2 = NewHash2 =:= IQAudienceHash,
-                        PrintMsg2 = "Audience Hash Check 2, IQ: ~p, Group: ~p, Gid: ~p, Uid: ~p, "
-                            "Action: ~p, Match: ~p",
-                        PrintArg2 = [base64url:encode(IQAudienceHash), base64url:encode(NewHash2),
-                            Gid, Uid, Action, RetVal2],
-                        case RetVal2 of
-                            false ->
-                                ?WARNING(PrintMsg2, PrintArg2);
-                            _ ->
-                                ?INFO(PrintMsg2, PrintArg2)
-                        end,
-                        RetVal2
-                end
-            catch
-                error : _ -> false
-            end
-    end.
-
-
--spec compute_and_set_audience_hash(CurrentHash :: binary(), Gid :: gid(), Uid :: uid()) -> binary() | no_return().
-compute_and_set_audience_hash(CurrentHash, Gid, Uid) ->
-    case CurrentHash of
-        undefined ->
-            case mod_groups:get_member_identity_keys(Gid, Uid) of
-                {ok, Group} ->
-                    ComputedHash = Group#group.audience_hash,
-                    ok = model_groups:set_audience_hash(Gid, ComputedHash),
-                    ComputedHash;
-                {error, Reason} = Error ->
-                    ?ERROR("Failed to compute hash, Gid: ~p, Uid: ~p, Error: ~p", [Gid, Uid, Error]),
-                    error(Reason)
-            end;
-        _ -> CurrentHash
-    end.
 
 
 -spec broadcast_group_feed_event(Uid :: uid(), AudienceSet :: set(),

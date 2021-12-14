@@ -241,10 +241,15 @@ process_delete_group(IQ, Gid, Uid) ->
 process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
     MembersSt = ReqGroupSt#pb_group_stanza.members,
     Changes = [{M#pb_group_member.uid, M#pb_group_member.action} || M <- MembersSt],
+    PBHistoryResend = ReqGroupSt#pb_group_stanza.history_resend,
     ?INFO("modify_members Gid: ~s Uid: ~s Changes: ~p", [Gid, Uid, Changes]),
-    case mod_groups:modify_members(Gid, Uid, Changes) of
+    case mod_groups:modify_members(Gid, Uid, Changes, PBHistoryResend) of
         {error, not_admin} ->
             pb:make_error(IQ, util:err(not_admin));
+        {error, bad_request} ->
+            pb:make_error(IQ, util:err(bad_request));
+        {error, audience_hash_mismatch} ->
+            pb:make_error(IQ, util:err(audience_hash_mismatch));
         {ok, ModifyResults} ->
 
             ResultMemberSt = lists:map(

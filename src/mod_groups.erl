@@ -28,6 +28,7 @@
     add_members/3,
     remove_members/3,
     modify_members/3,
+    modify_members/4,
     leave_group/2,
     promote_admins/3,
     demote_admins/3,
@@ -50,7 +51,8 @@
     reset_invite_link/2,
     preview_with_invite_link/2,
     web_preview_invite_link/1,
-    join_with_invite_link/2
+    join_with_invite_link/2,
+    check_audience_hash/5
 ]).
 
 -include("logger.hrl").
@@ -162,18 +164,35 @@ remove_members(Gid, Uid, MemberUids) ->
 -spec modify_members(Gid :: gid(), Uid :: uid(), Changes :: [{uid(), add | remove}])
             -> {ok, modify_member_results()} | {error, not_admin}.
 modify_members(Gid, Uid, Changes) ->
+    modify_members(Gid, Uid, Changes, undefined).
+
+
+-spec modify_members(Gid :: gid(), Uid :: uid(), Changes :: [{uid(), add | remove}],
+    PBHistoryResend :: pb_history_resend()) -> {ok, modify_member_results()} | {error, not_admin}.
+modify_members(Gid, Uid, Changes, PBHistoryResend) ->
     case model_groups:is_admin(Gid, Uid) of
         false -> {error, not_admin};
         true ->
-            {RemoveUids, AddUids} = split_changes(Changes, remove),
-            RemoveResults = remove_members_unsafe(Gid, RemoveUids),
-            AddResults = add_members_unsafe(Gid, Uid, AddUids),
-            Results = RemoveResults ++ AddResults,
-            log_stats(modify_members, Results),
-            send_modify_members_event(Gid, Uid, Results),
-            update_removed_members_set(Gid, Results),
-            maybe_delete_empty_group(Gid),
-            {ok, Results}
+            GroupInfo = model_groups:get_group_info(Gid),
+            IQAudienceHash = case PBHistoryResend of
+                undefined -> undefined;
+                _ -> PBHistoryResend#pb_history_resend.audience_hash
+            end,
+            IsHashMatch = check_audience_hash(IQAudienceHash, GroupInfo#group_info.audience_hash,
+                Gid, Uid, modify_members_with_history),
+            case IsHashMatch of
+                false -> {error, audience_hash_mismatch};
+                true ->
+                    {RemoveUids, AddUids} = split_changes(Changes, remove),
+                    RemoveResults = remove_members_unsafe(Gid, RemoveUids),
+                    AddResults = add_members_unsafe(Gid, Uid, AddUids),
+                    Results = RemoveResults ++ AddResults,
+                    log_stats(modify_members, Results),
+                    send_modify_members_event(Gid, Uid, Results, PBHistoryResend),
+                    update_removed_members_set(Gid, Results),
+                    maybe_delete_empty_group(Gid),
+                    {ok, Results}
+            end
     end.
 
 
@@ -277,7 +296,8 @@ get_member_identity_keys_unsafe(Group) ->
                             [IPublicKey | Acc]
                     catch Class : Reason : St ->
                         ?ERROR("failed to parse identity key: ~p, Uid: ~p",
-                            [IdentityKeyBin, Uid2, lager:pr_stacktrace(St, {Class, Reason})])
+                            [IdentityKeyBin, Uid2, lager:pr_stacktrace(St, {Class, Reason})]),
+                        Acc
                     end
             end
         end, [], GroupMembers2),
@@ -296,7 +316,68 @@ get_member_identity_keys_unsafe(Group) ->
         audience_hash = TruncAudienceHash
     },
     {ok, Group2}.
- 
+
+
+-spec check_audience_hash(
+      IQAudienceHash :: binary(), GroupAudienceHash :: binary(),
+      Gid :: gid(), Uid :: uid(), Action :: atom()) -> boolean().
+%% TODO: add tests.
+check_audience_hash(undefined, _GroupAudienceHash, _Gid, _Uid, _Action) -> true;
+check_audience_hash(<<>>, _GroupAudienceHash, _Gid, _Uid, _Action) -> true;
+check_audience_hash(IQAudienceHash, GroupAudienceHash, Gid, Uid, Action) ->
+    %% TODO(vipin): Report of match/mismatch via stats.
+    try
+        NewHash = compute_and_set_audience_hash(GroupAudienceHash, Gid, Uid),
+        RetVal = NewHash =:= IQAudienceHash,
+        PrintMsg = "Audience Hash Check 1, IQ: ~p, Group: ~p, Gid: ~p, Uid: ~p, Action: ~p, "
+                   "Match: ~p",
+        PrintArg1 = [base64url:encode(IQAudienceHash), base64url:encode(NewHash), Gid, Uid,
+                    Action, RetVal],
+        case RetVal of
+            false ->
+                ?WARNING(PrintMsg, PrintArg1);
+            _ ->
+                ?INFO(PrintMsg, PrintArg1)
+        end,
+        case {RetVal, GroupAudienceHash} of
+            {true, _} -> RetVal;
+            {false, undefined} -> RetVal;
+            {false, _} ->
+                NewHash2 = compute_and_set_audience_hash(undefined, Gid, Uid),
+                RetVal2 = NewHash2 =:= IQAudienceHash,
+                PrintMsg2 = "Audience Hash Check 2, IQ: ~p, Group: ~p, Gid: ~p, Uid: ~p, "
+                    "Action: ~p, Match: ~p",
+                PrintArg2 = [base64url:encode(IQAudienceHash), base64url:encode(NewHash2),
+                    Gid, Uid, Action, RetVal2],
+                case RetVal2 of
+                    false ->
+                        ?WARNING(PrintMsg2, PrintArg2);
+                    _ ->
+                        ?INFO(PrintMsg2, PrintArg2)
+                end,
+                RetVal2
+        end
+    catch
+        error : _ -> false
+    end.
+
+
+-spec compute_and_set_audience_hash(CurrentHash :: binary(), Gid :: gid(), Uid :: uid()) -> binary() | no_return().
+compute_and_set_audience_hash(CurrentHash, Gid, Uid) ->
+    case CurrentHash of
+        undefined ->
+            case get_member_identity_keys(Gid, Uid) of
+                {ok, Group} ->
+                    ComputedHash = Group#group.audience_hash,
+                    ok = model_groups:set_audience_hash(Gid, ComputedHash),
+                    ComputedHash;
+                {error, Reason} = Error ->
+                    ?ERROR("Failed to compute hash, Gid: ~p, Uid: ~p, Error: ~p", [Gid, Uid, Error]),
+                    error(Reason)
+            end;
+        _ -> CurrentHash
+    end.
+
 
 -spec get_group_info(Gid :: gid(), Uid :: uid())
             -> {ok, group_info()} | {error, not_member | no_group}.
@@ -810,12 +891,36 @@ send_create_group_event(Group, Uid, AddMemberResults) ->
 
 
 -spec send_modify_members_event(Gid :: gid(), Uid :: uid(),
-        MemberResults :: modify_member_results()) -> ok.
-send_modify_members_event(Gid, Uid, MemberResults) ->
+        MemberResults :: modify_member_results(),
+        PBHistoryResend :: pb_history_resend()) -> ok.
+send_modify_members_event(Gid, Uid, MemberResults, PBHistoryResend) ->
     Uids = [Uid | [Ouid || {Ouid, _, _} <- MemberResults]],
     Group = model_groups:get_group(Gid),
     NamesMap = model_accounts:get_names(Uids),
-    broadcast_update(Group, Uid, modify_members, MemberResults, NamesMap),
+    GroupMembers = Group#group.members,
+    HistoryResendMap = case PBHistoryResend of
+        undefined -> #{};
+        _ ->
+            MemberUids = [Member#group_member.uid || Member <- GroupMembers],
+            StateBundles = PBHistoryResend#pb_history_resend.sender_state_bundles,
+            StateBundlesMap = case StateBundles of
+                undefined -> #{};
+                _ -> lists:foldl(
+                         fun(StateBundle, Acc) ->
+                             Uid2 = StateBundle#pb_sender_state_bundle.uid,
+                             SenderState = StateBundle#pb_sender_state_bundle.sender_state,
+                             Acc#{Uid2 => SenderState}
+                         end, #{}, StateBundles)
+            end,
+            lists:foldl(
+                fun(Uid3, Acc) ->
+                    Acc#{Uid => PBHistoryResend#pb_history_resend{
+                        sender_state_bundles = [],
+                        sender_state = maps:get(Uid3, StateBundlesMap, undefined)
+                    }}
+                end, #{}, MemberUids)
+    end,
+    broadcast_update(Group, Uid, modify_members, MemberResults, NamesMap, HistoryResendMap),
     ok.
 
 
@@ -884,10 +989,18 @@ send_change_background_event(Gid, Uid) ->
     broadcast_update(Group, Uid, set_background, [], NamesMap),
     ok.
 
+
 % Broadcast the event to all members of the group
 -spec broadcast_update(Group :: group(), Uid :: uid() | undefined, Event :: atom(),
         Results :: modify_member_results(), NamesMap :: names_map()) -> ok.
 broadcast_update(Group, Uid, Event, Results, NamesMap) ->
+    broadcast_update(Group, Uid, Event, Results, NamesMap, #{}).
+
+
+% Broadcast the event to all members of the group
+-spec broadcast_update(Group :: group(), Uid :: uid() | undefined, Event :: atom(),
+        Results :: modify_member_results(), NamesMap :: names_map(), HistoryResendMap :: #{}) -> ok.
+broadcast_update(Group, Uid, Event, Results, NamesMap, HistoryResendMap) ->
     MembersSt = make_members_st(Event, Results, NamesMap),
     %% broadcast description only on change_description events, else- leave it undefined.
     Description = case Event of
@@ -904,7 +1017,8 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
         sender_name = maps:get(Uid, NamesMap, undefined),
         action = Event,
         members = MembersSt,
-        description = Description
+        description = Description,
+        history_resend = maps:get(Uid, HistoryResendMap, undefined)
     },
 
     Members = [M#group_member.uid || M <- Group#group.members],
