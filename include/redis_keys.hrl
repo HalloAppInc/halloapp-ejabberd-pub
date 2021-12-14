@@ -50,6 +50,8 @@
 
 -define(EXPORT_DATA_KEY, <<"eda:">>).
 
+-define(MARKETING_TAG_KEY, <<"mta:">>).
+
 % old deleted/deprecated keys
 %%-define(INVITES_KEY, <<"inv:">>).
 

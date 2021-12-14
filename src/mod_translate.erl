@@ -226,6 +226,8 @@ lookup_english_string(<<"server.voicecall.verification">>) -> <<"Your HalloApp v
 %% TODO: murali@: update these strings as necessary.
 lookup_english_string(<<"server.marketing.title">>) -> <<"Hallo there!">>;
 lookup_english_string(<<"server.marketing.body">>) -> <<"Invite your friends to enjoy HalloApp!">>;
+lookup_english_string(<<"server.marketing.post.title">>) -> <<"Wondering what to share?">>;
+lookup_english_string(<<"server.marketing.post.body">>) -> <<"What you’re doing right now might be interesting to your real friends.">>;
 lookup_english_string(Token) ->
     ?ERROR("unknown string: ~p", [Token]),
     Token.

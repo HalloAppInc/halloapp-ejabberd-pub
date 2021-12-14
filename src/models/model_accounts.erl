@@ -24,6 +24,8 @@
 
 -define(EXPORT_TTL, 10 * ?DAYS).
 
+-define(MARKETING_TAG_TTL, 90 * ?DAYS).
+
 -ifdef(TEST).
 -export([
     deleted_account_key/1,
@@ -124,7 +126,9 @@
     mark_inactive_uids_check_start/0,
     get_export/1,
     start_export/2,
-    test_set_export_time/2 % For tests only
+    test_set_export_time/2, % For tests only
+    add_marketing_tag/2,
+    get_marketing_tags/1
 ]).
 
 %%====================================================================
@@ -994,6 +998,25 @@ test_set_export_time(Uid, Ts) ->
     {ok, _} = q(["HSET", export_data_key(Uid), ?FIELD_EXPORT_START_TS, Ts]),
     ok.
 
+-spec add_marketing_tag(Uid :: uid(), Tag :: binary()) -> ok.
+add_marketing_tag(Uid, Tag) ->
+    Timestamp = util:now(),
+    OldTs = Timestamp - ?MARKETING_TAG_TTL,
+    ListKey = marketing_tag_key(Uid),
+    _Results = qp([["MULTI"],
+                    ["ZADD", ListKey, Timestamp, Tag],
+                    ["EXPIRE", ListKey, ?MARKETING_TAG_TTL],
+                    ["ZREMRANGEBYSCORE", ListKey, "-inf", OldTs],
+                    ["EXEC"]]),  
+    ok.
+
+-spec get_marketing_tags(Uid :: uid()) -> {ok, [{binary(), non_neg_integer()}]}.
+get_marketing_tags(Uid) ->
+    OldTs = util:now() - ?MARKETING_TAG_TTL,
+    ListKey = marketing_tag_key(Uid),
+    {ok, Res} = q(["ZRANGEBYSCORE", ListKey, integer_to_binary(OldTs), "+inf", "WITHSCORES"]),
+    {ok, util_redis:parse_zrange_with_scores(Res)}.
+
 
 %%====================================================================
 %% Internal redis functions.
@@ -1077,4 +1100,7 @@ count_accounts_key_slot(Slot) ->
 
 export_data_key(Uid) ->
     <<?EXPORT_DATA_KEY/binary, "{", Uid/binary, "}">>.
+
+marketing_tag_key(Uid) ->
+    <<?MARKETING_TAG_KEY/binary, "{", Uid/binary, "}">>.
 

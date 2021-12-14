@@ -1264,5 +1264,11 @@ message WakeUp {
 }
 
 message MarketingAlert {
+    enum Type {
+        UNKNOWN = 0;
+        INVITE_FRIENDS = 1;
+        SHARE_POST = 2;
+    }
+    Type type = 1;
 }
 

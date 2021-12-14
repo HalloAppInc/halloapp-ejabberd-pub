@@ -21,7 +21,7 @@
 %% hooks
 -export([
     push_message_hook/1,
-    push_marketing_alert/1
+    push_marketing_alert/2
 ]).
 
 -ifdef(TEST).
@@ -242,14 +242,15 @@ log_invalid_langId(#push_info{uid = Uid,
     end.
 
 
--spec push_marketing_alert(Uid :: binary()) -> ok.
-push_marketing_alert(Uid) ->
+-spec push_marketing_alert(Uid :: binary(), AlertType :: atom()) -> ok.
+push_marketing_alert(Uid, AlertType) ->
     MsgId = util_id:new_msg_id(),
     Message = #pb_msg{
         id = MsgId,
         to_uid = Uid,
-        payload = #pb_marketing_alert{}
+        payload = #pb_marketing_alert{type = AlertType}
     },
+    model_accounts:add_marketing_tag(Uid, util:to_binary(AlertType)), 
     push_message(Message),
     ok.
 

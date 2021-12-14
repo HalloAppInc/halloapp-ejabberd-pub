@@ -94,6 +94,9 @@ clear() ->
 -define(OTP3_KEY2, <<"_sSNsppDEeq7_goOKynmRg">>).
 -define(OTP3_KEY3, <<"Aa0OZJpEEeqKfgoOKynmRg">>).
 
+-define(MARKETING_TAG1, <<"tag1">>).
+-define(MARKETING_TAG2, <<"tag2">>).
+
 
 empty_test() ->
     ok.
@@ -607,6 +610,15 @@ get_export_test() ->
     {ok, Ts} = model_accounts:start_export(?UID1, ExportId),
     {ok, Ts, ExportId, TTL} = model_accounts:get_export(?UID1),
     ?assertEqual("integer", util:type(TTL)),
+    ok.
+
+marketing_tag_test() ->
+    setup(),
+    {ok, []} = model_accounts:get_marketing_tags(?UID1),
+    ok = model_accounts:add_marketing_tag(?UID1, ?MARKETING_TAG1),
+    {ok, [{?MARKETING_TAG1, Ts1}]} = model_accounts:get_marketing_tags(?UID1),
+    ok = model_accounts:add_marketing_tag(?UID1, ?MARKETING_TAG2),
+    {ok, [{?MARKETING_TAG1, Ts1}, {?MARKETING_TAG2, _Ts2}]} = model_accounts:get_marketing_tags(?UID1),
     ok.
 
 
