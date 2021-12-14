@@ -208,6 +208,7 @@ modules:
   mod_calls_api: {}
   mod_calls: {}
   mod_call_stats: {}
+  mod_call_servers: {}
 
 ### Local Variables:
 ### mode: yaml

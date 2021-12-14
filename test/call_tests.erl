@@ -53,7 +53,7 @@ start_call_test(_Conf) ->
         }
     } = Result,
 
-    {StunServers, TurnServers} = mod_calls:get_stun_turn_servers(),
+    {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(),
 
     #pb_start_call_result{
         result = ok,
@@ -107,7 +107,7 @@ get_call_servers_test(_Conf) ->
         }
     } = Result,
 
-    {StunServers, TurnServers} = mod_calls:get_stun_turn_servers(),
+    {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(),
 
     #pb_get_call_servers_result{
         result = ok,
