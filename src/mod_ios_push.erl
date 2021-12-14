@@ -386,7 +386,7 @@ push_message(Message, PushInfo, State) ->
         Class: Reason: Stacktrace ->
             ?ERROR("Failed to push MsgId: ~s ToUid: ~s crash:~s",
                 [MsgId, Uid, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            ok
+            State
     end.
 
 
