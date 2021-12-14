@@ -1,0 +1,250 @@
+{
+	"AD": "eu-central-1",		//Andorra
+	"AE": "me-south-1",		//United Arab Emirates
+	"AF": "me-south-1",		//Afghanistan
+	"AG": "us-east-1",		//Antigua and Barbuda
+	"AI": "us-east-1",		//Anguilla
+	"AL": "eu-central-1",		//Albania
+	"AM": "eu-central-1",		//Armenia
+	"AO": "af-south-1",		//Angola
+	"AQ": "af-south-1",		//Antarctica
+	"AR": "sa-east-1",		//Argentina
+	"AS": "us-west-1",		//American Samoa
+	"AT": "eu-central-1",		//Austria
+	"AU": "ap-southeast-2",		//Australia
+	"AW": "us-east-1",		//Aruba
+	"AX": "eu-central-1",		//Åland Islands
+	"AZ": "eu-central-1",		//Azerbaijan
+	"BA": "eu-central-1",		//Bosnia and Herzegovina
+	"BB": "us-east-1",		//Barbados
+	"BD": "ap-southeast-1",		//Bangladesh
+	"BE": "eu-central-1",		//Belgium
+	"BF": "eu-central-1",		//Burkina Faso
+	"BG": "eu-central-1",		//Bulgaria
+	"BH": "me-south-1",		//Bahrain
+	"BI": "eu-central-1",		//Burundi
+	"BJ": "us-east-1",		//Benin
+	"BL": "us-east-1",		//Saint Barthélemy
+	"BM": "us-east-1",		//Bermuda
+	"BN": "ap-southeast-1",		//Brunei Darussalam
+	"BO": "us-west-1",		//Bolivia (Plurinational State of)
+	"BQ": "us-east-1",		//Bonaire, Sint Eustatius and Saba
+	"BR": "sa-east-1",		//Brazil
+	"BS": "us-east-1",		//Bahamas
+	"BT": "ap-southeast-1",		//Bhutan
+	"BV": "eu-central-1",		//Bouvet Island
+	"BW": "af-south-1",		//Botswana
+	"BY": "eu-central-1",		//Belarus
+	"BZ": "us-east-1",		//Belize
+	"CA": "us-east-1",		//Canada
+	"CC": "us-west-1",		//Cocos (Keeling) Islands
+	"CD": "eu-central-1",		//Congo, Democratic Republic of the
+	"CF": "eu-central-1",		//Central African Republic
+	"CG": "eu-central-1",		//Congo
+	"CH": "eu-central-1",		//Switzerland
+	"CI": "eu-central-1",		//Côte d'Ivoire
+	"CK": "us-west-1",		//Cook Islands
+	"CL": "us-west-1",		//Chile
+	"CM": "eu-central-1",		//Cameroon
+	"CN": "ap-east-1",		//China
+	"CO": "us-west-1",		//Colombia
+	"CR": "us-east-1",		//Costa Rica
+	"CU": "us-east-1",		//Cuba
+	"CV": "eu-central-1",		//Cabo Verde
+	"CW": "us-east-1",		//Curaçao
+	"CX": "ap-southeast-1",		//Christmas Island
+	"CY": "eu-central-1",		//Cyprus
+	"CZ": "eu-central-1",		//Czechia
+	"DE": "eu-central-1",		//Germany
+	"DJ": "eu-central-1",		//Djibouti
+	"DK": "eu-central-1",		//Denmark
+	"DM": "us-east-1",		//Dominica
+	"DO": "us-east-1",		//Dominican Republic
+	"DZ": "eu-central-1",		//Algeria
+	"EC": "us-west-1",		//Ecuador
+	"EE": "eu-central-1",		//Estonia
+	"EG": "eu-central-1",		//Egypt
+	"EH": "eu-central-1",		//Western Sahara
+	"ER": "eu-central-1",		//Eritrea
+	"ES": "eu-central-1",		//Spain
+	"ET": "eu-central-1",		//Ethiopia
+	"FI": "eu-central-1",		//Finland
+	"FJ": "us-west-1",		//Fiji
+	"FK": "sa-east-1",		//Falkland Islands (Malvinas)
+	"FM": "us-west-1",		//Micronesia (Federated States of)
+	"FO": "eu-west-2",		//Faroe Islands
+	"FR": "eu-central-1",		//France
+	"GA": "eu-central-1",		//Gabon
+	"GB": "eu-west-2",		//United Kingdom of Great Britain and Northern Ireland
+	"GD": "us-east-1",		//Grenada
+	"GE": "eu-central-1",		//Georgia
+	"GF": "us-east-1",		//French Guiana
+	"GG": "eu-west-2",		//Guernsey
+	"GH": "eu-central-1",		//Ghana
+	"GI": "eu-central-1",		//Gibraltar
+	"GL": "eu-west-2",		//Greenland
+	"GM": "eu-central-1",		//Gambia
+	"GN": "eu-central-1",		//Guinea
+	"GP": "us-east-1",		//Guadeloupe
+	"GQ": "eu-central-1",		//Equatorial Guinea
+	"GR": "eu-central-1",		//Greece
+	"GS": "sa-east-1",		//South Georgia and the South Sandwich Islands
+	"GT": "us-west-1",		//Guatemala
+	"GU": "ap-northeast-3",		//Guam
+	"GW": "eu-central-1",		//Guinea-Bissau
+	"GY": "us-east-1",		//Guyana
+	"HK": "ap-east-1",		//Hong Kong
+	"HN": "us-west-1",		//Honduras
+	"HR": "eu-central-1",		//Croatia
+	"HT": "us-east-1",		//Haiti
+	"HU": "eu-central-1",		//Hungary
+	"ID": "ap-southeast-1",		//Indonesia
+	"IE": "eu-west-2",		//Ireland
+	"IL": "eu-central-1",		//Israel
+	"IM": "eu-west-2",		//Isle of Man
+	"IN": "ap-south-1",		//India
+	"IO": "ap-south-1",		//British Indian Ocean Territory
+	"IQ": "eu-central-1",		//Iraq
+	"IR": "eu-central-1",		//Iran (Islamic Republic of)
+	"IS": "eu-west-2",		//Iceland
+	"IT": "eu-central-1",		//Italy
+	"JE": "eu-west-2",		//Jersey
+	"JM": "us-east-1",		//Jamaica
+	"JO": "eu-central-1",		//Jordan
+	"JP": "ap-northeast-3",		//Japan
+	"KE": "eu-central-1",		//Kenya
+	"KG": "eu-central-1",		//Kyrgyzstan
+	"KH": "ap-southeast-1",		//Cambodia
+	"KI": "us-west-1",		//Kiribati
+	"KM": "eu-central-1",		//Comoros
+	"KN": "us-east-1",		//Saint Kitts and Nevis
+	"KP": "ap-northeast-2",		//Korea (Democratic People's Republic of)
+	"KR": "ap-northeast-2",		//Korea, Republic of
+	"KW": "me-south-1",		//Kuwait
+	"KY": "us-east-1",		//Cayman Islands
+	"KZ": "eu-central-1",		//Kazakhstan
+	"LA": "ap-southeast-1",		//Lao People's Democratic Republic
+	"LB": "eu-central-1",		//Lebanon
+	"LC": "us-east-1",		//Saint Lucia
+	"LI": "eu-central-1",		//Liechtenstein
+	"LK": "ap-southeast-1",		//Sri Lanka
+	"LR": "eu-central-1",		//Liberia
+	"LS": "af-south-1",		//Lesotho
+	"LT": "eu-central-1",		//Lithuania
+	"LU": "eu-central-1",		//Luxembourg
+	"LV": "eu-central-1",		//Latvia
+	"LY": "eu-central-1",		//Libya
+	"MA": "eu-central-1",		//Morocco
+	"MC": "eu-central-1",		//Monaco
+	"MD": "eu-central-1",		//Moldova, Republic of
+	"ME": "eu-central-1",		//Montenegro
+	"MF": "us-east-1",		//Saint Martin (French part)
+	"MG": "af-south-1",		//Madagascar
+	"MH": "us-west-1",		//Marshall Islands
+	"MK": "eu-central-1",		//North Macedonia
+	"ML": "eu-central-1",		//Mali
+	"MM": "ap-southeast-1",		//Myanmar
+	"MN": "us-west-1",		//Mongolia
+	"MO": "ap-east-1",		//Macao
+	"MP": "ap-northeast-3",		//Northern Mariana Islands
+	"MQ": "us-east-1",		//Martinique
+	"MR": "eu-central-1",		//Mauritania
+	"MS": "us-east-1",		//Montserrat
+	"MT": "eu-central-1",		//Malta
+	"MU": "eu-central-1",		//Mauritius
+	"MV": "ap-south-1",		//Maldives
+	"MW": "eu-central-1",		//Malawi
+	"MX": "us-west-1",		//Mexico
+	"MY": "ap-southeast-1",		//Malaysia
+	"MZ": "af-south-1",		//Mozambique
+	"NA": "af-south-1",		//Namibia
+	"NC": "ap-southeast-2",		//New Caledonia
+	"NE": "eu-central-1",		//Niger
+	"NF": "ap-southeast-2",		//Norfolk Island
+	"NG": "eu-central-1",		//Nigeria
+	"NI": "us-west-1",		//Nicaragua
+	"NL": "eu-central-1",		//Netherlands
+	"NO": "eu-central-1",		//Norway
+	"NP": "ap-south-1",		//Nepal
+	"NR": "us-west-1",		//Nauru
+	"NU": "us-west-1",		//Niue
+	"NZ": "ap-southeast-2",		//New Zealand
+	"OM": "me-south-1",		//Oman
+	"PA": "us-west-1",		//Panama
+	"PE": "us-west-1",		//Peru
+	"PF": "us-west-1",		//French Polynesia
+	"PG": "us-east-1",		//Papua New Guinea
+	"PH": "ap-southeast-1",		//Philippines
+	"PK": "eu-central-1",		//Pakistan
+	"PL": "eu-central-1",		//Poland
+	"PM": "us-east-1",		//Saint Pierre and Miquelon
+	"PN": "us-west-1",		//Pitcairn
+	"PR": "us-east-1",		//Puerto Rico
+	"PS": "eu-central-1",		//Palestine, State of
+	"PT": "eu-central-1",		//Portugal
+	"PW": "ap-southeast-1",		//Palau
+	"PY": "us-west-1",		//Paraguay
+	"QA": "me-south-1",		//Qatar
+	"RE": "ap-south-1",		//Réunion
+	"RO": "eu-central-1",		//Romania
+	"RS": "eu-central-1",		//Serbia
+	"RU": "eu-central-1",		//Russian Federation
+	"RW": "eu-central-1",		//Rwanda
+	"SA": "me-south-1",		//Saudi Arabia
+	"SB": "ap-southeast-1",		//Solomon Islands
+	"SC": "eu-central-1",		//Seychelles
+	"SD": "eu-central-1",		//Sudan
+	"SE": "eu-central-1",		//Sweden
+	"SG": "ap-southeast-1",		//Singapore
+	"SH": "eu-central-1",		//Saint Helena, Ascension and Tristan da Cunha
+	"SI": "eu-central-1",		//Slovenia
+	"SJ": "eu-west-2",		//Svalbard and Jan Mayen
+	"SK": "eu-central-1",		//Slovakia
+	"SL": "eu-central-1",		//Sierra Leone
+	"SM": "eu-central-1",		//San Marino
+	"SN": "eu-central-1",		//Senegal
+	"SO": "eu-central-1",		//Somalia
+	"SR": "us-east-1",		//Suriname
+	"SS": "eu-central-1",		//South Sudan
+	"ST": "eu-central-1",		//Sao Tome and Principe
+	"SV": "us-west-1",		//El Salvador
+	"SX": "us-east-1",		//Sint Maarten (Dutch part)
+	"SY": "eu-central-1",		//Syrian Arab Republic
+	"SZ": "af-south-1",		//Eswatini
+	"TC": "us-east-1",		//Turks and Caicos Islands
+	"TD": "eu-central-1",		//Chad
+	"TF": "af-south-1",		//French Southern Territories
+	"TG": "eu-central-1",		//Togo
+	"TH": "ap-southeast-1",		//Thailand
+	"TJ": "eu-central-1",		//Tajikistan
+	"TK": "us-west-1",		//Tokelau
+	"TL": "ap-southeast-1",		//Timor-Leste
+	"TM": "eu-central-1",		//Turkmenistan
+	"TN": "eu-central-1",		//Tunisia
+	"TO": "us-west-1",		//Tonga
+	"TR": "eu-central-1",		//Turkey
+	"TT": "us-east-1",		//Trinidad and Tobago
+	"TV": "us-east-1",		//Tuvalu
+	"TW": "ap-east-1",		//Taiwan, Province of China
+	"TZ": "eu-central-1",		//Tanzania, United Republic of
+	"UA": "eu-central-1",		//Ukraine
+	"UG": "eu-central-1",		//Uganda
+	"UM": "us-west-1",		//United States Minor Outlying Islands
+	"US": "us-east-1",		//United States of America
+	"UY": "sa-east-1",		//Uruguay
+	"UZ": "eu-central-1",		//Uzbekistan
+	"VA": "eu-central-1",		//Holy See
+	"VC": "us-east-1",		//Saint Vincent and the Grenadines
+	"VE": "us-east-1",		//Venezuela (Bolivarian Republic of)
+	"VG": "us-east-1",		//Virgin Islands (British)
+	"VI": "us-east-1",		//Virgin Islands (U.S.)
+	"VN": "ap-southeast-1",		//Viet Nam
+	"VU": "ap-southeast-2",		//Vanuatu
+	"WF": "ap-southeast-2",		//Wallis and Futuna
+	"WS": "us-west-1",		//Samoa
+	"YE": "eu-central-1",		//Yemen
+	"YT": "af-south-1",		//Mayotte
+	"ZA": "af-south-1",		//South Africa
+	"ZM": "af-south-1",		//Zambia
+	"ZW": "af-south-1"		//Zimbabwe
+}
