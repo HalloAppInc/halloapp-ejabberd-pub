@@ -1,3 +1,7 @@
+"server.marketing.body" = "Lade deine Freunde zu HalloApp ein!";
+"server.marketing.post.body" = "Was du gerade machst, könnte deine echten Freunde interessieren.";
+"server.marketing.post.title" = "Fragst du dich, was du teilen könntest?";
+"server.marketing.title" = "Hallo!";
 "server.new.comment" = "Neuer Kommentar";
 "server.new.contact" = "%@ ist jetzt auf HalloApp";
 "server.new.group" = "Du wurdest einer neuen Gruppe hinzugefügt";

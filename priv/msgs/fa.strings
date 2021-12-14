@@ -1,3 +1,7 @@
+"server.marketing.body" = "دوستانتان را دعوت کنید تا از هالواپ لذت ببرند!";
+"server.marketing.post.body" = "کاری که هم اکنون انجام میدهید ممکن است برای دوستانتان جالب باشد.";
+"server.marketing.post.title" = "مطمئن نیستید چه چیزی به اشتراک بگذارید؟";
+"server.marketing.title" = "سلام!";
 "server.new.comment" = "نظر جدید";
 "server.new.contact" = "%@ به هالواپ پیوست";
 "server.new.group" = "به گروه جدیدی دعوت شدید";
