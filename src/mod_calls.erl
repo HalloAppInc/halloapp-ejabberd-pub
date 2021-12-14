@@ -75,7 +75,8 @@ start_call(CallId, Uid, PeerUid, CallType, Offer) ->
         webrtc_offer = Offer,
         stun_servers = StunServers,
         turn_servers = TurnServers,
-        timestamp_ms = util:now_ms()
+        timestamp_ms = util:now_ms(),
+        server_sent_ts_ms = util:now_ms()       % time at which the server send the packet
     },
     MsgId = util_id:new_msg_id(),
     Packet = #pb_msg{
@@ -92,10 +93,11 @@ start_call(CallId, Uid, PeerUid, CallType, Offer) ->
 
 % TODO: (nikola) code is kind of duplicated..
 user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
-        payload = #pb_incoming_call{call_id = CallId, call_type = CallType}}, _State} = Acc) ->
+        payload = #pb_incoming_call{call_id = CallId, call_type = CallType} = IncomingCall} = Message, State}) ->
     ?INFO("CallId: ~s incoming FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, FromUid, ToUid, MsgId]),
     stat:count("HA/call", "incoming_call", 1, [{type, CallType}]),
-    Acc;
+    Message1 = Message#pb_msg{payload = IncomingCall#pb_incoming_call{server_sent_ts_ms = util:now_ms()}},
+    {Message1, State};
 user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         payload = #pb_call_ringing{call_id = CallId}}, _State} = Acc) ->
     ?INFO("CallId: ~s ringing FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, FromUid, ToUid, MsgId]),
