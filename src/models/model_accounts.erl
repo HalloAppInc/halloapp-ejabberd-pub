@@ -1014,7 +1014,7 @@ add_marketing_tag(Uid, Tag) ->
 get_marketing_tags(Uid) ->
     OldTs = util:now() - ?MARKETING_TAG_TTL,
     ListKey = marketing_tag_key(Uid),
-    {ok, Res} = q(["ZRANGEBYSCORE", ListKey, integer_to_binary(OldTs), "+inf", "WITHSCORES"]),
+    {ok, Res} = q(["ZREVRANGEBYSCORE", ListKey, "+inf", integer_to_binary(OldTs), "WITHSCORES"]),
     {ok, util_redis:parse_zrange_with_scores(Res)}.
 
 

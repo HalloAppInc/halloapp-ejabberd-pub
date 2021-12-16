@@ -19,6 +19,7 @@
     compute_retention/0,
     dump_accounts/0,
     dump_accounts_run/2,
+    dump_account/1,  %% for testing
     weekly_user_retention_result/1
 ]).
 
@@ -106,6 +107,13 @@ dump_account(Uid) ->
             {error, missing} -> ok;
             {ok, Account} ->
                 {ok, Friends} = model_friends:get_friends(Uid),
+                {ok, MarketingTags} = model_accounts:get_marketing_tags(Uid),
+                LatestTag = case MarketingTags of
+                    [] -> none;
+                    _ ->
+                      {Tag, _} = lists:nth(1, MarketingTags),
+                      Tag
+                end,
                 {ok, Contacts} = model_contacts:get_contacts(Uid),
                 UidContacts = model_phone:get_uids(Contacts),
                 NumContacts = length(Contacts),
@@ -124,7 +132,8 @@ dump_account(Uid) ->
                     num_uid_contacts => NumUidContacts,
                     num_friends => NumFriends,
                     device => Account#account.device,
-                    os_version => Account#account.os_version
+                    os_version => Account#account.os_version,
+                    latest_marketing_tag => LatestTag
                 }),
                 ok
         end

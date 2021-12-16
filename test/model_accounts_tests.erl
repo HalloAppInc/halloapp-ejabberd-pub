@@ -618,7 +618,7 @@ marketing_tag_test() ->
     ok = model_accounts:add_marketing_tag(?UID1, ?MARKETING_TAG1),
     {ok, [{?MARKETING_TAG1, Ts1}]} = model_accounts:get_marketing_tags(?UID1),
     ok = model_accounts:add_marketing_tag(?UID1, ?MARKETING_TAG2),
-    {ok, [{?MARKETING_TAG1, Ts1}, {?MARKETING_TAG2, _Ts2}]} = model_accounts:get_marketing_tags(?UID1),
+    {ok, [{?MARKETING_TAG2, _Ts2}, {?MARKETING_TAG1, Ts1}]} = model_accounts:get_marketing_tags(?UID1),
     ok.
 
 
