@@ -203,7 +203,7 @@ is_lang_ok(PushLangId) ->
     case PushLangId of
         undefined -> true;
         _ ->
-            case mod_translate:shorten_langid(PushLangId) of
+            case mod_translate:shorten_lang_id(PushLangId) of
                 <<"de">> -> true;
                 <<"en">> -> true;
                 <<"es">> -> true;
