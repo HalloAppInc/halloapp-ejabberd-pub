@@ -213,114 +213,114 @@ check_first_login(Uid, Server) ->
 %% then other servers cant encode this message because the record has a new field. 
 %% similarly the updated server cant encode it because it is missing a field.
 %% so this function helps us transform packets across servers.
-upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
-    PayloadType = util:get_payload_type(Msg),
-    case PayloadType of
-        pb_group_stanza ->
-            NewMsgPayload = upgrade_group_stanza(MsgPayload),
-            Msg#pb_msg{payload = NewMsgPayload};
+% upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
+%     PayloadType = util:get_payload_type(Msg),
+%     case PayloadType of
+%         pb_group_stanza ->
+%             NewMsgPayload = upgrade_group_stanza(MsgPayload),
+%             Msg#pb_msg{payload = NewMsgPayload};
 
-        pb_rerequest ->
-            NewMsgPayload = upgrade_rerequest_stanza(MsgPayload),
-            Msg#pb_msg{payload = NewMsgPayload};
+%         pb_rerequest ->
+%             NewMsgPayload = upgrade_rerequest_stanza(MsgPayload),
+%             Msg#pb_msg{payload = NewMsgPayload};
 
-        pb_incoming_call ->
-            NewMsgPayload = upgrade_call_stanza(MsgPayload),
-            Msg#pb_msg{payload = NewMsgPayload};
+%         pb_incoming_call ->
+%             NewMsgPayload = upgrade_call_stanza(MsgPayload),
+%             Msg#pb_msg{payload = NewMsgPayload};
 
-        _ -> Msg
+%         _ -> Msg
 
-    end;
+%     end;
 upgrade_packet(Packet) -> Packet.
 
-upgrade_group_stanza(GroupStanza) ->
-    case GroupStanza of
-        #pb_group_stanza{} -> GroupStanza;
-        {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members, Background, AudienceHash, Description} ->
-            #pb_group_stanza{
-                action = Action,
-                gid = Gid,
-                name = Name,
-                avatar_id = AvatarId,
-                sender_uid = SenderUid,
-                sender_name = SenderName,
-                members = Members,
-                background = Background,
-                audience_hash = AudienceHash,
-                description = Description
-            };
-        {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members, Background, AudienceHash, Description, _HistoryResend} ->
-            #pb_group_stanza{
-                action = Action,
-                gid = Gid,
-                name = Name,
-                avatar_id = AvatarId,
-                sender_uid = SenderUid,
-                sender_name = SenderName,
-                members = Members,
-                background = Background,
-                audience_hash = AudienceHash,
-                description = Description
-            }
-    end.
+% upgrade_group_stanza(GroupStanza) ->
+%     case GroupStanza of
+%         #pb_group_stanza{} -> GroupStanza;
+%         {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members, Background, AudienceHash, Description} ->
+%             #pb_group_stanza{
+%                 action = Action,
+%                 gid = Gid,
+%                 name = Name,
+%                 avatar_id = AvatarId,
+%                 sender_uid = SenderUid,
+%                 sender_name = SenderName,
+%                 members = Members,
+%                 background = Background,
+%                 audience_hash = AudienceHash,
+%                 description = Description
+%             };
+%         {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members, Background, AudienceHash, Description, _HistoryResend} ->
+%             #pb_group_stanza{
+%                 action = Action,
+%                 gid = Gid,
+%                 name = Name,
+%                 avatar_id = AvatarId,
+%                 sender_uid = SenderUid,
+%                 sender_name = SenderName,
+%                 members = Members,
+%                 background = Background,
+%                 audience_hash = AudienceHash,
+%                 description = Description
+%             }
+%     end.
 
-upgrade_rerequest_stanza(RerequestStanza) ->
-    case RerequestStanza of
-        #pb_rerequest{} -> RerequestStanza;
-        {pb_rerequest, Id, IdentityKey, SignedPreKeyId, OneTimeKeyId, SessionKey, EphemeralKey} ->
-            #pb_rerequest{
-                id = Id,
-                identity_key = IdentityKey,
-                signed_pre_key_id = SignedPreKeyId,
-                one_time_pre_key_id = OneTimeKeyId,
-                session_setup_ephemeral_key = SessionKey,
-                message_ephemeral_key = EphemeralKey
-            };
-        {pb_rerequest, Id, IdentityKey, SignedPreKeyId, OneTimeKeyId, SessionKey, EphemeralKey, _ContentType} ->
-            #pb_rerequest{
-                id = Id,
-                identity_key = IdentityKey,
-                signed_pre_key_id = SignedPreKeyId,
-                one_time_pre_key_id = OneTimeKeyId,
-                session_setup_ephemeral_key = SessionKey,
-                message_ephemeral_key = EphemeralKey
-            }
-    end.
+% upgrade_rerequest_stanza(RerequestStanza) ->
+%     case RerequestStanza of
+%         #pb_rerequest{} -> RerequestStanza;
+%         {pb_rerequest, Id, IdentityKey, SignedPreKeyId, OneTimeKeyId, SessionKey, EphemeralKey} ->
+%             #pb_rerequest{
+%                 id = Id,
+%                 identity_key = IdentityKey,
+%                 signed_pre_key_id = SignedPreKeyId,
+%                 one_time_pre_key_id = OneTimeKeyId,
+%                 session_setup_ephemeral_key = SessionKey,
+%                 message_ephemeral_key = EphemeralKey
+%             };
+%         {pb_rerequest, Id, IdentityKey, SignedPreKeyId, OneTimeKeyId, SessionKey, EphemeralKey, _ContentType} ->
+%             #pb_rerequest{
+%                 id = Id,
+%                 identity_key = IdentityKey,
+%                 signed_pre_key_id = SignedPreKeyId,
+%                 one_time_pre_key_id = OneTimeKeyId,
+%                 session_setup_ephemeral_key = SessionKey,
+%                 message_ephemeral_key = EphemeralKey
+%             }
+%     end.
 
 
-upgrade_call_stanza(CallStanza) ->
-    case CallStanza of
-        #pb_incoming_call{} -> CallStanza;
-        {pb_incoming_call, CallId, CallType, WebRtcOffer, StunServers, TurnServers, TimestampMs} ->
-            #pb_incoming_call{
-                call_id = CallId,
-                call_type = CallType,
-                webrtc_offer = WebRtcOffer,
-                stun_servers = StunServers,
-                turn_servers = TurnServers,
-                timestamp_ms = TimestampMs
-            };
-        {pb_incoming_call, CallId, CallType, WebRtcOffer, StunServers, TurnServers, TimestampMs, _ServerSentTimestampMs} ->
-            #pb_incoming_call{
-                call_id = CallId,
-                call_type = CallType,
-                webrtc_offer = WebRtcOffer,
-                stun_servers = StunServers,
-                turn_servers = TurnServers,
-                timestamp_ms = TimestampMs
-            }
-    end.
+% upgrade_call_stanza(CallStanza) ->
+%     case CallStanza of
+%         #pb_incoming_call{} -> CallStanza;
+%         {pb_incoming_call, CallId, CallType, WebRtcOffer, StunServers, TurnServers, TimestampMs} ->
+%             #pb_incoming_call{
+%                 call_id = CallId,
+%                 call_type = CallType,
+%                 webrtc_offer = WebRtcOffer,
+%                 stun_servers = StunServers,
+%                 turn_servers = TurnServers,
+%                 timestamp_ms = TimestampMs
+%             };
+%         {pb_incoming_call, CallId, CallType, WebRtcOffer, StunServers, TurnServers, TimestampMs, _ServerSentTimestampMs} ->
+%             #pb_incoming_call{
+%                 call_id = CallId,
+%                 call_type = CallType,
+%                 webrtc_offer = WebRtcOffer,
+%                 stun_servers = StunServers,
+%                 turn_servers = TurnServers,
+%                 timestamp_ms = TimestampMs
+%             }
+%     end.
 
 
 process_info(#{lserver := LServer} = State, {route, Packet}) ->
     NewPacket = upgrade_packet(Packet),
-    % TODO: Remove enif_protobuf:encode(...) after upgrade is done.
-    case enif_protobuf:encode(NewPacket) of
-        {error, Reason} ->
-            ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
-        _ ->
-            ok
-    end,
+    % % TODO: Remove enif_protobuf:encode(...) after upgrade is done.
+    % case enif_protobuf:encode(NewPacket) of
+    %     {error, Reason} ->
+    %         ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
+    %     _ ->
+    %         ok
+    % end,
     case verify_incoming_packet(State, NewPacket) of
         allow ->
             %% TODO(murali@): remove temp counts after clients transition.
