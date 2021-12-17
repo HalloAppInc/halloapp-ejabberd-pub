@@ -53,12 +53,10 @@ start_call_test(_Conf) ->
         }
     } = Result,
 
-    {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(),
-
     #pb_start_call_result{
         result = ok,
-        stun_servers = StunServers,
-        turn_servers = TurnServers
+        stun_servers = [#pb_stun_server{}],
+        turn_servers = [#pb_turn_server{}]
     } = ResultPayload,
 
 
@@ -80,8 +78,8 @@ start_call_test(_Conf) ->
         call_id = CallId,
         call_type = audio,
         webrtc_offer = Offer,
-        stun_servers = [StunServer],
-        turn_servers = [TurnServer]
+        stun_servers = [#pb_stun_server{}],
+        turn_servers = [#pb_turn_server{}]
     } = IncomingCall,
 
     ok = ha_client:stop(C1),
@@ -107,12 +105,10 @@ get_call_servers_test(_Conf) ->
         }
     } = Result,
 
-    {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(),
-
     #pb_get_call_servers_result{
         result = ok,
-        stun_servers = StunServers,
-        turn_servers = TurnServers
+        stun_servers = [#pb_stun_server{}],
+        turn_servers = [#pb_turn_server{}]
     } = ResultPayload,
 
     ok = ha_client:stop(C1),

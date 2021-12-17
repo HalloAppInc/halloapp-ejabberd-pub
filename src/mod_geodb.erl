@@ -44,7 +44,11 @@ full_path() ->
 start(_Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),
     StartTime = util:now_ms(),
-    ok = locus:start_loader(geodb, full_path()),
+    ok = case locus:start_loader(geodb, full_path()) of
+        ok -> ok;
+        {error, already_started} -> ok;
+        Any -> Any
+    end,
     {ok, _DatabaseVersion} = locus:await_loader(geodb),
     EndTime = util:now_ms(),
     ?INFO("Time taken to load geodb: ~pms", [EndTime - StartTime]),
