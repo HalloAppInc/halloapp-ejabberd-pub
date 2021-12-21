@@ -68,21 +68,25 @@ event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
     stat:count(?CALLS_NS, "call_count", 1, [{type, CallType}]),
     stat:count(?CALLS_NS, "call_count_by_cc", 1, [{cc, CC}, {type, CallType}, {platform, Platform}]),
     stat:count(?CALLS_NS, "call_count_by_platform", 1, [{platform, Platform}]),
-    DurationSec = round(DurationMs / 1000),
-    stat:count(?CALLS_NS, "call_duration_sec", DurationSec, [{type, CallType}]),
-    stat:count(?CALLS_NS, "call_duration_sec_by_cc", DurationSec,
-        [{cc, CC}, {type, CallType}, {platform, Platform}]),
-    stat:count(?CALLS_NS, "call_duration_sec_by_platform", DurationSec, [{platform, Platform}]),
 
     stat:count(?CALLS_NS, "call_by_answered", 1,
         [{answered, Answered}, {type, CallType}, {platform, Platform}]),
-
     stat:count(?CALLS_NS, "end_reason", 1,
         [{end_reason, EndCallReason}, {type, CallType}, {platform, Platform}]),
-
     stat:count(?CALLS_NS, "call_by_int", 1, [{international, International}, {type, CallType}]),
-    stat:count(?CALLS_NS, "call_duration_by_int", DurationSec,
-        [{international, International}, {type, CallType}]),
 
+    DurationSec = round(DurationMs / 1000),
+    case DurationSec > 0 of
+        true ->
+            stat:count(?CALLS_NS, "call_duration_sec", DurationSec, [{type, CallType}]),
+            stat:count(?CALLS_NS, "call_duration_sec_by_cc", DurationSec,
+                [{cc, CC}, {type, CallType}, {platform, Platform}]),
+            stat:count(?CALLS_NS, "call_duration_sec_by_platform", DurationSec, [{platform, Platform}]),
+
+            stat:count(?CALLS_NS, "call_duration_by_int", DurationSec,
+                [{international, International}, {type, CallType}]);
+        false ->
+            ok
+    end,
     Event.
 
