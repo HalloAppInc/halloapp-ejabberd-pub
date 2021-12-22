@@ -156,6 +156,11 @@ get_client_based_props(PropMap, undefined, _) ->
 is_audio_call_enabled(<<"1000000000052736684">>) -> true;   %% Sunisha
 is_audio_call_enabled(<<"1000000000399778754">>) -> true;   %% Neeraj's another friend: +91-94441-02346
 is_audio_call_enabled(<<"1000000000503720864">>) -> true;   %% Jim Goetz
+is_audio_call_enabled(<<"1000000000503720864">>) -> true;   %% Jim Goetz
+is_audio_call_enabled(<<"1000000000925762631">>) -> true;   %% Gergana (Nikola)
+is_audio_call_enabled(<<"1000000000122054965">>) -> true;   %% Katya (Nikola)
+is_audio_call_enabled(<<"1000000000683067883">>) -> true;   %% Madlen (Nikola)
+is_audio_call_enabled(<<"1000000000938575483">>) -> true;   %% Pavlina (Nikola)
 is_audio_call_enabled(Uid) ->
     dev_users:is_dev_uid(Uid).
 
