@@ -188,6 +188,17 @@ get_signup_user_agent_test() ->
     ?assertEqual({ok, ?USER_AGENT2}, model_accounts:get_signup_user_agent(?UID1)).
 
 
+get_last_registration_ts_ms_test() ->
+    setup(),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1),
+    {ok, Timestamp1} = model_accounts:get_creation_ts_ms(?UID1),
+    ?assertEqual({ok, Timestamp1}, model_accounts:get_last_registration_ts_ms(?UID1)),
+    ?assertNotEqual(undefined, Timestamp1),
+    Timestamp2 = util:now_ms(),
+    ok = model_accounts:set_last_registration_ts_ms(?UID1, Timestamp2),
+    ?assertEqual({ok, Timestamp2}, model_accounts:get_last_registration_ts_ms(?UID1)).
+
+
 get_client_version_test() ->
     setup(),
     ok = model_accounts:set_client_version(?UID1, ?CLIENT_VERSION1),

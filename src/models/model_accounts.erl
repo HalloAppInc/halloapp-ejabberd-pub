@@ -61,6 +61,7 @@
     get_names/1,
     get_avatar_ids/1,
     get_creation_ts_ms/1,
+    get_last_registration_ts_ms/1,
     mark_first_non_empty_sync_done/1,
     is_first_non_empty_sync_done/1,
     delete_first_non_empty_sync_status/1,
@@ -78,6 +79,7 @@
     set_last_ipaddress/2,
     get_last_ipaddress/1,
     set_user_agent/2,
+    set_last_registration_ts_ms/2,
     get_signup_user_agent/1,
     set_client_version/2,
     get_client_version/1,
@@ -140,6 +142,7 @@
 -define(FIELD_NAME, <<"na">>).
 -define(FIELD_AVATAR_ID, <<"av">>).
 -define(FIELD_CREATION_TIME, <<"ct">>).
+-define(FIELD_LAST_REGISTRATION_TIME, <<"rt">>).
 -define(FIELD_DELETION_TIME, <<"dt">>).
 -define(FIELD_SYNC_STATUS, <<"fsy">>).
 -define(FIELD_NON_EMPTY_SYNC_STATUS, <<"sy">>).
@@ -192,7 +195,8 @@ create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
                         ["HSET", account_key(Uid),
                             ?FIELD_NAME, Name,
                             ?FIELD_USER_AGENT, UserAgent,
-                            ?FIELD_CREATION_TIME, integer_to_binary(CreationTsMs)],
+                            ?FIELD_CREATION_TIME, integer_to_binary(CreationTsMs),
+                            ?FIELD_LAST_REGISTRATION_TIME, integer_to_binary(CreationTsMs)],
                         ["INCR", count_registrations_key(Uid)],
                         ["INCR", count_accounts_key(Uid)]
                     ]),
@@ -212,17 +216,18 @@ delete_account(Uid) ->
     %% TODO(murali@): this code is kind of ugly.
     %% Just get all fields and use map.
     case q(["HMGET", account_key(Uid), ?FIELD_PHONE,
-            ?FIELD_CREATION_TIME, ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS,
+            ?FIELD_CREATION_TIME, ?FIELD_LAST_REGISTRATION_TIME, ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS,
             ?FIELD_USER_AGENT, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID,
             ?FIELD_DEVICE, ?FIELD_OS_VERSION]) of
         {ok, [undefined | _]} ->
             ?WARNING("Looks like it is already deleted, Uid: ~p", [Uid]),
             ok;
-        {ok, [_Phone, CreationTsMsBin, LastActivityTsMs, ActivityStatus,
+        {ok, [_Phone, CreationTsMsBin, RegistrationTsMsBin, LastActivityTsMs, ActivityStatus,
                 UserAgent, ClientVersion, LangId, Device, OsVersion]} ->
             [{ok, _}, RenameResult, {ok, _}, DecrResult] = qp([
                 ["HSET", deleted_uid_key(Uid),
                             ?FIELD_CREATION_TIME, CreationTsMsBin,
+                            ?FIELD_LAST_REGISTRATION_TIME, RegistrationTsMsBin,
                             ?FIELD_LAST_ACTIVITY, LastActivityTsMs,
                             ?FIELD_ACTIVITY_STATUS, ActivityStatus,
                             ?FIELD_USER_AGENT, UserAgent,
@@ -373,6 +378,12 @@ get_creation_ts_ms(Uid) ->
     ts_reply(Res).
 
 
+-spec get_last_registration_ts_ms(Uid :: uid()) -> {ok, integer()} | {error, missing}.
+get_last_registration_ts_ms(Uid) ->
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_LAST_REGISTRATION_TIME]),
+    ts_reply(Res).
+
+
 -spec mark_first_non_empty_sync_done(Uid :: uid()) -> {ok, boolean()} | {error, missing}.
 mark_first_non_empty_sync_done(Uid) ->
     {ok, Exists} = q(["HSETNX", account_key(Uid), ?FIELD_NON_EMPTY_SYNC_STATUS, 1]),
@@ -412,6 +423,12 @@ delete_first_sync_status(Uid) ->
 -spec set_user_agent(Uid :: uid(), UserAgent :: binary()) -> ok.
 set_user_agent(Uid, UserAgent) ->
     {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_USER_AGENT, UserAgent]),
+    ok.
+
+
+-spec set_last_registration_ts_ms(Uid :: uid(), RegistrationTsMs :: integer()) -> ok.
+set_last_registration_ts_ms(Uid, RegistrationTsMs) ->
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_LAST_REGISTRATION_TIME, util:to_binary(RegistrationTsMs)]),
     ok.
 
 
@@ -471,6 +488,7 @@ get_account(Uid) ->
                     name = maps:get(?FIELD_NAME, M),
                     signup_user_agent = maps:get(?FIELD_USER_AGENT, M),
                     creation_ts_ms = util_redis:decode_ts(maps:get(?FIELD_CREATION_TIME, M)),
+                    last_registration_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_REGISTRATION_TIME, M)),
                     last_activity_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),
                     activity_status = util:to_atom(maps:get(?FIELD_ACTIVITY_STATUS, M, undefined)),
                     client_version = maps:get(?FIELD_CLIENT_VERSION, M, undefined),

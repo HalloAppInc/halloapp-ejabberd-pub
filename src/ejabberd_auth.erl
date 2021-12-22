@@ -132,6 +132,7 @@ check_and_register_internal(Phone, Server, Cred, Name, UserAgent) ->
                 ok ->
                     ok = model_accounts:set_name(UserId, Name),
                     ok = model_accounts:set_user_agent(UserId, UserAgent),
+                    ok = model_accounts:set_last_registration_ts_ms(UserId, util:now_ms()),
                     SessionCount = ejabberd_sm:kick_user(UserId, Server),
                     ?INFO("~p removed from ~p sessions", [UserId, SessionCount]),
                     {ok, UserId, login};
