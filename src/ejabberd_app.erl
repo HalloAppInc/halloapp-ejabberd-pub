@@ -47,7 +47,7 @@ start(normal, _Args) ->
         start_elixir_application(),
         setup_if_elixir_conf_used(),
         %% Load all message definitions to the nif module.
-        enif_protobuf:load_cache(server:get_msg_defs()),
+        enif_protobuf:load_cache(server:get_msg_defs() ++ clients:get_msg_defs()),
         case ejabberd_config:load() of
             ok ->
                 ha_redis:start(),
