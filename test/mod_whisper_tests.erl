@@ -14,8 +14,8 @@
 
 
 setup() ->
-    enif_protobuf:load_cache(server:get_msg_defs()),
     tutil:setup(),
+    tutil:load_protobuf(),
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
     ejabberd_hooks:start_link(),

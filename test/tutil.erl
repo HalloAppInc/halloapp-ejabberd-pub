@@ -16,6 +16,7 @@
 %% API
 -export([
     setup/0,
+    load_protobuf/0,
     get_result_iq_sub_el/1,
     assert_empty_result_iq/1,
     get_error_iq_sub_el/1,
@@ -33,6 +34,13 @@
 
 setup() ->
     ?assert(config:is_testing_env()).
+
+
+load_protobuf() ->
+    case enif_protobuf:encode({pb_avatar, <<>>, <<>>}) of
+        {error, _Reason} -> enif_protobuf:load_cache(server:get_msg_defs());
+        Bin when is_binary(Bin) -> ok
+    end.
 
 
 get_result_iq_sub_el(#iq{} = IQ) ->

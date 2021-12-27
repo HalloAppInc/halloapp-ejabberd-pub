@@ -38,13 +38,13 @@
 
 
 setup() ->
-    enif_protobuf:load_cache(server:get_msg_defs()),
+    tutil:setup(),
+    tutil:load_protobuf(),
     stringprep:start(),
     gen_iq_handler:start(ejabberd_local),
     os:putenv("EJABBERD_LOG_PATH", "../logs/"),
     del_dir(ha_events:client_log_dir()),
     filelib:ensure_dir(filename:join([ha_events:client_log_dir(), "FILE"])), % making sure fresh copy at each test
-    tutil:setup(),
     ha_redis:start(),
     clear(),
     ok.

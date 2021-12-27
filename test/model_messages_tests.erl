@@ -51,7 +51,7 @@
 setup() ->
     tutil:setup(),
     ha_redis:start(),
-    enif_protobuf:load_cache(server:get_msg_defs()),
+    tutil:load_protobuf(),
     stringprep:start(),
     clear(),
     ok.

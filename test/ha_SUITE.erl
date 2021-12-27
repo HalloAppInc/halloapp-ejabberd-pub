@@ -114,6 +114,8 @@ end_per_group(_, _Config) ->
 
 % TODO: figure out what to do with APNS push failing
 init_per_suite(InitConfigData) ->
+    ct:timetrap(20000),
+    ct:pal(info, ?HI_IMPORTANCE, "init_per_suite start", []),
     true = config:is_testing_env(),
     NewConfig = suite_ha:init_config(InitConfigData),
     % TODO: move this to suite_ha unitility function
@@ -123,8 +125,11 @@ init_per_suite(InitConfigData) ->
         binary_to_list(?UPLOAD_VHOST)]),
     inet_db:set_domain(binary_to_list(p1_rand:get_string())),
     inet_db:set_lookup([file, native]),
+    ct:pal(info, ?HI_IMPORTANCE, "init_per_suite starting ejabberd", []),
     start_ejabberd(NewConfig),
+    ct:pal(info, ?HI_IMPORTANCE, "init_per_suite starting ejabberd done", []),
     create_test_accounts(),
+    ct:pal(info, ?HI_IMPORTANCE, "init_per_suite done", []),
     NewConfig.
 
 
