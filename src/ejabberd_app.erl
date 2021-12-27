@@ -47,7 +47,12 @@ start(normal, _Args) ->
         start_elixir_application(),
         setup_if_elixir_conf_used(),
         %% Load all message definitions to the nif module.
-        enif_protobuf:load_cache(server:get_msg_defs()),
+        ?DEBUG("Loading protobuf msgs, server: ~p, clients: ~p",
+            [length(server:get_msg_defs()), length(clients:get_msg_defs())]),
+        enif_protobuf:load_cache(server:get_msg_defs() ++ clients:get_msg_defs()),
+        ?DEBUG("Loaded protobuf msgs, is ok?: ~p, ~p",
+            [is_binary(enif_protobuf:encode({pb_avatar, <<>>, <<>>})),
+            is_binary(enif_protobuf:encode({pb_encrypted_resource, <<>>, <<>>, <<>>}))]),
         case ejabberd_config:load() of
             ok ->
                 ha_redis:start(),
