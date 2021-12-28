@@ -277,7 +277,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
                 [Gid, Uid, PostId, CommentId]),
             TimestampMs = Comment#comment.ts_ms,
             PostOwnerUid = Post#post.uid,
-            AudienceList = Post#post.audience_list,
+            AudienceList = model_groups:get_member_uids(Gid),
             AudienceSet = sets:from_list(AudienceList),
             PushSet = sets:from_list([PostOwnerUid, Uid | ParentPushList]),
 
@@ -290,7 +290,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
         {{ok, Post}, {error, _}, {ok, ParentPushList}} ->
             TimestampMs = util:now_ms(),
             PostOwnerUid = Post#post.uid,
-            AudienceList = Post#post.audience_list,
+            AudienceList = model_groups:get_member_uids(Gid),
             AudienceSet = sets:from_list(AudienceList),
             PushSet = sets:from_list([PostOwnerUid, Uid | ParentPushList]),
 
