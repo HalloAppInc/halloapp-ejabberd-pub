@@ -23,9 +23,8 @@
     event_call/1
 ]).
 
-% TODO(nikola): uncomment
-% -define(CALLS_NS, <<"HA/call">>).
--define(CALLS_NS, <<"HA/test_calls">>).
+-define(CALLS_NS, "HA/call").
+
 
 
 start(_Host, _Opts) ->
