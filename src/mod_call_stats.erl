@@ -55,7 +55,7 @@ event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
     PeerUid = util:to_binary(PeerUidInt),
     DurationMs = case PBDurationMs of
         undefined -> 0;
-        _ -> PBDurationMs / 1000
+        _ -> PBDurationMs
     end,
     ?INFO("CallID: ~s Uid: ~s PeerUid: ~s Type: ~s Duration: ~.1fs",
         [CallId, Uid, PeerUid, CallType, DurationMs / 1000]),
