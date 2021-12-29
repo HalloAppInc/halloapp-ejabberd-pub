@@ -115,8 +115,7 @@ add_sms_code2(Phone, Code) ->
     Timestamp = util:now(),
     VerificationAttemptListKey = verification_attempt_list_key(Phone),
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
-    % TODO: we should use qp here. Not sure how this works.
-    _Results = q([["MULTI"],
+    _Results = qp([["MULTI"],
                    ["ZADD", VerificationAttemptListKey, Timestamp, AttemptId],
                    ["EXPIRE", VerificationAttemptListKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["HSET", VerificationAttemptKey, ?FIELD_CODE, Code, ?FIELD_VALID, "1"],
@@ -228,8 +227,7 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
     } = SMSResponse,
     GatewayResponseKey = gateway_response_key(Gateway, GatewayId),
     VerificationAttemptKey = verification_attempt_key(Phone, AttemptId),
-    % TODO: we should use qp here. Not sure how this works.
-    _Result1 = q([["MULTI"],
+    _Result1 = qp([["MULTI"],
                    ["HSET", GatewayResponseKey, ?FIELD_VERIFICATION_ATTEMPT, VerificationAttemptKey],
                    ["EXPIRE", GatewayResponseKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
@@ -237,8 +235,7 @@ add_gateway_response(Phone, AttemptId, SMSResponse) ->
     MethodBin = encode_method(Method),
     StatusBin = util:to_binary(Status),
     SidBin = util:to_binary(GatewayId),
-    % TODO: we should use qp here. Not sure how this works.
-    _Result2 = q([["MULTI"],
+    _Result2 = qp([["MULTI"],
                    ["HSET", VerificationAttemptKey, ?FIELD_SENDER, GatewayBin,
                        ?FIELD_METHOD, MethodBin, ?FIELD_STATUS, StatusBin,
                        ?FIELD_RESPONSE, Response, ?FIELD_SID, SidBin,
@@ -409,8 +406,7 @@ get_uids(Phones) ->
 
 -spec add_phone_pattern(PhonePattern :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
 add_phone_pattern(PhonePattern, Timestamp) ->
-    % TODO: we should use qp here. Not sure how this works.
-    _Results = q([
+    _Results = qp([
         ["MULTI"],
         ["HINCRBY", phone_pattern_key(PhonePattern), ?FIELD_COUNT, 1],
         ["HSET", phone_pattern_key(PhonePattern), ?FIELD_TIMESTAMP, util:to_binary(Timestamp)],
@@ -435,8 +431,7 @@ delete_phone_pattern(PhonePattern) ->
 -spec add_static_key(StaticKey :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
 add_static_key(StaticKey, Timestamp) ->
     Trunc = truncate_static_key(StaticKey),
-    % TODO: we should use qp here. Not sure how this works.
-    _Results = q([
+    _Results = qp([
         ["MULTI"],
         ["HINCRBY", remote_static_key(Trunc), ?FIELD_COUNT, 1],
         ["HSET", remote_static_key(Trunc), ?FIELD_TIMESTAMP, util:to_binary(Timestamp)],
@@ -461,8 +456,7 @@ delete_static_key(StaticKey) ->
 
 -spec add_phone_cc(CC :: binary(), Timestamp :: integer()) -> ok  | {error, any()}.
 add_phone_cc(CC, Timestamp) ->
-    % TODO: we should use qp here. Not sure how this works.
-    _Results = q([
+    _Results = qp([
         ["MULTI"],
         ["HINCRBY", phone_cc_key(CC), ?FIELD_COUNT, 1],
         ["HSET", phone_cc_key(CC), ?FIELD_TIMESTAMP, util:to_binary(Timestamp)],
