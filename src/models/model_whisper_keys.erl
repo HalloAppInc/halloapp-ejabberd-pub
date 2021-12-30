@@ -26,6 +26,7 @@
     set_keys/4,
     add_otp_keys/2,
     get_key_set/1,
+    get_key_sets/1,
     get_key_set_without_otp/1,
     get_identity_keys/1,
     remove_all_keys/1,
@@ -92,6 +93,40 @@ get_key_set(Uid) ->
             }
     end,
     {ok, Result}.
+
+
+-spec get_key_sets(Uids :: [uid()]) -> {ok, [maybe(user_whisper_key_set())]} | {error, any()}.
+get_key_sets(Uids) ->
+    IdentitySignedCommands = lists:map(
+        fun(Uid) ->
+            ["HMGET", whisper_key(Uid),
+            ?FIELD_IDENTITY_KEY, ?FIELD_SIGNEDPRE_KEY]
+        end, Uids),
+    IdentitySignedResults = qmn(IdentitySignedCommands),
+    IdentitySignedKeys = lists:map(
+        fun(Result)->
+            {ok, [IdentityKey, SignedPreKey]} = Result,
+            [IdentityKey, SignedPreKey]
+        end, IdentitySignedResults),
+
+    OtpCommands = lists:map(fun(Uid) -> ["RPOP", otp_key(Uid)] end, Uids),
+    OtpResults = qmn(OtpCommands),
+    OtpKeys = lists:map(fun(OtpResult)-> {ok, OtpKey} = OtpResult, OtpKey end, OtpResults),
+
+    Results = lists:zipwith3(fun(Uid, IdentitySignedKey, OtpKey) ->
+        [IdentityKey, SignedPreKey] = IdentitySignedKey,
+            case IdentityKey =:= undefined orelse SignedPreKey =:= undefined of
+                true -> undefined;
+                false ->
+                    #user_whisper_key_set{
+                        uid = Uid,
+                        identity_key = IdentityKey,
+                        signed_key = SignedPreKey,
+                        one_time_key = OtpKey
+                    }
+            end
+        end, Uids, IdentitySignedKeys, OtpKeys),
+    {ok, Results}.
 
 
 -spec get_key_set_without_otp(Uid :: uid()) -> {ok, maybe(user_whisper_key_set())} | {error, any()}.

@@ -161,18 +161,18 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
             ?ERROR("Invalid iq: ~p", [IQ]),
             pb:make_error(IQ, util:err(undefined_uids));
         _ ->
-            ResultCollection = lists:map(
-                fun(Ouid) ->
-                    %% TODO(murali@): use qmn here!
-                    {IdentityKey, SignedKey, OneTimeKeys} = get_key_set(Ouid, Uid),
+            Results = get_key_sets(Ouids, Uid),
+            ResultsCollection = lists:zipwith(
+                fun(Ouid, Result) ->
+                    {IdentityKey, SignedKey, OneTimeKeys} = Result,
                     #pb_whisper_keys{
                         uid = Ouid,
                         identity_key = IdentityKey,
                         signed_key = SignedKey,
                         one_time_keys = OneTimeKeys
                     }
-                end, Ouids),
-            pb:make_iq_result(IQ, #pb_whisper_keys_collection{collection = ResultCollection})
+                end, Ouids, Results),
+            pb:make_iq_result(IQ, #pb_whisper_keys_collection{collection = ResultsCollection})
     end;
 
 
@@ -256,8 +256,24 @@ refresh_otp_keys(Uid) ->
 %% Uid is requesting keyset of Ouid.
 -spec get_key_set(Ouid :: binary(), Uid :: binary()) -> {binary(), binary(), [binary()]}.
 get_key_set(Ouid, Uid) ->
+    [KeySet] = get_key_sets([Ouid], Uid),
+    KeySet.
+
+
+-spec get_key_sets(Ouids :: [binary()], Uid :: binary()) -> [{binary(), binary(), [binary()]}].
+get_key_sets(Ouids, Uid) ->
     Server = util:get_host(),
-    {ok, WhisperKeySet} = model_whisper_keys:get_key_set(Ouid),
+    {ok, WhisperKeySets} = model_whisper_keys:get_key_sets(Ouids),
+    KeySets = lists:zipwith(
+        fun(Ouid, WhisperKeySet) ->
+            get_key_sets_info(Server, Uid, Ouid, WhisperKeySet)
+        end, Ouids, WhisperKeySets),
+    KeySets.
+
+
+-spec get_key_sets_info(Server :: binary(), Uid :: binary(), Ouid :: binary(),
+        WhisperKeySet :: user_whisper_key_set()) -> {binary(), binary(), [binary()]}.
+get_key_sets_info(Server, Uid, Ouid, WhisperKeySet) ->
     case WhisperKeySet of
         undefined ->
             ?ERROR("Ouid: ~s WhisperKeySet is empty", [Ouid]),
@@ -266,7 +282,7 @@ get_key_set(Ouid, Uid) ->
             %% Uid requests keys of Ouid to establish a session.
             check_count_and_notify_user(Ouid, Server),
             ?INFO("Uid: ~s Ouid: ~s Ouid IK: ~p", [Uid, Ouid,
-                WhisperKeySet#user_whisper_key_set.identity_key]),
+            WhisperKeySet#user_whisper_key_set.identity_key]),
             IdentityKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
             SignedKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.signed_key),
             OneTimeKeys = case WhisperKeySet#user_whisper_key_set.one_time_key of
