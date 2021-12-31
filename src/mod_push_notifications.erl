@@ -243,14 +243,19 @@ log_invalid_langId(#push_info{uid = Uid,
 
 
 -spec push_marketing_alert(Uid :: binary(), AlertType :: atom()) -> ok.
+push_marketing_alert(Uid, AlertType) when AlertType =:= share_post_control orelse
+        AlertType =:= invite_friends_control ->
+    model_accounts:add_marketing_tag(Uid, util:to_binary(AlertType)),
+    ok;
+
 push_marketing_alert(Uid, AlertType) ->
+    model_accounts:add_marketing_tag(Uid, util:to_binary(AlertType)),
     MsgId = util_id:new_msg_id(),
     Message = #pb_msg{
         id = MsgId,
         to_uid = Uid,
         payload = #pb_marketing_alert{type = AlertType}
     },
-    model_accounts:add_marketing_tag(Uid, util:to_binary(AlertType)), 
     push_message(Message),
     ok.
 
