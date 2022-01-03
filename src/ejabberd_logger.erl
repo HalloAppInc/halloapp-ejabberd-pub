@@ -39,7 +39,7 @@
 
 -type loglevel() :: 0 | 1 | 2 | 3 | 4 | 5.
 -type lager_level() :: none | emergency | alert | critical |
-		       error | warning | notice | info | debug.
+        error | warning | notice | info | debug.
 
 -spec start() -> ok.
 -spec get_log_path() -> string().
@@ -61,15 +61,15 @@
 %% @spec () -> string()
 get_log_path() ->
     case ejabberd_config:env_binary_to_list(ejabberd, log_path) of
-	{ok, Path} ->
-	    Path;
-	undefined ->
-	    case os:getenv("EJABBERD_LOG_PATH") of
-		false ->
-		    "ejabberd.log";
-		Path ->
-		    Path
-	    end
+        {ok, Path} ->
+            Path;
+        undefined ->
+            case os:getenv("EJABBERD_LOG_PATH") of
+                false ->
+                    "ejabberd.log";
+                Path ->
+                    Path
+            end
     end.
 
 get_integer_env(Name, Default) ->
@@ -129,9 +129,28 @@ do_start_for_logger(Level) ->
 
 -spec do_start(atom()) -> ok.
 do_start(Level) ->
+    %% The current situation is a bit of a mess. We are trying to use lager as our log infrastructure
+    %% Erlangs old logging framework before OTP21 was error_logger. Some dependencies are using this
+    %% After OTP21 erlang launched new logging module 'logger' to replace 'error_logger'
+    %% sasl is an erlang application that captures process crashes and supervisor reports, before
+    %% OTP 21 sasl was reporting using error_logger, after OTP21 it should use logger.
+    %% We are also using raven_erlang application to report errors/warnings to Sentry
+    %% raven_erlang comes with error_logger and lager handlers.
+    %% Lager is not properly integrated with the new OTP 21 'logger'.
+    %% https://github.com/erlang-lager/lager/blob/fae53399253da622afde3bf5fb5ff124b7d887fa/src/lager_app.erl#L162
+    %% So lager starts the old error_logger which probably causes sasl to switch to some legacy behaviour and
+    %% continue to log with the error_logger. So we start the raven_erlang error_logger_handler to
+    %% export the crash reports with stack traces to sentry.
+    %%
+    %% In this function we configure the lager, and raven_erlang and then start them.
     application:load(sasl),
-    application:set_env(sasl, sasl_error_logger, false),
+    application:load(raven_erlang),
     application:load(lager),
+    application:set_env(sasl, sasl_error_logger, true),
+    %% make sure lager will not remove the raven_erlang error_logger handler
+    application:set_env(lager, error_logger_whitelist, [raven_error_logger]),
+    %% Tell raven_erlang to start the error_logger handler
+    application:set_env(raven_erlang, error_logger, true),
     ConsoleLog = get_log_path(),
     Dir = filename:dirname(ConsoleLog),
     ErrorLog = filename:join([Dir, "error.log"]),
@@ -177,6 +196,7 @@ do_start(Level) ->
                 {count, LogRotateCount},
                 {size, LogRotateSize}]}
         ],
+    % Add sentry reporting in production
     NewHandlers = case config:get_hallo_env() of
         prod ->
             application:set_env(raven_erlang, dsn, config:get_sentry_dsn()),
@@ -223,9 +243,13 @@ do_start(Level) ->
     application:set_env(lager, crash_log_size, LogRotateSize),
     application:set_env(lager, crash_log_count, LogRotateCount),
     ejabberd:start_app(lager),
-    lists:foreach(fun(Handler) ->
-			  lager:set_loghwm(Handler, LogRateLimit)
-		  end, gen_event:which_handlers(lager_event)).
+    % making sure the raven_erlang application starts early. This way we will have error reports
+    % while the other included applications or dependencies are starting.
+    ejabberd:start_app(raven_erlang),
+    lists:foreach(
+        fun(Handler) ->
+            lager:set_loghwm(Handler, LogRateLimit)
+        end, gen_event:which_handlers(lager_event)).
 
 restart() ->
     Level = ejabberd_option:loglevel(),
@@ -241,11 +265,12 @@ reopen_log() ->
 rotate_log() ->
     catch lager_crash_log ! rotate,
     lists:foreach(
-      fun({lager_file_backend, File}) ->
-              whereis(lager_event) ! {rotate, File};
-         (_) ->
-              ok
-      end, gen_event:which_handlers(lager_event)).
+        fun
+        ({lager_file_backend, File}) ->
+            whereis(lager_event) ! {rotate, File};
+        (_) ->
+            ok
+        end, gen_event:which_handlers(lager_event)).
 
 %% @spec () -> {loglevel(), atom(), string()}
 get() ->
@@ -269,41 +294,43 @@ set(LogLevel) when is_integer(LogLevel) ->
         _ ->
             ConsoleLog = get_log_path(),
             lists:foreach(
-              fun({lager_file_backend, File} = H) when File == ConsoleLog ->
-                      lager:set_loglevel(H, LagerLogLevel);
-                 (lager_console_backend = H) ->
-                      lager:set_loglevel(H, LagerLogLevel);
-                 (elixir_logger_backend = H) ->
-                      lager:set_loglevel(H, LagerLogLevel);
-                 (_) ->
-                      ok
-              end, get_lager_handlers())
+                fun
+                ({lager_file_backend, File} = H) when File == ConsoleLog ->
+                    lager:set_loglevel(H, LagerLogLevel);
+                (lager_console_backend = H) ->
+                    lager:set_loglevel(H, LagerLogLevel);
+                (elixir_logger_backend = H) ->
+                    lager:set_loglevel(H, LagerLogLevel);
+                (_) ->
+                    ok
+                end, get_lager_handlers())
     end,
     case LogLevel of
-	5 -> xmpp:set_config([{debug, true}]);
-	_ -> xmpp:set_config([{debug, false}])
+        5 -> xmpp:set_config([{debug, true}]);
+        _ -> xmpp:set_config([{debug, false}])
     end.
 
 get_lager_loglevel() ->
     Handlers = get_lager_handlers(),
-    lists:foldl(fun(lager_console_backend, _Acc) ->
-                        lager:get_loglevel(lager_console_backend);
-                   (elixir_logger_backend, _Acc) ->
-                        lager:get_loglevel(elixir_logger_backend);
-                   (_, Acc) ->
-                        Acc
-                end,
-                none, Handlers).
+    lists:foldl(
+        fun
+        (lager_console_backend, _Acc) ->
+            lager:get_loglevel(lager_console_backend);
+        (elixir_logger_backend, _Acc) ->
+            lager:get_loglevel(elixir_logger_backend);
+        (_, Acc) ->
+            Acc
+        end, none, Handlers).
 
 -spec get_lager_loglevel(loglevel()) -> lager_level().
 get_lager_loglevel(LogLevel) ->
     case LogLevel of
-	0 -> none;
-	1 -> critical;
-	2 -> error;
-	3 -> warning;
-	4 -> info;
-	5 -> debug
+        0 -> none;
+        1 -> critical;
+        2 -> error;
+        3 -> warning;
+        4 -> info;
+        5 -> debug
     end.
 
 get_lager_handlers() ->
@@ -318,6 +345,6 @@ get_lager_handlers() ->
 get_lager_version() ->
     Apps = application:loaded_applications(),
     case lists:keyfind(lager, 1, Apps) of
-	{_, _, Vsn} -> Vsn;
-	false -> "0.0.0"
+        {_, _, Vsn} -> Vsn;
+        false -> "0.0.0"
     end.
