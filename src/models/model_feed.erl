@@ -165,10 +165,7 @@ delete_post(PostId, _Uid) ->
                 ["HSET", comment_key(CommentId, PostId), ?FIELD_DELETED, 1]
                 | Acc]
             end, [], CommentIds),
-    case CommentIds of
-        [] -> ok;
-        _ -> qp(CommentDeleteCommands)
-    end,
+    qp(CommentDeleteCommands),
 
     %% Delete content in post and leave a tombstone for the post.
     %% Leave the post's reference to its own comments, i.e. post_comments_key

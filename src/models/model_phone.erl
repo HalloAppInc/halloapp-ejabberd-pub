@@ -166,10 +166,7 @@ get_all_verification_info(Phone) ->
             ["HMGET", verification_attempt_key(Phone, AttemptId),
                 ?FIELD_CODE, ?FIELD_SENDER, ?FIELD_SID, ?FIELD_STATUS, ?FIELD_VALID]
         end, VerificationAttemptList),
-    VerifyInfoList = case RedisCommands of
-        [] -> [];
-        _ -> qp(RedisCommands)
-    end,
+    VerifyInfoList = qp(RedisCommands),
     CombinedList = lists:zipwith(
         fun(VerifyInfo, VerificationAttempt) ->
             {ok, [Code, Gateway, Sid, Status, Validity]} = VerifyInfo,
@@ -253,10 +250,7 @@ get_all_gateway_responses(Phone) ->
             ["HMGET", verification_attempt_key(Phone, AttemptId), ?FIELD_SENDER, ?FIELD_METHOD,
                 ?FIELD_STATUS, ?FIELD_VERIFICATION_SUCCESS, ?FIELD_LANGID, ?FIELD_VALID]
         end, VerificationAttemptList),
-    ResponseList = case RedisCommands of
-        [] -> [];
-        _ -> qp(RedisCommands)
-    end,
+    ResponseList = qp(RedisCommands),
     SMSResponseList = lists:zipwith(
         fun({AttemptId, AttemptTS}, {ok, [Sender, Method, Status, Success, LangId, Validity]}) ->
             #gateway_response{
@@ -340,10 +334,7 @@ invalidate_old_attempts(Phone) ->
         fun({AttId, _TS}) ->
             ["HSET", verification_attempt_key(Phone, AttId), ?FIELD_VALID, "0"]
         end, VerificationAttemptList),
-    case RedisCommands of
-        [] -> ok;
-        _ -> qp(RedisCommands)
-    end,
+    qp(RedisCommands),
     ok.
 
 
