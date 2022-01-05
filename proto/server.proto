@@ -621,6 +621,18 @@ message EndCall {
     int64 timestamp_ms = 3;
 }
 
+message IceRestartOffer {
+    string call_id = 1;
+    int32 idx = 2;
+    WebRtcSessionDescription webrtc_offer = 3;
+}
+
+message IceRestartAnswer {
+    string call_id = 1;
+    int32 idx = 2;
+    WebRtcSessionDescription webrtc_answer = 3;
+}
+
 // IQ
 
 message Iq {
@@ -726,6 +738,8 @@ message Msg {
         EndCall end_call = 37;
         IceCandidate ice_candidate = 38;
         MarketingAlert marketing_alert = 39;    // only for server use
+        IceRestartOffer ice_restart_offer = 40;
+        IceRestartAnswer ice_restart_answer = 41;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
