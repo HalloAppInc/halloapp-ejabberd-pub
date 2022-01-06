@@ -155,6 +155,7 @@ get_client_based_props(PropMap, undefined, _) ->
 -spec is_audio_call_enabled(Uid :: binary()) -> boolean().
 is_audio_call_enabled(<<"1000000000052736684">>) -> true;   %% Sunisha
 is_audio_call_enabled(<<"1000000000399778754">>) -> true;   %% Neeraj's another friend: +91-94441-02346
+is_audio_call_enabled(<<"1000000000415550189">>) -> true;   %% Rahul Mehta (Neeraj)
 is_audio_call_enabled(<<"1000000000503720864">>) -> true;   %% Jim Goetz
 is_audio_call_enabled(<<"1000000000925762631">>) -> true;   %% Gergana (Nikola)
 is_audio_call_enabled(<<"1000000000122054965">>) -> true;   %% Katya (Nikola)
