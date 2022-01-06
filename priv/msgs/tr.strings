@@ -1,3 +1,7 @@
+"server.marketing.body" = "Arkadaşlarınızı HalloApp'in keyfini çıkarmaya davet edin!";
+"server.marketing.post.body" = "Şu anda yaptığınız şey gerçek arkadaşlarınız için ilginç olabilir.";
+"server.marketing.post.title" = "Ne paylaşacağınızı mı merak ediyorsunuz?";
+"server.marketing.title" = "Hallo oradaki!";
 "server.new.comment" = "Yeni yorum";
 "server.new.contact" = "%@ şimdi HalloApp'te";
 "server.new.group" = "Yeni bir gruba eklendin";

@@ -1,4 +1,7 @@
 "server.marketing.body" = "Пригласите друзей, чтобы они пользавали HalloApp!";
+"server.marketing.post.body" = "То, чем вы занимаетесь сейчас, может быть интересно вашим настоящим друзьям.";
+"server.marketing.post.title" = "Чем поделиться?";
+"server.marketing.title" = "Алло всем!";
 "server.new.comment" = "Новый комментарий";
 "server.new.contact" = "%@ уже в HalloApp";
 "server.new.group" = "Тебя добавили в новую группу";
