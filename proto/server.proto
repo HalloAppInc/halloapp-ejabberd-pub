@@ -643,6 +643,17 @@ message IceRestartAnswer {
     WebRtcSessionDescription webrtc_answer = 3;
 }
 
+message ExternalSharePost {
+    enum Action {
+        STORE = 0;
+        DELETE = 1;
+    }
+    Action action = 1;
+    string blob_id = 2;
+    bytes blob = 3;
+    int64 expires_in_seconds = 4;
+}
+
 // IQ
 
 message Iq {
@@ -692,6 +703,7 @@ message Iq {
         StartCall start_call = 40;
         StartCallResult start_call_result = 41;
         TruncWhisperKeysCollection trunc_whisper_keys_collection = 42;
+        ExternalSharePost external_share_post = 43;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use

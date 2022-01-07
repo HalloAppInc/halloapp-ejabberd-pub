@@ -41,6 +41,10 @@
 
 -define(GID1, <<"g1">>).
 
+-define(POST_BLOB_ID, <<"PB">>).
+-define(POST_BLOB_PAYLOAD, <<"PB_PAYLOAD">>).
+-define(POST_BLOB_EXPIRE_DAYS, 1).
+
 %% The setup is as follows:
 %% There are two posts: P1 (by U1) and P2 (by U2).
 %% There are a total of 4 comments: C1, C2, C3 and C4.
@@ -455,6 +459,18 @@ remove_user_test() ->
     ?assertEqual({ok, []}, model_feed:get_entire_user_feed(?UID1)),
     ok.
 
+external_share_post_test() ->
+    setup(),
+    {ok, undefined} = model_feed:get_external_share_post(?POST_BLOB_ID),
+    true = model_feed:store_external_share_post(?POST_BLOB_ID, ?POST_BLOB_PAYLOAD, ?POST_BLOB_EXPIRE_DAYS),
+    false = model_feed:store_external_share_post(?POST_BLOB_ID, ?POST_BLOB_PAYLOAD, ?POST_BLOB_EXPIRE_DAYS),
+    {ok, ?POST_BLOB_PAYLOAD} = model_feed:get_external_share_post(?POST_BLOB_ID),
+    ok = model_feed:delete_external_share_post(?POST_BLOB_ID),
+    {ok, undefined} = model_feed:get_external_share_post(?POST_BLOB_ID),
+    true = model_feed:store_external_share_post(?POST_BLOB_ID, ?POST_BLOB_PAYLOAD, ?POST_BLOB_EXPIRE_DAYS),
+    ok = model_feed:delete_external_share_post(?POST_BLOB_ID),
+    ok = model_feed:delete_external_share_post(?POST_BLOB_ID),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%                      Helper functions                                  %%%%

@@ -67,7 +67,8 @@ listen:
       /.well-known: mod_http_well_known
       /invite/.well-known: mod_http_well_known
       /invite: mod_http_invite
-      /share: mod_http_share
+      /share_post: mod_http_share_post
+      /share_media: mod_http_share_media
       /export: mod_http_export
       /api/logs: mod_logs_http_api
       /api/smscallback: mod_sms_callback
@@ -210,6 +211,7 @@ modules:
   mod_calls: {}
   mod_call_stats: {}
   mod_call_servers: {}
+  mod_external_share_post: {}
 
 ### Local Variables:
 ### mode: yaml

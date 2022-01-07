@@ -55,7 +55,10 @@
     remove_all_user_posts/1,    %% test.
     is_post_deleted/1,    %% test.
     is_comment_deleted/2,    %% test.
-    remove_user/1
+    remove_user/1,
+    store_external_share_post/3,
+    delete_external_share_post/1,
+    get_external_share_post/1
 ]).
 
 %% TODO(murali@): expose more apis specific to posts and comments only if necessary.
@@ -508,6 +511,21 @@ remove_user(Uid) ->
         ["DEL", reverse_post_key(Uid)]]),
     ok.
 
+-spec store_external_share_post(BlobId :: uid(), Payload :: binary(), ExpireIn :: integer()) -> boolean().
+store_external_share_post(BlobId, Payload, ExpireIn) ->
+    {ok, SetRes} = q(["SET", external_share_post_key(BlobId), Payload, "EX", ExpireIn, "NX"]),
+    SetRes =:= <<"OK">>.
+
+-spec delete_external_share_post(BlobId :: uid()) -> ok | {error, any()}.
+delete_external_share_post(BlobId) ->
+    _Results = q(["DEL", external_share_post_key(BlobId)]),
+    ok.
+
+-spec get_external_share_post(BlobId :: uid()) -> {ok, binary()} | {error, any()}.
+get_external_share_post(BlobId) ->
+    {ok, Payload} = q(["GET", external_share_post_key(BlobId)]),
+    {ok, Payload}.
+    
 
 %%====================================================================
 %% Internal functions
@@ -574,4 +592,8 @@ reverse_group_post_key(Gid) ->
 -spec reverse_comment_key(Uid :: uid()) -> binary().
 reverse_comment_key(Uid) ->
     <<?REVERSE_COMMENT_KEY/binary, "{", Uid/binary, "}">>.
+
+-spec external_share_post_key(BlobId :: binary()) -> binary().
+external_share_post_key(BlobId) ->
+    <<?SHARE_POST_KEY/binary, "{", BlobId/binary, "}">>.
 
