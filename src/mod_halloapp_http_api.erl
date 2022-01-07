@@ -384,7 +384,7 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         process_whisper_keys(Uid, IdentityKeyB64, SignedKeyB64, OneTimeKeysB64),
         process_push_token(Uid, PushPayload),
         CC = mod_libphonenumber:get_region_id(Phone),
-        ?INFO("registration complete uid:~s, phone:~s, country_code:~s", [Uid, Phone, CC]),
+        ?INFO("registration complete uid: ~s phone: ~s country_code: ~s", [Uid, Phone, CC]),
         Result = #{
             uid => Uid,
             phone => Phone,

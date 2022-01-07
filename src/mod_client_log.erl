@@ -152,11 +152,16 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
         validate_namespace(FullNamespace),
         TsMs = util:now_ms(),
         Date = util:tsms_to_date(TsMs), % for knowing which log file to add to
-        UidInt = case Uid of
-            undefined -> 0;
-            Uid -> binary_to_integer(Uid)
+        {UidInt, CC} = case Uid of
+            undefined -> {0, <<"ZZ">>};
+            Uid ->
+                CC1 = case model_accounts:get_phone(Uid) of
+                    {ok, Phone} -> mod_libphonenumber:get_cc(Phone);
+                    {error, missing} -> <<"ZZ">>
+                end,
+                {binary_to_integer(Uid), CC1}
         end,
-        Event2 = Event#pb_event_data{uid = UidInt, timestamp_ms = TsMs},
+        Event2 = Event#pb_event_data{uid = UidInt, timestamp_ms = TsMs, cc = CC},
         Event3 = ejabberd_hooks:run_fold(util:to_atom(<<"event_", Namespace/binary>>), Event2, []),
         case enif_protobuf:encode(Event3) of
             {error, Reason1} ->

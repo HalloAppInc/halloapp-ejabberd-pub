@@ -283,9 +283,9 @@ register_user(Uid, _Server, Phone) ->
         false ->
             stat:count("HA/account", "registration"),
             CC = mod_libphonenumber:get_region_id(Phone),
-            stat:count("HA/account", "registration_by_cc", 1, [{cc, CC}]),
-            stat:count("HA/account", "registration_invites", 1,
-                [{is_invited, model_invites:is_invited(Phone)}]),
+            IsInvitedTag = {is_invited, model_invites:is_invited(Phone)},
+            stat:count("HA/account", "registration_by_cc", 1, [{cc, CC}, IsInvitedTag]),
+            stat:count("HA/account", "registration_invites", 1, [IsInvitedTag]),
             %% Fetch their last verified response and count the registration with that lang_id.
             {ok, GatewayResponses} = model_phone:get_all_gateway_responses(Phone),
             LangId = case lists:search(
@@ -308,9 +308,17 @@ register_user(Uid, _Server, Phone) ->
 
 
 -spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-re_register_user(Uid, _Server, _Phone) ->
+re_register_user(Uid, _Server, Phone) ->
     ?INFO("counting uid:~s", [Uid]),
-    stat:count("HA/account", "re_register"),
+    case util:is_test_number(Phone) of
+        false ->
+            stat:count("HA/account", "re_register"),
+            CC = mod_libphonenumber:get_region_id(Phone),
+            stat:count("HA/account", "re_registration_by_cc", 1, [{cc, CC}]),
+            ok;
+        true ->
+            stat:count("HA/account", "re_register_test_account")
+    end,
     ok.
 
 
@@ -362,7 +370,10 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                     ha_events:log_user_event(ToUid, im_recv),
                     ToUid
             end,
+            {ok, Phone} = model_accounts:get_phone(Uid),
+            CC = mod_libphonenumber:get_cc(Phone),
             IsDev = dev_users:is_dev_uid(Uid),
+            stat:count("HA/messaging", Action ++ "_im_by_cc", 1, [{cc, CC}]),
             stat:count("HA/messaging", Action ++ "_im_by_dev", 1, [{is_dev, IsDev}]);
         #pb_seen_receipt{thread_id = ThreadId} ->
             case ThreadId of
@@ -381,6 +392,10 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                     case Action of
                         "send" ->
                             %% FromUid saw post
+                            {ok, FromPhone} = model_accounts:get_phone(FromUid),
+                            CC = mod_libphonenumber:get_cc(FromPhone),
+                            stat:count("HA/feed_receipts", "post_viewed"),
+                            stat:count("HA/feed_receipts", "post_viewed_by_cc", 1, [{cc, CC}]),
                             ha_events:log_user_event(FromUid, post_send_seen);
                         "receive" ->
                             %% ToUid's post was seen
