@@ -67,7 +67,6 @@ listen:
       /.well-known: mod_http_well_known
       /invite/.well-known: mod_http_well_known
       /invite: mod_http_invite
-      /share: mod_http_share
       /export: mod_http_export
       /api/logs: mod_logs_http_api
       /api/smscallback: mod_sms_callback

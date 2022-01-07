@@ -425,7 +425,6 @@ fetchpb:
 	cd deps/schemas && make server && cd ../..
 	cp deps/schemas/build/server.proto proto/
 	cp deps/schemas/build/log_events.proto proto/
-	cp deps/schemas/build/clients.proto proto/
 	rm -rf deps/schemas
 
 
