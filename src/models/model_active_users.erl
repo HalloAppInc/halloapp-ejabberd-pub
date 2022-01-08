@@ -29,6 +29,7 @@
     get_active_users_key_slot/2,
     get_engaged_users_key_slot/2,
     active_users_types/0,
+    active_users_cc_types/0,
     engaged_users_types/0
 ]).
 -compile([{nowarn_unused_function, [
@@ -111,12 +112,17 @@ cleanup() ->
 %% Internal functions
 %%====================================================================
 
+-spec active_users_types() -> list(activity_type()).
 active_users_types() ->
     [
         all,
         android,
         ios
     ].
+
+-spec active_users_cc_types() -> list(activity_type()).
+active_users_cc_types() ->
+    [{cc, CC} || CC <- countries:all()].
 
 engaged_users_types() ->
     [
@@ -130,8 +136,10 @@ engaged_users_types() ->
 cleanup_by_slot(Slot) ->
     OldTs = util:now_ms() - (30 * ?DAYS_MS) - (1 * ?SECONDS_MS),
     ActiveUsersKeys = [get_active_users_key_slot(Slot, Type) || Type <- active_users_types()],
+    CountryUsersKeys = [get_active_users_key_slot(Slot, Type) || Type <- active_users_cc_types()],
     EngagedUsersKeys = [get_engaged_users_key_slot(Slot, Type) || Type <- engaged_users_types()],
-    Queries = [["ZREMRANGEBYSCORE", Key, 0, OldTs] || Key <- ActiveUsersKeys ++ EngagedUsersKeys],
+    AllKeys = ActiveUsersKeys ++ EngagedUsersKeys ++ CountryUsersKeys,
+    Queries = [["ZREMRANGEBYSCORE", Key, 0, OldTs] || Key <- AllKeys],
     Results = qp(Queries),
     Count = lists:foldl(fun ({ok, C}, Acc) -> Acc + binary_to_integer(C) end, 0, Results),
     Count.
@@ -141,19 +149,22 @@ hash(Key) ->
     crc16:crc16(Key) rem ?NUM_SLOTS.
 
 
-get_active_users_key_slot(Slot, UserAgent) ->
+-spec get_active_users_key_slot(Slot :: integer(), Type :: activity_type()) -> binary().
+get_active_users_key_slot(Slot, Type) ->
     SlotBinary = integer_to_binary(Slot),
-    Key = case UserAgent of
-              ios -> ?ACTIVE_USERS_IOS_KEY;
-              android -> ?ACTIVE_USERS_ANDROID_KEY;
-              all -> ?ACTIVE_USERS_ALL_KEY
-          end,
+    Key = case Type of
+        ios -> ?ACTIVE_USERS_IOS_KEY;
+        android -> ?ACTIVE_USERS_ANDROID_KEY;
+        all -> ?ACTIVE_USERS_ALL_KEY;
+        {cc, CC} -> <<?ACTIVE_USERS_CC_KEY/binary, CC/binary, ":">>
+    end,
     <<Key/binary, "{", SlotBinary/binary, "}">>.
 
 
-get_engaged_users_key_slot(Slot, UserAgent) ->
+-spec get_engaged_users_key_slot(Slot :: integer(), Type :: activity_type()) -> binary().
+get_engaged_users_key_slot(Slot, Type) ->
     SlotBinary = integer_to_binary(Slot),
-    Key = case UserAgent of
+    Key = case Type of
         ios -> ?ENGAGED_USERS_IOS_KEY;
         android -> ?ENGAGED_USERS_ANDROID_KEY;
         all -> ?ENGAGED_USERS_ALL_KEY;

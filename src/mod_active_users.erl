@@ -66,22 +66,30 @@ compute_counts() ->
     DeviceTypes = model_active_users:active_users_types(),
     [stat:gauge("HA/active_users", Desc ++ "_" ++ atom_to_list(Device), Fun(Device))
         || {Fun, Desc} <- CountFuns, Device <- DeviceTypes],
+
+    ?INFO("computing active users by country: start"),
+    CCTypes = model_active_users:active_users_cc_types(),
+    [stat:gauge("HA/active_users", Desc ++ "_by_cc:" ++ util:to_list(CC), Fun({cc, CC}))
+        || {Fun, Desc} <- CountFuns, {cc, CC} <- CCTypes],
+    ?INFO("computing active users by country: done"),
     ok.
 
 
 -spec update_last_activity(Uid :: binary(), TimestampMs :: integer(), Resource :: binary()) -> ok.
 update_last_activity(Uid, TimestampMs, Resource) ->
-    Type = util_ua:resource_to_client_type(Resource),
-    MainKey = model_active_users:get_active_users_key(Uid),
-    Keys = case Type of
-        undefined -> [MainKey];
-        _ -> [MainKey, model_active_users:get_active_users_key(Uid, Type)]
+    UserAgent = util_ua:resource_to_client_type(Resource),
+    Keys = [model_active_users:get_active_users_key(Uid)],
+    Keys1 = case UserAgent of
+        undefined -> Keys;
+        _ -> [model_active_users:get_active_users_key(Uid, UserAgent) | Keys]
     end,
     case model_accounts:get_phone(Uid) of
         {ok, Phone} ->
+            CC = mod_libphonenumber:get_cc(Phone),
+            Keys2 = [model_active_users:get_active_users_key(Uid, {cc, CC}) | Keys1],
             case util:is_test_number(Phone) of
                 false ->
-                    ok = model_active_users:set_activity(Uid, TimestampMs, Keys);
+                    ok = model_active_users:set_activity(Uid, TimestampMs, Keys2);
                 true ->
                     ok
             end;

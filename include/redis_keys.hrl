@@ -30,6 +30,7 @@
 -define(ACTIVE_USERS_ALL_KEY, <<"active_users_all:">>).
 -define(ACTIVE_USERS_IOS_KEY, <<"active_users_ios:">>).
 -define(ACTIVE_USERS_ANDROID_KEY, <<"active_users_android:">>).
+-define(ACTIVE_USERS_CC_KEY, <<"active_users_cc:">>).
 -define(ENGAGED_USERS_ALL_KEY, <<"eu_all:">>).
 -define(ENGAGED_USERS_IOS_KEY, <<"eu_ios:">>).
 -define(ENGAGED_USERS_ANDROID_KEY, <<"eu_android:">>).
