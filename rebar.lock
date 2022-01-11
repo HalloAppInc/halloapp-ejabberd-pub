@@ -4,10 +4,7 @@
        {ref,"b68eaaf112c7afa3d494ec3f7ddf3b0ddcb6b5ae"}},
   0},
  {<<"base16">>,{pkg,<<"base16">>,<<"1.0.0">>},1},
- {<<"base64url">>,
-  {git,"git://github.com/dvv/base64url.git",
-       {ref,"bf1360685da704c8453aba2268c4698c959d2ba4"}},
-  1},
+ {<<"base64url">>,{pkg,<<"base64url">>,<<"0.0.1">>},1},
  {<<"cache_tab">>,
   {git,"https://github.com/processone/cache_tab",
        {ref,"f52d31970acb30c9e719730a0e2dec5a877a281b"}},
@@ -104,7 +101,7 @@
   0},
  {<<"jose">>,
   {git,"https://github.com/potatosalad/erlang-jose",
-       {ref,"f8f97fb651202386c951fccfcb61d123518ba05f"}},
+       {ref,"c7aad59f78e16659ea9aaa8953303275c4949eef"}},
   0},
  {<<"jsone">>,{pkg,<<"jsone">>,<<"1.4.6">>},1},
  {<<"jsx">>,{pkg,<<"jsx">>,<<"2.9.0">>},1},
@@ -162,6 +159,7 @@
 [
 {pkg_hash,[
  {<<"base16">>, <<"283644E2B21BD5915ACB7178BED7851FB07C6E5749B8FAD68A53C501092176D9">>},
+ {<<"base64url">>, <<"36A90125F5948E3AFD7BE97662A1504B934DD5DAC78451CA6E9ABF85A10286BE">>},
  {<<"eini">>, <<"DFFA48476FD89FB6E41CEEA0ADFA1BC6E7862CCD6584417442F8BB37E5D34715">>},
  {<<"goldrush">>, <<"F06E5D5F1277DA5C413E84D5A2924174182FB108DABB39D5EC548B27424CD106">>},
  {<<"jsone">>, <<"644D6D57BEFB22C8E19B324DEE19D73B1C004565009861A8F64C68B7B9E64DBF">>},
@@ -171,6 +169,7 @@
  {<<"tls_certificate_check">>, <<"F777BF8013DB787947A83A3C7BC62B8ADE146994FAD7B4CACD67817807B5E2E9">>}]},
 {pkg_hash_ext,[
  {<<"base16">>, <<"02AFD0827E61A7B07093873E063575CA3A2B07520567C7F8CEC7C5D42F052D76">>},
+ {<<"base64url">>, <<"FAB09B20E3F5DB886725544CBCF875B8E73EC93363954EB8A1A9ED834AA8C1F9">>},
  {<<"eini">>, <<"B8CBBE4BCA4E2EE1A4C13787DC8E0B17A2511034421DF167668442BD448A18DF">>},
  {<<"goldrush">>, <<"99CB4128CFFCB3227581E5D4D803D5413FA643F4EB96523F77D9E6937D994CEB">>},
  {<<"jsone">>, <<"78EEE8BB38F0BEE2E73673D71BC75FC6FB01F56F0D23E769A26EEE3655487A38">>},
