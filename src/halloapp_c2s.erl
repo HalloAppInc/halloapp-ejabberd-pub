@@ -312,31 +312,37 @@ upgrade_packet(Packet) -> Packet.
 %     end.
 
 
-process_info(#{lserver := LServer} = State, {route, Packet}) ->
-    NewPacket = upgrade_packet(Packet),
-    % % TODO: Remove enif_protobuf:encode(...) after upgrade is done.
-    % case enif_protobuf:encode(NewPacket) of
-    %     {error, Reason} ->
-    %         ?ERROR("Error encoding packet: ~p, reason: ~p, Orig: ~p", [NewPacket, Reason, Packet]);
-    %     _ ->
-    %         ok
-    % end,
-    case verify_incoming_packet(State, NewPacket) of
+process_info(State, {route, Packet}) ->
+    process_incoming_packet(State, Packet);
+process_info(State, {route_pb, PbBin}) ->
+    case enif_protobuf:decode(PbBin, pb_packet) of
+        #pb_packet{} = Pkt ->
+            ?DEBUG("Recieved protobuf msg: ~p", [Pkt]),
+            stat:count("HA/ejabberd", "recv_packet", 1, [{result, ok}, {type, pb}]),
+            process_incoming_packet(State, Pkt#pb_packet.stanza);
+        {error, _} ->
+            stat:count("HA/ejabberd", "recv_packet", 1, [{result, error}, {type, pb}]),
+            ?ERROR("Failed to decode packet ~p", [PbBin]),
+            State
+    end;
+process_info(State, Info) ->
+    ?WARNING("Unexpected info: ~p", [Info]),
+    State.
+
+
+process_incoming_packet(#{lserver := LServer} = State, Packet) ->
+    case verify_incoming_packet(State, Packet) of
         allow ->
             %% TODO(murali@): remove temp counts after clients transition.
             stat:count("HA/user_receive_packet", "protobuf"),
             {Packet1, State1} = ejabberd_hooks:run_fold(
-                    user_receive_packet, LServer, {NewPacket, State}, []),
+                    user_receive_packet, LServer, {Packet, State}, []),
             case Packet1 of
                 drop -> State1;
                 _ -> send(State1, Packet1)
             end;
         deny -> State
-    end;
-
-process_info(State, Info) ->
-    ?WARNING("Unexpected info: ~p", [Info]),
-    State.
+    end.
 
 
 handle_unexpected_call(State, From, Msg) ->

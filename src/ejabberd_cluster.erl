@@ -35,6 +35,7 @@
 
 -include("time.hrl").
 -include("logger.hrl").
+-include("packets.hrl").
 
 -type dst() :: pid() | atom() | {atom(), node()}.
 
@@ -206,10 +207,35 @@ send(Pid, Msg) when is_pid(Pid) andalso node(Pid) == node() ->
             false
     end;
 send(Dst, Msg) ->
+    do_send(Dst, encode_msg(Msg)).
+    
+do_send(_Dst, undefined) -> false; % failure to encode packet
+do_send(Dst, Msg) ->
     case erlang:send(Dst, Msg, [nosuspend, noconnect]) of
         ok -> true;
         _ -> false
     end.
+
+
+encode_msg(Msg) ->
+    stat:count("HA/ejabberd", "send_packet", 1, [{result, ok}, {type, termlang}]),
+    Msg.
+%% encode_msg(Msg) ->
+ %%    case Msg of
+%%         {route, Packet} ->
+%%             PbPacket = #pb_packet{stanza = Packet},
+%%             case enif_protobuf:encode(PbPacket) of
+%%                 {error, Reason} ->
+%%                     ?ERROR("Error encoding packet: ~p, reason: ~p", [Packet, Reason]),
+ %%                    stat:count("HA/ejabberd", "send_packet", 1, [{result, error}, {type, pb}]),
+%%                     undefined;
+%%                 PbBin ->
+%%                     stat:count("HA/ejabberd", "send_packet", 1, [{result, ok}, {type, pb}]),
+%%                     {route_pb, PbBin}
+%%             end;
+%%         _ ->
+%%             Msg
+%%    end.
 
 
 %%%===================================================================
