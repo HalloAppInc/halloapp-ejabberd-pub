@@ -479,8 +479,11 @@ phone-metadata:
 
 
 eunit:
+ifeq ($(MODULE),)
 	HALLO_ENV=test $(REBAR) eunit
-
+else
+	HALLO_ENV=test $(REBAR) eunit --module=$(MODULE)
+endif
 
 ct:
 	HALLO_ENV=test $(REBAR) ct --suite=test/ha_SUITE

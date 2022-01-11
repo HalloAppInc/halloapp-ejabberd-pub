@@ -88,6 +88,11 @@ Run the eunit tests:
 
     make eunit
 
+Run a single module's eunit tests
+
+    make eunit MODULE=<module_name>
+where `<module_name>` is the module's name
+
 Run the Common Tests:
 
     make ct
