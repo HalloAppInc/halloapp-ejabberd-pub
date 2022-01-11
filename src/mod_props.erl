@@ -124,10 +124,11 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap1 = maps:update(dev, true, PropMap),
             PropMap2 = maps:update(voice_notes, true, PropMap1),
             PropMap3 = maps:update(audio_calls, true, PropMap2),
-            PropMap4 = maps:update(streaming_sending_enabled, true, PropMap3),
-            PropMap5 = maps:update(flat_comments, true, PropMap4),
-            PropMap6 = maps:update(voice_posts, true, PropMap5),
-            PropMap6
+            PropMap4 = maps:update(video_calls, true, PropMap3),
+            PropMap5 = maps:update(streaming_sending_enabled, true, PropMap4),
+            PropMap6 = maps:update(flat_comments, true, PropMap5),
+            PropMap7 = maps:update(voice_posts, true, PropMap6),
+            PropMap7
     end.
 
 
