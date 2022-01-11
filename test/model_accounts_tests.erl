@@ -312,7 +312,7 @@ last_ipaddress_test() ->
     ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
     undefined = model_accounts:get_last_ipaddress(?UID1),
 
-    ok = model_accounts:set_last_ipaddress(?UID1, <<"73.223.182.178">>),
+    ok = model_accounts:set_last_ip_and_connection_time(?UID1, <<"73.223.182.178">>, util:now_ms()),
     <<"73.223.182.178">> = model_accounts:get_last_ipaddress(?UID1),
     ok.
 

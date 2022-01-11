@@ -50,8 +50,8 @@ get_stun_turn_servers_basic_test() ->
 
 get_stun_turn_servers_by_ip_test() ->
     setup(),
-    model_accounts:set_last_ipaddress(?UID1, ?US_IP),
-    model_accounts:set_last_ipaddress(?UID2, ?DE_IP),
+    model_accounts:set_last_ip_and_connection_time(?UID1, ?US_IP, util:now_ms()),
+    model_accounts:set_last_ip_and_connection_time(?UID2, ?DE_IP, util:now_ms()),
     check_server_from_region(?UID1, ?UID2, <<"us-east-1">>),
     check_server_from_region(?UID2, ?UID1, <<"eu-central-1">>),
     meck_unload(),
@@ -59,8 +59,8 @@ get_stun_turn_servers_by_ip_test() ->
 
 get_stun_turn_servers_by_ip2_test() ->
     setup(),
-    model_accounts:set_last_ipaddress(?UID1, ?SA_IP),
-    model_accounts:set_last_ipaddress(?UID2, ?BR_IP),
+    model_accounts:set_last_ip_and_connection_time(?UID1, ?SA_IP, util:now_ms()),
+    model_accounts:set_last_ip_and_connection_time(?UID2, ?BR_IP, util:now_ms()),
     check_server_from_region(?UID1, ?UID2, <<"me-south-1">>),
     check_server_from_region(?UID2, ?UID1, <<"sa-east-1">>),
     meck_unload(),

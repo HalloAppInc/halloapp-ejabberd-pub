@@ -21,7 +21,8 @@
     count_active_users_30day/1,
     count_recent_active_users/2,
     compute_counts/0,
-    update_last_activity/3
+    update_last_activity/3,
+    update_last_connection/2
 ]).
 
 %%====================================================================
@@ -54,6 +55,13 @@ count_recent_active_users(IntervalMs, Type) ->
     Now = util:now_ms(),
     model_active_users:count_active_users_between(Type, Now - IntervalMs, Now + (1 * ?MINUTES_MS)).
 
+-spec count_recent_connected_users(IntervalMs :: non_neg_integer()) -> non_neg_integer().
+count_recent_connected_users(IntervalMs) ->
+    Now = util:now_ms(),
+    model_active_users:count_connected_users_between(Now - IntervalMs, Now + (1 * ?MINUTES_MS)).
+
+days_to_count() -> [1, 7, 28, 30].
+
 
 -spec compute_counts() -> ok.
 compute_counts() ->
@@ -72,6 +80,9 @@ compute_counts() ->
     [stat:gauge("HA/active_users", Desc ++ "_by_cc:" ++ util:to_list(CC), Fun({cc, CC}))
         || {Fun, Desc} <- CountFuns, {cc, CC} <- CCTypes],
     ?INFO("computing active users by country: done"),
+
+    [stat:gauge("HA/active_users", util:to_list(Day) ++ "day_connected_all",
+        count_recent_connected_users(Day * ?DAYS_MS)) || Day <- days_to_count()],
     ok.
 
 
@@ -96,5 +107,10 @@ update_last_activity(Uid, TimestampMs, Resource) ->
         {error, missing} ->
             ?ERROR("Can not find the phone of active user? Uid: ~p", [Uid])
     end,
+    ok.
+
+-spec update_last_connection(Uid :: uid(), TimestampMs :: integer()) -> ok.
+update_last_connection(Uid, TimestampMs) ->
+    model_active_users:set_connectivity(Uid, TimestampMs),
     ok.
 

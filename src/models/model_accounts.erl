@@ -76,7 +76,7 @@
     get_last_activity/1,
     get_last_activity_ts_ms/1,
     set_last_activity/3,
-    set_last_ipaddress/2,
+    set_last_ip_and_connection_time/3,
     get_last_ipaddress/1,
     set_user_agent/2,
     set_last_registration_ts_ms/2,
@@ -149,6 +149,7 @@
 -define(FIELD_NUM_INV, <<"in">>).  % from model_invites, but is part of the account structure
 -define(FIELD_SINV_TS, <<"it">>).  % from model_invites, but is part of the account structure
 -define(FIELD_LAST_IPADDRESS, <<"lip">>).
+-define(FIELD_LAST_CONNECTION_TIME, <<"cot">>).
 -define(FIELD_LAST_ACTIVITY, <<"la">>).
 -define(FIELD_ACTIVITY_STATUS, <<"st">>).
 -define(FIELD_USER_AGENT, <<"ua">>).
@@ -685,10 +686,11 @@ is_account_deleted(Uid) ->
 %% Store Last IP address
 %%====================================================================
 
-
--spec set_last_ipaddress(Uid :: uid(), IPAddress :: list()) -> ok.
-set_last_ipaddress(Uid, IPAddress) ->
-    {ok, _Res1} = q(["HSET", account_key(Uid), ?FIELD_LAST_IPADDRESS, util:to_binary(IPAddress)]),
+-spec set_last_ip_and_connection_time(Uid :: uid(), IPAddress :: list(), TsMs :: integer()) -> ok.
+set_last_ip_and_connection_time(Uid, IPAddress, TsMs) ->
+    {ok, _Res1} = q(["HSET", account_key(Uid),
+        ?FIELD_LAST_IPADDRESS, util:to_binary(IPAddress),
+        ?FIELD_LAST_CONNECTION_TIME, TsMs]),
     ok.
 
 

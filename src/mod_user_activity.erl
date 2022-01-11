@@ -109,7 +109,9 @@ sm_register_connection_hook(_SID, #jid{luser = Uid} = _JID, _Mode, Info) ->
         undefined -> ?ERROR("Missing IP for Uid: ~p", [Uid]);
         _ ->
             IP = util:parse_ip_address(IPInfo),
-            ok = model_accounts:set_last_ipaddress(Uid, IP)
+            TimestampMs = util:now_ms(),
+            ok = model_accounts:set_last_ip_and_connection_time(Uid, IP, TimestampMs),
+            mod_active_users:update_last_connection(Uid, TimestampMs)
     end,
     ok.
 
