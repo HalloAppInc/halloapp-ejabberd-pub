@@ -77,7 +77,7 @@ compute_counts() ->
 
     ?INFO("computing active users by country: start"),
     CCTypes = model_active_users:active_users_cc_types(),
-    [stat:gauge("HA/active_users", Desc ++ "_by_cc:" ++ util:to_list(CC), Fun({cc, CC}))
+    [stat:gauge("HA/active_users", Desc ++ "_by_cc." ++ util:to_list(CC), Fun({cc, CC}))
         || {Fun, Desc} <- CountFuns, {cc, CC} <- CCTypes],
     ?INFO("computing active users by country: done"),
 
