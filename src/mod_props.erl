@@ -111,14 +111,9 @@ get_props(Uid, ClientVersion) ->
 
 -spec get_uid_based_props(PropMap :: map(), Uid :: binary()) -> map().
 get_uid_based_props(PropMap, Uid) ->
-    case dev_users:is_dev_uid(Uid) of
+    ResPropMap = case dev_users:is_dev_uid(Uid) of
         false ->
-            case is_audio_call_enabled(Uid) of
-                false -> PropMap;
-                true ->
-                    PropMap1 = maps:update(audio_calls, true, PropMap),
-                    PropMap1
-            end;
+            PropMap;
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
@@ -129,7 +124,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap6 = maps:update(flat_comments, true, PropMap5),
             PropMap7 = maps:update(voice_posts, true, PropMap6),
             PropMap7
-    end.
+    end,
+    apply_uid_prop_overrides(Uid, ResPropMap).
 
 
 -spec get_client_based_props(PropMap :: map(),
@@ -153,18 +149,28 @@ get_client_based_props(PropMap, undefined, _) ->
 %% Internal functions
 %%====================================================================
 
--spec is_audio_call_enabled(Uid :: binary()) -> boolean().
-is_audio_call_enabled(<<"1000000000052736684">>) -> true;   %% Sunisha
-is_audio_call_enabled(<<"1000000000399778754">>) -> true;   %% Neeraj's another friend: +91-94441-02346
-is_audio_call_enabled(<<"1000000000415550189">>) -> true;   %% Rahul Mehta (Neeraj)
-is_audio_call_enabled(<<"1000000000503720864">>) -> true;   %% Jim Goetz
-is_audio_call_enabled(<<"1000000000925762631">>) -> true;   %% Gergana (Nikola)
-is_audio_call_enabled(<<"1000000000122054965">>) -> true;   %% Katya (Nikola)
-is_audio_call_enabled(<<"1000000000683067883">>) -> true;   %% Madlen (Nikola)
-is_audio_call_enabled(<<"1000000000938575483">>) -> true;   %% Pavlina (Nikola)
-is_audio_call_enabled(Uid) ->
-    dev_users:is_dev_uid(Uid).
+apply_uid_prop_overrides(Uid, PropMap) ->
+    maps:map(
+        fun (K, V) ->
+            case uid_prop_override(Uid, K) of
+                undef -> V;
+                NewV -> NewV
+            end
+        end,
+        PropMap).
 
+-spec uid_prop_override(Uid :: uid(), Prop :: atom()) -> undef | term().
+uid_prop_override(<<"1000000000570149128">>, voice_posts) -> true;  %% Michael asked.
+uid_prop_override(<<"1000000000052736684">>, audio_calls) -> true;  %% Sunisha
+uid_prop_override(<<"1000000000399778754">>, audio_calls) -> true;  %% Neeraj's another friend: +91-94441-02346
+uid_prop_override(<<"1000000000415550189">>, audio_calls) -> true;  %% Rahul Mehta (Neeraj)
+uid_prop_override(<<"1000000000503720864">>, audio_calls) -> true;  %% Jim Goetz
+uid_prop_override(<<"1000000000925762631">>, audio_calls) -> true;  %% Gergana (Nikola)
+uid_prop_override(<<"1000000000122054965">>, audio_calls) -> true;  %% Katya (Nikola)
+uid_prop_override(<<"1000000000683067883">>, audio_calls) -> true;  %% Madlen (Nikola)
+uid_prop_override(<<"1000000000938575483">>, audio_calls) -> true;  %% Pavlina (Nikola)
+uid_prop_override(_Uid, _Prop) ->
+    undef.
 
 generate_hash(SortedProplist) ->
     Json = jsx:encode(SortedProplist),
