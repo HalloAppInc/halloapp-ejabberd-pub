@@ -218,24 +218,21 @@ do_send(Dst, Msg) ->
 
 
 encode_msg(Msg) ->
-    stat:count("HA/ejabberd", "send_packet", 1, [{result, ok}, {type, termlang}]),
-    Msg.
-%% encode_msg(Msg) ->
- %%    case Msg of
-%%         {route, Packet} ->
-%%             PbPacket = #pb_packet{stanza = Packet},
-%%             case enif_protobuf:encode(PbPacket) of
-%%                 {error, Reason} ->
-%%                     ?ERROR("Error encoding packet: ~p, reason: ~p", [Packet, Reason]),
- %%                    stat:count("HA/ejabberd", "send_packet", 1, [{result, error}, {type, pb}]),
-%%                     undefined;
-%%                 PbBin ->
-%%                     stat:count("HA/ejabberd", "send_packet", 1, [{result, ok}, {type, pb}]),
-%%                     {route_pb, PbBin}
-%%             end;
-%%         _ ->
-%%             Msg
-%%    end.
+    case Msg of
+        {route, Packet} ->
+            PbPacket = #pb_packet{stanza = Packet},
+            case enif_protobuf:encode(PbPacket) of
+                {error, Reason} ->
+                    ?ERROR("Error encoding packet: ~p, reason: ~p", [Packet, Reason]),
+                    stat:count("HA/ejabberd", "send_packet", 1, [{result, error}, {type, pb}]),
+                    undefined;
+                PbBin ->
+                    stat:count("HA/ejabberd", "send_packet", 1, [{result, ok}, {type, pb}]),
+                    {route_pb, PbBin}
+            end;
+        _ ->
+            Msg
+    end.
 
 
 %%%===================================================================
