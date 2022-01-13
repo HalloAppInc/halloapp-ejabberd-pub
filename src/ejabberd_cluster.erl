@@ -199,6 +199,7 @@ send(undefined, _Msg) ->
 send(Name, Msg) when is_atom(Name) ->
     send(whereis(Name), Msg);
 send(Pid, Msg) when is_pid(Pid) andalso node(Pid) == node() ->
+    log_stat(ok, termlang),
     case erlang:is_process_alive(Pid) of
         true ->
             erlang:send(Pid, Msg),
@@ -224,15 +225,19 @@ encode_msg(Msg) ->
             case enif_protobuf:encode(PbPacket) of
                 {error, Reason} ->
                     ?ERROR("Error encoding packet: ~p, reason: ~p", [Packet, Reason]),
-                    stat:count("HA/ejabberd", "send_packet", 1, [{result, error}, {type, pb}]),
+                    log_stat(error, pb),
                     undefined;
                 PbBin ->
-                    stat:count("HA/ejabberd", "send_packet", 1, [{result, ok}, {type, pb}]),
+                    log_stat(ok, pb),
                     {route_pb, PbBin}
             end;
         _ ->
             Msg
     end.
+
+
+log_stat(Result, Type) ->
+    stat:count("HA/ejabberd", "send_packet", 1, [{result, Result}, {type, Type}]).
 
 
 %%%===================================================================
