@@ -39,14 +39,14 @@ process([BlobId],
     try
         Key = base64url:decode(proplists:get_value(<<"k">>, Q, <<>>)),
         %% TODO(vipin): Need to remove the debug.
-        ?DEBUG("Share Id: ~p, Key: ~p", [BlobId, base64url:encode(Key)]),
+        ?DEBUG("Share Id: ~p, Key: ~p, Q: ~p", [BlobId, base64url:encode(Key), Q]),
         UserAgent = util_http:get_user_agent(Headers),
         Platform = util_http:get_platform(UserAgent),
         IP = util_http:get_ip(NetIP, Headers),
         ?INFO("Share Id: ~p, UserAgent ~p Platform: ~p, IP: ~p", [BlobId, UserAgent, Platform, IP]),
         case fetch_share_post(BlobId) of
             {ok, EncBlobWithMac} ->
-                case util_crypto:decrypt(EncBlobWithMac, Key, ?SHARE_POST_HKDF_INFO) of
+                case util_crypto:decrypt_blob(EncBlobWithMac, Key, ?SHARE_POST_HKDF_INFO) of
                     {ok, Blob} ->
                         show_post_content(BlobId, Blob);
                     {error, CryptoReason} ->
@@ -76,8 +76,7 @@ show_post_content(BlobId, Blob) ->
         #pb_client_post_container{} ->
             ?INFO("BlobId: ~p success", [BlobId]),
             Json = json_encode(Blob),
-            HtmlPage = <<?HTML_PRE/binary, Json/binary, ?HTML_POST/binary>>,
-            {200, ?HEADER(?CT_HTML), HtmlPage}
+            {200, ?HEADER(?CT_JSON), Json}
     catch Class : Reason : St ->
         ?ERROR("Failed to parse share post, BlobId: ~p, err: ~p",
             [BlobId, lager:pr_stacktrace(St, {Class, Reason})]),
@@ -92,7 +91,7 @@ json_encode(PBBin) ->
 
 show_crypto_error(BlobId, Reason) ->
     ?ERROR("BlobId: ~p, Crypto Error: ~p", [BlobId, Reason]),
-    ReasonBin = util:to_binary(Reason),
+    ReasonBin = util:to_binary(io_lib:format("~p", [Reason])),
     HtmlPage = <<?HTML_PRE/binary, <<"Crypto Error: ">>/binary, ReasonBin/binary, ?HTML_POST/binary>>,
     {200, ?HEADER(?CT_HTML), HtmlPage}.
 

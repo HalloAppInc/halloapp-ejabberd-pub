@@ -9,6 +9,5 @@
 -define(AESKEY_LENGTH_BYTES, 32).
 -define(HMACKEY_LENGTH_BYTES, 32).
 -define(HMAC_LENGTH_BYTES, 32).
--define(AES_BLOCK_SIZE, 16).
 
 -endif.

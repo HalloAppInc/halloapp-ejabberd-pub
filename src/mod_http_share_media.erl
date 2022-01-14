@@ -77,7 +77,7 @@ decrypt_media(URL, EncBlobWithMac, Key, Type) ->
         <<"V">> -> ?VIDEO_HKDF_INFO
     end,
     %% TODO(vipin): Video needs to be de-chunked when applicable.
-    case util_crypto:decrypt(EncBlobWithMac, Key, HkdfInfo) of
+    case util_crypto:decrypt_blob(EncBlobWithMac, Key, HkdfInfo) of
        {ok, Blob} ->
            show_media_content(URL, Blob);
        {error, CryptoReason} ->
@@ -90,7 +90,7 @@ show_media_content(URL, Blob) ->
 
 show_crypto_error(URL, Reason) ->
     ?ERROR("Media URL: ~p, Crypto Error: ~p", [URL, Reason]),
-    ReasonBin = util:to_binary(Reason),
+    ReasonBin = util:to_binary(io_lib:format("~p", [Reason])),
     HtmlPage = <<?HTML_PRE/binary, <<"Crypto Error: ">>/binary, ReasonBin/binary, ?HTML_POST/binary>>,
     {200, ?HEADER(?CT_HTML), HtmlPage}.
 
