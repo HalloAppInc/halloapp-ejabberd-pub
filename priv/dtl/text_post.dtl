@@ -1,0 +1,23 @@
+<html><body>Text Post<br/>
+Title: {{ title }}<br/>
+Mentions:
+<ul>
+{% for mention in mentions %}
+    <li>Mention Index: {{ mention.index }}</li>
+    <li>Mention User Id: {{ mention.user_id }}</li>
+    <li>Mention User Name: {{ mention.name }}</li>
+{% endfor %}
+</ul>
+{% if link.preview %}
+Media Link:<a href="{{ link.url }}" title="{{ link.title }}">{{ link.description }}</a>
+{% for preview in link.preview %}
+Media width: {{ preview.width }}
+Media height: {{ preview.height }}
+Encrypted Media key: {{ preview.img.encryption_key }}
+Encrypted Media hash: {{ preview.img.ciphertext_hash }}
+Encrypted Media url: {{ preview.img.download_url }}
+{% endfor %}
+{% else %}
+Text Link:<a href="{{ link.url }}" title="{{ link.title }}">{{ link.description }}</a>
+{% endif %}
+</body></html>

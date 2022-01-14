@@ -212,6 +212,7 @@ modules:
   mod_call_stats: {}
   mod_call_servers: {}
   mod_external_share_post: {}
+  mod_http_share_post: {}
 
 ### Local Variables:
 ### mode: yaml

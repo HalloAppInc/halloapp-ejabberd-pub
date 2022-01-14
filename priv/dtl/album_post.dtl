@@ -1,0 +1,3 @@
+<html><body>Album Post<br/>
+Title: {{ text.text }}
+</body></html>
