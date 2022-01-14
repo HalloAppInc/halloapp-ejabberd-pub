@@ -20,6 +20,7 @@
     e2e_success_failure_rates/2,
     e2e_decryption_reason_rates/2,
     e2e_decryption_report/1,
+    e2e_decryption_report_7day/1,
     e2e_decryption_report_without_rerequest/1
 ]).
 
@@ -36,6 +37,7 @@ get_queries() ->
         e2e_decryption_reason_rates(?ANDROID, QueryTimeMsBin),
         e2e_decryption_reason_rates(?IOS, QueryTimeMsBin),
         e2e_decryption_report(QueryTimeMsBin),
+        e2e_decryption_report_7day(QueryTimeMsBin),
         e2e_decryption_report_without_rerequest(QueryTimeMsBin)
     ].
 
@@ -129,6 +131,7 @@ e2e_decryption_report(TimestampMsBin) ->
                 (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
                     MAX(\"timestamp_ms\") as \"timestamp_ms\"
                 FROM \"default\".\"client_group_decryption_report\"
+                WHERE \"group_decryption_report\".\"time_taken_s\" <= 86400
                 GROUP BY \"group_decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
                     AND \"group_decryption_report\".\"result\"='ok'
@@ -139,6 +142,7 @@ e2e_decryption_report(TimestampMsBin) ->
                 (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
                     MAX(\"timestamp_ms\") as \"timestamp_ms\"
                 FROM \"default\".\"client_group_decryption_report\"
+                WHERE \"group_decryption_report\".\"time_taken_s\" <= 86400
                 GROUP BY \"group_decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
                 GROUP BY version, platform) as total
@@ -150,6 +154,46 @@ e2e_decryption_report(TimestampMsBin) ->
         tags = #{},
         result_fun = {athena_e2e_results, record_dec_report},
         metrics = ["group_decryption_report"]
+    }.
+
+
+%% Query gets the decryption report rates ordered by version.
+%% This query will run on data from TimestampMs till current.
+-spec e2e_decryption_report_7day(TimestampMsBin :: binary()) -> athena_query().
+e2e_decryption_report_7day(TimestampMsBin) ->
+    QueryBin = <<"
+        SELECT success.platform, success.version,
+            ROUND(success.count * 100.0 / total.count, 2) as success_rate,
+            success.count as success_count, total.count as total_count
+        FROM
+            (SELECT platform, version, count(*) as count
+            FROM
+                (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_group_decryption_report\"
+                WHERE \"group_decryption_report\".\"time_taken_s\" <= 604800
+                GROUP BY \"group_decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                    AND \"group_decryption_report\".\"result\"='ok'
+                GROUP BY version, platform) as success
+        JOIN
+            (SELECT platform, version, count(*) as count
+            FROM
+                (SELECT \"group_decryption_report\", \"platform\", MAX(\"version\") as \"version\",
+                    MAX(\"timestamp_ms\") as \"timestamp_ms\"
+                FROM \"default\".\"client_group_decryption_report\"
+                WHERE \"group_decryption_report\".\"time_taken_s\" <= 604800
+                GROUP BY \"group_decryption_report\", \"platform\")
+                WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
+                GROUP BY version, platform) as total
+        ON success.version=total.version
+            AND success.platform=total.platform
+        ORDER BY success.version DESC;">>,
+    #athena_query{
+        query_bin = QueryBin,
+        tags = #{},
+        result_fun = {athena_e2e_results, record_dec_report},
+        metrics = ["group_decryption_report_7day"]
     }.
 
 
