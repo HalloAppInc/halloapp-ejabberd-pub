@@ -455,6 +455,12 @@ check_empty_inviter_list_test() ->
 
 
 get_group_info_test() ->
+    {timeout, 10,
+        fun() ->
+            get_group_info()
+        end}.
+
+get_group_info() ->
     setup(),
     GroupName = <<"GroupName1">>,
     Avatar = <<"avatar1">>,

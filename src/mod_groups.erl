@@ -914,7 +914,7 @@ send_modify_members_event(Gid, Uid, MemberResults, PBHistoryResend) ->
             end,
             lists:foldl(
                 fun(Uid3, Acc) ->
-                    Acc#{Uid => PBHistoryResend#pb_history_resend{
+                    Acc#{Uid3 => PBHistoryResend#pb_history_resend{
                         sender_state_bundles = [],
                         sender_state = maps:get(Uid3, StateBundlesMap, undefined)
                     }}
@@ -997,9 +997,6 @@ broadcast_update(Group, Uid, Event, Results, NamesMap) ->
     broadcast_update(Group, Uid, Event, Results, NamesMap, #{}).
 
 
-% Broadcast the event to all members of the group
--spec broadcast_update(Group :: group(), Uid :: uid() | undefined, Event :: atom(),
-        Results :: modify_member_results(), NamesMap :: names_map(), HistoryResendMap :: #{}) -> ok.
 broadcast_update(Group, Uid, Event, Results, NamesMap, HistoryResendMap) ->
     MembersSt = make_members_st(Event, Results, NamesMap),
     %% broadcast description only on change_description events, else- leave it undefined.
@@ -1008,30 +1005,40 @@ broadcast_update(Group, Uid, Event, Results, NamesMap, HistoryResendMap) ->
         _ -> undefined
     end,
 
-    GroupSt = #pb_group_stanza{
-        gid = Group#group.gid,
-        name = Group#group.name,
-        avatar_id = Group#group.avatar,
-        background = Group#group.background,
-        sender_uid = Uid,
-        sender_name = maps:get(Uid, NamesMap, undefined),
-        action = Event,
-        members = MembersSt,
-        description = Description,
-        history_resend = maps:get(Uid, HistoryResendMap, undefined)
-    },
-
     Members = [M#group_member.uid || M <- Group#group.members],
     %% We also need to notify users who will be affected and broadcast the update to them as well.
     AdditionalUids = [element(1, R) || R <- Results],
     UidsToNotify = sets:from_list(Members ++ AdditionalUids),
     BroadcastUids = sets:to_list(UidsToNotify),
-    Packet = #pb_msg{
-        id = util_id:new_msg_id(),
-        type = groupchat,
-        payload = GroupSt
-    },
-    broadcast_packet(<<>>, BroadcastUids, Packet),
+
+    Id = util_id:new_msg_id(),
+    %% Fetch appropriate history-resend packet and then broadcast the update.
+    lists:foldl(
+        fun(ToUid, Acc) ->
+            GroupSt = #pb_group_stanza {
+                gid = Group#group.gid,
+                name = Group#group.name,
+                avatar_id = Group#group.avatar,
+                background = Group#group.background,
+                sender_uid = Uid,
+                sender_name = maps:get(Uid, NamesMap, undefined),
+                action = Event,
+                members = MembersSt,
+                description = Description,
+                history_resend = maps:get(ToUid, HistoryResendMap, undefined)
+            },
+            AccBin = integer_to_binary(Acc),
+            NewId = <<Id/binary, "-", AccBin/binary>>,
+            Packet = #pb_msg{
+                id = NewId,
+                type = groupchat,
+                payload = GroupSt,
+                from_uid = Uid,
+                to_uid = ToUid
+            },
+            ejabberd_router:route(Packet),
+            Acc + 1
+        end, 0, BroadcastUids),
     ok.
 
 

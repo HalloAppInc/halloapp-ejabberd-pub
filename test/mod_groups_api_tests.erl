@@ -976,9 +976,10 @@ add_member_with_history_resend_test() ->
                 Packet#pb_msg.to_uid =:= ?UID3),
             SubEl = Packet#pb_msg.payload,
             ?assertEqual(SubEl#pb_group_stanza.history_resend#pb_history_resend.payload, ?PAYLOAD1),
-            ?assert(SubEl#pb_group_feed_item.sender_state =:= undefined orelse
-                SubEl#pb_group_feed_item.sender_state =:= create_sender_state(?ENC_SENDER_STATE2) orelse
-                SubEl#pb_group_feed_item.sender_state =:= create_sender_state(?ENC_SENDER_STATE3)),
+            HistoryResend = SubEl#pb_group_stanza.history_resend,
+            ?assert(HistoryResend#pb_history_resend.sender_state =:= undefined orelse
+                HistoryResend#pb_history_resend.sender_state =:= create_sender_state(?ENC_SENDER_STATE2) orelse
+                HistoryResend#pb_history_resend.sender_state =:= create_sender_state(?ENC_SENDER_STATE3)),
             ok
         end),
 
@@ -988,9 +989,8 @@ add_member_with_history_resend_test() ->
     IQ = modify_members_IQ(?UID1, Gid, [{?UID3, add}], PBHistoryResend),
     ResultIQ = mod_groups_api:process_local_iq(IQ),
 
-    SubEl = ResultIQ#pb_iq.payload,
     ?assertEqual(result, ResultIQ#pb_iq.type),
-    ?assertEqual(1, meck:num_calls(ejabberd_router, route_multicast, '_')),
+    ?assertEqual(3, meck:num_calls(ejabberd_router, route, '_')),
     ?assert(meck:validate(ejabberd_router)),
     meck:unload(ejabberd_router),
     ok.

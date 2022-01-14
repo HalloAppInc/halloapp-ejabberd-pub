@@ -16,6 +16,7 @@ group() ->
         groups_dummy_test,
         groups_create_group_test,
         groups_add_members_test,
+        groups_add_members_history_resend_test,
         groups_remove_members_test,
         groups_promote_admin_test,
         groups_demote_admin_test,
@@ -155,9 +156,88 @@ add_members_test(Conf) ->
         [{?UID2, ?KEYPAIR2}, {?UID3, ?KEYPAIR3}]),
     {save_config, [{gid, Gid}]}.
 
+
+% Uid1 adds Uid3 to the group (created above).
+% Make sure Uid2 and Uid3 get msg about the group change.
+add_members_history_resend_test(Conf) ->
+    {groups_add_members_test, SConfig} = ?config(saved_config, Conf),
+    Gid = ?config(gid, SConfig),
+    model_groups:remove_members(Gid, [?UID3]),
+    ?assertEqual([?UID1, ?UID2], model_groups:get_member_uids(Gid)),
+
+    % Uid1 adds Uid3 to the group
+    {ok, C1} = ha_client:connect_and_login(?UID1, ?KEYPAIR1),
+
+    Payload = #pb_group_stanza{
+        gid = Gid,
+        action = modify_members,
+        members = [
+            #pb_group_member{uid = ?UID3, action = add}
+        ],
+        history_resend = #pb_history_resend{
+            payload = <<10,44,8,146,162>>,
+            enc_payload = <<10,148,14,0,0,0,0>>,
+            sender_state_bundles = [
+                #pb_sender_state_bundle{
+                    sender_state = #pb_sender_state_with_key_info{
+                        public_key = undefined,
+                        one_time_pre_key_id = -1,
+                        enc_sender_state = <<230,116,32>>
+                    }, uid = ?UID2},
+                #pb_sender_state_bundle{
+                    sender_state = #pb_sender_state_with_key_info{
+                        public_key = undefined,
+                        one_time_pre_key_id = -1,
+                        enc_sender_state = <<251,34,18>>
+                    }, uid = ?UID3}
+                ],
+            audience_hash = <<227,176,196,66,152,252>>
+        }
+    },
+    % check the  result
+    Result = ha_client:send_iq(C1, set, Payload),
+    ct:pal("Result ~p", [Result]),
+    #pb_packet{
+        stanza = #pb_iq{
+            type = result,
+            payload = #pb_group_stanza{
+                gid = Gid,
+                members = [
+                    #pb_group_member{uid = ?UID3, type = member, action = add,
+                        result = <<"ok">>, reason = undefined}
+                ]
+            }
+        }
+    } = Result,
+
+    ok = ha_client:stop(C1),
+
+    % make sure Uid2 and Uid3 get message about the group modification
+    lists:map(
+        fun({User, Password}) ->
+            {ok, C2} = ha_client:connect_and_login(User, Password),
+            GroupMsg = ha_client:wait_for_msg(C2, pb_group_stanza),
+            GroupSt = GroupMsg#pb_packet.stanza#pb_msg.payload,
+            ok = ha_client:stop(C2),
+            #pb_group_stanza{
+                action = modify_members,
+                gid = Gid,
+                name = ?GROUP_NAME1,
+                sender_uid = ?UID1,
+                sender_name = ?NAME1,
+                members = [
+                    #pb_group_member{uid = ?UID3, action = add, type = member, name = ?NAME3}
+                ]
+            } = GroupSt,
+            ?assertNotEqual(undefined, GroupSt#pb_group_stanza.history_resend)
+        end,
+        [{?UID2, ?KEYPAIR2}, {?UID3, ?KEYPAIR3}]),
+    {save_config, [{gid, Gid}]}.
+
+
 % Uid1 removes Uid3 to the group. Make sure Uid2 and Uid3 get msg about the group change
 remove_members_test(Conf) ->
-    {groups_add_members_test, SConfig} = ?config(saved_config, Conf),
+    {groups_add_members_history_resend_test, SConfig} = ?config(saved_config, Conf),
     Gid = ?config(gid, SConfig),
     ?assertEqual([?UID1, ?UID2, ?UID3], model_groups:get_member_uids(Gid)),
 
