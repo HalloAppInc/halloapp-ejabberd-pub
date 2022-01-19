@@ -257,14 +257,14 @@ init_state(Host, _Opts) ->
 register_hooks(Host) ->
     ejabberd_hooks:add(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
     ejabberd_hooks:add(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 100),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 100),
+    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:add(user_session_activated, Host, ?MODULE, user_session_activated, 50).
 
 
 unregister_hooks(Host) ->
     ejabberd_hooks:delete(sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 100),
     ejabberd_hooks:delete(sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 100),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 100),
+    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:delete(user_session_activated, Host, ?MODULE, user_session_activated, 50).
 
 

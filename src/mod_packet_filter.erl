@@ -21,7 +21,8 @@
 %% hooks
 -export([
     offline_message_version_filter/4,
-    push_version_filter/4
+    push_version_filter/4,
+    user_send_packet/1
 ]).
 
 
@@ -33,10 +34,12 @@ start(Host, _Opts) ->
     ?INFO("mod_packet_filter: start", []),
     ejabberd_hooks:add(offline_message_version_filter, Host, ?MODULE, offline_message_version_filter, 50),
     ejabberd_hooks:add(push_version_filter, Host, ?MODULE, push_version_filter, 50),
+    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 100),
     ok.
 
 stop(Host) ->
     ?INFO("mod_packet_filter: stop", []),
+    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 100),
     ejabberd_hooks:delete(offline_message_version_filter, Host, ?MODULE, offline_message_version_filter, 50),
     ejabberd_hooks:delete(push_version_filter, Host, ?MODULE, push_version_filter, 50),
     ok.
@@ -87,6 +90,25 @@ push_version_filter(allow, Uid, PushInfo, #pb_msg{id = MsgId} = Message) ->
         true -> allow
     end;
 push_version_filter(deny, _, _, _) -> deny.
+
+
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_group_feed_rerequest{}} = Packet, State}) ->
+    case model_accounts:get_client_version(ToUid) of
+        {ok, ClientVersion} ->
+            Platform = util_ua:get_client_type(ClientVersion),
+            case check_version_rules(Platform, ClientVersion, pb_group_feed_rerequest) of
+                false ->
+                    ?INFO("Droping pb_group_feed_rerequest FromUid: ~s ToUid: ~s MsgId: ~s", [FromUid, ToUid, MsgId]),
+                    {drop, State};
+                true -> {Packet, State}
+            end;
+        {error, _} ->
+            ?ERROR("Droping pb_group_feed_rerequest FromUid: ~s ToUid: ~s MsgId: ~s", [FromUid, ToUid, MsgId]),
+            {drop, State}
+    end;
+user_send_packet({_Packet, _State} = Acc) ->
+    Acc.
 
 
 %%====================================================================

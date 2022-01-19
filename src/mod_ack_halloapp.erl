@@ -27,11 +27,11 @@
 
 start(Host, _Opts) ->
     ?DEBUG("start", []),
-    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 100).
+    ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 90).
 
 stop(Host) ->
     ?DEBUG("stop", []),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 100).
+    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 90).
 
 depends(_Host, _Opts) ->
     [].
