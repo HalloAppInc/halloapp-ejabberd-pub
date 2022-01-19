@@ -234,13 +234,13 @@ health_check_redis_backups(RedisId) ->
         RedisIdBin = util:to_binary(RedisId),
         case NumUniqueBackups < ?NUM_BACKUPS_WARNING_THRESHOLD of
             true ->
+                ?ERROR("[~p] currently has ~p backups in S3, need to have ~p",
+                        [RedisId, NumUniqueBackups, ?NUM_BACKUPS_WARNING_THRESHOLD]),
                 Msg1 = <<RedisIdBin/binary, " currently has ",
                     (util:to_binary(NumUniqueBackups))/binary,
                     " backups in S3. Need to have atleast ",
                     (util:to_binary(?NUM_BACKUPS_WARNING_THRESHOLD))/binary>>,
-                alerts:send_alert(<<"Not enough Backups">>, RedisIdBin/binary, <<"critical">>, Msg1),
-                ?ERROR("[~p] currently has ~p backups in S3",
-                        [RedisId, NumUniqueBackups]);
+                alerts:send_alert(<<"Not enough Backups">>, RedisIdBin, <<"critical">>, Msg1);
             false ->
                 ?INFO("[~p] currently has ~p backups in S3",
                         [RedisId, NumUniqueBackups])
@@ -249,14 +249,14 @@ health_check_redis_backups(RedisId) ->
             fun(BackupName, Size) ->
                 case Size < ?MIN_BACKUP_SIZE_WARNING_THRESHOLD of
                     true ->
+                        ?ERROR("[~p] Backup ~p is only ~p bytes, need to have ~p bytes",
+                                [RedisId, BackupName, Size, ?MIN_BACKUP_SIZE_WARNING_THRESHOLD]),
                         Msg2 = <<RedisIdBin/binary, "'s backup ",
                             (util:to_binary(BackupName))/binary,
                             " is only ", (util:to_binary(Size))/binary,
                             " bytes. Need to have atleast ",
                             (util:to_binary(?MIN_BACKUP_SIZE_WARNING_THRESHOLD))/binary, " bytes">>,
-                        alerts:send_alert(<<"Backup very small">>, RedisIdBin/binary, <<"critical">>, Msg2),
-                        ?ERROR("[~p] Backup ~p is only ~p bytes",
-                                [RedisId, BackupName, Size]);
+                        alerts:send_alert(<<"Backup very small">>, RedisIdBin, <<"critical">>, Msg2);
                     false ->
                         ok
                 end
