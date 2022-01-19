@@ -19,6 +19,9 @@
 -define(STEST_SHARD_NUM, 100).
 
 -export([
+    is_android_user/1,
+    is_ios_user/1,
+    get_content_id/1,
     timestamp_to_binary/1,
     cur_timestamp/0,
     timestamp_secs_to_integer/1,
@@ -81,6 +84,33 @@
 
 
 -define(PASSWORD_SIZE, 24).
+
+-spec is_android_user(Uid :: binary()) -> boolean().
+is_android_user(Uid) ->
+    case model_accounts:get_client_version(Uid) of
+        {ok, ClientVersion} ->
+            util_ua:is_android(ClientVersion);
+        {error, _} -> false
+    end.
+
+
+-spec is_ios_user(Uid :: binary()) -> boolean().
+is_ios_user(Uid) ->
+    case model_accounts:get_client_version(Uid) of
+        {ok, ClientVersion} ->
+            util_ua:is_ios(ClientVersion);
+        {error, _} -> false
+    end.
+
+
+%% TODO(murali@): extend this for all types of payload.
+-spec get_content_id(Payload :: term()) -> binary() | undefined.
+get_content_id(#pb_feed_item{item = #pb_post{} = Post}) -> Post#pb_post.id;
+get_content_id(#pb_feed_item{item = #pb_comment{} = Comment}) -> Comment#pb_comment.id;
+get_content_id(#pb_group_feed_item{item = #pb_post{} = Post}) -> Post#pb_post.id;
+get_content_id(#pb_group_feed_item{item = #pb_comment{} = Comment}) -> Comment#pb_comment.id;
+get_content_id(_) -> undefined.
+
 
 -spec get_host() -> binary().
 get_host() ->

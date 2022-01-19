@@ -226,7 +226,8 @@ user_receive_packet(Acc) ->
 
 
 -spec c2s_session_opened(State :: state()) -> state().
-c2s_session_opened(#{mode := active} = State) ->
+c2s_session_opened(#{mode := active, user := Uid, client_version := ClientVersion} = State) ->
+    cleanup_offline_queue(Uid, ClientVersion),
     send_offline_messages(State);
 c2s_session_opened(#{mode := passive} = State) ->
     State.
@@ -494,10 +495,13 @@ adjust_and_send_message(#pb_msg{} = Message, RetryCount) ->
 -spec filter_offline_messages(ClientVersion :: binary(),
     OfflineMessages :: [offline_message()]) -> [offline_message()].
 filter_offline_messages(ClientVersion, OfflineMessages) ->
-    lists:filter(
+    OfflineMessages1 = lists:filter(
         fun(OfflineMessage) ->
             filter_messages(ClientVersion, OfflineMessage)
-        end, OfflineMessages).
+        end, OfflineMessages),
+    %% TODO: Temporarily filter out duplicate content-ids from android clients to all users.
+    OfflineMessages2 = filter_duplicate_content(OfflineMessages1),
+    OfflineMessages2.
 
 
 %% Filter undefined messages
@@ -529,6 +533,63 @@ filter_messages(ClientVersion, #offline_message{msg_id = MsgId,
             ok = model_messages:ack_message(Uid, MsgId),
             stat:count("HA/offline_messages", "dont_deliver"),
             false
+    end.
+
+
+%% Filter duplicate content from android clients.
+%% We need to go through all messages and keep only unique content-ids from clients.
+%% So we construct a map of content-ids and ignore the messages that have the some content.
+%% TODO(murali@): Fix this after talking to the android team.
+filter_duplicate_content(OfflineMessages) ->
+    {FinalOfflineMessagesToSend, _} = lists:foldr(
+        fun(OfflineMessage, {OfflineMessagesToSend, ContentKeyMap} = Acc) ->
+            MsgId = OfflineMessage#offline_message.msg_id,
+            Uid = OfflineMessage#offline_message.to_uid,
+            FromUid = OfflineMessage#offline_message.from_uid,
+            ContentType = OfflineMessage#offline_message.content_type,
+            MsgBin = OfflineMessage#offline_message.message,
+
+            case util:is_android_user(FromUid) of
+                true ->
+                    case ContentType =:= pb_group_feed_item orelse ContentType =:= pb_feed_item of
+                        true ->
+                            case enif_protobuf:decode(MsgBin, pb_packet) of
+                                {error, DecodeReason} ->
+                                    ?ERROR("MsgId: ~p, Message: ~p, failed decoding reason: ~s", [MsgId, MsgBin, DecodeReason]),
+                                    ok = model_messages:ack_message(Uid, MsgId),
+                                    Acc;
+                                #pb_packet{stanza = MsgPacket} ->
+                                    ContentId = util:get_content_id(MsgPacket#pb_msg.payload),
+                                    case maps:is_key(ContentId, ContentKeyMap) of
+                                        true ->
+                                            ?INFO("Filtering out MsgId: ~p ContentId: ~p Uid: ~p fromUid: ~p", [MsgId, ContentId, Uid, FromUid]),
+                                            ok = model_messages:ack_message(Uid, MsgId),
+                                            Acc;
+                                        false ->
+                                            NewOfflineMessagesToSend = [OfflineMessage | OfflineMessagesToSend],
+                                            NewContentKeyMap = ContentKeyMap#{ContentId => 1},
+                                            {NewOfflineMessagesToSend, NewContentKeyMap}
+                                    end
+                            end;
+                        false ->
+                            NewOfflineMessagesToSend = [OfflineMessage | OfflineMessagesToSend],
+                            {NewOfflineMessagesToSend, ContentKeyMap}
+                    end;
+                false ->
+                    NewOfflineMessagesToSend = [OfflineMessage | OfflineMessagesToSend],
+                    {NewOfflineMessagesToSend, ContentKeyMap}
+            end
+        end, {[], #{}}, OfflineMessages),
+    FinalOfflineMessagesToSend.
+
+
+-spec cleanup_offline_queue(Uid :: binary(), ClientVersion :: binary()) -> ok.
+cleanup_offline_queue(Uid, ClientVersion) ->
+    case model_messages:get_all_user_messages(Uid, 0, undefined) of
+        {ok, true, []} -> ok;
+        {ok, true, OfflineMessages} ->
+            %% Applying filter to remove certain messages.
+            filter_offline_messages(ClientVersion, OfflineMessages)
     end.
 
 
