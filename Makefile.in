@@ -67,6 +67,9 @@ SQLDIR = $(PRIVDIR)/sql
 # /usr/lib/ejabberd/priv/lua
 LUADIR = $(PRIVDIR)/lua
 
+# /usr/lib/ejabberd/priv/dtl
+DTLDIR = $(PRIVDIR)/dtl
+
 # /var/lib/ejabberd/
 SPOOLDIR = $(DESTDIR)@localstatedir@/lib/ejabberd
 
@@ -170,7 +173,7 @@ BINARIES=$(DEPSDIR)/eimp/priv/bin/eimp $(DEPSDIR)/fs/priv/mac_listener
 DEPS_FILES_FILTERED=$(filter-out $(BINARIES) $(DEPSDIR)/elixir/ebin/elixir.app,$(DEPS_FILES))
 DEPS_DIRS=$(sort $(DEPSDIR)/ $(foreach DEP,$(DEPS),$(DEPSDIR)/$(DEP)/) $(dir $(DEPS_FILES)))
 
-MAIN_FILES=$(filter-out %/configure.beam,$(call FILES_WILDCARD,$(DEPSDIR)/ejabberd/ebin/*.beam $(DEPSDIR)/ejabberd/ebin/*.app priv/xml/*.xml priv/lua/*.lua priv/data/* priv/msgs/* priv/css/*.css priv/img/*.png priv/js/*.js priv/lib/* include/*.hrl COPYING))
+MAIN_FILES=$(filter-out %/configure.beam,$(call FILES_WILDCARD,$(DEPSDIR)/ejabberd/ebin/*.beam $(DEPSDIR)/ejabberd/ebin/*.app priv/xml/*.xml priv/lua/*.lua priv/dtl/* priv/data/* priv/msgs/* priv/css/*.css priv/img/*.png priv/js/*.js priv/lib/* include/*.hrl COPYING))
 MAIN_DIRS=$(sort $(dir $(MAIN_FILES)) priv/bin priv/sql)
 
 define DEP_VERSION_template
@@ -328,6 +331,8 @@ uninstall-binary:
 	rm -fr $(SQLDIR)
 	rm -fr $(LUADIR)/*.lua
 	rm -fr $(LUADIR)
+	rm -fr $(DTLDIR)/*.dtl
+	rm -fr $(DTLDIR)
 	rm -fr $(PRIVDIR)
 	rm -fr $(EJABBERDDIR)
 
