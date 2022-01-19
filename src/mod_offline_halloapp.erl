@@ -44,7 +44,8 @@
     remove_user/2,
     count_user_messages/1,
     offline_queue_check/5,
-    route_offline_messages/4  % DEBUG
+    route_offline_messages/4,  % DEBUG
+    cleanup_offline_queue/2    % DEBUG
 ]).
 
 
@@ -551,7 +552,7 @@ filter_duplicate_content(OfflineMessages) ->
 
             case util:is_android_user(FromUid) of
                 true ->
-                    case ContentType =:= pb_group_feed_item orelse ContentType =:= pb_feed_item of
+                    case ContentType =:= <<"pb_group_feed_item">> orelse ContentType =:= <<"pb_feed_item">> of
                         true ->
                             case enif_protobuf:decode(MsgBin, pb_packet) of
                                 {error, DecodeReason} ->
