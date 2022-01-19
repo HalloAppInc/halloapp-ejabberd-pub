@@ -585,7 +585,7 @@ filter_duplicate_content(OfflineMessages) ->
 
 -spec cleanup_offline_queue(Uid :: binary(), ClientVersion :: binary()) -> ok.
 cleanup_offline_queue(Uid, ClientVersion) ->
-    case model_messages:get_all_user_messages(Uid, 0, undefined) of
+    case model_messages:get_user_messages(Uid, 0, undefined) of
         {ok, true, []} -> ok;
         {ok, true, OfflineMessages} ->
             %% Applying filter to remove certain messages.
