@@ -79,10 +79,12 @@ show_post_content(BlobId, Blob) ->
             Content = case Post of
                 #pb_client_text{} = Text ->
                       ?INFO("Text BlobId: ~p success", [BlobId]),
-                      show_text_post_content(Text);
+                      {ok, HtmlPage} = show_text_post_content(Text),
+                      HtmlPage;
                 #pb_client_album{} = Album ->
                       ?INFO("Album BlobId: ~p success", [BlobId]),
-                      show_album_post_content(Album);
+                      {ok, HtmlPage} = show_album_post_content(Album),
+                      HtmlPage;
                 _ -> 
                       ?INFO("Non Text/Album BlobId: ~p success", [BlobId]),
                       json_encode(Blob)
