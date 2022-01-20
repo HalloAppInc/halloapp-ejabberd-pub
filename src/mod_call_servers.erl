@@ -157,9 +157,8 @@ get_ha_stun_turn_servers(Uid, _PeerUid, _CallType) ->
     ?INFO("Uid: ~s LastIP: ~s CC: ~s", [Uid, IP, CC]),
     {ok, ServerIP} = get_ip(CC),
     ?INFO("Uid: ~s CC: ~s Selected call server: ~s", [Uid, CC, ServerIP]),
-    StunServer = get_ha_stun_server(ServerIP),
     TurnServer = get_ha_turn_server(ServerIP),
-    {[StunServer], [TurnServer]}.
+    {[], [TurnServer]}.
 
 
 -spec get_stun_turn_servers() -> {list(pb_stun_server()), list(pb_turn_server())}.
@@ -182,9 +181,8 @@ get_stun_turn_servers(Uid, PeerUid, CallType) ->
 
 -spec get_dev_ha_servers() -> {list(#pb_stun_server{}), list(#pb_turn_server{})}.
 get_dev_ha_servers() ->
-    StunServer = get_ha_stun_server(<<"stun.halloapp.dev">>),
     TurnServer = get_ha_turn_server(<<"turn.halloapp.dev">>),
-    {[StunServer], [TurnServer]}.
+    {[], [TurnServer]}.
 
 
 get_ha_stun_server(Host) ->

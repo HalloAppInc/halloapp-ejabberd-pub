@@ -39,9 +39,7 @@ start_test() ->
 
 get_stun_turn_servers_basic_test() ->
     setup(),
-    {[StunServer], [TurnServer]} = mod_call_servers:get_stun_turn_servers(),
-    ?assertEqual(<<"stun.halloapp.dev">>, StunServer#pb_stun_server.host),
-    ?assertEqual(3478, StunServer#pb_stun_server.port),
+    {[], [TurnServer]} = mod_call_servers:get_stun_turn_servers(),
     ?assertEqual(<<"turn.halloapp.dev">>, TurnServer#pb_turn_server.host),
     ?assertEqual(3478, TurnServer#pb_turn_server.port),
     ?assertEqual(<<"clients">>, TurnServer#pb_turn_server.username),
@@ -67,15 +65,12 @@ get_stun_turn_servers_by_ip2_test() ->
     ok.
 
 check_server_from_region(Uid1, Uid2, Region) ->
-    {[StunServer], [TurnServer]} = mod_call_servers:get_stun_turn_servers(Uid1, Uid2, audio),
+    {[], [TurnServer]} = mod_call_servers:get_stun_turn_servers(Uid1, Uid2, audio),
     {ok, USServers} = mod_call_servers:get_ips(Region),
-    Host = StunServer#pb_stun_server.host,
-    % make sure the turn and stun servers have the same host
-    ?assertEqual(StunServer#pb_stun_server.host, TurnServer#pb_turn_server.host),
+    Host = TurnServer#pb_turn_server.host,
     % check if the server we got is one of the us servers
     ?assertEqual(true, lists:member(Host, USServers)),
     % check that the ports are as expected
-    ?assertEqual(3478, StunServer#pb_stun_server.port),
     ?assertEqual(3478, TurnServer#pb_turn_server.port),
     ?assertEqual(<<"clients">>, TurnServer#pb_turn_server.username),
     ok.

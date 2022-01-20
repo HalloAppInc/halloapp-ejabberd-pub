@@ -55,7 +55,7 @@ start_call_test(_Conf) ->
 
     #pb_start_call_result{
         result = ok,
-        stun_servers = [#pb_stun_server{}],
+        stun_servers = [],
         turn_servers = [#pb_turn_server{}]
     } = ResultPayload,
 
@@ -78,7 +78,7 @@ start_call_test(_Conf) ->
         call_id = CallId,
         call_type = audio,
         webrtc_offer = Offer,
-        stun_servers = [#pb_stun_server{}],
+        stun_servers = [],
         turn_servers = [#pb_turn_server{}]
     } = IncomingCall,
 
@@ -107,7 +107,7 @@ get_call_servers_test(_Conf) ->
 
     #pb_get_call_servers_result{
         result = ok,
-        stun_servers = [#pb_stun_server{}],
+        stun_servers = [],
         turn_servers = [#pb_turn_server{}]
     } = ResultPayload,
 
