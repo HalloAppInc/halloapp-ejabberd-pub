@@ -82,9 +82,9 @@
 -define(AWS_RETRY_WINDOW, 15 * ?SECONDS_MS).
 -define(MAX_WAIT_RETRIES, 500). %% 2 hours, 5 minutes
 -define(NUM_BACKUPS_WARNING_THRESHOLD, 47).
-%% redis-sessions is the smallest. it is just a bit more than 10KB.
+%% redis-sessions is the smallest. it is just a bit more than 8KB.
 %% intent of the following macro is to capture deletion of almost all data.
--define(MIN_BACKUP_SIZE_WARNING_THRESHOLD, 10 * 1024). %% 10KB
+-define(MIN_BACKUP_SIZE_WARNING_THRESHOLD, 8 * 1024). %% 8KB
 
 %%%=============================================================================
 %%% END MACROS
