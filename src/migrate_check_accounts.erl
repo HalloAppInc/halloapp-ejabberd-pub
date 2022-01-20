@@ -19,7 +19,8 @@
     check_version_counters_run/2,
     log_recent_account_info_run2/2,
     check_push_name_run/2,
-    set_login_run/2
+    set_login_run/2,
+    cleanup_offline_queue_run/2
 ]).
 
 
@@ -309,6 +310,52 @@ set_login_run(Key, State) ->
         _ -> ok
     end,
     State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                         Cleanup offline queue run                                %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+cleanup_offline_queue_run(Key, State) ->
+    ?INFO("Key: ~p", [Key]),
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            {ok, [Phone, ClientVersion]} = q(ecredis_accounts, ["HMGET", FullKey, <<"ph">>, <<"cv">>]),
+            case Phone =:= undefined orelse ClientVersion =:= undefined of
+                true ->
+                    ?INFO("Uid: ~p, Phone: ~p, ClientVersion: ~p - invalid data",
+                        [Uid, Phone, ClientVersion]);
+                false ->
+                    {ok, OldNumMsgs} = model_messages:count_user_messages(Uid),
+                    case OldNumMsgs >= 20 of
+                        true ->
+                            try
+                                case DryRun of
+                                    false ->
+                                        mod_offline_halloapp:cleanup_offline_queue(Uid, ClientVersion),
+                                        {ok, NewNumMsgs} = model_messages:count_user_messages(Uid),
+                                        ?INFO("Uid: ~s finished cleaning, OldNumMsgs: ~p, NewNumMsgs: ~p",
+                                            [Uid, OldNumMsgs, NewNumMsgs]);
+                                    true ->
+                                        ?INFO("Uid: ~s will cleanup offline queue, OldNumMsgs: ~p",
+                                            [Uid, OldNumMsgs])
+                                end
+                            catch
+                                Class : Reason : Stacktrace ->
+                                    ?ERROR("Uid: ~p failed to clean: ~s",
+                                        [Uid, lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+                            end;
+                        false ->
+                            ?INFO("Uid: ~s ignoring, small queue, OldNumMsgs: ~p",
+                                [Uid, OldNumMsgs])
+                    end
+            end;
+        _ -> ok
+    end,
+    State.
+
 
 
 q(Client, Command) -> util_redis:q(Client, Command).
