@@ -161,6 +161,8 @@ apply_uid_prop_overrides(Uid, PropMap) ->
 
 -spec uid_prop_override(Uid :: uid(), Prop :: atom()) -> undef | term().
 uid_prop_override(<<"1000000000570149128">>, voice_posts) -> true;  %% Michael asked.
+uid_prop_override(<<"1000000000557045692">>, voice_posts) -> true;  %% Neeraj asked.
+uid_prop_override(<<"1000000000520279204">>, voice_posts) -> true;  %% Neeraj asked.
 uid_prop_override(<<"1000000000052736684">>, audio_calls) -> true;  %% Sunisha
 uid_prop_override(<<"1000000000399778754">>, audio_calls) -> true;  %% Neeraj's another friend: +91-94441-02346
 uid_prop_override(<<"1000000000415550189">>, audio_calls) -> true;  %% Rahul Mehta (Neeraj)
