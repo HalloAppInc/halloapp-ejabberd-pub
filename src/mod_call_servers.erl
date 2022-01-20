@@ -170,8 +170,7 @@ get_stun_turn_servers() ->
 -spec get_stun_turn_servers(Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
     -> {ok, {list(pb_stun_server()), list(pb_turn_server())}}.
 get_stun_turn_servers(Uid, PeerUid, CallType) ->
-    %% Enabled only for nikola and murali as of now.
-    case Uid =:= <<"1000000000739856658">> orelse Uid =:= <<"1000000000379188160">> of
+    case rand:normal() > 0.5 of
         true ->
             case get_cloudflare_servers() of
                 {ok, Result} -> Result;
@@ -180,7 +179,6 @@ get_stun_turn_servers(Uid, PeerUid, CallType) ->
         false ->
             get_ha_stun_turn_servers(Uid, PeerUid, CallType)
     end.
-
 
 -spec get_dev_ha_servers() -> {list(#pb_stun_server{}), list(#pb_turn_server{})}.
 get_dev_ha_servers() ->
