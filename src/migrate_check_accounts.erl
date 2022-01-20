@@ -80,8 +80,10 @@ log_account_info_run(Key, State) ->
                         false -> NumFriends = length(Friends)
                     end,
                     CC = mod_libphonenumber:get_cc(Phone),
-                    ?INFO("Account Uid: ~p, Phone: ~p, CC: ~p, NumContacts: ~p, NumUidContacts: ~p, NumFriends: ~p",
-                        [Uid, Phone, CC, NumContacts, NumUidContacts, NumFriends])
+                    {ok, NumOfflineMessages} = model_messages:count_user_messages(Uid),
+                    NumGroups = length(model_groups:get_groups(Uid)),
+                    ?INFO("Account Uid: ~p, Phone: ~p, CC: ~p, NumContacts: ~p, NumUidContacts: ~p, NumFriends: ~p, NumGroups: ~p, NumOfflineMessages: ~p",
+                        [Uid, Phone, CC, NumContacts, NumUidContacts, NumFriends, NumGroups, NumOfflineMessages])
             end;
         _ -> ok
     end,
