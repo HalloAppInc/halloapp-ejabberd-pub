@@ -36,6 +36,7 @@
 
 
 -define(CHECKERS, [
+    otp_checker_google,
     otp_checker_phone,
     otp_checker_invited_or_test,
     otp_checker_remote_static_key,
