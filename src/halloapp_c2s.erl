@@ -28,8 +28,7 @@
     handle_authenticated_packet/2,
     handle_auth_result/4,
     handle_send/4,
-    handle_recv/3,
-    upgrade_packet/1
+    handle_recv/3
 ]).
 
 %% Hooks
@@ -208,109 +207,8 @@ check_first_login(Uid, Server) ->
 %%% Hooks
 %%%===================================================================
 
-%% all messages going to the user will go through this path.
-%% now if we add a new field and update only one server:
-%% then other servers cant encode this message because the record has a new field. 
-%% similarly the updated server cant encode it because it is missing a field.
-%% so this function helps us transform packets across servers.
-% upgrade_packet(#pb_msg{payload = MsgPayload} = Msg) ->
-%     PayloadType = util:get_payload_type(Msg),
-%     case PayloadType of
-%         pb_group_stanza ->
-%             NewMsgPayload = upgrade_group_stanza(MsgPayload),
-%             Msg#pb_msg{payload = NewMsgPayload};
-
-%         pb_rerequest ->
-%             NewMsgPayload = upgrade_rerequest_stanza(MsgPayload),
-%             Msg#pb_msg{payload = NewMsgPayload};
-
-%         pb_incoming_call ->
-%             NewMsgPayload = upgrade_call_stanza(MsgPayload),
-%             Msg#pb_msg{payload = NewMsgPayload};
-
-%         _ -> Msg
-
-%     end;
-upgrade_packet(Packet) -> Packet.
-
-% upgrade_group_stanza(GroupStanza) ->
-%     case GroupStanza of
-%         #pb_group_stanza{} -> GroupStanza;
-%         {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members, Background, AudienceHash, Description} ->
-%             #pb_group_stanza{
-%                 action = Action,
-%                 gid = Gid,
-%                 name = Name,
-%                 avatar_id = AvatarId,
-%                 sender_uid = SenderUid,
-%                 sender_name = SenderName,
-%                 members = Members,
-%                 background = Background,
-%                 audience_hash = AudienceHash,
-%                 description = Description
-%             };
-%         {pb_group_stanza, Action, Gid, Name, AvatarId, SenderUid, SenderName, Members, Background, AudienceHash, Description, _HistoryResend} ->
-%             #pb_group_stanza{
-%                 action = Action,
-%                 gid = Gid,
-%                 name = Name,
-%                 avatar_id = AvatarId,
-%                 sender_uid = SenderUid,
-%                 sender_name = SenderName,
-%                 members = Members,
-%                 background = Background,
-%                 audience_hash = AudienceHash,
-%                 description = Description
-%             }
-%     end.
-
-% upgrade_rerequest_stanza(RerequestStanza) ->
-%     case RerequestStanza of
-%         #pb_rerequest{} -> RerequestStanza;
-%         {pb_rerequest, Id, IdentityKey, SignedPreKeyId, OneTimeKeyId, SessionKey, EphemeralKey} ->
-%             #pb_rerequest{
-%                 id = Id,
-%                 identity_key = IdentityKey,
-%                 signed_pre_key_id = SignedPreKeyId,
-%                 one_time_pre_key_id = OneTimeKeyId,
-%                 session_setup_ephemeral_key = SessionKey,
-%                 message_ephemeral_key = EphemeralKey
-%             };
-%         {pb_rerequest, Id, IdentityKey, SignedPreKeyId, OneTimeKeyId, SessionKey, EphemeralKey, _ContentType} ->
-%             #pb_rerequest{
-%                 id = Id,
-%                 identity_key = IdentityKey,
-%                 signed_pre_key_id = SignedPreKeyId,
-%                 one_time_pre_key_id = OneTimeKeyId,
-%                 session_setup_ephemeral_key = SessionKey,
-%                 message_ephemeral_key = EphemeralKey
-%             }
-%     end.
-
-
-% upgrade_call_stanza(CallStanza) ->
-%     case CallStanza of
-%         #pb_incoming_call{} -> CallStanza;
-%         {pb_incoming_call, CallId, CallType, WebRtcOffer, StunServers, TurnServers, TimestampMs} ->
-%             #pb_incoming_call{
-%                 call_id = CallId,
-%                 call_type = CallType,
-%                 webrtc_offer = WebRtcOffer,
-%                 stun_servers = StunServers,
-%                 turn_servers = TurnServers,
-%                 timestamp_ms = TimestampMs
-%             };
-%         {pb_incoming_call, CallId, CallType, WebRtcOffer, StunServers, TurnServers, TimestampMs, _ServerSentTimestampMs} ->
-%             #pb_incoming_call{
-%                 call_id = CallId,
-%                 call_type = CallType,
-%                 webrtc_offer = WebRtcOffer,
-%                 stun_servers = StunServers,
-%                 turn_servers = TurnServers,
-%                 timestamp_ms = TimestampMs
-%             }
-%     end.
-
+%% if packets are sent to the same server, it'll remain as a record
+%% otherwise, it'll be sent as a protobuf binary and decoded accordingly
 
 process_info(State, {route, Packet}) ->
     process_incoming_packet(State, Packet);
