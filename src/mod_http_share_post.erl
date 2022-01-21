@@ -13,6 +13,11 @@
 -include("util_http.hrl").
 -include("clients.hrl").
 -include("share_post.hrl").
+-include("time.hrl").
+
+-define(HOTSWAP_DTL_PATH, "/home/ha/pkg/ejabberd/current/lib/zzz_hotswap/dtl").
+-define(TEXT_POST_DTL, "text_post.dtl").
+-define(ALBUM_POST_DTL, "album_post.dtl").
 
 %% API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -20,6 +25,8 @@
 
 %% for testing.
 -export([
+    store_text_post/0,
+    store_text_post_no_preview/0,
     construct_text_post/0,
     construct_text_post_no_preview/0,
     construct_album_post/0,
@@ -157,8 +164,14 @@ fetch_share_post(BlobId) ->
 
 start(_Host, Opts) ->
     ?INFO("start ~w ~p", [?MODULE, Opts]),
+    load_templates(),
+    ok.
+
+load_templates() ->
+    TextPostPath = dtl_path(?HOTSWAP_DTL_PATH, ?TEXT_POST_DTL),
+    ?INFO("Loading text post template: ~s", [TextPostPath]),
     erlydtl:compile_file(
-        filename:join(misc:dtl_dir(), "text_post.dtl"),
+        TextPostPath,
         dtl_text_post,
         [
             {record_info, [
@@ -169,8 +182,10 @@ start(_Host, Opts) ->
             ]}
         ]
     ),
+    AlbumPostPath = dtl_path(?HOTSWAP_DTL_PATH, ?ALBUM_POST_DTL),
+    ?INFO("Loading album post template: ~s", [AlbumPostPath]),
     erlydtl:compile_file(
-        filename:join(misc:dtl_dir(), "album_post.dtl"),
+        AlbumPostPath,
         dtl_album_post,
         [
             {record_info, [
@@ -190,6 +205,8 @@ stop(_Host) ->
     ok.
 
 reload(_Host, _NewOpts, _OldOpts) ->
+    ?INFO("reload ~w", [?MODULE]),
+    load_templates(),
     ok.
 
 depends(_Host, _Opts) ->
@@ -199,14 +216,21 @@ depends(_Host, _Opts) ->
 mod_options(_Host) ->
     [].
 
+dtl_path(HotSwapDtlDir, DtlFileName) ->
+    HotSwapTextPostPath = filename:join(HotSwapDtlDir, DtlFileName),
+    case filelib:is_regular(HotSwapTextPostPath) of
+        true -> HotSwapTextPostPath;
+        false -> filename:join(misc:dtl_dir(), DtlFileName)
+    end.
+
 %% -------------------------------------------------------------------------------
 %% Test Code Below.
 %% -------------------------------------------------------------------------------
 
--define(SOME_TEXT, "text").
+-define(SOME_TEXT, "Text Post").
 -define(SOME_INDEX, 1).
 -define(SOME_USERID, "123").
--define(SOME_USERNAME, "john").
+-define(SOME_USERNAME, "John").
 -define(SOME_URL, "https://www.halloapp.com").
 -define(SOME_URL_TITLE, "HalloApp Inc.").
 -define(SOME_URL_DESC, "Real Content from Real Friends").
@@ -215,6 +239,17 @@ mod_options(_Host) ->
 -define(SOME_DOWNLOAD_URL, "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png").
 -define(SOME_KEY, <<"enc_key">>).
 -define(SOME_HASH, <<"enc_hash">>).
+
+store_text_post() ->
+    store_blob(enif_protobuf:encode(construct_text_post())).
+
+store_text_post_no_preview() ->
+    store_blob(enif_protobuf:encode(construct_text_post_no_preview())).
+
+store_blob(Blob) ->
+    {ok, Key, EncBlob} = util_crypto:encrypt_blob(Blob, 15, ?SHARE_POST_HKDF_INFO),
+    {ok, BlobId} = mod_external_share_post:store_share_post(?SOME_USERID, EncBlob, 4 * ?WEEKS, 1),
+    ?INFO("Stored Text Blob, id: ~s, key: ~s", [BlobId, base64url:encode(Key)]).
 
 construct_text_post() ->
     Text = construct_text(),

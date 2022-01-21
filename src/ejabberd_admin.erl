@@ -74,7 +74,8 @@
     get_full_sync_error_percent/0,
     get_full_sync_retry_time/0,
     request_phone_logs/1,
-    request_uid_logs/1
+    request_uid_logs/1,
+    reload_modules/1
 ]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -425,6 +426,10 @@ get_commands_spec() ->
         desc = "Hot code reload some modules",
         module = ?MODULE, function = hotload_modules,
         args=[{modules, modules_list}], result = {res, rescode}},
+    #ejabberd_commands{name = reload_modules, tags = [server],
+        desc = "Restart some modules",
+        module = ?MODULE, function = reload_modules,
+        args=[{modules, modules_list}], result = {res, rescode}},
     #ejabberd_commands{name = hot_code_reload, tags = [server],
         desc = "Hot code reload a module",
         module = ?MODULE, function = hot_code_reload,
@@ -508,6 +513,33 @@ hotload_modules(ModifiedModules) ->
             {error, Reason}
     end.
 
+
+-spec reload_modules(ModulesList :: [atom()]) -> ok | {error, any()}.
+reload_modules(ModulesList) ->
+    Host = util:get_host(),
+    ?DEBUG("restart modules: ~p", [ModulesList]),
+    lists:foreach(
+        fun(Module) ->
+            case erlang:function_exported(Module, reload, 3) of
+                true ->
+                    ?INFO("Reloading ~p", [Module]),
+                    try case Module:reload(Host, #{}, #{}) of
+                        ok -> ok;
+                        {ok, Pid} when is_pid(Pid) -> {ok, Pid};
+                        Err -> 
+                            ?ERROR("Module: ~p reload returned error: ~p", [Module, Err]),
+                            {error, {Module, Err}}
+                    end
+                    catch
+                        Class: Reason: Stacktrace ->
+                            io:format("reload module error: ~s~n",
+                                    [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+                            {error, Reason}
+                    end;
+                false ->
+                    ?WARNING("Module ~p doesn't support reloading", [Module])
+            end
+        end, ModulesList).
 
 %% Use the h script to update code_paths.
 %% This will load the new directories for all packages and remove any files that are no longer needed.

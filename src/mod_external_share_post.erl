@@ -20,7 +20,8 @@
 
 %% Hooks and API.
 -export([
-    process_local_iq/1
+    process_local_iq/1,
+    store_share_post/4  %% for testing
 ]).
 
 
@@ -76,7 +77,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 %%====================================================================
 
 -spec store_share_post(Uid :: uid(), PostBlob :: binary(), ExpireIn :: integer(), Iter :: integer())
-        -> ok | {error, any()}.
+        -> {ok, binary()} | {error, any()}.
 store_share_post(_Uid, _PostBlob, _ExpireIn, Iter) when Iter > ?MAX_STORE_ITERATION ->
     {error, non_uniq_post_id};
 store_share_post(_Uid, _PostBlob, undefined, _Iter) ->
