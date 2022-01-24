@@ -550,7 +550,8 @@ filter_duplicate_content(OfflineMessages) ->
             ContentType = OfflineMessage#offline_message.content_type,
             MsgBin = OfflineMessage#offline_message.message,
 
-            case util:is_android_user(FromUid) of
+            %% server generated messages will have FromUid as undefined.
+            case FromUid =:= <<>> orelse FromUid =:= undefined orelse util:is_android_user(FromUid) of
                 true ->
                     case ContentType =:= <<"pb_group_feed_item">> orelse ContentType =:= <<"pb_feed_item">> of
                         true ->
