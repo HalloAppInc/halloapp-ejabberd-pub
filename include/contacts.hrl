@@ -18,5 +18,6 @@
 -define(PROBE_HASH_LENGTH_BYTES, 2).
 -define(MAX_INVITERS, 3).
 -define(NOTIFICATION_EXPIRY_MS, 1 * ?WEEKS_MS).
+-define(MAX_CONTACTS, 32000).
 
 -endif.

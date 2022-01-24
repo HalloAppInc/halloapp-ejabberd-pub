@@ -17,7 +17,8 @@
 -ifdef(TEST).
 -export([
     hash_syncid_to_bucket/1,
-    handle_delta_contacts/3
+    handle_delta_contacts/3,
+    process_iq/1
 ]).
 -endif.
 
@@ -139,10 +140,38 @@ process_iq(#pb_iq{from_uid = UserId, type = set, payload = #pb_contact_list{type
             ?WARNING("undefined sync_id, iq: ~p", [IQ]),
             ResultIQ = pb:make_error(IQ, util:err(undefined_syncid));
         _ ->
-            count_full_sync(Index),
-            ResultIQ = pb:make_iq_result(IQ, #pb_contact_list{sync_id = SyncId, type = normal,
-                    contacts = normalize_and_insert_contacts(UserId, Server, Contacts, SyncId)})
+            {ok, CurrentNumSyncContacts} = model_contacts:count_sync_contacts(UserId, SyncId),
+            ReachedMaxLimit = (CurrentNumSyncContacts + length(Contacts)) >= ?MAX_CONTACTS,
+            case ReachedMaxLimit of
+                true ->
+                    ?ERROR("Uid: ~s, has reached max number of contacts to sync", [UserId]),
+                    stat:count("HA/contacts", "sync_full_finish_max_limit"),
+                    spawn(?MODULE, finish_sync, [UserId, Server, SyncId]),
+                    ResultIQ = pb:make_error(IQ, util:err(too_many_contacts));
+                false ->
+                    count_full_sync(Index),
+                    ResultIQ = process_full_sync_iq(IQ)
+            end
     end,
+    EndTime = os:system_time(microsecond),
+    T = EndTime - StartTime,
+    ?INFO("Time taken: ~w us", [T]),
+    ResultIQ;
+
+process_iq(#pb_iq{from_uid = UserId, type = set,
+        payload = #pb_contact_list{type = delta, contacts = Contacts,
+            batch_index = _Index, is_last = _Last}} = IQ) ->
+    ?INFO("Delta contact sync, Uid: ~p, num_changes: ~p", [UserId, length(Contacts)]),
+    Server = util:get_host(),
+    pb:make_iq_result(IQ, #pb_contact_list{type = normal,
+                    contacts = handle_delta_contacts(UserId, Server, Contacts)}).
+
+
+process_full_sync_iq(#pb_iq{from_uid = UserId, type = set, payload = #pb_contact_list{type = full,
+        contacts = Contacts, sync_id = SyncId, is_last = Last}} = IQ) ->
+    Server = util:get_host(),
+    ResultIQ = pb:make_iq_result(IQ, #pb_contact_list{sync_id = SyncId, type = normal,
+                        contacts = normalize_and_insert_contacts(UserId, Server, Contacts, SyncId)}),
     case Last of
         false -> ok;
         true ->
@@ -161,18 +190,7 @@ process_iq(#pb_iq{from_uid = UserId, type = set, payload = #pb_contact_list{type
                     spawn(?MODULE, finish_sync, [UserId, Server, SyncId])
             end
     end,
-    EndTime = os:system_time(microsecond),
-    T = EndTime - StartTime,
-    ?INFO("Time taken: ~w us", [T]),
-    ResultIQ;
-
-process_iq(#pb_iq{from_uid = UserId, type = set,
-        payload = #pb_contact_list{type = delta, contacts = Contacts,
-            batch_index = _Index, is_last = _Last}} = IQ) ->
-    ?INFO("Delta contact sync, Uid: ~p, num_changes: ~p", [UserId, length(Contacts)]),
-    Server = util:get_host(),
-    pb:make_iq_result(IQ, #pb_contact_list{type = normal,
-                    contacts = handle_delta_contacts(UserId, Server, Contacts)}).
+    ResultIQ.
 
 
 %% TODO(murali@): update remove_user to have phone in the hook arguments.

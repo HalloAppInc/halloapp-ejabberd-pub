@@ -19,6 +19,7 @@
 -define(NAME1, <<"murali">>).
 -define(UA1, <<"ios">>).
 -define(SYNC_ID1, <<"s1">>).
+-define(BATCH_ID1, <<"1">>).
 
 -define(UID2, <<"1000000000457424539">>).
 -define(PHONE2, <<"14154121848">>).
@@ -665,4 +666,18 @@ new_user_friends_list4_notification_test() ->
     ?assertEqual(sets:from_list([?PHONE1, ?PHONE3]), sets:from_list(Result)),
     ok.
 
+
+max_contacts_test() ->
+    setup(),
+    tutil:meck_init(model_contacts, count_sync_contacts, fun(_,_) -> {ok, ?MAX_CONTACTS - 1} end),
+    tutil:meck_init(mod_contacts, finish_sync, fun(_,_,_) -> ok end),
+
+    IQ =  #pb_iq{from_uid = ?UID1, type = set, payload = #pb_contact_list{type = full,
+        contacts = [#pb_contact{raw = ?PHONE1}], sync_id = ?SYNC_ID1, batch_index = ?BATCH_ID1, is_last = false}},
+    ResultIQ = mod_contacts:process_iq(IQ),
+    ?assertEqual(error, ResultIQ#pb_iq.type),
+    ?assertEqual(<<"too_many_contacts">>, ResultIQ#pb_iq.payload#pb_error_stanza.reason),
+    tutil:meck_finish(model_contacts),
+    tutil:meck_finish(mod_contacts),
+    ok.
 
