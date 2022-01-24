@@ -39,7 +39,7 @@
 process([BlobId],
         #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
     try
-        Key = base64url:decode(proplists:get_value(<<"k">>, Q, <<>>)),
+        Key = decode_key(proplists:get_value(<<"k">>, Q, <<>>)),
         %% TODO(vipin): Need to remove the debug.
         ?DEBUG("Share Id: ~p, Key: ~p, Q: ~p", [BlobId, base64url:encode(Key), Q]),
         UserAgent = util_http:get_user_agent(Headers),
@@ -59,6 +59,12 @@ process([BlobId],
                 show_expired_error(BlobId)
         end
     catch
+        error : empty_key ->
+            ?INFO("Empty Key", []),
+            util_http:return_400();
+        error : {bad_key, K1} ->
+            ?INFO("Bad Key: ~p", [K1]),
+            util_http:return_400();
         error : Reason : Stacktrace ->
             ?ERROR("error: Stacktrace: ~s",
                 [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
@@ -72,6 +78,18 @@ process([], Request) ->
 process(Path, Request) ->
     ?INFO("404 Not Found path: ~p, r:~p", [Path, Request]),
     util_http:return_404().
+
+decode_key(<<>>) ->
+    error(empty_key);
+decode_key(K) ->
+    try
+        base64url:decode(K)
+    catch
+        error : Reason : Stacktrace ->
+            ?ERROR("error: Stacktrace: ~s",
+                [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
+            error({bad_key, K})
+    end.
 
 show_post_content(BlobId, Blob) ->
     try enif_protobuf:decode(Blob, pb_client_post_container) of
