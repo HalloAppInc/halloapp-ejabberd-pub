@@ -171,6 +171,7 @@ uid_prop_override(<<"1000000000925762631">>, audio_calls) -> true;  %% Gergana (
 uid_prop_override(<<"1000000000122054965">>, audio_calls) -> true;  %% Katya (Nikola)
 uid_prop_override(<<"1000000000683067883">>, audio_calls) -> true;  %% Madlen (Nikola)
 uid_prop_override(<<"1000000000938575483">>, audio_calls) -> true;  %% Pavlina (Nikola)
+uid_prop_override(<<"1000000000940017573">>, audio_calls) -> true;  %% Alex Contreras (Nikola)
 uid_prop_override(_Uid, _Prop) ->
     undef.
 
