@@ -102,6 +102,10 @@ user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
     ?INFO("CallId: ~s ringing FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, FromUid, ToUid, MsgId]),
     Acc;
 user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_pre_answer_call{call_id = CallId}}, _State} = Acc) ->
+    ?INFO("CallId: ~s pre_answer FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, FromUid, ToUid, MsgId]),
+    Acc;
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         payload = #pb_answer_call{call_id = CallId}}, _State} = Acc) ->
     ?INFO("CallId: ~s answer FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, FromUid, ToUid, MsgId]),
     Acc;
@@ -117,6 +121,13 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
     stat:count("HA/call", "ringing"),
     Ts = util:now_ms(),
     Msg1 = Msg#pb_msg{payload = Payload#pb_call_ringing{timestamp_ms = Ts}},
+    {Msg1, State};
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_pre_answer_call{call_id = CallId} = Payload} = Msg, State}) ->
+    ?INFO("CallId: ~s pre_answer FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, FromUid, ToUid, MsgId]),
+    stat:count("HA/call", "pre_answer"),
+    Ts = util:now_ms(),
+    Msg1 = Msg#pb_msg{payload = Payload#pb_pre_answer_call{timestamp_ms = Ts}},
     {Msg1, State};
 user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         payload = #pb_answer_call{call_id = CallId} = Payload} = Msg, State}) ->

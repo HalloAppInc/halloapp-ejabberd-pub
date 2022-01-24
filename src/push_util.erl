@@ -314,6 +314,14 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_call_ringing{call_id = CallId} = _
         push_type = silent
     };
 
+parse_metadata(#pb_msg{id = Id, payload = #pb_pre_answer_call{call_id = CallId} = _Payload} = _Message,
+        #push_info{} = _PushInfo) ->
+    #push_metadata{
+        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_type = <<"pre_answer_call">>,
+        push_type = silent
+    };
+
 parse_metadata(#pb_msg{id = Id, payload = #pb_answer_call{call_id = CallId} = _Payload} = _Message,
         #push_info{} = _PushInfo) ->
     #push_metadata{
