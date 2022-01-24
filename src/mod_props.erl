@@ -123,7 +123,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap5 = maps:update(streaming_sending_enabled, true, PropMap4),
             PropMap6 = maps:update(flat_comments, true, PropMap5),
             PropMap7 = maps:update(voice_posts, true, PropMap6),
-            PropMap7
+            PropMap8 = maps:update(max_video_bit_rate, 4000000, PropMap7),
+            PropMap8
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
