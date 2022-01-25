@@ -18,6 +18,15 @@
 -define(HOTSWAP_DTL_PATH, "/home/ha/pkg/ejabberd/current/lib/zzz_hotswap/dtl").
 -define(TEXT_POST_DTL, "text_post.dtl").
 -define(ALBUM_POST_DTL, "album_post.dtl").
+-define(BOLD_CONTROL_TAG1, "--b--").
+-define(BOLD_CONTROL_TAG1_LEN, length(?BOLD_CONTROL_TAG1)).
+-define(BOLD_CONTROL_TAG2, "--/b--").
+-define(BOLD_CONTROL_TAG2_LEN, length(?BOLD_CONTROL_TAG2)).
+-define(BOLD_CONTROL_TAG_LEN, ?BOLD_CONTROL_TAG1_LEN + ?BOLD_CONTROL_TAG2_LEN).
+
+-define(BOLD_HTML_TAG1, "<b>").
+-define(BOLD_HTML_TAG2, "</b>").
+
 
 %% API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -34,7 +43,11 @@
     construct_image_media/0,
     construct_voice_note/0,
     construct_encrypted_resource/0,
-    show_post_content/2
+    show_post_content/2,
+    convert_to_html/2,
+    incorporate_mentions/2,
+    incorporate_markdown/1,
+    escape_html/1
 ]).
 
 %%%----------------------------------------------------------------------
@@ -122,13 +135,17 @@ show_post_content(BlobId, Blob) ->
         {200, ?HEADER(?CT_HTML), HtmlPage}    end.
 
 show_text_post_content(#pb_client_text{text = Text, mentions = undefined, link = undefined}) ->
-    dtl_text_post:render([{title, Text}]);
+    EscText = escape_html(Text),
+    dtl_text_post:render([{title, EscText}]);
 show_text_post_content(#pb_client_text{text = Text, mentions = Mentions, link = undefined}) ->
-    dtl_text_post:render([{title, Text}, {mentions, Mentions}]);
+    FinText = convert_to_html(Text, Mentions),
+    dtl_text_post:render([{title, FinText}]);
 show_text_post_content(#pb_client_text{text = Text, mentions = undefined, link = Link}) ->
-    dtl_text_post:render([{title, Text}, {link, Link}]);
+    EscText = escape_html(Text),
+    dtl_text_post:render([{title, EscText}, {link, Link}]);
 show_text_post_content(#pb_client_text{text = Text, mentions = Mentions, link = Link}) ->
-    dtl_text_post:render([{title, Text}, {mentions, Mentions}, {link, Link}]).
+    FinText = convert_to_html(Text, Mentions),
+    dtl_text_post:render([{title, FinText}, {link, Link}]).
 
 show_album_post_content(#pb_client_album{text = undefined, media = Media, voice_note = undefined}) ->
     dtl_album_post:render([{media, Media}]);
@@ -138,6 +155,43 @@ show_album_post_content(#pb_client_album{text = Text, media = Media, voice_note 
     dtl_album_post:render([{text, Text}, {media, Media}]);
 show_album_post_content(#pb_client_album{text = Text, media = Media, voice_note = Voice}) ->
     dtl_album_post:render([{text, Text}, {media, Media}, {voice, Voice}]).
+
+convert_to_html(Text, Mentions) ->
+    NewText = incorporate_mentions(Text, Mentions),
+    NewText2 = incorporate_markdown(NewText),
+    EscText = escape_html(NewText2),
+    Text1 = string:replace(EscText, ?BOLD_CONTROL_TAG1, ?BOLD_HTML_TAG1, all),
+    lists:flatten(string:replace(Text1, ?BOLD_CONTROL_TAG2, ?BOLD_HTML_TAG2, all)).
+
+%% Implement: https://github.com/HalloAppInc/server/blob/master/doc/mentions.md
+incorporate_mentions(Text, Mentions) ->
+    SortedMentions = lists:sort(
+        fun(#pb_client_mention{index = Index1}, #pb_client_mention{index = Index2}) ->
+            Index1 =< Index2
+        end, Mentions),
+    {NewText, _AdditionalBytes} = lists:foldl(
+        fun(#pb_client_mention{index = Index, user_id = _UserId, name = UserName},
+                {OldText, OldAdditionalBytes}) ->
+            BeforeText = string:slice(OldText, 0, Index + OldAdditionalBytes),
+            AfterText = string:slice(OldText, Index + OldAdditionalBytes + 1),
+            NewText = BeforeText ++ ?BOLD_CONTROL_TAG1 ++ "@" ++ UserName ++ ?BOLD_CONTROL_TAG2 ++ AfterText,
+            NewAdditionalBytes = OldAdditionalBytes + string:length(UserName) + ?BOLD_CONTROL_TAG_LEN,
+            {NewText, NewAdditionalBytes}
+        end, {Text, 0}, SortedMentions),
+    NewText.
+
+%% TODO(vipin): Implement.
+incorporate_markdown(Text) ->
+  Text.
+
+escape_html(Text) ->
+  lists:flatten(lists:map(fun escape/1, Text)).
+
+escape($<) -> "&lt;";
+escape($>) -> "&gt;";
+escape($&) -> "&amp;";
+escape($") -> "&quot;";
+escape(C) -> C.
 
 json_encode(PBBin) ->
     DecodedMessage = clients:decode_msg(PBBin, pb_client_post_container),
@@ -227,10 +281,14 @@ dtl_path(HotSwapDtlDir, DtlFileName) ->
 %% Test Code Below.
 %% -------------------------------------------------------------------------------
 
--define(SOME_TEXT, "Text Post").
--define(SOME_INDEX, 1).
--define(SOME_USERID, "123").
--define(SOME_USERNAME, "John").
+-define(SOME_TEXT, "Drinking Coffee with @ and @ @Starbucks").
+-define(MENTION1_INDEX, 21).
+-define(MENTION1_USERID, "123").
+-define(MENTION1_USERNAME, "John").
+-define(MENTION2_INDEX, 27).
+-define(MENTION2_USERID, "321").
+-define(MENTION2_USERNAME, "Tony").
+-define(SOME_USERID, "231").
 -define(SOME_URL, "https://www.halloapp.com").
 -define(SOME_URL_TITLE, "HalloApp Inc.").
 -define(SOME_URL_DESC, "Real Content from Real Friends").
@@ -269,15 +327,17 @@ construct_voice_post() ->
     #pb_client_post_container{post = VoiceNote}.
 
 construct_text() ->
-    Mention = #pb_client_mention{index = ?SOME_INDEX, user_id = ?SOME_USERID, name = ?SOME_USERNAME},
+    Mention1 = #pb_client_mention{index = ?MENTION1_INDEX, user_id = ?MENTION1_USERID, name = ?MENTION1_USERNAME},
+    Mention2 = #pb_client_mention{index = ?MENTION2_INDEX, user_id = ?MENTION2_USERID, name = ?MENTION2_USERNAME},
     Link = #pb_client_link{url = ?SOME_URL, title = ?SOME_URL_TITLE, description = ?SOME_URL_DESC,
         preview = [construct_image()]},
-    #pb_client_text{text = ?SOME_TEXT, mentions = [Mention], link = Link}.
+    #pb_client_text{text = ?SOME_TEXT, mentions = [Mention1, Mention2], link = Link}.
 
 construct_text_no_preview() ->
-    Mention = #pb_client_mention{index = ?SOME_INDEX, user_id = ?SOME_USERID, name = ?SOME_USERNAME},
+    Mention1 = #pb_client_mention{index = ?MENTION1_INDEX, user_id = ?MENTION1_USERID, name = ?MENTION1_USERNAME},
+    Mention2 = #pb_client_mention{index = ?MENTION2_INDEX, user_id = ?MENTION2_USERID, name = ?MENTION2_USERNAME},
     Link = #pb_client_link{url = ?SOME_URL, title = ?SOME_URL_TITLE, description = ?SOME_URL_DESC},
-    #pb_client_text{text = ?SOME_TEXT, mentions = [Mention], link = Link}.
+    #pb_client_text{text = ?SOME_TEXT, mentions = [Mention1, Mention2], link = Link}.
 
 construct_image_media() ->
     #pb_client_album_media{media = construct_image()}.
