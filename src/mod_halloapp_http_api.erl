@@ -15,7 +15,7 @@
 -export([
     check_ua/1,
     check_name/1,
-    check_sms_code/2,
+    check_sms_code/4,
     create_hashcash_challenge/2,
     check_hashcash_solution/2
 ]).
@@ -39,6 +39,9 @@
 -define(HASHCASH_THRESHOLD_MS, 30 * ?SECONDS_MS).
 %% allow 10 attempts to guess the code per day
 -define(MAX_SMS_CODE_ATTEMPTS, 10).
+%% Allow Google to register using the following OTP. The following OTP will be given to Google
+%% along with submission of new version of the App.
+-define(SPECIAL_OTP_FOR_GOOGLE, <<"466453">>).
 
 
 %% API
@@ -372,7 +375,7 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
         Phone = normalize(RawPhone),
         check_ua(UserAgent, Phone),
-        check_sms_code(Phone, Code),
+        check_sms_code(Phone, ClientIP, Protocol, Code),
         ok = otp_checker:otp_delivered(Phone, ClientIP, Protocol, RemoteStaticKey),
         LName = check_name(Name),
         SEdPubBin = base64:decode(SEdPubB64),
@@ -708,16 +711,24 @@ log_otp_request(RawPhone, Method, UserAgent, ClientIP, Protocol) ->
 
 
 %% Throws error if the code is wrong
--spec check_sms_code(phone(), binary()) -> ok.
-check_sms_code(Phone, Code) ->
+-spec check_sms_code(phone(), binary(), atom(), binary()) -> ok.
+check_sms_code(Phone, ClientIP, Protocol, Code) ->
     check_excessive_sms_code_attempts(Phone),
-    case mod_sms:verify_sms(Phone, Code) of
-        match -> 
-            ?DEBUG("Code match phone:~s code:~s", [Phone, Code]),
+    IsGoogleAndValid = util_sms:is_google_request(Phone, ClientIP, Protocol) andalso
+        Code =:= ?SPECIAL_OTP_FOR_GOOGLE,
+    case IsGoogleAndValid of
+        true ->
+            ?INFO("Matched OTP for Google, Phone: ~p, IP: ~p, Code: ~p", [Phone, ClientIP, Code]),
             ok;
-        nomatch ->
-            ?INFO("Codes mismatch, phone:~s, code:~s", [Phone, Code]),
-            error(wrong_sms_code)
+        false ->
+            case mod_sms:verify_sms(Phone, Code) of
+                match -> 
+                    ?DEBUG("Code match phone:~s code:~s", [Phone, Code]),
+                    ok;
+                nomatch ->
+                    ?INFO("Codes mismatch, phone:~s, code:~s", [Phone, Code]),
+                    error(wrong_sms_code)
+            end
     end.
 
 % Throws error if too many attempts

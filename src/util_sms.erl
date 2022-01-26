@@ -19,7 +19,8 @@
     good_next_ts_diff/1,
     get_mbird_response_code/1,
     get_response_code/1,
-    get_sms_message/3
+    get_sms_message/3,
+    is_google_request/3
 ]).
 
 -spec init_helper(GWOptions :: atom(), FromPhoneList :: [list()]) -> ok.
@@ -91,3 +92,19 @@ get_sms_message(UserAgent, Code, LangId) ->
     Msg = io_lib:format("~ts: ~s~n~n~n~s", [SmsMsgBin, Code, AppHash]),
     {Msg, TranslatedLangId}.
 
+-spec is_google_request(Phone :: binary(), IP :: binary(), Protocol :: atom()) -> boolean().
+is_google_request(Phone, IP, Protocol) ->
+    Result1 = case Phone of
+        <<"16504992804">> -> true;
+        _ -> false
+    end,
+    Result2 = case inet:parse_address(util:to_list(IP)) of
+        {ok, {108,177,6,_}} -> true;
+        {ok, {108,177,7,_}} -> true;
+        _ -> false
+    end,
+    case {Result1, Result2, Protocol} of
+        {true, true, noise} -> true;
+        _ -> false
+    end.
+ 

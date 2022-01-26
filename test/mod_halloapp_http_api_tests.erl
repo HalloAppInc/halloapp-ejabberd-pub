@@ -438,10 +438,10 @@ request_and_check_sms_code_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(twilio_verify, send_feedback, fun(_,_) -> ok end),
-    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?SMS_CODE)),
+    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?SMS_CODE)),
     {ok, _} = mod_sms:request_sms(?TEST_PHONE, ?UA),
-    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?BAD_SMS_CODE)),
-    ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?SMS_CODE)),
+    ?assertError(wrong_sms_code, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?BAD_SMS_CODE)),
+    ?assertEqual(ok, mod_halloapp_http_api:check_sms_code(?TEST_PHONE, ?IP1, noise, ?SMS_CODE)),
     meck_finish(twilio_verify),
     meck_finish(ejabberd_router).
 
