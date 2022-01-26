@@ -159,6 +159,7 @@ message GroupDecryptionReport {
     UNKNOWN_TYPE = 0;
     POST = 1;
     COMMENT = 2;
+    HISTORY_RESEND = 3;
   }
   ItemType item_type = 5;
   string original_version = 6; // at time msg id was first encountered
@@ -166,6 +167,11 @@ message GroupDecryptionReport {
   uint32 time_taken_s = 8;
   Platform sender_platform = 9;
   string sender_version = 10;
+  enum Schedule {
+    DAILY = 0;
+    RESULT_BASED = 1;
+  }
+  Schedule schedule = 11;
 }
 
 
