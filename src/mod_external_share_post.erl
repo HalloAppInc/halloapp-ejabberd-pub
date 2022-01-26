@@ -91,11 +91,21 @@ store_share_post(Uid, PostBlob, ExpireIn, Iter) ->
         _ -> util:random_str(22)
     end,
     ?INFO("Uid: ~s, BlobId: ~s", [Uid, BlobId]),
-    case model_feed:store_external_share_post(BlobId, PostBlob, ExpireIn) of
-        true -> {ok, BlobId};
-        false ->
-            ?INFO("BlobId: ~s already exists, trying again, Iter: ~p", [BlobId, Iter + 1]),
-            store_share_post(Uid, PostBlob, ExpireIn, Iter + 1)
+    PostContainer = #pb_external_share_post_container{
+        uid = Uid,
+        blob = PostBlob
+    },
+    case enif_protobuf:encode(PostContainer) of
+        {error, Reason} ->
+            ?ERROR("Unable to encode, error: ~p", [Reason]),
+            {error, protobuf_encode_error};
+        EncPostContainer ->
+            case model_feed:store_external_share_post(BlobId, EncPostContainer, ExpireIn) of
+                true -> {ok, BlobId};
+                false ->
+                    ?INFO("BlobId: ~s already exists, trying again, Iter: ~p", [BlobId, Iter + 1]),
+                    store_share_post(Uid, PostBlob, ExpireIn, Iter + 1)
+            end
     end.
 
 

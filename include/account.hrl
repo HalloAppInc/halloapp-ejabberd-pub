@@ -27,7 +27,8 @@
     lang_id :: binary() | undefined,
     device :: binary() | undefined,
     os_version :: binary() | undefined,
-    last_ipaddress :: binary() | undefined
+    last_ipaddress :: binary() | undefined,
+    avatar_id :: binary() | undefined
 }).
 
 -type account() :: #account{}.

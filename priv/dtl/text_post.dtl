@@ -1,13 +1,7 @@
 <html><body>Text Post<br/>
 Title: {{ title }}<br/>
-Mentions:
-<ul>
-{% for mention in mentions %}
-    <li>Mention Index: {{ mention.index }}</li>
-    <li>Mention User Id: {{ mention.user_id }}</li>
-    <li>Mention User Name: {{ mention.name }}</li>
-{% endfor %}
-</ul>
+Push Name : {{ push_name }} <br/>
+Avatar : {{ avatar }} <br/>
 {% if link.preview %}
 Media Link:<a href="{{ link.url }}" title="{{ link.title }}">{{ link.description }}</a>
 {% for preview in link.preview %}

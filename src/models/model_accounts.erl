@@ -496,7 +496,8 @@ get_account(Uid) ->
                     lang_id = maps:get(?FIELD_PUSH_LANGUAGE_ID, M, undefined),
                     device = maps:get(?FIELD_DEVICE, M, undefined),
                     os_version = maps:get(?FIELD_OS_VERSION, M, undefined),
-                    last_ipaddress = util:to_list(maps:get(?FIELD_LAST_IPADDRESS, M, undefined))
+                    last_ipaddress = util:to_list(maps:get(?FIELD_LAST_IPADDRESS, M, undefined)),
+                    avatar_id = maps:get(?FIELD_AVATAR_ID, M, undefined)
                 },
             {ok, Account}
     end.

@@ -660,6 +660,11 @@ message ExternalSharePost {
     int64 expires_in_seconds = 4;
 }
 
+message ExternalSharePostContainer {
+    int64 uid = 1 [ebin = true];
+    bytes blob = 2;
+}
+
 // IQ
 
 message Iq {

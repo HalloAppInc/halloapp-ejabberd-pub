@@ -12,8 +12,10 @@
 -include("ejabberd_http.hrl").
 -include("util_http.hrl").
 -include("clients.hrl").
+-include("server.hrl").
 -include("share_post.hrl").
 -include("time.hrl").
+-include("account.hrl").
 
 -define(HOTSWAP_DTL_PATH, "/home/ha/pkg/ejabberd/current/lib/zzz_hotswap/dtl").
 -define(TEXT_POST_DTL, "text_post.dtl").
@@ -35,6 +37,7 @@
 %% for testing.
 -export([
     store_text_post/0,
+    fetch_share_post/1,
     store_text_post_no_preview/0,
     construct_text_post/0,
     construct_text_post_no_preview/0,
@@ -43,7 +46,7 @@
     construct_image_media/0,
     construct_voice_note/0,
     construct_encrypted_resource/0,
-    show_post_content/2,
+    show_post_content/3,
     convert_to_html/2,
     incorporate_mentions/2,
     incorporate_markdown/1,
@@ -67,10 +70,10 @@ process([BlobId],
         IP = util_http:get_ip(NetIP, Headers),
         ?INFO("Share Id: ~p, UserAgent ~p Platform: ~p, IP: ~p", [BlobId, UserAgent, Platform, IP]),
         case fetch_share_post(BlobId) of
-            {ok, EncBlobWithMac} ->
+            {ok, Uid, EncBlobWithMac} ->
                 case util_crypto:decrypt_blob(EncBlobWithMac, Key, ?SHARE_POST_HKDF_INFO) of
                     {ok, Blob} ->
-                        show_post_content(BlobId, Blob);
+                        show_post_content(BlobId, Blob, Uid);
                     {error, CryptoReason} ->
                         show_crypto_error(BlobId, CryptoReason)
                 end;
@@ -111,16 +114,24 @@ decode_key(K) ->
             error({bad_key, K})
     end.
 
-show_post_content(BlobId, Blob) ->
+show_post_content(BlobId, Blob, Uid) ->
+    {PushName, Avatar} = case model_accounts:get_account(Uid) of
+        {ok, Account} ->
+            {Account#account.name, Account#account.avatar_id};
+        {error, missing} ->
+            {undefined, undefined}
+    end,
     try enif_protobuf:decode(Blob, pb_client_post_container) of
         #pb_client_post_container{post = Post} ->
             Content = case Post of
                 #pb_client_text{} = Text ->
-                      ?INFO("Text BlobId: ~p success", [BlobId]),
-                      {ok, HtmlPage} = show_text_post_content(Text),
+                      ?INFO("BlobId: ~p, Uid: ~p, Push Name: ~p, Avatar: ~p success",
+                          [BlobId, Uid, PushName, Avatar]),
+                      {ok, HtmlPage} = show_text_post_content(Text, PushName, Avatar),
                       HtmlPage;
                 #pb_client_album{} = Album ->
                       ?INFO("Album BlobId: ~p success", [BlobId]),
+                      %% TODO(vipin): Incorporate PushName and Avatar
                       {ok, HtmlPage} = show_album_post_content(Album),
                       HtmlPage;
                 _ -> 
@@ -134,18 +145,22 @@ show_post_content(BlobId, Blob) ->
         HtmlPage = <<?HTML_PRE/binary, <<"Post Container Parse Error">>/binary, ?HTML_POST/binary>>,
         {200, ?HEADER(?CT_HTML), HtmlPage}    end.
 
-show_text_post_content(#pb_client_text{text = Text, mentions = undefined, link = undefined}) ->
+show_text_post_content(#pb_client_text{text = Text, mentions = undefined, link = undefined},
+        PushName, Avatar) ->
     EscText = escape_html(Text),
-    dtl_text_post:render([{title, EscText}]);
-show_text_post_content(#pb_client_text{text = Text, mentions = Mentions, link = undefined}) ->
+    dtl_text_post:render([{title, EscText}, {push_name, PushName}, {avatar, Avatar}]);
+show_text_post_content(#pb_client_text{text = Text, mentions = Mentions, link = undefined},
+        PushName, Avatar) ->
     FinText = convert_to_html(Text, Mentions),
-    dtl_text_post:render([{title, FinText}]);
-show_text_post_content(#pb_client_text{text = Text, mentions = undefined, link = Link}) ->
+    dtl_text_post:render([{title, FinText}, {push_name, PushName}, {avatar, Avatar}]);
+show_text_post_content(#pb_client_text{text = Text, mentions = undefined, link = Link},
+        PushName, Avatar) ->
     EscText = escape_html(Text),
-    dtl_text_post:render([{title, EscText}, {link, Link}]);
-show_text_post_content(#pb_client_text{text = Text, mentions = Mentions, link = Link}) ->
+    dtl_text_post:render([{title, EscText}, {push_name, PushName}, {avatar, Avatar}, {link, Link}]);
+show_text_post_content(#pb_client_text{text = Text, mentions = Mentions, link = Link},
+        PushName, Avatar) ->
     FinText = convert_to_html(Text, Mentions),
-    dtl_text_post:render([{title, FinText}, {link, Link}]).
+    dtl_text_post:render([{title, FinText}, {push_name, PushName}, {avatar, Avatar}, {link, Link}]).
 
 show_album_post_content(#pb_client_album{text = undefined, media = Media, voice_note = undefined}) ->
     dtl_album_post:render([{media, Media}]);
@@ -172,9 +187,10 @@ incorporate_mentions(Text, Mentions) ->
     {NewText, _AdditionalBytes} = lists:foldl(
         fun(#pb_client_mention{index = Index, user_id = _UserId, name = UserName},
                 {OldText, OldAdditionalBytes}) ->
-            BeforeText = string:slice(OldText, 0, Index + OldAdditionalBytes),
-            AfterText = string:slice(OldText, Index + OldAdditionalBytes + 1),
-            NewText = BeforeText ++ ?BOLD_CONTROL_TAG1 ++ "@" ++ UserName ++ ?BOLD_CONTROL_TAG2 ++ AfterText,
+            BeforeText = util:to_list(string:slice(OldText, 0, Index + OldAdditionalBytes)),
+            AfterText = util:to_list(string:slice(OldText, Index + OldAdditionalBytes + 1)),
+            NewText = BeforeText ++ ?BOLD_CONTROL_TAG1 ++ "@" ++ util:to_list(UserName)
+                ++ ?BOLD_CONTROL_TAG2 ++ AfterText,
             NewAdditionalBytes = OldAdditionalBytes + string:length(UserName) + ?BOLD_CONTROL_TAG_LEN,
             {NewText, NewAdditionalBytes}
         end, {Text, 0}, SortedMentions),
@@ -212,7 +228,16 @@ show_expired_error(BlobId) ->
 fetch_share_post(BlobId) ->
     case model_feed:get_external_share_post(BlobId) of
         {ok, undefined} -> {error, not_found};
-        {ok, Payload} -> {ok, Payload}
+        {ok, Payload} ->
+            try enif_protobuf:decode(Payload, pb_external_share_post_container) of
+                Pkt ->
+                    {ok, Pkt#pb_external_share_post_container.uid,
+                        Pkt#pb_external_share_post_container.blob}
+            catch _:_ ->
+                ?ERROR("Failed to decode external share post container", []),
+                %% return -1 as uid.
+                {ok, -1, Payload}
+            end
     end. 
 
 
@@ -228,6 +253,7 @@ load_templates() ->
         TextPostPath,
         dtl_text_post,
         [
+            {auto_escape, false},
             {record_info, [
                 {pb_client_mention, record_info(fields, pb_client_mention)},
                 {pb_client_link, record_info(fields, pb_client_link)},
@@ -242,6 +268,7 @@ load_templates() ->
         AlbumPostPath,
         dtl_album_post,
         [
+            {auto_escape, false},
             {record_info, [
                 {pb_client_text, record_info(fields, pb_client_text)},
                 {pb_client_mention, record_info(fields, pb_client_mention)},
@@ -288,7 +315,11 @@ dtl_path(HotSwapDtlDir, DtlFileName) ->
 -define(MENTION2_INDEX, 27).
 -define(MENTION2_USERID, "321").
 -define(MENTION2_USERNAME, "Tony").
--define(SOME_USERID, "231").
+-define(SOME_USERID, <<"322">>).
+-define(SOME_USERNAME, <<"Don">>).
+-define(SOME_PHONE, <<"16502109999">>).
+-define(SOME_USER_AGENT, <<"Android">>).
+-define(SOME_AVATAR_ID, <<"SOME_AVATAR">>).
 -define(SOME_URL, "https://www.halloapp.com").
 -define(SOME_URL_TITLE, "HalloApp Inc.").
 -define(SOME_URL_DESC, "Real Content from Real Friends").
@@ -306,6 +337,8 @@ store_text_post_no_preview() ->
 
 store_blob(Blob) ->
     {ok, Key, EncBlob} = util_crypto:encrypt_blob(Blob, 15, ?SHARE_POST_HKDF_INFO),
+    ok = model_accounts:create_account(?SOME_USERID, ?SOME_PHONE, ?SOME_USERNAME, ?SOME_USER_AGENT),
+    ok = model_accounts:set_avatar_id(?SOME_USERID, ?SOME_AVATAR_ID),
     {ok, BlobId} = mod_external_share_post:store_share_post(?SOME_USERID, EncBlob, 4 * ?WEEKS, 1),
     ?INFO("Stored Text Blob, id: ~s, key: ~s", [BlobId, base64url:encode(Key)]).
 

@@ -177,6 +177,18 @@ get_account_test() ->
     ?assertEqual(?NAME1, Account#account.name),
     ?assertEqual(?USER_AGENT1, Account#account.signup_user_agent),
     ?assertEqual(?TS1, Account#account.creation_ts_ms),
+    ?assertEqual(?TS1, Account#account.last_registration_ts_ms),
+    ?assertEqual(undefined, Account#account.last_activity_ts_ms),
+    ?assertEqual(undefined, Account#account.activity_status),
+    ?assertEqual(undefined, Account#account.client_version),
+    ?assertEqual(undefined, Account#account.lang_id),
+    ?assertEqual(undefined, Account#account.device),
+    ?assertEqual(undefined, Account#account.os_version),
+    ?assertEqual("undefined", Account#account.last_ipaddress),
+    ?assertEqual(undefined, Account#account.avatar_id),
+    ok = model_accounts:set_avatar_id(?UID1, ?AVATAR_ID1),
+    {ok, Account1} = model_accounts:get_account(?UID1),
+    ?assertEqual(?AVATAR_ID1, Account1#account.avatar_id),
     ok.
 
 
