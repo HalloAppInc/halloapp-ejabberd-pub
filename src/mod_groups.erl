@@ -97,7 +97,8 @@ mod_options(_Host) ->
 %%%   API                                                                                      %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--type modify_member_result() :: {uid(), add | remove, ok | no_account | max_group_size | already_member | already_not_member}.
+-type modify_member_result() :: {uid(), add | remove,
+        ok | no_account | max_group_size | max_group_count | already_member | already_not_member}.
 -type modify_member_results() :: [modify_member_result()].
 -type modify_admin_result() :: {uid(), promote | demote, ok | no_member}.
 -type modify_admin_results() :: [modify_admin_result()].
@@ -105,7 +106,8 @@ mod_options(_Host) ->
 -type modify_results() :: modify_member_results() | modify_admin_results().
 
 
--spec create_group(Uid :: uid(), GroupName :: binary()) -> {ok, group()} | {error, invalid_name}.
+-spec create_group(Uid :: uid(), GroupName :: binary()) ->
+        {ok, group()} | {error, invalid_name} | {error, max_group_count}.
 create_group(Uid, GroupName) ->
     ?INFO("Uid: ~s GroupName: ~s", [Uid, GroupName]),
     case create_group_internal(Uid, GroupName) of
@@ -693,14 +695,19 @@ join_with_invite_link(Uid, Link) ->
 
 
 create_group_internal(Uid, GroupName) ->
-    case validate_group_name(GroupName) of
-        {error, Reason} -> {error, Reason};
-        {ok, LGroupName} ->
-            {ok, Gid} = model_groups:create_group(Uid, LGroupName),
-            ?INFO("group created Gid: ~s Uid: ~s GroupName: |~s|", [Gid, Uid, LGroupName]),
-            stat:count(?STAT_NS, "create"),
-            stat:count(?STAT_NS, "create_by_dev", 1, [{is_dev, dev_users:is_dev_uid(Uid)}]),
-            {ok, Gid}
+    case is_user_group_count_exceeded(Uid) of
+        true ->
+            {error, max_group_count};
+        false ->
+            case validate_group_name(GroupName) of
+                {error, Reason} -> {error, Reason};
+                {ok, LGroupName} ->
+                    {ok, Gid} = model_groups:create_group(Uid, LGroupName),
+                    ?INFO("group created Gid: ~s Uid: ~s GroupName: |~s|", [Gid, Uid, LGroupName]),
+                    stat:count(?STAT_NS, "create"),
+                    stat:count(?STAT_NS, "create_by_dev", 1, [{is_dev, dev_users:is_dev_uid(Uid)}]),
+                    {ok, Gid}
+            end
     end.
 
 
@@ -721,8 +728,9 @@ add_members_unsafe(Gid, Uid, MemberUids) ->
             -> modify_member_results().
 add_members_unsafe_2(Gid, Uid, MemberUids) ->
     GoodUids = model_accounts:filter_nonexisting_uids(MemberUids),
-    RedisResults = model_groups:add_members(Gid, GoodUids, Uid),
-    AddResults = lists:zip(GoodUids, RedisResults),
+    {ValidMemberUids, InvalidMemberUids} = split_max_groups_count(GoodUids),
+    RedisResults = model_groups:add_members(Gid, ValidMemberUids, Uid),
+    AddResults = lists:zip(ValidMemberUids, RedisResults),
     Server = util:get_host(),
     % TODO: this is O(N^2), could be improved.
     Results = lists:map(
@@ -730,7 +738,12 @@ add_members_unsafe_2(Gid, Uid, MemberUids) ->
 
             case lists:keyfind(OUid, 1, AddResults) of
                 false ->
-                    {OUid, add, no_account};
+                    case lists:member(OUid, InvalidMemberUids) of
+                        true ->
+                            {OUid, add, max_group_count};
+                        false ->
+                            {OUid, add, no_account}
+                    end;
                 {OUid, false} ->
                     {OUid, add, already_member};
                 {OUid, true} ->
@@ -764,6 +777,13 @@ split_changes(Changes, FirstListAction) ->
         end,
         Changes),
     {[Uid || {Uid, _Action} <- L1], [Uid || {Uid, _Action} <- L2]}.
+
+
+-spec split_max_groups_count(MemberUids :: [uid()]) -> {[uid()], [uid()]}.
+split_max_groups_count(MemberUids) ->
+    CountResults = maps:to_list(is_user_group_counts_exceeded(MemberUids)),
+    {L1, L2} = lists:partition(fun({_Uid, ExceedsGroupCount}) -> not ExceedsGroupCount end, CountResults),
+    {[Uid || {Uid, _ExceedsGroupCount} <- L1], [Uid || {Uid, _ExceedsGroupCount} <- L2]}.
 
 
 -spec maybe_delete_empty_group(Gid :: gid()) -> ok.
@@ -1128,4 +1148,15 @@ update_removed_members_set(Gid, Results) ->
     AddUids = [Uid || {Uid, add, ok} <- Results],
     model_groups:remove_removed_members(Gid, AddUids),
     ok.
+
+
+-spec is_user_group_count_exceeded(Uid :: uid()) -> boolean().
+is_user_group_count_exceeded(Uid) ->
+    maps:get(Uid, is_user_group_counts_exceeded([Uid])).
+
+
+-spec is_user_group_counts_exceeded(Uid :: uid()) -> [boolean()].
+is_user_group_counts_exceeded(Uids) ->
+    UserGroupCounts = model_groups:get_group_counts(Uids),
+    maps:map(fun(_Uid, GroupCount) -> GroupCount + 1 > ?MAX_GROUP_COUNT end, UserGroupCounts).
 

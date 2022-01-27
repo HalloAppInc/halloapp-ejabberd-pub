@@ -196,6 +196,18 @@ get_groups_test() ->
     ?assertEqual(lists:sort([Gid2]), lists:sort(model_groups:get_groups(?UID4))),
     ok.
 
+
+get_group_counts_test() ->
+    setup(),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),
+    ?assertEqual(1, model_groups:get_group_count(?UID1)),
+    {ok, _} = model_groups:create_group(?UID1, ?GROUP_NAME2),
+    ?assertEqual(#{?UID1 => 2, ?UID2 => 0}, model_groups:get_group_counts([?UID1, ?UID2])),
+    [true] = model_groups:add_members(Gid, [?UID2], ?UID1),
+    ?assertEqual(#{?UID1 => 2, ?UID2 => 1}, model_groups:get_group_counts([?UID1, ?UID2])),
+    ok.
+
+
 set_avatar_test() ->
     setup(),
     {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1),

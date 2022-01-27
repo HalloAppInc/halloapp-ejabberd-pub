@@ -52,6 +52,7 @@
 -type group_info() :: #group_info{}.
 
 -define(MAX_GROUP_SIZE, 50).
+-define(MAX_GROUP_COUNT, 1000).
 -define(SHA256, sha256).
 
 -endif.

@@ -26,6 +26,8 @@
     get_group/1,
     get_group_info/1,
     get_groups/1,
+    get_group_count/1,
+    get_group_counts/1,
     add_member/3,
     add_members/3,
     remove_member/2,
@@ -195,6 +197,25 @@ get_group_info(Gid) ->
 get_groups(Uid) ->
     {ok, Gids} = q(["SMEMBERS", user_groups_key(Uid)]),
     Gids.
+
+
+-spec get_group_count(Uid :: uid()) -> integer() | {error, any()}.
+get_group_count(Uid) ->
+    maps:get(Uid, get_group_counts([Uid])).
+
+
+-spec get_group_counts(Uids :: uid()) -> integer() | {error, any()}.
+get_group_counts(Uids) ->
+    Commands = lists:map(fun(Uid) -> ["SCARD", user_groups_key(Uid)] end, Uids),
+    RedisResults = qmn(Commands),
+    Values = lists:map(
+        fun(Result) ->
+            {ok, Res} = Result,
+            binary_to_integer(Res)
+        end, RedisResults),
+    ResultsList = lists:zip(Uids, Values),
+    ResultsMap = maps:from_list(ResultsList),
+    ResultsMap.
 
 
 -spec add_member(Gid :: gid(), Uid :: uid(), AdminUid :: uid()) -> {ok, boolean()}.

@@ -428,3 +428,27 @@ web_preview_invite_link_test() ->
         {ok, ?GROUP_NAME1, null},
         mod_groups:web_preview_invite_link(Link)),
     ok.
+
+
+max_group_count_test() ->
+    setup(),
+    MockedFunction = fun(Uids) ->
+        Values = lists:map(fun(Uid) -> case Uid of ?UID1 -> 1000; _ -> 1 end end, Uids),
+        maps:from_list(lists:zip(Uids, Values))
+    end,
+    tutil:meck_init(model_groups, get_group_counts, MockedFunction),
+    % create empty group
+    {error, max_group_count} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
+    % create group with members
+    {ok, Group, GroupResults} = mod_groups:create_group(?UID2, ?GROUP_NAME1, [?UID1, ?UID3]),
+    ?assertEqual(GroupResults, [{?UID1, add, max_group_count}, {?UID3, add, ok}]),
+    Gid = Group#group.gid,
+    % join invite link
+    {ok, Link} = mod_groups:get_invite_link(Gid, ?UID2),
+    {error, max_group_count} = mod_groups:join_with_invite_link(?UID1, Link),
+    % add member
+    {ok, GroupResults2} = mod_groups:add_members(Gid, ?UID2, [?UID1, ?UID4]),
+    ?assertEqual(GroupResults2, [{?UID1, add, max_group_count}, {?UID4, add, ok}]),
+    tutil:meck_finish(model_groups),
+    ok.
+
