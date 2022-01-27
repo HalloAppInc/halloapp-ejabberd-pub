@@ -147,19 +147,19 @@ show_post_content(BlobId, Blob, Uid) ->
 
 show_text_post_content(#pb_client_text{text = Text, mentions = undefined, link = undefined},
         PushName, Avatar) ->
-    EscText = escape_html(Text),
+    EscText = escape_html(util:to_list(Text)),
     dtl_text_post:render([{title, EscText}, {push_name, PushName}, {avatar, Avatar}]);
 show_text_post_content(#pb_client_text{text = Text, mentions = Mentions, link = undefined},
         PushName, Avatar) ->
-    FinText = convert_to_html(Text, Mentions),
+    FinText = convert_to_html(util:to_list(Text), Mentions),
     dtl_text_post:render([{title, FinText}, {push_name, PushName}, {avatar, Avatar}]);
 show_text_post_content(#pb_client_text{text = Text, mentions = undefined, link = Link},
         PushName, Avatar) ->
-    EscText = escape_html(Text),
+    EscText = escape_html(util:to_list(Text)),
     dtl_text_post:render([{title, EscText}, {push_name, PushName}, {avatar, Avatar}, {link, Link}]);
 show_text_post_content(#pb_client_text{text = Text, mentions = Mentions, link = Link},
         PushName, Avatar) ->
-    FinText = convert_to_html(Text, Mentions),
+    FinText = convert_to_html(util:to_list(Text), Mentions),
     dtl_text_post:render([{title, FinText}, {push_name, PushName}, {avatar, Avatar}, {link, Link}]).
 
 show_album_post_content(#pb_client_album{text = undefined, media = Media, voice_note = undefined}) ->
@@ -230,13 +230,16 @@ fetch_share_post(BlobId) ->
         {ok, undefined} -> {error, not_found};
         {ok, Payload} ->
             try enif_protobuf:decode(Payload, pb_external_share_post_container) of
+                {error, _} ->
+                    ?ERROR("Failed to decode external share post container", []),
+                    {ok, <<"-1">>, Payload};
                 Pkt ->
                     {ok, Pkt#pb_external_share_post_container.uid,
                         Pkt#pb_external_share_post_container.blob}
             catch _:_ ->
                 ?ERROR("Failed to decode external share post container", []),
                 %% return -1 as uid.
-                {ok, -1, Payload}
+                {ok, <<"-1">>, Payload}
             end
     end. 
 
