@@ -76,7 +76,10 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_group_feed_item{gid = Gid, action = publish,
         item = #pb_post{} = Post} = GroupFeedSt} = IQ) ->
     PostId = Post#pb_post.id,
-    PayloadBase64 = base64:encode(Post#pb_post.payload),
+    PayloadBase64 = case Post#pb_post.payload of
+        undefined -> <<>>;
+        _ -> base64:encode(Post#pb_post.payload)
+    end,
     case publish_post(Gid, Uid, PostId, PayloadBase64, GroupFeedSt) of
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason));
@@ -91,7 +94,10 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     CommentId = Comment#pb_comment.id,
     PostId = Comment#pb_comment.post_id,
     ParentCommentId = Comment#pb_comment.parent_comment_id,
-    PayloadBase64 = base64:encode(Comment#pb_comment.payload),
+    PayloadBase64 = case Comment#pb_comment.payload of
+        undefined -> <<>>;
+        _ -> base64:encode(Comment#pb_comment.payload)
+    end,
     case publish_comment(Gid, Uid, CommentId, PostId, ParentCommentId, PayloadBase64, GroupFeedSt) of
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason));

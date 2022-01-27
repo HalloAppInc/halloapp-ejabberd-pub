@@ -132,7 +132,7 @@ parse_metadata(#pb_msg{type = MsgType,
         subject = Post#pb_post.publisher_name,
         body = translate(<<"server.new.post">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, feed_post, PushInfo),
-        payload = Post#pb_post.payload
+        payload = <<>>
     };
 
 parse_metadata(#pb_msg{
@@ -158,7 +158,7 @@ parse_metadata(#pb_msg{type = MsgType,
         subject = Comment#pb_comment.publisher_name,
         body = translate(<<"server.new.comment">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, feed_comment, PushInfo),
-        payload = Comment#pb_comment.payload
+        payload = <<>>
     };
 
 parse_metadata(#pb_msg{
@@ -188,7 +188,7 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, 
         subject = <<PushName/binary, " @ ", GroupName/binary>>,
         body = translate(<<"server.new.post">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, PayloadType, PushInfo),
-        payload = Post#pb_post.payload
+        payload = <<>>
     };
 
 parse_metadata(#pb_msg{payload = #pb_group_feed_item{gid = Gid, action = retract,
@@ -218,7 +218,7 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, 
         subject = <<PushName/binary, " @ ", GroupName/binary>>,
         body = translate(<<"server.new.comment">>, PushInfo#push_info.lang_id),
         push_type = get_push_type(MsgType, PayloadType, PushInfo),
-        payload = Comment#pb_comment.payload
+        payload = <<>>
     };
 
 parse_metadata(#pb_msg{payload = #pb_group_feed_item{gid = Gid, action = retract,
