@@ -99,12 +99,12 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
             Platform = util_ua:get_client_type(ClientVersion),
             case check_version_rules(Platform, ClientVersion, pb_group_feed_rerequest) of
                 false ->
-                    ?INFO("Droping pb_group_feed_rerequest FromUid: ~s ToUid: ~s MsgId: ~s", [FromUid, ToUid, MsgId]),
+                    ?INFO("Dropping pb_group_feed_rerequest FromUid: ~s ToUid: ~s MsgId: ~s", [FromUid, ToUid, MsgId]),
                     {drop, State};
                 true -> {Packet, State}
             end;
         {error, _} ->
-            ?ERROR("Droping pb_group_feed_rerequest FromUid: ~s ToUid: ~s MsgId: ~s", [FromUid, ToUid, MsgId]),
+            ?ERROR("Dropping pb_group_feed_rerequest FromUid: ~s ToUid: ~s MsgId: ~s", [FromUid, ToUid, MsgId]),
             {drop, State}
     end;
 user_send_packet({_Packet, _State} = Acc) ->
@@ -168,9 +168,10 @@ check_version_rules(android, ClientVersion, group_chat) ->
 check_version_rules(ios, ClientVersion, group_chat) ->
     util_ua:is_version_less_than(ClientVersion, <<"HalloApp/iOS1.3.95">>);
 
-%% Dont send group_feed_rerequest messages and pushes to android clients >= 1.1
+%% Dont send group_feed_rerequest messages and pushes to android clients v1.2
 check_version_rules(android, ClientVersion, pb_group_feed_rerequest) ->
-    util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android1.1">>);
+    util_ua:is_version_less_than(ClientVersion, <<"HalloApp/Android1.1">>) orelse
+        util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.2">>);
 
 check_version_rules(_, _, _) ->
     true.
