@@ -93,6 +93,7 @@ get_props(Uid, ClientVersion) ->
         voice_notes => false, %% enables voice notes in 1-1 messages on client.
         media_comments => true,  %% enables media comments.
         cleartext_group_feed => true, %% whether client must send unencrypted content in group_feed.
+        use_cleartext_group_feed => true, %% whether clients must rely on unencrypted content in group_feed.
         audio_calls => false, %% whether clients can make audio calls.
         video_calls => false, %% whether clients can make video calls.
         call_wait_timeout => 60, %% time (sec) to wait before ending the call on timeout when remote party is not responding.
@@ -161,6 +162,8 @@ apply_uid_prop_overrides(Uid, PropMap) ->
         PropMap).
 
 -spec uid_prop_override(Uid :: uid(), Prop :: atom()) -> undef | term().
+uid_prop_override(<<"1000000000490675850">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
+uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
 uid_prop_override(<<"1000000000570149128">>, voice_posts) -> true;  %% Michael asked.
 uid_prop_override(<<"1000000000557045692">>, voice_posts) -> true;  %% Neeraj asked.
 uid_prop_override(<<"1000000000520279204">>, voice_posts) -> true;  %% Neeraj asked.
