@@ -101,7 +101,7 @@ get_props(Uid, ClientVersion) ->
         streaming_initial_download_size => 5242880, %% size of intial download while media streaming, 5MB.
         streaming_sending_enabled => false, %% whether streaming is enabled.
         flat_comments => false, %% whether clients display a flat comment structure similar to chat.
-        voice_posts => false, %% whether to enable voice posts.
+        voice_posts => true, %% whether to enable voice posts.
         emoji_version => 1 %% emoji version for clients to use.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
@@ -165,9 +165,6 @@ apply_uid_prop_overrides(Uid, PropMap) ->
 -spec uid_prop_override(Uid :: uid(), Prop :: atom()) -> undef | term().
 uid_prop_override(<<"1000000000490675850">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
 uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
-uid_prop_override(<<"1000000000570149128">>, voice_posts) -> true;  %% Michael asked.
-uid_prop_override(<<"1000000000557045692">>, voice_posts) -> true;  %% Neeraj asked.
-uid_prop_override(<<"1000000000520279204">>, voice_posts) -> true;  %% Neeraj asked.
 uid_prop_override(<<"1000000000052736684">>, audio_calls) -> true;  %% Sunisha
 uid_prop_override(<<"1000000000399778754">>, audio_calls) -> true;  %% Neeraj's another friend: +91-94441-02346
 uid_prop_override(<<"1000000000415550189">>, audio_calls) -> true;  %% Rahul Mehta (Neeraj)
