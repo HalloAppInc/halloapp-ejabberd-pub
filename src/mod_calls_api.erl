@@ -33,9 +33,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 
 %%% start_call %%%
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_start_call{call_id = CallId, peer_uid = PeerUid, call_type = CallType, webrtc_offer = Offer}} = IQ)
+        payload = #pb_start_call{call_id = CallId, peer_uid = PeerUid, call_type = CallType, webrtc_offer = Offer, rerequest_count = RerequestCount}} = IQ)
         when CallType =:= audio orelse CallType =:= video ->
-    process_start_call(IQ, Uid, PeerUid, CallId, CallType, Offer);
+    process_start_call(IQ, Uid, PeerUid, CallId, CallType, Offer, RerequestCount);
 
 %%% error %%%
 process_local_iq(#pb_iq{from_uid = Uid} = IQ) ->
@@ -85,10 +85,10 @@ process_get_call_servers(IQ, Uid, PeerUid, CallId, CallType) ->
     pb:make_iq_result(IQ, GetServersResult).
 
 
-process_start_call(IQ, Uid, PeerUid, CallId, CallType, Offer) ->
-    ?INFO("Uid: ~s PeerUid: ~s CallId: ~s ~s", [Uid, PeerUid, CallId, CallType]),
+process_start_call(IQ, Uid, PeerUid, CallId, CallType, Offer, RerequestCount) ->
+    ?INFO("Uid: ~s PeerUid: ~s CallId: ~s ~s RerequestCount: ~p", [Uid, PeerUid, CallId, CallType, RerequestCount]),
 
-    {ok, {StunServers, TurnServers}} = mod_calls:start_call(CallId, Uid, PeerUid, CallType, Offer),
+    {ok, {StunServers, TurnServers}} = mod_calls:start_call(CallId, Uid, PeerUid, CallType, Offer, RerequestCount),
 
     StartCallResult = #pb_start_call_result{
         result = ok,

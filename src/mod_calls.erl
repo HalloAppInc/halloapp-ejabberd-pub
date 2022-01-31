@@ -18,7 +18,7 @@
 %% API
 -export([
     get_call_servers/3,
-    start_call/5,
+    start_call/6,
     user_receive_packet/1,
     user_send_packet/1,
     push_message_always_hook/1
@@ -61,12 +61,13 @@ get_call_servers(Uid, PeerUid, CallType) ->
     stat:count("HA/call", "get_call_servers"),
     mod_call_servers:get_stun_turn_servers(Uid, PeerUid, CallType).
 
+
 -spec start_call(CallId :: call_id(), Uid :: uid(), PeerUid :: uid(),
-    CallType :: 'CallType'(), Offer :: pb_web_rtc_session_description())
+    CallType :: 'CallType'(), Offer :: pb_web_rtc_session_description(), RerequestCount :: integer())
         -> {ok, {list(pb_stun_server()), list(pb_turn_server())}}.
-start_call(CallId, Uid, PeerUid, CallType, Offer) ->
+start_call(CallId, Uid, PeerUid, CallType, Offer, RerequestCount) ->
     % TODO: (nikola): check if we should allow Uid to call Ouid. For now everything is allowed.
-    stat:count("HA/call", "start_call", 1, [{type, CallType}]),
+    count_start_call(CallType, RerequestCount),
     %% Add peerUid to voip list to enable them to start making calls from next time.
     ok = model_accounts:add_uid_to_voip_list(PeerUid),
     {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(Uid, PeerUid, CallType),
@@ -85,7 +86,8 @@ start_call(CallId, Uid, PeerUid, CallType, Offer) ->
         type = call,
         from_uid = Uid,
         to_uid = PeerUid,
-        payload = IncomingCallMsg
+        payload = IncomingCallMsg,
+        rerequest_count = RerequestCount
     },
 
     ejabberd_router:route(Packet),
@@ -177,5 +179,16 @@ push_message_always_hook(_) -> ok.
 push_message(#pb_msg{to_uid = Uid, id = MsgId} = Packet) ->
     ?INFO("Uid: ~p MsgId: ~p", [Uid, MsgId]),
     ejabberd_sm:push_message(Packet),
+    ok.
+
+
+-spec count_start_call(CallType :: 'CallType'(), RerequestCount :: integer()) -> ok.
+count_start_call(CallType, RerequestCount) ->
+    case RerequestCount =:= 0 of
+        true ->
+            stat:count("HA/call", "start_call", 1, [{type, CallType}]);
+        false ->
+            stat:count("HA/call", "rerequest_start_call", 1, [{type, CallType}, {count, RerequestCount}])
+    end,
     ok.
 

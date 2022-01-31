@@ -562,6 +562,7 @@ message StartCall {
     int64 peer_uid = 2 [ebin = true];
     CallType call_type = 3;
     WebRtcSessionDescription webrtc_offer = 4;
+    int32 rerequest_count = 5;
 }
 
 message StartCallResult {
