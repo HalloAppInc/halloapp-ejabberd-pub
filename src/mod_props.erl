@@ -176,6 +176,11 @@ uid_prop_override(<<"1000000000122054965">>, audio_calls) -> true;  %% Katya (Ni
 uid_prop_override(<<"1000000000683067883">>, audio_calls) -> true;  %% Madlen (Nikola)
 uid_prop_override(<<"1000000000938575483">>, audio_calls) -> true;  %% Pavlina (Nikola)
 uid_prop_override(<<"1000000000940017573">>, audio_calls) -> true;  %% Alex Contreras (Nikola)
+uid_prop_override(Uid, audio_calls) ->
+    case model_accounts:is_voip_allowed(Uid) of
+        true -> true;
+        false -> undef
+    end;
 uid_prop_override(_Uid, _Prop) ->
     undef.
 

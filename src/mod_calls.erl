@@ -67,6 +67,8 @@ get_call_servers(Uid, PeerUid, CallType) ->
 start_call(CallId, Uid, PeerUid, CallType, Offer) ->
     % TODO: (nikola): check if we should allow Uid to call Ouid. For now everything is allowed.
     stat:count("HA/call", "start_call", 1, [{type, CallType}]),
+    %% Add peerUid to voip list to enable them to start making calls from next time.
+    ok = model_accounts:add_uid_to_voip_list(PeerUid),
     {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(Uid, PeerUid, CallType),
     IncomingCallMsg = #pb_incoming_call{
         call_id = CallId,
