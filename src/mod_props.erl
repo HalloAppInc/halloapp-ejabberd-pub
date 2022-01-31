@@ -101,7 +101,8 @@ get_props(Uid, ClientVersion) ->
         streaming_initial_download_size => 5242880, %% size of intial download while media streaming, 5MB.
         streaming_sending_enabled => false, %% whether streaming is enabled.
         flat_comments => false, %% whether clients display a flat comment structure similar to chat.
-        voice_posts => false %% whether to enable voice posts
+        voice_posts => false, %% whether to enable voice posts.
+        emoji_version => 1 %% emoji version for clients to use.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
