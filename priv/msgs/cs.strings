@@ -1,3 +1,7 @@
+"server.marketing.body" = "Pozvěte přátele do aplikace HalloApp!";
+"server.marketing.post.body" = "Vaše momentální aktivita by mohla zajímat vaše skutečné přátele.";
+"server.marketing.post.title" = "Přemýšlíte, co sdílet?";
+"server.marketing.title" = "Zdravíčko!";
 "server.new.comment" = "Nový komentář";
 "server.new.contact" = "%@ je nyní na HalloApp";
 "server.new.group" = "Byli jste přidáni do nové skupiny";
