@@ -25,8 +25,6 @@
 -define(TRACED_UIDS_KEY, <<"traced_uids:">>).
 %% set -> {phone}
 -define(TRACED_PHONES_KEY, <<"traced_phones:">>).
-%% set -> {uid}
--define(VOIP_UIDS_KEY, <<"voip_uids:">>).
 %% SortedSet of phone invited by the user: in2:{Uid} -> zset(Phone, Ts)
 -define(INVITES2_KEY, <<"in2:">>).
 -define(ACTIVE_USERS_ALL_KEY, <<"active_users_all:">>).

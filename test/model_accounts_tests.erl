@@ -482,30 +482,6 @@ traced_phones_test() ->
     ok.
 
 
-voip_uids_test() ->
-    setup(),
-    ?assertEqual({ok, []}, model_accounts:get_voip_uids_list()),
-    ?assertEqual(false, model_accounts:is_voip_allowed(?UID1)),
-    ?assertEqual(false, model_accounts:is_voip_allowed(?UID1)),
-
-    model_accounts:add_uid_to_voip_list(?UID1),
-    ?assertEqual({ok, [?UID1]}, model_accounts:get_voip_uids_list()),
-    ?assertEqual(true, model_accounts:is_voip_allowed(?UID1)),
-    ?assertEqual(false, model_accounts:is_voip_allowed(?UID2)),
-
-    model_accounts:add_uid_to_voip_list(?UID2),
-    ?assertEqual({ok, [?UID1, ?UID2]}, model_accounts:get_voip_uids_list()),
-    ?assertEqual(true, model_accounts:is_voip_allowed(?UID1)),
-    ?assertEqual(true, model_accounts:is_voip_allowed(?UID2)),
-
-    model_accounts:remove_uid_from_voip_list(?UID2),
-    model_accounts:remove_uid_from_voip_list(?UID1),
-    ?assertEqual({ok, []}, model_accounts:get_voip_uids_list()),
-    ?assertEqual(false, model_accounts:is_voip_allowed(?UID1)),
-    ?assertEqual(false, model_accounts:is_voip_allowed(?UID2)),
-    ok.
-
-
 test_counts() ->
     setup(),
     ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
