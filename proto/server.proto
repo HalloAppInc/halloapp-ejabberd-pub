@@ -263,6 +263,10 @@ message GroupFeedHistory {
     bytes enc_payload = 4;
     bytes public_key = 5;
     int32 one_time_pre_key_id = 6;
+
+    // Use >=16 for temporary elements since 1-15 encode smaller
+    string sender_log_info = 16;
+    string sender_client_version = 17; // ex: "HalloApp/Android0.127"
 }
 
 
@@ -519,6 +523,10 @@ message HistoryResend {
     SenderStateWithKeyInfo sender_state = 7;
 
     bytes audience_hash = 8;
+
+    // Use >=16 for temporary elements since 1-15 encode smaller
+    string sender_log_info = 16;
+    string sender_client_version = 17; // ex: "HalloApp/Android0.127"
 }
 
 // Calls
@@ -607,6 +615,7 @@ message CallRinging {
     int64 timestamp_ms = 2;
 }
 
+// send before the AnswerCall so we can connect the PeerConnection
 message PreAnswerCall {
     string call_id = 1;
     WebRtcSessionDescription webrtc_answer = 2;
@@ -648,6 +657,12 @@ message IceRestartAnswer {
     string call_id = 1;
     int32 idx = 2;
     WebRtcSessionDescription webrtc_answer = 3;
+}
+
+message HoldCall {
+    string call_id = 1;
+    bool hold = 2;
+    int64 timestamp_ms = 3;
 }
 
 message ExternalSharePost {
@@ -776,6 +791,7 @@ message Msg {
         IceRestartAnswer ice_restart_answer = 41;
         GroupFeedHistory group_feed_history = 42;
         PreAnswerCall pre_answer_call = 43;
+        HoldCall hold_call = 44;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
@@ -959,19 +975,27 @@ message Rerequest {
 // Group Feed Rerequest
 
 message GroupFeedRerequest {
-  string gid = 1;
-  // Post id or Comment id or HistoryResend id
-  string id = 2;
+    string gid = 1;
+    // Post id or Comment id or HistoryResend id
+    string id = 2;
 
-  // To capture the type of decryption failure.
-  enum RerequestType {
-      // Unable to decrypt post/comment's payload
-      PAYLOAD = 0;
+    // To capture the type of decryption failure.
+    enum RerequestType {
+        // Unable to decrypt post/comment/history-resend payload
+        PAYLOAD = 0;
 
-      // Unable to decrypt sender state.
-      SENDER_STATE = 1;
-  }
-  RerequestType rerequest_type = 3;
+        // Unable to decrypt sender state.
+        SENDER_STATE = 1;
+    }
+    RerequestType rerequest_type = 3;
+
+    enum ContentType {
+        UNKNOWN = 0;
+        POST = 1;
+        COMMENT = 2;
+        HISTORY_RESEND = 3;
+    }
+    ContentType content_type = 4;
 }
 
 
