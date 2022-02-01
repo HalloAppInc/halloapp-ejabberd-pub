@@ -950,6 +950,7 @@ message Rerequest {
     enum ContentType {
         CHAT = 0;
         CALL = 1;
+        GROUP_HISTORY = 2;
     }
     ContentType content_type = 7;
 }
