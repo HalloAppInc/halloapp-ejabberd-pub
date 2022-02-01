@@ -339,6 +339,7 @@ is_lang_ok(PushLangId) ->
                 <<"nl">> -> true;
                 <<"pl">> -> true;
                 <<"pt">> -> true;
+                <<"ru">> -> true;
                 _ -> false
             end
     end.
