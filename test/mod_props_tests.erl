@@ -70,7 +70,8 @@ iq_test() ->
 setup() ->
     meck:new(model_accounts),
     meck:expect(model_accounts, get_phone, fun mock_get_phone/1),
-    meck:expect(model_accounts, get_client_version, fun mock_get_client_version/1).
+    meck:expect(model_accounts, get_client_version, fun mock_get_client_version/1),
+    meck:expect(model_accounts, is_voip_allowed, fun mock_is_voip_allowed/1).
 
 
 teardown() ->
@@ -95,5 +96,14 @@ mock_get_client_version(Uid) ->
         ?UID3 -> {ok, <<"HalloApp/iOS0.3.76">>};
         ?DEV_UID -> {ok, <<"HalloApp/iOS0.3.76">>};
         ?TEST_UID -> {ok, <<"HalloApp/Android0.100">>}
+    end.
+
+mock_is_voip_allowed(Uid) ->
+    case Uid of
+        ?UID -> false;
+        ?UID2 -> false;
+        ?UID3 -> false;
+        ?DEV_UID -> true;
+        ?TEST_UID -> true
     end.
 
