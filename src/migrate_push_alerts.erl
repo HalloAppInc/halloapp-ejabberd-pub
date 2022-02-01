@@ -330,11 +330,14 @@ is_lang_ok(PushLangId) ->
         undefined -> true;
         _ ->
             case mod_translate:shorten_lang_id(PushLangId) of
+                <<"cs">> -> true;
                 <<"de">> -> true;
+                <<"fr">> -> true;
                 <<"en">> -> true;
                 <<"es">> -> true;
                 <<"fa">> -> true;
                 <<"nl">> -> true;
+                <<"pl">> -> true;
                 <<"pt">> -> true;
                 _ -> false
             end
