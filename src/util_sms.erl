@@ -101,6 +101,7 @@ is_google_request(Phone, IP, Protocol) ->
     Result2 = case inet:parse_address(util:to_list(IP)) of
         {ok, {108,177,6,_}} -> true;
         {ok, {108,177,7,_}} -> true;
+        {ok, {70,32,147,_}} -> true;
         _ -> false
     end,
     case {Result1, Result2, Protocol} of
