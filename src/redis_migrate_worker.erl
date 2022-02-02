@@ -69,7 +69,7 @@ iterate(Name) ->
 
 -spec init(Job :: #{}) -> {ok, any()}.
 init(#{redis_host := RedisHost, redis_port := RedisPort, interval := Interval,
-        dry_run := DryRun, scan_count := ScanCount} = Job) ->
+        dry_run := DryRun, scan_count := ScanCount, params := Params} = Job) ->
     ?INFO("Migration started: pid: ~p, Job: ~p", [self(), Job]),
     {ok, C} = eredis:start_link(RedisHost, RedisPort),
     ?INFO("connection ok: ~p", [C]),
@@ -80,7 +80,8 @@ init(#{redis_host := RedisHost, redis_port := RedisPort, interval := Interval,
         c => C,
         tref => TRef,
         dry_run => DryRun,
-        scan_count => integer_to_binary(ScanCount)
+        scan_count => integer_to_binary(ScanCount),
+        params => Params
     },
     {ok, State}.
 

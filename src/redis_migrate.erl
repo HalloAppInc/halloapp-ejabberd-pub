@@ -37,7 +37,8 @@
     {execute, parallel | sequential} |
     {dry_run, true | false} |
     {scan_count, non_neg_integer()} |
-    {interval, non_neg_integer()}.
+    {interval, non_neg_integer()} |
+    {params, any()}.
 -type options() :: [option()].
 -export_type([migrate_func/0, option/0, options/0]).
 
@@ -115,7 +116,8 @@ init([Name, RedisService, Function, Options]) ->
         migrate_func => {Mod, Func},
         interval => proplists:get_value(interval, Options, 1000),
         scan_count => proplists:get_value(scan_count, Options, 100),
-        dry_run => proplists:get_value(dry_run, Options, false)
+        dry_run => proplists:get_value(dry_run, Options, false),
+        params => proplists:get_value(params, Options, undefined)
     },
     Pids = lists:map(
         fun ({Index, {RedisHost, RedisPort}}) ->
