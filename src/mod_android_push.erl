@@ -35,7 +35,6 @@
     push/2,
     crash/0    %% test
 ]).
-%% TODO(murali@): remove the crash api after testing.
 
 
 %%====================================================================

@@ -21,7 +21,8 @@
 %% hooks
 -export([
     push_message_hook/1,
-    push_marketing_alert/2
+    push_marketing_alert/2,
+    event_push_received/1
 ]).
 
 -ifdef(TEST).
@@ -38,10 +39,12 @@
 start(Host, _Opts) ->
     ?DEBUG("mod_push_notifications: start", []),
     ejabberd_hooks:add(push_message_hook, Host, ?MODULE, push_message_hook, 50),
+    ejabberd_hooks:add(event_push_received, ?MODULE, event_push_received, 50),
     ok.
 
 stop(Host) ->
     ?DEBUG("mod_push_notifications: stop", []),
+    ejabberd_hooks:delete(event_push_received, ?MODULE, event_push_received, 50),
     ejabberd_hooks:delete(push_message_hook, Host, ?MODULE, push_message_hook, 50),
     ok.
 
@@ -258,4 +261,12 @@ push_marketing_alert(Uid, AlertType) ->
     },
     push_message(Message),
     ok.
+
+event_push_received(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
+        edata = #pb_push_received{id = Id}} = Event) ->
+    ?INFO("Uid: ~s Platform: ~s CC: ~s PushId: ~s", [UidInt, Platform, CC, Id]),
+    Event;
+event_push_received(Event) ->
+    Event.
+
 
