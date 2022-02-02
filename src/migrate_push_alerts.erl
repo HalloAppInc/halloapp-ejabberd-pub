@@ -12,19 +12,6 @@
 -include("account.hrl").
 -include("time.hrl").
 
--define(NG, <<"NG">>).
--define(GB, <<"GB">>).
--define(ZA, <<"ZA">>).
--define(CU, <<"CU">>).
--define(DE, <<"DE">>).
--define(PT, <<"PT">>).
-
--define(IR, <<"IR">>).
--define(IN, <<"IN">>).
--define(RU, <<"RU">>).
--define(US, <<"US">>).
--define(BR, <<"BR">>).
-
 -define(MIN_BUCKET, 0).
 -define(MAX_BUCKET, 10).
 
@@ -32,28 +19,9 @@
 
 -export([
     trigger_marketing_alert/2,
-    trigger_marketing_alert_nigeria/2,
-    log_account_info_run_nigeria/2,
-    trigger_marketing_alert_za/2,
-    log_account_info_run_za/2,
-    trigger_marketing_alert_gb/2,
-    log_account_info_run_gb/2,
-    trigger_marketing_alert_cu/2,
-    log_account_info_run_cu/2,
-    trigger_marketing_alert_de/2,
-    log_account_info_run_de/2,
     trigger_marketing_alert_pt/2,
-    log_account_info_run_pt/2,
-    trigger_marketing_alert_ir/2,
-    log_account_info_run_ir/2,
-    trigger_marketing_alert_in/2,
-    log_account_info_run_in/2,
-    trigger_marketing_alert_ru/2,
-    log_account_info_run_ru/2,
-    trigger_marketing_alert_us/2,
-    log_account_info_run_us/2,
-    trigger_marketing_alert_br/2,
-    log_account_info_run_br/2,
+    trigger_marketing_alert_inactive/2,
+    log_account_info/2,
     hash_to_bucket/1,
     get_last_activity/1
 ]).
@@ -86,156 +54,50 @@ trigger_marketing_alert(Key, State) ->
     State.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                  Nigeria (NG)                                      %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-trigger_marketing_alert_nigeria(Key, State) ->
-    trigger_marketing_alert(Key, State, ?NG, fun is_lang_en/1),
-    State.
-
-
-
-log_account_info_run_nigeria(Key, State) ->
-    log_account_info(Key, ?NG),
-    State.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                  South Africa (ZA)                                 %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-trigger_marketing_alert_za(Key, State) ->
-    trigger_marketing_alert(Key, State, ?ZA, fun is_lang_en/1),
-    State.
-
-
-log_account_info_run_za(Key, State) ->
-    log_account_info(Key, ?ZA),
-    State.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                           Great Britain (GB)                                       %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-trigger_marketing_alert_gb(Key, State) ->
-    trigger_marketing_alert(Key, State, ?GB, fun is_lang_en/1),
-    State.
-
-
-log_account_info_run_gb(Key, State) ->
-    log_account_info(Key, ?GB),
-    State.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                           Cuba (CU)                                                %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-trigger_marketing_alert_cu(Key, State) ->
-    trigger_marketing_alert(Key, State, ?CU, fun is_lang_ok/1),
-    State.
-
-
-log_account_info_run_cu(Key, State) ->
-    log_account_info(Key, ?CU),
-    State.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                           Germany (DE)                                             %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-trigger_marketing_alert_de(Key, State) ->
-    trigger_marketing_alert(Key, State, ?DE, fun is_lang_ok/1),
-    State.
-
-
-log_account_info_run_de(Key, State) ->
-    log_account_info(Key, ?DE),
-    State.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                           Portugal (PT)                                            %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% redis_migrate:start_migration("trigger_marketing_alert_pt", redis_accounts, {migrate_push_alerts, trigger_marketing_alert_pt}, [{execute, sequential}, {scan_count, 500}, {dry_run, true}, {params, {cc_ok, sets:from_list([<<"PT">>])}}]).
+
 trigger_marketing_alert_pt(Key, State) ->
-    trigger_marketing_alert(Key, State, ?PT, fun is_lang_ok/1, fun alert_type_pt/1),
+    trigger_marketing_alert(Key, State, fun is_lang_ok/1, fun alert_type_pt/1),
     State.
 
-
-log_account_info_run_pt(Key, State) ->
-    log_account_info(Key, ?PT),
-    State.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                           Iran (IR)                                                %%
+%%                           Example: Brazil (BR)                                     %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-trigger_marketing_alert_ir(Key, State) ->
-    trigger_marketing_alert(Key, State, ?IR, fun is_lang_ok/1, fun alert_type_inactive/1),
-    State.
 
+%% redis_migrate:start_migration("trigger_marketing_alert_inactive", redis_accounts, {migrate_push_alerts, trigger_marketing_alert_inactive}, [{execute, sequential}, {scan_count, 500}, {dry_run, true}, {params, {cc_ok, sets:from_list([<<"BR">>])}}]).
 
-log_account_info_run_ir(Key, State) ->
-    log_account_info(Key, ?IR),
-    State.
+%% redis_migrate:start_migration("log_account_info", redis_accounts, {migrate_push_alerts, log_account_info}, [{execute, sequential}, {scan_count, 500}, {dry_run, true}, {params, {cc_ok, sets:from_list([<<"BR">>])}}]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                           India (IN)                                               %%
+%%                           Example: DE, GB, CZ, NL
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-trigger_marketing_alert_in(Key, State) ->
-    trigger_marketing_alert(Key, State, ?IN, fun is_lang_ok/1, fun alert_type_inactive/1),
-    State.
+%% redis_migrate:start_migration("trigger_marketing_alert_inactive", redis_accounts, {migrate_push_alerts, trigger_marketing_alert_inactive}, [{execute, sequential}, {scan_count, 500}, {dry_run, true}, {params, {cc_ok, sets:from_list([<<"DE">>, <<"GB">>, <<"CZ">>, <<"NL">>])}}]).
 
-
-log_account_info_run_in(Key, State) ->
-    log_account_info(Key, ?IN),
-    State.
+%% redis_migrate:start_migration("log_account_info", redis_accounts, {migrate_push_alerts, log_account_info}, [{execute, sequential}, {scan_count, 500}, {dry_run, true}, {params, {cc_ok, sets:from_list([<<"DE">>, <<"GB">>, <<"CZ">>, <<"NL">>])}}]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                           Russia (RU)                                               %%
+%%                           Example: All countries other than
+%%                           IR, IN, US, BR, RU, PT, ES, ID, MX, CU
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-trigger_marketing_alert_ru(Key, State) ->
-    trigger_marketing_alert(Key, State, ?RU, fun is_lang_ok/1, fun alert_type_inactive/1),
-    State.
+%% redis_migrate:start_migration("trigger_marketing_alert_inactive", redis_accounts, {migrate_push_alerts, trigger_marketing_alert_inactive}, [{execute, sequential}, {scan_count, 500}, {dry_run, true},{params, {cc_not_ok, sets:from_list([<<"IR">>, <<"IN">>, <<"US">>, <<"BR">>, <<"RU">>, <<"PT">>, <<"ES">>, <<"ID">>, <<"MX">>, <<"CU">>])}}]). 
 
+%% redis_migrate:start_migration("log_account_info", redis_accounts, {migrate_push_alerts, log_account_info}, [{execute, sequential}, {scan_count, 500}, {dry_run, true}, {params, {cc_not_ok, sets:from_list([<<"IR">>, <<"IN">>, <<"US">>, <<"BR">>, <<"RU">>, <<"PT">>, <<"ES">>, <<"ID">>, <<"MX">>, <<"CU">>])}}]).
 
-log_account_info_run_ru(Key, State) ->
-    log_account_info(Key, ?RU),
-    State.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                           US (US)                                                  %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-trigger_marketing_alert_us(Key, State) ->
-    trigger_marketing_alert(Key, State, ?US, fun is_lang_ok/1, fun alert_type_inactive/1),
-    State.
-
-
-log_account_info_run_us(Key, State) ->
-    log_account_info(Key, ?US),
-    State.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                           Brazil (BR)                                              %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-trigger_marketing_alert_br(Key, State) ->
-    trigger_marketing_alert(Key, State, ?BR, fun is_lang_ok/1, fun alert_type_inactive/1),
-    State.
-
-
-log_account_info_run_br(Key, State) ->
-    log_account_info(Key, ?BR),
-    State.
-
--spec log_account_info(Key :: string(), CC :: binary()) -> ok.
-log_account_info(Key, CC) ->
+-spec log_account_info(Key :: string(), State :: map()) -> ok.
+log_account_info(Key, State) ->
+    {IsCCOkFun, CCSet} = get_cc_params(State),
     Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[FullKey, Uid]]} ->
             {ok, Phone} = q(ecredis_accounts, ["HGET", FullKey, <<"ph">>]),
-            case mod_libphonenumber:get_region_id(Phone) =:= CC of
+            case IsCCOkFun(mod_libphonenumber:get_region_id(Phone), CCSet) of
                 true ->
                     {LastActivity, IsInactive} = get_last_activity(Uid),
                     NumContacts = model_contacts:count_contacts(Uid),
@@ -261,37 +123,26 @@ log_account_info(Key, CC) ->
                     ok
             end;
         _ -> ok
-    end.
-
-get_last_activity(Uid) ->
-    {ok, Activity} = model_accounts:get_last_activity(Uid),
-    LastActivityTsMs = case Activity#activity.last_activity_ts_ms of
-        undefined -> 0;
-        TsMs -> TsMs
     end,
-    IsInactive = (LastActivityTsMs < (util:now_ms() - ?INACTIVE_DAYS_THRESHOLD * ?DAYS_MS)),
-    {LastActivityDate, _Time} = case LastActivityTsMs of
-        0 -> util:ms_to_datetime_string(undefined);
-        _ -> util:ms_to_datetime_string(LastActivityTsMs)
-    end,
-    {LastActivityDate, IsInactive}.
+    State.
 
--spec trigger_marketing_alert(Key :: string(), State :: map(), CC :: binary(), IsLangOkFn :: fun()) -> ok.
-trigger_marketing_alert(Key, State, CC, IsLangOkFn) ->
-   trigger_marketing_alert(Key, State, CC, IsLangOkFn, fun alert_type/1). 
+trigger_marketing_alert_inactive(Key, State) ->
+    trigger_marketing_alert(Key, State, fun is_lang_ok/1, fun alert_type_inactive/1),
+    State.
 
 
--spec trigger_marketing_alert(Key :: string(), State :: map(), CC :: binary(), IsLangOkFn :: fun(),
+-spec trigger_marketing_alert(Key :: string(), State :: map(), IsLangOkFn :: fun(),
         AlertTypeFn :: fun()) -> ok.
-trigger_marketing_alert(Key, State, CC, IsLangOkFn, AlertTypeFn) ->
+trigger_marketing_alert(Key, State, IsLangOkFn, AlertTypeFn) ->
     DryRun = maps:get(dry_run, State, true),
+    {IsCCOkFun, CCSet} = get_cc_params(State),
     Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
     case Result of
         {match, [[FullKey, Uid]]} ->
             {ok, [Phone, PushLangId, ClientVersion]} = q(ecredis_accounts, ["HMGET", FullKey, <<"ph">>, <<"pl">>, <<"cv">>]),
             UidBucket = hash_uid(Uid),
             IsLangOk = IsLangOkFn(PushLangId),
-            case mod_libphonenumber:get_region_id(Phone) =:= CC of
+            case IsCCOkFun(mod_libphonenumber:get_region_id(Phone), CCSet) of
                 true ->
                     AlertType = AlertTypeFn(Uid),
                     ?INFO("Account uid: ~p, LangId: ~p, ClientVersion: ~p, AlertType: ~p, UidBucket: ~p",
@@ -317,12 +168,21 @@ trigger_marketing_alert(Key, State, CC, IsLangOkFn, AlertTypeFn) ->
     end.
 
 
--spec is_lang_en(PushLangId :: binary()) -> boolean().
-is_lang_en(PushLangId) ->
-    case PushLangId of
-        undefined -> true;
-        _ -> mod_translate:is_langid_english(PushLangId)
+get_cc_params(State) ->
+    Params = maps:get(params, State, {}),
+    case Params of
+        {cc_ok, CCSet1} -> {fun is_cc_ok/2, CCSet1};
+        {cc_not_ok, CCSet2} -> {fun is_cc_not_ok/2, CCSet2};
+        _ ->
+            ?WARNING("Params does not seem right: ~p", [Params]),
+            {fun is_cc_ok/2, sets:new()}
     end.
+
+is_cc_ok(CC, OKSet) ->
+    sets:is_element(CC, OKSet). 
+
+is_cc_not_ok(CC, NotOKSet) ->
+    (not sets:is_element(CC, NotOKSet)). 
 
 -spec is_lang_ok(PushLangId :: binary()) -> boolean().
 is_lang_ok(PushLangId) ->
@@ -375,6 +235,19 @@ alert_type_inactive(Uid) ->
         true -> alert_type(Uid);
         false -> none
     end.
+
+get_last_activity(Uid) ->
+    {ok, Activity} = model_accounts:get_last_activity(Uid),
+    LastActivityTsMs = case Activity#activity.last_activity_ts_ms of
+        undefined -> 0;
+        TsMs -> TsMs
+    end,
+    IsInactive = (LastActivityTsMs < (util:now_ms() - ?INACTIVE_DAYS_THRESHOLD * ?DAYS_MS)),
+    {LastActivityDate, _Time} = case LastActivityTsMs of
+        0 -> util:ms_to_datetime_string(undefined);
+        _ -> util:ms_to_datetime_string(LastActivityTsMs)
+    end,
+    {LastActivityDate, IsInactive}.
 
 -spec hash_to_bucket(Input :: binary()) -> integer().
 hash_to_bucket(Input) ->
