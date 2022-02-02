@@ -15,7 +15,6 @@
 
 -export([
     parse_metadata/2,
-    record_push_sent/2,
     get_push_type/3
 ]).
 
@@ -31,8 +30,7 @@ parse_metadata(#pb_msg{id = Id, payload = Payload,
         sender_name = Payload#pb_chat_stanza.sender_name,
         subject = Payload#pb_chat_stanza.sender_name,
         body = translate(<<"server.new.message">>, PushInfo#push_info.lang_id),
-        push_type = alert,
-        payload = Payload#pb_chat_stanza.payload
+        push_type = alert
     };
 
 parse_metadata(#pb_msg{id = _Id, payload = Payload,
@@ -60,8 +58,7 @@ parse_metadata(#pb_msg{id = Id, payload = Payload,
         sender_name = PushName,
         subject = <<PushName/binary, " @ ", GroupName/binary>>,
         body = translate(<<"server.new.group.message">>, PushInfo#push_info.lang_id),
-        push_type = alert,
-        payload = Payload#pb_group_chat.payload
+        push_type = alert
     };
 
 parse_metadata(#pb_msg{id = _Id, payload = Payload,
@@ -131,8 +128,7 @@ parse_metadata(#pb_msg{type = MsgType,
         sender_name = Post#pb_post.publisher_name,
         subject = Post#pb_post.publisher_name,
         body = translate(<<"server.new.post">>, PushInfo#push_info.lang_id),
-        push_type = get_push_type(MsgType, feed_post, PushInfo),
-        payload = <<>>
+        push_type = get_push_type(MsgType, feed_post, PushInfo)
     };
 
 parse_metadata(#pb_msg{
@@ -157,8 +153,7 @@ parse_metadata(#pb_msg{type = MsgType,
         sender_name = Comment#pb_comment.publisher_name,
         subject = Comment#pb_comment.publisher_name,
         body = translate(<<"server.new.comment">>, PushInfo#push_info.lang_id),
-        push_type = get_push_type(MsgType, feed_comment, PushInfo),
-        payload = <<>>
+        push_type = get_push_type(MsgType, feed_comment, PushInfo)
     };
 
 parse_metadata(#pb_msg{
@@ -187,8 +182,7 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, 
         sender_name = Post#pb_post.publisher_name,
         subject = <<PushName/binary, " @ ", GroupName/binary>>,
         body = translate(<<"server.new.post">>, PushInfo#push_info.lang_id),
-        push_type = get_push_type(MsgType, PayloadType, PushInfo),
-        payload = <<>>
+        push_type = get_push_type(MsgType, PayloadType, PushInfo)
     };
 
 parse_metadata(#pb_msg{payload = #pb_group_feed_item{gid = Gid, action = retract,
@@ -217,8 +211,7 @@ parse_metadata(#pb_msg{type = MsgType, payload = #pb_group_feed_item{gid = Gid, 
         sender_name = Comment#pb_comment.publisher_name,
         subject = <<PushName/binary, " @ ", GroupName/binary>>,
         body = translate(<<"server.new.comment">>, PushInfo#push_info.lang_id),
-        push_type = get_push_type(MsgType, PayloadType, PushInfo),
-        payload = <<>>
+        push_type = get_push_type(MsgType, PayloadType, PushInfo)
     };
 
 parse_metadata(#pb_msg{payload = #pb_group_feed_item{gid = Gid, action = retract,
@@ -369,28 +362,6 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_marketing_alert{type = share_post}
 parse_metadata(#pb_msg{to_uid = Uid, id = Id}, _PushInfo) ->
     ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
     #push_metadata{}.
-
-
-%% Adding a special case to be able to send all alert and silent notifications for contact_list
-%% updates. If we use the content_id which is the phone number in this case: we will not be sending
-%% other pushes for these messages.
--spec record_push_sent(Message :: pb_msg(), PushInfo :: push_info()) -> boolean().
-record_push_sent(#pb_msg{rerequest_count = RerequestCount}, _PushInfo) when RerequestCount > 0 ->
-    %% Always send push notifications for rerequested messages.
-    %% These are messages with some content: so we need to let the user know.
-    true;
-record_push_sent(#pb_msg{id = MsgId, to_uid = UserId, payload = Payload}, _PushInfo)
-        when is_record(Payload, pb_contact_list) ->
-    model_messages:record_push_sent(UserId, MsgId);
-record_push_sent(Message, PushInfo) ->
-    %% We parse again for content_id only, so its okay to ignore push_info here.
-    %% TODO(murali@): However, it is not clean: that we are parsing this again.
-    PushMetadata = parse_metadata(Message, PushInfo),
-    ContentId = PushMetadata#push_metadata.content_id,
-    PushTypeBin = util:to_binary(PushMetadata#push_metadata.push_type),
-    PushId = <<ContentId/binary, PushTypeBin/binary>>,
-    UserId = Message#pb_msg.to_uid,
-    model_messages:record_push_sent(UserId, PushId).
 
 
 -spec translate(Token :: binary(), LangId :: binary()) -> binary().

@@ -168,17 +168,8 @@ handle_cast({ping, Id, Ts, From}, State) ->
     {noreply, State};
 handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     ?DEBUG("push_message: ~p", [Message]),
-    %% TODO(vipin): We need to evaluate the cost of recording the push in Redis
-    %% in this gen_server instead of outside.
-
-    %% Ignore the push notification if it has already been sent.
-    NewState = case push_util:record_push_sent(Message, PushInfo) of
-        false -> 
-                ?INFO("Push notification already sent for MsgId: ~p", [Message#pb_msg.id]),
-                State;
-        true -> push_message(Message, PushInfo, State)
-    end,
-    {noreply, NewState};
+    push_message(Message, PushInfo, State),
+    {noreply, State};
 
 handle_cast(crash, _State) ->
     error(test_crash);
@@ -480,47 +471,18 @@ get_pid_to_send(voip_dev, State) ->
 -spec get_payload(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata(),
         PushType :: silent | alert, State :: push_state()) -> binary().
 get_payload(PushMessageItem, PushMetadata, PushType, State) ->
-    PayloadB64 = case PushMetadata#push_metadata.payload of
-        undefined -> <<>>;
-        Payload -> base64:encode(Payload)
-    end,
-    PbMessageB64 = base64:encode(enif_protobuf:encode(PushMessageItem#push_message_item.message)),
-    ClientVersion = PushMessageItem#push_message_item.push_info#push_info.client_version,
     EncryptedContent = base64:encode(encrypt_message(PushMessageItem, State)),
-    %% TODO(murali@): remove other fields after 6months - 10-01-2021.
-    %% accounts depending on this data will be deleted by then.
-    MetadataMap = case util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.4.111">>) of
+    EncryptedContentSize = byte_size(EncryptedContent),
+    ?INFO("Push contentId: ~p includes encrypted content size: ~p",
+        [PushMetadata#push_metadata.content_id, EncryptedContentSize]),
+    case EncryptedContentSize > ?MAX_PUSH_PAYLOAD_SIZE of
         true ->
-            EncryptedContentSize = byte_size(EncryptedContent),
-            ?INFO("Push contentId: ~p includes encrypted content size: ~p",
-                            [PushMetadata#push_metadata.content_id, EncryptedContentSize]),
-            case EncryptedContentSize > ?MAX_PUSH_PAYLOAD_SIZE of
-                true ->
-                    ?WARNING("Push contentId: ~p size: ~p > max_payload_size",
-                        [PushMetadata#push_metadata.content_id, EncryptedContentSize]);
-                false ->
-                    ok
-            end,
-            #{
-                <<"content">> => EncryptedContent
-            };
+            ?WARNING("Push contentId: ~p size: ~p > max_payload_size",
+                [PushMetadata#push_metadata.content_id, EncryptedContentSize]);
         false ->
-            #{
-                <<"content-id">> => PushMetadata#push_metadata.content_id,
-                <<"content-type">> => PushMetadata#push_metadata.content_type,
-                <<"from-id">> => PushMetadata#push_metadata.from_uid,
-                <<"timestamp">> => util:to_binary(PushMetadata#push_metadata.timestamp),
-                <<"thread-id">> => PushMetadata#push_metadata.thread_id,
-                <<"thread-name">> => PushMetadata#push_metadata.thread_name,
-                <<"sender-name">> => PushMetadata#push_metadata.sender_name,
-                %% Ideally clients should decode the pb message and then use this for metrics.
-                %% Easier to have this if we start sending it ourselves - filed an issue for ios.
-                <<"message-id">> => PushMessageItem#push_message_item.id,
-                <<"data">> => PayloadB64,
-                <<"message">> => PbMessageB64,
-                <<"retract">> => util:to_binary(PushMetadata#push_metadata.retract)
-            }
+            ok
     end,
+    MetadataMap = #{ <<"content">> => EncryptedContent },
     ApsMap = case PushType of
         alert ->
             DataMap = #{
