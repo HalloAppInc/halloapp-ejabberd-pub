@@ -676,11 +676,17 @@ message ExternalSharePost {
     string blob_id = 2;
     bytes blob = 3;
     int64 expires_in_seconds = 4;
+    string title = 5;
+    string description = 6;
+    string thumbnail_url = 7;
 }
 
 message ExternalSharePostContainer {
     int64 uid = 1 [ebin = true];
     bytes blob = 2;
+    string title = 3;
+    string description = 4;
+    string thumbnail_url = 5;
 }
 
 // IQ

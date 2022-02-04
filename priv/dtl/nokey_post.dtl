@@ -1,0 +1,9 @@
+<html><body>Text Post<br/>
+Title: {{ title }}<br/>
+Description: {{ description }}<br/>
+Thumbnail Url: {{ thumbnail_url }}<br/>
+Encrypted Blob: {{ enc_blob }}<br/>
+Base64 Encrypted Blob: {{ base64_enc_blob }}<br/>
+Push Name : {{ push_name }} <br/>
+Avatar : {{ avatar }} <br/>
+</body></html>

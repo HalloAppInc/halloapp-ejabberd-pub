@@ -21,7 +21,7 @@
 %% Hooks and API.
 -export([
     process_local_iq/1,
-    store_share_post/4  %% for testing
+    store_share_post/7  %% for testing
 ]).
 
 
@@ -50,9 +50,9 @@ mod_options(_Host) ->
 %% Store post blob.
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_external_share_post{action = store, blob = PostBlob,
-        expires_in_seconds = ExpireIn}} = IQ) ->
+        expires_in_seconds = ExpireIn, title = Title, description = Descr, thumbnail_url = ThumbnailUrl}} = IQ) ->
     ?INFO("store share_post Uid: ~s", [Uid]),
-    case store_share_post(Uid, PostBlob, ExpireIn, 1) of
+    case store_share_post(Uid, PostBlob, ExpireIn, Title, Descr, ThumbnailUrl, 1) of
         {ok, BlobId} ->
             pb:make_iq_result(IQ, #pb_external_share_post{blob_id = BlobId});
         {error, Reason} ->
@@ -76,24 +76,28 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 %% Internal functions
 %%====================================================================
 
--spec store_share_post(Uid :: uid(), PostBlob :: binary(), ExpireIn :: integer(), Iter :: integer())
+-spec store_share_post(Uid :: uid(), PostBlob :: binary(), ExpireIn :: integer(),
+    Title :: binary(), Descr :: binary(), ThumbnailUrl :: binary(), Iter :: integer())
         -> {ok, binary()} | {error, any()}.
-store_share_post(_Uid, _PostBlob, _ExpireIn, Iter) when Iter > ?MAX_STORE_ITERATION ->
+store_share_post(_Uid, _PostBlob, _ExpireIn, _Title, _Descr, _ThumbnailUrl, Iter) when Iter > ?MAX_STORE_ITERATION ->
     {error, non_uniq_post_id};
-store_share_post(_Uid, _PostBlob, undefined, _Iter) ->
+store_share_post(_Uid, _PostBlob, undefined, _Title, _Descr, _ThumbnailUrl, _Iter) ->
     {error, null_expires_in};
-store_share_post(_Uid, _PostBlob, ExpireIn, _Iter) when ExpireIn =< 0 orelse ExpireIn > ?POST_EXPIRATION ->
+store_share_post(_Uid, _PostBlob, ExpireIn, _Title, _Descr, _ThumbnailUrl, _Iter) when ExpireIn =< 0 orelse ExpireIn > ?POST_EXPIRATION ->
     {error, invalid_expires_in};
-store_share_post(Uid, PostBlob, ExpireIn, Iter) ->
+store_share_post(Uid, PostBlob, ExpireIn, Title, Descr, ThumbnailUrl, Iter) ->
     BlobId = case Iter of
         1 -> util:random_str(8);
         2 -> util:random_str(8);
         _ -> util:random_str(22)
     end,
-    ?INFO("Uid: ~s, BlobId: ~s", [Uid, BlobId]),
+    ?INFO("Uid: ~s, BlobId: ~s, Title: ~s", [Uid, BlobId, Title]),
     PostContainer = #pb_external_share_post_container{
         uid = Uid,
-        blob = PostBlob
+        blob = PostBlob,
+        title = Title,
+        description = Descr,
+        thumbnail_url = ThumbnailUrl
     },
     case enif_protobuf:encode(PostContainer) of
         {error, Reason} ->
@@ -104,7 +108,7 @@ store_share_post(Uid, PostBlob, ExpireIn, Iter) ->
                 true -> {ok, BlobId};
                 false ->
                     ?INFO("BlobId: ~s already exists, trying again, Iter: ~p", [BlobId, Iter + 1]),
-                    store_share_post(Uid, PostBlob, ExpireIn, Iter + 1)
+                    store_share_post(Uid, PostBlob, ExpireIn, Title, Descr, ThumbnailUrl, Iter + 1)
             end
     end.
 

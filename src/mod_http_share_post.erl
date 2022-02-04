@@ -18,6 +18,7 @@
 -include("account.hrl").
 
 -define(HOTSWAP_DTL_PATH, "/home/ha/pkg/ejabberd/current/lib/zzz_hotswap/dtl").
+-define(NOKEY_POST_DTL, "nokey_post.dtl").
 -define(TEXT_POST_DTL, "text_post.dtl").
 -define(ALBUM_POST_DTL, "album_post.dtl").
 -define(BOLD_CONTROL_TAG1, "--b--").
@@ -62,26 +63,16 @@
 process([BlobId],
         #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
     try
-        Key = decode_key(proplists:get_value(<<"k">>, Q, <<>>)),
-        %% TODO(vipin): Need to remove the debug.
-        ?DEBUG("Share Id: ~p, Key: ~p, Q: ~p", [BlobId, base64url:encode(Key), Q]),
         UserAgent = util_http:get_user_agent(Headers),
         Platform = util_http:get_platform(UserAgent),
         IP = util_http:get_ip(NetIP, Headers),
         ?INFO("Share Id: ~p, UserAgent ~p Platform: ~p, IP: ~p", [BlobId, UserAgent, Platform, IP]),
-        case fetch_share_post(BlobId) of
-            {ok, Uid, EncBlobWithMac} ->
-                case util_crypto:decrypt_blob(EncBlobWithMac, Key, ?SHARE_POST_HKDF_INFO) of
-                    {ok, Blob} ->
-                        show_post_content(BlobId, Blob, Uid);
-                    {error, CryptoReason} ->
-                        show_crypto_error(BlobId, CryptoReason)
-                end;
-            {error, not_found} ->
-                ?INFO("Share Post Id: ~p not found ", [BlobId]),
-                show_expired_error(BlobId)
+        EncodedKey = proplists:get_value(<<"k">>, Q, <<>>),
+        case EncodedKey of
+            <<>> -> show_blob_nokey(BlobId);
+            _ -> show_blob(BlobId, EncodedKey)
         end
-    catch
+   catch
         error : empty_key ->
             ?INFO("Empty Key", []),
             util_http:return_400();
@@ -102,6 +93,32 @@ process(Path, Request) ->
     ?INFO("404 Not Found path: ~p, r:~p", [Path, Request]),
     util_http:return_404().
 
+show_blob(BlobId, EncodedKey) ->
+    Key = decode_key(EncodedKey),
+    %% TODO(vipin): Need to remove the debug.
+    ?DEBUG("Share Id: ~p, Key: ~p", [BlobId, base64url:encode(Key)]),
+    case fetch_share_post(BlobId) of
+        {ok, Uid, EncBlobWithMac, _Title, _Description, _ThumbnailUrl} ->
+            case util_crypto:decrypt_blob(EncBlobWithMac, Key, ?SHARE_POST_HKDF_INFO) of
+                {ok, Blob} ->
+                    show_post_content(BlobId, Blob, Uid);
+                {error, CryptoReason} ->
+                    show_crypto_error(BlobId, CryptoReason)
+            end;
+        {error, not_found} ->
+            ?INFO("Share Post Id: ~p not found ", [BlobId]),
+            show_expired_error(BlobId)
+    end.
+
+show_blob_nokey(BlobId) ->
+    case fetch_share_post(BlobId) of
+        {ok, Uid, EncBlobWithMac, Title, Description, ThumbnailUrl} ->
+            show_encrypted_post_content(BlobId, EncBlobWithMac, Uid, Title, Description, ThumbnailUrl);
+        {error, not_found} ->
+            ?INFO("Share Post Id: ~p not found ", [BlobId]),
+            show_expired_error(BlobId)
+    end.
+ 
 decode_key(<<>>) ->
     error(empty_key);
 decode_key(K) ->
@@ -115,12 +132,7 @@ decode_key(K) ->
     end.
 
 show_post_content(BlobId, Blob, Uid) ->
-    {PushName, Avatar} = case model_accounts:get_account(Uid) of
-        {ok, Account} ->
-            {Account#account.name, Account#account.avatar_id};
-        {error, missing} ->
-            {undefined, undefined}
-    end,
+    {PushName, Avatar} = get_push_name_and_avatar(Uid),
     try enif_protobuf:decode(Blob, pb_client_post_container) of
         #pb_client_post_container{post = Post} ->
             Content = case Post of
@@ -143,7 +155,26 @@ show_post_content(BlobId, Blob, Uid) ->
         ?ERROR("Failed to parse share post, BlobId: ~p, err: ~p",
             [BlobId, lager:pr_stacktrace(St, {Class, Reason})]),
         HtmlPage = <<?HTML_PRE/binary, <<"Post Container Parse Error">>/binary, ?HTML_POST/binary>>,
-        {200, ?HEADER(?CT_HTML), HtmlPage}    end.
+        {200, ?HEADER(?CT_HTML), HtmlPage}
+    end.
+
+show_encrypted_post_content(BlobId, EncBlob, Uid, Title, Descr, Thumbnail) ->
+    ?INFO("Encrypted BlobId: ~p success", [BlobId]),
+    {PushName, Avatar} = get_push_name_and_avatar(Uid),
+    {ok, HtmlPage} = dtl_nokey_post:render([
+        {title, Title}, {description, Descr}, {thumbnail_url, Thumbnail},
+        {push_name, PushName}, {avatar, Avatar}, {enc_blob, EncBlob},
+        {base64_enc_blob, base64url:encode(EncBlob)}
+    ]),
+    {200, ?HEADER(?CT_HTML), HtmlPage}.
+
+get_push_name_and_avatar(Uid) ->
+    case model_accounts:get_account(Uid) of
+        {ok, Account} ->
+            {Account#account.name, Account#account.avatar_id};
+        {error, missing} ->
+            {undefined, undefined}
+    end.
 
 show_text_post_content(#pb_client_text{text = Text, mentions = undefined, link = undefined},
         PushName, Avatar) ->
@@ -232,14 +263,17 @@ fetch_share_post(BlobId) ->
             try enif_protobuf:decode(Payload, pb_external_share_post_container) of
                 {error, _} ->
                     ?ERROR("Failed to decode external share post container", []),
-                    {ok, <<"-1">>, Payload};
+                    {ok, <<"-1">>, Payload, <<>>, <<>>, <<>>};
                 Pkt ->
                     {ok, Pkt#pb_external_share_post_container.uid,
-                        Pkt#pb_external_share_post_container.blob}
+                        Pkt#pb_external_share_post_container.blob,
+                        Pkt#pb_external_share_post_container.title,
+                        Pkt#pb_external_share_post_container.description,
+                        Pkt#pb_external_share_post_container.thumbnail_url}
             catch _:_ ->
                 ?ERROR("Failed to decode external share post container", []),
                 %% return -1 as uid.
-                {ok, <<"-1">>, Payload}
+                {ok, <<"-1">>, Payload, <<>>, <<>>, <<>>}
             end
     end. 
 
@@ -250,6 +284,13 @@ start(_Host, Opts) ->
     ok.
 
 load_templates() ->
+    NokeyPostPath = dtl_path(?HOTSWAP_DTL_PATH, ?NOKEY_POST_DTL),
+    ?INFO("Loading nokey post template: ~s", [NokeyPostPath]),
+    erlydtl:compile_file(
+        NokeyPostPath,
+        dtl_nokey_post,
+        [{auto_escape, false}]
+    ),
     TextPostPath = dtl_path(?HOTSWAP_DTL_PATH, ?TEXT_POST_DTL),
     ?INFO("Loading text post template: ~s", [TextPostPath]),
     erlydtl:compile_file(
