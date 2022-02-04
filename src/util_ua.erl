@@ -86,6 +86,8 @@ resource_to_client_type(Resource) ->
     case Resource of
         <<"android">> -> android;
         <<"iphone">> -> ios;
+        <<"iphone_nse">> -> ios;
+        <<"iphone_share">> -> ios;
         <<"ipad">> -> ios;
         _ -> undefined
     end.

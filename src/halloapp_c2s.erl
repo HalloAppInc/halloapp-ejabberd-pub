@@ -69,6 +69,10 @@
 -type state() :: halloapp_stream_in:state().
 -export_type([state/0]).
 
+-define(ANDROID, <<"android">>).
+-define(IPHONE, <<"iphone">>).
+-define(IPHONE_NSE, <<"iphone_nse">>).
+-define(IPHONE_SHARE, <<"iphone_share">>).
 -define(BUGGY_ANDROID_VERSION, <<"HalloApp/Android0.147">>).
 
 %%%===================================================================
@@ -332,7 +336,7 @@ check_password_fun(_Mech, #{lserver := _LServer}) ->
     end.
 
 % TODO: make those constants
-bind(R, State) when R =/= <<"android">>, R =/= <<"iphone">> ->
+bind(R, State) when R =/= ?ANDROID, R =/= ?IPHONE, R =/= ?IPHONE_NSE, R =/= ?IPHONE_SHARE ->
     {error, {invalid_resource, R}, State};
 bind(R, #{user := U, server := S, access := Access,
         lserver := LServer, socket := Socket,
