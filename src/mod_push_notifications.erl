@@ -178,7 +178,7 @@ push_message(#pb_msg{id = _MsgId, to_uid = User} = Message) ->
 
 -spec push_message(Message :: pb_msg(), PushInfo :: push_info(), Os :: client_type()) -> ok.
 push_message(#pb_msg{id = MsgId, to_uid = User} = _Message, PushInfo, undefined) ->
-    ?ERROR("Uid: ~s, MsgId: ~p ignore push: invalid client version: ~p",
+    ?ERROR("Uid: ~s, MsgId: ~p ignore push: invalid client type: ~p",
         [User, MsgId, PushInfo#push_info.client_version]);
 push_message(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo, android) ->
     case PushInfo#push_info.token of
@@ -215,7 +215,7 @@ push_message_internal(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo) ->
             ?INFO("Uid: ~s, MsgId: ~p", [User, MsgId]),
             push_message(Message, PushInfo);
         deny ->
-            ?INFO("Uid: ~s, MsgId: ~p ignore push: invalid client version: ~p",
+            ?INFO("Uid: ~s, MsgId: ~p push denied due to client version: ~p",
                     [User, MsgId, ClientVersion])
     end.
 
