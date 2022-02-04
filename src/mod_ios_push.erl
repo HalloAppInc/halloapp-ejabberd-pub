@@ -168,8 +168,8 @@ handle_cast({ping, Id, Ts, From}, State) ->
     {noreply, State};
 handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     ?DEBUG("push_message: ~p", [Message]),
-    push_message(Message, PushInfo, State),
-    {noreply, State};
+    NewState = push_message(Message, PushInfo, State),
+    {noreply, NewState};
 
 handle_cast(crash, _State) ->
     error(test_crash);
@@ -318,11 +318,11 @@ handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = 
     FinalPendingMap = case maps:take(ApnsId, PendingMap) of
         error ->
             ?ERROR("Message not found in our map: apns-id: ~p", [ApnsId]),
-            State;
+            PendingMap;
         {PushMessageItem, NewPendingMap} ->
             Id = PushMessageItem#push_message_item.id,
             Uid = PushMessageItem#push_message_item.uid,
-            ?WARNING("Uid: ~s, apns push error: msg_id: ~s, will retry", [Uid, Id]),
+            ?WARNING("Uid: ~s, apns push error code: ~p, msg_id: ~s, will retry", [Uid, StatusCode, Id]),
             retry_message_item(PushMessageItem),
             NewPendingMap
     end,
@@ -334,11 +334,11 @@ handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = 
     FinalPendingMap = case maps:take(ApnsId, PendingMap) of
         error ->
             ?ERROR("Message not found in our map: apns-id: ~p", [ApnsId]),
-            State;
+            PendingMap;
         {PushMessageItem, NewPendingMap} ->
             Id = PushMessageItem#push_message_item.id,
             Uid = PushMessageItem#push_message_item.uid,
-            ?ERROR("Uid: ~s, apns push error: msg_id: ~s, needs to be fixed!", [Uid, Id]),
+            ?ERROR("Uid: ~s, apns push error:code: ~p, msg_id: ~s, needs to be fixed!", [Uid, StatusCode, Id]),
             NewPendingMap
     end,
     State#push_state{pendingMap = FinalPendingMap};

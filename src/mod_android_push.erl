@@ -227,7 +227,7 @@ push_message_item(PushMessageItem, #push_state{pendingMap = PendingMap} = State)
             "application/json", jiffy:encode(PushMessage)},
     case httpc:request(post, Request, HTTPOptions, Options) of
         {ok, RequestId} ->
-            ?INFO("Uid: ~s, MsgId: ~s, ContentId: ~s, ContentType: ~s, RequestId: ~s",
+            ?INFO("Uid: ~s, MsgId: ~s, ContentId: ~s, ContentType: ~s, RequestId: ~p",
                 [Uid, Id, ContentId, ContentType, RequestId]),
             NewPendingMap = PendingMap#{RequestId => PushMessageItem},
             State#push_state{pendingMap = NewPendingMap};
