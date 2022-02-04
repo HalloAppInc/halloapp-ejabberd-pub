@@ -127,6 +127,44 @@ message_order_test() ->
             model_messages:get_all_user_messages(?UID1)).
 
 
+% Offline queue limit is 100 for testing environments.
+max_num_offline_messages_test() ->
+    setup(),
+    ?assertEqual(ok, model_messages:remove_all_user_messages(?UID1)),
+    ?assertEqual({ok, 0}, model_messages:count_user_messages(?UID1)),
+    N = 100,
+    util:rev_while(N,
+        fun(X) ->
+            Xbin = util:to_binary(X),
+            MsgId = <<?MID1/binary, "-", Xbin/binary>>,
+            ?assertEqual(ok, model_messages:store_message(?UID1, undefined, MsgId, ?TYPE1, ?GROUP1, ?MESSAGE1))
+        end),
+    ?assertEqual({ok, 100}, model_messages:count_user_messages(?UID1)),
+
+    %% Insert 101th message.
+    MsgId2 = <<?MID1/binary, "-101">>,
+    %% This should be overflow??
+    ?assertEqual({ok, overflow}, model_messages:store_message(?UID1, undefined, MsgId2, ?TYPE1, ?GROUP1, ?MESSAGE1)),
+    ?assertEqual({ok, 100}, model_messages:count_user_messages(?UID1)),
+    ?assertEqual({ok, true}, model_messages:is_queue_trimmed(?UID1)),
+
+    %% Count should still be 100.
+    ?assertEqual({ok, 100}, model_messages:count_user_messages(?UID1)),
+
+    %% Ack the missing message.
+    MsgId3 = <<?MID1/binary, <<"-100">>/binary>>,
+    ?assertEqual(ok, model_messages:ack_message(?UID1, MsgId3)),
+    %% Count should still be 100.
+    ?assertEqual({ok, 100}, model_messages:count_user_messages(?UID1)),
+
+    %% Ack message 99.
+    MsgId4 = <<?MID1/binary, <<"-99">>/binary>>,
+    ?assertEqual(ok, model_messages:ack_message(?UID1, MsgId4)),
+    %% Count should now be 99.
+    ?assertEqual({ok, 99}, model_messages:count_user_messages(?UID1)),
+    ok.
+
+
 ack_message_test() ->
     setup(),
     ?assertEqual(ok, model_messages:store_message(?UID1, undefined, ?MID1, ?TYPE1, ?GROUP1, ?MESSAGE1)),

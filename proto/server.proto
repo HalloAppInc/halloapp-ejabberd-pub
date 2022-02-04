@@ -503,6 +503,7 @@ message Name {
 // End of Queue
 
 message EndOfQueue {
+    bool trimmed = 1;
 }
 
 

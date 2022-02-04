@@ -30,5 +30,7 @@
 -type offline_message() :: #offline_message{}.
 
 -define(MSG_EXPIRATION, (30 * ?DAYS)).
+-define(MAX_OFFLINE_MESSAGES, 10000).
+-define(MAX_OFFLINE_MESSAGES_TEST, 100).
 
 -endif.

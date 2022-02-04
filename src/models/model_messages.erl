@@ -36,6 +36,8 @@
     withhold_message/2,
     remove_all_user_messages/1,
     count_user_messages/1,
+    is_queue_trimmed/1,
+    mark_queue_clean/1,
     get_message/2,
     mark_sent_and_increment_retry_count/2,
     mark_sent_and_increment_retry_counts/2,
@@ -61,7 +63,7 @@
 -define(FIELD_THREAD_ID, <<"thid">>).
 -define(FIELD_SENT, <<"snt">>).
 
--spec store_message(Message :: pb_msg()) -> ok | {error, any()}.
+-spec store_message(Message :: pb_msg()) -> ok | {ok, term()} | {error, any()}.
 store_message(#pb_msg{} = Message) ->
     ToUid = Message#pb_msg.to_uid,
     FromUid = Message#pb_msg.from_uid,
@@ -82,11 +84,25 @@ store_message(ToUid, FromUid, MsgId, ContentType, ThreadId, Message, IsInPbForma
     MessageOrderKey = binary_to_list(message_order_key(ToUid)),
     MessageKey = binary_to_list(message_key(ToUid, MsgId)),
     MessageQueueKey = binary_to_list(message_queue_key(ToUid)),
+    MessageQueueTrimKey = binary_to_list(message_queue_trim_key(ToUid)),
     Script = get_store_message_script(),
     PbValue = util_redis:encode_boolean(IsInPbFormat),
-    {ok, _Res} = q(["EVAL", Script, 3, MessageOrderKey, MessageKey, MessageQueueKey,
-            ToUid, Message, ContentType, FromUid, MsgId, ?MSG_EXPIRATION, PbValue, ThreadId]),
-    ok;
+    MaxOfflineMessages = case config:is_testing_env() of
+        true -> ?MAX_OFFLINE_MESSAGES_TEST;
+        false -> ?MAX_OFFLINE_MESSAGES
+    end,
+    {ok, [IsOverflowStr, OldMsgIdAndScore]} = q(["EVAL", Script, 4, MessageOrderKey, MessageKey, MessageQueueKey, MessageQueueTrimKey,
+            ToUid, Message, ContentType, FromUid, MsgId, ?MSG_EXPIRATION, PbValue, ThreadId, MaxOfflineMessages]),
+    %% TODO(murali@): we can be clever about the kind of message we drop here.
+    %% We could drop all contact_list/group_list messages and ask the client to sync these things up.
+    case OldMsgIdAndScore of
+        [] -> ok;
+        [OldMsgId, _] -> ok = ack_message(ToUid, OldMsgId)
+    end,
+    case util_redis:decode_boolean(IsOverflowStr, false) of
+        false -> ok;
+        true -> {ok, overflow}
+    end;
 
 store_message(_ToUid, _FromUid, _MsgId, _ContentType, _ThreadId, Message, _IsInPbFormat) ->
     ?ERROR("Invalid message format: ~p: use binary format", [Message]).
@@ -173,6 +189,21 @@ remove_all_user_messages(Uid) ->
 count_user_messages(Uid) ->
     {ok, Res} = q(["ZCARD", message_queue_key(Uid)]),
     {ok, binary_to_integer(Res)}.
+
+
+-spec is_queue_trimmed(Uid :: uid()) -> {ok, boolean()} | {error, any()}.
+is_queue_trimmed(Uid) ->
+    {ok, Res} = q(["GET", message_queue_trim_key(Uid)]),
+    case Res of
+        undefined -> {ok, false};
+        _ -> {ok, util_redis:decode_boolean(Res, false)}
+    end.
+
+
+-spec mark_queue_clean(Uid :: uid()) -> ok | {error, any()}.
+mark_queue_clean(Uid) ->
+    {ok, _Res} = q(["DEL", message_queue_trim_key(Uid)]),
+    ok.
 
 
 -spec get_all_user_messages(Uid :: uid()) -> {ok, [maybe(offline_message())]} | {error, any()}.
@@ -306,6 +337,9 @@ withhold_message_key(Uid, MsgId) ->
 message_queue_key(Uid) ->
     <<?MESSAGE_QUEUE_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
+-spec message_queue_trim_key(Uid :: uid()) -> binary().
+message_queue_trim_key(Uid) ->
+    <<?MESSAGE_QUEUE_TRIM_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 -spec message_order_key(Uid :: uid()) -> binary().
 message_order_key(Uid) ->

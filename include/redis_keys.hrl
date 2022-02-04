@@ -113,6 +113,7 @@
 -define(MESSAGE_KEY, <<"msg:">>).
 -define(WITHHOLD_MESSAGE_KEY, <<"wmsg:">>).
 -define(MESSAGE_QUEUE_KEY, <<"mq:">>).
+-define(MESSAGE_QUEUE_TRIM_KEY, <<"mqt:">>).
 -define(MESSAGE_ORDER_KEY, <<"ord:">>).
 -define(PUSH_SENT_KEY, <<"psh:">>).
 

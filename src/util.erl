@@ -79,7 +79,8 @@
     repair_utf8/1,
     get_media_type/1,
     get_detailed_media_type/1,
-    is_voip_incoming_message/1
+    is_voip_incoming_message/1,
+    rev_while/2
 ]).
 
 
@@ -613,4 +614,11 @@ is_voip_incoming_message(#pb_msg{} = Message) ->
         pb_incoming_call -> true;
         _ -> false
     end.
+
+
+%% Reverse while loop.
+rev_while(0, _F) -> ok;
+rev_while(N, F) ->
+    erlang:apply(F, [N]),
+    rev_while(N - 1, F).
 

@@ -13,4 +13,17 @@ if OfflineMessage == 0 then
 	redis.call('ZADD', KEYS[3], OrderId, ARGV[5])
 	redis.call('EXPIRE', KEYS[2], ARGV[6])
 	redis.call('EXPIRE', KEYS[3], ARGV[6])
+	-- Count number of offline messages.
+	-- If the count > max_limit, pop the oldest message in the set.
+	local NumOfflineMsgs = redis.call('ZCARD', KEYS[3])
+	if tonumber(NumOfflineMsgs) > tonumber(ARGV[9]) then
+		-- Pop the message-id from the queue.
+		local MsgIdAndScore = redis.call('ZPOPMIN', KEYS[3])
+		redis.call('SET', KEYS[4], '1')
+		return {'1', MsgIdAndScore}
+	else
+		return {'0', {}}
+	end
+else
+	return {'0', {}}
 end

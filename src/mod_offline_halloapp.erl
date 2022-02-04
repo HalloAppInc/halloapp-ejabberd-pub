@@ -152,6 +152,11 @@ user_send_ack(State, #pb_ack{id = MsgId, from_uid = Uid} = Ack) ->
     case MsgId =:= EndOfQueueMsgId of
         true ->
             ?INFO("Uid: ~s, processed entire queue: ~p", [Uid, EndOfQueueMsgId]),
+            QueueTrimmed = maps:get(queue_trimmed, State, false),
+            case QueueTrimmed of
+                true -> model_messages:mark_queue_clean(Uid);
+                false -> ok
+            end,
             State;
         false ->
             accept_ack(State, Ack)
@@ -436,10 +441,14 @@ do_send_offline_messages(Uid, MsgsToSend) ->
         NewLastMsgOrderId :: integer(), State :: state()) -> state().
 mark_offline_queue_cleared(UserId, Server, NewLastMsgOrderId, State) ->
     %% TODO(murali@): use end_of_queue marker for time to clear out the offline queue.
-    EndOfQueueMsgId = send_end_of_queue_marker(UserId, Server),
+    {EndOfQueueMsgId, QueueTrimmed} = send_end_of_queue_marker(UserId),
     schedule_offline_queue_check(UserId, NewLastMsgOrderId, 0, []),
     ejabberd_hooks:run(offline_queue_cleared, Server, [UserId, NewLastMsgOrderId]),
-    State#{offline_queue_cleared => true, end_of_queue_msg_id => EndOfQueueMsgId}.
+    State#{
+        offline_queue_cleared => true,
+        end_of_queue_msg_id => EndOfQueueMsgId,
+        queue_trimmed => QueueTrimmed
+    }.
 
 
 %% We check our offline_queue after sometime even after we flush out all messages.
@@ -452,16 +461,19 @@ schedule_offline_queue_check(UserId, NewLastMsgOrderId, RetryCount, LeftOverMsgI
     ok.
 
 
--spec send_end_of_queue_marker(UserId :: binary(), Server :: binary()) -> MsgId :: binary().
-send_end_of_queue_marker(UserId, _Server) ->
+-spec send_end_of_queue_marker(UserId :: binary()) -> {MsgId :: binary(), QueueTrimmed :: boolean}.
+send_end_of_queue_marker(UserId) ->
+    {ok, QueueTrimmed} = model_messages:is_queue_trimmed(UserId),
     MsgId = util_id:new_msg_id(),
     EndOfQueueMarker = #pb_msg{
         id = MsgId,
         to_uid = UserId,
-        payload = #pb_end_of_queue{}
+        payload = #pb_end_of_queue{
+            trimmed = QueueTrimmed
+        }
     },
     ejabberd_router:route(EndOfQueueMarker),
-    MsgId.
+    {MsgId, QueueTrimmed}.
 
 
 -spec route_offline_message(OfflineMessage :: maybe(offline_message())) -> ok.
@@ -561,8 +573,14 @@ store_message(#pb_msg{payload = #pb_end_of_queue{}} = _Message) ->
 store_message(#pb_msg{payload = #pb_wake_up{}} = _Message) ->
     %% ignore storing SMSApp client wakeup packets.
     ok;
-store_message(#pb_msg{} = Message) ->
-    ok = model_messages:store_message(Message),
+store_message(#pb_msg{to_uid = ToUid, id = MsgId} = Message) ->
+    case model_messages:store_message(Message) of
+        ok -> ok;
+        {ok, overflow} ->
+            ?INFO("ToUid: ~s stored MsgId: ~s queue overflow", [ToUid, MsgId]),
+            Msg = <<"Trimmed Offline Queue for ", ToUid/binary>>,
+            alerts:send_alert(<<"OfflineQueueTrimmed">>, <<"OfflineMessages">>, <<"critical">>, Msg)
+    end,
     ok.
 
 
