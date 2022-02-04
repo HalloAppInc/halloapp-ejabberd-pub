@@ -196,6 +196,9 @@ is_lang_ok(PushLangId) ->
                 <<"en">> -> true;
                 <<"es">> -> true;
                 <<"fa">> -> true;
+                %% "in" comes from the client, converted to "id" during push
+                <<"in">> -> true;
+                <<"id">> -> true;
                 <<"nl">> -> true;
                 <<"pl">> -> true;
                 <<"pt">> -> true;
