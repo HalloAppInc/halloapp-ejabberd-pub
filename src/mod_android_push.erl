@@ -83,7 +83,9 @@ crash() ->
 
 init([Host|_]) ->
     _ = get_fcm_apikey(),
-    {ok, #push_state{host = Host}}.
+    {ok, #push_state{
+            pendingMap = #{},
+            host = Host }}.
 
 
 terminate(_Reason, #push_state{host = _Host}) ->
@@ -104,8 +106,8 @@ handle_cast({ping, Id, Ts, From}, State) ->
     {noreply, State};
 handle_cast({push_message, Message, PushInfo} = _Request, State) ->
     ?DEBUG("push_message: ~p", [Message]),
-    push_message(Message, PushInfo, State),
-    {noreply, State};
+    State1 = push_message(Message, PushInfo, State),
+    {noreply, State1};
 
 handle_cast(crash, _State) ->
     error(test_crash);
@@ -127,16 +129,29 @@ handle_info({retry, PushMessageItem}, State) ->
     CurTimestamp = util:now(),
     MsgTimestamp = PushMessageItem#push_message_item.timestamp,
     %% Stop retrying after 10 minutes!
-    case CurTimestamp - MsgTimestamp < ?MESSAGE_MAX_RETRY_TIME_SEC of
+    State1 = case CurTimestamp - MsgTimestamp < ?MESSAGE_MAX_RETRY_TIME_SEC of
         false ->
-            ?INFO("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]);
+            ?INFO("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]),
+            State;
         true ->
             ?INFO("Uid: ~s, retry push_message_item: ~s", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
             push_message_item(NewPushMessageItem, State)
     end,
-    {noreply, State};
+    {noreply, State1};
+
+handle_info({http, {RequestId, _Response} = ReplyInfo}, #push_state{pendingMap = PendingMap} = State) ->
+    FinalPendingMap = case maps:take(RequestId, PendingMap) of
+        error ->
+            ?ERROR("Request not found in our map: RequestId: ~p", [RequestId]),
+            PendingMap;
+        {PushMessageItem, NewPendingMap} ->
+            handle_fcm_response(ReplyInfo, PushMessageItem, State),
+            NewPendingMap
+    end,
+    State1 = State#push_state{pendingMap = FinalPendingMap},
+    {noreply, State1};
 
 handle_info(Request, State) ->
     ?DEBUG("Unknown request: ~p, ~p", [Request, State]),
@@ -147,7 +162,7 @@ handle_info(Request, State) ->
 %% internal module functions
 %%====================================================================
 
--spec push_message(Message :: pb_msg(), PushInfo :: push_info(), State :: push_state()) -> ok.
+-spec push_message(Message :: pb_msg(), PushInfo :: push_info(), State :: push_state()) -> push_state().
 push_message(Message, PushInfo, State) ->
     MsgId = pb:get_id(Message),
     Uid = pb:get_to(Message),
@@ -169,23 +184,21 @@ push_message(Message, PushInfo, State) ->
     end.
 
 
--spec push_message_item(PushMessageItem :: push_message_item(), State :: push_state()) -> ok.
-push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
+-spec push_message_item(PushMessageItem :: push_message_item(), State :: push_state()) -> push_state().
+push_message_item(PushMessageItem, #push_state{pendingMap = PendingMap} = State) ->
     PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
             PushMessageItem#push_message_item.push_info),
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     ContentId = PushMetadata#push_metadata.content_id,
     ContentType = PushMetadata#push_metadata.content_type,
-    ?INFO("Uid: ~s, MsgId: ~s, ContentId: ~s, ContentType: ~s", [Uid, Id, ContentId, ContentType]),
-
     Token = PushMessageItem#push_message_item.push_info#push_info.token,
     Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
     HTTPOptions = [
             {timeout, ?HTTP_TIMEOUT_MILLISEC},
             {connect_timeout, ?HTTP_CONNECT_TIMEOUT_MILLISEC}
     ],
-    Options = [],
+    Options = [{sync, false}, {receiver, self()}],
     FcmApiKey = get_fcm_apikey(),
 
     DataMap = #{
@@ -212,17 +225,49 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
     PushMessage = ContentMap#{<<"to">> => Token, <<"priority">> => <<"high">>},
     Request = {?FCM_GATEWAY, [{"Authorization", "key=" ++ FcmApiKey}],
             "application/json", jiffy:encode(PushMessage)},
-    %% TODO(murali@): Switch to using an asynchronous http client.
-    Response = httpc:request(post, Request, HTTPOptions, Options),
+    case httpc:request(post, Request, HTTPOptions, Options) of
+        {ok, RequestId} ->
+            ?INFO("Uid: ~s, MsgId: ~s, ContentId: ~s, ContentType: ~s, RequestId: ~s",
+                [Uid, Id, ContentId, ContentType, RequestId]),
+            NewPendingMap = PendingMap#{RequestId => PushMessageItem},
+            State#push_state{pendingMap = NewPendingMap};
+        {error, Reason} ->
+            ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p",
+                    [Uid, binary:part(Token, 0, 10), Reason]),
+            retry_message_item(PushMessageItem),
+            State
+    end.
+
+
+-spec retry_message_item(PushMessageItem :: push_message_item()) -> reference().
+retry_message_item(PushMessageItem) ->
+    RetryTime = PushMessageItem#push_message_item.retry_ms,
+    setup_timer({retry, PushMessageItem}, RetryTime).
+
+
+-spec setup_timer(Msg :: any(), Timeout :: integer()) -> reference().
+setup_timer(Msg, Timeout) ->
+    NewTimer = erlang:send_after(Timeout, self(), Msg),
+    NewTimer.
+
+
+-spec handle_fcm_response({RequestId :: reference(), Response :: term()},
+        PushMessageItem ::push_message_item(), State :: push_state()) -> ok.
+handle_fcm_response({_RequestId, Response}, PushMessageItem, #push_state{host = ServerHost} = _State) ->
+    Id = PushMessageItem#push_message_item.id,
+    Uid = PushMessageItem#push_message_item.uid,
+    Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
+    ContentType = PushMessageItem#push_message_item.content_type,
+    Token = PushMessageItem#push_message_item.push_info#push_info.token,
     case Response of
-        {ok, {{_, StatusCode5xx, _}, _, ResponseBody}}
+        {{_, StatusCode5xx, _}, _, ResponseBody}
                 when StatusCode5xx >= 500 andalso StatusCode5xx < 600 ->
             stat:count("HA/push", ?FCM, 1, [{"result", "fcm_error"}]),
             ?ERROR("Push failed, Uid: ~s, Token: ~p, recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
             retry_message_item(PushMessageItem);
 
-        {ok, {{_, 200, _}, _, ResponseBody}} ->
+        {{_, 200, _}, _, ResponseBody} ->
             case parse_response(ResponseBody) of
                 {ok, FcmId} ->
                     stat:count("HA/push", ?FCM, 1, [{"result", "success"}]),
@@ -243,7 +288,7 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
                     remove_push_token(Uid, ServerHost)
             end;
 
-        {ok, {{_, _, _}, _, ResponseBody}} ->
+        {{_, _, _}, _, ResponseBody} ->
             stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
             ?ERROR("Push failed, Uid:~s, token: ~p, non-recoverable FCM error: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
@@ -253,21 +298,7 @@ push_message_item(PushMessageItem, #push_state{host = ServerHost}) ->
             ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p",
                     [Uid, binary:part(Token, 0, 10), Reason]),
             retry_message_item(PushMessageItem)
-
-    end,
-    ok.
-
-
--spec retry_message_item(PushMessageItem :: push_message_item()) -> reference().
-retry_message_item(PushMessageItem) ->
-    RetryTime = PushMessageItem#push_message_item.retry_ms,
-    setup_timer({retry, PushMessageItem}, RetryTime).
-
-
--spec setup_timer(Msg :: any(), Timeout :: integer()) -> reference().
-setup_timer(Msg, Timeout) ->
-    NewTimer = erlang:send_after(Timeout, self(), Msg),
-    NewTimer.
+    end.
 
 
 %% Parses response of the request to check if everything worked successfully.

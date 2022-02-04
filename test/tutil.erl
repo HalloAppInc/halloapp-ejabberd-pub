@@ -77,7 +77,7 @@ cleardb(DBName) ->
     Result = ecredis:qa(RedisClient, ["DBSIZE"]),
     [{ok, BinSize} | _]  = Result,
     DbSize = binary_to_integer(BinSize),
-    ?assert(DbSize < 200),
+    ?assert(DbSize < 500),
 
     %% TODO: figure out way to ensure flushdb is only available
     %% during tests. This is simple enough with eunit, as the TEST
