@@ -21,7 +21,8 @@
     start_call/6,
     user_receive_packet/1,
     user_send_packet/1,
-    push_message_always_hook/1
+    push_message_always_hook/1,
+    set_presence_hook/4
 ]).
 
 %% gen_mod api
@@ -36,6 +37,7 @@ start(Host, _Opts) ->
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 50),
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:add(push_message_always_hook, Host, ?MODULE, push_message_always_hook, 50),
+    ejabberd_hooks:add(set_presence_hook, Host, ?MODULE, set_presence_hook, 50),
     ok.
 
 stop(Host) ->
@@ -43,6 +45,7 @@ stop(Host) ->
     ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, user_receive_packet, 50),
     ejabberd_hooks:delete(push_message_always_hook, Host, ?MODULE, push_message_always_hook, 50),
+    ejabberd_hooks:delete(set_presence_hook, Host, ?MODULE, set_presence_hook, 50),
     ok.
 
 depends(_Host, _Opts) -> [].
@@ -184,6 +187,15 @@ push_message_always_hook(#pb_msg{to_uid = Uid} = Packet) ->
         false -> ok
     end;
 push_message_always_hook(_) -> ok.
+
+
+-spec set_presence_hook(Uid :: binary(), Server :: binary(), Resource :: binary(), pb_presence()) -> ok.
+set_presence_hook(Uid, _Server, _Resource, #pb_presence{type = available}) ->
+    %% Add Uid to voip list to enable them to start making calls from next time.
+    ok = model_accounts:add_uid_to_voip_list(Uid),
+    ok;
+set_presence_hook(Uid, _Server, _Resource, _) ->
+    ok.
 
 
 -spec push_message(Packet :: pb_msg()) -> ok.
