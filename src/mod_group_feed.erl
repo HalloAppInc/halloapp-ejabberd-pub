@@ -545,8 +545,8 @@ share_group_feed(Gid, Uid) ->
     FilteredPostIds = [P#post.id || P <- FilteredPosts],
     ok = model_feed:add_uid_to_audience(Uid, FilteredPostIds),
 
-    PostStanzas = lists:map(fun convert_posts_to_groupfeeditem/1, FilteredPosts),
-    CommentStanzas = lists:map(fun convert_comments_to_groupfeeditem/1, FilteredComments),
+    PostStanzas = lists:map(fun convert_posts_to_sharedgroupfeeditem/1, FilteredPosts),
+    CommentStanzas = lists:map(fun convert_comments_to_sharedgroupfeeditem/1, FilteredComments),
     GroupInfo = model_groups:get_group_info(Gid),
 
     FilteredPostIds = [P#post.id || P <- FilteredPosts],
@@ -589,8 +589,8 @@ filter_group_feed_items(_Uid, Items) ->
     {FilteredPosts, FilteredComments}.
 
 
--spec convert_posts_to_groupfeeditem(post()) -> pb_post().
-convert_posts_to_groupfeeditem(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs}) ->
+-spec convert_posts_to_sharedgroupfeeditem(post()) -> pb_post().
+convert_posts_to_sharedgroupfeeditem(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs}) ->
     #pb_group_feed_item{
         action = share,
         item = #pb_post{
@@ -599,12 +599,13 @@ convert_posts_to_groupfeeditem(#post{id = PostId, uid = Uid, payload = PayloadBa
             publisher_name = model_accounts:get_name_binary(Uid),
             payload = base64:decode(PayloadBase64),
             timestamp = util:ms_to_sec(TimestampMs)
-        }
+        },
+        is_resent_history = true
     }.
 
 
--spec convert_comments_to_groupfeeditem(comment()) -> pb_comment().
-convert_comments_to_groupfeeditem(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
+-spec convert_comments_to_sharedgroupfeeditem(comment()) -> pb_comment().
+convert_comments_to_sharedgroupfeeditem(#comment{id = CommentId, post_id = PostId, publisher_uid = PublisherUid,
         parent_id = ParentId, payload = PayloadBase64, ts_ms = TimestampMs}) ->
     #pb_group_feed_item{
         action = share,
@@ -616,7 +617,8 @@ convert_comments_to_groupfeeditem(#comment{id = CommentId, post_id = PostId, pub
             publisher_name = model_accounts:get_name_binary(PublisherUid),
             payload = base64:decode(PayloadBase64),
             timestamp = util:ms_to_sec(TimestampMs)
-        }
+        },
+        is_resent_history = true
     }.
 
 

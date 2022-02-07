@@ -241,6 +241,7 @@ message GroupFeedItem {
     SenderStateWithKeyInfo sender_state = 8;
 
     bytes audience_hash = 9;
+    bool is_resent_history = 10;
 
     // Use >=16 for temporary elements since 1-15 encode smaller
     string sender_log_info = 16;
