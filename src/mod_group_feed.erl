@@ -599,8 +599,7 @@ convert_posts_to_sharedgroupfeeditem(#post{id = PostId, uid = Uid, payload = Pay
             publisher_name = model_accounts:get_name_binary(Uid),
             payload = base64:decode(PayloadBase64),
             timestamp = util:ms_to_sec(TimestampMs)
-        },
-        is_resent_history = true
+        }
     }.
 
 
@@ -617,8 +616,7 @@ convert_comments_to_sharedgroupfeeditem(#comment{id = CommentId, post_id = PostI
             publisher_name = model_accounts:get_name_binary(PublisherUid),
             payload = base64:decode(PayloadBase64),
             timestamp = util:ms_to_sec(TimestampMs)
-        },
-        is_resent_history = true
+        }
     }.
 
 
