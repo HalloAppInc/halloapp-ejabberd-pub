@@ -60,9 +60,16 @@
 
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 %% /share_post/id
-process([BlobId],
+process([Path],
         #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
     try
+        URIMap = uri_string:parse(Path),
+        Fragment = maps:get(fragment, URIMap, <<>>),
+        case Fragment of
+            <<>> -> ok;
+            _ -> ?ERROR("Got uri fragment: ~s, shouldn't have received it on server", [Fragment])
+        end,
+        BlobId = maps:get(path, URIMap, <<>>),
         UserAgent = util_http:get_user_agent(Headers),
         Platform = util_http:get_platform(UserAgent),
         IP = util_http:get_ip(NetIP, Headers),
