@@ -2,6 +2,8 @@
 Title: {{ title }}<br/>
 Description: {{ description }}<br/>
 Thumbnail Url: {{ thumbnail_url }}<br/>
+Thumbnail Width: {{ thumbnail_width }}<br/>
+Thumbnail Height: {{ thumbnail_height }}<br/>
 Encrypted Blob: {{ enc_blob }}<br/>
 Base64 Encrypted Blob: {{ base64_enc_blob }}<br/>
 Push Name : {{ push_name }} <br/>

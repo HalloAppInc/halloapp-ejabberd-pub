@@ -105,7 +105,7 @@ show_blob(BlobId, EncodedKey) ->
     %% TODO(vipin): Need to remove the debug.
     ?DEBUG("Share Id: ~p, Key: ~p", [BlobId, base64url:encode(Key)]),
     case fetch_share_post(BlobId) of
-        {ok, Uid, EncBlobWithMac, _Title, _Description, _ThumbnailUrl} ->
+        {ok, Uid, EncBlobWithMac, _OgTagInfo} ->
             case util_crypto:decrypt_blob(EncBlobWithMac, Key, ?SHARE_POST_HKDF_INFO) of
                 {ok, Blob} ->
                     show_post_content(BlobId, Blob, Uid);
@@ -119,8 +119,8 @@ show_blob(BlobId, EncodedKey) ->
 
 show_blob_nokey(BlobId) ->
     case fetch_share_post(BlobId) of
-        {ok, Uid, EncBlobWithMac, Title, Description, ThumbnailUrl} ->
-            show_encrypted_post_content(BlobId, EncBlobWithMac, Uid, Title, Description, ThumbnailUrl);
+        {ok, Uid, EncBlobWithMac, OgTagInfo} ->
+            show_encrypted_post_content(BlobId, EncBlobWithMac, Uid, OgTagInfo);
         {error, not_found} ->
             ?INFO("Share Post Id: ~p not found ", [BlobId]),
             show_expired_error(BlobId)
@@ -165,11 +165,14 @@ show_post_content(BlobId, Blob, Uid) ->
         {200, ?HEADER(?CT_HTML), HtmlPage}
     end.
 
-show_encrypted_post_content(BlobId, EncBlob, Uid, Title, Descr, Thumbnail) ->
+show_encrypted_post_content(BlobId, EncBlob, Uid, #pb_og_tag_info{
+      title = Title, description = Descr, thumbnail_url = Thumbnail,
+      thumbnail_width = Width, thumbnail_height = Height}) ->
     ?INFO("Encrypted BlobId: ~p success", [BlobId]),
     {PushName, Avatar} = get_push_name_and_avatar(Uid),
     {ok, HtmlPage} = dtl_nokey_post:render([
         {title, Title}, {description, Descr}, {thumbnail_url, Thumbnail},
+        {thumbnail_width, Width}, {thumbnail_height, Height},
         {push_name, PushName}, {avatar, Avatar}, {enc_blob, EncBlob},
         {base64_enc_blob, base64url:encode(EncBlob)}
     ]),
@@ -270,17 +273,17 @@ fetch_share_post(BlobId) ->
             try enif_protobuf:decode(Payload, pb_external_share_post_container) of
                 {error, _} ->
                     ?ERROR("Failed to decode external share post container", []),
-                    {ok, <<"-1">>, Payload, <<>>, <<>>, <<>>};
-                Pkt ->
-                    {ok, Pkt#pb_external_share_post_container.uid,
-                        Pkt#pb_external_share_post_container.blob,
-                        Pkt#pb_external_share_post_container.title,
-                        Pkt#pb_external_share_post_container.description,
-                        Pkt#pb_external_share_post_container.thumbnail_url}
+                    {ok, <<"-1">>, Payload, #pb_og_tag_info{}};
+                #pb_external_share_post_container{
+                    uid = Uid,
+                    blob = Blob,
+                    og_tag_info = OgTagInfo
+                } ->
+                    {ok, Uid, Blob, OgTagInfo}
             catch _:_ ->
                 ?ERROR("Failed to decode external share post container", []),
                 %% return -1 as uid.
-                {ok, <<"-1">>, Payload, <<>>, <<>>, <<>>}
+                {ok, <<"-1">>, Payload, #pb_og_tag_info{}}
             end
     end. 
 

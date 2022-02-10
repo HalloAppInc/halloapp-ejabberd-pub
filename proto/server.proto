@@ -667,6 +667,16 @@ message HoldCall {
     int64 timestamp_ms = 3;
 }
 
+
+// External Sharing
+message OgTagInfo {
+    string title = 1;
+    string description = 2;
+    string thumbnail_url = 3;
+    int32 thumbnail_width = 4;
+    int32 thumbnail_height = 5;
+}
+
 message ExternalSharePost {
     enum Action {
         STORE = 0;
@@ -676,17 +686,13 @@ message ExternalSharePost {
     string blob_id = 2;
     bytes blob = 3;
     int64 expires_in_seconds = 4;
-    string title = 5;
-    string description = 6;
-    string thumbnail_url = 7;
+    OgTagInfo og_tag_info = 5;
 }
 
 message ExternalSharePostContainer {
     int64 uid = 1 [ebin = true];
     bytes blob = 2;
-    string title = 3;
-    string description = 4;
-    string thumbnail_url = 5;
+    OgTagInfo og_tag_info = 3;
 }
 
 // IQ
