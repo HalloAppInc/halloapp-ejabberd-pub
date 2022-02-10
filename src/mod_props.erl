@@ -94,7 +94,7 @@ get_props(Uid, ClientVersion) ->
         media_comments => true,  %% enables media comments.
         cleartext_group_feed => true, %% whether client must send unencrypted content in group_feed.
         use_cleartext_group_feed => true, %% whether clients must rely on unencrypted content in group_feed.
-        audio_calls => false, %% whether clients can make audio calls.
+        audio_calls => true, %% whether clients can make audio calls.
         video_calls => false, %% whether clients can make video calls.
         call_wait_timeout => 60, %% time (sec) to wait before ending the call on timeout when remote party is not responding.
         streaming_upload_chunk_size =>  65536, %% size of media streaming upload chunk size, 64KB.
@@ -170,73 +170,6 @@ apply_uid_prop_overrides(Uid, PropMap) ->
 -spec uid_prop_override(Uid :: uid(), Prop :: atom()) -> undef | term().
 uid_prop_override(<<"1000000000490675850">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
 uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
-
-uid_prop_override(<<"1000000000052736684">>, audio_calls) -> true;  %% Sunisha
-uid_prop_override(<<"1000000000399778754">>, audio_calls) -> true;  %% Neeraj's another friend: +91-94441-02346
-uid_prop_override(<<"1000000000415550189">>, audio_calls) -> true;  %% Rahul Mehta (Neeraj)
-uid_prop_override(<<"1000000000503720864">>, audio_calls) -> true;  %% Jim Goetz
-uid_prop_override(<<"1000000000925762631">>, audio_calls) -> true;  %% Gergana (Nikola)
-uid_prop_override(<<"1000000000122054965">>, audio_calls) -> true;  %% Katya (Nikola)
-uid_prop_override(<<"1000000000683067883">>, audio_calls) -> true;  %% Madlen (Nikola)
-uid_prop_override(<<"1000000000938575483">>, audio_calls) -> true;  %% Pavlina (Nikola)
-uid_prop_override(<<"1000000000940017573">>, audio_calls) -> true;  %% Alex Contreras (Nikola)
-
-%% Some AMA group members
-uid_prop_override(<<"1000000000065321885">>, audio_calls) -> true;  %% Michel
-uid_prop_override(<<"1000000000158665185">>, audio_calls) -> true;  %% Michel
-uid_prop_override(<<"1000000000882927022">>, audio_calls) -> true;  %% Muharrem
-uid_prop_override(<<"1000000000523138805">>, audio_calls) -> true;  %% Eliel
-uid_prop_override(<<"1000000000470767888">>, audio_calls) -> true;  %% Julio Nahúm
-uid_prop_override(<<"1000000000394730720">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000637854529">>, audio_calls) -> true;
-
-%% Iran users
-uid_prop_override(<<"1000000000881209791">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000826250913">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000323396960">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000093054534">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000177351568">>, audio_calls) -> true;
-
-%% Germany users
-uid_prop_override(<<"1000000000744514182">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000747874008">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000802260604">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000702469652">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000426934737">>, audio_calls) -> true;
-
-%% Austria users
-uid_prop_override(<<"1000000000153487893">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000171139315">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000691047846">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000195768663">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000149665111">>, audio_calls) -> true;
-
-%% Taiwan users
-uid_prop_override(<<"1000000000194446017">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000845371065">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000401652291">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000197841927">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000260017866">>, audio_calls) -> true;
-
-%% Russia users
-uid_prop_override(<<"1000000000828418565">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000785171490">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000457862660">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000706543268">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000464072348">>, audio_calls) -> true;
-
-%% Brazil users
-uid_prop_override(<<"1000000000210988128">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000307037153">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000687105469">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000236441080">>, audio_calls) -> true;
-uid_prop_override(<<"1000000000083469030">>, audio_calls) -> true;
-
-uid_prop_override(Uid, audio_calls) ->
-    case model_accounts:is_voip_allowed(Uid) of
-        true -> true;
-        false -> undef
-    end;
 uid_prop_override(_Uid, _Prop) ->
     undef.
 
