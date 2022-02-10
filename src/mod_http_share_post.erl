@@ -165,6 +165,15 @@ show_post_content(BlobId, Blob, Uid) ->
         {200, ?HEADER(?CT_HTML), HtmlPage}
     end.
 
+show_encrypted_post_content(BlobId, EncBlob, Uid, undefined) ->
+    ?INFO("Encrypted BlobId: ~p success", [BlobId]),
+    {PushName, Avatar} = get_push_name_and_avatar(Uid),
+    {ok, HtmlPage} = dtl_nokey_post:render([
+        {push_name, PushName}, {avatar, Avatar}, {enc_blob, EncBlob},
+        {base64_enc_blob, base64url:encode(EncBlob)}
+    ]),
+    {200, ?HEADER(?CT_HTML), HtmlPage};
+
 show_encrypted_post_content(BlobId, EncBlob, Uid, #pb_og_tag_info{
       title = Title, description = Descr, thumbnail_url = Thumbnail,
       thumbnail_width = Width, thumbnail_height = Height}) ->
