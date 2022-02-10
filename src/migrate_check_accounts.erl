@@ -8,6 +8,7 @@
 -author('murali').
 
 -include("logger.hrl").
+-include("account.hrl").
 -include("client_version.hrl").
 
 -export([
@@ -19,6 +20,7 @@
     check_version_counters_run/2,
     log_recent_account_info_run2/2,
     check_push_name_run/2,
+    set_registration_ts/2,
     set_login_run/2,
     cleanup_offline_queue_run/2
 ]).
@@ -279,6 +281,46 @@ check_push_name_run(Key, State) ->
                         true -> ok
                     end;
                 _ -> ok
+            end;
+        _ -> ok
+    end,
+    State.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                       Check all user accounts for login status                      %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+set_registration_ts(Key, State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            ?INFO("Key: ~p", [Key]),
+            case model_accounts:get_account(Uid) of
+                {ok, Account} ->
+                    try
+                        case Account#account.last_registration_ts_ms of
+                            undefined ->
+                                CreationTsMs = Account#account.creation_ts_ms,
+                                case DryRun of
+                                    false ->
+                                        ok = model_accounts:set_last_registration_ts_ms(Uid, CreationTsMs),
+                                        ?INFO("Uid: ~p finished set_last_registration_ts_ms to: ~p",
+                                            [Uid, CreationTsMs]);
+                                    true ->
+                                        ?INFO("Uid: ~p will set_last_registration_ts_ms to: ~p",
+                                            [Uid, CreationTsMs]),
+                                        ok
+                                end;
+                            _ -> ok
+                        end
+                    catch
+                        Class : Reason : Stacktrace ->
+                            ?ERROR("Uid: ~p failed to clean: ~s",
+                                [Uid, lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+                    end;
+                {error, missing} ->
+                    ?ERROR("Unexpected, invalid_uid: ~p", [Uid])
             end;
         _ -> ok
     end,
