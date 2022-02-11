@@ -104,7 +104,8 @@ get_props(Uid, ClientVersion) ->
         voice_posts => true, %% whether to enable voice posts.
         emoji_version => 1, %% emoji version for clients to use.
         call_hold => false, %% allow calls to be on hold
-        call_rerequest => false %% controls if clients will respond to call-rerequests and also wait for them
+        call_rerequest => false, %% controls if clients will respond to call-rerequests and also wait for them
+        external_sharing => false %% enables external sharing on clients
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -129,7 +130,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap7 = maps:update(voice_posts, true, PropMap6),
             PropMap8 = maps:update(max_video_bit_rate, 4000000, PropMap7),
             PropMap9 = maps:update(call_hold, true, PropMap8),
-            PropMap9
+            PropMap10 = maps:update(external_sharing, true, PropMap9),
+            PropMap10
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
