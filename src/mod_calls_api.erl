@@ -77,10 +77,12 @@ process_get_call_servers(IQ, Uid, PeerUid, CallId, CallType) ->
     ?INFO("Uid: ~s PeerUid: ~s CallId: ~s ~s", [Uid, PeerUid, CallId, CallType]),
 
     {StunServers, TurnServers} = mod_calls:get_call_servers(Uid, PeerUid, CallType),
+    {ok, CallConfig} = mod_calls:get_call_config(Uid, PeerUid, CallType),
     GetServersResult = #pb_get_call_servers_result{
         result = ok,
         stun_servers = StunServers,
-        turn_servers = TurnServers
+        turn_servers = TurnServers,
+        call_config = CallConfig
     },
     pb:make_iq_result(IQ, GetServersResult).
 

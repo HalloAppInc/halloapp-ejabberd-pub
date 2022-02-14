@@ -18,6 +18,7 @@
 %% API
 -export([
     get_call_servers/3,
+    get_call_config/3,
     start_call/6,
     user_receive_packet/1,
     user_send_packet/1,
@@ -64,6 +65,18 @@ get_call_servers(Uid, PeerUid, CallType) ->
     stat:count("HA/call", "get_call_servers"),
     mod_call_servers:get_stun_turn_servers(Uid, PeerUid, CallType).
 
+-spec get_call_config(Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
+        -> {ok, pb_call_config()}.
+get_call_config(_Uid, _PeerUid, _CallType) ->
+    CallConfig = #pb_call_config{
+        video_bitrate_max = 1000000, %% 1Mbps
+        video_width = 720,
+        video_height = 1280,
+        video_fps = 30,
+        audio_jitter_buffer_max_packets = -1, % use client default
+        audio_jitter_buffer_fast_accelerate = false % false is default on Android
+    },
+    {ok, CallConfig}.
 
 -spec start_call(CallId :: call_id(), Uid :: uid(), PeerUid :: uid(),
     CallType :: 'CallType'(), Offer :: pb_web_rtc_session_description(), RerequestCount :: integer())
@@ -74,6 +87,7 @@ start_call(CallId, Uid, PeerUid, CallType, Offer, RerequestCount) ->
     %% Add peerUid to voip list to enable them to start making calls from next time.
     ok = model_accounts:add_uid_to_voip_list(PeerUid),
     {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(Uid, PeerUid, CallType),
+    {ok, CallConfig} = get_call_config(Uid, PeerUid, CallType),
     IncomingCallMsg = #pb_incoming_call{
         call_id = CallId,
         call_type = CallType,
@@ -81,7 +95,8 @@ start_call(CallId, Uid, PeerUid, CallType, Offer, RerequestCount) ->
         stun_servers = StunServers,
         turn_servers = TurnServers,
         timestamp_ms = util:now_ms(),
-        server_sent_ts_ms = util:now_ms()       % time at which the server send the packet
+        server_sent_ts_ms = util:now_ms(),       % time at which the server sent the packet
+        call_config = CallConfig
     },
     MsgId = util_id:new_msg_id(),
     Packet = #pb_msg{
