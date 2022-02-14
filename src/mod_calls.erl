@@ -124,6 +124,18 @@ user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         payload = #pb_end_call{call_id = CallId, reason = Reason}}, _State} = Acc) ->
     ?INFO("CallId: ~s end_call (~s) FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, Reason, FromUid, ToUid, MsgId]),
     Acc;
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_ice_candidate{call_id = CallId}} = _Msg, _State} = Acc) ->
+    ?INFO("CallId: ~s ice_candidate FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, FromUid, ToUid, MsgId]),
+    Acc;
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_ice_restart_offer{call_id = CallId, idx = Idx}} = _Msg, _State} = Acc) ->
+    ?INFO("CallId: ~s ice_restart_offer Idx: ~p FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, Idx, FromUid, ToUid, MsgId]),
+    Acc;
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_ice_restart_answer{call_id = CallId, idx = Idx}} = _Msg, _State} = Acc) ->
+    ?INFO("CallId: ~s ice_restart_answer Idx: ~p FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, Idx, FromUid, ToUid, MsgId]),
+    Acc;
 user_receive_packet(Acc) -> Acc.
 
 user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
@@ -162,6 +174,18 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
     Ts = util:now_ms(),
     Msg1 = Msg#pb_msg{payload = Payload#pb_end_call{timestamp_ms = Ts}},
     {Msg1, State};
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_ice_candidate{call_id = CallId}} = _Msg, _State} = Acc) ->
+    ?INFO("CallId: ~s ice_candidate FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, FromUid, ToUid, MsgId]),
+    Acc;
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_ice_restart_offer{call_id = CallId, idx = Idx}} = _Msg, _State} = Acc) ->
+    ?INFO("CallId: ~s ice_restart_offer Idx: ~p FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, Idx, FromUid, ToUid, MsgId]),
+    Acc;
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_ice_restart_answer{call_id = CallId, idx = Idx}} = _Msg, _State} = Acc) ->
+    ?INFO("CallId: ~s ice_restart_answer Idx: ~p FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, Idx, FromUid, ToUid, MsgId]),
+    Acc;
 user_send_packet(Acc) -> Acc.
 
 
@@ -194,7 +218,7 @@ set_presence_hook(Uid, _Server, _Resource, #pb_presence{type = available}) ->
     %% Add Uid to voip list to enable them to start making calls from next time.
     ok = model_accounts:add_uid_to_voip_list(Uid),
     ok;
-set_presence_hook(Uid, _Server, _Resource, _) ->
+set_presence_hook(_Uid, _Server, _Resource, _) ->
     ok.
 
 
