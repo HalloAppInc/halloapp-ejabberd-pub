@@ -86,7 +86,10 @@ store_share_post(_Uid, _PostBlob, undefined, _OgTagInfo, _Iter) ->
 store_share_post(_Uid, _PostBlob, ExpireIn, _OgTagInfo, _Iter) when ExpireIn =< 0 orelse ExpireIn > ?POST_EXPIRATION ->
     {error, invalid_expires_in};
 store_share_post(Uid, PostBlob, ExpireIn, OgTagInfo, Iter) ->
-    Title = OgTagInfo#pb_og_tag_info.title,
+    Title = case OgTagInfo of
+        undefined -> undefined;
+        _ -> OgTagInfo#pb_og_tag_info.title
+    end,
     BlobId = case Iter of
         1 -> util:random_str(8);
         2 -> util:random_str(8);
