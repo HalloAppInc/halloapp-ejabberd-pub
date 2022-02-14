@@ -126,10 +126,10 @@
     mark_inactive_uids_gen_start/0,
     mark_inactive_uids_deletion_start/0,
     mark_inactive_uids_check_start/0,
-    get_voip_uids_list/0,
-    add_uid_to_voip_list/1,
-    remove_uid_from_voip_list/1,
-    is_voip_allowed/1,
+    get_video_call_uids_list/0,
+    add_uid_to_video_call_list/1,
+    remove_uid_from_video_call_list/1,
+    is_video_call_allowed/1,
     get_export/1,
     start_export/2,
     test_set_export_time/2, % For tests only
@@ -922,31 +922,31 @@ is_phone_traced(Phone) ->
 
 
 %%====================================================================
-%% Voice-Call related API
+%% Video-Call related API
 %%====================================================================
 
 
--spec get_voip_uids_list() -> {ok, [binary()]}.
-get_voip_uids_list() ->
-    {ok, Uids} = q(["SMEMBERS", ?VOIP_UIDS_KEY]),
+-spec get_video_call_uids_list() -> {ok, [binary()]}.
+get_video_call_uids_list() ->
+    {ok, Uids} = q(["SMEMBERS", ?VIDEOCALL_UIDS_KEY]),
     {ok, Uids}.
 
 
--spec add_uid_to_voip_list(Uid :: uid()) -> ok.
-add_uid_to_voip_list(Uid) ->
-    {ok, _Res} = q(["SADD", ?VOIP_UIDS_KEY, Uid]),
+-spec add_uid_to_video_call_list(Uid :: uid()) -> ok.
+add_uid_to_video_call_list(Uid) ->
+    {ok, _Res} = q(["SADD", ?VIDEOCALL_UIDS_KEY, Uid]),
     ok.
 
 
--spec remove_uid_from_voip_list(Uid :: uid()) -> ok.
-remove_uid_from_voip_list(Uid) ->
-    {ok, _Res} = q(["SREM", ?VOIP_UIDS_KEY, Uid]),
+-spec remove_uid_from_video_call_list(Uid :: uid()) -> ok.
+remove_uid_from_video_call_list(Uid) ->
+    {ok, _Res} = q(["SREM", ?VIDEOCALL_UIDS_KEY, Uid]),
     ok.
 
 
--spec is_voip_allowed(Uid :: uid()) -> boolean().
-is_voip_allowed(Uid) ->
-    {ok, Res} = q(["SISMEMBER", ?VOIP_UIDS_KEY, Uid]),
+-spec is_video_call_allowed(Uid :: uid()) -> boolean().
+is_video_call_allowed(Uid) ->
+    {ok, Res} = q(["SISMEMBER", ?VIDEOCALL_UIDS_KEY, Uid]),
     util_redis:decode_boolean(Res).
 
 

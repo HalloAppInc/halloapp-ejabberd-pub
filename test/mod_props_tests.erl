@@ -71,7 +71,7 @@ setup() ->
     meck:new(model_accounts),
     meck:expect(model_accounts, get_phone, fun mock_get_phone/1),
     meck:expect(model_accounts, get_client_version, fun mock_get_client_version/1),
-    meck:expect(model_accounts, is_voip_allowed, fun mock_is_voip_allowed/1).
+    meck:expect(model_accounts, is_video_call_allowed, fun mock_is_video_call_allowed/1).
 
 
 teardown() ->
@@ -98,7 +98,7 @@ mock_get_client_version(Uid) ->
         ?TEST_UID -> {ok, <<"HalloApp/Android0.100">>}
     end.
 
-mock_is_voip_allowed(Uid) ->
+mock_is_video_call_allowed(Uid) ->
     case Uid of
         ?UID -> false;
         ?UID2 -> false;

@@ -84,8 +84,6 @@ get_call_config(_Uid, _PeerUid, _CallType) ->
 start_call(CallId, Uid, PeerUid, CallType, Offer, RerequestCount) ->
     % TODO: (nikola): check if we should allow Uid to call Ouid. For now everything is allowed.
     count_start_call(CallType, RerequestCount),
-    %% Add peerUid to voip list to enable them to start making calls from next time.
-    ok = model_accounts:add_uid_to_voip_list(PeerUid),
     {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(Uid, PeerUid, CallType),
     {ok, CallConfig} = get_call_config(Uid, PeerUid, CallType),
     IncomingCallMsg = #pb_incoming_call{
@@ -229,10 +227,6 @@ push_message_always_hook(_) -> ok.
 
 
 -spec set_presence_hook(Uid :: binary(), Server :: binary(), Resource :: binary(), pb_presence()) -> ok.
-set_presence_hook(Uid, _Server, _Resource, #pb_presence{type = available}) ->
-    %% Add Uid to voip list to enable them to start making calls from next time.
-    ok = model_accounts:add_uid_to_voip_list(Uid),
-    ok;
 set_presence_hook(_Uid, _Server, _Resource, _) ->
     ok.
 
