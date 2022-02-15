@@ -88,7 +88,7 @@ get_props(Uid, ClientVersion) ->
         max_chat_video_duration => 600, %% duration in seconds for videos in chats.
         private_reactions => false, %% whether client can send private reactions.
         group_sync_time => 1 * ?WEEKS, %% how often should clients sync group metadata
-        max_video_bit_rate => 8000000, %% max_video_bit_rate set to 8Mbps.
+        max_video_bit_rate => 4000000, %% max_video_bit_rate set to 4Mbps.
         audio_note_bit_rate => 96000, %% audio_note_bit_rate set to 96Kbps.
         voice_notes => false, %% enables voice notes in 1-1 messages on client.
         media_comments => true,  %% enables media comments.
@@ -128,10 +128,9 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap5 = maps:update(streaming_sending_enabled, true, PropMap4),
             PropMap6 = maps:update(flat_comments, true, PropMap5),
             PropMap7 = maps:update(voice_posts, true, PropMap6),
-            PropMap8 = maps:update(max_video_bit_rate, 4000000, PropMap7),
-            PropMap9 = maps:update(call_hold, true, PropMap8),
-            PropMap10 = maps:update(external_sharing, true, PropMap9),
-            PropMap10
+            PropMap8 = maps:update(call_hold, true, PropMap7),
+            PropMap9 = maps:update(external_sharing, true, PropMap8),
+            PropMap9
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
