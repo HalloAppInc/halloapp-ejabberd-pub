@@ -65,18 +65,6 @@ get_call_servers(Uid, PeerUid, CallType) ->
     stat:count("HA/call", "get_call_servers"),
     mod_call_servers:get_stun_turn_servers(Uid, PeerUid, CallType).
 
--spec get_call_config(Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
-        -> {ok, pb_call_config()}.
-get_call_config(_Uid, _PeerUid, _CallType) ->
-    CallConfig = #pb_call_config{
-        video_bitrate_max = 1000000, %% 1Mbps
-        video_width = 720,
-        video_height = 1280,
-        video_fps = 30,
-        audio_jitter_buffer_max_packets = -1, % use client default
-        audio_jitter_buffer_fast_accelerate = false % false is default on Android
-    },
-    {ok, CallConfig}.
 
 -spec start_call(CallId :: call_id(), Uid :: uid(), PeerUid :: uid(),
     CallType :: 'CallType'(), Offer :: pb_web_rtc_session_description(), RerequestCount :: integer())
@@ -247,4 +235,28 @@ count_start_call(CallType, RerequestCount) ->
             stat:count("HA/call", "rerequest_start_call", 1, [{type, CallType}, {count, RerequestCount}])
     end,
     ok.
+
+
+-spec get_call_config(Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
+        -> {ok, pb_call_config()}.
+get_call_config(_id, PeerUid, _CallType) ->
+    CallConfig1 = #pb_call_config{
+        video_bitrate_max = 1000000, %% 1Mbps
+        video_width = 720,
+        video_height = 1280,
+        video_fps = 30,
+        audio_jitter_buffer_max_packets = -1, % use client default
+        audio_jitter_buffer_fast_accelerate = false, % false is default
+        ice_transport_policy = all
+    },
+    {ok, CallConfig2} = get_uid_based_config(Uid, PeerUid, CallConfig1),
+    {ok, CallConfig2}.
+
+
+-spec get_uid_based_config(Uid :: uid(), PeerUid :: uid()) -> {ok, pb_call_config()}.
+get_uid_based_config(<<"1000000000648327036">>, _PeerUid, CallConfig) ->
+    CallConfig1 = CallConfig#pb_call_config{ ice_transport_policy = relay},
+    {ok, CallConfig1};
+get_uid_based_config(_Uid, _PeerUid, CallConfig) ->
+    {ok, CallConfig}.
 

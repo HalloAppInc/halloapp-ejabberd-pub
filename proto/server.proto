@@ -679,6 +679,11 @@ message CallConfig {
     int32 video_fps = 7;
     int32 audio_jitter_buffer_max_packets = 8;
     bool audio_jitter_buffer_fast_accelerate = 9;
+    enum IceTransportPolicy {
+        ALL = 0;
+        RELAY = 1;
+    }
+    IceTransportPolicy ice_transport_policy = 10;
 }
 
 
