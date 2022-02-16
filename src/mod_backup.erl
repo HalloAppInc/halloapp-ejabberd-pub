@@ -247,8 +247,10 @@ health_check_redis_backups(RedisId) ->
         end,
         maps:map(
             fun(BackupName, Size) ->
-                case Size < ?MIN_BACKUP_SIZE_WARNING_THRESHOLD of
-                    true ->
+                IsSessions = binary:match(BackupName, <<"session">>) =/= nomatch,
+                case {IsSessions, Size < ?MIN_BACKUP_SIZE_WARNING_THRESHOLD} of
+                    {true, _} -> ok;
+                    {false, true} ->
                         ?ERROR("[~p] Backup ~p is only ~p bytes, need to have ~p bytes",
                                 [RedisId, BackupName, Size, ?MIN_BACKUP_SIZE_WARNING_THRESHOLD]),
                         Msg2 = <<RedisIdBin/binary, "'s backup ",
@@ -257,7 +259,7 @@ health_check_redis_backups(RedisId) ->
                             " bytes. Need to have atleast ",
                             (util:to_binary(?MIN_BACKUP_SIZE_WARNING_THRESHOLD))/binary, " bytes">>,
                         alerts:send_alert(<<"Backup very small">>, RedisIdBin, <<"critical">>, Msg2);
-                    false ->
+                    {false, false} ->
                         ok
                 end
             end, BackupSizeMap)
