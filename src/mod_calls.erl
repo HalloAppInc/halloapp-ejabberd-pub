@@ -239,7 +239,7 @@ count_start_call(CallType, RerequestCount) ->
 
 -spec get_call_config(Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
         -> {ok, pb_call_config()}.
-get_call_config(_id, PeerUid, _CallType) ->
+get_call_config(Uid, PeerUid, _CallType) ->
     CallConfig1 = #pb_call_config{
         video_bitrate_max = 1000000, %% 1Mbps
         video_width = 720,
@@ -253,7 +253,7 @@ get_call_config(_id, PeerUid, _CallType) ->
     {ok, CallConfig2}.
 
 
--spec get_uid_based_config(Uid :: uid(), PeerUid :: uid()) -> {ok, pb_call_config()}.
+-spec get_uid_based_config(Uid :: uid(), PeerUid :: uid(), CallConfig :: pb_call_config()) -> {ok, pb_call_config()}.
 get_uid_based_config(<<"1000000000648327036">>, _PeerUid, CallConfig) ->
     CallConfig1 = CallConfig#pb_call_config{ ice_transport_policy = relay},
     {ok, CallConfig1};
