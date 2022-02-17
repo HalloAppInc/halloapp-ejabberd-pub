@@ -105,7 +105,8 @@ get_props(Uid, ClientVersion) ->
         emoji_version => 1, %% emoji version for clients to use.
         call_hold => false, %% allow calls to be on hold
         call_rerequest => false, %% controls if clients will respond to call-rerequests and also wait for them
-        external_sharing => false %% enables external sharing on clients
+        external_sharing => false, %% enables external sharing on clients
+        group_max_for_showing_invite_sheet => 5 %% max members to show the invite link after group flow.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
