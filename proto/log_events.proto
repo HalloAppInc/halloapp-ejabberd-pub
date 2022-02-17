@@ -24,6 +24,8 @@ message EventData {
     MediaObjectDownload media_object_download = 16;
     GroupDecryptionReport group_decryption_report = 17;
     Call call = 18;
+    FabAction fab_action = 19;
+
   }
 }
 
@@ -218,4 +220,16 @@ message Call {
 
   string webrtc_stats = 20;       // json serialized version of the result of peer_connection.get_stats at the end of
                                   // the call
+}
+
+
+message FabAction {
+    enum FabActionType {
+        UNKNOWN_TYPE = 0;
+        GALLERY = 1;
+        AUDIO = 2;
+        TEXT = 3;
+        CAMERA = 4;
+    }
+    FabActionType type = 1;
 }

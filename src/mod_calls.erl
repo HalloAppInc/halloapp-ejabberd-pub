@@ -122,6 +122,10 @@ user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
     ?INFO("CallId: ~s hold: ~p FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, Hold, FromUid, ToUid, MsgId]),
     Acc;
 user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_mute_call{call_id = CallId, media_type = MediaType, muted = Muted}}, _State} = Acc) ->
+    ?INFO("CallId: ~s mute: ~p media: ~p FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, Muted, MediaType, FromUid, ToUid, MsgId]),
+    Acc;
+user_receive_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         payload = #pb_end_call{call_id = CallId, reason = Reason}}, _State} = Acc) ->
     ?INFO("CallId: ~s end_call (~s) FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, Reason, FromUid, ToUid, MsgId]),
     Acc;
@@ -166,6 +170,13 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
     stat:count("HA/call", "hold", 1, [{hold, Hold}]),
     Ts = util:now_ms(),
     Msg1 = Msg#pb_msg{payload = Payload#pb_hold_call{timestamp_ms = Ts}},
+    {Msg1, State};
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_mute_call{call_id = CallId, media_type = MediaType, muted = Muted} = Payload} = Msg, State}) ->
+    ?INFO("CallId: ~s mute: ~p media: ~p FromUid: ~s ToUid: ~s MsgId: ~s", [CallId, Muted, MediaType, FromUid, ToUid, MsgId]),
+    stat:count("HA/call", "mute", 1, [{muted, Muted}, {media_type, MediaType}]),
+    Ts = util:now_ms(),
+    Msg1 = Msg#pb_msg{payload = Payload#pb_mute_call{timestamp_ms = Ts}},
     {Msg1, State};
 user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         payload = #pb_end_call{call_id = CallId, reason = Reason} = Payload} = Msg, State}) ->

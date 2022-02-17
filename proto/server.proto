@@ -669,6 +669,17 @@ message HoldCall {
     int64 timestamp_ms = 3;
 }
 
+message MuteCall {
+    string call_id = 1;
+    enum MediaType {
+        AUDIO = 0;
+        VIDEO = 1;
+    }
+    MediaType media_type = 2;
+    bool muted = 3;
+    int64 timestamp_ms = 4;
+}
+
 message CallConfig {
     int32 audio_bitrate_max = 1;
     int32 video_bitrate_max = 2;
@@ -825,6 +836,7 @@ message Msg {
         GroupFeedHistory group_feed_history = 42;
         PreAnswerCall pre_answer_call = 43;
         HoldCall hold_call = 44;
+        MuteCall mute_call = 45;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
