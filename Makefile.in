@@ -413,18 +413,6 @@ dialyzer: erlang_plt deps_plt ejabberd_plt
 	--get_warnings -o dialyzer/error.log ebin; \
 	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
 
-test:
-	@echo "************************** NOTICE ***************************************"
-	@cat test/README
-	@echo "*************************************************************************"
-	@cd priv && ln -sf ../sql
-	$(REBAR) ct
-
-.PHONY: src edoc dialyzer Makefile TAGS clean clean-rel distclean rel \
-	install uninstall uninstall-binary uninstall-all translations deps test \
-	quicktest erlang_plt deps_plt ejabberd_plt xref hooks options
-
-
 fetchpb:
 	rm -rf deps/schemas && git clone git@github.com:HalloAppInc/schemas.git deps/schemas
 	cd deps/schemas && make server && cd ../..
@@ -493,7 +481,12 @@ endif
 ct:
 	HALLO_ENV=test $(REBAR) ct --suite=test/ha_SUITE
 
+test: eunit ct
 
 run: src
 	HALLO_ENV=localhost EJABBERD_CONFIG_PATH=ejabberd.yml erl -kernel shell_history enabled -pa _build/default/lib/*/ebin -s ejabberd
+
+.PHONY: src edoc dialyzer Makefile TAGS clean clean-rel distclean rel \
+	install uninstall uninstall-binary uninstall-all translations deps test \
+	quicktest erlang_plt deps_plt ejabberd_plt xref hooks options eunit ct
 
