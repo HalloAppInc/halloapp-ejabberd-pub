@@ -507,28 +507,22 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
 %% Use noise-x pattern to encrypt the message.
 %% TODO(murali@): Fetch the static key when we fetch the push token itself.
 -spec encrypt_message(PushMessageItem :: push_message_item(), State :: push_state()) -> binary().
-encrypt_message(#push_message_item{uid = Uid, message = Message},
-        #push_state{noise_static_key = S, noise_certificate = Cert}) ->
+encrypt_message(#push_message_item{uid = Uid, message = Message}, PushState) ->
     try
         case enif_protobuf:encode(Message) of
             {error, Reason1} ->
                 ?ERROR("Failed encoding message: ~p, reason: ~p", [Message, Reason1]),
                 <<>>;
+            MsgBin when byte_size(MsgBin) < 4000 ->
+                encrypt_message_bin(Uid, MsgBin, PushState);
             MsgBin ->
-                case enif_protobuf:encode(#pb_push_content{certificate = Cert, content = MsgBin}) of
-                    {error, Reason2} ->
-                        ?ERROR("Failed encoding msg: ~p, cert: ~p, reason: ~p",
-                                [Message, Cert, Reason2]),
+                case util:is_voip_incoming_message(Message) of
+                    false ->
+                        ?ERROR("Failed encrypting message |~p| too large, size: ~p",
+                            [Message, byte_size(MsgBin)]),
                         <<>>;
-                    PushContent ->
-                        case model_auth:get_spub(Uid) of
-                            {ok, #s_pub{s_pub = undefined}} ->
-                                <<>>;
-                            {ok, #s_pub{s_pub = ClientStaticKey}} ->
-                                {ok, EncryptedMessage} = ha_enoise:encrypt_x(PushContent,
-                                        base64:decode(ClientStaticKey), S),
-                                <<"0", EncryptedMessage/binary>>
-                        end
+                    true ->
+                        tranform_and_encrypt_message(Uid, Message, PushState)
                 end
         end
     catch
@@ -536,6 +530,45 @@ encrypt_message(#push_message_item{uid = Uid, message = Message},
             ?ERROR("Failed encrypting message |~p| with reason: ~s",
                 [Message, lager:pr_stacktrace(St, {Class, Reason})]),
         <<>>
+    end.
+
+
+-spec tranform_and_encrypt_message(Uid :: uid(), Msg :: pb_msg(), PushState :: push_state()) -> binary().
+tranform_and_encrypt_message(Uid, #pb_msg{payload = #pb_incoming_call{} = IncomingCall} = Message, PushState) ->
+    IncomingCallPush = #pb_incoming_call_push{
+        call_id = IncomingCall#pb_incoming_call.call_id,
+        call_type = IncomingCall#pb_incoming_call.call_type,
+        stun_servers = IncomingCall#pb_incoming_call.stun_servers,
+        turn_servers = IncomingCall#pb_incoming_call.turn_servers,
+        timestamp_ms = IncomingCall#pb_incoming_call.timestamp_ms,
+        call_config = IncomingCall#pb_incoming_call.call_config
+    },
+    Message2 = Message#pb_msg{payload = IncomingCallPush},
+    case enif_protobuf:encode(Message2) of
+        {error, Reason1} ->
+            ?ERROR("Failed encoding message: ~p, reason: ~p", [Message2, Reason1]),
+            <<>>;
+        MsgBin ->
+            encrypt_message_bin(Uid, MsgBin, PushState)
+    end.
+
+
+-spec encrypt_message_bin(Uid :: uid(), MsgBin :: binary(), PushState :: push_state()) -> binary().
+encrypt_message_bin(Uid, MsgBin, #push_state{noise_static_key = S, noise_certificate = Cert}) ->
+    case enif_protobuf:encode(#pb_push_content{certificate = Cert, content = MsgBin}) of
+        {error, Reason2} ->
+            ?ERROR("Failed encoding msgbin: ~p, cert: ~p, reason: ~p",
+                    [MsgBin, Cert, Reason2]),
+            <<>>;
+        PushContent ->
+            case model_auth:get_spub(Uid) of
+                {ok, #s_pub{s_pub = undefined}} ->
+                    <<>>;
+                {ok, #s_pub{s_pub = ClientStaticKey}} ->
+                    {ok, EncryptedMessage} = ha_enoise:encrypt_x(PushContent,
+                            base64:decode(ClientStaticKey), S),
+                    <<"0", EncryptedMessage/binary>>
+            end
     end.
 
 
