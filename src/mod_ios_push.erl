@@ -338,7 +338,8 @@ handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = 
         {PushMessageItem, NewPendingMap} ->
             Id = PushMessageItem#push_message_item.id,
             Uid = PushMessageItem#push_message_item.uid,
-            ?ERROR("Uid: ~s, apns push error:code: ~p, msg_id: ~s, needs to be fixed!", [Uid, StatusCode, Id]),
+            Msg = PushMessageItem#push_message_item.message,
+            ?ERROR("Uid: ~s, apns push error:code: ~p, msg: ~p, needs to be fixed!", [Uid, StatusCode, Msg]),
             NewPendingMap
     end,
     State#push_state{pendingMap = FinalPendingMap};
@@ -471,18 +472,20 @@ get_pid_to_send(voip_dev, State) ->
 -spec get_payload(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata(),
         PushType :: silent | alert, State :: push_state()) -> binary().
 get_payload(PushMessageItem, PushMetadata, PushType, State) ->
+    Message = PushMessageItem#push_message_item.message,
     EncryptedContent = base64:encode(encrypt_message(PushMessageItem, State)),
     EncryptedContentSize = byte_size(EncryptedContent),
     ?INFO("Push contentId: ~p includes encrypted content size: ~p",
         [PushMetadata#push_metadata.content_id, EncryptedContentSize]),
-    case EncryptedContentSize > ?MAX_PUSH_PAYLOAD_SIZE of
+    EncryptedContent2 = case EncryptedContentSize > ?MAX_PUSH_PAYLOAD_SIZE of
         true ->
-            ?WARNING("Push contentId: ~p size: ~p > max_payload_size",
-                [PushMetadata#push_metadata.content_id, EncryptedContentSize]);
+            ?WARNING("Push contentId: ~p size: ~p > max_payload_size, message: ~p",
+                [PushMetadata#push_metadata.content_id, EncryptedContentSize, Message]),
+            <<>>;
         false ->
-            ok
+            EncryptedContent
     end,
-    MetadataMap = #{ <<"content">> => EncryptedContent },
+    MetadataMap = #{ <<"content">> => EncryptedContent2 },
     ApsMap = case PushType of
         alert ->
             DataMap = #{
@@ -513,7 +516,7 @@ encrypt_message(#push_message_item{uid = Uid, message = Message}, PushState) ->
             {error, Reason1} ->
                 ?ERROR("Failed encoding message: ~p, reason: ~p", [Message, Reason1]),
                 <<>>;
-            MsgBin when byte_size(MsgBin) < 4000 ->
+            MsgBin when byte_size(MsgBin) < ?MAX_PUSH_PAYLOAD_SIZE ->
                 encrypt_message_bin(Uid, MsgBin, PushState);
             MsgBin ->
                 case util:is_voip_incoming_message(Message) of
