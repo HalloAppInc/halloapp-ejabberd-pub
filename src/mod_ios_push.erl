@@ -336,7 +336,6 @@ handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = 
             ?ERROR("Message not found in our map: apns-id: ~p", [ApnsId]),
             PendingMap;
         {PushMessageItem, NewPendingMap} ->
-            Id = PushMessageItem#push_message_item.id,
             Uid = PushMessageItem#push_message_item.uid,
             Msg = PushMessageItem#push_message_item.message,
             ?ERROR("Uid: ~s, apns push error:code: ~p, msg: ~p, needs to be fixed!", [Uid, StatusCode, Msg]),
