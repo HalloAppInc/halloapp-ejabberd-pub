@@ -32,7 +32,7 @@
 %% IQ handlers and hooks.
 -export([
     process_local_iq/1,
-    notify_key_subscribers/1,
+    notify_key_subscribers/2,
     set_keys_and_notify/4,
     remove_user/2,
     check_whisper_keys/3,
@@ -345,19 +345,20 @@ check_count_and_notify_user(Uid, _Server) ->
     end.
 
 
--spec set_keys_and_notify(Uid :: uid(), IdentityKey :: binary(), SignedKey :: binary(),
-        OneTimeKeys :: [binary()]) -> ok.
-set_keys_and_notify(Uid, IdentityKey, SignedKey, OneTimeKeys) ->
-    ?INFO("Uid: ~s, set_keys IK: ~p SK: ~p", [Uid, IdentityKey, SignedKey]),
-    ok = model_whisper_keys:set_keys(Uid, IdentityKey, SignedKey, OneTimeKeys),
-    ok = notify_key_subscribers(Uid),
+-spec set_keys_and_notify(Uid :: uid(), IdentityKeyB64 :: binary(), SignedKeyB64 :: binary(),
+        OneTimeKeysB64 :: [binary()]) -> ok.
+set_keys_and_notify(Uid, IdentityKeyB64, SignedKeyB64, OneTimeKeysB64) ->
+    ?INFO("Uid: ~s, set_keys IK: ~p SK: ~p", [Uid, IdentityKeyB64, SignedKeyB64]),
+    ok = model_whisper_keys:set_keys(Uid, IdentityKeyB64, SignedKeyB64, OneTimeKeysB64),
+    ok = notify_key_subscribers(Uid, IdentityKeyB64),
     ok.
 
 
--spec notify_key_subscribers(Uid :: binary()) -> ok.
-notify_key_subscribers(Uid) ->
+-spec notify_key_subscribers(Uid :: binary(), IdentityKeyB64 :: binary()) -> ok.
+notify_key_subscribers(Uid, IdentityKeyB64) ->
     ?INFO("Uid: ~s", [Uid]),
     %% We construct a list of potential subscribers and send the update notification to all of them.
+    IdentityKey = util:maybe_base64_decode(IdentityKeyB64),
 
     %% Phone reverse index.
     case model_accounts:get_phone(Uid) of
@@ -376,7 +377,7 @@ notify_key_subscribers(Uid) ->
 
             Packet = #pb_msg{
                 id = util_id:new_msg_id(),
-                payload = #pb_whisper_keys{action = update, uid = Uid}
+                payload = #pb_whisper_keys{action = update, uid = Uid, identity_key = IdentityKey}
             },
             ?INFO("Uid: ~s Notifying ~p Uids about key change", [Uid, length(SubscriberUids)]),
             ejabberd_router:route_multicast(<<>>, SubscriberUids, Packet);
