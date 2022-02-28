@@ -524,7 +524,7 @@ encrypt_message(#push_message_item{uid = Uid, message = Message}, PushState) ->
                             [Message, byte_size(MsgBin)]),
                         <<>>;
                     true ->
-                        tranform_and_encrypt_message(Uid, Message, PushState)
+                        transform_and_encrypt_message(Uid, Message, PushState)
                 end
         end
     catch
@@ -535,8 +535,8 @@ encrypt_message(#push_message_item{uid = Uid, message = Message}, PushState) ->
     end.
 
 
--spec tranform_and_encrypt_message(Uid :: uid(), Msg :: pb_msg(), PushState :: push_state()) -> binary().
-tranform_and_encrypt_message(Uid, #pb_msg{payload = #pb_incoming_call{} = IncomingCall} = Message, PushState) ->
+-spec transform_and_encrypt_message(Uid :: uid(), Msg :: pb_msg(), PushState :: push_state()) -> binary().
+transform_and_encrypt_message(Uid, #pb_msg{payload = #pb_incoming_call{} = IncomingCall} = Message, PushState) ->
     IncomingCallPush = #pb_incoming_call_push{
         call_id = IncomingCall#pb_incoming_call.call_id,
         call_type = IncomingCall#pb_incoming_call.call_type,
