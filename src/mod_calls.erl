@@ -258,7 +258,8 @@ get_call_config(Uid, PeerUid, _CallType) ->
         video_fps = 30,
         audio_jitter_buffer_max_packets = -1, % use client default
         audio_jitter_buffer_fast_accelerate = false, % false is default
-        ice_transport_policy = all
+        ice_transport_policy = all,
+        ice_restart_delay_ms = 3000  %% 3 seconds.
     },
     {ok, CallConfig2} = get_uid_based_config(Uid, PeerUid, CallConfig1),
     {ok, CallConfig2}.

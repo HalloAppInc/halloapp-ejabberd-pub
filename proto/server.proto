@@ -704,6 +704,7 @@ message CallConfig {
         RELAY = 1;
     }
     IceTransportPolicy ice_transport_policy = 10;
+    int32 ice_restart_delay_ms = 11;
 }
 
 
