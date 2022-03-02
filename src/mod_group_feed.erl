@@ -161,7 +161,7 @@ re_register_user(Uid, _Server, _Phone) ->
     lists:foreach(
         fun(Gid) ->
             ok = model_groups:delete_audience_hash(Gid),
-            share_group_feed(Gid, Uid)
+            check_and_share_group_feed(Gid, Uid)
         end, Gids),
     ok.
 
@@ -169,7 +169,7 @@ re_register_user(Uid, _Server, _Phone) ->
 -spec group_member_added(Gid :: binary(), Uid :: binary(), AddedByUid :: binary()) -> ok.
 group_member_added(Gid, Uid, AddedByUid) ->
     ?INFO("Gid: ~p, Uid: ~p, AddedByUid: ~p", [Gid, Uid, AddedByUid]),
-    share_group_feed(Gid, Uid),
+    check_and_share_group_feed(Gid, Uid),
     ok.
 
 
@@ -546,6 +546,17 @@ make_pb_group_feed_item(GroupInfo, Uid, SenderName, GroupFeedSt, Ts) ->
         avatar_id = GroupInfo#group_info.avatar,
         item = Item
     }.
+
+
+-spec check_and_share_group_feed(Gid :: binary(), Uid :: binary()) -> ok.
+check_and_share_group_feed(Gid, Uid) ->
+    case util:get_machine_name() of
+        <<"s-test">> ->
+            ?INFO("Ignore sharing group feed Gid: ~s ToUid: ~s", [Gid, Uid]),
+            ok;
+        _ ->
+            share_group_feed(Gid, Uid)
+    end.
 
 
 %% TODO(murali@): Similar logic exists in mod_feed as well.
