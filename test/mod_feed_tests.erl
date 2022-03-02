@@ -133,8 +133,9 @@ get_post_publish_iq(PostId, Uid, Payload, EncPayload, AudienceType, AudienceUids
         payload = FeedStanza
     }.
 
-get_post_publish_iq_result(PostId, Uid, Timestamp) ->
-    Post = create_post_st(PostId, Uid, <<>>, <<>>, Timestamp, undefined),
+get_post_publish_iq_result(PostId, Uid, AudienceType, Timestamp) ->
+    Audience = create_audience_list_st(AudienceType, []),
+    Post = create_post_st(PostId, Uid, <<>>, <<>>, Timestamp, Audience),
     FeedStanza = create_feed_stanza(publish, Post, [], []),
     #pb_iq{
         type = result,
@@ -270,6 +271,7 @@ publish_post_test() ->
             ?assertEqual(?UID1, Post#pb_post.publisher_uid),
             ?assertEqual(?PAYLOAD1, Post#pb_post.payload),
             ?assertEqual(?ENC_PAYLOAD1, Post#pb_post.enc_payload),
+            ?assertEqual(all, Post#pb_post.audience#pb_audience.type),
             ?assertNotEqual(undefined, Post#pb_post.timestamp),
             ?assert(SubEl#pb_feed_item.sender_state =:= create_sender_state(?ENC_SENDER_STATE2)),
             ok
@@ -283,7 +285,7 @@ publish_post_test() ->
     model_friends:add_friends(?UID1, [?UID2, ?UID3]),
     ResultIQ1 = mod_feed:process_local_iq(PublishIQ),
     Timestamp = get_timestamp(ResultIQ1),
-    ExpectedResultIQ = get_post_publish_iq_result(?POST_ID1, ?UID1, Timestamp),
+    ExpectedResultIQ = get_post_publish_iq_result(?POST_ID1, ?UID1, all, Timestamp),
     ?assertEqual(ExpectedResultIQ, ResultIQ1),
 
     %% re-posting the same feedpost should still give the same timestamp.

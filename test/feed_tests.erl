@@ -42,7 +42,8 @@ make_post_test(_Conf) ->
                 item = #pb_post{
                     id = ?POST_ID1,
                     publisher_uid = ?UID1,
-                    publisher_name = ?NAME1
+                    publisher_name = ?NAME1,
+                    audience = #pb_audience{ type = only }
                 }
             }
         }
@@ -66,7 +67,8 @@ make_post_test(_Conf) ->
                     id = ?POST_ID1,
                     publisher_uid = ?UID1,
                     publisher_name = ?NAME1,
-                    payload = ?PAYLOAD1
+                    payload = ?PAYLOAD1,
+                    audience = #pb_audience{ type = only }
                 }
             }
         }
@@ -268,7 +270,8 @@ audience_test(_Conf) ->
                 item = #pb_post{
                     id = ?POST_ID1,
                     publisher_uid = ?UID1,
-                    publisher_name = ?NAME1
+                    publisher_name = ?NAME1,
+                    audience = #pb_audience{ type = all }
                 }
             }
         }
@@ -292,7 +295,8 @@ audience_test(_Conf) ->
                     id = ?POST_ID1,
                     publisher_uid = ?UID1,
                     publisher_name = ?NAME1,
-                    payload = ?PAYLOAD1
+                    payload = ?PAYLOAD1,
+                    audience = #pb_audience{ type = all }
                 }
             }
         }
@@ -316,7 +320,8 @@ audience_test(_Conf) ->
                     id = ?POST_ID1,
                     publisher_uid = ?UID1,
                     publisher_name = ?NAME1,
-                    payload = ?PAYLOAD1
+                    payload = ?PAYLOAD1,
+                    audience = #pb_audience{ type = all }
                 }
             }
         }

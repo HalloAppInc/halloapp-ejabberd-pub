@@ -81,7 +81,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     AudienceList = Post#pb_post.audience,
     case publish_post(Uid, PostId, PayloadBase64, AudienceList, HomeFeedSt) of
         {ok, ResultTsMs} ->
-            SubEl = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, ResultTsMs),
+            FeedAudienceType = AudienceList#pb_audience.type,
+            SubEl = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, FeedAudienceType, ResultTsMs),
             pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason))
@@ -112,7 +113,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     PostId = Post#pb_post.id,
     case retract_post(Uid, PostId) of
         {ok, ResultTsMs} ->
-            SubEl = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, ResultTsMs),
+            SubEl = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, undefined, ResultTsMs),
             pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason))
@@ -239,16 +240,16 @@ publish_post(Uid, PostId, PayloadBase64, AudienceList, HomeFeedSt) ->
             ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
             {ok, ExistingPost#post.ts_ms}
     end,
-    broadcast_post(Action, PostId, Uid, PayloadBase64, FinalTimestampMs, UpdatedAudienceList, HomeFeedSt),
+    broadcast_post(Action, PostId, Uid, PayloadBase64, FinalTimestampMs, UpdatedAudienceList, FeedAudienceType, HomeFeedSt),
     {ok, FinalTimestampMs}.
 
 
 
-broadcast_post(Action, PostId, Uid, PayloadBase64, TimestampMs, FeedAudienceList, HomeFeedSt) ->
+broadcast_post(Action, PostId, Uid, PayloadBase64, TimestampMs, FeedAudienceList, FeedAudienceType, HomeFeedSt) ->
     %% send a new api message to all the clients.
     #pb_feed_item{item = #pb_post{} = Post} = HomeFeedSt,
     EncPayload = Post#pb_post.enc_payload,
-    ResultStanza = make_pb_feed_post(Action, PostId, Uid, PayloadBase64, EncPayload, TimestampMs),
+    ResultStanza = make_pb_feed_post(Action, PostId, Uid, PayloadBase64, EncPayload, FeedAudienceType, TimestampMs),
     FeedAudienceSet = get_feed_audience_set(Action, Uid, FeedAudienceList),
     PushSet = FeedAudienceSet,
     broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza,
@@ -337,7 +338,7 @@ retract_post(Uid, PostId) ->
                     ok = model_feed:retract_post(PostId, Uid),
 
                     %% send a new api message to all the clients.
-                    ResultStanza = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, TimestampMs),
+                    ResultStanza = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, undefined, TimestampMs),
                     FeedAudienceSet = get_feed_audience_set(Action, Uid, ExistingPost#post.audience_list),
                     PushSet = sets:new(),
                     broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza, []),
@@ -418,8 +419,12 @@ process_share_posts(Uid, Server, SharePostSt) ->
 
 -spec make_pb_feed_post(Action :: action_type(), PostId :: binary(),
         Uid :: uid(), PayloadBase64 :: binary(), EncPayload :: binary(),
-        TimestampMs :: integer()) -> pb_feed_item().
-make_pb_feed_post(Action, PostId, Uid, PayloadBase64, EncPayload, TimestampMs) ->
+        FeedAudienceType :: 'pb_audience.Type', TimestampMs :: integer()) -> pb_feed_item().
+make_pb_feed_post(Action, PostId, Uid, PayloadBase64, EncPayload, FeedAudienceType, TimestampMs) ->
+    PbAudience = case FeedAudienceType of
+        undefined -> undefined;
+        _ -> #pb_audience{type = FeedAudienceType}
+    end,
     #pb_feed_item{
         action = Action,
         item = #pb_post{
@@ -428,7 +433,8 @@ make_pb_feed_post(Action, PostId, Uid, PayloadBase64, EncPayload, TimestampMs) -
             payload = base64:decode(PayloadBase64),
             publisher_name = model_accounts:get_name_binary(Uid),
             timestamp = util:ms_to_sec(TimestampMs),
-            enc_payload = EncPayload
+            enc_payload = EncPayload,
+            audience = PbAudience
     }}.
 
 
