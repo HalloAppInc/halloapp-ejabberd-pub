@@ -252,17 +252,17 @@ count_start_call(CallType, RerequestCount) ->
         -> {ok, pb_call_config()}.
 get_call_config(Uid, PeerUid, _CallType) ->
     CallConfig1 = #pb_call_config{
-        video_bitrate_max = 1000000,                    %% Android
-        video_width = 1280,                             %% Android
-        video_height = 720,                             %% Android
+        video_bitrate_max = 1000000,                    %% Android, iOS
+        video_width = 1280,                             %% Android, iOS
+        video_height = 720,                             %% Android, iOS
         video_fps = 30,                                 %% Android, iOS
-        %% -1 means use client default Android(50)
+        %% -1 means use client default 50 for both clients.
         audio_jitter_buffer_max_packets = -1,           %% Android
         %% default is false
         audio_jitter_buffer_fast_accelerate = false,    %% Android, iOS
         %% default is `all`
-        ice_transport_policy = all,                      %% Android, iOS
-        ice_restart_delay_ms = 3000                      %% iOS.
+        ice_transport_policy = all,                     %% Android, iOS
+        ice_restart_delay_ms = 0                        %% iOS.
 
     },
     {ok, CallConfig2} = get_uid_based_config(Uid, PeerUid, CallConfig1),
