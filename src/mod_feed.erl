@@ -423,7 +423,8 @@ process_share_posts(Uid, Server, SharePostSt) ->
 make_pb_feed_post(Action, PostId, Uid, PayloadBase64, EncPayload, FeedAudienceType, TimestampMs) ->
     PbAudience = case FeedAudienceType of
         undefined -> undefined;
-        _ -> #pb_audience{type = FeedAudienceType}
+        except -> #pb_audience{type = all}; %% Send all even in case of except
+        _ -> #pb_audience{type = FeedAudienceType}  %% Send all or only for other cases.
     end,
     #pb_feed_item{
         action = Action,
