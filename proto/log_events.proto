@@ -25,7 +25,7 @@ message EventData {
     GroupDecryptionReport group_decryption_report = 17;
     Call call = 18;
     FabAction fab_action = 19;
-
+    GroupHistoryReport group_history_report = 20;
   }
 }
 
@@ -144,6 +144,11 @@ message DecryptionReport {
   uint32 rerequest_count = 7;
   uint32 time_taken_s = 8;
   bool is_silent = 9;
+  enum ContentType {
+    CHAT = 0;
+    GROUP_HISTORY = 1;
+  }
+  ContentType content_type = 10;
 }
 
 
@@ -174,6 +179,21 @@ message GroupDecryptionReport {
     RESULT_BASED = 1;
   }
   Schedule schedule = 11;
+}
+
+
+message GroupHistoryReport {
+  string gid = 1;
+  uint32 num_expected = 2;
+  uint32 num_decrypted = 3;
+  string original_version = 4;
+  uint32 rerequest_count = 5;
+  uint32 time_taken_s = 6;
+  enum Schedule {
+    DAILY = 0;
+    RESULT_BASED = 1;
+  }
+  Schedule schedule = 7;
 }
 
 

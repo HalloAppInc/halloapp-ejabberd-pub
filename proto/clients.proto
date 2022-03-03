@@ -203,12 +203,16 @@ message MemberDetails {
 
 message PostIdContext {
   string feed_post_id = 1;
+  int64 sender_uid = 2;
+  int64 timestamp = 3;
 }
 
 message CommentIdContext {
   string comment_id = 1;
   string feed_post_id = 2;
   string parent_comment_id = 3;
+  int64 sender_uid = 4;
+  int64 timestamp = 5;
 }
 
 message ContentDetails {
