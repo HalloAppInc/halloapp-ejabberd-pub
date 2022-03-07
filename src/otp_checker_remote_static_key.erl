@@ -25,7 +25,7 @@
 
 check_otp_request(_Phone, _IP, _UserAgent, _Method, _Protocol, undefined) ->
     ok;
-check_otp_request(Phone, IP, _UserAgent, _Method, _Protocol, RemoteStaticKey) ->
+check_otp_request(_Phone, _IP, _UserAgent, _Method, _Protocol, RemoteStaticKey) ->
     CurrentTs = util:now(),
     {ok, {Count, LastTs}} = model_phone:get_static_key_info(RemoteStaticKey),
     Result = case {Count, LastTs} of

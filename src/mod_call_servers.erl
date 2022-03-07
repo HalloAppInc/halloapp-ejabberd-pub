@@ -185,13 +185,6 @@ get_dev_ha_servers() ->
     {[], [TurnServer]}.
 
 
-get_ha_stun_server(Host) ->
-    #pb_stun_server {
-        host = Host,
-        port = ?COTURN_PORT
-    }.
-
-
 get_ha_turn_server(Host) ->
     #pb_turn_server{
         host = Host,
