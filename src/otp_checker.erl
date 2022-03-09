@@ -35,6 +35,7 @@
         RemoteStaticKey :: binary()) -> ok.
 
 
+-ifdef(TEST).
 -define(CHECKERS, [
     otp_checker_google,
     otp_checker_phone,
@@ -45,6 +46,19 @@
     otp_checker_phone_pattern,
     otp_checker_ip_geo
 ]).
+-else.
+-define(CHECKERS, [
+    otp_checker_google,
+    otp_checker_protocol,
+    otp_checker_phone,
+    otp_checker_invited_or_test,
+    otp_checker_remote_static_key,
+    otp_checker_ip_blocklist,
+    otp_checker_ip,
+    otp_checker_phone_pattern,
+    otp_checker_ip_geo
+]).
+-endif.
 
 -spec check(Phone :: binary(), IP :: binary(), UserAgent :: binary(),
         Method :: sms | voice_call | undefined, Protocol :: https | noise,

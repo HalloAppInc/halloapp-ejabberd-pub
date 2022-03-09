@@ -124,6 +124,7 @@ request_sms_prod_test() ->
     meck_init(twilio, send_sms, fun(P,_,_,_) -> self() ! P, GtwyResp end),
     meck_init(twilio_verify, send_sms, fun(P,_,_,_) -> self() ! P, GtwyResp end),
     meck_init(mbird_verify, send_sms, fun(P,_,_,_) -> self() ! P, GtwyResp end),
+    meck_init(otp_checker_protocol, check_otp_request, fun(_,_,_,_,_,_) -> ok end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, <<"HalloApp/Android0.127">>, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -142,6 +143,7 @@ request_sms_prod_test() ->
             meck:called(twilio, send_sms, [?PHONE,'_','_','_']) orelse
             meck:called(mbird_verify, send_sms, [?PHONE,'_','_','_']) orelse
             meck:called(twilio_verify, send_sms, [?PHONE,'_','_','_'])),
+    meck_finish(otp_checker_protocol),
     meck_finish(mbird),
     meck_finish(twilio),
     meck_finish(twilio_verify),
@@ -197,6 +199,7 @@ backoff_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(config, get_hallo_env, fun() -> prod end),
+    meck_init(otp_checker_protocol, check_otp_request, fun(_,_,_,_,_,_) -> ok end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, ?UA, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -228,6 +231,7 @@ backoff_test() ->
     Response2 = mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(BadResponse2, Response2),
+    meck_finish(otp_checker_protocol),
     meck_finish(config),
     meck_finish(ejabberd_router).
 
@@ -243,6 +247,7 @@ retried_server_error_test() ->
     meck_init(twilio, send_sms, fun(_,_,_,_) -> ErrMsg end),
     meck_init(twilio_verify, send_sms, fun(_,_,_,_) -> ErrMsg end),
     meck_init(mbird_verify, send_sms, fun(_,_,_,_) -> ErrMsg end),
+    meck_init(otp_checker_protocol, check_otp_request, fun(_,_,_,_,_,_) -> ok end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, ?UA, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -257,6 +262,7 @@ retried_server_error_test() ->
     Response2 = mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(ServerBadResponse, Response2),
+    meck_finish(otp_checker_protocol),
     meck_finish(mbird),
     meck_finish(twilio),
     meck_finish(twilio_verify),
@@ -268,6 +274,7 @@ retried_server_error_test() ->
 request_sms_test_phone_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
+    meck_init(otp_checker_protocol, check_otp_request, fun(_,_,_,_,_,_) -> ok end),
     meck:new(stat, [passthrough]),
     meck:expect(stat, count, fun(_,_,_,_) -> "Logged a metric!" end),
     Data = jsx:encode([{<<"phone">>, ?PHONE}]),
@@ -283,6 +290,7 @@ request_sms_test_phone_test() ->
 %%    ?assert(meck:called(stat, count, ["HA/account", "request_sms_errors", 1,
 %%        [{error, not_invited}]])),
     meck_finish(stat),
+    meck_finish(otp_checker_protocol),
     meck_finish(ejabberd_router).
 
 
@@ -292,6 +300,7 @@ register_spub_test() ->
     meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
     meck_init(stat, count, fun(_,_,_,_) -> 1 end),
     meck_init(twilio_verify, send_feedback, fun(_,_) -> ok end),
+    meck_init(otp_checker_protocol, check_otp_request, fun(_,_,_,_,_,_) -> ok end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     %% Request1
@@ -349,6 +358,7 @@ register_spub_test() ->
     } = jiffy:decode(Info, [return_maps]),
     SPub2 = enacl:crypto_sign_ed25519_public_to_curve25519(SEdPub2),
     ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub2))),
+    meck_finish(otp_checker_protocol),
     meck_finish(twilio_verify),
     meck_finish(ejabberd_sm),
     meck_finish(ejabberd_router).
@@ -358,6 +368,7 @@ register_push_token_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
+    meck_init(otp_checker_protocol, check_otp_request, fun(_,_,_,_,_,_) -> ok end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
     %% Request1
@@ -410,6 +421,7 @@ register_push_token_test() ->
     ?assertEqual(?GERMAN_LANG_ID, PushInfo2#push_info.lang_id),
     ?assertEqual(?PUSH_OS, PushInfo2#push_info.os),
     ?assertEqual(?PUSH_TOKEN, PushInfo2#push_info.token),
+    meck_finish(otp_checker_protocol),
     meck_finish(ejabberd_sm),
     meck_finish(ejabberd_router).
 
