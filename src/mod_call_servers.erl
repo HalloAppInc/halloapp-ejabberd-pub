@@ -169,14 +169,12 @@ get_stun_turn_servers() ->
 -spec get_stun_turn_servers(Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
     -> {ok, {list(pb_stun_server()), list(pb_turn_server())}}.
 get_stun_turn_servers(Uid, PeerUid, CallType) ->
-    case rand:normal() > 0.5 of
-        true ->
-            case get_cloudflare_servers() of
-                {ok, Result} -> Result;
-                {error, _} -> get_ha_stun_turn_servers(Uid, PeerUid, CallType)
-            end;
-        false ->
-            get_ha_stun_turn_servers(Uid, PeerUid, CallType)
+    {HAStunServers, HATurnServers} = get_ha_stun_turn_servers(Uid, PeerUid, CallType),
+    case get_cloudflare_servers() of
+        {ok, {CFStunServers, CFTurnServers}} ->
+            {CFStunServers ++ HAStunServers, CFTurnServers ++ HATurnServers};
+        {error, _} ->
+            {HAStunServers, HATurnServers}
     end.
 
 -spec get_dev_ha_servers() -> {list(#pb_stun_server{}), list(#pb_turn_server{})}.
