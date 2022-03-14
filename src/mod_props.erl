@@ -106,7 +106,9 @@ get_props(Uid, ClientVersion) ->
         call_hold => false, %% allow calls to be on hold
         call_rerequest => false, %% controls if clients will respond to call-rerequests and also wait for them
         external_sharing => false, %% enables external sharing on clients
-        group_max_for_showing_invite_sheet => 5 %% max members to show the invite link after group flow.
+        group_max_for_showing_invite_sheet => 5, %% max members to show the invite link after group flow.
+        draw_media => false,
+        privacy_label => false
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -123,15 +125,14 @@ get_uid_based_props(PropMap, Uid) ->
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
-            PropMap2 = maps:update(voice_notes, true, PropMap1),
-            PropMap3 = maps:update(audio_calls, true, PropMap2),
-            PropMap4 = maps:update(video_calls, true, PropMap3),
-            PropMap5 = maps:update(streaming_sending_enabled, true, PropMap4),
-            PropMap6 = maps:update(flat_comments, true, PropMap5),
-            PropMap7 = maps:update(voice_posts, true, PropMap6),
-            PropMap8 = maps:update(call_hold, true, PropMap7),
-            PropMap9 = maps:update(external_sharing, true, PropMap8),
-            PropMap9
+            PropMap2 = maps:update(video_calls, true, PropMap1),
+            PropMap3 = maps:update(streaming_sending_enabled, true, PropMap2),
+            PropMap4 = maps:update(flat_comments, true, PropMap3),
+            PropMap5 = maps:update(call_hold, true, PropMap4),
+            PropMap6 = maps:update(external_sharing, true, PropMap5),
+            PropMap7 = maps:update(draw_media, true, PropMap6),
+            PropMap8 = maps:update(privacy_label, true, PropMap7),
+            PropMap8
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
