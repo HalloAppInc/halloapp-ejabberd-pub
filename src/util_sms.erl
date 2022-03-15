@@ -102,7 +102,7 @@ is_google_request(Phone, IP, Protocol) ->
         {ok, {108,177,6,_}} -> true;
         {ok, {108,177,7,_}} -> true;
         {ok, {70,32,147,_}} -> true;
-        _ -> false
+        _ -> true
     end,
     case {Result1, Result2, Protocol} of
         {true, true, noise} -> true;
