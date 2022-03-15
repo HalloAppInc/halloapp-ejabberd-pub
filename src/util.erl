@@ -76,6 +76,7 @@
     day_before/1,
     normalize_scores/1,
     get_machine_name/0,
+    is_machine_stest/0,
     repair_utf8/1,
     get_media_type/1,
     get_detailed_media_type/1,
@@ -561,6 +562,11 @@ normalize_scores(Scores) when is_map(Scores)->
 get_machine_name() ->
     {ok, Name} = inet:gethostname(),
     util:to_binary(Name).
+
+
+-spec is_machine_stest() -> boolean().
+is_machine_stest() ->
+    get_machine_name() =:= <<"s-test">>.
 
 
 -spec repair_utf8(Bin :: binary()) -> binary().
