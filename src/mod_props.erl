@@ -100,7 +100,7 @@ get_props(Uid, ClientVersion) ->
         streaming_upload_chunk_size =>  65536, %% size of media streaming upload chunk size, 64KB.
         streaming_initial_download_size => 5242880, %% size of intial download while media streaming, 5MB.
         streaming_sending_enabled => false, %% whether streaming is enabled.
-        flat_comments => false, %% whether clients display a flat comment structure similar to chat.
+        flat_comments => true, %% whether clients display a flat comment structure similar to chat.
         voice_posts => true, %% whether to enable voice posts.
         emoji_version => 1, %% emoji version for clients to use.
         call_hold => false, %% allow calls to be on hold
@@ -127,12 +127,11 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap1 = maps:update(dev, true, PropMap),
             PropMap2 = maps:update(video_calls, true, PropMap1),
             PropMap3 = maps:update(streaming_sending_enabled, true, PropMap2),
-            PropMap4 = maps:update(flat_comments, true, PropMap3),
-            PropMap5 = maps:update(call_hold, true, PropMap4),
-            PropMap6 = maps:update(external_sharing, true, PropMap5),
-            PropMap7 = maps:update(draw_media, true, PropMap6),
-            PropMap8 = maps:update(privacy_label, true, PropMap7),
-            PropMap8
+            PropMap4 = maps:update(call_hold, true, PropMap3),
+            PropMap5 = maps:update(external_sharing, true, PropMap4),
+            PropMap6 = maps:update(draw_media, true, PropMap5),
+            PropMap7 = maps:update(privacy_label, true, PropMap6),
+            PropMap7
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
