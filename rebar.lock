@@ -59,7 +59,7 @@
        {ref,"f145d44fb0f9d15b0a0e88d2513fb3bb20de5db2"}},
   0},
  {<<"erlydtl">>,
-  {git,"git://github.com/erlydtl/erlydtl",
+  {git,"git@github.com:erlydtl/erlydtl.git",
        {ref,"c1f3df8379b09894d333de4e9a3ca2f3e260cba3"}},
   0},
  {<<"ezlib">>,
