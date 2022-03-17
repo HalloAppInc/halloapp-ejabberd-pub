@@ -181,19 +181,19 @@ apply_uid_prop_overrides(Uid, PropMap) ->
 uid_prop_override(<<"1000000000490675850">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
 uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
 
-% uid_prop_override(<<"1000000000052736684">>, video_calls) -> true;  %% Sunisha
-% uid_prop_override(<<"1000000000503720864">>, video_calls) -> true;  %% Jim Goetz
-% uid_prop_override(<<"1000000000925762631">>, video_calls) -> true;  %% Gergana (Nikola)
-% uid_prop_override(<<"1000000000122054965">>, video_calls) -> true;  %% Katya (Nikola)
-% uid_prop_override(<<"1000000000683067883">>, video_calls) -> true;  %% Madlen (Nikola)
-% uid_prop_override(<<"1000000000938575483">>, video_calls) -> true;  %% Pavlina (Nikola)
-% uid_prop_override(<<"1000000000940017573">>, video_calls) -> true;  %% Alex Contreras
+uid_prop_override(<<"1000000000052736684">>, video_calls) -> true;  %% Sunisha
+uid_prop_override(<<"1000000000503720864">>, video_calls) -> true;  %% Jim Goetz
+uid_prop_override(<<"1000000000925762631">>, video_calls) -> true;  %% Gergana (Nikola)
+uid_prop_override(<<"1000000000122054965">>, video_calls) -> true;  %% Katya (Nikola)
+uid_prop_override(<<"1000000000683067883">>, video_calls) -> true;  %% Madlen (Nikola)
+uid_prop_override(<<"1000000000938575483">>, video_calls) -> true;  %% Pavlina (Nikola)
+uid_prop_override(<<"1000000000940017573">>, video_calls) -> true;  %% Alex Contreras
 
-% uid_prop_override(Uid, video_calls) ->
-%     case model_accounts:is_video_call_allowed(Uid) of
-%         true -> true;
-%         false -> undef
-%     end;
+uid_prop_override(Uid, video_calls) ->
+    case model_accounts:is_video_call_allowed(Uid) of
+        true -> true;
+        false -> undef
+    end;
 
 uid_prop_override(_Uid, _Prop) ->
     undef.
