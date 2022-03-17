@@ -72,8 +72,16 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get} = IQ,
 
 -spec get_hash(Uid :: binary(), ClientVersion :: binary()) -> binary().
 get_hash(Uid, ClientVersion) ->
-    {Hash, _} = get_props_and_hash(Uid, ClientVersion),
-    Hash.
+    try
+        {Hash, _} = get_props_and_hash(Uid, ClientVersion),
+        Hash
+    catch
+        Class:Reason:Stacktrace ->
+            ?ERROR("Stacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            ?INFO("Unable to fetch props hash Uid: ~s ClientVersion: ~p", [Uid, ClientVersion]),
+            <<>>
+    end.
 
 
 -spec get_props(Uid :: binary(), ClientVersion :: binary()) -> proplist().
