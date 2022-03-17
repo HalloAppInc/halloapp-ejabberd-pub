@@ -543,7 +543,8 @@ transform_and_encrypt_message(Uid, #pb_msg{payload = #pb_incoming_call{} = Incom
         stun_servers = IncomingCall#pb_incoming_call.stun_servers,
         turn_servers = IncomingCall#pb_incoming_call.turn_servers,
         timestamp_ms = IncomingCall#pb_incoming_call.timestamp_ms,
-        call_config = IncomingCall#pb_incoming_call.call_config
+        call_config = IncomingCall#pb_incoming_call.call_config,
+        call_capabilities = IncomingCall#pb_incoming_call.call_capabilities
     },
     Message2 = Message#pb_msg{payload = IncomingCallPush},
     case enif_protobuf:encode(Message2) of

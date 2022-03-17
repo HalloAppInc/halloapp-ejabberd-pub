@@ -103,6 +103,12 @@ message PostContainer {
   }
 }
 
+message PostContainerBlob {
+  PostContainer post_container = 1;
+  int64 uid = 2;
+  string post_id = 3;
+}
+
 message CommentContainer {
   CommentContext context = 1;
   oneof comment {
