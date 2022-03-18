@@ -313,6 +313,21 @@ handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) 
     State#push_state{pendingMap = FinalPendingMap};
 
 handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = State)
+        when StatusCode =:= 410 ->
+    stat:count("HA/push", ?APNS, 1, [{"result", "apns_error"}]),
+    FinalPendingMap = case maps:take(ApnsId, PendingMap) of
+        error ->
+            ?ERROR("Message not found in our map: apns-id: ~p", [ApnsId]),
+            PendingMap;
+        {PushMessageItem, NewPendingMap} ->
+            Id = PushMessageItem#push_message_item.id,
+            Uid = PushMessageItem#push_message_item.uid,
+            ?INFO("Uid: ~s, apns push error code: ~p, msg_id: ~s, invalid_device_token", [Uid, StatusCode, Id]),
+            NewPendingMap
+    end,
+    State#push_state{pendingMap = FinalPendingMap};
+
+handle_apns_response(StatusCode, ApnsId, #push_state{pendingMap = PendingMap} = State)
         when StatusCode =:= 429; StatusCode >= 500 ->
     stat:count("HA/push", ?APNS, 1, [{"result", "apns_error"}]),
     FinalPendingMap = case maps:take(ApnsId, PendingMap) of
