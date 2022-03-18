@@ -247,7 +247,7 @@ health_check_redis_backups(RedisId) ->
         end,
         maps:map(
             fun(BackupName, Size) ->
-                IsSessions = binary:match(BackupName, <<"session">>) =/= nomatch,
+                IsSessions = binary:match(util:to_binary(BackupName), <<"session">>) =/= nomatch,
                 case {IsSessions, Size < ?MIN_BACKUP_SIZE_WARNING_THRESHOLD} of
                     {true, _} -> ok;
                     {false, true} ->
