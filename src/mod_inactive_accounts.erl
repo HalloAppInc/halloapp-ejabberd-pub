@@ -146,17 +146,18 @@ check_and_delete_accounts(ShouldDelete) ->
     NumInactiveAccounts = model_accounts:count_uids_to_delete(),
     NumTotalAccounts = model_accounts:count_accounts(),
     ?INFO("Num Inactive: ~p, Total: ~p", [NumInactiveAccounts, NumTotalAccounts]),
-    Fraction = NumInactiveAccounts / NumTotalAccounts,
+    %% Fraction = NumInactiveAccounts / NumTotalAccounts,
 
     IsNoDevAccount = not (is_any_dev_account()),
 
     %% Ok to delete, if to delete is within acceptable fraction and no dev account is slated for
     %% deletion.
-    IsAcceptable = (Fraction < ?ACCEPTABLE_FRACTION) and IsNoDevAccount,
+    %% IsAcceptable = (Fraction < ?ACCEPTABLE_FRACTION) and IsNoDevAccount,
+    IsAcceptable = (NumInactiveAccounts < ?MAX_TO_DELETE_ACCOUNTS) and IsNoDevAccount,
     case IsAcceptable of
         false -> 
-            ?ERROR("Not deleting inactive accounts. NumInactive: ~p, Total: ~p, Fraction: ~p, No dev account?: ~p",
-                [NumInactiveAccounts, NumTotalAccounts, Fraction, IsNoDevAccount]),
+            ?ERROR("Not deleting inactive accounts. NumInactive: ~p, Total: ~p, No dev account?: ~p",
+                [NumInactiveAccounts, NumTotalAccounts, IsNoDevAccount]),
             ok;
         true ->
             delete_inactive_accounts(ShouldDelete)
@@ -232,8 +233,9 @@ maybe_delete_inactive_account(Uid, ShouldDelete) ->
 find_inactive_accounts(Key, State) ->
     ?INFO("Key: ~p", [Key]),
     DryRun = maps:get(dry_run, State, false),
+    NumInactive = maps:get(num_inactive, State, 0),
     Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
-    case Result of
+    {ok, IsInactive} = case Result of
         {match, [[_FullKey, Uid]]} ->
             ?INFO("Account uid: ~p", [Uid]),
             try
@@ -246,16 +248,22 @@ find_inactive_accounts(Key, State) ->
                                 ok;
                             false ->
                                 model_accounts:add_uid_to_delete(Uid)
-                        end;
-                    false -> ok
+                        end,
+                        {ok, 1};
+                    false -> {ok, 0}
                 end
             catch
                 Class:Reason:Stacktrace ->
                     ?ERROR("Stacktrace:~s", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-                    ?ERROR("Unable to get last activity: ~p", [Uid])
-            end,
-            ok;
-        _ -> ok
+                    ?ERROR("Unable to get last activity: ~p", [Uid]),
+                {ok, 0}
+            end;
+        _ -> {ok, 0}
     end,
-    State.
+    NumInactiveNew = NumInactive + IsInactive,
+    NewState = State#{num_inactive => NumInactiveNew},
+    case NumInactiveNew >= ?MAX_NUM_INACTIVE_PER_SHARD of
+        true -> {stop, NewState};
+        false -> {ok, NewState}
+    end.
 
