@@ -19,7 +19,7 @@
 -export([
     get_call_servers/3,
     get_call_config/3,
-    start_call/6,
+    start_call/7,
     user_receive_packet/1,
     user_send_packet/1,
     push_message_always_hook/1,
@@ -67,9 +67,10 @@ get_call_servers(Uid, PeerUid, CallType) ->
 
 
 -spec start_call(CallId :: call_id(), Uid :: uid(), PeerUid :: uid(),
-    CallType :: 'CallType'(), Offer :: pb_web_rtc_session_description(), RerequestCount :: integer())
+    CallType :: 'CallType'(), Offer :: pb_web_rtc_session_description(),
+    RerequestCount :: integer(), Caps :: pb_call_capabilities())
         -> {ok, {list(pb_stun_server()), list(pb_turn_server())}}.
-start_call(CallId, Uid, PeerUid, CallType, Offer, RerequestCount) ->
+start_call(CallId, Uid, PeerUid, CallType, Offer, RerequestCount, Caps) ->
     % TODO: (nikola): check if we should allow Uid to call Ouid. For now everything is allowed.
     count_start_call(CallType, RerequestCount),
     {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(Uid, PeerUid, CallType),
@@ -82,7 +83,8 @@ start_call(CallId, Uid, PeerUid, CallType, Offer, RerequestCount) ->
         turn_servers = TurnServers,
         timestamp_ms = util:now_ms(),
         server_sent_ts_ms = util:now_ms(),       % time at which the server sent the packet
-        call_config = CallConfig
+        call_config = CallConfig,
+        call_capabilities = Caps
     },
     MsgId = util_id:new_msg_id(),
     Packet = #pb_msg{
