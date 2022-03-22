@@ -26,6 +26,7 @@
 %% https://halloapp.com/invite?g=ABCDEF in our group invite urls.
 %% from the halloapp.com CDN we server /invite pages from the Origin
 %% https://api.halloapp.net/invite?g=ABCDEF which is handled here.
+%%
 %% To make the appclip work we redirect ios users to
 %% https://invite.halloapp.com/invite/subdomain?g=ABCDEF
 %% There is CDN for invite.halloapp.com that uses api.halloapp.com as Origin
