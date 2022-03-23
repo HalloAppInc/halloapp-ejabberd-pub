@@ -47,6 +47,18 @@ mod_options(_Host) ->
 %% feed: IQs
 %%====================================================================
 
+%% Get post blob.
+process_local_iq(#pb_iq{from_uid = Uid, type = get,
+        payload = #pb_external_share_post{action = get, blob_id = BlobId}} = IQ) ->
+    ?INFO("get share_post Uid: ~s", [Uid]),
+    case get_share_post(BlobId) of
+        {ok, Blob, OgTagInfo} ->
+            pb:make_iq_result(IQ, #pb_external_share_post{blob = Blob, og_tag_info = OgTagInfo});
+        {error, Reason} ->
+            ?ERROR("get share_post Uid: ~s, error: ~p", [Uid, Reason]),
+            pb:make_error(IQ, util:err(Reason))
+    end;
+
 %% Store post blob.
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_external_share_post{action = store, blob = PostBlob,
@@ -120,4 +132,20 @@ delete_share_post(Uid, BlobId) ->
     ?INFO("Uid: ~s, BlobId: ~s", [Uid, BlobId]),
     ok = model_feed:delete_external_share_post(BlobId),
     ok.
+
+-spec get_share_post(BlobId :: binary()) -> {ok, binary(), pb_og_tag_info()} | {error, any()}.
+get_share_post(BlobId) ->
+    ?INFO("BlobId: ~s", [BlobId]),
+    case model_feed:get_external_share_post(BlobId) of
+        {ok, undefined} -> {error, not_found};
+        {ok, Blob} ->
+            case enif_protobuf:decode(Blob, pb_external_share_post_container) of
+                {error, Reason} ->
+                    ?ERROR("Unable to encode, error: ~p", [Reason]),
+                    {error, protbuf_decode_error};
+                Pkt ->
+                    {ok, Pkt#pb_external_share_post_container.blob,
+                        Pkt#pb_external_share_post_container.og_tag_info}
+              end
+    end.
 

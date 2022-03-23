@@ -742,6 +742,7 @@ message ExternalSharePost {
     enum Action {
         STORE = 0;
         DELETE = 1;
+        GET = 2;
     }
     Action action = 1;
     string blob_id = 2;
