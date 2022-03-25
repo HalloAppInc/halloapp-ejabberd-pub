@@ -51,6 +51,7 @@ is_cc_supported(CC) ->
         <<"CN">> -> false;     %% China
         <<"CU">> -> false;     %% Cuba
         <<"CZ">> -> false;     %% Czech Republic
+        <<"ID">> -> false;     %% Indonesia
         <<"JO">> -> false;     %% Jordan
         <<"KZ">> -> false;     %% Kazakhstan
         <<"KE">> -> false;     %% Kenya

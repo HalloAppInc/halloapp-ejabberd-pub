@@ -136,7 +136,7 @@ check_sms_reg_internal(TimeWindow, IncrementalTimestamp, FinalIncrement) ->
     lists:foreach(
         fun({Phone, AttemptId})  ->
             ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
-            case util:is_test_number(Phone) of
+            case util:is_test_number(Phone) orelse util:is_google_number(Phone) of
                 true ->
                     ok;
                 false ->
