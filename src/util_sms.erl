@@ -94,10 +94,7 @@ get_sms_message(UserAgent, Code, LangId) ->
 
 -spec is_google_request(Phone :: binary(), IP :: binary(), Protocol :: atom()) -> boolean().
 is_google_request(Phone, IP, Protocol) ->
-    Result1 = case Phone of
-        <<"16504992804">> -> true;
-        _ -> false
-    end,
+    Result1 = util:is_google_number(Phone),
     Result2 = case inet:parse_address(util:to_list(IP)) of
         {ok, {108,177,6,_}} -> true;
         {ok, {108,177,7,_}} -> true;

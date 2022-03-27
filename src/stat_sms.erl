@@ -185,7 +185,7 @@ process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements) ->
 -spec process_attempt_score(Phone :: phone(), AttemptId :: binary(), IncrementMap :: map()) -> map().
 process_attempt_score(Phone, AttemptId, IncrementMap) -> 
     ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
-    IncrementMap2 = case util:is_test_number(Phone) of
+    IncrementMap2 = case util:is_test_number(Phone) orelse util:is_google_number(Phone) of
         true ->
             IncrementMap;
         false ->
