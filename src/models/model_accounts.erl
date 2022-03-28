@@ -84,6 +84,7 @@
     set_client_version/2,
     get_client_version/1,
     set_device_info/3,
+    get_device/1,
     get_push_info/1,
     set_push_token/5,
     get_push_token/1,
@@ -477,6 +478,13 @@ set_device_info(_Uid, undefined, undefined) ->
 set_device_info(Uid, Device, OsVersion) ->
     {ok, _} = q(["HMSET", account_key(Uid), ?FIELD_DEVICE, Device, ?FIELD_OS_VERSION, OsVersion]),
     ok.
+
+-spec get_device(Uid :: uid()) -> {ok, binary()} | {error, missing}.
+get_device(Uid) ->
+    case q(["HGET", account_key(Uid), ?FIELD_DEVICE]) of
+        {ok, undefined} -> {error, missing};
+        {ok, Res} -> {ok, Res}
+    end.
 
 
 -spec get_account(Uid :: uid()) -> {ok, account()} | {error, missing}.

@@ -21,6 +21,7 @@
     log_recent_account_info_run2/2,
     check_push_name_run/2,
     set_registration_ts/2,
+    print_devices/2,
     set_login_run/2,
     cleanup_offline_queue_run/2
 ]).
@@ -326,6 +327,22 @@ set_registration_ts(Key, State) ->
     end,
     State.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                       Print device for all users                                   %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+print_devices(Key, State) ->
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[_FullKey, Uid]]} ->
+            ?INFO("Key: ~p", [Key]),
+            case model_accounts:get_device(Uid) of
+                {error, missing} -> ?INFO("Uid: ~p device missing", [Uid]);
+                {ok, Device} -> ?INFO("Uid: ~p device ~p", [Uid, Device])
+            end;
+        _ -> ok
+    end,
+    State.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                       Check all user accounts for login status                      %%
