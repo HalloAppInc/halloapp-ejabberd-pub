@@ -221,7 +221,6 @@ get_originator(CC) ->
         <<"TH">> -> ?HALLOAPP_SENDER_ID;
         <<"TG">> -> ?HALLOAPP_SENDER_ID;
         <<"ZM">> -> ?HALLOAPP_SENDER_ID;
-        <<"US">> -> ?STICKY_VMN;
         <<"NL">> -> ?STICKY_VMN;
         <<"GB">> -> ?STICKY_VMN;
         <<"CA">> -> ?FROM_PHONE_FOR_CANADA;
