@@ -224,6 +224,7 @@ get_originator(CC) ->
         <<"NL">> -> ?STICKY_VMN;
         <<"GB">> -> ?STICKY_VMN;
         <<"CA">> -> ?FROM_PHONE_FOR_CANADA;
+        <<"US">> -> ?FROM_PHONE_FOR_US;  %% Use DLC number
         %% TODO: Need to explore using just one phone for the rest
         _ -> util_sms:lookup_from_phone(mbird_options)
     end.
