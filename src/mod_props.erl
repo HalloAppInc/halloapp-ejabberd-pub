@@ -117,7 +117,8 @@ get_props(Uid, ClientVersion) ->
         group_max_for_showing_invite_sheet => 5, %% max members to show the invite link after group flow.
         draw_media => false,
         privacy_label => false,
-        krisp_noise_suppression => false
+        krisp_noise_suppression => false,
+        group_comments_notification => false %% notifications for group comments on posts by non-friends
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -141,7 +142,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap6 = maps:update(draw_media, true, PropMap5),
             PropMap7 = maps:update(privacy_label, true, PropMap6),
             PropMap8 = maps:update(krisp_noise_suppression, true, PropMap7),
-            PropMap8
+            PropMap9 = maps:update(group_comments_notification, true, PropMap8),
+            PropMap9
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
