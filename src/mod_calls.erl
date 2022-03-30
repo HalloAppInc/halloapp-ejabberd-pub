@@ -72,6 +72,11 @@ get_call_servers(Uid, PeerUid, CallType) ->
         -> {ok, {list(pb_stun_server()), list(pb_turn_server())}}.
 start_call(CallId, Uid, PeerUid, CallType, Offer, RerequestCount, Caps) ->
     % TODO: (nikola): check if we should allow Uid to call Ouid. For now everything is allowed.
+    case CallType =:= video of
+        true ->
+            ok = model_accounts:add_uid_to_video_call_list(PeerUid);
+        false -> ok
+    end,
     count_start_call(CallType, RerequestCount),
     {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(Uid, PeerUid, CallType),
     {ok, CallConfig} = get_call_config(Uid, PeerUid, CallType),
@@ -228,6 +233,10 @@ push_message_always_hook(_) -> ok.
 
 
 -spec set_presence_hook(Uid :: binary(), Server :: binary(), Resource :: binary(), pb_presence()) -> ok.
+% set_presence_hook(Uid, _Server, _Resource, #pb_presence{type = available}) ->
+%     %% Add Uid to voip list to enable them to start making calls from next time.
+%     ok = model_accounts:add_uid_to_video_call_list(Uid),
+%     ok;
 set_presence_hook(_Uid, _Server, _Resource, _) ->
     ok.
 
