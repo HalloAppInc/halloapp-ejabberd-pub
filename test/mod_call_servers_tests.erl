@@ -11,6 +11,7 @@
 -include("account_test_data.hrl").
 
 
+
 setup() ->
     tutil:setup(),
     ha_redis:start(),
@@ -65,7 +66,7 @@ get_stun_turn_servers_by_ip2_test() ->
     ok.
 
 check_server_from_region(Uid1, Uid2, Region) ->
-    {[], [TurnServer]} = mod_call_servers:get_stun_turn_servers(Uid1, Uid2, audio),
+    {[], [TurnServer]} = mod_call_servers:get_stun_turn_servers(?CALLID1, Uid1, Uid2, audio),
     {ok, USServers} = mod_call_servers:get_ips(Region),
     Host = TurnServer#pb_turn_server.host,
     % check if the server we got is one of the us servers

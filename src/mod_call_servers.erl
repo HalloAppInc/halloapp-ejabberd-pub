@@ -40,7 +40,7 @@
 %% API
 -export([
     start_link/0,  % for tests
-    get_stun_turn_servers/3,
+    get_stun_turn_servers/4,
     get_stun_turn_servers/0,  % for tests
     get_cloudflare_servers/0,
     get_ha_stun_turn_servers/3,
@@ -166,10 +166,11 @@ get_stun_turn_servers() ->
     get_dev_ha_servers().
 
 
--spec get_stun_turn_servers(Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
+-spec get_stun_turn_servers(CallId :: binary(), Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
     -> {ok, {list(pb_stun_server()), list(pb_turn_server())}}.
-get_stun_turn_servers(Uid, PeerUid, CallType) ->
-    case rand:normal() > 0.5 orelse util:is_machine_stest() of
+get_stun_turn_servers(CallId, Uid, PeerUid, CallType) ->
+    CallHash = call_id_hash(CallId),
+    case CallHash rem 2 =:= 0 of
         true ->
             case get_cloudflare_servers() of
                 {ok, Result} -> Result;
@@ -178,6 +179,11 @@ get_stun_turn_servers(Uid, PeerUid, CallType) ->
         false ->
             get_ha_stun_turn_servers(Uid, PeerUid, CallType)
     end.
+
+-spec call_id_hash(CallId :: binary()) -> integer().
+call_id_hash(CallId) ->
+    <<Result:32/integer, _Rest/binary>> = crypto:hash(sha256, CallId),
+    Result.
 
 -spec get_dev_ha_servers() -> {list(#pb_stun_server{}), list(#pb_turn_server{})}.
 get_dev_ha_servers() ->

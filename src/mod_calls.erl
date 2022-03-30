@@ -17,7 +17,7 @@
 
 %% API
 -export([
-    get_call_servers/3,
+    get_call_servers/4,
     get_call_config/3,
     start_call/7,
     user_receive_packet/1,
@@ -58,12 +58,12 @@ mod_options(_Host) -> [].
 %%%   API                                                                                      %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec get_call_servers(Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
+-spec get_call_servers(CallId :: binary(), Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
         -> {ok, {list(pb_stun_server()), list(pb_turn_server())}}.
-get_call_servers(Uid, PeerUid, CallType) ->
+get_call_servers(CallId, Uid, PeerUid, CallType) ->
     % Nothing fency for now.
     stat:count("HA/call", "get_call_servers"),
-    mod_call_servers:get_stun_turn_servers(Uid, PeerUid, CallType).
+    mod_call_servers:get_stun_turn_servers(CallId, Uid, PeerUid, CallType).
 
 
 -spec start_call(CallId :: call_id(), Uid :: uid(), PeerUid :: uid(),
@@ -78,7 +78,7 @@ start_call(CallId, Uid, PeerUid, CallType, Offer, RerequestCount, Caps) ->
         false -> ok
     end,
     count_start_call(CallType, RerequestCount),
-    {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(Uid, PeerUid, CallType),
+    {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(CallId, Uid, PeerUid, CallType),
     {ok, CallConfig} = get_call_config(Uid, PeerUid, CallType),
     IncomingCallMsg = #pb_incoming_call{
         call_id = CallId,

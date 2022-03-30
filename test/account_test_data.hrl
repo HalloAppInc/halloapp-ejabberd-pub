@@ -100,4 +100,5 @@
       119,80>>}).
 -define(SPUB6, <<"kjstMZ8ru4fOGuCvviZCNo5DyvC45IfHVENC6Qq7d1A=">>).
 
+-define(CALLID1, <<"kjstMZ8ru4fOGuCvviZ">>).
 

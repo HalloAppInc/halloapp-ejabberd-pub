@@ -78,7 +78,7 @@ mod_options(_Host) ->
 process_get_call_servers(IQ, Uid, PeerUid, CallId, CallType) ->
     ?INFO("Uid: ~s PeerUid: ~s CallId: ~s ~s", [Uid, PeerUid, CallId, CallType]),
 
-    {StunServers, TurnServers} = mod_calls:get_call_servers(Uid, PeerUid, CallType),
+    {StunServers, TurnServers} = mod_calls:get_call_servers(CallId, Uid, PeerUid, CallType),
     {ok, CallConfig} = mod_calls:get_call_config(Uid, PeerUid, CallType),
     GetServersResult = #pb_get_call_servers_result{
         result = ok,
