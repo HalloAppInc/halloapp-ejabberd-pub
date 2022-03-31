@@ -755,6 +755,8 @@ message ExternalSharePostContainer {
     int64 uid = 1 [ebin = true];
     bytes blob = 2;
     OgTagInfo og_tag_info = 3;
+    string name = 4;
+    string avatar_id = 5;
 }
 
 // IQ
@@ -807,6 +809,7 @@ message Iq {
         StartCallResult start_call_result = 41;
         TruncWhisperKeysCollection trunc_whisper_keys_collection = 42;
         ExternalSharePost external_share_post = 43;
+        ExternalSharePostContainer external_share_post_container = 44;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use

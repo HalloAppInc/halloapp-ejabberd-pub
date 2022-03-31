@@ -51,7 +51,8 @@
     convert_to_html/2,
     incorporate_mentions/2,
     incorporate_markdown/1,
-    escape_html/1
+    escape_html/1,
+    get_push_name_and_avatar/1
 ]).
 
 %%%----------------------------------------------------------------------
@@ -75,8 +76,9 @@ process([Path],
         IP = util_http:get_ip(NetIP, Headers),
         ?INFO("Share Id: ~p, UserAgent ~p Platform: ~p, IP: ~p", [BlobId, UserAgent, Platform, IP]),
         EncodedKey = proplists:get_value(<<"k">>, Q, <<>>),
+        Format = proplists:get_value(<<"format">>, Q, <<>>),
         case EncodedKey of
-            <<>> -> show_blob_nokey(BlobId);
+            <<>> -> show_blob_nokey(BlobId, Format);
             _ -> show_blob(BlobId, EncodedKey)
         end
    catch
@@ -112,18 +114,18 @@ show_blob(BlobId, EncodedKey) ->
                 {error, CryptoReason} ->
                     show_crypto_error(BlobId, CryptoReason)
             end;
-        {error, not_found} ->
+        {error, Reason} ->
             ?INFO("Share Post Id: ~p not found ", [BlobId]),
-            show_expired_error(BlobId)
+            show_expired_error(BlobId, Reason, <<>>)
     end.
 
-show_blob_nokey(BlobId) ->
+show_blob_nokey(BlobId, Format) ->
     case fetch_share_post(BlobId) of
         {ok, Uid, EncBlobWithMac, OgTagInfo} ->
-            show_encrypted_post_content(BlobId, EncBlobWithMac, Uid, OgTagInfo);
-        {error, not_found} ->
+            show_encrypted_post_content(BlobId, EncBlobWithMac, Uid, OgTagInfo, Format);
+        {error, Reason} ->
             ?INFO("Share Post Id: ~p not found ", [BlobId]),
-            show_expired_error(BlobId)
+            show_expired_error(BlobId, Reason, Format)
     end.
  
 decode_key(<<>>) ->
@@ -165,27 +167,50 @@ show_post_content(BlobId, Blob, Uid) ->
         {200, ?HEADER(?CT_HTML), HtmlPage}
     end.
 
-show_encrypted_post_content(BlobId, EncBlob, Uid, undefined) ->
+show_encrypted_post_content(BlobId, EncBlob, Uid, undefined, Format) ->
     ?INFO("Encrypted BlobId: ~p success", [BlobId]),
     {PushName, Avatar} = get_push_name_and_avatar(Uid),
-    {ok, HtmlPage} = dtl_nokey_post:render([
-        {push_name, PushName}, {avatar, Avatar}, {enc_blob, EncBlob},
-        {base64_enc_blob, base64url:encode(EncBlob)}
-    ]),
-    {200, ?HEADER(?CT_HTML), HtmlPage};
+    case Format of
+        <<"pb">> ->
+            Res = #pb_external_share_post_container{
+                uid = Uid,
+                name = PushName,
+                avatar_id = Avatar,
+                blob = EncBlob
+            },
+            {200, ?HEADER(?CT_BIN), enif_protobuf:encode(Res)};
+        <<>> -> 
+            {ok, HtmlPage} = dtl_nokey_post:render([
+                {push_name, PushName}, {avatar, Avatar}, {enc_blob, EncBlob},
+                {base64_enc_blob, base64url:encode(EncBlob)}
+            ]),
+            {200, ?HEADER(?CT_HTML), HtmlPage}
+    end;
 
 show_encrypted_post_content(BlobId, EncBlob, Uid, #pb_og_tag_info{
       title = Title, description = Descr, thumbnail_url = Thumbnail,
-      thumbnail_width = Width, thumbnail_height = Height}) ->
+      thumbnail_width = Width, thumbnail_height = Height} = OgTagInfo, Format) ->
     ?INFO("Encrypted BlobId: ~p success", [BlobId]),
     {PushName, Avatar} = get_push_name_and_avatar(Uid),
-    {ok, HtmlPage} = dtl_nokey_post:render([
-        {title, Title}, {description, Descr}, {thumbnail_url, Thumbnail},
-        {thumbnail_width, Width}, {thumbnail_height, Height},
-        {push_name, PushName}, {avatar, Avatar}, {enc_blob, EncBlob},
-        {base64_enc_blob, base64url:encode(EncBlob)}
-    ]),
-    {200, ?HEADER(?CT_HTML), HtmlPage}.
+    case Format of
+        <<"pb">> ->
+            Res = #pb_external_share_post_container{
+                uid = Uid,
+                name = PushName,
+                avatar_id = Avatar,
+                blob = EncBlob,
+                og_tag_info = OgTagInfo
+            },
+            {200, ?HEADER(?CT_BIN), enif_protobuf:encode(Res)};
+        _ ->
+            {ok, HtmlPage} = dtl_nokey_post:render([
+                {title, Title}, {description, Descr}, {thumbnail_url, Thumbnail},
+                {thumbnail_width, Width}, {thumbnail_height, Height},
+                {push_name, PushName}, {avatar, Avatar}, {enc_blob, EncBlob},
+                {base64_enc_blob, base64url:encode(EncBlob)}
+            ]),
+            {200, ?HEADER(?CT_HTML), HtmlPage}
+    end.
 
 get_push_name_and_avatar(Uid) ->
     case model_accounts:get_account(Uid) of
@@ -270,10 +295,16 @@ show_crypto_error(BlobId, Reason) ->
     HtmlPage = <<?HTML_PRE/binary, <<"Crypto Error: ">>/binary, ReasonBin/binary, ?HTML_POST/binary>>,
     {200, ?HEADER(?CT_HTML), HtmlPage}.
 
-show_expired_error(BlobId) ->
+show_expired_error(BlobId, Reason, Format) ->
     ?INFO("BlobId: ~p, Expired", [BlobId]),
-    HtmlPage = <<?HTML_PRE/binary, <<"Post Expired">>/binary, ?HTML_POST/binary>>,
-    {200, ?HEADER(?CT_HTML), HtmlPage}.
+    case Format of
+        <<"pb">> ->
+            Res = #pb_error_stanza{reason = util:to_binary(Reason)},
+            {410, ?HEADER(?CT_BIN), enif_protobuf:encode(Res)};
+         _ ->
+            HtmlPage = <<?HTML_PRE/binary, Reason/binary, ?HTML_POST/binary>>,
+            {410, ?HEADER(?CT_HTML), HtmlPage}
+    end.
 
 fetch_share_post(BlobId) ->
     case model_feed:get_external_share_post(BlobId) of

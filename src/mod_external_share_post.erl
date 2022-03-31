@@ -52,8 +52,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_external_share_post{action = get, blob_id = BlobId}} = IQ) ->
     ?INFO("get share_post Uid: ~s", [Uid]),
     case get_share_post(BlobId) of
-        {ok, Blob, OgTagInfo} ->
-            pb:make_iq_result(IQ, #pb_external_share_post{blob = Blob, og_tag_info = OgTagInfo});
+        {ok, ExternalSharePostContainer} ->
+            {PushName, Avatar} = mod_http_share_post:get_push_name_and_avatar(
+                ExternalSharePostContainer#pb_external_share_post_container.uid),
+            pb:make_iq_result(IQ,
+                ExternalSharePostContainer#pb_external_share_post_container{
+                    name = PushName, avatar_id = Avatar});
         {error, Reason} ->
             ?ERROR("get share_post Uid: ~s, error: ~p", [Uid, Reason]),
             pb:make_error(IQ, util:err(Reason))
@@ -133,7 +137,7 @@ delete_share_post(Uid, BlobId) ->
     ok = model_feed:delete_external_share_post(BlobId),
     ok.
 
--spec get_share_post(BlobId :: binary()) -> {ok, binary(), pb_og_tag_info()} | {error, any()}.
+-spec get_share_post(BlobId :: binary()) -> {ok, pb_external_share_post_container()} | {error, any()}.
 get_share_post(BlobId) ->
     ?INFO("BlobId: ~s", [BlobId]),
     case model_feed:get_external_share_post(BlobId) of
@@ -144,8 +148,7 @@ get_share_post(BlobId) ->
                     ?ERROR("Unable to encode, error: ~p", [Reason]),
                     {error, protbuf_decode_error};
                 Pkt ->
-                    {ok, Pkt#pb_external_share_post_container.blob,
-                        Pkt#pb_external_share_post_container.og_tag_info}
+                    {ok, Pkt}
               end
     end.
 
