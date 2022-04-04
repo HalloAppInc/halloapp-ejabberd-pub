@@ -809,6 +809,9 @@ send_error(#{user := Uid} = State, Err) ->
                 true -> ok;  % don't log anything for noise checker uid
                 false -> ?WARNING("Sending: ~p to Uid: ~p, IsDev: ~p and stopping", [Err, Uid, IsDev])
             end;
+        noise_error ->
+            %% noise_error is always from spam usually.
+            ?INFO("Sending ~p and stoping", [Err]);
         _ ->
             ?ERROR("Sending ~p and stopping", [Err])
     end,
