@@ -4,20 +4,27 @@
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <title>HalloApp Share</title>
+  <title>{{ title }}</title>
+  <meta name="description" content="{{ description }}"/>
+
   <meta property="og:title" content="{{ title }}"/>
   <meta property="og:description" content="{{ description }}"/>
   <meta property="og:image" content="{{ thumbnail_url }}"/>
   <meta property="og:image:width" content="{{ thumbnail_width }}"/>
   <meta property="og:image:height" content="{{ thumbnail_height }}"/>
-  
-  <link rel="shortcut icon" type="image/x-icon" href="https://halloapp.com/images/favicon.ico"/>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css" rel="stylesheet">
-  <script type="module" crossorigin src="https://d1efjkqerxchlh.cloudfront.net/es/6/assets/index.daafbb81.js"></script>
-  <link rel="modulepreload" href="https://d1efjkqerxchlh.cloudfront.net/es/6/assets/vendor.e356a639.js">
-  <link rel="stylesheet" href="https://d1efjkqerxchlh.cloudfront.net/es/6/assets/index.179a097f.css">
+
+  <meta name="twitter:card" content="summary_large_image">
+
+  <meta property="og:site_name" content="HalloApp">
+  <meta name="twitter:image:alt" content="{{ title }} Image">  
+
+  <link rel='shortcut icon' type='image/x-icon' href='https://halloapp.com/images/favicon.ico'/>
+  <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css' rel='stylesheet'>
+
+  <script type="module" crossorigin src="https://d1efjkqerxchlh.cloudfront.net/es/9/assets/index.567daeeb.js"></script>
+  <link rel="stylesheet" href="https://d1efjkqerxchlh.cloudfront.net/es/9/assets/index.c2b11c56.css">
 </head>
 <body>
 
