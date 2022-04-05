@@ -103,7 +103,7 @@ get_props(Uid, ClientVersion) ->
         cleartext_group_feed => true, %% whether client must send unencrypted content in group_feed.
         use_cleartext_group_feed => true, %% whether clients must rely on unencrypted content in group_feed.
         audio_calls => true, %% whether clients can make audio calls.
-        video_calls => false, %% whether clients can make video calls.
+        video_calls => true, %% whether clients can make video calls.
         call_wait_timeout => 60, %% time (sec) to wait before ending the call on timeout when remote party is not responding.
         streaming_upload_chunk_size =>  65536, %% size of media streaming upload chunk size, 64KB.
         streaming_initial_download_size => 5242880, %% size of intial download while media streaming, 5MB.
