@@ -16,6 +16,8 @@
 -include("groups.hrl").
 -include("time.hrl").
 
+-define(INVITE_STRINGS_FILE, "invite_strings.json").
+
 -ifdef(TEST).
 -export([
     generate_hash/1,
@@ -118,7 +120,8 @@ get_props(Uid, ClientVersion) ->
         draw_media => false,
         privacy_label => false,
         krisp_noise_suppression => false,
-        group_comments_notification => false %% notifications for group comments on posts by non-friends
+        group_comments_notification => false, %% notifications for group comments on posts by non-friends
+        invite_strings => get_invite_strings_bin() %% json string with invite text.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -219,4 +222,22 @@ make_response(IQ, SortedProplist, Hash) ->
             {Key, Val} <- SortedProplist],
     Prop = #pb_props{hash = Hash, props = Props},
     pb:make_iq_result(IQ, Prop).
+
+
+get_invite_strings_bin() ->
+    try
+        Filename = filename:join(misc:data_dir(), ?INVITE_STRINGS_FILE),
+        {ok, Bin} = file:read_file(Filename),
+        InviteStringsMap = jiffy:decode(Bin, [return_maps]),
+        %% en localization strings dont appear with other languages in ios repo for some reason.
+        %% TODO: need to fix this in the ios repo.
+        InviteStringsMap1 = InviteStringsMap#{
+            <<"en">> => <<"Hey %1$@, I have an invite for you to join me on HalloApp - a real-relationship network for those closest to me. Use %2$@ to register. Get it at https://halloapp.com/dl"/utf8>>
+        },
+        jiffy:encode(InviteStringsMap1)
+    catch
+        Class: Reason: Stacktrace  ->
+            ?ERROR("Failed to get invite strings", [lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            <<>>
+    end.
 

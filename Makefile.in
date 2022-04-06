@@ -450,6 +450,38 @@ translate:
 	rm -rf temp
 
 
+invite-strings:
+	rm -rf temp
+	mkdir -p temp/msgs
+	mkdir -p priv/data
+	# clone ios repo
+	git clone git@github.com:HalloAppInc/halloapp-ios.git temp/halloapp-ios
+	# copies all translation strings related folders.
+	find temp/halloapp-ios/Halloapp/*.lproj -type d | xargs -I{} cp -r {} temp/msgs/
+	# deletes all files except the files that contain the exact translations.
+	find temp/msgs/*.lproj -type f ! -name 'Localizable.strings' -delete
+	rm -rf temp/msgs/Base.lproj temp/msgs/en.lproj
+	# rename all files to be 'langId.strings'
+	cd temp/msgs/ && for subdir in *; do mv -v $$subdir $${subdir//.lproj/}; done;
+	cd temp/msgs/ && for subdir in *; do mv $$subdir/Localizable.strings $$subdir.txt; done;
+	cd temp/msgs/ && rm -r */;
+	# filter out all invite string translations and delete the rest of the lines.
+	cd temp/msgs/ && for file in *; do grep '\"invite.text.specific.*' $$file | cut -d '"' -f 4 > $$file.strings; done;
+	# remove any other files if any.
+	find temp/msgs/ -type f ! -name '*.strings' -delete;
+	touch temp/invite_strings.json
+	echo "{" >> temp/invite_strings.json
+	cd temp/msgs/ && for file in *; do \
+		echo "\"`echo $${file//.txt.strings}`\": \"`cat $${file}`\"," >> ../invite_strings.json; done;
+	# truncate last comma character from file
+	truncate -s-2 temp/invite_strings.json
+	echo "\n}" >> temp/invite_strings.json
+	# move the file to the data directory.
+	cp temp/invite_strings.json priv/data/
+	# cleanup.
+	rm -rf temp
+
+
 phone-metadata:
 	# remove fixedLine
 	sed -i '' '/fixedLine\>/,/\/fixedLine\>/{/^\fixedLine\>/!{/^\/fixedLine\>/!d;};}' priv/xml/PhoneNumberMetadata.xml
