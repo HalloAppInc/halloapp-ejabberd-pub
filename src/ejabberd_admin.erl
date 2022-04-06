@@ -800,7 +800,7 @@ uid_info(Uid, Options) ->
                 [CreationDate, CreationTime, UserAgent]),
             io:format("Last activity on ~s at ~s and current status is ~s~n",
                 [LastActiveDate, LastActiveTime, ActivityStatus]),
-            io:format("Current Version: ~s~n", [Account#account.client_version]),
+            io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id]),
 
             {ok, ContactList, NumFriends} = format_contact_list(Uid),
             ContactList2 = case lists:member(show_all_contacts, Options) of

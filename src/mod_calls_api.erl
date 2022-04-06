@@ -90,7 +90,7 @@ process_get_call_servers(IQ, Uid, PeerUid, CallId, CallType) ->
 
 
 process_start_call(IQ, Uid, PeerUid, CallId, CallType, Offer, RerequestCount, Caps) ->
-    ?INFO("Uid: ~s PeerUid: ~s CallId: ~s ~s RerequestCount: ~p Caps:",
+    ?INFO("Uid: ~s PeerUid: ~s CallId: ~s ~s RerequestCount: ~p Caps: ~p",
         [Uid, PeerUid, CallId, CallType, RerequestCount, Caps]),
 
     {ok, {StunServers, TurnServers}} = mod_calls:start_call(
