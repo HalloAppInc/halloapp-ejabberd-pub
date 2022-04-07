@@ -78,6 +78,7 @@
     set_last_activity/3,
     set_last_ip_and_connection_time/3,
     get_last_ipaddress/1,
+    get_last_connection_time/1,
     set_user_agent/2,
     set_last_registration_ts_ms/2,
     get_signup_user_agent/1,
@@ -708,6 +709,11 @@ get_last_ipaddress(Uid) ->
     {ok, IPAddress} = q(["HGET", account_key(Uid), ?FIELD_LAST_IPADDRESS]),
     util_redis:decode_binary(IPAddress).
 
+
+-spec get_last_connection_time(Uid :: uid()) -> maybe(integer()).
+get_last_connection_time(Uid) ->
+    {ok, LastConnTime} = q(["HGET", account_key(Uid), ?FIELD_LAST_CONNECTION_TIME]),
+    util_redis:decode_ts(LastConnTime).
 
 %%====================================================================
 %% Presence related API
