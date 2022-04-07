@@ -482,30 +482,6 @@ traced_phones_test() ->
     ok.
 
 
-video_call_uids_test() ->
-    setup(),
-    ?assertEqual({ok, []}, model_accounts:get_video_call_uids_list()),
-    ?assertEqual(false, model_accounts:is_video_call_allowed(?UID1)),
-    ?assertEqual(false, model_accounts:is_video_call_allowed(?UID1)),
-
-    model_accounts:add_uid_to_video_call_list(?UID1),
-    ?assertEqual({ok, [?UID1]}, model_accounts:get_video_call_uids_list()),
-    ?assertEqual(true, model_accounts:is_video_call_allowed(?UID1)),
-    ?assertEqual(false, model_accounts:is_video_call_allowed(?UID2)),
-
-    model_accounts:add_uid_to_video_call_list(?UID2),
-    ?assertEqual({ok, [?UID1, ?UID2]}, model_accounts:get_video_call_uids_list()),
-    ?assertEqual(true, model_accounts:is_video_call_allowed(?UID1)),
-    ?assertEqual(true, model_accounts:is_video_call_allowed(?UID2)),
-
-    model_accounts:remove_uid_from_video_call_list(?UID2),
-    model_accounts:remove_uid_from_video_call_list(?UID1),
-    ?assertEqual({ok, []}, model_accounts:get_video_call_uids_list()),
-    ?assertEqual(false, model_accounts:is_video_call_allowed(?UID1)),
-    ?assertEqual(false, model_accounts:is_video_call_allowed(?UID2)),
-    ok.
-
-
 test_counts() ->
     setup(),
     ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),

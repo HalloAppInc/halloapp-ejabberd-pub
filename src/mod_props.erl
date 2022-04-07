@@ -138,15 +138,13 @@ get_uid_based_props(PropMap, Uid) ->
         true ->
             % Set dev to be true.
             PropMap1 = maps:update(dev, true, PropMap),
-            PropMap2 = maps:update(video_calls, true, PropMap1),
-            PropMap3 = maps:update(streaming_sending_enabled, true, PropMap2),
-            PropMap4 = maps:update(call_hold, true, PropMap3),
-            PropMap5 = maps:update(external_sharing, true, PropMap4),
-            PropMap6 = maps:update(draw_media, true, PropMap5),
-            PropMap7 = maps:update(privacy_label, true, PropMap6),
-            PropMap8 = maps:update(krisp_noise_suppression, true, PropMap7),
-            PropMap9 = maps:update(group_comments_notification, true, PropMap8),
-            PropMap9
+            PropMap2 = maps:update(streaming_sending_enabled, true, PropMap1),
+            PropMap3 = maps:update(call_hold, true, PropMap2),
+            PropMap4 = maps:update(external_sharing, true, PropMap3),
+            PropMap5 = maps:update(draw_media, true, PropMap4),
+            PropMap6 = maps:update(privacy_label, true, PropMap5),
+            PropMap7 = maps:update(krisp_noise_suppression, true, PropMap6),
+            PropMap7
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
@@ -187,21 +185,6 @@ apply_uid_prop_overrides(Uid, PropMap) ->
 -spec uid_prop_override(Uid :: uid(), Prop :: atom()) -> undef | term().
 uid_prop_override(<<"1000000000490675850">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
 uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
-
-uid_prop_override(<<"1000000000052736684">>, video_calls) -> true;  %% Sunisha
-uid_prop_override(<<"1000000000503720864">>, video_calls) -> true;  %% Jim Goetz
-uid_prop_override(<<"1000000000925762631">>, video_calls) -> true;  %% Gergana (Nikola)
-uid_prop_override(<<"1000000000122054965">>, video_calls) -> true;  %% Katya (Nikola)
-uid_prop_override(<<"1000000000683067883">>, video_calls) -> true;  %% Madlen (Nikola)
-uid_prop_override(<<"1000000000938575483">>, video_calls) -> true;  %% Pavlina (Nikola)
-uid_prop_override(<<"1000000000940017573">>, video_calls) -> true;  %% Alex Contreras
-
-uid_prop_override(Uid, video_calls) ->
-    case model_accounts:is_video_call_allowed(Uid) of
-        true -> true;
-        false -> undef
-    end;
-
 uid_prop_override(_Uid, _Prop) ->
     undef.
 

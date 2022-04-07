@@ -127,10 +127,6 @@
     mark_inactive_uids_gen_start/0,
     mark_inactive_uids_deletion_start/0,
     mark_inactive_uids_check_start/0,
-    get_video_call_uids_list/0,
-    add_uid_to_video_call_list/1,
-    remove_uid_from_video_call_list/1,
-    is_video_call_allowed/1,
     get_export/1,
     start_export/2,
     test_set_export_time/2, % For tests only
@@ -927,35 +923,6 @@ remove_phone_from_trace(Phone) ->
 is_phone_traced(Phone) ->
     {ok, Res} = q(["SISMEMBER", ?TRACED_PHONES_KEY, Phone]),
     binary_to_integer(Res) == 1.
-
-
-%%====================================================================
-%% Video-Call related API
-%%====================================================================
-
-
--spec get_video_call_uids_list() -> {ok, [binary()]}.
-get_video_call_uids_list() ->
-    {ok, Uids} = q(["SMEMBERS", ?VIDEOCALL_UIDS_KEY]),
-    {ok, Uids}.
-
-
--spec add_uid_to_video_call_list(Uid :: uid()) -> ok.
-add_uid_to_video_call_list(Uid) ->
-    {ok, _Res} = q(["SADD", ?VIDEOCALL_UIDS_KEY, Uid]),
-    ok.
-
-
--spec remove_uid_from_video_call_list(Uid :: uid()) -> ok.
-remove_uid_from_video_call_list(Uid) ->
-    {ok, _Res} = q(["SREM", ?VIDEOCALL_UIDS_KEY, Uid]),
-    ok.
-
-
--spec is_video_call_allowed(Uid :: uid()) -> boolean().
-is_video_call_allowed(Uid) ->
-    {ok, Res} = q(["SISMEMBER", ?VIDEOCALL_UIDS_KEY, Uid]),
-    util_redis:decode_boolean(Res).
 
 
 %%====================================================================
