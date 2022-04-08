@@ -302,7 +302,8 @@ show_expired_error(BlobId, Reason, Format) ->
             Res = #pb_error_stanza{reason = util:to_binary(Reason)},
             {410, ?HEADER(?CT_BIN), enif_protobuf:encode(Res)};
          _ ->
-            HtmlPage = <<?HTML_PRE/binary, Reason/binary, ?HTML_POST/binary>>,
+            ReasonBin = util:to_binary(Reason),
+            HtmlPage = <<?HTML_PRE/binary, ReasonBin/binary, ?HTML_POST/binary>>,
             {410, ?HEADER(?CT_HTML), HtmlPage}
     end.
 
