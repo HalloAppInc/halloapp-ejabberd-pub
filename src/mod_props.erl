@@ -120,7 +120,7 @@ get_props(Uid, ClientVersion) ->
         draw_media => false,
         privacy_label => false,
         krisp_noise_suppression => false,
-        group_comments_notification => true, %% notifications for group comments on posts by non-friends
+        group_comments_notification => false, %% notifications for group comments on posts by non-friends
         invite_strings => get_invite_strings_bin() %% json string with invite text.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
@@ -144,7 +144,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap5 = maps:update(draw_media, true, PropMap4),
             PropMap6 = maps:update(privacy_label, true, PropMap5),
             PropMap7 = maps:update(krisp_noise_suppression, true, PropMap6),
-            PropMap7
+            PropMap8 = maps:update(group_comments_notification, true, PropMap7),
+            PropMap8
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
