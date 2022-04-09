@@ -1,0 +1,15 @@
+{
+    "applinks": {
+        "details": [
+            {
+                "appID": "5M78D698HF.com.halloapp.hallo",
+                "components": [
+                    {
+                        "/": "/*",
+                        "comment": "Matches share links"
+                    }
+                ]
+            }
+        ]
+    }
+}

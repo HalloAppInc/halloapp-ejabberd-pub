@@ -55,11 +55,27 @@
     get_push_name_and_avatar/1
 ]).
 
+-define(APPLE_APP_SITE_ASSOCIATION, <<"apple-app-site-association">>).
+
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
 
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
+%% /share_post/.well-known
+process([<<".well-known">>, FileBin], #request{method = 'GET'} = _R)
+        when FileBin =:= ?APPLE_APP_SITE_ASSOCIATION ->
+    try
+        ?INFO("Well known, file: ~s", [FileBin]),
+        FileName = filename:join(misc:share_post_dir(), FileBin),
+        {200, [?CT_JSON], {file, FileName}}
+    catch
+        error : Reason : Stacktrace ->
+            ?ERROR("logs unknown error: Stacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
+            util_http:return_500()
+    end;
+
 %% /share_post/id
 process([Path],
         #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
