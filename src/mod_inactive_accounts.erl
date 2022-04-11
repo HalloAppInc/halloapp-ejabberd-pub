@@ -26,7 +26,8 @@
     find_inactive_accounts/2,
     find_uids/0,
     check_uids/0,
-    delete_uids/0
+    delete_uids/0,
+    is_any_dev_account/0
 ]).
 
 %%====================================================================
@@ -170,7 +171,13 @@ is_any_dev_account() ->
         ?INFO("Looking for dev account in slot: ~p", [Slot]),
         {ok, List} = model_accounts:get_uids_to_delete(Slot),
         lists:any(fun(Uid) ->
-            lists:member(Uid, dev_users:get_dev_uids())
+            case lists:member(Uid, dev_users:get_dev_uids()) of
+                true ->
+                    ?INFO("Uid: ~p in dev users", [Uid]),
+                    true;
+                false ->
+                    false
+            end
         end,
         List)
     end,

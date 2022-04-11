@@ -15,8 +15,8 @@
 -define(ACCEPTABLE_FRACTION, 0.018).
 
 %% Max number of inactive accounts to act on per redis shard.
--define(MAX_NUM_INACTIVE_PER_SHARD, 300).
+-define(MAX_NUM_INACTIVE_PER_SHARD, 3000).
 
--define(MAX_TO_DELETE_ACCOUNTS, 1000).
+-define(MAX_TO_DELETE_ACCOUNTS, 10000).
 
 -endif.
