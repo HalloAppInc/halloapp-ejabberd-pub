@@ -264,7 +264,7 @@ get_call_config(Uid, PeerUid, _CallType) ->
         audio_jitter_buffer_fast_accelerate = false,    %% Android, iOS
         %% default is `all`
         ice_transport_policy = all,                     %% Android, iOS
-        ice_restart_delay_ms = 1000                     %% iOS.
+        ice_restart_delay_ms = 2000                     %% iOS.
 
     },
     {ok, CallConfig2} = get_uid_based_config(Uid, PeerUid, CallConfig1),
