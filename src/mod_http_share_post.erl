@@ -18,6 +18,7 @@
 -include("account.hrl").
 
 -define(HOTSWAP_DTL_PATH, "/home/ha/pkg/ejabberd/current/lib/zzz_hotswap/dtl").
+-define(NOT_FOUND_DTL, "not_found.dtl").
 -define(NOKEY_POST_DTL, "nokey_post.dtl").
 -define(TEXT_POST_DTL, "text_post.dtl").
 -define(ALBUM_POST_DTL, "album_post.dtl").
@@ -318,8 +319,7 @@ show_expired_error(BlobId, Reason, Format) ->
             Res = #pb_error_stanza{reason = util:to_binary(Reason)},
             {410, ?HEADER(?CT_BIN), enif_protobuf:encode(Res)};
          _ ->
-            ReasonBin = util:to_binary(Reason),
-            HtmlPage = <<?HTML_PRE/binary, ReasonBin/binary, ?HTML_POST/binary>>,
+            {ok, HtmlPage} = dtl_not_found:render([]),
             {410, ?HEADER(?CT_HTML), HtmlPage}
     end.
 
@@ -356,6 +356,13 @@ load_templates() ->
     erlydtl:compile_file(
         NokeyPostPath,
         dtl_nokey_post,
+        [{auto_escape, false}]
+    ),
+    NotFoundPath = dtl_path(?HOTSWAP_DTL_PATH, ?NOT_FOUND_DTL),
+    ?INFO("Loading not found template: ~s", [NotFoundPath]),
+    erlydtl:compile_file(
+        NotFoundPath,
+        dtl_not_found,
         [{auto_escape, false}]
     ),
     TextPostPath = dtl_path(?HOTSWAP_DTL_PATH, ?TEXT_POST_DTL),
