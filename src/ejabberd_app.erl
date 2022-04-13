@@ -51,6 +51,7 @@ start(normal, _Args) ->
         case ejabberd_config:load() of
             ok ->
                 ha_redis:start(),
+                ha_websocket:start(),
                 ?INFO("starting ejabberd_mnesia"),
                 ejabberd_mnesia:start(),
                 file_queue_init(),
