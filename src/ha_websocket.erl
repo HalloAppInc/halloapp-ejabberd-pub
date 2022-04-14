@@ -14,7 +14,8 @@
 start() ->
     ?INFO("start"),
     Dispatch = cowboy_router:compile([{'_', [
-        {"/_ok", cowboy_static, {priv_file, ejabberd, "data/_ok"}},
+        {"/_ok", cowboy_static, {priv_file, ejabberd, "data/_ok",
+            [{mimetypes, {<<"text">>, <<"plain">>, []}}]}},
         {"/websocket", websocket_handler, []}
     ]}]),
     {ok, _} = cowboy:start_clear(http, [{port, 8080}], #{env => #{dispatch => Dispatch}}),

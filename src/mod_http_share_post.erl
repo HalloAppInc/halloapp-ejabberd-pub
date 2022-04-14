@@ -57,6 +57,7 @@
 ]).
 
 -define(APPLE_APP_SITE_ASSOCIATION, <<"apple-app-site-association">>).
+-define(ASSET_LINKS, <<"assetlinks.json">>).
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -65,7 +66,7 @@
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 %% /share_post/.well-known
 process([<<".well-known">>, FileBin], #request{method = 'GET'} = _R)
-        when FileBin =:= ?APPLE_APP_SITE_ASSOCIATION ->
+        when FileBin =:= ?APPLE_APP_SITE_ASSOCIATION orelse FileBin =:= ?ASSET_LINKS->
     try
         ?INFO("Well known, file: ~s", [FileBin]),
         FileName = filename:join(misc:share_post_dir(), FileBin),
