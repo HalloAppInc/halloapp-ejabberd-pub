@@ -74,12 +74,12 @@ user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         [FromUid, PayloadType, ToUid, MsgId, ContentId]),
     Packet1 = set_group_and_sender_info(Packet),
     {Packet1, State};
-user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid, rerequest_count = RerequestCount,
         payload = #pb_group_feed_rerequest{gid = Gid, id = Id,
         rerequest_type = RerequestType, content_type = ContentType}} = Packet, _State} = Acc) ->
     PayloadType = util:get_payload_type(Packet),
-    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s, Id: ~p, Gid: ~p, RerequestType: ~p, ContentType: ~p",
-        [FromUid, PayloadType, ToUid, MsgId, Id, Gid, RerequestType, ContentType]),
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s, Id: ~p, Gid: ~p, RerequestType: ~p, ContentType: ~p, RerequestCount: ~p",
+        [FromUid, PayloadType, ToUid, MsgId, Id, Gid, RerequestType, ContentType, RerequestCount]),
     Acc;
 user_send_packet({_Packet, _State} = Acc) ->
     Acc.
