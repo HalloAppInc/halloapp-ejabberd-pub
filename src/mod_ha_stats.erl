@@ -33,7 +33,8 @@
     add_friend/4,
     remove_friend/3,
     user_send_packet/1,
-    user_receive_packet/1
+    user_receive_packet/1,
+    event_fab_action/1
 ]).
 
 -ifdef(TEST).
@@ -74,6 +75,7 @@ start(Host, Opts) ->
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, user_send_packet, 50),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, user_receive_packet, 50),
     ejabberd_hooks:add(feed_share_old_items, Host, ?MODULE, feed_share_old_items, 50),
+    ejabberd_hooks:add(event_fab_action, ?MODULE, event_push_received, 50),
     gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
     ok.
 
@@ -91,6 +93,7 @@ stop(Host) ->
     ejabberd_hooks:delete(feed_item_retracted, Host, ?MODULE, feed_item_retracted, 50),
     ejabberd_hooks:delete(group_feed_item_retracted, Host, ?MODULE, group_feed_item_retracted, 50),
     ejabberd_hooks:delete(feed_share_old_items, Host, ?MODULE, feed_share_old_items, 50),
+    ejabberd_hooks:delete(event_fab_action, ?MODULE, event_push_received, 50),
     gen_mod:stop_child(?PROC()),
     ok.
 
@@ -462,3 +465,8 @@ report_media_counters(ContentType, MediaCounters) ->
                 [lager:pr_stacktrace(Stacktrace, {Class, Reason})])
     end.
 
+
+event_fab_action(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
+        edata = #pb_fab_action{type = FabActionType}} = Event) ->
+    stat:count("HA/fab_action", "action_type", 1, [{type, FabActionType}]),
+    ok.
