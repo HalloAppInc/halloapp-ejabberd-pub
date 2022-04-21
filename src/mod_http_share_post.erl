@@ -22,6 +22,7 @@
 -define(NOKEY_POST_DTL, "nokey_post.dtl").
 -define(TEXT_POST_DTL, "text_post.dtl").
 -define(ALBUM_POST_DTL, "album_post.dtl").
+-define(GROUP_INVITE_DTL, "group_invite.dtl").
 -define(BOLD_CONTROL_TAG1, "--b--").
 -define(BOLD_CONTROL_TAG1_LEN, length(?BOLD_CONTROL_TAG1)).
 -define(BOLD_CONTROL_TAG2, "--/b--").
@@ -66,11 +67,42 @@
 -spec process(Path :: http_path(), Request :: http_request()) -> http_response().
 %% /share_post/.well-known
 process([<<".well-known">>, FileBin], #request{method = 'GET'} = _R)
-        when FileBin =:= ?APPLE_APP_SITE_ASSOCIATION orelse FileBin =:= ?ASSET_LINKS->
+        when FileBin =:= ?APPLE_APP_SITE_ASSOCIATION orelse FileBin =:= ?ASSET_LINKS ->
     try
         ?INFO("Well known, file: ~s", [FileBin]),
         FileName = filename:join(misc:share_post_dir(), FileBin),
         {200, [?CT_JSON], {file, FileName}}
+    catch
+        error : Reason : Stacktrace ->
+            ?ERROR("logs unknown error: Stacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
+            util_http:return_500()
+    end;
+
+%% /share_post/invite
+process([<<"invite">>], #request{method = 'GET', q = Q} = _R) ->
+    try
+        GroupInviteToken = proplists:get_value(<<"g">>, Q, <<>>),
+        ?INFO("Group invite token: ~s", [GroupInviteToken]),
+        HtmlPage = case mod_groups:web_preview_invite_link(GroupInviteToken) of
+            {error, invalid_invite} ->
+                ?INFO("Invalid Group invite token: ~s", [GroupInviteToken]),
+                {ok, HtmlPage1} = dtl_group_invite:render([]),
+                HtmlPage1;
+            {ok, Name, null} ->
+                {ok, HtmlPage2} = dtl_group_invite:render([
+                    {group_name, Name},
+                    {group_icon, <<"/images/appicon.png">>}
+                ]),
+                HtmlPage2;
+             {ok, Name, Avatar} ->
+                {ok, HtmlPage3} = dtl_group_invite:render([
+                    {group_name, Name},
+                    {group_icon, <<<<"https://avatar-cdn.halloapp.net/">>/binary, Avatar/binary>>}
+                ]),
+                HtmlPage3
+        end,
+        {200, [?CT_HTML], HtmlPage}
     catch
         error : Reason : Stacktrace ->
             ?ERROR("logs unknown error: Stacktrace:~s",
@@ -352,6 +384,13 @@ start(_Host, Opts) ->
     ok.
 
 load_templates() ->
+    GroupInvitePath = dtl_path(?HOTSWAP_DTL_PATH, ?GROUP_INVITE_DTL),
+    ?INFO("Loading group invite template: ~s", [GroupInvitePath]),
+    erlydtl:compile_file(
+        GroupInvitePath,
+        dtl_group_invite,
+        [{auto_escape, false}]
+    ),
     NokeyPostPath = dtl_path(?HOTSWAP_DTL_PATH, ?NOKEY_POST_DTL),
     ?INFO("Loading nokey post template: ~s", [NokeyPostPath]),
     erlydtl:compile_file(
