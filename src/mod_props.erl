@@ -158,13 +158,17 @@ get_client_based_props(PropMap, android, ClientVersion) ->
     PropMap1 = maps:update(voice_notes, Result1, PropMap),
     Result2 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.4">>),
     PropMap2 = maps:update(voice_posts, Result2, PropMap1),
-    PropMap2;
+    Result3 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/Android1.31">>),
+    PropMap3 = maps:update(external_sharing, Result3, PropMap2),
+    PropMap3;
 
 get_client_based_props(PropMap, ios, ClientVersion) ->
     %% All ios versions starting v1.10.167
     Result = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.10.166">>),
     PropMap1 = maps:update(voice_notes, Result, PropMap),
-    PropMap1;
+    Result2 = util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.16.237">>),
+    PropMap2 = maps:update(external_sharing, Result2, PropMap1),
+    PropMap2;
 
 get_client_based_props(PropMap, undefined, _) ->
     maps:update(groups, false, PropMap).
