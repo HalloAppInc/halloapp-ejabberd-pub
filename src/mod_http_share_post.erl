@@ -23,6 +23,7 @@
 -define(TEXT_POST_DTL, "text_post.dtl").
 -define(ALBUM_POST_DTL, "album_post.dtl").
 -define(GROUP_INVITE_DTL, "group_invite.dtl").
+-define(GROUP_INVITE2_DTL, "group_invite2.dtl").
 -define(BOLD_CONTROL_TAG1, "--b--").
 -define(BOLD_CONTROL_TAG1_LEN, length(?BOLD_CONTROL_TAG1)).
 -define(BOLD_CONTROL_TAG2, "--/b--").
@@ -80,10 +81,13 @@ process([<<".well-known">>, FileBin], #request{method = 'GET'} = _R)
     end;
 
 %% /share_post/appclip
-process([<<"appclip">>], #request{method = 'GET', q = Q} = _R) ->
+process([<<"appclip">>], #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
     try
         GroupInviteToken = proplists:get_value(<<"g">>, Q, <<>>),
-        ?INFO("Group invite token: ~s", [GroupInviteToken]),
+        UserAgent = util_http:get_user_agent(Headers),
+        Platform = util_http:get_platform(UserAgent),
+        IP = util_http:get_ip(NetIP, Headers),
+        ?INFO("request Q:~p UserAgent ~p Platform: ~p, IP: ~p", [Q, UserAgent, Platform, IP]),
         HtmlPage = case mod_groups:web_preview_invite_link(GroupInviteToken) of
             {error, invalid_invite} ->
                 ?INFO("Invalid Group invite token: ~s", [GroupInviteToken]),
@@ -95,10 +99,46 @@ process([<<"appclip">>], #request{method = 'GET', q = Q} = _R) ->
                     {group_icon, <<"/images/appicon.png">>}
                 ]),
                 HtmlPage2;
-             {ok, Name, Avatar} ->
+             {ok, Name, AvatarId} ->
                 {ok, HtmlPage3} = dtl_group_invite:render([
                     {group_name, Name},
-                    {group_icon, <<<<"https://avatar-cdn.halloapp.net/">>/binary, Avatar/binary>>}
+                    {group_icon, <<<<"https://avatar-cdn.halloapp.net/">>/binary, AvatarId/binary>>}
+                ]),
+                HtmlPage3
+        end,
+        {200, [?CT_HTML], HtmlPage}
+    catch
+        error : Reason : Stacktrace ->
+            ?ERROR("logs unknown error: Stacktrace:~s",
+                [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
+            util_http:return_500()
+    end;
+
+%% /share_post/invite2
+process([<<"invite2">>], #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
+    try
+        GroupInviteToken = proplists:get_value(<<"g">>, Q, <<>>),
+        UserAgent = util_http:get_user_agent(Headers),
+        Platform = util_http:get_platform(UserAgent),
+        IP = util_http:get_ip(NetIP, Headers),
+        ?INFO("request Q:~p UserAgent ~p Platform: ~p, IP: ~p", [Q, UserAgent, Platform, IP]),
+        HtmlPage = case mod_groups:web_preview_invite_link(GroupInviteToken) of
+            {error, invalid_invite} ->
+                ?INFO("Invalid Group invite token: ~s", [GroupInviteToken]),
+                {ok, HtmlPage1} = dtl_group_invite2:render([]),
+                HtmlPage1;
+            {ok, Name, null} ->
+                {ok, HtmlPage2} = dtl_group_invite2:render([
+                    {group_name, Name},
+                    {group_invite_token, GroupInviteToken},
+                    {group_icon, <<"/images/appicon.png">>}
+                ]),
+                HtmlPage2;
+             {ok, Name, AvatarId} ->
+                {ok, HtmlPage3} = dtl_group_invite2:render([
+                    {group_name, Name},
+                    {group_invite_token, GroupInviteToken},
+                    {group_icon, <<<<"https://avatar-cdn.halloapp.net/">>/binary, AvatarId/binary>>}
                 ]),
                 HtmlPage3
         end,
@@ -191,7 +231,7 @@ decode_key(K) ->
     end.
 
 show_post_content(BlobId, Blob, Uid) ->
-    {PushName, Avatar} = get_push_name_and_avatar(Uid),
+    {PushName, AvatarId} = get_push_name_and_avatar(Uid),
     case enif_protobuf:decode(Blob, pb_client_post_container) of
          {error, Reason} ->
             ?ERROR("Failed to parse share post, BlobId: ~p, err: ~p", [BlobId, Reason]),
@@ -201,8 +241,8 @@ show_post_content(BlobId, Blob, Uid) ->
             Content = case Post of
                 #pb_client_text{} = Text ->
                       ?INFO("BlobId: ~p, Uid: ~p, Push Name: ~p, Avatar: ~p success",
-                          [BlobId, Uid, PushName, Avatar]),
-                      {ok, HtmlPage} = show_text_post_content(Text, PushName, Avatar),
+                          [BlobId, Uid, PushName, AvatarId]),
+                      {ok, HtmlPage} = show_text_post_content(Text, PushName, AvatarId),
                       HtmlPage;
                 #pb_client_album{} = Album ->
                       ?INFO("Album BlobId: ~p success", [BlobId]),
@@ -218,19 +258,19 @@ show_post_content(BlobId, Blob, Uid) ->
 
 show_encrypted_post_content(BlobId, EncBlob, Uid, undefined, Format) ->
     ?INFO("Encrypted BlobId: ~p success", [BlobId]),
-    {PushName, Avatar} = get_push_name_and_avatar(Uid),
+    {PushName, AvatarId} = get_push_name_and_avatar(Uid),
     case Format of
         <<"pb">> ->
             Res = #pb_external_share_post_container{
                 uid = Uid,
                 name = PushName,
-                avatar_id = Avatar,
+                avatar_id = AvatarId,
                 blob = EncBlob
             },
             {200, ?HEADER(?CT_BIN), enif_protobuf:encode(Res)};
         <<>> -> 
             {ok, HtmlPage} = dtl_nokey_post:render([
-                {push_name, PushName}, {avatar, Avatar}, {enc_blob, EncBlob},
+                {push_name, PushName}, {avatar, AvatarId}, {enc_blob, EncBlob},
                 {base64_enc_blob, base64url:encode(EncBlob)}
             ]),
             {200, ?HEADER(?CT_HTML), HtmlPage}
@@ -240,13 +280,13 @@ show_encrypted_post_content(BlobId, EncBlob, Uid, #pb_og_tag_info{
       title = Title, description = Descr, thumbnail_url = Thumbnail,
       thumbnail_width = Width, thumbnail_height = Height} = OgTagInfo, Format) ->
     ?INFO("Encrypted BlobId: ~p success", [BlobId]),
-    {PushName, Avatar} = get_push_name_and_avatar(Uid),
+    {PushName, AvatarId} = get_push_name_and_avatar(Uid),
     case Format of
         <<"pb">> ->
             Res = #pb_external_share_post_container{
                 uid = Uid,
                 name = PushName,
-                avatar_id = Avatar,
+                avatar_id = AvatarId,
                 blob = EncBlob,
                 og_tag_info = OgTagInfo
             },
@@ -255,7 +295,7 @@ show_encrypted_post_content(BlobId, EncBlob, Uid, #pb_og_tag_info{
             {ok, HtmlPage} = dtl_nokey_post:render([
                 {title, Title}, {description, Descr}, {thumbnail_url, Thumbnail},
                 {thumbnail_width, Width}, {thumbnail_height, Height},
-                {push_name, PushName}, {avatar, Avatar}, {enc_blob, EncBlob},
+                {push_name, PushName}, {avatar, AvatarId}, {enc_blob, EncBlob},
                 {base64_enc_blob, base64url:encode(EncBlob)}
             ]),
             {200, ?HEADER(?CT_HTML), HtmlPage}
@@ -270,21 +310,21 @@ get_push_name_and_avatar(Uid) ->
     end.
 
 show_text_post_content(#pb_client_text{text = Text, mentions = undefined, link = undefined},
-        PushName, Avatar) ->
+        PushName, AvatarId) ->
     EscText = escape_html(util:to_list(Text)),
-    dtl_text_post:render([{title, EscText}, {push_name, PushName}, {avatar, Avatar}]);
+    dtl_text_post:render([{title, EscText}, {push_name, PushName}, {avatar, AvatarId}]);
 show_text_post_content(#pb_client_text{text = Text, mentions = Mentions, link = undefined},
-        PushName, Avatar) ->
+        PushName, AvatarId) ->
     FinText = convert_to_html(util:to_list(Text), Mentions),
-    dtl_text_post:render([{title, FinText}, {push_name, PushName}, {avatar, Avatar}]);
+    dtl_text_post:render([{title, FinText}, {push_name, PushName}, {avatar, AvatarId}]);
 show_text_post_content(#pb_client_text{text = Text, mentions = undefined, link = Link},
-        PushName, Avatar) ->
+        PushName, AvatarId) ->
     EscText = escape_html(util:to_list(Text)),
-    dtl_text_post:render([{title, EscText}, {push_name, PushName}, {avatar, Avatar}, {link, Link}]);
+    dtl_text_post:render([{title, EscText}, {push_name, PushName}, {avatar, AvatarId}, {link, Link}]);
 show_text_post_content(#pb_client_text{text = Text, mentions = Mentions, link = Link},
-        PushName, Avatar) ->
+        PushName, AvatarId) ->
     FinText = convert_to_html(util:to_list(Text), Mentions),
-    dtl_text_post:render([{title, FinText}, {push_name, PushName}, {avatar, Avatar}, {link, Link}]).
+    dtl_text_post:render([{title, FinText}, {push_name, PushName}, {avatar, AvatarId}, {link, Link}]).
 
 show_album_post_content(#pb_client_album{text = undefined, media = Media, voice_note = undefined}) ->
     dtl_album_post:render([{media, Media}]);
@@ -377,6 +417,13 @@ load_templates() ->
     erlydtl:compile_file(
         GroupInvitePath,
         dtl_group_invite,
+        [{auto_escape, false}]
+    ),
+    GroupInvite2Path = dtl_path(?HOTSWAP_DTL_PATH, ?GROUP_INVITE2_DTL),
+    ?INFO("Loading group invite template 2: ~s", [GroupInvite2Path]),
+    erlydtl:compile_file(
+        GroupInvite2Path,
+        dtl_group_invite2,
         [{auto_escape, false}]
     ),
     NokeyPostPath = dtl_path(?HOTSWAP_DTL_PATH, ?NOKEY_POST_DTL),

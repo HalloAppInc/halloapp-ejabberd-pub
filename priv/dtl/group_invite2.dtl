@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base href="https://halloapp.com/" target="_blank">
+    <meta name="release" content="refs/tags/v1.20-prod" />
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta name="description" content="" />
+    <title>HalloApp &ndash; Group Invite Link</title>
+    <link rel="stylesheet" href="/css/style.css?1650406723" />
+    <link rel="shortcut icon" type="image/x-icon" href="/images/favicon.ico" />
+
+    <meta property="og:title" content="You are invited to join {{ group_name }}" />
+    <meta property="og:description" content="" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://halloapp.com/invite/" />
+    <meta property="og:image" content="{{ group_icon }}"/>
+
+    <meta name="twitter:card" content="summary_large_image"/>
+    <meta name="twitter:image" content="{{ group_icon }}"/>
+    <meta name="twitter:title" content="You are invited to join {{ group_name }}"/>
+    <meta name="twitter:description" content=""/>
+
+    <meta name="apple-itunes-app" content="app-id=1501583052, app-clip-bundle-id=com.halloapp.hallo.Clip">
+</head>
+<body onload="DetectAndServe()">
+&nbsp;
+  <div class="page-content">
+    <div class="appclip-wrapper">
+        <img src="{{ group_icon }}" class="appclip__icon js-icon" />
+        <div class="appclip__message">You are invited to join <strong class="js-group">{{ group_name }}</strong>.</div>
+        <div class="appclip__cta js-cta-default">Install HalloApp to join</div>
+        <div class="appclip__cta js-cta-safari-14">
+          Tap the <strong>Open</strong> button above to join group.
+        </div>
+        <a href="https://apps.apple.com/us/app/halloapp/id1501583052" target="_blank" class="appclip__store js-appstore" id="app_store_link">
+          <img src="/images/appstore.svg" alt="App Store" class="dl__btn" />
+        </a>
+        <a href="https://play.google.com/store/apps/details?id=com.halloapp&referrer=ginvite-{{ group_invite_token }}" target="_blank" class="appclip__store js-appstore" id="play_store_link">
+          <img src="/images/google-play-badge.svg" alt="Google Play" class="dl__btn" />
+        </a>
+      </div>
+
+      <div class="appclip__trademark">© 2022 HalloApp</div>
+    </div>
+  </div>
+
+<script>
+function getMobileOperatingSystem() {
+    var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    if (/windows phone/i.test(userAgent)) {
+        return "Windows Phone";
+    }
+
+    if (/android/i.test(userAgent)) {
+        return "Android";
+    }
+    
+    if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+        return "iOS";
+    }
+
+    return "unknown";
+}
+
+function DetectAndServe() {
+    let os = getMobileOperatingSystem();
+    var appStoreLink = document.getElementById("app_store_link");
+    var playStoreLink = document.getElementById("play_store_link");
+    if (os == "Android") {
+        appStoreLink.style.display = "none";
+    } else if (os == "iOS") {
+        playStoreLink.style.display = "none";
+    }
+}
+
+  (function() {
+      function shouldDisplayAppClip() {
+        let userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        let match = /(iPad|iPhone|iPod).*\sVersion\/(\d*)/.exec(userAgent)
+        return match && parseInt(match[2]) >= 14
+      }
+
+      if (shouldDisplayAppClip()) {
+        document.querySelector(".js-appstore").remove();
+        document.querySelector(".js-cta-default").remove();
+      } else {
+        document.querySelector(".js-cta-safari-14").remove();
+        document.querySelector("meta[name=apple-itunes-app]").remove();
+      }
+
+      document.body.addEventListener('click', () => {
+        copyToClipboard(location.href);
+      }, true);
+
+      function fallbackCopyToClipboard(text) {
+        let area = document.createElement("textarea");
+        document.body.appendChild(area);
+
+        area.value = text;
+        area.contentEditable = true;
+        area.readOnly = false;
+        area.style.top = "0";
+        area.style.left = "0";
+        area.style.position = "fixed";
+
+        area.focus();
+        area.select();
+
+        let range = document.createRange();
+        range.selectNodeContents(area);
+
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        area.setSelectionRange(0, 999999);
+
+        document.execCommand('copy');
+
+        document.body.removeChild(area);
+      }
+
+      function copyToClipboard(text) {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(text)
+        } else {
+          fallbackCopyToClipboard(text);
+        }
+      }
+    })();
+</script>
+&nbsp;
+</body>
+</html>
