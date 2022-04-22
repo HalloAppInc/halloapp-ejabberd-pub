@@ -32,7 +32,7 @@
       <div class="appclip">
         <img src="{{ group_icon }}" class="appclip__icon js-icon" />
         <div class="appclip__message">You are invited to join <strong class="js-group">{{ group_name }}</strong>.</div>
-        <div class="appclip__cta js-cta-default">Install HalloApp to join group:</div>
+        <div class="appclip__cta js-cta-default">Install HalloApp to join</div>
         <div class="appclip__cta js-cta-safari-14">
           Tap the <strong>Open</strong> button above to join group.
         </div>
