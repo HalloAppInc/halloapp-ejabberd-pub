@@ -79,8 +79,8 @@ process([<<".well-known">>, FileBin], #request{method = 'GET'} = _R)
             util_http:return_500()
     end;
 
-%% /share_post/invite
-process([<<"invite">>], #request{method = 'GET', q = Q} = _R) ->
+%% /share_post/appclip
+process([<<"appclip">>], #request{method = 'GET', q = Q} = _R) ->
     try
         GroupInviteToken = proplists:get_value(<<"g">>, Q, <<>>),
         ?INFO("Group invite token: ~s", [GroupInviteToken]),
