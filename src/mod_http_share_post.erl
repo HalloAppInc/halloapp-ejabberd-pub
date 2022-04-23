@@ -192,8 +192,12 @@ decode_key(K) ->
 
 show_post_content(BlobId, Blob, Uid) ->
     {PushName, Avatar} = get_push_name_and_avatar(Uid),
-    try enif_protobuf:decode(Blob, pb_client_post_container) of
-        #pb_client_post_container{post = Post} ->
+    case enif_protobuf:decode(Blob, pb_client_post_container) of
+         {error, Reason} ->
+            ?ERROR("Failed to parse share post, BlobId: ~p, err: ~p", [BlobId, Reason]),
+            HtmlPage = <<?HTML_PRE/binary, <<"Post Container Parse Error">>/binary, ?HTML_POST/binary>>,
+            {200, ?HEADER(?CT_HTML), HtmlPage};
+         #pb_client_post_container{post = Post} ->
             Content = case Post of
                 #pb_client_text{} = Text ->
                       ?INFO("BlobId: ~p, Uid: ~p, Push Name: ~p, Avatar: ~p success",
@@ -210,11 +214,6 @@ show_post_content(BlobId, Blob, Uid) ->
                       json_encode(Blob)
             end,
             {200, ?HEADER(?CT_HTML), Content}
-    catch Class : Reason : St ->
-        ?ERROR("Failed to parse share post, BlobId: ~p, err: ~p",
-            [BlobId, lager:pr_stacktrace(St, {Class, Reason})]),
-        HtmlPage = <<?HTML_PRE/binary, <<"Post Container Parse Error">>/binary, ?HTML_POST/binary>>,
-        {200, ?HEADER(?CT_HTML), HtmlPage}
     end.
 
 show_encrypted_post_content(BlobId, EncBlob, Uid, undefined, Format) ->
@@ -357,24 +356,13 @@ show_expired_error(BlobId, Reason, Format) ->
     end.
 
 fetch_share_post(BlobId) ->
-    case model_feed:get_external_share_post(BlobId) of
-        {ok, undefined} -> {error, not_found};
-        {ok, Payload} ->
-            try enif_protobuf:decode(Payload, pb_external_share_post_container) of
-                {error, _} ->
-                    ?ERROR("Failed to decode external share post container", []),
-                    {ok, <<"-1">>, Payload, #pb_og_tag_info{}};
-                #pb_external_share_post_container{
-                    uid = Uid,
-                    blob = Blob,
-                    og_tag_info = OgTagInfo
-                } ->
-                    {ok, Uid, Blob, OgTagInfo}
-            catch _:_ ->
-                ?ERROR("Failed to decode external share post container", []),
-                %% return -1 as uid.
-                {ok, <<"-1">>, Payload, #pb_og_tag_info{}}
-            end
+    case mod_external_share_post:get_share_post(BlobId) of
+        {error, Reason} ->
+            ?INFO("Get share post: ~p, error: ~p", [BlobId, Reason]),
+            {error, not_found};
+        {ok, #pb_external_share_post_container{
+                uid = Uid, blob = Blob, og_tag_info = OgTagInfo}} ->
+            {ok, Uid, Blob, OgTagInfo}
     end. 
 
 

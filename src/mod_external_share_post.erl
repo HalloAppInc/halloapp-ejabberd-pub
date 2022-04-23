@@ -21,6 +21,7 @@
 %% Hooks and API.
 -export([
     process_local_iq/1,
+    get_share_post/1,
     store_share_post/5  %% for testing
 ]).
 
@@ -123,7 +124,9 @@ store_share_post(Uid, PostBlob, ExpireIn, OgTagInfo, Iter) ->
             {error, protobuf_encode_error};
         EncPostContainer ->
             case model_feed:store_external_share_post(BlobId, EncPostContainer, ExpireIn) of
-                true -> {ok, BlobId};
+                true ->
+                    stat:count("HA/share_post", "store"),
+                    {ok, BlobId};
                 false ->
                     ?INFO("BlobId: ~s already exists, trying again, Iter: ~p", [BlobId, Iter + 1]),
                     store_share_post(Uid, PostBlob, ExpireIn, OgTagInfo, Iter + 1)
@@ -134,12 +137,14 @@ store_share_post(Uid, PostBlob, ExpireIn, OgTagInfo, Iter) ->
 -spec delete_share_post(Uid :: uid(), BlobId :: binary()) -> ok | {error, any()}.
 delete_share_post(Uid, BlobId) ->
     ?INFO("Uid: ~s, BlobId: ~s", [Uid, BlobId]),
+    stat:count("HA/share_post", "delete"),
     ok = model_feed:delete_external_share_post(BlobId),
     ok.
 
 -spec get_share_post(BlobId :: binary()) -> {ok, pb_external_share_post_container()} | {error, any()}.
 get_share_post(BlobId) ->
     ?INFO("BlobId: ~s", [BlobId]),
+    stat:count("HA/share_post", "get"),
     case model_feed:get_external_share_post(BlobId) of
         {ok, undefined} -> {error, not_found};
         {ok, Blob} ->
@@ -149,6 +154,6 @@ get_share_post(BlobId) ->
                     {error, protbuf_decode_error};
                 Pkt ->
                     {ok, Pkt}
-              end
+            end
     end.
 
