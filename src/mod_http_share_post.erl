@@ -114,8 +114,8 @@ process([<<"appclip">>], #request{method = 'GET', q = Q, ip = {NetIP, _Port}, he
             util_http:return_500()
     end;
 
-%% /share_post/invite2
-process([<<"invite2">>], #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
+%% /share_post/invite
+process([<<"invite">>], #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
     try
         GroupInviteToken = proplists:get_value(<<"g">>, Q, <<>>),
         UserAgent = util_http:get_user_agent(Headers),
