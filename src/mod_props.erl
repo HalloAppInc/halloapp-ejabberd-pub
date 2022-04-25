@@ -143,7 +143,7 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap4 = maps:update(external_sharing, true, PropMap3),
             PropMap5 = maps:update(draw_media, true, PropMap4),
             PropMap6 = maps:update(privacy_label, true, PropMap5),
-            PropMap7 = maps:update(krisp_noise_suppression, true, PropMap6)
+            PropMap7 = maps:update(krisp_noise_suppression, true, PropMap6),
             PropMap7
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
