@@ -506,12 +506,13 @@ process_join_with_invite_link(IQ, Uid, Link) ->
             ?WARNING("Uid: ~s Link: ~s failed ~p", [Uid, Link, Reason]),
             pb:make_error(IQ, util:err(Reason));
         {ok, Group} ->
-            ?INFO("Uid: ~s success Link: ~s",
-                [Uid, Link]),
+            Gid = Group#group.gid,
+            ?INFO("Uid: ~s success Link: ~s, Gid: ~s",
+                [Uid, Link, Gid]),
             ha_events:log_user_event(Uid, group_invite_accepted),
             PB = #pb_group_invite_link{
                 action = join,
-                gid = Group#group.gid,
+                gid = Gid,
                 link = Link,
                 group = make_group_st(Group, join)
             },
