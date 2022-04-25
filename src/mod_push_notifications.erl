@@ -264,7 +264,7 @@ push_marketing_alert(Uid, AlertType) ->
 
 event_push_received(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
         edata = #pb_push_received{id = Id}} = Event) ->
-    ?INFO("Uid: ~s Platform: ~s CC: ~s PushId: ~s", [UidInt, Platform, CC, Id]),
+    ?INFO("Uid: ~p Platform: ~s CC: ~s PushId: ~s", [UidInt, Platform, CC, Id]),
     Event;
 event_push_received(Event) ->
     Event.

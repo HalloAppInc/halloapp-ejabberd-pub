@@ -290,8 +290,8 @@ process([<<"clickatell">>],
         Currency = <<"TBD">>,
         Status = util:to_integer_maybe(maps:get(<<"messageStatus">>, Data2)),
         Status2 = clickatell:normalized_status(Status),
-        ?INFO("Delivery receipt Clickatell: Phone(to): ~s Status: ~s "
-              "Status2: ~p MessageId: ~s Charge: ~s ApiId: ~s Timestamp: ~s",
+        ?INFO("Delivery receipt Clickatell: Phone(to): ~s Status: ~p "
+              "Status2: ~p MessageId: ~s Charge: ~p ApiId: ~p Timestamp: ~p",
             [To, Status, Status2, MessageId, Charge, ApiId, Timestamp]),
         add_gateway_callback_info(
             #gateway_response{gateway_id = MessageId, gateway = clickatell, status = Status2,
@@ -348,7 +348,7 @@ process([<<"telesign">>],
         Mcc = maps:get(<<"mcc">>, AdditionalInfo),
         SubmitTimestamp = maps:get(<<"submit_timestamp">>, Payload),
         %% TODO(vipin): Need to check auth to make sure we get legitimate callbacks.
-        ?INFO("Delivery receipt Telesign: Status: ~p StatusDescr: ~s MsgId: ~s Price: ~s(~s) "
+        ?INFO("Delivery receipt Telesign: Status: ~p StatusDescr: ~s MsgId: ~s Price: ~p(~s) "
             "Mnc: ~s Mcc: ~s SubmitTimestamp: ~s",
             [Status, StatusDescription, ReferenceId, Price, Currency, Mnc, Mcc, SubmitTimestamp]),
         add_gateway_callback_info(
