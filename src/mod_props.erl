@@ -121,6 +121,7 @@ get_props(Uid, ClientVersion) ->
         privacy_label => false,
         krisp_noise_suppression => false,
         group_comments_notification => true, %% notifications for group comments by friends on group posts.
+        nse_runtime_sec => 17, %% ios-nse needs 3 secs to cleanup, we want our nse to run =< 20 secs.
         invite_strings => get_invite_strings_bin() %% json string with invite text.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
