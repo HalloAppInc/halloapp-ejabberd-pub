@@ -22,7 +22,6 @@
 -define(NOKEY_POST_DTL, "nokey_post.dtl").
 -define(TEXT_POST_DTL, "text_post.dtl").
 -define(ALBUM_POST_DTL, "album_post.dtl").
--define(GROUP_INVITE_DTL, "group_invite.dtl").
 -define(GROUP_INVITE2_DTL, "group_invite2.dtl").
 -define(BOLD_CONTROL_TAG1, "--b--").
 -define(BOLD_CONTROL_TAG1_LEN, length(?BOLD_CONTROL_TAG1)).
@@ -80,41 +79,10 @@ process([<<".well-known">>, FileBin], #request{method = 'GET'} = _R)
             util_http:return_500()
     end;
 
-%% /share_post/appclip
-process([<<"appclip">>], #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
-    try
-        GroupInviteToken = proplists:get_value(<<"g">>, Q, <<>>),
-        UserAgent = util_http:get_user_agent(Headers),
-        Platform = util_http:get_platform(UserAgent),
-        IP = util_http:get_ip(NetIP, Headers),
-        ?INFO("request Q:~p UserAgent ~p Platform: ~p, IP: ~p", [Q, UserAgent, Platform, IP]),
-        HtmlPage = case mod_groups:web_preview_invite_link(GroupInviteToken) of
-            {error, invalid_invite} ->
-                ?INFO("Invalid Group invite token: ~s", [GroupInviteToken]),
-                {ok, HtmlPage1} = dtl_group_invite:render([]),
-                HtmlPage1;
-            {ok, Name, null} ->
-                {ok, HtmlPage2} = dtl_group_invite:render([
-                    {group_name, Name},
-                    {group_icon, <<"/images/appicon.png">>}
-                ]),
-                HtmlPage2;
-             {ok, Name, AvatarId} ->
-                {ok, HtmlPage3} = dtl_group_invite:render([
-                    {group_name, Name},
-                    {group_icon, <<<<"https://avatar-cdn.halloapp.net/">>/binary, AvatarId/binary>>}
-                ]),
-                HtmlPage3
-        end,
-        {200, [?CT_HTML], HtmlPage}
-    catch
-        error : Reason : Stacktrace ->
-            ?ERROR("logs unknown error: Stacktrace:~s",
-                [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
-            util_http:return_500()
-    end;
-
-%% /share_post/invite
+%% https://halloapp.com/invite?g=ABCDEF in our group invite urls.
+%% from the halloapp.com CDN we server /invite pages from the Origin
+%% https://api.halloapp.net/share_post/invite?g=ABCDEF which is handled here.
+%%% /share_post/invite
 process([<<"invite">>], #request{method = 'GET', q = Q, ip = {NetIP, _Port}, headers = Headers} = _R) ->
     try
         GroupInviteToken = proplists:get_value(<<"g">>, Q, <<>>),
@@ -412,13 +380,6 @@ start(_Host, Opts) ->
     ok.
 
 load_templates() ->
-    GroupInvitePath = dtl_path(?HOTSWAP_DTL_PATH, ?GROUP_INVITE_DTL),
-    ?INFO("Loading group invite template: ~s", [GroupInvitePath]),
-    erlydtl:compile_file(
-        GroupInvitePath,
-        dtl_group_invite,
-        [{auto_escape, false}]
-    ),
     GroupInvite2Path = dtl_path(?HOTSWAP_DTL_PATH, ?GROUP_INVITE2_DTL),
     ?INFO("Loading group invite template 2: ~s", [GroupInvite2Path]),
     erlydtl:compile_file(

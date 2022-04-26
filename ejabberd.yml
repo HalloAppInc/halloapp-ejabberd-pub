@@ -66,7 +66,6 @@ listen:
     request_handlers:
       /.well-known: mod_http_well_known
       /invite/.well-known: mod_http_well_known
-      /invite: mod_http_invite
       /share_post: mod_http_share_post
       /share_media: mod_http_share_media
       /export: mod_http_export
