@@ -144,15 +144,17 @@ delete_share_post(Uid, BlobId) ->
 -spec get_share_post(BlobId :: binary()) -> {ok, pb_external_share_post_container()} | {error, any()}.
 get_share_post(BlobId) ->
     ?INFO("BlobId: ~s", [BlobId]),
-    stat:count("HA/share_post", "get"),
     case model_feed:get_external_share_post(BlobId) of
-        {ok, undefined} -> {error, not_found};
+        {ok, undefined} ->
+            ?INFO("Blob not found: ~s", [BlobId]),
+            {error, not_found};
         {ok, Blob} ->
             case enif_protobuf:decode(Blob, pb_external_share_post_container) of
                 {error, Reason} ->
-                    ?ERROR("Unable to encode, error: ~p", [Reason]),
+                    ?ERROR("Unable to decode blob: ~s, error: ~p", [BlobId, Reason]),
                     {error, protbuf_decode_error};
                 Pkt ->
+                    stat:count("HA/share_post", "get"),
                     {ok, Pkt}
             end
     end.
