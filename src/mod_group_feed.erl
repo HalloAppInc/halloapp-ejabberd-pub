@@ -344,7 +344,8 @@ retract_post(Gid, Uid, PostId, GroupFeedSt) ->
                         false -> {error, not_authorized};
                         true ->
                             AudienceList = ExistingPost#post.audience_list,
-                            AudienceSet = sets:from_list(AudienceList),
+                            GroupMembers = model_groups:get_member_uids(Gid),
+                            AudienceSet = sets:from_list(AudienceList ++ GroupMembers),
                             PushSet = sets:new(),
                             GroupInfo = model_groups:get_group_info(Gid),
                             {ok, SenderName} = model_accounts:get_name(Uid),
@@ -384,7 +385,8 @@ retract_comment(Gid, Uid, CommentId, PostId, GroupFeedSt) ->
                         false -> {error, not_authorized};
                         true ->
                             AudienceList = Post#post.audience_list,
-                            AudienceSet = sets:from_list(AudienceList),
+                            GroupMembers = model_groups:get_member_uids(Gid),
+                            AudienceSet = sets:from_list(AudienceList ++ GroupMembers),
                             PushSet = sets:new(),
                             GroupInfo = model_groups:get_group_info(Gid),
                             {ok, SenderName} = model_accounts:get_name(Uid),
