@@ -99,12 +99,11 @@ function DetectAndServe() {
 
         area.value = text;
         area.contentEditable = true;
-        area.readOnly = false;
+        area.readOnly = true;
         area.style.top = "0";
         area.style.left = "0";
         area.style.position = "fixed";
 
-        area.focus();
         area.select();
 
         let range = document.createRange();
