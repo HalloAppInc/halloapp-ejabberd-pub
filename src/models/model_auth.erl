@@ -28,7 +28,11 @@
     delete_spub/1,
     lock_user/1,
     unlock_user/1,
-    set_login/1
+    set_login/1,
+    authenticate_static_key/2,
+    delete_static_key/2,
+    get_static_keys/1,
+    get_static_key_uid/1
 ]).
 
 %%====================================================================
@@ -38,6 +42,8 @@
 -define(FIELD_TIMESTAMP_MS, <<"tms">>).
 -define(FIELD_S_PUB, <<"spb">>).
 -define(FIELD_LOGIN_STATUS, <<"log">>).
+
+-define(FIELD_STATIC_KEY_UID, <<"sku">>).
 
 
 -spec set_spub(Uid :: binary(), SPub :: binary()) -> ok  | {error, any()}.
@@ -97,9 +103,37 @@ delete_spub(Uid) ->
     {ok, _Res} = q(["DEL", spub_key(Uid)]),
     ok.
 
+%% TODO(vipin): Delete the mapping from Uid to StaticKey if not needed.
+-spec authenticate_static_key(Uid :: uid(), StaticKey :: binary()) -> ok.
+authenticate_static_key(Uid, StaticKey) ->
+    ListKey = static_key_key(Uid),
+    RevStaticKey = reverse_static_key_key(StaticKey),
+    _Results = qmn([["SADD", ListKey, StaticKey],
+                    ["HSET", RevStaticKey, ?FIELD_STATIC_KEY_UID, Uid] ]),  
+    ok.
+
+-spec delete_static_key(Uid :: uid(), StaticKey :: binary()) -> ok.
+delete_static_key(Uid, StaticKey) ->
+    ListKey = static_key_key(Uid),
+    RevStaticKey = reverse_static_key_key(StaticKey),
+    _Results = qmn([["SREM", ListKey, StaticKey],
+                    ["HDEL", RevStaticKey, ?FIELD_STATIC_KEY_UID]]),  
+    ok.
+
+-spec get_static_keys(Uid :: uid()) -> {ok, [binary()]}.
+get_static_keys(Uid) ->
+    ListKey = static_key_key(Uid),
+    q(["SMEMBERS", ListKey]).
+
+-spec get_static_key_uid(StaticKey :: binary()) -> {ok, binary()}.
+get_static_key_uid(StaticKey) ->
+    RevStaticKey = reverse_static_key_key(StaticKey),
+    q(["HGET", RevStaticKey, ?FIELD_STATIC_KEY_UID]).
+
 
 q(Command) -> ecredis:q(ecredis_auth, Command).
 qp(Commands) -> ecredis:qp(ecredis_auth, Commands).
+qmn(Commands) -> util_redis:run_qmn(ecredis_auth, Commands).
 
 
 multi_exec(Commands) ->
@@ -112,4 +146,11 @@ multi_exec(Commands) ->
 -spec spub_key(binary()) -> binary().
 spub_key(Uid) ->
     <<?SPUB_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+static_key_key(Uid) ->
+    <<?STATIC_KEY_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+reverse_static_key_key(StaticKey) ->
+    <<?REVERSE_STATIC_KEY_KEY/binary, <<"{">>/binary, StaticKey/binary, <<"}">>/binary>>.
+
 

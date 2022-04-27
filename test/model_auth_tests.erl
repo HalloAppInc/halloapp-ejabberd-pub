@@ -27,6 +27,9 @@ clear() ->
 -define(UID2, <<"2">>).
 -define(SPUB2, <<"spub2">>).
 
+-define(STATIC_KEY1, <<"static_key1">>).
+-define(STATIC_KEY2, <<"static_key2">>).
+
 
 spub_key_test() ->
     ?assertEqual(<<"spb:{1}">>, model_auth:spub_key(?UID1)).
@@ -64,4 +67,20 @@ delete_spub_test() ->
     ok = model_auth:delete_spub(?UID1),
     {ok, NoSPub} = model_auth:get_spub(?UID1),
     ?assertEqual(no_spub(?UID1), NoSPub).
+
+webclient_info_test() ->
+    setup(),
+    {ok, []} = model_auth:get_static_keys(?UID1),
+    ok = model_auth:authenticate_static_key(?UID1, ?STATIC_KEY1),
+    {ok, [?STATIC_KEY1]} = model_auth:get_static_keys(?UID1),
+    ok = model_auth:authenticate_static_key(?UID1, ?STATIC_KEY2),
+    {ok, ListKeys} = model_auth:get_static_keys(?UID1),
+    ?assertEqual(sets:from_list([?STATIC_KEY2, ?STATIC_KEY1]), sets:from_list(ListKeys)),
+    {ok, ?UID1} = model_auth:get_static_key_uid(?STATIC_KEY1),
+    {ok, ?UID1} = model_auth:get_static_key_uid(?STATIC_KEY2),
+    ok = model_auth:delete_static_key(?UID1, ?STATIC_KEY2),
+    {ok, [?STATIC_KEY1]} = model_auth:get_static_keys(?UID1),
+    {ok, ?UID1} = model_auth:get_static_key_uid(?STATIC_KEY1),
+    {ok, undefined} = model_auth:get_static_key_uid(?STATIC_KEY2),
+    ok.
 

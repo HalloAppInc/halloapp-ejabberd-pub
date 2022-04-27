@@ -56,6 +56,10 @@
 
 -define(MARKETING_TAG_KEY, <<"mta:">>).
 
+-define(STATIC_KEY_KEY, <<"skk:">>).
+
+-define(REVERSE_STATIC_KEY_KEY, <<"rskk:">>).
+
 % old deleted/deprecated keys
 %%-define(INVITES_KEY, <<"inv:">>).
 
@@ -161,6 +165,8 @@
 %% RedisSessions
 -define(PID_KEY, <<"p:">>).
 -define(SESSIONS_KEY, <<"ss:">>).
+
+-define(STATIC_KEY_SESSIONS_KEY, <<"sks:">>).
 
 % cluster key store in RedisSessions
 -define(CLUSTER_KEY, <<"cluster_nodes:">>).

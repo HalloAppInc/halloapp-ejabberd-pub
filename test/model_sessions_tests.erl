@@ -14,6 +14,8 @@
 -define(PID1, list_to_pid("<0.1.0>")).
 -define(PID2, list_to_pid("<0.2.0>")).
 
+-define(STATIC_KEY1, <<"static_key1">>).
+
 -define(SERVER, <<"s.halloapp.net">>).
 -define(RESOURCE1, <<"android">>).
 -define(RESOURCE2, <<"ios">>).
@@ -97,6 +99,19 @@ del_sessions2_test() ->
     ?assertEqual([], model_session:get_sessions(?UID1)),
     ok.
 
+static_key_session_test() ->
+    setup(),
+    Session1 = make_session(?PID1),
+    Session2 = make_session(?PID2),
+    ?assertEqual(ok, model_session:set_static_key_session(?STATIC_KEY1, Session1)),
+    ?assertEqual(ok, model_session:set_static_key_session(?STATIC_KEY1, Session2)),
+    ?assertEqual(lists:sort([Session1, Session2]),
+        lists:sort(model_session:get_static_key_sessions(?STATIC_KEY1))),
+    ?assertEqual(ok, model_session:del_static_key_session(?STATIC_KEY1, Session1)),
+    ?assertEqual([Session2], model_session:get_static_key_sessions(?STATIC_KEY1)),
+    ?assertEqual(ok, model_session:del_static_key_session(?STATIC_KEY1, Session2)),
+    ?assertEqual([], model_session:get_static_key_sessions(?STATIC_KEY1)),
+    ok.
 
 make_session(Uid, Pid, Mode) ->
     #session{
@@ -106,5 +121,10 @@ make_session(Uid, Pid, Mode) ->
         us = {Uid, ?SERVER},
         usr = {Uid, ?SERVER, ?RESOURCE1},
         mode = Mode
+    }.
+
+make_session(Pid) ->
+    #session{
+        sid = {erlang:timestamp(), Pid}
     }.
 

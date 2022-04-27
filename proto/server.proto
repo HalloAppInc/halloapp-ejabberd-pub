@@ -759,6 +759,25 @@ message ExternalSharePostContainer {
     string avatar_id = 5;
 }
 
+message WebClientInfo {
+    enum Action {
+        UNKNOWN_ACTION = 0;
+        ADD_KEY = 1;  // Used by web client
+        IS_KEY_AUTHENTICATED = 2;  // Used by web client
+        AUTHENTICATE_KEY = 3;   // Used by mobile client
+        REMOVE_KEY = 4;   // Used by web client and mobile client
+    }
+    Action action = 1;
+    bytes static_key = 2;
+    enum Result {
+        UNKNOWN = 0;
+        OK = 1;
+        AUTHENTICATED = 2;
+        NOT_AUTHENTICATED = 3;
+    }
+    Result result = 3;
+}
+
 // IQ
 
 message Iq {
@@ -810,6 +829,7 @@ message Iq {
         TruncWhisperKeysCollection trunc_whisper_keys_collection = 42;
         ExternalSharePost external_share_post = 43;
         ExternalSharePostContainer external_share_post_container = 44;
+        WebClientInfo web_client_info = 45;
     }
     int64 to_uid = 29 [ebin = true];    // only for server use
     int64 from_uid = 30 [ebin = true];    // only for server use
