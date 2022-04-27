@@ -668,7 +668,8 @@ join_with_invite_link(Uid, Link) ->
         undefined -> {error, invalid_invite};
         Gid ->
             GroupSize = model_groups:get_group_size(Gid),
-            IsSizeExceeded = GroupSize + 1 > ?MAX_GROUP_SIZE,
+            MaxGroupSize = get_max_group_size(Gid),
+            IsSizeExceeded = GroupSize + 1 > MaxGroupSize,
             IsMember = model_groups:is_member(Gid, Uid),
             WasRemoved = model_groups:is_removed_member(Gid, Uid),
             if
@@ -715,7 +716,8 @@ create_group_internal(Uid, GroupName) ->
             -> modify_member_results().
 add_members_unsafe(Gid, Uid, MemberUids) ->
     GroupSize = model_groups:get_group_size(Gid),
-    case GroupSize + length(MemberUids) > ?MAX_GROUP_SIZE of
+    MaxGroupSize = get_max_group_size(Gid),
+    case GroupSize + length(MemberUids) > MaxGroupSize of
         true ->
             % Group size will be exceeded.
             [{Ouid, add, max_group_size} || Ouid <- MemberUids];
@@ -1159,4 +1161,10 @@ is_user_group_count_exceeded(Uid) ->
 is_user_group_counts_exceeded(Uids) ->
     UserGroupCounts = model_groups:get_group_counts(Uids),
     maps:map(fun(_Uid, GroupCount) -> GroupCount + 1 > ?MAX_GROUP_COUNT end, UserGroupCounts).
+
+
+-spec get_max_group_size(Gid :: gid()) -> integer().
+%% Increase travel group limit to 100.
+get_max_group_size(<<"gymN8HgS1F5ueq3WRZEz2K">>) -> ?MAX_PREMIUM_GROUP_SIZE;
+get_max_group_size(Gid) -> ?MAX_GROUP_SIZE.
 
