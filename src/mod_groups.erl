@@ -63,6 +63,8 @@
 -define(MAX_GROUP_DESCRIPTION_SIZE, 500).   %% 500 utf8 characters
 -define(MAX_BG_LENGTH, 64).
 
+-define(MAX_PREMIUM_GROUP_SIZE, 100).
+
 -define(STAT_NS, "HA/groups").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
