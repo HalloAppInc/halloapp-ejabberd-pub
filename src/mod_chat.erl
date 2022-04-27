@@ -53,6 +53,13 @@ mod_options(_Host) ->
 %%====================================================================
 
 user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
+        payload = #pb_rerequest{id = Id, content_type = ContentType}} = Packet, _State} = Acc) ->
+    PayloadType = util:get_payload_type(Packet),
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s, Id: ~p, ContentType: ~p",
+        [FromUid, PayloadType, ToUid, MsgId, Id, ContentType]),
+    Acc;
+
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         payload = Payload} = Packet, State} = _Acc) ->
     LServer = util:get_host(),
     PayloadType = util:get_payload_type(Packet),
