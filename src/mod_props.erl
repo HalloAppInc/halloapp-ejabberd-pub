@@ -190,6 +190,7 @@ apply_uid_prop_overrides(Uid, PropMap) ->
 -spec uid_prop_override(Uid :: uid(), Prop :: atom()) -> undef | term().
 uid_prop_override(<<"1000000000490675850">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
 uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
+uid_prop_override(<<"1000000000244386007">>, krisp_noise_suppression) -> true;  %% Babken@krisp (krisp)
 uid_prop_override(_Uid, _Prop) ->
     undef.
 
