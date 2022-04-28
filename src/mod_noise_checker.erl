@@ -40,12 +40,15 @@ do_noise_logins() ->
 
 
 do_noise_login({Name, Host, Port}, Version) ->
+    NoiseUid = get_uid(),
     %% Does XX noise login
     KeyPair = {kp, dh25519, get_secret_key(), get_public_key()},
     Options = #{host => Host, port => Port, version => Version, resource => <<"iphone">>, monitor => true},
-    try ha_client:connect_and_login(get_uid(), KeyPair, Options) of
+    try ha_client:connect_and_login(NoiseUid, KeyPair, Options) of
         {ok, Pid} ->
             gen_server:stop(Pid),
+            TimestampMs = util:now_ms(),
+            model_accounts:set_last_activity(NoiseUid, TimestampMs, available),
             record_state(Host, ?ALIVE_STATE);
         {error, Err} ->
             ?WARNING("Noise login error on ~s (~s): ~p", [Name, Host, Err]),
@@ -256,11 +259,11 @@ get_uid() ->
 
 
 get_public_key() ->
-    RawKey = mod_aws:get_secret_value(<<"mod_noise_checker">>, <<"public_ec_key">>),
-    base64url:decode(RawKey).
+    RawKey = mod_aws:get_secret_value(<<"mod_noise_checker">>, <<"public_ec_key_base64">>),
+    base64:decode(RawKey).
 
 
 get_secret_key() ->
-    RawKey = mod_aws:get_secret_value(<<"mod_noise_checker">>, <<"secret_ec_key">>),
-    base64url:decode(RawKey).
+    RawKey = mod_aws:get_secret_value(<<"mod_noise_checker">>, <<"secret_ec_key_base64">>),
+    base64:decode(RawKey).
 
