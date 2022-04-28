@@ -103,6 +103,7 @@ store_share_post(_Uid, _PostBlob, undefined, _OgTagInfo, _Iter) ->
 store_share_post(_Uid, _PostBlob, ExpireIn, _OgTagInfo, _Iter) when ExpireIn =< 0 orelse ExpireIn > ?POST_EXPIRATION ->
     {error, invalid_expires_in};
 store_share_post(Uid, PostBlob, ExpireIn, OgTagInfo, Iter) ->
+    IsDev = dev_users:is_dev_uid(Uid),
     Title = case OgTagInfo of
         undefined -> undefined;
         _ -> OgTagInfo#pb_og_tag_info.title
@@ -126,6 +127,7 @@ store_share_post(Uid, PostBlob, ExpireIn, OgTagInfo, Iter) ->
             case model_feed:store_external_share_post(BlobId, EncPostContainer, ExpireIn) of
                 true ->
                     stat:count("HA/share_post", "store"),
+                    stat:count("HA/share_post_by_dev", "store", 1, [{is_dev, IsDev}]),
                     {ok, BlobId};
                 false ->
                     ?INFO("BlobId: ~s already exists, trying again, Iter: ~p", [BlobId, Iter + 1]),
