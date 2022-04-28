@@ -167,18 +167,30 @@ get_stun_turn_servers() ->
 
 
 -spec get_stun_turn_servers(CallId :: binary(), Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
-    -> {ok, {list(pb_stun_server()), list(pb_turn_server())}}.
+    -> {list(pb_stun_server()), list(pb_turn_server())}.
 get_stun_turn_servers(CallId, Uid, PeerUid, CallType) ->
-    CallHash = call_id_hash(CallId),
-    case CallHash rem 2 =:= 0 of
+    MachineName = util:get_machine_name(),
+    IsDevInvolvedInCall = dev_users:is_dev_uid(Uid) orelse dev_users:is_dev_uid(PeerUid),
+    case IsDevInvolvedInCall andalso MachineName =:= <<"s-test">> of
         true ->
+            {Stun1, Turn1} = get_ha_stun_turn_servers(Uid, PeerUid, CallType),
             case get_cloudflare_servers() of
-                {ok, Result} -> Result;
-                {error, _} -> get_ha_stun_turn_servers(Uid, PeerUid, CallType)
+                {ok, {Stun2, Turn2}} -> {Stun1 ++ Stun2, Turn1 ++ Turn2};
+                {error, _} -> {Stun1, Turn1}
             end;
         false ->
-            get_ha_stun_turn_servers(Uid, PeerUid, CallType)
+            CallHash = call_id_hash(CallId),
+            case CallHash rem 2 =:= 0 of
+                true ->
+                    case get_cloudflare_servers() of
+                        {ok, Result} -> Result;
+                        {error, _} -> get_ha_stun_turn_servers(Uid, PeerUid, CallType)
+                    end;
+                false ->
+                    get_ha_stun_turn_servers(Uid, PeerUid, CallType)
+            end
     end.
+
 
 -spec call_id_hash(CallId :: binary()) -> integer().
 call_id_hash(CallId) ->
