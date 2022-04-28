@@ -139,7 +139,9 @@ store_share_post(Uid, PostBlob, ExpireIn, OgTagInfo, Iter) ->
 -spec delete_share_post(Uid :: uid(), BlobId :: binary()) -> ok | {error, any()}.
 delete_share_post(Uid, BlobId) ->
     ?INFO("Uid: ~s, BlobId: ~s", [Uid, BlobId]),
+    IsDev = dev_users:is_dev_uid(Uid),
     stat:count("HA/share_post", "delete"),
+    stat:count("HA/share_post_by_dev", "delete", 1, [{is_dev, IsDev}]),
     ok = model_feed:delete_external_share_post(BlobId),
     ok.
 
