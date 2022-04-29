@@ -1168,5 +1168,5 @@ is_user_group_counts_exceeded(Uids) ->
 -spec get_max_group_size(Gid :: gid()) -> integer().
 %% Increase travel group limit to 100.
 get_max_group_size(<<"gymN8HgS1F5ueq3WRZEz2K">>) -> ?MAX_PREMIUM_GROUP_SIZE;
-get_max_group_size(Gid) -> ?MAX_GROUP_SIZE.
+get_max_group_size(_Gid) -> ?MAX_GROUP_SIZE.
 

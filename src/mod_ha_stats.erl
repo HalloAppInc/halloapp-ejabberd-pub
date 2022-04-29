@@ -466,7 +466,7 @@ report_media_counters(ContentType, MediaCounters) ->
     end.
 
 
-event_fab_action(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
+event_fab_action(#pb_event_data{uid = _UidInt, platform = _Platform, cc = _CC,
         edata = #pb_fab_action{type = FabActionType}} = Event) ->
     stat:count("HA/fab_action", "action_type", 1, [{type, FabActionType}]),
     Event;
