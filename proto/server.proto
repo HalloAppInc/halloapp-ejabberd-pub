@@ -1084,20 +1084,27 @@ message GroupFeedRerequest {
 // Home Feed Rerequest
 
 message HomeFeedRerequest {
-  // Post id or Comment id.
-  string id = 1;
+    // Post id or Comment id.
+    string id = 1;
 
-  // To capture the type of decryption failure.
-  enum RerequestType {
-      UNKNOWN_TYPE = 0;
+    // To capture the type of decryption failure.
+    enum RerequestType {
+        UNKNOWN_TYPE = 0;
 
-      // Unable to decrypt post/comment's payload
-      PAYLOAD = 1;
+        // Unable to decrypt post/comment's payload
+        PAYLOAD = 1;
 
-      // Unable to decrypt sender state.
-      SENDER_STATE = 2;
-  }
-  RerequestType rerequest_type = 2;
+        // Unable to decrypt sender state.
+        SENDER_STATE = 2;
+    }
+    RerequestType rerequest_type = 2;
+
+    enum ContentType {
+        UNKNOWN = 0;
+        POST = 1;
+        COMMENT = 2;
+    }
+    ContentType content_type = 4;
 }
 
 

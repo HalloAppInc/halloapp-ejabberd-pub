@@ -101,6 +101,7 @@ message PostContainer {
     Album album = 2;
     VoiceNote voice_note = 3;
   }
+  bytes comment_key = 5;
 }
 
 message PostContainerBlob {
