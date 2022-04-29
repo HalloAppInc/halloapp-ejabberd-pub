@@ -112,7 +112,7 @@ get_props(Uid, ClientVersion) ->
         streaming_sending_enabled => false, %% whether streaming is enabled.
         flat_comments => true, %% whether clients display a flat comment structure similar to chat.
         voice_posts => true, %% whether to enable voice posts.
-        emoji_version => 1, %% emoji version for clients to use.
+        emoji_version => 2, %% emoji version for clients to use.
         call_hold => false, %% allow calls to be on hold
         call_rerequest => false, %% controls if clients will respond to call-rerequests and also wait for them
         external_sharing => false, %% enables external sharing on clients
