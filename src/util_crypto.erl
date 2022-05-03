@@ -39,7 +39,7 @@ decrypt_blob(EncBlobWithMac, Key, HkdfInfo) ->
         end
     catch
         error : Reason : Stacktrace ->
-            ?INFO("error: Stacktrace: ~s",
+            ?ERROR("error: Stacktrace: ~s",
                 [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
             {error, Reason}
     end.
@@ -62,7 +62,7 @@ encrypt_blob(PlainText, KeySize, HkdfInfo) ->
         {ok, Key, EncBlob}
     catch
         error : Reason : Stacktrace ->
-            ?INFO("error: Stacktrace: ~s",
+            ?ERROR("error: Stacktrace: ~s",
                 [lager:pr_stacktrace(Stacktrace, {error, Reason})]),
             {error, Reason}
     end.
