@@ -17,8 +17,6 @@
     route/2,
     close_current_sessions_static_key/1,
     close_current_sessions_uid/1,
-    close_current_sessions_static_key/2,
-    close_current_sessions_uid/2,
     add_key_to_session/3,  %% for testing
     delete_key_from_session/2  %% for testing
 ]).
@@ -117,7 +115,7 @@ process_iq(IQ, State) ->
 
 -spec add_key_to_session(StaticKey :: binary(), Sid :: term(), IP :: binary()) -> ok.
 add_key_to_session(StaticKey, Sid, IP) ->
-    close_current_sessions_static_key(StaticKey, Sid),
+    close_current_sessions_static_key(StaticKey),
     ?INFO("Static Key: ~p, sid: ~p, ip: ~p", [base64:encode(StaticKey), Sid, IP]),
     %% TODO(vipin): Add uid, sid, resource, mode and info -- which includes clientVersion/ip.
     %% TODO(vipin): Add hooks.
@@ -127,45 +125,32 @@ add_key_to_session(StaticKey, Sid, IP) ->
 
 -spec close_current_sessions_static_key(StaticKey :: binary()) -> ok.
 close_current_sessions_static_key(StaticKey) ->
-    close_current_sessions_static_key(StaticKey, {undefined, undefined}).
-
--spec close_current_sessions_static_key(StaticKey :: binary(), ExceptSid :: term()) -> ok.
-close_current_sessions_static_key(StaticKey, ExceptSid) ->
     {ok, Uid} = model_auth:get_static_key_uid(StaticKey),
-    close_current_sessions_uid(Uid, ExceptSid),
-    close_all_sessions(StaticKey, ExceptSid).
+    close_current_sessions_uid(Uid),
+    close_all_sessions(StaticKey).
 
 -spec close_current_sessions_uid(Uid :: binary()) -> ok.
 close_current_sessions_uid(Uid) ->
-    close_current_sessions_uid(Uid, {undefined, undefined}).
-
--spec close_current_sessions_uid(Uid :: binary(), ExceptSid :: term()) -> ok.
-close_current_sessions_uid(Uid, ExceptSid) ->
     case Uid of
         undefined -> ok;
         _ ->
             {ok, StaticKeysList} = model_auth:get_static_keys(Uid),
             lists:foreach(
                 fun(SKey) ->
-                    close_all_sessions(SKey, ExceptSid)
+                    close_all_sessions(SKey)
                 end, StaticKeysList)
     end.
 
-close_all_sessions(StaticKey, ExceptSid) ->
+close_all_sessions(StaticKey) ->
     SessionsList = model_session:get_static_key_sessions(StaticKey), 
-    ?DEBUG("Closing all sessions for Key: ~p, List: ~p, Except: ~p", [StaticKey, SessionsList, ExceptSid]),
-    {_, ExceptPid} = ExceptSid,
+    ?DEBUG("Closing all sessions for Key: ~p, List: ~p", [StaticKey, SessionsList]),
     lists:foreach(
         fun(Session) ->
             #session{sid = Sid} = Session,
             {_, Pid} = Sid,
-            case Pid of
-                ExceptPid -> ok;
-                _ ->
-                    route(Pid, replaced),
-                    %% Delete the Sid just in case Pid is not alive.
-                    delete_key_from_session(StaticKey, Sid)
-            end
+            route(Pid, replaced),
+            %% Delete the Sid just in case Pid is not alive.
+            delete_key_from_session(StaticKey, Sid)
         end, SessionsList).
  
  -spec delete_key_from_session(StaticKey :: binary(), Sid :: binary()) -> ok.
