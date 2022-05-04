@@ -102,7 +102,8 @@
     unschedule_all/0,
     unschedule/1,
     backup_redis/1,
-    health_check_redis_backups/1
+    health_check_redis_backups/1,
+    delete_elasticache_backups/1
 ]).
 
 %%%=============================================================================
@@ -201,7 +202,9 @@ backup_redis(RedisId) ->
                 BackupName = create_elasticache_backup(RedisId),
                 copy_backup_to_s3(Folder, BackupName),
                 set_last_backup_time(RedisId, BackupStartTime),
-                delete_elasticache_backups(RedisId),
+                %% Schedule backup deletion after 11 minutes. AWS recommends deleting
+                %% snapshot > 10 mins after creating it.
+                erlcron:at(660, {?MODULE, delete_elasticache_backups, [RedisId]}),
                 stat:count("HA/backups", "successful_backups", 1,
                         [{redis, RedisId}, {storage_time, Folder}]);
             Status ->
@@ -367,19 +370,22 @@ delete_elasticache_backups(RedisId) ->
     lists:foreach(
         fun(BackupMetadata) ->
             BackupName = maps:get(<<"SnapshotName">>, BackupMetadata),
-            try
-                DeleteSnapshotJson = util_aws:run_command([
-                        "elasticache", "delete-snapshot",
-                        "--snapshot-name", binary_to_list(BackupName),
-                        "--region", ?REGION], [enforce_json]),
-                ?INFO("~p~n", [DeleteSnapshotJson]),
-                ?INFO("Deleted ~p from elasticache", [BackupName])
-            catch Class:Reason:Stacktrace ->
-                ?ERROR("Unable to delete backup: ~p, error: ~p", [BackupName,
-                    lager:pr_stacktrace(Stacktrace, {Class, Reason})])
-            end
-        end, BackupMetadataList),
+            delete_backup(BackupName)
+       end, BackupMetadataList),
     ok.
+
+delete_backup(BackupName) ->
+    try
+        DeleteSnapshotJson = util_aws:run_command([
+                "elasticache", "delete-snapshot",
+                "--snapshot-name", binary_to_list(BackupName),
+                "--region", ?REGION], [enforce_json]),
+        ?INFO("~p~n", [DeleteSnapshotJson]),
+        ?INFO("Deleted ~p from elasticache", [BackupName])
+    catch Class:Reason:Stacktrace ->
+        ?ERROR("Unable to delete backup: ~p, error: ~p", [BackupName,
+            lager:pr_stacktrace(Stacktrace, {Class, Reason})])
+    end.
 
 
 %% @doc Get the status of a Redis Cluser. Can return: <<"creating">>,
