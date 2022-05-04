@@ -191,6 +191,8 @@ apply_uid_prop_overrides(Uid, PropMap) ->
 uid_prop_override(<<"1000000000490675850">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
 uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;  %% Murali (groupe2e)
 uid_prop_override(<<"1000000000244386007">>, krisp_noise_suppression) -> true;  %% Babken@krisp (krisp)
+uid_prop_override(<<"1000000000391903431">>, krisp_noise_suppression) -> true;  %% Tigran@krisp (krisp)
+uid_prop_override(<<"1000000000608373702">>, krisp_noise_suppression) -> true;  %% Grigor@krisp (krisp)
 uid_prop_override(_Uid, _Prop) ->
     undef.
 
