@@ -25,8 +25,8 @@
 %% TODO(vipin): Reduce logging level once things are working in this file.
 
 init(Req, State) ->
-    ?DEBUG("Peer: ~p, State: ~p", [cowboy_req:peer(Req), State]),
-    ForwardIP = cowboy_req:header(<<"X-Forwarded-For">>, Req),
+    ?DEBUG("Peer: ~p, Req: ~p", [cowboy_req:peer(Req), Req]),
+    ForwardIP = cowboy_req:header(<<"x-forwarded-for">>, Req),
     {cowboy_websocket, Req, State#{peer => cowboy_req:peer(Req), forward_ip => ForwardIP},
         #{idle_timeout => 30000}}.
 
