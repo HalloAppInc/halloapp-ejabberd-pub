@@ -160,6 +160,11 @@ message Post {
     // Serialized EncryptedPayload (from client.proto).
     bytes enc_payload = 7;
     MediaCounters media_counters = 8;
+    enum Tag {
+        EMPTY = 0;
+        SECRET_POST = 1;
+    }
+    Tag tag = 9;
 }
 
 message Comment {
