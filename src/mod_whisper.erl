@@ -36,6 +36,7 @@
     set_keys_and_notify/4,
     remove_user/2,
     check_whisper_keys/3,
+    c2s_session_opened/1,
     refresh_otp_keys/1
 ]).
 
@@ -44,6 +45,7 @@ start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_whisper_keys, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_whisper_keys_collection, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, pb_trunc_whisper_keys_collection, ?MODULE, process_local_iq),
+    ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 40),
     ok.
 
@@ -51,6 +53,7 @@ stop(Host) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_whisper_keys),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_whisper_keys_collection),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host, pb_trunc_whisper_keys_collection),
+    ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE, c2s_session_opened, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 40),
     ok.
 
@@ -223,6 +226,16 @@ remove_user(Uid, _Server) ->
     model_whisper_keys:remove_all_keys(Uid).
 
 
+-spec c2s_session_opened(State :: #{}) -> #{}.
+c2s_session_opened(#{user := Uid} = State) ->
+    %% TODO: add tests for this first and then remove the check here.
+    case config:is_testing_env() of
+        true -> ok;
+        false -> check_count_and_notify_user(Uid)
+    end,
+    State.
+
+
 -spec check_whisper_keys(IdentityKeyB64 :: binary(), SignedKeyB64 :: binary(),
         OneTimeKeysB64 :: [binary()]) -> ok | {error, Reason :: any()}.
 check_whisper_keys(_IdentityKeyB64, _SignedKeyB64, OneTimeKeysB64) when not is_list(OneTimeKeysB64) ->
@@ -244,9 +257,8 @@ refresh_otp_keys(Uid) ->
     ?INFO("Uid: ~p", [Uid]),
     ok = model_whisper_keys:delete_all_otp_keys(Uid),
     ?INFO("deleted all otp keys, uid: ~p", [Uid]),
-    Server = util:get_host(),
     ?INFO("trigger upload now, uid: ~p", [Uid]),
-    check_count_and_notify_user(Uid, Server),
+    check_count_and_notify_user(Uid),
     ok.
 
 %%====================================================================
@@ -262,25 +274,24 @@ get_key_set(Ouid, Uid) ->
 
 -spec get_key_sets(Ouids :: [binary()], Uid :: binary()) -> [{binary(), binary(), [binary()]}].
 get_key_sets(Ouids, Uid) ->
-    Server = util:get_host(),
     {ok, WhisperKeySets} = model_whisper_keys:get_key_sets(Ouids),
     KeySets = lists:zipwith(
         fun(Ouid, WhisperKeySet) ->
-            get_key_sets_info(Server, Uid, Ouid, WhisperKeySet)
+            get_key_sets_info(Uid, Ouid, WhisperKeySet)
         end, Ouids, WhisperKeySets),
     KeySets.
 
 
--spec get_key_sets_info(Server :: binary(), Uid :: binary(), Ouid :: binary(),
+-spec get_key_sets_info(Uid :: binary(), Ouid :: binary(),
         WhisperKeySet :: user_whisper_key_set()) -> {binary(), binary(), [binary()]}.
-get_key_sets_info(Server, Uid, Ouid, WhisperKeySet) ->
+get_key_sets_info(Uid, Ouid, WhisperKeySet) ->
     case WhisperKeySet of
         undefined ->
             ?ERROR("Ouid: ~s WhisperKeySet is empty", [Ouid]),
             {undefined, undefined, []};
         _ ->
             %% Uid requests keys of Ouid to establish a session.
-            check_count_and_notify_user(Ouid, Server),
+            check_count_and_notify_user(Ouid),
             ?INFO("Uid: ~s Ouid: ~s Ouid IK: ~p", [Uid, Ouid,
             WhisperKeySet#user_whisper_key_set.identity_key]),
             IdentityKey = util:maybe_base64_decode(WhisperKeySet#user_whisper_key_set.identity_key),
@@ -328,8 +339,8 @@ check_one_time_keys(OneTimeKeysB64) ->
     end.
 
 
--spec check_count_and_notify_user(Uid :: binary(), Server :: binary()) -> ok.
-check_count_and_notify_user(Uid, _Server) ->
+-spec check_count_and_notify_user(Uid :: binary()) -> ok.
+check_count_and_notify_user(Uid) ->
     {ok, Count} = model_whisper_keys:count_otp_keys(Uid),
     ?INFO("Uid: ~s, Count: ~p, MinCount: ~p", [Uid, Count, ?MIN_OTP_KEY_COUNT]),
     case Count < ?MIN_OTP_KEY_COUNT of
