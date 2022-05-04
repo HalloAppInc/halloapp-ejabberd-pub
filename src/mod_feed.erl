@@ -78,8 +78,9 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_feed_item{action = publish = Action, item = #pb_post{} = Post} = HomeFeedSt} = IQ) ->
     PostId = Post#pb_post.id,
     PayloadBase64 = base64:encode(Post#pb_post.payload),
+    PostTag = Post#pb_post.tag,
     AudienceList = Post#pb_post.audience,
-    case publish_post(Uid, PostId, PayloadBase64, AudienceList, HomeFeedSt) of
+    case publish_post(Uid, PostId, PayloadBase64, PostTag, AudienceList, HomeFeedSt) of
         {ok, ResultTsMs} ->
             FeedAudienceType = AudienceList#pb_audience.type,
             SubEl = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, FeedAudienceType, ResultTsMs),
@@ -214,16 +215,20 @@ set_ts_and_publisher_name(MsgId, #pb_feed_item{item = Item} = FeedItem) ->
 
 %% TODO(murali@): update payload to be protobuf binary without base64 encoded.
 
--spec publish_post(Uid :: uid(), PostId :: binary(), PayloadBase64 :: binary(),
+-spec publish_post(Uid :: uid(), PostId :: binary(), PayloadBase64 :: binary(), PostTag :: 'pb_post.Tag'(),
         AudienceListStanza ::[pb_audience()], HomeFeedSt :: pb_feed_item()) -> {ok, integer()} | {error, any()}.
-publish_post(_Uid, _PostId, _PayloadBase64, undefined, _HomeFeedSt) ->
+publish_post(_Uid, _PostId, _PayloadBase64, _PostTag, undefined, _HomeFeedSt) ->
     {error, no_audience};
-publish_post(Uid, PostId, PayloadBase64, AudienceList, HomeFeedSt) ->
+publish_post(Uid, PostId, PayloadBase64, PostTag, AudienceList, HomeFeedSt) ->
     ?INFO("Uid: ~s, PostId: ~s", [Uid, PostId]),
     Server = util:get_host(),
     Action = publish,
     FeedAudienceType = AudienceList#pb_audience.type,
-    FeedAudienceList = AudienceList#pb_audience.uids,
+    %% Filter audience in case of secret-posts - broadcast only to dev_users.
+    FeedAudienceList = case PostTag =:= secret_post of
+        true -> lists:filter(fun dev_users:is_dev_uid/1, AudienceList#pb_audience.uids);
+        false -> AudienceList#pb_audience.uids
+    end,
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
     %% Include own Uid in the audience list always.
     UpdatedAudienceList = [Uid | FeedAudienceList],
