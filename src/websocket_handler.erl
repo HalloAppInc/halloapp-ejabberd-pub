@@ -93,6 +93,22 @@ process_incoming_packet(Pkt, State) ->
         _ -> {#pb_ha_error{reason = <<"invalid_packet">>}, State}
     end.
 
+%% TODO(vipin): Figure out a way to not return State.
+process_iq(#pb_iq{type = get,
+    payload = #pb_web_client_info{action = is_key_authenticated, static_key = StaticKey}} = IQ,
+    State) ->
+    stat:count("HA/websocket", "is_key_authenticated", 1),
+    case model_auth:get_static_key_uid(StaticKey) of
+        {ok, undefined} ->
+            stat:count("HA/websocket", "is_key_authenticated", 1, [{result, error}]),
+            ?INFO("StaticKey: ~p not authenticated", [base64:encode(StaticKey)]),
+            {pb:make_iq_result(IQ, #pb_web_client_info{result = not_autenticated}), State};
+        {ok, Uid} ->
+            stat:count("HA/websocket", "is_key_authenticated", 1, [{result, ok}]),
+            ?INFO("StaticKey: ~p authenticated, UId: ~p", [base64:encode(StaticKey), Uid]),
+            {pb:make_iq_result(IQ, #pb_web_client_info{result = authenticated}), State}
+    end;
+
 process_iq(#pb_iq{type = set,
     payload = #pb_web_client_info{action = add_key, static_key = StaticKey}} = IQ,
     #{peer := Peer, forward_ip := ForwardIP} = State) ->
