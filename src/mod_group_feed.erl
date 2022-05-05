@@ -552,11 +552,11 @@ make_pb_group_feed_item(GroupInfo, Uid, SenderName, GroupFeedSt, Ts) ->
 
 -spec check_and_share_group_feed(Gid :: binary(), Uid :: binary()) -> ok.
 check_and_share_group_feed(Gid, Uid) ->
-    case util:get_machine_name() of
-        <<"s-test">> ->
+    case dev_users:is_dev_uid(Uid) of
+        true ->
             ?INFO("Ignore sharing group feed Gid: ~s ToUid: ~s", [Gid, Uid]),
             ok;
-        _ ->
+        false ->
             share_group_feed(Gid, Uid)
     end.
 
