@@ -10,15 +10,15 @@
 -author('josh').
 
 -ifdef(TEST).
--export([ha_try_register/4]).
+-export([ha_try_register/5]).
 -endif.
 
 %% External exports
 -export([
     set_spub/2,
     check_spub/2,
-    try_enroll/2,
-    check_and_register/5,
+    try_enroll/3,
+    check_and_register/6,
     get_users/0,
     count_users/0,
     user_exists/1,
@@ -59,9 +59,9 @@ set_spub(Uid, SPub) ->
     ok.
 
 
-check_and_register(Phone, Host, SPub, Name, UserAgent) ->
+check_and_register(Phone, Host, SPub, Name, UserAgent, CampaignId) ->
     ?assert(byte_size(SPub) > 0),
-    Result = check_and_register_internal(Phone, Host, SPub, Name, UserAgent),
+    Result = check_and_register_internal(Phone, Host, SPub, Name, UserAgent, CampaignId),
     case Result of
         {ok, Uid, login} ->
             ?INFO("Login into existing account uid:~p for phone:~p", [Uid, Phone]),
@@ -75,10 +75,10 @@ check_and_register(Phone, Host, SPub, Name, UserAgent) ->
     end.
 
 
--spec try_enroll(Phone :: binary(), Passcode :: binary()) -> {ok, binary()}.
-try_enroll(Phone, Passcode) ->
+-spec try_enroll(Phone :: binary(), Passcode :: binary(), CampaignId :: binary()) -> {ok, binary()}.
+try_enroll(Phone, Passcode, CampaignId) ->
     ?INFO("phone:~s code:~s", [Phone, Passcode]),
-    {ok, AttemptId, Timestamp} = model_phone:add_sms_code2(Phone, Passcode),
+    {ok, AttemptId, Timestamp} = model_phone:add_sms_code2(Phone, Passcode, CampaignId),
     stat:count("HA/account", "enroll"),
     {ok, AttemptId, Timestamp}.
 
@@ -114,13 +114,13 @@ remove_user(User, Server) ->
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
--spec check_and_register_internal(binary(), binary(), binary(), binary(), binary()) ->
+-spec check_and_register_internal(binary(), binary(), binary(), binary(), binary(), binary()) ->
     {ok, binary(), register | login} |
     {error, db_failure | not_allowed | exists | invalid_jid}.
-check_and_register_internal(Phone, Server, Cred, Name, UserAgent) ->
+check_and_register_internal(Phone, Server, Cred, Name, UserAgent, CampaignId) ->
     case model_phone:get_uid(Phone) of
         {ok, undefined} ->
-            case ha_try_register(Phone, Cred, Name, UserAgent) of
+            case ha_try_register(Phone, Cred, Name, UserAgent, CampaignId) of
                 {ok, _, UserId} ->
                     ejabberd_hooks:run(register_user, Server, [UserId, Server, Phone]),
                     {ok, UserId, register};
@@ -141,10 +141,10 @@ check_and_register_internal(Phone, Server, Cred, Name, UserAgent) ->
     end.
 
 
-ha_try_register(Phone, Cred, Name, UserAgent) ->
+ha_try_register(Phone, Cred, Name, UserAgent, CampaignId) ->
     ?INFO("phone:~s", [Phone]),
     {ok, Uid} = util_uid:generate_uid(),
-    ok = model_accounts:create_account(Uid, Phone, Name, UserAgent),
+    ok = model_accounts:create_account(Uid, Phone, Name, UserAgent, CampaignId),
     ok = model_phone:add_phone(Phone, Uid),
     ok = set_spub(Uid, Cred),
     {ok, Cred, Uid}.

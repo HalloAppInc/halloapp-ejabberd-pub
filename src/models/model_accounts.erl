@@ -47,7 +47,8 @@
 %% API
 -export([
     create_account/4,
-    create_account/5, % CommonTest
+    create_account/5,
+    create_account/6, % CommonTest
     delete_account/1,
     account_exists/1,
     filter_nonexisting_uids/1,
@@ -155,6 +156,7 @@
 -define(FIELD_LAST_ACTIVITY, <<"la">>).
 -define(FIELD_ACTIVITY_STATUS, <<"st">>).
 -define(FIELD_USER_AGENT, <<"ua">>).
+-define(FIELD_CAMPAIGN_ID, <<"cmp">>).
 -define(FIELD_CLIENT_VERSION, <<"cv">>).
 -define(FIELD_PUSH_OS, <<"pos">>).
 -define(FIELD_PUSH_TOKEN, <<"ptk">>).
@@ -181,12 +183,18 @@
 -spec create_account(Uid :: uid(), Phone :: phone(), Name :: binary(),
         UserAgent :: binary()) -> ok | {error, exists}.
 create_account(Uid, Phone, Name, UserAgent) ->
-    create_account(Uid, Phone, Name, UserAgent, util:now_ms()).
+    create_account(Uid, Phone, Name, UserAgent, <<>>, util:now_ms()).
+
+-spec create_account(Uid :: uid(), Phone :: phone(), Name :: binary(),
+        UserAgent :: binary(), CampaignId :: binary()) -> ok | {error, exists}.
+create_account(Uid, Phone, Name, UserAgent, CampaignId) ->
+    create_account(Uid, Phone, Name, UserAgent, CampaignId, util:now_ms()).
 
 
 -spec create_account(Uid :: uid(), Phone :: phone(), Name :: binary(),
-        UserAgent :: binary(), CreationTsMs :: integer()) -> ok | {error, exists | deleted}.
-create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
+        UserAgent :: binary(), CampaignId :: binary(),
+        CreationTsMs :: integer()) -> ok | {error, exists | deleted}.
+create_account(Uid, Phone, Name, UserAgent, CampaignId, CreationTsMs) ->
     {ok, Deleted} = q(["EXISTS", deleted_account_key(Uid)]),
     case binary_to_integer(Deleted) == 1 of
         true -> {error, deleted};
@@ -198,6 +206,7 @@ create_account(Uid, Phone, Name, UserAgent, CreationTsMs) ->
                         ["HSET", account_key(Uid),
                             ?FIELD_NAME, Name,
                             ?FIELD_USER_AGENT, UserAgent,
+                            ?FIELD_CAMPAIGN_ID, CampaignId,
                             ?FIELD_CREATION_TIME, integer_to_binary(CreationTsMs),
                             ?FIELD_LAST_REGISTRATION_TIME, integer_to_binary(CreationTsMs)],
                         ["INCR", count_registrations_key(Uid)],
@@ -220,13 +229,13 @@ delete_account(Uid) ->
     %% Just get all fields and use map.
     case q(["HMGET", account_key(Uid), ?FIELD_PHONE,
             ?FIELD_CREATION_TIME, ?FIELD_LAST_REGISTRATION_TIME, ?FIELD_LAST_ACTIVITY, ?FIELD_ACTIVITY_STATUS,
-            ?FIELD_USER_AGENT, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID,
+            ?FIELD_USER_AGENT, ?FIELD_CAMPAIGN_ID, ?FIELD_CLIENT_VERSION, ?FIELD_PUSH_LANGUAGE_ID,
             ?FIELD_DEVICE, ?FIELD_OS_VERSION]) of
         {ok, [undefined | _]} ->
             ?WARNING("Looks like it is already deleted, Uid: ~p", [Uid]),
             ok;
         {ok, [_Phone, CreationTsMsBin, RegistrationTsMsBin, LastActivityTsMs, ActivityStatus,
-                UserAgent, ClientVersion, LangId, Device, OsVersion]} ->
+                UserAgent, CampaignId, ClientVersion, LangId, Device, OsVersion]} ->
             [{ok, _}, RenameResult, {ok, _}, DecrResult] = qp([
                 ["HSET", deleted_uid_key(Uid),
                             ?FIELD_CREATION_TIME, CreationTsMsBin,
@@ -234,6 +243,7 @@ delete_account(Uid) ->
                             ?FIELD_LAST_ACTIVITY, LastActivityTsMs,
                             ?FIELD_ACTIVITY_STATUS, ActivityStatus,
                             ?FIELD_USER_AGENT, UserAgent,
+                            ?FIELD_CAMPAIGN_ID, CampaignId,
                             ?FIELD_CLIENT_VERSION, ClientVersion,
                             ?FIELD_DELETION_TIME, integer_to_binary(DeletionTsMs),
                             ?FIELD_DEVICE, Device,
@@ -497,6 +507,7 @@ get_account(Uid) ->
                     phone = Phone,
                     name = maps:get(?FIELD_NAME, M),
                     signup_user_agent = maps:get(?FIELD_USER_AGENT, M),
+                    campaign_id = maps:get(?FIELD_CAMPAIGN_ID, M, <<>>),
                     creation_ts_ms = util_redis:decode_ts(maps:get(?FIELD_CREATION_TIME, M)),
                     last_registration_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_REGISTRATION_TIME, M, undefined)),
                     last_activity_ts_ms = util_redis:decode_ts(maps:get(?FIELD_LAST_ACTIVITY, M, undefined)),

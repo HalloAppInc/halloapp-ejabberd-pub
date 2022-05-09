@@ -39,6 +39,8 @@
 
 -define(UA, <<"HalloApp/Android1.0">>).
 
+-define(CAMPAIGN_ID, <<"cmpn">>).
+
 -define(MSG_ID1, <<"MessageId1">>).
 
 -define(IMAGE1, <<"/9j/4AAQSkZJRgABAQEAYABgAAA=">>).

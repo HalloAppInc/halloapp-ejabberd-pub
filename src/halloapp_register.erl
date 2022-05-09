@@ -292,12 +292,14 @@ process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
     UserAgent = OtpRequest#pb_otp_request.user_agent,
     HashcashSolution = OtpRequest#pb_otp_request.hashcash_solution,
     HashcashSolutionTimeTakenMs = OtpRequest#pb_otp_request.hashcash_solution_time_taken_ms,
+    CampaignId = OtpRequest#pb_otp_request.campaign_id,
     RemoteStaticKey = get_peer_static_key(Socket),
     RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
         ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => OtpRequest,
         protocol => noise, remote_static_key => RemoteStaticKey,
         hashcash_solution => HashcashSolution,
-        hashcash_solution_time_taken_ms => HashcashSolutionTimeTakenMs
+        hashcash_solution_time_taken_ms => HashcashSolutionTimeTakenMs,
+        campaign_id => CampaignId
     },
     OtpResponse = case mod_halloapp_http_api:process_otp_request(RequestData) of
         {ok, Phone, RetryAfterSecs} ->
@@ -364,13 +366,15 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
     end,
     GroupInviteToken = VerifyOtpRequest#pb_verify_otp_request.group_invite_token,
     UserAgent = VerifyOtpRequest#pb_verify_otp_request.user_agent,
+    CampaignId = VerifyOtpRequest#pb_verify_otp_request.campaign_id,
     RemoteStaticKey = get_peer_static_key(Socket),
     RequestData = #{
         raw_phone => RawPhone, name => Name, ua => UserAgent, code => Code,
         ip => ClientIP, group_invite_token => GroupInviteToken, s_ed_pub => SEdPubB64,
         signed_phrase => SignedPhraseB64, id_key => IdentityKeyB64, sd_key => SignedKeyB64,
         otp_keys => OneTimeKeysB64, push_payload => PushPayload, raw_data => VerifyOtpRequest,
-        protocol => noise, remote_static_key => RemoteStaticKey
+        protocol => noise, remote_static_key => RemoteStaticKey,
+        campaign_id => CampaignId
     },
     VerifyOtpResponse = case mod_halloapp_http_api:process_register_request(RequestData) of
         {ok, Result} ->

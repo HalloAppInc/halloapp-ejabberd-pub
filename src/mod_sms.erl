@@ -42,18 +42,18 @@
 -export([
     on_user_first_login/2,
     request_sms/2,
-    request_otp/4,
+    request_otp/5,
 %%    check_otp_request_too_soon/2,
     verify_sms/2,
     find_next_ts/1,
     % TODO: move all the testing ones to the -ifdef(TEST)
 %%    is_too_soon/2,  %% for testing
-    send_otp/5, %% for testing
-    send_otp_internal/6,
+    send_otp/6, %% for testing
+    send_otp_internal/7,
     pick_gw/3,  %% for testing,
     rand_weighted_selection/2,  %% for testing
     max_weight_selection/1,  %% for testing
-    smart_send/6,  %% for testing
+    smart_send/7,  %% for testing
     generate_gateway_list/3,  %% for testing
     send_otp_to_inviter/4  %% for testing
 ]).
@@ -102,15 +102,16 @@ on_user_first_login(Uid, _Server) ->
 
 -spec request_sms(Phone :: phone(), UserAgent :: binary()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
 request_sms(Phone, UserAgent) ->
-    request_otp(Phone, <<"en-US">>, UserAgent, sms).
+    request_otp(Phone, <<"en-US">>, UserAgent, sms, <<>>).
 
--spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: method()) ->
+-spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: method(),
+    CampaignId :: binary()) ->
     {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
-request_otp(Phone, LangId, UserAgent, Method) ->
+request_otp(Phone, LangId, UserAgent, Method, CampaignId) ->
     case {config:get_hallo_env(), util:is_test_number(Phone)} of
         {prod, true} -> send_otp_to_inviter(Phone, LangId, UserAgent, Method);
-        {prod, _} -> send_otp(Phone, LangId, Phone, UserAgent, Method);
-        {stress, _} -> send_otp(Phone, LangId, Phone, UserAgent, Method);
+        {prod, _} -> send_otp(Phone, LangId, Phone, UserAgent, Method, CampaignId);
+        {stress, _} -> send_otp(Phone, LangId, Phone, UserAgent, Method, CampaignId);
         {_,_} -> just_enroll(Phone)
     end.
 
@@ -118,7 +119,7 @@ request_otp(Phone, LangId, UserAgent, Method) ->
 % Just generate and store code for this user. Mostly called for test phones or in localhost/test
 -spec just_enroll(Phone :: binary()) -> {ok, integer()}.
 just_enroll(Phone) ->
-    {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, generate_code(Phone)),
+    {ok, _NewAttemptId, _Timestamp} = ejabberd_auth:try_enroll(Phone, generate_code(Phone), <<>>),
     {ok, 30}.
 
 
@@ -179,21 +180,23 @@ send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
                     just_enroll(Phone);
                 {ok, InviterPhone} ->
                     case test_users:is_test_uid(Uid) of
-                        true -> send_otp(InviterPhone, LangId, Phone, UserAgent, Method);
+                        true -> send_otp(InviterPhone, LangId, Phone, UserAgent, Method, <<>>);
                         false -> just_enroll(Phone)
                     end
             end
     end. 
 
 -spec send_otp(OtpPhone :: phone(), LangId :: binary(), Phone :: phone(), UserAgent :: binary(),
-        Method :: method()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
-send_otp(OtpPhone, LangId, Phone, UserAgent, Method) ->
+        Method :: method(), CampaignId :: binary()) -> {ok, non_neg_integer()} | {error, term()} | {error, term(), non_neg_integer()}.
+send_otp(OtpPhone, LangId, Phone, UserAgent, Method, CampaignId) ->
     {ok, OldResponses} = model_phone:get_all_gateway_responses(Phone),
     stat:count("HA/registration", "send_otp"),
     stat:count("HA/registration", "send_otp_by_cc", 1,
         [{cc, mod_libphonenumber:get_cc(Phone)}]),
+    stat:count("HA/registration", "send_otp_by_campaign_id", 1,
+        [{campaign_id, CampaignId}]),
     stat:count("HA/registration", "send_otp_by_lang", 1, [{lang_id, util:to_list(LangId)}]),
-    case send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) of
+    case send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, CampaignId, OldResponses) of
         {ok, SMSResponse} ->
             ?INFO("Response: ~p", [SMSResponse]),
             #gateway_response{attempt_id = NewAttemptId, attempt_ts = Timestamp} = SMSResponse,
@@ -250,11 +253,11 @@ is_successful_otp_attempt(Status) ->
 
 
 -spec send_otp_internal(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(), Method :: method(),
-        OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, atom(), term()}.
-send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
-    ?DEBUG("preparing to send otp, phone:~p, LangId: ~p, UserAgent: ~p",
-        [OtpPhone, LangId, UserAgent]),
-    case smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) of
+        CampaignId :: binary(), OldResponses :: [gateway_response()]) -> {ok, gateway_response()} | {error, atom(), term()}.
+send_otp_internal(OtpPhone, Phone, LangId, UserAgent, Method, CampaignId, OldResponses) ->
+    ?DEBUG("preparing to send otp, phone:~p, LangId: ~p, UserAgent: ~p, CampaignId",
+        [OtpPhone, LangId, UserAgent, CampaignId]),
+    case smart_send(OtpPhone, Phone, LangId, UserAgent, Method, CampaignId, OldResponses) of
         {ok, SMSResponse} ->
             {ok, SMSResponse};
         {error, _GW, _Reason} = Err ->
@@ -351,9 +354,9 @@ filter_gateways(CC, Method, GatewayList) ->
 
 
 -spec smart_send(OtpPhone :: phone(), Phone :: phone(), LangId :: binary(), UserAgent :: binary(),
-        Method :: method(), OldResponses :: [gateway_response()]) -> {ok, gateway_response()} |
+        Method :: method(), CampaignId :: binary(), OldResponses :: [gateway_response()]) -> {ok, gateway_response()} |
         {error, atom(), sms_fail} | {error, atom(), call_fail} | {error, atom(), voice_call_fail}.
-smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
+smart_send(OtpPhone, Phone, LangId, UserAgent, Method, CampaignId, OldResponses) ->
     CC = mod_libphonenumber:get_cc(OtpPhone),
 
     {IsFirstAttempt, ChooseFromList} = generate_gateway_list(CC, Method, OldResponses),
@@ -381,7 +384,7 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, OldResponses) ->
     ?INFO("Enrolling: ~s Using Phone: ~s CC: ~s Chosen Gateway: ~p to send ~p Code: ~s",
         [Phone, OtpPhone, CC, PickedGateway2, Method, Code]),
         
-    {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code),
+    {ok, NewAttemptId, Timestamp} = ejabberd_auth:try_enroll(Phone, Code, CampaignId),
     CurrentSMSResponse = #gateway_response{attempt_id = NewAttemptId,
         attempt_ts = Timestamp, method = Method, gateway = PickedGateway2},
     smart_send_internal(OtpPhone, Code, LangId, UserAgent, CC, CurrentSMSResponse, ChooseFromList).

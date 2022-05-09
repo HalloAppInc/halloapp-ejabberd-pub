@@ -196,6 +196,7 @@ process_otp_request(Data, IP, Headers) ->
         GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
         HashcashSolution = maps:get(<<"hashcash_solution">>, Payload, <<>>),
         HashcashSolutionTimeTakenMs = maps:get(<<"hashcash_solution_time_taken_ms">>, Payload, -1),
+        CampaignId = maps:get(<<"campaign_id">>, Payload, <<>>),
         PhoneCC = mod_libphonenumber:get_region_id(RawPhone),
         IPCC = mod_geodb:lookup(ClientIP),
         ?INFO("raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, Phone CC: ~p IP CC: ~p "
@@ -206,6 +207,7 @@ process_otp_request(Data, IP, Headers) ->
         RequestData = #{raw_phone => RawPhone, lang_id => LangId, ua => UserAgent, method => MethodBin,
             ip => ClientIP, group_invite_token => GroupInviteToken, raw_data => RawData,
             hashcash_solution => HashcashSolution, hashcash_solution_time_taken_ms => HashcashSolutionTimeTakenMs,
+            campaign_id => CampaignId,
             protocol => https
         },
         case process_otp_request(RequestData) of
@@ -267,15 +269,17 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
     try
         RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
         HashcashSolution = maps:get(hashcash_solution, RequestData, <<>>),
+        CampaignId = maps:get(campaign_id, RequestData, <<>>),
         HashcashSolutionTimeTakenMs = maps:get(hashcash_solution_time_taken_ms, RequestData, 0),
         log_otp_request(RawPhone, MethodBin, UserAgent, ClientIP, Protocol),
         Phone = normalize(RawPhone),
         check_ua(UserAgent, Phone),
         check_hashcash(UserAgent, HashcashSolution, HashcashSolutionTimeTakenMs),
         Method = get_otp_method(MethodBin),
+        ?INFO("Phone: ~s, UserAgent: ~s, Campaign Id: ~s", [Phone, UserAgent, CampaignId]),
         case otp_checker:check(Phone, ClientIP, UserAgent, Method, Protocol, RemoteStaticKey) of
             ok ->
-                case request_otp(Phone, LangId, UserAgent, Method) of
+                case request_otp(Phone, LangId, UserAgent, Method, CampaignId) of
                     {ok, RetryAfterSecs} ->
                         {ok, Phone, RetryAfterSecs};
                     {error, retried_too_soon, RetryAfterSecs} ->
@@ -373,6 +377,9 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         protocol := Protocol} = RequestData) ->
     try
         RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
+        CampaignId = maps:get(campaign_id, RequestData, <<>>),
+        stat:count("HA/registration", "verify_otp_by_campaign_id", 1,
+            [{campaign_id, CampaignId}]),
         Phone = normalize(RawPhone),
         check_ua(UserAgent, Phone),
         check_sms_code(Phone, ClientIP, Protocol, Code),
@@ -383,11 +390,12 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         SignedPhraseBin = base64:decode(SignedPhraseB64),
         check_signed_phrase(SignedPhraseBin, SEdPubBin),
         SPub = base64:encode(enacl:crypto_sign_ed25519_public_to_curve25519(SEdPubBin)),
-        {ok, Phone, Uid} = finish_registration_spub(Phone, LName, UserAgent, SPub),
+        {ok, Phone, Uid} = finish_registration_spub(Phone, LName, UserAgent, SPub, CampaignId),
         process_whisper_keys(Uid, IdentityKeyB64, SignedKeyB64, OneTimeKeysB64),
         process_push_token(Uid, PushPayload),
         CC = mod_libphonenumber:get_region_id(Phone),
-        ?INFO("registration complete uid: ~s phone: ~s country_code: ~s", [Uid, Phone, CC]),
+        ?INFO("registration complete uid: ~s phone: ~s country_code: ~s campaign_id: ~s",
+            [Uid, Phone, CC, CampaignId]),
         Result = #{
             uid => Uid,
             phone => Phone,
@@ -504,10 +512,10 @@ log_request_otp_error(ErrorType, Method, RawPhone, UserAgent, ClientIP, Protocol
 
 
 -spec request_otp(Phone :: phone(), LangId :: binary(), UserAgent :: binary(),
-        Method :: atom()) -> {ok, integer()} | no_return(). % throws otp_fail
-request_otp(Phone, LangId, UserAgent, Method) ->
+        Method :: atom(), CampaignId :: binary()) -> {ok, integer()} | no_return(). % throws otp_fail
+request_otp(Phone, LangId, UserAgent, Method, CampaignId) ->
     CountryCode = mod_libphonenumber:get_cc(Phone),
-    case mod_sms:request_otp(Phone, LangId, UserAgent, Method) of
+    case mod_sms:request_otp(Phone, LangId, UserAgent, Method, CampaignId) of
         {ok, _} = Ret -> Ret;
         {error, Reason} ->
             ?ERROR("could not send otp Reason: ~p Phone: ~p, cc: ~p", [Reason, Phone, CountryCode]),
@@ -677,10 +685,14 @@ process_push_token(Uid, PushPayload) ->
     end.
 
 
--spec finish_registration_spub(phone(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
-finish_registration_spub(Phone, Name, UserAgent, SPub) ->
+-spec finish_registration_spub(phone(), binary(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
+finish_registration_spub(Phone, Name, UserAgent, SPub, CampaignId) ->
     Host = util:get_host(),
-    {ok, Uid, Action} = ejabberd_auth:check_and_register(Phone, Host, SPub, Name, UserAgent),
+    stat:count("HA/registration", "finish_registration_by_campaign_id", 1,
+        [{campaign_id, CampaignId}]),
+    {ok, Uid, Action} = ejabberd_auth:check_and_register(
+        Phone, Host, SPub, Name, UserAgent, CampaignId),
+    ?INFO("Phone: ~s, UserAgent: ~s, Campaign Id: ~s", [Phone, UserAgent, CampaignId]),
     %% Action = login, updates the spub.
     %% Action = register, creates a new user id and registers the user for the first time.
     log_registration(Phone, Action, UserAgent),

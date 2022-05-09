@@ -71,9 +71,9 @@ create_test_accounts() ->
     flush_db(),
     % TODO: instead of the model functions it is better to use the higher level API.
     % TODO: create all 5 accounts
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA, ?TS1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA, ?CAMPAIGN_ID, ?TS1),
     ok = ejabberd_auth:set_spub(?UID1, ?KEYPAIR1),
-    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA, ?TS2),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA, ?CAMPAIGN_ID, ?TS2),
     ok = ejabberd_auth:set_spub(?UID2, ?KEYPAIR2),
     ok.
 

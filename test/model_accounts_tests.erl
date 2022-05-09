@@ -28,6 +28,7 @@ clear() ->
 -define(NAME1, <<"Name1">>).
 -define(USER_AGENT1, <<"HalloApp/Android1.0">>).
 -define(TS1, 1500000000001).
+-define(CAMPAIGN_ID, <<"cmpn">>).
 -define(AS1, available).
 -define(AVATAR_ID1, <<"CwlRWoG4TduL93Zyrz30Uw">>).
 -define(CLIENT_VERSION1, <<"HalloApp/Android0.65">>).
@@ -140,8 +141,8 @@ create_account_test() ->
     setup(),
     false = model_accounts:account_exists(?UID1),
     false = model_accounts:is_account_deleted(?UID1),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
-    {error, exists} = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
+    {error, exists} = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     true = model_accounts:account_exists(?UID1),
     false = model_accounts:is_account_deleted(?UID1),
     ok.
@@ -149,7 +150,7 @@ create_account_test() ->
 
 delete_account_test() ->
     setup(),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     ?assertEqual(true, model_accounts:account_exists(?UID1)),
     ?assertEqual(false, model_accounts:is_account_deleted(?UID1)),
     ok = model_accounts:delete_account(?UID1),
@@ -162,7 +163,7 @@ delete_account_test() ->
 
 create_account2_test() ->
     setup(),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     ?assertEqual({ok, ?PHONE1}, model_accounts:get_phone(?UID1)),
     ?assertEqual({ok, ?NAME1}, model_accounts:get_name(?UID1)),
     ?assertEqual({ok, ?USER_AGENT1}, model_accounts:get_signup_user_agent(?UID1)),
@@ -171,11 +172,12 @@ create_account2_test() ->
 
 get_account_test() ->
     setup(),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     {ok, Account} = model_accounts:get_account(?UID1),
     ?assertEqual(?PHONE1, Account#account.phone),
     ?assertEqual(?NAME1, Account#account.name),
     ?assertEqual(?USER_AGENT1, Account#account.signup_user_agent),
+    ?assertEqual(?CAMPAIGN_ID, Account#account.campaign_id),
     ?assertEqual(?TS1, Account#account.creation_ts_ms),
     ?assertEqual(?TS1, Account#account.last_registration_ts_ms),
     ?assertEqual(undefined, Account#account.last_activity_ts_ms),
@@ -281,21 +283,21 @@ get_set_avatar_id_test() ->
 
 get_phone_test() ->
     setup(),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     {ok, ?PHONE1} = model_accounts:get_phone(?UID1),
     {error, missing} = model_accounts:get_phone(?UID2).
 
 
 get_user_agent_test() ->
     setup(),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     {ok, ?USER_AGENT1} = model_accounts:get_signup_user_agent(?UID1),
     {error, missing} = model_accounts:get_signup_user_agent(?UID2).
 
 
 last_activity_test() ->
     setup(),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     {ok, LastActivity} = model_accounts:get_last_activity(?UID1),
     ?assertEqual(?UID1, LastActivity#activity.uid),
     ?assertEqual(undefined, LastActivity#activity.last_activity_ts_ms),
@@ -311,7 +313,7 @@ last_activity_test() ->
     FirstMap = model_accounts:get_last_activity_ts_ms([?UID1]),
     ?assertEqual(Now, maps:get(?UID1, FirstMap, undefined)),
     ?assertEqual(undefined, maps:get(?UID2, FirstMap, undefined)),
-    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2),
     Now2 = util:now_ms(),
     ok = model_accounts:set_last_activity(?UID2, Now2, ?AS1),
     SecondMap = model_accounts:get_last_activity_ts_ms([?UID1, ?UID2]),
@@ -321,7 +323,7 @@ last_activity_test() ->
 
 last_ipaddress_test() ->
     setup(),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     undefined = model_accounts:get_last_ipaddress(?UID1),
 
     ok = model_accounts:set_last_ip_and_connection_time(?UID1, <<"73.223.182.178">>, util:now_ms()),
@@ -441,15 +443,15 @@ count_test() ->
     Slot = crc16_redis:hash(binary_to_list(?UID1)),
     ?assertEqual(0, model_accounts:count_accounts()),
     ?assertEqual(0, model_accounts:count_registrations()),
-    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     ?assertEqual(1, model_accounts:count_accounts(Slot)),
     ?assertEqual(1, model_accounts:count_registrations(Slot)),
     ?assertEqual(1, model_accounts:count_registrations()),
     ?assertEqual(1, model_accounts:count_accounts()),
 
-    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME1, ?USER_AGENT1, ?TS1)),
-    ?assertEqual(ok, model_accounts:create_account(?UID3, ?PHONE3, ?NAME1, ?USER_AGENT1, ?TS1)),
-    ?assertEqual(ok, model_accounts:create_account(?UID4, ?PHONE4, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID3, ?PHONE3, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID4, ?PHONE4, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     ?assertEqual(4, model_accounts:count_accounts()),
 
     ok.
@@ -484,8 +486,8 @@ traced_phones_test() ->
 
 test_counts() ->
     setup(),
-    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
-    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
     ?assertEqual(ok, model_accounts:delete_account(?UID1)),
     ?assertEqual(2, model_accounts:count_registrations()),
     ?assertEqual(1, model_accounts:count_accounts()),
@@ -522,8 +524,8 @@ is_phone_traced_test() ->
 get_names_test() ->
     setup(),
     #{} = model_accounts:get_names([]),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
-    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2),
     ResMap = #{?UID1 => ?NAME1, ?UID2 => ?NAME2},
     ResMap = model_accounts:get_names([?UID1, ?UID2]),
     ResMap = model_accounts:get_names([?UID1, ?UID2, ?UID3]),
@@ -533,9 +535,9 @@ get_names_test() ->
 get_avatar_ids_test() ->
     setup(),
     #{} = model_accounts:get_avatar_ids([]),
-    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1),
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1),
     ok = model_accounts:set_avatar_id(?UID1, ?AVATAR_ID1),
-    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3, ?TS2),
+    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3, ?CAMPAIGN_ID, ?TS2),
     ok = model_accounts:set_avatar_id(?UID3, ?AVATAR_ID3),
     ResMap = #{?UID1 => ?AVATAR_ID1, ?UID3 => ?AVATAR_ID3},
     ResMap = model_accounts:get_avatar_ids([?UID1, ?UID3]),
@@ -545,21 +547,21 @@ get_avatar_ids_test() ->
 
 check_accounts_exists_test() ->
     setup(),
-    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
-    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
     ?assertEqual([?UID1, ?UID2], model_accounts:filter_nonexisting_uids([?UID1, ?UID3, ?UID2])),
     ok.
 
 check_whisper_keys() ->
     setup(),
-    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     {?PHONE2, ok, undefined} = mod_invites:request_invite(?UID1, ?PHONE2),
     meck:new(dev_users),
     meck:expect(dev_users, is_dev_uid, fun(_) -> true end),
-    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
-    ?assertEqual(ok, model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3, ?TS1)),
-    ?assertEqual(ok, model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?USER_AGENT4, ?TS2)),
-    ?assertEqual(ok, model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?USER_AGENT5, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
+    ?assertEqual(ok, model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3, ?CAMPAIGN_ID, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?USER_AGENT4, ?CAMPAIGN_ID, ?TS2)),
+    ?assertEqual(ok, model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?USER_AGENT5, ?CAMPAIGN_ID, ?TS1)),
     ?assertEqual(ok, model_whisper_keys:set_keys(?UID1, ?IDENTITY_KEY1, ?SIGNED_KEY1,
             [?OTP1_KEY1, ?OTP1_KEY2, ?OTP1_KEY3, ?OTP1_KEY4, ?OTP1_KEY5])),
     ?assertEqual(ok, model_whisper_keys:set_keys(?UID2, ?IDENTITY_KEY2, ?SIGNED_KEY2,
@@ -581,11 +583,11 @@ check_whisper_keys_test() ->
 
 check_uid_to_delete_test() ->
     setup(),
-    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?TS1)),
-    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?TS2)),
-    ?assertEqual(ok, model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3, ?TS1)),
-    ?assertEqual(ok, model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?USER_AGENT4, ?TS2)),
-    ?assertEqual(ok, model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?USER_AGENT5, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
+    ?assertEqual(ok, model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?USER_AGENT3, ?CAMPAIGN_ID, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?USER_AGENT4, ?CAMPAIGN_ID, ?TS2)),
+    ?assertEqual(ok, model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?USER_AGENT5, ?CAMPAIGN_ID, ?TS1)),
     ?assertEqual(0, model_accounts:count_uids_to_delete()),
     ?assertEqual(ok, model_accounts:add_uid_to_delete(?UID1)),
     ?assertEqual(1, model_accounts:count_uids_to_delete()),

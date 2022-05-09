@@ -32,6 +32,8 @@
 
 -define(MSG_ID1, <<"MessageId1">>).
 
+-define(CAMPAIGN_ID, <<>>).
+
 -define(TS1, 1600000001000).
 -define(TS2, 1600000002000).
 -define(TS3, 1600000003000).

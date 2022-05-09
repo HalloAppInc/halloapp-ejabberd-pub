@@ -32,6 +32,7 @@
     get_uid/1,
     get_uids/1,
     add_sms_code2/2,
+    add_sms_code2/3,
     get_incremental_attempt_list/1,
     delete_sms_code2/1,
     update_sms_code/3,
@@ -83,6 +84,7 @@
 -define(FIELD_VERIFICATION_ATTEMPT, <<"fva">>).
 -define(FIELD_VERIFICATION_SUCCESS, <<"suc">>).
 -define(FIELD_VALID, <<"val">>).
+-define(FIELD_CAMPAIGN_ID, <<"cmp">>).
 -define(TTL_SMS_CODE, 86400).
 -define(MAX_SLOTS, 8).
 
@@ -110,6 +112,10 @@
 
 -spec add_sms_code2(Phone :: phone(), Code :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
 add_sms_code2(Phone, Code) ->
+    add_sms_code2(Phone, Code, <<>>).
+
+-spec add_sms_code2(Phone :: phone(), Code :: binary(), CampaignId :: binary()) -> {ok, binary(), non_neg_integer()}  | {error, any()}.
+add_sms_code2(Phone, Code, CampaignId) ->
     %% TODO(vipin): Need to clean verification attempt list when SMS code expire.
     AttemptId = generate_attempt_id(),
     Timestamp = util:now(),
@@ -118,7 +124,7 @@ add_sms_code2(Phone, Code) ->
     _Results = qp([["MULTI"],
                    ["ZADD", VerificationAttemptListKey, Timestamp, AttemptId],
                    ["EXPIRE", VerificationAttemptListKey, ?TTL_VERIFICATION_ATTEMPTS],
-                   ["HSET", VerificationAttemptKey, ?FIELD_CODE, Code, ?FIELD_VALID, "1"],
+                   ["HSET", VerificationAttemptKey, ?FIELD_CODE, Code, ?FIELD_VALID, "1", ?FIELD_CAMPAIGN_ID, CampaignId],
                    ["EXPIRE", VerificationAttemptKey, ?TTL_VERIFICATION_ATTEMPTS],
                    ["EXEC"]]),
 

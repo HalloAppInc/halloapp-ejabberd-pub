@@ -125,6 +125,7 @@ dump_account(Uid) ->
                     creation_ts_ms => Account#account.creation_ts_ms,
                     last_activity => Account#account.last_activity_ts_ms,
                     signup_version => Account#account.signup_user_agent,
+                    campaign_id => Account#account.campaign_id,
                     signup_platform => util_ua:get_client_type(Account#account.signup_user_agent),
                     cc => CC,
                     lang_id => Account#account.lang_id,

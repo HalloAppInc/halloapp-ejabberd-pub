@@ -18,6 +18,7 @@
 -define(SPUB, <<"spub">>).
 -define(NAME, <<"Testname">>).
 -define(UA, <<"HalloApp/iPhone1.0">>).
+-define(CAMPAIGN_ID, <<"cmpn">>).
 -define(CODE, <<"111111">>).
 
 
@@ -38,14 +39,14 @@ check_spub_test() ->
 check_and_register_test() ->
     setup(),
     meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
-    {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA),
-    {ok, Uid, login} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA),
+    {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
+    {ok, Uid, login} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
     meck_finish(ejabberd_sm).
 
 
 ha_try_register_test() ->
     clear(),
-    {ok, SPub, Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SPUB, ?NAME, ?UA),
+    {ok, SPub, Uid} = ejabberd_auth:ha_try_register(?PHONE, ?SPUB, ?NAME, ?UA, <<>>),
     ?assertEqual(?SPUB, SPub),
     ?assert(model_accounts:account_exists(Uid)),
     ?assert(ejabberd_auth:check_spub(Uid, ?SPUB)),
@@ -57,7 +58,7 @@ ha_try_register_test() ->
 
 try_enroll_test() ->
     clear(),
-    {ok, AttemptId, _} = ejabberd_auth:try_enroll(?PHONE, ?CODE),
+    {ok, AttemptId, _} = ejabberd_auth:try_enroll(?PHONE, ?CODE, <<>>),
     ?assertEqual({ok, ?CODE}, model_phone:get_sms_code2(?PHONE, AttemptId)).
 
 
@@ -66,14 +67,14 @@ user_exists_test() ->
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     ?assertNot(ejabberd_auth:user_exists(?UID)),
     ?assertNot(ejabberd_auth:user_exists(?UID)),
-    {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA),
+    {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
     ?assert(ejabberd_auth:user_exists(Uid)),
     meck_finish(ejabberd_router).
 
 
 remove_user_test() ->
     setup(),
-    {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA),
+    {ok, Uid, register} = ejabberd_auth:check_and_register(?PHONE, ?SERVER, ?SPUB, ?NAME, ?UA, ?CAMPAIGN_ID),
     ?assert(ejabberd_auth:user_exists(Uid)),
     ok = ejabberd_auth:remove_user(Uid, ?SERVER),
     ?assertNot(ejabberd_auth:user_exists(Uid)).

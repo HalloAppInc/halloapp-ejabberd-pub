@@ -138,7 +138,7 @@ request_sms_prod_test() ->
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(GoodResponse, Response),
     ?assertEqual(1, collect(?PHONE, 250, 1)),
-    ?assert(meck:called(model_phone, add_sms_code2, [?TEST_PHONE, '_'])),
+    ?assert(meck:called(model_phone, add_sms_code2, [?TEST_PHONE, '_', '_'])),
     ?assert(meck:called(mbird, send_sms, [?PHONE,'_','_','_']) orelse
             meck:called(twilio, send_sms, [?PHONE,'_','_','_']) orelse
             meck:called(mbird_verify, send_sms, [?PHONE,'_','_','_']) orelse

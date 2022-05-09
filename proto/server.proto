@@ -1346,6 +1346,7 @@ message OtpRequest {
     string user_agent = 5;
     string hashcash_solution = 6;
     int64 hashcash_solution_time_taken_ms = 7;
+    string campaign_id = 8;
 }
 
 message OtpResponse {
@@ -1386,6 +1387,7 @@ message VerifyOtpRequest {
     string group_invite_token = 9;
     PushRegister push_register = 10; // Only for ios-appclip
     string user_agent = 11;
+    string campaign_id = 12;
 }
 
 message VerifyOtpResponse {
