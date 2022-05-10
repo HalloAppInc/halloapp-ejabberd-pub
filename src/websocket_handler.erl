@@ -39,7 +39,7 @@ websocket_handle({text, Msg}, State) ->
     ?INFO("Msg: ~p", [Msg]),
     {[{text, << "Text packet recvd ", Msg/binary >>}], State};
 websocket_handle({binary, BinMsg}, State) ->
-    ?INFO("Bin msg: ~p", [base64:encode(BinMsg)]),
+    ?DEBUG("Bin msg: ~p", [base64:encode(BinMsg)]),
     case enif_protobuf:decode(BinMsg, pb_packet) of
         {error, _} ->
             stat:count("HA/websocket", "recv_packet", 1, [{result, error}]),
@@ -54,7 +54,7 @@ websocket_handle({binary, BinMsg}, State) ->
                     ?ERROR("Failed to encode packet ~p", [Pkt3]),
                     stat:count("HA/websocket", "send_packet", 1, [{result, error}]),
                     {stop, State2};
-                {ok, BinPkt} ->
+                BinPkt ->
                     stat:count("HA/websocket", "send_packet", 1, [{result, ok}]),
                     {[{binary, BinPkt}], State2}
             end
@@ -121,7 +121,8 @@ process_iq(#pb_iq{type = set,
     end,
     State2 = State#{static_key => StaticKey, sid => Sid},
     case add_key_to_session(StaticKey, Sid, IP) of
-        ok -> {pb:make_iq_result(IQ, #pb_web_client_info{result = ok}), State2};
+        ok ->
+            {pb:make_iq_result(IQ, #pb_web_client_info{result = ok}), State2};
         {error, Reason} ->
             ?ERROR("Add static key error: ~p", [Reason]),
             {pb:make_error(IQ, util:err(Reason)), State2}
