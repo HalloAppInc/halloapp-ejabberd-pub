@@ -783,6 +783,12 @@ message WebClientInfo {
     Result result = 3;
 }
 
+message WebStanza {
+    bytes static_key = 1;  // Used to identify the user. Must be set on every packet exchanged
+                           // between mobile and web client.
+    bytes content = 2;  // Noise encrypted content or it is encoded and serialized NoiseMessage.
+}
+
 // IQ
 
 message Iq {
@@ -899,6 +905,7 @@ message Msg {
         MuteCall mute_call = 45;
         IncomingCallPush incoming_call_push = 46;
         CallSdp call_sdp = 47;
+        WebStanza web_stanza = 48;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
