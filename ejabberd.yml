@@ -199,6 +199,7 @@ modules:
   mod_inactive_accounts: {}
   mod_retention: {}
   stat: {}
+  stat_opentsdb: {}
   mod_admin_extra: {}
   mod_export: {}
   ha_bad_process: {}
