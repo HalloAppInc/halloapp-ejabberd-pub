@@ -328,7 +328,7 @@ publish_comment_test() ->
         end),
 
     model_friends:add_friends(?UID1, [?UID2, ?UID3]),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], util:now_ms()),
     PublishIQ = get_comment_publish_iq(?COMMENT_ID1, ?POST_ID1, ?UID1, <<>>, ?PAYLOAD1, ?ENC_PAYLOAD1),
     ResultIQ = mod_feed:process_local_iq(PublishIQ),
     Timestamp = get_timestamp(ResultIQ),
@@ -361,7 +361,7 @@ retract_post_test() ->
     %% publish post and then retract.
     meck:new(ejabberd_router, [passthrough]),
     meck:expect(ejabberd_router, route, fun(_) -> ok end),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], util:now_ms()),
     RetractIQ = get_post_retract_iq(?POST_ID1, ?UID1),
     ResultIQ = mod_feed:process_local_iq(RetractIQ),
     Timestamp = get_timestamp(ResultIQ),
@@ -375,7 +375,7 @@ retract_post_test() ->
 retract_not_authorized_post_test() ->
     setup(),
     %% publish post and then retract by different user.
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], util:now_ms()),
     RetractIQ = get_post_retract_iq(?POST_ID1, ?UID2),
     ResultIQ = mod_feed:process_local_iq(RetractIQ),
     ExpectedResultIQ = get_error_iq_result(<<"not_authorized">>, ?UID2),
@@ -398,7 +398,7 @@ retract_comment_test() ->
     %% publish post and comment and then retract comment.
     meck:new(ejabberd_router, [passthrough]),
     meck:expect(ejabberd_router, route, fun(_) -> ok end),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], util:now_ms()),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, <<>>, ?COMMENT_PAYLOAD1, util:now_ms()),
     RetractIQ = get_comment_retract_iq(?COMMENT_ID1, ?POST_ID1, ?UID1),
@@ -415,7 +415,7 @@ retract_comment_test() ->
 retract_not_authorized_comment_test() ->
     setup(),
     %% publish post and then retract by different user.
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], util:now_ms()),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
             ?UID2, <<>>, ?COMMENT_PAYLOAD2, util:now_ms()),
     RetractIQ = get_comment_retract_iq(?COMMENT_ID2, ?POST_ID1, ?UID1),
@@ -430,7 +430,7 @@ share_post_non_friend_test() ->
     %% publish post and add non-friend
     meck:new(ejabberd_router, [passthrough]),
     meck:expect(ejabberd_router, route, fun(_) -> ok end),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1], util:now_ms()),
     ShareIQ = get_share_iq(?UID1, ?UID2, [?POST_ID1]),
     ResultIQ = mod_feed:process_local_iq(ShareIQ),
     ExpectedResultIQ = get_share_iq_result(?UID1, ?UID2),
@@ -444,7 +444,7 @@ share_post_iq_test() ->
     setup(),
     meck:new(ejabberd_router, [passthrough]),
     meck:expect(ejabberd_router, route, fun(_) -> ok end),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1], util:now_ms()),
     model_friends:add_friend(?UID1, ?UID2),
     ShareIQ = get_share_iq(?UID1, ?UID2, [?POST_ID1]),
     ResultIQ = mod_feed:process_local_iq(ShareIQ),
@@ -474,7 +474,7 @@ add_friend_test() ->
         ?assertEqual(?PAYLOAD1, Post#pb_post.payload),
         ok
     end),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, base64:encode(?PAYLOAD1), all, [?UID1], util:now_ms()),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, base64:encode(?PAYLOAD1), empty, all, [?UID1], util:now_ms()),
     model_friends:add_friend(?UID1, ?UID2),
     mod_feed:add_friend(?UID1, ?SERVER, ?UID2, false),
     ?assertEqual(1, meck:num_calls(ejabberd_router, route, '_')),

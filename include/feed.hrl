@@ -13,6 +13,7 @@
 -type node_type() :: feed | metadata.
 -type item_type() :: feedpost | comment | other.
 -type event_type() :: publish | retract | share.
+-type post_tag() :: empty | secret_post.
 
 -record(psnode, {
     id :: binary(),                             %% node_id
@@ -37,6 +38,7 @@
     id :: binary(),
     uid :: uid(),
     payload :: binary(),
+    tag :: post_tag(),
     audience_type :: atom(),
     audience_list :: [uid()],
     ts_ms :: integer(),

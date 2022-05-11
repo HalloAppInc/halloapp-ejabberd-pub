@@ -36,8 +36,8 @@
 
 %% API
 -export([
+    publish_post/8,
     publish_post/7,
-    publish_post/6,
     publish_comment/6,
     retract_post/2,
     retract_comment/2,
@@ -69,6 +69,7 @@
 
 -define(FIELD_UID, <<"uid">>).
 -define(FIELD_PAYLOAD, <<"pl">>).
+-define(FIELD_TAG, <<"pt">>).
 -define(FIELD_AUDIENCE_TYPE, <<"fa">>).
 -define(FIELD_TIMESTAMP_MS, <<"ts">>).
 -define(FIELD_PUBLISHER_UID, <<"pbu">>).
@@ -77,12 +78,12 @@
 -define(FIELD_GROUP_ID, <<"gid">>).
 
 
--spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(),
+-spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
         TimestampMs :: integer(), Gid :: gid()) -> ok | {error, any()}.
-publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, TimestampMs, Gid)
+publish_post(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs, Gid)
     when is_binary(Gid), Gid =/= <<>> ->
-    ok = publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, TimestampMs),
+    ok = publish_post(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs),
     %% Set group_id
     {ok, _} = q(["HSET", post_key(PostId), ?FIELD_GROUP_ID, Gid]),
     %% Add post to reverse index of group_id
@@ -94,13 +95,14 @@ publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, Timestamp
     ok.
 
 
--spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(),
+-spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
         TimestampMs :: integer()) -> ok | {error, any()}.
-publish_post(PostId, Uid, Payload, FeedAudienceType, FeedAudienceList, TimestampMs) ->
+publish_post(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs) ->
     C1 = [["HSET", post_key(PostId),
         ?FIELD_UID, Uid,
         ?FIELD_PAYLOAD, Payload,
+        ?FIELD_TAG, encode_post_tag(PostTag),
         ?FIELD_AUDIENCE_TYPE, encode_audience_type(FeedAudienceType),
         ?FIELD_TIMESTAMP_MS, integer_to_binary(TimestampMs)]],
     C2 = case FeedAudienceList of
@@ -209,9 +211,11 @@ remove_all_user_posts(Uid) ->
 
 -spec get_post(PostId :: binary()) -> {ok, post()} | {error, any()}.
 get_post(PostId) ->
-    [{ok, [Uid, Payload, AudienceType, TimestampMs, Gid, IsDeletedBin]}, {ok, AudienceList}] = qp([
+    [
+        {ok, [Uid, Payload, PostTag, AudienceType, TimestampMs, Gid, IsDeletedBin]},
+        {ok, AudienceList}] = qp([
             ["HMGET", post_key(PostId),
-                ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS,
+                ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS,
                 ?FIELD_GROUP_ID, ?FIELD_DELETED],
             ["SMEMBERS", post_audience_key(PostId)]]),
     IsDeleted = util_redis:decode_boolean(IsDeletedBin, false),
@@ -221,6 +225,7 @@ get_post(PostId) ->
             {ok, #post{
                 id = PostId,
                 uid = Uid,
+                tag = decode_post_tag(PostTag),
                 audience_type = decode_audience_type(AudienceType),
                 audience_list = AudienceList,
                 payload = Payload,
@@ -291,12 +296,12 @@ get_post_and_its_comments(PostId) when is_binary(PostId) ->
         ParentId :: binary()) -> {{ok, feed_item()}, {ok, feed_item()}, {ok, [binary()]}} | {error, any()}.
 get_comment_data(PostId, CommentId, ParentId) ->
     [{ok, Res1}, {ok, Res2}, {ok, Res3}] = qp([
-        ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD,
+        ["HMGET", post_key(PostId), ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG,
                 ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED],
         ["SMEMBERS", post_audience_key(PostId)],
         ["HMGET", comment_key(CommentId, PostId), ?FIELD_PUBLISHER_UID, ?FIELD_PARENT_COMMENT_ID,
                 ?FIELD_PAYLOAD, ?FIELD_TIMESTAMP_MS, ?FIELD_DELETED]]),
-    [PostUid, PostPayload, AudienceType, PostTsMs, IsPostDeletedBin] = Res1,
+    [PostUid, PostPayload, PostTag, AudienceType, PostTsMs, IsPostDeletedBin] = Res1,
     AudienceList = Res2,
     [CommentPublisherUid, ParentCommentId, CommentPayload, CommentTsMs, IsCommentDeletedBin] = Res3,
     Post = #post{
@@ -305,6 +310,7 @@ get_comment_data(PostId, CommentId, ParentId) ->
         audience_type = decode_audience_type(AudienceType),
         audience_list = AudienceList,
         payload = PostPayload,
+        tag = decode_post_tag(PostTag),
         ts_ms = util_redis:decode_ts(PostTsMs)
     },
     Comment = #comment{
@@ -543,6 +549,14 @@ decode_audience_type(<<"e">>) -> except;
 decode_audience_type(<<"o">>) -> only;
 decode_audience_type(<<"g">>) -> group;
 decode_audience_type(_) -> undefined.
+
+
+encode_post_tag(empty) -> <<"e">>;
+encode_post_tag(secret_post) -> <<"s">>.
+
+decode_post_tag(<<"s">>) -> secret_post;
+decode_post_tag(<<"e">>) -> empty;
+decode_post_tag(_) -> undefined.
 
 
 decode_comment_key(CommentKey) ->

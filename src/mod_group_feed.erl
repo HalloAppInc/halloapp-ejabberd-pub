@@ -89,11 +89,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_group_feed_item{gid = Gid, action = publish,
         item = #pb_post{} = Post} = GroupFeedSt} = IQ) ->
     PostId = Post#pb_post.id,
+    PostTag = Post#pb_post.tag,
     PayloadBase64 = case Post#pb_post.payload of
         undefined -> <<>>;
         _ -> base64:encode(Post#pb_post.payload)
     end,
-    case publish_post(Gid, Uid, PostId, PayloadBase64, GroupFeedSt) of
+    case publish_post(Gid, Uid, PostId, PayloadBase64, PostTag, GroupFeedSt) of
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason));
         {ok, NewGroupFeedSt} ->
@@ -200,9 +201,10 @@ set_group_and_sender_info(#pb_msg{id = MsgId, from_uid = FromUid,
 
 
 %% TODO(murali@): log stats for different group-feed activity.
--spec publish_post(Gid :: gid(), Uid :: uid(), PostId :: binary(), PayloadBase64 :: binary(),
-        GroupFeedSt :: pb_group_feed_item()) -> {ok, pb_group_feed_item()} | {error, atom()}.
-publish_post(Gid, Uid, PostId, PayloadBase64, GroupFeedSt) ->
+-spec publish_post(Gid :: gid(), Uid :: uid(), PostId :: binary(),
+    PayloadBase64 :: binary(), PostTag :: post_tag(),
+    GroupFeedSt :: pb_group_feed_item()) -> {ok, pb_group_feed_item()} | {error, atom()}.
+publish_post(Gid, Uid, PostId, PayloadBase64, PostTag, GroupFeedSt) ->
     ?INFO("Gid: ~s Uid: ~s", [Gid, Uid]),
     case model_groups:check_member(Gid, Uid) of
         false ->
@@ -217,15 +219,15 @@ publish_post(Gid, Uid, PostId, PayloadBase64, GroupFeedSt) ->
             case IsHashMatch of
                 false -> {error, audience_hash_mismatch};
                 true ->
-                    publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, GroupFeedSt)
+                    publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, PostTag, GroupFeedSt)
             end
     end.
 
 
 -spec publish_post_unsafe(GroupInfo :: group_info(), Uid :: uid(), PostId :: binary(),
-        PayloadBase64 :: binary(), GroupFeedSt :: pb_group_feed_item())
+        PayloadBase64 :: binary(), PostTag :: post_tag(), GroupFeedSt :: pb_group_feed_item())
             -> {ok, pb_group_feed_item()} | {error, atom()}.
-publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, GroupFeedSt) ->
+publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, PostTag, GroupFeedSt) ->
     Server = util:get_host(),
     AudienceType = group,
     Gid = GroupInfo#group_info.gid,
@@ -238,7 +240,7 @@ publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, GroupFeedSt) ->
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
-            ok = model_feed:publish_post(PostId, Uid, PayloadBase64,
+            ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
                     AudienceType, AudienceList, TimestampMs, Gid),
             ejabberd_hooks:run(group_feed_item_published, Server, [Gid, Uid, PostId, post, MediaCounters]),
             {ok, TimestampMs};
@@ -605,7 +607,8 @@ share_group_feed(Gid, Uid) ->
 -spec filter_group_feed_items(Uid :: uid(), Items :: [post()] | [comment()]) -> {[post()], [comment()]}.
 filter_group_feed_items(_Uid, Items) ->
     {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
-    FilteredPosts = Posts,
+    %% Dont resend moments to anyone including dev-users when resending history.
+    FilteredPosts = lists:filter(fun(Post) -> Post#post.tag =:= secret_post end, Posts),
     FilteredPostIdsList = lists:map(fun(Post) -> Post#post.id end, FilteredPosts),
     FilteredPostIdsSet = sets:from_list(FilteredPostIdsList),
     FilteredComments = lists:filter(

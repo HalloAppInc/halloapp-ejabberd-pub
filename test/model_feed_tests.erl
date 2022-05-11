@@ -78,7 +78,7 @@ publish_post_test() ->
     setup(),
     ?assertEqual({error, missing}, model_feed:get_post(?POST_ID1)),
     Timestamp1 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
     ExpectedPost = get_post1(Timestamp1),
     {ok, ActualPost} = model_feed:get_post(?POST_ID1),
     ?assertEqual(ExpectedPost, ActualPost),
@@ -90,7 +90,7 @@ publish_post2_test() ->
     setup(),
     ?assertEqual({error, missing}, model_feed:get_post(?POST_ID1)),
     Timestamp1 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, only, [], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, only, [], Timestamp1),
     Post1 = get_post1(Timestamp1),
     ExpectedPost = Post1#post{audience_type = only, audience_list = []},
     {ok, ActualPost} = model_feed:get_post(?POST_ID1),
@@ -104,7 +104,7 @@ publish_group_post_test() ->
     setup(),
     ?assertEqual({error, missing}, model_feed:get_post(?POST_ID1)),
     Timestamp1 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1, ?GID1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1, ?GID1),
     ExpectedPost = get_post1(?GID1, Timestamp1),
     {ok, ActualPost} = model_feed:get_post(?POST_ID1),
     ?assertEqual(ExpectedPost, ActualPost),
@@ -116,7 +116,7 @@ publish_group_post_test() ->
 publish_comment_test() ->
     setup(),
     Timestamp1 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
     ?assertEqual({error, missing}, model_feed:get_comment(?COMMENT_ID1, ?POST_ID1)),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, undefined, ?COMMENT_PAYLOAD1, Timestamp1),
@@ -131,7 +131,7 @@ retract_post_test() ->
     Timestamp1 = util:now_ms(),
     %% Delete post with comments.
     ?assertEqual(false, model_feed:is_post_deleted(?POST_ID1)),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, undefined, ?COMMENT_PAYLOAD1, Timestamp1),
 
@@ -143,7 +143,7 @@ retract_post_test() ->
 
     %% Delete post without comments.
     ?assertEqual(false, model_feed:is_post_deleted(?POST_ID2)),
-    ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, empty, all, [?UID1, ?UID2], Timestamp1),
     ?assertEqual(false, model_feed:is_post_deleted(?POST_ID2)),
     ok = model_feed:retract_post(?POST_ID2, ?UID1),
     ?assertEqual({error, missing}, model_feed:get_post(?POST_ID2)),
@@ -154,7 +154,7 @@ retract_post_test() ->
 retract_comment_test() ->
     setup(),
     Timestamp1 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, undefined, ?COMMENT_PAYLOAD1, Timestamp1),
 
@@ -166,7 +166,7 @@ retract_comment_test() ->
 get_comment_data_test() ->
     setup(),
     Timestamp1 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, undefined, ?COMMENT_PAYLOAD1, Timestamp1),
     Post1 = get_post1(Timestamp1),
@@ -186,7 +186,7 @@ get_comment_data_test() ->
 get_comment_push_data_test() ->
     setup(),
     Timestamp1 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID3, undefined, ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
@@ -225,7 +225,7 @@ get_post_and_its_comments_test() ->
     Comment3 = get_comment3(Timestamp1),
 
     %% Publish post and check.
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
     ?assertEqual({ok, {Post1, []}}, model_feed:get_post_and_its_comments(?POST_ID1)),
 
     %% Publish 1st comment and check.
@@ -251,7 +251,7 @@ get_post_and_its_comments_test() ->
 comment_subs_test() ->
     setup(),
     Timestamp1 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, undefined, ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
@@ -280,7 +280,7 @@ get_user_feed_test() ->
     setup(),
     Timestamp1 = util:now_ms() - ?WEEKS_MS - ?HOURS_MS,
     Timestamp2 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, undefined, ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
@@ -288,11 +288,11 @@ get_user_feed_test() ->
     ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
             ?UID1, ?COMMENT_ID2, ?COMMENT_PAYLOAD3, Timestamp1),
 
-    ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, except, [?UID2], Timestamp2),
+    ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, empty, except, [?UID2], Timestamp2),
     ok = model_feed:publish_comment(?COMMENT_ID4, ?POST_ID2,
             ?UID2, undefined, ?COMMENT_PAYLOAD4, Timestamp2),
 
-    ok = model_feed:publish_post(?POST_ID3, ?UID1, ?PAYLOAD3, except, [?UID2], Timestamp2, ?GID1),
+    ok = model_feed:publish_post(?POST_ID3, ?UID1, ?PAYLOAD3, empty, except, [?UID2], Timestamp2, ?GID1),
     ok = model_feed:publish_comment(?COMMENT_ID5, ?POST_ID3,
             ?UID2, undefined, ?COMMENT_PAYLOAD5, Timestamp2),
 
@@ -319,7 +319,7 @@ get_group_feed_test() ->
     setup(),
     Timestamp1 = util:now_ms() - ?WEEKS_MS - ?HOURS_MS,
     Timestamp2 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1, ?GID1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1, ?GID1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, undefined, ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
@@ -327,11 +327,11 @@ get_group_feed_test() ->
     ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
             ?UID1, ?COMMENT_ID2, ?COMMENT_PAYLOAD3, Timestamp1),
 
-    ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, except, [?UID2], Timestamp2, ?GID1),
+    ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, empty, except, [?UID2], Timestamp2, ?GID1),
     ok = model_feed:publish_comment(?COMMENT_ID4, ?POST_ID2,
             ?UID2, undefined, ?COMMENT_PAYLOAD4, Timestamp2),
 
-    ok = model_feed:publish_post(?POST_ID3, ?UID1, ?PAYLOAD3, except, [?UID2], Timestamp2),
+    ok = model_feed:publish_post(?POST_ID3, ?UID1, ?PAYLOAD3, empty, except, [?UID2], Timestamp2),
     ok = model_feed:publish_comment(?COMMENT_ID5, ?POST_ID3,
             ?UID2, undefined, ?COMMENT_PAYLOAD5, Timestamp2),
 
@@ -359,7 +359,7 @@ cleanup_reverse_index_test() ->
     setup(),
     Timestamp1 = util:now_ms() - ?POST_TTL_MS - ?HOURS_MS,
     Timestamp2 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, undefined, ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
@@ -367,7 +367,7 @@ cleanup_reverse_index_test() ->
     ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
             ?UID1, ?COMMENT_ID2, ?COMMENT_PAYLOAD3, Timestamp1),
 
-    ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, except, [?UID2], Timestamp2),
+    ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, empty, except, [?UID2], Timestamp2),
     ok = model_feed:publish_comment(?COMMENT_ID4, ?POST_ID2,
             ?UID2, undefined, ?COMMENT_PAYLOAD4, Timestamp2),
 
@@ -391,7 +391,7 @@ cleanup_group_reverse_index_test() ->
     setup(),
     Timestamp1 = util:now_ms() - ?POST_TTL_MS - ?HOURS_MS,
     Timestamp2 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1, ?GID1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1, ?GID1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, undefined, ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
@@ -399,7 +399,7 @@ cleanup_group_reverse_index_test() ->
     ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
             ?UID1, ?COMMENT_ID2, ?COMMENT_PAYLOAD3, Timestamp1),
 
-    ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, except, [?UID2], Timestamp2, ?GID1),
+    ok = model_feed:publish_post(?POST_ID2, ?UID1, ?PAYLOAD2, empty, except, [?UID2], Timestamp2, ?GID1),
     ok = model_feed:publish_comment(?COMMENT_ID4, ?POST_ID2,
             ?UID2, undefined, ?COMMENT_PAYLOAD4, Timestamp2),
 
@@ -419,7 +419,7 @@ cleanup_group_reverse_index_test() ->
 update_audience_test() ->
     setup(),
     Timestamp1 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1], Timestamp1),
     ExpectedPost = get_post1(Timestamp1),
     {ok, ActualPost1} = model_feed:get_post(?POST_ID1),
     ?assertNotEqual(ExpectedPost, ActualPost1),
@@ -438,7 +438,7 @@ remove_user_test() ->
     setup(),
     Timestamp1 = util:now_ms() - ?WEEKS_MS - ?HOURS_MS,
     Timestamp2 = util:now_ms(),
-    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+    ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
             ?UID1, <<>>, ?COMMENT_PAYLOAD1, Timestamp1),
     ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,
@@ -446,7 +446,7 @@ remove_user_test() ->
     ok = model_feed:publish_comment(?COMMENT_ID3, ?POST_ID1,
             ?UID1, ?COMMENT_ID2, ?COMMENT_PAYLOAD3, Timestamp1),
 
-    ok = model_feed:publish_post(?POST_ID2, ?UID2, ?PAYLOAD2, except, [?UID1], Timestamp2),
+    ok = model_feed:publish_post(?POST_ID2, ?UID2, ?PAYLOAD2, empty, except, [?UID1], Timestamp2),
     ok = model_feed:publish_comment(?COMMENT_ID4, ?POST_ID2,
             ?UID1, <<>>, ?COMMENT_PAYLOAD4, Timestamp2),
 
@@ -485,6 +485,7 @@ get_post1(Timestamp) ->
         id = ?POST_ID1,
         uid = ?UID1,
         payload = ?PAYLOAD1,
+        tag = empty,
         audience_type = all,
         audience_list = [?UID1, ?UID2],
         ts_ms = Timestamp
@@ -499,6 +500,7 @@ get_post2(Timestamp) ->
         id = ?POST_ID2,
         uid = ?UID1,
         payload = ?PAYLOAD2,
+        tag = empty,
         audience_type = except,
         audience_list = [?UID2],
         ts_ms = Timestamp
@@ -513,6 +515,7 @@ get_post3(Timestamp) ->
         id = ?POST_ID3,
         uid = ?UID1,
         payload = ?PAYLOAD3,
+        tag = empty,
         audience_type = except,
         audience_list = [?UID2],
         ts_ms = Timestamp
@@ -576,7 +579,7 @@ get_comment5(Timestamp) ->
 %         fun() ->
 %             setup(),
 %             Timestamp1 = util:now_ms(),
-%             ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, all, [?UID1, ?UID2], Timestamp1),
+%             ok = model_feed:publish_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, all, [?UID1, ?UID2], Timestamp1),
 %             ok = model_feed:publish_comment(?COMMENT_ID1, ?POST_ID1,
 %                     ?UID1, ?COMMENT_ID1, ?COMMENT_PAYLOAD1, Timestamp1),
 %             ok = model_feed:publish_comment(?COMMENT_ID2, ?POST_ID1,

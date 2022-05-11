@@ -1003,7 +1003,7 @@ retract_group_feed_test() ->
     Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
 
     Timestamp = util:now_ms(),
-    ok = model_feed:publish_post(?ID2, ?UID1, <<>>, all, [?UID1, ?UID2, ?UID3], Timestamp, Gid),
+    ok = model_feed:publish_post(?ID2, ?UID1, <<>>, empty, all, [?UID1, ?UID2, ?UID3], Timestamp, Gid),
     ok = model_feed:publish_comment(?ID1, ?ID2, ?UID2, <<>>, <<>>, Timestamp),
     meck:new(ejabberd_router, [passthrough]),
 

@@ -215,7 +215,7 @@ set_ts_and_publisher_name(MsgId, #pb_feed_item{item = Item} = FeedItem) ->
 
 %% TODO(murali@): update payload to be protobuf binary without base64 encoded.
 
--spec publish_post(Uid :: uid(), PostId :: binary(), PayloadBase64 :: binary(), PostTag :: 'pb_post.Tag'(),
+-spec publish_post(Uid :: uid(), PostId :: binary(), PayloadBase64 :: binary(), PostTag :: post_tag(),
         AudienceListStanza ::[pb_audience()], HomeFeedSt :: pb_feed_item()) -> {ok, integer()} | {error, any()}.
 publish_post(_Uid, _PostId, _PayloadBase64, _PostTag, undefined, _HomeFeedSt) ->
     {error, no_audience};
@@ -237,7 +237,7 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, AudienceList, HomeFeedSt) ->
             TimestampMs = util:now_ms(),
             ?INFO("Uid: ~s PostId ~p published to ~p audience size: ~p",
                 [Uid, PostId, FeedAudienceType, length(UpdatedAudienceList)]),
-            ok = model_feed:publish_post(PostId, Uid, PayloadBase64,
+            ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
                     FeedAudienceType, UpdatedAudienceList, TimestampMs),
             ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, FeedAudienceType, MediaCounters]),
             {ok, TimestampMs};
@@ -559,15 +559,18 @@ send_old_items(FromUid, ToUid, Server) ->
     end.
 
 % Uid is the user to which we want to send those posts.
-% Posts have to be either with audience_type all or the Uid has to be in the audience_list
+% Posts should not be secret posts.
+% They have to be either with audience_type all or the Uid has to be in the audience_list
 -spec filter_feed_items(Uid :: uid(), Items :: [post()] | [comment()]) -> {[post()], [comment()]}.
 filter_feed_items(Uid, Items) ->
     {Posts, Comments} = lists:partition(fun(Item) -> is_record(Item, post) end, Items),
     FilteredPosts = lists:filter(
             fun(Post) ->
-                case Post#post.audience_type of
-                    all -> true;
-                    _ ->
+                case {Post#post.audience_type, Post#post.tag} of
+                    %% Dont resend moments to anyone including dev-users when resending history.
+                    {_, secret_post} -> false;
+                    {all, _} -> true;
+                    {_, _} ->
                         lists:member(Uid, Post#post.audience_list)
                 end
             end, Posts),
