@@ -102,7 +102,7 @@ process_iq(#pb_iq{type = get,
         {ok, undefined} ->
             stat:count("HA/websocket", "is_key_authenticated", 1, [{result, error}]),
             ?INFO("StaticKey: ~p not authenticated", [base64:encode(StaticKey)]),
-            {pb:make_iq_result(IQ, #pb_web_client_info{result = not_autenticated}), State};
+            {pb:make_iq_result(IQ, #pb_web_client_info{result = not_authenticated}), State};
         {ok, Uid} ->
             stat:count("HA/websocket", "is_key_authenticated", 1, [{result, ok}]),
             ?INFO("StaticKey: ~p authenticated, UId: ~p", [base64:encode(StaticKey), Uid]),
