@@ -88,7 +88,7 @@ process([<<"mbird">>],
         Id = proplists:get_value(<<"id">>, Q),
         Recipient = proplists:get_value(<<"recipient">>, Q),
         Status = mbird:normalized_status(proplists:get_value(<<"status">>, Q)),
-        Price = binary_to_list(proplists:get_value(<<"price[amount]">>, Q)),
+        Price = binary_to_list(proplists:get_value(<<"price[amount]">>, Q, <<>>)),
         RealPrice = case string:to_float(Price) of
             {error, _} -> undefined;
             {RealPrice2, []} -> RealPrice2
