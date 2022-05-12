@@ -123,6 +123,7 @@ get_props(Uid, ClientVersion) ->
         group_comments_notification => true, %% notifications for group comments by friends on group posts.
         home_feed_comment_notifications => false, %% notifications for home feed comments by friends.
         nse_runtime_sec => 17, %% ios-nse needs 3 secs to cleanup, we want our nse to run =< 20 secs.
+        moments => false,   %% clients are capable of sending moments.
         invite_strings => get_invite_strings_bin() %% json string with invite text.
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
@@ -147,7 +148,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap6 = maps:update(privacy_label, true, PropMap5),
             PropMap7 = maps:update(krisp_noise_suppression, true, PropMap6),
             PropMap8 = maps:update(home_feed_comment_notifications, true, PropMap7),
-            PropMap8
+            PropMap9 = maps:update(moments, true, PropMap8),
+            PropMap9
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
