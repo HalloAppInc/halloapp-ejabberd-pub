@@ -196,7 +196,7 @@ process_otp_request(Data, IP, Headers) ->
         GroupInviteToken = maps:get(<<"group_invite_token">>, Payload, undefined),
         HashcashSolution = maps:get(<<"hashcash_solution">>, Payload, <<>>),
         HashcashSolutionTimeTakenMs = maps:get(<<"hashcash_solution_time_taken_ms">>, Payload, -1),
-        CampaignId = maps:get(<<"campaign_id">>, Payload, <<>>),
+        CampaignId = maps:get(<<"campaign_id">>, Payload, <<"undefined">>),
         PhoneCC = mod_libphonenumber:get_region_id(RawPhone),
         IPCC = mod_geodb:lookup(ClientIP),
         ?INFO("raw_phone:~p, ua:~p ip:~s method: ~s, langId: ~p, Phone CC: ~p IP CC: ~p "
@@ -269,7 +269,7 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
     try
         RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
         HashcashSolution = maps:get(hashcash_solution, RequestData, <<>>),
-        CampaignId = maps:get(campaign_id, RequestData, <<>>),
+        CampaignId = maps:get(campaign_id, RequestData, <<"undefined">>),
         HashcashSolutionTimeTakenMs = maps:get(hashcash_solution_time_taken_ms, RequestData, 0),
         log_otp_request(RawPhone, MethodBin, UserAgent, ClientIP, Protocol),
         Phone = normalize(RawPhone),
@@ -377,7 +377,7 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
         protocol := Protocol} = RequestData) ->
     try
         RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
-        CampaignId = maps:get(campaign_id, RequestData, <<>>),
+        CampaignId = maps:get(campaign_id, RequestData, <<"undefined">>),
         stat:count("HA/registration", "verify_otp_by_campaign_id", 1,
             [{campaign_id, CampaignId}]),
         Phone = normalize(RawPhone),
