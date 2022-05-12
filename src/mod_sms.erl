@@ -180,7 +180,7 @@ send_otp_to_inviter(Phone, LangId, UserAgent, Method)->
                     just_enroll(Phone);
                 {ok, InviterPhone} ->
                     case test_users:is_test_uid(Uid) of
-                        true -> send_otp(InviterPhone, LangId, Phone, UserAgent, Method, <<>>);
+                        true -> send_otp(InviterPhone, LangId, Phone, UserAgent, Method, <<"undefined">>);
                         false -> just_enroll(Phone)
                     end
             end
