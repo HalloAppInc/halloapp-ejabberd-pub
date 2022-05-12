@@ -81,7 +81,7 @@ mod_options(_Host) ->
 %% gen_server callbacks
 %%====================================================================
 
-init([_]) ->
+init([_|_]) ->
     {ok, #{?FAILED_ATTEMPTS => 0}}.
 
 
