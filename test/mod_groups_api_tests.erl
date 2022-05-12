@@ -86,6 +86,10 @@ modify_members_IQ(Uid, Gid, Changes, PBHistoryResend) ->
     make_group_IQ(Uid, Gid, set, modify_members, Changes, PBHistoryResend).
 
 
+share_history_IQ(Uid, Gid, Changes, PBHistoryResend) ->
+    make_group_IQ(Uid, Gid, set, share_history, Changes, PBHistoryResend).
+
+
 modify_admins_IQ(Uid, Gid, Changes) ->
     make_group_IQ(Uid, Gid, set, modify_admins, Changes).
 
@@ -416,6 +420,28 @@ modify_members_not_admin_test() ->
     Error = tutil:get_error_iq_sub_el(IQRes),
 %%    ?debugVal(Error, 1000),
     ?assertEqual(util:err(not_admin), Error),
+    ok.
+
+
+share_history_test() ->
+    setup(),
+    Gid = create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    IQ = share_history_IQ(?UID1, Gid, [{?UID2, add}, {?UID3, add}, {?UID4, add}, {?UID5, add}], undefined),
+    IQRes = mod_groups_api:process_local_iq(IQ),
+    GroupSt = tutil:get_result_iq_sub_el(IQRes),
+    ?assertMatch(
+        #pb_group_stanza{
+            gid = Gid,
+            action = share_history,
+            members = [
+                #pb_group_member{uid = ?UID2, action = add, result = <<"ok">>},
+                #pb_group_member{uid = ?UID3, action = add, type = member, result = <<"ok">>},
+                #pb_group_member{uid = ?UID4, action = add, type = member,
+                    result = <<"failed">>, reason = <<"not_member">>},
+                #pb_group_member{uid = ?UID5, action = add, type = member,
+                    result = <<"failed">>, reason = <<"no_account">>}]
+        },
+        GroupSt),
     ok.
 
 

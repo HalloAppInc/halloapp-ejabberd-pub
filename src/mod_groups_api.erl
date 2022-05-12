@@ -105,6 +105,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     process_modify_members(IQ, Gid, Uid, ReqGroupSt);
 
 
+%%% share_history %%%
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_stanza{action = share_history, gid = Gid} = ReqGroupSt} = IQ) ->
+    process_share_history(IQ, Gid, Uid, ReqGroupSt);
+
+
 %%% modify_admins %%%
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_group_stanza{action = modify_admins, gid = Gid} = ReqGroupSt} = IQ) ->
@@ -261,6 +267,36 @@ process_modify_members(IQ, Gid, Uid, ReqGroupSt) ->
             GroupStResult = #pb_group_stanza{
                 gid = Gid,
                 action = modify_members,
+                members = ResultMemberSt
+            },
+            pb:make_iq_result(IQ, GroupStResult)
+    end.
+
+
+-spec process_share_history(IQ :: pb_iq(), Gid :: gid(), Uid :: uid(), ReqGroupSt :: pb_group_stanza())
+            -> pb_iq().
+process_share_history(IQ, Gid, Uid, ReqGroupSt) ->
+    MembersSt = ReqGroupSt#pb_group_stanza.members,
+    UidsToShare = [ M#pb_group_member.uid || M <- MembersSt],
+    PBHistoryResend = ReqGroupSt#pb_group_stanza.history_resend,
+    ?INFO("share_history Gid: ~s Uid: ~s UidsToShare: ~p", [Gid, Uid, UidsToShare]),
+    case mod_groups:share_history(Gid, Uid, UidsToShare, PBHistoryResend) of
+        {error, not_admin} ->
+            pb:make_error(IQ, util:err(not_admin));
+        {error, bad_request} ->
+            pb:make_error(IQ, util:err(bad_request));
+        {error, audience_hash_mismatch} ->
+            pb:make_error(IQ, util:err(audience_hash_mismatch));
+        {ok, ShareHistoryResults} ->
+            ResultMemberSt = lists:map(
+                fun ({Ouid, Action, Result}) ->
+                    make_member_st(Ouid, Result, member, Action)
+                end,
+                ShareHistoryResults),
+
+            GroupStResult = #pb_group_stanza{
+                gid = Gid,
+                action = share_history,
                 members = ResultMemberSt
             },
             pb:make_iq_result(IQ, GroupStResult)

@@ -133,6 +133,31 @@ add_members_no_admin_test() ->
     ?assertEqual({error, not_admin}, mod_groups:add_members(Gid, ?UID2, [?UID4])),
     ok.
 
+
+share_history_test() ->
+    setup(),
+    {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
+    Gid = Group#group.gid,
+    mod_groups:add_members(Gid, ?UID1, [?UID2, ?UID3]),
+    ?assertEqual({ok, []}, mod_groups:share_history(Gid, ?UID1, [])),
+    ?assertEqual(
+        {ok, [{?UID2, add, ok}, {?UID3, add, ok}]},
+        mod_groups:share_history(Gid, ?UID1, [?UID2, ?UID3])),
+    ?assertEqual(
+        {ok, [{?UID4, add, not_member}, {?UID5, add, no_account}]},
+        mod_groups:share_history(Gid, ?UID1, [?UID4, ?UID5])),
+    ok.
+
+
+share_history_no_admin_test() ->
+    setup(),
+    {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
+    Gid = Group#group.gid,
+    mod_groups:add_members(Gid, ?UID1, [?UID2, ?UID3]),
+    ?assertEqual({error, not_admin}, mod_groups:share_history(Gid, ?UID2, [?UID3])),
+    ok.
+
+
 remove_members_test() ->
     setup(),
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),

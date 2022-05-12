@@ -27,6 +27,8 @@
     delete_group/2,
     add_members/3,
     remove_members/3,
+    share_history/3,
+    share_history/4,
     modify_members/3,
     modify_members/4,
     leave_group/2,
@@ -99,6 +101,9 @@ mod_options(_Host) ->
 %%%   API                                                                                      %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-type share_history_result() :: {uid, share_history, ok | no_account | not_member}.
+-type share_history_results() :: [share_history_result()].
+
 -type modify_member_result() :: {uid(), add | remove,
         ok | no_account | max_group_size | max_group_count | already_member | already_not_member}.
 -type modify_member_results() :: [modify_member_result()].
@@ -159,6 +164,12 @@ add_members(Gid, Uid, MemberUids) ->
     modify_members(Gid, Uid, [{Ouid, add} || Ouid <- MemberUids]).
 
 
+-spec share_history(Gid :: gid(), Uid :: uid(), MemberUids :: [uid()])
+            -> {ok, share_history_results()} | {error, not_admin}.
+share_history(Gid, Uid, UidsToShare) ->
+    share_history(Gid, Uid, UidsToShare, undefined).
+
+
 -spec remove_members(Gid :: gid(), Uid :: uid(), MemberUids :: [uid()])
             -> {ok, modify_member_results()} | {error, not_admin}.
 remove_members(Gid, Uid, MemberUids) ->
@@ -192,9 +203,34 @@ modify_members(Gid, Uid, Changes, PBHistoryResend) ->
                     AddResults = add_members_unsafe(Gid, Uid, AddUids),
                     Results = RemoveResults ++ AddResults,
                     log_stats(modify_members, Results),
-                    send_modify_members_event(Gid, Uid, Results, PBHistoryResend),
+                    broadcast_event_with_history(Gid, Uid, Results, modify_members, PBHistoryResend),
                     update_removed_members_set(Gid, Results),
                     maybe_delete_empty_group(Gid),
+                    {ok, Results}
+            end
+    end.
+
+
+-spec share_history(Gid :: gid(), Uid :: uid(), UidsToShare :: [uid()],
+    PBHistoryResend :: pb_history_resend()) -> {ok, share_history_results()} | {error, not_admin}.
+share_history(Gid, Uid, UidsToShare, PBHistoryResend) ->
+    case model_groups:is_admin(Gid, Uid) of
+        false -> {error, not_admin};
+        true ->
+            GroupInfo = model_groups:get_group_info(Gid),
+            IQAudienceHash = case PBHistoryResend of
+                undefined -> undefined;
+                _ -> PBHistoryResend#pb_history_resend.audience_hash
+            end,
+            IsHashMatch = check_audience_hash(IQAudienceHash, GroupInfo#group_info.audience_hash,
+                Gid, Uid, share_history),
+            case IsHashMatch of
+                false -> {error, audience_hash_mismatch};
+                true ->
+                    ShareHistoryResults = share_history_unsafe(Gid, Uid, UidsToShare),
+                    Results = ShareHistoryResults,
+                    log_stats(share_history, ShareHistoryResults),
+                    broadcast_event_with_history(Gid, Uid, Results, share_history, PBHistoryResend),
                     {ok, Results}
             end
     end.
@@ -714,6 +750,28 @@ create_group_internal(Uid, GroupName) ->
     end.
 
 
+-spec share_history_unsafe(Gid :: gid(), Uid :: uid(), UidsToShare :: [uid()])
+            -> share_history_results().
+share_history_unsafe(Gid, _Uid, UidsToShare) ->
+    GoodUidSet = sets:from_list(model_accounts:filter_nonexisting_uids(UidsToShare)),
+    MUids = model_groups:get_member_uids(Gid),
+    MemberUidSet = sets:from_list(MUids),
+    Results = lists:map(
+        fun (OUid) ->
+            case sets:is_element(OUid, GoodUidSet) of
+                true ->
+                    case sets:is_element(OUid, MemberUidSet) of
+                        true -> {OUid, add, ok};
+                        false -> {OUid, add, not_member}
+                    end;
+                false ->
+                    {OUid, add, no_account}
+            end
+        end,
+        UidsToShare),
+    Results.
+
+
 -spec add_members_unsafe(Gid :: gid(), Uid :: uid(), MemberUids :: [uid()])
             -> modify_member_results().
 add_members_unsafe(Gid, Uid, MemberUids) ->
@@ -914,10 +972,10 @@ send_create_group_event(Group, Uid, AddMemberResults) ->
     ok.
 
 
--spec send_modify_members_event(Gid :: gid(), Uid :: uid(),
-        MemberResults :: modify_member_results(),
+-spec broadcast_event_with_history(Gid :: gid(), Uid :: uid(),
+        MemberResults :: modify_member_results(), Event :: atom(),
         PBHistoryResend :: pb_history_resend()) -> ok.
-send_modify_members_event(Gid, Uid, MemberResults, PBHistoryResend) ->
+broadcast_event_with_history(Gid, Uid, MemberResults, Event, PBHistoryResend) ->
     Uids = [Uid | [Ouid || {Ouid, _, _} <- MemberResults]],
     Group = model_groups:get_group(Gid),
     NamesMap = model_accounts:get_names(Uids),
@@ -944,7 +1002,7 @@ send_modify_members_event(Gid, Uid, MemberResults, PBHistoryResend) ->
                     }}
                 end, #{}, MemberUids)
     end,
-    broadcast_update(Group, Uid, modify_members, MemberResults, NamesMap, HistoryResendMap),
+    broadcast_update(Group, Uid, Event, MemberResults, NamesMap, HistoryResendMap),
     ok.
 
 
@@ -1081,7 +1139,8 @@ make_member_st({Uid, Action, Result}, Event, NamesMap) ->
         {modify_members, remove} -> member;
         {modify_admins, promote} -> admin;
         {modify_admins, demote} -> member;
-        {auto_promote_admins, promote} -> admin
+        {auto_promote_admins, promote} -> admin;
+        {share_history, add} -> member
     end,
     Name = maps:get(Uid, NamesMap, undefined),
     if

@@ -323,6 +323,7 @@ message GroupStanza {
         SET_BACKGROUND = 13;
         GET_MEMBER_IDENTITY_KEYS = 14;
         CHANGE_DESCRIPTION = 15;
+        SHARE_HISTORY = 16;
     }
     Action action = 1;
     string gid = 2;
@@ -336,7 +337,7 @@ message GroupStanza {
     // Audience hash to be returned on `GET_MEMBER_IDENTITY_KEYS` IQ.
     bytes audience_hash = 9;
     string description = 10;
-    // HistoryResend to be sent or received only on adding-members iq.
+    // HistoryResend to be sent or received only on adding-members iq or share-history iq.
     HistoryResend history_resend = 11;
 }
 
