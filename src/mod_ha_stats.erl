@@ -24,7 +24,7 @@
 -export([
     user_send_im/4,
     feed_share_old_items/4,
-    feed_item_published/5,
+    feed_item_published/6,
     feed_item_retracted/3,
     group_feed_item_published/5,
     group_feed_item_retracted/4,
@@ -208,10 +208,10 @@ user_send_im(_FromUid, _MsgId, _ToUid, MediaCounters) ->
     ok.
 
 
--spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: atom(),
+-spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: atom(), ItemTag :: atom(),
         FeedAudienceType :: atom(), MediaCounters :: pb_media_counters()) -> ok.
-feed_item_published(Uid, ItemId, ItemType, FeedAudienceType, MediaCounters) ->
-    ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p", [Uid, ItemId, ItemType]),
+feed_item_published(Uid, ItemId, ItemType, ItemTag, FeedAudienceType, MediaCounters) ->
+    ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p, ItemTag: ~p", [Uid, ItemId, ItemType, ItemTag]),
     {ok, Phone} = model_accounts:get_phone(Uid),
     CC = mod_libphonenumber:get_cc(Phone),
     IsDev = dev_users:is_dev_uid(Uid),
@@ -223,7 +223,14 @@ feed_item_published(Uid, ItemId, ItemType, FeedAudienceType, MediaCounters) ->
             stat:count("HA/feed", "post"),
             stat:count("HA/feed", "post_by_cc", 1, [{cc, CC}]),
             stat:count("HA/feed", "post_by_dev", 1, [{is_dev, IsDev}]),
-            stat:count("HA/feed", "post_by_audience_type", 1, [{type, FeedAudienceType}]);
+            stat:count("HA/feed", "post_by_audience_type", 1, [{type, FeedAudienceType}]),
+
+            %% Add counters for posts by tags.
+            stat:count("HA/feed", "post_by_tag", 1, [{tag, ItemTag}]),
+            stat:count("HA/feed", "post_by_tag_cc", 1, [{cc, CC}, {tag, ItemTag}]),
+            stat:count("HA/feed", "post_by_tag_dev", 1, [{is_dev, IsDev}, {tag, ItemTag}]),
+            stat:count("HA/feed", "post_by_tag_audience_type", 1, [{type, FeedAudienceType}, {tag, ItemTag}]),
+            ok;
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             ha_events:log_user_event(Uid, comment_published),
@@ -378,7 +385,7 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
             IsDev = dev_users:is_dev_uid(Uid),
             stat:count("HA/messaging", Action ++ "_im_by_cc", 1, [{cc, CC}]),
             stat:count("HA/messaging", Action ++ "_im_by_dev", 1, [{is_dev, IsDev}]);
-        #pb_seen_receipt{thread_id = ThreadId} ->
+        #pb_seen_receipt{thread_id = ThreadId, id = ContentId} ->
             case ThreadId of
                 undefined ->
                     stat:count("HA/im_receipts", Action ++ "_seen"),
@@ -392,6 +399,12 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                     end;
                 _ ->
                     stat:count("HA/feed_receipts", Action ++ "_seen"),
+                    %% TODO (murali@): Doing a lookup for every seen receipt is not great.
+                    %% This is okay for now but eventually - we should ask clients to send this info.
+                    PostTag = case model_feed:get_post_tag(ContentId) of
+                        {ok, Tag} -> Tag;
+                        {error, _} -> undefined
+                    end,
                     case Action of
                         "send" ->
                             %% FromUid saw post
@@ -399,6 +412,10 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                             CC = mod_libphonenumber:get_cc(FromPhone),
                             stat:count("HA/feed_receipts", "post_viewed"),
                             stat:count("HA/feed_receipts", "post_viewed_by_cc", 1, [{cc, CC}]),
+
+                            %% Add seen receipt counters by post_tag.
+                            stat:count("HA/feed_receipts", "post_viewed_by_tag", 1, [{tag, PostTag}]),
+                            stat:count("HA/feed_receipts", "post_viewed_by_tag_cc", 1, [{cc, CC}, {tag, PostTag}]),
                             ha_events:log_user_event(FromUid, post_send_seen);
                         "receive" ->
                             %% ToUid's post was seen

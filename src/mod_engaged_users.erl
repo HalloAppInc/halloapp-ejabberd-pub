@@ -22,7 +22,7 @@
 %% Hooks and API.
 -export([
     group_feed_item_published/5,
-    feed_item_published/5,
+    feed_item_published/6,
     user_send_im/4,
     user_send_group_im/4,
     compute_counts/0,
@@ -72,7 +72,7 @@ group_feed_item_published(_Gid, Uid, _ItemId, ItemType, _MediaCounters) ->
     update_last_activity(Uid, ItemType),
     ok.
 
-feed_item_published(Uid, _ItemId, ItemType, _FeedAudienceType, _MediaCounters) ->
+feed_item_published(Uid, _ItemId, ItemType, _ItemTag, _FeedAudienceType, _MediaCounters) ->
     update_last_activity(Uid, ItemType),
     ok.
 

@@ -239,7 +239,7 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, AudienceList, HomeFeedSt) ->
                 [Uid, PostId, FeedAudienceType, length(UpdatedAudienceList)]),
             ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
                     FeedAudienceType, UpdatedAudienceList, TimestampMs),
-            ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, FeedAudienceType, MediaCounters]),
+            ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, PostTag, FeedAudienceType, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
@@ -299,7 +299,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
                             ParentCommentId, PayloadBase64, TimestampMs),
                     ejabberd_hooks:run(feed_item_published, Server, [PublisherUid, CommentId,
-                                       comment, Post#post.audience_type, MediaCounters]),
+                                       comment, undefined, Post#post.audience_type, MediaCounters]),
                     broadcast_comment(Action, CommentId, PostId, ParentCommentId,
                         PublisherUid, PayloadBase64, EncPayload, TimestampMs, FeedAudienceSet, NewPushList),
                     {ok, TimestampMs};

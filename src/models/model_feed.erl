@@ -51,6 +51,7 @@
     get_7day_group_feed/1,
     get_entire_group_feed/1,
     is_post_owner/2,
+    get_post_tag/1,
     add_uid_to_audience/2,
     remove_all_user_posts/1,    %% test.
     is_post_deleted/1,    %% test.
@@ -147,6 +148,13 @@ publish_comment(CommentId, PostId, PublisherUid,
 is_post_owner(PostId, Uid) ->
     {ok, OwnerUid} = q(["HGET", post_key(PostId), ?FIELD_UID]),
     Result = OwnerUid =:= Uid,
+    {ok, Result}.
+
+
+-spec get_post_tag(PostId :: binary()) -> {ok, post_tag()}.
+get_post_tag(PostId) ->
+    {ok, PostTag} = q(["HGET", post_key(PostId), ?FIELD_TAG]),
+    Result = decode_post_tag(PostTag),
     {ok, Result}.
 
 
