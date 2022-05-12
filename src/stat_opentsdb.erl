@@ -94,7 +94,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 handle_call(_Request, _From, State) ->
-    ?ERROR("invalid call request: ~p", [_Request]),
+    ?ERROR("Unknown call request: ~p", [_Request]),
     {reply, {error, invalid_request}, State}.
 
 
@@ -102,13 +102,16 @@ handle_cast({send_request, Body}, State) ->
     NewState = send_request_internal(Body, State),
     check_and_alert(NewState),
     {noreply, NewState};
+handle_cast({ping, Id, Ts, From}, State) ->
+    util_monitor:send_ack(self(), From, {ack, Id, Ts, self()}),
+    {noreply, State};
 handle_cast(_Request, State) ->
-    ?ERROR("Invalid request, ignoring it: ~p", [_Request]),
+    ?ERROR("Unknown cast request, ignoring it: ~p", [_Request]),
     {noreply, State}.
 
 
 handle_info(Request, State) ->
-    ?ERROR("unknown request: ~p", [Request]),
+    ?ERROR("Unknown info request: ~p", [Request]),
     {noreply, State}.
 
 
