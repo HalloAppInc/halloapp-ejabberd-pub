@@ -29,7 +29,8 @@
     ets_translations_exist/0,
     shorten_lang_id/1,
     normalize_langid/1,
-    is_langid_english/1
+    is_langid_english/1,
+    recast_langid/1
 ]).
 
 

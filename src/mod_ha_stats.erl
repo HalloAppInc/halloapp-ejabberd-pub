@@ -308,8 +308,9 @@ register_user(Uid, _Server, Phone, CampaignId) ->
                 false ->
                     undefined
             end,
+            LangId1 = mod_translate:recast_langid(LangId),
             stat:count("HA/account", "registration_by_lang_id", 1,
-                [{lang_id, util:to_list(LangId)}]),
+                [{lang_id, util:to_list(LangId1)}]),
             ok;
         true ->
             stat:count("HA/account", "registration_test_account")
