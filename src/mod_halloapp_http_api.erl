@@ -378,8 +378,6 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
     try
         RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
         CampaignId = maps:get(campaign_id, RequestData, <<"undefined">>),
-        stat:count("HA/registration", "verify_otp_by_campaign_id", 1,
-            [{campaign_id, CampaignId}]),
         Phone = normalize(RawPhone),
         check_ua(UserAgent, Phone),
         check_sms_code(Phone, ClientIP, Protocol, Code),
@@ -688,8 +686,6 @@ process_push_token(Uid, PushPayload) ->
 -spec finish_registration_spub(phone(), binary(), binary(), binary(), binary()) -> {ok, phone(), binary()}.
 finish_registration_spub(Phone, Name, UserAgent, SPub, CampaignId) ->
     Host = util:get_host(),
-    stat:count("HA/registration", "finish_registration_by_campaign_id", 1,
-        [{campaign_id, CampaignId}]),
     {ok, Uid, Action} = ejabberd_auth:check_and_register(
         Phone, Host, SPub, Name, UserAgent, CampaignId),
     ?INFO("Phone: ~s, UserAgent: ~s, Campaign Id: ~s", [Phone, UserAgent, CampaignId]),

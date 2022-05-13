@@ -22,7 +22,7 @@
 -export([
     user_send_packet/1,
     process_local_iq/1,
-    re_register_user/3,
+    re_register_user/4,
     group_member_added/3,
     retract_post/4,
     retract_comment/5,
@@ -155,8 +155,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set, payload = #pb_history_resend
     end.
 
 
--spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-re_register_user(Uid, _Server, _Phone) ->
+-spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+re_register_user(Uid, _Server, _Phone, _CampaignId) ->
     Gids = model_groups:get_groups(Uid),
     ?INFO("Uid: ~s, Gids: ~p", [Uid, Gids]),
     lists:foreach(

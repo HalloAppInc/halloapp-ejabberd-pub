@@ -29,8 +29,8 @@
 -export([
     process_local_iq/1, 
     remove_user/2, 
-    register_user/3, 
-    re_register_user/3,
+    register_user/4, 
+    re_register_user/4,
     block_uids/3,
     unblock_uids/3,
     trigger_full_contact_sync/1,
@@ -207,8 +207,8 @@ remove_user(Uid, _Server) ->
     ok.
 
 
--spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-re_register_user(UserId, _Server, Phone) ->
+-spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+re_register_user(UserId, _Server, Phone, _CampaignId) ->
     ?INFO("Uid: ~p, Phone: ~p", [UserId, Phone]),
     remove_all_contacts(UserId, false),
     %% Clear first sync status upon re-registration.
@@ -218,8 +218,8 @@ re_register_user(UserId, _Server, Phone) ->
 
 
 %% TODO: Delay notifying the users about their contact to reduce unnecessary messages to clients.
--spec register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-register_user(UserId, _Server, Phone) ->
+-spec register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+register_user(UserId, _Server, Phone, _CampaignId) ->
     ?INFO("Uid: ~p, Phone: ~p", [UserId, Phone]),
     %% Disabled logic for contact hashing.
     % {ok, PotentialContactUids} = model_contacts:get_potential_reverse_contact_uids(Phone),

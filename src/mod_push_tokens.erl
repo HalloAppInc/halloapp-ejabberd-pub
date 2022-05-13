@@ -22,7 +22,7 @@
     process_local_iq/1,
     get_push_info/1,
     remove_push_token/2,
-    re_register_user/3,
+    re_register_user/4,
     remove_user/2,
     register_push_info/4,
     is_valid_token_type/1,
@@ -68,8 +68,8 @@ mod_options(_Host) ->
 %% hooks.
 %%====================================================================
 
--spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-re_register_user(UserId, Server, _Phone) ->
+-spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+re_register_user(UserId, Server, _Phone, _CampaignId) ->
     remove_push_token(UserId, Server).
 
 

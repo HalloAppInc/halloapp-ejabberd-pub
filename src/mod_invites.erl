@@ -32,7 +32,7 @@
     process_local_iq/1,
     get_invites_remaining/1,
     get_invites_remaining2/1,
-    register_user/3,
+    register_user/4,
     request_invite/2
 ]).
 
@@ -111,8 +111,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     end.
 
 
--spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-register_user(Uid, _Server, Phone) ->
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+register_user(Uid, _Server, Phone, _CampaignId) ->
     {ok, InvitersList} = model_invites:get_inviters_list(Phone),
     give_back_invite(Uid, Phone, InvitersList),
     send_invitee_notice(Uid, InvitersList),

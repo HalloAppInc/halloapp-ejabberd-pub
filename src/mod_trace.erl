@@ -29,7 +29,7 @@
 
 % hooks
 -export([
-    register_user/3,
+    register_user/4,
     remove_user/2,
     c2s_handle_recv/3,
     c2s_handle_send/4,
@@ -209,8 +209,8 @@ remove_phone_internal(Phone) ->
             remove_uid_internal(Uid)
     end.
 
--spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-register_user(Uid, _Server, Phone) ->
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+register_user(Uid, _Server, Phone, _CampaignId) ->
     % TODO: Build ets table for phones traced,
     % Otherwise every registration is being checked agains this key.
     case model_accounts:is_phone_traced(Phone) of

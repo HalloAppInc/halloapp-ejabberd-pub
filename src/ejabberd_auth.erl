@@ -99,9 +99,9 @@ user_exists(User) ->
     model_accounts:account_exists(User).
 
 
--spec re_register_user(User :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-re_register_user(User, Server, Phone) ->
-    ejabberd_hooks:run(re_register_user, Server, [User, Server, Phone]).
+-spec re_register_user(User :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+re_register_user(User, Server, Phone, CampaignId) ->
+    ejabberd_hooks:run(re_register_user, Server, [User, Server, Phone, CampaignId]).
 
 
 -spec remove_user(binary(), binary()) -> ok.
@@ -122,12 +122,12 @@ check_and_register_internal(Phone, Server, Cred, Name, UserAgent, CampaignId) ->
         {ok, undefined} ->
             case ha_try_register(Phone, Cred, Name, UserAgent, CampaignId) of
                 {ok, _, UserId} ->
-                    ejabberd_hooks:run(register_user, Server, [UserId, Server, Phone]),
+                    ejabberd_hooks:run(register_user, Server, [UserId, Server, Phone, CampaignId]),
                     {ok, UserId, register};
                 Err -> Err
             end;
         {ok, UserId} ->
-            re_register_user(UserId, Server, Phone),
+            re_register_user(UserId, Server, Phone, CampaignId),
             case set_spub(UserId, Cred) of
                 ok ->
                     ok = model_accounts:set_name(UserId, Name),

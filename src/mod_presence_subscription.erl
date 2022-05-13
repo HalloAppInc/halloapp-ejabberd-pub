@@ -30,7 +30,7 @@
 -export([
     presence_subs_hook/3,
     unset_presence_hook/4,
-    re_register_user/3,
+    re_register_user/4,
     remove_user/2,
     subscribe/2,
     unsubscribe/2,
@@ -74,8 +74,8 @@ reload(_Host, _NewOpts, _OldOpts) ->
 %%====================================================================
 
 -spec re_register_user(Uid :: binary(), Server :: binary(),
-        Phone :: binary()) -> {ok, any()} | {error, any()}.
-re_register_user(Uid, _Server, _Phone) ->
+        Phone :: binary(), CampaignId :: binary()) -> {ok, any()} | {error, any()}.
+re_register_user(Uid, _Server, _Phone, _CampaignId) ->
     presence_unsubscribe_all(Uid).
 
 

@@ -109,10 +109,10 @@ register_user_hook_test() ->
     mod_invites:request_invite(?UID1, ?PHONE3),
     ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
     ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)),
-    ok = mod_invites:register_user(?UID2, <<>>, ?PHONE2),
+    ok = mod_invites:register_user(?UID2, <<>>, ?PHONE2, <<"undefined">>),
     ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
     ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)),
-    ok = mod_invites:register_user(?UID3, <<>>, ?PHONE3),
+    ok = mod_invites:register_user(?UID3, <<>>, ?PHONE3, <<"undefined">>),
     ?assertEqual(?MAX_NUM_INVITES, mod_invites:get_invites_remaining(?UID1)),
     ?assertEqual(?INF_INVITES, mod_invites:get_invites_remaining2(?UID1)),
     ok.

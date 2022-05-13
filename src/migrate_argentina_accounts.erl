@@ -202,7 +202,7 @@ send_new_user_notifications_run(Key, State) ->
                         true ->
                             ?INFO("would send_new_user_notifications to: ~p", [Uid]);
                         false ->
-                            ok = mod_contacts:register_user(Uid, <<>>, Phone),
+                            ok = mod_contacts:register_user(Uid, <<>>, Phone, <<"undefined">>),
                             ?INFO("sent_new_user_notifications to: ~p", [Uid])
                     end;
                 _ ->

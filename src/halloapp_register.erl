@@ -346,7 +346,6 @@ process_element(#pb_register_request{request = #pb_otp_request{} = OtpRequest},
     send(State, #pb_register_response{response = OtpResponse});
 process_element(#pb_register_request{request = #pb_verify_otp_request{} = VerifyOtpRequest},
         #{socket := Socket, ip := ClientIP} = State) ->
-    stat:count("HA/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
     RawPhone = VerifyOtpRequest#pb_verify_otp_request.phone,
     Name = VerifyOtpRequest#pb_verify_otp_request.name,
     Code = VerifyOtpRequest#pb_verify_otp_request.code,
@@ -367,6 +366,9 @@ process_element(#pb_register_request{request = #pb_verify_otp_request{} = Verify
     GroupInviteToken = VerifyOtpRequest#pb_verify_otp_request.group_invite_token,
     UserAgent = VerifyOtpRequest#pb_verify_otp_request.user_agent,
     CampaignId = VerifyOtpRequest#pb_verify_otp_request.campaign_id,
+    stat:count("HA/registration", "verify_otp_request", 1, [{protocol, "noise"}]),
+    stat:count("HA/registration", "verify_otp_request_by_campaign_id", 1,
+        [{campaign_id, CampaignId}]),
     RemoteStaticKey = get_peer_static_key(Socket),
     RequestData = #{
         raw_phone => RawPhone, name => Name, ua => UserAgent, code => Code,

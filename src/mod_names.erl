@@ -33,7 +33,7 @@
     depends/2,
     mod_options/1,
     process_local_iq/1,
-    re_register_user/3,
+    re_register_user/4,
     user_name_updated/2,
     check_name/1
 ]).
@@ -85,8 +85,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 %% TODO(murali@): add get-iq api if clients need it.
 
 
--spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-re_register_user(UserId, _Server, _Phone) ->
+-spec re_register_user(UserId :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+re_register_user(UserId, _Server, _Phone, _CampaignId) ->
     ok = model_accounts:delete_name(UserId).
 
 

@@ -27,7 +27,7 @@ start_prometheus_test_() ->
 new_user_stat_test() ->
     meck:new(prometheus_histogram, [merge_expects, passthrough]),
     setup(),
-    mod_ha_stats:register_user(?UID1, ?SERVER, <<"">>),
+    mod_ha_stats:register_user(?UID1, ?SERVER, <<"">>, <<"undefined">>),
     mod_ha_stats:feed_share_old_items(?UID2, ?UID1, 3, 10),
     mod_ha_stats:feed_share_old_items(?UID2, ?UID1, 1, 5),
     mod_ha_stats:log_new_user(?UID1),
@@ -45,7 +45,7 @@ new_user_stat_log_after_share_test() ->
     prometheus_histogram:reset(ha_new_user_initial_feed_posts),
     prometheus_histogram:reset(ha_new_user_initial_feed_comments),
     setup(),
-    mod_ha_stats:register_user(?UID1, ?SERVER, <<"">>),
+    mod_ha_stats:register_user(?UID1, ?SERVER, <<"">>, <<"undefined">>),
     mod_ha_stats:feed_share_old_items(?UID2, ?UID1, 3, 10),
     mod_ha_stats:log_new_user(?UID1),
     % This data will not be counted since it happened after the log_new_user

@@ -28,8 +28,8 @@
     feed_item_retracted/3,
     group_feed_item_published/5,
     group_feed_item_retracted/4,
-    register_user/3,
-    re_register_user/3,
+    register_user/4,
+    re_register_user/4,
     add_friend/4,
     remove_friend/3,
     user_send_packet/1,
@@ -286,8 +286,8 @@ group_feed_item_retracted(Gid, Uid, ItemId, ItemType) ->
     ok.
 
 
--spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-register_user(Uid, _Server, Phone) ->
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+register_user(Uid, _Server, Phone, CampaignId) ->
     ?INFO("counting uid:~s", [Uid]),
     case util:is_test_number(Phone) of
         false ->
@@ -295,6 +295,7 @@ register_user(Uid, _Server, Phone) ->
             CC = mod_libphonenumber:get_region_id(Phone),
             IsInvitedTag = {is_invited, model_invites:is_invited(Phone)},
             stat:count("HA/account", "registration_by_cc", 1, [{cc, CC}, IsInvitedTag]),
+            stat:count("HA/account", "registration_by_cc_and_campaign_id", 1, [{cc, CC}, {campaign_id, CampaignId}]),
             stat:count("HA/account", "registration_invites", 1, [IsInvitedTag]),
             %% Fetch their last verified response and count the registration with that lang_id.
             {ok, GatewayResponses} = model_phone:get_all_gateway_responses(Phone),
@@ -317,14 +318,15 @@ register_user(Uid, _Server, Phone) ->
     ok.
 
 
--spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-re_register_user(Uid, _Server, Phone) ->
+-spec re_register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+re_register_user(Uid, _Server, Phone, CampaignId) ->
     ?INFO("counting uid:~s", [Uid]),
     case util:is_test_number(Phone) of
         false ->
             stat:count("HA/account", "re_register"),
             CC = mod_libphonenumber:get_region_id(Phone),
             stat:count("HA/account", "re_registration_by_cc", 1, [{cc, CC}]),
+            stat:count("HA/account", "re_registration_by_cc_and_campaign_id", 1, [{cc, CC}, {campaign_id, CampaignId}]),
             ok;
         true ->
             stat:count("HA/account", "re_register_test_account")

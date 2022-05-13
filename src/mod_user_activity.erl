@@ -35,7 +35,7 @@
 -export([
     set_presence_hook/4,
     unset_presence_hook/4,
-    register_user/3,
+    register_user/4,
     get_user_activity/2,
     probe_and_send_presence/3,
     sm_register_connection_hook/4
@@ -69,9 +69,9 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 %% register_user sets some default undefined activity for the user until they login.
 %% TODO: figure out how to get resource/user agent here
--spec register_user(User :: binary(), Server :: binary(), Phone :: binary()) ->
+-spec register_user(User :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) ->
         {ok, any()} | {error, any()}.
-register_user(User, Server, _Phone) ->
+register_user(User, Server, _Phone, _CampaignId) ->
     Status = undefined,
     TimestampMs = util:now_ms(),
     store_user_activity(User, Server, undefined, TimestampMs, Status).

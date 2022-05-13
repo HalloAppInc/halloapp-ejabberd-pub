@@ -33,7 +33,7 @@
     privacy_check_packet/4,
     get_privacy_type/1,
     remove_user/2,
-    register_user/3
+    register_user/4
 ]).
 
 
@@ -205,8 +205,8 @@ remove_user(Uid, _Server) ->
     ok.
 
 
--spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary()) -> ok.
-register_user(Uid, _Server, Phone) ->
+-spec register_user(Uid :: binary(), Server :: binary(), Phone :: binary(), CampaignId :: binary()) -> ok.
+register_user(Uid, _Server, Phone, _CampaignId) ->
     ?INFO("Uid: ~p, Phone: ~p", [Uid, Phone]),
     model_privacy:register_user(Uid, Phone),
     ok.
