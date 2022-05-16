@@ -36,7 +36,7 @@
         <a href="https://apps.apple.com/us/app/halloapp/id1501583052" target="_blank" class="appclip__store js-appstore" id="app_store_link">
           <img src="/images/appstore.svg" alt="App Store" class="dl__btn" />
         </a>
-        <a href="https://play.google.com/store/apps/details?id=com.halloapp&referrer=ginvite-{{ group_invite_token }}" target="_blank" class="appclip__store js-appstore" id="play_store_link">
+        <a href="https://play.google.com/store/apps/details?id=com.halloapp&referrer=ginvite-{{ group_invite_token }}%26utm_source%3Dgroup_invite%26utm_campaign%3Dgroup_invite" target="_blank" class="appclip__store js-appstore" id="play_store_link">
           <img src="/images/google-play-badge.svg" alt="Google Play" class="dl__btn" />
         </a>
       </div>
