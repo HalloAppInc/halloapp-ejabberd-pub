@@ -147,7 +147,7 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap5 = maps:update(draw_media, true, PropMap4),
             PropMap6 = maps:update(privacy_label, true, PropMap5),
             PropMap7 = maps:update(krisp_noise_suppression, true, PropMap6),
-            PropMap8 = maps:update(home_feed_comment_notifications, true, PropMap7),
+            PropMap8 = maps:update(home_feed_comment_notifications, false, PropMap7),
             PropMap9 = maps:update(moments, true, PropMap8),
             PropMap9
     end,
