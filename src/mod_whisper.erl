@@ -116,6 +116,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 process_local_iq(#pb_iq{from_uid = Uid, type = get,
         payload = #pb_whisper_keys{uid = Ouid, action = get}} = IQ) ->
     ?INFO("get_keys Uid: ~s, Ouid: ~s", [Uid, Ouid]),
+    AccountExists = model_accounts:account_exists(Ouid),
     case Ouid of
         undefined ->
             ?ERROR("Invalid iq: ~p", [IQ]),
@@ -137,14 +138,19 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
                     one_time_keys = []
                 });
         _ ->
-            {IdentityKey, SignedKey, OneTimeKeys} = get_key_set(Ouid, Uid),
-            pb:make_iq_result(IQ,
-                #pb_whisper_keys{
-                    uid = Ouid,
-                    identity_key = IdentityKey,
-                    signed_key = SignedKey,
-                    one_time_keys = OneTimeKeys
-            })
+            case AccountExists of
+                false ->
+                    pb:make_error(IQ, util:err(invalid_uid));
+                true ->
+                    {IdentityKey, SignedKey, OneTimeKeys} = get_key_set(Ouid, Uid),
+                    pb:make_iq_result(IQ,
+                        #pb_whisper_keys{
+                            uid = Ouid,
+                            identity_key = IdentityKey,
+                            signed_key = SignedKey,
+                            one_time_keys = OneTimeKeys
+                    })
+            end
     end;
 
 process_local_iq(#pb_iq{from_uid = Uid, type = get,

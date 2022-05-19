@@ -134,11 +134,13 @@ get_whisper_keys_test() ->
     mod_whisper:set_keys_and_notify(?UID1, IK, SK, OTKS),
 
     ?assertEqual({ok, 16}, model_whisper_keys:count_otp_keys(?UID1)),
+    meck_init(model_accounts, account_exists, fun(_) -> true end),
     Result = mod_whisper:process_local_iq(create_get_whisper_keys_iq(
         ?UID2, ?UID1)),
     ?assertEqual(result, Result#pb_iq.type),
     check_wk_result(Result#pb_iq.payload, ?UID1, IK, SK, lists:nth(1, OTKS)),
     ?assertEqual({ok, 15}, model_whisper_keys:count_otp_keys(?UID1)),
+    meck_finish(model_accounts),
     ok.
 
 
@@ -262,6 +264,16 @@ check_trunc_ik(WK, IK) ->
     end,
     ?assertEqual(TruncIK, TruncIKey1),
     ok.
+
+
+meck_init(Mod, FunName, Fun) ->
+    meck:new(Mod, [passthrough]),
+    meck:expect(Mod, FunName, Fun).
+
+
+meck_finish(Mod) ->
+    ?assert(meck:validate(Mod)),
+    meck:unload(Mod).
  
 
 % TODO: test the subscription logic
