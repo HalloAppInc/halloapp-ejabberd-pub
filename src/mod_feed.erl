@@ -230,8 +230,8 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, AudienceList, HomeFeedSt) ->
         false -> AudienceList#pb_audience.uids
     end,
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
-    %% Include own Uid in the audience list always.
-    UpdatedAudienceList = [Uid | FeedAudienceList],
+    %% Store only the audience to be broadcasted to.
+    UpdatedAudienceList = sets:to_list(get_feed_audience_set(Action, Uid, FeedAudienceList)),
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
@@ -255,7 +255,7 @@ broadcast_post(Action, PostId, Uid, PayloadBase64, TimestampMs, FeedAudienceList
     #pb_feed_item{item = #pb_post{} = Post} = HomeFeedSt,
     EncPayload = Post#pb_post.enc_payload,
     ResultStanza = make_pb_feed_post(Action, PostId, Uid, PayloadBase64, EncPayload, FeedAudienceType, TimestampMs),
-    FeedAudienceSet = get_feed_audience_set(Action, Uid, FeedAudienceList),
+    FeedAudienceSet = sets:from_list(FeedAudienceList),
     PushSet = FeedAudienceSet,
     broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza,
         HomeFeedSt#pb_feed_item.sender_state_bundles).
