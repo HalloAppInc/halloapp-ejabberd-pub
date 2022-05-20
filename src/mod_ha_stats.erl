@@ -220,8 +220,11 @@ feed_item_published(Uid, ItemId, ItemType, ItemTag, FeedAudienceType, MediaCount
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             ha_events:log_user_event(Uid, post_published),
             case ItemTag of
-                secret_post -> report_media_counters(secret_post, MediaCounters);
-                _ -> report_media_counters(post, MediaCounters)
+                secret_post ->
+                    ha_events:log_user_event(Uid, secret_post_published),
+                    report_media_counters(secret_post, MediaCounters);
+                _ ->
+                    report_media_counters(post, MediaCounters)
             end,
             stat:count("HA/feed", "post"),
             stat:count("HA/feed", "post_by_cc", 1, [{cc, CC}]),
@@ -422,10 +425,18 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                             %% Add seen receipt counters by post_tag.
                             stat:count("HA/feed_receipts", "post_viewed_by_tag", 1, [{tag, PostTag}]),
                             stat:count("HA/feed_receipts", "post_viewed_by_tag_cc", 1, [{cc, CC}, {tag, PostTag}]),
-                            ha_events:log_user_event(FromUid, post_send_seen);
+                            ha_events:log_user_event(FromUid, post_send_seen),
+                            case PostTag =:= secret_post of
+                                true -> ha_events:log_user_event(FromUid, secret_post_send_seen);
+                                false -> ok
+                            end;
                         "receive" ->
                             %% ToUid's post was seen
-                            ha_events:log_user_event(ToUid, post_receive_seen)
+                            ha_events:log_user_event(ToUid, post_receive_seen),
+                            case PostTag =:= secret_post of
+                                true -> ha_events:log_user_event(FromUid, secret_post_receive_seen);
+                                false -> ok
+                            end
                     end
             end;
         #pb_delivery_receipt{} -> stat:count("HA/im_receipts", Action ++ "_received");
