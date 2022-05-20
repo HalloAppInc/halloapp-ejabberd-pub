@@ -219,12 +219,13 @@ feed_item_published(Uid, ItemId, ItemType, ItemTag, FeedAudienceType, MediaCount
         post ->
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             ha_events:log_user_event(Uid, post_published),
+            report_media_counters(post, MediaCounters)
             case ItemTag of
                 secret_post ->
                     ha_events:log_user_event(Uid, secret_post_published),
                     report_media_counters(secret_post, MediaCounters);
                 _ ->
-                    report_media_counters(post, MediaCounters)
+                    ok
             end,
             stat:count("HA/feed", "post"),
             stat:count("HA/feed", "post_by_cc", 1, [{cc, CC}]),
