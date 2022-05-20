@@ -219,7 +219,7 @@ feed_item_published(Uid, ItemId, ItemType, ItemTag, FeedAudienceType, MediaCount
         post ->
             ?INFO("post ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             ha_events:log_user_event(Uid, post_published),
-            report_media_counters(post, MediaCounters)
+            report_media_counters(post, MediaCounters),
             case ItemTag of
                 secret_post ->
                     ha_events:log_user_event(Uid, secret_post_published),
@@ -446,6 +446,7 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
 count_packet(Namespace, _Action, #pb_presence{}) ->
     stat:count(Namespace, "presence");
 count_packet(Namespace, _Action, #pb_iq{} = Iq) ->
+    ?DEBUG("Iq: ~p", [Iq]),
     PayloadType = pb:get_payload_type(Iq),
     stat:count(Namespace, "iq", 1, [{payload_type, PayloadType}]);
 count_packet(Namespace, _Action, #pb_chat_state{}) ->
