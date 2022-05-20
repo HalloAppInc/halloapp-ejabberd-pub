@@ -546,6 +546,9 @@ check_privacy_then_route(State, Pkt)
             case Pkt of
                 #pb_presence{} -> process_presence_out(State, Pkt);
                 #pb_chat_state{} -> process_chatstate_out(State, Pkt);
+                #pb_msg{payload = #pb_web_stanza{}} ->
+                    websocket_handler:route(Pkt),
+                    State;
                 #pb_msg{} ->
                     ejabberd_router:route(Pkt),
                     State

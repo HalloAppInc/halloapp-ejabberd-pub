@@ -14,6 +14,7 @@
 
 %% API
 -export([
+    route/1,
     route/2,
     close_current_sessions_static_key/1,
     close_current_sessions_uid/1,
@@ -69,6 +70,21 @@ websocket_info({timeout, _Ref, Msg}, State) ->
     ?INFO("Timeout info, msg: ~p, state: ~p", [Msg, State]),
     erlang:start_timer(5000, self(), pid_to_list(self())),
     {[{text, Msg}], State};
+websocket_info({route, #pb_msg{payload = #pb_web_stanza{}} = Msg}, State) ->
+    ?DEBUG("Sending msg: ~p, state: ~p", [Msg, State]),
+    Pkt = #pb_packet{stanza = Msg},
+    case enif_protobuf:encode(Pkt) of
+        {error, _Reason} ->
+            ?ERROR("Failed to encode packet ~p", [Pkt]),
+            stat:count("HA/websocket", "send_packet", 1, [{result, error}]),
+            {stop, State};
+        BinPkt ->
+            stat:count("HA/websocket", "send_packet", 1, [{result, ok}]),
+            {[{binary, BinPkt}], State}
+    end;
+websocket_info({route, Msg}, State) ->
+    ?ERROR("Dropping msg: ~p", [Msg]),
+    {[], State};
 websocket_info(_Info, State) ->
     {[], State}.
 
@@ -77,6 +93,25 @@ terminate(Reason, _Req, #{static_key := StaticKey, sid := Sid} = _State) ->
     delete_key_from_session(StaticKey, Sid);
 terminate(Reason, _Req, _State) ->
     ?INFO("Reason: ~p", [Reason]).
+
+-spec route(#pb_msg{}) -> any().
+route(#pb_msg{payload = #pb_web_stanza{static_key = StaticKey}} = Packet) ->
+    case model_session:get_static_key_sessions(StaticKey) of
+        [] ->
+            ?INFO("No active websocket session for: ~p, dropping packet",
+                [base64:encode(StaticKey)]),
+            ok;
+        Ss ->
+            Session = lists:max(Ss),
+            Pid = element(2, Session#session.sid),
+            MsgId = pb:get_id(Packet),
+            LUser = pb:get_to(Packet),
+            ?INFO("route To: ~s -> pid ~p MsgId: ~s", [LUser, Pid, MsgId]),
+            % NOTE: message will be lost if the dest PID dies while routing
+            route(Pid, {route, Packet})
+    end;
+route(_Packet) ->
+    ok.
 
 -spec route(pid(), term()) -> boolean().
 route(Pid, Term) when is_pid(Pid) ->
@@ -90,6 +125,7 @@ route(Pid, Term) when is_pid(Pid) ->
 process_incoming_packet(Pkt, State) ->
     case Pkt of
         #pb_iq{} -> process_iq(Pkt, State);
+        #pb_msg{} -> process_msg(Pkt, State);
         _ -> {#pb_ha_error{reason = <<"invalid_packet">>}, State}
     end.
 
@@ -129,6 +165,27 @@ process_iq(#pb_iq{type = set,
     end;
 process_iq(IQ, State) ->
     {IQ, State}.
+
+process_msg(#pb_msg{id = MsgId, payload = #pb_web_stanza{}} = Msg, State) ->
+    %% TODO(vipin): Return error if Msg's static key does not match
+    %% static key present in the State.
+    StaticKey = Msg#pb_msg.payload#pb_web_stanza.static_key,
+    case model_auth:get_static_key_uid(StaticKey) of
+        {ok, undefined} ->
+            stat:count("HA/websocket", "process_msg", 1, [{result, error}]),
+            ?INFO("Static Key: ~p not authenticated", [base64:encode(StaticKey)]),
+            {pb:make_error(Msg, util:err(not_authenticated)), State};
+        {ok, Uid} ->
+            %% TODO(vipin): We can cache the Uid in the State.
+            stat:count("HA/websocket", "process_msg", 1, [{result, ok}]),
+            ?INFO("Processed Msg for static key: ~p", [base64:encode(StaticKey)]),
+            ejabberd_router:route(Msg#pb_msg{to_uid = Uid}),
+            {#pb_ack{id = MsgId, to_uid = Uid, timestamp = util:now()}, State}
+    end;
+
+process_msg(_Msg, State) ->
+    ?ERROR("Invalid packet received", []),
+    {#pb_ha_error{reason = <<"invalid_packet">>}, State}.
 
 -spec add_key_to_session(StaticKey :: binary(), Sid :: term(), IP :: binary()) -> ok.
 add_key_to_session(StaticKey, Sid, IP) ->
