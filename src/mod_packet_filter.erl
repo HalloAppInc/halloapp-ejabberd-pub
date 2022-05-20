@@ -125,6 +125,12 @@ check_content_version_rules(Platform, ClientVersion, PayloadType, Message) ->
         %% remove these delete_notice filters in 2months - 05-18-2021.
         #pb_packet{stanza = #pb_msg{payload = #pb_contact_list{type = delete_notice}}} ->
             false;
+        #pb_packet{stanza = #pb_msg{payload = #pb_group_stanza{action = get}}} ->
+            case Platform of
+                android -> true;
+                ios -> util_ua:is_version_greater_than(ClientVersion, <<"HalloApp/iOS1.17.246">>);
+                _ -> false
+            end;
         #pb_packet{stanza = #pb_msg{payload = #pb_contact_list{contacts = [Contact]}}} ->
             case Contact#pb_contact.uid of
                 <<>> -> false;
