@@ -976,14 +976,18 @@ send_create_group_event(Group, Uid, AddMemberResults) ->
         MemberResults :: modify_member_results(), Event :: atom(),
         PBHistoryResend :: pb_history_resend()) -> ok.
 broadcast_event_with_history(Gid, Uid, MemberResults, Event, PBHistoryResend) ->
+    NewlyAddedMembers = lists:foldl(
+        fun ({Ouid, add, ok}, Acc) -> [Ouid | Acc];
+            (_, Acc) -> Acc
+        end, [], MemberResults),
     Uids = [Uid | [Ouid || {Ouid, _, _} <- MemberResults]],
     Group = model_groups:get_group(Gid),
-    NamesMap = model_accounts:get_names(Uids),
     GroupMembers = Group#group.members,
+    MemberUids = [Member#group_member.uid || Member <- GroupMembers],
+    NamesMap = model_accounts:get_names(Uids ++ MemberUids),
     HistoryResendMap = case PBHistoryResend of
         undefined -> #{};
         _ ->
-            MemberUids = [Member#group_member.uid || Member <- GroupMembers],
             StateBundles = PBHistoryResend#pb_history_resend.sender_state_bundles,
             StateBundlesMap = case StateBundles of
                 undefined -> #{};
@@ -1003,6 +1007,9 @@ broadcast_event_with_history(Gid, Uid, MemberResults, Event, PBHistoryResend) ->
                 end, #{}, MemberUids)
     end,
     broadcast_update(Group, Uid, Event, MemberResults, NamesMap, HistoryResendMap),
+    %% In addition to sending the group-event,
+    %% We now send the group information to newly added members for clients to sync their group-state.
+    broadcast_group_info(Group, NamesMap, NewlyAddedMembers),
     ok.
 
 
@@ -1116,6 +1123,46 @@ broadcast_update(Group, Uid, Event, Results, NamesMap, HistoryResendMap) ->
                 type = groupchat,
                 payload = GroupSt,
                 from_uid = Uid,
+                to_uid = ToUid
+            },
+            ejabberd_router:route(Packet),
+            Acc + 1
+        end, 0, BroadcastUids),
+    ok.
+
+
+%% Broadcast group information to a set of Uids.
+broadcast_group_info(_Group, _NamesMap, []) -> ok;
+broadcast_group_info(Group, NamesMap, NewlyAddedMembers) ->
+    BroadcastUids = sets:to_list(sets:from_list(NewlyAddedMembers)),
+    MembersStanza = lists:map(
+        fun(M) ->
+            #pb_group_member{
+                uid = M#group_member.uid,
+                type = M#group_member.type,
+                name = maps:get(M#group_member.uid, NamesMap, undefined),
+                identity_key = M#group_member.identity_key
+            }
+        end, Group#group.members),
+
+    Id = util_id:new_msg_id(),
+    lists:foldl(
+        fun(ToUid, Acc) ->
+            GroupSt = #pb_group_stanza {
+                gid = Group#group.gid,
+                name = Group#group.name,
+                avatar_id = Group#group.avatar,
+                background = Group#group.background,
+                action = get,
+                members = MembersStanza,
+                description = Group#group.description
+            },
+            AccBin = integer_to_binary(Acc),
+            NewId = <<Id/binary, "-", AccBin/binary>>,
+            Packet = #pb_msg{
+                id = NewId,
+                type = groupchat,
+                payload = GroupSt,
                 to_uid = ToUid
             },
             ejabberd_router:route(Packet),

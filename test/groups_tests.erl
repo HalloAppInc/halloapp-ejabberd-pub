@@ -89,6 +89,8 @@ create_group_test(Conf) ->
         ]
     } = GroupSt,
 
+    ha_client:wait_for_eoq(C1),
+    ha_client:wait_for_eoq(C2),
     ok = ha_client:stop(C1),
     ok = ha_client:stop(C2),
 
@@ -132,6 +134,7 @@ add_members_test(Conf) ->
         }
     } = Result,
 
+    ha_client:wait_for_eoq(C1),
     ok = ha_client:stop(C1),
 
     % make sure Uid2 and Uid3 get message about the group modification
@@ -140,7 +143,6 @@ add_members_test(Conf) ->
             {ok, C2} = ha_client:connect_and_login(User, Password),
             GroupMsg = ha_client:wait_for_msg(C2, pb_group_stanza),
             GroupSt = GroupMsg#pb_packet.stanza#pb_msg.payload,
-            ok = ha_client:stop(C2),
             #pb_group_stanza{
                 action = modify_members,
                 gid = Gid,
@@ -151,7 +153,9 @@ add_members_test(Conf) ->
                     % Because Uid2 was already a member, nothing is broadcasted about him
                     #pb_group_member{uid = ?UID3, action = add, type = member, name = ?NAME3}
                 ]
-            } = GroupSt
+            } = GroupSt,
+            ha_client:wait_for_eoq(C2),
+            ok = ha_client:stop(C2)
         end,
         [{?UID2, ?KEYPAIR2}, {?UID3, ?KEYPAIR3}]),
     {save_config, [{gid, Gid}]}.
@@ -210,6 +214,7 @@ add_members_history_resend_test(Conf) ->
         }
     } = Result,
 
+    ha_client:wait_for_eoq(C1),
     ok = ha_client:stop(C1),
 
     % make sure Uid2 and Uid3 get message about the group modification
@@ -218,7 +223,6 @@ add_members_history_resend_test(Conf) ->
             {ok, C2} = ha_client:connect_and_login(User, Password),
             GroupMsg = ha_client:wait_for_msg(C2, pb_group_stanza),
             GroupSt = GroupMsg#pb_packet.stanza#pb_msg.payload,
-            ok = ha_client:stop(C2),
             #pb_group_stanza{
                 action = modify_members,
                 gid = Gid,
@@ -229,7 +233,9 @@ add_members_history_resend_test(Conf) ->
                     #pb_group_member{uid = ?UID3, action = add, type = member, name = ?NAME3}
                 ]
             } = GroupSt,
-            ?assertNotEqual(undefined, GroupSt#pb_group_stanza.history_resend)
+            ?assertNotEqual(undefined, GroupSt#pb_group_stanza.history_resend),
+            ha_client:wait_for_eoq(C2),
+            ok = ha_client:stop(C2)
         end,
         [{?UID2, ?KEYPAIR2}, {?UID3, ?KEYPAIR3}]),
     {save_config, [{gid, Gid}]}.

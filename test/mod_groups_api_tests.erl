@@ -995,7 +995,9 @@ add_member_with_history_resend_test() ->
     meck:new(ejabberd_router, [passthrough]),
 
     meck:expect(ejabberd_router, route,
-        fun(Packet) ->
+        %% Ignore new group-info updates.
+        fun(#pb_msg{payload = #pb_group_stanza{history_resend = undefined}}) -> ok;
+           (Packet) ->
             ?assertEqual(?UID1, Packet#pb_msg.from_uid),
             ?assert(Packet#pb_msg.to_uid =:= ?UID1 orelse
                 Packet#pb_msg.to_uid =:= ?UID2 orelse
@@ -1016,7 +1018,7 @@ add_member_with_history_resend_test() ->
     ResultIQ = mod_groups_api:process_local_iq(IQ),
 
     ?assertEqual(result, ResultIQ#pb_iq.type),
-    ?assertEqual(3, meck:num_calls(ejabberd_router, route, '_')),
+    ?assertEqual(4, meck:num_calls(ejabberd_router, route, '_')),
     ?assert(meck:validate(ejabberd_router)),
     meck:unload(ejabberd_router),
     ok.
