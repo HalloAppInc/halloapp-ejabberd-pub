@@ -72,7 +72,7 @@ get_call_servers(CallId, Uid, PeerUid, CallType) ->
         -> {ok, {list(pb_stun_server()), list(pb_turn_server())}}.
 start_call(CallId, Uid, PeerUid, CallType, Offer, RerequestCount, Caps) ->
     % TODO: (nikola): check if we should allow Uid to call Ouid. For now everything is allowed.
-    count_start_call(CallType, RerequestCount),
+    count_start_call(Uid, CallType, RerequestCount),
     {StunServers, TurnServers} = mod_call_servers:get_stun_turn_servers(CallId, Uid, PeerUid, CallType),
     {ok, CallConfig} = get_call_config(Uid, PeerUid, CallType),
     IncomingCallMsg = #pb_incoming_call{
@@ -239,15 +239,24 @@ push_message(#pb_msg{to_uid = Uid, id = MsgId} = Packet) ->
     ok.
 
 
--spec count_start_call(CallType :: 'CallType'(), RerequestCount :: integer()) -> ok.
-count_start_call(CallType, RerequestCount) ->
+-spec count_start_call(Uid :: binary(), CallType :: 'CallType'(), RerequestCount :: integer()) -> ok.
+count_start_call(Uid, CallType, RerequestCount) ->
     case RerequestCount =:= 0 of
         true ->
+            count_user_event(Uid, CallType),
             stat:count("HA/call", "start_call", 1, [{type, CallType}]);
         false ->
             stat:count("HA/call", "rerequest_start_call", 1, [{type, CallType}, {count, RerequestCount}])
     end,
     ok.
+
+count_user_event(Uid, CallType) ->
+    case CallType of
+        audio -> ha_events:log_user_event(Uid, audio_call_started);
+        video -> ha_events:log_user_event(Uid, video_call_started);
+        _ -> ok
+    end.
+    
 
 
 -spec get_call_config(Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
