@@ -590,8 +590,9 @@ share_feed_items(Uid, FriendUid, _Server, PostIds) ->
     ?INFO("Uid: ~s, FriendUid: ~s, post_ids: ~p", [Uid, FriendUid, PostIds]),
     ok = model_feed:add_uid_to_audience(FriendUid, PostIds),
     {Posts, Comments} = get_posts_and_comments(PostIds),
-    PostStanzas = lists:map(fun convert_posts_to_feed_items/1, Posts),
-    CommentStanzas = lists:map(fun convert_comments_to_feed_items/1, Comments),
+    {FilteredPosts, FilteredComments} = filter_feed_items(FriendUid, Posts ++ Comments),
+    PostStanzas = lists:map(fun convert_posts_to_feed_items/1, FilteredPosts),
+    CommentStanzas = lists:map(fun convert_comments_to_feed_items/1, FilteredComments),
 
     MsgType = normal,
     Packet = #pb_msg{
