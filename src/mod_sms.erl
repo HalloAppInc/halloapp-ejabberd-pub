@@ -432,8 +432,13 @@ smart_send_internal(Phone, Code, LangId, UserAgent, CC, CurrentSMSResponse, Gate
 
 -spec pick_gw(ChooseFrom :: [atom()], CC :: binary(), IsFirstAttempt :: boolean()) -> Gateway :: atom().
 pick_gw(ChooseFrom, CC, IsFirstAttempt) ->
-    GWScores = get_new_gw_scores(ChooseFrom, CC),
-    GWWeights = util:normalize_scores(GWScores),
+    CCGWScores = get_new_gw_scores(ChooseFrom, CC),
+    %% Allocate based on square of the gateway scores.
+    SqrGWScores = maps:fold(
+        fun(Key, Value, AccIn) ->
+            AccIn#{Key => Value * Value}
+        end, #{}, CCGWScores),
+    GWWeights = util:normalize_scores(SqrGWScores),
     RandNo = rand:uniform(),
 
     Gateway = case IsFirstAttempt of
