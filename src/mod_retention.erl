@@ -122,7 +122,6 @@ dump_account(Uid) ->
                 CC = mod_libphonenumber:get_cc(Account#account.phone),
                 ha_events:log_event(<<"server.accounts">>, #{
                     uid => Account#account.uid,
-                    name => Account#account.name,
                     creation_ts_ms => Account#account.creation_ts_ms,
                     last_activity => Account#account.last_activity_ts_ms,
                     signup_version => Account#account.signup_user_agent,
