@@ -18,6 +18,7 @@
     check_argentina_numbers_run/2,
     check_mexico_numbers_run/2,
     check_version_counters_run/2,
+    log_os_version_counters_run/2,
     log_recent_account_info_run2/2,
     check_push_name_run/2,
     set_registration_ts/2,
@@ -210,6 +211,39 @@ check_version_counters_run(Key, State) ->
                                                 [Uid, Version, Res])
                                     end
                             end
+                    end
+            end;
+        _ -> ok
+    end,
+    State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                          Log all os version counters                               %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+log_os_version_counters_run(Key, State) ->
+    DryRun = maps:get(dry_run, State, false),
+    Result = re:run(Key, "^acc:{([0-9]+)}$", [global, {capture, all, binary}]),
+    case Result of
+        {match, [[FullKey, Uid]]} ->
+            ?INFO("Uid: ~p", [Uid]),
+            case q(ecredis_accounts, ["HGET", FullKey, <<"osv">>]) of
+                {ok, undefined} ->
+                    ?INFO("Uid: ~p, os version is undefined", [Uid]),
+                    ok;
+                {ok, Version} ->
+                    HashSlot = util_redis:eredis_hash(binary_to_list(Uid)),
+                    VersionSlot = HashSlot rem ?NUM_VERSION_SLOTS,
+                    Command = ["HINCRBY", model_accounts:os_version_key(VersionSlot), Version, 1],
+                    case DryRun of
+                        true ->
+                            ?INFO("Uid: ~p, os_version: ~p, Will execute command: ~p",
+                                [Uid, Version, Command]);
+                        false ->
+                            Res = q(ecredis_accounts, Command),
+                            ?INFO("Uid: ~p, os_version: ~p, Increment counter result: ~p",
+                                [Uid, Version, Res])
                     end
             end;
         _ -> ok

@@ -39,6 +39,7 @@
 -export([
     account_key/1,
     version_key/1,
+    os_version_key/1,
     lang_key/1,
     uids_to_delete_key/1
 ]).
@@ -1118,6 +1119,10 @@ broadcast_key(Uid) ->
 version_key(Slot) ->
     SlotBinary = integer_to_binary(Slot),
     <<?VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
+
+os_version_key(Slot) ->
+    SlotBinary = integer_to_binary(Slot),
+    <<?OS_VERSION_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
 
 lang_key(Slot) ->
     SlotBinary = integer_to_binary(Slot),
