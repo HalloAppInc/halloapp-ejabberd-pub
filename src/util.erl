@@ -427,6 +427,7 @@ is_test_number(Phone) ->
 is_google_number(Phone) ->
     case Phone of
         <<"16504992804">> -> true;
+        <<"916504992804">> -> true;
         _ -> false
     end.
 
