@@ -24,7 +24,8 @@
     user_send_packet/1,
     process_local_iq/1,
     add_friend/4,
-    remove_user/2
+    remove_user/2,
+    is_secret_post_allowed/1
 ]).
 
 
@@ -164,6 +165,17 @@ remove_user(Uid, _Server) ->
     ok.
 
 
+-spec is_secret_post_allowed({Uid :: uid(), Phone :: binary()}) -> boolean().
+is_secret_post_allowed({Uid, Phone}) ->
+    case dev_users:is_dev_uid(Uid) of
+        true -> true;
+        false -> mod_libphonenumber:get_cc(Phone) =:= <<"SR">>
+    end;
+is_secret_post_allowed(Uid) ->
+    {ok, Phone} = model_accounts:get_phone(Uid),
+    is_secret_post_allowed({Uid, Phone}).
+
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -225,27 +237,26 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, AudienceList, HomeFeedSt) ->
     Action = publish,
     FeedAudienceType = AudienceList#pb_audience.type,
     %% Filter audience in case of secret-posts - broadcast only to dev_users.
-    FeedAudienceList = case PostTag =:= secret_post of
-        true -> lists:filter(fun dev_users:is_dev_uid/1, AudienceList#pb_audience.uids);
-        false -> AudienceList#pb_audience.uids
-    end,
+    %% -or-
+    %% countries where we rolled out the feature
+    FilteredAudienceList1 = filter_audience_by_tag(PostTag, AudienceList),
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
     %% Store only the audience to be broadcasted to.
-    UpdatedAudienceList = sets:to_list(get_feed_audience_set(Action, Uid, FeedAudienceList)),
+    FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
             ?INFO("Uid: ~s PostId ~p published to ~p audience size: ~p",
-                [Uid, PostId, FeedAudienceType, length(UpdatedAudienceList)]),
+                [Uid, PostId, FeedAudienceType, length(FilteredAudienceList2)]),
             ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
-                    FeedAudienceType, UpdatedAudienceList, TimestampMs),
+                    FeedAudienceType, FilteredAudienceList2, TimestampMs),
             ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, PostTag, FeedAudienceType, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
             {ok, ExistingPost#post.ts_ms}
     end,
-    broadcast_post(Action, PostId, Uid, PayloadBase64, FinalTimestampMs, UpdatedAudienceList, FeedAudienceType, HomeFeedSt),
+    broadcast_post(Action, PostId, Uid, PayloadBase64, FinalTimestampMs, FilteredAudienceList2, FeedAudienceType, HomeFeedSt),
     {ok, FinalTimestampMs}.
 
 
@@ -519,6 +530,25 @@ get_message_type(#pb_feed_item{action = retract}, _, _) -> normal.
 %%====================================================================
 %% feed: helper internal functions
 %%====================================================================
+
+
+-spec filter_audience_by_tag(PostTag :: post_tag(), AudienceList :: [pb_audience()]) -> [uid()].
+filter_audience_by_tag(_PostTag, #pb_audience{uids = undefined}) -> [];
+filter_audience_by_tag(_PostTag, #pb_audience{uids = []}) -> [];
+filter_audience_by_tag(PostTag, AudienceList) ->
+    AudienceUids = AudienceList#pb_audience.uids,
+    AudiencePhones = model_accounts:get_phones(AudienceUids),
+    AudienceUidsAndPhones = lists:zip(AudienceUids, AudiencePhones),
+    case PostTag =:= secret_post of
+        true -> lists:filtermap(
+                fun({Uid, Phone}) ->
+                    case is_secret_post_allowed({Uid, Phone}) of
+                        false -> false;
+                        true -> {true, Uid}
+                    end
+                end, AudienceUidsAndPhones);
+        false -> AudienceList#pb_audience.uids
+    end.
 
 
 -spec send_old_items(FromUid :: uid(), ToUid :: uid(), Server :: binary()) -> ok.

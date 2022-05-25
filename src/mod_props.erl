@@ -199,6 +199,11 @@ uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;
 uid_prop_override(<<"1000000000244386007">>, krisp_noise_suppression) -> true;  %% Babken@krisp (krisp)
 uid_prop_override(<<"1000000000391903431">>, krisp_noise_suppression) -> true;  %% Tigran@krisp (krisp)
 uid_prop_override(<<"1000000000608373702">>, krisp_noise_suppression) -> true;  %% Grigor@krisp (krisp)
+uid_prop_override(Uid, moments) ->
+    case mod_feed:is_secret_post_allowed(Uid) of
+        true -> true;
+        false -> undef
+    end;
 uid_prop_override(_Uid, _Prop) ->
     undef.
 
