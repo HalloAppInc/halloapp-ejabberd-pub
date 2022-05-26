@@ -266,20 +266,20 @@ get_os_version_test() ->
     ok.
 
 
-% set_device_info_test() ->
-%     ok = model_accounts:set_device_info(?UID1, ?DEVICE, ?OS_VERSION1),
-%     VersionCount = model_accounts:count_os_version_keys(),
-%     ?assertEqual(1, maps:get(?OS_VERSION1, VersionCount, 0)),
-%     ?assertEqual(0, maps:get(?OS_VERSION2, VersionCount, 0)),
-%     ok = model_accounts:set_device_info(?UID1, ?DEVICE, ?OS_VERSION2),
-%     VersionCount2 = model_accounts:count_os_version_keys(),
-%     ?assertEqual(0, maps:get(?OS_VERSION1, VersionCount2, 0)),
-%     ?assertEqual(1, maps:get(?OS_VERSION2, VersionCount2, 0)),
-%     ok = model_accounts:set_device_info(?UID2, ?DEVICE, ?OS_VERSION1),
-%     VersionCount3 = model_accounts:count_os_version_keys(),
-%     ?assertEqual(1, maps:get(?OS_VERSION1, VersionCount3, 0)),
-%     ?assertEqual(1, maps:get(?OS_VERSION2, VersionCount3, 0)),
-%     ok.
+set_device_info_test() ->
+    ok = model_accounts:set_device_info(?UID1, ?DEVICE, ?OS_VERSION1),
+    VersionCount = model_accounts:count_os_version_keys(),
+    ?assertEqual(1, maps:get(?OS_VERSION1, VersionCount, 0)),
+    ?assertEqual(0, maps:get(?OS_VERSION2, VersionCount, 0)),
+    ok = model_accounts:set_device_info(?UID1, ?DEVICE, ?OS_VERSION2),
+    VersionCount2 = model_accounts:count_os_version_keys(),
+    ?assertEqual(0, maps:get(?OS_VERSION1, VersionCount2, 0)),
+    ?assertEqual(1, maps:get(?OS_VERSION2, VersionCount2, 0)),
+    ok = model_accounts:set_device_info(?UID2, ?DEVICE, ?OS_VERSION1),
+    VersionCount3 = model_accounts:count_os_version_keys(),
+    ?assertEqual(1, maps:get(?OS_VERSION1, VersionCount3, 0)),
+    ?assertEqual(1, maps:get(?OS_VERSION2, VersionCount3, 0)),
+    ok.
 
 
 list_to_map_test() ->

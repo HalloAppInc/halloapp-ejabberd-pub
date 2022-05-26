@@ -486,16 +486,16 @@ set_device_info(_Uid, undefined, undefined) ->
     %% TODO: murali@: temporary until clients send us this - check-in on 12-20-2021.
     ok;
 set_device_info(Uid, Device, OsVersion) ->
-    % Slot = util_redis:eredis_hash(binary_to_list(Uid)),
-    % NewSlot = Slot rem ?NUM_VERSION_SLOTS,
-    % OldVersionCommands = case get_os_version(Uid) of
-    %     {ok, OldVersion} ->
-    %         [["HINCRBY", os_version_key(NewSlot), OldVersion, -1]];
-    %     _ -> []
-    % end,
+    Slot = util_redis:eredis_hash(binary_to_list(Uid)),
+    NewSlot = Slot rem ?NUM_VERSION_SLOTS,
+    OldVersionCommands = case get_os_version(Uid) of
+        {ok, OldVersion} ->
+            [["HINCRBY", os_version_key(NewSlot), OldVersion, -1]];
+        _ -> []
+    end,
     {ok, _} = q(["HMSET", account_key(Uid), ?FIELD_DEVICE, Device, ?FIELD_OS_VERSION, OsVersion]),
-    % [{ok, _} | _] = qp([
-    %         ["HINCRBY", os_version_key(NewSlot), OsVersion, 1] | OldVersionCommands]),
+    [{ok, _} | _] = qp([
+            ["HINCRBY", os_version_key(NewSlot), OsVersion, 1] | OldVersionCommands]),
     ok.
 
 
