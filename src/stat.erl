@@ -228,7 +228,7 @@ compute_counts_by_os_version() ->
     Start = util:now_ms(),
     OsVersionsMap = model_accounts:count_os_version_keys(),
     maps:foreach(
-        fun(Version, Count) ->
+        fun({Version, Count}) ->
             % ios versions contain a period
             Platform = case lists:member($., binary_to_list(Version)) of
                 true -> ios;
