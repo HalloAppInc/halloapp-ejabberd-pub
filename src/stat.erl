@@ -227,15 +227,16 @@ compute_counts_by_os_version() ->
     ?INFO("OS Version Count start"),
     Start = util:now_ms(),
     OsVersionsMap = model_accounts:count_os_version_keys(),
-    maps:foreach(
-        fun({Version, Count}) ->
+    maps:fold(
+        fun(Version, Count, Acc) ->
             % ios versions contain a period
             Platform = case lists:member($., binary_to_list(Version)) of
                 true -> ios;
                 false -> android
             end,
-            stat:gauge("HA/os_version", "all_users", Count, [{version, Version}, {platform, Platform}])
-        end, OsVersionsMap),
+            stat:gauge("HA/os_version", "all_users", Count, [{version, Version}, {platform, Platform}]),
+            Acc
+        end, #{}, OsVersionsMap),
     End = util:now_ms(),
     ?INFO("Counting took ~p ms", [End - Start]),
     ok.
