@@ -169,7 +169,9 @@ remove_user(Uid, _Server) ->
 is_secret_post_allowed({Uid, Phone}) ->
     case dev_users:is_dev_uid(Uid) of
         true -> true;
-        false -> mod_libphonenumber:get_cc(Phone) =:= <<"SR">>
+        false ->
+            RegionId = mod_libphonenumber:get_cc(Phone),
+            RegionId =:= <<"SR">> orelse RegionId =:= <<"AE">>
     end;
 is_secret_post_allowed(Uid) ->
     {ok, Phone} = model_accounts:get_phone(Uid),
