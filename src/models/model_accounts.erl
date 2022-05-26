@@ -87,6 +87,7 @@
     set_client_version/2,
     get_client_version/1,
     set_device_info/3,
+    get_os_version/1,
     get_device/1,
     get_push_info/1,
     set_push_token/5,
@@ -122,6 +123,7 @@
     is_phone_traced/1,
     count_version_keys/0,
     cleanup_version_keys/1,
+    count_os_version_keys/0,
     count_lang_keys/0,
     add_uid_to_delete/1,
     get_uids_to_delete/1,
@@ -484,8 +486,27 @@ set_device_info(_Uid, undefined, undefined) ->
     %% TODO: murali@: temporary until clients send us this - check-in on 12-20-2021.
     ok;
 set_device_info(Uid, Device, OsVersion) ->
+    % Slot = util_redis:eredis_hash(binary_to_list(Uid)),
+    % NewSlot = Slot rem ?NUM_VERSION_SLOTS,
+    % OldVersionCommands = case get_os_version(Uid) of
+    %     {ok, OldVersion} ->
+    %         [["HINCRBY", os_version_key(NewSlot), OldVersion, -1]];
+    %     _ -> []
+    % end,
     {ok, _} = q(["HMSET", account_key(Uid), ?FIELD_DEVICE, Device, ?FIELD_OS_VERSION, OsVersion]),
+    % [{ok, _} | _] = qp([
+    %         ["HINCRBY", os_version_key(NewSlot), OsVersion, 1] | OldVersionCommands]),
     ok.
+
+
+-spec get_os_version(Uid :: uid()) -> {ok, binary()} | {error, missing}.
+get_os_version(Uid) ->
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_OS_VERSION]),
+    case Res of
+        undefined -> {error, missing};
+        Res -> {ok, Res}
+    end.
+
 
 -spec get_device(Uid :: uid()) -> {ok, binary()} | {error, missing}.
 get_device(Uid) ->
@@ -875,6 +896,18 @@ cleanup_version_keys(Versions) ->
         lists:seq(0, ?NUM_VERSION_SLOTS - 1)),
     qmn(CleanupCommands),
     ok.
+
+
+-spec count_os_version_keys() -> map().
+count_os_version_keys() ->
+    lists:foldl(
+        fun (Slot, Acc) ->
+            {ok, Res} = q(["HGETALL", os_version_key(Slot)]),
+            AccountsMap = util:list_to_map(Res),
+            util:add_and_merge_maps(Acc, AccountsMap)
+        end,
+        #{},
+        lists:seq(0, ?NUM_VERSION_SLOTS -1)).
 
 
 -spec count_lang_keys() -> map().

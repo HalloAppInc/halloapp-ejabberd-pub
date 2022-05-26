@@ -46,9 +46,11 @@
     trigger_count_sessions/0,
     trigger_zset_cleanup/0,
     trigger_count_users_by_version/0,
+    trigger_count_users_by_os_version/0,
     trigger_count_users_by_langid/0,
     trigger_check_sms_reg/1,
     compute_counts_by_version/0,
+    compute_counts_by_os_version/0,
     compute_counts_by_langid/0,
     compute_counts/0
 ]).
@@ -154,6 +156,10 @@ trigger_count_sessions() ->
 trigger_count_users_by_version() ->
     spawn(?MODULE, compute_counts_by_version, []).
 
+-spec trigger_count_users_by_os_version() -> ok.
+trigger_count_users_by_os_version() ->
+    spawn(?MODULE, compute_counts_by_os_version, []).
+
 -spec trigger_count_users_by_langid() -> ok.
 trigger_count_users_by_langid() ->
     spawn(?MODULE, compute_counts_by_langid, []).
@@ -217,6 +223,24 @@ compute_counts_by_version() ->
     ok.
 
 
+compute_counts_by_os_version() ->
+    ?INFO("OS Version Count start"),
+    Start = util:now_ms(),
+    OsVersionsMap = model_accounts:count_os_version_keys(),
+    maps:foreach(
+        fun(Version, Count) ->
+            % ios versions contain a period
+            Platform = case lists:member($., binary_to_list(Version)) of
+                true -> ios;
+                false -> android
+            end,
+            stat:gauge("HA/os_version", "all_users", Count, [{version, Version}, {platform, Platform}])
+        end, OsVersionsMap),
+    End = util:now_ms(),
+    ?INFO("Counting took ~p ms", [End - Start]),
+    ok.
+
+
 compute_counts_by_langid() ->
     ?INFO("LangId counts start"),
     Start = util:now_ms(),
@@ -249,7 +273,8 @@ init(_Stuff) ->
             {ok, _Tref5} = timer:apply_interval(1 * ?HOURS_MS, mod_athena_stats, run_athena_queries, []),
             {ok, _Tref6} = timer:apply_interval(15 * ?MINUTES_MS, ?MODULE, trigger_check_sms_reg, [recent]),
             {ok, _Tref7} = timer:apply_interval(4 * ?HOURS_MS, ?MODULE, trigger_check_sms_reg, [past]),
-            {ok, _Tref8} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_langid, []);
+            {ok, _Tref8} = timer:apply_interval(2 * ?HOURS_MS, ?MODULE, trigger_count_users_by_langid, []),
+            {ok, _Tref9} = timer:apply_interval(1 * ?HOURS_MS, ?MODULE, trigger_count_users_by_os_version, []);
         _ ->
             ok
     end,

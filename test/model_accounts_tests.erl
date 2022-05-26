@@ -33,6 +33,9 @@ clear() ->
 -define(AVATAR_ID1, <<"CwlRWoG4TduL93Zyrz30Uw">>).
 -define(CLIENT_VERSION1, <<"HalloApp/Android0.65">>).
 -define(CLIENT_VERSION2, <<"HalloApp/Android0.72">>).
+-define(DEVICE, <<"Device">>).
+-define(OS_VERSION1, <<"1.0">>).
+-define(OS_VERSION2, <<"2.0">>).
 -define(PUSH_TOKEN_OS1, <<"android">>).
 -define(PUSH_TOKEN1, <<"eXh2yYFZShGXzpobZEc5kg">>).
 -define(PUSH_TOKEN_TIMESTAMP1, 1589300000082).
@@ -131,6 +134,10 @@ count_accounts_key_test() ->
 version_key_test() ->
     setup(),
     ?assertEqual(<<"v:{1}">>, model_accounts:version_key(1)).
+
+os_version_key_test() ->
+    setup(),
+    ?assertEqual(<<"osv:{1}">>, model_accounts:os_version_key(1)).
 
 lang_key_test() ->
     setup(),
@@ -248,6 +255,31 @@ set_client_version() ->
 set_client_version_test() ->
     {timeout, 20,
         fun set_client_version/0}.
+
+
+get_os_version_test() ->
+    setup(),
+    ok = model_accounts:set_device_info(?UID1, ?DEVICE, ?OS_VERSION1),
+    ?assertEqual({ok, ?OS_VERSION1}, model_accounts:get_os_version(?UID1)),
+    ok = model_accounts:set_device_info(?UID1, ?DEVICE, ?OS_VERSION2),
+    ?assertEqual({ok, ?OS_VERSION2}, model_accounts:get_os_version(?UID1)),
+    ok.
+
+
+% set_device_info_test() ->
+%     ok = model_accounts:set_device_info(?UID1, ?DEVICE, ?OS_VERSION1),
+%     VersionCount = model_accounts:count_os_version_keys(),
+%     ?assertEqual(1, maps:get(?OS_VERSION1, VersionCount, 0)),
+%     ?assertEqual(0, maps:get(?OS_VERSION2, VersionCount, 0)),
+%     ok = model_accounts:set_device_info(?UID1, ?DEVICE, ?OS_VERSION2),
+%     VersionCount2 = model_accounts:count_os_version_keys(),
+%     ?assertEqual(0, maps:get(?OS_VERSION1, VersionCount2, 0)),
+%     ?assertEqual(1, maps:get(?OS_VERSION2, VersionCount2, 0)),
+%     ok = model_accounts:set_device_info(?UID2, ?DEVICE, ?OS_VERSION1),
+%     VersionCount3 = model_accounts:count_os_version_keys(),
+%     ?assertEqual(1, maps:get(?OS_VERSION1, VersionCount3, 0)),
+%     ?assertEqual(1, maps:get(?OS_VERSION2, VersionCount3, 0)),
+%     ok.
 
 
 list_to_map_test() ->
