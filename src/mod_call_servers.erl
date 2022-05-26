@@ -171,7 +171,7 @@ get_stun_turn_servers() ->
 get_stun_turn_servers(CallId, Uid, PeerUid, CallType) ->
     MachineName = util:get_machine_name(),
     IsDevInvolvedInCall = dev_users:is_dev_uid(Uid) orelse dev_users:is_dev_uid(PeerUid),
-    case IsDevInvolvedInCall andalso MachineName =:= <<"s-test">> of
+    case IsDevInvolvedInCall of
         true ->
             {Stun1, Turn1} = get_ha_stun_turn_servers(Uid, PeerUid, CallType),
             case get_cloudflare_servers() of
