@@ -165,6 +165,7 @@ message Post {
         SECRET_POST = 1;
     }
     Tag tag = 9;
+    string psa_tag = 10;
 }
 
 message Comment {
@@ -207,6 +208,8 @@ message FeedItem {
 
     // Meant for the receiver, computed by the server using `sender_state_bundles`.
     SenderStateWithKeyInfo sender_state = 6;
+
+    string sender_client_version = 7;  // ex: "HalloApp/Android0.127"
 }
 
 message FeedItems {
@@ -790,6 +793,27 @@ message WebStanza {
     bytes content = 2;  // Noise encrypted content or it is encoded and serialized NoiseMessage.
 }
 
+
+message ContentMissing {
+    string content_id = 1;
+    enum ContentType {
+        UNKNOWN = 0;
+        CHAT = 1;
+        // For calls - WebRtcOffer and WebRtcAnswer packets include encrypted payloads.
+        // Clients will respond back with content-missing and end-call packet if the call is not active.
+        CALL = 2;
+        GROUP_FEED_POST = 3;
+        GROUP_FEED_COMMENT = 4;
+        HOME_FEED_POST = 5;
+        HOME_FEED_COMMENT = 6;
+        HISTORY_RESEND = 7;
+        GROUP_HISTORY = 8;
+    }
+    ContentType content_type = 2;
+    string sender_client_version = 3;  // ex: "HalloApp/Android0.127"
+}
+
+
 // IQ
 
 message Iq {
@@ -907,6 +931,7 @@ message Msg {
         IncomingCallPush incoming_call_push = 46;
         CallSdp call_sdp = 47;
         WebStanza web_stanza = 48;
+        ContentMissing content_missing = 49;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
