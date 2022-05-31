@@ -123,7 +123,7 @@ get_props(Uid, ClientVersion) ->
         group_comments_notification => true, %% notifications for group comments by friends on group posts.
         home_feed_comment_notifications => false, %% notifications for home feed comments by friends.
         nse_runtime_sec => 17, %% ios-nse needs 3 secs to cleanup, we want our nse to run =< 20 secs.
-        moments => false,   %% clients are capable of sending moments.
+        moments => true,   %% clients are capable of sending moments.
         file_sharing => false,   %% clients are capable of sending files.
         invite_strings => get_invite_strings_bin() %% json string with invite text.
     },
@@ -149,9 +149,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap6 = maps:update(privacy_label, true, PropMap5),
             PropMap7 = maps:update(krisp_noise_suppression, true, PropMap6),
             PropMap8 = maps:update(home_feed_comment_notifications, false, PropMap7),
-            PropMap9 = maps:update(moments, true, PropMap8),
-            PropMap10 = maps:update(file_sharing, true, PropMap9),
-            PropMap10
+            PropMap9 = maps:update(file_sharing, true, PropMap8),
+            PropMap9
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
@@ -199,11 +198,6 @@ uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;
 uid_prop_override(<<"1000000000244386007">>, krisp_noise_suppression) -> true;  %% Babken@krisp (krisp)
 uid_prop_override(<<"1000000000391903431">>, krisp_noise_suppression) -> true;  %% Tigran@krisp (krisp)
 uid_prop_override(<<"1000000000608373702">>, krisp_noise_suppression) -> true;  %% Grigor@krisp (krisp)
-uid_prop_override(Uid, moments) ->
-    case mod_feed:is_secret_post_allowed(Uid) of
-        true -> true;
-        false -> undef
-    end;
 uid_prop_override(_Uid, _Prop) ->
     undef.
 
