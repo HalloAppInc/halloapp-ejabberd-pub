@@ -109,7 +109,7 @@ parse(Number, RegionId) ->
                     phone_norm:info("success parsed |~s| -> ~p", [Number, PhoneNumberState]),
                     list_to_binary(PhoneNumberState#phone_number_state.e164_value);
                 _ ->
-                    phone_norm:info("Failed parsing |~s| -> ~p", [Number, PhoneNumberState]),
+                    phone_norm:info("Failed parsing |~s|, with reason ~s -> ~p", [Number, PhoneNumberState#phone_number_state.error_msg, PhoneNumberState]),
                     <<>> % Use empty string as normalized number for now.
             end;
         {error, Reason} ->

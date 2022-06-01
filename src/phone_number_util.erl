@@ -236,8 +236,8 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
             PotentialNationalNumber2 = NewState#phone_number_state.national_number,
             Res = test_number_length(PotentialNationalNumber2, NewRegionMetadata),
             if
-                Res =/= tooShort andalso Res =/= isPossibleLocalOnly andalso
-                                                    Res =/= invalidLength ->
+                Res =/= too_short andalso Res =/= is_possible_local_only andalso
+                                                    Res =/= invalid_length ->
                     NewState;
                 true ->
                     if
@@ -290,7 +290,7 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
     PhoneNumber = PhoneNumberState0#phone_number_state.phone_number,
     if
         PhoneNumber == undefined orelse length(PhoneNumber) == 0 ->
-            {error, invalid_phone_number};
+            {error, undefined_num};
         true ->
             Attributes = RegionMetadata#region_metadata.attributes,
             InternationalPrefix = Attributes#attributes.international_prefix,
@@ -302,7 +302,7 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
                     case length(PhoneNumberState1#phone_number_state.phone_number)
                                 =< ?MIN_LENGTH_FOR_NSN of
                         true ->
-                            {error, invalid_phone_number};
+                            {error, invalid_phone_length};
                         false ->
                             PhoneNumberState2 = extract_country_code(PhoneNumberState1, 1),
                             NewCountryCode =
@@ -359,7 +359,7 @@ maybe_extract_country_code(PhoneNumberState0, RegionMetadata) ->
                                                                             RegionMetadata, false),
                                     case (Res1 =/= true andalso Res2 == true) orelse
                                          test_number_length(NewPhoneNumber,
-                                                            RegionMetadata) == tooLong of
+                                                            RegionMetadata) == too_long of
                                         true ->
                                             NewPhoneNumberState = #phone_number_state {
                                                 country_code = PotentialCountryCode,
@@ -590,11 +590,11 @@ format_number_internal(PhoneNumberState) ->
     NationalNumber = PhoneNumberState#phone_number_state.national_number,
     case CountryCode of
         undefined ->
-            NewPhoneNumberState = PhoneNumberState;
+            NewPhoneNumberState = PhoneNumberState#phone_number_state{error_msg = undefined_country_code};
         _ ->
             case NationalNumber of
                 undefined ->
-                    NewPhoneNumberState = PhoneNumberState;
+                    NewPhoneNumberState = PhoneNumberState#phone_number_state{error_msg = undefined_national_num};
                 _ ->
                     NewPhoneNumberState = PhoneNumberState#phone_number_state{
                                                     e164_value = CountryCode++NationalNumber}
@@ -612,11 +612,15 @@ format_number_internal(PhoneNumberState) ->
 is_valid_number_internal(PhoneNumberState) ->
     RegionId = get_region_id_for_number(PhoneNumberState),
     case RegionId of
-        {error, _} ->
-            NewPhoneNumberState = PhoneNumberState#phone_number_state{valid = false};
+        {error, Reason} ->
+            NewPhoneNumberState = PhoneNumberState#phone_number_state{valid = false, error_msg = Reason};
         _ ->
-            Valid = is_valid_number_for_region(PhoneNumberState, RegionId),
-            NewPhoneNumberState = PhoneNumberState#phone_number_state{valid = Valid}
+            case is_valid_number_for_region(PhoneNumberState, RegionId) of
+                true ->
+                    NewPhoneNumberState = PhoneNumberState#phone_number_state{valid = true};
+                {false, Reason} ->
+                    NewPhoneNumberState = PhoneNumberState#phone_number_state{valid = false, error_msg = Reason}
+            end
     end,
     NewPhoneNumberState.
 
@@ -629,22 +633,24 @@ is_valid_number_internal(PhoneNumberState) ->
 %% examined. This is useful for determining for example whether a particular number is valid for
 %% Canada, rather than just a valid NANPA number.
 %% Uses the national number mentioned in the phone_number_state.
--spec is_valid_number_for_region(#phone_number_state{}, binary()) -> boolean().
+-spec is_valid_number_for_region(#phone_number_state{}, binary()) -> boolean() | {boolean(), errorMsg()}.
 is_valid_number_for_region(PhoneNumberState, RegionId) ->
     PhoneNumber = PhoneNumberState#phone_number_state.national_number,
     case libphonenumber_ets:lookup(RegionId) of
         [] ->
-            false;
+            {false, no_region_id};
         [RegionMetadata | _Rest] ->
             CountryCode = PhoneNumberState#phone_number_state.country_code,
             if
-                RegionMetadata == [] orelse CountryCode == undefined orelse
-                    (RegionId =/= ?REGION_CODE_FOR_NON_GEO_ENTITY andalso
-                        CountryCode =/=
-                            RegionMetadata#region_metadata.attributes#attributes.country_code) ->
-                                %% Either the region code was invalid, or the country calling code
-                                %% for this number does not match that of the region code.
-                                false;
+                %% Either the region code was invalid, or the country calling code
+                %% for this number does not match that of the region code.
+                RegionMetadata == [] ->
+                    {false, invalid_region};
+                CountryCode == undefined ->
+                    {false, invalid_country_code};
+                (RegionId =/= ?REGION_CODE_FOR_NON_GEO_ENTITY andalso
+                    CountryCode =/= RegionMetadata#region_metadata.attributes#attributes.country_code) ->
+                        {false, mismatch_cc_region};
                 true ->
                     is_number_matching_desc(PhoneNumber, RegionMetadata)
             end
@@ -661,7 +667,7 @@ is_valid_number_for_region(PhoneNumberState, RegionId) ->
     Matches = libphonenumber_ets:match_object_on_country_code(CountryCode),
     case Matches of
         [] ->
-            {error, invalid_phone_number1};
+            {error, invalid_country_code};
         [Match] ->
             Match#region_metadata.id;
         _ ->
@@ -675,7 +681,7 @@ is_valid_number_for_region(PhoneNumberState, RegionId) ->
 -spec get_region_id_for_number_from_regions_list(#phone_number_state{}, [#region_metadata{}]) ->
                                                     binary() | {error, atom()}.
 get_region_id_for_number_from_regions_list(_PhoneNumberState, []) ->
-    {error, invalid_phone_number};
+    {error, no_valid_region};
 
 get_region_id_for_number_from_regions_list(PhoneNumberState, [RegionMetadata | Rest]) ->
     PhoneNumber = PhoneNumberState#phone_number_state.national_number,
@@ -685,7 +691,7 @@ get_region_id_for_number_from_regions_list(PhoneNumberState, [RegionMetadata | R
             case is_number_matching_desc(PhoneNumber, RegionMetadata) of
                 true ->
                     RegionMetadata#region_metadata.id;
-                false ->
+                {false, _} ->
                     get_region_id_for_number_from_regions_list(PhoneNumberState, Rest)
             end;
         _ ->
@@ -700,20 +706,26 @@ get_region_id_for_number_from_regions_list(PhoneNumberState, [RegionMetadata | R
 
 
 %% Checks if the number is matching the mobile description of the region and returns a boolean.
--spec is_number_matching_desc(list(), #region_metadata{}) -> boolean().
+-spec is_number_matching_desc(list(), #region_metadata{}) -> boolean() | {boolean(), atom}.
 is_number_matching_desc(PhoneNumber, RegionMetadata) ->
 
     if
-        PhoneNumber == undefined orelse length(PhoneNumber) == 0 orelse
-            RegionMetadata == undefined ->
-                false;
+        PhoneNumber == undefined orelse length(PhoneNumber) == 0 ->
+            {false, undefined_num};
+        RegionMetadata == undefined ->
+            {false, undefined_region};
         true ->
             TestLength = test_number_length(PhoneNumber, RegionMetadata),
             case TestLength of
-                isPossible ->
-                    match_national_number_pattern(PhoneNumber, RegionMetadata, false);
+                is_possible ->
+                    case match_national_number_pattern(PhoneNumber, RegionMetadata, false) of
+                        true ->
+                            true;
+                        false ->
+                            {false, not_mobile_num}
+                    end;
                 _ ->
-                    false
+                    {false, TestLength}
             end
     end.
 
@@ -760,18 +772,18 @@ normalize(PhoneNumber) ->
 test_number_length(PhoneNumber, RegionMetadata) ->
     case RegionMetadata  of
         undefined ->
-            invalidLength;
+            invalid_length;
         _ ->
             Mobile = RegionMetadata#region_metadata.mobile,
             case Mobile of
                 undefined ->
-                    invalidLength;
+                    invalid_length;
                 _ ->
                     LocalLengths = Mobile#mobile.local_only_lengths,
                     NationalLengths = Mobile#mobile.national_lengths,
                     case NationalLengths of
                         undefined ->
-                            invalidLength;
+                            invalid_length;
                         _ ->
                             case LocalLengths of
                                 undefined ->
@@ -781,7 +793,7 @@ test_number_length(PhoneNumber, RegionMetadata) ->
                                             andalso length(PhoneNumber) =<
                                                             get_max_length(LocalLengths) of
                                         true ->
-                                            isPossibleLocalOnly;
+                                            is_possible_local_only;
                                         false ->
                                             compare_with_national_lengths(PhoneNumber,
                                                                             NationalLengths)
@@ -797,18 +809,18 @@ test_number_length(PhoneNumber, RegionMetadata) ->
 compare_with_national_lengths(PhoneNumber, NationalLengths) ->
     case get_min_length(NationalLengths) > length(PhoneNumber) of
         true ->
-            tooShort;
+            too_short;
         false ->
             case length(PhoneNumber) >= get_min_length(NationalLengths)
                     andalso length(PhoneNumber) =< get_max_length(NationalLengths) of
                 true ->
-                    isPossible;
+                    is_possible;
                 false ->
                     case get_max_length(NationalLengths) < length(PhoneNumber) of
                         true ->
-                            tooLong;
+                            too_long;
                         false ->
-                            invalidLength
+                            invalid_length
                     end
             end
     end.

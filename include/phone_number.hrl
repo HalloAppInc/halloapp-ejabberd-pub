@@ -59,6 +59,22 @@
                       | 'unspecified'
 ).
 
+%% Type of error messages.
+-type(errorMsg() :: undefined_num
+                | undefined_country_code
+                | undefined_national_num
+                | undefined_region
+                | invalid_country_code  % cc does not exist/unrecognized
+                | invalid_region        % no metadata for the region
+                | no_region_id          % no region id available
+                | mismatch_cc_region    % cc does not match region metadata's cc
+                | no_valid_region       % all regions provided did not match num
+                | too_short
+                | too_long
+                | invalid_length        % length cannot be checked against (missing) region metadata
+                | not_mobile_num        % no match provided by mobile re – could be a different type
+).
+
 %% Record to hold all the necessary information about a phone_number as state when processing it.
 -record(phone_number_state,
 {
@@ -68,7 +84,8 @@
     raw :: list(),
     valid :: boolean(),
     e164_value :: list(),
-    country_code_source :: countryCodeSource()
+    country_code_source :: countryCodeSource(),
+    error_msg :: errorMsg()
 }).
 
 -endif.
