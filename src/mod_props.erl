@@ -198,8 +198,55 @@ uid_prop_override(<<"1000000000212763494">>, use_cleartext_group_feed) -> false;
 uid_prop_override(<<"1000000000244386007">>, krisp_noise_suppression) -> true;  %% Babken@krisp (krisp)
 uid_prop_override(<<"1000000000391903431">>, krisp_noise_suppression) -> true;  %% Tigran@krisp (krisp)
 uid_prop_override(<<"1000000000608373702">>, krisp_noise_suppression) -> true;  %% Grigor@krisp (krisp)
+uid_prop_override(Uid, krisp_noise_suppression) ->
+    ReachOutUsers = reach_out_users(),
+    case gb_sets:is_element(Uid, ReachOutUsers) of
+        true -> true;
+        false ->
+            {ok, Contacts} = model_contacts:get_contacts(Uid),
+            is_contact_in_reach_out_users(Contacts, ReachOutUsers)
+    end;
 uid_prop_override(_Uid, _Prop) ->
     undef.
+
+is_contact_in_reach_out_users([Uid|T], ReachOutUsers) ->
+    case gb_sets:is_element(Uid, ReachOutUsers) of
+        true -> true;
+        false -> is_contact_in_reach_out_users(T, ReachOutUsers)
+    end;
+is_contact_in_reach_out_users([], _) -> false.
+
+%% English speaking android users that have received calls from >= 2 unique users
+%% total call time >= 30 seconds.
+reach_out_users() ->
+    gb_sets:from_list([
+        <<"1000000000470441450">>,
+        <<"1000000000319812640">>,
+        <<"1000000000501355953">>,
+        <<"1000000000073703946">>,
+        <<"1000000000986912824">>,
+        <<"1000000000732601709">>,
+        <<"1000000000422123879">>,
+        <<"1000000000589160898">>,
+        <<"1000000000679891282">>,
+        <<"1000000000842553635">>,
+        <<"1000000000305288240">>,
+        <<"1000000000871871514">>,
+        <<"1000000000272974927">>,
+        <<"1000000000257241282">>,
+        <<"1000000000595131504">>,
+        <<"1000000000325261047">>,
+        <<"1000000000384709179">>,
+        <<"1000000000342507776">>,
+        <<"1000000000080345706">>,
+        <<"1000000000913082664">>,
+        <<"1000000000489569557">>,
+        <<"1000000000338599889">>,
+        <<"1000000000956772891">>,
+        <<"1000000000109841048">>,
+        <<"1000000000977167116">>,
+        <<"1000000000545035268">>
+    ]).
 
 generate_hash(SortedProplist) ->
     Json = jsx:encode(SortedProplist),
