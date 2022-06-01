@@ -575,6 +575,7 @@ message GetCallServersResult {
     repeated StunServer stun_servers = 2;
     repeated TurnServer turn_servers = 3;
     CallConfig call_config = 4;
+    string call_id = 5;
 }
 
 message CallCapabilities {
@@ -735,6 +736,10 @@ message CallConfig {
     }
     IceTransportPolicy ice_transport_policy = 10;
     int32 ice_restart_delay_ms = 11;
+    bool prune_turn_ports = 12;
+    int32 ice_candidate_pool_size = 13;
+    int32 ice_backup_ping_interval_ms = 14;
+    int32 ice_connection_timeout_ms = 15;
 }
 
 

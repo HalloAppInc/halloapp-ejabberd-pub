@@ -273,8 +273,20 @@ get_call_config(Uid, PeerUid, _CallType) ->
         audio_jitter_buffer_fast_accelerate = false,    %% Android, iOS
         %% default is `all`
         ice_transport_policy = all,                     %% Android, iOS
-        ice_restart_delay_ms = 2000                     %% iOS.
-
+        ice_restart_delay_ms = 2000,                    %% iOS.
+        %% clients could end up opening multiple turn ports - generating a ton of ice candidates
+        %% this helps minimize the number of ice candidates for negotiation.
+        %% this helps reduce the number of opened ports to 1.
+        prune_turn_ports = true,                        %% iOS
+        %% webrtc clients by default dont generate the ice candidates until local description is set.
+        %% setting a pool size will trigger the client to prefetch ice candidates.
+        %% setting it to be 20 to cover ipv4/ipv6, tcp/udp, relay, public / internal ice candidates.
+        ice_candidate_pool_size = 20,                   %% iOS
+        %% webrtc connection has a backup ip-pair for the rtp connection that it falls back on.
+        %% this parameter describes the interval to ping and check the backup connection.
+        ice_backup_ping_interval_ms = 1000,             %% iOS
+        %% this parameter is the timeout that client uses to determine if the current ice connection is broken.
+        ice_connection_timeout_ms = 2000                %% iOS
     },
     {ok, CallConfig2} = get_uid_based_config(Uid, PeerUid, CallConfig1),
     {ok, CallConfig2}.

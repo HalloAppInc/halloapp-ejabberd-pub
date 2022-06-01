@@ -84,7 +84,8 @@ process_get_call_servers(IQ, Uid, PeerUid, CallId, CallType) ->
         result = ok,
         stun_servers = StunServers,
         turn_servers = TurnServers,
-        call_config = CallConfig
+        call_config = CallConfig,
+        call_id = CallId
     },
     pb:make_iq_result(IQ, GetServersResult).
 
