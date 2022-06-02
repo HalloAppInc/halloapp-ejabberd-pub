@@ -203,8 +203,12 @@ uid_prop_override(Uid, krisp_noise_suppression) ->
     case gb_sets:is_element(Uid, ReachOutUsers) of
         true -> true;
         false ->
-            {ok, Contacts} = model_contacts:get_contacts(Uid),
-            is_contact_in_reach_out_users(Contacts, ReachOutUsers)
+            {ok, Phone} = model_accounts:get_phone(Uid),
+            {ok, ContactUids} = model_contacts:get_contact_uids(Phone),
+            case is_contact_in_reach_out_users(ContactUids, ReachOutUsers) of
+                true -> true;
+                false -> undef  %% Don't override the noise suppression prop
+            end
     end;
 uid_prop_override(_Uid, _Prop) ->
     undef.
