@@ -483,8 +483,6 @@ invite-strings:
 
 
 phone-metadata:
-	# remove fixedLine
-	sed -i '' '/fixedLine\>/,/\/fixedLine\>/{/^\fixedLine\>/!{/^\/fixedLine\>/!d;};}' priv/xml/PhoneNumberMetadata.xml
 	# remove pager
 	sed -i '' '/pager\>/,/\/pager\>/{/^\pager\>/!{/^\/pager\>/!d;};}' priv/xml/PhoneNumberMetadata.xml
 	# remove tollFree
@@ -495,8 +493,6 @@ phone-metadata:
 	sed -i '' '/sharedCost\>/,/\/sharedCost\>/{/^\sharedCost\>/!{/^\/sharedCost\>/!d;};}' priv/xml/PhoneNumberMetadata.xml
 	# remove personalNumber
 	sed -i '' '/personalNumber\>/,/\/personalNumber\>/{/^\personalNumber\>/!{/^\/personalNumber\>/!d;};}' priv/xml/PhoneNumberMetadata.xml
-	# remove voip
-	sed -i '' '/voip\>/,/\/voip\>/{/^\voip\>/!{/^\/voip\>/!d;};}' priv/xml/PhoneNumberMetadata.xml
 	# remove uan
 	sed -i '' '/uan\>/,/\/uan\>/{/^\uan\>/!{/^\/uan\>/!d;};}' priv/xml/PhoneNumberMetadata.xml
 	# remove voicemail
