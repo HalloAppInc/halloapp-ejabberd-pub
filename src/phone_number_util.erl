@@ -740,12 +740,13 @@ match_national_number_pattern(PhoneNumber, RegionMetadata, DefaultValue) ->
             RegionMetadata == undefined ->
             DefaultValue;
         true ->
-            Mobile = RegionMetadata#region_metadata.mobile,
+            NumTypes = RegionMetadata#region_metadata.number_types,
+            Mobile = lists:keyfind(mobile, #number_type.type, NumTypes),
             case Mobile of
                 undefined ->
                     DefaultValue;
                 _Else ->
-                    Pattern = Mobile#mobile.pattern,
+                    Pattern = Mobile#number_type.pattern,
                     {ok, Matcher} = re:compile(Pattern, [caseless]),
                     case re:run(PhoneNumber, Matcher, [notempty]) of
                         {match, [{0, _} | _Rest]}  ->
@@ -774,13 +775,14 @@ test_number_length(PhoneNumber, RegionMetadata) ->
         undefined ->
             invalid_length;
         _ ->
-            Mobile = RegionMetadata#region_metadata.mobile,
+            NumTypes = RegionMetadata#region_metadata.number_types,
+            Mobile = lists:keyfind(mobile, #number_type.type, NumTypes),
             case Mobile of
                 undefined ->
                     invalid_length;
                 _ ->
-                    LocalLengths = Mobile#mobile.local_only_lengths,
-                    NationalLengths = Mobile#mobile.national_lengths,
+                    LocalLengths = Mobile#number_type.local_only_lengths,
+                    NationalLengths = Mobile#number_type.national_lengths,
                     case NationalLengths of
                         undefined ->
                             invalid_length;

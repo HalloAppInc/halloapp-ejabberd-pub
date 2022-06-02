@@ -36,8 +36,9 @@
 }).
 
 %% Necessary elements of the mobile child element in the phonenumbermetadata xml file.
--record(mobile,
+-record(number_type,
 {
+    type :: atom(),
     national_lengths :: list(),
     local_only_lengths :: list(),
     pattern :: list()
@@ -48,7 +49,7 @@
 {
     id :: binary(),
     attributes = #attributes{},
-    mobile :: #mobile{}
+    number_types :: list() % list of number types (mobile, voip, fixed line)
 }).
 
 %% Type of country code source.

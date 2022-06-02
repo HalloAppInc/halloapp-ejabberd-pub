@@ -49,14 +49,18 @@ parse_territories([#xmlComment{} | Rest]) ->
 parse_territories([Territory = #xmlElement{name = territory} | Rest]) ->
   #xmlElement{name = territory, attributes = Attributes, content = Content} = Territory,
   RegionAttributes = parse_attributes(Attributes, #attributes{}),
-  RegionMobile = parse_mobile_content(Content, #mobile{}),
+  RegionMobile = parse_content(mobile, Content, #number_type{type=mobile}),
+  % currently empty, will populate in following pr/when xml gets updated
+  RegionVoip = parse_content(voip, Content, #number_type{type=voip}),
+  RegionFixedLine = parse_content(fixedLine, Content, #number_type{type=fixedLine}),
+  RegionNumTypes = [RegionMobile, RegionVoip, RegionFixedLine],
   RegionId = RegionAttributes#attributes.id,
   case RegionId of
     undefined ->
       ?ERROR("Something is wrong with this territory: unable to parse it: ~p", [Territory]);
     _ ->
       RegionMetadata = #region_metadata{id = RegionId, attributes = RegionAttributes,
-                                        mobile = RegionMobile},
+                                        number_types = RegionNumTypes},
       libphonenumber_ets:insert(RegionMetadata)
   end,
   parse_territories(Rest);
@@ -120,22 +124,22 @@ parse_attributes([_ | Rest], State) ->
 
 
 %% Parse child elements for mobile to get the necessary details.
--spec parse_mobile_content(list(#xmlElement{}), #mobile{}) -> #mobile{}.
-parse_mobile_content([], State) ->
+-spec parse_content(Type :: atom(), list(#xmlElement{}), #number_type{}) -> #number_type{}.
+parse_content(_Type, [], State) ->
   State;
 
-parse_mobile_content([#xmlElement{name = mobile, content = Content} | Rest], State) ->
+parse_content(Type, [#xmlElement{name = Type, content = Content} | Rest], State) ->
     NewState = get_pattern_and_lengths(Content, State),
-    parse_mobile_content(Rest, NewState);
+    parse_content(Type, Rest, NewState);
 
-parse_mobile_content([_ | Rest], State) ->
-  parse_mobile_content(Rest, State).
+parse_content(Type, [_ | Rest], State) ->
+  parse_content(Type, Rest, State).
 
 
 
 
 %% Parse child elements of mobile element to get values for nationalNumberPattern & possibleLengths.
--spec get_pattern_and_lengths(list(), #mobile{}) -> #mobile{}.
+-spec get_pattern_and_lengths(list(), #number_type{}) -> #number_type{}.
 get_pattern_and_lengths([], State) ->
   State;
 
@@ -147,7 +151,7 @@ get_pattern_and_lengths([#xmlElement{name = possibleLengths, attributes = Attrib
 get_pattern_and_lengths([#xmlElement{name = nationalNumberPattern, content = C} | Rest], State) ->
   [PatternVal] = [V || #xmlText{value = V} <- C],
   Pattern = re:replace(PatternVal, "\s+|\n|\t", "", [global, {return, binary}]),
-  get_pattern_and_lengths(Rest, State#mobile{pattern = Pattern});
+  get_pattern_and_lengths(Rest, State#number_type{pattern = Pattern});
 
 get_pattern_and_lengths([_|Rest], State) ->
   get_pattern_and_lengths(Rest, State).
@@ -155,15 +159,15 @@ get_pattern_and_lengths([_|Rest], State) ->
 
 
 %% Parse attributes for possibleLengths element to get attribute values for: national and localOnly
--spec parse_attributes_for_length(list(#xmlAttribute{}), #mobile{}) -> #mobile{}.
+-spec parse_attributes_for_length(list(#xmlAttribute{}), #number_type{}) -> #number_type{}.
 parse_attributes_for_length([], State) ->
   State;
 
 parse_attributes_for_length([#xmlAttribute{name = national, value = Value} | Rest], State) ->
-  parse_attributes_for_length(Rest, State#mobile{national_lengths = Value});
+  parse_attributes_for_length(Rest, State#number_type{national_lengths = Value});
 
 parse_attributes_for_length([#xmlAttribute{name = localOnly, value = Value} | Rest], State) ->
-  parse_attributes_for_length(Rest, State#mobile{local_only_lengths = Value});
+  parse_attributes_for_length(Rest, State#number_type{local_only_lengths = Value});
 
 parse_attributes_for_length([_ | Rest], State) ->
   parse_attributes_for_length(Rest, State).
