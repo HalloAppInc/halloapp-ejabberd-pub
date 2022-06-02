@@ -50,7 +50,6 @@ parse_territories([Territory = #xmlElement{name = territory} | Rest]) ->
   #xmlElement{name = territory, attributes = Attributes, content = Content} = Territory,
   RegionAttributes = parse_attributes(Attributes, #attributes{}),
   RegionMobile = parse_content(mobile, Content, #number_type{type=mobile}),
-  % currently empty, will populate in following pr/when xml gets updated
   RegionVoip = parse_content(voip, Content, #number_type{type=voip}),
   RegionFixedLine = parse_content(fixedLine, Content, #number_type{type=fixedLine}),
   RegionNumTypes = [RegionMobile, RegionVoip, RegionFixedLine],

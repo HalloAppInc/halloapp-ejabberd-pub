@@ -73,6 +73,8 @@
                 | too_short
                 | too_long
                 | invalid_length        % length cannot be checked against (missing) region metadata
+                | voip_num
+                | fixed_line_num
                 | not_mobile_num        % no match provided by mobile re – could be a different type
 ).
 

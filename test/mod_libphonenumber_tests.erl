@@ -308,20 +308,23 @@ normalize_error_test() ->
     setup(),
     % voip number (pulled from xml file)
     {ok, PhoneNumberState} = phone_number_util:parse_phone_number(<<"354 4921234">>, <<"IS">>),
-    ?assertEqual(not_mobile_num, PhoneNumberState#phone_number_state.error_msg ),
+    ?assertEqual(voip_num, PhoneNumberState#phone_number_state.error_msg ),
     % fixed line number (pulled from xml file)
     {ok, PhoneNumberState2} = phone_number_util:parse_phone_number(<<"4101234">>, <<"IS">>),
-     ?assertEqual(not_mobile_num, PhoneNumberState2#phone_number_state.error_msg ),
+    ?assertEqual(fixed_line_num, PhoneNumberState2#phone_number_state.error_msg ),
+    % pager number (pulled from xml file)
+    {ok, PhoneNumberState3} = phone_number_util:parse_phone_number(<<"740123456">>, <<"CH">>),
+    ?assertEqual(not_mobile_num, PhoneNumberState3#phone_number_state.error_msg ),
     % no valid region
-    {ok, PhoneNumberState3} = phone_number_util:parse_phone_number(<<"395512345678">>, <<"IT">>),
-    ?assertEqual(no_valid_region, PhoneNumberState3#phone_number_state.error_msg ),
+    {ok, PhoneNumberState4} = phone_number_util:parse_phone_number(<<"395512345678">>, <<"IT">>),
+    ?assertEqual(no_valid_region, PhoneNumberState4#phone_number_state.error_msg ),
     % invalid lengths - long & short
-    {ok, PhoneNumberState4} = phone_number_util:parse_phone_number(<<"1111111111">>, <<"IS">>),
-     ?assertEqual(too_long, PhoneNumberState4#phone_number_state.error_msg ),
-    {ok, PhoneNumberState5} = phone_number_util:parse_phone_number(<<"11">>, <<"IS">>),
-    ?assertEqual(too_short, PhoneNumberState5#phone_number_state.error_msg ),
+    {ok, PhoneNumberState5} = phone_number_util:parse_phone_number(<<"1111111111">>, <<"IS">>),
+    ?assertEqual(too_long, PhoneNumberState5#phone_number_state.error_msg ),
+    {ok, PhoneNumberState6} = phone_number_util:parse_phone_number(<<"11">>, <<"IS">>),
+    ?assertEqual(too_short, PhoneNumberState6#phone_number_state.error_msg ),
     % invalid length - 001 is a region with no mobile desc
-    {ok, PhoneNumberState6} = phone_number_util:parse_phone_number(<<"1111111">>, <<"001">>),
-    ?assertEqual(invalid_length, PhoneNumberState6#phone_number_state.error_msg),
+    {ok, PhoneNumberState7} = phone_number_util:parse_phone_number(<<"1111111">>, <<"001">>),
+    ?assertEqual(invalid_length, PhoneNumberState7#phone_number_state.error_msg),
     ok.
 

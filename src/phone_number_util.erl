@@ -722,7 +722,7 @@ is_number_matching_desc(PhoneNumber, RegionMetadata) ->
                         true ->
                             true;
                         false ->
-                            {false, not_mobile_num}
+                            {false, get_number_type(PhoneNumber, RegionMetadata)}
                     end;
                 _ ->
                     {false, TestLength}
@@ -740,13 +740,38 @@ match_national_number_pattern(PhoneNumber, RegionMetadata, DefaultValue) ->
             RegionMetadata == undefined ->
             DefaultValue;
         true ->
-            NumTypes = RegionMetadata#region_metadata.number_types,
-            Mobile = lists:keyfind(mobile, #number_type.type, NumTypes),
-            case Mobile of
+            match_number_type_pattern(PhoneNumber, RegionMetadata, mobile)
+    end.
+
+
+%% Attempts to matches the phone number with voip and fixedLine patterns.
+%% Returns the number type if there is a match (voip or fixed line) or not_mobile_num for neither
+-spec get_number_type(PhoneNumber :: list(), RegionMetadata :: #region_metadata{}) -> errorMsg().
+get_number_type(PhoneNumber, RegionMetadata) ->
+    IsVoip = match_number_type_pattern(PhoneNumber, RegionMetadata, voip),
+    IsFixedLine = match_number_type_pattern(PhoneNumber, RegionMetadata, fixedLine),
+    case {IsVoip, IsFixedLine} of
+        {true, _} -> voip_num;
+        {_, true} -> fixed_line_num;
+        _ -> not_mobile_num         % number type is not implemented (eg voicemail, pager)
+    end.
+
+
+%% Matches the phone number with the pattern of the Type (mobile, voip, fixedLine).
+%% Returns true if match, otherwise false if no match or type description.
+-spec match_number_type_pattern(PhoneNumber :: list(), RegionMetadata :: #region_metadata{}, Type :: atom()) -> boolean().
+match_number_type_pattern(PhoneNumber, RegionMetadata, Type) ->
+    NumTypes = RegionMetadata#region_metadata.number_types,
+    NumType = lists:keyfind(Type, #number_type.type, NumTypes),
+    case NumType of
+        undefined ->
+            false;
+        _ ->
+            Pattern = NumType#number_type.pattern,
+            case Pattern of
                 undefined ->
-                    DefaultValue;
-                _Else ->
-                    Pattern = Mobile#number_type.pattern,
+                    false;
+                _ ->
                     {ok, Matcher} = re:compile(Pattern, [caseless]),
                     case re:run(PhoneNumber, Matcher, [notempty]) of
                         {match, [{0, _} | _Rest]}  ->
