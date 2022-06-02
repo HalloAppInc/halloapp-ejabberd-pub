@@ -52,7 +52,8 @@
     process_otp_request/1,
     process_register_request/1,
     insert_blocklist/0,
-    insert_blocklist/2
+    insert_blocklist/2,
+    is_hashcash_enabled/2  %% for testing
 ]).
 
 %%%----------------------------------------------------------------------
@@ -353,19 +354,21 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
             {error, internal_server_error}
     end.
 
-is_hashcash_enabled(_UserAgent, _Solution) ->
-    false.
-    %% TODO(vipin): Fix the actual client version and uncomment once clients start sending
-    %% appropriate hashcash_solution.
-    %% case Solution of
-    %%     undefined -> false;
-    %%     _ -> byte_size(Solution) > 10
-    %% end.
-    %% ClientType = util_ua:get_client_type(UserAgent),
-    %% case ClientType of
-    %%    android -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/Android10.202">>);
-    %%    ios -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/iOS1.11.172">>)
-    %% end.
+is_hashcash_enabled(UserAgent, Solution) ->
+    IsPossibleSolution = case Solution of
+        undefined -> false;
+        _ -> byte_size(Solution) > 10
+    end,
+    ClientType = util_ua:get_client_type(UserAgent),
+    ValidUA = case ClientType of
+        android -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/Android1.42">>);
+        ios -> false;
+        undefined -> false
+    end,
+    case {IsPossibleSolution, ValidUA} of
+        {true, true} -> true;
+        {_, _} -> false
+    end.
  
 
 %% TODO (murali@): using a map is not great. try to use the original record itself.
