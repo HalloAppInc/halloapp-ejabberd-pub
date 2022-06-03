@@ -213,6 +213,7 @@ modules:
   mod_call_servers: {}
   mod_external_share_post: {}
   mod_http_share_post: {}
+  mod_psa_tagged_accounts: {}
 
 ### Local Variables:
 ### mode: yaml

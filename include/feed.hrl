@@ -42,7 +42,8 @@
     audience_type :: atom(),
     audience_list :: [uid()],
     ts_ms :: integer(),
-    gid :: binary()
+    gid :: binary(),
+    psa_tag :: binary()
 }).
 
 -type post() :: #post{}.

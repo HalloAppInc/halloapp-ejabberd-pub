@@ -27,7 +27,8 @@
     get_comment_push_data/2,
     cleanup_reverse_index/1,
     cleanup_group_reverse_index/1,
-    reverse_group_post_key/1
+    reverse_group_post_key/1,
+    psa_tag_key/1
     ]).
 -endif.
 
@@ -37,6 +38,7 @@
 %% API
 -export([
     publish_post/8,
+    publish_psa_post/6,
     publish_post/7,
     publish_comment/6,
     retract_post/2,
@@ -50,6 +52,9 @@
     get_entire_user_feed/1,
     get_7day_group_feed/1,
     get_entire_group_feed/1,
+    get_psa_tag_posts/1,
+    is_psa_tag_done/1,
+    mark_psa_tag_done/1,
     is_post_owner/2,
     get_post_tag/1,
     add_uid_to_audience/2,
@@ -77,6 +82,8 @@
 -define(FIELD_PARENT_COMMENT_ID, <<"pc">>).
 -define(FIELD_DELETED, <<"del">>).
 -define(FIELD_GROUP_ID, <<"gid">>).
+-define(FIELD_PSA_TAG, <<"pst">>).
+-define(FIELD_PSA_TAG_DONE, <<"ptd">>).
 
 
 -spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
@@ -96,7 +103,24 @@ publish_post(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, 
     ok.
 
 
--spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
+-spec publish_psa_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
+        PSATag :: binary(), TimestampMs :: integer()) -> ok | {error, any()}.
+publish_psa_post(PostId, Uid, Payload, PostTag, PSATag, TimestampMs)
+    when is_binary(PSATag), PSATag =/= <<>> ->
+    ok = publish_post(PostId, Uid, Payload, PostTag, all, [], TimestampMs),
+
+    %% Set psa tag
+    {ok, _} = q(["HSET", post_key(PostId), ?FIELD_PSA_TAG, PSATag]),
+    %% Add post to reverse index of psa_tag
+    [{ok, _}, {ok, _}] = qp([
+            ["ZADD", reverse_psa_tag_key(PSATag), TimestampMs, PostId],
+            ["EXPIRE", reverse_psa_tag_key(PSATag), ?POST_EXPIRATION]]),
+    %% Cleanup reverse index of psa_tag
+    ok = cleanup_psa_tag_reverse_index(PSATag),
+    ok.
+
+
+ -spec publish_post(PostId :: binary(), Uid :: uid(), Payload :: binary(), PostTag :: post_tag(),
         FeedAudienceType :: atom(), FeedAudienceList :: [binary()],
         TimestampMs :: integer()) -> ok | {error, any()}.
 publish_post(PostId, Uid, Payload, PostTag, FeedAudienceType, FeedAudienceList, TimestampMs) ->
@@ -220,11 +244,11 @@ remove_all_user_posts(Uid) ->
 -spec get_post(PostId :: binary()) -> {ok, post()} | {error, any()}.
 get_post(PostId) ->
     [
-        {ok, [Uid, Payload, PostTag, AudienceType, TimestampMs, Gid, IsDeletedBin]},
+        {ok, [Uid, Payload, PostTag, AudienceType, TimestampMs, Gid, PSATag, IsDeletedBin]},
         {ok, AudienceList}] = qp([
             ["HMGET", post_key(PostId),
                 ?FIELD_UID, ?FIELD_PAYLOAD, ?FIELD_TAG, ?FIELD_AUDIENCE_TYPE, ?FIELD_TIMESTAMP_MS,
-                ?FIELD_GROUP_ID, ?FIELD_DELETED],
+                ?FIELD_GROUP_ID, ?FIELD_PSA_TAG, ?FIELD_DELETED],
             ["SMEMBERS", post_audience_key(PostId)]]),
     IsDeleted = util_redis:decode_boolean(IsDeletedBin, false),
     case Uid =:= undefined orelse IsDeleted =:= true of
@@ -238,7 +262,8 @@ get_post(PostId) ->
                 audience_list = AudienceList,
                 payload = Payload,
                 ts_ms = util_redis:decode_ts(TimestampMs),
-                gid = Gid
+                gid = Gid,
+                psa_tag = PSATag
             }}
     end.
 
@@ -415,6 +440,24 @@ get_entire_group_feed(Gid) ->
     DeadlineMs = NowMs - ?POST_TTL_MS,
     get_group_feed(Gid, DeadlineMs).
 
+-spec is_psa_tag_done(PSATag :: binary()) -> boolean().
+is_psa_tag_done(PSATag) ->
+    {ok, Value} = q(["HGET", psa_tag_key(PSATag), ?FIELD_PSA_TAG_DONE]),
+    Value =:= <<"1">>.
+
+-spec mark_psa_tag_done(PSATag :: binary()) -> ok.
+mark_psa_tag_done(PSATag) ->
+    [{ok, _}, {ok, _}] = qp([
+        ["HSET", psa_tag_key(PSATag), ?FIELD_PSA_TAG_DONE, 1],
+        ["EXPIRE", psa_tag_key(PSATag), ?POST_EXPIRATION]]),
+    ok.
+
+-spec get_psa_tag_posts(PSATag :: binary()) -> {ok, [feed_item()]} | {error, any()}.
+get_psa_tag_posts(PSATag) ->
+    NowMs = util:now_ms(),
+    DeadlineMs = NowMs - ?POST_TTL_MS,
+    get_psa_tag_posts(PSATag, DeadlineMs).
+
 
 -spec get_user_feed(Uid :: uid(), DeadlineMs :: integer()) -> {ok, [feed_item()]} | {error, any()}.
 get_user_feed(Uid, DeadlineMs) ->
@@ -434,6 +477,13 @@ get_group_feed(Gid, DeadlineMs) ->
     {ok, lists:append(Posts, Comments)}.
 
 
+-spec get_psa_tag_posts(PSATag :: binary(), DeadlineMs :: integer()) -> {ok, [feed_item()]} | {error, any()}.
+get_psa_tag_posts(PSATag, DeadlineMs) ->
+    {ok, AllPostIds} = q(["ZRANGEBYSCORE", reverse_psa_tag_key(PSATag), integer_to_binary(DeadlineMs), "+inf"]),
+    FilterFun = fun (X) -> X =/= undefined end,
+    {ok, get_posts(AllPostIds, FilterFun)}.
+
+
 -spec cleanup_reverse_index(Uid :: uid()) -> ok.
 cleanup_reverse_index(Uid) ->
     NowMs = util:now_ms(),
@@ -449,6 +499,15 @@ cleanup_group_reverse_index(Gid) ->
     NowMs = util:now_ms(),
     DeadlineMs = NowMs - ?POST_TTL_MS,
     CleanupKeys = [reverse_group_post_key(Gid)],
+    CleanupCommands = get_cleanup_commands(CleanupKeys, DeadlineMs),
+    [{ok, _}] = qp(CleanupCommands),
+    ok.
+
+-spec cleanup_psa_tag_reverse_index(PSATag :: binary()) -> ok.
+cleanup_psa_tag_reverse_index(PSATag) ->
+    NowMs = util:now_ms(),
+    DeadlineMs = NowMs - ?POST_TTL_MS,
+    CleanupKeys = [reverse_psa_tag_key(PSATag)],
     CleanupCommands = get_cleanup_commands(CleanupKeys, DeadlineMs),
     [{ok, _}] = qp(CleanupCommands),
     ok.
@@ -609,6 +668,14 @@ reverse_post_key(Uid) ->
 -spec reverse_group_post_key(Gid :: uid()) -> binary().
 reverse_group_post_key(Gid) ->
     <<?REVERSE_GROUP_POST_KEY/binary, "{", Gid/binary, "}">>.
+
+-spec psa_tag_key(PSATag :: binary()) -> binary().
+psa_tag_key(PSATag) ->
+    <<?PSA_TAG_KEY/binary, "{", PSATag/binary, "}">>.
+
+-spec reverse_psa_tag_key(PSATag :: binary()) -> binary().
+reverse_psa_tag_key(PSATag) ->
+    <<?REVERSE_PSA_TAG_KEY/binary, "{", PSATag/binary, "}">>.
 
 
 -spec reverse_comment_key(Uid :: uid()) -> binary().

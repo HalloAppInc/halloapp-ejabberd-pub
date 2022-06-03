@@ -16,6 +16,7 @@
 -include("time.hrl").
 -include("client_version.hrl").
 -include("util_redis.hrl").
+-include("feed.hrl").
 
 -define(DELETED_ACCOUNT_TTL, 2 * ?WEEKS).
 
@@ -136,7 +137,12 @@
     start_export/2,
     test_set_export_time/2, % For tests only
     add_marketing_tag/2,
-    get_marketing_tags/1
+    get_marketing_tags/1,
+    add_uid_to_psa_tag/2,
+    get_psa_tagged_uids/2,
+    count_psa_tagged_uids/1,
+    cleanup_psa_tagged_uids/1,
+    mark_psa_post_sent/2
 ]).
 
 %%====================================================================
@@ -178,6 +184,7 @@
 -define(FIELD_EXPORT_START_TS, <<"est">>).
 -define(FIELD_EXPORT_ID, <<"eur">>).
 
+-define(FIELD_PSA_POST_STATUS, <<"pps">>).
 
 %%====================================================================
 %% Account related API
@@ -977,6 +984,50 @@ is_phone_traced(Phone) ->
 
 
 %%====================================================================
+%% PSA Tagged Uid Management API.
+%%====================================================================
+
+
+-spec add_uid_to_psa_tag(Uid :: uid(), PSATag :: binary()) -> ok.
+add_uid_to_psa_tag(Uid, PSATag) ->
+    {ok, _Res} = q(["SADD", psa_tagged_uids_key(util_redis:eredis_hash(Uid), PSATag), Uid]),
+    ok.
+
+
+-spec get_psa_tagged_uids(Slot :: integer(), PSATag :: binary()) -> {ok, [binary()]}.
+get_psa_tagged_uids(Slot, PSATag) ->
+    {ok, Uids} = q(["SMEMBERS", psa_tagged_uids_key(Slot, PSATag)]),
+    {ok, Uids}.
+
+-spec count_psa_tagged_uids(PSATag :: binary()) -> integer().
+count_psa_tagged_uids(PSATag) ->
+    lists:foldl(
+        fun (Slot, Acc) ->
+            {ok, Res} = q(["SCARD", psa_tagged_uids_key(Slot, PSATag)]),
+            Acc + binary_to_integer(Res)
+        end,
+        0,
+        lists:seq(0, ?NUM_SLOTS - 1)).
+
+
+-spec cleanup_psa_tagged_uids(PSATag :: binary()) -> ok.
+cleanup_psa_tagged_uids(PSATag) ->
+    DeleteCommands = lists:map(
+        fun (Slot) ->
+            ["DEL", psa_tagged_uids_key(Slot, PSATag)]
+        end,
+        lists:seq(0, ?NUM_SLOTS - 1)),
+    qmn(DeleteCommands),    
+    ok.
+
+mark_psa_post_sent(Uid, PostId) ->
+    [{ok, NotExists}, {ok, _}] = qp([
+        ["HSETNX", psa_tagged_post_key(Uid, PostId), ?FIELD_PSA_POST_STATUS, 1],
+        ["EXPIRE", psa_tagged_post_key(Uid, PostId), ?POST_EXPIRATION]
+    ]),
+    NotExists =:= <<"1">>.
+
+%%====================================================================
 %% Inactive Uid deletion API.
 %%====================================================================
 
@@ -1167,6 +1218,13 @@ inactive_uids_mark_key(Key) ->
 uids_to_delete_key(Slot) ->
     SlotBinary = integer_to_binary(Slot),
     <<?TO_DELETE_UIDS_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}">>/binary>>.
+
+psa_tagged_uids_key(Slot, PSATag) ->
+    SlotBinary = integer_to_binary(Slot),
+    <<?PSA_TAG_UIDS_KEY/binary, <<"{">>/binary, SlotBinary/binary, <<"}:">>/binary, PSATag/binary>>.
+
+psa_tagged_post_key(Uid, PostId) ->
+    <<?PSA_TAG_POST_KEY/binary, <<"{">>/binary, Uid/binary, <<"}:">>/binary, PostId/binary>>.
 
 count_registrations_key(Uid) ->
     Slot = crc16_redis:hash(binary_to_list(Uid)),

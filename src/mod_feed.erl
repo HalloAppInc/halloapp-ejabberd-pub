@@ -24,7 +24,8 @@
     user_send_packet/1,
     process_local_iq/1,
     add_friend/4,
-    remove_user/2
+    remove_user/2,
+    get_active_psa_tag_list/0
 ]).
 
 
@@ -80,7 +81,8 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     PayloadBase64 = base64:encode(Post#pb_post.payload),
     PostTag = Post#pb_post.tag,
     AudienceList = Post#pb_post.audience,
-    case publish_post(Uid, PostId, PayloadBase64, PostTag, AudienceList, HomeFeedSt) of
+    PSATag = Post#pb_post.psa_tag,
+    case publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeedSt) of
         {ok, ResultTsMs} ->
             FeedAudienceType = AudienceList#pb_audience.type,
             SubEl = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, FeedAudienceType, ResultTsMs),
@@ -164,6 +166,23 @@ remove_user(Uid, _Server) ->
     ok.
 
 
+is_psa_tag_allowed(PSATag, Uid) ->
+    case is_psa_tag_allowed(PSATag) of
+        true -> dev_users:is_psa_admin(Uid);
+        false -> false
+    end.
+
+get_active_psa_tag_list() ->
+    [
+        <<"SR">>,
+        <<"HA">>
+    ].
+
+is_psa_tag_allowed(<<"NEW">>) -> true;
+is_psa_tag_allowed(PSATag) ->
+    lists:member(PSATag, get_active_psa_tag_list()).
+
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -216,10 +235,11 @@ set_ts_and_publisher_name(MsgId, #pb_feed_item{item = Item} = FeedItem) ->
 %% TODO(murali@): update payload to be protobuf binary without base64 encoded.
 
 -spec publish_post(Uid :: uid(), PostId :: binary(), PayloadBase64 :: binary(), PostTag :: post_tag(),
-        AudienceListStanza ::[pb_audience()], HomeFeedSt :: pb_feed_item()) -> {ok, integer()} | {error, any()}.
-publish_post(_Uid, _PostId, _PayloadBase64, _PostTag, undefined, _HomeFeedSt) ->
+        PSATag :: binary(), AudienceListStanza ::[pb_audience()], HomeFeedSt :: pb_feed_item()) -> {ok, integer()} | {error, any()}.
+publish_post(_Uid, _PostId, _PayloadBase64, _PostTag, _PSATag, undefined, _HomeFeedSt) ->
     {error, no_audience};
-publish_post(Uid, PostId, PayloadBase64, PostTag, AudienceList, HomeFeedSt) ->
+publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeedSt)
+        when PSATag =:= undefined; PSATag =:= <<>> ->
     ?INFO("Uid: ~s, PostId: ~s", [Uid, PostId]),
     Server = util:get_host(),
     Action = publish,
@@ -242,8 +262,28 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, AudienceList, HomeFeedSt) ->
             {ok, ExistingPost#post.ts_ms}
     end,
     broadcast_post(Action, PostId, Uid, PayloadBase64, FinalTimestampMs, FilteredAudienceList2, FeedAudienceType, HomeFeedSt),
-    {ok, FinalTimestampMs}.
+    {ok, FinalTimestampMs};
+publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, _AudienceList, HomeFeedSt) ->
+    case is_psa_tag_allowed(PSATag, Uid) of
+        false -> {error, not_allowed};
+        true -> publish_psa_post(Uid, PostId, PayloadBase64, PostTag, PSATag, HomeFeedSt)
+    end.
 
+publish_psa_post(Uid, PostId, PayloadBase64, PostTag, PSATag, HomeFeedSt) ->
+    Server = util:get_host(),
+    MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
+    {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
+        {error, missing} ->
+            TimestampMs = util:now_ms(),
+            ?INFO("Uid: ~s PostId ~p published PSA Post to ~p", [Uid, PostId, PSATag]),
+            ok = model_feed:publish_psa_post(PostId, Uid, PayloadBase64, PostTag, PSATag, TimestampMs),
+            ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, PostTag, all, MediaCounters]),
+            {ok, TimestampMs};
+        {ok, ExistingPost} ->
+            ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
+            {ok, ExistingPost#post.ts_ms}
+    end,
+    {ok, FinalTimestampMs}.
 
 
 broadcast_post(Action, PostId, Uid, PayloadBase64, TimestampMs, FeedAudienceList, FeedAudienceType, HomeFeedSt) ->

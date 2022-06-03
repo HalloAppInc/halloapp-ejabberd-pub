@@ -17,7 +17,8 @@
 -export([
     get_dev_uids/0,
     is_dev_uid/1,
-    is_murali/1
+    is_murali/1,
+    is_psa_admin/1
 ]).
 
 %%====================================================================
@@ -89,4 +90,8 @@ is_murali(<<"1000000000212763494">>) -> true;  %% Murali Iphone
 is_murali(<<"1000000000490675850">>) -> true;  %% Murali Iphone2
 is_murali(_) -> false.
 
+is_psa_admin(<<"1000000000893731049">>) -> true;  %% Michael test phone
+is_psa_admin(<<"1000000000162508063">>) -> true;  %% Neeraj test phone
+is_psa_admin(<<"1000000000523926349">>) -> true;  %% Vipin's test phone, for testing
+is_psa_admin(_) -> false.
 

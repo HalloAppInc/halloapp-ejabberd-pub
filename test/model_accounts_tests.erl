@@ -101,6 +101,11 @@ clear() ->
 -define(MARKETING_TAG1, <<"tag1">>).
 -define(MARKETING_TAG2, <<"tag2">>).
 
+-define(PSA_TAG1, <<"ptag1">>).
+-define(PSA_TAG2, <<"ptag2">>).
+
+-define(POSTID1, <<"post1">>).
+
 
 empty_test() ->
     ok.
@@ -676,6 +681,29 @@ marketing_tag_test() ->
     {ok, [{?MARKETING_TAG1, Ts1}]} = model_accounts:get_marketing_tags(?UID1),
     ok = model_accounts:add_marketing_tag(?UID1, ?MARKETING_TAG2),
     {ok, [{?MARKETING_TAG2, _Ts2}, {?MARKETING_TAG1, Ts1}]} = model_accounts:get_marketing_tags(?UID1),
+    ok.
+
+psa_tag_test() ->
+    setup(),
+    0 = model_accounts:count_psa_tagged_uids(?PSA_TAG1),
+    lists:foreach(fun(Slot) ->
+        {ok, []} = model_accounts:get_psa_tagged_uids(Slot, ?PSA_TAG1)
+    end, lists:seq(0, ?NUM_SLOTS -1)),
+    ok = model_accounts:add_uid_to_psa_tag(?UID1, ?PSA_TAG1),
+    ok = model_accounts:add_uid_to_psa_tag(?UID2, ?PSA_TAG1),
+    2 = model_accounts:count_psa_tagged_uids(?PSA_TAG1),
+    UidsList = lists:foldl(fun(Slot, Acc) ->
+        {ok, List} = model_accounts:get_psa_tagged_uids(Slot, ?PSA_TAG1),
+        Acc ++ List
+    end, [], lists:seq(0, ?NUM_SLOTS -1)),
+    ?assertEqual(sets:from_list([?UID1, ?UID2]), sets:from_list(UidsList)),
+    model_accounts:cleanup_psa_tagged_uids(?PSA_TAG1),
+    0 = model_accounts:count_psa_tagged_uids(?PSA_TAG1),
+    lists:foreach(fun(Slot) ->
+        {ok, []} = model_accounts:get_psa_tagged_uids(Slot, ?PSA_TAG1)
+    end, lists:seq(0, ?NUM_SLOTS -1)),
+    true = model_accounts:mark_psa_post_sent(?UID1, ?POSTID1),
+    false = model_accounts:mark_psa_post_sent(?UID1, ?POSTID1),
     ok.
 
 

@@ -125,7 +125,8 @@ get_props(Uid, ClientVersion) ->
         nse_runtime_sec => 17, %% ios-nse needs 3 secs to cleanup, we want our nse to run =< 20 secs.
         moments => true,   %% clients are capable of sending moments.
         file_sharing => false,   %% clients are capable of sending files.
-        invite_strings => get_invite_strings_bin() %% json string with invite text.
+        invite_strings => get_invite_strings_bin(), %% json string with invite text.
+        is_psa_admin => false %% is client allowed to post PSA Moment
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -210,6 +211,8 @@ uid_prop_override(Uid, krisp_noise_suppression) ->
                 false -> undef  %% Don't override the noise suppression prop
             end
     end;
+uid_prop_override(Uid, is_psa_admin) ->
+    dev_users:is_psa_admin(Uid);
 uid_prop_override(_Uid, _Prop) ->
     undef.
 

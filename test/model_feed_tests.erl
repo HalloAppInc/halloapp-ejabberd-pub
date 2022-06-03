@@ -45,6 +45,8 @@
 -define(POST_BLOB_PAYLOAD, <<"PB_PAYLOAD">>).
 -define(POST_BLOB_EXPIRE_DAYS, 1).
 
+-define(PSA_TAG1, <<"psa_tag1">>).
+
 %% The setup is as follows:
 %% There are two posts: P1 (by U1) and P2 (by U2).
 %% There are a total of 4 comments: C1, C2, C3 and C4.
@@ -472,6 +474,24 @@ external_share_post_test() ->
     ok = model_feed:delete_external_share_post(?POST_BLOB_ID),
     ok.
 
+psa_tag_post_test() ->
+    setup(),
+    false = model_feed:is_psa_tag_done(?PSA_TAG1),
+    ok = model_feed:mark_psa_tag_done(?PSA_TAG1),
+    true = model_feed:is_psa_tag_done(?PSA_TAG1),
+
+    ?assertEqual({error, missing}, model_feed:get_post(?POST_ID1)),
+    Timestamp1 = util:now_ms(),
+    ok = model_feed:publish_psa_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, ?PSA_TAG1, Timestamp1),
+    ExpectedPost = get_post4(Timestamp1),
+    {ok, ActualPost} = model_feed:get_post(?POST_ID1),
+    ?assertEqual(ExpectedPost, ActualPost),
+    ?assertEqual({ok, true}, model_feed:is_post_owner(?POST_ID1, ?UID1)),
+    ?assertEqual({ok, false}, model_feed:is_post_owner(?POST_ID1, ?UID2)),
+    {ok, [ExpectedPost]} = model_feed:get_psa_tag_posts(?PSA_TAG1),
+    ok.
+      
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%                      Helper functions                                  %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -519,6 +539,18 @@ get_post3(Timestamp) ->
         audience_type = except,
         audience_list = [?UID2],
         ts_ms = Timestamp
+    }.
+
+get_post4(Timestamp) ->
+    #post{
+        id = ?POST_ID1,
+        uid = ?UID1,
+        payload = ?PAYLOAD1,
+        tag = empty,
+        audience_type = all,
+        audience_list = [],
+        ts_ms = Timestamp,
+        psa_tag = ?PSA_TAG1
     }.
 
 get_comment1(Timestamp) ->

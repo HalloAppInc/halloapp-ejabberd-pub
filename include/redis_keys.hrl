@@ -53,6 +53,9 @@
 %% To capture list of Uids that need to be deleted because of inactivity.
 -define(TO_DELETE_UIDS_KEY, <<"tdu:">>).
 
+-define(PSA_TAG_UIDS_KEY, <<"ptu:">>).
+-define(PSA_TAG_POST_KEY, <<"ptp:">>).
+
 -define(EXPORT_DATA_KEY, <<"eda:">>).
 
 -define(MARKETING_TAG_KEY, <<"mta:">>).
@@ -73,6 +76,8 @@
 -define(REVERSE_POST_KEY, <<"rfp:">>).
 -define(REVERSE_COMMENT_KEY, <<"rfc:">>).
 -define(REVERSE_GROUP_POST_KEY, <<"rfg:">>).
+-define(PSA_TAG_KEY, <<"pst:">>).
+-define(REVERSE_PSA_TAG_KEY, <<"rpt:">>).
 -define(COMMENT_PUSH_LIST_KEY, <<"fcp:">>).
 -define(SHARE_POST_KEY, <<"fsp:">>).
 
