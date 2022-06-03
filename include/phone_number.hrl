@@ -69,13 +69,12 @@
                 | invalid_region        % no metadata for the region
                 | no_region_id          % no region id available
                 | mismatch_cc_region    % cc does not match region metadata's cc
-                | no_valid_region       % all regions provided did not match num
                 | too_short
                 | too_long
                 | invalid_length        % length cannot be checked against (missing) region metadata
                 | voip_num
                 | fixed_line_num
-                | not_mobile_num        % no match provided by mobile re – could be a different type
+                | unknown_type_num      % not mobile, voip, or fixed line
 ).
 
 %% Record to hold all the necessary information about a phone_number as state when processing it.

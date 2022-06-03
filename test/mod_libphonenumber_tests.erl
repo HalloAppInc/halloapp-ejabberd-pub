@@ -314,10 +314,10 @@ normalize_error_test() ->
     ?assertEqual(fixed_line_num, PhoneNumberState2#phone_number_state.error_msg ),
     % pager number (pulled from xml file)
     {ok, PhoneNumberState3} = phone_number_util:parse_phone_number(<<"740123456">>, <<"CH">>),
-    ?assertEqual(not_mobile_num, PhoneNumberState3#phone_number_state.error_msg ),
-    % no valid region
+    ?assertEqual(unknown_type_num, PhoneNumberState3#phone_number_state.error_msg ),
+    % match last error if multiple regions (number matches VA and IT region)
     {ok, PhoneNumberState4} = phone_number_util:parse_phone_number(<<"395512345678">>, <<"IT">>),
-    ?assertEqual(no_valid_region, PhoneNumberState4#phone_number_state.error_msg ),
+    ?assertEqual(voip_num, PhoneNumberState4#phone_number_state.error_msg ),
     % invalid lengths - long & short
     {ok, PhoneNumberState5} = phone_number_util:parse_phone_number(<<"1111111111">>, <<"IS">>),
     ?assertEqual(too_long, PhoneNumberState5#phone_number_state.error_msg ),

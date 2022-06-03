@@ -25,7 +25,7 @@
          maybe_strip_national_prefix_and_carrier_code/2,
          extract_country_code/2, maybe_strip_international_prefix_and_normalize/2,
          format_number_internal/1, is_valid_number_internal/1, is_valid_number_for_region/2,
-         get_region_id_for_number/1, get_region_id_for_number_from_regions_list/2,
+         get_region_id_for_number/1, get_region_id_for_number_from_regions_list/3,
          is_number_matching_desc/2, match_national_number_pattern/3, normalize/1,
          test_number_length/2, compare_with_national_lengths/2, get_max_length/1,
          get_min_length/1, check_region_for_parsing/2, is_viable_phone_number/1,
@@ -671,19 +671,19 @@ is_valid_number_for_region(PhoneNumberState, RegionId) ->
         [Match] ->
             Match#region_metadata.id;
         _ ->
-            get_region_id_for_number_from_regions_list(PhoneNumberState, Matches)
+            get_region_id_for_number_from_regions_list(PhoneNumberState, Matches, invalid_country_code)
     end.
 
 
 
 %% Returns the region which has the matching leading digits or when the mobile description matches.
 %% Uses the national number mentioned in the phone_number_state.
--spec get_region_id_for_number_from_regions_list(#phone_number_state{}, [#region_metadata{}]) ->
+-spec get_region_id_for_number_from_regions_list(#phone_number_state{}, [#region_metadata{}], errorMsg()) ->
                                                     binary() | {error, atom()}.
-get_region_id_for_number_from_regions_list(_PhoneNumberState, []) ->
-    {error, no_valid_region};
+get_region_id_for_number_from_regions_list(_PhoneNumberState, [], ErrorAcc) ->
+    {error, ErrorAcc}; % use the last match's error msg
 
-get_region_id_for_number_from_regions_list(PhoneNumberState, [RegionMetadata | Rest]) ->
+get_region_id_for_number_from_regions_list(PhoneNumberState, [RegionMetadata | Rest], ErrorAcc) ->
     PhoneNumber = PhoneNumberState#phone_number_state.national_number,
     LeadingDigits = RegionMetadata#region_metadata.attributes#attributes.leading_digits,
     case LeadingDigits of
@@ -691,15 +691,15 @@ get_region_id_for_number_from_regions_list(PhoneNumberState, [RegionMetadata | R
             case is_number_matching_desc(PhoneNumber, RegionMetadata) of
                 true ->
                     RegionMetadata#region_metadata.id;
-                {false, _} ->
-                    get_region_id_for_number_from_regions_list(PhoneNumberState, Rest)
+                {false, Reason} ->
+                    get_region_id_for_number_from_regions_list(PhoneNumberState, Rest, Reason)
             end;
         _ ->
             case re:run(PhoneNumber, LeadingDigits, [notempty]) of
                 {match, [{0, _} | _Rest]} ->
                     RegionMetadata#region_metadata.id;
                 _ ->
-                    get_region_id_for_number_from_regions_list(PhoneNumberState, Rest)
+                    get_region_id_for_number_from_regions_list(PhoneNumberState, Rest, ErrorAcc)
             end
     end.
 
@@ -745,7 +745,7 @@ match_national_number_pattern(PhoneNumber, RegionMetadata, DefaultValue) ->
 
 
 %% Attempts to matches the phone number with voip and fixedLine patterns.
-%% Returns the number type if there is a match (voip or fixed line) or not_mobile_num for neither
+%% Returns the number type if there is a match (voip or fixed line) or unknown for neither
 -spec get_number_type(PhoneNumber :: list(), RegionMetadata :: #region_metadata{}) -> errorMsg().
 get_number_type(PhoneNumber, RegionMetadata) ->
     IsVoip = match_number_type_pattern(PhoneNumber, RegionMetadata, voip),
@@ -753,7 +753,7 @@ get_number_type(PhoneNumber, RegionMetadata) ->
     case {IsVoip, IsFixedLine} of
         {true, _} -> voip_num;
         {_, true} -> fixed_line_num;
-        _ -> not_mobile_num         % number type is not implemented (eg voicemail, pager)
+        _ -> unknown_type_num       % number type is not implemented (eg voicemail, pager)
     end.
 
 
