@@ -121,35 +121,30 @@ parse_helper(PhoneNumberState, DefaultRegionId) ->
             {error, invalid_input};
         true ->
             PossiblePhoneNumber = build_national_number_for_parsing(PhoneNumber),
-            case is_viable_phone_number(PossiblePhoneNumber) of
-                {error, Res} ->
-                    {error, Res};
-                {ok, _} ->
-                    case check_region_for_parsing(PossiblePhoneNumber, DefaultRegionId) of
-                        {error, Res} ->
-                            {error, Res};
-                        {ok, _} ->
-                            case parse_helper_internal(#phone_number_state{
-                                        phone_number = PossiblePhoneNumber,
-                                        raw = PhoneNumberState#phone_number_state.raw},
-                                        DefaultRegionId) of
-                                {error, invalid_but_retry} ->
-                                    case re:run(PossiblePhoneNumber,
-                                            get_plus_characters_pattern_matcher(), [notempty]) of
-                                        {match, [{Index, Length} | _Rest]} ->
-                                            NewPossiblePhoneNumber =
-                                                string:slice(PossiblePhoneNumber, Index+Length),
-                                            parse_helper_internal(
-                                                #phone_number_state{
-                                                    phone_number = NewPossiblePhoneNumber,
-                                                    raw = PhoneNumberState#phone_number_state.raw
-                                                }, DefaultRegionId);
-                                        _ ->
-                                            {error, invalid}
-                                    end;
-                                Result ->
-                                    Result
-                            end
+            {Viable, Res} = is_viable_phone_number(PossiblePhoneNumber),
+            {Checkable, Res2} = check_region_for_parsing(PossiblePhoneNumber, DefaultRegionId),
+            if
+                Viable == error -> {error, Res};
+                Checkable == error -> {error, Res2};
+                true ->
+                    case parse_helper_internal(PhoneNumberState#phone_number_state{
+                                phone_number = PossiblePhoneNumber},
+                                DefaultRegionId) of
+                        {error, invalid_but_retry} ->
+                            case re:run(PossiblePhoneNumber,
+                                    get_plus_characters_pattern_matcher(), [notempty]) of
+                                {match, [{Index, Length} | _Rest]} ->
+                                    NewPossiblePhoneNumber =
+                                        string:slice(PossiblePhoneNumber, Index+Length),
+                                    parse_helper_internal(
+                                        PhoneNumberState#phone_number_state{
+                                            phone_number = NewPossiblePhoneNumber
+                                        }, DefaultRegionId);
+                                _ ->
+                                    {error, invalid}
+                            end;
+                        Result ->
+                            Result
                     end
             end
     end.
@@ -483,12 +478,8 @@ maybe_strip_national_prefix_and_carrier_code(PhoneNumberState, RegionMetadata) -
                     NewNationalNumber = PotentialNationalNumber
             end
     end,
-    NewPhoneNumberState = #phone_number_state {
-        country_code = PhoneNumberState#phone_number_state.country_code,
-        national_number = NewNationalNumber,
-        phone_number = PhoneNumberState#phone_number_state.phone_number,
-        raw = PhoneNumberState#phone_number_state.raw,
-        country_code_source = PhoneNumberState#phone_number_state.country_code_source
+    NewPhoneNumberState = PhoneNumberState#phone_number_state {
+        national_number = NewNationalNumber
     },
     NewPhoneNumberState.
 
@@ -502,12 +493,9 @@ extract_country_code(PhoneNumberState, Count) ->
     PhoneNumber = PhoneNumberState#phone_number_state.phone_number,
     if
         Count > ?MAX_LENGTH_COUNTRY_CODE ->
-            NewPhoneNumberState = #phone_number_state {
+            NewPhoneNumberState = PhoneNumberState#phone_number_state {
                 country_code = "0",
-                national_number = PhoneNumberState#phone_number_state.phone_number,
-                phone_number = PhoneNumberState#phone_number_state.phone_number,
-                raw = PhoneNumberState#phone_number_state.raw,
-                country_code_source = PhoneNumberState#phone_number_state.country_code_source
+                national_number = PhoneNumberState#phone_number_state.phone_number
             },
             NewPhoneNumberState;
         true ->
@@ -515,13 +503,9 @@ extract_country_code(PhoneNumberState, Count) ->
             Res = libphonenumber_ets:match_object_on_country_code(PotentialCountryCode),
             case Res of
                 [_Match | _Rest] ->
-                    NewPhoneNumberState = #phone_number_state {
+                    NewPhoneNumberState = PhoneNumberState#phone_number_state {
                         country_code = PotentialCountryCode,
-                        national_number = string:slice(PhoneNumber, Count),
-                        phone_number = PhoneNumberState#phone_number_state.phone_number,
-                        raw = PhoneNumberState#phone_number_state.raw,
-                        country_code_source =
-                            PhoneNumberState#phone_number_state.country_code_source
+                        national_number = string:slice(PhoneNumber, Count)
                     },
                     NewPhoneNumberState;
                 _ ->
@@ -572,11 +556,8 @@ maybe_strip_international_prefix_and_normalize(PhoneNumberState, InternationalPr
                     end
             end
     end,
-    NewPhoneNumberState = #phone_number_state {
-        country_code = PhoneNumberState#phone_number_state.country_code,
-        national_number = PhoneNumberState#phone_number_state.national_number,
+    NewPhoneNumberState = PhoneNumberState#phone_number_state {
         phone_number = NewPhoneNumber,
-        raw = PhoneNumberState#phone_number_state.raw,
         country_code_source = NewCountryCodeSource
     },
     NewPhoneNumberState.
@@ -588,19 +569,11 @@ maybe_strip_international_prefix_and_normalize(PhoneNumberState, InternationalPr
 format_number_internal(PhoneNumberState) ->
     CountryCode = PhoneNumberState#phone_number_state.country_code,
     NationalNumber = PhoneNumberState#phone_number_state.national_number,
-    case CountryCode of
-        undefined ->
-            NewPhoneNumberState = PhoneNumberState#phone_number_state{error_msg = undefined_country_code};
-        _ ->
-            case NationalNumber of
-                undefined ->
-                    NewPhoneNumberState = PhoneNumberState#phone_number_state{error_msg = undefined_national_num};
-                _ ->
-                    NewPhoneNumberState = PhoneNumberState#phone_number_state{
-                                                    e164_value = CountryCode++NationalNumber}
-            end
-    end,
-    NewPhoneNumberState.
+    if
+        CountryCode == undefined -> PhoneNumberState#phone_number_state{error_msg = undefined_country_code};
+        NationalNumber == undefined -> PhoneNumberState#phone_number_state{error_msg = undefined_national_num};
+        true -> PhoneNumberState#phone_number_state{e164_value = CountryCode++NationalNumber}
+    end.
 
 
 
@@ -808,23 +781,19 @@ test_number_length(PhoneNumber, RegionMetadata) ->
                 _ ->
                     LocalLengths = Mobile#number_type.local_only_lengths,
                     NationalLengths = Mobile#number_type.national_lengths,
-                    case NationalLengths of
-                        undefined ->
+                    if
+                        NationalLengths == undefined ->
                             invalid_length;
-                        _ ->
-                            case LocalLengths of
-                                undefined ->
-                                    compare_with_national_lengths(PhoneNumber, NationalLengths);
-                                _ ->
-                                    case length(PhoneNumber) >= get_min_length(LocalLengths)
-                                            andalso length(PhoneNumber) =<
-                                                            get_max_length(LocalLengths) of
-                                        true ->
-                                            is_possible_local_only;
-                                        false ->
-                                            compare_with_national_lengths(PhoneNumber,
-                                                                            NationalLengths)
-                                    end
+                        LocalLengths == undefined ->
+                            compare_with_national_lengths(PhoneNumber, NationalLengths);
+                        true ->
+                            Min = get_min_length(LocalLengths),
+                            Max = get_max_length(LocalLengths),
+                            case Min =< length(PhoneNumber) andalso length(PhoneNumber) =< Max of
+                                true ->
+                                    is_possible_local_only;
+                                false ->
+                                    compare_with_national_lengths(PhoneNumber, NationalLengths)
                             end
                     end
             end
@@ -834,22 +803,12 @@ test_number_length(PhoneNumber, RegionMetadata) ->
 %% Compares the phone number with the national lengths and returns the relevant atom.
 -spec compare_with_national_lengths(list(), list()) -> atom().
 compare_with_national_lengths(PhoneNumber, NationalLengths) ->
-    case get_min_length(NationalLengths) > length(PhoneNumber) of
-        true ->
-            too_short;
-        false ->
-            case length(PhoneNumber) >= get_min_length(NationalLengths)
-                    andalso length(PhoneNumber) =< get_max_length(NationalLengths) of
-                true ->
-                    is_possible;
-                false ->
-                    case get_max_length(NationalLengths) < length(PhoneNumber) of
-                        true ->
-                            too_long;
-                        false ->
-                            invalid_length
-                    end
-            end
+    Min = get_min_length(NationalLengths),
+    Max = get_max_length(NationalLengths),
+    if
+        Min > length(PhoneNumber) -> too_short;
+        Max < length(PhoneNumber) -> too_long;
+        true -> is_possible
     end.
 
 
@@ -926,16 +885,11 @@ check_region_for_parsing(PhoneNumber, DefaultRegionId) ->
 %% leading non-number symbols have been removed, such as by the method extract_possible_number().
 -spec is_viable_phone_number(list) -> {ok, valid} | {error, too_short | invalid_chars}.
 is_viable_phone_number(PhoneNumber) ->
-    case length(PhoneNumber) < ?MIN_LENGTH_FOR_NSN of
-        true ->
-            {error, too_short};
-        false ->
-            case re:run(PhoneNumber, get_valid_phone_number_pattern_matcher(),
-                        [notempty, {capture, none}]) =/= match of
-                true ->{error, invalid_chars};
-                false ->
-                    {ok, valid}
-            end
+    ReResult = re:run(PhoneNumber, get_valid_phone_number_pattern_matcher(), [notempty, {capture, none}]),
+    if
+        length(PhoneNumber) < ?MIN_LENGTH_FOR_NSN -> {error, too_short};
+        ReResult =/= match -> {error, invalid_chars};
+        true -> {ok, valid}
     end.
 
 
