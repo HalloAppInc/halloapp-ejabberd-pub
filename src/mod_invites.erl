@@ -223,7 +223,7 @@ can_send_invite(FromUid, ToPhone, RegionId) ->
     %% Clients are expected to send us the normalized version of the phone number that server
     %% sent them during contact sync.
     %% So we re-add the plus sign and check if the number is valid.
-    NormPhone = mod_libphonenumber:normalize(mod_libphonenumber:prepend_plus(ToPhone), RegionId),
+    NormPhone = mod_libphonenumber:normalized_number(mod_libphonenumber:prepend_plus(ToPhone), RegionId),
     case NormPhone of
         undefined -> {error, invalid_number};
         _ ->

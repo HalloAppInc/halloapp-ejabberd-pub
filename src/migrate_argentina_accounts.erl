@@ -276,5 +276,5 @@ renormalize(Phone) ->
         <<"1", Rest/binary>> -> Rest;
         _ -> Phone
     end,
-    mod_libphonenumber:normalize(NewPhone, <<"AR">>).
+    mod_libphonenumber:normalized_number(NewPhone, <<"AR">>).
 

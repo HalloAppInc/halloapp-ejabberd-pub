@@ -78,7 +78,7 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
             %% So user need not enter their own country code in order to delete their account.
             UidPhone = Account#account.phone,
             CountryCode = mod_libphonenumber:get_cc(UidPhone),
-            NormPhone = mod_libphonenumber:normalize(RawPhone, CountryCode),
+            NormPhone = mod_libphonenumber:normalized_number(RawPhone, CountryCode),
             NormPhoneBin = util:to_binary(NormPhone),
             case UidPhone =:= NormPhoneBin of
                 false ->

@@ -495,7 +495,7 @@ log_request_otp_error(ErrorType, Method, RawPhone, UserAgent, ClientIP, Protocol
         [{error, ErrorType}, {method, CleanMethod}]),
 
     % TODO: this code is duplicated with normalize function
-    Phone = mod_libphonenumber:normalize(mod_libphonenumber:prepend_plus(RawPhone), <<"US">>),
+    Phone = mod_libphonenumber:normalized_number(mod_libphonenumber:prepend_plus(RawPhone), <<"US">>),
     Event = #{
         % TODO: add log path for the successful requests, include gateway, price and other info like mcc, mnc
         result => error,
@@ -613,9 +613,10 @@ normalize(RawPhone) ->
     % RawPhone.
     E164Phone = mod_libphonenumber:prepend_plus(RawPhone),
     case mod_libphonenumber:normalize(E164Phone, <<"US">>) of
-        undefined ->
+        % TODO @michelle: group phone error messages
+        {error, _ErrMsg} ->
             error(invalid_phone_number);
-        Phone ->
+        {ok, Phone} ->
             Phone
     end.
 

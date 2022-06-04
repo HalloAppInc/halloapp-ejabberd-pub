@@ -23,7 +23,8 @@
     get_cc/1,
     get_region_id/1,
     normalize/2,
-    prepend_plus/1
+    prepend_plus/1,
+    normalized_number/2
 ]).
 
 
@@ -89,34 +90,32 @@ get_region_id(Number) ->
     end.
 
 
--spec normalize(Number :: binary(), RegionId :: binary()) -> binary() | undefined.
+-spec normalize(Number :: binary(), RegionId :: binary()) -> {ok, binary()} | {error, atom()}.
 normalize(Number, RegionId) ->
-    Result = parse(Number, RegionId),
-    case Result == <<"">> of
-        true ->
-            undefined;
-        false ->
-            Result
-    end.
-
-
--spec parse(Number :: binary(), RegionId :: binary()) -> binary().
-parse(Number, RegionId) ->
     case phone_number_util:parse_phone_number(Number, RegionId) of
         {ok, PhoneNumberState} ->
             case PhoneNumberState#phone_number_state.valid of
                 true ->
                     phone_norm:info("success parsed |~s| -> ~p", [Number, PhoneNumberState]),
-                    list_to_binary(PhoneNumberState#phone_number_state.e164_value);
+                    {ok, list_to_binary(PhoneNumberState#phone_number_state.e164_value)};
                 _ ->
                     phone_norm:info("Failed parsing |~s|, with reason ~s -> ~p", [Number, PhoneNumberState#phone_number_state.error_msg, PhoneNumberState]),
-                    <<>> % Use empty string as normalized number for now.
+                    {error, PhoneNumberState#phone_number_state.error_msg}
             end;
         {error, Reason} ->
             case length(phone_number_util:normalize(binary_to_list(Number))) > 5 of
                 true -> phone_norm:error("Failed parsing |~s|, with reason: ~s", [Number, Reason]);
                 false -> phone_norm:warning("Failed parsing |~s|, with reason: ~s", [Number, Reason])
             end,
-            <<>> % Use empty string as normalized number for now.
+            {error, Reason}
+    end.
+
+
+-spec normalized_number(Number :: binary(), RegionId :: binary()) -> binary() | undefined.
+normalized_number(Number, RegionId) ->
+    NormResult = normalize(Number, RegionId),
+    case NormResult of
+        {error, _} -> undefined;
+        {ok, Phone} -> Phone
     end.
 
