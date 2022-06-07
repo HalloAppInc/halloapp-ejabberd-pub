@@ -66,8 +66,9 @@ normalize(Contacts, RegionId) ->
             (#pb_contact{raw = RawPhone} = Contact) ->
                 NormResults = mod_libphonenumber:normalize(RawPhone, RegionId),
                 case NormResults of
-                    {error, _} ->
+                    {error, Reason} ->
                         stat:count("HA/contacts", "normalize_fail"),
+                        stat:count("HA/contacts", "normalize_fail_reason", 1, [{error, Reason}]),
                         Contact#pb_contact{
                             uid = undefined,
                             normalized = undefined};
