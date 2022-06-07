@@ -262,10 +262,11 @@ post_process({EJson}) ->
             {lists:keyreplace(<<"call">>, 1, EJson, {<<"call">>,CallData2})}
     end.
 
-%% Currently we only write crypto stats to files.
+%% Currently we only write crypto and call stats to files.
 -spec log_count(Namespace :: binary(), Metric :: binary(),
         Uid :: binary(), Tags :: proplist(), Count :: integer()) -> ok.
-log_count(<<"client.crypto">> = Namespace, Metric, Uid, Tags, Count) ->
+log_count(Namespace, Metric, Uid, Tags, Count)
+        when Namespace =:= <<"client.crypto">>; Namespace =:= <<"client.call">> ->
     FinalNamespace = <<Namespace/binary, ".", Metric/binary>>,
     Tags2 = lists:map(fun({TagName, TagValue}) ->
                 {util:to_binary(TagName), util:to_binary(TagValue)}
