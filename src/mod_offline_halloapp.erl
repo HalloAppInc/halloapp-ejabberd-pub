@@ -520,12 +520,12 @@ filter_messages(_ClientVersion, undefined) ->
     false;
 
 %% Withhold messages after max retry_count.
-filter_messages(_ClientVersion, #offline_message{msg_id = MsgId, to_uid = Uid,
-        retry_count = RetryCount, message = Message})
+filter_messages(ClientVersion, #offline_message{msg_id = MsgId, to_uid = Uid,
+        retry_count = RetryCount, content_type = ContentType, message = Message})
         when RetryCount > ?MAX_RETRY_COUNT ->
     IsDev = dev_users:is_dev_uid(Uid),
-    ?WARNING("Withhold offline message after max retries, Uid: ~p, IsDev: ~p, msg_id: ~p, message(b64): ~p",
-            [Uid, IsDev, MsgId, base64url:encode(Message)]),
+    ?WARNING("Withhold offline message after max retries, Uid: ~p, ClientVersion: ~p, IsDev: ~p, MsgId: ~p, MsgType: ~p, message(b64): ~p",
+            [Uid, ClientVersion, IsDev, MsgId, ContentType, base64url:encode(Message)]),
     ok = model_messages:withhold_message(Uid, MsgId),
     stat:count("HA/offline_messages", "drop"),
     false;
