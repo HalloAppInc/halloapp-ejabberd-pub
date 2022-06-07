@@ -507,7 +507,11 @@ else
 endif
 
 ct:
+ifeq ($(MODULE),)
 	HALLO_ENV=test $(REBAR) ct --suite=test/ha_SUITE
+else
+	HALLO_ENV=test $(REBAR) ct --suite=test/ha_SUITE --group=$(MODULE)
+endif
 
 test: eunit ct
 

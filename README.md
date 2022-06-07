@@ -97,6 +97,12 @@ Run the Common Tests:
 
     make ct
 
+Run a single module's ct tests
+
+    make ct MODULE=<module_name>
+
+where `<module_name>` is the module's name without `_test`. For example, to test `foo_test.erl` run `make ct MODULE=foo`
+
 ### 4. Running
 
 Start Ejabberd on localhost, you don't need the `make install` to run ejabberd
