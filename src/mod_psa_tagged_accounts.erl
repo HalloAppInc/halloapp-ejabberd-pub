@@ -100,7 +100,7 @@ process_psa_tag(PSATag) ->
         fun(Slot, Processed) ->
             ?INFO("Sending PSA Moment accounts in slot: ~p, Tag: ~p", [Slot, PSATag]),
             {ok, List} = model_accounts:get_psa_tagged_uids(Slot, PSATag),
-            {ok, Phones} = model_accounts:get_phones(List),
+            Phones = model_accounts:get_phones(List),
             UidPhones = lists:zip(List, Phones),
             lists:foldl(fun({Uid, Phone}, Acc) ->
                 ProcessingDone = case is_timezone_ok(Phone) of
