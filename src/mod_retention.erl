@@ -119,6 +119,7 @@ dump_account(Uid) ->
                 NumContacts = length(Contacts),
                 NumUidContacts = length(maps:to_list(UidContacts)),
                 NumFriends = length(Friends),
+                NumGroups = model_groups:get_group_count(Uid),
                 CC = mod_libphonenumber:get_cc(Account#account.phone),
                 ha_events:log_event(<<"server.accounts">>, #{
                     uid => Account#account.uid,
@@ -132,6 +133,7 @@ dump_account(Uid) ->
                     num_contacts => NumContacts,
                     num_uid_contacts => NumUidContacts,
                     num_friends => NumFriends,
+                    num_groups => NumGroups,
                     device => Account#account.device,
                     os_version => Account#account.os_version,
                     latest_marketing_tag => LatestTag
