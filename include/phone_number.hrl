@@ -72,9 +72,9 @@
                 | too_short
                 | too_long
                 | invalid_length        % length cannot be checked against (missing) region metadata
-                | voip_num
-                | fixed_line_num
-                | unknown_type_num      % not mobile, voip, or fixed line
+                | line_type_voip
+                | line_type_fixed
+                | line_type_other       % not mobile, voip, or fixed line
 ).
 
 %% Record to hold all the necessary information about a phone_number as state when processing it.

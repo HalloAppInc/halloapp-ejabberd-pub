@@ -724,9 +724,9 @@ get_number_type(PhoneNumber, RegionMetadata) ->
     IsVoip = match_number_type_pattern(PhoneNumber, RegionMetadata, voip),
     IsFixedLine = match_number_type_pattern(PhoneNumber, RegionMetadata, fixedLine),
     case {IsVoip, IsFixedLine} of
-        {true, _} -> voip_num;
-        {_, true} -> fixed_line_num;
-        _ -> unknown_type_num       % number type is not implemented (eg voicemail, pager)
+        {true, _} -> line_type_voip;
+        {_, true} -> line_type_fixed;
+        _ -> line_type_other        % number type is not implemented (eg voicemail, pager)
     end.
 
 

@@ -110,11 +110,11 @@ normalize_phone_country_code_test() ->
     %% Philippines
     ?assertEqual({ok, <<"639912178825">>}, mod_libphonenumber:normalize(<<"+639912178825">>, ?REGION_US)),
     %% Invalid
-    ?assertEqual({error, unknown_type_num}, mod_libphonenumber:normalize(<<"+91 415 412 1848">>, ?REGION_US)),
+    ?assertEqual({error, line_type_other}, mod_libphonenumber:normalize(<<"+91 415 412 1848">>, ?REGION_US)),
     %% Invalid
     ?assertEqual({error, too_short}, mod_libphonenumber:normalize(<<"123456">>, ?REGION_US)),
     %% Invalid
-    ?assertEqual({error, unknown_type_num}, mod_libphonenumber:normalize(<<"1254154124">>, ?REGION_US)),
+    ?assertEqual({error, line_type_other}, mod_libphonenumber:normalize(<<"1254154124">>, ?REGION_US)),
     ok.
 
 
@@ -156,11 +156,11 @@ normalize_phone_national_prefix_test() ->
     %% Philippines
     ?assertEqual({ok, <<"639912178825">>}, mod_libphonenumber:normalize(<<"+63-0-9912178825">>, ?REGION_US)),
     %% Invalid
-    ?assertEqual({error, unknown_type_num}, mod_libphonenumber:normalize(<<"+91 415 412 1848">>, ?REGION_US)),
+    ?assertEqual({error, line_type_other}, mod_libphonenumber:normalize(<<"+91 415 412 1848">>, ?REGION_US)),
     %% Invalid
     ?assertEqual({error, too_short}, mod_libphonenumber:normalize(<<"123456">>, ?REGION_US)),
     %% Invalid
-    ?assertEqual({error, unknown_type_num}, mod_libphonenumber:normalize(<<"1254154124">>, ?REGION_US)),
+    ?assertEqual({error, line_type_other}, mod_libphonenumber:normalize(<<"1254154124">>, ?REGION_US)),
     ok.
 
 
@@ -308,16 +308,16 @@ normalize_error_test() ->
     setup(),
     % voip number (pulled from xml file)
     {ok, PhoneNumberState} = phone_number_util:parse_phone_number(<<"354 4921234">>, <<"IS">>),
-    ?assertEqual(voip_num, PhoneNumberState#phone_number_state.error_msg ),
+    ?assertEqual(line_type_voip, PhoneNumberState#phone_number_state.error_msg ),
     % fixed line number (pulled from xml file)
     {ok, PhoneNumberState2} = phone_number_util:parse_phone_number(<<"4101234">>, <<"IS">>),
-    ?assertEqual(fixed_line_num, PhoneNumberState2#phone_number_state.error_msg ),
+    ?assertEqual(line_type_fixed, PhoneNumberState2#phone_number_state.error_msg ),
     % pager number (pulled from xml file)
     {ok, PhoneNumberState3} = phone_number_util:parse_phone_number(<<"740123456">>, <<"CH">>),
-    ?assertEqual(unknown_type_num, PhoneNumberState3#phone_number_state.error_msg ),
+    ?assertEqual(line_type_other, PhoneNumberState3#phone_number_state.error_msg ),
     % match last error if multiple regions (number matches VA and IT region)
     {ok, PhoneNumberState4} = phone_number_util:parse_phone_number(<<"395512345678">>, <<"IT">>),
-    ?assertEqual(voip_num, PhoneNumberState4#phone_number_state.error_msg ),
+    ?assertEqual(line_type_voip, PhoneNumberState4#phone_number_state.error_msg ),
     % invalid lengths - long & short
     {ok, PhoneNumberState5} = phone_number_util:parse_phone_number(<<"1111111111">>, <<"IS">>),
     ?assertEqual(too_long, PhoneNumberState5#phone_number_state.error_msg ),
