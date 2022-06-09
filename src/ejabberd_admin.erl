@@ -760,6 +760,11 @@ format_contact_list(Uid) ->
     {ok, Friends} = model_friends:get_friends(Uid),
     PhoneToUidMap = model_phone:get_uids(ContactPhones),
     UidToNameMap = model_accounts:get_names(maps:values(PhoneToUidMap)),
+    PhoneToNumFriendsMap = maps:fold(
+        fun(K, V, Acc) ->
+            {ok, Friends2} = model_friends:get_friends(V),
+            maps:put(K, length(Friends2), Acc)
+        end, #{}, PhoneToUidMap),
     PhoneToNameMap = maps:map(fun(_P, U) -> maps:get(U, UidToNameMap) end, PhoneToUidMap),
     ContactList = [{
         case maps:get(CPhone, PhoneToUidMap, undefined) of      % Friend or Contact
@@ -772,7 +777,8 @@ format_contact_list(Uid) ->
         end,
         binary_to_integer(CPhone),                              % Phone,
         maps:get(CPhone, PhoneToUidMap, ""),                    % Uid,
-        maps:get(CPhone, PhoneToNameMap, "")                    % Name
+        maps:get(CPhone, PhoneToNameMap, ""),                   % Name
+        maps:get(CPhone, PhoneToNumFriendsMap, 0)               % Num Friends
     } || CPhone <- ContactPhones],
     NumFriends = length([1 || {CorF, _P, _U, _N} <- ContactList, CorF =:= "F"]),
     {ok, ContactList, NumFriends}.
@@ -808,12 +814,12 @@ uid_info(Uid, Options) ->
             {ok, ContactList, NumFriends} = format_contact_list(Uid),
             ContactList2 = case lists:member(show_all_contacts, Options) of
                 true -> ContactList;
-                false -> lists:filter(fun({_, _, AUid, _}) -> AUid =/= "" end, ContactList)
+                false -> lists:filter(fun({_, _, AUid, _, _}) -> AUid =/= "" end, ContactList)
             end,
             io:format("Contact list (~p, ~p are friends):~n",
                 [length(ContactList2), NumFriends]),
-            [io:format("  ~s ~w ~s ~s~n", [CorF, CPhone, FUid, FName]) ||
-                {CorF, CPhone, FUid, FName} <- ContactList2],
+            [io:format("  ~s ~w ~s ~p ~s ~n", [CorF, CPhone, FUid, FNumFriends, FName]) ||
+                {CorF, CPhone, FUid, FName, FNumFriends} <- ContactList2],
 
             Gids = model_groups:get_groups(Uid),
             io:format("Group list (~p):~n", [length(Gids)]),
