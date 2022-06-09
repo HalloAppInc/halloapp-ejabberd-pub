@@ -823,16 +823,13 @@ uid_info(Uid, Options) ->
 
             Gids = model_groups:get_groups(Uid),
             io:format("Group list (~p):~n", [length(Gids)]),
-            [io:format(
-                "  ~s (~s)~n",
-                [
-                    case (model_groups:get_group_info(Gid)) of
-                        #group_info{} = G -> G#group_info.name;
-                        _  -> undefined
-                    end,
-                    Gid
-                ])
-                || Gid <- Gids]
+            lists:foreach(fun(Gid) ->
+                {GName, GSize} = case (model_groups:get_group_info(Gid)) of
+                    #group_info{} = G -> {G#group_info.name, model_groups:get_group_size(Gid)};
+                    _  -> undefined, undefined
+                end,
+                io:format("   ~s ~p (~s)~n", [GName, GSize, Gid])
+            end, Gids)
     end,
     ok.
 
