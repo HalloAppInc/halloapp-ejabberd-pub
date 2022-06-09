@@ -780,7 +780,7 @@ format_contact_list(Uid) ->
         maps:get(CPhone, PhoneToNameMap, ""),                   % Name
         maps:get(CPhone, PhoneToNumFriendsMap, 0)               % Num Friends
     } || CPhone <- ContactPhones],
-    NumFriends = length([1 || {CorF, _P, _U, _N} <- ContactList, CorF =:= "F"]),
+    NumFriends = length([1 || {CorF, _P, _U, _N, _NF} <- ContactList, CorF =:= "F"]),
     {ok, ContactList, NumFriends}.
 
 
