@@ -47,7 +47,8 @@ group() ->
         registration_request_and_verify_otp_noise3_test,
         registration_request_otp_noise_invalid_phone_fail_test,
         registration_request_otp_noise_bad_request_fail_test,
-        registration_verify_otp_fail_noise_test
+        registration_verify_otp_fail_noise_test,
+        registration_too_many_attempts_register_test
     ]}.
 
 request_sms_test(_Conf) ->
@@ -443,14 +444,18 @@ verify_otp_fail_noise_test(_Conf) ->
 %% TODO(nikola): this test can fail sometimes if running right at midnight UTC...
 too_many_attempts_register_test(_Conf) ->
     registration_client:request_sms(?PHONE12, #{}),
+    SMSErr = #{
+            <<"result">> => <<"fail">>,
+            <<"error">> => <<"wrong_sms_code">>
+    },
     % try to guess the code bunch of times to get blocked
     lists:map(
         fun(Code) ->
-            {ok, wrong_sms_code} = registration_client:register(?PHONE12, util:to_binary(Code), ?NAME12)
+            {error, {400, SMSErr}} = registration_client:register(?PHONE12, util:to_binary(Code), ?NAME12)
         end,
         lists:seq(111112, 111132)),
 
     % trying the right code should fail
-    {error, wrong_sms_code} = registration_client:register(?PHONE12, <<"111111">>, ?NAME12),
+    {error, {400, SMSErr}} = registration_client:register(?PHONE12, <<"111111">>, ?NAME12),
     ?assertEqual({ok, undefined}, model_phone:get_uid(?PHONE12)),
     ok.

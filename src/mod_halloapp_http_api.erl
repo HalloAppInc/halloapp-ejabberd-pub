@@ -37,8 +37,9 @@
 -define(HASHCASH_DIFFICULTY, 10).
 -define(DEV_HASHCASH_DIFFICULTY, 10).
 -define(HASHCASH_THRESHOLD_MS, 30 * ?SECONDS_MS).
-%% allow 10 attempts to guess the code per day
+%% allow 10 attempts to guess the code per day, 20 for test numbers
 -define(MAX_SMS_CODE_ATTEMPTS, 10).
+-define(DEV_MAX_SMS_CODE_ATTEMPTS, 20).
 %% Allow Google to register using the following OTP. The following OTP will be given to Google
 %% along with submission of new version of the App.
 -define(SPECIAL_OTP_FOR_GOOGLE, <<"466453">>).
@@ -748,7 +749,11 @@ check_sms_code(Phone, ClientIP, Protocol, Code) ->
 check_excessive_sms_code_attempts(Phone) ->
     NumAttempts = model_phone:add_phone_code_attempt(Phone, util:now()),
     ?INFO("Phone: ~s has made ~p attempts to guess the sms code", [Phone, NumAttempts]),
-    case NumAttempts > ?MAX_SMS_CODE_ATTEMPTS of
+    MaxSMSAttempts = case util:is_test_number(Phone) of
+        true -> ?DEV_MAX_SMS_CODE_ATTEMPTS;
+        false -> ?MAX_SMS_CODE_ATTEMPTS
+    end,
+    case NumAttempts > MaxSMSAttempts of
         true ->
             ?ERROR("Too many sms code attempts Phone: ~p NumAttempts: ~p", [Phone, NumAttempts]),
             error(too_many_sms_code_checks);
