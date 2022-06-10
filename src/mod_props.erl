@@ -151,7 +151,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap7 = maps:update(krisp_noise_suppression, true, PropMap6),
             PropMap8 = maps:update(home_feed_comment_notifications, false, PropMap7),
             PropMap9 = maps:update(file_sharing, true, PropMap8),
-            PropMap9
+            PropMap10 = maps:update(use_cleartext_group_feed, false, PropMap9),
+            PropMap10
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
