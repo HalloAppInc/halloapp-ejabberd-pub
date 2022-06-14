@@ -76,6 +76,8 @@
 
 -define(MIN_SMS_CONVERSION_SCORE, 20).
 
+-define(PROBABILITY_TEST_NEW_GW,0.1).
+
 
 -define(ENG_LANG_ID, <<"en-US">>).
 
