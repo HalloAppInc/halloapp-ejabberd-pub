@@ -143,7 +143,7 @@ e2e_decryption_report(TimestampMsBin) ->
                 FROM \"default\".\"client_decryption_report\"
                 GROUP BY \"decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
-                    AND \"decryption_report\".\"reason\" != 'contentMissing'
+                    AND \"decryption_report\".\"reason\" != 'missingContent'
                     AND \"decryption_report\".\"reason\" != 'content_missing'
                 GROUP BY version, platform) as total
         ON success.version=total.version
@@ -184,7 +184,7 @@ e2e_decryption_report_without_rerequest(TimestampMsBin) ->
                 FROM \"default\".\"client_decryption_report\"
                 GROUP BY \"decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
-                    AND \"decryption_report\".\"reason\" != 'contentMissing'
+                    AND \"decryption_report\".\"reason\" != 'missingContent'
                     AND \"decryption_report\".\"reason\" != 'content_missing'
                 GROUP BY version, platform) as total
         ON success.version=total.version

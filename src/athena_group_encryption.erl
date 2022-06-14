@@ -145,7 +145,7 @@ e2e_decryption_report(TimestampMsBin) ->
                 WHERE \"group_decryption_report\".\"time_taken_s\" <= 86400
                 GROUP BY \"group_decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
-                    AND \"group_decryption_report\".\"reason\" != 'contentMissing'
+                    AND \"group_decryption_report\".\"reason\" != 'missingContent'
                     AND \"group_decryption_report\".\"reason\" != 'content_missing'
                 GROUP BY version, platform) as total
         ON success.version=total.version
@@ -187,7 +187,7 @@ e2e_decryption_report_7day(TimestampMsBin) ->
                 WHERE \"group_decryption_report\".\"time_taken_s\" <= 604800
                 GROUP BY \"group_decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
-                    AND \"group_decryption_report\".\"reason\" != 'contentMissing'
+                    AND \"group_decryption_report\".\"reason\" != 'missingContent'
                     AND \"group_decryption_report\".\"reason\" != 'content_missing'
                 GROUP BY version, platform) as total
         ON success.version=total.version
@@ -228,7 +228,7 @@ e2e_decryption_report_without_rerequest(TimestampMsBin) ->
                 FROM \"default\".\"client_group_decryption_report\"
                 GROUP BY \"group_decryption_report\", \"platform\")
                 WHERE timestamp_ms >= '", TimestampMsBin/binary, "'
-                    AND \"group_decryption_report\".\"reason\" != 'contentMissing'
+                    AND \"group_decryption_report\".\"reason\" != 'missingContent'
                     AND \"group_decryption_report\".\"reason\" != 'content_missing'
                 GROUP BY version, platform) as total
         ON success.version=total.version
