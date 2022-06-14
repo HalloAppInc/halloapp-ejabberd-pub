@@ -186,8 +186,7 @@ push_message(Message, PushInfo, State) ->
 
 -spec push_message_item(PushMessageItem :: push_message_item(), State :: push_state()) -> push_state().
 push_message_item(PushMessageItem, #push_state{pendingMap = PendingMap} = State) ->
-    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
-            PushMessageItem#push_message_item.push_info),
+    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     ContentId = PushMetadata#push_metadata.content_id,
@@ -201,12 +200,15 @@ push_message_item(PushMessageItem, #push_state{pendingMap = PendingMap} = State)
     Options = [{sync, false}, {receiver, self()}],
     FcmApiKey = get_fcm_apikey(),
 
-    DataMap = #{
-            <<"title">> => PushMetadata#push_metadata.subject,
-            <<"body">> => PushMetadata#push_metadata.body
-        },
     ContentMap = case PushMetadata#push_metadata.push_type of
         direct_alert ->
+            % Used only in marketing alerts
+            {Title, Body} = push_util:get_title_body(PushMessageItem#push_message_item.message,
+                                                    PushMessageItem#push_message_item.push_info),
+            DataMap = #{
+                <<"title">> => Title,
+                <<"body">> => Body
+            },
             ChannelId = case util_ua:is_version_greater_than(Version, <<"HalloApp/Android0.216">>) of
                 true -> <<"broadcast_notifications">>;
                 false -> <<"critical_notifications">>
@@ -220,7 +222,7 @@ push_message_item(PushMessageItem, #push_state{pendingMap = PendingMap} = State)
             #{ <<"notification">> => DirectAlertMap };
         _ ->
             % Dont send any payload to android in the push channel.
-            #{ <<"data">> => DataMap }
+            #{ <<"data">> => #{} }
     end,
     PushMessage = ContentMap#{<<"to">> => Token, <<"priority">> => <<"high">>},
     Request = {?FCM_GATEWAY, [{"Authorization", "key=" ++ FcmApiKey}],

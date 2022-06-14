@@ -25,12 +25,6 @@
     event_push_received/1
 ]).
 
--ifdef(TEST).
--export([
-    should_push/1
-]).
--endif.
-
 
 %%====================================================================
 %% gen_mod API.
@@ -65,107 +59,8 @@ mod_options(_Host) ->
 -spec push_message_hook(pb_msg()) -> pb_msg().
 push_message_hook(#pb_msg{} = Message) ->
     ?DEBUG("~p", [Message]),
-    case should_push(Message) of
-        true -> push_message(Message);
-        false -> ?INFO("ignoring push, MsgId: ~p", [Message#pb_msg.id])
-    end,
+    push_message(Message),
     Message.
-
-
-%% Determine whether message should be pushed or not.. based on the content.
--spec should_push(Message :: pb_msg()) -> boolean().
-should_push(#pb_msg{type = Type, payload = Payload} = Message) ->
-    PayloadType = util:get_payload_type(Message),
-    if
-        Type =:= groupchat andalso PayloadType =:= pb_group_chat ->
-            %% Push all group chat messages: all messages with type=groupchat and group_chat as the subelement.
-            true;
-
-        Type =:= groupchat andalso PayloadType =:= pb_group_chat_retract ->
-            %% Send silent pushes for all group chat retract messages.
-            true;
-
-        PayloadType =:= pb_chat_stanza ->
-            %% Push chat messages: all messages with chat as the subelement.
-            true;
-
-        PayloadType =:= pb_chat_retract ->
-            %% Send silent pushes for all chat retract messages.
-            true;
-
-        PayloadType =:= pb_feed_item andalso Payload#pb_feed_item.action =:= publish ->
-            %% Send pushes for feed messages: both posts and comments.
-            true;
-
-        PayloadType =:= pb_feed_item andalso Payload#pb_feed_item.action =:= retract ->
-            %% Send silent pushes for retract feed messages: both posts and comments.
-            true;
-
-        PayloadType =:= pb_contact_list andalso PayloadType#pb_contact_list.type =:= delete_notice ->
-            %% Dont push deleted notice contact notifications to the clients.
-            false;
-
-        PayloadType =:= pb_contact_list orelse PayloadType =:= pb_contact_hash ->
-            %% Push contact related notifications: could be contact_hash or new relationship notifications.
-            true;
-
-        PayloadType =:= pb_group_feed_item andalso Payload#pb_group_feed_item.action =:= publish ->
-            %% Push all group feed messages with action = publish.
-            true;
-
-        PayloadType =:= pb_group_feed_item andalso Payload#pb_group_feed_item.action =:= retract ->
-            %% Send silent pushes for all group feed messages with action = retract.
-            true;
-
-        PayloadType =:= pb_rerequest ->
-            %% Send silent pushes for rerequest stanzas.
-            true;
-
-        PayloadType =:= pb_group_feed_rerequest ->
-            %% Send silent pushes for group feed rerequest stanzas.
-            true;
-
-        PayloadType =:= pb_home_feed_rerequest ->
-            %% Send silent pushes for home feed rerequest stanzas.
-            true;
-
-        PayloadType =:= pb_group_feed_items ->
-            %% Send silent pushes for group feed items stanzas.
-            true;
-
-        PayloadType =:= pb_feed_items ->
-            %% Send silent pushes for home feed items stanzas.
-            true;
-
-        PayloadType =:= pb_request_logs ->
-            %% Send silent pushes for request logs notification
-            true;
-
-        Type =:= groupchat andalso PayloadType =:= pb_group_stanza ->
-            %% Push when someone is added to a group
-            ToUid = Message#pb_msg.to_uid,
-            WasAdded = lists:any(
-                fun (MemberSt) ->
-                    MemberSt#pb_group_member.uid =:= ToUid andalso MemberSt#pb_group_member.action =:= add
-                end, Payload#pb_group_stanza.members),
-            WasAdded;
-
-        PayloadType =:= pb_wake_up ->
-            %% Push sms_app wakeup notifications
-            true;
-
-        %% Send push notifications for all call related messages.
-        PayloadType =:= pb_incoming_call ->
-            true;
-
-        %% Send marketing alerts to users.
-        PayloadType =:= pb_marketing_alert ->
-            true;
-
-        true ->
-            %% Ignore everything else.
-            false
-    end.
 
 
 % TODO: add stat:count here to count invalid_token failures.

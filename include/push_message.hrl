@@ -47,23 +47,53 @@
 -define(FCM, "fcm").
 -define(APNS, "apns").
 
+-type (contentType() :: pb_chat_stanza
+                    | pb_chat_retract
+                    | pb_group_chat
+                    | pb_group_chat_retract
+                    | pb_contact_hash
+                    | contact_notice
+                    | inviter_notice
+                    | contact_notification
+                    | feedpost
+                    | feedpost_retract
+                    | comment
+                    | comment_retract
+                    | group_post
+                    | group_post_retract
+                    | group_comment
+                    | group_comment_retract
+                    | pb_group_stanza
+                    | pb_rerequest
+                    | pb_group_feed_rerequest
+                    | pb_home_feed_rerequest
+                    | pb_group_feed_items
+                    | pb_feed_items
+                    | pb_request_logs
+                    | pb_wake_up
+                    | pb_incoming_call
+                    | pb_call_ringing
+                    | pb_pre_answer_call
+                    | pb_answer_call
+                    | pb_end_call
+                    | pb_ice_candidate
+                    | pb_marketing_alert
+).
+
+
+-type (alertType() :: alert
+                    | silent
+                    | direct_alert
+).
+
 
 %% TODO(murali@): this list seems getting bigger, we should just send the whole packet as a protobuf binary.
 %% Client must decrypt the packet, decode it and do everything with it.
 -record(push_metadata,
 {
     content_id = <<>> :: binary(),          %% content-id
-    content_type = <<>> :: binary(),        %% content-type: could be chat, group_chat, group_post, group_comment, feed_post, feed_comment, contact_list.
-    from_uid = <<>> :: binary(),            %% uid of the sender.
-    timestamp = <<>> :: binary(),           %% timestamp of the content.
-    thread_id = <<>> :: binary(),           %% Maps to uid for chat, gid for groupchat, feed for feed.
-    thread_name = <<>> :: binary(),         %% Maps to group_name for groupchat, else irrelevant
-    sender_name = <<>> :: binary(),         %% includes push_name of from_uid.
-    subject = <<>> :: binary(),             %% includes the fallback subject line
-    body = <<>> :: binary(),                %% includes the fallback body line
-    push_type = silent :: alert | silent,   %% indicates the push type.
-    payload = <<>> :: binary(),             %% payload of the content to be sent to the client.
-    retract = false :: boolean()            %% indicates whether push is about retracting content.
+    content_type = undefined :: contentType(),          %% content-type: see list above
+    push_type = alert :: alertType()        %% indicates the push type.
 }).
 
 -type push_metadata() :: #push_metadata{}.

@@ -377,7 +377,7 @@ push_message(Message, PushInfo, State) ->
     Uid = pb:get_to(Message),
     try
         Timestamp = util:now(),
-        PushMetadata = push_util:parse_metadata(Message, PushInfo),
+        PushMetadata = push_util:parse_metadata(Message),
         PushMessageItem = #push_message_item{
             id = MsgId,
             uid = Uid,
@@ -399,8 +399,7 @@ push_message(Message, PushInfo, State) ->
 -spec push_message_item(PushMessageItem :: push_message_item(),
         State :: push_state()) -> push_state().
 push_message_item(PushMessageItem, State) ->
-    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message,
-            PushMessageItem#push_message_item.push_info),
+    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
     NewPushMessageItem = PushMessageItem#push_message_item{
             push_type = PushMetadata#push_metadata.push_type,
             content_type = PushMetadata#push_metadata.content_type},
@@ -416,31 +415,19 @@ push_message_item(PushMessageItem, PushMetadata, State) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     ContentType = PushMetadata#push_metadata.content_type,
-    Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
     EndpointType = case {util:is_voip_incoming_message(Message), Os} of
         {true, <<"ios">>} -> voip_prod;
         {true, <<"ios_dev">>} -> voip_dev;
         {false, <<"ios">>} -> prod;
         {false, <<"ios_dev">>} -> dev
     end,
-    NewPushType = case util_ua:is_version_greater_than(Version, <<"HalloApp/iOS1.12.182">>) of
-        true ->
-            case PushMetadata#push_metadata.push_type of
-                silent ->
-                    ?INFO("Overriding PushType to be alert for Uid: ~p", [Uid]),
-                    alert;
-                _ ->
-                    PushMetadata#push_metadata.push_type
-            end;
-        false ->
-            PushMetadata#push_metadata.push_type
-    end,
-    PayloadBin = get_payload(PushMessageItem, PushMetadata, NewPushType, State),
+    PushType = PushMetadata#push_metadata.push_type,
+    PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType, State),
     ApnsId = util_id:new_uuid(),
     ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s, ContentType: ~s",
         [Uid, Id, ApnsId, ContentId, ContentType]),
     {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
-            NewPushType, EndpointType, PushMessageItem, State),
+            PushType, EndpointType, PushMessageItem, State),
     FinalState.
 
 
@@ -484,7 +471,7 @@ get_pid_to_send(voip_dev, State) ->
 %% Details about the content inside the apns push payload are here:
 %% [https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification]
 -spec get_payload(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata(),
-        PushType :: silent | alert, State :: push_state()) -> binary().
+        PushType :: alertType(), State :: push_state()) -> binary().
 get_payload(PushMessageItem, PushMetadata, PushType, State) ->
     Message = PushMessageItem#push_message_item.message,
     EncryptedContent = base64:encode(encrypt_message(PushMessageItem, State)),
@@ -502,16 +489,14 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
     MetadataMap = #{ <<"content">> => EncryptedContent2 },
     ApsMap = case PushType of
         alert ->
-            DataMap = #{
-                <<"title">> => PushMetadata#push_metadata.subject,
-                <<"body">> => PushMetadata#push_metadata.body
-            },
             %% Setting mutable-content flag allows the ios client to modify the push notification.
-            #{<<"alert">> => DataMap, <<"sound">> => <<"default">>, <<"mutable-content">> => <<"1">>};
+            #{<<"alert">> => #{}, <<"mutable-content">> => <<"1">>};
         direct_alert ->
+            % Used only in marketing alerts
+            {Title, Body} = push_util:get_title_body(Message, PushMessageItem#push_message_item.push_info),
             DataMap = #{
-                <<"title">> => PushMetadata#push_metadata.subject,
-                <<"body">> => PushMetadata#push_metadata.body
+                <<"title">> => Title,
+                <<"body">> => Body
             },
             #{<<"alert">> => DataMap, <<"sound">> => <<"default">>};
         silent ->
@@ -649,7 +634,7 @@ get_bundle_id(voip_prod) -> ?APP_VOIP_BUNDLE_ID;
 get_bundle_id(voip_dev) -> ?APP_VOIP_BUNDLE_ID.
 
 
--spec get_priority(EndpointType :: endpoint_type(), PushType :: silent | alert) -> integer().
+-spec get_priority(EndpointType :: endpoint_type(), PushType :: alertType()) -> integer().
 get_priority(voip_prod, _) -> 10;
 get_priority(voip_dev, _) -> 10;
 get_priority(_, silent) -> 5;
@@ -657,7 +642,7 @@ get_priority(_, alert) -> 10;
 get_priority(_, direct_alert) -> 10.
 
 
--spec get_apns_push_type(EndpointType :: endpoint_type(), PushType :: silent | alert) -> binary().
+-spec get_apns_push_type(EndpointType :: endpoint_type(), PushType :: alertType()) -> binary().
 get_apns_push_type(voip_prod, _) -> <<"voip">>;
 get_apns_push_type(voip_dev, _) -> <<"voip">>;
 get_apns_push_type(_, silent) -> <<"background">>;
@@ -706,7 +691,7 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
 
 
 -spec send_post_request_to_apns(Uid :: binary(), ApnsId :: binary(), ContentId :: binary(), PayloadBin :: binary(),
-        PushType :: alert | silent, EndpointType :: endpoint_type(), PushMessageItem :: push_message_item(),
+        PushType :: alertType(), EndpointType :: endpoint_type(), PushMessageItem :: push_message_item(),
         State :: push_state()) -> {ok, push_state()} | {ignored, push_state()} | {{error, any()}, push_state()}.
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State) ->
     Priority = get_priority(EndpointType, PushType),
