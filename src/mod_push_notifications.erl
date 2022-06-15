@@ -73,8 +73,8 @@ push_message(#pb_msg{id = _MsgId, to_uid = User} = Message) ->
 
 -spec push_message(Message :: pb_msg(), PushInfo :: push_info(), Os :: client_type()) -> ok.
 push_message(#pb_msg{id = MsgId, to_uid = User} = _Message, PushInfo, undefined) ->
-    ?ERROR("Uid: ~s, MsgId: ~p ignore push: invalid client type: ~p",
-        [User, MsgId, PushInfo#push_info.client_version]);
+    ?ERROR("Uid: ~s, MsgId: ~p ignore push: invalid client type, push_info: ~p",
+        [User, MsgId, PushInfo]);
 push_message(#pb_msg{id = MsgId, to_uid = User} = Message, PushInfo, android) ->
     case PushInfo#push_info.token of
         undefined ->
