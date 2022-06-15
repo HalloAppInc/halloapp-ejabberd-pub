@@ -204,8 +204,11 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_marketing_alert{type = share_post}
     };
 
 parse_metadata(#pb_msg{to_uid = Uid, id = Id}) ->
-    ?ERROR("Uid: ~s, Invalid message for push notification: id: ~s", [Uid, Id]),
-    #push_metadata{}.
+    #push_metadata{
+        content_id = Id,
+        content_type = pb:get_payload_type(Message),
+        push_type = alert
+    }.
 
 
 -spec get_title_body(Message :: pb_msg(), PushInfo :: push_info()) -> {binary(), binary()}.
