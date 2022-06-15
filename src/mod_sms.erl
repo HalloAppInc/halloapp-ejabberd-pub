@@ -492,7 +492,7 @@ rand_weighted_selection(RandNo, Weights) ->
     true = (LeftOver =< 0),
     PickedGateway.
 
--spec should_use_max( CC :: binary()) -> atom().
+-spec should_use_max(CC :: binary()) -> boolean().
 should_use_max(CC) ->
     %% Right now default to old behavior except for Indonesia.
     %% todo: do this more elegantly!
