@@ -127,7 +127,8 @@ get_props(Uid, ClientVersion) ->
         file_sharing => false,   %% clients are capable of sending files.
         invite_strings => get_invite_strings_bin(), %% json string with invite text.
         new_chat_ui => false,   %% turn on new chat ui on ios.
-        is_psa_admin => false %% is client allowed to post PSA Moment
+        is_psa_admin => false, %% is client allowed to post PSA Moment
+        default_krisp_noise_suppression => false  %% Should client use noise suppression by default
     },
     PropMap2 = get_uid_based_props(PropMap1, Uid),
     ClientType = util_ua:get_client_type(ClientVersion),
@@ -154,7 +155,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap9 = maps:update(file_sharing, true, PropMap8),
             PropMap10 = maps:update(use_cleartext_group_feed, false, PropMap9),
             PropMap11 = maps:update(new_chat_ui, true, PropMap10),
-            PropMap11
+            PropMap12 = maps:update(default_krisp_noise_suppression, true, PropMap11),
+            PropMap12
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
@@ -216,6 +218,8 @@ uid_prop_override(Uid, krisp_noise_suppression) ->
     end;
 uid_prop_override(Uid, is_psa_admin) ->
     dev_users:is_psa_admin(Uid);
+uid_prop_override(Uid, default_krisp_noise_suppression) ->
+    crc16_redis:crc16(util:to_list(Uid)) rem 2 =:= 0;
 uid_prop_override(_Uid, _Prop) ->
     undef.
 
