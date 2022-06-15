@@ -203,7 +203,7 @@ parse_metadata(#pb_msg{id = Id, payload = #pb_marketing_alert{type = share_post}
         push_type = direct_alert
     };
 
-parse_metadata(#pb_msg{to_uid = Uid, id = Id}) ->
+parse_metadata(#pb_msg{to_uid = Uid, id = Id} = Message) ->
     #push_metadata{
         content_id = Id,
         content_type = pb:get_payload_type(Message),
