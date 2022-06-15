@@ -441,9 +441,7 @@ pick_gw(ChooseFrom, CC, IsFirstAttempt) ->
     GWWeights = util:normalize_scores(SqrGWScores),
     RandNo = rand:uniform(),
 
-    RandNo2 = rand:uniform(),
-
-    UseMax = should_use_max(RandNo2,CC),
+    UseMax = should_use_max(CC),
 
     Gateway = case IsFirstAttempt andalso not UseMax of
         true ->
@@ -494,12 +492,13 @@ rand_weighted_selection(RandNo, Weights) ->
     true = (LeftOver =< 0),
     PickedGateway.
 
--spec should_use_max(RandNo:: float(), CC :: binary()) -> atom().
-should_use_max(RandNo,CC) ->
+-spec should_use_max( CC :: binary()) -> atom().
+should_use_max(CC) ->
     %% Right now default to old behavior except for Indonesia.
     %% todo: do this more elegantly!
+    RandNo = random:uniform(),
     case CC of 
-        <<"ID">> -> RandNo > ?PROBABILITY_TEST_NEW_GW;
+        <<"ID">> -> RandNo > ?THRESHOLD_TO_USE_MAX;
         _ -> false
     end.
 
