@@ -93,6 +93,7 @@ get_props(Uid, ClientVersion) ->
         contact_sync_frequency => 1 * ?DAYS, %% how often should clients sync all contacts.
         max_group_size => ?MAX_GROUP_SIZE, %% max limit on the group size.
         max_post_media_items => 10, %% max number of media_items client can post.
+        max_chat_media_items => 30, %% max number of media_items client can share in a chat message.
         group_chat => false, %% whether the client can access group_chat or not.
         max_feed_video_duration => 600, %% duration in seconds for videos on feed.
         max_chat_video_duration => 600, %% duration in seconds for videos in chats.
