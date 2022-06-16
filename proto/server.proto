@@ -166,6 +166,7 @@ message Post {
     }
     Tag tag = 9;
     string psa_tag = 10;
+    int64 moment_unlock_uid = 11 [ebin = true];
 }
 
 message Comment {
@@ -937,6 +938,7 @@ message Msg {
         CallSdp call_sdp = 47;
         WebStanza web_stanza = 48;
         ContentMissing content_missing = 49;
+        ScreenshotReceipt screenshot_receipt = 50;
     }
     int32 retry_count = 21;
     int32 rerequest_count = 25;
@@ -1191,6 +1193,11 @@ message PlayedReceipt {
     int64 timestamp = 3;
 }
 
+message ScreenshotReceipt {
+    string id = 1;
+    string thread_id = 2;
+    int64 timestamp = 3;
+}
 
 
 // retract stanza
@@ -1401,6 +1408,11 @@ message OtpResponse {
         INTERNAL_SERVER_ERROR = 9;
         INVALID_HASHCASH_NONCE = 10;
         WRONG_HASHCASH_SOLUTION = 11;
+        INVALID_COUNTRY_CODE = 12;
+        INVALID_LENGTH = 13;
+        LINE_TYPE_VOIP = 14;
+        LINE_TYPE_FIXED = 15;
+        LINE_TYPE_OTHER = 16;
     }
     Reason reason = 3;
     int64 retry_after_secs = 4;
@@ -1455,6 +1467,11 @@ message VerifyOtpResponse {
         UNABLE_TO_OPEN_SIGNED_PHRASE = 20;
         BAD_REQUEST = 21;
         INTERNAL_SERVER_ERROR = 22;
+        INVALID_COUNTRY_CODE = 23;
+        INVALID_LENGTH = 24;
+        LINE_TYPE_VOIP = 25;
+        LINE_TYPE_FIXED = 26;
+        LINE_TYPE_OTHER = 27;
     }
     Reason reason = 5;
     string group_invite_result = 6;

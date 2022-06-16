@@ -237,6 +237,7 @@ message Call {
   string end_call_reason = 9;     // string representation of the end call reason as defined in the EndCall.Reason
   bool local_end_call = 10;       // true if the end call happened locally, or false if the end call was received remotely
   NetworkType network_type = 11;  // wifi or cellular
+  bool is_krisp_active = 12;
 
   string webrtc_stats = 20;       // json serialized version of the result of peer_connection.get_stats at the end of
                                   // the call
