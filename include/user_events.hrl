@@ -10,6 +10,6 @@
     group_comment_published | im_send_seen | im_receive_seen | post_send_seen | post_receive_seen |
     item_retracted | invite_recorded | invite_accepted | group_invite_recorded | group_invite_accepted |
     app_opened | secret_post_published | secret_post_send_seen | secret_post_receive_seen |
-    audio_call_started | video_call_started).
+    audio_call_started | video_call_started | post_send_screenshot | post_receive_screenshot).
 
 -endif.

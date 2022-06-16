@@ -225,6 +225,7 @@ register_user(Uid, _Server, Phone, _CampaignId) ->
 %% seen and delivery receipts.
 is_payload_always_allowed(pb_seen_receipt) -> true;
 is_payload_always_allowed(pb_delivery_receipt) -> true;
+is_payload_always_allowed(pb_screenshot_receipt) -> true;
 %% group stanzas.
 is_payload_always_allowed(pb_group_stanza) -> true;
 %% group chat stanzas.

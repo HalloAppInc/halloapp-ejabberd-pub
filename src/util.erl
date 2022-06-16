@@ -494,16 +494,25 @@ get_payload_type(_) -> undefined.
 -spec set_timestamp(pb_msg(), binary()) -> stanza().
 set_timestamp(#pb_msg{payload = #pb_group_chat{} = GroupChat} = Msg, T) ->
     Msg#pb_msg{payload = GroupChat#pb_group_chat{timestamp = T}};
+
 set_timestamp(#pb_msg{payload = #pb_chat_stanza{} = Chat} = Msg, T) ->
     Msg#pb_msg{payload = Chat#pb_chat_stanza{timestamp = T}};
+
 set_timestamp(#pb_msg{payload = #pb_seen_receipt{} = SeenReceipt} = Msg, T) ->
     Msg#pb_msg{payload = SeenReceipt#pb_seen_receipt{timestamp = T}};
+
+set_timestamp(#pb_msg{payload = #pb_screenshot_receipt{} = ScreenshotReceipt} = Msg, T) ->
+    Msg#pb_msg{payload = ScreenshotReceipt#pb_screenshot_receipt{timestamp = T}};
+
 set_timestamp(#pb_msg{payload = #pb_delivery_receipt{} = DeliveryReceipt} = Msg, T) ->
     Msg#pb_msg{payload = DeliveryReceipt#pb_delivery_receipt{timestamp = T}};
+
 set_timestamp(#pb_msg{payload = #pb_silent_chat_stanza{chat_stanza = #pb_chat_stanza{} = Chat} = SilentChat} = Msg, T) ->
     Msg#pb_msg{payload = SilentChat#pb_silent_chat_stanza{chat_stanza = Chat#pb_chat_stanza{timestamp = T}}};
+
 set_timestamp(#pb_msg{payload = #pb_played_receipt{} = PlayedReceipt} = Msg, T) ->
     Msg#pb_msg{payload = PlayedReceipt#pb_played_receipt{timestamp = T}};
+
 set_timestamp(Packet, _T) -> Packet.
 
 

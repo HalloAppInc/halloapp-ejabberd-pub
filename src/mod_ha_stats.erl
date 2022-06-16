@@ -440,6 +440,24 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                             end
                     end
             end;
+        #pb_screenshot_receipt{thread_id = ThreadId} ->
+            case ThreadId of
+                undefined -> ok;
+                <<"feed">> ->
+                    stat:count("HA/feed_receipts", Action ++ "_screenshot"),
+                    case Action of
+                        "send" ->
+                            %% FromUid screenshots the post
+                            {ok, FromPhone} = model_accounts:get_phone(FromUid),
+                            CC = mod_libphonenumber:get_cc(FromPhone),
+                            stat:count("HA/feed_receipts", "post_screenshot"),
+                            stat:count("HA/feed_receipts", "post_screenshot_by_cc", 1, [{cc, CC}]),
+                            ha_events:log_user_event(FromUid, post_send_screenshot);
+                        "receive" ->
+                            %% ToUid's post was screenshot
+                            ha_events:log_user_event(ToUid, post_receive_screenshot)
+                    end
+                end;
         #pb_delivery_receipt{} -> stat:count("HA/im_receipts", Action ++ "_received");
         _ -> ok
     end;
