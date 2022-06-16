@@ -72,6 +72,7 @@ push_message(#pb_msg{id = _MsgId, to_uid = User} = Message) ->
 
 
 -spec push_message(Message :: pb_msg(), PushInfo :: push_info(), Os :: client_type()) -> ok.
+push_message(#pb_msg{payload = #pb_invitee_notice{}}, _, undefined) -> ok;
 push_message(#pb_msg{id = MsgId, to_uid = User} = _Message, PushInfo, undefined) ->
     ?ERROR("Uid: ~s, MsgId: ~p ignore push: invalid client type, push_info: ~p",
         [User, MsgId, PushInfo]);
