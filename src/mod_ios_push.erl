@@ -480,7 +480,7 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
         [PushMetadata#push_metadata.content_id, EncryptedContentSize]),
     EncryptedContent2 = case EncryptedContentSize > ?MAX_PUSH_PAYLOAD_SIZE of
         true ->
-            ?WARNING("Push contentId: ~p size: ~p > max_payload_size, message: ~p",
+            ?INFO("Push contentId: ~p size: ~p > max_payload_size, message: ~p",
                 [PushMetadata#push_metadata.content_id, EncryptedContentSize, Message]),
             <<>>;
         false ->
@@ -520,7 +520,7 @@ encrypt_message(#push_message_item{uid = Uid, message = Message}, PushState) ->
             MsgBin ->
                 case util:is_voip_incoming_message(Message) of
                     false ->
-                        ?ERROR("Failed encrypting message |~p| too large, size: ~p",
+                        ?INFO("Failed encrypting message |~p| too large, size: ~p",
                             [Message, byte_size(MsgBin)]),
                         <<>>;
                     true ->
