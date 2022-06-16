@@ -49,19 +49,27 @@ websocket_handle({binary, BinMsg}, State) ->
         #pb_packet{} = Pkt ->
             stat:count("HA/websocket", "recv_packet", 1, [{result, ok}]),
             {Pkt2, State2} = process_incoming_packet(Pkt#pb_packet.stanza, State),
-            Pkt3 = #pb_packet{stanza = Pkt2},
+            handle_response_packet(Pkt2, State2)
+   end;
+websocket_handle(_Data, State) ->
+    {[], State}.
+
+handle_response_packet(Pkt, State) ->
+    case Pkt of
+        ignore -> {[], State};
+        _ ->
+            Pkt3 = #pb_packet{stanza = Pkt},
             case enif_protobuf:encode(Pkt3) of
                 {error, _Reason} ->
                     ?ERROR("Failed to encode packet ~p", [Pkt3]),
                     stat:count("HA/websocket", "send_packet", 1, [{result, error}]),
-                    {stop, State2};
+                    {stop, State};
                 BinPkt ->
                     stat:count("HA/websocket", "send_packet", 1, [{result, ok}]),
-                    {[{binary, BinPkt}], State2}
+                    {[{binary, BinPkt}], State}
             end
-    end;
-websocket_handle(_Data, State) ->
-    {[], State}.
+    end.
+ 
 
 websocket_info(replaced, State) ->
     ?INFO("Replaced info", []),
@@ -73,6 +81,18 @@ websocket_info({timeout, _Ref, Msg}, State) ->
 websocket_info({route, #pb_msg{payload = #pb_web_stanza{}} = Msg}, State) ->
     ?DEBUG("Sending msg: ~p, state: ~p", [Msg, State]),
     Pkt = #pb_packet{stanza = Msg},
+    encode_and_send_packet(Pkt, State);
+websocket_info({route, #pb_iq{type = result, payload = #pb_upload_media{}} = Iq}, State) ->
+    ?DEBUG("Sending iq result: ~p, state: ~p", [Iq, State]),
+    Pkt = #pb_packet{stanza = Iq},
+    encode_and_send_packet(Pkt, State);
+websocket_info({route, Pkt}, State) ->
+    ?ERROR("Dropping Pkt: ~p", [Pkt]),
+    {[], State};
+websocket_info(_Info, State) ->
+    {[], State}.
+
+encode_and_send_packet(Pkt, State) ->
     case enif_protobuf:encode(Pkt) of
         {error, _Reason} ->
             ?ERROR("Failed to encode packet ~p", [Pkt]),
@@ -81,12 +101,7 @@ websocket_info({route, #pb_msg{payload = #pb_web_stanza{}} = Msg}, State) ->
         BinPkt ->
             stat:count("HA/websocket", "send_packet", 1, [{result, ok}]),
             {[{binary, BinPkt}], State}
-    end;
-websocket_info({route, Msg}, State) ->
-    ?ERROR("Dropping msg: ~p", [Msg]),
-    {[], State};
-websocket_info(_Info, State) ->
-    {[], State}.
+    end.
 
 terminate(Reason, _Req, #{static_key := StaticKey, sid := Sid} = _State) ->
     ?INFO("Reason: ~p", [Reason]),
@@ -162,6 +177,15 @@ process_iq(#pb_iq{type = set,
         {error, Reason} ->
             ?ERROR("Add static key error: ~p", [Reason]),
             {pb:make_error(IQ, util:err(Reason)), State2}
+    end;
+process_iq(#pb_iq{type = get, payload = #pb_upload_media{}} = IQ,
+    #{static_key := StaticKey} = State) ->
+    case model_auth:get_static_key_uid(StaticKey) of
+        {ok, undefined} ->
+            ?INFO("StaticKey: ~p not authenticated", [base64:encode(StaticKey)]),
+            {pb:make_error(IQ, util:err(not_authenticated)), State};
+        {ok, _Uid} ->
+            {mod_upload_media:process_local_iq(IQ), State}
     end;
 process_iq(IQ, State) ->
     {IQ, State}.
