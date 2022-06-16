@@ -26,7 +26,8 @@
 -define(CC_TO_REGION_FILE, "cc_to_region.json").
 -define(DEFAULT_REGION, <<"us-east-1">>).
 
--define(COTURN_PORT, 3478).
+-define(COTURN_PORT1, 3478).
+-define(COTURN_PORT2, 443).
 -define(COTURN_USER, <<"clients">>).
 % TODO(nikola): add a new password and put it in secrets manager
 -define(COTURN_PASSWORD, <<"2Nh57xoGpDy7Z7D1Sg0S">>).
@@ -147,7 +148,7 @@ get_ips(Region) ->
     {ok, Result}.
 
 -spec get_ha_stun_turn_servers(Uid :: uid(), PeerUid :: uid(), CallType :: atom()) -> {list(pb_stun_server()), list(pb_turn_server())}.
-get_ha_stun_turn_servers(Uid, _PeerUid, _CallType) ->
+get_ha_stun_turn_servers(Uid, PeerUid, _CallType) ->
     IP = model_accounts:get_last_ipaddress(Uid),
     ?INFO("Uid: ~s LastIP: ~s", [Uid, IP]),
     CC = case IP of
@@ -157,8 +158,16 @@ get_ha_stun_turn_servers(Uid, _PeerUid, _CallType) ->
     ?INFO("Uid: ~s LastIP: ~s CC: ~s", [Uid, IP, CC]),
     {ok, ServerIP} = get_ip(CC),
     ?INFO("Uid: ~s CC: ~s Selected call server: ~s", [Uid, CC, ServerIP]),
-    TurnServer = get_ha_turn_server(ServerIP),
-    {[], [TurnServer]}.
+    %% Send turn server addresses with both ports to dev clients.
+    case dev_users:is_dev_uid(Uid) orelse dev_users:is_dev_uid(PeerUid) of
+        true ->
+            TurnServer1 = get_ha_turn_server(ServerIP, ?COTURN_PORT1),
+            TurnServer2 = get_ha_turn_server(ServerIP, ?COTURN_PORT2),
+            {[], [TurnServer2, TurnServer1]};
+        false ->
+            TurnServer1 = get_ha_turn_server(ServerIP, ?COTURN_PORT1),
+            {[], [TurnServer1]}
+    end.
 
 
 -spec get_stun_turn_servers() -> {list(pb_stun_server()), list(pb_turn_server())}.
@@ -199,14 +208,15 @@ call_id_hash(CallId) ->
 
 -spec get_dev_ha_servers() -> {list(#pb_stun_server{}), list(#pb_turn_server{})}.
 get_dev_ha_servers() ->
-    TurnServer = get_ha_turn_server(<<"turn.halloapp.dev">>),
-    {[], [TurnServer]}.
+    TurnServer1 = get_ha_turn_server(<<"35.175.122.234">>, ?COTURN_PORT1),
+    TurnServer2 = get_ha_turn_server(<<"35.175.122.234">>, ?COTURN_PORT2),
+    {[], [TurnServer2, TurnServer1]}.
 
 
-get_ha_turn_server(Host) ->
+get_ha_turn_server(Host, Port) ->
     #pb_turn_server{
         host = Host,
-        port = ?COTURN_PORT,
+        port = Port,
         username = ?COTURN_USER,
         password = ?COTURN_PASSWORD
     }.

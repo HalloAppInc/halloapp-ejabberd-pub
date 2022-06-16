@@ -40,10 +40,13 @@ start_test() ->
 
 get_stun_turn_servers_basic_test() ->
     setup(),
-    {[], [TurnServer]} = mod_call_servers:get_stun_turn_servers(),
-    ?assertEqual(<<"turn.halloapp.dev">>, TurnServer#pb_turn_server.host),
-    ?assertEqual(3478, TurnServer#pb_turn_server.port),
-    ?assertEqual(<<"clients">>, TurnServer#pb_turn_server.username),
+    {[], [TurnServer2, TurnServer1]} = mod_call_servers:get_stun_turn_servers(),
+    ?assertEqual(<<"35.175.122.234">>, TurnServer1#pb_turn_server.host),
+    ?assertEqual(3478, TurnServer1#pb_turn_server.port),
+    ?assertEqual(<<"clients">>, TurnServer1#pb_turn_server.username),
+    ?assertEqual(<<"35.175.122.234">>, TurnServer2#pb_turn_server.host),
+    ?assertEqual(443, TurnServer2#pb_turn_server.port),
+    ?assertEqual(<<"clients">>, TurnServer2#pb_turn_server.username),
     meck_unload(),
     ok.
 
