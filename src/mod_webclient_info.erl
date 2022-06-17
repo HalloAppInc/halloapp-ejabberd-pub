@@ -76,7 +76,7 @@ authenticate_key(Uid, StaticKey) ->
     ?INFO("Uid: ~s", [Uid]),
     %% close all known sessions for Uid.
     websocket_handler:close_current_sessions_uid(Uid),
-    ok = model_auth:autheticate_static_key(Uid, StaticKey),
+    ok = model_auth:authenticate_static_key(Uid, StaticKey),
     ok.
 
 -spec remove_key(Uid :: uid(), StaticKey :: binary()) -> ok | {error, any()}.
