@@ -219,6 +219,17 @@ uid_prop_override(Uid, krisp_noise_suppression) ->
     end;
 uid_prop_override(Uid, is_psa_admin) ->
     dev_users:is_psa_admin(Uid);
+%% List of users that have turned on Krisp noise suppression. The list was fetched from logs.
+uid_prop_override(<<"1000000000986912824">>, default_krisp_noise_suppression) -> true;
+uid_prop_override(<<"1000000000595131504">>, default_krisp_noise_suppression) -> true;
+uid_prop_override(<<"1000000000185937915">>, default_krisp_noise_suppression) -> true;
+uid_prop_override(<<"1000000000679891282">>, default_krisp_noise_suppression) -> true;
+uid_prop_override(<<"1000000000523926349">>, default_krisp_noise_suppression) -> true;
+uid_prop_override(<<"1000000000305288240">>, default_krisp_noise_suppression) -> true;
+uid_prop_override(<<"1000000000318973506">>, default_krisp_noise_suppression) -> true;
+uid_prop_override(<<"1000000000893731049">>, default_krisp_noise_suppression) -> true;
+uid_prop_override(<<"1000000000470767888">>, default_krisp_noise_suppression) -> true;
+uid_prop_override(<<"1000000000394730720">>, default_krisp_noise_suppression) -> true;
 uid_prop_override(Uid, default_krisp_noise_suppression) ->
     crc16_redis:crc16(util:to_list(Uid)) rem 2 =:= 0;
 uid_prop_override(_Uid, _Prop) ->
