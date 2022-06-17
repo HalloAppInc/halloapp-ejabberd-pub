@@ -499,6 +499,7 @@ should_use_max(CC) ->
     RandNo = random:uniform(),
     case CC of 
         <<"ID">> -> RandNo > ?THRESHOLD_TO_USE_MAX;
+        <<"SA">> -> RandNo > ?THRESHOLD_TO_USE_MAX;
         _ -> false
     end.
 
