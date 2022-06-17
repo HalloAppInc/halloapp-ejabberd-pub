@@ -63,10 +63,12 @@ Clone the repository using SSH instead of HTTPS. To generate the SSH key can ref
 Configure ejabberd to use custom OpenSSL, Yaml, iconv. [Resource](https://docs.ejabberd.im/admin/installation/#macos).
 
     brew install git elixir openssl expat libyaml libiconv libgd sqlite rebar rebar3 automake autoconf libsodium
-    export CFLAGS="-I/usr/local/opt/openssl/include -I/usr/local/include -I/usr/local/opt/expat/include"
-    export CPPFLAGS="-I/usr/local/opt/openssl/include/ -I/usr/local/include -I/usr/local/opt/expat/include"
-    export LDFLAGS="-L/usr/local/opt/openssl/lib"
+    export CFLAGS="-I$(brew --prefix)/opt/openssl/include -I$(brew --prefix)/include -I$(brew --prefix)/opt/expat/include"
+    export CPPFLAGS="-I$(brew --prefix)/opt/openssl/include/ -I$(brew --prefix)/include -I$(brew --prefix)/opt/expat/include"
+    export LDFLAGS="-L$(brew --prefix)/opt/openssl/lib -L$(brew --prefix)/lib"
+    export LDLIBS="-L$(brew --prefix)/lib"
 
+>> Note: `$(brew --prefix)` is the installation location for `brew install`and was changed from `/usr/local/` on x86 to `/opt/homebrew` on M1 arm64. We use it to ensure the compiler and linker can find these libraries. You can see which yours is by running `echo $(brew --prefix)`
 
 ##### On Linux
 Install dependencies:
