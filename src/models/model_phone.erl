@@ -604,7 +604,7 @@ hashcash_key(Challenge) ->
 
 -spec phone_attempt_key(Phone :: binary(), Timestamp :: integer() ) -> binary().
 phone_attempt_key(Phone, Timestamp) ->
-    Day = util:to_binary(Timestamp / ?DAYS),
+    Day = util:to_binary(util:to_integer(Timestamp / ?DAYS)),
     <<?PHONE_ATTEMPT_KEY/binary, "{", Phone/binary, "}:", Day/binary>>.
 
 
