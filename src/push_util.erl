@@ -19,195 +19,193 @@
 ]).
 
 -spec parse_metadata(Message :: pb_msg()) -> push_metadata().
-parse_metadata(#pb_msg{id = Id, payload = Payload} = Message) when is_record(Payload, pb_chat_stanza) ->
+parse_metadata(#pb_msg{payload = Payload} = Message) when is_record(Payload, pb_chat_stanza) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
 parse_metadata(#pb_msg{payload = Payload} = Message) when is_record(Payload, pb_chat_retract) ->
     #push_metadata{
-        content_id = Payload#pb_chat_retract.id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = Payload} = Message) when is_record(Payload, pb_group_chat) ->
+parse_metadata(#pb_msg{payload = Payload} = Message) when is_record(Payload, pb_group_chat) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
 parse_metadata(#pb_msg{payload = Payload} = Message) when is_record(Payload, pb_group_chat_retract) ->
     #push_metadata{
-        content_id = Payload#pb_group_chat_retract.id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = Payload} = Message) when is_record(Payload, pb_contact_hash) ->
+parse_metadata(#pb_msg{payload = Payload} = Message) when is_record(Payload, pb_contact_hash) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{payload = Payload}) when is_record(Payload, pb_contact_list) ->
-    [Contact | _] = Payload#pb_contact_list.contacts,
+parse_metadata(#pb_msg{payload = Payload} = Message) when is_record(Payload, pb_contact_list) ->
     ContentType = Payload#pb_contact_list.type,
     #push_metadata{
-        content_id = Contact#pb_contact.normalized,
+        content_id = pb:get_content_id(Message),
         content_type = ContentType
     };
 
-parse_metadata(#pb_msg{payload = #pb_feed_item{action = publish, item = #pb_post{} = Post}}) ->
+parse_metadata(#pb_msg{payload = #pb_feed_item{action = publish, item = #pb_post{}}} = Message) ->
     #push_metadata{
-        content_id = Post#pb_post.id,
+        content_id = pb:get_content_id(Message),
         content_type = feedpost
     };
 
-parse_metadata(#pb_msg{payload = #pb_feed_item{action = retract, item = #pb_post{} = Post}}) ->
+parse_metadata(#pb_msg{payload = #pb_feed_item{action = retract, item = #pb_post{}}} = Message) ->
     #push_metadata{
-        content_id = Post#pb_post.id,
+        content_id = pb:get_content_id(Message),
         content_type = feedpost_retract
     };
 
-parse_metadata(#pb_msg{payload = #pb_feed_item{action = publish, item = #pb_comment{} = Comment}}) ->
+parse_metadata(#pb_msg{payload = #pb_feed_item{action = publish, item = #pb_comment{}}} = Message) ->
     #push_metadata{
-        content_id = Comment#pb_comment.id,
+        content_id = pb:get_content_id(Message),
         content_type = comment
     };
 
-parse_metadata(#pb_msg{payload = #pb_feed_item{action = retract, item = #pb_comment{} = Comment}}) ->
+parse_metadata(#pb_msg{payload = #pb_feed_item{action = retract, item = #pb_comment{}}} = Message) ->
     #push_metadata{
-        content_id = Comment#pb_comment.id,
+        content_id = pb:get_content_id(Message),
         content_type = comment_retract
     };
 
-parse_metadata(#pb_msg{payload = #pb_group_feed_item{action = publish, item = #pb_post{} = Post}}) ->
+parse_metadata(#pb_msg{payload = #pb_group_feed_item{action = publish, item = #pb_post{}}} = Message) ->
     #push_metadata{
-        content_id = Post#pb_post.id,
+        content_id = pb:get_content_id(Message),
         content_type = group_post
     };
 
-parse_metadata(#pb_msg{payload = #pb_group_feed_item{action = retract, item = #pb_post{} = Post}}) ->
+parse_metadata(#pb_msg{payload = #pb_group_feed_item{action = retract, item = #pb_post{}}} = Message) ->
     #push_metadata{
-        content_id = Post#pb_post.id,
+        content_id = pb:get_content_id(Message),
         content_type = group_post_retract
     };
 
-parse_metadata(#pb_msg{payload = #pb_group_feed_item{action = publish, item = #pb_comment{} = Comment}}) ->
+parse_metadata(#pb_msg{payload = #pb_group_feed_item{action = publish, item = #pb_comment{}}} = Message) ->
     #push_metadata{
-        content_id = Comment#pb_comment.id,
+        content_id = pb:get_content_id(Message),
         content_type = group_comment
     };
 
-parse_metadata(#pb_msg{payload = #pb_group_feed_item{action = retract, item = #pb_comment{} = Comment}}) ->
+parse_metadata(#pb_msg{payload = #pb_group_feed_item{action = retract, item = #pb_comment{}}} = Message) ->
     #push_metadata{
-        content_id = Comment#pb_comment.id,
+        content_id = pb:get_content_id(Message),
         content_type = group_comment_retract
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_group_stanza{}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_group_stanza{}} = Message) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_rerequest{}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_rerequest{}} = Message) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_group_feed_rerequest{}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_group_feed_rerequest{}} = Message) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_home_feed_rerequest{}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_home_feed_rerequest{}} = Message) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_group_feed_items{}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_group_feed_items{}} = Message) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_feed_items{}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_feed_items{}} = Message) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_request_logs{}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_request_logs{}} = Message) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_wake_up{}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_wake_up{}} = Message) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_incoming_call{call_id = CallId}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_incoming_call{}} = Message) ->
     #push_metadata{
-        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_call_ringing{call_id = CallId}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_call_ringing{}} = Message) ->
     #push_metadata{
-        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_pre_answer_call{call_id = CallId}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_pre_answer_call{}} = Message) ->
     #push_metadata{
-        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_answer_call{call_id = CallId}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_answer_call{}} = Message) ->
     #push_metadata{
-        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_end_call{call_id = CallId}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_end_call{}} = Message) ->
     #push_metadata{
-        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_ice_candidate{call_id = CallId}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_ice_candidate{}} = Message) ->
     #push_metadata{
-        content_id = <<CallId/binary, "-", Id/binary>>,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message)
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_marketing_alert{type = invite_friends}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_marketing_alert{type = invite_friends}} = Message) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message),
         push_type = direct_alert
     };
 
-parse_metadata(#pb_msg{id = Id, payload = #pb_marketing_alert{type = share_post}} = Message) ->
+parse_metadata(#pb_msg{payload = #pb_marketing_alert{type = share_post}} = Message) ->
     #push_metadata{
-        content_id = Id,
+        content_id = pb:get_content_id(Message),
         content_type = pb:get_payload_type(Message),
         push_type = direct_alert
     };
 
-parse_metadata(#pb_msg{to_uid = Uid, id = Id} = Message) ->
+parse_metadata(#pb_msg{} = Message) ->
     #push_metadata{
-        content_id = Id,
-        content_type = pb:get_payload_type(Message),
-        push_type = alert
+        content_id = pb:get_content_id(Message),
+        content_type = pb:get_payload_type(Message)
     }.
 
 

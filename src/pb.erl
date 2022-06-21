@@ -23,6 +23,7 @@
     get_packet_type/1,
     get_payload_type/1,
     get_type/1,
+    get_content_id/1,
     make_iq_result/1,
     make_iq_result/2,
     make_error/2,
@@ -115,6 +116,36 @@ get_payload_type(#pb_msg{payload = undefined}) -> undefined;
 get_payload_type(#pb_iq{payload = Payload}) -> util:to_atom(element(1, Payload));
 get_payload_type(#pb_msg{payload = Payload}) -> util:to_atom(element(1, Payload));
 get_payload_type(_) -> undefined.
+
+
+-spec get_content_id(Packet :: stanza()) -> binary().
+get_content_id(#pb_msg{id = Id, payload = #pb_chat_stanza{}}) -> Id;
+get_content_id(#pb_msg{payload = #pb_chat_retract{} = Payload}) -> Payload#pb_chat_retract.id;
+get_content_id(#pb_msg{id = Id, payload = #pb_group_chat{}}) -> Id;
+get_content_id(#pb_msg{payload = #pb_group_chat_retract{id = Id}}) -> Id;
+get_content_id(#pb_msg{id = Id, payload = #pb_contact_hash{}}) -> Id;
+get_content_id(#pb_msg{payload = #pb_contact_list{contacts = Contacts}}) ->
+                                    [Contact | _] = Contacts, Contact#pb_contact.normalized;
+get_content_id(#pb_msg{payload = #pb_feed_item{item = #pb_post{} = Post}}) -> Post#pb_post.id;
+get_content_id(#pb_msg{payload = #pb_feed_item{item = #pb_comment{} = Comment}}) -> Comment#pb_comment.id;
+get_content_id(#pb_msg{payload = #pb_group_feed_item{item = #pb_post{} = Post}}) -> Post#pb_post.id;
+get_content_id(#pb_msg{payload = #pb_group_feed_item{item = #pb_comment{} = Comment}}) -> Comment#pb_comment.id;
+get_content_id(#pb_msg{id = Id, payload = #pb_group_stanza{}}) -> Id;
+get_content_id(#pb_msg{id = Id, payload = #pb_rerequest{}}) -> Id;
+get_content_id(#pb_msg{id = Id, payload = #pb_group_feed_rerequest{}}) -> Id;
+get_content_id(#pb_msg{id = Id, payload = #pb_home_feed_rerequest{}}) -> Id;
+get_content_id(#pb_msg{id = Id, payload = #pb_group_feed_items{}}) -> Id;
+get_content_id(#pb_msg{id = Id, payload = #pb_feed_items{}}) -> Id;
+get_content_id(#pb_msg{id = Id, payload = #pb_request_logs{}}) -> Id;
+get_content_id(#pb_msg{id = Id, payload = #pb_wake_up{}}) -> Id;
+get_content_id(#pb_msg{payload = #pb_incoming_call{call_id = CallId}}) -> CallId;
+get_content_id(#pb_msg{payload = #pb_call_ringing{call_id = CallId}}) -> CallId;
+get_content_id(#pb_msg{payload = #pb_pre_answer_call{call_id = CallId}}) -> CallId;
+get_content_id(#pb_msg{payload = #pb_answer_call{call_id = CallId}}) -> CallId;
+get_content_id(#pb_msg{payload = #pb_end_call{call_id = CallId}}) -> CallId;
+get_content_id(#pb_msg{payload = #pb_ice_candidate{call_id = CallId}}) -> CallId;
+get_content_id(#pb_msg{id = Id, payload = #pb_marketing_alert{}}) -> Id;
+get_content_id(#pb_msg{id = Id}) -> Id.
 
 
 -spec make_iq_result(Iq :: pb_iq()) -> pb_iq().
