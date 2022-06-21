@@ -251,11 +251,13 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeed
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
+            FeedAudienceSize = length(FilteredAudienceList2),
             ?INFO("Uid: ~s PostId ~p published to ~p audience size: ~p",
-                [Uid, PostId, FeedAudienceType, length(FilteredAudienceList2)]),
+                [Uid, PostId, FeedAudienceType, FeedAudienceSize]),
             ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
                     FeedAudienceType, FilteredAudienceList2, TimestampMs),
-            ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, PostTag, FeedAudienceType, MediaCounters]),
+            ejabberd_hooks:run(feed_item_published, Server,
+                [Uid, PostId, post, PostTag, FeedAudienceType, FeedAudienceSize, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
@@ -277,7 +279,7 @@ publish_psa_post(Uid, PostId, PayloadBase64, PostTag, PSATag, HomeFeedSt) ->
             TimestampMs = util:now_ms(),
             ?INFO("Uid: ~s PostId ~p published PSA Post to ~p", [Uid, PostId, PSATag]),
             ok = model_feed:publish_psa_post(PostId, Uid, PayloadBase64, PostTag, PSATag, TimestampMs),
-            ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, PostTag, all, MediaCounters]),
+            ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, PostTag, all, -1, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
@@ -335,7 +337,7 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
                             ParentCommentId, PayloadBase64, TimestampMs),
                     ejabberd_hooks:run(feed_item_published, Server, [PublisherUid, CommentId,
-                                       comment, undefined, Post#post.audience_type, MediaCounters]),
+                                       comment, undefined, Post#post.audience_type, sets:size(FeedAudienceSet), MediaCounters]),
                     broadcast_comment(Action, CommentId, PostId, ParentCommentId,
                         PublisherUid, PayloadBase64, EncPayload, TimestampMs, FeedAudienceSet, NewPushList),
                     {ok, TimestampMs};

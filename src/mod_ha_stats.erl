@@ -24,9 +24,9 @@
 -export([
     user_send_im/4,
     feed_share_old_items/4,
-    feed_item_published/6,
+    feed_item_published/7,
     feed_item_retracted/3,
-    group_feed_item_published/5,
+    group_feed_item_published/6,
     group_feed_item_retracted/4,
     register_user/4,
     re_register_user/4,
@@ -209,8 +209,8 @@ user_send_im(_FromUid, _MsgId, _ToUid, MediaCounters) ->
 
 
 -spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: atom(), ItemTag :: atom(),
-        FeedAudienceType :: atom(), MediaCounters :: pb_media_counters()) -> ok.
-feed_item_published(Uid, ItemId, ItemType, ItemTag, FeedAudienceType, MediaCounters) ->
+        FeedAudienceType :: atom(), FeedAudienceSize :: integer(), MediaCounters :: pb_media_counters()) -> ok.
+feed_item_published(Uid, ItemId, ItemType, ItemTag, FeedAudienceType, FeedAudienceSize, MediaCounters) ->
     ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p, ItemTag: ~p", [Uid, ItemId, ItemType, ItemTag]),
     {ok, Phone} = model_accounts:get_phone(Uid),
     CC = mod_libphonenumber:get_cc(Phone),
@@ -228,6 +228,7 @@ feed_item_published(Uid, ItemId, ItemType, ItemTag, FeedAudienceType, MediaCount
                     ok
             end,
             stat:count("HA/feed", "post"),
+            report_audience_size("feed", "post", CC, FeedAudienceSize),
             stat:count("HA/feed", "post_by_cc", 1, [{cc, CC}]),
             stat:count("HA/feed", "post_by_dev", 1, [{is_dev, IsDev}]),
             stat:count("HA/feed", "post_by_audience_type", 1, [{type, FeedAudienceType}]),
@@ -243,10 +244,17 @@ feed_item_published(Uid, ItemId, ItemType, ItemTag, FeedAudienceType, MediaCount
             ha_events:log_user_event(Uid, comment_published),
             report_media_counters(comment, MediaCounters),
             stat:count("HA/feed", "comment"),
+            report_audience_size("feed", "comment", CC, FeedAudienceSize),
             stat:count("HA/feed", "comment_by_cc", 1, [{cc, CC}]),
             stat:count("HA/feed", "comment_by_dev", 1, [{is_dev, IsDev}]);
         _ -> ok
     end,
+    ok.
+
+
+report_audience_size(Namespace, Metric, CC, AudienceSize) when AudienceSize >= 0 ->
+    stat:count("HA/" ++ Namespace, Metric ++ "_audience_size", AudienceSize, [{cc, CC}]);
+report_audience_size(_Namespace, _Metric, _CC, _AudienceSize) ->
     ok.
 
 
@@ -259,8 +267,9 @@ feed_item_retracted(Uid, ItemId, ItemType) ->
 
 
 -spec group_feed_item_published(Gid :: binary(), Uid :: binary(),
-    ItemId :: binary(), ItemType :: atom(), MediaCounters :: pb_media_counters()) -> ok.
-group_feed_item_published(Gid, Uid, ItemId, ItemType, MediaCounters) ->
+    ItemId :: binary(), ItemType :: atom(), AudienceSize :: integer(),
+    MediaCounters :: pb_media_counters()) -> ok.
+group_feed_item_published(Gid, Uid, ItemId, ItemType, AudienceSize, MediaCounters) ->
     ?INFO("counting Gid: ~p, Uid:~p, ItemId: ~p, ItemType:~p", [Gid, Uid, ItemId, ItemType]),
     {ok, Phone} = model_accounts:get_phone(Uid),
     CC = mod_libphonenumber:get_cc(Phone),
@@ -271,6 +280,7 @@ group_feed_item_published(Gid, Uid, ItemId, ItemType, MediaCounters) ->
             ha_events:log_user_event(Uid, group_post_published),
             report_media_counters(group_post, MediaCounters),
             stat:count("HA/group_feed", "post"),
+            report_audience_size("group_feed", "post", CC, AudienceSize),
             stat:count("HA/group_feed", "post_by_cc", 1, [{cc, CC}]),
             stat:count("HA/group_feed", "post_by_dev", 1, [{is_dev, IsDev}]);
         comment ->
@@ -278,6 +288,7 @@ group_feed_item_published(Gid, Uid, ItemId, ItemType, MediaCounters) ->
             ha_events:log_user_event(Uid, group_comment_published),
             report_media_counters(group_comment, MediaCounters),
             stat:count("HA/group_feed", "comment"),
+            report_audience_size("group_feed", "comment", CC, AudienceSize),
             stat:count("HA/group_feed", "comment_by_cc", 1, [{cc, CC}]),
             stat:count("HA/group_feed", "comment_by_dev", 1, [{is_dev, IsDev}]);
         _ -> ok
