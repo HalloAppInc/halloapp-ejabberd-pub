@@ -198,17 +198,19 @@ process_iq(#pb_iq{type = set,
     end;
 process_iq(#pb_iq{type = get, payload = #pb_upload_media{}} = IQ,
     #{static_key := StaticKey} = State) ->
-    case model_auth:get_static_key_uid(StaticKey) of
-        {ok, undefined} ->
-            ?INFO("StaticKey: ~p not authenticated", [base64:encode(StaticKey)]),
-            {pb:make_error(IQ, util:err(not_authenticated)), State};
-        {ok, _Uid} ->
-            {mod_upload_media:process_local_iq(IQ), State}
-    end;
+    %% TODO(vipin): Remove the next line and uncomment the block of code below - July 15, 2022.
+    {mod_upload_media:process_local_iq(IQ), State};
+    % case model_auth:get_static_key_uid(StaticKey) of
+    %     {ok, undefined} ->
+    %         ?INFO("StaticKey: ~p not authenticated", [base64:encode(StaticKey)]),
+    %         {pb:make_error(IQ, util:err(not_authenticated)), State};
+    %     {ok, _Uid} ->
+    %         {mod_upload_media:process_local_iq(IQ), State}
+    % end;
 process_iq(#pb_iq{payload = #pb_ping{}} = _IQ, State) ->
     {ignore, State};
 process_iq(IQ, State) ->
-    ?ERROR("Invalid packet received", []),
+    ?ERROR("Invalid packet received: ~p", [IQ]),
     {#pb_ha_error{reason = <<"invalid_packet">>}, State}.
 
 process_msg(#pb_msg{id = MsgId, payload = #pb_web_stanza{}} = Msg, State) ->
