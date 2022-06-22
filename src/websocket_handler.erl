@@ -7,6 +7,7 @@
 -include("ha_types.hrl").
 -include("logger.hrl").
 -include("packets.hrl").
+-include("time.hrl").
 -include("ejabberd_sm.hrl").
 
 %% Websocket callbacks
@@ -22,6 +23,10 @@
     delete_key_from_session/2  %% for testing
 ]).
 
+-define(PING_INTERVAL, 30 * ?SECONDS_MS).
+-define(PING_TIMEOUT, 10 * ?SECONDS_MS).
+-define(CONNECTION_TIMEOUT, ?PING_INTERVAL + ?PING_TIMEOUT).
+
 
 %% TODO(vipin): Reduce logging level once things are working in this file.
 
@@ -29,26 +34,38 @@ init(Req, State) ->
     ?DEBUG("Peer: ~p, Req: ~p", [cowboy_req:peer(Req), Req]),
     ForwardIP = cowboy_req:header(<<"x-forwarded-for">>, Req),
     {cowboy_websocket, Req, State#{peer => cowboy_req:peer(Req), forward_ip => ForwardIP},
-        #{idle_timeout => 30000}}.
+        #{idle_timeout => ?CONNECTION_TIMEOUT}}.
 
 websocket_init(#{peer := Peer, forward_ip := ForwardIP} = State) ->
     ?INFO("Opened websocket connection, Peer: ~p, Forward ip: ~p", [Peer, ForwardIP]),
-    erlang:start_timer(5000, self(), pid_to_list(self())),
-    {[], State}.
+    NewState = reset_timer(State),
+    {[], NewState}.
+
+reset_timer(State) ->
+    NewState = case maps:find(tref, State) of
+        {ok, OldTref} ->
+            misc:cancel_timer(OldTref),
+            maps:remove(tref, State);
+        _ ->
+            State
+    end,
+    Tref = erlang:start_timer(?PING_INTERVAL, self(), pid_to_list(self())),
+    NewState#{tref => Tref}.
 
 websocket_handle({text, Msg}, State) ->
-    ?INFO("Msg: ~p", [Msg]),
+    ?INFO("Text Msg: ~p", [Msg]),
     {[{text, << "Text packet recvd ", Msg/binary >>}], State};
 websocket_handle({binary, BinMsg}, State) ->
+    NewState = reset_timer(State),
     ?DEBUG("Bin msg: ~p", [base64:encode(BinMsg)]),
     case enif_protobuf:decode(BinMsg, pb_packet) of
         {error, _} ->
             stat:count("HA/websocket", "recv_packet", 1, [{result, error}]),
             ?ERROR("Failed to decode packet ~p", [BinMsg]),
-            {stop, State};
+            {stop, NewState};
         #pb_packet{} = Pkt ->
             stat:count("HA/websocket", "recv_packet", 1, [{result, ok}]),
-            {Pkt2, State2} = process_incoming_packet(Pkt#pb_packet.stanza, State),
+            {Pkt2, State2} = process_incoming_packet(Pkt#pb_packet.stanza, NewState),
             handle_response_packet(Pkt2, State2)
    end;
 websocket_handle(_Data, State) ->
@@ -76,8 +93,9 @@ websocket_info(replaced, State) ->
     {stop, State};
 websocket_info({timeout, _Ref, Msg}, State) ->
     ?INFO("Timeout info, msg: ~p, state: ~p", [Msg, State]),
-    erlang:start_timer(5000, self(), pid_to_list(self())),
-    {[{text, Msg}], State};
+    NewState = maps:remove(tref, State),
+    Pkt = #pb_packet{stanza = #pb_iq{payload = #pb_ping{}}},
+    encode_and_send_packet(Pkt, NewState);
 websocket_info({route, #pb_msg{payload = #pb_web_stanza{}} = Msg}, State) ->
     ?DEBUG("Sending msg: ~p, state: ~p", [Msg, State]),
     Pkt = #pb_packet{stanza = Msg},
@@ -187,8 +205,11 @@ process_iq(#pb_iq{type = get, payload = #pb_upload_media{}} = IQ,
         {ok, _Uid} ->
             {mod_upload_media:process_local_iq(IQ), State}
     end;
+process_iq(#pb_iq{payload = #pb_ping{}} = _IQ, State) ->
+    {ignore, State};
 process_iq(IQ, State) ->
-    {IQ, State}.
+    ?ERROR("Invalid packet received", []),
+    {#pb_ha_error{reason = <<"invalid_packet">>}, State}.
 
 process_msg(#pb_msg{id = MsgId, payload = #pb_web_stanza{}} = Msg, State) ->
     %% TODO(vipin): Return error if Msg's static key does not match
