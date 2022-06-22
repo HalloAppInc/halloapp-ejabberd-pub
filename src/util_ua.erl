@@ -138,7 +138,7 @@ split_version(Version) ->
                 nomatch ->
                     {undefined, undefined, undefined};
                 {match, [Version, Major, Minor, Patch]} ->
-                    binary_to_integer(Major), binary_to_integer(Minor), binary_to_integer(Patch)}
+                    {binary_to_integer(Major), binary_to_integer(Minor), binary_to_integer(Patch)}
             end;
         undefined ->
             {undefined, undefined, undefined}
