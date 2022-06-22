@@ -26,6 +26,7 @@ message EventData {
     Call call = 18;
     FabAction fab_action = 19;
     GroupHistoryReport group_history_report = 20;
+    HomeDecryptionReport home_decryption_report = 21;
   }
 }
 
@@ -167,6 +168,40 @@ message GroupDecryptionReport {
     POST = 1;
     COMMENT = 2;
     HISTORY_RESEND = 3;
+  }
+  ItemType item_type = 5;
+  string original_version = 6; // at time msg id was first encountered
+  uint32 rerequest_count = 7;
+  uint32 time_taken_s = 8;
+  Platform sender_platform = 9;
+  string sender_version = 10;
+  enum Schedule {
+    DAILY = 0;
+    RESULT_BASED = 1;
+  }
+  Schedule schedule = 11;
+}
+
+
+message HomeDecryptionReport {
+  enum Status {
+    UNKNOWN_STATUS = 0;
+    OK = 1;
+    FAIL = 2;
+  }
+  Status result = 1;
+  string reason = 2;
+  string content_id = 3;
+  enum AudienceType {
+    UNKNOWN_AUDIENCE_TYPE = 0;
+    ALL = 1;
+    ONLY = 2;
+  }
+  AudienceType audience_type = 4;
+  enum ItemType {
+    UNKNOWN_TYPE = 0;
+    POST = 1;
+    COMMENT = 2;
   }
   ItemType item_type = 5;
   string original_version = 6; // at time msg id was first encountered
