@@ -105,6 +105,8 @@ get_props(Uid, ClientVersion) ->
         media_comments => true,  %% enables media comments.
         cleartext_group_feed => true, %% whether client must send unencrypted content in group_feed.
         use_cleartext_group_feed => true, %% whether clients must rely on unencrypted content in group_feed.
+        cleartext_home_feed => true, %% whether client must send unencrypted content in home_feed.
+        use_cleartext_home_feed => true, %% whether clients must rely on unencrypted content in home_feed.
         audio_calls => true, %% whether clients can make audio calls.
         video_calls => true, %% whether clients can make video calls.
         call_wait_timeout => 60, %% time (sec) to wait before ending the call on timeout when remote party is not responding.
