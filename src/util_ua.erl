@@ -122,13 +122,24 @@ is_version_less_than(Version1, Version2) ->
 split_version(Version) ->
     case util_ua:get_client_type(Version) of
         android ->
-            {match, [Version, Major, Minor]} = re:run(Version,
-                    "^HalloApp\/Android([0-9]+).([0-9]+)D?$", [{capture, all, binary}]),
-            {binary_to_integer(Major), binary_to_integer(Minor), 0};
+            case re:run(Version, "^HalloApp\/Android([0-9]+).([0-9]+)D?$", [{capture, all, binary}]) of
+                nomatch ->
+                    case re:run(Version, "^HalloApp\/Android([0-9]+).([0-9]+).([0-9]+)D?$", [{capture, all, binary}]) of
+                        {match, [Version, Major, Minor, Patch]} ->
+                            {binary_to_integer(Major), binary_to_integer(Minor), binary_to_integer(Patch)};
+                        nomatch ->
+                            {undefined, undefined, undefined}
+                    end;
+                {match, [Version, Major, Minor]} ->
+                    {binary_to_integer(Major), binary_to_integer(Minor), 0}
+            end;
         ios ->
-            {match, [Version, Major, Minor, Patch]} = re:run(Version,
-                    "^HalloApp\/iOS([0-9]+).([0-9]+).([0-9]+)$", [{capture, all, binary}]),
-            {binary_to_integer(Major), binary_to_integer(Minor), binary_to_integer(Patch)};
+            case re:run(Version, "^HalloApp\/iOS([0-9]+).([0-9]+).([0-9]+)$", [{capture, all, binary}]) of
+                nomatch ->
+                    {undefined, undefined, undefined};
+                {match, [Version, Major, Minor, Patch]} ->
+                    binary_to_integer(Major), binary_to_integer(Minor), binary_to_integer(Patch)}
+            end;
         undefined ->
             {undefined, undefined, undefined}
     end.
