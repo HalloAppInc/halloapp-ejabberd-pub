@@ -64,6 +64,7 @@
 -include("logger.hrl").
 -include("translate.hrl").
 -include("ha_types.hrl").
+-include("ejabberd_sm.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 -type state() :: halloapp_stream_in:state().
@@ -185,7 +186,7 @@ open_session(#{user := Uid, server := Server, resource := Resource,
     State1 = change_shaper(State),
     Conn = get_conn_type(State1),
     State2 = State1#{conn => Conn, resource => Resource, jid => JID},
-    Priority = 0,
+    Priority = resource_priority(Resource),
     Info = [{ip, IP}, {conn, Conn}, {client_version, ClientVersion}],
     SocketType = maps:get(socket_type, State),
     Protocol = util:get_protocol(IP),
@@ -341,14 +342,13 @@ check_password_fun(_Mech, #{lserver := _LServer}) ->
 % TODO: make those constants
 bind(R, State) when R =/= ?ANDROID, R =/= ?IPHONE, R =/= ?IPHONE_NSE, R =/= ?IPHONE_SHARE ->
     {error, {invalid_resource, R}, State};
-bind(R, #{user := U, server := S, access := Access,
-        lserver := LServer, socket := Socket,
-        ip := IP} = State) ->
-    case resource_conflict_action(U, S, R) of
+bind(Resource, #{user := User, server := Server, access := Access, lserver := LServer,
+        socket := Socket, ip := IP, mode := Mode} = State) ->
+    case session_conflict_action(User, Server, Resource, Mode) of
         closenew ->
             {error, <<"resource_conflict">>, State};
         {accept_resource, Resource} ->
-            JID = jid:make(U, S, Resource),
+            JID = jid:make(User, Server, Resource),
             case acl:match_rule(LServer, Access,
                     #{usr => jid:split(JID), ip => IP}) of
                 allow ->
@@ -609,28 +609,37 @@ privacy_check_packet(#{lserver := LServer} = State, Pkt, Dir) ->
     ejabberd_hooks:run_fold(privacy_check_packet, LServer, allow, [State, Pkt, Dir]).
 
 
--spec resource_conflict_action(binary(), binary(), binary()) ->
-                      {accept_resource, binary()} | closenew.
-resource_conflict_action(U, S, R) ->
-    OptionRaw = case ejabberd_sm:is_existing_resource(U, S, R) of
-        true ->
-            ejabberd_option:resource_conflict(S);
-        false ->
-            acceptnew
-    end,
-    Option = case OptionRaw of
-        setresource -> setresource;
-        closeold -> acceptnew; %% ejabberd_sm will close old session
-        closenew -> closenew;
-        acceptnew -> acceptnew
-    end,
-    case Option of
-        acceptnew -> {accept_resource, R};
-        closenew -> closenew;
-        setresource ->
-            Rnew = new_uniq_id(),
-            {accept_resource, Rnew}
+-spec session_conflict_action(binary(), binary(), binary(), mode()) -> {accept_resource, binary()} | closenew.
+session_conflict_action(_User, _Server, Resource, passive) ->
+    %% For passive connections - we need to close the old ones in case of conflict.
+    %% So just accept the new resource and ejabberd_sm will close the others.
+    {accept_resource, Resource};
+session_conflict_action(User, Server, Resource, active) ->
+    %% For active connections - check if we have an active session with a higher priority.
+    %% If we do - then dont accept the new connection, else accept the new one.
+    %% ejabberd_sm will take care of closing the others.
+    case ejabberd_sm:get_active_sessions(User, Server) of
+        [] ->
+            {accept_resource, Resource};
+        [#session{usr = USR}] ->
+            {_, _, CurResource} = USR,
+            case resource_priority(CurResource) > resource_priority(Resource) of
+                true ->
+                    closenew;
+                false ->
+                    {accept_resource, Resource}
+            end;
+        _ ->
+            {accept_resource, Resource}
     end.
+
+
+%% We dont allow any other resources.
+-spec resource_priority(Resource :: binary()) -> integer().
+resource_priority(?ANDROID) -> 10;
+resource_priority(?IPHONE) -> 10;
+resource_priority(?IPHONE_NSE) -> 5;
+resource_priority(?IPHONE_SHARE) -> 5.
 
 
 -spec bounce_message_queue(ejabberd_sm:sid(), jid:jid()) -> ok.
