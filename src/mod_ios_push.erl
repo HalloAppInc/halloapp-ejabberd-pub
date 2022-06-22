@@ -305,9 +305,12 @@ handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) 
             PushType = PushMessageItem#push_message_item.push_type,
             ContentType = PushMessageItem#push_message_item.content_type,
             ?INFO("Uid: ~s, apns push successful: msg_id: ~s", [Uid, Id]),
+            %% TODO: We should capture this info in the push info itself.
+            {ok, Phone} = model_accounts:get_phone(Uid),
+            CC = mod_libphonenumber:get_cc(Phone),
             ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id,
                     platform => ios, client_version => Version, push_type => PushType,
-                    content_type => ContentType}),
+                    content_type => ContentType, cc => CC}),
             NewPendingMap
     end,
     State#push_state{pendingMap = FinalPendingMap};

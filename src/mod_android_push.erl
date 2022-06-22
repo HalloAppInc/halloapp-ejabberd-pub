@@ -274,9 +274,12 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #push_state{host = 
                 {ok, FcmId} ->
                     stat:count("HA/push", ?FCM, 1, [{"result", "success"}]),
                     ?INFO("Uid:~s push successful for msg-id: ~s, FcmId: ~p", [Uid, Id, FcmId]),
+                    %% TODO: We should capture this info in the push info itself.
+                    {ok, Phone} = model_accounts:get_phone(Uid),
+                    CC = mod_libphonenumber:get_cc(Phone),
                     ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => FcmId,
                             platform => android, client_version => Version, push_type => silent,
-                            content_type => ContentType});
+                            content_type => ContentType, cc => CC});
                 {error, Reason, FcmId} ->
                     stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
                     case Reason =:= not_registered orelse Reason =:= invalid_registration of
