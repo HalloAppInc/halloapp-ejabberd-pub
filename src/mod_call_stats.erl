@@ -49,15 +49,16 @@ mod_options(_Host) ->
 event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
         edata = #pb_call{
             call_id = CallId, peer_uid = PeerUidInt, type = CallType, answered = Answered,
-            duration_ms = PBDurationMs, end_call_reason = EndCallReason}} = Event) ->
+            duration_ms = PBDurationMs, end_call_reason = EndCallReason,
+            is_krisp_active = IsKrispActive}} = Event) ->
     Uid = util:to_binary(UidInt),
     PeerUid = util:to_binary(PeerUidInt),
     DurationMs = case PBDurationMs of
         undefined -> 0;
         _ -> PBDurationMs
     end,
-    ?INFO("CallID: ~s Uid: ~s PeerUid: ~s Type: ~s Duration: ~.1fs",
-        [CallId, Uid, PeerUid, CallType, DurationMs / 1000]),
+    ?INFO("CallID: ~s Uid: ~s PeerUid: ~s Type: ~s Duration: ~.1fs IsKrispActive: ~p",
+        [CallId, Uid, PeerUid, CallType, DurationMs / 1000, IsKrispActive]),
     PeerCC = case model_accounts:get_phone(PeerUid) of
         {ok, PeerPhone} -> mod_libphonenumber:get_cc(PeerPhone);
         % TODO(nikola) make mod_libphonenumber return ZZ?
@@ -65,6 +66,7 @@ event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
     end,
     International = (CC =:= PeerCC),
     stat:count(?CALLS_NS, "call_count", 1, [{type, CallType}]),
+    stat:count(?CALLS_NS, "call_count_krisp", 1, [{type, CallType}, {is_krisp_active, IsKrispActive}]),
     stat:count(?CALLS_NS, "call_count_by_cc", 1, [{cc, CC}, {type, CallType}, {platform, Platform}]),
     stat:count(?CALLS_NS, "call_count_by_platform", 1, [{platform, Platform}]),
 
@@ -78,6 +80,7 @@ event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
     case DurationSec > 0 of
         true ->
             stat:count(?CALLS_NS, "call_duration_sec", DurationSec, [{type, CallType}]),
+            stat:count(?CALLS_NS, "call_duration_sec_krisp", DurationSec, [{type, CallType}, {is_krisp_active, IsKrispActive}]),
             stat:count(?CALLS_NS, "call_duration_sec_by_cc", DurationSec,
                 [{cc, CC}, {type, CallType}, {platform, Platform}]),
             stat:count(?CALLS_NS, "call_duration_sec_by_platform", DurationSec, [{platform, Platform}]),
