@@ -58,11 +58,21 @@ mod_options(_Host) ->
 %%====================================================================
 
 user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
-        payload = #pb_feed_item{}} = Packet, State} = _Acc) ->
+        payload = #pb_feed_item{} = Payload} = Packet, State} = _Acc) ->
     PayloadType = util:get_payload_type(Packet),
-    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s", [FromUid, PayloadType, ToUid, MsgId]),
+    ContentId = pb:get_content_id(Packet),
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s, ContentId: ~p",
+        [FromUid, PayloadType, ToUid, MsgId, ContentId]),
     Packet1 = set_sender_info(Packet),
     {Packet1, State};
+
+user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid, rerequest_count = RerequestCount,
+        payload = #pb_home_feed_rerequest{id = Id, rerequest_type = RerequestType,
+        content_type = ContentType}} = Packet, _State} = Acc) ->
+    PayloadType = util:get_payload_type(Packet),
+    ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s, Id: ~p, RerequestType: ~p, ContentType: ~p, RerequestCount: ~p",
+        [FromUid, PayloadType, ToUid, MsgId, Id, RerequestType, ContentType, RerequestCount]),
+    Acc;
 
 user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
         payload = #pb_feed_items{}} = Packet, State} = _Acc) ->
