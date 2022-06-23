@@ -64,7 +64,7 @@ get_cc(Phone) ->
     get_region_id(Phone).
 
 %% TODO(murali@): ensure these numbers are already in e164 format.
--spec get_region_id(Number :: binary()) -> binary() | undefined.
+-spec get_region_id(Number :: binary()) -> binary().
 get_region_id(Number) ->
     try
         RawIntlNumber = prepend_plus(Number),
@@ -86,7 +86,8 @@ get_region_id(Number) ->
     catch Class:Reason:Stacktrace ->
         ?INFO("Unable to process number: ~p, error: ~p", [Number,
             lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            undefined
+            % default to US region if there is a failure to process
+            ?US_REGION_ID
     end.
 
 
