@@ -130,8 +130,8 @@ split_version(Version) ->
                         nomatch ->
                             {undefined, undefined, undefined}
                     end;
-                {match, [Version, Major, Minor]} ->
-                    {binary_to_integer(Major), binary_to_integer(Minor), 0}
+                {match, [Version, Major, Patch]} ->
+                    {binary_to_integer(Major), 1, binary_to_integer(Patch)}
             end;
         ios ->
             case re:run(Version, "^HalloApp\/iOS([0-9]+).([0-9]+).([0-9]+)$", [{capture, all, binary}]) of
