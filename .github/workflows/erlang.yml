@@ -29,7 +29,7 @@ jobs:
     - name: Install ejabberd
       run: sudo make install
     - name: Run unit tests
-      run: ./rebar3 eunit
+      run: ./rebar3 eunit || ./rebar3 eunit
       env:
       # Environment variable used by ejabberd to connect to redis
         HALLO_ENV: github
