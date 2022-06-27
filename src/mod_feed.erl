@@ -58,7 +58,7 @@ mod_options(_Host) ->
 %%====================================================================
 
 user_send_packet({#pb_msg{id = MsgId, to_uid = ToUid, from_uid = FromUid,
-        payload = #pb_feed_item{} = Payload} = Packet, State} = _Acc) ->
+        payload = #pb_feed_item{} = _Payload} = Packet, State} = _Acc) ->
     PayloadType = util:get_payload_type(Packet),
     ContentId = pb:get_content_id(Packet),
     ?INFO("Uid: ~s sending ~p message to ~s MsgId: ~s, ContentId: ~p",

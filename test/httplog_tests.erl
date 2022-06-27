@@ -1,6 +1,6 @@
 -module(httplog_tests).
 
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -include("suite.hrl").
 -include("util_http.hrl").
 -include("account_test_data.hrl").

@@ -24,7 +24,7 @@
 -module(mam_tests).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -import(suite, [get_features/1, disconnect/1, my_jid/1, send_recv/2,
 		wait_for_slave/1, server_jid/1, send/2, get_features/2,
 		wait_for_master/1, recv_message/1, recv_iq/1, muc_room_jid/1,

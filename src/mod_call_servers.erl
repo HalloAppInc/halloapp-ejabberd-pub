@@ -178,7 +178,6 @@ get_stun_turn_servers() ->
 -spec get_stun_turn_servers(CallId :: binary(), Uid :: uid(), PeerUid :: uid(), CallType :: 'CallType'())
     -> {list(pb_stun_server()), list(pb_turn_server())}.
 get_stun_turn_servers(CallId, Uid, PeerUid, CallType) ->
-    MachineName = util:get_machine_name(),
     IsDevInvolvedInCall = dev_users:is_dev_uid(Uid) orelse dev_users:is_dev_uid(PeerUid),
     case IsDevInvolvedInCall of
         true ->

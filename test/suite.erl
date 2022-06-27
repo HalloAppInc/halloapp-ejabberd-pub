@@ -24,7 +24,7 @@
 -module(suite).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 
 -include("suite.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -164,7 +164,7 @@ setup_ejabberd_lib_path(Config) ->
 	{error, _} ->
 	    DataDir = proplists:get_value(data_dir, Config),
 	    {ok, CWD} = file:get_cwd(),
-	    NewEjPath = filename:join([CWD, "ejabberd-0.0.1"]),
+	    _NewEjPath = filename:join([CWD, "ejabberd-0.0.1"]),
 	    TopDir = find_top_dir(DataDir),
         % TODO: this symlink is causing inf loop when running the ejabberd_SUITE
 %%	    ok = file:make_symlink(TopDir, NewEjPath),
@@ -789,11 +789,8 @@ self_presence(Config, Type) ->
 	send_recv(Config, #presence{type = Type}).
 
 set_roster(Config, Subscription, Groups) ->
-    MyJID = my_jid(Config),
-    {U, S, _} = jid:tolower(MyJID),
     PeerJID = ?config(peer, Config),
     PeerBareJID = jid:remove_resource(PeerJID),
-    PeerLJID = jid:tolower(PeerBareJID),
     ct:comment("Adding ~s to roster with subscription '~s' in groups ~p",
 	       [jid:encode(PeerBareJID), Subscription, Groups]),
     Config.

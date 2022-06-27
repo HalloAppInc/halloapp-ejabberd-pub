@@ -11,7 +11,7 @@
 -include("xmpp.hrl").
 
 %% Export all functions for unit tests
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 
 
 create_pb_audience(Type, Uids) ->

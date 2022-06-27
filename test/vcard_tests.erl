@@ -24,7 +24,7 @@
 -module(vcard_tests).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -import(suite, [send_recv/2, disconnect/1, is_feature_advertised/2,
 		is_feature_advertised/3, server_jid/1,
 		my_jid/1, wait_for_slave/1, wait_for_master/1,

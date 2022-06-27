@@ -9,7 +9,7 @@
 -module(call_tests).
 -author("nikola").
 
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -include("suite.hrl").
 -include("packets.hrl").
 -include("account_test_data.hrl").
@@ -132,7 +132,7 @@ call_ringing_test(_Conf) ->
         stanza = #pb_msg{
             payload = #pb_call_ringing{
                 call_id = CallId,
-                timestamp_ms = Ts
+                timestamp_ms = _Ts
             }
         }
     } = Msg,
@@ -166,7 +166,7 @@ answer_call_test(_Conf) ->
             payload = #pb_answer_call{
                 call_id = CallId,
                 webrtc_answer = Answer,
-                timestamp_ms = Ts
+                timestamp_ms = _Ts
             }
         }
     } = Msg,
@@ -196,7 +196,7 @@ end_call_test(_Conf) ->
             payload = #pb_end_call{
                 call_id = CallId,
                 reason = reject,
-                timestamp_ms = Ts
+                timestamp_ms = _Ts
             }
         }
     } = Msg,

@@ -21,7 +21,7 @@
 %%%
 %%%----------------------------------------------------------------------
 -module(ejabberd_SUITE).
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 
 -import(suite, [init_config/1, connect/1, disconnect/1, recv_message/1,
                 recv/1, recv_presence/1, send/2, send_recv/2, my_jid/1,

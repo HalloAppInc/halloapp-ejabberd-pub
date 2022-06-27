@@ -24,7 +24,7 @@
 -module(example_tests).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -import(suite, []).
 
 -include("suite.hrl").

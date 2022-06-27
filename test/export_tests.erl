@@ -9,7 +9,7 @@
 -module(export_tests).
 -author("nikola").
 
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -include("packets.hrl").
 -include("time.hrl").
 -include("account_test_data.hrl").

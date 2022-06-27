@@ -24,7 +24,7 @@
 -module(announce_tests).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -import(suite, [server_jid/1, send_recv/2, recv_message/1, disconnect/1,
 		send/2, wait_for_master/1, wait_for_slave/1]).
 

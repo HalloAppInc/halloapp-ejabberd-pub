@@ -9,7 +9,7 @@
 -module(monitor_tests).
 -author("josh").
 
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -include("logger.hrl").
 -include("monitor.hrl").
 -include("suite.hrl").

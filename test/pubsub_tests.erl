@@ -24,7 +24,7 @@
 -module(pubsub_tests).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -import(suite, [pubsub_jid/1, send_recv/2, get_features/2, disconnect/1,
 		put_event/2, get_event/1, wait_for_master/1, wait_for_slave/1,
 		recv_message/1, my_jid/1, send/2, recv_presence/1, recv/1]).

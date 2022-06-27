@@ -12,7 +12,7 @@
 -module(registration_tests).
 -author("nikola").
 
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -include("suite.hrl").
 -include("sms.hrl").
 -include("packets.hrl").
@@ -318,9 +318,9 @@ request_otp_noise_invalid_phone_fail_test(_Conf) ->
     RequestOtpOptions = #{},
     {ok, RegisterRequestPkt} = registration_client:compose_otp_noise_request(Phone, RequestOtpOptions),
 
-    %% Generate NoiseKeys.
+    %% Generate NoiseKeys -- expecting conection failure so no need to actually sign with them
     KeyPair = ha_enoise:generate_signature_keypair(),
-    {_SEdSecret, _SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+    
     %% Convert these signing keys to curve keys.
     {CurveSecret, CurvePub} = {enacl:crypto_sign_ed25519_secret_to_curve25519(maps:get(secret, KeyPair)),
      enacl:crypto_sign_ed25519_public_to_curve25519(maps:get(public, KeyPair))},
@@ -349,9 +349,9 @@ request_otp_noise_bad_request_fail_test(_Conf) ->
     RequestOtpOptions = #{user_agent => <<"BadUserAgent/1.0">>},
     {ok, RegisterRequestPkt} = registration_client:compose_otp_noise_request(Phone, RequestOtpOptions),
 
-    %% Generate NoiseKeys.
+    %% Generate NoiseKeys -- expecting conection failure so no need to actually sign with them
     KeyPair = ha_enoise:generate_signature_keypair(),
-    {_SEdSecret, _SEdPub} = {maps:get(secret, KeyPair), maps:get(public, KeyPair)},
+    
     %% Convert these signing keys to curve keys.
     {CurveSecret, CurvePub} = {enacl:crypto_sign_ed25519_secret_to_curve25519(maps:get(secret, KeyPair)),
      enacl:crypto_sign_ed25519_public_to_curve25519(maps:get(public, KeyPair))},

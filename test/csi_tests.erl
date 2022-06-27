@@ -24,7 +24,7 @@
 -module(csi_tests).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -import(suite, [disconnect/1, wait_for_slave/1, wait_for_master/1,
 		send/2, send_recv/2, recv_presence/1, recv_message/1,
 		server_jid/1]).

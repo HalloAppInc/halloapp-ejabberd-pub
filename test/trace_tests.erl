@@ -1,6 +1,6 @@
 -module(trace_tests).
 
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -include("suite.hrl").
 -include("account_test_data.hrl").
 -include("packets.hrl").

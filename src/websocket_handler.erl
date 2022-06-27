@@ -197,7 +197,7 @@ process_iq(#pb_iq{type = set,
             {pb:make_error(IQ, util:err(Reason)), State2}
     end;
 process_iq(#pb_iq{type = get, payload = #pb_upload_media{}} = IQ,
-    #{static_key := StaticKey} = State) ->
+    #{static_key := _StaticKey} = State) ->
     %% TODO(vipin): Remove the next line and uncomment the block of code below - July 15, 2022.
     {mod_upload_media:process_local_iq(IQ), State};
     % case model_auth:get_static_key_uid(StaticKey) of

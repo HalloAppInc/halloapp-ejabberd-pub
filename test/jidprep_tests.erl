@@ -24,7 +24,7 @@
 -module(jidprep_tests).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -import(suite, [send_recv/2, disconnect/1, is_feature_advertised/2,
 		server_jid/1]).
 

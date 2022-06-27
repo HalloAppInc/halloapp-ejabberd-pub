@@ -24,7 +24,7 @@
 -module(privacy_tests).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -import(suite, [disconnect/1, send_recv/2, get_event/1, put_event/2,
 		recv_iq/1, recv_presence/1, recv_message/1, recv/1,
 		send/2, my_jid/1, server_jid/1, get_features/1,

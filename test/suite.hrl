@@ -3,6 +3,8 @@
 -include("ns.hrl").
 -include("xmpp_codec.hrl").
 
+-compile({nowarn_unused_function, [insert/3]}).
+
 -define(STREAM_TRAILER, <<"</stream:stream>">>).
 
 -define(PUBSUB(Node), <<(?NS_PUBSUB)/binary, "#", Node>>).

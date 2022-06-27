@@ -24,7 +24,7 @@
 -module(replaced_tests).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -import(suite, [bind/1, wait_for_slave/1, wait_for_master/1, recv/1,
 		close_socket/1, disconnect/1]).
 

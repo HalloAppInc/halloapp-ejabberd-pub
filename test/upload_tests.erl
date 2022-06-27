@@ -23,7 +23,7 @@
 -module(upload_tests).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -import(suite, [disconnect/1, is_feature_advertised/3, upload_jid/1,
 		my_jid/1, wait_for_slave/1, wait_for_master/1,
 		send_recv/2, put_event/2, get_event/1]).

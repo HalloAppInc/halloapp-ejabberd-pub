@@ -24,7 +24,7 @@
 -module(push_tests).
 
 %% API
--compile(export_all).
+-compile([nowarn_export_all, export_all]).
 -import(suite, [close_socket/1, connect/1, disconnect/1, get_event/1,
 		get_features/2, make_iq_result/1, my_jid/1, put_event/2, recv/1,
 		recv_iq/1, recv_message/1, self_presence/2, send/2, send_recv/2,
