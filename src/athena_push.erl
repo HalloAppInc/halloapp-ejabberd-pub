@@ -47,7 +47,7 @@ get_queries() ->
 
 push_success_rates_version(Platform, TimestampMsBin, _OldestClientVersion) ->
     QueryBin = <<"
-        SELECT success.version, ROUND( success.count * 100.0 / total.count, 2) as rate
+        SELECT success.version, ROUND( success.count * 100.0 / total.count, 2) as rate, total.count as count
         FROM
             (SELECT server_push_sent.client_version as version, count(*) as count
             FROM server_push_sent
@@ -76,7 +76,7 @@ push_success_rates_version(Platform, TimestampMsBin, _OldestClientVersion) ->
 
 push_success_rates_cc(Platform, TimestampMsBin, _OldestClientVersion) ->
     QueryBin = <<"
-        SELECT success.cc, ROUND( success.count * 100.0 / total.count, 2) as rate
+        SELECT success.cc, ROUND( success.count * 100.0 / total.count, 2) as rate, total.count as count
         FROM
             (SELECT server_push_sent.cc as cc, count(*) as count
             FROM server_push_sent
@@ -112,10 +112,13 @@ record_success_version(Query) ->
     [Metric1] = Query#athena_query.metrics,
     lists:foreach(
         fun(ResultRow) ->
-            [CC, SuccessRateStr] = maps:get(<<"Data">>, ResultRow),
+            [Version, SuccessRateStr, TotalStr] = maps:get(<<"Data">>, ResultRow),
             {SuccessRate, <<>>} = string:to_float(SuccessRateStr),
             stat:count("HA/push", Metric1, SuccessRate,
-                    [{"cc", util:to_list(CC)} | TagsAndValues])
+                    [{"version", util:to_list(Version)} | TagsAndValues]),
+            TotalCount = util:to_integer(TotalStr),
+            stat:count("HA/push", Metric1 ++ "_count", TotalCount,
+                    [{"version", util:to_list(Version)} | TagsAndValues])
         end, ActualResultRows),
     ok.
 
@@ -129,9 +132,12 @@ record_success_cc(Query) ->
     [Metric1] = Query#athena_query.metrics,
     lists:foreach(
         fun(ResultRow) ->
-            [CC, SuccessRateStr] = maps:get(<<"Data">>, ResultRow),
+            [CC, SuccessRateStr, TotalStr] = maps:get(<<"Data">>, ResultRow),
             {SuccessRate, <<>>} = string:to_float(SuccessRateStr),
             stat:count("HA/push", Metric1, SuccessRate,
+                    [{"cc", util:to_list(CC)} | TagsAndValues]),
+            TotalCount = util:to_integer(TotalStr),
+            stat:count("HA/push", Metric1 ++ "_count", TotalCount,
                     [{"cc", util:to_list(CC)} | TagsAndValues])
         end, ActualResultRows),
     ok.
