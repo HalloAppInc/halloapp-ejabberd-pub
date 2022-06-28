@@ -670,7 +670,7 @@ do_process_auth_request(State1, Uid, AuthResult) ->
                             ServerPropHash = mod_props:get_hash(Uid, ClientVersion),
                             {State2, {false, session_conflict}, success, ok, ServerPropHash, ExpiresInSec};
                         {error, invalid_resource, State2} ->
-                            {State2, {false, invalid_resource}, success, invalid_resource, undefined, 0};
+                            {State2, {false, invalid_resource}, failure, invalid_resource, undefined, 0};
                         {error, _, State2} ->
                             {State2, {false, invalid_resource}, failure, invalid_resource, undefined, ExpiresInSec}
                         %% TODO: send INVALID_MODE errors.
