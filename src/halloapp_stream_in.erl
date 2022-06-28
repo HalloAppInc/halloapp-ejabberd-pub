@@ -643,7 +643,8 @@ process_auth_request(#pb_auth_request{uid = Uid, pwd = Pwd, client_mode = Client
 do_process_auth_request(State1, Uid, AuthResult) ->
     ClientVersion = maps:get(client_version, State1, undefined),
     Resource = maps:get(resource, State1, undefined),
-    {State3, Result, Reason, PropsHash, TimeLeftSec} = case AuthResult of
+    Mode = maps:get(mode, State1, undefined),
+    {State3, Result, AuthResult2, AuthReason, PropsHash, TimeLeftSec} = case AuthResult of
         false ->
             Reason1 = case Uid of
                 undefined -> spub_mismatch;
@@ -653,41 +654,43 @@ do_process_auth_request(State1, Uid, AuthResult) ->
                         false -> invalid_uid_or_password
                     end
             end,
-            {State1, failure, Reason1, undefined, 0};
+            {State1, {false, auth_failure}, failure, Reason1, undefined, 0};
         true ->
             %% Check client_version
             case mod_client_version:get_version_ttl(ClientVersion) of
                 ExpiresInSec when ExpiresInSec =< 0 ->
-                    {State1, failure, invalid_client_version, undefined, 0};
+                    {State1, {false, invalid_client_version}, failure, invalid_client_version, undefined, 0};
                 ExpiresInSec ->
                     %% Bind resource callback
-                    case callback(bind, Resource, State1) of
+                    case callback(bind, {Mode, Resource}, State1) of
                         {ok, State2} ->
                             ServerPropHash = mod_props:get_hash(Uid, ClientVersion),
-                            {State2,  success, ok, ServerPropHash, ExpiresInSec};
+                            {State2, true, success, ok, ServerPropHash, ExpiresInSec};
+                        {error, session_conflict, State2} ->
+                            ServerPropHash = mod_props:get_hash(Uid, ClientVersion),
+                            {State2, {false, session_conflict}, success, ok, ServerPropHash, ExpiresInSec};
+                        {error, invalid_resource, State2} ->
+                            {State2, {false, invalid_resource}, success, invalid_resource, undefined, 0};
                         {error, _, State2} ->
-                            {State2, failure, invalid_resource, undefined, ExpiresInSec}
+                            {State2, {false, invalid_resource}, failure, invalid_resource, undefined, ExpiresInSec}
+                        %% TODO: send INVALID_MODE errors.
                     end
             end
     end,
     AuthResultPkt = #pb_auth_result{
-        result_string = util:to_binary(Result),
-        reason_string = map_to_string_reason(Reason),
+        result_string = util:to_binary(AuthResult2),
+        reason_string = map_to_string_reason(AuthReason),
         props_hash = PropsHash,
         version_ttl = TimeLeftSec,
-        result = Result,
-        reason = Reason
+        result = AuthResult2,
+        reason = AuthReason
     },
-    CombinedResult = case Result of
-        failure -> {false, Reason};
-        success -> true
-    end,
-    State4 = callback(handle_auth_result, Uid, CombinedResult, AuthResultPkt, State3),
+    State4 = callback(handle_auth_result, Uid, Result, AuthResultPkt, State3),
     case Result of
-        failure ->
+        {false, _Reason} ->
             State5 = check_authservice_and_send(State4, AuthResultPkt),
             stop(State5);
-        success ->
+        true ->
             State5 = send_pkt(State4, AuthResultPkt),
             State5
     end.
