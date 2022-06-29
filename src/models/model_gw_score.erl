@@ -33,9 +33,14 @@
 
 -export([
     store_score/3,
+    store_score/4,
     get_aggregate_score/1,
+    get_aggregate_score/2,
+    get_aggregate_count/1,
     get_recent_score/1,
-    get_old_scores/2
+    get_recent_score/2,
+    get_old_scores/2,
+    get_aggregate_stats/1
 ]).
 
 %%====================================================================
@@ -44,6 +49,9 @@
 
 -define(FIELD_RECENT_SCORE, <<"rec">>).
 -define(FIELD_AGGREGATE_SCORE, <<"agg">>).
+-define(FIELD_AGGREGATE_COUNT, <<"cnt">>).
+-define(FIELD_TEST_AGGREGATE_SCORE, <<"tagg">>).
+-define(FIELD_TEST_RECENT_SCORE, <<"trec">>).
 
 %% sets both current score and timestamped score (for logging/info purposes) with structure 
 %%      score:GatewayCC recent RecentScore running AggScore 
@@ -70,15 +78,53 @@ store_score(ScoreName, RecentScore, AggScore) ->
     CurrentIncrement.
 
 
+store_score(ScoreName, RecentScore, AggScore, AggCount) -> % Only difference: new flag was added to calls to get score keys.
+    CurrentIncrement = util:now() div ?SMS_REG_TIMESTAMP_INCREMENT,
+    TsKey = ts_score_key(ScoreName, CurrentIncrement),
+    TsCommand = [
+        ["MULTI"],
+        ["HSET", TsKey, 
+            ?FIELD_TEST_RECENT_SCORE, util:to_binary(RecentScore), 
+            ?FIELD_TEST_AGGREGATE_SCORE, util:to_binary(AggScore),
+            ?FIELD_AGGREGATE_COUNT, util:to_binary(AggCount)],
+        ["EXPIRE", TsKey, ?TTL_TS_GW_SCORES],
+        ["EXEC"]],
+    CurCommand = ["HSET", current_score_key(ScoreName), 
+            ?FIELD_TEST_RECENT_SCORE, util:to_binary(RecentScore), 
+            ?FIELD_TEST_AGGREGATE_SCORE, util:to_binary(AggScore),
+            ?FIELD_AGGREGATE_COUNT, util:to_binary(AggCount)],
+    RedisCommands = TsCommand ++ [CurCommand],
+    % ?debugFmt("Running ~p", [RedisCommands]),
+    _Result = qp(RedisCommands),
+    CurrentIncrement.
+
+
 -spec get_aggregate_score(ScoreName :: atom()) -> {ok, integer()} | {ok, undefined}.
 get_aggregate_score(ScoreName) -> 
     {ok, AggScore} = q(["HGET", current_score_key(ScoreName), ?FIELD_AGGREGATE_SCORE]),
     {ok, util_redis:decode_int(AggScore)}.
 
+
+get_aggregate_score(ScoreName, test) -> 
+    {ok, AggScore} = q(["HGET", current_score_key(ScoreName), ?FIELD_TEST_AGGREGATE_SCORE]),
+    {ok, util_redis:decode_int(AggScore)}.
+
+
 -spec get_recent_score(ScoreName :: atom()) -> {ok, integer()} | {ok, undefined}.
 get_recent_score(ScoreName) -> 
     {ok, RecentScore} = q(["HGET", current_score_key(ScoreName), ?FIELD_RECENT_SCORE]),
     {ok, util_redis:decode_int(RecentScore)}.
+
+
+get_recent_score(ScoreName, test) -> 
+    {ok, RecentScore} = q(["HGET", current_score_key(ScoreName), ?FIELD_TEST_RECENT_SCORE]),
+    {ok, util_redis:decode_int(RecentScore)}.
+
+
+-spec get_aggregate_count(ScoreName :: atom()) -> {ok, integer()} | {ok, undefined}.
+ get_aggregate_count(ScoreName) -> 
+     {ok, AggScore} = q(["HGET", current_score_key(ScoreName), ?FIELD_AGGREGATE_COUNT]),
+     {ok, util_redis:decode_int(AggScore)}.
 
 
 -spec get_old_scores(ScoreName :: atom(), TimeStamp :: integer()) -> 
@@ -89,9 +135,16 @@ get_old_scores(ScoreName, TimeStamp) ->
     {ok, util_redis:decode_int(RecentScore), util_redis:decode_int(AggScore)}.
 
 
+-spec get_aggregate_stats(ScoreName :: atom()) -> {ok, undefined, undefined} | {ok, integer(), integer()}.
+get_aggregate_stats(ScoreName) ->
+    {ok, [AggScore, AggCount]} = q(["HMGET", current_score_key(ScoreName), ?FIELD_TEST_AGGREGATE_SCORE,
+            ?FIELD_AGGREGATE_COUNT]),
+    {ok, util_redis:decode_int(AggScore), util_redis:decode_int(AggCount)}.
+
 %%====================================================================
 %% Internal
 %%====================================================================
+
 
 current_score_key(ScoreName) ->
     NameBin = util:to_binary(ScoreName),    

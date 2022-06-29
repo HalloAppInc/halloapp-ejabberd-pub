@@ -144,6 +144,7 @@
 -define(PHONE_ATTEMPT_KEY, <<"pca:">>).
 
 -define(GW_SCORE_KEY, <<"scr:">>).
+-define(GW_SCORE_KEY_NEW, <<"scrn:">>).
 
 -define(IP_KEY, <<"ip:">>).
 -define(BLOCK_IP_KEY, <<"bip:">>).

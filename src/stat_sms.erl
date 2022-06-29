@@ -17,26 +17,27 @@
 %% API
 -export([
     check_sms_reg/1,
-    check_gw_stats/0,
-    get_gwcc_atom_safe/2
+    check_gw_stats/1,
+    get_gwcc_atom_safe/2,
+    relevant_gateways/1
 ]).
 
 -ifdef(TEST).
 %% debugging purposes
 -include_lib("eunit/include/eunit.hrl").
 -export([
-    gather_scoring_data/2,
+    gather_scoring_data/3,
     get_gwcc_atom/2,
-    get_recent_score/1,
+    get_recent_score/2,
     sms_stats_table_name/1,
     print_sms_stats/2,
-    process_all_scores/0,
+    process_all_scores/1,
     compute_recent_score/2
 ]).
 -endif.
 
 -compile([{nowarn_unused_function, [
-    {get_recent_score, 1}
+    {get_recent_score, 2}
 ]}]).
 
 
@@ -64,7 +65,8 @@ check_sms_reg(TimeWindow) ->
             %% Last to Last time slot
             check_sms_reg_internal(TimeWindow, IncrementalTimestamp - 2,
                     IncrementalTimestamp - 3),
-            check_gw_stats();
+            check_gw_stats(false),
+            check_gw_stats(true);
         past ->
             %% Last 94 full time slots
             check_sms_reg_internal(TimeWindow, IncrementalTimestamp - 3,
@@ -77,8 +79,8 @@ check_sms_reg(TimeWindow) ->
     ok.
 
 
--spec check_gw_stats() -> ok.
-check_gw_stats() ->
+-spec check_gw_stats(IsNew :: boolean()) -> ok.
+check_gw_stats(IsNew) ->
     ?INFO("Check Gateway scores start"),
     Start = util:now_ms(),
     % make a new table for storing scoring stats
@@ -89,9 +91,9 @@ check_gw_stats() ->
     % increment and iterate backwards in time up to 48 hours (192 increments).
     ?INFO("Processing scores from time slots ~p to ~p", [IncrementToProcess,
             IncrementToProcess - ?MAX_SCORING_INTERVAL_COUNT]),
-    gather_scoring_data(IncrementToProcess, IncrementToProcess - ?MAX_SCORING_INTERVAL_COUNT),
+    gather_scoring_data(IncrementToProcess, IncrementToProcess - ?MAX_SCORING_INTERVAL_COUNT, IsNew),
     % computes and prints all scores from raw counts
-    process_all_scores(),
+    process_all_scores(IsNew),
     ets:delete(?SCORE_DATA_TABLE),
     End = util:now_ms(),
     ?INFO("Check Gateway Scores took ~p ms", [End - Start]),
@@ -99,10 +101,13 @@ check_gw_stats() ->
 
 
 %% Returns the current recent score
--spec get_recent_score(VarName :: atom()) -> 
-        {ok, integer()} | {error, insufficient_data} | {error, not_found}.
-get_recent_score(VarName) ->
-    {ok, AggScore} = model_gw_score:get_recent_score(VarName),
+-spec get_recent_score(VarName :: atom(), IsNew :: boolean()) -> 
+        {ok, integer()} | {error, insufficient_data}.
+get_recent_score(VarName, IsNew) ->
+    {ok, AggScore} = case IsNew of 
+        true -> model_gw_score:get_recent_score(VarName, new); 
+        false -> model_gw_score:get_recent_score(VarName) 
+    end,
     case AggScore of
         undefined -> {error, insufficient_data};
         _ -> {ok, AggScore}
@@ -146,11 +151,11 @@ check_sms_reg_internal(TimeWindow, IncrementalTimestamp, FinalIncrement) ->
     check_sms_reg_internal(TimeWindow, IncrementalTimestamp - 1, FinalIncrement).
 
 
--spec gather_scoring_data(CurrentIncrement :: integer(), FinalIncrement :: integer()) -> ok.
-gather_scoring_data(FinalIncrement, FinalIncrement) ->
+-spec gather_scoring_data(CurrentIncrement :: integer(), FinalIncrement :: integer(), IsNew :: boolean()) -> ok.
+gather_scoring_data(FinalIncrement, FinalIncrement, _IsNew) ->
     ok;
 
-gather_scoring_data(CurrentIncrement, FinalIncrement) ->
+gather_scoring_data(CurrentIncrement, FinalIncrement, IsNew) ->
     % moving backwards in time, FirstIncrement always >= CurrentIncrement
     LogMsg = "Processing scores in time slot: ~p, until: ~p",
     LogList = [CurrentIncrement, FinalIncrement],
@@ -161,14 +166,16 @@ gather_scoring_data(CurrentIncrement, FinalIncrement) ->
     % FinalIncrement + ?MAX_SCORING_INTERVAL_COUNT is the first increment examined (recent)
     % because FinalIncrement = FirstIncrement - MAX_INTERVALS
     NumExaminedIncrements = (FinalIncrement + ?MAX_SCORING_INTERVAL_COUNT) - CurrentIncrement,
-    process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements),
-    gather_scoring_data(CurrentIncrement - 1, FinalIncrement),
-    ok.
+    ShouldContinue = process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements, IsNew),
+    case ShouldContinue of
+        true -> gather_scoring_data(CurrentIncrement - 1, FinalIncrement, IsNew);
+        false -> ok
+    end.
 
 
 -spec process_incremental_scoring_data(CurrentIncrement :: integer(),
-        NumExaminedIncrements :: integer()) -> ok.
-process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements) ->
+        NumExaminedIncrements :: integer(), IsNew :: boolean()) -> boolean().
+process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements, IsNew) ->
     %% TODO(vipin): Need to reduce size of the list returned.
     IncrementalAttemptList = model_phone:get_incremental_attempt_list(CurrentIncrement),
     % TODO(Luke) - Implement a map here to track which metrics have used this increment
@@ -177,26 +184,64 @@ process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements) ->
     IncrementMap = #{must_inc => IncRequired},
     lists:foldl(
         fun({Phone, AttemptId}, AccIncMap)  ->
-            process_attempt_score(Phone, AttemptId, AccIncMap)
+            process_attempt_score(Phone, AttemptId, AccIncMap, IsNew)
         end, IncrementMap, IncrementalAttemptList),
-    ok.
+    case IsNew of
+        false -> ok;
+        true -> 
+            % Now before the next interval, determine which gateways are possibly relevant
+            % in finding a best gateway, and continue sampling from them.
+            % Sampling more for these gateways will make us more confident in their true performance,
+            % allowing us to eventually conclude statistical significance.
+
+            % GatewayScores maps locations to a map of scoring data by code for each location.
+            GatewayScores = ets:foldl(fun({{Type, Code}, ErrorCount, TotalCount, _, _}, Acc) -> 
+                maps:update_with(get_location(Type, Code), 
+                    fun(Old) -> 
+                        Old#{Code => {(TotalCount - ErrorCount) / TotalCount, TotalCount}} 
+                    end, #{Code => {(TotalCount - ErrorCount) / TotalCount, TotalCount}}, Acc)
+            end, #{}, ?SCORE_DATA_TABLE),
+
+            % Compare all gateways in each country / globally to find ones which are relevant with the current amount sampled.
+            RelevantGatewaysByLocation = maps:map(fun(_K, V) -> relevant_gateways(V) end, GatewayScores),
+
+            % Set relevance flag for all gateways.
+            ets:foldl(fun({{Type, Code}, _, _, _, _}, _Acc) -> 
+                Location = get_location(Type, Code),
+                RelevantGateways = maps:get(Location, RelevantGatewaysByLocation),
+                IsNowRelevant = case length(RelevantGateways) of
+                    % If there are two or more candidates we want to continue sampling until there is only one
+                    % Once there is one gateway found to be significantly better than all others, we stop sampling.
+                    Count when Count >= 2 -> lists:member(Code, RelevantGateways);
+                    _ -> false
+                end,
+                ets:update_element(?SCORE_DATA_TABLE, {Type, Code}, {?IS_RELEVANT_POS, IsNowRelevant})
+            end, undefined, ?SCORE_DATA_TABLE),
+            ok
+    end,
+    IncRequired or any_key_needs_data().
+
+-spec any_key_needs_data() -> boolean().
+any_key_needs_data() -> any_key_needs_data(ets:first(?SCORE_DATA_TABLE)).
+any_key_needs_data('$end_of_table') -> false;
+any_key_needs_data(Key) -> needs_more_data(Key) orelse any_key_needs_data(ets:next(?SCORE_DATA_TABLE,Key)).
 
 
--spec process_attempt_score(Phone :: phone(), AttemptId :: binary(), IncrementMap :: map()) -> map().
-process_attempt_score(Phone, AttemptId, IncrementMap) -> 
+-spec process_attempt_score(Phone :: phone(), AttemptId :: binary(), IncrementMap :: map(), IsNew :: boolean()) -> map().
+process_attempt_score(Phone, AttemptId, IncrementMap, IsNew) -> 
     ?DEBUG("Checking Phone: ~p, AttemptId: ~p", [Phone, AttemptId]),
     IncrementMap2 = case util:is_test_number(Phone) orelse util:is_google_number(Phone) of
         true ->
             IncrementMap;
         false ->
-            process_scoring_datum(Phone, AttemptId, IncrementMap)
+            process_scoring_datum(Phone, AttemptId, IncrementMap, IsNew)
     end,
     IncrementMap2.
 
 
--spec process_scoring_datum(Phone :: phone(), AttemptId :: binary(), IncrementMap :: map()) -> 
+-spec process_scoring_datum(Phone :: phone(), AttemptId :: binary(), IncrementMap :: map(), IsNew :: boolean()) -> 
         {UsedGateway :: boolean(), Gateway :: atom(), UsedCC :: boolean(), GatewayCC :: atom()}.
-process_scoring_datum(Phone, AttemptId, IncrementMap) ->
+process_scoring_datum(Phone, AttemptId, IncrementMap, IsNew) ->
     CC = mod_libphonenumber:get_cc(Phone),
     SMSResponse = model_phone:get_verification_attempt_summary(Phone, AttemptId),
     #gateway_response{gateway = Gateway, status = _Status, verified = Success} = SMSResponse,
@@ -209,21 +254,29 @@ process_scoring_datum(Phone, AttemptId, IncrementMap) ->
     % possibly increment global score
     IncrementMap2 = case should_inc(gw, Gateway, IncrementMap) of
         true -> 
-            inc_scoring_data(gw, Gateway, Success),
+            inc_scoring_data(gw, Gateway, Success, IsNew),
             IncrementMap#{Gateway => true};
         false -> IncrementMap
     end,
     % possibly increment country-specific score
     IncrementMap3 = case should_inc(gwcc, GatewayCC, IncrementMap2) of
         true -> 
-            inc_scoring_data(gwcc, GatewayCC, Success),
+            inc_scoring_data(gwcc, GatewayCC, Success, IsNew),
             IncrementMap2#{GatewayCC => true};
         false -> IncrementMap2
     end,
-    ets:update_counter(?SCORE_DATA_TABLE, {gw, Gateway}, {?TOTAL_SEEN_POS, 1}, 
-            {{gw, Gateway}, 0, 0, 0}),
-    ets:update_counter(?SCORE_DATA_TABLE, {gwcc, GatewayCC}, {?TOTAL_SEEN_POS, 1}, 
-            {{gwcc, GatewayCC}, 0, 0, 0}),
+    case IsNew of
+        false ->
+            ets:update_counter(?SCORE_DATA_TABLE, {gw, Gateway}, {?TOTAL_SEEN_POS, 1}, 
+                    {{gw, Gateway}, 0, 0, 0}),
+            ets:update_counter(?SCORE_DATA_TABLE, {gwcc, GatewayCC}, {?TOTAL_SEEN_POS, 1}, 
+                    {{gwcc, GatewayCC}, 0, 0, 0});
+        true ->
+            ets:update_counter(?SCORE_DATA_TABLE, {gw, Gateway}, {?TOTAL_SEEN_POS, 1}, 
+                    {{gw, Gateway}, 0, 0, 0, false}),
+            ets:update_counter(?SCORE_DATA_TABLE, {gwcc, GatewayCC}, {?TOTAL_SEEN_POS, 1}, 
+                    {{gwcc, GatewayCC}, 0, 0, 0, false})
+    end,
     IncrementMap3.
 
 
@@ -258,11 +311,14 @@ do_check_sms_reg(TimeWindow, Phone, AttemptId) ->
     end.
 
 
--spec inc_scoring_data(VariableType :: atom(), VariableName :: atom(), Success :: boolean()) -> ok.
-inc_scoring_data(VariableType, VariableName, Success) ->
+-spec inc_scoring_data(VariableType :: atom(), VariableName :: atom(), Success :: boolean(), IsNew :: boolean()) -> ok.
+inc_scoring_data(VariableType, VariableName, Success, IsNew) ->
     ?DEBUG("Type: ~p Name: ~p Success: ~p", [VariableType, VariableName, Success]),
     DataKey = {VariableType, VariableName},
-    ets:update_counter(?SCORE_DATA_TABLE, DataKey, {?TOTAL_POS, 1}, {DataKey, 0, 0, 0}),
+    case IsNew of
+        false -> ets:update_counter(?SCORE_DATA_TABLE, DataKey, {?TOTAL_POS, 1}, {DataKey, 0, 0, 0});
+        true -> ets:update_counter(?SCORE_DATA_TABLE, DataKey, {?TOTAL_POS, 1}, {DataKey, 0, 0, 0, false})
+    end,
     case Success of
         _ when Success =:= undefined orelse Success =:= false->
             % intentionally not providing a default value here; total and 
@@ -312,6 +368,13 @@ needs_more_data(VariableKey) ->
             when TotalCount < ?MIN_TEXTS_TO_SCORE_GW -> true;
         [{_VariableKey, _ErrCount, TotalCount, _TSeen}] 
             when TotalCount >= ?MIN_TEXTS_TO_SCORE_GW -> false;
+        % New behavior occurs here when ?SCORE_DATA_TABLE has 5 values in each row - 
+        % this is only when the new version of gather_scoring_data is called
+        [{_VariableKey, _ErrCount, TotalCount, _TSeen, _IsRelevant}] 
+             when TotalCount < ?MIN_TEXTS_TO_SCORE_GW -> true;
+        [{_VariableKey, _ErrCount, TotalCount, _TSeen, IsRelevant}] 
+             % even if we've sampled the minimum number of texts, we still want to sample gateways that could be relevant.
+             when TotalCount >= ?MIN_TEXTS_TO_SCORE_GW -> IsRelevant;
         [] -> true
     end.
 
@@ -337,14 +400,18 @@ print_sms_stats(TimeWindow, Key) ->
 
 
 %% iterates through all 'total' entries, calculates the corresponding score, and prints
--spec process_all_scores() -> ok.
-process_all_scores() ->
-    Entries = ets:match(?SCORE_DATA_TABLE, {{'$1', '$2'}, '$3', '$4', '$5'}),
+-spec process_all_scores(IsNew :: boolean()) -> ok.
+process_all_scores(IsNew) ->
+    Entries = case IsNew of
+        false -> ets:match(?SCORE_DATA_TABLE, {{'$1', '$2'}, '$3', '$4', '$5'});
+        true -> ets:match(?SCORE_DATA_TABLE, {{'$1', '$2'}, '$3', '$4', '$5', '$6'})
+    end,
     lists:foreach(fun compute_and_print_score/1, Entries).
 
-
 -spec compute_and_print_score(VarTypeNameTotal :: list()) -> ok.
-compute_and_print_score([VarType, VarName, ErrCount, TotalCounted, TotalSeen]) ->
+compute_and_print_score([VarType | [VarName | [ErrCount | [TotalCounted | [TotalSeen | Remainder]]]]]) ->
+    %% Pattern match above is used because Remainder could either be [] or the last element of a row from the new version.
+    %% This is much nicer than writing this function twice but still TODO: fix.
     SuccessCount = TotalCounted - ErrCount,
     Category = get_category(VarType),
     Score = case compute_recent_score(ErrCount, TotalCounted) of
@@ -365,7 +432,11 @@ compute_and_print_score([VarType, VarName, ErrCount, TotalCounted, TotalSeen]) -
             S;
         {error, insufficient_data} -> nan
     end,
-    update_redis_score(VarName, Score),
+   
+    case Remainder of
+        [] -> update_redis_score(VarName, Score);
+        _ -> update_redis_score(VarName, Score, TotalCounted)
+    end,
     case Score of 
         nan -> ?DEBUG("SMS_Stats, ~s: ~p, score: ~p (~p/~p) seen: ~p", 
             [Category, VarName, Score, SuccessCount, TotalCounted, TotalSeen]);
@@ -394,10 +465,28 @@ update_redis_score(VarName, RecentScore)->
     end,
     StoreRecentScore = case RecentScore of
         nan -> undefined;
-        _ -> RecentScore
-            
+        _ -> RecentScore  
     end,
     model_gw_score:store_score(VarName, StoreRecentScore, NewAggScore),
+    ok.
+
+update_redis_score(VarName, RecentScore, RecentCount)->
+    {ok, OldAggScore} = model_gw_score:get_aggregate_score(VarName),
+    NewAggScore = case {RecentScore, OldAggScore} of 
+        {nan, _} -> OldAggScore;
+        {_, undefined} -> RecentScore;
+        {_, _} -> combine_scores(RecentScore, OldAggScore)
+    end,
+    {ok, OldCount} = model_gw_score:get_aggregate_count(VarName),
+    NewCount = case OldCount of
+        undefined -> RecentCount;
+        _ -> combine_scores(RecentCount, OldCount)
+    end,
+    StoreRecentScore = case RecentScore of
+        nan -> undefined;
+        _ -> RecentScore
+    end,
+    model_gw_score:store_score(VarName, StoreRecentScore, NewAggScore, NewCount),
     ok.
 
 -spec combine_scores(RecentScore :: integer(), AggScore :: integer()) -> integer().
@@ -405,6 +494,16 @@ combine_scores(RecentScore, AggScore) ->
     NewScore = (RecentScore * ?RECENT_SCORE_WEIGHT) + 
         (AggScore * (1.0 - ?RECENT_SCORE_WEIGHT)),
     trunc(NewScore) div 1.
+
+% retrieves location from either gateway atom or gwcc atom.
+ -spec get_location(Type :: atom(), Code :: atom()) -> atom() | binary().
+ get_location(Type, Code) ->
+     Code_bin = util:to_binary(Code),
+     case Type of
+         gw -> global;
+         gwcc -> binary:part(Code_bin, {byte_size(Code_bin), -2})
+     end.
+
 
 -spec get_category(VarType :: atom()) -> string().
 get_category(gw) ->
@@ -458,3 +557,22 @@ check_possible_spam(TimeWindow, CC, total, TotalCount) when TotalCount >= ?SPAM_
 check_possible_spam(_TimeWindow, _CC, _CountType, _TotalCount) ->
     ok.
 
+-spec relevant_gateways(GatewayScores :: #{atom() => {float(), integer()}}) -> [atom()].
+ relevant_gateways(GatewayScores) -> 
+     Gateways = maps:keys(GatewayScores),
+
+     % Only choose from gateways that have been scored.
+     SampledGateways = lists:filter(fun(GW) -> 
+         {_, Count} = maps:get(GW, GatewayScores), 
+         Count >= ?MIN_TEXTS_TO_SCORE_GW
+     end, Gateways),
+
+     % Select all gateways with enough samples that aren't worse than another gateway with enough samples.
+     lists:filter(
+         fun(GW) ->
+             lists:all(fun(Other) ->
+                  Other == GW orelse
+                  not stats:is_statistically_worse(maps:get(GW, GatewayScores), maps:get(Other, GatewayScores))
+             end, SampledGateways)
+         end,
+     SampledGateways).

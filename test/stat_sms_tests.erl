@@ -25,9 +25,6 @@
 -define(STATUS, sent).
 
 
-testing_test() ->
-    ?assert(true).
-
 
 gw_scoring_threshold_test() ->
     setup_scoring(),
@@ -66,22 +63,21 @@ gw_scoring_threshold_test() ->
     0 = verify_attempts(G2P1Successes, ?PHONE1, AttemptIdList21),
 
     CurrentIncrement = (util:now() div ?SMS_REG_TIMESTAMP_INCREMENT),
-    sim_check_gw_scores(CurrentIncrement, CurrentIncrement - ?MAX_SCORING_INTERVAL_COUNT),
+    sim_check_gw_scores(CurrentIncrement, CurrentIncrement - ?MAX_SCORING_INTERVAL_COUNT, false),
     G1GlobalScore = ((G1P1Successes + G1P2Successes) * 100) div (G1P1Total + G1P2Total),
     G1P2Score = (G1P2Successes * 100) div G1P2Total,
     
     %% Validate Scores for each specific/global Country-Gateway Combo
     ?assertEqual({ok, undefined}, model_gw_score:get_aggregate_score(G1CC1)),
     ?assertEqual({ok, undefined}, model_gw_score:get_recent_score(G1CC1)),
-    ?assertEqual({error, insufficient_data}, stat_sms:get_recent_score(G1CC1)),
-    ?assertEqual({ok, G1GlobalScore}, stat_sms:get_recent_score(?GATEWAY1)),
+    ?assertEqual({error, insufficient_data}, stat_sms:get_recent_score(G1CC1, false)),
+    ?assertEqual({ok, G1GlobalScore}, stat_sms:get_recent_score(?GATEWAY1, false)),
 
-    ?assertEqual({ok, G1P2Score}, stat_sms:get_recent_score(G1CC2)),
-    ?assertEqual({ok, G1GlobalScore}, stat_sms:get_recent_score(?GATEWAY1)),
+    ?assertEqual({ok, G1P2Score}, stat_sms:get_recent_score(G1CC2, false)),
+    ?assertEqual({ok, G1GlobalScore}, stat_sms:get_recent_score(?GATEWAY1, false)),
 
-    ?assertEqual({error, insufficient_data}, stat_sms:get_recent_score(G2CC1)),
-    ?assertEqual({error, insufficient_data}, stat_sms:get_recent_score(?GATEWAY2)),
-    cleanup_scoring().
+    ?assertEqual({error, insufficient_data}, stat_sms:get_recent_score(G2CC1, false)),
+    ?assertEqual({error, insufficient_data}, stat_sms:get_recent_score(?GATEWAY2, false)).
 
 
 gw_score_storage_test() ->
@@ -100,7 +96,7 @@ gw_score_storage_test() ->
 
     ?assertEqual(Undef, model_gw_score:get_aggregate_score(G1CC1)),
     CurrentIncrement = (util:now() div ?SMS_REG_TIMESTAMP_INCREMENT),
-    sim_check_gw_scores(CurrentIncrement, CurrentIncrement - ?MAX_SCORING_INTERVAL_COUNT),
+    sim_check_gw_scores(CurrentIncrement, CurrentIncrement - ?MAX_SCORING_INTERVAL_COUNT, false),
     ?assertEqual({ok, Score1}, model_gw_score:get_aggregate_score(G1CC1)),
     ?assertEqual({ok, Score1}, model_gw_score:get_recent_score(G1CC1)),
     
@@ -114,13 +110,44 @@ gw_score_storage_test() ->
     0 = verify_attempts(Success2, ?PHONE1, AttemptIdList2),
 
     NewCurrentIncrement = (util:now() div ?SMS_REG_TIMESTAMP_INCREMENT),
-    sim_check_gw_scores(NewCurrentIncrement, NewCurrentIncrement - ?MAX_SCORING_INTERVAL_COUNT),
+    sim_check_gw_scores(NewCurrentIncrement, NewCurrentIncrement - ?MAX_SCORING_INTERVAL_COUNT, false),
     % processing should update ?GW_SCORE_TABLE
     ?assertEqual({ok, AggScore}, model_gw_score:get_aggregate_score(G1CC1)),
-    ?assertEqual({ok, Score2}, model_gw_score:get_recent_score(G1CC1)),
+    ?assertEqual({ok, Score2}, model_gw_score:get_recent_score(G1CC1)).
 
-    cleanup_scoring().
+gw_relevance_test() ->
+     setup_scoring(),
+     CC1 = mod_libphonenumber:get_cc(?PHONE1),
+     {ok, G1CC1} = stat_sms:get_gwcc_atom(?GATEWAY1, CC1),
 
+     % These requests wouldn't be counted normally because we have enough and it's outside of the
+     % scoring window we sample every result from.
+     G1P2Extra = ?MIN_TEXTS_TO_SCORE_GW,
+     G1P2ExtraSuccesses = 0,
+     AttemptIdListExtra12 = make_attempts(?PHONE1, ?GATEWAY1, ?SMSID1, G1P2Extra),
+     0 = verify_attempts(G1P2ExtraSuccesses, ?PHONE1, AttemptIdListExtra12),
+     timer:sleep(timer:seconds(?MIN_SCORING_TIME)),
+
+     % In this interval, however, the gateways have similar stats.
+     % Because of this, we will take a larger sample to get a significant difference.
+     G1P1Total = ?MIN_TEXTS_TO_SCORE_GW,
+     G1P1Successes = ?MIN_TEXTS_TO_SCORE_GW,
+     AttemptIdList11 = make_attempts(?PHONE1, ?GATEWAY1, ?SMSID2, G1P1Total),
+     0 = verify_attempts(G1P1Successes, ?PHONE1, AttemptIdList11),
+     G1P2Total = ?MIN_TEXTS_TO_SCORE_GW,
+     G1P2Successes = ?MIN_TEXTS_TO_SCORE_GW,
+     AttemptIdList12 = make_attempts(?PHONE1, ?GATEWAY2, ?SMSID3, G1P2Total),
+     0 = verify_attempts(G1P2Successes, ?PHONE1, AttemptIdList12),
+
+
+     CurrentIncrement = (util:now() div ?SMS_REG_TIMESTAMP_INCREMENT),
+     sim_check_gw_scores(CurrentIncrement, CurrentIncrement - ?MAX_SCORING_INTERVAL_COUNT, true),
+
+     %% Ensure that even though we got enough data, since G1 was close to G2 in the tested time interval,
+     %% we go back to sample from older data.
+     ?assertEqual({ok, 50}, model_gw_score:get_aggregate_score(G1CC1, test)),
+     ?assertEqual({ok, 50}, model_gw_score:get_recent_score(G1CC1, test)),
+     ?assertEqual({ok, 2 * ?MIN_TEXTS_TO_SCORE_GW}, model_gw_score:get_aggregate_count(?GATEWAY1)).
 
 %%%----------------------------------------------------------------------
 %%% Internal functions
@@ -130,10 +157,6 @@ setup_scoring() ->
     ha_redis:start(),
     phone_number_util:init(undefined, undefined),
     tutil:cleardb(redis_phone),
-    ok.
-
-
-cleanup_scoring() ->
     ok.
 
 
@@ -164,11 +187,11 @@ make_attempts(Phone, Gateway, SmsId, NumAttempts, Acc) ->
 %% simulates stat_sms:check_gw_scores() but allows you to choose the examined increments
 %% purpose here is to mimic the creation + destruction of ?SCORE_DATA_TABLE for 
 %% each round of scoring
--spec sim_check_gw_scores(FirstIncrement :: integer(), FinalIncrement :: integer()) -> ok.
-sim_check_gw_scores(FirstIncrement, FinalIncrement) ->
+-spec sim_check_gw_scores(FirstIncrement :: integer(), FinalIncrement :: integer(), IsNew :: boolean()) -> ok.
+sim_check_gw_scores(FirstIncrement, FinalIncrement, IsNew) ->
     ets:new(?SCORE_DATA_TABLE, [named_table, ordered_set, public]),
-    stat_sms:gather_scoring_data(FirstIncrement, FinalIncrement),
-    stat_sms:process_all_scores(),
+    stat_sms:gather_scoring_data(FirstIncrement, FinalIncrement, IsNew),
+    stat_sms:process_all_scores(IsNew),
     ets:delete(?SCORE_DATA_TABLE),
     ok.
 

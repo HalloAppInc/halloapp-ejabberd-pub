@@ -72,11 +72,13 @@
 -define(ERROR_POS, 2).
 -define(TOTAL_POS, 3).
 -define(TOTAL_SEEN_POS, 4).
+-define(IS_RELEVANT_POS, 5).
 -define(RECENT_SCORE_WEIGHT, 0.8).
 
 -define(MIN_SMS_CONVERSION_SCORE, 20).
 
--define(THRESHOLD_TO_USE_MAX, 0.1).
+-define(PROBABILITY_USE_MAX, 0.9).
+-define(PROBABILITY_SAMPLE_RANDOMLY, 0.1).
 
 
 -define(ENG_LANG_ID, <<"en-US">>).

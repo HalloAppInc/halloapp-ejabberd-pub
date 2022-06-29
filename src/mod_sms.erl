@@ -452,11 +452,38 @@ pick_gw(ChooseFrom, CC, IsFirstAttempt) ->
             max_weight_selection(GWWeights)
     end,
 
-    ?INFO("Picked ~p Weights: ~p Rand: ~p IsFirst: ~p CC: ~s",
-        [Gateway, GWWeights, RandNo, IsFirstAttempt, CC]),
+    ExperimentalGateway = pick_gw_experimental(ChooseFrom, CC, IsFirstAttempt),
 
-    Gateway.
+    ?INFO("Old Selection: ~p New Selection: ~p Weights: ~p Rand: ~p IsFirst: ~p CC: ~s",
+        [Gateway, ExperimentalGateway, GWWeights, RandNo, IsFirstAttempt, CC]),
 
+    Gateway. %%TODO: Switch this to `NewGateway` to change later.
+
+-spec pick_gw_experimental(ChooseFrom :: [atom()], CC :: binary(), IsFirstAttempt :: boolean()) -> Gateway :: atom().
+pick_gw_experimental(ChooseFrom, CC, IsFirstAttempt) ->
+    CCGWScores = get_new_gw_stats(ChooseFrom, CC),
+    RelevantGateways = stat_sms:relevant_gateways(CCGWScores),
+
+    Candidates = case should_sample_randomly() orelse length(RelevantGateways) == 0 of
+        true ->
+                % Sample randomly from all gateways some fraction of the time to keep test traffic.
+                ChooseFrom;
+         false ->
+                % there should only be one relevant gateway after stat_sms is done sampling.
+                RelevantGateways
+     end,
+
+    ?INFO("pick_gw_new: Candidates: ~p", [Candidates]),
+
+     case IsFirstAttempt of
+         true ->
+             % Chooses randomly from either the best candidates (if we aren't sampling) or all gateways (if we are) 
+             random_choice(Candidates);
+        false ->
+             % Pick the gateway with the max score.
+             GWWeights = maps:map(fun(_, {Score, _}) -> Score end, CCGWScores),
+             max_weight_selection(GWWeights)
+     end.
 
 -spec max_weight_selection(Weights :: #{atom() => float()}) -> atom().
 max_weight_selection(Weights) ->
@@ -496,12 +523,21 @@ rand_weighted_selection(RandNo, Weights) ->
 should_use_max(CC) ->
     %% Right now default to old behavior except for Indonesia.
     %% todo: do this more elegantly!
-    RandNo = random:uniform(),
+    RandNo = rand:uniform(),
     case CC of 
-        <<"ID">> -> RandNo > ?THRESHOLD_TO_USE_MAX;
-        <<"SA">> -> RandNo > ?THRESHOLD_TO_USE_MAX;
+        <<"ID">> -> RandNo < ?PROBABILITY_USE_MAX;
+        <<"SA">> -> RandNo < ?PROBABILITY_USE_MAX;
         _ -> false
     end.
+
+-spec random_choice(Options :: list(atom())) -> boolean().
+ random_choice(Options) ->
+     lists:nth(rand:uniform(length(Options)), Options).
+
+ -spec should_sample_randomly() -> boolean().
+ should_sample_randomly() ->
+     rand:uniform() < ?PROBABILITY_SAMPLE_RANDOMLY.
+
 
 -spec get_new_gw_scores(ChooseFrom :: [atom()], CC :: binary()) -> #{atom() => integer()}.
 get_new_gw_scores(ChooseFrom, CC) ->
@@ -513,6 +549,16 @@ get_new_gw_scores(ChooseFrom, CC) ->
     ?DEBUG("CC: ~p, Gateway Scores: ~p", [CC, ScoreMap]),
     ScoreMap.
 
+-spec get_new_gw_stats(ChooseFrom :: [atom()], CC :: binary()) -> #{atom() => {float(), integer()}}.
+get_new_gw_stats(ChooseFrom, CC) ->
+     RetVal = lists:map(
+         fun(Gateway) ->
+            {ok, Stats} = get_stats(Gateway, CC),
+            {Gateway, Stats}
+         end, ChooseFrom),
+     ScoreMap = maps:from_list(RetVal),
+     ?DEBUG("CC: ~p, Gateway Scores: ~p", [CC, ScoreMap]),
+    ScoreMap.
 
 %% Tries to retieve country-specific gateway score. If insufficient data (nan),
 %% returns global gateway score instead. If unable to retrieve that as well, 
@@ -540,5 +586,24 @@ get_aggregate_score(Gateway) ->
         _ -> ?DEFAULT_GATEWAY_SCORE_PERCENT
     end,
     {ok, RetScore}. 
+
+
+get_stats(Gateway, CC) ->
+    % new function and looks up info from "new" redis key.
+    GatewayCC = stat_sms:get_gwcc_atom_safe(Gateway, CC),
+    case model_gw_score:get_aggregate_stats(GatewayCC) of
+        {ok, undefined, undefined} -> 
+            ?INFO("Using Global stats for ~p", [GatewayCC]),
+            get_aggregate_stats(Gateway);
+        {ok, Score, Count} -> {ok, {Score / 100, Count}}
+    end.
+
+get_aggregate_stats(Gateway) ->
+    case model_gw_score:get_aggregate_stats(Gateway) of
+        {ok, undefined, undefined} -> 
+            {ok, {?DEFAULT_GATEWAY_SCORE_PERCENT/100, ?MIN_TEXTS_TO_SCORE_GW}};
+        {ok, Score, Count} ->
+            {ok, {Score / 100, Count}}
+    end.
 
 
