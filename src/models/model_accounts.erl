@@ -152,7 +152,7 @@
     get_community_label/1,
     set_community_label/2,
     get_node_list/0,
-    get_scan/3
+    scan/3
 ]).
 
 %%====================================================================
@@ -1179,8 +1179,8 @@ set_community_label(Uid, NewLabel) ->
     {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_COMMUNITY, term_to_binary(NewLabel)]),
     ok.
 
--spec get_scan(Node :: node(), Cursor :: non_neg_integer(), Count :: pos_integer()) -> {non_neg_integer(), [uid()]} | {error, any()}.
-get_scan(Node, Cursor, Count) ->
+-spec scan(Node :: node(), Cursor :: non_neg_integer(), Count :: pos_integer()) -> {non_neg_integer(), [uid()]} | {error, any()}.
+scan(Node, Cursor, Count) ->
     {ok, Res} = qn(["SCAN", Cursor, "MATCH", <<?ACCOUNT_KEY/binary, <<"*">>/binary>>, "COUNT", Count], Node),
     case Res of 
         [NewCur, Keys] -> {binary_to_integer(NewCur), Keys};
