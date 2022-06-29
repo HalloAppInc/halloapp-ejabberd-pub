@@ -191,7 +191,9 @@ modules:
   mod_translate: {}
   mod_push_notifications: {}
   mod_ios_push: {}
+  mod_ios_push_msg: {}
   mod_android_push: {}
+  mod_android_push_msg: {}
   mod_ack_halloapp: {}
   mod_trace: {}
   mod_libphonenumber: {}

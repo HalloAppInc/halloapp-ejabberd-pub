@@ -18,12 +18,8 @@
 -include("proc.hrl").
 
 %% TODO(murali@): convert everything to 1 timeunit.
--define(HTTP_TIMEOUT_MILLISEC, 10000).             %% 10 seconds.
--define(HTTP_CONNECT_TIMEOUT_MILLISEC, 10000).     %% 10 seconds.
 -define(MESSAGE_MAX_RETRY_TIME_SEC, 600).          %% 10 minutes.
 -define(RETRY_INTERVAL_MILLISEC, 30000).           %% 30 seconds.
-
--define(FCM_GATEWAY, "https://fcm.googleapis.com/fcm/send").
 
 %% gen_mod API
 -export([start/2, stop/1, reload/3, depends/2, mod_options/1]).
@@ -137,7 +133,7 @@ handle_info({retry, PushMessageItem}, State) ->
             ?INFO("Uid: ~s, retry push_message_item: ~s", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
-            push_message_item(NewPushMessageItem, State)
+            mod_android_push_msg:push_message_item(NewPushMessageItem, State, self())
     end,
     {noreply, State1};
 
@@ -175,68 +171,11 @@ push_message(Message, PushInfo, State) ->
                 timestamp = Timestamp,
                 retry_ms = ?RETRY_INTERVAL_MILLISEC,
                 push_info = PushInfo},
-        push_message_item(PushMessageItem, State)
+        mod_android_push_msg:push_message_item(PushMessageItem, State, self())
     catch
         Class: Reason: Stacktrace ->
             ?ERROR("Failed to push MsgId: ~s ToUid: ~s crash:~s",
                 [MsgId, Uid, lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            State
-    end.
-
-
--spec push_message_item(PushMessageItem :: push_message_item(), State :: push_state()) -> push_state().
-push_message_item(PushMessageItem, #push_state{pendingMap = PendingMap} = State) ->
-    PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
-    Id = PushMessageItem#push_message_item.id,
-    Uid = PushMessageItem#push_message_item.uid,
-    ContentId = PushMetadata#push_metadata.content_id,
-    ContentType = PushMetadata#push_metadata.content_type,
-    Token = PushMessageItem#push_message_item.push_info#push_info.token,
-    Version = PushMessageItem#push_message_item.push_info#push_info.client_version,
-    HTTPOptions = [
-            {timeout, ?HTTP_TIMEOUT_MILLISEC},
-            {connect_timeout, ?HTTP_CONNECT_TIMEOUT_MILLISEC}
-    ],
-    Options = [{sync, false}, {receiver, self()}],
-    FcmApiKey = get_fcm_apikey(),
-
-    ContentMap = case PushMetadata#push_metadata.push_type of
-        direct_alert ->
-            % Used only in marketing alerts
-            {Title, Body} = push_util:get_title_body(PushMessageItem#push_message_item.message,
-                                                    PushMessageItem#push_message_item.push_info),
-            DataMap = #{
-                <<"title">> => Title,
-                <<"body">> => Body
-            },
-            ChannelId = case util_ua:is_version_greater_than(Version, <<"HalloApp/Android0.216">>) of
-                true -> <<"broadcast_notifications">>;
-                false -> <<"critical_notifications">>
-            end,
-            DirectAlertMap = DataMap#{
-                <<"sound">> => <<"default">>,
-                <<"icon">> => <<"ic_notification">>,
-                <<"android_channel_id">> => ChannelId,
-                <<"color">> => <<"#ff4500">>
-            },
-            #{ <<"notification">> => DirectAlertMap };
-        _ ->
-            % Dont send any payload to android in the push channel.
-            #{ <<"data">> => #{} }
-    end,
-    PushMessage = ContentMap#{<<"to">> => Token, <<"priority">> => <<"high">>},
-    Request = {?FCM_GATEWAY, [{"Authorization", "key=" ++ FcmApiKey}],
-            "application/json", jiffy:encode(PushMessage)},
-    case httpc:request(post, Request, HTTPOptions, Options) of
-        {ok, RequestId} ->
-            ?INFO("Uid: ~s, MsgId: ~s, ContentId: ~s, ContentType: ~s, RequestId: ~p",
-                [Uid, Id, ContentId, ContentType, RequestId]),
-            NewPendingMap = PendingMap#{RequestId => PushMessageItem},
-            State#push_state{pendingMap = NewPendingMap};
-        {error, Reason} ->
-            ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p",
-                    [Uid, binary:part(Token, 0, 10), Reason]),
-            retry_message_item(PushMessageItem),
             State
     end.
 
