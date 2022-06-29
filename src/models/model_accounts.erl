@@ -18,6 +18,12 @@
 -include("util_redis.hrl").
 -include("feed.hrl").
 
+-ifdef(TEST).
+%% debugging purposes
+-include_lib("eunit/include/eunit.hrl").
+-define(dbg(S, As), io:fwrite(user, <<"~ts\n">>, [io_lib:format((S), (As))])).
+-endif.
+
 -define(DELETED_ACCOUNT_TTL, 2 * ?WEEKS).
 
 %% Validity period for transient keys created during inactive accounts deletion.
@@ -142,7 +148,11 @@
     get_psa_tagged_uids/2,
     count_psa_tagged_uids/1,
     cleanup_psa_tagged_uids/1,
-    mark_psa_post_sent/2
+    mark_psa_post_sent/2,
+    get_community_label/1,
+    set_community_label/2,
+    get_node_list/0,
+    get_scan/3
 ]).
 
 %%====================================================================
@@ -176,6 +186,7 @@
 -define(FIELD_VOIP_TOKEN, <<"pvt">>).
 -define(FIELD_DEVICE, <<"dvc">>).
 -define(FIELD_OS_VERSION, <<"osv">>).
+-define(FIELD_COMMUNITY, <<"cm">>). % Label for community detection -- updated by mod_communities
 
 %% Field to capture creation of list with inactive uids and their deletion.
 -define(FIELD_INACTIVE_UIDS_STATUS, <<"ius">>).
@@ -546,7 +557,8 @@ get_account(Uid) ->
                     device = maps:get(?FIELD_DEVICE, M, undefined),
                     os_version = maps:get(?FIELD_OS_VERSION, M, undefined),
                     last_ipaddress = util:to_list(maps:get(?FIELD_LAST_IPADDRESS, M, undefined)),
-                    avatar_id = maps:get(?FIELD_AVATAR_ID, M, undefined)
+                    avatar_id = maps:get(?FIELD_AVATAR_ID, M, undefined),
+                    communities = maps:get(?FIELD_COMMUNITY, M, undefined)
                 },
             {ok, Account}
     end.
@@ -1150,15 +1162,42 @@ get_marketing_tags(Uid) ->
 
 
 %%====================================================================
+%% Community Detection API
+%%====================================================================
+
+
+-spec get_community_label(Uid :: uid()) -> maybe(community_label())  | {error, any()}.
+get_community_label(Uid) ->
+    {ok, Res} = q(["HGET", account_key(Uid), ?FIELD_COMMUNITY]),
+    case Res of
+        undefined -> undefined;    
+        _ -> binary_to_term(Res)
+    end.
+
+-spec set_community_label(Uid :: uid(), NewLabel :: community_label()) -> ok  | {error, any()}.
+set_community_label(Uid, NewLabel) ->
+    {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_COMMUNITY, term_to_binary(NewLabel)]),
+    ok.
+
+-spec get_scan(Node :: node(), Cursor :: non_neg_integer(), Count :: pos_integer()) -> {non_neg_integer(), [uid()]} | {error, any()}.
+get_scan(Node, Cursor, Count) ->
+    {ok, Res} = qn(["SCAN", Cursor, "MATCH", <<?ACCOUNT_KEY/binary, <<"*">>/binary>>, "COUNT", Count], Node),
+    case Res of 
+        [NewCur, Keys] -> {binary_to_integer(NewCur), Keys};
+        _ -> Res
+    end.
+
+
+%%====================================================================
 %% Internal redis functions.
 %%====================================================================
 
 
 q(Command) -> ecredis:q(ecredis_accounts, Command).
 qp(Commands) -> ecredis:qp(ecredis_accounts, Commands).
-%%qn(Command, Node) -> ecredis:qn(ecredis_accounts, Node, Command).
+qn(Command, Node) -> ecredis:qn(ecredis_accounts, Node, Command).
 qmn(Commands) -> util_redis:run_qmn(ecredis_accounts, Commands).
-%%get_node_list() -> ecredis:get_nodes(ecredis_accounts).
+get_node_list() -> ecredis:get_nodes(ecredis_accounts).
 
 ts_reply(Res) ->
     case util_redis:decode_ts(Res) of

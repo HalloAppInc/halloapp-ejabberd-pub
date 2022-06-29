@@ -82,7 +82,10 @@
     get_media_type/1,
     get_detailed_media_type/1,
     is_voip_incoming_message/1,
-    rev_while/2
+    rev_while/2,
+    map_intersect/2,
+    map_intersect_with/3, 
+    map_merge_with/3
 ]).
 
 
@@ -646,4 +649,29 @@ rev_while(0, _F) -> ok;
 rev_while(N, F) ->
     erlang:apply(F, [N]),
     rev_while(N - 1, F).
+
+
+% Useful Map functions that aren't implemented in OTP 23
+map_intersect(Map1, Map2) -> map_intersect_with( fun (_, _, V2) -> V2 end, Map1, Map2).
+map_intersect_with(Fun, Map1, Map2) ->
+    Dupes = maps:filter(fun (Key, _V) -> 
+                            maps:is_key(Key, Map2) 
+                        end, 
+                        Map1),
+    maps:map(fun (Key, V1) -> 
+                Fun(Key, V1, maps:get(Key, Map2)) 
+            end, 
+            Dupes).
+
+map_merge_with(Fun, Map1, Map2) ->
+    Dupes = maps:filter(fun (Key, _V) -> 
+                            maps:is_key(Key, Map2) 
+                        end, 
+                        Map1),
+    UpdatedDupes = maps:map(fun (Key, V1) -> 
+                                Fun(Key, V1, maps:get(Key, Map2)) 
+                            end, 
+                            Dupes),
+    Merge1 = maps:merge(Map1, UpdatedDupes),
+    maps:merge(Map2, Merge1).
 
