@@ -51,7 +51,8 @@
 %% API
 -export([
     push_message_item/3,
-    push_message_item/4
+    push_message_item/4,
+    send_post_request_to_apns/9
 ]).
 
 %%====================================================================
