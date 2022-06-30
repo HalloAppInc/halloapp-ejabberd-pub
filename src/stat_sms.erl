@@ -402,6 +402,10 @@ print_sms_stats(TimeWindow, Key) ->
 %% iterates through all 'total' entries, calculates the corresponding score, and prints
 -spec process_all_scores(IsNew :: boolean()) -> ok.
 process_all_scores(IsNew) ->
+    case IsNew of
+        false -> ok;
+        true -> ?INFO("stat_sms new version: final statistics")
+    end,
     Entries = case IsNew of
         false -> ets:match(?SCORE_DATA_TABLE, {{'$1', '$2'}, '$3', '$4', '$5'});
         true -> ets:match(?SCORE_DATA_TABLE, {{'$1', '$2'}, '$3', '$4', '$5', '$6'})
@@ -433,15 +437,19 @@ compute_and_print_score([VarType | [VarName | [ErrCount | [TotalCounted | [Total
         {error, insufficient_data} -> nan
     end,
    
-    case Remainder of
-        [] -> update_redis_score(VarName, Score);
-        _ -> update_redis_score(VarName, Score, TotalCounted)
+    Relevance = case Remainder of
+        [] ->
+            update_redis_score(VarName, Score),
+            not_new_version;
+        [IsRelevant] ->
+            update_redis_score(VarName, Score, TotalCounted),
+            IsRelevant
     end,
     case Score of 
-        nan -> ?DEBUG("SMS_Stats, ~s: ~p, score: ~p (~p/~p) seen: ~p", 
-            [Category, VarName, Score, SuccessCount, TotalCounted, TotalSeen]);
-        _ -> ?INFO("SMS_Stats, ~s: ~p, score: ~p (~p/~p) seen: ~p", 
-            [Category, VarName, Score, SuccessCount, TotalCounted, TotalSeen])
+        nan -> ?DEBUG("SMS_Stats, ~s: ~p, score: ~p (~p/~p) seen: ~p (relevant?: ~p)", 
+            [Category, VarName, Score, SuccessCount, TotalCounted, TotalSeen, Relevance]);
+        _ -> ?INFO("SMS_Stats, ~s: ~p, score: ~p (~p/~p) seen: ~p (relevant?: ~p)", 
+            [Category, VarName, Score, SuccessCount, TotalCounted, TotalSeen, Relevance])
     end,
     ok.
 
