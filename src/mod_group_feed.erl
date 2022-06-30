@@ -26,7 +26,8 @@
     group_member_added/3,
     retract_post/4,
     retract_comment/5,
-    make_pb_group_feed_item/5
+    make_pb_group_feed_item/5,
+    share_group_feed/2
 ]).
 
 
