@@ -19,7 +19,8 @@
 %  sum to 1)
 -type community_label() :: #{uid() => float()}.
 -type propagation_option() :: {fresh_start, boolean()} | {max_iters, pos_integer()} | 
-    {num_workers, pos_integer()} | {max_communities_per_node, pos_integer()}.
+    {num_workers, pos_integer()} | {max_communities_per_node, pos_integer()} | 
+    {batch_size, pos_integer()}.
 
 % This is the configuration parameter of the cluster detection algorithm
 % Defines the maximum number of communities a single node can be a part of

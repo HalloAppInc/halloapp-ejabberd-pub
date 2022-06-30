@@ -45,8 +45,8 @@
 % For debugging single step purposes
 -export([
     community_detection_setup/2,
-    identify_communities/3,
-    single_step_label_propagation/2,
+    identify_communities/4,
+    single_step_label_propagation/3,
     apply_single_step_labels/0,
     community_detection_finish_and_cleanup/0
 ]).
@@ -171,18 +171,26 @@ compute_communities(RunOpts) ->
     FreshStart = get_option(fresh_start, false, RunOpts),
     MaxNumCommunities = get_option(max_communities_per_node, ?DEFAULT_MAX_COMMUNITIES, RunOpts),
     MaxIters = get_option(max_iters, ?DEFAULT_MAXIMUM_ITERATIONS, RunOpts),
+    BatchSize = get_option(batch_size, ?MATCH_CHUNK_SIZE, RunOpts),
     
     % setup ets table 
     community_detection_setup(NumWorkers, FreshStart),
 
     % Next, run the community detection algorithm
-    NumIters = identify_communities(#{}, MaxNumCommunities, {0, MaxIters}),
+    {PrevMin, NumIters} = identify_communities(#{}, MaxNumCommunities, BatchSize, {0, MaxIters}),
 
+    Success = PrevMin =:= #{},
     % post-process communities and clean up ets
     Communities = community_detection_finish_and_cleanup(),
 
-    ?INFO("-----Community detection finished in ~p iterations, finding ~p unique communities-----", 
-        [NumIters, maps:size(Communities)]),
+    case Success of 
+        true ->
+            ?INFO("-----Community detection finished in ~p iterations, finding ~p unique communities-----",
+                [NumIters, maps:size(Communities)]);
+        false ->
+            ?INFO("Community Detection was unsuccessful, ending at ~p iterations with ~p unique communities",
+                [NumIters, maps:size(Communities)])
+    end,
 
     {NumIters, Communities}.
 
@@ -211,12 +219,13 @@ community_detection_setup(NumWorkers, FreshStart) ->
 
 
 % * Do a single round of calculating new labels
--spec single_step_label_propagation(PrevMin :: map(), MaxNumCommunities :: pos_integer()) -> {map(), boolean()}.
-single_step_label_propagation(PrevMin, MaxNumCommunities) ->
+-spec single_step_label_propagation(PrevMin :: map(), MaxNumCommunities :: pos_integer(), 
+        BatchSize :: pos_integer()) -> {map(), boolean()}.
+single_step_label_propagation(PrevMin, MaxNumCommunities, BatchSize) ->
     Start = util:now_ms(),
     % ?dbg("----------", []),
     % calculate new labels for each node in parallel batches of size ?MATCH_CHUNK_SIZE
-    foreach_uid_batch_propagate(MaxNumCommunities),
+    foreach_uid_batch_propagate(MaxNumCommunities, BatchSize),
 
     % check termination condition
     {OldCommunityIdCounts, NewCommunityIdCounts} = get_community_membership_counts(),
@@ -331,22 +340,25 @@ extract_uid(BinKey) ->
 
 % * Main loop of label propagation algorithm:
 % * Propagates new labels and then checks termination condition
--spec identify_communities(PrevMin :: map(), MaxNumCommunities :: pos_integer(), 
+-spec identify_communities(PrevMin :: map(), MaxNumCommunities :: pos_integer(), BatchSize :: pos_integer(),
         {IterNum :: non_neg_integer(), MaxIters :: non_neg_integer()}) -> non_neg_integer().
-identify_communities(_PrevMin, _MaxNumCommunities, {MaxIters, MaxIters}) ->
+identify_communities(PrevMin, _MaxNumCommunities, _BatchSize, {MaxIters, MaxIters}) ->
     ?INFO("Community identification reached maximum iteration limit of ~p", [MaxIters]),
-    MaxIters;
-identify_communities(PrevMin, MaxNumCommunities, {IterNum, MaxIters}) ->
+    {PrevMin, MaxIters}; % return map that can be used to continue computation
+identify_communities(PrevMin, MaxNumCommunities, BatchSize, {IterNum, MaxIters}) ->
     % Do an iteration of label propagation
     ?INFO("Iteration ~p/~p", [IterNum + 1, MaxIters]),
-    {MinCommunityIdCounts, Continue} = single_step_label_propagation(PrevMin, MaxNumCommunities),
+    {MinCommunityIdCounts, Continue} = single_step_label_propagation(PrevMin, MaxNumCommunities, BatchSize),
 
     case Continue of 
         true -> 
                 % If we should continue, apply the labels we just calculated and go again
                 apply_single_step_labels(),
-                identify_communities(MinCommunityIdCounts, MaxNumCommunities, {IterNum + 1, MaxIters});
-        false -> IterNum + 1 % count this iteration
+                identify_communities(MinCommunityIdCounts, MaxNumCommunities, BatchSize, 
+                    {IterNum + 1, MaxIters});
+        false -> 
+            ?INFO("Label Propagation Finished!!"),
+            {#{}, IterNum + 1} % count this iteration, return empty map to indicate success
     end.
 
 
@@ -376,7 +388,6 @@ identify_community_subsets(Uid, CurLabel, {Communities, Subsets}) ->
 
 -spec batch_propagate(ParentPid :: pid(), MatchList :: list(), MaxNumCommunities :: pos_integer()) -> ok | {error, any()}.
 batch_propagate(ParentPid, MatchList, MaxNumCommunities) ->
-    Start = util:now_ms(),
     Uids = lists:map(
         fun ([Uid, _CurLabel, _NewLabel]) -> 
             Uid 
@@ -394,7 +405,6 @@ batch_propagate(ParentPid, MatchList, MaxNumCommunities) ->
             propagate(Uid, NoSelfFriend, MaxNumCommunities) 
         end, 
         Uids),
-    ?INFO("Worker ~p handled batch of ~p uids in ~p ms", [self(), length(Uids), util:now_ms() - Start]),
     ParentPid ! {done, self()},
     ok.
 
@@ -566,11 +576,12 @@ do_for_acc({EntryList, Cont}, Func, Acc) ->
 
 % Calls func on batches of keys, func needs to take list of [Uid, CurLabel, NewLabel]
 % Used to batch calls to redis
--spec foreach_uid_batch_propagate(MaxNumCommunities :: pos_integer()) -> ok | {error, any()}.
-foreach_uid_batch_propagate(MaxNumCommunities) ->
+-spec foreach_uid_batch_propagate(MaxNumCommunities :: pos_integer(), BatchSize :: pos_integer()) -> 
+        ok | {error, any()}.
+foreach_uid_batch_propagate(MaxNumCommunities, BatchSize) ->
     Start = util:now_ms(),
     ets:safe_fixtable(?COMMUNITY_DATA_TABLE, true),
-    Matches = ets:match(?COMMUNITY_DATA_TABLE, {{labelinfo, '$1'}, '$2', '$3'}, ?MATCH_CHUNK_SIZE),
+    Matches = ets:match(?COMMUNITY_DATA_TABLE, {{labelinfo, '$1'}, '$2', '$3'}, BatchSize),
 
     do_for_batch(Matches, MaxNumCommunities, 0),
     ets:safe_fixtable(?COMMUNITY_DATA_TABLE, false),
