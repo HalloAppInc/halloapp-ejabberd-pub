@@ -18,7 +18,9 @@
     get_dev_uids/0,
     is_dev_uid/1,
     is_murali/1,
-    is_psa_admin/1
+    is_psa_admin/1,
+    is_bb_uid/1,
+    get_detective_uids/0
 ]).
 
 %%====================================================================
@@ -87,6 +89,22 @@ is_dev_uid(Uid) ->
         {ok, Phone} ->
             util:is_test_number(Phone) orelse IsUIDDev
     end.
+
+
+-spec is_bb_uid(Uid :: uid()) -> boolean().
+is_bb_uid(<<"1000000000822833296">>) -> true;
+is_bb_uid(<<"1000000000903195576">>) -> true;
+is_bb_uid(_) -> false.
+
+
+-spec get_detective_uids() -> [uid()].
+get_detective_uids() -> 
+    [
+        <<"1000000000893731049">>,
+        <<"1000000000523926349">>
+    ].
+
+
 
 is_murali(<<"1000000000739856658">>) -> true;  %% Murali
 is_murali(<<"1000000000773653288">>) -> true;  %% Murali android
