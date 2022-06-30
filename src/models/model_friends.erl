@@ -25,6 +25,7 @@
     add_friends/2,
     remove_friend/2,
     get_friends/1,
+    get_friends_multi/1,
     is_friend/2,
     set_friends/2,
     remove_all_friends/1
@@ -64,6 +65,22 @@ get_friends(Uid) ->
     {ok, Friends} = q(["HKEYS", key(Uid)]),
     {ok, Friends}.
 
+
+-spec get_friends_multi(Uids :: [uid()]) -> {ok, map()} | {error, any()}.
+get_friends_multi(Uids) ->
+    Commands = lists:map(fun (Uid) -> 
+            ["HKEYS", key(Uid)] 
+        end, 
+        Uids),
+    Res = qmn(Commands),
+    Result = lists:foldl(
+        fun({Uid, {ok, Friends}}, Acc) ->
+            case Friends of
+                undefined -> Acc;
+                _ -> Acc#{Uid => Friends}
+            end
+        end, #{}, lists:zip(Uids, Res)),
+    {ok, Result}.
 
 -spec is_friend(Uid :: uid(), Buid :: uid()) -> boolean().
 is_friend(Uid, Buid) ->

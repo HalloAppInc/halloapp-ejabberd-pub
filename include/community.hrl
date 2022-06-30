@@ -18,20 +18,31 @@
 %  with strength .75 and to community 2 with strength .25 (belonging coefficients in a label must 
 %  sum to 1)
 -type community_label() :: #{uid() => float()}.
+-type propagation_option() :: {fresh_start, boolean()} | {max_iters, pos_integer()} | 
+    {num_workers, pos_integer()} | {max_communities_per_node, pos_integer()}.
 
-% The maximum number of iterations of label propagation we will allow when identifying communities
--define(MAXIMUM_ITERATIONS, 25). 
+% This is the configuration parameter of the cluster detection algorithm
+% Defines the maximum number of communities a single node can be a part of
+-define(DEFAULT_MAX_COMMUNITIES, 4).
+
+% The default maximum number of iterations of label propagation we will allow when identifying communities
+-define(DEFAULT_MAXIMUM_ITERATIONS, 25). 
 
 % number of keys to scan through on each iteration in the redis DB -- the COUNT option
 %  docs: https://redis.io/commands/scan/#the-count-option
 -define(SCAN_BLOCK_SIZE, 1000).
 
 % Number of keys returned from a call to ets:match when iterating through all ets keys
+% Also size of batch call to model_friends:get_friends_multi/1
+-ifdef(TEST).
+-define(MATCH_CHUNK_SIZE, 10). % to allow testing of parallel batches
+-else.
 -define(MATCH_CHUNK_SIZE, 1000). 
+-endif.
 
-% This is the configuration parameter of the cluster detection algorithm
-% Defines the maximum number of communities a single node can be a part of
--define(DEFAULT_MAX_COMMUNITIES, 5).
+-define(COMMUNITY_WORKER_POOL, community_workers). % Name of the worker pool used to process batches
+-define(COMMUNITY_DEFAULT_NUM_WORKERS, 4). % size of the worker pool
+-define(COMMUNITY_POOL_STRATEGY, best_worker). % strategy used to delegate tasks to workers
 
 % Name of the ETS table used to calculate communities
 -define(COMMUNITY_DATA_TABLE, community_data).

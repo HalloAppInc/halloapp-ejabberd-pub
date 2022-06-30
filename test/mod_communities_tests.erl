@@ -43,35 +43,31 @@
 
 mod_communities_singleton_test() ->
     setup(),
+    Options = [{max_communities_per_node, 2}, {fresh_start, true}],
     model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA),
     ?assertEqual(undefined, model_accounts:get_community_label(?UID1)),
-    mod_communities:compute_communities(),
+    mod_communities:compute_communities(Options),
     ?assertEqual(#{?UID1 => 1.0}, model_accounts:get_community_label(?UID1)),
     ok.
 
 mod_communities_disjoint_to_joined_test() ->
     setup(),
+    Options = [{max_communities_per_node, 2}, {fresh_start, true}],
+
     ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA),
     ?assertEqual(undefined, model_accounts:get_community_label(?UID1)),
-
     ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA),
     ?assertEqual(undefined, model_accounts:get_community_label(?UID2)),
-
     ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?UA),
     ?assertEqual(undefined, model_accounts:get_community_label(?UID3)),
-
     ok = model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?UA),
     ?assertEqual(undefined, model_accounts:get_community_label(?UID4)),
-
     ok = model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?UA),
     ?assertEqual(undefined, model_accounts:get_community_label(?UID5)),
-
     ok = model_accounts:create_account(?UID6, ?PHONE6, ?NAME6, ?UA),
     ?assertEqual(undefined, model_accounts:get_community_label(?UID6)),
-
     ok = model_accounts:create_account(?UID7, ?PHONE7, ?NAME7, ?UA),
     ?assertEqual(undefined, model_accounts:get_community_label(?UID7)),
-
     ok = model_accounts:create_account(?UID8, ?PHONE8, ?NAME8, ?UA),
     ?assertEqual(undefined, model_accounts:get_community_label(?UID8)),
 
@@ -82,6 +78,7 @@ mod_communities_disjoint_to_joined_test() ->
     model_friends:add_friend(?UID4, ?UID2),
     model_friends:add_friend(?UID3, ?UID4),
     model_friends:add_friend(?UID1, ?UID4),
+    model_friends:add_friend(?UID1, ?UID1), % also test to make sure self-friend doesn't affect things
 
     % Community 2 (Diamond with vertical line)
     model_friends:add_friend(?UID5, ?UID6),
@@ -90,7 +87,7 @@ mod_communities_disjoint_to_joined_test() ->
     model_friends:add_friend(?UID7, ?UID8),
     model_friends:add_friend(?UID8, ?UID6),
 
-    {NumIters, Communities} = mod_communities:compute_communities(2),
+    {NumIters, Communities} = mod_communities:compute_communities(Options),
     NumComs = maps:size(Communities),
     ?assert(NumIters < 10),
     ?assertEqual(NumComs, 2),
@@ -111,7 +108,7 @@ mod_communities_disjoint_to_joined_test() ->
     model_friends:add_friend(?UID1, ?UID5),
     model_friends:add_friend(?UID1, ?UID7),
 
-    {NumIters1, Communities1} = mod_communities:compute_communities(2),
+    {NumIters1, Communities1} = mod_communities:compute_communities(Options),
     NumComs1 = maps:size(Communities1),
 
     ?assert(NumIters1 < 10),
@@ -122,7 +119,7 @@ mod_communities_disjoint_to_joined_test() ->
     % Now Fully join them into one community
     model_friends:add_friend(?UID4, ?UID7),
     
-    {NumIters2, Communities2} = mod_communities:compute_communities(2),
+    {NumIters2, Communities2} = mod_communities:compute_communities(Options),
     NumComs2 = maps:size(Communities2),
     ?assert(NumIters2 < 10),
     ?assertEqual(1, NumComs2),
@@ -132,6 +129,7 @@ mod_communities_disjoint_to_joined_test() ->
 
 mod_communities_scale_test() ->
     setup(),
+    Options = [{fresh_start, true}],
     NumNodes = 100,
     NumCommunities = 5,
     CommunitySize = NumNodes div NumCommunities,
@@ -143,7 +141,7 @@ mod_communities_scale_test() ->
     % Only Link some nodes to each other in each community
     ?FOR({0, NumNodes}, fun (NodeN) -> make_friends(NodeN, MinNumFriends, CommunitySize) end),
 
-    {NumIters, Communities} = mod_communities:compute_communities(),
+    {NumIters, Communities} = mod_communities:compute_communities(Options),
     NumComs = maps:size(Communities),
     ?assert(NumIters < 10),
     ?assertEqual(NumCommunities, NumComs),
@@ -151,7 +149,7 @@ mod_communities_scale_test() ->
     % now fully link up communities 
     ?FOR({0, NumCommunities}, fun(CommunityNum) -> link_community(CommunityNum, CommunitySize) end),
 
-    {NumIters2, Communities2} = mod_communities:compute_communities(),
+    {NumIters2, Communities2} = mod_communities:compute_communities(Options),
     NumComs2 = maps:size(Communities2),
 
     ?assert(NumIters2 < 10),
@@ -161,6 +159,7 @@ mod_communities_scale_test() ->
 
 mod_communities_analysis_test() ->
     setup(),
+    Options = [{fresh_start, true}],
     NumSingles = 3,
 
     NumFiveToTen = 2,
@@ -182,7 +181,7 @@ mod_communities_analysis_test() ->
     % Now Make 1 Community of 11
     link_range(End2, TotalNumNodes+1),
 
-    {_NumIter, Communities} = mod_communities:compute_communities(),
+    {_NumIter, Communities} = mod_communities:compute_communities(Options),
     #{singleton := {NumSingleton, _}, 
         five_to_ten := {NumSizeFiveToTen, _}, 
         more_than_ten := {NumSizeLargerThan10, _}} = mod_communities:analyze_communities(Communities),
@@ -225,7 +224,10 @@ get_test_uid(N) ->
     NBin = integer_to_binary(N),
     NSize = byte_size(NBin),
     UidPadSize = util_uid:uid_size() - NSize - 1,
-    UidPadding = binary:copy(<<"0">>, UidPadSize),
+    UidPadding = case UidPadSize < 0 of
+        true -> <<"">>;
+        false -> binary:copy(<<"0">>, UidPadSize)
+    end,
     <<<<"1">>/binary, UidPadding/binary, NBin/binary>>.
 
 link_community(CommunityNum, CommunitySize) ->
@@ -260,9 +262,11 @@ link_range(ComStart, ComEnd) ->
 setup() ->
     tutil:setup(),
     ha_redis:start(),
+    wpool:start(),
     clear(),
     ok.
 
 
 clear() ->
-    tutil:cleardb(redis_accounts).
+    tutil:cleardb(redis_accounts),
+    tutil:cleardb(redis_friends).

@@ -77,6 +77,33 @@ get_empty_friends_test() ->
   setup(),
   ?assertEqual({ok, []}, model_friends:get_friends(?UID1)).
 
+get_friends_multi_test() ->
+  setup(),
+  ?assertEqual(ok, model_friends:add_friend(?UID1, ?UID2)),
+  ?assertEqual(ok, model_friends:add_friend(?UID1, ?UID3)),
+  FriendMap = #{
+    ?UID1 => [?UID2, ?UID3],
+    ?UID2 => [?UID1],
+    ?UID3 => [?UID1]  
+  },
+  ?assertEqual({ok, FriendMap}, model_friends:get_friends_multi([?UID1, ?UID2, ?UID3])),
+  ?assertEqual(ok, model_friends:remove_friend(?UID1, ?UID3)),
+  FriendMap1 = #{
+    ?UID1 => [?UID2],
+    ?UID2 => [?UID1],
+    ?UID3 => []  
+  },
+  ?assertEqual({ok, FriendMap1}, model_friends:get_friends_multi([?UID1, ?UID2, ?UID3])).
+
+get_empty_friends_multi_test() ->
+  setup(),
+  EmptyFriendMap = #{
+    ?UID1 => [],
+    ?UID2 => [],
+    ?UID3 => []  
+  },
+  ?assertEqual({ok, EmptyFriendMap}, model_friends:get_friends_multi([?UID1, ?UID2, ?UID3])).
+
 set_friends_test() ->
   setup(),
   ?assertEqual(ok, model_friends:set_friends(?UID1, [?UID2, ?UID3])),
