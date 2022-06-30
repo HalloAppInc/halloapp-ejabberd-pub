@@ -50,7 +50,8 @@
 
 %% API
 -export([
-    push_message_item/3    
+    push_message_item/3,
+    push_message_item/4
 ]).
 
 %%====================================================================
