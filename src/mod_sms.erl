@@ -464,7 +464,9 @@ pick_gw_experimental(ChooseFrom, CC, IsFirstAttempt) ->
     CCGWScores = get_new_gw_stats(ChooseFrom, CC),
     RelevantGateways = stat_sms:relevant_gateways(CCGWScores),
 
-    Candidates = case should_sample_randomly() orelse length(RelevantGateways) == 0 of
+    SampleRandomly = should_sample_randomly(),
+
+    Candidates = case SampleRandomly orelse length(RelevantGateways) == 0 of
         true ->
                 % Sample randomly from all gateways some fraction of the time to keep test traffic.
                 ChooseFrom;
@@ -473,7 +475,7 @@ pick_gw_experimental(ChooseFrom, CC, IsFirstAttempt) ->
                 RelevantGateways
      end,
 
-    ?INFO("pick_gw_new: Candidates: ~p", [Candidates]),
+    ?INFO("experimental pick: Candidates: ~p, Relevant ~p, Score Data: ~p Sample Randomly ~p", [Candidates, RelevantGateways, CCGWScores, SampleRandomly]),
 
      case IsFirstAttempt of
          true ->
@@ -592,7 +594,7 @@ get_stats(Gateway, CC) ->
     % new function and looks up info from "new" redis key.
     GatewayCC = stat_sms:get_gwcc_atom_safe(Gateway, CC),
     case model_gw_score:get_aggregate_stats(GatewayCC) of
-        {ok, undefined, undefined} -> 
+        {ok, X, Y} when X =:= undefined orelse Y =:= undefined -> 
             ?INFO("Using Global stats for ~p", [GatewayCC]),
             get_aggregate_stats(Gateway);
         {ok, Score, Count} -> {ok, {Score / 100, Count}}
@@ -600,7 +602,7 @@ get_stats(Gateway, CC) ->
 
 get_aggregate_stats(Gateway) ->
     case model_gw_score:get_aggregate_stats(Gateway) of
-        {ok, undefined, undefined} -> 
+        {ok, X, Y} when X =:= undefined orelse Y =:= undefined  -> 
             {ok, {?DEFAULT_GATEWAY_SCORE_PERCENT/100, ?MIN_TEXTS_TO_SCORE_GW}};
         {ok, Score, Count} ->
             {ok, {Score / 100, Count}}
