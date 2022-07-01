@@ -86,16 +86,16 @@ user_send_packet({_Packet, _State} = Acc) ->
 
 %% Publish post.
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_feed_item{action = publish = Action, item = #pb_post{} = Post} = HomeFeedSt} = IQ) ->
+        payload = #pb_feed_item{action = publish, item = #pb_post{} = Post} = HomeFeedSt} = IQ) ->
     PostId = Post#pb_post.id,
     PayloadBase64 = base64:encode(Post#pb_post.payload),
     PostTag = Post#pb_post.tag,
     AudienceList = Post#pb_post.audience,
     PSATag = Post#pb_post.psa_tag,
+    PublisherName = model_accounts:get_name_binary(Uid),
     case publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeedSt) of
         {ok, ResultTsMs} ->
-            FeedAudienceType = AudienceList#pb_audience.type,
-            SubEl = make_pb_feed_post(Action, PostId, Uid, <<>>, <<>>, FeedAudienceType, ResultTsMs),
+            SubEl = update_feed_post_st(Uid, PublisherName, HomeFeedSt, Uid, ResultTsMs),
             pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason))
@@ -279,7 +279,7 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeed
             ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
             {ok, ExistingPost#post.ts_ms}
     end,
-    broadcast_post(Action, PostId, Uid, PayloadBase64, FinalTimestampMs, FilteredAudienceList2, FeedAudienceType, HomeFeedSt),
+    broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
     {ok, FinalTimestampMs};
 publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, _AudienceList, HomeFeedSt) ->
     case is_psa_tag_allowed(PSATag, Uid) of
@@ -304,15 +304,40 @@ publish_psa_post(Uid, PostId, PayloadBase64, PostTag, PSATag, HomeFeedSt) ->
     {ok, FinalTimestampMs}.
 
 
-broadcast_post(Action, PostId, Uid, PayloadBase64, TimestampMs, FeedAudienceList, FeedAudienceType, HomeFeedSt) ->
-    %% send a new api message to all the clients.
-    #pb_feed_item{item = #pb_post{} = Post} = HomeFeedSt,
-    EncPayload = Post#pb_post.enc_payload,
-    ResultStanza = make_pb_feed_post(Action, PostId, Uid, PayloadBase64, EncPayload, FeedAudienceType, TimestampMs),
+broadcast_post(Uid, FeedAudienceList, HomeFeedSt, TimestampMs) ->
+    PublisherUid = Uid,
+    PublisherName = model_accounts:get_name_binary(Uid),
     FeedAudienceSet = sets:from_list(FeedAudienceList),
+    BroadcastUids = sets:to_list(sets:del_element(Uid, FeedAudienceSet)),
     PushSet = FeedAudienceSet,
-    broadcast_event(Uid, FeedAudienceSet, PushSet, ResultStanza,
-        HomeFeedSt#pb_feed_item.sender_state_bundles).
+    StateBundles = HomeFeedSt#pb_feed_item.sender_state_bundles,
+    StateBundlesMap = case StateBundles of
+        undefined -> #{};
+        _ -> lists:foldl(
+                 fun(StateBundle, Acc) ->
+                     Uid2 = StateBundle#pb_sender_state_bundle.uid,
+                     SenderState = StateBundle#pb_sender_state_bundle.sender_state,
+                     Acc#{Uid2 => SenderState}
+                 end, #{}, StateBundles)
+    end,
+    lists:foreach(
+        fun(ToUid) ->
+            ResultStanza = update_feed_post_st(PublisherUid, PublisherName, HomeFeedSt, ToUid, TimestampMs),
+            MsgType = get_message_type(ResultStanza, PushSet, ToUid),
+            SenderState = maps:get(ToUid, StateBundlesMap, undefined),
+            ResultStanza2 = ResultStanza#pb_feed_item{
+                sender_state = SenderState
+            },
+            Packet = #pb_msg{
+                id = util_id:new_msg_id(),
+                to_uid = ToUid,
+                from_uid = Uid,
+                type = MsgType,
+                payload = ResultStanza2
+            },
+            ejabberd_router:route(Packet)
+        end, BroadcastUids),
+    ok.
 
 
 -spec publish_comment(Uid :: uid(), CommentId :: binary(), PostId :: binary(),
@@ -496,6 +521,42 @@ make_pb_feed_post(Action, PostId, Uid, PayloadBase64, EncPayload, FeedAudienceTy
             enc_payload = EncPayload,
             audience = PbAudience
     }}.
+
+
+update_feed_post_st(PublisherUid, PublisherName, HomeFeedSt, ToUid, TimestampMs) ->
+    Post = HomeFeedSt#pb_feed_item.item,
+    FeedAudienceType = HomeFeedSt#pb_feed_item.item#pb_post.audience#pb_audience.type,
+    PbAudience = case FeedAudienceType of
+        undefined -> undefined;
+        except -> #pb_audience{type = all}; %% Send all even in case of except
+        _ -> #pb_audience{type = FeedAudienceType}  %% Send all or only for other cases.
+    end,
+    MomentUnlockUid = Post#pb_post.moment_unlock_uid,
+    HomeFeedSt1 = case ToUid =:= PublisherUid orelse ToUid =:= MomentUnlockUid of
+        true ->
+            HomeFeedSt#pb_feed_item{
+                item = Post#pb_post{
+                    publisher_uid = PublisherUid,
+                    publisher_name = PublisherName,
+                    timestamp = util:ms_to_sec(TimestampMs),
+                    moment_unlock_uid = MomentUnlockUid,
+                    audience = PbAudience
+                },
+                sender_state_bundles = []
+            };
+        false ->
+            HomeFeedSt#pb_feed_item{
+                item = Post#pb_post{
+                    publisher_uid = PublisherUid,
+                    publisher_name = PublisherName,
+                    timestamp = util:ms_to_sec(TimestampMs),
+                    moment_unlock_uid = undefined,
+                    audience = PbAudience
+                },
+                sender_state_bundles = []
+            }
+    end,
+    HomeFeedSt1.
 
 
 -spec make_pb_feed_comment(Action :: action_type(), CommentId :: binary(),

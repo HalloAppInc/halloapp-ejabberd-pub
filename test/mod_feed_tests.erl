@@ -83,7 +83,8 @@ create_post_st(PostId, Uid, Payload, EncPayload, Timestamp, Audience) ->
         payload = Payload,
         timestamp = Timestamp,
         audience = Audience,
-        enc_payload = EncPayload
+        enc_payload = EncPayload,
+        tag = empty
     }.
 
 create_comment_st(CommentId, PostId, PublisherUid,
@@ -133,9 +134,9 @@ get_post_publish_iq(PostId, Uid, Payload, EncPayload, AudienceType, AudienceUids
         payload = FeedStanza
     }.
 
-get_post_publish_iq_result(PostId, Uid, AudienceType, Timestamp) ->
+get_post_publish_iq_result(PostId, Uid, Payload, EncPayload, AudienceType, Timestamp) ->
     Audience = create_audience_list_st(AudienceType, []),
-    Post = create_post_st(PostId, Uid, <<>>, <<>>, Timestamp, Audience),
+    Post = create_post_st(PostId, Uid, Payload, EncPayload, Timestamp, Audience),
     FeedStanza = create_feed_stanza(publish, Post, [], []),
     #pb_iq{
         type = result,
@@ -285,7 +286,7 @@ publish_post_test() ->
     model_friends:add_friends(?UID1, [?UID2, ?UID3]),
     ResultIQ1 = mod_feed:process_local_iq(PublishIQ),
     Timestamp = get_timestamp(ResultIQ1),
-    ExpectedResultIQ = get_post_publish_iq_result(?POST_ID1, ?UID1, all, Timestamp),
+    ExpectedResultIQ = get_post_publish_iq_result(?POST_ID1, ?UID1, ?PAYLOAD1, ?ENC_PAYLOAD1, all, Timestamp),
     ?assertEqual(ExpectedResultIQ, ResultIQ1),
 
     %% re-posting the same feedpost should still give the same timestamp.
