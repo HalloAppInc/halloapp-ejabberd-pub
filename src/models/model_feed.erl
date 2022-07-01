@@ -55,6 +55,7 @@
     get_psa_tag_posts/1,
     is_psa_tag_done/1,
     mark_psa_tag_done/1,
+    del_psa_tag_done/1,
     is_post_owner/2,
     get_post_tag/1,
     add_uid_to_audience/2,
@@ -451,6 +452,11 @@ mark_psa_tag_done(PSATag) ->
         ["HSET", psa_tag_key(PSATag), ?FIELD_PSA_TAG_DONE, 1],
         ["EXPIRE", psa_tag_key(PSATag), ?POST_EXPIRATION]]),
     ok.
+
+-spec del_psa_tag_done(PSATag :: binary()) -> boolean().
+del_psa_tag_done(PSATag) ->
+    {ok, Value} = q(["HDEL", psa_tag_key(PSATag), ?FIELD_PSA_TAG_DONE]),
+    Value =:= <<"1">>.
 
 -spec get_psa_tag_posts(PSATag :: binary()) -> {ok, [feed_item()]} | {error, any()}.
 get_psa_tag_posts(PSATag) ->

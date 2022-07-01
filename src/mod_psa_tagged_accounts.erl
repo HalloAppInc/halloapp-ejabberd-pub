@@ -22,6 +22,7 @@
 -export([
     schedule/0,
     unschedule/0,
+    send_psa_moment/1,
     send_psa_moments/0,
     find_uids/0,
     find_psa_tagged_accounts/2
@@ -98,8 +99,8 @@ send_psa_moment(PSATag) ->
 process_psa_tag(PSATag) ->
     Processed2 = lists:foldl(
         fun(Slot, Processed) ->
-            ?INFO("Sending PSA Moment accounts in slot: ~p, Tag: ~p", [Slot, PSATag]),
             {ok, List} = model_accounts:get_psa_tagged_uids(Slot, PSATag),
+            ?INFO("Sending PSA Moment accounts in slot: ~p, Tag: ~p, list: ~p", [Slot, PSATag, List]),
             Phones = model_accounts:get_phones(List),
             UidPhones = lists:zip(List, Phones),
             lists:foldl(fun({Uid, Phone}, Acc) ->
@@ -120,12 +121,14 @@ process_psa_tag(PSATag) ->
 is_timezone_ok(Phone) ->
     CC = mod_libphonenumber:get_cc(Phone),
     {{_,_,_}, {UtcHr,_,_}} = calendar:now_to_universal_time(erlang:timestamp()),
-    CCLocalHr = case CC of
-        <<"SR">> -> UtcHr - 3;
-        <<"US">> -> UtcHr - 6;
-        <<"IN">> -> UtcHr + 5;
-        _ -> UtcHr
+    UtcHr2 = UtcHr + 24,
+    CCLocalHr1 = case CC of
+        <<"SR">> -> UtcHr2 - 3;
+        <<"US">> -> UtcHr2 - 6;
+        <<"IN">> -> UtcHr2 + 5;
+        _ -> UtcHr2
     end,
+    CCLocalHr = CCLocalHr1 rem 24,
     (CCLocalHr >= 9) andalso (CCLocalHr =< 21).
 
 
@@ -133,16 +136,16 @@ is_timezone_ok(Phone) ->
 maybe_send_psa_moment(Uid, PSATag) ->
     {ok, Posts} = model_feed:get_psa_tag_posts(PSATag),
     PostStanzas = lists:map(fun convert_post_to_feeditem/1, Posts),
-    lists:foreach(fun(Post) ->
-        PostId = Post#post.id,
+    lists:foreach(fun(#pb_feed_item{item = #pb_post{id = PostId, publisher_uid = FromUid}} = PostStanza) ->
+        ?INFO("Processing Post: ~p, Uid: ~p", [PostStanza, Uid]),
         case model_accounts:mark_psa_post_sent(Uid, PostId) of
             true ->
                 Packet = #pb_msg{
                     id = util_id:new_msg_id(),
                     to_uid = Uid,
-                    from_uid = Post#pb_post.publisher_uid,
+                    from_uid = FromUid,
                     type = headline,
-                    payload = Post
+                    payload = PostStanza
                 },
                 ejabberd_router:route(Packet);
             false ->
@@ -152,7 +155,7 @@ maybe_send_psa_moment(Uid, PSATag) ->
     ok.
 
 -spec convert_post_to_feeditem(post()) -> pb_post().
-convert_post_to_feeditem(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs, audience_type = AudienceType}) ->
+convert_post_to_feeditem(#post{id = PostId, uid = Uid, payload = PayloadBase64, ts_ms = TimestampMs, audience_type = AudienceType, tag = Tag, psa_tag = PSATag}) ->
     #pb_feed_item{
         action = publish,
         item = #pb_post{
@@ -161,7 +164,9 @@ convert_post_to_feeditem(#post{id = PostId, uid = Uid, payload = PayloadBase64, 
             publisher_name = model_accounts:get_name_binary(Uid),
             payload = base64:decode(PayloadBase64),
             timestamp = util:ms_to_sec(TimestampMs),
-            audience = #pb_audience{type = AudienceType}
+            audience = #pb_audience{type = AudienceType},
+            tag = Tag,
+            psa_tag = PSATag
         }
     }.
 

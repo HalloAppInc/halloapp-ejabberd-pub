@@ -282,8 +282,11 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeed
     broadcast_post(Uid, FilteredAudienceList2, HomeFeedSt, FinalTimestampMs),
     {ok, FinalTimestampMs};
 publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, _AudienceList, HomeFeedSt) ->
+    ?INFO("Uid: ~s, PostId: ~s, PSATag: ~p", [Uid, PostId, PSATag]),
     case is_psa_tag_allowed(PSATag, Uid) of
-        false -> {error, not_allowed};
+        false ->
+            ?ERROR("PSA Tag not allowed: ~p, Uid: ~s", [PSATag, Uid]),
+            {error, not_allowed};
         true -> publish_psa_post(Uid, PostId, PayloadBase64, PostTag, PSATag, HomeFeedSt)
     end.
 

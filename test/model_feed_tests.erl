@@ -480,6 +480,11 @@ psa_tag_post_test() ->
     ok = model_feed:mark_psa_tag_done(?PSA_TAG1),
     true = model_feed:is_psa_tag_done(?PSA_TAG1),
 
+    true = model_feed:del_psa_tag_done(?PSA_TAG1),
+    false = model_feed:del_psa_tag_done(?PSA_TAG1),
+    ok = model_feed:mark_psa_tag_done(?PSA_TAG1),
+    true = model_feed:is_psa_tag_done(?PSA_TAG1),
+
     ?assertEqual({error, missing}, model_feed:get_post(?POST_ID1)),
     Timestamp1 = util:now_ms(),
     ok = model_feed:publish_psa_post(?POST_ID1, ?UID1, ?PAYLOAD1, empty, ?PSA_TAG1, Timestamp1),
