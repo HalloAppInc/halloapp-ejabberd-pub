@@ -257,13 +257,7 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeed
     FilteredAudienceList1 = AudienceList#pb_audience.uids,
     MediaCounters = HomeFeedSt#pb_feed_item.item#pb_post.media_counters,
     %% Store only the audience to be broadcasted to.
-    FeedAudienceSet = get_feed_audience_set(Action, Uid, FilteredAudienceList1),
-    %% Add detetive uids for BB users. TODO: Remove after the detective work.
-    FeedAudienceSet2 = case dev_users:is_bb_uid(Uid) of
-        true -> sets:union(FeedAudienceSet, sets:from_list(dev_users:get_detective_uids()));
-        false -> FeedAudienceSet
-    end,
-    FilteredAudienceList2 = sets:to_list(FeedAudienceSet2),
+    FilteredAudienceList2 = sets:to_list(get_feed_audience_set(Action, Uid, FilteredAudienceList1)),
     {ok, FinalTimestampMs} = case model_feed:get_post(PostId) of
         {error, missing} ->
             TimestampMs = util:now_ms(),
