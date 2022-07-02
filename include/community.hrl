@@ -20,14 +20,17 @@
 -type community_label() :: #{uid() => float()}.
 -type propagation_option() :: {fresh_start, boolean()} | {max_iters, pos_integer()} | 
     {num_workers, pos_integer()} | {max_communities_per_node, pos_integer()} | 
-    {batch_size, pos_integer()}.
+    {batch_size, pos_integer()} | {small_cluster_threshold, pos_integer()}.
+
+% The maximum number of nodes that will be forced to share one community
+-define(DEFAULT_SMALL_CLUSTER_THRESHOLD, 5).
 
 % This is the configuration parameter of the cluster detection algorithm
 % Defines the maximum number of communities a single node can be a part of
 -define(DEFAULT_MAX_COMMUNITIES, 4).
 
 % The default maximum number of iterations of label propagation we will allow when identifying communities
--define(DEFAULT_MAXIMUM_ITERATIONS, 25). 
+-define(DEFAULT_MAXIMUM_ITERATIONS, 100). 
 
 % number of keys to scan through on each iteration in the redis DB -- the COUNT option
 %  docs: https://redis.io/commands/scan/#the-count-option
@@ -38,12 +41,12 @@
 -ifdef(TEST).
 -define(MATCH_CHUNK_SIZE, 10). % to allow testing of parallel batches
 -else.
--define(MATCH_CHUNK_SIZE, 1000). 
+-define(MATCH_CHUNK_SIZE, 2500). 
 -endif.
 
 -define(COMMUNITY_WORKER_POOL, community_workers). % Name of the worker pool used to process batches
 -define(COMMUNITY_DEFAULT_NUM_WORKERS, 4). % size of the worker pool
--define(COMMUNITY_POOL_STRATEGY, best_worker). % strategy used to delegate tasks to workers
+-define(COMMUNITY_POOL_STRATEGY, available_worker). % strategy used to delegate tasks to workers
 
 % Name of the ETS table used to calculate communities
 -define(COMMUNITY_DATA_TABLE, community_data).

@@ -38,8 +38,14 @@
     analyze_communities/1,
     compute_communities/0,
     compute_communities/1,
-    batch_propagate/3,
     load_key/2
+]).
+
+% parallel processing functions
+-export([
+    batch_propagate/3,
+    batch_combine_small_clusters/3,
+    batch_set_labels/2
 ]).
 
 % For debugging single step purposes
@@ -48,7 +54,8 @@
     identify_communities/4,
     single_step_label_propagation/3,
     apply_single_step_labels/0,
-    community_detection_finish_and_cleanup/0
+    community_detection_finish_and_cleanup/2,
+    is_not_isolated/4
 ]).
 
 start(_Host, _Opts) ->
@@ -166,12 +173,13 @@ compute_communities() -> compute_communities([]). % use default values
 -spec compute_communities(RunOpts :: [propagation_option()]) -> 
     {non_neg_integer(), map()}.
 compute_communities(RunOpts) ->
-    
+    Start = util:now_ms(),
     NumWorkers = get_option(num_workers, ?COMMUNITY_DEFAULT_NUM_WORKERS, RunOpts),
     FreshStart = get_option(fresh_start, false, RunOpts),
     MaxNumCommunities = get_option(max_communities_per_node, ?DEFAULT_MAX_COMMUNITIES, RunOpts),
     MaxIters = get_option(max_iters, ?DEFAULT_MAXIMUM_ITERATIONS, RunOpts),
     BatchSize = get_option(batch_size, ?MATCH_CHUNK_SIZE, RunOpts),
+    SmallClusterThreshold = get_option(small_cluster_threshold, ?DEFAULT_SMALL_CLUSTER_THRESHOLD, RunOpts),
     
     % setup ets table 
     community_detection_setup(NumWorkers, FreshStart),
@@ -181,15 +189,15 @@ compute_communities(RunOpts) ->
 
     Success = PrevMin =:= #{},
     % post-process communities and clean up ets
-    Communities = community_detection_finish_and_cleanup(),
+    Communities = community_detection_finish_and_cleanup(BatchSize, SmallClusterThreshold),
 
     case Success of 
         true ->
-            ?INFO("-----Community detection finished in ~p iterations, finding ~p unique communities-----",
-                [NumIters, maps:size(Communities)]);
+            ?INFO("-----Community detection finished in ~p iterations (~p ms), finding ~p unique communities-----",
+                [NumIters, util:now_ms() - Start, maps:size(Communities)]);
         false ->
-            ?INFO("Community Detection was unsuccessful, ending at ~p iterations with ~p unique communities",
-                [NumIters, maps:size(Communities)])
+            ?INFO("Community Detection was unsuccessful, ending at ~p iterations (~p ms) with ~p unique communities",
+                [NumIters, util:now_ms() - Start, maps:size(Communities)])
     end,
 
     {NumIters, Communities}.
@@ -204,8 +212,8 @@ community_detection_setup(NumWorkers, FreshStart) ->
     WorkerPoolOptions = [{workers, NumWorkers}],
     wpool:start_sup_pool(?COMMUNITY_WORKER_POOL, WorkerPoolOptions),
     % Make a new table for storing node information
-    % Elem structure is {{labelinfo, Uid}, Old_Label, New_Label}
-    ets:new(?COMMUNITY_DATA_TABLE, [named_table, public]),
+    % Elem structure is {{labelinfo,f Uid}, Old_Label, New_Label}
+    ets:new(?COMMUNITY_DATA_TABLE, [named_table, public, {write_concurrency, true}, {read_concurrency, true}]),
 
     % first, dump information from Redis into ets
     % TODO (luke) This can be parallelized for each Node -- insertion into ets is thread-safe
@@ -213,6 +221,8 @@ community_detection_setup(NumWorkers, FreshStart) ->
     lists:foreach(fun (Node) -> 
                         load_keys(0, 0, Node, FreshStart)
                   end, Nodes),
+
+    
 
     ?INFO("Label Propagation Initialization took ~p ms", [util:now_ms() - Start]),
     ok.
@@ -222,10 +232,11 @@ community_detection_setup(NumWorkers, FreshStart) ->
 -spec single_step_label_propagation(PrevMin :: map(), MaxNumCommunities :: pos_integer(), 
         BatchSize :: pos_integer()) -> {map(), boolean()}.
 single_step_label_propagation(PrevMin, MaxNumCommunities, BatchSize) ->
+    ?INFO("Starting Label Propagation iteration over ~p uids", [ets:info(?COMMUNITY_DATA_TABLE, size)]),
     Start = util:now_ms(),
     % ?dbg("----------", []),
     % calculate new labels for each node in parallel batches of size ?MATCH_CHUNK_SIZE
-    foreach_uid_batch_propagate(MaxNumCommunities, BatchSize),
+    foreach_uid_batch(batch_propagate, [MaxNumCommunities], BatchSize),
 
     % check termination condition
     {OldCommunityIdCounts, NewCommunityIdCounts} = get_community_membership_counts(),
@@ -239,7 +250,7 @@ single_step_label_propagation(PrevMin, MaxNumCommunities, BatchSize) ->
     end,
     Continue = MinCommunityIdCounts =/= PrevMin,
     % ?dbg("Continue? ~p -- Min ~p , PrevMin ~p", [Continue, MinCommunityIdCounts, PrevMin]),
-    ?INFO("Label Propagation single iteration found ~p communities in ~p ms", 
+    ?INFO("Label Propagation single iteration found ~p new communities in ~p ms", 
         [maps:size(MinCommunityIdCounts), util:now_ms() - Start]),
     {MinCommunityIdCounts, Continue}.
 
@@ -256,10 +267,13 @@ apply_single_step_labels() ->
 
 
 % * finalize list of non-subset communities, store in redis, and cleanup resources
--spec community_detection_finish_and_cleanup() -> map().
-community_detection_finish_and_cleanup() ->
+-spec community_detection_finish_and_cleanup(pos_integer(), pos_integer()) -> map().
+community_detection_finish_and_cleanup(BatchSize, SmallClusterThreshold) ->
     Start = util:now_ms(),
     % Now post processing to clean up the community set and remove communities that are subsets of others
+    
+    foreach_uid_batch(batch_combine_small_clusters, [SmallClusterThreshold], BatchSize),
+    
     {DirtyCommunities, SubsetMap} = foreach_uid_acc(
         fun (Uid, CurLabel, _NewLabel, Acc) -> 
             identify_community_subsets(Uid, CurLabel, Acc) 
@@ -278,9 +292,7 @@ community_detection_finish_and_cleanup() ->
         end), 
 
     % Now apply the updated community labels back into redis
-    ok = foreach_uid(fun (Uid, CurLabel, _) -> 
-            model_accounts:set_community_label(Uid, CurLabel) 
-        end),
+    ok = foreach_uid_batch(batch_set_labels, [], BatchSize),
 
     ets:delete(?COMMUNITY_DATA_TABLE),
     wpool:stop_sup_pool(?COMMUNITY_WORKER_POOL),
@@ -292,11 +304,13 @@ community_detection_finish_and_cleanup() ->
 
 
 %%====================================================================
-%% Redis Migration Helpers
+%% Redis Helpers
 %%====================================================================
 
 -spec load_keys(non_neg_integer(), non_neg_integer(), node(), boolean()) -> integer().
-load_keys(0, N, Node, _FreshStart) when N > 0 orelse Node == -1 -> N;
+load_keys(0, N, Node, _FreshStart) when N > 0 orelse Node == -1 -> 
+    ?INFO("Done loading keys from Node ~p!", [Node]),
+    N;
 load_keys(Cursor, N, Node, FreshStart) ->
     {NewCur, Uids} = model_accounts:scan(Node, Cursor, ?SCAN_BLOCK_SIZE),
     case {Uids, Cursor} of 
@@ -311,16 +325,21 @@ load_key(BinKey, FreshStart) ->
     IsValid = is_valid_account_key(BinKey),
     Uid = case IsValid of
         true -> extract_uid(BinKey);
-        false -> undefined
+        false -> 
+            ?INFO("Error: invalid uid ~p", [BinKey]),
+            undefined
     end,
     StartingLabel = case {Uid, FreshStart} of 
-        {undefined, _} -> undefined;
+        {undefined, _} -> {error, "undefined Uid"};
         {_, true} -> #{Uid => 1.0};
         {_, false} -> model_accounts:get_community_label(Uid)
     end,
     case StartingLabel of
-        undefined -> ets:insert_new(?COMMUNITY_DATA_TABLE, {{labelinfo, Uid}, #{Uid => 1.0}, #{}}); %idempotent
-        _ -> ets:insert_new(?COMMUNITY_DATA_TABLE, {{labelinfo, Uid}, StartingLabel, #{}}) %idempotent
+        {error, _Info} -> ?INFO("Warning: Not adding ~p. IsValid: ~p", [BinKey, IsValid]), false;
+        undefined -> 
+            ?INFO("Warning: undefined starting label for uid ~p, binary ~p", [Uid, BinKey]),
+            ets:insert_new(?COMMUNITY_DATA_TABLE, {label_key(Uid), #{Uid => 1.0}, #{}}); %idempotent
+        _ -> ets:insert_new(?COMMUNITY_DATA_TABLE, {label_key(Uid), StartingLabel, #{}}) %idempotent
     end.
 
 -spec is_valid_account_key(binary()) -> boolean().
@@ -332,6 +351,17 @@ is_valid_account_key(BinKey) ->
 extract_uid(BinKey) ->
     [?ACCOUNT_KEY, Uid] = binary:split(BinKey, [<<"{">>, <<"}">>], [trim_all, global]),
     Uid.
+
+-spec batch_set_labels(pid(), [list()]) -> ok | {error | any()}.
+batch_set_labels(ParentPid, MatchList) ->
+    UidLabelTuples = lists:map(
+        fun ([Uid, CurLabel, _NewLabel]) ->
+            {Uid, CurLabel}
+        end,
+        MatchList),
+    model_accounts:set_community_labels(UidLabelTuples),
+    ParentPid ! {done, self()},
+    ok.
 
 
 %%====================================================================
@@ -394,25 +424,28 @@ batch_propagate(ParentPid, MatchList, MaxNumCommunities) ->
         end, 
         MatchList),
     {ok, Friends} = model_friends:get_friends_multi(Uids),
-    % ?dbg("Got batch for ~p -> ~p", [MatchList, Friends]),
+    % ?dbg("Got batch for ~p -> ~p", [Uids, Friends]),
+
     lists:foreach(
         fun (Uid) -> 
+            KnownFriends = remove_unknown_uids(maps:get(Uid, Friends, [])), %if undefined return []
             NoSelfFriend = lists:filter(
                 fun (Buid) -> 
                     Buid =/= Uid
                 end, 
-                maps:get(Uid, Friends, [])),
-            propagate(Uid, NoSelfFriend, MaxNumCommunities) 
+                KnownFriends),
+            case NoSelfFriend of
+                [] -> ets:delete(?COMMUNITY_DATA_TABLE, label_key(Uid)); % if they have no friends dont process them
+                _ -> propagate(Uid, NoSelfFriend, MaxNumCommunities) 
+            end
         end, 
         Uids),
     ParentPid ! {done, self()},
     ok.
 
+
 % * Called on each Uid -- Used to calculate next label for each node
 -spec propagate(uid(), FriendList :: [uid()], MaxNumCommunities :: pos_integer()) -> ok | {error, any()}.
-propagate(Uid, [], MaxNumCommunities) -> % If no friends, be own friend
-    propagate(Uid, [Uid], MaxNumCommunities);
-
 propagate(Uid, FriendList, MaxNumCommunities) ->
     % ?dbg("---------------------- Updating label for ~p--------------------------", [Uid]),
     % ?dbg("Friends: ~p", [FriendList]),
@@ -438,7 +471,7 @@ propagate(Uid, FriendList, MaxNumCommunities) ->
         false -> #{strongest_community_id(NormDirtyLabel) => 1.0} % if all are < threshold, pick highest B
     end,
 
-    case ets:update_element(?COMMUNITY_DATA_TABLE, {labelinfo, Uid}, {?NEW_LABEL_POS, NewLabel}) of
+    case ets:update_element(?COMMUNITY_DATA_TABLE, label_key(Uid), {?NEW_LABEL_POS, NewLabel}) of
         true -> ok;
         false -> {error, "Element not found"}    
     end.
@@ -493,7 +526,7 @@ finalize_label(Uid, CurLabel, Communities) ->
                                 end, 
                                 CurLabel),
     FinalLabel = normalize_label(PrunedLabel),
-    case ets:update_element(?COMMUNITY_DATA_TABLE, {labelinfo, Uid}, {?NEW_LABEL_POS, FinalLabel}) of
+    case ets:update_element(?COMMUNITY_DATA_TABLE, label_key(Uid), {?NEW_LABEL_POS, FinalLabel}) of
         true -> apply_new_label(Uid, FinalLabel), 
                 FinalLabel;
         false -> FinalLabel
@@ -507,7 +540,7 @@ finalize_label(Uid, CurLabel, Communities) ->
 -spec apply_new_label(uid(), community_label()) -> boolean().
 apply_new_label(Uid, NewLabel) ->
     % ?dbg("Updating ~p's label to ~p", [Uid, NewLabel]),
-    ets:update_element(?COMMUNITY_DATA_TABLE, {labelinfo, Uid}, {?CUR_LABEL_POS, NewLabel}).
+    ets:update_element(?COMMUNITY_DATA_TABLE, label_key(Uid), {?CUR_LABEL_POS, NewLabel}).
 
 -spec strongest_community_id(community_label()) -> uid().
 strongest_community_id(Label) ->
@@ -520,20 +553,84 @@ strongest_community_id(Label) ->
                                     {undefined, 0}, Label),
     CommunityId.
 
+-spec remove_unknown_uids([uid()]) -> [uid()].
+remove_unknown_uids(Uids) ->
+    lists:filter(
+        fun (Uid) ->
+            ets:member(?COMMUNITY_DATA_TABLE, label_key(Uid))
+        end,
+        Uids).
 
 -spec get_friend_labels([uid()]) -> [community_label()].
 get_friend_labels([]) -> [];
 get_friend_labels(Uids) ->
     lists:map(fun(Uid) -> 
-                    Labels = ets:lookup(?COMMUNITY_DATA_TABLE, {labelinfo, Uid}),
+                    Labels = ets:lookup(?COMMUNITY_DATA_TABLE, label_key(Uid)),
                     case Labels of
                         [{{labelinfo, _Uid}, CurLabel, _NewLabel}] -> CurLabel;
-                        _ -> #{}
+                        Other -> 
+                            ?INFO("ERROR: Couldn't find friend ~p label!! Got ~p instead", [Uid, Other]),
+                            #{}
                     end
               end, 
               Uids).
 
+-spec batch_combine_small_clusters(ParentPid :: pid(), MatchList :: list(), ClusterSizeThreshold :: pos_integer()) -> ok | {error, any()}.
+batch_combine_small_clusters(ParentPid, MatchList, ClusterSizeThreshold) ->
+    Start = util:now_ms(),
+    Uids = lists:map(
+        fun ([Uid, _CurLabel, _NewLabel]) -> 
+            Uid 
+        end, 
+        MatchList),
+    {ok, Friends} = model_friends:get_friends_multi(Uids),
+    % ?dbg("Got batch for ~p -> ~p", [MatchList, Friends]),
 
+    NumCombined = lists:foldl(
+        fun (Uid, Acc) -> 
+            MyFriends = lists:delete(Uid, remove_unknown_uids(maps:get(Uid, Friends, []))),
+            case combine_small_clusters(Uid, MyFriends, ClusterSizeThreshold) of
+                ok -> Acc;
+                _ -> Acc + 1
+            end
+        end, 
+        0,
+        Uids),
+    ?INFO("~p forced ~p uids into communities in ~p ms", [self(), NumCombined, util:now_ms() - Start]),
+    ParentPid ! {done, self()},
+    ok.
+
+combine_small_clusters(Uid, Friends, ClusterSizeThreshold) ->
+    % ?dbg("---Cleaning ~p", [Uid]),
+    [StartUid | Unvisited] = Friends,
+    {IsLargeCluster, ClusterUids} = is_not_isolated(StartUid, Unvisited, [Uid], ClusterSizeThreshold),
+    case IsLargeCluster of
+        true -> ok;
+        false ->
+            [Leader | _SortedUids] = lists:sort(ClusterUids),
+            ets:update_element(?COMMUNITY_DATA_TABLE, label_key(Uid), {?CUR_LABEL_POS, #{Leader => 1.0}}),
+            ets:update_element(?COMMUNITY_DATA_TABLE, label_key(Uid), {?NEW_LABEL_POS, #{Leader => 1.0}}),
+            ClusterUids
+    end.
+
+-spec is_not_isolated(Uid :: uid(), Unvisited :: [uid()], CurMembers :: [uid()], MinSize :: non_neg_integer()) -> [uid()].
+is_not_isolated(Uid, [], CurMembers, MinSize) when length(CurMembers) + 1 < MinSize ->  % add 1 to include currently being checked
+    RetMembers = [Uid | CurMembers],
+    % ?dbg("Found Disjoint community: ~p", [lists:sort(RetMembers)]),
+    {false, RetMembers};
+is_not_isolated(_Uid, _Unvisited, CurMembers, MinSize) when length(CurMembers) + 1 >= MinSize -> {true, CurMembers};
+is_not_isolated(Uid, Unvisited, CurMembers, MinSize) ->
+    % ?dbg("checking ~p, unvisited: ~p, Curmembers: ~p", [Uid, Unvisited, CurMembers]),
+    {ok, Friends} = model_friends:get_friends(Uid),
+    OtherFriends = lists:delete(Uid, Friends),
+    NewFriends = lists:subtract(remove_unknown_uids(OtherFriends), CurMembers),
+    NewUnvisited = lists:subtract(NewFriends, Unvisited) ++ Unvisited, % TODO add without duplicates; there must be a better way
+    [NextUid | NextUnvisited] = NewUnvisited,
+    NewMembers = case lists:member(Uid, CurMembers) of
+        true -> CurMembers;
+        false -> [Uid | CurMembers]
+    end,
+    is_not_isolated(NextUid, NextUnvisited, NewMembers, MinSize).
 
     
 % Calls Func on each key of the table. Func must have form -spec fun (Uid, CurLabel, NewLabel) -> ok
@@ -576,23 +673,23 @@ do_for_acc({EntryList, Cont}, Func, Acc) ->
 
 % Calls func on batches of keys, func needs to take list of [Uid, CurLabel, NewLabel]
 % Used to batch calls to redis
--spec foreach_uid_batch_propagate(MaxNumCommunities :: pos_integer(), BatchSize :: pos_integer()) -> 
-        ok | {error, any()}.
-foreach_uid_batch_propagate(MaxNumCommunities, BatchSize) ->
+-spec foreach_uid_batch(Func :: atom(), Args :: list(), 
+        BatchSize :: pos_integer()) -> ok | {error, any()}.
+foreach_uid_batch(Func, Args, BatchSize) ->
     Start = util:now_ms(),
     ets:safe_fixtable(?COMMUNITY_DATA_TABLE, true),
     Matches = ets:match(?COMMUNITY_DATA_TABLE, {{labelinfo, '$1'}, '$2', '$3'}, BatchSize),
 
-    do_for_batch(Matches, MaxNumCommunities, 0),
+    do_for_batch(Matches, Func, Args, 0),
     ets:safe_fixtable(?COMMUNITY_DATA_TABLE, false),
 
     ?INFO("Batch propagation took ~p ms", [util:now_ms() - Start]),
     ok.
 
-do_for_batch('$end_of_table', _MaxNumCommunities, 0) ->  
+do_for_batch('$end_of_table', _Func, _Args, 0) ->  
     % ?dbg("----Done with BatchPropagate!---", []), 
     ok; 
-do_for_batch('$end_of_table', MaxNumCommunities, NumChildren) -> 
+do_for_batch('$end_of_table', Func, Args, NumChildren) -> 
     % ?INFO("STATS: ~p", [wpool:stats(?COMMUNITY_WORKER_POOL)]), 
     receive
         {done, WorkerPid} -> 
@@ -600,15 +697,17 @@ do_for_batch('$end_of_table', MaxNumCommunities, NumChildren) ->
                 0 -> ?INFO("Worker ~p finished! ~p remaining", [WorkerPid, NumChildren - 1]);
                 _ -> ok
             end,
-            do_for_batch('$end_of_table', MaxNumCommunities, NumChildren - 1)
+            do_for_batch('$end_of_table', Func, Args, NumChildren - 1)
     end,
     ok; 
 
-do_for_batch({EntryList, Cont}, MaxNumCommunities, NumChildren) -> 
-    wpool:cast(?COMMUNITY_WORKER_POOL, {?MODULE, batch_propagate, [self(), EntryList, MaxNumCommunities]}, ?COMMUNITY_POOL_STRATEGY),
+do_for_batch({EntryList, Cont}, Func, Args, NumChildren) -> 
+    wpool:cast(?COMMUNITY_WORKER_POOL, {?MODULE, Func, [self(), EntryList] ++ Args}, ?COMMUNITY_POOL_STRATEGY),
     case NumChildren rem 10 of % log every 10th to avoid too many logs
         0 -> ?INFO("Spawned worker #~p to work on batch of size ~p", [NumChildren + 1, length(EntryList)]);
         _ -> ok
     end,
-    do_for_batch(ets:match(Cont), MaxNumCommunities, NumChildren + 1).
+    do_for_batch(ets:match(Cont), Func, Args, NumChildren + 1).
 
+
+label_key(Uid) -> {labelinfo, Uid}.

@@ -47,29 +47,47 @@ mod_communities_singleton_test() ->
     model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA),
     ?assertEqual(undefined, model_accounts:get_community_label(?UID1)),
     mod_communities:compute_communities(Options),
-    ?assertEqual(#{?UID1 => 1.0}, model_accounts:get_community_label(?UID1)),
+    ?assertEqual(undefined, model_accounts:get_community_label(?UID1)), %singletons should be ignored
     ok.
+
+mod_communities_small_cluster_test() ->
+    setup(),
+    Options = [{max_communities_per_node, 2}, {fresh_start, true}, {small_cluster_threshold, 4}],
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA),
+    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?UA),
+
+    % first test two friends 
+    model_friends:add_friend(?UID1, ?UID2),
+
+    {NumIters, Coms} = mod_communities:compute_communities(Options),
+    NumComs = maps:size(Coms),
+    ?assert(NumIters < 10),
+    ?assertEqual(1, NumComs),
+
+    model_friends:add_friend(?UID3, ?UID1),
+    model_friends:add_friend(?UID3, ?UID2),
+
+    {NumIters1, Coms1} = mod_communities:compute_communities(Options),
+    NumComs1 = maps:size(Coms1),
+    ?assert(NumIters1 < 10),
+    ?assertEqual(1, NumComs1),
+
+    ok.
+
 
 mod_communities_disjoint_to_joined_test() ->
     setup(),
     Options = [{max_communities_per_node, 2}, {fresh_start, true}],
 
     ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA),
-    ?assertEqual(undefined, model_accounts:get_community_label(?UID1)),
     ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA),
-    ?assertEqual(undefined, model_accounts:get_community_label(?UID2)),
     ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?UA),
-    ?assertEqual(undefined, model_accounts:get_community_label(?UID3)),
     ok = model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?UA),
-    ?assertEqual(undefined, model_accounts:get_community_label(?UID4)),
     ok = model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?UA),
-    ?assertEqual(undefined, model_accounts:get_community_label(?UID5)),
     ok = model_accounts:create_account(?UID6, ?PHONE6, ?NAME6, ?UA),
-    ?assertEqual(undefined, model_accounts:get_community_label(?UID6)),
     ok = model_accounts:create_account(?UID7, ?PHONE7, ?NAME7, ?UA),
-    ?assertEqual(undefined, model_accounts:get_community_label(?UID7)),
     ok = model_accounts:create_account(?UID8, ?PHONE8, ?NAME8, ?UA),
-    ?assertEqual(undefined, model_accounts:get_community_label(?UID8)),
 
 
     % Community 1 (Diamond with vertical line)
@@ -157,6 +175,7 @@ mod_communities_scale_test() ->
 
     ok.
 
+
 mod_communities_analysis_test() ->
     setup(),
     Options = [{fresh_start, true}],
@@ -186,15 +205,11 @@ mod_communities_analysis_test() ->
         five_to_ten := {NumSizeFiveToTen, _}, 
         more_than_ten := {NumSizeLargerThan10, _}} = mod_communities:analyze_communities(Communities),
     
-    ?assertEqual(NumSingles, NumSingleton),
+    ?assertEqual(0, NumSingleton), % singletons should be ignored
     ?assertEqual(NumFiveToTen, NumSizeFiveToTen),
     ?assertEqual(NumOverTen, NumSizeLargerThan10),
     ok.
     
-
-
-
-
 
 
 %%===========================================================================

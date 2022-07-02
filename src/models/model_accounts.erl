@@ -151,6 +151,7 @@
     mark_psa_post_sent/2,
     get_community_label/1,
     set_community_label/2,
+    set_community_labels/1,
     get_node_list/0,
     scan/3
 ]).
@@ -1177,6 +1178,15 @@ get_community_label(Uid) ->
 -spec set_community_label(Uid :: uid(), NewLabel :: community_label()) -> ok  | {error, any()}.
 set_community_label(Uid, NewLabel) ->
     {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_COMMUNITY, term_to_binary(NewLabel)]),
+    ok.
+
+-spec set_community_labels(UidLabelTuples :: [{uid(), community_label()}]) -> ok | {error, any()}.
+set_community_labels(UidLabelTuples) ->
+    Commands = lists:map(fun ({Uid, NewLabel}) -> 
+            ["HSET", account_key(Uid), ?FIELD_COMMUNITY, term_to_binary(NewLabel)] 
+        end, 
+        UidLabelTuples),
+    qmn(Commands),
     ok.
 
 -spec scan(Node :: node(), Cursor :: non_neg_integer(), Count :: pos_integer()) -> {non_neg_integer(), [uid()]} | {error, any()}.
