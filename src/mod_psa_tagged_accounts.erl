@@ -104,7 +104,9 @@ process_psa_tag(PSATag) ->
             Phones = model_accounts:get_phones(List),
             UidPhones = lists:zip(List, Phones),
             lists:foldl(fun({Uid, Phone}, Acc) ->
-                ProcessingDone = case is_timezone_ok(Phone) of
+                {_, ClientVersion} = model_accounts:get_client_version(Uid),
+                ProcessingDone = case is_timezone_ok(Phone) andalso
+                        is_client_version_ok(ClientVersion) of
                     true ->
                           maybe_send_psa_moment(Uid, PSATag),
                           true;
@@ -117,6 +119,15 @@ process_psa_tag(PSATag) ->
         true -> model_feed:mark_psa_tag_done(PSATag);
         false -> ok
     end.
+
+is_client_version_ok(missing) ->
+    false;
+is_client_version_ok(undefined) ->
+    false;
+is_client_version_ok(UserAgent) ->
+    %% TODO(vipin): Add iOS when ~ is not shown for psa moments.
+    (util_ua:is_android(UserAgent) andalso
+    util_ua:is_version_greater_than(UserAgent, <<"HalloApp/Android1.49">>)).
 
 is_timezone_ok(Phone) ->
     CC = mod_libphonenumber:get_cc(Phone),
