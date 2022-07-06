@@ -96,6 +96,7 @@ is_murali(_) -> false.
 
 is_psa_admin(<<"1000000000893731049">>) -> true;  %% Michael test phone
 is_psa_admin(<<"1000000000162508063">>) -> true;  %% Neeraj test phone
+is_psa_admin(<<"1000000000042689058">>) -> true;  %% Duygu's test phone
 is_psa_admin(<<"1000000000523926349">>) -> true;  %% Vipin's test phone, for testing
 is_psa_admin(_) -> false.
 
