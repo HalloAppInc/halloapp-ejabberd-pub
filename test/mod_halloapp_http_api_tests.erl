@@ -21,9 +21,11 @@
 -define(PHONE, <<"14703381473">>).
 -define(TEST_PHONE, <<"16175550000">>).
 -define(BAD_PHONE, <<"1617555">>).
+-define(VOIP_PHONE, <<"3544921234">>).
 -define(NAME, <<"Josh">>).
 -define(SERVER, <<"s.halloapp.net">>).
--define(UA, <<"HalloApp/iOS1.8.151">>).
+-define(UA, <<"HalloApp/iOS1.28.151">>).
+-define(ANDROID_UA, <<"HalloApp/Android1.4">>).
 -define(BAD_UA, <<"BadUserAgent/1.0">>).
 -define(IP1, "1.1.1.1").
 -define(APPLE_IP, "17.3.4.5").
@@ -91,9 +93,20 @@ request_sms_test() ->
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?BAD_UA)})),
 
     BadPhoneData = jsx:encode([{<<"phone">>, ?BAD_PHONE}]),
-    BadPhoneError = util_http:return_400(invalid_phone_number),
-    ?assertEqual(BadPhoneError, mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
+    % Android phones should return old phone error msgs, IOS with version > 1.19 should return new ones
+    BadAndroidPhoneError = util_http:return_400(invalid_phone_number),
+    BadIOSPhoneError = util_http:return_400(invalid_length),
+
+    ?assertEqual(BadAndroidPhoneError, mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
+        #request{method = 'POST', data = BadPhoneData, ip = ?IP, headers = ?REQUEST_HEADERS(?ANDROID_UA)})),
+    ?assertEqual(BadIOSPhoneError, mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = BadPhoneData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)})),
+
+    % voip number are currently unsupported – should thrown an error
+    VoipPhoneData = jsx:encode([{<<"phone">>, ?VOIP_PHONE}]),
+    VoipPhoneError = util_http:return_400(line_type_other),
+    ?assertEqual(VoipPhoneError, mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
+        #request{method = 'POST', data = VoipPhoneData, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)})),
 
     ?assert(meck:called(stat, count, ["HA/account", "request_otp_errors", 1,
         [{error, bad_user_agent}, {method, sms}]])),

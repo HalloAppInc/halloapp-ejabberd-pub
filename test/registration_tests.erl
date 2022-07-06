@@ -79,13 +79,22 @@ request_sms_fail_test(_Conf) ->
     } = Resp2,
     ok,
 
-    % use some random non-test number, get not_invited
-    {error, {400, Resp3}} = registration_client:request_sms(<<"123">>, #{user_agent => "HalloApp/iOS1.2.93"}),
+    % use some random short number, get invalid_length
+    {error, {400, Resp3}} = registration_client:request_sms(<<"123">>, #{user_agent => "HalloApp/iOS1.21.93"}),
     ct:pal("~p", [Resp3]),
     #{
         <<"result">> := <<"fail">>,
-        <<"error">> := <<"invalid_phone_number">>
+        <<"error">> := <<"invalid_length">>
     } = Resp3,
+    ok,
+
+    % use some random fixed line number, get line_type_fixed
+    {error, {400, Resp4}} = registration_client:request_sms(<<"376712345">>, #{user_agent => "HalloApp/iOS1.2.93"}),
+    ct:pal("~p", [Resp4]),
+    #{
+        <<"result">> := <<"fail">>,
+        <<"error">> := <<"invalid_phone_number">>
+    } = Resp4,
     ok.
 
 

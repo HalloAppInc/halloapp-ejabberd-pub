@@ -274,8 +274,8 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
         CampaignId = maps:get(campaign_id, RequestData, <<"undefined">>),
         HashcashSolutionTimeTakenMs = maps:get(hashcash_solution_time_taken_ms, RequestData, 0),
         log_otp_request(RawPhone, MethodBin, UserAgent, ClientIP, Protocol),
-        Phone = normalize(RawPhone),
-        check_ua(UserAgent, Phone),
+        check_ua(UserAgent),
+        Phone = normalize_by_version(RawPhone, UserAgent),
         check_hashcash(UserAgent, HashcashSolution, HashcashSolutionTimeTakenMs),
         Method = get_otp_method(MethodBin),
         ?INFO("Phone: ~s, UserAgent: ~s, Campaign Id: ~s", [Phone, UserAgent, CampaignId]),
@@ -301,6 +301,26 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
             ?INFO("register error: invalid_phone_number ~p", [RawData]),
             log_request_otp_error(invalid_phone_number, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
             {error, invalid_phone_number};
+        error : invalid_country_code ->
+            ?INFO("register error: invalid_country_code ~p", [RawData]),
+            log_request_otp_error(invalid_country_code, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
+            {error, invalid_country_code};
+        error : invalid_length ->
+            ?INFO("register error: invalid_length ~p", [RawData]),
+            log_request_otp_error(invalid_length, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
+            {error, invalid_length};
+        error : line_type_voip ->
+            ?INFO("register error: line_type_voip ~p", [RawData]),
+            log_request_otp_error(line_type_voip, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
+            {error, line_type_voip};
+        error : line_type_fixed ->
+            ?INFO("register error: line_type_fixed ~p", [RawData]),
+            log_request_otp_error(line_type_fixed, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
+            {error, line_type_fixed};
+        error : line_type_other ->
+            ?INFO("register error: line_type_other ~p", [RawData]),
+            log_request_otp_error(line_type_other, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
+            {error, line_type_other};
         error : bad_user_agent ->
             ?ERROR("register error: bad_user_agent ~p", [RawData]),
             log_request_otp_error(bad_user_agent, MethodBin, RawPhone, UserAgent, ClientIP, Protocol),
@@ -382,8 +402,8 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
     try
         RemoteStaticKey = maps:get(remote_static_key, RequestData, undefined),
         CampaignId = maps:get(campaign_id, RequestData, <<"undefined">>),
-        Phone = normalize(RawPhone),
-        check_ua(UserAgent, Phone),
+        check_ua(UserAgent),
+        Phone = normalize_by_version(RawPhone, UserAgent),
         check_sms_code(Phone, ClientIP, Protocol, Code),
         ok = otp_checker:otp_delivered(Phone, ClientIP, Protocol, RemoteStaticKey),
         LName = check_name(Name),
@@ -418,6 +438,26 @@ process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent,
             ?ERROR("register error: invalid_phone_number ~p", [RawData]),
             log_register_error(invalid_phone_number),
             {error, invalid_phone_number};
+        error : invalid_country_code ->
+            ?ERROR("register error: invalid_country_code ~p", [RawData]),
+            log_register_error(invalid_country_code),
+            {error, invalid_country_code};
+        error : invalid_length ->
+            ?ERROR("register error: invalid_length ~p", [RawData]),
+            log_register_error(invalid_length),
+            {error, invalid_length};
+        error : line_type_voip ->
+            ?ERROR("register error: line_type_voip ~p", [RawData]),
+            log_register_error(line_type_voip),
+            {error, line_type_voip};
+        error : line_type_fixed ->
+            ?ERROR("register error: line_type_fixed ~p", [RawData]),
+            log_register_error(line_type_fixed),
+            {error, line_type_fixed};
+        error : line_type_other ->
+            ?ERROR("register error: line_type_other ~p", [RawData]),
+            log_register_error(line_type_other),
+            {error, line_type_other};
         error : invalid_client_version ->
             ?ERROR("register error: invalid_client_version ~p", [RawData]),
             {error, invalid_client_version};
@@ -539,19 +579,20 @@ check_hashcash(UserAgent, Solution, TimeTakenMs) ->
                 [Solution, TimeTakenMs, HashcashResponse])
     end.
  
--spec check_ua(binary(), phone()) -> ok | no_return().
-check_ua(UserAgent, Phone) ->
-    case mod_sms_app:is_sms_app(Phone) of
-        true -> 
-            %% force sms_app clients to be android
-            case util_ua:is_android(UserAgent) of
-                true -> ok;
-                false -> 
-                    ?ERROR("SMSApp must be Android, got:~p", [UserAgent]),
-                    error(bad_user_agent)
-            end;
-        false -> check_ua(UserAgent)
-    end.
+% We currently don't use SMS app.
+% -spec check_ua(binary(), phone()) -> ok | no_return().
+% check_ua(UserAgent, Phone) ->
+%     case mod_sms_app:is_sms_app(Phone) of
+%         true ->
+%             %% force sms_app clients to be android
+%             case util_ua:is_android(UserAgent) of
+%                 true -> ok;
+%                 false ->
+%                     ?ERROR("SMSApp must be Android, got:~p", [UserAgent]),
+%                     error(bad_user_agent)
+%             end;
+%         false -> check_ua(UserAgent)
+%     end.
 
 
 -spec check_ua(binary()) -> ok | no_return().
@@ -606,17 +647,45 @@ check_name(Name) ->
         {error, Reason} -> error(Reason)
     end.
 
+% throws phone number errors (invalid length, invalid country code, unknown number type) depending on version
+-spec normalize_by_version(RawPhone :: binary(), UserAgent :: binary()) -> binary() | no_return().
+normalize_by_version(RawPhone, UserAgent) ->
+    ClientType = util_ua:get_client_type(UserAgent),
+    % Android clients cannot currently handle new errors
+    IsValidUA = case ClientType of
+        android -> false;
+        ios -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/iOS1.19.0">>)
+    end,
+    case {normalize(RawPhone), IsValidUA} of
+        {{error, ErrMsg}, true} ->
+            error(ErrMsg);
+        {{error, _}, false} ->
+            error(invalid_phone_number);
+        {Phone, _} ->
+            Phone
+    end.
 
--spec normalize(RawPhone :: binary()) -> binary() | no_return(). %throws invalid_phone_number
+
+-spec normalize(RawPhone :: binary()) -> binary() | {error, atom()}.
 normalize(RawPhone) ->
     %% We explicitly ask the clients to remove the plus in this case.
     %% So, we try to re-add here before normalizing.
     % RawPhone.
     E164Phone = mod_libphonenumber:prepend_plus(RawPhone),
     case mod_libphonenumber:normalize(E164Phone, <<"US">>) of
-        % TODO @michelle: group phone error messages
-        {error, _ErrMsg} ->
-            error(invalid_phone_number);
+        {error, ErrMsgRaw} ->
+            ErrMsg = case ErrMsgRaw of
+                invalid_country_code -> invalid_country_code;
+                too_short -> invalid_length;
+                too_long -> invalid_length;
+                invalid_length -> invalid_length;
+                % TODO: Change back to voip error after protobuf bug is fixed
+                line_type_voip -> line_type_other;
+                line_type_fixed -> line_type_fixed;
+                line_type_other -> line_type_other;
+                _ -> invalid_phone_number
+            end,
+            {error, ErrMsg};
         {ok, Phone} ->
             Phone
     end.
