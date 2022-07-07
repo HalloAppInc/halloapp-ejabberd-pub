@@ -84,7 +84,7 @@ send_psa_moments() ->
 find_uids() ->
     redis_migrate:start_migration("Find PSA Tagged Accounts", redis_accounts,
         {?MODULE, find_psa_tagged_accounts},
-        [{dry_run, false}, {execute, sequential}]),
+        [{dry_run, true}, {execute, sequential}]),
     ok.
 
 %%====================================================================
@@ -194,8 +194,8 @@ find_psa_tagged_accounts(Key, State) ->
             try
                 {ok, Phone} = model_accounts:get_phone(Uid),
                 case {DryRun, mod_libphonenumber:get_cc(Phone)} of
-                    {true, <<"SR">>} -> model_accounts:add_uid_to_psa_tag(Uid, <<"SR">>);
-                    {false, <<"SR">>} -> ?INFO("Will add: ~p to \"SR\" PSA Tag", [Uid]);
+                    {false, <<"SR">>} -> model_accounts:add_uid_to_psa_tag(Uid, <<"SR">>);
+                    {true, <<"SR">>} -> ?INFO("Will add: ~p to \"SR\" PSA Tag", [Uid]);
                     {_, _} -> ok
                 end
             catch

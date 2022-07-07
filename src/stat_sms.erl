@@ -202,16 +202,18 @@ process_incremental_scoring_data(CurrentIncrement, NumExaminedIncrements, IsNew)
                     end, #{Code => {(TotalCount - ErrorCount) / TotalCount, TotalCount}}, Acc)
             end, #{}, ?SCORE_DATA_TABLE),
 
-            % Compare all gateways in each country / globally to find ones which are relevant with the current amount sampled.
+            % Compare all gateways in each country / globally to find ones which are in the running
+            % with the current amount sampled.
             RelevantGatewaysByLocation = maps:map(fun(_K, V) -> relevant_gateways(V) end, GatewayScores),
 
-            % Set relevance flag for all gateways.
+            % Set relevance flag for all gateways. Relevance = true => we need more data.
             ets:foldl(fun({{Type, Code}, _, _, _, _}, _Acc) -> 
                 Location = get_location(Type, Code),
                 RelevantGateways = maps:get(Location, RelevantGatewaysByLocation),
                 IsNowRelevant = case length(RelevantGateways) of
-                    % If there are two or more candidates we want to continue sampling until there is only one
-                    % Once there is one gateway found to be significantly better than all others, we stop sampling.
+                    % If there are two or more candidates we want to continue sampling from relevant
+                    % gateways until there is only one. Once there is one gateway found to be significantly
+                    % better than all others, we stop sampling.
                     Count when Count >= 2 -> lists:member(Code, RelevantGateways);
                     _ -> false
                 end,
@@ -360,7 +362,7 @@ should_inc(VariableType, VariableName, IncrementMap) ->
 
 
 %% evaluates if the given variable has more than the minimum required number of 
-%% data points (currently 20)
+%% data points (currently 20), or we need more data to decide the winner.
 -spec needs_more_data(VariableKey :: tuple()) -> boolean().
 needs_more_data(VariableKey) ->
     case ets:lookup(?SCORE_DATA_TABLE, VariableKey) of
