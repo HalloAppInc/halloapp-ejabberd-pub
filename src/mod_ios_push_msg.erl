@@ -52,7 +52,9 @@
 -export([
     push_message/2,
     push_message/3,
-    send_post_request_to_apns/9
+    send_post_request_to_apns/9,
+    crash/0    %% to test
+
 ]).
 
 
@@ -91,6 +93,10 @@ reload(_Host, _NewOpts, _OldOpts) ->
 
 mod_options(_Host) ->
     [].
+
+-spec crash() -> ok.
+crash() ->
+    gen_server:cast(?PROC(), crash).
 
 %%====================================================================
 %% gen_server callbacks
@@ -143,6 +149,8 @@ handle_cast({push_message_item, PushMessageItem, ParentPid}, State) ->
 handle_cast({push_message_item, PushMessageItem, PushMetadata, ParentPid}, State) ->
     NewState = push_message_item(PushMessageItem, PushMetadata, State, ParentPid),
     {noreply, NewState};
+handle_cast(crash, _State) ->
+    error(test_crash);
 handle_cast(Request, State) ->
     ?DEBUG("unknown request: ~p", [Request]),
     {noreply, State}.
