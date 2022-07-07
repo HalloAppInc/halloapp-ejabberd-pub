@@ -204,7 +204,7 @@ push_message_item(PushMessageItem, PushMetadata, State, ParentPid) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     ContentType = PushMetadata#push_metadata.content_type,
-    ApnsId = PushMetadata#push_message_item.apns_id,
+    ApnsId = PushMessageItem#push_message_item.apns_id,
     EndpointType = case {util:is_voip_incoming_message(Message), Os} of
         {true, <<"ios">>} -> voip_prod;
         {true, <<"ios_dev">>} -> voip_dev;
