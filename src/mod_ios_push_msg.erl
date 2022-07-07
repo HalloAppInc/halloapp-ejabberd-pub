@@ -107,6 +107,7 @@ init([Host|_]) ->
     {DevPid, DevMon} = connect_to_apns(dev),
     {VoipPid, VoipMon} = connect_to_apns(voip_prod),
     {VoipDevPid, VoipDevMon} = connect_to_apns(voip_dev),
+    {NoiseStaticKey, NoiseCertificate} = util:get_noise_key_material(),
     %% TODO: Move all voip push logic to its own gen_server.
     {ok, #push_state{
             pendingMap = #{},
@@ -118,7 +119,9 @@ init([Host|_]) ->
             voip_conn = VoipPid,
             voip_mon = VoipMon,
             voip_dev_conn = VoipDevPid,
-            voip_dev_mon = VoipDevMon}}.
+            voip_dev_mon = VoipDevMon,
+            noise_static_key = NoiseStaticKey,
+            noise_certificate = NoiseCertificate}}.
 
 
 terminate(_Reason, #push_state{host = _Host, conn = Pid, mon = Mon, dev_conn = DevPid,

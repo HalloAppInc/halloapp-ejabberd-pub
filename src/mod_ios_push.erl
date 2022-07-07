@@ -95,12 +95,9 @@ crash() ->
 %%====================================================================
 
 init([Host|_]) ->
-    {NoiseStaticKey, NoiseCertificate} = util:get_noise_key_material(),
     {ok, #push_state{
             pendingMap = #{},
-            host = Host,
-            noise_static_key = NoiseStaticKey,
-            noise_certificate = NoiseCertificate}}.
+            host = Host}}.
 
 
 terminate(_Reason, #push_state{host = _Host}) ->
