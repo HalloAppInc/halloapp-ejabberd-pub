@@ -285,7 +285,7 @@ push_message(Message, PushInfo, State) ->
     MsgId = pb:get_id(Message),
     Uid = pb:get_to(Message),
     try
-        ApnsId = util:new_uuid(),
+        ApnsId = util_id:new_uuid(),
         Timestamp = util:now(),
         PushMetadata = push_util:parse_metadata(Message),
         PushMessageItem = #push_message_item{
