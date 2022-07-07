@@ -35,7 +35,7 @@ stop(_Host) ->
     ok.
 
 depends(_Host, _Opts) ->
-    [].
+    [{mod_aws, hard}].
 
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.
