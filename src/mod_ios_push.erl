@@ -162,7 +162,8 @@ handle_info({retry, PushMessageItem}, State) ->
             ?INFO("Uid: ~s, retry push_message_item: ~p", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
-            mod_ios_push_msg:push_message_item(NewPushMessageItem, State, self())
+            mod_ios_push_msg:push_message(NewPushMessageItem, self()),
+            add_to_pending_map(PushMessageItem#push_message_item.apns_id, NewPushMessageItem, State)
     end,
     {noreply, NewState};
 
@@ -270,6 +271,13 @@ handle_apns_response(StatusCode, ApnsId, State) ->
 %% internal module functions
 %%====================================================================
 
+-spec add_to_pending_map(ApnsId :: binary(), PushMessageItem :: push_message_item(),
+        State :: push_state()) -> push_state().
+add_to_pending_map(ApnsId, PushMessageItem, #push_state{pendingMap = PendingMap} = State) ->
+    NewPendingMap = PendingMap#{ApnsId => PushMessageItem},
+    State#push_state{pendingMap = NewPendingMap}.
+
+
 %% TODO(murali@): Figure out a way to better use the message-id.
 -spec push_message(Message :: pb_msg(), PushInfo :: push_info(),
         State :: push_state()) -> push_state().
@@ -277,6 +285,7 @@ push_message(Message, PushInfo, State) ->
     MsgId = pb:get_id(Message),
     Uid = pb:get_to(Message),
     try
+        ApnsId = util:new_uuid(),
         Timestamp = util:now(),
         PushMetadata = push_util:parse_metadata(Message),
         PushMessageItem = #push_message_item{
@@ -287,8 +296,11 @@ push_message(Message, PushInfo, State) ->
             retry_ms = ?RETRY_INTERVAL_MILLISEC,
             push_info = PushInfo,
             push_type = PushMetadata#push_metadata.push_type,
-            content_type = PushMetadata#push_metadata.content_type},
-            mod_ios_push_msg:push_message_item(PushMessageItem, PushMetadata, State, self())
+            content_type = PushMetadata#push_metadata.content_type,
+            apns_id = ApnsId
+        },
+        mod_ios_push_msg:push_message(PushMessageItem, PushMetadata, self()),
+        add_to_pending_map(ApnsId, PushMessageItem, State)
     catch
         Class: Reason: Stacktrace ->
             ?ERROR("Failed to push MsgId: ~s ToUid: ~s crash:~s",

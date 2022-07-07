@@ -50,10 +50,24 @@
 
 %% API
 -export([
-    push_message_item/3,
-    push_message_item/4,
+    push_message/2,
+    push_message/3,
     send_post_request_to_apns/9
 ]).
+
+
+-spec push_message(PushMessageItem :: push_message_item(), ParentPid :: pid()) -> ok.
+push_message(PushMessageItem, ParentPid) ->
+    gen_server:cast(?PROC(), {push_message_item, PushMessageItem, ParentPid}),
+    ok.
+
+
+-spec push_message(PushMessageItem :: push_message_item(),
+    PushMetadata:: push_metadata(), ParentPid :: pid()) -> ok.
+push_message(PushMessageItem, PushMetadata, ParentPid) ->
+    gen_server:cast(?PROC(), {push_message_item, PushMessageItem, PushMetadata, ParentPid}),
+    ok.
+
 
 %%====================================================================
 %% gen_mod API.
@@ -119,7 +133,13 @@ handle_call(Request, _From, State) ->
     ?DEBUG("unknown request: ~p", [Request]),
     {reply, ok, State}.
 
-% Should never be called
+
+handle_cast({push_message_item, PushMessageItem, ParentPid}, State) ->
+    NewState = push_message_item(PushMessageItem, State, ParentPid),
+    {noreply, NewState};
+handle_cast({push_message_item, PushMessageItem, PushMetadata, ParentPid}, State) ->
+    NewState = push_message_item(PushMessageItem, PushMetadata, State, ParentPid),
+    {noreply, NewState};
 handle_cast(Request, State) ->
     ?DEBUG("unknown request: ~p", [Request]),
     {noreply, State}.
@@ -164,6 +184,7 @@ handle_info(Request, State) ->
 %% internal module functions
 %%====================================================================
 
+
 -spec push_message_item(PushMessageItem :: push_message_item(),
         State :: push_state(), ParentPid :: pid()) -> push_state().
 push_message_item(PushMessageItem, State, ParentPid) ->
@@ -183,6 +204,7 @@ push_message_item(PushMessageItem, PushMetadata, State, ParentPid) ->
     Id = PushMessageItem#push_message_item.id,
     Uid = PushMessageItem#push_message_item.uid,
     ContentType = PushMetadata#push_metadata.content_type,
+    ApnsId = PushMetadata#push_message_item.apns_id,
     EndpointType = case {util:is_voip_incoming_message(Message), Os} of
         {true, <<"ios">>} -> voip_prod;
         {true, <<"ios_dev">>} -> voip_dev;
@@ -191,7 +213,6 @@ push_message_item(PushMessageItem, PushMetadata, State, ParentPid) ->
     end,
     PushType = PushMetadata#push_metadata.push_type,
     PayloadBin = get_payload(PushMessageItem, PushMetadata, PushType, State),
-    ApnsId = util_id:new_uuid(),
     ?INFO("Uid: ~s, MsgId: ~s, ApnsId: ~s, ContentId: ~s, ContentType: ~s",
         [Uid, Id, ApnsId, ContentId, ContentType]),
     {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
@@ -330,16 +351,8 @@ send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, Endpoint
             ?DEBUG("Post Request Pid: ~p, DevicePath: ~p, HeadersList: ~p, PayloadBin: ~p",
                 [Pid, DevicePath, HeadersList, PayloadBin]),
             _StreamRef = gun:post(Pid, DevicePath, HeadersList, PayloadBin, #{reply_to => ParentPid}),
-            FinalState = add_to_pending_map(ApnsId, PushMessageItem, NewState),
-            {ok, FinalState}
+            {ok, NewState}
     end.
-
-
--spec add_to_pending_map(ApnsId :: binary(), PushMessageItem :: push_message_item(),
-        State :: push_state()) -> push_state().
-add_to_pending_map(ApnsId, PushMessageItem, #push_state{pendingMap = PendingMap} = State) ->
-    NewPendingMap = PendingMap#{ApnsId => PushMessageItem},
-    State#push_state{pendingMap = NewPendingMap}.
 
 
 -spec get_pid_to_send(EndpointType :: endpoint_type(),
