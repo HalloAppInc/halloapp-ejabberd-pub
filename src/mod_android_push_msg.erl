@@ -100,20 +100,20 @@ push_message_item(PushMessageItem, #push_state{pendingMap = PendingMap} = State,
         {error, Reason} ->
             ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p",
                     [Uid, binary:part(Token, 0, 10), Reason]),
-            retry_message_item(PushMessageItem),
+            retry_message_item(PushMessageItem, ParentPid),
             State
     end.
 
 
--spec retry_message_item(PushMessageItem :: push_message_item()) -> reference().
-retry_message_item(PushMessageItem) ->
+-spec retry_message_item(PushMessageItem :: push_message_item(), ParentPid :: pid()) -> reference().
+retry_message_item(PushMessageItem, ParentPid) ->
     RetryTime = PushMessageItem#push_message_item.retry_ms,
-    setup_timer({retry, PushMessageItem}, RetryTime).
+    setup_timer({retry, PushMessageItem}, ParentPid, RetryTime).
 
 
--spec setup_timer(Msg :: any(), Timeout :: integer()) -> reference().
-setup_timer(Msg, Timeout) ->
-    NewTimer = erlang:send_after(Timeout, Msg),
+-spec setup_timer(Msg :: any(), ParentPid :: pid(), Timeout :: integer()) -> reference().
+setup_timer(Msg, ParentPid, Timeout) ->
+    NewTimer = erlang:send_after(Timeout, ParentPid, Msg),
     NewTimer.
 
 
