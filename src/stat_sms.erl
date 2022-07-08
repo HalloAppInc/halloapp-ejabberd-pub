@@ -481,7 +481,7 @@ update_redis_score(VarName, RecentScore)->
     ok.
 
 update_redis_score(VarName, RecentScore, RecentCount)->
-    {ok, OldAggScore} = model_gw_score:get_aggregate_score(VarName),
+    {ok, OldAggScore} = model_gw_score:get_aggregate_score(VarName, test),
     NewAggScore = case {RecentScore, OldAggScore} of 
         {nan, _} -> OldAggScore;
         {_, undefined} -> RecentScore;
@@ -496,6 +496,7 @@ update_redis_score(VarName, RecentScore, RecentCount)->
         nan -> undefined;
         _ -> RecentScore
     end,
+    %% TODO(vipin): Need to store `RecentCount` also in redis.
     model_gw_score:store_score(VarName, StoreRecentScore, NewAggScore, NewCount),
     ok.
 

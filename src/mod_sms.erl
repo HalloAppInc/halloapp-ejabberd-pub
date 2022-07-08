@@ -471,7 +471,11 @@ pick_gw_experimental(ChooseFrom, CC, IsFirstAttempt) ->
                 % Sample randomly from all gateways some fraction of the time to keep test traffic.
                 ChooseFrom;
          false ->
-                % there should only be one relevant gateway after stat_sms is done sampling.
+                %% If given clickatell, twilio, twilio_verify, relevant gatways should return
+                %% twilio and twilio_verify. When choosing, we should choose one of
+                %% twilio, twilio_verify on random
+                %%
+                %% Meaning: There could be more than one relevant gateways
                 RelevantGateways
      end,
 
