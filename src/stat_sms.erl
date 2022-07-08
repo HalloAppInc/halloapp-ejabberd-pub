@@ -481,13 +481,12 @@ update_redis_score(VarName, RecentScore)->
     ok.
 
 update_redis_score(VarName, RecentScore, RecentCount)->
-    {ok, OldAggScore} = model_gw_score:get_aggregate_score(VarName, test),
+    {ok, OldAggScore, OldCount} = model_gw_score:get_aggregate_stats(VarName),
     NewAggScore = case {RecentScore, OldAggScore} of 
         {nan, _} -> OldAggScore;
         {_, undefined} -> RecentScore;
         {_, _} -> combine_scores(RecentScore, OldAggScore)
     end,
-    {ok, OldCount} = model_gw_score:get_aggregate_count(VarName),
     NewCount = case OldCount of
         undefined -> RecentCount;
         _ -> combine_scores(RecentCount, OldCount)

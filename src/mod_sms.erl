@@ -557,13 +557,13 @@ get_new_gw_scores(ChooseFrom, CC) ->
 
 -spec get_new_gw_stats(ChooseFrom :: [atom()], CC :: binary()) -> #{atom() => {float(), integer()}}.
 get_new_gw_stats(ChooseFrom, CC) ->
-     RetVal = lists:map(
-         fun(Gateway) ->
-            {ok, Stats} = get_stats(Gateway, CC),
-            {Gateway, Stats}
-         end, ChooseFrom),
-     ScoreMap = maps:from_list(RetVal),
-     ?DEBUG("CC: ~p, Gateway Scores: ~p", [CC, ScoreMap]),
+    RetVal = lists:map(
+        fun(Gateway) ->
+           {ok, Stats} = get_stats(Gateway, CC),
+           {Gateway, Stats}
+        end, ChooseFrom),
+    ScoreMap = maps:from_list(RetVal),
+    ?DEBUG("CC: ~p, Gateway Scores: ~p", [CC, ScoreMap]),
     ScoreMap.
 
 %% Tries to retieve country-specific gateway score. If insufficient data (nan),
