@@ -57,7 +57,6 @@ is_cc_supported(CC) ->
         <<"TD">> -> false;     %% Chad
         <<"CZ">> -> false;     %% Czech Republic
         <<"JP">> -> false;     %% Japan
-        <<"ID">> -> false;     %% Indonesia
         <<"KZ">> -> false;     %% Kazakhstan
         <<"KE">> -> false;     %% Kenya
         <<"MA">> -> false;     %% Morocco
