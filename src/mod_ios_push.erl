@@ -25,7 +25,7 @@
 -include("password.hrl").
 
 -define(RETRY_INTERVAL_MILLISEC, 30 * ?SECONDS_MS).    %% 30 seconds.
--define(MESSAGE_MAX_RETRY_TIME_SEC, 10 * ?MINUTES).    %% 10 minutes.
+-define(MESSAGE_MAX_RETRY_TIME_MILLISEC, 10 * ?MINUTES_MS).    %% 10 minutes.
 
 -define(APNS_ID, <<"apns-id">>).
 
@@ -148,10 +148,10 @@ handle_info({retry, PushMessageItem}, State) ->
     Uid = PushMessageItem#push_message_item.uid,
     Id = PushMessageItem#push_message_item.id,
     ?DEBUG("retry: push_message_item: ~p", [PushMessageItem]),
-    CurTimestamp = util:now(),
-    MsgTimestamp = PushMessageItem#push_message_item.timestamp,
+    CurTimestampMs = util:now_ms(),
+    MsgTimestampMs = PushMessageItem#push_message_item.timestamp_ms,
     %% Stop retrying after 10 minutes!
-    NewState = case CurTimestamp - MsgTimestamp < ?MESSAGE_MAX_RETRY_TIME_SEC of
+    NewState = case CurTimestampMs - MsgTimestampMs < ?MESSAGE_MAX_RETRY_TIME_MILLISEC of
         false ->
             ?INFO("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]),
             State;
@@ -283,13 +283,13 @@ push_message(Message, PushInfo, State) ->
     Uid = pb:get_to(Message),
     try
         ApnsId = util_id:new_uuid(),
-        Timestamp = util:now(),
+        TimestampMs = util:now_ms(),
         PushMetadata = push_util:parse_metadata(Message),
         PushMessageItem = #push_message_item{
             id = MsgId,
             uid = Uid,
             message = Message,
-            timestamp = Timestamp,
+            timestamp_ms = TimestampMs,
             retry_ms = ?RETRY_INTERVAL_MILLISEC,
             push_info = PushInfo,
             push_type = PushMetadata#push_metadata.push_type,
@@ -337,7 +337,7 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
         id = ContentId,
         uid = Uid,
         message = PayloadBin,   %% Storing it here for now. TODO(murali@): fix this.
-        timestamp = util:now(),
+        timestamp_ms = util:now_ms(),
         retry_ms = ?RETRY_INTERVAL_MILLISEC,
         push_info = PushInfo,
         push_type = PushType

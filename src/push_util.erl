@@ -15,7 +15,8 @@
 
 -export([
     parse_metadata/1,
-    get_title_body/2
+    get_title_body/2,
+    process_push_times/3
 ]).
 
 -spec parse_metadata(Message :: pb_msg()) -> push_metadata().
@@ -228,4 +229,16 @@ translate(Token, LangId) ->
 translate(Token, Args, LangId) ->
     {Translation, _ResultLangId} = mod_translate:translate(Token, Args, LangId),
     Translation.
+
+
+% Rolling average of how long the last ten push notifications have taken
+-spec process_push_times(PushTimes :: [integer()], Time :: integer(), Platform :: android | ios) -> [integer()].
+process_push_times(PushTimes, Time, Platform) ->
+    NewPushTimes = case PushTimes of
+        PrevTimes when length(PushTimes) < 10 -> PrevTimes ++ [Time];
+        [_OldestTime | PrevTimes] -> PrevTimes ++ [Time]
+    end,
+    Avg = lists:sum(NewPushTimes)/length(NewPushTimes),
+    ?INFO("Average time for ~p push notification: ~p ms", [Platform, Avg]),
+    NewPushTimes.
 

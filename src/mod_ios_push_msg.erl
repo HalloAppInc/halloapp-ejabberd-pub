@@ -22,7 +22,6 @@
 -type endpoint_type() :: prod | dev | voip_dev | voip_prod.
 
 -define(MESSAGE_EXPIRY_TIME_SEC, 1 * ?DAYS).    %% seconds in 1 day.
--define(MESSAGE_MAX_RETRY_TIME_SEC, 10 * ?MINUTES).    %% 10 minutes.
 -define(MAX_PUSH_PAYLOAD_SIZE, 3500).   % 3500 bytes.
 
 -define(APNS_ID, <<"apns-id">>).
@@ -231,7 +230,10 @@ push_message_item(PushMessageItem, PushMetadata, State, ParentPid) ->
         [Uid, Id, ApnsId, ContentId, ContentType]),
     {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
             PushType, EndpointType, PushMessageItem, State, ParentPid),
-    FinalState.
+    TimeTakenMs = util:now_ms() - PushMessageItem#push_message_item.timestamp_ms,
+    NewPushTimes = push_util:process_push_times(FinalState#push_state.push_times_ms, TimeTakenMs, ios),
+    FinalState2 = FinalState#push_state{push_times_ms = NewPushTimes},
+    FinalState2.
 
 
 %% Details about the content inside the apns push payload are here:
@@ -430,7 +432,8 @@ get_expiry_time(EndpointType, PushMessageItem) ->
     case EndpointType of
         voip_prod -> 0;
         voip_dev -> 0;
-        _ -> PushMessageItem#push_message_item.timestamp + ?MESSAGE_EXPIRY_TIME_SEC
+        % Expiry time needs to be in seconds
+        _ -> (PushMessageItem#push_message_item.timestamp_ms div 1000) + ?MESSAGE_EXPIRY_TIME_SEC
     end.
 
 -spec connect_to_apns(EndpointType :: endpoint_type()) -> {pid(), reference()} | {undefined, undefined}.

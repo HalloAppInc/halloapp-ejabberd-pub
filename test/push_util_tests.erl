@@ -9,6 +9,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include ("push_message.hrl").
 
+-define(ANDROID, android).
 -define(ID1, <<"1">>).
 -define(ID2, <<"2">>).
 -define(TYPE, contact).
@@ -93,5 +94,17 @@ parse_metadata_test() ->
     Msg = #pb_msg{id = ?ID1},
     #push_metadata{content_id = ?ID1, content_type = undefined, push_type = alert} = push_util:parse_metadata(Msg),
     
+    ok.
+
+
+process_push_times_test() ->
+    PushTimes = [],
+    [10] = push_util:process_push_times(PushTimes, 10, ?ANDROID),
+    PushTimes2 = [1,2,3,4],
+    % Newest time is added at the end
+    [1,2,3,4,10] = push_util:process_push_times(PushTimes2, 10, ?ANDROID),
+    PushTimes3 = [0,1,2,3,4,5,6,7,8,9],
+    % Only hold last ten times
+    [1,2,3,4,5,6,7,8,9,10] = push_util:process_push_times(PushTimes3, 10, ?ANDROID),
     ok.
 

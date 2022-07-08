@@ -17,8 +17,7 @@
 -include("push_message.hrl").
 -include("proc.hrl").
 
-%% TODO(murali@): convert everything to 1 timeunit.
--define(MESSAGE_MAX_RETRY_TIME_SEC, 600).          %% 10 minutes.
+-define(MESSAGE_MAX_RETRY_TIME_MILLISEC, 600000).          %% 10 minutes.
 -define(RETRY_INTERVAL_MILLISEC, 30000).           %% 30 seconds.
 
 %% gen_mod API
@@ -122,10 +121,10 @@ handle_info({retry, PushMessageItem}, State) ->
     Uid = PushMessageItem#push_message_item.uid,
     Id = PushMessageItem#push_message_item.id,
     ?DEBUG("retry: push_message_item: ~p", [PushMessageItem]),
-    CurTimestamp = util:now(),
-    MsgTimestamp = PushMessageItem#push_message_item.timestamp,
+    CurTimestampMs = util:now_ms(),
+    MsgTimestampMs = PushMessageItem#push_message_item.timestamp_ms,
     %% Stop retrying after 10 minutes!
-    State1 = case CurTimestamp - MsgTimestamp < ?MESSAGE_MAX_RETRY_TIME_SEC of
+    State1 = case CurTimestampMs - MsgTimestampMs < ?MESSAGE_MAX_RETRY_TIME_MILLISEC of
         false ->
             ?INFO("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]),
             State;
@@ -163,12 +162,12 @@ push_message(Message, PushInfo, State) ->
     MsgId = pb:get_id(Message),
     Uid = pb:get_to(Message),
     try
-        Timestamp = util:now(),
+        TimestampMs = util:now_ms(),
         PushMessageItem = #push_message_item{
                 id = MsgId,
                 uid = Uid,
                 message = Message,
-                timestamp = Timestamp,
+                timestamp_ms = TimestampMs,
                 retry_ms = ?RETRY_INTERVAL_MILLISEC,
                 push_info = PushInfo},
         mod_android_push_msg:push_message_item(PushMessageItem, State, self())

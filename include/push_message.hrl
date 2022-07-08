@@ -14,7 +14,7 @@
     id :: binary(),
     uid :: binary(),
     message :: pb_msg(),
-    timestamp :: integer(),
+    timestamp_ms :: integer(),
     retry_ms :: integer(),
     push_info :: push_info(),
     push_type = silent :: alert | silent,
@@ -37,7 +37,8 @@
     voip_dev_conn :: pid(),
     voip_dev_mon :: reference(),
     noise_static_key :: binary(),
-    noise_certificate :: binary()
+    noise_certificate :: binary(),
+    push_times_ms = [] :: list()
 }).
 
 -type push_state() :: #push_state{}.
