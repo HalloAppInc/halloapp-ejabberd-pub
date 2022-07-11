@@ -108,8 +108,7 @@ init([Host|_]) ->
     {VoipDevPid, VoipDevMon} = connect_to_apns(voip_dev),
     {NoiseStaticKey, NoiseCertificate} = util:get_noise_key_material(),
     %% TODO: Move all voip push logic to its own gen_server.
-    {ok, #push_state{
-            pendingMap = #{},
+    {ok, #worker_push_state{
             host = Host,
             conn = Pid,
             mon = Mon,
@@ -123,7 +122,7 @@ init([Host|_]) ->
             noise_certificate = NoiseCertificate}}.
 
 
-terminate(_Reason, #push_state{host = _Host, conn = Pid, mon = Mon, dev_conn = DevPid,
+terminate(_Reason, #worker_push_state{host = _Host, conn = Pid, mon = Mon, dev_conn = DevPid,
         dev_mon = DevMon, voip_conn = VoipPid, voip_mon = VoipMon,
         voip_dev_conn = VoipDevPid, voip_dev_mon = VoipDevMon}) ->
     demonitor(Mon),
@@ -159,28 +158,28 @@ handle_cast(Request, State) ->
 
 
 handle_info({'DOWN', Mon, process, Pid, Reason},
-        #push_state{conn = Pid, mon = Mon} = State) ->
+        #worker_push_state{conn = Pid, mon = Mon} = State) ->
     ?INFO("prod gun_down pid: ~p, mon: ~p, reason: ~p", [Pid, Mon, Reason]),
     {NewPid, NewMon} = connect_to_apns(prod),
-    {noreply, State#push_state{conn = NewPid, mon = NewMon}};
+    {noreply, State#worker_push_state{conn = NewPid, mon = NewMon}};
 
 handle_info({'DOWN', DevMon, process, DevPid, Reason},
-        #push_state{dev_conn = DevPid, dev_mon = DevMon} = State) ->
+        #worker_push_state{dev_conn = DevPid, dev_mon = DevMon} = State) ->
     ?INFO("dev gun_down pid: ~p, mon: ~p, reason: ~p", [DevPid, DevMon, Reason]),
     {NewDevPid, NewDevMon} = connect_to_apns(dev),
-    {noreply, State#push_state{dev_conn = NewDevPid, dev_mon = NewDevMon}};
+    {noreply, State#worker_push_state{dev_conn = NewDevPid, dev_mon = NewDevMon}};
 
 handle_info({'DOWN', VoipMon, process, VoipPid, Reason},
-        #push_state{voip_conn = VoipPid, voip_mon = VoipMon} = State) ->
+        #worker_push_state{voip_conn = VoipPid, voip_mon = VoipMon} = State) ->
     ?INFO("voip_prod gun_down pid: ~p, mon: ~p, reason: ~p", [VoipPid, VoipMon, Reason]),
     {NewVoipPid, NewVoipMon} = connect_to_apns(voip_prod),
-    {noreply, State#push_state{voip_conn = NewVoipPid, voip_mon = NewVoipMon}};
+    {noreply, State#worker_push_state{voip_conn = NewVoipPid, voip_mon = NewVoipMon}};
 
 handle_info({'DOWN', VoipDevMon, process, VoipDevPid, Reason},
-        #push_state{voip_dev_conn = VoipDevPid, voip_dev_mon = VoipDevMon} = State) ->
+        #worker_push_state{voip_dev_conn = VoipDevPid, voip_dev_mon = VoipDevMon} = State) ->
     ?INFO("voip_dev gun_down pid: ~p, mon: ~p, reason: ~p", [VoipDevPid, VoipDevMon, Reason]),
     {NewVoipDevPid, NewVoipDevMon} = connect_to_apns(voip_dev),
-    {noreply, State#push_state{voip_dev_conn = NewVoipDevPid, voip_dev_mon = NewVoipDevMon}};
+    {noreply, State#worker_push_state{voip_dev_conn = NewVoipDevPid, voip_dev_mon = NewVoipDevMon}};
 
 handle_info({'DOWN', _Mon, process, Pid, Reason}, State) ->
     ?ERROR("down message from gun pid: ~p, reason: ~p", [Pid, Reason]),
@@ -199,7 +198,7 @@ handle_info(Request, State) ->
 
 
 -spec push_message_item(PushMessageItem :: push_message_item(),
-        State :: push_state(), ParentPid :: pid()) -> push_state().
+        State :: worker_push_state(), ParentPid :: pid()) -> worker_push_state().
 push_message_item(PushMessageItem, State, ParentPid) ->
     PushMetadata = push_util:parse_metadata(PushMessageItem#push_message_item.message),
     NewPushMessageItem = PushMessageItem#push_message_item{
@@ -209,7 +208,7 @@ push_message_item(PushMessageItem, State, ParentPid) ->
 
 
 -spec push_message_item(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata(),
-        State :: push_state(), ParentPid :: pid()) -> push_state().
+        State :: worker_push_state(), ParentPid :: pid()) -> worker_push_state().
 push_message_item(PushMessageItem, PushMetadata, State, ParentPid) ->
     Message = PushMessageItem#push_message_item.message,
     Os = PushMessageItem#push_message_item.push_info#push_info.os,
@@ -231,15 +230,16 @@ push_message_item(PushMessageItem, PushMetadata, State, ParentPid) ->
     {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
             PushType, EndpointType, PushMessageItem, State, ParentPid),
     TimeTakenMs = util:now_ms() - PushMessageItem#push_message_item.timestamp_ms,
-    NewPushTimes = push_util:process_push_times(FinalState#push_state.push_times_ms, TimeTakenMs, ios),
-    FinalState2 = FinalState#push_state{push_times_ms = NewPushTimes},
+    % TODO: Have mod_ios_push handle PushTimes instead
+    NewPushTimes = push_util:process_push_times(FinalState#worker_push_state.push_times_ms, TimeTakenMs, ios),
+    FinalState2 = FinalState#worker_push_state{push_times_ms = NewPushTimes},
     FinalState2.
 
 
 %% Details about the content inside the apns push payload are here:
 %% [https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification]
 -spec get_payload(PushMessageItem :: push_message_item(), PushMetadata :: push_metadata(),
-        PushType :: alertType(), State :: push_state()) -> binary().
+        PushType :: alertType(), State :: worker_push_state()) -> binary().
 get_payload(PushMessageItem, PushMetadata, PushType, State) ->
     Message = PushMessageItem#push_message_item.message,
     EncryptedContent = base64:encode(encrypt_message(PushMessageItem, State)),
@@ -276,7 +276,7 @@ get_payload(PushMessageItem, PushMetadata, PushType, State) ->
 
 %% Use noise-x pattern to encrypt the message.
 %% TODO(murali@): Fetch the static key when we fetch the push token itself.
--spec encrypt_message(PushMessageItem :: push_message_item(), State :: push_state()) -> binary().
+-spec encrypt_message(PushMessageItem :: push_message_item(), PushState :: worker_push_state()) -> binary().
 encrypt_message(#push_message_item{uid = Uid, message = Message}, PushState) ->
     try
         case enif_protobuf:encode(Message) of
@@ -303,7 +303,7 @@ encrypt_message(#push_message_item{uid = Uid, message = Message}, PushState) ->
     end.
 
 
--spec transform_and_encrypt_message(Uid :: uid(), Msg :: pb_msg(), PushState :: push_state()) -> binary().
+-spec transform_and_encrypt_message(Uid :: uid(), Msg :: pb_msg(), PushState :: worker_push_state()) -> binary().
 transform_and_encrypt_message(Uid, #pb_msg{payload = #pb_incoming_call{} = IncomingCall} = Message, PushState) ->
     IncomingCallPush = #pb_incoming_call_push{
         call_id = IncomingCall#pb_incoming_call.call_id,
@@ -324,8 +324,8 @@ transform_and_encrypt_message(Uid, #pb_msg{payload = #pb_incoming_call{} = Incom
     end.
 
 
--spec encrypt_message_bin(Uid :: uid(), MsgBin :: binary(), PushState :: push_state()) -> binary().
-encrypt_message_bin(Uid, MsgBin, #push_state{noise_static_key = S, noise_certificate = Cert}) ->
+-spec encrypt_message_bin(Uid :: uid(), MsgBin :: binary(), PushState :: worker_push_state()) -> binary().
+encrypt_message_bin(Uid, MsgBin, #worker_push_state{noise_static_key = S, noise_certificate = Cert}) ->
     case enif_protobuf:encode(#pb_push_content{certificate = Cert, content = MsgBin}) of
         {error, Reason2} ->
             ?ERROR("Failed encoding msgbin: ~p, cert: ~p, reason: ~p",
@@ -345,7 +345,8 @@ encrypt_message_bin(Uid, MsgBin, #push_state{noise_static_key = S, noise_certifi
 
 -spec send_post_request_to_apns(Uid :: binary(), ApnsId :: binary(), ContentId :: binary(), PayloadBin :: binary(),
         PushType :: alertType(), EndpointType :: endpoint_type(), PushMessageItem :: push_message_item(),
-        State :: push_state(), ParentPid :: pid()) -> {ok, push_state()} | {ignored, push_state()} | {{error, any()}, push_state()}.
+        State :: worker_push_state(), ParentPid :: pid()) -> {ok, worker_push_state()} |
+        {ignored, worker_push_state()} | {{error, any()}, worker_push_state()}.
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State, ParentPid) ->
     Priority = get_priority(EndpointType, PushType),
     DevicePath = get_device_path(EndpointType, PushMessageItem#push_message_item.push_info),
@@ -372,27 +373,27 @@ send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, Endpoint
 
 
 -spec get_pid_to_send(EndpointType :: endpoint_type(),
-        State :: push_state()) -> {pid() | undefined, push_state()}.
-get_pid_to_send(prod = EndpointType, #push_state{conn = undefined} = State) ->
+        State :: worker_push_state()) -> {pid() | undefined, worker_push_state()}.
+get_pid_to_send(prod = EndpointType, #worker_push_state{conn = undefined} = State) ->
     {Pid, Mon} = connect_to_apns(EndpointType),
-    {Pid, State#push_state{conn = Pid, mon = Mon}};
+    {Pid, State#worker_push_state{conn = Pid, mon = Mon}};
 get_pid_to_send(prod, State) ->
-    {State#push_state.conn, State};
-get_pid_to_send(dev = EndpointType, #push_state{dev_conn = undefined} = State) ->
+    {State#worker_push_state.conn, State};
+get_pid_to_send(dev = EndpointType, #worker_push_state{dev_conn = undefined} = State) ->
     {DevPid, DevMon} = connect_to_apns(EndpointType),
-    {DevPid, State#push_state{dev_conn = DevPid, dev_mon = DevMon}};
+    {DevPid, State#worker_push_state{dev_conn = DevPid, dev_mon = DevMon}};
 get_pid_to_send(dev, State) ->
-    {State#push_state.dev_conn, State};
-get_pid_to_send(voip_prod = EndpointType, #push_state{voip_conn = undefined} = State) ->
+    {State#worker_push_state.dev_conn, State};
+get_pid_to_send(voip_prod = EndpointType, #worker_push_state{voip_conn = undefined} = State) ->
     {VoipPid, VoipMon} = connect_to_apns(EndpointType),
-    {VoipPid, State#push_state{voip_conn = VoipPid, voip_mon = VoipMon}};
+    {VoipPid, State#worker_push_state{voip_conn = VoipPid, voip_mon = VoipMon}};
 get_pid_to_send(voip_prod, State) ->
-    {State#push_state.voip_conn, State};
-get_pid_to_send(voip_dev = EndpointType, #push_state{voip_dev_conn = undefined} = State) ->
+    {State#worker_push_state.voip_conn, State};
+get_pid_to_send(voip_dev = EndpointType, #worker_push_state{voip_dev_conn = undefined} = State) ->
     {VoipDevPid, VoipDevMon} = connect_to_apns(EndpointType),
-    {VoipDevPid, State#push_state{voip_dev_conn = VoipDevPid, voip_dev_mon = VoipDevMon}};
+    {VoipDevPid, State#worker_push_state{voip_dev_conn = VoipDevPid, voip_dev_mon = VoipDevMon}};
 get_pid_to_send(voip_dev, State) ->
-    {State#push_state.voip_dev_conn, State}.
+    {State#worker_push_state.voip_dev_conn, State}.
 
 -spec get_bundle_id(EndpointType :: endpoint_type()) -> binary().
 get_bundle_id(prod) -> ?APP_BUNDLE_ID;

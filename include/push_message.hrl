@@ -25,8 +25,7 @@
 -type push_message_item() :: #push_message_item{}.
 
 %% TODO(murali@): Store this pending/retry list info in ets tables/redis and keep the state simple.
--record(push_state, {
-    pendingMap :: #{},
+-record(worker_push_state, {
     host :: binary(),
     conn :: pid(),
     mon :: reference(),
@@ -38,6 +37,14 @@
     voip_dev_mon :: reference(),
     noise_static_key :: binary(),
     noise_certificate :: binary(),
+    push_times_ms = [] :: list()
+}).
+
+-type worker_push_state() :: #worker_push_state{}.
+
+-record(push_state, {
+    host :: binary(),
+    pendingMap :: #{},
     push_times_ms = [] :: list()
 }).
 
