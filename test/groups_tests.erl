@@ -9,6 +9,7 @@
 -define(GROUP_NAME1, <<"gname1">>).
 -define(GROUP_NAME2, <<"gname2">>).
 -define(GROUP_NAME3, <<"gname3">>).
+-define(GROUP_EXPIRY1, #pb_expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = 86400}).
 -define(GROUP_NAME1_CHANGED, <<"gname1_changed">>).
 
 group() ->
@@ -47,6 +48,7 @@ create_group_test(Conf) ->
     Payload = #pb_group_stanza{
         action = create,
         name = ?GROUP_NAME1,
+        expiry_info = ?GROUP_EXPIRY1,
         members = [#pb_group_member{
             uid = ?UID2
         }]
@@ -61,6 +63,7 @@ create_group_test(Conf) ->
                 action = create,
                 gid = Gid,
                 name = ?GROUP_NAME1,
+                expiry_info = ?GROUP_EXPIRY1,
                 avatar_id = <<>>,
                 members = [
                     % TODO: the spec says we should get back our selves also... but we don't
@@ -84,6 +87,7 @@ create_group_test(Conf) ->
         name = ?GROUP_NAME1,
         sender_uid = ?UID1,
         sender_name = ?NAME1,
+        expiry_info = ?GROUP_EXPIRY1,
         members = [
             #pb_group_member{uid = ?UID2, action = add, type = member, name = ?NAME2}
         ]

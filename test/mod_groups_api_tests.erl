@@ -266,11 +266,16 @@ create_empty_group_test() ->
     #pb_group_stanza{
         gid = Gid,
         name = ?GROUP_NAME1,
-        members = []
+        members = [],
+        expiry_info = #pb_expiry_info{
+            expiry_type = expires_in_seconds,
+            expires_in_seconds = 2592000
+        }
     } = GroupSt,
     ?assertEqual(true, model_groups:group_exists(Gid)),
     ?assertEqual(
-        {ok, #group_info{gid = Gid, name = ?GROUP_NAME1}},
+        {ok, #group_info{gid = Gid, name = ?GROUP_NAME1,
+            expiry_info = #expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = 2592000}}},
         mod_groups:get_group_info(Gid, ?UID1)),
 %%    ?debugVal(IQRes),
     ok.
@@ -500,7 +505,12 @@ get_group_test() ->
             #pb_group_member{uid = ?UID1, name = ?NAME1, type = admin, identity_key = undefined},
             #pb_group_member{uid = ?UID2, name = ?NAME2, type = member, identity_key = undefined},
             #pb_group_member{uid = ?UID3, name = ?NAME3, type = member, identity_key = undefined}],
-        audience_hash = undefined
+        audience_hash = undefined,
+        expiry_info = #pb_expiry_info{
+            expiry_type = expires_in_seconds,
+            expires_in_seconds = 30 * 86400,
+            expiry_timestamp = undefined
+        }
     },
 %%    ?debugVal(ExpectedGroupSt, 1000),
     ?assertEqual(ExpectedGroupSt, GroupSt),
@@ -528,7 +538,11 @@ get_group_identity_keys_test() ->
             #pb_group_member{uid = ?UID2, name = ?NAME2, type = member, identity_key = IK2},
             #pb_group_member{uid = ?UID3, name = ?NAME3, type = member, identity_key = IK3}
         ],
-        audience_hash = AudienceHash
+        audience_hash = AudienceHash,
+        expiry_info = #pb_expiry_info{
+            expiry_type = expires_in_seconds,
+            expires_in_seconds = 30 * 86400
+        }
     } = GroupSt,
     ?assertEqual(?TRUNC_HASH_LENGTH, byte_size(AudienceHash)),
     ?assertEqual(LocalHash, AudienceHash),

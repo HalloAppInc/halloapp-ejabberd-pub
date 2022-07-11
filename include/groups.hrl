@@ -35,7 +35,8 @@
     background :: binary(),
     creation_ts_ms :: integer(),
     members :: [group_member()],
-    audience_hash :: binary()
+    audience_hash :: binary(),
+    expiry_info :: expiry_info()
 }).
 
 -type group() :: #group{}.
@@ -46,10 +47,20 @@
     description :: binary(),
     avatar :: binary(),
     background :: binary(),
-    audience_hash :: binary()
+    audience_hash :: binary(),
+    expiry_info :: expiry_info()
 }).
 
 -type group_info() :: #group_info{}.
+
+-record(expiry_info, {
+    expiry_type :: expiry_type(),
+    expires_in_seconds :: integer(),
+    expiry_timestamp :: integer()
+}).
+
+-type expiry_type() :: expires_in_seconds | never | custom_date.
+-type expiry_info() :: #expiry_info{}.
 
 -define(MAX_GROUP_SIZE, 50).
 -define(MAX_GROUP_COUNT, 1000).

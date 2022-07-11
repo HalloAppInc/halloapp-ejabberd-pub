@@ -7,6 +7,7 @@
 -author("nikola").
 
 -include("groups.hrl").
+-include("packets.hrl").
 -include("xmpp.hrl").
 -include("groups_test_data.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -35,7 +36,7 @@ create_empty_group_test() ->
     setup(),
     meck:new(util, [passthrough]),
     meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
-    {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
+    {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1, #pb_expiry_info{expiry_type = never, expiry_timestamp = -1}),
     Gid = Group#group.gid,
 %%    ?debugVal(Group),
     ?assertEqual(?GROUP_NAME1, Group#group.name),
@@ -43,6 +44,11 @@ create_empty_group_test() ->
     ?assertEqual(Gid, Group#group.gid),
     % make sure the time is close to now.
     ?assertEqual(?TIMESTAMP, Group#group.creation_ts_ms),
+    ?assertEqual(#expiry_info{
+        expiry_type = never,
+        expires_in_seconds = undefined,
+        expiry_timestamp = -1
+    }, Group#group.expiry_info),
     ?assertEqual([#group_member{uid = ?UID1, type = admin, joined_ts_ms = ?TIMESTAMP}],
         Group#group.members),
     ?assert(meck:validate(util)),
@@ -61,7 +67,8 @@ create_group_with_members_test() ->
     setup(),
     meck:new(util, [passthrough]),
     meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
-    {ok, Group, AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    {ok, Group, AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1,
+         #pb_expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = 86400}, [?UID2, ?UID3]),
     ?assertEqual(?GROUP_NAME1, Group#group.name),
     ?assertEqual(3, length(Group#group.members)),
     [M1, M2, M3] = Group#group.members,
@@ -81,7 +88,8 @@ create_group_member_has_no_account_test() ->
     setup(),
     meck:new(util, [passthrough]),
     meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
-    {ok, Group, AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID5]),
+    {ok, Group, AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1,
+        #pb_expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = 86400}, [?UID2, ?UID5]),
     ?assertEqual(2, length(Group#group.members)),
     [M1, M2] = Group#group.members,
     ?assertEqual(#group_member{uid = ?UID1, type = admin, joined_ts_ms = ?TIMESTAMP}, M1),
@@ -98,7 +106,8 @@ create_group_member_has_no_account_test() ->
 
 delete_group_test() ->
     setup(),
-    {ok, Group, _AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    {ok, Group, _AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1,
+        #pb_expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = 86400}, [?UID2, ?UID3]),
     ?assertEqual({error, not_admin}, mod_groups:delete_group(Group#group.gid, ?UID2)),
     ?assertEqual({error, not_admin}, mod_groups:delete_group(Group#group.gid, ?UID3)),
     ?assertEqual(ok, mod_groups:delete_group(Group#group.gid, ?UID1)),
@@ -200,7 +209,8 @@ leave_group_test() ->
 remove_user_test() ->
     setup(),
     ?assertEqual(ok, mod_groups:remove_user(?UID1, <<>>)),
-    {ok, Group1, _AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    {ok, Group1, _AddMemberResult} = mod_groups:create_group(?UID1, ?GROUP_NAME1,
+        #pb_expiry_info{expiry_type = expires_in_seconds, expires_in_seconds = 86400}, [?UID2, ?UID3]),
     {ok, Group2} = mod_groups:create_group(?UID1, ?GROUP_NAME2),
     Gid1 = Group1#group.gid,
     Gid2 = Group2#group.gid,
@@ -283,7 +293,12 @@ get_group_test() ->
             #group_member{uid = ?UID1, type = admin, joined_ts_ms = ?TIMESTAMP},
             #group_member{uid = ?UID2, type = member, joined_ts_ms = ?TIMESTAMP},
             #group_member{uid = ?UID3, type = member, joined_ts_ms = ?TIMESTAMP}
-        ]
+        ],
+        expiry_info = #expiry_info{
+            expiry_type = expires_in_seconds,
+            expires_in_seconds = 30 * 86400,
+            expiry_timestamp = undefined
+        }
     },
     ?assertEqual(ExpectedGroup, Group2),
     ?assert(meck:validate(util)),
@@ -298,14 +313,22 @@ get_groups_test() ->
     {ok, Group} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     Gid = Group#group.gid,
     mod_groups:add_members(Gid, ?UID1, [?UID2, ?UID3]),
-    GroupInfo1 = #group_info{gid = Gid, name = ?GROUP_NAME1},
+    GroupInfo1 = #group_info{gid = Gid, name = ?GROUP_NAME1, expiry_info = #expiry_info{
+            expiry_type = expires_in_seconds,
+            expires_in_seconds = 30 * 86400,
+            expiry_timestamp = undefined
+        }},
 
     ?assertEqual([GroupInfo1], mod_groups:get_groups(?UID1)),
     ?assertEqual([GroupInfo1], mod_groups:get_groups(?UID2)),
     ?assertEqual([GroupInfo1], mod_groups:get_groups(?UID3)),
     {ok, Group2} = mod_groups:create_group(?UID2, ?GROUP_NAME2),
     Gid2 = Group2#group.gid,
-    GroupInfo2 = #group_info{gid = Gid2, name = ?GROUP_NAME2},
+    GroupInfo2 = #group_info{gid = Gid2, name = ?GROUP_NAME2, expiry_info = #expiry_info{
+            expiry_type = expires_in_seconds,
+            expires_in_seconds = 30 * 86400,
+            expiry_timestamp = undefined
+        }},
     mod_groups:add_members(Gid2, ?UID2, [?UID1, ?UID4]),
     ?assertEqual(lists:sort([GroupInfo1, GroupInfo2]), lists:sort(mod_groups:get_groups(?UID1))),
     ?assertEqual(lists:sort([GroupInfo1, GroupInfo2]), lists:sort(mod_groups:get_groups(?UID2))),
@@ -395,14 +418,16 @@ modify_members_test() ->
 
 send_chat_message_test() ->
     setup(),
-    {ok, Group, _Res} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    {ok, Group, _Res} = mod_groups:create_group(?UID1, ?GROUP_NAME1,
+        #pb_expiry_info{expiry_type = never, expiry_timestamp = -1}, [?UID2, ?UID3]),
     Gid = Group#group.gid,
     {ok, _Ts} = mod_groups:send_chat_message(?MSG_ID1, Gid, ?UID1, <<"TestMessage">>),
     ok.
 
 send_retract_message_test() ->
     setup(),
-    {ok, Group, _Res} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    {ok, Group, _Res} = mod_groups:create_group(?UID1, ?GROUP_NAME1,
+        #pb_expiry_info{expiry_type = never, expiry_timestamp = -1}, [?UID2, ?UID3]),
     Gid = Group#group.gid,
     GroupChatRetractSt = #groupchat_retract_st{id = <<"id1">>, gid = Gid},
     {ok, _Ts} = mod_groups:send_retract_message(?MSG_ID1, Gid, ?UID1, GroupChatRetractSt),
@@ -419,7 +444,8 @@ cleanup_empty_groups_test() ->
 
 admin_leave_test() ->
     setup(),
-    {ok, Group, _Res} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    {ok, Group, _Res} = mod_groups:create_group(?UID1, ?GROUP_NAME1, 
+        #pb_expiry_info{expiry_type = never, expiry_timestamp = -1}, [?UID2, ?UID3]),
     Gid = Group#group.gid,
     mod_groups:leave_group(Gid, ?UID1),
     IsUid2Admin = model_groups:is_admin(Gid, ?UID2),
@@ -439,14 +465,17 @@ admin_leave_test() ->
 get_all_group_members_test() ->
     setup(),
     ?assertEqual(sets:new(), mod_groups:get_all_group_members(?UID1)),
-    {ok, _, _} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
-    {ok, _, _} = mod_groups:create_group(?UID1, ?GROUP_NAME2, [?UID2, ?UID4]),
+    {ok, _, _} = mod_groups:create_group(?UID1, ?GROUP_NAME1, 
+        #pb_expiry_info{expiry_type = never, expiry_timestamp = -1}, [?UID2, ?UID3]),
+    {ok, _, _} = mod_groups:create_group(?UID1, ?GROUP_NAME2, 
+        #pb_expiry_info{expiry_type = never, expiry_timestamp = -1}, [?UID2, ?UID4]),
     ?assertEqual(sets:from_list([?UID2, ?UID3, ?UID4]), mod_groups:get_all_group_members(?UID1)),
     ok.
 
 web_preview_invite_link_test() ->
     setup(),
-    {ok, Group, _} = mod_groups:create_group(?UID1, ?GROUP_NAME1, [?UID2, ?UID3]),
+    {ok, Group, _} = mod_groups:create_group(?UID1, ?GROUP_NAME1,
+        #pb_expiry_info{expiry_type = never, expiry_timestamp = -1}, [?UID2, ?UID3]),
     Gid = Group#group.gid,
     {ok, Link} = mod_groups:get_invite_link(Gid, ?UID1),
     ?assertEqual(
@@ -465,7 +494,8 @@ max_group_count_test() ->
     % create empty group
     {error, max_group_count} = mod_groups:create_group(?UID1, ?GROUP_NAME1),
     % create group with members
-    {ok, Group, GroupResults} = mod_groups:create_group(?UID2, ?GROUP_NAME1, [?UID1, ?UID3]),
+    {ok, Group, GroupResults} = mod_groups:create_group(?UID2, ?GROUP_NAME1,
+        #pb_expiry_info{expiry_type = never, expiry_timestamp = -1}, [?UID1, ?UID3]),
     ?assertEqual(GroupResults, [{?UID1, add, max_group_count}, {?UID3, add, ok}]),
     Gid = Group#group.gid,
     % join invite link

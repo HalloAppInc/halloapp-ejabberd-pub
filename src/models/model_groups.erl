@@ -11,6 +11,7 @@
 -include("redis_keys.hrl").
 -include("ha_types.hrl").
 -include("groups.hrl").
+-include("time.hrl").
 
 -define(GROUP_INVITE_LINK_SIZE, 24).
 
@@ -18,6 +19,8 @@
 %% API
 -export([
     create_group/2,
+    create_group/4,
+    create_group/5,
     delete_group/1,
     delete_empty_group/1,
     group_exists/1,
@@ -39,6 +42,7 @@
     is_member/2,
     is_admin/2,
     set_name/2,
+    set_expiry/3,
     set_description/2,
     set_avatar/2,
     set_background/2,
@@ -62,7 +66,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -export([
     decode_member/2,
-    create_group/3,
+    create_group/4,
     encode_member_type/1,
     group_key/1,
     members_key/1,
@@ -75,6 +79,8 @@
 %%====================================================================
 
 -define(FIELD_NAME, <<"na">>).
+-define(FIELD_EXPIRY_TYPE, <<"exy">>).
+-define(FIELD_EXPIRY_TIMESTAMP, <<"ext">>).
 -define(FIELD_DESCRIPTION, <<"de">>).
 -define(FIELD_AVATAR_ID, <<"av">>).
 -define(FIELD_BACKGROUND, <<"bg">>).
@@ -86,17 +92,26 @@
 
 -spec create_group(Uid :: uid(), Name :: binary()) -> {ok, Gid :: gid()}.
 create_group(Uid, Name) ->
-    create_group(Uid, Name, util:now_ms()).
+    create_group(Uid, Name, expires_in_seconds, 30 * ?DAYS, util:now_ms()).
 
 
--spec create_group(Uid :: uid(), Name :: binary(), Ts :: integer()) -> {ok, Gid :: gid()}.
-create_group(Uid, Name, Ts) ->
+-spec create_group(Uid :: uid(), Name :: binary(),
+    ExpiryType :: expiry_type(), ExpiryTimestamp :: integer()) -> {ok, Gid :: gid()}.
+create_group(Uid, Name, ExpiryType, ExpiryTimestamp) ->
+    create_group(Uid, Name, ExpiryType, ExpiryTimestamp, util:now_ms()).
+
+
+-spec create_group(Uid :: uid(), Name :: binary(),
+    ExpiryType :: expiry_type(), ExpiryTimestamp :: integer(), Ts :: integer()) -> {ok, Gid :: gid()}.
+create_group(Uid, Name, ExpiryType, ExpiryTimestamp, Ts) ->
     Gid = util_id:generate_gid(),
     MemberValue = encode_member_value(admin, util:now_ms(), Uid),
     [{ok, _}, {ok, _}, {ok, _}] = qp([
         ["HSET",
             group_key(Gid),
             ?FIELD_NAME, Name,
+            ?FIELD_EXPIRY_TYPE, encode_expiry_type(ExpiryType),
+            ?FIELD_EXPIRY_TIMESTAMP, integer_to_binary(ExpiryTimestamp),
             ?FIELD_CREATION_TIME, integer_to_binary(Ts),
             ?FIELD_CREATED_BY, Uid],
         ["HSET", members_key(Gid), Uid, MemberValue],
@@ -162,6 +177,7 @@ get_group(Gid) ->
             GroupMap = util:list_to_map(GroupData),
             MembersMap = util:list_to_map(MembersData),
             Members = decode_members(Gid, MembersMap),
+            ExpiryInfo = extract_expiry_info(GroupMap),
             #group{
                 gid = Gid,
                 name = maps:get(?FIELD_NAME, GroupMap, undefined),
@@ -170,7 +186,8 @@ get_group(Gid) ->
                 creation_ts_ms = util_redis:decode_ts(
                     maps:get(?FIELD_CREATION_TIME, GroupMap, undefined)),
                 members = lists:sort(fun member_compare/2, Members),
-                background = maps:get(?FIELD_BACKGROUND, GroupMap, undefined)
+                background = maps:get(?FIELD_BACKGROUND, GroupMap, undefined),
+                expiry_info = ExpiryInfo
             }
     end.
 
@@ -182,15 +199,39 @@ get_group_info(Gid) ->
         [] -> undefined;
         _ ->
             GroupMap = util:list_to_map(GroupData),
+            ExpiryInfo = extract_expiry_info(GroupMap),
             #group_info{
                 gid = Gid,
                 name = maps:get(?FIELD_NAME, GroupMap, undefined),
                 description = maps:get(?FIELD_DESCRIPTION, GroupMap, undefined),
                 avatar = maps:get(?FIELD_AVATAR_ID, GroupMap, undefined),
                 background = maps:get(?FIELD_BACKGROUND, GroupMap, undefined),
-                audience_hash = maps:get(?FIELD_AUDIENCE_HASH, GroupMap, undefined)
+                audience_hash = maps:get(?FIELD_AUDIENCE_HASH, GroupMap, undefined),
+                expiry_info = ExpiryInfo
             }
     end.
+
+
+extract_expiry_info(GroupMap) ->
+    ExpiryType = decode_expiry_type(maps:get(?FIELD_EXPIRY_TYPE, GroupMap, undefined)),
+    ExpiryInfo = case ExpiryType of
+        expires_in_seconds ->
+            #expiry_info{
+                expiry_type = ExpiryType,
+                expires_in_seconds = util_redis:decode_ts(maps:get(?FIELD_EXPIRY_TIMESTAMP, GroupMap, undefined))
+            };
+        custom_date ->
+            #expiry_info{
+                expiry_type = ExpiryType,
+                expiry_timestamp = util_redis:decode_ts(maps:get(?FIELD_EXPIRY_TIMESTAMP, GroupMap, undefined))
+            };
+        never ->
+            #expiry_info{
+                expiry_type = ExpiryType,
+                expiry_timestamp = -1
+            }
+    end,
+    ExpiryInfo.
 
 
 -spec get_groups(Uid :: uid()) -> [gid()].
@@ -361,6 +402,16 @@ set_name(Gid, Name) ->
     ok.
 
 
+-spec set_expiry(Gid :: gid(), ExpiryType :: expiry_type(), ExpiryTimestamp :: integer()) -> ok.
+set_expiry(Gid, ExpiryType, ExpiryTimestamp) ->
+    {ok, _Res} = q(
+        ["HMSET", group_key(Gid),
+         ?FIELD_EXPIRY_TYPE, encode_expiry_type(ExpiryType),
+         ?FIELD_EXPIRY_TIMESTAMP, integer_to_binary(ExpiryTimestamp)
+         ]),
+    ok.
+
+
 -spec set_description(Gid :: gid(), Description :: binary()) -> ok.
 set_description(Gid, Description) ->
     {ok, _Res} = q(["HSET", group_key(Gid), ?FIELD_DESCRIPTION, Description]),
@@ -525,6 +576,18 @@ decode_member_type(<<"a">>) ->
     admin;
 decode_member_type(Any) ->
     erlang:error({bad_member_type, Any}).
+
+
+encode_expiry_type(expires_in_seconds) -> <<"sec">>;
+encode_expiry_type(custom_date) -> <<"date">>;
+encode_expiry_type(never) -> <<"never">>;
+encode_expiry_type(_) -> <<"sec">>.
+
+
+decode_expiry_type(<<"sec">>) -> expires_in_seconds;
+decode_expiry_type(<<"date">>) -> custom_date;
+decode_expiry_type(<<"never">>) -> never;
+decode_expiry_type(_) -> expires_in_seconds.
 
 
 -spec decode_members(Gid :: gid(), MembersMap :: map()) -> [group_member()].

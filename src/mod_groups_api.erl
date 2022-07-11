@@ -89,8 +89,8 @@ send_group_message(#pb_msg{id = MsgId, from_uid = Uid, type = groupchat,
 
 %%% create_group %%%
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_group_stanza{action = create, name = Name} = ReqGroupSt} = IQ) ->
-    process_create_group(IQ, Uid, Name, ReqGroupSt);
+        payload = #pb_group_stanza{action = create, name = Name, expiry_info = Expiry} = ReqGroupSt} = IQ) ->
+    process_create_group(IQ, Uid, Name, Expiry, ReqGroupSt);
 
 
 %%% delete_group %%%
@@ -139,6 +139,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = get,
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
         payload = #pb_group_stanza{action = set_name, gid = Gid, name = Name} = _ReqGroupSt} = IQ) ->
     process_set_name(IQ, Gid, Uid, Name);
+
+
+%%% set_expiry %%%
+process_local_iq(#pb_iq{from_uid = Uid, type = set,
+        payload = #pb_group_stanza{action = change_expiry, gid = Gid, expiry_info = Expiry} = _ReqGroupSt} = IQ) ->
+    process_set_expiry(IQ, Gid, Uid, Expiry);
 
 
 %%% set_description %%%
@@ -205,12 +211,12 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 
 -spec process_create_group(IQ :: pb_iq(), Uid :: uid(),
-        Name :: binary(), ReqGroupSt :: pb_group_stanza()) -> pb_iq().
-process_create_group(IQ, Uid, Name, ReqGroupSt) ->
-    ?INFO("create_group Uid: ~s Name: |~s| Group: ~p", [Uid, Name, ReqGroupSt]),
+        Name :: binary(), Expiry :: expiry_info(), ReqGroupSt :: pb_group_stanza()) -> pb_iq().
+process_create_group(IQ, Uid, Name, Expiry, ReqGroupSt) ->
+    ?INFO("create_group Uid: ~s Name: |~s| Expiry: ~s Group: ~p", [Uid, Name, Expiry, ReqGroupSt]),
     MemberUids = [M#pb_group_member.uid || M <- ReqGroupSt#pb_group_stanza.members],
 
-    {ok, Group, Results} = mod_groups:create_group(Uid, Name, MemberUids),
+    {ok, Group, Results} = mod_groups:create_group(Uid, Name, Expiry, MemberUids),
 
     MembersSt = lists:map(
         fun ({MemberUid, add, Result}) ->
@@ -225,6 +231,7 @@ process_create_group(IQ, Uid, Name, ReqGroupSt) ->
     GroupStResult = #pb_group_stanza{
         gid = Group#group.gid,
         name = Group#group.name,
+        expiry_info = make_pb_expiry_info(Group#group.expiry_info),
         action = create,
         members = MembersSt
     },
@@ -380,6 +387,20 @@ process_set_name(IQ, Gid, Uid, Name) ->
         ok ->
             {ok, GroupInfo} = mod_groups:get_group_info(Gid, Uid),
             pb:make_iq_result(IQ, group_info_to_group_st(GroupInfo))
+    end.
+
+
+-spec process_set_expiry(IQ :: pb_iq(), Gid :: gid(), Uid :: uid(), Expiry :: expiry_info()) -> pb_iq().
+process_set_expiry(IQ, Gid, Uid, Expiry) ->
+    ?INFO("set_expiry Gid: ~s Uid: ~s Expiry: |~p|", [Gid, Uid, Expiry]),
+    case mod_groups:set_expiry(Gid, Uid, Expiry) of
+        {error, not_admin} ->
+            pb:make_error(IQ, util:err(not_admin));
+        {error, Reason} ->
+            pb:make_error(IQ, util:err(Reason));
+        ok ->
+            {ok, GroupInfo} = mod_groups:get_group_info(Gid, Uid),
+            pb:make_iq_result(IQ, group_info_to_group_st_with_expiry(GroupInfo))
     end.
 
 
@@ -567,6 +588,18 @@ group_info_to_group_st(GroupInfo) ->
     }.
 
 
+-spec group_info_to_group_st_with_expiry(GroupInfo :: group_info()) -> pb_group_stanza().
+group_info_to_group_st_with_expiry(GroupInfo) ->
+    #pb_group_stanza{
+        gid = GroupInfo#group_info.gid,
+        name = GroupInfo#group_info.name,
+        description = GroupInfo#group_info.description,
+        avatar_id = GroupInfo#group_info.avatar,
+        background = GroupInfo#group_info.background,
+        expiry_info = make_pb_expiry_info(GroupInfo#group_info.expiry_info)
+    }.
+
+
 -spec make_group_st(Group :: group(), Action :: atom()) -> pb_group_stanza().
 make_group_st(Group, Action) ->
     Description = case Action of
@@ -581,6 +614,7 @@ make_group_st(Group, Action) ->
         description = Description,
         avatar_id = Group#group.avatar,
         background = Group#group.background,
+        expiry_info = make_pb_expiry_info(Group#group.expiry_info),
         members = make_members_st(Group#group.members),
         audience_hash = Group#group.audience_hash
     }.
@@ -615,4 +649,12 @@ make_member_st(MemberUid, Result, Type) ->
             M#pb_group_member{result = <<"failed">>, reason = util:to_binary(Result)}
     end,
     M2.
+
+
+make_pb_expiry_info(ExpiryInfo) ->
+    #pb_expiry_info{
+        expiry_type = ExpiryInfo#expiry_info.expiry_type,
+        expires_in_seconds = ExpiryInfo#expiry_info.expires_in_seconds,
+        expiry_timestamp = ExpiryInfo#expiry_info.expiry_timestamp
+    }.
 

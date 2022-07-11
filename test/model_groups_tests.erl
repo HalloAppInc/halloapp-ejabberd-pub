@@ -89,7 +89,7 @@ get_group_test() ->
     meck:new(util, [passthrough]),
     meck:expect(util, now_ms, fun() -> ?TIMESTAMP end),
     Ts = util:now_ms(),
-    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1, Ts),
+    {ok, Gid} = model_groups:create_group(?UID1, ?GROUP_NAME1, never, -1, Ts),
     Group = model_groups:get_group(Gid),
     ?assertEqual(?GROUP_NAME1, Group#group.name),
     ?assertEqual(undefined, Group#group.avatar),
