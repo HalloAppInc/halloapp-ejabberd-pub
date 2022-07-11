@@ -53,8 +53,7 @@
     process_otp_request/1,
     process_register_request/1,
     insert_blocklist/0,
-    insert_blocklist/2,
-    is_hashcash_enabled/2  %% for testing
+    insert_blocklist/2
 ]).
 
 %%%----------------------------------------------------------------------
@@ -375,23 +374,6 @@ process_otp_request(#{raw_phone := RawPhone, lang_id := LangId, ua := UserAgent,
             {error, internal_server_error}
     end.
 
-is_hashcash_enabled(UserAgent, Solution) ->
-    IsPossibleSolution = case Solution of
-        undefined -> false;
-        _ -> byte_size(Solution) > 10
-    end,
-    ClientType = util_ua:get_client_type(UserAgent),
-    ValidUA = case ClientType of
-        android -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/Android1.42">>);
-        ios -> false;
-        undefined -> false
-    end,
-    case {IsPossibleSolution, ValidUA} of
-        {true, true} -> true;
-        {_, _} -> false
-    end.
- 
-
 %% TODO (murali@): using a map is not great. try to use the original record itself.
 -spec process_register_request(RequestData :: #{}) -> {ok, #{}} | {error, any()}.
 process_register_request(#{raw_phone := RawPhone, name := Name, ua := UserAgent, code := Code,
@@ -570,7 +552,7 @@ request_otp(Phone, LangId, UserAgent, Method, CampaignId) ->
 
 -spec check_hashcash(UserAgent :: binary(), Solution :: binary(), TimeTakenMs :: integer()) -> ok | no_return().
 check_hashcash(UserAgent, Solution, TimeTakenMs) ->
-    case is_hashcash_enabled(UserAgent, Solution) of
+    case util_sms:is_hashcash_enabled(UserAgent, Solution) of
         true ->
             check_hashcash_solution_throw_error(Solution, TimeTakenMs);
         false ->

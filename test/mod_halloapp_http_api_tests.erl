@@ -85,6 +85,7 @@ request_sms_test() ->
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(stat, count, fun(_,_,_,_) -> "Logged a metric!" end),
     meck_init(model_phone, add_gateway_response, fun(_, _, _) -> ok end),
+    meck_init(util_sms, is_hashcash_enabled, fun(_, _) -> false end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, <<"HalloApp/Android0.127">>, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -120,6 +121,7 @@ request_sms_test() ->
     Response = mod_halloapp_http_api:process(?REQUEST_OTP_PATH,
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(GoodResponse, Response),
+    meck_finish(util_sms),
     meck_finish(model_phone),
     meck_finish(ejabberd_router).
 
@@ -130,6 +132,7 @@ request_sms_prod_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(model_phone, add_gateway_response, fun(_, _, _) -> ok end),
+    meck_init(util_sms, is_hashcash_enabled, fun(_, _) -> false end),
     meck_init(config, get_hallo_env, fun() -> prod end),
     GtwyResp = {ok, #gateway_response{attempt_ts = util:now(), status = sent}},
     % only meck network requests
@@ -161,17 +164,18 @@ request_sms_prod_test() ->
     meck_finish(twilio),
     meck_finish(twilio_verify),
     meck_finish(mbird_verify),
+    meck_finish(util_sms),
     meck_finish(model_phone),
     meck_finish(config),
     meck_finish(ejabberd_router).
 
 
-%% TODO(vipin): Enable it
-request_sms_hashcash_test_disable() ->
+request_sms_hashcash_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     % meck network requests
-    meck_init(mod_sms, request_otp, fun(P, _, _, _) -> self() ! P, {ok, 30} end),
+    meck_init(mod_sms, request_otp, fun(P, _, _, _, _) -> self() ! P, {ok, 30} end),
+    meck_init(util_sms, is_hashcash_enabled, fun(_, _) -> true end),
     Data = jiffy:encode({[{<<"phone">>, ?TEST_PHONE}, {<<"hashcash_solution">>, ?BAD_HASHCASH_SOLUTION}]}),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, ?UA, 16175550000),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -201,7 +205,9 @@ request_sms_hashcash_test_disable() ->
         ]})},
     ?assertEqual(GoodResponse, Response2),
     ?assertEqual(1, collect(?TEST_PHONE, 250, 1)),
-    ?assert(meck:called(mod_sms, request_otp, [?TEST_PHONE,'_','_','_'])),
+    ?assert(meck:called(mod_sms, request_otp, [?TEST_PHONE,'_','_','_', '_'])),
+    ?assert(meck:called(util_sms, is_hashcash_enabled, ['_', '_'])),
+    meck_finish(util_sms),
     meck_finish(mod_sms),
     meck_finish(ejabberd_router).
 
@@ -212,6 +218,7 @@ backoff_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(config, get_hallo_env, fun() -> prod end),
+    meck_init(util_sms, is_hashcash_enabled, fun(_, _) -> false end),
     meck_init(otp_checker_protocol, check_otp_request, fun(_,_,_,_,_,_) -> ok end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_accounts:create_account(?UID, ?PHONE, ?NAME, ?UA, 16175550000),
@@ -245,6 +252,7 @@ backoff_test() ->
         #request{method = 'POST', data = Data, ip = ?IP, headers = ?REQUEST_HEADERS(?UA)}),
     ?assertEqual(BadResponse2, Response2),
     meck_finish(otp_checker_protocol),
+    meck_finish(util_sms),
     meck_finish(config),
     meck_finish(ejabberd_router).
 
@@ -254,6 +262,7 @@ retried_server_error_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(config, get_hallo_env, fun() -> prod end),
+    meck_init(util_sms, is_hashcash_enabled, fun(_, _) -> false end),
     ErrMsg = {error, sms_fail, no_retry},
     % only meck network requests
     meck_init(mbird, send_sms, fun(_,_,_,_) -> ErrMsg end),
@@ -280,6 +289,7 @@ retried_server_error_test() ->
     meck_finish(twilio),
     meck_finish(twilio_verify),
     meck_finish(mbird_verify),
+    meck_finish(util_sms),
     meck_finish(config),
     meck_finish(ejabberd_router).
 
@@ -288,6 +298,7 @@ request_sms_test_phone_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(otp_checker_protocol, check_otp_request, fun(_,_,_,_,_,_) -> ok end),
+    meck_init(util_sms, is_hashcash_enabled, fun(_, _) -> false end),
     meck:new(stat, [passthrough]),
     meck:expect(stat, count, fun(_,_,_,_) -> "Logged a metric!" end),
     Data = jsx:encode([{<<"phone">>, ?PHONE}]),
@@ -303,6 +314,7 @@ request_sms_test_phone_test() ->
 %%    ?assert(meck:called(stat, count, ["HA/account", "request_sms_errors", 1,
 %%        [{error, not_invited}]])),
     meck_finish(stat),
+    meck_finish(util_sms),
     meck_finish(otp_checker_protocol),
     meck_finish(ejabberd_router).
 
@@ -311,6 +323,7 @@ register_spub_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
+    meck_init(util_sms, is_hashcash_enabled, fun(_, _) -> false end),
     meck_init(stat, count, fun(_,_,_,_) -> 1 end),
     meck_init(twilio_verify, send_feedback, fun(_,_) -> ok end),
     meck_init(otp_checker_protocol, check_otp_request, fun(_,_,_,_,_,_) -> ok end),
@@ -373,6 +386,7 @@ register_spub_test() ->
     ?assert(ejabberd_auth:check_spub(Uid, base64:encode(SPub2))),
     meck_finish(otp_checker_protocol),
     meck_finish(twilio_verify),
+    meck_finish(util_sms),
     meck_finish(ejabberd_sm),
     meck_finish(ejabberd_router).
 
@@ -381,6 +395,7 @@ register_push_token_test() ->
     setup(),
     meck_init(ejabberd_router, is_my_host, fun(_) -> true end),
     meck_init(ejabberd_sm, kick_user, fun(_, _) -> 1 end),
+    meck_init(util_sms, is_hashcash_enabled, fun(_, _) -> false end),
     meck_init(otp_checker_protocol, check_otp_request, fun(_,_,_,_,_,_) -> ok end),
     Data = jsx:encode([{<<"phone">>, ?TEST_PHONE}]),
     ok = model_invites:record_invite(?UID, ?TEST_PHONE, 4),
@@ -435,6 +450,7 @@ register_push_token_test() ->
     ?assertEqual(?PUSH_OS, PushInfo2#push_info.os),
     ?assertEqual(?PUSH_TOKEN, PushInfo2#push_info.token),
     meck_finish(otp_checker_protocol),
+    meck_finish(util_sms),
     meck_finish(ejabberd_sm),
     meck_finish(ejabberd_router).
 

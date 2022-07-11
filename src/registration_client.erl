@@ -55,7 +55,9 @@ request_sms(Phone) ->
 -spec request_sms(Phone :: phone(), Options :: map()) -> {ok, map()} | {error, term()}.
 request_sms(Phone, Options) ->
     setup(),
-    Body = jiffy:encode(#{<<"phone">> => Phone}),
+    HashcashChallenge = mod_halloapp_http_api:create_hashcash_challenge(<<>>, <<>>),
+    HashcashSolution = util_hashcash:solve_challenge(HashcashChallenge),
+    Body = jiffy:encode(#{<<"phone">> => Phone, <<"hashcash_solution">> => HashcashSolution}),
     UA = maps:get(user_agent, Options, ?DEFAULT_UA),
     Headers = [{"user-agent", UA}],
     Host = maps:get(host, Options, ?DEFAULT_HOST),
@@ -139,8 +141,11 @@ get_http_protocol() ->
 -spec compose_otp_noise_request(Phone :: phone(), Options :: map()) -> {ok, pb_register_request()}.
 compose_otp_noise_request(Phone, Options) ->
     setup(),
+    HashcashChallenge = mod_halloapp_http_api:create_hashcash_challenge(<<>>, <<>>),
+    HashcashSolution = util_hashcash:solve_challenge(HashcashChallenge),
     OtpRequestPkt = #pb_otp_request {
         phone = Phone,
+        hashcash_solution = HashcashSolution,
         method = maps:get(method, Options, sms),
         lang_id = maps:get(lang_id, Options, <<"en-US">>),
         user_agent = maps:get(user_agent, Options, ?DEFAULT_UA)

@@ -20,7 +20,8 @@
     get_mbird_response_code/1,
     get_response_code/1,
     get_sms_message/3,
-    is_google_request/3
+    is_google_request/3,
+    is_hashcash_enabled/2
 ]).
 
 -spec init_helper(GWOptions :: atom(), FromPhoneList :: [list()]) -> ok.
@@ -104,5 +105,14 @@ is_google_request(Phone, IP, Protocol) ->
     case {Result1, Result2, Protocol} of
         {true, true, noise} -> true;
         _ -> false
+    end.
+
+
+is_hashcash_enabled(UserAgent, Solution) ->
+    ClientType = util_ua:get_client_type(UserAgent),
+    ValidUA = case ClientType of
+        android -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/Android1.42">>);
+        ios -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/iOS1.20.261">>);
+        undefined -> false
     end.
  
