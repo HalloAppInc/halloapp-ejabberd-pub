@@ -150,6 +150,8 @@
     cleanup_psa_tagged_uids/1,
     mark_psa_post_sent/2,
     get_community_label/1,
+    get_top_community/1,
+    get_num_communities/1,
     set_community_label/2,
     set_community_labels/1,
     get_node_list/0,
@@ -1175,10 +1177,33 @@ get_community_label(Uid) ->
         _ -> binary_to_term(Res)
     end.
 
+
+-spec get_top_community(Uid :: uid()) -> maybe({uid(), float()}) | {error, any()}.
+get_top_community(Uid) ->
+    Res = get_community_label(Uid),
+    case Res of
+        undefined -> undefined;
+        Label -> 
+            LabelList = maps:to_list(Label),
+            SortedLabel = lists:keysort(2, LabelList),
+            lists:last(SortedLabel)
+    end.
+
+
+-spec get_num_communities(Uid :: uid()) -> non_neg_integer() | {error, any()}.
+get_num_communities(Uid) ->
+    Res = get_community_label(Uid),
+    case Res of
+        undefined -> 0;
+        Label ->
+            maps:size(Label)
+    end.
+
 -spec set_community_label(Uid :: uid(), NewLabel :: community_label()) -> ok  | {error, any()}.
 set_community_label(Uid, NewLabel) ->
     {ok, _Res} = q(["HSET", account_key(Uid), ?FIELD_COMMUNITY, term_to_binary(NewLabel)]),
     ok.
+
 
 -spec set_community_labels(UidLabelTuples :: [{uid(), community_label()}]) -> ok | {error, any()}.
 set_community_labels(UidLabelTuples) ->
@@ -1188,6 +1213,7 @@ set_community_labels(UidLabelTuples) ->
         UidLabelTuples),
     qmn(Commands),
     ok.
+
 
 -spec scan(Node :: node(), Cursor :: non_neg_integer(), Count :: pos_integer()) -> {non_neg_integer(), [uid()]} | {error, any()}.
 scan(Node, Cursor, Count) ->
