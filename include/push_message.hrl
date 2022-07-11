@@ -36,8 +36,7 @@
     voip_dev_conn :: pid(),
     voip_dev_mon :: reference(),
     noise_static_key :: binary(),
-    noise_certificate :: binary(),
-    push_times_ms = [] :: list()
+    noise_certificate :: binary()
 }).
 
 -type worker_push_state() :: #worker_push_state{}.

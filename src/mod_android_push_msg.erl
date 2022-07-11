@@ -90,14 +90,12 @@ push_message_item(PushMessageItem, #push_state{pendingMap = PendingMap} = State,
     PushMessage = ContentMap#{<<"to">> => Token, <<"priority">> => <<"high">>},
     Request = {?FCM_GATEWAY, [{"Authorization", "key=" ++ FcmApiKey}],
             "application/json", jiffy:encode(PushMessage)},
-    TimeTakenMs = util:now_ms() - PushMessageItem#push_message_item.timestamp_ms,
-    NewPushTimes = push_util:process_push_times(State#push_state.push_times_ms, TimeTakenMs, android),
     case httpc:request(post, Request, HTTPOptions, Options) of
         {ok, RequestId} ->
             ?INFO("Uid: ~s, MsgId: ~s, ContentId: ~s, ContentType: ~s, RequestId: ~p",
                 [Uid, Id, ContentId, ContentType, RequestId]),
             NewPendingMap = PendingMap#{RequestId => PushMessageItem},
-            State#push_state{pendingMap = NewPendingMap, push_times_ms = NewPushTimes};
+            State#push_state{pendingMap = NewPendingMap};
         {error, Reason} ->
             ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p",
                     [Uid, binary:part(Token, 0, 10), Reason]),

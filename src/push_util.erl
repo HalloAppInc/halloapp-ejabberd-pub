@@ -239,6 +239,6 @@ process_push_times(PushTimes, Time, Platform) ->
         [_OldestTime | PrevTimes] -> PrevTimes ++ [Time]
     end,
     Avg = lists:sum(NewPushTimes)/length(NewPushTimes),
-    ?INFO("Average time for ~p push notification: ~p ms", [Platform, Avg]),
+    ?INFO("Average time over ~p ~p push notification: ~p ms. ", [length(NewPushTimes), Platform, Avg]),
     NewPushTimes.
 

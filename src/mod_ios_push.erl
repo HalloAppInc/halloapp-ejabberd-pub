@@ -169,8 +169,9 @@ handle_info({gun_response, ConnPid, StreamRef, _, StatusCode, Headers}, State) -
     ?DEBUG("gun_response: conn_pid: ~p, streamref: ~p, status: ~p, headers: ~p",
             [ConnPid, StreamRef, StatusCode, Headers]),
     ApnsId = proplists:get_value(?APNS_ID, Headers, undefined),
+    NewPushTimes = handle_push_times(ApnsId, State),
     NewState = handle_apns_response(StatusCode, ApnsId, State),
-    {noreply, NewState};
+    {noreply, NewState#push_state{push_times_ms = NewPushTimes}};
 
 handle_info({gun_data, ConnPid, StreamRef, _, Response}, State) ->
     ?INFO("gun_data: conn_pid: ~p, streamref: ~p, data: ~p", [ConnPid, StreamRef, Response]),
@@ -180,6 +181,19 @@ handle_info(Request, State) ->
     ?DEBUG("unknown request: ~p", [Request]),
     {noreply, State}.
 
+
+-spec handle_push_times(ApnsId :: binary() | undefined, State :: push_state()) -> push_state().
+handle_push_times(ApnsId, #push_state{pendingMap = PendingMap} = State) ->
+    NewPushTimes = case maps:get(ApnsId, PendingMap, undefined) of
+        undefined ->
+            State#push_state.push_times_ms;
+        PushMessageItem ->
+            TimeTakenMs = util:now_ms() - PushMessageItem#push_message_item.timestamp_ms,
+            push_util:process_push_times(State#push_state.push_times_ms, TimeTakenMs, ios)
+    end,
+    NewPushTimes;
+handle_push_times(_ApnsId, State) ->
+    State#push_state.push_times_ms.
 
 
 -spec handle_apns_response(StatusCode :: integer(), ApnsId :: binary() | undefined,

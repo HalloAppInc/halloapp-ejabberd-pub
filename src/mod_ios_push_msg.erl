@@ -229,11 +229,7 @@ push_message_item(PushMessageItem, PushMetadata, State, ParentPid) ->
         [Uid, Id, ApnsId, ContentId, ContentType]),
     {_Result, FinalState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
             PushType, EndpointType, PushMessageItem, State, ParentPid),
-    TimeTakenMs = util:now_ms() - PushMessageItem#push_message_item.timestamp_ms,
-    % TODO: Have mod_ios_push handle PushTimes instead
-    NewPushTimes = push_util:process_push_times(FinalState#worker_push_state.push_times_ms, TimeTakenMs, ios),
-    FinalState2 = FinalState#worker_push_state{push_times_ms = NewPushTimes},
-    FinalState2.
+    FinalState.
 
 
 %% Details about the content inside the apns push payload are here:

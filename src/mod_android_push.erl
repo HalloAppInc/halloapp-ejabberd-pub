@@ -140,12 +140,15 @@ handle_info({http, {RequestId, _Response} = ReplyInfo}, #push_state{pendingMap =
     FinalPendingMap = case maps:take(RequestId, PendingMap) of
         error ->
             ?ERROR("Request not found in our map: RequestId: ~p", [RequestId]),
+            NewPushTimes = State#push_state.push_times_ms,
             PendingMap;
         {PushMessageItem, NewPendingMap} ->
+            TimeTakenMs = util:now_ms() - PushMessageItem#push_message_item.timestamp_ms,
+            NewPushTimes = push_util:process_push_times(State#push_state.push_times_ms, TimeTakenMs, android),
             handle_fcm_response(ReplyInfo, PushMessageItem, State),
             NewPendingMap
     end,
-    State1 = State#push_state{pendingMap = FinalPendingMap},
+    State1 = State#push_state{pendingMap = FinalPendingMap, push_times_ms = NewPushTimes},
     {noreply, State1};
 
 handle_info(Request, State) ->
