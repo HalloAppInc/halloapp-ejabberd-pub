@@ -482,21 +482,18 @@ update_redis_score(VarName, RecentScore)->
 
 update_redis_score(VarName, RecentScore, RecentCount)->
     {ok, OldAggScore, OldCount} = model_gw_score:get_aggregate_stats(VarName),
-    NewAggScore = case {RecentScore, OldAggScore} of 
-        {nan, _} -> OldAggScore;
-        {_, undefined} -> RecentScore;
-        {_, _} -> combine_scores(RecentScore, OldAggScore)
+    % if we don't have enough samples, keep the old score/count
+    % otherwise, replace with the new score and count.
+    {NewScore, NewCount} = case RecentScore of 
+        nan -> {OldAggScore, OldCount};
+        _ -> {RecentScore, RecentCount}
     end,
-    NewCount = case OldCount of
-        undefined -> RecentCount;
-        _ -> combine_scores(RecentCount, OldCount)
-    end,
-    StoreRecentScore = case RecentScore of
+    RecentScore2 = case RecentScore of
         nan -> undefined;
         _ -> RecentScore
     end,
     %% TODO(vipin): Need to store `RecentCount` also in redis.
-    model_gw_score:store_score(VarName, StoreRecentScore, NewAggScore, NewCount),
+    model_gw_score:store_score(VarName, RecentScore2, NewScore, NewCount),
     ok.
 
 -spec combine_scores(RecentScore :: integer(), AggScore :: integer()) -> integer().
