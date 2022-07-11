@@ -79,7 +79,7 @@ send_sms(Phone, Code, LangId, UserAgent) ->
                 [Phone, HttpStatus, Response]),
             {error, sms_fail, retry};
         _ ->
-            % TODO: In all the gateways we don't retry in this case. But I'm not sure why.
+            % Some other unknown error occured.
             ?ERROR("Sending SMS failed Phone:~p (no_retry) ~p",
                 [Phone, Response]),
             {error, sms_fail, no_retry}

@@ -90,20 +90,24 @@ sending_helper(Phone, LangId, Method) ->
 -spec verify_code(Phone :: phone(), Code :: binary(), AllVerifyInfo :: [verification_info()])
         -> {match, verification_info()} | nomatch.
 verify_code(Phone, Code, AllVerifyInfo) ->
-    case lists:search(
+    case find_matching_attempt(Phone, Code, AllVerifyInfo) of
+        false ->
+            nomatch;
+        {value, Match} ->
+            ok = model_phone:update_sms_code(Phone, Code, Match#verification_info.attempt_id),
+            {match, Match}
+    end.
+
+-spec find_matching_attempt(Phone :: phone(), Code :: binary(), AllVerifyInfo :: [verification_info()]) -> false | {value, verification_info()}.
+find_matching_attempt(Phone, Code, AllVerifyInfo) ->
+    lists:search(
         fun(Info) -> 
             #verification_info{gateway = Gateway, status = Status, sid = Sid} = Info,
             Gateway =:= <<"mbird_verify">> andalso Status =:= <<"sent">> andalso
             % Run network calls on mbird_verify attempts until first match & update code
             % Must be called with header mbird_verify: to allow for mecking in unit test
             mbird_verify:verify_code_internal(Phone, Code, Sid)
-        end, AllVerifyInfo) of
-            false ->
-                nomatch;
-            {value, Match} ->
-                ok = model_phone:update_sms_code(Phone, Code, Match#verification_info.attempt_id),
-                {match, Match}
-    end.
+        end, AllVerifyInfo).
 
 
 -spec verify_code_internal(Phone :: phone(), Code :: binary(), Sid :: binary()) -> boolean().

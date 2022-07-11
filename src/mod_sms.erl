@@ -129,15 +129,19 @@ verify_sms(Phone, Code) ->
     case lists:search(
         fun(FetchedInfo) ->
             #verification_info{status = Status, gateway = Gateway, code = FetchedCode} = FetchedInfo,
-            % non-mbird_verify gateways, regardless of status, should be checked normally
-            % mbird_verify gateways with an accepted status will have an updated code to check
-            FetchedCode =:= Code andalso (Gateway =/= <<"mbird_verify">> orelse Status =:= <<"accepted">>)
+            % normal sms gateways, regardless of status, should be checked normally
+            % gateways with an external code will need to verify the recieved code the first time
+            FetchedCode =:= Code andalso (not sms_gateway_list:uses_external_code(Gateway) orelse Status =:= <<"accepted">>)
         end, AllVerifyInfo) of
-            false ->
-                case mbird_verify:verify_code(Phone, Code, AllVerifyInfo) of
-                    nomatch -> nomatch;
-                    {match, MbirdMatch} -> add_verification_success(Phone, MbirdMatch, AllVerifyInfo)
-                end;
+            false -> lists:foldl(fun(ExtCodeGW, DidMatch) ->
+                    case DidMatch of
+                        match -> match;
+                        nomatch -> case ExtCodeGW:verify_code(Phone, Code, AllVerifyInfo) of
+                            nomatch -> nomatch;
+                            {match, ExtCodeMatch} -> add_verification_success(Phone, ExtCodeMatch, AllVerifyInfo)
+                        end
+                    end
+               end, nomatch, sms_gateway_list:external_code_gateways());
             {value, FetchedInfo} ->
                 add_verification_success(Phone, FetchedInfo, AllVerifyInfo)
     end.
@@ -377,8 +381,8 @@ smart_send(OtpPhone, Phone, LangId, UserAgent, Method, CampaignId, OldResponses)
             ?ERROR("Choosing twilio, Had Picked: ~p, ConsiderList: ~p", [PickedGateway, ConsiderList]),
             twilio
     end,
-    Code = case PickedGateway2 of
-        mbird_verify -> <<"999999">>;
+    Code = case sms_gateway_list:uses_external_code(PickedGateway2) of
+        true -> <<"999999">>;
         _ -> generate_code(Phone)
     end,
     ?INFO("Enrolling: ~s Using Phone: ~s CC: ~s Chosen Gateway: ~p to send ~p Code: ~s",
