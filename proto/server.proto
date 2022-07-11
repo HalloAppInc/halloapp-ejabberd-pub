@@ -251,6 +251,7 @@ message GroupFeedItem {
 
     bytes audience_hash = 9;
     bool is_resent_history = 10;
+    int64 expiry_timestamp = 11;  // Set only for post items. `-1` if item should never expire.
 
     // Use >=16 for temporary elements since 1-15 encode smaller
     string sender_log_info = 16;
@@ -328,6 +329,7 @@ message GroupStanza {
         GET_MEMBER_IDENTITY_KEYS = 14;
         CHANGE_DESCRIPTION = 15;
         SHARE_HISTORY = 16;
+        CHANGE_EXPIRY = 17;
     }
     Action action = 1;
     string gid = 2;
@@ -343,6 +345,22 @@ message GroupStanza {
     string description = 10;
     // HistoryResend to be sent or received only on adding-members iq or share-history iq.
     HistoryResend history_resend = 11;
+    // Expiry timer information
+    ExpiryInfo expiry_info = 12;
+}
+
+
+message ExpiryInfo {
+    enum ExpiryType {
+        EXPIRES_IN_SECONDS = 0;
+        NEVER = 1;
+        CUSTOM_DATE = 2;
+    }
+    ExpiryType expiry_type = 12;
+    // This is set when expiry_type is expires_in_sec.
+    int64 expires_in_seconds = 13;
+    // This is set when expiry_type is custom_date.
+    int64 expiry_timestamp = 14;
 }
 
 
