@@ -192,8 +192,11 @@ parse_helper_internal(PhoneNumberState, DefaultRegionId) ->
             CountryCode = PhoneNumberState2#phone_number_state.country_code,
             PotentialNationalNumber1 = PhoneNumberState2#phone_number_state.national_number,
             NewCountryCodeSource = PhoneNumberState2#phone_number_state.country_code_source,
-            NewRegionMetadata =
-            case libphonenumber_ets:match_object_on_country_code(CountryCode) of
+            Matches = lists:sort(
+                fun(Match1, _Match2) ->
+                    Match1#region_metadata.attributes#attributes.main_country_for_code == <<"true">>
+                end, libphonenumber_ets:match_object_on_country_code(CountryCode)),
+            NewRegionMetadata = case Matches of
                 [Match | _Rest] ->
                     Match;
                 _ ->
@@ -643,8 +646,12 @@ is_valid_number_for_region(PhoneNumberState, RegionId) ->
             {error, invalid_country_code};
         [Match] ->
             Match#region_metadata.id;
-        _ ->
-            get_region_id_for_number_from_regions_list(PhoneNumberState, Matches, invalid_country_code)
+        Matches ->
+            SortedMatches = lists:sort(
+                fun(Match1, _Match2) ->
+                    Match1#region_metadata.attributes#attributes.main_country_for_code == <<"true">>
+                end, Matches),
+            get_region_id_for_number_from_regions_list(PhoneNumberState, SortedMatches, invalid_country_code)
     end.
 
 

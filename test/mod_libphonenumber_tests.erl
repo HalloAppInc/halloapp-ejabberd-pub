@@ -69,6 +69,8 @@ get_region_test() ->
     ?assertEqual(<<"BG">>, mod_libphonenumber:get_region_id(<<"+35943012345">>)),
     %% Turkey
     ?assertEqual(<<"TR">>, mod_libphonenumber:get_region_id(<<"+905012345678">>)),
+    %% Svalbard (SJ) - region metadata is shared with the main country of Norway (NO)
+    ?assertEqual(<<"NO">>, mod_libphonenumber:get_region_id(<<"+4741234567">>)),
     ok.
 
 
