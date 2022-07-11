@@ -22,22 +22,28 @@
     push_success_rates_cc/3,
 
     %% result processing functions.
-    record_success_version/1,
-    record_success_cc/1
+    record_by_version/1,
+    record_by_cc/1
 ]).
 
 %%====================================================================
 %% mod_athena_stats callback
 %%====================================================================
+-define(MIN_ANDROID_VERSION, <<"HalloApp/Android0.130">>).
+-define(MIN_IOS_VERSION, <<"HalloApp/iOS1.3.96">>).
 
 get_queries() ->
     QueryTimeMs = util:now_ms() - ?WEEKS_MS,
     QueryTimeMsBin = util:to_binary(QueryTimeMs),
     [
-        push_success_rates_version(?ANDROID, QueryTimeMsBin, <<"HalloApp/Android0.130">>),
-        push_success_rates_version(?IOS, QueryTimeMsBin, <<"HalloApp/iOS1.3.96">>),
-        push_success_rates_cc(?ANDROID, QueryTimeMsBin, <<"HalloApp/Android0.130">>),
-        push_success_rates_cc(?IOS, QueryTimeMsBin, <<"HalloApp/iOS1.3.96">>)
+        push_success_rates_version(?ANDROID, QueryTimeMsBin,?MIN_ANDROID_VERSION),
+        push_success_rates_version(?IOS, QueryTimeMsBin, ?MIN_IOS_VERSION),
+        push_success_rates_cc(?ANDROID, QueryTimeMsBin, ?MIN_ANDROID_VERSION),
+        push_success_rates_cc(?IOS, QueryTimeMsBin, ?MIN_IOS_VERSION),
+        push_latencies_version(?ANDROID, QueryTimeMsBin, ?MIN_ANDROID_VERSION),
+        push_latencies_version(?IOS, QueryTimeMsBin, ?MIN_IOS_VERSION),
+        push_latencies_cc(?ANDROID, QueryTimeMsBin, ?MIN_ANDROID_VERSION),
+        push_latencies_cc(?IOS, QueryTimeMsBin, ?MIN_IOS_VERSION)
     ].
 
 
@@ -102,9 +108,47 @@ push_success_rates_cc(Platform, TimestampMsBin, _OldestClientVersion) ->
         metrics = ["push_success_rate_by_cc"]
     }.
 
+push_latencies_version(Platform, TimestampMsBin, _OldestClientVersion) ->
+    QueryBin = <<"
+        SELECT server_push_sent.client_version as version, count(*) as count,
+            ROUND((AVG(CAST(client_push_received.timestamp_ms AS BIGINT)) 
+                - AVG(CAST(server_push_sent.timestamp_ms AS BIGINT)))/1000.0, 2) as latency
+        FROM server_push_sent
+        RIGHT JOIN client_push_received
+        ON server_push_sent.push_id=client_push_received.push_received.id
+        WHERE server_push_sent.platform='", Platform/binary, "'
+            AND client_push_received.push_received.id IS NOT NULL
+            AND server_push_sent.timestamp_ms>='", TimestampMsBin/binary, "'
+        GROUP BY server_push_sent.client_version">>,
+    #athena_query{
+        query_bin = QueryBin,
+        tags = #{"platform" => util:to_list(Platform)},
+        result_fun = {?MODULE, record_by_version},
+        metrics = ["push_latency_by_version"]
+    }.
 
--spec record_success_version(Query :: athena_query()) -> ok.
-record_success_version(Query) ->
+push_latencies_cc(Platform, TimestampMsBin, _OldestClientVersion) ->
+    QueryBin = <<"
+        SELECT server_push_sent.cc as cc, count(*) as count,
+            ROUND((AVG(CAST(client_push_received.timestamp_ms AS BIGINT)) 
+                - AVG(CAST(server_push_sent.timestamp_ms AS BIGINT)))/1000.0, 2) as latency
+            FROM server_push_sent
+            RIGHT JOIN client_push_received
+            ON server_push_sent.push_id=client_push_received.push_received.id
+            WHERE server_push_sent.platform='", Platform/binary, "'
+                AND client_push_received.push_received.id IS NOT NULL
+                AND server_push_sent.timestamp_ms>='", TimestampMsBin/binary, "'
+            GROUP BY server_push_sent.cc">>,
+    #athena_query{
+        query_bin = QueryBin,
+        tags = #{"platform" => util:to_list(Platform)},
+        result_fun = {?MODULE, record_by_cc},
+        metrics = ["push_latency_by_cc"]
+    }.
+
+
+-spec record_by_version(Query :: athena_query()) -> ok.
+record_by_version(Query) ->
     Result = Query#athena_query.result,
     ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
     [_HeaderRow | ActualResultRows] = ResultRows,
@@ -123,8 +167,8 @@ record_success_version(Query) ->
     ok.
 
 
--spec record_success_cc(Query :: athena_query()) -> ok.
-record_success_cc(Query) ->
+-spec record_by_cc(Query :: athena_query()) -> ok.
+record_by_cc(Query) ->
     Result = Query#athena_query.result,
     ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
     [_HeaderRow | ActualResultRows] = ResultRows,
@@ -141,4 +185,3 @@ record_success_cc(Query) ->
                     [{"cc", util:to_list(CC)} | TagsAndValues])
         end, ActualResultRows),
     ok.
-
