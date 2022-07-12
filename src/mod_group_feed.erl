@@ -158,8 +158,8 @@ re_register_user(Uid, _Server, _Phone, _CampaignId) ->
     ?INFO("Uid: ~s, Gids: ~p", [Uid, Gids]),
     lists:foreach(
         fun(Gid) ->
-            ok = model_groups:delete_audience_hash(Gid),
-            check_and_share_group_feed(Gid, Uid)
+            %% We dont share group feed history to re-registered users.
+            ok = model_groups:delete_audience_hash(Gid)
         end, Gids),
     ok.
 
