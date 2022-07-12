@@ -253,13 +253,15 @@ json_encode(PBBin) ->
 post_process({EJson}) ->
     case proplists:lookup(<<"call">>, EJson) of
         none -> {EJson};
-        {<<"call">>, {CallData}} ->
-            CallData2 = case proplists:lookup(<<"webrtc_stats">>, CallData) of
-                none -> {CallData};
-                {<<"webrtc_stats">>, Stats} ->
-                    {lists:keyreplace(<<"webrtc_stats">>, 1, CallData, {<<"webrtc_stats">>, jiffy:decode(Stats)})}
-            end,
-            {lists:keyreplace(<<"call">>, 1, EJson, {<<"call">>,CallData2})}
+        {<<"call">>, {_CallData}} ->
+            %TODO: uncomment this again and extract what we need from call data!
+            %CallData2 = case proplists:lookup(<<"webrtc_stats">>, CallData) of
+            %    none -> {CallData};
+            %    {<<"webrtc_stats">>, Stats} ->
+            %        {lists:keyreplace(<<"webrtc_stats">>, 1, CallData, {<<"webrtc_stats">>, jiffy:decode(Stats)})}
+            %end,
+            %{lists:keyreplace(<<"call">>, 1, EJson, {<<"call">>,CallData2})}
+            {EJson}
     end.
 
 %% Currently we only write crypto and call stats to files.
