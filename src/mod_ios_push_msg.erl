@@ -344,6 +344,7 @@ encrypt_message_bin(Uid, MsgBin, #worker_push_state{noise_static_key = S, noise_
         State :: worker_push_state(), ParentPid :: pid()) -> {ok, worker_push_state()} |
         {ignored, worker_push_state()} | {{error, any()}, worker_push_state()}.
 send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, EndpointType, PushMessageItem, State, ParentPid) ->
+    MsgId = PushMessageItem#push_message_item.id,
     Priority = get_priority(EndpointType, PushType),
     DevicePath = get_device_path(EndpointType, PushMessageItem#push_message_item.push_info),
     ExpiryTime = get_expiry_time(EndpointType, PushMessageItem),
@@ -353,9 +354,9 @@ send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin, PushType, Endpoint
         {?APNS_EXPIRY, integer_to_binary(ExpiryTime)},
         {?APNS_TOPIC, get_bundle_id(EndpointType)},
         {?APNS_PUSH_TYPE, get_apns_push_type(EndpointType, PushType)},
-        {?APNS_COLLAPSE_ID, ContentId}
+        {?APNS_COLLAPSE_ID, MsgId}
     ],
-    ?INFO("Uid: ~s, ApnsId: ~s, ContentId: ~s", [Uid, ApnsId, ContentId]),
+    ?INFO("Uid: ~s, ApnsId: ~s, ContentId: ~s MsgId: ~s", [Uid, ApnsId, ContentId, MsgId]),
     case get_pid_to_send(EndpointType, State) of
         {undefined, NewState} ->
             ?ERROR("error: invalid_pid to send this push, Uid: ~p, ApnsId: ~p", [Uid, ApnsId]),
