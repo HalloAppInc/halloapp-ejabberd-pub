@@ -46,9 +46,9 @@
 -include("proc.hrl").
 -include("ejabberd_sm.hrl").
 
--define(PING_ACTIVE_INTERVAL, 120 * ?SECONDS_MS).
--define(PING_PASSIVE_INTERVAL, 60 * ?SECONDS_MS).
--define(ACK_TIMEOUT, 30 * ?SECONDS_MS).
+-define(PING_ACTIVE_INTERVAL, 30 * ?SECONDS_MS).
+-define(PING_PASSIVE_INTERVAL, 15 * ?SECONDS_MS).
+-define(ACK_TIMEOUT, 5 * ?SECONDS_MS).
 
 %% API
 -export([start_ping/2, stop_ping/2]).
