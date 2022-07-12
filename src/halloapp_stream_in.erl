@@ -810,7 +810,7 @@ send_error(#{user := Uid} = State, Err) ->
             NoiseCheckerUid = mod_noise_checker:get_uid(),
             case NoiseCheckerUid =:= Uid of
                 true -> ok;  % don't log anything for noise checker uid
-                false -> ?WARNING("Sending: ~p to Uid: ~p, IsDev: ~p and stopping", [Err, Uid, IsDev])
+                false -> ?INFO("Sending: ~p to Uid: ~p, IsDev: ~p and stopping", [Err, Uid, IsDev])
             end;
         noise_error ->
             %% noise_error is always from spam usually.

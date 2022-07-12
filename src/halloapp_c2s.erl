@@ -279,13 +279,7 @@ process_auth_result(#{socket := Socket, ip := IP, lserver := _LServer} = State,
         {_, undefined} ->
             ?WARNING(Format, Args);
         {invalid_client_version, _} ->
-            % Android before v0.147 would not disconnect and stop connecting
-            IsOldAndroid = util_ua:is_android(ClientVersion) andalso
-                    util_ua:is_version_less_than(ClientVersion, ?BUGGY_ANDROID_VERSION),
-            case IsOldAndroid of
-                true -> ?INFO(Format, Args);
-                false -> ?WARNING(Format, Args)
-            end;
+            ?INFO(Format, Args);
         _ ->
             ?WARNING(Format, Args)
     end,

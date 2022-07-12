@@ -171,7 +171,7 @@ accept_ack(#{offline_queue_params := #{window := Window, pending_acks  := Pendin
     {ok, OfflineMessage} = model_messages:get_message(Uid, MsgId),
     case OfflineMessage of
         undefined ->
-            ?WARNING("missing a message on redis, msg_id: ~s, from_uid: ~s", [MsgId, Uid]),
+            ?INFO("missing a message on redis, msg_id: ~s, from_uid: ~s", [MsgId, Uid]),
             State;
         _ ->
             RetryCount = OfflineMessage#offline_message.retry_count,
