@@ -75,7 +75,7 @@ push_success_rates_version(Platform, TimestampMsBin, _OldestClientVersion) ->
     #athena_query{
         query_bin = QueryBin,
         tags = #{"platform" => util:to_list(Platform)},
-        result_fun = {?MODULE, record_success_version},
+        result_fun = {?MODULE, record_by_version},
         metrics = ["push_success_rate_by_version"]
     }.
 
@@ -104,15 +104,15 @@ push_success_rates_cc(Platform, TimestampMsBin, _OldestClientVersion) ->
     #athena_query{
         query_bin = QueryBin,
         tags = #{"platform" => util:to_list(Platform)},
-        result_fun = {?MODULE, record_success_cc},
+        result_fun = {?MODULE, record_by_cc},
         metrics = ["push_success_rate_by_cc"]
     }.
 
 push_latencies_version(Platform, TimestampMsBin, _OldestClientVersion) ->
     QueryBin = <<"
-        SELECT server_push_sent.client_version as version, count(*) as count,
+        SELECT server_push_sent.client_version as version, 
             ROUND((AVG(CAST(client_push_received.timestamp_ms AS BIGINT)) 
-                - AVG(CAST(server_push_sent.timestamp_ms AS BIGINT)))/1000.0, 2) as latency
+                - AVG(CAST(server_push_sent.timestamp_ms AS BIGINT)))/1000.0, 2) as latency, count(*) as count
         FROM server_push_sent
         RIGHT JOIN client_push_received
         ON server_push_sent.push_id=client_push_received.push_received.id
@@ -129,9 +129,9 @@ push_latencies_version(Platform, TimestampMsBin, _OldestClientVersion) ->
 
 push_latencies_cc(Platform, TimestampMsBin, _OldestClientVersion) ->
     QueryBin = <<"
-        SELECT server_push_sent.cc as cc, count(*) as count,
+        SELECT server_push_sent.cc as cc,
             ROUND((AVG(CAST(client_push_received.timestamp_ms AS BIGINT)) 
-                - AVG(CAST(server_push_sent.timestamp_ms AS BIGINT)))/1000.0, 2) as latency
+                - AVG(CAST(server_push_sent.timestamp_ms AS BIGINT)))/1000.0, 2) as latency, count(*) as count
             FROM server_push_sent
             RIGHT JOIN client_push_received
             ON server_push_sent.push_id=client_push_received.push_received.id
