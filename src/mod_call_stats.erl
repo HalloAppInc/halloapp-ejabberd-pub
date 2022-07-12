@@ -46,10 +46,10 @@ mod_options(_Host) ->
 %%====================================================================
 
 -spec event_call(Event :: pb_event_data()) -> pb_event_data().
-event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
+event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC, version = Version,
         edata = #pb_call{
             call_id = CallId, peer_uid = PeerUidInt, type = CallType, answered = Answered,
-            duration_ms = PBDurationMs, end_call_reason = EndCallReason,
+            connected = Connected, duration_ms = PBDurationMs, end_call_reason = EndCallReason,
             is_krisp_active = IsKrispActive}} = Event) ->
     Uid = util:to_binary(UidInt),
     PeerUid = util:to_binary(PeerUidInt),
@@ -68,10 +68,21 @@ event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
     stat:count(?CALLS_NS, "call_count", 1, [{type, CallType}]),
     stat:count(?CALLS_NS, "call_count_krisp", 1, [{type, CallType}, {is_krisp_active, IsKrispActive}]),
     stat:count(?CALLS_NS, "call_count_by_cc", 1, [{cc, CC}, {type, CallType}, {platform, Platform}]),
+    stat:count(?CALLS_NS, "call_count_by_version", 1, [{version, Version}, {type, CallType}, {platform, Platform}]),
     stat:count(?CALLS_NS, "call_count_by_platform", 1, [{platform, Platform}]),
 
     stat:count(?CALLS_NS, "call_by_answered", 1,
         [{answered, Answered}, {type, CallType}, {platform, Platform}]),
+    stat:count(?CALLS_NS, "call_by_answered_cc", 1,
+        [{answered, Answered}, {type, CallType}, {platform, Platform}, {cc, CC}]),
+    stat:count(?CALLS_NS, "call_by_answered_version", 1,
+        [{answered, Answered}, {type, CallType}, {platform, Platform}, {version, Version}]),
+    stat:count(?CALLS_NS, "call_by_connected", 1,
+        [{connected, Connected}, {type, CallType}, {platform, Platform}]),
+    stat:count(?CALLS_NS, "call_by_connected_cc", 1,
+        [{connected, Connected}, {platform, Platform}, {cc, CC}]),
+    stat:count(?CALLS_NS, "call_by_connected_version",1,
+        [{connected, Connected}, {platform, Platform}, {version, Version}]),
     stat:count(?CALLS_NS, "end_reason", 1,
         [{end_reason, EndCallReason}, {type, CallType}, {platform, Platform}]),
     stat:count(?CALLS_NS, "call_by_int", 1, [{international, International}, {type, CallType}]),
@@ -83,6 +94,8 @@ event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
             stat:count(?CALLS_NS, "call_duration_sec_krisp", DurationSec, [{type, CallType}, {is_krisp_active, IsKrispActive}]),
             stat:count(?CALLS_NS, "call_duration_sec_by_cc", DurationSec,
                 [{cc, CC}, {type, CallType}, {platform, Platform}]),
+            stat:count(?CALLS_NS, "call_duration_sec_by_version", DurationSec,
+                [{version, Version}, {type, CallType}, {platform, Platform}]),
             stat:count(?CALLS_NS, "call_duration_sec_by_platform", DurationSec, [{platform, Platform}]),
 
             stat:count(?CALLS_NS, "call_duration_by_int", DurationSec,
