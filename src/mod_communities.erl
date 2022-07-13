@@ -428,15 +428,10 @@ batch_propagate(ParentPid, MatchList, MaxNumCommunities) ->
 
     lists:foreach(
         fun (Uid) -> 
-            KnownFriends = remove_unknown_uids(maps:get(Uid, Friends, [])), %if undefined return []
-            NoSelfFriend = lists:filter(
-                fun (Buid) -> 
-                    Buid =/= Uid
-                end, 
-                KnownFriends),
-            case NoSelfFriend of
+            RealFriends = remove_deleted_and_self_friends(Uid, maps:get(Uid, Friends)), %if undefined return []
+            case RealFriends of
                 [] -> ets:delete(?COMMUNITY_DATA_TABLE, label_key(Uid)); % if they have no friends dont process them
-                _ -> propagate(Uid, NoSelfFriend, MaxNumCommunities) 
+                _ -> propagate(Uid, RealFriends, MaxNumCommunities) 
             end
         end, 
         Uids),
@@ -561,6 +556,17 @@ remove_unknown_uids(Uids) ->
         end,
         Uids).
 
+-spec remove_deleted_and_self_friends(Uid :: uid(), Friends :: [uid()]) -> [uid()].
+remove_deleted_and_self_friends(Uid, Friends) ->
+    NoSelfFriends = lists:filter( 
+        fun (Buid) -> 
+            Buid =/= Uid
+        end, 
+        Friends),
+    %removes all uids that aren't present in the ets table (which means an acc:* key doesnt exist for them)
+    remove_unknown_uids(NoSelfFriends). 
+    
+
 -spec get_friend_labels([uid()]) -> [community_label()].
 get_friend_labels([]) -> [];
 get_friend_labels(Uids) ->
@@ -583,12 +589,11 @@ batch_combine_small_clusters(ParentPid, MatchList, ClusterSizeThreshold) ->
             Uid 
         end, 
         MatchList),
-    {ok, Friends} = model_friends:get_friends_multi(Uids),
+    {ok, DirtyFriends} = model_friends:get_friends_multi(Uids),
     % ?dbg("Got batch for ~p -> ~p", [MatchList, Friends]),
-
     NumCombined = lists:foldl(
         fun (Uid, Acc) -> 
-            MyFriends = lists:delete(Uid, remove_unknown_uids(maps:get(Uid, Friends, []))),
+            MyFriends = remove_deleted_and_self_friends(Uid, maps:get(Uid, DirtyFriends)),
             case combine_small_clusters(Uid, MyFriends, ClusterSizeThreshold) of
                 ok -> Acc;
                 _ -> Acc + 1
@@ -621,10 +626,10 @@ is_not_isolated(Uid, [], CurMembers, MinSize) when length(CurMembers) + 1 < MinS
 is_not_isolated(_Uid, _Unvisited, CurMembers, MinSize) when length(CurMembers) + 1 >= MinSize -> {true, CurMembers};
 is_not_isolated(Uid, Unvisited, CurMembers, MinSize) ->
     % ?dbg("checking ~p, unvisited: ~p, Curmembers: ~p", [Uid, Unvisited, CurMembers]),
-    {ok, Friends} = model_friends:get_friends(Uid),
-    OtherFriends = lists:delete(Uid, Friends),
-    NewFriends = lists:subtract(remove_unknown_uids(OtherFriends), CurMembers),
-    NewUnvisited = lists:subtract(NewFriends, Unvisited) ++ Unvisited, % TODO add without duplicates; there must be a better way
+    {ok, DirtyFriends} = model_friends:get_friends(Uid),
+    Friends = remove_deleted_and_self_friends(Uid, DirtyFriends),
+    NewFriends = lists:subtract(Friends, CurMembers),
+    NewUnvisited = lists:subtract(NewFriends, Unvisited) ++ Unvisited, % TODO (luke, erl24) add without duplicates; there must be a better way
     [NextUid | NextUnvisited] = NewUnvisited,
     NewMembers = case lists:member(Uid, CurMembers) of
         true -> CurMembers;

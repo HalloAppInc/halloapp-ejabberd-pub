@@ -59,6 +59,7 @@
     create_account/6, % CommonTest
     delete_account/1,
     account_exists/1,
+    accounts_exist/1,
     filter_nonexisting_uids/1,
     is_account_deleted/1,
     get_account/1,
@@ -728,17 +729,31 @@ account_exists(Uid) ->
     binary_to_integer(Res) > 0.
 
 
+-spec accounts_exist(Uids :: [uid()]) -> [{uid(), boolean()}].
+accounts_exist(Uids) ->
+    Commands = lists:map(fun (Uid) -> 
+            ["HEXISTS", account_key(Uid), ?FIELD_PHONE] 
+        end, 
+        Uids),
+    Res = qmn(Commands),
+    lists:map(
+        fun({Uid, {ok, Exists}}) ->
+            {Uid, binary_to_integer(Exists) > 0}
+        end, lists:zip(Uids, Res)).
+
+
 -spec filter_nonexisting_uids(Uids :: [uid()]) -> [uid()].
 filter_nonexisting_uids(Uids) ->
+    UidExistence = model_accounts:accounts_exist(Uids),
     lists:foldr(
-        fun (Uid, Acc) ->
-            case model_accounts:account_exists(Uid) of
+        fun ({Uid, Exists}, Acc) ->
+            case Exists of
                 true -> [Uid | Acc];
                 false -> Acc
             end
         end,
         [],
-        Uids).
+        UidExistence).
 
 
 -spec is_account_deleted(Uid :: uid()) -> boolean().

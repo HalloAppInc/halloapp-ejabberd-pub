@@ -582,7 +582,23 @@ get_avatar_ids_test() ->
     ok.
 
 
-check_accounts_exists_test() ->
+check_account_exists_test() ->
+    setup(),
+    ?assertNot(model_accounts:account_exists(?UID1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?assert(model_accounts:account_exists(?UID1)),
+    ok.
+
+
+accounts_exist_test() ->
+    setup(),
+    ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
+    ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
+    ?assertEqual([{?UID1, true}, {?UID3, false}, {?UID2, true}], model_accounts:accounts_exist([?UID1, ?UID3, ?UID2])),
+    ok.
+
+
+filter_nonexisting_uids_test() ->
     setup(),
     ?assertEqual(ok, model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?USER_AGENT1, ?CAMPAIGN_ID, ?TS1)),
     ?assertEqual(ok, model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?USER_AGENT2, ?CAMPAIGN_ID, ?TS2)),
