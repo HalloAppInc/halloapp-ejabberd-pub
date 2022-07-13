@@ -19,7 +19,7 @@
 %% TODO: Should move away from having the key in the codebase.
 %% Unfortunately one of the dependencies needs it in a file as of now. we can fix it eventually.
 -define(GOOGLE_SERVICE_KEY_FILE, "google_service_key.json").
--define(REFRESH_TIME, 3540).    %% 59 minutes.
+-define(REFRESH_TIME_SEC, 3540).    %% 59 minutes.
 -define(FCM_URL_PREFIX, <<"https://fcm.googleapis.com/v1/projects/">>).
 -define(FCM_URL_SUFFIX, <<"/messages:send">>).
 -define(SCOPE_URL, <<"https://www.googleapis.com/auth/firebase.messaging">>).
@@ -134,7 +134,7 @@ reload_access_token(#{service_key_file := ServiceKeyFilePath} = State) ->
     State#{
         fcm_url => FcmUrl,
         auth_token => AuthToken,
-        token_tref => erlang:send_after(timer:seconds(?REFRESH_TIME), self(), refresh_token)
+        token_tref => erlang:send_after(?REFRESH_TIME_SEC, self(), refresh_token)
     }.
 
 
