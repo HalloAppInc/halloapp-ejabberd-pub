@@ -461,7 +461,7 @@ pick_gw(ChooseFrom, CC, IsFirstAttempt) ->
     ?INFO("Old Selection: ~p New Selection: ~p Weights: ~p Rand: ~p IsFirst: ~p CC: ~s",
         [Gateway, ExperimentalGateway, GWWeights, RandNo, IsFirstAttempt, CC]),
 
-    Gateway. %%TODO: Switch this to `NewGateway` to change later.
+    ExperimentalGateway. %%TODO: Remove old gateway selection code once we're sure this is better.
 
 -spec pick_gw_experimental(ChooseFrom :: [atom()], CC :: binary(), IsFirstAttempt :: boolean()) -> Gateway :: atom().
 pick_gw_experimental(ChooseFrom, CC, IsFirstAttempt) ->
