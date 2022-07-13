@@ -60,6 +60,7 @@
 -type tags() :: [tag()].
 
 -define(SMS_REG_CHECK_INCREMENTS, 1).
+-define(MAX_CLOUDWATCH_DATAPOINTS, 10).
 
 -export_type([
     tag/0,
@@ -393,9 +394,9 @@ send_to_cloudwatch(Data) when is_map(Data) ->
 
 -spec cloudwatch_put_metric_data(EnvNamespace :: string(), Metrics :: [metric_datum()]) -> ok.
 cloudwatch_put_metric_data(Namespace, Metrics)
-        when is_list(Namespace), is_list(Metrics), length(Metrics) > 20 ->
-    % CloudWatch wants no more the 20 metrics in the same request
-    {M1, M2} = lists:split(20, Metrics),
+        when is_list(Namespace), is_list(Metrics), length(Metrics) > ?MAX_CLOUDWATCH_DATAPOINTS ->
+    % CloudWatch wants no more the 15 metrics in the same request
+    {M1, M2} = lists:split(?MAX_CLOUDWATCH_DATAPOINTS, Metrics),
     cloudwatch_put_metric_data(Namespace, M1),
     cloudwatch_put_metric_data(Namespace, M2);
 cloudwatch_put_metric_data(Namespace, Metrics)
