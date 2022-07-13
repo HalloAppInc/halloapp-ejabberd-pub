@@ -124,17 +124,16 @@ handle_info({retry, PushMessageItem}, State) ->
     CurTimestampMs = util:now_ms(),
     MsgTimestampMs = PushMessageItem#push_message_item.timestamp_ms,
     %% Stop retrying after 10 minutes!
-    State1 = case CurTimestampMs - MsgTimestampMs < ?MESSAGE_MAX_RETRY_TIME_MILLISEC of
+    case CurTimestampMs - MsgTimestampMs < ?MESSAGE_MAX_RETRY_TIME_MILLISEC of
         false ->
-            ?INFO("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]),
-            State;
+            ?INFO("Uid: ~s push failed, no more retries msg_id: ~s", [Uid, Id]);
         true ->
             ?INFO("Uid: ~s, retry push_message_item: ~s", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
             mod_android_push_msg:push_message_item(NewPushMessageItem, self())
     end,
-    {noreply, State1};
+    {noreply, State};
 
 handle_info({http, {RequestId, _Response} = ReplyInfo}, #push_state{pendingMap = PendingMap} = State) ->
     FinalPendingMap = case maps:take(RequestId, PendingMap) of

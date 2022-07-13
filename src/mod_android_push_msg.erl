@@ -26,7 +26,8 @@
 
 -export([
     push_message_item/2,
-    refresh_token/0
+    refresh_token/0,
+    crash/0
 ]).
 
 %% gen_mod API
@@ -43,6 +44,10 @@ push_message_item(PushMessageItem, ParentPid) ->
 refresh_token() ->
     gen_server:cast(?PROC(), {refresh_token}),
     ok.
+
+-spec crash() -> ok.
+crash() ->
+    gen_server:cast(?PROC(), crash).
 
 
 %%====================================================================
@@ -123,7 +128,8 @@ reload_access_token(#{service_key_file := ServiceKeyFilePath} = State) ->
     {ok, SecretBin} = file:read_file(ServiceKeyFilePath),
     #{project_id := ProjectId} = jsx:decode(SecretBin, [return_maps, {labels, atom}]),
     {ok, #{access_token := AccessToken}} = google_oauth:get_access_token(ServiceKeyFilePath, ?SCOPE_URL),
-    AuthToken = <<"Bearer ", AccessToken/binary>>,
+    AuthToken = util:to_list(<<"Bearer ", AccessToken/binary>>),
+    ?DEBUG("AuthToken: ~p, ~p", [AccessToken, AuthToken]),
     FcmUrl = util:to_list(<<?FCM_URL_PREFIX/binary, ProjectId/binary, ?FCM_URL_SUFFIX/binary>>),
     State#{
         fcm_url => FcmUrl,
