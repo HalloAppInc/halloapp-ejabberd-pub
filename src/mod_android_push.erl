@@ -132,7 +132,7 @@ handle_info({retry, PushMessageItem}, State) ->
             ?INFO("Uid: ~s, retry push_message_item: ~s", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
-            mod_android_push_msg:push_message_item(NewPushMessageItem, State, self())
+            mod_android_push_msg:push_message_item(NewPushMessageItem, self())
     end,
     {noreply, State1};
 
@@ -150,6 +150,10 @@ handle_info({http, {RequestId, _Response} = ReplyInfo}, #push_state{pendingMap =
     end,
     State1 = State#push_state{pendingMap = FinalPendingMap, push_times_ms = NewPushTimes},
     {noreply, State1};
+
+handle_info({add_to_pending_map, RequestId, PushMessageItem}, #push_state{pendingMap = PendingMap} = State) ->
+    NewPendingMap = PendingMap#{RequestId => PushMessageItem},
+    {noreply, State#push_state{pendingMap = NewPendingMap}};
 
 handle_info(Request, State) ->
     ?DEBUG("Unknown request: ~p, ~p", [Request, State]),
@@ -173,7 +177,7 @@ push_message(Message, PushInfo, State) ->
                 timestamp_ms = TimestampMs,
                 retry_ms = ?RETRY_INTERVAL_MILLISEC,
                 push_info = PushInfo},
-        mod_android_push_msg:push_message_item(PushMessageItem, State, self())
+        mod_android_push_msg:push_message_item(PushMessageItem, self())
     catch
         Class: Reason: Stacktrace ->
             ?ERROR("Failed to push MsgId: ~s ToUid: ~s crash:~s",
@@ -233,6 +237,13 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #push_state{host = 
                     end,
                     remove_push_token(Uid, ServerHost)
             end;
+
+        {{_, 401, _}, _, ResponseBody} ->
+            stat:count("HA/push", ?FCM, 1, [{"result", "fcm_error"}]),
+            ?ERROR("Push failed, Uid: ~s, Token: ~p, expired auth token, Response: ~p",
+                    [Uid, binary:part(Token, 0, 10), ResponseBody]),
+            mod_android_push_msg:refresh_token(),
+            retry_message_item(PushMessageItem);
 
         {{_, _, _}, _, ResponseBody} ->
             stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
