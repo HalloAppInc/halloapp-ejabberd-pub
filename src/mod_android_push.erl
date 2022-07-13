@@ -176,7 +176,8 @@ push_message(Message, PushInfo, State) ->
                 timestamp_ms = TimestampMs,
                 retry_ms = ?RETRY_INTERVAL_MILLISEC,
                 push_info = PushInfo},
-        mod_android_push_msg:push_message_item(PushMessageItem, self())
+        mod_android_push_msg:push_message_item(PushMessageItem, self()),
+        State
     catch
         Class: Reason: Stacktrace ->
             ?ERROR("Failed to push MsgId: ~s ToUid: ~s crash:~s",
@@ -261,24 +262,15 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #push_state{host = 
 -spec parse_response(binary()) -> {ok, string()} | {error, any(), string()}.
 parse_response(ResponseBody) ->
     {JsonData} = jiffy:decode(ResponseBody),
-    [{Result}] = proplists:get_value(<<"results">>, JsonData),
-    FcmId = proplists:get_value(<<"message_id">>, Result),
-    ?DEBUG("Fcm push: message_id: ~p", [FcmId]),
-    case proplists:get_value(<<"success">>, JsonData) of
-        1 ->
-            {ok, FcmId};
-        0 ->
-            case proplists:get_value(<<"error">>, Result) of
-                <<"NotRegistered">> ->
-                    ?INFO("FCM error: NotRegistered", []),
-                    {error, not_registered, FcmId};
-                <<"InvalidRegistration">> ->
-                    ?INFO("FCM error: InvalidRegistration", []),
-                    {error, invalid_registration, FcmId};
-                Error ->
-                    ?ERROR("FCM error: ~s", [Error]),
-                    {error, other, FcmId}
-            end
+    Name = proplists:get_value(<<"name">>, JsonData, undefined),
+    case Name of
+        undefined ->
+            ?INFO("FCM error: response body: ~p", [ResponseBody]),
+            {error, other, <<"undefined">>};
+        _ ->
+            [FcmId | _] = lists:reverse(re:split(Name, "/")),
+            ?DEBUG("Fcm push: message_id: ~p", [FcmId]),
+            {ok, FcmId}
     end.
 
 

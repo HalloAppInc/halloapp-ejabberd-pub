@@ -216,7 +216,7 @@ extract_payload_maps(PushMessageItem, PushMetadata) ->
     end,
     DataMap = case PushMetadata#push_metadata.push_type of
         direct_alert -> #{};
-        _ -> #{<<"data">> => #{}, <<"fcm_options">> => #{<<"analytics_label">> => ?HALLOAPP}}
+        _ -> #{<<"test">> => <<"test">>}
     end,
     {NotificationMap, DataMap}.
 
