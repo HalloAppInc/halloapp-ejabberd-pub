@@ -110,7 +110,7 @@ process_counts(Uid, Counts, ServerDims) ->
 % TODO: validate the number of dims is < 6
 % TODO: validate the name and value of each dimension
 -spec process_count(Uid :: uid(), Counts :: pb_count(), ServerTags :: stat:tags()) -> result() .
-process_count(Uid, #pb_count{namespace = Namespace, metric = Metric, count = Count, dims = DimsSt},
+process_count(Uid, #pb_count{namespace = Namespace, metric = Metric, count = Count, dims = DimsSt} = PbCount,
         ServerTags) ->
     try
         FullNamespace = full_namespace(Namespace),
@@ -129,8 +129,8 @@ process_count(Uid, #pb_count{namespace = Namespace, metric = Metric, count = Cou
         error : bad_namespace : _ ->
             {error, bad_namespace};
         Class : Reason : Stacktrace ->
-            ?ERROR("client count error: ~s", [
-                lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
+            ?ERROR("client count error: ~s, PbCount: ~p", [
+                lager:pr_stacktrace(Stacktrace, {Class, Reason}), PbCount]),
             {error, badarg}
     end.
 
