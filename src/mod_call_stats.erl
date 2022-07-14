@@ -50,7 +50,7 @@ event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC, version = 
         edata = #pb_call{
             call_id = CallId, peer_uid = PeerUidInt, type = CallType, answered = Answered,
             connected = Connected, duration_ms = PBDurationMs, end_call_reason = EndCallReason,
-            is_krisp_active = IsKrispActive}} = Event) ->
+            network_type = NetworkType, is_krisp_active = IsKrispActive}} = Event) ->
     Uid = util:to_binary(UidInt),
     PeerUid = util:to_binary(PeerUidInt),
     DurationMs = case PBDurationMs of
@@ -83,6 +83,9 @@ event_call(#pb_event_data{uid = UidInt, platform = Platform, cc = CC, version = 
         [{connected, Connected}, {platform, Platform}, {cc, CC}]),
     stat:count(?CALLS_NS, "call_by_connected_version",1,
         [{connected, Connected}, {platform, Platform}, {version, Version}]),
+    stat:count(?CALLS_NS, "call_details", 1,
+        [{network, NetworkType}, {platform, Platform}, {type, CallType}, 
+            {cc, CC}, {version, Version}, {connected, Connected}, {answered, Answered}]),
     stat:count(?CALLS_NS, "end_reason", 1,
         [{end_reason, EndCallReason}, {type, CallType}, {platform, Platform}]),
     stat:count(?CALLS_NS, "call_by_int", 1, [{international, International}, {type, CallType}]),
