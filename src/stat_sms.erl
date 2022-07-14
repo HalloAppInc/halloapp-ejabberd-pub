@@ -428,7 +428,7 @@ compute_and_print_score([VarType | [VarName | [ErrCount | [TotalCounted | [Total
             %% Print as Error once every 4 hours. Assumption is that this method is run every
             %% 15 minutes. Print as Info otherwise.
             CurrentTime = util:now(),
-            case ((CurrentTime div ?HOURS) rem 4 =:= 0) andalso
+            case ((CurrentTime div ?HOURS) rem 24 =:= 0) andalso
                 ((CurrentTime div (15 * ?MINUTES)) rem 4 =:= 0) of
                 true -> ?ERROR(LogMsg, LogList);
                 false -> ?INFO(LogMsg, LogList)
