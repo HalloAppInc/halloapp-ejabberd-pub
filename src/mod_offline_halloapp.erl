@@ -44,6 +44,7 @@
     remove_user/2,
     count_user_messages/1,
     offline_queue_check/5,
+    c2s_session_closed/1,
     route_offline_messages/4,  % DEBUG
     cleanup_offline_queue/2    % DEBUG
 ]).
@@ -85,6 +86,7 @@ init([Host|_]) ->
     ejabberd_hooks:add(user_session_activated, Host, ?MODULE, user_session_activated, 50),
     ejabberd_hooks:add(offline_queue_check, Host, ?MODULE, offline_queue_check, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:add(c2s_session_closed, Host, ?MODULE, c2s_session_closed, 100),
     {ok, #{host => Host}}.
 
 
@@ -97,6 +99,7 @@ terminate(_Reason, #{host := Host} = _State) ->
     ejabberd_hooks:delete(user_session_activated, Host, ?MODULE, user_session_activated, 50),
     ejabberd_hooks:delete(offline_queue_check, Host, ?MODULE, offline_queue_check, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),
+    ejabberd_hooks:delete(c2s_session_closed, Host, ?MODULE, c2s_session_closed, 100),
     ok.
 
 
@@ -235,6 +238,31 @@ user_receive_packet(Acc) ->
 c2s_session_opened(#{mode := active} = State) ->
     send_offline_messages(State);
 c2s_session_opened(#{mode := passive} = State) ->
+    State.
+
+
+-spec c2s_session_closed(State :: state()) -> state().
+c2s_session_closed(#{user := UserId} = State) ->
+    {ok, Count} = model_messages:count_user_messages(UserId),
+    ?INFO("Uid ~s has ~p messages in the queue", [UserId, Count]),
+    case Count of
+        Count when Count < 0 ->
+            ?ERROR("Uid ~s has negative ~p messages in the queue", [UserId, Count]),
+            ok;
+        0 ->
+            ok;
+        _ ->
+            MsgId = util_id:new_msg_id(),
+            ?INFO("Sending wake_up push msg to Uid: ~s, MsgId: ~s", [UserId, MsgId]),
+            Msg = #pb_msg{
+                id = MsgId,
+                to_uid = UserId,
+                payload = #pb_wake_up{}
+            },
+            ejabberd_router:route(Msg)
+    end,
+    State;
+c2s_session_closed(State) ->
     State.
 
 
@@ -571,7 +599,7 @@ store_message(#pb_msg{payload = #pb_end_of_queue{}} = _Message) ->
     %% ignore storing end_of_queue marker packets.
     ok;
 store_message(#pb_msg{payload = #pb_wake_up{}} = _Message) ->
-    %% ignore storing SMSApp client wakeup packets.
+    %% ignore storing client wakeup packets.
     ok;
 store_message(#pb_msg{to_uid = ToUid, id = MsgId} = Message) ->
     case model_messages:store_message(Message) of
