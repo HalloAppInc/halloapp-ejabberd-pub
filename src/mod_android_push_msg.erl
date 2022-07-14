@@ -10,7 +10,7 @@
 
 -include("logger.hrl").
 -include("proc.hrl").
--include("date.hrl").
+-include("time.hrl").
 -include("push_message.hrl").
 
 -define(HTTP_TIMEOUT_MILLISEC, 10000).             %% 10 seconds.
