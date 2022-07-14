@@ -102,19 +102,16 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
     end;
 
 %% Publish comment.
-process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_feed_item{action = publish = Action, item = #pb_comment{} = Comment}} = IQ) ->
+process_local_iq(#pb_iq{from_uid = Uid, type = set, payload = #pb_feed_item{
+        action = publish = Action, item = #pb_comment{} = Comment} = HomeFeedSt} = IQ) ->
     CommentId = Comment#pb_comment.id,
     PostId = Comment#pb_comment.post_id,
     ParentCommentId = Comment#pb_comment.parent_comment_id,
     PayloadBase64 = base64:encode(Comment#pb_comment.payload),
-    EncPayload = Comment#pb_comment.enc_payload,
-    MediaCounters = Comment#pb_comment.media_counters,
-    case publish_comment(Uid, CommentId, PostId, ParentCommentId,
-            PayloadBase64, EncPayload, MediaCounters) of
+    case publish_comment(Uid, CommentId, PostId, ParentCommentId, PayloadBase64, HomeFeedSt) of
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_comment(Action, CommentId, PostId,
-                    ParentCommentId, Uid, <<>>, <<>>, ResultTsMs),
+                    ParentCommentId, Uid, HomeFeedSt, ResultTsMs),
             pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason))
@@ -134,14 +131,14 @@ process_local_iq(#pb_iq{from_uid = Uid, type = set,
 
 % Retract comment.
 process_local_iq(#pb_iq{from_uid = Uid, type = set,
-        payload = #pb_feed_item{action = retract = Action, item = #pb_comment{} = Comment}} = IQ) ->
+        payload = #pb_feed_item{action = retract = Action, item = #pb_comment{} = Comment} = HomeFeedSt} = IQ) ->
     CommentId = Comment#pb_comment.id,
     PostId = Comment#pb_comment.post_id,
     ParentCommentId = Comment#pb_comment.parent_comment_id,
-    case retract_comment(Uid, CommentId, PostId) of
+    case retract_comment(Uid, CommentId, PostId, HomeFeedSt) of
         {ok, ResultTsMs} ->
             SubEl = make_pb_feed_comment(Action, CommentId, PostId,
-                    ParentCommentId, Uid, <<>>, <<>>, ResultTsMs),
+                    ParentCommentId, Uid, HomeFeedSt, ResultTsMs),
             pb:make_iq_result(IQ, SubEl);
         {error, Reason} ->
             pb:make_error(IQ, util:err(Reason))
@@ -339,11 +336,12 @@ broadcast_post(Uid, FeedAudienceList, HomeFeedSt, TimestampMs) ->
 
 -spec publish_comment(Uid :: uid(), CommentId :: binary(), PostId :: binary(),
         ParentCommentId :: binary(), PayloadBase64 :: binary(),
-        EncPayload :: binary(), MediaCounters :: pb_media_counters()) -> {ok, integer()} | {error, any()}.
-publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64, EncPayload, MediaCounters) ->
+        HomeFeedSt :: pb_feed_item()) -> {ok, integer()} | {error, any()}.
+publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64, HomeFeedSt) ->
     ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = publish,
+    MediaCounters = HomeFeedSt#pb_feed_item.item#pb_comment.media_counters,
 
     case model_feed:get_comment_data(PostId, CommentId, ParentCommentId) of
         {{error, missing}, _, _} ->
@@ -355,9 +353,8 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
             PostOwnerUid = Post#post.uid,
             FeedAudienceSet = get_feed_audience_set(Action, PostOwnerUid, Post#post.audience_list),
             NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
-            broadcast_comment(Action, CommentId, PostId, ParentCommentId,
-                PublisherUid, PayloadBase64, EncPayload, TimestampMs, FeedAudienceSet, NewPushList),
-
+            broadcast_comment(CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt,
+                TimestampMs, FeedAudienceSet, NewPushList),
             {ok, TimestampMs};
         {{ok, Post}, {error, _}, {ok, ParentPushList}} ->
             TimestampMs = util:now_ms(),
@@ -376,8 +373,8 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                             ParentCommentId, PayloadBase64, TimestampMs),
                     ejabberd_hooks:run(feed_item_published, Server, [PublisherUid, CommentId,
                                        comment, undefined, Post#post.audience_type, sets:size(FeedAudienceSet), MediaCounters]),
-                    broadcast_comment(Action, CommentId, PostId, ParentCommentId,
-                        PublisherUid, PayloadBase64, EncPayload, TimestampMs, FeedAudienceSet, NewPushList),
+                    broadcast_comment(CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt,
+                        TimestampMs, FeedAudienceSet, NewPushList),
                     {ok, TimestampMs};
 
                 IsPublisherInPostAudienceSet ->
@@ -394,11 +391,13 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
     end.
 
 
-broadcast_comment(Action, CommentId, PostId, ParentCommentId, PublisherUid,
-    PayloadBase64, EncPayload, TimestampMs, FeedAudienceSet, NewPushList) ->
+
+broadcast_comment(CommentId, PostId, ParentCommentId, PublisherUid,
+        HomeFeedSt, TimestampMs, FeedAudienceSet, NewPushList) ->
+    Action = HomeFeedSt#pb_feed_item.action,
     %% send a new api message to all the clients.
     ResultStanza = make_pb_feed_comment(Action, CommentId,
-            PostId, ParentCommentId, PublisherUid, PayloadBase64, EncPayload, TimestampMs),
+            PostId, ParentCommentId, PublisherUid, HomeFeedSt, TimestampMs),
     PushSet = sets:from_list(NewPushList),
     broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza, []).
 
@@ -431,8 +430,8 @@ retract_post(Uid, PostId) ->
 
 
 -spec retract_comment(Uid :: uid(), CommentId :: binary(),
-        PostId :: binary()) -> {ok, integer()} | {error, any()}.
-retract_comment(PublisherUid, CommentId, PostId) ->
+        PostId :: binary(), HomeFeedSt :: pb_feed_item()) -> {ok, integer()} | {error, any()}.
+retract_comment(PublisherUid, CommentId, PostId, HomeFeedSt) ->
     ?INFO("Uid: ~s, CommentId: ~s, PostId: ~s", [PublisherUid, CommentId, PostId]),
     Server = util:get_host(),
     Action = retract,
@@ -462,7 +461,7 @@ retract_comment(PublisherUid, CommentId, PostId) ->
 
                             %% send a new api message to all the clients.
                             ResultStanza = make_pb_feed_comment(Action, CommentId, PostId,
-                                    ParentCommentId, PublisherUid, <<>>, <<>>, TimestampMs),
+                                    ParentCommentId, PublisherUid, HomeFeedSt, TimestampMs),
                             PushSet = sets:new(),
                             broadcast_event(PublisherUid, FeedAudienceSet, PushSet, ResultStanza, []),
                             ejabberd_hooks:run(feed_item_retracted, Server,[PublisherUid, CommentId, comment]),
@@ -558,22 +557,20 @@ update_feed_post_st(PublisherUid, PublisherName, HomeFeedSt, ToUid, TimestampMs)
 
 -spec make_pb_feed_comment(Action :: action_type(), CommentId :: binary(),
         PostId :: binary(), ParentCommentId :: binary(), Uid :: uid(),
-        PayloadBase64 :: binary(), EncPayload :: binary(),
-        TimestampMs :: integer()) -> pb_feed_item().
-make_pb_feed_comment(Action, CommentId, PostId,
-        ParentCommentId, PublisherUid, PayloadBase64, EncPayload, TimestampMs) ->
-    #pb_feed_item{
+        HomeFeedSt :: pb_feed_item(), TimestampMs :: integer()) -> pb_feed_item().
+make_pb_feed_comment(Action, CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt, TimestampMs) ->
+    Comment = HomeFeedSt#pb_feed_item.item,
+    HomeFeedSt#pb_feed_item{
         action = Action,
-        item = #pb_comment{
+        item = Comment#pb_comment{
             id = CommentId,
             post_id = PostId,
             parent_comment_id = ParentCommentId,
             publisher_uid = PublisherUid,
             publisher_name = model_accounts:get_name_binary(PublisherUid),
-            payload = base64:decode(PayloadBase64),
-            timestamp = util:ms_to_sec(TimestampMs),
-            enc_payload = EncPayload
-    }}.
+            timestamp = util:ms_to_sec(TimestampMs)
+        }
+    }.
 
 
 -spec broadcast_event(Uid :: uid(), FeedAudienceSet :: set(),

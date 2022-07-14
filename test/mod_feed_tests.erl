@@ -153,8 +153,8 @@ get_comment_publish_iq(CommentId, PostId, Uid, ParentCommentId, Payload, EncPayl
         payload = FeedStanza
     }.
 
-get_comment_publish_iq_result(CommentId, PostId, Uid, ParentCommentId, Timestamp) ->
-    Comment = create_comment_st(CommentId, PostId, Uid, <<>>, ParentCommentId, <<>>, <<>>, Timestamp),
+get_comment_publish_iq_result(CommentId, PostId, Uid, ParentCommentId, Payload, EncPayload, Timestamp) ->
+    Comment = create_comment_st(CommentId, PostId, Uid, <<>>, ParentCommentId, Payload, EncPayload, Timestamp),
     FeedStanza = create_feed_stanza(publish, Comment, [], []),
     #pb_iq{
         type = result,
@@ -334,7 +334,7 @@ publish_comment_test() ->
     ResultIQ = mod_feed:process_local_iq(PublishIQ),
     Timestamp = get_timestamp(ResultIQ),
     ExpectedResultIQ = get_comment_publish_iq_result(?COMMENT_ID1, ?POST_ID1,
-            ?UID1, <<>>, Timestamp),
+            ?UID1, <<>>, ?PAYLOAD1, ?ENC_PAYLOAD1, Timestamp),
     ?assertEqual(ExpectedResultIQ, ResultIQ),
 
     %% reposting the same comment should still give the same timestamp.
