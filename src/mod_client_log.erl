@@ -224,9 +224,15 @@ full_namespace(Namespace) ->
 
 
 dims_st_to_tags(DimsSt) ->
-    lists:map(
-        fun (#pb_dim{name = Name, value = Value}) ->
-            {binary_to_list(Name), fix_tag_value(binary_to_list(Value))}
+    %% Dont crash on invalid values here.
+    %% Get rid of these checks once clients fixes their issues.
+    lists:filtermap(
+        fun (#pb_dim{name = _Name, value = undefined}) ->
+            false;
+            (#pb_dim{name = undefined, value = _Value}) ->
+            false;
+            (#pb_dim{name = Name, value = Value}) ->
+            {true, {binary_to_list(Name), fix_tag_value(binary_to_list(Value))}}
         end,
         DimsSt
     ).
