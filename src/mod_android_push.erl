@@ -245,6 +245,12 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #push_state{host = 
             mod_android_push_msg:refresh_token(),
             retry_message_item(PushMessageItem);
 
+        {{_, 404, _}, _, ResponseBody} ->
+            stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
+            ?INFO("Push failed, Uid:~s, token: ~p, unregistered FCM error: ~p",
+                    [Uid, binary:part(Token, 0, 10), ResponseBody]),
+            remove_push_token(Uid, ServerHost);
+
         {{_, _, _}, _, ResponseBody} ->
             stat:count("HA/push", ?FCM, 1, [{"result", "failure"}]),
             ?ERROR("Push failed, Uid:~s, token: ~p, non-recoverable FCM error: ~p",
@@ -252,7 +258,7 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #push_state{host = 
             remove_push_token(Uid, ServerHost);
 
         {error, Reason} ->
-            ?ERROR("Push failed, Uid:~s, token: ~p, reason: ~p",
+            ?INFO("Push failed, Uid:~s, token: ~p, reason: ~p",
                     [Uid, binary:part(Token, 0, 10), Reason]),
             retry_message_item(PushMessageItem)
     end.
