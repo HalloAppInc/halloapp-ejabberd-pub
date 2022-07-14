@@ -259,7 +259,7 @@ check_trunc_ik(WK, IK) ->
         #pb_identity_key{public_key = IPublicKey} ->
             <<TruncIKey:?TRUNC_IKEY_LENGTH/binary, _Rest/binary>> = IPublicKey,
             TruncIKey
-    catch Class : Reason : St ->
+    catch _:_ ->
         ?assert(false)
     end,
     ?assertEqual(TruncIK, TruncIKey1),

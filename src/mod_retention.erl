@@ -120,7 +120,7 @@ dump_account(Uid) ->
                 NumUidContacts = length(maps:to_list(UidContacts)),
                 NumFriends = length(Friends),
                 NumGroups = model_groups:get_group_count(Uid),
-                {TopCommunity, Score} = model_accounts:get_top_community(Uid),
+                {TopCommunity, _Score} = model_accounts:get_top_community(Uid),
                 NumCommunities = model_accounts:get_num_communities(Uid),
                 CC = mod_libphonenumber:get_cc(Account#account.phone),
                 ha_events:log_event(<<"server.accounts">>, #{

@@ -376,7 +376,7 @@ decode_ik(IK) ->
         #pb_identity_key{public_key = IKPublicKey} ->
             IKPublicKey
     catch Class : Reason : St ->
-        ?debugFmt("failed to parse identity key: ~p", 
+        ?debugFmt("failed to parse identity key: ~p, reason: ~p", 
             [IK, lager:pr_stacktrace(St, {Class, Reason})]),
         ?assert(false)
     end.

@@ -66,7 +66,6 @@
 -include_lib("eunit/include/eunit.hrl").
 -export([
     decode_member/2,
-    create_group/4,
     encode_member_type/1,
     group_key/1,
     members_key/1,

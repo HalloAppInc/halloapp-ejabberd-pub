@@ -108,9 +108,9 @@ is_google_request(Phone, IP, Protocol) ->
     end.
 
 
-is_hashcash_enabled(UserAgent, Solution) ->
+is_hashcash_enabled(UserAgent, _Solution) ->
     ClientType = util_ua:get_client_type(UserAgent),
-    ValidUA = case ClientType of
+    case ClientType of
         android -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/Android1.42">>);
         ios -> util_ua:is_version_greater_than(UserAgent, <<"HalloApp/iOS1.20.261">>);
         undefined -> false
