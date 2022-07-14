@@ -240,7 +240,7 @@ handle_fcm_response({_RequestId, Response}, PushMessageItem, #push_state{host = 
 
         {{_, 401, _}, _, ResponseBody} ->
             stat:count("HA/push", ?FCM, 1, [{"result", "fcm_error"}]),
-            ?ERROR("Push failed, Uid: ~s, Token: ~p, expired auth token, Response: ~p",
+            ?INFO("Push failed, Uid: ~s, Token: ~p, expired auth token, Response: ~p",
                     [Uid, binary:part(Token, 0, 10), ResponseBody]),
             mod_android_push_msg:refresh_token(),
             retry_message_item(PushMessageItem);
