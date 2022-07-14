@@ -10,6 +10,7 @@
 
 -include("logger.hrl").
 -include("proc.hrl").
+-include("date.hrl").
 -include("push_message.hrl").
 
 -define(HTTP_TIMEOUT_MILLISEC, 10000).             %% 10 seconds.
@@ -19,7 +20,7 @@
 %% TODO: Should move away from having the key in the codebase.
 %% Unfortunately one of the dependencies needs it in a file as of now. we can fix it eventually.
 -define(GOOGLE_SERVICE_KEY_FILE, "google_service_key.json").
--define(REFRESH_TIME_SEC, 3540).    %% 59 minutes.
+-define(REFRESH_TIME_SEC, 30 * ?MINUTES).    %% 30 minutes.
 -define(FCM_URL_PREFIX, <<"https://fcm.googleapis.com/v1/projects/">>).
 -define(FCM_URL_SUFFIX, <<"/messages:send">>).
 -define(SCOPE_URL, <<"https://www.googleapis.com/auth/firebase.messaging">>).
