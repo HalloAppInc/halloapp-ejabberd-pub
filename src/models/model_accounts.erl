@@ -1193,7 +1193,7 @@ get_community_label(Uid) ->
     end.
 
 
--spec get_top_community(Uid :: uid()) -> maybe({uid(), float()}) | {error, any()}.
+-spec get_top_community(Uid :: uid()) -> maybe(uid()) | {error, any()}.
 get_top_community(Uid) ->
     Res = get_community_label(Uid),
     case Res of
@@ -1201,7 +1201,8 @@ get_top_community(Uid) ->
         Label -> 
             LabelList = maps:to_list(Label),
             SortedLabel = lists:keysort(2, LabelList),
-            lists:last(SortedLabel)
+            {CommunityId, _Score} = lists:last(SortedLabel),
+            CommunityId
     end.
 
 
