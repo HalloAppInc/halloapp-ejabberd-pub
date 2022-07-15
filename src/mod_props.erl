@@ -131,6 +131,7 @@ get_props(Uid, ClientVersion) ->
         invite_strings => get_invite_strings_bin(), %% json string with invite text.
         new_chat_ui => false,   %% turn on new chat ui on ios.
         is_psa_admin => false, %% is client allowed to post PSA Moment
+        group_expiry => false, %% whether group expiry option is turned on for clients.
         default_krisp_noise_suppression => false,  %% Should client use noise suppression by default
         enable_sentry_perf_tracking => false %% Enable Sentry perf tracking on iOS clients
     },
@@ -161,7 +162,8 @@ get_uid_based_props(PropMap, Uid) ->
             PropMap11 = maps:update(new_chat_ui, true, PropMap10),
             PropMap12 = maps:update(default_krisp_noise_suppression, true, PropMap11),
             PropMap13 = maps:update(enable_sentry_perf_tracking, true, PropMap12),
-            PropMap13
+            PropMap14 = maps:update(group_expiry, true, PropMap13),
+            PropMap14
     end,
     apply_uid_prop_overrides(Uid, ResPropMap).
 
