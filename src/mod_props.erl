@@ -315,7 +315,7 @@ get_invite_strings_bin() ->
         %% en localization strings dont appear with other languages in ios repo for some reason.
         %% TODO: need to fix this in the ios repo.
         InviteStringsMap1 = InviteStringsMap#{
-            <<"en">> => <<"Hey %1$@, I have an invite for you to join me on HalloApp - a real-relationship network for those closest to me. Use %2$@ to register. Get it at https://halloapp.com/get"/utf8>>
+            <<"en">> => <<"I’m inviting you to join me on HalloApp. It is a private and secure app to share pictures, chat and call your friends. Get it at https://halloapp.com/get"/utf8>>
         },
         jiffy:encode(InviteStringsMap1)
     catch
