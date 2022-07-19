@@ -150,6 +150,11 @@ handle_cast({push_message_item, PushMessageItem, ParentPid}, State) ->
 handle_cast({push_message_item, PushMessageItem, PushMetadata, ParentPid}, State) ->
     NewState = push_message_item(PushMessageItem, PushMetadata, State, ParentPid),
     {noreply, NewState};
+handle_cast({send_post_request_to_apns, Uid, ApnsId, ContentId, PayloadBin,
+            PushType, EndpointType, PushMessageItem, ParentPid} = _Request, State) ->
+    {_Result, NewState} = send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
+            PushType, EndpointType, PushMessageItem, State, ParentPid),
+    {noreply, NewState};
 handle_cast(crash, _State) ->
     error(test_crash);
 handle_cast(Request, State) ->

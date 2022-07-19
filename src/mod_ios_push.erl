@@ -49,6 +49,9 @@
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
     gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
+    PoolConfigs = [{workers, ?NUM_IOS_POOL_WORKERS}, {worker, {mod_ios_push_msg, [Host]}}],
+    Pid = wpool:start_sup_pool(?IOS_POOL, PoolConfigs),
+    ?INFO("IOS Push pool is created with pid ~p", [Pid]),
     ok.
 
 stop(_Host) ->
@@ -159,7 +162,7 @@ handle_info({retry, PushMessageItem}, State) ->
             ?INFO("Uid: ~s, retry push_message_item: ~p", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
-            mod_ios_push_msg:push_message(NewPushMessageItem, self()),
+            wpool:cast(?IOS_POOL, {push_message_item, NewPushMessageItem, self()}),
             add_to_pending_map(PushMessageItem#push_message_item.apns_id, NewPushMessageItem, State)
     end,
     {noreply, NewState};
@@ -310,7 +313,7 @@ push_message(Message, PushInfo, State) ->
             content_type = PushMetadata#push_metadata.content_type,
             apns_id = ApnsId
         },
-        mod_ios_push_msg:push_message(PushMessageItem, PushMetadata, self()),
+        wpool:cast(?IOS_POOL, {push_message_item, PushMessageItem, PushMetadata, self()}),
         add_to_pending_map(ApnsId, PushMessageItem, State)
     catch
         Class: Reason: Stacktrace ->
@@ -356,6 +359,7 @@ send_dev_push_internal(Uid, PushInfo, PushTypeBin, PayloadBin, State) ->
         push_info = PushInfo,
         push_type = PushType
     },
-    mod_ios_push_msg:send_post_request_to_apns(Uid, ApnsId, ContentId, PayloadBin,
-            PushType, EndpointType, PushMessageItem, State, self()).
+    wpool:cast(?IOS_POOL, {send_post_request_to_apns, Uid, ApnsId, ContentId, PayloadBin,
+            PushType, EndpointType, PushMessageItem, self()}),
+    add_to_pending_map(ApnsId, PushMessageItem, State).
 

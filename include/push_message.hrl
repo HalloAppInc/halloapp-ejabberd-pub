@@ -106,4 +106,9 @@
 
 -type push_metadata() :: #push_metadata{}.
 
+-define(NUM_IOS_POOL_WORKERS, 10).
+-define(NUM_ANDROID_POOL_WORKERS, 20).
+-define(IOS_POOL, ios_pool).
+-define(ANDROID_POOL, android_pool).
+
 -endif.

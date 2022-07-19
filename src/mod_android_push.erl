@@ -39,6 +39,9 @@
 start(Host, Opts) ->
     ?INFO("start ~w", [?MODULE]),
     gen_mod:start_child(?MODULE, Host, Opts, ?PROC()),
+    PoolConfigs = [{workers, ?NUM_ANDROID_POOL_WORKERS}, {worker, {mod_android_push_msg, [Host]}}],
+    Pid = wpool:start_sup_pool(?ANDROID_POOL, PoolConfigs),
+    ?INFO("Android Push pool is created with pid ~p", [Pid]),
     ok.
 
 stop(_Host) ->
@@ -131,7 +134,7 @@ handle_info({retry, PushMessageItem}, State) ->
             ?INFO("Uid: ~s, retry push_message_item: ~s", [Uid, Id]),
             NewRetryMs = round(PushMessageItem#push_message_item.retry_ms * ?GOLDEN_RATIO),
             NewPushMessageItem = PushMessageItem#push_message_item{retry_ms = NewRetryMs},
-            mod_android_push_msg:push_message_item(NewPushMessageItem, self())
+            wpool:cast(?ANDROID_POOL, {push_message_item, NewPushMessageItem, self()})
     end,
     {noreply, State};
 
@@ -176,7 +179,7 @@ push_message(Message, PushInfo, State) ->
                 timestamp_ms = TimestampMs,
                 retry_ms = ?RETRY_INTERVAL_MILLISEC,
                 push_info = PushInfo},
-        mod_android_push_msg:push_message_item(PushMessageItem, self()),
+        wpool:cast(?ANDROID_POOL, {push_message_item, PushMessageItem, self()}),
         State
     catch
         Class: Reason: Stacktrace ->
