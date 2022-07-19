@@ -62,9 +62,13 @@ mod_options(_Host) ->
 
 % client_log
 -spec process_local_iq(pb_iq(), halloapp_c2s:state()) -> pb_iq().
-process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_client_log{} = ClientLogsSt} = IQ,
+process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_client_log{events = EventsDirty} = ClientLogsStDirty} = IQDirty,
         #{client_version := ClientVersion} = _State) ->
     try
+        % clean all the events and replace them
+        Events = lists:map(fun clean_event/1, EventsDirty),
+        ClientLogsSt = ClientLogsStDirty#pb_client_log{events = Events},
+        IQ = IQDirty#pb_iq{payload = ClientLogsSt},
         Platform = util_ua:get_client_type(ClientVersion),
         case process_client_count_log_st(Uid, ClientLogsSt, Platform) of
             ok ->
@@ -76,7 +80,7 @@ process_local_iq(#pb_iq{type = set, from_uid = Uid, payload = #pb_client_log{} =
         Class : Reason : Stacktrace ->
             ?ERROR("client log error: ~s", [
                 lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
-            pb:make_error(IQ, util:err(server_error))
+            pb:make_error(IQDirty, util:err(server_error))
     end;
 
 process_local_iq(#pb_iq{} = IQ, _State) ->
@@ -185,6 +189,23 @@ process_event(Uid, #pb_event_data{edata = Edata} = Event) ->
                 lager:pr_stacktrace(Stacktrace, {Class, Reason})]),
             {error, badarg}
     end.
+
+-spec clean_event(Event :: pb_event_data()) -> pb_event_data().
+clean_event(#pb_event_data{uid = UidInt, platform = Platform, cc = CC,
+        edata = #pb_push_received{id = Id, client_timestamp = Stamp} = Edata} = Event) ->
+    ?INFO("Uid: ~p Platform: ~s CC: ~s PushId: ~s", [UidInt, Platform, CC, Id]),
+    % temporary fix, TODO: remove once iOS pushes are changed
+    NewStamp = case Stamp of
+        % any time before 2001 is definitely in seconds!
+        Seconds when Seconds < 1000000000000 ->
+            ?INFO("mod_client_log: event_push_received: changed timestamp (old was ~p)", [Seconds]),
+            Seconds * 1000 + 999;
+        Milliseconds ->
+            Milliseconds
+    end,
+    Event#pb_event_data{edata = Edata#pb_push_received{client_timestamp = NewStamp} };
+clean_event(Event) ->
+    Event.
 
 -spec get_namespace(Edata :: tuple()) -> binary().
 get_namespace(Edata) when is_tuple(Edata) ->
