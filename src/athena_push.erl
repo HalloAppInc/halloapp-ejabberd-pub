@@ -23,7 +23,8 @@
 
     %% result processing functions.
     record_by_version/1,
-    record_by_cc/1
+    record_by_cc/1,
+    record_by_platform/1
 ]).
 
 %%====================================================================
@@ -40,6 +41,7 @@ get_queries() ->
         push_success_rates_version(?IOS, QueryTimeMsBin, ?MIN_IOS_VERSION),
         push_success_rates_cc(?ANDROID, QueryTimeMsBin, ?MIN_ANDROID_VERSION),
         push_success_rates_cc(?IOS, QueryTimeMsBin, ?MIN_IOS_VERSION),
+        push_success_rates_platform(QueryTimeMsBin, ?MIN_ANDROID_VERSION),
         push_latencies_version(?ANDROID, QueryTimeMsBin, ?MIN_ANDROID_VERSION),
         push_latencies_version(?IOS, QueryTimeMsBin, ?MIN_IOS_VERSION),
         push_latencies_cc(?ANDROID, QueryTimeMsBin, ?MIN_ANDROID_VERSION),
@@ -108,6 +110,32 @@ push_success_rates_cc(Platform, TimestampMsBin, _OldestClientVersion) ->
         metrics = ["push_success_rate_by_cc"]
     }.
 
+push_success_rates_platform(TimestampMsBin, _OldestClientVersion) ->
+    QueryBin = <<"
+        SELECT success.platform, ROUND( success.count * 100.0 / total.count, 2) as rate, total.count as count
+        FROM
+            (SELECT server_push_sent.platform as platform, count(*) as count
+            FROM server_push_sent
+            LEFT JOIN client_push_received
+            ON server_push_sent.push_id=client_push_received.push_received.id
+            WHERE client_push_received.push_received.id IS NOT NULL
+                AND server_push_sent.timestamp_ms>='", TimestampMsBin/binary, "'
+            GROUP BY server_push_sent.platform) as success
+        JOIN
+            (SELECT server_push_sent.platform as platform, count(*) as count
+            FROM server_push_sent
+            LEFT JOIN client_push_received
+            ON server_push_sent.push_id=client_push_received.push_received.id
+            WHERE server_push_sent.timestamp_ms>='", TimestampMsBin/binary, "'
+            GROUP BY server_push_sent.platform) as total
+        ON success.platform=total.platform">>,
+        #athena_query {
+            query_bin = QueryBin,
+            tags = #{},
+            result_fun = {?MODULE, record_by_platform},
+            metrics = ["push_success_rate_by_platform"]
+        }.
+
 push_latencies_version(Platform, TimestampMsBin, _OldestClientVersion) ->
     QueryBin = <<"
         SELECT server_push_sent.client_version as version, 
@@ -149,26 +177,18 @@ push_latencies_cc(Platform, TimestampMsBin, _OldestClientVersion) ->
 
 -spec record_by_version(Query :: athena_query()) -> ok.
 record_by_version(Query) ->
-    Result = Query#athena_query.result,
-    ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
-    [_HeaderRow | ActualResultRows] = ResultRows,
-    TagsAndValues = maps:to_list(Query#athena_query.tags),
-    [Metric1] = Query#athena_query.metrics,
-    lists:foreach(
-        fun(ResultRow) ->
-            [Version, SuccessRateStr, TotalStr] = maps:get(<<"Data">>, ResultRow),
-            {SuccessRate, <<>>} = string:to_float(SuccessRateStr),
-            stat:count("HA/push", Metric1, SuccessRate,
-                    [{"version", util:to_list(Version)} | TagsAndValues]),
-            TotalCount = util:to_integer(TotalStr),
-            stat:count("HA/push", Metric1 ++ "_count", TotalCount,
-                    [{"version", util:to_list(Version)} | TagsAndValues])
-        end, ActualResultRows),
-    ok.
-
+    record_by("version", Query).
 
 -spec record_by_cc(Query :: athena_query()) -> ok.
 record_by_cc(Query) ->
+    record_by("cc", Query).
+
+-spec record_by_platform(Query :: athena_query()) -> ok.
+record_by_platform(Query) ->
+    record_by("platform", Query).
+
+-spec record_by(Variable :: string(), Query :: athena_query()) -> ok.
+record_by(Variable, Query) ->
     Result = Query#athena_query.result,
     ResultRows = maps:get(<<"ResultRows">>, maps:get(<<"ResultSet">>, Result)),
     [_HeaderRow | ActualResultRows] = ResultRows,
@@ -176,12 +196,12 @@ record_by_cc(Query) ->
     [Metric1] = Query#athena_query.metrics,
     lists:foreach(
         fun(ResultRow) ->
-            [CC, SuccessRateStr, TotalStr] = maps:get(<<"Data">>, ResultRow),
+            [VarValue, SuccessRateStr, TotalStr] = maps:get(<<"Data">>, ResultRow),
             {SuccessRate, <<>>} = string:to_float(SuccessRateStr),
             stat:count("HA/push", Metric1, SuccessRate,
-                    [{"cc", util:to_list(CC)} | TagsAndValues]),
+                    [{Variable, util:to_list(VarValue)} | TagsAndValues]),
             TotalCount = util:to_integer(TotalStr),
             stat:count("HA/push", Metric1 ++ "_count", TotalCount,
-                    [{"cc", util:to_list(CC)} | TagsAndValues])
+                    [{Variable, util:to_list(VarValue)} | TagsAndValues])
         end, ActualResultRows),
     ok.
