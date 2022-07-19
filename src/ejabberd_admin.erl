@@ -455,6 +455,10 @@ get_commands_spec() ->
     #ejabberd_commands{name = get_full_sync_retry_time, tags = [server],
         desc = "Sets the full sync retry_time - default is 1 day",
         module = ?MODULE, function = get_full_sync_retry_time,
+        result = {res, rescode}},
+    #ejabberd_commands{name = fetch_push_stats, tags = [server],
+        desc = "Fetches push stats for android",
+        module = android_push_stats, function = fetch_push_stats,
         result = {res, rescode}}
     ].
 
