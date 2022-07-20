@@ -16,8 +16,8 @@
 %% TODO: Should move away from having the key in the codebase.
 %% Unfortunately one of the dependencies needs it in a file as of now. we can fix it eventually.
 -define(GOOGLE_SERVICE_KEY_FILE, "google_service_key.json").
--define(FCM_URL_PREFIX, <<"https://fcm.googleapis.com/v1beta1/projects/">>).
--define(FCM_URL_SUFFIX, <<"/androidApps/com.halloapp/deliveryData">>).
+-define(FCM_URL_PREFIX, <<"https://fcmdata.googleapis.com/v1beta1/projects/">>).
+-define(FCM_URL_SUFFIX, <<"/androidApps/1:817105367342:android:2c61d3d6317db7a16e4abf/deliveryData">>).
 -define(SCOPE_URL, <<"https://www.googleapis.com/auth/cloud-platform">>).
 
 -export([
@@ -42,7 +42,7 @@ fetch_push_stats() ->
         {ok, {{_, 200, _}, _Headers, Body}} ->
             TsMs = util:now_ms(),
             Date = util:tsms_to_date(TsMs), 
-            ha_events:write_log(<<"server.android_push_stats_dump">>, Date, Body);
+            ha_events:write_log(<<"server.android_push_stats_dump">>, Date, list_to_binary(Body));
         _ -> 
             ?INFO("fetch_push_stats had error: see response", [])
     end.
