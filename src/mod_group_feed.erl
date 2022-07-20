@@ -239,7 +239,7 @@ publish_post_unsafe(GroupInfo, Uid, PostId, PayloadBase64, PostTag, GroupFeedSt)
             TimestampMs = util:now_ms(),
             ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
                     AudienceType, AudienceList, TimestampMs, Gid),
-            ejabberd_hooks:run(group_feed_item_published, Server, [Gid, Uid, PostId, post, sets:size(AudienceSet), MediaCounters]),
+            ejabberd_hooks:run(group_feed_item_published, Server, [Gid, Uid, Uid, PostId, post, sets:size(AudienceSet), MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             ?INFO("Uid: ~s Gid: ~s PostId: ~s already published", [Gid, Uid, PostId]),
@@ -315,7 +315,7 @@ publish_comment_unsafe(GroupInfo, Uid, CommentId, PostId, ParentCommentId, Paylo
             ok = model_feed:publish_comment(CommentId, PostId, Uid,
                     ParentCommentId, PayloadBase64, TimestampMs),
             ejabberd_hooks:run(group_feed_item_published, Server,
-                    [Gid, Uid, CommentId, comment, sets:size(AudienceSet), MediaCounters]),
+                    [Gid, Uid, PostOwnerUid, CommentId, comment, sets:size(AudienceSet), MediaCounters]),
 
             NewGroupFeedSt = make_pb_group_feed_item(GroupInfo, Uid,
                     SenderName, GroupFeedSt, util:ms_to_sec(TimestampMs)),

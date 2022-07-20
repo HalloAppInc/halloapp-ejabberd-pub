@@ -21,8 +21,8 @@
 
 %% Hooks and API.
 -export([
-    group_feed_item_published/6,
-    feed_item_published/7,
+    group_feed_item_published/7,
+    feed_item_published/8,
     user_send_im/4,
     user_send_group_im/4,
     compute_counts/0,
@@ -68,11 +68,11 @@ mod_options(_Host) ->
 %% hooks
 %%====================================================================
 
-group_feed_item_published(_Gid, Uid, _ItemId, ItemType, _AudienceSize, _MediaCounters) ->
+group_feed_item_published(_Gid, Uid, _PostOwnerUid, _ItemId, ItemType, _AudienceSize, _MediaCounters) ->
     update_last_activity(Uid, ItemType),
     ok.
 
-feed_item_published(Uid, _ItemId, ItemType, _ItemTag, _FeedAudienceType, _FeedAudienceSize, _MediaCounters) ->
+feed_item_published(Uid, _PostOwnerUid, _ItemId, ItemType, _ItemTag, _FeedAudienceType, _FeedAudienceSize, _MediaCounters) ->
     update_last_activity(Uid, ItemType),
     ok.
 

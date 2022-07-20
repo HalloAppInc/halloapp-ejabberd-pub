@@ -264,7 +264,7 @@ publish_post(Uid, PostId, PayloadBase64, PostTag, PSATag, AudienceList, HomeFeed
             ok = model_feed:publish_post(PostId, Uid, PayloadBase64, PostTag,
                     FeedAudienceType, FilteredAudienceList2, TimestampMs),
             ejabberd_hooks:run(feed_item_published, Server,
-                [Uid, PostId, post, PostTag, FeedAudienceType, FeedAudienceSize, MediaCounters]),
+                [Uid, Uid, PostId, post, PostTag, FeedAudienceType, FeedAudienceSize, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
@@ -289,7 +289,7 @@ publish_psa_post(Uid, PostId, PayloadBase64, PostTag, PSATag, HomeFeedSt) ->
             TimestampMs = util:now_ms(),
             ?INFO("Uid: ~s PostId ~p published PSA Post to ~p", [Uid, PostId, PSATag]),
             ok = model_feed:publish_psa_post(PostId, Uid, PayloadBase64, PostTag, PSATag, TimestampMs),
-            ejabberd_hooks:run(feed_item_published, Server, [Uid, PostId, post, PostTag, all, -1, MediaCounters]),
+            ejabberd_hooks:run(feed_item_published, Server, [Uid, Uid, PostId, post, PostTag, all, -1, MediaCounters]),
             {ok, TimestampMs};
         {ok, ExistingPost} ->
             ?INFO("Uid: ~s PostId: ~s already published", [Uid, PostId]),
@@ -371,8 +371,9 @@ publish_comment(PublisherUid, CommentId, PostId, ParentCommentId, PayloadBase64,
                     NewPushList = [PostOwnerUid, PublisherUid | ParentPushList],
                     ok = model_feed:publish_comment(CommentId, PostId, PublisherUid,
                             ParentCommentId, PayloadBase64, TimestampMs),
-                    ejabberd_hooks:run(feed_item_published, Server, [PublisherUid, CommentId,
-                                       comment, undefined, Post#post.audience_type, sets:size(FeedAudienceSet), MediaCounters]),
+                    ejabberd_hooks:run(feed_item_published, Server,
+                        [PublisherUid, PostOwnerUid, CommentId, comment, undefined,
+                        Post#post.audience_type, sets:size(FeedAudienceSet), MediaCounters]),
                     broadcast_comment(CommentId, PostId, ParentCommentId, PublisherUid, HomeFeedSt,
                         TimestampMs, FeedAudienceSet, NewPushList),
                     {ok, TimestampMs};

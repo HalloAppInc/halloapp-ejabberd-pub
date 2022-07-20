@@ -24,9 +24,9 @@
 -export([
     user_send_im/4,
     feed_share_old_items/4,
-    feed_item_published/7,
+    feed_item_published/8,
     feed_item_retracted/3,
-    group_feed_item_published/6,
+    group_feed_item_published/7,
     group_feed_item_retracted/4,
     register_user/4,
     re_register_user/4,
@@ -208,9 +208,9 @@ user_send_im(_FromUid, _MsgId, _ToUid, MediaCounters) ->
     ok.
 
 
--spec feed_item_published(Uid :: binary(), ItemId :: binary(), ItemType :: atom(), ItemTag :: atom(),
+-spec feed_item_published(Uid :: binary(), PostOwnerUid :: binary(), ItemId :: binary(), ItemType :: atom(), ItemTag :: atom(),
         FeedAudienceType :: atom(), FeedAudienceSize :: integer(), MediaCounters :: pb_media_counters()) -> ok.
-feed_item_published(Uid, ItemId, ItemType, ItemTag, FeedAudienceType, FeedAudienceSize, MediaCounters) ->
+feed_item_published(Uid, PostOwnerUid, ItemId, ItemType, ItemTag, FeedAudienceType, FeedAudienceSize, MediaCounters) ->
     ?INFO("counting Uid:~p, ItemId: ~p, ItemType:~p, ItemTag: ~p", [Uid, ItemId, ItemType, ItemTag]),
     {ok, Phone} = model_accounts:get_phone(Uid),
     CC = mod_libphonenumber:get_cc(Phone),
@@ -242,6 +242,7 @@ feed_item_published(Uid, ItemId, ItemType, ItemTag, FeedAudienceType, FeedAudien
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             ha_events:log_user_event(Uid, comment_published),
+            ha_events:log_friend_event(PostOwnerUid, Uid, comment_published),
             report_media_counters(comment, MediaCounters),
             stat:count("HA/feed", "comment"),
             report_audience_size("feed", "comment", CC, FeedAudienceSize),
@@ -266,10 +267,10 @@ feed_item_retracted(Uid, ItemId, ItemType) ->
     ok.
 
 
--spec group_feed_item_published(Gid :: binary(), Uid :: binary(),
+-spec group_feed_item_published(Gid :: binary(), Uid :: binary(), PostOwnerUid :: binary(),
     ItemId :: binary(), ItemType :: atom(), AudienceSize :: integer(),
     MediaCounters :: pb_media_counters()) -> ok.
-group_feed_item_published(Gid, Uid, ItemId, ItemType, AudienceSize, MediaCounters) ->
+group_feed_item_published(Gid, Uid, PostOwnerUid, ItemId, ItemType, AudienceSize, MediaCounters) ->
     ?INFO("counting Gid: ~p, Uid:~p, ItemId: ~p, ItemType:~p", [Gid, Uid, ItemId, ItemType]),
     {ok, Phone} = model_accounts:get_phone(Uid),
     CC = mod_libphonenumber:get_cc(Phone),
@@ -286,6 +287,7 @@ group_feed_item_published(Gid, Uid, ItemId, ItemType, AudienceSize, MediaCounter
         comment ->
             ?INFO("comment ~s from Uid: ~s CC: ~s IsDev: ~p",[ItemId, Uid, CC, IsDev]),
             ha_events:log_user_event(Uid, group_comment_published),
+            ha_events:log_friend_event(PostOwnerUid, Uid, group_comment_published),
             report_media_counters(group_comment, MediaCounters),
             stat:count("HA/group_feed", "comment"),
             report_audience_size("group_feed", "comment", CC, AudienceSize),
@@ -415,8 +417,9 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                             %% FromUid saw im
                             ha_events:log_user_event(FromUid, im_send_seen);
                         "receive" ->
-                            %% ToUid's im was seen
-                            ha_events:log_user_event(ToUid, im_receive_seen)
+                            %% ToUid's im was seen by FromUid
+                            ha_events:log_user_event(ToUid, im_receive_seen),
+                            ha_events:log_friend_event(ToUid, FromUid, im_receive_seen)
                     end;
                 _ ->
                     stat:count("HA/feed_receipts", Action ++ "_seen"),
@@ -443,10 +446,11 @@ count_packet(Namespace, Action, #pb_msg{from_uid = FromUid, to_uid = ToUid, payl
                                 false -> ok
                             end;
                         "receive" ->
-                            %% ToUid's post was seen
+                            %% ToUid's post was seen by FromUid
                             ha_events:log_user_event(ToUid, post_receive_seen),
+                            ha_events:log_friend_event(ToUid, FromUid, post_receive_seen),
                             case PostTag =:= secret_post of
-                                true -> ha_events:log_user_event(FromUid, secret_post_receive_seen);
+                                true -> ha_events:log_user_event(ToUid, secret_post_receive_seen);
                                 false -> ok
                             end
                     end

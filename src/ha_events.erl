@@ -37,6 +37,7 @@
     log_event/2,
     log_event/5,
     log_user_event/2,
+    log_friend_event/3,
     write_log/3,
     trigger_upload_aws/0,
     client_log_dir/0,
@@ -300,6 +301,24 @@ log_event(FullNamespace, EventDataMap) ->
     write_log(FullNamespace, Date, JsonBin),
     ok.
 
+
+-spec log_friend_event(Uid :: uid(), OUid :: uid(), EventType :: user_event_type()) -> ok.
+log_friend_event(Uid, OUid, _EventType) when Uid =:= OUid ->
+    ok;
+log_friend_event(Uid, OUid, EventType) ->
+    try
+        Event = #{
+            uid => Uid,
+            ouid => OUid,
+            event_type => EventType,
+            ts => util:now()
+        },
+        log_event(<<"server.friend_event">>, Event)
+    catch
+        Class : Reason : St ->
+            ?ERROR("failed to log event: ~p Uid: ~p, to log. ~p",
+                [EventType, Uid, lager:pr_stacktrace(St, {Class, Reason})])
+    end.
 
 -spec log_user_event(Uid :: uid(), EventType :: user_event_type()) -> ok.
 log_user_event(Uid, EventType) ->
