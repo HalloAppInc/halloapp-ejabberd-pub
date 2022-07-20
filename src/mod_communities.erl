@@ -50,11 +50,13 @@
 
 % For debugging single step purposes
 -export([
-    community_detection_setup/2,
+    setup_community_detection/2,
     identify_communities/4,
     single_step_label_propagation/3,
     apply_single_step_labels/0,
-    community_detection_finish_and_cleanup/2,
+    finish_community_detection/2,
+    generate_friend_recommendations/2,
+    cleanup_community_detection/0,
     is_not_isolated/4
 ]).
 
@@ -180,16 +182,21 @@ compute_communities(RunOpts) ->
     MaxIters = get_option(max_iters, ?DEFAULT_MAXIMUM_ITERATIONS, RunOpts),
     BatchSize = get_option(batch_size, ?MATCH_CHUNK_SIZE, RunOpts),
     SmallClusterThreshold = get_option(small_cluster_threshold, ?DEFAULT_SMALL_CLUSTER_THRESHOLD, RunOpts),
+    MaxRecommendations = get_option(max_recommendations, ?DEFAULT_MAX_RECOMMEND_SIZE, RunOpts),
     
     % setup ets table 
-    community_detection_setup(NumWorkers, FreshStart),
+    setup_community_detection(NumWorkers, FreshStart),
 
     % Next, run the community detection algorithm
     {PrevMin, NumIters} = identify_communities(#{}, MaxNumCommunities, BatchSize, {0, MaxIters}),
 
     Success = PrevMin =:= #{},
     % post-process communities and clean up ets
-    Communities = community_detection_finish_and_cleanup(BatchSize, SmallClusterThreshold),
+    Communities = finish_community_detection(BatchSize, SmallClusterThreshold),
+
+    generate_friend_recommendations(Communities, MaxRecommendations),
+
+    cleanup_community_detection(),
 
     case Success of 
         true ->
@@ -204,8 +211,8 @@ compute_communities(RunOpts) ->
 
 
 % * Initialize Ets table for label propagation
--spec community_detection_setup(pos_integer(), boolean()) -> ok.
-community_detection_setup(NumWorkers, FreshStart) -> 
+-spec setup_community_detection(pos_integer(), boolean()) -> ok.
+setup_community_detection(NumWorkers, FreshStart) -> 
     ?INFO("Setting up for community detection using ~p workers. Starting fresh: ~p", [NumWorkers, FreshStart]),
     Start = util:now_ms(),
 
@@ -224,7 +231,7 @@ community_detection_setup(NumWorkers, FreshStart) ->
 
     
 
-    ?INFO("Label Propagation Initialization took ~p ms", [util:now_ms() - Start]),
+    ?INFO("CommunityDetection Initialization took ~p ms", [util:now_ms() - Start]),
     ok.
 
 
@@ -250,7 +257,7 @@ single_step_label_propagation(PrevMin, MaxNumCommunities, BatchSize) ->
     end,
     Continue = MinCommunityIdCounts =/= PrevMin,
     % ?dbg("Continue? ~p -- Min ~p , PrevMin ~p", [Continue, MinCommunityIdCounts, PrevMin]),
-    ?INFO("Label Propagation single iteration found ~p new communities in ~p ms", 
+    ?INFO("CommunityDetection single iteration found ~p new communities in ~p ms", 
         [maps:size(MinCommunityIdCounts), util:now_ms() - Start]),
     {MinCommunityIdCounts, Continue}.
 
@@ -263,12 +270,12 @@ apply_single_step_labels() ->
             fun (Uid, _, NewLabel) -> 
                 apply_new_label(Uid, NewLabel) 
             end),
-    ?INFO("Label Propagation applying labels took ~p ms", [util:now_ms() - Start]).
+    ?INFO("CommunityDetection applying labels took ~p ms", [util:now_ms() - Start]).
 
 
 % * finalize list of non-subset communities, store in redis, and cleanup resources
--spec community_detection_finish_and_cleanup(pos_integer(), pos_integer()) -> map().
-community_detection_finish_and_cleanup(BatchSize, SmallClusterThreshold) ->
+-spec finish_community_detection(pos_integer(), pos_integer()) -> map().
+finish_community_detection(BatchSize, SmallClusterThreshold) ->
     Start = util:now_ms(),
     % Now post processing to clean up the community set and remove communities that are subsets of others
     
@@ -285,7 +292,6 @@ community_detection_finish_and_cleanup(BatchSize, SmallClusterThreshold) ->
     
     % final map of #{communities => #{members => belonging}} with no subsets
     Communities = maps:without(CommunitySubsets, DirtyCommunities), 
-    
     % only include proper communities in final Uid labels
     ok = foreach_uid(fun (Uid, CurLabel, _) -> 
             finalize_label(Uid, CurLabel, Communities) 
@@ -293,14 +299,57 @@ community_detection_finish_and_cleanup(BatchSize, SmallClusterThreshold) ->
 
     % Now apply the updated community labels back into redis
     ok = foreach_uid_batch(batch_set_labels, [], BatchSize),
-
-    ets:delete(?COMMUNITY_DATA_TABLE),
-    wpool:stop_sup_pool(?COMMUNITY_WORKER_POOL),
-
-    ?INFO("Label Propagation cleanup took ~p ms", [util:now_ms() - Start]),
-    ?INFO("Label propagation resulted in ~p unique communities", 
+    ?INFO("CommunityDetection finalizing took ~p ms", [util:now_ms() - Start]),
+    ?INFO("CommunityDetection resulted in ~p unique communities", 
         [maps:size(Communities)]),
     Communities.
+
+
+-spec generate_friend_recommendations(Communities :: map(), pos_integer()) -> ok.
+generate_friend_recommendations(Communities, MaxNumRecs) ->
+    Start = util:now_ms(),
+    CommunityIdList = maps:keys(Communities),
+    % Map of {uid => recommendationlist} where recommendations are sorted low to high
+    RecommendationsMap = lists:foldl(
+        fun (CommunityId, RecAcc) ->
+            CommunityUids = maps:keys(maps:get(CommunityId, Communities)),
+            CommunityRecommendations = find_community_friend_recommendations(CommunityUids),
+            util:map_merge_with(
+                fun (_Key, V1, V2) ->
+                    lists:ukeymerge(2, V1, V2)
+                end,
+                RecAcc, CommunityRecommendations)
+        end,
+        #{},
+        CommunityIdList),
+
+    % Trim each uid's recommendation list to be no longer than MaxNumRecs
+    RecommendationList = maps:fold(
+        fun (Uid, Recommendations, Acc) ->
+            RecommendationsInOrder = lists:reverse(Recommendations),
+            TrimmedRecTuples = lists:sublist(RecommendationsInOrder, MaxNumRecs),
+            TrimmedRecs = lists:map(
+                fun ({OUid, _Strength}) ->
+                    OUid
+                end,
+                TrimmedRecTuples),
+            % Convert map into list of {Uid, Recommendations} tuples for storage in redis
+            [{Uid, TrimmedRecs} | Acc]
+        end,
+        [],
+        RecommendationsMap),
+    
+    % Store the recommendations in redis
+    model_friends:set_friend_recommendations(RecommendationList),
+    ?INFO("Community Friend Recommendations took ~p ms", [util:now_ms() - Start]),
+    ok. 
+
+-spec cleanup_community_detection() -> ok.
+cleanup_community_detection() ->
+    ets:delete(?COMMUNITY_DATA_TABLE),
+    wpool:stop_sup_pool(?COMMUNITY_WORKER_POOL),
+    ?INFO("CommunityDetection cleanup successful"),
+    ok.
 
 
 %%====================================================================
@@ -387,7 +436,7 @@ identify_communities(PrevMin, MaxNumCommunities, BatchSize, {IterNum, MaxIters})
                 identify_communities(MinCommunityIdCounts, MaxNumCommunities, BatchSize, 
                     {IterNum + 1, MaxIters});
         false -> 
-            ?INFO("Label Propagation Finished!!"),
+            ?INFO("CommunityDetection Finished!!"),
             {#{}, IterNum + 1} % count this iteration, return empty map to indicate success
     end.
 
@@ -423,7 +472,7 @@ batch_propagate(ParentPid, MatchList, MaxNumCommunities) ->
             Uid 
         end, 
         MatchList),
-    {ok, Friends} = model_friends:get_friends_multi(Uids),
+    {ok, Friends} = model_friends:get_friends(Uids),
     % ?dbg("Got batch for ~p -> ~p", [Uids, Friends]),
 
     lists:foreach(
@@ -589,7 +638,7 @@ batch_combine_small_clusters(ParentPid, MatchList, ClusterSizeThreshold) ->
             Uid 
         end, 
         MatchList),
-    {ok, DirtyFriends} = model_friends:get_friends_multi(Uids),
+    {ok, DirtyFriends} = model_friends:get_friends(Uids),
     % ?dbg("Got batch for ~p -> ~p", [MatchList, Friends]),
     NumCombined = lists:foldl(
         fun (Uid, Acc) -> 
@@ -716,3 +765,86 @@ do_for_batch({EntryList, Cont}, Func, Args, NumChildren) ->
 
 
 label_key(Uid) -> {labelinfo, Uid}.
+
+
+%%====================================================================
+%% Friend Recommendation Helper Functions
+%%====================================================================
+
+
+% Friend Recommendations sort by "connection strength" low to high, currently calculated as number of mutual friends
+-spec find_community_friend_recommendations([uid()]) -> #{uid() => [uid()]}.
+find_community_friend_recommendations(CommunityUids) ->
+    {ok, FriendsMap} = model_friends:get_friends(CommunityUids),
+
+    % Initialize accumulator with keys corresponding to all uids in the community
+    % This initialization is used in find_friend_recommendations to be able to fold over all 
+    % members of the community to calculate connection strength
+    {FriendConnectionMap, CleanFriendsMap} = maps:fold(
+        fun (Uid, FriendsList, {AccConnectionMap, AccFriendMap}) ->
+            CleanFriendsList = remove_deleted_and_self_friends(Uid, FriendsList),
+            ConnectionMap = util:map_from_keys(CleanFriendsList, undefined),
+            {AccConnectionMap#{Uid => ConnectionMap}, AccFriendMap#{Uid => CleanFriendsList}}
+            
+        end,
+        {#{}, #{}},
+        FriendsMap),
+
+    % Recommendation map maps each uid to a map of all potential recommendations and their connection strength
+    % #{uid => #{buid => connectionstrength}}
+    RecommendationMap = lists:foldl(
+        fun (Uid, RecommendationMapAcc) ->
+            % Calculate connection strength between Uid and all other community members
+            UidRecommendationMap = find_friend_recommendations(Uid, CleanFriendsMap, RecommendationMapAcc),
+            RecommendationMapAcc#{Uid => UidRecommendationMap}
+        end,
+        FriendConnectionMap,
+        CommunityUids),
+
+    % now sort recommendation lists by connection strength and return a map of uids to their
+    % recommendations
+    TruncRecommendationMap = maps:map(
+        fun (_Uid, UidConnectionMap) ->
+            UidConnectionList = maps:to_list(UidConnectionMap),
+            % return just list of {uid, strength} tuples sorted by connection strength
+            lists:keysort(2, UidConnectionList)
+            
+        end,
+        RecommendationMap),
+
+    TruncRecommendationMap.
+
+% find recommendations for a single uid
+-spec find_friend_recommendations(uid(), #{uid() => [uid()]}, map()) -> #{uid() => integer()}.
+find_friend_recommendations(Uid, FriendMap, RecommendationMap) ->
+    % calculate connection strength to every other non-friend uid in the community
+    UidRecommendationMap = maps:fold(
+        fun (Buid, _BuidRecommendationMap, RecommendationMapAcc) when Buid =:= Uid -> RecommendationMapAcc; 
+            (Buid, BuidRecommendationMap, RecommendationMapAcc) ->
+            IsFriend = lists:member(Buid, maps:get(Uid, FriendMap)),
+            BuidConnectionStrength = maps:get(Uid, BuidRecommendationMap, undefined),
+
+            % if Uid & Buid are friends or if connection strength has already been calculated, just 
+            % use that value instead of recomputing
+            ConnStrength = case {IsFriend, BuidConnectionStrength} of 
+                {true, _} -> alreadyfriends;                
+                {false, undefined} -> % connection strength has not been calculated
+                    MyFriends = maps:get(Uid, FriendMap),
+                    BuidFriends = maps:get(Buid, FriendMap),
+                    get_connection_strength(MyFriends, BuidFriends);
+                {false, Strength} -> Strength
+            end,
+            case ConnStrength of
+                alreadyfriends -> RecommendationMapAcc; % dont recommend/connect if already friends
+                _ -> maps:put(Buid, ConnStrength, RecommendationMapAcc)
+            end
+        end,
+        #{},
+        RecommendationMap),
+    
+    UidRecommendationMap.
+
+-spec get_connection_strength(UidFriends :: [uid()], BuidFriends :: [uid()]) -> integer().
+get_connection_strength(UidFriends, BuidFriends) ->
+    sets:size(sets:intersection(sets:from_list(UidFriends), sets:from_list(BuidFriends))).
+

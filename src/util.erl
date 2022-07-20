@@ -85,7 +85,8 @@
     rev_while/2,
     map_intersect/2,
     map_intersect_with/3, 
-    map_merge_with/3
+    map_merge_with/3,
+    map_from_keys/2
 ]).
 
 
@@ -674,4 +675,12 @@ map_merge_with(Fun, Map1, Map2) ->
                             Dupes),
     Merge1 = maps:merge(Map1, UpdatedDupes),
     maps:merge(Map2, Merge1).
+
+map_from_keys(Keys, Value) ->
+    lists:foldl(
+        fun (Key, Acc) ->
+            maps:put(Key, Value, Acc)
+        end,
+        #{},
+        Keys).
 

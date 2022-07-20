@@ -20,7 +20,11 @@
 -type community_label() :: #{uid() => float()}.
 -type propagation_option() :: {fresh_start, boolean()} | {max_iters, pos_integer()} | 
     {num_workers, pos_integer()} | {max_communities_per_node, pos_integer()} | 
-    {batch_size, pos_integer()} | {small_cluster_threshold, pos_integer()}.
+    {batch_size, pos_integer()} | {small_cluster_threshold, pos_integer()} |
+    {max_recommendations, pos_integer()}.
+
+% The default maximum size of friend recommendation lists stored in redis
+-define(DEFAULT_MAX_RECOMMEND_SIZE, 400).
 
 % The maximum number of nodes that will be forced to share one community
 -define(DEFAULT_SMALL_CLUSTER_THRESHOLD, 5).

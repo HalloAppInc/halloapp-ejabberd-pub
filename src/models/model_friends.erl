@@ -25,10 +25,13 @@
     add_friends/2,
     remove_friend/2,
     get_friends/1,
-    get_friends_multi/1,
     is_friend/2,
     set_friends/2,
-    remove_all_friends/1
+    remove_all_friends/1,
+    get_friend_recommendations/1,
+    get_friend_recommendations/2,
+    set_friend_recommendations/1,
+    set_friend_recommendations/2
 ]).
 
 %%====================================================================
@@ -61,13 +64,7 @@ remove_friend(Uid, Buid) ->
 
 
 -spec get_friends(Uid :: uid()) -> {ok, list(binary())} | {error, any()}.
-get_friends(Uid) ->
-    {ok, Friends} = q(["HKEYS", key(Uid)]),
-    {ok, Friends}.
-
-
--spec get_friends_multi(Uids :: [uid()]) -> {ok, map()} | {error, any()}.
-get_friends_multi(Uids) ->
+get_friends(Uids) when is_list(Uids)->
     Commands = lists:map(fun (Uid) -> 
             ["HKEYS", key(Uid)] 
         end, 
@@ -80,7 +77,12 @@ get_friends_multi(Uids) ->
                 _ -> Acc#{Uid => Friends}
             end
         end, #{}, lists:zip(Uids, Res)),
-    {ok, Result}.
+    {ok, Result};
+
+get_friends(Uid) ->
+    {ok, Friends} = q(["HKEYS", key(Uid)]),
+    {ok, Friends}.
+
 
 -spec is_friend(Uid :: uid(), Buid :: uid()) -> boolean().
 is_friend(Uid, Buid) ->
@@ -105,6 +107,64 @@ remove_all_friends(Uid) ->
     ok.
 
 
+%%====================================================================
+%% Recommendations API
+%%====================================================================
+
+
+-spec get_friend_recommendations(uid() | [uid()]) -> [uid()] | #{uid() => [uid()]}| {error, any()}.
+get_friend_recommendations(Uids) -> 
+    % if not specified, get all recs
+    get_friend_recommendations(Uids, 0).
+
+
+-spec get_friend_recommendations(uid(), pos_integer()) -> [uid()] | #{uid() => [uid()]}| {error, any()}.
+get_friend_recommendations(Uids, NumRecs) when is_list(Uids) ->
+    Commands = lists:map(
+        fun (Uid) ->
+            ["LRANGE", recommendation_key(Uid), 0, NumRecs-1]
+        end,
+        Uids),
+    Res = qmn(Commands),
+    Result = lists:foldl(
+        fun({Uid, {ok, Recommendations}}, Acc) ->
+            case Recommendations of
+                undefined -> Acc;
+                _ -> Acc#{Uid => Recommendations}
+            end
+        end, #{}, lists:zip(Uids, Res)),
+    Result;
+
+get_friend_recommendations(Uid, NumRecs) ->
+    {ok, Res} = q(["LRANGE", recommendation_key(Uid), 0, NumRecs-1]),
+    Res.
+
+
+-spec set_friend_recommendations([{uid(), [uid()]}]) -> ok | {error, any()}.
+set_friend_recommendations(UidRecTupleList) ->
+    % Recommendations are stored as a list 
+    % QUESTION: Should this just convert the list to binary and store it in a hash instead?
+    Commands = lists:foldl(
+        fun ({Uid, []}, Acc) ->
+                ClearCommand = ["DEL", recommendation_key(Uid)],
+                [ClearCommand | Acc];
+            ({Uid, Recommendations}, Acc) ->
+                ClearCommand = ["DEL", recommendation_key(Uid)],
+                PushCommand = ["RPUSH", recommendation_key(Uid)] ++ Recommendations,
+                [ClearCommand | [PushCommand | Acc]]
+        end,
+        [],
+        UidRecTupleList),
+    _Res = qmn(Commands),
+    ok.
+
+-spec set_friend_recommendations(uid(), [uid()]) -> ok | {error, any()}.
+set_friend_recommendations(Uid, Recommendations) ->
+    {ok, _} = q(["DEL", recommendation_key(Uid)]),
+    {ok, _} = q(["RPUSH", recommendation_key(Uid)] ++ Recommendations),
+    ok.
+
+
 q(Command) -> ecredis:q(ecredis_friends, Command).
 qmn(Commands) -> ecredis:qmn(ecredis_friends, Commands).
 
@@ -112,6 +172,10 @@ qmn(Commands) -> ecredis:qmn(ecredis_friends, Commands).
 -spec key(Uid :: uid()) -> binary().
 key(Uid) ->
     <<?FRIENDS_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
+
+-spec recommendation_key(Uid :: uid()) -> binary().
+recommendation_key(Uid) ->
+    <<?FRIEND_RECOMMENDATION_KEY/binary, <<"{">>/binary, Uid/binary, <<"}">>/binary>>.
 
 
 -spec get_connection() -> Pid::pid().

@@ -117,6 +117,7 @@
 
 %% RedisAccounts (model_friends)
 -define(FRIENDS_KEY, <<"fr:">>).
+-define(FRIEND_RECOMMENDATION_KEY, <<"rec:">>).
 
 
 %% RedisMessages

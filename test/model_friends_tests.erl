@@ -86,14 +86,14 @@ get_friends_multi_test() ->
     ?UID2 => [?UID1],
     ?UID3 => [?UID1]  
   },
-  ?assertEqual({ok, FriendMap}, model_friends:get_friends_multi([?UID1, ?UID2, ?UID3])),
+  ?assertEqual({ok, FriendMap}, model_friends:get_friends([?UID1, ?UID2, ?UID3])),
   ?assertEqual(ok, model_friends:remove_friend(?UID1, ?UID3)),
   FriendMap1 = #{
     ?UID1 => [?UID2],
     ?UID2 => [?UID1],
     ?UID3 => []  
   },
-  ?assertEqual({ok, FriendMap1}, model_friends:get_friends_multi([?UID1, ?UID2, ?UID3])).
+  ?assertEqual({ok, FriendMap1}, model_friends:get_friends([?UID1, ?UID2, ?UID3])).
 
 get_empty_friends_multi_test() ->
   setup(),
@@ -102,7 +102,7 @@ get_empty_friends_multi_test() ->
     ?UID2 => [],
     ?UID3 => []  
   },
-  ?assertEqual({ok, EmptyFriendMap}, model_friends:get_friends_multi([?UID1, ?UID2, ?UID3])).
+  ?assertEqual({ok, EmptyFriendMap}, model_friends:get_friends([?UID1, ?UID2, ?UID3])).
 
 set_friends_test() ->
   setup(),
@@ -121,6 +121,27 @@ remove_all_friends_test() ->
   ?assertEqual(ok, model_friends:remove_all_friends(?UID2)),
   ?assertEqual(false, model_friends:is_friend(?UID1, ?UID2)),
   ?assertEqual(false, model_friends:is_friend(?UID2, ?UID1)).
+
+
+set_get_friend_recommendations_test() ->
+  setup(),
+  ?assertEqual([], model_friends:get_friend_recommendations(?UID1)),
+  ?assertEqual(ok, model_friends:set_friend_recommendations(?UID1, [?UID2, ?UID3])),
+  ?assertEqual([?UID2, ?UID3], model_friends:get_friend_recommendations(?UID1)),
+  ?assertEqual([?UID2], model_friends:get_friend_recommendations(?UID1, 1)).
+
+set_get_friend_recommendations_multi_test() ->
+  setup(),
+  Uids = [?UID1, ?UID2, ?UID3],
+  UidRecList = [{?UID1, [?UID2, ?UID3]}, {?UID2, [?UID3]}],
+  ?assertEqual(
+    #{?UID1 => [], ?UID2 => [], ?UID3 => []}, 
+    model_friends:get_friend_recommendations(Uids)),
+  ?assertEqual(ok, model_friends:set_friend_recommendations(UidRecList)),
+  ?assertEqual(
+    #{?UID1 => [?UID2, ?UID3], ?UID2 => [?UID3], ?UID3 => []}, 
+    model_friends:get_friend_recommendations(Uids)).
+
 
 while(0, _F) -> ok;
 while(N, F) ->

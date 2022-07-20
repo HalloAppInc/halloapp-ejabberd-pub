@@ -148,6 +148,18 @@ is_contact_test() ->
     true = model_contacts:is_contact(?UID,  ?CONTACT2),
     false = model_contacts:is_contact(?UID,  ?CONTACT3).
 
+get_contact_uids_multi_test() ->
+    setup(),
+    ?assertEqual(
+        {ok, #{?CONTACT1 => [], ?CONTACT2 => []}}, 
+        model_contacts:get_contact_uids([?CONTACT1, ?CONTACT2])),
+    ok = model_contacts:add_contacts(?UID, [?CONTACT1, ?CONTACT2]),
+    ok = model_contacts:add_contacts(?UID2, [?CONTACT1]),
+    ?assertEqual(
+        {ok, #{?CONTACT1 => [?UID, ?UID2], ?CONTACT2 => [?UID]}}, 
+        model_contacts:get_contact_uids([?CONTACT1, ?CONTACT2])),
+    ok.
+
 get_contact_uids_size_test() ->
     setup(),
     ?assertEqual(0, model_contacts:get_contact_uids_size(?CONTACT1)),

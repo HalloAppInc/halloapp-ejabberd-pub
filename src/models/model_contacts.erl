@@ -196,9 +196,23 @@ count_sync_contacts(Uid, Sid) ->
 
 
 -spec get_contact_uids(Contact :: binary()) -> {ok, [binary()]} | {error, any()}.
+get_contact_uids(Contacts) when is_list(Contacts) -> 
+    Commands = lists:map(
+        fun (Contact) ->
+            ["SMEMBERS", reverse_key(Contact)]
+        end,
+        Contacts),
+    Res = qmn(Commands),
+    Result = lists:foldl(
+        fun ({Contact, {ok, RevContacts}}, Acc) ->
+            Acc#{Contact => RevContacts}
+        end, #{}, lists:zip(Contacts, Res)),
+    {ok, Result};
+
 get_contact_uids(Contact) ->
     {ok, Res} = q(["SMEMBERS", reverse_key(Contact)]),
     {ok, Res}.
+
 
 -spec get_contact_uids_size(Contact :: binary()) -> non_neg_integer() | {error, any()}.
 get_contact_uids_size(Contact) ->
@@ -221,7 +235,7 @@ get_contacts_uids_size(Contacts) ->
     Result.
 
 
--spec get_potential_reverse_contact_uids(Contact :: binary()) -> {ok, [binary()]} | {error, any()}.
+-spec get_potential_reverse_contact_uids(Contact :: binary()) -> {ok, [uid()]} | {error, any()}.
 get_potential_reverse_contact_uids(Contact) ->
     {ok, Res} = q(["SMEMBERS", reverse_phone_hash_key(Contact)]),
     {ok, Res}.

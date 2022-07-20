@@ -209,6 +209,36 @@ mod_communities_analysis_test() ->
     ?assertEqual(NumFiveToTen, NumSizeFiveToTen),
     ?assertEqual(NumOverTen, NumSizeLargerThan10),
     ok.
+
+
+friend_recommendation_test() ->
+    setup(),
+    Options = [{max_communities_per_node, 2}, {fresh_start, true}],
+    ok = model_accounts:create_account(?UID1, ?PHONE1, ?NAME1, ?UA),
+    ok = model_accounts:create_account(?UID2, ?PHONE2, ?NAME2, ?UA),
+    ok = model_accounts:create_account(?UID3, ?PHONE3, ?NAME3, ?UA),
+    ok = model_accounts:create_account(?UID4, ?PHONE4, ?NAME4, ?UA),
+    ok = model_accounts:create_account(?UID5, ?PHONE5, ?NAME5, ?UA),
+
+
+    model_friends:add_friend(?UID1, ?UID2),
+    model_friends:add_friend(?UID3, ?UID2),
+    model_friends:add_friend(?UID4, ?UID2),
+    model_friends:add_friend(?UID3, ?UID4),
+    model_friends:add_friend(?UID1, ?UID4),
+    model_friends:add_friend(?UID5, ?UID3),
+    model_friends:add_friend(?UID5, ?UID4),
+
+
+    {_NumIters, _Communities} = mod_communities:compute_communities(Options),
+
+    ?assertEqual(
+        #{?UID1 => [?UID3, ?UID5], ?UID2 => [?UID5], ?UID3 => [?UID1], ?UID4 => []},
+        model_friends:get_friend_recommendations([?UID1, ?UID2, ?UID3, ?UID4])
+    ),
+
+
+    ok.
     
 
 
