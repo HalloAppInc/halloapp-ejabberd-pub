@@ -75,7 +75,8 @@
     get_full_sync_retry_time/0,
     request_phone_logs/1,
     request_uid_logs/1,
-    reload_modules/1
+    reload_modules/1,
+    friend_recos/1
 ]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -434,7 +435,13 @@ get_commands_spec() ->
         desc = "Hot code reload a module",
         module = ?MODULE, function = hot_code_reload,
         args=[], result = {res, restuple}},
-    #ejabberd_commands{name = set_full_sync_error_percent, tags = [server],
+    #ejabberd_commands{name = friend_recos, tags = [server],
+        desc = "Get friend recommendations associated with a user account",
+        module = ?MODULE, function = friend_recos,
+        args_desc = ["Account UID"],
+        args_example = [<<"1000000024384563984">>],
+        args=[{uid, binary}], result = {res, rescode}},
+     #ejabberd_commands{name = set_full_sync_error_percent, tags = [server],
         desc = "Sets the full sync error percentage, >= 0 and =< 100 ",
         module = mod_contacts, function = set_full_sync_error_percent,
         args_desc = ["Percentage"],
@@ -1019,4 +1026,33 @@ request_uid_logs(Uid) ->
         _ ->
             io:format("No account associated with uid: ~s~n", [Uid])
     end.
+
+friend_recos(Uid) ->
+    ?INFO("Admin requesting friend recommendations for uid: ~s", [Uid]),
+    case model_accounts:account_exists(Uid) of
+        false -> io:format("There is no account associated with uid: ~s~n", [Uid]);
+        true ->
+            {ok, #account{phone = Phone, name = Name, signup_user_agent = UserAgent,
+                creation_ts_ms = CreationTs, last_activity_ts_ms = LastActivityTs,
+                activity_status = ActivityStatus} = Account} = model_accounts:get_account(Uid),
+            LastConnectionTime = model_accounts:get_last_connection_time(Uid),
+            {CreationDate, CreationTime} = util:ms_to_datetime_string(CreationTs),
+            {LastActiveDate, LastActiveTime} = util:ms_to_datetime_string(LastActivityTs),
+            {LastConnDate, LastConnTime} = util:ms_to_datetime_string(LastConnectionTime),
+            ?INFO("Uid: ~s, Name: ~s, Phone: ~s~n", [Uid, Name, Phone]),
+            io:format("Uid: ~s~nName: ~s~nPhone: ~s~n", [Uid, Name, Phone]),
+            io:format("Account created on ~s at ~s ua: ~s~n",
+                [CreationDate, CreationTime, UserAgent]),
+            io:format("Last activity on ~s at ~s and current status is ~s~n",
+                [LastActiveDate, LastActiveTime, ActivityStatus]),
+            io:format("Last connection on ~s at ~s~n", [LastConnDate, LastConnTime]),
+            io:format("Current Version: ~s Lang: ~s~n", [Account#account.client_version, Account#account.lang_id]),
+
+            {ok, RecommendationList} = mod_friend_recommendations:generate(Uid, Phone),
+            io:format("~p recommendations):~n", [length(RecommendationList)]),
+            [io:format("  ~s ~w ~s ~p ~s ~n", [CorF, CPhone, FUid, FNumFriends, FName]) ||
+                {CorF, CPhone, FUid, FName, FNumFriends} <- RecommendationList]
+    end,
+    ok.
+
 

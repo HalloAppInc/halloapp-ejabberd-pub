@@ -107,7 +107,7 @@ dump_account(Uid) ->
             {error, missing} -> ok;
             {ok, Account} ->
                 {ok, Friends} = model_friends:get_friends(Uid),
-                RealNoSelfFriends = model_accounts:filter_nonexisting_uids(lists:delete(Uid, Friends)),
+                RealFriends = model_accounts:filter_nonexisting_uids(lists:delete(Uid, Friends)),
                 {ok, MarketingTags} = model_accounts:get_marketing_tags(Uid),
                 LatestTag = case MarketingTags of
                     [] -> none;
@@ -119,7 +119,7 @@ dump_account(Uid) ->
                 UidContacts = model_phone:get_uids(Contacts),
                 NumContacts = length(Contacts),
                 NumUidContacts = length(maps:to_list(UidContacts)),
-                NumFriends = length(Friends),
+                NumFriends = length(RealFriends),
                 NumGroups = model_groups:get_group_count(Uid),
                 TopCommunity = model_accounts:get_top_community(Uid),
                 NumCommunities = model_accounts:get_num_communities(Uid),
@@ -136,7 +136,7 @@ dump_account(Uid) ->
                     num_contacts => NumContacts,
                     num_uid_contacts => NumUidContacts,
                     num_friends => NumFriends,
-                    friends => RealNoSelfFriends,
+                    friends => RealFriends,
                     num_groups => NumGroups,
                     device => Account#account.device,
                     os_version => Account#account.os_version,
