@@ -221,6 +221,7 @@ handle_apns_response(200, ApnsId, #push_state{pendingMap = PendingMap} = State) 
             %% TODO: We should capture this info in the push info itself.
             {ok, Phone} = model_accounts:get_phone(Uid),
             CC = mod_libphonenumber:get_cc(Phone),
+            mod_wakeup:monitor_push(Uid, PushMessageItem#push_message_item.message),
             ha_events:log_event(<<"server.push_sent">>, #{uid => Uid, push_id => Id,
                     platform => ios, client_version => Version, push_type => PushType,
                     content_type => ContentType, cc => CC}),
